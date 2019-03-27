@@ -40,8 +40,6 @@ import (
 	"github.com/knative/serving/pkg/network"
 	"github.com/knative/serving/pkg/queue"
 	"github.com/knative/serving/pkg/queue/health"
-	"go.opencensus.io/exporter/prometheus"
-	"go.opencensus.io/stats/view"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/wait"
 )
@@ -82,9 +80,9 @@ var (
 	h2cProxy  *httputil.ReverseProxy
 	httpProxy *httputil.ReverseProxy
 
-	server      *http.Server
-	healthState = &health.State{}
-	reporter    *queue.Reporter // Prometheus stats reporter.
+	server           *http.Server
+	healthState      = &health.State{}
+	promStatReporter *queue.PrometheusStatsReporter // Prometheus stats reporter.
 )
 
 func initEnv() {
@@ -102,17 +100,17 @@ func initEnv() {
 
 	// TODO(mattmoor): Move this key to be in terms of the KPA.
 	servingRevisionKey = autoscaler.NewMetricKey(servingNamespace, servingRevision)
-	_reporter, err := queue.NewStatsReporter(servingNamespace, servingConfig, servingRevision, podName)
+	_psr, err := queue.NewPrometheusStatsReporter(servingNamespace, servingConfig, servingRevision, podName)
 	if err != nil {
 		logger.Fatalw("Failed to create stats reporter", zap.Error(err))
 	}
-	reporter = _reporter
+	promStatReporter = _psr
 }
 
 func reportStats(statChan chan *autoscaler.Stat) {
 	for {
 		s := <-statChan
-		if err := reporter.Report(s); err != nil {
+		if err := promStatReporter.Report(s); err != nil {
 			logger.Errorw("Error while sending stat", zap.Error(err))
 		}
 	}
@@ -249,16 +247,9 @@ func main() {
 		logger.Infof("Queue container is starting with %#v", params)
 	}
 
-	logger.Info("Initializing OpenCensus Prometheus exporter")
-	promExporter, err := prometheus.NewExporter(prometheus.Options{Namespace: "queue"})
-	if err != nil {
-		logger.Fatalw("Failed to create the Prometheus exporter", zap.Error(err))
-	}
-	view.RegisterExporter(promExporter)
-	view.SetReportingPeriod(queue.ViewReportingPeriod)
 	go func() {
 		mux := http.NewServeMux()
-		mux.Handle("/metrics", promExporter)
+		mux.Handle("/metrics", promStatReporter.Handler)
 		http.ListenAndServe(fmt.Sprintf(":%d", v1alpha1.RequestQueueMetricsPort), mux)
 	}()
 
