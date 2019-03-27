@@ -20,7 +20,6 @@ package test
 
 import (
 	"net/http"
-	"strings"
 	"testing"
 
 	"github.com/knative/pkg/test/spoof"
@@ -65,15 +64,9 @@ func UpdateBlueGreenRoute(t *testing.T, clients *Clients, names, blue, green Res
 
 // RetryingRouteInconsistency retries common requests seen when creating a new route
 // - 404 until the route is propagated to the proxy
-// - 503 "no healthy upstream" until the endpoints are propagated to the proxy
 func RetryingRouteInconsistency(innerCheck spoof.ResponseChecker) spoof.ResponseChecker {
 	return func(resp *spoof.Response) (bool, error) {
 		if resp.StatusCode == http.StatusNotFound {
-			return false, nil
-		}
-
-		body := strings.TrimSpace(string(resp.Body))
-		if resp.StatusCode == http.StatusServiceUnavailable && body == "no healthy upstream" {
 			return false, nil
 		}
 
