@@ -372,13 +372,13 @@ func validateProbe(p *corev1.Probe) *apis.FieldError {
 }
 
 // CheckImmutableFields checks the immutable fields are not modified.
-func (current *Revision) CheckImmutableFields(ctx context.Context, og apis.Immutable) *apis.FieldError {
+func (rt *Revision) CheckImmutableFields(ctx context.Context, og apis.Immutable) *apis.FieldError {
 	original, ok := og.(*Revision)
 	if !ok {
 		return &apis.FieldError{Message: "The provided original was not a Revision"}
 	}
 
-	if diff, err := kmp.SafeDiff(original.Spec, current.Spec); err != nil {
+	if diff, err := kmp.SafeDiff(original.Spec, rt.Spec); err != nil {
 		return &apis.FieldError{
 			Message: "Failed to diff Revision",
 			Paths:   []string{"spec"},
