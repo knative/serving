@@ -84,8 +84,8 @@ func (c *Reconciler) reconcileDeployment(ctx context.Context, rev *v1alpha1.Revi
 				if status.Name == resources.UserContainerName {
 					if t := status.LastTerminationState.Terminated; t != nil {
 						rev.Status.MarkContainerExiting(t.ExitCode, t.Message)
+						break
 					}
-					break
 				}
 			}
 		}
