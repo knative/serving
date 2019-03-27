@@ -121,7 +121,7 @@ func TestBlueGreenRoute(t *testing.T) {
 		}
 	}
 	if blueDomain == "" || greenDomain == "" {
-		t.Fatalf("Unable to fetch URLs from traffic targets: %v", route.Status.Traffic)
+		t.Fatalf("Unable to fetch URLs from traffic targets: %#v", route.Status.Traffic)
 	}
 	tealDomain := route.Status.Domain
 

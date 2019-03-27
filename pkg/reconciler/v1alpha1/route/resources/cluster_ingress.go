@@ -65,7 +65,7 @@ func MakeClusterIngress(r *servingv1alpha1.Route, tc *traffic.Config, ingressCla
 }
 
 func makeClusterIngressSpec(r *servingv1alpha1.Route, targets map[string]traffic.RevisionTargets) v1alpha1.IngressSpec {
-	// Domain and should have been specified in route status
+	// Domain should have been specified in route status
 	// before calling this func.
 	names := make([]string, 0, len(targets))
 	for name := range targets {
@@ -95,7 +95,7 @@ func routeDomains(targetName string, r *servingv1alpha1.Route) []string {
 	domains := []string{traffic.SubrouteDomain(targetName, r.Status.Domain)}
 
 	if targetName == traffic.DefaultTarget {
-		// The default target is also referred to by it's internal K8s
+		// The default target is also referred to by its internal K8s
 		// generated domain name.
 		internalHost := names.K8sServiceFullname(r)
 		if internalHost != "" && domains[0] != internalHost {

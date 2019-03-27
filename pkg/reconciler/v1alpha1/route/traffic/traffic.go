@@ -96,7 +96,7 @@ func BuildTrafficConfiguration(configLister listers.ConfigurationLister, revList
 // SubrouteDomain returns the domain name of a traffic target given the traffic target name and the Route's base domain.
 func SubrouteDomain(name, domain string) string {
 	if name == DefaultTarget {
-		return fmt.Sprintf("%s", domain)
+		return domain
 	}
 	return fmt.Sprintf("%s.%s", name, domain)
 }
