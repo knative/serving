@@ -1,5 +1,5 @@
 /*
-Copyright 2018 The Knative Authors
+Copyright 2019 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -87,16 +87,16 @@ type PrometheusStatsReporter struct {
 
 // NewPrometheusStatsReporter creates a reporter that collects and reports queue metrics.
 func NewPrometheusStatsReporter(namespace, config, revision, pod string) (*PrometheusStatsReporter, error) {
-	if len(namespace) < 1 {
+	if namespace == "" {
 		return nil, errors.New("namespace must not be empty")
 	}
-	if len(config) < 1 {
+	if config == "" {
 		return nil, errors.New("config must not be empty")
 	}
-	if len(revision) < 1 {
+	if revision == "" {
 		return nil, errors.New("revision must not be empty")
 	}
-	if len(pod) < 1 {
+	if pod == "" {
 		return nil, errors.New("pod must not be empty")
 	}
 
