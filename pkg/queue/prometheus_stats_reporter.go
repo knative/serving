@@ -18,6 +18,7 @@ package queue
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -45,44 +46,32 @@ var (
 	}
 
 	// TODO(#2524): make reporting period accurate.
-	operationsPerSecondGV = prometheus.NewGaugeVec(
-		prometheus.GaugeOpts{
-			Name: "queue_operations_per_second",
-			Help: "Number of operations per second",
-		},
-		metricLabelNames,
-	)
-	proxiedOperationsPerSecondGV = prometheus.NewGaugeVec(
-		prometheus.GaugeOpts{
-			Name: "queue_proxied_operations_per_second",
-			Help: "Number of proxied operations per second",
-		},
-		metricLabelNames,
-	)
-	averageConcurrentRequestsGV = prometheus.NewGaugeVec(
-		prometheus.GaugeOpts{
-			Name: "queue_average_concurrent_requests",
-			Help: "Number of requests currently being handled by this pod",
-		},
-		metricLabelNames,
-	)
-	averageProxiedConcurrentRequestsGV = prometheus.NewGaugeVec(
-		prometheus.GaugeOpts{
-			Name: "queue_average_proxied_concurrent_requests",
-			Help: "Number of proxied requests currently being handled by this pod",
-		},
-		metricLabelNames,
-	)
+	operationsPerSecondGV = newGV(
+		"queue_operations_per_second",
+		"Number of operations per second")
+	proxiedOperationsPerSecondGV = newGV(
+		"queue_proxied_operations_per_second",
+		"Number of proxied operations per second")
+	averageConcurrentRequestsGV = newGV(
+		"queue_average_concurrent_requests",
+		"Number of requests currently being handled by this pod")
+	averageProxiedConcurrentRequestsGV = newGV(
+		"queue_average_proxied_concurrent_requests",
+		"Number of proxied requests currently being handled by this pod")
 )
+
+func newGV(n, h string) *prometheus.GaugeVec {
+	return prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{Name: n, Help: h},
+		metricLabelNames,
+	)
+}
 
 // PrometheusStatsReporter structure represents a prometheus stats reporter.
 type PrometheusStatsReporter struct {
 	initialized bool
 	labels      prometheus.Labels
-
-	// An uninstrumented http.Handler used to serve stats registered by this
-	// Prometheus reporter.
-	Handler http.Handler
+	handler     http.Handler
 }
 
 // NewPrometheusStatsReporter creates a reporter that collects and reports queue metrics.
@@ -101,21 +90,10 @@ func NewPrometheusStatsReporter(namespace, config, revision, pod string) (*Prome
 	}
 
 	registry := prometheus.NewRegistry()
-	err := registry.Register(operationsPerSecondGV)
-	if err != nil {
-		return nil, err
-	}
-	err = registry.Register(proxiedOperationsPerSecondGV)
-	if err != nil {
-		return nil, err
-	}
-	err = registry.Register(averageConcurrentRequestsGV)
-	if err != nil {
-		return nil, err
-	}
-	err = registry.Register(averageProxiedConcurrentRequestsGV)
-	if err != nil {
-		return nil, err
+	for _, gv := range []*prometheus.GaugeVec{operationsPerSecondGV, proxiedOperationsPerSecondGV, averageConcurrentRequestsGV, averageProxiedConcurrentRequestsGV} {
+		if err := registry.Register(gv); err != nil {
+			return nil, fmt.Errorf("register metric failed: %v", err)
+		}
 	}
 
 	return &PrometheusStatsReporter{
@@ -126,7 +104,7 @@ func NewPrometheusStatsReporter(namespace, config, revision, pod string) (*Prome
 			destinationRevLabel:    revision,
 			destinationPodLabel:    pod,
 		},
-		Handler: promhttp.HandlerFor(registry, promhttp.HandlerOpts{}),
+		handler: promhttp.HandlerFor(registry, promhttp.HandlerOpts{}),
 	}, nil
 }
 
@@ -142,4 +120,10 @@ func (r *PrometheusStatsReporter) Report(stat *autoscaler.Stat) error {
 	averageProxiedConcurrentRequestsGV.With(r.labels).Set(stat.AverageProxiedConcurrentRequests)
 
 	return nil
+}
+
+// Handler returns an uninstrumented http.Handler used to serve stats registered by this
+// PrometheusStatsReporter.
+func (r *PrometheusStatsReporter) Handler() http.Handler {
+	return r.handler
 }

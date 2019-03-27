@@ -249,7 +249,7 @@ func main() {
 
 	go func() {
 		mux := http.NewServeMux()
-		mux.Handle("/metrics", promStatReporter.Handler)
+		mux.Handle("/metrics", promStatReporter.Handler())
 		http.ListenAndServe(fmt.Sprintf(":%d", v1alpha1.RequestQueueMetricsPort), mux)
 	}()
 

@@ -84,7 +84,7 @@ func TestNewPrometheusStatsReporter_negative(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			if _, err := NewPrometheusStatsReporter(test.namespace, test.config, test.revision, test.pod); err.Error() != test.result.Error() {
-				t.Errorf("%+v, got: '%+v'", test.errorMsg, err)
+				t.Errorf("Got error msg from NewPrometheusStatsReporter(): '%+v', wanted '%+v'", err, test.errorMsg)
 			}
 		})
 	}
@@ -99,6 +99,7 @@ func TestReporter_Report(t *testing.T) {
 }
 
 func testReportWithProxiedRequests(t *testing.T, stat *autoscaler.Stat, reqCount, concurrency, proxiedCount, proxiedConcurrency float64) {
+	t.Helper()
 	reporter, err := NewPrometheusStatsReporter(namespace, config, revision, pod)
 	if err != nil {
 		t.Errorf("Something went wrong with creating a reporter, '%v'.", err)
@@ -116,6 +117,7 @@ func testReportWithProxiedRequests(t *testing.T, stat *autoscaler.Stat, reqCount
 }
 
 func checkData(t *testing.T, gv *prometheus.GaugeVec, wanted float64) {
+	t.Helper()
 	g, err := gv.GetMetricWith(prometheus.Labels{
 		destinationNsLabel:     namespace,
 		destinationConfigLabel: config,
@@ -131,6 +133,6 @@ func checkData(t *testing.T, gv *prometheus.GaugeVec, wanted float64) {
 		t.Fatalf("Gauge.Write() error = %v", err)
 	}
 	if got := *m.Gauge.Value; wanted != got {
-		t.Errorf("Wanted %v, Got %v", wanted, got)
+		t.Errorf("Got %v for Gauge value, wanted %v", got, wanted)
 	}
 }
