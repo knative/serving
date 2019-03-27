@@ -23,9 +23,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"net"
 	"net/http"
-	"strings"
 	"time"
 
 	ingress "github.com/knative/pkg/test/ingress"
@@ -193,17 +191,17 @@ func (sc *SpoofingClient) Poll(req *http.Request, inState ResponseChecker) (*Res
 		req.Header.Add(pollReqHeader, "True")
 		resp, err = sc.Do(req)
 		if err != nil {
-			if err, ok := err.(net.Error); ok && err.Timeout() {
+			if isTCPTimeout(err) {
 				sc.logf("Retrying %s for TCP timeout %v", req.URL.String(), err)
 				return false, nil
 			}
-
+			// Retrying on DNS error, since we may be using xip.io or nip.io in tests.
+			if isDNSError(err) {
+				sc.logf("Retrying %s for DNS error %v", req.URL.String(), err)
+				return false, nil
+			}
 			// Repeat the poll on `connection refused` errors, which are usually transient Istio errors.
-			// The alternative for the string check is:
-			// 	errNo := (((err.(*url.Error)).Err.(*net.OpError)).Err.(*os.SyscallError).Err).(syscall.Errno)
-			// if errNo == syscall.Errno(0x6f) {...}
-			// But with assertions, of course.
-			if strings.Contains(err.Error(), "connect: connection refused") {
+			if isTCPConnectRefuse(err) {
 				sc.logf("Retrying %s for connection refused %v", req.URL.String(), err)
 				return false, nil
 			}

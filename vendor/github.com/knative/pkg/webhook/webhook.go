@@ -42,9 +42,9 @@ import (
 	"github.com/mattbaird/jsonpatch"
 	admissionv1beta1 "k8s.io/api/admission/v1beta1"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
+	appsv1 "k8s.io/api/apps/v1"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	corev1 "k8s.io/api/core/v1"
-	v1beta1 "k8s.io/api/extensions/v1beta1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -60,7 +60,7 @@ const (
 )
 
 var (
-	deploymentKind      = v1beta1.SchemeGroupVersion.WithKind("Deployment")
+	deploymentKind      = appsv1.SchemeGroupVersion.WithKind("Deployment")
 	errMissingNewObject = errors.New("the new object may not be nil")
 )
 
@@ -398,7 +398,7 @@ func (ac *AdmissionController) register(
 	}
 
 	// Set the owner to our deployment.
-	deployment, err := ac.Client.ExtensionsV1beta1().Deployments(ac.Options.Namespace).Get(ac.Options.DeploymentName, metav1.GetOptions{})
+	deployment, err := ac.Client.Apps().Deployments(ac.Options.Namespace).Get(ac.Options.DeploymentName, metav1.GetOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to fetch our deployment: %v", err)
 	}
