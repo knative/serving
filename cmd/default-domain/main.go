@@ -163,7 +163,7 @@ func main() {
 	// Look up the address for IngressGateway.
 	address, err := waitForIngressGatewayAddress(kubeClient)
 	if err != nil {
-		logger.Fatalw("Error waiting for IngressGateway address")
+		logger.Fatalw("Error waiting for IngressGateway address", zap.Error(err))
 	}
 	if address.IP == "" {
 		logger.Info("IngressGateway has domain instead of IP address -- leaving default domain config intact")

@@ -179,6 +179,17 @@ function install_knative_serving_standard() {
   fi
 }
 
+# Check if we should use --resolvabledomain.  In case the ingress only has
+# hostname, we doesn't yet have a way to support resolvable domain in tests.
+function use_resolvable_domain() {
+  local ip=$(kubectl get svc -n istio-system istio-ingressgateway -o jsonpath="{.status.loadBalancer.ingress[0].ip}")
+  if [[ -n "${ip}" ]]; then
+    return "true"
+  fi
+  return "false"
+}
+
+
 # Uninstalls Knative Serving from the current cluster.
 function knative_teardown() {
   if [[ -z "${INSTALL_CUSTOM_YAMLS}" && -z "${INSTALL_RELEASE_YAML}" ]]; then

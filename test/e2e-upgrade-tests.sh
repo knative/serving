@@ -73,16 +73,19 @@ header "Running preupgrade tests"
 
 # TODO(tcnghia): Remove `--resolvabledomain=false` after we use 0.5.0 as the
 # base version for upgrade.
-go_test_e2e -tags=preupgrade -timeout=${TIMEOUT} ./test/upgrade --resolvabledomain=false || fail_test
+go_test_e2e -tags=preupgrade -timeout=${TIMEOUT} ./test/upgrade \
+  --resolvabledomain=false || fail_test
 
 install_head
 
 header "Running postupgrade tests"
-go_test_e2e -tags=postupgrade -timeout=${TIMEOUT} ./test/upgrade || fail_test
+go_test_e2e -tags=postupgrade -timeout=${TIMEOUT} ./test/upgrade \
+  --resolvabledomain=$(use_resolvable_domain) || fail_test
 
 install_latest_release
 
 header "Running postdowngrade tests"
-go_test_e2e -tags=postdowngrade -timeout=${TIMEOUT} ./test/upgrade || fail_test
+go_test_e2e -tags=postdowngrade -timeout=${TIMEOUT} ./test/upgrade \
+  --resolvabledomain=$(use_resolvable_domain) || fail_test
 
 success
