@@ -83,7 +83,8 @@ type TrafficTarget struct {
 	Percent int `json:"percent"`
 
 	// URL displays the URL for accessing named traffic targets. URL is displayed in
-	// status. URL is disallowed on spec.
+	// status, and is disallowed on spec. URL must contain a scheme (e.g. http://) and
+	// a hostname, but may not contain anything else (e.g. basic auth, url path, etc.)
 	URL string `json:"url,omitempty"`
 }
 
