@@ -25,20 +25,107 @@ import (
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/test"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
-// TestShouldNotHaveHooks validates that we receive an error back when attempting to create a Service that
-// specifies lifecycle hooks.
-func TestShouldNotHaveHooks(t *testing.T) {
+// TestMustNotContainerContraints tests that attempting to set unsupported fields or invalid values as
+// defined by "MUST NOT" statements from the runtime contract results in a user facing error.
+func TestMustNotContainerConstraints(t *testing.T) {
 	t.Parallel()
 	clients := setup(t)
-	names := test.ResourceNames{
-		Service: test.ObjectNameForTest(t),
-		Image:   pizzaPlanet1,
-	}
 
-	hooks := []func(s *v1alpha1.Service){
-		func(s *v1alpha1.Service) {
+	testCases := []struct {
+		name    string
+		options func(s *v1alpha1.Service)
+	}{{
+		name: "TestArbitraryPortName",
+		options: func(s *v1alpha1.Service) {
+			s.Spec.RunLatest.Configuration.RevisionTemplate.Spec.Container.Ports = []corev1.ContainerPort{{
+				Name:          "arbitrary",
+				ContainerPort: 8080,
+			}}
+		},
+	}, {
+		name: "TestMountPropagation",
+		options: func(s *v1alpha1.Service) {
+			propagationMode := corev1.MountPropagationHostToContainer
+			s.Spec.RunLatest.Configuration.RevisionTemplate.Spec.Container.VolumeMounts = []corev1.VolumeMount{{
+				Name:             "VolumeMount",
+				MountPath:        "/",
+				MountPropagation: &propagationMode,
+			}}
+		},
+	}, {
+		name: "TestReadinessHTTPProbePort",
+		options: func(s *v1alpha1.Service) {
+			s.Spec.RunLatest.Configuration.RevisionTemplate.Spec.Container.ReadinessProbe = &corev1.Probe{
+				Handler: corev1.Handler{
+					HTTPGet: &corev1.HTTPGetAction{
+						Path: "/",
+						Port: intstr.FromInt(8888),
+					},
+				},
+			}
+		},
+	}, {
+		name: "TestLivenessHTTPProbePort",
+		options: func(s *v1alpha1.Service) {
+			s.Spec.RunLatest.Configuration.RevisionTemplate.Spec.Container.LivenessProbe = &corev1.Probe{
+				Handler: corev1.Handler{
+					HTTPGet: &corev1.HTTPGetAction{
+						Path: "/",
+						Port: intstr.FromInt(8888),
+					},
+				},
+			}
+		},
+	}, {
+		name: "TestReadinessTCPProbePort",
+		options: func(s *v1alpha1.Service) {
+			s.Spec.RunLatest.Configuration.RevisionTemplate.Spec.Container.ReadinessProbe = &corev1.Probe{
+				Handler: corev1.Handler{
+					TCPSocket: &corev1.TCPSocketAction{Port: intstr.FromInt(8888)},
+				},
+			}
+		},
+	}, {
+		name: "TestLivenessTCPProbePort",
+		options: func(s *v1alpha1.Service) {
+			s.Spec.RunLatest.Configuration.RevisionTemplate.Spec.Container.LivenessProbe = &corev1.Probe{
+				Handler: corev1.Handler{
+					TCPSocket: &corev1.TCPSocketAction{Port: intstr.FromInt(8888)},
+				},
+			}
+		},
+	}}
+
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			names := test.ResourceNames{
+				Service: test.ObjectNameForTest(t),
+				Image:   pizzaPlanet1,
+			}
+			if svc, err := test.CreateLatestService(t, clients, names, &test.Options{}, tc.options); err == nil {
+				t.Errorf("CreateLatestService = %v, want: error", spew.Sdump(svc))
+			}
+		})
+	}
+}
+
+// TestShouldNotContainerContraints tests that attempting to set unsupported fields or invalid values as
+// defined by "SHOULD NOT" statements from the runtime contract results in a user facing error.
+func TestShouldNotContainerConstraints(t *testing.T) {
+	t.Parallel()
+	clients := setup(t)
+
+	testCases := []struct {
+		name    string
+		options func(s *v1alpha1.Service)
+	}{{
+		name: "TestPoststartHook",
+		options: func(s *v1alpha1.Service) {
 			lifecycleHandler := &corev1.ExecAction{
 				Command: []string{"/bin/sh", "-c", "echo Hello from the post start handler > /usr/share/message"},
 			}
@@ -46,8 +133,9 @@ func TestShouldNotHaveHooks(t *testing.T) {
 				PostStart: &corev1.Handler{Exec: lifecycleHandler},
 			}
 		},
-
-		func(s *v1alpha1.Service) {
+	}, {
+		name: "TestPrestopHook",
+		options: func(s *v1alpha1.Service) {
 			lifecycleHandler := &corev1.ExecAction{
 				Command: []string{"/bin/sh", "-c", "echo Hello from the pre stop handler > /usr/share/message"},
 			}
@@ -55,12 +143,35 @@ func TestShouldNotHaveHooks(t *testing.T) {
 				PreStop: &corev1.Handler{Exec: lifecycleHandler},
 			}
 		},
-	}
+	}, {
+		name: "TestMultiplePorts",
+		options: func(s *v1alpha1.Service) {
+			s.Spec.RunLatest.Configuration.RevisionTemplate.Spec.Container.Ports = []corev1.ContainerPort{
+				{ContainerPort: 80},
+				{ContainerPort: 81},
+			}
+		},
+	}, {
+		name: "TestHostPort",
+		options: func(s *v1alpha1.Service) {
+			s.Spec.RunLatest.Configuration.RevisionTemplate.Spec.Container.Ports = []corev1.ContainerPort{{
+				ContainerPort: 8081,
+				HostPort:      80,
+			}}
+		},
+	}}
 
-	for _, hook := range hooks {
-		svc, err := test.CreateLatestService(t, clients, names, &test.Options{}, hook)
-		if err == nil {
-			t.Errorf("CreateLatestService = %v, want: error", spew.Sdump(svc))
-		}
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			names := test.ResourceNames{
+				Service: test.ObjectNameForTest(t),
+				Image:   pizzaPlanet1,
+			}
+			if svc, err := test.CreateLatestService(t, clients, names, &test.Options{}, tc.options); err == nil {
+				t.Errorf("CreateLatestService = %v, want: error", spew.Sdump(svc))
+			}
+		})
 	}
 }

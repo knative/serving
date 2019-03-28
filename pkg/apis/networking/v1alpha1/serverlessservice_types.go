@@ -20,6 +20,7 @@ import (
 	"github.com/knative/pkg/apis"
 	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 	"github.com/knative/pkg/kmeta"
+	networking "github.com/knative/serving/pkg/apis/networking"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -98,7 +99,7 @@ type ServerlessServiceSpec struct {
 
 	// The application-layer protocol. Matches `RevisionProtocolType` set on the owning pa/revision.
 	// serving imports networking, so just use string.
-	ProtocolType string
+	ProtocolType networking.ProtocolType
 }
 
 // ServerlessServiceStatus describes the current state of the ServerlessService.

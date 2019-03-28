@@ -423,6 +423,43 @@ func TestActivationHandler_OverflowSeveralRevisions(t *testing.T) {
 	assertResponses(wantedSuccess, wantedFailure, overallRequests, lockerCh, respCh, t)
 }
 
+func TestActivationHandler_ProxyHeader(t *testing.T) {
+	breakerParams := queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}
+	namespace, revName := testNamespace, testRevName
+
+	interceptCh := make(chan *http.Request, 1)
+	rt := util.RoundTripperFunc(func(r *http.Request) (*http.Response, error) {
+		interceptCh <- r
+		fake := httptest.NewRecorder()
+		return fake.Result(), nil
+	})
+	throttler := getThrottler(breakerParams, t)
+
+	handler := ActivationHandler{
+		Transport:   rt,
+		Logger:      TestLogger(t),
+		Reporter:    &fakeReporter{},
+		Throttler:   throttler,
+		GetRevision: stubRevisionGetter,
+		GetService:  stubServiceGetter,
+	}
+
+	writer := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
+	req.Header.Set(activator.RevisionHeaderNamespace, namespace)
+	req.Header.Set(activator.RevisionHeaderName, revName)
+	handler.ServeHTTP(writer, req)
+
+	select {
+	case httpReq := <-interceptCh:
+		if got := httpReq.Header.Get(network.ProxyHeaderName); got != activator.Name {
+			t.Errorf("Header '%s' does not have the expected value. Want = '%s', got = '%s'.", network.ProxyHeaderName, activator.Name, got)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("Timed out waiting for a request to be intercepted")
+	}
+}
+
 // sendRequests sends `count` concurrent requests via the given handler and writes
 // the recorded responses to the `respCh`.
 func sendRequests(count int, namespace, revName string, respCh chan *httptest.ResponseRecorder, handler ActivationHandler) {

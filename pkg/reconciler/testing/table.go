@@ -153,7 +153,7 @@ func (r *TableRow) Test(t *testing.T, factory Factory) {
 				continue
 			}
 			t.Errorf("Missing update for %s (-want, +prevState): %s", key,
-				cmp.Diff(oldObj, wo, ignoreLastTransitionTime, safeDeployDiff, cmpopts.EquateEmpty()))
+				cmp.Diff(wo, oldObj, ignoreLastTransitionTime, safeDeployDiff, cmpopts.EquateEmpty()))
 			continue
 		}
 
@@ -188,7 +188,7 @@ func (r *TableRow) Test(t *testing.T, factory Factory) {
 				continue
 			}
 			t.Errorf("Missing status update for %s (-want, +prevState): %s", key,
-				cmp.Diff(oldObj, wo, ignoreLastTransitionTime, safeDeployDiff, cmpopts.EquateEmpty()))
+				cmp.Diff(wo, oldObj, ignoreLastTransitionTime, safeDeployDiff, cmpopts.EquateEmpty()))
 			continue
 		}
 

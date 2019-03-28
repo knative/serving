@@ -23,8 +23,20 @@ import (
 
 	"github.com/knative/pkg/apis/istio/v1alpha3"
 	"github.com/knative/serving/pkg/apis/networking/v1alpha1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
+
+// Istio Gateway requires to have at least one server. This placeholderServer is used when
+// all of the real servers are deleted.
+var placeholderServer = v1alpha3.Server{
+	Hosts: []string{"place-holder.place-holder"},
+	Port: v1alpha3.Port{
+		Name:     "place-holder",
+		Number:   9999,
+		Protocol: v1alpha3.ProtocolHTTP,
+	},
+}
 
 // GetServers gets the `Servers` from `Gateway` that belongs to the given ClusterIngress.
 func GetServers(gateway *v1alpha3.Gateway, ci *v1alpha1.ClusterIngress) []v1alpha3.Server {
@@ -92,12 +104,20 @@ func UpdateGateway(gateway *v1alpha3.Gateway, want []v1alpha3.Server, existing [
 		// We remove
 		//  1) the existing servers
 		//  2) the default HTTP server and HTTPS server in the gateway because they are only used for the scenario of not reconciling gateway.
-		if existingServers.Has(server.Port.Name) || isDefaultServer(&server) {
+		//  3) the placeholder servers.
+		if existingServers.Has(server.Port.Name) || isDefaultServer(&server) || isPlaceHolderServer(&server) {
 			continue
 		}
 		servers = append(servers, server)
 	}
 	servers = append(servers, want...)
+
+	// Istio Gateway requires to have at least one server. So if the final gateway does not have any server,
+	// we add "placeholder" server back.
+	if len(servers) == 0 {
+		servers = append(servers, placeholderServer)
+	}
+
 	sortServers(servers)
 	gateway.Spec.Servers = servers
 	return gateway
@@ -105,4 +125,8 @@ func UpdateGateway(gateway *v1alpha3.Gateway, want []v1alpha3.Server, existing [
 
 func isDefaultServer(server *v1alpha3.Server) bool {
 	return server.Port.Name == "http" || server.Port.Name == "https"
+}
+
+func isPlaceHolderServer(server *v1alpha3.Server) bool {
+	return equality.Semantic.DeepEqual(server, &placeholderServer)
 }

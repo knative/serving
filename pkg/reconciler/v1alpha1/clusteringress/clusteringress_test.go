@@ -18,6 +18,7 @@ package clusteringress
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -104,7 +105,7 @@ var (
 	ingressTLSServer = v1alpha3.Server{
 		Hosts: []string{"host-tls.example.com"},
 		Port: v1alpha3.Port{
-			Name:     "new-created-clusteringress:0",
+			Name:     "reconciling-clusteringress:0",
 			Number:   443,
 			Protocol: v1alpha3.ProtocolHTTPS,
 		},
@@ -264,7 +265,7 @@ func TestReconcile_Gateway(t *testing.T) {
 		Name:                    "update Gateway to match newly created ClusterIngress",
 		SkipNamespaceValidation: true,
 		Objects: []runtime.Object{
-			ingressWithTLS("new-created-clusteringress", 1234, ingressTLS),
+			ingressWithTLS("reconciling-clusteringress", 1234, ingressTLS),
 			// No Gateway servers match the given TLS of ClusterIngress.
 			gateway("knative-ingress-gateway", system.Namespace(), []v1alpha3.Server{irrelevanteServer}),
 		},
@@ -272,15 +273,18 @@ func TestReconcile_Gateway(t *testing.T) {
 			// The creation of gateways are triggered when setting up the test.
 			gateway("knative-ingress-gateway", system.Namespace(), []v1alpha3.Server{irrelevanteServer}),
 
-			resources.MakeVirtualService(ingress("new-created-clusteringress", 1234),
+			resources.MakeVirtualService(ingress("reconciling-clusteringress", 1234),
 				[]string{"knative-ingress-gateway"}),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			// ingressTLSServer needs to be added into Gateway.
 			Object: gateway("knative-ingress-gateway", system.Namespace(), []v1alpha3.Server{ingressTLSServer, irrelevanteServer}),
 		}},
+		WantPatches: []clientgotesting.PatchActionImpl{
+			patchAddFinalizerAction("reconciling-clusteringress", clusterIngressFinalizer),
+		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: ingressWithTLSAndStatus("new-created-clusteringress", 1234,
+			Object: ingressWithTLSAndStatus("reconciling-clusteringress", 1234,
 				ingressTLS,
 				v1alpha1.IngressStatus{
 					LoadBalancer: &v1alpha1.LoadBalancerStatus{
@@ -307,22 +311,25 @@ func TestReconcile_Gateway(t *testing.T) {
 			),
 		}},
 		WantEvents: []string{
-			Eventf(corev1.EventTypeNormal, "Created", "Created VirtualService %q", "new-created-clusteringress"),
+			Eventf(corev1.EventTypeNormal, "Created", "Created VirtualService %q", "reconciling-clusteringress"),
 			Eventf(corev1.EventTypeNormal, "Updated", "Updated Gateway %q/%q", system.Namespace(), "knative-ingress-gateway"),
 		},
-		Key: "new-created-clusteringress",
+		Key: "reconciling-clusteringress",
 	}, {
 		Name:                    "No preinstalled Gateways",
 		SkipNamespaceValidation: true,
 		Objects: []runtime.Object{
-			ingressWithTLS("new-created-clusteringress", 1234, ingressTLS),
+			ingressWithTLS("reconciling-clusteringress", 1234, ingressTLS),
 		},
 		WantCreates: []metav1.Object{
-			resources.MakeVirtualService(ingress("new-created-clusteringress", 1234),
+			resources.MakeVirtualService(ingress("reconciling-clusteringress", 1234),
 				[]string{"knative-ingress-gateway"}),
 		},
+		WantPatches: []clientgotesting.PatchActionImpl{
+			patchAddFinalizerAction("reconciling-clusteringress", clusterIngressFinalizer),
+		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: ingressWithTLSAndStatus("new-created-clusteringress", 1234,
+			Object: ingressWithTLSAndStatus("reconciling-clusteringress", 1234,
 				ingressTLS,
 				v1alpha1.IngressStatus{
 					LoadBalancer: &v1alpha1.LoadBalancerStatus{
@@ -349,12 +356,33 @@ func TestReconcile_Gateway(t *testing.T) {
 			),
 		}},
 		WantEvents: []string{
-			Eventf(corev1.EventTypeNormal, "Created", "Created VirtualService %q", "new-created-clusteringress"),
+			Eventf(corev1.EventTypeNormal, "Created", "Created VirtualService %q", "reconciling-clusteringress"),
 			Eventf(corev1.EventTypeWarning, "InternalError", `gateway.networking.istio.io "knative-ingress-gateway" not found`),
 		},
 		// Error should be returned when there is no preinstalled gateways.
 		WantErr: true,
-		Key:     "new-created-clusteringress",
+		Key:     "reconciling-clusteringress",
+	}, {
+		Name:                    "delete ClusterIngress",
+		SkipNamespaceValidation: true,
+		Objects: []runtime.Object{
+			ingressWithFinalizers("reconciling-clusteringress", 1234, ingressTLS, []string{clusterIngressFinalizer}),
+			gateway("knative-ingress-gateway", system.Namespace(), []v1alpha3.Server{irrelevanteServer, ingressTLSServer}),
+		},
+		WantCreates: []metav1.Object{
+			// The creation of gateways are triggered when setting up the test.
+			gateway("knative-ingress-gateway", system.Namespace(), []v1alpha3.Server{irrelevanteServer, ingressTLSServer}),
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: gateway("knative-ingress-gateway", system.Namespace(), []v1alpha3.Server{irrelevanteServer}),
+		}, {
+			// Finalizer should be removed.
+			Object: ingressWithFinalizers("reconciling-clusteringress", 1234, ingressTLS, []string{}),
+		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "Updated", "Updated Gateway %q/%q", system.Namespace(), "knative-ingress-gateway"),
+		},
+		Key: "reconciling-clusteringress",
 	}}
 	table.Test(t, MakeFactory(func(listers *Listers, opt reconciler.Options) controller.Reconciler {
 
@@ -410,6 +438,15 @@ func gateway(name, namespace string, servers []v1alpha3.Server) *v1alpha3.Gatewa
 	}
 }
 
+func patchAddFinalizerAction(ingressName, finalizer string) clientgotesting.PatchActionImpl {
+	action := clientgotesting.PatchActionImpl{
+		Name: ingressName,
+	}
+	patch := fmt.Sprintf(`{"metadata":{"finalizers":["%s"],"resourceVersion":"v1"}}`, finalizer)
+	action.Patch = []byte(patch)
+	return action
+}
+
 func addAnnotations(ing *v1alpha1.ClusterIngress, annos map[string]string) *v1alpha1.ClusterIngress {
 	if ing.ObjectMeta.Annotations == nil {
 		ing.ObjectMeta.Annotations = make(map[string]string)
@@ -455,6 +492,7 @@ func ingressWithStatus(name string, generation int64, status v1alpha1.IngressSta
 				serving.RouteLabelKey:          "test-route",
 				serving.RouteNamespaceLabelKey: "test-ns",
 			},
+			ResourceVersion: "v1",
 		},
 		Spec: v1alpha1.IngressSpec{
 			DeprecatedGeneration: generation,
@@ -468,6 +506,13 @@ func ingress(name string, generation int64) *v1alpha1.ClusterIngress {
 	return ingressWithStatus(name, generation, v1alpha1.IngressStatus{})
 }
 
+func ingressWithFinalizers(name string, generation int64, tls []v1alpha1.ClusterIngressTLS, finalizers []string) *v1alpha1.ClusterIngress {
+	ingress := ingressWithTLS(name, generation, tls)
+	ingress.ObjectMeta.Finalizers = finalizers
+	t := metav1.NewTime(time.Unix(1e9, 0))
+	ingress.ObjectMeta.DeletionTimestamp = &t
+	return ingress
+}
 func ingressWithTLS(name string, generation int64, tls []v1alpha1.ClusterIngressTLS) *v1alpha1.ClusterIngress {
 	return ingressWithTLSAndStatus(name, generation, tls, v1alpha1.IngressStatus{})
 }

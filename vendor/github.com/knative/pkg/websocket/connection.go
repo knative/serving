@@ -291,6 +291,17 @@ func (c *ManagedConnection) write(messageType int, body []byte) error {
 	return c.connection.WriteMessage(messageType, body)
 }
 
+// Status checks the connection status of the webhook.
+func (c *ManagedConnection) Status() error {
+	c.connectionLock.RLock()
+	defer c.connectionLock.RUnlock()
+
+	if c.connection == nil {
+		return ErrConnectionNotEstablished
+	}
+	return nil
+}
+
 // Send sends an encodable message over the websocket connection.
 func (c *ManagedConnection) Send(msg interface{}) error {
 	var b bytes.Buffer

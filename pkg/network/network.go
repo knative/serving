@@ -30,6 +30,10 @@ const (
 	// included in request metrics.
 	ProbeHeaderName = "k-network-probe"
 
+	// ProxyHeaderName is the name of an internal header that activator
+	// uses to mark requests going through it.
+	ProxyHeaderName = "k-proxy-request"
+
 	// ConfigName is the name of the configmap containing all
 	// customizations for networking features.
 	ConfigName = "config-network"

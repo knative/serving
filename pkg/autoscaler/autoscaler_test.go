@@ -463,12 +463,39 @@ func TestAutoscaler_UpdateTarget(t *testing.T) {
 	a.expectScale(t, now, 100, true)
 }
 
+func TestAutoScaler_NotCountProxied(t *testing.T) {
+	a := newTestAutoscaler(1.0)
+	now := roundedNow()
+	stat := Stat{
+		Time:                      &now,
+		PodName:                   "activator",
+		AverageConcurrentRequests: 1.0,
+		RequestCount:              1,
+	}
+	a.Record(TestContextWithLogger(t), stat)
+	// This stat indicate 3 pending requests, one of the which is proxied.
+	// So the concurrency from this stat is 2.0, because the proxied one
+	// has been counted at the activator.
+	stat = Stat{
+		Time:                             &now,
+		PodName:                          "pod1",
+		AverageConcurrentRequests:        3.0,
+		AverageProxiedConcurrentRequests: 1.0,
+		RequestCount:                     4,
+		ProxiedRequestCount:              2,
+	}
+	a.Record(TestContextWithLogger(t), stat)
+	// The total concurrency is 3.0, with 1.0 from "activator" and 2.0 from
+	// "pod1".  With target concurrency of 1.0, this results in 3 desired pods.
+	a.expectScale(t, now, 3, true)
+}
+
 type linearSeries struct {
 	startConcurrency int
 	endConcurrency   int
 	duration         time.Duration
 	podCount         int
-	podIdOffset      int
+	podIDOffset      int
 }
 
 type mockReporter struct{}
@@ -552,7 +579,7 @@ func (a *Autoscaler) recordLinearSeries(test *testing.T, now time.Time, s linear
 			}
 			stat := Stat{
 				Time:                      &t,
-				PodName:                   fmt.Sprintf("pod-%v", j+s.podIdOffset),
+				PodName:                   fmt.Sprintf("pod-%v", j+s.podIDOffset),
 				AverageConcurrentRequests: float64(point),
 				RequestCount:              int32(requestCount),
 			}

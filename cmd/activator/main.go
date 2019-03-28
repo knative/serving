@@ -260,6 +260,7 @@ func main() {
 		GetService:    serviceGetter,
 	}
 	ah = activatorhandler.NewRequestEventHandler(reqChan, ah)
+	ah = &activatorhandler.HealthHandler{HealthCheck: statSink.Status, NextHandler: ah}
 	ah = &activatorhandler.ProbeHandler{NextHandler: ah}
 
 	// Watch the logging config map and dynamically update logging levels.

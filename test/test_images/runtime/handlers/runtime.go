@@ -31,6 +31,7 @@ func runtimeHandler(w http.ResponseWriter, r *http.Request) {
 			Cgroups: cgroups(cgroupPaths...),
 			Mounts:  mounts(),
 			Stdin:   stdin(),
+			User:    userInfo(),
 		},
 	}
 

@@ -69,33 +69,46 @@ func TestThrottler_UpdateCapacity(t *testing.T) {
 	}{{
 		label:           "all good",
 		revisionGetter:  existingRevisionGetter(10),
-		endpointsGetter: existingEndpointsGetter(0),
+		endpointsGetter: existingEndpointsGetter(1),
 		maxConcurrency:  defaultMaxConcurrency,
 		want:            int32(10),
 	}, {
 		label:           "unlimited concurrency",
 		revisionGetter:  existingRevisionGetter(0),
-		endpointsGetter: existingEndpointsGetter(0),
+		endpointsGetter: existingEndpointsGetter(1),
 		maxConcurrency:  100,
 		want:            int32(100),
 	}, {
 		label:           "non-existing revision",
 		revisionGetter:  nonExistingRevisionGetter,
-		endpointsGetter: existingEndpointsGetter(0),
+		endpointsGetter: existingEndpointsGetter(1),
 		maxConcurrency:  defaultMaxConcurrency,
 		want:            int32(0),
 		wantError:       sampleError,
 	}, {
 		label:           "exceeds maxConcurrency",
 		revisionGetter:  existingRevisionGetter(10),
-		endpointsGetter: existingEndpointsGetter(0),
+		endpointsGetter: existingEndpointsGetter(1),
 		maxConcurrency:  int32(5),
 		want:            int32(5),
+	}, {
+		label:           "no endpoints",
+		revisionGetter:  existingRevisionGetter(1),
+		endpointsGetter: existingEndpointsGetter(0),
+		maxConcurrency:  int32(5),
+		want:            int32(0),
+	}, {
+		label:           "no endpoints, unlimited concurrency",
+		revisionGetter:  existingRevisionGetter(0),
+		endpointsGetter: existingEndpointsGetter(0),
+		maxConcurrency:  int32(5),
+		want:            int32(0),
 	}}
 	for _, s := range samples {
 		t.Run(s.label, func(t *testing.T) {
 			throttler := getThrottler(s.maxConcurrency, s.revisionGetter, s.endpointsGetter, TestLogger(t), initCapacity)
-			err := throttler.UpdateCapacity(revID, 1)
+			endpoints, _ := s.endpointsGetter(revID)
+			err := throttler.UpdateCapacity(revID, endpoints)
 			if s.wantError != "" {
 				if err == nil {
 					t.Fatal("Expected error, got nil")

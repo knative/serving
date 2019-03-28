@@ -28,7 +28,7 @@ import (
 	"github.com/knative/pkg/test/logging"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/pkg/errors"
-	apiv1beta1 "k8s.io/api/extensions/v1beta1"
+	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	k8styped "k8s.io/client-go/kubernetes/typed/core/v1"
@@ -205,6 +205,6 @@ func GetConfigMap(client *pkgTest.KubeClient) k8styped.ConfigMapInterface {
 }
 
 // DeploymentScaledToZeroFunc returns a func that evaluates if a deployment has scaled to 0 pods.
-func DeploymentScaledToZeroFunc(d *apiv1beta1.Deployment) (bool, error) {
+func DeploymentScaledToZeroFunc(d *appsv1.Deployment) (bool, error) {
 	return d.Status.ReadyReplicas == 0, nil
 }

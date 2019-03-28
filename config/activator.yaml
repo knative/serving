@@ -51,6 +51,16 @@ spec:
           # and seeing k8s logs in addition to ours is not useful.
         - "-logtostderr=false"
         - "-stderrthreshold=FATAL"
+        readinessProbe:
+          httpGet:
+            # The path does not matter, we look for kubelet probe headers.
+            path: /healthz
+            port: 8080
+        livenessProbe:
+          httpGet:
+            # The path does not matter, we look for kubelet probe headers.
+            path: /healthz
+            port: 8080
         resources:
           # Request 2x what we saw running e2e
           requests:

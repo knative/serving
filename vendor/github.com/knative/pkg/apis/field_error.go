@@ -91,7 +91,7 @@ func (fe *FieldError) ViaFieldIndex(field string, index int) *FieldError {
 
 // ViaKey is used to attach a key to the next ViaField provided.
 // For example, if a type recursively validates a parameter that has a collection:
-//  for k, v := range spec.Bag. {
+//  for k, v := range spec.Bag {
 //    if err := doValidation(v); err != nil {
 //      return err.ViaKey(k).ViaField("bag")
 //    }

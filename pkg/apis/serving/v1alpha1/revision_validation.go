@@ -353,16 +353,6 @@ func validateBuildRef(buildRef *corev1.ObjectReference) *apis.FieldError {
 	return nil
 }
 
-// Validate validates that RevisionProtocolType has a correct enum value.
-func (p RevisionProtocolType) Validate() *apis.FieldError {
-	switch p {
-	case RevisionProtocolH2C, RevisionProtocolHTTP1:
-		return nil
-	}
-	return apis.ErrInvalidValue(string(p), apis.CurrentField)
-
-}
-
 func validateProbe(p *corev1.Probe) *apis.FieldError {
 	if p == nil {
 		return nil

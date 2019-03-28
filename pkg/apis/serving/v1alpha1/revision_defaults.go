@@ -16,11 +16,12 @@ limitations under the License.
 
 package v1alpha1
 
-import "context"
+import (
+	"context"
 
-const (
-	// defaultTimeoutSeconds will be set if timeoutSeconds not specified.
-	defaultTimeoutSeconds = 5 * 60
+	corev1 "k8s.io/api/core/v1"
+
+	"github.com/knative/serving/pkg/apis/config"
 )
 
 func (r *Revision) SetDefaults(ctx context.Context) {
@@ -28,6 +29,8 @@ func (r *Revision) SetDefaults(ctx context.Context) {
 }
 
 func (rs *RevisionSpec) SetDefaults(ctx context.Context) {
+	cfg := config.FromContextOrDefaults(ctx)
+
 	// When ConcurrencyModel is specified but ContainerConcurrency
 	// is not (0), use the ConcurrencyModel value.
 	if rs.DeprecatedConcurrencyModel == RevisionRequestConcurrencyModelSingle && rs.ContainerConcurrency == 0 {
@@ -35,7 +38,14 @@ func (rs *RevisionSpec) SetDefaults(ctx context.Context) {
 	}
 
 	if rs.TimeoutSeconds == 0 {
-		rs.TimeoutSeconds = defaultTimeoutSeconds
+		rs.TimeoutSeconds = cfg.Defaults.RevisionTimeoutSeconds
+	}
+
+	if rs.Container.Resources.Requests == nil {
+		rs.Container.Resources.Requests = corev1.ResourceList{}
+	}
+	if _, ok := rs.Container.Resources.Requests[corev1.ResourceCPU]; !ok {
+		rs.Container.Resources.Requests[corev1.ResourceCPU] = cfg.Defaults.RevisionCPURequest
 	}
 
 	vms := rs.Container.VolumeMounts

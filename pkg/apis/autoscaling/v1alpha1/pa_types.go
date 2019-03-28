@@ -20,6 +20,7 @@ import (
 	"github.com/knative/pkg/apis"
 	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 	"github.com/knative/pkg/kmeta"
+	net "github.com/knative/serving/pkg/apis/networking"
 	servingv1alpha1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	autoscalingv1 "k8s.io/api/autoscaling/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -92,8 +93,8 @@ type PodAutoscalerSpec struct {
 	// load balances over the pods referenced by the ScaleTargetRef.
 	ServiceName string `json:"serviceName"`
 
-	// The application-layer protocol. Matches `RevisionProtocolType` set on the owning revision.
-	ProtocolType servingv1alpha1.RevisionProtocolType
+	// The application-layer protocol. Matches `ProtocolType` inferred from the revision spec.
+	ProtocolType net.ProtocolType
 }
 
 const (

@@ -33,6 +33,7 @@ import (
 
 	"github.com/knative/pkg/logging/logkey"
 	"github.com/knative/serving/cmd/util"
+	"github.com/knative/serving/pkg/activator"
 	activatorutil "github.com/knative/serving/pkg/activator/util"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/autoscaler"
@@ -113,18 +114,10 @@ func initEnv() {
 func reportStats(statChan chan *autoscaler.Stat) {
 	for {
 		s := <-statChan
-		if err := reporter.Report(float64(s.RequestCount), s.AverageConcurrentRequests); err != nil {
+		if err := reporter.Report(s); err != nil {
 			logger.Errorw("Error while sending stat", zap.Error(err))
 		}
 	}
-}
-
-func proxyForRequest(req *http.Request) *httputil.ReverseProxy {
-	if req.ProtoMajor == 2 {
-		return h2cProxy
-	}
-
-	return httpProxy
 }
 
 func knativeProbeHeader(r *http.Request) string {
@@ -135,6 +128,10 @@ func isKubeletProbe(r *http.Request) bool {
 	// Since K8s 1.8, prober requests have
 	//   User-Agent = "kube-probe/{major-version}.{minor-version}".
 	return strings.HasPrefix(r.Header.Get("User-Agent"), "kube-probe/")
+}
+
+func knativeProxyHeader(r *http.Request) string {
+	return r.Header.Get(network.ProxyHeaderName)
 }
 
 func probeUserContainer() bool {
@@ -154,44 +151,56 @@ func probeUserContainer() bool {
 	return err == nil
 }
 
-func handler(w http.ResponseWriter, r *http.Request) {
-	proxy := proxyForRequest(r)
-	ph := knativeProbeHeader(r)
-	switch {
-	case ph != "":
-		if ph != queue.Name {
-			http.Error(w, fmt.Sprintf("unexpected probe header value: %q", ph), http.StatusServiceUnavailable)
+// Make handler a closure for testing.
+func handler(reqChan chan queue.ReqEvent, breaker *queue.Breaker, httpProxy, h2cProxy *httputil.ReverseProxy) func(http.ResponseWriter, *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		proxy := httpProxy
+		if r.ProtoMajor == 2 {
+			proxy = h2cProxy
+		}
+
+		ph := knativeProbeHeader(r)
+		switch {
+		case ph != "":
+			if ph != queue.Name {
+				http.Error(w, fmt.Sprintf("unexpected probe header value: %q", ph), http.StatusServiceUnavailable)
+				return
+			}
+			if probeUserContainer() {
+				// Respond with the name of the component handling the request.
+				w.Write([]byte(queue.Name))
+			} else {
+				http.Error(w, "container not ready", http.StatusServiceUnavailable)
+			}
+			return
+		case isKubeletProbe(r):
+			// Do not count health checks for concurrency metrics
+			proxy.ServeHTTP(w, r)
 			return
 		}
-		if probeUserContainer() {
-			// Respond with the name of the component handling the request.
-			w.Write([]byte(queue.Name))
+
+		// Metrics for autoscaling
+		h := knativeProxyHeader(r)
+		in, out := queue.ReqIn, queue.ReqOut
+		if activator.Name == h {
+			in, out = queue.ProxiedIn, queue.ProxiedOut
+		}
+		reqChan <- queue.ReqEvent{Time: time.Now(), EventType: in}
+		defer func() {
+			reqChan <- queue.ReqEvent{Time: time.Now(), EventType: out}
+		}()
+
+		// Enforce queuing and concurrency limits
+		if breaker != nil {
+			ok := breaker.Maybe(func() {
+				proxy.ServeHTTP(w, r)
+			})
+			if !ok {
+				http.Error(w, "overload", http.StatusServiceUnavailable)
+			}
 		} else {
-			http.Error(w, "container not ready", http.StatusServiceUnavailable)
-		}
-		return
-	case isKubeletProbe(r):
-		// Do not count health checks for concurrency metrics
-		proxy.ServeHTTP(w, r)
-		return
-	}
-
-	// Metrics for autoscaling
-	reqChan <- queue.ReqEvent{Time: time.Now(), EventType: queue.ReqIn}
-	defer func() {
-		reqChan <- queue.ReqEvent{Time: time.Now(), EventType: queue.ReqOut}
-	}()
-
-	// Enforce queuing and concurrency limits
-	if breaker != nil {
-		ok := breaker.Maybe(func() {
 			proxy.ServeHTTP(w, r)
-		})
-		if !ok {
-			http.Error(w, "overload", http.StatusServiceUnavailable)
 		}
-	} else {
-		proxy.ServeHTTP(w, r)
 	}
 }
 
@@ -272,7 +281,7 @@ func main() {
 		Handler: createAdminHandlers(),
 	}
 
-	timeoutHandler := queue.TimeToFirstByteTimeoutHandler(http.HandlerFunc(handler),
+	timeoutHandler := queue.TimeToFirstByteTimeoutHandler(http.HandlerFunc(handler(reqChan, breaker, httpProxy, h2cProxy)),
 		time.Duration(revisionTimeoutSeconds)*time.Second, "request timeout")
 	composedHandler := pushRequestLogHandler(timeoutHandler)
 	server = h2c.NewServer(fmt.Sprintf(":%d", v1alpha1.RequestQueuePort), composedHandler)
