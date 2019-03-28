@@ -38,6 +38,6 @@ func TestWrite(t *testing.T) {
 	gotBytes, _ := ioutil.ReadFile(file.Name())
 	got := string(gotBytes)
 	if got != want {
-		t.Errorf("want: %v, got %v", want, got)
+		t.Errorf("got %v, want %v", got, want)
 	}
 }

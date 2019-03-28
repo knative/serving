@@ -104,22 +104,22 @@ data:
     # Entering an invalid value here will turn off the feature.
     # It is important to keep this as a single line. Multiple lines are parsed as separate entities
     # by most collection agents and will split the request logs into multiple records.
-    # 
+    #
     # The following fields and functions are available to the template:
-    # 
-    # Request: An http.Request (see https://golang.org/pkg/net/http/#Request) 
+    #
+    # Request: An http.Request (see https://golang.org/pkg/net/http/#Request)
     # representint an HTTP request received by the server.
-    # 
+    #
     # ResponseLatency: A float64 representing the time it took to execute the
     # query in seconds.
-    # 
+    #
     # ResponseCode: HTTP status code (see https://www.iana.org/assignments/http-status-codes/http-status-codes.xhtml)
-    # 
+    #
     # ResponseSize: An int representing the size of the response.
-    # 
+    #
     # func env(name string) string: Returns the value of the environment variable specified in name.
     # If environment variable doesn't exist, returns an empty string.
-    # 
+    #
     logging.request-log-template: '{"httpRequest": {"requestMethod": "{{.Request.Method}}", "requestUrl": "{{js .Request.RequestURI}}", "requestSize": "{{.Request.ContentLength}}", "status": {{.ResponseCode}}, "responseSize": "{{.ResponseSize}}", "userAgent": "{{js .Request.UserAgent}}", "remoteIp": "{{js .Request.RemoteAddr}}", "serverIp": "{{env "SERVING_POD_IP"}}", "referer": "{{js .Request.Referer}}", "latency": "{{.ResponseLatency}}s", "protocol": "{{.Request.Proto}}"}, "traceId": "{{index .Request.Header "X-B3-Traceid"}}"}'
 
     # metrics.backend-destination field specifies the system metrics destination.

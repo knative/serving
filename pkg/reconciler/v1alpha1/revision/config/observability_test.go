@@ -53,7 +53,7 @@ func TestObservabilityConfiguration(t *testing.T) {
 			FluentdSidecarOutputConfig: "the-config",
 			FluentdSidecarImage:        "gcr.io/log-stuff/fluentd:latest",
 			EnableVarLogCollection:     true,
-			RequestLogTemplate:         `"requestMethod": "{{.Request.Method}}"`,
+			RequestLogTemplate:         `{"requestMethod": "{{.Request.Method}}"}`,
 		},
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
@@ -66,7 +66,7 @@ func TestObservabilityConfiguration(t *testing.T) {
 				"logging.fluentd-sidecar-output-config": "the-config",
 				"logging.revision-url-template":         "https://logging.io",
 				"logging.write-request-logs":            "true",
-				"logging.request-log-template":          `"requestMethod": "{{.Request.Method}}"`,
+				"logging.request-log-template":          `{"requestMethod": "{{.Request.Method}}"}`,
 			},
 		},
 	}, {

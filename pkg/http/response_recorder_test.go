@@ -72,10 +72,10 @@ func TestResponseCapture(t *testing.T) {
 			rr.WriteHeader(test.finalStatus)
 
 			if got, want := rr.ResponseCode, test.wantStatus; got != want {
-				t.Errorf("Expected response code %v but got %v.", want, got)
+				t.Errorf("got %v, want %v", got, want)
 			}
 			if got, want := rr.ResponseSize, test.wantSize; got != want {
-				t.Errorf("Expected response size %v but got %v.", want, got)
+				t.Errorf("got %v, want %v", got, want)
 			}
 			if diff := cmp.Diff(rr.Header(), defaultHeader); diff != "" {
 				t.Errorf("Headers are different (-want, +got) = %v", diff)

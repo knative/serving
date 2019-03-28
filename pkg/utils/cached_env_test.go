@@ -94,11 +94,11 @@ func TestParseEnvStrs(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			out := parseEnvStrs(test.in)
 			if got, want := len(out), len(test.want); got != want {
-				t.Errorf("Expected a map with %v items, got a map with %v items.", want, got)
+				t.Errorf("got a map with %v items, want a map with %v items.", got, want)
 			}
 			for k, got := range out {
 				if want := test.want[k]; got != want {
-					t.Errorf("Expected value of key %v to be %v but got %v.", k, want, got)
+					t.Errorf("got %v for key %v, want %v", got, k, want)
 				}
 			}
 		})
@@ -108,14 +108,14 @@ func TestParseEnvStrs(t *testing.T) {
 func TestGetCachedEnv(t *testing.T) {
 	m := parseEnvStrs(os.Environ())
 	if got, want := len(m), len(os.Environ()); want != got {
-		t.Errorf("Expected a map with %v items, got a map with %v items.", want, got)
+		t.Errorf("got a map with %v items, want a map with %v items", got, want)
 	}
 	for k, got := range m {
 		if want := os.Getenv(k); want != got {
-			t.Errorf("Expected value of key %v to be %v but got %v.", k, want, got)
+			t.Errorf("got %v for key %v, want %v", got, k, want)
 		}
 		if want := GetCachedEnv(k); want != got {
-			t.Errorf("Expected value of cached key %v to be %v but got %v.", k, want, got)
+			t.Errorf("got %v for cached key %v, want got %v.", got, k, want)
 		}
 	}
 }

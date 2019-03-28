@@ -71,7 +71,7 @@ func TestRequestLogHandler(t *testing.T) {
 			buf := bytes.NewBufferString("")
 			handler, err := NewRequestLogHandler(baseHandler, buf, test.template)
 			if test.wantErr != (err != nil) {
-				t.Errorf("wantErr: %v, got: %v", test.wantErr, err)
+				t.Errorf("got %v, want error %v", err, test.wantErr)
 			}
 
 			if !test.wantErr {
@@ -81,7 +81,7 @@ func TestRequestLogHandler(t *testing.T) {
 
 				got := string(buf.Bytes())
 				if got != test.want {
-					t.Errorf("want: '%v', got: '%v'", test.want, got)
+					t.Errorf("got '%v', want '%v'", got, test.want)
 				}
 			}
 		})
@@ -95,7 +95,7 @@ func TestPanickingHandler(t *testing.T) {
 	buf := bytes.NewBufferString("")
 	handler, err := NewRequestLogHandler(baseHandler, buf, "{{.Request.URL}}")
 	if err != nil {
-		t.Errorf("want error: %v, got: %v", false, err)
+		t.Errorf("got %v, want error: %v", err, false)
 	}
 
 	resp := httptest.NewRecorder()
@@ -108,7 +108,7 @@ func TestPanickingHandler(t *testing.T) {
 
 		got := string(buf.Bytes())
 		if want := "http://example.com\n"; got != want {
-			t.Errorf("want: '%v', got: '%v'", want, got)
+			t.Errorf("got '%v', want '%v'", got, want)
 		}
 	}()
 	handler.ServeHTTP(resp, req)
@@ -121,7 +121,7 @@ func TestFailedTemplateExecution(t *testing.T) {
 	buf := bytes.NewBufferString("")
 	handler, err := NewRequestLogHandler(baseHandler, buf, "{{.Request.Something}}")
 	if err != nil {
-		t.Errorf("wantErr: %v, got: %v", false, err)
+		t.Errorf("got %v, wantErr %v, ", err, false)
 	}
 
 	resp := httptest.NewRecorder()
@@ -130,6 +130,6 @@ func TestFailedTemplateExecution(t *testing.T) {
 
 	got := string(buf.Bytes())
 	if want := "Invalid request log template: "; !strings.HasPrefix(got, want) {
-		t.Errorf("want: '%v', got: '%v'", want, got)
+		t.Errorf("got: '%v', want: '%v'", got, want)
 	}
 }
