@@ -101,6 +101,7 @@ func TestControllerSynchronizesCreatesAndDeletes(t *testing.T) {
 	fakeMetrics := newTestKPAMetrics(createdCh, stopCh)
 	ctl := NewController(&opts,
 		servingInformer.Autoscaling().V1alpha1().PodAutoscalers(),
+		kubeInformer.Core().V1().Services(),
 		kubeInformer.Core().V1().Endpoints(),
 		fakeMetrics,
 		kpaScaler,
@@ -187,6 +188,7 @@ func TestUpdate(t *testing.T) {
 	fakeMetrics := newTestKPAMetrics(createdCh, stopCh)
 	ctl := NewController(&opts,
 		servingInformer.Autoscaling().V1alpha1().PodAutoscalers(),
+		kubeInformer.Core().V1().Services(),
 		kubeInformer.Core().V1().Endpoints(),
 		fakeMetrics,
 		kpaScaler,
@@ -270,6 +272,7 @@ func TestNonKpaClass(t *testing.T) {
 	fakeMetrics := newTestKPAMetrics(createdCh, stopCh)
 	ctl := NewController(&opts,
 		servingInformer.Autoscaling().V1alpha1().PodAutoscalers(),
+		kubeInformer.Core().V1().Services(),
 		kubeInformer.Core().V1().Endpoints(),
 		fakeMetrics,
 		kpaScaler,
@@ -334,6 +337,7 @@ func TestNoEndpoints(t *testing.T) {
 	fakeMetrics := newTestKPAMetrics(createdCh, stopCh)
 	ctl := NewController(&opts,
 		servingInformer.Autoscaling().V1alpha1().PodAutoscalers(),
+		kubeInformer.Core().V1().Services(),
 		kubeInformer.Core().V1().Endpoints(),
 		fakeMetrics,
 		kpaScaler,
@@ -395,6 +399,7 @@ func TestEmptyEndpoints(t *testing.T) {
 	fakeMetrics := newTestKPAMetrics(createdCh, stopCh)
 	ctl := NewController(&opts,
 		servingInformer.Autoscaling().V1alpha1().PodAutoscalers(),
+		kubeInformer.Core().V1().Services(),
 		kubeInformer.Core().V1().Endpoints(),
 		fakeMetrics,
 		kpaScaler,
@@ -453,6 +458,7 @@ func TestControllerCreateError(t *testing.T) {
 
 	ctl := NewController(&opts,
 		servingInformer.Autoscaling().V1alpha1().PodAutoscalers(),
+		kubeInformer.Core().V1().Services(),
 		kubeInformer.Core().V1().Endpoints(),
 		&failingKPAMetrics{
 			getErr:    errors.NewNotFound(kpa.Resource("Metrics"), key),
@@ -492,6 +498,7 @@ func TestControllerUpdateError(t *testing.T) {
 
 	ctl := NewController(&opts,
 		servingInformer.Autoscaling().V1alpha1().PodAutoscalers(),
+		kubeInformer.Core().V1().Services(),
 		kubeInformer.Core().V1().Endpoints(),
 		&failingKPAMetrics{
 			getErr:    errors.NewNotFound(kpa.Resource("Metrics"), key),
@@ -531,6 +538,7 @@ func TestControllerGetError(t *testing.T) {
 
 	ctl := NewController(&opts,
 		servingInformer.Autoscaling().V1alpha1().PodAutoscalers(),
+		kubeInformer.Core().V1().Services(),
 		kubeInformer.Core().V1().Endpoints(),
 		&failingKPAMetrics{
 			getErr: want,
@@ -572,6 +580,7 @@ func TestScaleFailure(t *testing.T) {
 	fakeMetrics := newTestKPAMetrics(createdCh, stopCh)
 	ctl := NewController(&opts,
 		servingInformer.Autoscaling().V1alpha1().PodAutoscalers(),
+		kubeInformer.Core().V1().Services(),
 		kubeInformer.Core().V1().Endpoints(),
 		fakeMetrics,
 		kpaScaler,
@@ -617,6 +626,7 @@ func TestBadKey(t *testing.T) {
 
 	ctl := NewController(&opts,
 		servingInformer.Autoscaling().V1alpha1().PodAutoscalers(),
+		kubeInformer.Core().V1().Services(),
 		kubeInformer.Core().V1().Endpoints(),
 		&failingKPAMetrics{},
 		kpaScaler,

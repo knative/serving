@@ -87,6 +87,7 @@ func main() {
 	// Set up informers.
 	paInformer := servingInformerFactory.Autoscaling().V1alpha1().PodAutoscalers()
 	endpointsInformer := kubeInformerFactory.Core().V1().Endpoints()
+	serviceInformer := kubeInformerFactory.Core().V1().Services()
 	hpaInformer := kubeInformerFactory.Autoscaling().V1().HorizontalPodAutoscalers()
 
 	// Set up scalers.
@@ -96,7 +97,7 @@ func main() {
 	kpaScaler := kpa.NewKPAScaler(opt.ServingClientSet, opt.ScaleClientSet, logger, opt.ConfigMapWatcher)
 
 	controllers := []*controller.Impl{
-		kpa.NewController(&opt, paInformer, endpointsInformer, multiScaler, kpaScaler, dynConfig),
+		kpa.NewController(&opt, paInformer, serviceInformer, endpointsInformer, multiScaler, kpaScaler, dynConfig),
 		hpa.NewController(&opt, paInformer, hpaInformer),
 	}
 

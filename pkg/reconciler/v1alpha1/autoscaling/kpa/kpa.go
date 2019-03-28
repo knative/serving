@@ -21,6 +21,8 @@ import (
 	"fmt"
 	"reflect"
 
+	"go.uber.org/zap"
+
 	"github.com/knative/pkg/controller"
 	"github.com/knative/pkg/logging"
 	"github.com/knative/serving/pkg/apis/autoscaling"
@@ -31,7 +33,8 @@ import (
 	listers "github.com/knative/serving/pkg/client/listers/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/autoscaling/kpa/resources"
-	"go.uber.org/zap"
+
+	autoscalingapi "k8s.io/api/autoscaling/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -63,10 +66,13 @@ type KPAMetrics interface {
 	Update(ctx context.Context, metric *autoscaler.Metric) (*autoscaler.Metric, error)
 }
 
-// KPAScaler knows how to scale the targets of kpa-class PodAutoscalers.
+// KPAScaler knows how to scale the targets of KPA-Class PodAutoscalers.
 type KPAScaler interface {
 	// Scale attempts to scale the given PA's target to the desired scale.
 	Scale(ctx context.Context, pa *pav1alpha1.PodAutoscaler, desiredScale int32) (int32, error)
+
+	// GetScale returns the current scale resource for the PA.
+	GetScale(ctx context.Context, pa *pav1alpha1.PodAutoscaler) (*autoscalingapi.Scale, error)
 }
 
 // Reconciler tracks PAs and right sizes the ScaleTargetRef based on the
@@ -114,9 +120,14 @@ func NewController(
 		Handler:    reconciler.Handler(impl.Enqueue),
 	})
 
-	serviceInformer.Informer().AddEventHandler()
 	endpointsInformer.Informer().AddEventHandler(
 		reconciler.Handler(impl.EnqueueLabelOfNamespaceScopedResource("", autoscaling.KPALabelKey)))
+
+	// Watch all the services that we have created.
+	serviceInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+		FilterFunc: controller.Filter(pav1alpha1.SchemeGroupVersion.WithKind("PodAutoscaler")),
+		Handler:    reconciler.Handler(impl.EnqueueControllerOf),
+	})
 
 	// Have the KPAMetrics enqueue the PAs whose metrics have changed.
 	kpaMetrics.Watch(impl.EnqueueKey)
