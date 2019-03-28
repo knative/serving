@@ -31,7 +31,7 @@ type syncFileWriter struct {
 
 // NewSyncFileWriter returns an io.Writer that is backed by an os.File
 // and that syncronizes the writes to the file.
-// This is used to serialize writes to os.Stdout for request logs.
+// This is suitable for use with non-threadsafe writers, e.g. os.Stdout.
 func NewSyncFileWriter(file *os.File) io.Writer {
 	return &syncFileWriter{file, sync.Mutex{}}
 }
