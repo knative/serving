@@ -1,5 +1,5 @@
 /*
-Copyright 2018 The Knative Authors
+Copyright 2019 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -26,6 +26,8 @@ import (
 	"os"
 	"strings"
 	"time"
+
+	"github.com/knative/serving/pkg/utils"
 
 	"github.com/knative/pkg/signals"
 
@@ -154,7 +156,6 @@ func probeUserContainer() bool {
 
 func handler(w http.ResponseWriter, r *http.Request) {
 	proxy := proxyForRequest(r)
-
 	ph := knativeProbeHeader(r)
 	switch {
 	case ph != "":
@@ -192,7 +193,6 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	} else {
 		proxy.ServeHTTP(w, r)
 	}
-
 }
 
 // Sets up /health and /wait-for-drain endpoints.
@@ -272,10 +272,10 @@ func main() {
 		Handler: createAdminHandlers(),
 	}
 
-	server = h2c.NewServer(
-		fmt.Sprintf(":%d", v1alpha1.RequestQueuePort),
-		queue.TimeToFirstByteTimeoutHandler(http.HandlerFunc(handler),
-			time.Duration(revisionTimeoutSeconds)*time.Second, "request timeout"))
+	timeoutHandler := queue.TimeToFirstByteTimeoutHandler(http.HandlerFunc(handler),
+		time.Duration(revisionTimeoutSeconds)*time.Second, "request timeout")
+	composedHandler := pushRequestLogHandler(timeoutHandler)
+	server = h2c.NewServer(fmt.Sprintf(":%d", v1alpha1.RequestQueuePort), composedHandler)
 
 	errChan := make(chan error, 2)
 	defer close(errChan)
@@ -300,7 +300,6 @@ func main() {
 		os.Exit(1)
 	case <-signals.SetupSignalHandler():
 		logger.Info("Received TERM signal, attempting to gracefully shutdown servers.")
-
 		healthState.Shutdown(func() {
 			// Give istio time to sync our "not ready" state
 			time.Sleep(quitSleepDuration)
@@ -312,8 +311,27 @@ func main() {
 			}
 		})
 
+		// Flush both stdout and stderr - they are used for both logging and
+		// writing request logs.
+		os.Stdout.Sync()
+		os.Stderr.Sync()
+
 		if err := adminServer.Shutdown(context.Background()); err != nil {
 			logger.Errorw("Failed to shutdown admin-server", zap.Error(err))
 		}
 	}
+}
+
+func pushRequestLogHandler(currentHandler http.Handler) http.Handler {
+	templ := os.Getenv("SERVING_REQUEST_LOG_TEMPLATE")
+	if templ == "" {
+		return currentHandler
+	}
+
+	handler, err := queue.NewRequestLogHandler(currentHandler, utils.NewSyncFileWriter(os.Stdout), templ)
+	if err != nil {
+		logger.Errorw("Error setting up request logger. Request logs will be unavailable.", zap.Error(err))
+		return currentHandler
+	}
+	return handler
 }

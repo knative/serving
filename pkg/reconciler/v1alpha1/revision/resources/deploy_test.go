@@ -96,11 +96,19 @@ var (
 				FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 			},
 		}, {
+			Name: "SERVING_POD_IP",
+			ValueFrom: &corev1.EnvVarSource{
+				FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
+			},
+		}, {
 			Name: "SERVING_LOGGING_CONFIG",
 			// No logging configuration
 		}, {
 			Name: "SERVING_LOGGING_LEVEL",
 			// No logging level
+		}, {
+			Name:  "SERVING_REQUEST_LOG_TEMPLATE",
+			Value: "",
 		}, {
 			Name:  "USER_PORT",
 			Value: "8080",
