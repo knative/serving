@@ -153,45 +153,6 @@ func (ks *scaler) Scale(ctx context.Context, pa *pav1alpha1.PodAutoscaler, desir
 		desiredScale = newScale
 	}
 
-	if desiredScale == 0 {
-		// We should only scale to zero when both of the following conditions are true:
-		//   a) The PA has been active for atleast the stable window, after which it gets marked inactive
-		//   b) The PA has been inactive for atleast the grace period
-
-		config := ks.getAutoscalerConfig()
-
-		if pa.Status.IsActivating() { // Active=Unknown
-			// Don't scale-to-zero during activation
-			desiredScale = scaleUnknown
-		} else if pa.Status.IsReady() { // Active=True
-			// Don't scale-to-zero if the PA is active
-
-			// Only let a revision be scaled to 0 if it's been active for at
-			// least the stable window's time.
-			if pa.Status.CanMarkInactive(config.StableWindow) {
-				return desiredScale, nil
-			}
-			// Otherwise, scale down to 1 until the idle period elapses
-			desiredScale = 1
-		} else { // Active=False
-			// Don't scale-to-zero if the grace period hasn't elapsed
-			if !pa.Status.CanScaleToZero(config.ScaleToZeroGracePeriod) {
-				return desiredScale, nil
-			}
-		}
-	}
-
-	// Scale from zero. When there are no metrics scale to 1.
-	if currentScale == 0 && desiredScale == scaleUnknown {
-		logger.Debugf("Scaling up from 0 to 1")
-		desiredScale = 1
-	}
-
-	if desiredScale < 0 {
-		logger.Debug("Metrics are not yet being collected.")
-		return desiredScale, nil
-	}
-
 	if desiredScale == currentScale {
 		return desiredScale, nil
 	}

@@ -24,7 +24,6 @@ import (
 	"github.com/knative/pkg/kmp"
 	"github.com/knative/pkg/logging"
 	"github.com/knative/pkg/logging/logkey"
-	kpav1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/config"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources"
@@ -148,18 +147,6 @@ func (c *Reconciler) reconcileKPA(ctx context.Context, rev *v1alpha1.Revision) e
 		return fmt.Errorf("Revision: %q does not own PodAutoscaler: %q", rev.Name, kpaName)
 	}
 
-	// Reflect the KPA status in our own.
-	cond := kpa.Status.GetCondition(kpav1alpha1.PodAutoscalerConditionReady)
-	switch {
-	case cond == nil:
-		rev.Status.MarkActivating("Deploying", "")
-	case cond.Status == corev1.ConditionUnknown:
-		rev.Status.MarkActivating(cond.Reason, cond.Message)
-	case cond.Status == corev1.ConditionFalse:
-		rev.Status.MarkInactive(cond.Reason, cond.Message)
-	case cond.Status == corev1.ConditionTrue:
-		rev.Status.MarkActive()
-	}
 	return nil
 }
 

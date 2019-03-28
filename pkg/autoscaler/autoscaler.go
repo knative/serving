@@ -109,8 +109,10 @@ type Autoscaler struct {
 	target      float64
 
 	// statsMutex guards the elements in the block below.
-	statsMutex sync.Mutex
-	bucketed   map[time.Time]statsBucket
+	statsMutex      sync.Mutex
+	bucketed        map[time.Time]statsBucket
+	keepAliveTicked time.Time
+	keepAliveTimes  int
 }
 
 // New creates a new instance of autoscaler
@@ -132,6 +134,8 @@ func New(
 		target:          target,
 		bucketed:        make(map[time.Time]statsBucket),
 		reporter:        reporter,
+		keepAliveTicked: time.Now(),
+		keepAliveTimes:  3,
 	}, nil
 }
 
@@ -191,6 +195,27 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (int32, bool) {
 	// The scaling up rate is limited to the MaxScaleUpRate.
 	desiredStablePodCount := a.podCountLimited(math.Ceil(observedStableConcurrency/target), readyPodsCount)
 	desiredPanicPodCount := a.podCountLimited(math.Ceil(observedPanicConcurrency/target), readyPodsCount)
+
+	//// Do nothing when we have no data.
+	if len(a.bucketed) == 0 {
+		logger.Debug("No data to scale on.")
+		return 0, false
+	}
+
+	if observedStableConcurrency > 0.0 {
+		logger.Infof("reset keepAliveTimes")
+		a.keepAliveTimes = 3
+		a.keepAliveTicked = now
+	} else if a.keepAliveTicked.Add(config.StableWindow).Before(now) {
+		logger.Infof("beat the stat to start a new stable window")
+		a.keepAliveTimes--
+		a.keepAliveTicked = now
+	}
+
+	if observedStableConcurrency == 0.0 && a.keepAliveTimes > 0 {
+		logger.Infof("keep the last pod for %d * stable window time", a.keepAliveTimes)
+		return 1, true
+	}
 
 	a.reporter.ReportStableRequestConcurrency(observedStableConcurrency)
 	a.reporter.ReportPanicRequestConcurrency(observedPanicConcurrency)

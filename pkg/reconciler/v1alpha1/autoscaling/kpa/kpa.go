@@ -271,18 +271,6 @@ func (c *Reconciler) reconcile(ctx context.Context, pa *pav1alpha1.PodAutoscaler
 		reporter.ReportRequestedPodCount(int64(want))
 	}
 
-	switch {
-	case want == 0:
-		pa.Status.MarkInactive("NoTraffic", "The target is not receiving traffic.")
-
-	case got == 0 && want != 0:
-		pa.Status.MarkActivating(
-			"Queued", "Requests to the target are being buffered as resources are provisioned.")
-
-	case got > 0:
-		pa.Status.MarkActive()
-	}
-
 	pa.Status.ObservedGeneration = pa.Generation
 	return nil
 }
