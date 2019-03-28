@@ -132,11 +132,11 @@ func (s *ServiceScraper) Scrape(ctx context.Context, statsCh chan<- *StatMessage
 	}
 
 	stat, err := s.scrapeViaURL()
-	logger.Errorf("#### METRICS: %+v ERROR: %+v", stat, err)
 	if err != nil {
 		logger.Errorw("Failed to get metrics", zap.Error(err))
 		return
 	}
+	logger.Debugf("Metrics: %+v", stat)
 
 	// Assume traffic is route to pods evenly. A particular pod can stand for
 	// other pods, i.e. other pods have similar concurrency and QPS.
