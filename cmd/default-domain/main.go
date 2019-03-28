@@ -26,6 +26,7 @@ import (
 	"go.uber.org/zap"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 
@@ -45,7 +46,9 @@ var (
 const (
 	// Interval to poll for objects.
 	pollInterval = 10 * time.Second
-	appName      = "default-domain"
+	// How long to wait for objects.
+	waitTimeout = 20 * time.Minute
+	appName     = "default-domain"
 )
 
 func kubeClientFromFlags() (*kubernetes.Clientset, error) {
@@ -60,16 +63,17 @@ func kubeClientFromFlags() (*kubernetes.Clientset, error) {
 	return kubeClient, nil
 }
 
-func waitForConfigMap(kubeClient *kubernetes.Clientset, name string) (*corev1.ConfigMap, error) {
-	logger := logging.FromContext(context.TODO()).Named(appName)
-	for {
-		cm, err := kubeClient.CoreV1().ConfigMaps(system.Namespace()).Get(name, metav1.GetOptions{})
+func waitForConfigMap(kubeClient *kubernetes.Clientset, name string) (cm *corev1.ConfigMap, waitErr error) {
+	logger := logging.FromContext(context.Background()).Named(appName)
+	waitErr = wait.PollImmediate(pollInterval, waitTimeout, func() (done bool, err error) {
+		cm, err = kubeClient.CoreV1().ConfigMaps(system.Namespace()).Get(name, metav1.GetOptions{})
 		if err == nil || !apierrs.IsNotFound(err) {
-			return cm, err
+			return true, err
 		}
 		logger.Infof("Failed looking up ConfigMap %q, retrying: %v", name, err)
-		time.Sleep(pollInterval)
-	}
+		return false, nil
+	})
+	return cm, waitErr
 }
 
 func lookupIngressGateway(kubeClient *kubernetes.Clientset) (*corev1.Service, error) {
@@ -99,20 +103,17 @@ func lookupIngressGatewayAddress(kubeClient *kubernetes.Clientset) (*corev1.Load
 	if err != nil {
 		return nil, fmt.Errorf("Error looking up IngressGateway: %v", err)
 	}
-	// Walk the list of Ingress entries in the Service's LoadBalancer status
-	// and find the first with an assigned IP address.
-	var ip *corev1.LoadBalancerIngress
+	// Walk the list of Ingress entries in the Service's LoadBalancer status.
+	// If one of IP address is found, return it.  Otherwise, keep one with
+	// a hostname assigned, if any.
 	var hostname *corev1.LoadBalancerIngress
 	for i, ing := range svc.Status.LoadBalancer.Ingress {
 		if ing.IP != "" {
-			ip = &svc.Status.LoadBalancer.Ingress[i]
+			return &svc.Status.LoadBalancer.Ingress[i], nil
 		}
 		if ing.Hostname != "" {
 			hostname = &svc.Status.LoadBalancer.Ingress[i]
 		}
-	}
-	if ip != nil {
-		return ip, nil
 	}
 	if hostname != nil {
 		return hostname, nil
@@ -121,21 +122,22 @@ func lookupIngressGatewayAddress(kubeClient *kubernetes.Clientset) (*corev1.Load
 		svc.Namespace, svc.Name)
 }
 
-func waitForIngressGatewayAddress(kubeclient *kubernetes.Clientset) *corev1.LoadBalancerIngress {
-	logger := logging.FromContext(context.TODO()).Named(appName)
-	for {
-		a, err := lookupIngressGatewayAddress(kubeclient)
+func waitForIngressGatewayAddress(kubeclient *kubernetes.Clientset) (addr *corev1.LoadBalancerIngress, waitErr error) {
+	logger := logging.FromContext(context.Background()).Named(appName)
+	waitErr = wait.PollImmediate(pollInterval, waitTimeout, func() (done bool, err error) {
+		addr, err = lookupIngressGatewayAddress(kubeclient)
 		if err == nil {
-			return a
+			return true, nil
 		}
 		logger.Infof("Failed lookup IngressGateway, retrying: %v", err)
-		time.Sleep(pollInterval)
-	}
+		return false, nil
+	})
+	return addr, waitErr
 }
 
 func main() {
 	flag.Parse()
-	logger := logging.FromContext(context.TODO()).Named(appName)
+	logger := logging.FromContext(context.Background()).Named(appName)
 
 	kubeClient, err := kubeClientFromFlags()
 	if err != nil {
@@ -159,7 +161,10 @@ func main() {
 	}
 
 	// Look up the address for IngressGateway.
-	address := waitForIngressGatewayAddress(kubeClient)
+	address, err := waitForIngressGatewayAddress(kubeClient)
+	if err != nil {
+		logger.Fatalw("Error waiting for IngressGateway address")
+	}
 	if address.IP == "" {
 		logger.Info("IngressGateway has domain instead of IP address -- leaving default domain config intact")
 		return
@@ -172,8 +177,7 @@ func main() {
 	// and send it back to the API server.
 	domain := fmt.Sprintf("%s.%s", address.IP, *magicDNS)
 	domainCM.Data[domain] = ""
-	_, err = kubeClient.CoreV1().ConfigMaps(system.Namespace()).Update(domainCM)
-	if err != nil {
+	if _, err = kubeClient.CoreV1().ConfigMaps(system.Namespace()).Update(domainCM); err != nil {
 		logger.Fatalw("Error updating ConfigMap", zap.Error(err))
 	}
 
