@@ -15,11 +15,11 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  generateName: default-domain
   name: default-domain
   namespace: knative-serving
   labels:
     app: "default-domain"
+    networking.knative.dev/provider: "istio"
 spec:
   template:
     metadata:
@@ -39,5 +39,19 @@ spec:
             valueFrom:
               fieldRef:
                 fieldPath: metadata.namespace
+        # We don't actually read these volume mounts, but using them
+        # to make sure the pod starts after the ConfigMaps exist.
+        volumeMounts:
+        - name: config-domain
+          mountPath: /etc/config-domain
+        - name: config-istio
+          mountPath: /etc/config-istio
+      volumes:
+        - name: config-domain
+          configMap:
+            name: config-domain
+        - name: config-istio
+          configMap:
+            name: config-istio
       restartPolicy: Never
   backoffLimit: 10

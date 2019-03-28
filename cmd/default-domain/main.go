@@ -24,7 +24,6 @@ import (
 	"time"
 
 	"go.uber.org/zap"
-	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
@@ -63,22 +62,13 @@ func kubeClientFromFlags() (*kubernetes.Clientset, error) {
 	return kubeClient, nil
 }
 
-func waitForConfigMap(kubeClient *kubernetes.Clientset, name string) (cm *corev1.ConfigMap, waitErr error) {
-	logger := logging.FromContext(context.Background()).Named(appName)
-	waitErr = wait.PollImmediate(pollInterval, waitTimeout, func() (done bool, err error) {
-		cm, err = kubeClient.CoreV1().ConfigMaps(system.Namespace()).Get(name, metav1.GetOptions{})
-		if err == nil || !apierrs.IsNotFound(err) {
-			return true, err
-		}
-		logger.Infof("Failed looking up ConfigMap %q, retrying: %v", name, err)
-		return false, nil
-	})
-	return cm, waitErr
+func lookupConfigMap(kubeClient *kubernetes.Clientset, name string) (*corev1.ConfigMap, error) {
+	return kubeClient.CoreV1().ConfigMaps(system.Namespace()).Get(name, metav1.GetOptions{})
 }
 
 func lookupIngressGateway(kubeClient *kubernetes.Clientset) (*corev1.Service, error) {
 	// Fetch and parse the Istio-ClusterIngress ConfigMap from the system namespace.
-	istioCM, err := waitForConfigMap(kubeClient, cicfg.IstioConfigName)
+	istioCM, err := lookupConfigMap(kubeClient, cicfg.IstioConfigName)
 	if err != nil {
 		return nil, err
 	}
@@ -145,7 +135,7 @@ func main() {
 	}
 
 	// Fetch and parse the domain ConfigMap from the system namespace.
-	domainCM, err := waitForConfigMap(kubeClient, routecfg.DomainConfigName)
+	domainCM, err := lookupConfigMap(kubeClient, routecfg.DomainConfigName)
 	if err != nil {
 		logger.Fatalw("Error getting ConfigMap", zap.Error(err))
 	}
