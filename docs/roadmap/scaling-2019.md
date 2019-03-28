@@ -102,6 +102,19 @@ The current Knative integration with K8s HPA only supports CPU autoscaling. Howe
 
 **Project**: TBD
 
+## User Experience
+
+### Migrating Kubernetes Deployments to Knative
+
+We need documentation and examples to help Kubernetes users with existing Kubernetes Deployments migrate some of those to Knative to take advantage of request-based autoscaling and scale-to-zero.
+
+**Goal**: increase Knative adoption by making migration from Kubernetes Deployments simple
+
+**Key Steps**:
+1. Document why a user would want Knative's autoscaling instead of using the Kubernetes Horizontal Pod Autoscaler (HPA) without Knative. Especially if K8s HPA and Knative Autoscaler converge in implementation, describe the benefit to the user of moving to Knative autoscaling.
+2. Document what would make a Deployment ineligible to move to Knative without changes to the application - multiple containers in a pod, writable volumes, etc.
+3. Maintain an example of a Kubernetes Deployment that was converted to a Knative resource to take advantage of Knative autoscaling.
+
 ## What We Are Not Doing Yet
 
 ### Removing the Queue Proxy Sidecar
