@@ -245,6 +245,11 @@ func (c *Reconciler) reconcile(ctx context.Context, pa *pav1alpha1.PodAutoscaler
 		}
 	}
 
+	if err := c.reconcileMetricsService(ctx, pa); err != nil {
+		logger.Errorw("Error reconciling metrics service", zap.Error(err))
+		return err
+	}
+
 	logger.Infof("PA got=%v, want=%v", got, want)
 
 	var serviceLabel string
@@ -277,6 +282,10 @@ func (c *Reconciler) reconcile(ctx context.Context, pa *pav1alpha1.PodAutoscaler
 	}
 
 	pa.Status.ObservedGeneration = pa.Generation
+	return nil
+}
+
+func (c *Reconciler) reconcileMetricsService(ctx context.Context, pa *pav1alpha1.PodAutoscaler) error {
 	return nil
 }
 

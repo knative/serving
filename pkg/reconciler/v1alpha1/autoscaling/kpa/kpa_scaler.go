@@ -117,8 +117,7 @@ func scaleResourceArgs(pa *pav1alpha1.PodAutoscaler) (*schema.GroupResource, str
 		return nil, "", err
 	}
 	resource := apis.KindToResource(gv.WithKind(pa.Spec.ScaleTargetRef.Kind)).GroupResource()
-	resourceName := pa.Spec.ScaleTargetRef.Name
-	return &resource, resourceName, nil
+	return &resource, pa.Spec.ScaleTargetRef.Name, nil
 }
 
 // Scale attempts to scale the given PA's target reference to the desired scale.
