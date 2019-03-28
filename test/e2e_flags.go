@@ -45,8 +45,8 @@ type ServingEnvironmentFlags struct {
 func initializeServingFlags() *ServingEnvironmentFlags {
 	var f ServingEnvironmentFlags
 
-	flag.BoolVar(&f.ResolvableDomain, "resolvabledomain", true,
-		"Set this flag to false if you do not have a properly configured domain for your Route controller.")
+	flag.BoolVar(&f.ResolvableDomain, "resolvabledomain", false,
+		"Set this flag to true if you have configured the `domainSuffix` on your Route controller to a domain that will resolve to your test cluster.")
 
 	flag.Parse()
 	flag.Set("alsologtostderr", "true")
