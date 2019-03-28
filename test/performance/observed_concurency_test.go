@@ -148,10 +148,6 @@ func testConcurrencyN(t *testing.T, concurrency int) {
 	objs, err := test.CreateRunLatestServiceReady(t, clients, &names, &test.Options{
 		ContainerConcurrency: 1,
 		ContainerResources: corev1.ResourceRequirements{
-			Limits: corev1.ResourceList{
-				corev1.ResourceCPU:    resource.MustParse("10m"),
-				corev1.ResourceMemory: resource.MustParse("50Mi"),
-			},
 			Requests: corev1.ResourceList{
 				corev1.ResourceCPU:    resource.MustParse("10m"),
 				corev1.ResourceMemory: resource.MustParse("20Mi"),
