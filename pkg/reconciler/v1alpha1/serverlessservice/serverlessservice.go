@@ -27,7 +27,6 @@ import (
 	"github.com/knative/pkg/controller"
 	"github.com/knative/pkg/logging"
 	netv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
-	servingv1alpha1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions/networking/v1alpha1"
 	listers "github.com/knative/serving/pkg/client/listers/networking/v1alpha1"
 	rbase "github.com/knative/serving/pkg/reconciler"
@@ -92,7 +91,7 @@ func NewController(
 
 	// Watch all the services that we have created.
 	serviceInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
-		FilterFunc: controller.Filter(servingv1alpha1.SchemeGroupVersion.WithKind("ServerlessService")),
+		FilterFunc: controller.Filter(netv1alpha1.SchemeGroupVersion.WithKind("ServerlessService")),
 		Handler:    rbase.Handler(impl.EnqueueControllerOf),
 	})
 
