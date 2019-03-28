@@ -259,16 +259,9 @@ func SubServiceNameForTest(t *testing.T, subsvc string) string {
 // makeK8sNamePrefix converts each chunk of non-alphanumeric character into a single dash
 // and also convert camelcase tokens into dash-delimited lowercase tokens.
 func makeK8sNamePrefix(s string) string {
-	// First, replace things like "GRPC" to "Grpc" to be one camel-case token.
-	// This makes sure we turn GRPC into "grpc" and not "g-r-p-c".
-	sanitized := s
-	for orig, new := range map[string]string{"GRPC": "Grpc"} {
-		sanitized = strings.ReplaceAll(sanitized, orig, new)
-	}
-	// Convert camelcase tokens into dash-delimited lowercase tokens.
 	var sb strings.Builder
 	newToken := false
-	for _, c := range sanitized {
+	for _, c := range s {
 		if !(unicode.IsLetter(c) || unicode.IsNumber(c)) {
 			newToken = true
 			continue
