@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"reflect"
 
+	"fortio.org/fortio/log"
 	"go.uber.org/zap"
 
 	"github.com/knative/pkg/controller"
@@ -38,6 +39,8 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	corev1informers "k8s.io/client-go/informers/core/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
@@ -286,6 +289,54 @@ func (c *Reconciler) reconcile(ctx context.Context, pa *pav1alpha1.PodAutoscaler
 }
 
 func (c *Reconciler) reconcileMetricsService(ctx context.Context, pa *pav1alpha1.PodAutoscaler) error {
+	logger := logging.FromContext(ctx)
+
+	scale, err := c.kpaScaler.GetScale(ctx, pa)
+	if err != nil {
+		logger.Errorw("Error Getting scale", zap.Error(err))
+		return err
+	}
+	selector, err := labels.ConvertSelectorToLabelsMap(scale.Status.Selector)
+	if err != nil {
+		logger.Errorw(fmt.Sprintf("Error parsing selector string %q", scale.Status.Selector), zap.Error(err))
+		return err
+	}
+	logger.Infof("### PA %s selector: %v", pa.Name, selector)
+
+	sn := resources.MetricsServiceName(pa)
+	// svc, err := c.serviceLister.Services(pa.Namespace).Get(sn)
+	svc, err := c.KubeClientSet.CoreV1().Services(pa.Namespace).Get(sn, metav1.GetOptions{})
+	if errors.IsNotFound(err) {
+		logger.Infof("K8s service %q does not exist; creating.", sn)
+
+		svc = resources.MakeMetricsService(pa, selector)
+		_, err := c.KubeClientSet.CoreV1().Services(pa.Namespace).Create(svc)
+		if err != nil {
+			logger.Errorw(fmt.Sprintf("Error creating K8s Service %s: ", sn), zap.Error(err))
+			return err
+		}
+		logger.Infof("Created K8s service: %q", sn)
+	} else if err != nil {
+		logger.Errorw(fmt.Sprintf("Error getting K8s Service %s: ", sn), zap.Error(err))
+		return err
+	} else if !metav1.IsControlledBy(svc, pa) {
+		pa.Status.MarkResourceNotOwned("MetricsService", sn)
+		return fmt.Errorf("KPA: %q does not own Service: %q", pa.Name, sn)
+	} else {
+		tmpl := resources.MakeMetricsService(pa, selector)
+		want := svc.DeepCopy()
+		want.Spec.Ports = tmpl.Spec.Ports
+		want.Spec.Selector = tmpl.Spec.Selector
+
+		if !equality.Semantic.DeepEqual(want.Spec, svc.Spec) {
+			log.Infof("Metrics K8s Service changed; reconciling: %s", sn)
+			if _, err = c.KubeClientSet.CoreV1().Services(pa.Namespace).Update(want); err != nil {
+				logger.Errorw(fmt.Sprintf("Error updating metrics K8s Service %s: ", sn), zap.Error(err))
+				return err
+			}
+		}
+	}
+	logger.Debugf("Done reconciling metrics K8s service %s", sn)
 	return nil
 }
 

@@ -24,19 +24,27 @@ import (
 	"github.com/knative/serving/pkg/utils"
 )
 
-const suffix = "-service"
+const (
+	serviceSuffix = "-service"
+	metrixSuffix  = "-metrics"
+)
 
 // GetK8sServiceFullname returns service full name
 func GetK8sServiceFullname(name string, namespace string) string {
 	return fmt.Sprintf("%s.%s.svc.%s", name, namespace, utils.GetClusterDomainName())
 }
 
+// GetMetricsK8SServiceNameForObj returns the metrics name for the object
+func GetMetricsK8SServiceNameForObj(name string) string {
+	return name + metrixSuffix
+}
+
 // GetServingK8SServiceNameForObj returns the service name for the object
 func GetServingK8SServiceNameForObj(name string) string {
-	return name + suffix
+	return name + serviceSuffix
 }
 
 // GetServingRevisionNameForK8sService returns the revision name from the service name
 func GetServingRevisionNameForK8sService(name string) string {
-	return strings.TrimSuffix(name, suffix)
+	return strings.TrimSuffix(name, serviceSuffix)
 }

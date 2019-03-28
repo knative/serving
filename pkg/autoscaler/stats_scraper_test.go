@@ -35,7 +35,7 @@ const (
 	testService   = "test-revision-service"
 	testNamespace = "test-namespace"
 	testKPAKey    = "test-namespace/test-revision"
-	testURL       = "http://test-revision-service.test-namespace:9090/metrics"
+	testURL       = "http://test-revision-metrics.test-namespace:9090/metrics"
 
 	testAverageConcurrencyContext = `# HELP queue_average_concurrent_requests Number of requests currently being handled by this pod
 # TYPE queue_average_concurrent_requests gauge
@@ -164,12 +164,12 @@ func TestScrapeViaURL_ErrorCases(t *testing.T) {
 	}{{
 		name:         "Non 200 return code",
 		responseCode: http.StatusForbidden,
-		expectedErr:  `GET request for URL "http://test-revision-service.test-namespace:9090/metrics" returned HTTP status 403`,
+		expectedErr:  `GET request for URL "http://test-revision-metrics.test-namespace:9090/metrics" returned HTTP status 403`,
 	}, {
 		name:         "Error got when sending request",
 		responseCode: http.StatusOK,
 		responseErr:  errors.New("upstream closed"),
-		expectedErr:  "Get http://test-revision-service.test-namespace:9090/metrics: upstream closed",
+		expectedErr:  "Get http://test-revision-metrics.test-namespace:9090/metrics: upstream closed",
 	}, {
 		name:            "Bad response context format",
 		responseCode:    http.StatusOK,
@@ -205,7 +205,7 @@ func TestScrapeViaURL_ErrorCases(t *testing.T) {
 		}
 		if _, err := scraper.scrapeViaURL(); err != nil {
 			if err.Error() != test.expectedErr {
-				t.Errorf("Got error message: %v. Want: %v", err.Error(), test.expectedErr)
+				t.Errorf("Got error message: %q, want: %q", err.Error(), test.expectedErr)
 			}
 		} else {
 			t.Errorf("Expected error from newServiceScraperWithClient, got nil")

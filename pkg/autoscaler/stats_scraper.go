@@ -104,7 +104,7 @@ func newServiceScraperWithClient(
 		return nil, fmt.Errorf("no Revision label found for Metric %s", metric.Name)
 	}
 
-	serviceName := reconciler.GetServingK8SServiceNameForObj(revName)
+	serviceName := reconciler.GetMetricsK8SServiceNameForObj(revName)
 	return &ServiceScraper{
 		httpClient:      httpClient,
 		endpointsLister: endpointsInformer.Lister(),
@@ -115,8 +115,8 @@ func newServiceScraperWithClient(
 	}, nil
 }
 
-// Scrape call the destination service then send it
-// to the given stats chanel
+// Scrape calls the destination service then sends it
+// to the given stats channel.
 func (s *ServiceScraper) Scrape(ctx context.Context, statsCh chan<- *StatMessage) {
 	logger := logging.FromContext(ctx)
 
@@ -132,6 +132,7 @@ func (s *ServiceScraper) Scrape(ctx context.Context, statsCh chan<- *StatMessage
 	}
 
 	stat, err := s.scrapeViaURL()
+	logger.Errorf("#### METRICS: %+v ERROR: %+v", stat, err)
 	if err != nil {
 		logger.Errorw("Failed to get metrics", zap.Error(err))
 		return
