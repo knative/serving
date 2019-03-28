@@ -123,7 +123,7 @@ func (a *ActivationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				}
 				defer probeResp.Body.Close()
 				httpStatus = probeResp.StatusCode
-				if httpStatus == http.StatusServiceUnavailable {
+				if httpStatus != http.StatusOK {
 					logger.Warnf("Pod probe sent status: %d", httpStatus)
 					return false, nil
 				}
