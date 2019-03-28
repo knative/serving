@@ -64,12 +64,19 @@ func TestRequestLogHandler(t *testing.T) {
 		template: "{{}}",
 		want:     "",
 		wantErr:  true,
+	}, {
+		name:     "revision info",
+		url:      "http://example.com",
+		body:     "test",
+		template: "{{.Revision.Name}}, {{.Revision.Namespace}}, {{.Revision.Service}}, {{.Revision.Configuration}}, {{.Revision.PodName}}, {{.Revision.PodIP}}",
+		want:     "rev, ns, svc, cfg, pn, ip\n",
+		wantErr:  false,
 	}}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			buf := bytes.NewBufferString("")
-			handler, err := NewRequestLogHandler(baseHandler, buf, test.template)
+			handler, err := NewRequestLogHandler(baseHandler, buf, test.template, "ns", "svc", "cfg", "rev", "pn", "ip")
 			if test.wantErr != (err != nil) {
 				t.Errorf("got %v, want error %v", err, test.wantErr)
 			}
@@ -93,7 +100,7 @@ func TestPanickingHandler(t *testing.T) {
 		panic("no!")
 	})
 	buf := bytes.NewBufferString("")
-	handler, err := NewRequestLogHandler(baseHandler, buf, "{{.Request.URL}}")
+	handler, err := NewRequestLogHandler(baseHandler, buf, "{{.Request.URL}}", "ns", "svc", "cfg", "rev", "pn", "ip")
 	if err != nil {
 		t.Errorf("got %v, want error: %v", err, false)
 	}
@@ -119,7 +126,7 @@ func TestFailedTemplateExecution(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	})
 	buf := bytes.NewBufferString("")
-	handler, err := NewRequestLogHandler(baseHandler, buf, "{{.Request.Something}}")
+	handler, err := NewRequestLogHandler(baseHandler, buf, "{{.Request.Something}}", "ns", "svc", "cfg", "rev", "pn", "ip")
 	if err != nil {
 		t.Errorf("got %v, wantErr %v, ", err, false)
 	}

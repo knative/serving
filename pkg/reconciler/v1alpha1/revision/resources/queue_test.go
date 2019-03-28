@@ -25,6 +25,7 @@ import (
 	"github.com/knative/pkg/logging"
 	"github.com/knative/pkg/system"
 	_ "github.com/knative/pkg/system/testing"
+	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/autoscaler"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/config"
@@ -77,6 +78,9 @@ func TestMakeQueueContainer(t *testing.T) {
 			Env: []corev1.EnvVar{{
 				Name:  "SERVING_NAMESPACE",
 				Value: "foo", // matches namespace
+			}, {
+				Name:  "SERVING_SERVICE",
+				Value: "", // not set in the labels
 			}, {
 				Name: "SERVING_CONFIGURATION",
 				// No OwnerReference
@@ -157,6 +161,9 @@ func TestMakeQueueContainer(t *testing.T) {
 				Name:  "SERVING_NAMESPACE",
 				Value: "foo", // matches namespace
 			}, {
+				Name:  "SERVING_SERVICE",
+				Value: "", // not set in the labels
+			}, {
 				Name: "SERVING_CONFIGURATION",
 				// No OwnerReference
 			}, {
@@ -202,6 +209,90 @@ func TestMakeQueueContainer(t *testing.T) {
 			}},
 		},
 	}, {
+		name: "service name in labels",
+		rev: &v1alpha1.Revision{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: "foo",
+				Name:      "bar",
+				UID:       "1234",
+				Labels: map[string]string{
+					serving.ServiceLabelKey: "svc",
+				},
+			},
+			Spec: v1alpha1.RevisionSpec{
+				ContainerConcurrency: 1,
+				TimeoutSeconds:       45,
+			},
+		},
+		lc: &logging.Config{},
+		oc: &config.Observability{},
+		ac: &autoscaler.Config{},
+		cc: &config.Controller{
+			QueueSidecarImage: "alpine",
+		},
+		userport: &corev1.ContainerPort{
+			Name:          userPortEnvName,
+			ContainerPort: v1alpha1.DefaultUserPort,
+		},
+		want: &corev1.Container{
+			// These are effectively constant
+			Name:           QueueContainerName,
+			Resources:      queueResources,
+			Ports:          queuePorts,
+			ReadinessProbe: queueReadinessProbe,
+			// These changed based on the Revision and configs passed in.
+			Image: "alpine",
+			Env: []corev1.EnvVar{{
+				Name:  "SERVING_NAMESPACE",
+				Value: "foo", // matches namespace
+			}, {
+				Name:  "SERVING_SERVICE",
+				Value: "svc", // matches service name
+			}, {
+				Name: "SERVING_CONFIGURATION",
+				// No OwnerReference
+			}, {
+				Name:  "SERVING_REVISION",
+				Value: "bar", // matches name
+			}, {
+				Name:  "SERVING_AUTOSCALER",
+				Value: "autoscaler", // no autoscaler configured.
+			}, {
+				Name:  "SERVING_AUTOSCALER_PORT",
+				Value: "8080",
+			}, {
+				Name:  "CONTAINER_CONCURRENCY",
+				Value: "1",
+			}, {
+				Name:  "REVISION_TIMEOUT_SECONDS",
+				Value: "45",
+			}, {
+				Name: "SERVING_POD",
+				ValueFrom: &corev1.EnvVarSource{
+					FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
+				},
+			}, {
+				Name: "SERVING_POD_IP",
+				ValueFrom: &corev1.EnvVarSource{
+					FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
+				},
+			}, {
+				Name: "SERVING_LOGGING_CONFIG",
+				// No logging configuration
+			}, {
+				Name: "SERVING_LOGGING_LEVEL",
+				// No logging level
+			}, {
+				Name:  "SERVING_REQUEST_LOG_TEMPLATE",
+				Value: "",
+			}, {
+				Name:  "USER_PORT",
+				Value: strconv.Itoa(v1alpha1.DefaultUserPort),
+			}, {
+				Name:  "SYSTEM_NAMESPACE",
+				Value: system.Namespace(),
+			}},
+		}}, {
 		name: "config owner as env var, multi-concurrency",
 		rev: &v1alpha1.Revision{
 			ObjectMeta: metav1.ObjectMeta{
@@ -239,6 +330,9 @@ func TestMakeQueueContainer(t *testing.T) {
 			Env: []corev1.EnvVar{{
 				Name:  "SERVING_NAMESPACE",
 				Value: "baz", // matches namespace
+			}, {
+				Name:  "SERVING_SERVICE",
+				Value: "", // not set in the labels
 			}, {
 				Name:  "SERVING_CONFIGURATION",
 				Value: "the-parent-config-name",
@@ -321,6 +415,9 @@ func TestMakeQueueContainer(t *testing.T) {
 				Name:  "SERVING_NAMESPACE",
 				Value: "log", // matches namespace
 			}, {
+				Name:  "SERVING_SERVICE",
+				Value: "", // not set in the labels
+			}, {
 				Name: "SERVING_CONFIGURATION",
 				// No Configuration owner.
 			}, {
@@ -397,6 +494,9 @@ func TestMakeQueueContainer(t *testing.T) {
 				Name:  "SERVING_NAMESPACE",
 				Value: "foo", // matches namespace
 			}, {
+				Name:  "SERVING_SERVICE",
+				Value: "", // not set in the labels
+			}, {
 				Name: "SERVING_CONFIGURATION",
 				// No OwnerReference
 			}, {
@@ -471,6 +571,9 @@ func TestMakeQueueContainer(t *testing.T) {
 			Env: []corev1.EnvVar{{
 				Name:  "SERVING_NAMESPACE",
 				Value: "foo", // matches namespace
+			}, {
+				Name:  "SERVING_SERVICE",
+				Value: "", // not set in the labels
 			}, {
 				Name: "SERVING_CONFIGURATION",
 				// No OwnerReference

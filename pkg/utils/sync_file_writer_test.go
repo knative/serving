@@ -25,7 +25,7 @@ import (
 func TestWrite(t *testing.T) {
 	file, err := ioutil.TempFile("", "sync_file_writer_test")
 	if err != nil {
-		t.Error("failed to create a temp file for the test")
+		t.Fatal("failed to create a temp file for the test")
 	}
 	defer os.Remove(file.Name())
 

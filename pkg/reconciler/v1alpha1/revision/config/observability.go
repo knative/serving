@@ -19,6 +19,7 @@ package config
 import (
 	"fmt"
 	"strings"
+	"text/template"
 
 	corev1 "k8s.io/api/core/v1"
 )
@@ -76,6 +77,9 @@ func NewObservabilityFromConfigMap(configMap *corev1.ConfigMap) (*Observability,
 	}
 
 	if rlt, ok := configMap.Data["logging.request-log-template"]; ok {
+		if _, err := template.New("requestLog").Parse(rlt); err != nil {
+			return nil, err
+		}
 		oc.RequestLogTemplate = rlt
 	}
 

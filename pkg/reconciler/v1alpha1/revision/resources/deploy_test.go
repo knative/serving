@@ -72,6 +72,9 @@ var (
 			Name:  "SERVING_NAMESPACE",
 			Value: "foo", // matches namespace
 		}, {
+			Name:  "SERVING_SERVICE",
+			Value: "svc", // matches service name
+		}, {
 			Name: "SERVING_CONFIGURATION",
 			// No OwnerReference
 		}, {
@@ -663,6 +666,7 @@ func TestMakePodSpec(t *testing.T) {
 			),
 			queueContainer(
 				withEnvVar("CONTAINER_CONCURRENCY", "1"),
+				withEnvVar("SERVING_SERVICE", ""),
 			),
 		}),
 	}}

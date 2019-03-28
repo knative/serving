@@ -96,6 +96,19 @@ func TestObservabilityConfiguration(t *testing.T) {
 				"logging.enable-var-log-collection": "true",
 			},
 		},
+	}, {
+		name:           "invalid request log template",
+		wantErr:        true,
+		wantController: (*Observability)(nil),
+		config: &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: system.Namespace(),
+				Name:      ObservabilityConfigName,
+			},
+			Data: map[string]string{
+				"logging.request-log-template": `{{ something }}`,
+			},
+		},
 	}}
 
 	for _, tt := range observabilityConfigTests {

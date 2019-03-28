@@ -23,6 +23,7 @@ import (
 
 	"github.com/knative/pkg/logging"
 	"github.com/knative/pkg/system"
+	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/autoscaler"
 	"github.com/knative/serving/pkg/queue"
@@ -75,6 +76,7 @@ func makeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, o
 	if owner := metav1.GetControllerOf(rev); owner != nil && owner.Kind == "Configuration" {
 		configName = owner.Name
 	}
+	serviceName := rev.Labels[serving.ServiceLabelKey]
 
 	autoscalerAddress := "autoscaler"
 	userPort := getUserPort(rev)
@@ -93,6 +95,9 @@ func makeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, o
 		Env: []corev1.EnvVar{{
 			Name:  "SERVING_NAMESPACE",
 			Value: rev.Namespace,
+		}, {
+			Name:  "SERVING_SERVICE",
+			Value: serviceName,
 		}, {
 			Name:  "SERVING_CONFIGURATION",
 			Value: configName,

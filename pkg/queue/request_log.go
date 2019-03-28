@@ -25,17 +25,39 @@ import (
 	"time"
 
 	pkghttp "github.com/knative/serving/pkg/http"
-	"github.com/knative/serving/pkg/utils"
 )
+
+type revInfo struct {
+	Name          string
+	Namespace     string
+	Service       string
+	Configuration string
+	PodName       string
+	PodIP         string
+}
+
+type respInfo struct {
+	Code    int
+	Size    int
+	Latency float64
+}
+
+type templateInput struct {
+	Request  *http.Request
+	Response *respInfo
+	Revision *revInfo
+}
 
 type requestLogHandler struct {
 	handler  http.Handler
 	writer   io.Writer
 	template *template.Template
+	revision *revInfo
 }
 
 // NewRequestLogHandler creates an http.Handler that logs request logs to an io.Writer.
-func NewRequestLogHandler(h http.Handler, w io.Writer, templateStr string) (http.Handler, error) {
+func NewRequestLogHandler(h http.Handler, w io.Writer, templateStr string,
+	ns, svc, config, rev, podName, podIP string) (http.Handler, error) {
 	// Make sure that the template ends with a newline. Otherwise,
 	// logging backends will not be able to parse entries separately.
 	if !strings.HasSuffix(templateStr, "\n") {
@@ -43,8 +65,7 @@ func NewRequestLogHandler(h http.Handler, w io.Writer, templateStr string) (http
 	}
 
 	// Expose a function to give access to cached environment variables within the template
-	funcMap := template.FuncMap{"env": utils.GetCachedEnv}
-	template, err := template.New("requestLog").Funcs(funcMap).Parse(templateStr)
+	template, err := template.New("requestLog").Parse(templateStr)
 	if err != nil {
 		return nil, err
 	}
@@ -53,14 +74,15 @@ func NewRequestLogHandler(h http.Handler, w io.Writer, templateStr string) (http
 		handler:  h,
 		writer:   w,
 		template: template,
+		revision: &revInfo{
+			Name:          rev,
+			Namespace:     ns,
+			Service:       svc,
+			Configuration: config,
+			PodName:       podName,
+			PodIP:         podIP,
+		},
 	}, nil
-}
-
-type templateInput struct {
-	Request         *http.Request
-	ResponseLatency float64
-	ResponseCode    int
-	ResponseSize    int
 }
 
 func (h *requestLogHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -71,11 +93,11 @@ func (h *requestLogHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		err := recover()
 		latency := time.Since(startTime).Seconds()
 		if err != nil {
-			t := &templateInput{r, latency, http.StatusInternalServerError, 0}
+			t := &templateInput{r, &respInfo{http.StatusInternalServerError, 0, latency}, h.revision}
 			h.writeRequestLog(t)
 			panic(err)
 		} else {
-			t := &templateInput{r, latency, rr.ResponseCode, (int)(rr.ResponseSize)}
+			t := &templateInput{r, &respInfo{rr.ResponseCode, (int)(rr.ResponseSize), latency}, h.revision}
 			h.writeRequestLog(t)
 		}
 	}()
@@ -86,6 +108,6 @@ func (h *requestLogHandler) writeRequestLog(t *templateInput) {
 	if err := h.template.Execute(h.writer, t); err != nil {
 		// Template execution failed. Write an error message with some basic information about the request.
 		fmt.Fprintf(h.writer, "Invalid request log template: method: %v, response code: %v, latency: %v, url: %v\n",
-			t.Request.Method, t.ResponseCode, t.ResponseLatency, t.Request.URL)
+			t.Request.Method, t.Response.Code, t.Response.Latency, t.Request.URL)
 	}
 }

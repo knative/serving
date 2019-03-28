@@ -32,7 +32,7 @@ func (w *fakeResponseWriter) Flush()                      {}
 
 var defaultHeader = http.Header{"item1": []string{"value1"}}
 
-func TestResponseCapture(t *testing.T) {
+func TestResponseRecorder(t *testing.T) {
 	tests := []struct {
 		name          string
 		initialStatus int

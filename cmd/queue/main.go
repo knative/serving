@@ -217,7 +217,7 @@ func main() {
 	flag.Parse()
 	logger, _ = logging.NewLogger(os.Getenv("SERVING_LOGGING_CONFIG"), os.Getenv("SERVING_LOGGING_LEVEL"))
 	logger = logger.Named("queueproxy")
-	defer logger.Sync()
+	defer flush(logger)
 
 	initEnv()
 	logger = logger.With(
@@ -306,6 +306,7 @@ func main() {
 	select {
 	case err := <-errChan:
 		logger.Errorw("Failed to bring up queue-proxy, shutting down.", zap.Error(err))
+		flush(logger)
 		os.Exit(1)
 	case <-signals.SetupSignalHandler():
 		logger.Info("Received TERM signal, attempting to gracefully shutdown servers.")
@@ -320,11 +321,7 @@ func main() {
 			}
 		})
 
-		// Flush both stdout and stderr - they are used for both logging and
-		// writing request logs.
-		os.Stdout.Sync()
-		os.Stderr.Sync()
-
+		flush(logger)
 		if err := adminServer.Shutdown(context.Background()); err != nil {
 			logger.Errorw("Failed to shutdown admin-server", zap.Error(err))
 		}
@@ -337,10 +334,19 @@ func pushRequestLogHandler(currentHandler http.Handler) http.Handler {
 		return currentHandler
 	}
 
-	handler, err := queue.NewRequestLogHandler(currentHandler, utils.NewSyncFileWriter(os.Stdout), templ)
+	handler, err := queue.NewRequestLogHandler(currentHandler, utils.NewSyncFileWriter(os.Stdout), templ,
+		os.Getenv("SERVING_NAMESPACE"), os.Getenv("SERVING_SERVICE"), os.Getenv("SERVING_CONFIGURATION"),
+		os.Getenv("SERVING_REVISION"), os.Getenv("SERVING_POD"), os.Getenv("SERVING_POD_IP"))
+
 	if err != nil {
 		logger.Errorw("Error setting up request logger. Request logs will be unavailable.", zap.Error(err))
 		return currentHandler
 	}
 	return handler
+}
+
+func flush(logger *zap.SugaredLogger) {
+	logger.Sync()
+	os.Stdout.Sync()
+	os.Stderr.Sync()
 }
