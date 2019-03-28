@@ -74,6 +74,7 @@ type KPAScaler interface {
 type Reconciler struct {
 	*reconciler.Base
 	paLister        listers.PodAutoscalerLister
+	serviceLister   corev1listers.ServiceLister
 	endpointsLister corev1listers.EndpointsLister
 	kpaMetrics      KPAMetrics
 	kpaScaler       KPAScaler
@@ -87,6 +88,7 @@ var _ controller.Reconciler = (*Reconciler)(nil)
 func NewController(
 	opts *reconciler.Options,
 	paInformer informers.PodAutoscalerInformer,
+	serviceInformer corev1informers.ServiceInformer,
 	endpointsInformer corev1informers.EndpointsInformer,
 	kpaMetrics KPAMetrics,
 	kpaScaler KPAScaler,
@@ -96,6 +98,7 @@ func NewController(
 	c := &Reconciler{
 		Base:            reconciler.NewBase(*opts, controllerAgentName),
 		paLister:        paInformer.Lister(),
+		serviceLister:   serviceInformer.Lister(),
 		endpointsLister: endpointsInformer.Lister(),
 		kpaMetrics:      kpaMetrics,
 		kpaScaler:       kpaScaler,
@@ -103,7 +106,7 @@ func NewController(
 	}
 	impl := controller.NewImpl(c, c.Logger, "KPA-Class Autoscaling", reconciler.MustNewStatsReporter("KPA-Class Autoscaling", c.Logger))
 
-	c.Logger.Info("Setting up kpa-class event handlers")
+	c.Logger.Info("Setting up KPA-Class event handlers")
 	// Handler PodAutoscalers missing the class annotation for backward compatibility.
 	onlyKpaClass := reconciler.AnnotationFilterFunc(autoscaling.ClassAnnotationKey, autoscaling.KPA, true)
 	paInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
@@ -111,6 +114,7 @@ func NewController(
 		Handler:    reconciler.Handler(impl.Enqueue),
 	})
 
+	serviceInformer.Informer().AddEventHandler()
 	endpointsInformer.Informer().AddEventHandler(
 		reconciler.Handler(impl.EnqueueLabelOfNamespaceScopedResource("", autoscaling.KPALabelKey)))
 
