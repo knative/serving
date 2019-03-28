@@ -2,9 +2,11 @@
 
 approvers:
 - productivity-approvers
+- serving-api-approvers
 
 reviewers:
 - productivity-reviewers
+- serving-api-approvers
 
 labels:
 - area/test-and-release
