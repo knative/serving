@@ -68,12 +68,12 @@ var cacheDisabledClient = &http.Client{
 // https://kubernetes.io/docs/concepts/services-networking/network-policies/
 // for details.
 type ServiceScraper struct {
-	httpClient      *http.Client
-	endpointsLister corev1listers.EndpointsLister
-	url             string
-	namespace       string
-	revisionService string
-	metricKey       string
+	httpClient          *http.Client
+	endpointsLister     corev1listers.EndpointsLister
+	url                 string
+	namespace           string
+	scrapeTargetService string
+	metricKey           string
 }
 
 // NewServiceScraper creates a new StatsScraper for the Revision which
@@ -106,12 +106,12 @@ func newServiceScraperWithClient(
 
 	serviceName := reconciler.GetMetricsK8SServiceNameForObj(revName)
 	return &ServiceScraper{
-		httpClient:      httpClient,
-		endpointsLister: endpointsInformer.Lister(),
-		url:             fmt.Sprintf("http://%s.%s:%d/metrics", serviceName, metric.Namespace, v1alpha1.RequestQueueMetricsPort),
-		metricKey:       NewMetricKey(metric.Namespace, metric.Name),
-		namespace:       metric.Namespace,
-		revisionService: reconciler.GetServingK8SServiceNameForObj(revName),
+		httpClient:          httpClient,
+		endpointsLister:     endpointsInformer.Lister(),
+		url:                 fmt.Sprintf("http://%s.%s:%d/metrics", serviceName, metric.Namespace, v1alpha1.RequestQueueMetricsPort),
+		metricKey:           NewMetricKey(metric.Namespace, metric.Name),
+		namespace:           metric.Namespace,
+		scrapeTargetService: reconciler.GetServingK8SServiceNameForObj(revName),
 	}, nil
 }
 
@@ -120,7 +120,7 @@ func newServiceScraperWithClient(
 func (s *ServiceScraper) Scrape(ctx context.Context, statsCh chan<- *StatMessage) {
 	logger := logging.FromContext(ctx)
 
-	readyPodsCount, err := readyPodsCountOfEndpoints(s.endpointsLister, s.namespace, s.revisionService)
+	readyPodsCount, err := readyPodsCountOfEndpoints(s.endpointsLister, s.namespace, s.scrapeTargetService)
 	if err != nil {
 		logger.Errorw("Failed to get Endpoints via K8S Lister", zap.Error(err))
 		return
