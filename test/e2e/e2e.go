@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"k8s.io/api/extensions/v1beta1"
+	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	// Mysteriously required to support GCP auth (required by k8s libs).
@@ -60,7 +60,7 @@ func WaitForScaleToZero(t *testing.T, deploymentName string, clients *test.Clien
 	return pkgTest.WaitForDeploymentState(
 		clients.KubeClient,
 		deploymentName,
-		func(d *v1beta1.Deployment) (bool, error) {
+		func(d *appsv1.Deployment) (bool, error) {
 			t.Logf("Deployment %q has %d replicas", deploymentName, d.Status.ReadyReplicas)
 			return d.Status.ReadyReplicas == 0, nil
 		},
