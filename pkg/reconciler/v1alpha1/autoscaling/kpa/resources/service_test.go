@@ -27,10 +27,7 @@ import (
 )
 
 var (
-	boolTrue  = true
-	boolFalse = false
-	goodPod   = "good-pod"
-	badPod    = "bad-pod"
+	boolTrue = true
 )
 
 func TestMakeService(t *testing.T) {
