@@ -70,6 +70,8 @@ func streamTest(t *testing.T, names test.ResourceNames, clients *test.Clients, h
 		host+":80",
 		grpc.WithAuthority(domain+":80"),
 		grpc.WithInsecure(),
+		// Retrying DNS errors to avoid .xip.io issues.
+		grpc.WithDefaultCallOptions(grpc.FailFast(false)),
 	)
 	if err != nil {
 		t.Fatalf("Fail to dial: %v", err)
