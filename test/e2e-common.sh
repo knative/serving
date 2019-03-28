@@ -184,9 +184,10 @@ function install_knative_serving_standard() {
 function use_resolvable_domain() {
   local ip=$(kubectl get svc -n istio-system istio-ingressgateway -o jsonpath="{.status.loadBalancer.ingress[0].ip}")
   if [[ -n "${ip}" ]]; then
-    return "true"
+    echo "true"
+    return
   fi
-  return "false"
+  echo "false"
 }
 
 
