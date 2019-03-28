@@ -85,6 +85,69 @@ func TestReconcile(t *testing.T) {
 		},
 		Key: "foo/no-revisions-yet",
 	}, {
+		Name: "create revision byo name",
+		Objects: []runtime.Object{
+			cfg("no-revisions-yet", "foo", 1234, func(cfg *v1alpha1.Configuration) {
+				cfg.Spec.RevisionTemplate.Name = "no-revisions-yet-foo"
+			}),
+		},
+		WantCreates: []metav1.Object{
+			rev("no-revisions-yet", "foo", 1234, func(rev *v1alpha1.Revision) {
+				rev.Name = "no-revisions-yet-foo"
+				rev.GenerateName = ""
+			}),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: cfg("no-revisions-yet", "foo", 1234, func(cfg *v1alpha1.Configuration) {
+				cfg.Spec.RevisionTemplate.Name = "no-revisions-yet-foo"
+			},
+				// The following properties are set when we first reconcile a
+				// Configuration and a Revision is created.
+				WithLatestCreated("no-revisions-yet-foo"), WithObservedGen),
+		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "Created", "Created Revision %q", "no-revisions-yet-foo"),
+		},
+		Key: "foo/no-revisions-yet",
+	}, {
+		Name: "create revision byo name (exists)",
+		Objects: []runtime.Object{
+			cfg("no-revisions-yet", "foo", 1234, func(cfg *v1alpha1.Configuration) {
+				cfg.Spec.RevisionTemplate.Name = "no-revisions-yet-foo"
+			},
+				// The following properties are set when we first reconcile a
+				// Configuration and a Revision is created.
+				WithLatestCreated("no-revisions-yet-foo"), WithObservedGen),
+			rev("no-revisions-yet", "foo", 1234, func(rev *v1alpha1.Revision) {
+				rev.Name = "no-revisions-yet-foo"
+				rev.GenerateName = ""
+			}),
+		},
+		Key: "foo/no-revisions-yet",
+	}, {
+		Name: "create revision byo name (exists @ wrong generation)",
+		Objects: []runtime.Object{
+			cfg("no-revisions-yet", "foo", 1234, func(cfg *v1alpha1.Configuration) {
+				cfg.Spec.RevisionTemplate.Name = "no-revisions-yet-foo"
+			}),
+			rev("no-revisions-yet", "foo", 1200, func(rev *v1alpha1.Revision) {
+				rev.Name = "no-revisions-yet-foo"
+				rev.GenerateName = ""
+			}),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: cfg("no-revisions-yet", "foo", 1234, func(cfg *v1alpha1.Configuration) {
+				cfg.Spec.RevisionTemplate.Name = "no-revisions-yet-foo"
+			}, MarkRevisionCreationFailed(`revisions.serving.knative.dev "no-revisions-yet-foo" already exists`)),
+		}},
+		WantErr: true,
+		WantEvents: []string{
+			Eventf(corev1.EventTypeWarning, "InternalError",
+				"revisions.serving.knative.dev %q already exists",
+				"no-revisions-yet-foo"),
+		},
+		Key: "foo/no-revisions-yet",
+	}, {
 		Name: "webhook validation failure",
 		// If we attempt to create a Revision with a bad ConcurrencyModel set, we fail.
 		WantErr: true,

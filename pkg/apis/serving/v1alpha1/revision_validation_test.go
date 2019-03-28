@@ -829,6 +829,7 @@ func TestRevisionTemplateSpecValidation(t *testing.T) {
 		name: "has revision template name",
 		rts: &RevisionTemplateSpec{
 			ObjectMeta: metav1.ObjectMeta{
+				// We let users bring their own revision name.
 				Name: "foo",
 			},
 			Spec: RevisionSpec{
@@ -837,7 +838,7 @@ func TestRevisionTemplateSpecValidation(t *testing.T) {
 				},
 			},
 		},
-		want: apis.ErrDisallowedFields("metadata.name"),
+		want: nil,
 	}}
 
 	for _, test := range tests {

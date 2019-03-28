@@ -31,7 +31,27 @@ func (s *Service) Validate(ctx context.Context) *apis.FieldError {
 	errs := serving.ValidateObjectMetadata(s.GetObjectMeta()).ViaField("metadata")
 	ctx = apis.WithinParent(ctx, s.ObjectMeta)
 	errs = errs.Also(s.Spec.Validate(apis.WithinSpec(ctx)).ViaField("spec"))
-	return errs
+
+	if field, cs := s.Spec.getConfigurationSpec(); cs != nil {
+		err = err.Also(cs.RevisionTemplate.validateName(ctx, s.ObjectMeta).
+			ViaField("spec", field, "configuration", "revisionTemplate"))
+	}
+	return err
+}
+
+func (ss *ServiceSpec) getConfigurationSpec() (string, *ConfigurationSpec) {
+	switch {
+	case ss.RunLatest != nil:
+		return "runLatest", &ss.RunLatest.Configuration
+	case ss.Release != nil:
+		return "release", &ss.Release.Configuration
+	case ss.Manual != nil:
+		return "", nil
+	case ss.DeprecatedPinned != nil:
+		return "pinned", &ss.DeprecatedPinned.Configuration
+	default:
+		return "", nil
+	}
 }
 
 // CheckDeprecated checks whether the provided named deprecated fields
@@ -142,4 +162,21 @@ func (rt *ReleaseType) Validate(ctx context.Context) *apis.FieldError {
 	}
 
 	return errs.Also(rt.Configuration.Validate(ctx).ViaField("configuration"))
+}
+
+// CheckImmutableFields checks the immutable fields are not modified.
+func (current *Service) CheckImmutableFields(ctx context.Context, og apis.Immutable) *apis.FieldError {
+	original, ok := og.(*Service)
+	if !ok {
+		return &apis.FieldError{Message: "The provided original was not a Service"}
+	}
+
+	field, currentConfig := current.Spec.getConfigurationSpec()
+	_, originalConfig := original.Spec.getConfigurationSpec()
+
+	if currentConfig == nil || originalConfig == nil {
+		return nil
+	}
+	return currentConfig.RevisionTemplate.CheckImmutableFields(ctx, &originalConfig.RevisionTemplate).
+		ViaField("spec", field, "configuration", "revisionTemplate")
 }

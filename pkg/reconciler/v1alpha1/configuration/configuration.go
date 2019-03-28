@@ -171,6 +171,12 @@ func (c *Reconciler) reconcile(ctx context.Context, config *v1alpha1.Configurati
 
 			return err
 		}
+	} else if errors.IsAlreadyExists(err) {
+		// If we get an already-exists error from latestCreatedRevision it means
+		// that the Revision name already exists for another Configuration or at
+		// the wrong generation of this configuration.
+		config.Status.MarkRevisionCreationFailed(err.Error())
+		return err
 	} else if err != nil {
 		logger.Errorf("Failed to reconcile Configuration %q - failed to get Revision: %v", config.Name, err)
 		return err
@@ -226,9 +232,38 @@ func (c *Reconciler) reconcile(ctx context.Context, config *v1alpha1.Configurati
 	return nil
 }
 
-func (c *Reconciler) latestCreatedRevision(config *v1alpha1.Configuration) (*v1alpha1.Revision, error) {
-	lister := c.revisionLister.Revisions(config.Namespace)
+func CheckNameAvailability(config *v1alpha1.Configuration, lister listers.RevisionLister) (*v1alpha1.Revision, error) {
+	// If config.Spec.RevisionTemplate.Name is set, then we can directly look up
+	// the revision by name.
+	name := config.Spec.RevisionTemplate.Name
+	if name == "" {
+		return nil, nil
+	}
+	rev, err := lister.Revisions(config.Namespace).Get(name)
+	if errors.IsNotFound(err) {
+		// Does not exist, we must be good!
+		// note: for the name to change the generation must change.
+		return nil, err
+	} else if err != nil {
+		return nil, err
+	}
+	// Check the generation on this revision.
+	generationKey := serving.ConfigurationGenerationLabelKey
+	expectedValue := resources.RevisionLabelValueForKey(generationKey, config)
+	if rev.Labels != nil &&
+		rev.Labels[generationKey] == expectedValue &&
+		rev.Labels[serving.ConfigurationLabelKey] == config.Name {
+		return rev, nil
+	}
+	return nil, errors.NewAlreadyExists(v1alpha1.Resource("revisions"), name)
+}
 
+func (c *Reconciler) latestCreatedRevision(config *v1alpha1.Configuration) (*v1alpha1.Revision, error) {
+	if rev, err := CheckNameAvailability(config, c.revisionLister); rev != nil || err != nil {
+		return rev, err
+	}
+
+	lister := c.revisionLister.Revisions(config.Namespace)
 	generationKey := serving.ConfigurationGenerationLabelKey
 
 	list, err := lister.List(labels.SelectorFromSet(map[string]string{

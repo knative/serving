@@ -221,6 +221,67 @@ func TestConfigurationValidation(t *testing.T) {
 			Message: "not a DNS 1035 label: [must be no more than 63 characters]",
 			Paths:   []string{"metadata.name"},
 		}).Also(apis.ErrMissingField("spec")),
+	}, {
+		name: "valid BYO name",
+		c: &Configuration{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "byo-name",
+			},
+			Spec: ConfigurationSpec{
+				RevisionTemplate: RevisionTemplateSpec{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "byo-name-foo",
+					},
+					Spec: RevisionSpec{
+						Container: corev1.Container{
+							Image: "hellworld",
+						},
+					},
+				},
+			},
+		},
+		want: nil,
+	}, {
+		name: "valid BYO name (with generateName)",
+		c: &Configuration{
+			ObjectMeta: metav1.ObjectMeta{
+				GenerateName: "byo-name-",
+			},
+			Spec: ConfigurationSpec{
+				RevisionTemplate: RevisionTemplateSpec{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "byo-name-foo",
+					},
+					Spec: RevisionSpec{
+						Container: corev1.Container{
+							Image: "hellworld",
+						},
+					},
+				},
+			},
+		},
+		want: nil,
+	}, {
+		name: "invalid BYO name (not prefixed)",
+		c: &Configuration{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "byo-name",
+			},
+			Spec: ConfigurationSpec{
+				RevisionTemplate: RevisionTemplateSpec{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "foo",
+					},
+					Spec: RevisionSpec{
+						Container: corev1.Container{
+							Image: "hellworld",
+						},
+					},
+				},
+			},
+		},
+		want: apis.ErrInvalidValue(`"foo" must have prefix "byo-name-"`,
+			"spec.revisionTemplate.metadata.name"),
 	}}
 
 	for _, test := range tests {
@@ -228,6 +289,146 @@ func TestConfigurationValidation(t *testing.T) {
 			got := test.c.Validate(context.Background())
 			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
 				t.Errorf("validateContainer (-want, +got) = %v", diff)
+			}
+		})
+	}
+}
+
+func TestImmutableConfigurationFields(t *testing.T) {
+	tests := []struct {
+		name string
+		new  apis.Immutable
+		old  apis.Immutable
+		want *apis.FieldError
+	}{{
+		name: "without byo-name",
+		new: &Configuration{
+			Spec: ConfigurationSpec{
+				RevisionTemplate: RevisionTemplateSpec{
+					Spec: RevisionSpec{
+						Container: corev1.Container{
+							Image: "helloworld:first",
+						},
+					},
+				},
+			},
+		},
+		old: &Configuration{
+			Spec: ConfigurationSpec{
+				RevisionTemplate: RevisionTemplateSpec{
+					Spec: RevisionSpec{
+						Container: corev1.Container{
+							Image: "helloworld:second",
+						},
+					},
+				},
+			},
+		},
+		want: nil,
+	}, {
+		name: "good byo name change",
+		new: &Configuration{
+			Spec: ConfigurationSpec{
+				RevisionTemplate: RevisionTemplateSpec{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "first",
+					},
+					Spec: RevisionSpec{
+						Container: corev1.Container{
+							Image: "helloworld:first",
+						},
+					},
+				},
+			},
+		},
+		old: &Configuration{
+			Spec: ConfigurationSpec{
+				RevisionTemplate: RevisionTemplateSpec{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "second",
+					},
+					Spec: RevisionSpec{
+						Container: corev1.Container{
+							Image: "helloworld:second",
+						},
+					},
+				},
+			},
+		},
+		want: nil,
+	}, {
+		name: "good byo name (no change)",
+		new: &Configuration{
+			Spec: ConfigurationSpec{
+				RevisionTemplate: RevisionTemplateSpec{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "first",
+					},
+					Spec: RevisionSpec{
+						Container: corev1.Container{
+							Image: "helloworld:first",
+						},
+					},
+				},
+			},
+		},
+		old: &Configuration{
+			Spec: ConfigurationSpec{
+				RevisionTemplate: RevisionTemplateSpec{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "first",
+					},
+					Spec: RevisionSpec{
+						Container: corev1.Container{
+							Image: "helloworld:first",
+						},
+					},
+				},
+			},
+		},
+		want: nil,
+	}, {
+		name: "bad byo name change",
+		new: &Configuration{
+			Spec: ConfigurationSpec{
+				RevisionTemplate: RevisionTemplateSpec{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "first",
+					},
+					Spec: RevisionSpec{
+						Container: corev1.Container{
+							Image: "helloworld:first",
+						},
+					},
+				},
+			},
+		},
+		old: &Configuration{
+			Spec: ConfigurationSpec{
+				RevisionTemplate: RevisionTemplateSpec{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "first",
+					},
+					Spec: RevisionSpec{
+						Container: corev1.Container{
+							Image: "helloworld:second",
+						},
+					},
+				},
+			},
+		},
+		want: &apis.FieldError{
+			Message: "Saw the following changes without a name change (-old +new)",
+			Paths:   []string{"spec.revisionTemplate"},
+			Details: "{*v1alpha1.RevisionTemplateSpec}.Spec.Container.Image:\n\t-: \"helloworld:first\"\n\t+: \"helloworld:second\"\n",
+		},
+	}}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			got := test.new.CheckImmutableFields(context.Background(), test.old)
+			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
+				t.Errorf("Validate (-want, +got) = %v", diff)
 			}
 		})
 	}

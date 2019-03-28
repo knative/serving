@@ -136,6 +136,7 @@ func main() {
 			opt,
 			serviceInformer,
 			configurationInformer,
+			revisionInformer,
 			routeInformer,
 		),
 		serverlessservice.NewController(

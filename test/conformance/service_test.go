@@ -343,6 +343,63 @@ func waitForDesiredTrafficShape(t *testing.T, sName string, want map[string]v1al
 	)
 }
 
+func TestRunLatestServiceBYOName(t *testing.T) {
+	t.Parallel()
+	clients := setup(t)
+
+	names := test.ResourceNames{
+		Service: test.ObjectNameForTest(t),
+		Image:   pizzaPlanet1,
+	}
+
+	// Clean up on test failure or interrupt
+	defer test.TearDown(clients, names)
+	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
+
+	revName := names.Service + "-byoname"
+
+	// Setup initial Service
+	objects, err := test.CreateRunLatestServiceReady(t, clients, &names, &test.Options{}, func(svc *v1alpha1.Service) {
+		svc.Spec.RunLatest.Configuration.RevisionTemplate.Name = revName
+	})
+	if err != nil {
+		t.Fatalf("Failed to create initial Service %v: %v", names.Service, err)
+	}
+	if got, want := names.Revision, revName; got != want {
+		t.Errorf("CreateRunLatestServiceReady() = %s, wanted %s", got, want)
+	}
+
+	// Validate State after Creation
+
+	if err = validateRunLatestControlPlane(t, clients, names, "1"); err != nil {
+		t.Error(err)
+	}
+
+	if err = validateRunLatestDataPlane(t, clients, names, pizzaPlanetText1); err != nil {
+		t.Error(err)
+	}
+
+	if err = validateLabelsPropagation(t, *objects, names); err != nil {
+		t.Error(err)
+	}
+
+	if err := validateAnnotations(objects); err != nil {
+		t.Errorf("Service annotations are incorrect: %v", err)
+	}
+
+	// We start a background prober to test if Route is always healthy even during Route update.
+	prober := test.RunRouteProber(t, clients, names.Domain)
+	defer test.AssertProberDefault(t, prober)
+
+	// Update Container Image
+	t.Log("Updating the Service to use a different image.")
+	names.Image = printport
+	image2 := pkgTest.ImagePath(names.Image)
+	if _, err := test.PatchServiceImage(t, clients, objects.Service, image2); err == nil {
+		t.Fatalf("Patch update for Service %s didn't fail.", names.Service)
+	}
+}
+
 // TestReleaseService creates a Service in `release` mode with the only revision
 // being `@latest`. Once this succeeded, the test goes through Update/Validate to
 // try different possible configurations for a release service.

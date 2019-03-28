@@ -51,6 +51,8 @@ var (
 	// Check that Configuration may be validated and defaulted.
 	_ apis.Validatable = (*Configuration)(nil)
 	_ apis.Defaultable = (*Configuration)(nil)
+	// This is an abuse of Immutable to actually check that certain fields *must* change.
+	_ apis.Immutable = (*Configuration)(nil)
 
 	// Check that we can create OwnerReferences to a Configuration.
 	_ kmeta.OwnerRefable = (*Configuration)(nil)

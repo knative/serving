@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
+	"strings"
 
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/knative/pkg/apis"
@@ -28,6 +29,7 @@ import (
 	"github.com/knative/serving/pkg/apis/serving"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation"
@@ -74,11 +76,54 @@ func (current *Revision) checkImmutableFields(ctx context.Context, original *Rev
 
 // Validate ensures RevisionTemplateSpec is properly configured.
 func (rt *RevisionTemplateSpec) Validate(ctx context.Context) *apis.FieldError {
-	var errs *apis.FieldError
-	if rt.GetName() != "" {
-		errs = errs.Also(apis.ErrDisallowedFields(apis.CurrentField).ViaField("metadata", "name"))
+	return rt.Spec.Validate(ctx).ViaField("spec")
+}
+
+func (rt *RevisionTemplateSpec) validateName(ctx context.Context, parent metav1.ObjectMeta) *apis.FieldError {
+	if rt.Name == "" {
+		return nil
 	}
-	return errs.Also(rt.Spec.Validate(ctx).ViaField("spec"))
+
+	prefix := parent.Name
+	if prefix == "" {
+		prefix = parent.GenerateName
+	} else {
+		prefix = prefix + "-"
+	}
+
+	if !strings.HasPrefix(rt.Name, prefix) {
+		return apis.ErrInvalidValue(
+			fmt.Sprintf("%q must have prefix %q", rt.Name, prefix),
+			"metadata.name")
+	}
+	return nil
+}
+
+// CheckImmutableFields checks the immutable fields are not modified.
+func (current *RevisionTemplateSpec) CheckImmutableFields(ctx context.Context, og *RevisionTemplateSpec) *apis.FieldError {
+	if current.Name == "" {
+		// We only check that Name changes when the RevisionTemplate changes.
+		return nil
+	}
+	if current.Name != og.Name {
+		// The name changed, so we're good.
+		return nil
+	}
+
+	if diff, err := kmp.SafeDiff(current, og); err != nil {
+		return &apis.FieldError{
+			Message: "Failed to diff RevisionTemplate",
+			Paths:   []string{apis.CurrentField},
+			Details: err.Error(),
+		}
+	} else if diff != "" {
+		return &apis.FieldError{
+			Message: "Saw the following changes without a name change (-old +new)",
+			Paths:   []string{apis.CurrentField},
+			Details: diff,
+		}
+	}
+	return nil
 }
 
 // Validate ensures RevisionSpec is properly configured.

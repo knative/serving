@@ -63,3 +63,13 @@ func (cs *ConfigurationSpec) Validate(ctx context.Context) *apis.FieldError {
 
 	return errs.Also(cs.GetTemplate().Validate(ctx).ViaField(templateField))
 }
+
+// CheckImmutableFields checks the immutable fields are not modified.
+func (current *Configuration) CheckImmutableFields(ctx context.Context, og apis.Immutable) *apis.FieldError {
+	original, ok := og.(*Configuration)
+	if !ok {
+		return &apis.FieldError{Message: "The provided original was not a Configuration"}
+	}
+
+	return current.Spec.RevisionTemplate.CheckImmutableFields(ctx, &original.Spec.RevisionTemplate).ViaField("spec.revisionTemplate")
+}
