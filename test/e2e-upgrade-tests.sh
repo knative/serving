@@ -70,7 +70,7 @@ initialize $@
 TIMEOUT=10m
 
 header "Running preupgrade tests"
-go_test_e2e -tags=preupgrade -timeout=${TIMEOUT} ./test/upgrade || fail_test
+go_test_e2e -tags=preupgrade -timeout=${TIMEOUT} ./test/upgrade --resolvabledomain=false || fail_test
 
 install_head
 
