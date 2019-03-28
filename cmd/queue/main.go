@@ -27,6 +27,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/knative/serving/pkg/utils"
+
 	"github.com/knative/pkg/signals"
 
 	"github.com/knative/pkg/logging/logkey"
@@ -215,7 +217,7 @@ func main() {
 	flag.Parse()
 	logger, _ = logging.NewLogger(os.Getenv("SERVING_LOGGING_CONFIG"), os.Getenv("SERVING_LOGGING_LEVEL"))
 	logger = logger.Named("queueproxy")
-	defer logger.Sync()
+	defer flush(logger)
 
 	initEnv()
 	logger = logger.With(
@@ -279,10 +281,10 @@ func main() {
 		Handler: createAdminHandlers(),
 	}
 
-	server = h2c.NewServer(
-		fmt.Sprintf(":%d", v1alpha1.RequestQueuePort),
-		queue.TimeToFirstByteTimeoutHandler(http.HandlerFunc(handler(reqChan, breaker, httpProxy, h2cProxy)),
-			time.Duration(revisionTimeoutSeconds)*time.Second, "request timeout"))
+	timeoutHandler := queue.TimeToFirstByteTimeoutHandler(http.HandlerFunc(handler(reqChan, breaker, httpProxy, h2cProxy)),
+		time.Duration(revisionTimeoutSeconds)*time.Second, "request timeout")
+	composedHandler := pushRequestLogHandler(timeoutHandler)
+	server = h2c.NewServer(fmt.Sprintf(":%d", v1alpha1.RequestQueuePort), composedHandler)
 
 	errChan := make(chan error, 2)
 	defer close(errChan)
@@ -304,10 +306,10 @@ func main() {
 	select {
 	case err := <-errChan:
 		logger.Errorw("Failed to bring up queue-proxy, shutting down.", zap.Error(err))
+		flush(logger)
 		os.Exit(1)
 	case <-signals.SetupSignalHandler():
 		logger.Info("Received TERM signal, attempting to gracefully shutdown servers.")
-
 		healthState.Shutdown(func() {
 			// Give istio time to sync our "not ready" state
 			time.Sleep(quitSleepDuration)
@@ -319,8 +321,38 @@ func main() {
 			}
 		})
 
+		flush(logger)
 		if err := adminServer.Shutdown(context.Background()); err != nil {
 			logger.Errorw("Failed to shutdown admin-server", zap.Error(err))
 		}
 	}
+}
+
+func pushRequestLogHandler(currentHandler http.Handler) http.Handler {
+	templ := os.Getenv("SERVING_REQUEST_LOG_TEMPLATE")
+	if templ == "" {
+		return currentHandler
+	}
+
+	revInfo := &queue.RequestLogRevInfo{
+		Name:          os.Getenv("SERVING_REVISION"),
+		Namespace:     os.Getenv("SERVING_NAMESPACE"),
+		Service:       os.Getenv("SERVING_SERVICE"),
+		Configuration: os.Getenv("SERVING_CONFIGURATION"),
+		PodName:       os.Getenv("SERVING_POD"),
+		PodIP:         os.Getenv("SERVING_POD_IP"),
+	}
+	handler, err := queue.NewRequestLogHandler(currentHandler, utils.NewSyncFileWriter(os.Stdout), templ, revInfo)
+
+	if err != nil {
+		logger.Errorw("Error setting up request logger. Request logs will be unavailable.", zap.Error(err))
+		return currentHandler
+	}
+	return handler
+}
+
+func flush(logger *zap.SugaredLogger) {
+	logger.Sync()
+	os.Stdout.Sync()
+	os.Stderr.Sync()
 }
