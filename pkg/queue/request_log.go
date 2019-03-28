@@ -27,7 +27,9 @@ import (
 	pkghttp "github.com/knative/serving/pkg/http"
 )
 
-type revInfo struct {
+// RequestLogRevInfo provides revision related static information
+// for the template execution.
+type RequestLogRevInfo struct {
 	Name          string
 	Namespace     string
 	Service       string
@@ -36,28 +38,31 @@ type revInfo struct {
 	PodIP         string
 }
 
+// respInfo provided response related information for the template execution.
 type respInfo struct {
 	Code    int
 	Size    int
 	Latency float64
 }
 
+// templateInput is the wrapper struct that provides all necessary information
+// for the template execution.
 type templateInput struct {
 	Request  *http.Request
 	Response *respInfo
-	Revision *revInfo
+	Revision *RequestLogRevInfo
 }
 
 type requestLogHandler struct {
 	handler  http.Handler
 	writer   io.Writer
 	template *template.Template
-	revision *revInfo
+	revision *RequestLogRevInfo
 }
 
 // NewRequestLogHandler creates an http.Handler that logs request logs to an io.Writer.
 func NewRequestLogHandler(h http.Handler, w io.Writer, templateStr string,
-	ns, svc, config, rev, podName, podIP string) (http.Handler, error) {
+	revInfo *RequestLogRevInfo) (http.Handler, error) {
 	// Make sure that the template ends with a newline. Otherwise,
 	// logging backends will not be able to parse entries separately.
 	if !strings.HasSuffix(templateStr, "\n") {
@@ -74,14 +79,7 @@ func NewRequestLogHandler(h http.Handler, w io.Writer, templateStr string,
 		handler:  h,
 		writer:   w,
 		template: template,
-		revision: &revInfo{
-			Name:          rev,
-			Namespace:     ns,
-			Service:       svc,
-			Configuration: config,
-			PodName:       podName,
-			PodIP:         podIP,
-		},
+		revision: revInfo,
 	}, nil
 }
 

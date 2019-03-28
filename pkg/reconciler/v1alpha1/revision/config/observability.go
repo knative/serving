@@ -77,6 +77,7 @@ func NewObservabilityFromConfigMap(configMap *corev1.ConfigMap) (*Observability,
 	}
 
 	if rlt, ok := configMap.Data["logging.request-log-template"]; ok {
+		// Verify that we get valid templates.
 		if _, err := template.New("requestLog").Parse(rlt); err != nil {
 			return nil, err
 		}

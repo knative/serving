@@ -334,9 +334,15 @@ func pushRequestLogHandler(currentHandler http.Handler) http.Handler {
 		return currentHandler
 	}
 
-	handler, err := queue.NewRequestLogHandler(currentHandler, utils.NewSyncFileWriter(os.Stdout), templ,
-		os.Getenv("SERVING_NAMESPACE"), os.Getenv("SERVING_SERVICE"), os.Getenv("SERVING_CONFIGURATION"),
-		os.Getenv("SERVING_REVISION"), os.Getenv("SERVING_POD"), os.Getenv("SERVING_POD_IP"))
+	revInfo := &queue.RequestLogRevInfo{
+		Name:          os.Getenv("SERVING_REVISION"),
+		Namespace:     os.Getenv("SERVING_NAMESPACE"),
+		Service:       os.Getenv("SERVING_SERVICE"),
+		Configuration: os.Getenv("SERVING_CONFIGURATION"),
+		PodName:       os.Getenv("SERVING_POD"),
+		PodIP:         os.Getenv("SERVING_POD_IP"),
+	}
+	handler, err := queue.NewRequestLogHandler(currentHandler, utils.NewSyncFileWriter(os.Stdout), templ, revInfo)
 
 	if err != nil {
 		logger.Errorw("Error setting up request logger. Request logs will be unavailable.", zap.Error(err))

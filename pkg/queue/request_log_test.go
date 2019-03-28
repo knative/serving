@@ -24,6 +24,15 @@ import (
 	"testing"
 )
 
+var defaultRevInfo = &RequestLogRevInfo{
+	Name:          "rev",
+	Namespace:     "ns",
+	Service:       "svc",
+	Configuration: "cfg",
+	PodName:       "pn",
+	PodIP:         "ip",
+}
+
 func TestRequestLogHandler(t *testing.T) {
 	baseHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -76,7 +85,7 @@ func TestRequestLogHandler(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			buf := bytes.NewBufferString("")
-			handler, err := NewRequestLogHandler(baseHandler, buf, test.template, "ns", "svc", "cfg", "rev", "pn", "ip")
+			handler, err := NewRequestLogHandler(baseHandler, buf, test.template, defaultRevInfo)
 			if test.wantErr != (err != nil) {
 				t.Errorf("got %v, want error %v", err, test.wantErr)
 			}
@@ -100,7 +109,7 @@ func TestPanickingHandler(t *testing.T) {
 		panic("no!")
 	})
 	buf := bytes.NewBufferString("")
-	handler, err := NewRequestLogHandler(baseHandler, buf, "{{.Request.URL}}", "ns", "svc", "cfg", "rev", "pn", "ip")
+	handler, err := NewRequestLogHandler(baseHandler, buf, "{{.Request.URL}}", defaultRevInfo)
 	if err != nil {
 		t.Errorf("got %v, want error: %v", err, false)
 	}
@@ -126,7 +135,7 @@ func TestFailedTemplateExecution(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	})
 	buf := bytes.NewBufferString("")
-	handler, err := NewRequestLogHandler(baseHandler, buf, "{{.Request.Something}}", "ns", "svc", "cfg", "rev", "pn", "ip")
+	handler, err := NewRequestLogHandler(baseHandler, buf, "{{.Request.Something}}", defaultRevInfo)
 	if err != nil {
 		t.Errorf("got %v, wantErr %v, ", err, false)
 	}

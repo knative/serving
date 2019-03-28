@@ -101,7 +101,6 @@ data:
 
     # If non-empty, this enables queue proxy writing request logs to stdout.
     # The value determines the shape of the request logs and it must be a valid go text/template.
-    # Entering an invalid value here will turn off the feature.
     # It is important to keep this as a single line. Multiple lines are parsed as separate entities
     # by most collection agents and will split the request logs into multiple records.
     #
@@ -114,7 +113,7 @@ data:
     # struct {
     #   Code    int       // HTTP status code (see https://www.iana.org/assignments/http-status-codes/http-status-codes.xhtml)
     #   Size    int       // An int representing the size of the response.
-    #   Latency float64   // A float representing the latency of the response in seconds.
+    #   Latency float64   // A float64 representing the latency of the response in seconds.
     # }
     #
     # Revision:
