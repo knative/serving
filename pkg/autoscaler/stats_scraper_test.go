@@ -24,7 +24,6 @@ import (
 	"testing"
 	"time"
 
-	. "github.com/knative/pkg/logging/testing"
 	"github.com/knative/serving/pkg/apis/serving"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
@@ -212,11 +211,8 @@ func TestScrape_HappyCase(t *testing.T) {
 	createEndpoints(addIps(makeEndpoints(), 2))
 	// Scrape will set a timestamp bigger than this.
 	now := time.Now()
-	statsCh := make(chan *StatMessage, 1)
-	defer close(statsCh)
-	scraper.Scrape(TestContextWithLogger(t), statsCh)
+	got, _ := scraper.Scrape()
 
-	got := <-statsCh
 	if got.Key != testKPAKey {
 		t.Errorf("StatMessage.Key=%v, want %v", got.Key, testKPAKey)
 	}
@@ -256,15 +252,9 @@ func TestScrape_DoNotScrapeIfNoPodsFound(t *testing.T) {
 	// Override the Endpoints with 0 pods.
 	createEndpoints(addIps(makeEndpoints(), 0))
 
-	statsCh := make(chan *StatMessage, 1)
-	defer close(statsCh)
-	scraper.Scrape(TestContextWithLogger(t), statsCh)
-
-	select {
-	case <-statsCh:
+	stat, err := scraper.Scrape()
+	if stat != nil {
 		t.Error("Received unexpected StatMessage.")
-	case <-time.After(300 * time.Millisecond):
-		// We got nothing!
 	}
 }
 

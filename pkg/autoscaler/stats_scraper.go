@@ -17,20 +17,17 @@ limitations under the License.
 package autoscaler
 
 import (
-	"context"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"time"
 
-	"github.com/knative/pkg/logging"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/reconciler"
+	"github.com/pkg/errors"
 	dto "github.com/prometheus/client_model/go"
 	"github.com/prometheus/common/expfmt"
-	"go.uber.org/zap"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
@@ -47,9 +44,8 @@ const (
 
 // StatsScraper defines the interface for collecting Revision metrics
 type StatsScraper interface {
-	// Scrape scrapes the Revision queue metric endpoint then sends it as a
-	// StatMessage to the given channel.
-	Scrape(ctx context.Context, statsCh chan<- *StatMessage)
+	// Scrape scrapes the Revision queue metric endpoint.
+	Scrape() (*StatMessage, error)
 }
 
 // cacheDisabledClient is a http client with cache disabled. It is shared by
@@ -112,24 +108,19 @@ func newServiceScraperWithClient(
 
 // Scrape call the destination service then send it
 // to the given stats chanel
-func (s *ServiceScraper) Scrape(ctx context.Context, statsCh chan<- *StatMessage) {
-	logger := logging.FromContext(ctx)
-
+func (s *ServiceScraper) Scrape() (*StatMessage, error) {
 	readyPodsCount, err := readyPodsCountOfEndpoints(s.endpointsLister, s.namespace, s.revisionService)
 	if err != nil {
-		logger.Errorw("Failed to get Endpoints via K8S Lister", zap.Error(err))
-		return
+		return nil, errors.Wrap(err, "failed to get endpoints")
 	}
 
 	if readyPodsCount == 0 {
-		logger.Debug("No ready pods found, nothing to scrape.")
-		return
+		return nil, nil
 	}
 
 	stat, err := s.scrapeViaURL()
 	if err != nil {
-		logger.Errorw("Failed to get metrics", zap.Error(err))
-		return
+		return nil, err
 	}
 
 	// Assumptions:
@@ -150,11 +141,10 @@ func (s *ServiceScraper) Scrape(ctx context.Context, statsCh chan<- *StatMessage
 		ProxiedRequestCount:              stat.ProxiedRequestCount * int32(readyPodsCount),
 	}
 
-	sm := &StatMessage{
+	return &StatMessage{
 		Stat: extrapolatedStat,
 		Key:  s.metricKey,
-	}
-	statsCh <- sm
+	}, nil
 }
 
 func (s *ServiceScraper) scrapeViaURL() (*Stat, error) {

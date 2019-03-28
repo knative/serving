@@ -299,7 +299,13 @@ func (m *MultiScaler) createScaler(ctx context.Context, metric *Metric) (*scaler
 				scraperTicker.Stop()
 				return
 			case <-scraperTicker.C:
-				scraper.Scrape(ctx, m.statsCh)
+				stat, err := scraper.Scrape()
+				if err != nil {
+					m.logger.Errorw("Failed to scrape metrics", zap.Error(err))
+				}
+				if stat != nil {
+					m.statsCh <- stat
+				}
 			}
 		}
 	}()
