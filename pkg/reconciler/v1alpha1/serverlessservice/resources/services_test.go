@@ -88,11 +88,6 @@ func TestMakeService(t *testing.T) {
 					Protocol:   corev1.ProtocolTCP,
 					Port:       servicePort,
 					TargetPort: intstr.FromString(requestQueuePortName),
-				}, {
-					Name:       metricsPortName,
-					Protocol:   corev1.ProtocolTCP,
-					Port:       metricsPort,
-					TargetPort: intstr.FromString(requestQueueMetricsPortName),
 				}},
 			},
 		},
@@ -147,11 +142,6 @@ func TestMakeService(t *testing.T) {
 					Protocol:   corev1.ProtocolTCP,
 					Port:       servicePort,
 					TargetPort: intstr.FromString(requestQueuePortName),
-				}, {
-					Name:       metricsPortName,
-					Protocol:   corev1.ProtocolTCP,
-					Port:       metricsPort,
-					TargetPort: intstr.FromString(requestQueueMetricsPortName),
 				}},
 			},
 		},
@@ -263,10 +253,6 @@ func TestMakeEndpoints(t *testing.T) {
 					Name:     "http",
 					Port:     8012,
 					Protocol: "TCP",
-				}, {
-					Name:     "metrics",
-					Port:     9090,
-					Protocol: "TCP",
 				}},
 			}},
 		},
@@ -302,10 +288,6 @@ func TestMakeEndpoints(t *testing.T) {
 				Ports: []corev1.EndpointPort{{
 					Name:     "http",
 					Port:     8012,
-					Protocol: "TCP",
-				}, {
-					Name:     "metrics",
-					Port:     9090,
 					Protocol: "TCP",
 				}},
 			}},

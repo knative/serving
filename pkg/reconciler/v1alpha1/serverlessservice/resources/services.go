@@ -34,17 +34,10 @@ const (
 
 	// ServicePort is the external port of the service
 	servicePort = int32(80)
-	// MetricsPortName is the name of the external port of the service for metrics
-	metricsPortName = "metrics"
-	// MetricsPort is the external port of the service for metrics
-	metricsPort = int32(9090)
 
 	// RequestQueuePortName specifies the port name to use for http requests
 	// in queue-proxy container.
 	requestQueuePortName string = "queue-port"
-	// RequestQueueMetricsPortName specifies the port name to use for metrics
-	// emitted by queue-proxy.
-	requestQueueMetricsPortName = "queue-metrics"
 )
 
 // makeLabels propagates labels from parents and sets SKS label as well.
@@ -83,11 +76,6 @@ func MakePublicService(sks *v1alpha1.ServerlessService) *corev1.Service {
 				Protocol:   corev1.ProtocolTCP,
 				Port:       servicePort,
 				TargetPort: intstr.FromString(requestQueuePortName),
-			}, {
-				Name:       metricsPortName,
-				Protocol:   corev1.ProtocolTCP,
-				Port:       metricsPort,
-				TargetPort: intstr.FromString(requestQueueMetricsPortName),
 			}},
 		},
 	}
@@ -130,11 +118,6 @@ func MakePrivateService(sks *v1alpha1.ServerlessService) *corev1.Service {
 				Protocol:   corev1.ProtocolTCP,
 				Port:       servicePort,
 				TargetPort: intstr.FromString(requestQueuePortName),
-			}, {
-				Name:       metricsPortName,
-				Protocol:   corev1.ProtocolTCP,
-				Port:       metricsPort,
-				TargetPort: intstr.FromString(requestQueueMetricsPortName),
 			}},
 			Selector: sks.Spec.Selector,
 		},
