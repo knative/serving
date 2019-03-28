@@ -31,7 +31,6 @@ import (
 	dto "github.com/prometheus/client_model/go"
 	"github.com/prometheus/common/expfmt"
 	"go.uber.org/zap"
-	corev1informers "k8s.io/client-go/informers/core/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
@@ -78,23 +77,19 @@ type ServiceScraper struct {
 
 // NewServiceScraper creates a new StatsScraper for the Revision which
 // the given Metric is responsible for.
-func NewServiceScraper(metric *Metric, dynamicConfig *DynamicConfig, endpointsInformer corev1informers.EndpointsInformer) (*ServiceScraper, error) {
-	return newServiceScraperWithClient(metric, dynamicConfig, endpointsInformer, cacheDisabledClient)
+func NewServiceScraper(metric *Metric, endpointsInformer corev1listers.EndpointsLister) (*ServiceScraper, error) {
+	return newServiceScraperWithClient(metric, endpointsInformer, cacheDisabledClient)
 }
 
 func newServiceScraperWithClient(
 	metric *Metric,
-	dynamicConfig *DynamicConfig,
-	endpointsInformer corev1informers.EndpointsInformer,
+	endpointsLister corev1listers.EndpointsLister,
 	httpClient *http.Client) (*ServiceScraper, error) {
 	if metric == nil {
 		return nil, errors.New("metric must not be nil")
 	}
-	if dynamicConfig == nil {
-		return nil, errors.New("dynamic config must not be nil")
-	}
-	if endpointsInformer == nil {
-		return nil, errors.New("endpoints informer must not be nil")
+	if endpointsLister == nil {
+		return nil, errors.New("endpoints lister must not be nil")
 	}
 	if httpClient == nil {
 		return nil, errors.New("HTTP client must not be nil")
@@ -107,11 +102,11 @@ func newServiceScraperWithClient(
 	serviceName := reconciler.GetServingK8SServiceNameForObj(revName)
 	return &ServiceScraper{
 		httpClient:      httpClient,
-		endpointsLister: endpointsInformer.Lister(),
+		endpointsLister: endpointsLister,
 		url:             fmt.Sprintf("http://%s.%s:%d/metrics", serviceName, metric.Namespace, v1alpha1.RequestQueueMetricsPort),
 		metricKey:       NewMetricKey(metric.Namespace, metric.Name),
 		namespace:       metric.Namespace,
-		revisionService: reconciler.GetServingK8SServiceNameForObj(revName),
+		revisionService: serviceName,
 	}, nil
 }
 
@@ -137,13 +132,16 @@ func (s *ServiceScraper) Scrape(ctx context.Context, statsCh chan<- *StatMessage
 		return
 	}
 
-	// Assume traffic is route to pods evenly. A particular pod can stand for
-	// other pods, i.e. other pods have similar concurrency and QPS.
+	// Assumptions:
+	// 1. Traffic is routed to pods evenly.
+	// 2. A particular pod can stand for other pods, i.e. other pods have
+	//    similar concurrency and QPS.
+	//
 	// Hide the actual pods behind scraper and send only one stat for all the
 	// customer pods per scraping. The pod name is set to a unique value, i.e.
 	// scraperPodName so in autoscaler all stats are either from activator or
 	// scraper.
-	newStat := Stat{
+	extrapolatedStat := Stat{
 		Time:                             stat.Time,
 		PodName:                          scraperPodName,
 		AverageConcurrentRequests:        stat.AverageConcurrentRequests * float64(readyPodsCount),
@@ -152,7 +150,11 @@ func (s *ServiceScraper) Scrape(ctx context.Context, statsCh chan<- *StatMessage
 		ProxiedRequestCount:              stat.ProxiedRequestCount * int32(readyPodsCount),
 	}
 
-	s.sendStatMessage(newStat, statsCh)
+	sm := &StatMessage{
+		Stat: extrapolatedStat,
+		Key:  s.metricKey,
+	}
+	statsCh <- sm
 }
 
 func (s *ServiceScraper) scrapeViaURL() (*Stat, error) {
@@ -184,25 +186,25 @@ func extractData(body io.Reader) (*Stat, error) {
 		Time: &now,
 	}
 
-	if pMetric := getPrometheusMetric(metricFamilies, "queue_average_concurrent_requests"); pMetric != nil {
+	if pMetric := prometheusMetric(metricFamilies, "queue_average_concurrent_requests"); pMetric != nil {
 		stat.AverageConcurrentRequests = *pMetric.Gauge.Value
 	} else {
 		return nil, errors.New("could not find value for queue_average_concurrent_requests in response")
 	}
 
-	if pMetric := getPrometheusMetric(metricFamilies, "queue_average_proxied_concurrent_requests"); pMetric != nil {
+	if pMetric := prometheusMetric(metricFamilies, "queue_average_proxied_concurrent_requests"); pMetric != nil {
 		stat.AverageProxiedConcurrentRequests = *pMetric.Gauge.Value
 	} else {
 		return nil, errors.New("could not find value for queue_average_proxied_concurrent_requests in response")
 	}
 
-	if pMetric := getPrometheusMetric(metricFamilies, "queue_operations_per_second"); pMetric != nil {
+	if pMetric := prometheusMetric(metricFamilies, "queue_operations_per_second"); pMetric != nil {
 		stat.RequestCount = int32(*pMetric.Gauge.Value)
 	} else {
 		return nil, errors.New("could not find value for queue_operations_per_second in response")
 	}
 
-	if pMetric := getPrometheusMetric(metricFamilies, "queue_proxied_operations_per_second"); pMetric != nil {
+	if pMetric := prometheusMetric(metricFamilies, "queue_proxied_operations_per_second"); pMetric != nil {
 		stat.ProxiedRequestCount = int32(*pMetric.Gauge.Value)
 	} else {
 		return nil, errors.New("could not find value for queue_proxied_operations_per_second in response")
@@ -211,21 +213,13 @@ func extractData(body io.Reader) (*Stat, error) {
 	return &stat, nil
 }
 
-// getPrometheusMetric returns the point of the first Metric of the MetricFamily
+// prometheusMetric returns the point of the first Metric of the MetricFamily
 // with the given key from the given map. If there is no such MetricFamily or it
 // has no Metrics, then returns nil.
-func getPrometheusMetric(metricFamilies map[string]*dto.MetricFamily, key string) *dto.Metric {
-	if metric, ok := metricFamilies[key]; ok && metric != nil && len(metric.Metric) != 0 {
+func prometheusMetric(metricFamilies map[string]*dto.MetricFamily, key string) *dto.Metric {
+	if metric, ok := metricFamilies[key]; ok && len(metric.Metric) > 0 {
 		return metric.Metric[0]
 	}
 
 	return nil
-}
-
-func (s *ServiceScraper) sendStatMessage(stat Stat, statsCh chan<- *StatMessage) {
-	sm := &StatMessage{
-		Stat: stat,
-		Key:  s.metricKey,
-	}
-	statsCh <- sm
 }
