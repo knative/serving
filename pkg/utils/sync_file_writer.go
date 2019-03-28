@@ -37,8 +37,8 @@ func NewSyncFileWriter(file *os.File) io.Writer {
 }
 
 // Write writes len(b) bytes to the file.
-func (w *syncFileWriter) Write(p []byte) (n int, err error) {
+func (w *syncFileWriter) Write(b []byte) (n int, err error) {
 	w.mux.Lock()
 	defer w.mux.Unlock()
-	return w.file.Write(p)
+	return w.file.Write(b)
 }
