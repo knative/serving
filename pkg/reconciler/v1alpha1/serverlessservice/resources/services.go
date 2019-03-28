@@ -18,6 +18,7 @@ package resources
 
 import (
 	"github.com/knative/pkg/kmeta"
+	"github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/serverlessservice/resources/names"
 
@@ -27,8 +28,7 @@ import (
 )
 
 const (
-	networkingGroup      = "networking.internal.knative.dev"
-	sksLabelKey          = networkingGroup + "/serverlessservice"
+	sksLabelKey          = networking.GroupName + "/serverlessservice"
 	servicePortNameHTTP1 = "http"
 	servicePortNameH2C   = "http2"
 
