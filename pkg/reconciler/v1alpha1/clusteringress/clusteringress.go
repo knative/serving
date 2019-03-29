@@ -223,7 +223,7 @@ func (c *Reconciler) reconcile(ctx context.Context, ci *v1alpha1.ClusterIngress)
 			return err
 		}
 
-		// TODO(zhiminx): Make Servers based on the tlsMode.
+		// TODO(zhiminx): Make Servers based on the tlsMode "Auto" or "Force".
 		desiredServers := resources.MakeServers(ci)
 		if err := c.reconcileGateways(ctx, ci, gatewayNames, desiredServers); err != nil {
 			return err
@@ -238,7 +238,7 @@ func (c *Reconciler) reconcile(ctx context.Context, ci *v1alpha1.ClusterIngress)
 
 func enablesAutoTLS(ctx context.Context) bool {
 	tlsMode := config.FromContext(ctx).TLSMode
-	return tlsMode == network.AUTO || tlsMode == network.FORCE
+	return tlsMode == network.Auto || tlsMode == network.Force
 }
 
 func getLBStatus(gatewayServiceURL string) []v1alpha1.LoadBalancerIngressStatus {

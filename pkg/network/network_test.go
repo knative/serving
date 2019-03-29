@@ -51,7 +51,7 @@ func TestConfiguration(t *testing.T) {
 			IstioOutboundIPRanges:      "*",
 			DefaultClusterIngressClass: "istio.ingress.networking.knative.dev",
 			DomainTemplate:             "{{.Name}}.{{.Namespace}}.{{.Domain}}",
-			TLSMode:                    MANUAL,
+			TLSMode:                    Manual,
 		},
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
@@ -76,7 +76,7 @@ func TestConfiguration(t *testing.T) {
 		wantController: &Config{
 			DefaultClusterIngressClass: "istio.ingress.networking.knative.dev",
 			DomainTemplate:             "{{.Name}}.{{.Namespace}}.{{.Domain}}",
-			TLSMode:                    MANUAL,
+			TLSMode:                    Manual,
 		},
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
@@ -152,7 +152,7 @@ func TestConfiguration(t *testing.T) {
 		wantController: &Config{
 			DefaultClusterIngressClass: "istio.ingress.networking.knative.dev",
 			DomainTemplate:             "{{.Name}}.{{.Namespace}}.{{.Domain}}",
-			TLSMode:                    MANUAL,
+			TLSMode:                    Manual,
 		},
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
@@ -168,7 +168,7 @@ func TestConfiguration(t *testing.T) {
 		wantController: &Config{
 			DefaultClusterIngressClass: "istio.ingress.networking.knative.dev",
 			DomainTemplate:             "{{.Name}}.{{.Namespace}}.{{.Domain}}",
-			TLSMode:                    MANUAL,
+			TLSMode:                    Manual,
 		},
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
@@ -185,7 +185,7 @@ func TestConfiguration(t *testing.T) {
 			IstioOutboundIPRanges:      "10.10.10.0/24",
 			DefaultClusterIngressClass: "istio.ingress.networking.knative.dev",
 			DomainTemplate:             "{{.Name}}.{{.Namespace}}.{{.Domain}}",
-			TLSMode:                    MANUAL,
+			TLSMode:                    Manual,
 		},
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
@@ -202,7 +202,7 @@ func TestConfiguration(t *testing.T) {
 			IstioOutboundIPRanges:      "10.10.10.0/24,10.240.10.0/14,192.192.10.0/16",
 			DefaultClusterIngressClass: "istio.ingress.networking.knative.dev",
 			DomainTemplate:             "{{.Name}}.{{.Namespace}}.{{.Domain}}",
-			TLSMode:                    MANUAL,
+			TLSMode:                    Manual,
 		},
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
@@ -219,7 +219,7 @@ func TestConfiguration(t *testing.T) {
 			IstioOutboundIPRanges:      "*",
 			DefaultClusterIngressClass: "istio.ingress.networking.knative.dev",
 			DomainTemplate:             "{{.Name}}.{{.Namespace}}.{{.Domain}}",
-			TLSMode:                    MANUAL,
+			TLSMode:                    Manual,
 		},
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
@@ -236,7 +236,7 @@ func TestConfiguration(t *testing.T) {
 			IstioOutboundIPRanges:      "*",
 			DefaultClusterIngressClass: "foo-ingress",
 			DomainTemplate:             "{{.Name}}.{{.Namespace}}.{{.Domain}}",
-			TLSMode:                    MANUAL,
+			TLSMode:                    Manual,
 		},
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
@@ -254,7 +254,7 @@ func TestConfiguration(t *testing.T) {
 			IstioOutboundIPRanges:      "*",
 			DefaultClusterIngressClass: "foo-ingress",
 			DomainTemplate:             "{{.Namespace}}.{{.Name}}.{{.Domain}}",
-			TLSMode:                    MANUAL,
+			TLSMode:                    Manual,
 		},
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
@@ -273,7 +273,7 @@ func TestConfiguration(t *testing.T) {
 			IstioOutboundIPRanges:      "*",
 			DefaultClusterIngressClass: "foo-ingress",
 			DomainTemplate:             "{{.Name}}.{{.Namespace}}.{{.Domain}}",
-			TLSMode:                    MANUAL,
+			TLSMode:                    Manual,
 		},
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
@@ -286,13 +286,13 @@ func TestConfiguration(t *testing.T) {
 				DomainTemplateKey:             "",
 			},
 		}}, {
-		name:    "network configuration with AUTO TLS Mode",
+		name:    "network configuration with Auto TLS Mode",
 		wantErr: false,
 		wantController: &Config{
 			IstioOutboundIPRanges:      "*",
 			DefaultClusterIngressClass: "istio.ingress.networking.knative.dev",
 			DomainTemplate:             "{{.Name}}.{{.Namespace}}.{{.Domain}}",
-			TLSMode:                    AUTO,
+			TLSMode:                    Auto,
 		},
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
@@ -301,16 +301,16 @@ func TestConfiguration(t *testing.T) {
 			},
 			Data: map[string]string{
 				IstioOutboundIPRangesKey: "*",
-				TLSModeKey:               "AUTO",
+				TLSModeKey:               "Auto",
 			},
 		}}, {
-		name:    "network configuration with FORCE TLS Mode",
+		name:    "network configuration with Force TLS Mode",
 		wantErr: false,
 		wantController: &Config{
 			IstioOutboundIPRanges:      "*",
 			DefaultClusterIngressClass: "istio.ingress.networking.knative.dev",
 			DomainTemplate:             "{{.Name}}.{{.Namespace}}.{{.Domain}}",
-			TLSMode:                    FORCE,
+			TLSMode:                    Force,
 		},
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
@@ -319,7 +319,7 @@ func TestConfiguration(t *testing.T) {
 			},
 			Data: map[string]string{
 				IstioOutboundIPRangesKey: "*",
-				TLSModeKey:               "FORCE",
+				TLSModeKey:               "Force",
 			},
 		}}, {
 		name:           "network configuration with Incorrect TLS Mode",

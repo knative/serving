@@ -67,19 +67,19 @@ const (
 	TLSModeKey = "tlsMode"
 
 	// DefaultTLSMode is the default TLS mode of Knative. It is `MANUAL` by default.
-	DefaultTLSMode = MANUAL
+	DefaultTLSMode = Manual
 )
 
 const (
-	// MANUAL represents the `MANUAL` TLS MODE.
-	MANUAL = "MANUAL"
-	// AUTO represents the `AUTO` TLS MODE.
-	AUTO = "AUTO"
-	// FORCE represents the `FORCE` TLS MODE.
-	FORCE = "FORCE"
+	// Manual represents the `Manual` TLS MODE.
+	Manual = "Manual"
+	// Auto represents the `Auto` TLS MODE.
+	Auto = "Auto"
+	// Force represents the `Force` TLS MODE.
+	Force = "Force"
 )
 
-var supportedTLSModes = sets.NewString(MANUAL, AUTO, FORCE)
+var supportedTLSModes = sets.NewString(Manual, Auto, Force)
 
 // Config contains the networking configuration defined in the
 // network config map.

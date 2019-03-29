@@ -34,15 +34,21 @@ func TestStoreLoadWithContext(t *testing.T) {
 	networkConfig := ConfigMapFromTestFile(t, network.ConfigName)
 	store.OnConfigChanged(istioConfig)
 	store.OnConfigChanged(networkConfig)
-	config := FromContext(store.ToContext(context.Background()))
+	ctxConfig := FromContext(store.ToContext(context.Background()))
 
-	expectedIstio, _ := NewIstioFromConfigMap(istioConfig)
-	if diff := cmp.Diff(expectedIstio, config.Istio); diff != "" {
+	expectedIstio, err := NewIstioFromConfigMap(istioConfig)
+	if err != nil {
+		t.Errorf("Unexpected error when creating Istio config: %v", err)
+	}
+	if diff := cmp.Diff(expectedIstio, ctxConfig.Istio); diff != "" {
 		t.Errorf("Unexpected istio config (-want, +got): %v", diff)
 	}
 
 	expectNetworkConfig, _ := network.NewConfigFromConfigMap(networkConfig)
-	if diff := cmp.Diff(expectNetworkConfig.TLSMode, config.TLSMode); diff != "" {
+	if err != nil {
+		t.Errorf("Unexpected error when creating Network config: %v", err)
+	}
+	if diff := cmp.Diff(expectNetworkConfig.TLSMode, ctxConfig.TLSMode); diff != "" {
 		t.Errorf("Unexpected TLS mode (-want, +got): %s", diff)
 	}
 }
@@ -57,7 +63,7 @@ func TestStoreImmutableConfig(t *testing.T) {
 	config := store.Load()
 
 	config.Istio.IngressGateways = []Gateway{{GatewayName: "mutated", ServiceURL: "mutated"}}
-	config.TLSMode = network.AUTO
+	config.TLSMode = network.Auto
 
 	newConfig := store.Load()
 
@@ -65,7 +71,7 @@ func TestStoreImmutableConfig(t *testing.T) {
 		t.Error("Istio config is not immutable")
 	}
 
-	if newConfig.TLSMode == network.AUTO {
+	if newConfig.TLSMode == network.Auto {
 		t.Error("TLS Mode is not immutable")
 	}
 }

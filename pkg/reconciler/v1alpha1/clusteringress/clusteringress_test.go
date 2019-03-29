@@ -410,7 +410,7 @@ func TestReconcile_Gateway(t *testing.T) {
 							ServiceURL:  reconciler.GetK8sServiceFullname("istio-ingressgateway", "istio-system"),
 						}},
 					},
-					TLSMode: network.FORCE,
+					TLSMode: network.Force,
 				},
 			},
 		}
@@ -482,7 +482,7 @@ func ReconcilerTestConfig() *config.Config {
 				ServiceURL:  reconciler.GetK8sServiceFullname("istio-ingressgateway", "istio-system"),
 			}},
 		},
-		TLSMode: network.MANUAL,
+		TLSMode: network.Manual,
 	}
 }
 
@@ -550,7 +550,7 @@ func newTestSetup(t *testing.T, configs ...*corev1.ConfigMap) (
 				Namespace: system.Namespace(),
 			},
 			Data: map[string]string{
-				"tlsMode": "MANUAL",
+				"tlsMode": "Manual",
 			},
 		},
 	}, configs...)
@@ -750,7 +750,7 @@ func TestGlobalResyncOnUpdateTLSMode(t *testing.T) {
 			Namespace: system.Namespace(),
 		},
 		Data: map[string]string{
-			"tlsMode": "AUTO",
+			"tlsMode": "Auto",
 		},
 	}
 	watcher.OnChange(&networkConfig)
