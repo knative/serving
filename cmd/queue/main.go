@@ -114,7 +114,7 @@ func reportStats(statChan chan *autoscaler.Stat) {
 	for {
 		s := <-statChan
 		if !userContainerDeployed {
-			logger.Warnf("The user container is not ready yet.")
+			logger.Warn("The user container is not ready yet.")
 			continue
 		}
 		if err := promStatReporter.Report(s); err != nil {
