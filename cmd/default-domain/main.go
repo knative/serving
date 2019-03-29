@@ -78,6 +78,8 @@ func lookupIngressGateway(kubeClient *kubernetes.Clientset) (*corev1.Service, er
 	}
 	// Parse the service name to determine which Kubernetes Service resource to fetch.
 	serviceURL := istioConfig.IngressGateways[0].ServiceURL
+	// serviceURL should be of the form serviceName.namespace.<domain>, for example
+	// serviceName.namespace.svc.cluster.local.
 	parts := strings.SplitN(serviceURL, ".", 3)
 	if len(parts) != 3 {
 		return nil, fmt.Errorf("Unexpected service URL form: %s", serviceURL)
