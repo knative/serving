@@ -21,7 +21,11 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	logtesting "github.com/knative/pkg/logging/testing"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/knative/serving/pkg/apis/config"
 )
 
 func TestRevisionDefaulting(t *testing.T) {
@@ -29,13 +33,42 @@ func TestRevisionDefaulting(t *testing.T) {
 		name string
 		in   *Revision
 		want *Revision
+		wc   func(context.Context) context.Context
 	}{{
 		name: "empty",
 		in:   &Revision{},
 		want: &Revision{
 			Spec: RevisionSpec{
 				ContainerConcurrency: 0,
-				TimeoutSeconds:       defaultTimeoutSeconds,
+				TimeoutSeconds:       config.DefaultRevisionTimeoutSeconds,
+				Container: corev1.Container{
+					Resources: defaultResources,
+				},
+			},
+		},
+	}, {
+		name: "with context",
+		in:   &Revision{},
+		wc: func(ctx context.Context) context.Context {
+			s := config.NewStore(logtesting.TestLogger(t))
+			s.OnConfigChanged(&corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: config.DefaultsConfigName,
+				},
+				Data: map[string]string{
+					"revision-timeout-seconds": "123",
+				},
+			})
+
+			return s.ToContext(ctx)
+		},
+		want: &Revision{
+			Spec: RevisionSpec{
+				ContainerConcurrency: 0,
+				TimeoutSeconds:       123,
+				Container: corev1.Container{
+					Resources: defaultResources,
+				},
 			},
 		},
 	}, {
@@ -60,6 +93,7 @@ func TestRevisionDefaulting(t *testing.T) {
 						Name:     "bar",
 						ReadOnly: true,
 					}},
+					Resources: defaultResources,
 				},
 				ContainerConcurrency: 1,
 				TimeoutSeconds:       99,
@@ -77,6 +111,9 @@ func TestRevisionDefaulting(t *testing.T) {
 			Spec: RevisionSpec{
 				ContainerConcurrency: 1,
 				TimeoutSeconds:       99,
+				Container: corev1.Container{
+					Resources: defaultResources,
+				},
 			},
 		},
 	}, {
@@ -87,7 +124,10 @@ func TestRevisionDefaulting(t *testing.T) {
 		want: &Revision{
 			Spec: RevisionSpec{
 				ContainerConcurrency: 0,
-				TimeoutSeconds:       defaultTimeoutSeconds,
+				TimeoutSeconds:       config.DefaultRevisionTimeoutSeconds,
+				Container: corev1.Container{
+					Resources: defaultResources,
+				},
 			},
 		},
 	}, {
@@ -102,7 +142,10 @@ func TestRevisionDefaulting(t *testing.T) {
 			Spec: RevisionSpec{
 				DeprecatedConcurrencyModel: "Single",
 				ContainerConcurrency:       1,
-				TimeoutSeconds:             defaultTimeoutSeconds,
+				TimeoutSeconds:             config.DefaultRevisionTimeoutSeconds,
+				Container: corev1.Container{
+					Resources: defaultResources,
+				},
 			},
 		},
 	}}
@@ -110,8 +153,12 @@ func TestRevisionDefaulting(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			got := test.in
-			got.SetDefaults(context.Background())
-			if diff := cmp.Diff(test.want, got); diff != "" {
+			ctx := context.Background()
+			if test.wc != nil {
+				ctx = test.wc(ctx)
+			}
+			got.SetDefaults(ctx)
+			if diff := cmp.Diff(test.want, got, ignoreUnexportedResources); diff != "" {
 				t.Errorf("SetDefaults (-want, +got) = %v", diff)
 			}
 		})

@@ -49,12 +49,6 @@ var (
 		MountPath: "/var/log",
 	}
 
-	userResources = corev1.ResourceRequirements{
-		Requests: corev1.ResourceList{
-			corev1.ResourceCPU: userContainerCPU,
-		},
-	}
-
 	// This PreStop hook is actually calling an endpoint on the queue-proxy
 	// because of the way PreStop hooks are called by kubelet. We use this
 	// to block the user-container from exiting before the queue-proxy is ready
@@ -83,35 +77,11 @@ func rewriteUserProbe(p *corev1.Probe, userPort int) {
 	}
 }
 
-// applyDefaultResource
-// Implements a deep merge for ResourceRequirements
-// note: DeepCopyInto cannot be used because it replaces limits or requests instead of merging them
-func applyDefaultResources(defaults corev1.ResourceRequirements, out *corev1.ResourceRequirements) {
-	in := defaults.DeepCopy()
-	if in.Limits != nil {
-		in, out := &in.Limits, &out.Limits
-		for key, val := range *out {
-			(*in)[key] = val.DeepCopy()
-		}
-		(*out) = (*in)
-	}
-	if in.Requests != nil {
-		in, out := &in.Requests, &out.Requests
-		for key, val := range *out {
-			(*in)[key] = val.DeepCopy()
-		}
-		(*out) = (*in)
-	}
-}
-
 func makePodSpec(rev *v1alpha1.Revision, loggingConfig *logging.Config, observabilityConfig *config.Observability, autoscalerConfig *autoscaler.Config, controllerConfig *config.Controller) *corev1.PodSpec {
 	userContainer := rev.Spec.Container.DeepCopy()
 	// Adding or removing an overwritten corev1.Container field here? Don't forget to
 	// update the validations in pkg/webhook.validateContainer.
 	userContainer.Name = UserContainerName
-
-	// If client provides for some resources, override default values
-	applyDefaultResources(userResources, &userContainer.Resources)
 
 	userContainer.VolumeMounts = append(userContainer.VolumeMounts, varLogVolumeMount)
 	userContainer.Lifecycle = userLifecycle
@@ -144,7 +114,7 @@ func makePodSpec(rev *v1alpha1.Revision, loggingConfig *logging.Config, observab
 	podSpec := &corev1.PodSpec{
 		Containers: []corev1.Container{
 			*userContainer,
-			*makeQueueContainer(rev, loggingConfig, autoscalerConfig, controllerConfig),
+			*makeQueueContainer(rev, loggingConfig, observabilityConfig, autoscalerConfig, controllerConfig),
 		},
 		Volumes:                       append([]corev1.Volume{varLogVolume}, rev.Spec.Volumes...),
 		ServiceAccountName:            rev.Spec.ServiceAccountName,

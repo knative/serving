@@ -16,7 +16,11 @@ limitations under the License.
 
 package activator
 
-import "github.com/knative/serving/pkg/apis/serving/v1alpha1"
+import (
+	"fmt"
+
+	"github.com/knative/serving/pkg/apis/networking"
+)
 
 const (
 	// Name is the name of the component.
@@ -34,40 +38,21 @@ const (
 	ServicePortH2C int32 = 81
 )
 
-// Activator provides an active endpoint for a revision or an error and
-// status code indicating why it could not.
-type Activator interface {
-	ActiveEndpoint(namespace, name string) ActivationResult
-	Shutdown()
-}
-
 // RevisionID is the combination of namespace and service name
 type RevisionID struct {
 	Namespace string
 	Name      string
 }
 
-// Endpoint is a fully-qualified domain name / port pair for an active revision.
-type Endpoint struct {
-	FQDN string
-	Port int32
+func (rev RevisionID) String() string {
+	return fmt.Sprintf("%s/%s", rev.Namespace, rev.Name)
 }
 
-// ActivationResult is used to return the result of an ActivateEndpoint call
-type ActivationResult struct {
-	Status            int
-	Endpoint          Endpoint
-	ServiceName       string
-	ConfigurationName string
-	Error             error
-}
-
-// ServicePort returns the activator service port for the given Revision protocol.
+// ServicePort returns the activator service port for the given app level protocol.
 // Default is `ServicePortHTTP1`.
-func ServicePort(protocol v1alpha1.RevisionProtocolType) int32 {
-	if protocol == v1alpha1.RevisionProtocolH2C {
+func ServicePort(protocol networking.ProtocolType) int32 {
+	if protocol == networking.ProtocolH2C {
 		return ServicePortH2C
 	}
-
 	return ServicePortHTTP1
 }

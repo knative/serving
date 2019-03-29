@@ -19,6 +19,7 @@ package config
 import (
 	"fmt"
 	"strings"
+	"text/template"
 
 	corev1 "k8s.io/api/core/v1"
 )
@@ -48,6 +49,9 @@ type Observability struct {
 	// LoggingURLTemplate is a string containing the logging url template where
 	// the variable REVISION_UID will be replaced with the created revision's UID.
 	LoggingURLTemplate string
+
+	// RequestLogTemplate is the go template to use to shape the request logs.
+	RequestLogTemplate string
 }
 
 // NewObservabilityFromConfigMap creates a Observability from the supplied ConfigMap
@@ -71,5 +75,14 @@ func NewObservabilityFromConfigMap(configMap *corev1.ConfigMap) (*Observability,
 	} else {
 		oc.LoggingURLTemplate = defaultLogURLTemplate
 	}
+
+	if rlt, ok := configMap.Data["logging.request-log-template"]; ok {
+		// Verify that we get valid templates.
+		if _, err := template.New("requestLog").Parse(rlt); err != nil {
+			return nil, err
+		}
+		oc.RequestLogTemplate = rlt
+	}
+
 	return oc, nil
 }

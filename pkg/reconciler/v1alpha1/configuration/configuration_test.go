@@ -540,6 +540,7 @@ func cfg(name, namespace string, generation int64, co ...ConfigOption) *v1alpha1
 	for _, opt := range co {
 		opt(c)
 	}
+	c.SetDefaults(context.Background())
 	return c
 }
 
@@ -659,7 +660,9 @@ func TestIsRevisionStale(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			cfg := &v1alpha1.Configuration{
 				Status: v1alpha1.ConfigurationStatus{
-					LatestReadyRevisionName: test.latestRev,
+					ConfigurationStatusFields: v1alpha1.ConfigurationStatusFields{
+						LatestReadyRevisionName: test.latestRev,
+					},
 				},
 			}
 

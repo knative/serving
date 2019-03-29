@@ -435,7 +435,7 @@
   revision = "3fc06fd3c9880a9ebb5c401f4b20cf6666cc7bc0"
 
 [[projects]]
-  digest = "1:46d45a87b2948fcd7acc2ab5d0c1fab9cae697c210e0cbd155a295861ffb92e0"
+  digest = "1:b63240baa17619ca01a86c507c63416b679d934d1c63d0ecea2fd34d6ead1c7f"
   name = "github.com/knative/pkg"
   packages = [
     "apis",
@@ -476,6 +476,7 @@
     "system/testing",
     "test",
     "test/helpers",
+    "test/ingress",
     "test/logging",
     "test/monitoring",
     "test/spoof",
@@ -486,7 +487,7 @@
     "websocket",
   ]
   pruneopts = "NUT"
-  revision = "60fdcbcabd2faeb34328d8b2725dc76c59189453"
+  revision = "671c872a772b25ca519c211b9ca0a0ad274b0918"
 
 [[projects]]
   branch = "master"
@@ -1328,6 +1329,7 @@
     "github.com/knative/pkg/system/testing",
     "github.com/knative/pkg/test",
     "github.com/knative/pkg/test/helpers",
+    "github.com/knative/pkg/test/ingress",
     "github.com/knative/pkg/test/logging",
     "github.com/knative/pkg/test/spoof",
     "github.com/knative/pkg/tracker",
@@ -1365,7 +1367,6 @@
     "k8s.io/api/authentication/v1",
     "k8s.io/api/autoscaling/v1",
     "k8s.io/api/core/v1",
-    "k8s.io/api/extensions/v1beta1",
     "k8s.io/apimachinery/pkg/api/equality",
     "k8s.io/apimachinery/pkg/api/errors",
     "k8s.io/apimachinery/pkg/api/meta",

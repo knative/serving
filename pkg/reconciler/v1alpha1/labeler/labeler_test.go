@@ -147,7 +147,9 @@ func routeWithTraffic(namespace, name string, traffic ...v1alpha1.TrafficTarget)
 			Name:      name,
 		},
 		Status: v1alpha1.RouteStatus{
-			Traffic: traffic,
+			RouteStatusFields: v1alpha1.RouteStatusFields{
+				Traffic: traffic,
+			},
 		},
 	}
 }

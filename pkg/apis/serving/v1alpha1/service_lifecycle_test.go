@@ -458,14 +458,17 @@ func TestSetManualStatus(t *testing.T) {
 
 func TestConfigurationStatusPropagation(t *testing.T) {
 	svc := &Service{}
-	svc.Status.PropagateConfigurationStatus(&ConfigurationStatus{
+
+	csf := ConfigurationStatusFields{
 		LatestReadyRevisionName:   "foo",
 		LatestCreatedRevisionName: "bar",
+	}
+	svc.Status.PropagateConfigurationStatus(&ConfigurationStatus{
+		ConfigurationStatusFields: csf,
 	})
 
 	want := ServiceStatus{
-		LatestReadyRevisionName:   "foo",
-		LatestCreatedRevisionName: "bar",
+		ConfigurationStatusFields: csf,
 	}
 
 	if diff := cmp.Diff(want, svc.Status); diff != "" {
@@ -611,7 +614,8 @@ func TestServiceNotOwnedStuff(t *testing.T) {
 
 func TestRouteStatusPropagation(t *testing.T) {
 	svc := &Service{}
-	svc.Status.PropagateRouteStatus(&RouteStatus{
+
+	rsf := RouteStatusFields{
 		Domain: "example.com",
 		Traffic: []TrafficTarget{{
 			Percent:      100,
@@ -620,17 +624,14 @@ func TestRouteStatusPropagation(t *testing.T) {
 			Percent:      0,
 			RevisionName: "oldstuff",
 		}},
+	}
+
+	svc.Status.PropagateRouteStatus(&RouteStatus{
+		RouteStatusFields: rsf,
 	})
 
 	want := ServiceStatus{
-		Domain: "example.com",
-		Traffic: []TrafficTarget{{
-			Percent:      100,
-			RevisionName: "newstuff",
-		}, {
-			Percent:      0,
-			RevisionName: "oldstuff",
-		}},
+		RouteStatusFields: rsf,
 	}
 
 	if diff := cmp.Diff(want, svc.Status); diff != "" {

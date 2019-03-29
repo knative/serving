@@ -167,43 +167,9 @@ const (
 type ServiceStatus struct {
 	duckv1alpha1.Status `json:",inline"`
 
-	// From RouteStatus.
-	// Domain holds the top-level domain that will distribute traffic over the provided targets.
-	// It generally has the form {route-name}.{route-namespace}.{cluster-level-suffix}
-	// +optional
-	Domain string `json:"domain,omitempty"`
+	RouteStatusFields `json:",inline"`
 
-	// From RouteStatus.
-	// DeprecatedDomainInternal holds the top-level domain that will distribute traffic over the provided
-	// targets from inside the cluster. It generally has the form
-	// {route-name}.{route-namespace}.svc.{cluster-domain-name}
-	// DEPRECATED: Use Address instead.
-	// +optional
-	DeprecatedDomainInternal string `json:"domainInternal,omitempty"`
-
-	// Address holds the information needed for a Route to be the target of an event.
-	// +optional
-	Address *duckv1alpha1.Addressable `json:"address,omitempty"`
-
-	// From RouteStatus.
-	// Traffic holds the configured traffic distribution.
-	// These entries will always contain RevisionName references.
-	// When ConfigurationName appears in the spec, this will hold the
-	// LatestReadyRevisionName that we last observed.
-	// +optional
-	Traffic []TrafficTarget `json:"traffic,omitempty"`
-
-	// From ConfigurationStatus.
-	// LatestReadyRevisionName holds the name of the latest Revision stamped out
-	// from this Service's Configuration that has had its "Ready" condition become "True".
-	// +optional
-	LatestReadyRevisionName string `json:"latestReadyRevisionName,omitempty"`
-
-	// From ConfigurationStatus.
-	// LatestCreatedRevisionName is the last revision that was created from this Service's
-	// Configuration. It might not be ready yet, for that use LatestReadyRevisionName.
-	// +optional
-	LatestCreatedRevisionName string `json:"latestCreatedRevisionName,omitempty"`
+	ConfigurationStatusFields `json:",inline"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

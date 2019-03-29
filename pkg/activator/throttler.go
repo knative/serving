@@ -20,6 +20,7 @@ import (
 	"errors"
 	"sync"
 
+	"github.com/knative/pkg/logging/logkey"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/queue"
 	"github.com/knative/serving/pkg/reconciler"
@@ -99,7 +100,7 @@ func (t *Throttler) updateCapacity(revision *v1alpha1.Revision, breaker *queue.B
 	cc := int32(revision.Spec.ContainerConcurrency)
 
 	targetCapacity := cc * size
-	if cc == 0 || targetCapacity > t.breakerParams.MaxConcurrency {
+	if size > 0 && (cc == 0 || targetCapacity > t.breakerParams.MaxConcurrency) {
 		// The concurrency is unlimited, thus hand out as many tokens as we can in this breaker.
 		targetCapacity = t.breakerParams.MaxConcurrency
 	}
@@ -148,7 +149,7 @@ func UpdateEndpoints(throttler *Throttler) func(newObj interface{}) {
 		addresses := EndpointsAddressCount(endpoints.Subsets)
 		revID := RevisionID{endpoints.Namespace, reconciler.GetServingRevisionNameForK8sService(endpoints.Name)}
 		if err := throttler.UpdateCapacity(revID, int32(addresses)); err != nil {
-			throttler.logger.Errorw("updating capacity failed", zap.Error(err))
+			throttler.logger.With(zap.String(logkey.Key, revID.String())).Errorw("updating capacity failed", zap.Error(err))
 		}
 	}
 }

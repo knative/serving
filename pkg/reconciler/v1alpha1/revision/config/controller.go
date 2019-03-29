@@ -35,12 +35,11 @@ const (
 // NewControllerConfigFromMap creates a Controller from the supplied Map
 func NewControllerConfigFromMap(configMap map[string]string) (*Controller, error) {
 	nc := &Controller{}
-
-	if qsideCarImage, ok := configMap[queueSidecarImageKey]; !ok {
+	qsideCarImage, ok := configMap[queueSidecarImageKey]
+	if !ok {
 		return nil, errors.New("Queue sidecar image is missing")
-	} else {
-		nc.QueueSidecarImage = qsideCarImage
 	}
+	nc.QueueSidecarImage = qsideCarImage
 
 	if registries, ok := configMap[registriesSkippingTagResolving]; !ok {
 		// It is ok if registries are missing.

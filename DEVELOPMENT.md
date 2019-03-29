@@ -30,12 +30,12 @@ You must install these tools:
 1. [`git`](https://help.github.com/articles/set-up-git/): For source control
 1. [`dep`](https://github.com/golang/dep): For managing external Go
    dependencies.
-1. [`ko`](https://github.com/google/ko):
-   For development.
+1. [`ko`](https://github.com/google/ko): For development.
 1. [`kubectl`](https://kubernetes.io/docs/tasks/tools/install-kubectl/): For
    managing development environments.
 
 ### Create a cluster and a repo
+
 
 1. [Set up a kubernetes cluster](https://www.knative.dev/docs/install/)
    - Follow an install guide up through "Creating a Kubernetes Cluster"
@@ -259,6 +259,7 @@ ko delete --ignore-not-found=true \
 
 To access Telemetry see:
 
+
 - [Accessing Metrics](https://www.knative.dev/docs/serving/accessing-metrics/)
 - [Accessing Logs](https://www.knative.dev/docs/serving/accessing-logs/)
-- [Accessing Traces](https://www.knative.dev/docs/serving/accessing-traces/)
+- [Accessing Traces](https://www.knative.dev/docs/serving/accessing-traces/

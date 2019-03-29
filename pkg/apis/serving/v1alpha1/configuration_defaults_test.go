@@ -21,6 +21,20 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
+
+	"github.com/knative/serving/pkg/apis/config"
+)
+
+var (
+	defaultResources = corev1.ResourceRequirements{
+		Requests: corev1.ResourceList{
+			corev1.ResourceCPU: resource.MustParse("400m"),
+		},
+	}
+	ignoreUnexportedResources = cmpopts.IgnoreUnexported(resource.Quantity{})
 )
 
 func TestConfigurationDefaulting(t *testing.T) {
@@ -35,7 +49,10 @@ func TestConfigurationDefaulting(t *testing.T) {
 			Spec: ConfigurationSpec{
 				RevisionTemplate: RevisionTemplateSpec{
 					Spec: RevisionSpec{
-						TimeoutSeconds: defaultTimeoutSeconds,
+						TimeoutSeconds: config.DefaultRevisionTimeoutSeconds,
+						Container: corev1.Container{
+							Resources: defaultResources,
+						},
 					},
 				},
 			},
@@ -48,6 +65,9 @@ func TestConfigurationDefaulting(t *testing.T) {
 					Spec: RevisionSpec{
 						ContainerConcurrency: 1,
 						TimeoutSeconds:       99,
+						Container: corev1.Container{
+							Resources: defaultResources,
+						},
 					},
 				},
 			},
@@ -58,6 +78,9 @@ func TestConfigurationDefaulting(t *testing.T) {
 					Spec: RevisionSpec{
 						ContainerConcurrency: 1,
 						TimeoutSeconds:       99,
+						Container: corev1.Container{
+							Resources: defaultResources,
+						},
 					},
 				},
 			},
@@ -68,7 +91,7 @@ func TestConfigurationDefaulting(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			got := test.in
 			got.SetDefaults(context.Background())
-			if diff := cmp.Diff(test.want, got); diff != "" {
+			if diff := cmp.Diff(test.want, got, ignoreUnexportedResources); diff != "" {
 				t.Errorf("SetDefaults (-want, +got) = %v", diff)
 			}
 		})
