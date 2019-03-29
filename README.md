@@ -15,8 +15,8 @@ The Knative Serving project provides middleware primitives that enable:
 - Point-in-time snapshots of deployed code and configurations
 
 For documentation on using Knative Serving, see the
-[serving](https://www.knative.dev/docs/serving/) folder of the
-[Knative Docs](https://www.knative.dev/docs) repository.
+[serving section](https://www.knative.dev/docs/serving/) of the
+[Knative documentation site](https://www.knative.dev/docs).
 
 For documentation on the Knative Serving specification, see the
 [docs](https://github.com/knative/serving/tree/master/docs) folder of this
