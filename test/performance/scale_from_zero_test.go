@@ -29,6 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 
 	pkgTest "github.com/knative/pkg/test"
+	"github.com/knative/pkg/test/zipkin"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources/names"
 	ktest "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
@@ -69,24 +70,31 @@ func runScaleFromZero(idx int, t *testing.T, clients *test.Clients, ro *test.Res
 
 	start := time.Now()
 	t.Logf("%02d: waiting for endpoint to serve request", idx)
-	if _, err := pkgTest.WaitForEndpointStateWithTimeout(
+	resp, err := pkgTest.WaitForEndpointStateWithTimeout(
 		clients.KubeClient,
 		t.Logf,
 		domain,
 		pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesBody(helloWorldExpectedOutput)),
 		"HelloWorldServesText",
-		test.ServingFlags.ResolvableDomain, waitToServe); err != nil {
+		test.ServingFlags.ResolvableDomain, waitToServe)
+	if err != nil {
 		m := fmt.Sprintf("%02d: the endpoint for Route %q at domain %q didn't serve the expected text %q: %v", idx, ro.Route.Name, domain, helloWorldExpectedOutput, err)
 		t.Log(m)
 		return 0, errors.New(m)
 	}
-
+	dur := time.Since(start)
 	t.Logf("%02d: request completed", idx)
-	return time.Since(start), nil
+
+	// Sleep to get traces
+	time.Sleep(5 * time.Second)
+	traceID := resp.Header.Get(zipkin.ZipkinTraceIDHeader)
+	AddTrace(t.Logf, t.Name(), traceID)
+
+	return dur, nil
 }
 
 func parallelScaleFromZero(t *testing.T, count int) ([]time.Duration, error) {
-	pc, err := Setup(t.Logf, false)
+	pc, err := Setup(t.Logf, t.Name(), false, true)
 	if err != nil {
 		return nil, fmt.Errorf("failed to setup clients: %v", err)
 	}
@@ -182,8 +190,11 @@ func testScaleFromZero(t *testing.T, count int) {
 	}
 	stats := getStats(durs)
 	t.Logf("Average: %v", stats.avg)
-	if err = testgrid.CreateXMLOutput([]junit.TestCase{
-		CreatePerfTestCase(float32(stats.avg.Seconds()), "Average", tName)}, tName); err != nil {
+
+	// Display output in testgrid
+	if err = testgrid.CreateXMLOutput(
+		[]junit.TestCase{CreatePerfTestCase(float32(stats.avg.Seconds()), "Average", tName)},
+		tName); err != nil {
 		t.Fatalf("Error creating testgrid output: %v", err)
 	}
 }

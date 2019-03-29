@@ -435,7 +435,7 @@
   revision = "3fc06fd3c9880a9ebb5c401f4b20cf6666cc7bc0"
 
 [[projects]]
-  digest = "1:b63240baa17619ca01a86c507c63416b679d934d1c63d0ecea2fd34d6ead1c7f"
+  digest = "1:c17b94ec0e75a4f570461807099eca5aca0d2a15c8fb6a866ba46556725f81ed"
   name = "github.com/knative/pkg"
   packages = [
     "apis",
@@ -487,7 +487,7 @@
     "websocket",
   ]
   pruneopts = "NUT"
-  revision = "671c872a772b25ca519c211b9ca0a0ad274b0918"
+  revision = "c35005418bb22213761c60bf89b7cbafeadb29e4"
 
 [[projects]]
   branch = "master"
@@ -1332,6 +1332,7 @@
     "github.com/knative/pkg/test/ingress",
     "github.com/knative/pkg/test/logging",
     "github.com/knative/pkg/test/spoof",
+    "github.com/knative/pkg/test/zipkin",
     "github.com/knative/pkg/tracker",
     "github.com/knative/pkg/version",
     "github.com/knative/pkg/webhook",
