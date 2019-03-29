@@ -23,22 +23,26 @@ import (
 	"time"
 
 	"github.com/knative/pkg/configmap"
-	. "github.com/knative/pkg/logging/testing"
 	"github.com/knative/pkg/system"
 	_ "github.com/knative/pkg/system/testing"
 	"github.com/knative/serving/pkg/apis/autoscaling"
 	kpa "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
+	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/autoscaler"
 	fakeKna "github.com/knative/serving/pkg/client/clientset/versioned/fake"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
 	"github.com/knative/serving/pkg/reconciler"
+	"github.com/knative/serving/pkg/reconciler/v1alpha1/autoscaling/kpa/resources"
+	"github.com/knative/serving/pkg/reconciler/v1alpha1/autoscaling/kpa/resources/names"
 	revisionresources "github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources"
+	. "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
 	"go.uber.org/atomic"
 	"golang.org/x/sync/errgroup"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	kubeinformers "k8s.io/client-go/informers"
 	fakeK8s "k8s.io/client-go/kubernetes/fake"
 	scalefake "k8s.io/client-go/scale/fake"
@@ -76,8 +80,120 @@ func newDynamicConfig(t *testing.T) *autoscaler.DynamicConfig {
 	return dynConfig
 }
 
-// TODO(josephburnett): Convert KPA tests to table tests.
+// TODO(#3591): Convert KPA tests to table tests.
 
+func TestMetricsSvcIsReconciled(t *testing.T) {
+	rev := newTestRevision(testNamespace, testRevision)
+	ep := addEndpoint(makeEndpoints(rev))
+	kpa := revisionresources.MakeKPA(rev)
+	tests := []struct {
+		name        string
+		before      *corev1.Service
+		crHook      func(runtime.Object) HookResult
+		upHook      func(runtime.Object) HookResult
+		hookShoulTO bool // we expect 0 updates.
+	}{{
+		name: "svc does not exist",
+		crHook: func(obj runtime.Object) HookResult {
+			svc := obj.(*corev1.Service)
+			t.Logf("Created K8s Service: %#v", svc)
+			if got, want := svc.Name, names.MetricsServiceName(kpa.Name); got != want {
+				t.Errorf("MetricsServiceName = %s, want = %s", got, want)
+			}
+			return HookComplete
+		},
+	}, {
+		name:   "svc exists, no change",
+		before: resources.MakeMetricsService(kpa, map[string]string{}),
+		upHook: func(obj runtime.Object) HookResult {
+			svc := obj.(*corev1.Service)
+			t.Errorf("Unexpected update for service %s", svc.Name)
+			return HookComplete
+		},
+		hookShoulTO: true,
+	}, {
+		name:   "svc exists, need update",
+		before: resources.MakeMetricsService(kpa, map[string]string{"hot": "stuff"}),
+		upHook: func(obj runtime.Object) HookResult {
+			return HookComplete
+		},
+	}}
+	for _, test := range tests {
+		test := test
+		// TODO(vagabov): refactor to avoid duplicate work for setup.
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			kubeClient := fakeK8s.NewSimpleClientset()
+			servingClient := fakeKna.NewSimpleClientset()
+
+			stopCh := make(chan struct{})
+			createdCh := make(chan struct{})
+			defer close(createdCh)
+
+			opts := reconciler.Options{
+				KubeClientSet:    kubeClient,
+				ServingClientSet: servingClient,
+				Logger:           TestLogger(t),
+			}
+
+			servingInformer := informers.NewSharedInformerFactory(servingClient, 0)
+			kubeInformer := kubeinformers.NewSharedInformerFactory(kubeClient, 0)
+
+			scaleClient := &scalefake.FakeScaleClient{}
+			kpaScaler := NewKPAScaler(servingClient, scaleClient, TestLogger(t), newConfigWatcher())
+
+			fakeMetrics := newTestKPAMetrics(createdCh, stopCh)
+			ctl := NewController(&opts,
+				servingInformer.Autoscaling().V1alpha1().PodAutoscalers(),
+				kubeInformer.Core().V1().Services(),
+				kubeInformer.Core().V1().Endpoints(),
+				fakeMetrics,
+				kpaScaler,
+				newDynamicConfig(t),
+			)
+
+			servingClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
+			servingInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
+			kubeClient.CoreV1().Endpoints(testNamespace).Create(ep)
+			kubeInformer.Core().V1().Endpoints().Informer().GetIndexer().Add(ep)
+			servingClient.AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
+			servingInformer.Autoscaling().V1alpha1().PodAutoscalers().Informer().GetIndexer().Add(kpa)
+
+			if test.before != nil {
+				kubeClient.CoreV1().Services(testNamespace).Create(test.before)
+				kubeInformer.Core().V1().Services().Informer().GetIndexer().Add(test.before)
+			}
+			h := NewHooks()
+			if test.crHook != nil {
+				h.OnCreate(&kubeClient.Fake, "services", test.crHook)
+			}
+			if test.upHook != nil {
+				h.OnUpdate(&kubeClient.Fake, "services", test.upHook)
+			}
+
+			reconcileGrp := errgroup.Group{}
+			reconcileGrp.Go(func() error {
+				return ctl.Reconciler.Reconcile(context.Background(), testNamespace+"/"+testRevision)
+			})
+
+			// Ensure revision creation has been seen before deleting it.
+			select {
+			case <-createdCh:
+			case <-time.After(3 * time.Second):
+				t.Fatal("Revision creation notification timed out")
+			}
+
+			// Wait for the Reconcile to complete.
+			if err := reconcileGrp.Wait(); err != nil {
+				t.Errorf("Reconcile() = %v", err)
+			}
+			// Hooks should be completed by now.
+			if err := h.WaitForHooks(100 * time.Millisecond); err != nil && !test.hookShoulTO {
+				t.Errorf("Metrics Service manipulation faltered: %v", err)
+			}
+		})
+	}
+}
 func TestControllerSynchronizesCreatesAndDeletes(t *testing.T) {
 	kubeClient := fakeK8s.NewSimpleClientset()
 	servingClient := fakeKna.NewSimpleClientset()
@@ -117,6 +233,12 @@ func TestControllerSynchronizesCreatesAndDeletes(t *testing.T) {
 	kpa := revisionresources.MakeKPA(rev)
 	servingClient.AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
 	servingInformer.Autoscaling().V1alpha1().PodAutoscalers().Informer().GetIndexer().Add(kpa)
+
+	msvc := resources.MakeMetricsService(kpa, map[string]string{
+		serving.RevisionLabelKey: rev.Name,
+	})
+	kubeClient.CoreV1().Services(testNamespace).Create(msvc)
+	kubeInformer.Core().V1().Services().Informer().GetIndexer().Add(msvc)
 
 	reconcileGrp := errgroup.Group{}
 	reconcileGrp.Go(func() error {
@@ -204,6 +326,12 @@ func TestUpdate(t *testing.T) {
 	kpa := revisionresources.MakeKPA(rev)
 	servingClient.AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
 	servingInformer.Autoscaling().V1alpha1().PodAutoscalers().Informer().GetIndexer().Add(kpa)
+
+	msvc := resources.MakeMetricsService(kpa, map[string]string{
+		serving.RevisionLabelKey: rev.Name,
+	})
+	kubeClient.CoreV1().Services(testNamespace).Create(msvc)
+	kubeInformer.Core().V1().Services().Informer().GetIndexer().Add(msvc)
 
 	reconcileGrp := errgroup.Group{}
 	reconcileGrp.Go(func() error {
