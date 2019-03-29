@@ -23,9 +23,27 @@ E2E_MAX_CLUSTER_NODES=4
 # This script provides helper methods to perform cluster actions.
 source $(dirname $0)/../vendor/github.com/knative/test-infra/scripts/e2e-tests.sh
 
+# Choose a correct istio-crds.yaml file.
+# - $1 specifies Istio version.
+function istio_crds_yaml() {
+  local istio_version="$1"
+  echo "./third_party/istio-${istio_version}/istio-crds.yaml"
+}
+
+# Choose a correct istio.yaml file.
+# - $1 specifies Istio version.
+# - $2 specifies whether we should use mesh.
+function istio_yaml() {
+  local istio_version="$1"
+  local istio_mesh=$2
+  local suffix=""
+  if [[ $istio_mesh -eq 0 ]]; then
+    suffix="-lean"
+  fi
+  echo "./third_party/istio-${istio_version}/istio${suffix}.yaml"
+}
+
 # Current YAMLs used to install Knative Serving.
-INSTALL_ISTIO_CRD_YAML=""
-INSTALL_ISTIO_YAML=""
 INSTALL_RELEASE_YAML=""
 INSTALL_MONITORING_YAML=""
 
@@ -40,17 +58,32 @@ INSTALL_CUSTOM_YAMLS=""
 
 # Parse our custom flags.
 function parse_flags() {
-  if [[ "$1" == "--install-monitoring" ]]; then
-    readonly INSTALL_MONITORING=1
-    return 1
-  fi
-  if [[ "$1" == "--custom-yamls" ]]; then
-    [[ -z "$2" ]] && fail_test "Missing argument to --custom-yamls"
-    # Expect a list of comma-separated YAMLs.
-    INSTALL_CUSTOM_YAMLS="${2//,/ }"
-    readonly INSTALL_CUSTOM_YAMLS
-    return 2
-  fi
+  case "$1" in
+    --istio-version)
+      [[ $2 =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || abort "version format must be '[0-9].[0-9].[0-9]'"
+      readonly ISTIO_VERSION=$2
+      return 2
+      ;;
+    --mesh)
+      readonly ISTIO_MESH=1
+      return 1
+      ;;
+    --no-mesh)
+      readonly ISTIO_MESH=0
+      return 1
+      ;;
+    --install-monitoring)
+      readonly INSTALL_MONITORING=1
+      return 1
+      ;;
+    --custom-yamls)
+      [[ -z "$2" ]] && fail_test "Missing argument to --custom-yamls"
+      # Expect a list of comma-separated YAMLs.
+      INSTALL_CUSTOM_YAMLS="${2//,/ }"
+      readonly INSTALL_CUSTOM_YAMLS
+      return 2
+      ;;
+  esac
   return 0
 }
 
@@ -76,13 +109,11 @@ function build_knative_from_source() {
 # Installs Knative Serving in the current cluster, and waits for it to be ready.
 # If no parameters are passed, installs the current source-based build, unless custom
 # YAML files were passed using the --custom-yamls flag.
-# Parameters: $1 - Istio CRD YAML file
-#             $2 - Istio YAML file
-#             $3 - Knative Serving YAML file
-#             $4 - Knative Monitoring YAML file (optional)
+# Parameters: $1 - Knative Serving YAML file
+#             $2 - Knative Monitoring YAML file (optional)
 function install_knative_serving() {
   if [[ -z "${INSTALL_CUSTOM_YAMLS}" ]]; then
-    install_knative_serving_standard "$1" "$2" "$3" "$4"
+    install_knative_serving_standard "$1" "$2"
     return
   fi
   echo ">> Installing Knative serving from custom YAMLs"
@@ -97,24 +128,31 @@ function install_knative_serving() {
 
 # Installs Knative Serving in the current cluster, and waits for it to be ready.
 # If no parameters are passed, installs the current source-based build.
-# Parameters: $1 - Istio CRD YAML file
-#             $2 - Istio YAML file
-#             $3 - Knative Serving YAML file
-#             $4 - Knative Monitoring YAML file (optional)
+# Parameters: $1 - Knative Serving YAML file
+#             $2 - Knative Monitoring YAML file (optional)
 function install_knative_serving_standard() {
-  INSTALL_ISTIO_CRD_YAML=$1
-  INSTALL_ISTIO_YAML=$2
-  INSTALL_RELEASE_YAML=$3
-  INSTALL_MONITORING_YAML=$4
-  if [[ -z "${INSTALL_ISTIO_CRD_YAML}" ]]; then
+  INSTALL_RELEASE_YAML=$1
+  INSTALL_MONITORING_YAML=$2
+  if [[ -z "$1" ]]; then
+    # install_knative_serving_standard was called with no arg.
     build_knative_from_source
-    INSTALL_ISTIO_CRD_YAML="${ISTIO_CRD_YAML}"
-    INSTALL_ISTIO_YAML="${ISTIO_YAML}"
     INSTALL_RELEASE_YAML="${SERVING_YAML}"
     if (( INSTALL_MONITORING )); then
       INSTALL_MONITORING_YAML="${MONITORING_YAML}"
     fi
   fi
+
+  # Decide the Istio configuration to install.
+  if [[ -z "$ISTIO_VERSION" ]]; then
+     # Defaults to 1.1.2
+     ISTIO_VERSION=1.1.2
+  fi
+  if [[ -z "$ISTIO_MESH" ]]; then
+    # Defaults to using mesh.
+    ISTIO_MESH=1
+  fi
+  INSTALL_ISTIO_CRD_YAML="$(istio_crds_yaml $ISTIO_VERSION)"
+  INSTALL_ISTIO_YAML="$(istio_yaml $ISTIO_VERSION $ISTIO_MESH)"
 
   echo ">> Installing Knative serving"
   echo "Istio CRD YAML: ${INSTALL_ISTIO_CRD_YAML}"
