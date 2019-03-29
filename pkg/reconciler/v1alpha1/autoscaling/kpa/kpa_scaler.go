@@ -28,6 +28,7 @@ import (
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/autoscaler"
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
+	perrors "github.com/pkg/errors"
 	"go.uber.org/zap"
 	autoscalingapi "k8s.io/api/autoscaling/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -101,7 +102,7 @@ func applyBounds(min, max, x int32) int32 {
 func (ks *kpaScaler) GetScale(pa *pav1alpha1.PodAutoscaler) (*autoscalingapi.Scale, error) {
 	resource, resourceName, err := scaleResourceArgs(pa)
 	if err != nil {
-		return nil, err
+		return nil, perrors.Wrap(err, "Error Get'ting /scale resource")
 	}
 
 	// Identify the current scale.

@@ -34,6 +34,7 @@ import (
 	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/autoscaling/kpa/resources"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/autoscaling/kpa/resources/names"
+	perrors "github.com/pkg/errors"
 
 	autoscalingapi "k8s.io/api/autoscaling/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -201,8 +202,7 @@ func (c *Reconciler) reconcile(ctx context.Context, pa *pav1alpha1.PodAutoscaler
 	logger.Debug("PA exists")
 
 	if err := c.reconcileMetricsService(ctx, pa); err != nil {
-		logger.Errorw("Error reconciling metrics service", zap.Error(err))
-		return err
+		return perrors.Wrap(err, "Error reconciling metrics service")
 	}
 
 	desiredMetric := resources.MakeMetric(ctx, pa, c.dynConfig.Current())
