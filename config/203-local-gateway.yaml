@@ -7,8 +7,9 @@ metadata:
   name: cluster-local-gateway
   namespace: knative-serving
   labels:
-    serving.knative.dev/release: devel
-spec:
+    serving.knative.dev/release: devels
+    networking.knative.dev/provider: istio
+pec:
   selector:
     istio: cluster-local-gateway
   servers:
