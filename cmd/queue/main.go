@@ -82,9 +82,10 @@ var (
 	h2cProxy  *httputil.ReverseProxy
 	httpProxy *httputil.ReverseProxy
 
-	server           *http.Server
-	healthState      = &health.State{}
-	promStatReporter *queue.PrometheusStatsReporter // Prometheus stats reporter.
+	server                *http.Server
+	healthState           = &health.State{}
+	promStatReporter      *queue.PrometheusStatsReporter // Prometheus stats reporter.
+	userContainerDeployed = false
 )
 
 func initEnv() {
@@ -112,6 +113,10 @@ func initEnv() {
 func reportStats(statChan chan *autoscaler.Stat) {
 	for {
 		s := <-statChan
+		if !userContainerDeployed {
+			logger.Warnf("The user container is not ready yet.")
+			continue
+		}
 		if err := promStatReporter.Report(s); err != nil {
 			logger.Errorw("Error while sending stat", zap.Error(err))
 		}
@@ -165,6 +170,7 @@ func handler(reqChan chan queue.ReqEvent, breaker *queue.Breaker, httpProxy, h2c
 				return
 			}
 			if probeUserContainer() {
+				userContainerDeployed = true
 				// Respond with the name of the component handling the request.
 				w.Write([]byte(queue.Name))
 			} else {
