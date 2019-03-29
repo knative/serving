@@ -29,6 +29,7 @@ import (
 	netv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	routenames "github.com/knative/serving/pkg/reconciler/v1alpha1/route/resources/names"
+	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/traffic"
 	servicenames "github.com/knative/serving/pkg/reconciler/v1alpha1/service/resources/names"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -291,9 +292,18 @@ func WithSvcStatusAddress(s *v1alpha1.Service) {
 }
 
 // WithSvcStatusTraffic sets the Service's status traffic block to the specified traffic targets.
-func WithSvcStatusTraffic(traffic ...v1alpha1.TrafficTarget) ServiceOption {
+func WithSvcStatusTraffic(targets ...v1alpha1.TrafficTarget) ServiceOption {
 	return func(r *v1alpha1.Service) {
-		r.Status.Traffic = traffic
+		// Automatically inject URL into TrafficTarget status
+		for _, tt := range targets {
+			if tt.Name != "" {
+				tt.URL = traffic.SubrouteURL(traffic.HttpScheme,
+					tt.Name,
+					"example.com")
+			}
+		}
+		r.Status.Traffic = targets
+
 	}
 }
 

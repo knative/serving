@@ -20,8 +20,8 @@ package conformance
 
 import (
 	"context"
-	"fmt"
 	"math"
+	"strings"
 	"testing"
 
 	_ "github.com/knative/pkg/system/testing"
@@ -107,9 +107,22 @@ func TestBlueGreenRoute(t *testing.T) {
 		t.Fatalf("Error fetching Route %s: %v", names.Route, err)
 	}
 
-	// TODO(tcnghia): Add a RouteStatus method to create this string.
-	blueDomain := fmt.Sprintf("%s.%s", blue.TrafficTarget, route.Status.Domain)
-	greenDomain := fmt.Sprintf("%s.%s", green.TrafficTarget, route.Status.Domain)
+	var blueDomain, greenDomain string
+	for _, tt := range route.Status.Traffic {
+		if tt.Name == blue.TrafficTarget {
+			// Strip prefix as WaitForEndPointState expects a domain
+			// without scheme.
+			blueDomain = strings.TrimPrefix(tt.URL, "http://")
+		}
+		if tt.Name == green.TrafficTarget {
+			// Strip prefix as WaitForEndPointState expects a domain
+			// without scheme.
+			greenDomain = strings.TrimPrefix(tt.URL, "http://")
+		}
+	}
+	if blueDomain == "" || greenDomain == "" {
+		t.Fatalf("Unable to fetch URLs from traffic targets: %#v", route.Status.Traffic)
+	}
 	tealDomain := route.Status.Domain
 
 	// Istio network programming takes some time to be effective.  Currently Istio
