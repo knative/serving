@@ -6,7 +6,7 @@ metadata:
   namespace: knative-serving
   labels:
     serving.knative.dev/release: devel
-    networking.knative.dev/provider: istio
+    serving.knative.dev/networkProvider: istio
 spec:
   selector:
     istio: ingressgateway
