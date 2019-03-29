@@ -29,7 +29,7 @@ import (
 // DefaultTarget is the unnamed default target for the traffic.
 const DefaultTarget = ""
 
-const httpScheme string = "http"
+const HttpScheme string = "http"
 
 // A RevisionTarget adds the Active/Inactive state and the transport protocol of a
 // Revision to a flattened TrafficTarget.
@@ -101,7 +101,7 @@ func SubrouteDomain(name, domain string) string {
 
 // subrouteURL returns the URL of the subroute given the scheme, traffic target name, and base domain. Curently
 // the subroute is represented as a subdomain of the base domain.
-func subrouteURL(scheme, name, domain string) string {
+func SubrouteURL(scheme, name, domain string) string {
 	return fmt.Sprintf("%s://%s", scheme, SubrouteDomain(name, domain))
 }
 
@@ -114,7 +114,7 @@ func (t *Config) GetRevisionTrafficTargets(domain string) []v1alpha1.TrafficTarg
 		results[i] = v1alpha1.TrafficTarget{RevisionName: tt.RevisionName, Name: tt.Name, Percent: tt.Percent}
 		if tt.Name != "" && domain != "" {
 			// http is currently the only supported scheme
-			results[i].URL = subrouteURL(httpScheme, tt.Name, domain)
+			results[i].URL = SubrouteURL(HttpScheme, tt.Name, domain)
 		}
 	}
 	return results

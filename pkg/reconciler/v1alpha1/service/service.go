@@ -22,6 +22,7 @@ import (
 	"reflect"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/knative/pkg/controller"
 	"github.com/knative/pkg/kmp"
 	"github.com/knative/pkg/logging"
@@ -228,7 +229,13 @@ func (c *Reconciler) reconcile(ctx context.Context, service *v1alpha1.Service) e
 				want[idx].ConfigurationName = ""
 			}
 		}
-		if eq, err := kmp.SafeEqual(got, want); !eq || err != nil {
+		opt := cmp.FilterPath(
+			func(p cmp.Path) bool {
+				return p.String() == "URL"
+			},
+			cmp.Ignore(),
+		)
+		if eq, err := kmp.SafeEqual(got, want, opt); !eq || err != nil {
 			service.Status.MarkRouteNotYetReady()
 		}
 	}
