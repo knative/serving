@@ -73,8 +73,8 @@ type ServiceScraper struct {
 
 // NewServiceScraper creates a new StatsScraper for the Revision which
 // the given Metric is responsible for.
-func NewServiceScraper(metric *Metric, endpointsInformer corev1listers.EndpointsLister) (*ServiceScraper, error) {
-	return newServiceScraperWithClient(metric, endpointsInformer, cacheDisabledClient)
+func NewServiceScraper(metric *Metric, endpointsLister corev1listers.EndpointsLister) (*ServiceScraper, error) {
+	return newServiceScraperWithClient(metric, endpointsLister, cacheDisabledClient)
 }
 
 func newServiceScraperWithClient(
