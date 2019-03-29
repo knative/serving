@@ -167,7 +167,16 @@ Next, run:
 
 ```shell
 ko apply -f config/
-PROJECT_ID="my-gcp-project-id" ./hack/dev-patch-config-gke.sh my-k8s-cluster-name  # optional
+
+# Optional steps
+
+# Configure outbound network for GKE.
+PROJECT_ID="my-gcp-project-id" ./hack/dev-patch-config-gke.sh my-k8s-cluster-name
+
+# Run post-install job to setup nice XIP.IO domain name.  This only works
+# if your Kubernetes LoadBalancer has an IP address.
+ko delete -f config/post-install --ignore-not-found
+ko apply -f config/post-install
 ```
 
 The above step is equivalent to applying the `serving.yaml` for released
