@@ -743,7 +743,7 @@ func TestGlobalResyncOnUpdateTLSMode(t *testing.T) {
 	// Create a Gateway
 	gatewayClient.Create(gateway("knative-shared-gateway", system.Namespace(), []v1alpha3.Server{}))
 
-	// Test changes in gateway config map. ClusterIngress should get updated appropriately.
+	// Test changes in TLSMode of config-netowrk ConfigMap. ClusterIngress should get updated appropriately.
 	networkConfig := corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      network.ConfigName,

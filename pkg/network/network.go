@@ -62,15 +62,21 @@ const (
 	// constructing the Knative Route's Domain(host)
 	DefaultDomainTemplate = "{{.Name}}.{{.Namespace}}.{{.Domain}}"
 
+	// TLSModeKey is the name of the configuration entry
+	// that specifies the TLS Mode of Knative.
 	TLSModeKey = "tlsMode"
 
+	// DefaultTLSMode is the default TLS mode of Knative. It is `MANUAL` by default.
 	DefaultTLSMode = MANUAL
 )
 
 const (
+	// MANUAL represents the `MANUAL` TLS MODE.
 	MANUAL = "MANUAL"
-	AUTO   = "AUTO"
-	FORCE  = "FORCE"
+	// AUTO represents the `AUTO` TLS MODE.
+	AUTO = "AUTO"
+	// FORCE represents the `FORCE` TLS MODE.
+	FORCE = "FORCE"
 )
 
 var supportedTLSModes = sets.NewString(MANUAL, AUTO, FORCE)
@@ -89,6 +95,7 @@ type Config struct {
 	// Route's domain (host) for the Service.
 	DomainTemplate string
 
+	// TLSMode specifies the mode of Knative TLS.
 	TLSMode string
 }
 
