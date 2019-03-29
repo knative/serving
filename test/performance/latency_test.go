@@ -77,7 +77,7 @@ func TestTimeToServeLatency(t *testing.T) {
 	var tc []junit.TestCase
 	for _, p := range resp.Result.DurationHistogram.Percentiles {
 		val := float32(p.Value) * 1000
-		name := fmt.Sprintf("p%d(sec)", int(p.Percentile))
+		name := fmt.Sprintf("p%d(ms)", int(p.Percentile))
 		tc = append(tc, CreatePerfTestCase(val, name, t.Name()))
 	}
 

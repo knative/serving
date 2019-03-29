@@ -24,10 +24,9 @@ import (
 	"testing"
 	"time"
 
-	. "github.com/knative/pkg/logging/testing"
 	"github.com/knative/serving/pkg/apis/serving"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	corev1informers "k8s.io/client-go/informers/core/v1"
+	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
 const (
@@ -74,51 +73,39 @@ func TestNewServiceScraperWithClient_ErrorCases(t *testing.T) {
 	metric := getTestMetric()
 	invalidMetric := getTestMetric()
 	invalidMetric.Labels = map[string]string{}
-	dynConfig := &DynamicConfig{}
 	client := newTestClient(nil, nil)
-	informer := kubeInformer.Core().V1().Endpoints()
+	lister := kubeInformer.Core().V1().Endpoints().Lister()
 	testCases := []struct {
 		name        string
 		metric      *Metric
-		dynConfig   *DynamicConfig
 		client      *http.Client
-		informer    corev1informers.EndpointsInformer
+		lister      corev1listers.EndpointsLister
 		expectedErr string
 	}{{
 		name:        "Empty Metric",
-		dynConfig:   dynConfig,
 		client:      client,
-		informer:    informer,
+		lister:      lister,
 		expectedErr: "metric must not be nil",
 	}, {
 		name:        "Missing revision label in Metric",
 		metric:      &invalidMetric,
-		dynConfig:   dynConfig,
 		client:      client,
-		informer:    informer,
+		lister:      lister,
 		expectedErr: "no Revision label found for Metric test-revision",
-	}, {
-		name:        "Empty DynamicConfig",
-		metric:      &metric,
-		client:      client,
-		informer:    informer,
-		expectedErr: "dynamic config must not be nil",
 	}, {
 		name:        "Empty HTTP client",
 		metric:      &metric,
-		dynConfig:   dynConfig,
-		informer:    informer,
+		lister:      lister,
 		expectedErr: "HTTP client must not be nil",
 	}, {
-		name:        "Empty informer",
+		name:        "Empty lister",
 		metric:      &metric,
-		dynConfig:   dynConfig,
 		client:      client,
-		expectedErr: "endpoints informer must not be nil",
+		expectedErr: "endpoints lister must not be nil",
 	}}
 
 	for _, test := range testCases {
-		if _, err := newServiceScraperWithClient(test.metric, test.dynConfig, test.informer, test.client); err != nil {
+		if _, err := newServiceScraperWithClient(test.metric, test.lister, test.client); err != nil {
 			got := err.Error()
 			want := test.expectedErr
 			if got != want {
@@ -224,11 +211,8 @@ func TestScrape_HappyCase(t *testing.T) {
 	createEndpoints(addIps(makeEndpoints(), 2))
 	// Scrape will set a timestamp bigger than this.
 	now := time.Now()
-	statsCh := make(chan *StatMessage, 1)
-	defer close(statsCh)
-	scraper.Scrape(TestContextWithLogger(t), statsCh)
+	got, _ := scraper.Scrape()
 
-	got := <-statsCh
 	if got.Key != testKPAKey {
 		t.Errorf("StatMessage.Key=%v, want %v", got.Key, testKPAKey)
 	}
@@ -268,22 +252,15 @@ func TestScrape_DoNotScrapeIfNoPodsFound(t *testing.T) {
 	// Override the Endpoints with 0 pods.
 	createEndpoints(addIps(makeEndpoints(), 0))
 
-	statsCh := make(chan *StatMessage, 1)
-	defer close(statsCh)
-	scraper.Scrape(TestContextWithLogger(t), statsCh)
-
-	select {
-	case <-statsCh:
+	stat, err := scraper.Scrape()
+	if stat != nil {
 		t.Error("Received unexpected StatMessage.")
-	case <-time.After(300 * time.Millisecond):
-		// We got nothing!
 	}
 }
 
 func serviceScraperForTest(httpClient *http.Client) (*ServiceScraper, error) {
 	metric := getTestMetric()
-	dynConfig := &DynamicConfig{}
-	return newServiceScraperWithClient(&metric, dynConfig, kubeInformer.Core().V1().Endpoints(), httpClient)
+	return newServiceScraperWithClient(&metric, kubeInformer.Core().V1().Endpoints().Lister(), httpClient)
 }
 
 func getTestMetric() Metric {
