@@ -23,6 +23,7 @@ import (
 
 	"github.com/knative/pkg/logging"
 	"github.com/knative/pkg/system"
+	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/autoscaler"
 	"github.com/knative/serving/pkg/queue"
@@ -69,12 +70,13 @@ var (
 )
 
 // makeQueueContainer creates the container spec for queue sidecar.
-func makeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, autoscalerConfig *autoscaler.Config,
-	controllerConfig *config.Controller) *corev1.Container {
+func makeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, observabilityConfig *config.Observability,
+	autoscalerConfig *autoscaler.Config, controllerConfig *config.Controller) *corev1.Container {
 	configName := ""
 	if owner := metav1.GetControllerOf(rev); owner != nil && owner.Kind == "Configuration" {
 		configName = owner.Name
 	}
+	serviceName := rev.Labels[serving.ServiceLabelKey]
 
 	autoscalerAddress := "autoscaler"
 	userPort := getUserPort(rev)
@@ -93,6 +95,9 @@ func makeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, a
 		Env: []corev1.EnvVar{{
 			Name:  "SERVING_NAMESPACE",
 			Value: rev.Namespace,
+		}, {
+			Name:  "SERVING_SERVICE",
+			Value: serviceName,
 		}, {
 			Name:  "SERVING_CONFIGURATION",
 			Value: configName,
@@ -119,11 +124,21 @@ func makeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, a
 				},
 			},
 		}, {
+			Name: "SERVING_POD_IP",
+			ValueFrom: &corev1.EnvVarSource{
+				FieldRef: &corev1.ObjectFieldSelector{
+					FieldPath: "status.podIP",
+				},
+			},
+		}, {
 			Name:  "SERVING_LOGGING_CONFIG",
 			Value: loggingConfig.LoggingConfig,
 		}, {
 			Name:  "SERVING_LOGGING_LEVEL",
 			Value: loggingLevel,
+		}, {
+			Name:  "SERVING_REQUEST_LOG_TEMPLATE",
+			Value: observabilityConfig.RequestLogTemplate,
 		}, {
 			Name:  "USER_PORT",
 			Value: strconv.Itoa(int(userPort)),

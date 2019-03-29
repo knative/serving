@@ -479,11 +479,11 @@ func newMetric() *Metric {
 type fakeStatsScraper struct {
 }
 
-func (s *fakeStatsScraper) fakeStatsScraperFactory(*Metric, *DynamicConfig) (StatsScraper, error) {
+func (s *fakeStatsScraper) fakeStatsScraperFactory(*Metric) (StatsScraper, error) {
 	return s, nil
 }
 
 // Scrape always sends the same test StatMessage.
-func (s *fakeStatsScraper) Scrape(ctx context.Context, statsCh chan<- *StatMessage) {
-	statsCh <- &testStatMessage
+func (s *fakeStatsScraper) Scrape() (*StatMessage, error) {
+	return &testStatMessage, nil
 }
