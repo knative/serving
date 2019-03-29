@@ -54,6 +54,8 @@ func TestObservabilityConfiguration(t *testing.T) {
 			FluentdSidecarImage:        "gcr.io/log-stuff/fluentd:latest",
 			EnableVarLogCollection:     true,
 			RequestLogTemplate:         `{"requestMethod": "{{.Request.Method}}"}`,
+			EnableRequestMetrics:       true,
+			MetricsBackend:             "stackdriver",
 		},
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
@@ -67,6 +69,8 @@ func TestObservabilityConfiguration(t *testing.T) {
 				"logging.revision-url-template":         "https://logging.io",
 				"logging.write-request-logs":            "true",
 				"logging.request-log-template":          `{"requestMethod": "{{.Request.Method}}"}`,
+				"metrics.enable-request-metric":         "true",
+				"metrics.backend-destination":           "stackdriver",
 			},
 		},
 	}, {
@@ -76,6 +80,8 @@ func TestObservabilityConfiguration(t *testing.T) {
 			EnableVarLogCollection: false,
 			LoggingURLTemplate:     defaultLogURLTemplate,
 			RequestLogTemplate:     "",
+			EnableRequestMetrics:   false,
+			MetricsBackend:         defaultMetricsBackend,
 		},
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{

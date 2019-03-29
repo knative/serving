@@ -133,6 +133,10 @@ data:
     # Note: Using stackdriver will incur additional charges
     metrics.backend-destination: prometheus
 
+    # metrics.enable-request-metrics specifies whether to enable queue proxy sending
+    # request metrics to metric backend specified by metrics.backend-destination.
+    metrics.enable-request-metrics: false
+
     # metrics.stackdriver-project-id field specifies the stackdriver project ID. This
     # field is optional. When running on GCE, application default credentials will be
     # used if this field is not provided.

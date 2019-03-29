@@ -119,6 +119,9 @@ func TestMakeQueueContainer(t *testing.T) {
 				Name:  "SERVING_REQUEST_LOG_TEMPLATE",
 				Value: "",
 			}, {
+				Name:  "SERVING_REQUEST_METRICS_BACKEND",
+				Value: "",
+			}, {
 				Name:  "USER_PORT",
 				Value: strconv.Itoa(v1alpha1.DefaultUserPort),
 			}, {
@@ -199,6 +202,9 @@ func TestMakeQueueContainer(t *testing.T) {
 				// No logging level
 			}, {
 				Name:  "SERVING_REQUEST_LOG_TEMPLATE",
+				Value: "",
+			}, {
+				Name:  "SERVING_REQUEST_METRICS_BACKEND",
 				Value: "",
 			}, {
 				Name:  "USER_PORT",
@@ -286,6 +292,9 @@ func TestMakeQueueContainer(t *testing.T) {
 				Name:  "SERVING_REQUEST_LOG_TEMPLATE",
 				Value: "",
 			}, {
+				Name:  "SERVING_REQUEST_METRICS_BACKEND",
+				Value: "",
+			}, {
 				Name:  "USER_PORT",
 				Value: strconv.Itoa(v1alpha1.DefaultUserPort),
 			}, {
@@ -369,6 +378,9 @@ func TestMakeQueueContainer(t *testing.T) {
 				// No logging level
 			}, {
 				Name:  "SERVING_REQUEST_LOG_TEMPLATE",
+				Value: "",
+			}, {
+				Name:  "SERVING_REQUEST_METRICS_BACKEND",
 				Value: "",
 			}, {
 				Name:  "USER_PORT",
@@ -455,6 +467,9 @@ func TestMakeQueueContainer(t *testing.T) {
 				Name:  "SERVING_REQUEST_LOG_TEMPLATE",
 				Value: "",
 			}, {
+				Name:  "SERVING_REQUEST_METRICS_BACKEND",
+				Value: "",
+			}, {
 				Name:  "USER_PORT",
 				Value: strconv.Itoa(v1alpha1.DefaultUserPort),
 			}, {
@@ -534,13 +549,17 @@ func TestMakeQueueContainer(t *testing.T) {
 				Name:  "SERVING_REQUEST_LOG_TEMPLATE",
 				Value: "",
 			}, {
+				Name:  "SERVING_REQUEST_METRICS_BACKEND",
+				Value: "",
+			}, {
 				Name:  "USER_PORT",
 				Value: strconv.Itoa(v1alpha1.DefaultUserPort),
 			}, {
 				Name:  "SYSTEM_NAMESPACE",
 				Value: system.Namespace(),
 			}},
-		}}, {
+		},
+	}, {
 		name: "request log as env var",
 		rev: &v1alpha1.Revision{
 			ObjectMeta: metav1.ObjectMeta{
@@ -611,6 +630,94 @@ func TestMakeQueueContainer(t *testing.T) {
 			}, {
 				Name:  "SERVING_REQUEST_LOG_TEMPLATE",
 				Value: "test template",
+			}, {
+				Name:  "SERVING_REQUEST_METRICS_BACKEND",
+				Value: "",
+			}, {
+				Name:  "USER_PORT",
+				Value: strconv.Itoa(v1alpha1.DefaultUserPort),
+			}, {
+				Name:  "SYSTEM_NAMESPACE",
+				Value: system.Namespace(),
+			}},
+		},
+	}, {
+		name: "request metrics backend as env var",
+		rev: &v1alpha1.Revision{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: "foo",
+				Name:      "bar",
+				UID:       "1234",
+			},
+			Spec: v1alpha1.RevisionSpec{
+				ContainerConcurrency: 0,
+				TimeoutSeconds:       45,
+			},
+		},
+		lc: &logging.Config{},
+		oc: &config.Observability{
+			EnableRequestMetrics: true,
+			MetricsBackend:       "prometheus",
+		},
+		ac: &autoscaler.Config{},
+		cc: &config.Controller{},
+		userport: &corev1.ContainerPort{
+			Name:          userPortEnvName,
+			ContainerPort: v1alpha1.DefaultUserPort,
+		},
+		want: &corev1.Container{
+			// These are effectively constant
+			Name:           QueueContainerName,
+			Resources:      queueResources,
+			Ports:          queuePorts,
+			ReadinessProbe: queueReadinessProbe,
+			// These changed based on the Revision and configs passed in.
+			Env: []corev1.EnvVar{{
+				Name:  "SERVING_NAMESPACE",
+				Value: "foo", // matches namespace
+			}, {
+				Name:  "SERVING_SERVICE",
+				Value: "", // not set in the labels
+			}, {
+				Name: "SERVING_CONFIGURATION",
+				// No OwnerReference
+			}, {
+				Name:  "SERVING_REVISION",
+				Value: "bar", // matches name
+			}, {
+				Name:  "SERVING_AUTOSCALER",
+				Value: "autoscaler", // no autoscaler configured.
+			}, {
+				Name:  "SERVING_AUTOSCALER_PORT",
+				Value: "8080",
+			}, {
+				Name:  "CONTAINER_CONCURRENCY",
+				Value: "0",
+			}, {
+				Name:  "REVISION_TIMEOUT_SECONDS",
+				Value: "45",
+			}, {
+				Name: "SERVING_POD",
+				ValueFrom: &corev1.EnvVarSource{
+					FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
+				},
+			}, {
+				Name: "SERVING_POD_IP",
+				ValueFrom: &corev1.EnvVarSource{
+					FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
+				},
+			}, {
+				Name: "SERVING_LOGGING_CONFIG",
+				// No logging configuration
+			}, {
+				Name: "SERVING_LOGGING_LEVEL",
+				// No logging level
+			}, {
+				Name:  "SERVING_REQUEST_LOG_TEMPLATE",
+				Value: "",
+			}, {
+				Name:  "SERVING_REQUEST_METRICS_BACKEND",
+				Value: "prometheus",
 			}, {
 				Name:  "USER_PORT",
 				Value: strconv.Itoa(v1alpha1.DefaultUserPort),

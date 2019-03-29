@@ -32,6 +32,7 @@ import (
 	"github.com/knative/pkg/signals"
 
 	"github.com/knative/pkg/logging/logkey"
+	"github.com/knative/pkg/metrics"
 	"github.com/knative/serving/cmd/util"
 	"github.com/knative/serving/pkg/activator"
 	activatorutil "github.com/knative/serving/pkg/activator/util"
@@ -60,15 +61,22 @@ const (
 	// from its configuration and propagate that to all istio-proxies
 	// in the mesh.
 	quitSleepDuration = 20 * time.Second
+
+	// commonMetricsPort is the port where common metrics, e.g. request metrics
+	// are exposed in Prometheus. This is different from the metrics used for
+	// autoscaling, which are exposed in 9090.
+	commonMetricsPort = 9091
 )
 
 var (
 	podName                string
+	servingService         string
 	servingConfig          string
 	servingNamespace       string
 	servingRevision        string
 	servingRevisionKey     string
 	servingAutoscaler      string
+	servingPodIP           string
 	autoscalerNamespace    string
 	servingAutoscalerPort  int
 	userTargetPort         int
@@ -89,10 +97,12 @@ var (
 
 func initEnv() {
 	podName = util.GetRequiredEnvOrFatal("SERVING_POD", logger)
+	servingService = util.GetRequiredEnvOrFatal("SERVING_SERVICE", logger)
 	servingConfig = util.GetRequiredEnvOrFatal("SERVING_CONFIGURATION", logger)
 	servingNamespace = util.GetRequiredEnvOrFatal("SERVING_NAMESPACE", logger)
 	servingRevision = util.GetRequiredEnvOrFatal("SERVING_REVISION", logger)
 	servingAutoscaler = util.GetRequiredEnvOrFatal("SERVING_AUTOSCALER", logger)
+	servingPodIP = util.GetRequiredEnvOrFatal("SERVING_POD_IP", logger)
 	autoscalerNamespace = util.GetRequiredEnvOrFatal("SYSTEM_NAMESPACE", logger)
 	servingAutoscalerPort = util.MustParseIntEnvOrFatal("SERVING_AUTOSCALER_PORT", logger)
 	containerConcurrency = util.MustParseIntEnvOrFatal("CONTAINER_CONCURRENCY", logger)
@@ -274,7 +284,7 @@ func main() {
 
 	timeoutHandler := queue.TimeToFirstByteTimeoutHandler(http.HandlerFunc(handler(reqChan, breaker, httpProxy, h2cProxy)),
 		time.Duration(revisionTimeoutSeconds)*time.Second, "request timeout")
-	composedHandler := pushRequestLogHandler(timeoutHandler)
+	composedHandler := pushRequestMetricHandler(pushRequestLogHandler(timeoutHandler))
 	server = h2c.NewServer(fmt.Sprintf(":%d", v1alpha1.RequestQueuePort), composedHandler)
 
 	errChan := make(chan error, 2)
@@ -326,17 +336,58 @@ func pushRequestLogHandler(currentHandler http.Handler) http.Handler {
 	}
 
 	revInfo := &queue.RequestLogRevInfo{
-		Name:          os.Getenv("SERVING_REVISION"),
-		Namespace:     os.Getenv("SERVING_NAMESPACE"),
-		Service:       os.Getenv("SERVING_SERVICE"),
-		Configuration: os.Getenv("SERVING_CONFIGURATION"),
-		PodName:       os.Getenv("SERVING_POD"),
-		PodIP:         os.Getenv("SERVING_POD_IP"),
+		Name:          servingRevision,
+		Namespace:     servingNamespace,
+		Service:       servingService,
+		Configuration: servingConfig,
+		PodName:       podName,
+		PodIP:         servingPodIP,
 	}
 	handler, err := queue.NewRequestLogHandler(currentHandler, utils.NewSyncFileWriter(os.Stdout), templ, revInfo)
 
 	if err != nil {
 		logger.Errorw("Error setting up request logger. Request logs will be unavailable.", zap.Error(err))
+		return currentHandler
+	}
+	return handler
+}
+
+func pushRequestMetricHandler(currentHandler http.Handler) http.Handler {
+	backend := os.Getenv("SERVING_REQUEST_METRICS_BACKEND")
+	if backend == "" {
+		return currentHandler
+	}
+
+	r, err := queue.NewStatsReporter(servingNamespace, servingService, servingConfig, servingRevision)
+	if err != nil {
+		logger.Errorw("Error setting up request metrics reporter. Request metrics will be unavailable.", zap.Error(err))
+		return currentHandler
+	}
+
+	// Set up OpenCensus exporter.
+	// NOTE: We use revision as the component instead of queue because queue is
+	// implementation specific. The current metrics are request relative. Using
+	// revision is reasonable.
+	// TODO(yanweiguo): add the ability to emit metrics with names not combined
+	// to component.
+	ops := metrics.ExporterOptions{
+		Domain:         "knative.dev/serving",
+		Component:      "revision",
+		PrometheusPort: commonMetricsPort,
+		ConfigMap: map[string]string{
+			metrics.BackendDestinationKey: backend,
+		},
+	}
+	err = metrics.UpdateExporter(ops, logger)
+	if err != nil {
+		logger.Errorw("Error setting up request metrics exporter. Request metrics will be unavailable.", zap.Error(err))
+		return currentHandler
+	}
+
+	handler, err := queue.NewRequestMetricHandler(currentHandler, r)
+
+	if err != nil {
+		logger.Errorw("Error setting up request metrics handler. Request metrics will be unavailable.", zap.Error(err))
 		return currentHandler
 	}
 	return handler

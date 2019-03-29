@@ -28,6 +28,8 @@ const (
 	ObservabilityConfigName = "config-observability"
 
 	defaultLogURLTemplate = "http://localhost:8001/api/v1/namespaces/knative-monitoring/services/kibana-logging/proxy/app/kibana#/discover?_a=(query:(match:(kubernetes.labels.knative-dev%2FrevisionUID:(query:'${REVISION_UID}',type:phrase))))"
+
+	defaultMetricsBackend = "prometheus"
 )
 
 // Observability contains the configuration defined in the observability ConfigMap.
@@ -52,6 +54,13 @@ type Observability struct {
 
 	// RequestLogTemplate is the go template to use to shape the request logs.
 	RequestLogTemplate string
+
+	// MetricsBackend specifies the metrics destination, e.g. Promethues, Stackdriver.
+	MetricsBackend string
+
+	// EnableRequestMetrics enables queue proxy sending metrics to backend specified
+	// by MetricsBackend.
+	EnableRequestMetrics bool
 }
 
 // NewObservabilityFromConfigMap creates a Observability from the supplied ConfigMap
@@ -82,6 +91,16 @@ func NewObservabilityFromConfigMap(configMap *corev1.ConfigMap) (*Observability,
 			return nil, err
 		}
 		oc.RequestLogTemplate = rlt
+	}
+
+	if erm, ok := configMap.Data["metrics.enable-request-metric"]; ok {
+		oc.EnableRequestMetrics = strings.ToLower(erm) == "true"
+	}
+
+	if mb, ok := configMap.Data["metrics.backend-destination"]; ok {
+		oc.MetricsBackend = mb
+	} else {
+		oc.MetricsBackend = defaultMetricsBackend
 	}
 
 	return oc, nil
