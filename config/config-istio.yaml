@@ -19,7 +19,7 @@ metadata:
   namespace: knative-serving
   labels:
     serving.knative.dev/release: devel
-    serving.knative.dev/networkProvider: istio
+    serving.knative.dev/network-provider: istio
 data:
   # TODO(nghia): Extract the .svc.cluster.local suffix into its own config.
 

@@ -19,7 +19,7 @@ metadata:
   namespace: knative-serving
   labels:
     app: "default-domain"
-    serving.knative.dev/networkProvider: istio
+    serving.knative.dev/network-provider: istio
 spec:
   template:
     metadata:

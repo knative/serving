@@ -60,7 +60,7 @@ metadata:
   labels:
     serving.knative.dev/release: devel
     serving.knative.dev/controller: "true"
-    serving.knative.dev/networkProvider: istio
+    serving.knative.dev/network-provider: istio
 rules:
   - apiGroups: ["networking.istio.io"]
     resources: ["virtualservices", "gateways"]
