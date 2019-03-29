@@ -176,7 +176,7 @@ func (c *Reconciler) reconcile(ctx context.Context, config *v1alpha1.Configurati
 		// that the Revision name already exists for another Configuration or at
 		// the wrong generation of this configuration.
 		config.Status.MarkRevisionCreationFailed(err.Error())
-		return err
+		return nil
 	} else if err != nil {
 		logger.Errorf("Failed to reconcile Configuration %q - failed to get Revision: %v", config.Name, err)
 		return err
@@ -239,6 +239,8 @@ func CheckNameAvailability(config *v1alpha1.Configuration, lister listers.Revisi
 	if name == "" {
 		return nil, nil
 	}
+	errConflict := errors.NewAlreadyExists(v1alpha1.Resource("revisions"), name)
+
 	rev, err := lister.Revisions(config.Namespace).Get(name)
 	if errors.IsNotFound(err) {
 		// Does not exist, we must be good!
@@ -246,16 +248,25 @@ func CheckNameAvailability(config *v1alpha1.Configuration, lister listers.Revisi
 		return nil, err
 	} else if err != nil {
 		return nil, err
+	} else if !metav1.IsControlledBy(rev, config) {
+		// If the revision isn't controller by this configuration, then
+		// do not use it.
+		return nil, errConflict
 	}
+
 	// Check the generation on this revision.
 	generationKey := serving.ConfigurationGenerationLabelKey
 	expectedValue := resources.RevisionLabelValueForKey(generationKey, config)
-	if rev.Labels != nil &&
-		rev.Labels[generationKey] == expectedValue &&
-		rev.Labels[serving.ConfigurationLabelKey] == config.Name {
+	if rev.Labels != nil && rev.Labels[generationKey] == expectedValue {
 		return rev, nil
 	}
-	return nil, errors.NewAlreadyExists(v1alpha1.Resource("revisions"), name)
+	// We only require spec equality because the rest of the spec is immutable and
+	// the user may have annotated or labeled the Revision (beyond what the
+	// Configuration might have).
+	if !equality.Semantic.DeepEqual(config.Spec.RevisionTemplate.Spec, rev.Spec) {
+		return nil, errConflict
+	}
+	return rev, nil
 }
 
 func (c *Reconciler) latestCreatedRevision(config *v1alpha1.Configuration) (*v1alpha1.Revision, error) {

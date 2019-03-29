@@ -590,11 +590,15 @@ func TestReconcile(t *testing.T) {
 					cfg.Spec.RevisionTemplate.Name = "update-route-and-config-blah"
 				}),
 		}},
-		WantErr: true,
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: Service("update-route-and-config", "foo", WithRunLatestRollout, func(svc *v1alpha1.Service) {
+				svc.Spec.RunLatest.Configuration.RevisionTemplate.Name = "update-route-and-config-blah"
+			}, WithInitSvcConditions, func(svc *v1alpha1.Service) {
+				svc.Status.MarkRevisionNameTaken("update-route-and-config-blah")
+			}),
+		}},
 		WantEvents: []string{
-			Eventf(corev1.EventTypeWarning, "InternalError",
-				"revisions.serving.knative.dev %q already exists",
-				"update-route-and-config-blah"),
+			Eventf(corev1.EventTypeNormal, "Updated", "Updated Service %q", "update-route-and-config"),
 		},
 	}, {
 		Name: "runLatest - update route and config labels",

@@ -87,66 +87,100 @@ func TestReconcile(t *testing.T) {
 	}, {
 		Name: "create revision byo name",
 		Objects: []runtime.Object{
-			cfg("no-revisions-yet", "foo", 1234, func(cfg *v1alpha1.Configuration) {
-				cfg.Spec.RevisionTemplate.Name = "no-revisions-yet-foo"
+			cfg("byo-name-create", "foo", 1234, func(cfg *v1alpha1.Configuration) {
+				cfg.Spec.RevisionTemplate.Name = "byo-name-create-foo"
 			}),
 		},
 		WantCreates: []metav1.Object{
-			rev("no-revisions-yet", "foo", 1234, func(rev *v1alpha1.Revision) {
-				rev.Name = "no-revisions-yet-foo"
+			rev("byo-name-create", "foo", 1234, func(rev *v1alpha1.Revision) {
+				rev.Name = "byo-name-create-foo"
 				rev.GenerateName = ""
 			}),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: cfg("no-revisions-yet", "foo", 1234, func(cfg *v1alpha1.Configuration) {
-				cfg.Spec.RevisionTemplate.Name = "no-revisions-yet-foo"
+			Object: cfg("byo-name-create", "foo", 1234, func(cfg *v1alpha1.Configuration) {
+				cfg.Spec.RevisionTemplate.Name = "byo-name-create-foo"
 			},
 				// The following properties are set when we first reconcile a
 				// Configuration and a Revision is created.
-				WithLatestCreated("no-revisions-yet-foo"), WithObservedGen),
+				WithLatestCreated("byo-name-create-foo"), WithObservedGen),
 		}},
 		WantEvents: []string{
-			Eventf(corev1.EventTypeNormal, "Created", "Created Revision %q", "no-revisions-yet-foo"),
+			Eventf(corev1.EventTypeNormal, "Created", "Created Revision %q", "byo-name-create-foo"),
 		},
-		Key: "foo/no-revisions-yet",
+		Key: "foo/byo-name-create",
 	}, {
 		Name: "create revision byo name (exists)",
 		Objects: []runtime.Object{
-			cfg("no-revisions-yet", "foo", 1234, func(cfg *v1alpha1.Configuration) {
-				cfg.Spec.RevisionTemplate.Name = "no-revisions-yet-foo"
+			cfg("byo-name-exists", "foo", 1234, func(cfg *v1alpha1.Configuration) {
+				cfg.Spec.RevisionTemplate.Name = "byo-name-exists-foo"
 			},
 				// The following properties are set when we first reconcile a
 				// Configuration and a Revision is created.
-				WithLatestCreated("no-revisions-yet-foo"), WithObservedGen),
-			rev("no-revisions-yet", "foo", 1234, func(rev *v1alpha1.Revision) {
-				rev.Name = "no-revisions-yet-foo"
+				WithLatestCreated("byo-name-exists-foo"), WithObservedGen),
+			rev("byo-name-exists", "foo", 1234, func(rev *v1alpha1.Revision) {
+				rev.Name = "byo-name-exists-foo"
 				rev.GenerateName = ""
 			}),
 		},
-		Key: "foo/no-revisions-yet",
+		Key: "foo/byo-name-exists",
 	}, {
-		Name: "create revision byo name (exists @ wrong generation)",
+		Name: "create revision byo name (exists, wrong generation, right spec)",
+		// This example shows what we might see with a `git revert` in GitOps.
 		Objects: []runtime.Object{
-			cfg("no-revisions-yet", "foo", 1234, func(cfg *v1alpha1.Configuration) {
-				cfg.Spec.RevisionTemplate.Name = "no-revisions-yet-foo"
+			cfg("byo-name-git-revert", "foo", 1234, func(cfg *v1alpha1.Configuration) {
+				cfg.Spec.RevisionTemplate.Name = "byo-name-git-revert-foo"
 			}),
-			rev("no-revisions-yet", "foo", 1200, func(rev *v1alpha1.Revision) {
-				rev.Name = "no-revisions-yet-foo"
+			rev("byo-name-git-revert", "foo", 1200, func(rev *v1alpha1.Revision) {
+				rev.Name = "byo-name-git-revert-foo"
 				rev.GenerateName = ""
 			}),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: cfg("no-revisions-yet", "foo", 1234, func(cfg *v1alpha1.Configuration) {
-				cfg.Spec.RevisionTemplate.Name = "no-revisions-yet-foo"
-			}, MarkRevisionCreationFailed(`revisions.serving.knative.dev "no-revisions-yet-foo" already exists`)),
+			Object: cfg("byo-name-git-revert", "foo", 1234, func(cfg *v1alpha1.Configuration) {
+				cfg.Spec.RevisionTemplate.Name = "byo-name-git-revert-foo"
+			}, WithLatestCreated("byo-name-git-revert-foo"), WithObservedGen),
 		}},
-		WantErr: true,
-		WantEvents: []string{
-			Eventf(corev1.EventTypeWarning, "InternalError",
-				"revisions.serving.knative.dev %q already exists",
-				"no-revisions-yet-foo"),
+		Key: "foo/byo-name-git-revert",
+	}, {
+		Name: "create revision byo name (exists @ wrong generation w/ wrong spec)",
+		Objects: []runtime.Object{
+			cfg("byo-name-wrong-gen-wrong-spec", "foo", 1234, func(cfg *v1alpha1.Configuration) {
+				cfg.Spec.RevisionTemplate.Name = "byo-name-wrong-gen-wrong-spec-foo"
+			}),
+			rev("byo-name-wrong-gen-wrong-spec", "foo", 1200, func(rev *v1alpha1.Revision) {
+				rev.Name = "byo-name-wrong-gen-wrong-spec-foo"
+				rev.GenerateName = ""
+				rev.Spec.Container.Env = append(rev.Spec.Container.Env, corev1.EnvVar{
+					Name:  "FOO",
+					Value: "bar",
+				})
+			}),
 		},
-		Key: "foo/no-revisions-yet",
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: cfg("byo-name-wrong-gen-wrong-spec", "foo", 1234, func(cfg *v1alpha1.Configuration) {
+				cfg.Spec.RevisionTemplate.Name = "byo-name-wrong-gen-wrong-spec-foo"
+			}, MarkRevisionCreationFailed(`revisions.serving.knative.dev "byo-name-wrong-gen-wrong-spec-foo" already exists`)),
+		}},
+		Key: "foo/byo-name-wrong-gen-wrong-spec",
+	}, {
+		Name: "create revision byo name (exists not owned)",
+		Objects: []runtime.Object{
+			cfg("byo-rev-not-owned", "foo", 1234, func(cfg *v1alpha1.Configuration) {
+				cfg.Spec.RevisionTemplate.Name = "byo-rev-not-owned-foo"
+			}),
+			rev("byo-rev-not-owned", "foo", 1200, func(rev *v1alpha1.Revision) {
+				rev.Name = "byo-rev-not-owned-foo"
+				rev.GenerateName = ""
+				rev.OwnerReferences = nil
+			}),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: cfg("byo-rev-not-owned", "foo", 1234, func(cfg *v1alpha1.Configuration) {
+				cfg.Spec.RevisionTemplate.Name = "byo-rev-not-owned-foo"
+			}, MarkRevisionCreationFailed(`revisions.serving.knative.dev "byo-rev-not-owned-foo" already exists`)),
+		}},
+		Key: "foo/byo-rev-not-owned",
 	}, {
 		Name: "webhook validation failure",
 		// If we attempt to create a Revision with a bad ConcurrencyModel set, we fail.
