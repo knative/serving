@@ -407,52 +407,74 @@ status:
 ## Container
 
 This is a
-[core.v1.Container](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.10/#container-v1-core).
-Some fields are not allowed, such as name and lifecycle.
+[core.v1.Container](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.11/#container-v1-core).
+Fields not specified in the container object below are disallowed. Examples of
+disallowed fields include `name` and `lifecycle`.
 
 This type is not used on its own but is found composed inside
 [Service](#service), [Configuration](#configuration), and [Revision](#revision).
 
+Items with `...` behave as specified in the Kubernetes API documentation unless
+otherwise noted.
+
 ```yaml
 container: # v1.Container
-  # image either provided as pre-built container, or built by Knative Serving from
-  # source. When built by knative, set to the same as build template, e.g.
+  args: [...] # Optional
+  command: [...] # Optional
+  env: ... # Optional
+  envFrom: ... # Optional
+
+  # image is either provided as pre-built container, or built by Knative Serving from
+  # source. When built by Knative, this should match what the Build is directed to produce, e.g.
   # build.template.arguments[_IMAGE], as the "promise" of a future build.
   # If buildRef is provided, it is expected that this image will be
   # present when the referenced build is complete.
-  image: gcr.io/...
-  command: ["run"]
-  args: []
-  env:
-    # list of environment vars
-    - name: FOO
-      value: bar
-    - name: HELLO
-      value: world
-    - ...
+  image: gcr.io/... # Required
+  imagePullPolicy: ... # Optional
 
-  # Optional, only a single containerPort may be specified.
+  # HTTPGetAction and TCPSocketAction are the supported probe options.
+  livenessProbe: # Optional
+    failureThreshold: ...
+    httpGet: ...
+    initialDelaySeconds: ...
+    periodSeconds: ...
+    successThreshold: ...
+    tcpSocket: ...
+    timeoutSeconds: ...
+
+  # Only a single containerPort may be specified.
   # This can be specified to select a specific port for incoming traffic.
   # This is useful if your application cannot discover the port to listen
   # on through the $PORT environment variable that is always set within the container.
   # Some fields are not allowed, such as hostIP and hostPort.
-  ports: # core.v1.ContainerPort array
+  ports: # Optional
     # Valid range is [1-65535], except 8012 (RequestQueuePort)
     # and 8022 (RequestQueueAdminPort).
     - containerPort: ...
       name: ... # Optional, one of "http1", "h2c"
       protocol: ... # Optional, one of "", "tcp"
 
+  # HTTPGetAction and TCPSocketAction are the supported probe options.
+  readinessProbe: ... # Optional
+    failureThreshold: ...
+    httpGet: ...
+    initialDelaySeconds: ...
+    periodSeconds: ...
+    successThreshold: ...
+    tcpSocket: ...
+    timeoutSeconds: ...
+
+  resources: ... # Optional
+  securityContext: ... # Optional
+  terminationMessagePath: ... # Optional
+  terminationMessagePolicy: ... # Optional
+
   # This specifies where the volumes present in the RevisionSpec will be mounted into
   # the container.  Each of the volumes in the RevisionSpec must be mounted here
   # or it is an error.
-  volumeMounts:
+  volumeMounts: # Optional
     - name: ... # This must match a name from Volumes
       mountPath: ... # Where to mount the named Volume.
       readOnly: ... # Must be True, will default to True, so it may be omitted.
-      # All other fields are disallowed.
-
-  livenessProbe: ... # Optional
-  readinessProbe: ... # Optional
-  resources: ... # Optional
+  workingDir: ... # Optional
 ```
