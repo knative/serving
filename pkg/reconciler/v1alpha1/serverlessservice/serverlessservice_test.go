@@ -164,6 +164,81 @@ func TestReconcile(t *testing.T) {
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Updated", `Successfully updated ServerlessService "on/cneps"`),
 		},
+	}, {
+		Name:    "svc-fail-priv",
+		Key:     "svc/fail",
+		WantErr: true,
+		Objects: []runtime.Object{
+			sks("svc", "fail"),
+			endpointspriv("svc", "fail"),
+		},
+		WithReactors: []clientgotesting.ReactionFunc{
+			InduceFailure("create", "services"),
+		},
+		WantCreates: []metav1.Object{
+			svcpriv("svc", "fail"),
+		},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeWarning, "UpdateFailed", "InternalError: inducing failure for create services"),
+		},
+	}, {
+		Name:    "svc-fail-pub",
+		Key:     "svc/fail2",
+		WantErr: true,
+		Objects: []runtime.Object{
+			sks("svc", "fail2"),
+			svcpriv("svc", "fail2"),
+			endpointspriv("svc", "fail2"),
+		},
+		WithReactors: []clientgotesting.ReactionFunc{
+			InduceFailure("create", "services"),
+		},
+		WantCreates: []metav1.Object{
+			svcpub("svc", "fail2"),
+		},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeWarning, "UpdateFailed", "InternalError: inducing failure for create services"),
+		},
+	}, {
+		Name:    "eps-fail-pub",
+		Key:     "eps/fail3",
+		WantErr: true,
+		Objects: []runtime.Object{
+			sks("eps", "fail3"),
+			svcpriv("eps", "fail3"),
+			endpointspriv("eps", "fail3"),
+		},
+		WithReactors: []clientgotesting.ReactionFunc{
+			InduceFailure("create", "endpoints"),
+		},
+		WantCreates: []metav1.Object{
+			svcpub("eps", "fail3"),
+			endpointspub("eps", "fail3"),
+		},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeWarning, "UpdateFailed", "InternalError: inducing failure for create endpoints"),
+		},
+	}, {
+		Name:    "update-sks-fail",
+		Key:     "update-sks/fail4",
+		WantErr: true,
+		Objects: []runtime.Object{
+			sks("update-sks", "fail4", withPubService),
+			svcpub("update-sks", "fail4"),
+			svcpriv("update-sks", "fail4"),
+			endpointspub("update-sks", "fail4", WithSubsets),
+			endpointspriv("update-sks", "fail4", WithSubsets),
+		},
+		WithReactors: []clientgotesting.ReactionFunc{
+			InduceFailure("update", "serverlessservices"),
+		},
+		// We still record update, but it fails.
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: sks("update-sks", "fail4", markHappy, withPubService),
+		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeWarning, "UpdateFailed", "Failed to update status: inducing failure for update serverlessservices"),
+		},
 	}}
 
 	defer ClearAllLoggers()
