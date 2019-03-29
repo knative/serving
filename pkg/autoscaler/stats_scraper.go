@@ -111,7 +111,7 @@ func newServiceScraperWithClient(
 		url:                 fmt.Sprintf("http://%s.%s:%d/metrics", serviceName, metric.Namespace, v1alpha1.RequestQueueMetricsPort),
 		metricKey:           NewMetricKey(metric.Namespace, metric.Name),
 		namespace:           metric.Namespace,
-		scrapeTargetService: reconciler.GetServingK8SServiceNameForObj(revName),
+		scrapeTargetService: reconciler.GetMetricsK8SServiceNameForObj(revName),
 	}, nil
 }
 

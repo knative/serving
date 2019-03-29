@@ -32,7 +32,7 @@ import (
 
 const (
 	testRevision  = "test-revision"
-	testService   = "test-revision-service"
+	testService   = "test-revision-metrics"
 	testNamespace = "test-namespace"
 	testKPAKey    = "test-namespace/test-revision"
 	testURL       = "http://test-revision-metrics.test-namespace:9090/metrics"
@@ -71,8 +71,8 @@ func TestNewServiceScraperWithClient_HappyCase(t *testing.T) {
 }
 
 func TestNewServiceScraperWithClient_ErrorCases(t *testing.T) {
-	metric := getTestMetric()
-	invalidMetric := getTestMetric()
+	metric := testMetric()
+	invalidMetric := testMetric()
 	invalidMetric.Labels = map[string]string{}
 	dynConfig := &DynamicConfig{}
 	client := newTestClient(nil, nil)
@@ -281,12 +281,12 @@ func TestScrape_DoNotScrapeIfNoPodsFound(t *testing.T) {
 }
 
 func serviceScraperForTest(httpClient *http.Client) (*ServiceScraper, error) {
-	metric := getTestMetric()
+	metric := testMetric()
 	dynConfig := &DynamicConfig{}
 	return newServiceScraperWithClient(&metric, dynConfig, kubeInformer.Core().V1().Endpoints(), httpClient)
 }
 
-func getTestMetric() Metric {
+func testMetric() Metric {
 	return Metric{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: testNamespace,

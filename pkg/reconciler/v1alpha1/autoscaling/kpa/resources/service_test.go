@@ -26,9 +26,7 @@ import (
 	autoscalingv1 "k8s.io/api/autoscaling/v1"
 )
 
-var (
-	boolTrue = true
-)
+var boolTrue = true
 
 func TestMakeService(t *testing.T) {
 	pa := &pav1a1.PodAutoscaler{

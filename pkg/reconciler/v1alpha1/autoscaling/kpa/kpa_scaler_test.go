@@ -17,7 +17,6 @@ limitations under the License.
 package kpa
 
 import (
-	"context"
 	"strconv"
 	"testing"
 	"time"
@@ -193,7 +192,7 @@ func TestGetScale(t *testing.T) {
 	revisionScaler := NewKPAScaler(servingClient, scaleClient, TestLogger(t), newConfigWatcher())
 
 	pa := newKPA(t, servingClient, revision)
-	scale, err := revisionScaler.GetScale(context.Background(), pa)
+	scale, err := revisionScaler.GetScale(pa)
 	if err != nil {
 		t.Fatalf("GetScale got error = %v", err)
 	}

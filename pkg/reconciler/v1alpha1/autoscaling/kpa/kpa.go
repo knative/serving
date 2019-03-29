@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"reflect"
 
-	"fortio.org/fortio/log"
 	"go.uber.org/zap"
 
 	"github.com/knative/pkg/controller"
@@ -34,6 +33,7 @@ import (
 	listers "github.com/knative/serving/pkg/client/listers/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/autoscaling/kpa/resources"
+	"github.com/knative/serving/pkg/reconciler/v1alpha1/autoscaling/kpa/resources/names"
 
 	autoscalingapi "k8s.io/api/autoscaling/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -75,7 +75,7 @@ type KPAScaler interface {
 	Scale(ctx context.Context, pa *pav1alpha1.PodAutoscaler, desiredScale int32) (int32, error)
 
 	// GetScale returns the current scale resource for the PA.
-	GetScale(ctx context.Context, pa *pav1alpha1.PodAutoscaler) (*autoscalingapi.Scale, error)
+	GetScale(pa *pav1alpha1.PodAutoscaler) (*autoscalingapi.Scale, error)
 }
 
 // Reconciler tracks PAs and right sizes the ScaleTargetRef based on the
@@ -200,6 +200,11 @@ func (c *Reconciler) reconcile(ctx context.Context, pa *pav1alpha1.PodAutoscaler
 	pa.Status.InitializeConditions()
 	logger.Debug("PA exists")
 
+	if err := c.reconcileMetricsService(ctx, pa); err != nil {
+		logger.Errorw("Error reconciling metrics service", zap.Error(err))
+		return err
+	}
+
 	desiredMetric := resources.MakeMetric(ctx, pa, c.dynConfig.Current())
 	metric, err := c.kpaMetrics.Get(ctx, desiredMetric.Namespace, desiredMetric.Name)
 	if errors.IsNotFound(err) {
@@ -248,11 +253,6 @@ func (c *Reconciler) reconcile(ctx context.Context, pa *pav1alpha1.PodAutoscaler
 		}
 	}
 
-	if err := c.reconcileMetricsService(ctx, pa); err != nil {
-		logger.Errorw("Error reconciling metrics service", zap.Error(err))
-		return err
-	}
-
 	logger.Infof("PA got=%v, want=%v", got, want)
 
 	var serviceLabel string
@@ -267,7 +267,7 @@ func (c *Reconciler) reconcile(ctx context.Context, pa *pav1alpha1.PodAutoscaler
 	}
 
 	reporter.ReportActualPodCount(int64(got))
-	// negative "want" values represent an empty metrics pipeline and thus no specific request is being made
+	// Negative "want" values represent an empty metrics pipeline and thus no specific request is being made.
 	if want >= 0 {
 		reporter.ReportRequestedPodCount(int64(want))
 	}
@@ -291,9 +291,9 @@ func (c *Reconciler) reconcile(ctx context.Context, pa *pav1alpha1.PodAutoscaler
 func (c *Reconciler) reconcileMetricsService(ctx context.Context, pa *pav1alpha1.PodAutoscaler) error {
 	logger := logging.FromContext(ctx)
 
-	scale, err := c.kpaScaler.GetScale(ctx, pa)
+	scale, err := c.kpaScaler.GetScale(pa)
 	if err != nil {
-		logger.Errorw("Error Getting scale", zap.Error(err))
+		logger.Debugw("Error Getting scale", zap.Error(err))
 		return err
 	}
 	selector, err := labels.ConvertSelectorToLabelsMap(scale.Status.Selector)
@@ -301,9 +301,9 @@ func (c *Reconciler) reconcileMetricsService(ctx context.Context, pa *pav1alpha1
 		logger.Errorw(fmt.Sprintf("Error parsing selector string %q", scale.Status.Selector), zap.Error(err))
 		return err
 	}
-	logger.Infof("### PA %s selector: %v", pa.Name, selector)
+	logger.Debugf("PA %s selector: %v", pa.Name, selector)
 
-	sn := resources.MetricsServiceName(pa)
+	sn := names.MetricsServiceName(pa.Name)
 	// svc, err := c.serviceLister.Services(pa.Namespace).Get(sn)
 	svc, err := c.KubeClientSet.CoreV1().Services(pa.Namespace).Get(sn, metav1.GetOptions{})
 	if errors.IsNotFound(err) {
@@ -329,7 +329,7 @@ func (c *Reconciler) reconcileMetricsService(ctx context.Context, pa *pav1alpha1
 		want.Spec.Selector = tmpl.Spec.Selector
 
 		if !equality.Semantic.DeepEqual(want.Spec, svc.Spec) {
-			log.Infof("Metrics K8s Service changed; reconciling: %s", sn)
+			logger.Infof("Metrics K8s Service changed; reconciling: %s", sn)
 			if _, err = c.KubeClientSet.CoreV1().Services(pa.Namespace).Update(want); err != nil {
 				logger.Errorw(fmt.Sprintf("Error updating metrics K8s Service %s: ", sn), zap.Error(err))
 				return err

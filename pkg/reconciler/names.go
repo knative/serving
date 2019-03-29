@@ -21,12 +21,8 @@ import (
 
 	"strings"
 
+	"github.com/knative/serving/pkg/reconciler/v1alpha1/autoscaling/kpa/resources/names"
 	"github.com/knative/serving/pkg/utils"
-)
-
-const (
-	serviceSuffix = "-service"
-	metrixSuffix  = "-metrics"
 )
 
 // GetK8sServiceFullname returns service full name
@@ -36,15 +32,15 @@ func GetK8sServiceFullname(name string, namespace string) string {
 
 // GetMetricsK8SServiceNameForObj returns the metrics name for the object
 func GetMetricsK8SServiceNameForObj(name string) string {
-	return name + metrixSuffix
+	return names.MetricsServiceName(name)
 }
 
 // GetServingK8SServiceNameForObj returns the service name for the object
 func GetServingK8SServiceNameForObj(name string) string {
-	return name + serviceSuffix
+	return name + "-service"
 }
 
 // GetServingRevisionNameForK8sService returns the revision name from the service name
 func GetServingRevisionNameForK8sService(name string) string {
-	return strings.TrimSuffix(name, serviceSuffix)
+	return strings.TrimSuffix(name, "-service")
 }
