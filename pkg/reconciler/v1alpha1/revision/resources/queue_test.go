@@ -656,8 +656,7 @@ func TestMakeQueueContainer(t *testing.T) {
 		},
 		lc: &logging.Config{},
 		oc: &config.Observability{
-			EnableRequestMetrics: true,
-			MetricsBackend:       "prometheus",
+			RequestMetricsBackend: "prometheus",
 		},
 		ac: &autoscaler.Config{},
 		cc: &config.Controller{},

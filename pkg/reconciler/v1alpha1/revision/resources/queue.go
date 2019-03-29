@@ -141,7 +141,7 @@ func makeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, o
 			Value: observabilityConfig.RequestLogTemplate,
 		}, {
 			Name:  "SERVING_REQUEST_METRICS_BACKEND",
-			Value: getRequestMetricsBackend(observabilityConfig),
+			Value: observabilityConfig.RequestMetricsBackend,
 		}, {
 			Name:  "USER_PORT",
 			Value: strconv.Itoa(int(userPort)),
@@ -150,11 +150,4 @@ func makeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, o
 			Value: system.Namespace(),
 		}},
 	}
-}
-
-func getRequestMetricsBackend(config *config.Observability) string {
-	if config.EnableRequestMetrics {
-		return config.MetricsBackend
-	}
-	return ""
 }

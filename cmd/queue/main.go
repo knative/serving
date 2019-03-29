@@ -354,6 +354,7 @@ func pushRequestLogHandler(currentHandler http.Handler) http.Handler {
 
 func pushRequestMetricHandler(currentHandler http.Handler) http.Handler {
 	backend := os.Getenv("SERVING_REQUEST_METRICS_BACKEND")
+	logger.Infof("SERVING_REQUEST_METRICS_BACKEND=%v", backend)
 	if backend == "" {
 		return currentHandler
 	}
@@ -372,7 +373,7 @@ func pushRequestMetricHandler(currentHandler http.Handler) http.Handler {
 	// to component.
 	ops := metrics.ExporterOptions{
 		Domain:         "knative.dev/serving",
-		Component:      "revision",
+		Component:      "activator",
 		PrometheusPort: commonMetricsPort,
 		ConfigMap: map[string]string{
 			metrics.BackendDestinationKey: backend,
