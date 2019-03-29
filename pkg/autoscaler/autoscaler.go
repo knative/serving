@@ -31,10 +31,6 @@ import (
 )
 
 const (
-	// ActivatorPodName defines the pod name of the activator
-	// as defined in the metrics it sends.
-	ActivatorPodName string = "activator"
-
 	// bucketSize is the size of the buckets of stats we create.
 	bucketSize time.Duration = 2 * time.Second
 )
