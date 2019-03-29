@@ -101,11 +101,8 @@ func (c *Reconciler) checkAndUpdateDeployment(ctx context.Context, rev *v1alpha1
 	return d, nil
 }
 
-func (c *Reconciler) createImageCache(ctx context.Context, rev *v1alpha1.Revision, deploy *appsv1.Deployment) (*caching.Image, error) {
-	image, err := resources.MakeImageCache(rev, deploy)
-	if err != nil {
-		return nil, err
-	}
+func (c *Reconciler) createImageCache(ctx context.Context, rev *v1alpha1.Revision) (*caching.Image, error) {
+	image := resources.MakeImageCache(rev)
 
 	return c.CachingClientSet.CachingV1alpha1().Images(image.Namespace).Create(image)
 }
