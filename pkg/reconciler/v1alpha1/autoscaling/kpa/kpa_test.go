@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/knative/pkg/configmap"
+	"github.com/knative/pkg/controller"
 	. "github.com/knative/pkg/logging/testing"
 	"github.com/knative/pkg/system"
 	_ "github.com/knative/pkg/system/testing"
@@ -76,557 +77,399 @@ func newDynamicConfig(t *testing.T) *autoscaler.DynamicConfig {
 	return dynConfig
 }
 
-// TODO(josephburnett): Convert KPA tests to table tests.
-
-func TestControllerSynchronizesCreatesAndDeletes(t *testing.T) {
-	kubeClient := fakeK8s.NewSimpleClientset()
-	servingClient := fakeKna.NewSimpleClientset()
-
-	stopCh := make(chan struct{})
-	createdCh := make(chan struct{})
-	defer close(createdCh)
-
-	opts := reconciler.Options{
-		KubeClientSet:    kubeClient,
-		ServingClientSet: servingClient,
-		Logger:           TestLogger(t),
-	}
-
-	servingInformer := informers.NewSharedInformerFactory(servingClient, 0)
-	kubeInformer := kubeinformers.NewSharedInformerFactory(kubeClient, 0)
-
-	scaleClient := &scalefake.FakeScaleClient{}
-	kpaScaler := NewKPAScaler(servingClient, scaleClient, TestLogger(t), newConfigWatcher())
-
-	fakeMetrics := newTestKPAMetrics(createdCh, stopCh)
-	ctl := NewController(&opts,
-		servingInformer.Autoscaling().V1alpha1().PodAutoscalers(),
-		kubeInformer.Core().V1().Endpoints(),
-		fakeMetrics,
-		kpaScaler,
-		newDynamicConfig(t),
-	)
-
-	rev := newTestRevision(testNamespace, testRevision)
-	servingClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
-	servingInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
-	ep := addEndpoint(makeEndpoints(rev))
-	kubeClient.CoreV1().Endpoints(testNamespace).Create(ep)
-	kubeInformer.Core().V1().Endpoints().Informer().GetIndexer().Add(ep)
-	kpa := revisionresources.MakeKPA(rev)
-	servingClient.AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
-	servingInformer.Autoscaling().V1alpha1().PodAutoscalers().Informer().GetIndexer().Add(kpa)
-
-	reconcileGrp := errgroup.Group{}
-	reconcileGrp.Go(func() error {
-		return ctl.Reconciler.Reconcile(context.Background(), testNamespace+"/"+testRevision)
-	})
-
-	// Ensure revision creation has been seen before deleting it.
-	select {
-	case <-createdCh:
-	case <-time.After(3 * time.Second):
-		t.Fatal("Revision creation notification timed out")
-	}
-
-	// Wait for the Reconcile to complete.
-	if err := reconcileGrp.Wait(); err != nil {
-		t.Errorf("Reconcile() = %v", err)
-	}
-
-	if count := fakeMetrics.createCallCount.Load(); count != 1 {
-		t.Fatalf("Create called %d times instead of once", count)
-	}
-
-	newKPA, err := servingClient.AutoscalingV1alpha1().PodAutoscalers(kpa.Namespace).Get(
-		kpa.Name, metav1.GetOptions{})
-	if err != nil {
-		t.Errorf("Get() = %v", err)
-	}
-	if cond := newKPA.Status.GetCondition("Ready"); cond == nil || cond.Status != "True" {
-		t.Errorf("GetCondition(Ready) = %v, wanted True", cond)
-	}
-
-	servingClient.ServingV1alpha1().Revisions(testNamespace).Delete(testRevision, nil)
-	servingInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Delete(rev)
-	servingClient.AutoscalingV1alpha1().PodAutoscalers(testNamespace).Delete(testRevision, nil)
-	servingInformer.Autoscaling().V1alpha1().PodAutoscalers().Informer().GetIndexer().Delete(kpa)
-	if err := ctl.Reconciler.Reconcile(context.Background(), testNamespace+"/"+testRevision); err != nil {
-		t.Errorf("Reconcile() = %v", err)
-	}
-
-	if fakeMetrics.deleteCallCount.Load() == 0 {
-		t.Fatal("Delete was not called")
-	}
-
-	if fakeMetrics.deleteBeforeCreate.Load() {
-		t.Fatal("Delete ran before OnPresent")
-	}
+type ctlLocals struct {
+	kubeClient      *fakeK8s.Clientset
+	servingClient   *fakeKna.Clientset
+	servingInformer informers.SharedInformerFactory
+	kubeInformer    kubeinformers.SharedInformerFactory
+	kpaScaler       KPAScaler
+	createdCh       chan struct{}
+	t               *testing.T
 }
 
-func TestUpdate(t *testing.T) {
-	kubeClient := fakeK8s.NewSimpleClientset()
-	servingClient := fakeKna.NewSimpleClientset()
-
-	stopCh := make(chan struct{})
-	createdCh := make(chan struct{})
-	defer close(createdCh)
-
-	opts := reconciler.Options{
-		KubeClientSet:    kubeClient,
-		ServingClientSet: servingClient,
-		Logger:           TestLogger(t),
-	}
-
-	servingInformer := informers.NewSharedInformerFactory(servingClient, 0)
-	kubeInformer := kubeinformers.NewSharedInformerFactory(kubeClient, 0)
-
-	scaleClient := &scalefake.FakeScaleClient{}
-	kpaScaler := NewKPAScaler(servingClient, scaleClient, TestLogger(t), newConfigWatcher())
-
-	fakeMetrics := newTestKPAMetrics(createdCh, stopCh)
-	ctl := NewController(&opts,
-		servingInformer.Autoscaling().V1alpha1().PodAutoscalers(),
-		kubeInformer.Core().V1().Endpoints(),
-		fakeMetrics,
-		kpaScaler,
-		newDynamicConfig(t),
-	)
-
-	rev := newTestRevision(testNamespace, testRevision)
-	servingClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
-	servingInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
-	ep := addEndpoint(makeEndpoints(rev))
-	kubeClient.CoreV1().Endpoints(testNamespace).Create(ep)
-	kubeInformer.Core().V1().Endpoints().Informer().GetIndexer().Add(ep)
-	kpa := revisionresources.MakeKPA(rev)
-	servingClient.AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
-	servingInformer.Autoscaling().V1alpha1().PodAutoscalers().Informer().GetIndexer().Add(kpa)
-
-	reconcileGrp := errgroup.Group{}
-	reconcileGrp.Go(func() error {
-		return ctl.Reconciler.Reconcile(context.Background(), testNamespace+"/"+testRevision)
-	})
-
-	// Ensure revision creation has been seen before updating it.
-	select {
-	case <-createdCh:
-	case <-time.After(3 * time.Second):
-		t.Fatal("Revision creation notification timed out")
-	}
-
-	// Wait for the Reconcile to complete.
-	if err := reconcileGrp.Wait(); err != nil {
-		t.Errorf("Reconcile() = %v", err)
-	}
-
-	if count := fakeMetrics.createCallCount.Load(); count != 1 {
-		t.Fatalf("Create called %d times instead of once", count)
-	}
-
-	newKPA, err := servingClient.AutoscalingV1alpha1().PodAutoscalers(kpa.Namespace).Get(
-		kpa.Name, metav1.GetOptions{})
-	if err != nil {
-		t.Errorf("Get() = %v", err)
-	}
-	if cond := newKPA.Status.GetCondition("Ready"); cond == nil || cond.Status != "True" {
-		t.Errorf("GetCondition(Ready) = %v, wanted True", cond)
-	}
-
-	// Update the KPA container concurrency.
-	kpa.Spec.ContainerConcurrency = 2
-	servingClient.AutoscalingV1alpha1().PodAutoscalers(testNamespace).Update(kpa)
-	servingInformer.Autoscaling().V1alpha1().PodAutoscalers().Informer().GetIndexer().Update(kpa)
-
-	if err := ctl.Reconciler.Reconcile(context.Background(), testNamespace+"/"+testRevision); err != nil {
-		t.Errorf("Reconcile() = %v", err)
-	}
-
-	if fakeMetrics.updateCallCount.Load() == 0 {
-		t.Fatal("Update was not called")
-	}
+type kpaTest struct {
+	label   string
+	runTest func(locals ctlLocals)
 }
 
-func TestNonKpaClass(t *testing.T) {
-	kubeClient := fakeK8s.NewSimpleClientset()
-	servingClient := fakeKna.NewSimpleClientset()
-
-	stopCh := make(chan struct{})
-	createdCh := make(chan struct{})
-	defer close(createdCh)
-
-	opts := reconciler.Options{
-		KubeClientSet:    kubeClient,
-		ServingClientSet: servingClient,
-		Logger:           TestLogger(t),
-	}
-
-	servingInformer := informers.NewSharedInformerFactory(servingClient, 0)
-	kubeInformer := kubeinformers.NewSharedInformerFactory(kubeClient, 0)
-
-	scaleClient := &scalefake.FakeScaleClient{}
-	kpaScaler := NewKPAScaler(servingClient, scaleClient, TestLogger(t), newConfigWatcher())
-
-	fakeMetrics := newTestKPAMetrics(createdCh, stopCh)
-	ctl := NewController(&opts,
-		servingInformer.Autoscaling().V1alpha1().PodAutoscalers(),
-		kubeInformer.Core().V1().Endpoints(),
-		fakeMetrics,
-		kpaScaler,
-		newDynamicConfig(t),
-	)
-
-	rev := newTestRevision(testNamespace, testRevision)
-	rev.Annotations = map[string]string{
-		autoscaling.ClassAnnotationKey: autoscaling.HPA, // non "kpa" class
-	}
-
-	servingClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
-	servingInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
-	kpa := revisionresources.MakeKPA(rev)
-	servingClient.AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
-	servingInformer.Autoscaling().V1alpha1().PodAutoscalers().Informer().GetIndexer().Add(kpa)
-
-	reconcileCh := make(chan error)
-	go func() {
-		defer close(reconcileCh)
-		if err := ctl.Reconciler.Reconcile(context.Background(), testNamespace+"/"+testRevision); err != nil {
-			reconcileCh <- err
-		}
-	}()
-
-	// Wait for reconcile to finish
-	select {
-	case err, ok := <-reconcileCh:
-		if ok && err != nil {
-			t.Errorf("Reconcile() = %v", err)
-		}
-	case <-time.After(3 * time.Second):
-		t.Fatal("Reconciliation timed out")
-	}
-
-	// Verify no KPAMetrics were created
-	if fakeMetrics.createCallCount.Load() != 0 {
-		t.Error("Unexpected KPAMetrics created")
-	}
-}
-
-func TestNoEndpoints(t *testing.T) {
-	kubeClient := fakeK8s.NewSimpleClientset()
-	servingClient := fakeKna.NewSimpleClientset()
-
-	stopCh := make(chan struct{})
-	createdCh := make(chan struct{})
-	defer close(createdCh)
-
-	opts := reconciler.Options{
-		KubeClientSet:    kubeClient,
-		ServingClientSet: servingClient,
-		Logger:           TestLogger(t),
-	}
-
-	servingInformer := informers.NewSharedInformerFactory(servingClient, 0)
-	kubeInformer := kubeinformers.NewSharedInformerFactory(kubeClient, 0)
-
-	scaleClient := &scalefake.FakeScaleClient{}
-	kpaScaler := NewKPAScaler(servingClient, scaleClient, TestLogger(t), newConfigWatcher())
-
-	fakeMetrics := newTestKPAMetrics(createdCh, stopCh)
-	ctl := NewController(&opts,
-		servingInformer.Autoscaling().V1alpha1().PodAutoscalers(),
-		kubeInformer.Core().V1().Endpoints(),
-		fakeMetrics,
-		kpaScaler,
-		newDynamicConfig(t),
-	)
-
-	rev := newTestRevision(testNamespace, testRevision)
-	servingClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
-	servingInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
-	// These do not exist yet.
-	// ep := addEndpoint(makeEndpoints(rev))
-	// kubeClient.CoreV1().Endpoints(testNamespace).Create(ep)
-	// kubeInformer.Core().V1().Endpoints().Informer().GetIndexer().Add(ep)
-	kpa := revisionresources.MakeKPA(rev)
-	servingClient.AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
-	servingInformer.Autoscaling().V1alpha1().PodAutoscalers().Informer().GetIndexer().Add(kpa)
-
-	reconcileGrp := errgroup.Group{}
-	reconcileGrp.Go(func() error {
-		return ctl.Reconciler.Reconcile(context.Background(), testNamespace+"/"+testRevision)
-	})
-
-	// Wait for the Reconcile to complete.
-	<-createdCh
-	if err := reconcileGrp.Wait(); err != nil {
-		t.Errorf("Reconcile() = %v", err)
-	}
-
-	newKPA, err := servingClient.AutoscalingV1alpha1().PodAutoscalers(kpa.Namespace).Get(
-		kpa.Name, metav1.GetOptions{})
-	if err != nil {
-		t.Errorf("Get() = %v", err)
-	}
-	if cond := newKPA.Status.GetCondition("Ready"); cond == nil || cond.Status != "Unknown" {
-		t.Errorf("GetCondition(Ready) = %v, wanted Unknown", cond)
-	}
-}
-
-func TestEmptyEndpoints(t *testing.T) {
-	kubeClient := fakeK8s.NewSimpleClientset()
-	servingClient := fakeKna.NewSimpleClientset()
-
-	stopCh := make(chan struct{})
-	createdCh := make(chan struct{})
-	defer close(createdCh)
-
-	opts := reconciler.Options{
-		KubeClientSet:    kubeClient,
-		ServingClientSet: servingClient,
-		Logger:           TestLogger(t),
-	}
-
-	servingInformer := informers.NewSharedInformerFactory(servingClient, 0)
-	kubeInformer := kubeinformers.NewSharedInformerFactory(kubeClient, 0)
-
-	scaleClient := &scalefake.FakeScaleClient{}
-	kpaScaler := NewKPAScaler(servingClient, scaleClient, TestLogger(t), newConfigWatcher())
-
-	fakeMetrics := newTestKPAMetrics(createdCh, stopCh)
-	ctl := NewController(&opts,
-		servingInformer.Autoscaling().V1alpha1().PodAutoscalers(),
-		kubeInformer.Core().V1().Endpoints(),
-		fakeMetrics,
-		kpaScaler,
-		newDynamicConfig(t),
-	)
-
-	rev := newTestRevision(testNamespace, testRevision)
-	servingClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
-	servingInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
-	// This is empty still.
-	ep := makeEndpoints(rev)
-	kubeClient.CoreV1().Endpoints(testNamespace).Create(ep)
-	kubeInformer.Core().V1().Endpoints().Informer().GetIndexer().Add(ep)
-	kpa := revisionresources.MakeKPA(rev)
-	servingClient.AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
-	servingInformer.Autoscaling().V1alpha1().PodAutoscalers().Informer().GetIndexer().Add(kpa)
-
-	reconcileGrp := errgroup.Group{}
-	reconcileGrp.Go(func() error {
-		return ctl.Reconciler.Reconcile(context.Background(), testNamespace+"/"+testRevision)
-	})
-
-	// Wait for the Reconcile to complete.
-	<-createdCh
-	if err := reconcileGrp.Wait(); err != nil {
-		t.Errorf("Reconcile() = %v", err)
-	}
-
-	newKPA, err := servingClient.AutoscalingV1alpha1().PodAutoscalers(kpa.Namespace).Get(
-		kpa.Name, metav1.GetOptions{})
-	if err != nil {
-		t.Errorf("Get() = %v", err)
-	}
-	if cond := newKPA.Status.GetCondition("Ready"); cond == nil || cond.Status != "Unknown" {
-		t.Errorf("GetCondition(Ready) = %v, wanted Unknown", cond)
-	}
-}
-
-func TestControllerCreateError(t *testing.T) {
-	kubeClient := fakeK8s.NewSimpleClientset()
-	servingClient := fakeKna.NewSimpleClientset()
-
+func notFoundKPAMetrics(createdCh chan struct{}) (*failingKPAMetrics, *errors.StatusError) {
 	key := testNamespace + "/" + testRevision
 	want := errors.NewBadRequest("asdf")
-
-	opts := reconciler.Options{
-		KubeClientSet:    kubeClient,
-		ServingClientSet: servingClient,
-		Logger:           TestLogger(t),
-	}
-
-	servingInformer := informers.NewSharedInformerFactory(servingClient, 0)
-	kubeInformer := kubeinformers.NewSharedInformerFactory(kubeClient, 0)
-	scaleClient := &scalefake.FakeScaleClient{}
-	kpaScaler := NewKPAScaler(servingClient, scaleClient, TestLogger(t), newConfigWatcher())
-
-	ctl := NewController(&opts,
-		servingInformer.Autoscaling().V1alpha1().PodAutoscalers(),
-		kubeInformer.Core().V1().Endpoints(),
-		&failingKPAMetrics{
-			getErr:    errors.NewNotFound(kpa.Resource("Metrics"), key),
-			createErr: want,
-		},
-		kpaScaler,
-		newDynamicConfig(t),
-	)
-
-	kpa := revisionresources.MakeKPA(newTestRevision(testNamespace, testRevision))
-	servingClient.AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
-	servingInformer.Autoscaling().V1alpha1().PodAutoscalers().Informer().GetIndexer().Add(kpa)
-
-	got := ctl.Reconciler.Reconcile(context.Background(), key)
-	if got != want {
-		t.Errorf("Reconcile() = %v, wanted %v", got, want)
-	}
+	return &failingKPAMetrics{
+		getErr:    errors.NewNotFound(kpa.Resource("Metrics"), key),
+		createErr: want,
+	}, want
 }
 
-func TestControllerUpdateError(t *testing.T) {
-	kubeClient := fakeK8s.NewSimpleClientset()
-	servingClient := fakeKna.NewSimpleClientset()
-
-	key := testNamespace + "/" + testRevision
-	want := errors.NewBadRequest("asdf")
-
+func makeCtl(l ctlLocals, metrics KPAMetrics) *controller.Impl {
 	opts := reconciler.Options{
-		KubeClientSet:    kubeClient,
-		ServingClientSet: servingClient,
-		Logger:           TestLogger(t),
+		KubeClientSet:    l.kubeClient,
+		ServingClientSet: l.servingClient,
+		Logger:           TestLogger(l.t),
 	}
-
-	servingInformer := informers.NewSharedInformerFactory(servingClient, 0)
-	kubeInformer := kubeinformers.NewSharedInformerFactory(kubeClient, 0)
-	scaleClient := &scalefake.FakeScaleClient{}
-	kpaScaler := NewKPAScaler(servingClient, scaleClient, TestLogger(t), newConfigWatcher())
-
 	ctl := NewController(&opts,
-		servingInformer.Autoscaling().V1alpha1().PodAutoscalers(),
-		kubeInformer.Core().V1().Endpoints(),
-		&failingKPAMetrics{
-			getErr:    errors.NewNotFound(kpa.Resource("Metrics"), key),
-			createErr: want,
-		},
-		kpaScaler,
-		newDynamicConfig(t),
+		l.servingInformer.Autoscaling().V1alpha1().PodAutoscalers(),
+		l.kubeInformer.Core().V1().Endpoints(),
+		metrics,
+		l.kpaScaler,
+		newDynamicConfig(l.t),
 	)
-
-	kpa := revisionresources.MakeKPA(newTestRevision(testNamespace, testRevision))
-	servingClient.AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
-	servingInformer.Autoscaling().V1alpha1().PodAutoscalers().Informer().GetIndexer().Add(kpa)
-
-	got := ctl.Reconciler.Reconcile(context.Background(), key)
-	if got != want {
-		t.Errorf("Reconcile() = %v, wanted %v", got, want)
-	}
+	return ctl
 }
 
-func TestControllerGetError(t *testing.T) {
-	kubeClient := fakeK8s.NewSimpleClientset()
-	servingClient := fakeKna.NewSimpleClientset()
-
-	key := testNamespace + "/" + testRevision
-	want := errors.NewBadRequest("asdf")
-
-	opts := reconciler.Options{
-		KubeClientSet:    kubeClient,
-		ServingClientSet: servingClient,
-		Logger:           TestLogger(t),
-	}
-
-	servingInformer := informers.NewSharedInformerFactory(servingClient, 0)
-	kubeInformer := kubeinformers.NewSharedInformerFactory(kubeClient, 0)
-	scaleClient := &scalefake.FakeScaleClient{}
-	kpaScaler := NewKPAScaler(servingClient, scaleClient, TestLogger(t), newConfigWatcher())
-
-	ctl := NewController(&opts,
-		servingInformer.Autoscaling().V1alpha1().PodAutoscalers(),
-		kubeInformer.Core().V1().Endpoints(),
-		&failingKPAMetrics{
-			getErr: want,
-		},
-		kpaScaler,
-		newDynamicConfig(t),
-	)
-
-	kpa := revisionresources.MakeKPA(newTestRevision(testNamespace, testRevision))
-	servingClient.AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
-	servingInformer.Autoscaling().V1alpha1().PodAutoscalers().Informer().GetIndexer().Add(kpa)
-
-	got := ctl.Reconciler.Reconcile(context.Background(), key)
-	if got != want {
-		t.Errorf("Reconcile() = %v, wanted %v", got, want)
-	}
-}
-
-func TestScaleFailure(t *testing.T) {
-	kubeClient := fakeK8s.NewSimpleClientset()
-	servingClient := fakeKna.NewSimpleClientset()
-
+func ctlAndTestMetrics(l ctlLocals) (*controller.Impl, *testKPAMetrics) {
 	stopCh := make(chan struct{})
+	fakeMetrics := newTestKPAMetrics(l.createdCh, stopCh)
+	return makeCtl(l, fakeMetrics), fakeMetrics
+}
+
+var (
+	cases = []kpaTest{
+		{
+			label: "TestControllerSynchronizesCreatesAndDeletes",
+			runTest: func(l ctlLocals) {
+				ctl, fakeMetrics := ctlAndTestMetrics(l)
+				rev := newTestRevision(testNamespace, testRevision)
+				l.servingClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
+				l.servingInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
+				ep := addEndpoint(makeEndpoints(rev))
+				l.kubeClient.CoreV1().Endpoints(testNamespace).Create(ep)
+				l.kubeInformer.Core().V1().Endpoints().Informer().GetIndexer().Add(ep)
+				kpa := revisionresources.MakeKPA(rev)
+				l.servingClient.AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
+				l.servingInformer.Autoscaling().V1alpha1().PodAutoscalers().Informer().GetIndexer().Add(kpa)
+
+				reconcileGrp := errgroup.Group{}
+				reconcileGrp.Go(func() error {
+					return ctl.Reconciler.Reconcile(context.Background(), testNamespace+"/"+testRevision)
+				})
+				// Ensure revision creation has been seen before deleting it.
+				select {
+				case <-l.createdCh:
+				case <-time.After(3 * time.Second):
+					l.t.Fatal("Revision creation notification timed out")
+				}
+
+				// Wait for the Reconcile to complete.
+				if err := reconcileGrp.Wait(); err != nil {
+					l.t.Errorf("Reconcile() = %v", err)
+				}
+
+				if count := fakeMetrics.createCallCount.Load(); count != 1 {
+					l.t.Fatalf("Create called %d times instead of once", count)
+				}
+
+				newKPA, err := l.servingClient.AutoscalingV1alpha1().PodAutoscalers(kpa.Namespace).Get(
+					kpa.Name, metav1.GetOptions{})
+				if err != nil {
+					l.t.Errorf("Get() = %v", err)
+				}
+				if cond := newKPA.Status.GetCondition("Ready"); cond == nil || cond.Status != "True" {
+					l.t.Errorf("GetCondition(Ready) = %v, wanted True", cond)
+				}
+
+				l.servingClient.ServingV1alpha1().Revisions(testNamespace).Delete(testRevision, nil)
+				l.servingInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Delete(rev)
+				l.servingClient.AutoscalingV1alpha1().PodAutoscalers(testNamespace).Delete(testRevision, nil)
+				l.servingInformer.Autoscaling().V1alpha1().PodAutoscalers().Informer().GetIndexer().Delete(kpa)
+				if err := ctl.Reconciler.Reconcile(context.Background(), testNamespace+"/"+testRevision); err != nil {
+					l.t.Errorf("Reconcile() = %v", err)
+				}
+
+				if fakeMetrics.deleteCallCount.Load() == 0 {
+					l.t.Fatal("Delete was not called")
+				}
+
+				if fakeMetrics.deleteBeforeCreate.Load() {
+					l.t.Fatal("Delete ran before OnPresent")
+				}
+			},
+		},
+		{
+			label: "TestUpdate",
+			runTest: func(l ctlLocals) {
+				ctl, fakeMetrics := ctlAndTestMetrics(l)
+				rev := newTestRevision(testNamespace, testRevision)
+				l.servingClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
+				l.servingInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
+				ep := addEndpoint(makeEndpoints(rev))
+				l.kubeClient.CoreV1().Endpoints(testNamespace).Create(ep)
+				l.kubeInformer.Core().V1().Endpoints().Informer().GetIndexer().Add(ep)
+				kpa := revisionresources.MakeKPA(rev)
+				l.servingClient.AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
+				l.servingInformer.Autoscaling().V1alpha1().PodAutoscalers().Informer().GetIndexer().Add(kpa)
+
+				reconcileGrp := errgroup.Group{}
+				reconcileGrp.Go(func() error {
+					return ctl.Reconciler.Reconcile(context.Background(), testNamespace+"/"+testRevision)
+				})
+
+				// Ensure revision creation has been seen before updating it.
+				select {
+				case <-l.createdCh:
+				case <-time.After(3 * time.Second):
+					l.t.Fatal("Revision creation notification timed out")
+				}
+
+				// Wait for the Reconcile to complete.
+				if err := reconcileGrp.Wait(); err != nil {
+					l.t.Errorf("Reconcile() = %v", err)
+				}
+
+				if count := fakeMetrics.createCallCount.Load(); count != 1 {
+					l.t.Fatalf("Create called %d times instead of once", count)
+				}
+
+				newKPA, err := l.servingClient.AutoscalingV1alpha1().PodAutoscalers(kpa.Namespace).Get(
+					kpa.Name, metav1.GetOptions{})
+				if err != nil {
+					l.t.Errorf("Get() = %v", err)
+				}
+				if cond := newKPA.Status.GetCondition("Ready"); cond == nil || cond.Status != "True" {
+					l.t.Errorf("GetCondition(Ready) = %v, wanted True", cond)
+				}
+
+				// Update the KPA container concurrency.
+				kpa.Spec.ContainerConcurrency = 2
+				l.servingClient.AutoscalingV1alpha1().PodAutoscalers(testNamespace).Update(kpa)
+				l.servingInformer.Autoscaling().V1alpha1().PodAutoscalers().Informer().GetIndexer().Update(kpa)
+
+				if err := ctl.Reconciler.Reconcile(context.Background(), testNamespace+"/"+testRevision); err != nil {
+					l.t.Errorf("Reconcile() = %v", err)
+				}
+
+				if fakeMetrics.updateCallCount.Load() == 0 {
+					l.t.Fatal("Update was not called")
+				}
+			},
+		},
+		{
+			label: "TestNonKpaClass",
+			runTest: func(l ctlLocals) {
+				ctl, fakeMetrics := ctlAndTestMetrics(l)
+				rev := newTestRevision(testNamespace, testRevision)
+				rev.Annotations = map[string]string{
+					autoscaling.ClassAnnotationKey: autoscaling.HPA, // non "kpa" class
+				}
+
+				l.servingClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
+				l.servingInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
+				kpa := revisionresources.MakeKPA(rev)
+				l.servingClient.AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
+				l.servingInformer.Autoscaling().V1alpha1().PodAutoscalers().Informer().GetIndexer().Add(kpa)
+
+				reconcileCh := make(chan error)
+				go func() {
+					defer close(reconcileCh)
+					if err := ctl.Reconciler.Reconcile(context.Background(), testNamespace+"/"+testRevision); err != nil {
+						reconcileCh <- err
+					}
+				}()
+
+				// Wait for reconcile to finish
+				select {
+				case err, ok := <-reconcileCh:
+					if ok && err != nil {
+						l.t.Errorf("Reconcile() = %v", err)
+					}
+				case <-time.After(3 * time.Second):
+					l.t.Fatal("Reconciliation timed out")
+				}
+
+				// Verify no KPAMetrics were created
+				if fakeMetrics.createCallCount.Load() != 0 {
+					l.t.Error("Unexpected KPAMetrics created")
+				}
+			},
+		},
+		{
+			label: "TestNoEndpoints",
+			runTest: func(l ctlLocals) {
+				ctl, _ := ctlAndTestMetrics(l)
+				rev := newTestRevision(testNamespace, testRevision)
+				l.servingClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
+				l.servingInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
+				// These do not exist yet.
+				// ep := addEndpoint(makeEndpoints(rev))
+				// kubeClient.CoreV1().Endpoints(testNamespace).Create(ep)
+				// kubeInformer.Core().V1().Endpoints().Informer().GetIndexer().Add(ep)
+				kpa := revisionresources.MakeKPA(rev)
+				l.servingClient.AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
+				l.servingInformer.Autoscaling().V1alpha1().PodAutoscalers().Informer().GetIndexer().Add(kpa)
+
+				reconcileGrp := errgroup.Group{}
+				reconcileGrp.Go(func() error {
+					return ctl.Reconciler.Reconcile(context.Background(), testNamespace+"/"+testRevision)
+				})
+
+				// Wait for the Reconcile to complete.
+				<-l.createdCh
+				if err := reconcileGrp.Wait(); err != nil {
+					l.t.Errorf("Reconcile() = %v", err)
+				}
+
+				newKPA, err := l.servingClient.AutoscalingV1alpha1().PodAutoscalers(kpa.Namespace).Get(
+					kpa.Name, metav1.GetOptions{})
+				if err != nil {
+					l.t.Errorf("Get() = %v", err)
+				}
+				if cond := newKPA.Status.GetCondition("Ready"); cond == nil || cond.Status != "Unknown" {
+					l.t.Errorf("GetCondition(Ready) = %v, wanted Unknown", cond)
+				}
+			},
+		},
+		{
+			label: "TestEmptyEndpoints",
+			runTest: func(l ctlLocals) {
+				ctl, _ := ctlAndTestMetrics(l)
+				rev := newTestRevision(testNamespace, testRevision)
+				l.servingClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
+				l.servingInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
+				// This is empty still.
+				ep := makeEndpoints(rev)
+				l.kubeClient.CoreV1().Endpoints(testNamespace).Create(ep)
+				l.kubeInformer.Core().V1().Endpoints().Informer().GetIndexer().Add(ep)
+				kpa := revisionresources.MakeKPA(rev)
+				l.servingClient.AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
+				l.servingInformer.Autoscaling().V1alpha1().PodAutoscalers().Informer().GetIndexer().Add(kpa)
+
+				reconcileGrp := errgroup.Group{}
+				reconcileGrp.Go(func() error {
+					return ctl.Reconciler.Reconcile(context.Background(), testNamespace+"/"+testRevision)
+				})
+
+				// Wait for the Reconcile to complete.
+				<-l.createdCh
+				if err := reconcileGrp.Wait(); err != nil {
+					l.t.Errorf("Reconcile() = %v", err)
+				}
+
+				newKPA, err := l.servingClient.AutoscalingV1alpha1().PodAutoscalers(kpa.Namespace).Get(
+					kpa.Name, metav1.GetOptions{})
+				if err != nil {
+					l.t.Errorf("Get() = %v", err)
+				}
+				if cond := newKPA.Status.GetCondition("Ready"); cond == nil || cond.Status != "Unknown" {
+					l.t.Errorf("GetCondition(Ready) = %v, wanted Unknown", cond)
+				}
+			},
+		},
+		{
+			label: "TestControllerCreateError",
+			runTest: func(l ctlLocals) {
+				metrics, want := notFoundKPAMetrics(l.createdCh)
+				ctl := makeCtl(l, metrics)
+				kpa := revisionresources.MakeKPA(newTestRevision(testNamespace, testRevision))
+				l.servingClient.AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
+				l.servingInformer.Autoscaling().V1alpha1().PodAutoscalers().Informer().GetIndexer().Add(kpa)
+
+				got := ctl.Reconciler.Reconcile(context.Background(), testNamespace+"/"+testRevision)
+				if got != want {
+					l.t.Errorf("Reconcile() = %v, wanted %v", got, want)
+				}
+			},
+		},
+		{
+			label: "TestControllerUpdateError",
+			runTest: func(l ctlLocals) {
+				metrics, want := notFoundKPAMetrics(l.createdCh)
+				ctl := makeCtl(l, metrics)
+				kpa := revisionresources.MakeKPA(newTestRevision(testNamespace, testRevision))
+				l.servingClient.AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
+				l.servingInformer.Autoscaling().V1alpha1().PodAutoscalers().Informer().GetIndexer().Add(kpa)
+
+				got := ctl.Reconciler.Reconcile(context.Background(), testNamespace+"/"+testRevision)
+				if got != want {
+					l.t.Errorf("Reconcile() = %v, wanted %v", got, want)
+				}
+			},
+		},
+		{
+			label: "TestControllerGetError",
+			runTest: func(l ctlLocals) {
+				want := errors.NewBadRequest("asdf")
+				metrics := &failingKPAMetrics{
+					getErr: want,
+				}
+				ctl := makeCtl(l, metrics)
+				kpa := revisionresources.MakeKPA(newTestRevision(testNamespace, testRevision))
+				l.servingClient.AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
+				l.servingInformer.Autoscaling().V1alpha1().PodAutoscalers().Informer().GetIndexer().Add(kpa)
+
+				got := ctl.Reconciler.Reconcile(context.Background(), testNamespace+"/"+testRevision)
+				if got != want {
+					l.t.Errorf("Reconcile() = %v, wanted %v", got, want)
+				}
+			},
+		},
+		{
+			label: "TestScaleFailure",
+			runTest: func(l ctlLocals) {
+				ctl, _ := ctlAndTestMetrics(l)
+				// Only put the KPA in the lister, which will prompt failures scaling it.
+				rev := newTestRevision(testNamespace, testRevision)
+				kpa := revisionresources.MakeKPA(rev)
+				l.servingInformer.Autoscaling().V1alpha1().PodAutoscalers().Informer().GetIndexer().Add(kpa)
+
+				reconcileGrp := errgroup.Group{}
+				reconcileGrp.Go(func() error {
+					return ctl.Reconciler.Reconcile(context.Background(), testNamespace+"/"+testRevision)
+				})
+
+				// Ensure revision creation has been seen before deleting it.
+				select {
+				case <-l.createdCh:
+				case <-time.After(3 * time.Second):
+					l.t.Fatal("Revision creation notification timed out")
+				}
+
+				if err := reconcileGrp.Wait(); err == nil {
+					l.t.Error("Reconcile() = nil, wanted error")
+				}
+			},
+		},
+		{
+			label: "TestBadKey",
+			runTest: func(l ctlLocals) {
+				ctl := makeCtl(l, &failingKPAMetrics{})
+				err := ctl.Reconciler.Reconcile(context.Background(), "too/many/parts")
+				if err != nil {
+					l.t.Errorf("Reconcile() = %v", err)
+				}
+			},
+		},
+	}
+)
+
+func TestKPA(t *testing.T) {
+	for _, e := range cases {
+		t.Run(e.label, func(t *testing.T) {
+			runTest(t, e)
+		})
+	}
+}
+
+func runTest(t *testing.T, e kpaTest) {
+	kubeClient := fakeK8s.NewSimpleClientset()
+	servingClient := fakeKna.NewSimpleClientset()
+
 	createdCh := make(chan struct{})
 	defer close(createdCh)
 
-	opts := reconciler.Options{
-		KubeClientSet:    kubeClient,
-		ServingClientSet: servingClient,
-		Logger:           TestLogger(t),
-	}
-
 	servingInformer := informers.NewSharedInformerFactory(servingClient, 0)
 	kubeInformer := kubeinformers.NewSharedInformerFactory(kubeClient, 0)
 
 	scaleClient := &scalefake.FakeScaleClient{}
 	kpaScaler := NewKPAScaler(servingClient, scaleClient, TestLogger(t), newConfigWatcher())
-
-	fakeMetrics := newTestKPAMetrics(createdCh, stopCh)
-	ctl := NewController(&opts,
-		servingInformer.Autoscaling().V1alpha1().PodAutoscalers(),
-		kubeInformer.Core().V1().Endpoints(),
-		fakeMetrics,
-		kpaScaler,
-		newDynamicConfig(t),
-	)
-
-	// Only put the KPA in the lister, which will prompt failures scaling it.
-	rev := newTestRevision(testNamespace, testRevision)
-	kpa := revisionresources.MakeKPA(rev)
-	servingInformer.Autoscaling().V1alpha1().PodAutoscalers().Informer().GetIndexer().Add(kpa)
-
-	reconcileGrp := errgroup.Group{}
-	reconcileGrp.Go(func() error {
-		return ctl.Reconciler.Reconcile(context.Background(), testNamespace+"/"+testRevision)
+	e.runTest(ctlLocals{
+		kubeClient:      kubeClient,
+		servingClient:   servingClient,
+		servingInformer: servingInformer,
+		kubeInformer:    kubeInformer,
+		kpaScaler:       kpaScaler,
+		createdCh:       createdCh,
+		t:               t,
 	})
-
-	// Ensure revision creation has been seen before deleting it.
-	select {
-	case <-createdCh:
-	case <-time.After(3 * time.Second):
-		t.Fatal("Revision creation notification timed out")
-	}
-
-	if err := reconcileGrp.Wait(); err == nil {
-		t.Error("Reconcile() = nil, wanted error")
-	}
-}
-
-func TestBadKey(t *testing.T) {
-	kubeClient := fakeK8s.NewSimpleClientset()
-	servingClient := fakeKna.NewSimpleClientset()
-
-	opts := reconciler.Options{
-		KubeClientSet:    kubeClient,
-		ServingClientSet: servingClient,
-		Logger:           TestLogger(t),
-	}
-
-	servingInformer := informers.NewSharedInformerFactory(servingClient, 0)
-	kubeInformer := kubeinformers.NewSharedInformerFactory(kubeClient, 0)
-	scaleClient := &scalefake.FakeScaleClient{}
-	kpaScaler := NewKPAScaler(servingClient, scaleClient, TestLogger(t), newConfigWatcher())
-
-	ctl := NewController(&opts,
-		servingInformer.Autoscaling().V1alpha1().PodAutoscalers(),
-		kubeInformer.Core().V1().Endpoints(),
-		&failingKPAMetrics{},
-		kpaScaler,
-		newDynamicConfig(t),
-	)
-
-	err := ctl.Reconciler.Reconcile(context.Background(), "too/many/parts")
-	if err != nil {
-		t.Errorf("Reconcile() = %v", err)
-	}
 }
 
 func newTestKPAMetrics(createdCh chan struct{}, stopCh chan struct{}) *testKPAMetrics {
