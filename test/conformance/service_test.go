@@ -327,13 +327,13 @@ func waitForDesiredTrafficShape(t *testing.T, sName string, want map[string]v1al
 			for _, tt := range s.Status.Traffic {
 				got[tt.Name] = tt
 			}
-			opt := cmp.FilterPath(
+			ignoreURLs := cmp.FilterPath(
 				func(p cmp.Path) bool {
 					return p.String() == "URL"
 				},
 				cmp.Ignore(),
 			)
-			if !cmp.Equal(got, want, opt) {
+			if !cmp.Equal(got, want, ignoreURLs) {
 				t.Logf("For service %s traffic shape mismatch: (-got, +want) %s", sName, cmp.Diff(got, want))
 				return false, nil
 			}

@@ -229,13 +229,13 @@ func (c *Reconciler) reconcile(ctx context.Context, service *v1alpha1.Service) e
 				want[idx].ConfigurationName = ""
 			}
 		}
-		opt := cmp.FilterPath(
+		ignoreURLs := cmp.FilterPath(
 			func(p cmp.Path) bool {
 				return p.String() == "URL"
 			},
 			cmp.Ignore(),
 		)
-		if eq, err := kmp.SafeEqual(got, want, opt); !eq || err != nil {
+		if eq, err := kmp.SafeEqual(got, want, ignoreURLs); !eq || err != nil {
 			service.Status.MarkRouteNotYetReady()
 		}
 	}
