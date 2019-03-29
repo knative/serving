@@ -249,7 +249,7 @@ func TestUpdate(t *testing.T) {
 	}
 }
 
-func TestNonKpaClass(t *testing.T) {
+func TestNonKPAClass(t *testing.T) {
 	kubeClient := fakeK8s.NewSimpleClientset()
 	servingClient := fakeKna.NewSimpleClientset()
 
