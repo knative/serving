@@ -43,6 +43,7 @@ import (
 	"github.com/knative/serving/pkg/network"
 	"github.com/knative/serving/pkg/queue"
 	"github.com/knative/serving/pkg/queue/health"
+	queuestats "github.com/knative/serving/pkg/queue/stats"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/wait"
 )
@@ -359,7 +360,7 @@ func pushRequestMetricHandler(currentHandler http.Handler) http.Handler {
 		return currentHandler
 	}
 
-	r, err := queue.NewStatsReporter(servingNamespace, servingService, servingConfig, servingRevision)
+	r, err := queuestats.NewStatsReporter(servingNamespace, servingService, servingConfig, servingRevision)
 	if err != nil {
 		logger.Errorw("Error setting up request metrics reporter. Request metrics will be unavailable.", zap.Error(err))
 		return currentHandler
@@ -373,7 +374,7 @@ func pushRequestMetricHandler(currentHandler http.Handler) http.Handler {
 	// to component.
 	ops := metrics.ExporterOptions{
 		Domain:         "knative.dev/serving",
-		Component:      "activator",
+		Component:      "revision",
 		PrometheusPort: commonMetricsPort,
 		ConfigMap: map[string]string{
 			metrics.BackendDestinationKey: backend,

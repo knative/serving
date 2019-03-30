@@ -22,15 +22,16 @@ import (
 	"time"
 
 	pkghttp "github.com/knative/serving/pkg/http"
+	"github.com/knative/serving/pkg/queue/stats"
 )
 
 type requestMetricHandler struct {
 	handler       http.Handler
-	statsReporter StatsReporter
+	statsReporter stats.StatsReporter
 }
 
 // NewRequestMetricHandler creates an http.Handler that logs request logs to an io.Writer.
-func NewRequestMetricHandler(h http.Handler, r StatsReporter) (http.Handler, error) {
+func NewRequestMetricHandler(h http.Handler, r stats.StatsReporter) (http.Handler, error) {
 	if r == nil {
 		return nil, errors.New("StatsReporter must not be nil")
 	}
@@ -49,17 +50,16 @@ func (h *requestMetricHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		err := recover()
 		latency := time.Since(startTime)
 		if err != nil {
-			h.sendRequestMetrics(rr.ResponseSize, 1, latency)
+			h.sendRequestMetrics(http.StatusInternalServerError, 1, latency)
 			panic(err)
 		} else {
-			h.sendRequestMetrics(rr.ResponseSize, 1, latency)
+			h.sendRequestMetrics(rr.ResponseCode, 1, latency)
 		}
 	}()
 	h.handler.ServeHTTP(rr, r)
 }
 
-func (h *requestMetricHandler) sendRequestMetrics(respCode int32, reqCount int64, latency time.Duration) {
-	c := int(respCode)
-	h.statsReporter.ReportRequestCount(c, reqCount)
-	h.statsReporter.ReportResponseTime(c, latency)
+func (h *requestMetricHandler) sendRequestMetrics(respCode int, reqCount int64, latency time.Duration) {
+	h.statsReporter.ReportRequestCount(respCode, reqCount)
+	h.statsReporter.ReportResponseTime(respCode, latency)
 }
