@@ -17,6 +17,7 @@ limitations under the License.
 package kpa
 
 import (
+	"errors"
 	"strconv"
 	"testing"
 	"time"
@@ -26,6 +27,7 @@ import (
 	_ "github.com/knative/pkg/system/testing"
 	"github.com/knative/serving/pkg/apis/autoscaling"
 	pav1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
+	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
 	fakeKna "github.com/knative/serving/pkg/client/clientset/versioned/fake"
@@ -197,7 +199,10 @@ func TestGetScale(t *testing.T) {
 		t.Fatalf("GetScale got error = %v", err)
 	}
 	if got, want := scale.Status.Replicas, int32(5); got != want {
-		t.Errorf("GetScale.Replicas = %d, want: %d", got, want)
+		t.Errorf("GetScale.Status.Replicas = %d, want: %d", got, want)
+	}
+	if got, want := scale.Status.Selector, serving.RevisionUID+"=1982"; got != want {
+		t.Errorf("GetScale.Status.Selector = %q, want = %q", got, want)
 	}
 }
 
@@ -208,7 +213,6 @@ func newKPA(t *testing.T, servingClient clientset.Interface, revision *v1alpha1.
 	if err != nil {
 		t.Fatal("Failed to create PA.", err)
 	}
-
 	return pa
 }
 
@@ -244,16 +248,25 @@ func newDeployment(t *testing.T, scaleClient *scalefake.FakeScaleClient, name st
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: testNamespace,
 			Name:      name,
+			UID:       "1982",
 		},
 		Spec: v1.DeploymentSpec{
 			Replicas: &scale,
+			Selector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					serving.RevisionUID: "1982",
+				},
+			},
 		},
 		Status: v1.DeploymentStatus{
 			Replicas: scale,
 		},
 	}
 
-	scaleClient.AddReactor("get", "deployments", func(action clientgotesting.Action) (handled bool, ret runtime.Object, err error) {
+	scaleClient.AddReactor("get", "deployments", func(action clientgotesting.Action) (bool, runtime.Object, error) {
+		if action.(clientgotesting.GetAction).GetName() != deployment.Name {
+			return false, nil, errors.New("wrong resource requested")
+		}
 		obj := &autoscalingv1.Scale{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      deployment.Name,
@@ -264,6 +277,7 @@ func newDeployment(t *testing.T, scaleClient *scalefake.FakeScaleClient, name st
 			},
 			Status: autoscalingv1.ScaleStatus{
 				Replicas: deployment.Status.Replicas,
+				Selector: serving.RevisionUID + "=1982",
 			},
 		}
 		return true, obj, nil

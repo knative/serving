@@ -18,10 +18,13 @@ package kpa
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/system"
 	_ "github.com/knative/pkg/system/testing"
@@ -39,13 +42,16 @@ import (
 	. "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
 	"go.uber.org/atomic"
 	"golang.org/x/sync/errgroup"
+	autoscalingv1 "k8s.io/api/autoscaling/v1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	kubeinformers "k8s.io/client-go/informers"
 	fakeK8s "k8s.io/client-go/kubernetes/fake"
 	scalefake "k8s.io/client-go/scale/fake"
+	clientgotesting "k8s.io/client-go/testing"
 )
 
 var (
@@ -87,47 +93,146 @@ func TestMetricsSvcIsReconciled(t *testing.T) {
 	ep := addEndpoint(makeEndpoints(rev))
 	kpa := revisionresources.MakeKPA(rev)
 	tests := []struct {
-		name        string
-		before      *corev1.Service
-		crHook      func(runtime.Object) HookResult
-		upHook      func(runtime.Object) HookResult
-		hookShoulTO bool // we expect 0 updates.
+		name               string
+		wantErr            string
+		before             *corev1.Service
+		crHook             func(runtime.Object) HookResult
+		upHook             func(runtime.Object) HookResult
+		hookShouldTO       bool // we expect 0 updates.
+		scaleClientReactor func(*scalefake.FakeScaleClient)
+		cubeClientReactor  func(*clientgotesting.Fake)
 	}{{
 		name: "svc does not exist",
 		crHook: func(obj runtime.Object) HookResult {
 			svc := obj.(*corev1.Service)
-			t.Logf("Created K8s Service: %#v", svc)
 			if got, want := svc.Name, names.MetricsServiceName(kpa.Name); got != want {
 				t.Errorf("MetricsServiceName = %s, want = %s", got, want)
 			}
 			return HookComplete
 		},
 	}, {
-		name:   "svc exists, no change",
-		before: resources.MakeMetricsService(kpa, map[string]string{}),
+		name:         "svc does not exist and we fail to create",
+		wantErr:      "this service shall not pass",
+		hookShouldTO: true,
+		crHook: func(obj runtime.Object) HookResult {
+			svc := obj.(*corev1.Service)
+			if got, want := svc.Name, names.MetricsServiceName(kpa.Name); got != want {
+				t.Errorf("MetricsServiceName = %s, want = %s", got, want)
+			}
+			return HookComplete
+		},
+		cubeClientReactor: func(f *clientgotesting.Fake) {
+			f.PrependReactor("create", "services", func(action clientgotesting.Action) (bool, runtime.Object, error) {
+				return true, nil, errors.New("this service shall not pass")
+			})
+		},
+	}, {
+		name:         "scale fail",
+		wantErr:      "I like to fail, and I cannot lie",
+		hookShouldTO: true,
+		before:       resources.MakeMetricsService(kpa, map[string]string{"a": "b"}),
 		upHook: func(obj runtime.Object) HookResult {
 			svc := obj.(*corev1.Service)
 			t.Errorf("Unexpected update for service %s", svc.Name)
 			return HookComplete
 		},
-		hookShoulTO: true,
+		scaleClientReactor: func(fsc *scalefake.FakeScaleClient) {
+			fsc.AddReactor("get", "deployments", func(action clientgotesting.Action) (bool, runtime.Object, error) {
+				return true, nil, errors.New("I like to fail, and I cannot lie")
+			})
+		},
+	}, {
+		name:         "bad selector",
+		wantErr:      "invalid selector: [i-am-not-a-valid-selector]",
+		hookShouldTO: true,
+		before:       resources.MakeMetricsService(kpa, map[string]string{"a": "b"}),
+		upHook: func(obj runtime.Object) HookResult {
+			svc := obj.(*corev1.Service)
+			t.Errorf("Unexpected update for service %s", svc.Name)
+			return HookComplete
+		},
+		scaleClientReactor: func(fsc *scalefake.FakeScaleClient) {
+			fsc.AddReactor("get", "deployments", func(action clientgotesting.Action) (bool, runtime.Object, error) {
+				ga := action.(clientgotesting.GetAction)
+				return true, scaleA(ga, withLabelSelector("i-am-not-a-valid-selector,¡so-bite-me!")), nil
+			})
+		},
+	}, {
+		name:   "svc exists, no change",
+		before: resources.MakeMetricsService(kpa, map[string]string{"a": "b"}),
+		upHook: func(obj runtime.Object) HookResult {
+			svc := obj.(*corev1.Service)
+			t.Errorf("Unexpected update for service %s", svc.Name)
+			return HookComplete
+		},
+		scaleClientReactor: func(fsc *scalefake.FakeScaleClient) {
+			fsc.AddReactor("get", "deployments", func(action clientgotesting.Action) (bool, runtime.Object, error) {
+				ga := action.(clientgotesting.GetAction)
+				return true, scaleA(ga), nil
+			})
+		},
+		hookShouldTO: true,
 	}, {
 		name:   "svc exists, need update",
 		before: resources.MakeMetricsService(kpa, map[string]string{"hot": "stuff"}),
 		upHook: func(obj runtime.Object) HookResult {
+			svc := obj.(*corev1.Service)
+			// What's being updated.
+			if got, want := svc.Spec.Selector, map[string]string{"a": "b"}; !cmp.Equal(got, want) {
+				t.Errorf("Selector = %v, want = %v, diff = %s", got, want, cmp.Diff(got, want))
+			}
 			return HookComplete
 		},
+		scaleClientReactor: func(fsc *scalefake.FakeScaleClient) {
+			fsc.AddReactor("get", "deployments", func(action clientgotesting.Action) (bool, runtime.Object, error) {
+				ga := action.(clientgotesting.GetAction)
+				return true, scaleA(ga), nil
+			})
+		},
+	}, {
+		name:         "svc exists, need update, update fails",
+		before:       resources.MakeMetricsService(kpa, map[string]string{"hot": "stuff"}),
+		wantErr:      "I think I'm immutable",
+		hookShouldTO: true,
+		upHook: func(obj runtime.Object) HookResult {
+			svc := obj.(*corev1.Service)
+			// What's being updated.
+			if got, want := svc.Spec.Selector, map[string]string{"a": "b"}; !cmp.Equal(got, want) {
+				t.Errorf("Selector = %v, want = %v, diff = %s", got, want, cmp.Diff(got, want))
+			}
+			return HookComplete
+		},
+		scaleClientReactor: func(fsc *scalefake.FakeScaleClient) {
+			fsc.AddReactor("get", "deployments", func(action clientgotesting.Action) (bool, runtime.Object, error) {
+				ga := action.(clientgotesting.GetAction)
+				return true, scaleA(ga), nil
+			})
+		},
+		cubeClientReactor: func(f *clientgotesting.Fake) {
+			f.PrependReactor("update", "services", func(action clientgotesting.Action) (bool, runtime.Object, error) {
+				return true, nil, errors.New("I think I'm immutable")
+			})
+		},
+	}, {
+		name: "svc exists, wrong owner",
+		before: func() *corev1.Service {
+			s := resources.MakeMetricsService(kpa, map[string]string{"hot": "stuff"})
+			s.OwnerReferences[0].UID = types.UID("1984")
+			return s
+		}(),
+		wantErr:      "does not own Service",
+		hookShouldTO: true,
 	}}
 	for _, test := range tests {
 		test := test
-		// TODO(vagabov): refactor to avoid duplicate work for setup.
+		// TODO(vagababov): refactor to avoid duplicate work for setup.
 		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
+			//t.Parallel()
 			kubeClient := fakeK8s.NewSimpleClientset()
 			servingClient := fakeKna.NewSimpleClientset()
 
-			stopCh := make(chan struct{})
-			createdCh := make(chan struct{})
+			stopCh := make(chan struct{}) // Autoclosed in testMetrics.
+			createdCh := make(chan struct{}, 1)
 			defer close(createdCh)
 
 			opts := reconciler.Options{
@@ -140,16 +245,25 @@ func TestMetricsSvcIsReconciled(t *testing.T) {
 			kubeInformer := kubeinformers.NewSharedInformerFactory(kubeClient, 0)
 
 			scaleClient := &scalefake.FakeScaleClient{}
+			if test.scaleClientReactor != nil {
+				test.scaleClientReactor(scaleClient)
+			}
+			if test.cubeClientReactor != nil {
+				test.cubeClientReactor(&kubeClient.Fake)
+			}
 			kpaScaler := NewKPAScaler(servingClient, scaleClient, TestLogger(t), newConfigWatcher())
 
+			// This makes controller reconcile synchronously.
+			dynConf := newDynamicConfig(t)
 			fakeMetrics := newTestKPAMetrics(createdCh, stopCh)
+			fakeMetrics.Create(context.Background(), resources.MakeMetric(context.Background(), kpa, dynConf.Current()))
 			ctl := NewController(&opts,
 				servingInformer.Autoscaling().V1alpha1().PodAutoscalers(),
 				kubeInformer.Core().V1().Services(),
 				kubeInformer.Core().V1().Endpoints(),
 				fakeMetrics,
 				kpaScaler,
-				newDynamicConfig(t),
+				dynConf,
 			)
 
 			servingClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
@@ -170,29 +284,56 @@ func TestMetricsSvcIsReconciled(t *testing.T) {
 			if test.upHook != nil {
 				h.OnUpdate(&kubeClient.Fake, "services", test.upHook)
 			}
+			if test.scaleClientReactor != nil {
 
-			reconcileGrp := errgroup.Group{}
-			reconcileGrp.Go(func() error {
-				return ctl.Reconciler.Reconcile(context.Background(), testNamespace+"/"+testRevision)
-			})
-
-			// Ensure revision creation has been seen before deleting it.
-			select {
-			case <-createdCh:
-			case <-time.After(3 * time.Second):
-				t.Fatal("Revision creation notification timed out")
+				test.scaleClientReactor(scaleClient)
+			}
+			if test.cubeClientReactor != nil {
+				test.cubeClientReactor(&kubeClient.Fake)
+			}
+			err := ctl.Reconciler.Reconcile(context.Background(), testNamespace+"/"+testRevision)
+			if err != nil {
+				if got, want := err.Error(), test.wantErr; !strings.Contains(got, want) {
+					t.Errorf("Error = %q, want: %q", got, want)
+				}
+			} else if test.wantErr != "" {
+				t.Fatal("Expected an error")
 			}
 
-			// Wait for the Reconcile to complete.
-			if err := reconcileGrp.Wait(); err != nil {
-				t.Errorf("Reconcile() = %v", err)
-			}
-			// Hooks should be completed by now.
-			if err := h.WaitForHooks(100 * time.Millisecond); err != nil && !test.hookShoulTO {
+			// Hooks should be completed by now, for non TO tests.
+			if err := h.WaitForHooks(30 * time.Millisecond); err != nil && !test.hookShouldTO {
 				t.Errorf("Metrics Service manipulation faltered: %v", err)
 			}
 		})
 	}
+}
+
+type scaleOpt func(*autoscalingv1.Scale)
+
+func withLabelSelector(selector string) scaleOpt {
+	return func(s *autoscalingv1.Scale) {
+		s.Status.Selector = selector
+	}
+}
+
+func scaleA(ga clientgotesting.GetAction, opts ...scaleOpt) *autoscalingv1.Scale {
+	s := &autoscalingv1.Scale{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      ga.GetName(),
+			Namespace: ga.GetNamespace(),
+		},
+		Spec: autoscalingv1.ScaleSpec{
+			Replicas: 42,
+		},
+		Status: autoscalingv1.ScaleStatus{
+			Replicas: 42,
+			Selector: "a=b",
+		},
+	}
+	for _, opt := range opts {
+		opt(s)
+	}
+	return s
 }
 func TestControllerSynchronizesCreatesAndDeletes(t *testing.T) {
 	kubeClient := fakeK8s.NewSimpleClientset()
@@ -571,7 +712,7 @@ func TestControllerCreateError(t *testing.T) {
 	servingClient := fakeKna.NewSimpleClientset()
 
 	key := testNamespace + "/" + testRevision
-	want := errors.NewBadRequest("asdf")
+	want := apierrors.NewBadRequest("asdf")
 
 	opts := reconciler.Options{
 		KubeClientSet:    kubeClient,
@@ -589,7 +730,7 @@ func TestControllerCreateError(t *testing.T) {
 		kubeInformer.Core().V1().Services(),
 		kubeInformer.Core().V1().Endpoints(),
 		&failingKPAMetrics{
-			getErr:    errors.NewNotFound(kpa.Resource("Metrics"), key),
+			getErr:    apierrors.NewNotFound(kpa.Resource("Metrics"), key),
 			createErr: want,
 		},
 		kpaScaler,
@@ -611,7 +752,7 @@ func TestControllerUpdateError(t *testing.T) {
 	servingClient := fakeKna.NewSimpleClientset()
 
 	key := testNamespace + "/" + testRevision
-	want := errors.NewBadRequest("asdf")
+	want := apierrors.NewBadRequest("asdf")
 
 	opts := reconciler.Options{
 		KubeClientSet:    kubeClient,
@@ -629,7 +770,7 @@ func TestControllerUpdateError(t *testing.T) {
 		kubeInformer.Core().V1().Services(),
 		kubeInformer.Core().V1().Endpoints(),
 		&failingKPAMetrics{
-			getErr:    errors.NewNotFound(kpa.Resource("Metrics"), key),
+			getErr:    apierrors.NewNotFound(kpa.Resource("Metrics"), key),
 			createErr: want,
 		},
 		kpaScaler,
@@ -651,7 +792,7 @@ func TestControllerGetError(t *testing.T) {
 	servingClient := fakeKna.NewSimpleClientset()
 
 	key := testNamespace + "/" + testRevision
-	want := errors.NewBadRequest("asdf")
+	want := apierrors.NewBadRequest("asdf")
 
 	opts := reconciler.Options{
 		KubeClientSet:    kubeClient,
@@ -790,7 +931,7 @@ type testKPAMetrics struct {
 
 func (km *testKPAMetrics) Get(ctx context.Context, namespace, name string) (*autoscaler.Metric, error) {
 	if km.metric == nil {
-		return nil, errors.NewNotFound(kpa.Resource("Metrics"), autoscaler.NewMetricKey(namespace, name))
+		return nil, apierrors.NewNotFound(kpa.Resource("Metrics"), autoscaler.NewMetricKey(namespace, name))
 	}
 	return km.metric, nil
 }
