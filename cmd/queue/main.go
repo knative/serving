@@ -70,7 +70,6 @@ const (
 )
 
 var (
-	podName                string
 	servingService         string
 	servingConfig          string
 	servingNamespace       string
@@ -78,6 +77,7 @@ var (
 	servingRevisionKey     string
 	servingAutoscaler      string
 	servingPodIP           string
+	servingPodName         string
 	autoscalerNamespace    string
 	servingAutoscalerPort  int
 	userTargetPort         int
@@ -97,13 +97,13 @@ var (
 )
 
 func initEnv() {
-	podName = util.GetRequiredEnvOrFatal("SERVING_POD", logger)
 	servingService = util.GetRequiredEnvOrFatal("SERVING_SERVICE", logger)
 	servingConfig = util.GetRequiredEnvOrFatal("SERVING_CONFIGURATION", logger)
 	servingNamespace = util.GetRequiredEnvOrFatal("SERVING_NAMESPACE", logger)
 	servingRevision = util.GetRequiredEnvOrFatal("SERVING_REVISION", logger)
 	servingAutoscaler = util.GetRequiredEnvOrFatal("SERVING_AUTOSCALER", logger)
 	servingPodIP = util.GetRequiredEnvOrFatal("SERVING_POD_IP", logger)
+	servingPodName = util.GetRequiredEnvOrFatal("SERVING_POD", logger)
 	autoscalerNamespace = util.GetRequiredEnvOrFatal("SYSTEM_NAMESPACE", logger)
 	servingAutoscalerPort = util.MustParseIntEnvOrFatal("SERVING_AUTOSCALER_PORT", logger)
 	containerConcurrency = util.MustParseIntEnvOrFatal("CONTAINER_CONCURRENCY", logger)
@@ -113,7 +113,7 @@ func initEnv() {
 
 	// TODO(mattmoor): Move this key to be in terms of the KPA.
 	servingRevisionKey = autoscaler.NewMetricKey(servingNamespace, servingRevision)
-	_psr, err := queue.NewPrometheusStatsReporter(servingNamespace, servingConfig, servingRevision, podName)
+	_psr, err := queue.NewPrometheusStatsReporter(servingNamespace, servingConfig, servingRevision, servingPodName)
 	if err != nil {
 		logger.Fatalw("Failed to create stats reporter", zap.Error(err))
 	}
@@ -231,7 +231,7 @@ func main() {
 	initEnv()
 	logger = logger.With(
 		zap.String(logkey.Key, servingRevisionKey),
-		zap.String(logkey.Pod, podName))
+		zap.String(logkey.Pod, servingPodName))
 
 	target, err := url.Parse(fmt.Sprintf("http://%s", userTargetAddress))
 	if err != nil {
@@ -272,7 +272,7 @@ func main() {
 
 	reportTicker := time.NewTicker(queue.ReporterReportingPeriod)
 	defer reportTicker.Stop()
-	queue.NewStats(podName, queue.Channels{
+	queue.NewStats(servingPodName, queue.Channels{
 		ReqChan:    reqChan,
 		ReportChan: reportTicker.C,
 		StatChan:   statChan,
@@ -341,7 +341,7 @@ func pushRequestLogHandler(currentHandler http.Handler) http.Handler {
 		Namespace:     servingNamespace,
 		Service:       servingService,
 		Configuration: servingConfig,
-		PodName:       podName,
+		PodName:       servingPodName,
 		PodIP:         servingPodIP,
 	}
 	handler, err := queue.NewRequestLogHandler(currentHandler, utils.NewSyncFileWriter(os.Stdout), templ, revInfo)
@@ -387,7 +387,6 @@ func pushRequestMetricHandler(currentHandler http.Handler) http.Handler {
 	}
 
 	handler, err := queue.NewRequestMetricHandler(currentHandler, r)
-
 	if err != nil {
 		logger.Errorw("Error setting up request metrics handler. Request metrics will be unavailable.", zap.Error(err))
 		return currentHandler

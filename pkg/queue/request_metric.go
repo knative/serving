@@ -50,16 +50,16 @@ func (h *requestMetricHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		err := recover()
 		latency := time.Since(startTime)
 		if err != nil {
-			h.sendRequestMetrics(http.StatusInternalServerError, 1, latency)
+			h.sendRequestMetrics(http.StatusInternalServerError, latency)
 			panic(err)
 		} else {
-			h.sendRequestMetrics(rr.ResponseCode, 1, latency)
+			h.sendRequestMetrics(rr.ResponseCode, latency)
 		}
 	}()
 	h.handler.ServeHTTP(rr, r)
 }
 
-func (h *requestMetricHandler) sendRequestMetrics(respCode int, reqCount int64, latency time.Duration) {
-	h.statsReporter.ReportRequestCount(respCode, reqCount)
+func (h *requestMetricHandler) sendRequestMetrics(respCode int, latency time.Duration) {
+	h.statsReporter.ReportRequestCount(respCode, 1)
 	h.statsReporter.ReportResponseTime(respCode, latency)
 }
