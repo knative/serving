@@ -306,12 +306,12 @@ func (c *Reconciler) reconcileMetricsService(ctx context.Context, pa *pav1alpha1
 	sn := names.MetricsServiceName(pa.Name)
 	svc, err := c.serviceLister.Services(pa.Namespace).Get(sn)
 	if errors.IsNotFound(err) {
-		logger.Infof("K8s service %q does not exist; creating.", sn)
+		logger.Infof("K8s service %s/%s does not exist; creating.", pa.Namespace, sn)
 
 		svc = resources.MakeMetricsService(pa, selector)
 		_, err := c.KubeClientSet.CoreV1().Services(pa.Namespace).Create(svc)
 		if err != nil {
-			logger.Errorw(fmt.Sprintf("Error creating K8s Service %s: ", sn), zap.Error(err))
+			logger.Errorw(fmt.Sprintf("Error creating K8s Service %s/%s: ", pa.Namespace, sn), zap.Error(err))
 			return err
 		}
 		logger.Infof("Created K8s service: %q", sn)
