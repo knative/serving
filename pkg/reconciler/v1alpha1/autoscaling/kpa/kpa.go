@@ -305,7 +305,6 @@ func (c *Reconciler) reconcileMetricsService(ctx context.Context, pa *pav1alpha1
 
 	sn := names.MetricsServiceName(pa.Name)
 	svc, err := c.serviceLister.Services(pa.Namespace).Get(sn)
-	//svc, err := c.KubeClientSet.CoreV1().Services(pa.Namespace).Get(sn, metav1.GetOptions{})
 	if errors.IsNotFound(err) {
 		logger.Infof("K8s service %q does not exist; creating.", sn)
 
