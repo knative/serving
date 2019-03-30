@@ -17,6 +17,7 @@ import (
 	"github.com/knative/pkg/kmeta"
 	"github.com/knative/serving/pkg/apis/autoscaling"
 	pav1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
+	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	sv1a1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/autoscaling/kpa/resources/names"
 
@@ -26,10 +27,7 @@ import (
 )
 
 const (
-	kpaLabelKey     = autoscaling.GroupName + "/kpa"
-	metricsPortName = "metrics"
-	// metricsPort is the external port of the service for metrics.
-	metricsPort = int32(9090)
+	kpaLabelKey = autoscaling.GroupName + "/kpa"
 )
 
 // makeLabels propagates labels from parent resources and adds a KPA label.
@@ -63,9 +61,9 @@ func MakeMetricsService(pa *pav1alpha1.PodAutoscaler, selector map[string]string
 		},
 		Spec: corev1.ServiceSpec{
 			Ports: []corev1.ServicePort{{
-				Name:       metricsPortName,
+				Name:       v1alpha1.ServiceQueueMetricsPortName,
 				Protocol:   corev1.ProtocolTCP,
-				Port:       metricsPort,
+				Port:       v1alpha1.RequestQueueMetricsPort,
 				TargetPort: intstr.FromString(sv1a1.RequestQueueMetricsPortName),
 			}},
 			Selector: selector,

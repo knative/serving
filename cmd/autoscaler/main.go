@@ -114,9 +114,10 @@ func main() {
 	// Start all of the informers and wait for them to sync.
 	if err := controller.StartInformers(
 		stopCh,
-		paInformer.Informer(),
 		endpointsInformer.Informer(),
 		hpaInformer.Informer(),
+		paInformer.Informer(),
+		serviceInformer.Informer(),
 	); err != nil {
 		logger.Fatalf("Failed to start informers: %v", err)
 	}

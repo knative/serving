@@ -98,8 +98,8 @@ func applyBounds(min, max, x int32) int32 {
 	return x
 }
 
-// GetScale returns the current scale resource for the PA.
-func (ks *kpaScaler) GetScale(pa *pav1alpha1.PodAutoscaler) (*autoscalingapi.Scale, error) {
+// GetScaleResource returns the current scale resource for the PA.
+func (ks *kpaScaler) GetScaleResource(pa *pav1alpha1.PodAutoscaler) (*autoscalingapi.Scale, error) {
 	resource, resourceName, err := scaleResourceArgs(pa)
 	if err != nil {
 		return nil, perrors.Wrap(err, "Error Get'ting /scale resource")
