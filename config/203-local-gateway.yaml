@@ -9,7 +9,7 @@ metadata:
   labels:
     serving.knative.dev/release: devels
     serving.knative.dev/network-provider: istio
-pec:
+spec:
   selector:
     istio: cluster-local-gateway
   servers:
