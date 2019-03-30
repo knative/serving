@@ -53,7 +53,7 @@ type Observability struct {
 	// RequestLogTemplate is the go template to use to shape the request logs.
 	RequestLogTemplate string
 
-	// RequestMetricsBackend specifies the request metrics destination, e.g. Promethues,
+	// RequestMetricsBackend specifies the request metrics destination, e.g. Prometheus,
 	// Stackdriver.
 	RequestMetricsBackend string
 }

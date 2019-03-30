@@ -30,7 +30,7 @@ type requestMetricHandler struct {
 	statsReporter stats.StatsReporter
 }
 
-// NewRequestMetricHandler creates an http.Handler that logs request logs to an io.Writer.
+// NewRequestMetricHandler creates an http.Handler that emits request metrics.
 func NewRequestMetricHandler(h http.Handler, r stats.StatsReporter) (http.Handler, error) {
 	if r == nil {
 		return nil, errors.New("StatsReporter must not be nil")
