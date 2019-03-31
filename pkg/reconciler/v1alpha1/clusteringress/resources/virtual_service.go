@@ -77,7 +77,7 @@ func makeVirtualServiceSpec(ci *v1alpha1.ClusterIngress, gateways []string) *v1a
 	for _, rule := range ci.Spec.Rules {
 		hosts := rule.Hosts
 		for _, p := range rule.HTTP.Paths {
-			spec.Http = append(spec.Http, *makeVirtualServiceRoute(hosts, &p))
+			spec.HTTP = append(spec.HTTP, *makeVirtualServiceRoute(hosts, &p))
 		}
 	}
 	return &spec
@@ -153,7 +153,7 @@ func makeMatch(host string, pathRegExp string) v1alpha3.HTTPMatchRequest {
 	// Empty pathRegExp is considered match all path. We only need to
 	// consider pathRegExp when it's non-empty.
 	if pathRegExp != "" {
-		match.Uri = &istiov1alpha1.StringMatch{
+		match.URI = &istiov1alpha1.StringMatch{
 			Regex: pathRegExp,
 		}
 	}
