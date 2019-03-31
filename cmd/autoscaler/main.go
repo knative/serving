@@ -38,6 +38,7 @@ import (
 	"golang.org/x/sync/errgroup"
 	kubeinformers "k8s.io/client-go/informers"
 	corev1informers "k8s.io/client-go/informers/core/v1"
+	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/clientcmd"
 )
 
@@ -92,7 +93,7 @@ func main() {
 	// Set up scalers.
 	// uniScalerFactory depends endpointsInformer to be set.
 	multiScaler := autoscaler.NewMultiScaler(
-		dynConfig, stopCh, statsCh, uniScalerFactoryFunc(endpointsInformer), statsScraperFactoryFunc(endpointsInformer), logger)
+		dynConfig, stopCh, statsCh, uniScalerFactoryFunc(endpointsInformer), statsScraperFactoryFunc(endpointsInformer.Lister()), logger)
 	kpaScaler := kpa.NewKPAScaler(opt.ServingClientSet, opt.ScaleClientSet, logger, opt.ConfigMapWatcher)
 
 	controllers := []*controller.Impl{
@@ -196,9 +197,9 @@ func uniScalerFactoryFunc(endpointsInformer corev1informers.EndpointsInformer) f
 	}
 }
 
-func statsScraperFactoryFunc(endpointsInformer corev1informers.EndpointsInformer) func(metric *autoscaler.Metric, config *autoscaler.DynamicConfig) (autoscaler.StatsScraper, error) {
-	return func(metric *autoscaler.Metric, config *autoscaler.DynamicConfig) (autoscaler.StatsScraper, error) {
-		return autoscaler.NewServiceScraper(metric, config, endpointsInformer)
+func statsScraperFactoryFunc(endpointsLister corev1listers.EndpointsLister) func(metric *autoscaler.Metric) (autoscaler.StatsScraper, error) {
+	return func(metric *autoscaler.Metric) (autoscaler.StatsScraper, error) {
+		return autoscaler.NewServiceScraper(metric, endpointsLister)
 	}
 }
 

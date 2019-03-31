@@ -70,16 +70,20 @@ initialize $@
 TIMEOUT=10m
 
 header "Running preupgrade tests"
-go_test_e2e -tags=preupgrade -timeout=${TIMEOUT} ./test/upgrade || fail_test
+
+go_test_e2e -tags=preupgrade -timeout=${TIMEOUT} ./test/upgrade \
+  --resolvabledomain=$(use_resolvable_domain) || fail_test
 
 install_head
 
 header "Running postupgrade tests"
-go_test_e2e -tags=postupgrade -timeout=${TIMEOUT} ./test/upgrade || fail_test
+go_test_e2e -tags=postupgrade -timeout=${TIMEOUT} ./test/upgrade \
+  --resolvabledomain=$(use_resolvable_domain) || fail_test
 
 install_latest_release
 
 header "Running postdowngrade tests"
-go_test_e2e -tags=postdowngrade -timeout=${TIMEOUT} ./test/upgrade || fail_test
+go_test_e2e -tags=postdowngrade -timeout=${TIMEOUT} ./test/upgrade \
+  --resolvabledomain=$(use_resolvable_domain) || fail_test
 
 success

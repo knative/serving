@@ -17,6 +17,8 @@ limitations under the License.
 package traffic
 
 import (
+	"fmt"
+
 	"k8s.io/apimachinery/pkg/api/errors"
 
 	net "github.com/knative/serving/pkg/apis/networking"
@@ -27,6 +29,8 @@ import (
 
 // DefaultTarget is the unnamed default target for the traffic.
 const DefaultTarget = ""
+
+const HttpScheme string = "http"
 
 // A RevisionTarget adds the Active/Inactive state and the transport protocol of a
 // Revision to a flattened TrafficTarget.
@@ -88,13 +92,31 @@ func BuildTrafficConfiguration(configLister listers.ConfigurationLister, revList
 	return builder.build()
 }
 
+// SubrouteDomain returns the domain name of a traffic target given the traffic target name and the Route's base domain.
+func SubrouteDomain(name, domain string) string {
+	if name == DefaultTarget {
+		return domain
+	}
+	return fmt.Sprintf("%s.%s", name, domain)
+}
+
+// subrouteURL returns the URL of the subroute given the scheme, traffic target name, and base domain. Curently
+// the subroute is represented as a subdomain of the base domain.
+func SubrouteURL(scheme, name, domain string) string {
+	return fmt.Sprintf("%s://%s", scheme, SubrouteDomain(name, domain))
+}
+
 // GetRevisionTrafficTargets returns a list of TrafficTarget flattened to the RevisionName, and having ConfigurationName cleared out.
-func (t *Config) GetRevisionTrafficTargets() []v1alpha1.TrafficTarget {
+func (t *Config) GetRevisionTrafficTargets(domain string) []v1alpha1.TrafficTarget {
 	results := make([]v1alpha1.TrafficTarget, len(t.revisionTargets))
 	for i, tt := range t.revisionTargets {
 		// We cannot `DeepCopy` here, since tt.TrafficTarget might contain both
 		// configuration and revision.
 		results[i] = v1alpha1.TrafficTarget{RevisionName: tt.RevisionName, Name: tt.Name, Percent: tt.Percent}
+		if tt.Name != "" && domain != "" {
+			// http is currently the only supported scheme
+			results[i].URL = SubrouteURL(HttpScheme, tt.Name, domain)
+		}
 	}
 	return results
 }

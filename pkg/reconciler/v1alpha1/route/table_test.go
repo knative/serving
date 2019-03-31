@@ -64,7 +64,7 @@ func TestReconcile(t *testing.T) {
 			rev("default", "not-ready", 1, WithInitRevConditions, WithRevName("not-ready-00001")),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: route("default", "first-reconcile", WithConfigTarget("not-ready"),
+			Object: route("default", "first-reconcile", WithConfigTarget("not-ready"), WithDomain,
 				// The first reconciliation initializes the conditions and reflects
 				// that the referenced configuration is not yet ready.
 				WithInitRouteConditions, MarkConfigurationNotReady("not-ready")),
@@ -81,7 +81,7 @@ func TestReconcile(t *testing.T) {
 				WithInitRevConditions, MarkContainerMissing),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: route("default", "first-reconcile", WithConfigTarget("permanently-failed"),
+			Object: route("default", "first-reconcile", WithConfigTarget("permanently-failed"), WithDomain,
 				WithInitRouteConditions, MarkConfigurationFailed("permanently-failed")),
 		}},
 		Key: "default/first-reconcile",
@@ -97,7 +97,7 @@ func TestReconcile(t *testing.T) {
 			rev("default", "not-ready", 1, WithInitRevConditions, WithRevName("not-ready-00001")),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: route("default", "first-reconcile", WithConfigTarget("not-ready"),
+			Object: route("default", "first-reconcile", WithConfigTarget("not-ready"), WithDomain,
 				WithInitRouteConditions, MarkConfigurationNotReady("not-ready")),
 		}},
 		WantEvents: []string{
@@ -973,7 +973,7 @@ func TestReconcile(t *testing.T) {
 			route("default", "config-missing", WithConfigTarget("not-found")),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: route("default", "config-missing", WithConfigTarget("not-found"),
+			Object: route("default", "config-missing", WithConfigTarget("not-found"), WithDomain,
 				WithInitRouteConditions, MarkMissingTrafficTarget("Configuration", "not-found")),
 		}},
 		Key: "default/config-missing",
@@ -985,7 +985,7 @@ func TestReconcile(t *testing.T) {
 				WithGeneration(1), WithLatestCreated("config-00001"), WithLatestReady("config-00001")),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: route("default", "missing-revision-direct", WithRevTarget("not-found"),
+			Object: route("default", "missing-revision-direct", WithRevTarget("not-found"), WithDomain,
 				WithInitRouteConditions, MarkMissingTrafficTarget("Revision", "not-found")),
 		}},
 		Key: "default/missing-revision-direct",
@@ -997,7 +997,7 @@ func TestReconcile(t *testing.T) {
 				WithGeneration(1), WithLatestCreated("config-00001"), WithLatestReady("config-00001")),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: route("default", "missing-revision-indirect", WithConfigTarget("config"),
+			Object: route("default", "missing-revision-indirect", WithConfigTarget("config"), WithDomain,
 				WithInitRouteConditions, MarkMissingTrafficTarget("Revision", "config-00001")),
 		}},
 		Key: "default/missing-revision-indirect",
@@ -1193,10 +1193,12 @@ func TestReconcile(t *testing.T) {
 						Name:         "gray",
 						RevisionName: "gray-00001",
 						Percent:      50,
+						URL:          "http://gray.same-revision-targets.default.example.com",
 					}, v1alpha1.TrafficTarget{
 						Name:         "also-gray",
 						RevisionName: "gray-00001",
 						Percent:      50,
+						URL:          "http://also-gray.same-revision-targets.default.example.com",
 					})),
 		}},
 		WantEvents: []string{
