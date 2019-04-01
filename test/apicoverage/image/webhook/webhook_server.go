@@ -28,7 +28,7 @@ import (
 	"github.com/knative/test-infra/tools/webhook-apicoverage/webhook"
 )
 
-// SetupWebhookServer builds the necessary webhook configuration, HttpServer and starts the webhook.
+// SetupWebhookServer builds the necessary webhook configuration, HTTPServer and starts the webhook.
 func SetupWebhookServer() {
 	namespace := common.WebhookNamespace
 	if len(namespace) == 0 {

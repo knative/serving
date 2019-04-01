@@ -138,16 +138,16 @@ func TestMakeVirtualServiceSpec_CorrectRoutes(t *testing.T) {
 	}
 	expected := []v1alpha3.HTTPRoute{{
 		Match: []v1alpha3.HTTPMatchRequest{{
-			Uri:       &istiov1alpha1.StringMatch{Regex: "^/pets/(.*?)?"},
+			URI:       &istiov1alpha1.StringMatch{Regex: "^/pets/(.*?)?"},
 			Authority: &istiov1alpha1.StringMatch{Regex: `^domain\.com(?::\d{1,5})?$`},
 		}, {
-			Uri:       &istiov1alpha1.StringMatch{Regex: "^/pets/(.*?)?"},
+			URI:       &istiov1alpha1.StringMatch{Regex: "^/pets/(.*?)?"},
 			Authority: &istiov1alpha1.StringMatch{Regex: `^test-route\.test-ns(?::\d{1,5})?$`},
 		}, {
-			Uri:       &istiov1alpha1.StringMatch{Regex: "^/pets/(.*?)?"},
+			URI:       &istiov1alpha1.StringMatch{Regex: "^/pets/(.*?)?"},
 			Authority: &istiov1alpha1.StringMatch{Regex: `^test-route\.test-ns\.svc(?::\d{1,5})?$`},
 		}, {
-			Uri:       &istiov1alpha1.StringMatch{Regex: "^/pets/(.*?)?"},
+			URI:       &istiov1alpha1.StringMatch{Regex: "^/pets/(.*?)?"},
 			Authority: &istiov1alpha1.StringMatch{Regex: `^test-route\.test-ns\.svc\.cluster\.local(?::\d{1,5})?$`},
 		}},
 		Route: []v1alpha3.DestinationWeight{{
@@ -165,7 +165,7 @@ func TestMakeVirtualServiceSpec_CorrectRoutes(t *testing.T) {
 		WebsocketUpgrade: true,
 	}, {
 		Match: []v1alpha3.HTTPMatchRequest{{
-			Uri:       &istiov1alpha1.StringMatch{Regex: "^/pets/(.*?)?"},
+			URI:       &istiov1alpha1.StringMatch{Regex: "^/pets/(.*?)?"},
 			Authority: &istiov1alpha1.StringMatch{Regex: `^v1\.domain\.com(?::\d{1,5})?$`},
 		}},
 		Route: []v1alpha3.DestinationWeight{{
@@ -182,7 +182,7 @@ func TestMakeVirtualServiceSpec_CorrectRoutes(t *testing.T) {
 		},
 		WebsocketUpgrade: true,
 	}}
-	routes := MakeVirtualService(ci, []string{}).Spec.Http
+	routes := MakeVirtualService(ci, []string{}).Spec.HTTP
 	if diff := cmp.Diff(expected, routes); diff != "" {
 		t.Errorf("Unexpected routes (-want +got): %v", diff)
 	}

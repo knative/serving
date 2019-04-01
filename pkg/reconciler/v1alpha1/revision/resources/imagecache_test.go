@@ -20,7 +20,6 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -31,11 +30,9 @@ import (
 
 func TestMakeImageCache(t *testing.T) {
 	tests := []struct {
-		name    string
-		rev     *v1alpha1.Revision
-		deploy  *appsv1.Deployment
-		want    *caching.Image
-		wantErr bool
+		name string
+		rev  *v1alpha1.Revision
+		want *caching.Image
 	}{{
 		name: "simple container",
 		rev: &v1alpha1.Revision{
@@ -50,17 +47,8 @@ func TestMakeImageCache(t *testing.T) {
 					Image: "busybox",
 				},
 			},
-		},
-		deploy: &appsv1.Deployment{
-			Spec: appsv1.DeploymentSpec{
-				Template: corev1.PodTemplateSpec{
-					Spec: corev1.PodSpec{
-						Containers: []corev1.Container{{
-							Name:  UserContainerName,
-							Image: "busybox",
-						}},
-					},
-				},
+			Status: v1alpha1.RevisionStatus{
+				ImageDigest: "busybox@sha256:deadbeef",
 			},
 		},
 		want: &caching.Image{
@@ -83,7 +71,7 @@ func TestMakeImageCache(t *testing.T) {
 				}},
 			},
 			Spec: caching.ImageSpec{
-				Image: "busybox",
+				Image: "busybox@sha256:deadbeef",
 			},
 		},
 	}, {
@@ -99,19 +87,6 @@ func TestMakeImageCache(t *testing.T) {
 				ServiceAccountName:   "privilegeless",
 				Container: corev1.Container{
 					Image: "busybox",
-				},
-			},
-		},
-		deploy: &appsv1.Deployment{
-			Spec: appsv1.DeploymentSpec{
-				Template: corev1.PodTemplateSpec{
-					Spec: corev1.PodSpec{
-						ServiceAccountName: "privilegeless",
-						Containers: []corev1.Container{{
-							Name:  UserContainerName,
-							Image: "busybox",
-						}},
-					},
 				},
 			},
 		},
@@ -139,45 +114,11 @@ func TestMakeImageCache(t *testing.T) {
 				ServiceAccountName: "privilegeless",
 			},
 		},
-	}, {
-		name: "no user container",
-		rev: &v1alpha1.Revision{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: "foo",
-				Name:      "bar",
-				UID:       "1234",
-			},
-			Spec: v1alpha1.RevisionSpec{
-				ContainerConcurrency: 1,
-				ServiceAccountName:   "privilegeless",
-				Container: corev1.Container{
-					Image: "busybox",
-				},
-			},
-		},
-		deploy: &appsv1.Deployment{
-			Spec: appsv1.DeploymentSpec{
-				Template: corev1.PodTemplateSpec{
-					Spec: corev1.PodSpec{
-						ServiceAccountName: "privilegeless",
-						Containers: []corev1.Container{{
-							Name:  "wrong-name",
-							Image: "busybox",
-						}},
-					},
-				},
-			},
-		},
-		wantErr: true,
 	}}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got, err := MakeImageCache(test.rev, test.deploy)
-			if (err != nil) != test.wantErr {
-				t.Errorf("MakeImageCache() = (%v, %v), wantErr: %v",
-					got, err, test.wantErr)
-			}
+			got := MakeImageCache(test.rev)
 			if diff := cmp.Diff(test.want, got); diff != "" {
 				t.Errorf("MakeImageCache (-want, +got) = %v", diff)
 			}
