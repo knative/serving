@@ -64,8 +64,8 @@ const (
 	quitSleepDuration = 20 * time.Second
 
 	// commonMetricsPort is the port where common metrics, e.g. request metrics
-	// are exposed in Prometheus. This is different from the metrics used for
-	// autoscaling, which are exposed in 9090.
+	// are exposed in Prometheus. This is different from the metrics used 
+	// for autoscaling, which are exposed in 9090.
 	commonMetricsPort = 9091
 )
 
