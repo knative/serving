@@ -48,7 +48,9 @@ You must install these tools:
    - [Google Container Registry quickstart](https://cloud.google.com/container-registry/docs/pushing-and-pulling)
    - [Docker Hub quickstart](https://docs.docker.com/docker-hub/)
 
-**Note**: You'll need to be authenticated with your `KO_DOCKER_REPO` before pushing images. Run `gcloud auth configure-docker` if you are using Google Container Registry or `docker login` if you are using Docker Hub.
+**Note**: You'll need to be authenticated with your `KO_DOCKER_REPO` before
+pushing images. Run `gcloud auth configure-docker` if you are using Google
+Container Registry or `docker login` if you are using Docker Hub.
 
 ### Setup your environment
 
