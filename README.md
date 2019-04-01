@@ -2,6 +2,8 @@
 
 [![GoDoc](https://godoc.org/github.com/knative/serving?status.svg)](https://godoc.org/github.com/knative/serving)
 [![Go Report Card](https://goreportcard.com/badge/knative/serving)](https://goreportcard.com/report/knative/serving)
+[![Releases](https://img.shields.io/github/release-pre/knative/serving.svg)](https://github.com/knative/serving/releases)
+[![LICENSE](https://img.shields.io/github/license/knative/serving.svg)](https://github.com/knative/serving/blob/master/LICENSE)
 
 Knative Serving builds on Kubernetes and Istio to support deploying and serving
 of serverless applications and functions. Serving is easy to get started with
