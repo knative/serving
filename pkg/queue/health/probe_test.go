@@ -23,7 +23,7 @@ import (
 	"time"
 )
 
-func TestTcpProbe(t *testing.T) {
+func TestTCPProbe(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))

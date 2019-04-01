@@ -78,7 +78,7 @@ type UniScaler interface {
 type UniScalerFactory func(*Metric, *DynamicConfig) (UniScaler, error)
 
 // StatsScraperFactory creates a StatsScraper for a given PA using the given dynamic configuration.
-type StatsScraperFactory func(*Metric, *DynamicConfig) (StatsScraper, error)
+type StatsScraperFactory func(*Metric) (StatsScraper, error)
 
 // scalerRunner wraps a UniScaler and a channel for implementing shutdown behavior.
 type scalerRunner struct {
@@ -284,7 +284,7 @@ func (m *MultiScaler) createScaler(ctx context.Context, metric *Metric) (*scaler
 		}
 	}()
 
-	scraper, err := m.statsScraperFactory(metric, m.dynConfig)
+	scraper, err := m.statsScraperFactory(metric)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create a stats scraper for metric %q: %v", metric.Name, err)
 	}
@@ -299,7 +299,13 @@ func (m *MultiScaler) createScaler(ctx context.Context, metric *Metric) (*scaler
 				scraperTicker.Stop()
 				return
 			case <-scraperTicker.C:
-				scraper.Scrape(ctx, m.statsCh)
+				stat, err := scraper.Scrape()
+				if err != nil {
+					m.logger.Errorw("Failed to scrape metrics", zap.Error(err))
+				}
+				if stat != nil {
+					m.statsCh <- stat
+				}
 			}
 		}
 	}()

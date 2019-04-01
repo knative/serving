@@ -360,6 +360,9 @@ func (c *Reconciler) reconcile(ctx context.Context, rev *v1alpha1.Revision) erro
 			name: "user deployment",
 			f:    c.reconcileDeployment,
 		}, {
+			name: "image cache",
+			f:    c.reconcileImageCache,
+		}, {
 			name: "user k8s service",
 			f:    c.reconcileService,
 		}, {

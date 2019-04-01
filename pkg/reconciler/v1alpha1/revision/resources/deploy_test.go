@@ -72,6 +72,9 @@ var (
 			Name:  "SERVING_NAMESPACE",
 			Value: "foo", // matches namespace
 		}, {
+			Name:  "SERVING_SERVICE",
+			Value: "svc", // matches service name
+		}, {
 			Name: "SERVING_CONFIGURATION",
 			// No OwnerReference
 		}, {
@@ -95,11 +98,19 @@ var (
 				FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 			},
 		}, {
+			Name: "SERVING_POD_IP",
+			ValueFrom: &corev1.EnvVarSource{
+				FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
+			},
+		}, {
 			Name: "SERVING_LOGGING_CONFIG",
 			// No logging configuration
 		}, {
 			Name: "SERVING_LOGGING_LEVEL",
 			// No logging level
+		}, {
+			Name:  "SERVING_REQUEST_LOG_TEMPLATE",
+			Value: "",
 		}, {
 			Name:  "USER_PORT",
 			Value: "8080",
@@ -655,6 +666,7 @@ func TestMakePodSpec(t *testing.T) {
 			),
 			queueContainer(
 				withEnvVar("CONTAINER_CONCURRENCY", "1"),
+				withEnvVar("SERVING_SERVICE", ""),
 			),
 		}),
 	}}
