@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"reflect"
 
-	"fortio.org/fortio/log"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/google/go-cmp/cmp"
 	"github.com/knative/pkg/controller"
@@ -205,7 +204,7 @@ func (r *reconciler) reconcilePublicService(ctx context.Context, sks *netv1alpha
 	if errors.IsNotFound(err) {
 		logger.Infof("K8s service %q does not exist; creating.", sn)
 		// We've just created the service, so it has no endpoints.
-		sks.Status.MarkEndpointsUnknown("Creating")
+		sks.Status.MarkEndpointsUnknown("CreatingPublicService")
 		srv = resources.MakePublicService(sks)
 		_, err := r.KubeClientSet.CoreV1().Services(sks.Namespace).Create(srv)
 		if err != nil {
@@ -225,8 +224,9 @@ func (r *reconciler) reconcilePublicService(ctx context.Context, sks *netv1alpha
 		want.Spec.Ports = tmpl.Spec.Ports
 		want.Spec.Selector = nil
 
+		sks.Status.MarkEndpointsUnknown("UpdatingPublicService")
 		if !equality.Semantic.DeepEqual(want.Spec, srv.Spec) {
-			log.Infof("Public K8s Service changed; reconciling: %s", sn)
+			logger.Infof("Public K8s Service changed; reconciling: %s", sn)
 			if _, err = r.KubeClientSet.CoreV1().Services(sks.Namespace).Update(want); err != nil {
 				logger.Errorw(fmt.Sprintf("Error updating public K8s Service %s: ", sn), zap.Error(err))
 				return err
@@ -256,7 +256,7 @@ func (r *reconciler) reconcilePublicEndpoints(ctx context.Context, sks *netv1alp
 
 	if errors.IsNotFound(err) {
 		logger.Infof("K8s endpoints %q does not exist; creating.", sn)
-		sks.Status.MarkEndpointsUnknown("Creating")
+		sks.Status.MarkEndpointsUnknown("CreatingPublicEndpoints")
 		eps, err = r.KubeClientSet.CoreV1().Endpoints(sks.Namespace).Create(resources.MakePublicEndpoints(sks, srcEps))
 		if err != nil {
 			logger.Errorw(fmt.Sprintf("Error creating K8s Endpoints %s: ", sn), zap.Error(err))
@@ -274,7 +274,7 @@ func (r *reconciler) reconcilePublicEndpoints(ctx context.Context, sks *netv1alp
 		want.Subsets = srcEps.Subsets
 
 		if !equality.Semantic.DeepEqual(want.Subsets, eps.Subsets) {
-			log.Infof("Public K8s Endpoints changed; reconciling: %s", sn)
+			logger.Infof("Public K8s Endpoints changed; reconciling: %s", sn)
 			if _, err = r.KubeClientSet.CoreV1().Endpoints(sks.Namespace).Update(want); err != nil {
 				logger.Errorw(fmt.Sprintf("Error updating public K8s Endpoints %s: ", sn), zap.Error(err))
 				return err
@@ -307,7 +307,7 @@ func (r *reconciler) reconcilePrivateService(ctx context.Context, sks *netv1alph
 	svc, err := r.serviceLister.Services(sks.Namespace).Get(sn)
 	if errors.IsNotFound(err) {
 		logger.Infof("K8s service %q does not exist; creating.", sn)
-		sks.Status.MarkEndpointsUnknown("Creating")
+		sks.Status.MarkEndpointsUnknown("CreatingPrivateService")
 		svc = resources.MakePrivateService(sks)
 		_, err := r.KubeClientSet.CoreV1().Services(sks.Namespace).Create(svc)
 		if err != nil {
@@ -328,8 +328,9 @@ func (r *reconciler) reconcilePrivateService(ctx context.Context, sks *netv1alph
 		want.Spec.Ports = tmpl.Spec.Ports
 		want.Spec.Selector = tmpl.Spec.Selector
 
+		sks.Status.MarkEndpointsUnknown("UpdatingPrivateService")
 		if !equality.Semantic.DeepEqual(svc.Spec, want.Spec) {
-			log.Infof("Private K8s Service changed; reconciling: %s", sn)
+			logger.Infof("Private K8s Service changed; reconciling: %s", sn)
 			if _, err = r.KubeClientSet.CoreV1().Services(sks.Namespace).Update(want); err != nil {
 				logger.Errorw(fmt.Sprintf("Error updating private K8s Service %s: ", sn), zap.Error(err))
 				return err

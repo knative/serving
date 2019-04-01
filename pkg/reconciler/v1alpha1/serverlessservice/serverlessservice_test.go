@@ -281,6 +281,69 @@ func TestReconcile(t *testing.T) {
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "UpdateFailed", `InternalError: SKS: "fail7" does not own Endpoints: "fail7-pub"`),
 		},
+	}, {
+		Name:    "update-svc-fail-pub",
+		Key:     "update-svc/fail8",
+		WantErr: true,
+		Objects: []runtime.Object{
+			sks("update-svc", "fail8", withPubService),
+			svcpub("update-svc", "fail8", withTimeSelector),
+			svcpriv("update-svc", "fail8"),
+			endpointspub("update-svc", "fail8", WithSubsets),
+			endpointspriv("update-svc", "fail8", WithSubsets),
+		},
+		WithReactors: []clientgotesting.ReactionFunc{
+			InduceFailure("update", "services"),
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: svcpub("update-svc", "fail8"),
+		}},
+
+		WantEvents: []string{
+			Eventf(corev1.EventTypeWarning, "UpdateFailed", "InternalError: inducing failure for update services"),
+		},
+	}, {
+		Name:    "update-svc-fail-priv",
+		Key:     "update-svc/fail9",
+		WantErr: true,
+		Objects: []runtime.Object{
+			sks("update-svc", "fail9", withPubService),
+			svcpub("update-svc", "fail9"),
+			svcpriv("update-svc", "fail9", withTimeSelector),
+			endpointspub("update-svc", "fail9"),
+			endpointspriv("update-svc", "fail9"),
+		},
+		WithReactors: []clientgotesting.ReactionFunc{
+			InduceFailure("update", "services"),
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: svcpriv("update-svc", "fail9"),
+		}},
+
+		WantEvents: []string{
+			Eventf(corev1.EventTypeWarning, "UpdateFailed", "InternalError: inducing failure for update services"),
+		},
+	}, {
+		Name:    "update-eps-fail",
+		Key:     "update-eps/failA",
+		WantErr: true,
+		Objects: []runtime.Object{
+			sks("update-eps", "failA", withPubService),
+			svcpub("update-eps", "failA"),
+			svcpriv("update-eps", "failA"),
+			endpointspub("update-eps", "failA"),
+			endpointspriv("update-eps", "failA", WithSubsets),
+		},
+		WithReactors: []clientgotesting.ReactionFunc{
+			InduceFailure("update", "endpoints"),
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: endpointspub("update-eps", "failA", WithSubsets), // The attempted update.
+		}},
+
+		WantEvents: []string{
+			Eventf(corev1.EventTypeWarning, "UpdateFailed", "InternalError: inducing failure for update endpoints"),
+		},
 	}}
 
 	defer ClearAllLoggers()
