@@ -100,12 +100,17 @@ func (c *Reconciler) reconcileDeployment(ctx context.Context, rev *v1alpha1.Revi
 			"Revision %s not ready due to Deployment timeout", rev.Name)
 	}
 
-	// We do this here so that we can construct the Image resource based on the
-	// resulting Deployment resource (e.g. including resolved digest).
+	return nil
+}
+
+func (c *Reconciler) reconcileImageCache(ctx context.Context, rev *v1alpha1.Revision) error {
+	logger := logging.FromContext(ctx)
+
+	ns := rev.Namespace
 	imageName := resourcenames.ImageCache(rev)
 	_, getImageCacheErr := c.imageLister.Images(ns).Get(imageName)
 	if apierrs.IsNotFound(getImageCacheErr) {
-		_, err := c.createImageCache(ctx, rev, deployment)
+		_, err := c.createImageCache(ctx, rev)
 		if err != nil {
 			logger.Errorf("Error creating image cache %q: %v", imageName, err)
 			return err

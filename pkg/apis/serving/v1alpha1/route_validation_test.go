@@ -366,6 +366,14 @@ func TestTrafficTargetValidation(t *testing.T) {
 			Percent:      101,
 		},
 		want: apis.ErrOutOfBoundsValue("101", "0", "100", "percent"),
+	}, {
+		name: "disallowed url set",
+		tt: &TrafficTarget{
+			ConfigurationName: "foo",
+			Percent:           100,
+			URL:               "ShouldNotBeSet",
+		},
+		want: apis.ErrDisallowedFields("url"),
 	}}
 
 	for _, test := range tests {
