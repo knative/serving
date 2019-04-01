@@ -75,13 +75,13 @@ func Setup(logf logging.FormatLogger, tName string, promReqd, tracing bool) (*Cl
 		dir := prow.GetLocalArtifactsDir()
 		if err := createDir(dir); nil != err {
 			logf("Cannot create the artifacts dir. Will not log tracing.")
-		}
-
-		name := path.Join(dir, tName+traceSuffix)
-		logf("Storing traces in %s", name)
-		traceFile, err = os.OpenFile(name, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-		if err != nil {
-			logf("Unable to create tracing file.")
+		} else {
+			name := path.Join(dir, tName+traceSuffix)
+			logf("Storing traces in %s", name)
+			traceFile, err = os.OpenFile(name, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+			if err != nil {
+				logf("Unable to create tracing file.")
+			}
 		}
 	}
 
@@ -116,9 +116,14 @@ func CreatePerfTestCase(metricValue float32, metricName, testName string) junit.
 // AddTrace gets the JSON zipkin trace for the traceId and stores it.
 // https://github.com/openzipkin/zipkin-go/blob/master/model/span.go defines the struct for the JSON
 func AddTrace(logf logging.FormatLogger, tName string, traceID string) {
+	if traceFile == nil {
+		logf("Trace file is not setup correctly. Exiting without adding trace")
+		return
+	}
 	trace, err := zipkin.JSONTrace(traceID)
 	if err != nil {
 		logf("Skipping trace %s due to error: %v", traceID, err)
+		return
 	}
 
 	if _, err := traceFile.WriteString(fmt.Sprintf("%s,\n", trace)); err != nil {
