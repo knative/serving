@@ -86,7 +86,7 @@ func pa(options ...PodAutoscalerOption) *v1alpha1.PodAutoscaler {
 	return p
 }
 
-func decider(options ...MetricOption) *autoscaler.Decider {
+func decider(options ...DeciderOption) *autoscaler.Decider {
 	m := &autoscaler.Decider{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: "test-namespace",
@@ -105,15 +105,15 @@ func decider(options ...MetricOption) *autoscaler.Decider {
 	return m
 }
 
-type MetricOption func(*autoscaler.Decider)
+type DeciderOption func(*autoscaler.Decider)
 
-func withTarget(target float64) MetricOption {
+func withTarget(target float64) DeciderOption {
 	return func(metric *autoscaler.Decider) {
 		metric.Spec.TargetConcurrency = target
 	}
 }
 
-func withTargetAnnotation(target string) MetricOption {
+func withTargetAnnotation(target string) DeciderOption {
 	return func(metric *autoscaler.Decider) {
 		metric.Annotations[autoscaling.TargetAnnotationKey] = target
 	}
