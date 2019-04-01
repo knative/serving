@@ -42,7 +42,7 @@ func TestServicePort(t *testing.T) {
 			got := ServicePort(tt.protocol)
 
 			if want != got {
-				t.Errorf("unexpected port. want %d, got %d", want, got)
+				t.Errorf("unexpected prt. want %d, got %d", want, got)
 			}
 		})
 	}
