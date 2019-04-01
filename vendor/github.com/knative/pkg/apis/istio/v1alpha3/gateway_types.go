@@ -239,7 +239,7 @@ type Server struct {
 type TLSOptions struct {
 	// If set to true, the load balancer will send a 302 redirect for all
 	// http connections, asking the clients to use HTTPS.
-	HttpsRedirect bool `json:"httpsRedirect"`
+	HTTPSRedirect bool `json:"httpsRedirect"`
 
 	// Optional: Indicates whether connections to this port should be
 	// secured using TLS. The value of this field determines how TLS is

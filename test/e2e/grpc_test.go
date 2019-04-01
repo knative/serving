@@ -35,14 +35,31 @@ import (
 
 type grpcTest func(*testing.T, test.ResourceNames, *test.Clients, string, string)
 
+func dial(host, domain string) (*grpc.ClientConn, error) {
+	if host != domain {
+		// The host to connect and the domain accepted differ.
+		// We need to do grpc.WithAuthority(...) here.
+		return grpc.Dial(
+			host+":80",
+			grpc.WithAuthority(domain+":80"),
+			grpc.WithInsecure(),
+			// Retrying DNS errors to avoid .xip.io issues.
+			grpc.WithDefaultCallOptions(grpc.FailFast(false)),
+		)
+	}
+	// This is a more preferred usage of the go-grpc client.
+	return grpc.Dial(
+		host+":80",
+		grpc.WithInsecure(),
+		// Retrying DNS errors to avoid .xip.io issues.
+		grpc.WithDefaultCallOptions(grpc.FailFast(false)),
+	)
+}
+
 func unaryTest(t *testing.T, names test.ResourceNames, clients *test.Clients, host, domain string) {
 	t.Helper()
 	t.Logf("Connecting to grpc-ping using host %q and authority %q", host, domain)
-	conn, err := grpc.Dial(
-		host+":80",
-		grpc.WithAuthority(domain+":80"),
-		grpc.WithInsecure(),
-	)
+	conn, err := dial(host, domain)
 	if err != nil {
 		t.Fatalf("fail to dial: %v", err)
 	}
@@ -66,11 +83,7 @@ func unaryTest(t *testing.T, names test.ResourceNames, clients *test.Clients, ho
 func streamTest(t *testing.T, names test.ResourceNames, clients *test.Clients, host, domain string) {
 	t.Helper()
 	t.Logf("Connecting to grpc-ping using host %q and authority %q", host, domain)
-	conn, err := grpc.Dial(
-		host+":80",
-		grpc.WithAuthority(domain+":80"),
-		grpc.WithInsecure(),
-	)
+	conn, err := dial(host, domain)
 	if err != nil {
 		t.Fatalf("Fail to dial: %v", err)
 	}

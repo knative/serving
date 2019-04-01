@@ -14,18 +14,15 @@ limitations under the License.
 package handler
 
 import (
-	"bufio"
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"net"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
 	"time"
 
 	"github.com/knative/pkg/logging/logkey"
-	"github.com/knative/pkg/websocket"
 	"github.com/knative/serving/pkg/activator"
 	"github.com/knative/serving/pkg/activator/util"
 	"github.com/knative/serving/pkg/apis/serving"
@@ -172,10 +169,7 @@ func (a *ActivationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *ActivationHandler) proxyRequest(w http.ResponseWriter, r *http.Request, target *url.URL) int {
-	capture := &statusCapture{
-		ResponseWriter: w,
-		statusCode:     http.StatusOK,
-	}
+	recorder := pkghttp.NewResponseRecorder(w, http.StatusOK)
 	proxy := httputil.NewSingleHostReverseProxy(target)
 	proxy.Transport = a.Transport
 	proxy.FlushInterval = -1
@@ -184,8 +178,8 @@ func (a *ActivationHandler) proxyRequest(w http.ResponseWriter, r *http.Request,
 
 	util.SetupHeaderPruning(proxy)
 
-	proxy.ServeHTTP(capture, r)
-	return capture.statusCode
+	proxy.ServeHTTP(recorder, r)
+	return recorder.ResponseCode
 }
 
 // serviceHostName obtains the hostname of the underlying service and the correct
@@ -221,27 +215,4 @@ func sendError(err error, w http.ResponseWriter) {
 		return
 	}
 	http.Error(w, msg, http.StatusInternalServerError)
-}
-
-type statusCapture struct {
-	http.ResponseWriter
-	statusCode int
-}
-
-var _ http.Flusher = (*statusCapture)(nil)
-
-func (s *statusCapture) WriteHeader(statusCode int) {
-	s.statusCode = statusCode
-	s.ResponseWriter.WriteHeader(statusCode)
-}
-
-// Hijack calls Hijack() on the wrapped http.ResponseWriter if it implements
-// http.Hijacker interface, which is required for net/http/httputil/reverseproxy
-// to handle connection upgrade/switching protocol.  Otherwise returns an error.
-func (s *statusCapture) Hijack() (net.Conn, *bufio.ReadWriter, error) {
-	return websocket.HijackIfPossible(s.ResponseWriter)
-}
-
-func (s *statusCapture) Flush() {
-	s.ResponseWriter.(http.Flusher).Flush()
 }

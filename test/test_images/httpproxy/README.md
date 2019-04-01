@@ -1,4 +1,4 @@
-# Httpproxy test image
+# HTTPproxy test image
 
 This directory contains the test image used in the e2e test to verify
 service-to-service call within cluster.

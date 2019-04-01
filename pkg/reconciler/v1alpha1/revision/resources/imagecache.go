@@ -17,9 +17,6 @@ limitations under the License.
 package resources
 
 import (
-	"fmt"
-
-	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	caching "github.com/knative/caching/pkg/apis/caching/v1alpha1"
@@ -28,30 +25,26 @@ import (
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources/names"
 )
 
-func MakeImageCache(rev *v1alpha1.Revision, deploy *appsv1.Deployment) (*caching.Image, error) {
-	for _, container := range deploy.Spec.Template.Spec.Containers {
-		if container.Name != UserContainerName {
-			// The sidecars are cached once separately.
-			continue
-		}
-
-		img := &caching.Image{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:            names.ImageCache(rev),
-				Namespace:       rev.Namespace,
-				Labels:          makeLabels(rev),
-				Annotations:     makeAnnotations(rev),
-				OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(rev)},
-			},
-			Spec: caching.ImageSpec{
-				// Key off of the Deployment for the resolved image digest.
-				Image:              container.Image,
-				ServiceAccountName: deploy.Spec.Template.Spec.ServiceAccountName,
-				// We don't support ImagePullSecrets today.
-			},
-		}
-
-		return img, nil
+func MakeImageCache(rev *v1alpha1.Revision) *caching.Image {
+	image := rev.Status.ImageDigest
+	if image == "" {
+		image = rev.Spec.Container.Image
 	}
-	return nil, fmt.Errorf("user container %q not found: %v", UserContainerName, deploy)
+
+	img := &caching.Image{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            names.ImageCache(rev),
+			Namespace:       rev.Namespace,
+			Labels:          makeLabels(rev),
+			Annotations:     makeAnnotations(rev),
+			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(rev)},
+		},
+		Spec: caching.ImageSpec{
+			Image:              image,
+			ServiceAccountName: rev.Spec.ServiceAccountName,
+			// We don't support ImagePullSecrets today.
+		},
+	}
+
+	return img
 }
