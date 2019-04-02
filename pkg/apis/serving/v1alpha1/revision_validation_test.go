@@ -1060,6 +1060,31 @@ func TestImmutableFields(t *testing.T) {
 `,
 		},
 	}, {
+		name: "bad (new field added)",
+		new: &Revision{
+			Spec: RevisionSpec{
+				Container: corev1.Container{
+					Image: "helloworld",
+				},
+				DeprecatedConcurrencyModel: "Multi",
+			},
+		},
+		old: &Revision{
+			Spec: RevisionSpec{
+				Container: corev1.Container{
+					Image: "helloworld",
+				},
+			},
+		},
+		want: &apis.FieldError{
+			Message: "Immutable fields changed (-old +new)",
+			Paths:   []string{"spec"},
+			Details: `{v1alpha1.RevisionSpec}.DeprecatedConcurrencyModel:
+	-: v1alpha1.RevisionRequestConcurrencyModelType("")
+	+: v1alpha1.RevisionRequestConcurrencyModelType("Multi")
+`,
+		},
+	}, {
 		name: "bad (multiple changes)",
 		new: &Revision{
 			Spec: RevisionSpec{
