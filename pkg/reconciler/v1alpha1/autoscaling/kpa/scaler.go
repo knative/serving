@@ -37,8 +37,8 @@ import (
 
 const scaleUnknown = -1
 
-// kpaScaler scales the target of a kpa-class PA up or down including scaling to zero.
-type kpaScaler struct {
+// scaler scales the target of a kpa-class PA up or down including scaling to zero.
+type scaler struct {
 	servingClientSet clientset.Interface
 	scaleClientSet   scale.ScalesGetter
 	logger           *zap.SugaredLogger
@@ -49,10 +49,10 @@ type kpaScaler struct {
 	autoscalerConfigMutex sync.Mutex
 }
 
-// NewKPAScaler creates a kpaScaler.
-func NewKPAScaler(servingClientSet clientset.Interface, scaleClientSet scale.ScalesGetter,
-	logger *zap.SugaredLogger, configMapWatcher configmap.Watcher) KPAScaler {
-	ks := &kpaScaler{
+// NewScaler creates a scaler.
+func NewScaler(servingClientSet clientset.Interface, scaleClientSet scale.ScalesGetter,
+	logger *zap.SugaredLogger, configMapWatcher configmap.Watcher) Scaler {
+	ks := &scaler{
 		servingClientSet: servingClientSet,
 		scaleClientSet:   scaleClientSet,
 		logger:           logger,
@@ -63,7 +63,7 @@ func NewKPAScaler(servingClientSet clientset.Interface, scaleClientSet scale.Sca
 	return ks
 }
 
-func (ks *kpaScaler) receiveAutoscalerConfig(configMap *corev1.ConfigMap) {
+func (ks *scaler) receiveAutoscalerConfig(configMap *corev1.ConfigMap) {
 	newAutoscalerConfig, err := autoscaler.NewConfigFromConfigMap(configMap)
 	ks.autoscalerConfigMutex.Lock()
 	defer ks.autoscalerConfigMutex.Unlock()
@@ -79,7 +79,7 @@ func (ks *kpaScaler) receiveAutoscalerConfig(configMap *corev1.ConfigMap) {
 	ks.autoscalerConfig = newAutoscalerConfig
 }
 
-func (ks *kpaScaler) getAutoscalerConfig() *autoscaler.Config {
+func (ks *scaler) getAutoscalerConfig() *autoscaler.Config {
 	ks.autoscalerConfigMutex.Lock()
 	defer ks.autoscalerConfigMutex.Unlock()
 	return ks.autoscalerConfig.DeepCopy()
@@ -97,7 +97,7 @@ func applyBounds(min, max, x int32) int32 {
 }
 
 // Scale attempts to scale the given PA's target reference to the desired scale.
-func (ks *kpaScaler) Scale(ctx context.Context, pa *pav1alpha1.PodAutoscaler, desiredScale int32) (int32, error) {
+func (ks *scaler) Scale(ctx context.Context, pa *pav1alpha1.PodAutoscaler, desiredScale int32) (int32, error) {
 	logger := logging.FromContext(ctx)
 
 	// TODO(mattmoor): Drop this once the KPA is the source of truth and we
