@@ -318,7 +318,7 @@ func (c *Reconciler) reconcileMetricsService(ctx context.Context, pa *pav1alpha1
 		logger.Errorw(fmt.Sprintf("Error getting K8s Service %s: ", sn), zap.Error(err))
 		return err
 	} else if !metav1.IsControlledBy(svc, pa) {
-		pa.Status.MarkResourceNotOwned("MetricsService", sn)
+		pa.Status.MarkResourceNotOwned("Service", sn)
 		return fmt.Errorf("KPA: %q does not own Service: %q", pa.Name, sn)
 	} else {
 		tmpl := resources.MakeMetricsService(pa, selector)
