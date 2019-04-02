@@ -44,7 +44,7 @@ const (
 	testRevision  = "test-revision"
 )
 
-func TestKPAScaler(t *testing.T) {
+func TestScaler(t *testing.T) {
 	defer ClearAll()
 	examples := []struct {
 		label         string
@@ -163,7 +163,7 @@ func TestKPAScaler(t *testing.T) {
 
 			revision := newRevision(t, servingClient, e.minScale, e.maxScale)
 			deployment := newDeployment(t, scaleClient, revision, e.startReplicas)
-			revisionScaler := NewKPAScaler(servingClient, scaleClient, TestLogger(t), newConfigWatcher())
+			revisionScaler := NewScaler(servingClient, scaleClient, TestLogger(t), newConfigWatcher())
 
 			pa := newKPA(t, servingClient, revision)
 			if e.kpaMutation != nil {

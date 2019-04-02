@@ -63,8 +63,8 @@ type Deciders interface {
 	Update(ctx context.Context, metric *autoscaler.Decider) (*autoscaler.Decider, error)
 }
 
-// KPAScaler knows how to scale the targets of kpa-class PodAutoscalers.
-type KPAScaler interface {
+// Scaler knows how to scale the targets of kpa-class PodAutoscalers.
+type Scaler interface {
 	// Scale attempts to scale the given PA's target to the desired scale.
 	Scale(ctx context.Context, pa *pav1alpha1.PodAutoscaler, desiredScale int32) (int32, error)
 }
@@ -76,7 +76,7 @@ type Reconciler struct {
 	paLister        listers.PodAutoscalerLister
 	endpointsLister corev1listers.EndpointsLister
 	kpaDeciders     Deciders
-	kpaScaler       KPAScaler
+	scaler          Scaler
 	dynConfig       *autoscaler.DynamicConfig
 }
 
@@ -89,7 +89,7 @@ func NewController(
 	paInformer informers.PodAutoscalerInformer,
 	endpointsInformer corev1informers.EndpointsInformer,
 	kpaDeciders Deciders,
-	kpaScaler KPAScaler,
+	scaler Scaler,
 	dynConfig *autoscaler.DynamicConfig,
 ) *controller.Impl {
 
@@ -98,7 +98,7 @@ func NewController(
 		paLister:        paInformer.Lister(),
 		endpointsLister: endpointsInformer.Lister(),
 		kpaDeciders:     kpaDeciders,
-		kpaScaler:       kpaScaler,
+		scaler:          scaler,
 		dynConfig:       dynConfig,
 	}
 	impl := controller.NewImpl(c, c.Logger, "KPA-Class Autoscaling", reconciler.MustNewStatsReporter("KPA-Class Autoscaling", c.Logger))
@@ -207,7 +207,7 @@ func (c *Reconciler) reconcile(ctx context.Context, pa *pav1alpha1.PodAutoscaler
 
 	// Get the appropriate current scale from the metric, and right size
 	// the scaleTargetRef based on it.
-	want, err := c.kpaScaler.Scale(ctx, pa, decider.Status.DesiredScale)
+	want, err := c.scaler.Scale(ctx, pa, decider.Status.DesiredScale)
 	if err != nil {
 		logger.Errorf("Error scaling target: %v", err)
 		return err
