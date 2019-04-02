@@ -88,6 +88,7 @@ func main() {
 	// Set up informers.
 	paInformer := servingInformerFactory.Autoscaling().V1alpha1().PodAutoscalers()
 	endpointsInformer := kubeInformerFactory.Core().V1().Endpoints()
+	serviceInformer := kubeInformerFactory.Core().V1().Services()
 	hpaInformer := kubeInformerFactory.Autoscaling().V1().HorizontalPodAutoscalers()
 
 	// Set up scalers.
@@ -97,7 +98,7 @@ func main() {
 	scaler := kpa.NewScaler(opt.ServingClientSet, opt.ScaleClientSet, logger, opt.ConfigMapWatcher)
 
 	controllers := []*controller.Impl{
-		kpa.NewController(&opt, paInformer, endpointsInformer, multiScaler, scaler, dynConfig),
+		kpa.NewController(&opt, paInformer, serviceInformer, endpointsInformer, multiScaler, scaler, dynConfig),
 		hpa.NewController(&opt, paInformer, hpaInformer),
 	}
 
@@ -113,9 +114,10 @@ func main() {
 	// Start all of the informers and wait for them to sync.
 	if err := controller.StartInformers(
 		stopCh,
-		paInformer.Informer(),
 		endpointsInformer.Informer(),
 		hpaInformer.Informer(),
+		paInformer.Informer(),
+		serviceInformer.Informer(),
 	); err != nil {
 		logger.Fatalf("Failed to start informers: %v", err)
 	}

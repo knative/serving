@@ -17,6 +17,7 @@ limitations under the License.
 package kpa
 
 import (
+	"errors"
 	"strconv"
 	"testing"
 	"time"
@@ -26,6 +27,7 @@ import (
 	_ "github.com/knative/pkg/system/testing"
 	"github.com/knative/serving/pkg/apis/autoscaling"
 	pav1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
+	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
 	fakeKna "github.com/knative/serving/pkg/client/clientset/versioned/fake"
@@ -46,13 +48,13 @@ const (
 
 func TestScaler(t *testing.T) {
 	defer ClearAll()
-	examples := []struct {
+	tests := []struct {
 		label         string
 		startReplicas int
 		scaleTo       int32
 		minScale      int32
 		maxScale      int32
-		wantReplicas  int
+		wantReplicas  int32
 		wantScaling   bool
 		kpaMutation   func(*pav1alpha1.PodAutoscaler)
 	}{{
@@ -155,29 +157,52 @@ func TestScaler(t *testing.T) {
 		wantScaling:   false,
 	}}
 
-	for _, e := range examples {
-		t.Run(e.label, func(t *testing.T) {
+	for _, test := range tests {
+		t.Run(test.label, func(t *testing.T) {
 			// The clients for our testing.
 			servingClient := fakeKna.NewSimpleClientset()
 			scaleClient := &scalefake.FakeScaleClient{}
 
-			revision := newRevision(t, servingClient, e.minScale, e.maxScale)
-			deployment := newDeployment(t, scaleClient, revision, e.startReplicas)
+			revision := newRevision(t, servingClient, test.minScale, test.maxScale)
+			deployment := newDeployment(t, scaleClient, names.Deployment(revision), test.startReplicas)
 			revisionScaler := NewScaler(servingClient, scaleClient, TestLogger(t), newConfigWatcher())
 
 			pa := newKPA(t, servingClient, revision)
-			if e.kpaMutation != nil {
-				e.kpaMutation(pa)
+			if test.kpaMutation != nil {
+				test.kpaMutation(pa)
 			}
 
-			revisionScaler.Scale(TestContextWithLogger(t), pa, e.scaleTo)
+			revisionScaler.Scale(TestContextWithLogger(t), pa, test.scaleTo)
 
-			if e.wantScaling {
-				checkReplicas(t, scaleClient, deployment, e.wantReplicas)
+			if test.wantScaling {
+				checkReplicas(t, scaleClient, deployment, test.wantReplicas)
 			} else {
 				checkNoScaling(t, scaleClient)
 			}
 		})
+	}
+}
+
+func TestGetScaleResource(t *testing.T) {
+	defer ClearAll()
+	servingClient := fakeKna.NewSimpleClientset()
+	scaleClient := &scalefake.FakeScaleClient{}
+
+	revision := newRevision(t, servingClient, 1, 10)
+	// This setups reactor as well.
+	newDeployment(t, scaleClient, names.Deployment(revision), 5)
+	revisionScaler := NewScaler(servingClient, scaleClient, TestLogger(t), newConfigWatcher())
+
+	pa := newKPA(t, servingClient, revision)
+	scale, err := revisionScaler.GetScaleResource(pa)
+	if err != nil {
+		t.Fatalf("GetScale got error = %v", err)
+	}
+	if got, want := scale.Status.Replicas, int32(5); got != want {
+		t.Errorf("GetScale.Status.Replicas = %d, want: %d", got, want)
+	}
+	if got, want := scale.Status.Selector, serving.RevisionUID+"=1982"; got != want {
+		t.Errorf("GetScale.Status.Selector = %q, want = %q", got, want)
 	}
 }
 
@@ -188,7 +213,6 @@ func newKPA(t *testing.T, servingClient clientset.Interface, revision *v1alpha1.
 	if err != nil {
 		t.Fatal("Failed to create PA.", err)
 	}
-
 	return pa
 }
 
@@ -218,22 +242,31 @@ func newRevision(t *testing.T, servingClient clientset.Interface, minScale, maxS
 	return rev
 }
 
-func newDeployment(t *testing.T, scaleClient *scalefake.FakeScaleClient, revision *v1alpha1.Revision, replicas int) *v1.Deployment {
+func newDeployment(t *testing.T, scaleClient *scalefake.FakeScaleClient, name string, replicas int) *v1.Deployment {
 	scale := int32(replicas)
 	deployment := &v1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: testNamespace,
-			Name:      names.Deployment(revision),
+			Name:      name,
+			UID:       "1982",
 		},
 		Spec: v1.DeploymentSpec{
 			Replicas: &scale,
+			Selector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					serving.RevisionUID: "1982",
+				},
+			},
 		},
 		Status: v1.DeploymentStatus{
 			Replicas: scale,
 		},
 	}
 
-	scaleClient.AddReactor("get", "deployments", func(action clientgotesting.Action) (handled bool, ret runtime.Object, err error) {
+	scaleClient.AddReactor("get", "deployments", func(action clientgotesting.Action) (bool, runtime.Object, error) {
+		if action.(clientgotesting.GetAction).GetName() != deployment.Name {
+			return false, nil, errors.New("wrong resource requested")
+		}
 		obj := &autoscalingv1.Scale{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      deployment.Name,
@@ -244,6 +277,7 @@ func newDeployment(t *testing.T, scaleClient *scalefake.FakeScaleClient, revisio
 			},
 			Status: autoscalingv1.ScaleStatus{
 				Replicas: deployment.Status.Replicas,
+				Selector: serving.RevisionUID + "=1982",
 			},
 		}
 		return true, obj, nil
@@ -266,7 +300,7 @@ func kpaMarkInactive(pa *pav1alpha1.PodAutoscaler, ltt time.Time) {
 	pa.Status.Conditions[0].LastTransitionTime = apis.VolatileTime{Inner: metav1.NewTime(ltt)}
 }
 
-func checkReplicas(t *testing.T, scaleClient *scalefake.FakeScaleClient, deployment *v1.Deployment, expectedScale int) {
+func checkReplicas(t *testing.T, scaleClient *scalefake.FakeScaleClient, deployment *v1.Deployment, expectedScale int32) {
 	t.Helper()
 
 	found := false
@@ -277,8 +311,8 @@ func checkReplicas(t *testing.T, scaleClient *scalefake.FakeScaleClient, deploym
 			if scl.Name != deployment.Name {
 				continue
 			}
-			if got, want := scl.Spec.Replicas, int32(expectedScale); got != want {
-				t.Errorf("Replicas = %v, wanted %v", got, want)
+			if got, want := scl.Spec.Replicas, expectedScale; got != want {
+				t.Errorf("Replicas = %d, wanted %d", got, want)
 			}
 			found = true
 		}
