@@ -176,12 +176,6 @@ func TestTypicalRouteFlow(t *testing.T) {
 	checkConditionSucceededRoute(r.Status, RouteConditionAllTrafficAssigned, t)
 	checkConditionSucceededRoute(r.Status, RouteConditionIngressReady, t)
 	checkConditionSucceededRoute(r.Status, RouteConditionReady, t)
-
-	// Verify that this doesn't reset our conditions.
-	r.Status.InitializeConditions()
-	checkConditionSucceededRoute(r.Status, RouteConditionAllTrafficAssigned, t)
-	checkConditionSucceededRoute(r.Status, RouteConditionIngressReady, t)
-	checkConditionSucceededRoute(r.Status, RouteConditionReady, t)
 }
 
 func TestTrafficNotAssignedFlow(t *testing.T) {
