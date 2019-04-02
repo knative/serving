@@ -200,6 +200,7 @@ func (c *Reconciler) reconcileService(ctx context.Context, rev *v1alpha1.Revisio
 		// create it.
 		logger.Infof("Endpoints not created yet %q", serviceName)
 		rev.Status.MarkDeploying("Deploying")
+		rev.Status.MarkActivating("Deploying", "")
 		return nil
 	} else if err != nil {
 		logger.Errorf("Error checking Active Endpoints %q: %v", serviceName, err)
@@ -212,10 +213,12 @@ func (c *Reconciler) reconcileService(ctx context.Context, rev *v1alpha1.Revisio
 	if isServiceReady(endpoints) {
 		rev.Status.MarkResourcesAvailable()
 		rev.Status.MarkContainerHealthy()
+		rev.Status.MarkActive()
 	} else if !rev.Status.IsActivationRequired() {
 		// If the endpoints resource is NOT ready, then check whether it is taking unreasonably
 		// long to become ready and if so mark our revision as having timed out waiting
 		// for the Service to become ready.
+		rev.Status.MarkInactive("No endpoints", "No endpoints")
 		revisionAge := time.Since(endpoints.CreationTimestamp.Time)
 		if revisionAge >= serviceTimeoutDuration {
 			rev.Status.MarkServiceTimeout()
