@@ -229,7 +229,7 @@ func (c *Reconciler) reconcileService(ctx context.Context, rev *v1alpha1.Revisio
 		// If the endpoints resource is NOT ready, then check whether it is taking unreasonably
 		// long to become ready and if so mark our revision as having timed out waiting
 		// for the Service to become ready.
-		revisionAge := time.Since(getRevisionLastTransitionTime(rev))
+		revisionAge := time.Since(endpoints.CreationTimestamp.Time)
 		if revisionAge >= serviceTimeoutDuration {
 			rev.Status.MarkServiceTimeout()
 			// TODO(mattmoor): How to ensure this only fires once?
