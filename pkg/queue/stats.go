@@ -36,6 +36,10 @@ const (
 	ReqIn ReqEventType = iota
 	// ReqOut represents a finished request
 	ReqOut
+	// ProxiedIn represents an incoming request through a proxy.
+	ProxiedIn
+	// ProxiedOut represents a finished proxied request.
+	ProxiedOut
 )
 
 // Channels is a structure for holding the channels for driving Stats.
@@ -63,11 +67,16 @@ func NewStats(podName string, channels Channels, startedAt time.Time) *Stats {
 	}
 
 	go func() {
-		var requestCount int32
-		var concurrency int32
+		var (
+			requestCount       int32
+			proxiedCount       int32
+			concurrency        int32
+			proxiedConcurrency int32
+		)
 
 		lastChange := startedAt
 		timeOnConcurrency := make(map[int32]time.Duration)
+		timeOnProxiedConcurrency := make(map[int32]time.Duration)
 
 		// Updates the lastChanged/timeOnConcurrency state
 		// Note: Due to nature of the channels used below, the ReportChan
@@ -78,6 +87,7 @@ func NewStats(podName string, channels Channels, startedAt time.Time) *Stats {
 			if time.After(lastChange) {
 				durationSinceChange := time.Sub(lastChange)
 				timeOnConcurrency[concurrency] += durationSinceChange
+				timeOnProxiedConcurrency[proxiedConcurrency] += durationSinceChange
 				lastChange = time
 			}
 		}
@@ -88,33 +98,29 @@ func NewStats(podName string, channels Channels, startedAt time.Time) *Stats {
 				updateState(event.Time)
 
 				switch event.EventType {
+				case ProxiedIn:
+					proxiedConcurrency++
+					proxiedCount++
+					fallthrough
 				case ReqIn:
-					requestCount = requestCount + 1
-					concurrency = concurrency + 1
+					requestCount++
+					concurrency++
+				case ProxiedOut:
+					proxiedConcurrency--
+					fallthrough
 				case ReqOut:
-					concurrency = concurrency - 1
+					concurrency--
 				}
 			case now := <-s.ch.ReportChan:
 				updateState(now)
 
-				var totalTimeUsed time.Duration
-				for _, val := range timeOnConcurrency {
-					totalTimeUsed += val
-				}
-
-				var avg float64
-				if totalTimeUsed > 0 {
-					for c, val := range timeOnConcurrency {
-						ratio := float64(val) / float64(totalTimeUsed)
-						avg += float64(c) * ratio
-					}
-				}
-
 				stat := &autoscaler.Stat{
-					Time:                      &now,
-					PodName:                   s.podName,
-					AverageConcurrentRequests: avg,
-					RequestCount:              requestCount,
+					Time:                             &now,
+					PodName:                          s.podName,
+					AverageConcurrentRequests:        weightedAverage(timeOnConcurrency),
+					AverageProxiedConcurrentRequests: weightedAverage(timeOnProxiedConcurrency),
+					RequestCount:                     requestCount,
+					ProxiedRequestCount:              proxiedCount,
 				}
 				// Send the stat to another goroutine to transmit
 				// so we can continue bucketing stats.
@@ -122,10 +128,27 @@ func NewStats(podName string, channels Channels, startedAt time.Time) *Stats {
 
 				// Reset the stat counts which have been reported.
 				timeOnConcurrency = make(map[int32]time.Duration)
+				timeOnProxiedConcurrency = make(map[int32]time.Duration)
 				requestCount = 0
+				proxiedCount = 0
 			}
 		}
 	}()
 
 	return s
+}
+
+func weightedAverage(times map[int32]time.Duration) float64 {
+	var totalTimeUsed time.Duration
+	for _, val := range times {
+		totalTimeUsed += val
+	}
+	avg := 0.0
+	if totalTimeUsed > 0 {
+		for c, val := range times {
+			ratio := float64(val) / float64(totalTimeUsed)
+			avg += float64(c) * ratio
+		}
+	}
+	return avg
 }

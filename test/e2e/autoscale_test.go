@@ -32,8 +32,8 @@ import (
 	"github.com/knative/serving/test"
 	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
+	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/api/extensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -41,8 +41,8 @@ const (
 	autoscaleExpectedOutput = "399989"
 )
 
-func isDeploymentScaledUp() func(d *v1beta1.Deployment) (bool, error) {
-	return func(d *v1beta1.Deployment) (bool, error) {
+func isDeploymentScaledUp() func(d *appsv1.Deployment) (bool, error) {
+	return func(d *appsv1.Deployment) (bool, error) {
 		return d.Status.ReadyReplicas > 1, nil
 	}
 }

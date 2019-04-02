@@ -53,6 +53,8 @@ func TestObservabilityConfiguration(t *testing.T) {
 			FluentdSidecarOutputConfig: "the-config",
 			FluentdSidecarImage:        "gcr.io/log-stuff/fluentd:latest",
 			EnableVarLogCollection:     true,
+			RequestLogTemplate:         `{"requestMethod": "{{.Request.Method}}"}`,
+			RequestMetricsBackend:      "stackdriver",
 		},
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
@@ -60,10 +62,13 @@ func TestObservabilityConfiguration(t *testing.T) {
 				Name:      ObservabilityConfigName,
 			},
 			Data: map[string]string{
-				"logging.enable-var-log-collection":     "true",
-				"logging.fluentd-sidecar-image":         "gcr.io/log-stuff/fluentd:latest",
-				"logging.fluentd-sidecar-output-config": "the-config",
-				"logging.revision-url-template":         "https://logging.io",
+				"logging.enable-var-log-collection":           "true",
+				"logging.fluentd-sidecar-image":               "gcr.io/log-stuff/fluentd:latest",
+				"logging.fluentd-sidecar-output-config":       "the-config",
+				"logging.revision-url-template":               "https://logging.io",
+				"logging.write-request-logs":                  "true",
+				"logging.request-log-template":                `{"requestMethod": "{{.Request.Method}}"}`,
+				"metrics.request-metrics-backend-destination": "stackdriver",
 			},
 		},
 	}, {
@@ -72,6 +77,8 @@ func TestObservabilityConfiguration(t *testing.T) {
 		wantController: &Observability{
 			EnableVarLogCollection: false,
 			LoggingURLTemplate:     defaultLogURLTemplate,
+			RequestLogTemplate:     "",
+			RequestMetricsBackend:  "",
 		},
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
@@ -90,6 +97,19 @@ func TestObservabilityConfiguration(t *testing.T) {
 			},
 			Data: map[string]string{
 				"logging.enable-var-log-collection": "true",
+			},
+		},
+	}, {
+		name:           "invalid request log template",
+		wantErr:        true,
+		wantController: (*Observability)(nil),
+		config: &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: system.Namespace(),
+				Name:      ObservabilityConfigName,
+			},
+			Data: map[string]string{
+				"logging.request-log-template": `{{ something }}`,
 			},
 		},
 	}}

@@ -37,11 +37,7 @@ func TestActivatorOverload(t *testing.T) {
 	t.Parallel()
 	const (
 		// The number of concurrent requests to hit the activator with.
-		// 1000 = the number concurrent connections in Istio.
-		concurrency = 1000
-		// Timeout to wait for the responses.
-		// Ideally we must wait ~30 seconds, TODO: need to figure out where the delta comes from.
-		timeout = 65 * time.Second
+		concurrency = 100
 		// How long the service will process the request in ms.
 		serviceSleep = 300
 	)
@@ -49,21 +45,19 @@ func TestActivatorOverload(t *testing.T) {
 	clients := Setup(t)
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
-		Image:   "observed-concurrency",
-	}
-
-	fopt := func(service *v1alpha1.Service) {
-		service.Spec.RunLatest.Configuration.RevisionTemplate.Spec.ContainerConcurrency = 1
-		service.Spec.RunLatest.Configuration.RevisionTemplate.Annotations = map[string]string{"autoscaling.knative.dev/maxScale": "10"}
+		Image:   "timeout",
 	}
 
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 	defer test.TearDown(clients, names)
 
 	t.Log("Creating a service with run latest configuration.")
-	// Create a service with concurrency 1 that could sleep for N ms.
+	// Create a service with concurrency 1 that sleeps for N ms.
 	// Limit its maxScale to 10 containers, wait for the service to scale down and hit it with concurrent requests.
-	resources, err := test.CreateRunLatestServiceReady(t, clients, &names, &test.Options{}, fopt)
+	resources, err := test.CreateRunLatestServiceReady(t, clients, &names, &test.Options{}, func(service *v1alpha1.Service) {
+		service.Spec.RunLatest.Configuration.RevisionTemplate.Spec.ContainerConcurrency = 1
+		service.Spec.RunLatest.Configuration.RevisionTemplate.Annotations = map[string]string{"autoscaling.knative.dev/maxScale": "10"}
+	})
 	if err != nil {
 		t.Fatalf("Unable to create resources: %v", err)
 	}
@@ -84,7 +78,6 @@ func TestActivatorOverload(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Error creating the Spoofing client: %v", err)
 	}
-	client.RequestTimeout = timeout
 
 	url := fmt.Sprintf("http://%s/?timeout=%d", domain, serviceSleep)
 

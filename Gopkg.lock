@@ -436,7 +436,7 @@
   revision = "dd3ceb3323922b899a0a913f885fcf59943e7b59"
 
 [[projects]]
-  digest = "1:9a670ce0109361c513e7103c478dbbea261bb81d41d0f9c822707451bce139bb"
+  digest = "1:d978804ff9861cf5670d52fc8e4b85f38245fdac88d814952b6c9506b55406ed"
   name = "github.com/knative/caching"
   packages = [
     "pkg/apis/caching",
@@ -453,10 +453,10 @@
     "pkg/client/listers/caching/v1alpha1",
   ]
   pruneopts = "T"
-  revision = "3fc06fd3c9880a9ebb5c401f4b20cf6666cc7bc0"
+  revision = "babf400eeec07acdd0d6864ad28709c2bcee0c82"
 
 [[projects]]
-  digest = "1:3db5050a9f32229395bdbcb733e3f406c8b1ff5d721e886d72c308d496ff7b31"
+  digest = "1:10434043f385c86678f1cb1bc09c7fa4ba48317c2e666ac4735e34c6670e1282"
   name = "github.com/knative/pkg"
   packages = [
     "apis",
@@ -508,7 +508,7 @@
     "websocket",
   ]
   pruneopts = "NUT"
-  revision = "a5a847fd5cd410d96324766e51f656227dfe72a2"
+  revision = "aad7a9ad463966c1b5539f50da05227497afcee2"
 
 [[projects]]
   branch = "master"
@@ -1376,9 +1376,10 @@
     "github.com/knative/test-infra/tools/webhook-apicoverage/webhook",
     "github.com/mattbaird/jsonpatch",
     "github.com/pkg/errors",
+    "github.com/prometheus/client_golang/prometheus",
+    "github.com/prometheus/client_golang/prometheus/promhttp",
     "github.com/prometheus/client_model/go",
     "github.com/prometheus/common/expfmt",
-    "go.opencensus.io/exporter/prometheus",
     "go.opencensus.io/stats",
     "go.opencensus.io/stats/view",
     "go.opencensus.io/tag",
@@ -1394,7 +1395,6 @@
     "k8s.io/api/authentication/v1",
     "k8s.io/api/autoscaling/v1",
     "k8s.io/api/core/v1",
-    "k8s.io/api/extensions/v1beta1",
     "k8s.io/apimachinery/pkg/api/equality",
     "k8s.io/apimachinery/pkg/api/errors",
     "k8s.io/apimachinery/pkg/api/meta",

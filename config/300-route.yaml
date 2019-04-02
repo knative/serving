@@ -18,6 +18,7 @@ metadata:
   name: routes.serving.knative.dev
   labels:
     serving.knative.dev/release: devel
+    knative.dev/crd-install: "true"
 spec:
   group: serving.knative.dev
   version: v1alpha1

@@ -42,13 +42,12 @@ var (
 	defaultUserContainer = &corev1.Container{
 		Name:                     UserContainerName,
 		Image:                    "busybox",
-		Resources:                userResources,
 		Ports:                    buildContainerPorts(v1alpha1.DefaultUserPort),
 		VolumeMounts:             []corev1.VolumeMount{varLogVolumeMount},
 		Lifecycle:                userLifecycle,
 		TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
-		Stdin:                    false,
-		TTY:                      false,
+		Stdin: false,
+		TTY:   false,
 		Env: []corev1.EnvVar{{
 			Name:  "PORT",
 			Value: "8080",
@@ -73,6 +72,9 @@ var (
 			Name:  "SERVING_NAMESPACE",
 			Value: "foo", // matches namespace
 		}, {
+			Name:  "SERVING_SERVICE",
+			Value: "svc", // matches service name
+		}, {
 			Name: "SERVING_CONFIGURATION",
 			// No OwnerReference
 		}, {
@@ -96,11 +98,22 @@ var (
 				FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 			},
 		}, {
+			Name: "SERVING_POD_IP",
+			ValueFrom: &corev1.EnvVarSource{
+				FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
+			},
+		}, {
 			Name: "SERVING_LOGGING_CONFIG",
 			// No logging configuration
 		}, {
 			Name: "SERVING_LOGGING_LEVEL",
 			// No logging level
+		}, {
+			Name:  "SERVING_REQUEST_LOG_TEMPLATE",
+			Value: "",
+		}, {
+			Name:  "SERVING_REQUEST_METRICS_BACKEND",
+			Value: "",
 		}, {
 			Name:  "USER_PORT",
 			Value: "8080",
@@ -141,7 +154,7 @@ var (
 	}
 
 	defaultPodSpec = &corev1.PodSpec{
-		Volumes:                       []corev1.Volume{varLogVolume},
+		Volumes: []corev1.Volume{varLogVolume},
 		TerminationGracePeriodSeconds: refInt64(45),
 	}
 
@@ -656,6 +669,7 @@ func TestMakePodSpec(t *testing.T) {
 			),
 			queueContainer(
 				withEnvVar("CONTAINER_CONCURRENCY", "1"),
+				withEnvVar("SERVING_SERVICE", ""),
 			),
 		}),
 	}}
@@ -751,89 +765,6 @@ func TestMakeDeployment(t *testing.T) {
 			got := MakeDeployment(test.rev, test.lc, test.nc, test.oc, test.ac, test.cc)
 			if diff := cmp.Diff(test.want, got, cmpopts.IgnoreUnexported(resource.Quantity{})); diff != "" {
 				t.Errorf("MakeDeployment (-want, +got) = %v", diff)
-			}
-		})
-	}
-}
-
-func TestApplyDefaultResources(t *testing.T) {
-	tests := []struct {
-		name     string
-		defaults corev1.ResourceRequirements
-		in       *corev1.ResourceRequirements
-		want     *corev1.ResourceRequirements
-	}{
-		{
-			name: "resources are empty",
-			defaults: corev1.ResourceRequirements{
-				Requests: corev1.ResourceList{
-					"resource": resource.MustParse("100m"),
-				},
-				Limits: corev1.ResourceList{
-					"resource": resource.MustParse("100m"),
-				},
-			},
-			in: &corev1.ResourceRequirements{},
-			want: &corev1.ResourceRequirements{
-				Requests: corev1.ResourceList{
-					"resource": resource.MustParse("100m"),
-				},
-				Limits: corev1.ResourceList{
-					"resource": resource.MustParse("100m"),
-				},
-			},
-		},
-		{
-			name: "requests are not empty",
-			defaults: corev1.ResourceRequirements{
-				Requests: corev1.ResourceList{
-					"same":  resource.MustParse("100m"),
-					"other": resource.MustParse("200m"),
-				},
-			},
-			in: &corev1.ResourceRequirements{
-				Requests: corev1.ResourceList{
-					"same": resource.MustParse("500m"),
-					"new":  resource.MustParse("300m"),
-				},
-			},
-			want: &corev1.ResourceRequirements{
-				Requests: corev1.ResourceList{
-					"same":  resource.MustParse("500m"),
-					"new":   resource.MustParse("200m"),
-					"other": resource.MustParse("300m"),
-				},
-			},
-		},
-		{
-			name: "limits are not empty",
-			defaults: corev1.ResourceRequirements{
-				Limits: corev1.ResourceList{
-					"same":  resource.MustParse("100m"),
-					"other": resource.MustParse("200m"),
-				},
-			},
-			in: &corev1.ResourceRequirements{
-				Limits: corev1.ResourceList{
-					"same": resource.MustParse("500m"),
-					"new":  resource.MustParse("300m"),
-				},
-			},
-			want: &corev1.ResourceRequirements{
-				Limits: corev1.ResourceList{
-					"same":  resource.MustParse("500m"),
-					"new":   resource.MustParse("200m"),
-					"other": resource.MustParse("300m"),
-				},
-			},
-		},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			applyDefaultResources(test.defaults, test.in)
-			if diff := cmp.Diff(test.want, test.in, cmpopts.IgnoreUnexported(resource.Quantity{})); diff != "" { // Maybe this compare fails
-				t.Errorf("ApplyDefaultResources (-want, +got) = %v", diff)
 			}
 		})
 	}

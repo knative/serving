@@ -540,6 +540,7 @@ func cfg(name, namespace string, generation int64, co ...ConfigOption) *v1alpha1
 	for _, opt := range co {
 		opt(c)
 	}
+	c.SetDefaults(context.Background())
 	return c
 }
 

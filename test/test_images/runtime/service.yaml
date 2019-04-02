@@ -10,3 +10,5 @@ spec:
         spec:
           container:
             image: github.com/knative/serving/test/test_images/runtime
+            securityContext:
+              runAsUser: 2020

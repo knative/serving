@@ -56,5 +56,6 @@ func (spec *ServerlessServiceSpec) Validate(ctx context.Context) *apis.FieldErro
 			}
 		}
 	}
-	return all
+
+	return all.Also(spec.ProtocolType.Validate().ViaField("protocolType"))
 }

@@ -966,17 +966,7 @@ func image(namespace, name string, co ...configOption) *caching.Image {
 		opt(config)
 	}
 
-	rev := rev(namespace, name)
-	// Do this here instead of in `rev` itself to ensure that we populate defaults
-	// before calling MakeDeployment within Reconcile.
-	rev.SetDefaults(context.Background())
-	deploy := resources.MakeDeployment(rev, config.Logging, config.Network, config.Observability,
-		config.Autoscaler, config.Controller)
-	img, err := resources.MakeImageCache(rev, deploy)
-	if err != nil {
-		panic(err.Error())
-	}
-	return img
+	return resources.MakeImageCache(rev(namespace, name))
 }
 
 func fluentdConfigMap(namespace, name string, co ...configOption) *corev1.ConfigMap {

@@ -81,6 +81,11 @@ type TrafficTarget struct {
 	// Percent specifies percent of the traffic to this Revision or Configuration.
 	// This defaults to zero if unspecified.
 	Percent int `json:"percent"`
+
+	// URL displays the URL for accessing named traffic targets. URL is displayed in
+	// status, and is disallowed on spec. URL must contain a scheme (e.g. http://) and
+	// a hostname, but may not contain anything else (e.g. basic auth, url path, etc.)
+	URL string `json:"url,omitempty"`
 }
 
 // RouteSpec holds the desired state of the Route (from the client).

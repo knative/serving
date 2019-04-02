@@ -17,6 +17,8 @@ limitations under the License.
 package testing
 
 import (
+	"context"
+
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -32,5 +34,6 @@ func Service(name, namespace string, so ...ServiceOption) *v1alpha1.Service {
 	for _, opt := range so {
 		opt(s)
 	}
+	s.SetDefaults(context.Background())
 	return s
 }

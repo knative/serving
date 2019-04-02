@@ -27,10 +27,14 @@ import (
 	"strings"
 	"time"
 
+	"github.com/knative/serving/pkg/utils"
+
 	"github.com/knative/pkg/signals"
 
 	"github.com/knative/pkg/logging/logkey"
+	"github.com/knative/pkg/metrics"
 	"github.com/knative/serving/cmd/util"
+	"github.com/knative/serving/pkg/activator"
 	activatorutil "github.com/knative/serving/pkg/activator/util"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/autoscaler"
@@ -39,8 +43,7 @@ import (
 	"github.com/knative/serving/pkg/network"
 	"github.com/knative/serving/pkg/queue"
 	"github.com/knative/serving/pkg/queue/health"
-	"go.opencensus.io/exporter/prometheus"
-	"go.opencensus.io/stats/view"
+	queuestats "github.com/knative/serving/pkg/queue/stats"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/wait"
 )
@@ -59,15 +62,22 @@ const (
 	// from its configuration and propagate that to all istio-proxies
 	// in the mesh.
 	quitSleepDuration = 20 * time.Second
+
+	// commonMetricsPort is the port where common metrics, e.g. request metrics
+	// are exposed in Prometheus. This is different from the metrics used
+	// for autoscaling, which are exposed in 9090.
+	commonMetricsPort = 9091
 )
 
 var (
-	podName                string
+	servingService         string
 	servingConfig          string
 	servingNamespace       string
 	servingRevision        string
 	servingRevisionKey     string
 	servingAutoscaler      string
+	servingPodIP           string
+	servingPodName         string
 	autoscalerNamespace    string
 	servingAutoscalerPort  int
 	userTargetPort         int
@@ -81,17 +91,19 @@ var (
 	h2cProxy  *httputil.ReverseProxy
 	httpProxy *httputil.ReverseProxy
 
-	server      *http.Server
-	healthState = &health.State{}
-	reporter    *queue.Reporter // Prometheus stats reporter.
+	server           *http.Server
+	healthState      = &health.State{}
+	promStatReporter *queue.PrometheusStatsReporter // Prometheus stats reporter.
 )
 
 func initEnv() {
-	podName = util.GetRequiredEnvOrFatal("SERVING_POD", logger)
+	servingService = os.Getenv("SERVING_SERVICE") // KService is optional
 	servingConfig = util.GetRequiredEnvOrFatal("SERVING_CONFIGURATION", logger)
 	servingNamespace = util.GetRequiredEnvOrFatal("SERVING_NAMESPACE", logger)
 	servingRevision = util.GetRequiredEnvOrFatal("SERVING_REVISION", logger)
 	servingAutoscaler = util.GetRequiredEnvOrFatal("SERVING_AUTOSCALER", logger)
+	servingPodIP = util.GetRequiredEnvOrFatal("SERVING_POD_IP", logger)
+	servingPodName = util.GetRequiredEnvOrFatal("SERVING_POD", logger)
 	autoscalerNamespace = util.GetRequiredEnvOrFatal("SYSTEM_NAMESPACE", logger)
 	servingAutoscalerPort = util.MustParseIntEnvOrFatal("SERVING_AUTOSCALER_PORT", logger)
 	containerConcurrency = util.MustParseIntEnvOrFatal("CONTAINER_CONCURRENCY", logger)
@@ -101,28 +113,20 @@ func initEnv() {
 
 	// TODO(mattmoor): Move this key to be in terms of the KPA.
 	servingRevisionKey = autoscaler.NewMetricKey(servingNamespace, servingRevision)
-	_reporter, err := queue.NewStatsReporter(servingNamespace, servingConfig, servingRevision, podName)
+	_psr, err := queue.NewPrometheusStatsReporter(servingNamespace, servingConfig, servingRevision, servingPodName)
 	if err != nil {
 		logger.Fatalw("Failed to create stats reporter", zap.Error(err))
 	}
-	reporter = _reporter
+	promStatReporter = _psr
 }
 
 func reportStats(statChan chan *autoscaler.Stat) {
 	for {
 		s := <-statChan
-		if err := reporter.Report(float64(s.RequestCount), s.AverageConcurrentRequests); err != nil {
+		if err := promStatReporter.Report(s); err != nil {
 			logger.Errorw("Error while sending stat", zap.Error(err))
 		}
 	}
-}
-
-func proxyForRequest(req *http.Request) *httputil.ReverseProxy {
-	if req.ProtoMajor == 2 {
-		return h2cProxy
-	}
-
-	return httpProxy
 }
 
 func knativeProbeHeader(r *http.Request) string {
@@ -133,6 +137,10 @@ func isKubeletProbe(r *http.Request) bool {
 	// Since K8s 1.8, prober requests have
 	//   User-Agent = "kube-probe/{major-version}.{minor-version}".
 	return strings.HasPrefix(r.Header.Get("User-Agent"), "kube-probe/")
+}
+
+func knativeProxyHeader(r *http.Request) string {
+	return r.Header.Get(network.ProxyHeaderName)
 }
 
 func probeUserContainer() bool {
@@ -152,47 +160,57 @@ func probeUserContainer() bool {
 	return err == nil
 }
 
-func handler(w http.ResponseWriter, r *http.Request) {
-	proxy := proxyForRequest(r)
+// Make handler a closure for testing.
+func handler(reqChan chan queue.ReqEvent, breaker *queue.Breaker, httpProxy, h2cProxy *httputil.ReverseProxy) func(http.ResponseWriter, *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		proxy := httpProxy
+		if r.ProtoMajor == 2 {
+			proxy = h2cProxy
+		}
 
-	ph := knativeProbeHeader(r)
-	switch {
-	case ph != "":
-		if ph != queue.Name {
-			http.Error(w, fmt.Sprintf("unexpected probe header value: %q", ph), http.StatusServiceUnavailable)
+		ph := knativeProbeHeader(r)
+		switch {
+		case ph != "":
+			if ph != queue.Name {
+				http.Error(w, fmt.Sprintf("unexpected probe header value: %q", ph), http.StatusBadRequest)
+				return
+			}
+			if probeUserContainer() {
+				// Respond with the name of the component handling the request.
+				w.Write([]byte(queue.Name))
+			} else {
+				http.Error(w, "container not ready", http.StatusServiceUnavailable)
+			}
+			return
+		case isKubeletProbe(r):
+			// Do not count health checks for concurrency metrics
+			proxy.ServeHTTP(w, r)
 			return
 		}
-		if probeUserContainer() {
-			// Respond with the name of the component handling the request.
-			w.Write([]byte(queue.Name))
+
+		// Metrics for autoscaling
+		h := knativeProxyHeader(r)
+		in, out := queue.ReqIn, queue.ReqOut
+		if activator.Name == h {
+			in, out = queue.ProxiedIn, queue.ProxiedOut
+		}
+		reqChan <- queue.ReqEvent{Time: time.Now(), EventType: in}
+		defer func() {
+			reqChan <- queue.ReqEvent{Time: time.Now(), EventType: out}
+		}()
+
+		// Enforce queuing and concurrency limits
+		if breaker != nil {
+			ok := breaker.Maybe(func() {
+				proxy.ServeHTTP(w, r)
+			})
+			if !ok {
+				http.Error(w, "overload", http.StatusServiceUnavailable)
+			}
 		} else {
-			http.Error(w, "container not ready", http.StatusServiceUnavailable)
-		}
-		return
-	case isKubeletProbe(r):
-		// Do not count health checks for concurrency metrics
-		proxy.ServeHTTP(w, r)
-		return
-	}
-
-	// Metrics for autoscaling
-	reqChan <- queue.ReqEvent{Time: time.Now(), EventType: queue.ReqIn}
-	defer func() {
-		reqChan <- queue.ReqEvent{Time: time.Now(), EventType: queue.ReqOut}
-	}()
-
-	// Enforce queuing and concurrency limits
-	if breaker != nil {
-		ok := breaker.Maybe(func() {
 			proxy.ServeHTTP(w, r)
-		})
-		if !ok {
-			http.Error(w, "overload", http.StatusServiceUnavailable)
 		}
-	} else {
-		proxy.ServeHTTP(w, r)
 	}
-
 }
 
 // Sets up /health and /wait-for-drain endpoints.
@@ -208,12 +226,12 @@ func main() {
 	flag.Parse()
 	logger, _ = logging.NewLogger(os.Getenv("SERVING_LOGGING_CONFIG"), os.Getenv("SERVING_LOGGING_LEVEL"))
 	logger = logger.Named("queueproxy")
-	defer logger.Sync()
+	defer flush(logger)
 
 	initEnv()
 	logger = logger.With(
 		zap.String(logkey.Key, servingRevisionKey),
-		zap.String(logkey.Pod, podName))
+		zap.String(logkey.Pod, servingPodName))
 
 	target, err := url.Parse(fmt.Sprintf("http://%s", userTargetAddress))
 	if err != nil {
@@ -242,16 +260,9 @@ func main() {
 		logger.Infof("Queue container is starting with %#v", params)
 	}
 
-	logger.Info("Initializing OpenCensus Prometheus exporter")
-	promExporter, err := prometheus.NewExporter(prometheus.Options{Namespace: "queue"})
-	if err != nil {
-		logger.Fatalw("Failed to create the Prometheus exporter", zap.Error(err))
-	}
-	view.RegisterExporter(promExporter)
-	view.SetReportingPeriod(queue.ViewReportingPeriod)
 	go func() {
 		mux := http.NewServeMux()
-		mux.Handle("/metrics", promExporter)
+		mux.Handle("/metrics", promStatReporter.Handler())
 		http.ListenAndServe(fmt.Sprintf(":%d", v1alpha1.RequestQueueMetricsPort), mux)
 	}()
 
@@ -261,7 +272,7 @@ func main() {
 
 	reportTicker := time.NewTicker(queue.ReporterReportingPeriod)
 	defer reportTicker.Stop()
-	queue.NewStats(podName, queue.Channels{
+	queue.NewStats(servingPodName, queue.Channels{
 		ReqChan:    reqChan,
 		ReportChan: reportTicker.C,
 		StatChan:   statChan,
@@ -272,10 +283,10 @@ func main() {
 		Handler: createAdminHandlers(),
 	}
 
-	server = h2c.NewServer(
-		fmt.Sprintf(":%d", v1alpha1.RequestQueuePort),
-		queue.TimeToFirstByteTimeoutHandler(http.HandlerFunc(handler),
-			time.Duration(revisionTimeoutSeconds)*time.Second, "request timeout"))
+	timeoutHandler := queue.TimeToFirstByteTimeoutHandler(http.HandlerFunc(handler(reqChan, breaker, httpProxy, h2cProxy)),
+		time.Duration(revisionTimeoutSeconds)*time.Second, "request timeout")
+	composedHandler := pushRequestMetricHandler(pushRequestLogHandler(timeoutHandler))
+	server = h2c.NewServer(fmt.Sprintf(":%d", v1alpha1.RequestQueuePort), composedHandler)
 
 	errChan := make(chan error, 2)
 	defer close(errChan)
@@ -297,10 +308,10 @@ func main() {
 	select {
 	case err := <-errChan:
 		logger.Errorw("Failed to bring up queue-proxy, shutting down.", zap.Error(err))
+		flush(logger)
 		os.Exit(1)
 	case <-signals.SetupSignalHandler():
 		logger.Info("Received TERM signal, attempting to gracefully shutdown servers.")
-
 		healthState.Shutdown(func() {
 			// Give istio time to sync our "not ready" state
 			time.Sleep(quitSleepDuration)
@@ -312,8 +323,79 @@ func main() {
 			}
 		})
 
+		flush(logger)
 		if err := adminServer.Shutdown(context.Background()); err != nil {
 			logger.Errorw("Failed to shutdown admin-server", zap.Error(err))
 		}
 	}
+}
+
+func pushRequestLogHandler(currentHandler http.Handler) http.Handler {
+	templ := os.Getenv("SERVING_REQUEST_LOG_TEMPLATE")
+	if templ == "" {
+		return currentHandler
+	}
+
+	revInfo := &queue.RequestLogRevInfo{
+		Name:          servingRevision,
+		Namespace:     servingNamespace,
+		Service:       servingService,
+		Configuration: servingConfig,
+		PodName:       servingPodName,
+		PodIP:         servingPodIP,
+	}
+	handler, err := queue.NewRequestLogHandler(currentHandler, utils.NewSyncFileWriter(os.Stdout), templ, revInfo)
+
+	if err != nil {
+		logger.Errorw("Error setting up request logger. Request logs will be unavailable.", zap.Error(err))
+		return currentHandler
+	}
+	return handler
+}
+
+func pushRequestMetricHandler(currentHandler http.Handler) http.Handler {
+	backend := os.Getenv("SERVING_REQUEST_METRICS_BACKEND")
+	logger.Infof("SERVING_REQUEST_METRICS_BACKEND=%v", backend)
+	if backend == "" {
+		return currentHandler
+	}
+
+	r, err := queuestats.NewStatsReporter(servingNamespace, servingService, servingConfig, servingRevision)
+	if err != nil {
+		logger.Errorw("Error setting up request metrics reporter. Request metrics will be unavailable.", zap.Error(err))
+		return currentHandler
+	}
+
+	// Set up OpenCensus exporter.
+	// NOTE: We use revision as the component instead of queue because queue is
+	// implementation specific. The current metrics are request relative. Using
+	// revision is reasonable.
+	// TODO(yanweiguo): add the ability to emit metrics with names not combined
+	// to component.
+	ops := metrics.ExporterOptions{
+		Domain:         "knative.dev/serving",
+		Component:      "revision",
+		PrometheusPort: commonMetricsPort,
+		ConfigMap: map[string]string{
+			metrics.BackendDestinationKey: backend,
+		},
+	}
+	err = metrics.UpdateExporter(ops, logger)
+	if err != nil {
+		logger.Errorw("Error setting up request metrics exporter. Request metrics will be unavailable.", zap.Error(err))
+		return currentHandler
+	}
+
+	handler, err := queue.NewRequestMetricHandler(currentHandler, r)
+	if err != nil {
+		logger.Errorw("Error setting up request metrics handler. Request metrics will be unavailable.", zap.Error(err))
+		return currentHandler
+	}
+	return handler
+}
+
+func flush(logger *zap.SugaredLogger) {
+	logger.Sync()
+	os.Stdout.Sync()
+	os.Stderr.Sync()
 }

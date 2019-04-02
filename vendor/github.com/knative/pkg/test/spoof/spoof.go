@@ -19,13 +19,9 @@ limitations under the License.
 package spoof
 
 import (
-	"bytes"
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"net"
 	"net/http"
-	"strings"
 	"time"
 
 	ingress "github.com/knative/pkg/test/ingress"
@@ -193,17 +189,17 @@ func (sc *SpoofingClient) Poll(req *http.Request, inState ResponseChecker) (*Res
 		req.Header.Add(pollReqHeader, "True")
 		resp, err = sc.Do(req)
 		if err != nil {
-			if err, ok := err.(net.Error); ok && err.Timeout() {
+			if isTCPTimeout(err) {
 				sc.logf("Retrying %s for TCP timeout %v", req.URL.String(), err)
 				return false, nil
 			}
-
+			// Retrying on DNS error, since we may be using xip.io or nip.io in tests.
+			if isDNSError(err) {
+				sc.logf("Retrying %s for DNS error %v", req.URL.String(), err)
+				return false, nil
+			}
 			// Repeat the poll on `connection refused` errors, which are usually transient Istio errors.
-			// The alternative for the string check is:
-			// 	errNo := (((err.(*url.Error)).Err.(*net.OpError)).Err.(*os.SyscallError).Err).(syscall.Errno)
-			// if errNo == syscall.Errno(0x6f) {...}
-			// But with assertions, of course.
-			if strings.Contains(err.Error(), "connect: connection refused") {
+			if isTCPConnectRefuse(err) {
 				sc.logf("Retrying %s for connection refused %v", req.URL.String(), err)
 				return false, nil
 			}
@@ -231,33 +227,15 @@ func (sc *SpoofingClient) logZipkinTrace(spoofResp *Response) {
 	}
 
 	traceID := spoofResp.Header.Get(zipkin.ZipkinTraceIDHeader)
-	if err := zipkin.CheckZipkinPortAvailability(); err == nil {
-		sc.logf("port-forwarding for Zipkin is not-setup. Failing Zipkin Trace retrieval")
-		return
-	}
+	sc.logf("Logging Zipkin Trace for: %s", traceID)
 
-	sc.logf("Logging Zipkin Trace: %s", traceID)
-
-	zipkinTraceEndpoint := zipkin.ZipkinTraceEndpoint + traceID
 	// Sleep to ensure all traces are correctly pushed on the backend.
 	time.Sleep(5 * time.Second)
-	resp, err := http.Get(zipkinTraceEndpoint)
-	if err != nil {
-		sc.logf("Error retrieving Zipkin trace: %v", err)
-		return
-	}
-	defer resp.Body.Close()
 
-	trace, err := ioutil.ReadAll(resp.Body)
+	json, err := zipkin.JSONTrace(traceID)
 	if err != nil {
-		sc.logf("Error reading Zipkin trace response: %v", err)
-		return
+		sc.logf("Error getting zipkin trace: %v", err)
 	}
 
-	var prettyJSON bytes.Buffer
-	if error := json.Indent(&prettyJSON, trace, "", "\t"); error != nil {
-		sc.logf("JSON Parser Error while trying for Pretty-Format: %v, Original Response: %s", error, string(trace))
-		return
-	}
-	sc.logf("%s", prettyJSON.String())
+	sc.logf("%s", json)
 }

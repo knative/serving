@@ -112,17 +112,6 @@ const (
 	RevisionContainerConcurrencyMax RevisionContainerConcurrencyType = 1000
 )
 
-// RevisionProtocolType is an enumeration of the supported application-layer protocols
-// See also: https://github.com/knative/serving/blob/master/docs/runtime-contract.md#protocols-and-ports
-type RevisionProtocolType string
-
-const (
-	// HTTP/1.1
-	RevisionProtocolHTTP1 RevisionProtocolType = "http1"
-	// HTTP/2 with Prior Knowledge
-	RevisionProtocolH2C RevisionProtocolType = "h2c"
-)
-
 // RevisionSpec holds the desired state of the Revision (from the client).
 type RevisionSpec struct {
 	// DeprecatedGeneration was used prior in Kubernetes versions <1.11

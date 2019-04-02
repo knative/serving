@@ -24,10 +24,9 @@ import (
 	"testing"
 	"time"
 
-	. "github.com/knative/pkg/logging/testing"
 	"github.com/knative/serving/pkg/apis/serving"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	corev1informers "k8s.io/client-go/informers/core/v1"
+	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
 const (
@@ -37,14 +36,23 @@ const (
 	testKPAKey    = "test-namespace/test-revision"
 	testURL       = "http://test-revision-service.test-namespace:9090/metrics"
 
-	testAverageConcurrenyContext = `# HELP queue_average_concurrent_requests Number of requests currently being handled by this pod
+	testAverageConcurrencyContext = `# HELP queue_average_concurrent_requests Number of requests currently being handled by this pod
 # TYPE queue_average_concurrent_requests gauge
-queue_average_concurrent_requests{destination_namespace="test-namespace",destination_revision="test-revision",destination_pod="test-revision-1234"} 2.0
+queue_average_concurrent_requests{destination_namespace="test-namespace",destination_revision="test-revision",destination_pod="test-revision-1234"} 3.0
 `
 	testQPSContext = `# HELP queue_operations_per_second Number of requests received since last Stat
 # TYPE queue_operations_per_second gauge
-queue_operations_per_second{destination_namespace="test-namespace",destination_revision="test-revision",destination_pod="test-revision-1234"} 1
+queue_operations_per_second{destination_namespace="test-namespace",destination_revision="test-revision",destination_pod="test-revision-1234"} 5
 `
+	testAverageProxiedConcurrenyContext = `# HELP queue_average_proxied_concurrent_requests Number of proxied requests currently being handled by this pod
+# TYPE queue_average_proxied_concurrent_requests gauge
+queue_average_proxied_concurrent_requests{destination_namespace="test-namespace",destination_revision="test-revision",destination_pod="test-revision-1234"} 2.0
+`
+	testProxiedQPSContext = `# HELP queue_proxied_operations_per_second Number of proxied requests received since last Stat
+# TYPE queue_proxied_operations_per_second gauge
+queue_proxied_operations_per_second{destination_namespace="test-namespace",destination_revision="test-revision",destination_pod="test-revision-1234"} 4
+`
+	testFullContext = testAverageConcurrencyContext + testQPSContext + testAverageProxiedConcurrenyContext + testProxiedQPSContext
 )
 
 func TestNewServiceScraperWithClient_HappyCase(t *testing.T) {
@@ -65,51 +73,39 @@ func TestNewServiceScraperWithClient_ErrorCases(t *testing.T) {
 	metric := getTestMetric()
 	invalidMetric := getTestMetric()
 	invalidMetric.Labels = map[string]string{}
-	dynConfig := &DynamicConfig{}
 	client := newTestClient(nil, nil)
-	informer := kubeInformer.Core().V1().Endpoints()
+	lister := kubeInformer.Core().V1().Endpoints().Lister()
 	testCases := []struct {
 		name        string
 		metric      *Metric
-		dynConfig   *DynamicConfig
 		client      *http.Client
-		informer    corev1informers.EndpointsInformer
+		lister      corev1listers.EndpointsLister
 		expectedErr string
 	}{{
 		name:        "Empty Metric",
-		dynConfig:   dynConfig,
 		client:      client,
-		informer:    informer,
+		lister:      lister,
 		expectedErr: "metric must not be nil",
 	}, {
 		name:        "Missing revision label in Metric",
 		metric:      &invalidMetric,
-		dynConfig:   dynConfig,
 		client:      client,
-		informer:    informer,
+		lister:      lister,
 		expectedErr: "no Revision label found for Metric test-revision",
-	}, {
-		name:        "Empty DynamicConfig",
-		metric:      &metric,
-		client:      client,
-		informer:    informer,
-		expectedErr: "dynamic config must not be nil",
 	}, {
 		name:        "Empty HTTP client",
 		metric:      &metric,
-		dynConfig:   dynConfig,
-		informer:    informer,
+		lister:      lister,
 		expectedErr: "HTTP client must not be nil",
 	}, {
-		name:        "Empty informer",
+		name:        "Empty lister",
 		metric:      &metric,
-		dynConfig:   dynConfig,
 		client:      client,
-		expectedErr: "endpoints informer must not be nil",
+		expectedErr: "endpoints lister must not be nil",
 	}}
 
 	for _, test := range testCases {
-		if _, err := newServiceScraperWithClient(test.metric, test.dynConfig, test.informer, test.client); err != nil {
+		if _, err := newServiceScraperWithClient(test.metric, test.lister, test.client); err != nil {
 			got := err.Error()
 			want := test.expectedErr
 			if got != want {
@@ -122,7 +118,7 @@ func TestNewServiceScraperWithClient_ErrorCases(t *testing.T) {
 }
 
 func TestScrapeViaURL_HappyCase(t *testing.T) {
-	client := newTestClient(getHTTPResponse(http.StatusOK, testAverageConcurrenyContext+testQPSContext), nil)
+	client := newTestClient(getHTTPResponse(http.StatusOK, testFullContext), nil)
 	scraper, err := serviceScraperForTest(client)
 	if err != nil {
 		t.Fatalf("newServiceScraperWithClient=%v, want no error", err)
@@ -131,11 +127,17 @@ func TestScrapeViaURL_HappyCase(t *testing.T) {
 	if err != nil {
 		t.Errorf("scrapeViaURL=%v, want no error", err)
 	}
-	if stat.AverageConcurrentRequests != 2.0 {
-		t.Errorf("stat.AverageConcurrentRequests=%v, want 2.0", stat.AverageConcurrentRequests)
+	if stat.AverageConcurrentRequests != 3.0 {
+		t.Errorf("stat.AverageConcurrentRequests=%v, want 3.0", stat.AverageConcurrentRequests)
 	}
-	if stat.RequestCount != 1 {
-		t.Errorf("stat.RequestCount=%v, want 1", stat.RequestCount)
+	if stat.RequestCount != 5 {
+		t.Errorf("stat.RequestCount=%v, want 5", stat.RequestCount)
+	}
+	if stat.AverageProxiedConcurrentRequests != 2.0 {
+		t.Errorf("stat.AverageProxiedConcurrency=%v, want 2.0", stat.AverageProxiedConcurrentRequests)
+	}
+	if stat.ProxiedRequestCount != 4 {
+		t.Errorf("stat.ProxiedCount=%v, want 4", stat.ProxiedRequestCount)
 	}
 }
 
@@ -163,13 +165,23 @@ func TestScrapeViaURL_ErrorCases(t *testing.T) {
 	}, {
 		name:            "Missing average concurrency",
 		responseCode:    http.StatusOK,
-		responseContext: testQPSContext,
+		responseContext: testQPSContext + testAverageProxiedConcurrenyContext + testProxiedQPSContext,
 		expectedErr:     "could not find value for queue_average_concurrent_requests in response",
 	}, {
 		name:            "Missing QPS",
 		responseCode:    http.StatusOK,
-		responseContext: testAverageConcurrenyContext,
+		responseContext: testAverageConcurrencyContext + testAverageProxiedConcurrenyContext + testProxiedQPSContext,
 		expectedErr:     "could not find value for queue_operations_per_second in response",
+	}, {
+		name:            "Missing average proxied concurrency",
+		responseCode:    http.StatusOK,
+		responseContext: testAverageConcurrencyContext + testQPSContext + testProxiedQPSContext,
+		expectedErr:     "could not find value for queue_average_proxied_concurrent_requests in response",
+	}, {
+		name:            "Missing proxied QPS",
+		responseCode:    http.StatusOK,
+		responseContext: testAverageConcurrencyContext + testQPSContext + testAverageProxiedConcurrenyContext,
+		expectedErr:     "could not find value for queue_proxied_operations_per_second in response",
 	}}
 
 	for _, test := range testCases {
@@ -189,7 +201,7 @@ func TestScrapeViaURL_ErrorCases(t *testing.T) {
 }
 
 func TestScrape_HappyCase(t *testing.T) {
-	client := newTestClient(getHTTPResponse(http.StatusOK, testAverageConcurrenyContext+testQPSContext), nil)
+	client := newTestClient(getHTTPResponse(http.StatusOK, testFullContext), nil)
 	scraper, err := serviceScraperForTest(client)
 	if err != nil {
 		t.Fatalf("newServiceScraperWithClient=%v, want no error", err)
@@ -199,11 +211,8 @@ func TestScrape_HappyCase(t *testing.T) {
 	createEndpoints(addIps(makeEndpoints(), 2))
 	// Scrape will set a timestamp bigger than this.
 	now := time.Now()
-	statsCh := make(chan *StatMessage, 1)
-	defer close(statsCh)
-	scraper.Scrape(TestContextWithLogger(t), statsCh)
+	got, _ := scraper.Scrape()
 
-	got := <-statsCh
 	if got.Key != testKPAKey {
 		t.Errorf("StatMessage.Key=%v, want %v", got.Key, testKPAKey)
 	}
@@ -213,19 +222,28 @@ func TestScrape_HappyCase(t *testing.T) {
 	if got.Stat.PodName != scraperPodName {
 		t.Errorf("StatMessage.Stat.PodName=%v, want %v", got.Stat.PodName, scraperPodName)
 	}
-	// 2 pods times 2.0
-	if got.Stat.AverageConcurrentRequests != 4.0 {
+	// 2 pods times 3.0
+	if got.Stat.AverageConcurrentRequests != 6.0 {
 		t.Errorf("StatMessage.Stat.AverageConcurrentRequests=%v, want %v",
-			got.Stat.AverageConcurrentRequests, 4.0)
+			got.Stat.AverageConcurrentRequests, 6.0)
 	}
-	// 2 pods times 1
-	if got.Stat.RequestCount != 2 {
-		t.Errorf("StatMessage.Stat.RequestCount=%v, want %v", got.Stat.RequestCount, 2)
+	// 2 pods times 5
+	if got.Stat.RequestCount != 10 {
+		t.Errorf("StatMessage.Stat.RequestCount=%v, want %v", got.Stat.RequestCount, 10)
+	}
+	// 2 pods times 2.0
+	if got.Stat.AverageProxiedConcurrentRequests != 4.0 {
+		t.Errorf("StatMessage.Stat.AverageProxiedConcurrency=%v, want %v",
+			got.Stat.AverageProxiedConcurrentRequests, 4.0)
+	}
+	// 2 pods times 4
+	if got.Stat.ProxiedRequestCount != 8 {
+		t.Errorf("StatMessage.Stat.ProxiedCount=%v, want %v", got.Stat.ProxiedRequestCount, 8)
 	}
 }
 
 func TestScrape_DoNotScrapeIfNoPodsFound(t *testing.T) {
-	client := newTestClient(getHTTPResponse(200, testAverageConcurrenyContext+testQPSContext), nil)
+	client := newTestClient(getHTTPResponse(200, testFullContext), nil)
 	scraper, err := serviceScraperForTest(client)
 	if err != nil {
 		t.Fatalf("newServiceScraperWithClient=%v, want no error", err)
@@ -234,22 +252,15 @@ func TestScrape_DoNotScrapeIfNoPodsFound(t *testing.T) {
 	// Override the Endpoints with 0 pods.
 	createEndpoints(addIps(makeEndpoints(), 0))
 
-	statsCh := make(chan *StatMessage, 1)
-	defer close(statsCh)
-	scraper.Scrape(TestContextWithLogger(t), statsCh)
-
-	select {
-	case <-statsCh:
+	stat, err := scraper.Scrape()
+	if stat != nil {
 		t.Error("Received unexpected StatMessage.")
-	case <-time.After(300 * time.Millisecond):
-		// We got nothing!
 	}
 }
 
 func serviceScraperForTest(httpClient *http.Client) (*ServiceScraper, error) {
 	metric := getTestMetric()
-	dynConfig := &DynamicConfig{}
-	return newServiceScraperWithClient(&metric, dynConfig, kubeInformer.Core().V1().Endpoints(), httpClient)
+	return newServiceScraperWithClient(&metric, kubeInformer.Core().V1().Endpoints().Lister(), httpClient)
 }
 
 func getTestMetric() Metric {
