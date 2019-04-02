@@ -383,7 +383,7 @@
   version = "v0.3.6"
 
 [[projects]]
-  digest = "1:8d0e02b1e093711c488f976d5d01b9539209726333ce6588f221fc08fb366f84"
+  digest = "1:c6ef9d1125bf02aa8798c31798ebedd87c99646799ec063d8560d5321e739898"
   name = "github.com/jetstack/cert-manager"
   packages = [
     "pkg/apis/certmanager",
@@ -399,9 +399,8 @@
     "pkg/client/informers/externalversions/internalinterfaces",
     "pkg/client/listers/certmanager/v1alpha1",
   ]
-  pruneopts = "NUT"
+  pruneopts = "T"
   revision = "45fbfcd16cdd6a6a73c79f26d67ce72a2886c746"
-  version = "v0.6.1"
 
 [[projects]]
   digest = "1:1f2aebae7e7c856562355ec0198d8ca2fa222fb05e5b1b66632a1fce39631885"

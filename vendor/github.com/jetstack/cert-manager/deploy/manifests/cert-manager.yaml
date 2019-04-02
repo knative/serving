@@ -1,0 +1,804 @@
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: certificates.certmanager.k8s.io
+  labels:
+    app: cert-manager
+spec:
+  additionalPrinterColumns:
+  - JSONPath: .status.conditions[?(@.type=="Ready")].status
+    name: Ready
+    type: string
+  - JSONPath: .spec.secretName
+    name: Secret
+    type: string
+  - JSONPath: .spec.issuerRef.name
+    name: Issuer
+    type: string
+    priority: 1
+  - JSONPath: .status.conditions[?(@.type=="Ready")].message
+    name: Status
+    type: string
+    priority: 1
+  - JSONPath: .metadata.creationTimestamp
+    description: |-
+      CreationTimestamp is a timestamp representing the server time when this object was created. It is not guaranteed to be set in happens-before order across separate operations. Clients may not set this value. It is represented in RFC3339 form and is in UTC.
+
+      Populated by the system. Read-only. Null for lists. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#metadata
+    name: Age
+    type: date
+  group: certmanager.k8s.io
+  version: v1alpha1
+  scope: Namespaced
+  names:
+    kind: Certificate
+    plural: certificates
+    shortNames:
+    - cert
+    - certs
+
+---
+
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: issuers.certmanager.k8s.io
+  labels:
+    app: cert-manager
+spec:
+  group: certmanager.k8s.io
+  version: v1alpha1
+  names:
+    kind: Issuer
+    plural: issuers
+  scope: Namespaced
+
+---
+
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: clusterissuers.certmanager.k8s.io
+  labels:
+    app: cert-manager
+spec:
+  group: certmanager.k8s.io
+  version: v1alpha1
+  names:
+    kind: ClusterIssuer
+    plural: clusterissuers
+  scope: Cluster
+
+---
+
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: orders.certmanager.k8s.io
+  labels:
+    app: cert-manager
+spec:
+  additionalPrinterColumns:
+  - JSONPath: .status.state
+    name: State
+    type: string
+  - JSONPath: .spec.issuerRef.name
+    name: Issuer
+    type: string
+    priority: 1
+  - JSONPath: .status.reason
+    name: Reason
+    type: string
+    priority: 1
+  - JSONPath: .metadata.creationTimestamp
+    description: |-
+      CreationTimestamp is a timestamp representing the server time when this object was created. It is not guaranteed to be set in happens-before order across separate operations. Clients may not set this value. It is represented in RFC3339 form and is in UTC.
+
+      Populated by the system. Read-only. Null for lists. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#metadata
+    name: Age
+    type: date
+  group: certmanager.k8s.io
+  version: v1alpha1
+  names:
+    kind: Order
+    plural: orders
+  scope: Namespaced
+
+---
+
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: challenges.certmanager.k8s.io
+  labels:
+    app: cert-manager
+spec:
+  additionalPrinterColumns:
+  - JSONPath: .status.state
+    name: State
+    type: string
+  - JSONPath: .spec.dnsName
+    name: Domain
+    type: string
+  - JSONPath: .status.reason
+    name: Reason
+    type: string
+  - JSONPath: .metadata.creationTimestamp
+    description: |-
+      CreationTimestamp is a timestamp representing the server time when this object was created. It is not guaranteed to be set in happens-before order across separate operations. Clients may not set this value. It is represented in RFC3339 form and is in UTC.
+
+      Populated by the system. Read-only. Null for lists. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#metadata
+    name: Age
+    type: date
+  group: certmanager.k8s.io
+  version: v1alpha1
+  names:
+    kind: Challenge
+    plural: challenges
+  scope: Namespaced
+
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: cert-manager
+  labels:
+    certmanager.k8s.io/disable-validation: "true"
+
+---
+---
+# Source: cert-manager/charts/webhook/templates/serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: cert-manager-webhook
+  namespace: "cert-manager"
+  labels:
+    app: webhook
+    chart: webhook-v0.6.3
+    release: cert-manager
+    heritage: Tiller
+
+---
+# Source: cert-manager/templates/serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: cert-manager
+  namespace: "cert-manager"
+  labels:
+    app: cert-manager
+    chart: cert-manager-v0.6.5
+    release: cert-manager
+    heritage: Tiller
+---
+# Source: cert-manager/templates/rbac.yaml
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRole
+metadata:
+  name: cert-manager
+  labels:
+    app: cert-manager
+    chart: cert-manager-v0.6.5
+    release: cert-manager
+    heritage: Tiller
+rules:
+  - apiGroups: ["certmanager.k8s.io"]
+    resources: ["certificates", "certificates/finalizers", "issuers", "clusterissuers", "orders", "orders/finalizers", "challenges"]
+    verbs: ["*"]
+  - apiGroups: [""]
+    resources: ["configmaps", "secrets", "events", "services", "pods"]
+    verbs: ["*"]
+  - apiGroups: ["extensions"]
+    resources: ["ingresses"]
+    verbs: ["*"]
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRoleBinding
+metadata:
+  name: cert-manager
+  labels:
+    app: cert-manager
+    chart: cert-manager-v0.6.5
+    release: cert-manager
+    heritage: Tiller
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cert-manager
+subjects:
+  - name: cert-manager
+    namespace: "cert-manager"
+    kind: ServiceAccount
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: cert-manager-view
+  labels:
+    app: cert-manager
+    chart: cert-manager-v0.6.5
+    release: cert-manager
+    heritage: Tiller
+    rbac.authorization.k8s.io/aggregate-to-view: "true"
+    rbac.authorization.k8s.io/aggregate-to-edit: "true"
+    rbac.authorization.k8s.io/aggregate-to-admin: "true"
+rules:
+  - apiGroups: ["certmanager.k8s.io"]
+    resources: ["certificates", "issuers"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: cert-manager-edit
+  labels:
+    app: cert-manager
+    chart: cert-manager-v0.6.5
+    release: cert-manager
+    heritage: Tiller
+    rbac.authorization.k8s.io/aggregate-to-edit: "true"
+    rbac.authorization.k8s.io/aggregate-to-admin: "true"
+rules:
+  - apiGroups: ["certmanager.k8s.io"]
+    resources: ["certificates", "issuers"]
+    verbs: ["create", "delete", "deletecollection", "patch", "update"]
+---
+# Source: cert-manager/charts/webhook/templates/rbac.yaml
+### Webhook ###
+---
+# apiserver gets the auth-delegator role to delegate auth decisions to
+# the core apiserver
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRoleBinding
+metadata:
+  name: cert-manager-webhook:auth-delegator
+  labels:
+    app: webhook
+    chart: webhook-v0.6.3
+    release: cert-manager
+    heritage: Tiller
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: system:auth-delegator
+subjects:
+- apiGroup: ""
+  kind: ServiceAccount
+  name: cert-manager-webhook
+  namespace: cert-manager
+
+---
+
+# apiserver gets the ability to read authentication. This allows it to
+# read the specific configmap that has the requestheader-* entries to
+# api agg
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: RoleBinding
+metadata:
+  name: cert-manager-webhook:webhook-authentication-reader
+  namespace: kube-system
+  labels:
+    app: webhook
+    chart: webhook-v0.6.3
+    release: cert-manager
+    heritage: Tiller
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: extension-apiserver-authentication-reader
+subjects:
+- apiGroup: ""
+  kind: ServiceAccount
+  name: cert-manager-webhook
+  namespace: cert-manager
+
+---
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: cert-manager-webhook:webhook-requester
+  labels:
+    app: webhook
+    chart: webhook-v0.6.3
+    release: cert-manager
+    heritage: Tiller
+rules:
+- apiGroups:
+  - admission.certmanager.k8s.io
+  resources:
+  - certificates
+  - issuers
+  - clusterissuers
+  verbs:
+  - create
+
+---
+# Source: cert-manager/charts/webhook/templates/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: cert-manager-webhook
+  namespace: "cert-manager"
+  labels:
+    app: webhook
+    chart: webhook-v0.6.3
+    release: cert-manager
+    heritage: Tiller
+spec:
+  type: ClusterIP
+  ports:
+  - name: https
+    port: 443
+    targetPort: 6443
+  selector:
+    app: webhook
+    release: cert-manager
+
+---
+# Source: cert-manager/charts/webhook/templates/deployment.yaml
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: cert-manager-webhook
+  namespace: "cert-manager"
+  labels:
+    app: webhook
+    chart: webhook-v0.6.3
+    release: cert-manager
+    heritage: Tiller
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: webhook
+      release: cert-manager
+  template:
+    metadata:
+      labels:
+        app: webhook
+        release: cert-manager
+      annotations:
+    spec:
+      serviceAccountName: cert-manager-webhook
+      containers:
+        - name: webhook
+          image: "quay.io/jetstack/cert-manager-webhook:v0.6.1"
+          imagePullPolicy: IfNotPresent
+          args:
+          - --v=12
+          - --secure-port=6443
+          - --tls-cert-file=/certs/tls.crt
+          - --tls-private-key-file=/certs/tls.key
+          - --disable-admission-plugins=NamespaceLifecycle,MutatingAdmissionWebhook,ValidatingAdmissionWebhook,Initializers
+          env:
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+          resources:
+            {}
+            
+          volumeMounts:
+          - name: certs
+            mountPath: /certs
+      volumes:
+      - name: certs
+        secret:
+          secretName: cert-manager-webhook-webhook-tls
+
+---
+# Source: cert-manager/templates/deployment.yaml
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: cert-manager
+  namespace: "cert-manager"
+  labels:
+    app: cert-manager
+    chart: cert-manager-v0.6.5
+    release: cert-manager
+    heritage: Tiller
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: cert-manager
+      release: cert-manager
+  template:
+    metadata:
+      labels:
+        app: cert-manager
+        release: cert-manager
+      annotations:
+    spec:
+      serviceAccountName: cert-manager
+      containers:
+        - name: cert-manager
+          image: "quay.io/jetstack/cert-manager-controller:v0.6.1"
+          imagePullPolicy: IfNotPresent
+          args:
+          - --cluster-resource-namespace=$(POD_NAMESPACE)
+          - --leader-election-namespace=$(POD_NAMESPACE)
+          env:
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            
+
+---
+# Source: cert-manager/charts/webhook/templates/ca-sync.yaml
+## This file contains a CronJob that runs every week to automatically update the
+## caBundle set on the APIService and ValidatingWebhookConfiguration resource.
+## This allows us to store the CA bundle in a Secret resource which is
+## generated by cert-manager's 'selfsigned' Issuer.
+apiVersion: batch/v1beta1
+kind: CronJob
+metadata:
+  name: cert-manager-webhook-ca-sync
+  namespace: "cert-manager"
+  labels:
+    app: webhook
+    chart: webhook-v0.6.3
+    release: cert-manager
+    heritage: Tiller
+spec:
+  schedule: "@weekly"
+  jobTemplate:
+    spec:
+      backoffLimit: 20
+      template:
+        metadata:
+          labels:
+            app: ca-helper
+        spec:
+          serviceAccountName: cert-manager-webhook-ca-sync
+          restartPolicy: OnFailure
+          containers:
+          - name: ca-helper
+            image: quay.io/munnerz/apiextensions-ca-helper:v0.1.0
+            imagePullPolicy: IfNotPresent
+            args:
+            - -config=/config/config
+            volumeMounts:
+            - name: config
+              mountPath: /config
+            resources:
+              requests:
+                cpu: 10m
+                memory: 32Mi
+              limits:
+                cpu: 100m
+                memory: 128Mi
+          volumes:
+          - name: config
+            configMap:
+              name: cert-manager-webhook-ca-sync
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: cert-manager-webhook-ca-sync
+  namespace: "cert-manager"
+  labels:
+    app: webhook
+    chart: webhook-v0.6.3
+    release: cert-manager
+    heritage: Tiller
+spec:
+  backoffLimit: 20
+  template:
+    metadata:
+      labels:
+        app: ca-helper
+    spec:
+      serviceAccountName: cert-manager-webhook-ca-sync
+      restartPolicy: OnFailure
+      containers:
+      - name: ca-helper
+        image: quay.io/munnerz/apiextensions-ca-helper:v0.1.0
+        imagePullPolicy: IfNotPresent
+        args:
+        - -config=/config/config
+        volumeMounts:
+        - name: config
+          mountPath: /config
+        resources:
+          requests:
+            cpu: 10m
+            memory: 32Mi
+          limits:
+            cpu: 100m
+            memory: 128Mi
+      volumes:
+      - name: config
+        configMap:
+          name: cert-manager-webhook-ca-sync
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cert-manager-webhook-ca-sync
+  namespace: "cert-manager"
+  labels:
+    app: webhook
+    chart: webhook-v0.6.3
+    release: cert-manager
+    heritage: Tiller
+data:
+  config: |-
+    {
+        "apiServices": [
+            {
+                "name": "v1beta1.admission.certmanager.k8s.io",
+                "secret": {
+                    "name": "cert-manager-webhook-ca",
+                    "namespace": "cert-manager",
+                    "key": "tls.crt"
+                }
+            }
+        ],
+        "validatingWebhookConfigurations": [
+            {
+                "name": "cert-manager-webhook",
+                "file": {
+                    "path": "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
+                }
+            }
+        ]
+    }
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: cert-manager-webhook-ca-sync
+  namespace: "cert-manager"
+  labels:
+    app: webhook
+    chart: webhook-v0.6.3
+    release: cert-manager
+    heritage: Tiller
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRole
+metadata:
+  name: cert-manager-webhook-ca-sync
+  labels:
+    app: webhook
+    chart: webhook-v0.6.3
+    release: cert-manager
+    heritage: Tiller
+rules:
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get"]
+    resourceNames:
+    - cert-manager-webhook-ca
+  - apiGroups: ["admissionregistration.k8s.io"]
+    resources: ["validatingwebhookconfigurations", "mutatingwebhookconfigurations"]
+    verbs: ["get", "update"]
+    resourceNames:
+    - cert-manager-webhook
+  - apiGroups: ["apiregistration.k8s.io"]
+    resources: ["apiservices"]
+    verbs: ["get", "update"]
+    resourceNames:
+    - v1beta1.admission.certmanager.k8s.io
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRoleBinding
+metadata:
+  name: cert-manager-webhook-ca-sync
+  labels:
+    app: webhook
+    chart: webhook-v0.6.3
+    release: cert-manager
+    heritage: Tiller
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cert-manager-webhook-ca-sync
+subjects:
+  - name: cert-manager-webhook-ca-sync
+    namespace: cert-manager
+    kind: ServiceAccount
+
+---
+# Source: cert-manager/charts/webhook/templates/apiservice.yaml
+apiVersion: apiregistration.k8s.io/v1beta1
+kind: APIService
+metadata:
+  name: v1beta1.admission.certmanager.k8s.io
+  labels:
+    app: webhook
+    chart: webhook-v0.6.3
+    release: cert-manager
+    heritage: Tiller
+spec:
+  group: admission.certmanager.k8s.io
+  groupPriorityMinimum: 1000
+  versionPriority: 15
+  service:
+    name: cert-manager-webhook
+    namespace: "cert-manager"
+  version: v1beta1
+
+---
+# Source: cert-manager/charts/webhook/templates/pki.yaml
+---
+# Create a selfsigned Issuer, in order to create a root CA certificate for
+# signing webhook serving certificates
+apiVersion: certmanager.k8s.io/v1alpha1
+kind: Issuer
+metadata:
+  name: cert-manager-webhook-selfsign
+  namespace: "cert-manager"
+  labels:
+    app: webhook
+    chart: webhook-v0.6.3
+    release: cert-manager
+    heritage: Tiller
+spec:
+  selfSigned: {}
+
+---
+
+# Generate a CA Certificate used to sign certificates for the webhook
+apiVersion: certmanager.k8s.io/v1alpha1
+kind: Certificate
+metadata:
+  name: cert-manager-webhook-ca
+  namespace: "cert-manager"
+  labels:
+    app: webhook
+    chart: webhook-v0.6.3
+    release: cert-manager
+    heritage: Tiller
+spec:
+  secretName: cert-manager-webhook-ca
+  duration: 43800h # 5y
+  issuerRef:
+    name: cert-manager-webhook-selfsign
+  commonName: "ca.webhook.cert-manager"
+  isCA: true
+
+---
+
+# Create an Issuer that uses the above generated CA certificate to issue certs
+apiVersion: certmanager.k8s.io/v1alpha1
+kind: Issuer
+metadata:
+  name: cert-manager-webhook-ca
+  namespace: "cert-manager"
+  labels:
+    app: webhook
+    chart: webhook-v0.6.3
+    release: cert-manager
+    heritage: Tiller
+spec:
+  ca:
+    secretName: cert-manager-webhook-ca
+
+---
+
+# Finally, generate a serving certificate for the webhook to use
+apiVersion: certmanager.k8s.io/v1alpha1
+kind: Certificate
+metadata:
+  name: cert-manager-webhook-webhook-tls
+  namespace: "cert-manager"
+  labels:
+    app: webhook
+    chart: webhook-v0.6.3
+    release: cert-manager
+    heritage: Tiller
+spec:
+  secretName: cert-manager-webhook-webhook-tls
+  duration: 8760h # 1y
+  issuerRef:
+    name: cert-manager-webhook-ca
+  dnsNames:
+  - cert-manager-webhook
+  - cert-manager-webhook.cert-manager
+  - cert-manager-webhook.cert-manager.svc
+
+---
+# Source: cert-manager/charts/webhook/templates/validating-webhook.yaml
+apiVersion: admissionregistration.k8s.io/v1beta1
+kind: ValidatingWebhookConfiguration
+metadata:
+  name: cert-manager-webhook
+  labels:
+    app: webhook
+    chart: webhook-v0.6.3
+    release: cert-manager
+    heritage: Tiller
+webhooks:
+  - name: certificates.admission.certmanager.k8s.io
+    namespaceSelector:
+      matchExpressions:
+      - key: "certmanager.k8s.io/disable-validation"
+        operator: "NotIn"
+        values:
+        - "true"
+      - key: "name"
+        operator: "NotIn"
+        values:
+        - cert-manager
+    rules:
+      - apiGroups:
+          - "certmanager.k8s.io"
+        apiVersions:
+          - v1alpha1
+        operations:
+          - CREATE
+          - UPDATE
+        resources:
+          - certificates
+    failurePolicy: Fail
+    clientConfig:
+      service:
+        name: kubernetes
+        namespace: default
+        path: /apis/admission.certmanager.k8s.io/v1beta1/certificates
+  - name: issuers.admission.certmanager.k8s.io
+    namespaceSelector:
+      matchExpressions:
+      - key: "certmanager.k8s.io/disable-validation"
+        operator: "NotIn"
+        values:
+        - "true"
+      - key: "name"
+        operator: "NotIn"
+        values:
+        - cert-manager
+    rules:
+      - apiGroups:
+          - "certmanager.k8s.io"
+        apiVersions:
+          - v1alpha1
+        operations:
+          - CREATE
+          - UPDATE
+        resources:
+          - issuers
+    failurePolicy: Fail
+    clientConfig:
+      service:
+        name: kubernetes
+        namespace: default
+        path: /apis/admission.certmanager.k8s.io/v1beta1/issuers
+  - name: clusterissuers.admission.certmanager.k8s.io
+    namespaceSelector:
+      matchExpressions:
+      - key: "certmanager.k8s.io/disable-validation"
+        operator: "NotIn"
+        values:
+        - "true"
+      - key: "name"
+        operator: "NotIn"
+        values:
+        - cert-manager
+    rules:
+      - apiGroups:
+          - "certmanager.k8s.io"
+        apiVersions:
+          - v1alpha1
+        operations:
+          - CREATE
+          - UPDATE
+        resources:
+          - clusterissuers
+    failurePolicy: Fail
+    clientConfig:
+      service:
+        name: kubernetes
+        namespace: default
+        path: /apis/admission.certmanager.k8s.io/v1beta1/clusterissuers
+
