@@ -179,9 +179,13 @@ func scalerConfig(logger *zap.SugaredLogger) *autoscaler.DynamicConfig {
 
 func uniScalerFactoryFunc(endpointsInformer corev1informers.EndpointsInformer) func(decider *autoscaler.Decider, dynamicConfig *autoscaler.DynamicConfig) (autoscaler.UniScaler, error) {
 	return func(decider *autoscaler.Decider, dynamicConfig *autoscaler.DynamicConfig) (autoscaler.UniScaler, error) {
+		if decider.Labels == nil {
+			return nil, fmt.Errorf("no labels set on Decider: %v", decider)
+		}
+
 		// Create a stats reporter which tags statistics by PA namespace, configuration name, and PA name.
 		reporter, err := autoscaler.NewStatsReporter(decider.Namespace,
-			labelValueOrEmpty(decider, serving.ServiceLabelKey), labelValueOrEmpty(decider, serving.ConfigurationLabelKey), decider.Name)
+			decider.Labels[serving.ServiceLabelKey], decider.Labels[serving.ConfigurationLabelKey], decider.Name)
 		if err != nil {
 			return nil, err
 		}
@@ -201,13 +205,4 @@ func statsScraperFactoryFunc(endpointsLister corev1listers.EndpointsLister) func
 	return func(decider *autoscaler.Decider) (autoscaler.StatsScraper, error) {
 		return autoscaler.NewServiceScraper(decider, endpointsLister)
 	}
-}
-
-func labelValueOrEmpty(decider *autoscaler.Decider, labelKey string) string {
-	if decider.Labels != nil {
-		if value, ok := decider.Labels[labelKey]; ok {
-			return value
-		}
-	}
-	return ""
 }
