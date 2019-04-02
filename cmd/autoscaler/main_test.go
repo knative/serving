@@ -30,39 +30,6 @@ const (
 	testRevision  = "test-Revision"
 )
 
-func TestLabelValueOrEmpty(t *testing.T) {
-	metric := &autoscaler.Decider{}
-	metric.Labels = make(map[string]string)
-	metric.Labels["test1"] = "test1val"
-	metric.Labels["test2"] = ""
-
-	cases := []struct {
-		name string
-		key  string
-		want string
-	}{{
-		name: "existing key",
-		key:  "test1",
-		want: "test1val",
-	}, {
-		name: "existing empty key",
-		key:  "test2",
-		want: "",
-	}, {
-		name: "non-existent key",
-		key:  "test4",
-		want: "",
-	}}
-
-	for _, c := range cases {
-		t.Run(c.name, func(t *testing.T) {
-			if got := labelValueOrEmpty(metric, c.key); got != c.want {
-				t.Errorf("%q expected: %v got: %v", c.name, got, c.want)
-			}
-		})
-	}
-}
-
 func TestUniScalerFactoryFunc(t *testing.T) {
 	uniScalerFactory := getTestUniScalerFactory()
 	metric := &autoscaler.Decider{
