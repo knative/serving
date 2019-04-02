@@ -257,6 +257,6 @@ func newTestStats(clock system.Clock) (*testStats, *ConcurrencyReporter) {
 		statChan:     make(chan *autoscaler.StatMessage, 20),
 		reportBiChan: reportBiChan,
 	}
-	cr := NewConcurrencyReporterWithClock(autoscaler.ActivatorPodName, t.reqChan, t.reportChan, t.statChan, clock)
+	cr := NewConcurrencyReporterWithClock("activator", t.reqChan, t.reportChan, t.statChan, clock)
 	return t, cr
 }
