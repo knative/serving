@@ -53,7 +53,6 @@ import (
 	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/utils"
 	"go.uber.org/zap"
-	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/wait"
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
@@ -200,15 +199,8 @@ func main() {
 
 	// Return the number of endpoints, 0 if no endpoints are found.
 	endpointsGetter := func(revID activator.RevisionID) (int32, error) {
-		endpoints, err := endpointInformer.Lister().Endpoints(revID.Namespace).Get(revID.Name)
-		if errors.IsNotFound(err) {
-			return 0, nil
-		}
-		if err != nil {
-			return 0, err
-		}
-		addresses := activator.EndpointsAddressCount(endpoints.Subsets)
-		return int32(addresses), nil
+		count, err := utils.FetchReadyAddressCount(endpointInformer.Lister(), revID.Namespace, revID.Name)
+		return int32(count), err
 	}
 
 	// Return the revision from the observer.

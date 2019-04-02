@@ -25,6 +25,7 @@ import (
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/autoscaling/kpa/resources/names"
+	"github.com/knative/serving/pkg/utils"
 	"github.com/pkg/errors"
 	dto "github.com/prometheus/client_model/go"
 	"github.com/prometheus/common/expfmt"
@@ -109,7 +110,7 @@ func newServiceScraperWithClient(
 // Scrape calls the destination service then sends it
 // to the given stats channel.
 func (s *ServiceScraper) Scrape() (*StatMessage, error) {
-	readyPodsCount, err := readyPodsCountOfEndpoints(s.endpointsLister, s.namespace, s.scrapeTargetService)
+	readyPodsCount, err := utils.FetchReadyAddressCount(s.endpointsLister, s.namespace, s.scrapeTargetService)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get endpoints")
 	}
