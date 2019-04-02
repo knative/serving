@@ -64,7 +64,7 @@ const (
 	quitSleepDuration = 20 * time.Second
 
 	// commonMetricsPort is the port where common metrics, e.g. request metrics
-	// are exposed in Prometheus. This is different from the metrics used 
+	// are exposed in Prometheus. This is different from the metrics used
 	// for autoscaling, which are exposed in 9090.
 	commonMetricsPort = 9091
 )
@@ -97,7 +97,7 @@ var (
 )
 
 func initEnv() {
-	servingService = util.GetRequiredEnvOrFatal("SERVING_SERVICE", logger)
+	servingService = os.Getenv("SERVING_SERVICE") // KService is optional
 	servingConfig = util.GetRequiredEnvOrFatal("SERVING_CONFIGURATION", logger)
 	servingNamespace = util.GetRequiredEnvOrFatal("SERVING_NAMESPACE", logger)
 	servingRevision = util.GetRequiredEnvOrFatal("SERVING_REVISION", logger)
