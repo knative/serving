@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/gorilla/websocket"
 	"github.com/knative/serving/pkg/autoscaler"
 	stats "github.com/knative/serving/pkg/autoscaler/statserver"
@@ -158,9 +159,9 @@ func assertReceivedOk(sm *autoscaler.StatMessage, statSink *websocket.Conn, stat
 	if recv.Stat.Time == nil {
 		t.Fatalf("Stat time is nil")
 	}
-	sm.Stat.Time = recv.Stat.Time
-	if !cmp.Equal(sm, recv) {
-		t.Fatalf("Expected and actual stats messages are not equal: %s", cmp.Diff(sm, recv))
+	ignoreTimeField := cmpopts.IgnoreFields(autoscaler.StatMessage{}, "Stat.Time")
+	if !cmp.Equal(sm, recv, ignoreTimeField) {
+		t.Fatalf("Expected and actual stats messages are not equal: %s", cmp.Diff(sm, recv, ignoreTimeField))
 	}
 	return true
 }
