@@ -75,8 +75,8 @@ type KPAScaler interface {
 	// Scale attempts to scale the given PA's target to the desired scale.
 	Scale(ctx context.Context, pa *pav1alpha1.PodAutoscaler, desiredScale int32) (int32, error)
 
-	// GetScale returns the current scale resource for the PA.
-	GetScale(pa *pav1alpha1.PodAutoscaler) (*autoscalingapi.Scale, error)
+	// GetScaleResource returns the current scale resource for the PA.
+	GetScaleResource(pa *pav1alpha1.PodAutoscaler) (*autoscalingapi.Scale, error)
 }
 
 // Reconciler tracks PAs and right sizes the ScaleTargetRef based on the
@@ -291,7 +291,7 @@ func (c *Reconciler) reconcile(ctx context.Context, pa *pav1alpha1.PodAutoscaler
 func (c *Reconciler) reconcileMetricsService(ctx context.Context, pa *pav1alpha1.PodAutoscaler) error {
 	logger := logging.FromContext(ctx)
 
-	scale, err := c.kpaScaler.GetScale(pa)
+	scale, err := c.kpaScaler.GetScaleResource(pa)
 	if err != nil {
 		logger.Debugw("Error Getting scale", zap.Error(err))
 		return err

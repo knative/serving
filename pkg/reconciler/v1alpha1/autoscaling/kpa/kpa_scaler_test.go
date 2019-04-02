@@ -183,7 +183,7 @@ func TestKPAScaler(t *testing.T) {
 	}
 }
 
-func TestGetScale(t *testing.T) {
+func TestGetScaleResource(t *testing.T) {
 	defer ClearAll()
 	servingClient := fakeKna.NewSimpleClientset()
 	scaleClient := &scalefake.FakeScaleClient{}
@@ -194,7 +194,7 @@ func TestGetScale(t *testing.T) {
 	revisionScaler := NewKPAScaler(servingClient, scaleClient, TestLogger(t), newConfigWatcher())
 
 	pa := newKPA(t, servingClient, revision)
-	scale, err := revisionScaler.GetScale(pa)
+	scale, err := revisionScaler.GetScaleResource(pa)
 	if err != nil {
 		t.Fatalf("GetScale got error = %v", err)
 	}
