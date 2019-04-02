@@ -130,6 +130,10 @@ func AddTrace(logf logging.FormatLogger, tName string, traceID string) {
 		logf("Trace file is not setup correctly. Exiting without adding trace")
 		return
 	}
+
+	// Sleep to get traces
+	time.Sleep(5 * time.Second)
+
 	trace, err := zipkin.JSONTrace(traceID)
 	if err != nil {
 		logf("Skipping trace %s due to error: %v", traceID, err)
