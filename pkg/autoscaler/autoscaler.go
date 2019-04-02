@@ -23,9 +23,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/knative/serving/pkg/utils"
-
 	"github.com/knative/pkg/logging"
+	"github.com/knative/serving/pkg/utils"
 	"go.uber.org/zap"
 	corev1informers "k8s.io/client-go/informers/core/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
