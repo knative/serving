@@ -46,7 +46,11 @@ You must install these tools:
    image registry by adjusting the authentication methods and repository paths
    mentioned in the sections below.
    - [Google Container Registry quickstart](https://cloud.google.com/container-registry/docs/pushing-and-pulling)
-   - [Docker Hub quickstart](https://docs.docker.com/docker-hub/repos/)
+   - [Docker Hub quickstart](https://docs.docker.com/docker-hub/)
+
+**Note**: You'll need to be authenticated with your `KO_DOCKER_REPO` before
+pushing images. Run `gcloud auth configure-docker` if you are using Google
+Container Registry or `docker login` if you are using Docker Hub.
 
 ### Setup your environment
 
@@ -71,15 +75,6 @@ recommend adding them to your `.bashrc`):
 export GOPATH="$HOME/go"
 export PATH="${PATH}:${GOPATH}/bin"
 export KO_DOCKER_REPO='gcr.io/my-gcloud-project-id'
-```
-
-Make sure to configure
-[authentication](https://cloud.google.com/container-registry/docs/advanced-authentication#standalone_docker_credential_helper)
-for your `KO_DOCKER_REPO` if required. To be able to push images to
-`gcr.io/<project>`, you need to run this once:
-
-```shell
-gcloud auth configure-docker
 ```
 
 ### Checkout your fork
@@ -167,7 +162,16 @@ Next, run:
 
 ```shell
 ko apply -f config/
-PROJECT_ID="my-gcp-project-id" ./hack/dev-patch-config-gke.sh my-k8s-cluster-name  # optional
+
+# Optional steps
+
+# Configure outbound network for GKE.
+PROJECT_ID="my-gcp-project-id" ./hack/dev-patch-config-gke.sh my-k8s-cluster-name
+
+# Run post-install job to setup nice XIP.IO domain name.  This only works
+# if your Kubernetes LoadBalancer has an IP address.
+ko delete -f config/post-install --ignore-not-found
+ko apply -f config/post-install
 ```
 
 The above step is equivalent to applying the `serving.yaml` for released

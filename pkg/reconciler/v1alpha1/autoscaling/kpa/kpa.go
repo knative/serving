@@ -52,22 +52,22 @@ const (
 	controllerAgentName = "kpa-class-podautoscaler-controller"
 )
 
-// KPAMetrics is an interface for notifying the presence or absence of KPAs.
-type KPAMetrics interface {
-	// Get accesses the Metric resource for this key, returning any errors.
-	Get(ctx context.Context, namespace, name string) (*autoscaler.Metric, error)
+// Deciders is an interface for notifying the presence or absence of KPAs.
+type Deciders interface {
+	// Get accesses the Decider resource for this key, returning any errors.
+	Get(ctx context.Context, namespace, name string) (*autoscaler.Decider, error)
 
-	// Create adds a Metric resource for a given key, returning any errors.
-	Create(ctx context.Context, metric *autoscaler.Metric) (*autoscaler.Metric, error)
+	// Create adds a Decider resource for a given key, returning any errors.
+	Create(ctx context.Context, metric *autoscaler.Decider) (*autoscaler.Decider, error)
 
-	// Delete removes the Metric resource for a given key, returning any errors.
+	// Delete removes the Decider resource for a given key, returning any errors.
 	Delete(ctx context.Context, namespace, name string) error
 
-	// Watch registers a function to call when Metrics change.
+	// Watch registers a function to call when Decider change.
 	Watch(watcher func(string))
 
-	// Update update the Metric resource, return the new Metric or any errors.
-	Update(ctx context.Context, metric *autoscaler.Metric) (*autoscaler.Metric, error)
+	// Update update the Decider resource, return the new Decider or any errors.
+	Update(ctx context.Context, metric *autoscaler.Decider) (*autoscaler.Decider, error)
 }
 
 // KPAScaler knows how to scale the targets of KPA-Class PodAutoscalers.
@@ -80,13 +80,13 @@ type KPAScaler interface {
 }
 
 // Reconciler tracks PAs and right sizes the ScaleTargetRef based on the
-// information from KPAMetrics.
+// information from Deciders.
 type Reconciler struct {
 	*reconciler.Base
 	paLister        listers.PodAutoscalerLister
 	serviceLister   corev1listers.ServiceLister
 	endpointsLister corev1listers.EndpointsLister
-	kpaMetrics      KPAMetrics
+	kpaDeciders     Deciders
 	kpaScaler       KPAScaler
 	dynConfig       *autoscaler.DynamicConfig
 }
@@ -100,7 +100,7 @@ func NewController(
 	paInformer informers.PodAutoscalerInformer,
 	serviceInformer corev1informers.ServiceInformer,
 	endpointsInformer corev1informers.EndpointsInformer,
-	kpaMetrics KPAMetrics,
+	kpaDeciders Deciders,
 	kpaScaler KPAScaler,
 	dynConfig *autoscaler.DynamicConfig,
 ) *controller.Impl {
@@ -110,7 +110,7 @@ func NewController(
 		paLister:        paInformer.Lister(),
 		serviceLister:   serviceInformer.Lister(),
 		endpointsLister: endpointsInformer.Lister(),
-		kpaMetrics:      kpaMetrics,
+		kpaDeciders:     kpaDeciders,
 		kpaScaler:       kpaScaler,
 		dynConfig:       dynConfig,
 	}
@@ -133,13 +133,12 @@ func NewController(
 		Handler:    reconciler.Handler(impl.EnqueueControllerOf),
 	})
 
-	// Have the KPAMetrics enqueue the PAs whose metrics have changed.
-	kpaMetrics.Watch(impl.EnqueueKey)
-
+	// Have the Deciders enqueue the PAs whose decisions have changed.
+	kpaDeciders.Watch(impl.EnqueueKey)
 	return impl
 }
 
-// Reconcile right sizes PA ScaleTargetRefs based on the state of metrics in KPAMetrics.
+// Reconcile right sizes PA ScaleTargetRefs based on the state of decisions in Deciders.
 func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 	namespace, name, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
@@ -152,7 +151,7 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 	original, err := c.paLister.PodAutoscalers(namespace).Get(name)
 	if errors.IsNotFound(err) {
 		logger.Debug("PA no longer exists")
-		return c.kpaMetrics.Delete(ctx, namespace, name)
+		return c.kpaDeciders.Delete(ctx, namespace, name)
 	} else if err != nil {
 		return err
 	}
@@ -205,10 +204,10 @@ func (c *Reconciler) reconcile(ctx context.Context, pa *pav1alpha1.PodAutoscaler
 		return perrors.Wrap(err, "Error reconciling metrics service")
 	}
 
-	desiredMetric := resources.MakeMetric(ctx, pa, c.dynConfig.Current())
-	metric, err := c.kpaMetrics.Get(ctx, desiredMetric.Namespace, desiredMetric.Name)
+	desiredDecider := resources.MakeDecider(ctx, pa, c.dynConfig.Current())
+	decider, err := c.kpaDeciders.Get(ctx, desiredDecider.Namespace, desiredDecider.Name)
 	if errors.IsNotFound(err) {
-		metric, err = c.kpaMetrics.Create(ctx, desiredMetric)
+		decider, err = c.kpaDeciders.Create(ctx, desiredDecider)
 		if err != nil {
 			logger.Errorf("Error creating Metric: %v", err)
 			return err
@@ -219,9 +218,9 @@ func (c *Reconciler) reconcile(ctx context.Context, pa *pav1alpha1.PodAutoscaler
 	}
 
 	// Ignore status when reconciling
-	desiredMetric.Status = metric.Status
-	if !equality.Semantic.DeepEqual(desiredMetric, metric) {
-		metric, err = c.kpaMetrics.Update(ctx, desiredMetric)
+	desiredDecider.Status = decider.Status
+	if !equality.Semantic.DeepEqual(desiredDecider, decider) {
+		decider, err = c.kpaDeciders.Update(ctx, desiredDecider)
 		if err != nil {
 			logger.Errorf("Error update Metric: %v", err)
 			return err
@@ -230,7 +229,7 @@ func (c *Reconciler) reconcile(ctx context.Context, pa *pav1alpha1.PodAutoscaler
 
 	// Get the appropriate current scale from the metric, and right size
 	// the scaleTargetRef based on it.
-	want, err := c.kpaScaler.Scale(ctx, pa, metric.Status.DesiredScale)
+	want, err := c.kpaScaler.Scale(ctx, pa, decider.Status.DesiredScale)
 	if err != nil {
 		logger.Errorf("Error scaling target: %v", err)
 		return err

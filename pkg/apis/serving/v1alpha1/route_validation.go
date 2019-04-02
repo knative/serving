@@ -108,5 +108,8 @@ func (tt *TrafficTarget) Validate(ctx context.Context) *apis.FieldError {
 	if tt.Percent < 0 || tt.Percent > 100 {
 		errs = errs.Also(apis.ErrOutOfBoundsValue(strconv.Itoa(tt.Percent), "0", "100", "percent"))
 	}
+	if tt.URL != "" {
+		errs = errs.Also(apis.ErrDisallowedFields("url"))
+	}
 	return errs
 }

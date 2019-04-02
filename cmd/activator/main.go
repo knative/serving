@@ -54,6 +54,7 @@ import (
 	"github.com/knative/serving/pkg/utils"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/util/wait"
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
@@ -145,8 +146,14 @@ func main() {
 		logger.Fatalw("Error building serving clientset", zap.Error(err))
 	}
 
-	if err := version.CheckMinimumVersion(kubeClient.Discovery()); err != nil {
-		logger.Fatalf("Version check failed: %v", err)
+	// We sometimes startup faster than we can reach kube-api. Poll on failure to prevent us terminating
+	if perr := wait.PollImmediate(time.Second, 60*time.Second, func() (bool, error) {
+		if err = version.CheckMinimumVersion(kubeClient.Discovery()); err != nil {
+			logger.Errorw("Failed to get k8s version", zap.Error(err))
+		}
+		return err == nil, nil
+	}); perr != nil {
+		logger.Fatalw("Timed out attempting to get k8s version", zap.Error(err))
 	}
 
 	reporter, err := activator.NewStatsReporter()

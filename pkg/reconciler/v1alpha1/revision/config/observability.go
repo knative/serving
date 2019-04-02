@@ -52,6 +52,10 @@ type Observability struct {
 
 	// RequestLogTemplate is the go template to use to shape the request logs.
 	RequestLogTemplate string
+
+	// RequestMetricsBackend specifies the request metrics destination, e.g. Prometheus,
+	// Stackdriver.
+	RequestMetricsBackend string
 }
 
 // NewObservabilityFromConfigMap creates a Observability from the supplied ConfigMap
@@ -82,6 +86,10 @@ func NewObservabilityFromConfigMap(configMap *corev1.ConfigMap) (*Observability,
 			return nil, err
 		}
 		oc.RequestLogTemplate = rlt
+	}
+
+	if mb, ok := configMap.Data["metrics.request-metrics-backend-destination"]; ok {
+		oc.RequestMetricsBackend = mb
 	}
 
 	return oc, nil

@@ -255,8 +255,8 @@ func TestMetricsSvcIsReconciled(t *testing.T) {
 
 			// This makes controller reconcile synchronously.
 			dynConf := newDynamicConfig(t)
-			fakeMetrics := newTestKPAMetrics(createdCh, stopCh)
-			fakeMetrics.Create(context.Background(), resources.MakeMetric(context.Background(), kpa, dynConf.Current()))
+			fakeMetrics := newTestDeciders(createdCh, stopCh)
+			fakeMetrics.Create(context.Background(), resources.MakeDecider(context.Background(), kpa, dynConf.Current()))
 			ctl := NewController(&opts,
 				servingInformer.Autoscaling().V1alpha1().PodAutoscalers(),
 				kubeInformer.Core().V1().Services(),
@@ -355,7 +355,7 @@ func TestControllerSynchronizesCreatesAndDeletes(t *testing.T) {
 	scaleClient := &scalefake.FakeScaleClient{}
 	kpaScaler := NewKPAScaler(servingClient, scaleClient, TestLogger(t), newConfigWatcher())
 
-	fakeMetrics := newTestKPAMetrics(createdCh, stopCh)
+	fakeMetrics := newTestDeciders(createdCh, stopCh)
 	ctl := NewController(&opts,
 		servingInformer.Autoscaling().V1alpha1().PodAutoscalers(),
 		kubeInformer.Core().V1().Services(),
@@ -448,7 +448,7 @@ func TestUpdate(t *testing.T) {
 	scaleClient := &scalefake.FakeScaleClient{}
 	kpaScaler := NewKPAScaler(servingClient, scaleClient, TestLogger(t), newConfigWatcher())
 
-	fakeMetrics := newTestKPAMetrics(createdCh, stopCh)
+	fakeMetrics := newTestDeciders(createdCh, stopCh)
 	ctl := NewController(&opts,
 		servingInformer.Autoscaling().V1alpha1().PodAutoscalers(),
 		kubeInformer.Core().V1().Services(),
@@ -538,7 +538,7 @@ func TestNonKPAClass(t *testing.T) {
 	scaleClient := &scalefake.FakeScaleClient{}
 	kpaScaler := NewKPAScaler(servingClient, scaleClient, TestLogger(t), newConfigWatcher())
 
-	fakeMetrics := newTestKPAMetrics(createdCh, stopCh)
+	fakeMetrics := newTestDeciders(createdCh, stopCh)
 	ctl := NewController(&opts,
 		servingInformer.Autoscaling().V1alpha1().PodAutoscalers(),
 		kubeInformer.Core().V1().Services(),
@@ -577,9 +577,9 @@ func TestNonKPAClass(t *testing.T) {
 		t.Fatal("Reconciliation timed out")
 	}
 
-	// Verify no KPAMetrics were created
+	// Verify no Deciders were created
 	if fakeMetrics.createCallCount.Load() != 0 {
-		t.Error("Unexpected KPAMetrics created")
+		t.Error("Unexpected Deciders created")
 	}
 }
 
@@ -603,7 +603,7 @@ func TestNoEndpoints(t *testing.T) {
 	scaleClient := &scalefake.FakeScaleClient{}
 	kpaScaler := NewKPAScaler(servingClient, scaleClient, TestLogger(t), newConfigWatcher())
 
-	fakeMetrics := newTestKPAMetrics(createdCh, stopCh)
+	fakeMetrics := newTestDeciders(createdCh, stopCh)
 	ctl := NewController(&opts,
 		servingInformer.Autoscaling().V1alpha1().PodAutoscalers(),
 		kubeInformer.Core().V1().Services(),
@@ -665,7 +665,7 @@ func TestEmptyEndpoints(t *testing.T) {
 	scaleClient := &scalefake.FakeScaleClient{}
 	kpaScaler := NewKPAScaler(servingClient, scaleClient, TestLogger(t), newConfigWatcher())
 
-	fakeMetrics := newTestKPAMetrics(createdCh, stopCh)
+	fakeMetrics := newTestDeciders(createdCh, stopCh)
 	ctl := NewController(&opts,
 		servingInformer.Autoscaling().V1alpha1().PodAutoscalers(),
 		kubeInformer.Core().V1().Services(),
@@ -729,7 +729,7 @@ func TestControllerCreateError(t *testing.T) {
 		servingInformer.Autoscaling().V1alpha1().PodAutoscalers(),
 		kubeInformer.Core().V1().Services(),
 		kubeInformer.Core().V1().Endpoints(),
-		&failingKPAMetrics{
+		&failingDeciders{
 			getErr:    apierrors.NewNotFound(kpa.Resource("Metrics"), key),
 			createErr: want,
 		},
@@ -769,7 +769,7 @@ func TestControllerUpdateError(t *testing.T) {
 		servingInformer.Autoscaling().V1alpha1().PodAutoscalers(),
 		kubeInformer.Core().V1().Services(),
 		kubeInformer.Core().V1().Endpoints(),
-		&failingKPAMetrics{
+		&failingDeciders{
 			getErr:    apierrors.NewNotFound(kpa.Resource("Metrics"), key),
 			createErr: want,
 		},
@@ -809,7 +809,7 @@ func TestControllerGetError(t *testing.T) {
 		servingInformer.Autoscaling().V1alpha1().PodAutoscalers(),
 		kubeInformer.Core().V1().Services(),
 		kubeInformer.Core().V1().Endpoints(),
-		&failingKPAMetrics{
+		&failingDeciders{
 			getErr: want,
 		},
 		kpaScaler,
@@ -846,7 +846,7 @@ func TestScaleFailure(t *testing.T) {
 	scaleClient := &scalefake.FakeScaleClient{}
 	kpaScaler := NewKPAScaler(servingClient, scaleClient, TestLogger(t), newConfigWatcher())
 
-	fakeMetrics := newTestKPAMetrics(createdCh, stopCh)
+	fakeMetrics := newTestDeciders(createdCh, stopCh)
 	ctl := NewController(&opts,
 		servingInformer.Autoscaling().V1alpha1().PodAutoscalers(),
 		kubeInformer.Core().V1().Services(),
@@ -897,7 +897,7 @@ func TestBadKey(t *testing.T) {
 		servingInformer.Autoscaling().V1alpha1().PodAutoscalers(),
 		kubeInformer.Core().V1().Services(),
 		kubeInformer.Core().V1().Endpoints(),
-		&failingKPAMetrics{},
+		&failingDeciders{},
 		kpaScaler,
 		newDynamicConfig(t),
 	)
@@ -908,8 +908,8 @@ func TestBadKey(t *testing.T) {
 	}
 }
 
-func newTestKPAMetrics(createdCh chan struct{}, stopCh chan struct{}) *testKPAMetrics {
-	return &testKPAMetrics{
+func newTestDeciders(createdCh chan struct{}, stopCh chan struct{}) *testDeciders {
+	return &testDeciders{
 		createCallCount:    atomic.NewUint32(0),
 		deleteCallCount:    atomic.NewUint32(0),
 		updateCallCount:    atomic.NewUint32(0),
@@ -919,32 +919,32 @@ func newTestKPAMetrics(createdCh chan struct{}, stopCh chan struct{}) *testKPAMe
 	}
 }
 
-type testKPAMetrics struct {
+type testDeciders struct {
 	createCallCount    *atomic.Uint32
 	deleteCallCount    *atomic.Uint32
 	updateCallCount    *atomic.Uint32
 	deleteBeforeCreate *atomic.Bool
 	createdCh          chan struct{}
 	stopCh             chan struct{}
-	metric             *autoscaler.Metric
+	decider            *autoscaler.Decider
 }
 
-func (km *testKPAMetrics) Get(ctx context.Context, namespace, name string) (*autoscaler.Metric, error) {
-	if km.metric == nil {
+func (km *testDeciders) Get(ctx context.Context, namespace, name string) (*autoscaler.Decider, error) {
+	if km.decider == nil {
 		return nil, apierrors.NewNotFound(kpa.Resource("Metrics"), autoscaler.NewMetricKey(namespace, name))
 	}
-	return km.metric, nil
+	return km.decider, nil
 }
 
-func (km *testKPAMetrics) Create(ctx context.Context, metric *autoscaler.Metric) (*autoscaler.Metric, error) {
-	km.metric = metric
+func (km *testDeciders) Create(ctx context.Context, desider *autoscaler.Decider) (*autoscaler.Decider, error) {
+	km.decider = desider
 	km.createCallCount.Add(1)
 	km.createdCh <- struct{}{}
-	return metric, nil
+	return desider, nil
 }
 
-func (km *testKPAMetrics) Delete(ctx context.Context, namespace, name string) error {
-	km.metric = nil
+func (km *testDeciders) Delete(ctx context.Context, namespace, name string) error {
+	km.decider = nil
 	km.deleteCallCount.Add(1)
 	if km.createCallCount.Load() > 0 {
 		// OnAbsent may be called more than once
@@ -957,37 +957,37 @@ func (km *testKPAMetrics) Delete(ctx context.Context, namespace, name string) er
 	return nil
 }
 
-func (km *testKPAMetrics) Update(ctx context.Context, metric *autoscaler.Metric) (*autoscaler.Metric, error) {
-	km.metric = metric
+func (km *testDeciders) Update(ctx context.Context, decider *autoscaler.Decider) (*autoscaler.Decider, error) {
+	km.decider = decider
 	km.updateCallCount.Add(1)
-	return metric, nil
+	return decider, nil
 }
 
-func (km *testKPAMetrics) Watch(fn func(string)) {
+func (km *testDeciders) Watch(fn func(string)) {
 }
 
-type failingKPAMetrics struct {
+type failingDeciders struct {
 	getErr    error
 	createErr error
 	deleteErr error
 }
 
-func (km *failingKPAMetrics) Get(ctx context.Context, namespace, name string) (*autoscaler.Metric, error) {
+func (km *failingDeciders) Get(ctx context.Context, namespace, name string) (*autoscaler.Decider, error) {
 	return nil, km.getErr
 }
 
-func (km *failingKPAMetrics) Create(ctx context.Context, metric *autoscaler.Metric) (*autoscaler.Metric, error) {
+func (km *failingDeciders) Create(ctx context.Context, metric *autoscaler.Decider) (*autoscaler.Decider, error) {
 	return nil, km.createErr
 }
 
-func (km *failingKPAMetrics) Delete(ctx context.Context, namespace, name string) error {
+func (km *failingDeciders) Delete(ctx context.Context, namespace, name string) error {
 	return km.deleteErr
 }
 
-func (km *failingKPAMetrics) Watch(fn func(string)) {
+func (km *failingDeciders) Watch(fn func(string)) {
 }
 
-func (km *failingKPAMetrics) Update(ctx context.Context, metric *autoscaler.Metric) (*autoscaler.Metric, error) {
+func (km *failingDeciders) Update(ctx context.Context, metric *autoscaler.Decider) (*autoscaler.Decider, error) {
 	return metric, nil
 }
 

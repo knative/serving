@@ -179,35 +179,35 @@ func scalerConfig(logger *zap.SugaredLogger) *autoscaler.DynamicConfig {
 	return dynConfig
 }
 
-func uniScalerFactoryFunc(endpointsInformer corev1informers.EndpointsInformer) func(metric *autoscaler.Metric, dynamicConfig *autoscaler.DynamicConfig) (autoscaler.UniScaler, error) {
-	return func(metric *autoscaler.Metric, dynamicConfig *autoscaler.DynamicConfig) (autoscaler.UniScaler, error) {
+func uniScalerFactoryFunc(endpointsInformer corev1informers.EndpointsInformer) func(decider *autoscaler.Decider, dynamicConfig *autoscaler.DynamicConfig) (autoscaler.UniScaler, error) {
+	return func(decider *autoscaler.Decider, dynamicConfig *autoscaler.DynamicConfig) (autoscaler.UniScaler, error) {
 		// Create a stats reporter which tags statistics by PA namespace, configuration name, and PA name.
-		reporter, err := autoscaler.NewStatsReporter(metric.Namespace,
-			labelValueOrEmpty(metric, serving.ServiceLabelKey), labelValueOrEmpty(metric, serving.ConfigurationLabelKey), metric.Name)
+		reporter, err := autoscaler.NewStatsReporter(decider.Namespace,
+			labelValueOrEmpty(decider, serving.ServiceLabelKey), labelValueOrEmpty(decider, serving.ConfigurationLabelKey), decider.Name)
 		if err != nil {
 			return nil, err
 		}
 
-		revName := metric.Labels[serving.RevisionLabelKey]
+		revName := decider.Labels[serving.RevisionLabelKey]
 		if revName == "" {
-			return nil, fmt.Errorf("no Revision label found in Metric: %v", metric)
+			return nil, fmt.Errorf("no Revision label found in Decider: %v", decider)
 		}
 
-		return autoscaler.New(dynamicConfig, metric.Namespace,
+		return autoscaler.New(dynamicConfig, decider.Namespace,
 			reconciler.GetServingK8SServiceNameForObj(revName), endpointsInformer,
-			metric.Spec.TargetConcurrency, reporter)
+			decider.Spec.TargetConcurrency, reporter)
 	}
 }
 
-func statsScraperFactoryFunc(endpointsLister corev1listers.EndpointsLister) func(metric *autoscaler.Metric) (autoscaler.StatsScraper, error) {
-	return func(metric *autoscaler.Metric) (autoscaler.StatsScraper, error) {
-		return autoscaler.NewServiceScraper(metric, endpointsLister)
+func statsScraperFactoryFunc(endpointsLister corev1listers.EndpointsLister) func(decider *autoscaler.Decider) (autoscaler.StatsScraper, error) {
+	return func(decider *autoscaler.Decider) (autoscaler.StatsScraper, error) {
+		return autoscaler.NewServiceScraper(decider, endpointsLister)
 	}
 }
 
-func labelValueOrEmpty(metric *autoscaler.Metric, labelKey string) string {
-	if metric.Labels != nil {
-		if value, ok := metric.Labels[labelKey]; ok {
+func labelValueOrEmpty(decider *autoscaler.Decider, labelKey string) string {
+	if decider.Labels != nil {
+		if value, ok := decider.Labels[labelKey]; ok {
 			return value
 		}
 	}

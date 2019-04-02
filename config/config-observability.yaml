@@ -133,6 +133,11 @@ data:
     # Note: Using stackdriver will incur additional charges
     metrics.backend-destination: prometheus
 
+    # metrics.request-metrics-backend-destination specifies the request metrics
+    # destination. If non-empty, it enables queue proxy to send request metrics.
+    # Currently supported values: prometheus, stackdriver.
+    metrics.request-metrics-backend-destination: prometheus
+
     # metrics.stackdriver-project-id field specifies the stackdriver project ID. This
     # field is optional. When running on GCE, application default credentials will be
     # used if this field is not provided.
@@ -143,4 +148,4 @@ data:
     # metrics are not supported by "knative_revision" resource type. Setting this
     # flag to "true" could cause extra Stackdriver charge.
     # If metrics.backend-destination is not Stackdriver, this is ignored.
-    metrics.allow-stackdriver-custom-metrics: false
+    metrics.allow-stackdriver-custom-metrics: "false"

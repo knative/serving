@@ -31,10 +31,6 @@ import (
 )
 
 const (
-	// ActivatorPodName defines the pod name of the activator
-	// as defined in the metrics it sends.
-	ActivatorPodName string = "activator"
-
 	// bucketSize is the size of the buckets of stats we create.
 	bucketSize time.Duration = 2 * time.Second
 )
@@ -139,8 +135,8 @@ func New(
 	}, nil
 }
 
-// Update reconfigures the UniScaler according to the MetricSpec.
-func (a *Autoscaler) Update(spec MetricSpec) error {
+// Update reconfigures the UniScaler according to the DeciderSpec.
+func (a *Autoscaler) Update(spec DeciderSpec) error {
 	a.targetMutex.Lock()
 	defer a.targetMutex.Unlock()
 	a.target = spec.TargetConcurrency
