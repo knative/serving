@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/knative/pkg/apis"
 	"github.com/knative/pkg/apis/duck"
 	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 	"github.com/knative/serving/pkg/apis/autoscaling"
@@ -742,19 +741,6 @@ func WithFailedBuild(reason, message string) RevisionOption {
 			}},
 		})
 	}
-}
-
-// WithEmptyLTTs clears the LastTransitionTime fields on all of the conditions of the
-// provided Revision.
-func WithEmptyLTTs(r *v1alpha1.Revision) {
-	conds := r.Status.Conditions
-	for i, c := range conds {
-		// The LTT defaults and is long enough ago that we expire waiting
-		// on the Endpoints to become ready.
-		c.LastTransitionTime = apis.VolatileTime{}
-		conds[i] = c
-	}
-	r.Status.Conditions = conds
 }
 
 // WithLastPinned updates the "last pinned" annotation to the provided timestamp.
