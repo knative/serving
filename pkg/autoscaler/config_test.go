@@ -77,6 +77,7 @@ func TestNewConfig(t *testing.T) {
 			"stable-window":                           "5m",
 			"panic-window":                            "10s",
 			"tick-interval":                           "2s",
+			"keep-alive-times":                        "2",
 		},
 		want: &Config{
 			EnableScaleToZero:                    true,
@@ -87,6 +88,7 @@ func TestNewConfig(t *testing.T) {
 			PanicWindow:                          10 * time.Second,
 			ScaleToZeroGracePeriod:               30 * time.Second,
 			TickInterval:                         2 * time.Second,
+			KeepAliveTimes:                       2,
 		},
 	}, {
 		name: "with toggles on",
@@ -98,6 +100,7 @@ func TestNewConfig(t *testing.T) {
 			"stable-window":                           "5m",
 			"panic-window":                            "10s",
 			"tick-interval":                           "2s",
+			"keep-alive-times":                        "2",
 		},
 		want: &Config{
 			EnableScaleToZero:                    true,
@@ -108,6 +111,7 @@ func TestNewConfig(t *testing.T) {
 			PanicWindow:                          10 * time.Second,
 			ScaleToZeroGracePeriod:               30 * time.Second,
 			TickInterval:                         2 * time.Second,
+			KeepAliveTimes:                       2,
 		},
 	}, {
 		name: "with toggles on strange casing",
@@ -119,6 +123,7 @@ func TestNewConfig(t *testing.T) {
 			"stable-window":                           "5m",
 			"panic-window":                            "10s",
 			"tick-interval":                           "2s",
+			"keep-alive-times":                        "2",
 		},
 		want: &Config{
 			EnableScaleToZero:                    true,
@@ -129,6 +134,7 @@ func TestNewConfig(t *testing.T) {
 			PanicWindow:                          10 * time.Second,
 			ScaleToZeroGracePeriod:               30 * time.Second,
 			TickInterval:                         2 * time.Second,
+			KeepAliveTimes:                       2,
 		},
 	}, {
 		name: "with toggles explicitly off",
@@ -140,6 +146,7 @@ func TestNewConfig(t *testing.T) {
 			"stable-window":                           "5m",
 			"panic-window":                            "10s",
 			"tick-interval":                           "2s",
+			"keep-alive-times":                        "2",
 		},
 		want: &Config{
 			ContainerConcurrencyTargetPercentage: 0.5,
@@ -149,6 +156,7 @@ func TestNewConfig(t *testing.T) {
 			PanicWindow:                          10 * time.Second,
 			ScaleToZeroGracePeriod:               30 * time.Second,
 			TickInterval:                         2 * time.Second,
+			KeepAliveTimes:                       2,
 		},
 	}, {
 		name: "with explicit grace period",
@@ -161,6 +169,7 @@ func TestNewConfig(t *testing.T) {
 			"panic-window":                            "10s",
 			"scale-to-zero-grace-period":              "30s",
 			"tick-interval":                           "2s",
+			"keep-alive-times":                        "2",
 		},
 		want: &Config{
 			ContainerConcurrencyTargetPercentage: 0.5,
@@ -170,6 +179,7 @@ func TestNewConfig(t *testing.T) {
 			PanicWindow:                          10 * time.Second,
 			ScaleToZeroGracePeriod:               30 * time.Second,
 			TickInterval:                         2 * time.Second,
+			KeepAliveTimes:                       2,
 		},
 	}, {
 		name: "malformed float",
@@ -180,6 +190,7 @@ func TestNewConfig(t *testing.T) {
 			"stable-window":                           "5m",
 			"panic-window":                            "10s",
 			"tick-interval":                           "2s",
+			"keep-alive-times":                        "2",
 		},
 		wantErr: true,
 	}, {
@@ -191,6 +202,19 @@ func TestNewConfig(t *testing.T) {
 			"stable-window":                           "not a duration",
 			"panic-window":                            "10s",
 			"tick-interval":                           "2s",
+			"keep-alive-times":                        "2",
+		},
+		wantErr: true,
+	}, {
+		name: "malformed int",
+		input: map[string]string{
+			"max-scale-up-rate":                       "1.0",
+			"container-concurrency-target-percentage": "0.5",
+			"container-concurrency-target-default":    "10.0",
+			"stable-window":                           "5m",
+			"panic-window":                            "10s",
+			"tick-interval":                           "2s",
+			"keep-alive-times":                        "a0.2s",
 		},
 		wantErr: true,
 	}}

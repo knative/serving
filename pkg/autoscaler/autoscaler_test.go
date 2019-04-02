@@ -42,7 +42,11 @@ var (
 )
 
 func TestNew_ErrorWhenGivenEmptyInterface(t *testing.T) {
-	dynConfig := &DynamicConfig{}
+	dynConfig := &DynamicConfig{
+		config: &Config{
+			KeepAliveTimes: 2,
+		},
+	}
 	var endpointsInformer corev1informers.EndpointsInformer
 
 	_, err := New(dynConfig, testNamespace, testService, endpointsInformer, 10, &mockReporter{})
@@ -65,13 +69,14 @@ func TestAutoscaler_NoDataAtZero_NoAutoscale(t *testing.T) {
 		linearSeries{
 			startConcurrency: 0,
 			endConcurrency:   0,
-			duration:         stableWindow,
+			duration:         DefaultKeepAliveTimes * stableWindow,
 			podCount:         1,
 		})
 
-	a.expectScale(t, now, 0, true)
-	now = now.Add(2 * time.Minute)
-	a.expectScale(t, now, 0, false) // do nothing
+	for i := -(DefaultKeepAliveTimes*stableWindow - time.Second); i <= 0; i += time.Second {
+		a.expectScale(t, now.Add(i), 1, true)
+	}
+	a.expectScale(t, now.Add(stableWindow), 0, false) // do nothing
 }
 
 func TestAutoscaler_StableMode_NoChange(t *testing.T) {
@@ -149,14 +154,16 @@ func TestAutoscaler_StableModeNoTraffic_ScaleToZero(t *testing.T) {
 		linearSeries{
 			startConcurrency: 0,
 			endConcurrency:   0,
-			duration:         stableWindow + bucketSize,
+			duration:         (DefaultKeepAliveTimes+1)*stableWindow + bucketSize,
 			podCount:         1,
 		})
+	a.expectScale(t, now.Add(-DefaultKeepAliveTimes*stableWindow), 1, true)
+	a.expectScale(t, now.Add(-stableWindow), 1, true)
 	a.expectScale(t, now, 0, true)
 
-	// Should not scale to zero again if there is no more traffic.
-	// Note: scale of 1 will be ignored since the autoscaler is not responsible for scaling from 0.
-	a.expectScale(t, now, 0, true)
+	//// Should not scale to zero again if there is no more traffic.
+	//// Note: scale of 1 will be ignored since the autoscaler is not responsible for scaling from 0.
+	//a.expectScale(t, now, 0, true)
 }
 
 func TestAutoscaler_StableModeLowTraffic_NoChange(t *testing.T) {
@@ -549,6 +556,7 @@ func newTestAutoscaler(containerConcurrency int) *Autoscaler {
 		MaxScaleUpRate:                       10.0,
 		StableWindow:                         stableWindow,
 		PanicWindow:                          panicWindow,
+		KeepAliveTimes:                       2,
 		ScaleToZeroGracePeriod:               scaleToZeroGracePeriod,
 	}
 

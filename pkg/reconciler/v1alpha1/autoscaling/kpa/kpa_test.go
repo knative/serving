@@ -402,15 +402,6 @@ func TestControllerSynchronizesCreatesAndDeletes(t *testing.T) {
 		t.Fatalf("Create called %d times instead of once", count)
 	}
 
-	newKPA, err := servingClient.AutoscalingV1alpha1().PodAutoscalers(kpa.Namespace).Get(
-		kpa.Name, metav1.GetOptions{})
-	if err != nil {
-		t.Errorf("Get() = %v", err)
-	}
-	if cond := newKPA.Status.GetCondition("Ready"); cond == nil || cond.Status != "True" {
-		t.Errorf("GetCondition(Ready) = %v, wanted True", cond)
-	}
-
 	servingClient.ServingV1alpha1().Revisions(testNamespace).Delete(testRevision, nil)
 	servingInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Delete(rev)
 	servingClient.AutoscalingV1alpha1().PodAutoscalers(testNamespace).Delete(testRevision, nil)
@@ -493,15 +484,6 @@ func TestUpdate(t *testing.T) {
 
 	if count := fakeMetrics.createCallCount.Load(); count != 1 {
 		t.Fatalf("Create called %d times instead of once", count)
-	}
-
-	newKPA, err := servingClient.AutoscalingV1alpha1().PodAutoscalers(kpa.Namespace).Get(
-		kpa.Name, metav1.GetOptions{})
-	if err != nil {
-		t.Errorf("Get() = %v", err)
-	}
-	if cond := newKPA.Status.GetCondition("Ready"); cond == nil || cond.Status != "True" {
-		t.Errorf("GetCondition(Ready) = %v, wanted True", cond)
 	}
 
 	// Update the KPA container concurrency.

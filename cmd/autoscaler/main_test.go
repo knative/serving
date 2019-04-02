@@ -18,6 +18,8 @@ package main
 import (
 	"testing"
 
+	"go.uber.org/zap"
+
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/autoscaler"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -39,7 +41,9 @@ func TestUniScalerFactoryFunc(t *testing.T) {
 			Labels:    map[string]string{serving.RevisionLabelKey: testRevision},
 		},
 	}
-	dynamicConfig := &autoscaler.DynamicConfig{}
+	dynamicConfig := autoscaler.NewDynamicConfig(&autoscaler.Config{
+		KeepAliveTimes: 2,
+	}, zap.NewNop().Sugar())
 
 	if _, err := uniScalerFactory(metric, dynamicConfig); err != nil {
 		t.Errorf("got error from uniScalerFactory: %v", err)

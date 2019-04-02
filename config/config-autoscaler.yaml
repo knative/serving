@@ -80,6 +80,10 @@ data:
 
     # Dynamic parameters (take effect when config map is updated):
 
+    # Keep alive times is the count that will keep for keep-alive-times * stalbe-window
+    # before it is scaled to zero
+    keep-alive-times: 2
+
     # Scale to zero grace period is the time an inactive revision is left
     # running before it is scaled to zero (min: 30s).
     scale-to-zero-grace-period: "30s"

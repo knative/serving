@@ -33,6 +33,7 @@ const (
 	// Default values for several key autoscaler settings.
 	DefaultStableWindow           = 60 * time.Second
 	DefaultScaleToZeroGracePeriod = 30 * time.Second
+	DefaultKeepAliveTimes         = 2
 )
 
 // Config defines the tunable autoscaler parameters
@@ -51,6 +52,7 @@ type Config struct {
 	PanicWindow    time.Duration
 	TickInterval   time.Duration
 
+	KeepAliveTimes         int
 	ScaleToZeroGracePeriod time.Duration
 }
 
@@ -81,6 +83,25 @@ func NewConfigFromMap(data map[string]string) (*Config, error) {
 			*b.field = b.defaultValue
 		} else {
 			*b.field = strings.ToLower(raw) == "true"
+		}
+	}
+
+	// Process Int64 fields
+	for _, i := range []struct {
+		key          string
+		field        *int
+		defaultValue int
+	}{{
+		key:          "keep-alive-times",
+		field:        &lc.KeepAliveTimes,
+		defaultValue: DefaultKeepAliveTimes,
+	}} {
+		if raw, ok := data[i.key]; !ok {
+			*i.field = i.defaultValue
+		} else if val, err := strconv.Atoi(raw); err != nil {
+			return nil, err
+		} else {
+			*i.field = val
 		}
 	}
 

@@ -124,7 +124,7 @@ func New(
 	target float64,
 	reporter StatsReporter) (*Autoscaler, error) {
 	if endpointsInformer == nil {
-		return nil, errors.New("'endpointsEnformer' must not be nil")
+		return nil, errors.New("'endpointsInformer' must not be nil")
 	}
 	return &Autoscaler{
 		DynamicConfig:   dynamicConfig,
@@ -135,7 +135,7 @@ func New(
 		bucketed:        make(map[time.Time]statsBucket),
 		reporter:        reporter,
 		keepAliveTicked: time.Now(),
-		keepAliveTimes:  3,
+		keepAliveTimes:  dynamicConfig.Current().KeepAliveTimes,
 	}, nil
 }
 
@@ -196,24 +196,20 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (int32, bool) {
 	desiredStablePodCount := a.podCountLimited(math.Ceil(observedStableConcurrency/target), readyPodsCount)
 	desiredPanicPodCount := a.podCountLimited(math.Ceil(observedPanicConcurrency/target), readyPodsCount)
 
-	//// Do nothing when we have no data.
-	if len(a.bucketed) == 0 {
-		logger.Debug("No data to scale on.")
-		return 0, false
-	}
-
 	if observedStableConcurrency > 0.0 {
-		logger.Infof("reset keepAliveTimes")
-		a.keepAliveTimes = 3
+		logger.Info("Reset keepAliveTimes")
+		a.keepAliveTimes = a.DynamicConfig.Current().KeepAliveTimes
 		a.keepAliveTicked = now
 	} else if a.keepAliveTicked.Add(config.StableWindow).Before(now) {
-		logger.Infof("beat the stat to start a new stable window")
 		a.keepAliveTimes--
 		a.keepAliveTicked = now
+		if a.keepAliveTimes > 0 {
+			logger.Infof("Beat the stat to start the last %d stable window", a.keepAliveTimes)
+		}
 	}
 
 	if observedStableConcurrency == 0.0 && a.keepAliveTimes > 0 {
-		logger.Infof("keep the last pod for %d * stable window time", a.keepAliveTimes)
+		logger.Infof("Keep the last pod for %d * stable window time", a.keepAliveTimes)
 		return 1, true
 	}
 

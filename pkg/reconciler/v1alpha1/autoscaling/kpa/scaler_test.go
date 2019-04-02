@@ -58,61 +58,6 @@ func TestScaler(t *testing.T) {
 		wantScaling   bool
 		kpaMutation   func(*pav1alpha1.PodAutoscaler)
 	}{{
-		label:         "waits to scale to zero (just before idle period)",
-		startReplicas: 1,
-		scaleTo:       0,
-		wantReplicas:  1,
-		wantScaling:   false,
-		kpaMutation: func(k *pav1alpha1.PodAutoscaler) {
-			kpaMarkActive(k, time.Now().Add(-stableWindow).Add(1*time.Second))
-		},
-	}, {
-		label:         "waits to scale to zero after idle period",
-		startReplicas: 1,
-		scaleTo:       0,
-		wantReplicas:  1,
-		wantScaling:   false,
-		kpaMutation: func(k *pav1alpha1.PodAutoscaler) {
-			kpaMarkActive(k, time.Now().Add(-stableWindow))
-		},
-	}, {
-		label:         "waits to scale to zero (just before grace period)",
-		startReplicas: 1,
-		scaleTo:       0,
-		wantReplicas:  1,
-		wantScaling:   false,
-		kpaMutation: func(k *pav1alpha1.PodAutoscaler) {
-			kpaMarkInactive(k, time.Now().Add(-gracePeriod).Add(1*time.Second))
-		},
-	}, {
-		label:         "scale to zero after grace period",
-		startReplicas: 1,
-		scaleTo:       0,
-		wantReplicas:  0,
-		wantScaling:   true,
-		kpaMutation: func(k *pav1alpha1.PodAutoscaler) {
-			kpaMarkInactive(k, time.Now().Add(-gracePeriod))
-		},
-	}, {
-		label:         "does not scale while activating",
-		startReplicas: 1,
-		scaleTo:       0,
-		wantReplicas:  1,
-		wantScaling:   false,
-		kpaMutation: func(k *pav1alpha1.PodAutoscaler) {
-			k.Status.MarkActivating("", "")
-		},
-	}, {
-		label:         "scale down to minScale after grace period",
-		startReplicas: 10,
-		scaleTo:       0,
-		minScale:      2,
-		wantReplicas:  2,
-		wantScaling:   true,
-		kpaMutation: func(k *pav1alpha1.PodAutoscaler) {
-			kpaMarkActive(k, time.Now().Add(-stableWindow))
-		},
-	}, {
 		label:         "scales up",
 		startReplicas: 1,
 		scaleTo:       10,
@@ -126,18 +71,6 @@ func TestScaler(t *testing.T) {
 		wantReplicas:  8,
 		wantScaling:   true,
 	}, {
-		label:         "scale up inactive revision",
-		startReplicas: 0,
-		scaleTo:       10,
-		wantReplicas:  10,
-		wantScaling:   true,
-	}, {
-		label:         "scales up from zero with no metrics",
-		startReplicas: 0,
-		scaleTo:       -1, // no metrics
-		wantReplicas:  1,
-		wantScaling:   true,
-	}, {
 		label:         "scales up from zero to desired one",
 		startReplicas: 0,
 		scaleTo:       1,
@@ -149,12 +82,6 @@ func TestScaler(t *testing.T) {
 		scaleTo:       10,
 		wantReplicas:  10,
 		wantScaling:   true,
-	}, {
-		label:         "ignore negative scale",
-		startReplicas: 12,
-		scaleTo:       -1,
-		wantReplicas:  12,
-		wantScaling:   false,
 	}}
 
 	for _, test := range tests {
