@@ -21,10 +21,13 @@ import (
 
 	caching "github.com/knative/caching/pkg/apis/caching/v1alpha1"
 	"github.com/knative/pkg/kmeta"
+	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources/names"
+	"github.com/knative/serving/pkg/utils"
 )
 
+// MakeImageCache makes an caching.Image resources from a revision.
 func MakeImageCache(rev *v1alpha1.Revision) *caching.Image {
 	image := rev.Status.ImageDigest
 	if image == "" {
@@ -33,10 +36,12 @@ func MakeImageCache(rev *v1alpha1.Revision) *caching.Image {
 
 	img := &caching.Image{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:            names.ImageCache(rev),
-			Namespace:       rev.Namespace,
-			Labels:          makeLabels(rev),
-			Annotations:     makeAnnotations(rev),
+			Name:      names.ImageCache(rev),
+			Namespace: rev.Namespace,
+			Labels:    makeLabels(rev),
+			Annotations: utils.MakeAnnotations(rev, func(k string) bool {
+				return k == serving.RevisionLastPinnedAnnotationKey
+			}),
 			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(rev)},
 		},
 		Spec: caching.ImageSpec{

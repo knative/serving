@@ -20,34 +20,14 @@ import (
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	sv1a1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/autoscaling/kpa/resources/names"
+	"github.com/knative/serving/pkg/utils"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
-const (
-	kpaLabelKey = autoscaling.GroupName + "/kpa"
-)
-
-// makeLabels propagates labels from parent resources and adds a KPA label.
-func makeLabels(pa *pav1alpha1.PodAutoscaler) map[string]string {
-	labels := make(map[string]string, len(pa.ObjectMeta.Labels)+1)
-	for k, v := range pa.ObjectMeta.Labels {
-		labels[k] = v
-	}
-	labels[kpaLabelKey] = pa.Name
-	return labels
-}
-
-// makeAnnotations propagates annotations from the parent resource.
-func makeAnnotations(pa *pav1alpha1.PodAutoscaler) map[string]string {
-	annotations := make(map[string]string, len(pa.ObjectMeta.Annotations))
-	for k, v := range pa.ObjectMeta.Annotations {
-		annotations[k] = v
-	}
-	return annotations
-}
+const kpaLabelKey = autoscaling.GroupName + "/kpa"
 
 // MakeMetricsService constructs a service that can be scraped for metrics.
 func MakeMetricsService(pa *pav1alpha1.PodAutoscaler, selector map[string]string) *corev1.Service {
@@ -55,8 +35,8 @@ func MakeMetricsService(pa *pav1alpha1.PodAutoscaler, selector map[string]string
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            names.MetricsServiceName(pa.Name),
 			Namespace:       pa.Namespace,
-			Labels:          makeLabels(pa),
-			Annotations:     makeAnnotations(pa),
+			Labels:          utils.MakeLabels(pa, map[string]string{kpaLabelKey: pa.Name}),
+			Annotations:     utils.MakeAnnotations(pa, nil /*filter*/),
 			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(pa)},
 		},
 		Spec: corev1.ServiceSpec{

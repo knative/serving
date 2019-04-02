@@ -21,12 +21,14 @@ import (
 
 	"github.com/knative/pkg/kmeta"
 	"github.com/knative/pkg/logging"
+	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/autoscaler"
 	"github.com/knative/serving/pkg/network"
 	"github.com/knative/serving/pkg/queue"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/config"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources/names"
+	"github.com/knative/serving/pkg/utils"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -154,11 +156,14 @@ func buildUserPortEnv(userPort string) corev1.EnvVar {
 	}
 }
 
+// MakeDeployment constructs a K8s Deployment resource from a revision.
 func MakeDeployment(rev *v1alpha1.Revision,
 	loggingConfig *logging.Config, networkConfig *network.Config, observabilityConfig *config.Observability,
 	autoscalerConfig *autoscaler.Config, controllerConfig *config.Controller) *appsv1.Deployment {
 
-	podTemplateAnnotations := makeAnnotations(rev)
+	podTemplateAnnotations := utils.MakeAnnotations(rev, func(k string) bool {
+		return k == serving.RevisionLastPinnedAnnotationKey
+	})
 	// TODO(nghia): Remove the need for this
 	podTemplateAnnotations[sidecarIstioInjectAnnotation] = "true"
 	// TODO(mattmoor): Once we have a mechanism for decorating arbitrary deployments (and opting
@@ -182,10 +187,12 @@ func MakeDeployment(rev *v1alpha1.Revision,
 	one := int32(1)
 	return &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:            names.Deployment(rev),
-			Namespace:       rev.Namespace,
-			Labels:          makeLabels(rev),
-			Annotations:     makeAnnotations(rev),
+			Name:      names.Deployment(rev),
+			Namespace: rev.Namespace,
+			Labels:    makeLabels(rev),
+			Annotations: utils.MakeAnnotations(rev, func(k string) bool {
+				return k == serving.RevisionLastPinnedAnnotationKey
+			}),
 			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(rev)},
 		},
 		Spec: appsv1.DeploymentSpec{
