@@ -70,42 +70,42 @@ func TestNewServiceScraperWithClient_HappyCase(t *testing.T) {
 }
 
 func TestNewServiceScraperWithClient_ErrorCases(t *testing.T) {
-	metric := getTestMetric()
-	invalidMetric := getTestMetric()
-	invalidMetric.Labels = map[string]string{}
+	decider := getTestDecider()
+	invalidDecider := getTestDecider()
+	invalidDecider.Labels = map[string]string{}
 	client := newTestClient(nil, nil)
 	lister := kubeInformer.Core().V1().Endpoints().Lister()
 	testCases := []struct {
 		name        string
-		metric      *Metric
+		decider     *Decider
 		client      *http.Client
 		lister      corev1listers.EndpointsLister
 		expectedErr string
 	}{{
-		name:        "Empty Metric",
+		name:        "Empty Decider",
 		client:      client,
 		lister:      lister,
-		expectedErr: "metric must not be nil",
+		expectedErr: "decider must not be nil",
 	}, {
-		name:        "Missing revision label in Metric",
-		metric:      &invalidMetric,
+		name:        "Missing revision label in Decider",
+		decider:     &invalidDecider,
 		client:      client,
 		lister:      lister,
-		expectedErr: "no Revision label found for Metric test-revision",
+		expectedErr: "no Revision label found for Decider test-revision",
 	}, {
 		name:        "Empty HTTP client",
-		metric:      &metric,
+		decider:     &decider,
 		lister:      lister,
 		expectedErr: "HTTP client must not be nil",
 	}, {
 		name:        "Empty lister",
-		metric:      &metric,
+		decider:     &decider,
 		client:      client,
 		expectedErr: "endpoints lister must not be nil",
 	}}
 
 	for _, test := range testCases {
-		if _, err := newServiceScraperWithClient(test.metric, test.lister, test.client); err != nil {
+		if _, err := newServiceScraperWithClient(test.decider, test.lister, test.client); err != nil {
 			got := err.Error()
 			want := test.expectedErr
 			if got != want {
@@ -259,12 +259,12 @@ func TestScrape_DoNotScrapeIfNoPodsFound(t *testing.T) {
 }
 
 func serviceScraperForTest(httpClient *http.Client) (*ServiceScraper, error) {
-	metric := getTestMetric()
+	metric := getTestDecider()
 	return newServiceScraperWithClient(&metric, kubeInformer.Core().V1().Endpoints().Lister(), httpClient)
 }
 
-func getTestMetric() Metric {
-	return Metric{
+func getTestDecider() Decider {
+	return Decider{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: testNamespace,
 			Name:      testRevision,

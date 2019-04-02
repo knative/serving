@@ -135,8 +135,8 @@ func New(
 	}, nil
 }
 
-// Update reconfigures the UniScaler according to the MetricSpec.
-func (a *Autoscaler) Update(spec MetricSpec) error {
+// Update reconfigures the UniScaler according to the DeciderSpec.
+func (a *Autoscaler) Update(spec DeciderSpec) error {
 	a.targetMutex.Lock()
 	defer a.targetMutex.Unlock()
 	a.target = spec.TargetConcurrency
