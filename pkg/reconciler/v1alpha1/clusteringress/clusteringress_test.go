@@ -31,7 +31,8 @@ import (
 	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
 	clientgotesting "k8s.io/client-go/testing"
 
-	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
+	"github.com/knative/pkg/apis"
+	duckv1beta1 "github.com/knative/pkg/apis/duck/v1beta1"
 	"github.com/knative/pkg/apis/istio/v1alpha3"
 	fakesharedclientset "github.com/knative/pkg/client/clientset/versioned/fake"
 	sharedinformers "github.com/knative/pkg/client/informers/externalversions"
@@ -167,19 +168,19 @@ func TestReconcile(t *testing.T) {
 							{DomainInternal: reconciler.GetK8sServiceFullname("knative-ingressgateway", "istio-system")},
 						},
 					},
-					Status: duckv1alpha1.Status{
-						Conditions: duckv1alpha1.Conditions{{
+					Status: duckv1beta1.Status{
+						Conditions: duckv1beta1.Conditions{{
 							Type:     v1alpha1.ClusterIngressConditionLoadBalancerReady,
 							Status:   corev1.ConditionTrue,
-							Severity: duckv1alpha1.ConditionSeverityError,
+							Severity: apis.ConditionSeverityError,
 						}, {
 							Type:     v1alpha1.ClusterIngressConditionNetworkConfigured,
 							Status:   corev1.ConditionTrue,
-							Severity: duckv1alpha1.ConditionSeverityError,
+							Severity: apis.ConditionSeverityError,
 						}, {
 							Type:     v1alpha1.ClusterIngressConditionReady,
 							Status:   corev1.ConditionTrue,
-							Severity: duckv1alpha1.ConditionSeverityError,
+							Severity: apis.ConditionSeverityError,
 						}},
 					},
 				},
@@ -220,19 +221,19 @@ func TestReconcile(t *testing.T) {
 							{DomainInternal: reconciler.GetK8sServiceFullname("knative-ingressgateway", "istio-system")},
 						},
 					},
-					Status: duckv1alpha1.Status{
-						Conditions: duckv1alpha1.Conditions{{
+					Status: duckv1beta1.Status{
+						Conditions: duckv1beta1.Conditions{{
 							Type:     v1alpha1.ClusterIngressConditionLoadBalancerReady,
 							Status:   corev1.ConditionTrue,
-							Severity: duckv1alpha1.ConditionSeverityError,
+							Severity: apis.ConditionSeverityError,
 						}, {
 							Type:     v1alpha1.ClusterIngressConditionNetworkConfigured,
 							Status:   corev1.ConditionTrue,
-							Severity: duckv1alpha1.ConditionSeverityError,
+							Severity: apis.ConditionSeverityError,
 						}, {
 							Type:     v1alpha1.ClusterIngressConditionReady,
 							Status:   corev1.ConditionTrue,
-							Severity: duckv1alpha1.ConditionSeverityError,
+							Severity: apis.ConditionSeverityError,
 						}},
 					},
 				},
@@ -292,19 +293,19 @@ func TestReconcile_Gateway(t *testing.T) {
 							{DomainInternal: reconciler.GetK8sServiceFullname("istio-ingressgateway", "istio-system")},
 						},
 					},
-					Status: duckv1alpha1.Status{
-						Conditions: duckv1alpha1.Conditions{{
+					Status: duckv1beta1.Status{
+						Conditions: duckv1beta1.Conditions{{
 							Type:     v1alpha1.ClusterIngressConditionLoadBalancerReady,
 							Status:   corev1.ConditionTrue,
-							Severity: duckv1alpha1.ConditionSeverityError,
+							Severity: apis.ConditionSeverityError,
 						}, {
 							Type:     v1alpha1.ClusterIngressConditionNetworkConfigured,
 							Status:   corev1.ConditionTrue,
-							Severity: duckv1alpha1.ConditionSeverityError,
+							Severity: apis.ConditionSeverityError,
 						}, {
 							Type:     v1alpha1.ClusterIngressConditionReady,
 							Status:   corev1.ConditionTrue,
-							Severity: duckv1alpha1.ConditionSeverityError,
+							Severity: apis.ConditionSeverityError,
 						}},
 					},
 				},
@@ -337,19 +338,19 @@ func TestReconcile_Gateway(t *testing.T) {
 							{DomainInternal: reconciler.GetK8sServiceFullname("istio-ingressgateway", "istio-system")},
 						},
 					},
-					Status: duckv1alpha1.Status{
-						Conditions: duckv1alpha1.Conditions{{
+					Status: duckv1beta1.Status{
+						Conditions: duckv1beta1.Conditions{{
 							Type:     v1alpha1.ClusterIngressConditionLoadBalancerReady,
 							Status:   corev1.ConditionTrue,
-							Severity: duckv1alpha1.ConditionSeverityError,
+							Severity: apis.ConditionSeverityError,
 						}, {
 							Type:     v1alpha1.ClusterIngressConditionNetworkConfigured,
 							Status:   corev1.ConditionTrue,
-							Severity: duckv1alpha1.ConditionSeverityError,
+							Severity: apis.ConditionSeverityError,
 						}, {
 							Type:     v1alpha1.ClusterIngressConditionReady,
 							Status:   corev1.ConditionTrue,
-							Severity: duckv1alpha1.ConditionSeverityError,
+							Severity: apis.ConditionSeverityError,
 						}},
 					},
 				},
@@ -627,8 +628,8 @@ func TestGlobalResyncOnUpdateGatewayConfigMap(t *testing.T) {
 					{DomainInternal: ""},
 				},
 			},
-			Status: duckv1alpha1.Status{
-				Conditions: duckv1alpha1.Conditions{{
+			Status: duckv1beta1.Status{
+				Conditions: duckv1beta1.Conditions{{
 					Type:   v1alpha1.ClusterIngressConditionLoadBalancerReady,
 					Status: corev1.ConditionTrue,
 				}, {

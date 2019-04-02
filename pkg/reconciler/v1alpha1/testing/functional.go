@@ -23,6 +23,7 @@ import (
 	"github.com/knative/pkg/apis"
 	"github.com/knative/pkg/apis/duck"
 	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
+	duckv1beta1 "github.com/knative/pkg/apis/duck/v1beta1"
 	"github.com/knative/serving/pkg/apis/autoscaling"
 	autoscalingv1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/apis/networking"
@@ -44,7 +45,7 @@ type BuildOption func(*unstructured.Unstructured)
 // expected success condition.
 func WithSucceededTrue(orig *unstructured.Unstructured) {
 	cp := orig.DeepCopy()
-	cp.Object["status"] = map[string]interface{}{"conditions": []duckv1alpha1.Condition{{
+	cp.Object["status"] = map[string]interface{}{"conditions": duckv1alpha1.Conditions{{
 		Type:   duckv1alpha1.ConditionSucceeded,
 		Status: corev1.ConditionTrue,
 	}}}
@@ -56,7 +57,7 @@ func WithSucceededTrue(orig *unstructured.Unstructured) {
 func WithSucceededUnknown(reason, message string) BuildOption {
 	return func(orig *unstructured.Unstructured) {
 		cp := orig.DeepCopy()
-		cp.Object["status"] = map[string]interface{}{"conditions": []duckv1alpha1.Condition{{
+		cp.Object["status"] = map[string]interface{}{"conditions": duckv1alpha1.Conditions{{
 			Type:    duckv1alpha1.ConditionSucceeded,
 			Status:  corev1.ConditionUnknown,
 			Reason:  reason,
@@ -71,7 +72,7 @@ func WithSucceededUnknown(reason, message string) BuildOption {
 func WithSucceededFalse(reason, message string) BuildOption {
 	return func(orig *unstructured.Unstructured) {
 		cp := orig.DeepCopy()
-		cp.Object["status"] = map[string]interface{}{"conditions": []duckv1alpha1.Condition{{
+		cp.Object["status"] = map[string]interface{}{"conditions": duckv1alpha1.Conditions{{
 			Type:    duckv1alpha1.ConditionSucceeded,
 			Status:  corev1.ConditionFalse,
 			Reason:  reason,
@@ -269,7 +270,7 @@ func WithManualStatus(s *v1alpha1.Service) {
 func WithReadyRoute(s *v1alpha1.Service) {
 	s.Status.PropagateRouteStatus(&v1alpha1.RouteStatus{
 		Status: duckv1alpha1.Status{
-			Conditions: []duckv1alpha1.Condition{{
+			Conditions: duckv1alpha1.Conditions{{
 				Type:   "Ready",
 				Status: "True",
 			}},
@@ -312,7 +313,7 @@ func WithFailedRoute(reason, message string) ServiceOption {
 	return func(s *v1alpha1.Service) {
 		s.Status.PropagateRouteStatus(&v1alpha1.RouteStatus{
 			Status: duckv1alpha1.Status{
-				Conditions: []duckv1alpha1.Condition{{
+				Conditions: duckv1alpha1.Conditions{{
 					Type:    "Ready",
 					Status:  "False",
 					Reason:  reason,
@@ -330,7 +331,7 @@ func WithReadyConfig(name string) ServiceOption {
 	return func(s *v1alpha1.Service) {
 		s.Status.PropagateConfigurationStatus(&v1alpha1.ConfigurationStatus{
 			Status: duckv1alpha1.Status{
-				Conditions: []duckv1alpha1.Condition{{
+				Conditions: duckv1alpha1.Conditions{{
 					Type:   "Ready",
 					Status: "True",
 				}},
@@ -349,7 +350,7 @@ func WithFailedConfig(name, reason, message string) ServiceOption {
 	return func(s *v1alpha1.Service) {
 		s.Status.PropagateConfigurationStatus(&v1alpha1.ConfigurationStatus{
 			Status: duckv1alpha1.Status{
-				Conditions: []duckv1alpha1.Condition{{
+				Conditions: duckv1alpha1.Conditions{{
 					Type:   "Ready",
 					Status: "False",
 					Reason: reason,
@@ -482,8 +483,8 @@ func MarkTrafficAssigned(r *v1alpha1.Route) {
 // MarkIngressReady propagates a Ready=True ClusterIngress status to the Route.
 func MarkIngressReady(r *v1alpha1.Route) {
 	r.Status.PropagateClusterIngressStatus(netv1alpha1.IngressStatus{
-		Status: duckv1alpha1.Status{
-			Conditions: []duckv1alpha1.Condition{{
+		Status: duckv1beta1.Status{
+			Conditions: duckv1beta1.Conditions{{
 				Type:   "Ready",
 				Status: "True",
 			}},
@@ -702,7 +703,7 @@ func WithCreationTimestamp(t time.Time) RevisionOption {
 // no BuildRef was specified.
 func WithNoBuild(r *v1alpha1.Revision) {
 	r.Status.PropagateBuildStatus(duckv1alpha1.Status{
-		Conditions: []duckv1alpha1.Condition{{
+		Conditions: duckv1alpha1.Conditions{{
 			Type:   duckv1alpha1.ConditionSucceeded,
 			Status: corev1.ConditionTrue,
 			Reason: "NoBuild",
@@ -713,7 +714,7 @@ func WithNoBuild(r *v1alpha1.Revision) {
 // WithOngoingBuild propagates the status of an in-progress Build to the Revision's status.
 func WithOngoingBuild(r *v1alpha1.Revision) {
 	r.Status.PropagateBuildStatus(duckv1alpha1.Status{
-		Conditions: []duckv1alpha1.Condition{{
+		Conditions: duckv1alpha1.Conditions{{
 			Type:   duckv1alpha1.ConditionSucceeded,
 			Status: corev1.ConditionUnknown,
 		}},
@@ -723,7 +724,7 @@ func WithOngoingBuild(r *v1alpha1.Revision) {
 // WithSuccessfulBuild propagates the status of a successful Build to the Revision's status.
 func WithSuccessfulBuild(r *v1alpha1.Revision) {
 	r.Status.PropagateBuildStatus(duckv1alpha1.Status{
-		Conditions: []duckv1alpha1.Condition{{
+		Conditions: duckv1alpha1.Conditions{{
 			Type:   duckv1alpha1.ConditionSucceeded,
 			Status: corev1.ConditionTrue,
 		}},
@@ -734,7 +735,7 @@ func WithSuccessfulBuild(r *v1alpha1.Revision) {
 func WithFailedBuild(reason, message string) RevisionOption {
 	return func(r *v1alpha1.Revision) {
 		r.Status.PropagateBuildStatus(duckv1alpha1.Status{
-			Conditions: []duckv1alpha1.Condition{{
+			Conditions: duckv1alpha1.Conditions{{
 				Type:    duckv1alpha1.ConditionSucceeded,
 				Status:  corev1.ConditionFalse,
 				Reason:  reason,
