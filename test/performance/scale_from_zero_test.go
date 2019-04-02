@@ -87,8 +87,6 @@ func runScaleFromZero(idx int, t *testing.T, clients *test.Clients, ro *test.Res
 	dur := time.Since(start)
 	t.Logf("%02d: request completed", idx)
 
-	// Sleep to get traces
-	time.Sleep(5 * time.Second)
 	traceID := resp.Header.Get(zipkin.ZipkinTraceIDHeader)
 	AddTrace(t.Logf, t.Name(), traceID)
 
