@@ -45,8 +45,8 @@ const (
 	controllerAgentName = "kpa-class-podautoscaler-controller"
 )
 
-// KPADeciders is an interface for notifying the presence or absence of KPAs.
-type KPADeciders interface {
+// Deciders is an interface for notifying the presence or absence of KPAs.
+type Deciders interface {
 	// Get accesses the Decider resource for this key, returning any errors.
 	Get(ctx context.Context, namespace, name string) (*autoscaler.Decider, error)
 
@@ -70,12 +70,12 @@ type KPAScaler interface {
 }
 
 // Reconciler tracks PAs and right sizes the ScaleTargetRef based on the
-// information from KPADeciders.
+// information from Deciders.
 type Reconciler struct {
 	*reconciler.Base
 	paLister        listers.PodAutoscalerLister
 	endpointsLister corev1listers.EndpointsLister
-	kpaDeciders     KPADeciders
+	kpaDeciders     Deciders
 	kpaScaler       KPAScaler
 	dynConfig       *autoscaler.DynamicConfig
 }
@@ -88,7 +88,7 @@ func NewController(
 	opts *reconciler.Options,
 	paInformer informers.PodAutoscalerInformer,
 	endpointsInformer corev1informers.EndpointsInformer,
-	kpaDeciders KPADeciders,
+	kpaDeciders Deciders,
 	kpaScaler KPAScaler,
 	dynConfig *autoscaler.DynamicConfig,
 ) *controller.Impl {
@@ -114,13 +114,13 @@ func NewController(
 	endpointsInformer.Informer().AddEventHandler(
 		reconciler.Handler(impl.EnqueueLabelOfNamespaceScopedResource("", autoscaling.KPALabelKey)))
 
-	// Have the KPADeciders enqueue the PAs whose decisions have changed.
+	// Have the Deciders enqueue the PAs whose decisions have changed.
 	kpaDeciders.Watch(impl.EnqueueKey)
 
 	return impl
 }
 
-// Reconcile right sizes PA ScaleTargetRefs based on the state of decisions in KPADeciders.
+// Reconcile right sizes PA ScaleTargetRefs based on the state of decisions in Deciders.
 func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 	namespace, name, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
