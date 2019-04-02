@@ -24,7 +24,7 @@ import (
 
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	"github.com/knative/serving/pkg/reconciler"
+	"github.com/knative/serving/pkg/reconciler/v1alpha1/autoscaling/kpa/resources/names"
 	"github.com/pkg/errors"
 	dto "github.com/prometheus/client_model/go"
 	"github.com/prometheus/common/expfmt"
@@ -95,7 +95,7 @@ func newServiceScraperWithClient(
 		return nil, fmt.Errorf("no Revision label found for Metric %s", metric.Name)
 	}
 
-	serviceName := reconciler.GetMetricsK8SServiceNameForObj(revName)
+	serviceName := names.MetricsServiceName(revName)
 	return &ServiceScraper{
 		httpClient:          httpClient,
 		endpointsLister:     endpointsLister,
