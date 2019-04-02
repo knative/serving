@@ -28,7 +28,9 @@ import (
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/autoscaler"
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
+	perrors "github.com/pkg/errors"
 	"go.uber.org/zap"
+	autoscalingapi "k8s.io/api/autoscaling/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -37,8 +39,8 @@ import (
 
 const scaleUnknown = -1
 
-// kpaScaler scales the target of a kpa-class PA up or down including scaling to zero.
-type kpaScaler struct {
+// scaler scales the target of a kpa-class PA up or down including scaling to zero.
+type scaler struct {
 	servingClientSet clientset.Interface
 	scaleClientSet   scale.ScalesGetter
 	logger           *zap.SugaredLogger
@@ -49,10 +51,10 @@ type kpaScaler struct {
 	autoscalerConfigMutex sync.Mutex
 }
 
-// NewKPAScaler creates a kpaScaler.
-func NewKPAScaler(servingClientSet clientset.Interface, scaleClientSet scale.ScalesGetter,
-	logger *zap.SugaredLogger, configMapWatcher configmap.Watcher) KPAScaler {
-	ks := &kpaScaler{
+// NewScaler creates a scaler.
+func NewScaler(servingClientSet clientset.Interface, scaleClientSet scale.ScalesGetter,
+	logger *zap.SugaredLogger, configMapWatcher configmap.Watcher) Scaler {
+	ks := &scaler{
 		servingClientSet: servingClientSet,
 		scaleClientSet:   scaleClientSet,
 		logger:           logger,
@@ -63,7 +65,7 @@ func NewKPAScaler(servingClientSet clientset.Interface, scaleClientSet scale.Sca
 	return ks
 }
 
-func (ks *kpaScaler) receiveAutoscalerConfig(configMap *corev1.ConfigMap) {
+func (ks *scaler) receiveAutoscalerConfig(configMap *corev1.ConfigMap) {
 	newAutoscalerConfig, err := autoscaler.NewConfigFromConfigMap(configMap)
 	ks.autoscalerConfigMutex.Lock()
 	defer ks.autoscalerConfigMutex.Unlock()
@@ -79,7 +81,7 @@ func (ks *kpaScaler) receiveAutoscalerConfig(configMap *corev1.ConfigMap) {
 	ks.autoscalerConfig = newAutoscalerConfig
 }
 
-func (ks *kpaScaler) getAutoscalerConfig() *autoscaler.Config {
+func (ks *scaler) getAutoscalerConfig() *autoscaler.Config {
 	ks.autoscalerConfigMutex.Lock()
 	defer ks.autoscalerConfigMutex.Unlock()
 	return ks.autoscalerConfig.DeepCopy()
@@ -96,8 +98,29 @@ func applyBounds(min, max, x int32) int32 {
 	return x
 }
 
+// GetScaleResource returns the current scale resource for the PA.
+func (ks *scaler) GetScaleResource(pa *pav1alpha1.PodAutoscaler) (*autoscalingapi.Scale, error) {
+	resource, resourceName, err := scaleResourceArgs(pa)
+	if err != nil {
+		return nil, perrors.Wrap(err, "Error Get'ting /scale resource")
+	}
+
+	// Identify the current scale.
+	return ks.scaleClientSet.Scales(pa.Namespace).Get(*resource, resourceName)
+}
+
+// scaleResourceArgs returns GroupResource and the resource name, from the PA resource.
+func scaleResourceArgs(pa *pav1alpha1.PodAutoscaler) (*schema.GroupResource, string, error) {
+	gv, err := schema.ParseGroupVersion(pa.Spec.ScaleTargetRef.APIVersion)
+	if err != nil {
+		return nil, "", err
+	}
+	resource := apis.KindToResource(gv.WithKind(pa.Spec.ScaleTargetRef.Kind)).GroupResource()
+	return &resource, pa.Spec.ScaleTargetRef.Name, nil
+}
+
 // Scale attempts to scale the given PA's target reference to the desired scale.
-func (ks *kpaScaler) Scale(ctx context.Context, pa *pav1alpha1.PodAutoscaler, desiredScale int32) (int32, error) {
+func (ks *scaler) Scale(ctx context.Context, pa *pav1alpha1.PodAutoscaler, desiredScale int32) (int32, error) {
 	logger := logging.FromContext(ctx)
 
 	// TODO(mattmoor): Drop this once the KPA is the source of truth and we
@@ -110,16 +133,14 @@ func (ks *kpaScaler) Scale(ctx context.Context, pa *pav1alpha1.PodAutoscaler, de
 		return desiredScale, nil
 	}
 
-	gv, err := schema.ParseGroupVersion(pa.Spec.ScaleTargetRef.APIVersion)
+	resource, resourceName, err := scaleResourceArgs(pa)
 	if err != nil {
 		logger.Errorw("Unable to parse APIVersion", zap.Error(err))
 		return desiredScale, err
 	}
-	resource := apis.KindToResource(gv.WithKind(pa.Spec.ScaleTargetRef.Kind)).GroupResource()
-	resourceName := pa.Spec.ScaleTargetRef.Name
 
 	// Identify the current scale.
-	scl, err := ks.scaleClientSet.Scales(pa.Namespace).Get(resource, resourceName)
+	scl, err := ks.scaleClientSet.Scales(pa.Namespace).Get(*resource, resourceName)
 	if err != nil {
 		logger.Errorw(fmt.Sprintf("Resource %q not found", resourceName), zap.Error(err))
 		return desiredScale, err
@@ -178,7 +199,7 @@ func (ks *kpaScaler) Scale(ctx context.Context, pa *pav1alpha1.PodAutoscaler, de
 
 	// Scale the target reference.
 	scl.Spec.Replicas = desiredScale
-	_, err = ks.scaleClientSet.Scales(pa.Namespace).Update(resource, scl)
+	_, err = ks.scaleClientSet.Scales(pa.Namespace).Update(*resource, scl)
 	if err != nil {
 		logger.Errorw(fmt.Sprintf("Error scaling target reference %s", resourceName), zap.Error(err))
 		return desiredScale, err

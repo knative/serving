@@ -32,7 +32,7 @@ import (
 )
 
 func TestTimeToServeLatency(t *testing.T) {
-	perfClients, err := Setup(t.Logf, t.Name(), true, false)
+	perfClients, err := Setup(t.Logf, t.Name())
 	if err != nil {
 		t.Fatalf("Cannot initialize performance client: %v", err)
 	}

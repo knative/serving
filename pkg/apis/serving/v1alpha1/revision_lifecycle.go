@@ -61,6 +61,10 @@ const (
 	// RequestQueueMetricsPortName specifies the port name to use for metrics
 	// emitted by queue-proxy.
 	RequestQueueMetricsPortName = "queue-metrics"
+
+	// ServiceQueueMetricsPortName is the name of the port that serves metrics
+	// on the Kubernetes service.
+	ServiceQueueMetricsPortName = "metrics"
 )
 
 var revCondSet = duckv1alpha1.NewLivingConditionSet(

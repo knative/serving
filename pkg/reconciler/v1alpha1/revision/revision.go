@@ -330,6 +330,7 @@ func (c *Reconciler) reconcile(ctx context.Context, rev *v1alpha1.Revision) erro
 	if rev.GetDeletionTimestamp() != nil {
 		return nil
 	}
+	readyBeforeReconcile := rev.Status.IsReady()
 
 	// We may be reading a version of the object that was stored at an older version
 	// and may not have had all of the assumed defaults specified.  This won't result
@@ -339,8 +340,6 @@ func (c *Reconciler) reconcile(ctx context.Context, rev *v1alpha1.Revision) erro
 
 	rev.Status.InitializeConditions()
 	c.updateRevisionLoggingURL(ctx, rev)
-
-	readyBeforeReconcile := rev.Status.IsReady()
 
 	if err := c.reconcileBuild(ctx, rev); err != nil {
 		return err

@@ -24,10 +24,10 @@ import (
 	"github.com/knative/serving/pkg/autoscaler"
 )
 
-// MakeMetric constructs a Metric resource from a PodAutoscaler taking
+// MakeDecider constructs a Decider resource from a PodAutoscaler taking
 // into account the PA's ContainerConcurrency and the relevant
 // autoscaling annotation.
-func MakeMetric(ctx context.Context, pa *v1alpha1.PodAutoscaler, config *autoscaler.Config) *autoscaler.Metric {
+func MakeDecider(ctx context.Context, pa *v1alpha1.PodAutoscaler, config *autoscaler.Config) *autoscaler.Decider {
 	logger := logging.FromContext(ctx)
 
 	target := config.TargetConcurrency(pa.Spec.ContainerConcurrency)
@@ -43,9 +43,9 @@ func MakeMetric(ctx context.Context, pa *v1alpha1.PodAutoscaler, config *autosca
 			target = annotationTarget
 		}
 	}
-	return &autoscaler.Metric{
+	return &autoscaler.Decider{
 		ObjectMeta: pa.ObjectMeta,
-		Spec: autoscaler.MetricSpec{
+		Spec: autoscaler.DeciderSpec{
 			TargetConcurrency: target,
 		},
 	}

@@ -20,6 +20,7 @@ import (
 
 	"github.com/knative/pkg/apis/duck"
 	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
+	duckv1beta1 "github.com/knative/pkg/apis/duck/v1beta1"
 	netv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -166,19 +167,13 @@ func TestTypicalRouteFlow(t *testing.T) {
 	checkConditionOngoingRoute(r.Status, RouteConditionReady, t)
 
 	r.Status.PropagateClusterIngressStatus(netv1alpha1.IngressStatus{
-		Status: duckv1alpha1.Status{
-			Conditions: duckv1alpha1.Conditions{{
+		Status: duckv1beta1.Status{
+			Conditions: duckv1beta1.Conditions{{
 				Type:   netv1alpha1.ClusterIngressConditionReady,
 				Status: corev1.ConditionTrue,
 			}},
 		},
 	})
-	checkConditionSucceededRoute(r.Status, RouteConditionAllTrafficAssigned, t)
-	checkConditionSucceededRoute(r.Status, RouteConditionIngressReady, t)
-	checkConditionSucceededRoute(r.Status, RouteConditionReady, t)
-
-	// Verify that this doesn't reset our conditions.
-	r.Status.InitializeConditions()
 	checkConditionSucceededRoute(r.Status, RouteConditionAllTrafficAssigned, t)
 	checkConditionSucceededRoute(r.Status, RouteConditionIngressReady, t)
 	checkConditionSucceededRoute(r.Status, RouteConditionReady, t)
@@ -254,8 +249,8 @@ func TestClusterIngressFailureRecovery(t *testing.T) {
 	r := &Route{}
 	r.Status.InitializeConditions()
 	r.Status.PropagateClusterIngressStatus(netv1alpha1.IngressStatus{
-		Status: duckv1alpha1.Status{
-			Conditions: duckv1alpha1.Conditions{{
+		Status: duckv1beta1.Status{
+			Conditions: duckv1beta1.Conditions{{
 				Type:   netv1alpha1.ClusterIngressConditionReady,
 				Status: corev1.ConditionUnknown,
 			}},
@@ -273,8 +268,8 @@ func TestClusterIngressFailureRecovery(t *testing.T) {
 
 	r.Status.MarkTrafficAssigned()
 	r.Status.PropagateClusterIngressStatus(netv1alpha1.IngressStatus{
-		Status: duckv1alpha1.Status{
-			Conditions: duckv1alpha1.Conditions{{
+		Status: duckv1beta1.Status{
+			Conditions: duckv1beta1.Conditions{{
 				Type:   netv1alpha1.ClusterIngressConditionReady,
 				Status: corev1.ConditionTrue,
 			}},
@@ -285,8 +280,8 @@ func TestClusterIngressFailureRecovery(t *testing.T) {
 	checkConditionSucceededRoute(r.Status, RouteConditionReady, t)
 
 	r.Status.PropagateClusterIngressStatus(netv1alpha1.IngressStatus{
-		Status: duckv1alpha1.Status{
-			Conditions: duckv1alpha1.Conditions{{
+		Status: duckv1beta1.Status{
+			Conditions: duckv1beta1.Conditions{{
 				Type:   netv1alpha1.ClusterIngressConditionReady,
 				Status: corev1.ConditionFalse,
 			}},
@@ -297,8 +292,8 @@ func TestClusterIngressFailureRecovery(t *testing.T) {
 	checkConditionFailedRoute(r.Status, RouteConditionReady, t)
 
 	r.Status.PropagateClusterIngressStatus(netv1alpha1.IngressStatus{
-		Status: duckv1alpha1.Status{
-			Conditions: duckv1alpha1.Conditions{{
+		Status: duckv1beta1.Status{
+			Conditions: duckv1beta1.Conditions{{
 				Type:   netv1alpha1.ClusterIngressConditionReady,
 				Status: corev1.ConditionTrue,
 			}},
@@ -313,8 +308,8 @@ func TestRouteNotOwnedStuff(t *testing.T) {
 	r := &Route{}
 	r.Status.InitializeConditions()
 	r.Status.PropagateClusterIngressStatus(netv1alpha1.IngressStatus{
-		Status: duckv1alpha1.Status{
-			Conditions: duckv1alpha1.Conditions{{
+		Status: duckv1beta1.Status{
+			Conditions: duckv1beta1.Conditions{{
 				Type:   netv1alpha1.ClusterIngressConditionReady,
 				Status: corev1.ConditionUnknown,
 			}},

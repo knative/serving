@@ -140,6 +140,9 @@ func makeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, o
 			Name:  "SERVING_REQUEST_LOG_TEMPLATE",
 			Value: observabilityConfig.RequestLogTemplate,
 		}, {
+			Name:  "SERVING_REQUEST_METRICS_BACKEND",
+			Value: observabilityConfig.RequestMetricsBackend,
+		}, {
 			Name:  "USER_PORT",
 			Value: strconv.Itoa(int(userPort)),
 		}, {

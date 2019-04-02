@@ -346,14 +346,6 @@ func TestTypicalFlowWithBuild(t *testing.T) {
 	if !r.Status.IsReady() {
 		t.Error("IsReady() = false, want true")
 	}
-
-	// Verify that this doesn't reset our conditions.
-	r.Status.InitializeConditions()
-	checkConditionSucceededRevision(r.Status, RevisionConditionBuildSucceeded, t)
-	checkConditionSucceededRevision(r.Status, RevisionConditionActive, t)
-	checkConditionSucceededRevision(r.Status, RevisionConditionResourcesAvailable, t)
-	checkConditionSucceededRevision(r.Status, RevisionConditionContainerHealthy, t)
-	checkConditionSucceededRevision(r.Status, RevisionConditionReady, t)
 }
 
 func TestTypicalFlowWithBuildFailure(t *testing.T) {

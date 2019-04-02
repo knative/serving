@@ -44,6 +44,12 @@ const (
 	traceSuffix = "-Trace.json"
 )
 
+// Enable monitoring components
+const (
+	EnablePrometheus = iota
+	EnableZipkinTracing
+)
+
 // Client is the client used in the performance tests.
 type Client struct {
 	E2EClients *test.Clients
@@ -54,34 +60,36 @@ type Client struct {
 var traceFile *os.File
 
 // Setup creates all the clients that we need to interact with in our tests
-func Setup(logf logging.FormatLogger, tName string, promReqd, tracing bool) (*Client, error) {
+func Setup(logf logging.FormatLogger, tName string, monitoring ...int) (*Client, error) {
 	clients, err := test.NewClients(pkgTest.Flags.Kubeconfig, pkgTest.Flags.Cluster, test.ServingNamespace)
 	if err != nil {
 		return nil, err
 	}
 
 	var p *prometheus.PromProxy
-	if promReqd {
-		logf("Creating prometheus proxy client")
-		p = &prometheus.PromProxy{Namespace: monitoringNS}
-		p.Setup(clients.KubeClient.Kube, logf)
-	}
+	for _, m := range monitoring {
+		switch m {
+		case EnablePrometheus:
+			logf("Creating prometheus proxy client")
+			p = &prometheus.PromProxy{Namespace: monitoringNS}
+			p.Setup(clients.KubeClient.Kube, logf)
+		case EnableZipkinTracing:
+			zipkin.SetupZipkinTracing(clients.KubeClient.Kube, logf)
 
-	if tracing {
-		// enable zipkin
-		zipkin.SetupZipkinTracing(clients.KubeClient.Kube, logf)
+			// Create file to store traces
+			dir := prow.GetLocalArtifactsDir()
+			if err := createDir(dir); nil != err {
+				logf("Cannot create the artifacts dir. Will not log tracing.")
+			}
 
-		// Create file to store traces
-		dir := prow.GetLocalArtifactsDir()
-		if err := createDir(dir); nil != err {
-			logf("Cannot create the artifacts dir. Will not log tracing.")
-		}
-
-		name := path.Join(dir, tName+traceSuffix)
-		logf("Storing traces in %s", name)
-		traceFile, err = os.OpenFile(name, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-		if err != nil {
-			logf("Unable to create tracing file.")
+			name := path.Join(dir, tName+traceSuffix)
+			logf("Storing traces in %s", name)
+			traceFile, err = os.OpenFile(name, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+			if err != nil {
+				logf("Unable to create tracing file.")
+			}
+		default:
+			logf("No monitoring components enabled")
 		}
 	}
 

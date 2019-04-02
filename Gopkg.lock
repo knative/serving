@@ -415,7 +415,7 @@
   revision = "dd3ceb3323922b899a0a913f885fcf59943e7b59"
 
 [[projects]]
-  digest = "1:9a670ce0109361c513e7103c478dbbea261bb81d41d0f9c822707451bce139bb"
+  digest = "1:d978804ff9861cf5670d52fc8e4b85f38245fdac88d814952b6c9506b55406ed"
   name = "github.com/knative/caching"
   packages = [
     "pkg/apis/caching",
@@ -432,15 +432,16 @@
     "pkg/client/listers/caching/v1alpha1",
   ]
   pruneopts = "T"
-  revision = "3fc06fd3c9880a9ebb5c401f4b20cf6666cc7bc0"
+  revision = "babf400eeec07acdd0d6864ad28709c2bcee0c82"
 
 [[projects]]
-  digest = "1:f934ef9f89ea60cbfec7d848757245927e243aef5572e07a6fefcc3a1d2990a3"
+  digest = "1:0b2007a4488cc86e71524f17a536568ce753ab1dba56cd2329422437161ac8f8"
   name = "github.com/knative/pkg"
   packages = [
     "apis",
     "apis/duck",
     "apis/duck/v1alpha1",
+    "apis/duck/v1beta1",
     "apis/istio",
     "apis/istio/authentication",
     "apis/istio/authentication/v1alpha1",
@@ -487,7 +488,7 @@
     "websocket",
   ]
   pruneopts = "NUT"
-  revision = "1d9d8f8871250649adab16e3369e1a09e5595b04"
+  revision = "281cda84ceb316a70c2eafc5b3250a4b72c2d468"
 
 [[projects]]
   branch = "master"
@@ -1308,6 +1309,7 @@
     "github.com/knative/pkg/apis",
     "github.com/knative/pkg/apis/duck",
     "github.com/knative/pkg/apis/duck/v1alpha1",
+    "github.com/knative/pkg/apis/duck/v1beta1",
     "github.com/knative/pkg/apis/istio/common/v1alpha1",
     "github.com/knative/pkg/apis/istio/v1alpha3",
     "github.com/knative/pkg/client/clientset/versioned",
