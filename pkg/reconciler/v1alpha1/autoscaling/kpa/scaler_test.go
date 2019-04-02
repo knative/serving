@@ -46,7 +46,7 @@ const (
 	testRevision  = "test-revision"
 )
 
-func TestKPAScaler(t *testing.T) {
+func TestScaler(t *testing.T) {
 	defer ClearAll()
 	tests := []struct {
 		label         string
@@ -165,7 +165,7 @@ func TestKPAScaler(t *testing.T) {
 
 			revision := newRevision(t, servingClient, test.minScale, test.maxScale)
 			deployment := newDeployment(t, scaleClient, names.Deployment(revision), test.startReplicas)
-			revisionScaler := NewKPAScaler(servingClient, scaleClient, TestLogger(t), newConfigWatcher())
+			revisionScaler := NewScaler(servingClient, scaleClient, TestLogger(t), newConfigWatcher())
 
 			pa := newKPA(t, servingClient, revision)
 			if test.kpaMutation != nil {
@@ -191,7 +191,7 @@ func TestGetScaleResource(t *testing.T) {
 	revision := newRevision(t, servingClient, 1, 10)
 	// This setups reactor as well.
 	newDeployment(t, scaleClient, names.Deployment(revision), 5)
-	revisionScaler := NewKPAScaler(servingClient, scaleClient, TestLogger(t), newConfigWatcher())
+	revisionScaler := NewScaler(servingClient, scaleClient, TestLogger(t), newConfigWatcher())
 
 	pa := newKPA(t, servingClient, revision)
 	scale, err := revisionScaler.GetScaleResource(pa)
