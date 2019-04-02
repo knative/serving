@@ -139,11 +139,9 @@ func TestServerDoesNotLeakGoroutines(t *testing.T) {
 }
 
 func newStatMessage(revKey string, podName string, averageConcurrentRequests float64, requestCount int32) *autoscaler.StatMessage {
-	now := time.Now()
 	return &autoscaler.StatMessage{
 		Key: revKey,
 		Stat: autoscaler.Stat{
-			Time:                      &now,
 			PodName:                   podName,
 			AverageConcurrentRequests: averageConcurrentRequests,
 			RequestCount:              requestCount,
@@ -157,6 +155,10 @@ func assertReceivedOk(sm *autoscaler.StatMessage, statSink *websocket.Conn, stat
 	if !ok {
 		t.Fatalf("statistic not received")
 	}
+	if recv.Stat.Time == nil {
+		t.Fatalf("Stat time is nil")
+	}
+	sm.Stat.Time = recv.Stat.Time
 	if !cmp.Equal(sm, recv) {
 		t.Fatalf("Expected and actual stats messages are not equal: %s", cmp.Diff(sm, recv))
 	}
