@@ -81,8 +81,8 @@ func main() {
 	}
 
 	// We run 6 controllers, so bump the defaults.
-	cfg.QPS = 6 * rest.DefaultQPS
-	cfg.Burst = 6 * rest.DefaultBurst
+	cfg.QPS = 7 * rest.DefaultQPS
+	cfg.Burst = 7 * rest.DefaultBurst
 	opt := reconciler.NewOptionsOrDie(cfg, logger, stopCh)
 
 	kubeInformerFactory := kubeinformers.NewSharedInformerFactory(opt.KubeClientSet, opt.ResyncPeriod)

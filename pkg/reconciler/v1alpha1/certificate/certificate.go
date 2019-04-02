@@ -142,6 +142,9 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 			"Failed to update status for Certificate %s: %v", key, err)
 		return err
 	}
+	if err != nil {
+		c.Recorder.Event(knCert, corev1.EventTypeWarning, "InternalError", err.Error())
+	}
 	return err
 }
 
