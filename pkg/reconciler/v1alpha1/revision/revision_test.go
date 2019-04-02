@@ -33,8 +33,8 @@ import (
 	"github.com/google/go-containerregistry/pkg/authn/k8schain"
 	fakecachingclientset "github.com/knative/caching/pkg/client/clientset/versioned/fake"
 	cachinginformers "github.com/knative/caching/pkg/client/informers/externalversions"
+	"github.com/knative/pkg/apis"
 	"github.com/knative/pkg/apis/duck"
-	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 	"github.com/knative/pkg/configmap"
 	ctrl "github.com/knative/pkg/controller"
 	"github.com/knative/pkg/kmeta"
@@ -343,15 +343,15 @@ func TestResolutionFailed(t *testing.T) {
 	}
 
 	// Ensure that the Revision status is updated.
-	for _, ct := range []duckv1alpha1.ConditionType{"ContainerHealthy", "Ready"} {
+	for _, ct := range []apis.ConditionType{"ContainerHealthy", "Ready"} {
 		got := rev.Status.GetCondition(ct)
-		want := &duckv1alpha1.Condition{
+		want := &apis.Condition{
 			Type:               ct,
 			Status:             corev1.ConditionFalse,
 			Reason:             "ContainerMissing",
 			Message:            v1alpha1.RevisionContainerMissingMessage(rev.Spec.Container.Image, errorMessage),
 			LastTransitionTime: got.LastTransitionTime,
-			Severity:           duckv1alpha1.ConditionSeverityError,
+			Severity:           apis.ConditionSeverityError,
 		}
 		if diff := cmp.Diff(want, got); diff != "" {
 			t.Errorf("Unexpected revision conditions diff (-want +got): %v", diff)
@@ -420,14 +420,14 @@ func TestMarkRevReadyUponEndpointBecomesReady(t *testing.T) {
 	deployingRev := createRevision(t, kubeClient, kubeInformer, servingClient, servingInformer, cachingClient, cachingInformer, controller, rev)
 
 	// The revision is not marked ready until an endpoint is created.
-	for _, ct := range []duckv1alpha1.ConditionType{"Ready"} {
+	for _, ct := range []apis.ConditionType{"Ready"} {
 		got := deployingRev.Status.GetCondition(ct)
-		want := &duckv1alpha1.Condition{
+		want := &apis.Condition{
 			Type:               ct,
 			Status:             corev1.ConditionUnknown,
 			Reason:             "Deploying",
 			LastTransitionTime: got.LastTransitionTime,
-			Severity:           duckv1alpha1.ConditionSeverityError,
+			Severity:           apis.ConditionSeverityError,
 		}
 		if diff := cmp.Diff(want, got); diff != "" {
 			t.Errorf("Unexpected revision conditions diff (-want +got): %v", diff)
@@ -448,13 +448,13 @@ func TestMarkRevReadyUponEndpointBecomesReady(t *testing.T) {
 	readyRev, _, _ := addResourcesToInformers(t, kubeClient, kubeInformer, servingClient, servingInformer, cachingClient, cachingInformer, rev)
 
 	// After reconciling the endpoint, the revision should be ready.
-	for _, ct := range []duckv1alpha1.ConditionType{"Ready"} {
+	for _, ct := range []apis.ConditionType{"Ready"} {
 		got := readyRev.Status.GetCondition(ct)
-		want := &duckv1alpha1.Condition{
+		want := &apis.Condition{
 			Type:               ct,
 			Status:             corev1.ConditionTrue,
 			LastTransitionTime: got.LastTransitionTime,
-			Severity:           duckv1alpha1.ConditionSeverityError,
+			Severity:           apis.ConditionSeverityError,
 		}
 		if diff := cmp.Diff(want, got); diff != "" {
 			t.Errorf("Unexpected revision conditions diff (-want +got): %v", diff)

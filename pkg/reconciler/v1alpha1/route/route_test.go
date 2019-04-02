@@ -24,7 +24,8 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
-	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
+	"github.com/knative/pkg/apis"
+	duckv1beta1 "github.com/knative/pkg/apis/duck/v1beta1"
 	"github.com/knative/pkg/configmap"
 	ctrl "github.com/knative/pkg/controller"
 	"github.com/knative/pkg/system"
@@ -71,14 +72,14 @@ func getTestRouteWithTrafficTargets(traffic []v1alpha1.TrafficTarget) *v1alpha1.
 }
 
 func getTestRevision(name string) *v1alpha1.Revision {
-	return getTestRevisionWithCondition(name, duckv1alpha1.Condition{
+	return getTestRevisionWithCondition(name, apis.Condition{
 		Type:   v1alpha1.RevisionConditionReady,
 		Status: corev1.ConditionTrue,
 		Reason: "ServiceReady",
 	})
 }
 
-func getTestRevisionWithCondition(name string, cond duckv1alpha1.Condition) *v1alpha1.Revision {
+func getTestRevisionWithCondition(name string, cond apis.Condition) *v1alpha1.Revision {
 	return &v1alpha1.Revision{
 		ObjectMeta: metav1.ObjectMeta{
 			SelfLink:  fmt.Sprintf("/apis/serving/v1alpha1/namespaces/test/revisions/%s", name),
@@ -92,8 +93,8 @@ func getTestRevisionWithCondition(name string, cond duckv1alpha1.Condition) *v1a
 		},
 		Status: v1alpha1.RevisionStatus{
 			ServiceName: fmt.Sprintf("%s-service", name),
-			Status: duckv1alpha1.Status{
-				Conditions: duckv1alpha1.Conditions{cond},
+			Status: duckv1beta1.Status{
+				Conditions: duckv1beta1.Conditions{cond},
 			},
 		},
 	}

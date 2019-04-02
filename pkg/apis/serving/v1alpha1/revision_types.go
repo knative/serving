@@ -18,7 +18,7 @@ package v1alpha1
 
 import (
 	"github.com/knative/pkg/apis"
-	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
+	duckv1beta1 "github.com/knative/pkg/apis/duck/v1beta1"
 	"github.com/knative/pkg/kmeta"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -190,22 +190,22 @@ type RevisionSpec struct {
 const (
 	// RevisionConditionReady is set when the revision is starting to materialize
 	// runtime resources, and becomes true when those resources are ready.
-	RevisionConditionReady = duckv1alpha1.ConditionReady
+	RevisionConditionReady = apis.ConditionReady
 	// RevisionConditionBuildSucceeded is set when the revision has an associated build
 	// and is marked True if/once the Build has completed successfully.
-	RevisionConditionBuildSucceeded duckv1alpha1.ConditionType = "BuildSucceeded"
+	RevisionConditionBuildSucceeded apis.ConditionType = "BuildSucceeded"
 	// RevisionConditionResourcesAvailable is set when underlying
 	// Kubernetes resources have been provisioned.
-	RevisionConditionResourcesAvailable duckv1alpha1.ConditionType = "ResourcesAvailable"
+	RevisionConditionResourcesAvailable apis.ConditionType = "ResourcesAvailable"
 	// RevisionConditionContainerHealthy is set when the revision readiness check completes.
-	RevisionConditionContainerHealthy duckv1alpha1.ConditionType = "ContainerHealthy"
+	RevisionConditionContainerHealthy apis.ConditionType = "ContainerHealthy"
 	// RevisionConditionActive is set when the revision is receiving traffic.
-	RevisionConditionActive duckv1alpha1.ConditionType = "Active"
+	RevisionConditionActive apis.ConditionType = "Active"
 )
 
 // RevisionStatus communicates the observed state of the Revision (from the controller).
 type RevisionStatus struct {
-	duckv1alpha1.Status `json:",inline"`
+	duckv1beta1.Status `json:",inline"`
 
 	// ServiceName holds the name of a core Kubernetes Service resource that
 	// load balances over the pods backing this Revision. When the Revision

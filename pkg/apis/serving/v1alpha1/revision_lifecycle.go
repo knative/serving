@@ -21,6 +21,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/knative/pkg/apis"
 	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 	net "github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/serving"
@@ -67,7 +68,7 @@ const (
 	ServiceQueueMetricsPortName = "metrics"
 )
 
-var revCondSet = duckv1alpha1.NewLivingConditionSet(
+var revCondSet = apis.NewLivingConditionSet(
 	RevisionConditionResourcesAvailable,
 	RevisionConditionContainerHealthy,
 	RevisionConditionBuildSucceeded,
@@ -124,7 +125,7 @@ func (rs *RevisionStatus) IsActivationRequired() bool {
 	return false
 }
 
-func (rs *RevisionStatus) GetCondition(t duckv1alpha1.ConditionType) *duckv1alpha1.Condition {
+func (rs *RevisionStatus) GetCondition(t apis.ConditionType) *apis.Condition {
 	return revCondSet.Manage(rs).GetCondition(t)
 }
 

@@ -22,11 +22,11 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
-	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
+	"github.com/knative/pkg/apis"
 	"github.com/knative/serving/pkg/apis/networking/v1alpha1"
 )
 
-var routeCondSet = duckv1alpha1.NewLivingConditionSet(
+var routeCondSet = apis.NewLivingConditionSet(
 	RouteConditionAllTrafficAssigned,
 	RouteConditionIngressReady,
 )
@@ -39,7 +39,7 @@ func (rs *RouteStatus) IsReady() bool {
 	return routeCondSet.Manage(rs).IsHappy()
 }
 
-func (rs *RouteStatus) GetCondition(t duckv1alpha1.ConditionType) *duckv1alpha1.Condition {
+func (rs *RouteStatus) GetCondition(t apis.ConditionType) *apis.Condition {
 	return routeCondSet.Manage(rs).GetCondition(t)
 }
 
