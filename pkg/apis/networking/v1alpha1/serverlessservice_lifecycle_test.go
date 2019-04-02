@@ -19,6 +19,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/knative/pkg/apis"
 	"github.com/knative/pkg/apis/duck"
 	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
@@ -63,12 +64,12 @@ func TestSSTypicalFlow(t *testing.T) {
 	checkIsReady(r, t)
 }
 
-func checkConditionSucceededServerlessService(cc ConditionCheckable, c duckv1alpha1.ConditionType, t *testing.T) *duckv1alpha1.Condition {
+func checkConditionSucceededServerlessService(cc ConditionCheckable, c apis.ConditionType, t *testing.T) *apis.Condition {
 	t.Helper()
 	return checkCondition(cc, c, corev1.ConditionTrue, t)
 }
 
-func checkConditionOngoingServerlessService(cc ConditionCheckable, c duckv1alpha1.ConditionType, t *testing.T) *duckv1alpha1.Condition {
+func checkConditionOngoingServerlessService(cc ConditionCheckable, c apis.ConditionType, t *testing.T) *apis.Condition {
 	t.Helper()
 	return checkCondition(cc, c, corev1.ConditionUnknown, t)
 }

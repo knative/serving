@@ -18,7 +18,7 @@ package v1alpha1
 
 import (
 	"github.com/knative/pkg/apis"
-	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
+	duckv1beta1 "github.com/knative/pkg/apis/duck/v1beta1"
 	"github.com/knative/pkg/kmeta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -265,7 +265,7 @@ type HTTPRetry struct {
 
 // IngressStatus describe the current state of the ClusterIngress.
 type IngressStatus struct {
-	duckv1alpha1.Status `json:",inline"`
+	duckv1beta1.Status `json:",inline"`
 
 	// LoadBalancer contains the current status of the load-balancer.
 	// +optional
@@ -310,15 +310,15 @@ type LoadBalancerIngressStatus struct {
 const (
 	// ClusterIngressConditionReady is set when the clusterIngress networking setting is
 	// configured and it has a load balancer address.
-	ClusterIngressConditionReady = duckv1alpha1.ConditionReady
+	ClusterIngressConditionReady = apis.ConditionReady
 
 	// ClusterIngressConditionNetworkConfigured is set when the ClusterIngress's underlying
 	// network programming has been configured.  This doesn't include conditions of the
 	// backends, so even if this should remain true when network is configured and backends
 	// are not ready.
-	ClusterIngressConditionNetworkConfigured duckv1alpha1.ConditionType = "NetworkConfigured"
+	ClusterIngressConditionNetworkConfigured apis.ConditionType = "NetworkConfigured"
 
 	// ClusterIngressConditionLoadBalancerReady is set when the ClusterIngress has
 	// a ready LoadBalancer.
-	ClusterIngressConditionLoadBalancerReady duckv1alpha1.ConditionType = "LoadBalancerReady"
+	ClusterIngressConditionLoadBalancerReady apis.ConditionType = "LoadBalancerReady"
 )
