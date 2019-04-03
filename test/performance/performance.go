@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"testing"
 	"time"
 
 	pkgTest "github.com/knative/pkg/test"
@@ -60,7 +61,7 @@ type Client struct {
 var traceFile *os.File
 
 // Setup creates all the clients that we need to interact with in our tests
-func Setup(logf logging.FormatLogger, tName string, monitoring ...int) (*Client, error) {
+func Setup(t *testing.T, monitoring ...int) (*Client, error) {
 	clients, err := test.NewClients(pkgTest.Flags.Kubeconfig, pkgTest.Flags.Cluster, test.ServingNamespace)
 	if err != nil {
 		return nil, err
@@ -70,27 +71,27 @@ func Setup(logf logging.FormatLogger, tName string, monitoring ...int) (*Client,
 	for _, m := range monitoring {
 		switch m {
 		case EnablePrometheus:
-			logf("Creating prometheus proxy client")
+			t.Log("Creating prometheus proxy client")
 			p = &prometheus.PromProxy{Namespace: monitoringNS}
-			p.Setup(clients.KubeClient.Kube, logf)
+			p.Setup(clients.KubeClient.Kube, t.Logf)
 		case EnableZipkinTracing:
 			// Enable zipkin tracing
-			zipkin.SetupZipkinTracing(clients.KubeClient.Kube, logf)
+			zipkin.SetupZipkinTracing(clients.KubeClient.Kube, t.Logf)
 
 			// Create file to store traces
 			dir := prow.GetLocalArtifactsDir()
 			if err := createDir(dir); nil != err {
-				logf("Cannot create the artifacts dir. Will not log tracing.")
+				t.Log("Cannot create the artifacts dir. Will not log tracing.")
 			} else {
-				name := path.Join(dir, tName+traceSuffix)
-				logf("Storing traces in %s", name)
+				name := path.Join(dir, t.Name()+traceSuffix)
+				t.Logf("Storing traces in %s", name)
 				traceFile, err = os.OpenFile(name, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 				if err != nil {
-					logf("Unable to create tracing file.")
+					t.Log("Unable to create tracing file.")
 				}
 			}
 		default:
-			logf("No monitoring components enabled")
+			t.Log("No monitoring components enabled")
 		}
 	}
 

@@ -94,7 +94,7 @@ func runScaleFromZero(idx int, t *testing.T, clients *test.Clients, ro *test.Res
 }
 
 func parallelScaleFromZero(t *testing.T, count int) ([]time.Duration, error) {
-	pc, err := Setup(t.Logf, t.Name(), EnableZipkinTracing)
+	pc, err := Setup(t, EnableZipkinTracing)
 	if err != nil {
 		return nil, fmt.Errorf("failed to setup clients: %v", err)
 	}
