@@ -156,6 +156,9 @@ func main() {
 			endpointsInformer,
 		),
 	}
+	if len(controllers) != numControllers {
+		logger.Fatalf("Number of controllers and QPS settings mismatch: %d != %d", len(controllers), numControllers)
+	}
 
 	// Watch the logging config map and dynamically update logging levels.
 	opt.ConfigMapWatcher.Watch(logging.ConfigMapName(), logging.UpdateLevelFromConfigMap(logger, atomicLevel, component))

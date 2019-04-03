@@ -28,7 +28,6 @@ import (
 )
 
 const (
-	sksLabelKey          = networking.GroupName + "/serverlessservice"
 	servicePortNameHTTP1 = "http"
 	servicePortNameH2C   = "http2"
 
@@ -46,7 +45,7 @@ func makeLabels(sks *v1alpha1.ServerlessService) map[string]string {
 	for k, v := range sks.ObjectMeta.Labels {
 		labels[k] = v
 	}
-	labels[sksLabelKey] = sks.Name
+	labels[networking.SKSLabelKey] = sks.Name
 	return labels
 }
 

@@ -25,6 +25,8 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/knative/pkg/controller"
 	"github.com/knative/pkg/logging"
+	"github.com/knative/pkg/system"
+	"github.com/knative/serving/pkg/apis/networking"
 	netv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions/networking/v1alpha1"
 	listers "github.com/knative/serving/pkg/client/listers/networking/v1alpha1"
@@ -47,10 +49,6 @@ const (
 	controllerAgentName = "serverlessservice-controller"
 	reconcilerName      = "ServerlessServices"
 	activatorService    = "activator-service"
-	activatorServiceNS  = "knative-serving"
-
-	networkingGroup = "networking.internal.knative.dev"
-	sksLabel        = networkingGroup + "/serverlessservice"
 )
 
 // reconciler implements controller.Reconciler for Service resources.
@@ -84,9 +82,9 @@ func NewController(
 	// Watch all the SKS objects.
 	sksInformer.Informer().AddEventHandler(rbase.Handler(impl.Enqueue))
 
-	// Watch all the endpoints that we have attached our annotation to.
+	// Watch all the endpoints that we have attached our label to.
 	endpointsInformer.Informer().AddEventHandler(
-		rbase.Handler(impl.EnqueueLabelOfNamespaceScopedResource("", sksLabel)))
+		rbase.Handler(impl.EnqueueLabelOfNamespaceScopedResource("" /*any namespace*/, networking.SKSLabelKey)))
 
 	// Watch all the services that we have created.
 	serviceInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
@@ -105,7 +103,7 @@ func NewController(
 		// Accept only ActivatorService K8s service objects.
 		FilterFunc: func(obj interface{}) bool {
 			if object, ok := obj.(metav1.Object); ok {
-				return object.GetNamespace() == activatorServiceNS && object.GetName() == activatorService
+				return object.GetNamespace() == system.Namespace() && object.GetName() == activatorService
 			}
 			return false
 		},
@@ -169,6 +167,7 @@ func (r *reconciler) reconcile(ctx context.Context, sks *netv1alpha1.ServerlessS
 	sks.SetDefaults(ctx)
 	sks.Status.InitializeConditions()
 
+	// TODO(#1997): implement: proxy mode, activator probing and positive handoff.
 	for i, fn := range []func(context.Context, *netv1alpha1.ServerlessService) error{
 		r.reconcilePrivateService,  // First make sure our data source is setup.
 		r.reconcilePublicService,   // Make sure the service is setup.
@@ -204,7 +203,7 @@ func (r *reconciler) reconcilePublicService(ctx context.Context, sks *netv1alpha
 	if errors.IsNotFound(err) {
 		logger.Infof("K8s service %q does not exist; creating.", sn)
 		// We've just created the service, so it has no endpoints.
-		sks.Status.MarkEndpointsUnknown("CreatingPublicService")
+		sks.Status.MarkEndpointsNotReady("CreatingPublicService")
 		srv = resources.MakePublicService(sks)
 		_, err := r.KubeClientSet.CoreV1().Services(sks.Namespace).Create(srv)
 		if err != nil {
@@ -224,7 +223,7 @@ func (r *reconciler) reconcilePublicService(ctx context.Context, sks *netv1alpha
 		want.Spec.Ports = tmpl.Spec.Ports
 		want.Spec.Selector = nil
 
-		sks.Status.MarkEndpointsUnknown("UpdatingPublicService")
+		sks.Status.MarkEndpointsNotReady("UpdatingPublicService")
 		if !equality.Semantic.DeepEqual(want.Spec, srv.Spec) {
 			logger.Infof("Public K8s Service changed; reconciling: %s", sn)
 			if _, err = r.KubeClientSet.CoreV1().Services(sks.Namespace).Update(want); err != nil {
@@ -256,7 +255,7 @@ func (r *reconciler) reconcilePublicEndpoints(ctx context.Context, sks *netv1alp
 
 	if errors.IsNotFound(err) {
 		logger.Infof("K8s endpoints %q does not exist; creating.", sn)
-		sks.Status.MarkEndpointsUnknown("CreatingPublicEndpoints")
+		sks.Status.MarkEndpointsNotReady("CreatingPublicEndpoints")
 		eps, err = r.KubeClientSet.CoreV1().Endpoints(sks.Namespace).Create(resources.MakePublicEndpoints(sks, srcEps))
 		if err != nil {
 			logger.Errorw(fmt.Sprintf("Error creating K8s Endpoints %s: ", sn), zap.Error(err))
@@ -282,9 +281,9 @@ func (r *reconciler) reconcilePublicEndpoints(ctx context.Context, sks *netv1alp
 		}
 	}
 	if hasEndpoints(eps) {
-		sks.Status.MarkEndpointsPopulated()
+		sks.Status.MarkEndpointsReady()
 	} else {
-		sks.Status.MarkEndpointsUnknown("NoHealthyBackends")
+		sks.Status.MarkEndpointsNotReady("NoHealthyBackends")
 	}
 	logger.Debugf("Done reconciling public K8s endpoints %s", sn)
 	return nil
@@ -307,7 +306,7 @@ func (r *reconciler) reconcilePrivateService(ctx context.Context, sks *netv1alph
 	svc, err := r.serviceLister.Services(sks.Namespace).Get(sn)
 	if errors.IsNotFound(err) {
 		logger.Infof("K8s service %q does not exist; creating.", sn)
-		sks.Status.MarkEndpointsUnknown("CreatingPrivateService")
+		sks.Status.MarkEndpointsNotReady("CreatingPrivateService")
 		svc = resources.MakePrivateService(sks)
 		_, err := r.KubeClientSet.CoreV1().Services(sks.Namespace).Create(svc)
 		if err != nil {
@@ -328,7 +327,7 @@ func (r *reconciler) reconcilePrivateService(ctx context.Context, sks *netv1alph
 		want.Spec.Ports = tmpl.Spec.Ports
 		want.Spec.Selector = tmpl.Spec.Selector
 
-		sks.Status.MarkEndpointsUnknown("UpdatingPrivateService")
+		sks.Status.MarkEndpointsNotReady("UpdatingPrivateService")
 		if !equality.Semantic.DeepEqual(svc.Spec, want.Spec) {
 			logger.Infof("Private K8s Service changed; reconciling: %s", sn)
 			if _, err = r.KubeClientSet.CoreV1().Services(sks.Namespace).Update(want); err != nil {

@@ -58,11 +58,11 @@ func TestSSTypicalFlow(t *testing.T) {
 
 	checkConditionOngoing(r, ServerlessServiceConditionReady, t)
 
-	r.MarkEndpointsPopulated()
+	r.MarkEndpointsReady()
 	checkConditionSucceededServerlessService(r, ServerlessServiceConditionEndspointsPopulated, t)
 	checkConditionSucceededServerlessService(r, ServerlessServiceConditionReady, t)
 
-	r.MarkEndpointsUnknown("random")
+	r.MarkEndpointsNotReady("random")
 	checkCondition(r, ServerlessServiceConditionReady, corev1.ConditionUnknown, t)
 
 	r.MarkEndpointsNotOwned("service", "jukebox")

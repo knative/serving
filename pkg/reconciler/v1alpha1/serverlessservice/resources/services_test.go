@@ -70,7 +70,7 @@ func TestMakeService(t *testing.T) {
 					// Those should be propagated.
 					serving.RevisionLabelKey: "collie",
 					serving.RevisionUID:      "1982",
-					sksLabelKey:              "collie", // <= This one we add.
+					networking.SKSLabelKey:   "collie", // <= This one we add.
 				},
 				Annotations: map[string]string{},
 				OwnerReferences: []metav1.OwnerReference{{
@@ -122,7 +122,7 @@ func TestMakeService(t *testing.T) {
 					// Those should be propagated.
 					serving.RevisionLabelKey: "dream",
 					serving.RevisionUID:      "1988",
-					sksLabelKey:              "dream", // <= This one we add.
+					networking.SKSLabelKey:   "dream", // <= This one we add.
 				},
 				Annotations: map[string]string{
 					"cherub": "rock",
@@ -202,7 +202,7 @@ func TestMakeEndpoints(t *testing.T) {
 				Labels: map[string]string{
 					serving.RevisionLabelKey: "collie",
 					serving.RevisionUID:      "1982",
-					sksLabelKey:              "collie", // <= This one we add.
+					networking.SKSLabelKey:   "collie", // <= This one we add.
 				},
 				Annotations: map[string]string{
 					"cherub": "rock",
@@ -263,7 +263,7 @@ func TestMakeEndpoints(t *testing.T) {
 				Labels: map[string]string{
 					serving.RevisionLabelKey: "collie",
 					serving.RevisionUID:      "1982",
-					sksLabelKey:              "collie", // <= This one we add.
+					networking.SKSLabelKey:   "collie", // <= This one we add.
 				},
 				Annotations: map[string]string{
 					"cherub": "rock",

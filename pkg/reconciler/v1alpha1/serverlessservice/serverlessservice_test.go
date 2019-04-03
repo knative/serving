@@ -378,11 +378,11 @@ func withPubService(sks *nv1a1.ServerlessService) {
 }
 
 func markHappy(sks *nv1a1.ServerlessService) {
-	sks.Status.MarkEndpointsPopulated()
+	sks.Status.MarkEndpointsReady()
 }
 
 func markNoEndpoints(sks *nv1a1.ServerlessService) {
-	sks.Status.MarkEndpointsUnknown("NoHealthyBackends")
+	sks.Status.MarkEndpointsNotReady("NoHealthyBackends")
 }
 
 func withSelector(sel map[string]string) SKSOption {
