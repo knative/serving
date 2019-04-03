@@ -37,7 +37,7 @@ const (
 
 // Stat defines a single measurement at a point in time
 type Stat struct {
-	// The time the data point was collected on the pod.
+	// The time the data point was received by autoscaler.
 	Time *time.Time
 
 	// The unique identity of this pod.  Used to count how many pods

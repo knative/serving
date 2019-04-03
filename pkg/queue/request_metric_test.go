@@ -34,7 +34,7 @@ func TestNewRequestMetricHandler_failure(t *testing.T) {
 	var r stats.StatsReporter
 	_, err := NewRequestMetricHandler(baseHandler, r)
 	if err == nil {
-		t.Error("should get error when StatsReporter is emtpy")
+		t.Error("should get error when StatsReporter is empty")
 	}
 }
 
