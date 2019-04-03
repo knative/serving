@@ -58,7 +58,7 @@ type Deciders interface {
 	Get(ctx context.Context, namespace, name string) (*autoscaler.Decider, error)
 
 	// Create adds a Decider resource for a given key, returning any errors.
-	Create(ctx context.Context, metric *autoscaler.Decider) (*autoscaler.Decider, error)
+	Create(ctx context.Context, decider *autoscaler.Decider) (*autoscaler.Decider, error)
 
 	// Delete removes the Decider resource for a given key, returning any errors.
 	Delete(ctx context.Context, namespace, name string) error
@@ -67,7 +67,7 @@ type Deciders interface {
 	Watch(watcher func(string))
 
 	// Update update the Decider resource, return the new Decider or any errors.
-	Update(ctx context.Context, metric *autoscaler.Decider) (*autoscaler.Decider, error)
+	Update(ctx context.Context, decider *autoscaler.Decider) (*autoscaler.Decider, error)
 }
 
 // Scaler knows how to scale the targets of KPA-Class PodAutoscalers.
@@ -209,11 +209,11 @@ func (c *Reconciler) reconcile(ctx context.Context, pa *pav1alpha1.PodAutoscaler
 	if errors.IsNotFound(err) {
 		decider, err = c.kpaDeciders.Create(ctx, desiredDecider)
 		if err != nil {
-			logger.Errorf("Error creating Metric: %v", err)
+			logger.Errorf("Error creating Decider: %v", err)
 			return err
 		}
 	} else if err != nil {
-		logger.Errorf("Error fetching Metric: %v", err)
+		logger.Errorf("Error fetching Decider: %v", err)
 		return err
 	}
 
@@ -222,12 +222,12 @@ func (c *Reconciler) reconcile(ctx context.Context, pa *pav1alpha1.PodAutoscaler
 	if !equality.Semantic.DeepEqual(desiredDecider, decider) {
 		decider, err = c.kpaDeciders.Update(ctx, desiredDecider)
 		if err != nil {
-			logger.Errorf("Error update Metric: %v", err)
+			logger.Errorf("Error update Decider: %v", err)
 			return err
 		}
 	}
 
-	// Get the appropriate current scale from the metric, and right size
+	// Get the appropriate current scale from the decider, and right size
 	// the scaleTargetRef based on it.
 	want, err := c.scaler.Scale(ctx, pa, decider.Status.DesiredScale)
 	if err != nil {

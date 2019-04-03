@@ -259,8 +259,8 @@ func TestScrape_DoNotScrapeIfNoPodsFound(t *testing.T) {
 }
 
 func serviceScraperForTest(httpClient *http.Client) (*ServiceScraper, error) {
-	metric := getTestDecider()
-	return newServiceScraperWithClient(&metric, kubeInformer.Core().V1().Endpoints().Lister(), httpClient)
+	decider := getTestDecider()
+	return newServiceScraperWithClient(&decider, kubeInformer.Core().V1().Endpoints().Lister(), httpClient)
 }
 
 func getTestDecider() Decider {

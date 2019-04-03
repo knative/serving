@@ -73,7 +73,7 @@ type ServiceScraper struct {
 }
 
 // NewServiceScraper creates a new StatsScraper for the Revision which
-// the given Metric is responsible for.
+// the given Decider is responsible for.
 func NewServiceScraper(decider *Decider, endpointsLister corev1listers.EndpointsLister) (*ServiceScraper, error) {
 	return newServiceScraperWithClient(decider, endpointsLister, cacheDisabledClient)
 }
