@@ -179,7 +179,7 @@ func scalerConfig(logger *zap.SugaredLogger) *autoscaler.DynamicConfig {
 	return dynConfig
 }
 
-var requiredLabels = []string{serving.RevisionLabelKey, serving.ServiceLabelKey, serving.ConfigurationLabelKey}
+var requiredLabels = [3]string{serving.RevisionLabelKey, serving.ServiceLabelKey, serving.ConfigurationLabelKey}
 
 func uniScalerFactoryFunc(endpointsInformer corev1informers.EndpointsInformer) func(decider *autoscaler.Decider, dynamicConfig *autoscaler.DynamicConfig) (autoscaler.UniScaler, error) {
 	return func(decider *autoscaler.Decider, dynamicConfig *autoscaler.DynamicConfig) (autoscaler.UniScaler, error) {
