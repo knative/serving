@@ -179,18 +179,16 @@ func scalerConfig(logger *zap.SugaredLogger) *autoscaler.DynamicConfig {
 	return dynConfig
 }
 
-var requiredLabels = [3]string{serving.RevisionLabelKey, serving.ServiceLabelKey, serving.ConfigurationLabelKey}
-
 func uniScalerFactoryFunc(endpointsInformer corev1informers.EndpointsInformer) func(decider *autoscaler.Decider, dynamicConfig *autoscaler.DynamicConfig) (autoscaler.UniScaler, error) {
 	return func(decider *autoscaler.Decider, dynamicConfig *autoscaler.DynamicConfig) (autoscaler.UniScaler, error) {
-		for _, l := range requiredLabels {
+		for _, l := range []string{serving.RevisionLabelKey, serving.ConfigurationLabelKey} {
 			if v, ok := decider.Labels[l]; !ok || v == "" {
 				return nil, fmt.Errorf("label %q not found or empty in Decider: %v", l, decider)
 			}
 		}
 
 		revName := decider.Labels[serving.RevisionLabelKey]
-		serviceName := decider.Labels[serving.ServiceLabelKey]
+		serviceName := decider.Labels[serving.ServiceLabelKey] // This can be empty.
 		configName := decider.Labels[serving.ConfigurationLabelKey]
 
 		// Create a stats reporter which tags statistics by PA namespace, configuration name, and PA name.

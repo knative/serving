@@ -48,12 +48,6 @@ func TestUniscalerFactoryFailures(t *testing.T) {
 		},
 		fmt.Sprintf("label %q not found or empty in Decider", serving.RevisionLabelKey),
 	}, {
-		"service missing", map[string]string{
-			serving.RevisionLabelKey:      "nel vino",
-			serving.ConfigurationLabelKey: "è la verità",
-		},
-		fmt.Sprintf("label %q not found or empty in Decider", serving.ServiceLabelKey),
-	}, {
 		"config missing", map[string]string{
 			serving.RevisionLabelKey: "en el vino",
 			serving.ServiceLabelKey:  "está la verdad",
@@ -97,21 +91,23 @@ func TestUniscalerFactoryFailures(t *testing.T) {
 
 func TestUniScalerFactoryFunc(t *testing.T) {
 	uniScalerFactory := getTestUniScalerFactory()
-	metric := &autoscaler.Decider{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: testNamespace,
-			Name:      testRevision,
-			Labels: map[string]string{
-				serving.RevisionLabelKey:      testRevision,
-				serving.ServiceLabelKey:       "test-service",
-				serving.ConfigurationLabelKey: "test-config",
+	for _, srv := range []string{"some", ""} {
+		metric := &autoscaler.Decider{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: testNamespace,
+				Name:      testRevision,
+				Labels: map[string]string{
+					serving.RevisionLabelKey:      testRevision,
+					serving.ServiceLabelKey:       srv,
+					serving.ConfigurationLabelKey: "test-config",
+				},
 			},
-		},
-	}
-	dynamicConfig := &autoscaler.DynamicConfig{}
+		}
+		dynamicConfig := &autoscaler.DynamicConfig{}
 
-	if _, err := uniScalerFactory(metric, dynamicConfig); err != nil {
-		t.Errorf("got error from uniScalerFactory: %v", err)
+		if _, err := uniScalerFactory(metric, dynamicConfig); err != nil {
+			t.Errorf("got error from uniScalerFactory: %v", err)
+		}
 	}
 }
 
