@@ -47,6 +47,8 @@ const (
 
 type stats struct {
 	avg time.Duration
+	min time.Duration
+	max time.Duration
 }
 
 func runScaleFromZero(idx int, t *testing.T, clients *test.Clients, ro *test.ResourceObjects) (time.Duration, error) {
@@ -160,44 +162,81 @@ func parallelScaleFromZero(t *testing.T, count int) ([]time.Duration, error) {
 	return durations, g.Wait()
 }
 
-func getStats(durations []time.Duration) *stats {
+func getRunStats(durations []time.Duration) *stats {
 	if len(durations) == 0 {
 		return nil
 	}
-	var avg time.Duration
+	min := durations[0]
+	max := durations[0]
+	avg := durations[0]
 
-	for _, dur := range durations {
+	for _, dur := range durations[1:] {
+		if dur < min {
+			min = dur
+		} else if dur > max {
+			max = dur
+		}
 		avg += dur
 	}
 	return &stats{
 		avg: time.Duration(int64(avg) / int64(len(durations))),
+		min: min,
+		max: max,
 	}
 }
 
-func testScaleFromZero(t *testing.T, count int) {
-	tName := fmt.Sprintf("TestScaleFromZero%02d", count)
-	durs, err := parallelScaleFromZero(t, count)
-	if err != nil {
-		t.Fatal(err)
+func getMultiRunStats(runStats []*stats) *stats {
+	min := runStats[0].min
+	max := runStats[0].max
+	avg := runStats[0].avg
+
+	for _, stat := range runStats[1:] {
+		if stat.min < min {
+			min = stat.min
+		} else if stat.max > max {
+			max = stat.max
+		}
+		avg += stat.avg
 	}
-	stats := getStats(durs)
-	t.Logf("Average: %v", stats.avg)
-	if err = testgrid.CreateXMLOutput([]junit.TestCase{
-		CreatePerfTestCase(float32(stats.avg.Seconds()), "Average", tName)}, tName); err != nil {
+	return &stats{
+		avg: time.Duration(int64(avg) / int64(len(runStats))),
+		min: min,
+		max: max,
+	}
+}
+
+func testScaleFromZero(t *testing.T, count, numRuns int) {
+	runStats := make([]*stats, numRuns)
+	tName := fmt.Sprintf("TestScaleFromZero%02d", count)
+	for i := 0; i < numRuns; i++ {
+		durs, err := parallelScaleFromZero(t, count)
+		if err != nil {
+			t.Fatalf("Run %d: %v", i+1, err)
+		}
+		runStats[i] = getRunStats(durs)
+		t.Logf("Run %d: Average: %v", i+1, runStats[i].avg)
+	}
+
+	stats := getMultiRunStats(runStats)
+
+	if err := testgrid.CreateXMLOutput([]junit.TestCase{
+		CreatePerfTestCase(float32(stats.avg.Seconds()), "Average", tName),
+		CreatePerfTestCase(float32(stats.min.Seconds()), "Min", tName),
+		CreatePerfTestCase(float32(stats.max.Seconds()), "Max", tName)}, tName); err != nil {
 		t.Fatalf("Error creating testgrid output: %v", err)
 	}
 }
 
 func TestScaleFromZero1(t *testing.T) {
-	testScaleFromZero(t, 1)
+	testScaleFromZero(t, 1 /* parallelism */, 5 /* runs */)
 }
 
 func TestScaleFromZero5(t *testing.T) {
-	testScaleFromZero(t, 5)
+	testScaleFromZero(t, 5 /* parallelism */, 5 /* runs */)
 }
 
 func TestScaleFromZero50(t *testing.T) {
 	// See: #3021
 	t.Skip()
-	testScaleFromZero(t, 50)
+	testScaleFromZero(t, 50 /* parallelism */, 5 /* runs */)
 }

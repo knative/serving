@@ -17,13 +17,11 @@ limitations under the License.
 package resources
 
 import (
-	"fmt"
 	"sort"
 	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/knative/pkg/system"
 	"github.com/knative/serving/pkg/activator"
@@ -93,17 +91,20 @@ func makeClusterIngressSpec(r *servingv1alpha1.Route, targets map[string]traffic
 }
 
 func routeDomains(targetName string, r *servingv1alpha1.Route) []string {
+
+	domains := []string{traffic.SubrouteDomain(targetName, r.Status.Domain)}
+
 	if targetName == traffic.DefaultTarget {
-		// Nameless traffic targets correspond to many domains: the
-		// Route.Status.Domain.
-		domains := []string{
-			r.Status.Domain,
-			names.K8sServiceFullname(r),
+		// The default target is also referred to by its internal K8s
+		// generated domain name.
+		internalHost := names.K8sServiceFullname(r)
+		if internalHost != "" && domains[0] != internalHost {
+			domains = append(domains, internalHost)
 		}
-		return dedup(domains)
 	}
 
-	return []string{fmt.Sprintf("%s.%s", targetName, r.Status.Domain)}
+	return domains
+
 }
 
 func makeClusterIngressRule(domains []string, ns string, targets traffic.RevisionTargets) *v1alpha1.ClusterIngressRule {
@@ -160,16 +161,4 @@ func addInactive(r *v1alpha1.HTTPClusterIngressPath, ns string, inactive traffic
 		activator.RevisionHeaderNamespace: ns,
 	}
 	return r
-}
-
-func dedup(strs []string) []string {
-	existed := sets.NewString()
-	unique := []string{}
-	for _, s := range strs {
-		if !existed.Has(s) {
-			existed.Insert(s)
-			unique = append(unique, s)
-		}
-	}
-	return unique
 }

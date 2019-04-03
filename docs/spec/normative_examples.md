@@ -290,11 +290,6 @@ creating a new Service, which will create both a Configuration and a new Route
 referring to that configuration. In turn, the Configuration will generate a new
 Revision. Note that these steps may occur in in parallel.
 
-In this getting started example, deploying a first Revision is accomplished by
-creating a new Service, which will create both a Configuration and a new Route
-referring to that configuration. In turn, the Configuration will generate a new
-Revision. Note that these steps may occur in in parallel.
-
 In the `runLatest` style of Service, the Route always references the latest
 ready revision of a Configuration, as this example illustrates. This is the most
 straightforward scenario that many Knative Serving customers are expected to

@@ -62,7 +62,7 @@ func initialHTTPProxy(proxyURL string) *httputil.ReverseProxy {
 
 func main() {
 	flag.Parse()
-	log.Print("Http Proxy app started.")
+	log.Print("HTTP Proxy app started.")
 
 	targetHost := getTargetHostEnv()
 	targetURL := fmt.Sprintf("http://%s", targetHost)

@@ -888,6 +888,7 @@ func TestBuildTrafficConfiguration_MissingRevision(t *testing.T) {
 }
 
 func TestRoundTripping(t *testing.T) {
+	domain := "domain.com"
 	tts := []v1alpha1.TrafficTarget{{
 		RevisionName: goodOldRev.Name,
 		Percent:      100,
@@ -904,14 +905,71 @@ func TestRoundTripping(t *testing.T) {
 	}, {
 		Name:         "beta",
 		RevisionName: goodNewRev.Name,
+		URL:          SubrouteURL(HttpScheme, "beta", domain),
 	}, {
 		Name:         "alpha",
 		RevisionName: niceNewRev.Name,
+		URL:          SubrouteURL(HttpScheme, "alpha", domain),
 	}}
 	if tc, err := BuildTrafficConfiguration(configLister, revLister, testRouteWithTrafficTargets(tts)); err != nil {
 		t.Errorf("Unexpected error %v", err)
-	} else if got, want := expected, tc.GetRevisionTrafficTargets(); !cmp.Equal(got, want) {
+	} else if got, want := expected, tc.GetRevisionTrafficTargets(domain); !cmp.Equal(got, want) {
 		t.Errorf("Unexpected traffic diff (-want +got): %v", cmp.Diff(got, want))
+	}
+}
+
+func TestSubrouteURL(t *testing.T) {
+	tests := []struct {
+		TestName string
+		Name     string
+		Domain   string
+		Expected string
+	}{{
+		TestName: "subdomain",
+		Name:     "current",
+		Domain:   "svc.local.com",
+		Expected: "http://current.svc.local.com",
+	}, {
+		TestName: "default target",
+		Name:     DefaultTarget,
+		Domain:   "default.com",
+		Expected: "http://default.com",
+	}}
+
+	for _, tt := range tests {
+		t.Run(tt.TestName, func(t *testing.T) {
+			if got, want := tt.Expected, SubrouteURL(HttpScheme, tt.Name, tt.Domain); got != want {
+				t.Errorf("SubrouteDomain = %s, want: %s", got, want)
+			}
+		})
+	}
+
+}
+
+func TestSubrouteDomain(t *testing.T) {
+	tests := []struct {
+		TestName string
+		Name     string
+		Domain   string
+		Expected string
+	}{{
+		TestName: "subdomain",
+		Name:     "current",
+		Domain:   "svc.local.com",
+		Expected: "current.svc.local.com",
+	}, {
+		TestName: "default target",
+		Name:     DefaultTarget,
+		Domain:   "default.com",
+		Expected: "default.com",
+	}}
+
+	for _, tt := range tests {
+		t.Run(tt.TestName, func(t *testing.T) {
+			if got, want := tt.Expected, SubrouteDomain(tt.Name, tt.Domain); got != want {
+				t.Errorf("SubrouteDomain = %s, want: %s", got, want)
+			}
+		})
 	}
 }
 

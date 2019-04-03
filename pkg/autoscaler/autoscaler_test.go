@@ -31,8 +31,9 @@ import (
 )
 
 const (
-	stableWindow = 60 * time.Second
-	panicWindow  = 6 * time.Second
+	stableWindow     = 60 * time.Second
+	panicWindow      = 6 * time.Second
+	activatorPodName = "activator"
 )
 
 var (
@@ -314,7 +315,7 @@ func TestAutoscaler_Activator_CausesInstantScale(t *testing.T) {
 	now := roundedNow()
 	now = a.recordMetric(t, Stat{
 		Time:                      &now,
-		PodName:                   ActivatorPodName,
+		PodName:                   activatorPodName,
 		RequestCount:              0,
 		AverageConcurrentRequests: 100.0,
 	})
@@ -328,13 +329,13 @@ func TestAutoscaler_Activator_MultipleInstancesAreAggregated(t *testing.T) {
 	now := roundedNow()
 	now = a.recordMetric(t, Stat{
 		Time:                      &now,
-		PodName:                   ActivatorPodName + "-0",
+		PodName:                   activatorPodName + "-0",
 		RequestCount:              0,
 		AverageConcurrentRequests: 50.0,
 	})
 	now = a.recordMetric(t, Stat{
 		Time:                      &now,
-		PodName:                   ActivatorPodName + "-1",
+		PodName:                   activatorPodName + "-1",
 		RequestCount:              0,
 		AverageConcurrentRequests: 50.0,
 	})
@@ -457,7 +458,7 @@ func TestAutoscaler_UpdateTarget(t *testing.T) {
 			podCount:         10,
 		})
 	a.expectScale(t, now, 10, true)
-	a.Update(MetricSpec{
+	a.Update(DeciderSpec{
 		TargetConcurrency: 1.0,
 	})
 	a.expectScale(t, now, 100, true)

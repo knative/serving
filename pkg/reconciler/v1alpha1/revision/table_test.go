@@ -20,6 +20,7 @@ import (
 	"context"
 	"strconv"
 	"testing"
+	"time"
 
 	caching "github.com/knative/caching/pkg/apis/caching/v1alpha1"
 	"github.com/knative/pkg/apis/duck"
@@ -295,11 +296,13 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			rev("foo", "endpoint-created-timeout",
 				WithK8sServiceName, WithLogURL, AllUnknownConditions,
-				MarkActive, WithEmptyLTTs),
+				MarkActive),
 			kpa("foo", "endpoint-created-timeout", WithTraffic),
 			deploy("foo", "endpoint-created-timeout"),
 			svc("foo", "endpoint-created-timeout"),
-			endpoints("foo", "endpoint-created-timeout"),
+			endpoints("foo", "endpoint-created-timeout", func(ep *corev1.Endpoints) {
+				ep.CreationTimestamp = metav1.Time{}
+			}),
 			image("foo", "endpoint-created-timeout"),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
@@ -455,7 +458,8 @@ func TestReconcile(t *testing.T) {
 				MarkProgressDeadlineExceeded),
 		}},
 		WantEvents: []string{
-			Eventf(corev1.EventTypeNormal, "ProgressDeadlineExceeded", "Revision %s not ready due to Deployment timeout",
+			Eventf(corev1.EventTypeNormal, "ProgressDeadlineExceeded",
+				"Revision %s not ready due to Deployment timeout",
 				"deploy-timeout"),
 		},
 		Key: "foo/deploy-timeout",
@@ -966,17 +970,7 @@ func image(namespace, name string, co ...configOption) *caching.Image {
 		opt(config)
 	}
 
-	rev := rev(namespace, name)
-	// Do this here instead of in `rev` itself to ensure that we populate defaults
-	// before calling MakeDeployment within Reconcile.
-	rev.SetDefaults(context.Background())
-	deploy := resources.MakeDeployment(rev, config.Logging, config.Network, config.Observability,
-		config.Autoscaler, config.Controller)
-	img, err := resources.MakeImageCache(rev, deploy)
-	if err != nil {
-		panic(err.Error())
-	}
-	return img
+	return resources.MakeImageCache(rev(namespace, name))
 }
 
 func fluentdConfigMap(namespace, name string, co ...configOption) *corev1.ConfigMap {
@@ -1012,8 +1006,9 @@ func endpoints(namespace, name string, eo ...EndpointsOption) *corev1.Endpoints 
 	service := svc(namespace, name)
 	ep := &corev1.Endpoints{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: service.Namespace,
-			Name:      service.Name,
+			Namespace:         service.Namespace,
+			Name:              service.Name,
+			CreationTimestamp: metav1.Time{time.Now()},
 		},
 	}
 	for _, opt := range eo {

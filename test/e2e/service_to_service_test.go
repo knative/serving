@@ -96,7 +96,7 @@ func testProxyToHelloworld(t *testing.T, clients *test.Clients, helloworldDomain
 		clients.KubeClient,
 		t.Logf,
 		httpProxyRoute.Status.Domain, pkgTest.Retrying(pkgTest.IsStatusOK, http.StatusNotFound),
-		"HttpProxy",
+		"HTTPProxy",
 		test.ServingFlags.ResolvableDomain); err != nil {
 		t.Fatalf("Failed to start endpoint of httpproxy: %v", err)
 	}
