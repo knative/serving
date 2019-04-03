@@ -25,7 +25,7 @@ import (
 
 // makeLabels constructs the labels we will apply to K8s resources.
 func makeLabels(revision *v1alpha1.Revision) map[string]string {
-	labels := resources.MakeLabels(revision, map[string]string{
+	labels := resources.UnionMaps(revision.GetLabels(), map[string]string{
 		serving.RevisionLabelKey: revision.Name,
 		serving.RevisionUID:      string(revision.UID),
 	})

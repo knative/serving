@@ -37,7 +37,7 @@ func MakeRoute(service *v1alpha1.Service) (*v1alpha1.Route, error) {
 			OwnerReferences: []metav1.OwnerReference{
 				*kmeta.NewControllerRef(service),
 			},
-			Labels: resources.MakeLabels(service, map[string]string{
+			Labels: resources.UnionMaps(service.GetLabels(), map[string]string{
 				serving.ServiceLabelKey: service.Name,
 			}),
 		},

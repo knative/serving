@@ -161,7 +161,7 @@ func MakeDeployment(rev *v1alpha1.Revision,
 	loggingConfig *logging.Config, networkConfig *network.Config, observabilityConfig *config.Observability,
 	autoscalerConfig *autoscaler.Config, controllerConfig *config.Controller) *appsv1.Deployment {
 
-	podTemplateAnnotations := resources.MakeAnnotations(rev, func(k string) bool {
+	podTemplateAnnotations := resources.FilterMap(rev.GetAnnotations(), func(k string) bool {
 		return k == serving.RevisionLastPinnedAnnotationKey
 	})
 	// TODO(nghia): Remove the need for this
@@ -190,7 +190,8 @@ func MakeDeployment(rev *v1alpha1.Revision,
 			Name:      names.Deployment(rev),
 			Namespace: rev.Namespace,
 			Labels:    makeLabels(rev),
-			Annotations: resources.MakeAnnotations(rev, func(k string) bool {
+			Annotations: resources.FilterMap(rev.GetAnnotations(), func(k string) bool {
+				// Exclude the heartbeat label, which can have high variance.
 				return k == serving.RevisionLastPinnedAnnotationKey
 			}),
 			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(rev)},

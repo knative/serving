@@ -93,7 +93,7 @@ func MakeFluentdConfigMap(rev *v1alpha1.Revision, observabilityConfig *config.Ob
 			Name:      names.FluentdConfigMap(rev),
 			Namespace: rev.Namespace,
 			Labels:    makeLabels(rev),
-			Annotations: resources.MakeAnnotations(rev, func(k string) bool {
+			Annotations: resources.FilterMap(rev.GetAnnotations(), func(k string) bool {
 				return k == serving.RevisionLastPinnedAnnotationKey
 			}),
 			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(rev)},

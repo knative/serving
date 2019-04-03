@@ -16,32 +16,39 @@ limitations under the License.
 
 package resources
 
-import metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-// MakeLabels returns a label map constructed from the union of labels of
-// the parent object and additional labels.
-func MakeLabels(obj metav1.Object, add map[string]string) map[string]string {
-	labels := make(map[string]string, len(obj.GetLabels()))
-
-	for k, v := range obj.GetLabels() {
-		labels[k] = v
+// CopyMap makes a copy of the map.
+func CopyMap(a map[string]string) map[string]string {
+	ret := make(map[string]string, len(a))
+	for k, v := range a {
+		ret[k] = v
 	}
-	for k, v := range add {
-		labels[k] = v
-	}
-	return labels
+	return ret
 }
 
-// MakeAnnotations creates the annotations we will apply to the
-// child resource of the given resource, if filter is provided and returns true,
-// the annotation will be dropped.
-func MakeAnnotations(obj metav1.Object, filter func(string) bool) map[string]string {
-	annotations := make(map[string]string, len(obj.GetAnnotations()))
-	for k, v := range obj.GetAnnotations() {
+// UnionMaps returns a map constructed from the union of `a` and `b`,
+// where value from `b` wins.
+func UnionMaps(a, b map[string]string) map[string]string {
+	out := make(map[string]string, len(a)+len(b))
+
+	for k, v := range a {
+		out[k] = v
+	}
+	for k, v := range b {
+		out[k] = v
+	}
+	return out
+}
+
+// FilterMap creates a copy of the provided map, filtering out the elements
+// that match `filter`.
+// nil `filter` is accepted.
+func FilterMap(in map[string]string, filter func(string) bool) map[string]string {
+	ret := make(map[string]string, len(in))
+	for k, v := range in {
 		if filter != nil && filter(k) {
 			continue
 		}
-		annotations[k] = v
+		ret[k] = v
 	}
-	return annotations
+	return ret
 }

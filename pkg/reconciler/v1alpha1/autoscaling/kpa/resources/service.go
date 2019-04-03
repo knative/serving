@@ -35,8 +35,8 @@ func MakeMetricsService(pa *pav1alpha1.PodAutoscaler, selector map[string]string
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            names.MetricsServiceName(pa.Name),
 			Namespace:       pa.Namespace,
-			Labels:          resources.MakeLabels(pa, map[string]string{kpaLabelKey: pa.Name}),
-			Annotations:     resources.MakeAnnotations(pa, nil /*filter*/),
+			Labels:          resources.UnionMaps(pa.GetLabels(), map[string]string{kpaLabelKey: pa.Name}),
+			Annotations:     resources.CopyMap(pa.GetAnnotations()),
 			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(pa)},
 		},
 		Spec: corev1.ServiceSpec{

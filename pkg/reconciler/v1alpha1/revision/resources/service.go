@@ -45,7 +45,7 @@ func MakeK8sService(rev *v1alpha1.Revision) *corev1.Service {
 			Name:      names.K8sService(rev),
 			Namespace: rev.Namespace,
 			Labels:    labels,
-			Annotations: resources.MakeAnnotations(rev, func(k string) bool {
+			Annotations: resources.FilterMap(rev.GetAnnotations(), func(k string) bool {
 				return k == serving.RevisionLastPinnedAnnotationKey
 			}),
 			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(rev)},

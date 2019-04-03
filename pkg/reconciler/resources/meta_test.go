@@ -20,50 +20,44 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func TestMakeLabels(t *testing.T) {
+func TestUnion(t *testing.T) {
 	tests := []struct {
 		name string
-		obj  *metav1.ObjectMeta
+		in   map[string]string
 		add  map[string]string
 		want map[string]string
 	}{{
-		name: "nil labels",
-		obj:  &metav1.ObjectMeta{},
+		name: "nil all",
 		want: map[string]string{},
 	}, {
-		name: "no labels",
-		obj: &metav1.ObjectMeta{
-			Labels: map[string]string{},
-		},
+		name: "empty in",
+		in:   map[string]string{},
 		want: map[string]string{},
 	}, {
-		name: "no labels, add",
-		obj: &metav1.ObjectMeta{
-			Labels: map[string]string{},
-		},
+		name: "no in, only additions",
 		add:  map[string]string{"wish": "you", "were": "here"},
 		want: map[string]string{"wish": "you", "were": "here"},
 	}, {
-		name: "pass through labels",
-		obj: &metav1.ObjectMeta{
-			Labels: map[string]string{"the-dark": "side"},
-		},
+		name: "in, no add",
+		in:   map[string]string{"the-dark": "side"},
 		want: map[string]string{"the-dark": "side"},
 	}, {
 		name: "all together now",
-		obj: &metav1.ObjectMeta{
-			Labels: map[string]string{"another": "brick"},
-		},
+		in:   map[string]string{"another": "brick"},
 		add:  map[string]string{"in": "the-wall"},
 		want: map[string]string{"in": "the-wall", "another": "brick"},
+	}, {
+		name: "merge wins",
+		in:   map[string]string{"another": "brick", "in": "the-wall-pt-I"},
+		add:  map[string]string{"in": "the-wall-pt-II"},
+		want: map[string]string{"in": "the-wall-pt-II", "another": "brick"},
 	}}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got := MakeLabels(test.obj, test.add)
+			got := UnionMaps(test.in, test.add)
 			if diff := cmp.Diff(test.want, got); diff != "" {
 				t.Errorf("MakeLabels (-want, +got) = %v", diff)
 			}
@@ -71,54 +65,71 @@ func TestMakeLabels(t *testing.T) {
 	}
 }
 
-func TestMakeAnnotations(t *testing.T) {
+func TestFilter(t *testing.T) {
 	tests := []struct {
 		name   string
-		obj    *metav1.ObjectMeta
+		in     map[string]string
 		filter func(string) bool
 		want   map[string]string
 	}{{
-		name: "nil annotations",
-		obj:  &metav1.ObjectMeta{},
+		name: "nil in",
 		want: map[string]string{},
 	}, {
-		name: "no annotations",
-		obj: &metav1.ObjectMeta{
-			Annotations: map[string]string{},
-		},
+		name: "empty in",
+		in:   map[string]string{},
 		want: map[string]string{},
 	}, {
-		name: "no annotations, filterfunc",
-		obj: &metav1.ObjectMeta{
-			Annotations: map[string]string{},
-		},
+		name:   "no in, with filter",
+		in:     map[string]string{},
 		filter: func(string) bool { return false },
 		want:   map[string]string{},
 	}, {
-		name: "pass through annotations",
-		obj: &metav1.ObjectMeta{
-			Annotations: map[string]string{"the-dark": "side"},
-		},
+		name: "pass through",
+		in:   map[string]string{"the-dark": "side"},
 		want: map[string]string{"the-dark": "side"},
 	}, {
-		name: "filter all",
-		obj: &metav1.ObjectMeta{
-			Annotations: map[string]string{"the-dark": "side", "of-ther": "moon"},
-		},
+		name:   "filter all",
+		in:     map[string]string{"the-dark": "side", "of-ther": "moon"},
 		filter: func(string) bool { return true },
 		want:   map[string]string{},
 	}, {
-		name: "all together now",
-		obj: &metav1.ObjectMeta{
-			Annotations: map[string]string{"another": "brick", "in": "the-wall"},
-		},
+		name:   "all together now",
+		in:     map[string]string{"another": "brick", "in": "the-wall"},
 		filter: func(s string) bool { return s == "in" },
 		want:   map[string]string{"another": "brick"},
 	}}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got := MakeAnnotations(test.obj, test.filter)
+			got := FilterMap(test.in, test.filter)
+			if diff := cmp.Diff(test.want, got); diff != "" {
+				t.Errorf("MakeAnnotations (-want, +got) = %v", diff)
+			}
+		})
+	}
+}
+
+func TestCopy(t *testing.T) {
+	tests := []struct {
+		name string
+		in   map[string]string
+		want map[string]string
+	}{{
+		name: "nil in",
+		want: map[string]string{},
+	}, {
+		name: "empty in",
+		in:   map[string]string{},
+		want: map[string]string{},
+	}, {
+		name: "copy",
+		in:   map[string]string{"the-dark": "side"},
+		want: map[string]string{"the-dark": "side"},
+	}}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			got := CopyMap(test.in)
 			if diff := cmp.Diff(test.want, got); diff != "" {
 				t.Errorf("MakeAnnotations (-want, +got) = %v", diff)
 			}
