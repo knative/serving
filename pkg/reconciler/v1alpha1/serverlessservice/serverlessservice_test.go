@@ -239,6 +239,111 @@ func TestReconcile(t *testing.T) {
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "UpdateFailed", "Failed to update status: inducing failure for update serverlessservices"),
 		},
+	}, {
+		Name:    "ronin-pub-service/fail5",
+		Key:     "ronin-pub-service/fail5",
+		WantErr: true,
+		Objects: []runtime.Object{
+			sks("ronin-pub-service", "fail5", withPubService),
+			svcpub("ronin-pub-service", "fail5", WithK8sSvcOwnersRemoved),
+			svcpriv("ronin-pub-service", "fail5"),
+			endpointspub("ronin-pub-service", "fail5", WithSubsets),
+			endpointspriv("ronin-pub-service", "fail5", WithSubsets),
+		},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeWarning, "UpdateFailed", `InternalError: SKS: "fail5" does not own Service: "fail5-pub"`),
+		},
+	}, {
+		Name:    "ronin-priv-service/fail6",
+		Key:     "ronin-priv-service/fail6",
+		WantErr: true,
+		Objects: []runtime.Object{
+			sks("ronin-priv-service", "fail6", withPubService),
+			svcpub("ronin-priv-service", "fail6"),
+			svcpriv("ronin-priv-service", "fail6", WithK8sSvcOwnersRemoved),
+			endpointspub("ronin-priv-service", "fail6", WithSubsets),
+			endpointspriv("ronin-priv-service", "fail6", WithSubsets),
+		},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeWarning, "UpdateFailed", `InternalError: SKS: "fail6" does not own Service: "fail6-priv"`),
+		},
+	}, {
+		Name:    "ronin-pub-eps/fail7",
+		Key:     "ronin-pub-eps/fail7",
+		WantErr: true,
+		Objects: []runtime.Object{
+			sks("ronin-pub-eps", "fail7", withPubService),
+			svcpub("ronin-pub-eps", "fail7"),
+			svcpriv("ronin-pub-eps", "fail7"),
+			endpointspub("ronin-pub-eps", "fail7", WithSubsets, WithEndpointsOwnersRemoved),
+			endpointspriv("ronin-pub-eps", "fail7", WithSubsets),
+		},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeWarning, "UpdateFailed", `InternalError: SKS: "fail7" does not own Endpoints: "fail7-pub"`),
+		},
+	}, {
+		Name:    "update-svc-fail-pub",
+		Key:     "update-svc/fail8",
+		WantErr: true,
+		Objects: []runtime.Object{
+			sks("update-svc", "fail8", withPubService),
+			svcpub("update-svc", "fail8", withTimeSelector),
+			svcpriv("update-svc", "fail8"),
+			endpointspub("update-svc", "fail8", WithSubsets),
+			endpointspriv("update-svc", "fail8", WithSubsets),
+		},
+		WithReactors: []clientgotesting.ReactionFunc{
+			InduceFailure("update", "services"),
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: svcpub("update-svc", "fail8"),
+		}},
+
+		WantEvents: []string{
+			Eventf(corev1.EventTypeWarning, "UpdateFailed", "InternalError: inducing failure for update services"),
+		},
+	}, {
+		Name:    "update-svc-fail-priv",
+		Key:     "update-svc/fail9",
+		WantErr: true,
+		Objects: []runtime.Object{
+			sks("update-svc", "fail9", withPubService),
+			svcpub("update-svc", "fail9"),
+			svcpriv("update-svc", "fail9", withTimeSelector),
+			endpointspub("update-svc", "fail9"),
+			endpointspriv("update-svc", "fail9"),
+		},
+		WithReactors: []clientgotesting.ReactionFunc{
+			InduceFailure("update", "services"),
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: svcpriv("update-svc", "fail9"),
+		}},
+
+		WantEvents: []string{
+			Eventf(corev1.EventTypeWarning, "UpdateFailed", "InternalError: inducing failure for update services"),
+		},
+	}, {
+		Name:    "update-eps-fail",
+		Key:     "update-eps/failA",
+		WantErr: true,
+		Objects: []runtime.Object{
+			sks("update-eps", "failA", withPubService),
+			svcpub("update-eps", "failA"),
+			svcpriv("update-eps", "failA"),
+			endpointspub("update-eps", "failA"),
+			endpointspriv("update-eps", "failA", WithSubsets),
+		},
+		WithReactors: []clientgotesting.ReactionFunc{
+			InduceFailure("update", "endpoints"),
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: endpointspub("update-eps", "failA", WithSubsets), // The attempted update.
+		}},
+
+		WantEvents: []string{
+			Eventf(corev1.EventTypeWarning, "UpdateFailed", "InternalError: inducing failure for update endpoints"),
+		},
 	}}
 
 	defer ClearAllLoggers()
