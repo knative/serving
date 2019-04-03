@@ -17,11 +17,11 @@ limitations under the License.
 package v1alpha1
 
 import (
-	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
+	"github.com/knative/pkg/apis"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
-var confCondSet = duckv1alpha1.NewLivingConditionSet()
+var confCondSet = apis.NewLivingConditionSet()
 
 func (r *Configuration) GetGroupVersionKind() schema.GroupVersionKind {
 	return SchemeGroupVersion.WithKind("Configuration")
@@ -40,7 +40,7 @@ func (cs *ConfigurationStatus) IsLatestReadyRevisionNameUpToDate() bool {
 		cs.LatestCreatedRevisionName == cs.LatestReadyRevisionName
 }
 
-func (cs *ConfigurationStatus) GetCondition(t duckv1alpha1.ConditionType) *duckv1alpha1.Condition {
+func (cs *ConfigurationStatus) GetCondition(t apis.ConditionType) *apis.Condition {
 	return confCondSet.Manage(cs).GetCondition(t)
 }
 
