@@ -26,9 +26,9 @@ import (
 	"github.com/knative/serving/pkg/autoscaler"
 	"github.com/knative/serving/pkg/network"
 	"github.com/knative/serving/pkg/queue"
-	"github.com/knative/serving/pkg/reconciler/resources"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/config"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources/names"
+	"github.com/knative/serving/pkg/resources"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"

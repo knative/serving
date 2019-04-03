@@ -19,7 +19,7 @@ package resources
 import (
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	"github.com/knative/serving/pkg/reconciler/resources"
+	"github.com/knative/serving/pkg/resources"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 

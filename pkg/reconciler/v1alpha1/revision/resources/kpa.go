@@ -24,8 +24,8 @@ import (
 	kpa "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	"github.com/knative/serving/pkg/reconciler/resources"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources/names"
+	"github.com/knative/serving/pkg/resources"
 )
 
 // MakeKPA makes a Knative Pod Autoscaler resource from a revision.

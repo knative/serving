@@ -23,8 +23,8 @@ import (
 	"github.com/knative/pkg/kmeta"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	"github.com/knative/serving/pkg/reconciler/resources"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources/names"
+	"github.com/knative/serving/pkg/resources"
 )
 
 // MakeImageCache makes an caching.Image resources from a revision.
