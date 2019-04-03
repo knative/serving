@@ -45,6 +45,7 @@ readonly YAML_LIST_FILE=${2:?"Second argument must be the output file"}
 readonly ISTIO_CRD_YAML=${YAML_REPO_ROOT}/third_party/istio-1.1.1/istio-crds.yaml
 readonly ISTIO_YAML=${YAML_REPO_ROOT}/third_party/istio-1.1.1/istio.yaml
 readonly ISTIO_LEAN_YAML=${YAML_REPO_ROOT}/third_party/istio-1.1.1/istio-lean.yaml
+readonly ISTIO_KNATIVE_EXTRAS_YAML=${YAML_REPO_ROOT}/third_party/istio-1.1.1/istio-knative-extras.yaml
 
 # Set output directory
 if [[ -z "${YAML_OUTPUT_DIR:-}" ]]; then
@@ -108,4 +109,4 @@ echo "All manifests generated"
 
 ls -1 ${SERVING_YAML} > ${YAML_LIST_FILE}
 ls -1 ${YAML_OUTPUT_DIR}/*.yaml | grep -v ${SERVING_YAML} >> ${YAML_LIST_FILE}
-ls -1 ${ISTIO_CRD_YAML} ${ISTIO_YAML} ${ISTIO_LEAN_YAML} >> ${YAML_LIST_FILE}
+ls -1 ${ISTIO_CRD_YAML} ${ISTIO_YAML} ${ISTIO_LEAN_YAML} ${ISTIO_KNATIVE_EXTRAS_YAML} >> ${YAML_LIST_FILE}

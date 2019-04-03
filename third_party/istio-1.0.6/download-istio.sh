@@ -23,7 +23,8 @@ helm template --namespace=istio-system \
   install/kubernetes/helm/istio \
   -f install/kubernetes/helm/istio/values-istio-gateways.yaml \
   | sed -e "s/custom-gateway/cluster-local-gateway/g" -e "s/customgateway/clusterlocalgateway/g" \
-  > cluster-local-gateway.yaml
+  | sed "s/[[:space:]]*$//" \
+  > ../istio-knative-extras.yaml
 
 # A template with sidecar injection enabled.
 helm template --namespace=istio-system \
@@ -47,7 +48,7 @@ helm template --namespace=istio-system \
   `# Remove all hardcoded NodePorts` \
   | grep -v "^[[:space:]]*nodePort[[:space:]]*:[[:space:]]*[[:digit:]]\+$" \
   > ../istio.yaml
-cat cluster-local-gateway.yaml >> ../istio.yaml
+cat ../istio-knative-extras.yaml >> ../istio.yaml
 
 # A lighter template, with no sidecar injection.  We could probably remove
 # more from this template.
@@ -68,7 +69,7 @@ helm template --namespace=istio-system \
   `# Remove all hardcoded NodePorts` \
   | grep -v "^[[:space:]]*nodePort[[:space:]]*:[[:space:]]*[[:digit:]]\+$" \
   > ../istio-lean.yaml
-cat cluster-local-gateway.yaml >> ../istio-lean.yaml
+cat ../istio-knative-extras.yaml >> ../istio-lean.yaml
 
 # Clean up.
 cd ..
