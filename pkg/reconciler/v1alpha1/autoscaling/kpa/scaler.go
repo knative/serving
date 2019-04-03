@@ -123,6 +123,11 @@ func scaleResourceArgs(pa *pav1alpha1.PodAutoscaler) (*schema.GroupResource, str
 func (ks *scaler) Scale(ctx context.Context, pa *pav1alpha1.PodAutoscaler, desiredScale int32) (int32, error) {
 	logger := logging.FromContext(ctx)
 
+	if desiredScale < 0 {
+		logger.Debug("Metrics are not yet being collected.")
+		return desiredScale, nil
+	}
+
 	// TODO(mattmoor): Drop this once the KPA is the source of truth and we
 	// scale exclusively on metrics.
 	revGVK := v1alpha1.SchemeGroupVersion.WithKind("Revision")
