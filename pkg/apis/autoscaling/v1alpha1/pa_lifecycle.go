@@ -21,13 +21,14 @@ import (
 	"strconv"
 	"time"
 
-	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
+	"github.com/knative/pkg/apis"
+	duckv1beta1 "github.com/knative/pkg/apis/duck/v1beta1"
 	"github.com/knative/serving/pkg/apis/autoscaling"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
-var podCondSet = duckv1alpha1.NewLivingConditionSet(
+var podCondSet = apis.NewLivingConditionSet(
 	PodAutoscalerConditionActive,
 )
 
@@ -80,7 +81,7 @@ func (pa *PodAutoscaler) Target() (target int32, ok bool) {
 // IsReady looks at the conditions and if the Status has a condition
 // PodAutoscalerConditionReady returns true if ConditionStatus is True
 func (rs *PodAutoscalerStatus) IsReady() bool {
-	return podCondSet.Manage(rs).IsHappy()
+	return podCondSet.Manage((*duckv1beta1.Status)(rs)).IsHappy()
 }
 
 // IsActivating assumes the pod autoscaler is Activating if it is neither
@@ -91,24 +92,24 @@ func (rs *PodAutoscalerStatus) IsActivating() bool {
 	return cond != nil && cond.Status == corev1.ConditionUnknown
 }
 
-func (rs *PodAutoscalerStatus) GetCondition(t duckv1alpha1.ConditionType) *duckv1alpha1.Condition {
-	return podCondSet.Manage(rs).GetCondition(t)
+func (rs *PodAutoscalerStatus) GetCondition(t apis.ConditionType) *apis.Condition {
+	return podCondSet.Manage((*duckv1beta1.Status)(rs)).GetCondition(t)
 }
 
 func (rs *PodAutoscalerStatus) InitializeConditions() {
-	podCondSet.Manage(rs).InitializeConditions()
+	podCondSet.Manage((*duckv1beta1.Status)(rs)).InitializeConditions()
 }
 
 func (rs *PodAutoscalerStatus) MarkActive() {
-	podCondSet.Manage(rs).MarkTrue(PodAutoscalerConditionActive)
+	podCondSet.Manage((*duckv1beta1.Status)(rs)).MarkTrue(PodAutoscalerConditionActive)
 }
 
 func (rs *PodAutoscalerStatus) MarkActivating(reason, message string) {
-	podCondSet.Manage(rs).MarkUnknown(PodAutoscalerConditionActive, reason, message)
+	podCondSet.Manage((*duckv1beta1.Status)(rs)).MarkUnknown(PodAutoscalerConditionActive, reason, message)
 }
 
 func (rs *PodAutoscalerStatus) MarkInactive(reason, message string) {
-	podCondSet.Manage(rs).MarkFalse(PodAutoscalerConditionActive, reason, message)
+	podCondSet.Manage((*duckv1beta1.Status)(rs)).MarkFalse(PodAutoscalerConditionActive, reason, message)
 }
 
 // MarkResourceNotOwned changes the "Active" condition to false to reflect that the
