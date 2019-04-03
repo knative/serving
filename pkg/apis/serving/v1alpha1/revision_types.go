@@ -86,22 +86,6 @@ const (
 	DeprecatedRevisionServingStateRetired DeprecatedRevisionServingStateType = "Retired"
 )
 
-// RevisionRequestConcurrencyModelType is an enumeration of the
-// concurrency models supported by a Revision.
-// Deprecated in favor of RevisionContainerConcurrencyType.
-type RevisionRequestConcurrencyModelType string
-
-const (
-	// RevisionRequestConcurrencyModelSingle guarantees that only one
-	// request will be handled at a time (concurrently) per instance
-	// of Revision Container.
-	RevisionRequestConcurrencyModelSingle RevisionRequestConcurrencyModelType = "Single"
-	// RevisionRequestConcurencyModelMulti allows more than one request to
-	// be handled at a time (concurrently) per instance of Revision
-	// Container.
-	RevisionRequestConcurrencyModelMulti RevisionRequestConcurrencyModelType = "Multi"
-)
-
 // RevisionContainerConcurrencyType is an integer expressing a number of
 // in-flight (concurrent) requests.
 type RevisionContainerConcurrencyType int64
@@ -131,18 +115,9 @@ type RevisionSpec struct {
 	// +optional
 	DeprecatedServingState DeprecatedRevisionServingStateType `json:"servingState,omitempty"`
 
-	// DeprecatedConcurrencyModel specifies the desired concurrency model
-	// (Single or Multi) for the
-	// Revision. Defaults to Multi.
-	// Deprecated in favor of ContainerConcurrency.
-	// +optional
-	DeprecatedConcurrencyModel RevisionRequestConcurrencyModelType `json:"concurrencyModel,omitempty"`
-
 	// ContainerConcurrency specifies the maximum allowed
 	// in-flight (concurrent) requests per container of the Revision.
 	// Defaults to `0` which means unlimited concurrency.
-	// This field replaces ConcurrencyModel. A value of `1`
-	// is equivalent to `Single` and `0` is equivalent to `Multi`.
 	// +optional
 	ContainerConcurrency RevisionContainerConcurrencyType `json:"containerConcurrency,omitempty"`
 

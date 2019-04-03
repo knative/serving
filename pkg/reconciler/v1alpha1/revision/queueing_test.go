@@ -110,8 +110,7 @@ func getTestRevision() *v1alpha1.Revision {
 				},
 				TerminationMessagePath: "/dev/null",
 			},
-			DeprecatedConcurrencyModel: v1alpha1.RevisionRequestConcurrencyModelMulti,
-			TimeoutSeconds:             ptr.Int64(60),
+			TimeoutSeconds: ptr.Int64(60),
 		},
 	}
 }

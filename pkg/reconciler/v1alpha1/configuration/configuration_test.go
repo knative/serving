@@ -85,28 +85,6 @@ func TestReconcile(t *testing.T) {
 		},
 		Key: "foo/no-revisions-yet",
 	}, {
-		Name: "webhook validation failure",
-		// If we attempt to create a Revision with a bad ConcurrencyModel set, we fail.
-		WantErr: true,
-		Objects: []runtime.Object{
-			cfg("validation-failure", "foo", 1234, WithConfigConcurrencyModel("Bogus")),
-		},
-		WantCreates: []metav1.Object{
-			rev("validation-failure", "foo", 1234, WithRevConcurrencyModel("Bogus")),
-		},
-		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: cfg("validation-failure", "foo", 1234, WithConfigConcurrencyModel("Bogus"),
-				// Expect Revision creation to fail with the following error.
-				MarkRevisionCreationFailed(`invalid value: Bogus: spec.concurrencyModel`)),
-		}},
-		WantEvents: []string{
-			Eventf(corev1.EventTypeWarning, "CreationFailed", "Failed to create Revision for Configuration %q: %v",
-				"validation-failure", `invalid value: Bogus: spec.concurrencyModel`),
-			Eventf(corev1.EventTypeWarning, "UpdateFailed", "Failed to update status for Configuration %q: %v",
-				"validation-failure", `invalid value: Bogus: spec.revisionTemplate.spec.concurrencyModel`),
-		},
-		Key: "foo/validation-failure",
-	}, {
 		Name: "elide build when a matching one already exists",
 		Objects: []runtime.Object{
 			cfg("need-rev-and-build", "foo", 99998, WithBuild),

@@ -32,12 +32,6 @@ func (r *Revision) SetDefaults(ctx context.Context) {
 func (rs *RevisionSpec) SetDefaults(ctx context.Context) {
 	cfg := config.FromContextOrDefaults(ctx)
 
-	// When ConcurrencyModel is specified but ContainerConcurrency
-	// is not (0), use the ConcurrencyModel value.
-	if rs.DeprecatedConcurrencyModel == RevisionRequestConcurrencyModelSingle && rs.ContainerConcurrency == 0 {
-		rs.ContainerConcurrency = 1
-	}
-
 	if rs.TimeoutSeconds == nil {
 		ts := cfg.Defaults.RevisionTimeoutSeconds
 		rs.TimeoutSeconds = &ts

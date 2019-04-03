@@ -75,9 +75,7 @@ func (rs *PodAutoscalerSpec) Validate(ctx context.Context) *apis.FieldError {
 	if rs.ServiceName == "" {
 		errs = errs.Also(apis.ErrMissingField("serviceName"))
 	}
-
-	if err := servingv1alpha1.ValidateContainerConcurrency(
-		rs.ContainerConcurrency, ""); err != nil {
+	if err := servingv1alpha1.ValidateContainerConcurrency(rs.ContainerConcurrency); err != nil {
 		errs = errs.Also(err)
 	}
 	return errs.Also(validateSKSFields(rs))

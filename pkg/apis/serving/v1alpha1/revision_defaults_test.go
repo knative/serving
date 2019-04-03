@@ -151,25 +151,6 @@ func TestRevisionDefaulting(t *testing.T) {
 				},
 			},
 		},
-	}, {
-		name: "fall back to concurrency model",
-		in: &Revision{
-			Spec: RevisionSpec{
-				DeprecatedConcurrencyModel: "Single",
-				ContainerConcurrency:       0, // unspecified
-				Container:                  &corev1.Container{},
-			},
-		},
-		want: &Revision{
-			Spec: RevisionSpec{
-				DeprecatedConcurrencyModel: "Single",
-				ContainerConcurrency:       1,
-				TimeoutSeconds:             ptr.Int64(config.DefaultRevisionTimeoutSeconds),
-				Container: &corev1.Container{
-					Resources: defaultResources,
-				},
-			},
-		},
 	}}
 
 	for _, test := range tests {

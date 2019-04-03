@@ -559,79 +559,19 @@ func TestBuildRefValidation(t *testing.T) {
 	}
 }
 
-func TestConcurrencyModelValidation(t *testing.T) {
-	tests := []struct {
-		name string
-		cm   RevisionRequestConcurrencyModelType
-		want *apis.FieldError
-	}{{
-		name: "single",
-		cm:   RevisionRequestConcurrencyModelSingle,
-		want: nil,
-	}, {
-		name: "multi",
-		cm:   RevisionRequestConcurrencyModelMulti,
-		want: nil,
-	}, {
-		name: "empty",
-		cm:   "",
-		want: nil,
-	}, {
-		name: "bogus",
-		cm:   "bogus",
-		want: apis.ErrInvalidValue("bogus", apis.CurrentField),
-	}, {
-		name: "balderdash",
-		cm:   "balderdash",
-		want: apis.ErrInvalidValue("balderdash", apis.CurrentField),
-	}}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			got := test.cm.Validate(context.Background())
-			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
-				t.Errorf("Validate (-want, +got) = %v", diff)
-			}
-		})
-	}
-}
-
 func TestContainerConcurrencyValidation(t *testing.T) {
 	tests := []struct {
 		name string
 		cc   RevisionContainerConcurrencyType
-		cm   RevisionRequestConcurrencyModelType
 		want *apis.FieldError
 	}{{
 		name: "single with only container concurrency",
 		cc:   1,
-		cm:   RevisionRequestConcurrencyModelType(""),
-		want: nil,
-	}, {
-		name: "single with container currency and concurrency model",
-		cc:   1,
-		cm:   RevisionRequestConcurrencyModelSingle,
 		want: nil,
 	}, {
 		name: "multi with only container concurrency",
 		cc:   0,
-		cm:   RevisionRequestConcurrencyModelType(""),
 		want: nil,
-	}, {
-		name: "multi with container concurrency and concurrency model",
-		cc:   0,
-		cm:   RevisionRequestConcurrencyModelMulti,
-		want: nil,
-	}, {
-		name: "mismatching container concurrency (1) and concurrency model (multi)",
-		cc:   1,
-		cm:   RevisionRequestConcurrencyModelMulti,
-		want: apis.ErrMultipleOneOf("containerConcurrency", "concurrencyModel"),
-	}, {
-		name: "mismatching container concurrency (0) and concurrency model (single)",
-		cc:   0,
-		cm:   RevisionRequestConcurrencyModelSingle,
-		want: apis.ErrMultipleOneOf("containerConcurrency", "concurrencyModel"),
 	}, {
 		name: "invalid container concurrency (too small)",
 		cc:   -1,
@@ -644,7 +584,7 @@ func TestContainerConcurrencyValidation(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got := ValidateContainerConcurrency(test.cc, test.cm)
+			got := ValidateContainerConcurrency(test.cc)
 			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
 				t.Errorf("Validate (-want, +got) = %v", diff)
 			}
@@ -664,7 +604,6 @@ func TestRevisionSpecValidation(t *testing.T) {
 			Container: &corev1.Container{
 				Image: "helloworld",
 			},
-			DeprecatedConcurrencyModel: "Multi",
 		},
 		want: nil,
 	}, {
@@ -676,11 +615,9 @@ func TestRevisionSpecValidation(t *testing.T) {
 			Container: &corev1.Container{
 				Image: "helloworld",
 			},
-			DeprecatedConcurrencyModel: "Multi",
-			DeprecatedBuildName:        "banana",
+			DeprecatedBuildName: "banana",
 		},
-		want: apis.ErrDisallowedFields("buildName", "concurrencyModel",
-			"generation", "servingState"),
+		want: apis.ErrDisallowedFields("buildName", "generation", "servingState"),
 	}, {
 		name: "with volume (ok)",
 		rs: &RevisionSpec{
@@ -700,7 +637,6 @@ func TestRevisionSpecValidation(t *testing.T) {
 					},
 				},
 			}},
-			DeprecatedConcurrencyModel: "Multi",
 		},
 		want: nil,
 	}, {
@@ -727,7 +663,6 @@ func TestRevisionSpecValidation(t *testing.T) {
 					ConfigMap: &corev1.ConfigMapVolumeSource{},
 				},
 			}},
-			DeprecatedConcurrencyModel: "Multi",
 		},
 		want: (&apis.FieldError{
 			Message: fmt.Sprintf(`duplicate volume name "the-name"`),
@@ -742,15 +677,6 @@ func TestRevisionSpecValidation(t *testing.T) {
 			BuildRef: &corev1.ObjectReference{},
 		},
 		want: apis.ErrInvalidValue("", "buildRef.apiVersion"),
-	}, {
-		name: "bad concurrency model",
-		rs: &RevisionSpec{
-			Container: &corev1.Container{
-				Image: "helloworld",
-			},
-			DeprecatedConcurrencyModel: "bogus",
-		},
-		want: apis.ErrInvalidValue("bogus", "concurrencyModel"),
 	}, {
 		name: "bad container spec",
 		rs: &RevisionSpec{
@@ -810,7 +736,6 @@ func TestRevisionTemplateSpecValidation(t *testing.T) {
 				Container: &corev1.Container{
 					Image: "helloworld",
 				},
-				DeprecatedConcurrencyModel: "Multi",
 			},
 		},
 		want: nil,
@@ -826,7 +751,6 @@ func TestRevisionTemplateSpecValidation(t *testing.T) {
 					Name:  "kevin",
 					Image: "helloworld",
 				},
-				DeprecatedConcurrencyModel: "Multi",
 			},
 		},
 		want: apis.ErrDisallowedFields("spec.container.name"),
@@ -840,7 +764,6 @@ func TestRevisionTemplateSpecValidation(t *testing.T) {
 				Container: &corev1.Container{
 					Image: "helloworld",
 				},
-				DeprecatedConcurrencyModel: "Multi",
 			},
 		},
 		want: apis.ErrDisallowedFields("metadata.name"),
@@ -871,7 +794,6 @@ func TestRevisionValidation(t *testing.T) {
 				Container: &corev1.Container{
 					Image: "helloworld",
 				},
-				DeprecatedConcurrencyModel: "Multi",
 			},
 		},
 		want: nil,
@@ -894,7 +816,6 @@ func TestRevisionValidation(t *testing.T) {
 					Name:  "kevin",
 					Image: "helloworld",
 				},
-				DeprecatedConcurrencyModel: "Multi",
 			},
 		},
 		want: apis.ErrDisallowedFields("spec.container.name"),
@@ -908,7 +829,6 @@ func TestRevisionValidation(t *testing.T) {
 				Container: &corev1.Container{
 					Image: "helloworld",
 				},
-				DeprecatedConcurrencyModel: "Multi",
 			},
 		},
 		want: &apis.FieldError{
@@ -929,7 +849,6 @@ func TestRevisionValidation(t *testing.T) {
 				Container: &corev1.Container{
 					Image: "helloworld",
 				},
-				DeprecatedConcurrencyModel: "Multi",
 			},
 		},
 		want: (&apis.FieldError{
@@ -964,7 +883,6 @@ func TestImmutableFields(t *testing.T) {
 				Container: &corev1.Container{
 					Image: "helloworld",
 				},
-				DeprecatedConcurrencyModel: "Multi",
 			},
 		},
 		old: &Revision{
@@ -975,7 +893,6 @@ func TestImmutableFields(t *testing.T) {
 				Container: &corev1.Container{
 					Image: "helloworld",
 				},
-				DeprecatedConcurrencyModel: "Multi",
 			},
 		},
 		want: nil,
@@ -994,7 +911,6 @@ func TestImmutableFields(t *testing.T) {
 						},
 					},
 				},
-				DeprecatedConcurrencyModel: "Multi",
 			},
 		},
 		old: &Revision{
@@ -1010,7 +926,6 @@ func TestImmutableFields(t *testing.T) {
 						},
 					},
 				},
-				DeprecatedConcurrencyModel: "Multi",
 			},
 		},
 		want: &apis.FieldError{
@@ -1031,7 +946,6 @@ func TestImmutableFields(t *testing.T) {
 				Container: &corev1.Container{
 					Image: "helloworld",
 				},
-				DeprecatedConcurrencyModel: "Multi",
 			},
 		},
 		old: &Revision{
@@ -1042,7 +956,6 @@ func TestImmutableFields(t *testing.T) {
 				Container: &corev1.Container{
 					Image: "busybox",
 				},
-				DeprecatedConcurrencyModel: "Multi",
 			},
 		},
 		want: &apis.FieldError{
@@ -1051,38 +964,6 @@ func TestImmutableFields(t *testing.T) {
 			Details: `{v1alpha1.RevisionSpec}.Container.Image:
 	-: "busybox"
 	+: "helloworld"
-`,
-		},
-	}, {
-		name: "bad (concurrency model change)",
-		new: &Revision{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "foo",
-			},
-			Spec: RevisionSpec{
-				Container: &corev1.Container{
-					Image: "helloworld",
-				},
-				DeprecatedConcurrencyModel: "Multi",
-			},
-		},
-		old: &Revision{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "foo",
-			},
-			Spec: RevisionSpec{
-				Container: &corev1.Container{
-					Image: "helloworld",
-				},
-				DeprecatedConcurrencyModel: "Single",
-			},
-		},
-		want: &apis.FieldError{
-			Message: "Immutable fields changed (-old +new)",
-			Paths:   []string{"spec"},
-			Details: `{v1alpha1.RevisionSpec}.DeprecatedConcurrencyModel:
-	-: v1alpha1.RevisionRequestConcurrencyModelType("Single")
-	+: v1alpha1.RevisionRequestConcurrencyModelType("Multi")
 `,
 		},
 	}, {
@@ -1095,7 +976,7 @@ func TestImmutableFields(t *testing.T) {
 				Container: &corev1.Container{
 					Image: "helloworld",
 				},
-				DeprecatedConcurrencyModel: "Multi",
+				ContainerConcurrency: 100,
 			},
 		},
 		old: &Revision{
@@ -1111,9 +992,9 @@ func TestImmutableFields(t *testing.T) {
 		want: &apis.FieldError{
 			Message: "Immutable fields changed (-old +new)",
 			Paths:   []string{"spec"},
-			Details: `{v1alpha1.RevisionSpec}.DeprecatedConcurrencyModel:
-	-: v1alpha1.RevisionRequestConcurrencyModelType("")
-	+: v1alpha1.RevisionRequestConcurrencyModelType("Multi")
+			Details: `{v1alpha1.RevisionSpec}.ContainerConcurrency:
+	-: v1alpha1.RevisionContainerConcurrencyType(0)
+	+: v1alpha1.RevisionContainerConcurrencyType(100)
 `,
 		},
 	}, {
@@ -1126,7 +1007,7 @@ func TestImmutableFields(t *testing.T) {
 				Container: &corev1.Container{
 					Image: "helloworld",
 				},
-				DeprecatedConcurrencyModel: "Multi",
+				ContainerConcurrency: 100,
 			},
 		},
 		old: &Revision{
@@ -1137,15 +1018,15 @@ func TestImmutableFields(t *testing.T) {
 				Container: &corev1.Container{
 					Image: "busybox",
 				},
-				DeprecatedConcurrencyModel: "Single",
+				ContainerConcurrency: 1,
 			},
 		},
 		want: &apis.FieldError{
 			Message: "Immutable fields changed (-old +new)",
 			Paths:   []string{"spec"},
-			Details: `{v1alpha1.RevisionSpec}.DeprecatedConcurrencyModel:
-	-: v1alpha1.RevisionRequestConcurrencyModelType("Single")
-	+: v1alpha1.RevisionRequestConcurrencyModelType("Multi")
+			Details: `{v1alpha1.RevisionSpec}.ContainerConcurrency:
+	-: v1alpha1.RevisionContainerConcurrencyType(1)
+	+: v1alpha1.RevisionContainerConcurrencyType(100)
 {v1alpha1.RevisionSpec}.Container.Image:
 	-: "busybox"
 	+: "helloworld"
