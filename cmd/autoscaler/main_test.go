@@ -16,6 +16,7 @@ limitations under the License.
 package main
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/knative/serving/pkg/apis/serving"
@@ -30,34 +31,83 @@ const (
 	testRevision  = "test-Revision"
 )
 
+func TestUniscalerFactoryFailures(t *testing.T) {
+	tests := []struct {
+		name   string
+		labels map[string]string
+		want   string
+	}{{
+		"nil labels", nil, "no labels set on Decider",
+	}, {
+		"empty labels", map[string]string{}, "no labels set on Decider",
+	}, {
+		"revision missing", map[string]string{
+			serving.ServiceLabelKey:       "in vino",
+			serving.ConfigurationLabelKey: "veritas",
+		}, "no Revision label found in Decider",
+	}, {
+		"service missing", map[string]string{
+			serving.RevisionLabelKey:      "nel vino",
+			serving.ConfigurationLabelKey: "è la verità",
+		}, "no Service label found in Decider",
+	}, {
+		"config missing", map[string]string{
+			serving.RevisionLabelKey: "en el vino",
+			serving.ServiceLabelKey:  "está la verdad",
+		}, "no Configuration label found in Decider",
+	}, {
+		"values not ascii", map[string]string{
+			serving.RevisionLabelKey:      "dans le vin",
+			serving.ServiceLabelKey:       "la",
+			serving.ConfigurationLabelKey: "verité",
+		}, "invalid value: only ASCII characters accepted",
+	}, {
+		"too long of a value", map[string]string{
+			serving.RevisionLabelKey:      "the",
+			serving.ServiceLabelKey:       "cat is ",
+			serving.ConfigurationLabelKey: "l" + strings.Repeat("o", 253) + "ng",
+		}, "max length must be 255 characters",
+	}}
+
+	uniScalerFactory := getTestUniScalerFactory()
+	decider := &autoscaler.Decider{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: testNamespace,
+			Name:      testRevision,
+		},
+	}
+	dynamicConfig := &autoscaler.DynamicConfig{}
+
+	for _, test := range tests {
+		decider.Labels = test.labels
+
+		_, err := uniScalerFactory(decider, dynamicConfig)
+		if err == nil {
+			t.Fatal("No error was returned")
+		}
+		if got, want := err.Error(), test.want; !strings.Contains(got, want) {
+			t.Errorf("Error = %q, want to contain = %q", got, want)
+		}
+	}
+}
+
 func TestUniScalerFactoryFunc(t *testing.T) {
 	uniScalerFactory := getTestUniScalerFactory()
 	metric := &autoscaler.Decider{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: testNamespace,
 			Name:      testRevision,
-			Labels:    map[string]string{serving.RevisionLabelKey: testRevision},
+			Labels: map[string]string{
+				serving.RevisionLabelKey:      testRevision,
+				serving.ServiceLabelKey:       "test-service",
+				serving.ConfigurationLabelKey: "test-config",
+			},
 		},
 	}
 	dynamicConfig := &autoscaler.DynamicConfig{}
 
 	if _, err := uniScalerFactory(metric, dynamicConfig); err != nil {
 		t.Errorf("got error from uniScalerFactory: %v", err)
-	}
-}
-
-func TestUniScalerFactoryFunc_FailWhenRevisionLabelMissing(t *testing.T) {
-	uniScalerFactory := getTestUniScalerFactory()
-	metric := &autoscaler.Decider{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: testNamespace,
-			Name:      testRevision,
-		},
-	}
-	dynamicConfig := &autoscaler.DynamicConfig{}
-
-	if _, err := uniScalerFactory(metric, dynamicConfig); err == nil {
-		t.Errorf("expected error when revision label missing but got none")
 	}
 }
 
