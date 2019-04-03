@@ -161,7 +161,7 @@ func assertReceivedOk(sm *autoscaler.StatMessage, statSink *websocket.Conn, stat
 	}
 	ignoreTimeField := cmpopts.IgnoreFields(autoscaler.StatMessage{}, "Stat.Time")
 	if !cmp.Equal(sm, recv, ignoreTimeField) {
-		t.Fatalf("Expected and actual stats messages are not equal: %s", cmp.Diff(sm, recv, ignoreTimeField))
+		t.Fatalf("StatMessage mismatch: diff (-got, +want) %s", cmp.Diff(recv, sm, ignoreTimeField))
 	}
 	return true
 }
