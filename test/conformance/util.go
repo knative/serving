@@ -49,6 +49,8 @@ const (
 	printport           = "printport"
 	runtime             = "runtime"
 	protocols           = "protocols"
+	failing             = "failing"
+	invalidhelloworld   = "invalidhelloworld"
 
 	concurrentRequests = 50
 	// We expect to see 100% of requests succeed for traffic sent directly to revisions.
