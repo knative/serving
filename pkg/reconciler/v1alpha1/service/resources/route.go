@@ -38,6 +38,7 @@ func MakeRoute(service *v1alpha1.Service) (*v1alpha1.Route, error) {
 				*kmeta.NewControllerRef(service),
 			},
 			Labels: resources.UnionMaps(service.GetLabels(), map[string]string{
+				// Add this service's name to the route annotations.
 				serving.ServiceLabelKey: service.Name,
 			}),
 		},

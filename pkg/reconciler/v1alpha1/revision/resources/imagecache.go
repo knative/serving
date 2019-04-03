@@ -40,6 +40,7 @@ func MakeImageCache(rev *v1alpha1.Revision) *caching.Image {
 			Namespace: rev.Namespace,
 			Labels:    makeLabels(rev),
 			Annotations: resources.FilterMap(rev.GetAnnotations(), func(k string) bool {
+				// Ignore last pinned annotation.
 				return k == serving.RevisionLastPinnedAnnotationKey
 			}),
 			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(rev)},

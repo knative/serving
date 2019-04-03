@@ -46,6 +46,7 @@ func MakeK8sService(rev *v1alpha1.Revision) *corev1.Service {
 			Namespace: rev.Namespace,
 			Labels:    labels,
 			Annotations: resources.FilterMap(rev.GetAnnotations(), func(k string) bool {
+				// Ignore last pinned annotation.
 				return k == serving.RevisionLastPinnedAnnotationKey
 			}),
 			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(rev)},
