@@ -91,6 +91,8 @@ func main() {
 	serviceInformer := kubeInformerFactory.Core().V1().Services()
 	hpaInformer := kubeInformerFactory.Autoscaling().V1().HorizontalPodAutoscalers()
 
+	collector := autoscaler.NewMetricCollector(logger)
+
 	// Set up scalers.
 	// uniScalerFactory depends endpointsInformer to be set.
 	multiScaler := autoscaler.NewMultiScaler(
@@ -98,7 +100,7 @@ func main() {
 	scaler := kpa.NewScaler(opt.ServingClientSet, opt.ScaleClientSet, logger, opt.ConfigMapWatcher)
 
 	controllers := []*controller.Impl{
-		kpa.NewController(&opt, paInformer, serviceInformer, endpointsInformer, multiScaler, scaler, dynConfig),
+		kpa.NewController(&opt, paInformer, serviceInformer, endpointsInformer, multiScaler, collector, scaler, dynConfig),
 		hpa.NewController(&opt, paInformer, hpaInformer),
 	}
 
