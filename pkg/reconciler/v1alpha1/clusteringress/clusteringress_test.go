@@ -50,6 +50,7 @@ import (
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/clusteringress/config"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/clusteringress/resources"
 	. "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
+	presources "github.com/knative/serving/pkg/resources"
 )
 
 const (
@@ -449,13 +450,7 @@ func patchAddFinalizerAction(ingressName, finalizer string) clientgotesting.Patc
 }
 
 func addAnnotations(ing *v1alpha1.ClusterIngress, annos map[string]string) *v1alpha1.ClusterIngress {
-	if ing.ObjectMeta.Annotations == nil {
-		ing.ObjectMeta.Annotations = make(map[string]string)
-	}
-
-	for k, v := range annos {
-		ing.ObjectMeta.Annotations[k] = v
-	}
+	ing.ObjectMeta.Annotations = presources.UnionMaps(annos, ing.ObjectMeta.Annotations)
 	return ing
 }
 
