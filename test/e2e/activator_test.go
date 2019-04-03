@@ -23,10 +23,10 @@ import (
 	"net/http"
 	"sync"
 	"testing"
-	"time"
 
 	pkgTest "github.com/knative/pkg/test"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/knative/serving/pkg/autoscaler"
 	rnames "github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources/names"
 	"github.com/knative/serving/test"
 )
@@ -70,7 +70,7 @@ func TestActivatorOverload(t *testing.T) {
 		test.DeploymentScaledToZeroFunc,
 		"DeploymentScaledToZero",
 		test.ServingNamespace,
-		3*time.Minute); err != nil {
+		(autoscaler.DefaultKeepAliveTimes+2)*autoscaler.DefaultStableWindow); err != nil {
 		t.Fatalf("Failed waiting for deployment to scale to zero: %v", err)
 	}
 
@@ -81,7 +81,7 @@ func TestActivatorOverload(t *testing.T) {
 
 	url := fmt.Sprintf("http://%s/?timeout=%d", domain, serviceSleep)
 
-	t.Log("Starting to send out the requests")
+	t.Logf("Starting to send out the requests to url: %s", url)
 
 	var group sync.WaitGroup
 	// Send requests async and wait for the responses.

@@ -134,7 +134,7 @@ func TestReconcile(t *testing.T) {
 			Object: rev("foo", "create-kpa-failure",
 				// Despite failure, the following status properties are set.
 				WithK8sServiceName, WithLogURL, WithInitRevConditions,
-				WithNoBuild, MarkDeploying("Deploying")),
+				WithNoBuild, MarkDeploying("Deploying"), MarkActivating("Deploying", "")),
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "InternalError", "inducing failure for create podautoscalers"),
@@ -249,23 +249,6 @@ func TestReconcile(t *testing.T) {
 		},
 		Key: "foo/failure-update-deploy",
 	}, {
-		Name: "deactivated revision is stable",
-		// Test a simple stable reconciliation of an inactive Revision.
-		// We feed in a Revision and the resources it controls in a steady
-		// state (port-Reserve), and verify that no changes are necessary.
-		Objects: []runtime.Object{
-			rev("foo", "stable-deactivation",
-				WithK8sServiceName, WithLogURL, MarkRevisionReady,
-				MarkInactive("NoTraffic", "This thing is inactive.")),
-			kpa("foo", "stable-deactivation",
-				WithNoTraffic("NoTraffic", "This thing is inactive.")),
-			deploy("foo", "stable-deactivation"),
-			endpoints("foo", "stable-deactivation", WithSubsets),
-			svc("foo", "stable-deactivation"),
-			image("foo", "stable-deactivation"),
-		},
-		Key: "foo/stable-deactivation",
-	}, {
 		Name: "endpoint is created (not ready)",
 		// Test the transition when a Revision's Endpoints are created (but not yet ready)
 		// This initializes the state of the world to the steady-state after a Revision's
@@ -278,7 +261,7 @@ func TestReconcile(t *testing.T) {
 		// and declaring a timeout (this is the main difference from that test below).
 		Objects: []runtime.Object{
 			rev("foo", "endpoint-created-not-ready",
-				WithK8sServiceName, WithLogURL, AllUnknownConditions),
+				WithK8sServiceName, WithLogURL, AllUnknownConditions, MarkInactive("No endpoints", "No endpoints")),
 			kpa("foo", "endpoint-created-not-ready"),
 			deploy("foo", "endpoint-created-not-ready"),
 			svc("foo", "endpoint-created-not-ready"),
@@ -307,7 +290,7 @@ func TestReconcile(t *testing.T) {
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: rev("foo", "endpoint-created-timeout",
-				WithK8sServiceName, WithLogURL, AllUnknownConditions, MarkActive,
+				WithK8sServiceName, WithLogURL, AllUnknownConditions, MarkInactive("No endpoints", "No endpoints"),
 				// When the LTT is cleared, a reconcile will result in the
 				// following mutation.
 				MarkServiceTimeout),
@@ -343,48 +326,6 @@ func TestReconcile(t *testing.T) {
 		},
 		Key: "foo/endpoint-ready",
 	}, {
-		Name: "kpa not ready",
-		// Test propagating the KPA status to the Revision.
-		Objects: []runtime.Object{
-			rev("foo", "kpa-not-ready",
-				WithK8sServiceName, WithLogURL, MarkRevisionReady),
-			kpa("foo", "kpa-not-ready",
-				WithBufferedTraffic("Something", "This is something longer")),
-			deploy("foo", "kpa-not-ready"),
-			svc("foo", "kpa-not-ready"),
-			endpoints("foo", "kpa-not-ready", WithSubsets),
-			image("foo", "kpa-not-ready"),
-		},
-		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: rev("foo", "kpa-not-ready",
-				WithK8sServiceName, WithLogURL, MarkRevisionReady,
-				// When we reconcile a ready state and our KPA is in an activating
-				// state, we should see the following mutation.
-				MarkActivating("Something", "This is something longer")),
-		}},
-		Key: "foo/kpa-not-ready",
-	}, {
-		Name: "kpa inactive",
-		// Test propagating the inactivity signal from the KPA to the Revision.
-		Objects: []runtime.Object{
-			rev("foo", "kpa-inactive",
-				WithK8sServiceName, WithLogURL, MarkRevisionReady),
-			kpa("foo", "kpa-inactive",
-				WithNoTraffic("NoTraffic", "This thing is inactive.")),
-			deploy("foo", "kpa-inactive"),
-			svc("foo", "kpa-inactive"),
-			endpoints("foo", "kpa-inactive", WithSubsets),
-			image("foo", "kpa-inactive"),
-		},
-		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: rev("foo", "kpa-inactive",
-				WithK8sServiceName, WithLogURL, MarkRevisionReady,
-				// When we reconcile an "all ready" revision when the KPA
-				// is inactive, we should see the following change.
-				MarkInactive("NoTraffic", "This thing is inactive.")),
-		}},
-		Key: "foo/kpa-inactive",
-	}, {
 		Name: "mutated service gets fixed",
 		// Test that we correct mutations to our K8s Service resources.
 		// This initializes the world to the stable post-create reconcile, and
@@ -405,7 +346,7 @@ func TestReconcile(t *testing.T) {
 				WithK8sServiceName, WithLogURL, AllUnknownConditions,
 				// When our reconciliation has to change the service
 				// we should see the following mutations to status.
-				MarkDeploying("Updating"), MarkActivating("Deploying", "")),
+				MarkDeploying("Updating"), MarkInactive("No endpoints", "No endpoints")),
 		}},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: svc("foo", "fix-mutated-service"),
@@ -452,7 +393,7 @@ func TestReconcile(t *testing.T) {
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: rev("foo", "deploy-timeout",
-				WithK8sServiceName, WithLogURL, AllUnknownConditions, MarkActive,
+				WithK8sServiceName, WithLogURL, AllUnknownConditions, MarkInactive("No endpoints", "No endpoints"),
 				// When the revision is reconciled after a Deployment has
 				// timed out, we should see it marked with the PDE state.
 				MarkProgressDeadlineExceeded),
@@ -481,7 +422,7 @@ func TestReconcile(t *testing.T) {
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: rev("foo", "pod-error",
-				WithK8sServiceName, WithLogURL, AllUnknownConditions, MarkActive,
+				WithK8sServiceName, WithLogURL, AllUnknownConditions, MarkInactive("No endpoints", "No endpoints"),
 				MarkContainerExiting(5, "I failed man!")),
 		}},
 		Key: "foo/pod-error",
@@ -767,7 +708,7 @@ func TestReconcileWithVarLogEnabled(t *testing.T) {
 				// the fluentd configmap, we should still see the following reflected
 				// in our status.
 				WithK8sServiceName, WithLogURL, WithInitRevConditions,
-				WithNoBuild, MarkDeploying("Deploying")),
+				WithNoBuild, MarkDeploying("Deploying"), MarkActivating("Deploying", "")),
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "InternalError", "inducing failure for create configmaps"),

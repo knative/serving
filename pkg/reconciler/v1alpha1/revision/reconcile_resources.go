@@ -214,7 +214,7 @@ func (c *Reconciler) reconcileService(ctx context.Context, rev *v1alpha1.Revisio
 		rev.Status.MarkResourcesAvailable()
 		rev.Status.MarkContainerHealthy()
 		rev.Status.MarkActive()
-	} else if !rev.Status.IsActivationRequired() {
+	} else {
 		// If the endpoints resource is NOT ready, then check whether it is taking unreasonably
 		// long to become ready and if so mark our revision as having timed out waiting
 		// for the Service to become ready.
