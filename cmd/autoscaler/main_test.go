@@ -16,6 +16,7 @@ limitations under the License.
 package main
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -37,24 +38,27 @@ func TestUniscalerFactoryFailures(t *testing.T) {
 		labels map[string]string
 		want   string
 	}{{
-		"nil labels", nil, "no labels set on Decider",
+		"nil labels", nil, fmt.Sprintf("label %q not found or empty in Decider", serving.RevisionLabelKey),
 	}, {
-		"empty labels", map[string]string{}, "no labels set on Decider",
+		"empty labels", map[string]string{}, fmt.Sprintf("label %q not found or empty in Decider", serving.RevisionLabelKey),
 	}, {
 		"revision missing", map[string]string{
 			serving.ServiceLabelKey:       "in vino",
 			serving.ConfigurationLabelKey: "veritas",
-		}, "no Revision label found in Decider",
+		},
+		fmt.Sprintf("label %q not found or empty in Decider", serving.RevisionLabelKey),
 	}, {
 		"service missing", map[string]string{
 			serving.RevisionLabelKey:      "nel vino",
 			serving.ConfigurationLabelKey: "è la verità",
-		}, "no Service label found in Decider",
+		},
+		fmt.Sprintf("label %q not found or empty in Decider", serving.ServiceLabelKey),
 	}, {
 		"config missing", map[string]string{
 			serving.RevisionLabelKey: "en el vino",
 			serving.ServiceLabelKey:  "está la verdad",
-		}, "no Configuration label found in Decider",
+		},
+		fmt.Sprintf("label %q not found or empty in Decider", serving.ConfigurationLabelKey),
 	}, {
 		"values not ascii", map[string]string{
 			serving.RevisionLabelKey:      "dans le vin",
