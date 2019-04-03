@@ -30,7 +30,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func TestMakeMetric(t *testing.T) {
+func TestMakeDecider(t *testing.T) {
 	cases := []struct {
 		name string
 		pa   *v1alpha1.PodAutoscaler
@@ -108,14 +108,14 @@ func decider(options ...DeciderOption) *autoscaler.Decider {
 type DeciderOption func(*autoscaler.Decider)
 
 func withTarget(target float64) DeciderOption {
-	return func(metric *autoscaler.Decider) {
-		metric.Spec.TargetConcurrency = target
+	return func(decider *autoscaler.Decider) {
+		decider.Spec.TargetConcurrency = target
 	}
 }
 
 func withTargetAnnotation(target string) DeciderOption {
-	return func(metric *autoscaler.Decider) {
-		metric.Annotations[autoscaling.TargetAnnotationKey] = target
+	return func(decider *autoscaler.Decider) {
+		decider.Annotations[autoscaling.TargetAnnotationKey] = target
 	}
 }
 
