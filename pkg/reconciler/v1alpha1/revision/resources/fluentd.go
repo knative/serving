@@ -23,9 +23,9 @@ import (
 	"github.com/knative/pkg/kmeta"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/knative/serving/pkg/reconciler/resources"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/config"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources/names"
-	"github.com/knative/serving/pkg/utils"
 )
 
 // fluentdSidecarPreOutputConfig defines source and filter configurations for
@@ -93,7 +93,7 @@ func MakeFluentdConfigMap(rev *v1alpha1.Revision, observabilityConfig *config.Ob
 			Name:      names.FluentdConfigMap(rev),
 			Namespace: rev.Namespace,
 			Labels:    makeLabels(rev),
-			Annotations: utils.MakeAnnotations(rev, func(k string) bool {
+			Annotations: resources.MakeAnnotations(rev, func(k string) bool {
 				return k == serving.RevisionLastPinnedAnnotationKey
 			}),
 			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(rev)},

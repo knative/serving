@@ -26,9 +26,9 @@ import (
 	"github.com/knative/serving/pkg/autoscaler"
 	"github.com/knative/serving/pkg/network"
 	"github.com/knative/serving/pkg/queue"
+	"github.com/knative/serving/pkg/reconciler/resources"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/config"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources/names"
-	"github.com/knative/serving/pkg/utils"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -161,7 +161,7 @@ func MakeDeployment(rev *v1alpha1.Revision,
 	loggingConfig *logging.Config, networkConfig *network.Config, observabilityConfig *config.Observability,
 	autoscalerConfig *autoscaler.Config, controllerConfig *config.Controller) *appsv1.Deployment {
 
-	podTemplateAnnotations := utils.MakeAnnotations(rev, func(k string) bool {
+	podTemplateAnnotations := resources.MakeAnnotations(rev, func(k string) bool {
 		return k == serving.RevisionLastPinnedAnnotationKey
 	})
 	// TODO(nghia): Remove the need for this
@@ -190,7 +190,7 @@ func MakeDeployment(rev *v1alpha1.Revision,
 			Name:      names.Deployment(rev),
 			Namespace: rev.Namespace,
 			Labels:    makeLabels(rev),
-			Annotations: utils.MakeAnnotations(rev, func(k string) bool {
+			Annotations: resources.MakeAnnotations(rev, func(k string) bool {
 				return k == serving.RevisionLastPinnedAnnotationKey
 			}),
 			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(rev)},

@@ -19,13 +19,13 @@ package resources
 import (
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	"github.com/knative/serving/pkg/utils"
+	"github.com/knative/serving/pkg/reconciler/resources"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // makeLabels constructs the labels we will apply to K8s resources.
 func makeLabels(revision *v1alpha1.Revision) map[string]string {
-	labels := utils.MakeLabels(revision, map[string]string{
+	labels := resources.MakeLabels(revision, map[string]string{
 		serving.RevisionLabelKey: revision.Name,
 		serving.RevisionUID:      string(revision.UID),
 	})

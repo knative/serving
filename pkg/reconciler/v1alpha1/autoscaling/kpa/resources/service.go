@@ -19,8 +19,8 @@ import (
 	pav1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	sv1a1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/knative/serving/pkg/reconciler/resources"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/autoscaling/kpa/resources/names"
-	"github.com/knative/serving/pkg/utils"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -35,8 +35,8 @@ func MakeMetricsService(pa *pav1alpha1.PodAutoscaler, selector map[string]string
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            names.MetricsServiceName(pa.Name),
 			Namespace:       pa.Namespace,
-			Labels:          utils.MakeLabels(pa, map[string]string{kpaLabelKey: pa.Name}),
-			Annotations:     utils.MakeAnnotations(pa, nil /*filter*/),
+			Labels:          resources.MakeLabels(pa, map[string]string{kpaLabelKey: pa.Name}),
+			Annotations:     resources.MakeAnnotations(pa, nil /*filter*/),
 			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(pa)},
 		},
 		Spec: corev1.ServiceSpec{

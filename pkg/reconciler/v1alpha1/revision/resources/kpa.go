@@ -24,8 +24,8 @@ import (
 	kpa "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/knative/serving/pkg/reconciler/resources"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources/names"
-	"github.com/knative/serving/pkg/utils"
 )
 
 // MakeKPA makes a Knative Pod Autoscaler resource from a revision.
@@ -35,7 +35,7 @@ func MakeKPA(rev *v1alpha1.Revision) *kpa.PodAutoscaler {
 			Name:      names.KPA(rev),
 			Namespace: rev.Namespace,
 			Labels:    makeLabels(rev),
-			Annotations: utils.MakeAnnotations(rev, func(k string) bool {
+			Annotations: resources.MakeAnnotations(rev, func(k string) bool {
 				return k == serving.RevisionLastPinnedAnnotationKey
 			}),
 			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(rev)},
