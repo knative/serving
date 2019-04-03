@@ -24,7 +24,7 @@ import (
 	"time"
 
 	"github.com/knative/pkg/logging"
-	"github.com/knative/serving/pkg/utils"
+	"github.com/knative/serving/pkg/resources"
 	"go.uber.org/zap"
 	corev1informers "k8s.io/client-go/informers/core/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
@@ -167,7 +167,7 @@ func (a *Autoscaler) Record(ctx context.Context, stat Stat) {
 func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (int32, bool) {
 	logger := logging.FromContext(ctx)
 
-	originalReadyPodsCount, err := utils.FetchReadyAddressCount(a.endpointsLister, a.namespace, a.revisionService)
+	originalReadyPodsCount, err := resources.FetchReadyAddressCount(a.endpointsLister, a.namespace, a.revisionService)
 	if err != nil {
 		logger.Errorw("Failed to get Endpoints via K8S Lister", zap.Error(err))
 		return 0, false

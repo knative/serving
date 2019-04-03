@@ -20,7 +20,7 @@ import (
 	"errors"
 	"sync"
 
-	"github.com/knative/serving/pkg/utils"
+	"github.com/knative/serving/pkg/resources"
 
 	"github.com/knative/pkg/logging/logkey"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
@@ -148,7 +148,7 @@ func (t *Throttler) forceUpdateCapacity(rev RevisionID, breaker *queue.Breaker) 
 func UpdateEndpoints(throttler *Throttler) func(newObj interface{}) {
 	return func(newObj interface{}) {
 		endpoints := newObj.(*corev1.Endpoints)
-		addresses := utils.ReadyAddressCount(endpoints)
+		addresses := resources.ReadyAddressCount(endpoints)
 		revID := RevisionID{endpoints.Namespace, reconciler.GetServingRevisionNameForK8sService(endpoints.Name)}
 		if err := throttler.UpdateCapacity(revID, int32(addresses)); err != nil {
 			throttler.logger.With(zap.String(logkey.Key, revID.String())).Errorw("updating capacity failed", zap.Error(err))
