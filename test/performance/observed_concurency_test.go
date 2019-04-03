@@ -121,15 +121,19 @@ func timeToScale(events []*event, start time.Time, desiredScale int) (time.Durat
 }
 
 func TestObservedConcurrency(t *testing.T) {
+	tc := make([]junit.TestCase, 0)
 	tests := []int{5, 10} //going beyond 10 currently causes "overload" responses
 	for _, clients := range tests {
 		t.Run(fmt.Sprintf("scale-%02d", clients), func(t *testing.T) {
-			testConcurrencyN(t, clients)
+			tc = append(tc, testConcurrencyN(t, clients)...)
 		})
+	}
+	if err = testgrid.CreateXMLOutput(tc, t.Name()); err != nil {
+		t.Fatalf("Cannot create output xml: %v", err)
 	}
 }
 
-func testConcurrencyN(t *testing.T, concurrency int) {
+func testConcurrencyN(t *testing.T, concurrency int) []junit.TestCase {
 	perfClients, err := Setup(t)
 	if err != nil {
 		t.Fatalf("Cannot initialize performance client: %v", err)
@@ -235,7 +239,5 @@ func testConcurrencyN(t *testing.T, concurrency int) {
 	}
 	tc = append(tc, CreatePerfTestCase(float32(failedRequests), "failed requests", t.Name()))
 
-	if err = testgrid.CreateXMLOutput(tc, t.Name()); err != nil {
-		t.Fatalf("Cannot create output xml: %v", err)
-	}
+	return tc
 }
