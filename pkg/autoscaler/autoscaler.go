@@ -24,8 +24,8 @@ import (
 	"time"
 
 	"github.com/knative/pkg/logging"
+	"github.com/knative/serving/pkg/resources"
 	"go.uber.org/zap"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	corev1informers "k8s.io/client-go/informers/core/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 )
@@ -37,7 +37,7 @@ const (
 
 // Stat defines a single measurement at a point in time
 type Stat struct {
-	// The time the data point was collected on the pod.
+	// The time the data point was received by autoscaler.
 	Time *time.Time
 
 	// The unique identity of this pod.  Used to count how many pods
@@ -135,8 +135,8 @@ func New(
 	}, nil
 }
 
-// Update reconfigures the UniScaler according to the MetricSpec.
-func (a *Autoscaler) Update(spec MetricSpec) error {
+// Update reconfigures the UniScaler according to the DeciderSpec.
+func (a *Autoscaler) Update(spec DeciderSpec) error {
 	a.targetMutex.Lock()
 	defer a.targetMutex.Unlock()
 	a.target = spec.TargetConcurrency
@@ -167,7 +167,7 @@ func (a *Autoscaler) Record(ctx context.Context, stat Stat) {
 func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (int32, bool) {
 	logger := logging.FromContext(ctx)
 
-	originalReadyPodsCount, err := readyPodsCountOfEndpoints(a.endpointsLister, a.namespace, a.revisionService)
+	originalReadyPodsCount, err := resources.FetchReadyAddressCount(a.endpointsLister, a.namespace, a.revisionService)
 	if err != nil {
 		logger.Errorw("Failed to get Endpoints via K8S Lister", zap.Error(err))
 		return 0, false
@@ -287,23 +287,4 @@ func (a *Autoscaler) targetConcurrency() float64 {
 
 func (a *Autoscaler) podCountLimited(desiredPodCount, currentPodCount float64) int32 {
 	return int32(math.Min(desiredPodCount, a.Current().MaxScaleUpRate*currentPodCount))
-}
-
-// readyPodsCountOfEndpoints returns the ready IP count in the K8S Endpoints object returned by
-// the given K8S Informer with given namespace and name. This is same as ready Pod count.
-func readyPodsCountOfEndpoints(lister corev1listers.EndpointsLister, ns, name string) (int, error) {
-	readyPods := 0
-	endpoints, err := lister.Endpoints(ns).Get(name)
-	if apierrors.IsNotFound(err) {
-		// Treat not found as zero endpoints, it either hasn't been created
-		// or it has been torn down.
-	} else if err != nil {
-		return 0, err
-	} else {
-		for _, es := range endpoints.Subsets {
-			readyPods += len(es.Addresses)
-		}
-	}
-
-	return readyPods, nil
 }

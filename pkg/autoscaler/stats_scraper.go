@@ -24,7 +24,8 @@ import (
 
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	"github.com/knative/serving/pkg/reconciler"
+	"github.com/knative/serving/pkg/reconciler/v1alpha1/autoscaling/kpa/resources/names"
+	"github.com/knative/serving/pkg/resources"
 	"github.com/pkg/errors"
 	dto "github.com/prometheus/client_model/go"
 	"github.com/prometheus/common/expfmt"
@@ -63,26 +64,26 @@ var cacheDisabledClient = &http.Client{
 // https://kubernetes.io/docs/concepts/services-networking/network-policies/
 // for details.
 type ServiceScraper struct {
-	httpClient      *http.Client
-	endpointsLister corev1listers.EndpointsLister
-	url             string
-	namespace       string
-	revisionService string
-	metricKey       string
+	httpClient          *http.Client
+	endpointsLister     corev1listers.EndpointsLister
+	url                 string
+	namespace           string
+	scrapeTargetService string
+	metricKey           string
 }
 
 // NewServiceScraper creates a new StatsScraper for the Revision which
-// the given Metric is responsible for.
-func NewServiceScraper(metric *Metric, endpointsLister corev1listers.EndpointsLister) (*ServiceScraper, error) {
-	return newServiceScraperWithClient(metric, endpointsLister, cacheDisabledClient)
+// the given Decider is responsible for.
+func NewServiceScraper(decider *Decider, endpointsLister corev1listers.EndpointsLister) (*ServiceScraper, error) {
+	return newServiceScraperWithClient(decider, endpointsLister, cacheDisabledClient)
 }
 
 func newServiceScraperWithClient(
-	metric *Metric,
+	decider *Decider,
 	endpointsLister corev1listers.EndpointsLister,
 	httpClient *http.Client) (*ServiceScraper, error) {
-	if metric == nil {
-		return nil, errors.New("metric must not be nil")
+	if decider == nil {
+		return nil, errors.New("decider must not be nil")
 	}
 	if endpointsLister == nil {
 		return nil, errors.New("endpoints lister must not be nil")
@@ -90,26 +91,26 @@ func newServiceScraperWithClient(
 	if httpClient == nil {
 		return nil, errors.New("HTTP client must not be nil")
 	}
-	revName := metric.Labels[serving.RevisionLabelKey]
+	revName := decider.Labels[serving.RevisionLabelKey]
 	if revName == "" {
-		return nil, fmt.Errorf("no Revision label found for Metric %s", metric.Name)
+		return nil, fmt.Errorf("no Revision label found for Decider %s", decider.Name)
 	}
 
-	serviceName := reconciler.GetServingK8SServiceNameForObj(revName)
+	serviceName := names.MetricsServiceName(revName)
 	return &ServiceScraper{
-		httpClient:      httpClient,
-		endpointsLister: endpointsLister,
-		url:             fmt.Sprintf("http://%s.%s:%d/metrics", serviceName, metric.Namespace, v1alpha1.RequestQueueMetricsPort),
-		metricKey:       NewMetricKey(metric.Namespace, metric.Name),
-		namespace:       metric.Namespace,
-		revisionService: serviceName,
+		httpClient:          httpClient,
+		endpointsLister:     endpointsLister,
+		url:                 fmt.Sprintf("http://%s.%s:%d/metrics", serviceName, decider.Namespace, v1alpha1.RequestQueueMetricsPort),
+		metricKey:           NewMetricKey(decider.Namespace, decider.Name),
+		namespace:           decider.Namespace,
+		scrapeTargetService: serviceName,
 	}, nil
 }
 
-// Scrape call the destination service then send it
-// to the given stats chanel
+// Scrape calls the destination service then sends it
+// to the given stats channel.
 func (s *ServiceScraper) Scrape() (*StatMessage, error) {
-	readyPodsCount, err := readyPodsCountOfEndpoints(s.endpointsLister, s.namespace, s.revisionService)
+	readyPodsCount, err := resources.FetchReadyAddressCount(s.endpointsLister, s.namespace, s.scrapeTargetService)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get endpoints")
 	}

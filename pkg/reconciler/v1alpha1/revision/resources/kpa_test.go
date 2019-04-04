@@ -42,6 +42,10 @@ func TestMakeKPA(t *testing.T) {
 				Namespace: "foo",
 				Name:      "bar",
 				UID:       "1234",
+				Annotations: map[string]string{
+					"a":                                     "b",
+					serving.RevisionLastPinnedAnnotationKey: "timeless",
+				},
 			},
 			Spec: v1alpha1.RevisionSpec{
 				ContainerConcurrency: 1,
@@ -56,7 +60,9 @@ func TestMakeKPA(t *testing.T) {
 					serving.RevisionUID:      "1234",
 					AppLabelKey:              "bar",
 				},
-				Annotations: map[string]string{},
+				Annotations: map[string]string{
+					"a": "b",
+				},
 				OwnerReferences: []metav1.OwnerReference{{
 					APIVersion:         v1alpha1.SchemeGroupVersion.String(),
 					Kind:               "Revision",

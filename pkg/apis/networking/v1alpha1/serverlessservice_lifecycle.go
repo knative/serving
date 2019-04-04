@@ -17,11 +17,11 @@ limitations under the License.
 package v1alpha1
 
 import (
-	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
+	"github.com/knative/pkg/apis"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
-var serverlessServiceCondSet = duckv1alpha1.NewLivingConditionSet(
+var serverlessServiceCondSet = apis.NewLivingConditionSet(
 	ServerlessServiceConditionEndspointsPopulated,
 )
 
@@ -31,7 +31,7 @@ func (ss *ServerlessService) GetGroupVersionKind() schema.GroupVersionKind {
 }
 
 // GetCondition returns the value of the condition `t`.
-func (sss *ServerlessServiceStatus) GetCondition(t duckv1alpha1.ConditionType) *duckv1alpha1.Condition {
+func (sss *ServerlessServiceStatus) GetCondition(t apis.ConditionType) *apis.Condition {
 	return serverlessServiceCondSet.Manage(sss).GetCondition(t)
 }
 

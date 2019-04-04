@@ -21,9 +21,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/knative/pkg/kmeta"
+	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/config"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources/names"
+	"github.com/knative/serving/pkg/resources"
 )
 
 // fluentdSidecarPreOutputConfig defines source and filter configurations for
@@ -83,14 +85,18 @@ var (
 	}}
 )
 
+// MakeFluentdConfigMap constructs a ConfigMap for fluentd.
 func MakeFluentdConfigMap(rev *v1alpha1.Revision, observabilityConfig *config.Observability) *corev1.ConfigMap {
 	varlogConf := fluentdSidecarPreOutputConfig + observabilityConfig.FluentdSidecarOutputConfig
 	return &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:            names.FluentdConfigMap(rev),
-			Namespace:       rev.Namespace,
-			Labels:          makeLabels(rev),
-			Annotations:     makeAnnotations(rev),
+			Name:      names.FluentdConfigMap(rev),
+			Namespace: rev.Namespace,
+			Labels:    makeLabels(rev),
+			Annotations: resources.FilterMap(rev.GetAnnotations(), func(k string) bool {
+				// Ignore last pinned annotation.
+				return k == serving.RevisionLastPinnedAnnotationKey
+			}),
 			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(rev)},
 		},
 		Data: map[string]string{

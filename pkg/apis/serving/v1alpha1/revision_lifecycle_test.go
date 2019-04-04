@@ -21,8 +21,10 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	"github.com/knative/pkg/apis"
 	"github.com/knative/pkg/apis/duck"
 	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
+	duckv1beta1 "github.com/knative/pkg/apis/duck/v1beta1"
 	net "github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/serving"
 	corev1 "k8s.io/api/core/v1"
@@ -36,7 +38,7 @@ func TestRevisionDuckTypes(t *testing.T) {
 		t    duck.Implementable
 	}{{
 		name: "conditions",
-		t:    &duckv1alpha1.Conditions{},
+		t:    &duckv1beta1.Conditions{},
 	}}
 
 	for _, test := range tests {
@@ -61,8 +63,8 @@ func TestIsActivationRequired(t *testing.T) {
 	}, {
 		name: "Ready status should not be inactive",
 		status: RevisionStatus{
-			Status: duckv1alpha1.Status{
-				Conditions: duckv1alpha1.Conditions{{
+			Status: duckv1beta1.Status{
+				Conditions: duckv1beta1.Conditions{{
 					Type:   RevisionConditionReady,
 					Status: corev1.ConditionTrue,
 				}},
@@ -72,8 +74,8 @@ func TestIsActivationRequired(t *testing.T) {
 	}, {
 		name: "Inactive status should be inactive",
 		status: RevisionStatus{
-			Status: duckv1alpha1.Status{
-				Conditions: duckv1alpha1.Conditions{{
+			Status: duckv1beta1.Status{
+				Conditions: duckv1beta1.Conditions{{
 					Type:   RevisionConditionActive,
 					Status: corev1.ConditionFalse,
 				}},
@@ -83,8 +85,8 @@ func TestIsActivationRequired(t *testing.T) {
 	}, {
 		name: "Updating status should be inactive",
 		status: RevisionStatus{
-			Status: duckv1alpha1.Status{
-				Conditions: duckv1alpha1.Conditions{{
+			Status: duckv1beta1.Status{
+				Conditions: duckv1beta1.Conditions{{
 					Type:   RevisionConditionReady,
 					Status: corev1.ConditionUnknown,
 					Reason: "Updating",
@@ -99,8 +101,8 @@ func TestIsActivationRequired(t *testing.T) {
 	}, {
 		name: "NotReady status without reason should not be inactive",
 		status: RevisionStatus{
-			Status: duckv1alpha1.Status{
-				Conditions: duckv1alpha1.Conditions{{
+			Status: duckv1beta1.Status{
+				Conditions: duckv1beta1.Conditions{{
 					Type:   RevisionConditionReady,
 					Status: corev1.ConditionFalse,
 				}},
@@ -110,8 +112,8 @@ func TestIsActivationRequired(t *testing.T) {
 	}, {
 		name: "Ready/Unknown status without reason should not be inactive",
 		status: RevisionStatus{
-			Status: duckv1alpha1.Status{
-				Conditions: duckv1alpha1.Conditions{{
+			Status: duckv1beta1.Status{
+				Conditions: duckv1beta1.Conditions{{
 					Type:   RevisionConditionReady,
 					Status: corev1.ConditionUnknown,
 				}},
@@ -141,8 +143,8 @@ func TestIsReady(t *testing.T) {
 	}, {
 		name: "Different condition type should not be ready",
 		status: RevisionStatus{
-			Status: duckv1alpha1.Status{
-				Conditions: duckv1alpha1.Conditions{{
+			Status: duckv1beta1.Status{
+				Conditions: duckv1beta1.Conditions{{
 					Type:   RevisionConditionBuildSucceeded,
 					Status: corev1.ConditionTrue,
 				}},
@@ -152,8 +154,8 @@ func TestIsReady(t *testing.T) {
 	}, {
 		name: "False condition status should not be ready",
 		status: RevisionStatus{
-			Status: duckv1alpha1.Status{
-				Conditions: duckv1alpha1.Conditions{{
+			Status: duckv1beta1.Status{
+				Conditions: duckv1beta1.Conditions{{
 					Type:   RevisionConditionReady,
 					Status: corev1.ConditionFalse,
 				}},
@@ -163,8 +165,8 @@ func TestIsReady(t *testing.T) {
 	}, {
 		name: "Unknown condition status should not be ready",
 		status: RevisionStatus{
-			Status: duckv1alpha1.Status{
-				Conditions: duckv1alpha1.Conditions{{
+			Status: duckv1beta1.Status{
+				Conditions: duckv1beta1.Conditions{{
 					Type:   RevisionConditionReady,
 					Status: corev1.ConditionUnknown,
 				}},
@@ -174,8 +176,8 @@ func TestIsReady(t *testing.T) {
 	}, {
 		name: "Missing condition status should not be ready",
 		status: RevisionStatus{
-			Status: duckv1alpha1.Status{
-				Conditions: duckv1alpha1.Conditions{{
+			Status: duckv1beta1.Status{
+				Conditions: duckv1beta1.Conditions{{
 					Type: RevisionConditionReady,
 				}},
 			},
@@ -184,8 +186,8 @@ func TestIsReady(t *testing.T) {
 	}, {
 		name: "True condition status should be ready",
 		status: RevisionStatus{
-			Status: duckv1alpha1.Status{
-				Conditions: duckv1alpha1.Conditions{{
+			Status: duckv1beta1.Status{
+				Conditions: duckv1beta1.Conditions{{
 					Type:   RevisionConditionReady,
 					Status: corev1.ConditionTrue,
 				}},
@@ -195,8 +197,8 @@ func TestIsReady(t *testing.T) {
 	}, {
 		name: "Multiple conditions with ready status should be ready",
 		status: RevisionStatus{
-			Status: duckv1alpha1.Status{
-				Conditions: duckv1alpha1.Conditions{{
+			Status: duckv1beta1.Status{
+				Conditions: duckv1beta1.Conditions{{
 					Type:   RevisionConditionBuildSucceeded,
 					Status: corev1.ConditionTrue,
 				}, {
@@ -209,8 +211,8 @@ func TestIsReady(t *testing.T) {
 	}, {
 		name: "Multiple conditions with ready status false should not be ready",
 		status: RevisionStatus{
-			Status: duckv1alpha1.Status{
-				Conditions: duckv1alpha1.Conditions{{
+			Status: duckv1beta1.Status{
+				Conditions: duckv1beta1.Conditions{{
 					Type:   RevisionConditionBuildSucceeded,
 					Status: corev1.ConditionTrue,
 				}, {
@@ -237,10 +239,10 @@ func TestGetSetCondition(t *testing.T) {
 		t.Errorf("empty RevisionStatus returned %v when expected nil", a)
 	}
 
-	rc := &duckv1alpha1.Condition{
+	rc := &apis.Condition{
 		Type:     RevisionConditionBuildSucceeded,
 		Status:   corev1.ConditionTrue,
-		Severity: duckv1alpha1.ConditionSeverityError,
+		Severity: apis.ConditionSeverityError,
 	}
 
 	rs.PropagateBuildStatus(duckv1alpha1.Status{
@@ -250,7 +252,7 @@ func TestGetSetCondition(t *testing.T) {
 		}},
 	})
 
-	if diff := cmp.Diff(rc, rs.GetCondition(RevisionConditionBuildSucceeded), cmpopts.IgnoreFields(duckv1alpha1.Condition{}, "LastTransitionTime")); diff != "" {
+	if diff := cmp.Diff(rc, rs.GetCondition(RevisionConditionBuildSucceeded), cmpopts.IgnoreFields(apis.Condition{}, "LastTransitionTime")); diff != "" {
 		t.Errorf("GetCondition refs diff (-want +got): %v", diff)
 	}
 	if a := rs.GetCondition(RevisionConditionReady); a != nil {
@@ -346,14 +348,6 @@ func TestTypicalFlowWithBuild(t *testing.T) {
 	if !r.Status.IsReady() {
 		t.Error("IsReady() = false, want true")
 	}
-
-	// Verify that this doesn't reset our conditions.
-	r.Status.InitializeConditions()
-	checkConditionSucceededRevision(r.Status, RevisionConditionBuildSucceeded, t)
-	checkConditionSucceededRevision(r.Status, RevisionConditionActive, t)
-	checkConditionSucceededRevision(r.Status, RevisionConditionResourcesAvailable, t)
-	checkConditionSucceededRevision(r.Status, RevisionConditionContainerHealthy, t)
-	checkConditionSucceededRevision(r.Status, RevisionConditionReady, t)
 }
 
 func TestTypicalFlowWithBuildFailure(t *testing.T) {
@@ -524,22 +518,22 @@ func TestRevisionNotOwnedStuff(t *testing.T) {
 	}
 }
 
-func checkConditionSucceededRevision(rs RevisionStatus, rct duckv1alpha1.ConditionType, t *testing.T) *duckv1alpha1.Condition {
+func checkConditionSucceededRevision(rs RevisionStatus, rct apis.ConditionType, t *testing.T) *apis.Condition {
 	t.Helper()
 	return checkConditionRevision(rs, rct, corev1.ConditionTrue, t)
 }
 
-func checkConditionFailedRevision(rs RevisionStatus, rct duckv1alpha1.ConditionType, t *testing.T) *duckv1alpha1.Condition {
+func checkConditionFailedRevision(rs RevisionStatus, rct apis.ConditionType, t *testing.T) *apis.Condition {
 	t.Helper()
 	return checkConditionRevision(rs, rct, corev1.ConditionFalse, t)
 }
 
-func checkConditionOngoingRevision(rs RevisionStatus, rct duckv1alpha1.ConditionType, t *testing.T) *duckv1alpha1.Condition {
+func checkConditionOngoingRevision(rs RevisionStatus, rct apis.ConditionType, t *testing.T) *apis.Condition {
 	t.Helper()
 	return checkConditionRevision(rs, rct, corev1.ConditionUnknown, t)
 }
 
-func checkConditionRevision(rs RevisionStatus, rct duckv1alpha1.ConditionType, cs corev1.ConditionStatus, t *testing.T) *duckv1alpha1.Condition {
+func checkConditionRevision(rs RevisionStatus, rct apis.ConditionType, cs corev1.ConditionStatus, t *testing.T) *apis.Condition {
 	t.Helper()
 	r := rs.GetCondition(rct)
 	if r == nil {

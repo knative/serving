@@ -458,7 +458,7 @@ func TestAutoscaler_UpdateTarget(t *testing.T) {
 			podCount:         10,
 		})
 	a.expectScale(t, now, 10, true)
-	a.Update(MetricSpec{
+	a.Update(DeciderSpec{
 		TargetConcurrency: 1.0,
 	})
 	a.expectScale(t, now, 100, true)

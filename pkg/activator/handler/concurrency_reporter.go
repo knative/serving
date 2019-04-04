@@ -55,9 +55,8 @@ func NewConcurrencyReporterWithClock(podName string, reqChan chan ReqEvent, repo
 	}
 }
 
-func (cr *ConcurrencyReporter) report(now time.Time, key string, concurrency, requestCount int32) {
+func (cr *ConcurrencyReporter) report(key string, concurrency, requestCount int32) {
 	stat := autoscaler.Stat{
-		Time:                      &now,
 		PodName:                   cr.podName,
 		AverageConcurrentRequests: float64(concurrency),
 		RequestCount:              requestCount,
@@ -88,18 +87,18 @@ func (cr *ConcurrencyReporter) Run(stopCh <-chan struct{}) {
 
 				// Report the first request for a key immediately.
 				if _, ok := outstandingRequestsPerKey[event.Key]; !ok {
-					cr.report(cr.clock.Now(), event.Key, 1, incomingRequestsPerKey[event.Key])
+					cr.report(event.Key, 1, incomingRequestsPerKey[event.Key])
 				}
 				outstandingRequestsPerKey[event.Key]++
 			case ReqOut:
 				outstandingRequestsPerKey[event.Key]--
 			}
-		case now := <-cr.reportChan:
+		case <-cr.reportChan:
 			for key, concurrency := range outstandingRequestsPerKey {
 				if concurrency == 0 {
 					delete(outstandingRequestsPerKey, key)
 				} else {
-					cr.report(now, key, concurrency, incomingRequestsPerKey[key])
+					cr.report(key, concurrency, incomingRequestsPerKey[key])
 				}
 			}
 

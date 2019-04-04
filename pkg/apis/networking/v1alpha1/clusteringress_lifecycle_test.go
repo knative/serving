@@ -19,6 +19,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/knative/pkg/apis"
 	"github.com/knative/pkg/apis/duck"
 	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
@@ -93,7 +94,7 @@ func TestCITypicalFlow(t *testing.T) {
 // TODO(vagababov): move this outside and re-use elsewhere.
 type ConditionCheckable interface {
 	IsReady() bool
-	GetCondition(t duckv1alpha1.ConditionType) *duckv1alpha1.Condition
+	GetCondition(t apis.ConditionType) *apis.Condition
 }
 
 func checkIsReady(cc ConditionCheckable, t *testing.T) {
@@ -103,22 +104,22 @@ func checkIsReady(cc ConditionCheckable, t *testing.T) {
 	}
 }
 
-func checkConditionSucceededClusterIngress(cc ConditionCheckable, c duckv1alpha1.ConditionType, t *testing.T) *duckv1alpha1.Condition {
+func checkConditionSucceededClusterIngress(cc ConditionCheckable, c apis.ConditionType, t *testing.T) *apis.Condition {
 	t.Helper()
 	return checkCondition(cc, c, corev1.ConditionTrue, t)
 }
 
-func checkConditionFailedClusterIngress(cc ConditionCheckable, c duckv1alpha1.ConditionType, t *testing.T) *duckv1alpha1.Condition {
+func checkConditionFailedClusterIngress(cc ConditionCheckable, c apis.ConditionType, t *testing.T) *apis.Condition {
 	t.Helper()
 	return checkCondition(cc, c, corev1.ConditionFalse, t)
 }
 
-func checkConditionOngoingClusterIngress(cc ConditionCheckable, c duckv1alpha1.ConditionType, t *testing.T) *duckv1alpha1.Condition {
+func checkConditionOngoingClusterIngress(cc ConditionCheckable, c apis.ConditionType, t *testing.T) *apis.Condition {
 	t.Helper()
 	return checkCondition(cc, c, corev1.ConditionUnknown, t)
 }
 
-func checkCondition(cc ConditionCheckable, c duckv1alpha1.ConditionType, cs corev1.ConditionStatus, t *testing.T) *duckv1alpha1.Condition {
+func checkCondition(cc ConditionCheckable, c apis.ConditionType, cs corev1.ConditionStatus, t *testing.T) *apis.Condition {
 	t.Helper()
 	cond := cc.GetCondition(c)
 	if cond == nil {

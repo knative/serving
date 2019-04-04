@@ -18,7 +18,7 @@ package v1alpha1
 
 import (
 	"github.com/knative/pkg/apis"
-	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
+	duckv1beta1 "github.com/knative/pkg/apis/duck/v1beta1"
 	"github.com/knative/pkg/kmeta"
 	net "github.com/knative/serving/pkg/apis/networking"
 	servingv1alpha1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
@@ -100,13 +100,13 @@ type PodAutoscalerSpec struct {
 const (
 	// PodAutoscalerConditionReady is set when the revision is starting to materialize
 	// runtime resources, and becomes true when those resources are ready.
-	PodAutoscalerConditionReady = duckv1alpha1.ConditionReady
+	PodAutoscalerConditionReady = apis.ConditionReady
 	// PodAutoscalerConditionActive is set when the PodAutoscaler's ScaleTargetRef is receiving traffic.
-	PodAutoscalerConditionActive duckv1alpha1.ConditionType = "Active"
+	PodAutoscalerConditionActive apis.ConditionType = "Active"
 )
 
 // PodAutoscalerStatus communicates the observed state of the PodAutoscaler (from the controller).
-type PodAutoscalerStatus duckv1alpha1.Status
+type PodAutoscalerStatus duckv1beta1.Status
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 

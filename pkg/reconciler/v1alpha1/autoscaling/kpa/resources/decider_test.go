@@ -30,36 +30,36 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func TestMakeMetric(t *testing.T) {
+func TestMakeDecider(t *testing.T) {
 	cases := []struct {
 		name string
 		pa   *v1alpha1.PodAutoscaler
-		want *autoscaler.Metric
+		want *autoscaler.Decider
 	}{{
 		name: "defaults",
 		pa:   pa(),
-		want: metric(withTarget(100.0)),
+		want: decider(withTarget(100.0)),
 	}, {
 		name: "with container concurrency 1",
 		pa:   pa(WithContainerConcurrency(1)),
-		want: metric(withTarget(1.0)),
+		want: decider(withTarget(1.0)),
 	}, {
 		name: "with target annotation 1",
 		pa:   pa(WithTargetAnnotation("1")),
-		want: metric(withTarget(1.0), withTargetAnnotation("1")),
+		want: decider(withTarget(1.0), withTargetAnnotation("1")),
 	}, {
 		name: "with container concurrency greater than target annotation (ok)",
 		pa:   pa(WithContainerConcurrency(10), WithTargetAnnotation("1")),
-		want: metric(withTarget(1.0), withTargetAnnotation("1")),
+		want: decider(withTarget(1.0), withTargetAnnotation("1")),
 	}, {
 		name: "with target annotation greater than container concurrency (ignore annotation for safety)",
 		pa:   pa(WithContainerConcurrency(1), WithTargetAnnotation("10")),
-		want: metric(withTarget(1.0), withTargetAnnotation("10")),
+		want: decider(withTarget(1.0), withTargetAnnotation("10")),
 	}}
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			if diff := cmp.Diff(tc.want, MakeMetric(context.Background(), tc.pa, config)); diff != "" {
+			if diff := cmp.Diff(tc.want, MakeDecider(context.Background(), tc.pa, config)); diff != "" {
 				t.Errorf("%q (-want, +got):\n%v", tc.name, diff)
 			}
 		})
@@ -86,8 +86,8 @@ func pa(options ...PodAutoscalerOption) *v1alpha1.PodAutoscaler {
 	return p
 }
 
-func metric(options ...MetricOption) *autoscaler.Metric {
-	m := &autoscaler.Metric{
+func decider(options ...DeciderOption) *autoscaler.Decider {
+	m := &autoscaler.Decider{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: "test-namespace",
 			Name:      "test-name",
@@ -95,7 +95,7 @@ func metric(options ...MetricOption) *autoscaler.Metric {
 				autoscaling.ClassAnnotationKey: autoscaling.KPA,
 			},
 		},
-		Spec: autoscaler.MetricSpec{
+		Spec: autoscaler.DeciderSpec{
 			TargetConcurrency: float64(100),
 		},
 	}
@@ -105,17 +105,17 @@ func metric(options ...MetricOption) *autoscaler.Metric {
 	return m
 }
 
-type MetricOption func(*autoscaler.Metric)
+type DeciderOption func(*autoscaler.Decider)
 
-func withTarget(target float64) MetricOption {
-	return func(metric *autoscaler.Metric) {
-		metric.Spec.TargetConcurrency = target
+func withTarget(target float64) DeciderOption {
+	return func(decider *autoscaler.Decider) {
+		decider.Spec.TargetConcurrency = target
 	}
 }
 
-func withTargetAnnotation(target string) MetricOption {
-	return func(metric *autoscaler.Metric) {
-		metric.Annotations[autoscaling.TargetAnnotationKey] = target
+func withTargetAnnotation(target string) DeciderOption {
+	return func(decider *autoscaler.Decider) {
+		decider.Annotations[autoscaling.TargetAnnotationKey] = target
 	}
 }
 
