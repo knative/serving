@@ -140,7 +140,7 @@ func (c *Reconciler) reconcileKPA(ctx context.Context, rev *v1alpha1.Revision) e
 		logger.Infof("Created kpa %q", kpaName)
 	} else if err != nil {
 		logger.Errorf("Error reconciling kpa %q: %v", kpaName, getKPAErr)
-		return getKPAErr
+		return err
 	} else if !metav1.IsControlledBy(kpa, rev) {
 		// Surface an error in the revision's status, and return an error.
 		rev.Status.MarkResourceNotOwned("PodAutoscaler", kpaName)
