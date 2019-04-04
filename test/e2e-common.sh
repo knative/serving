@@ -92,7 +92,6 @@ function install_knative_serving() {
     echo "Installing '${yaml}'"
     kubectl create -f "${yaml}" || return 1
   done
-  wait_until_pods_running knative-serving || return 1
 }
 
 # Waits until all batch job pods are running in the given namespace.
@@ -190,15 +189,10 @@ function install_knative_serving_standard() {
     kubectl autoscale -n istio-system deploy istio-pilot --min=3 --max=10 --cpu-percent=60 || return 1
   fi
 
-  wait_until_pods_running knative-serving || return 1
-  wait_until_pods_running istio-system || return 1
-  wait_until_service_has_external_ip istio-system istio-ingressgateway
-
   if [[ -n "${INSTALL_MONITORING_YAML}" ]]; then
     echo ">> Installing Monitoring"
     echo "Knative Monitoring YAML: ${INSTALL_MONITORING_YAML}"
     kubectl apply -f "${INSTALL_MONITORING_YAML}" || return 1
-    wait_until_pods_running knative-monitoring || return 1
   fi
 }
 
@@ -249,7 +243,13 @@ function test_setup() {
   ko apply -f test/config/ || return 1
   echo ">> Creating test namespace"
   kubectl create namespace serving-tests
-  ${REPO_ROOT_DIR}/test/upload-test-images.sh
+  ${REPO_ROOT_DIR}/test/upload-test-images.sh || return 1
+  wait_until_pods_running knative-serving || return 1
+  wait_until_pods_running istio-system || return 1
+  wait_until_service_has_external_ip istio-system istio-ingressgateway
+  if [[ -n "${INSTALL_MONITORING_YAML}" ]]; then
+    wait_until_pods_running knative-monitoring || return 1
+  fi
 }
 
 # Delete test resources
