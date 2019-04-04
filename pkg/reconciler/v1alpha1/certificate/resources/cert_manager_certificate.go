@@ -46,10 +46,12 @@ func MakeCertManagerCertificate(cmConfig *config.CertManagerConfig, knCert *v1al
 	}
 }
 
-// IsCertManagerCertificateReady returns if a Cert-Manager `Certificate` is ready for use.
-func IsCertManagerCertificateReady(cmCert *certmanagerv1alpha1.Certificate) bool {
-	return cmCert.HasCondition(certmanagerv1alpha1.CertificateCondition{
-		Type:   certmanagerv1alpha1.CertificateConditionReady,
-		Status: certmanagerv1alpha1.ConditionTrue,
-	})
+// GetReadyCondition gets the ready condition of a Cert-Manager `Certificate`.
+func GetReadyCondition(cmCert *certmanagerv1alpha1.Certificate) *certmanagerv1alpha1.CertificateCondition {
+	for _, cond := range cmCert.Status.Conditions {
+		if cond.Type == certmanagerv1alpha1.CertificateConditionReady {
+			return &cond
+		}
+	}
+	return nil
 }

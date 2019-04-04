@@ -83,6 +83,10 @@ type CertificateSpec struct {
 
 // CertificateStatus defines the observed state of a `Certificate`.
 type CertificateStatus struct {
+	// When Certificate status is ready, it means:
+	// - The target secret exists
+	// - The target secret contains a certificate that has not expired
+	// - The target secret contains a private key valid for the certificate
 	duckv1beta1.Status `json:",inline"`
 
 	// The expiration time of the TLS certificate stored in the secret named

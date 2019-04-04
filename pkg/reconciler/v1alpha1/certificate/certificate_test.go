@@ -24,7 +24,8 @@ import (
 	certmanagerv1alpha1 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1alpha1"
 	fakecmclient "github.com/jetstack/cert-manager/pkg/client/clientset/versioned/fake"
 	certmanagerinformers "github.com/jetstack/cert-manager/pkg/client/informers/externalversions"
-	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
+	"github.com/knative/pkg/apis"
+	duckv1beta1 "github.com/knative/pkg/apis/duck/v1beta1"
 	fakesharedclientset "github.com/knative/pkg/client/clientset/versioned/fake"
 	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/controller"
@@ -110,12 +111,12 @@ func TestReconcile(t *testing.T) {
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: knCertWithStatus("knCert", "foo",
 				&v1alpha1.CertificateStatus{
-					Status: duckv1alpha1.Status{
+					Status: duckv1beta1.Status{
 						ObservedGeneration: generation,
-						Conditions: duckv1alpha1.Conditions{{
+						Conditions: duckv1beta1.Conditions{{
 							Type:     v1alpha1.CertificateCondidtionReady,
 							Status:   corev1.ConditionUnknown,
-							Severity: duckv1alpha1.ConditionSeverityError,
+							Severity: apis.ConditionSeverityError,
 						}},
 					},
 				}),
@@ -136,12 +137,12 @@ func TestReconcile(t *testing.T) {
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: knCertWithStatus("knCert", "foo",
 				&v1alpha1.CertificateStatus{
-					Status: duckv1alpha1.Status{
+					Status: duckv1beta1.Status{
 						ObservedGeneration: generation,
-						Conditions: duckv1alpha1.Conditions{{
+						Conditions: duckv1beta1.Conditions{{
 							Type:     v1alpha1.CertificateCondidtionReady,
 							Status:   corev1.ConditionUnknown,
-							Severity: duckv1alpha1.ConditionSeverityError,
+							Severity: apis.ConditionSeverityError,
 						}},
 					},
 				}),
@@ -151,21 +152,63 @@ func TestReconcile(t *testing.T) {
 		},
 		Key: "foo/knCert",
 	}, {
-		Name: "set Knative Certificate status with CM Certificate status",
+		Name: "set Knative Certificate ready status with CM Certificate ready status",
 		Objects: []runtime.Object{
 			knCert("knCert", "foo"),
-			cmCertWithStatus("knCert", "foo", correctDNSNames, true),
+			cmCertWithStatus("knCert", "foo", correctDNSNames, certmanagerv1alpha1.ConditionTrue),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: knCertWithStatus("knCert", "foo",
 				&v1alpha1.CertificateStatus{
 					NotAfter: notAfter,
-					Status: duckv1alpha1.Status{
+					Status: duckv1beta1.Status{
 						ObservedGeneration: generation,
-						Conditions: duckv1alpha1.Conditions{{
+						Conditions: duckv1beta1.Conditions{{
 							Type:     v1alpha1.CertificateCondidtionReady,
 							Status:   corev1.ConditionTrue,
-							Severity: duckv1alpha1.ConditionSeverityError,
+							Severity: apis.ConditionSeverityError,
+						}},
+					},
+				}),
+		}},
+		Key: "foo/knCert",
+	}, {
+		Name: "set Knative Certificate unknown status with CM Certificate unknown status",
+		Objects: []runtime.Object{
+			knCert("knCert", "foo"),
+			cmCertWithStatus("knCert", "foo", correctDNSNames, certmanagerv1alpha1.ConditionUnknown),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: knCertWithStatus("knCert", "foo",
+				&v1alpha1.CertificateStatus{
+					NotAfter: notAfter,
+					Status: duckv1beta1.Status{
+						ObservedGeneration: generation,
+						Conditions: duckv1beta1.Conditions{{
+							Type:     v1alpha1.CertificateCondidtionReady,
+							Status:   corev1.ConditionUnknown,
+							Severity: apis.ConditionSeverityError,
+						}},
+					},
+				}),
+		}},
+		Key: "foo/knCert",
+	}, {
+		Name: "set Knative Certificate ready status with CM Certificate ready status",
+		Objects: []runtime.Object{
+			knCert("knCert", "foo"),
+			cmCertWithStatus("knCert", "foo", correctDNSNames, certmanagerv1alpha1.ConditionFalse),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: knCertWithStatus("knCert", "foo",
+				&v1alpha1.CertificateStatus{
+					NotAfter: notAfter,
+					Status: duckv1beta1.Status{
+						ObservedGeneration: generation,
+						Conditions: duckv1beta1.Conditions{{
+							Type:     v1alpha1.CertificateCondidtionReady,
+							Status:   corev1.ConditionFalse,
+							Severity: apis.ConditionSeverityError,
 						}},
 					},
 				}),
@@ -252,13 +295,9 @@ func cmCert(name, namespace string, dnsNames []string) *certmanagerv1alpha1.Cert
 	return cert
 }
 
-func cmCertWithStatus(name, namespace string, dnsNames []string, isReady bool) *certmanagerv1alpha1.Certificate {
+func cmCertWithStatus(name, namespace string, dnsNames []string, status certmanagerv1alpha1.ConditionStatus) *certmanagerv1alpha1.Certificate {
 	cert := cmCert(name, namespace, dnsNames)
-	conditionStatus := certmanagerv1alpha1.ConditionTrue
-	if !isReady {
-		conditionStatus = certmanagerv1alpha1.ConditionFalse
-	}
-	cert.UpdateStatusCondition(certmanagerv1alpha1.CertificateConditionReady, conditionStatus, "", "", false)
+	cert.UpdateStatusCondition(certmanagerv1alpha1.CertificateConditionReady, status, "", "", false)
 	cert.Status.NotAfter = notAfter
 	return cert
 }

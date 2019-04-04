@@ -59,3 +59,21 @@ func TestMarkReady(t *testing.T) {
 	c.MarkReady()
 	checkIsReady(c, t)
 }
+
+func TestMarkUnknown(t *testing.T) {
+	c := &CertificateStatus{}
+	c.InitializeConditions()
+	checkCondition(c, CertificateCondidtionReady, corev1.ConditionUnknown, t)
+
+	c.MarkUnknown("unknow", "unknown")
+	checkCondition(c, CertificateCondidtionReady, corev1.ConditionUnknown, t)
+}
+
+func TestMarkNotReady(t *testing.T) {
+	c := &CertificateStatus{}
+	c.InitializeConditions()
+	checkCondition(c, CertificateCondidtionReady, corev1.ConditionUnknown, t)
+
+	c.MarkNotReady("not ready", "not ready")
+	checkCondition(c, CertificateCondidtionReady, corev1.ConditionFalse, t)
+}

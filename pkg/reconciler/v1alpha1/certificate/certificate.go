@@ -161,7 +161,22 @@ func (c *Reconciler) reconcile(ctx context.Context, knCert *v1alpha1.Certificate
 	if err != nil {
 		return err
 	}
-	setStatus(knCert, cmCert)
+
+	knCert.Status.NotAfter = cmCert.Status.NotAfter
+	knCert.Status.ObservedGeneration = knCert.Generation
+	// Propagate cert-manager Certificate status to Knative Certificate.
+	cmCertReadyCondition := resources.GetReadyCondition(cmCert)
+	if cmCertReadyCondition == nil {
+		return nil
+	}
+	switch {
+	case cmCertReadyCondition.Status == cmv1alpha1.ConditionUnknown:
+		knCert.Status.MarkUnknown(cmCertReadyCondition.Reason, cmCertReadyCondition.Message)
+	case cmCertReadyCondition.Status == cmv1alpha1.ConditionTrue:
+		knCert.Status.MarkReady()
+	case cmCertReadyCondition.Status == cmv1alpha1.ConditionFalse:
+		knCert.Status.MarkNotReady(cmCertReadyCondition.Reason, cmCertReadyCondition.Message)
+	}
 	return nil
 }
 
@@ -195,15 +210,6 @@ func (c *Reconciler) reconcileCMCertificate(ctx context.Context, knCert *v1alpha
 		return updated, nil
 	}
 	return cmCert, nil
-}
-
-func setStatus(knCert *v1alpha1.Certificate, cmCert *cmv1alpha1.Certificate) {
-	knCert.Status.NotAfter = cmCert.Status.NotAfter
-	knCert.Status.ObservedGeneration = knCert.Generation
-
-	if resources.IsCertManagerCertificateReady(cmCert) {
-		knCert.Status.MarkReady()
-	}
 }
 
 func (c *Reconciler) updateStatus(desired *v1alpha1.Certificate) (*v1alpha1.Certificate, error) {

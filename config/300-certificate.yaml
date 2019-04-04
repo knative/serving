@@ -42,4 +42,3 @@ spec:
   - name: Reason
     type: string
     JSONPath: ".status.conditions[?(@.type==\"Ready\")].reason"
-

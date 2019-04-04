@@ -31,6 +31,16 @@ func (cs *CertificateStatus) MarkReady() {
 	certificateCondSet.Manage(cs).MarkTrue(CertificateCondidtionReady)
 }
 
+// MarkUnknown marks the certificate status as unknown.
+func (cs *CertificateStatus) MarkUnknown(reason, message string) {
+	certificateCondSet.Manage(cs).MarkUnknown(CertificateCondidtionReady, reason, message)
+}
+
+// MarkNotReady marks the certificate as not ready.
+func (cs *CertificateStatus) MarkNotReady(reason, message string) {
+	certificateCondSet.Manage(cs).MarkFalse(CertificateCondidtionReady, reason, message)
+}
+
 // IsReady returns true is the Certificate is ready.
 func (cs *CertificateStatus) IsReady() bool {
 	return certificateCondSet.Manage(cs).IsHappy()

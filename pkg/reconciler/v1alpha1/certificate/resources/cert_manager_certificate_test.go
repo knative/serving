@@ -84,37 +84,58 @@ func TestMakeCertManagerCertificate(t *testing.T) {
 	}
 }
 
-func TestIsCertManagerCertificateReady(t *testing.T) {
+func TestGetReadyCondition(t *testing.T) {
 	tests := []struct {
 		name          string
 		cmCertificate *certmanagerv1alpha1.Certificate
-		want          bool
+		want          *certmanagerv1alpha1.CertificateCondition
 	}{{
 		name:          "ready",
-		cmCertificate: makeTestCertificate(true),
-		want:          true,
-	}, {
+		cmCertificate: makeTestCertificate(certmanagerv1alpha1.ConditionTrue, "ready", "ready"),
+		want: &certmanagerv1alpha1.CertificateCondition{
+			Type:    certmanagerv1alpha1.CertificateConditionReady,
+			Status:  certmanagerv1alpha1.ConditionTrue,
+			Reason:  "ready",
+			Message: "ready",
+		}}, {
 		name:          "not ready",
-		cmCertificate: makeTestCertificate(false),
-		want:          false,
+		cmCertificate: makeTestCertificate(certmanagerv1alpha1.ConditionFalse, "not ready", "not ready"),
+		want: &certmanagerv1alpha1.CertificateCondition{
+			Type:    certmanagerv1alpha1.CertificateConditionReady,
+			Status:  certmanagerv1alpha1.ConditionFalse,
+			Reason:  "not ready",
+			Message: "not ready",
+		}}, {
+		name:          "unknow",
+		cmCertificate: makeTestCertificate(certmanagerv1alpha1.ConditionUnknown, "unknown", "unknown"),
+		want: &certmanagerv1alpha1.CertificateCondition{
+			Type:    certmanagerv1alpha1.CertificateConditionReady,
+			Status:  certmanagerv1alpha1.ConditionUnknown,
+			Reason:  "unknown",
+			Message: "unknown",
+		},
 	}}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got := IsCertManagerCertificateReady(test.cmCertificate)
+			got := GetReadyCondition(test.cmCertificate)
 			if diff := cmp.Diff(test.want, got); diff != "" {
-				t.Errorf("IsCertManagerCertificateReady (-want, +got) = %s", diff)
+				t.Errorf("GetReadyCondition (-want, +got) = %s", diff)
 			}
 		})
 	}
 }
 
-func makeTestCertificate(isReady bool) *certmanagerv1alpha1.Certificate {
-	cert := &certmanagerv1alpha1.Certificate{}
-	conditionStatus := certmanagerv1alpha1.ConditionTrue
-	if !isReady {
-		conditionStatus = certmanagerv1alpha1.ConditionFalse
+func makeTestCertificate(cond certmanagerv1alpha1.ConditionStatus, reason, message string) *certmanagerv1alpha1.Certificate {
+	cert := &certmanagerv1alpha1.Certificate{
+		Status: certmanagerv1alpha1.CertificateStatus{
+			Conditions: []certmanagerv1alpha1.CertificateCondition{{
+				Type:    certmanagerv1alpha1.CertificateConditionReady,
+				Status:  cond,
+				Reason:  reason,
+				Message: message,
+			}},
+		},
 	}
-	cert.UpdateStatusCondition(certmanagerv1alpha1.CertificateConditionReady, conditionStatus, "", "", false)
 	return cert
 }

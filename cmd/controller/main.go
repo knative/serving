@@ -81,8 +81,7 @@ func main() {
 		logger.Fatalw("Error building kubeconfig", zap.Error(err))
 	}
 
-
-	const numControllers = 7
+	const numControllers = 8
 	cfg.QPS = numControllers * rest.DefaultQPS
 	cfg.Burst = numControllers * rest.DefaultBurst
 	opt := reconciler.NewOptionsOrDie(cfg, logger, stopCh)
@@ -161,14 +160,12 @@ func main() {
 			virtualServiceInformer,
 			gatewayInformer,
 		),
-<<<<<<< HEAD
 		certificate.NewController(
 			opt,
 			knCertInformer,
 			cmCertInformer,
 			certManagerClient,
 		),
-=======
 		serverlessservice.NewController(
 			opt,
 			sksInformer,
@@ -178,7 +175,6 @@ func main() {
 	}
 	if len(controllers) != numControllers {
 		logger.Fatalf("Number of controllers and QPS settings mismatch: %d != %d", len(controllers), numControllers)
->>>>>>> master
 	}
 
 	// Watch the logging config map and dynamically update logging levels.
