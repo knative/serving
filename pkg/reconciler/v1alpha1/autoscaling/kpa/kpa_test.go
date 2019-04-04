@@ -220,7 +220,6 @@ func TestMetricsSvcIsReconciled(t *testing.T) {
 			s.OwnerReferences[0].UID = types.UID("1984")
 			return s
 		}(),
-		wantErr:      "does not own Service",
 		hookShouldTO: true,
 	}}
 	for _, test := range tests {

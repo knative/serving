@@ -285,18 +285,7 @@ func (c *Reconciler) reconcileBuild(ctx context.Context, rev *v1alpha1.Revision)
 		return err
 	}
 	build := buildObj.(*duckv1alpha1.KResource)
-
-	before := rev.Status.GetCondition(v1alpha1.RevisionConditionBuildSucceeded)
 	rev.Status.PropagateBuildStatus(build.Status)
-	after := rev.Status.GetCondition(v1alpha1.RevisionConditionBuildSucceeded)
-	if before.Status != after.Status {
-		// Create events when the Build result is in.
-		if after.Status == corev1.ConditionTrue {
-			c.Recorder.Event(rev, corev1.EventTypeNormal, "BuildSucceeded", after.Message)
-		} else if after.Status == corev1.ConditionFalse {
-			c.Recorder.Event(rev, corev1.EventTypeWarning, "BuildFailed", after.Message)
-		}
-	}
 
 	return nil
 }
@@ -331,6 +320,7 @@ func (c *Reconciler) reconcile(ctx context.Context, rev *v1alpha1.Revision) erro
 		return nil
 	}
 	readyBeforeReconcile := rev.Status.IsReady()
+	buildSucceededBefore := rev.Status.GetCondition(v1alpha1.RevisionConditionBuildSucceeded)
 
 	// We may be reading a version of the object that was stored at an older version
 	// and may not have had all of the assumed defaults specified.  This won't result
@@ -343,6 +333,18 @@ func (c *Reconciler) reconcile(ctx context.Context, rev *v1alpha1.Revision) erro
 
 	if err := c.reconcileBuild(ctx, rev); err != nil {
 		return err
+	} else if rev.BuildRef() != nil {
+		// If we have a BuildRef, then check to see whether the Build portion's
+		// status changed and surface an event.
+		buildSucceededAfter := rev.Status.GetCondition(v1alpha1.RevisionConditionBuildSucceeded)
+		if buildSucceededBefore == nil || buildSucceededBefore.Status != buildSucceededAfter.Status {
+			// Create events when the Build result is in.
+			if buildSucceededAfter.Status == corev1.ConditionTrue {
+				c.Recorder.Event(rev, corev1.EventTypeNormal, "BuildSucceeded", buildSucceededAfter.Message)
+			} else if buildSucceededAfter.Status == corev1.ConditionFalse {
+				c.Recorder.Event(rev, corev1.EventTypeWarning, "BuildFailed", buildSucceededAfter.Message)
+			}
+		}
 	}
 
 	bc := rev.Status.GetCondition(v1alpha1.RevisionConditionBuildSucceeded)
@@ -377,6 +379,10 @@ func (c *Reconciler) reconcile(ctx context.Context, rev *v1alpha1.Revision) erro
 			if err := phase.f(ctx, rev); err != nil {
 				logger.Errorw("Failed to reconcile", zap.String("phase", phase.name), zap.Error(err))
 				return err
+			}
+			if cond := rev.Status.GetCondition(v1alpha1.RevisionConditionReady); cond.IsFalse() {
+				logger.Errorf("Stopping %q reconcile due to terminal condition: %#v", rev.Name, cond)
+				break
 			}
 		}
 	}

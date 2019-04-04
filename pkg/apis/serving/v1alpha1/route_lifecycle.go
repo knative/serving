@@ -44,6 +44,7 @@ func (rs *RouteStatus) GetCondition(t apis.ConditionType) *apis.Condition {
 }
 
 func (rs *RouteStatus) InitializeConditions() {
+	rs.Conditions = nil
 	routeCondSet.Manage(rs).InitializeConditions()
 }
 

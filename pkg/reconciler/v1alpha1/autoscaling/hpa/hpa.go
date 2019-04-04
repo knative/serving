@@ -159,7 +159,7 @@ func (c *Reconciler) reconcile(ctx context.Context, key string, pa *pav1alpha1.P
 	} else if !metav1.IsControlledBy(hpa, pa) {
 		// Surface an error in the PodAutoscaler's status, and return an error.
 		pa.Status.MarkResourceNotOwned("HorizontalPodAutoscaler", desiredHpa.Name)
-		return fmt.Errorf("PodAutoscaler: %q does not own HPA: %q", pa.Name, desiredHpa.Name)
+		return nil
 	} else {
 		if !equality.Semantic.DeepEqual(desiredHpa.Spec, hpa.Spec) {
 			logger.Infof("Updating HPA %q", desiredHpa.Name)

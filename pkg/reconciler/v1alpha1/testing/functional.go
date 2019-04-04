@@ -808,13 +808,18 @@ func MarkContainerExiting(exitCode int32, message string) RevisionOption {
 	}
 }
 
+// MarkRevisionHealthy calls the necessary helpers to make the Revision healthy.
+func MarkRevisionHealthy(r *v1alpha1.Revision) {
+	r.Status.MarkResourcesAvailable()
+	r.Status.MarkContainerHealthy()
+}
+
 // MarkRevisionReady calls the necessary helpers to make the Revision Ready=True.
 func MarkRevisionReady(r *v1alpha1.Revision) {
 	WithInitRevConditions(r)
 	WithNoBuild(r)
 	MarkActive(r)
-	r.Status.MarkResourcesAvailable()
-	r.Status.MarkContainerHealthy()
+	MarkRevisionHealthy(r)
 }
 
 type PodAutoscalerOption func(*autoscalingv1alpha1.PodAutoscaler)

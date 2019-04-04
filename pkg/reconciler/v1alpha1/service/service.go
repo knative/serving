@@ -182,7 +182,7 @@ func (c *Reconciler) reconcile(ctx context.Context, service *v1alpha1.Service) e
 	} else if !metav1.IsControlledBy(config, service) {
 		// Surface an error in the service's status,and return an error.
 		service.Status.MarkConfigurationNotOwned(configName)
-		return fmt.Errorf("Service: %q does not own Configuration: %q", service.Name, configName)
+		return nil
 	} else if config, err = c.reconcileConfiguration(ctx, service, config); err != nil {
 		logger.Errorw(
 			fmt.Sprintf("Failed to reconcile Service: %q failed to reconcile Configuration: %q",
@@ -209,7 +209,7 @@ func (c *Reconciler) reconcile(ctx context.Context, service *v1alpha1.Service) e
 	} else if !metav1.IsControlledBy(route, service) {
 		// Surface an error in the service's status, and return an error.
 		service.Status.MarkRouteNotOwned(routeName)
-		return fmt.Errorf("Service: %q does not own Route: %q", service.Name, routeName)
+		return nil
 	} else if route, err = c.reconcileRoute(ctx, service, route); err != nil {
 		logger.Errorf("Failed to reconcile Service: %q failed to reconcile Route: %q", service.Name, routeName)
 		return err

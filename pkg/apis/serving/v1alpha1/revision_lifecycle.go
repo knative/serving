@@ -130,6 +130,9 @@ func (rs *RevisionStatus) GetCondition(t apis.ConditionType) *apis.Condition {
 }
 
 func (rs *RevisionStatus) InitializeConditions() {
+	// TODO(mattmoor): Uncomment this once we can cleanly build up a Revision's
+	// status without imperatively depending on the prior state.
+	// rs.Conditions = nil
 	revCondSet.Manage(rs).InitializeConditions()
 }
 

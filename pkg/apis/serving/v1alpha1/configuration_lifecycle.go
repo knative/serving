@@ -45,6 +45,7 @@ func (cs *ConfigurationStatus) GetCondition(t apis.ConditionType) *apis.Conditio
 }
 
 func (cs *ConfigurationStatus) InitializeConditions() {
+	cs.Conditions = nil
 	confCondSet.Manage(cs).InitializeConditions()
 }
 

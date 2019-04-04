@@ -319,7 +319,7 @@ func (c *Reconciler) reconcileMetricsService(ctx context.Context, pa *pav1alpha1
 		return err
 	} else if !metav1.IsControlledBy(svc, pa) {
 		pa.Status.MarkResourceNotOwned("Service", sn)
-		return fmt.Errorf("KPA: %q does not own Service: %q", pa.Name, sn)
+		return nil
 	} else {
 		tmpl := resources.MakeMetricsService(pa, selector)
 		want := svc.DeepCopy()

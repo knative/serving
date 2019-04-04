@@ -865,8 +865,7 @@ func TestReconcile(t *testing.T) {
 			Eventf(corev1.EventTypeNormal, "Updated", "Updated Service %q", "route-fails"),
 		},
 	}, {
-		Name:    "runLatest - not owned config exists",
-		WantErr: true,
+		Name: "runLatest - not owned config exists",
 		Objects: []runtime.Object{
 			Service("run-latest", "foo", WithRunLatestRollout),
 			config("run-latest", "foo", WithRunLatestRollout, WithConfigOwnersRemoved),
@@ -878,11 +877,10 @@ func TestReconcile(t *testing.T) {
 				WithInitSvcConditions, MarkConfigurationNotOwned),
 		}},
 		WantEvents: []string{
-			Eventf(corev1.EventTypeWarning, "InternalError", `Service: "run-latest" does not own Configuration: "run-latest"`),
+			Eventf(corev1.EventTypeNormal, "Updated", `Updated Service "run-latest"`),
 		},
 	}, {
-		Name:    "runLatest - not owned route exists",
-		WantErr: true,
+		Name: "runLatest - not owned route exists",
 		Objects: []runtime.Object{
 			Service("run-latest", "foo", WithRunLatestRollout),
 			config("run-latest", "foo", WithRunLatestRollout),
@@ -895,7 +893,7 @@ func TestReconcile(t *testing.T) {
 				WithInitSvcConditions, MarkRouteNotOwned),
 		}},
 		WantEvents: []string{
-			Eventf(corev1.EventTypeWarning, "InternalError", `Service: "run-latest" does not own Route: "run-latest"`),
+			Eventf(corev1.EventTypeNormal, "Updated", `Updated Service "run-latest"`),
 		},
 	}, {
 		Name: "runLatest - correct not owned by adding owner refs",

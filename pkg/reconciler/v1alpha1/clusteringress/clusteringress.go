@@ -19,7 +19,6 @@ package clusteringress
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"reflect"
 
 	"k8s.io/apimachinery/pkg/types"
@@ -318,7 +317,7 @@ func (c *Reconciler) reconcileVirtualService(ctx context.Context, ci *v1alpha1.C
 	} else if !metav1.IsControlledBy(vs, ci) {
 		// Surface an error in the ClusterIngress's status, and return an error.
 		ci.Status.MarkResourceNotOwned("VirtualService", name)
-		return fmt.Errorf("ClusterIngress: %q does not own VirtualService: %q", ci.Name, name)
+		return nil
 	} else if !equality.Semantic.DeepEqual(vs.Spec, desired.Spec) {
 		// Don't modify the informers copy
 		existing := vs.DeepCopy()

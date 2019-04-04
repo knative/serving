@@ -23,6 +23,7 @@ import (
 
 // InitializeConditions initializes the certificate conditions.
 func (cs *CertificateStatus) InitializeConditions() {
+	cs.Conditions = nil
 	certificateCondSet.Manage(cs).InitializeConditions()
 }
 

@@ -37,6 +37,7 @@ func (sss *ServerlessServiceStatus) GetCondition(t apis.ConditionType) *apis.Con
 
 // InitializeConditions initializes the conditions.
 func (sss *ServerlessServiceStatus) InitializeConditions() {
+	sss.Conditions = nil
 	serverlessServiceCondSet.Manage(sss).InitializeConditions()
 }
 

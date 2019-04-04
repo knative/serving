@@ -152,7 +152,7 @@ func (c *Reconciler) reconcilePlaceholderService(ctx context.Context, route *v1a
 	} else if !metav1.IsControlledBy(service, route) {
 		// Surface an error in the route's status, and return an error.
 		route.Status.MarkServiceNotOwned(name)
-		return fmt.Errorf("Route: %q does not own Service: %q", route.Name, name)
+		return nil
 	} else {
 		// Make sure that the service has the proper specification.
 		if !equality.Semantic.DeepEqual(service.Spec, desiredService.Spec) {

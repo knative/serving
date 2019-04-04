@@ -61,7 +61,7 @@ func (c *Reconciler) reconcileDeployment(ctx context.Context, rev *v1alpha1.Revi
 	} else if !metav1.IsControlledBy(deployment, rev) {
 		// Surface an error in the revision's status, and return an error.
 		rev.Status.MarkResourceNotOwned("Deployment", deploymentName)
-		return fmt.Errorf("Revision: %q does not own Deployment: %q", rev.Name, deploymentName)
+		return nil
 	} else {
 		// The deployment exists, but make sure that it has the shape that we expect.
 		deployment, err = c.checkAndUpdateDeployment(ctx, rev, deployment)
@@ -99,7 +99,6 @@ func (c *Reconciler) reconcileDeployment(ctx context.Context, rev *v1alpha1.Revi
 		c.Recorder.Eventf(rev, corev1.EventTypeNormal, "ProgressDeadlineExceeded",
 			"Revision %s not ready due to Deployment timeout", rev.Name)
 	}
-
 	return nil
 }
 
@@ -145,7 +144,7 @@ func (c *Reconciler) reconcileKPA(ctx context.Context, rev *v1alpha1.Revision) e
 	} else if !metav1.IsControlledBy(kpa, rev) {
 		// Surface an error in the revision's status, and return an error.
 		rev.Status.MarkResourceNotOwned("PodAutoscaler", kpaName)
-		return fmt.Errorf("Revision: %q does not own PodAutoscaler: %q", rev.Name, kpaName)
+		return nil
 	}
 
 	// Reflect the KPA status in our own.
@@ -187,7 +186,7 @@ func (c *Reconciler) reconcileService(ctx context.Context, rev *v1alpha1.Revisio
 	} else if !metav1.IsControlledBy(service, rev) {
 		// Surface an error in the revision's status, and return an error.
 		rev.Status.MarkResourceNotOwned("Service", serviceName)
-		return fmt.Errorf("Revision: %q does not own Service: %q", rev.Name, serviceName)
+		return nil
 	} else {
 		// If it exists, then make sure if looks as we expect.
 		// It may change if a user edits things around our controller, which we
@@ -201,6 +200,7 @@ func (c *Reconciler) reconcileService(ctx context.Context, rev *v1alpha1.Revisio
 		if changed == wasChanged {
 			logger.Infof("Updated Service %q", serviceName)
 			rev.Status.MarkDeploying("Updating")
+			return nil
 		}
 	}
 
@@ -225,6 +225,7 @@ func (c *Reconciler) reconcileService(ctx context.Context, rev *v1alpha1.Revisio
 	if isServiceReady(endpoints) {
 		rev.Status.MarkResourcesAvailable()
 		rev.Status.MarkContainerHealthy()
+		return nil
 	} else if !rev.Status.IsActivationRequired() {
 		// If the endpoints resource is NOT ready, then check whether it is taking unreasonably
 		// long to become ready and if so mark our revision as having timed out waiting
@@ -235,6 +236,7 @@ func (c *Reconciler) reconcileService(ctx context.Context, rev *v1alpha1.Revisio
 			// TODO(mattmoor): How to ensure this only fires once?
 			c.Recorder.Eventf(rev, corev1.EventTypeWarning, "RevisionFailed",
 				"Revision did not become ready due to endpoint %q", serviceName)
+			return nil
 		}
 	}
 	return nil

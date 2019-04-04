@@ -42,6 +42,7 @@ func (cis *IngressStatus) GetCondition(t apis.ConditionType) *apis.Condition {
 }
 
 func (cis *IngressStatus) InitializeConditions() {
+	cis.Conditions = nil
 	clusterIngressCondSet.Manage(cis).InitializeConditions()
 }
 

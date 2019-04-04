@@ -426,8 +426,7 @@ func TestReconcile(t *testing.T) {
 		},
 		Key: "default/steady-state",
 	}, {
-		Name:    "unhappy about ownership of placeholder service",
-		WantErr: true,
+		Name: "unhappy about ownership of placeholder service",
 		Objects: []runtime.Object{
 			route("default", "unhappy-owner", WithConfigTarget("config"),
 				WithDomain, WithDomainInternal, WithAddress, WithInitRouteConditions,
@@ -471,9 +470,6 @@ func TestReconcile(t *testing.T) {
 				// The owner is not us, so we are unhappy.
 				MarkServiceNotOwned),
 		}},
-		WantEvents: []string{
-			Eventf(corev1.EventTypeWarning, "InternalError", `Route: "unhappy-owner" does not own Service: "unhappy-owner"`),
-		},
 		Key: "default/unhappy-owner",
 	}, {
 		// This tests that when the Route is labelled differently, it is configured with a
@@ -677,7 +673,11 @@ func TestReconcile(t *testing.T) {
 					v1alpha1.TrafficTarget{
 						RevisionName: "config-00002",
 						Percent:      100,
-					})),
+					}),
+				// Before failing out, Reconcile re-initializes the
+				// conditions and marks traffic assigned, but fails
+				// before changing the ingress status.
+				WithInitRouteConditions, MarkTrafficAssigned),
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "InternalError", "inducing failure for update clusteringresses"),
@@ -1332,7 +1332,12 @@ func TestReconcile(t *testing.T) {
 					v1alpha1.TrafficTarget{
 						ConfigurationName: "blue",
 						Percent:           100,
-					})),
+					}),
+				// During the reconcile of this generation we get as far as discovering that
+				// not all of the traffic targets are ready, so we stop short of being able to
+				// program the ingress.
+				WithInitRouteConditions, MarkConfigurationNotReady("green"),
+			),
 		}},
 		Key:                     "default/split",
 		SkipNamespaceValidation: true,

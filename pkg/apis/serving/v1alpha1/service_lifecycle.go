@@ -50,6 +50,7 @@ func (ss *ServiceStatus) GetCondition(t apis.ConditionType) *apis.Condition {
 
 // InitializeConditions sets the initial values to the conditions.
 func (ss *ServiceStatus) InitializeConditions() {
+	ss.Conditions = nil
 	serviceCondSet.Manage(ss).InitializeConditions()
 }
 

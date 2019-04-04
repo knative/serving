@@ -244,6 +244,16 @@ func TestReconcile(t *testing.T) {
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: deploy("foo", "failure-update-deploy"),
 		}},
+		// TODO(mattmoor): When we reset conditions at the beginning of reconciliation,
+		// it will end up looking like this.
+		// WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+		// 	Object: rev("foo", "failure-update-deploy",
+		// 		WithK8sServiceName, WithLogURL,
+		// 		// When our reconcile is interrupted by a failure updating the
+		// 		// service resource we will see a status update with these mutations:
+		// 		WithInitRevConditions, WithNoBuild,
+		// 	),
+		// }},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "InternalError", "inducing failure for update deployments"),
 		},
@@ -295,8 +305,7 @@ func TestReconcile(t *testing.T) {
 		// our Conditions.  We should see an update to put us into a ServiceTimeout state.
 		Objects: []runtime.Object{
 			rev("foo", "endpoint-created-timeout",
-				WithK8sServiceName, WithLogURL, AllUnknownConditions,
-				MarkActive),
+				WithK8sServiceName, WithLogURL, AllUnknownConditions, MarkActive),
 			kpa("foo", "endpoint-created-timeout", WithTraffic),
 			deploy("foo", "endpoint-created-timeout"),
 			svc("foo", "endpoint-created-timeout"),
@@ -308,9 +317,9 @@ func TestReconcile(t *testing.T) {
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: rev("foo", "endpoint-created-timeout",
 				WithK8sServiceName, WithLogURL, AllUnknownConditions, MarkActive,
-				// When the LTT is cleared, a reconcile will result in the
-				// following mutation.
-				MarkServiceTimeout),
+				// When the endpoint creation time is too long ago, a
+				// reconcile will result in the following mutation.
+				WithInitRevConditions, WithNoBuild, MarkServiceTimeout),
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "RevisionFailed", "Revision did not become ready due to endpoint %q",
@@ -393,19 +402,20 @@ func TestReconcile(t *testing.T) {
 		// services back to our desired specification.
 		Objects: []runtime.Object{
 			rev("foo", "fix-mutated-service",
-				WithK8sServiceName, WithLogURL, AllUnknownConditions),
-			kpa("foo", "fix-mutated-service"),
+				WithK8sServiceName, WithLogURL, AllUnknownConditions, MarkActive),
+			kpa("foo", "fix-mutated-service", WithTraffic),
 			deploy("foo", "fix-mutated-service"),
 			svc("foo", "fix-mutated-service", MutateK8sService),
-			endpoints("foo", "fix-mutated-service"),
+			endpoints("foo", "fix-mutated-service", WithSubsets),
 			image("foo", "fix-mutated-service"),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: rev("foo", "fix-mutated-service",
-				WithK8sServiceName, WithLogURL, AllUnknownConditions,
+				WithK8sServiceName, WithLogURL,
 				// When our reconciliation has to change the service
 				// we should see the following mutations to status.
-				MarkDeploying("Updating"), MarkActivating("Deploying", "")),
+				WithInitRevConditions, WithNoBuild, MarkRevisionReady,
+				MarkDeploying("Updating"), MarkActive),
 		}},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: svc("foo", "fix-mutated-service"),
@@ -430,6 +440,16 @@ func TestReconcile(t *testing.T) {
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: svc("foo", "update-user-svc-failure"),
 		}},
+		// TODO(mattmoor): When we reset conditions at the beginning of reconciliation,
+		// it will end up looking like this.
+		// WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+		// 	Object: rev("foo", "update-user-svc-failure",
+		// 		WithK8sServiceName, WithLogURL,
+		// 		// When our reconcile is interrupted by a failure updating the
+		// 		// deployment resource we will see a status update with these mutations:
+		// 		WithInitRevConditions, WithNoBuild,
+		// 	),
+		// }},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "InternalError", "inducing failure for update services"),
 		},
@@ -452,9 +472,11 @@ func TestReconcile(t *testing.T) {
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: rev("foo", "deploy-timeout",
-				WithK8sServiceName, WithLogURL, AllUnknownConditions, MarkActive,
+				WithK8sServiceName, WithLogURL,
+				AllUnknownConditions, MarkActive,
 				// When the revision is reconciled after a Deployment has
 				// timed out, we should see it marked with the PDE state.
+				WithInitRevConditions, WithNoBuild,
 				MarkProgressDeadlineExceeded),
 		}},
 		WantEvents: []string{
@@ -482,6 +504,9 @@ func TestReconcile(t *testing.T) {
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: rev("foo", "pod-error",
 				WithK8sServiceName, WithLogURL, AllUnknownConditions, MarkActive,
+				// When the revision is reconciled after a Deployment's pods
+				// have failed with a particular error, we expect these mutations.
+				WithInitRevConditions, WithNoBuild,
 				MarkContainerExiting(5, "I failed man!")),
 		}},
 		Key: "foo/pod-error",
@@ -632,8 +657,7 @@ func TestReconcile(t *testing.T) {
 		},
 		Key: "foo/steady-ready",
 	}, {
-		Name:    "lost service owner ref",
-		WantErr: true,
+		Name: "lost service owner ref",
 		Objects: []runtime.Object{
 			rev("foo", "missing-owners", WithK8sServiceName, WithLogURL,
 				MarkRevisionReady),
@@ -647,15 +671,11 @@ func TestReconcile(t *testing.T) {
 			Object: rev("foo", "missing-owners", WithK8sServiceName, WithLogURL,
 				MarkRevisionReady,
 				// When we're missing the OwnerRef for Service we see this update.
-				MarkResourceNotOwned("Service", "missing-owners-service")),
+				WithInitRevConditions, WithNoBuild, MarkResourceNotOwned("Service", "missing-owners-service")),
 		}},
-		WantEvents: []string{
-			Eventf(corev1.EventTypeWarning, "InternalError", `Revision: "missing-owners" does not own Service: "missing-owners-service"`),
-		},
 		Key: "foo/missing-owners",
 	}, {
-		Name:    "lost kpa owner ref",
-		WantErr: true,
+		Name: "lost kpa owner ref",
 		Objects: []runtime.Object{
 			rev("foo", "missing-owners", WithK8sServiceName, WithLogURL,
 				MarkRevisionReady),
@@ -669,15 +689,12 @@ func TestReconcile(t *testing.T) {
 			Object: rev("foo", "missing-owners", WithK8sServiceName, WithLogURL,
 				MarkRevisionReady,
 				// When we're missing the OwnerRef for PodAutoscaler we see this update.
+				WithInitRevConditions, WithNoBuild, MarkRevisionHealthy,
 				MarkResourceNotOwned("PodAutoscaler", "missing-owners")),
 		}},
-		WantEvents: []string{
-			Eventf(corev1.EventTypeWarning, "InternalError", `Revision: "missing-owners" does not own PodAutoscaler: "missing-owners"`),
-		},
 		Key: "foo/missing-owners",
 	}, {
-		Name:    "lost deployment owner ref",
-		WantErr: true,
+		Name: "lost deployment owner ref",
 		Objects: []runtime.Object{
 			rev("foo", "missing-owners", WithK8sServiceName, WithLogURL,
 				MarkRevisionReady),
@@ -691,11 +708,9 @@ func TestReconcile(t *testing.T) {
 			Object: rev("foo", "missing-owners", WithK8sServiceName, WithLogURL,
 				MarkRevisionReady,
 				// When we're missing the OwnerRef for Deployment we see this update.
+				WithInitRevConditions, WithNoBuild,
 				MarkResourceNotOwned("Deployment", "missing-owners-deployment")),
 		}},
-		WantEvents: []string{
-			Eventf(corev1.EventTypeWarning, "InternalError", `Revision: "missing-owners" does not own Deployment: "missing-owners-deployment"`),
-		},
 		Key: "foo/missing-owners",
 	}}
 
@@ -836,6 +851,16 @@ func TestReconcileWithVarLogEnabled(t *testing.T) {
 			// We should see a single update to the configmap we expect.
 			Object: fluentdConfigMap("foo", "update-configmap-failure", EnableVarLog),
 		}},
+		// TODO(mattmoor): When we reset conditions at the beginning of reconciliation,
+		// it will end up looking like this.
+		// WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+		// 	Object: rev("foo", "update-configmap-failure",
+		// 		WithK8sServiceName, WithLogURL,
+		// 		// When our reconcile is interrupted by a failure updating the
+		// 		// configmap resource we will see a status update with these mutations:
+		// 		WithInitRevConditions, WithNoBuild, MarkDeploying("Deploying"),
+		// 	),
+		// }},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "InternalError", "inducing failure for update configmaps"),
 		},

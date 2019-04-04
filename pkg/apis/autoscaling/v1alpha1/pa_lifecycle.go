@@ -97,6 +97,9 @@ func (rs *PodAutoscalerStatus) GetCondition(t apis.ConditionType) *apis.Conditio
 }
 
 func (rs *PodAutoscalerStatus) InitializeConditions() {
+	// TODO(mattmoor): Uncomment once CanScaleToZero (below) isn't
+	// based on LastTransitionTimestamp.
+	// rs.Conditions = nil
 	podCondSet.Manage((*duckv1beta1.Status)(rs)).InitializeConditions()
 }
 
