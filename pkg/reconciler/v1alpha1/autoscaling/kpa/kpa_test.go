@@ -89,7 +89,7 @@ func newDynamicConfig(t *testing.T) *autoscaler.DynamicConfig {
 // TODO(#3591): Convert KPA tests to table tests.
 
 func TestMetricsSvcIsReconciled(t *testing.T) {
-	ClearAllLoggers()
+	defer ClearAllLoggers()
 
 	rev := newTestRevision(testNamespace, testRevision)
 	ep := addEndpoint(makeEndpoints(rev))
@@ -334,7 +334,7 @@ func scaleA(ga clientgotesting.GetAction, opts ...scaleOpt) *autoscalingv1.Scale
 	return s
 }
 func TestControllerSynchronizesCreatesAndDeletes(t *testing.T) {
-	ClearAllLoggers()
+	defer ClearAllLoggers()
 
 	kubeClient := fakeK8s.NewSimpleClientset()
 	servingClient := fakeKna.NewSimpleClientset()
@@ -418,7 +418,7 @@ func TestControllerSynchronizesCreatesAndDeletes(t *testing.T) {
 }
 
 func TestUpdate(t *testing.T) {
-	ClearAllLoggers()
+	defer ClearAllLoggers()
 
 	kubeClient := fakeK8s.NewSimpleClientset()
 	servingClient := fakeKna.NewSimpleClientset()
@@ -499,7 +499,7 @@ func TestUpdate(t *testing.T) {
 }
 
 func TestNonKPAClass(t *testing.T) {
-	ClearAllLoggers()
+	defer ClearAllLoggers()
 
 	kubeClient := fakeK8s.NewSimpleClientset()
 	servingClient := fakeKna.NewSimpleClientset()
@@ -554,7 +554,7 @@ func TestNonKPAClass(t *testing.T) {
 }
 
 func TestNoEndpoints(t *testing.T) {
-	ClearAllLoggers()
+	defer ClearAllLoggers()
 
 	kubeClient := fakeK8s.NewSimpleClientset()
 	servingClient := fakeKna.NewSimpleClientset()
@@ -613,7 +613,7 @@ func TestNoEndpoints(t *testing.T) {
 }
 
 func TestEmptyEndpoints(t *testing.T) {
-	ClearAllLoggers()
+	defer ClearAllLoggers()
 
 	kubeClient := fakeK8s.NewSimpleClientset()
 	servingClient := fakeKna.NewSimpleClientset()
@@ -672,7 +672,7 @@ func TestEmptyEndpoints(t *testing.T) {
 }
 
 func TestControllerCreateError(t *testing.T) {
-	ClearAllLoggers()
+	defer ClearAllLoggers()
 
 	kubeClient := fakeK8s.NewSimpleClientset()
 	servingClient := fakeKna.NewSimpleClientset()
@@ -714,7 +714,7 @@ func TestControllerCreateError(t *testing.T) {
 }
 
 func TestControllerUpdateError(t *testing.T) {
-	ClearAllLoggers()
+	defer ClearAllLoggers()
 
 	kubeClient := fakeK8s.NewSimpleClientset()
 	servingClient := fakeKna.NewSimpleClientset()
@@ -756,7 +756,7 @@ func TestControllerUpdateError(t *testing.T) {
 }
 
 func TestControllerGetError(t *testing.T) {
-	ClearAllLoggers()
+	defer ClearAllLoggers()
 
 	kubeClient := fakeK8s.NewSimpleClientset()
 	servingClient := fakeKna.NewSimpleClientset()
@@ -797,7 +797,7 @@ func TestControllerGetError(t *testing.T) {
 }
 
 func TestScaleFailure(t *testing.T) {
-	ClearAllLoggers()
+	defer ClearAllLoggers()
 
 	kubeClient := fakeK8s.NewSimpleClientset()
 	servingClient := fakeKna.NewSimpleClientset()
@@ -840,7 +840,7 @@ func TestScaleFailure(t *testing.T) {
 }
 
 func TestBadKey(t *testing.T) {
-	ClearAllLoggers()
+	defer ClearAllLoggers()
 
 	kubeClient := fakeK8s.NewSimpleClientset()
 	servingClient := fakeKna.NewSimpleClientset()
