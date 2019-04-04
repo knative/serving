@@ -207,5 +207,7 @@ function publish_test_images() {
 
 # Deletes everything created on the cluster including all knative and istio components.
 function teardown() {
+  echo ">> Deleting test namespace"
+  kubectl delete namespace serving-tests
   uninstall_knative_serving
 }
