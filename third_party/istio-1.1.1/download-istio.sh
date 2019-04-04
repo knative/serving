@@ -28,8 +28,8 @@ helm template --namespace=istio-system \
   -f install/kubernetes/helm/istio/example-values/values-istio-gateways.yaml \
   | sed -e "s/custom-gateway/cluster-local-gateway/g" -e "s/customgateway/clusterlocalgateway/g" \
   `# Removing trailing whitespaces to make automation happy` \
-  | sed 's/[ \t]*$//' \
-  > cluster-local-gateway.yaml
+  | sed "s/[[:space:]]*$//" \
+  > ../istio-knative-extras.yaml
 
 # A template with sidecar injection enabled.
 helm template --namespace=istio-system \
@@ -53,7 +53,7 @@ helm template --namespace=istio-system \
   `# Removing trailing whitespaces to make automation happy` \
   | sed 's/[ \t]*$//' \
   > ../istio.yaml
-cat cluster-local-gateway.yaml >> ../istio.yaml
+cat ../istio-knative-extras >> ../istio.yaml
 
 # A lighter template, with no sidecar injection.  We could probably remove
 # more from this template.
@@ -74,7 +74,7 @@ helm template --namespace=istio-system \
   `# Removing trailing whitespaces to make automation happy` \
   | sed 's/[ \t]*$//' \
   > ../istio-lean.yaml
-cat cluster-local-gateway.yaml >> ../istio-lean.yaml
+cat ../istio-knative-extras.yaml >> ../istio-lean.yaml
 
 # Clean up.
 cd ..
