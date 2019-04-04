@@ -41,7 +41,6 @@ import (
 	revisionresources "github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources"
 	. "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
 	"go.uber.org/atomic"
-	"golang.org/x/sync/errgroup"
 	autoscalingv1 "k8s.io/api/autoscaling/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -377,13 +376,8 @@ func TestControllerSynchronizesCreatesAndDeletes(t *testing.T) {
 	kubeClient.CoreV1().Services(testNamespace).Create(msvc)
 	kubeInformer.Core().V1().Services().Informer().GetIndexer().Add(msvc)
 
-	reconcileGrp := errgroup.Group{}
-	reconcileGrp.Go(func() error {
-		return ctl.Reconciler.Reconcile(context.Background(), testNamespace+"/"+testRevision)
-	})
-
 	// Wait for the Reconcile to complete.
-	if err := reconcileGrp.Wait(); err != nil {
+	if err := ctl.Reconciler.Reconcile(context.Background(), testNamespace+"/"+testRevision); err != nil {
 		t.Errorf("Reconcile() = %v", err)
 	}
 
@@ -461,13 +455,8 @@ func TestUpdate(t *testing.T) {
 	kubeClient.CoreV1().Services(testNamespace).Create(msvc)
 	kubeInformer.Core().V1().Services().Informer().GetIndexer().Add(msvc)
 
-	reconcileGrp := errgroup.Group{}
-	reconcileGrp.Go(func() error {
-		return ctl.Reconciler.Reconcile(context.Background(), testNamespace+"/"+testRevision)
-	})
-
 	// Wait for the Reconcile to complete.
-	if err := reconcileGrp.Wait(); err != nil {
+	if err := ctl.Reconciler.Reconcile(context.Background(), testNamespace+"/"+testRevision); err != nil {
 		t.Errorf("Reconcile() = %v", err)
 	}
 
@@ -537,13 +526,8 @@ func TestNonKPAClass(t *testing.T) {
 	servingClient.AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
 	servingInformer.Autoscaling().V1alpha1().PodAutoscalers().Informer().GetIndexer().Add(kpa)
 
-	reconcileGrp := errgroup.Group{}
-	reconcileGrp.Go(func() error {
-		return ctl.Reconciler.Reconcile(context.Background(), testNamespace+"/"+testRevision)
-	})
-
 	// Wait for the Reconcile to complete.
-	if err := reconcileGrp.Wait(); err != nil {
+	if err := ctl.Reconciler.Reconcile(context.Background(), testNamespace+"/"+testRevision); err != nil {
 		t.Errorf("Reconcile() = %v", err)
 	}
 
@@ -592,13 +576,8 @@ func TestNoEndpoints(t *testing.T) {
 	servingClient.AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
 	servingInformer.Autoscaling().V1alpha1().PodAutoscalers().Informer().GetIndexer().Add(kpa)
 
-	reconcileGrp := errgroup.Group{}
-	reconcileGrp.Go(func() error {
-		return ctl.Reconciler.Reconcile(context.Background(), testNamespace+"/"+testRevision)
-	})
-
 	// Wait for the Reconcile to complete.
-	if err := reconcileGrp.Wait(); err != nil {
+	if err := ctl.Reconciler.Reconcile(context.Background(), testNamespace+"/"+testRevision); err != nil {
 		t.Errorf("Reconcile() = %v", err)
 	}
 
@@ -651,13 +630,8 @@ func TestEmptyEndpoints(t *testing.T) {
 	servingClient.AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
 	servingInformer.Autoscaling().V1alpha1().PodAutoscalers().Informer().GetIndexer().Add(kpa)
 
-	reconcileGrp := errgroup.Group{}
-	reconcileGrp.Go(func() error {
-		return ctl.Reconciler.Reconcile(context.Background(), testNamespace+"/"+testRevision)
-	})
-
 	// Wait for the Reconcile to complete.
-	if err := reconcileGrp.Wait(); err != nil {
+	if err := ctl.Reconciler.Reconcile(context.Background(), testNamespace+"/"+testRevision); err != nil {
 		t.Errorf("Reconcile() = %v", err)
 	}
 
@@ -829,12 +803,7 @@ func TestScaleFailure(t *testing.T) {
 	kpa := revisionresources.MakeKPA(rev)
 	servingInformer.Autoscaling().V1alpha1().PodAutoscalers().Informer().GetIndexer().Add(kpa)
 
-	reconcileGrp := errgroup.Group{}
-	reconcileGrp.Go(func() error {
-		return ctl.Reconciler.Reconcile(context.Background(), testNamespace+"/"+testRevision)
-	})
-
-	if err := reconcileGrp.Wait(); err == nil {
+	if err := ctl.Reconciler.Reconcile(context.Background(), testNamespace+"/"+testRevision); err == nil {
 		t.Error("Reconcile() = nil, wanted error")
 	}
 }
