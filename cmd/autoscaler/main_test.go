@@ -92,7 +92,7 @@ func TestUniscalerFactoryFailures(t *testing.T) {
 func TestUniScalerFactoryFunc(t *testing.T) {
 	uniScalerFactory := getTestUniScalerFactory()
 	for _, srv := range []string{"some", ""} {
-		metric := &autoscaler.Decider{
+		decider := &autoscaler.Decider{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: testNamespace,
 				Name:      testRevision,
@@ -105,7 +105,7 @@ func TestUniScalerFactoryFunc(t *testing.T) {
 		}
 		dynamicConfig := &autoscaler.DynamicConfig{}
 
-		if _, err := uniScalerFactory(metric, dynamicConfig); err != nil {
+		if _, err := uniScalerFactory(decider, dynamicConfig); err != nil {
 			t.Errorf("got error from uniScalerFactory: %v", err)
 		}
 	}
