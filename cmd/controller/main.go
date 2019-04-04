@@ -41,6 +41,7 @@ import (
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/labeler"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/route"
+	"github.com/knative/serving/pkg/reconciler/v1alpha1/serverlessservice"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/service"
 	"go.uber.org/zap"
 )
@@ -77,9 +78,9 @@ func main() {
 		logger.Fatalw("Error building kubeconfig", zap.Error(err))
 	}
 
-	// We run 6 controllers, so bump the defaults.
-	cfg.QPS = 6 * rest.DefaultQPS
-	cfg.Burst = 6 * rest.DefaultBurst
+	const numControllers = 7
+	cfg.QPS = numControllers * rest.DefaultQPS
+	cfg.Burst = numControllers * rest.DefaultBurst
 	opt := reconciler.NewOptionsOrDie(cfg, logger, stopCh)
 
 	kubeInformerFactory := kubeinformers.NewSharedInformerFactory(opt.KubeClientSet, opt.ResyncPeriod)
@@ -94,6 +95,7 @@ func main() {
 	revisionInformer := servingInformerFactory.Serving().V1alpha1().Revisions()
 	kpaInformer := servingInformerFactory.Autoscaling().V1alpha1().PodAutoscalers()
 	clusterIngressInformer := servingInformerFactory.Networking().V1alpha1().ClusterIngresses()
+	sksInformer := servingInformerFactory.Networking().V1alpha1().ServerlessServices()
 	deploymentInformer := kubeInformerFactory.Apps().V1().Deployments()
 	coreServiceInformer := kubeInformerFactory.Core().V1().Services()
 	endpointsInformer := kubeInformerFactory.Core().V1().Endpoints()
@@ -147,6 +149,15 @@ func main() {
 			virtualServiceInformer,
 			gatewayInformer,
 		),
+		serverlessservice.NewController(
+			opt,
+			sksInformer,
+			coreServiceInformer,
+			endpointsInformer,
+		),
+	}
+	if len(controllers) != numControllers {
+		logger.Fatalf("Number of controllers and QPS settings mismatch: %d != %d", len(controllers), numControllers)
 	}
 
 	// Watch the logging config map and dynamically update logging levels.
@@ -161,17 +172,18 @@ func main() {
 	logger.Info("Starting informers.")
 	if err := controller.StartInformers(
 		stopCh,
-		serviceInformer.Informer(),
-		routeInformer.Informer(),
-		configurationInformer.Informer(),
-		revisionInformer.Informer(),
-		kpaInformer.Informer(),
 		clusterIngressInformer.Informer(),
-		imageInformer.Informer(),
-		deploymentInformer.Informer(),
-		coreServiceInformer.Informer(),
-		endpointsInformer.Informer(),
 		configMapInformer.Informer(),
+		configurationInformer.Informer(),
+		coreServiceInformer.Informer(),
+		deploymentInformer.Informer(),
+		endpointsInformer.Informer(),
+		imageInformer.Informer(),
+		kpaInformer.Informer(),
+		revisionInformer.Informer(),
+		routeInformer.Informer(),
+		serviceInformer.Informer(),
+		sksInformer.Informer(),
 		virtualServiceInformer.Informer(),
 	); err != nil {
 		logger.Fatalf("Failed to start informers: %v", err)
