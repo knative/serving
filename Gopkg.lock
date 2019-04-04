@@ -1334,6 +1334,7 @@
     "github.com/knative/pkg/test/ingress",
     "github.com/knative/pkg/test/logging",
     "github.com/knative/pkg/test/spoof",
+    "github.com/knative/pkg/test/zipkin",
     "github.com/knative/pkg/tracker",
     "github.com/knative/pkg/version",
     "github.com/knative/pkg/webhook",
