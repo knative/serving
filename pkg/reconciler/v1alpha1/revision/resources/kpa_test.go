@@ -22,10 +22,12 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	autoscalingv1 "k8s.io/api/autoscaling/v1"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	kpa "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
+	"github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 )
@@ -79,7 +81,8 @@ func TestMakeKPA(t *testing.T) {
 					Kind:       "Deployment",
 					Name:       "bar-deployment",
 				},
-				ServiceName: "bar-service",
+				ServiceName:  "bar-service",
+				ProtocolType: networking.ProtocolHTTP1,
 			},
 		},
 	}, {
@@ -92,6 +95,12 @@ func TestMakeKPA(t *testing.T) {
 			},
 			Spec: v1alpha1.RevisionSpec{
 				ContainerConcurrency: 0,
+				Container: v1.Container{
+					Ports: []v1.ContainerPort{{
+						Name:     "h2c",
+						HostPort: int32(443),
+					}},
+				},
 			},
 		},
 		want: &kpa.PodAutoscaler{
@@ -120,8 +129,9 @@ func TestMakeKPA(t *testing.T) {
 					Kind:       "Deployment",
 					Name:       "baz-deployment",
 				},
-				ServiceName: "baz-service"},
-		},
+				ServiceName:  "baz-service",
+				ProtocolType: networking.ProtocolH2C,
+			}},
 	}}
 
 	for _, test := range tests {
