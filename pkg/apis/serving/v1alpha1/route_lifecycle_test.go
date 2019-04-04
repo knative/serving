@@ -18,6 +18,7 @@ package v1alpha1
 import (
 	"testing"
 
+	"github.com/knative/pkg/apis"
 	"github.com/knative/pkg/apis/duck"
 	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 	duckv1beta1 "github.com/knative/pkg/apis/duck/v1beta1"
@@ -32,7 +33,7 @@ func TestRouteDuckTypes(t *testing.T) {
 		t    duck.Implementable
 	}{{
 		name: "conditions",
-		t:    &duckv1alpha1.Conditions{},
+		t:    &duckv1beta1.Conditions{},
 	}, {
 		name: "legacy targetable",
 		t:    &duckv1alpha1.LegacyTargetable{},
@@ -63,8 +64,8 @@ func TestRouteIsReady(t *testing.T) {
 	}, {
 		name: "Different condition type should not be ready",
 		status: RouteStatus{
-			Status: duckv1alpha1.Status{
-				Conditions: duckv1alpha1.Conditions{{
+			Status: duckv1beta1.Status{
+				Conditions: duckv1beta1.Conditions{{
 					Type:   RouteConditionAllTrafficAssigned,
 					Status: corev1.ConditionTrue,
 				}},
@@ -74,8 +75,8 @@ func TestRouteIsReady(t *testing.T) {
 	}, {
 		name: "False condition status should not be ready",
 		status: RouteStatus{
-			Status: duckv1alpha1.Status{
-				Conditions: duckv1alpha1.Conditions{{
+			Status: duckv1beta1.Status{
+				Conditions: duckv1beta1.Conditions{{
 					Type:   RouteConditionReady,
 					Status: corev1.ConditionFalse,
 				}},
@@ -85,9 +86,9 @@ func TestRouteIsReady(t *testing.T) {
 	}, {
 		name: "Unknown condition status should not be ready",
 		status: RouteStatus{
-			Status: duckv1alpha1.Status{
+			Status: duckv1beta1.Status{
 
-				Conditions: duckv1alpha1.Conditions{{
+				Conditions: duckv1beta1.Conditions{{
 					Type:   RouteConditionReady,
 					Status: corev1.ConditionUnknown,
 				}},
@@ -97,8 +98,8 @@ func TestRouteIsReady(t *testing.T) {
 	}, {
 		name: "Missing condition status should not be ready",
 		status: RouteStatus{
-			Status: duckv1alpha1.Status{
-				Conditions: duckv1alpha1.Conditions{{
+			Status: duckv1beta1.Status{
+				Conditions: duckv1beta1.Conditions{{
 					Type: RouteConditionReady,
 				}},
 			},
@@ -107,8 +108,8 @@ func TestRouteIsReady(t *testing.T) {
 	}, {
 		name: "True condition status should be ready",
 		status: RouteStatus{
-			Status: duckv1alpha1.Status{
-				Conditions: duckv1alpha1.Conditions{{
+			Status: duckv1beta1.Status{
+				Conditions: duckv1beta1.Conditions{{
 					Type:   RouteConditionReady,
 					Status: corev1.ConditionTrue,
 				}},
@@ -118,8 +119,8 @@ func TestRouteIsReady(t *testing.T) {
 	}, {
 		name: "Multiple conditions with ready status should be ready",
 		status: RouteStatus{
-			Status: duckv1alpha1.Status{
-				Conditions: duckv1alpha1.Conditions{{
+			Status: duckv1beta1.Status{
+				Conditions: duckv1beta1.Conditions{{
 					Type:   RouteConditionAllTrafficAssigned,
 					Status: corev1.ConditionTrue,
 				}, {
@@ -132,8 +133,8 @@ func TestRouteIsReady(t *testing.T) {
 	}, {
 		name: "Multiple conditions with ready status false should not be ready",
 		status: RouteStatus{
-			Status: duckv1alpha1.Status{
-				Conditions: duckv1alpha1.Conditions{{
+			Status: duckv1beta1.Status{
+				Conditions: duckv1beta1.Conditions{{
 					Type:   RouteConditionAllTrafficAssigned,
 					Status: corev1.ConditionTrue,
 				}, {
@@ -324,22 +325,22 @@ func TestRouteNotOwnedStuff(t *testing.T) {
 	checkConditionFailedRoute(r.Status, RouteConditionReady, t)
 }
 
-func checkConditionSucceededRoute(rs RouteStatus, rct duckv1alpha1.ConditionType, t *testing.T) {
+func checkConditionSucceededRoute(rs RouteStatus, rct apis.ConditionType, t *testing.T) {
 	t.Helper()
 	checkConditionRoute(rs, rct, corev1.ConditionTrue, t)
 }
 
-func checkConditionFailedRoute(rs RouteStatus, rct duckv1alpha1.ConditionType, t *testing.T) {
+func checkConditionFailedRoute(rs RouteStatus, rct apis.ConditionType, t *testing.T) {
 	t.Helper()
 	checkConditionRoute(rs, rct, corev1.ConditionFalse, t)
 }
 
-func checkConditionOngoingRoute(rs RouteStatus, rct duckv1alpha1.ConditionType, t *testing.T) {
+func checkConditionOngoingRoute(rs RouteStatus, rct apis.ConditionType, t *testing.T) {
 	t.Helper()
 	checkConditionRoute(rs, rct, corev1.ConditionUnknown, t)
 }
 
-func checkConditionRoute(rs RouteStatus, rct duckv1alpha1.ConditionType, cs corev1.ConditionStatus, t *testing.T) {
+func checkConditionRoute(rs RouteStatus, rct apis.ConditionType, cs corev1.ConditionStatus, t *testing.T) {
 	t.Helper()
 	r := rs.GetCondition(rct)
 	if r == nil {

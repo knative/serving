@@ -268,8 +268,8 @@ func WithManualStatus(s *v1alpha1.Service) {
 // WithReadyRoute reflects the Route's readiness in the Service resource.
 func WithReadyRoute(s *v1alpha1.Service) {
 	s.Status.PropagateRouteStatus(&v1alpha1.RouteStatus{
-		Status: duckv1alpha1.Status{
-			Conditions: duckv1alpha1.Conditions{{
+		Status: duckv1beta1.Status{
+			Conditions: duckv1beta1.Conditions{{
 				Type:   "Ready",
 				Status: "True",
 			}},
@@ -311,8 +311,8 @@ func WithSvcStatusTraffic(targets ...v1alpha1.TrafficTarget) ServiceOption {
 func WithFailedRoute(reason, message string) ServiceOption {
 	return func(s *v1alpha1.Service) {
 		s.Status.PropagateRouteStatus(&v1alpha1.RouteStatus{
-			Status: duckv1alpha1.Status{
-				Conditions: duckv1alpha1.Conditions{{
+			Status: duckv1beta1.Status{
+				Conditions: duckv1beta1.Conditions{{
 					Type:    "Ready",
 					Status:  "False",
 					Reason:  reason,
@@ -329,8 +329,8 @@ func WithFailedRoute(reason, message string) ServiceOption {
 func WithReadyConfig(name string) ServiceOption {
 	return func(s *v1alpha1.Service) {
 		s.Status.PropagateConfigurationStatus(&v1alpha1.ConfigurationStatus{
-			Status: duckv1alpha1.Status{
-				Conditions: duckv1alpha1.Conditions{{
+			Status: duckv1beta1.Status{
+				Conditions: duckv1beta1.Conditions{{
 					Type:   "Ready",
 					Status: "True",
 				}},
@@ -348,8 +348,8 @@ func WithReadyConfig(name string) ServiceOption {
 func WithFailedConfig(name, reason, message string) ServiceOption {
 	return func(s *v1alpha1.Service) {
 		s.Status.PropagateConfigurationStatus(&v1alpha1.ConfigurationStatus{
-			Status: duckv1alpha1.Status{
-				Conditions: duckv1alpha1.Conditions{{
+			Status: duckv1beta1.Status{
+				Conditions: duckv1beta1.Conditions{{
 					Type:   "Ready",
 					Status: "False",
 					Reason: reason,
@@ -906,19 +906,21 @@ func MutateK8sService(svc *corev1.Service) {
 	svc.Spec = corev1.ServiceSpec{}
 }
 
+// WithClusterIP assigns a ClusterIP to the K8s Service.
 func WithClusterIP(ip string) K8sServiceOption {
 	return func(svc *corev1.Service) {
 		svc.Spec.ClusterIP = ip
 	}
 }
 
+// WithExternalName gives external name to the K8s Service.
 func WithExternalName(name string) K8sServiceOption {
 	return func(svc *corev1.Service) {
 		svc.Spec.ExternalName = name
 	}
 }
 
-// WithK8sSvcOwnersRemoved clears the owner references of this Route.
+// WithK8sSvcOwnersRemoved clears the owner references of this Service.
 func WithK8sSvcOwnersRemoved(svc *corev1.Service) {
 	svc.OwnerReferences = nil
 }
@@ -931,6 +933,11 @@ func WithSubsets(ep *corev1.Endpoints) {
 	ep.Subsets = []corev1.EndpointSubset{{
 		Addresses: []corev1.EndpointAddress{{IP: "127.0.0.1"}},
 	}}
+}
+
+// WithEndpointsOwnersRemoved clears the owner references of this Endpoints resource.
+func WithEndpointsOwnersRemoved(eps *corev1.Endpoints) {
+	eps.OwnerReferences = nil
 }
 
 // PodOption enables further configuration of a Pod.

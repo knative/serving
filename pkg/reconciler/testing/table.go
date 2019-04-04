@@ -198,12 +198,20 @@ func (r *TableRow) Test(t *testing.T, factory Factory) {
 		objPrevState[objKey(got)] = got
 
 		if diff := cmp.Diff(want.GetObject(), got, ignoreLastTransitionTime, safeDeployDiff, cmpopts.EquateEmpty()); diff != "" {
-			t.Errorf("Unexpected status update (-want, +got): %s", diff)
+			t.Errorf("Unexpected status update (-want, +got): %s\nFull: %#v", diff, got)
 		}
 	}
 	if got, want := len(statusUpdates), len(r.WantStatusUpdates); got > want {
 		for _, extra := range statusUpdates[want:] {
-			t.Errorf("Extra status update: %#v", extra)
+			wo := extra.GetObject()
+			key := objKey(wo)
+			oldObj, ok := objPrevState[key]
+			if !ok {
+				t.Errorf("Object %s was never created: want: %#v", key, wo)
+				continue
+			}
+			t.Errorf("Extra status update for %s (-extra, +prevState): %s", key,
+				cmp.Diff(wo, oldObj, ignoreLastTransitionTime, safeDeployDiff, cmpopts.EquateEmpty()))
 		}
 	}
 

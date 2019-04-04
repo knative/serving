@@ -22,7 +22,7 @@ import (
 	"testing"
 	"time"
 
-	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
+	duckv1beta1 "github.com/knative/pkg/apis/duck/v1beta1"
 	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/controller"
 	"github.com/knative/serving/pkg/apis/serving"
@@ -226,8 +226,8 @@ func TestReconcile(t *testing.T) {
 			rev("bad-condition", "foo", 5555,
 				WithRevName("bad-condition"),
 				WithRevStatus(v1alpha1.RevisionStatus{
-					Status: duckv1alpha1.Status{
-						Conditions: duckv1alpha1.Conditions{{
+					Status: duckv1beta1.Status{
+						Conditions: duckv1beta1.Conditions{{
 							Type:     v1alpha1.RevisionConditionReady,
 							Status:   "Bad",
 							Severity: "Error",

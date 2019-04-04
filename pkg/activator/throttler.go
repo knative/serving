@@ -20,6 +20,8 @@ import (
 	"errors"
 	"sync"
 
+	"github.com/knative/serving/pkg/resources"
+
 	"github.com/knative/pkg/logging/logkey"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/queue"
@@ -146,7 +148,7 @@ func (t *Throttler) forceUpdateCapacity(rev RevisionID, breaker *queue.Breaker) 
 func UpdateEndpoints(throttler *Throttler) func(newObj interface{}) {
 	return func(newObj interface{}) {
 		endpoints := newObj.(*corev1.Endpoints)
-		addresses := EndpointsAddressCount(endpoints.Subsets)
+		addresses := resources.ReadyAddressCount(endpoints)
 		revID := RevisionID{endpoints.Namespace, reconciler.GetServingRevisionNameForK8sService(endpoints.Name)}
 		if err := throttler.UpdateCapacity(revID, int32(addresses)); err != nil {
 			throttler.logger.With(zap.String(logkey.Key, revID.String())).Errorw("updating capacity failed", zap.Error(err))
@@ -163,13 +165,4 @@ func DeleteBreaker(throttler *Throttler) func(obj interface{}) {
 		revID := RevisionID{ep.Namespace, name}
 		throttler.Remove(revID)
 	}
-}
-
-// EndpointsAddressCount returns the total number of addresses registered for the endpoint.
-func EndpointsAddressCount(subsets []corev1.EndpointSubset) int {
-	var total int
-	for _, subset := range subsets {
-		total += len(subset.Addresses)
-	}
-	return total
 }

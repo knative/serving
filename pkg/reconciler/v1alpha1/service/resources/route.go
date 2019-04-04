@@ -22,8 +22,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/knative/pkg/kmeta"
+	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/service/resources/names"
+	"github.com/knative/serving/pkg/resources"
 )
 
 // MakeRoute creates a Route from a Service object.
@@ -35,7 +37,10 @@ func MakeRoute(service *v1alpha1.Service) (*v1alpha1.Route, error) {
 			OwnerReferences: []metav1.OwnerReference{
 				*kmeta.NewControllerRef(service),
 			},
-			Labels: makeLabels(service),
+			Labels: resources.UnionMaps(service.GetLabels(), map[string]string{
+				// Add this service's name to the route annotations.
+				serving.ServiceLabelKey: service.Name,
+			}),
 		},
 	}
 
