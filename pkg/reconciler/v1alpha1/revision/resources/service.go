@@ -19,6 +19,7 @@ package resources
 import (
 	"github.com/knative/pkg/kmeta"
 	"github.com/knative/serving/pkg/apis/autoscaling"
+	"github.com/knative/serving/pkg/apis/networking"
 	net "github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
@@ -34,6 +35,7 @@ import (
 // serving.RevisionLabelKey label. Traffic is routed to queue-proxy port.
 func MakeK8sService(rev *v1alpha1.Revision) *corev1.Service {
 	labels := makeLabels(rev)
+	labels[networking.ServiceTypeKey] = string(networking.ServiceTypePublic)
 	// Set KPALabelKey label if KPA is used for this Revision. If ClassAnnotationKey
 	// is empty, default to KPA class for backward compatibility.
 	if pa, ok := rev.Annotations[autoscaling.ClassAnnotationKey]; !ok || pa == autoscaling.KPA {

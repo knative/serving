@@ -125,3 +125,97 @@ func TestLabelExistsFilterFunc(t *testing.T) {
 		})
 	}
 }
+
+func TestLabelFilterFunc(t *testing.T) {
+	ti := []params{{
+		name:       "label matches no unset",
+		in:         config(nil, map[string]string{keyToFilter: valueToFilter}),
+		allowUnset: false,
+		want:       true,
+	}, {
+		name:       "label matches with unset",
+		in:         config(nil, map[string]string{keyToFilter: valueToFilter}),
+		allowUnset: true,
+		want:       true,
+	}, {
+		name:       "label mismatch no unset",
+		in:         config(nil, map[string]string{keyToFilter: "otherval"}),
+		allowUnset: false,
+		want:       false,
+	}, {
+		name:       "label mismatch with unset",
+		in:         config(nil, map[string]string{keyToFilter: "otherval"}),
+		allowUnset: true,
+		want:       false,
+	}, {
+		name:       "label missing no unset",
+		in:         config(nil, map[string]string{}),
+		allowUnset: false,
+		want:       false,
+	}, {
+		name:       "label missing with unset",
+		in:         config(nil, map[string]string{}),
+		allowUnset: true,
+		want:       true,
+	}, {
+		name:       "nil labels no unset",
+		in:         config(nil, nil),
+		allowUnset: false,
+		want:       false,
+	}, {
+		name:       "nil labels with unset",
+		in:         config(nil, nil),
+		allowUnset: true,
+		want:       true,
+	}}
+
+	for _, test := range ti {
+		t.Run(test.name, func(t *testing.T) {
+			filter := LabelFilterFunc(keyToFilter, valueToFilter, test.allowUnset)
+			got := filter(test.in)
+			if got != test.want {
+				t.Errorf("LabelFilterFunc did not return expected result. Got: %v", got)
+			}
+		})
+	}
+}
+
+func TestChainFilterFuncs(t *testing.T) {
+	tc := []struct {
+		name  string
+		chain []bool
+		want  bool
+	}{{
+		name:  "single true",
+		chain: []bool{true},
+		want:  true,
+	}, {
+		name:  "single false",
+		chain: []bool{false},
+		want:  false,
+	}, {
+		name:  "second false",
+		chain: []bool{true, false},
+		want:  false,
+	}, {
+		name:  "multi true",
+		chain: []bool{true, true},
+		want:  true,
+	}}
+
+	for _, test := range tc {
+		t.Run(test.name, func(t *testing.T) {
+			filters := make([]func(interface{}) bool, len(test.chain))
+			for i, chainVal := range test.chain {
+				filters[i] = func(interface{}) bool {
+					return chainVal
+				}
+			}
+			filter := ChainFilterFuncs(filters...)
+			got := filter(nil)
+			if got != test.want {
+				t.Errorf("ChainFilterFuncs did not return expected result. Got: %v", got)
+			}
+		})
+	}
+}
