@@ -1,11 +1,14 @@
 #!/usr/bin/env bash
+
 # Download and unpack Istio
 ISTIO_VERSION=1.1.2
 DOWNLOAD_URL=https://github.com/istio/istio/releases/download/${ISTIO_VERSION}/istio-${ISTIO_VERSION}-linux.tar.gz
 
 wget $DOWNLOAD_URL
 tar xzf istio-${ISTIO_VERSION}-linux.tar.gz
-cd istio-${ISTIO_VERSION}
+
+( # subshell in downloaded directory
+cd istio-${ISTIO_VERSION} || exit
 
 # Create CRDs template
 helm template --namespace=istio-system \
@@ -76,9 +79,9 @@ helm template --namespace=istio-system \
   | sed 's/[ \t]*$//' \
   > ../istio-lean.yaml
 cat ../istio-knative-extras.yaml >> ../istio-lean.yaml
+)
 
 # Clean up.
-cd ..
 rm -rf istio-${ISTIO_VERSION}
 rm istio-${ISTIO_VERSION}-linux.tar.gz
 
