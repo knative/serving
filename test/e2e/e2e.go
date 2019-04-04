@@ -76,14 +76,14 @@ func scaleToZeroGracePeriod(t *testing.T, client *pkgTest.KubeClient) time.Durat
 	autoscalerCM, err := client.Kube.CoreV1().ConfigMaps("knative-serving").Get("config-autoscaler", metav1.GetOptions{})
 	if err != nil {
 		t.Logf("Failed to Get autoscaler configmap = %v, falling back to DefaultScaleToZeroGracePeriod", err)
-		return (autoscaler.DefaultKeepAliveTimes + 2) * autoscaler.DefaultStableWindow
+		return (autoscaler.DefaultKeepAliveTimes + 1) * autoscaler.DefaultStableWindow
 	}
 
 	config, err := autoscaler.NewConfigFromConfigMap(autoscalerCM)
 	if err != nil {
 		t.Log("Failed to build autoscaler config, falling back to DefaultScaleToZeroGracePeriod")
-		return (autoscaler.DefaultKeepAliveTimes + 2) * autoscaler.DefaultStableWindow
+		return (autoscaler.DefaultKeepAliveTimes + 1) * autoscaler.DefaultStableWindow
 	}
 
-	return time.Duration(config.KeepAliveTimes+2) * config.StableWindow
+	return time.Duration(config.KeepAliveTimes+1) * config.StableWindow
 }
