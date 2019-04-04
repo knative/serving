@@ -181,20 +181,20 @@ func scalerConfig(logger *zap.SugaredLogger) *autoscaler.DynamicConfig {
 
 func uniScalerFactoryFunc(endpointsInformer corev1informers.EndpointsInformer) func(decider *autoscaler.Decider, dynamicConfig *autoscaler.DynamicConfig) (autoscaler.UniScaler, error) {
 	return func(decider *autoscaler.Decider, dynamicConfig *autoscaler.DynamicConfig) (autoscaler.UniScaler, error) {
-		if decider.Labels == nil {
-			return nil, fmt.Errorf("no labels set on Decider: %v", decider)
-		}
-
-		// Create a stats reporter which tags statistics by PA namespace, configuration name, and PA name.
-		reporter, err := autoscaler.NewStatsReporter(decider.Namespace,
-			decider.Labels[serving.ServiceLabelKey], decider.Labels[serving.ConfigurationLabelKey], decider.Name)
-		if err != nil {
-			return nil, err
+		for _, l := range []string{serving.RevisionLabelKey, serving.ConfigurationLabelKey} {
+			if v, ok := decider.Labels[l]; !ok || v == "" {
+				return nil, fmt.Errorf("label %q not found or empty in Decider: %v", l, decider)
+			}
 		}
 
 		revName := decider.Labels[serving.RevisionLabelKey]
-		if revName == "" {
-			return nil, fmt.Errorf("no Revision label found in Decider: %v", decider)
+		serviceName := decider.Labels[serving.ServiceLabelKey] // This can be empty.
+		configName := decider.Labels[serving.ConfigurationLabelKey]
+
+		// Create a stats reporter which tags statistics by PA namespace, configuration name, and PA name.
+		reporter, err := autoscaler.NewStatsReporter(decider.Namespace, serviceName, configName, decider.Name)
+		if err != nil {
+			return nil, err
 		}
 
 		return autoscaler.New(dynamicConfig, decider.Namespace,
