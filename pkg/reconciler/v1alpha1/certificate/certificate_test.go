@@ -194,7 +194,7 @@ func TestReconcile(t *testing.T) {
 		}},
 		Key: "foo/knCert",
 	}, {
-		Name: "set Knative Certificate ready status with CM Certificate ready status",
+		Name: "set Knative Certificate not ready status with CM Certificate not ready status",
 		Objects: []runtime.Object{
 			knCert("knCert", "foo"),
 			cmCertWithStatus("knCert", "foo", correctDNSNames, certmanagerv1alpha1.ConditionFalse),
