@@ -21,6 +21,7 @@ import (
 	"github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/serverlessservice/resources/names"
+	"github.com/knative/serving/pkg/resources"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -39,34 +40,18 @@ const (
 	requestQueuePortName string = "queue-port"
 )
 
-// makeLabels propagates labels from parents and sets SKS label as well.
-func makeLabels(sks *v1alpha1.ServerlessService) map[string]string {
-	labels := make(map[string]string, len(sks.ObjectMeta.Labels)+1)
-	for k, v := range sks.ObjectMeta.Labels {
-		labels[k] = v
-	}
-	labels[networking.SKSLabelKey] = sks.Name
-	return labels
-}
-
-// makeAnnotations propagates annotations from the SKS.
-func makeAnnotations(sks *v1alpha1.ServerlessService) map[string]string {
-	annotations := make(map[string]string, len(sks.ObjectMeta.Annotations))
-	for k, v := range sks.ObjectMeta.Annotations {
-		annotations[k] = v
-	}
-	return annotations
-}
-
 // MakePublicService constructs a K8s Service that is not backed a selector
 // and will be manually reconciled by the SKS controller.
 func MakePublicService(sks *v1alpha1.ServerlessService) *corev1.Service {
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:            names.PublicService(sks),
-			Namespace:       sks.Namespace,
-			Labels:          makeLabels(sks),
-			Annotations:     makeAnnotations(sks),
+			Name:      names.PublicService(sks),
+			Namespace: sks.Namespace,
+			Labels: resources.UnionMaps(sks.GetLabels(), map[string]string{
+				// Add our own special key.
+				networking.SKSLabelKey: sks.Name,
+			}),
+			Annotations:     resources.CopyMap(sks.GetAnnotations()),
 			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(sks)},
 		},
 		Spec: corev1.ServiceSpec{
@@ -85,10 +70,13 @@ func MakePublicService(sks *v1alpha1.ServerlessService) *corev1.Service {
 func MakePublicEndpoints(sks *v1alpha1.ServerlessService, src *corev1.Endpoints) *corev1.Endpoints {
 	return &corev1.Endpoints{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:            names.PublicService(sks), // Name of Endpoints must match that of Service.
-			Namespace:       sks.Namespace,
-			Labels:          makeLabels(sks),
-			Annotations:     makeAnnotations(sks),
+			Name:      names.PublicService(sks), // Name of Endpoints must match that of Service.
+			Namespace: sks.Namespace,
+			Labels: resources.UnionMaps(sks.GetLabels(), map[string]string{
+				// Add our own special key.
+				networking.SKSLabelKey: sks.Name,
+			}),
+			Annotations:     resources.CopyMap(sks.GetAnnotations()),
 			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(sks)},
 		},
 		Subsets: func() (ret []corev1.EndpointSubset) {
@@ -105,10 +93,13 @@ func MakePublicEndpoints(sks *v1alpha1.ServerlessService, src *corev1.Endpoints)
 func MakePrivateService(sks *v1alpha1.ServerlessService) *corev1.Service {
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:            names.PrivateService(sks),
-			Namespace:       sks.Namespace,
-			Labels:          makeLabels(sks),
-			Annotations:     makeAnnotations(sks),
+			Name:      names.PrivateService(sks),
+			Namespace: sks.Namespace,
+			Labels: resources.UnionMaps(sks.GetLabels(), map[string]string{
+				// Add our own special key.
+				networking.SKSLabelKey: sks.Name,
+			}),
+			Annotations:     resources.CopyMap(sks.GetAnnotations()),
 			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(sks)},
 		},
 		Spec: corev1.ServiceSpec{
