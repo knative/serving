@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/knative/serving/pkg/autoscaler"
+	"github.com/knative/serving/pkg/resources"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 )
@@ -45,7 +46,7 @@ func TestNewDynamicConfigFromMap(t *testing.T) {
 }
 
 func TestNewDynamicConfigFromMapError(t *testing.T) {
-	invalidConfigMap := copyConfigMap()
+	invalidConfigMap := resources.CopyMap(configMap)
 	invalidConfigMap["stable-window"] = "4"
 	_, err := autoscaler.NewDynamicConfigFromMap(invalidConfigMap, zap.NewNop().Sugar())
 	if err == nil {
@@ -59,7 +60,7 @@ func TestUpdateDynamicConfig(t *testing.T) {
 		t.Fatalf("Failed to create dynamic configuration: %v", err)
 	}
 
-	updatedConfigMap := copyConfigMap()
+	updatedConfigMap := resources.CopyMap(configMap)
 	updatedConfigMap["stable-window"] = "4m"
 
 	dc.Update(&corev1.ConfigMap{
@@ -82,7 +83,7 @@ func TestCurrentDynamicConfigIsSnapshot(t *testing.T) {
 		t.Fatalf("Unexpected configuration value: %v", dc.Current().StableWindow)
 	}
 
-	updatedConfigMap := copyConfigMap()
+	updatedConfigMap := resources.CopyMap(configMap)
 	updatedConfigMap["stable-window"] = "4m"
 
 	dc.Update(&corev1.ConfigMap{
@@ -118,7 +119,7 @@ func TestUpdateDynamicConfigError(t *testing.T) {
 		t.Fatalf("Failed to create dynamic configuration: %v", err)
 	}
 
-	invalidConfigMap := copyConfigMap()
+	invalidConfigMap := resources.CopyMap(configMap)
 	invalidConfigMap["stable-window"] = "4"
 	invalidConfigMap["panic-window"] = "5m"
 
@@ -129,12 +130,4 @@ func TestUpdateDynamicConfigError(t *testing.T) {
 	if dc.Current().PanicWindow != 5*time.Second {
 		t.Fatalf("Configuration value modified on error: %v", dc.Current().PanicWindow)
 	}
-}
-
-func copyConfigMap() map[string]string {
-	updated := map[string]string{}
-	for k, v := range configMap {
-		updated[k] = v
-	}
-	return updated
 }
