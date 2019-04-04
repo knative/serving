@@ -56,9 +56,23 @@ type DeciderSpec struct {
 	TargetConcurrency float64
 }
 
+type ActivePolicy int
+
+const (
+	NoMarking ActivePolicy = iota
+	MarkActive
+	MarkInactive
+)
+
 // DeciderStatus is the current scale recommendation.
 type DeciderStatus struct {
 	DesiredScale int32
+	ActivePolicy ActivePolicy
+}
+
+type ScalingPolicy struct {
+	DesiredScale int32
+	ActivePolicy ActivePolicy
 }
 
 // UniScaler records statistics for a particular Decider and proposes the scale for the Decider's target based on those statistics.
@@ -68,7 +82,7 @@ type UniScaler interface {
 
 	// Scale either proposes a number of replicas or skips proposing. The proposal is requested at the given time.
 	// The returned boolean is true if and only if a proposal was returned.
-	Scale(context.Context, time.Time) (int32, bool)
+	Scale(context.Context, time.Time) (ScalingPolicy, bool)
 
 	// Update reconfigures the UniScaler according to the DeciderSpec.
 	Update(DeciderSpec) error
@@ -97,11 +111,13 @@ func (sr *scalerRunner) getLatestScale() int32 {
 	return sr.decider.Status.DesiredScale
 }
 
-func (sr *scalerRunner) updateLatestScale(new int32) bool {
+func (sr *scalerRunner) updateLatestScale(new ScalingPolicy) bool {
 	sr.mux.Lock()
 	defer sr.mux.Unlock()
-	if sr.decider.Status.DesiredScale != new {
-		sr.decider.Status.DesiredScale = new
+	if sr.decider.Status.DesiredScale != new.DesiredScale ||
+		sr.decider.Status.ActivePolicy != new.ActivePolicy {
+		sr.decider.Status.DesiredScale = new.DesiredScale
+		sr.decider.Status.ActivePolicy = new.ActivePolicy
 		return true
 	}
 	return false
@@ -238,7 +254,7 @@ func (m *MultiScaler) Inform(event string) bool {
 
 // setScale directly sets the scale for a given metric key. This does not perform any ticking
 // or updating of other scaler components.
-func (m *MultiScaler) setScale(metricKey string, scale int32) bool {
+func (m *MultiScaler) setScale(metricKey string, scale ScalingPolicy) bool {
 	scaler, exists := m.scalers[metricKey]
 	if !exists {
 		return false
@@ -265,7 +281,7 @@ func (m *MultiScaler) createScaler(ctx context.Context, decider *Decider) (*scal
 
 	ticker := time.NewTicker(m.dynConfig.Current().TickInterval)
 
-	scaleChan := make(chan int32, scaleBufferSize)
+	scaleChan := make(chan ScalingPolicy, scaleBufferSize)
 
 	go func() {
 		for {
@@ -318,8 +334,8 @@ func (m *MultiScaler) createScaler(ctx context.Context, decider *Decider) (*scal
 				return
 			case <-stopCh:
 				return
-			case desiredScale := <-scaleChan:
-				if runner.updateLatestScale(desiredScale) {
+			case desiredScalePolicy := <-scaleChan:
+				if runner.updateLatestScale(desiredScalePolicy) {
 					m.Inform(metricKey)
 				}
 			}
@@ -329,24 +345,24 @@ func (m *MultiScaler) createScaler(ctx context.Context, decider *Decider) (*scal
 	return runner, nil
 }
 
-func (m *MultiScaler) tickScaler(ctx context.Context, scaler UniScaler, scaleChan chan<- int32) {
+func (m *MultiScaler) tickScaler(ctx context.Context, scaler UniScaler, scaleChan chan<- ScalingPolicy) {
 	logger := logging.FromContext(ctx)
-	desiredScale, scaled := scaler.Scale(ctx, time.Now())
+	desiredScalePolicy, scaled := scaler.Scale(ctx, time.Now())
 
 	if scaled {
 		// Cannot scale negative.
-		if desiredScale < 0 {
-			logger.Errorf("Cannot scale: desiredScale %d < 0.", desiredScale)
+		if desiredScalePolicy.DesiredScale < 0 {
+			logger.Errorf("Cannot scale: desiredScale %d < 0.", desiredScalePolicy)
 			return
 		}
 
 		// Don't scale to zero if scale to zero is disabled.
-		if desiredScale == 0 && !m.dynConfig.Current().EnableScaleToZero {
+		if desiredScalePolicy.DesiredScale == 0 && !m.dynConfig.Current().EnableScaleToZero {
 			logger.Warn("Cannot scale: Desired scale == 0 && EnableScaleToZero == false.")
 			return
 		}
 
-		scaleChan <- desiredScale
+		scaleChan <- desiredScalePolicy
 	}
 }
 

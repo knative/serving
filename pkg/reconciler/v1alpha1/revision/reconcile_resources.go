@@ -24,6 +24,7 @@ import (
 	"github.com/knative/pkg/kmp"
 	"github.com/knative/pkg/logging"
 	"github.com/knative/pkg/logging/logkey"
+	kpav1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/config"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources"
@@ -147,6 +148,18 @@ func (c *Reconciler) reconcileKPA(ctx context.Context, rev *v1alpha1.Revision) e
 		return fmt.Errorf("Revision: %q does not own PodAutoscaler: %q", rev.Name, kpaName)
 	}
 
+	// Reflect the KPA status in our own.
+	cond := kpa.Status.GetCondition(kpav1alpha1.PodAutoscalerConditionReady)
+	switch {
+	case cond == nil:
+		rev.Status.MarkActivating("Deploying", "")
+	case cond.Status == corev1.ConditionUnknown:
+		rev.Status.MarkActivating(cond.Reason, cond.Message)
+	case cond.Status == corev1.ConditionFalse:
+		rev.Status.MarkInactive(cond.Reason, cond.Message)
+	case cond.Status == corev1.ConditionTrue:
+		rev.Status.MarkActive()
+	}
 	return nil
 }
 
@@ -200,7 +213,6 @@ func (c *Reconciler) reconcileService(ctx context.Context, rev *v1alpha1.Revisio
 		// create it.
 		logger.Infof("Endpoints not created yet %q", serviceName)
 		rev.Status.MarkDeploying("Deploying")
-		rev.Status.MarkActivating("Deploying", "")
 		return nil
 	} else if err != nil {
 		logger.Errorf("Error checking Active Endpoints %q: %v", serviceName, err)
@@ -213,12 +225,10 @@ func (c *Reconciler) reconcileService(ctx context.Context, rev *v1alpha1.Revisio
 	if isServiceReady(endpoints) {
 		rev.Status.MarkResourcesAvailable()
 		rev.Status.MarkContainerHealthy()
-		rev.Status.MarkActive()
-	} else {
+	} else if !rev.Status.IsActivationRequired() {
 		// If the endpoints resource is NOT ready, then check whether it is taking unreasonably
 		// long to become ready and if so mark our revision as having timed out waiting
 		// for the Service to become ready.
-		rev.Status.MarkInactive("No endpoints", "No endpoints")
 		revisionAge := time.Since(endpoints.CreationTimestamp.Time)
 		if revisionAge >= serviceTimeoutDuration {
 			rev.Status.MarkServiceTimeout()

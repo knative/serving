@@ -208,7 +208,7 @@ func TestMultiScalerScaleFromZero(t *testing.T) {
 	if err != nil {
 		t.Errorf("Create() = %v", err)
 	}
-	if ok := ms.setScale(NewMetricKey(decider.Namespace, decider.Name), 0); !ok {
+	if ok := ms.setScale(NewMetricKey(decider.Namespace, decider.Name), ScalingPolicy{DesiredScale: 0, ActivePolicy: NoMarking}); !ok {
 		t.Error("Failed to set scale for metric to 0")
 	}
 
@@ -428,11 +428,14 @@ func (u *fakeUniScaler) fakeUniScalerFactory(*Decider, *DynamicConfig) (UniScale
 	return u, nil
 }
 
-func (u *fakeUniScaler) Scale(context.Context, time.Time) (int32, bool) {
+func (u *fakeUniScaler) Scale(context.Context, time.Time) (ScalingPolicy, bool) {
 	u.mutex.Lock()
 	defer u.mutex.Unlock()
 
-	return u.replicas, u.scaled
+	return ScalingPolicy{
+		DesiredScale: u.replicas,
+		ActivePolicy: NoMarking,
+	}, u.scaled
 }
 
 func (u *fakeUniScaler) setScaleResult(replicas int32, scaled bool) {

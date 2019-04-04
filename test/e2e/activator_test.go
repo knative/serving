@@ -70,7 +70,7 @@ func TestActivatorOverload(t *testing.T) {
 		test.DeploymentScaledToZeroFunc,
 		"DeploymentScaledToZero",
 		test.ServingNamespace,
-		(autoscaler.DefaultKeepAliveTimes+2)*autoscaler.DefaultStableWindow); err != nil {
+		(autoscaler.DefaultKeepAliveTimes+1)*autoscaler.DefaultStableWindow); err != nil {
 		t.Fatalf("Failed waiting for deployment to scale to zero: %v", err)
 	}
 

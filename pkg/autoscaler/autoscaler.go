@@ -23,6 +23,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/knative/serving/pkg/utils"
+
 	"github.com/knative/pkg/logging"
 	"go.uber.org/zap"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -168,13 +170,16 @@ func (a *Autoscaler) Record(ctx context.Context, stat Stat) {
 }
 
 // Scale calculates the desired scale based on current statistics given the current time.
-func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (int32, bool) {
+func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (ScalingPolicy, bool) {
 	logger := logging.FromContext(ctx)
 
 	originalReadyPodsCount, err := readyPodsCountOfEndpoints(a.endpointsLister, a.namespace, a.revisionService)
 	if err != nil {
 		logger.Errorw("Failed to get Endpoints via K8S Lister", zap.Error(err))
-		return 0, false
+		return ScalingPolicy{
+			DesiredScale: 0,
+			ActivePolicy: NoMarking,
+		}, false
 	}
 	// Use 1 if there are zero current pods.
 	readyPodsCount := math.Max(1, float64(originalReadyPodsCount))
@@ -184,7 +189,10 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (int32, bool) {
 	observedStableConcurrency, observedPanicConcurrency, lastBucket := a.aggregateData(now, config.StableWindow, config.PanicWindow)
 	if len(a.bucketed) == 0 {
 		logger.Debug("No data to scale on.")
-		return 0, false
+		return ScalingPolicy{
+			DesiredScale: 0,
+			ActivePolicy: NoMarking,
+		}, false
 	}
 
 	// Log system totals.
@@ -203,14 +211,21 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (int32, bool) {
 	} else if a.keepAliveTicked.Add(config.StableWindow).Before(now) {
 		a.keepAliveTimes--
 		a.keepAliveTicked = now
-		if a.keepAliveTimes > 0 {
-			logger.Infof("Beat the stat to start the last %d stable window", a.keepAliveTimes)
-		}
 	}
 
-	if observedStableConcurrency == 0.0 && a.keepAliveTimes > 0 {
+	if utils.Float64Equals(observedStableConcurrency, 0.0) && a.keepAliveTimes > 0 {
 		logger.Infof("Keep the last pod for %d * stable window time", a.keepAliveTimes)
-		return 1, true
+		if a.keepAliveTimes == 1 {
+			return ScalingPolicy{
+				DesiredScale: 1,
+				ActivePolicy: MarkInactive,
+			}, true
+		} else {
+			return ScalingPolicy{
+				DesiredScale: 1,
+				ActivePolicy: MarkActive,
+			}, true
+		}
 	}
 
 	a.reporter.ReportStableRequestConcurrency(observedStableConcurrency)
@@ -251,7 +266,10 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (int32, bool) {
 	}
 
 	a.reporter.ReportDesiredPodCount(int64(desiredPodCount))
-	return desiredPodCount, true
+	return ScalingPolicy{
+		DesiredScale: desiredPodCount,
+		ActivePolicy: NoMarking,
+	}, true
 }
 
 // aggregateData aggregates bucketed stats over the stableWindow and panicWindow

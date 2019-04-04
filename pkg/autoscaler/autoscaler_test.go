@@ -612,7 +612,7 @@ func (a *Autoscaler) expectScale(t *testing.T, now time.Time, expectScale int32,
 	if ok != expectOk {
 		t.Errorf("Unexpected autoscale decision. Expected %v. Got %v.", expectOk, ok)
 	}
-	if scale != expectScale {
+	if scale.DesiredScale != expectScale {
 		t.Errorf("Unexpected scale. Expected %v. Got %v.", expectScale, scale)
 	}
 }

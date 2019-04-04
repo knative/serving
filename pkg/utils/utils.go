@@ -19,6 +19,7 @@ package utils
 import (
 	"bufio"
 	"io"
+	"math"
 	"os"
 	"strings"
 	"sync"
@@ -66,4 +67,12 @@ func getClusterDomainName(r io.Reader) string {
 	}
 	// For all abnormal cases return default domain name
 	return defaultDomainName
+}
+
+func Float64Equals(f1, f2 float64) bool {
+	epsilon := 10e-9
+	if math.Abs(f1-f2) < epsilon {
+		return true
+	}
+	return false
 }

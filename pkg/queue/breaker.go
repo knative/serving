@@ -64,10 +64,6 @@ func NewBreaker(params BreakerParams) *Breaker {
 	}
 }
 
-func (b *Breaker) CheckPendingCapacity() (int, int) {
-	return len(b.pendingRequests), cap(b.pendingRequests)
-}
-
 // Maybe conditionally executes thunk based on the Breaker concurrency
 // and queue parameters. If the concurrency limit and queue capacity are
 // already consumed, Maybe returns immediately without calling thunk. If

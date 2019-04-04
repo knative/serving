@@ -89,8 +89,7 @@ func (t *Throttler) Try(rev RevisionID, function func()) error {
 			return err
 		}
 	}
-	s, c := breaker.CheckPendingCapacity()
-	t.logger.Infof("The pending request queue capacity for %v: %d/%d", rev, s, c)
+
 	if !breaker.Maybe(function) {
 		return ErrActivatorOverload
 	}
