@@ -906,19 +906,21 @@ func MutateK8sService(svc *corev1.Service) {
 	svc.Spec = corev1.ServiceSpec{}
 }
 
+// WithClusterIP assigns a ClusterIP to the K8s Service.
 func WithClusterIP(ip string) K8sServiceOption {
 	return func(svc *corev1.Service) {
 		svc.Spec.ClusterIP = ip
 	}
 }
 
+// WithExternalName gives external name to the K8s Service.
 func WithExternalName(name string) K8sServiceOption {
 	return func(svc *corev1.Service) {
 		svc.Spec.ExternalName = name
 	}
 }
 
-// WithK8sSvcOwnersRemoved clears the owner references of this Route.
+// WithK8sSvcOwnersRemoved clears the owner references of this Service.
 func WithK8sSvcOwnersRemoved(svc *corev1.Service) {
 	svc.OwnerReferences = nil
 }
@@ -931,6 +933,11 @@ func WithSubsets(ep *corev1.Endpoints) {
 	ep.Subsets = []corev1.EndpointSubset{{
 		Addresses: []corev1.EndpointAddress{{IP: "127.0.0.1"}},
 	}}
+}
+
+// WithEndpointsOwnersRemoved clears the owner references of this Endpoints resource.
+func WithEndpointsOwnersRemoved(eps *corev1.Endpoints) {
+	eps.OwnerReferences = nil
 }
 
 // PodOption enables further configuration of a Pod.

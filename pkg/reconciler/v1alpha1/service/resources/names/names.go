@@ -16,9 +16,7 @@ limitations under the License.
 
 package names
 
-import (
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-)
+import "github.com/knative/serving/pkg/apis/serving/v1alpha1"
 
 func Configuration(service *v1alpha1.Service) string {
 	return service.Name

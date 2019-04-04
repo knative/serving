@@ -40,9 +40,23 @@ func (sss *ServerlessServiceStatus) InitializeConditions() {
 	serverlessServiceCondSet.Manage(sss).InitializeConditions()
 }
 
-// MarkEndpointsPopulated marks the ServerlessServiceStatus endpoints populated condition to true.
-func (sss *ServerlessServiceStatus) MarkEndpointsPopulated() {
+// MarkEndpointsReady marks the ServerlessServiceStatus endpoints populated condition to true.
+func (sss *ServerlessServiceStatus) MarkEndpointsReady() {
 	serverlessServiceCondSet.Manage(sss).MarkTrue(ServerlessServiceConditionEndspointsPopulated)
+}
+
+// MarkEndpointsNotOwned marks that we don't own K8s service.
+func (sss *ServerlessServiceStatus) MarkEndpointsNotOwned(kind, name string) {
+	serverlessServiceCondSet.Manage(sss).MarkFalse(
+		ServerlessServiceConditionEndspointsPopulated, "NotOwned",
+		"Resource %s of type %s is not owned by SKS", name, kind)
+}
+
+// MarkEndpointsNotReady marks the ServerlessServiceStatus endpoints populated conditiohn to unknown.
+func (sss *ServerlessServiceStatus) MarkEndpointsNotReady(reason string) {
+	serverlessServiceCondSet.Manage(sss).MarkUnknown(
+		ServerlessServiceConditionEndspointsPopulated, reason,
+		"K8s Service is not ready")
 }
 
 // IsReady returns true if ServerlessService is ready.

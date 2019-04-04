@@ -56,20 +56,20 @@ func TestSSTypicalFlow(t *testing.T) {
 	r := &ServerlessServiceStatus{}
 	r.InitializeConditions()
 
-	checkConditionOngoingClusterIngress(r, ServerlessServiceConditionReady, t)
+	checkConditionOngoing(r, ServerlessServiceConditionReady, t)
 
-	r.MarkEndpointsPopulated()
+	r.MarkEndpointsReady()
 	checkConditionSucceededServerlessService(r, ServerlessServiceConditionEndspointsPopulated, t)
 	checkConditionSucceededServerlessService(r, ServerlessServiceConditionReady, t)
-	checkIsReady(r, t)
+
+	r.MarkEndpointsNotReady("random")
+	checkCondition(r, ServerlessServiceConditionReady, corev1.ConditionUnknown, t)
+
+	r.MarkEndpointsNotOwned("service", "jukebox")
+	checkCondition(r, ServerlessServiceConditionReady, corev1.ConditionFalse, t)
 }
 
 func checkConditionSucceededServerlessService(cc ConditionCheckable, c apis.ConditionType, t *testing.T) *apis.Condition {
 	t.Helper()
 	return checkCondition(cc, c, corev1.ConditionTrue, t)
-}
-
-func checkConditionOngoingServerlessService(cc ConditionCheckable, c apis.ConditionType, t *testing.T) *apis.Condition {
-	t.Helper()
-	return checkCondition(cc, c, corev1.ConditionUnknown, t)
 }

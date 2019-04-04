@@ -74,12 +74,12 @@ func TestCITypicalFlow(t *testing.T) {
 	r := &IngressStatus{}
 	r.InitializeConditions()
 
-	checkConditionOngoingClusterIngress(r, ClusterIngressConditionReady, t)
+	checkConditionOngoing(r, ClusterIngressConditionReady, t)
 
 	// Then network is configured.
 	r.MarkNetworkConfigured()
 	checkConditionSucceededClusterIngress(r, ClusterIngressConditionNetworkConfigured, t)
-	checkConditionOngoingClusterIngress(r, ClusterIngressConditionReady, t)
+	checkConditionOngoing(r, ClusterIngressConditionReady, t)
 
 	// Then ingress has address.
 	r.MarkLoadBalancerReady([]LoadBalancerIngressStatus{{DomainInternal: "gateway.default.svc"}})
@@ -114,7 +114,7 @@ func checkConditionFailedClusterIngress(cc ConditionCheckable, c apis.ConditionT
 	return checkCondition(cc, c, corev1.ConditionFalse, t)
 }
 
-func checkConditionOngoingClusterIngress(cc ConditionCheckable, c apis.ConditionType, t *testing.T) *apis.Condition {
+func checkConditionOngoing(cc ConditionCheckable, c apis.ConditionType, t *testing.T) *apis.Condition {
 	t.Helper()
 	return checkCondition(cc, c, corev1.ConditionUnknown, t)
 }

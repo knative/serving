@@ -118,6 +118,11 @@ func (l *Listers) GetRouteLister() servinglisters.RouteLister {
 	return servinglisters.NewRouteLister(l.indexerFor(&v1alpha1.Route{}))
 }
 
+// GetServerlessServiceLister returns a lister for the ServerlessService objects.
+func (l *Listers) GetServerlessServiceLister() networkinglisters.ServerlessServiceLister {
+	return networkinglisters.NewServerlessServiceLister(l.indexerFor(&networking.ServerlessService{}))
+}
+
 func (l *Listers) GetConfigurationLister() servinglisters.ConfigurationLister {
 	return servinglisters.NewConfigurationLister(l.indexerFor(&v1alpha1.Configuration{}))
 }
