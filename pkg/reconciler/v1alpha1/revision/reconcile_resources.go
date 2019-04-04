@@ -130,7 +130,7 @@ func (c *Reconciler) reconcileKPA(ctx context.Context, rev *v1alpha1.Revision) e
 	logger := logging.FromContext(ctx)
 
 	kpa, err := c.podAutoscalerLister.PodAutoscalers(ns).Get(kpaName)
-	if apierrs.IsNotFound(getKPAErr) {
+	if apierrs.IsNotFound(err) {
 		// KPA does not exist. Create it.
 		kpa, err = c.createKPA(ctx, rev)
 		if err != nil {
@@ -139,7 +139,7 @@ func (c *Reconciler) reconcileKPA(ctx context.Context, rev *v1alpha1.Revision) e
 		}
 		logger.Infof("Created kpa %q", kpaName)
 	} else if err != nil {
-		logger.Errorf("Error reconciling kpa %q: %v", kpaName, getKPAErr)
+		logger.Errorf("Error reconciling kpa %q: %v", kpaName, err)
 		return err
 	} else if !metav1.IsControlledBy(kpa, rev) {
 		// Surface an error in the revision's status, and return an error.
