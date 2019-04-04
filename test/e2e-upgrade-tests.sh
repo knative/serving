@@ -62,6 +62,7 @@ initialize $@
 header "Setting up environment"
 publish_test_images || fail_test "one or more test images weren't published"
 
+build_knative_from_source
 install_latest_release
 
 # TODO(#2656): Reduce the timeout after we get this test to consistently passing.
