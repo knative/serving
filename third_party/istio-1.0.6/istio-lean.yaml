@@ -4050,7 +4050,7 @@ spec:
           resources:
             requests:
               cpu: 10m
-            
+
           env:
           - name: POD_NAME
             valueFrom:
@@ -4094,7 +4094,7 @@ spec:
         secret:
           secretName: "istio-clusterlocalgateway-ca-certs"
           optional: true
-      affinity:      
+      affinity:
         nodeAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
             nodeSelectorTerms:
@@ -4161,7 +4161,7 @@ spec:
 
 ---
 # Source: istio/templates/crds.yaml
-# 
+#
 # these CRDs only make sense when pilot is enabled
 #
 
@@ -4169,7 +4169,7 @@ spec:
 #
 
 #
-# 
+#
 
 ---
 # Source: istio/templates/install-custom-resources.sh.tpl
