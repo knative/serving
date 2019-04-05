@@ -1,4 +1,4 @@
-277a278,284
+397a398,404
 >     # PATCH #3: Adding default connection timeout.
 >     # Mesh-wide TCP connection timeout between Envoy sidecar and Application.
 >     # If we do not specify the property - the value gets overwritten by mesh.connectTimeout's default (1s).

@@ -1,6 +1,6 @@
 # Download and unpack Istio
-ISTIO_VERSION=1.1.1
-DOWNLOAD_URL=https://github.com/istio/istio/releases/download/${ISTIO_VERSION}/istio-${ISTIO_VERSION}-linux.tar.gz
+ISTIO_VERSION=1.1.2
+DOWNLOAD_URL=https://gcsweb.istio.io/gcs/istio-prerelease/prerelease/${ISTIO_VERSION}/istio-${ISTIO_VERSION}-linux.tar.gz
 
 wget $DOWNLOAD_URL
 tar xzf istio-${ISTIO_VERSION}-linux.tar.gz
@@ -53,7 +53,7 @@ helm template --namespace=istio-system \
   `# Removing trailing whitespaces to make automation happy` \
   | sed 's/[ \t]*$//' \
   > ../istio.yaml
-cat ../istio-knative-extras >> ../istio.yaml
+cat ../istio-knative-extras.yaml >> ../istio.yaml
 
 # A lighter template, with no sidecar injection.  We could probably remove
 # more from this template.
