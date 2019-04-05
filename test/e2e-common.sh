@@ -197,7 +197,7 @@ function knative_teardown() {
     echo ">> Uninstalling Knative serving from custom YAMLs"
     for yaml in ${INSTALL_CUSTOM_YAMLS}; do
       echo "Uninstalling '${yaml}'"
-      kubectl delete --ignore-not-found=true -f "${yaml}" || return 1
+      kubectl delete --ignore-not-found=true --now -f "${yaml}" || return 1
     done
   else
     echo ">> Uninstalling Knative serving"
@@ -206,10 +206,10 @@ function knative_teardown() {
     echo "Knative Build YAML: ${INSTALL_BUILD_DIR}"
     echo "Knative Build Pipeline YAML: ${INSTALL_PIPELINE_DIR}"
     echo ">> Bringing down Serving"
-    ko delete --ignore-not-found=true -f "${INSTALL_RELEASE_YAML}" || return 1
+    ko delete --ignore-not-found=true --now -f "${INSTALL_RELEASE_YAML}" || return 1
     if [[ -n "${INSTALL_MONITORING_YAML}" ]]; then
       echo ">> Bringing down monitoring"
-      ko delete --ignore-not-found=true -f "${INSTALL_MONITORING_YAML}" || return 1
+      ko delete --ignore-not-found=true --now -f "${INSTALL_MONITORING_YAML}" || return 1
     fi
     echo ">> Bringing down Build"
     ko delete --ignore-not-found=true -f "${INSTALL_BUILD_DIR}" || return 1
@@ -234,6 +234,6 @@ function test_teardown() {
   echo ">> Removing test resources (test/config/)"
   ko delete --ignore-not-found=true -f test/config/
   echo ">> Removing test namespace"
-  kubectl delete all --all --ignore-not-found=true -n serving-tests
-  kubectl delete --ignore-not-found=true namespace serving-tests
+  kubectl delete all --all --ignore-not-found=true --now -n serving-tests
+  kubectl delete --ignore-not-found=true --now namespace serving-tests
 }
