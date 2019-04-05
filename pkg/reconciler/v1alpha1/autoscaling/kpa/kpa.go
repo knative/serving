@@ -34,6 +34,7 @@ import (
 	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/autoscaling/kpa/resources"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/autoscaling/kpa/resources/names"
+	resourceutil "github.com/knative/serving/pkg/resources"
 	perrors "github.com/pkg/errors"
 
 	autoscalingapi "k8s.io/api/autoscaling/v1"
@@ -204,17 +205,45 @@ func (c *Reconciler) reconcile(ctx context.Context, pa *pav1alpha1.PodAutoscaler
 		return perrors.Wrap(err, "Error reconciling metrics service")
 	}
 
+	// Get the appropriate current scale from the metric, and right size
+	// the scaleTargetRef based on it.
+	want, err := c.desiredScale(ctx, pa)
+	if err != nil {
+		return err
+	}
+
+	// Compare the desired and observed resources to determine our situation.
+	got, err := resourceutil.FetchReadyAddressCount(c.endpointsLister, pa.Namespace, pa.Spec.ServiceName)
+	if err != nil {
+		logger.Errorf("Error checking Endpoints %q: %v", pa.Spec.ServiceName, err)
+		return err
+	}
+
+	logger.Infof("PA got=%v, want=%v", got, want)
+
+	err = reportMetrics(pa, want, got)
+	if err != nil {
+		return err
+	}
+
+	updatePAStatus(pa, want, got)
+	return nil
+}
+
+func (c *Reconciler) desiredScale(ctx context.Context, pa *pav1alpha1.PodAutoscaler) (int32, error) {
+	logger := logging.FromContext(ctx)
+
 	desiredDecider := resources.MakeDecider(ctx, pa, c.dynConfig.Current())
 	decider, err := c.kpaDeciders.Get(ctx, desiredDecider.Namespace, desiredDecider.Name)
 	if errors.IsNotFound(err) {
 		decider, err = c.kpaDeciders.Create(ctx, desiredDecider)
 		if err != nil {
 			logger.Errorf("Error creating Decider: %v", err)
-			return err
+			return 0, err
 		}
 	} else if err != nil {
 		logger.Errorf("Error fetching Decider: %v", err)
-		return err
+		return 0, err
 	}
 
 	// Ignore status when reconciling
@@ -223,7 +252,7 @@ func (c *Reconciler) reconcile(ctx context.Context, pa *pav1alpha1.PodAutoscaler
 		decider, err = c.kpaDeciders.Update(ctx, desiredDecider)
 		if err != nil {
 			logger.Errorf("Error update Decider: %v", err)
-			return err
+			return 0, err
 		}
 	}
 
@@ -232,28 +261,12 @@ func (c *Reconciler) reconcile(ctx context.Context, pa *pav1alpha1.PodAutoscaler
 	want, err := c.scaler.Scale(ctx, pa, decider.Status.DesiredScale)
 	if err != nil {
 		logger.Errorf("Error scaling target: %v", err)
-		return err
+		return 0, err
 	}
+	return want, nil
+}
 
-	// Compare the desired and observed resources to determine our situation.
-	got := 0
-
-	// Look up the Endpoints resource to determine the available resources.
-	endpoints, err := c.endpointsLister.Endpoints(pa.Namespace).Get(pa.Spec.ServiceName)
-	if errors.IsNotFound(err) {
-		// Treat not found as zero endpoints, it either hasn't been created
-		// or it has been torn down.
-	} else if err != nil {
-		logger.Errorf("Error checking Endpoints %q: %v", pa.Spec.ServiceName, err)
-		return err
-	} else {
-		for _, es := range endpoints.Subsets {
-			got += len(es.Addresses)
-		}
-	}
-
-	logger.Infof("PA got=%v, want=%v", got, want)
-
+func reportMetrics(pa *pav1alpha1.PodAutoscaler, want int32, got int) error {
 	var serviceLabel string
 	var configLabel string
 	if pa.Labels != nil {
@@ -270,7 +283,10 @@ func (c *Reconciler) reconcile(ctx context.Context, pa *pav1alpha1.PodAutoscaler
 	if want >= 0 {
 		reporter.ReportRequestedPodCount(int64(want))
 	}
+	return nil
+}
 
+func updatePAStatus(pa *pav1alpha1.PodAutoscaler, want int32, got int) {
 	switch {
 	case want == 0:
 		pa.Status.MarkInactive("NoTraffic", "The target is not receiving traffic.")
@@ -284,7 +300,6 @@ func (c *Reconciler) reconcile(ctx context.Context, pa *pav1alpha1.PodAutoscaler
 	}
 
 	pa.Status.ObservedGeneration = pa.Generation
-	return nil
 }
 
 func (c *Reconciler) reconcileMetricsService(ctx context.Context, pa *pav1alpha1.PodAutoscaler) error {
