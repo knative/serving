@@ -122,7 +122,7 @@ func NewController(
 		Handler:    reconciler.Handler(impl.EnqueueLabelOfClusterScopedResource(networking.IngressLabelKey)),
 	})
 
-	c.tracker = tracker.NewNonExpiration(impl.EnqueueKey)
+	c.tracker = tracker.New(impl.EnqueueKey, opt.GetTrackerLease())
 	gvk := corev1.SchemeGroupVersion.WithKind("Secret")
 	secretInfomer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    controller.EnsureTypeMeta(c.tracker.OnChanged, gvk),
@@ -238,22 +238,33 @@ func (c *Reconciler) reconcile(ctx context.Context, ci *v1alpha1.ClusterIngress)
 	// We should eventually use a feature flag (in ConfigMap) to turn this on/off.
 
 	if c.enableReconcilingGateway {
+		if !ci.IsPublic() {
+			logger.Info("ClusterIngress %s is not public. So no need to configure TLS.", ci.Name)
+			return nil
+		}
+
 		// Add the finalizer before adding `Servers` into Gateway so that we can be sure
 		// the `Servers` get cleaned up from Gateway.
 		if err := c.ensureFinalizer(ci); err != nil {
 			return err
 		}
 
-		desiredServers := resources.MakeServers(ci)
-		if err := c.reconcileGateways(ctx, ci, gatewayNames, desiredServers); err != nil {
-			return err
-		}
 		desiredSecrets, err := resources.MakeDesiredSecrets(ctx, ci, c.secretLister)
 		if err != nil {
 			return err
 		}
 		if err := c.reconcileCertSecrets(ctx, ci, desiredSecrets); err != nil {
 			return err
+		}
+
+		for _, gatewayName := range gatewayNames {
+			desired, err := resources.MakeServers(ctx, ci, gatewayName)
+			if err != nil {
+				return err
+			}
+			if err := c.reconcileGateway(ctx, ci, gatewayName, desired); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -389,8 +400,10 @@ func (c *Reconciler) reconcileDeletion(ctx context.Context, ci *v1alpha1.Cluster
 	gatewayNames := gatewayNamesFromContext(ctx, ci)
 	logger.Infof("Cleaning up Gateway Servers for ClusterIngress %s", ci.Name)
 	// No desired Servers means deleting all of the existing Servers associated with the CI.
-	if err := c.reconcileGateways(ctx, ci, gatewayNames, []v1alpha3.Server{}); err != nil {
-		return err
+	for _, gatewayName := range gatewayNames {
+		if err := c.reconcileGateway(ctx, ci, gatewayName, []v1alpha3.Server{}); err != nil {
+			return err
+		}
 	}
 
 	// Update the Route to remove the Finalizer.
@@ -398,15 +411,6 @@ func (c *Reconciler) reconcileDeletion(ctx context.Context, ci *v1alpha1.Cluster
 	ci.Finalizers = ci.Finalizers[1:]
 	_, err := c.ServingClientSet.NetworkingV1alpha1().ClusterIngresses().Update(ci)
 	return err
-}
-
-func (c *Reconciler) reconcileGateways(ctx context.Context, ci *v1alpha1.ClusterIngress, gatewayNames []string, desiredServers []v1alpha3.Server) error {
-	for _, gatewayName := range gatewayNames {
-		if err := c.reconcileGateway(ctx, ci, gatewayName, desiredServers); err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 func (c *Reconciler) reconcileGateway(ctx context.Context, ci *v1alpha1.ClusterIngress, gatewayName string, desired []v1alpha3.Server) error {
@@ -443,9 +447,6 @@ func (c *Reconciler) reconcileCertSecrets(ctx context.Context, ci *v1alpha1.Clus
 			return err
 		}
 	}
-	if err := c.deleteUnusedSecrets(ctx, ci, desiredSecrets); err != nil {
-		return err
-	}
 	return nil
 }
 
@@ -461,11 +462,11 @@ func (c *Reconciler) reconcileCertSecret(ctx context.Context, ci *v1alpha1.Clust
 		if err != nil {
 			logger.Errorw("Failed to create Certificate Secret", zap.Error(err))
 			c.Recorder.Eventf(ci, corev1.EventTypeWarning, "CreationFailed",
-				"Failed to create Secret %q/%q: %v", desired.Namespace, desired.Name, err)
+				"Failed to create Secret %s/%s: %v", desired.Namespace, desired.Name, err)
 			return err
 		}
 		c.Recorder.Eventf(ci, corev1.EventTypeNormal, "Created",
-			"Created Secret %q/%q", desired.Namespace, desired.Name)
+			"Created Secret %s/%s", desired.Namespace, desired.Name)
 	} else if err != nil {
 		return err
 	} else if !equality.Semantic.DeepEqual(existing.Data, desired.Data) {
@@ -480,34 +481,6 @@ func (c *Reconciler) reconcileCertSecret(ctx context.Context, ci *v1alpha1.Clust
 		}
 		c.Recorder.Eventf(ci, corev1.EventTypeNormal, "Updated",
 			"Updated status for Secret %q/%q", copy.Namespace, copy.Name)
-	}
-	return nil
-}
-
-func (c *Reconciler) deleteUnusedSecrets(ctx context.Context, ci *v1alpha1.ClusterIngress, desiredSecrets []*corev1.Secret) error {
-	desiredSecretKeys := sets.String{}
-	for _, desired := range desiredSecrets {
-		desiredSecretKeys.Insert(fmt.Sprintf("%s/%s", desired.Namespace, desired.Name))
-	}
-
-	gatewaySvcNamespaces := resources.GetGatewaySvcNamespaces(ctx)
-	for _, ns := range gatewaySvcNamespaces {
-		secrets, err := c.secretLister.Secrets(ns).List(resources.MakeSecretSelector(ci))
-		// We make the copies of all secrets to avoid modifying the informers cache.
-		secrets = resources.CopySecrets(secrets)
-		for _, s := range secrets {
-			if desiredSecretKeys.Has(fmt.Sprintf("%s/%s", s.Namespace, s.Name)) {
-				continue
-			}
-			gvk := corev1.SchemeGroupVersion.WithKind("Secret")
-			c.tracker.UnTrack(objectRef(s, gvk), ci)
-			c.tracker.UnTrack(objectRefFromNamespaceName(s.Labels[networking.OriginSecretNamespaceLabelKey], s.Labels[networking.OriginSecretNameLabelKey], gvk), ci)
-			if err := c.KubeClientSet.CoreV1().Secrets(s.Namespace).Delete(s.Name, &metav1.DeleteOptions{}); err != nil {
-				return err
-			}
-			c.Recorder.Eventf(ci, corev1.EventTypeNormal, "Deleted",
-				"Deleted Secret %q/%q", s.Namespace, s.Name)
-		}
 	}
 	return nil
 }

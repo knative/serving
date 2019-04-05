@@ -27,6 +27,6 @@ func VirtualService(i *v1alpha1.ClusterIngress) string {
 	return i.Name
 }
 
-func TargetSecret(originSecretNamespace, originSecretName string, ci *v1alpha1.ClusterIngress) string {
-	return fmt.Sprintf("%s-%s-%s", originSecretNamespace, originSecretName, ci.UID)
+func TargetSecret(ns, name string) string {
+	return fmt.Sprintf("%s--%s", ns, name)
 }

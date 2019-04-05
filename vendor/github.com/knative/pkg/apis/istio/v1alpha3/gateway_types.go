@@ -259,6 +259,8 @@ type TLSOptions struct {
 	// client side certificate.
 	CaCertificates string `json:"caCertificates"`
 
+	CredentialName string `json:"credentialName,omitempty"`
+
 	// A list of alternate names to verify the subject identity in the
 	// certificate presented by the client.
 	SubjectAltNames []string `json:"subjectAltNames"`
