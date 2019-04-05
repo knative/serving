@@ -27,7 +27,6 @@ import (
 	"github.com/knative/pkg/apis"
 	"github.com/knative/serving/pkg/apis/autoscaling"
 	net "github.com/knative/serving/pkg/apis/networking"
-	netv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -755,7 +754,7 @@ func TestRevisionSpecValidation(t *testing.T) {
 			TimeoutSeconds: 6000,
 		},
 		want: apis.ErrOutOfBoundsValue("6000s", "0s",
-			fmt.Sprintf("%ds", int(netv1alpha1.DefaultTimeout.Seconds())),
+			fmt.Sprintf("%ds", int(net.DefaultTimeout.Seconds())),
 			"timeoutSeconds"),
 	}, {
 		name: "negative timeout",
@@ -766,7 +765,7 @@ func TestRevisionSpecValidation(t *testing.T) {
 			TimeoutSeconds: -30,
 		},
 		want: apis.ErrOutOfBoundsValue("-30s", "0s",
-			fmt.Sprintf("%ds", int(netv1alpha1.DefaultTimeout.Seconds())),
+			fmt.Sprintf("%ds", int(net.DefaultTimeout.Seconds())),
 			"timeoutSeconds"),
 	}}
 
