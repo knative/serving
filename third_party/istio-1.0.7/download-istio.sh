@@ -1,3 +1,4 @@
+#!/usr/bin/env bash
 # Download and unpack Istio
 ISTIO_VERSION=1.0.7
 DOWNLOAD_URL=https://github.com/istio/istio/releases/download/${ISTIO_VERSION}/istio-${ISTIO_VERSION}-linux.tar.gz
@@ -85,8 +86,3 @@ patch istio-lean.yaml namespace.yaml.patch
 #
 # We need to replace this with some better solution like retries.
 patch istio.yaml prestop-sleep.yaml.patch
-
-# Set the default connection timeout
-# as per https://github.com/istio/istio/issues/11319
-patch istio.yaml conn-timeout.yaml.patch
-patch istio-lean.yaml conn-timeout.yaml.patch
