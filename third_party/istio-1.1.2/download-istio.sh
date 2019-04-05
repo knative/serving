@@ -1,6 +1,6 @@
 # Download and unpack Istio
 ISTIO_VERSION=1.1.2
-DOWNLOAD_URL=https://gcsweb.istio.io/gcs/istio-prerelease/prerelease/${ISTIO_VERSION}/istio-${ISTIO_VERSION}-linux.tar.gz
+DOWNLOAD_URL=https://github.com/istio/istio/releases/download/${ISTIO_VERSION}/istio-${ISTIO_VERSION}-linux.tar.gz
 
 wget $DOWNLOAD_URL
 tar xzf istio-${ISTIO_VERSION}-linux.tar.gz
