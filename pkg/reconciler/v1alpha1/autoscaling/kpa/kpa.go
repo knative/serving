@@ -168,6 +168,10 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 	// Reconcile this copy of the pa and then write back any status
 	// updates regardless of whether the reconciliation errored out.
 	err = c.reconcile(ctx, pa)
+	if err != nil {
+		logger.Errorw("Error while reconciling", zap.Error(err))
+		c.Recorder.Event(pa, corev1.EventTypeWarning, "InternalError", err.Error())
+	}
 	if equality.Semantic.DeepEqual(original.Status, pa.Status) {
 		// If we didn't change anything then don't call updateStatus.
 		// This is important because the copy we loaded from the informer's
@@ -178,9 +182,6 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 		c.Recorder.Eventf(pa, corev1.EventTypeWarning, "UpdateFailed",
 			"Failed to update status for PA %q: %v", pa.Name, err)
 		return err
-	}
-	if err != nil {
-		c.Recorder.Event(pa, corev1.EventTypeWarning, "InternalError", err.Error())
 	}
 	return err
 }
@@ -214,22 +215,20 @@ func (c *Reconciler) reconcile(ctx context.Context, pa *pav1alpha1.PodAutoscaler
 	// the scaleTargetRef based on it.
 	want, err := c.scaler.Scale(ctx, pa, decider.Status.DesiredScale)
 	if err != nil {
-		logger.Errorf("Error scaling target: %v", err)
-		return err
+		return perrors.Wrap(err, "error scaling target")
 	}
 
 	// Compare the desired and observed resources to determine our situation.
 	got, err := resourceutil.FetchReadyAddressCount(c.endpointsLister, pa.Namespace, pa.Spec.ServiceName)
 	if err != nil {
-		logger.Errorf("Error checking Endpoints %q: %v", pa.Spec.ServiceName, err)
-		return err
+		return perrors.Wrapf(err, "error checking endpoints %q", pa.Spec.ServiceName)
 	}
 
 	logger.Infof("PA got=%v, want=%v", got, want)
 
 	err = reportMetrics(pa, want, got)
 	if err != nil {
-		return err
+		return perrors.Wrap(err, "error reporting metrics")
 	}
 
 	updatePAStatus(pa, want, got)
@@ -237,19 +236,15 @@ func (c *Reconciler) reconcile(ctx context.Context, pa *pav1alpha1.PodAutoscaler
 }
 
 func (c *Reconciler) reconcileDecider(ctx context.Context, pa *pav1alpha1.PodAutoscaler) (*autoscaler.Decider, error) {
-	logger := logging.FromContext(ctx)
-
 	desiredDecider := resources.MakeDecider(ctx, pa, c.dynConfig.Current())
 	decider, err := c.kpaDeciders.Get(ctx, desiredDecider.Namespace, desiredDecider.Name)
 	if errors.IsNotFound(err) {
 		decider, err = c.kpaDeciders.Create(ctx, desiredDecider)
 		if err != nil {
-			logger.Errorf("Error creating Decider: %v", err)
-			return nil, err
+			return nil, perrors.Wrap(err, "error creating decider")
 		}
 	} else if err != nil {
-		logger.Errorf("Error fetching Decider: %v", err)
-		return nil, err
+		return nil, perrors.Wrap(err, "error fetching decider")
 	}
 
 	// Ignore status when reconciling
@@ -257,8 +252,7 @@ func (c *Reconciler) reconcileDecider(ctx context.Context, pa *pav1alpha1.PodAut
 	if !equality.Semantic.DeepEqual(desiredDecider, decider) {
 		decider, err = c.kpaDeciders.Update(ctx, desiredDecider)
 		if err != nil {
-			logger.Errorf("Error update Decider: %v", err)
-			return nil, err
+			return nil, perrors.Wrap(err, "error updating decider")
 		}
 	}
 
@@ -306,13 +300,11 @@ func (c *Reconciler) reconcileMetricsService(ctx context.Context, pa *pav1alpha1
 
 	scale, err := c.scaler.GetScaleResource(pa)
 	if err != nil {
-		logger.Debugw("Error Getting scale", zap.Error(err))
-		return err
+		return perrors.Wrap(err, "error getting scale")
 	}
 	selector, err := labels.ConvertSelectorToLabelsMap(scale.Status.Selector)
 	if err != nil {
-		logger.Errorw(fmt.Sprintf("Error parsing selector string %q", scale.Status.Selector), zap.Error(err))
-		return err
+		return perrors.Wrapf(err, "error parsing selector string %q", scale.Status.Selector)
 	}
 	logger.Debugf("PA %s selector: %v", pa.Name, selector)
 
@@ -324,13 +316,11 @@ func (c *Reconciler) reconcileMetricsService(ctx context.Context, pa *pav1alpha1
 		svc = resources.MakeMetricsService(pa, selector)
 		_, err := c.KubeClientSet.CoreV1().Services(pa.Namespace).Create(svc)
 		if err != nil {
-			logger.Errorw(fmt.Sprintf("Error creating K8s Service %s/%s: ", pa.Namespace, sn), zap.Error(err))
-			return err
+			return perrors.Wrapf(err, "error creating K8s Service %s/%s", pa.Namespace, sn)
 		}
 		logger.Infof("Created K8s service: %q", sn)
 	} else if err != nil {
-		logger.Errorw(fmt.Sprintf("Error getting K8s Service %s: ", sn), zap.Error(err))
-		return err
+		return perrors.Wrapf(err, "error getting K8s Service %s", sn)
 	} else if !metav1.IsControlledBy(svc, pa) {
 		pa.Status.MarkResourceNotOwned("Service", sn)
 		return fmt.Errorf("KPA: %q does not own Service: %q", pa.Name, sn)
@@ -343,8 +333,7 @@ func (c *Reconciler) reconcileMetricsService(ctx context.Context, pa *pav1alpha1
 		if !equality.Semantic.DeepEqual(want.Spec, svc.Spec) {
 			logger.Infof("Metrics K8s Service changed; reconciling: %s", sn)
 			if _, err = c.KubeClientSet.CoreV1().Services(pa.Namespace).Update(want); err != nil {
-				logger.Errorw(fmt.Sprintf("Error updating metrics K8s Service %s: ", sn), zap.Error(err))
-				return err
+				return perrors.Wrapf(err, "error updating K8s Service %s", sn)
 			}
 		}
 	}
