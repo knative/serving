@@ -174,12 +174,12 @@ function uninstall_knative_serving() {
     return 0
   fi
   echo ">> Removing test resources (test/config/)"
-  ko delete --ignore-not-found=true -f test/config/ || return 1
+  ko delete --ignore-not-found=true -now -f test/config/ || return 1
   if [[ -n "${INSTALL_CUSTOM_YAMLS}" ]]; then
     echo ">> Uninstalling Knative serving from custom YAMLs"
     for yaml in ${INSTALL_CUSTOM_YAMLS}; do
       echo "Uninstalling '${yaml}'"
-      kubectl delete --ignore-not-found=true -f "${yaml}" || return 1
+      kubectl delete --ignore-not-found=true -now -f "${yaml}" || return 1
     done
   else
     echo ">> Uninstalling Knative serving"
@@ -188,7 +188,7 @@ function uninstall_knative_serving() {
     echo "Knative Build YAML: ${INSTALL_BUILD_DIR}"
     echo "Knative Build Pipeline YAML: ${INSTALL_PIPELINE_DIR}"
     echo ">> Bringing down Serving"
-    ko delete --ignore-not-found=true -f "${INSTALL_RELEASE_YAML}" || return 1
+    ko delete --ignore-not-found=true -now -f "${INSTALL_RELEASE_YAML}" || return 1
     echo ">> Bringing down Build"
     ko delete --ignore-not-found=true -f "${INSTALL_BUILD_DIR}" || return 1
     ko delete --ignore-not-found=true -f "${INSTALL_PIPELINE_DIR}" || return 1
@@ -207,7 +207,5 @@ function publish_test_images() {
 
 # Deletes everything created on the cluster including all knative and istio components.
 function teardown() {
-  echo ">> Deleting test namespace"
-  kubectl delete namespace serving-tests
   uninstall_knative_serving
 }
