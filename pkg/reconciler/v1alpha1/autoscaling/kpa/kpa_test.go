@@ -40,6 +40,7 @@ import (
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/autoscaling/kpa/resources/names"
 	revisionresources "github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources"
 	. "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
+	perrors "github.com/pkg/errors"
 	"go.uber.org/atomic"
 	autoscalingv1 "k8s.io/api/autoscaling/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -681,7 +682,7 @@ func TestControllerCreateError(t *testing.T) {
 	servingClient.AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
 	servingInformer.Autoscaling().V1alpha1().PodAutoscalers().Informer().GetIndexer().Add(kpa)
 
-	got := ctl.Reconciler.Reconcile(context.Background(), key)
+	got := perrors.Cause(ctl.Reconciler.Reconcile(context.Background(), key))
 	if got != want {
 		t.Errorf("Reconcile() = %v, wanted %v", got, want)
 	}
@@ -723,7 +724,7 @@ func TestControllerUpdateError(t *testing.T) {
 	servingClient.AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
 	servingInformer.Autoscaling().V1alpha1().PodAutoscalers().Informer().GetIndexer().Add(kpa)
 
-	got := ctl.Reconciler.Reconcile(context.Background(), key)
+	got := perrors.Cause(ctl.Reconciler.Reconcile(context.Background(), key))
 	if got != want {
 		t.Errorf("Reconcile() = %v, wanted %v", got, want)
 	}
@@ -764,7 +765,7 @@ func TestControllerGetError(t *testing.T) {
 	servingClient.AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
 	servingInformer.Autoscaling().V1alpha1().PodAutoscalers().Informer().GetIndexer().Add(kpa)
 
-	got := ctl.Reconciler.Reconcile(context.Background(), key)
+	got := perrors.Cause(ctl.Reconciler.Reconcile(context.Background(), key))
 	if got != want {
 		t.Errorf("Reconcile() = %v, wanted %v", got, want)
 	}
