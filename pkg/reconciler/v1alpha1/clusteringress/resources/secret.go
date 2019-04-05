@@ -51,7 +51,7 @@ func MakeDesiredSecrets(ctx context.Context, ci *v1alpha1.ClusterIngress, secret
 func makeTargetSecret(originSecret *corev1.Secret, targetNamespace string) *corev1.Secret {
 	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      names.TargetSecret(originSecret.Name, originSecret.Namespace),
+			Name:      names.TargetSecret(originSecret.Namespace, originSecret.Name),
 			Namespace: targetNamespace,
 			Labels: map[string]string{
 				networking.OriginSecretNameLabelKey:      originSecret.Name,

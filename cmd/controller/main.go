@@ -188,6 +188,7 @@ func main() {
 		sksInformer.Informer(),
 		secretInformer.Informer(),
 		virtualServiceInformer.Informer(),
+		gatewayInformer.Informer(),
 	); err != nil {
 		logger.Fatalf("Failed to start informers: %v", err)
 	}
