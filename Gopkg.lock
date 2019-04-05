@@ -1244,7 +1244,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:9b75ec0a523ff9fe3568f4fb14331d4fdc3c261a393bc183073505411fb4725f"
+  digest = "1:39912eb5f8eaf46486faae0839586c27c93423e552f76875defa048f52c15c15"
   name = "k8s.io/gengo"
   packages = [
     "args",
@@ -1257,7 +1257,15 @@
     "types",
   ]
   pruneopts = "NUT"
-  revision = "1ef560bbde5195c01629039ad3b337ce63e7b321"
+  revision = "e17681d19d3ac4837a019ece36c2a0ec31ffe985"
+
+[[projects]]
+  digest = "1:c263611800c3a97991dbcf9d3bc4de390f6224aaa8ca0a7226a9d734f65a416a"
+  name = "k8s.io/klog"
+  packages = ["."]
+  pruneopts = "NUT"
+  revision = "71442cd4037d612096940ceb0f3fec3f7fff66e0"
+  version = "v0.2.0"
 
 [[projects]]
   branch = "master"
@@ -1334,6 +1342,7 @@
     "github.com/knative/pkg/test/ingress",
     "github.com/knative/pkg/test/logging",
     "github.com/knative/pkg/test/spoof",
+    "github.com/knative/pkg/test/zipkin",
     "github.com/knative/pkg/tracker",
     "github.com/knative/pkg/version",
     "github.com/knative/pkg/webhook",

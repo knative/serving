@@ -119,8 +119,7 @@ func scaleResourceArgs(pa *pav1alpha1.PodAutoscaler) (*schema.GroupResource, str
 	return &resource, pa.Spec.ScaleTargetRef.Name, nil
 }
 
-// Scale attempts to scale the given PA's target reference to the desired scale.
-func (ks *scaler) Scale(ctx context.Context, pa *pav1alpha1.PodAutoscaler, desiredScale int32) (int32, error) {
+func isPAOwnedByRevision(ctx context.Context, pa *pav1alpha1.PodAutoscaler) bool {
 	logger := logging.FromContext(ctx)
 
 	// TODO(mattmoor): Drop this once the KPA is the source of truth and we
@@ -130,6 +129,64 @@ func (ks *scaler) Scale(ctx context.Context, pa *pav1alpha1.PodAutoscaler, desir
 	if owner == nil || owner.Kind != revGVK.Kind ||
 		owner.APIVersion != revGVK.GroupVersion().String() {
 		logger.Debug("PA is not owned by a Revision.")
+		return true
+	}
+	return false
+}
+
+func (ks *scaler) handleScaleToZero(pa *pav1alpha1.PodAutoscaler, desiredScale int32) (int32, bool) {
+	if desiredScale == 0 {
+		// We should only scale to zero when both of the following conditions are true:
+		//   a) The PA has been active for atleast the stable window, after which it gets marked inactive
+		//   b) The PA has been inactive for atleast the grace period
+
+		config := ks.getAutoscalerConfig()
+
+		if pa.Status.IsActivating() { // Active=Unknown
+			// Don't scale-to-zero during activation
+			desiredScale = scaleUnknown
+		} else if pa.Status.IsReady() { // Active=True
+			// Don't scale-to-zero if the PA is active
+
+			// Only let a revision be scaled to 0 if it's been active for at
+			// least the stable window's time.
+			if pa.Status.CanMarkInactive(config.StableWindow) {
+				return desiredScale, true
+			}
+			// Otherwise, scale down to 1 until the idle period elapses
+			desiredScale = 1
+		} else { // Active=False
+			// Don't scale-to-zero if the grace period hasn't elapsed
+			if !pa.Status.CanScaleToZero(config.ScaleToZeroGracePeriod) {
+				return desiredScale, true
+			}
+		}
+	}
+	return desiredScale, false
+}
+
+func (ks *scaler) applyScale(ctx context.Context, pa *pav1alpha1.PodAutoscaler, desiredScale int32, resource *schema.GroupResource, scl *autoscalingapi.Scale) (int32, error) {
+	logger := logging.FromContext(ctx)
+
+	// Scale the target reference.
+	scl.Spec.Replicas = desiredScale
+	_, err := ks.scaleClientSet.Scales(pa.Namespace).Update(*resource, scl)
+	if err != nil {
+		resourceName := pa.Spec.ScaleTargetRef.Name
+		logger.Errorw(fmt.Sprintf("Error scaling target reference %s", resourceName), zap.Error(err))
+		return desiredScale, err
+	}
+
+	logger.Debug("Successfully scaled.")
+	return desiredScale, nil
+
+}
+
+// Scale attempts to scale the given PA's target reference to the desired scale.
+func (ks *scaler) Scale(ctx context.Context, pa *pav1alpha1.PodAutoscaler, desiredScale int32) (int32, error) {
+	logger := logging.FromContext(ctx)
+
+	if isPAOwnedByRevision(ctx, pa) {
 		return desiredScale, nil
 	}
 
@@ -153,32 +210,9 @@ func (ks *scaler) Scale(ctx context.Context, pa *pav1alpha1.PodAutoscaler, desir
 		desiredScale = newScale
 	}
 
-	if desiredScale == 0 {
-		// We should only scale to zero when both of the following conditions are true:
-		//   a) The PA has been active for atleast the stable window, after which it gets marked inactive
-		//   b) The PA has been inactive for atleast the grace period
-
-		config := ks.getAutoscalerConfig()
-
-		if pa.Status.IsActivating() { // Active=Unknown
-			// Don't scale-to-zero during activation
-			desiredScale = scaleUnknown
-		} else if pa.Status.IsReady() { // Active=True
-			// Don't scale-to-zero if the PA is active
-
-			// Only let a revision be scaled to 0 if it's been active for at
-			// least the stable window's time.
-			if pa.Status.CanMarkInactive(config.StableWindow) {
-				return desiredScale, nil
-			}
-			// Otherwise, scale down to 1 until the idle period elapses
-			desiredScale = 1
-		} else { // Active=False
-			// Don't scale-to-zero if the grace period hasn't elapsed
-			if !pa.Status.CanScaleToZero(config.ScaleToZeroGracePeriod) {
-				return desiredScale, nil
-			}
-		}
+	desiredScale, skipApplyScale := ks.handleScaleToZero(pa, desiredScale)
+	if skipApplyScale {
+		return desiredScale, nil
 	}
 
 	// Scale from zero. When there are no metrics scale to 1.
@@ -197,14 +231,5 @@ func (ks *scaler) Scale(ctx context.Context, pa *pav1alpha1.PodAutoscaler, desir
 	}
 	logger.Infof("Scaling from %d to %d", currentScale, desiredScale)
 
-	// Scale the target reference.
-	scl.Spec.Replicas = desiredScale
-	_, err = ks.scaleClientSet.Scales(pa.Namespace).Update(*resource, scl)
-	if err != nil {
-		logger.Errorw(fmt.Sprintf("Error scaling target reference %s", resourceName), zap.Error(err))
-		return desiredScale, err
-	}
-
-	logger.Debug("Successfully scaled.")
-	return desiredScale, nil
+	return ks.applyScale(ctx, pa, desiredScale, resource, scl)
 }
