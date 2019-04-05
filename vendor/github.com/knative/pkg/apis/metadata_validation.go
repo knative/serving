@@ -1,5 +1,5 @@
 /*
-Copyright 2018 The Knative Authors
+Copyright 2019 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,20 +14,18 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1alpha1
+package apis
 
 import (
 	"fmt"
 
-	"github.com/knative/pkg/apis"
-	"github.com/knative/serving/pkg/apis/autoscaling"
 	"k8s.io/apimachinery/pkg/api/validation"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // ValidateObjectMetadata validates that `metadata` stanza of the
 // resources is correct.
-func ValidateObjectMetadata(meta metav1.Object) *apis.FieldError {
+func ValidateObjectMetadata(meta metav1.Object) *FieldError {
 	name := meta.GetName()
 	generateName := meta.GetGenerateName()
 
@@ -35,7 +33,7 @@ func ValidateObjectMetadata(meta metav1.Object) *apis.FieldError {
 		msgs := validation.NameIsDNS1035Label(generateName, true)
 
 		if len(msgs) > 0 {
-			return &apis.FieldError{
+			return &FieldError{
 				Message: fmt.Sprintf("not a DNS 1035 label prefix: %v", msgs),
 				Paths:   []string{"generateName"},
 			}
@@ -46,7 +44,7 @@ func ValidateObjectMetadata(meta metav1.Object) *apis.FieldError {
 		msgs := validation.NameIsDNS1035Label(name, false)
 
 		if len(msgs) > 0 {
-			return &apis.FieldError{
+			return &FieldError{
 				Message: fmt.Sprintf("not a DNS 1035 label: %v", msgs),
 				Paths:   []string{"name"},
 			}
@@ -54,14 +52,10 @@ func ValidateObjectMetadata(meta metav1.Object) *apis.FieldError {
 	}
 
 	if generateName == "" && name == "" {
-		return &apis.FieldError{
+		return &FieldError{
 			Message: "name or generateName is required",
 			Paths:   []string{"name"},
 		}
-	}
-
-	if err := autoscaling.ValidateAnnotations(meta.GetAnnotations()); err != nil {
-		return err.ViaField("annotations")
 	}
 
 	return nil

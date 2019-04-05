@@ -24,13 +24,14 @@ import (
 	"github.com/knative/pkg/apis"
 	"github.com/knative/pkg/kmp"
 	"github.com/knative/serving/pkg/apis/autoscaling"
+	"github.com/knative/serving/pkg/apis/serving"
 	servingv1alpha1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	autoscalingv1 "k8s.io/api/autoscaling/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 )
 
 func (pa *PodAutoscaler) Validate(ctx context.Context) *apis.FieldError {
-	return servingv1alpha1.ValidateObjectMetadata(pa.GetObjectMeta()).
+	return serving.ValidateObjectMetadata(pa.GetObjectMeta()).
 		ViaField("metadata").
 		Also(pa.Spec.Validate(ctx).ViaField("spec")).
 		Also(pa.validateMetric())
