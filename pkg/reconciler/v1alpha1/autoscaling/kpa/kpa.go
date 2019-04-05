@@ -205,10 +205,16 @@ func (c *Reconciler) reconcile(ctx context.Context, pa *pav1alpha1.PodAutoscaler
 		return perrors.Wrap(err, "Error reconciling metrics service")
 	}
 
+	decider, err := c.reconcileDecider(ctx, pa)
+	if err != nil {
+		return perrors.Wrap(err, "Error reconciling decider")
+	}
+
 	// Get the appropriate current scale from the metric, and right size
 	// the scaleTargetRef based on it.
-	want, err := c.desiredScale(ctx, pa)
+	want, err := c.scaler.Scale(ctx, pa, decider.Status.DesiredScale)
 	if err != nil {
+		logger.Errorf("Error scaling target: %v", err)
 		return err
 	}
 
@@ -230,7 +236,7 @@ func (c *Reconciler) reconcile(ctx context.Context, pa *pav1alpha1.PodAutoscaler
 	return nil
 }
 
-func (c *Reconciler) desiredScale(ctx context.Context, pa *pav1alpha1.PodAutoscaler) (int32, error) {
+func (c *Reconciler) reconcileDecider(ctx context.Context, pa *pav1alpha1.PodAutoscaler) (*autoscaler.Decider, error) {
 	logger := logging.FromContext(ctx)
 
 	desiredDecider := resources.MakeDecider(ctx, pa, c.dynConfig.Current())
@@ -239,11 +245,11 @@ func (c *Reconciler) desiredScale(ctx context.Context, pa *pav1alpha1.PodAutosca
 		decider, err = c.kpaDeciders.Create(ctx, desiredDecider)
 		if err != nil {
 			logger.Errorf("Error creating Decider: %v", err)
-			return 0, err
+			return nil, err
 		}
 	} else if err != nil {
 		logger.Errorf("Error fetching Decider: %v", err)
-		return 0, err
+		return nil, err
 	}
 
 	// Ignore status when reconciling
@@ -252,18 +258,11 @@ func (c *Reconciler) desiredScale(ctx context.Context, pa *pav1alpha1.PodAutosca
 		decider, err = c.kpaDeciders.Update(ctx, desiredDecider)
 		if err != nil {
 			logger.Errorf("Error update Decider: %v", err)
-			return 0, err
+			return nil, err
 		}
 	}
 
-	// Get the appropriate current scale from the decider, and right size
-	// the scaleTargetRef based on it.
-	want, err := c.scaler.Scale(ctx, pa, decider.Status.DesiredScale)
-	if err != nil {
-		logger.Errorf("Error scaling target: %v", err)
-		return 0, err
-	}
-	return want, nil
+	return decider, nil
 }
 
 func reportMetrics(pa *pav1alpha1.PodAutoscaler, want int32, got int) error {
