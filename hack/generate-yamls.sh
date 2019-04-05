@@ -42,9 +42,9 @@ readonly YAML_REPO_ROOT=${1:?"First argument must be the repo root dir"}
 readonly YAML_LIST_FILE=${2:?"Second argument must be the output file"}
 
 # Location of istio YAMLs
-readonly ISTIO_CRD_YAML=${YAML_REPO_ROOT}/third_party/istio-1.0.6/istio-crds.yaml
-readonly ISTIO_YAML=${YAML_REPO_ROOT}/third_party/istio-1.0.6/istio.yaml
-readonly ISTIO_LEAN_YAML=${YAML_REPO_ROOT}/third_party/istio-1.0.6/istio-lean.yaml
+readonly ISTIO_CRD_YAML=${YAML_REPO_ROOT}/third_party/istio-1.0.7/istio-crds.yaml
+readonly ISTIO_YAML=${YAML_REPO_ROOT}/third_party/istio-1.0.7/istio.yaml
+readonly ISTIO_LEAN_YAML=${YAML_REPO_ROOT}/third_party/istio-1.0.7/istio-lean.yaml
 
 # Set output directory
 if [[ -z "${YAML_OUTPUT_DIR:-}" ]]; then
