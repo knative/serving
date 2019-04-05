@@ -819,6 +819,13 @@ func MarkRevisionReady(r *v1alpha1.Revision) {
 
 type PodAutoscalerOption func(*autoscalingv1alpha1.PodAutoscaler)
 
+// WithProtocolType sets the protocol type on the PodAutoscaler.
+func WithProtocolType(pt networking.ProtocolType) PodAutoscalerOption {
+	return func(pa *autoscalingv1alpha1.PodAutoscaler) {
+		pa.Spec.ProtocolType = pt
+	}
+}
+
 // WithPodAutoscalerOwnersRemoved clears the owner references of this PodAutoscaler.
 func WithPodAutoscalerOwnersRemoved(r *autoscalingv1alpha1.PodAutoscaler) {
 	r.OwnerReferences = nil
