@@ -147,6 +147,22 @@ func (c *Reconciler) reconcileKPA(ctx context.Context, rev *v1alpha1.Revision) e
 		return fmt.Errorf("Revision: %q does not own PodAutoscaler: %q", rev.Name, kpaName)
 	}
 
+	// Perhaps tha KPA spec changed underneath ourselves?
+	// TODO(vagababov): required for #1997. Should be removed in 0.7,
+	// to fix the protocol type when it's unset.
+	tmpl := resources.MakeKPA(rev)
+	want := kpa.DeepCopy()
+	want.Spec = tmpl.Spec
+	if !equality.Semantic.DeepEqual(want, kpa) {
+		logger.Infof("KPA %s needs reconciliation", kpa.Name)
+		if _, err := c.ServingClientSet.AutoscalingV1alpha1().PodAutoscalers(kpa.Namespace).Update(want); err != nil {
+			return err
+		}
+		// This change will trigger KPA -> SKS -> K8s service change;
+		// and those after reconciliation will back progpagate here.
+		rev.Status.MarkDeploying("Updating")
+	}
+
 	// Reflect the KPA status in our own.
 	cond := kpa.Status.GetCondition(kpav1alpha1.PodAutoscalerConditionReady)
 	switch {
