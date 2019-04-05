@@ -151,9 +151,9 @@ func (c *Reconciler) reconcileKPA(ctx context.Context, rev *v1alpha1.Revision) e
 	// TODO(vagababov): required for #1997. Should be removed in 0.7,
 	// to fix the protocol type when it's unset.
 	tmpl := resources.MakeKPA(rev)
-	want := kpa.DeepCopy()
-	want.Spec = tmpl.Spec
-	if !equality.Semantic.DeepEqual(want, kpa) {
+	if !equality.Semantic.DeepEqual(tmpl.Spec, kpa.Spec) {
+		want := kpa.DeepCopy()
+		want.Spec = tmpl.Spec
 		logger.Infof("KPA %s needs reconciliation", kpa.Name)
 		if _, err := c.ServingClientSet.AutoscalingV1alpha1().PodAutoscalers(kpa.Namespace).Update(want); err != nil {
 			return err
