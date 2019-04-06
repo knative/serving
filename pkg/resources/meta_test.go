@@ -89,7 +89,7 @@ func TestFilter(t *testing.T) {
 		want: map[string]string{"the-dark": "side"},
 	}, {
 		name:   "filter all",
-		in:     map[string]string{"the-dark": "side", "of-ther": "moon"},
+		in:     map[string]string{"the-dark": "side", "of-there": "moon"},
 		filter: func(string) bool { return true },
 		want:   map[string]string{},
 	}, {
