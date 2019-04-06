@@ -510,6 +510,12 @@ data:
       containers:
       - name: istio-proxy
         image: [[ annotation .ObjectMeta `sidecar.istio.io/proxyImage`  "docker.io/istio/proxyv2:1.1.2"  ]]
+        # PATCH #2: Delay Envoy lameduck a bit, since Endpoint propagation may be slow.
+        lifecycle:
+          preStop:
+            exec:
+              command: ["sleep", "20"]
+        # PATCH #2 ends.
         ports:
         - containerPort: 15090
           protocol: TCP
@@ -517,12 +523,6 @@ data:
         args:
         - proxy
         - sidecar
-        # PATCH #2: Delay Envoy lameduck a bit, since Endpoint propagation may be slow.
-        lifecycle:
-          preStop:
-            exec:
-              command: ["sleep", "20"]
-        # PATCH #2 ends.
         - --domain
         - $(POD_NAMESPACE).svc.cluster.local
         - --configPath
