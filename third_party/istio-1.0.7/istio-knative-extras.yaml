@@ -10,7 +10,7 @@ metadata:
     app: cluster-local-gateway
     chart: gateways-1.0.6
     heritage: Tiller
-    release: RELEASE-NAME
+    release: release-name
 ---
 
 ---
@@ -23,7 +23,7 @@ metadata:
     app: gateways
     chart: gateways-1.0.6
     heritage: Tiller
-    release: RELEASE-NAME
+    release: release-name
   name: cluster-local-gateway-istio-system
 rules:
 - apiGroups: ["extensions"]
@@ -59,7 +59,7 @@ metadata:
   annotations:
   labels:
     chart: gateways-1.0.6
-    release: RELEASE-NAME
+    release: release-name
     heritage: Tiller
     app: cluster-local-gateway
     istio: cluster-local-gateway
@@ -107,7 +107,7 @@ metadata:
   namespace: istio-system
   labels:
     chart: gateways-1.0.6
-    release: RELEASE-NAME
+    release: release-name
     heritage: Tiller
     app: cluster-local-gateway
     istio: cluster-local-gateway
@@ -125,7 +125,7 @@ spec:
       serviceAccountName: cluster-local-gateway-service-account
       containers:
         - name: istio-proxy
-          image: "docker.io/istio/proxyv2:1.0.6"
+          image: "docker.io/istio/proxyv2:1.0.7"
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 80

@@ -24,6 +24,8 @@ import (
 	"github.com/google/go-cmp/cmp"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+
+	"github.com/knative/serving/pkg/apis/networking"
 )
 
 func TestClusterIngressDefaulting(t *testing.T) {
@@ -133,10 +135,10 @@ func TestClusterIngressDefaulting(t *testing.T) {
 								Percent: 100,
 							}},
 							// Timeout and Retries are filled in.
-							Timeout: &metav1.Duration{Duration: DefaultTimeout},
+							Timeout: &metav1.Duration{Duration: networking.DefaultTimeout},
 							Retries: &HTTPRetry{
-								PerTryTimeout: &metav1.Duration{Duration: DefaultTimeout},
-								Attempts:      DefaultRetryCount,
+								PerTryTimeout: &metav1.Duration{Duration: networking.DefaultTimeout},
+								Attempts:      networking.DefaultRetryCount,
 							},
 						}},
 					},
@@ -269,7 +271,7 @@ func TestClusterIngressDefaulting(t *testing.T) {
 							Timeout: &metav1.Duration{Duration: 10 * time.Second},
 							Retries: &HTTPRetry{
 								// PerTryTimeout is filled in.
-								PerTryTimeout: &metav1.Duration{Duration: DefaultTimeout},
+								PerTryTimeout: &metav1.Duration{Duration: networking.DefaultTimeout},
 								Attempts:      2,
 							},
 						}},

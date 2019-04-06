@@ -107,20 +107,13 @@ func (pa *PodAutoscaler) validateMetric() *apis.FieldError {
 }
 
 // CheckImmutableFields checks the immutability of the PodAutoscaler.
-func (current *PodAutoscaler) CheckImmutableFields(ctx context.Context, og apis.Immutable) *apis.FieldError {
+func (pa *PodAutoscaler) CheckImmutableFields(ctx context.Context, og apis.Immutable) *apis.FieldError {
 	original, ok := og.(*PodAutoscaler)
 	if !ok {
 		return &apis.FieldError{Message: "The provided original was not a PodAutoscaler"}
 	}
 
-	// TODO(vagababov): remove after 0.6. This is temporary plug for backwards compatibility.
-	opt := cmp.FilterPath(
-		func(p cmp.Path) bool {
-			return p.String() == "ProtocolType"
-		},
-		cmp.Ignore(),
-	)
-	if diff, err := kmp.SafeDiff(original.Spec, current.Spec, opt); err != nil {
+	if diff, err := compareSpec(original, pa); err != nil {
 		return &apis.FieldError{
 			Message: "Failed to diff PodAutoscaler",
 			Paths:   []string{"spec"},
@@ -135,13 +128,34 @@ func (current *PodAutoscaler) CheckImmutableFields(ctx context.Context, og apis.
 	}
 	// Verify the PA class does not change.
 	// For backward compatibility, we allow a new class where there was none before.
-	if oldClass, ok := original.Annotations[autoscaling.ClassAnnotationKey]; ok {
-		if newClass, ok := current.Annotations[autoscaling.ClassAnnotationKey]; !ok || oldClass != newClass {
-			return &apis.FieldError{
-				Message: fmt.Sprintf("Immutable class annotation changed (-%q +%q)", oldClass, newClass),
-				Paths:   []string{"annotations[autoscaling.knative.dev/class]"},
-			}
+	if oldClass, newClass, annotationChanged := classAnnotationChanged(original, pa); annotationChanged {
+		return &apis.FieldError{
+			Message: fmt.Sprintf("Immutable class annotation changed (-%q +%q)", oldClass, newClass),
+			Paths:   []string{"annotations[autoscaling.knative.dev/class]"},
 		}
 	}
 	return nil
+}
+
+func compareSpec(original *PodAutoscaler, current *PodAutoscaler) (string, error) {
+	// TODO(vagababov): remove after 0.6. This is temporary plug for backwards compatibility.
+	opt := cmp.FilterPath(
+		func(p cmp.Path) bool {
+			return p.String() == "ProtocolType"
+		},
+		cmp.Ignore(),
+	)
+	return kmp.SafeDiff(original.Spec, current.Spec, opt)
+}
+
+func classAnnotationChanged(original *PodAutoscaler, current *PodAutoscaler) (string, string, bool) {
+	oldClass, ok := original.Annotations[autoscaling.ClassAnnotationKey]
+	if !ok {
+		return "", "", false
+	}
+	newClass, ok := current.Annotations[autoscaling.ClassAnnotationKey]
+	if ok && oldClass == newClass {
+		return "", "", false
+	}
+	return oldClass, newClass, true
 }

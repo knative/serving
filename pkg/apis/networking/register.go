@@ -16,6 +16,8 @@ limitations under the License.
 
 package networking
 
+import "time"
+
 const (
 	// GroupName is the name for the networking API group.
 	GroupName = "networking.internal.knative.dev"
@@ -50,4 +52,13 @@ const (
 	// OriginSecretNamespaceLabelKey is the label key attached to the secret used for terminating TLS connection
 	// to indicate the namespace of the origin secret that the TLS termination secret is copied from.
 	OriginSecretNamespaceLabelKey = GroupName + "/originSecretNamespace"
+)
+
+// Pseudo-constants
+var (
+	// DefaultTimeout will be set if timeout not specified.
+	DefaultTimeout = 10 * time.Minute
+
+	// DefaultRetryCount will be set if Attempts not specified.
+	DefaultRetryCount = 3
 )

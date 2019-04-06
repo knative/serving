@@ -28,6 +28,7 @@ import (
 	"github.com/knative/pkg/controller"
 	"github.com/knative/pkg/logging"
 	autoscalingv1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
+	"github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/autoscaler"
@@ -384,6 +385,53 @@ func TestReconcile(t *testing.T) {
 				MarkInactive("NoTraffic", "This thing is inactive.")),
 		}},
 		Key: "foo/kpa-inactive",
+	}, {
+		Name: "mutated KPA gets fixed",
+		// This test validates, that when uers mess with the KPA directly
+		// we bring it back to the required shape.
+		Objects: []runtime.Object{
+			rev("foo", "fix-mutated-kpa",
+				WithK8sServiceName, WithLogURL, AllUnknownConditions),
+			kpa("foo", "fix-mutated-kpa", WithProtocolType(networking.ProtocolH2C)),
+			deploy("foo", "fix-mutated-kpa"),
+			svc("foo", "fix-mutated-kpa"),
+			endpoints("foo", "fix-mutated-kpa"),
+			image("foo", "fix-mutated-kpa"),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: rev("foo", "fix-mutated-kpa",
+				WithK8sServiceName, WithLogURL, AllUnknownConditions,
+				// When our reconciliation has to change the service
+				// we should see the following mutations to status.
+				MarkDeploying("Updating")),
+		}},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: kpa("foo", "fix-mutated-kpa"),
+		}},
+		Key: "foo/fix-mutated-kpa",
+	}, {
+		Name: "mutated KPA gets error during the fix",
+		// Same as above, but will fail during the update.
+		Objects: []runtime.Object{
+			rev("foo", "fix-mutated-kpa-fail",
+				WithK8sServiceName, WithLogURL, AllUnknownConditions),
+			kpa("foo", "fix-mutated-kpa-fail", WithProtocolType(networking.ProtocolH2C)),
+			deploy("foo", "fix-mutated-kpa-fail"),
+			svc("foo", "fix-mutated-kpa-fail"),
+			endpoints("foo", "fix-mutated-kpa-fail"),
+			image("foo", "fix-mutated-kpa-fail"),
+		},
+		WantErr: true,
+		WithReactors: []clientgotesting.ReactionFunc{
+			InduceFailure("update", "podautoscalers"),
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: kpa("foo", "fix-mutated-kpa-fail"),
+		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeWarning, "InternalError", "inducing failure for update podautoscalers"),
+		},
+		Key: "foo/fix-mutated-kpa-fail",
 	}, {
 		Name: "mutated service gets fixed",
 		// Test that we correct mutations to our K8s Service resources.

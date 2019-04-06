@@ -25,7 +25,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/knative/pkg/apis"
 	"github.com/knative/pkg/kmp"
-	networkingv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
+	"github.com/knative/serving/pkg/apis/networking"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -93,9 +93,9 @@ func (rs *RevisionSpec) Validate(ctx context.Context) *apis.FieldError {
 
 func validateTimeoutSeconds(timeoutSeconds int64) *apis.FieldError {
 	if timeoutSeconds != 0 {
-		if timeoutSeconds > int64(networkingv1alpha1.DefaultTimeout.Seconds()) || timeoutSeconds < 0 {
+		if timeoutSeconds > int64(networking.DefaultTimeout.Seconds()) || timeoutSeconds < 0 {
 			return apis.ErrOutOfBoundsValue(fmt.Sprintf("%ds", timeoutSeconds), "0s",
-				fmt.Sprintf("%ds", int(networkingv1alpha1.DefaultTimeout.Seconds())),
+				fmt.Sprintf("%ds", int(networking.DefaultTimeout.Seconds())),
 				"timeoutSeconds")
 		}
 	}
@@ -372,13 +372,13 @@ func validateProbe(p *corev1.Probe) *apis.FieldError {
 }
 
 // CheckImmutableFields checks the immutable fields are not modified.
-func (current *Revision) CheckImmutableFields(ctx context.Context, og apis.Immutable) *apis.FieldError {
+func (rt *Revision) CheckImmutableFields(ctx context.Context, og apis.Immutable) *apis.FieldError {
 	original, ok := og.(*Revision)
 	if !ok {
 		return &apis.FieldError{Message: "The provided original was not a Revision"}
 	}
 
-	if diff, err := kmp.SafeDiff(original.Spec, current.Spec); err != nil {
+	if diff, err := kmp.SafeDiff(original.Spec, rt.Spec); err != nil {
 		return &apis.FieldError{
 			Message: "Failed to diff Revision",
 			Paths:   []string{"spec"},

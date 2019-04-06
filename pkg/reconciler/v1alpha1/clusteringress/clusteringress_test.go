@@ -86,10 +86,10 @@ var (
 					},
 					Percent: 100,
 				}},
-				Timeout: &metav1.Duration{Duration: v1alpha1.DefaultTimeout},
+				Timeout: &metav1.Duration{Duration: networking.DefaultTimeout},
 				Retries: &v1alpha1.HTTPRetry{
-					PerTryTimeout: &metav1.Duration{Duration: v1alpha1.DefaultTimeout},
-					Attempts:      v1alpha1.DefaultRetryCount,
+					PerTryTimeout: &metav1.Duration{Duration: networking.DefaultTimeout},
+					Attempts:      networking.DefaultRetryCount,
 				}},
 			},
 		},
