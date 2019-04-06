@@ -26,6 +26,7 @@ import (
 	"github.com/knative/pkg/apis"
 	"github.com/knative/pkg/kmp"
 	"github.com/knative/serving/pkg/apis/networking"
+	"github.com/knative/serving/pkg/apis/serving"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -46,7 +47,7 @@ var (
 
 // Validate ensures Revision is properly configured.
 func (rt *Revision) Validate(ctx context.Context) *apis.FieldError {
-	return ValidateObjectMetadata(rt.GetObjectMeta()).ViaField("metadata").
+	return serving.ValidateObjectMetadata(rt.GetObjectMeta()).ViaField("metadata").
 		Also(rt.Spec.Validate(ctx).ViaField("spec"))
 }
 
