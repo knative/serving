@@ -47,7 +47,7 @@ func TestContainerErrorMsg(t *testing.T) {
 
 	names := test.ResourceNames{
 		Config: test.ObjectNameForTest(t),
-		Image:  "invalidhelloworld",
+		Image:  invalidhelloworld,
 	}
 	// Specify an invalid image path
 	// A valid DockerRepo is still needed, otherwise will get UNAUTHORIZED instead of container missing error
@@ -118,13 +118,6 @@ func TestContainerErrorMsg(t *testing.T) {
 // for the container crashing scenario.
 func TestContainerExitingMsg(t *testing.T) {
 	t.Parallel()
-	clients := setup(t)
-
-	names := test.ResourceNames{
-		Config: test.ObjectNameForTest(t),
-		Image:  "failing",
-	}
-
 	const (
 		// The given image will always exit with an exit code of 5
 		exitCodeReason = "ExitCode5"
@@ -132,65 +125,91 @@ func TestContainerExitingMsg(t *testing.T) {
 		errorLog = "Crashed..."
 	)
 
-	t.Logf("Creating a new Configuration %s", names.Image)
-
-	// This probe is crucial for having a race free conformance test. It will prevent the
-	// pod from becoming ready intermittently.
-	probe := &corev1.Probe{
-		Handler: corev1.Handler{
-			HTTPGet: &corev1.HTTPGetAction{},
+	tests := []struct {
+		Name           string
+		ReadinessProbe *corev1.Probe
+	}{{
+		Name: "http",
+		ReadinessProbe: &corev1.Probe{
+			Handler: corev1.Handler{
+				HTTPGet: &corev1.HTTPGetAction{},
+			},
 		},
-	}
-	if _, err := test.CreateConfiguration(t, clients, names, &test.Options{ReadinessProbe: probe}); err != nil {
-		t.Fatalf("Failed to create configuration %s: %v", names.Config, err)
-	}
-	defer test.TearDown(clients, names)
-	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
+	}, {
+		Name: "tcp",
+		ReadinessProbe: &corev1.Probe{
+			Handler: corev1.Handler{
+				TCPSocket: &corev1.TCPSocketAction{},
+			},
+		},
+	}}
 
-	t.Log("When the containers keep crashing, the Configuration should have error status.")
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.Name, func(t *testing.T) {
+			t.Parallel()
+			clients := setup(t)
 
-	err := test.WaitForConfigurationState(clients.ServingClient, names.Config, func(r *v1alpha1.Configuration) (bool, error) {
-		cond := r.Status.GetCondition(v1alpha1.ConfigurationConditionReady)
-		if cond != nil && !cond.IsUnknown() {
-			if strings.Contains(cond.Message, errorLog) && cond.IsFalse() {
-				return true, nil
+			names := test.ResourceNames{
+				Config: test.ObjectNameForTest(t),
+				Image:  failing,
 			}
-			t.Logf("Reason: %s ; Message: %s ; Status: %s", cond.Reason, cond.Message, cond.Status)
-			return true, fmt.Errorf("The configuration %s was not marked with expected error condition (Reason=\"%s\", Message=\"%s\", Status=\"%s\"), but with (Reason=\"%s\", Message=\"%s\", Status=\"%s\")",
-				names.Config, containerMissing, errorLog, "False", cond.Reason, cond.Message, cond.Status)
-		}
-		return false, nil
-	}, "ConfigContainersCrashing")
 
-	if err != nil {
-		t.Fatalf("Failed to validate configuration state: %s", err)
-	}
+			defer test.TearDown(clients, names)
+			test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 
-	revisionName, err := getRevisionFromConfiguration(clients, names.Config)
-	if err != nil {
-		t.Fatalf("Failed to get revision from configuration %s: %v", names.Config, err)
-	}
+			t.Logf("Creating a new Configuration %s", names.Image)
 
-	t.Log("When the containers keep crashing, the revision should have error status.")
-	err = test.WaitForRevisionState(clients.ServingClient, revisionName, func(r *v1alpha1.Revision) (bool, error) {
-		cond := r.Status.GetCondition(v1alpha1.RevisionConditionReady)
-		if cond != nil {
-			if cond.Reason == exitCodeReason && strings.Contains(cond.Message, errorLog) {
-				return true, nil
+			if _, err := test.CreateConfiguration(t, clients, names, &test.Options{ReadinessProbe: tt.ReadinessProbe}); err != nil {
+				t.Fatalf("Failed to create configuration %s: %v", names.Config, err)
 			}
-			return true, fmt.Errorf("The revision %s was not marked with expected error condition (Reason=%q, Message=%q), but with (Reason=%q, Message=%q)",
-				revisionName, exitCodeReason, errorLog, cond.Reason, cond.Message)
-		}
-		return false, nil
-	}, "RevisionContainersCrashing")
 
-	if err != nil {
-		t.Fatalf("Failed to validate revision state: %s", err)
-	}
+			t.Log("When the containers keep crashing, the Configuration should have error status.")
 
-	t.Log("When the revision has error condition, logUrl should be populated.")
-	if _, err = getLogURLFromRevision(clients, revisionName); err != nil {
-		t.Fatalf("Failed to get logUrl from revision %s: %v", revisionName, err)
+			err := test.WaitForConfigurationState(clients.ServingClient, names.Config, func(r *v1alpha1.Configuration) (bool, error) {
+				cond := r.Status.GetCondition(v1alpha1.ConfigurationConditionReady)
+				if cond != nil && !cond.IsUnknown() {
+					if strings.Contains(cond.Message, errorLog) && cond.IsFalse() {
+						return true, nil
+					}
+					t.Logf("Reason: %s ; Message: %s ; Status: %s", cond.Reason, cond.Message, cond.Status)
+					return true, fmt.Errorf("The configuration %s was not marked with expected error condition (Reason=\"%s\", Message=\"%s\", Status=\"%s\"), but with (Reason=\"%s\", Message=\"%s\", Status=\"%s\")",
+						names.Config, containerMissing, errorLog, "False", cond.Reason, cond.Message, cond.Status)
+				}
+				return false, nil
+			}, "ConfigContainersCrashing")
+
+			if err != nil {
+				t.Fatalf("Failed to validate configuration state: %s", err)
+			}
+
+			revisionName, err := getRevisionFromConfiguration(clients, names.Config)
+			if err != nil {
+				t.Fatalf("Failed to get revision from configuration %s: %v", names.Config, err)
+			}
+
+			t.Log("When the containers keep crashing, the revision should have error status.")
+			err = test.WaitForRevisionState(clients.ServingClient, revisionName, func(r *v1alpha1.Revision) (bool, error) {
+				cond := r.Status.GetCondition(v1alpha1.RevisionConditionReady)
+				if cond != nil {
+					if cond.Reason == exitCodeReason && strings.Contains(cond.Message, errorLog) {
+						return true, nil
+					}
+					return true, fmt.Errorf("The revision %s was not marked with expected error condition (Reason=%q, Message=%q), but with (Reason=%q, Message=%q)",
+						revisionName, exitCodeReason, errorLog, cond.Reason, cond.Message)
+				}
+				return false, nil
+			}, "RevisionContainersCrashing")
+
+			if err != nil {
+				t.Fatalf("Failed to validate revision state: %s", err)
+			}
+
+			t.Log("When the revision has error condition, logUrl should be populated.")
+			if _, err = getLogURLFromRevision(clients, revisionName); err != nil {
+				t.Fatalf("Failed to get logUrl from revision %s: %v", revisionName, err)
+			}
+		})
 	}
 }
 

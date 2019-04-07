@@ -9,7 +9,7 @@ of pods serving their apps (e.g. avoiding cold-start, control compute costs,
 etc).
 
 The following annotations can be used on `configuration.revisionTemplate` or
-`revision` (propagated to `kpa` objects) to do exactly that:
+`revision` (propagated to `PodAutoscaler` objects) to do exactly that:
 
 ```yaml
 # +optional
@@ -20,7 +20,7 @@ autoscaling.knative.dev/minScale: "2"
 autoscaling.knative.dev/maxScale: "10"
 ```
 
-You can also use these annotations directly on `kpa` objects.
+You can also use these annotations directly on `PodAutoscaler` objects.
 
 **NOTE**: These annotations apply for the full lifetime of a `revision`. Even
 when a `revision` is not referenced by any `route`, the minimal pod count

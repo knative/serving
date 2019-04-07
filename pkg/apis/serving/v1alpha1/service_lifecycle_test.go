@@ -20,8 +20,10 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/knative/pkg/apis"
 	"github.com/knative/pkg/apis/duck"
 	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
+	duckv1beta1 "github.com/knative/pkg/apis/duck/v1beta1"
 	authv1 "k8s.io/api/authentication/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -33,7 +35,7 @@ func TestServiceDuckTypes(t *testing.T) {
 		t    duck.Implementable
 	}{{
 		name: "conditions",
-		t:    &duckv1alpha1.Conditions{},
+		t:    &duckv1beta1.Conditions{},
 	}, {
 		name: "legacy targetable",
 		t:    &duckv1alpha1.LegacyTargetable{},
@@ -77,8 +79,8 @@ func TestServiceIsReady(t *testing.T) {
 	}, {
 		name: "Different condition type should not be ready",
 		status: ServiceStatus{
-			Status: duckv1alpha1.Status{
-				Conditions: duckv1alpha1.Conditions{{
+			Status: duckv1beta1.Status{
+				Conditions: duckv1beta1.Conditions{{
 					Type:   "Foo",
 					Status: corev1.ConditionTrue,
 				}},
@@ -88,8 +90,8 @@ func TestServiceIsReady(t *testing.T) {
 	}, {
 		name: "False condition status should not be ready",
 		status: ServiceStatus{
-			Status: duckv1alpha1.Status{
-				Conditions: duckv1alpha1.Conditions{{
+			Status: duckv1beta1.Status{
+				Conditions: duckv1beta1.Conditions{{
 					Type:   ServiceConditionReady,
 					Status: corev1.ConditionFalse,
 				}},
@@ -99,8 +101,8 @@ func TestServiceIsReady(t *testing.T) {
 	}, {
 		name: "Unknown condition status should not be ready",
 		status: ServiceStatus{
-			Status: duckv1alpha1.Status{
-				Conditions: duckv1alpha1.Conditions{{
+			Status: duckv1beta1.Status{
+				Conditions: duckv1beta1.Conditions{{
 					Type:   ServiceConditionReady,
 					Status: corev1.ConditionUnknown,
 				}},
@@ -110,8 +112,8 @@ func TestServiceIsReady(t *testing.T) {
 	}, {
 		name: "Missing condition status should not be ready",
 		status: ServiceStatus{
-			Status: duckv1alpha1.Status{
-				Conditions: duckv1alpha1.Conditions{{
+			Status: duckv1beta1.Status{
+				Conditions: duckv1beta1.Conditions{{
 					Type: ServiceConditionReady,
 				}},
 			},
@@ -120,8 +122,8 @@ func TestServiceIsReady(t *testing.T) {
 	}, {
 		name: "True condition status should be ready",
 		status: ServiceStatus{
-			Status: duckv1alpha1.Status{
-				Conditions: duckv1alpha1.Conditions{{
+			Status: duckv1beta1.Status{
+				Conditions: duckv1beta1.Conditions{{
 					Type:   ServiceConditionReady,
 					Status: corev1.ConditionTrue,
 				}},
@@ -131,8 +133,8 @@ func TestServiceIsReady(t *testing.T) {
 	}, {
 		name: "Multiple conditions with ready status should be ready",
 		status: ServiceStatus{
-			Status: duckv1alpha1.Status{
-				Conditions: duckv1alpha1.Conditions{{
+			Status: duckv1beta1.Status{
+				Conditions: duckv1beta1.Conditions{{
 					Type:   "Foo",
 					Status: corev1.ConditionTrue,
 				}, {
@@ -145,8 +147,8 @@ func TestServiceIsReady(t *testing.T) {
 	}, {
 		name: "Multiple conditions with ready status false should not be ready",
 		status: ServiceStatus{
-			Status: duckv1alpha1.Status{
-				Conditions: duckv1alpha1.Conditions{{
+			Status: duckv1beta1.Status{
+				Conditions: duckv1beta1.Conditions{{
 					Type:   "Foo",
 					Status: corev1.ConditionTrue,
 				}, {
@@ -186,8 +188,8 @@ func TestServiceHappyPath(t *testing.T) {
 
 	// Done from Configuration moves our ConfigurationsReady condition
 	svc.Status.PropagateConfigurationStatus(&ConfigurationStatus{
-		Status: duckv1alpha1.Status{
-			Conditions: duckv1alpha1.Conditions{{
+		Status: duckv1beta1.Status{
+			Conditions: duckv1beta1.Conditions{{
 				Type:   ConfigurationConditionReady,
 				Status: corev1.ConditionTrue,
 			}},
@@ -199,8 +201,8 @@ func TestServiceHappyPath(t *testing.T) {
 
 	// Done from Route moves our RoutesReady condition, which triggers us to be Ready.
 	svc.Status.PropagateRouteStatus(&RouteStatus{
-		Status: duckv1alpha1.Status{
-			Conditions: duckv1alpha1.Conditions{{
+		Status: duckv1beta1.Status{
+			Conditions: duckv1beta1.Conditions{{
 				Type:   RouteConditionReady,
 				Status: corev1.ConditionTrue,
 			}},
@@ -212,8 +214,8 @@ func TestServiceHappyPath(t *testing.T) {
 
 	// Check idempotency
 	svc.Status.PropagateRouteStatus(&RouteStatus{
-		Status: duckv1alpha1.Status{
-			Conditions: duckv1alpha1.Conditions{{
+		Status: duckv1beta1.Status{
+			Conditions: duckv1beta1.Conditions{{
 				Type:   RouteConditionReady,
 				Status: corev1.ConditionTrue,
 			}},
@@ -252,8 +254,8 @@ func TestFailureRecovery(t *testing.T) {
 
 	// Config failure causes us to become unready immediately (route still ok).
 	svc.Status.PropagateConfigurationStatus(&ConfigurationStatus{
-		Status: duckv1alpha1.Status{
-			Conditions: duckv1alpha1.Conditions{{
+		Status: duckv1beta1.Status{
+			Conditions: duckv1beta1.Conditions{{
 				Type:   ConfigurationConditionReady,
 				Status: corev1.ConditionFalse,
 			}},
@@ -265,8 +267,8 @@ func TestFailureRecovery(t *testing.T) {
 
 	// Route failure causes route to become failed (config and service still failed).
 	svc.Status.PropagateRouteStatus(&RouteStatus{
-		Status: duckv1alpha1.Status{
-			Conditions: duckv1alpha1.Conditions{{
+		Status: duckv1beta1.Status{
+			Conditions: duckv1beta1.Conditions{{
 				Type:   RouteConditionReady,
 				Status: corev1.ConditionFalse,
 			}},
@@ -278,8 +280,8 @@ func TestFailureRecovery(t *testing.T) {
 
 	// Fix Configuration moves our ConfigurationsReady condition (route and service still failed).
 	svc.Status.PropagateConfigurationStatus(&ConfigurationStatus{
-		Status: duckv1alpha1.Status{
-			Conditions: duckv1alpha1.Conditions{{
+		Status: duckv1beta1.Status{
+			Conditions: duckv1beta1.Conditions{{
 				Type:   ConfigurationConditionReady,
 				Status: corev1.ConditionTrue,
 			}},
@@ -291,8 +293,8 @@ func TestFailureRecovery(t *testing.T) {
 
 	// Fix route, should make everything ready.
 	svc.Status.PropagateRouteStatus(&RouteStatus{
-		Status: duckv1alpha1.Status{
-			Conditions: duckv1alpha1.Conditions{{
+		Status: duckv1beta1.Status{
+			Conditions: duckv1beta1.Conditions{{
 				Type:   RouteConditionReady,
 				Status: corev1.ConditionTrue,
 			}},
@@ -312,8 +314,8 @@ func TestConfigurationFailurePropagation(t *testing.T) {
 
 	// Failure causes us to become unready immediately
 	svc.Status.PropagateConfigurationStatus(&ConfigurationStatus{
-		Status: duckv1alpha1.Status{
-			Conditions: duckv1alpha1.Conditions{{
+		Status: duckv1beta1.Status{
+			Conditions: duckv1beta1.Conditions{{
 				Type:   ConfigurationConditionReady,
 				Status: corev1.ConditionFalse,
 			}},
@@ -333,8 +335,8 @@ func TestConfigurationFailureRecovery(t *testing.T) {
 
 	// Done from Route moves our RoutesReady condition
 	svc.Status.PropagateRouteStatus(&RouteStatus{
-		Status: duckv1alpha1.Status{
-			Conditions: duckv1alpha1.Conditions{{
+		Status: duckv1beta1.Status{
+			Conditions: duckv1beta1.Conditions{{
 				Type:   RouteConditionReady,
 				Status: corev1.ConditionTrue,
 			}},
@@ -346,8 +348,8 @@ func TestConfigurationFailureRecovery(t *testing.T) {
 
 	// Failure causes us to become unready immediately (route still ok).
 	svc.Status.PropagateConfigurationStatus(&ConfigurationStatus{
-		Status: duckv1alpha1.Status{
-			Conditions: duckv1alpha1.Conditions{{
+		Status: duckv1beta1.Status{
+			Conditions: duckv1beta1.Conditions{{
 				Type:   ConfigurationConditionReady,
 				Status: corev1.ConditionFalse,
 			}},
@@ -359,8 +361,8 @@ func TestConfigurationFailureRecovery(t *testing.T) {
 
 	// Fixed the glitch.
 	svc.Status.PropagateConfigurationStatus(&ConfigurationStatus{
-		Status: duckv1alpha1.Status{
-			Conditions: duckv1alpha1.Conditions{{
+		Status: duckv1beta1.Status{
+			Conditions: duckv1beta1.Conditions{{
 				Type:   ConfigurationConditionReady,
 				Status: corev1.ConditionTrue,
 			}},
@@ -380,16 +382,16 @@ func TestConfigurationUnknownPropagation(t *testing.T) {
 
 	// Configuration and Route become ready, making us ready.
 	svc.Status.PropagateConfigurationStatus(&ConfigurationStatus{
-		Status: duckv1alpha1.Status{
-			Conditions: duckv1alpha1.Conditions{{
+		Status: duckv1beta1.Status{
+			Conditions: duckv1beta1.Conditions{{
 				Type:   ConfigurationConditionReady,
 				Status: corev1.ConditionTrue,
 			}},
 		},
 	})
 	svc.Status.PropagateRouteStatus(&RouteStatus{
-		Status: duckv1alpha1.Status{
-			Conditions: duckv1alpha1.Conditions{{
+		Status: duckv1beta1.Status{
+			Conditions: duckv1beta1.Conditions{{
 				Type:   RouteConditionReady,
 				Status: corev1.ConditionTrue,
 			}},
@@ -401,8 +403,8 @@ func TestConfigurationUnknownPropagation(t *testing.T) {
 
 	// Configuration flipping back to Unknown causes us to become ongoing immediately
 	svc.Status.PropagateConfigurationStatus(&ConfigurationStatus{
-		Status: duckv1alpha1.Status{
-			Conditions: duckv1alpha1.Conditions{{
+		Status: duckv1beta1.Status{
+			Conditions: duckv1beta1.Conditions{{
 				Type:   ConfigurationConditionReady,
 				Status: corev1.ConditionUnknown,
 			}},
@@ -429,16 +431,16 @@ func TestSetManualStatus(t *testing.T) {
 
 	// Going back from manual will result in propagation to reoccur, and should make us ready
 	svc.Status.PropagateConfigurationStatus(&ConfigurationStatus{
-		Status: duckv1alpha1.Status{
-			Conditions: duckv1alpha1.Conditions{{
+		Status: duckv1beta1.Status{
+			Conditions: duckv1beta1.Conditions{{
 				Type:   ConfigurationConditionReady,
 				Status: corev1.ConditionTrue,
 			}},
 		},
 	})
 	svc.Status.PropagateRouteStatus(&RouteStatus{
-		Status: duckv1alpha1.Status{
-			Conditions: duckv1alpha1.Conditions{{
+		Status: duckv1beta1.Status{
+			Conditions: duckv1beta1.Conditions{{
 				Type:   RouteConditionReady,
 				Status: corev1.ConditionTrue,
 			}},
@@ -485,8 +487,8 @@ func TestRouteFailurePropagation(t *testing.T) {
 
 	// Failure causes us to become unready immediately
 	svc.Status.PropagateRouteStatus(&RouteStatus{
-		Status: duckv1alpha1.Status{
-			Conditions: duckv1alpha1.Conditions{{
+		Status: duckv1beta1.Status{
+			Conditions: duckv1beta1.Conditions{{
 				Type:   RouteConditionReady,
 				Status: corev1.ConditionFalse,
 			}},
@@ -506,8 +508,8 @@ func TestRouteFailureRecovery(t *testing.T) {
 
 	// Done from Configuration moves our ConfigurationsReady condition
 	svc.Status.PropagateConfigurationStatus(&ConfigurationStatus{
-		Status: duckv1alpha1.Status{
-			Conditions: duckv1alpha1.Conditions{{
+		Status: duckv1beta1.Status{
+			Conditions: duckv1beta1.Conditions{{
 				Type:   ConfigurationConditionReady,
 				Status: corev1.ConditionTrue,
 			}},
@@ -519,8 +521,8 @@ func TestRouteFailureRecovery(t *testing.T) {
 
 	// Failure causes us to become unready immediately (config still ok).
 	svc.Status.PropagateRouteStatus(&RouteStatus{
-		Status: duckv1alpha1.Status{
-			Conditions: duckv1alpha1.Conditions{{
+		Status: duckv1beta1.Status{
+			Conditions: duckv1beta1.Conditions{{
 				Type:   RouteConditionReady,
 				Status: corev1.ConditionFalse,
 			}},
@@ -532,8 +534,8 @@ func TestRouteFailureRecovery(t *testing.T) {
 
 	// Fixed the glitch.
 	svc.Status.PropagateRouteStatus(&RouteStatus{
-		Status: duckv1alpha1.Status{
-			Conditions: duckv1alpha1.Conditions{{
+		Status: duckv1beta1.Status{
+			Conditions: duckv1beta1.Conditions{{
 				Type:   RouteConditionReady,
 				Status: corev1.ConditionTrue,
 			}},
@@ -553,16 +555,16 @@ func TestRouteUnknownPropagation(t *testing.T) {
 
 	// Configuration and Route become ready, making us ready.
 	svc.Status.PropagateConfigurationStatus(&ConfigurationStatus{
-		Status: duckv1alpha1.Status{
-			Conditions: duckv1alpha1.Conditions{{
+		Status: duckv1beta1.Status{
+			Conditions: duckv1beta1.Conditions{{
 				Type:   ConfigurationConditionReady,
 				Status: corev1.ConditionTrue,
 			}},
 		},
 	})
 	svc.Status.PropagateRouteStatus(&RouteStatus{
-		Status: duckv1alpha1.Status{
-			Conditions: duckv1alpha1.Conditions{{
+		Status: duckv1beta1.Status{
+			Conditions: duckv1beta1.Conditions{{
 				Type:   RouteConditionReady,
 				Status: corev1.ConditionTrue,
 			}},
@@ -574,8 +576,8 @@ func TestRouteUnknownPropagation(t *testing.T) {
 
 	// Route flipping back to Unknown causes us to become ongoing immediately.
 	svc.Status.PropagateRouteStatus(&RouteStatus{
-		Status: duckv1alpha1.Status{
-			Conditions: duckv1alpha1.Conditions{{
+		Status: duckv1beta1.Status{
+			Conditions: duckv1beta1.Conditions{{
 				Type:   RouteConditionReady,
 				Status: corev1.ConditionUnknown,
 			}},
@@ -639,22 +641,22 @@ func TestRouteStatusPropagation(t *testing.T) {
 	}
 }
 
-func checkConditionSucceededService(rs ServiceStatus, rct duckv1alpha1.ConditionType, t *testing.T) *duckv1alpha1.Condition {
+func checkConditionSucceededService(rs ServiceStatus, rct apis.ConditionType, t *testing.T) *apis.Condition {
 	t.Helper()
 	return checkConditionService(rs, rct, corev1.ConditionTrue, t)
 }
 
-func checkConditionFailedService(rs ServiceStatus, rct duckv1alpha1.ConditionType, t *testing.T) *duckv1alpha1.Condition {
+func checkConditionFailedService(rs ServiceStatus, rct apis.ConditionType, t *testing.T) *apis.Condition {
 	t.Helper()
 	return checkConditionService(rs, rct, corev1.ConditionFalse, t)
 }
 
-func checkConditionOngoingService(rs ServiceStatus, rct duckv1alpha1.ConditionType, t *testing.T) *duckv1alpha1.Condition {
+func checkConditionOngoingService(rs ServiceStatus, rct apis.ConditionType, t *testing.T) *apis.Condition {
 	t.Helper()
 	return checkConditionService(rs, rct, corev1.ConditionUnknown, t)
 }
 
-func checkConditionService(rs ServiceStatus, rct duckv1alpha1.ConditionType, cs corev1.ConditionStatus, t *testing.T) *duckv1alpha1.Condition {
+func checkConditionService(rs ServiceStatus, rct apis.ConditionType, cs corev1.ConditionStatus, t *testing.T) *apis.Condition {
 	t.Helper()
 	r := rs.GetCondition(rct)
 	if r == nil {

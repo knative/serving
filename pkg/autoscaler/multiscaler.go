@@ -183,14 +183,14 @@ func (m *MultiScaler) Get(ctx context.Context, namespace, name string) (*Decider
 }
 
 // Create instantiates the desired Decider.
-func (m *MultiScaler) Create(ctx context.Context, metric *Decider) (*Decider, error) {
+func (m *MultiScaler) Create(ctx context.Context, decider *Decider) (*Decider, error) {
 	m.scalersMutex.Lock()
 	defer m.scalersMutex.Unlock()
-	key := NewMetricKey(metric.Namespace, metric.Name)
+	key := NewMetricKey(decider.Namespace, decider.Name)
 	scaler, exists := m.scalers[key]
 	if !exists {
 		var err error
-		scaler, err = m.createScaler(ctx, metric)
+		scaler, err = m.createScaler(ctx, decider)
 		if err != nil {
 			return nil, err
 		}
@@ -302,7 +302,7 @@ func (m *MultiScaler) createScaler(ctx context.Context, decider *Decider) (*scal
 
 	scraper, err := m.statsScraperFactory(decider)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create a stats scraper for metric %q: %v", decider.Name, err)
+		return nil, fmt.Errorf("failed to create a stats scraper for decider %q: %v", decider.Name, err)
 	}
 	scraperTicker := time.NewTicker(scrapeTickInterval)
 	go func() {

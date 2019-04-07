@@ -27,22 +27,20 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/tools/clientcmd"
 
-	"github.com/knative/serving/cmd/util"
-	"github.com/knative/serving/pkg/autoscaler"
-
-	"github.com/knative/pkg/logging/logkey"
-
 	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/controller"
+	"github.com/knative/pkg/logging/logkey"
 	"github.com/knative/pkg/signals"
 	"github.com/knative/pkg/system"
 	"github.com/knative/pkg/version"
 	"github.com/knative/pkg/websocket"
+	"github.com/knative/serving/cmd/util"
 	"github.com/knative/serving/pkg/activator"
 	activatorhandler "github.com/knative/serving/pkg/activator/handler"
 	activatorutil "github.com/knative/serving/pkg/activator/util"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/knative/serving/pkg/autoscaler"
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
 	servinginformers "github.com/knative/serving/pkg/client/informers/externalversions"
 	"github.com/knative/serving/pkg/goversion"
@@ -51,9 +49,9 @@ import (
 	"github.com/knative/serving/pkg/metrics"
 	"github.com/knative/serving/pkg/queue"
 	"github.com/knative/serving/pkg/reconciler"
+	"github.com/knative/serving/pkg/resources"
 	"github.com/knative/serving/pkg/utils"
 	"go.uber.org/zap"
-	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/wait"
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
@@ -200,15 +198,8 @@ func main() {
 
 	// Return the number of endpoints, 0 if no endpoints are found.
 	endpointsGetter := func(revID activator.RevisionID) (int32, error) {
-		endpoints, err := endpointInformer.Lister().Endpoints(revID.Namespace).Get(revID.Name)
-		if errors.IsNotFound(err) {
-			return 0, nil
-		}
-		if err != nil {
-			return 0, err
-		}
-		addresses := activator.EndpointsAddressCount(endpoints.Subsets)
-		return int32(addresses), nil
+		count, err := resources.FetchReadyAddressCount(endpointInformer.Lister(), revID.Namespace, revID.Name)
+		return int32(count), err
 	}
 
 	// Return the revision from the observer.

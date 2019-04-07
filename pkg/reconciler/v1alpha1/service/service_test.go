@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"testing"
 
-	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
+	duckv1beta1 "github.com/knative/pkg/apis/duck/v1beta1"
 	fakesharedclientset "github.com/knative/pkg/client/clientset/versioned/fake"
 	"github.com/knative/pkg/controller"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
@@ -1000,8 +1000,8 @@ func MutateRoute(rt *v1alpha1.Route) {
 
 func RouteReady(cfg *v1alpha1.Route) {
 	cfg.Status = v1alpha1.RouteStatus{
-		Status: duckv1alpha1.Status{
-			Conditions: []duckv1alpha1.Condition{{
+		Status: duckv1beta1.Status{
+			Conditions: duckv1beta1.Conditions{{
 				Type:   "Ready",
 				Status: "True",
 			}},
@@ -1012,8 +1012,8 @@ func RouteReady(cfg *v1alpha1.Route) {
 func RouteFailed(reason, message string) RouteOption {
 	return func(cfg *v1alpha1.Route) {
 		cfg.Status = v1alpha1.RouteStatus{
-			Status: duckv1alpha1.Status{
-				Conditions: []duckv1alpha1.Condition{{
+			Status: duckv1beta1.Status{
+				Conditions: duckv1beta1.Conditions{{
 					Type:    "Ready",
 					Status:  "False",
 					Reason:  reason,

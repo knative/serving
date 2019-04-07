@@ -16,7 +16,10 @@ limitations under the License.
 
 package networking
 
+import "time"
+
 const (
+	// GroupName is the name for the networking API group.
 	GroupName = "networking.internal.knative.dev"
 
 	// IngressClassAnnotationKey is the annotation for the
@@ -37,4 +40,17 @@ const (
 	// IngressLabelKey is the label key attached to underlying network programming
 	// resources to indicate which ClusterIngress triggered their creation.
 	IngressLabelKey = GroupName + "/clusteringress"
+
+	// SKSLabelKey is the label key that SKS Controller attaches to the
+	// underlying resources it controls.
+	SKSLabelKey = GroupName + "/serverlessservice"
+)
+
+// Pseudo-constants
+var (
+	// DefaultTimeout will be set if timeout not specified.
+	DefaultTimeout = 10 * time.Minute
+
+	// DefaultRetryCount will be set if Attempts not specified.
+	DefaultRetryCount = 3
 )

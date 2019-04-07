@@ -50,6 +50,7 @@ import (
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/clusteringress/config"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/clusteringress/resources"
 	. "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
+	presources "github.com/knative/serving/pkg/resources"
 )
 
 const (
@@ -85,10 +86,10 @@ var (
 					},
 					Percent: 100,
 				}},
-				Timeout: &metav1.Duration{Duration: v1alpha1.DefaultTimeout},
+				Timeout: &metav1.Duration{Duration: networking.DefaultTimeout},
 				Retries: &v1alpha1.HTTPRetry{
-					PerTryTimeout: &metav1.Duration{Duration: v1alpha1.DefaultTimeout},
-					Attempts:      v1alpha1.DefaultRetryCount,
+					PerTryTimeout: &metav1.Duration{Duration: networking.DefaultTimeout},
+					Attempts:      networking.DefaultRetryCount,
 				}},
 			},
 		},
@@ -449,13 +450,7 @@ func patchAddFinalizerAction(ingressName, finalizer string) clientgotesting.Patc
 }
 
 func addAnnotations(ing *v1alpha1.ClusterIngress, annos map[string]string) *v1alpha1.ClusterIngress {
-	if ing.ObjectMeta.Annotations == nil {
-		ing.ObjectMeta.Annotations = make(map[string]string)
-	}
-
-	for k, v := range annos {
-		ing.ObjectMeta.Annotations[k] = v
-	}
+	ing.ObjectMeta.Annotations = presources.UnionMaps(annos, ing.ObjectMeta.Annotations)
 	return ing
 }
 

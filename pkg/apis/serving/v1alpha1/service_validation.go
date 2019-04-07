@@ -22,12 +22,13 @@ import (
 	"strconv"
 
 	"github.com/knative/pkg/apis"
+	"github.com/knative/serving/pkg/apis/serving"
 	"k8s.io/apimachinery/pkg/util/validation"
 )
 
 // Validate validates the fields belonging to Service
 func (s *Service) Validate(ctx context.Context) *apis.FieldError {
-	return ValidateObjectMetadata(s.GetObjectMeta()).ViaField("metadata").
+	return serving.ValidateObjectMetadata(s.GetObjectMeta()).ViaField("metadata").
 		Also(s.Spec.Validate(ctx).ViaField("spec"))
 }
 

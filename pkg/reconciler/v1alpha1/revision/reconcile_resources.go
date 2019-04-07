@@ -129,23 +129,38 @@ func (c *Reconciler) reconcileKPA(ctx context.Context, rev *v1alpha1.Revision) e
 	kpaName := resourcenames.KPA(rev)
 	logger := logging.FromContext(ctx)
 
-	kpa, getKPAErr := c.podAutoscalerLister.PodAutoscalers(ns).Get(kpaName)
-	if apierrs.IsNotFound(getKPAErr) {
+	kpa, err := c.podAutoscalerLister.PodAutoscalers(ns).Get(kpaName)
+	if apierrs.IsNotFound(err) {
 		// KPA does not exist. Create it.
-		var err error
 		kpa, err = c.createKPA(ctx, rev)
 		if err != nil {
 			logger.Errorf("Error creating KPA %q: %v", kpaName, err)
 			return err
 		}
 		logger.Infof("Created kpa %q", kpaName)
-	} else if getKPAErr != nil {
-		logger.Errorf("Error reconciling kpa %q: %v", kpaName, getKPAErr)
-		return getKPAErr
+	} else if err != nil {
+		logger.Errorf("Error reconciling kpa %q: %v", kpaName, err)
+		return err
 	} else if !metav1.IsControlledBy(kpa, rev) {
 		// Surface an error in the revision's status, and return an error.
 		rev.Status.MarkResourceNotOwned("PodAutoscaler", kpaName)
 		return fmt.Errorf("Revision: %q does not own PodAutoscaler: %q", rev.Name, kpaName)
+	}
+
+	// Perhaps tha KPA spec changed underneath ourselves?
+	// TODO(vagababov): required for #1997. Should be removed in 0.7,
+	// to fix the protocol type when it's unset.
+	tmpl := resources.MakeKPA(rev)
+	if !equality.Semantic.DeepEqual(tmpl.Spec, kpa.Spec) {
+		want := kpa.DeepCopy()
+		want.Spec = tmpl.Spec
+		logger.Infof("KPA %s needs reconciliation", kpa.Name)
+		if _, err := c.ServingClientSet.AutoscalingV1alpha1().PodAutoscalers(kpa.Namespace).Update(want); err != nil {
+			return err
+		}
+		// This change will trigger KPA -> SKS -> K8s service change;
+		// and those after reconciliation will back progpagate here.
+		rev.Status.MarkDeploying("Updating")
 	}
 
 	// Reflect the KPA status in our own.

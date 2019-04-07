@@ -1,4 +1,4 @@
-399a400,405
+519a520,525
 >         # PATCH #2: Delay Envoy lameduck a bit, since Endpoint propagation may be slow.
 >         lifecycle:
 >           preStop:

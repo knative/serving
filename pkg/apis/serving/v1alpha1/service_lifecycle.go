@@ -25,11 +25,10 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"github.com/knative/pkg/apis"
-	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 	authv1 "k8s.io/api/authentication/v1"
 )
 
-var serviceCondSet = duckv1alpha1.NewLivingConditionSet(
+var serviceCondSet = apis.NewLivingConditionSet(
 	ServiceConditionConfigurationsReady,
 	ServiceConditionRoutesReady,
 )
@@ -45,7 +44,7 @@ func (ss *ServiceStatus) IsReady() bool {
 }
 
 // GetCondition returns the condition by name.
-func (ss *ServiceStatus) GetCondition(t duckv1alpha1.ConditionType) *duckv1alpha1.Condition {
+func (ss *ServiceStatus) GetCondition(t apis.ConditionType) *apis.Condition {
 	return serviceCondSet.Manage(ss).GetCondition(t)
 }
 

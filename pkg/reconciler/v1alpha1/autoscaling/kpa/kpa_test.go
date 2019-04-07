@@ -40,8 +40,8 @@ import (
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/autoscaling/kpa/resources/names"
 	revisionresources "github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources"
 	. "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
+	perrors "github.com/pkg/errors"
 	"go.uber.org/atomic"
-	"golang.org/x/sync/errgroup"
 	autoscalingv1 "k8s.io/api/autoscaling/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -89,6 +89,8 @@ func newDynamicConfig(t *testing.T) *autoscaler.DynamicConfig {
 // TODO(#3591): Convert KPA tests to table tests.
 
 func TestMetricsSvcIsReconciled(t *testing.T) {
+	defer ClearAllLoggers()
+
 	rev := newTestRevision(testNamespace, testRevision)
 	ep := addEndpoint(makeEndpoints(rev))
 	kpa := revisionresources.MakeKPA(rev)
@@ -231,10 +233,6 @@ func TestMetricsSvcIsReconciled(t *testing.T) {
 			kubeClient := fakeK8s.NewSimpleClientset()
 			servingClient := fakeKna.NewSimpleClientset()
 
-			stopCh := make(chan struct{}) // Autoclosed in testMetrics.
-			createdCh := make(chan struct{}, 1)
-			defer close(createdCh)
-
 			opts := reconciler.Options{
 				KubeClientSet:    kubeClient,
 				ServingClientSet: servingClient,
@@ -255,12 +253,14 @@ func TestMetricsSvcIsReconciled(t *testing.T) {
 
 			// This makes controller reconcile synchronously.
 			dynConf := newDynamicConfig(t)
-			fakeMetrics := newTestDeciders(createdCh, stopCh)
-			fakeMetrics.Create(context.Background(), resources.MakeDecider(context.Background(), kpa, dynConf.Current()))
+			fakeDeciders := newTestDeciders()
+			fakeDeciders.Create(context.Background(), resources.MakeDecider(context.Background(), kpa, dynConf.Current()))
+			fakeMetrics := newTestMetrics()
 			ctl := NewController(&opts,
 				servingInformer.Autoscaling().V1alpha1().PodAutoscalers(),
 				kubeInformer.Core().V1().Services(),
 				kubeInformer.Core().V1().Endpoints(),
+				fakeDeciders,
 				fakeMetrics,
 				kpaScaler,
 				dynConf,
@@ -336,12 +336,10 @@ func scaleA(ga clientgotesting.GetAction, opts ...scaleOpt) *autoscalingv1.Scale
 	return s
 }
 func TestControllerSynchronizesCreatesAndDeletes(t *testing.T) {
+	defer ClearAllLoggers()
+
 	kubeClient := fakeK8s.NewSimpleClientset()
 	servingClient := fakeKna.NewSimpleClientset()
-
-	stopCh := make(chan struct{})
-	createdCh := make(chan struct{})
-	defer close(createdCh)
 
 	opts := reconciler.Options{
 		KubeClientSet:    kubeClient,
@@ -355,11 +353,13 @@ func TestControllerSynchronizesCreatesAndDeletes(t *testing.T) {
 	scaleClient := &scalefake.FakeScaleClient{}
 	scaler := NewScaler(servingClient, scaleClient, TestLogger(t), newConfigWatcher())
 
-	fakeMetrics := newTestDeciders(createdCh, stopCh)
+	fakeDeciders := newTestDeciders()
+	fakeMetrics := newTestMetrics()
 	ctl := NewController(&opts,
 		servingInformer.Autoscaling().V1alpha1().PodAutoscalers(),
 		kubeInformer.Core().V1().Services(),
 		kubeInformer.Core().V1().Endpoints(),
+		fakeDeciders,
 		fakeMetrics,
 		scaler,
 		newDynamicConfig(t),
@@ -381,24 +381,12 @@ func TestControllerSynchronizesCreatesAndDeletes(t *testing.T) {
 	kubeClient.CoreV1().Services(testNamespace).Create(msvc)
 	kubeInformer.Core().V1().Services().Informer().GetIndexer().Add(msvc)
 
-	reconcileGrp := errgroup.Group{}
-	reconcileGrp.Go(func() error {
-		return ctl.Reconciler.Reconcile(context.Background(), testNamespace+"/"+testRevision)
-	})
-
-	// Ensure revision creation has been seen before deleting it.
-	select {
-	case <-createdCh:
-	case <-time.After(3 * time.Second):
-		t.Fatal("Revision creation notification timed out")
-	}
-
 	// Wait for the Reconcile to complete.
-	if err := reconcileGrp.Wait(); err != nil {
+	if err := ctl.Reconciler.Reconcile(context.Background(), testNamespace+"/"+testRevision); err != nil {
 		t.Errorf("Reconcile() = %v", err)
 	}
 
-	if count := fakeMetrics.createCallCount.Load(); count != 1 {
+	if count := fakeDeciders.createCallCount.Load(); count != 1 {
 		t.Fatalf("Create called %d times instead of once", count)
 	}
 
@@ -410,22 +398,26 @@ func TestControllerSynchronizesCreatesAndDeletes(t *testing.T) {
 		t.Errorf("Reconcile() = %v", err)
 	}
 
+	if fakeDeciders.deleteCallCount.Load() == 0 {
+		t.Fatal("Decider was not deleted")
+	}
 	if fakeMetrics.deleteCallCount.Load() == 0 {
-		t.Fatal("Delete was not called")
+		t.Fatal("Metric was not deleted")
 	}
 
+	if fakeDeciders.deleteBeforeCreate.Load() {
+		t.Fatal("Deciders.Delete ran before OnPresent")
+	}
 	if fakeMetrics.deleteBeforeCreate.Load() {
-		t.Fatal("Delete ran before OnPresent")
+		t.Fatal("Deciders.Delete ran before OnPresent")
 	}
 }
 
 func TestUpdate(t *testing.T) {
+	defer ClearAllLoggers()
+
 	kubeClient := fakeK8s.NewSimpleClientset()
 	servingClient := fakeKna.NewSimpleClientset()
-
-	stopCh := make(chan struct{})
-	createdCh := make(chan struct{})
-	defer close(createdCh)
 
 	opts := reconciler.Options{
 		KubeClientSet:    kubeClient,
@@ -439,11 +431,13 @@ func TestUpdate(t *testing.T) {
 	scaleClient := &scalefake.FakeScaleClient{}
 	scaler := NewScaler(servingClient, scaleClient, TestLogger(t), newConfigWatcher())
 
-	fakeMetrics := newTestDeciders(createdCh, stopCh)
+	fakeDeciders := newTestDeciders()
+	fakeMetrics := newTestMetrics()
 	ctl := NewController(&opts,
 		servingInformer.Autoscaling().V1alpha1().PodAutoscalers(),
 		kubeInformer.Core().V1().Services(),
 		kubeInformer.Core().V1().Endpoints(),
+		fakeDeciders,
 		fakeMetrics,
 		scaler,
 		newDynamicConfig(t),
@@ -465,25 +459,16 @@ func TestUpdate(t *testing.T) {
 	kubeClient.CoreV1().Services(testNamespace).Create(msvc)
 	kubeInformer.Core().V1().Services().Informer().GetIndexer().Add(msvc)
 
-	reconcileGrp := errgroup.Group{}
-	reconcileGrp.Go(func() error {
-		return ctl.Reconciler.Reconcile(context.Background(), testNamespace+"/"+testRevision)
-	})
-
-	// Ensure revision creation has been seen before updating it.
-	select {
-	case <-createdCh:
-	case <-time.After(3 * time.Second):
-		t.Fatal("Revision creation notification timed out")
-	}
-
 	// Wait for the Reconcile to complete.
-	if err := reconcileGrp.Wait(); err != nil {
+	if err := ctl.Reconciler.Reconcile(context.Background(), testNamespace+"/"+testRevision); err != nil {
 		t.Errorf("Reconcile() = %v", err)
 	}
 
+	if count := fakeDeciders.createCallCount.Load(); count != 1 {
+		t.Fatalf("Deciders.Create called %d times instead of once", count)
+	}
 	if count := fakeMetrics.createCallCount.Load(); count != 1 {
-		t.Fatalf("Create called %d times instead of once", count)
+		t.Fatalf("Metrics.Create called %d times instead of once", count)
 	}
 
 	// Update the KPA container concurrency.
@@ -495,18 +480,16 @@ func TestUpdate(t *testing.T) {
 		t.Errorf("Reconcile() = %v", err)
 	}
 
-	if fakeMetrics.updateCallCount.Load() == 0 {
-		t.Fatal("Update was not called")
+	if fakeDeciders.updateCallCount.Load() == 0 {
+		t.Fatal("Deciders.Update was not called")
 	}
 }
 
 func TestNonKPAClass(t *testing.T) {
+	defer ClearAllLoggers()
+
 	kubeClient := fakeK8s.NewSimpleClientset()
 	servingClient := fakeKna.NewSimpleClientset()
-
-	stopCh := make(chan struct{})
-	createdCh := make(chan struct{})
-	defer close(createdCh)
 
 	opts := reconciler.Options{
 		KubeClientSet:    kubeClient,
@@ -520,11 +503,13 @@ func TestNonKPAClass(t *testing.T) {
 	scaleClient := &scalefake.FakeScaleClient{}
 	scaler := NewScaler(servingClient, scaleClient, TestLogger(t), newConfigWatcher())
 
-	fakeMetrics := newTestDeciders(createdCh, stopCh)
+	fakeDeciders := newTestDeciders()
+	fakeMetrics := newTestMetrics()
 	ctl := NewController(&opts,
 		servingInformer.Autoscaling().V1alpha1().PodAutoscalers(),
 		kubeInformer.Core().V1().Services(),
 		kubeInformer.Core().V1().Endpoints(),
+		fakeDeciders,
 		fakeMetrics,
 		scaler,
 		newDynamicConfig(t),
@@ -541,37 +526,25 @@ func TestNonKPAClass(t *testing.T) {
 	servingClient.AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
 	servingInformer.Autoscaling().V1alpha1().PodAutoscalers().Informer().GetIndexer().Add(kpa)
 
-	reconcileCh := make(chan error)
-	go func() {
-		defer close(reconcileCh)
-		if err := ctl.Reconciler.Reconcile(context.Background(), testNamespace+"/"+testRevision); err != nil {
-			reconcileCh <- err
-		}
-	}()
-
-	// Wait for reconcile to finish
-	select {
-	case err, ok := <-reconcileCh:
-		if ok && err != nil {
-			t.Errorf("Reconcile() = %v", err)
-		}
-	case <-time.After(3 * time.Second):
-		t.Fatal("Reconciliation timed out")
+	// Wait for the Reconcile to complete.
+	if err := ctl.Reconciler.Reconcile(context.Background(), testNamespace+"/"+testRevision); err != nil {
+		t.Errorf("Reconcile() = %v", err)
 	}
 
-	// Verify no Deciders were created
-	if fakeMetrics.createCallCount.Load() != 0 {
+	// Verify no Deciders or Metrics were created
+	if fakeDeciders.createCallCount.Load() != 0 {
 		t.Error("Unexpected Deciders created")
+	}
+	if fakeMetrics.createCallCount.Load() != 0 {
+		t.Error("Unexpected Metrics created")
 	}
 }
 
 func TestNoEndpoints(t *testing.T) {
+	defer ClearAllLoggers()
+
 	kubeClient := fakeK8s.NewSimpleClientset()
 	servingClient := fakeKna.NewSimpleClientset()
-
-	stopCh := make(chan struct{})
-	createdCh := make(chan struct{})
-	defer close(createdCh)
 
 	opts := reconciler.Options{
 		KubeClientSet:    kubeClient,
@@ -585,12 +558,12 @@ func TestNoEndpoints(t *testing.T) {
 	scaleClient := &scalefake.FakeScaleClient{}
 	scaler := NewScaler(servingClient, scaleClient, TestLogger(t), newConfigWatcher())
 
-	fakeMetrics := newTestDeciders(createdCh, stopCh)
 	ctl := NewController(&opts,
 		servingInformer.Autoscaling().V1alpha1().PodAutoscalers(),
 		kubeInformer.Core().V1().Services(),
 		kubeInformer.Core().V1().Endpoints(),
-		fakeMetrics,
+		newTestDeciders(),
+		newTestMetrics(),
 		scaler,
 		newDynamicConfig(t),
 	)
@@ -606,14 +579,8 @@ func TestNoEndpoints(t *testing.T) {
 	servingClient.AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
 	servingInformer.Autoscaling().V1alpha1().PodAutoscalers().Informer().GetIndexer().Add(kpa)
 
-	reconcileGrp := errgroup.Group{}
-	reconcileGrp.Go(func() error {
-		return ctl.Reconciler.Reconcile(context.Background(), testNamespace+"/"+testRevision)
-	})
-
 	// Wait for the Reconcile to complete.
-	<-createdCh
-	if err := reconcileGrp.Wait(); err != nil {
+	if err := ctl.Reconciler.Reconcile(context.Background(), testNamespace+"/"+testRevision); err != nil {
 		t.Errorf("Reconcile() = %v", err)
 	}
 
@@ -628,12 +595,10 @@ func TestNoEndpoints(t *testing.T) {
 }
 
 func TestEmptyEndpoints(t *testing.T) {
+	defer ClearAllLoggers()
+
 	kubeClient := fakeK8s.NewSimpleClientset()
 	servingClient := fakeKna.NewSimpleClientset()
-
-	stopCh := make(chan struct{})
-	createdCh := make(chan struct{})
-	defer close(createdCh)
 
 	opts := reconciler.Options{
 		KubeClientSet:    kubeClient,
@@ -647,12 +612,12 @@ func TestEmptyEndpoints(t *testing.T) {
 	scaleClient := &scalefake.FakeScaleClient{}
 	scaler := NewScaler(servingClient, scaleClient, TestLogger(t), newConfigWatcher())
 
-	fakeMetrics := newTestDeciders(createdCh, stopCh)
 	ctl := NewController(&opts,
 		servingInformer.Autoscaling().V1alpha1().PodAutoscalers(),
 		kubeInformer.Core().V1().Services(),
 		kubeInformer.Core().V1().Endpoints(),
-		fakeMetrics,
+		newTestDeciders(),
+		newTestMetrics(),
 		scaler,
 		newDynamicConfig(t),
 	)
@@ -668,14 +633,8 @@ func TestEmptyEndpoints(t *testing.T) {
 	servingClient.AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
 	servingInformer.Autoscaling().V1alpha1().PodAutoscalers().Informer().GetIndexer().Add(kpa)
 
-	reconcileGrp := errgroup.Group{}
-	reconcileGrp.Go(func() error {
-		return ctl.Reconciler.Reconcile(context.Background(), testNamespace+"/"+testRevision)
-	})
-
 	// Wait for the Reconcile to complete.
-	<-createdCh
-	if err := reconcileGrp.Wait(); err != nil {
+	if err := ctl.Reconciler.Reconcile(context.Background(), testNamespace+"/"+testRevision); err != nil {
 		t.Errorf("Reconcile() = %v", err)
 	}
 
@@ -690,6 +649,8 @@ func TestEmptyEndpoints(t *testing.T) {
 }
 
 func TestControllerCreateError(t *testing.T) {
+	defer ClearAllLoggers()
+
 	kubeClient := fakeK8s.NewSimpleClientset()
 	servingClient := fakeKna.NewSimpleClientset()
 
@@ -712,9 +673,10 @@ func TestControllerCreateError(t *testing.T) {
 		kubeInformer.Core().V1().Services(),
 		kubeInformer.Core().V1().Endpoints(),
 		&failingDeciders{
-			getErr:    apierrors.NewNotFound(kpa.Resource("Metrics"), key),
+			getErr:    apierrors.NewNotFound(kpa.Resource("Deciders"), key),
 			createErr: want,
 		},
+		newTestMetrics(),
 		scaler,
 		newDynamicConfig(t),
 	)
@@ -723,13 +685,15 @@ func TestControllerCreateError(t *testing.T) {
 	servingClient.AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
 	servingInformer.Autoscaling().V1alpha1().PodAutoscalers().Informer().GetIndexer().Add(kpa)
 
-	got := ctl.Reconciler.Reconcile(context.Background(), key)
+	got := perrors.Cause(ctl.Reconciler.Reconcile(context.Background(), key))
 	if got != want {
 		t.Errorf("Reconcile() = %v, wanted %v", got, want)
 	}
 }
 
 func TestControllerUpdateError(t *testing.T) {
+	defer ClearAllLoggers()
+
 	kubeClient := fakeK8s.NewSimpleClientset()
 	servingClient := fakeKna.NewSimpleClientset()
 
@@ -752,9 +716,10 @@ func TestControllerUpdateError(t *testing.T) {
 		kubeInformer.Core().V1().Services(),
 		kubeInformer.Core().V1().Endpoints(),
 		&failingDeciders{
-			getErr:    apierrors.NewNotFound(kpa.Resource("Metrics"), key),
+			getErr:    apierrors.NewNotFound(kpa.Resource("Deciders"), key),
 			createErr: want,
 		},
+		newTestMetrics(),
 		scaler,
 		newDynamicConfig(t),
 	)
@@ -763,13 +728,15 @@ func TestControllerUpdateError(t *testing.T) {
 	servingClient.AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
 	servingInformer.Autoscaling().V1alpha1().PodAutoscalers().Informer().GetIndexer().Add(kpa)
 
-	got := ctl.Reconciler.Reconcile(context.Background(), key)
+	got := perrors.Cause(ctl.Reconciler.Reconcile(context.Background(), key))
 	if got != want {
 		t.Errorf("Reconcile() = %v, wanted %v", got, want)
 	}
 }
 
 func TestControllerGetError(t *testing.T) {
+	defer ClearAllLoggers()
+
 	kubeClient := fakeK8s.NewSimpleClientset()
 	servingClient := fakeKna.NewSimpleClientset()
 
@@ -794,6 +761,7 @@ func TestControllerGetError(t *testing.T) {
 		&failingDeciders{
 			getErr: want,
 		},
+		newTestMetrics(),
 		scaler,
 		newDynamicConfig(t),
 	)
@@ -802,19 +770,17 @@ func TestControllerGetError(t *testing.T) {
 	servingClient.AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
 	servingInformer.Autoscaling().V1alpha1().PodAutoscalers().Informer().GetIndexer().Add(kpa)
 
-	got := ctl.Reconciler.Reconcile(context.Background(), key)
+	got := perrors.Cause(ctl.Reconciler.Reconcile(context.Background(), key))
 	if got != want {
 		t.Errorf("Reconcile() = %v, wanted %v", got, want)
 	}
 }
 
 func TestScaleFailure(t *testing.T) {
+	defer ClearAllLoggers()
+
 	kubeClient := fakeK8s.NewSimpleClientset()
 	servingClient := fakeKna.NewSimpleClientset()
-
-	stopCh := make(chan struct{})
-	createdCh := make(chan struct{})
-	defer close(createdCh)
 
 	opts := reconciler.Options{
 		KubeClientSet:    kubeClient,
@@ -828,12 +794,12 @@ func TestScaleFailure(t *testing.T) {
 	scaleClient := &scalefake.FakeScaleClient{}
 	scaler := NewScaler(servingClient, scaleClient, TestLogger(t), newConfigWatcher())
 
-	fakeMetrics := newTestDeciders(createdCh, stopCh)
 	ctl := NewController(&opts,
 		servingInformer.Autoscaling().V1alpha1().PodAutoscalers(),
 		kubeInformer.Core().V1().Services(),
 		kubeInformer.Core().V1().Endpoints(),
-		fakeMetrics,
+		newTestDeciders(),
+		newTestMetrics(),
 		scaler,
 		newDynamicConfig(t),
 	)
@@ -843,24 +809,14 @@ func TestScaleFailure(t *testing.T) {
 	kpa := revisionresources.MakeKPA(rev)
 	servingInformer.Autoscaling().V1alpha1().PodAutoscalers().Informer().GetIndexer().Add(kpa)
 
-	reconcileGrp := errgroup.Group{}
-	reconcileGrp.Go(func() error {
-		return ctl.Reconciler.Reconcile(context.Background(), testNamespace+"/"+testRevision)
-	})
-
-	// Ensure revision creation has been seen before deleting it.
-	select {
-	case <-createdCh:
-	case <-time.After(3 * time.Second):
-		t.Fatal("Revision creation notification timed out")
-	}
-
-	if err := reconcileGrp.Wait(); err == nil {
+	if err := ctl.Reconciler.Reconcile(context.Background(), testNamespace+"/"+testRevision); err == nil {
 		t.Error("Reconcile() = nil, wanted error")
 	}
 }
 
 func TestBadKey(t *testing.T) {
+	defer ClearAllLoggers()
+
 	kubeClient := fakeK8s.NewSimpleClientset()
 	servingClient := fakeKna.NewSimpleClientset()
 
@@ -879,7 +835,8 @@ func TestBadKey(t *testing.T) {
 		servingInformer.Autoscaling().V1alpha1().PodAutoscalers(),
 		kubeInformer.Core().V1().Services(),
 		kubeInformer.Core().V1().Endpoints(),
-		&failingDeciders{},
+		newTestDeciders(),
+		newTestMetrics(),
 		scaler,
 		newDynamicConfig(t),
 	)
@@ -890,14 +847,12 @@ func TestBadKey(t *testing.T) {
 	}
 }
 
-func newTestDeciders(createdCh chan struct{}, stopCh chan struct{}) *testDeciders {
+func newTestDeciders() *testDeciders {
 	return &testDeciders{
 		createCallCount:    atomic.NewUint32(0),
 		deleteCallCount:    atomic.NewUint32(0),
 		updateCallCount:    atomic.NewUint32(0),
 		deleteBeforeCreate: atomic.NewBool(false),
-		createdCh:          createdCh,
-		stopCh:             stopCh,
 	}
 }
 
@@ -906,14 +861,12 @@ type testDeciders struct {
 	deleteCallCount    *atomic.Uint32
 	updateCallCount    *atomic.Uint32
 	deleteBeforeCreate *atomic.Bool
-	createdCh          chan struct{}
-	stopCh             chan struct{}
 	decider            *autoscaler.Decider
 }
 
 func (km *testDeciders) Get(ctx context.Context, namespace, name string) (*autoscaler.Decider, error) {
 	if km.decider == nil {
-		return nil, apierrors.NewNotFound(kpa.Resource("Metrics"), autoscaler.NewMetricKey(namespace, name))
+		return nil, apierrors.NewNotFound(kpa.Resource("Deciders"), autoscaler.NewMetricKey(namespace, name))
 	}
 	return km.decider, nil
 }
@@ -921,19 +874,13 @@ func (km *testDeciders) Get(ctx context.Context, namespace, name string) (*autos
 func (km *testDeciders) Create(ctx context.Context, desider *autoscaler.Decider) (*autoscaler.Decider, error) {
 	km.decider = desider
 	km.createCallCount.Add(1)
-	km.createdCh <- struct{}{}
 	return desider, nil
 }
 
 func (km *testDeciders) Delete(ctx context.Context, namespace, name string) error {
 	km.decider = nil
 	km.deleteCallCount.Add(1)
-	if km.createCallCount.Load() > 0 {
-		// OnAbsent may be called more than once
-		if km.deleteCallCount.Load() == 1 {
-			close(km.stopCh)
-		}
-	} else {
+	if km.createCallCount.Load() == 0 {
 		km.deleteBeforeCreate.Store(true)
 	}
 	return nil
@@ -958,7 +905,7 @@ func (km *failingDeciders) Get(ctx context.Context, namespace, name string) (*au
 	return nil, km.getErr
 }
 
-func (km *failingDeciders) Create(ctx context.Context, metric *autoscaler.Decider) (*autoscaler.Decider, error) {
+func (km *failingDeciders) Create(ctx context.Context, decider *autoscaler.Decider) (*autoscaler.Decider, error) {
 	return nil, km.createErr
 }
 
@@ -969,7 +916,52 @@ func (km *failingDeciders) Delete(ctx context.Context, namespace, name string) e
 func (km *failingDeciders) Watch(fn func(string)) {
 }
 
-func (km *failingDeciders) Update(ctx context.Context, metric *autoscaler.Decider) (*autoscaler.Decider, error) {
+func (km *failingDeciders) Update(ctx context.Context, decider *autoscaler.Decider) (*autoscaler.Decider, error) {
+	return decider, nil
+}
+
+func newTestMetrics() *testMetrics {
+	return &testMetrics{
+		createCallCount:    atomic.NewUint32(0),
+		deleteCallCount:    atomic.NewUint32(0),
+		updateCallCount:    atomic.NewUint32(0),
+		deleteBeforeCreate: atomic.NewBool(false),
+	}
+}
+
+type testMetrics struct {
+	createCallCount    *atomic.Uint32
+	deleteCallCount    *atomic.Uint32
+	updateCallCount    *atomic.Uint32
+	deleteBeforeCreate *atomic.Bool
+	metric             *autoscaler.Metric
+}
+
+func (km *testMetrics) Get(ctx context.Context, namespace, name string) (*autoscaler.Metric, error) {
+	if km.metric == nil {
+		return nil, apierrors.NewNotFound(kpa.Resource("Metric"), autoscaler.NewMetricKey(namespace, name))
+	}
+	return km.metric, nil
+}
+
+func (km *testMetrics) Create(ctx context.Context, metric *autoscaler.Metric) (*autoscaler.Metric, error) {
+	km.metric = metric
+	km.createCallCount.Add(1)
+	return metric, nil
+}
+
+func (km *testMetrics) Delete(ctx context.Context, namespace, name string) error {
+	km.metric = nil
+	km.deleteCallCount.Add(1)
+	if km.createCallCount.Load() == 0 {
+		km.deleteBeforeCreate.Store(true)
+	}
+	return nil
+}
+
+func (km *testMetrics) Update(ctx context.Context, metric *autoscaler.Metric) (*autoscaler.Metric, error) {
+	km.metric = metric
+	km.updateCallCount.Add(1)
 	return metric, nil
 }
 

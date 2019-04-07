@@ -19,8 +19,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/knative/pkg/apis"
 	"github.com/knative/pkg/apis/duck"
-	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
+	duckv1beta1 "github.com/knative/pkg/apis/duck/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
@@ -31,7 +32,7 @@ func TestConfigurationDuckTypes(t *testing.T) {
 		t    duck.Implementable
 	}{{
 		name: "conditions",
-		t:    &duckv1alpha1.Conditions{},
+		t:    &duckv1beta1.Conditions{},
 	}}
 
 	for _, test := range tests {
@@ -56,8 +57,8 @@ func TestConfigurationIsReady(t *testing.T) {
 	}, {
 		name: "Different condition type should not be ready",
 		status: ConfigurationStatus{
-			Status: duckv1alpha1.Status{
-				Conditions: duckv1alpha1.Conditions{{
+			Status: duckv1beta1.Status{
+				Conditions: duckv1beta1.Conditions{{
 					Type:   "Foo",
 					Status: corev1.ConditionTrue,
 				}},
@@ -67,8 +68,8 @@ func TestConfigurationIsReady(t *testing.T) {
 	}, {
 		name: "False condition status should not be ready",
 		status: ConfigurationStatus{
-			Status: duckv1alpha1.Status{
-				Conditions: duckv1alpha1.Conditions{{
+			Status: duckv1beta1.Status{
+				Conditions: duckv1beta1.Conditions{{
 					Type:   ConfigurationConditionReady,
 					Status: corev1.ConditionFalse,
 				}},
@@ -78,8 +79,8 @@ func TestConfigurationIsReady(t *testing.T) {
 	}, {
 		name: "Unknown condition status should not be ready",
 		status: ConfigurationStatus{
-			Status: duckv1alpha1.Status{
-				Conditions: duckv1alpha1.Conditions{{
+			Status: duckv1beta1.Status{
+				Conditions: duckv1beta1.Conditions{{
 					Type:   ConfigurationConditionReady,
 					Status: corev1.ConditionUnknown,
 				}},
@@ -89,8 +90,8 @@ func TestConfigurationIsReady(t *testing.T) {
 	}, {
 		name: "Missing condition status should not be ready",
 		status: ConfigurationStatus{
-			Status: duckv1alpha1.Status{
-				Conditions: duckv1alpha1.Conditions{{
+			Status: duckv1beta1.Status{
+				Conditions: duckv1beta1.Conditions{{
 					Type: ConfigurationConditionReady,
 				}},
 			},
@@ -99,8 +100,8 @@ func TestConfigurationIsReady(t *testing.T) {
 	}, {
 		name: "True condition status should be ready",
 		status: ConfigurationStatus{
-			Status: duckv1alpha1.Status{
-				Conditions: duckv1alpha1.Conditions{{
+			Status: duckv1beta1.Status{
+				Conditions: duckv1beta1.Conditions{{
 					Type:   ConfigurationConditionReady,
 					Status: corev1.ConditionTrue,
 				}},
@@ -110,8 +111,8 @@ func TestConfigurationIsReady(t *testing.T) {
 	}, {
 		name: "Multiple conditions with ready status should be ready",
 		status: ConfigurationStatus{
-			Status: duckv1alpha1.Status{
-				Conditions: duckv1alpha1.Conditions{{
+			Status: duckv1beta1.Status{
+				Conditions: duckv1beta1.Conditions{{
 					Type:   "Foo",
 					Status: corev1.ConditionTrue,
 				}, {
@@ -124,8 +125,8 @@ func TestConfigurationIsReady(t *testing.T) {
 	}, {
 		name: "Multiple conditions with ready status false should not be ready",
 		status: ConfigurationStatus{
-			Status: duckv1alpha1.Status{
-				Conditions: duckv1alpha1.Conditions{{
+			Status: duckv1beta1.Status{
+				Conditions: duckv1beta1.Conditions{{
 					Type:   "Foo",
 					Status: corev1.ConditionTrue,
 				}, {
@@ -138,9 +139,11 @@ func TestConfigurationIsReady(t *testing.T) {
 	}}
 
 	for _, tc := range cases {
-		if e, a := tc.isReady, tc.status.IsReady(); e != a {
-			t.Errorf("%q expected: %v got: %v", tc.name, e, a)
-		}
+		t.Run(tc.name, func(t *testing.T) {
+			if e, a := tc.isReady, tc.status.IsReady(); e != a {
+				t.Errorf("%q expected: %v got: %v", tc.name, e, a)
+			}
+		})
 	}
 }
 
@@ -152,8 +155,8 @@ func TestLatestReadyRevisionNameUpToDate(t *testing.T) {
 	}{{
 		name: "Not ready status should not be up-to-date",
 		status: ConfigurationStatus{
-			Status: duckv1alpha1.Status{
-				Conditions: duckv1alpha1.Conditions{{
+			Status: duckv1beta1.Status{
+				Conditions: duckv1beta1.Conditions{{
 					Type:   ConfigurationConditionReady,
 					Status: corev1.ConditionFalse,
 				}},
@@ -163,8 +166,8 @@ func TestLatestReadyRevisionNameUpToDate(t *testing.T) {
 	}, {
 		name: "Missing LatestReadyRevisionName should not be up-to-date",
 		status: ConfigurationStatus{
-			Status: duckv1alpha1.Status{
-				Conditions: duckv1alpha1.Conditions{{
+			Status: duckv1beta1.Status{
+				Conditions: duckv1beta1.Conditions{{
 					Type:   ConfigurationConditionReady,
 					Status: corev1.ConditionTrue,
 				}},
@@ -177,8 +180,8 @@ func TestLatestReadyRevisionNameUpToDate(t *testing.T) {
 	}, {
 		name: "Different revision names should not be up-to-date",
 		status: ConfigurationStatus{
-			Status: duckv1alpha1.Status{
-				Conditions: duckv1alpha1.Conditions{{
+			Status: duckv1beta1.Status{
+				Conditions: duckv1beta1.Conditions{{
 					Type:   ConfigurationConditionReady,
 					Status: corev1.ConditionTrue,
 				}},
@@ -192,8 +195,8 @@ func TestLatestReadyRevisionNameUpToDate(t *testing.T) {
 	}, {
 		name: "Same revision names and ready status should be up-to-date",
 		status: ConfigurationStatus{
-			Status: duckv1alpha1.Status{
-				Conditions: duckv1alpha1.Conditions{{
+			Status: duckv1beta1.Status{
+				Conditions: duckv1beta1.Conditions{{
 					Type:   ConfigurationConditionReady,
 					Status: corev1.ConditionTrue,
 				}},
@@ -315,22 +318,22 @@ func TestLatestRevisionDeletedThenFixed(t *testing.T) {
 	checkConditionSucceededConfiguration(r.Status, ConfigurationConditionReady, t)
 }
 
-func checkConditionSucceededConfiguration(rs ConfigurationStatus, rct duckv1alpha1.ConditionType, t *testing.T) *duckv1alpha1.Condition {
+func checkConditionSucceededConfiguration(rs ConfigurationStatus, rct apis.ConditionType, t *testing.T) *apis.Condition {
 	t.Helper()
 	return checkConditionConfiguration(rs, rct, corev1.ConditionTrue, t)
 }
 
-func checkConditionFailedConfiguration(rs ConfigurationStatus, rct duckv1alpha1.ConditionType, t *testing.T) *duckv1alpha1.Condition {
+func checkConditionFailedConfiguration(rs ConfigurationStatus, rct apis.ConditionType, t *testing.T) *apis.Condition {
 	t.Helper()
 	return checkConditionConfiguration(rs, rct, corev1.ConditionFalse, t)
 }
 
-func checkConditionOngoingConfiguration(rs ConfigurationStatus, rct duckv1alpha1.ConditionType, t *testing.T) *duckv1alpha1.Condition {
+func checkConditionOngoingConfiguration(rs ConfigurationStatus, rct apis.ConditionType, t *testing.T) *apis.Condition {
 	t.Helper()
 	return checkConditionConfiguration(rs, rct, corev1.ConditionUnknown, t)
 }
 
-func checkConditionConfiguration(rs ConfigurationStatus, rct duckv1alpha1.ConditionType, cs corev1.ConditionStatus, t *testing.T) *duckv1alpha1.Condition {
+func checkConditionConfiguration(rs ConfigurationStatus, rct apis.ConditionType, cs corev1.ConditionStatus, t *testing.T) *apis.Condition {
 	t.Helper()
 	r := rs.GetCondition(rct)
 	if r == nil {
