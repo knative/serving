@@ -297,28 +297,34 @@ func TestConfigurationValidation(t *testing.T) {
 func TestImmutableConfigurationFields(t *testing.T) {
 	tests := []struct {
 		name string
-		new  apis.Immutable
-		old  apis.Immutable
+		new  *Configuration
+		old  *Configuration
 		want *apis.FieldError
 	}{{
 		name: "without byo-name",
 		new: &Configuration{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "no-byo-name",
+			},
 			Spec: ConfigurationSpec{
 				RevisionTemplate: RevisionTemplateSpec{
 					Spec: RevisionSpec{
 						Container: corev1.Container{
-							Image: "helloworld:first",
+							Image: "helloworld:foo",
 						},
 					},
 				},
 			},
 		},
 		old: &Configuration{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "no-byo-name",
+			},
 			Spec: ConfigurationSpec{
 				RevisionTemplate: RevisionTemplateSpec{
 					Spec: RevisionSpec{
 						Container: corev1.Container{
-							Image: "helloworld:second",
+							Image: "helloworld:bar",
 						},
 					},
 				},
@@ -328,28 +334,34 @@ func TestImmutableConfigurationFields(t *testing.T) {
 	}, {
 		name: "good byo name change",
 		new: &Configuration{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "byo-name",
+			},
 			Spec: ConfigurationSpec{
 				RevisionTemplate: RevisionTemplateSpec{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: "first",
+						Name: "byo-name-foo",
 					},
 					Spec: RevisionSpec{
 						Container: corev1.Container{
-							Image: "helloworld:first",
+							Image: "helloworld:foo",
 						},
 					},
 				},
 			},
 		},
 		old: &Configuration{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "byo-name",
+			},
 			Spec: ConfigurationSpec{
 				RevisionTemplate: RevisionTemplateSpec{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: "second",
+						Name: "byo-name-bar",
 					},
 					Spec: RevisionSpec{
 						Container: corev1.Container{
-							Image: "helloworld:second",
+							Image: "helloworld:bar",
 						},
 					},
 				},
@@ -359,28 +371,34 @@ func TestImmutableConfigurationFields(t *testing.T) {
 	}, {
 		name: "good byo name (no change)",
 		new: &Configuration{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "byo-name",
+			},
 			Spec: ConfigurationSpec{
 				RevisionTemplate: RevisionTemplateSpec{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: "first",
+						Name: "byo-name-foo",
 					},
 					Spec: RevisionSpec{
 						Container: corev1.Container{
-							Image: "helloworld:first",
+							Image: "helloworld:foo",
 						},
 					},
 				},
 			},
 		},
 		old: &Configuration{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "byo-name",
+			},
 			Spec: ConfigurationSpec{
 				RevisionTemplate: RevisionTemplateSpec{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: "first",
+						Name: "byo-name-foo",
 					},
 					Spec: RevisionSpec{
 						Container: corev1.Container{
-							Image: "helloworld:first",
+							Image: "helloworld:foo",
 						},
 					},
 				},
@@ -390,28 +408,34 @@ func TestImmutableConfigurationFields(t *testing.T) {
 	}, {
 		name: "bad byo name change",
 		new: &Configuration{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "byo-name",
+			},
 			Spec: ConfigurationSpec{
 				RevisionTemplate: RevisionTemplateSpec{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: "first",
+						Name: "byo-name-foo",
 					},
 					Spec: RevisionSpec{
 						Container: corev1.Container{
-							Image: "helloworld:first",
+							Image: "helloworld:foo",
 						},
 					},
 				},
 			},
 		},
 		old: &Configuration{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "byo-name",
+			},
 			Spec: ConfigurationSpec{
 				RevisionTemplate: RevisionTemplateSpec{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: "first",
+						Name: "byo-name-foo",
 					},
 					Spec: RevisionSpec{
 						Container: corev1.Container{
-							Image: "helloworld:second",
+							Image: "helloworld:bar",
 						},
 					},
 				},
@@ -420,13 +444,15 @@ func TestImmutableConfigurationFields(t *testing.T) {
 		want: &apis.FieldError{
 			Message: "Saw the following changes without a name change (-old +new)",
 			Paths:   []string{"spec.revisionTemplate"},
-			Details: "{*v1alpha1.RevisionTemplateSpec}.Spec.Container.Image:\n\t-: \"helloworld:first\"\n\t+: \"helloworld:second\"\n",
+			Details: "{*v1alpha1.RevisionTemplateSpec}.Spec.Container.Image:\n\t-: \"helloworld:foo\"\n\t+: \"helloworld:bar\"\n",
 		},
 	}}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got := test.new.CheckImmutableFields(context.Background(), test.old)
+			ctx := context.Background()
+			ctx = apis.WithinUpdate(ctx, test.old)
+			got := test.new.Validate(ctx)
 			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
 				t.Errorf("Validate (-want, +got) = %v", diff)
 			}

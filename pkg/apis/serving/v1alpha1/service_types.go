@@ -54,8 +54,6 @@ var (
 	// Check that Service may be validated and defaulted.
 	_ apis.Validatable = (*Service)(nil)
 	_ apis.Defaultable = (*Service)(nil)
-	// This is an abuse of Immutable to actually check that certain fields *must* change.
-	_ apis.Immutable = (*Service)(nil)
 
 	// Check that we can create OwnerReferences to a Service.
 	_ kmeta.OwnerRefable = (*Service)(nil)

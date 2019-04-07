@@ -32,11 +32,21 @@ func (s *Service) Validate(ctx context.Context) *apis.FieldError {
 	ctx = apis.WithinParent(ctx, s.ObjectMeta)
 	errs = errs.Also(s.Spec.Validate(apis.WithinSpec(ctx)).ViaField("spec"))
 
-	if field, cs := s.Spec.getConfigurationSpec(); cs != nil {
-		err = err.Also(cs.RevisionTemplate.validateName(ctx, s.ObjectMeta).
-			ViaField("spec", field, "configuration", "revisionTemplate"))
+	if apis.IsInUpdate(ctx) {
+		original := apis.GetBaseline(ctx).(*Service)
+
+		field, currentConfig := s.Spec.getConfigurationSpec()
+		_, originalConfig := original.Spec.getConfigurationSpec()
+
+		if currentConfig != nil && originalConfig != nil {
+			err := currentConfig.RevisionTemplate.VerifyNameChange(ctx,
+				&originalConfig.RevisionTemplate)
+			errs = errs.Also(err.ViaField(
+				"spec", field, "configuration", "revisionTemplate"))
+		}
 	}
-	return err
+
+	return errs
 }
 
 func (ss *ServiceSpec) getConfigurationSpec() (string, *ConfigurationSpec) {
@@ -135,7 +145,6 @@ func (rt *ReleaseType) Validate(ctx context.Context) *apis.FieldError {
 	var errs *apis.FieldError
 
 	numRevisions := len(rt.Revisions)
-
 	if numRevisions == 0 {
 		errs = errs.Also(apis.ErrMissingField("revisions"))
 	}
@@ -149,7 +158,8 @@ func (rt *ReleaseType) Validate(ctx context.Context) *apis.FieldError {
 		}
 		if msgs := validation.IsDNS1035Label(r); len(msgs) > 0 {
 			errs = errs.Also(apis.ErrInvalidArrayValue(
-				fmt.Sprintf("not a DNS 1035 label: %v", msgs), "revisions", i))
+				fmt.Sprintf("not a DNS 1035 label: %v", msgs),
+				"revisions", i))
 		}
 	}
 
@@ -158,25 +168,10 @@ func (rt *ReleaseType) Validate(ctx context.Context) *apis.FieldError {
 	}
 
 	if rt.RolloutPercent < 0 || rt.RolloutPercent > 99 {
-		errs = errs.Also(apis.ErrOutOfBoundsValue(rt.RolloutPercent, 0, 99, "rolloutPercent"))
+		errs = errs.Also(apis.ErrOutOfBoundsValue(
+			rt.RolloutPercent, 0, 99,
+			"rolloutPercent"))
 	}
 
 	return errs.Also(rt.Configuration.Validate(ctx).ViaField("configuration"))
-}
-
-// CheckImmutableFields checks the immutable fields are not modified.
-func (current *Service) CheckImmutableFields(ctx context.Context, og apis.Immutable) *apis.FieldError {
-	original, ok := og.(*Service)
-	if !ok {
-		return &apis.FieldError{Message: "The provided original was not a Service"}
-	}
-
-	field, currentConfig := current.Spec.getConfigurationSpec()
-	_, originalConfig := original.Spec.getConfigurationSpec()
-
-	if currentConfig == nil || originalConfig == nil {
-		return nil
-	}
-	return currentConfig.RevisionTemplate.CheckImmutableFields(ctx, &originalConfig.RevisionTemplate).
-		ViaField("spec", field, "configuration", "revisionTemplate")
 }

@@ -29,7 +29,6 @@ import (
 	"github.com/knative/serving/pkg/apis/serving"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation"
@@ -76,31 +75,30 @@ func (current *Revision) checkImmutableFields(ctx context.Context, original *Rev
 
 // Validate ensures RevisionTemplateSpec is properly configured.
 func (rt *RevisionTemplateSpec) Validate(ctx context.Context) *apis.FieldError {
-	return rt.Spec.Validate(ctx).ViaField("spec")
-}
+	errs := rt.Spec.Validate(ctx).ViaField("spec")
 
-func (rt *RevisionTemplateSpec) validateName(ctx context.Context, parent metav1.ObjectMeta) *apis.FieldError {
-	if rt.Name == "" {
-		return nil
+	// If the RevisionTemplate has a name specified, then check that
+	// it follows the requirements on the name.
+	if rt.Name != "" {
+		var prefix string
+		if om := parentName(ctx); om.Name == "" {
+			prefix = om.GenerateName
+		} else {
+			prefix = om.Name + "-"
+		}
+
+		if !strings.HasPrefix(rt.Name, prefix) {
+			errs = errs.Also(apis.ErrInvalidValue(
+				fmt.Sprintf("%q must have prefix %q", rt.Name, prefix),
+				"metadata.name"))
+		}
 	}
 
-	prefix := parent.Name
-	if prefix == "" {
-		prefix = parent.GenerateName
-	} else {
-		prefix = prefix + "-"
-	}
-
-	if !strings.HasPrefix(rt.Name, prefix) {
-		return apis.ErrInvalidValue(
-			fmt.Sprintf("%q must have prefix %q", rt.Name, prefix),
-			"metadata.name")
-	}
-	return nil
+	return errs
 }
 
 // CheckImmutableFields checks the immutable fields are not modified.
-func (current *RevisionTemplateSpec) CheckImmutableFields(ctx context.Context, og *RevisionTemplateSpec) *apis.FieldError {
+func (current *RevisionTemplateSpec) VerifyNameChange(ctx context.Context, og *RevisionTemplateSpec) *apis.FieldError {
 	if current.Name == "" {
 		// We only check that Name changes when the RevisionTemplate changes.
 		return nil

@@ -32,6 +32,15 @@ func (c *Configuration) Validate(ctx context.Context) *apis.FieldError {
 	errs := serving.ValidateObjectMetadata(c.GetObjectMeta()).ViaField("metadata")
 	ctx = apis.WithinParent(ctx, c.ObjectMeta)
 	errs = errs.Also(c.Spec.Validate(apis.WithinSpec(ctx)).ViaField("spec"))
+
+	if apis.IsInUpdate(ctx) {
+		original := apis.GetBaseline(ctx).(*Configuration)
+
+		err := c.Spec.RevisionTemplate.VerifyNameChange(ctx,
+			&original.Spec.RevisionTemplate)
+		errs = errs.Also(err.ViaField("spec.revisionTemplate"))
+	}
+
 	return errs
 }
 
@@ -62,14 +71,4 @@ func (cs *ConfigurationSpec) Validate(ctx context.Context) *apis.FieldError {
 	}
 
 	return errs.Also(cs.GetTemplate().Validate(ctx).ViaField(templateField))
-}
-
-// CheckImmutableFields checks the immutable fields are not modified.
-func (current *Configuration) CheckImmutableFields(ctx context.Context, og apis.Immutable) *apis.FieldError {
-	original, ok := og.(*Configuration)
-	if !ok {
-		return &apis.FieldError{Message: "The provided original was not a Configuration"}
-	}
-
-	return current.Spec.RevisionTemplate.CheckImmutableFields(ctx, &original.Spec.RevisionTemplate).ViaField("spec.revisionTemplate")
 }

@@ -650,12 +650,15 @@ func TestPinnedTypeValidation(t *testing.T) {
 func TestImmutableServiceFields(t *testing.T) {
 	tests := []struct {
 		name string
-		new  apis.Immutable
-		old  apis.Immutable
+		new  *Service
+		old  *Service
 		want *apis.FieldError
 	}{{
 		name: "without byo-name",
 		new: &Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "no-byo-name",
+			},
 			Spec: ServiceSpec{
 				RunLatest: &RunLatestType{
 					Configuration: ConfigurationSpec{
@@ -671,6 +674,9 @@ func TestImmutableServiceFields(t *testing.T) {
 			},
 		},
 		old: &Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "no-byo-name",
+			},
 			Spec: ServiceSpec{
 				RunLatest: &RunLatestType{
 					Configuration: ConfigurationSpec{
@@ -689,12 +695,15 @@ func TestImmutableServiceFields(t *testing.T) {
 	}, {
 		name: "good byo-name (name change)",
 		new: &Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "byo-name",
+			},
 			Spec: ServiceSpec{
 				RunLatest: &RunLatestType{
 					Configuration: ConfigurationSpec{
 						RevisionTemplate: RevisionTemplateSpec{
 							ObjectMeta: metav1.ObjectMeta{
-								Name: "foo",
+								Name: "byo-name-foo",
 							},
 							Spec: RevisionSpec{
 								Container: corev1.Container{
@@ -707,12 +716,15 @@ func TestImmutableServiceFields(t *testing.T) {
 			},
 		},
 		old: &Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "byo-name",
+			},
 			Spec: ServiceSpec{
 				RunLatest: &RunLatestType{
 					Configuration: ConfigurationSpec{
 						RevisionTemplate: RevisionTemplateSpec{
 							ObjectMeta: metav1.ObjectMeta{
-								Name: "bar",
+								Name: "byo-name-bar",
 							},
 							Spec: RevisionSpec{
 								Container: corev1.Container{
@@ -728,12 +740,15 @@ func TestImmutableServiceFields(t *testing.T) {
 	}, {
 		name: "good byo-name (mode change, no delta)",
 		new: &Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "byo-name",
+			},
 			Spec: ServiceSpec{
 				RunLatest: &RunLatestType{
 					Configuration: ConfigurationSpec{
 						RevisionTemplate: RevisionTemplateSpec{
 							ObjectMeta: metav1.ObjectMeta{
-								Name: "foo",
+								Name: "byo-name-foo",
 							},
 							Spec: RevisionSpec{
 								Container: corev1.Container{
@@ -746,13 +761,16 @@ func TestImmutableServiceFields(t *testing.T) {
 			},
 		},
 		old: &Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "byo-name",
+			},
 			Spec: ServiceSpec{
 				Release: &ReleaseType{
 					Revisions: []string{"foo"},
 					Configuration: ConfigurationSpec{
 						RevisionTemplate: RevisionTemplateSpec{
 							ObjectMeta: metav1.ObjectMeta{
-								Name: "foo",
+								Name: "byo-name-foo",
 							},
 							Spec: RevisionSpec{
 								Container: corev1.Container{
@@ -768,12 +786,15 @@ func TestImmutableServiceFields(t *testing.T) {
 	}, {
 		name: "good byo-name (mode change, with delta)",
 		new: &Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "byo-name",
+			},
 			Spec: ServiceSpec{
 				RunLatest: &RunLatestType{
 					Configuration: ConfigurationSpec{
 						RevisionTemplate: RevisionTemplateSpec{
 							ObjectMeta: metav1.ObjectMeta{
-								Name: "foo",
+								Name: "byo-name-foo",
 							},
 							Spec: RevisionSpec{
 								Container: corev1.Container{
@@ -786,13 +807,16 @@ func TestImmutableServiceFields(t *testing.T) {
 			},
 		},
 		old: &Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "byo-name",
+			},
 			Spec: ServiceSpec{
 				Release: &ReleaseType{
 					Revisions: []string{"foo"},
 					Configuration: ConfigurationSpec{
 						RevisionTemplate: RevisionTemplateSpec{
 							ObjectMeta: metav1.ObjectMeta{
-								Name: "bar",
+								Name: "byo-name-bar",
 							},
 							Spec: RevisionSpec{
 								Container: corev1.Container{
@@ -808,12 +832,15 @@ func TestImmutableServiceFields(t *testing.T) {
 	}, {
 		name: "bad byo-name (mode change, with delta)",
 		new: &Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "byo-name",
+			},
 			Spec: ServiceSpec{
 				RunLatest: &RunLatestType{
 					Configuration: ConfigurationSpec{
 						RevisionTemplate: RevisionTemplateSpec{
 							ObjectMeta: metav1.ObjectMeta{
-								Name: "foo",
+								Name: "byo-name-foo",
 							},
 							Spec: RevisionSpec{
 								Container: corev1.Container{
@@ -826,13 +853,16 @@ func TestImmutableServiceFields(t *testing.T) {
 			},
 		},
 		old: &Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "byo-name",
+			},
 			Spec: ServiceSpec{
 				Release: &ReleaseType{
 					Revisions: []string{"foo"},
 					Configuration: ConfigurationSpec{
 						RevisionTemplate: RevisionTemplateSpec{
 							ObjectMeta: metav1.ObjectMeta{
-								Name: "foo",
+								Name: "byo-name-foo",
 							},
 							Spec: RevisionSpec{
 								Container: corev1.Container{
@@ -853,7 +883,9 @@ func TestImmutableServiceFields(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got := test.new.CheckImmutableFields(context.Background(), test.old)
+			ctx := context.Background()
+			ctx = apis.WithinUpdate(ctx, test.old)
+			got := test.new.Validate(ctx)
 			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
 				t.Errorf("Validate (-want, +got) = %v", diff)
 			}

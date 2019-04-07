@@ -830,7 +830,7 @@ func TestRevisionTemplateSpecValidation(t *testing.T) {
 		rts: &RevisionTemplateSpec{
 			ObjectMeta: metav1.ObjectMeta{
 				// We let users bring their own revision name.
-				Name: "foo",
+				Name: "parent-foo",
 			},
 			Spec: RevisionSpec{
 				Container: &corev1.Container{
@@ -843,7 +843,13 @@ func TestRevisionTemplateSpecValidation(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got := test.rts.Validate(context.Background())
+			ctx := context.Background()
+
+			ctx = withinParent(ctx, metav1.ObjectMeta{
+				Name: "parent",
+			})
+
+			got := test.rts.Validate(ctx)
 			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
 				t.Errorf("Validate (-want, +got) = %v", diff)
 			}
