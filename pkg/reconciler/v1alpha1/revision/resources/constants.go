@@ -38,23 +38,18 @@ const (
 
 	autoscalerPort = 8080
 
-	// ServicePortName is the name of the external port of the service
+	// ServicePortNameHTTP1 is the name of the external port of the service for HTTP/1.1
 	ServicePortNameHTTP1 = "http"
-	ServicePortNameH2C   = "http2"
+	// ServicePortNameH2C is the name of the external port of the service for HTTP/2
+	ServicePortNameH2C = "http2"
 
 	// ServicePort is the external port of the service
 	ServicePort = int32(80)
-	// MetricsPortName is the name of the external port of the service for metrics
-	MetricsPortName = "metrics"
-	// MetricsPort is the external port of the service for metrics
-	MetricsPort = int32(9090)
 	AppLabelKey = "app"
 )
 
-var ProgressDeadlineSeconds int32 = 120
-
-// pseudo-constants
 var (
+	ProgressDeadlineSeconds int32 = 120
 	// See https://github.com/knative/serving/pull/1124#issuecomment-397120430
 	// for how CPU and memory values were calculated.
 	fluentdContainerCPU = resource.MustParse("25m")

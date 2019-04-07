@@ -69,11 +69,6 @@ func TestMakeK8sService(t *testing.T) {
 					Protocol:   corev1.ProtocolTCP,
 					Port:       ServicePort,
 					TargetPort: intstr.FromString(v1alpha1.RequestQueuePortName),
-				}, {
-					Name:       MetricsPortName,
-					Protocol:   corev1.ProtocolTCP,
-					Port:       MetricsPort,
-					TargetPort: intstr.FromString(v1alpha1.RequestQueueMetricsPortName),
 				}},
 				Selector: map[string]string{
 					serving.RevisionLabelKey: "bar",
@@ -127,11 +122,6 @@ func TestMakeK8sService(t *testing.T) {
 					Protocol:   corev1.ProtocolTCP,
 					Port:       ServicePort,
 					TargetPort: intstr.FromString(v1alpha1.RequestQueuePortName),
-				}, {
-					Name:       MetricsPortName,
-					Protocol:   corev1.ProtocolTCP,
-					Port:       MetricsPort,
-					TargetPort: intstr.FromString(v1alpha1.RequestQueueMetricsPortName),
 				}},
 				Selector: map[string]string{
 					serving.RevisionLabelKey: "baz",
@@ -177,11 +167,6 @@ func TestMakeK8sService(t *testing.T) {
 					Protocol:   corev1.ProtocolTCP,
 					Port:       ServicePort,
 					TargetPort: intstr.FromString(v1alpha1.RequestQueuePortName),
-				}, {
-					Name:       MetricsPortName,
-					Protocol:   corev1.ProtocolTCP,
-					Port:       MetricsPort,
-					TargetPort: intstr.FromString(v1alpha1.RequestQueueMetricsPortName),
 				}},
 				Selector: map[string]string{
 					serving.RevisionLabelKey: "bar",
