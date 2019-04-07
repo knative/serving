@@ -320,22 +320,22 @@ func (r *reconciler) reconcilePrivateService(ctx context.Context, sks *netv1alph
 	} else if !metav1.IsControlledBy(svc, sks) {
 		sks.Status.MarkEndpointsNotOwned("Service", sn)
 		return fmt.Errorf("SKS: %q does not own Service: %q", sks.Name, sn)
-	} else {
-		tmpl := resources.MakePrivateService(sks)
-		want := svc.DeepCopy()
-		// Our controller manages only part of spec, so set the fields we own.
-		want.Spec.Ports = tmpl.Spec.Ports
-		want.Spec.Selector = tmpl.Spec.Selector
+	}
+	tmpl := resources.MakePrivateService(sks)
+	want := svc.DeepCopy()
+	// Our controller manages only part of spec, so set the fields we own.
+	want.Spec.Ports = tmpl.Spec.Ports
+	want.Spec.Selector = tmpl.Spec.Selector
 
-		sks.Status.MarkEndpointsNotReady("UpdatingPrivateService")
-		if !equality.Semantic.DeepEqual(svc.Spec, want.Spec) {
-			logger.Infof("Private K8s Service changed; reconciling: %s", sn)
-			if _, err = r.KubeClientSet.CoreV1().Services(sks.Namespace).Update(want); err != nil {
-				logger.Errorw(fmt.Sprintf("Error updating private K8s Service %s: ", sn), zap.Error(err))
-				return err
-			}
+	sks.Status.MarkEndpointsNotReady("UpdatingPrivateService")
+	if !equality.Semantic.DeepEqual(svc.Spec, want.Spec) {
+		logger.Infof("Private K8s Service changed; reconciling: %s", sn)
+		if _, err = r.KubeClientSet.CoreV1().Services(sks.Namespace).Update(want); err != nil {
+			logger.Errorw(fmt.Sprintf("Error updating private K8s Service %s: ", sn), zap.Error(err))
+			return err
 		}
 	}
+	sks.Status.PrivateServiceName = sn
 	logger.Debugf("Done reconciling private K8s service %s", sn)
 	return nil
 }
