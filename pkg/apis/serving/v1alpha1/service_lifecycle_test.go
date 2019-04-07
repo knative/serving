@@ -20,6 +20,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/knative/pkg/apis"
 	"github.com/knative/pkg/apis/duck"
 	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 	duckv1beta1 "github.com/knative/pkg/apis/duck/v1beta1"
@@ -27,6 +28,8 @@ import (
 	authv1 "k8s.io/api/authentication/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+
+	"github.com/knative/serving/pkg/apis/serving"
 )
 
 func TestServiceDuckTypes(t *testing.T) {
@@ -665,8 +668,8 @@ func TestAnnotateUserInfo(t *testing.T) {
 			a = map[string]string{}
 			defer s.SetAnnotations(a)
 		}
-		a[CreatorAnnotation] = u1
-		a[UpdaterAnnotation] = u2
+		a[serving.CreatorAnnotation] = u1
+		a[serving.UpdaterAnnotation] = u2
 		return s
 	}
 	tests := []struct {
@@ -678,8 +681,8 @@ func TestAnnotateUserInfo(t *testing.T) {
 	}{{
 		"create-new", u1, &Service{}, nil,
 		map[string]string{
-			CreatorAnnotation: u1,
-			UpdaterAnnotation: u1,
+			serving.CreatorAnnotation: u1,
+			serving.UpdaterAnnotation: u1,
 		},
 	}, {
 		// Old objects don't have the annotation, and unless there's a change in
@@ -691,23 +694,23 @@ func TestAnnotateUserInfo(t *testing.T) {
 		withUserAnns(u1, u1, &Service{}),
 		withUserAnns(u1, u1, &Service{}),
 		map[string]string{
-			CreatorAnnotation: u1,
-			UpdaterAnnotation: u1,
+			serving.CreatorAnnotation: u1,
+			serving.UpdaterAnnotation: u1,
 		},
 	}, {
 		"update-diff-old-object", u2,
 		&Service{Spec: ServiceSpec{Release: &ReleaseType{}}},
 		&Service{Spec: ServiceSpec{RunLatest: &RunLatestType{}}},
 		map[string]string{
-			UpdaterAnnotation: u2,
+			serving.UpdaterAnnotation: u2,
 		},
 	}, {
 		"update-diff-new-object", u3,
 		withUserAnns(u1, u2, &Service{Spec: ServiceSpec{Release: &ReleaseType{}}}),
 		withUserAnns(u1, u2, &Service{Spec: ServiceSpec{RunLatest: &RunLatestType{}}}),
 		map[string]string{
-			CreatorAnnotation: u1,
-			UpdaterAnnotation: u3,
+			serving.CreatorAnnotation: u1,
+			serving.UpdaterAnnotation: u3,
 		},
 	}}
 
@@ -715,9 +718,13 @@ func TestAnnotateUserInfo(t *testing.T) {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			test.this.AnnotateUserInfo(context.Background(), test.prev, &authv1.UserInfo{
+			ctx := apis.WithUserInfo(context.Background(), &authv1.UserInfo{
 				Username: test.user,
 			})
+			if test.prev != nil {
+				ctx = apis.WithinUpdate(ctx, test.prev)
+			}
+			test.this.SetDefaults(ctx)
 			if got, want := test.this.GetAnnotations(), test.wantAnns; !cmp.Equal(got, want) {
 				t.Errorf("Annotations = %v, want: %v, diff (-got, +want): %s", got, want, cmp.Diff(got, want))
 			}

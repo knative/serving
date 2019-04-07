@@ -929,21 +929,18 @@ func TestRevisionValidation(t *testing.T) {
 	}
 }
 
-type notARevision struct{}
-
-func (nar *notARevision) CheckImmutableFields(context.Context, apis.Immutable) *apis.FieldError {
-	return nil
-}
-
 func TestImmutableFields(t *testing.T) {
 	tests := []struct {
 		name string
-		new  apis.Immutable
-		old  apis.Immutable
+		new  *Revision
+		old  *Revision
 		want *apis.FieldError
 	}{{
 		name: "good (no change)",
 		new: &Revision{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "foo",
+			},
 			Spec: RevisionSpec{
 				Container: corev1.Container{
 					Image: "helloworld",
@@ -952,6 +949,9 @@ func TestImmutableFields(t *testing.T) {
 			},
 		},
 		old: &Revision{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "foo",
+			},
 			Spec: RevisionSpec{
 				Container: corev1.Container{
 					Image: "helloworld",
@@ -961,22 +961,14 @@ func TestImmutableFields(t *testing.T) {
 		},
 		want: nil,
 	}, {
-		name: "bad (type mismatch)",
-		new: &Revision{
-			Spec: RevisionSpec{
-				Container: corev1.Container{
-					Image: "helloworld",
-				},
-				DeprecatedConcurrencyModel: "Multi",
-			},
-		},
-		old:  &notARevision{},
-		want: &apis.FieldError{Message: "The provided original was not a Revision"},
-	}, {
 		name: "bad (resources image change)",
 		new: &Revision{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "foo",
+			},
 			Spec: RevisionSpec{
 				Container: corev1.Container{
+					Image: "busybox",
 					Resources: corev1.ResourceRequirements{
 						Requests: corev1.ResourceList{
 							corev1.ResourceName("cpu"): resource.MustParse("50m"),
@@ -987,8 +979,12 @@ func TestImmutableFields(t *testing.T) {
 			},
 		},
 		old: &Revision{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "foo",
+			},
 			Spec: RevisionSpec{
 				Container: corev1.Container{
+					Image: "busybox",
 					Resources: corev1.ResourceRequirements{
 						Requests: corev1.ResourceList{
 							corev1.ResourceName("cpu"): resource.MustParse("100m"),
@@ -1009,6 +1005,9 @@ func TestImmutableFields(t *testing.T) {
 	}, {
 		name: "bad (container image change)",
 		new: &Revision{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "foo",
+			},
 			Spec: RevisionSpec{
 				Container: corev1.Container{
 					Image: "helloworld",
@@ -1017,6 +1016,9 @@ func TestImmutableFields(t *testing.T) {
 			},
 		},
 		old: &Revision{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "foo",
+			},
 			Spec: RevisionSpec{
 				Container: corev1.Container{
 					Image: "busybox",
@@ -1035,6 +1037,9 @@ func TestImmutableFields(t *testing.T) {
 	}, {
 		name: "bad (concurrency model change)",
 		new: &Revision{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "foo",
+			},
 			Spec: RevisionSpec{
 				Container: corev1.Container{
 					Image: "helloworld",
@@ -1043,6 +1048,9 @@ func TestImmutableFields(t *testing.T) {
 			},
 		},
 		old: &Revision{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "foo",
+			},
 			Spec: RevisionSpec{
 				Container: corev1.Container{
 					Image: "helloworld",
@@ -1061,6 +1069,9 @@ func TestImmutableFields(t *testing.T) {
 	}, {
 		name: "bad (new field added)",
 		new: &Revision{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "foo",
+			},
 			Spec: RevisionSpec{
 				Container: corev1.Container{
 					Image: "helloworld",
@@ -1069,6 +1080,9 @@ func TestImmutableFields(t *testing.T) {
 			},
 		},
 		old: &Revision{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "foo",
+			},
 			Spec: RevisionSpec{
 				Container: corev1.Container{
 					Image: "helloworld",
@@ -1086,6 +1100,9 @@ func TestImmutableFields(t *testing.T) {
 	}, {
 		name: "bad (multiple changes)",
 		new: &Revision{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "foo",
+			},
 			Spec: RevisionSpec{
 				Container: corev1.Container{
 					Image: "helloworld",
@@ -1094,6 +1111,9 @@ func TestImmutableFields(t *testing.T) {
 			},
 		},
 		old: &Revision{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "foo",
+			},
 			Spec: RevisionSpec{
 				Container: corev1.Container{
 					Image: "busybox",
@@ -1116,7 +1136,9 @@ func TestImmutableFields(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got := test.new.CheckImmutableFields(context.Background(), test.old)
+			ctx := context.Background()
+			ctx = apis.WithinUpdate(ctx, test.old)
+			got := test.new.Validate(ctx)
 			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
 				t.Errorf("Validate (-want, +got) = %v", diff)
 			}

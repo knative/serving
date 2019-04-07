@@ -47,8 +47,33 @@ var (
 
 // Validate ensures Revision is properly configured.
 func (rt *Revision) Validate(ctx context.Context) *apis.FieldError {
-	return serving.ValidateObjectMetadata(rt.GetObjectMeta()).ViaField("metadata").
+	errs := serving.ValidateObjectMetadata(rt.GetObjectMeta()).ViaField("metadata").
 		Also(rt.Spec.Validate(ctx).ViaField("spec"))
+
+	if apis.IsInUpdate(ctx) {
+		old := apis.GetBaseline(ctx).(*Revision)
+
+		errs = errs.Also(rt.checkImmutableFields(ctx, old))
+	}
+
+	return errs
+}
+
+func (current *Revision) checkImmutableFields(ctx context.Context, original *Revision) *apis.FieldError {
+	if diff, err := kmp.SafeDiff(original.Spec, current.Spec); err != nil {
+		return &apis.FieldError{
+			Message: "Failed to diff Revision",
+			Paths:   []string{"spec"},
+			Details: err.Error(),
+		}
+	} else if diff != "" {
+		return &apis.FieldError{
+			Message: "Immutable fields changed (-old +new)",
+			Paths:   []string{"spec"},
+			Details: diff,
+		}
+	}
+	return nil
 }
 
 // Validate ensures RevisionTemplateSpec is properly configured.
@@ -369,29 +394,5 @@ func validateProbe(p *corev1.Probe) *apis.FieldError {
 			return apis.ErrDisallowedFields("tcpSocket.port")
 		}
 	}
-	return nil
-}
-
-// CheckImmutableFields checks the immutable fields are not modified.
-func (rt *Revision) CheckImmutableFields(ctx context.Context, og apis.Immutable) *apis.FieldError {
-	original, ok := og.(*Revision)
-	if !ok {
-		return &apis.FieldError{Message: "The provided original was not a Revision"}
-	}
-
-	if diff, err := kmp.SafeDiff(original.Spec, rt.Spec); err != nil {
-		return &apis.FieldError{
-			Message: "Failed to diff Revision",
-			Paths:   []string{"spec"},
-			Details: err.Error(),
-		}
-	} else if diff != "" {
-		return &apis.FieldError{
-			Message: "Immutable fields changed (-old +new)",
-			Paths:   []string{"spec"},
-			Details: diff,
-		}
-	}
-
 	return nil
 }
