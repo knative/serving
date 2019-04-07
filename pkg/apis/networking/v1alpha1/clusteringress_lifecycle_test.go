@@ -19,10 +19,9 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/knative/pkg/apis"
 	"github.com/knative/pkg/apis/duck"
-	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
-	corev1 "k8s.io/api/core/v1"
+	duckv1beta1 "github.com/knative/pkg/apis/duck/v1alpha1"
+	apitest "github.com/knative/pkg/apis/testing"
 )
 
 func TestClusterIngressDuckTypes(t *testing.T) {
@@ -31,7 +30,7 @@ func TestClusterIngressDuckTypes(t *testing.T) {
 		t    duck.Implementable
 	}{{
 		name: "conditions",
-		t:    &duckv1alpha1.Conditions{},
+		t:    &duckv1beta1.Conditions{},
 	}}
 
 	for _, test := range tests {
@@ -74,59 +73,22 @@ func TestCITypicalFlow(t *testing.T) {
 	r := &IngressStatus{}
 	r.InitializeConditions()
 
-	checkConditionOngoing(r, ClusterIngressConditionReady, t)
+	apitest.CheckConditionOngoing(&r.Status, ClusterIngressConditionReady, t)
 
 	// Then network is configured.
 	r.MarkNetworkConfigured()
-	checkConditionSucceededClusterIngress(r, ClusterIngressConditionNetworkConfigured, t)
-	checkConditionOngoing(r, ClusterIngressConditionReady, t)
+	apitest.CheckConditionSucceeded(&r.Status, ClusterIngressConditionNetworkConfigured, t)
+	apitest.CheckConditionOngoing(&r.Status, ClusterIngressConditionReady, t)
 
 	// Then ingress has address.
 	r.MarkLoadBalancerReady([]LoadBalancerIngressStatus{{DomainInternal: "gateway.default.svc"}})
-	checkConditionSucceededClusterIngress(r, ClusterIngressConditionLoadBalancerReady, t)
-	checkConditionSucceededClusterIngress(r, ClusterIngressConditionReady, t)
-	checkIsReady(r, t)
-	// Mark not owned.
-	r.MarkResourceNotOwned("i own", "you")
-	checkConditionFailedClusterIngress(r, ClusterIngressConditionReady, t)
-}
-
-// TODO(vagababov): move this outside and re-use elsewhere.
-type ConditionCheckable interface {
-	IsReady() bool
-	GetCondition(t apis.ConditionType) *apis.Condition
-}
-
-func checkIsReady(cc ConditionCheckable, t *testing.T) {
-	t.Helper()
-	if !cc.IsReady() {
+	apitest.CheckConditionSucceeded(&r.Status, ClusterIngressConditionLoadBalancerReady, t)
+	apitest.CheckConditionSucceeded(&r.Status, ClusterIngressConditionReady, t)
+	if !r.IsReady() {
 		t.Fatal("IsReady()=false, wanted true")
 	}
-}
 
-func checkConditionSucceededClusterIngress(cc ConditionCheckable, c apis.ConditionType, t *testing.T) *apis.Condition {
-	t.Helper()
-	return checkCondition(cc, c, corev1.ConditionTrue, t)
-}
-
-func checkConditionFailedClusterIngress(cc ConditionCheckable, c apis.ConditionType, t *testing.T) *apis.Condition {
-	t.Helper()
-	return checkCondition(cc, c, corev1.ConditionFalse, t)
-}
-
-func checkConditionOngoing(cc ConditionCheckable, c apis.ConditionType, t *testing.T) *apis.Condition {
-	t.Helper()
-	return checkCondition(cc, c, corev1.ConditionUnknown, t)
-}
-
-func checkCondition(cc ConditionCheckable, c apis.ConditionType, cs corev1.ConditionStatus, t *testing.T) *apis.Condition {
-	t.Helper()
-	cond := cc.GetCondition(c)
-	if cond == nil {
-		t.Fatalf("Get(%v) = nil, wanted %v=%v", c, c, cs)
-	}
-	if cond.Status != cs {
-		t.Fatalf("Get(%v) = %v, wanted %v", c, cond.Status, cs)
-	}
-	return cond
+	// Mark not owned.
+	r.MarkResourceNotOwned("i own", "you")
+	apitest.CheckConditionFailed(&r.Status, ClusterIngressConditionReady, t)
 }

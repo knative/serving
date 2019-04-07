@@ -435,7 +435,7 @@
   revision = "babf400eeec07acdd0d6864ad28709c2bcee0c82"
 
 [[projects]]
-  digest = "1:8c35bc37a1b3ece8d8295deaee60c91b5cff07600857400e1edd17c5e1e767dd"
+  digest = "1:9782bcc7c948c967ffa4d7dd2cddd1a7fb8918d6b8200ccd450549546bc5635f"
   name = "github.com/knative/pkg"
   packages = [
     "apis",
@@ -447,6 +447,7 @@
     "apis/istio/authentication/v1alpha1",
     "apis/istio/common/v1alpha1",
     "apis/istio/v1alpha3",
+    "apis/testing",
     "changeset",
     "client/clientset/versioned",
     "client/clientset/versioned/fake",
@@ -1320,6 +1321,7 @@
     "github.com/knative/pkg/apis/duck/v1beta1",
     "github.com/knative/pkg/apis/istio/common/v1alpha1",
     "github.com/knative/pkg/apis/istio/v1alpha3",
+    "github.com/knative/pkg/apis/testing",
     "github.com/knative/pkg/client/clientset/versioned",
     "github.com/knative/pkg/client/clientset/versioned/fake",
     "github.com/knative/pkg/client/informers/externalversions",
@@ -1383,7 +1385,6 @@
     "k8s.io/apimachinery/pkg/api/errors",
     "k8s.io/apimachinery/pkg/api/meta",
     "k8s.io/apimachinery/pkg/api/resource",
-    "k8s.io/apimachinery/pkg/api/validation",
     "k8s.io/apimachinery/pkg/apis/meta/v1",
     "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured",
     "k8s.io/apimachinery/pkg/labels",
