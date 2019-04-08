@@ -29,6 +29,7 @@ import (
 	pav1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/knative/serving/pkg/autoscaler"
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
 	fakeKna "github.com/knative/serving/pkg/client/clientset/versioned/fake"
 	revisionresources "github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources"
@@ -181,6 +182,29 @@ func TestScaler(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestScalingToZeroDisabled(t *testing.T) {
+	servingClient := fakeKna.NewSimpleClientset()
+	scaleClient := &scalefake.FakeScaleClient{}
+
+	revision := newRevision(t, servingClient, 0 /*minScale*/, 0 /*maxScale*/)
+	deployment := newDeployment(t, scaleClient, names.Deployment(revision), 10)
+	revisionScaler := &scaler{
+		servingClientSet: servingClient,
+		scaleClientSet:   scaleClient,
+		logger:           TestLogger(t),
+		autoscalerConfig: &autoscaler.Config{
+			EnableScaleToZero: false,
+		},
+	}
+	pa := newKPA(t, servingClient, revision)
+
+	// Desire 0 pod
+	revisionScaler.Scale(TestContextWithLogger(t), pa, 0)
+
+	// Keep minimum 1 pod if EnableScaleToZero is false
+	checkReplicas(t, scaleClient, deployment, 1)
 }
 
 func TestGetScaleResource(t *testing.T) {

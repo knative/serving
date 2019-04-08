@@ -204,7 +204,7 @@ func (ks *scaler) Scale(ctx context.Context, pa *pav1alpha1.PodAutoscaler, desir
 	}
 	currentScale := scl.Spec.Replicas
 
-	min, max := pa.ScaleBounds()
+	min, max := ks.getScaleBounds(pa)
 	if newScale := applyBounds(min, max, desiredScale); newScale != desiredScale {
 		logger.Debugf("Adjusting desiredScale: %v -> %v", desiredScale, newScale)
 		desiredScale = newScale
@@ -232,4 +232,14 @@ func (ks *scaler) Scale(ctx context.Context, pa *pav1alpha1.PodAutoscaler, desir
 	logger.Infof("Scaling from %d to %d", currentScale, desiredScale)
 
 	return ks.applyScale(ctx, pa, desiredScale, resource, scl)
+}
+
+func (ks *scaler) getScaleBounds(pa *pav1alpha1.PodAutoscaler) (int32, int32) {
+	config := ks.getAutoscalerConfig()
+	min, max := pa.ScaleBounds()
+	// Don't scale to zero if scale to zero is disabled.
+	if config.EnableScaleToZero == false && min == 0 {
+		min = 1
+	}
+	return min, max
 }
