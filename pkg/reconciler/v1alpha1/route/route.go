@@ -432,7 +432,7 @@ func objectRef(a accessor, gvk schema.GroupVersionKind) corev1.ObjectReference {
 	}
 }
 
-// routeDeomain will generate the Route's Domain(host) for the Service based on
+// routeDomain will generate the Route's Domain(host) for the Service based on
 // the "DomainTemplateKey" from the "config-network" configMap.
 func routeDomain(ctx context.Context, route *v1alpha1.Route) (string, error) {
 	domainConfig := config.FromContext(ctx).Domain
@@ -453,12 +453,12 @@ func routeDomain(ctx context.Context, route *v1alpha1.Route) (string, error) {
 	// It's ok if we keep using the same name
 	templ, err := template.New("knTemplate").Parse(text)
 	if err != nil {
-		return "", fmt.Errorf("Error parsing the DomainTemplate(%s): %s", text, err)
+		return "", fmt.Errorf("error parsing the DomainTemplate(%s): %s", text, err)
 	}
 
 	buf := bytes.Buffer{}
 	if err := templ.Execute(&buf, data); err != nil {
-		return "", fmt.Errorf("Error executing the DomainTemplate(%s): %s", text, err)
+		return "", fmt.Errorf("error executing the DomainTemplate(%s): %s", text, err)
 	}
 	return buf.String(), nil
 }
