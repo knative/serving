@@ -1,8 +1,8 @@
 # Development
 
 This doc explains how to setup a development environment so you can get started
-[contributing](https://www.knative.dev/contributing/)
-to `Knative Serving`. Also take a look at:
+[contributing](https://www.knative.dev/contributing/) to `Knative Serving`. Also
+take a look at:
 
 - [The pull request workflow](https://www.knative.dev/contributing/contributing/#pull-requests)
 - [How to add and run tests](./test/README.md)
@@ -35,7 +35,6 @@ You must install these tools:
    managing development environments.
 
 ### Create a cluster and a repo
-
 
 1. [Set up a kubernetes cluster](https://www.knative.dev/docs/install/)
    - Follow an install guide up through "Creating a Kubernetes Cluster"
@@ -117,9 +116,9 @@ can easily [clean your cluster up](#clean-up) and try again.
 Your user must be a cluster admin to perform the setup needed for Knative.
 
 The value you use depends on
-[your cluster setup](https://www.knative.dev/docs/install/):
-when using Minikube, the user is your local user; when using GKE, the user is
-your GCP user.
+[your cluster setup](https://www.knative.dev/docs/install/): when using
+Minikube, the user is your local user; when using GKE, the user is your GCP
+user.
 
 ```shell
 # For GCP
@@ -262,7 +261,6 @@ ko delete --ignore-not-found=true \
 ## Telemetry
 
 To access Telemetry see:
-
 
 - [Accessing Metrics](https://www.knative.dev/docs/serving/accessing-metrics/)
 - [Accessing Logs](https://www.knative.dev/docs/serving/accessing-logs/)
