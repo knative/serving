@@ -1,11 +1,14 @@
 #!/usr/bin/env bash
+
 # Download and unpack Istio
 ISTIO_VERSION=1.0.7
 DOWNLOAD_URL=https://github.com/istio/istio/releases/download/${ISTIO_VERSION}/istio-${ISTIO_VERSION}-linux.tar.gz
 
 wget $DOWNLOAD_URL
 tar xzf istio-${ISTIO_VERSION}-linux.tar.gz
-cd istio-${ISTIO_VERSION}
+
+( # subshell in downloaded directory
+cd istio-${ISTIO_VERSION} || exit
 
 # Copy CRDs template
 cp install/kubernetes/helm/istio/templates/crds.yaml ../istio-crds.yaml
@@ -71,9 +74,9 @@ helm template --namespace=istio-system \
   | grep -v "^[[:space:]]*nodePort[[:space:]]*:[[:space:]]*[[:digit:]]\+$" \
   > ../istio-lean.yaml
 cat ../istio-knative-extras.yaml >> ../istio-lean.yaml
+)
 
 # Clean up.
-cd ..
 rm -rf istio-${ISTIO_VERSION}
 rm istio-${ISTIO_VERSION}-linux.tar.gz
 
