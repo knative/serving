@@ -327,8 +327,8 @@ func (r *reconciler) reconcilePrivateService(ctx context.Context, sks *netv1alph
 	want.Spec.Ports = tmpl.Spec.Ports
 	want.Spec.Selector = tmpl.Spec.Selector
 
-	sks.Status.MarkEndpointsNotReady("UpdatingPrivateService")
 	if !equality.Semantic.DeepEqual(svc.Spec, want.Spec) {
+		sks.Status.MarkEndpointsNotReady("UpdatingPrivateService")
 		logger.Infof("Private K8s Service changed; reconciling: %s", sn)
 		if _, err = r.KubeClientSet.CoreV1().Services(sks.Namespace).Update(want); err != nil {
 			logger.Errorw(fmt.Sprintf("Error updating private K8s Service %s: ", sn), zap.Error(err))
