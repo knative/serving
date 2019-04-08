@@ -254,7 +254,7 @@ func (c *Reconciler) reconcile(ctx context.Context, pa *pav1alpha1.PodAutoscaler
 		return perrors.Wrap(err, "error reporting metrics")
 	}
 
-	updatePAStatus(pa, want, got)
+	updatePAStatus(pa, decider.Status.ActivePolicy)
 	return nil
 }
 
@@ -326,11 +326,11 @@ func reportMetrics(pa *pav1alpha1.PodAutoscaler, want int32, got int) error {
 	return nil
 }
 
-func updatePAStatus(pa *pav1alpha1.PodAutoscaler, want int32, got int) {
+func updatePAStatus(pa *pav1alpha1.PodAutoscaler, policy autoscaler.ActivePolicy) {
 	switch {
-	case decider.Status.ActivePolicy == autoscaler.MarkInactive:
+	case policy == autoscaler.MarkInactive:
 		pa.Status.MarkInactive("NoTraffic", "The target is not receiving traffic.")
-	case decider.Status.ActivePolicy == autoscaler.MarkActive:
+	case policy == autoscaler.MarkActive:
 		pa.Status.MarkActive()
 	}
 

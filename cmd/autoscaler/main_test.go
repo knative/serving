@@ -107,7 +107,9 @@ func TestUniScalerFactoryFunc(t *testing.T) {
 				},
 			},
 		}
-		dynamicConfig := &autoscaler.DynamicConfig{}
+		dynamicConfig := autoscaler.NewDynamicConfig(&autoscaler.Config{
+			KeepAliveTimes: 2,
+		}, zap.NewNop().Sugar())
 
 		if _, err := uniScalerFactory(decider, dynamicConfig); err != nil {
 			t.Errorf("got error from uniScalerFactory: %v", err)

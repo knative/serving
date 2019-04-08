@@ -160,10 +160,6 @@ func TestAutoscaler_StableModeNoTraffic_ScaleToZero(t *testing.T) {
 	a.expectScale(t, now.Add(-DefaultKeepAliveTimes*stableWindow), 1, true)
 	a.expectScale(t, now.Add(-stableWindow), 1, true)
 	a.expectScale(t, now, 0, true)
-
-	//// Should not scale to zero again if there is no more traffic.
-	//// Note: scale of 1 will be ignored since the autoscaler is not responsible for scaling from 0.
-	//a.expectScale(t, now, 0, true)
 }
 
 func TestAutoscaler_StableModeLowTraffic_NoChange(t *testing.T) {
