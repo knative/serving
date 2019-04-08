@@ -20,18 +20,15 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/intstr"
-
 	pav1a1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
+	"github.com/knative/serving/pkg/apis/networking"
+	nv1a1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving"
-	autoscalingv1 "k8s.io/api/autoscaling/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-var boolTrue = true
-
-func TestMakeService(t *testing.T) {
+// MakeSKS makes an SKS resource from the PA, selector and operation mode.
+func TestMakeSKS(t *testing.T) {
 	pa := &pav1a1.PodAutoscaler{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: "here",
@@ -47,24 +44,21 @@ func TestMakeService(t *testing.T) {
 			},
 		},
 		Spec: pav1a1.PodAutoscalerSpec{
-			ScaleTargetRef: autoscalingv1.CrossVersionObjectReference{
-				APIVersion: "apps/v1",
-				Kind:       "Deployment",
-				Name:       "with-you",
-			},
-			ServiceName: "with-you-service",
+			ProtocolType: networking.ProtocolHTTP1,
 		},
 	}
+
 	selector := map[string]string{"cant": "stop"}
-	want := &corev1.Service{
+	const mode = nv1a1.SKSOperationModeServe
+
+	want := &nv1a1.ServerlessService{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: "here",
-			Name:      "with-you-metrics",
+			Name:      "with-you",
+			// Those labels are propagated from the Revision->KPA.
 			Labels: map[string]string{
-				// Those should be propagated.
 				serving.RevisionLabelKey: "with-you",
 				serving.RevisionUID:      "2009",
-				kpaLabelKey:              "with-you",
 			},
 			Annotations: map[string]string{
 				"a": "b",
@@ -78,18 +72,13 @@ func TestMakeService(t *testing.T) {
 				BlockOwnerDeletion: &boolTrue,
 			}},
 		},
-		Spec: corev1.ServiceSpec{
-			Ports: []corev1.ServicePort{{
-				Name:       "metrics",
-				Protocol:   corev1.ProtocolTCP,
-				Port:       9090,
-				TargetPort: intstr.FromString("queue-metrics"),
-			}},
-			Selector: selector,
+		Spec: nv1a1.ServerlessServiceSpec{
+			ProtocolType: networking.ProtocolHTTP1,
+			Mode:         nv1a1.SKSOperationModeServe,
+			Selector:     selector,
 		},
 	}
-	got := MakeMetricsService(pa, selector)
-	if diff := cmp.Diff(want, got); diff != "" {
-		t.Errorf("Metrics K8s Service mismatch (-want, +got) = %v", diff)
+	if got, want := MakeSKS(pa, selector, mode), want; !cmp.Equal(got, want) {
+		t.Errorf("MakeSKS = %#v, want: %#v, diff: %s", got, want, cmp.Diff(got, want))
 	}
 }
