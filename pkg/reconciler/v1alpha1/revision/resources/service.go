@@ -57,11 +57,6 @@ func MakeK8sService(rev *v1alpha1.Revision) *corev1.Service {
 				Protocol:   corev1.ProtocolTCP,
 				Port:       ServicePort,
 				TargetPort: intstr.FromString(v1alpha1.RequestQueuePortName),
-			}, {
-				Name:       MetricsPortName,
-				Protocol:   corev1.ProtocolTCP,
-				Port:       MetricsPort,
-				TargetPort: intstr.FromString(v1alpha1.RequestQueueMetricsPortName),
 			}},
 			Selector: map[string]string{
 				serving.RevisionLabelKey: rev.Name,

@@ -24,16 +24,50 @@ import (
 	"github.com/knative/pkg/apis"
 	"github.com/knative/pkg/kmp"
 	"github.com/knative/serving/pkg/apis/autoscaling"
+	"github.com/knative/serving/pkg/apis/serving"
 	servingv1alpha1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	autoscalingv1 "k8s.io/api/autoscaling/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 )
 
 func (pa *PodAutoscaler) Validate(ctx context.Context) *apis.FieldError {
-	return servingv1alpha1.ValidateObjectMetadata(pa.GetObjectMeta()).
+	errs := serving.ValidateObjectMetadata(pa.GetObjectMeta()).
 		ViaField("metadata").
 		Also(pa.Spec.Validate(ctx).ViaField("spec")).
 		Also(pa.validateMetric())
+
+	if apis.IsInUpdate(ctx) {
+		original := apis.GetBaseline(ctx).(*PodAutoscaler)
+
+		errs = errs.Also(pa.checkImmutableFields(ctx, original))
+	}
+
+	return errs
+}
+
+func (current *PodAutoscaler) checkImmutableFields(ctx context.Context, original *PodAutoscaler) *apis.FieldError {
+	if diff, err := compareSpec(original, current); err != nil {
+		return &apis.FieldError{
+			Message: "Failed to diff PodAutoscaler",
+			Paths:   []string{"spec"},
+			Details: err.Error(),
+		}
+	} else if diff != "" {
+		return &apis.FieldError{
+			Message: "Immutable fields changed (-old +new)",
+			Paths:   []string{"spec"},
+			Details: diff,
+		}
+	}
+	// Verify the PA class does not change.
+	// For backward compatibility, we allow a new class where there was none before.
+	if oldClass, newClass, annotationChanged := classAnnotationChanged(original, current); annotationChanged {
+		return &apis.FieldError{
+			Message: fmt.Sprintf("Immutable class annotation changed (-%q +%q)", oldClass, newClass),
+			Paths:   []string{"annotations[autoscaling.knative.dev/class]"},
+		}
+	}
+	return nil
 }
 
 // Validate validates PodAutoscaler Spec.
@@ -101,37 +135,6 @@ func (pa *PodAutoscaler) validateMetric() *apis.FieldError {
 			Message: fmt.Sprintf("Unsupported metric %q for PodAutoscaler class %q",
 				metric, pa.Class()),
 			Paths: []string{"annotations[autoscaling.knative.dev/metric]"},
-		}
-	}
-	return nil
-}
-
-// CheckImmutableFields checks the immutability of the PodAutoscaler.
-func (pa *PodAutoscaler) CheckImmutableFields(ctx context.Context, og apis.Immutable) *apis.FieldError {
-	original, ok := og.(*PodAutoscaler)
-	if !ok {
-		return &apis.FieldError{Message: "The provided original was not a PodAutoscaler"}
-	}
-
-	if diff, err := compareSpec(original, pa); err != nil {
-		return &apis.FieldError{
-			Message: "Failed to diff PodAutoscaler",
-			Paths:   []string{"spec"},
-			Details: err.Error(),
-		}
-	} else if diff != "" {
-		return &apis.FieldError{
-			Message: "Immutable fields changed (-old +new)",
-			Paths:   []string{"spec"},
-			Details: diff,
-		}
-	}
-	// Verify the PA class does not change.
-	// For backward compatibility, we allow a new class where there was none before.
-	if oldClass, newClass, annotationChanged := classAnnotationChanged(original, pa); annotationChanged {
-		return &apis.FieldError{
-			Message: fmt.Sprintf("Immutable class annotation changed (-%q +%q)", oldClass, newClass),
-			Paths:   []string{"annotations[autoscaling.knative.dev/class]"},
 		}
 	}
 	return nil

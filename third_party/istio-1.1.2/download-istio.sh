@@ -1,11 +1,14 @@
 #!/usr/bin/env bash
+
 # Download and unpack Istio
 ISTIO_VERSION=1.1.2
 DOWNLOAD_URL=https://github.com/istio/istio/releases/download/${ISTIO_VERSION}/istio-${ISTIO_VERSION}-linux.tar.gz
 
 wget $DOWNLOAD_URL
 tar xzf istio-${ISTIO_VERSION}-linux.tar.gz
-cd istio-${ISTIO_VERSION}
+
+( # subshell in downloaded directory
+cd istio-${ISTIO_VERSION} || exit
 
 # Create CRDs template
 helm template --namespace=istio-system \
@@ -46,6 +49,8 @@ helm template --namespace=istio-system \
   --set gateways.istio-ingressgateway.autoscaleMax=1 \
   --set gateways.istio-ingressgateway.resources.requests.cpu=500m \
   --set gateways.istio-ingressgateway.resources.requests.memory=256Mi \
+  `# Enable SDS in the gateway to allow dynamically configuring TLS of gateway.` \
+  --set gateways.istio-ingressgateway.sds.enabled=true \
   `# More pilot replicas for better scale` \
   --set pilot.autoscaleMin=2 \
   `# Set pilot trace sampling to 100%` \
@@ -69,6 +74,8 @@ helm template --namespace=istio-system \
   `# Set gateway pods to 1 to sidestep eventual consistency / readiness problems.` \
   --set gateways.istio-ingressgateway.autoscaleMin=1 \
   --set gateways.istio-ingressgateway.autoscaleMax=1 \
+  `# Enable SDS in the gateway to allow dynamically configuring TLS of gateway.` \
+  --set gateways.istio-ingressgateway.sds.enabled=true \
   `# Set pilot trace sampling to 100%` \
   --set pilot.traceSampling=100 \
   install/kubernetes/helm/istio \
@@ -76,9 +83,9 @@ helm template --namespace=istio-system \
   | sed 's/[ \t]*$//' \
   > ../istio-lean.yaml
 cat ../istio-knative-extras.yaml >> ../istio-lean.yaml
+)
 
 # Clean up.
-cd ..
 rm -rf istio-${ISTIO_VERSION}
 rm istio-${ISTIO_VERSION}-linux.tar.gz
 

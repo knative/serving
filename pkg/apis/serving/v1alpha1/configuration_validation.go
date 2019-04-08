@@ -24,11 +24,12 @@ import (
 
 	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
 	"github.com/knative/pkg/apis"
+	"github.com/knative/serving/pkg/apis/serving"
 )
 
 // Validate makes sure that Configuration is properly configured.
 func (c *Configuration) Validate(ctx context.Context) *apis.FieldError {
-	return ValidateObjectMetadata(c.GetObjectMeta()).ViaField("metadata").
+	return serving.ValidateObjectMetadata(c.GetObjectMeta()).ViaField("metadata").
 		Also(c.Spec.Validate(ctx).ViaField("spec"))
 }
 

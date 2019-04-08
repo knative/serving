@@ -68,9 +68,10 @@ func TestMakeService(t *testing.T) {
 				Name:      "collie-pub",
 				Labels: map[string]string{
 					// Those should be propagated.
-					serving.RevisionLabelKey: "collie",
-					serving.RevisionUID:      "1982",
-					networking.SKSLabelKey:   "collie", // <= This one we add.
+					serving.RevisionLabelKey:  "collie",
+					serving.RevisionUID:       "1982",
+					networking.SKSLabelKey:    "collie",
+					networking.ServiceTypeKey: "Public",
 				},
 				Annotations: map[string]string{},
 				OwnerReferences: []metav1.OwnerReference{{
@@ -120,9 +121,10 @@ func TestMakeService(t *testing.T) {
 				Name:      "dream-pub",
 				Labels: map[string]string{
 					// Those should be propagated.
-					serving.RevisionLabelKey: "dream",
-					serving.RevisionUID:      "1988",
-					networking.SKSLabelKey:   "dream", // <= This one we add.
+					serving.RevisionLabelKey:  "dream",
+					serving.RevisionUID:       "1988",
+					networking.SKSLabelKey:    "dream",
+					networking.ServiceTypeKey: "Public",
 				},
 				Annotations: map[string]string{
 					"cherub": "rock",
@@ -156,6 +158,7 @@ func TestMakeService(t *testing.T) {
 			// Now let's patch selector.
 			test.want.Spec.Selector = test.sks.Spec.Selector
 			test.want.Name = names.PrivateService(test.sks)
+			test.want.Labels[networking.ServiceTypeKey] = "Private"
 
 			got = MakePrivateService(test.sks)
 			if diff := cmp.Diff(test.want, got); diff != "" {
@@ -200,9 +203,10 @@ func TestMakeEndpoints(t *testing.T) {
 				Namespace: "melon",
 				Name:      "collie-pub",
 				Labels: map[string]string{
-					serving.RevisionLabelKey: "collie",
-					serving.RevisionUID:      "1982",
-					networking.SKSLabelKey:   "collie", // <= This one we add.
+					serving.RevisionLabelKey:  "collie",
+					serving.RevisionUID:       "1982",
+					networking.SKSLabelKey:    "collie",
+					networking.ServiceTypeKey: "Public",
 				},
 				Annotations: map[string]string{
 					"cherub": "rock",
@@ -226,8 +230,9 @@ func TestMakeEndpoints(t *testing.T) {
 				UID:       "1982",
 				// Those labels are propagated from the Revision->KPA.
 				Labels: map[string]string{
-					serving.RevisionLabelKey: "collie",
-					serving.RevisionUID:      "1982",
+					serving.RevisionLabelKey:  "collie",
+					serving.RevisionUID:       "1982",
+					networking.ServiceTypeKey: "Public",
 				},
 				Annotations: map[string]string{
 					"cherub": "rock",
@@ -261,9 +266,10 @@ func TestMakeEndpoints(t *testing.T) {
 				Namespace: "melon",
 				Name:      "collie-pub",
 				Labels: map[string]string{
-					serving.RevisionLabelKey: "collie",
-					serving.RevisionUID:      "1982",
-					networking.SKSLabelKey:   "collie", // <= This one we add.
+					serving.RevisionLabelKey:  "collie",
+					serving.RevisionUID:       "1982",
+					networking.SKSLabelKey:    "collie",
+					networking.ServiceTypeKey: "Public",
 				},
 				Annotations: map[string]string{
 					"cherub": "rock",

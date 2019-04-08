@@ -21,14 +21,14 @@ import (
 	"fmt"
 	"strconv"
 
-	"k8s.io/apimachinery/pkg/api/equality"
-
 	"github.com/knative/pkg/apis"
+	"github.com/knative/serving/pkg/apis/serving"
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/util/validation"
 )
 
 func (r *Route) Validate(ctx context.Context) *apis.FieldError {
-	return ValidateObjectMetadata(r.GetObjectMeta()).ViaField("metadata").
+	return serving.ValidateObjectMetadata(r.GetObjectMeta()).ViaField("metadata").
 		Also(r.Spec.Validate(ctx).ViaField("spec"))
 }
 

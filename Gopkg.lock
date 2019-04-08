@@ -435,7 +435,7 @@
   revision = "babf400eeec07acdd0d6864ad28709c2bcee0c82"
 
 [[projects]]
-  digest = "1:8357b8c7cec3c476032bf6eea23fa4b2f2f6bf0b8b6475b3ad1e6c33c4d35e3a"
+  digest = "1:828517719ba14c379e1c2ef0bc31e4f42bbf34f5bff38d21535628ff66671f39"
   name = "github.com/knative/pkg"
   packages = [
     "apis",
@@ -447,6 +447,7 @@
     "apis/istio/authentication/v1alpha1",
     "apis/istio/common/v1alpha1",
     "apis/istio/v1alpha3",
+    "apis/testing",
     "changeset",
     "client/clientset/versioned",
     "client/clientset/versioned/fake",
@@ -488,7 +489,7 @@
     "websocket",
   ]
   pruneopts = "NUT"
-  revision = "ff46edef0ae5fa1a1f12dbe1d3b8095d2d23501f"
+  revision = "2b574edcd712e848556c69cc95a2622145284882"
 
 [[projects]]
   branch = "master"
@@ -1320,6 +1321,7 @@
     "github.com/knative/pkg/apis/duck/v1beta1",
     "github.com/knative/pkg/apis/istio/common/v1alpha1",
     "github.com/knative/pkg/apis/istio/v1alpha3",
+    "github.com/knative/pkg/apis/testing",
     "github.com/knative/pkg/client/clientset/versioned",
     "github.com/knative/pkg/client/clientset/versioned/fake",
     "github.com/knative/pkg/client/informers/externalversions",
@@ -1383,7 +1385,6 @@
     "k8s.io/apimachinery/pkg/api/errors",
     "k8s.io/apimachinery/pkg/api/meta",
     "k8s.io/apimachinery/pkg/api/resource",
-    "k8s.io/apimachinery/pkg/api/validation",
     "k8s.io/apimachinery/pkg/apis/meta/v1",
     "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured",
     "k8s.io/apimachinery/pkg/labels",
