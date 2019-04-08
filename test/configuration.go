@@ -42,7 +42,7 @@ type Options struct {
 // CreateConfiguration create a configuration resource in namespace with the name names.Config
 // that uses the image specified by names.Image.
 func CreateConfiguration(t *testing.T, clients *Clients, names ResourceNames, options *Options, fopt ...rtesting.ConfigOption) (*v1alpha1.Configuration, error) {
-	config := Configuration(ServingNamespace, names, options, fopt...)
+	config := Configuration(names, options, fopt...)
 	LogResourceObject(t, ResourceObjects{Config: config})
 	return clients.ServingClient.Configs.Create(config)
 }
