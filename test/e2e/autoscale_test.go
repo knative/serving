@@ -59,17 +59,17 @@ func generateTraffic(ctx *testContext, concurrency int, duration time.Duration, 
 	)
 
 	ctx.t.Logf("Maintaining %d concurrent requests for %v.", concurrency, duration)
-	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://%s", ctx.domain), nil)
+	client, err := pkgTest.NewSpoofingClient(ctx.clients.KubeClient, ctx.t.Logf, ctx.domain, test.ServingFlags.ResolvableDomain)
 	if err != nil {
-		return fmt.Errorf("error creating HTTP request: %v", err)
+		return fmt.Errorf("error creating spoofing client: %v", err)
 	}
 	for i := 0; i < concurrency; i++ {
 		group.Go(func() error {
-			done := time.After(duration)
-			client, err := pkgTest.NewSpoofingClient(ctx.clients.KubeClient, ctx.t.Logf, ctx.domain, test.ServingFlags.ResolvableDomain)
+			req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://%s", ctx.domain), nil)
 			if err != nil {
-				return fmt.Errorf("error creating spoofing client: %v", err)
+				return fmt.Errorf("error creating HTTP request: %v", err)
 			}
+			done := time.After(duration)
 			for {
 				select {
 				case <-stopChan:
@@ -130,16 +130,15 @@ func setup(t *testing.T) *testContext {
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 
 	t.Log("When the Revision can have traffic routed to it, the Route is marked as Ready.")
-	err = test.WaitForRouteState(
+	if err = test.WaitForRouteState(
 		clients.ServingClient,
 		names.Route,
 		test.IsRouteReady,
-		"RouteIsReady")
-	if err != nil {
+		"RouteIsReady"); err != nil {
 		t.Fatalf("The Route %s was not marked as Ready to serve traffic: %v", names.Route, err)
 	}
 
-	t.Log("Serves the expected data at the endpoint")
+	t.Log("Served the expected data at the endpoint")
 	config, err := clients.ServingClient.Configs.Get(names.Config, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Configuration %s was not updated with the new revision: %v", names.Config, err)
