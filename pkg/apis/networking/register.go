@@ -44,6 +44,26 @@ const (
 	// SKSLabelKey is the label key that SKS Controller attaches to the
 	// underlying resources it controls.
 	SKSLabelKey = GroupName + "/serverlessservice"
+
+	// ServiceTypeKey is the label key attached to a service specifying the type of service.
+	// e.g. Public, Metrics
+	ServiceTypeKey = GroupName + "/serviceType"
+)
+
+// ServiceType is the enumeration type for the Kubernetes services
+// that we have in our system, classified by usage purpose.
+type ServiceType string
+
+const (
+	// ServiceTypePrivate is the label value for internal only services
+	// for user applications.
+	ServiceTypePrivate ServiceType = "Private"
+	// ServiceTypePublic is the label value for externally reachable
+	// services for user applications.
+	ServiceTypePublic ServiceType = "Public"
+	// ServiceTypeMetrics is the label value for Metrics services. Such services
+	// are used for meric scraping.
+	ServiceTypeMetrics ServiceType = "Metrics"
 )
 
 // Pseudo-constants

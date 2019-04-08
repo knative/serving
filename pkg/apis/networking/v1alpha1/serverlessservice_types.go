@@ -110,6 +110,11 @@ type ServerlessServiceStatus struct {
 	// load balances over the pods backing this Revision (activator or revision).
 	// +optional
 	ServiceName string `json:"serviceName,omitempty"`
+
+	// PrivateServiceName holds the name of a core K8s Service resource that
+	// load balances over the user service pods backing this Revision.
+	// +optional
+	PrivateServiceName string `json:"privateServiceName,omitempty"`
 }
 
 // ConditionType represents a ServerlessService condition value

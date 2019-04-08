@@ -82,7 +82,7 @@ func TestReconcile(t *testing.T) {
 		Name: "steady state",
 		Key:  "steady/state",
 		Objects: []runtime.Object{
-			sks("steady", "state", markHappy, withPubService),
+			sks("steady", "state", markHappy, withPubService, withPrivService),
 			svcpub("steady", "state"),
 			svcpriv("steady", "state"),
 			endpointspub("steady", "state", WithSubsets),
@@ -92,7 +92,7 @@ func TestReconcile(t *testing.T) {
 		Name: "pod change",
 		Key:  "pod/change",
 		Objects: []runtime.Object{
-			sks("pod", "change", markHappy, withPubService),
+			sks("pod", "change", markHappy, withPubService, withPrivService),
 			svcpub("pod", "change"),
 			svcpriv("pod", "change"),
 			endpointspub("pod", "change", WithSubsets),
@@ -105,7 +105,7 @@ func TestReconcile(t *testing.T) {
 		Name: "user changes priv svc",
 		Key:  "private/svc-change",
 		Objects: []runtime.Object{
-			sks("private", "svc-change", markHappy, withPubService),
+			sks("private", "svc-change", markHappy, withPubService, withPrivService),
 			svcpub("private", "svc-change"),
 			svcpriv("private", "svc-change", withTimeSelector),
 			endpointspub("private", "svc-change", withOtherSubsets),
@@ -118,7 +118,7 @@ func TestReconcile(t *testing.T) {
 		Name: "user changes public svc",
 		Key:  "public/svc-change",
 		Objects: []runtime.Object{
-			sks("public", "svc-change", markHappy, withPubService),
+			sks("public", "svc-change", markHappy, withPubService, withPrivService),
 			svcpub("public", "svc-change", withTimeSelector),
 			svcpriv("public", "svc-change"),
 			endpointspub("public", "svc-change", WithSubsets),
@@ -141,7 +141,7 @@ func TestReconcile(t *testing.T) {
 			endpointspub("on", "cde", WithSubsets),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: sks("on", "cde", markHappy, withPubService),
+			Object: sks("on", "cde", markHappy, withPubService, withPrivService),
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Updated", `Successfully updated ServerlessService "on/cde"`),
@@ -159,7 +159,7 @@ func TestReconcile(t *testing.T) {
 			endpointspub("on", "cneps"),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: sks("on", "cneps", markNoEndpoints, withPubService),
+			Object: sks("on", "cneps", markNoEndpoints, withPubService, withPrivService),
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Updated", `Successfully updated ServerlessService "on/cneps"`),
@@ -223,7 +223,7 @@ func TestReconcile(t *testing.T) {
 		Key:     "update-sks/fail4",
 		WantErr: true,
 		Objects: []runtime.Object{
-			sks("update-sks", "fail4", withPubService),
+			sks("update-sks", "fail4", withPubService, withPrivService),
 			svcpub("update-sks", "fail4"),
 			svcpriv("update-sks", "fail4"),
 			endpointspub("update-sks", "fail4", WithSubsets),
@@ -234,7 +234,7 @@ func TestReconcile(t *testing.T) {
 		},
 		// We still record update, but it fails.
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: sks("update-sks", "fail4", markHappy, withPubService),
+			Object: sks("update-sks", "fail4", markHappy, withPubService, withPrivService),
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "UpdateFailed", "Failed to update status: inducing failure for update serverlessservices"),
@@ -244,7 +244,7 @@ func TestReconcile(t *testing.T) {
 		Key:     "ronin-pub-service/fail5",
 		WantErr: true,
 		Objects: []runtime.Object{
-			sks("ronin-pub-service", "fail5", withPubService),
+			sks("ronin-pub-service", "fail5", withPubService, withPrivService),
 			svcpub("ronin-pub-service", "fail5", WithK8sSvcOwnersRemoved),
 			svcpriv("ronin-pub-service", "fail5"),
 			endpointspub("ronin-pub-service", "fail5", WithSubsets),
@@ -258,7 +258,7 @@ func TestReconcile(t *testing.T) {
 		Key:     "ronin-priv-service/fail6",
 		WantErr: true,
 		Objects: []runtime.Object{
-			sks("ronin-priv-service", "fail6", withPubService),
+			sks("ronin-priv-service", "fail6", withPubService, withPrivService),
 			svcpub("ronin-priv-service", "fail6"),
 			svcpriv("ronin-priv-service", "fail6", WithK8sSvcOwnersRemoved),
 			endpointspub("ronin-priv-service", "fail6", WithSubsets),
@@ -272,7 +272,7 @@ func TestReconcile(t *testing.T) {
 		Key:     "ronin-pub-eps/fail7",
 		WantErr: true,
 		Objects: []runtime.Object{
-			sks("ronin-pub-eps", "fail7", withPubService),
+			sks("ronin-pub-eps", "fail7", withPubService, withPrivService),
 			svcpub("ronin-pub-eps", "fail7"),
 			svcpriv("ronin-pub-eps", "fail7"),
 			endpointspub("ronin-pub-eps", "fail7", WithSubsets, WithEndpointsOwnersRemoved),
@@ -286,7 +286,7 @@ func TestReconcile(t *testing.T) {
 		Key:     "update-svc/fail8",
 		WantErr: true,
 		Objects: []runtime.Object{
-			sks("update-svc", "fail8", withPubService),
+			sks("update-svc", "fail8", withPubService, withPrivService),
 			svcpub("update-svc", "fail8", withTimeSelector),
 			svcpriv("update-svc", "fail8"),
 			endpointspub("update-svc", "fail8", WithSubsets),
@@ -307,7 +307,7 @@ func TestReconcile(t *testing.T) {
 		Key:     "update-svc/fail9",
 		WantErr: true,
 		Objects: []runtime.Object{
-			sks("update-svc", "fail9", withPubService),
+			sks("update-svc", "fail9", withPubService, withPrivService),
 			svcpub("update-svc", "fail9"),
 			svcpriv("update-svc", "fail9", withTimeSelector),
 			endpointspub("update-svc", "fail9"),
@@ -328,7 +328,7 @@ func TestReconcile(t *testing.T) {
 		Key:     "update-eps/failA",
 		WantErr: true,
 		Objects: []runtime.Object{
-			sks("update-eps", "failA", withPubService),
+			sks("update-eps", "failA", withPubService, withPrivService),
 			svcpub("update-eps", "failA"),
 			svcpriv("update-eps", "failA"),
 			endpointspub("update-eps", "failA"),
@@ -371,6 +371,10 @@ func withOtherSubsets(ep *corev1.Endpoints) {
 	ep.Subsets = []corev1.EndpointSubset{{
 		Addresses: []corev1.EndpointAddress{{IP: "127.0.0.2"}},
 	}}
+}
+
+func withPrivService(sks *nv1a1.ServerlessService) {
+	sks.Status.PrivateServiceName = names.PrivateService(sks)
 }
 
 func withPubService(sks *nv1a1.ServerlessService) {

@@ -49,7 +49,8 @@ func MakePublicService(sks *v1alpha1.ServerlessService) *corev1.Service {
 			Namespace: sks.Namespace,
 			Labels: resources.UnionMaps(sks.GetLabels(), map[string]string{
 				// Add our own special key.
-				networking.SKSLabelKey: sks.Name,
+				networking.SKSLabelKey:    sks.Name,
+				networking.ServiceTypeKey: string(networking.ServiceTypePublic),
 			}),
 			Annotations:     resources.CopyMap(sks.GetAnnotations()),
 			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(sks)},
@@ -74,7 +75,8 @@ func MakePublicEndpoints(sks *v1alpha1.ServerlessService, src *corev1.Endpoints)
 			Namespace: sks.Namespace,
 			Labels: resources.UnionMaps(sks.GetLabels(), map[string]string{
 				// Add our own special key.
-				networking.SKSLabelKey: sks.Name,
+				networking.SKSLabelKey:    sks.Name,
+				networking.ServiceTypeKey: string(networking.ServiceTypePublic),
 			}),
 			Annotations:     resources.CopyMap(sks.GetAnnotations()),
 			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(sks)},
@@ -97,7 +99,8 @@ func MakePrivateService(sks *v1alpha1.ServerlessService) *corev1.Service {
 			Namespace: sks.Namespace,
 			Labels: resources.UnionMaps(sks.GetLabels(), map[string]string{
 				// Add our own special key.
-				networking.SKSLabelKey: sks.Name,
+				networking.SKSLabelKey:    sks.Name,
+				networking.ServiceTypeKey: string(networking.ServiceTypePrivate),
 			}),
 			Annotations:     resources.CopyMap(sks.GetAnnotations()),
 			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(sks)},
