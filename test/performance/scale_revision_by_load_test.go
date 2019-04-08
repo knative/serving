@@ -44,8 +44,7 @@ const (
 	containerConcurrency = 10
 )
 
-// number of concurrent clients in each iteration
-var tests = []int{10, 20, 40, 80, 160, 320}
+var concurrentClients = []int{10, 20, 40, 80, 160, 320}
 
 type scaleEvent struct {
 	oldScale  int
@@ -56,18 +55,18 @@ type scaleEvent struct {
 // TestScaleRevisionByLoad performs several iterations with increasing number of clients
 // while measuring response times, error rates, and time to scale up.
 func TestScaleRevisionByLoad(t *testing.T) {
-	tc := make([]junit.TestCase, 0)
-	for _, numClients := range tests {
-		t.Run(fmt.Sprintf("clients-%02d", numClients), func(t *testing.T) {
-			tc = scaleRevisionByLoad(t, numClients, tc)
+	tc := make([]junit.TestCase, 5*len(concurrentClients))
+	for _, numClients := range concurrentClients {
+		t.Run(fmt.Sprintf("clients-%03d", numClients), func(t *testing.T) {
+			scaleRevisionByLoad(t, numClients, tc)
 		})
 	}
 	if err := testgrid.CreateXMLOutput(tc, t.Name()); err != nil {
-		t.Fatalf("Cannot create output xml: %v", err)
+		t.Fatalf("Cannot create output XML: %v", err)
 	}
 }
 
-func scaleRevisionByLoad(t *testing.T, numClients int, tc []junit.TestCase) []junit.TestCase {
+func scaleRevisionByLoad(t *testing.T, numClients int, tc []junit.TestCase) {
 	perfClients, err := Setup(t.Logf, true)
 	if err != nil {
 		t.Fatalf("Cannot initialize performance client: %v", err)
@@ -123,22 +122,22 @@ func scaleRevisionByLoad(t *testing.T, numClients int, tc []junit.TestCase) []ju
 	t.Logf("Took %v for the endpoint to start serving", time.Since(st))
 
 	scaleChannel := make(chan *scaleEvent)
-	endMonitoring := make(chan bool)
+	endMonitoring := make(chan struct{})
 	eg := errgroup.Group{}
 
 	eg.Go(func() error {
 		t.Logf("Scale Monitoring Started")
 		defer close(scaleChannel)
-		previousNumEndpoints := 1 //we start with 1 pod running
+		previousNumEndpoints := 1 //We start with 1 pod running
 		for {
 			select {
 			case <-endMonitoring:
-				t.Logf("Scale Monitoring Finished")
+				t.Log("Scale Monitoring Finished")
 				return nil
 			default:
 				currentNumEndpoints, err := test.NumEndpoints(clients, test.ServingNamespace, names.Service)
 				if err != nil {
-					t.Logf("Unable to get pod count: %s", err.Error())
+					t.Logf("Unable to get pod count: %v", err.Error())
 				}
 				if currentNumEndpoints != previousNumEndpoints {
 					event := &scaleEvent{
@@ -177,7 +176,7 @@ func scaleRevisionByLoad(t *testing.T, numClients int, tc []junit.TestCase) []ju
 		t.Fatalf("Generating traffic via fortio failed: %v", err)
 	}
 
-	endMonitoring <- true
+	endMonitoring <- struct{}{}
 
 	if err := eg.Wait(); err != nil {
 		t.Fatalf("Failed to collect Pod counts: %v", err)
@@ -201,8 +200,6 @@ func scaleRevisionByLoad(t *testing.T, numClients int, tc []junit.TestCase) []ju
 		name := fmt.Sprintf("p%d(ms)", int(p.Percentile))
 		tc = append(tc, CreatePerfTestCase(val, name, t.Name()))
 	}
-
-	return tc
 }
 
 func errorsPercentage(resp *loadgenerator.GeneratorResults) float64 {
