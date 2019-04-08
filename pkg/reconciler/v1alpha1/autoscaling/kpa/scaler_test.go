@@ -184,27 +184,52 @@ func TestScaler(t *testing.T) {
 	}
 }
 
-func TestScalingToZeroDisabled(t *testing.T) {
-	servingClient := fakeKna.NewSimpleClientset()
-	scaleClient := &scalefake.FakeScaleClient{}
+func TestEnableScaleToZero(t *testing.T) {
+	defer ClearAll()
+	tests := []struct {
+		label         string
+		startReplicas int
+		scaleTo       int32
+		minScale      int32
+		maxScale      int32
+		wantReplicas  int32
+		wantScaling   bool
+	}{{
+		label:         "EnableScaleToZero == false and minScale == 0",
+		startReplicas: 10,
+		scaleTo:       0,
+		wantReplicas:  1,
+	}, {
+		label:         "EnableScaleToZero == false and minScale == 2",
+		startReplicas: 10,
+		scaleTo:       0,
+		minScale:      2,
+		wantReplicas:  2,
+	}}
 
-	revision := newRevision(t, servingClient, 0 /*minScale*/, 0 /*maxScale*/)
-	deployment := newDeployment(t, scaleClient, names.Deployment(revision), 10)
-	revisionScaler := &scaler{
-		servingClientSet: servingClient,
-		scaleClientSet:   scaleClient,
-		logger:           TestLogger(t),
-		autoscalerConfig: &autoscaler.Config{
-			EnableScaleToZero: false,
-		},
+	for _, test := range tests {
+		t.Run(test.label, func(t *testing.T) {
+			// The clients for our testing.
+			servingClient := fakeKna.NewSimpleClientset()
+			scaleClient := &scalefake.FakeScaleClient{}
+
+			revision := newRevision(t, servingClient, test.minScale, test.maxScale)
+			deployment := newDeployment(t, scaleClient, names.Deployment(revision), test.startReplicas)
+			revisionScaler := &scaler{
+				servingClientSet: servingClient,
+				scaleClientSet:   scaleClient,
+				logger:           TestLogger(t),
+				autoscalerConfig: &autoscaler.Config{
+					EnableScaleToZero: false,
+				},
+			}
+			pa := newKPA(t, servingClient, revision)
+
+			revisionScaler.Scale(TestContextWithLogger(t), pa, test.scaleTo)
+
+			checkReplicas(t, scaleClient, deployment, test.wantReplicas)
+		})
 	}
-	pa := newKPA(t, servingClient, revision)
-
-	// Desire 0 pod
-	revisionScaler.Scale(TestContextWithLogger(t), pa, 0)
-
-	// Keep minimum 1 pod if EnableScaleToZero is false
-	checkReplicas(t, scaleClient, deployment, 1)
 }
 
 func TestGetScaleResource(t *testing.T) {
