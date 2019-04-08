@@ -52,7 +52,6 @@ var (
 	// Check that PodAutoscaler can be validated, can be defaulted, and has immutable fields.
 	_ apis.Validatable = (*PodAutoscaler)(nil)
 	_ apis.Defaultable = (*PodAutoscaler)(nil)
-	_ apis.Immutable   = (*PodAutoscaler)(nil)
 
 	// Check that we can create OwnerReferences to a PodAutoscaler.
 	_ kmeta.OwnerRefable = (*PodAutoscaler)(nil)

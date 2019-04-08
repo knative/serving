@@ -40,7 +40,7 @@ func CheckCondition(s *duckv1b1.Status, c apis.ConditionType, cs corev1.Conditio
 func CheckConditionOngoing(s *duckv1b1.Status, c apis.ConditionType, t *testing.T) {
 	t.Helper()
 	if err := CheckCondition(s, c, corev1.ConditionUnknown); err != nil {
-		t.Fatal(err)
+		t.Error(err)
 	}
 }
 
@@ -48,7 +48,7 @@ func CheckConditionOngoing(s *duckv1b1.Status, c apis.ConditionType, t *testing.
 func CheckConditionFailed(s *duckv1b1.Status, c apis.ConditionType, t *testing.T) {
 	t.Helper()
 	if err := CheckCondition(s, c, corev1.ConditionFalse); err != nil {
-		t.Fatal(err)
+		t.Error(err)
 	}
 }
 
@@ -56,6 +56,6 @@ func CheckConditionFailed(s *duckv1b1.Status, c apis.ConditionType, t *testing.T
 func CheckConditionSucceeded(s *duckv1b1.Status, c apis.ConditionType, t *testing.T) {
 	t.Helper()
 	if err := CheckCondition(s, c, corev1.ConditionTrue); err != nil {
-		t.Fatal(err)
+		t.Error(err)
 	}
 }

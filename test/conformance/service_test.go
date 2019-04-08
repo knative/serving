@@ -25,6 +25,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	pkgTest "github.com/knative/pkg/test"
+	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/test"
 	corev1 "k8s.io/api/core/v1"
@@ -141,7 +142,7 @@ func validateAnnotations(objs *test.ResourceObjects) error {
 	// List of issues listing annotations that we check: #1642.
 
 	anns := objs.Service.GetAnnotations()
-	for _, a := range []string{v1alpha1.CreatorAnnotation, v1alpha1.UpdaterAnnotation} {
+	for _, a := range []string{serving.CreatorAnnotation, serving.UpdaterAnnotation} {
 		if got := anns[a]; got == "" {
 			return fmt.Errorf("Expected %s annotation to be set, but was empty", a)
 		}
