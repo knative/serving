@@ -74,7 +74,7 @@ func sortServers(servers []v1alpha3.Server) []v1alpha3.Server {
 func MakeServers(ctx context.Context, ci *v1alpha1.ClusterIngress, gatewayName string) ([]v1alpha3.Server, error) {
 	targetNamespace, err := gatewayServiceNamespace(ctx, gatewayName)
 	if err != nil {
-		return []v1alpha3.Server{}, err
+		return nil, err
 	}
 	servers := []v1alpha3.Server{}
 	// TODO(zhiminx): for the hosts that does not included in the ClusterIngressTLS but listed in the ClusterIngressRule,
@@ -113,7 +113,7 @@ func gatewayServiceNamespace(ctx context.Context, gatewayName string) (string, e
 		// serviceName.namespace.svc.cluster.local.
 		return strings.Split(gw.ServiceURL, ".")[1], nil
 	}
-	return "", fmt.Errorf("No Gateway configuration for gateway %s", gatewayName)
+	return "", fmt.Errorf("No Gateway configuration is found for gateway %s", gatewayName)
 }
 
 func getAllGatewaySvcNamespaces(ctx context.Context) []string {

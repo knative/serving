@@ -27,6 +27,8 @@ func VirtualService(i *v1alpha1.ClusterIngress) string {
 	return i.Name
 }
 
-func TargetSecret(ns, name string) string {
-	return fmt.Sprintf("%s--%s", ns, name)
+// TargetSecret returns the name of the Secret that is copied from the origin Secret
+// with the given `namespace` and `name`.
+func TargetSecret(namespace, name string) string {
+	return fmt.Sprintf("%s--%s", namespace, name)
 }

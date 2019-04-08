@@ -406,7 +406,7 @@ func (c *Reconciler) reconcileDeletion(ctx context.Context, ci *v1alpha1.Cluster
 		}
 	}
 
-	// Update the Route to remove the Finalizer.
+	// Update the ClusterIngress to remove the Finalizer.
 	logger.Info("Removing Finalizer")
 	ci.Finalizers = ci.Finalizers[1:]
 	_, err := c.ServingClientSet.NetworkingV1alpha1().ClusterIngresses().Update(ci)
@@ -477,6 +477,8 @@ func (c *Reconciler) reconcileCertSecret(ctx context.Context, ci *v1alpha1.Clust
 		_, err = c.KubeClientSet.CoreV1().Secrets(copy.Namespace).Update(copy)
 		if err != nil {
 			logger.Errorw("Failed to update target secret", zap.Error(err))
+			c.Recorder.Eventf(ci, corev1.EventTypeWarning, "UpdateFailed",
+				"Failed to update Secret %s/%s: %v", desired.Namespace, desired.Name, err)
 			return err
 		}
 		c.Recorder.Eventf(ci, corev1.EventTypeNormal, "Updated",

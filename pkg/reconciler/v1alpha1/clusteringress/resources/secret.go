@@ -27,6 +27,8 @@ import (
 	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
+// MakeDesiredSecrets makes the copies of the Secrets referenced by the given ClusterIngress
+// under the namespace of Istio gateway service.
 func MakeDesiredSecrets(ctx context.Context, ci *v1alpha1.ClusterIngress, secretLister corev1listers.SecretLister) ([]*corev1.Secret, error) {
 	gatewaySvcNamespaces := getAllGatewaySvcNamespaces(ctx)
 	secrets := []*corev1.Secret{}
@@ -41,14 +43,13 @@ func MakeDesiredSecrets(ctx context.Context, ci *v1alpha1.ClusterIngress, secret
 				// as the origin namespace
 				continue
 			}
-			secrets = append(secrets, makeTargetSecret(originSecret, ns))
+			secrets = append(secrets, makeDesiredSecret(originSecret, ns))
 		}
 	}
 	return secrets, nil
 }
 
-// makeTargetSecret creates a copy of originSecret with the given namespace.
-func makeTargetSecret(originSecret *corev1.Secret, targetNamespace string) *corev1.Secret {
+func makeDesiredSecret(originSecret *corev1.Secret, targetNamespace string) *corev1.Secret {
 	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      names.TargetSecret(originSecret.Namespace, originSecret.Name),
