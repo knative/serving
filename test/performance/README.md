@@ -53,7 +53,7 @@ if err != nil {
 
 Zipkin tracing can be enabled if needed by the performance test during setup.
 
-```
+```go
 perfClients, err := Setup(t, EnableZipkinTracing)
 ```
 
