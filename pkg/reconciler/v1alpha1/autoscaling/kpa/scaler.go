@@ -136,11 +136,16 @@ func isPAOwnedByRevision(ctx context.Context, pa *pav1alpha1.PodAutoscaler) bool
 
 func (ks *scaler) handleScaleToZero(pa *pav1alpha1.PodAutoscaler, desiredScale int32) (int32, bool) {
 	if desiredScale == 0 {
-		// We should only scale to zero when both of the following conditions are true:
-		//   a) The PA has been active for atleast the stable window, after which it gets marked inactive
-		//   b) The PA has been inactive for atleast the grace period
+		// We should only scale to zero when three of the following conditions are true:
+		//   a) enable-scale-to-zero from configmap is true
+		//   b) The PA has been active for atleast the stable window, after which it gets marked inactive
+		//   c) The PA has been inactive for atleast the grace period
 
 		config := ks.getAutoscalerConfig()
+
+		if config.EnableScaleToZero == false {
+			return 1, true
+		}
 
 		if pa.Status.IsActivating() { // Active=Unknown
 			// Don't scale-to-zero during activation
@@ -151,18 +156,18 @@ func (ks *scaler) handleScaleToZero(pa *pav1alpha1.PodAutoscaler, desiredScale i
 			// Only let a revision be scaled to 0 if it's been active for at
 			// least the stable window's time.
 			if pa.Status.CanMarkInactive(config.StableWindow) {
-				return desiredScale, true
+				return desiredScale, false
 			}
 			// Otherwise, scale down to 1 until the idle period elapses
 			desiredScale = 1
 		} else { // Active=False
 			// Don't scale-to-zero if the grace period hasn't elapsed
 			if !pa.Status.CanScaleToZero(config.ScaleToZeroGracePeriod) {
-				return desiredScale, true
+				return desiredScale, false
 			}
 		}
 	}
-	return desiredScale, false
+	return desiredScale, true
 }
 
 func (ks *scaler) applyScale(ctx context.Context, pa *pav1alpha1.PodAutoscaler, desiredScale int32, resource *schema.GroupResource, scl *autoscalingapi.Scale) (int32, error) {
@@ -204,14 +209,14 @@ func (ks *scaler) Scale(ctx context.Context, pa *pav1alpha1.PodAutoscaler, desir
 	}
 	currentScale := scl.Spec.Replicas
 
-	min, max := ks.getScaleBounds(pa)
+	min, max := pa.ScaleBounds()
 	if newScale := applyBounds(min, max, desiredScale); newScale != desiredScale {
 		logger.Debugf("Adjusting desiredScale: %v -> %v", desiredScale, newScale)
 		desiredScale = newScale
 	}
 
-	desiredScale, skipApplyScale := ks.handleScaleToZero(pa, desiredScale)
-	if skipApplyScale {
+	desiredScale, shouldApplyScale := ks.handleScaleToZero(pa, desiredScale)
+	if !shouldApplyScale {
 		return desiredScale, nil
 	}
 
@@ -232,14 +237,4 @@ func (ks *scaler) Scale(ctx context.Context, pa *pav1alpha1.PodAutoscaler, desir
 	logger.Infof("Scaling from %d to %d", currentScale, desiredScale)
 
 	return ks.applyScale(ctx, pa, desiredScale, resource, scl)
-}
-
-func (ks *scaler) getScaleBounds(pa *pav1alpha1.PodAutoscaler) (int32, int32) {
-	config := ks.getAutoscalerConfig()
-	min, max := pa.ScaleBounds()
-	// Don't scale to zero if scale to zero is disabled.
-	if config.EnableScaleToZero == false && min == 0 {
-		min = 1
-	}
-	return min, max
 }

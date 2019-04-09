@@ -151,11 +151,12 @@ func TestScaler(t *testing.T) {
 		wantReplicas:  10,
 		wantScaling:   true,
 	}, {
-		label:         "ignore negative scale",
+		label:         "negative scale is bounded to minScale",
 		startReplicas: 12,
 		scaleTo:       -1,
-		wantReplicas:  12,
-		wantScaling:   false,
+		minScale:      2,
+		wantReplicas:  2,
+		wantScaling:   true,
 	}}
 
 	for _, test := range tests {
