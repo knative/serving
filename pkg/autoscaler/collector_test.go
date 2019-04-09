@@ -38,9 +38,14 @@ func TestMetricCollectorCrud(t *testing.T) {
 			Name:      defaultName,
 		},
 	}
+	scraper := testScraper(func() (*StatMessage, error) {
+		return nil, nil
+	})
+	factory := scraperFactory(scraper)
+	statsCh := make(chan *StatMessage)
 
 	t.Run("error on mismatch", func(t *testing.T) {
-		coll := NewMetricCollector(logger)
+		coll := NewMetricCollector(factory, statsCh, logger)
 		coll.Create(ctx, &Metric{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: "another-namespace",
@@ -56,7 +61,7 @@ func TestMetricCollectorCrud(t *testing.T) {
 	})
 
 	t.Run("full crud", func(t *testing.T) {
-		coll := NewMetricCollector(logger)
+		coll := NewMetricCollector(factory, statsCh, logger)
 		coll.Create(ctx, defaultMetric)
 
 		got, err := coll.Get(ctx, defaultNamespace, defaultName)
@@ -79,4 +84,16 @@ func TestMetricCollectorCrud(t *testing.T) {
 			t.Errorf("Delete() = %v, want no error", err)
 		}
 	})
+}
+
+func scraperFactory(scraper StatsScraper) StatsScraperFactory {
+	return func(*Metric) (StatsScraper, error) {
+		return scraper, nil
+	}
+}
+
+type testScraper func() (*StatMessage, error)
+
+func (s testScraper) Scrape() (*StatMessage, error) {
+	return s()
 }

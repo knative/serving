@@ -27,6 +27,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+const (
+	// scrapeTickInterval is the interval of time between scraping metrics across
+	// all pods of a revision.
+	// TODO(yanweiguo): tuning this value. To be based on pod population?
+	scrapeTickInterval = time.Second / 3
+)
+
 // Metric represents a resource to configure the metric collector with.
 // +k8s:deepcopy-gen=true
 type Metric struct {
@@ -155,6 +162,7 @@ func newCollection(metric *Metric, scraper StatsScraper, statsCh chan *StatMessa
 		for {
 			select {
 			case <-c.stopCh:
+				scrapeTicker.Stop()
 				return
 			case <-scrapeTicker.C:
 				message, err := scraper.Scrape()

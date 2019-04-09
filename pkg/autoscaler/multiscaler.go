@@ -35,11 +35,6 @@ const (
 	// seconds while an http request is taking the full timeout of 5
 	// second.
 	scaleBufferSize = 10
-
-	// scrapeTickInterval is the interval of time between scraping metrics across
-	// all pods of a revision.
-	// TODO(yanweiguo): tuning this value. To be based on pod population?
-	scrapeTickInterval = time.Second / 3
 )
 
 // Decider is a resource which observes the request load of a Revision and
