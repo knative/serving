@@ -151,7 +151,7 @@ func TestReconcile(t *testing.T) {
 			rev("byo-name-wrong-gen-wrong-spec", "foo", 1200, func(rev *v1alpha1.Revision) {
 				rev.Name = "byo-name-wrong-gen-wrong-spec-foo"
 				rev.GenerateName = ""
-				rev.Spec.Container.Env = append(rev.Spec.Container.Env, corev1.EnvVar{
+				rev.Spec.GetContainer().Env = append(rev.Spec.GetContainer().Env, corev1.EnvVar{
 					Name:  "FOO",
 					Value: "bar",
 				})
@@ -631,7 +631,7 @@ func cfg(name, namespace string, generation int64, co ...ConfigOption) *v1alpha1
 		Spec: v1alpha1.ConfigurationSpec{
 			DeprecatedGeneration: generation,
 			RevisionTemplate: &v1alpha1.RevisionTemplateSpec{
-				Spec: revisionSpec,
+				Spec: *revisionSpec.DeepCopy(),
 			},
 		},
 	}

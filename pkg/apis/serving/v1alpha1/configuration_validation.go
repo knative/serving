@@ -36,8 +36,8 @@ func (c *Configuration) Validate(ctx context.Context) *apis.FieldError {
 	if apis.IsInUpdate(ctx) {
 		original := apis.GetBaseline(ctx).(*Configuration)
 
-		err := c.Spec.RevisionTemplate.VerifyNameChange(ctx,
-			&original.Spec.RevisionTemplate)
+		err := c.Spec.GetTemplate().VerifyNameChange(ctx,
+			original.Spec.GetTemplate())
 		errs = errs.Also(err.ViaField("spec.revisionTemplate"))
 	}
 

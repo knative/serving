@@ -228,12 +228,12 @@ func TestConfigurationValidation(t *testing.T) {
 				Name: "byo-name",
 			},
 			Spec: ConfigurationSpec{
-				RevisionTemplate: RevisionTemplateSpec{
+				RevisionTemplate: &RevisionTemplateSpec{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "byo-name-foo",
 					},
 					Spec: RevisionSpec{
-						Container: corev1.Container{
+						Container: &corev1.Container{
 							Image: "hellworld",
 						},
 					},
@@ -248,12 +248,12 @@ func TestConfigurationValidation(t *testing.T) {
 				GenerateName: "byo-name-",
 			},
 			Spec: ConfigurationSpec{
-				RevisionTemplate: RevisionTemplateSpec{
+				RevisionTemplate: &RevisionTemplateSpec{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "byo-name-foo",
 					},
 					Spec: RevisionSpec{
-						Container: corev1.Container{
+						Container: &corev1.Container{
 							Image: "hellworld",
 						},
 					},
@@ -268,12 +268,12 @@ func TestConfigurationValidation(t *testing.T) {
 				Name: "byo-name",
 			},
 			Spec: ConfigurationSpec{
-				RevisionTemplate: RevisionTemplateSpec{
+				RevisionTemplate: &RevisionTemplateSpec{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "foo",
 					},
 					Spec: RevisionSpec{
-						Container: corev1.Container{
+						Container: &corev1.Container{
 							Image: "hellworld",
 						},
 					},
@@ -307,9 +307,9 @@ func TestImmutableConfigurationFields(t *testing.T) {
 				Name: "no-byo-name",
 			},
 			Spec: ConfigurationSpec{
-				RevisionTemplate: RevisionTemplateSpec{
+				RevisionTemplate: &RevisionTemplateSpec{
 					Spec: RevisionSpec{
-						Container: corev1.Container{
+						Container: &corev1.Container{
 							Image: "helloworld:foo",
 						},
 					},
@@ -321,9 +321,9 @@ func TestImmutableConfigurationFields(t *testing.T) {
 				Name: "no-byo-name",
 			},
 			Spec: ConfigurationSpec{
-				RevisionTemplate: RevisionTemplateSpec{
+				RevisionTemplate: &RevisionTemplateSpec{
 					Spec: RevisionSpec{
-						Container: corev1.Container{
+						Container: &corev1.Container{
 							Image: "helloworld:bar",
 						},
 					},
@@ -338,12 +338,12 @@ func TestImmutableConfigurationFields(t *testing.T) {
 				Name: "byo-name",
 			},
 			Spec: ConfigurationSpec{
-				RevisionTemplate: RevisionTemplateSpec{
+				RevisionTemplate: &RevisionTemplateSpec{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "byo-name-foo",
 					},
 					Spec: RevisionSpec{
-						Container: corev1.Container{
+						Container: &corev1.Container{
 							Image: "helloworld:foo",
 						},
 					},
@@ -355,12 +355,12 @@ func TestImmutableConfigurationFields(t *testing.T) {
 				Name: "byo-name",
 			},
 			Spec: ConfigurationSpec{
-				RevisionTemplate: RevisionTemplateSpec{
+				RevisionTemplate: &RevisionTemplateSpec{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "byo-name-bar",
 					},
 					Spec: RevisionSpec{
-						Container: corev1.Container{
+						Container: &corev1.Container{
 							Image: "helloworld:bar",
 						},
 					},
@@ -375,12 +375,12 @@ func TestImmutableConfigurationFields(t *testing.T) {
 				Name: "byo-name",
 			},
 			Spec: ConfigurationSpec{
-				RevisionTemplate: RevisionTemplateSpec{
+				RevisionTemplate: &RevisionTemplateSpec{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "byo-name-foo",
 					},
 					Spec: RevisionSpec{
-						Container: corev1.Container{
+						Container: &corev1.Container{
 							Image: "helloworld:foo",
 						},
 					},
@@ -392,12 +392,12 @@ func TestImmutableConfigurationFields(t *testing.T) {
 				Name: "byo-name",
 			},
 			Spec: ConfigurationSpec{
-				RevisionTemplate: RevisionTemplateSpec{
+				RevisionTemplate: &RevisionTemplateSpec{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "byo-name-foo",
 					},
 					Spec: RevisionSpec{
-						Container: corev1.Container{
+						Container: &corev1.Container{
 							Image: "helloworld:foo",
 						},
 					},
@@ -412,12 +412,12 @@ func TestImmutableConfigurationFields(t *testing.T) {
 				Name: "byo-name",
 			},
 			Spec: ConfigurationSpec{
-				RevisionTemplate: RevisionTemplateSpec{
+				RevisionTemplate: &RevisionTemplateSpec{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "byo-name-foo",
 					},
 					Spec: RevisionSpec{
-						Container: corev1.Container{
+						Container: &corev1.Container{
 							Image: "helloworld:foo",
 						},
 					},
@@ -429,12 +429,12 @@ func TestImmutableConfigurationFields(t *testing.T) {
 				Name: "byo-name",
 			},
 			Spec: ConfigurationSpec{
-				RevisionTemplate: RevisionTemplateSpec{
+				RevisionTemplate: &RevisionTemplateSpec{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "byo-name-foo",
 					},
 					Spec: RevisionSpec{
-						Container: corev1.Container{
+						Container: &corev1.Container{
 							Image: "helloworld:bar",
 						},
 					},
@@ -444,7 +444,7 @@ func TestImmutableConfigurationFields(t *testing.T) {
 		want: &apis.FieldError{
 			Message: "Saw the following changes without a name change (-old +new)",
 			Paths:   []string{"spec.revisionTemplate"},
-			Details: "{*v1alpha1.RevisionTemplateSpec}.Spec.Container.Image:\n\t-: \"helloworld:foo\"\n\t+: \"helloworld:bar\"\n",
+			Details: "{*v1alpha1.RevisionTemplateSpec}.Spec.Container.Image:\n\t-: \"helloworld:bar\"\n\t+: \"helloworld:foo\"\n",
 		},
 	}}
 

@@ -662,9 +662,9 @@ func TestImmutableServiceFields(t *testing.T) {
 			Spec: ServiceSpec{
 				RunLatest: &RunLatestType{
 					Configuration: ConfigurationSpec{
-						RevisionTemplate: RevisionTemplateSpec{
+						RevisionTemplate: &RevisionTemplateSpec{
 							Spec: RevisionSpec{
-								Container: corev1.Container{
+								Container: &corev1.Container{
 									Image: "helloworld:foo",
 								},
 							},
@@ -680,9 +680,9 @@ func TestImmutableServiceFields(t *testing.T) {
 			Spec: ServiceSpec{
 				RunLatest: &RunLatestType{
 					Configuration: ConfigurationSpec{
-						RevisionTemplate: RevisionTemplateSpec{
+						RevisionTemplate: &RevisionTemplateSpec{
 							Spec: RevisionSpec{
-								Container: corev1.Container{
+								Container: &corev1.Container{
 									Image: "helloworld:bar",
 								},
 							},
@@ -701,12 +701,12 @@ func TestImmutableServiceFields(t *testing.T) {
 			Spec: ServiceSpec{
 				RunLatest: &RunLatestType{
 					Configuration: ConfigurationSpec{
-						RevisionTemplate: RevisionTemplateSpec{
+						RevisionTemplate: &RevisionTemplateSpec{
 							ObjectMeta: metav1.ObjectMeta{
 								Name: "byo-name-foo",
 							},
 							Spec: RevisionSpec{
-								Container: corev1.Container{
+								Container: &corev1.Container{
 									Image: "helloworld:foo",
 								},
 							},
@@ -722,12 +722,12 @@ func TestImmutableServiceFields(t *testing.T) {
 			Spec: ServiceSpec{
 				RunLatest: &RunLatestType{
 					Configuration: ConfigurationSpec{
-						RevisionTemplate: RevisionTemplateSpec{
+						RevisionTemplate: &RevisionTemplateSpec{
 							ObjectMeta: metav1.ObjectMeta{
 								Name: "byo-name-bar",
 							},
 							Spec: RevisionSpec{
-								Container: corev1.Container{
+								Container: &corev1.Container{
 									Image: "helloworld:bar",
 								},
 							},
@@ -746,12 +746,12 @@ func TestImmutableServiceFields(t *testing.T) {
 			Spec: ServiceSpec{
 				RunLatest: &RunLatestType{
 					Configuration: ConfigurationSpec{
-						RevisionTemplate: RevisionTemplateSpec{
+						RevisionTemplate: &RevisionTemplateSpec{
 							ObjectMeta: metav1.ObjectMeta{
 								Name: "byo-name-foo",
 							},
 							Spec: RevisionSpec{
-								Container: corev1.Container{
+								Container: &corev1.Container{
 									Image: "helloworld:foo",
 								},
 							},
@@ -768,12 +768,12 @@ func TestImmutableServiceFields(t *testing.T) {
 				Release: &ReleaseType{
 					Revisions: []string{"foo"},
 					Configuration: ConfigurationSpec{
-						RevisionTemplate: RevisionTemplateSpec{
+						RevisionTemplate: &RevisionTemplateSpec{
 							ObjectMeta: metav1.ObjectMeta{
 								Name: "byo-name-foo",
 							},
 							Spec: RevisionSpec{
-								Container: corev1.Container{
+								Container: &corev1.Container{
 									Image: "helloworld:foo",
 								},
 							},
@@ -792,12 +792,12 @@ func TestImmutableServiceFields(t *testing.T) {
 			Spec: ServiceSpec{
 				RunLatest: &RunLatestType{
 					Configuration: ConfigurationSpec{
-						RevisionTemplate: RevisionTemplateSpec{
+						RevisionTemplate: &RevisionTemplateSpec{
 							ObjectMeta: metav1.ObjectMeta{
 								Name: "byo-name-foo",
 							},
 							Spec: RevisionSpec{
-								Container: corev1.Container{
+								Container: &corev1.Container{
 									Image: "helloworld:foo",
 								},
 							},
@@ -814,12 +814,12 @@ func TestImmutableServiceFields(t *testing.T) {
 				Release: &ReleaseType{
 					Revisions: []string{"foo"},
 					Configuration: ConfigurationSpec{
-						RevisionTemplate: RevisionTemplateSpec{
+						RevisionTemplate: &RevisionTemplateSpec{
 							ObjectMeta: metav1.ObjectMeta{
 								Name: "byo-name-bar",
 							},
 							Spec: RevisionSpec{
-								Container: corev1.Container{
+								Container: &corev1.Container{
 									Image: "helloworld:bar",
 								},
 							},
@@ -838,12 +838,12 @@ func TestImmutableServiceFields(t *testing.T) {
 			Spec: ServiceSpec{
 				RunLatest: &RunLatestType{
 					Configuration: ConfigurationSpec{
-						RevisionTemplate: RevisionTemplateSpec{
+						RevisionTemplate: &RevisionTemplateSpec{
 							ObjectMeta: metav1.ObjectMeta{
 								Name: "byo-name-foo",
 							},
 							Spec: RevisionSpec{
-								Container: corev1.Container{
+								Container: &corev1.Container{
 									Image: "helloworld:foo",
 								},
 							},
@@ -860,12 +860,12 @@ func TestImmutableServiceFields(t *testing.T) {
 				Release: &ReleaseType{
 					Revisions: []string{"foo"},
 					Configuration: ConfigurationSpec{
-						RevisionTemplate: RevisionTemplateSpec{
+						RevisionTemplate: &RevisionTemplateSpec{
 							ObjectMeta: metav1.ObjectMeta{
 								Name: "byo-name-foo",
 							},
 							Spec: RevisionSpec{
-								Container: corev1.Container{
+								Container: &corev1.Container{
 									Image: "helloworld:bar",
 								},
 							},
@@ -877,7 +877,7 @@ func TestImmutableServiceFields(t *testing.T) {
 		want: &apis.FieldError{
 			Message: "Saw the following changes without a name change (-old +new)",
 			Paths:   []string{"spec.runLatest.configuration.revisionTemplate"},
-			Details: "{*v1alpha1.RevisionTemplateSpec}.Spec.Container.Image:\n\t-: \"helloworld:foo\"\n\t+: \"helloworld:bar\"\n",
+			Details: "{*v1alpha1.RevisionTemplateSpec}.Spec.Container.Image:\n\t-: \"helloworld:bar\"\n\t+: \"helloworld:foo\"\n",
 		},
 	}}
 

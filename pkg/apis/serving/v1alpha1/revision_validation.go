@@ -81,7 +81,7 @@ func (rt *RevisionTemplateSpec) Validate(ctx context.Context) *apis.FieldError {
 	// it follows the requirements on the name.
 	if rt.Name != "" {
 		var prefix string
-		if om := parentName(ctx); om.Name == "" {
+		if om := apis.ParentMeta(ctx); om.Name == "" {
 			prefix = om.GenerateName
 		} else {
 			prefix = om.Name + "-"
@@ -97,7 +97,8 @@ func (rt *RevisionTemplateSpec) Validate(ctx context.Context) *apis.FieldError {
 	return errs
 }
 
-// CheckImmutableFields checks the immutable fields are not modified.
+// VerifyNameChange checks that if a user brought their own name previously that it
+// changes at the appropriate times.
 func (current *RevisionTemplateSpec) VerifyNameChange(ctx context.Context, og *RevisionTemplateSpec) *apis.FieldError {
 	if current.Name == "" {
 		// We only check that Name changes when the RevisionTemplate changes.
@@ -108,7 +109,7 @@ func (current *RevisionTemplateSpec) VerifyNameChange(ctx context.Context, og *R
 		return nil
 	}
 
-	if diff, err := kmp.SafeDiff(current, og); err != nil {
+	if diff, err := kmp.SafeDiff(og, current); err != nil {
 		return &apis.FieldError{
 			Message: "Failed to diff RevisionTemplate",
 			Paths:   []string{apis.CurrentField},

@@ -232,6 +232,8 @@ func (c *Reconciler) reconcile(ctx context.Context, config *v1alpha1.Configurati
 	return nil
 }
 
+// CheckNameAvailability checks that if the named Revision specified by the Configuration
+// is available (not found), exists (but matches), or exists with conflict (doesn't match).
 func CheckNameAvailability(config *v1alpha1.Configuration, lister listers.RevisionLister) (*v1alpha1.Revision, error) {
 	// If config.Spec.RevisionTemplate.Name is set, then we can directly look up
 	// the revision by name.
@@ -260,10 +262,9 @@ func CheckNameAvailability(config *v1alpha1.Configuration, lister listers.Revisi
 	if rev.Labels != nil && rev.Labels[generationKey] == expectedValue {
 		return rev, nil
 	}
-	// We only require spec equality because the rest of the spec is immutable and
-	// the user may have annotated or labeled the Revision (beyond what the
-	// Configuration might have).
-	if !equality.Semantic.DeepEqual(config.Spec.RevisionTemplate.Spec, rev.Spec) {
+	// We only require spec equality because the rest is immutable and the user may have
+	// annotated or labeled the Revision (beyond what the Configuration might have).
+	if !equality.Semantic.DeepEqual(config.Spec.GetTemplate().Spec, rev.Spec) {
 		return nil, errConflict
 	}
 	return rev, nil

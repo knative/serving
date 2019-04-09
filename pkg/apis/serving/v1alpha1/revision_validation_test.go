@@ -843,9 +843,7 @@ func TestRevisionTemplateSpecValidation(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			ctx := context.Background()
-
-			ctx = withinParent(ctx, metav1.ObjectMeta{
+			ctx := apis.WithinParent(context.Background(), metav1.ObjectMeta{
 				Name: "parent",
 			})
 

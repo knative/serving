@@ -39,9 +39,10 @@ func (s *Service) Validate(ctx context.Context) *apis.FieldError {
 		_, originalConfig := original.Spec.getConfigurationSpec()
 
 		if currentConfig != nil && originalConfig != nil {
-			err := currentConfig.RevisionTemplate.VerifyNameChange(ctx,
-				&originalConfig.RevisionTemplate)
+			err := currentConfig.GetTemplate().VerifyNameChange(ctx,
+				originalConfig.GetTemplate())
 			errs = errs.Also(err.ViaField(
+				// TODO(mattmoor): revisionTemplate -> field
 				"spec", field, "configuration", "revisionTemplate"))
 		}
 	}
