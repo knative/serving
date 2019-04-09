@@ -18,6 +18,11 @@ import (
 )
 
 const (
+	pizzaPlanet1 = "pizzaplanetv1"
+	pizzaPlanet2 = "pizzaplanetv2"
+
+	pizzaPlanetText1 = "What a spaceport!"
+	pizzaPlanetText2 = "Re-energize yourself with a slice of pepperoni!"
 	helloWorldExpectedOutput = "Hello World! How about some tasty noodles?"
 )
 
