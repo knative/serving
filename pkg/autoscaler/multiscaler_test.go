@@ -407,12 +407,10 @@ func TestMultiScalerUpdate(t *testing.T) {
 func createMultiScaler(t *testing.T, config *Config) (*MultiScaler, chan<- struct{}, chan *StatMessage, *fakeUniScaler) {
 	logger := TestLogger(t)
 	uniscaler := &fakeUniScaler{}
-	statsScraper := &fakeStatsScraper{}
 
 	stopChan := make(chan struct{})
 	statChan := make(chan *StatMessage)
-	ms := NewMultiScaler(NewDynamicConfig(config, logger),
-		stopChan, statChan, uniscaler.fakeUniScalerFactory, statsScraper.fakeStatsScraperFactory, logger)
+	ms := NewMultiScaler(NewDynamicConfig(config, logger), stopChan, statChan, uniscaler.fakeUniScalerFactory, logger)
 
 	return ms, stopChan, statChan, uniscaler
 }
@@ -474,16 +472,4 @@ func newDecider() *Decider {
 		},
 		Status: DeciderStatus{},
 	}
-}
-
-type fakeStatsScraper struct {
-}
-
-func (s *fakeStatsScraper) fakeStatsScraperFactory(*Decider) (StatsScraper, error) {
-	return s, nil
-}
-
-// Scrape always sends the same test StatMessage.
-func (s *fakeStatsScraper) Scrape() (*StatMessage, error) {
-	return &testStatMessage, nil
 }

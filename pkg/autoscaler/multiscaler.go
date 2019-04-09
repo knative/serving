@@ -77,9 +77,6 @@ type UniScaler interface {
 // UniScalerFactory creates a UniScaler for a given PA using the given dynamic configuration.
 type UniScalerFactory func(*Decider, *DynamicConfig) (UniScaler, error)
 
-// StatsScraperFactory creates a StatsScraper for a given PA using the given dynamic configuration.
-type StatsScraperFactory func(*Decider) (StatsScraper, error)
-
 // scalerRunner wraps a UniScaler and a channel for implementing shutdown behavior.
 type scalerRunner struct {
 	scaler UniScaler
@@ -118,12 +115,10 @@ type MultiScaler struct {
 	scalers       map[string]*scalerRunner
 	scalersMutex  sync.RWMutex
 	scalersStopCh <-chan struct{}
-	statsCh       chan<- *StatMessage
 
 	dynConfig *DynamicConfig
 
-	uniScalerFactory    UniScalerFactory
-	statsScraperFactory StatsScraperFactory
+	uniScalerFactory UniScalerFactory
 
 	logger *zap.SugaredLogger
 
@@ -135,19 +130,15 @@ type MultiScaler struct {
 func NewMultiScaler(
 	dynConfig *DynamicConfig,
 	stopCh <-chan struct{},
-	statsCh chan<- *StatMessage,
 	uniScalerFactory UniScalerFactory,
-	statsScraperFactory StatsScraperFactory,
 	logger *zap.SugaredLogger) *MultiScaler {
 	logger.Debugf("Creating MultiScaler with configuration %#v", dynConfig)
 	return &MultiScaler{
-		scalers:             make(map[string]*scalerRunner),
-		scalersStopCh:       stopCh,
-		statsCh:             statsCh,
-		dynConfig:           dynConfig,
-		uniScalerFactory:    uniScalerFactory,
-		statsScraperFactory: statsScraperFactory,
-		logger:              logger,
+		scalers:          make(map[string]*scalerRunner),
+		scalersStopCh:    stopCh,
+		dynConfig:        dynConfig,
+		uniScalerFactory: uniScalerFactory,
+		logger:           logger,
 	}
 }
 
@@ -280,32 +271,6 @@ func (m *MultiScaler) createScaler(ctx context.Context, decider *Decider) (*scal
 				m.tickScaler(ctx, scaler, scaleChan)
 			case <-runner.pokeCh:
 				m.tickScaler(ctx, scaler, scaleChan)
-			}
-		}
-	}()
-
-	scraper, err := m.statsScraperFactory(decider)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create a stats scraper for decider %q: %v", decider.Name, err)
-	}
-	scraperTicker := time.NewTicker(scrapeTickInterval)
-	go func() {
-		for {
-			select {
-			case <-m.scalersStopCh:
-				scraperTicker.Stop()
-				return
-			case <-stopCh:
-				scraperTicker.Stop()
-				return
-			case <-scraperTicker.C:
-				stat, err := scraper.Scrape()
-				if err != nil {
-					m.logger.Errorw("Failed to scrape metrics", zap.Error(err))
-				}
-				if stat != nil {
-					m.statsCh <- stat
-				}
 			}
 		}
 	}()
