@@ -21,12 +21,12 @@ import (
 	"testing"
 
 	. "github.com/knative/pkg/logging/testing"
-	testinghelper "github.com/knative/serving/pkg/activator/testing"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	v1alpha12 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/queue"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -262,7 +262,7 @@ func TestUpdateEndpoints(t *testing.T) {
 			breaker := queue.NewBreaker(throttler.breakerParams)
 			throttler.breakers[revID] = breaker
 			updater := UpdateEndpoints(throttler)
-			endpointsAfter := corev1.Endpoints{ObjectMeta: metav1.ObjectMeta{Name: revID.Name + "-service", Namespace: revID.Namespace}, Subsets: testinghelper.GetTestEndpointsSubset(s.endpointsAfter, 1)}
+			endpointsAfter := corev1.Endpoints{ObjectMeta: metav1.ObjectMeta{Name: revID.Name + "-service", Namespace: revID.Namespace}, Subsets: endpointsSubset(s.endpointsAfter, 1)}
 			updater(&endpointsAfter)
 
 			if got := breaker.Capacity(); got != int32(s.wantCapacity) {
@@ -312,4 +312,17 @@ func getThrottler(
 	params := queue.BreakerParams{QueueDepth: 1, MaxConcurrency: maxConcurrency, InitialCapacity: initCapacity}
 	throttlerParams := ThrottlerParams{BreakerParams: params, Logger: logger, GetRevision: revisionGetter, GetEndpoints: endpointsGetter}
 	return NewThrottler(throttlerParams)
+}
+
+func endpointsSubset(hostsPerSubset, subsets int) []v1.EndpointSubset {
+	resp := []v1.EndpointSubset{}
+	if hostsPerSubset > 0 {
+		addresses := make([]v1.EndpointAddress, hostsPerSubset)
+		subset := v1.EndpointSubset{Addresses: addresses}
+		for s := 0; s < subsets; s++ {
+			resp = append(resp, subset)
+		}
+		return resp
+	}
+	return resp
 }
