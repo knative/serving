@@ -229,13 +229,11 @@ func (c *Reconciler) reconcile(ctx context.Context, pa *pav1alpha1.PodAutoscaler
 
 	scale, err := c.scaler.GetScaleResource(pa)
 	if err != nil {
-		logger.Debugw("Error Getting scale", zap.Error(err))
-		return perrors.Wrap(err, "Error retrieving scale")
+		return perrors.Wrap(err, "error getting scale")
 	}
 	selector, err := labels.ConvertSelectorToLabelsMap(scale.Status.Selector)
 	if err != nil {
-		logger.Errorw(fmt.Sprintf("Error parsing selector string %q", scale.Status.Selector), zap.Error(err))
-		return perrors.Wrap(err, "Error parsing selector")
+		return perrors.Wrapf(err, "error parsing selector string %q", scale.Status.Selector)
 	}
 	logger.Debugf("PA %s selector: %v", pa.Name, selector)
 
@@ -375,13 +373,11 @@ func (c *Reconciler) reconcileSKS(ctx context.Context, pa *pav1alpha1.PodAutosca
 		sks = resources.MakeSKS(pa, selector, nv1alpha1.SKSOperationModeServe)
 		_, err = c.ServingClientSet.NetworkingV1alpha1().ServerlessServices(sks.Namespace).Create(sks)
 		if err != nil {
-			logger.Errorw(fmt.Sprintf("Error creating SKS %s/%s: ", pa.Namespace, sksName), zap.Error(err))
-			return err
+			return perrors.Wrapf(err, "error creating SKS %s/%s", pa.Namespace, sksName)
 		}
 		logger.Infof("Created SKS: %q", sksName)
 	} else if err != nil {
-		logger.Errorw(fmt.Sprintf("Error getting SKS %s: ", sksName), zap.Error(err))
-		return err
+		return perrors.Wrapf(err, "error getting SKS %s", sksName)
 	} else if !metav1.IsControlledBy(sks, pa) {
 		pa.Status.MarkResourceNotOwned("ServerlessService", sksName)
 		return fmt.Errorf("KPA: %q does not own SKS: %q", pa.Name, sksName)
@@ -392,8 +388,7 @@ func (c *Reconciler) reconcileSKS(ctx context.Context, pa *pav1alpha1.PodAutosca
 		want.Spec = tmpl.Spec
 		logger.Infof("SKS changed; reconciling: %s", sksName)
 		if _, err = c.ServingClientSet.NetworkingV1alpha1().ServerlessServices(sks.Namespace).Update(want); err != nil {
-			logger.Errorw(fmt.Sprintf("Error updating SKS %s: ", sksName), zap.Error(err))
-			return err
+			return perrors.Wrapf(err, "error updating SKS %s", sksName)
 		}
 	}
 	logger.Debugf("Done reconciling SKS %s", sksName)
