@@ -121,7 +121,7 @@ func TestPodAutoscalerSpecValidation(t *testing.T) {
 				Name:       "bar",
 			},
 		},
-		want: apis.ErrInvalidValue("-1", "containerConcurrency"),
+		want: apis.ErrInvalidValue(-1, "containerConcurrency"),
 	}, {
 		name: "bad concurrency model and container concurrency combination",
 		rs: &PodAutoscalerSpec{

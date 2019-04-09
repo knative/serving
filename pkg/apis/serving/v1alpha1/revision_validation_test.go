@@ -19,7 +19,6 @@ package v1alpha1
 import (
 	"context"
 	"fmt"
-	"strconv"
 	"strings"
 	"testing"
 
@@ -132,14 +131,14 @@ func TestContainerValidation(t *testing.T) {
 				ContainerPort: 65536,
 			}},
 		},
-		want: apis.ErrOutOfBoundsValue("65536", "1", "65535", "ports.ContainerPort"),
+		want: apis.ErrOutOfBoundsValue(65536, 1, 65535, "ports.ContainerPort"),
 	}, {
 		name: "has an empty port set",
 		c: corev1.Container{
 			Image: "foo",
 			Ports: []corev1.ContainerPort{{}},
 		},
-		want: apis.ErrOutOfBoundsValue("0", "1", "65535", "ports.ContainerPort"),
+		want: apis.ErrOutOfBoundsValue(0, 1, 65535, "ports.ContainerPort"),
 	}, {
 		name: "has more than one unnamed port",
 		c: corev1.Container{
@@ -203,7 +202,7 @@ func TestContainerValidation(t *testing.T) {
 				ContainerPort: 8022,
 			}},
 		},
-		want: apis.ErrInvalidValue("8022", "ports.ContainerPort"),
+		want: apis.ErrInvalidValue(8022, "ports.ContainerPort"),
 	}, {
 		name: "port conflicts with queue proxy",
 		c: corev1.Container{
@@ -212,7 +211,7 @@ func TestContainerValidation(t *testing.T) {
 				ContainerPort: 8012,
 			}},
 		},
-		want: apis.ErrInvalidValue("8012", "ports.ContainerPort"),
+		want: apis.ErrInvalidValue(8012, "ports.ContainerPort"),
 	}, {
 		name: "port conflicts with queue proxy metrics",
 		c: corev1.Container{
@@ -221,7 +220,7 @@ func TestContainerValidation(t *testing.T) {
 				ContainerPort: 9090,
 			}},
 		},
-		want: apis.ErrInvalidValue("9090", "ports.ContainerPort"),
+		want: apis.ErrInvalidValue(9090, "ports.ContainerPort"),
 	}, {
 		name: "has invalid port name",
 		c: corev1.Container{
@@ -635,11 +634,11 @@ func TestContainerConcurrencyValidation(t *testing.T) {
 	}, {
 		name: "invalid container concurrency (too small)",
 		cc:   -1,
-		want: apis.ErrInvalidValue("-1", "containerConcurrency"),
+		want: apis.ErrInvalidValue(-1, "containerConcurrency"),
 	}, {
 		name: "invalid container concurrency (too large)",
 		cc:   RevisionContainerConcurrencyMax + 1,
-		want: apis.ErrInvalidValue(strconv.Itoa(int(RevisionContainerConcurrencyMax)+1), "containerConcurrency"),
+		want: apis.ErrInvalidValue(int(RevisionContainerConcurrencyMax)+1, "containerConcurrency"),
 	}}
 
 	for _, test := range tests {
@@ -753,8 +752,8 @@ func TestRevisionSpecValidation(t *testing.T) {
 			},
 			TimeoutSeconds: 6000,
 		},
-		want: apis.ErrOutOfBoundsValue("6000s", "0s",
-			fmt.Sprintf("%ds", int(net.DefaultTimeout.Seconds())),
+		want: apis.ErrOutOfBoundsValue(6000, 0,
+			net.DefaultTimeout.Seconds(),
 			"timeoutSeconds"),
 	}, {
 		name: "negative timeout",
@@ -764,8 +763,8 @@ func TestRevisionSpecValidation(t *testing.T) {
 			},
 			TimeoutSeconds: -30,
 		},
-		want: apis.ErrOutOfBoundsValue("-30s", "0s",
-			fmt.Sprintf("%ds", int(net.DefaultTimeout.Seconds())),
+		want: apis.ErrOutOfBoundsValue(-30, 0,
+			net.DefaultTimeout.Seconds(),
 			"timeoutSeconds"),
 	}}
 

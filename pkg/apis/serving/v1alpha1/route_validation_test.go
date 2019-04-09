@@ -358,14 +358,14 @@ func TestTrafficTargetValidation(t *testing.T) {
 			RevisionName: "foo",
 			Percent:      -5,
 		},
-		want: apis.ErrOutOfBoundsValue("-5", "0", "100", "percent"),
+		want: apis.ErrOutOfBoundsValue(-5, 0, 100, "percent"),
 	}, {
 		name: "invalid percent too high",
 		tt: &TrafficTarget{
 			RevisionName: "foo",
 			Percent:      101,
 		},
-		want: apis.ErrOutOfBoundsValue("101", "0", "100", "percent"),
+		want: apis.ErrOutOfBoundsValue(101, 0, 100, "percent"),
 	}, {
 		name: "disallowed url set",
 		tt: &TrafficTarget{

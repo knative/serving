@@ -19,7 +19,6 @@ package v1alpha1
 import (
 	"context"
 	"fmt"
-	"strconv"
 
 	"github.com/knative/pkg/apis"
 	"github.com/knative/serving/pkg/apis/serving"
@@ -106,7 +105,7 @@ func (tt *TrafficTarget) Validate(ctx context.Context) *apis.FieldError {
 		errs = apis.ErrMissingOneOf("revisionName", "configurationName")
 	}
 	if tt.Percent < 0 || tt.Percent > 100 {
-		errs = errs.Also(apis.ErrOutOfBoundsValue(strconv.Itoa(tt.Percent), "0", "100", "percent"))
+		errs = errs.Also(apis.ErrOutOfBoundsValue(tt.Percent, 0, 100, "percent"))
 	}
 	if tt.URL != "" {
 		errs = errs.Also(apis.ErrDisallowedFields("url"))

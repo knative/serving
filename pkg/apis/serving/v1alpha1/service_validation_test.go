@@ -356,7 +356,7 @@ func TestServiceValidation(t *testing.T) {
 				},
 			},
 		},
-		want: apis.ErrOutOfBoundsValue("3", "1", "2", "spec.release.revisions"),
+		want: apis.ErrOutOfBoundsValue(3, 1, 2, "spec.release.revisions"),
 	}, {
 		name: "invalid release -- rollout greater than 99",
 		s: &Service{
@@ -379,7 +379,7 @@ func TestServiceValidation(t *testing.T) {
 				},
 			},
 		},
-		want: apis.ErrOutOfBoundsValue("100", "0", "99", "spec.release.rolloutPercent"),
+		want: apis.ErrOutOfBoundsValue(100, 0, 99, "spec.release.rolloutPercent"),
 	}, {
 		name: "invalid release -- rollout less than 0",
 		s: &Service{
@@ -402,7 +402,7 @@ func TestServiceValidation(t *testing.T) {
 				},
 			},
 		},
-		want: apis.ErrOutOfBoundsValue("-50", "0", "99", "spec.release.rolloutPercent"),
+		want: apis.ErrOutOfBoundsValue(-50, 0, 99, "spec.release.rolloutPercent"),
 	}, {
 		name: "invalid release -- non-zero rollout for single revision",
 		s: &Service{
@@ -425,7 +425,7 @@ func TestServiceValidation(t *testing.T) {
 				},
 			},
 		},
-		want: apis.ErrInvalidValue("10", "spec.release.rolloutPercent"),
+		want: apis.ErrInvalidValue(10, "spec.release.rolloutPercent"),
 	}, {
 		name: "invalid name - dots",
 		s: &Service{

@@ -96,13 +96,13 @@ func TestReconcile(t *testing.T) {
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: cfg("validation-failure", "foo", 1234, WithConfigConcurrencyModel("Bogus"),
 				// Expect Revision creation to fail with the following error.
-				MarkRevisionCreationFailed(`invalid value "Bogus": spec.concurrencyModel`)),
+				MarkRevisionCreationFailed(`invalid value: Bogus: spec.concurrencyModel`)),
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "CreationFailed", "Failed to create Revision for Configuration %q: %v",
-				"validation-failure", `invalid value "Bogus": spec.concurrencyModel`),
+				"validation-failure", `invalid value: Bogus: spec.concurrencyModel`),
 			Eventf(corev1.EventTypeWarning, "UpdateFailed", "Failed to update status for Configuration %q: %v",
-				"validation-failure", `invalid value "Bogus": spec.revisionTemplate.spec.concurrencyModel`),
+				"validation-failure", `invalid value: Bogus: spec.revisionTemplate.spec.concurrencyModel`),
 		},
 		Key: "foo/validation-failure",
 	}, {
