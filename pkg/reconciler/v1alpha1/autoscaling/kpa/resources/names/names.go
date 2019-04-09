@@ -22,3 +22,8 @@ package names
 func MetricsServiceName(paName string) string {
 	return paName + "-metrics"
 }
+
+// SKSName returns the name of the SKS resource that backs this PA.
+func SKSName(paName string) string {
+	return paName
+}

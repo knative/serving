@@ -30,6 +30,7 @@ import (
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	routenames "github.com/knative/serving/pkg/reconciler/v1alpha1/route/resources/names"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/traffic"
+	"github.com/knative/serving/pkg/reconciler/v1alpha1/serverlessservice/resources/names"
 	servicenames "github.com/knative/serving/pkg/reconciler/v1alpha1/service/resources/names"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -966,4 +967,46 @@ func WithFailingContainer(name string, exitCode int, message string) PodOption {
 			},
 		}
 	}
+}
+
+// SKSOption is a callback type for decorate SKS objects.
+type SKSOption func(sks *netv1alpha1.ServerlessService)
+
+// WithPubService annotates SKS status with the given service name.
+func WithPubService(sks *netv1alpha1.ServerlessService) {
+	sks.Status.ServiceName = names.PublicService(sks)
+}
+
+// WithSelector annotates SKS with a given selector map.
+func WithSelector(sel map[string]string) SKSOption {
+	return func(sks *netv1alpha1.ServerlessService) {
+		sks.Spec.Selector = sel
+	}
+}
+
+// WithSKSOwnersRemoved clears the owner references of this SKS resource.
+func WithSKSOwnersRemoved(sks *netv1alpha1.ServerlessService) {
+	sks.OwnerReferences = nil
+}
+
+// SKS creates a generic ServerlessService object.
+func SKS(ns, name string, so ...SKSOption) *netv1alpha1.ServerlessService {
+	s := &netv1alpha1.ServerlessService{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: ns,
+			UID:       "test-uid",
+		},
+		Spec: netv1alpha1.ServerlessServiceSpec{
+			Mode:         netv1alpha1.SKSOperationModeServe,
+			ProtocolType: networking.ProtocolHTTP1,
+			Selector: map[string]string{
+				"label": "value",
+			},
+		},
+	}
+	for _, opt := range so {
+		opt(s)
+	}
+	return s
 }

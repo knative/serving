@@ -206,7 +206,7 @@ func (ks *scaler) Scale(ctx context.Context, pa *pav1alpha1.PodAutoscaler, desir
 
 	min, max := pa.ScaleBounds()
 	if newScale := applyBounds(min, max, desiredScale); newScale != desiredScale {
-		logger.Debugf("Adjusting desiredScale: %v -> %v", desiredScale, newScale)
+		logger.Debugf("Adjusting desiredScale: %d -> %d", desiredScale, newScale)
 		desiredScale = newScale
 	}
 
