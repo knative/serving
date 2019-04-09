@@ -18,17 +18,16 @@ package resources
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/networking/v1alpha1"
-	"github.com/knative/serving/pkg/reconciler/v1alpha1/clusteringress/resources/names"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
-// MakeDesiredSecrets makes the copies of the Secrets referenced by the given ClusterIngress
-// under the namespace of Istio gateway service.
+// MakeDesiredSecrets makes copies of the Secrets referenced by the given ClusterIngress.
 func MakeDesiredSecrets(ctx context.Context, ci *v1alpha1.ClusterIngress, secretLister corev1listers.SecretLister) ([]*corev1.Secret, error) {
 	gatewaySvcNamespaces := getAllGatewaySvcNamespaces(ctx)
 	secrets := []*corev1.Secret{}
@@ -52,7 +51,7 @@ func MakeDesiredSecrets(ctx context.Context, ci *v1alpha1.ClusterIngress, secret
 func makeDesiredSecret(originSecret *corev1.Secret, targetNamespace string) *corev1.Secret {
 	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      names.TargetSecret(originSecret.Namespace, originSecret.Name),
+			Name:      targetSecret(originSecret.Namespace, originSecret.Name),
 			Namespace: targetNamespace,
 			Labels: map[string]string{
 				networking.OriginSecretNameLabelKey:      originSecret.Name,
@@ -62,4 +61,10 @@ func makeDesiredSecret(originSecret *corev1.Secret, targetNamespace string) *cor
 		Data: originSecret.Data,
 		Type: originSecret.Type,
 	}
+}
+
+// targetSecret returns the name of the Secret that is copied from the origin Secret
+// with the given `namespace` and `name`.
+func targetSecret(namespace, name string) string {
+	return fmt.Sprintf("%s--%s", namespace, name)
 }

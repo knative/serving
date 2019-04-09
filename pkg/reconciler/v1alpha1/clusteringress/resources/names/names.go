@@ -17,18 +17,10 @@ limitations under the License.
 package names
 
 import (
-	"fmt"
-
 	"github.com/knative/serving/pkg/apis/networking/v1alpha1"
 )
 
 // VirtualService returns the name of the VirtualService child resource for given ClusterIngress.
 func VirtualService(i *v1alpha1.ClusterIngress) string {
 	return i.Name
-}
-
-// TargetSecret returns the name of the Secret that is copied from the origin Secret
-// with the given `namespace` and `name`.
-func TargetSecret(namespace, name string) string {
-	return fmt.Sprintf("%s--%s", namespace, name)
 }

@@ -22,6 +22,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/knative/pkg/apis/istio/v1alpha3"
 	"github.com/knative/serving/pkg/apis/networking/v1alpha1"
+	"github.com/knative/serving/pkg/reconciler/v1alpha1/clusteringress/config"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -69,7 +70,7 @@ var clusterIngress = v1alpha1.ClusterIngress{
 		TLS: []v1alpha1.ClusterIngressTLS{{
 			Hosts:             []string{"host1.example.com"},
 			SecretName:        "secret0",
-			SecretNamespace:   "istio-system",
+			SecretNamespace:   "knative-serving",
 			ServerCertificate: "tls.crt",
 			PrivateKey:        "tls.key",
 		}},
@@ -98,22 +99,96 @@ func TestGetServers(t *testing.T) {
 }
 
 func TestMakeServers(t *testing.T) {
-	servers := MakeServers(&clusterIngress)
-	expected := []v1alpha3.Server{{
-		Hosts: []string{"host1.example.com"},
-		Port: v1alpha3.Port{
-			Name:     "clusteringress:0",
-			Number:   443,
-			Protocol: v1alpha3.ProtocolHTTPS,
-		},
-		TLS: &v1alpha3.TLSOptions{
-			Mode:              v1alpha3.TLSModeSimple,
-			ServerCertificate: "tls.crt",
-			PrivateKey:        "tls.key",
-		},
+	cases := []struct {
+		name                    string
+		ci                      *v1alpha1.ClusterIngress
+		gatewayServiceNamespace string
+		expected                []v1alpha3.Server
+	}{{
+		name: "secret namespace is the different from the gateway service namespace",
+		ci:   &clusterIngress,
+		// gateway service namespace is "istio-system", while the secret namespace is "knative-serving".
+		gatewayServiceNamespace: "istio-system",
+		expected: []v1alpha3.Server{{
+			Hosts: []string{"host1.example.com"},
+			Port: v1alpha3.Port{
+				Name:     "clusteringress:0",
+				Number:   443,
+				Protocol: v1alpha3.ProtocolHTTPS,
+			},
+			TLS: &v1alpha3.TLSOptions{
+				Mode:              v1alpha3.TLSModeSimple,
+				ServerCertificate: "tls.crt",
+				PrivateKey:        "tls.key",
+				CredentialName:    targetSecret("knative-serving", "secret0"),
+			},
+		}},
+	}, {
+		name: "secret namespace is the same as the gateway service namespace",
+		ci:   &clusterIngress,
+		// gateway service namespace and the secret namespace are both in "knative-serving".
+		gatewayServiceNamespace: "knative-serving",
+		expected: []v1alpha3.Server{{
+			Hosts: []string{"host1.example.com"},
+			Port: v1alpha3.Port{
+				Name:     "clusteringress:0",
+				Number:   443,
+				Protocol: v1alpha3.ProtocolHTTPS,
+			},
+			TLS: &v1alpha3.TLSOptions{
+				Mode:              v1alpha3.TLSModeSimple,
+				ServerCertificate: "tls.crt",
+				PrivateKey:        "tls.key",
+				CredentialName:    "secret0",
+			},
+		}},
 	}}
-	if diff := cmp.Diff(expected, servers); diff != "" {
-		t.Errorf("Unexpected servers (-want +got): %v", diff)
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			servers := MakeServers(c.ci, c.gatewayServiceNamespace)
+			if diff := cmp.Diff(c.expected, servers); diff != "" {
+				t.Errorf("Unexpected servers (-want, +got): %v", diff)
+			}
+		})
+	}
+}
+
+func TestGatewayServiceNamespace(t *testing.T) {
+	cases := []struct {
+		name            string
+		ingressGateways []config.Gateway
+		gatewayName     string
+		expected        string
+		wantErr         bool
+	}{{
+		name: "Gateway service exists.",
+		ingressGateways: []config.Gateway{{
+			GatewayName: "test-gateway",
+			ServiceURL:  "istio-ingressgateway.istio-system.svc.cluster.local",
+		}},
+		gatewayName: "test-gateway",
+		expected:    "istio-system",
+		wantErr:     false,
+	}, {
+		name: "Gateway service does not exists.",
+		ingressGateways: []config.Gateway{{
+			GatewayName: "test-gateway",
+			ServiceURL:  "istio-ingressgateway.istio-system.svc.cluster.local",
+		}},
+		gatewayName: "non-exist-gateway",
+		wantErr:     true,
+	}}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			gatewayServiceNamespace, err := GatewayServiceNamespace(c.ingressGateways, c.gatewayName)
+			if (err != nil) != c.wantErr {
+				t.Fatalf("Test: %s; GatewayServiceNamespace error = %v, WantErr %v", c.name, err, c.wantErr)
+			}
+
+			if diff := cmp.Diff(c.expected, gatewayServiceNamespace); diff != "" {
+				t.Errorf("Unexpected gateway service namespace (-want, +got): %v", diff)
+			}
+		})
 	}
 }
 

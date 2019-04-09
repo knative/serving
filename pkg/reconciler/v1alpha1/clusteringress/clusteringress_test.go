@@ -47,6 +47,7 @@ import (
 	fakeclientset "github.com/knative/serving/pkg/client/clientset/versioned/fake"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
 	"github.com/knative/serving/pkg/reconciler"
+	ctesting "github.com/knative/serving/pkg/reconciler/testing"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/clusteringress/config"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/clusteringress/resources"
 	. "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
@@ -115,6 +116,7 @@ var (
 			Mode:              v1alpha3.TLSModeSimple,
 			ServerCertificate: "tls.crt",
 			PrivateKey:        "tls.key",
+			CredentialName:    "secret0",
 		},
 	}
 
@@ -130,6 +132,7 @@ var (
 			Mode:              v1alpha3.TLSModeSimple,
 			ServerCertificate: "tls.crt",
 			PrivateKey:        "tls.key",
+			CredentialName:    "other-secret",
 		},
 	}
 )
@@ -270,6 +273,7 @@ func TestReconcile_Gateway(t *testing.T) {
 			ingressWithTLS("reconciling-clusteringress", 1234, ingressTLS),
 			// No Gateway servers match the given TLS of ClusterIngress.
 			gateway("knative-ingress-gateway", system.Namespace(), []v1alpha3.Server{irrelevanteServer}),
+			secret("istio-system", "secret0", map[string]string{}),
 		},
 		WantCreates: []metav1.Object{
 			// The creation of gateways are triggered when setting up the test.
@@ -322,6 +326,7 @@ func TestReconcile_Gateway(t *testing.T) {
 		SkipNamespaceValidation: true,
 		Objects: []runtime.Object{
 			ingressWithTLS("reconciling-clusteringress", 1234, ingressTLS),
+			secret("istio-system", "secret0", map[string]string{}),
 		},
 		WantCreates: []metav1.Object{
 			resources.MakeVirtualService(ingress("reconciling-clusteringress", 1234),
@@ -385,6 +390,70 @@ func TestReconcile_Gateway(t *testing.T) {
 			Eventf(corev1.EventTypeNormal, "Updated", "Updated Gateway %q/%q", system.Namespace(), "knative-ingress-gateway"),
 		},
 		Key: "reconciling-clusteringress",
+	}, {
+		Name:                    "TLS Secret is not in the namespace of Istio gateway service",
+		SkipNamespaceValidation: true,
+		Objects: []runtime.Object{
+			ingressWithTLS("reconciling-clusteringress", 1234, ingressTLSWithSecretNamespace("knative-serving")),
+			// No Gateway servers match the given TLS of ClusterIngress.
+			gateway("knative-ingress-gateway", system.Namespace(), []v1alpha3.Server{irrelevanteServer}),
+			// The namespace (`knative-serving`) of the origin secret is different
+			// from the namespace (`istio-system`) of Istio gateway service.
+			secret("knative-serving", "secret0", map[string]string{}),
+		},
+		WantCreates: []metav1.Object{
+			// The creation of gateways are triggered when setting up the test.
+			gateway("knative-ingress-gateway", system.Namespace(), []v1alpha3.Server{irrelevanteServer}),
+
+			resources.MakeVirtualService(ingress("reconciling-clusteringress", 1234),
+				[]string{"knative-ingress-gateway"}),
+
+			// The secret copy under istio-system.
+			secret("istio-system", "knative-serving--secret0", map[string]string{
+				networking.OriginSecretNameLabelKey:      "secret0",
+				networking.OriginSecretNamespaceLabelKey: "knative-serving",
+			}),
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			// ingressTLSServer with the name of the secret copy needs to be added into Gateway.
+			Object: gateway("knative-ingress-gateway", system.Namespace(), []v1alpha3.Server{*withCredentialName(ingressTLSServer.DeepCopy(), "knative-serving--secret0"), irrelevanteServer}),
+		}},
+		WantPatches: []clientgotesting.PatchActionImpl{
+			patchAddFinalizerAction("reconciling-clusteringress", clusterIngressFinalizer),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: ingressWithTLSAndStatus("reconciling-clusteringress", 1234,
+				ingressTLSWithSecretNamespace("knative-serving"),
+				v1alpha1.IngressStatus{
+					LoadBalancer: &v1alpha1.LoadBalancerStatus{
+						Ingress: []v1alpha1.LoadBalancerIngressStatus{
+							{DomainInternal: reconciler.GetK8sServiceFullname("istio-ingressgateway", "istio-system")},
+						},
+					},
+					Status: duckv1beta1.Status{
+						Conditions: duckv1beta1.Conditions{{
+							Type:     v1alpha1.ClusterIngressConditionLoadBalancerReady,
+							Status:   corev1.ConditionTrue,
+							Severity: apis.ConditionSeverityError,
+						}, {
+							Type:     v1alpha1.ClusterIngressConditionNetworkConfigured,
+							Status:   corev1.ConditionTrue,
+							Severity: apis.ConditionSeverityError,
+						}, {
+							Type:     v1alpha1.ClusterIngressConditionReady,
+							Status:   corev1.ConditionTrue,
+							Severity: apis.ConditionSeverityError,
+						}},
+					},
+				},
+			),
+		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "Created", "Created VirtualService %q", "reconciling-clusteringress"),
+			Eventf(corev1.EventTypeNormal, "Created", "Created Secret %s/%s", "istio-system", "knative-serving--secret0"),
+			Eventf(corev1.EventTypeNormal, "Updated", "Updated Gateway %q/%q", system.Namespace(), "knative-ingress-gateway"),
+		},
+		Key: "reconciling-clusteringress",
 	}}
 	table.Test(t, MakeFactory(func(listers *Listers, opt reconciler.Options) controller.Reconciler {
 
@@ -402,6 +471,8 @@ func TestReconcile_Gateway(t *testing.T) {
 			virtualServiceLister: listers.GetVirtualServiceLister(),
 			clusterIngressLister: listers.GetClusterIngressLister(),
 			gatewayLister:        listers.GetGatewayLister(),
+			secretLister:         listers.GetSecretLister(),
+			tracker:              &ctesting.NullTracker{},
 			// Enable reconciling gateway.
 			enableReconcilingGateway: true,
 			configStore: &testConfigStore{
@@ -438,6 +509,33 @@ func gateway(name, namespace string, servers []v1alpha3.Server) *v1alpha3.Gatewa
 			Servers: servers,
 		},
 	}
+}
+
+func secret(namespace, name string, labels map[string]string) *corev1.Secret {
+	return &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+			Labels:    labels,
+		},
+		Data: map[string][]byte{
+			"test-secret": []byte("abcd"),
+		},
+	}
+}
+
+func withCredentialName(tlsServer *v1alpha3.Server, credentialName string) *v1alpha3.Server {
+	tlsServer.TLS.CredentialName = credentialName
+	return tlsServer
+}
+
+func ingressTLSWithSecretNamespace(namespace string) []v1alpha1.ClusterIngressTLS {
+	result := []v1alpha1.ClusterIngressTLS{}
+	for _, tls := range ingressTLS {
+		tls.SecretNamespace = namespace
+		result = append(result, tls)
+	}
+	return result
 }
 
 func patchAddFinalizerAction(ingressName, finalizer string) clientgotesting.PatchActionImpl {
@@ -560,6 +658,7 @@ func newTestSetup(t *testing.T, configs ...*corev1.ConfigMap) (
 		servingInformer.Networking().V1alpha1().ClusterIngresses(),
 		sharedInformer.Networking().V1alpha3().VirtualServices(),
 		sharedInformer.Networking().V1alpha3().Gateways(),
+		kubeInformer.Core().V1().Secrets(),
 	)
 
 	rclr = controller.Reconciler.(*Reconciler)

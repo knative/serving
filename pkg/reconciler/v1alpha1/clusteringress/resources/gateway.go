@@ -25,7 +25,6 @@ import (
 	"github.com/knative/pkg/apis/istio/v1alpha3"
 	"github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/clusteringress/config"
-	"github.com/knative/serving/pkg/reconciler/v1alpha1/clusteringress/resources/names"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
@@ -71,11 +70,7 @@ func sortServers(servers []v1alpha3.Server) []v1alpha3.Server {
 
 // MakeServers creates the expected Gateway `Servers` according to the given
 // ClusterIngress.
-func MakeServers(ctx context.Context, ci *v1alpha1.ClusterIngress, gatewayName string) ([]v1alpha3.Server, error) {
-	targetNamespace, err := gatewayServiceNamespace(ctx, gatewayName)
-	if err != nil {
-		return nil, err
-	}
+func MakeServers(ci *v1alpha1.ClusterIngress, gatewayServiceNamespace string) []v1alpha3.Server {
 	servers := []v1alpha3.Server{}
 	// TODO(zhiminx): for the hosts that does not included in the ClusterIngressTLS but listed in the ClusterIngressRule,
 	// do we consider them as hosts for HTTP?
@@ -83,8 +78,8 @@ func MakeServers(ctx context.Context, ci *v1alpha1.ClusterIngress, gatewayName s
 		credentialName := tls.SecretName
 		// If the origin secret is not in the target namespace, then it should have been
 		// copied into the target namespace. So we use the name of the copy.
-		if tls.SecretNamespace != targetNamespace {
-			credentialName = names.TargetSecret(tls.SecretNamespace, tls.SecretName)
+		if tls.SecretNamespace != gatewayServiceNamespace {
+			credentialName = targetSecret(tls.SecretNamespace, tls.SecretName)
 		}
 		servers = append(servers, v1alpha3.Server{
 			Hosts: tls.Hosts,
@@ -101,11 +96,13 @@ func MakeServers(ctx context.Context, ci *v1alpha1.ClusterIngress, gatewayName s
 			},
 		})
 	}
-	return sortServers(servers), nil
+	return sortServers(servers)
 }
 
-func gatewayServiceNamespace(ctx context.Context, gatewayName string) (string, error) {
-	for _, gw := range config.FromContext(ctx).Istio.IngressGateways {
+// GatewayServiceNamespace returns the namespace of the gateway service that the `Gateway` object
+// with name `gatewayName` is associated with.
+func GatewayServiceNamespace(ingressGateways []config.Gateway, gatewayName string) (string, error) {
+	for _, gw := range ingressGateways {
 		if gw.GatewayName != gatewayName {
 			continue
 		}
@@ -116,6 +113,7 @@ func gatewayServiceNamespace(ctx context.Context, gatewayName string) (string, e
 	return "", fmt.Errorf("No Gateway configuration is found for gateway %s", gatewayName)
 }
 
+// getAllGatewaySvcNamespaces gets all of the namespaces of Istio gateway services from context.
 func getAllGatewaySvcNamespaces(ctx context.Context) []string {
 	cfg := config.FromContext(ctx).Istio
 	namespaces := sets.String{}

@@ -258,10 +258,11 @@ func (c *Reconciler) reconcile(ctx context.Context, ci *v1alpha1.ClusterIngress)
 		}
 
 		for _, gatewayName := range gatewayNames {
-			desired, err := resources.MakeServers(ctx, ci, gatewayName)
+			ns, err := resources.GatewayServiceNamespace(config.FromContext(ctx).Istio.IngressGateways, gatewayName)
 			if err != nil {
 				return err
 			}
+			desired := resources.MakeServers(ci, ns)
 			if err := c.reconcileGateway(ctx, ci, gatewayName, desired); err != nil {
 				return err
 			}
