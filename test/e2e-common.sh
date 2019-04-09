@@ -224,7 +224,11 @@ function install_knative_serving_standard() {
 # Check if we should use --resolvabledomain.  In case the ingress only has
 # hostname, we doesn't yet have a way to support resolvable domain in tests.
 function use_resolvable_domain() {
-  # Temporarily turning off xip.io tests, as DNS errors aren't always retried.
+  local ip=$(kubectl get svc -n istio-system istio-ingressgateway -o jsonpath="{.status.loadBalancer.ingress[0].ip}")
+  if [[ -n "${ip}" ]]; then
+    echo "true"
+    return
+  fi
   echo "false"
 }
 
