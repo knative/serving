@@ -120,11 +120,39 @@ function save_metadata() {
 EOF
 }
 
+# Delete target pools and health checks that might have leaked.
+# See https://github.com/knative/serving/issues/959 for details.
+# TODO(adrcunha): Remove once the leak issue is resolved.
+function delete_leaked_network_resources() {
+  (( IS_BOSKOS )) && return
+  # Ensure we're using the GCP project used by kubetest
+  local gcloud_project="$(gcloud config get-value project)"
+  local http_health_checks="$(gcloud compute target-pools list \
+    --project=${gcloud_project} --format='value(healthChecks)' --filter="instances~-${E2E_CLUSTER_NAME}-" | \
+    grep httpHealthChecks | tr '\n' ' ')"
+  local target_pools="$(gcloud compute target-pools list \
+    --project=${gcloud_project} --format='value(name)' --filter="instances~-${E2E_CLUSTER_NAME}-" | \
+    tr '\n' ' ')"
+  if [[ -n "${target_pools}" ]]; then
+    echo "Found leaked target pools, deleting"
+    gcloud compute forwarding-rules delete -q --project=${gcloud_project} --region=${E2E_CLUSTER_REGION} ${target_pools}
+    gcloud compute target-pools delete -q --project=${gcloud_project} --region=${E2E_CLUSTER_REGION} ${target_pools}
+  fi
+  if [[ -n "${http_health_checks}" ]]; then
+    echo "Found leaked health checks, deleting"
+    gcloud compute http-health-checks delete -q --project=${gcloud_project} ${http_health_checks}
+  fi
+}
+
 # Create a test cluster with kubetest and call the current script again.
 function create_test_cluster() {
   # Fail fast during setup.
   set -o errexit
   set -o pipefail
+
+  if function_exists cluster_setup; then
+    cluster_setup || fail_test "cluster setup failed"
+  fi
 
   header "Creating test cluster"
 
@@ -167,45 +195,29 @@ function create_test_cluster() {
   (( SKIP_KNATIVE_SETUP )) && test_cmd_args+=" --skip-knative-setup"
   [[ -n "${GCP_PROJECT}" ]] && test_cmd_args+=" --gcp-project ${GCP_PROJECT}"
   [[ -n "${E2E_SCRIPT_CUSTOM_FLAGS[@]}" ]] && test_cmd_args+=" ${E2E_SCRIPT_CUSTOM_FLAGS[@]}"
+  local extra_flags=()
+  # If using boskos, save time and let it tear down the cluster
+  (( ! IS_BOSKOS )) && extra_flags+=(--down)
   # Don't fail test for kubetest, as it might incorrectly report test failure
   # if teardown fails (for details, see success() below)
   set +o errexit
   run_go_tool k8s.io/test-infra/kubetest \
     kubetest "${CLUSTER_CREATION_ARGS[@]}" \
     --up \
-    --down \
     --extract "${E2E_CLUSTER_VERSION}" \
     --gcp-node-image "${SERVING_GKE_IMAGE}" \
     --test-cmd "${E2E_SCRIPT}" \
     --test-cmd-args "${test_cmd_args}" \
+    ${extra_flags[@]} \
     ${EXTRA_KUBETEST_FLAGS[@]}
   echo "Test subprocess exited with code $?"
   # Ignore any errors below, this is a best-effort cleanup and shouldn't affect the test result.
   set +o errexit
-  # Ensure we're using the GCP project used by kubetest
-  gcloud_project="$(gcloud config get-value project)"
-  # Delete target pools and health checks that might have leaked.
-  # See https://github.com/knative/serving/issues/959 for details.
-  # TODO(adrcunha): Remove once the leak issue is resolved.
-  local http_health_checks="$(gcloud compute target-pools list \
-    --project=${gcloud_project} --format='value(healthChecks)' --filter="instances~-${E2E_CLUSTER_NAME}-" | \
-    grep httpHealthChecks | tr '\n' ' ')"
-  local target_pools="$(gcloud compute target-pools list \
-    --project=${gcloud_project} --format='value(name)' --filter="instances~-${E2E_CLUSTER_NAME}-" | \
-    tr '\n' ' ')"
-  if [[ -n "${target_pools}" ]]; then
-    echo "Found leaked target pools, deleting"
-    gcloud compute forwarding-rules delete -q --project=${gcloud_project} --region=${E2E_CLUSTER_REGION} ${target_pools}
-    gcloud compute target-pools delete -q --project=${gcloud_project} --region=${E2E_CLUSTER_REGION} ${target_pools}
-  fi
-  if [[ -n "${http_health_checks}" ]]; then
-    echo "Found leaked health checks, deleting"
-    gcloud compute http-health-checks delete -q --project=${gcloud_project} ${http_health_checks}
-  fi
+  function_exists cluster_teardown && cluster_teardown
+  delete_leaked_network_resources
   local result="$(cat ${TEST_RESULT_FILE})"
   echo "Artifacts were written to ${ARTIFACTS}"
   echo "Test result code is ${result}"
-
   exit ${result}
 }
 

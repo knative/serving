@@ -95,25 +95,6 @@ function install_knative_serving() {
   wait_until_pods_running knative-serving || return 1
 }
 
-# Waits until all batch job pods are running in the given namespace.
-# Parameters: $1 - namespace.
-function wait_until_batch_job_complete() {
-  echo -n "Waiting until all batch job pods in namespace $1 run to completion."
-  for i in {1..150}; do  # timeout after 5 minutes
-    local pods="$(kubectl get pods --selector=job-name --no-headers -n $1 2>/dev/null | grep -v '^[[:space:]]*$')"
-    # All pods must be complete
-    local not_complete=$(echo "${pods}" | grep -v Completed | wc -l)
-    if [[ ${not_complete} -eq 0 ]]; then
-      echo -e "\nAll pods are complete:\n${pods}"
-      return 0
-    fi
-    echo -n "."
-    sleep 2
-  done
-  echo -e "\n\nERROR: timeout waiting for pods to complete\n${pods}"
-  return 1
-}
-
 # Installs Knative Serving in the current cluster, and waits for it to be ready.
 # If no parameters are passed, installs the current source-based build.
 # Parameters: $1 - Istio CRD YAML file
