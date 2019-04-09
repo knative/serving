@@ -238,6 +238,6 @@ function test_teardown() {
   echo ">> Removing test resources (test/config/)"
   ko delete --ignore-not-found=true --now -f test/config/
   echo ">> Removing test namespace"
-  kubectl delete all --all --ignore-not-found --now -n serving-tests
-  kubectl delete --ignore-not-found --now namespace serving-tests
+  kubectl delete all --all --ignore-not-found --now --timeout 60s -n serving-tests
+  kubectl delete --ignore-not-found --now --timeout 600s namespace serving-tests
 }
