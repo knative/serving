@@ -493,10 +493,11 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:37372ae74214d400b7efb4b1b9839d99d8e2c6fc4e2a1ddf6c38431c979c91f1"
+  digest = "1:aa5b8815a84253b406a87b93097ed8e4a9ace745483425bd6ea9315e3d980985"
   name = "github.com/knative/test-infra"
   packages = [
     "scripts",
+    "shared/common",
     "shared/gcs",
     "shared/junit",
     "shared/loadgenerator",
@@ -511,7 +512,7 @@
     "tools/webhook-apicoverage/webhook",
   ]
   pruneopts = "UT"
-  revision = "cc62d7b1296b8ae5c93f1dec2cbfbaa84624304b"
+  revision = "c4c17967d1502ca066c7eeb8f17a6f268610b25b"
 
 [[projects]]
   digest = "1:56dbf15e091bf7926cb33a57cb6bdfc658fc6d3498d2f76f10a97ce7856f1fde"
