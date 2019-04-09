@@ -46,3 +46,30 @@ func LabelExistsFilterFunc(label string) func(obj interface{}) bool {
 		return false
 	}
 }
+
+// LabelFilterFunc creates a FilterFunc only accepting objects where a label is set to a specific value.
+func LabelFilterFunc(label string, value string, allowUnset bool) func(interface{}) bool {
+	return func(obj interface{}) bool {
+		if mo, ok := obj.(metav1.Object); ok {
+			labels := mo.GetLabels()
+			val, ok := labels[label]
+			if !ok {
+				return allowUnset
+			}
+			return val == value
+		}
+		return false
+	}
+}
+
+// ChainFilterFuncs creates a FilterFunc which performs an AND of the passed FilterFuncs.
+func ChainFilterFuncs(funcs ...func(interface{}) bool) func(interface{}) bool {
+	return func(obj interface{}) bool {
+		for _, f := range funcs {
+			if !f(obj) {
+				return false
+			}
+		}
+		return true
+	}
+}

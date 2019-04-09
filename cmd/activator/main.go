@@ -38,6 +38,7 @@ import (
 	"github.com/knative/serving/pkg/activator"
 	activatorhandler "github.com/knative/serving/pkg/activator/handler"
 	activatorutil "github.com/knative/serving/pkg/activator/util"
+	"github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/autoscaler"
@@ -226,9 +227,16 @@ func main() {
 	}
 
 	// Update/create the breaker in the throttler when the number of endpoints changes.
+	// Pass only the endpoints created by revisions.
+	// TODO(greghaynes) we have to allow unset and use the old RevisionUID filter for backwards compat.
+	// When we can assume our ServiceTypeKey label is present in all services we can filter all but
+	// networking.ServiceTypeKey == networking.ServiceTypePublic
+	epFilter := reconciler.ChainFilterFuncs(
+		reconciler.LabelExistsFilterFunc(serving.RevisionUID),
+		reconciler.LabelFilterFunc(networking.ServiceTypeKey, string(networking.ServiceTypePublic), true),
+	)
 	endpointInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
-		// Pass only the endpoints created by revisions.
-		FilterFunc: reconciler.LabelExistsFilterFunc(serving.RevisionUID),
+		FilterFunc: epFilter,
 		Handler:    handler,
 	})
 
