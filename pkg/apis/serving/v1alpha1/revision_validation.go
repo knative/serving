@@ -22,11 +22,13 @@ import (
 	"path/filepath"
 	"strconv"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/knative/pkg/apis"
 	"github.com/knative/pkg/kmp"
 	"github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/serving"
+	"github.com/knative/serving/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -66,19 +68,7 @@ func (rs *RevisionSpec) Validate(ctx context.Context) *apis.FieldError {
 		return apis.ErrMissingField(apis.CurrentField)
 	}
 
-	volumes := sets.NewString()
-	var errs *apis.FieldError
-	for i, volume := range rs.Volumes {
-		if volumes.Has(volume.Name) {
-			errs = errs.Also((&apis.FieldError{
-				Message: fmt.Sprintf("duplicate volume name %q", volume.Name),
-				Paths:   []string{"name"},
-			}).ViaFieldIndex("volumes", i))
-		}
-		errs = errs.Also(validateVolume(volume).ViaFieldIndex("volumes", i))
-		volumes.Insert(volume.Name)
-	}
-
+	errs, volumes := validateVolumes(rs.Volumes)
 	errs = errs.Also(validateContainer(rs.Container, volumes).ViaField("container"))
 	errs = errs.Also(validateBuildRef(rs.BuildRef).ViaField("buildRef"))
 
@@ -90,6 +80,22 @@ func (rs *RevisionSpec) Validate(ctx context.Context) *apis.FieldError {
 	}
 
 	return errs.Also(validateTimeoutSeconds(rs.TimeoutSeconds))
+}
+
+func validateVolumes(volumes []corev1.Volume) (*apis.FieldError, sets.String) {
+	volumeNames := sets.NewString()
+	var errs *apis.FieldError
+	for i, volume := range volumes {
+		if volumeNames.Has(volume.Name) {
+			errs = errs.Also((&apis.FieldError{
+				Message: fmt.Sprintf("duplicate volume name %q", volume.Name),
+				Paths:   []string{"name"},
+			}).ViaFieldIndex("volumes", i))
+		}
+		errs = errs.Also(validateVolume(volume).ViaFieldIndex("volumes", i))
+		volumeNames.Insert(volume.Name)
+	}
+	return errs, volumeNames
 }
 
 func validateTimeoutSeconds(timeoutSeconds int64) *apis.FieldError {
@@ -379,17 +385,20 @@ func (rt *Revision) CheckImmutableFields(ctx context.Context, og apis.Immutable)
 		return &apis.FieldError{Message: "The provided original was not a Revision"}
 	}
 
-	if diff, err := kmp.SafeDiff(original.Spec, rt.Spec); err != nil {
+	reporter := new(utils.ImmutableReporter)
+	if equal, err := kmp.SafeEqual(original.Spec, rt.Spec, cmp.Reporter(reporter)); err != nil {
 		return &apis.FieldError{
 			Message: "Failed to diff Revision",
 			Paths:   []string{"spec"},
 			Details: err.Error(),
 		}
-	} else if diff != "" {
+	}
+
+	if !equal {
 		return &apis.FieldError{
 			Message: "Immutable fields changed (-old +new)",
 			Paths:   []string{"spec"},
-			Details: diff,
+			Details: reporter.Diff(),
 		}
 	}
 

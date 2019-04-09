@@ -26,6 +26,7 @@ import (
 	"github.com/knative/serving/pkg/apis/autoscaling"
 	"github.com/knative/serving/pkg/apis/serving"
 	servingv1alpha1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/knative/serving/pkg/utils"
 	autoscalingv1 "k8s.io/api/autoscaling/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 )
@@ -146,7 +147,11 @@ func compareSpec(original *PodAutoscaler, current *PodAutoscaler) (string, error
 		},
 		cmp.Ignore(),
 	)
-	return kmp.SafeDiff(original.Spec, current.Spec, opt)
+	reporter := new(utils.ImmutableReporter)
+	if _, err := kmp.SafeEqual(original.Spec, current.Spec, opt, cmp.Reporter(reporter)); err != nil {
+		return "", err
+	}
+	return reporter.Diff(), nil
 }
 
 func classAnnotationChanged(original *PodAutoscaler, current *PodAutoscaler) (string, string, bool) {
