@@ -87,19 +87,6 @@ func TestReconcile(t *testing.T) {
 			endpointspriv("steady", "state", WithSubsets),
 		},
 	}, {
-		Name: "pod change",
-		Key:  "pod/change",
-		Objects: []runtime.Object{
-			SKS("pod", "change", markHappy, WithPubService, WithPrivateService),
-			svcpub("pod", "change"),
-			svcpriv("pod", "change"),
-			endpointspub("pod", "change", WithSubsets),
-			endpointspriv("pod", "change", withOtherSubsets),
-		},
-		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: endpointspub("pod", "change", withOtherSubsets),
-		}},
-	}, {
 		Name: "user changes priv svc",
 		Key:  "private/svc-change",
 		Objects: []runtime.Object{
@@ -113,19 +100,6 @@ func TestReconcile(t *testing.T) {
 			Object: svcpriv("private", "svc-change")}, {
 			Object: endpointspub("private", "svc-change", WithSubsets)}},
 	}, {
-		Name: "user changes public svc",
-		Key:  "public/svc-change",
-		Objects: []runtime.Object{
-			SKS("public", "svc-change", markHappy, WithPubService, WithPrivateService),
-			svcpub("public", "svc-change", withTimeSelector),
-			svcpriv("public", "svc-change"),
-			endpointspub("public", "svc-change", WithSubsets),
-			endpointspriv("public", "svc-change", WithSubsets),
-		},
-		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: svcpub("public", "svc-change"),
-		}},
-	}, {
 		Name: "OnCreate-deployment-exists",
 		Key:  "on/cde",
 		Objects: []runtime.Object{
@@ -135,8 +109,6 @@ func TestReconcile(t *testing.T) {
 		},
 		WantCreates: []metav1.Object{
 			svcpriv("on", "cde"),
-			svcpub("on", "cde"),
-			endpointspub("on", "cde", WithSubsets),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: SKS("on", "cde", markHappy, WithPubService, WithPrivateService),
@@ -153,8 +125,6 @@ func TestReconcile(t *testing.T) {
 		},
 		WantCreates: []metav1.Object{
 			svcpriv("on", "cneps"),
-			svcpub("on", "cneps"),
-			endpointspub("on", "cneps"),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: SKS("on", "cneps", markNoEndpoints, WithPubService, WithPrivateService),
@@ -178,43 +148,6 @@ func TestReconcile(t *testing.T) {
 		},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "UpdateFailed", "InternalError: inducing failure for create services"),
-		},
-	}, {
-		Name:    "svc-fail-pub",
-		Key:     "svc/fail2",
-		WantErr: true,
-		Objects: []runtime.Object{
-			SKS("svc", "fail2"),
-			svcpriv("svc", "fail2"),
-			endpointspriv("svc", "fail2"),
-		},
-		WithReactors: []clientgotesting.ReactionFunc{
-			InduceFailure("create", "services"),
-		},
-		WantCreates: []metav1.Object{
-			svcpub("svc", "fail2"),
-		},
-		WantEvents: []string{
-			Eventf(corev1.EventTypeWarning, "UpdateFailed", "InternalError: inducing failure for create services"),
-		},
-	}, {
-		Name:    "eps-fail-pub",
-		Key:     "eps/fail3",
-		WantErr: true,
-		Objects: []runtime.Object{
-			SKS("eps", "fail3"),
-			svcpriv("eps", "fail3"),
-			endpointspriv("eps", "fail3"),
-		},
-		WithReactors: []clientgotesting.ReactionFunc{
-			InduceFailure("create", "endpoints"),
-		},
-		WantCreates: []metav1.Object{
-			svcpub("eps", "fail3"),
-			endpointspub("eps", "fail3"),
-		},
-		WantEvents: []string{
-			Eventf(corev1.EventTypeWarning, "UpdateFailed", "InternalError: inducing failure for create endpoints"),
 		},
 	}, {
 		Name:    "update-sks-fail",
@@ -252,54 +185,6 @@ func TestReconcile(t *testing.T) {
 			Eventf(corev1.EventTypeWarning, "UpdateFailed", `InternalError: SKS: "fail5" does not own Service: "fail5-pub"`),
 		},
 	}, {
-		Name:    "ronin-priv-service/fail6",
-		Key:     "ronin-priv-service/fail6",
-		WantErr: true,
-		Objects: []runtime.Object{
-			SKS("ronin-priv-service", "fail6", WithPubService, WithPrivateService),
-			svcpub("ronin-priv-service", "fail6"),
-			svcpriv("ronin-priv-service", "fail6", WithK8sSvcOwnersRemoved),
-			endpointspub("ronin-priv-service", "fail6", WithSubsets),
-			endpointspriv("ronin-priv-service", "fail6", WithSubsets),
-		},
-		WantEvents: []string{
-			Eventf(corev1.EventTypeWarning, "UpdateFailed", `InternalError: SKS: "fail6" does not own Service: "fail6-priv"`),
-		},
-	}, {
-		Name:    "ronin-pub-eps/fail7",
-		Key:     "ronin-pub-eps/fail7",
-		WantErr: true,
-		Objects: []runtime.Object{
-			SKS("ronin-pub-eps", "fail7", WithPubService),
-			svcpub("ronin-pub-eps", "fail7"),
-			svcpriv("ronin-pub-eps", "fail7"),
-			endpointspub("ronin-pub-eps", "fail7", WithSubsets, WithEndpointsOwnersRemoved),
-			endpointspriv("ronin-pub-eps", "fail7", WithSubsets),
-		},
-		WantEvents: []string{
-			Eventf(corev1.EventTypeWarning, "UpdateFailed", `InternalError: SKS: "fail7" does not own Endpoints: "fail7-pub"`),
-		},
-	}, {
-		Name:    "update-svc-fail-pub",
-		Key:     "update-svc/fail8",
-		WantErr: true,
-		Objects: []runtime.Object{
-			SKS("update-svc", "fail8", WithPubService),
-			svcpub("update-svc", "fail8", withTimeSelector),
-			svcpriv("update-svc", "fail8"),
-			endpointspub("update-svc", "fail8", WithSubsets),
-			endpointspriv("update-svc", "fail8", WithSubsets),
-		},
-		WithReactors: []clientgotesting.ReactionFunc{
-			InduceFailure("update", "services"),
-		},
-		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: svcpub("update-svc", "fail8"),
-		}},
-		WantEvents: []string{
-			Eventf(corev1.EventTypeWarning, "UpdateFailed", "InternalError: inducing failure for update services"),
-		},
-	}, {
 		Name:    "update-svc-fail-priv",
 		Key:     "update-svc/fail9",
 		WantErr: true,
@@ -319,27 +204,6 @@ func TestReconcile(t *testing.T) {
 
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "UpdateFailed", "InternalError: inducing failure for update services"),
-		},
-	}, {
-		Name:    "update-eps-fail",
-		Key:     "update-eps/failA",
-		WantErr: true,
-		Objects: []runtime.Object{
-			SKS("update-eps", "failA", WithPubService, WithPrivateService),
-			svcpub("update-eps", "failA"),
-			svcpriv("update-eps", "failA"),
-			endpointspub("update-eps", "failA"),
-			endpointspriv("update-eps", "failA", WithSubsets),
-		},
-		WithReactors: []clientgotesting.ReactionFunc{
-			InduceFailure("update", "endpoints"),
-		},
-		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: endpointspub("update-eps", "failA", WithSubsets), // The attempted update.
-		}},
-
-		WantEvents: []string{
-			Eventf(corev1.EventTypeWarning, "UpdateFailed", "InternalError: inducing failure for update endpoints"),
 		},
 	}}
 

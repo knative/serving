@@ -169,11 +169,9 @@ func (r *reconciler) reconcile(ctx context.Context, sks *netv1alpha1.ServerlessS
 	sks.SetDefaults(ctx)
 	sks.Status.InitializeConditions()
 
-	// TODO(#1997): implement: proxy mode, activator probing and positive handoff.
+	// TODO(#1997): implement: public service, proxy mode, activator probing and positive handoff.
 	for i, fn := range []func(context.Context, *netv1alpha1.ServerlessService) error{
-		r.reconcilePrivateService,  // First make sure our data source is setup.
-		r.reconcilePublicService,   // Make sure the service is setup.
-		r.reconcilePublicEndpoints, // Now populate endpoints, if there are healthy ones.
+		r.reconcilePrivateService, // First make sure our data source is setup.
 	} {
 		if err := fn(ctx, sks); err != nil {
 			logger.Debugw(fmt.Sprintf("%d: reconcile failed", i), zap.Error(err))
