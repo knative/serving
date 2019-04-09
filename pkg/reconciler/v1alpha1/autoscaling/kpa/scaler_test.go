@@ -205,6 +205,11 @@ func TestEnableScaleToZero(t *testing.T) {
 		scaleTo:       0,
 		minScale:      2,
 		wantReplicas:  2,
+	}, {
+		label:         "EnableScaleToZero == false and desire pod is -1(initial value)",
+		startReplicas: 10,
+		scaleTo:       -1,
+		wantReplicas:  1,
 	}}
 
 	for _, test := range tests {
