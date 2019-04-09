@@ -48,7 +48,7 @@ func (cs *ConfigurationSpec) Validate(ctx context.Context) *apis.FieldError {
 	} else if err = cs.Build.As(&unstructured.Unstructured{}); err == nil {
 		// It is an unstructured.Unstructured.
 	} else {
-		errs = errs.Also(apis.ErrInvalidValue(err.Error(), "build"))
+		errs = errs.Also(apis.ErrInvalidValue(err, "build"))
 	}
 
 	return errs.Also(cs.RevisionTemplate.Validate(ctx).ViaField("revisionTemplate"))

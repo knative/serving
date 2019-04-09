@@ -42,7 +42,7 @@ func (spec *ServerlessServiceSpec) Validate(ctx context.Context) *apis.FieldErro
 	case "":
 		all = all.Also(apis.ErrMissingField("mode"))
 	default:
-		all = all.Also(apis.ErrInvalidValue(string(spec.Mode), "mode"))
+		all = all.Also(apis.ErrInvalidValue(spec.Mode, "mode"))
 	}
 	if len(spec.Selector) == 0 {
 		all = all.Also(apis.ErrMissingField("selector"))

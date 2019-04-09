@@ -19,7 +19,6 @@ package v1alpha1
 import (
 	"context"
 	"fmt"
-	"strconv"
 
 	"github.com/knative/pkg/apis"
 	"github.com/knative/serving/pkg/apis/serving"
@@ -98,7 +97,7 @@ func (rt *ReleaseType) Validate(ctx context.Context) *apis.FieldError {
 		errs = errs.Also(apis.ErrMissingField("revisions"))
 	}
 	if numRevisions > 2 {
-		errs = errs.Also(apis.ErrOutOfBoundsValue(strconv.Itoa(numRevisions), "1", "2", "revisions"))
+		errs = errs.Also(apis.ErrOutOfBoundsValue(numRevisions, 1, 2, "revisions"))
 	}
 	for i, r := range rt.Revisions {
 		// Skip over the last revision special keyword.
@@ -112,11 +111,11 @@ func (rt *ReleaseType) Validate(ctx context.Context) *apis.FieldError {
 	}
 
 	if numRevisions < 2 && rt.RolloutPercent != 0 {
-		errs = errs.Also(apis.ErrInvalidValue(strconv.Itoa(rt.RolloutPercent), "rolloutPercent"))
+		errs = errs.Also(apis.ErrInvalidValue(rt.RolloutPercent, "rolloutPercent"))
 	}
 
 	if rt.RolloutPercent < 0 || rt.RolloutPercent > 99 {
-		errs = errs.Also(apis.ErrOutOfBoundsValue(strconv.Itoa(rt.RolloutPercent), "0", "99", "rolloutPercent"))
+		errs = errs.Also(apis.ErrOutOfBoundsValue(rt.RolloutPercent, 0, 99, "rolloutPercent"))
 	}
 
 	return errs.Also(rt.Configuration.Validate(ctx).ViaField("configuration"))

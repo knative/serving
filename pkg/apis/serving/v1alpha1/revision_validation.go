@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
-	"strconv"
 
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/knative/pkg/apis"
@@ -120,8 +119,8 @@ func (rs *RevisionSpec) Validate(ctx context.Context) *apis.FieldError {
 func validateTimeoutSeconds(timeoutSeconds int64) *apis.FieldError {
 	if timeoutSeconds != 0 {
 		if timeoutSeconds > int64(networking.DefaultTimeout.Seconds()) || timeoutSeconds < 0 {
-			return apis.ErrOutOfBoundsValue(fmt.Sprintf("%ds", timeoutSeconds), "0s",
-				fmt.Sprintf("%ds", int(networking.DefaultTimeout.Seconds())),
+			return apis.ErrOutOfBoundsValue(timeoutSeconds, 0,
+				networking.DefaultTimeout.Seconds(),
 				"timeoutSeconds")
 		}
 	}
@@ -137,7 +136,7 @@ func (ss DeprecatedRevisionServingStateType) Validate(ctx context.Context) *apis
 		DeprecatedRevisionServingStateActive:
 		return nil
 	default:
-		return apis.ErrInvalidValue(string(ss), apis.CurrentField)
+		return apis.ErrInvalidValue(ss, apis.CurrentField)
 	}
 }
 
@@ -149,7 +148,7 @@ func (cm RevisionRequestConcurrencyModelType) Validate(ctx context.Context) *api
 		RevisionRequestConcurrencyModelSingle:
 		return nil
 	default:
-		return apis.ErrInvalidValue(string(cm), apis.CurrentField)
+		return apis.ErrInvalidValue(cm, apis.CurrentField)
 	}
 }
 
@@ -157,7 +156,7 @@ func (cm RevisionRequestConcurrencyModelType) Validate(ctx context.Context) *api
 func ValidateContainerConcurrency(cc RevisionContainerConcurrencyType, cm RevisionRequestConcurrencyModelType) *apis.FieldError {
 	// Validate ContainerConcurrency alone
 	if cc < 0 || cc > RevisionContainerConcurrencyMax {
-		return apis.ErrInvalidValue(strconv.Itoa(int(cc)), "containerConcurrency")
+		return apis.ErrInvalidValue(cc, "containerConcurrency")
 	}
 
 	// Validate combinations of ConcurrencyModel and ContainerConcurrency
@@ -309,7 +308,7 @@ func validateContainerPorts(ports []corev1.ContainerPort) *apis.FieldError {
 	userPort := ports[0]
 	// Only allow empty (defaulting to "TCP") or explicit TCP for protocol
 	if userPort.Protocol != "" && userPort.Protocol != corev1.ProtocolTCP {
-		errs = errs.Also(apis.ErrInvalidValue(string(userPort.Protocol), "Protocol"))
+		errs = errs.Also(apis.ErrInvalidValue(userPort.Protocol, "Protocol"))
 	}
 
 	// Don't allow HostIP or HostPort to be set
@@ -329,11 +328,12 @@ func validateContainerPorts(ports []corev1.ContainerPort) *apis.FieldError {
 	if userPort.ContainerPort == RequestQueuePort ||
 		userPort.ContainerPort == RequestQueueAdminPort ||
 		userPort.ContainerPort == RequestQueueMetricsPort {
-		errs = errs.Also(apis.ErrInvalidValue(strconv.Itoa(int(userPort.ContainerPort)), "ContainerPort"))
+		errs = errs.Also(apis.ErrInvalidValue(userPort.ContainerPort, "ContainerPort"))
 	}
 
 	if userPort.ContainerPort < 1 || userPort.ContainerPort > 65535 {
-		errs = errs.Also(apis.ErrOutOfBoundsValue(strconv.Itoa(int(userPort.ContainerPort)), "1", "65535", "ContainerPort"))
+		errs = errs.Also(apis.ErrOutOfBoundsValue(userPort.ContainerPort,
+			1, 65535, "ContainerPort"))
 	}
 
 	if !validPortNames.Has(userPort.Name) {
