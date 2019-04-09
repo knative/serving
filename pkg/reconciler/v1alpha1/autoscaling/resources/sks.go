@@ -21,7 +21,7 @@ import (
 	"github.com/knative/serving/pkg/apis/autoscaling"
 	pav1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	nv1a1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
-	"github.com/knative/serving/pkg/reconciler/v1alpha1/autoscaling/kpa/resources/names"
+	"github.com/knative/serving/pkg/reconciler/v1alpha1/autoscaling/resources/names"
 	"github.com/knative/serving/pkg/resources"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
