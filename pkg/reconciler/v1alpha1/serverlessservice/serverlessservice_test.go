@@ -27,6 +27,7 @@ import (
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
 	rpkg "github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/serverlessservice/resources"
+	"github.com/knative/serving/pkg/reconciler/v1alpha1/serverlessservice/resources/names"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -80,7 +81,7 @@ func TestReconcile(t *testing.T) {
 		Name: "steady state",
 		Key:  "steady/state",
 		Objects: []runtime.Object{
-			SKS("steady", "state", markHappy, WithPubService, WithPrivateService),
+			SKS("steady", "state", markHappy, withTempPubService, WithPrivateService),
 			svcpub("steady", "state"),
 			svcpriv("steady", "state"),
 			endpointspub("steady", "state", WithSubsets),
@@ -90,15 +91,15 @@ func TestReconcile(t *testing.T) {
 		Name: "user changes priv svc",
 		Key:  "private/svc-change",
 		Objects: []runtime.Object{
-			SKS("private", "svc-change", markHappy, WithPubService, WithPrivateService),
+			SKS("private", "svc-change", markHappy, withTempPubService, WithPrivateService),
 			svcpub("private", "svc-change"),
 			svcpriv("private", "svc-change", withTimeSelector),
 			endpointspub("private", "svc-change", withOtherSubsets),
 			endpointspriv("private", "svc-change", WithSubsets),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: svcpriv("private", "svc-change")}, {
-			Object: endpointspub("private", "svc-change", WithSubsets)}},
+			Object: svcpriv("private", "svc-change"),
+		}},
 	}, {
 		Name: "OnCreate-deployment-exists",
 		Key:  "on/cde",
@@ -111,7 +112,7 @@ func TestReconcile(t *testing.T) {
 			svcpriv("on", "cde"),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: SKS("on", "cde", markHappy, WithPubService, WithPrivateService),
+			Object: SKS("on", "cde", markHappy, withTempPubService, WithPrivateService),
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Updated", `Successfully updated ServerlessService "on/cde"`),
@@ -127,7 +128,7 @@ func TestReconcile(t *testing.T) {
 			svcpriv("on", "cneps"),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: SKS("on", "cneps", markNoEndpoints, WithPubService, WithPrivateService),
+			Object: SKS("on", "cneps", markNoEndpoints, withTempPubService, WithPrivateService),
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Updated", `Successfully updated ServerlessService "on/cneps"`),
@@ -154,7 +155,7 @@ func TestReconcile(t *testing.T) {
 		Key:     "update-sks/fail4",
 		WantErr: true,
 		Objects: []runtime.Object{
-			SKS("update-sks", "fail4", WithPubService, WithPrivateService),
+			SKS("update-sks", "fail4", withTempPubService, WithPrivateService),
 			svcpub("update-sks", "fail4"),
 			svcpriv("update-sks", "fail4"),
 			endpointspub("update-sks", "fail4", WithSubsets),
@@ -165,31 +166,31 @@ func TestReconcile(t *testing.T) {
 		},
 		// We still record update, but it fails.
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: SKS("update-sks", "fail4", markHappy, WithPubService, WithPrivateService),
+			Object: SKS("update-sks", "fail4", markHappy, withTempPubService, WithPrivateService),
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "UpdateFailed", "Failed to update status: inducing failure for update serverlessservices"),
 		},
 	}, {
-		Name:    "ronin-pub-service/fail5",
-		Key:     "ronin-pub-service/fail5",
+		Name:    "ronin-priv-service/fail5",
+		Key:     "ronin-priv-service/fail5",
 		WantErr: true,
 		Objects: []runtime.Object{
-			SKS("ronin-pub-service", "fail5", WithPubService, WithPrivateService),
-			svcpub("ronin-pub-service", "fail5", WithK8sSvcOwnersRemoved),
-			svcpriv("ronin-pub-service", "fail5"),
-			endpointspub("ronin-pub-service", "fail5", WithSubsets),
-			endpointspriv("ronin-pub-service", "fail5", WithSubsets),
+			SKS("ronin-priv-service", "fail5", withTempPubService, WithPrivateService),
+			svcpub("ronin-priv-service", "fail5"),
+			svcpriv("ronin-priv-service", "fail5", WithK8sSvcOwnersRemoved),
+			endpointspub("ronin-priv-service", "fail5", WithSubsets),
+			endpointspriv("ronin-priv-service", "fail5", WithSubsets),
 		},
 		WantEvents: []string{
-			Eventf(corev1.EventTypeWarning, "UpdateFailed", `InternalError: SKS: "fail5" does not own Service: "fail5-pub"`),
+			Eventf(corev1.EventTypeWarning, "UpdateFailed", `InternalError: SKS: "fail5" does not own Service: "fail5-priv"`),
 		},
 	}, {
 		Name:    "update-svc-fail-priv",
 		Key:     "update-svc/fail9",
 		WantErr: true,
 		Objects: []runtime.Object{
-			SKS("update-svc", "fail9", WithPubService, WithPrivateService),
+			SKS("update-svc", "fail9", withTempPubService, WithPrivateService),
 			svcpub("update-svc", "fail9"),
 			svcpriv("update-svc", "fail9", withTimeSelector),
 			endpointspub("update-svc", "fail9"),
@@ -278,4 +279,9 @@ func endpointspub(namespace, name string, eo ...EndpointsOption) *corev1.Endpoin
 
 func withTimeSelector(svc *corev1.Service) {
 	svc.Spec.Selector = map[string]string{"pod-x": fmt.Sprintf("a-%d", time.Now().UnixNano())}
+}
+
+// TODO(vagababov): temp while we don't create separate public service.
+func withTempPubService(sks *nv1a1.ServerlessService) {
+	sks.Status.ServiceName = names.PrivateService(sks)
 }
