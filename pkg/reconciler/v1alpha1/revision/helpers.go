@@ -33,15 +33,6 @@ func getBuildDoneCondition(build *duckv1alpha1.KResource) *duckv1alpha1.Conditio
 	return nil
 }
 
-func isServiceReady(e *corev1.Endpoints) bool {
-	for _, es := range e.Subsets {
-		if len(es.Addresses) > 0 {
-			return true
-		}
-	}
-	return false
-}
-
 func hasDeploymentTimedOut(deployment *appsv1.Deployment) bool {
 	// as per https://kubernetes.io/docs/concepts/workloads/controllers/deployment
 	for _, cond := range deployment.Status.Conditions {
