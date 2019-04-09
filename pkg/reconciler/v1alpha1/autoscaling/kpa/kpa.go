@@ -27,13 +27,10 @@ import (
 	"github.com/knative/pkg/logging"
 	"github.com/knative/serving/pkg/apis/autoscaling"
 	pav1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
-	nv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/autoscaler"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions/autoscaling/v1alpha1"
-	ninformers "github.com/knative/serving/pkg/client/informers/externalversions/networking/v1alpha1"
 	listers "github.com/knative/serving/pkg/client/listers/autoscaling/v1alpha1"
-	nlisters "github.com/knative/serving/pkg/client/listers/networking/v1alpha1"
 	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/autoscaling/kpa/resources"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/autoscaling/kpa/resources/names"
@@ -103,7 +100,6 @@ type Scaler interface {
 type Reconciler struct {
 	*reconciler.Base
 	paLister        listers.PodAutoscalerLister
-	sksLister       nlisters.ServerlessServiceLister
 	serviceLister   corev1listers.ServiceLister
 	endpointsLister corev1listers.EndpointsLister
 	kpaDeciders     Deciders
@@ -119,7 +115,6 @@ var _ controller.Reconciler = (*Reconciler)(nil)
 func NewController(
 	opts *reconciler.Options,
 	paInformer informers.PodAutoscalerInformer,
-	sksInformer ninformers.ServerlessServiceInformer,
 	serviceInformer corev1informers.ServiceInformer,
 	endpointsInformer corev1informers.EndpointsInformer,
 	kpaDeciders Deciders,
@@ -131,7 +126,6 @@ func NewController(
 	c := &Reconciler{
 		Base:            reconciler.NewBase(*opts, controllerAgentName),
 		paLister:        paInformer.Lister(),
-		sksLister:       sksInformer.Lister(),
 		serviceLister:   serviceInformer.Lister(),
 		endpointsLister: endpointsInformer.Lister(),
 		kpaDeciders:     kpaDeciders,
@@ -227,24 +221,8 @@ func (c *Reconciler) reconcile(ctx context.Context, pa *pav1alpha1.PodAutoscaler
 	pa.Status.InitializeConditions()
 	logger.Debug("PA exists")
 
-	scale, err := c.scaler.GetScaleResource(pa)
-	if err != nil {
-		logger.Debugw("Error Getting scale", zap.Error(err))
-		return perrors.Wrap(err, "Error retrieving scale")
-	}
-	selector, err := labels.ConvertSelectorToLabelsMap(scale.Status.Selector)
-	if err != nil {
-		logger.Errorw(fmt.Sprintf("Error parsing selector string %q", scale.Status.Selector), zap.Error(err))
-		return perrors.Wrap(err, "Error parsing selector")
-	}
-	logger.Debugf("PA %s selector: %v", pa.Name, selector)
-
-	if err := c.reconcileMetricsService(ctx, pa, selector); err != nil {
+	if err := c.reconcileMetricsService(ctx, pa); err != nil {
 		return perrors.Wrap(err, "error reconciling metrics service")
-	}
-
-	if err := c.reconcileSKS(ctx, pa, selector); err != nil {
-		return perrors.Wrap(err, "error reconciling SKS")
 	}
 
 	decider, err := c.reconcileDecider(ctx, pa)
@@ -364,44 +342,18 @@ func updatePAStatus(pa *pav1alpha1.PodAutoscaler, want int32, got int) {
 	pa.Status.ObservedGeneration = pa.Generation
 }
 
-func (c *Reconciler) reconcileSKS(ctx context.Context, pa *pav1alpha1.PodAutoscaler, selector map[string]string) error {
+func (c *Reconciler) reconcileMetricsService(ctx context.Context, pa *pav1alpha1.PodAutoscaler) error {
 	logger := logging.FromContext(ctx)
 
-	sksName := names.SKSName(pa.Name)
-	sks, err := c.sksLister.ServerlessServices(pa.Namespace).Get(sksName)
-	if errors.IsNotFound(err) {
-		logger.Infof("SKS %s/%s does not exist; creating.", pa.Namespace, sksName)
-
-		sks = resources.MakeSKS(pa, selector, nv1alpha1.SKSOperationModeServe)
-		_, err = c.ServingClientSet.NetworkingV1alpha1().ServerlessServices(sks.Namespace).Create(sks)
-		if err != nil {
-			logger.Errorw(fmt.Sprintf("Error creating SKS %s/%s: ", pa.Namespace, sksName), zap.Error(err))
-			return err
-		}
-		logger.Infof("Created SKS: %q", sksName)
-	} else if err != nil {
-		logger.Errorw(fmt.Sprintf("Error getting SKS %s: ", sksName), zap.Error(err))
-		return err
-	} else if !metav1.IsControlledBy(sks, pa) {
-		pa.Status.MarkResourceNotOwned("ServerlessService", sksName)
-		return fmt.Errorf("KPA: %q does not own SKS: %q", pa.Name, sksName)
+	scale, err := c.scaler.GetScaleResource(pa)
+	if err != nil {
+		return perrors.Wrap(err, "error getting scale")
 	}
-	tmpl := resources.MakeSKS(pa, selector, nv1alpha1.SKSOperationModeServe)
-	if !equality.Semantic.DeepEqual(tmpl.Spec, sks.Spec) {
-		want := sks.DeepCopy()
-		want.Spec = tmpl.Spec
-		logger.Infof("SKS changed; reconciling: %s", sksName)
-		if _, err = c.ServingClientSet.NetworkingV1alpha1().ServerlessServices(sks.Namespace).Update(want); err != nil {
-			logger.Errorw(fmt.Sprintf("Error updating SKS %s: ", sksName), zap.Error(err))
-			return err
-		}
+	selector, err := labels.ConvertSelectorToLabelsMap(scale.Status.Selector)
+	if err != nil {
+		return perrors.Wrapf(err, "error parsing selector string %q", scale.Status.Selector)
 	}
-	logger.Debugf("Done reconciling SKS %s", sksName)
-	return nil
-}
-
-func (c *Reconciler) reconcileMetricsService(ctx context.Context, pa *pav1alpha1.PodAutoscaler, selector map[string]string) error {
-	logger := logging.FromContext(ctx)
+	logger.Debugf("PA %s selector: %v", pa.Name, selector)
 
 	sn := names.MetricsServiceName(pa.Name)
 	svc, err := c.serviceLister.Services(pa.Namespace).Get(sn)

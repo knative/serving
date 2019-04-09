@@ -23,9 +23,3 @@ func TestMetricsName(t *testing.T) {
 		t.Errorf("MetricsServiceName =  %q, want: %q", got, want)
 	}
 }
-
-func TestSKSName(t *testing.T) {
-	if got, want := SKSName("ristretto"), "ristretto"; got != want {
-		t.Errorf("SKSName = %q, want: %q", got, want)
-	}
-}
