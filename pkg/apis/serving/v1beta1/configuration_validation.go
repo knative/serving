@@ -20,9 +20,27 @@ import (
 	"context"
 
 	"github.com/knative/pkg/apis"
+	"github.com/knative/serving/pkg/apis/serving"
 )
 
 // Validate makes sure that Configuration is properly configured.
 func (c *Configuration) Validate(ctx context.Context) *apis.FieldError {
+	return serving.ValidateObjectMetadata(c.GetObjectMeta()).ViaField("metadata").Also(
+		c.Spec.Validate(withinSpec(ctx)).ViaField("spec")).Also(
+		c.Status.Validate(withinStatus(ctx)).ViaField("status"))
+}
+
+// Validate implements apis.Validatable
+func (cs *ConfigurationSpec) Validate(ctx context.Context) *apis.FieldError {
+	return cs.Template.Validate(ctx).ViaField("template")
+}
+
+// Validate implements apis.Validatable
+func (cs *ConfigurationStatus) Validate(ctx context.Context) *apis.FieldError {
+	return cs.ConfigurationStatusFields.Validate(ctx)
+}
+
+// Validate implements apis.Validatable
+func (csf *ConfigurationStatusFields) Validate(ctx context.Context) *apis.FieldError {
 	return nil
 }
