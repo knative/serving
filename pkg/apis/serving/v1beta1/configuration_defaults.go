@@ -20,5 +20,13 @@ import (
 	"context"
 )
 
+// SetDefaults implements apis.Defaultable
 func (c *Configuration) SetDefaults(ctx context.Context) {
+	// TODO(mattmoor): Add a context for passing in the parent object's name.
+	c.Spec.SetDefaults(withinSpec(ctx))
+}
+
+// SetDefaults implements apis.Defaultable
+func (cs *ConfigurationSpec) SetDefaults(ctx context.Context) {
+	cs.Template.SetDefaults(ctx)
 }

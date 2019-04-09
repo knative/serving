@@ -18,7 +18,49 @@ package v1beta1
 
 import (
 	"context"
+
+	corev1 "k8s.io/api/core/v1"
+
+	"github.com/knative/serving/pkg/apis/config"
 )
 
+// SetDefaults implements apis.Defaultable
 func (r *Revision) SetDefaults(ctx context.Context) {
+	r.Spec.SetDefaults(ctx)
+}
+
+// SetDefaults implements apis.Defaultable
+func (rts *RevisionTemplateSpec) SetDefaults(ctx context.Context) {
+	rts.Spec.SetDefaults(ctx)
+}
+
+// SetDefaults implements apis.Defaultable
+func (rs *RevisionSpec) SetDefaults(ctx context.Context) {
+	cfg := config.FromContextOrDefaults(ctx)
+
+	// Default TimeoutSeconds based on our configmap
+	if rs.TimeoutSeconds == nil {
+		ts := cfg.Defaults.RevisionTimeoutSeconds
+		rs.TimeoutSeconds = &ts
+	}
+
+	var container corev1.Container
+	if len(rs.PodSpec.Containers) == 1 {
+		container = rs.PodSpec.Containers[0]
+	}
+	defer func() {
+		rs.PodSpec.Containers = []corev1.Container{container}
+	}()
+
+	if container.Resources.Requests == nil {
+		container.Resources.Requests = corev1.ResourceList{}
+	}
+	if _, ok := container.Resources.Requests[corev1.ResourceCPU]; !ok {
+		container.Resources.Requests[corev1.ResourceCPU] = cfg.Defaults.RevisionCPURequest
+	}
+
+	vms := container.VolumeMounts
+	for i := range vms {
+		vms[i].ReadOnly = true
+	}
 }

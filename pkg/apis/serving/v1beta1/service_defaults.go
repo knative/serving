@@ -20,5 +20,14 @@ import (
 	"context"
 )
 
+// SetDefaults implements apis.Defaultable
 func (s *Service) SetDefaults(ctx context.Context) {
+	// TODO(mattmoor): Add a context for passing in the parent object's name.
+	s.Spec.SetDefaults(withinSpec(ctx))
+}
+
+// SetDefaults implements apis.Defaultable
+func (ss *ServiceSpec) SetDefaults(ctx context.Context) {
+	ss.ConfigurationSpec.SetDefaults(ctx)
+	ss.RouteSpec.SetDefaults(withDefaultConfigurationName(ctx))
 }

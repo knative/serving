@@ -20,5 +20,30 @@ import (
 	"context"
 )
 
+// SetDefaults implements apis.Defaultable
 func (r *Route) SetDefaults(ctx context.Context) {
+	r.Spec.SetDefaults(withinSpec(ctx))
+}
+
+// SetDefaults implements apis.Defaultable
+func (rs *RouteSpec) SetDefaults(ctx context.Context) {
+	if len(rs.Traffic) == 0 && hasDefaultConfigurationName(ctx) {
+		boolTrue := true
+		rs.Traffic = []TrafficTarget{{
+			Percent:        100,
+			LatestRevision: &boolTrue,
+		}}
+	}
+
+	for idx := range rs.Traffic {
+		rs.Traffic[idx].SetDefaults(ctx)
+	}
+}
+
+// SetDefaults implements apis.Defaultable
+func (tt *TrafficTarget) SetDefaults(ctx context.Context) {
+	if tt.LatestRevision == nil {
+		sense := (tt.RevisionName == "")
+		tt.LatestRevision = &sense
+	}
 }
