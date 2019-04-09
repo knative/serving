@@ -40,6 +40,8 @@ var (
 )
 
 func TestMetricCollectorCrud(t *testing.T) {
+	defer ClearAll()
+
 	logger := TestLogger(t)
 	ctx := context.Background()
 
@@ -104,6 +106,8 @@ func TestMetricCollectorCrud(t *testing.T) {
 }
 
 func TestMetricCollectorScraper(t *testing.T) {
+	defer ClearAll()
+
 	logger := TestLogger(t)
 	ctx := context.Background()
 
