@@ -47,7 +47,7 @@ func TestTrafficTargetValidation(t *testing.T) {
 	}, {
 		name: "valid with revisionName and name (spec)",
 		tt: &TrafficTarget{
-			Name:         "foo",
+			Subroute:     "foo",
 			RevisionName: "bar",
 			Percent:      12,
 		},
@@ -56,7 +56,7 @@ func TestTrafficTargetValidation(t *testing.T) {
 	}, {
 		name: "valid with revisionName and name (status)",
 		tt: &TrafficTarget{
-			Name:         "foo",
+			Subroute:     "foo",
 			RevisionName: "bar",
 			Percent:      12,
 			URL:          "http://foo.bar.com",
@@ -66,7 +66,7 @@ func TestTrafficTargetValidation(t *testing.T) {
 	}, {
 		name: "invalid with revisionName and name (status)",
 		tt: &TrafficTarget{
-			Name:         "foo",
+			Subroute:     "foo",
 			RevisionName: "bar",
 			Percent:      12,
 		},
@@ -119,7 +119,7 @@ func TestTrafficTargetValidation(t *testing.T) {
 	}, {
 		name: "valid with configurationName and name (spec)",
 		tt: &TrafficTarget{
-			Name:              "foo",
+			Subroute:          "foo",
 			ConfigurationName: "bar",
 			Percent:           37,
 		},
@@ -289,7 +289,7 @@ func TestRouteValidation(t *testing.T) {
 			},
 			Spec: RouteSpec{
 				Traffic: []TrafficTarget{{
-					Name:         "bar",
+					Subroute:     "bar",
 					RevisionName: "foo",
 					Percent:      100,
 				}},
@@ -297,7 +297,7 @@ func TestRouteValidation(t *testing.T) {
 			Status: RouteStatus{
 				RouteStatusFields: RouteStatusFields{
 					Traffic: []TrafficTarget{{
-						Name:         "bar",
+						Subroute:     "bar",
 						RevisionName: "foo",
 						Percent:      100,
 						URL:          "http://bar.blah.com",
@@ -314,11 +314,11 @@ func TestRouteValidation(t *testing.T) {
 			},
 			Spec: RouteSpec{
 				Traffic: []TrafficTarget{{
-					Name:         "prod",
+					Subroute:     "prod",
 					RevisionName: "foo",
 					Percent:      90,
 				}, {
-					Name:              "experiment",
+					Subroute:          "experiment",
 					ConfigurationName: "bar",
 					Percent:           10,
 				}},
@@ -333,7 +333,7 @@ func TestRouteValidation(t *testing.T) {
 			},
 			Spec: RouteSpec{
 				Traffic: []TrafficTarget{{
-					Name:         "bar",
+					Subroute:     "bar",
 					RevisionName: "foo",
 					Percent:      100,
 				}},
@@ -341,7 +341,7 @@ func TestRouteValidation(t *testing.T) {
 			Status: RouteStatus{
 				RouteStatusFields: RouteStatusFields{
 					Traffic: []TrafficTarget{{
-						Name:         "bar",
+						Subroute:     "bar",
 						RevisionName: "foo",
 						Percent:      100,
 					}},
@@ -362,8 +362,8 @@ func TestRouteValidation(t *testing.T) {
 			},
 			Spec: RouteSpec{
 				Traffic: []TrafficTarget{{
-					Name:    "foo",
-					Percent: 100,
+					Subroute: "foo",
+					Percent:  100,
 				}},
 			},
 		},
@@ -382,11 +382,11 @@ func TestRouteValidation(t *testing.T) {
 			},
 			Spec: RouteSpec{
 				Traffic: []TrafficTarget{{
-					Name:         "foo",
+					Subroute:     "foo",
 					RevisionName: "bar",
 					Percent:      50,
 				}, {
-					Name:         "foo",
+					Subroute:     "foo",
 					RevisionName: "bar",
 					Percent:      50,
 				}},
@@ -395,8 +395,8 @@ func TestRouteValidation(t *testing.T) {
 		want: &apis.FieldError{
 			Message: `Multiple definitions for "foo"`,
 			Paths: []string{
-				"spec.traffic[0].name",
-				"spec.traffic[1].name",
+				"spec.traffic[0].subroute",
+				"spec.traffic[1].subroute",
 			},
 		},
 	}, {

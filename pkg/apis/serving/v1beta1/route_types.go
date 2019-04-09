@@ -59,11 +59,11 @@ var (
 
 // TrafficTarget holds a single entry of the routing table for a Route.
 type TrafficTarget struct {
-	// Name is optionally used to expose a dedicated hostname for referencing this
-	// target exclusively. It has the form: {name}.${route.status.domain}
+	// Subroute is optionally used to expose a dedicated url for
+	// referencing this target exclusively.
 	// +optional
-	// TODO(mattmoor): Rename this.
-	Name string `json:"name,omitempty"`
+	// TODO(mattmoor): Discuss alternative naming options.
+	Subroute string `json:"subroute,omitempty"`
 
 	// RevisionName of a specific revision to which to send this portion of traffic.
 	// This is mutually exclusive with ConfigurationName.

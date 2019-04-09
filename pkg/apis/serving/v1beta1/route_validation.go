@@ -42,18 +42,18 @@ func validateTrafficList(ctx context.Context, traffic []TrafficTarget) *apis.Fie
 	for i, tt := range traffic {
 		errs = errs.Also(tt.Validate(ctx).ViaIndex(i))
 
-		if idx, ok := trafficMap[tt.Name]; ok {
+		if idx, ok := trafficMap[tt.Subroute]; ok {
 			// We want only single definition of the route, even if it points
 			// to the same config or revision.
 			errs = errs.Also(&apis.FieldError{
-				Message: fmt.Sprintf("Multiple definitions for %q", tt.Name),
+				Message: fmt.Sprintf("Multiple definitions for %q", tt.Subroute),
 				Paths: []string{
-					fmt.Sprintf("[%d].name", i),
-					fmt.Sprintf("[%d].name", idx),
+					fmt.Sprintf("[%d].subroute", i),
+					fmt.Sprintf("[%d].subroute", idx),
 				},
 			})
 		} else {
-			trafficMap[tt.Name] = i
+			trafficMap[tt.Subroute] = i
 		}
 		sum += tt.Percent
 	}
@@ -141,10 +141,10 @@ func (tt *TrafficTarget) Validate(ctx context.Context) *apis.FieldError {
 		}
 
 		// URL is not allowed in any traffic target without a name.
-		if tt.Name == "" {
+		if tt.Subroute == "" {
 			errs = errs.Also(apis.ErrDisallowedFields("url"))
 		}
-	} else if tt.Name != "" {
+	} else if tt.Subroute != "" {
 		// URL must be specified in status when name is specified.
 		if isInStatus(ctx) {
 			errs = errs.Also(apis.ErrMissingField("url"))
