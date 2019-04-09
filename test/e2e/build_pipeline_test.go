@@ -34,6 +34,9 @@ import (
 )
 
 func TestPipeline(t *testing.T) {
+	if test.ServingFlags.ServingOnly {
+		t.Skip()
+	}
 	t.Parallel()
 	pipelineName := test.ObjectNameForTest(t)
 

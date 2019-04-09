@@ -40,6 +40,7 @@ var ServingFlags = initializeServingFlags()
 // ServingEnvironmentFlags holds the e2e flags needed only by the serving repo.
 type ServingEnvironmentFlags struct {
 	ResolvableDomain bool // Resolve Route controller's `domainSuffix`
+	ServingOnly      bool // Whether to skip tests that touch build and build pipeline.
 }
 
 func initializeServingFlags() *ServingEnvironmentFlags {
@@ -47,6 +48,8 @@ func initializeServingFlags() *ServingEnvironmentFlags {
 
 	flag.BoolVar(&f.ResolvableDomain, "resolvabledomain", false,
 		"Set this flag to true if you have configured the `domainSuffix` on your Route controller to a domain that will resolve to your test cluster.")
+	flag.BoolVar(&f.ServingOnly, "servingOnly", false,
+		"Set this flag to true if you only want to exclude that have dependencies on other knative/ projects like build.")
 
 	flag.Parse()
 	flag.Set("alsologtostderr", "true")
