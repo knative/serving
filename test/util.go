@@ -15,16 +15,13 @@ package test
 
 import (
 	"context"
-	"fmt"
 	"net/http"
-	"strings"
 	"testing"
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/knative/pkg/signals"
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // HelloVolumePath is the path to the test volume.
@@ -59,19 +56,4 @@ func ListenAndServeGracefullyWithPattern(addr string, handlers map[string]func(w
 
 	<-signals.SetupSignalHandler()
 	server.Shutdown(context.Background())
-}
-
-// NumEndpoints returns the number of endpoints for the given service. Returns error
-// if the endpoints cannot be listed
-func NumEndpoints(clients *Clients, namespace string, serviceName string) (int, error) {
-	endpointList, _ := clients.KubeClient.Kube.CoreV1().Endpoints(namespace).List(metav1.ListOptions{})
-	for _, endpoints := range endpointList.Items {
-		if strings.Contains(endpoints.Name, serviceName) {
-			if len(endpoints.Subsets) != 1 {
-				return 0, fmt.Errorf("Endpoint addresses for service %s unavailable", serviceName)
-			}
-			return len(endpoints.Subsets[0].Addresses), nil
-		}
-	}
-	return 0, fmt.Errorf("Unable to find endpoints for given service %s", serviceName)
 }

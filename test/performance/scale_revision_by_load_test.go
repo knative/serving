@@ -27,21 +27,23 @@ import (
 	pkgTest "github.com/knative/pkg/test"
 	ingress "github.com/knative/pkg/test/ingress"
 	"github.com/knative/pkg/test/spoof"
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	testingv1alpha1 "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
+	"github.com/knative/serving/pkg/resources"
 	"github.com/knative/serving/test"
 	"github.com/knative/test-infra/shared/junit"
 	"github.com/knative/test-infra/shared/loadgenerator"
 	"github.com/knative/test-infra/shared/testgrid"
-	"golang.org/x/sync/errgroup"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+	"k8s.io/client-go/informers"
+	"k8s.io/client-go/tools/cache"
 )
 
 const (
 	qpsPerClient         = 10               // frequencies of requests per client
 	iterationDuration    = 60 * time.Second // iteration duration for a single scale
 	processingTimeMillis = 100              // delay of each request on "server" side
-	containerConcurrency = 10
+	targetConcurrency    = 10
 )
 
 var concurrentClients = []int{10, 20, 40, 80, 160, 320}
@@ -55,10 +57,10 @@ type scaleEvent struct {
 // TestScaleRevisionByLoad performs several iterations with increasing number of clients
 // while measuring response times, error rates, and time to scale up.
 func TestScaleRevisionByLoad(t *testing.T) {
-	tc := make([]junit.TestCase, 5*len(concurrentClients))
+	tc := make([]junit.TestCase, 0)
 	for _, numClients := range concurrentClients {
 		t.Run(fmt.Sprintf("clients-%03d", numClients), func(t *testing.T) {
-			scaleRevisionByLoad(t, numClients, tc)
+			tc = append(tc, scaleRevisionByLoad(t, numClients)...)
 		})
 	}
 	if err := testgrid.CreateXMLOutput(tc, t.Name()); err != nil {
@@ -66,7 +68,7 @@ func TestScaleRevisionByLoad(t *testing.T) {
 	}
 }
 
-func scaleRevisionByLoad(t *testing.T, numClients int, tc []junit.TestCase) {
+func scaleRevisionByLoad(t *testing.T, numClients int) []junit.TestCase {
 	perfClients, err := Setup(t)
 	if err != nil {
 		t.Fatalf("Cannot initialize performance client: %v", err)
@@ -89,9 +91,7 @@ func scaleRevisionByLoad(t *testing.T, numClients int, tc []junit.TestCase) {
 				corev1.ResourceMemory: resource.MustParse("20Mi"),
 			},
 		}},
-		func(service *v1alpha1.Service) {
-			service.Spec.RunLatest.Configuration.RevisionTemplate.Annotations = map[string]string{"autoscaling.knative.dev/target": fmt.Sprintf("%d", containerConcurrency)}
-		},
+		testingv1alpha1.WithConfigAnnotations(map[string]string{"autoscaling.knative.dev/target": fmt.Sprintf("%d", targetConcurrency)}),
 	)
 	if err != nil {
 		t.Fatalf("Failed to create Service: %v", err)
@@ -111,8 +111,7 @@ func scaleRevisionByLoad(t *testing.T, numClients int, tc []junit.TestCase) {
 		t.Logf,
 		domain+"/?timeout=10", // To generate any kind of a valid response.
 		test.RetryingRouteInconsistency(func(resp *spoof.Response) (bool, error) {
-			_, _, err := parseResponse(string(resp.Body))
-			return err == nil, nil
+			return resp.StatusCode == 200, nil
 		}),
 		"WaitForEndpointToServeText",
 		test.ServingFlags.ResolvableDomain)
@@ -121,45 +120,33 @@ func scaleRevisionByLoad(t *testing.T, numClients int, tc []junit.TestCase) {
 	}
 	t.Logf("Took %v for the endpoint to start serving", time.Since(st))
 
-	scaleChannel := make(chan *scaleEvent)
-	endMonitoring := make(chan struct{})
-	eg := errgroup.Group{}
+	scaleChannel := make(chan *scaleEvent, 100)
+	stopInformer := make(chan struct{})
 
-	eg.Go(func() error {
-		t.Logf("Scale Monitoring Started")
-		defer close(scaleChannel)
-		previousNumEndpoints := 1 //We start with 1 pod running
-		for {
-			select {
-			case <-endMonitoring:
-				t.Log("Scale Monitoring Finished")
-				return nil
-			default:
-				currentNumEndpoints, err := test.NumEndpoints(clients, test.ServingNamespace, names.Service)
-				if err != nil {
-					t.Logf("Unable to get pod count: %v", err.Error())
-				}
-				if currentNumEndpoints != previousNumEndpoints {
+	factory := informers.NewSharedInformerFactory(clients.KubeClient.Kube, 0)
+	endpointsInformer := factory.Core().V1().Endpoints().Informer()
+	endpointsInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		UpdateFunc: func(oldObj, newObj interface{}) {
+			newEndpoints := newObj.(*corev1.Endpoints)
+			if strings.Contains(newEndpoints.GetName(), names.Service) {
+				newNumAddresses := resources.ReadyAddressCount(newEndpoints)
+				oldNumAddresses := resources.ReadyAddressCount(oldObj.(*corev1.Endpoints))
+				if newNumAddresses != oldNumAddresses {
 					event := &scaleEvent{
-						oldScale:  previousNumEndpoints,
-						newScale:  currentNumEndpoints,
+						oldScale:  oldNumAddresses,
+						newScale:  newNumAddresses,
 						timestamp: time.Now(),
 					}
 					scaleChannel <- event
-					previousNumEndpoints = currentNumEndpoints
 				}
-				time.Sleep(100 * time.Millisecond)
 			}
-		}
+		},
 	})
 
-	events := make([]*scaleEvent, 0)
-	eg.Go(func() error {
-		for scaleEvent := range scaleChannel {
-			events = append(events, scaleEvent)
-		}
-		return nil
-	})
+	go func() {
+		defer close(scaleChannel)
+		endpointsInformer.Run(stopInformer)
+	}()
 
 	opts := loadgenerator.GeneratorOptions{
 		Duration:       iterationDuration,
@@ -176,21 +163,19 @@ func scaleRevisionByLoad(t *testing.T, numClients int, tc []junit.TestCase) {
 		t.Fatalf("Generating traffic via fortio failed: %v", err)
 	}
 
-	endMonitoring <- struct{}{}
-
-	if err := eg.Wait(); err != nil {
-		t.Fatalf("Failed to collect Pod counts: %v", err)
-	}
+	close(stopInformer)
 
 	// Save the json result for benchmarking
 	resp.SaveJSON(strings.Replace(t.Name(), "/", "_", -1))
+
+	tc := make([]junit.TestCase, 0)
 
 	tc = append(tc, CreatePerfTestCase(float32(resp.Result.DurationHistogram.Count), "requestCount", t.Name()))
 	tc = append(tc, CreatePerfTestCase(float32(qpsPerClient*numClients), "requestedQPS", t.Name()))
 	tc = append(tc, CreatePerfTestCase(float32(resp.Result.ActualQPS), "actualQPS", t.Name()))
 	tc = append(tc, CreatePerfTestCase(float32(errorsPercentage(resp)), "errorsPercentage", t.Name()))
 
-	for _, ev := range events {
+	for ev := range scaleChannel {
 		t.Logf("Scaled: %d -> %d in %v", ev.oldScale, ev.newScale, ev.timestamp.Sub(resp.Result.StartTime))
 		tc = append(tc, CreatePerfTestCase(float32(ev.timestamp.Sub(resp.Result.StartTime)/time.Second), fmt.Sprintf("scale-from-%02d-to-%02d(seconds)", ev.oldScale, ev.newScale), t.Name()))
 	}
@@ -200,6 +185,8 @@ func scaleRevisionByLoad(t *testing.T, numClients int, tc []junit.TestCase) {
 		name := fmt.Sprintf("p%d(ms)", int(p.Percentile))
 		tc = append(tc, CreatePerfTestCase(val, name, t.Name()))
 	}
+
+	return tc
 }
 
 func errorsPercentage(resp *loadgenerator.GeneratorResults) float64 {
