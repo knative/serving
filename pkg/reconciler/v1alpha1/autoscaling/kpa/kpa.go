@@ -377,7 +377,7 @@ func (c *Reconciler) reconcileSKS(ctx context.Context, pa *pav1alpha1.PodAutosca
 		}
 		logger.Infof("Created SKS: %q", sksName)
 	} else if err != nil {
-		return perrors.Wrapf(err, "error getting SKS %s", sksName)
+		return perrors.Wrapf(err, "error getting SKS %s/%s", pa.Namespace, sksName)
 	} else if !metav1.IsControlledBy(sks, pa) {
 		pa.Status.MarkResourceNotOwned("ServerlessService", sksName)
 		return fmt.Errorf("KPA: %q does not own SKS: %q", pa.Name, sksName)
@@ -388,7 +388,7 @@ func (c *Reconciler) reconcileSKS(ctx context.Context, pa *pav1alpha1.PodAutosca
 		want.Spec = tmpl.Spec
 		logger.Infof("SKS changed; reconciling: %s", sksName)
 		if _, err = c.ServingClientSet.NetworkingV1alpha1().ServerlessServices(sks.Namespace).Update(want); err != nil {
-			return perrors.Wrapf(err, "error updating SKS %s", sksName)
+			return perrors.Wrapf(err, "error updating SKS %s/%s", pa.Namespace, sksName)
 		}
 	}
 	logger.Debugf("Done reconciling SKS %s", sksName)

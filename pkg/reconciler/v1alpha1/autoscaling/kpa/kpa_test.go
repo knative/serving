@@ -447,7 +447,8 @@ func TestReconcile(t *testing.T) {
 			sks(testNamespace, testRevision, WithSelector(usualSelector)),
 		},
 		WantEvents: []string{
-			Eventf(corev1.EventTypeWarning, "InternalError", "error reconciling SKS: inducing failure for create serverlessservices"),
+			Eventf(corev1.EventTypeWarning, "InternalError",
+				fmt.Sprintf("error reconciling SKS: error creating SKS %s/%s: inducing failure for create serverlessservices", testNamespace, testRevision)),
 		},
 	}, {
 		Name: "sks cannot be updated",
@@ -467,7 +468,8 @@ func TestReconcile(t *testing.T) {
 			Object: sks(testNamespace, testRevision, WithSelector(usualSelector)),
 		}},
 		WantEvents: []string{
-			Eventf(corev1.EventTypeWarning, "InternalError", "error reconciling SKS: inducing failure for update serverlessservices"),
+			Eventf(corev1.EventTypeWarning, "InternalError",
+				fmt.Sprintf("error reconciling SKS: error updating SKS %s/%s: inducing failure for update serverlessservices", testNamespace, testRevision)),
 		},
 	}, {
 		Name: "sks is disowned",
