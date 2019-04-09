@@ -18,7 +18,9 @@ package autoscaler
 
 import (
 	"context"
+	"errors"
 	"testing"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
 
@@ -26,22 +28,25 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func TestMetricCollectorCrud(t *testing.T) {
-	logger := TestLogger(t)
-	ctx := context.Background()
-
-	defaultNamespace := "test-namespace"
-	defaultName := "test-name"
-	defaultMetric := &Metric{
+var (
+	defaultNamespace = "test-namespace"
+	defaultName      = "test-name"
+	defaultMetric    = &Metric{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: defaultNamespace,
 			Name:      defaultName,
 		},
 	}
+)
+
+func TestMetricCollectorCrud(t *testing.T) {
+	logger := TestLogger(t)
+	ctx := context.Background()
+
 	scraper := testScraper(func() (*StatMessage, error) {
 		return nil, nil
 	})
-	factory := scraperFactory(scraper)
+	factory := scraperFactory(scraper, nil)
 	statsCh := make(chan *StatMessage)
 
 	t.Run("error on mismatch", func(t *testing.T) {
@@ -57,6 +62,18 @@ func TestMetricCollectorCrud(t *testing.T) {
 		}
 		if _, err := coll.Update(ctx, defaultMetric); err == nil {
 			t.Error("Update() did not return an error")
+		}
+	})
+
+	t.Run("error on creating scraper", func(t *testing.T) {
+		want := errors.New("factory failure")
+		failingFactory := scraperFactory(nil, want)
+
+		coll := NewMetricCollector(failingFactory, statsCh, logger)
+		_, got := coll.Create(ctx, defaultMetric)
+
+		if got != want {
+			t.Errorf("Create() = %v, want %v", got, want)
 		}
 	})
 
@@ -86,9 +103,42 @@ func TestMetricCollectorCrud(t *testing.T) {
 	})
 }
 
-func scraperFactory(scraper StatsScraper) StatsScraperFactory {
+func TestMetricCollectorScraper(t *testing.T) {
+	logger := TestLogger(t)
+	ctx := context.Background()
+
+	want := &StatMessage{
+		Key: NewMetricKey(defaultNamespace, defaultName),
+		Stat: Stat{
+			PodName: "testPod",
+		},
+	}
+	scraper := testScraper(func() (*StatMessage, error) {
+		return want, nil
+	})
+	factory := scraperFactory(scraper, nil)
+	statsCh := make(chan *StatMessage)
+
+	coll := NewMetricCollector(factory, statsCh, logger)
+	coll.Create(ctx, defaultMetric)
+
+	got := <-statsCh
+	if got != want {
+		t.Errorf("<-statsCh = %v, want %v", got, want)
+	}
+
+	coll.Delete(ctx, defaultNamespace, defaultName)
+	select {
+	case <-time.After(scrapeTickInterval * 2):
+		// All good!
+	case <-statsCh:
+		t.Error("Got unexpected metric after stopping collection")
+	}
+}
+
+func scraperFactory(scraper StatsScraper, err error) StatsScraperFactory {
 	return func(*Metric) (StatsScraper, error) {
-		return scraper, nil
+		return scraper, err
 	}
 }
 
