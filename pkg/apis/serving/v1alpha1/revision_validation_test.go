@@ -1017,8 +1017,8 @@ func TestImmutableFields(t *testing.T) {
 			Message: "Immutable fields changed (-old +new)",
 			Paths:   []string{"spec"},
 			Details: `{v1alpha1.RevisionSpec}.Container.Resources.Requests["cpu"]:
-	-: resource.Quantity{i: resource.int64Amount{value: 100, scale: resource.Scale(-3)}, s: "100m", Format: resource.Format("DecimalSI")}
-	+: resource.Quantity{i: resource.int64Amount{value: 50, scale: resource.Scale(-3)}, s: "50m", Format: resource.Format("DecimalSI")}
+	-: resource.Quantity: "{i:{value:100 scale:-3} d:{Dec:<nil>} s:100m Format:DecimalSI}"
+	+: resource.Quantity: "{i:{value:50 scale:-3} d:{Dec:<nil>} s:50m Format:DecimalSI}"
 `,
 		},
 	}, {
@@ -1081,8 +1081,8 @@ func TestImmutableFields(t *testing.T) {
 			Message: "Immutable fields changed (-old +new)",
 			Paths:   []string{"spec"},
 			Details: `{v1alpha1.RevisionSpec}.DeprecatedConcurrencyModel:
-	-: v1alpha1.RevisionRequestConcurrencyModelType("Single")
-	+: v1alpha1.RevisionRequestConcurrencyModelType("Multi")
+	-: "Single"
+	+: "Multi"
 `,
 		},
 	}, {
@@ -1112,8 +1112,8 @@ func TestImmutableFields(t *testing.T) {
 			Message: "Immutable fields changed (-old +new)",
 			Paths:   []string{"spec"},
 			Details: `{v1alpha1.RevisionSpec}.DeprecatedConcurrencyModel:
-	-: v1alpha1.RevisionRequestConcurrencyModelType("")
-	+: v1alpha1.RevisionRequestConcurrencyModelType("Multi")
+	-: ""
+	+: "Multi"
 `,
 		},
 	}, {
@@ -1144,8 +1144,8 @@ func TestImmutableFields(t *testing.T) {
 			Message: "Immutable fields changed (-old +new)",
 			Paths:   []string{"spec"},
 			Details: `{v1alpha1.RevisionSpec}.DeprecatedConcurrencyModel:
-	-: v1alpha1.RevisionRequestConcurrencyModelType("Single")
-	+: v1alpha1.RevisionRequestConcurrencyModelType("Multi")
+	-: "Single"
+	+: "Multi"
 {v1alpha1.RevisionSpec}.Container.Image:
 	-: "busybox"
 	+: "helloworld"
