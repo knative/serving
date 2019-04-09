@@ -19,6 +19,7 @@ package v1alpha1
 import (
 	"context"
 	"fmt"
+	"math"
 	"strings"
 	"testing"
 
@@ -74,6 +75,9 @@ func TestContainerValidation(t *testing.T) {
 		c: corev1.Container{
 			Image: "foo",
 			Resources: corev1.ResourceRequirements{
+				Limits: corev1.ResourceList{
+					corev1.ResourceName("memory"): resource.MustParse("250M"),
+				},
 				Requests: corev1.ResourceList{
 					corev1.ResourceName("cpu"): resource.MustParse("25m"),
 				},
@@ -132,14 +136,14 @@ func TestContainerValidation(t *testing.T) {
 				ContainerPort: 65536,
 			}},
 		},
-		want: apis.ErrOutOfBoundsValue(65536, 1, 65535, "ports.ContainerPort"),
+		want: apis.ErrOutOfBoundsValue(65536, 1, 65535, "ports.containerPort"),
 	}, {
 		name: "has an empty port set",
 		c: corev1.Container{
 			Image: "foo",
 			Ports: []corev1.ContainerPort{{}},
 		},
-		want: apis.ErrOutOfBoundsValue(0, 1, 65535, "ports.ContainerPort"),
+		want: apis.ErrOutOfBoundsValue(0, 1, 65535, "ports.containerPort"),
 	}, {
 		name: "has more than one unnamed port",
 		c: corev1.Container{
@@ -174,7 +178,7 @@ func TestContainerValidation(t *testing.T) {
 				ContainerPort: 8080,
 			}},
 		},
-		want: apis.ErrInvalidValue("tdp", "ports.Protocol"),
+		want: apis.ErrInvalidValue("tdp", "ports.protocol"),
 	}, {
 		name: "has host port",
 		c: corev1.Container{
@@ -184,7 +188,7 @@ func TestContainerValidation(t *testing.T) {
 				ContainerPort: 8080,
 			}},
 		},
-		want: apis.ErrDisallowedFields("ports.HostPort"),
+		want: apis.ErrDisallowedFields("ports.hostPort"),
 	}, {
 		name: "has host ip",
 		c: corev1.Container{
@@ -194,7 +198,7 @@ func TestContainerValidation(t *testing.T) {
 				ContainerPort: 8080,
 			}},
 		},
-		want: apis.ErrDisallowedFields("ports.HostIP"),
+		want: apis.ErrDisallowedFields("ports.hostIP"),
 	}, {
 		name: "port conflicts with queue proxy admin",
 		c: corev1.Container{
@@ -203,7 +207,7 @@ func TestContainerValidation(t *testing.T) {
 				ContainerPort: 8022,
 			}},
 		},
-		want: apis.ErrInvalidValue(8022, "ports.ContainerPort"),
+		want: apis.ErrInvalidValue(8022, "ports.containerPort"),
 	}, {
 		name: "port conflicts with queue proxy",
 		c: corev1.Container{
@@ -212,7 +216,7 @@ func TestContainerValidation(t *testing.T) {
 				ContainerPort: 8012,
 			}},
 		},
-		want: apis.ErrInvalidValue(8012, "ports.ContainerPort"),
+		want: apis.ErrInvalidValue(8012, "ports.containerPort"),
 	}, {
 		name: "port conflicts with queue proxy metrics",
 		c: corev1.Container{
@@ -221,7 +225,7 @@ func TestContainerValidation(t *testing.T) {
 				ContainerPort: 9090,
 			}},
 		},
-		want: apis.ErrInvalidValue(9090, "ports.ContainerPort"),
+		want: apis.ErrInvalidValue(9090, "ports.containerPort"),
 	}, {
 		name: "has invalid port name",
 		c: corev1.Container{
@@ -357,6 +361,80 @@ func TestContainerValidation(t *testing.T) {
 		},
 		want: apis.ErrDisallowedFields("readinessProbe.httpGet.port"),
 	}, {
+		name: "disallowed security context field",
+		c: corev1.Container{
+			Image: "foo",
+			SecurityContext: &corev1.SecurityContext{
+				RunAsGroup: ptr.Int64(10),
+			},
+		},
+		want: apis.ErrDisallowedFields("securityContext.runAsGroup"),
+	}, {
+		name: "too large uid",
+		c: corev1.Container{
+			Image: "foo",
+			SecurityContext: &corev1.SecurityContext{
+				RunAsUser: ptr.Int64(math.MaxInt32 + 1),
+			},
+		},
+		want: apis.ErrOutOfBoundsValue(int64(math.MaxInt32+1), 0, math.MaxInt32, "securityContext.runAsUser"),
+	}, {
+		name: "negative uid",
+		c: corev1.Container{
+			Image: "foo",
+			SecurityContext: &corev1.SecurityContext{
+				RunAsUser: ptr.Int64(-10),
+			},
+		},
+		want: apis.ErrOutOfBoundsValue(-10, 0, math.MaxInt32, "securityContext.runAsUser"),
+	}, {
+		name: "disallowed envvarsource",
+		c: corev1.Container{
+			Image: "foo",
+			Env: []corev1.EnvVar{{
+				Name: "Foo",
+				ValueFrom: &corev1.EnvVarSource{
+					FieldRef: &corev1.ObjectFieldSelector{
+						FieldPath: "/v1",
+					},
+				},
+			}},
+		},
+		want: apis.ErrDisallowedFields("env[0].valueFrom.fieldRef"),
+	}, {
+		name: "invalid liveness tcp probe (has port)",
+		c: corev1.Container{
+			Image: "foo",
+			LivenessProbe: &corev1.Probe{
+				Handler: corev1.Handler{
+					TCPSocket: &corev1.TCPSocketAction{
+						Port: intstr.FromString("http"),
+					},
+				},
+			},
+		},
+		want: apis.ErrDisallowedFields("livenessProbe.tcpSocket.port"),
+	}, {
+		name: "disallowed container fields",
+		c: corev1.Container{
+			Image:     "foo",
+			Name:      "fail",
+			Stdin:     true,
+			StdinOnce: true,
+			TTY:       true,
+			Lifecycle: &corev1.Lifecycle{},
+			VolumeDevices: []corev1.VolumeDevice{{
+				Name:       "disallowed",
+				DevicePath: "/",
+			}},
+		},
+		want: apis.ErrDisallowedFields("lifecycle").Also(
+			apis.ErrDisallowedFields("name")).Also(
+			apis.ErrDisallowedFields("stdin")).Also(
+			apis.ErrDisallowedFields("stdinOnce")).Also(
+			apis.ErrDisallowedFields("tty")).Also(
+			apis.ErrDisallowedFields("volumeDevices")),
+	}, {
 		name: "invalid liveness tcp probe (has port)",
 		c: corev1.Container{
 			Image: "foo",
@@ -433,7 +511,7 @@ func TestVolumeValidation(t *testing.T) {
 				EmptyDir: &corev1.EmptyDirVolumeSource{},
 			},
 		},
-		want: apis.ErrMissingOneOf("secret", "configMap"),
+		want: apis.ErrMissingOneOf("secret", "configMap").Also(apis.ErrDisallowedFields("emptyDir")),
 	}, {
 		name: "no volume source",
 		v: corev1.Volume{
