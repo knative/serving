@@ -174,8 +174,8 @@ var (
 				Kind:               "Revision",
 				Name:               "bar",
 				UID:                "1234",
-				Controller:         &boolTrue,
-				BlockOwnerDeletion: &boolTrue,
+				Controller:         ptr.Bool(true),
+				BlockOwnerDeletion: ptr.Bool(true),
 			}},
 		},
 		Spec: appsv1.DeploymentSpec{
@@ -349,8 +349,8 @@ func withOwnerReference(name string) revisionOption {
 			APIVersion:         v1alpha1.SchemeGroupVersion.String(),
 			Kind:               "Configuration",
 			Name:               name,
-			Controller:         &boolTrue,
-			BlockOwnerDeletion: &boolTrue,
+			Controller:         ptr.Bool(true),
+			BlockOwnerDeletion: ptr.Bool(true),
 		}}
 	}
 }

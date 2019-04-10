@@ -19,6 +19,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/knative/pkg/ptr"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -60,8 +61,8 @@ func TestMakeRevisions(t *testing.T) {
 					APIVersion:         v1alpha1.SchemeGroupVersion.String(),
 					Kind:               "Configuration",
 					Name:               "build",
-					Controller:         &boolTrue,
-					BlockOwnerDeletion: &boolTrue,
+					Controller:         ptr.Bool(true),
+					BlockOwnerDeletion: ptr.Bool(true),
 				}},
 				Labels: map[string]string{
 					serving.ConfigurationLabelKey:                             "build",
@@ -113,8 +114,8 @@ func TestMakeRevisions(t *testing.T) {
 					APIVersion:         v1alpha1.SchemeGroupVersion.String(),
 					Kind:               "Configuration",
 					Name:               "build",
-					Controller:         &boolTrue,
-					BlockOwnerDeletion: &boolTrue,
+					Controller:         ptr.Bool(true),
+					BlockOwnerDeletion: ptr.Bool(true),
 				}},
 				Labels: map[string]string{
 					serving.ConfigurationLabelKey:                             "build",
@@ -167,8 +168,8 @@ func TestMakeRevisions(t *testing.T) {
 					APIVersion:         v1alpha1.SchemeGroupVersion.String(),
 					Kind:               "Configuration",
 					Name:               "labels",
-					Controller:         &boolTrue,
-					BlockOwnerDeletion: &boolTrue,
+					Controller:         ptr.Bool(true),
+					BlockOwnerDeletion: ptr.Bool(true),
 				}},
 				Labels: map[string]string{
 					serving.ConfigurationLabelKey:                             "labels",
@@ -217,8 +218,8 @@ func TestMakeRevisions(t *testing.T) {
 					APIVersion:         v1alpha1.SchemeGroupVersion.String(),
 					Kind:               "Configuration",
 					Name:               "annotations",
-					Controller:         &boolTrue,
-					BlockOwnerDeletion: &boolTrue,
+					Controller:         ptr.Bool(true),
+					BlockOwnerDeletion: ptr.Bool(true),
 				}},
 				Labels: map[string]string{
 					serving.ConfigurationLabelKey:                             "annotations",

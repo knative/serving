@@ -26,8 +26,6 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-var boolTrue = true
-
 func TestBuilds(t *testing.T) {
 	tests := []struct {
 		name          string

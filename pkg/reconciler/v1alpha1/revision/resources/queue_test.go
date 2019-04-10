@@ -36,8 +36,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-var boolTrue = true
-
 func TestMakeQueueContainer(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -313,8 +311,8 @@ func TestMakeQueueContainer(t *testing.T) {
 					APIVersion:         v1alpha1.SchemeGroupVersion.String(),
 					Kind:               "Configuration",
 					Name:               "the-parent-config-name",
-					Controller:         &boolTrue,
-					BlockOwnerDeletion: &boolTrue,
+					Controller:         ptr.Bool(true),
+					BlockOwnerDeletion: ptr.Bool(true),
 				}},
 			},
 			Spec: v1alpha1.RevisionSpec{
