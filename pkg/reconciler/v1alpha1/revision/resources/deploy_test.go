@@ -332,9 +332,9 @@ func revision(opts ...revisionOption) *v1alpha1.Revision {
 	return revision
 }
 
-func withContainerConcurrency(containerConcurrency int) revisionOption {
+func withContainerConcurrency(containerConcurrency v1alpha1.RevisionContainerConcurrencyType) revisionOption {
 	return func(revision *v1alpha1.Revision) {
-		revision.Spec.ContainerConcurrency = v1alpha1.RevisionContainerConcurrencyType(containerConcurrency)
+		revision.Spec.ContainerConcurrency = containerConcurrency
 	}
 }
 

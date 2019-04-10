@@ -36,7 +36,7 @@ func TestTargetConcurrency(t *testing.T) {
 
 	tests := []struct {
 		name                 string
-		containerConcurrency int
+		containerConcurrency v1alpha1.RevisionContainerConcurrencyType
 		want                 float64
 	}{{
 		name:                 "default",
@@ -54,7 +54,7 @@ func TestTargetConcurrency(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got := c.TargetConcurrency(v1alpha1.RevisionContainerConcurrencyType(test.containerConcurrency))
+			got := c.TargetConcurrency(test.containerConcurrency)
 			if got != test.want {
 				t.Errorf("TargetConcurrency() = %v, want %v", got, test.want)
 			}

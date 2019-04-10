@@ -83,17 +83,6 @@ func verifyNoTick(errCh chan error) error {
 	}
 }
 
-// verifyTick verifies that we get a tick in a certain amount of time.
-func verifyStatMessageTick(statsCh chan *StatMessage) error {
-	select {
-	case <-statsCh:
-		// We got the StatMessage!
-		return nil
-	case <-time.After(2 * scrapeTickInterval):
-		return errors.New("Did not get expected StatMessage")
-	}
-}
-
 func TestMultiScalerScaling(t *testing.T) {
 	ctx := context.Background()
 	ms, stopCh, statCh, uniScaler := createMultiScaler(t, &Config{
@@ -128,10 +117,6 @@ func TestMultiScalerScaling(t *testing.T) {
 	// Verify that subsequent "ticks" don't trigger a callback, since
 	// the desired scale has not changed.
 	if err := verifyNoTick(errCh); err != nil {
-		t.Fatal(err)
-	}
-
-	if err := verifyStatMessageTick(statCh); err != nil {
 		t.Fatal(err)
 	}
 
@@ -407,12 +392,10 @@ func TestMultiScalerUpdate(t *testing.T) {
 func createMultiScaler(t *testing.T, config *Config) (*MultiScaler, chan<- struct{}, chan *StatMessage, *fakeUniScaler) {
 	logger := TestLogger(t)
 	uniscaler := &fakeUniScaler{}
-	statsScraper := &fakeStatsScraper{}
 
 	stopChan := make(chan struct{})
 	statChan := make(chan *StatMessage)
-	ms := NewMultiScaler(NewDynamicConfig(config, logger),
-		stopChan, statChan, uniscaler.fakeUniScalerFactory, statsScraper.fakeStatsScraperFactory, logger)
+	ms := NewMultiScaler(NewDynamicConfig(config, logger), stopChan, uniscaler.fakeUniScalerFactory, logger)
 
 	return ms, stopChan, statChan, uniscaler
 }
@@ -474,16 +457,4 @@ func newDecider() *Decider {
 		},
 		Status: DeciderStatus{},
 	}
-}
-
-type fakeStatsScraper struct {
-}
-
-func (s *fakeStatsScraper) fakeStatsScraperFactory(*Decider) (StatsScraper, error) {
-	return s, nil
-}
-
-// Scrape always sends the same test StatMessage.
-func (s *fakeStatsScraper) Scrape() (*StatMessage, error) {
-	return &testStatMessage, nil
 }
