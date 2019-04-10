@@ -25,10 +25,11 @@ import (
 
 // Validate makes sure that Configuration is properly configured.
 func (c *Configuration) Validate(ctx context.Context) *apis.FieldError {
-	// TODO(mattmoor): Add a context for passing in the parent object's name.
-	return serving.ValidateObjectMetadata(c.GetObjectMeta()).ViaField("metadata").Also(
-		c.Spec.Validate(withinSpec(ctx)).ViaField("spec")).Also(
-		c.Status.Validate(withinStatus(ctx)).ViaField("status"))
+	errs := serving.ValidateObjectMetadata(c.GetObjectMeta()).ViaField("metadata")
+	ctx = apis.WithinParent(ctx, c.ObjectMeta)
+	errs = errs.Also(c.Spec.Validate(apis.WithinSpec(ctx)).ViaField("spec"))
+	errs = errs.Also(c.Status.Validate(apis.WithinStatus(ctx)).ViaField("status"))
+	return errs
 }
 
 // Validate implements apis.Validatable

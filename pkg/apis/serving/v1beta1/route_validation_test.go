@@ -22,10 +22,9 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/knative/pkg/apis"
 	"github.com/knative/pkg/ptr"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	"github.com/knative/pkg/apis"
 )
 
 func TestTrafficTargetValidation(t *testing.T) {
@@ -40,7 +39,7 @@ func TestTrafficTargetValidation(t *testing.T) {
 			RevisionName: "bar",
 			Percent:      12,
 		},
-		wc:   withinSpec,
+		wc:   apis.WithinSpec,
 		want: nil,
 	}, {
 		name: "valid with revisionName and name (spec)",
@@ -49,7 +48,7 @@ func TestTrafficTargetValidation(t *testing.T) {
 			RevisionName: "bar",
 			Percent:      12,
 		},
-		wc:   withinSpec,
+		wc:   apis.WithinSpec,
 		want: nil,
 	}, {
 		name: "valid with revisionName and name (status)",
@@ -59,7 +58,7 @@ func TestTrafficTargetValidation(t *testing.T) {
 			Percent:      12,
 			URL:          "http://foo.bar.com",
 		},
-		wc:   withinStatus,
+		wc:   apis.WithinStatus,
 		want: nil,
 	}, {
 		name: "invalid with revisionName and name (status)",
@@ -68,7 +67,7 @@ func TestTrafficTargetValidation(t *testing.T) {
 			RevisionName: "bar",
 			Percent:      12,
 		},
-		wc:   withinStatus,
+		wc:   apis.WithinStatus,
 		want: apis.ErrMissingField("url"),
 	}, {
 		name: "invalid with bad revisionName",
@@ -76,7 +75,7 @@ func TestTrafficTargetValidation(t *testing.T) {
 			RevisionName: "b ar",
 			Percent:      12,
 		},
-		wc: withinSpec,
+		wc: apis.WithinSpec,
 		want: apis.ErrInvalidKeyName(
 			"b ar", "revisionName", "name part must consist of alphanumeric characters, '-', '_' or '.', and must start and end with an alphanumeric character (e.g. 'MyName',  or 'my.name',  or '123-abc', regex used for validation is '([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9]')"),
 	}, {
@@ -86,7 +85,7 @@ func TestTrafficTargetValidation(t *testing.T) {
 			LatestRevision: ptr.Bool(false),
 			Percent:        12,
 		},
-		wc:   withinSpec,
+		wc:   apis.WithinSpec,
 		want: nil,
 	}, {
 		name: "invalid with revisionName and latestRevision (spec)",
@@ -95,7 +94,7 @@ func TestTrafficTargetValidation(t *testing.T) {
 			LatestRevision: ptr.Bool(true),
 			Percent:        12,
 		},
-		wc:   withinSpec,
+		wc:   apis.WithinSpec,
 		want: apis.ErrInvalidValue(true, "latestRevision"),
 	}, {
 		name: "valid with revisionName and latestRevision (status)",
@@ -104,7 +103,7 @@ func TestTrafficTargetValidation(t *testing.T) {
 			LatestRevision: ptr.Bool(true),
 			Percent:        12,
 		},
-		wc:   withinStatus,
+		wc:   apis.WithinStatus,
 		want: nil,
 	}, {
 		name: "valid with configurationName",
@@ -112,7 +111,7 @@ func TestTrafficTargetValidation(t *testing.T) {
 			ConfigurationName: "bar",
 			Percent:           37,
 		},
-		wc:   withinSpec,
+		wc:   apis.WithinSpec,
 		want: nil,
 	}, {
 		name: "valid with configurationName and name (spec)",
@@ -121,7 +120,7 @@ func TestTrafficTargetValidation(t *testing.T) {
 			ConfigurationName: "bar",
 			Percent:           37,
 		},
-		wc:   withinSpec,
+		wc:   apis.WithinSpec,
 		want: nil,
 	}, {
 		name: "invalid with bad configurationName",
@@ -129,7 +128,7 @@ func TestTrafficTargetValidation(t *testing.T) {
 			ConfigurationName: "b ar",
 			Percent:           37,
 		},
-		wc: withinSpec,
+		wc: apis.WithinSpec,
 		want: apis.ErrInvalidKeyName(
 			"b ar", "configurationName", "name part must consist of alphanumeric characters, '-', '_' or '.', and must start and end with an alphanumeric character (e.g. 'MyName',  or 'my.name',  or '123-abc', regex used for validation is '([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9]')"),
 	}, {
@@ -139,7 +138,7 @@ func TestTrafficTargetValidation(t *testing.T) {
 			LatestRevision:    ptr.Bool(true),
 			Percent:           37,
 		},
-		wc:   withinSpec,
+		wc:   apis.WithinSpec,
 		want: nil,
 	}, {
 		name: "invalid with configurationName and latestRevision",
@@ -148,7 +147,7 @@ func TestTrafficTargetValidation(t *testing.T) {
 			LatestRevision:    ptr.Bool(false),
 			Percent:           37,
 		},
-		wc:   withinSpec,
+		wc:   apis.WithinSpec,
 		want: apis.ErrInvalidValue(false, "latestRevision"),
 	}, {
 		name: "invalid with configurationName and default configurationName",
@@ -164,7 +163,7 @@ func TestTrafficTargetValidation(t *testing.T) {
 			Percent: 37,
 		},
 		wc: func(ctx context.Context) context.Context {
-			return withDefaultConfigurationName(withinSpec(ctx))
+			return withDefaultConfigurationName(apis.WithinSpec(ctx))
 		},
 		want: nil,
 	}, {
@@ -174,7 +173,7 @@ func TestTrafficTargetValidation(t *testing.T) {
 			Percent:        37,
 		},
 		wc: func(ctx context.Context) context.Context {
-			return withDefaultConfigurationName(withinSpec(ctx))
+			return withDefaultConfigurationName(apis.WithinSpec(ctx))
 		},
 		want: nil,
 	}, {
@@ -184,7 +183,7 @@ func TestTrafficTargetValidation(t *testing.T) {
 			Percent:        37,
 		},
 		wc: func(ctx context.Context) context.Context {
-			return withDefaultConfigurationName(withinSpec(ctx))
+			return withDefaultConfigurationName(apis.WithinSpec(ctx))
 		},
 		want: apis.ErrInvalidValue(false, "latestRevision"),
 	}, {
@@ -193,7 +192,7 @@ func TestTrafficTargetValidation(t *testing.T) {
 			ConfigurationName: "blah",
 			Percent:           37,
 		},
-		wc:   withinStatus,
+		wc:   apis.WithinStatus,
 		want: apis.ErrMissingField("revisionName"),
 	}, {
 		name: "valid with revisionName and default configurationName",
@@ -256,7 +255,7 @@ func TestTrafficTargetValidation(t *testing.T) {
 			Percent:           100,
 			URL:               "ShouldNotBeSet",
 		},
-		wc:   withinSpec,
+		wc:   apis.WithinSpec,
 		want: apis.ErrDisallowedFields("url"),
 	}}
 
@@ -267,8 +266,9 @@ func TestTrafficTargetValidation(t *testing.T) {
 				ctx = test.wc(ctx)
 			}
 			got := test.tt.Validate(ctx)
-			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
-				t.Errorf("Validate (-want, +got) = %v", diff)
+			if !cmp.Equal(test.want.Error(), got.Error()) {
+				t.Errorf("Validate (-want, +got) = %v",
+					cmp.Diff(test.want.Error(), got.Error()))
 			}
 		})
 	}
@@ -456,8 +456,9 @@ func TestRouteValidation(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			got := test.r.Validate(context.Background())
-			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
-				t.Errorf("Validate (-want, +got) = %v", diff)
+			if !cmp.Equal(test.want.Error(), got.Error()) {
+				t.Errorf("Validate (-want, +got) = %v",
+					cmp.Diff(test.want.Error(), got.Error()))
 			}
 		})
 	}

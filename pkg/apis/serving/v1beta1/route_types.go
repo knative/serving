@@ -31,7 +31,7 @@ import (
 // Some of the Revisions a Route distributes traffic over may be specified by
 // referencing the Configuration responsible for creating them; in these cases
 // the Route is additionally responsible for monitoring the Configuration for
-// "latest ready" revision changes, and smoothly rolling out latest revisions.
+// "latest ready revision" changes, and smoothly rolling out latest revisions.
 // See also: https://github.com/knative/serving/blob/master/docs/spec/overview.md#route
 type Route struct {
 	metav1.TypeMeta `json:",inline"`
@@ -59,23 +59,23 @@ var (
 
 // TrafficTarget holds a single entry of the routing table for a Route.
 type TrafficTarget struct {
-	// Subroute is optionally used to expose a dedicated url for
-	// referencing this target exclusively.
+	// Subroute is optionally used to expose a dedicated url for referencing
+	// this target exclusively.
 	// +optional
 	// TODO(mattmoor): Discuss alternative naming options.
 	Subroute string `json:"subroute,omitempty"`
 
-	// RevisionName of a specific revision to which to send this portion of traffic.
-	// This is mutually exclusive with ConfigurationName.
+	// RevisionName of a specific revision to which to send this portion of
+	// traffic.  This is mutually exclusive with ConfigurationName.
 	// +optional
 	RevisionName string `json:"revisionName,omitempty"`
 
 	// ConfigurationName of a configuration to whose latest revision we will send
 	// this portion of traffic. When the "status.latestReadyRevisionName" of the
 	// referenced configuration changes, we will automatically migrate traffic
-	// from the prior "latest ready" revision to the new one.
-	// This field is never set in Route's status, only its spec.
-	// This is mutually exclusive with RevisionName.
+	// from the prior "latest ready" revision to the new one.  This field is never
+	// set in Route's status, only its spec.  This is mutually exclusive with
+	// RevisionName.
 	// +optional
 	ConfigurationName string `json:"configurationName,omitempty"`
 
@@ -100,7 +100,7 @@ type TrafficTarget struct {
 // RouteSpec holds the desired state of the Route (from the client).
 type RouteSpec struct {
 	// Traffic specifies how to distribute traffic over a collection of
-	// Knative Serving Revisions and Configurations.
+	// revisions and configurations.
 	// +optional
 	Traffic []TrafficTarget `json:"traffic,omitempty"`
 }

@@ -79,14 +79,15 @@ type RevisionSpec struct {
 	// via webhook.
 	corev1.PodSpec `json:",inline"`
 
-	// ContainerConcurrency specifies the maximum allowed
-	// in-flight (concurrent) requests per container of the Revision.
-	// Defaults to `0` which means unlimited concurrency.
+	// ContainerConcurrency specifies the maximum allowed in-flight (concurrent)
+	// requests per container of the Revision.  Defaults to `0` which means
+	// unlimited concurrency.
 	// +optional
 	ContainerConcurrency RevisionContainerConcurrencyType `json:"containerConcurrency,omitempty"`
 
-	// TimeoutSeconds holds the max duration the instance is allowed for responding to a request.
-	// If unspecified, a system default will be provided.
+	// TimeoutSeconds holds the max duration the instance is allowed for
+	// responding to a request.  If unspecified, a system default will
+	// be provided.
 	// +optional
 	TimeoutSeconds *int64 `json:"timeoutSeconds,omitempty"`
 }

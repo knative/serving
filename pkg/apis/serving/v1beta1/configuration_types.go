@@ -26,8 +26,7 @@ import (
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// Configuration represents the "floating HEAD" of a linear history of Revisions,
-// and optionally how the containers those revisions reference are built.
+// Configuration represents the "floating HEAD" of a linear history of Revisions.
 // Users create new Revisions by updating the Configuration's spec.
 // The "latest created" revision's name is available under status, as is the
 // "latest ready" revision's name.
@@ -56,10 +55,7 @@ var (
 
 // ConfigurationSpec holds the desired state of the Configuration (from the client).
 type ConfigurationSpec struct {
-	// Template holds the latest specification for the Revision to
-	// be stamped out. If a Build specification is provided, then the
-	// RevisionTemplate's BuildName field will be populated with the name of
-	// the Build object created to produce the container for the Revision.
+	// Template holds the latest specification for the Revision to be stamped out.
 	// +optional
 	Template RevisionTemplateSpec `json:"template"`
 }

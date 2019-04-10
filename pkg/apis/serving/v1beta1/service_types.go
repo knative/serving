@@ -61,10 +61,13 @@ var (
 	_ kmeta.OwnerRefable = (*Service)(nil)
 )
 
-// ServiceSpec represents the configuration for the Service object. Exactly one
-// of its members (other than Generation) must be specified. Services can either
-// track the latest ready revision of a configuration or be pinned to a specific
-// revision.
+// ServiceSpec represents the configuration for the Service object.
+// A Service's specification is the union of the specifications for a Route
+// and Configuration.  The Service restricts what can be expressed in these
+// fields, e.g. the Route must reference the provided Configuration;
+// however, these limitations also enable friendlier defaulting,
+// e.g. Route never needs a Configuration name, and may be defaulted to
+// the appropriate "run latest" spec.
 type ServiceSpec struct {
 	// ServiceSpec inlines an unrestricted ConfigurationSpec.
 	ConfigurationSpec `json:",inline"`

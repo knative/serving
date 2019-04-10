@@ -27,26 +27,3 @@ func withDefaultConfigurationName(ctx context.Context) context.Context {
 func hasDefaultConfigurationName(ctx context.Context) bool {
 	return ctx.Value(hdcn{}) != nil
 }
-
-type inSpec struct{}
-
-func withinSpec(ctx context.Context) context.Context {
-	return context.WithValue(ctx, inSpec{}, struct{}{})
-}
-
-func isInSpec(ctx context.Context) bool {
-	return ctx.Value(inSpec{}) != nil
-}
-
-type inStatus struct{}
-
-func withinStatus(ctx context.Context) context.Context {
-	return context.WithValue(ctx, inStatus{}, struct{}{})
-}
-
-func isInStatus(ctx context.Context) bool {
-	return ctx.Value(inStatus{}) != nil
-}
-
-// TODO(mattmoor): Add something to attach the name of the parent object
-// to the context as a better way of validating BYO Revision name.

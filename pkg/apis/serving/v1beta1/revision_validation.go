@@ -28,8 +28,8 @@ import (
 // Validate ensures Revision is properly configured.
 func (r *Revision) Validate(ctx context.Context) *apis.FieldError {
 	errs := serving.ValidateObjectMetadata(r.GetObjectMeta()).ViaField("metadata")
-	errs = errs.Also(r.Spec.Validate(withinSpec(ctx)).ViaField("spec"))
-	errs = errs.Also(r.Status.Validate(withinStatus(ctx)).ViaField("status"))
+	errs = errs.Also(r.Spec.Validate(apis.WithinSpec(ctx)).ViaField("spec"))
+	errs = errs.Also(r.Status.Validate(apis.WithinStatus(ctx)).ViaField("status"))
 
 	if apis.IsInUpdate(ctx) {
 		original := apis.GetBaseline(ctx).(*Revision)
@@ -54,7 +54,7 @@ func (r *Revision) Validate(ctx context.Context) *apis.FieldError {
 // Validate implements apis.Validatable
 func (rts *RevisionTemplateSpec) Validate(ctx context.Context) *apis.FieldError {
 	// TODO(mattmoor): Specialized ObjectMeta validation.
-	return rts.Spec.Validate(withinSpec(ctx)).ViaField("spec")
+	return rts.Spec.Validate(apis.WithinSpec(ctx)).ViaField("spec")
 }
 
 // Validate implements apis.Validatable

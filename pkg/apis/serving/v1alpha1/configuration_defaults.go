@@ -23,6 +23,7 @@ import (
 )
 
 func (c *Configuration) SetDefaults(ctx context.Context) {
+	ctx = apis.WithinParent(ctx, c.ObjectMeta)
 	c.Spec.SetDefaults(apis.WithinSpec(ctx))
 }
 

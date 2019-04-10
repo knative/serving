@@ -18,12 +18,14 @@ package v1beta1
 
 import (
 	"context"
+
+	"github.com/knative/pkg/apis"
 )
 
 // SetDefaults implements apis.Defaultable
 func (c *Configuration) SetDefaults(ctx context.Context) {
-	// TODO(mattmoor): Add a context for passing in the parent object's name.
-	c.Spec.SetDefaults(withinSpec(ctx))
+	ctx = apis.WithinParent(ctx, c.ObjectMeta)
+	c.Spec.SetDefaults(apis.WithinSpec(ctx))
 }
 
 // SetDefaults implements apis.Defaultable

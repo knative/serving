@@ -19,12 +19,13 @@ package v1beta1
 import (
 	"context"
 
+	"github.com/knative/pkg/apis"
 	"github.com/knative/pkg/ptr"
 )
 
 // SetDefaults implements apis.Defaultable
 func (r *Route) SetDefaults(ctx context.Context) {
-	r.Spec.SetDefaults(withinSpec(ctx))
+	r.Spec.SetDefaults(apis.WithinSpec(ctx))
 }
 
 // SetDefaults implements apis.Defaultable

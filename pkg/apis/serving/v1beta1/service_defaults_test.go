@@ -206,10 +206,10 @@ func TestServiceDefaulting(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			got := test.in
-			ctx := context.Background()
-			got.SetDefaults(ctx)
-			if diff := cmp.Diff(got, test.want, ignoreUnexportedResources); diff != "" {
-				t.Errorf("SetDefaults (-want, +got) = %v", diff)
+			got.SetDefaults(context.Background())
+			if !cmp.Equal(got, test.want, ignoreUnexportedResources) {
+				t.Errorf("SetDefaults (-want, +got) = %v",
+					cmp.Diff(got, test.want, ignoreUnexportedResources))
 			}
 		})
 	}

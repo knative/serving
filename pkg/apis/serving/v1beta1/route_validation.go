@@ -27,9 +27,10 @@ import (
 
 // Validate makes sure that Route is properly configured.
 func (r *Route) Validate(ctx context.Context) *apis.FieldError {
-	return serving.ValidateObjectMetadata(r.GetObjectMeta()).ViaField("metadata").Also(
-		r.Spec.Validate(withinSpec(ctx)).ViaField("spec")).Also(
-		r.Status.Validate(withinStatus(ctx)).ViaField("status"))
+	errs := serving.ValidateObjectMetadata(r.GetObjectMeta()).ViaField("metadata")
+	errs = errs.Also(r.Spec.Validate(apis.WithinSpec(ctx)).ViaField("spec"))
+	errs = errs.Also(r.Status.Validate(apis.WithinStatus(ctx)).ViaField("status"))
+	return errs
 }
 
 func validateTrafficList(ctx context.Context, traffic []TrafficTarget) *apis.FieldError {
@@ -78,7 +79,7 @@ func (tt *TrafficTarget) Validate(ctx context.Context) *apis.FieldError {
 
 	// We only validate the sense of latestRevision in the context of a Spec,
 	// and only when it is specified.
-	if isInSpec(ctx) && tt.LatestRevision != nil {
+	if apis.IsInSpec(ctx) && tt.LatestRevision != nil {
 		lr := *tt.LatestRevision
 		pinned := tt.RevisionName != ""
 		if pinned == lr {
@@ -108,7 +109,7 @@ func (tt *TrafficTarget) Validate(ctx context.Context) *apis.FieldError {
 		}
 
 	// When revisionName is missing in Status report an error.
-	case isInStatus(ctx):
+	case apis.IsInStatus(ctx):
 		errs = errs.Also(apis.ErrMissingField("revisionName"))
 
 	// When configurationName is specified, we must check that the name is valid.
@@ -136,7 +137,7 @@ func (tt *TrafficTarget) Validate(ctx context.Context) *apis.FieldError {
 	// Check that we set the URL appropriately.
 	if tt.URL != "" {
 		// URL is not allowed in traffic under spec.
-		if isInSpec(ctx) {
+		if apis.IsInSpec(ctx) {
 			errs = errs.Also(apis.ErrDisallowedFields("url"))
 		}
 
@@ -146,7 +147,7 @@ func (tt *TrafficTarget) Validate(ctx context.Context) *apis.FieldError {
 		}
 	} else if tt.Subroute != "" {
 		// URL must be specified in status when name is specified.
-		if isInStatus(ctx) {
+		if apis.IsInStatus(ctx) {
 			errs = errs.Also(apis.ErrMissingField("url"))
 		}
 	}
