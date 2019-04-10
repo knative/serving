@@ -91,6 +91,9 @@ func (rs *RevisionSpec) GetContainer() *corev1.Container {
 	if len(rs.Containers) > 0 {
 		return &rs.Containers[0]
 	}
+	if len(rs.Containers) > 0 {
+		return &rs.Containers[0]
+	}
 	// Should be unreachable post-validation, but here to ease testing.
 	return &corev1.Container{}
 }
