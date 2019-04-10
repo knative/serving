@@ -218,7 +218,7 @@ func (r *reconciler) reconcilePublicService(ctx context.Context, sks *netv1alpha
 		return err
 	} else if !metav1.IsControlledBy(srv, sks) {
 		sks.Status.MarkEndpointsNotOwned("Service", sn)
-		return fmt.Errorf("SKS %q does not own Service %q", sks.Name, sn)
+		return fmt.Errorf("SKS: %q does not own Service: %q", sks.Name, sn)
 	} else {
 		tmpl := resources.MakePublicService(sks)
 		want := srv.DeepCopy()
@@ -269,7 +269,7 @@ func (r *reconciler) reconcilePublicEndpoints(ctx context.Context, sks *netv1alp
 		return err
 	} else if !metav1.IsControlledBy(eps, sks) {
 		sks.Status.MarkEndpointsNotOwned("Endpoints", sn)
-		return fmt.Errorf("SKS %q does not own Endpoints %q", sks.Name, sn)
+		return fmt.Errorf("SKS: %q does not own Endpoints: %q", sks.Name, sn)
 	} else {
 		want := eps.DeepCopy()
 		want.Subsets = srcEps.Subsets
@@ -312,7 +312,7 @@ func (r *reconciler) reconcilePrivateService(ctx context.Context, sks *netv1alph
 		return err
 	} else if !metav1.IsControlledBy(svc, sks) {
 		sks.Status.MarkEndpointsNotOwned("Service", sn)
-		return fmt.Errorf("SKS %q does not own Service %q", sks.Name, sn)
+		return fmt.Errorf("SKS: %q does not own Service: %q", sks.Name, sn)
 	}
 	tmpl := resources.MakePrivateService(sks)
 	want := svc.DeepCopy()
