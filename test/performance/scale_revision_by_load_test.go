@@ -28,7 +28,6 @@ import (
 	"github.com/knative/pkg/controller"
 	pkgTest "github.com/knative/pkg/test"
 	ingress "github.com/knative/pkg/test/ingress"
-	"github.com/knative/pkg/test/spoof"
 	testingv1alpha1 "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
 	"github.com/knative/serving/pkg/resources"
 	"github.com/knative/serving/test"
@@ -112,7 +111,7 @@ func scaleRevisionByLoad(t *testing.T, numClients int) []junit.TestCase {
 		clients.KubeClient,
 		t.Logf,
 		domain+"/?timeout=10", // To generate any kind of a valid response.
-		test.RetryingRouteInconsistency(IsStatusOK),
+		test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
 		"WaitForEndpointToServeText",
 		test.ServingFlags.ResolvableDomain)
 	if err != nil {
@@ -199,8 +198,4 @@ func errorsPercentage(resp *loadgenerator.GeneratorResults) float64 {
 		}
 	}
 	return float64(errors*100) / float64(errors+successes)
-}
-
-func IsStatusOK(resp *spoof.Response) (bool, error) {
-	return resp.StatusCode == http.StatusOK, nil
 }
