@@ -183,7 +183,7 @@ func TestReconcile(t *testing.T) {
 			endpointspriv("ronin-priv-service", "fail5", WithSubsets),
 		},
 		WantEvents: []string{
-			Eventf(corev1.EventTypeWarning, "UpdateFailed", `InternalError: SKS: "fail5" does not own Service: "fail5-priv"`),
+			Eventf(corev1.EventTypeWarning, "UpdateFailed", `InternalError: SKS: fail5 does not own Service: fail5-priv`),
 		},
 	}, {
 		Name:    "update-svc-fail-priv",
