@@ -20,10 +20,12 @@ package performance
 
 import (
 	"fmt"
+	"net/http"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/knative/pkg/controller"
 	pkgTest "github.com/knative/pkg/test"
 	ingress "github.com/knative/pkg/test/ingress"
 	"github.com/knative/pkg/test/spoof"
@@ -110,9 +112,7 @@ func scaleRevisionByLoad(t *testing.T, numClients int) []junit.TestCase {
 		clients.KubeClient,
 		t.Logf,
 		domain+"/?timeout=10", // To generate any kind of a valid response.
-		test.RetryingRouteInconsistency(func(resp *spoof.Response) (bool, error) {
-			return resp.StatusCode == 200, nil
-		}),
+		test.RetryingRouteInconsistency(IsStatusOK),
 		"WaitForEndpointToServeText",
 		test.ServingFlags.ResolvableDomain)
 	if err != nil {
@@ -137,16 +137,15 @@ func scaleRevisionByLoad(t *testing.T, numClients int) []junit.TestCase {
 						newScale:  newNumAddresses,
 						timestamp: time.Now(),
 					}
-					scaleChannel <- event
+					select {
+					case scaleChannel <- event:
+					default:
+					}
 				}
 			}
 		},
 	})
-
-	go func() {
-		defer close(scaleChannel)
-		endpointsInformer.Run(stopInformer)
-	}()
+	controller.StartInformers(stopInformer, endpointsInformer)
 
 	opts := loadgenerator.GeneratorOptions{
 		Duration:       iterationDuration,
@@ -164,6 +163,7 @@ func scaleRevisionByLoad(t *testing.T, numClients int) []junit.TestCase {
 	}
 
 	close(stopInformer)
+	close(scaleChannel)
 
 	// Save the json result for benchmarking
 	resp.SaveJSON(strings.Replace(t.Name(), "/", "_", -1))
@@ -192,11 +192,15 @@ func scaleRevisionByLoad(t *testing.T, numClients int) []junit.TestCase {
 func errorsPercentage(resp *loadgenerator.GeneratorResults) float64 {
 	var successes, errors int64
 	for retCode, count := range resp.Result.RetCodes {
-		if retCode == 200 {
+		if retCode == http.StatusOK {
 			successes = successes + count
 		} else {
 			errors = errors + count
 		}
 	}
 	return float64(errors*100) / float64(errors+successes)
+}
+
+func IsStatusOK(resp *spoof.Response) (bool, error) {
+	return resp.StatusCode == http.StatusOK, nil
 }
