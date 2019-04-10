@@ -57,9 +57,11 @@ Zipkin tracing can be enabled if needed by the performance test during setup.
 perfClients, err := Setup(t, EnableZipkinTracing)
 ```
 
-Once enabled, all requests made by the `SpoofingClient` will have an additional trace header. This can be used to get
-the entire request trace and store it in a trace file in the artifacts directory using the
-[AddTrace()](https://github.com/knative/serving/blob/master/test/performance/performance.go) method.
+Once enabled, all requests made by the `SpoofingClient` will have an additional
+trace header. This can be used to get the entire request trace and store it in a
+trace file in the artifacts directory using the
+[AddTrace()](https://github.com/knative/serving/blob/master/test/performance/performance.go)
+method.
 
 Sample Trace:
 
