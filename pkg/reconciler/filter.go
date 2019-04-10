@@ -62,6 +62,26 @@ func LabelFilterFunc(label string, value string, allowUnset bool) func(interface
 	}
 }
 
+// NameFilterFunc creates a FilterFunc only accepting objects with the given name.
+func NameFilterFunc(name string) func(interface{}) bool {
+	return func(obj interface{}) bool {
+		if mo, ok := obj.(metav1.Object); ok {
+			return mo.GetName() == name
+		}
+		return false
+	}
+}
+
+// NamespaceFilterFunc creates a FilterFunc only accepting objects in the given namespace.
+func NamespaceFilterFunc(namespace string) func(interface{}) bool {
+	return func(obj interface{}) bool {
+		if mo, ok := obj.(metav1.Object); ok {
+			return mo.GetNamespace() == namespace
+		}
+		return false
+	}
+}
+
 // ChainFilterFuncs creates a FilterFunc which performs an AND of the passed FilterFuncs.
 func ChainFilterFuncs(funcs ...func(interface{}) bool) func(interface{}) bool {
 	return func(obj interface{}) bool {
