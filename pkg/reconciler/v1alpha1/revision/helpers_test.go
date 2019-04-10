@@ -92,43 +92,6 @@ func TestGetBuildDoneCondition(t *testing.T) {
 
 }
 
-func TestGetIsServiceReady(t *testing.T) {
-	tests := []struct {
-		description string
-		endpoints   *corev1.Endpoints
-		ready       bool
-	}{{
-		description: "no subsets",
-		endpoints:   &corev1.Endpoints{},
-	}, {
-		description: "subset no address",
-		endpoints: &corev1.Endpoints{
-			Subsets: []corev1.EndpointSubset{{
-				Addresses: []corev1.EndpointAddress{},
-			}},
-		},
-	}, {
-		description: "subset with address",
-		endpoints: &corev1.Endpoints{
-			Subsets: []corev1.EndpointSubset{{
-				Addresses: []corev1.EndpointAddress{{
-					IP: "127.0.0.1",
-				}},
-			}},
-		},
-		ready: true,
-	}}
-
-	for _, test := range tests {
-		t.Run(test.description, func(t *testing.T) {
-			ready := isServiceReady(test.endpoints)
-			if ready != test.ready {
-				t.Errorf("getIsServiceReady(%v) = %v, want %v", test.endpoints, ready, test.ready)
-			}
-		})
-	}
-}
-
 func TestGetDeploymentProgressCondition(t *testing.T) {
 	tests := []struct {
 		description string

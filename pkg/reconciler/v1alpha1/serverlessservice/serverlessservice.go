@@ -23,6 +23,7 @@ import (
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/google/go-cmp/cmp"
+
 	"github.com/knative/pkg/controller"
 	"github.com/knative/pkg/logging"
 	"github.com/knative/pkg/system"
@@ -33,6 +34,7 @@ import (
 	rbase "github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/serverlessservice/resources"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/serverlessservice/resources/names"
+	presources "github.com/knative/serving/pkg/resources"
 	"go.uber.org/zap"
 
 	corev1 "k8s.io/api/core/v1"
@@ -280,24 +282,15 @@ func (r *reconciler) reconcilePublicEndpoints(ctx context.Context, sks *netv1alp
 			}
 		}
 	}
-	if hasEndpoints(eps) {
+	if r := presources.ReadyAddressCount(eps); r > 0 {
+		logger.Infof("Endpoints %s/%s has %d ready  endpoints", r)
 		sks.Status.MarkEndpointsReady()
 	} else {
+		logger.Info("Endpoints %s/%s has no ready endpoints")
 		sks.Status.MarkEndpointsNotReady("NoHealthyBackends")
 	}
 	logger.Debugf("Done reconciling public K8s endpoints %s", sn)
 	return nil
-}
-
-// hasEndpoints returns true if Endpoints resource has at least one endpoint.
-func hasEndpoints(eps *corev1.Endpoints) bool {
-	for _, ss := range eps.Subsets {
-		if len(ss.Addresses) > 0 {
-			return true
-		}
-
-	}
-	return false
 }
 
 func (r *reconciler) reconcilePrivateService(ctx context.Context, sks *netv1alpha1.ServerlessService) error {

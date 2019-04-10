@@ -21,6 +21,8 @@ import (
 	"fmt"
 	"time"
 
+	"go.uber.org/zap"
+
 	"github.com/knative/pkg/kmp"
 	"github.com/knative/pkg/logging"
 	"github.com/knative/pkg/logging/logkey"
@@ -29,7 +31,8 @@ import (
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/config"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources"
 	resourcenames "github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources/names"
-	"go.uber.org/zap"
+	presources "github.com/knative/serving/pkg/resources"
+
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
@@ -237,7 +240,7 @@ func (c *Reconciler) reconcileService(ctx context.Context, rev *v1alpha1.Revisio
 	// If the endpoints resource indicates that the Service it sits in front of is ready,
 	// then surface this in our Revision status as resources available (pods were scheduled)
 	// and container healthy (endpoints should be gated by any provided readiness checks).
-	if isServiceReady(endpoints) {
+	if presources.ReadyAddressCount(endpoints) > 0 {
 		rev.Status.MarkResourcesAvailable()
 		rev.Status.MarkContainerHealthy()
 	} else if !rev.Status.IsActivationRequired() {
