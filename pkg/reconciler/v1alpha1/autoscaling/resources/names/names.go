@@ -17,7 +17,7 @@ limitations under the License.
 // Package names contains name generating functions for the pod autoscalers.
 package names
 
-// SKSreturns the name of the SKS resource that backs this PA.
+// SKS returns the name of the SKS resource that backs this PA.
 func SKS(paName string) string {
 	return paName
 }
