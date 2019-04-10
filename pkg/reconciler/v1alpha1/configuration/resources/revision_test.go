@@ -247,5 +247,15 @@ func TestMakeRevisions(t *testing.T) {
 				t.Errorf("MakeRevision (-want, +got) = %v", diff)
 			}
 		})
+
+		t.Run(test.name+"(template)", func(t *testing.T) {
+			// Test the Template variant.
+			test.configuration.Spec.Template = test.configuration.Spec.RevisionTemplate
+			test.configuration.Spec.RevisionTemplate = nil
+			got := MakeRevision(test.configuration, test.buildRef)
+			if diff := cmp.Diff(test.want, got); diff != "" {
+				t.Errorf("MakeRevision (-want, +got) = %v", diff)
+			}
+		})
 	}
 }

@@ -139,6 +139,37 @@ func TestConfigurationSpecValidation(t *testing.T) {
 			},
 		},
 		want: apis.ErrInvalidValue("json: cannot unmarshal string into Go value of type map[string]interface {}", "build"),
+	}, {
+		name: "no revision template",
+		c: &ConfigurationSpec{
+			Build: &RawExtension{
+				BuildSpec: &buildv1alpha1.BuildSpec{
+					Steps: []corev1.Container{{
+						Image: "foo",
+					}},
+				},
+			},
+		},
+		want: apis.ErrMissingOneOf("revisionTemplate", "template"),
+	}, {
+		name: "too many revision templates",
+		c: &ConfigurationSpec{
+			RevisionTemplate: &RevisionTemplateSpec{
+				Spec: RevisionSpec{
+					Container: &corev1.Container{
+						Image: "hellworld",
+					},
+				},
+			},
+			Template: &RevisionTemplateSpec{
+				Spec: RevisionSpec{
+					Container: &corev1.Container{
+						Image: "hellworld",
+					},
+				},
+			},
+		},
+		want: apis.ErrMultipleOneOf("revisionTemplate", "template"),
 	}}
 
 	for _, test := range tests {
@@ -191,6 +222,24 @@ func TestConfigurationValidation(t *testing.T) {
 			},
 		},
 		want: apis.ErrDisallowedFields("spec.revisionTemplate.spec.container.name"),
+	}, {
+		name: "propagate revision failures (template)",
+		c: &Configuration{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid",
+			},
+			Spec: ConfigurationSpec{
+				Template: &RevisionTemplateSpec{
+					Spec: RevisionSpec{
+						Container: &corev1.Container{
+							Name:  "stuart",
+							Image: "hellworld",
+						},
+					},
+				},
+			},
+		},
+		want: apis.ErrDisallowedFields("spec.template.spec.container.name"),
 	}, {
 		name: "empty spec",
 		c: &Configuration{

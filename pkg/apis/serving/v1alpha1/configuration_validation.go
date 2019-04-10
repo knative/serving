@@ -49,11 +49,17 @@ func (cs *ConfigurationSpec) Validate(ctx context.Context) *apis.FieldError {
 	if equality.Semantic.DeepEqual(cs, &ConfigurationSpec{}) {
 		return apis.ErrMissingField(apis.CurrentField)
 	}
+
 	var templateField string
-	if cs.RevisionTemplate != nil {
+	switch {
+	case cs.RevisionTemplate != nil && cs.Template != nil:
+		return apis.ErrMultipleOneOf("revisionTemplate", "template")
+	case cs.RevisionTemplate != nil:
 		templateField = "revisionTemplate"
-	} else {
-		return apis.ErrMissingField("revisionTemplate")
+	case cs.Template != nil:
+		templateField = "template"
+	default:
+		return apis.ErrMissingOneOf("revisionTemplate", "template")
 	}
 
 	errs := CheckDeprecated(ctx, map[string]interface{}{
