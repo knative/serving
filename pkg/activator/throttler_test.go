@@ -23,7 +23,6 @@ import (
 	. "github.com/knative/pkg/logging/testing"
 	testinghelper "github.com/knative/serving/pkg/activator/testing"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	v1alpha12 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/queue"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
@@ -33,12 +32,12 @@ import (
 var (
 	revID = RevisionID{"good-namespace", "good-name"}
 
-	existingRevisionGetter = func(concurrency int) func(RevisionID) (*v1alpha12.Revision, error) {
-		return func(RevisionID) (*v1alpha12.Revision, error) {
-			return &v1alpha12.Revision{Spec: v1alpha12.RevisionSpec{ContainerConcurrency: v1alpha1.RevisionContainerConcurrencyType(concurrency)}}, nil
+	existingRevisionGetter = func(concurrency int) func(RevisionID) (*v1alpha1.Revision, error) {
+		return func(RevisionID) (*v1alpha1.Revision, error) {
+			return &v1alpha1.Revision{Spec: v1alpha1.RevisionSpec{ContainerConcurrency: v1alpha1.RevisionContainerConcurrencyType(concurrency)}}, nil
 		}
 	}
-	nonExistingRevisionGetter = func(RevisionID) (*v1alpha12.Revision, error) {
+	nonExistingRevisionGetter = func(RevisionID) (*v1alpha1.Revision, error) {
 		return nil, errors.New(sampleError)
 	}
 
@@ -61,7 +60,7 @@ const (
 func TestThrottler_UpdateCapacity(t *testing.T) {
 	samples := []struct {
 		label           string
-		revisionGetter  func(RevisionID) (*v1alpha12.Revision, error)
+		revisionGetter  func(RevisionID) (*v1alpha1.Revision, error)
 		endpointsGetter func(RevisionID) (int32, error)
 		maxConcurrency  int32
 		want            int32
@@ -132,7 +131,7 @@ func TestThrottler_Try(t *testing.T) {
 		addCapacity     bool
 		wantBreakers    int32
 		wantError       string
-		revisionGetter  func(RevisionID) (*v1alpha12.Revision, error)
+		revisionGetter  func(RevisionID) (*v1alpha1.Revision, error)
 		endpointsGetter func(RevisionID) (int32, error)
 	}{{
 		label:           "all good",
@@ -306,7 +305,7 @@ func TestHelper_DeleteBreaker(t *testing.T) {
 }
 
 func getThrottler(
-	maxConcurrency int32, revisionGetter func(RevisionID) (*v1alpha12.Revision, error),
+	maxConcurrency int32, revisionGetter func(RevisionID) (*v1alpha1.Revision, error),
 	endpointsGetter func(RevisionID) (int32, error), logger *zap.SugaredLogger,
 	initCapacity int32) *Throttler {
 	params := queue.BreakerParams{QueueDepth: 1, MaxConcurrency: maxConcurrency, InitialCapacity: initCapacity}
