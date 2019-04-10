@@ -36,15 +36,8 @@ func (rs *RouteSpec) Validate(ctx context.Context) *apis.FieldError {
 		return apis.ErrMissingField(apis.CurrentField)
 	}
 
-	// Where a named traffic target points
-	type namedTarget struct {
-		r string // revision name
-		c string // config name
-		i int    // index of first occurrence
-	}
-
 	// Track the targets of named TrafficTarget entries (to detect duplicates).
-	trafficMap := make(map[string]namedTarget)
+	trafficMap := make(map[string]int)
 
 	var errs *apis.FieldError
 	percentSum := 0
@@ -57,22 +50,18 @@ func (rs *RouteSpec) Validate(ctx context.Context) *apis.FieldError {
 			// No Name field, so skip the uniqueness check.
 			continue
 		}
-		nt := namedTarget{
-			r: tt.RevisionName,
-			c: tt.ConfigurationName,
-			i: i,
-		}
+
 		if ent, ok := trafficMap[tt.Name]; !ok {
 			// No entry exists, so add ours
-			trafficMap[tt.Name] = nt
+			trafficMap[tt.Name] = i
 		} else {
 			// We want only single definition of the route, even if it points
 			// to the same config or revision.
 			errs = errs.Also(&apis.FieldError{
 				Message: fmt.Sprintf("Multiple definitions for %q", tt.Name),
 				Paths: []string{
-					fmt.Sprintf("traffic[%d].name", ent.i),
-					fmt.Sprintf("traffic[%d].name", nt.i),
+					fmt.Sprintf("traffic[%d].name", ent),
+					fmt.Sprintf("traffic[%d].name", i),
 				},
 			})
 		}
