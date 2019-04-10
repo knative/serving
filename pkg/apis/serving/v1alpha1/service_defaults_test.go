@@ -21,6 +21,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/knative/pkg/ptr"
 	corev1 "k8s.io/api/core/v1"
 
 	"github.com/knative/serving/pkg/apis/config"
@@ -53,17 +54,25 @@ func TestServiceDefaulting(t *testing.T) {
 		name: "run latest",
 		in: &Service{
 			Spec: ServiceSpec{
-				RunLatest: &RunLatestType{},
+				RunLatest: &RunLatestType{
+					Configuration: ConfigurationSpec{
+						RevisionTemplate: &RevisionTemplateSpec{
+							Spec: RevisionSpec{
+								Container: &corev1.Container{},
+							},
+						},
+					},
+				},
 			},
 		},
 		want: &Service{
 			Spec: ServiceSpec{
 				RunLatest: &RunLatestType{
 					Configuration: ConfigurationSpec{
-						RevisionTemplate: RevisionTemplateSpec{
+						RevisionTemplate: &RevisionTemplateSpec{
 							Spec: RevisionSpec{
-								TimeoutSeconds: config.DefaultRevisionTimeoutSeconds,
-								Container: corev1.Container{
+								TimeoutSeconds: ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+								Container: &corev1.Container{
 									Resources: defaultResources,
 								},
 							},
@@ -78,10 +87,11 @@ func TestServiceDefaulting(t *testing.T) {
 			Spec: ServiceSpec{
 				RunLatest: &RunLatestType{
 					Configuration: ConfigurationSpec{
-						RevisionTemplate: RevisionTemplateSpec{
+						RevisionTemplate: &RevisionTemplateSpec{
 							Spec: RevisionSpec{
 								ContainerConcurrency: 1,
-								TimeoutSeconds:       config.DefaultRevisionTimeoutSeconds,
+								TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+								Container:  &corev1.Container{},
 							},
 						},
 					},
@@ -92,11 +102,11 @@ func TestServiceDefaulting(t *testing.T) {
 			Spec: ServiceSpec{
 				RunLatest: &RunLatestType{
 					Configuration: ConfigurationSpec{
-						RevisionTemplate: RevisionTemplateSpec{
+						RevisionTemplate: &RevisionTemplateSpec{
 							Spec: RevisionSpec{
 								ContainerConcurrency: 1,
-								TimeoutSeconds:       config.DefaultRevisionTimeoutSeconds,
-								Container: corev1.Container{
+								TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+								Container: &corev1.Container{
 									Resources: defaultResources,
 								},
 							},
@@ -109,17 +119,25 @@ func TestServiceDefaulting(t *testing.T) {
 		name: "pinned",
 		in: &Service{
 			Spec: ServiceSpec{
-				DeprecatedPinned: &PinnedType{},
+				DeprecatedPinned: &PinnedType{
+					Configuration: ConfigurationSpec{
+						RevisionTemplate: &RevisionTemplateSpec{
+							Spec: RevisionSpec{
+								Container: &corev1.Container{},
+							},
+						},
+					},
+				},
 			},
 		},
 		want: &Service{
 			Spec: ServiceSpec{
 				DeprecatedPinned: &PinnedType{
 					Configuration: ConfigurationSpec{
-						RevisionTemplate: RevisionTemplateSpec{
+						RevisionTemplate: &RevisionTemplateSpec{
 							Spec: RevisionSpec{
-								TimeoutSeconds: config.DefaultRevisionTimeoutSeconds,
-								Container: corev1.Container{
+								TimeoutSeconds: ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+								Container: &corev1.Container{
 									Resources: defaultResources,
 								},
 							},
@@ -134,10 +152,11 @@ func TestServiceDefaulting(t *testing.T) {
 			Spec: ServiceSpec{
 				DeprecatedPinned: &PinnedType{
 					Configuration: ConfigurationSpec{
-						RevisionTemplate: RevisionTemplateSpec{
+						RevisionTemplate: &RevisionTemplateSpec{
 							Spec: RevisionSpec{
 								ContainerConcurrency: 1,
-								TimeoutSeconds:       99,
+								TimeoutSeconds:       ptr.Int64(99),
+								Container:  &corev1.Container{},
 							},
 						},
 					},
@@ -148,11 +167,11 @@ func TestServiceDefaulting(t *testing.T) {
 			Spec: ServiceSpec{
 				DeprecatedPinned: &PinnedType{
 					Configuration: ConfigurationSpec{
-						RevisionTemplate: RevisionTemplateSpec{
+						RevisionTemplate: &RevisionTemplateSpec{
 							Spec: RevisionSpec{
 								ContainerConcurrency: 1,
-								TimeoutSeconds:       99,
-								Container: corev1.Container{
+								TimeoutSeconds:       ptr.Int64(99),
+								Container: &corev1.Container{
 									Resources: defaultResources,
 								},
 							},
@@ -165,17 +184,25 @@ func TestServiceDefaulting(t *testing.T) {
 		name: "release",
 		in: &Service{
 			Spec: ServiceSpec{
-				Release: &ReleaseType{},
+				Release: &ReleaseType{
+					Configuration: ConfigurationSpec{
+						RevisionTemplate: &RevisionTemplateSpec{
+							Spec: RevisionSpec{
+								Container: &corev1.Container{},
+							},
+						},
+					},
+				},
 			},
 		},
 		want: &Service{
 			Spec: ServiceSpec{
 				Release: &ReleaseType{
 					Configuration: ConfigurationSpec{
-						RevisionTemplate: RevisionTemplateSpec{
+						RevisionTemplate: &RevisionTemplateSpec{
 							Spec: RevisionSpec{
-								TimeoutSeconds: config.DefaultRevisionTimeoutSeconds,
-								Container: corev1.Container{
+								TimeoutSeconds: ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+								Container: &corev1.Container{
 									Resources: defaultResources,
 								},
 							},
@@ -190,10 +217,11 @@ func TestServiceDefaulting(t *testing.T) {
 			Spec: ServiceSpec{
 				Release: &ReleaseType{
 					Configuration: ConfigurationSpec{
-						RevisionTemplate: RevisionTemplateSpec{
+						RevisionTemplate: &RevisionTemplateSpec{
 							Spec: RevisionSpec{
 								ContainerConcurrency: 1,
-								TimeoutSeconds:       99,
+								TimeoutSeconds:       ptr.Int64(99),
+								Container:  &corev1.Container{},
 							},
 						},
 					},
@@ -204,11 +232,11 @@ func TestServiceDefaulting(t *testing.T) {
 			Spec: ServiceSpec{
 				Release: &ReleaseType{
 					Configuration: ConfigurationSpec{
-						RevisionTemplate: RevisionTemplateSpec{
+						RevisionTemplate: &RevisionTemplateSpec{
 							Spec: RevisionSpec{
 								ContainerConcurrency: 1,
-								TimeoutSeconds:       99,
-								Container: corev1.Container{
+								TimeoutSeconds:       ptr.Int64(99),
+								Container: &corev1.Container{
 									Resources: defaultResources,
 								},
 							},

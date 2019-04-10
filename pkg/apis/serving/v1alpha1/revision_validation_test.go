@@ -24,6 +24,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/knative/pkg/apis"
+	"github.com/knative/pkg/ptr"
 	"github.com/knative/serving/pkg/apis/autoscaling"
 	net "github.com/knative/serving/pkg/apis/networking"
 	corev1 "k8s.io/api/core/v1"
@@ -659,7 +660,7 @@ func TestRevisionSpecValidation(t *testing.T) {
 	}{{
 		name: "valid",
 		rs: &RevisionSpec{
-			Container: corev1.Container{
+			Container: &corev1.Container{
 				Image: "helloworld",
 			},
 			DeprecatedConcurrencyModel: "Multi",
@@ -668,7 +669,7 @@ func TestRevisionSpecValidation(t *testing.T) {
 	}, {
 		name: "with volume (ok)",
 		rs: &RevisionSpec{
-			Container: corev1.Container{
+			Container: &corev1.Container{
 				Image: "helloworld",
 				VolumeMounts: []corev1.VolumeMount{{
 					MountPath: "/mount/path",
@@ -690,7 +691,7 @@ func TestRevisionSpecValidation(t *testing.T) {
 	}, {
 		name: "with volume name collision",
 		rs: &RevisionSpec{
-			Container: corev1.Container{
+			Container: &corev1.Container{
 				Image: "helloworld",
 				VolumeMounts: []corev1.VolumeMount{{
 					MountPath: "/mount/path",
@@ -720,7 +721,7 @@ func TestRevisionSpecValidation(t *testing.T) {
 	}, {
 		name: "has bad build ref",
 		rs: &RevisionSpec{
-			Container: corev1.Container{
+			Container: &corev1.Container{
 				Image: "helloworld",
 			},
 			BuildRef: &corev1.ObjectReference{},
@@ -729,7 +730,7 @@ func TestRevisionSpecValidation(t *testing.T) {
 	}, {
 		name: "bad concurrency model",
 		rs: &RevisionSpec{
-			Container: corev1.Container{
+			Container: &corev1.Container{
 				Image: "helloworld",
 			},
 			DeprecatedConcurrencyModel: "bogus",
@@ -738,7 +739,7 @@ func TestRevisionSpecValidation(t *testing.T) {
 	}, {
 		name: "bad container spec",
 		rs: &RevisionSpec{
-			Container: corev1.Container{
+			Container: &corev1.Container{
 				Name:  "steve",
 				Image: "helloworld",
 			},
@@ -747,10 +748,10 @@ func TestRevisionSpecValidation(t *testing.T) {
 	}, {
 		name: "exceed max timeout",
 		rs: &RevisionSpec{
-			Container: corev1.Container{
+			Container: &corev1.Container{
 				Image: "helloworld",
 			},
-			TimeoutSeconds: 6000,
+			TimeoutSeconds: ptr.Int64(6000),
 		},
 		want: apis.ErrOutOfBoundsValue(6000, 0,
 			net.DefaultTimeout.Seconds(),
@@ -758,10 +759,10 @@ func TestRevisionSpecValidation(t *testing.T) {
 	}, {
 		name: "negative timeout",
 		rs: &RevisionSpec{
-			Container: corev1.Container{
+			Container: &corev1.Container{
 				Image: "helloworld",
 			},
-			TimeoutSeconds: -30,
+			TimeoutSeconds: ptr.Int64(-30),
 		},
 		want: apis.ErrOutOfBoundsValue(-30, 0,
 			net.DefaultTimeout.Seconds(),
@@ -787,7 +788,7 @@ func TestRevisionTemplateSpecValidation(t *testing.T) {
 		name: "valid",
 		rts: &RevisionTemplateSpec{
 			Spec: RevisionSpec{
-				Container: corev1.Container{
+				Container: &corev1.Container{
 					Image: "helloworld",
 				},
 				DeprecatedConcurrencyModel: "Multi",
@@ -802,7 +803,7 @@ func TestRevisionTemplateSpecValidation(t *testing.T) {
 		name: "nested spec error",
 		rts: &RevisionTemplateSpec{
 			Spec: RevisionSpec{
-				Container: corev1.Container{
+				Container: &corev1.Container{
 					Name:  "kevin",
 					Image: "helloworld",
 				},
@@ -817,7 +818,7 @@ func TestRevisionTemplateSpecValidation(t *testing.T) {
 				Name: "foo",
 			},
 			Spec: RevisionSpec{
-				Container: corev1.Container{
+				Container: &corev1.Container{
 					Image: "helloworld",
 				},
 				DeprecatedConcurrencyModel: "Multi",
@@ -848,7 +849,7 @@ func TestRevisionValidation(t *testing.T) {
 				Name: "valid",
 			},
 			Spec: RevisionSpec{
-				Container: corev1.Container{
+				Container: &corev1.Container{
 					Image: "helloworld",
 				},
 				DeprecatedConcurrencyModel: "Multi",
@@ -870,7 +871,7 @@ func TestRevisionValidation(t *testing.T) {
 				Name: "valid",
 			},
 			Spec: RevisionSpec{
-				Container: corev1.Container{
+				Container: &corev1.Container{
 					Name:  "kevin",
 					Image: "helloworld",
 				},
@@ -885,7 +886,7 @@ func TestRevisionValidation(t *testing.T) {
 				Name: "a" + strings.Repeat(".", 62) + "a",
 			},
 			Spec: RevisionSpec{
-				Container: corev1.Container{
+				Container: &corev1.Container{
 					Image: "helloworld",
 				},
 				DeprecatedConcurrencyModel: "Multi",
@@ -906,7 +907,7 @@ func TestRevisionValidation(t *testing.T) {
 				},
 			},
 			Spec: RevisionSpec{
-				Container: corev1.Container{
+				Container: &corev1.Container{
 					Image: "helloworld",
 				},
 				DeprecatedConcurrencyModel: "Multi",
@@ -941,7 +942,7 @@ func TestImmutableFields(t *testing.T) {
 				Name: "foo",
 			},
 			Spec: RevisionSpec{
-				Container: corev1.Container{
+				Container: &corev1.Container{
 					Image: "helloworld",
 				},
 				DeprecatedConcurrencyModel: "Multi",
@@ -952,7 +953,7 @@ func TestImmutableFields(t *testing.T) {
 				Name: "foo",
 			},
 			Spec: RevisionSpec{
-				Container: corev1.Container{
+				Container: &corev1.Container{
 					Image: "helloworld",
 				},
 				DeprecatedConcurrencyModel: "Multi",
@@ -966,7 +967,7 @@ func TestImmutableFields(t *testing.T) {
 				Name: "foo",
 			},
 			Spec: RevisionSpec{
-				Container: corev1.Container{
+				Container: &corev1.Container{
 					Image: "busybox",
 					Resources: corev1.ResourceRequirements{
 						Requests: corev1.ResourceList{
@@ -982,7 +983,7 @@ func TestImmutableFields(t *testing.T) {
 				Name: "foo",
 			},
 			Spec: RevisionSpec{
-				Container: corev1.Container{
+				Container: &corev1.Container{
 					Image: "busybox",
 					Resources: corev1.ResourceRequirements{
 						Requests: corev1.ResourceList{
@@ -1008,7 +1009,7 @@ func TestImmutableFields(t *testing.T) {
 				Name: "foo",
 			},
 			Spec: RevisionSpec{
-				Container: corev1.Container{
+				Container: &corev1.Container{
 					Image: "helloworld",
 				},
 				DeprecatedConcurrencyModel: "Multi",
@@ -1019,7 +1020,7 @@ func TestImmutableFields(t *testing.T) {
 				Name: "foo",
 			},
 			Spec: RevisionSpec{
-				Container: corev1.Container{
+				Container: &corev1.Container{
 					Image: "busybox",
 				},
 				DeprecatedConcurrencyModel: "Multi",
@@ -1040,7 +1041,7 @@ func TestImmutableFields(t *testing.T) {
 				Name: "foo",
 			},
 			Spec: RevisionSpec{
-				Container: corev1.Container{
+				Container: &corev1.Container{
 					Image: "helloworld",
 				},
 				DeprecatedConcurrencyModel: "Multi",
@@ -1051,7 +1052,7 @@ func TestImmutableFields(t *testing.T) {
 				Name: "foo",
 			},
 			Spec: RevisionSpec{
-				Container: corev1.Container{
+				Container: &corev1.Container{
 					Image: "helloworld",
 				},
 				DeprecatedConcurrencyModel: "Single",
@@ -1072,7 +1073,7 @@ func TestImmutableFields(t *testing.T) {
 				Name: "foo",
 			},
 			Spec: RevisionSpec{
-				Container: corev1.Container{
+				Container: &corev1.Container{
 					Image: "helloworld",
 				},
 				DeprecatedConcurrencyModel: "Multi",
@@ -1083,7 +1084,7 @@ func TestImmutableFields(t *testing.T) {
 				Name: "foo",
 			},
 			Spec: RevisionSpec{
-				Container: corev1.Container{
+				Container: &corev1.Container{
 					Image: "helloworld",
 				},
 			},
@@ -1103,7 +1104,7 @@ func TestImmutableFields(t *testing.T) {
 				Name: "foo",
 			},
 			Spec: RevisionSpec{
-				Container: corev1.Container{
+				Container: &corev1.Container{
 					Image: "helloworld",
 				},
 				DeprecatedConcurrencyModel: "Multi",
@@ -1114,7 +1115,7 @@ func TestImmutableFields(t *testing.T) {
 				Name: "foo",
 			},
 			Spec: RevisionSpec{
-				Container: corev1.Container{
+				Container: &corev1.Container{
 					Image: "busybox",
 				},
 				DeprecatedConcurrencyModel: "Single",

@@ -22,6 +22,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	logtesting "github.com/knative/pkg/logging/testing"
+	"github.com/knative/pkg/ptr"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -40,15 +41,31 @@ func TestRevisionDefaulting(t *testing.T) {
 		want: &Revision{
 			Spec: RevisionSpec{
 				ContainerConcurrency: 0,
-				TimeoutSeconds:       config.DefaultRevisionTimeoutSeconds,
-				Container: corev1.Container{
+				TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+			},
+		},
+	}, {
+		name: "shell",
+		in: &Revision{
+			Spec: RevisionSpec{
+				Container: &corev1.Container{},
+			},
+		},
+		want: &Revision{
+			Spec: RevisionSpec{
+				ContainerConcurrency: 0,
+				TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+				Container: &corev1.Container{
 					Resources: defaultResources,
 				},
 			},
 		},
 	}, {
 		name: "with context",
-		in:   &Revision{},
+		in: &Revision{
+			Spec: RevisionSpec{
+				Container: &corev1.Container{},
+			}},
 		wc: func(ctx context.Context) context.Context {
 			s := config.NewStore(logtesting.TestLogger(t))
 			s.OnConfigChanged(&corev1.ConfigMap{
@@ -65,8 +82,8 @@ func TestRevisionDefaulting(t *testing.T) {
 		want: &Revision{
 			Spec: RevisionSpec{
 				ContainerConcurrency: 0,
-				TimeoutSeconds:       123,
-				Container: corev1.Container{
+				TimeoutSeconds:       ptr.Int64(123),
+				Container: &corev1.Container{
 					Resources: defaultResources,
 				},
 			},
@@ -75,19 +92,19 @@ func TestRevisionDefaulting(t *testing.T) {
 		name: "readonly volumes",
 		in: &Revision{
 			Spec: RevisionSpec{
-				Container: corev1.Container{
+				Container: &corev1.Container{
 					Image: "foo",
 					VolumeMounts: []corev1.VolumeMount{{
 						Name: "bar",
 					}},
 				},
 				ContainerConcurrency: 1,
-				TimeoutSeconds:       99,
+				TimeoutSeconds:       ptr.Int64(99),
 			},
 		},
 		want: &Revision{
 			Spec: RevisionSpec{
-				Container: corev1.Container{
+				Container: &corev1.Container{
 					Image: "foo",
 					VolumeMounts: []corev1.VolumeMount{{
 						Name:     "bar",
@@ -96,7 +113,7 @@ func TestRevisionDefaulting(t *testing.T) {
 					Resources: defaultResources,
 				},
 				ContainerConcurrency: 1,
-				TimeoutSeconds:       99,
+				TimeoutSeconds:       ptr.Int64(99),
 			},
 		},
 	}, {
@@ -104,14 +121,15 @@ func TestRevisionDefaulting(t *testing.T) {
 		in: &Revision{
 			Spec: RevisionSpec{
 				ContainerConcurrency: 1,
-				TimeoutSeconds:       99,
+				TimeoutSeconds:       ptr.Int64(99),
+				Container:  &corev1.Container{},
 			},
 		},
 		want: &Revision{
 			Spec: RevisionSpec{
 				ContainerConcurrency: 1,
-				TimeoutSeconds:       99,
-				Container: corev1.Container{
+				TimeoutSeconds:       ptr.Int64(99),
+				Container: &corev1.Container{
 					Resources: defaultResources,
 				},
 			},
@@ -119,13 +137,16 @@ func TestRevisionDefaulting(t *testing.T) {
 	}, {
 		name: "partially initialized",
 		in: &Revision{
-			Spec: RevisionSpec{},
+			Spec: RevisionSpec{
+				ContainerConcurrency: 123,
+				Container:  &corev1.Container{},
+			},
 		},
 		want: &Revision{
 			Spec: RevisionSpec{
-				ContainerConcurrency: 0,
-				TimeoutSeconds:       config.DefaultRevisionTimeoutSeconds,
-				Container: corev1.Container{
+				ContainerConcurrency: 123,
+				TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+				Container: &corev1.Container{
 					Resources: defaultResources,
 				},
 			},
@@ -136,14 +157,15 @@ func TestRevisionDefaulting(t *testing.T) {
 			Spec: RevisionSpec{
 				DeprecatedConcurrencyModel: "Single",
 				ContainerConcurrency:       0, // unspecified
+				Container:        &corev1.Container{},
 			},
 		},
 		want: &Revision{
 			Spec: RevisionSpec{
 				DeprecatedConcurrencyModel: "Single",
 				ContainerConcurrency:       1,
-				TimeoutSeconds:             config.DefaultRevisionTimeoutSeconds,
-				Container: corev1.Container{
+				TimeoutSeconds:             ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+				Container: &corev1.Container{
 					Resources: defaultResources,
 				},
 			},

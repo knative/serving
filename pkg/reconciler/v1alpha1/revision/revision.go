@@ -314,9 +314,12 @@ func (c *Reconciler) reconcileDigest(ctx context.Context, rev *v1alpha1.Revision
 		// ImagePullSecrets: Not possible via RevisionSpec, since we
 		// don't expose such a field.
 	}
-	digest, err := c.resolver.Resolve(rev.Spec.Container.Image, opt, cfgs.Controller.RegistriesSkippingTagResolving)
+	digest, err := c.resolver.Resolve(rev.Spec.GetContainer().Image,
+		opt, cfgs.Controller.RegistriesSkippingTagResolving)
 	if err != nil {
-		rev.Status.MarkContainerMissing(v1alpha1.RevisionContainerMissingMessage(rev.Spec.Container.Image, err.Error()))
+		rev.Status.MarkContainerMissing(
+			v1alpha1.RevisionContainerMissingMessage(
+				rev.Spec.GetContainer().Image, err.Error()))
 		return err
 	}
 

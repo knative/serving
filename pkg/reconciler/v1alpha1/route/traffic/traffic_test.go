@@ -1148,9 +1148,9 @@ func testConfig(name string) *v1alpha1.Configuration {
 		Spec: v1alpha1.ConfigurationSpec{
 			// This is a workaround for generation initialization.
 			DeprecatedGeneration: 1,
-			RevisionTemplate: v1alpha1.RevisionTemplateSpec{
+			RevisionTemplate: &v1alpha1.RevisionTemplateSpec{
 				Spec: v1alpha1.RevisionSpec{
-					Container: corev1.Container{
+					Container: &corev1.Container{
 						Image: "test-image",
 					},
 				},
@@ -1168,7 +1168,7 @@ func testRevForConfig(config *v1alpha1.Configuration, name string) *v1alpha1.Rev
 				serving.ConfigurationLabelKey: config.Name,
 			},
 		},
-		Spec: *config.Spec.RevisionTemplate.Spec.DeepCopy(),
+		Spec: *config.Spec.GetTemplate().Spec.DeepCopy(),
 	}
 }
 
@@ -1241,7 +1241,7 @@ func getTestReadyConfig(name string) (*v1alpha1.Configuration, *v1alpha1.Revisio
 	})
 
 	// rev1 will use http1, rev2 will use h2c
-	config.Spec.RevisionTemplate.Spec.Container.Ports = []corev1.ContainerPort{{
+	config.Spec.GetTemplate().Spec.GetContainer().Ports = []corev1.ContainerPort{{
 		Name: "h2c",
 	}}
 

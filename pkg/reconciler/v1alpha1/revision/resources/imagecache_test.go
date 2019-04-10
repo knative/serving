@@ -47,7 +47,7 @@ func TestMakeImageCache(t *testing.T) {
 			},
 			Spec: v1alpha1.RevisionSpec{
 				ContainerConcurrency: 1,
-				Container: corev1.Container{
+				Container: &corev1.Container{
 					Image: "busybox",
 				},
 			},
@@ -91,7 +91,7 @@ func TestMakeImageCache(t *testing.T) {
 			Spec: v1alpha1.RevisionSpec{
 				ContainerConcurrency: 1,
 				ServiceAccountName:   "privilegeless",
-				Container: corev1.Container{
+				Container: &corev1.Container{
 					Image: "busybox",
 				},
 			},

@@ -89,7 +89,7 @@ func TestMakeK8sService(t *testing.T) {
 				},
 			},
 			Spec: v1alpha1.RevisionSpec{
-				Container: corev1.Container{
+				Container: &corev1.Container{
 					Ports: []corev1.ContainerPort{
 						{Name: "h2c"},
 					},

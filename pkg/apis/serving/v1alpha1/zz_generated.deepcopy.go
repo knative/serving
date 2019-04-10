@@ -96,7 +96,11 @@ func (in *ConfigurationSpec) DeepCopyInto(out *ConfigurationSpec) {
 		*out = new(RawExtension)
 		(*in).DeepCopyInto(*out)
 	}
-	in.RevisionTemplate.DeepCopyInto(&out.RevisionTemplate)
+	if in.RevisionTemplate != nil {
+		in, out := &in.RevisionTemplate, &out.RevisionTemplate
+		*out = new(RevisionTemplateSpec)
+		(*in).DeepCopyInto(*out)
+	}
 	return
 }
 
@@ -297,13 +301,22 @@ func (in *RevisionSpec) DeepCopyInto(out *RevisionSpec) {
 		*out = new(v1.ObjectReference)
 		**out = **in
 	}
-	in.Container.DeepCopyInto(&out.Container)
+	if in.Container != nil {
+		in, out := &in.Container, &out.Container
+		*out = new(v1.Container)
+		(*in).DeepCopyInto(*out)
+	}
 	if in.Volumes != nil {
 		in, out := &in.Volumes, &out.Volumes
 		*out = make([]v1.Volume, len(*in))
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
+	}
+	if in.TimeoutSeconds != nil {
+		in, out := &in.TimeoutSeconds, &out.TimeoutSeconds
+		*out = new(int64)
+		**out = **in
 	}
 	return
 }

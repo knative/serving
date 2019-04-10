@@ -87,7 +87,7 @@ func getTestRevisionWithCondition(name string, cond apis.Condition) *v1alpha1.Re
 			Namespace: testNamespace,
 		},
 		Spec: v1alpha1.RevisionSpec{
-			Container: corev1.Container{
+			Container: &corev1.Container{
 				Image: "test-image",
 			},
 		},
@@ -110,9 +110,9 @@ func getTestConfiguration() *v1alpha1.Configuration {
 		Spec: v1alpha1.ConfigurationSpec{
 			// This is a workaround for generation initialization
 			DeprecatedGeneration: 1,
-			RevisionTemplate: v1alpha1.RevisionTemplateSpec{
+			RevisionTemplate: &v1alpha1.RevisionTemplateSpec{
 				Spec: v1alpha1.RevisionSpec{
-					Container: corev1.Container{
+					Container: &corev1.Container{
 						Image: "test-image",
 					},
 				},
@@ -131,7 +131,7 @@ func getTestRevisionForConfig(config *v1alpha1.Configuration) *v1alpha1.Revision
 				serving.ConfigurationLabelKey: config.Name,
 			},
 		},
-		Spec: *config.Spec.RevisionTemplate.Spec.DeepCopy(),
+		Spec: *config.Spec.GetTemplate().Spec.DeepCopy(),
 		Status: v1alpha1.RevisionStatus{
 			ServiceName: "p-deadbeef-service",
 		},

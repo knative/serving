@@ -37,9 +37,9 @@ func TestConfigurationSpecValidation(t *testing.T) {
 	}{{
 		name: "valid",
 		c: &ConfigurationSpec{
-			RevisionTemplate: RevisionTemplateSpec{
+			RevisionTemplate: &RevisionTemplateSpec{
 				Spec: RevisionSpec{
-					Container: corev1.Container{
+					Container: &corev1.Container{
 						Image: "hellworld",
 					},
 				},
@@ -49,9 +49,9 @@ func TestConfigurationSpecValidation(t *testing.T) {
 	}, {
 		name: "propagate revision failures",
 		c: &ConfigurationSpec{
-			RevisionTemplate: RevisionTemplateSpec{
+			RevisionTemplate: &RevisionTemplateSpec{
 				Spec: RevisionSpec{
-					Container: corev1.Container{
+					Container: &corev1.Container{
 						Name:  "stuart",
 						Image: "hellworld",
 					},
@@ -69,9 +69,9 @@ func TestConfigurationSpecValidation(t *testing.T) {
 					}},
 				},
 			},
-			RevisionTemplate: RevisionTemplateSpec{
+			RevisionTemplate: &RevisionTemplateSpec{
 				Spec: RevisionSpec{
-					Container: corev1.Container{
+					Container: &corev1.Container{
 						Image: "hellworld",
 					},
 				},
@@ -94,9 +94,9 @@ func TestConfigurationSpecValidation(t *testing.T) {
 					},
 				},
 			},
-			RevisionTemplate: RevisionTemplateSpec{
+			RevisionTemplate: &RevisionTemplateSpec{
 				Spec: RevisionSpec{
-					Container: corev1.Container{
+					Container: &corev1.Container{
 						Image: "hellworld",
 					},
 				},
@@ -115,9 +115,9 @@ func TestConfigurationSpecValidation(t *testing.T) {
 					},
 				},
 			},
-			RevisionTemplate: RevisionTemplateSpec{
+			RevisionTemplate: &RevisionTemplateSpec{
 				Spec: RevisionSpec{
-					Container: corev1.Container{
+					Container: &corev1.Container{
 						Image: "hellworld",
 					},
 				},
@@ -130,9 +130,9 @@ func TestConfigurationSpecValidation(t *testing.T) {
 			Build: &RawExtension{
 				Raw: []byte(`"foo"`),
 			},
-			RevisionTemplate: RevisionTemplateSpec{
+			RevisionTemplate: &RevisionTemplateSpec{
 				Spec: RevisionSpec{
-					Container: corev1.Container{
+					Container: &corev1.Container{
 						Image: "hellworld",
 					},
 				},
@@ -163,9 +163,9 @@ func TestConfigurationValidation(t *testing.T) {
 				Name: "valid",
 			},
 			Spec: ConfigurationSpec{
-				RevisionTemplate: RevisionTemplateSpec{
+				RevisionTemplate: &RevisionTemplateSpec{
 					Spec: RevisionSpec{
-						Container: corev1.Container{
+						Container: &corev1.Container{
 							Image: "hellworld",
 						},
 					},
@@ -180,9 +180,9 @@ func TestConfigurationValidation(t *testing.T) {
 				Name: "valid",
 			},
 			Spec: ConfigurationSpec{
-				RevisionTemplate: RevisionTemplateSpec{
+				RevisionTemplate: &RevisionTemplateSpec{
 					Spec: RevisionSpec{
-						Container: corev1.Container{
+						Container: &corev1.Container{
 							Name:  "stuart",
 							Image: "hellworld",
 						},
