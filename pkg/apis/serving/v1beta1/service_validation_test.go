@@ -21,6 +21,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/knative/pkg/ptr"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -28,9 +29,6 @@ import (
 )
 
 func TestServiceValidation(t *testing.T) {
-	boolTrue := true
-	boolFalse := false
-
 	goodConfigSpec := ConfigurationSpec{
 		Template: RevisionTemplateSpec{
 			Spec: RevisionSpec{
@@ -57,7 +55,7 @@ func TestServiceValidation(t *testing.T) {
 				ConfigurationSpec: goodConfigSpec,
 				RouteSpec: RouteSpec{
 					Traffic: []TrafficTarget{{
-						LatestRevision: &boolTrue,
+						LatestRevision: ptr.Bool(true),
 						Percent:        100,
 					}},
 				},
@@ -75,17 +73,17 @@ func TestServiceValidation(t *testing.T) {
 				RouteSpec: RouteSpec{
 					Traffic: []TrafficTarget{{
 						Subroute:       "current",
-						LatestRevision: &boolFalse,
+						LatestRevision: ptr.Bool(false),
 						RevisionName:   "valid-00001",
 						Percent:        98,
 					}, {
 						Subroute:       "candidate",
-						LatestRevision: &boolFalse,
+						LatestRevision: ptr.Bool(false),
 						RevisionName:   "valid-00002",
 						Percent:        2,
 					}, {
 						Subroute:       "latest",
-						LatestRevision: &boolTrue,
+						LatestRevision: ptr.Bool(true),
 						Percent:        0,
 					}},
 				},
@@ -103,7 +101,7 @@ func TestServiceValidation(t *testing.T) {
 				RouteSpec: RouteSpec{
 					Traffic: []TrafficTarget{{
 						ConfigurationName: "valid",
-						LatestRevision:    &boolTrue,
+						LatestRevision:    ptr.Bool(true),
 						Percent:           100,
 					}},
 				},
@@ -121,7 +119,7 @@ func TestServiceValidation(t *testing.T) {
 				RouteSpec: RouteSpec{
 					Traffic: []TrafficTarget{{
 						RevisionName:   "valid",
-						LatestRevision: &boolTrue,
+						LatestRevision: ptr.Bool(true),
 						Percent:        100,
 					}},
 				},
@@ -149,7 +147,7 @@ func TestServiceValidation(t *testing.T) {
 				},
 				RouteSpec: RouteSpec{
 					Traffic: []TrafficTarget{{
-						LatestRevision: &boolTrue,
+						LatestRevision: ptr.Bool(true),
 						Percent:        100,
 					}},
 				},

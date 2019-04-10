@@ -21,12 +21,10 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/knative/pkg/ptr"
 )
 
 func TestRouteDefaulting(t *testing.T) {
-	boolTrue := true
-	boolFalse := false
-
 	tests := []struct {
 		name string
 		in   *Route
@@ -43,7 +41,7 @@ func TestRouteDefaulting(t *testing.T) {
 			Spec: RouteSpec{
 				Traffic: []TrafficTarget{{
 					Percent:        100,
-					LatestRevision: &boolTrue,
+					LatestRevision: ptr.Bool(true),
 				}},
 			},
 		},
@@ -69,15 +67,15 @@ func TestRouteDefaulting(t *testing.T) {
 				Traffic: []TrafficTarget{{
 					RevisionName:   "foo",
 					Percent:        12,
-					LatestRevision: &boolFalse,
+					LatestRevision: ptr.Bool(false),
 				}, {
 					RevisionName:   "bar",
 					Percent:        34,
-					LatestRevision: &boolFalse,
+					LatestRevision: ptr.Bool(false),
 				}, {
 					ConfigurationName: "baz",
 					Percent:           54,
-					LatestRevision:    &boolTrue,
+					LatestRevision:    ptr.Bool(true),
 				}},
 			},
 		},

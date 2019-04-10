@@ -18,6 +18,8 @@ package v1beta1
 
 import (
 	"context"
+
+	"github.com/knative/pkg/ptr"
 )
 
 // SetDefaults implements apis.Defaultable
@@ -28,10 +30,9 @@ func (r *Route) SetDefaults(ctx context.Context) {
 // SetDefaults implements apis.Defaultable
 func (rs *RouteSpec) SetDefaults(ctx context.Context) {
 	if len(rs.Traffic) == 0 && hasDefaultConfigurationName(ctx) {
-		boolTrue := true
 		rs.Traffic = []TrafficTarget{{
 			Percent:        100,
-			LatestRevision: &boolTrue,
+			LatestRevision: ptr.Bool(true),
 		}}
 	}
 

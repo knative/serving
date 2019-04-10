@@ -22,15 +22,13 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/knative/pkg/ptr"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/knative/pkg/apis"
 )
 
 func TestTrafficTargetValidation(t *testing.T) {
-	boolTrue := true
-	boolFalse := false
-
 	tests := []struct {
 		name string
 		tt   *TrafficTarget
@@ -85,7 +83,7 @@ func TestTrafficTargetValidation(t *testing.T) {
 		name: "valid with revisionName and latestRevision",
 		tt: &TrafficTarget{
 			RevisionName:   "bar",
-			LatestRevision: &boolFalse,
+			LatestRevision: ptr.Bool(false),
 			Percent:        12,
 		},
 		wc:   withinSpec,
@@ -94,7 +92,7 @@ func TestTrafficTargetValidation(t *testing.T) {
 		name: "invalid with revisionName and latestRevision (spec)",
 		tt: &TrafficTarget{
 			RevisionName:   "bar",
-			LatestRevision: &boolTrue,
+			LatestRevision: ptr.Bool(true),
 			Percent:        12,
 		},
 		wc:   withinSpec,
@@ -103,7 +101,7 @@ func TestTrafficTargetValidation(t *testing.T) {
 		name: "valid with revisionName and latestRevision (status)",
 		tt: &TrafficTarget{
 			RevisionName:   "bar",
-			LatestRevision: &boolTrue,
+			LatestRevision: ptr.Bool(true),
 			Percent:        12,
 		},
 		wc:   withinStatus,
@@ -138,7 +136,7 @@ func TestTrafficTargetValidation(t *testing.T) {
 		name: "valid with configurationName and latestRevision",
 		tt: &TrafficTarget{
 			ConfigurationName: "blah",
-			LatestRevision:    &boolTrue,
+			LatestRevision:    ptr.Bool(true),
 			Percent:           37,
 		},
 		wc:   withinSpec,
@@ -147,7 +145,7 @@ func TestTrafficTargetValidation(t *testing.T) {
 		name: "invalid with configurationName and latestRevision",
 		tt: &TrafficTarget{
 			ConfigurationName: "blah",
-			LatestRevision:    &boolFalse,
+			LatestRevision:    ptr.Bool(false),
 			Percent:           37,
 		},
 		wc:   withinSpec,
@@ -172,7 +170,7 @@ func TestTrafficTargetValidation(t *testing.T) {
 	}, {
 		name: "valid with default configurationName and latestRevision",
 		tt: &TrafficTarget{
-			LatestRevision: &boolTrue,
+			LatestRevision: ptr.Bool(true),
 			Percent:        37,
 		},
 		wc: func(ctx context.Context) context.Context {
@@ -182,7 +180,7 @@ func TestTrafficTargetValidation(t *testing.T) {
 	}, {
 		name: "invalid with default configurationName and latestRevision",
 		tt: &TrafficTarget{
-			LatestRevision: &boolFalse,
+			LatestRevision: ptr.Bool(false),
 			Percent:        37,
 		},
 		wc: func(ctx context.Context) context.Context {

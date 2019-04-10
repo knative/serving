@@ -23,6 +23,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	logtesting "github.com/knative/pkg/logging/testing"
+	"github.com/knative/pkg/ptr"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -50,7 +51,7 @@ func TestRevisionDefaulting(t *testing.T) {
 		in:   &Revision{},
 		want: &Revision{
 			Spec: RevisionSpec{
-				TimeoutSeconds: intptr(config.DefaultRevisionTimeoutSeconds),
+				TimeoutSeconds: ptr.Int64(config.DefaultRevisionTimeoutSeconds),
 				PodSpec: corev1.PodSpec{
 					Containers: []corev1.Container{{
 						Resources: defaultResources,
@@ -77,7 +78,7 @@ func TestRevisionDefaulting(t *testing.T) {
 		want: &Revision{
 			Spec: RevisionSpec{
 				ContainerConcurrency: 0,
-				TimeoutSeconds:       intptr(123),
+				TimeoutSeconds:       ptr.Int64(123),
 				PodSpec: corev1.PodSpec{
 					Containers: []corev1.Container{{
 						Resources: defaultResources,
@@ -98,7 +99,7 @@ func TestRevisionDefaulting(t *testing.T) {
 					}},
 				},
 				ContainerConcurrency: 1,
-				TimeoutSeconds:       intptr(99),
+				TimeoutSeconds:       ptr.Int64(99),
 			},
 		},
 		want: &Revision{
@@ -114,7 +115,7 @@ func TestRevisionDefaulting(t *testing.T) {
 					}},
 				},
 				ContainerConcurrency: 1,
-				TimeoutSeconds:       intptr(99),
+				TimeoutSeconds:       ptr.Int64(99),
 			},
 		},
 	}, {
@@ -122,13 +123,13 @@ func TestRevisionDefaulting(t *testing.T) {
 		in: &Revision{
 			Spec: RevisionSpec{
 				ContainerConcurrency: 1,
-				TimeoutSeconds:       intptr(99),
+				TimeoutSeconds:       ptr.Int64(99),
 			},
 		},
 		want: &Revision{
 			Spec: RevisionSpec{
 				ContainerConcurrency: 1,
-				TimeoutSeconds:       intptr(99),
+				TimeoutSeconds:       ptr.Int64(99),
 				PodSpec: corev1.PodSpec{
 					Containers: []corev1.Container{{
 						Resources: defaultResources,
@@ -143,7 +144,7 @@ func TestRevisionDefaulting(t *testing.T) {
 		},
 		want: &Revision{
 			Spec: RevisionSpec{
-				TimeoutSeconds: intptr(config.DefaultRevisionTimeoutSeconds),
+				TimeoutSeconds: ptr.Int64(config.DefaultRevisionTimeoutSeconds),
 				PodSpec: corev1.PodSpec{
 					Containers: []corev1.Container{{
 						Resources: defaultResources,

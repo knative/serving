@@ -22,6 +22,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/knative/pkg/apis"
+	"github.com/knative/pkg/ptr"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -120,10 +121,6 @@ func TestContainerConcurrencyValidation(t *testing.T) {
 	}
 }
 
-func intptr(foo int64) *int64 {
-	return &foo
-}
-
 func TestRevisionSpecValidation(t *testing.T) {
 	tests := []struct {
 		name string
@@ -213,7 +210,7 @@ func TestRevisionSpecValidation(t *testing.T) {
 					Image: "helloworld",
 				}},
 			},
-			TimeoutSeconds: intptr(6000),
+			TimeoutSeconds: ptr.Int64(6000),
 		},
 		want: apis.ErrOutOfBoundsValue(
 			6000, 0, networking.DefaultTimeout.Seconds(),
@@ -226,7 +223,7 @@ func TestRevisionSpecValidation(t *testing.T) {
 					Image: "helloworld",
 				}},
 			},
-			TimeoutSeconds: intptr(-30),
+			TimeoutSeconds: ptr.Int64(-30),
 		},
 		want: apis.ErrOutOfBoundsValue(
 			-30, 0, networking.DefaultTimeout.Seconds(),

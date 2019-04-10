@@ -21,6 +21,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/knative/pkg/ptr"
 	corev1 "k8s.io/api/core/v1"
 
 	"github.com/knative/serving/pkg/apis/config"
@@ -43,7 +44,7 @@ func TestConfigurationDefaulting(t *testing.T) {
 								Resources: defaultResources,
 							}},
 						},
-						TimeoutSeconds: intptr(config.DefaultRevisionTimeoutSeconds),
+						TimeoutSeconds: ptr.Int64(config.DefaultRevisionTimeoutSeconds),
 					},
 				},
 			},
@@ -73,7 +74,7 @@ func TestConfigurationDefaulting(t *testing.T) {
 								Resources: defaultResources,
 							}},
 						},
-						TimeoutSeconds: intptr(config.DefaultRevisionTimeoutSeconds),
+						TimeoutSeconds: ptr.Int64(config.DefaultRevisionTimeoutSeconds),
 					},
 				},
 			},
@@ -89,7 +90,7 @@ func TestConfigurationDefaulting(t *testing.T) {
 								Image: "busybox",
 							}},
 						},
-						TimeoutSeconds: intptr(60),
+						TimeoutSeconds: ptr.Int64(60),
 					},
 				},
 			},
@@ -104,7 +105,7 @@ func TestConfigurationDefaulting(t *testing.T) {
 								Resources: defaultResources,
 							}},
 						},
-						TimeoutSeconds: intptr(60),
+						TimeoutSeconds: ptr.Int64(60),
 					},
 				},
 			},

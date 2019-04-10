@@ -21,15 +21,13 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/knative/pkg/ptr"
 	corev1 "k8s.io/api/core/v1"
 
 	"github.com/knative/serving/pkg/apis/config"
 )
 
 func TestServiceDefaulting(t *testing.T) {
-	boolTrue := true
-	boolFalse := false
-
 	tests := []struct {
 		name string
 		in   *Service
@@ -47,14 +45,14 @@ func TestServiceDefaulting(t *testing.T) {
 									Resources: defaultResources,
 								}},
 							},
-							TimeoutSeconds: intptr(config.DefaultRevisionTimeoutSeconds),
+							TimeoutSeconds: ptr.Int64(config.DefaultRevisionTimeoutSeconds),
 						},
 					},
 				},
 				RouteSpec: RouteSpec{
 					Traffic: []TrafficTarget{{
 						Percent:        100,
-						LatestRevision: &boolTrue,
+						LatestRevision: ptr.Bool(true),
 					}},
 				},
 			},
@@ -87,14 +85,14 @@ func TestServiceDefaulting(t *testing.T) {
 									Resources: defaultResources,
 								}},
 							},
-							TimeoutSeconds: intptr(config.DefaultRevisionTimeoutSeconds),
+							TimeoutSeconds: ptr.Int64(config.DefaultRevisionTimeoutSeconds),
 						},
 					},
 				},
 				RouteSpec: RouteSpec{
 					Traffic: []TrafficTarget{{
 						Percent:        100,
-						LatestRevision: &boolTrue,
+						LatestRevision: ptr.Bool(true),
 					}},
 				},
 			},
@@ -111,7 +109,7 @@ func TestServiceDefaulting(t *testing.T) {
 									Image: "busybox",
 								}},
 							},
-							TimeoutSeconds: intptr(60),
+							TimeoutSeconds: ptr.Int64(60),
 						},
 					},
 				},
@@ -128,14 +126,14 @@ func TestServiceDefaulting(t *testing.T) {
 									Resources: defaultResources,
 								}},
 							},
-							TimeoutSeconds: intptr(60),
+							TimeoutSeconds: ptr.Int64(60),
 						},
 					},
 				},
 				RouteSpec: RouteSpec{
 					Traffic: []TrafficTarget{{
 						Percent:        100,
-						LatestRevision: &boolTrue,
+						LatestRevision: ptr.Bool(true),
 					}},
 				},
 			},
@@ -181,7 +179,7 @@ func TestServiceDefaulting(t *testing.T) {
 									Resources: defaultResources,
 								}},
 							},
-							TimeoutSeconds: intptr(config.DefaultRevisionTimeoutSeconds),
+							TimeoutSeconds: ptr.Int64(config.DefaultRevisionTimeoutSeconds),
 						},
 					},
 				},
@@ -190,15 +188,15 @@ func TestServiceDefaulting(t *testing.T) {
 						Subroute:       "current",
 						RevisionName:   "foo",
 						Percent:        90,
-						LatestRevision: &boolFalse,
+						LatestRevision: ptr.Bool(false),
 					}, {
 						Subroute:       "candidate",
 						RevisionName:   "bar",
 						Percent:        10,
-						LatestRevision: &boolFalse,
+						LatestRevision: ptr.Bool(false),
 					}, {
 						Subroute:       "latest",
-						LatestRevision: &boolTrue,
+						LatestRevision: ptr.Bool(true),
 					}},
 				},
 			},
