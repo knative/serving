@@ -57,7 +57,7 @@ func TestMakeSKS(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: "here",
 			Name:      "with-you",
-			// Those labels are propagated from the Revision->KPA.
+			// Those labels are propagated from the Revision->PA.
 			Labels: map[string]string{
 				serving.RevisionLabelKey: "with-you",
 				serving.RevisionUID:      "2009",

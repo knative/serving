@@ -283,7 +283,6 @@ func (r *reconciler) reconcilePublicEndpoints(ctx context.Context, sks *netv1alp
 		}
 	}
 	if r := presources.ReadyAddressCount(eps); r > 0 {
-		logger.Infof("Endpoints %s/%s has %d ready  endpoints", r)
 		sks.Status.MarkEndpointsReady()
 	} else {
 		logger.Info("Endpoints %s/%s has no ready endpoints")

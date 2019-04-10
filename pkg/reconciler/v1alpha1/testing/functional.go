@@ -818,12 +818,25 @@ func MarkRevisionReady(r *v1alpha1.Revision) {
 	r.Status.MarkContainerHealthy()
 }
 
+// PodAutoscalerOption is an option that can be applied to a PA.
 type PodAutoscalerOption func(*autoscalingv1alpha1.PodAutoscaler)
 
 // WithProtocolType sets the protocol type on the PodAutoscaler.
 func WithProtocolType(pt networking.ProtocolType) PodAutoscalerOption {
 	return func(pa *autoscalingv1alpha1.PodAutoscaler) {
 		pa.Spec.ProtocolType = pt
+	}
+}
+
+// WithPAOwnersRemoved clears the owner references of this PA resource.
+func WithPAOwnersRemoved(pa *autoscalingv1alpha1.PodAutoscaler) {
+	pa.OwnerReferences = nil
+}
+
+// MarkResourceNotOwnedByPA marks PA when it's now owning a resources it is supposed to own.
+func MarkResourceNotOwnedByPA(rType, name string) PodAutoscalerOption {
+	return func(pa *autoscalingv1alpha1.PodAutoscaler) {
+		pa.Status.MarkResourceNotOwned(rType, name)
 	}
 }
 
