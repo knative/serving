@@ -87,6 +87,7 @@ func main() {
 
 	// Set up informers.
 	paInformer := servingInformerFactory.Autoscaling().V1alpha1().PodAutoscalers()
+	sksInformer := servingInformerFactory.Networking().V1alpha1().ServerlessServices()
 	endpointsInformer := kubeInformerFactory.Core().V1().Endpoints()
 	serviceInformer := kubeInformerFactory.Core().V1().Services()
 	hpaInformer := kubeInformerFactory.Autoscaling().V1().HorizontalPodAutoscalers()
@@ -100,7 +101,7 @@ func main() {
 
 	controllers := []*controller.Impl{
 		kpa.NewController(&opt, paInformer, serviceInformer, endpointsInformer, multiScaler, collector, scaler, dynConfig),
-		hpa.NewController(&opt, paInformer, hpaInformer),
+		hpa.NewController(&opt, paInformer, sksInformer, hpaInformer),
 	}
 
 	// Set up a statserver.
@@ -119,6 +120,7 @@ func main() {
 		hpaInformer.Informer(),
 		paInformer.Informer(),
 		serviceInformer.Informer(),
+		sksInformer.Informer(),
 	); err != nil {
 		logger.Fatalf("Failed to start informers: %v", err)
 	}

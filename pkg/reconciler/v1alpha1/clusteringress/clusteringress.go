@@ -200,7 +200,7 @@ func (c *Reconciler) reconcile(ctx context.Context, ci *v1alpha1.ClusterIngress)
 	gatewayNames := gatewayNamesFromContext(ctx, ci)
 	vs := resources.MakeVirtualService(ci, gatewayNames)
 
-	logger.Infof("Reconciling clusterIngress :%v", ci)
+	logger.Infof("Reconciling clusterIngress: %#v", ci)
 	logger.Info("Creating/Updating VirtualService")
 	if err := c.reconcileVirtualService(ctx, ci, vs); err != nil {
 		// TODO(lichuqiang): should we explicitly mark the ingress as unready

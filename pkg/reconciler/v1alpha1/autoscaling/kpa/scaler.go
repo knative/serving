@@ -102,7 +102,7 @@ func applyBounds(min, max, x int32) int32 {
 func (ks *scaler) GetScaleResource(pa *pav1alpha1.PodAutoscaler) (*autoscalingapi.Scale, error) {
 	resource, resourceName, err := scaleResourceArgs(pa)
 	if err != nil {
-		return nil, perrors.Wrap(err, "Error Get'ting /scale resource")
+		return nil, perrors.Wrap(err, "error Get'ting /scale resource")
 	}
 
 	// Identify the current scale.
@@ -206,7 +206,7 @@ func (ks *scaler) Scale(ctx context.Context, pa *pav1alpha1.PodAutoscaler, desir
 
 	min, max := pa.ScaleBounds()
 	if newScale := applyBounds(min, max, desiredScale); newScale != desiredScale {
-		logger.Debugf("Adjusting desiredScale: %v -> %v", desiredScale, newScale)
+		logger.Debugf("Adjusting desiredScale: %d -> %d", desiredScale, newScale)
 		desiredScale = newScale
 	}
 

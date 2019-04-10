@@ -35,7 +35,6 @@ func MakeSKS(pa *pav1alpha1.PodAutoscaler, selector map[string]string, mode nv1a
 			Labels:    resources.CopyMap(pa.GetLabels()),
 			Annotations: resources.FilterMap(pa.GetAnnotations(), func(s string) bool {
 				return s == autoscaling.MetricAnnotationKey
-
 			}),
 			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(pa)},
 		},
