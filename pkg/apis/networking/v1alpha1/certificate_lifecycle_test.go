@@ -54,7 +54,7 @@ func TestCertificateGetGroupVersionKind(t *testing.T) {
 func TestMarkReady(t *testing.T) {
 	c := &CertificateStatus{}
 	c.InitializeConditions()
-	apitest.CheckConditionOngoing(&c.Status, CertificateCondidtionReady, t)
+	apitest.CheckConditionOngoing(c.duck(), CertificateCondidtionReady, t)
 
 	c.MarkReady()
 	if !c.IsReady() {

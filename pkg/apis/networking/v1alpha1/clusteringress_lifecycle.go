@@ -20,6 +20,7 @@ import (
 	"fmt"
 
 	"github.com/knative/pkg/apis"
+	duckv1beta1 "github.com/knative/pkg/apis/duck/v1beta1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
@@ -70,4 +71,8 @@ func (cis *IngressStatus) MarkLoadBalancerReady(lbs []LoadBalancerIngressStatus)
 // ClusterIngressConditionReady returns true if ConditionStatus is True
 func (cis *IngressStatus) IsReady() bool {
 	return clusterIngressCondSet.Manage(cis).IsHappy()
+}
+
+func (cis *IngressStatus) duck() *duckv1beta1.Status {
+	return &cis.Status
 }

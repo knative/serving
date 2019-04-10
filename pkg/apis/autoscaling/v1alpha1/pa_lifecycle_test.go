@@ -471,8 +471,7 @@ func TestMarkResourceNotOwned(t *testing.T) {
 func TestMarkResourceFailedCreation(t *testing.T) {
 	pa := &PodAutoscalerStatus{}
 	pa.MarkResourceFailedCreation("doesn't", "matter")
-	d := (*duckv1beta1.Status)(pa)
-	apitest.CheckConditionFailed(d, PodAutoscalerConditionActive, t)
+	apitest.CheckConditionFailed(pa.duck(), PodAutoscalerConditionActive, t)
 
 	active := pa.GetCondition("Active")
 	if active.Status != corev1.ConditionFalse {
@@ -539,36 +538,34 @@ func pa(annotations map[string]string) *PodAutoscaler {
 
 func TestTypicalFlow(t *testing.T) {
 	r := &PodAutoscalerStatus{}
-	d := (*duckv1beta1.Status)(r)
 	r.InitializeConditions()
-	t.Logf("#### %#v", d)
-	apitest.CheckConditionOngoing(d, PodAutoscalerConditionActive, t)
-	apitest.CheckConditionOngoing(d, PodAutoscalerConditionReady, t)
+	apitest.CheckConditionOngoing(r.duck(), PodAutoscalerConditionActive, t)
+	apitest.CheckConditionOngoing(r.duck(), PodAutoscalerConditionReady, t)
 
 	// When we see traffic, mark ourselves active.
 	r.MarkActive()
-	apitest.CheckConditionSucceeded(d, PodAutoscalerConditionActive, t)
-	apitest.CheckConditionSucceeded(d, PodAutoscalerConditionReady, t)
+	apitest.CheckConditionSucceeded(r.duck(), PodAutoscalerConditionActive, t)
+	apitest.CheckConditionSucceeded(r.duck(), PodAutoscalerConditionReady, t)
 
 	// Check idempotency.
 	r.MarkActive()
-	apitest.CheckConditionSucceeded(d, PodAutoscalerConditionActive, t)
-	apitest.CheckConditionSucceeded(d, PodAutoscalerConditionReady, t)
+	apitest.CheckConditionSucceeded(r.duck(), PodAutoscalerConditionActive, t)
+	apitest.CheckConditionSucceeded(r.duck(), PodAutoscalerConditionReady, t)
 
 	// When we stop seeing traffic, mark outselves inactive.
 	r.MarkInactive("TheReason", "the message")
-	apitest.CheckConditionFailed(d, PodAutoscalerConditionActive, t)
-	apitest.CheckConditionFailed(d, PodAutoscalerConditionReady, t)
+	apitest.CheckConditionFailed(r.duck(), PodAutoscalerConditionActive, t)
+	apitest.CheckConditionFailed(r.duck(), PodAutoscalerConditionReady, t)
 
 	// When traffic hits the activator and we scale up the deployment we mark
 	// ourselves as activating.
 	r.MarkActivating("Activating", "Red team, GO!")
-	apitest.CheckConditionOngoing(d, PodAutoscalerConditionActive, t)
-	apitest.CheckConditionOngoing(d, PodAutoscalerConditionReady, t)
+	apitest.CheckConditionOngoing(r.duck(), PodAutoscalerConditionActive, t)
+	apitest.CheckConditionOngoing(r.duck(), PodAutoscalerConditionReady, t)
 
 	// When the activator successfully forwards traffic to the deployment,
 	// we mark ourselves as active once more.
 	r.MarkActive()
-	apitest.CheckConditionSucceeded(d, PodAutoscalerConditionActive, t)
-	apitest.CheckConditionSucceeded(d, PodAutoscalerConditionReady, t)
+	apitest.CheckConditionSucceeded(r.duck(), PodAutoscalerConditionActive, t)
+	apitest.CheckConditionSucceeded(r.duck(), PodAutoscalerConditionReady, t)
 }

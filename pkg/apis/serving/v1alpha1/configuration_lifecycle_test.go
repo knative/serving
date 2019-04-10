@@ -218,80 +218,77 @@ func TestLatestReadyRevisionNameUpToDate(t *testing.T) {
 
 func TestTypicalFlow(t *testing.T) {
 	r := &ConfigurationStatus{}
-	d := &r.Status
 	r.InitializeConditions()
-	apitesting.CheckConditionOngoing(d, ConfigurationConditionReady, t)
+	apitesting.CheckConditionOngoing(r.duck(), ConfigurationConditionReady, t)
 	r.SetLatestCreatedRevisionName("foo")
-	apitesting.CheckConditionOngoing(d, ConfigurationConditionReady, t)
+	apitesting.CheckConditionOngoing(r.duck(), ConfigurationConditionReady, t)
 
 	r.SetLatestReadyRevisionName("foo")
-	apitesting.CheckConditionSucceeded(d, ConfigurationConditionReady, t)
+	apitesting.CheckConditionSucceeded(r.duck(), ConfigurationConditionReady, t)
 
 	// Verify a second call to SetLatestCreatedRevisionName doesn't change the status from Ready
 	// e.g. on a subsequent reconciliation.
 	r.SetLatestCreatedRevisionName("foo")
-	apitesting.CheckConditionSucceeded(d, ConfigurationConditionReady, t)
+	apitesting.CheckConditionSucceeded(r.duck(), ConfigurationConditionReady, t)
 
 	r.SetLatestCreatedRevisionName("bar")
-	apitesting.CheckConditionOngoing(d, ConfigurationConditionReady, t)
+	apitesting.CheckConditionOngoing(r.duck(), ConfigurationConditionReady, t)
 
 	r.SetLatestReadyRevisionName("bar")
-	apitesting.CheckConditionSucceeded(d, ConfigurationConditionReady, t)
+	apitesting.CheckConditionSucceeded(r.duck(), ConfigurationConditionReady, t)
 }
 
 func TestFailingFirstRevisionWithRecovery(t *testing.T) {
 	r := &ConfigurationStatus{}
-	d := &r.Status
 	r.InitializeConditions()
-	apitesting.CheckConditionOngoing(d, ConfigurationConditionReady, t)
+	apitesting.CheckConditionOngoing(r.duck(), ConfigurationConditionReady, t)
 
 	// Our first attempt to create the revision fails
 	const want = "transient API server failure"
 	r.MarkRevisionCreationFailed(want)
-	apitesting.CheckConditionFailed(d, ConfigurationConditionReady, t)
+	apitesting.CheckConditionFailed(r.duck(), ConfigurationConditionReady, t)
 	if c := r.GetCondition(ConfigurationConditionReady); !strings.Contains(c.Message, want) {
 		t.Errorf("MarkRevisionCreationFailed = %v, want substring %v", c.Message, want)
 	}
 
 	r.SetLatestCreatedRevisionName("foo")
-	apitesting.CheckConditionOngoing(d, ConfigurationConditionReady, t)
+	apitesting.CheckConditionOngoing(r.duck(), ConfigurationConditionReady, t)
 
 	// Then we create it, but it fails to come up.
 	const want2 = "the message"
 	r.MarkLatestCreatedFailed("foo", want2)
-	apitesting.CheckConditionFailed(d, ConfigurationConditionReady, t)
+	apitesting.CheckConditionFailed(r.duck(), ConfigurationConditionReady, t)
 	if c := r.GetCondition(ConfigurationConditionReady); !strings.Contains(c.Message, want2) {
 		t.Errorf("MarkLatestCreatedFailed = %v, want substring %v", c.Message, want2)
 	}
 
 	// When a new revision comes along the Ready condition becomes Unknown.
 	r.SetLatestCreatedRevisionName("bar")
-	apitesting.CheckConditionOngoing(d, ConfigurationConditionReady, t)
+	apitesting.CheckConditionOngoing(r.duck(), ConfigurationConditionReady, t)
 
 	// When the new revision becomes ready, then Ready becomes true as well.
 	r.SetLatestReadyRevisionName("bar")
-	apitesting.CheckConditionSucceeded(d, ConfigurationConditionReady, t)
+	apitesting.CheckConditionSucceeded(r.duck(), ConfigurationConditionReady, t)
 }
 
 func TestFailingSecondRevision(t *testing.T) {
 	r := &ConfigurationStatus{}
-	d := &r.Status
 	r.InitializeConditions()
-	apitesting.CheckConditionOngoing(d, ConfigurationConditionReady, t)
+	apitesting.CheckConditionOngoing(r.duck(), ConfigurationConditionReady, t)
 
 	r.SetLatestCreatedRevisionName("foo")
-	apitesting.CheckConditionOngoing(d, ConfigurationConditionReady, t)
+	apitesting.CheckConditionOngoing(r.duck(), ConfigurationConditionReady, t)
 
 	r.SetLatestReadyRevisionName("foo")
-	apitesting.CheckConditionSucceeded(d, ConfigurationConditionReady, t)
+	apitesting.CheckConditionSucceeded(r.duck(), ConfigurationConditionReady, t)
 
 	r.SetLatestCreatedRevisionName("bar")
-	apitesting.CheckConditionOngoing(d, ConfigurationConditionReady, t)
+	apitesting.CheckConditionOngoing(r.duck(), ConfigurationConditionReady, t)
 
 	// When the second revision fails, the Configuration becomes Failed.
 	const want = "the message"
 	r.MarkLatestCreatedFailed("bar", want)
-	apitesting.CheckConditionFailed(d, ConfigurationConditionReady, t)
+	apitesting.CheckConditionFailed(r.duck(), ConfigurationConditionReady, t)
 	if c := r.GetCondition(ConfigurationConditionReady); !strings.Contains(c.Message, want) {
 		t.Errorf("MarkLatestCreatedFailed = %v, want substring %v", c.Message, want)
 	}
@@ -299,30 +296,29 @@ func TestFailingSecondRevision(t *testing.T) {
 
 func TestLatestRevisionDeletedThenFixed(t *testing.T) {
 	r := &ConfigurationStatus{}
-	d := &r.Status
 	r.InitializeConditions()
-	apitesting.CheckConditionOngoing(d, ConfigurationConditionReady, t)
+	apitesting.CheckConditionOngoing(r.duck(), ConfigurationConditionReady, t)
 
 	r.SetLatestCreatedRevisionName("foo")
-	apitesting.CheckConditionOngoing(d, ConfigurationConditionReady, t)
+	apitesting.CheckConditionOngoing(r.duck(), ConfigurationConditionReady, t)
 
 	r.SetLatestReadyRevisionName("foo")
-	apitesting.CheckConditionSucceeded(d, ConfigurationConditionReady, t)
+	apitesting.CheckConditionSucceeded(r.duck(), ConfigurationConditionReady, t)
 
 	// When the latest revision is deleted, the Configuration became Failed.
 	const want = "was deleted"
 	r.MarkLatestReadyDeleted()
-	apitesting.CheckConditionFailed(d, ConfigurationConditionReady, t)
+	apitesting.CheckConditionFailed(r.duck(), ConfigurationConditionReady, t)
 	if cnd := r.GetCondition(ConfigurationConditionReady); cnd == nil || !strings.Contains(cnd.Message, want) {
 		t.Errorf("MarkLatestReadyDeleted = %v, want substring %v", cnd.Message, want)
 	}
 
 	// But creating new revision 'bar' and making it Ready will fix things.
 	r.SetLatestCreatedRevisionName("bar")
-	apitesting.CheckConditionOngoing(d, ConfigurationConditionReady, t)
+	apitesting.CheckConditionOngoing(r.duck(), ConfigurationConditionReady, t)
 
 	r.SetLatestReadyRevisionName("bar")
-	apitesting.CheckConditionSucceeded(d, ConfigurationConditionReady, t)
+	apitesting.CheckConditionSucceeded(r.duck(), ConfigurationConditionReady, t)
 }
 
 func TestConfigurationGetGroupVersionKind(t *testing.T) {
