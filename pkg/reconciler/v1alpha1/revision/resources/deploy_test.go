@@ -27,6 +27,7 @@ import (
 	_ "github.com/knative/pkg/system/testing"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 	"github.com/knative/serving/pkg/autoscaler"
 	"github.com/knative/serving/pkg/network"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/config"
@@ -216,7 +217,9 @@ var (
 			Container: &corev1.Container{
 				Image: "busybox",
 			},
-			TimeoutSeconds: ptr.Int64(45),
+			RevisionSpec: v1beta1.RevisionSpec{
+				TimeoutSeconds: ptr.Int64(45),
+			},
 		},
 	}
 )
@@ -333,9 +336,9 @@ func revision(opts ...revisionOption) *v1alpha1.Revision {
 	return revision
 }
 
-func withContainerConcurrency(containerConcurrency v1alpha1.RevisionContainerConcurrencyType) revisionOption {
+func withContainerConcurrency(cc v1beta1.RevisionContainerConcurrencyType) revisionOption {
 	return func(revision *v1alpha1.Revision) {
-		revision.Spec.ContainerConcurrency = containerConcurrency
+		revision.Spec.ContainerConcurrency = cc
 	}
 }
 
@@ -680,6 +683,23 @@ func TestMakePodSpec(t *testing.T) {
 			quantityComparer := cmp.Comparer(func(x, y resource.Quantity) bool {
 				return x.Cmp(y) == 0
 			})
+
+			got := makePodSpec(test.rev, test.lc, test.oc, test.ac, test.cc)
+			if diff := cmp.Diff(test.want, got, quantityComparer); diff != "" {
+				t.Errorf("makePodSpec (-want, +got) = %v", diff)
+			}
+		})
+
+		t.Run(test.name+"(podspec)", func(t *testing.T) {
+			quantityComparer := cmp.Comparer(func(x, y resource.Quantity) bool {
+				return x.Cmp(y) == 0
+			})
+
+			// Same test, but via podspec.
+			test.rev.Spec.Containers = []corev1.Container{
+				*test.rev.Spec.Container,
+			}
+			test.rev.Spec.Container = nil
 
 			got := makePodSpec(test.rev, test.lc, test.oc, test.ac, test.cc)
 			if diff := cmp.Diff(test.want, got, quantityComparer); diff != "" {

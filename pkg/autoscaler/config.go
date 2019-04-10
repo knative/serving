@@ -22,7 +22,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -56,7 +56,7 @@ type Config struct {
 
 // TargetConcurrency calculates the target concurrency for a given container-concurrency
 // taking the container-concurrency-target-percentage into account.
-func (c *Config) TargetConcurrency(concurrency v1alpha1.RevisionContainerConcurrencyType) float64 {
+func (c *Config) TargetConcurrency(concurrency v1beta1.RevisionContainerConcurrencyType) float64 {
 	if concurrency == 0 {
 		return c.ContainerConcurrencyTargetDefault
 	}

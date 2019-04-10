@@ -27,6 +27,7 @@ import (
 
 	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
 	"github.com/knative/pkg/apis"
+	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 )
 
 func TestConfigurationSpecValidation(t *testing.T) {
@@ -41,6 +42,22 @@ func TestConfigurationSpecValidation(t *testing.T) {
 				Spec: RevisionSpec{
 					Container: &corev1.Container{
 						Image: "hellworld",
+					},
+				},
+			},
+		},
+		want: nil,
+	}, {
+		name: "valid podspec",
+		c: &ConfigurationSpec{
+			RevisionTemplate: &RevisionTemplateSpec{
+				Spec: RevisionSpec{
+					RevisionSpec: v1beta1.RevisionSpec{
+						PodSpec: v1beta1.PodSpec{
+							Containers: []corev1.Container{{
+								Image: "hellworld",
+							}},
+						},
 					},
 				},
 			},

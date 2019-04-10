@@ -18,6 +18,7 @@ package v1beta1
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -161,49 +162,68 @@ func TestRevisionSpecValidation(t *testing.T) {
 			},
 		},
 		want: nil,
-		// TODO(mattmoor): Validate PodSpec
-		// }, {
-		// 	name: "with volume name collision",
-		// 	rs: &RevisionSpec{
-		// 		PodSpec: PodSpec{
-		// 			Containers: []corev1.Container{{
-		// 				Image: "helloworld",
-		// 				VolumeMounts: []corev1.VolumeMount{{
-		// 					MountPath: "/mount/path",
-		// 					Name:      "the-name",
-		// 					ReadOnly:  true,
-		// 				}},
-		// 			}},
-		// 			Volumes: []corev1.Volume{{
-		// 				Name: "the-name",
-		// 				VolumeSource: corev1.VolumeSource{
-		// 					Secret: &corev1.SecretVolumeSource{
-		// 						SecretName: "foo",
-		// 					},
-		// 				},
-		// 			}, {
-		// 				Name: "the-name",
-		// 				VolumeSource: corev1.VolumeSource{
-		// 					ConfigMap: &corev1.ConfigMapVolumeSource{},
-		// 				},
-		// 			}},
-		// 		},
-		// 	},
-		// 	want: (&apis.FieldError{
-		// 		Message: fmt.Sprintf(`duplicate volume name "the-name"`),
-		// 		Paths:   []string{"name"},
-		// 	}).ViaFieldIndex("volumes", 1),
-		// }, {
-		// 	name: "bad pod spec",
-		// 	rs: &RevisionSpec{
-		// 		PodSpec: PodSpec{
-		// 			Containers: []corev1.Container{{
-		// 				Name:  "steve",
-		// 				Image: "helloworld",
-		// 			}},
-		// 		},
-		// 	},
-		// 	want: apis.ErrDisallowedFields("container.name"),
+	}, {
+		name: "with volume name collision",
+		rs: &RevisionSpec{
+			PodSpec: PodSpec{
+				Containers: []corev1.Container{{
+					Image: "helloworld",
+					VolumeMounts: []corev1.VolumeMount{{
+						MountPath: "/mount/path",
+						Name:      "the-name",
+						ReadOnly:  true,
+					}},
+				}},
+				Volumes: []corev1.Volume{{
+					Name: "the-name",
+					VolumeSource: corev1.VolumeSource{
+						Secret: &corev1.SecretVolumeSource{
+							SecretName: "foo",
+						},
+					},
+				}, {
+					Name: "the-name",
+					VolumeSource: corev1.VolumeSource{
+						ConfigMap: &corev1.ConfigMapVolumeSource{},
+					},
+				}},
+			},
+		},
+		want: (&apis.FieldError{
+			Message: fmt.Sprintf(`duplicate volume name "the-name"`),
+			Paths:   []string{"name"},
+		}).ViaFieldIndex("volumes", 1),
+	}, {
+		name: "bad pod spec",
+		rs: &RevisionSpec{
+			PodSpec: PodSpec{
+				Containers: []corev1.Container{{
+					Name:  "steve",
+					Image: "helloworld",
+				}},
+			},
+		},
+		want: apis.ErrDisallowedFields("containers[0].name"),
+	}, {
+		name: "missing container",
+		rs: &RevisionSpec{
+			PodSpec: PodSpec{
+				Containers: []corev1.Container{},
+			},
+		},
+		want: apis.ErrMissingField("containers"),
+	}, {
+		name: "too many containers",
+		rs: &RevisionSpec{
+			PodSpec: PodSpec{
+				Containers: []corev1.Container{{
+					Image: "busybox",
+				}, {
+					Image: "helloworld",
+				}},
+			},
+		},
+		want: apis.ErrMultipleOneOf("containers"),
 	}, {
 		name: "exceed max timeout",
 		rs: &RevisionSpec{

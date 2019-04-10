@@ -132,7 +132,9 @@ func ConfigurationSpec(imagePath string, options *Options) *v1alpha1.Configurati
 					Ports:           options.ContainerPorts,
 					SecurityContext: options.SecurityContext,
 				},
-				ContainerConcurrency: v1alpha1.RevisionContainerConcurrencyType(options.ContainerConcurrency),
+				RevisionSpec: v1beta1.RevisionSpec{
+					ContainerConcurrency: v1beta1.RevisionContainerConcurrencyType(options.ContainerConcurrency),
+				},
 			},
 		},
 	}
