@@ -464,7 +464,7 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 			// The origin secret.
 			secret("knative-serving", "secret0", map[string]string{}),
 
-			// The target secret that has the Data different from the orgin secret. The Data should be reconciled.
+			// The target secret that has the Data different from the origin secret. The Data should be reconciled.
 			&corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "knative-serving--secret0",
