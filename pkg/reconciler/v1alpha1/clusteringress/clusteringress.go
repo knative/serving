@@ -102,10 +102,11 @@ func NewController(
 
 	c.Logger.Info("Setting up event handlers")
 	myFilterFunc := reconciler.AnnotationFilterFunc(networking.IngressClassAnnotationKey, network.IstioIngressClassName, true)
-	clusterIngressInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+	ciHandler := cache.FilteringResourceEventHandler{
 		FilterFunc: myFilterFunc,
 		Handler:    reconciler.Handler(impl.Enqueue),
-	})
+	}
+	clusterIngressInformer.Informer().AddEventHandler(ciHandler)
 
 	virtualServiceInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: myFilterFunc,
@@ -114,7 +115,7 @@ func NewController(
 
 	c.Logger.Info("Setting up ConfigMap receivers")
 	resyncIngressesOnIstioConfigChange := configmap.TypeFilter(&config.Istio{})(func(string, interface{}) {
-		impl.GlobalResync(clusterIngressInformer.Informer())
+		controller.SendGlobalUpdates(clusterIngressInformer.Informer(), ciHandler)
 	})
 	c.configStore = config.NewStore(c.Logger.Named("config-store"), resyncIngressesOnIstioConfigChange)
 	c.configStore.WatchConfigs(opt.ConfigMapWatcher)
