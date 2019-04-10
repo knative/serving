@@ -18,8 +18,8 @@ package names
 
 import "testing"
 
-func TestSKSName(t *testing.T) {
-	if got, want := SKSName("ristretto"), "ristretto"; got != want {
+func TestSKS(t *testing.T) {
+	if got, want := SKS("ristretto"), "ristretto"; got != want {
 		t.Errorf("SKSName = %q, want: %q", got, want)
 	}
 }

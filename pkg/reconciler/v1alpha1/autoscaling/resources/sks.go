@@ -30,7 +30,7 @@ import (
 func MakeSKS(pa *pav1alpha1.PodAutoscaler, selector map[string]string, mode nv1a1.ServerlessServiceOperationMode) *nv1a1.ServerlessService {
 	return &nv1a1.ServerlessService{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      names.SKSName(pa.Name),
+			Name:      names.SKS(pa.Name),
 			Namespace: pa.Namespace,
 			Labels:    resources.CopyMap(pa.GetLabels()),
 			Annotations: resources.FilterMap(pa.GetAnnotations(), func(s string) bool {
