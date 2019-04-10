@@ -103,7 +103,12 @@ func (rs *RevisionSpec) Validate(ctx context.Context) *apis.FieldError {
 		volumes.Insert(volume.Name)
 	}
 
-	errs = errs.Also(validateContainer(rs.Container, volumes).ViaField("container"))
+	if rs.Container != nil {
+		errs = errs.Also(validateContainer(*rs.Container, volumes).
+			ViaField("container"))
+	} else {
+		return apis.ErrMissingField("container")
+	}
 	errs = errs.Also(validateBuildRef(rs.BuildRef).ViaField("buildRef"))
 
 	if err := rs.DeprecatedConcurrencyModel.Validate(ctx).ViaField("concurrencyModel"); err != nil {
@@ -113,7 +118,10 @@ func (rs *RevisionSpec) Validate(ctx context.Context) *apis.FieldError {
 			rs.ContainerConcurrency, rs.DeprecatedConcurrencyModel))
 	}
 
-	return errs.Also(validateTimeoutSeconds(rs.TimeoutSeconds))
+	if rs.TimeoutSeconds != nil {
+		errs = errs.Also(validateTimeoutSeconds(*rs.TimeoutSeconds))
+	}
+	return errs
 }
 
 func validateTimeoutSeconds(timeoutSeconds int64) *apis.FieldError {

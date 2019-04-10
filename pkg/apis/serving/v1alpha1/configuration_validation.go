@@ -38,6 +38,13 @@ func (cs *ConfigurationSpec) Validate(ctx context.Context) *apis.FieldError {
 	if equality.Semantic.DeepEqual(cs, &ConfigurationSpec{}) {
 		return apis.ErrMissingField(apis.CurrentField)
 	}
+	var templateField string
+	if cs.RevisionTemplate != nil {
+		templateField = "revisionTemplate"
+	} else {
+		return apis.ErrMissingField("revisionTemplate")
+	}
+
 	var errs *apis.FieldError
 	// TODO(mattmoor): Check ObjectMeta for Name/Namespace/GenerateName
 
@@ -51,5 +58,5 @@ func (cs *ConfigurationSpec) Validate(ctx context.Context) *apis.FieldError {
 		errs = errs.Also(apis.ErrInvalidValue(err, "build"))
 	}
 
-	return errs.Also(cs.RevisionTemplate.Validate(ctx).ViaField("revisionTemplate"))
+	return errs.Also(cs.GetTemplate().Validate(ctx).ViaField(templateField))
 }

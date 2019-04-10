@@ -346,10 +346,11 @@ func TestResolutionFailed(t *testing.T) {
 	for _, ct := range []apis.ConditionType{"ContainerHealthy", "Ready"} {
 		got := rev.Status.GetCondition(ct)
 		want := &apis.Condition{
-			Type:               ct,
-			Status:             corev1.ConditionFalse,
-			Reason:             "ContainerMissing",
-			Message:            v1alpha1.RevisionContainerMissingMessage(rev.Spec.Container.Image, errorMessage),
+			Type:   ct,
+			Status: corev1.ConditionFalse,
+			Reason: "ContainerMissing",
+			Message: v1alpha1.RevisionContainerMissingMessage(
+				rev.Spec.GetContainer().Image, errorMessage),
 			LastTransitionTime: got.LastTransitionTime,
 			Severity:           apis.ConditionSeverityError,
 		}

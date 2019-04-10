@@ -37,18 +37,20 @@ func (rs *RevisionSpec) SetDefaults(ctx context.Context) {
 		rs.ContainerConcurrency = 1
 	}
 
-	if rs.TimeoutSeconds == 0 {
-		rs.TimeoutSeconds = cfg.Defaults.RevisionTimeoutSeconds
+	if rs.TimeoutSeconds == nil {
+		ts := cfg.Defaults.RevisionTimeoutSeconds
+		rs.TimeoutSeconds = &ts
 	}
 
-	if rs.Container.Resources.Requests == nil {
-		rs.Container.Resources.Requests = corev1.ResourceList{}
+	c := rs.GetContainer()
+	if c.Resources.Requests == nil {
+		c.Resources.Requests = corev1.ResourceList{}
 	}
-	if _, ok := rs.Container.Resources.Requests[corev1.ResourceCPU]; !ok {
-		rs.Container.Resources.Requests[corev1.ResourceCPU] = cfg.Defaults.RevisionCPURequest
+	if _, ok := c.Resources.Requests[corev1.ResourceCPU]; !ok {
+		c.Resources.Requests[corev1.ResourceCPU] = cfg.Defaults.RevisionCPURequest
 	}
 
-	vms := rs.Container.VolumeMounts
+	vms := c.VolumeMounts
 	for i := range vms {
 		vms[i].ReadOnly = true
 	}

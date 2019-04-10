@@ -89,9 +89,9 @@ func DeploymentScaledToZeroFunc() func(d *appsv1.Deployment) (bool, error) {
 
 // WaitForLogContent waits until logs for given Pod/Container include the given content.
 // If the content is not present within timeout it returns error.
-func WaitForLogContent(client *KubeClient, podName, containerName, content string) error {
+func WaitForLogContent(client *KubeClient, podName, containerName, namespace, content string) error {
 	return wait.PollImmediate(interval, logTimeout, func() (bool, error) {
-		logs, err := client.PodLogs(podName, containerName)
+		logs, err := client.PodLogs(podName, containerName, namespace)
 		if err != nil {
 			return true, err
 		}

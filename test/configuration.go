@@ -50,7 +50,7 @@ func CreateConfiguration(t *testing.T, clients *Clients, names ResourceNames, op
 // PatchConfigImage patches the existing config passed in with a new imagePath. Returns the latest Configuration object
 func PatchConfigImage(clients *Clients, cfg *v1alpha1.Configuration, imagePath string) (*v1alpha1.Configuration, error) {
 	newCfg := cfg.DeepCopy()
-	newCfg.Spec.RevisionTemplate.Spec.Container.Image = imagePath
+	newCfg.Spec.GetTemplate().Spec.GetContainer().Image = imagePath
 	patchBytes, err := createPatch(cfg, newCfg)
 	if err != nil {
 		return nil, err

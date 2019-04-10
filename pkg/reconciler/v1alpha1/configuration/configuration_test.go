@@ -25,6 +25,7 @@ import (
 	duckv1beta1 "github.com/knative/pkg/apis/duck/v1beta1"
 	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/controller"
+	"github.com/knative/pkg/ptr"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/gc"
@@ -42,10 +43,10 @@ import (
 )
 
 var revisionSpec = v1alpha1.RevisionSpec{
-	Container: corev1.Container{
+	Container: &corev1.Container{
 		Image: "busybox",
 	},
-	TimeoutSeconds: 60,
+	TimeoutSeconds: ptr.Int64(60),
 }
 
 // This is heavily based on the way the OpenShift Ingress controller tests its reconciliation method.
@@ -532,7 +533,7 @@ func cfg(name, namespace string, generation int64, co ...ConfigOption) *v1alpha1
 		},
 		Spec: v1alpha1.ConfigurationSpec{
 			DeprecatedGeneration: generation,
-			RevisionTemplate: v1alpha1.RevisionTemplateSpec{
+			RevisionTemplate: &v1alpha1.RevisionTemplateSpec{
 				Spec: revisionSpec,
 			},
 		},

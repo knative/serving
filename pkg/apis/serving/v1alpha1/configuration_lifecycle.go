@@ -27,6 +27,17 @@ func (r *Configuration) GetGroupVersionKind() schema.GroupVersionKind {
 	return SchemeGroupVersion.WithKind("Configuration")
 }
 
+// GetTemplate returns a pointer to the relevant RevisionTemplateSpec field.
+// It is never nil and should be exactly the specified template as guaranteed
+// by validation.
+func (cs *ConfigurationSpec) GetTemplate() *RevisionTemplateSpec {
+	if cs.RevisionTemplate != nil {
+		return cs.RevisionTemplate
+	}
+	// Should be unreachable post-validation, but here to ease testing.
+	return &RevisionTemplateSpec{}
+}
+
 // IsReady looks at the conditions to see if they are happy.
 func (cs *ConfigurationStatus) IsReady() bool {
 	return confCondSet.Manage(cs).IsHappy()

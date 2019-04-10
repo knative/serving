@@ -31,7 +31,7 @@ import (
 func MakeImageCache(rev *v1alpha1.Revision) *caching.Image {
 	image := rev.Status.ImageDigest
 	if image == "" {
-		image = rev.Spec.Container.Image
+		image = rev.Spec.GetContainer().Image
 	}
 
 	img := &caching.Image{

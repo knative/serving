@@ -1,5 +1,5 @@
 /*
-Copyright 2018 The Knative Authors
+Copyright 2019 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,14 +14,16 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1alpha1
+package ptr
 
-import "context"
-
-func (c *Configuration) SetDefaults(ctx context.Context) {
-	c.Spec.SetDefaults(ctx)
+// Int64 is a helper for turning integers into pointers for use in
+// API types that want *int64.
+func Int64(i int64) *int64 {
+	return &i
 }
 
-func (cs *ConfigurationSpec) SetDefaults(ctx context.Context) {
-	cs.GetTemplate().Spec.SetDefaults(ctx)
+// Bool is a helper for turning bools into pointers for use in
+// API types that want *bool.
+func Bool(b bool) *bool {
+	return &b
 }

@@ -79,7 +79,7 @@ type ConfigurationSpec struct {
 	// RevisionTemplate's BuildName field will be populated with the name of
 	// the Build object created to produce the container for the Revision.
 	// +optional
-	RevisionTemplate RevisionTemplateSpec `json:"revisionTemplate"`
+	RevisionTemplate *RevisionTemplateSpec `json:"revisionTemplate,omitempty"`
 }
 
 const (

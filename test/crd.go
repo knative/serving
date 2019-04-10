@@ -23,6 +23,7 @@ import (
 	"testing"
 	"unicode"
 
+	"github.com/knative/pkg/ptr"
 	ptest "github.com/knative/pkg/test"
 	"github.com/knative/pkg/test/helpers"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
@@ -117,9 +118,9 @@ func ConfigurationSpec(imagePath string, options *Options) *v1alpha1.Configurati
 	}
 
 	spec := &v1alpha1.ConfigurationSpec{
-		RevisionTemplate: v1alpha1.RevisionTemplateSpec{
+		RevisionTemplate: &v1alpha1.RevisionTemplateSpec{
 			Spec: v1alpha1.RevisionSpec{
-				Container: corev1.Container{
+				Container: &corev1.Container{
 					Image:           imagePath,
 					Resources:       options.ContainerResources,
 					ReadinessProbe:  options.ReadinessProbe,
@@ -132,11 +133,11 @@ func ConfigurationSpec(imagePath string, options *Options) *v1alpha1.Configurati
 	}
 
 	if options.RevisionTimeoutSeconds > 0 {
-		spec.RevisionTemplate.Spec.TimeoutSeconds = options.RevisionTimeoutSeconds
+		spec.GetTemplate().Spec.TimeoutSeconds = ptr.Int64(options.RevisionTimeoutSeconds)
 	}
 
 	if options.EnvVars != nil {
-		spec.RevisionTemplate.Spec.Container.Env = options.EnvVars
+		spec.GetTemplate().Spec.GetContainer().Env = options.EnvVars
 	}
 
 	return spec
@@ -153,7 +154,7 @@ func Configuration(namespace string, names ResourceNames, options *Options, fopt
 		Spec: *ConfigurationSpec(ptest.ImagePath(names.Image), options),
 	}
 	if options.ContainerPorts != nil && len(options.ContainerPorts) > 0 {
-		config.Spec.RevisionTemplate.Spec.Container.Ports = options.ContainerPorts
+		config.Spec.GetTemplate().Spec.GetContainer().Ports = options.ContainerPorts
 	}
 
 	for _, opt := range fopt {
@@ -174,9 +175,9 @@ func ConfigurationWithBuild(namespace string, names ResourceNames, build *v1alph
 		},
 		Spec: v1alpha1.ConfigurationSpec{
 			Build: build,
-			RevisionTemplate: v1alpha1.RevisionTemplateSpec{
+			RevisionTemplate: &v1alpha1.RevisionTemplateSpec{
 				Spec: v1alpha1.RevisionSpec{
-					Container: corev1.Container{
+					Container: &corev1.Container{
 						Image: ptest.ImagePath(names.Image),
 					},
 				},

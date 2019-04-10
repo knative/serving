@@ -289,7 +289,7 @@ func TestRunLatestService(t *testing.T) {
 	// Update container with user port.
 	t.Logf("Updating the port of the user container for service %s to %d", names.Service, userPort)
 	desiredSvc := objects.Service.DeepCopy()
-	desiredSvc.Spec.RunLatest.Configuration.RevisionTemplate.Spec.Container.Ports = []corev1.ContainerPort{{
+	desiredSvc.Spec.RunLatest.Configuration.GetTemplate().Spec.GetContainer().Ports = []corev1.ContainerPort{{
 		ContainerPort: userPort,
 	}}
 	if objects.Service, err = test.PatchService(t, clients, objects.Service, desiredSvc); err != nil {

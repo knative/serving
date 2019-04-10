@@ -223,11 +223,11 @@ func PatchManualService(t *testing.T, clients *Clients, svc *v1alpha1.Service) (
 func PatchServiceImage(t *testing.T, clients *Clients, svc *v1alpha1.Service, imagePath string) (*v1alpha1.Service, error) {
 	newSvc := svc.DeepCopy()
 	if svc.Spec.RunLatest != nil {
-		newSvc.Spec.RunLatest.Configuration.RevisionTemplate.Spec.Container.Image = imagePath
+		newSvc.Spec.RunLatest.Configuration.GetTemplate().Spec.GetContainer().Image = imagePath
 	} else if svc.Spec.Release != nil {
-		newSvc.Spec.Release.Configuration.RevisionTemplate.Spec.Container.Image = imagePath
+		newSvc.Spec.Release.Configuration.GetTemplate().Spec.GetContainer().Image = imagePath
 	} else if svc.Spec.DeprecatedPinned != nil {
-		newSvc.Spec.DeprecatedPinned.Configuration.RevisionTemplate.Spec.Container.Image = imagePath
+		newSvc.Spec.DeprecatedPinned.Configuration.GetTemplate().Spec.GetContainer().Image = imagePath
 	} else {
 		return nil, fmt.Errorf("UpdateImageService(%v): unable to determine service type", svc)
 	}
@@ -253,11 +253,11 @@ func PatchService(t *testing.T, clients *Clients, curSvc *v1alpha1.Service, desi
 func PatchServiceRevisionTemplateMetadata(t *testing.T, clients *Clients, svc *v1alpha1.Service, metadata metav1.ObjectMeta) (*v1alpha1.Service, error) {
 	newSvc := svc.DeepCopy()
 	if svc.Spec.RunLatest != nil {
-		newSvc.Spec.RunLatest.Configuration.RevisionTemplate.ObjectMeta = metadata
+		newSvc.Spec.RunLatest.Configuration.GetTemplate().ObjectMeta = metadata
 	} else if svc.Spec.Release != nil {
-		newSvc.Spec.Release.Configuration.RevisionTemplate.ObjectMeta = metadata
+		newSvc.Spec.Release.Configuration.GetTemplate().ObjectMeta = metadata
 	} else if svc.Spec.DeprecatedPinned != nil {
-		newSvc.Spec.DeprecatedPinned.Configuration.RevisionTemplate.ObjectMeta = metadata
+		newSvc.Spec.DeprecatedPinned.Configuration.GetTemplate().ObjectMeta = metadata
 	} else {
 		return nil, fmt.Errorf("UpdateServiceRevisionTemplateMetadata(%v): unable to determine service type", svc)
 	}

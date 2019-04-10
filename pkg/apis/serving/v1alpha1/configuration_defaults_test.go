@@ -22,6 +22,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	"github.com/knative/pkg/ptr"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 
@@ -45,12 +46,24 @@ func TestConfigurationDefaulting(t *testing.T) {
 	}{{
 		name: "empty",
 		in:   &Configuration{},
+		want: &Configuration{},
+	}, {
+		name: "shell",
+		in: &Configuration{
+			Spec: ConfigurationSpec{
+				RevisionTemplate: &RevisionTemplateSpec{
+					Spec: RevisionSpec{
+						Container: &corev1.Container{},
+					},
+				},
+			},
+		},
 		want: &Configuration{
 			Spec: ConfigurationSpec{
-				RevisionTemplate: RevisionTemplateSpec{
+				RevisionTemplate: &RevisionTemplateSpec{
 					Spec: RevisionSpec{
-						TimeoutSeconds: config.DefaultRevisionTimeoutSeconds,
-						Container: corev1.Container{
+						TimeoutSeconds: ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+						Container: &corev1.Container{
 							Resources: defaultResources,
 						},
 					},
@@ -61,11 +74,11 @@ func TestConfigurationDefaulting(t *testing.T) {
 		name: "no overwrite values",
 		in: &Configuration{
 			Spec: ConfigurationSpec{
-				RevisionTemplate: RevisionTemplateSpec{
+				RevisionTemplate: &RevisionTemplateSpec{
 					Spec: RevisionSpec{
 						ContainerConcurrency: 1,
-						TimeoutSeconds:       99,
-						Container: corev1.Container{
+						TimeoutSeconds:       ptr.Int64(99),
+						Container: &corev1.Container{
 							Resources: defaultResources,
 						},
 					},
@@ -74,11 +87,11 @@ func TestConfigurationDefaulting(t *testing.T) {
 		},
 		want: &Configuration{
 			Spec: ConfigurationSpec{
-				RevisionTemplate: RevisionTemplateSpec{
+				RevisionTemplate: &RevisionTemplateSpec{
 					Spec: RevisionSpec{
 						ContainerConcurrency: 1,
-						TimeoutSeconds:       99,
-						Container: corev1.Container{
+						TimeoutSeconds:       ptr.Int64(99),
+						Container: &corev1.Container{
 							Resources: defaultResources,
 						},
 					},

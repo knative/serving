@@ -622,37 +622,35 @@ func TestRevisionGetProtocol(t *testing.T) {
 		name      string
 		container corev1.Container
 		protocol  net.ProtocolType
-	}{
-		{
-			name:      "undefined",
-			container: corev1.Container{},
-			protocol:  net.ProtocolHTTP1,
-		},
-		{
-			name:      "http1",
-			container: containerWithPortName("http1"),
-			protocol:  net.ProtocolHTTP1,
-		},
-		{
-			name:      "h2c",
-			container: containerWithPortName("h2c"),
-			protocol:  net.ProtocolH2C,
-		},
-		{
-			name:      "unknown",
-			container: containerWithPortName("whatever"),
-			protocol:  net.ProtocolHTTP1,
-		},
-		{
-			name:      "empty",
-			container: containerWithPortName(""),
-			protocol:  net.ProtocolHTTP1,
-		},
-	}
+	}{{
+		name:      "undefined",
+		container: corev1.Container{},
+		protocol:  net.ProtocolHTTP1,
+	}, {
+		name:      "http1",
+		container: containerWithPortName("http1"),
+		protocol:  net.ProtocolHTTP1,
+	}, {
+		name:      "h2c",
+		container: containerWithPortName("h2c"),
+		protocol:  net.ProtocolH2C,
+	}, {
+		name:      "unknown",
+		container: containerWithPortName("whatever"),
+		protocol:  net.ProtocolHTTP1,
+	}, {
+		name:      "empty",
+		container: containerWithPortName(""),
+		protocol:  net.ProtocolHTTP1,
+	}}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			r := &Revision{Spec: RevisionSpec{Container: tt.container}}
+			r := &Revision{
+				Spec: RevisionSpec{
+					Container: &tt.container,
+				},
+			}
 
 			got := r.GetProtocol()
 			want := tt.protocol

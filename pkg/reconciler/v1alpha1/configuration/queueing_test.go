@@ -62,13 +62,13 @@ func getTestConfiguration() *v1alpha1.Configuration {
 		Spec: v1alpha1.ConfigurationSpec{
 			// TODO(grantr): This is a workaround for generation initialization
 			DeprecatedGeneration: 1,
-			RevisionTemplate: v1alpha1.RevisionTemplateSpec{
+			RevisionTemplate: &v1alpha1.RevisionTemplateSpec{
 				Spec: v1alpha1.RevisionSpec{
 					ServiceAccountName: "test-account",
 					// corev1.Container has a lot of setting.  We try to pass many
 					// of them here to verify that we pass through the settings to
 					// the derived Revisions.
-					Container: corev1.Container{
+					Container: &corev1.Container{
 						Image:      "gcr.io/repo/image",
 						Command:    []string{"echo"},
 						Args:       []string{"hello", "world"},
