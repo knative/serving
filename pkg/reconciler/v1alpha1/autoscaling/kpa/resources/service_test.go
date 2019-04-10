@@ -1,12 +1,9 @@
 /*
 Copyright 2019 The Knative Authors
-
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
-
     http://www.apache.org/licenses/LICENSE-2.0
-
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -20,16 +17,18 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
+
 	"github.com/knative/pkg/ptr"
 	pav1a1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/apis/networking"
-	nv1a1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	autoscalingv1 "k8s.io/api/autoscaling/v1"
 )
 
-// MakeSKS makes an SKS resource from the PA, selector and operation mode.
-func TestMakeSKS(t *testing.T) {
+func TestMakeService(t *testing.T) {
 	pa := &pav1a1.PodAutoscaler{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: "here",
@@ -45,21 +44,25 @@ func TestMakeSKS(t *testing.T) {
 			},
 		},
 		Spec: pav1a1.PodAutoscalerSpec{
-			ProtocolType: networking.ProtocolHTTP1,
+			ScaleTargetRef: autoscalingv1.CrossVersionObjectReference{
+				APIVersion: "apps/v1",
+				Kind:       "Deployment",
+				Name:       "with-you",
+			},
+			ServiceName: "with-you-service",
 		},
 	}
-
 	selector := map[string]string{"cant": "stop"}
-	const mode = nv1a1.SKSOperationModeServe
-
-	want := &nv1a1.ServerlessService{
+	want := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: "here",
-			Name:      "with-you",
-			// Those labels are propagated from the Revision->PA.
+			Name:      "with-you-metrics",
 			Labels: map[string]string{
-				serving.RevisionLabelKey: "with-you",
-				serving.RevisionUID:      "2009",
+				// Those should be propagated.
+				serving.RevisionLabelKey:  "with-you",
+				serving.RevisionUID:       "2009",
+				kpaLabelKey:               "with-you",
+				networking.ServiceTypeKey: string(networking.ServiceTypeMetrics),
 			},
 			Annotations: map[string]string{
 				"a": "b",
@@ -73,13 +76,18 @@ func TestMakeSKS(t *testing.T) {
 				BlockOwnerDeletion: ptr.Bool(true),
 			}},
 		},
-		Spec: nv1a1.ServerlessServiceSpec{
-			ProtocolType: networking.ProtocolHTTP1,
-			Mode:         nv1a1.SKSOperationModeServe,
-			Selector:     selector,
+		Spec: corev1.ServiceSpec{
+			Ports: []corev1.ServicePort{{
+				Name:       "metrics",
+				Protocol:   corev1.ProtocolTCP,
+				Port:       9090,
+				TargetPort: intstr.FromString("queue-metrics"),
+			}},
+			Selector: selector,
 		},
 	}
-	if got, want := MakeSKS(pa, selector, mode), want; !cmp.Equal(got, want) {
-		t.Errorf("MakeSKS = %#v, want: %#v, diff: %s", got, want, cmp.Diff(got, want))
+	got := MakeMetricsService(pa, selector)
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("Metrics K8s Service mismatch (-want, +got) = %v", diff)
 	}
 }

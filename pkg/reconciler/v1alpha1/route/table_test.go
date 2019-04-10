@@ -24,6 +24,7 @@ import (
 
 	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/controller"
+	"github.com/knative/pkg/ptr"
 	netv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
@@ -1596,7 +1597,6 @@ func patchLastPinned(namespace, name string) clientgotesting.PatchActionImpl {
 }
 
 func rev(namespace, name string, generation int64, ro ...RevisionOption) *v1alpha1.Revision {
-	boolTrue := true
 	r := &v1alpha1.Revision{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: namespace,
@@ -1608,8 +1608,8 @@ func rev(namespace, name string, generation int64, ro ...RevisionOption) *v1alph
 				APIVersion:         v1alpha1.SchemeGroupVersion.String(),
 				Kind:               "Configuration",
 				Name:               name,
-				Controller:         &boolTrue,
-				BlockOwnerDeletion: &boolTrue,
+				Controller:         ptr.Bool(true),
+				BlockOwnerDeletion: ptr.Bool(true),
 			}},
 		},
 	}

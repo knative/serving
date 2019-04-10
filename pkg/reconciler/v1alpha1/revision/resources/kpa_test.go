@@ -21,6 +21,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	"github.com/knative/pkg/ptr"
 	autoscalingv1 "k8s.io/api/autoscaling/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -70,8 +71,8 @@ func TestMakeKPA(t *testing.T) {
 					Kind:               "Revision",
 					Name:               "bar",
 					UID:                "1234",
-					Controller:         &boolTrue,
-					BlockOwnerDeletion: &boolTrue,
+					Controller:         ptr.Bool(true),
+					BlockOwnerDeletion: ptr.Bool(true),
 				}},
 			},
 			Spec: kpa.PodAutoscalerSpec{
@@ -118,8 +119,8 @@ func TestMakeKPA(t *testing.T) {
 					Kind:               "Revision",
 					Name:               "baz",
 					UID:                "4321",
-					Controller:         &boolTrue,
-					BlockOwnerDeletion: &boolTrue,
+					Controller:         ptr.Bool(true),
+					BlockOwnerDeletion: ptr.Bool(true),
 				}},
 			},
 			Spec: kpa.PodAutoscalerSpec{
