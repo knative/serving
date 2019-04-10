@@ -474,7 +474,6 @@ func (c *Reconciler) reconcileCertSecret(ctx context.Context, ci *v1alpha1.Clust
 		// Don't modify the informers copy
 		copy := existing.DeepCopy()
 		copy.Data = desired.Data
-		//_, err = c.SharedClientSet.NetworkingV1alpha3().VirtualServices(ns).Update(existing)
 		_, err = c.KubeClientSet.CoreV1().Secrets(copy.Namespace).Update(copy)
 		if err != nil {
 			logger.Errorw("Failed to update target secret", zap.Error(err))
