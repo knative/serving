@@ -876,9 +876,9 @@ func WithKPAClass(pa *autoscalingv1alpha1.PodAutoscaler) {
 
 // WithContainerConcurrency returns a PodAutoscalerOption which sets
 // the PodAutoscaler containerConcurrency to the provided value.
-func WithContainerConcurrency(cc int32) PodAutoscalerOption {
+func WithContainerConcurrency(cc v1alpha1.RevisionContainerConcurrencyType) PodAutoscalerOption {
 	return func(pa *autoscalingv1alpha1.PodAutoscaler) {
-		pa.Spec.ContainerConcurrency = v1alpha1.RevisionContainerConcurrencyType(cc)
+		pa.Spec.ContainerConcurrency = cc
 	}
 }
 
