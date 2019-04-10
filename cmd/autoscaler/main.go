@@ -100,7 +100,7 @@ func main() {
 	scaler := kpa.NewScaler(opt.ServingClientSet, opt.ScaleClientSet, logger, opt.ConfigMapWatcher)
 
 	controllers := []*controller.Impl{
-		kpa.NewController(&opt, paInformer, serviceInformer, endpointsInformer, multiScaler, collector, scaler, dynConfig),
+		kpa.NewController(&opt, paInformer, sksInformer, serviceInformer, endpointsInformer, multiScaler, collector, scaler, dynConfig),
 		hpa.NewController(&opt, paInformer, sksInformer, hpaInformer),
 	}
 
