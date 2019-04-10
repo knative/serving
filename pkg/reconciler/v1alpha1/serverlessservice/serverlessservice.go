@@ -103,12 +103,9 @@ func NewController(
 	}
 	endpointsInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		// Accept only ActivatorService K8s service objects.
-		FilterFunc: func(obj interface{}) bool {
-			if object, ok := obj.(metav1.Object); ok {
-				return object.GetNamespace() == system.Namespace() && object.GetName() == activatorService
-			}
-			return false
-		},
+		FilterFunc: rbase.ChainFilterFuncs(
+			rbase.NamespaceFilterFunc(system.Namespace()),
+			rbase.NameFilterFunc(activatorService)),
 		Handler: rbase.Handler(grCb),
 	})
 
