@@ -482,7 +482,7 @@ func (c *Reconciler) reconcileCertSecret(ctx context.Context, ci *v1alpha1.Clust
 			return err
 		}
 		c.Recorder.Eventf(ci, corev1.EventTypeNormal, "Updated",
-			"Updated status for Secret %q/%q", copy.Namespace, copy.Name)
+			"Updated Secret %s/%s", copy.Namespace, copy.Name)
 	}
 	return nil
 }
