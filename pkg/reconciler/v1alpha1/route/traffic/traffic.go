@@ -30,6 +30,7 @@ import (
 // DefaultTarget is the unnamed default target for the traffic.
 const DefaultTarget = ""
 
+// HTTPScheme is the string representation of http.
 const HTTPScheme string = "http"
 
 // A RevisionTarget adds the Active/Inactive state and the transport protocol of a
