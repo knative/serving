@@ -434,7 +434,7 @@
   revision = "babf400eeec07acdd0d6864ad28709c2bcee0c82"
 
 [[projects]]
-  digest = "1:52a75d98bad8b65086883c86e7b617dc2ae425d70a9f950138d40807976f8338"
+  digest = "1:f1ab1cf1b5d5b1d3f3ccfbdb3404bd7a060378785a090408fc5c445bb20f2c88"
   name = "github.com/knative/pkg"
   packages = [
     "apis",
@@ -489,7 +489,7 @@
     "websocket",
   ]
   pruneopts = "NUT"
-  revision = "590eb946f1d3492e3e8d9a60850a6d5c7f85be36"
+  revision = "2adf7f0c98b1564c9c8b33a742a4b693e7871459"
 
 [[projects]]
   branch = "master"

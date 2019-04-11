@@ -25,7 +25,7 @@ import (
 
 // Validate inspects and validates ClusterServerlessService object.
 func (ci *ServerlessService) Validate(ctx context.Context) *apis.FieldError {
-	return ci.Spec.Validate(ctx).ViaField("spec")
+	return ci.Spec.Validate(apis.WithinSpec(ctx)).ViaField("spec")
 }
 
 // Validate inspects and validates ServerlessServiceSpec object.

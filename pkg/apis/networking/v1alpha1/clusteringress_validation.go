@@ -27,7 +27,7 @@ import (
 
 // Validate inspects and validates ClusterIngress object.
 func (ci *ClusterIngress) Validate(ctx context.Context) *apis.FieldError {
-	return ci.Spec.Validate(ctx).ViaField("spec")
+	return ci.Spec.Validate(apis.WithinSpec(ctx)).ViaField("spec")
 }
 
 // Validate inspects and validates IngressSpec object.

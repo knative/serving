@@ -46,15 +46,12 @@ var (
 
 // Validate ensures Revision is properly configured.
 func (rt *Revision) Validate(ctx context.Context) *apis.FieldError {
-	errs := serving.ValidateObjectMetadata(rt.GetObjectMeta()).ViaField("metadata").
-		Also(rt.Spec.Validate(ctx).ViaField("spec"))
-
+	errs := serving.ValidateObjectMetadata(rt.GetObjectMeta()).ViaField("metadata")
+	errs = errs.Also(rt.Spec.Validate(apis.WithinSpec(ctx)).ViaField("spec"))
 	if apis.IsInUpdate(ctx) {
 		old := apis.GetBaseline(ctx).(*Revision)
-
 		errs = errs.Also(rt.checkImmutableFields(ctx, old))
 	}
-
 	return errs
 }
 

@@ -19,13 +19,14 @@ package v1alpha1
 import (
 	"context"
 
+	"github.com/knative/pkg/apis"
 	corev1 "k8s.io/api/core/v1"
 
 	"github.com/knative/serving/pkg/apis/config"
 )
 
 func (r *Revision) SetDefaults(ctx context.Context) {
-	r.Spec.SetDefaults(ctx)
+	r.Spec.SetDefaults(apis.WithinSpec(ctx))
 }
 
 func (rs *RevisionSpec) SetDefaults(ctx context.Context) {
