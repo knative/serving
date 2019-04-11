@@ -98,6 +98,7 @@ type Factory func(*testing.T, *TableRow) (controller.Reconciler, ActionRecorderL
 
 // Test executes the single table test.
 func (r *TableRow) Test(t *testing.T, factory Factory) {
+	t.Helper()
 	c, recorderList, eventList, statsReporter := factory(t, r)
 
 	// Run the Reconcile we're testing.
@@ -108,7 +109,6 @@ func (r *TableRow) Test(t *testing.T, factory Factory) {
 	expectedNamespace, _, _ := cache.SplitMetaNamespaceKey(r.Key)
 
 	actions, err := recorderList.ActionsByVerb()
-
 	if err != nil {
 		t.Errorf("Error capturing actions by verb: %q", err)
 	}
@@ -331,6 +331,7 @@ type TableTest []TableRow
 
 // Test executes the whole suite of the table tests.
 func (tt TableTest) Test(t *testing.T, factory Factory) {
+	t.Helper()
 	for _, test := range tt {
 		// Record the original objects in table.
 		originObjects := []runtime.Object{}
@@ -338,6 +339,7 @@ func (tt TableTest) Test(t *testing.T, factory Factory) {
 			originObjects = append(originObjects, obj.DeepCopyObject())
 		}
 		t.Run(test.Name, func(t *testing.T) {
+			t.Helper()
 			test.Test(t, factory)
 		})
 		// Validate cached objects do not get soiled after controller loops
