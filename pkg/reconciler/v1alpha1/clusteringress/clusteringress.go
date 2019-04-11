@@ -239,7 +239,7 @@ func (c *Reconciler) reconcile(ctx context.Context, ci *v1alpha1.ClusterIngress)
 
 	if c.enableReconcilingGateway {
 		if !ci.IsPublic() {
-			logger.Info("ClusterIngress %s is not public. So no need to configure TLS.", ci.Name)
+			logger.Infof("ClusterIngress %s is not public. So no need to configure TLS.", ci.Name)
 			return nil
 		}
 
@@ -249,7 +249,7 @@ func (c *Reconciler) reconcile(ctx context.Context, ci *v1alpha1.ClusterIngress)
 			return err
 		}
 
-		desiredSecrets, err := resources.MakeDesiredSecrets(ctx, ci, c.secretLister)
+		desiredSecrets, err := resources.MakeSecrets(ctx, ci, c.secretLister)
 		if err != nil {
 			return err
 		}
@@ -453,8 +453,8 @@ func (c *Reconciler) reconcileCertSecrets(ctx context.Context, ci *v1alpha1.Clus
 
 func (c *Reconciler) reconcileCertSecret(ctx context.Context, ci *v1alpha1.ClusterIngress, desired *corev1.Secret) error {
 	gvk := corev1.SchemeGroupVersion.WithKind("Secret")
-	c.tracker.Track(objectRef(desired, gvk), ci)
-	c.tracker.Track(objectRefFromNamespaceName(desired.Labels[networking.OriginSecretNamespaceLabelKey], desired.Labels[networking.OriginSecretNameLabelKey], gvk), ci)
+	c.tracker.Track(objectRef(desired.Namespace, desired.Name, gvk), ci)
+	c.tracker.Track(objectRef(desired.Labels[networking.OriginSecretNamespaceLabelKey], desired.Labels[networking.OriginSecretNameLabelKey], gvk), ci)
 
 	logger := logging.FromContext(ctx)
 	existing, err := c.secretLister.Secrets(desired.Namespace).Get(desired.Name)
@@ -487,32 +487,7 @@ func (c *Reconciler) reconcileCertSecret(ctx context.Context, ci *v1alpha1.Clust
 	return nil
 }
 
-/////////////////////////////////////////
-// Misc helpers.
-/////////////////////////////////////////
-
-// TODO(zhiminx): move this part into a shareable directory.
-type accessor interface {
-	GroupVersionKind() schema.GroupVersionKind
-	GetNamespace() string
-	GetName() string
-}
-
-func objectRef(a accessor, gvk schema.GroupVersionKind) corev1.ObjectReference {
-	// We can't always rely on the TypeMeta being populated.
-	// See: https://github.com/knative/serving/issues/2372
-	// Also: https://github.com/kubernetes/apiextensions-apiserver/issues/29
-	// gvk := a.GroupVersionKind()
-	apiVersion, kind := gvk.ToAPIVersionAndKind()
-	return corev1.ObjectReference{
-		APIVersion: apiVersion,
-		Kind:       kind,
-		Namespace:  a.GetNamespace(),
-		Name:       a.GetName(),
-	}
-}
-
-func objectRefFromNamespaceName(namespace, name string, gvk schema.GroupVersionKind) corev1.ObjectReference {
+func objectRef(namespace, name string, gvk schema.GroupVersionKind) corev1.ObjectReference {
 	apiVersion, kind := gvk.ToAPIVersionAndKind()
 	return corev1.ObjectReference{
 		APIVersion: apiVersion,

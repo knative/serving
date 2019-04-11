@@ -14,7 +14,7 @@ import (
 	fakek8s "k8s.io/client-go/kubernetes/fake"
 )
 
-func TestMakeDesiredSecrets(t *testing.T) {
+func TestMakeSecrets(t *testing.T) {
 	kubeClient := fakek8s.NewSimpleClientset()
 	secretClient := kubeinformers.NewSharedInformerFactory(kubeClient, 0).Core().V1().Secrets()
 	createSecret := func(secret *corev1.Secret) {
@@ -120,7 +120,7 @@ func TestMakeDesiredSecrets(t *testing.T) {
 			createSecret(c.originSecret)
 		}
 		t.Run(c.name, func(t *testing.T) {
-			secrets, err := MakeDesiredSecrets(ctx, c.ci, secretClient.Lister())
+			secrets, err := MakeSecrets(ctx, c.ci, secretClient.Lister())
 			if (err != nil) != c.wantErr {
 				t.Fatalf("Test: %s; MakeDesiredSecrets error = %v, WantErr %v", c.name, err, c.wantErr)
 			}

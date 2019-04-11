@@ -108,7 +108,11 @@ func GatewayServiceNamespace(ingressGateways []config.Gateway, gatewayName strin
 		}
 		// serviceURL should be of the form serviceName.namespace.<domain>, for example
 		// serviceName.namespace.svc.cluster.local.
-		return strings.Split(gw.ServiceURL, ".")[1], nil
+		parts := strings.SplitN(gw.ServiceURL, ".", 3)
+		if len(parts) != 3 {
+			return "", fmt.Errorf("Unexpected service URL form: %s", gw.ServiceURL)
+		}
+		return parts[1], nil
 	}
 	return "", fmt.Errorf("No Gateway configuration is found for gateway %s", gatewayName)
 }
@@ -120,6 +124,7 @@ func getAllGatewaySvcNamespaces(ctx context.Context) []string {
 	for _, ingressgateway := range cfg.IngressGateways {
 		// serviceURL should be of the form serviceName.namespace.<domain>, for example
 		// serviceName.namespace.svc.cluster.local.
+
 		ns := strings.Split(ingressgateway.ServiceURL, ".")[1]
 		namespaces.Insert(ns)
 	}
