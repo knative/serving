@@ -241,7 +241,8 @@ func (c *Reconciler) reconcile(ctx context.Context, pa *pav1alpha1.PodAutoscaler
 	if err := c.reconcileMetricsService(ctx, pa, selector); err != nil {
 		return perrors.Wrap(err, "error reconciling metrics service")
 	}
-	if err := c.reconcileSKS(ctx, pa, selector); err != nil {
+	sks, err := c.reconcileSKS(ctx, pa, selector)
+	if err != nil {
 		return perrors.Wrap(err, "error reconciling SKS")
 	}
 
@@ -262,13 +263,17 @@ func (c *Reconciler) reconcile(ctx context.Context, pa *pav1alpha1.PodAutoscaler
 	}
 
 	// Compare the desired and observed resources to determine our situation.
-	got, err := resourceutil.FetchReadyAddressCount(c.endpointsLister, pa.Namespace, pa.Spec.ServiceName)
-	if err != nil {
-		return perrors.Wrapf(err, "error checking endpoints %q", pa.Spec.ServiceName)
+	// We fetch private endpoints here, since for scaling we're interested in the actual
+	// state of the deployment.
+	got := 0
+	if sks.Status.IsReady() {
+		got, err = resourceutil.FetchReadyAddressCount(c.endpointsLister, pa.Namespace, sks.Status.PrivateServiceName)
+		if err != nil {
+			return perrors.Wrapf(err, "error checking endpoints %s", sks.Status.PrivateServiceName)
+		}
+		logger.Infof("PA got=%v, want=%v", got, want)
+
 	}
-
-	logger.Infof("PA got=%v, want=%v", got, want)
-
 	err = reportMetrics(pa, want, got)
 	if err != nil {
 		return perrors.Wrap(err, "error reporting metrics")
@@ -302,7 +307,7 @@ func (c *Reconciler) reconcileDecider(ctx context.Context, pa *pav1alpha1.PodAut
 	return decider, nil
 }
 
-func (c *Reconciler) reconcileSKS(ctx context.Context, pa *pav1alpha1.PodAutoscaler, selector map[string]string) error {
+func (c *Reconciler) reconcileSKS(ctx context.Context, pa *pav1alpha1.PodAutoscaler, selector map[string]string) (*nv1alpha1.ServerlessService, error) {
 	logger := logging.FromContext(ctx)
 
 	sksName := anames.SKS(pa.Name)
@@ -312,26 +317,26 @@ func (c *Reconciler) reconcileSKS(ctx context.Context, pa *pav1alpha1.PodAutosca
 		sks = aresources.MakeSKS(pa, selector, nv1alpha1.SKSOperationModeServe)
 		_, err = c.ServingClientSet.NetworkingV1alpha1().ServerlessServices(sks.Namespace).Create(sks)
 		if err != nil {
-			return perrors.Wrapf(err, "error creating SKS %s", sksName)
+			return nil, perrors.Wrapf(err, "error creating SKS %s", sksName)
 		}
 		logger.Info("Created SKS:", sksName)
 	} else if err != nil {
-		return perrors.Wrapf(err, "error getting SKS %s", sksName)
+		return nil, perrors.Wrapf(err, "error getting SKS %s", sksName)
 	} else if !metav1.IsControlledBy(sks, pa) {
 		pa.Status.MarkResourceNotOwned("ServerlessService", sksName)
-		return fmt.Errorf("KPA: %s does not own SKS: %s", pa.Name, sksName)
+		return nil, fmt.Errorf("KPA: %s does not own SKS: %s", pa.Name, sksName)
 	}
 	tmpl := aresources.MakeSKS(pa, selector, nv1alpha1.SKSOperationModeServe)
 	if !equality.Semantic.DeepEqual(tmpl.Spec, sks.Spec) {
 		want := sks.DeepCopy()
 		want.Spec = tmpl.Spec
 		logger.Info("SKS changed; reconciling:", sksName)
-		if _, err = c.ServingClientSet.NetworkingV1alpha1().ServerlessServices(sks.Namespace).Update(want); err != nil {
-			return perrors.Wrapf(err, "error updating SKS %s", sksName)
+		if sks, err = c.ServingClientSet.NetworkingV1alpha1().ServerlessServices(sks.Namespace).Update(want); err != nil {
+			return nil, perrors.Wrapf(err, "error updating SKS %s", sksName)
 		}
 	}
 	logger.Debug("Done reconciling SKS", sksName)
-	return nil
+	return sks, nil
 }
 
 func (c *Reconciler) reconcileMetricsService(ctx context.Context, pa *pav1alpha1.PodAutoscaler, selector map[string]string) error {

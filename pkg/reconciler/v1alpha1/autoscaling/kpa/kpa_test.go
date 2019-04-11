@@ -339,6 +339,10 @@ func withSvcSelector(sel map[string]string) K8sServiceOption {
 	}
 }
 
+func markActivating(pa *asv1a1.PodAutoscaler) {
+	pa.Status.MarkActivating("Queued", "Requests to the target are being buffered as resources are provisioned.")
+}
+
 func markActive(pa *asv1a1.PodAutoscaler) {
 	pa.Status.MarkActive()
 }
@@ -402,10 +406,10 @@ func TestReconcile(t *testing.T) {
 		Key:  key,
 		Objects: []runtime.Object{
 			kpa(testNamespace, testRevision, markActive),
-			sks(testNamespace, testRevision, WithSelector(usualSelector)),
+			sks(testNamespace, testRevision, WithSelector(usualSelector), WithSKSReady),
 			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector)),
 			scaleResource(testNamespace, testRevision, withLabelSelector("a=b")),
-			makeTestEndpoints(1, testNamespace, testRevision),
+			makeSKSPrivateEndpoints(1, testNamespace, testRevision),
 		},
 	}, {
 		Name: "sks does not exist",
@@ -414,8 +418,12 @@ func TestReconcile(t *testing.T) {
 			kpa(testNamespace, testRevision, markActive),
 			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector)),
 			scaleResource(testNamespace, testRevision, withLabelSelector("a=b")),
-			makeTestEndpoints(1, testNamespace, testRevision),
+			makeSKSPrivateEndpoints(1, testNamespace, testRevision),
 		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			// SKS does not exist, so we're just creating and have no status.
+			Object: kpa(testNamespace, testRevision, markActivating),
+		}},
 		WantCreates: []metav1.Object{
 			sks(testNamespace, testRevision, WithSelector(usualSelector)),
 		},
@@ -427,8 +435,11 @@ func TestReconcile(t *testing.T) {
 			sks(testNamespace, testRevision, WithSelector(map[string]string{"i-m": "so-tired"})),
 			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector)),
 			scaleResource(testNamespace, testRevision, withLabelSelector("a=b")),
-			makeTestEndpoints(1, testNamespace, testRevision),
 		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			// SKS just got updated and we don't have up to date status.
+			Object: kpa(testNamespace, testRevision, markActivating),
+		}},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: sks(testNamespace, testRevision, WithSelector(usualSelector)),
 		}},
@@ -439,7 +450,6 @@ func TestReconcile(t *testing.T) {
 			kpa(testNamespace, testRevision, markActive),
 			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector)),
 			scaleResource(testNamespace, testRevision, withLabelSelector("a=b")),
-			makeTestEndpoints(1, testNamespace, testRevision),
 		},
 		WithReactors: []clientgotesting.ReactionFunc{
 			InduceFailure("create", "serverlessservices"),
@@ -460,7 +470,6 @@ func TestReconcile(t *testing.T) {
 			sks(testNamespace, testRevision, WithSelector(map[string]string{"i-havent": "slept-a-wink"})),
 			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector)),
 			scaleResource(testNamespace, testRevision, withLabelSelector("a=b")),
-			makeTestEndpoints(1, testNamespace, testRevision),
 		},
 		WithReactors: []clientgotesting.ReactionFunc{
 			InduceFailure("update", "serverlessservices"),
@@ -477,10 +486,9 @@ func TestReconcile(t *testing.T) {
 		Key:  key,
 		Objects: []runtime.Object{
 			kpa(testNamespace, testRevision, markActive),
-			sks(testNamespace, testRevision, WithSelector(usualSelector), WithSKSOwnersRemoved),
+			sks(testNamespace, testRevision, WithSelector(usualSelector), WithSKSReady, WithSKSOwnersRemoved),
 			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector)),
 			scaleResource(testNamespace, testRevision, withLabelSelector("a=b")),
-			makeTestEndpoints(1, testNamespace, testRevision),
 		},
 		WantErr: true,
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
@@ -578,12 +586,18 @@ func TestControllerSynchronizesCreatesAndDeletes(t *testing.T) {
 	rev := newTestRevision(testNamespace, testRevision)
 	servingClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
 	servingInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
-	ep := addEndpoint(makeEndpoints(rev))
+	ep := makeSKSPrivateEndpoints(1, testNamespace, testRevision)
 	kubeClient.CoreV1().Endpoints(testNamespace).Create(ep)
 	kubeInformer.Core().V1().Endpoints().Informer().GetIndexer().Add(ep)
 	kpa := revisionresources.MakeKPA(rev)
 	servingClient.AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
 	servingInformer.Autoscaling().V1alpha1().PodAutoscalers().Informer().GetIndexer().Add(kpa)
+
+	sks := sks(testNamespace, testRevision, WithSelector(map[string]string{
+		serving.RevisionLabelKey: rev.Name,
+	}), WithSKSReady)
+	servingClient.NetworkingV1alpha1().ServerlessServices(testNamespace).Create(sks)
+	servingInformer.Networking().V1alpha1().ServerlessServices().Informer().GetIndexer().Add(sks)
 
 	msvc := resources.MakeMetricsService(kpa, map[string]string{
 		serving.RevisionLabelKey: rev.Name,
@@ -605,8 +619,8 @@ func TestControllerSynchronizesCreatesAndDeletes(t *testing.T) {
 	if err != nil {
 		t.Errorf("Get() = %v", err)
 	}
-	if cond := newKPA.Status.GetCondition("Ready"); cond == nil || cond.Status != "True" {
-		t.Errorf("GetCondition(Ready) = %v, wanted True", cond)
+	if !newKPA.Status.IsReady() {
+		t.Error("Status.IsReady() was false")
 	}
 
 	servingClient.ServingV1alpha1().Revisions(testNamespace).Delete(testRevision, nil)
@@ -1134,8 +1148,7 @@ func (km *testDeciders) Update(ctx context.Context, decider *autoscaler.Decider)
 	return decider, nil
 }
 
-func (km *testDeciders) Watch(fn func(string)) {
-}
+func (km *testDeciders) Watch(fn func(string)) {}
 
 type failingDeciders struct {
 	getErr    error
@@ -1224,6 +1237,20 @@ func newTestRevision(namespace string, name string) *v1alpha1.Revision {
 			DeprecatedConcurrencyModel: v1alpha1.RevisionRequestConcurrencyModelSingle,
 		},
 	}
+}
+
+func makeSKSPrivateEndpoints(num int, ns, n string) *corev1.Endpoints {
+	s := sks(testNamespace, testRevision, WithPrivateService)
+	eps := &corev1.Endpoints{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: s.Namespace,
+			Name:      s.Status.PrivateServiceName,
+		},
+	}
+	for i := 0; i < num; i++ {
+		eps = addEndpoint(eps)
+	}
+	return eps
 }
 
 func makeEndpoints(rev *v1alpha1.Revision) *corev1.Endpoints {

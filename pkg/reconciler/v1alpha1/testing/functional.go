@@ -999,6 +999,13 @@ func WithSelector(sel map[string]string) SKSOption {
 	}
 }
 
+// WithSKSReady marks SKS as ready.
+func WithSKSReady(sks *netv1alpha1.ServerlessService) {
+	WithPrivateService(sks)
+	WithPubService(sks)
+	sks.Status.MarkEndpointsReady()
+}
+
 // WithPrivateService annotates SKS status with the private service name.
 func WithPrivateService(sks *netv1alpha1.ServerlessService) {
 	sks.Status.PrivateServiceName = names.PrivateService(sks)
