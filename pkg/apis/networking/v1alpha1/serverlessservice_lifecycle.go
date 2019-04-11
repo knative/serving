@@ -18,6 +18,7 @@ package v1alpha1
 
 import (
 	"github.com/knative/pkg/apis"
+	duckv1beta1 "github.com/knative/pkg/apis/duck/v1beta1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
@@ -62,4 +63,8 @@ func (sss *ServerlessServiceStatus) MarkEndpointsNotReady(reason string) {
 // IsReady returns true if ServerlessService is ready.
 func (sss *ServerlessServiceStatus) IsReady() bool {
 	return serverlessServiceCondSet.Manage(sss).IsHappy()
+}
+
+func (sss *ServerlessServiceStatus) duck() *duckv1beta1.Status {
+	return &sss.Status
 }

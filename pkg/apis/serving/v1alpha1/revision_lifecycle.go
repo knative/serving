@@ -23,6 +23,7 @@ import (
 
 	"github.com/knative/pkg/apis"
 	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
+	duckv1beta1 "github.com/knative/pkg/apis/duck/v1beta1"
 	net "github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/serving"
 	corev1 "k8s.io/api/core/v1"
@@ -286,4 +287,8 @@ func (r *Revision) GetLastPinned() (time.Time, error) {
 	}
 
 	return time.Unix(secs, 0), nil
+}
+
+func (rs *RevisionStatus) duck() *duckv1beta1.Status {
+	return &rs.Status
 }

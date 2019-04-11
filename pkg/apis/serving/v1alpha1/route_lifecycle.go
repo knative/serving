@@ -23,6 +23,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"github.com/knative/pkg/apis"
+	duckv1beta1 "github.com/knative/pkg/apis/duck/v1beta1"
 	"github.com/knative/serving/pkg/apis/networking/v1alpha1"
 )
 
@@ -107,4 +108,8 @@ func (rs *RouteStatus) PropagateClusterIngressStatus(cs v1alpha1.IngressStatus) 
 	case cc.Status == corev1.ConditionFalse:
 		routeCondSet.Manage(rs).MarkFalse(RouteConditionIngressReady, cc.Reason, cc.Message)
 	}
+}
+
+func (rs *RouteStatus) duck() *duckv1beta1.Status {
+	return &rs.Status
 }
