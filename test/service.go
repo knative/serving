@@ -184,14 +184,14 @@ func CreateRunLatestServiceReady(t *testing.T, clients *Clients, names *Resource
 // CreateReleaseService creates a service in namespace with the name names.Service and names.Image,
 // configured with `@latest` revision.
 func CreateReleaseService(t *testing.T, clients *Clients, names ResourceNames, options *Options, fopt ...rtesting.ServiceOption) (*v1alpha1.Service, error) {
-	service := ReleaseLatestService(ServingNamespace, names, options, fopt...)
+	service := ReleaseLatestService(names, options, fopt...)
 	LogResourceObject(t, ResourceObjects{Service: service})
 	return clients.ServingClient.Services.Create(service)
 }
 
 // CreateLatestService creates a service in namespace with the name names.Service and names.Image
 func CreateLatestService(t *testing.T, clients *Clients, names ResourceNames, options *Options, fopt ...rtesting.ServiceOption) (*v1alpha1.Service, error) {
-	service := LatestService(ServingNamespace, names, options, fopt...)
+	service := LatestService(names, options, fopt...)
 	LogResourceObject(t, ResourceObjects{Service: service})
 	svc, err := clients.ServingClient.Services.Create(service)
 	return svc, err
