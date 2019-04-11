@@ -223,7 +223,7 @@ func (c *Reconciler) reconcileSKS(ctx context.Context, pa *pav1alpha1.PodAutosca
 		return err
 	} else if !metav1.IsControlledBy(sks, pa) {
 		pa.Status.MarkResourceNotOwned("ServerlessService", sksName)
-		return fmt.Errorf("KPA: %q does not own SKS: %q", pa.Name, sksName)
+		return fmt.Errorf("HPA: %q does not own SKS: %q", pa.Name, sksName)
 	}
 	tmpl := aresources.MakeSKS(pa, selector, nv1alpha1.SKSOperationModeServe)
 	if !equality.Semantic.DeepEqual(tmpl.Spec, sks.Spec) {

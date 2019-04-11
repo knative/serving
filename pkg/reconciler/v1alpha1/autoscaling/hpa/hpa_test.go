@@ -168,7 +168,7 @@ func TestReconcile(t *testing.T) {
 			Object: pa(testRevision, testNamespace, WithHPAClass, MarkResourceNotOwnedByPA("ServerlessService", testRevision)),
 		}},
 		WantEvents: []string{
-			Eventf(corev1.EventTypeWarning, "InternalError", `error reconciling SKS: KPA: "test-revision" does not own SKS: "test-revision"`),
+			Eventf(corev1.EventTypeWarning, "InternalError", `error reconciling SKS: HPA: "test-revision" does not own SKS: "test-revision"`),
 		},
 	}, {
 		Name: "pa is disowned",
