@@ -680,7 +680,7 @@ func TestUpdate(t *testing.T) {
 	rev := newTestRevision(testNamespace, testRevision)
 	servingClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
 	servingInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
-	ep := addEndpoint(makeEndpoints(rev))
+	ep := makeSKSPrivateEndpoints(1, testNamespace, testRevision)
 	kubeClient.CoreV1().Endpoints(testNamespace).Create(ep)
 	kubeInformer.Core().V1().Endpoints().Informer().GetIndexer().Add(ep)
 	kpa := revisionresources.MakeKPA(rev)
@@ -692,9 +692,10 @@ func TestUpdate(t *testing.T) {
 	})
 	kubeClient.CoreV1().Services(testNamespace).Create(msvc)
 	kubeInformer.Core().V1().Services().Informer().GetIndexer().Add(msvc)
-	sks := aresources.MakeSKS(kpa, map[string]string{
+
+	sks := sks(testNamespace, testRevision, WithSelector(map[string]string{
 		serving.RevisionLabelKey: rev.Name,
-	}, nv1a1.SKSOperationModeServe)
+	}), WithSKSReady)
 	servingClient.NetworkingV1alpha1().ServerlessServices(testNamespace).Create(sks)
 	servingInformer.Networking().V1alpha1().ServerlessServices().Informer().GetIndexer().Add(sks)
 
