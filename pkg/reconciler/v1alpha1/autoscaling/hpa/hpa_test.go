@@ -30,7 +30,6 @@ import (
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/autoscaling/hpa/resources"
 	aresources "github.com/knative/serving/pkg/reconciler/v1alpha1/autoscaling/resources"
 	. "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
-	presources "github.com/knative/serving/pkg/resources"
 
 	autoscalingv1 "k8s.io/api/autoscaling/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -90,7 +89,16 @@ func TestControllerCanReconcile(t *testing.T) {
 func TestReconcile(t *testing.T) {
 	var usualSelector = map[string]string{"a": "b"}
 	table := TableTest{{
-		Name: "create hpa",
+		Name: "no op",
+		Objects: []runtime.Object{
+			hpa(testRevision, testNamespace, pa(testRevision, testNamespace, WithHPAClass, WithMetricAnnotation("cpu"))),
+			pa(testRevision, testNamespace, WithHPAClass, WithTraffic),
+			scaleResource(testNamespace, testRevision, withLabelSelector("a=b")),
+			sks(testNamespace, testRevision, WithSelector(usualSelector), WithSKSReady),
+		},
+		Key: key(testRevision, testNamespace),
+	}, {
+		Name: "create hpa & sks",
 		Objects: []runtime.Object{
 			pa(testRevision, testNamespace, WithHPAClass),
 			scaleResource(testNamespace, testRevision, withLabelSelector("a=b")),
@@ -101,16 +109,22 @@ func TestReconcile(t *testing.T) {
 			hpa(testRevision, testNamespace, pa(testRevision, testNamespace, WithHPAClass, WithMetricAnnotation("cpu"))),
 		},
 		WantStatusUpdates: []ktesting.UpdateActionImpl{{
-			Object: pa(testRevision, testNamespace, WithHPAClass, WithTraffic),
+			Object: pa(testRevision, testNamespace, WithHPAClass,
+				WithNoTraffic("ServicesNotReady", "SKS Services are not ready yet")),
 		}},
 	}, {
 		Name: "reconcile sks",
 		Objects: []runtime.Object{
 			pa(testRevision, testNamespace, WithHPAClass, WithTraffic),
 			scaleResource(testNamespace, testRevision, withLabelSelector("a=b")),
-			sks(testNamespace, testRevision, WithSelector(presources.UnionMaps(usualSelector, map[string]string{"c": "d"}))),
+			sks(testNamespace, testRevision,
+				WithSelector(map[string]string{"c": "d"}), WithSKSReady),
 			hpa(testRevision, testNamespace, pa(testRevision, testNamespace, WithHPAClass, WithMetricAnnotation("cpu"))),
 		},
+		WantStatusUpdates: []ktesting.UpdateActionImpl{{
+			Object: pa(testRevision, testNamespace, WithHPAClass,
+				WithNoTraffic("ServicesNotReady", "SKS Services are not ready yet")),
+		}},
 		Key: key(testRevision, testNamespace),
 		WantUpdates: []ktesting.UpdateActionImpl{{
 			Object: sks(testNamespace, testRevision, WithSelector(usualSelector)),
@@ -120,7 +134,8 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			pa(testRevision, testNamespace, WithHPAClass, WithTraffic),
 			scaleResource(testNamespace, testRevision, withLabelSelector("a=b")),
-			sks(testNamespace, testRevision, WithSelector(presources.UnionMaps(usualSelector, map[string]string{"c": "d"}))),
+			sks(testNamespace, testRevision,
+				WithSelector(map[string]string{"c": "d"}), WithSKSReady),
 			hpa(testRevision, testNamespace, pa(testRevision, testNamespace, WithHPAClass, WithMetricAnnotation("cpu"))),
 		},
 		Key: key(testRevision, testNamespace),
@@ -132,7 +147,7 @@ func TestReconcile(t *testing.T) {
 			Object: sks(testNamespace, testRevision, WithSelector(usualSelector)),
 		}},
 		WantEvents: []string{
-			Eventf(corev1.EventTypeWarning, "InternalError", "error reconciling SKS: inducing failure for update serverlessservices"),
+			Eventf(corev1.EventTypeWarning, "InternalError", "error reconciling SKS: error updating SKS test-revision: inducing failure for update serverlessservices"),
 		},
 	}, {
 		Name: "create sks - create fails",
@@ -157,18 +172,16 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			pa(testRevision, testNamespace, WithHPAClass),
 			scaleResource(testNamespace, testRevision, withLabelSelector("a=b")),
-			sks(testNamespace, testRevision, WithSelector(usualSelector), WithSKSOwnersRemoved),
-		},
-		Key: key(testRevision, testNamespace),
-		WantCreates: []metav1.Object{
+			sks(testNamespace, testRevision, WithSelector(usualSelector), WithSKSOwnersRemoved, WithSKSReady),
 			hpa(testRevision, testNamespace, pa(testRevision, testNamespace, WithHPAClass, WithMetricAnnotation("cpu"))),
 		},
+		Key:     key(testRevision, testNamespace),
 		WantErr: true,
 		WantStatusUpdates: []ktesting.UpdateActionImpl{{
 			Object: pa(testRevision, testNamespace, WithHPAClass, MarkResourceNotOwnedByPA("ServerlessService", testRevision)),
 		}},
 		WantEvents: []string{
-			Eventf(corev1.EventTypeWarning, "InternalError", `error reconciling SKS: KPA: "test-revision" does not own SKS: "test-revision"`),
+			Eventf(corev1.EventTypeWarning, "InternalError", `error reconciling SKS: HPA: "test-revision" does not own SKS: "test-revision"`),
 		},
 	}, {
 		Name: "pa is disowned",

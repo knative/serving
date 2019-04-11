@@ -357,17 +357,16 @@ func (c *Reconciler) reconcileMetricsService(ctx context.Context, pa *pav1alpha1
 	} else if !metav1.IsControlledBy(svc, pa) {
 		pa.Status.MarkResourceNotOwned("Service", sn)
 		return fmt.Errorf("KPA: %s does not own Service: %s", pa.Name, sn)
-	} else {
-		tmpl := resources.MakeMetricsService(pa, selector)
-		want := svc.DeepCopy()
-		want.Spec.Ports = tmpl.Spec.Ports
-		want.Spec.Selector = tmpl.Spec.Selector
+	}
+	tmpl := resources.MakeMetricsService(pa, selector)
+	want := svc.DeepCopy()
+	want.Spec.Ports = tmpl.Spec.Ports
+	want.Spec.Selector = tmpl.Spec.Selector
 
-		if !equality.Semantic.DeepEqual(want.Spec, svc.Spec) {
-			logger.Info("Metrics K8s Service changed; reconciling:", sn)
-			if _, err = c.KubeClientSet.CoreV1().Services(pa.Namespace).Update(want); err != nil {
-				return perrors.Wrapf(err, "error updating K8s Service %s", sn)
-			}
+	if !equality.Semantic.DeepEqual(want.Spec, svc.Spec) {
+		logger.Info("Metrics K8s Service changed; reconciling:", sn)
+		if _, err = c.KubeClientSet.CoreV1().Services(pa.Namespace).Update(want); err != nil {
+			return perrors.Wrapf(err, "error updating K8s Service %s", sn)
 		}
 	}
 	logger.Debug("Done reconciling metrics K8s service", sn)
