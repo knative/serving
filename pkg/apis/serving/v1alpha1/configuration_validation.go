@@ -47,8 +47,9 @@ func (cs *ConfigurationSpec) Validate(ctx context.Context) *apis.FieldError {
 		return apis.ErrMissingField("revisionTemplate")
 	}
 
-	var errs *apis.FieldError
-	// TODO(mattmoor): Check ObjectMeta for Name/Namespace/GenerateName
+	errs := CheckDeprecated(ctx, map[string]interface{}{
+		"generation": cs.DeprecatedGeneration,
+	})
 
 	if cs.Build == nil {
 		// No build was specified.
