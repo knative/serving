@@ -51,7 +51,7 @@ func TestControllerCanReconcile(t *testing.T) {
 	kubeClient := fakeK8s.NewSimpleClientset()
 	servingClient := fakeKna.NewSimpleClientset()
 
-	scaleClient := &fakescaleclient.FakeScaleClient{kubeClient.Fake}
+	scaleClient := &fakescaleclient.FakeScaleClient{Fake: kubeClient.Fake}
 	scaleClient.PrependReactor("get", "deployments", func(action ktesting.Action) (bool, runtime.Object, error) {
 		return true, scaleResource(testNamespace, testRevision, withLabelSelector("a=b")), nil
 	})
@@ -115,11 +115,12 @@ func TestReconcile(t *testing.T) {
 	}, {
 		Name: "reconcile sks",
 		Objects: []runtime.Object{
+			hpa(testRevision, testNamespace,
+				pa(testRevision, testNamespace, WithHPAClass, WithMetricAnnotation("cpu"))),
 			pa(testRevision, testNamespace, WithHPAClass, WithTraffic),
 			scaleResource(testNamespace, testRevision, withLabelSelector("a=b")),
-			sks(testNamespace, testRevision,
-				WithSelector(map[string]string{"c": "d"}), WithSKSReady),
-			hpa(testRevision, testNamespace, pa(testRevision, testNamespace, WithHPAClass, WithMetricAnnotation("cpu"))),
+			sks(testNamespace, testRevision, WithSelector(map[string]string{"c": "d"}),
+				WithSKSReady),
 		},
 		WantStatusUpdates: []ktesting.UpdateActionImpl{{
 			Object: pa(testRevision, testNamespace, WithHPAClass,
@@ -165,7 +166,7 @@ func TestReconcile(t *testing.T) {
 			sks(testNamespace, testRevision, WithSelector(usualSelector)),
 		},
 		WantEvents: []string{
-			Eventf(corev1.EventTypeWarning, "InternalError", "error reconciling SKS: inducing failure for create serverlessservices"),
+			Eventf(corev1.EventTypeWarning, "InternalError", "error reconciling SKS: error creating SKS test-revision: inducing failure for create serverlessservices"),
 		},
 	}, {
 		Name: "sks is disowned",
@@ -278,7 +279,7 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			pa(testRevision, testNamespace, WithHPAClass, WithTraffic, WithTargetAnnotation("1")),
 			hpa(testRevision, testNamespace, pa(testRevision, testNamespace, WithHPAClass, WithMetricAnnotation("cpu"))),
-			sks(testNamespace, testRevision, WithSelector(usualSelector)),
+			sks(testNamespace, testRevision, WithSelector(usualSelector), WithSKSReady),
 			scaleResource(testNamespace, testRevision, withLabelSelector("a=b")),
 		},
 		Key: key(testRevision, testNamespace),
