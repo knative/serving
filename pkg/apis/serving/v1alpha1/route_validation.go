@@ -37,10 +37,13 @@ func (rs *RouteSpec) Validate(ctx context.Context) *apis.FieldError {
 		return apis.ErrMissingField(apis.CurrentField)
 	}
 
+	errs := CheckDeprecated(ctx, map[string]interface{}{
+		"generation": rs.DeprecatedGeneration,
+	})
+
 	// Track the targets of named TrafficTarget entries (to detect duplicates).
 	trafficMap := make(map[string]int)
 
-	var errs *apis.FieldError
 	percentSum := 0
 	for i, tt := range rs.Traffic {
 		errs = errs.Also(tt.Validate(ctx).ViaFieldIndex("traffic", i))

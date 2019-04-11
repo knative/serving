@@ -87,8 +87,14 @@ func (rs *RevisionSpec) Validate(ctx context.Context) *apis.FieldError {
 		return apis.ErrMissingField(apis.CurrentField)
 	}
 
+	errs := CheckDeprecated(ctx, map[string]interface{}{
+		"generation":       rs.DeprecatedGeneration,
+		"servingState":     rs.DeprecatedServingState,
+		"concurrencyModel": rs.DeprecatedConcurrencyModel,
+		"buildName":        rs.DeprecatedBuildName,
+	})
+
 	volumes := sets.NewString()
-	var errs *apis.FieldError
 	for i, volume := range rs.Volumes {
 		if volumes.Has(volume.Name) {
 			errs = errs.Also((&apis.FieldError{
