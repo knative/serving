@@ -27,3 +27,9 @@ func Int64(i int64) *int64 {
 func Bool(b bool) *bool {
 	return &b
 }
+
+// String is a helper for turning strings into pointers for use in
+// API types that want *string.
+func String(s string) *string {
+	return &s
+}
