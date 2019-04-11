@@ -45,7 +45,7 @@ func GetSecrets(ci *v1alpha1.ClusterIngress, secretLister corev1listers.SecretLi
 	return secrets, nil
 }
 
-// MakeSecrets makes copies of the orgin Secrets under the namespace of Istio gateway service.
+// MakeSecrets makes copies of the origin Secrets under the namespace of Istio gateway service.
 func MakeSecrets(ctx context.Context, originSecrets map[string]*corev1.Secret) []*corev1.Secret {
 	gatewaySvcNamespaces := getAllGatewaySvcNamespaces(ctx)
 	secrets := []*corev1.Secret{}
