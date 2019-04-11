@@ -170,6 +170,31 @@ func TestConfigurationSpecValidation(t *testing.T) {
 			},
 		},
 		want: apis.ErrMultipleOneOf("revisionTemplate", "template"),
+	}, {
+		name: "just template",
+		c: &ConfigurationSpec{
+			Template: &RevisionTemplateSpec{
+				Spec: RevisionSpec{
+					Container: &corev1.Container{
+						Image: "hellworld",
+					},
+				},
+			},
+		},
+		want: nil,
+	}, {
+		name: "just template (don't allow deprecated fields)",
+		c: &ConfigurationSpec{
+			Template: &RevisionTemplateSpec{
+				Spec: RevisionSpec{
+					DeprecatedConcurrencyModel: "Multi",
+					Container: &corev1.Container{
+						Image: "hellworld",
+					},
+				},
+			},
+		},
+		want: apis.ErrDisallowedFields("template.spec.concurrencyModel"),
 	}}
 
 	for _, test := range tests {
