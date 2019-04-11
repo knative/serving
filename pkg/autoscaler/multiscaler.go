@@ -300,12 +300,6 @@ func (m *MultiScaler) tickScaler(ctx context.Context, scaler UniScaler, scaleCha
 			return
 		}
 
-		// Don't scale to zero if scale to zero is disabled.
-		if desiredScale == 0 && !m.dynConfig.Current().EnableScaleToZero {
-			logger.Warn("Cannot scale: Desired scale == 0 && EnableScaleToZero == false.")
-			return
-		}
-
 		scaleChan <- desiredScale
 	}
 }
