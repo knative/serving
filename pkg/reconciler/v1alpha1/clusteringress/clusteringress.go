@@ -24,7 +24,6 @@ import (
 
 	"github.com/knative/pkg/tracker"
 
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 
@@ -249,11 +248,12 @@ func (c *Reconciler) reconcile(ctx context.Context, ci *v1alpha1.ClusterIngress)
 			return err
 		}
 
-		desiredSecrets, err := resources.MakeSecrets(ctx, ci, c.secretLister)
+		originSecrets, err := resources.GetSecrets(ci, c.secretLister)
 		if err != nil {
 			return err
 		}
-		if err := c.reconcileCertSecrets(ctx, ci, desiredSecrets); err != nil {
+		targetSecrets := resources.MakeSecrets(ctx, originSecrets)
+		if err := c.reconcileCertSecrets(ctx, ci, targetSecrets); err != nil {
 			return err
 		}
 
@@ -262,7 +262,10 @@ func (c *Reconciler) reconcile(ctx context.Context, ci *v1alpha1.ClusterIngress)
 			if err != nil {
 				return err
 			}
-			desired := resources.MakeServers(ci, ns)
+			desired, err := resources.MakeServers(ci, ns, originSecrets)
+			if err != nil {
+				return err
+			}
 			if err := c.reconcileGateway(ctx, ci, gatewayName, desired); err != nil {
 				return err
 			}
@@ -452,9 +455,8 @@ func (c *Reconciler) reconcileCertSecrets(ctx context.Context, ci *v1alpha1.Clus
 }
 
 func (c *Reconciler) reconcileCertSecret(ctx context.Context, ci *v1alpha1.ClusterIngress, desired *corev1.Secret) error {
-	gvk := corev1.SchemeGroupVersion.WithKind("Secret")
-	c.tracker.Track(objectRef(desired.Namespace, desired.Name, gvk), ci)
-	c.tracker.Track(objectRef(desired.Labels[networking.OriginSecretNamespaceLabelKey], desired.Labels[networking.OriginSecretNameLabelKey], gvk), ci)
+	c.tracker.Track(resources.SecretRef(desired.Namespace, desired.Name), ci)
+	c.tracker.Track(resources.SecretRef(desired.Labels[networking.OriginSecretNamespaceLabelKey], desired.Labels[networking.OriginSecretNameLabelKey]), ci)
 
 	logger := logging.FromContext(ctx)
 	existing, err := c.secretLister.Secrets(desired.Namespace).Get(desired.Name)
@@ -485,14 +487,4 @@ func (c *Reconciler) reconcileCertSecret(ctx context.Context, ci *v1alpha1.Clust
 			"Updated Secret %s/%s", copy.Namespace, copy.Name)
 	}
 	return nil
-}
-
-func objectRef(namespace, name string, gvk schema.GroupVersionKind) corev1.ObjectReference {
-	apiVersion, kind := gvk.ToAPIVersionAndKind()
-	return corev1.ObjectReference{
-		APIVersion: apiVersion,
-		Kind:       kind,
-		Namespace:  namespace,
-		Name:       name,
-	}
 }

@@ -25,6 +25,7 @@ import (
 	"github.com/knative/pkg/apis/istio/v1alpha3"
 	"github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/clusteringress/config"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
@@ -68,9 +69,9 @@ func sortServers(servers []v1alpha3.Server) []v1alpha3.Server {
 	return servers
 }
 
-// MakeServers creates the expected Gateway `Servers` according to the given
+// MakeServers creates the expected Gateway `Servers` based on the given
 // ClusterIngress.
-func MakeServers(ci *v1alpha1.ClusterIngress, gatewayServiceNamespace string) []v1alpha3.Server {
+func MakeServers(ci *v1alpha1.ClusterIngress, gatewayServiceNamespace string, originSecrets map[string]*corev1.Secret) ([]v1alpha3.Server, error) {
 	servers := []v1alpha3.Server{}
 	// TODO(zhiminx): for the hosts that does not included in the ClusterIngressTLS but listed in the ClusterIngressRule,
 	// do we consider them as hosts for HTTP?
@@ -79,7 +80,11 @@ func MakeServers(ci *v1alpha1.ClusterIngress, gatewayServiceNamespace string) []
 		// If the origin secret is not in the target namespace, then it should have been
 		// copied into the target namespace. So we use the name of the copy.
 		if tls.SecretNamespace != gatewayServiceNamespace {
-			credentialName = targetSecret(tls.SecretNamespace, tls.SecretName)
+			orginSecret, ok := originSecrets[fmt.Sprintf("%s/%s", tls.SecretNamespace, tls.SecretName)]
+			if !ok {
+				return nil, fmt.Errorf("Unable to get the original secret %s/%s", tls.SecretNamespace, tls.SecretName)
+			}
+			credentialName = targetSecret(orginSecret)
 		}
 		servers = append(servers, v1alpha3.Server{
 			Hosts: tls.Hosts,
@@ -96,7 +101,7 @@ func MakeServers(ci *v1alpha1.ClusterIngress, gatewayServiceNamespace string) []
 			},
 		})
 	}
-	return sortServers(servers)
+	return sortServers(servers), nil
 }
 
 // GatewayServiceNamespace returns the namespace of the gateway service that the `Gateway` object

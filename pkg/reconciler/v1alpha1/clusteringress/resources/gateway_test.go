@@ -23,8 +23,23 @@ import (
 	"github.com/knative/pkg/apis/istio/v1alpha3"
 	"github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/clusteringress/config"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
+
+var secret = corev1.Secret{
+	ObjectMeta: metav1.ObjectMeta{
+		Name:      "secret0",
+		Namespace: "knative-serving",
+	},
+	Data: map[string][]byte{
+		"test": []byte("test"),
+	},
+}
+
+var originSecrets = map[string]*corev1.Secret{
+	"knative-serving/secret0": &secret,
+}
 
 var gateway = v1alpha3.Gateway{
 	Spec: v1alpha3.GatewaySpec{
@@ -103,12 +118,15 @@ func TestMakeServers(t *testing.T) {
 		name                    string
 		ci                      *v1alpha1.ClusterIngress
 		gatewayServiceNamespace string
+		originSecrets           map[string]*corev1.Secret
 		expected                []v1alpha3.Server
+		wantErr                 bool
 	}{{
 		name: "secret namespace is the different from the gateway service namespace",
 		ci:   &clusterIngress,
 		// gateway service namespace is "istio-system", while the secret namespace is "knative-serving".
 		gatewayServiceNamespace: "istio-system",
+		originSecrets:           originSecrets,
 		expected: []v1alpha3.Server{{
 			Hosts: []string{"host1.example.com"},
 			Port: v1alpha3.Port{
@@ -120,7 +138,7 @@ func TestMakeServers(t *testing.T) {
 				Mode:              v1alpha3.TLSModeSimple,
 				ServerCertificate: "tls.crt",
 				PrivateKey:        "tls.key",
-				CredentialName:    targetSecret("knative-serving", "secret0"),
+				CredentialName:    targetSecret(&secret),
 			},
 		}},
 	}, {
@@ -128,6 +146,7 @@ func TestMakeServers(t *testing.T) {
 		ci:   &clusterIngress,
 		// gateway service namespace and the secret namespace are both in "knative-serving".
 		gatewayServiceNamespace: "knative-serving",
+		originSecrets:           originSecrets,
 		expected: []v1alpha3.Server{{
 			Hosts: []string{"host1.example.com"},
 			Port: v1alpha3.Port{
@@ -142,10 +161,19 @@ func TestMakeServers(t *testing.T) {
 				CredentialName:    "secret0",
 			},
 		}},
+	}, {
+		name:                    "error to make servers because of incorrect originSecrets",
+		ci:                      &clusterIngress,
+		gatewayServiceNamespace: "istio-system",
+		originSecrets:           map[string]*corev1.Secret{},
+		wantErr:                 true,
 	}}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			servers := MakeServers(c.ci, c.gatewayServiceNamespace)
+			servers, err := MakeServers(c.ci, c.gatewayServiceNamespace, c.originSecrets)
+			if (err != nil) != c.wantErr {
+				t.Fatalf("Test: %s; MakeServers error = %v, WantErr %v", c.name, err, c.wantErr)
+			}
 			if diff := cmp.Diff(c.expected, servers); diff != "" {
 				t.Errorf("Unexpected servers (-want, +got): %v", diff)
 			}
