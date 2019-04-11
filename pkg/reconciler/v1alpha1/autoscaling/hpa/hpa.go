@@ -167,7 +167,6 @@ func (c *Reconciler) reconcile(ctx context.Context, key string, pa *pav1alpha1.P
 	// HPA-class PA delegates autoscaling to the Kubernetes Horizontal Pod Autoscaler.
 	desiredHpa := resources.MakeHPA(pa)
 	hpa, err := c.hpaLister.HorizontalPodAutoscalers(pa.Namespace).Get(desiredHpa.Name)
-	logger.Errorf("###### %v ===> %v", hpa, err)
 	if errors.IsNotFound(err) {
 		logger.Infof("Creating HPA %q", desiredHpa.Name)
 		if hpa, err = c.KubeClientSet.AutoscalingV1().HorizontalPodAutoscalers(pa.Namespace).Create(desiredHpa); err != nil {
@@ -201,6 +200,9 @@ func (c *Reconciler) reconcile(ctx context.Context, key string, pa *pav1alpha1.P
 	}
 	if !sks.Status.IsReady() {
 		pa.Status.MarkInactive("ServicesNotReady", "SKS Services are not ready yet")
+	} else {
+		pa.Status.MarkActive()
+		pa.Status.ServiceName = sks.Status.ServiceName
 	}
 
 	pa.Status.ObservedGeneration = pa.Generation

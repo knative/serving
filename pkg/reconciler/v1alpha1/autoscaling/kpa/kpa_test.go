@@ -405,12 +405,25 @@ func TestReconcile(t *testing.T) {
 		Name: "steady state",
 		Key:  key,
 		Objects: []runtime.Object{
-			kpa(testNamespace, testRevision, markActive),
+			kpa(testNamespace, testRevision, markActive, WithPAStatusService(testRevision+"-pub")),
 			sks(testNamespace, testRevision, WithSelector(usualSelector), WithSKSReady),
 			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector)),
 			scaleResource(testNamespace, testRevision, withLabelSelector("a=b")),
 			makeSKSPrivateEndpoints(1, testNamespace, testRevision),
 		},
+	}, {
+		Name: "sks becomes ready",
+		Key:  key,
+		Objects: []runtime.Object{
+			kpa(testNamespace, testRevision),
+			sks(testNamespace, testRevision, WithSelector(usualSelector), WithSKSReady),
+			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector)),
+			scaleResource(testNamespace, testRevision, withLabelSelector("a=b")),
+			makeSKSPrivateEndpoints(1, testNamespace, testRevision),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: kpa(testNamespace, testRevision, markActive, WithPAStatusService(testRevision+"-pub")),
+		}},
 	}, {
 		Name: "sks does not exist",
 		Key:  key,

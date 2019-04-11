@@ -92,7 +92,7 @@ func TestReconcile(t *testing.T) {
 		Name: "no op",
 		Objects: []runtime.Object{
 			hpa(testRevision, testNamespace, pa(testRevision, testNamespace, WithHPAClass, WithMetricAnnotation("cpu"))),
-			pa(testRevision, testNamespace, WithHPAClass, WithTraffic),
+			pa(testRevision, testNamespace, WithHPAClass, WithTraffic, WithPAStatusService(testRevision+"-pub")),
 			scaleResource(testNamespace, testRevision, withLabelSelector("a=b")),
 			sks(testNamespace, testRevision, WithSelector(usualSelector), WithSKSReady),
 		},
@@ -112,6 +112,19 @@ func TestReconcile(t *testing.T) {
 			Object: pa(testRevision, testNamespace, WithHPAClass,
 				WithNoTraffic("ServicesNotReady", "SKS Services are not ready yet")),
 		}},
+	}, {
+		Name: "reconcile sks becomes ready",
+		Objects: []runtime.Object{
+			hpa(testRevision, testNamespace,
+				pa(testRevision, testNamespace, WithHPAClass, WithMetricAnnotation("cpu"))),
+			pa(testRevision, testNamespace, WithHPAClass),
+			scaleResource(testNamespace, testRevision, withLabelSelector("a=b")),
+			sks(testNamespace, testRevision, WithSelector(usualSelector), WithSKSReady),
+		},
+		WantStatusUpdates: []ktesting.UpdateActionImpl{{
+			Object: pa(testRevision, testNamespace, WithHPAClass, WithTraffic, WithPAStatusService(testRevision+"-pub")),
+		}},
+		Key: key(testRevision, testNamespace),
 	}, {
 		Name: "reconcile sks",
 		Objects: []runtime.Object{
@@ -277,7 +290,8 @@ func TestReconcile(t *testing.T) {
 	}, {
 		Name: "update hpa with target usage",
 		Objects: []runtime.Object{
-			pa(testRevision, testNamespace, WithHPAClass, WithTraffic, WithTargetAnnotation("1")),
+			pa(testRevision, testNamespace, WithHPAClass, WithTraffic,
+				WithPAStatusService(testRevision+"-pub"), WithTargetAnnotation("1")),
 			hpa(testRevision, testNamespace, pa(testRevision, testNamespace, WithHPAClass, WithMetricAnnotation("cpu"))),
 			sks(testNamespace, testRevision, WithSelector(usualSelector), WithSKSReady),
 			scaleResource(testNamespace, testRevision, withLabelSelector("a=b")),

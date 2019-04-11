@@ -852,6 +852,13 @@ func WithTraffic(pa *autoscalingv1alpha1.PodAutoscaler) {
 	pa.Status.MarkActive()
 }
 
+// WithPAStatusService annotats PA Status with the provided service name.
+func WithPAStatusService(svc string) PodAutoscalerOption {
+	return func(pa *autoscalingv1alpha1.PodAutoscaler) {
+		pa.Status.ServiceName = svc
+	}
+}
+
 // WithBufferedTraffic updates the PA to reflect that it has received
 // and buffered traffic while it is being activated.
 func WithBufferedTraffic(reason, message string) PodAutoscalerOption {

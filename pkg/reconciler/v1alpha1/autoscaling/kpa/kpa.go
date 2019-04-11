@@ -267,6 +267,8 @@ func (c *Reconciler) reconcile(ctx context.Context, pa *pav1alpha1.PodAutoscaler
 	// state of the deployment.
 	got := 0
 	if sks.Status.IsReady() {
+		// Propagate service name.
+		pa.Status.ServiceName = sks.Status.ServiceName
 		got, err = resourceutil.FetchReadyAddressCount(c.endpointsLister, pa.Namespace, sks.Status.PrivateServiceName)
 		if err != nil {
 			return perrors.Wrapf(err, "error checking endpoints %s", sks.Status.PrivateServiceName)
