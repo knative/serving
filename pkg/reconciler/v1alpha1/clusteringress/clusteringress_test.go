@@ -595,16 +595,9 @@ func gateway(name, namespace string, servers []v1alpha3.Server) *v1alpha3.Gatewa
 }
 
 func originSecret(namespace, name string) *corev1.Secret {
-	return &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
-			UID:       "uid",
-		},
-		Data: map[string][]byte{
-			"test-secret": []byte("abcd"),
-		},
-	}
+	tmp := secret(namespace, name, map[string]string{})
+	tmp.UID = "uid"
+	return tmp
 }
 
 func secret(namespace, name string, labels map[string]string) *corev1.Secret {
