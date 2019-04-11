@@ -31,7 +31,6 @@ import (
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/config"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources"
 	resourcenames "github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources/names"
-	presources "github.com/knative/serving/pkg/resources"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -131,6 +130,7 @@ func (c *Reconciler) reconcileKPA(ctx context.Context, rev *v1alpha1.Revision) e
 	ns := rev.Namespace
 	kpaName := resourcenames.KPA(rev)
 	logger := logging.FromContext(ctx)
+	logger.Info("Reconciling KPA:", kpaName)
 
 	kpa, err := c.podAutoscalerLister.PodAutoscalers(ns).Get(kpaName)
 	if apierrs.IsNotFound(err) {
@@ -173,87 +173,19 @@ func (c *Reconciler) reconcileKPA(ctx context.Context, rev *v1alpha1.Revision) e
 		rev.Status.MarkActivating("Deploying", "")
 	case cond.Status == corev1.ConditionUnknown:
 		rev.Status.MarkActivating(cond.Reason, cond.Message)
+		// Since PA is not ready, we presume SKS isn't ready either.
+		rev.Status.MarkDeploying("Deploying")
 	case cond.Status == corev1.ConditionFalse:
 		rev.Status.MarkInactive(cond.Reason, cond.Message)
 	case cond.Status == corev1.ConditionTrue:
 		rev.Status.MarkActive()
-	}
-	return nil
-}
 
-func (c *Reconciler) reconcileService(ctx context.Context, rev *v1alpha1.Revision) error {
-	ns := rev.Namespace
-	serviceName := resourcenames.K8sService(rev)
-	logger := logging.FromContext(ctx).With(zap.String(logkey.KubernetesService, serviceName))
-
-	rev.Status.ServiceName = serviceName
-
-	service, err := c.serviceLister.Services(ns).Get(serviceName)
-	// When Active, the Service should exist and have a particular specification.
-	if apierrs.IsNotFound(err) {
-		// If it does not exist, then create it.
-		rev.Status.MarkDeploying("Deploying")
-		_, err = c.createService(ctx, rev, resources.MakeK8sService)
-		if err != nil {
-			logger.Errorf("Error creating Service %q: %v", serviceName, err)
-			return err
-		}
-		logger.Infof("Created Service %q", serviceName)
-	} else if err != nil {
-		logger.Errorf("Error reconciling Active Service %q: %v", serviceName, err)
-		return err
-	} else if !metav1.IsControlledBy(service, rev) {
-		// Surface an error in the revision's status, and return an error.
-		rev.Status.MarkResourceNotOwned("Service", serviceName)
-		return fmt.Errorf("Revision: %q does not own Service: %q", rev.Name, serviceName)
-	} else {
-		// If it exists, then make sure if looks as we expect.
-		// It may change if a user edits things around our controller, which we
-		// should not allow, or if our expectations of how the service should look
-		// changes (e.g. we update our controller with new sidecars).
-		_, changed, err := c.checkAndUpdateService(ctx, rev, resources.MakeK8sService, service)
-		if err != nil {
-			logger.Errorf("Error updating Service %q: %v", serviceName, err)
-			return err
-		}
-		if changed == wasChanged {
-			logger.Infof("Updated Service %q", serviceName)
-			rev.Status.MarkDeploying("Updating")
-		}
-	}
-
-	// We cannot determine readiness from the Service directly.  Instead, we look up
-	// the backing Endpoints resource and check it for healthy pods.  The name of the
-	// Endpoints resource matches the Service it backs.
-	endpoints, err := c.endpointsLister.Endpoints(ns).Get(serviceName)
-	if apierrs.IsNotFound(err) {
-		// If it isn't found, then we need to wait for the Service controller to
-		// create it.
-		logger.Infof("Endpoints not created yet %q", serviceName)
-		rev.Status.MarkDeploying("Deploying")
-		return nil
-	} else if err != nil {
-		logger.Errorf("Error checking Active Endpoints %q: %v", serviceName, err)
-		return err
-	}
-
-	// If the endpoints resource indicates that the Service it sits in front of is ready,
-	// then surface this in our Revision status as resources available (pods were scheduled)
-	// and container healthy (endpoints should be gated by any provided readiness checks).
-	if presources.ReadyAddressCount(endpoints) > 0 {
+		// Precondition for PA being active is SKS being active and
+		// that entices that |service.endpoints| > 0.
+		// Propagate the service name from the PA.
+		rev.Status.ServiceName = kpa.Status.ServiceName
 		rev.Status.MarkResourcesAvailable()
 		rev.Status.MarkContainerHealthy()
-	} else if !rev.Status.IsActivationRequired() {
-		// If the endpoints resource is NOT ready, then check whether it is taking unreasonably
-		// long to become ready and if so mark our revision as having timed out waiting
-		// for the Service to become ready.
-		revisionAge := time.Since(endpoints.CreationTimestamp.Time)
-		if revisionAge >= serviceTimeoutDuration {
-			rev.Status.MarkServiceTimeout()
-			// TODO(mattmoor): How to ensure this only fires once?
-			c.Recorder.Eventf(rev, corev1.EventTypeWarning, "RevisionFailed",
-				"Revision did not become ready due to endpoint %q", serviceName)
-		}
 	}
 	return nil
 }

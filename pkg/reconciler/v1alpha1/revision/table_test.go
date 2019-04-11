@@ -82,7 +82,7 @@ func TestReconcile(t *testing.T) {
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: rev("foo", "first-reconcile",
 				// The first reconciliation Populates the following status properties.
-				WithK8sServiceName, WithLogURL, AllUnknownConditions),
+				WithLogURL, AllUnknownConditions),
 		}},
 		Key: "foo/first-reconcile",
 	}, {
@@ -783,14 +783,13 @@ func TestReconcileWithVarLogEnabled(t *testing.T) {
 			// The first reconciliation of a Revision creates the following resources.
 			kpa("foo", "first-reconcile-var-log"),
 			deploy("foo", "first-reconcile-var-log", EnableVarLog),
-			svc("foo", "first-reconcile-var-log"),
 			fluentdConfigMap("foo", "first-reconcile-var-log", EnableVarLog),
 			image("foo", "first-reconcile-var-log", EnableVarLog),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: rev("foo", "first-reconcile-var-log",
 				// After the first reconciliation of a Revision the status looks like this.
-				WithK8sServiceName, WithLogURL, AllUnknownConditions),
+				WithLogURL, AllUnknownConditions),
 		}},
 		Key: "foo/first-reconcile-var-log",
 	}, {
@@ -805,7 +804,6 @@ func TestReconcileWithVarLogEnabled(t *testing.T) {
 		},
 		WantCreates: []metav1.Object{
 			deploy("foo", "create-configmap-failure", EnableVarLog),
-			svc("foo", "create-configmap-failure"),
 			fluentdConfigMap("foo", "create-configmap-failure", EnableVarLog),
 			image("foo", "create-configmap-failure", EnableVarLog),
 		},
@@ -829,7 +827,6 @@ func TestReconcileWithVarLogEnabled(t *testing.T) {
 				WithK8sServiceName, WithLogURL, AllUnknownConditions),
 			kpa("foo", "steady-state"),
 			deploy("foo", "steady-state", EnableVarLog),
-			svc("foo", "steady-state"),
 			fluentdConfigMap("foo", "steady-state", EnableVarLog),
 			image("foo", "steady-state", EnableVarLog),
 		},
@@ -842,7 +839,6 @@ func TestReconcileWithVarLogEnabled(t *testing.T) {
 				WithK8sServiceName, WithLogURL, AllUnknownConditions),
 			kpa("foo", "update-fluentd-config"),
 			deploy("foo", "update-fluentd-config", EnableVarLog),
-			svc("foo", "update-fluentd-config"),
 			&corev1.ConfigMap{
 				// Use the ObjectMeta, but discard the rest.
 				ObjectMeta: fluentdConfigMap("foo", "update-fluentd-config",
@@ -869,7 +865,6 @@ func TestReconcileWithVarLogEnabled(t *testing.T) {
 			rev("foo", "update-configmap-failure",
 				WithK8sServiceName, WithLogURL, AllUnknownConditions),
 			deploy("foo", "update-configmap-failure", EnableVarLog),
-			svc("foo", "update-configmap-failure"),
 			&corev1.ConfigMap{
 				// Use the ObjectMeta, but discard the rest.
 				ObjectMeta: fluentdConfigMap("foo", "update-configmap-failure",

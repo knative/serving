@@ -365,9 +365,6 @@ func (c *Reconciler) reconcile(ctx context.Context, rev *v1alpha1.Revision) erro
 			name: "image cache",
 			f:    c.reconcileImageCache,
 		}, {
-			name: "user k8s service",
-			f:    c.reconcileService,
-		}, {
 			// Ensures our namespace has the configuration for the fluentd sidecar.
 			name: "fluentd configmap",
 			f:    c.reconcileFluentdConfigMap,
