@@ -31,17 +31,13 @@ import (
 )
 
 func (pa *PodAutoscaler) Validate(ctx context.Context) *apis.FieldError {
-	errs := serving.ValidateObjectMetadata(pa.GetObjectMeta()).
-		ViaField("metadata").
-		Also(pa.Spec.Validate(ctx).ViaField("spec")).
-		Also(pa.validateMetric())
-
+	errs := serving.ValidateObjectMetadata(pa.GetObjectMeta()).ViaField("metadata")
+	errs = errs.Also(pa.validateMetric())
+	errs = errs.Also(pa.Spec.Validate(apis.WithinSpec(ctx)).ViaField("spec"))
 	if apis.IsInUpdate(ctx) {
 		original := apis.GetBaseline(ctx).(*PodAutoscaler)
-
 		errs = errs.Also(pa.checkImmutableFields(ctx, original))
 	}
-
 	return errs
 }
 

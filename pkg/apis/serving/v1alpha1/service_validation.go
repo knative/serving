@@ -27,8 +27,10 @@ import (
 
 // Validate validates the fields belonging to Service
 func (s *Service) Validate(ctx context.Context) *apis.FieldError {
-	return serving.ValidateObjectMetadata(s.GetObjectMeta()).ViaField("metadata").
-		Also(s.Spec.Validate(ctx).ViaField("spec"))
+	errs := serving.ValidateObjectMetadata(s.GetObjectMeta()).ViaField("metadata")
+	ctx = apis.WithinParent(ctx, s.ObjectMeta)
+	errs = errs.Also(s.Spec.Validate(apis.WithinSpec(ctx)).ViaField("spec"))
+	return errs
 }
 
 // Validate validates the fields belonging to ServiceSpec recursively
