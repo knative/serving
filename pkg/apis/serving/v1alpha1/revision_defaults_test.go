@@ -122,7 +122,7 @@ func TestRevisionDefaulting(t *testing.T) {
 			Spec: RevisionSpec{
 				ContainerConcurrency: 1,
 				TimeoutSeconds:       ptr.Int64(99),
-				Container:  &corev1.Container{},
+				Container:            &corev1.Container{},
 			},
 		},
 		want: &Revision{
@@ -139,7 +139,7 @@ func TestRevisionDefaulting(t *testing.T) {
 		in: &Revision{
 			Spec: RevisionSpec{
 				ContainerConcurrency: 123,
-				Container:  &corev1.Container{},
+				Container:            &corev1.Container{},
 			},
 		},
 		want: &Revision{
@@ -157,7 +157,7 @@ func TestRevisionDefaulting(t *testing.T) {
 			Spec: RevisionSpec{
 				DeprecatedConcurrencyModel: "Single",
 				ContainerConcurrency:       0, // unspecified
-				Container:        &corev1.Container{},
+				Container:                  &corev1.Container{},
 			},
 		},
 		want: &Revision{
