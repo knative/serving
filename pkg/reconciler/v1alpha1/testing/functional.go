@@ -161,9 +161,19 @@ func WithVolume(name, mountPath string, volumeSource corev1.VolumeSource) Servic
 	}
 }
 
+<<<<<<< HEAD
 func WithServiceAnnotations(annotations map[string]string) ServiceOption {
 	return func(service *v1alpha1.Service) {
 		service.Annotations = resources.UnionMaps(service.Annotations, annotations)
+=======
+// WithIngressClassAnnotation assigns network ingress class annotation to a service
+func WithIngressClassAnnotation(ingressClass string) ServiceOption {
+	return func(service *v1alpha1.Service) {
+		if service.ObjectMeta.Annotations == nil {
+			service.ObjectMeta.Annotations = make(map[string]string)
+		}
+		service.ObjectMeta.Annotations[networking.IngressClassAnnotationKey] = ingressClass
+>>>>>>> Service ingress class annotation added to Route
 	}
 }
 
