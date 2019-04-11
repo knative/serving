@@ -26,7 +26,7 @@ import (
 )
 
 func (s *Service) SetDefaults(ctx context.Context) {
-	s.Spec.SetDefaults(ctx)
+	s.Spec.SetDefaults(apis.WithinSpec(ctx))
 
 	if ui := apis.GetUserInfo(ctx); ui != nil {
 		ans := s.GetAnnotations()

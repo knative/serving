@@ -29,8 +29,10 @@ import (
 
 // Validate makes sure that Configuration is properly configured.
 func (c *Configuration) Validate(ctx context.Context) *apis.FieldError {
-	return serving.ValidateObjectMetadata(c.GetObjectMeta()).ViaField("metadata").
-		Also(c.Spec.Validate(ctx).ViaField("spec"))
+	errs := serving.ValidateObjectMetadata(c.GetObjectMeta()).ViaField("metadata")
+	ctx = apis.WithinParent(ctx, c.ObjectMeta)
+	errs = errs.Also(c.Spec.Validate(apis.WithinSpec(ctx)).ViaField("spec"))
+	return errs
 }
 
 // Validate makes sure that ConfigurationSpec is properly configured.
@@ -45,8 +47,9 @@ func (cs *ConfigurationSpec) Validate(ctx context.Context) *apis.FieldError {
 		return apis.ErrMissingField("revisionTemplate")
 	}
 
-	var errs *apis.FieldError
-	// TODO(mattmoor): Check ObjectMeta for Name/Namespace/GenerateName
+	errs := CheckDeprecated(ctx, map[string]interface{}{
+		"generation": cs.DeprecatedGeneration,
+	})
 
 	if cs.Build == nil {
 		// No build was specified.

@@ -91,7 +91,7 @@ func TestServiceDefaulting(t *testing.T) {
 							Spec: RevisionSpec{
 								ContainerConcurrency: 1,
 								TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
-								Container:  &corev1.Container{},
+								Container:            &corev1.Container{},
 							},
 						},
 					},
@@ -156,7 +156,7 @@ func TestServiceDefaulting(t *testing.T) {
 							Spec: RevisionSpec{
 								ContainerConcurrency: 1,
 								TimeoutSeconds:       ptr.Int64(99),
-								Container:  &corev1.Container{},
+								Container:            &corev1.Container{},
 							},
 						},
 					},
@@ -221,7 +221,7 @@ func TestServiceDefaulting(t *testing.T) {
 							Spec: RevisionSpec{
 								ContainerConcurrency: 1,
 								TimeoutSeconds:       ptr.Int64(99),
-								Container:  &corev1.Container{},
+								Container:            &corev1.Container{},
 							},
 						},
 					},

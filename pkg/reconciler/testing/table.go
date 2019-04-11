@@ -50,26 +50,26 @@ type TableRow struct {
 	// WantErr holds whether we should expect the reconciliation to result in an error.
 	WantErr bool
 
-	// WantCreates holds the set of Create calls we expect during reconciliation.
+	// WantCreates holds the ordered list of Create calls we expect during reconciliation.
 	WantCreates []metav1.Object
 
-	// WantUpdates holds the set of Update calls we expect during reconciliation.
+	// WantUpdates holds the ordered list of Update calls we expect during reconciliation.
 	WantUpdates []clientgotesting.UpdateActionImpl
 
-	// WantStatusUpdates holds the set of Update calls, with `status` subresource set,
+	// WantStatusUpdates holds the ordered list of Update calls, with `status` subresource set,
 	// that we expect during reconciliation.
 	WantStatusUpdates []clientgotesting.UpdateActionImpl
 
-	// WantDeletes holds the set of Delete calls we expect during reconciliation.
+	// WantDeletes holds the ordered list of Delete calls we expect during reconciliation.
 	WantDeletes []clientgotesting.DeleteActionImpl
 
-	// WantDeleteCollections holds the set of DeleteCollection calls we expect during reconciliation.
+	// WantDeleteCollections holds the ordered list of DeleteCollection calls we expect during reconciliation.
 	WantDeleteCollections []clientgotesting.DeleteCollectionActionImpl
 
-	// WantPatches holds the set of Patch calls we expect during reconciliation.
+	// WantPatches holds the ordered list of Patch calls we expect during reconciliation.
 	WantPatches []clientgotesting.PatchActionImpl
 
-	// WantEvents holds the set of events we expect during reconciliation.
+	// WantEvents holds the ordered list of events we expect during reconciliation.
 	WantEvents []string
 
 	// WantServiceReadyStats holds the ServiceReady stats we exepect during reconciliation.

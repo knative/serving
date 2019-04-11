@@ -55,18 +55,18 @@ func TestSSTypicalFlow(t *testing.T) {
 	r := &ServerlessServiceStatus{}
 	r.InitializeConditions()
 
-	apitest.CheckConditionOngoing(&r.Status, ServerlessServiceConditionReady, t)
+	apitest.CheckConditionOngoing(r.duck(), ServerlessServiceConditionReady, t)
 
 	r.MarkEndpointsReady()
-	apitest.CheckConditionSucceeded(&r.Status, ServerlessServiceConditionEndspointsPopulated, t)
-	apitest.CheckConditionSucceeded(&r.Status, ServerlessServiceConditionReady, t)
+	apitest.CheckConditionSucceeded(r.duck(), ServerlessServiceConditionEndspointsPopulated, t)
+	apitest.CheckConditionSucceeded(r.duck(), ServerlessServiceConditionReady, t)
 	// Or another way to check the same condition.
 	if !r.IsReady() {
 		t.Error("IsReady=false, want: true")
 	}
 	r.MarkEndpointsNotReady("random")
-	apitest.CheckConditionOngoing(&r.Status, ServerlessServiceConditionReady, t)
+	apitest.CheckConditionOngoing(r.duck(), ServerlessServiceConditionReady, t)
 
 	r.MarkEndpointsNotOwned("service", "jukebox")
-	apitest.CheckConditionFailed(&r.Status, ServerlessServiceConditionReady, t)
+	apitest.CheckConditionFailed(r.duck(), ServerlessServiceConditionReady, t)
 }

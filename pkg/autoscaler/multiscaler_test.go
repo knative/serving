@@ -212,52 +212,6 @@ func TestMultiScalerScaleFromZero(t *testing.T) {
 	}
 }
 
-func TestMultiScalerWithoutScaleToZero(t *testing.T) {
-	ctx := context.Background()
-	ms, stopCh, statCh, uniScaler := createMultiScaler(t, &Config{
-		TickInterval:      tickInterval,
-		EnableScaleToZero: false,
-	})
-	defer close(stopCh)
-	defer close(statCh)
-
-	decider := newDecider()
-	uniScaler.setScaleResult(0, true)
-
-	// Before it exists, we should get a NotFound.
-	m, err := ms.Get(ctx, decider.Namespace, decider.Name)
-	if !apierrors.IsNotFound(err) {
-		t.Errorf("Get() = (%v, %v), want not found error", m, err)
-	}
-
-	errCh := make(chan error)
-	defer close(errCh)
-	ms.Watch(func(key string) {
-		// Let the main process know when this is called.
-		errCh <- nil
-	})
-
-	_, err = ms.Create(ctx, decider)
-	if err != nil {
-		t.Errorf("Create() = %v", err)
-	}
-
-	// Verify that we get no "ticks", because the desired scale is zero
-	if err := verifyNoTick(errCh); err != nil {
-		t.Fatal(err)
-	}
-
-	err = ms.Delete(ctx, decider.Namespace, decider.Name)
-	if err != nil {
-		t.Errorf("Delete() = %v", err)
-	}
-
-	// Verify that we stop seeing "ticks"
-	if err := verifyNoTick(errCh); err != nil {
-		t.Fatal(err)
-	}
-}
-
 func TestMultiScalerIgnoreNegativeScale(t *testing.T) {
 	ctx := context.Background()
 	ms, stopCh, statCh, uniScaler := createMultiScaler(t, &Config{

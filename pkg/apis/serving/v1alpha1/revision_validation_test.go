@@ -656,6 +656,7 @@ func TestRevisionSpecValidation(t *testing.T) {
 	tests := []struct {
 		name string
 		rs   *RevisionSpec
+		wc   func(context.Context) context.Context
 		want *apis.FieldError
 	}{{
 		name: "valid",
@@ -666,6 +667,20 @@ func TestRevisionSpecValidation(t *testing.T) {
 			DeprecatedConcurrencyModel: "Multi",
 		},
 		want: nil,
+	}, {
+		name: "invalid deprecated fields",
+		wc:   apis.DisallowDeprecated,
+		rs: &RevisionSpec{
+			DeprecatedGeneration:   123,
+			DeprecatedServingState: "Active",
+			Container: &corev1.Container{
+				Image: "helloworld",
+			},
+			DeprecatedConcurrencyModel: "Multi",
+			DeprecatedBuildName:        "banana",
+		},
+		want: apis.ErrDisallowedFields("buildName", "concurrencyModel",
+			"generation", "servingState"),
 	}, {
 		name: "with volume (ok)",
 		rs: &RevisionSpec{
@@ -771,7 +786,11 @@ func TestRevisionSpecValidation(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got := test.rs.Validate(context.Background())
+			ctx := context.Background()
+			if test.wc != nil {
+				ctx = test.wc(ctx)
+			}
+			got := test.rs.Validate(ctx)
 			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
 				t.Errorf("Validate (-want, +got) = %v", diff)
 			}

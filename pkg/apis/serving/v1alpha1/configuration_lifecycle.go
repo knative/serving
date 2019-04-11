@@ -18,6 +18,7 @@ package v1alpha1
 
 import (
 	"github.com/knative/pkg/apis"
+	duckv1beta1 "github.com/knative/pkg/apis/duck/v1beta1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
@@ -93,4 +94,8 @@ func (cs *ConfigurationStatus) MarkLatestReadyDeleted() {
 		ConfigurationConditionReady,
 		"RevisionDeleted",
 		"Revision %q was deleted.", cs.LatestReadyRevisionName)
+}
+
+func (cs *ConfigurationStatus) duck() *duckv1beta1.Status {
+	return &cs.Status
 }
