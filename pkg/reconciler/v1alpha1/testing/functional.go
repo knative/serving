@@ -33,11 +33,8 @@ import (
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/traffic"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/serverlessservice/resources/names"
 	servicenames "github.com/knative/serving/pkg/reconciler/v1alpha1/service/resources/names"
-<<<<<<< HEAD
-	autoscalingv1 "k8s.io/api/autoscaling/v1"
-=======
 	"github.com/knative/serving/pkg/resources"
->>>>>>> Propagate service annotations to the route
+	autoscalingv1 "k8s.io/api/autoscaling/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
