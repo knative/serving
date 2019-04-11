@@ -70,11 +70,9 @@ type PodAutoscalerSpec struct {
 	// +optional
 	DeprecatedGeneration int64 `json:"generation,omitempty"`
 
-	// ConcurrencyModel specifies the desired concurrency model
-	// (Single or Multi) for the scale target. Defaults to Multi.
-	// Deprecated in favor of ContainerConcurrency.
+	// DeprecatedConcurrencyModel no longer does anything, use ContainerConcurrency.
 	// +optional
-	ConcurrencyModel servingv1alpha1.RevisionRequestConcurrencyModelType `json:"concurrencyModel,omitempty"`
+	DeprecatedConcurrencyModel servingv1alpha1.RevisionRequestConcurrencyModelType `json:"concurrencyModel,omitempty"`
 
 	// ContainerConcurrency specifies the maximum allowed
 	// in-flight (concurrent) requests per container of the Revision.

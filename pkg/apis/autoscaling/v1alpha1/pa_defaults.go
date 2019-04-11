@@ -20,7 +20,6 @@ import (
 	"context"
 
 	"github.com/knative/serving/pkg/apis/autoscaling"
-	servingv1alpha1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
 )
 
 func (r *PodAutoscaler) SetDefaults(ctx context.Context) {
@@ -45,10 +44,4 @@ func (r *PodAutoscaler) SetDefaults(ctx context.Context) {
 	}
 }
 
-func (rs *PodAutoscalerSpec) SetDefaults(ctx context.Context) {
-	// When ConcurrencyModel is specified but ContainerConcurrency
-	// is not (0), use the ConcurrencyModel value.
-	if rs.ConcurrencyModel == servingv1alpha1.RevisionRequestConcurrencyModelSingle && rs.ContainerConcurrency == 0 {
-		rs.ContainerConcurrency = 1
-	}
-}
+func (rs *PodAutoscalerSpec) SetDefaults(ctx context.Context) {}
