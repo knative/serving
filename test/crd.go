@@ -62,10 +62,9 @@ type ResourceObjects struct {
 
 // Route returns a Route object in namespace using the route and configuration
 // names in names.
-func Route(namespace string, names ResourceNames, fopt ...v1alpha1testing.RouteOption) *v1alpha1.Route {
+func Route(names ResourceNames, fopt ...v1alpha1testing.RouteOption) *v1alpha1.Route {
 	route := &v1alpha1.Route{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: namespace,
 			Name:      names.Route,
 		},
 		Spec: v1alpha1.RouteSpec{
@@ -86,10 +85,9 @@ func Route(namespace string, names ResourceNames, fopt ...v1alpha1testing.RouteO
 
 // BlueGreenRoute returns a Route object in namespace using the route and configuration
 // names in names. Traffic is split evenly between blue and green.
-func BlueGreenRoute(namespace string, names, blue, green ResourceNames) *v1alpha1.Route {
+func BlueGreenRoute(names, blue, green ResourceNames) *v1alpha1.Route {
 	return &v1alpha1.Route{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: namespace,
 			Name:      names.Route,
 		},
 		Spec: v1alpha1.RouteSpec{
@@ -145,10 +143,9 @@ func ConfigurationSpec(imagePath string, options *Options) *v1alpha1.Configurati
 
 // Configuration returns a Configuration object in namespace with the name names.Config
 // that uses the image specified by names.Image
-func Configuration(namespace string, names ResourceNames, options *Options, fopt ...v1alpha1testing.ConfigOption) *v1alpha1.Configuration {
+func Configuration(names ResourceNames, options *Options, fopt ...v1alpha1testing.ConfigOption) *v1alpha1.Configuration {
 	config := &v1alpha1.Configuration{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: namespace,
 			Name:      names.Config,
 		},
 		Spec: *ConfigurationSpec(ptest.ImagePath(names.Image), options),
@@ -167,10 +164,9 @@ func Configuration(namespace string, names ResourceNames, options *Options, fopt
 // ConfigurationWithBuild returns a Configuration object in the `namespace`
 // with the name `names.Config` that uses the provided Build spec `build`
 // and image specified by `names.Image`.
-func ConfigurationWithBuild(namespace string, names ResourceNames, build *v1alpha1.RawExtension) *v1alpha1.Configuration {
+func ConfigurationWithBuild(names ResourceNames, build *v1alpha1.RawExtension) *v1alpha1.Configuration {
 	return &v1alpha1.Configuration{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: namespace,
 			Name:      names.Config,
 		},
 		Spec: v1alpha1.ConfigurationSpec{
@@ -188,21 +184,21 @@ func ConfigurationWithBuild(namespace string, names ResourceNames, build *v1alph
 
 // LatestService returns a RunLatest Service object in namespace with the name names.Service
 // that uses the image specified by names.Image.
-func LatestService(namespace string, names ResourceNames, options *Options, fopt ...v1alpha1testing.ServiceOption) *v1alpha1.Service {
+func LatestService(names ResourceNames, options *Options, fopt ...v1alpha1testing.ServiceOption) *v1alpha1.Service {
 	a := append([]v1alpha1testing.ServiceOption{
 		v1alpha1testing.WithRunLatestConfigSpec(*ConfigurationSpec(ptest.ImagePath(names.Image), options)),
 	}, fopt...)
-	return v1alpha1testing.Service(names.Service, namespace, a...)
+	return v1alpha1testing.ServiceWithoutNamespace(names.Service, a...)
 
 }
 
 // ReleaseLatestService returns a Release Service object in namespace with the name names.Service
 // that uses the image specified by names.Image and `@latest` as the only revision.
-func ReleaseLatestService(namespace string, names ResourceNames, options *Options, fopt ...v1alpha1testing.ServiceOption) *v1alpha1.Service {
+func ReleaseLatestService(names ResourceNames, options *Options, fopt ...v1alpha1testing.ServiceOption) *v1alpha1.Service {
 	a := append([]v1alpha1testing.ServiceOption{
 		v1alpha1testing.WithReleaseRolloutConfigSpec(*ConfigurationSpec(ptest.ImagePath(names.Image), options),
 			[]string{v1alpha1.ReleaseLatestRevisionKeyword}...)}, fopt...)
-	return v1alpha1testing.Service(names.Service, namespace, a...)
+	return v1alpha1testing.ServiceWithoutNamespace(names.Service, a...)
 }
 
 // ReleaseService returns a Release Service object in namespace with the name names.Service that uses

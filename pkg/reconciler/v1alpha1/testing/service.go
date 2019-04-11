@@ -37,3 +37,17 @@ func Service(name, namespace string, so ...ServiceOption) *v1alpha1.Service {
 	s.SetDefaults(context.Background())
 	return s
 }
+
+// ServiceWithoutNamespace creates a service with ServiceOptions but without a specific namespace
+func ServiceWithoutNamespace(name string, so ...ServiceOption) *v1alpha1.Service {
+	s := &v1alpha1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+		},
+	}
+	for _, opt := range so {
+		opt(s)
+	}
+	s.SetDefaults(context.Background())
+	return s
+}
