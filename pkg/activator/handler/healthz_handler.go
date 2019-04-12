@@ -15,14 +15,9 @@ package handler
 
 import (
 	"net/http"
-	"strings"
-)
 
-func isKubeletProbe(r *http.Request) bool {
-	// Since K8s 1.8, prober requests have
-	//   User-Agent = "kube-probe/{major-version}.{minor-version}".
-	return strings.HasPrefix(r.Header.Get("User-Agent"), "kube-probe/")
-}
+	"github.com/knative/serving/cmd/util"
+)
 
 // HealthHandler handles responding to kubelet probes with a provided health check.
 type HealthHandler struct {
@@ -31,7 +26,7 @@ type HealthHandler struct {
 }
 
 func (h *HealthHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if isKubeletProbe(r) {
+	if util.IsKubeletProbe(r) {
 		if err := h.HealthCheck(); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 		} else {

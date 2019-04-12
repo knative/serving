@@ -17,8 +17,10 @@ limitations under the License.
 package util
 
 import (
+	"net/http"
 	"os"
 	"strconv"
+	"strings"
 
 	"go.uber.org/zap"
 )
@@ -42,4 +44,11 @@ func MustParseIntEnvOrFatal(key string, logger *zap.SugaredLogger) int {
 	}
 	logger.Infof("%v=%v", key, i)
 	return i
+}
+
+// IsKubeletProbe returns true if the request is a kubernetes probe.
+func IsKubeletProbe(r *http.Request) bool {
+	// Since K8s 1.8, prober requests have
+	//   User-Agent = "kube-probe/{major-version}.{minor-version}".
+	return strings.HasPrefix(r.Header.Get("User-Agent"), "kube-probe/")
 }
