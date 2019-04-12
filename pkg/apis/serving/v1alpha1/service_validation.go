@@ -19,9 +19,9 @@ package v1alpha1
 import (
 	"context"
 	"fmt"
-	"reflect"
 
 	"github.com/knative/pkg/apis"
+	knvalidation "github.com/knative/pkg/validation"
 	"github.com/knative/serving/pkg/apis/serving"
 	"k8s.io/apimachinery/pkg/util/validation"
 )
@@ -34,22 +34,6 @@ func (s *Service) Validate(ctx context.Context) *apis.FieldError {
 	return errs
 }
 
-// CheckDeprecated checks whether the provided named deprecated fields
-// are set in a context where deprecation is disallowed.
-func CheckDeprecated(ctx context.Context, fields map[string]interface{}) *apis.FieldError {
-	if apis.IsDeprecatedAllowed(ctx) {
-		return nil
-	}
-	var errs *apis.FieldError
-	for name, field := range fields {
-		// From: https://stackoverflow.com/questions/13901819/quick-way-to-detect-empty-values-via-reflection-in-go
-		if !reflect.DeepEqual(field, reflect.Zero(reflect.TypeOf(field)).Interface()) {
-			errs = errs.Also(apis.ErrDisallowedFields(name))
-		}
-	}
-	return errs
-}
-
 // Validate validates the fields belonging to ServiceSpec recursively
 func (ss *ServiceSpec) Validate(ctx context.Context) *apis.FieldError {
 	// We would do this semantic DeepEqual, but the spec is comprised
@@ -59,10 +43,14 @@ func (ss *ServiceSpec) Validate(ctx context.Context) *apis.FieldError {
 	// 	return apis.ErrMissingField(currentField)
 	// }
 
-	errs := CheckDeprecated(ctx, map[string]interface{}{
-		"generation": ss.DeprecatedGeneration,
-		"pinned":     ss.DeprecatedPinned,
-	})
+	var original *ServiceSpec
+	if apis.IsInUpdate(ctx) {
+		org := apis.GetBaseline(ctx).(*Service)
+		if org != nil {
+			original = &org.Spec
+		}
+	}
+	errs := knvalidation.CheckDeprecated(ctx, ss, original)
 
 	set := []string{}
 

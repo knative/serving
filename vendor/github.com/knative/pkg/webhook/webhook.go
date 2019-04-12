@@ -99,6 +99,9 @@ type ControllerOptions struct {
 	// TLS Client Authentication.
 	// The default value is tls.NoClientCert.
 	ClientAuth tls.ClientAuthType
+
+	// Strict defines strict mode validation.
+	Strict bool
 }
 
 // ResourceCallback defines a signature for resource specific (Route, Configuration, etc.)
@@ -227,6 +230,7 @@ func validate(ctx context.Context, new GenericCRD) error {
 	if err := new.Validate(ctx); err != nil {
 		return err
 	}
+
 	return nil
 }
 
@@ -563,6 +567,11 @@ func (ac *AdmissionController) mutate(ctx context.Context, req *admissionv1beta1
 		return nil, err
 	}
 
+	// Strict mode does not allow setting or updating deprecated fields.
+	if ac.Options.Strict {
+		ctx = apis.DisallowDeprecated(ctx)
+	}
+
 	// None of the validators will accept a nil value for newObj.
 	if newObj == nil {
 		return nil, errMissingNewObject
@@ -573,6 +582,7 @@ func (ac *AdmissionController) mutate(ctx context.Context, req *admissionv1beta1
 		// discretion over (our portion of) the message that the user sees.
 		return nil, err
 	}
+
 	return json.Marshal(patches)
 }
 

@@ -21,6 +21,7 @@ import (
 	"fmt"
 
 	"github.com/knative/pkg/apis"
+	knvalidation "github.com/knative/pkg/validation"
 	"github.com/knative/serving/pkg/apis/serving"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/util/validation"
@@ -37,9 +38,14 @@ func (rs *RouteSpec) Validate(ctx context.Context) *apis.FieldError {
 		return apis.ErrMissingField(apis.CurrentField)
 	}
 
-	errs := CheckDeprecated(ctx, map[string]interface{}{
-		"generation": rs.DeprecatedGeneration,
-	})
+	var original *RouteSpec
+	if apis.IsInUpdate(ctx) {
+		org := apis.GetBaseline(ctx).(*Route)
+		if org != nil {
+			original = &org.Spec
+		}
+	}
+	errs := knvalidation.CheckDeprecated(ctx, rs, original)
 
 	// Track the targets of named TrafficTarget entries (to detect duplicates).
 	trafficMap := make(map[string]int)
