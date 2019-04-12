@@ -38,14 +38,7 @@ func (rs *RouteSpec) Validate(ctx context.Context) *apis.FieldError {
 		return apis.ErrMissingField(apis.CurrentField)
 	}
 
-	var original *RouteSpec
-	if apis.IsInUpdate(ctx) {
-		org := apis.GetBaseline(ctx).(*Route)
-		if org != nil {
-			original = &org.Spec
-		}
-	}
-	errs := knvalidation.CheckDeprecated(ctx, rs, original)
+	errs := knvalidation.CheckDeprecated(ctx, rs, nil)
 
 	// Track the targets of named TrafficTarget entries (to detect duplicates).
 	trafficMap := make(map[string]int)

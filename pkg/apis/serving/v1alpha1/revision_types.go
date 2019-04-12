@@ -137,7 +137,7 @@ type RevisionSpec struct {
 	// Deprecated in favor of ContainerConcurrency.
 	// +optional
 	DeprecatedConcurrencyModel RevisionRequestConcurrencyModelType `json:"concurrencyModel,omitempty"`
-	
+
 	// ContainerConcurrency specifies the maximum allowed
 	// in-flight (concurrent) requests per container of the Revision.
 	// Defaults to `0` which means unlimited concurrency.

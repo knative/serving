@@ -43,14 +43,7 @@ func (ss *ServiceSpec) Validate(ctx context.Context) *apis.FieldError {
 	// 	return apis.ErrMissingField(currentField)
 	// }
 
-	var original *ServiceSpec
-	if apis.IsInUpdate(ctx) {
-		org := apis.GetBaseline(ctx).(*Service)
-		if org != nil {
-			original = &org.Spec
-		}
-	}
-	errs := knvalidation.CheckDeprecated(ctx, ss, original)
+	errs := knvalidation.CheckDeprecated(ctx, ss, nil)
 
 	set := []string{}
 

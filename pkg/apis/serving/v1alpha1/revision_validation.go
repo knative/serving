@@ -88,14 +88,7 @@ func (rs *RevisionSpec) Validate(ctx context.Context) *apis.FieldError {
 		return apis.ErrMissingField(apis.CurrentField)
 	}
 
-	var original *RevisionSpec
-	if apis.IsInUpdate(ctx) {
-		org := apis.GetBaseline(ctx).(*Revision)
-		if org != nil {
-			original = &org.Spec
-		}
-	}
-	errs := knvalidation.CheckDeprecated(ctx, rs, original)
+	errs := knvalidation.CheckDeprecated(ctx, rs, nil)
 
 	volumes := sets.NewString()
 	for i, volume := range rs.Volumes {
