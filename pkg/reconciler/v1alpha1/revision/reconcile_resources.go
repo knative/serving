@@ -171,8 +171,12 @@ func (c *Reconciler) reconcileKPA(ctx context.Context, rev *v1alpha1.Revision) e
 	switch {
 	case cond == nil:
 		rev.Status.MarkActivating("Deploying", "")
+		// If not ready => SKS did not report a service name, we can reliably use.
+		rev.Status.ServiceName = ""
 	case cond.Status == corev1.ConditionUnknown:
 		rev.Status.MarkActivating(cond.Reason, cond.Message)
+		// If not ready => SKS did not report a service name, we can reliably use.
+		rev.Status.ServiceName = ""
 		// Since PA is not ready, we presume SKS isn't ready either.
 		rev.Status.MarkDeploying("Deploying")
 	case cond.Status == corev1.ConditionFalse:

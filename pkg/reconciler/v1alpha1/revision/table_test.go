@@ -516,7 +516,7 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			rev("foo", "pod-error",
 				withK8sServiceName, WithLogURL, AllUnknownConditions, MarkActive),
-			kpa("foo", "pod-error", WithTraffic),
+			kpa("foo", "pod-error"), // PA can't be ready, since no traffic.
 			pod("foo", "pod-error", WithFailingContainer("user-container", 5, "I failed man!")),
 			deploy("foo", "pod-error"),
 			svc("foo", "pod-error"),
@@ -525,8 +525,7 @@ func TestReconcile(t *testing.T) {
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: rev("foo", "pod-error",
-				withK8sServiceName, WithLogURL, AllUnknownConditions, MarkActive,
-				MarkContainerExiting(5, "I failed man!")),
+				WithLogURL, AllUnknownConditions, MarkContainerExiting(5, "I failed man!")),
 		}},
 		Key: "foo/pod-error",
 	}, {
