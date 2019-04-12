@@ -718,8 +718,8 @@ func TestGlobalResyncOnUpdateNetwork(t *testing.T) {
 					{DomainInternal: originDomainInternal},
 				},
 			},
-			Status: duckv1alpha1.Status{
-				Conditions: duckv1alpha1.Conditions{{
+			Status: duckv1beta1.Status{
+				Conditions: duckv1beta1.Conditions{{
 					Type:   v1alpha1.ClusterIngressConditionLoadBalancerReady,
 					Status: corev1.ConditionTrue,
 				}, {
