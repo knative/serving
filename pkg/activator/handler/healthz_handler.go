@@ -16,7 +16,7 @@ package handler
 import (
 	"net/http"
 
-	"github.com/knative/serving/cmd/util"
+	"github.com/knative/serving/pkg/network"
 )
 
 // HealthHandler handles responding to kubelet probes with a provided health check.
@@ -26,7 +26,7 @@ type HealthHandler struct {
 }
 
 func (h *HealthHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if util.IsKubeletProbe(r) {
+	if network.IsKubeletProbe(r) {
 		if err := h.HealthCheck(); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 		} else {

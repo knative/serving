@@ -175,7 +175,7 @@ func handler(reqChan chan queue.ReqEvent, breaker *queue.Breaker, httpProxy, h2c
 				http.Error(w, "container not ready", http.StatusServiceUnavailable)
 			}
 			return
-		case util.IsKubeletProbe(r):
+		case network.IsKubeletProbe(r):
 			// Do not count health checks for concurrency metrics
 			proxy.ServeHTTP(w, r)
 			return
