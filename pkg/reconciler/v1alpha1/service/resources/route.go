@@ -29,13 +29,6 @@ import (
 	"github.com/knative/serving/pkg/resources"
 )
 
-func annotations(s *v1alpha1.Service) map[string]string {
-	if value, exist := s.GetAnnotations()[networking.IngressClassAnnotationKey]; exist {
-		return map[string]string{networking.IngressClassAnnotationKey: value}
-	}
-	return map[string]string{}
-}
-
 // MakeRoute creates a Route from a Service object.
 func MakeRoute(service *v1alpha1.Service) (*v1alpha1.Route, error) {
 	c := &v1alpha1.Route{
@@ -45,7 +38,9 @@ func MakeRoute(service *v1alpha1.Service) (*v1alpha1.Route, error) {
 			OwnerReferences: []metav1.OwnerReference{
 				*kmeta.NewControllerRef(service),
 			},
-			Annotations: annotations(service),
+			Annotations: resources.FilterMap(service.GetAnnotations(), func(key string) bool {
+				return key != networking.IngressClassAnnotationKey
+			}),
 			Labels: resources.UnionMaps(service.GetLabels(), map[string]string{
 				// Add this service's name to the route annotations.
 				serving.ServiceLabelKey: service.Name,
