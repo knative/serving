@@ -410,7 +410,9 @@ func TestReconcile_Gateway(t *testing.T) {
 							ServiceURL:  reconciler.GetK8sServiceFullname("istio-ingressgateway", "istio-system"),
 						}},
 					},
-					TLSMode: network.Force,
+					Network: &network.Config{
+						AutoTLS: true,
+					},
 				},
 			},
 		}
@@ -482,7 +484,9 @@ func ReconcilerTestConfig() *config.Config {
 				ServiceURL:  reconciler.GetK8sServiceFullname("istio-ingressgateway", "istio-system"),
 			}},
 		},
-		TLSMode: network.Manual,
+		Network: &network.Config{
+			AutoTLS: false,
+		},
 	}
 }
 
@@ -537,23 +541,21 @@ func newTestSetup(t *testing.T, configs ...*corev1.ConfigMap) (
 	configMapWatcher *configmap.ManualWatcher) {
 
 	kubeClient = fakekubeclientset.NewSimpleClientset()
-	cms := append([]*corev1.ConfigMap{
-		{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      config.IstioConfigName,
-				Namespace: system.Namespace(),
-			},
-			Data: originGateways,
-		}, {
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      network.ConfigName,
-				Namespace: system.Namespace(),
-			},
-			Data: map[string]string{
-				"tlsMode": "Manual",
-			},
+	cms := append([]*corev1.ConfigMap{{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      config.IstioConfigName,
+			Namespace: system.Namespace(),
 		},
-	}, configs...)
+		Data: originGateways,
+	}, {
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      network.ConfigName,
+			Namespace: system.Namespace(),
+		},
+		Data: map[string]string{
+			"autoTLS": "Disabled",
+		},
+	}}, configs...)
 
 	configMapWatcher = &configmap.ManualWatcher{Namespace: system.Namespace()}
 	sharedClient = fakesharedclientset.NewSimpleClientset()
@@ -673,7 +675,8 @@ func TestGlobalResyncOnUpdateGatewayConfigMap(t *testing.T) {
 	}
 }
 
-func TestGlobalResyncOnUpdateTLSMode(t *testing.T) {
+func TestGlobalResyncOnUpdateNetwork(t *testing.T) {
+	defer ClearAllLoggers()
 	_, sharedClient, servingClient, controller, _, _, sharedInformer, servingInformer, watcher := newTestSetup(t)
 
 	stopCh := make(chan struct{})
@@ -743,14 +746,14 @@ func TestGlobalResyncOnUpdateTLSMode(t *testing.T) {
 	// Create a Gateway
 	gatewayClient.Create(gateway("knative-shared-gateway", system.Namespace(), []v1alpha3.Server{}))
 
-	// Test changes in TLSMode of config-network ConfigMap. ClusterIngress should get updated appropriately.
+	// Test changes in autoTLS of config-network ConfigMap. ClusterIngress should get updated appropriately.
 	networkConfig := corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      network.ConfigName,
 			Namespace: system.Namespace(),
 		},
 		Data: map[string]string{
-			"tlsMode": "Auto",
+			"autoTLS": "Enabled",
 		},
 	}
 	watcher.OnChange(&networkConfig)

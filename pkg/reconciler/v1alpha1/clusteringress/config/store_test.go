@@ -21,8 +21,8 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-
 	"github.com/knative/serving/pkg/network"
+
 	. "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
 )
 
@@ -34,21 +34,15 @@ func TestStoreLoadWithContext(t *testing.T) {
 	networkConfig := ConfigMapFromTestFile(t, network.ConfigName)
 	store.OnConfigChanged(istioConfig)
 	store.OnConfigChanged(networkConfig)
-	ctxConfig := FromContext(store.ToContext(context.Background()))
+	config := FromContext(store.ToContext(context.Background()))
 
-	expectedIstio, err := NewIstioFromConfigMap(istioConfig)
-	if err != nil {
-		t.Errorf("Unexpected error when creating Istio config: %v", err)
-	}
-	if diff := cmp.Diff(expectedIstio, ctxConfig.Istio); diff != "" {
+	expectedIstio, _ := NewIstioFromConfigMap(istioConfig)
+	if diff := cmp.Diff(expectedIstio, config.Istio); diff != "" {
 		t.Errorf("Unexpected istio config (-want, +got): %v", diff)
 	}
 
 	expectNetworkConfig, _ := network.NewConfigFromConfigMap(networkConfig)
-	if err != nil {
-		t.Errorf("Unexpected error when creating Network config: %v", err)
-	}
-	if diff := cmp.Diff(expectNetworkConfig.TLSMode, ctxConfig.TLSMode); diff != "" {
+	if diff := cmp.Diff(expectNetworkConfig, config.Network); diff != "" {
 		t.Errorf("Unexpected TLS mode (-want, +got): %s", diff)
 	}
 }
@@ -63,15 +57,14 @@ func TestStoreImmutableConfig(t *testing.T) {
 	config := store.Load()
 
 	config.Istio.IngressGateways = []Gateway{{GatewayName: "mutated", ServiceURL: "mutated"}}
-	config.TLSMode = network.Auto
+	config.Network.HTTPProtocol = network.HTTPRedirected
 
 	newConfig := store.Load()
 
 	if newConfig.Istio.IngressGateways[0].GatewayName == "mutated" {
 		t.Error("Istio config is not immutable")
 	}
-
-	if newConfig.TLSMode == network.Auto {
-		t.Error("TLS Mode is not immutable")
+	if newConfig.Network.HTTPProtocol == network.HTTPRedirected {
+		t.Error("Network config is not immuable")
 	}
 }

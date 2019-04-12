@@ -19,18 +19,17 @@ package config
 import (
 	"context"
 
-	"github.com/knative/serving/pkg/network"
-
 	"github.com/knative/pkg/configmap"
+	"github.com/knative/serving/pkg/network"
 )
 
 type cfgKey struct{}
 
-// Config of ClusterIngress.
+// Config of Istio.
 // +k8s:deepcopy-gen=false
 type Config struct {
 	Istio   *Istio
-	TLSMode string
+	Network *network.Config
 }
 
 // FromContext fetch config from context.
@@ -83,6 +82,6 @@ func (s *Store) ToContext(ctx context.Context) context.Context {
 func (s *Store) Load() *Config {
 	return &Config{
 		Istio:   s.UntypedLoad(IstioConfigName).(*Istio).DeepCopy(),
-		TLSMode: s.UntypedLoad(network.ConfigName).(*network.Config).DeepCopy().TLSMode,
+		Network: s.UntypedLoad(network.ConfigName).(*network.Config).DeepCopy(),
 	}
 }

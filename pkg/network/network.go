@@ -21,8 +21,6 @@ import (
 	"net"
 	"strings"
 
-	"k8s.io/apimachinery/pkg/util/sets"
-
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -62,24 +60,14 @@ const (
 	// constructing the Knative Route's Domain(host)
 	DefaultDomainTemplate = "{{.Name}}.{{.Namespace}}.{{.Domain}}"
 
-	// TLSModeKey is the name of the configuration entry
-	// that specifies the TLS Mode of Knative.
-	TLSModeKey = "tlsMode"
+	// AutoTLSKey is the name of the configuration entry
+	// that specifies enabling auto-TLS or not.
+	AutoTLSKey = "autoTLS"
 
-	// DefaultTLSMode is the default TLS mode of Knative. It is `MANUAL` by default.
-	DefaultTLSMode = Manual
+	// HTTPProtocolKey is the name of the configuration entry that
+	// specifies the HTTP endpoint behavior of Knative ingress.
+	HTTPProtocolKey = "httpProtocol"
 )
-
-const (
-	// Manual represents the `Manual` TLS MODE.
-	Manual = "Manual"
-	// Auto represents the `Auto` TLS MODE.
-	Auto = "Auto"
-	// Force represents the `Force` TLS MODE.
-	Force = "Force"
-)
-
-var supportedTLSModes = sets.NewString(Manual, Auto, Force)
 
 // Config contains the networking configuration defined in the
 // network config map.
@@ -95,9 +83,28 @@ type Config struct {
 	// Route's domain (host) for the Service.
 	DomainTemplate string
 
-	// TLSMode specifies the mode of Knative TLS.
-	TLSMode string
+	// AutoTLS specifies if auto-TLS is enabled or not.
+	AutoTLS bool
+
+	// HTTPProtocol specifices the behavior of HTTP endpoint of Knative
+	// ingress.
+	HTTPProtocol HTTPProtocol
 }
+
+// HTTPProtocol indicates a type of HTTP endpoint behavior
+// that Knative ingress could take.
+type HTTPProtocol string
+
+const (
+	// HTTPEnabled represents HTTP proocol is enabled in Knative ingress.
+	HTTPEnabled HTTPProtocol = "Enabled"
+
+	// HTTPDisabled represents HTTP protocol is disabled in Knative ingress.
+	HTTPDisabled HTTPProtocol = "Disabled"
+
+	// HTTPRedirected represents HTTP connection is redirected to HTTPS in Knative ingress.
+	HTTPRedirected HTTPProtocol = "Redirected"
+)
 
 func validateAndNormalizeOutboundIPRanges(s string) (string, error) {
 	s = strings.TrimSpace(s)
@@ -148,12 +155,25 @@ func NewConfigFromConfigMap(configMap *corev1.ConfigMap) (*Config, error) {
 		nc.DomainTemplate = DefaultDomainTemplate
 	}
 
-	if tlsMode, ok := configMap.Data[TLSModeKey]; !ok {
-		nc.TLSMode = DefaultTLSMode
-	} else if !supportedTLSModes.Has(tlsMode) {
-		return nil, fmt.Errorf("TLS mode %s is not supported", tlsMode)
+	if autoTLS, ok := configMap.Data[AutoTLSKey]; !ok {
+		nc.AutoTLS = false
 	} else {
-		nc.TLSMode = tlsMode
+		nc.AutoTLS = strings.ToLower(autoTLS) == "enabled"
+	}
+
+	if httpProtocol, ok := configMap.Data[HTTPProtocolKey]; !ok {
+		nc.HTTPProtocol = HTTPEnabled
+	} else {
+		switch strings.ToLower(httpProtocol) {
+		case strings.ToLower(string(HTTPEnabled)):
+			nc.HTTPProtocol = HTTPEnabled
+		case strings.ToLower(string(HTTPDisabled)):
+			nc.HTTPProtocol = HTTPDisabled
+		case strings.ToLower(string(HTTPRedirected)):
+			nc.HTTPProtocol = HTTPRedirected
+		default:
+			return nil, fmt.Errorf("httpProtocol %s in config-network ConfigMap is not supported", httpProtocol)
+		}
 	}
 	return nc, nil
 }

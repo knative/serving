@@ -110,7 +110,11 @@ func NewController(
 	})
 
 	c.Logger.Info("Setting up ConfigMap receivers")
-	resyncIngressesOnConfigChange := configmap.TypeFilter(&config.Config{})(func(string, interface{}) {
+	configsToResync := []interface{}{
+		&config.Istio{},
+		&network.Config{},
+	}
+	resyncIngressesOnConfigChange := configmap.TypeFilter(configsToResync...)(func(string, interface{}) {
 		impl.GlobalResync(clusterIngressInformer.Informer())
 	})
 	c.configStore = config.NewStore(c.Logger.Named("config-store"), resyncIngressesOnConfigChange)
@@ -223,7 +227,7 @@ func (c *Reconciler) reconcile(ctx context.Context, ci *v1alpha1.ClusterIngress)
 			return err
 		}
 
-		// TODO(zhiminx): Make Servers based on the tlsMode "Auto" or "Force".
+		// TODO(zhiminx): Make Servers based on HTTPProtocol.
 		desiredServers := resources.MakeServers(ci)
 		if err := c.reconcileGateways(ctx, ci, gatewayNames, desiredServers); err != nil {
 			return err
@@ -237,8 +241,7 @@ func (c *Reconciler) reconcile(ctx context.Context, ci *v1alpha1.ClusterIngress)
 }
 
 func enablesAutoTLS(ctx context.Context) bool {
-	tlsMode := config.FromContext(ctx).TLSMode
-	return tlsMode == network.Auto || tlsMode == network.Force
+	return config.FromContext(ctx).Network.AutoTLS
 }
 
 func getLBStatus(gatewayServiceURL string) []v1alpha1.LoadBalancerIngressStatus {

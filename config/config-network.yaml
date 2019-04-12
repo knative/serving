@@ -84,12 +84,16 @@ data:
     # undefined behavior.
     clusteringress.class: "istio.ingress.networking.knative.dev"
 
-    # TLS mode of Knative. There are three TLS modes: "Manual", "Auto", and "Force".
-    # 1. "Manual" mode: No TLS certificates will be provisioned, and Gateway object will not be reconciled.
-    # Operator needs to manually provision TLS certificates and configure Gateway to support TLS.
-    # 2. "Auto" mode: TLS certificates will be provisioned, and Gateway object will be reconciled to terminate TLS connection.
-    # For a given host, both HTTP connection and HTTPS connection will be supported.
-    # 3. "Force" mode: TLS certificates will be provisioned, and Gateway object will be reconciled to terminate TLS connection.
-    # For a given host, HTTPS will be supported. And HTTP connection will be redirected to HTTPS connection. The major difference btw AUTO and FORCE is the HTTP redirection.
-    # If Istio is the ClusterIngress solution, then "Auto" and "Force" requires Istio 1.1 (or above)
-    tlsMode: "Manual"
+    # Controls whether TLS certificates are automatically provisioned and
+    # installed in the Knative ingress to terminate external TLS connection.
+    # 1. Enabled: enabling auto-TLS feature.
+    # 2. Disabled: disabling auto-TLS feature.
+    autoTLS: "Disabled"
+
+    # Controls the behavior of the HTTP endpoint for the Knative ingress.
+    # It requires autoTLS to be enabled.
+    # 1. Enabled: The Knative ingress will be able to serve HTTP connection.
+    # 2. Disabled: The Knative ingress ter will reject HTTP traffic.
+    # 3. Redirected: The Knative ingress will send a 302 redirect for all
+    # http connections, asking the clients to use HTTPS
+    httpProtocol: Enabled
