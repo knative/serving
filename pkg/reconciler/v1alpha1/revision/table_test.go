@@ -653,13 +653,14 @@ func TestReconcile(t *testing.T) {
 		Key: "foo/failed-build-stable",
 	}, {
 		Name: "ready steady state",
-		// Test the transition that Reconcile makes when Endpoints become ready.
+		// Test the transition that Reconcile makes when Endpoints become ready on the
+		// SKS owned services, which is signalled by KPA having servince name.
 		// This puts the world into the stable post-reconcile state for an Active
 		// Revision.  It then creates an Endpoints resource with active subsets.
 		// This signal should make our Reconcile mark the Revision as Ready.
 		Objects: []runtime.Object{
 			rev("foo", "steady-ready", withK8sServiceName, WithLogURL),
-			kpa("foo", "steady-ready", WithTraffic),
+			kpa("foo", "steady-ready", WithTraffic, WithPAStatusService(serviceName("steady-ready"))),
 			deploy("foo", "steady-ready"),
 			svc("foo", "steady-ready"),
 			endpoints("foo", "steady-ready", WithSubsets),
@@ -675,28 +676,6 @@ func TestReconcile(t *testing.T) {
 			Eventf(corev1.EventTypeNormal, "RevisionReady", "Revision becomes ready upon all resources being ready"),
 		},
 		Key: "foo/steady-ready",
-	}, {
-		Name:    "lost service owner ref",
-		WantErr: true,
-		Objects: []runtime.Object{
-			rev("foo", "missing-owners", withK8sServiceName, WithLogURL,
-				MarkRevisionReady),
-			kpa("foo", "missing-owners", WithTraffic),
-			deploy("foo", "missing-owners"),
-			svc("foo", "missing-owners", WithK8sSvcOwnersRemoved),
-			endpoints("foo", "missing-owners", WithSubsets),
-			image("foo", "missing-owners"),
-		},
-		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: rev("foo", "missing-owners", withK8sServiceName, WithLogURL,
-				MarkRevisionReady,
-				// When we're missing the OwnerRef for Service we see this update.
-				MarkResourceNotOwned("Service", "missing-owners-service")),
-		}},
-		WantEvents: []string{
-			Eventf(corev1.EventTypeWarning, "InternalError", `Revision: "missing-owners" does not own Service: "missing-owners-service"`),
-		},
-		Key: "foo/missing-owners",
 	}, {
 		Name:    "lost kpa owner ref",
 		WantErr: true,
