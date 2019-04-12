@@ -80,7 +80,10 @@ func TestReporter_Report(t *testing.T) {
 		t.Error("Reporter.ReportRequestCount() expected an error for Report call before init. Got success.")
 	}
 
-	r, _ = NewStatsReporter(testNs, testSvc, testConf, testRev)
+	r, err := NewStatsReporter(testNs, testSvc, testConf, testRev)
+	if err != nil {
+		t.Fatalf("Unexpected error from NewStatsReporter()=%v", err)
+	}
 	wantTags := map[string]string{
 		metricskey.LabelNamespaceName:     testNs,
 		metricskey.LabelServiceName:       testSvc,
@@ -99,9 +102,6 @@ func TestReporter_Report(t *testing.T) {
 	expectSuccess(t, "ReportRequestCount", func() error { return r.ReportRequestCount(200, 3) })
 	assertSumData(t, "request_count", wantTags, 6)
 
-	// TODO(yanweiguo): add test for empty service name and split the following tests.
-	// Got error when running multiple tests in parallel.
-
 	// Send statistics only once and observe the results
 	expectSuccess(t, "ReportResponseTime", func() error { return r.ReportResponseTime(200, 100*time.Millisecond) })
 	assertDistributionData(t, "request_latencies", wantTags, 1, 100, 100)
@@ -110,6 +110,28 @@ func TestReporter_Report(t *testing.T) {
 	expectSuccess(t, "ReportRequestCount", func() error { return r.ReportResponseTime(200, 200*time.Millisecond) })
 	expectSuccess(t, "ReportRequestCount", func() error { return r.ReportResponseTime(200, 300*time.Millisecond) })
 	assertDistributionData(t, "request_latencies", wantTags, 3, 100, 300)
+
+	r.unregisterViews()
+
+	// Test report with empty service name
+	r, err = NewStatsReporter(testNs, "" /*serive name*/, testConf, testRev)
+	if err != nil {
+		t.Fatalf("Unexpected error from NewStatsReporter()=%v", err)
+	}
+	wantTags = map[string]string{
+		metricskey.LabelNamespaceName:     testNs,
+		metricskey.LabelServiceName:       "unknown",
+		metricskey.LabelConfigurationName: testConf,
+		metricskey.LabelRevisionName:      testRev,
+		"response_code":                   "200",
+		"response_code_class":             "2xx",
+	}
+
+	// Send statistics only once and observe the results
+	expectSuccess(t, "ReportRequestCount", func() error { return r.ReportRequestCount(200, 1) })
+	assertSumData(t, "request_count", wantTags, 1)
+
+	r.unregisterViews()
 }
 
 func expectSuccess(t *testing.T, funcName string, f func() error) {

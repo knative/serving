@@ -29,13 +29,18 @@ import (
 	"go.opencensus.io/tag"
 )
 
+const (
+	requestCountN       = "request_count"
+	responseTimeInMsecN = "request_latencies"
+)
+
 var (
 	requestCountM = stats.Int64(
-		"request_count",
+		requestCountN,
 		"The number of requests that are routed to queue-proxy",
 		stats.UnitDimensionless)
 	responseTimeInMsecM = stats.Float64(
-		"request_latencies",
+		responseTimeInMsecN,
 		"The response time in millisecond",
 		stats.UnitMilliseconds)
 )
@@ -190,4 +195,22 @@ func (r *Reporter) ReportResponseTime(responseCode int, d time.Duration) error {
 func responseCodeClass(responseCode int) string {
 	// Get the hundred digit of the response code and concatenate "xx".
 	return strconv.Itoa(responseCode/100) + "xx"
+}
+
+// unregisterViews unregisters the views register in NewStatsReporter.
+// Should be used in tests only.
+func (r *Reporter) unregisterViews() error {
+	if !r.initialized {
+		return errors.New("reporter is not initialized")
+	}
+	var views []*view.View
+	if v := view.Find(requestCountN); v != nil {
+		views = append(views, v)
+	}
+	if v := view.Find(responseTimeInMsecN); v != nil {
+		views = append(views, v)
+	}
+	view.Unregister(views...)
+	r.initialized = false
+	return nil
 }
