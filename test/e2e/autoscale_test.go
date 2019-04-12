@@ -23,9 +23,9 @@ import (
 )
 
 func TestAutoscaleUpDownUp(t *testing.T) {
-	TestAutoscaleUpDownUp(t)
+	AutoscaleUpDownUp(t)
 }
 
 func TestAutoscaleUpCountPods(t *testing.T) {
-	TestAutoscaleUpCountPods(t)
+	AutoscaleUpCountPods(t)
 }

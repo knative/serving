@@ -24,13 +24,13 @@ import (
 )
 
 func TestBuildSpecAndServe(t *testing.T) {
-	TestBuildSpecAndServe(t)
+	BuildSpecAndServe(t)
 }
 
 func TestBuildAndServe(t *testing.T) {
-	TestBuildAndServe(t)
+	BuildAndServe(t)
 }
 
 func TestBuildFailure(t *testing.T) {
-	TestBuildFailure(t)
+	BuildFailure(t)
 }

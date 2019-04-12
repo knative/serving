@@ -22,5 +22,5 @@ import (
 )
 
 func TestPipeline(t *testing.T) {
-	TestPipeline(t)
+	Pipeline(t)
 }

@@ -25,5 +25,5 @@ import (
 // TestActivatorOverload makes sure that activator can handle the load when scaling from 0.
 // We need to add a similar test for the User pod overload once the second part of overload handling is done.
 func TestActivatorOverload(t *testing.T) {
-	TestActivatorOverload(t)
+	ActivatorOverload(t)
 }

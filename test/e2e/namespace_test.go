@@ -22,5 +22,5 @@ import (
 )
 
 func TestMultipleNamespace(t *testing.T) {
-	TestMultipleNamespace(t)
+	MultipleNamespace(t)
 }

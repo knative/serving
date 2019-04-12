@@ -22,5 +22,5 @@ import (
 )
 
 func TestServiceToServiceCall(t *testing.T) {
-	TestServiceToServiceCall(t)
+	ServiceToServiceCall(t)
 }

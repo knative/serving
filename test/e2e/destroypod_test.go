@@ -23,9 +23,9 @@ import (
 )
 
 func TestDestroyPodInflight(t *testing.T) {
-	TestDestroyPodInflight(t)
+	DestroyPodInflight(t)
 }
 
 func TestDestroyPodTimely(t *testing.T) {
-	TestDestroyPodTimely(t)
+	DestroyPodTimely(t)
 }

@@ -23,7 +23,7 @@ import (
 // (2) connects to the service using websocket, (3) sends a message, and
 // (4) verifies that we receive back the same message.
 func TestWebSocket(t *testing.T) {
-	TestWebSocket(t)
+	WebSocket(t)
 }
 
 // TestWebSocketFromZero (1) creates a service based on the `wsserver` image,
@@ -31,5 +31,5 @@ func TestWebSocket(t *testing.T) {
 // (3) connects to the service using websocket, (4) sends a message, and
 // (5) verifies that we receive back the same message.
 func TestWebSocketFromZero(t *testing.T) {
-	TestWebSocketFromZero(t)
+	WebSocketFromZero(t)
 }
