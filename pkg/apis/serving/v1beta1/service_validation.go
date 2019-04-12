@@ -29,6 +29,15 @@ func (s *Service) Validate(ctx context.Context) *apis.FieldError {
 	ctx = apis.WithinParent(ctx, s.ObjectMeta)
 	errs = errs.Also(s.Spec.Validate(apis.WithinSpec(ctx)).ViaField("spec"))
 	errs = errs.Also(s.Status.Validate(apis.WithinStatus(ctx)).ViaField("status"))
+
+	if apis.IsInUpdate(ctx) {
+		original := apis.GetBaseline(ctx).(*Service)
+
+		err := s.Spec.ConfigurationSpec.Template.VerifyNameChange(ctx,
+			original.Spec.ConfigurationSpec.Template)
+		errs = errs.Also(err.ViaField("spec.template"))
+	}
+
 	return errs
 }
 

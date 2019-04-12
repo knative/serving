@@ -171,3 +171,249 @@ func TestServiceValidation(t *testing.T) {
 		})
 	}
 }
+
+func TestImmutableServiceFields(t *testing.T) {
+	tests := []struct {
+		name string
+		new  *Service
+		old  *Service
+		want *apis.FieldError
+	}{{
+		name: "without byo-name",
+		new: &Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "no-byo-name",
+			},
+			Spec: ServiceSpec{
+				ConfigurationSpec: ConfigurationSpec{
+					Template: RevisionTemplateSpec{
+						Spec: RevisionSpec{
+							PodSpec: corev1.PodSpec{
+								Containers: []corev1.Container{{
+									Image: "helloworld:foo",
+								}},
+							},
+						},
+					},
+				},
+				RouteSpec: RouteSpec{
+					Traffic: []TrafficTarget{{
+						LatestRevision: ptr.Bool(true),
+						Percent:        100,
+					}},
+				},
+			},
+		},
+		old: &Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "no-byo-name",
+			},
+			Spec: ServiceSpec{
+				ConfigurationSpec: ConfigurationSpec{
+					Template: RevisionTemplateSpec{
+						Spec: RevisionSpec{
+							PodSpec: corev1.PodSpec{
+								Containers: []corev1.Container{{
+									Image: "helloworld:bar",
+								}},
+							},
+						},
+					},
+				},
+				RouteSpec: RouteSpec{
+					Traffic: []TrafficTarget{{
+						LatestRevision: ptr.Bool(true),
+						Percent:        100,
+					}},
+				},
+			},
+		},
+		want: nil,
+	}, {
+		name: "good byo-name (name change)",
+		new: &Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "byo-name",
+			},
+			Spec: ServiceSpec{
+				ConfigurationSpec: ConfigurationSpec{
+					Template: RevisionTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "byo-name-foo",
+						},
+						Spec: RevisionSpec{
+							PodSpec: corev1.PodSpec{
+								Containers: []corev1.Container{{
+									Image: "helloworld:foo",
+								}},
+							},
+						},
+					},
+				},
+				RouteSpec: RouteSpec{
+					Traffic: []TrafficTarget{{
+						RevisionName: "byo-name-foo", // Used it!
+						Percent:      100,
+					}},
+				},
+			},
+		},
+		old: &Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "byo-name",
+			},
+			Spec: ServiceSpec{
+				ConfigurationSpec: ConfigurationSpec{
+					Template: RevisionTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "byo-name-bar",
+						},
+						Spec: RevisionSpec{
+							PodSpec: corev1.PodSpec{
+								Containers: []corev1.Container{{
+									Image: "helloworld:bar",
+								}},
+							},
+						},
+					},
+				},
+				RouteSpec: RouteSpec{
+					Traffic: []TrafficTarget{{
+						RevisionName: "byo-name-bar", // Used it!
+						Percent:      100,
+					}},
+				},
+			},
+		},
+		want: nil,
+	}, {
+		name: "good byo-name (with delta)",
+		new: &Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "byo-name",
+			},
+			Spec: ServiceSpec{
+				ConfigurationSpec: ConfigurationSpec{
+					Template: RevisionTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "byo-name-foo",
+						},
+						Spec: RevisionSpec{
+							PodSpec: corev1.PodSpec{
+								Containers: []corev1.Container{{
+									Image: "helloworld:foo",
+								}},
+							},
+						},
+					},
+				},
+				RouteSpec: RouteSpec{
+					Traffic: []TrafficTarget{{
+						RevisionName: "byo-name-bar", // Leave old.
+						Percent:      100,
+					}},
+				},
+			},
+		},
+		old: &Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "byo-name",
+			},
+			Spec: ServiceSpec{
+				ConfigurationSpec: ConfigurationSpec{
+					Template: RevisionTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "byo-name-bar",
+						},
+						Spec: RevisionSpec{
+							PodSpec: corev1.PodSpec{
+								Containers: []corev1.Container{{
+									Image: "helloworld:bar",
+								}},
+							},
+						},
+					},
+				},
+				RouteSpec: RouteSpec{
+					Traffic: []TrafficTarget{{
+						RevisionName: "byo-name-bar", // Used it!
+						Percent:      100,
+					}},
+				},
+			},
+		},
+		want: nil,
+	}, {
+		name: "bad byo-name",
+		new: &Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "byo-name",
+			},
+			Spec: ServiceSpec{
+				ConfigurationSpec: ConfigurationSpec{
+					Template: RevisionTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "byo-name-foo",
+						},
+						Spec: RevisionSpec{
+							PodSpec: corev1.PodSpec{
+								Containers: []corev1.Container{{
+									Image: "helloworld:foo",
+								}},
+							},
+						},
+					},
+				},
+				RouteSpec: RouteSpec{
+					Traffic: []TrafficTarget{{
+						LatestRevision: ptr.Bool(true),
+						Percent:        100,
+					}},
+				},
+			},
+		},
+		old: &Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "byo-name",
+			},
+			Spec: ServiceSpec{
+				ConfigurationSpec: ConfigurationSpec{
+					Template: RevisionTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "byo-name-foo",
+						},
+						Spec: RevisionSpec{
+							PodSpec: corev1.PodSpec{
+								Containers: []corev1.Container{{
+									Image: "helloworld:bar",
+								}},
+							},
+						},
+					},
+				},
+				RouteSpec: RouteSpec{
+					Traffic: []TrafficTarget{{
+						LatestRevision: ptr.Bool(true),
+						Percent:        100,
+					}},
+				},
+			},
+		},
+		want: &apis.FieldError{
+			Message: "Saw the following changes without a name change (-old +new)",
+			Paths:   []string{"spec.template"},
+			Details: "{*v1beta1.RevisionTemplateSpec}.Spec.PodSpec.Containers[0].Image:\n\t-: \"helloworld:bar\"\n\t+: \"helloworld:foo\"\n",
+		},
+	}}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			ctx := context.Background()
+			ctx = apis.WithinUpdate(ctx, test.old)
+			got := test.new.Validate(ctx)
+			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
+				t.Errorf("Validate (-want, +got) = %v", diff)
+			}
+		})
+	}
+}
