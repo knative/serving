@@ -23,6 +23,7 @@ import (
 
 	"go.uber.org/zap"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/knative/pkg/kmp"
 	"github.com/knative/pkg/logging"
 	"github.com/knative/pkg/logging/logkey"
@@ -137,12 +138,12 @@ func (c *Reconciler) reconcileKPA(ctx context.Context, rev *v1alpha1.Revision) e
 		// KPA does not exist. Create it.
 		kpa, err = c.createKPA(ctx, rev)
 		if err != nil {
-			logger.Errorf("Error creating KPA %q: %v", kpaName, err)
+			logger.Errorf("Error creating KPA %s: %v", kpaName, err)
 			return err
 		}
-		logger.Infof("Created kpa %q", kpaName)
+		logger.Info("Created KPA:", kpaName)
 	} else if err != nil {
-		logger.Errorf("Error reconciling kpa %q: %v", kpaName, err)
+		logger.Errorf("Error reconciling kpa %s: %v", kpaName, err)
 		return err
 	} else if !metav1.IsControlledBy(kpa, rev) {
 		// Surface an error in the revision's status, and return an error.
@@ -155,10 +156,8 @@ func (c *Reconciler) reconcileKPA(ctx context.Context, rev *v1alpha1.Revision) e
 	// to fix the protocol type when it's unset.
 	tmpl := resources.MakeKPA(rev)
 	if !equality.Semantic.DeepEqual(tmpl.Spec, kpa.Spec) {
-		want := kpa.DeepCopy()
-		want.Spec = tmpl.Spec
 		logger.Infof("KPA %s needs reconciliation", kpa.Name)
-		if _, err := c.ServingClientSet.AutoscalingV1alpha1().PodAutoscalers(kpa.Namespace).Update(want); err != nil {
+		if kpa, err = c.ServingClientSet.AutoscalingV1alpha1().PodAutoscalers(kpa.Namespace).Update(tmpl); err != nil {
 			return err
 		}
 		// This change will trigger KPA -> SKS -> K8s service change;
@@ -181,6 +180,7 @@ func (c *Reconciler) reconcileKPA(ctx context.Context, rev *v1alpha1.Revision) e
 		rev.Status.MarkDeploying("Deploying")
 	case cond.Status == corev1.ConditionFalse:
 		rev.Status.MarkInactive(cond.Reason, cond.Message)
+		rev.Status.ServiceName = ""
 	case cond.Status == corev1.ConditionTrue:
 		rev.Status.MarkActive()
 
@@ -190,6 +190,7 @@ func (c *Reconciler) reconcileKPA(ctx context.Context, rev *v1alpha1.Revision) e
 		rev.Status.ServiceName = kpa.Status.ServiceName
 		rev.Status.MarkResourcesAvailable()
 		rev.Status.MarkContainerHealthy()
+		logger.Info("### We're here \n%v\n", spew.Sdump(rev.Status))
 	}
 	return nil
 }
