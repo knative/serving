@@ -24,6 +24,7 @@ import (
 	net "github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 	listers "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
 )
 
@@ -35,7 +36,7 @@ const HttpScheme string = "http"
 // A RevisionTarget adds the Active/Inactive state and the transport protocol of a
 // Revision to a flattened TrafficTarget.
 type RevisionTarget struct {
-	v1alpha1.TrafficTarget
+	v1beta1.TrafficTarget
 	Active   bool
 	Protocol net.ProtocolType
 }
@@ -112,10 +113,16 @@ func (t *Config) GetRevisionTrafficTargets(domain string) []v1alpha1.TrafficTarg
 	for i, tt := range t.revisionTargets {
 		// We cannot `DeepCopy` here, since tt.TrafficTarget might contain both
 		// configuration and revision.
-		results[i] = v1alpha1.TrafficTarget{RevisionName: tt.RevisionName, Name: tt.Name, Percent: tt.Percent}
-		if tt.Name != "" && domain != "" {
+		results[i] = v1alpha1.TrafficTarget{
+			Name: tt.Subroute,
+			TrafficTarget: v1beta1.TrafficTarget{
+				RevisionName: tt.RevisionName,
+				Percent:      tt.Percent,
+			},
+		}
+		if tt.Subroute != "" && domain != "" {
 			// http is currently the only supported scheme
-			results[i].URL = SubrouteURL(HttpScheme, tt.Name, domain)
+			results[i].URL = SubrouteURL(HttpScheme, tt.Subroute, domain)
 		}
 	}
 	return results
@@ -230,8 +237,12 @@ func (t *configBuilder) addConfigurationTarget(tt *v1alpha1.TrafficTarget) error
 	if err != nil {
 		return err
 	}
+	ntt := tt.TrafficTarget.DeepCopy()
+	if ntt.Subroute == "" {
+		ntt.Subroute = tt.Name
+	}
 	target := RevisionTarget{
-		TrafficTarget: *tt,
+		TrafficTarget: *ntt,
 		Active:        !rev.Status.IsActivationRequired(),
 		Protocol:      rev.GetProtocol(),
 	}
@@ -248,8 +259,12 @@ func (t *configBuilder) addRevisionTarget(tt *v1alpha1.TrafficTarget) error {
 	if !rev.Status.IsReady() {
 		return errUnreadyRevision(rev)
 	}
+	ntt := tt.TrafficTarget.DeepCopy()
+	if ntt.Subroute == "" {
+		ntt.Subroute = tt.Name
+	}
 	target := RevisionTarget{
-		TrafficTarget: *tt,
+		TrafficTarget: *ntt,
 		Active:        !rev.Status.IsActivationRequired(),
 		Protocol:      rev.GetProtocol(),
 	}
@@ -265,7 +280,7 @@ func (t *configBuilder) addRevisionTarget(tt *v1alpha1.TrafficTarget) error {
 }
 
 func (t *configBuilder) addFlattenedTarget(target RevisionTarget) {
-	name := target.TrafficTarget.Name
+	name := target.TrafficTarget.Subroute
 	t.revisionTargets = append(t.revisionTargets, target)
 	t.targets[DefaultTarget] = append(t.targets[DefaultTarget], target)
 	if name != "" {

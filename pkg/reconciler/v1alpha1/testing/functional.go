@@ -29,6 +29,7 @@ import (
 	"github.com/knative/serving/pkg/apis/networking"
 	netv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 	routenames "github.com/knative/serving/pkg/reconciler/v1alpha1/route/resources/names"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/traffic"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/serverlessservice/resources/names"
@@ -415,16 +416,20 @@ func WithAnotherRouteFinalizer(r *v1alpha1.Route) {
 // WithConfigTarget sets the Route's traffic block to point at a particular Configuration.
 func WithConfigTarget(config string) RouteOption {
 	return WithSpecTraffic(v1alpha1.TrafficTarget{
-		ConfigurationName: config,
-		Percent:           100,
+		TrafficTarget: v1beta1.TrafficTarget{
+			ConfigurationName: config,
+			Percent:           100,
+		},
 	})
 }
 
 // WithRevTarget sets the Route's traffic block to point at a particular Revision.
 func WithRevTarget(revision string) RouteOption {
 	return WithSpecTraffic(v1alpha1.TrafficTarget{
-		RevisionName: revision,
-		Percent:      100,
+		TrafficTarget: v1beta1.TrafficTarget{
+			RevisionName: revision,
+			Percent:      100,
+		},
 	})
 }
 

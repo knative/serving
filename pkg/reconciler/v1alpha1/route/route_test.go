@@ -32,6 +32,7 @@ import (
 	netv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 	fakeclientset "github.com/knative/serving/pkg/client/clientset/versioned/fake"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
 	"github.com/knative/serving/pkg/gc"
@@ -274,9 +275,11 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 	// A route targeting the revision
 	route := getTestRouteWithTrafficTargets(
 		[]v1alpha1.TrafficTarget{{
-			RevisionName:      "test-rev",
-			ConfigurationName: "test-config",
-			Percent:           100,
+			TrafficTarget: v1beta1.TrafficTarget{
+				RevisionName:      "test-rev",
+				ConfigurationName: "test-config",
+				Percent:           100,
+			},
 		}},
 	)
 	servingClient.ServingV1alpha1().Routes(testNamespace).Create(route)
@@ -364,11 +367,15 @@ func TestCreateRouteWithMultipleTargets(t *testing.T) {
 	// A route targeting both the config and standalone revision
 	route := getTestRouteWithTrafficTargets(
 		[]v1alpha1.TrafficTarget{{
-			ConfigurationName: config.Name,
-			Percent:           90,
+			TrafficTarget: v1beta1.TrafficTarget{
+				ConfigurationName: config.Name,
+				Percent:           90,
+			},
 		}, {
-			RevisionName: rev.Name,
-			Percent:      10,
+			TrafficTarget: v1beta1.TrafficTarget{
+				RevisionName: rev.Name,
+				Percent:      10,
+			},
 		}},
 	)
 	servingClient.ServingV1alpha1().Routes(testNamespace).Create(route)
@@ -437,12 +444,16 @@ func TestCreateRouteWithOneTargetReserve(t *testing.T) {
 	// A route targeting both the config and standalone revision
 	route := getTestRouteWithTrafficTargets(
 		[]v1alpha1.TrafficTarget{{
-			ConfigurationName: config.Name,
-			Percent:           90,
+			TrafficTarget: v1beta1.TrafficTarget{
+				ConfigurationName: config.Name,
+				Percent:           90,
+			},
 		}, {
-			RevisionName:      rev.Name,
-			ConfigurationName: "test-config",
-			Percent:           10,
+			TrafficTarget: v1beta1.TrafficTarget{
+				RevisionName:      rev.Name,
+				ConfigurationName: "test-config",
+				Percent:           10,
+			},
 		}},
 	)
 	servingClient.ServingV1alpha1().Routes(testNamespace).Create(route)
@@ -513,29 +524,43 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 	// A route with duplicate targets. These will be deduped.
 	route := getTestRouteWithTrafficTargets(
 		[]v1alpha1.TrafficTarget{{
-			ConfigurationName: "test-config",
-			Percent:           30,
+			TrafficTarget: v1beta1.TrafficTarget{
+				ConfigurationName: "test-config",
+				Percent:           30,
+			},
 		}, {
-			ConfigurationName: "test-config",
-			Percent:           20,
+			TrafficTarget: v1beta1.TrafficTarget{
+				ConfigurationName: "test-config",
+				Percent:           20,
+			},
 		}, {
-			RevisionName: "test-rev",
-			Percent:      10,
+			TrafficTarget: v1beta1.TrafficTarget{
+				RevisionName: "test-rev",
+				Percent:      10,
+			},
 		}, {
-			RevisionName: "test-rev",
-			Percent:      5,
+			TrafficTarget: v1beta1.TrafficTarget{
+				RevisionName: "test-rev",
+				Percent:      5,
+			},
 		}, {
-			Name:         "test-revision-1",
-			RevisionName: "test-rev",
-			Percent:      10,
+			Name: "test-revision-1",
+			TrafficTarget: v1beta1.TrafficTarget{
+				RevisionName: "test-rev",
+				Percent:      10,
+			},
 		}, {
-			Name:         "test-revision-1",
-			RevisionName: "test-rev",
-			Percent:      10,
+			Name: "test-revision-1",
+			TrafficTarget: v1beta1.TrafficTarget{
+				RevisionName: "test-rev",
+				Percent:      10,
+			},
 		}, {
-			Name:         "test-revision-2",
-			RevisionName: "test-rev",
-			Percent:      15,
+			Name: "test-revision-2",
+			TrafficTarget: v1beta1.TrafficTarget{
+				RevisionName: "test-rev",
+				Percent:      15,
+			},
 		}},
 	)
 	servingClient.ServingV1alpha1().Routes(testNamespace).Create(route)
@@ -631,13 +656,17 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 	// targets
 	route := getTestRouteWithTrafficTargets(
 		[]v1alpha1.TrafficTarget{{
-			Name:         "foo",
-			RevisionName: "test-rev",
-			Percent:      50,
+			Name: "foo",
+			TrafficTarget: v1beta1.TrafficTarget{
+				RevisionName: "test-rev",
+				Percent:      50,
+			},
 		}, {
-			Name:              "bar",
-			ConfigurationName: "test-config",
-			Percent:           50,
+			Name: "bar",
+			TrafficTarget: v1beta1.TrafficTarget{
+				ConfigurationName: "test-config",
+				Percent:           50,
+			},
 		}},
 	)
 

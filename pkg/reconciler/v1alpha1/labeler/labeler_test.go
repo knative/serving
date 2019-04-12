@@ -28,6 +28,7 @@ import (
 	"github.com/knative/pkg/controller"
 	"github.com/knative/pkg/kmeta"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 	fakeclientset "github.com/knative/serving/pkg/client/clientset/versioned/fake"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
 	"github.com/knative/serving/pkg/reconciler"
@@ -156,8 +157,10 @@ func routeWithTraffic(namespace, name string, traffic ...v1alpha1.TrafficTarget)
 
 func simpleRunLatest(namespace, name, config string) *v1alpha1.Route {
 	return routeWithTraffic(namespace, name, v1alpha1.TrafficTarget{
-		RevisionName: config + "-00001",
-		Percent:      100,
+		TrafficTarget: v1beta1.TrafficTarget{
+			RevisionName: config + "-00001",
+			Percent:      100,
+		},
 	})
 }
 

@@ -27,4 +27,7 @@ func (r *Route) SetDefaults(ctx context.Context) {
 }
 
 func (rs *RouteSpec) SetDefaults(ctx context.Context) {
+	for i := range rs.Traffic {
+		rs.Traffic[i].SetDefaults(ctx)
+	}
 }
