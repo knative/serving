@@ -29,13 +29,6 @@ import (
 	"github.com/knative/serving/pkg/resources"
 )
 
-func annotations(s *v1alpha1.Service) map[string]string {
-	if value, exist := s.GetAnnotations()[networking.IngressClassAnnotationKey]; exist {
-		return map[string]string{networking.IngressClassAnnotationKey: value}
-	}
-	return map[string]string{}
-}
-
 // MakeRoute creates a Route from a Service object.
 func MakeRoute(service *v1alpha1.Service) (*v1alpha1.Route, error) {
 	c := &v1alpha1.Route{

@@ -41,13 +41,8 @@ const (
 	testLabelValueRunLatest    = "test-label-value-run-latest"
 	testLabelValueRelease      = "test-label-value-release"
 	testLabelValueManual       = "test-label-value-manual"
-<<<<<<< HEAD
 	testAnnotationKey          = "test-annotation-key"
 	testAnnotationValue        = "test-annotation-value"
-=======
-
-	ingressClassName = "istio.ingress.networking.knative.dev"
->>>>>>> Service ingress class annotation added to Route
 )
 
 func expectOwnerReferencesSetCorrectly(t *testing.T, ownerRefs []metav1.OwnerReference) {
@@ -87,13 +82,9 @@ func createServiceWithRunLatest() *v1alpha1.Service {
 	return Service(testServiceName, testServiceNamespace,
 		WithRunLatestConfigSpec(createConfiguration(testContainerNameRunLatest)),
 		WithServiceLabel(testLabelKey, testLabelValueRunLatest),
-<<<<<<< HEAD
 		WithServiceAnnotations(map[string]string{
 			testAnnotationKey: testAnnotationValue,
 		}))
-=======
-		WithIngressClassAnnotation(ingressClassName))
->>>>>>> Service ingress class annotation added to Route
 }
 
 func createServiceWithPinned() *v1alpha1.Service {
