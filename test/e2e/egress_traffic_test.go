@@ -38,6 +38,6 @@ func TestEgressTraffic(t *testing.T) {
 		t.Fatalf("Failed to send request to httpproxy: %v", err)
 	}
 	if got, want := response.StatusCode, http.StatusOK; got != want {
-		t.Errorf("httpbin response StatusCode = %v, want %v", got, want)
+		t.Fatalf("%v response StatusCode = %v, want %v", targetHostDomain, got, want)
 	}
 }
