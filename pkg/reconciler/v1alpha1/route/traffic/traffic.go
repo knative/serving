@@ -27,11 +27,13 @@ import (
 	listers "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
 )
 
-// DefaultTarget is the unnamed default target for the traffic.
-const DefaultTarget = ""
+const (
+	// DefaultTarget is the unnamed default target for the traffic.
+	DefaultTarget = ""
 
-// HTTPScheme is the string representation of http.
-const HTTPScheme string = "http"
+	// HTTPScheme is the string representation of http.
+	HTTPScheme string = "http"
+)
 
 // A RevisionTarget adds the Active/Inactive state and the transport protocol of a
 // Revision to a flattened TrafficTarget.
