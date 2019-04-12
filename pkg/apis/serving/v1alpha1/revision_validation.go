@@ -24,7 +24,6 @@ import (
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/knative/pkg/apis"
 	"github.com/knative/pkg/kmp"
-	knvalidation "github.com/knative/pkg/validation"
 	"github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/serving"
 	corev1 "k8s.io/api/core/v1"
@@ -88,7 +87,7 @@ func (rs *RevisionSpec) Validate(ctx context.Context) *apis.FieldError {
 		return apis.ErrMissingField(apis.CurrentField)
 	}
 
-	errs := knvalidation.CheckDeprecated(ctx, rs)
+	errs := apis.CheckDeprecated(ctx, rs)
 
 	volumes := sets.NewString()
 	for i, volume := range rs.Volumes {

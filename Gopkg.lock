@@ -434,7 +434,7 @@
   revision = "babf400eeec07acdd0d6864ad28709c2bcee0c82"
 
 [[projects]]
-  digest = "1:a6e9992aeffcc382c1ea8d74b6c62d60d419484840fa900f98938148ee812510"
+  digest = "1:1e6036fbaae7d3e91b9dfe277fff0d85de703dcc95f4bbfa642415e8323d6076"
   name = "github.com/knative/pkg"
   packages = [
     "apis",
@@ -484,13 +484,12 @@
     "test/spoof",
     "test/zipkin",
     "tracker",
-    "validation",
     "version",
     "webhook",
     "websocket",
   ]
   pruneopts = "NUT"
-  revision = "4a4400c6ca831f35881a932dd7b4573b09c900c6"
+  revision = "1af670c81418d71674e90b59aecc60f1502c76f9"
   source = "github.com/n3wscott/pkg"
 
 [[projects]]
@@ -1350,7 +1349,6 @@
     "github.com/knative/pkg/test/spoof",
     "github.com/knative/pkg/test/zipkin",
     "github.com/knative/pkg/tracker",
-    "github.com/knative/pkg/validation",
     "github.com/knative/pkg/version",
     "github.com/knative/pkg/webhook",
     "github.com/knative/pkg/websocket",

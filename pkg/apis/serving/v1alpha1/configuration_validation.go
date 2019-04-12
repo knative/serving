@@ -24,7 +24,6 @@ import (
 
 	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
 	"github.com/knative/pkg/apis"
-	"github.com/knative/pkg/validation"
 	"github.com/knative/serving/pkg/apis/serving"
 )
 
@@ -48,7 +47,7 @@ func (cs *ConfigurationSpec) Validate(ctx context.Context) *apis.FieldError {
 		return apis.ErrMissingField("revisionTemplate")
 	}
 
-	errs := validation.CheckDeprecated(ctx, cs)
+	errs := apis.CheckDeprecated(ctx, cs)
 
 	if cs.Build == nil {
 		// No build was specified.

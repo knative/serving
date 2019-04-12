@@ -14,11 +14,10 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package validation
+package apis
 
 import (
 	"context"
-	"github.com/knative/pkg/apis"
 	"reflect"
 	"strings"
 )
@@ -30,19 +29,19 @@ const (
 // CheckDeprecated checks whether the provided named deprecated fields
 // are set in a context where deprecation is disallowed.
 // This is a shallow check.
-func CheckDeprecated(ctx context.Context, obj interface{}) *apis.FieldError {
+func CheckDeprecated(ctx context.Context, obj interface{}) *FieldError {
 	return CheckDeprecatedUpdate(ctx, obj, nil)
 }
 
 // CheckDeprecated checks whether the provided named deprecated fields
 // are set in a context where deprecation is disallowed.
 // This is a shallow check.
-func CheckDeprecatedUpdate(ctx context.Context, obj interface{}, org interface{}) *apis.FieldError {
-	if apis.IsDeprecatedAllowed(ctx) {
+func CheckDeprecatedUpdate(ctx context.Context, obj interface{}, org interface{}) *FieldError {
+	if IsDeprecatedAllowed(ctx) {
 		return nil
 	}
 
-	var errs *apis.FieldError
+	var errs *FieldError
 	newFields := getPrefixedNamedFieldValues(deprecated, obj)
 
 	if nonZero(reflect.ValueOf(org)) {
@@ -52,7 +51,7 @@ func CheckDeprecatedUpdate(ctx context.Context, obj interface{}, org interface{}
 			if nonZero(newValue) {
 				if differ(orgFields[name], newValue) {
 					// Not allowed to update the value.
-					errs = errs.Also(apis.ErrDisallowedUpdateDeprecatedFields(name))
+					errs = errs.Also(ErrDisallowedUpdateDeprecatedFields(name))
 				}
 			}
 		}
@@ -60,7 +59,7 @@ func CheckDeprecatedUpdate(ctx context.Context, obj interface{}, org interface{}
 		for name, value := range newFields {
 			if nonZero(value) {
 				// Not allowed to set the value.
-				errs = errs.Also(apis.ErrDisallowedFields(name))
+				errs = errs.Also(ErrDisallowedFields(name))
 			}
 		}
 	}

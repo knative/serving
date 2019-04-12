@@ -21,7 +21,6 @@ import (
 	"fmt"
 
 	"github.com/knative/pkg/apis"
-	knvalidation "github.com/knative/pkg/validation"
 	"github.com/knative/serving/pkg/apis/serving"
 	"k8s.io/apimachinery/pkg/util/validation"
 )
@@ -43,7 +42,7 @@ func (ss *ServiceSpec) Validate(ctx context.Context) *apis.FieldError {
 	// 	return apis.ErrMissingField(currentField)
 	// }
 
-	errs := knvalidation.CheckDeprecated(ctx, ss)
+	errs := apis.CheckDeprecated(ctx, ss)
 
 	set := []string{}
 
