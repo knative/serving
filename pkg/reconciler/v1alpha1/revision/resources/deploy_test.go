@@ -22,6 +22,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/knative/pkg/logging"
+	"github.com/knative/pkg/ptr"
 	"github.com/knative/pkg/system"
 	_ "github.com/knative/pkg/system/testing"
 	"github.com/knative/serving/pkg/apis/serving"
@@ -112,6 +113,9 @@ var (
 			Name:  "SERVING_REQUEST_LOG_TEMPLATE",
 			Value: "",
 		}, {
+			Name:  "SERVING_REQUEST_METRICS_BACKEND",
+			Value: "",
+		}, {
 			Name:  "USER_PORT",
 			Value: "8080",
 		}, {
@@ -170,8 +174,8 @@ var (
 				Kind:               "Revision",
 				Name:               "bar",
 				UID:                "1234",
-				Controller:         &boolTrue,
-				BlockOwnerDeletion: &boolTrue,
+				Controller:         ptr.Bool(true),
+				BlockOwnerDeletion: ptr.Bool(true),
 			}},
 		},
 		Spec: appsv1.DeploymentSpec{
@@ -209,10 +213,10 @@ var (
 			},
 		},
 		Spec: v1alpha1.RevisionSpec{
-			Container: corev1.Container{
+			Container: &corev1.Container{
 				Image: "busybox",
 			},
-			TimeoutSeconds: 45,
+			TimeoutSeconds: ptr.Int64(45),
 		},
 	}
 )
@@ -329,9 +333,9 @@ func revision(opts ...revisionOption) *v1alpha1.Revision {
 	return revision
 }
 
-func withContainerConcurrency(containerConcurrency int) revisionOption {
+func withContainerConcurrency(containerConcurrency v1alpha1.RevisionContainerConcurrencyType) revisionOption {
 	return func(revision *v1alpha1.Revision) {
-		revision.Spec.ContainerConcurrency = v1alpha1.RevisionContainerConcurrencyType(containerConcurrency)
+		revision.Spec.ContainerConcurrency = containerConcurrency
 	}
 }
 
@@ -345,8 +349,8 @@ func withOwnerReference(name string) revisionOption {
 			APIVersion:         v1alpha1.SchemeGroupVersion.String(),
 			Kind:               "Configuration",
 			Name:               name,
-			Controller:         &boolTrue,
-			BlockOwnerDeletion: &boolTrue,
+			Controller:         ptr.Bool(true),
+			BlockOwnerDeletion: ptr.Bool(true),
 		}}
 	}
 }
@@ -365,7 +369,7 @@ func TestMakePodSpec(t *testing.T) {
 		rev: revision(
 			withContainerConcurrency(1),
 			func(revision *v1alpha1.Revision) {
-				revision.Spec.Container.Ports = []corev1.ContainerPort{{
+				revision.Spec.GetContainer().Ports = []corev1.ContainerPort{{
 					ContainerPort: 8888,
 				}}
 			},
@@ -391,10 +395,10 @@ func TestMakePodSpec(t *testing.T) {
 		rev: revision(
 			withContainerConcurrency(1),
 			func(revision *v1alpha1.Revision) {
-				revision.Spec.Container.Ports = []corev1.ContainerPort{{
+				revision.Spec.GetContainer().Ports = []corev1.ContainerPort{{
 					ContainerPort: 8888,
 				}}
-				revision.Spec.Container.VolumeMounts = []corev1.VolumeMount{{
+				revision.Spec.GetContainer().VolumeMounts = []corev1.VolumeMount{{
 					Name:      "asdf",
 					MountPath: "/asdf",
 				}}
@@ -490,7 +494,7 @@ func TestMakePodSpec(t *testing.T) {
 	}, {
 		name: "simple concurrency=multi http readiness probe",
 		rev: revision(func(revision *v1alpha1.Revision) {
-			container(&revision.Spec.Container,
+			container(revision.Spec.GetContainer(),
 				withHTTPReadinessProbe(v1alpha1.DefaultUserPort),
 			)
 		}),
@@ -509,7 +513,7 @@ func TestMakePodSpec(t *testing.T) {
 	}, {
 		name: "concurrency=multi, readinessprobe=shell",
 		rev: revision(func(revision *v1alpha1.Revision) {
-			container(&revision.Spec.Container,
+			container(revision.Spec.GetContainer(),
 				withExecReadinessProbe(
 					[]string{"echo", "hello"},
 				),
@@ -532,7 +536,7 @@ func TestMakePodSpec(t *testing.T) {
 	}, {
 		name: "concurrency=multi, readinessprobe=http",
 		rev: revision(func(revision *v1alpha1.Revision) {
-			container(&revision.Spec.Container,
+			container(revision.Spec.GetContainer(),
 				withReadinessProbe(corev1.Handler{
 					HTTPGet: &corev1.HTTPGetAction{
 						Path: "/",
@@ -555,7 +559,7 @@ func TestMakePodSpec(t *testing.T) {
 	}, {
 		name: "concurrency=multi, livenessprobe=tcp",
 		rev: revision(func(revision *v1alpha1.Revision) {
-			container(&revision.Spec.Container,
+			container(revision.Spec.GetContainer(),
 				withLivenessProbe(corev1.Handler{
 					TCPSocket: &corev1.TCPSocketAction{},
 				}),
@@ -614,13 +618,13 @@ func TestMakePodSpec(t *testing.T) {
 			withContainerConcurrency(1),
 			func(revision *v1alpha1.Revision) {
 				revision.ObjectMeta.Labels = map[string]string{}
-				revision.Spec.Container.Command = []string{"/bin/bash"}
-				revision.Spec.Container.Args = []string{"-c", "echo Hello world"}
-				container(&revision.Spec.Container,
+				revision.Spec.GetContainer().Command = []string{"/bin/bash"}
+				revision.Spec.GetContainer().Args = []string{"-c", "echo Hello world"}
+				container(revision.Spec.GetContainer(),
 					withEnvVar("FOO", "bar"),
 					withEnvVar("BAZ", "blah"),
 				)
-				revision.Spec.Container.Resources = corev1.ResourceRequirements{
+				revision.Spec.GetContainer().Resources = corev1.ResourceRequirements{
 					Requests: corev1.ResourceList{
 						corev1.ResourceMemory: resource.MustParse("666Mi"),
 						corev1.ResourceCPU:    resource.MustParse("666m"),
@@ -630,7 +634,7 @@ func TestMakePodSpec(t *testing.T) {
 						corev1.ResourceCPU:    resource.MustParse("888m"),
 					},
 				}
-				revision.Spec.Container.TerminationMessagePolicy = corev1.TerminationMessageReadFile
+				revision.Spec.GetContainer().TerminationMessagePolicy = corev1.TerminationMessageReadFile
 			},
 		),
 		lc: &logging.Config{},

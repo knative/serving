@@ -55,8 +55,8 @@ func TestActivatorOverload(t *testing.T) {
 	// Create a service with concurrency 1 that sleeps for N ms.
 	// Limit its maxScale to 10 containers, wait for the service to scale down and hit it with concurrent requests.
 	resources, err := test.CreateRunLatestServiceReady(t, clients, &names, &test.Options{}, func(service *v1alpha1.Service) {
-		service.Spec.RunLatest.Configuration.RevisionTemplate.Spec.ContainerConcurrency = 1
-		service.Spec.RunLatest.Configuration.RevisionTemplate.Annotations = map[string]string{"autoscaling.knative.dev/maxScale": "10"}
+		service.Spec.RunLatest.Configuration.GetTemplate().Spec.ContainerConcurrency = 1
+		service.Spec.RunLatest.Configuration.GetTemplate().Annotations = map[string]string{"autoscaling.knative.dev/maxScale": "10"}
 	})
 	if err != nil {
 		t.Fatalf("Unable to create resources: %v", err)

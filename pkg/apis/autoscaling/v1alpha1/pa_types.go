@@ -18,7 +18,7 @@ package v1alpha1
 
 import (
 	"github.com/knative/pkg/apis"
-	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
+	duckv1beta1 "github.com/knative/pkg/apis/duck/v1beta1"
 	"github.com/knative/pkg/kmeta"
 	net "github.com/knative/serving/pkg/apis/networking"
 	servingv1alpha1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
@@ -52,7 +52,6 @@ var (
 	// Check that PodAutoscaler can be validated, can be defaulted, and has immutable fields.
 	_ apis.Validatable = (*PodAutoscaler)(nil)
 	_ apis.Defaultable = (*PodAutoscaler)(nil)
-	_ apis.Immutable   = (*PodAutoscaler)(nil)
 
 	// Check that we can create OwnerReferences to a PodAutoscaler.
 	_ kmeta.OwnerRefable = (*PodAutoscaler)(nil)
@@ -71,11 +70,9 @@ type PodAutoscalerSpec struct {
 	// +optional
 	DeprecatedGeneration int64 `json:"generation,omitempty"`
 
-	// ConcurrencyModel specifies the desired concurrency model
-	// (Single or Multi) for the scale target. Defaults to Multi.
-	// Deprecated in favor of ContainerConcurrency.
+	// DeprecatedConcurrencyModel no longer does anything, use ContainerConcurrency.
 	// +optional
-	ConcurrencyModel servingv1alpha1.RevisionRequestConcurrencyModelType `json:"concurrencyModel,omitempty"`
+	DeprecatedConcurrencyModel servingv1alpha1.RevisionRequestConcurrencyModelType `json:"concurrencyModel,omitempty"`
 
 	// ContainerConcurrency specifies the maximum allowed
 	// in-flight (concurrent) requests per container of the Revision.
@@ -100,13 +97,13 @@ type PodAutoscalerSpec struct {
 const (
 	// PodAutoscalerConditionReady is set when the revision is starting to materialize
 	// runtime resources, and becomes true when those resources are ready.
-	PodAutoscalerConditionReady = duckv1alpha1.ConditionReady
+	PodAutoscalerConditionReady = apis.ConditionReady
 	// PodAutoscalerConditionActive is set when the PodAutoscaler's ScaleTargetRef is receiving traffic.
-	PodAutoscalerConditionActive duckv1alpha1.ConditionType = "Active"
+	PodAutoscalerConditionActive apis.ConditionType = "Active"
 )
 
 // PodAutoscalerStatus communicates the observed state of the PodAutoscaler (from the controller).
-type PodAutoscalerStatus duckv1alpha1.Status
+type PodAutoscalerStatus duckv1beta1.Status
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 

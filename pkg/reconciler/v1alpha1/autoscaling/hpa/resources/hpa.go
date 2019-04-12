@@ -25,6 +25,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+// MakeHPA creates an HPA resource from a PA resource.
 func MakeHPA(pa *v1alpha1.PodAutoscaler) *autoscalingv1.HorizontalPodAutoscaler {
 	min, max := pa.ScaleBounds()
 	if max == 0 {

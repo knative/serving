@@ -24,6 +24,7 @@ import (
 	"os"
 	"path"
 
+	"github.com/knative/test-infra/shared/common"
 	"github.com/knative/test-infra/shared/junit"
 	"github.com/knative/test-infra/shared/prow"
 )
@@ -38,16 +39,6 @@ const (
 // jobNameTestgridURLMap contains harded coded mapping of job name: Testgrid tab URL relative to base URL
 var jobNameTestgridURLMap = map[string]string{
 	"ci-knative-serving-continuous": "knative-serving#continuous",
-}
-
-// createDir creates dir if does not exist.
-func createDir(dirPath string) error {
-	if _, err := os.Stat(dirPath); os.IsNotExist(err) {
-		if err = os.MkdirAll(dirPath, 0777); err != nil {
-			return fmt.Errorf("Failed to create directory: %v", err)
-		}
-	}
-	return nil
 }
 
 // GetTestgridTabURL gets Testgrid URL for giving job and filters for Testgrid
@@ -69,7 +60,7 @@ func CreateXMLOutput(tc []junit.TestCase, testName string) error {
 
 	// ensure artifactsDir exist, in case not invoked from this script
 	artifactsDir := prow.GetLocalArtifactsDir()
-	if err := createDir(artifactsDir); nil != err {
+	if err := common.CreateDir(artifactsDir); nil != err {
 		return err
 	}
 	op, err := ts.ToBytes("", "  ")

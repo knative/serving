@@ -19,10 +19,12 @@ package resources
 import (
 	"github.com/knative/pkg/kmeta"
 	"github.com/knative/serving/pkg/apis/autoscaling"
+	"github.com/knative/serving/pkg/apis/networking"
 	net "github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources/names"
+	"github.com/knative/serving/pkg/resources"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -33,6 +35,7 @@ import (
 // serving.RevisionLabelKey label. Traffic is routed to queue-proxy port.
 func MakeK8sService(rev *v1alpha1.Revision) *corev1.Service {
 	labels := makeLabels(rev)
+	labels[networking.ServiceTypeKey] = string(networking.ServiceTypePublic)
 	// Set KPALabelKey label if KPA is used for this Revision. If ClassAnnotationKey
 	// is empty, default to KPA class for backward compatibility.
 	if pa, ok := rev.Annotations[autoscaling.ClassAnnotationKey]; !ok || pa == autoscaling.KPA {
@@ -41,10 +44,13 @@ func MakeK8sService(rev *v1alpha1.Revision) *corev1.Service {
 
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:            names.K8sService(rev),
-			Namespace:       rev.Namespace,
-			Labels:          labels,
-			Annotations:     makeAnnotations(rev),
+			Name:      names.K8sService(rev),
+			Namespace: rev.Namespace,
+			Labels:    labels,
+			Annotations: resources.FilterMap(rev.GetAnnotations(), func(k string) bool {
+				// Ignore last pinned annotation.
+				return k == serving.RevisionLastPinnedAnnotationKey
+			}),
 			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(rev)},
 		},
 		Spec: corev1.ServiceSpec{
@@ -53,11 +59,6 @@ func MakeK8sService(rev *v1alpha1.Revision) *corev1.Service {
 				Protocol:   corev1.ProtocolTCP,
 				Port:       ServicePort,
 				TargetPort: intstr.FromString(v1alpha1.RequestQueuePortName),
-			}, {
-				Name:       MetricsPortName,
-				Protocol:   corev1.ProtocolTCP,
-				Port:       MetricsPort,
-				TargetPort: intstr.FromString(v1alpha1.RequestQueueMetricsPortName),
 			}},
 			Selector: map[string]string{
 				serving.RevisionLabelKey: rev.Name,

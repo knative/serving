@@ -36,14 +36,12 @@ import (
 	"github.com/knative/pkg/kmp"
 	"github.com/knative/pkg/logging"
 	"github.com/knative/pkg/logging/logkey"
-	perrors "github.com/pkg/errors"
 
 	"github.com/markbates/inflect"
 	"github.com/mattbaird/jsonpatch"
 	admissionv1beta1 "k8s.io/api/admission/v1beta1"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	appsv1 "k8s.io/api/apps/v1"
-	authenticationv1 "k8s.io/api/authentication/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -208,61 +206,33 @@ func getOrGenerateKeyCertsFromSecret(ctx context.Context, client kubernetes.Inte
 	return serverKey, serverCert, caCert, nil
 }
 
-// validate checks whether "new" and "old" implement HasImmutableFields and checks them,
-// it then delegates validation to apis.Validatable on "new".
-func validate(ctx context.Context, old, new GenericCRD) error {
-	if immutableNew, ok := new.(apis.Immutable); ok && old != nil {
-		// Copy the old object and set defaults so that we don't reject our own
-		// defaulting done earlier in the webhook.
-		old = old.DeepCopyObject().(GenericCRD)
-		// TODO(mattmoor): Plumb through a real context
-		old.SetDefaults(ctx)
-
-		immutableOld, ok := old.(apis.Immutable)
-		if !ok {
-			return fmt.Errorf("unexpected type mismatch %T vs. %T", old, new)
-		}
-		// TODO(mattmoor): Plumb through a real context
-		if err := immutableNew.CheckImmutableFields(ctx, immutableOld); err != nil {
-			return err
+// validate performs validation on the provided "new" CRD.
+// For legacy purposes, this also does apis.Immutable validation,
+// which is deprecated and will be removed in a future release.
+func validate(ctx context.Context, new GenericCRD) error {
+	if apis.IsInUpdate(ctx) {
+		old := apis.GetBaseline(ctx)
+		if immutableNew, ok := new.(apis.Immutable); ok {
+			immutableOld, ok := old.(apis.Immutable)
+			if !ok {
+				return fmt.Errorf("unexpected type mismatch %T vs. %T", old, new)
+			}
+			if err := immutableNew.CheckImmutableFields(ctx, immutableOld); err != nil {
+				return err
+			}
 		}
 	}
+
 	// Can't just `return new.Validate()` because it doesn't properly nil-check.
-	// TODO(mattmoor): Plumb through a real context
 	if err := new.Validate(ctx); err != nil {
 		return err
 	}
 	return nil
 }
 
-func setAnnotations(ctx context.Context, patches duck.JSONPatch, new, old GenericCRD, ui *authenticationv1.UserInfo) (duck.JSONPatch, error) {
-	// Nowhere to set the annotations.
-	if new == nil {
-		return patches, nil
-	}
-	na, ok := new.(apis.Annotatable)
-	if !ok {
-		return patches, nil
-	}
-	var oa apis.Annotatable
-	if old != nil {
-		oa = old.(apis.Annotatable)
-	}
-	b, a := new.DeepCopyObject().(apis.Annotatable), na
-
-	// TODO(mattmoor): Plumb through a real context
-	a.AnnotateUserInfo(ctx, oa, ui)
-	patch, err := duck.CreatePatch(b, a)
-	if err != nil {
-		return nil, err
-	}
-	return append(patches, patch...), nil
-}
-
 // setDefaults simply leverages apis.Defaultable to set defaults.
 func setDefaults(ctx context.Context, patches duck.JSONPatch, crd GenericCRD) (duck.JSONPatch, error) {
 	before, after := crd.DeepCopyObject(), crd
-	// TODO(mattmoor): Plumb through a real context
 	after.SetDefaults(ctx)
 
 	patch, err := duck.CreatePatch(before, after)
@@ -572,6 +542,20 @@ func (ac *AdmissionController) mutate(ctx context.Context, req *admissionv1beta1
 		patches = append(patches, rtp...)
 	}
 
+	// Set up the context for defaulting and validation
+	if oldObj != nil {
+		// Copy the old object and set defaults so that we don't reject our own
+		// defaulting done earlier in the webhook.
+		oldObj = oldObj.DeepCopyObject().(GenericCRD)
+		oldObj.SetDefaults(ctx)
+
+		ctx = apis.WithinUpdate(ctx, oldObj)
+	} else {
+		ctx = apis.WithinCreate(ctx)
+	}
+	ctx = apis.WithUserInfo(ctx, &req.UserInfo)
+
+	// Default the new object.
 	if patches, err = setDefaults(ctx, patches, newObj); err != nil {
 		logger.Errorw("Failed the resource specific defaulter", zap.Error(err))
 		// Return the error message as-is to give the defaulter callback
@@ -579,16 +563,11 @@ func (ac *AdmissionController) mutate(ctx context.Context, req *admissionv1beta1
 		return nil, err
 	}
 
-	if patches, err = setAnnotations(ctx, patches, newObj, oldObj, &req.UserInfo); err != nil {
-		logger.Errorw("Failed the resource annotator", zap.Error(err))
-		return nil, perrors.Wrap(err, "error setting annotations")
-	}
-
 	// None of the validators will accept a nil value for newObj.
 	if newObj == nil {
 		return nil, errMissingNewObject
 	}
-	if err := validate(ctx, oldObj, newObj); err != nil {
+	if err := validate(ctx, newObj); err != nil {
 		logger.Errorw("Failed the resource specific validation", zap.Error(err))
 		// Return the error message as-is to give the validation callback
 		// discretion over (our portion of) the message that the user sees.

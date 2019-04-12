@@ -21,22 +21,35 @@ import (
 	"fmt"
 	"reflect"
 
+	perrors "github.com/pkg/errors"
+	"go.uber.org/zap"
+
+	"github.com/knative/pkg/apis"
 	"github.com/knative/pkg/controller"
 	"github.com/knative/pkg/logging"
 	"github.com/knative/serving/pkg/apis/autoscaling"
 	pav1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
+	nv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions/autoscaling/v1alpha1"
+	ninformers "github.com/knative/serving/pkg/client/informers/externalversions/networking/v1alpha1"
 	listers "github.com/knative/serving/pkg/client/listers/autoscaling/v1alpha1"
+	nlisters "github.com/knative/serving/pkg/client/listers/networking/v1alpha1"
 	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/autoscaling/hpa/resources"
-	"go.uber.org/zap"
+	aresources "github.com/knative/serving/pkg/reconciler/v1alpha1/autoscaling/resources"
+	"github.com/knative/serving/pkg/reconciler/v1alpha1/autoscaling/resources/names"
+
+	autoscalingapi "k8s.io/api/autoscaling/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	autoscalingv1informers "k8s.io/client-go/informers/autoscaling/v1"
 	autoscalingv1listers "k8s.io/client-go/listers/autoscaling/v1"
+	"k8s.io/client-go/scale"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -44,24 +57,31 @@ const (
 	controllerAgentName = "hpa-class-podautoscaler-controller"
 )
 
+// Reconciler implements the control loop for the HPA resources.
 type Reconciler struct {
 	*reconciler.Base
 
-	paLister  listers.PodAutoscalerLister
-	hpaLister autoscalingv1listers.HorizontalPodAutoscalerLister
+	paLister       listers.PodAutoscalerLister
+	sksLister      nlisters.ServerlessServiceLister
+	hpaLister      autoscalingv1listers.HorizontalPodAutoscalerLister
+	scaleClientSet scale.ScalesGetter
 }
 
 var _ controller.Reconciler = (*Reconciler)(nil)
 
+// NewController returns a new HPA reconcile controller.
 func NewController(
 	opts *reconciler.Options,
 	paInformer informers.PodAutoscalerInformer,
+	sksInformer ninformers.ServerlessServiceInformer,
 	hpaInformer autoscalingv1informers.HorizontalPodAutoscalerInformer,
 ) *controller.Impl {
 	c := &Reconciler{
-		Base:      reconciler.NewBase(*opts, controllerAgentName),
-		paLister:  paInformer.Lister(),
-		hpaLister: hpaInformer.Lister(),
+		Base:           reconciler.NewBase(*opts, controllerAgentName),
+		paLister:       paInformer.Lister(),
+		hpaLister:      hpaInformer.Lister(),
+		sksLister:      sksInformer.Lister(),
+		scaleClientSet: opts.ScaleClientSet,
 	}
 	impl := controller.NewImpl(c, c.Logger, "HPA-Class Autoscaling", reconciler.MustNewStatsReporter("HPA-Class Autoscaling", c.Logger))
 
@@ -80,6 +100,7 @@ func NewController(
 	return impl
 }
 
+// Reconcile is the entry point to the reconciliation control loop.
 func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 	namespace, name, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
@@ -169,7 +190,52 @@ func (c *Reconciler) reconcile(ctx context.Context, key string, pa *pav1alpha1.P
 			}
 		}
 	}
+
+	selector, err := c.getSelector(pa)
+	if err != nil {
+		return perrors.Wrap(err, "error retrieving deployment selector spec")
+	}
+	if err := c.reconcileSKS(ctx, pa, selector); err != nil {
+		return perrors.Wrap(err, "error reconciling SKS")
+	}
+
 	pa.Status.ObservedGeneration = pa.Generation
+	return nil
+}
+
+func (c *Reconciler) reconcileSKS(ctx context.Context, pa *pav1alpha1.PodAutoscaler, selector map[string]string) error {
+	logger := logging.FromContext(ctx)
+
+	sksName := names.SKS(pa.Name)
+	sks, err := c.sksLister.ServerlessServices(pa.Namespace).Get(sksName)
+	if errors.IsNotFound(err) {
+		logger.Infof("SKS %s/%s does not exist; creating.", pa.Namespace, sksName)
+		// HPA doesn't scale to zero now, so the mode is always `Serve`.
+		sks = aresources.MakeSKS(pa, selector, nv1alpha1.SKSOperationModeServe)
+		_, err = c.ServingClientSet.NetworkingV1alpha1().ServerlessServices(sks.Namespace).Create(sks)
+		if err != nil {
+			logger.Errorw(fmt.Sprintf("Error creating SKS %s/%s: ", pa.Namespace, sksName), zap.Error(err))
+			return err
+		}
+		logger.Infof("Created SKS: %q", sksName)
+	} else if err != nil {
+		logger.Errorw(fmt.Sprintf("Error getting SKS %s: ", sksName), zap.Error(err))
+		return err
+	} else if !metav1.IsControlledBy(sks, pa) {
+		pa.Status.MarkResourceNotOwned("ServerlessService", sksName)
+		return fmt.Errorf("HPA: %q does not own SKS: %q", pa.Name, sksName)
+	}
+	tmpl := aresources.MakeSKS(pa, selector, nv1alpha1.SKSOperationModeServe)
+	if !equality.Semantic.DeepEqual(tmpl.Spec, sks.Spec) {
+		want := sks.DeepCopy()
+		want.Spec = tmpl.Spec
+		logger.Infof("SKS changed; reconciling: %s", sksName)
+		if _, err = c.ServingClientSet.NetworkingV1alpha1().ServerlessServices(sks.Namespace).Update(want); err != nil {
+			logger.Errorw(fmt.Sprintf("Error updating SKS %s: ", sksName), zap.Error(err))
+			return err
+		}
+	}
+	logger.Debugf("Done reconciling SKS %s", sksName)
 	return nil
 }
 
@@ -205,4 +271,32 @@ func (c *Reconciler) updateStatus(desired *pav1alpha1.PodAutoscaler) (*pav1alpha
 		return c.ServingClientSet.AutoscalingV1alpha1().PodAutoscalers(pa.Namespace).UpdateStatus(existing)
 	}
 	return pa, nil
+}
+
+func (c *Reconciler) getSelector(pa *pav1alpha1.PodAutoscaler) (map[string]string, error) {
+	scale, err := c.getScaleResource(pa)
+	if err != nil {
+		return nil, err
+	}
+	return labels.ConvertSelectorToLabelsMap(scale.Status.Selector)
+}
+
+// getScaleResource returns the current scale resource for the PA.
+func (c *Reconciler) getScaleResource(pa *pav1alpha1.PodAutoscaler) (*autoscalingapi.Scale, error) {
+	resource, resourceName, err := scaleResourceArgs(pa)
+	if err != nil {
+		return nil, err
+	}
+	// Identify the current scale.
+	return c.scaleClientSet.Scales(pa.Namespace).Get(*resource, resourceName)
+}
+
+// scaleResourceArgs returns GroupResource and the resource name, from the PA resource.
+func scaleResourceArgs(pa *pav1alpha1.PodAutoscaler) (*schema.GroupResource, string, error) {
+	gv, err := schema.ParseGroupVersion(pa.Spec.ScaleTargetRef.APIVersion)
+	if err != nil {
+		return nil, "", err
+	}
+	resource := apis.KindToResource(gv.WithKind(pa.Spec.ScaleTargetRef.Kind)).GroupResource()
+	return &resource, pa.Spec.ScaleTargetRef.Name, nil
 }

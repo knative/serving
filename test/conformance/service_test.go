@@ -25,6 +25,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	pkgTest "github.com/knative/pkg/test"
+	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/test"
 	corev1 "k8s.io/api/core/v1"
@@ -141,7 +142,7 @@ func validateAnnotations(objs *test.ResourceObjects) error {
 	// List of issues listing annotations that we check: #1642.
 
 	anns := objs.Service.GetAnnotations()
-	for _, a := range []string{v1alpha1.CreatorAnnotation, v1alpha1.UpdaterAnnotation} {
+	for _, a := range []string{serving.CreatorAnnotation, serving.UpdaterAnnotation} {
 		if got := anns[a]; got == "" {
 			return fmt.Errorf("Expected %s annotation to be set, but was empty", a)
 		}
@@ -288,7 +289,7 @@ func TestRunLatestService(t *testing.T) {
 	// Update container with user port.
 	t.Logf("Updating the port of the user container for service %s to %d", names.Service, userPort)
 	desiredSvc := objects.Service.DeepCopy()
-	desiredSvc.Spec.RunLatest.Configuration.RevisionTemplate.Spec.Container.Ports = []corev1.ContainerPort{{
+	desiredSvc.Spec.RunLatest.Configuration.GetTemplate().Spec.GetContainer().Ports = []corev1.ContainerPort{{
 		ContainerPort: userPort,
 	}}
 	if objects.Service, err = test.PatchService(t, clients, objects.Service, desiredSvc); err != nil {
@@ -327,7 +328,13 @@ func waitForDesiredTrafficShape(t *testing.T, sName string, want map[string]v1al
 			for _, tt := range s.Status.Traffic {
 				got[tt.Name] = tt
 			}
-			if !cmp.Equal(got, want) {
+			ignoreURLs := cmp.FilterPath(
+				func(p cmp.Path) bool {
+					return p.String() == "URL"
+				},
+				cmp.Ignore(),
+			)
+			if !cmp.Equal(got, want, ignoreURLs) {
 				t.Logf("For service %s traffic shape mismatch: (-got, +want) %s", sName, cmp.Diff(got, want))
 				return false, nil
 			}

@@ -20,6 +20,7 @@ import (
 	"context"
 	"strconv"
 	"testing"
+	"time"
 
 	caching "github.com/knative/caching/pkg/apis/caching/v1alpha1"
 	"github.com/knative/pkg/apis/duck"
@@ -27,6 +28,7 @@ import (
 	"github.com/knative/pkg/controller"
 	"github.com/knative/pkg/logging"
 	autoscalingv1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
+	"github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/autoscaler"
@@ -295,11 +297,13 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			rev("foo", "endpoint-created-timeout",
 				WithK8sServiceName, WithLogURL, AllUnknownConditions,
-				MarkActive, WithEmptyLTTs),
+				MarkActive),
 			kpa("foo", "endpoint-created-timeout", WithTraffic),
 			deploy("foo", "endpoint-created-timeout"),
 			svc("foo", "endpoint-created-timeout"),
-			endpoints("foo", "endpoint-created-timeout"),
+			endpoints("foo", "endpoint-created-timeout", func(ep *corev1.Endpoints) {
+				ep.CreationTimestamp = metav1.Time{}
+			}),
 			image("foo", "endpoint-created-timeout"),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
@@ -382,6 +386,53 @@ func TestReconcile(t *testing.T) {
 		}},
 		Key: "foo/kpa-inactive",
 	}, {
+		Name: "mutated KPA gets fixed",
+		// This test validates, that when uers mess with the KPA directly
+		// we bring it back to the required shape.
+		Objects: []runtime.Object{
+			rev("foo", "fix-mutated-kpa",
+				WithK8sServiceName, WithLogURL, AllUnknownConditions),
+			kpa("foo", "fix-mutated-kpa", WithProtocolType(networking.ProtocolH2C)),
+			deploy("foo", "fix-mutated-kpa"),
+			svc("foo", "fix-mutated-kpa"),
+			endpoints("foo", "fix-mutated-kpa"),
+			image("foo", "fix-mutated-kpa"),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: rev("foo", "fix-mutated-kpa",
+				WithK8sServiceName, WithLogURL, AllUnknownConditions,
+				// When our reconciliation has to change the service
+				// we should see the following mutations to status.
+				MarkDeploying("Updating")),
+		}},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: kpa("foo", "fix-mutated-kpa"),
+		}},
+		Key: "foo/fix-mutated-kpa",
+	}, {
+		Name: "mutated KPA gets error during the fix",
+		// Same as above, but will fail during the update.
+		Objects: []runtime.Object{
+			rev("foo", "fix-mutated-kpa-fail",
+				WithK8sServiceName, WithLogURL, AllUnknownConditions),
+			kpa("foo", "fix-mutated-kpa-fail", WithProtocolType(networking.ProtocolH2C)),
+			deploy("foo", "fix-mutated-kpa-fail"),
+			svc("foo", "fix-mutated-kpa-fail"),
+			endpoints("foo", "fix-mutated-kpa-fail"),
+			image("foo", "fix-mutated-kpa-fail"),
+		},
+		WantErr: true,
+		WithReactors: []clientgotesting.ReactionFunc{
+			InduceFailure("update", "podautoscalers"),
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: kpa("foo", "fix-mutated-kpa-fail"),
+		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeWarning, "InternalError", "inducing failure for update podautoscalers"),
+		},
+		Key: "foo/fix-mutated-kpa-fail",
+	}, {
 		Name: "mutated service gets fixed",
 		// Test that we correct mutations to our K8s Service resources.
 		// This initializes the world to the stable post-create reconcile, and
@@ -455,7 +506,8 @@ func TestReconcile(t *testing.T) {
 				MarkProgressDeadlineExceeded),
 		}},
 		WantEvents: []string{
-			Eventf(corev1.EventTypeNormal, "ProgressDeadlineExceeded", "Revision %s not ready due to Deployment timeout",
+			Eventf(corev1.EventTypeNormal, "ProgressDeadlineExceeded",
+				"Revision %s not ready due to Deployment timeout",
 				"deploy-timeout"),
 		},
 		Key: "foo/deploy-timeout",
@@ -910,7 +962,9 @@ func rev(namespace, name string, ro ...RevisionOption) *v1alpha1.Revision {
 			UID:       "test-uid",
 		},
 		Spec: v1alpha1.RevisionSpec{
-			Container: corev1.Container{Image: "busybox"},
+			Container: &corev1.Container{
+				Image: "busybox",
+			},
 		},
 	}
 
@@ -966,17 +1020,7 @@ func image(namespace, name string, co ...configOption) *caching.Image {
 		opt(config)
 	}
 
-	rev := rev(namespace, name)
-	// Do this here instead of in `rev` itself to ensure that we populate defaults
-	// before calling MakeDeployment within Reconcile.
-	rev.SetDefaults(context.Background())
-	deploy := resources.MakeDeployment(rev, config.Logging, config.Network, config.Observability,
-		config.Autoscaler, config.Controller)
-	img, err := resources.MakeImageCache(rev, deploy)
-	if err != nil {
-		panic(err.Error())
-	}
-	return img
+	return resources.MakeImageCache(rev(namespace, name))
 }
 
 func fluentdConfigMap(namespace, name string, co ...configOption) *corev1.ConfigMap {
@@ -1012,8 +1056,9 @@ func endpoints(namespace, name string, eo ...EndpointsOption) *corev1.Endpoints 
 	service := svc(namespace, name)
 	ep := &corev1.Endpoints{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: service.Namespace,
-			Name:      service.Name,
+			Namespace:         service.Namespace,
+			Name:              service.Name,
+			CreationTimestamp: metav1.Time{time.Now()},
 		},
 	}
 	for _, opt := range eo {

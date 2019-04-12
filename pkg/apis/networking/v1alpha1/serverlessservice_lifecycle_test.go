@@ -20,8 +20,8 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/knative/pkg/apis/duck"
-	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
-	corev1 "k8s.io/api/core/v1"
+	duckv1beta1 "github.com/knative/pkg/apis/duck/v1beta1"
+	apitest "github.com/knative/pkg/apis/testing"
 )
 
 func TestServerlessServiceDuckTypes(t *testing.T) {
@@ -30,7 +30,7 @@ func TestServerlessServiceDuckTypes(t *testing.T) {
 		t    duck.Implementable
 	}{{
 		name: "conditions",
-		t:    &duckv1alpha1.Conditions{},
+		t:    &duckv1beta1.Conditions{},
 	}}
 
 	for _, test := range tests {
@@ -55,20 +55,18 @@ func TestSSTypicalFlow(t *testing.T) {
 	r := &ServerlessServiceStatus{}
 	r.InitializeConditions()
 
-	checkConditionOngoingClusterIngress(r, ServerlessServiceConditionReady, t)
+	apitest.CheckConditionOngoing(r.duck(), ServerlessServiceConditionReady, t)
 
-	r.MarkEndpointsPopulated()
-	checkConditionSucceededServerlessService(r, ServerlessServiceConditionEndspointsPopulated, t)
-	checkConditionSucceededServerlessService(r, ServerlessServiceConditionReady, t)
-	checkIsReady(r, t)
-}
+	r.MarkEndpointsReady()
+	apitest.CheckConditionSucceeded(r.duck(), ServerlessServiceConditionEndspointsPopulated, t)
+	apitest.CheckConditionSucceeded(r.duck(), ServerlessServiceConditionReady, t)
+	// Or another way to check the same condition.
+	if !r.IsReady() {
+		t.Error("IsReady=false, want: true")
+	}
+	r.MarkEndpointsNotReady("random")
+	apitest.CheckConditionOngoing(r.duck(), ServerlessServiceConditionReady, t)
 
-func checkConditionSucceededServerlessService(cc ConditionCheckable, c duckv1alpha1.ConditionType, t *testing.T) *duckv1alpha1.Condition {
-	t.Helper()
-	return checkCondition(cc, c, corev1.ConditionTrue, t)
-}
-
-func checkConditionOngoingServerlessService(cc ConditionCheckable, c duckv1alpha1.ConditionType, t *testing.T) *duckv1alpha1.Condition {
-	t.Helper()
-	return checkCondition(cc, c, corev1.ConditionUnknown, t)
+	r.MarkEndpointsNotOwned("service", "jukebox")
+	apitest.CheckConditionFailed(r.duck(), ServerlessServiceConditionReady, t)
 }

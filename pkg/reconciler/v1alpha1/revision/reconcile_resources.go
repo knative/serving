@@ -21,6 +21,8 @@ import (
 	"fmt"
 	"time"
 
+	"go.uber.org/zap"
+
 	"github.com/knative/pkg/kmp"
 	"github.com/knative/pkg/logging"
 	"github.com/knative/pkg/logging/logkey"
@@ -29,7 +31,8 @@ import (
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/config"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources"
 	resourcenames "github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources/names"
-	"go.uber.org/zap"
+	presources "github.com/knative/serving/pkg/resources"
+
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
@@ -100,12 +103,17 @@ func (c *Reconciler) reconcileDeployment(ctx context.Context, rev *v1alpha1.Revi
 			"Revision %s not ready due to Deployment timeout", rev.Name)
 	}
 
-	// We do this here so that we can construct the Image resource based on the
-	// resulting Deployment resource (e.g. including resolved digest).
+	return nil
+}
+
+func (c *Reconciler) reconcileImageCache(ctx context.Context, rev *v1alpha1.Revision) error {
+	logger := logging.FromContext(ctx)
+
+	ns := rev.Namespace
 	imageName := resourcenames.ImageCache(rev)
 	_, getImageCacheErr := c.imageLister.Images(ns).Get(imageName)
 	if apierrs.IsNotFound(getImageCacheErr) {
-		_, err := c.createImageCache(ctx, rev, deployment)
+		_, err := c.createImageCache(ctx, rev)
 		if err != nil {
 			logger.Errorf("Error creating image cache %q: %v", imageName, err)
 			return err
@@ -124,23 +132,38 @@ func (c *Reconciler) reconcileKPA(ctx context.Context, rev *v1alpha1.Revision) e
 	kpaName := resourcenames.KPA(rev)
 	logger := logging.FromContext(ctx)
 
-	kpa, getKPAErr := c.podAutoscalerLister.PodAutoscalers(ns).Get(kpaName)
-	if apierrs.IsNotFound(getKPAErr) {
+	kpa, err := c.podAutoscalerLister.PodAutoscalers(ns).Get(kpaName)
+	if apierrs.IsNotFound(err) {
 		// KPA does not exist. Create it.
-		var err error
 		kpa, err = c.createKPA(ctx, rev)
 		if err != nil {
 			logger.Errorf("Error creating KPA %q: %v", kpaName, err)
 			return err
 		}
 		logger.Infof("Created kpa %q", kpaName)
-	} else if getKPAErr != nil {
-		logger.Errorf("Error reconciling kpa %q: %v", kpaName, getKPAErr)
-		return getKPAErr
+	} else if err != nil {
+		logger.Errorf("Error reconciling kpa %q: %v", kpaName, err)
+		return err
 	} else if !metav1.IsControlledBy(kpa, rev) {
 		// Surface an error in the revision's status, and return an error.
 		rev.Status.MarkResourceNotOwned("PodAutoscaler", kpaName)
 		return fmt.Errorf("Revision: %q does not own PodAutoscaler: %q", rev.Name, kpaName)
+	}
+
+	// Perhaps tha KPA spec changed underneath ourselves?
+	// TODO(vagababov): required for #1997. Should be removed in 0.7,
+	// to fix the protocol type when it's unset.
+	tmpl := resources.MakeKPA(rev)
+	if !equality.Semantic.DeepEqual(tmpl.Spec, kpa.Spec) {
+		want := kpa.DeepCopy()
+		want.Spec = tmpl.Spec
+		logger.Infof("KPA %s needs reconciliation", kpa.Name)
+		if _, err := c.ServingClientSet.AutoscalingV1alpha1().PodAutoscalers(kpa.Namespace).Update(want); err != nil {
+			return err
+		}
+		// This change will trigger KPA -> SKS -> K8s service change;
+		// and those after reconciliation will back progpagate here.
+		rev.Status.MarkDeploying("Updating")
 	}
 
 	// Reflect the KPA status in our own.
@@ -217,14 +240,14 @@ func (c *Reconciler) reconcileService(ctx context.Context, rev *v1alpha1.Revisio
 	// If the endpoints resource indicates that the Service it sits in front of is ready,
 	// then surface this in our Revision status as resources available (pods were scheduled)
 	// and container healthy (endpoints should be gated by any provided readiness checks).
-	if isServiceReady(endpoints) {
+	if presources.ReadyAddressCount(endpoints) > 0 {
 		rev.Status.MarkResourcesAvailable()
 		rev.Status.MarkContainerHealthy()
 	} else if !rev.Status.IsActivationRequired() {
 		// If the endpoints resource is NOT ready, then check whether it is taking unreasonably
 		// long to become ready and if so mark our revision as having timed out waiting
 		// for the Service to become ready.
-		revisionAge := time.Since(getRevisionLastTransitionTime(rev))
+		revisionAge := time.Since(endpoints.CreationTimestamp.Time)
 		if revisionAge >= serviceTimeoutDuration {
 			rev.Status.MarkServiceTimeout()
 			// TODO(mattmoor): How to ensure this only fires once?

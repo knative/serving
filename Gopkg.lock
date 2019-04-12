@@ -283,7 +283,7 @@
   version = "v0.2.0"
 
 [[projects]]
-  digest = "1:a9593460569b42d1febee32af9e66d516067d2e98cbb51eebfad65a72c59a63a"
+  digest = "1:e8023d1263ea9bd67f5a5c2db39f6b51a4301c54d13b7327988d9dde2a7ced15"
   name = "github.com/google/go-containerregistry"
   packages = [
     "pkg/authn",
@@ -294,12 +294,11 @@
     "pkg/v1/random",
     "pkg/v1/remote",
     "pkg/v1/remote/transport",
-    "pkg/v1/stream",
     "pkg/v1/types",
     "pkg/v1/v1util",
   ]
   pruneopts = "NUT"
-  revision = "dbc4da98389f9d0c42eb314c2b346bf1d2a27310"
+  revision = "ec69c4a8a1bff25fcbe096fcb32c9a6543fbdccf"
 
 [[projects]]
   branch = "master"
@@ -415,7 +414,7 @@
   revision = "dd3ceb3323922b899a0a913f885fcf59943e7b59"
 
 [[projects]]
-  digest = "1:9a670ce0109361c513e7103c478dbbea261bb81d41d0f9c822707451bce139bb"
+  digest = "1:d978804ff9861cf5670d52fc8e4b85f38245fdac88d814952b6c9506b55406ed"
   name = "github.com/knative/caching"
   packages = [
     "pkg/apis/caching",
@@ -432,20 +431,22 @@
     "pkg/client/listers/caching/v1alpha1",
   ]
   pruneopts = "T"
-  revision = "3fc06fd3c9880a9ebb5c401f4b20cf6666cc7bc0"
+  revision = "babf400eeec07acdd0d6864ad28709c2bcee0c82"
 
 [[projects]]
-  digest = "1:b63240baa17619ca01a86c507c63416b679d934d1c63d0ecea2fd34d6ead1c7f"
+  digest = "1:f1ab1cf1b5d5b1d3f3ccfbdb3404bd7a060378785a090408fc5c445bb20f2c88"
   name = "github.com/knative/pkg"
   packages = [
     "apis",
     "apis/duck",
     "apis/duck/v1alpha1",
+    "apis/duck/v1beta1",
     "apis/istio",
     "apis/istio/authentication",
     "apis/istio/authentication/v1alpha1",
     "apis/istio/common/v1alpha1",
     "apis/istio/v1alpha3",
+    "apis/testing",
     "changeset",
     "client/clientset/versioned",
     "client/clientset/versioned/fake",
@@ -471,6 +472,7 @@
     "logging/testing",
     "metrics",
     "metrics/metricskey",
+    "ptr",
     "signals",
     "system",
     "system/testing",
@@ -487,14 +489,15 @@
     "websocket",
   ]
   pruneopts = "NUT"
-  revision = "671c872a772b25ca519c211b9ca0a0ad274b0918"
+  revision = "2adf7f0c98b1564c9c8b33a742a4b693e7871459"
 
 [[projects]]
   branch = "master"
-  digest = "1:37372ae74214d400b7efb4b1b9839d99d8e2c6fc4e2a1ddf6c38431c979c91f1"
+  digest = "1:aa5b8815a84253b406a87b93097ed8e4a9ace745483425bd6ea9315e3d980985"
   name = "github.com/knative/test-infra"
   packages = [
     "scripts",
+    "shared/common",
     "shared/gcs",
     "shared/junit",
     "shared/loadgenerator",
@@ -509,7 +512,7 @@
     "tools/webhook-apicoverage/webhook",
   ]
   pruneopts = "UT"
-  revision = "cc62d7b1296b8ae5c93f1dec2cbfbaa84624304b"
+  revision = "c4c17967d1502ca066c7eeb8f17a6f268610b25b"
 
 [[projects]]
   digest = "1:56dbf15e091bf7926cb33a57cb6bdfc658fc6d3498d2f76f10a97ce7856f1fde"
@@ -1243,7 +1246,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:9b75ec0a523ff9fe3568f4fb14331d4fdc3c261a393bc183073505411fb4725f"
+  digest = "1:39912eb5f8eaf46486faae0839586c27c93423e552f76875defa048f52c15c15"
   name = "k8s.io/gengo"
   packages = [
     "args",
@@ -1256,7 +1259,15 @@
     "types",
   ]
   pruneopts = "NUT"
-  revision = "1ef560bbde5195c01629039ad3b337ce63e7b321"
+  revision = "e17681d19d3ac4837a019ece36c2a0ec31ffe985"
+
+[[projects]]
+  digest = "1:c263611800c3a97991dbcf9d3bc4de390f6224aaa8ca0a7226a9d734f65a416a"
+  name = "k8s.io/klog"
+  packages = ["."]
+  pruneopts = "NUT"
+  revision = "71442cd4037d612096940ceb0f3fec3f7fff66e0"
+  version = "v0.2.0"
 
 [[projects]]
   branch = "master"
@@ -1308,8 +1319,10 @@
     "github.com/knative/pkg/apis",
     "github.com/knative/pkg/apis/duck",
     "github.com/knative/pkg/apis/duck/v1alpha1",
+    "github.com/knative/pkg/apis/duck/v1beta1",
     "github.com/knative/pkg/apis/istio/common/v1alpha1",
     "github.com/knative/pkg/apis/istio/v1alpha3",
+    "github.com/knative/pkg/apis/testing",
     "github.com/knative/pkg/client/clientset/versioned",
     "github.com/knative/pkg/client/clientset/versioned/fake",
     "github.com/knative/pkg/client/informers/externalversions",
@@ -1324,6 +1337,7 @@
     "github.com/knative/pkg/logging/testing",
     "github.com/knative/pkg/metrics",
     "github.com/knative/pkg/metrics/metricskey",
+    "github.com/knative/pkg/ptr",
     "github.com/knative/pkg/signals",
     "github.com/knative/pkg/system",
     "github.com/knative/pkg/system/testing",
@@ -1332,6 +1346,7 @@
     "github.com/knative/pkg/test/ingress",
     "github.com/knative/pkg/test/logging",
     "github.com/knative/pkg/test/spoof",
+    "github.com/knative/pkg/test/zipkin",
     "github.com/knative/pkg/tracker",
     "github.com/knative/pkg/version",
     "github.com/knative/pkg/webhook",
@@ -1349,9 +1364,10 @@
     "github.com/knative/test-infra/tools/webhook-apicoverage/webhook",
     "github.com/mattbaird/jsonpatch",
     "github.com/pkg/errors",
+    "github.com/prometheus/client_golang/prometheus",
+    "github.com/prometheus/client_golang/prometheus/promhttp",
     "github.com/prometheus/client_model/go",
     "github.com/prometheus/common/expfmt",
-    "go.opencensus.io/exporter/prometheus",
     "go.opencensus.io/stats",
     "go.opencensus.io/stats/view",
     "go.opencensus.io/tag",
@@ -1371,7 +1387,6 @@
     "k8s.io/apimachinery/pkg/api/errors",
     "k8s.io/apimachinery/pkg/api/meta",
     "k8s.io/apimachinery/pkg/api/resource",
-    "k8s.io/apimachinery/pkg/api/validation",
     "k8s.io/apimachinery/pkg/apis/meta/v1",
     "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured",
     "k8s.io/apimachinery/pkg/labels",

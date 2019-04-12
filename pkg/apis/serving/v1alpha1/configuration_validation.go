@@ -24,12 +24,15 @@ import (
 
 	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
 	"github.com/knative/pkg/apis"
+	"github.com/knative/serving/pkg/apis/serving"
 )
 
 // Validate makes sure that Configuration is properly configured.
 func (c *Configuration) Validate(ctx context.Context) *apis.FieldError {
-	return ValidateObjectMetadata(c.GetObjectMeta()).ViaField("metadata").
-		Also(c.Spec.Validate(ctx).ViaField("spec"))
+	errs := serving.ValidateObjectMetadata(c.GetObjectMeta()).ViaField("metadata")
+	ctx = apis.WithinParent(ctx, c.ObjectMeta)
+	errs = errs.Also(c.Spec.Validate(apis.WithinSpec(ctx)).ViaField("spec"))
+	return errs
 }
 
 // Validate makes sure that ConfigurationSpec is properly configured.
@@ -37,8 +40,16 @@ func (cs *ConfigurationSpec) Validate(ctx context.Context) *apis.FieldError {
 	if equality.Semantic.DeepEqual(cs, &ConfigurationSpec{}) {
 		return apis.ErrMissingField(apis.CurrentField)
 	}
-	var errs *apis.FieldError
-	// TODO(mattmoor): Check ObjectMeta for Name/Namespace/GenerateName
+	var templateField string
+	if cs.RevisionTemplate != nil {
+		templateField = "revisionTemplate"
+	} else {
+		return apis.ErrMissingField("revisionTemplate")
+	}
+
+	errs := CheckDeprecated(ctx, map[string]interface{}{
+		"generation": cs.DeprecatedGeneration,
+	})
 
 	if cs.Build == nil {
 		// No build was specified.
@@ -47,8 +58,8 @@ func (cs *ConfigurationSpec) Validate(ctx context.Context) *apis.FieldError {
 	} else if err = cs.Build.As(&unstructured.Unstructured{}); err == nil {
 		// It is an unstructured.Unstructured.
 	} else {
-		errs = errs.Also(apis.ErrInvalidValue(err.Error(), "build"))
+		errs = errs.Also(apis.ErrInvalidValue(err, "build"))
 	}
 
-	return errs.Also(cs.RevisionTemplate.Validate(ctx).ViaField("revisionTemplate"))
+	return errs.Also(cs.GetTemplate().Validate(ctx).ViaField(templateField))
 }

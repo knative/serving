@@ -38,6 +38,7 @@ import (
 	"golang.org/x/sync/errgroup"
 	kubeinformers "k8s.io/client-go/informers"
 	corev1informers "k8s.io/client-go/informers/core/v1"
+	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/clientcmd"
 )
 
@@ -86,18 +87,21 @@ func main() {
 
 	// Set up informers.
 	paInformer := servingInformerFactory.Autoscaling().V1alpha1().PodAutoscalers()
+	sksInformer := servingInformerFactory.Networking().V1alpha1().ServerlessServices()
 	endpointsInformer := kubeInformerFactory.Core().V1().Endpoints()
+	serviceInformer := kubeInformerFactory.Core().V1().Services()
 	hpaInformer := kubeInformerFactory.Autoscaling().V1().HorizontalPodAutoscalers()
+
+	collector := autoscaler.NewMetricCollector(statsScraperFactoryFunc(endpointsInformer.Lister()), statsCh, logger)
 
 	// Set up scalers.
 	// uniScalerFactory depends endpointsInformer to be set.
-	multiScaler := autoscaler.NewMultiScaler(
-		dynConfig, stopCh, statsCh, uniScalerFactoryFunc(endpointsInformer), statsScraperFactoryFunc(endpointsInformer), logger)
-	kpaScaler := kpa.NewKPAScaler(opt.ServingClientSet, opt.ScaleClientSet, logger, opt.ConfigMapWatcher)
+	multiScaler := autoscaler.NewMultiScaler(dynConfig, stopCh, uniScalerFactoryFunc(endpointsInformer), logger)
+	scaler := kpa.NewScaler(opt.ServingClientSet, opt.ScaleClientSet, logger, opt.ConfigMapWatcher)
 
 	controllers := []*controller.Impl{
-		kpa.NewController(&opt, paInformer, endpointsInformer, multiScaler, kpaScaler, dynConfig),
-		hpa.NewController(&opt, paInformer, hpaInformer),
+		kpa.NewController(&opt, paInformer, serviceInformer, endpointsInformer, multiScaler, collector, scaler, dynConfig),
+		hpa.NewController(&opt, paInformer, sksInformer, hpaInformer),
 	}
 
 	// Set up a statserver.
@@ -112,9 +116,11 @@ func main() {
 	// Start all of the informers and wait for them to sync.
 	if err := controller.StartInformers(
 		stopCh,
-		paInformer.Informer(),
 		endpointsInformer.Informer(),
 		hpaInformer.Informer(),
+		paInformer.Informer(),
+		serviceInformer.Informer(),
+		sksInformer.Informer(),
 	); err != nil {
 		logger.Fatalf("Failed to start informers: %v", err)
 	}
@@ -176,37 +182,32 @@ func scalerConfig(logger *zap.SugaredLogger) *autoscaler.DynamicConfig {
 	return dynConfig
 }
 
-func uniScalerFactoryFunc(endpointsInformer corev1informers.EndpointsInformer) func(metric *autoscaler.Metric, dynamicConfig *autoscaler.DynamicConfig) (autoscaler.UniScaler, error) {
-	return func(metric *autoscaler.Metric, dynamicConfig *autoscaler.DynamicConfig) (autoscaler.UniScaler, error) {
+func uniScalerFactoryFunc(endpointsInformer corev1informers.EndpointsInformer) func(decider *autoscaler.Decider, dynamicConfig *autoscaler.DynamicConfig) (autoscaler.UniScaler, error) {
+	return func(decider *autoscaler.Decider, dynamicConfig *autoscaler.DynamicConfig) (autoscaler.UniScaler, error) {
+		for _, l := range []string{serving.RevisionLabelKey, serving.ConfigurationLabelKey} {
+			if v, ok := decider.Labels[l]; !ok || v == "" {
+				return nil, fmt.Errorf("label %q not found or empty in Decider: %v", l, decider)
+			}
+		}
+
+		revName := decider.Labels[serving.RevisionLabelKey]
+		serviceName := decider.Labels[serving.ServiceLabelKey] // This can be empty.
+		configName := decider.Labels[serving.ConfigurationLabelKey]
+
 		// Create a stats reporter which tags statistics by PA namespace, configuration name, and PA name.
-		reporter, err := autoscaler.NewStatsReporter(metric.Namespace,
-			labelValueOrEmpty(metric, serving.ServiceLabelKey), labelValueOrEmpty(metric, serving.ConfigurationLabelKey), metric.Name)
+		reporter, err := autoscaler.NewStatsReporter(decider.Namespace, serviceName, configName, decider.Name)
 		if err != nil {
 			return nil, err
 		}
 
-		revName := metric.Labels[serving.RevisionLabelKey]
-		if revName == "" {
-			return nil, fmt.Errorf("no Revision label found in Metric: %v", metric)
-		}
-
-		return autoscaler.New(dynamicConfig, metric.Namespace,
+		return autoscaler.New(dynamicConfig, decider.Namespace,
 			reconciler.GetServingK8SServiceNameForObj(revName), endpointsInformer,
-			metric.Spec.TargetConcurrency, reporter)
+			decider.Spec.TargetConcurrency, reporter)
 	}
 }
 
-func statsScraperFactoryFunc(endpointsInformer corev1informers.EndpointsInformer) func(metric *autoscaler.Metric, config *autoscaler.DynamicConfig) (autoscaler.StatsScraper, error) {
-	return func(metric *autoscaler.Metric, config *autoscaler.DynamicConfig) (autoscaler.StatsScraper, error) {
-		return autoscaler.NewServiceScraper(metric, config, endpointsInformer)
+func statsScraperFactoryFunc(endpointsLister corev1listers.EndpointsLister) func(metric *autoscaler.Metric) (autoscaler.StatsScraper, error) {
+	return func(metric *autoscaler.Metric) (autoscaler.StatsScraper, error) {
+		return autoscaler.NewServiceScraper(metric, endpointsLister)
 	}
-}
-
-func labelValueOrEmpty(metric *autoscaler.Metric, labelKey string) string {
-	if metric.Labels != nil {
-		if value, ok := metric.Labels[labelKey]; ok {
-			return value
-		}
-	}
-	return ""
 }

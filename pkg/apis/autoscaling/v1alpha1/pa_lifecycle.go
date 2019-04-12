@@ -21,13 +21,14 @@ import (
 	"strconv"
 	"time"
 
-	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
+	"github.com/knative/pkg/apis"
+	duckv1beta1 "github.com/knative/pkg/apis/duck/v1beta1"
 	"github.com/knative/serving/pkg/apis/autoscaling"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
-var podCondSet = duckv1alpha1.NewLivingConditionSet(
+var podCondSet = apis.NewLivingConditionSet(
 	PodAutoscalerConditionActive,
 )
 
@@ -79,56 +80,60 @@ func (pa *PodAutoscaler) Target() (target int32, ok bool) {
 
 // IsReady looks at the conditions and if the Status has a condition
 // PodAutoscalerConditionReady returns true if ConditionStatus is True
-func (rs *PodAutoscalerStatus) IsReady() bool {
-	return podCondSet.Manage(rs).IsHappy()
+func (pas *PodAutoscalerStatus) IsReady() bool {
+	return podCondSet.Manage(pas.duck()).IsHappy()
 }
 
 // IsActivating assumes the pod autoscaler is Activating if it is neither
 // Active nor Inactive
-func (rs *PodAutoscalerStatus) IsActivating() bool {
-	cond := rs.GetCondition(PodAutoscalerConditionActive)
-
+func (pas *PodAutoscalerStatus) IsActivating() bool {
+	cond := pas.GetCondition(PodAutoscalerConditionActive)
 	return cond != nil && cond.Status == corev1.ConditionUnknown
 }
 
-func (rs *PodAutoscalerStatus) GetCondition(t duckv1alpha1.ConditionType) *duckv1alpha1.Condition {
-	return podCondSet.Manage(rs).GetCondition(t)
+// GetCondition gets the condition `t`.
+func (pas *PodAutoscalerStatus) GetCondition(t apis.ConditionType) *apis.Condition {
+	return podCondSet.Manage(pas.duck()).GetCondition(t)
 }
 
-func (rs *PodAutoscalerStatus) InitializeConditions() {
-	podCondSet.Manage(rs).InitializeConditions()
+// InitializeConditions initializes the conditionhs of the PA.
+func (pas *PodAutoscalerStatus) InitializeConditions() {
+	podCondSet.Manage(pas.duck()).InitializeConditions()
 }
 
-func (rs *PodAutoscalerStatus) MarkActive() {
-	podCondSet.Manage(rs).MarkTrue(PodAutoscalerConditionActive)
+// MarkActive marks the PA active.
+func (pas *PodAutoscalerStatus) MarkActive() {
+	podCondSet.Manage(pas.duck()).MarkTrue(PodAutoscalerConditionActive)
 }
 
-func (rs *PodAutoscalerStatus) MarkActivating(reason, message string) {
-	podCondSet.Manage(rs).MarkUnknown(PodAutoscalerConditionActive, reason, message)
+// MarkActivating marks the PA as activating.
+func (pas *PodAutoscalerStatus) MarkActivating(reason, message string) {
+	podCondSet.Manage(pas.duck()).MarkUnknown(PodAutoscalerConditionActive, reason, message)
 }
 
-func (rs *PodAutoscalerStatus) MarkInactive(reason, message string) {
-	podCondSet.Manage(rs).MarkFalse(PodAutoscalerConditionActive, reason, message)
+// MarkInactive marks the PA as inactive.
+func (pas *PodAutoscalerStatus) MarkInactive(reason, message string) {
+	podCondSet.Manage(pas.duck()).MarkFalse(PodAutoscalerConditionActive, reason, message)
 }
 
 // MarkResourceNotOwned changes the "Active" condition to false to reflect that the
 // resource of the given kind and name has already been created, and we do not own it.
-func (rs *PodAutoscalerStatus) MarkResourceNotOwned(kind, name string) {
-	rs.MarkInactive("NotOwned",
+func (pas *PodAutoscalerStatus) MarkResourceNotOwned(kind, name string) {
+	pas.MarkInactive("NotOwned",
 		fmt.Sprintf("There is an existing %s %q that we do not own.", kind, name))
 }
 
 // MarkResourceFailedCreation changes the "Active" condition to false to reflect that a
 // critical resource of the given kind and name was unable to be created.
-func (rs *PodAutoscalerStatus) MarkResourceFailedCreation(kind, name string) {
-	rs.MarkInactive("FailedCreate",
+func (pas *PodAutoscalerStatus) MarkResourceFailedCreation(kind, name string) {
+	pas.MarkInactive("FailedCreate",
 		fmt.Sprintf("Failed to create %s %q.", kind, name))
 }
 
 // CanScaleToZero checks whether the pod autoscaler has been in an inactive state
 // for at least the specified grace period.
-func (rs *PodAutoscalerStatus) CanScaleToZero(gracePeriod time.Duration) bool {
-	if cond := rs.GetCondition(PodAutoscalerConditionActive); cond != nil {
+func (pas *PodAutoscalerStatus) CanScaleToZero(gracePeriod time.Duration) bool {
+	if cond := pas.GetCondition(PodAutoscalerConditionActive); cond != nil {
 		switch cond.Status {
 		case corev1.ConditionFalse:
 			// Check that this PodAutoscaler has been inactive for
@@ -141,8 +146,8 @@ func (rs *PodAutoscalerStatus) CanScaleToZero(gracePeriod time.Duration) bool {
 
 // CanMarkInactive checks whether the pod autoscaler has been in an active state
 // for at least the specified idle period.
-func (rs *PodAutoscalerStatus) CanMarkInactive(idlePeriod time.Duration) bool {
-	if cond := rs.GetCondition(PodAutoscalerConditionActive); cond != nil {
+func (pas *PodAutoscalerStatus) CanMarkInactive(idlePeriod time.Duration) bool {
+	if cond := pas.GetCondition(PodAutoscalerConditionActive); cond != nil {
 		switch cond.Status {
 		case corev1.ConditionTrue:
 			// Check that this PodAutoscaler has been active for
@@ -151,4 +156,8 @@ func (rs *PodAutoscalerStatus) CanMarkInactive(idlePeriod time.Duration) bool {
 		}
 	}
 	return false
+}
+
+func (pas *PodAutoscalerStatus) duck() *duckv1beta1.Status {
+	return (*duckv1beta1.Status)(pas)
 }

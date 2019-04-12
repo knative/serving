@@ -29,6 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 
 	pkgTest "github.com/knative/pkg/test"
+	"github.com/knative/pkg/test/zipkin"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources/names"
 	ktest "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
@@ -47,6 +48,8 @@ const (
 
 type stats struct {
 	avg time.Duration
+	min time.Duration
+	max time.Duration
 }
 
 func runScaleFromZero(idx int, t *testing.T, clients *test.Clients, ro *test.ResourceObjects) (time.Duration, error) {
@@ -69,24 +72,29 @@ func runScaleFromZero(idx int, t *testing.T, clients *test.Clients, ro *test.Res
 
 	start := time.Now()
 	t.Logf("%02d: waiting for endpoint to serve request", idx)
-	if _, err := pkgTest.WaitForEndpointStateWithTimeout(
+	resp, err := pkgTest.WaitForEndpointStateWithTimeout(
 		clients.KubeClient,
 		t.Logf,
 		domain,
 		pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesBody(helloWorldExpectedOutput)),
 		"HelloWorldServesText",
-		test.ServingFlags.ResolvableDomain, waitToServe); err != nil {
+		test.ServingFlags.ResolvableDomain, waitToServe)
+	if err != nil {
 		m := fmt.Sprintf("%02d: the endpoint for Route %q at domain %q didn't serve the expected text %q: %v", idx, ro.Route.Name, domain, helloWorldExpectedOutput, err)
 		t.Log(m)
 		return 0, errors.New(m)
 	}
-
+	dur := time.Since(start)
 	t.Logf("%02d: request completed", idx)
-	return time.Since(start), nil
+
+	traceID := resp.Header.Get(zipkin.ZipkinTraceIDHeader)
+	AddTrace(t.Logf, t.Name(), traceID)
+
+	return dur, nil
 }
 
 func parallelScaleFromZero(t *testing.T, count int) ([]time.Duration, error) {
-	pc, err := Setup(t.Logf, false)
+	pc, err := Setup(t, EnableZipkinTracing)
 	if err != nil {
 		return nil, fmt.Errorf("failed to setup clients: %v", err)
 	}
@@ -160,44 +168,81 @@ func parallelScaleFromZero(t *testing.T, count int) ([]time.Duration, error) {
 	return durations, g.Wait()
 }
 
-func getStats(durations []time.Duration) *stats {
+func getRunStats(durations []time.Duration) *stats {
 	if len(durations) == 0 {
 		return nil
 	}
-	var avg time.Duration
+	min := durations[0]
+	max := durations[0]
+	avg := durations[0]
 
-	for _, dur := range durations {
+	for _, dur := range durations[1:] {
+		if dur < min {
+			min = dur
+		} else if dur > max {
+			max = dur
+		}
 		avg += dur
 	}
 	return &stats{
 		avg: time.Duration(int64(avg) / int64(len(durations))),
+		min: min,
+		max: max,
 	}
 }
 
-func testScaleFromZero(t *testing.T, count int) {
-	tName := fmt.Sprintf("TestScaleFromZero%02d", count)
-	durs, err := parallelScaleFromZero(t, count)
-	if err != nil {
-		t.Fatal(err)
+func getMultiRunStats(runStats []*stats) *stats {
+	min := runStats[0].min
+	max := runStats[0].max
+	avg := runStats[0].avg
+
+	for _, stat := range runStats[1:] {
+		if stat.min < min {
+			min = stat.min
+		} else if stat.max > max {
+			max = stat.max
+		}
+		avg += stat.avg
 	}
-	stats := getStats(durs)
-	t.Logf("Average: %v", stats.avg)
-	if err = testgrid.CreateXMLOutput([]junit.TestCase{
-		CreatePerfTestCase(float32(stats.avg.Seconds()), "Average", tName)}, tName); err != nil {
+	return &stats{
+		avg: time.Duration(int64(avg) / int64(len(runStats))),
+		min: min,
+		max: max,
+	}
+}
+
+func testScaleFromZero(t *testing.T, count, numRuns int) {
+	runStats := make([]*stats, numRuns)
+	tName := fmt.Sprintf("TestScaleFromZero%02d", count)
+	for i := 0; i < numRuns; i++ {
+		durs, err := parallelScaleFromZero(t, count)
+		if err != nil {
+			t.Fatalf("Run %d: %v", i+1, err)
+		}
+		runStats[i] = getRunStats(durs)
+		t.Logf("Run %d: Average: %v", i+1, runStats[i].avg)
+	}
+
+	stats := getMultiRunStats(runStats)
+
+	if err := testgrid.CreateXMLOutput([]junit.TestCase{
+		CreatePerfTestCase(float32(stats.avg.Seconds()), "Average", tName),
+		CreatePerfTestCase(float32(stats.min.Seconds()), "Min", tName),
+		CreatePerfTestCase(float32(stats.max.Seconds()), "Max", tName)}, tName); err != nil {
 		t.Fatalf("Error creating testgrid output: %v", err)
 	}
 }
 
 func TestScaleFromZero1(t *testing.T) {
-	testScaleFromZero(t, 1)
+	testScaleFromZero(t, 1 /* parallelism */, 5 /* runs */)
 }
 
 func TestScaleFromZero5(t *testing.T) {
-	testScaleFromZero(t, 5)
+	testScaleFromZero(t, 5 /* parallelism */, 5 /* runs */)
 }
 
 func TestScaleFromZero50(t *testing.T) {
 	// See: #3021
 	t.Skip()
-	testScaleFromZero(t, 50)
+	testScaleFromZero(t, 50 /* parallelism */, 5 /* runs */)
 }

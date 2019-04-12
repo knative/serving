@@ -314,9 +314,12 @@ func (c *Reconciler) reconcileDigest(ctx context.Context, rev *v1alpha1.Revision
 		// ImagePullSecrets: Not possible via RevisionSpec, since we
 		// don't expose such a field.
 	}
-	digest, err := c.resolver.Resolve(rev.Spec.Container.Image, opt, cfgs.Controller.RegistriesSkippingTagResolving)
+	digest, err := c.resolver.Resolve(rev.Spec.GetContainer().Image,
+		opt, cfgs.Controller.RegistriesSkippingTagResolving)
 	if err != nil {
-		rev.Status.MarkContainerMissing(v1alpha1.RevisionContainerMissingMessage(rev.Spec.Container.Image, err.Error()))
+		rev.Status.MarkContainerMissing(
+			v1alpha1.RevisionContainerMissingMessage(
+				rev.Spec.GetContainer().Image, err.Error()))
 		return err
 	}
 
@@ -330,6 +333,7 @@ func (c *Reconciler) reconcile(ctx context.Context, rev *v1alpha1.Revision) erro
 	if rev.GetDeletionTimestamp() != nil {
 		return nil
 	}
+	readyBeforeReconcile := rev.Status.IsReady()
 
 	// We may be reading a version of the object that was stored at an older version
 	// and may not have had all of the assumed defaults specified.  This won't result
@@ -339,8 +343,6 @@ func (c *Reconciler) reconcile(ctx context.Context, rev *v1alpha1.Revision) erro
 
 	rev.Status.InitializeConditions()
 	c.updateRevisionLoggingURL(ctx, rev)
-
-	readyBeforeReconcile := rev.Status.IsReady()
 
 	if err := c.reconcileBuild(ctx, rev); err != nil {
 		return err
@@ -359,6 +361,9 @@ func (c *Reconciler) reconcile(ctx context.Context, rev *v1alpha1.Revision) erro
 		}, {
 			name: "user deployment",
 			f:    c.reconcileDeployment,
+		}, {
+			name: "image cache",
+			f:    c.reconcileImageCache,
 		}, {
 			name: "user k8s service",
 			f:    c.reconcileService,

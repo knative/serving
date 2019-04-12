@@ -62,10 +62,10 @@ func TestBuildSpecAndServe(t *testing.T) {
 		},
 	}
 
-	if _, err := clients.ServingClient.Configs.Create(test.ConfigurationWithBuild(test.ServingNamespace, names, build)); err != nil {
+	if _, err := clients.ServingClient.Configs.Create(test.ConfigurationWithBuild(names, build)); err != nil {
 		t.Fatalf("Failed to create Configuration: %v", err)
 	}
-	if _, err := clients.ServingClient.Routes.Create(test.Route(test.ServingNamespace, names)); err != nil {
+	if _, err := clients.ServingClient.Routes.Create(test.Route(names)); err != nil {
 		t.Fatalf("Failed to create Route: %v", err)
 	}
 
@@ -164,10 +164,10 @@ func TestBuildAndServe(t *testing.T) {
 		},
 	}
 
-	if _, err := clients.ServingClient.Configs.Create(test.ConfigurationWithBuild(test.ServingNamespace, names, build)); err != nil {
+	if _, err := clients.ServingClient.Configs.Create(test.ConfigurationWithBuild(names, build)); err != nil {
 		t.Fatalf("Failed to create Configuration: %v", err)
 	}
-	if _, err := clients.ServingClient.Routes.Create(test.Route(test.ServingNamespace, names)); err != nil {
+	if _, err := clients.ServingClient.Routes.Create(test.Route(names)); err != nil {
 		t.Fatalf("Failed to create Route: %v", err)
 	}
 
@@ -287,7 +287,7 @@ func TestBuildFailure(t *testing.T) {
 		},
 	}
 
-	config, err := clients.ServingClient.Configs.Create(test.ConfigurationWithBuild(test.ServingNamespace, names, build))
+	config, err := clients.ServingClient.Configs.Create(test.ConfigurationWithBuild(names, build))
 	if err != nil {
 		t.Fatalf("Failed to create Configuration with failing build: %v", err)
 	}

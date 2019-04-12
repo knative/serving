@@ -27,6 +27,7 @@ import (
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/config"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources"
+	presources "github.com/knative/serving/pkg/resources"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -77,9 +78,7 @@ func (c *Reconciler) checkAndUpdateDeployment(ctx context.Context, rev *v1alpha1
 	desiredDeployment.Spec = deployment.Spec
 
 	// Carry over new labels.
-	for k, v := range deployment.Labels {
-		desiredDeployment.Labels[k] = v
-	}
+	desiredDeployment.Labels = presources.UnionMaps(deployment.Labels, desiredDeployment.Labels)
 
 	d, err := c.KubeClientSet.AppsV1().Deployments(deployment.Namespace).Update(desiredDeployment)
 	if err != nil {
@@ -101,11 +100,8 @@ func (c *Reconciler) checkAndUpdateDeployment(ctx context.Context, rev *v1alpha1
 	return d, nil
 }
 
-func (c *Reconciler) createImageCache(ctx context.Context, rev *v1alpha1.Revision, deploy *appsv1.Deployment) (*caching.Image, error) {
-	image, err := resources.MakeImageCache(rev, deploy)
-	if err != nil {
-		return nil, err
-	}
+func (c *Reconciler) createImageCache(ctx context.Context, rev *v1alpha1.Revision) (*caching.Image, error) {
+	image := resources.MakeImageCache(rev)
 
 	return c.CachingClientSet.CachingV1alpha1().Images(image.Namespace).Create(image)
 }

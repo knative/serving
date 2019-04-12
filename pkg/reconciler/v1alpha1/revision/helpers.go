@@ -17,10 +17,7 @@ limitations under the License.
 package revision
 
 import (
-	"time"
-
 	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 )
@@ -34,23 +31,6 @@ func getBuildDoneCondition(build *duckv1alpha1.KResource) *duckv1alpha1.Conditio
 		return &cond
 	}
 	return nil
-}
-
-func isServiceReady(e *corev1.Endpoints) bool {
-	for _, es := range e.Subsets {
-		if len(es.Addresses) > 0 {
-			return true
-		}
-	}
-	return false
-}
-
-func getRevisionLastTransitionTime(r *v1alpha1.Revision) time.Time {
-	ready := r.Status.GetCondition(v1alpha1.RevisionConditionReady)
-	if ready == nil {
-		return r.CreationTimestamp.Time
-	}
-	return ready.LastTransitionTime.Inner.Time
 }
 
 func hasDeploymentTimedOut(deployment *appsv1.Deployment) bool {

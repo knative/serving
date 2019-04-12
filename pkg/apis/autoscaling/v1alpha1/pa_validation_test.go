@@ -99,18 +99,6 @@ func TestPodAutoscalerSpecValidation(t *testing.T) {
 		},
 		want: apis.ErrMissingField("serviceName"),
 	}, {
-		name: "bad concurrency model",
-		rs: &PodAutoscalerSpec{
-			ConcurrencyModel: "bogus",
-			ServiceName:      "foo",
-			ScaleTargetRef: autoscalingv1.CrossVersionObjectReference{
-				APIVersion: "apps/v1",
-				Kind:       "Deployment",
-				Name:       "bar",
-			},
-		},
-		want: apis.ErrInvalidValue("bogus", "concurrencyModel"),
-	}, {
 		name: "bad container concurrency",
 		rs: &PodAutoscalerSpec{
 			ContainerConcurrency: -1,
@@ -121,33 +109,19 @@ func TestPodAutoscalerSpecValidation(t *testing.T) {
 				Name:       "bar",
 			},
 		},
-		want: apis.ErrInvalidValue("-1", "containerConcurrency"),
+		want: apis.ErrInvalidValue(-1, "containerConcurrency"),
 	}, {
-		name: "bad concurrency model and container concurrency combination",
+		name: "multi invalid, bad concurrency and missing ref kind",
 		rs: &PodAutoscalerSpec{
-			ConcurrencyModel:     "Single",
-			ContainerConcurrency: 0,
+			ContainerConcurrency: -2,
 			ServiceName:          "foo",
-			ScaleTargetRef: autoscalingv1.CrossVersionObjectReference{
-				APIVersion: "apps/v1",
-				Kind:       "Deployment",
-				Name:       "bar",
-			},
-		},
-		want: apis.ErrMultipleOneOf("containerConcurrency", "concurrencyModel"),
-	}, {
-		name: "multi invalid, bad concurrency model and missing ref kind",
-		rs: &PodAutoscalerSpec{
-			ContainerConcurrency: -0,
-			ServiceName:          "foo",
-			ConcurrencyModel:     "super-bogus",
 			ScaleTargetRef: autoscalingv1.CrossVersionObjectReference{
 				APIVersion: "apps/v1",
 				Name:       "bar",
 			},
 		},
-		want: apis.ErrMissingField("scaleTargetRef.kind").
-			Also(apis.ErrInvalidValue("super-bogus", "concurrencyModel")),
+		want: apis.ErrInvalidValue(-2, "containerConcurrency").Also(
+			apis.ErrMissingField("scaleTargetRef.kind")),
 	}}
 
 	for _, test := range tests {
@@ -175,8 +149,7 @@ func TestPodAutoscalerValidation(t *testing.T) {
 				},
 			},
 			Spec: PodAutoscalerSpec{
-				ConcurrencyModel: "Multi",
-				ServiceName:      "foo",
+				ServiceName: "foo",
 				ScaleTargetRef: autoscalingv1.CrossVersionObjectReference{
 					APIVersion: "apps/v1",
 					Kind:       "Deployment",
@@ -196,8 +169,7 @@ func TestPodAutoscalerValidation(t *testing.T) {
 				},
 			},
 			Spec: PodAutoscalerSpec{
-				ConcurrencyModel: "Multi",
-				ServiceName:      "foo",
+				ServiceName: "foo",
 				ScaleTargetRef: autoscalingv1.CrossVersionObjectReference{
 					APIVersion: "apps/v1",
 					Kind:       "Deployment",
@@ -216,8 +188,7 @@ func TestPodAutoscalerValidation(t *testing.T) {
 				},
 			},
 			Spec: PodAutoscalerSpec{
-				ConcurrencyModel: "Multi",
-				ServiceName:      "foo",
+				ServiceName: "foo",
 				ScaleTargetRef: autoscalingv1.CrossVersionObjectReference{
 					APIVersion: "apps/v1",
 					Kind:       "Deployment",
@@ -237,8 +208,7 @@ func TestPodAutoscalerValidation(t *testing.T) {
 				},
 			},
 			Spec: PodAutoscalerSpec{
-				ConcurrencyModel: "Multi",
-				ServiceName:      "foo",
+				ServiceName: "foo",
 				ScaleTargetRef: autoscalingv1.CrossVersionObjectReference{
 					APIVersion: "apps/v1",
 					Kind:       "Deployment",
@@ -265,8 +235,8 @@ func TestPodAutoscalerValidation(t *testing.T) {
 				Name: "valid",
 			},
 			Spec: PodAutoscalerSpec{
-				ConcurrencyModel: "BadValue",
-				ServiceName:      "foo",
+				ContainerConcurrency: -1,
+				ServiceName:          "foo",
 				ScaleTargetRef: autoscalingv1.CrossVersionObjectReference{
 					APIVersion: "apps/v1",
 					Kind:       "Deployment",
@@ -274,7 +244,7 @@ func TestPodAutoscalerValidation(t *testing.T) {
 				},
 			},
 		},
-		want: apis.ErrInvalidValue("BadValue", "spec.concurrencyModel"),
+		want: apis.ErrInvalidValue(-1, "spec.containerConcurrency"),
 	}}
 
 	for _, test := range tests {
@@ -287,24 +257,20 @@ func TestPodAutoscalerValidation(t *testing.T) {
 	}
 }
 
-type notAPodAutoscaler struct{}
-
-func (nar *notAPodAutoscaler) CheckImmutableFields(context.Context, apis.Immutable) *apis.FieldError {
-	return nil
-}
-
 func TestImmutableFields(t *testing.T) {
 	tests := []struct {
 		name string
-		new  apis.Immutable
-		old  apis.Immutable
+		new  *PodAutoscaler
+		old  *PodAutoscaler
 		want *apis.FieldError
 	}{{
 		name: "good (no change)",
 		new: &PodAutoscaler{
+			ObjectMeta: v1.ObjectMeta{
+				Name: "valid",
+			},
 			Spec: PodAutoscalerSpec{
-				ConcurrencyModel: "Multi",
-				ServiceName:      "foo",
+				ServiceName: "foo",
 				ScaleTargetRef: autoscalingv1.CrossVersionObjectReference{
 					APIVersion: "apps/v1",
 					Kind:       "Deployment",
@@ -313,9 +279,11 @@ func TestImmutableFields(t *testing.T) {
 			},
 		},
 		old: &PodAutoscaler{
+			ObjectMeta: v1.ObjectMeta{
+				Name: "valid",
+			},
 			Spec: PodAutoscalerSpec{
-				ConcurrencyModel: "Multi",
-				ServiceName:      "foo",
+				ServiceName: "foo",
 				ScaleTargetRef: autoscalingv1.CrossVersionObjectReference{
 					APIVersion: "apps/v1",
 					Kind:       "Deployment",
@@ -327,9 +295,11 @@ func TestImmutableFields(t *testing.T) {
 	}, {
 		name: "good (protocol added)",
 		new: &PodAutoscaler{
+			ObjectMeta: v1.ObjectMeta{
+				Name: "valid",
+			},
 			Spec: PodAutoscalerSpec{
-				ConcurrencyModel: "Multi",
-				ServiceName:      "foo",
+				ServiceName: "foo",
 				ScaleTargetRef: autoscalingv1.CrossVersionObjectReference{
 					APIVersion: "apps/v1",
 					Kind:       "Deployment",
@@ -339,9 +309,11 @@ func TestImmutableFields(t *testing.T) {
 			},
 		},
 		old: &PodAutoscaler{
+			ObjectMeta: v1.ObjectMeta{
+				Name: "valid",
+			},
 			Spec: PodAutoscalerSpec{
-				ConcurrencyModel: "Multi",
-				ServiceName:      "foo",
+				ServiceName: "foo",
 				ScaleTargetRef: autoscalingv1.CrossVersionObjectReference{
 					APIVersion: "apps/v1",
 					Kind:       "Deployment",
@@ -351,26 +323,13 @@ func TestImmutableFields(t *testing.T) {
 		},
 		want: nil,
 	}, {
-		name: "bad (type mismatch)",
-		new: &PodAutoscaler{
-			Spec: PodAutoscalerSpec{
-				ConcurrencyModel: "Multi",
-				ServiceName:      "foo",
-				ScaleTargetRef: autoscalingv1.CrossVersionObjectReference{
-					APIVersion: "apps/v1",
-					Kind:       "Deployment",
-					Name:       "bar",
-				},
-			},
-		},
-		old:  &notAPodAutoscaler{},
-		want: &apis.FieldError{Message: "The provided original was not a PodAutoscaler"},
-	}, {
 		name: "bad (concurrency model change)",
 		new: &PodAutoscaler{
+			ObjectMeta: v1.ObjectMeta{
+				Name: "valid",
+			},
 			Spec: PodAutoscalerSpec{
-				ConcurrencyModel: "Multi",
-				ServiceName:      "foo",
+				ServiceName: "foo",
 				ScaleTargetRef: autoscalingv1.CrossVersionObjectReference{
 					APIVersion: "apps/v1",
 					Kind:       "Deployment",
@@ -379,9 +338,12 @@ func TestImmutableFields(t *testing.T) {
 			},
 		},
 		old: &PodAutoscaler{
+			ObjectMeta: v1.ObjectMeta{
+				Name: "valid",
+			},
 			Spec: PodAutoscalerSpec{
-				ConcurrencyModel: "Single",
-				ServiceName:      "foo",
+				ContainerConcurrency: 1,
+				ServiceName:          "foo",
 				ScaleTargetRef: autoscalingv1.CrossVersionObjectReference{
 					APIVersion: "apps/v1",
 					Kind:       "Deployment",
@@ -392,14 +354,17 @@ func TestImmutableFields(t *testing.T) {
 		want: &apis.FieldError{
 			Message: "Immutable fields changed (-old +new)",
 			Paths:   []string{"spec"},
-			Details: `{v1alpha1.PodAutoscalerSpec}.ConcurrencyModel:
-	-: v1alpha1.RevisionRequestConcurrencyModelType("Single")
-	+: v1alpha1.RevisionRequestConcurrencyModelType("Multi")
+			Details: `{v1alpha1.PodAutoscalerSpec}.ContainerConcurrency:
+	-: v1alpha1.RevisionContainerConcurrencyType(1)
+	+: v1alpha1.RevisionContainerConcurrencyType(0)
 `,
 		},
 	}, {
 		name: "bad (container concurrency change)",
 		new: &PodAutoscaler{
+			ObjectMeta: v1.ObjectMeta{
+				Name: "valid",
+			},
 			Spec: PodAutoscalerSpec{
 				ContainerConcurrency: 0,
 				ServiceName:          "foo",
@@ -411,6 +376,9 @@ func TestImmutableFields(t *testing.T) {
 			},
 		},
 		old: &PodAutoscaler{
+			ObjectMeta: v1.ObjectMeta{
+				Name: "valid",
+			},
 			Spec: PodAutoscalerSpec{
 				ContainerConcurrency: 1,
 				ServiceName:          "foo",
@@ -432,9 +400,11 @@ func TestImmutableFields(t *testing.T) {
 	}, {
 		name: "bad (multiple changes)",
 		new: &PodAutoscaler{
+			ObjectMeta: v1.ObjectMeta{
+				Name: "valid",
+			},
 			Spec: PodAutoscalerSpec{
-				ConcurrencyModel: "Multi",
-				ServiceName:      "foo",
+				ServiceName: "foo",
 				ScaleTargetRef: autoscalingv1.CrossVersionObjectReference{
 					APIVersion: "apps/v1",
 					Kind:       "Deployment",
@@ -443,9 +413,12 @@ func TestImmutableFields(t *testing.T) {
 			},
 		},
 		old: &PodAutoscaler{
+			ObjectMeta: v1.ObjectMeta{
+				Name: "valid",
+			},
 			Spec: PodAutoscalerSpec{
-				ConcurrencyModel: "Single",
-				ServiceName:      "food",
+				ContainerConcurrency: 1,
+				ServiceName:          "food",
 				ScaleTargetRef: autoscalingv1.CrossVersionObjectReference{
 					APIVersion: "apps/v1",
 					Kind:       "Deployment",
@@ -456,9 +429,9 @@ func TestImmutableFields(t *testing.T) {
 		want: &apis.FieldError{
 			Message: "Immutable fields changed (-old +new)",
 			Paths:   []string{"spec"},
-			Details: `{v1alpha1.PodAutoscalerSpec}.ConcurrencyModel:
-	-: v1alpha1.RevisionRequestConcurrencyModelType("Single")
-	+: v1alpha1.RevisionRequestConcurrencyModelType("Multi")
+			Details: `{v1alpha1.PodAutoscalerSpec}.ContainerConcurrency:
+	-: v1alpha1.RevisionContainerConcurrencyType(1)
+	+: v1alpha1.RevisionContainerConcurrencyType(0)
 {v1alpha1.PodAutoscalerSpec}.ScaleTargetRef.Name:
 	-: "baz"
 	+: "bar"
@@ -471,7 +444,9 @@ func TestImmutableFields(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got := test.new.CheckImmutableFields(context.Background(), test.old)
+			ctx := context.Background()
+			ctx = apis.WithinUpdate(ctx, test.old)
+			got := test.new.Validate(ctx)
 			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
 				t.Errorf("Validate (-want, +got) = %v", diff)
 			}

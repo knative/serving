@@ -1,7 +1,5 @@
 # Timeout test image
 
-This directory contains the test image used in the destroy pod e2e test.
-
 The image contains a simple Go webserver, `timeout.go`, that will, by default,
 listen on port `8080` and expose a service at `/`.
 

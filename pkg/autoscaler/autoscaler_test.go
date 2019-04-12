@@ -31,8 +31,9 @@ import (
 )
 
 const (
-	stableWindow = 60 * time.Second
-	panicWindow  = 6 * time.Second
+	stableWindow     = 60 * time.Second
+	panicWindow      = 6 * time.Second
+	activatorPodName = "activator"
 )
 
 var (
@@ -40,13 +41,23 @@ var (
 	kubeInformer = kubeinformers.NewSharedInformerFactory(kubeClient, 0)
 )
 
-func TestNew_ErrorWhenGivenEmptyInterface(t *testing.T) {
+func TestNew_ErrorWhenGivenNilInterface(t *testing.T) {
 	dynConfig := &DynamicConfig{}
 	var endpointsInformer corev1informers.EndpointsInformer
 
 	_, err := New(dynConfig, testNamespace, testService, endpointsInformer, 10, &mockReporter{})
 	if err == nil {
-		t.Error("Expected error when EndpointsInformer interface is empty, but got none.")
+		t.Error("Expected error when EndpointsInformer interface is nil, but got none.")
+	}
+}
+
+func TestNew_ErrorWhenGivenNilStatsReporter(t *testing.T) {
+	dynConfig := &DynamicConfig{}
+	var reporter StatsReporter
+
+	_, err := New(dynConfig, testNamespace, testService, kubeInformer.Core().V1().Endpoints(), 10, reporter)
+	if err == nil {
+		t.Error("Expected error when EndpointsInformer interface is nil, but got none.")
 	}
 }
 
@@ -314,7 +325,7 @@ func TestAutoscaler_Activator_CausesInstantScale(t *testing.T) {
 	now := roundedNow()
 	now = a.recordMetric(t, Stat{
 		Time:                      &now,
-		PodName:                   ActivatorPodName,
+		PodName:                   activatorPodName,
 		RequestCount:              0,
 		AverageConcurrentRequests: 100.0,
 	})
@@ -328,13 +339,13 @@ func TestAutoscaler_Activator_MultipleInstancesAreAggregated(t *testing.T) {
 	now := roundedNow()
 	now = a.recordMetric(t, Stat{
 		Time:                      &now,
-		PodName:                   ActivatorPodName + "-0",
+		PodName:                   activatorPodName + "-0",
 		RequestCount:              0,
 		AverageConcurrentRequests: 50.0,
 	})
 	now = a.recordMetric(t, Stat{
 		Time:                      &now,
-		PodName:                   ActivatorPodName + "-1",
+		PodName:                   activatorPodName + "-1",
 		RequestCount:              0,
 		AverageConcurrentRequests: 50.0,
 	})
@@ -457,7 +468,7 @@ func TestAutoscaler_UpdateTarget(t *testing.T) {
 			podCount:         10,
 		})
 	a.expectScale(t, now, 10, true)
-	a.Update(MetricSpec{
+	a.Update(DeciderSpec{
 		TargetConcurrency: 1.0,
 	})
 	a.expectScale(t, now, 100, true)

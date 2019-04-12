@@ -204,10 +204,10 @@ func TestPipeline(t *testing.T) {
 			test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 			defer test.TearDown(clients, names)
 
-			if _, err := clients.ServingClient.Configs.Create(test.ConfigurationWithBuild(test.ServingNamespace, names, tc.rawExtension)); err != nil {
+			if _, err := clients.ServingClient.Configs.Create(test.ConfigurationWithBuild(names, tc.rawExtension)); err != nil {
 				t.Fatalf("Failed to create Configuration: %v", err)
 			}
-			if _, err := clients.ServingClient.Routes.Create(test.Route(test.ServingNamespace, names)); err != nil {
+			if _, err := clients.ServingClient.Routes.Create(test.Route(names)); err != nil {
 				t.Fatalf("Failed to create Route: %v", err)
 			}
 

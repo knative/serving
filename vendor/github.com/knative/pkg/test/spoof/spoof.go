@@ -19,8 +19,6 @@ limitations under the License.
 package spoof
 
 import (
-	"bytes"
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -229,33 +227,15 @@ func (sc *SpoofingClient) logZipkinTrace(spoofResp *Response) {
 	}
 
 	traceID := spoofResp.Header.Get(zipkin.ZipkinTraceIDHeader)
-	if err := zipkin.CheckZipkinPortAvailability(); err == nil {
-		sc.logf("port-forwarding for Zipkin is not-setup. Failing Zipkin Trace retrieval")
-		return
-	}
+	sc.logf("Logging Zipkin Trace for: %s", traceID)
 
-	sc.logf("Logging Zipkin Trace: %s", traceID)
-
-	zipkinTraceEndpoint := zipkin.ZipkinTraceEndpoint + traceID
 	// Sleep to ensure all traces are correctly pushed on the backend.
 	time.Sleep(5 * time.Second)
-	resp, err := http.Get(zipkinTraceEndpoint)
-	if err != nil {
-		sc.logf("Error retrieving Zipkin trace: %v", err)
-		return
-	}
-	defer resp.Body.Close()
 
-	trace, err := ioutil.ReadAll(resp.Body)
+	json, err := zipkin.JSONTrace(traceID)
 	if err != nil {
-		sc.logf("Error reading Zipkin trace response: %v", err)
-		return
+		sc.logf("Error getting zipkin trace: %v", err)
 	}
 
-	var prettyJSON bytes.Buffer
-	if error := json.Indent(&prettyJSON, trace, "", "\t"); error != nil {
-		sc.logf("JSON Parser Error while trying for Pretty-Format: %v, Original Response: %s", error, string(trace))
-		return
-	}
-	sc.logf("%s", prettyJSON.String())
+	sc.logf("%s", json)
 }

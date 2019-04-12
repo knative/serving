@@ -35,33 +35,28 @@ const (
 	// seconds while an http request is taking the full timeout of 5
 	// second.
 	scaleBufferSize = 10
-
-	// scrapeTickInterval is the interval of time between scraping metrics across
-	// all pods of a revision.
-	// TODO(yanweiguo): tuning this value. To be based on pod population?
-	scrapeTickInterval = time.Second / 3
 )
 
-// Metric is a resource which observes the request load of a Revision and
+// Decider is a resource which observes the request load of a Revision and
 // recommends a number of replicas to run.
 // +k8s:deepcopy-gen=true
-type Metric struct {
+type Decider struct {
 	metav1.ObjectMeta
-	Spec   MetricSpec
-	Status MetricStatus
+	Spec   DeciderSpec
+	Status DeciderStatus
 }
 
-// MetricSpec is the parameters in which the Revision should scaled.
-type MetricSpec struct {
+// DeciderSpec is the parameters in which the Revision should scaled.
+type DeciderSpec struct {
 	TargetConcurrency float64
 }
 
-// MetricStatus is the current scale recommendation.
-type MetricStatus struct {
+// DeciderStatus is the current scale recommendation.
+type DeciderStatus struct {
 	DesiredScale int32
 }
 
-// UniScaler records statistics for a particular Metric and proposes the scale for the Metric's target based on those statistics.
+// UniScaler records statistics for a particular Decider and proposes the scale for the Decider's target based on those statistics.
 type UniScaler interface {
 	// Record records the given statistics.
 	Record(context.Context, Stat)
@@ -70,15 +65,12 @@ type UniScaler interface {
 	// The returned boolean is true if and only if a proposal was returned.
 	Scale(context.Context, time.Time) (int32, bool)
 
-	// Update reconfigures the UniScaler according to the MetricSpec.
-	Update(MetricSpec) error
+	// Update reconfigures the UniScaler according to the DeciderSpec.
+	Update(DeciderSpec) error
 }
 
 // UniScalerFactory creates a UniScaler for a given PA using the given dynamic configuration.
-type UniScalerFactory func(*Metric, *DynamicConfig) (UniScaler, error)
-
-// StatsScraperFactory creates a StatsScraper for a given PA using the given dynamic configuration.
-type StatsScraperFactory func(*Metric, *DynamicConfig) (StatsScraper, error)
+type UniScalerFactory func(*Decider, *DynamicConfig) (UniScaler, error)
 
 // scalerRunner wraps a UniScaler and a channel for implementing shutdown behavior.
 type scalerRunner struct {
@@ -87,21 +79,21 @@ type scalerRunner struct {
 	pokeCh chan struct{}
 
 	// mux guards access to metric
-	mux    sync.RWMutex
-	metric Metric
+	mux     sync.RWMutex
+	decider Decider
 }
 
 func (sr *scalerRunner) getLatestScale() int32 {
 	sr.mux.RLock()
 	defer sr.mux.RUnlock()
-	return sr.metric.Status.DesiredScale
+	return sr.decider.Status.DesiredScale
 }
 
 func (sr *scalerRunner) updateLatestScale(new int32) bool {
 	sr.mux.Lock()
 	defer sr.mux.Unlock()
-	if sr.metric.Status.DesiredScale != new {
-		sr.metric.Status.DesiredScale = new
+	if sr.decider.Status.DesiredScale != new {
+		sr.decider.Status.DesiredScale = new
 		return true
 	}
 	return false
@@ -118,12 +110,10 @@ type MultiScaler struct {
 	scalers       map[string]*scalerRunner
 	scalersMutex  sync.RWMutex
 	scalersStopCh <-chan struct{}
-	statsCh       chan<- *StatMessage
 
 	dynConfig *DynamicConfig
 
-	uniScalerFactory    UniScalerFactory
-	statsScraperFactory StatsScraperFactory
+	uniScalerFactory UniScalerFactory
 
 	logger *zap.SugaredLogger
 
@@ -135,46 +125,42 @@ type MultiScaler struct {
 func NewMultiScaler(
 	dynConfig *DynamicConfig,
 	stopCh <-chan struct{},
-	statsCh chan<- *StatMessage,
 	uniScalerFactory UniScalerFactory,
-	statsScraperFactory StatsScraperFactory,
 	logger *zap.SugaredLogger) *MultiScaler {
 	logger.Debugf("Creating MultiScaler with configuration %#v", dynConfig)
 	return &MultiScaler{
-		scalers:             make(map[string]*scalerRunner),
-		scalersStopCh:       stopCh,
-		statsCh:             statsCh,
-		dynConfig:           dynConfig,
-		uniScalerFactory:    uniScalerFactory,
-		statsScraperFactory: statsScraperFactory,
-		logger:              logger,
+		scalers:          make(map[string]*scalerRunner),
+		scalersStopCh:    stopCh,
+		dynConfig:        dynConfig,
+		uniScalerFactory: uniScalerFactory,
+		logger:           logger,
 	}
 }
 
-// Get return the current Metric.
-func (m *MultiScaler) Get(ctx context.Context, namespace, name string) (*Metric, error) {
+// Get return the current Decider.
+func (m *MultiScaler) Get(ctx context.Context, namespace, name string) (*Decider, error) {
 	key := NewMetricKey(namespace, name)
 	m.scalersMutex.RLock()
 	defer m.scalersMutex.RUnlock()
 	scaler, exists := m.scalers[key]
 	if !exists {
 		// This GroupResource is a lie, but unfortunately this interface requires one.
-		return nil, errors.NewNotFound(kpa.Resource("Metrics"), key)
+		return nil, errors.NewNotFound(kpa.Resource("Deciders"), key)
 	}
 	scaler.mux.RLock()
 	defer scaler.mux.RUnlock()
-	return (&scaler.metric).DeepCopy(), nil
+	return (&scaler.decider).DeepCopy(), nil
 }
 
-// Create instantiates the desired Metric.
-func (m *MultiScaler) Create(ctx context.Context, metric *Metric) (*Metric, error) {
+// Create instantiates the desired Decider.
+func (m *MultiScaler) Create(ctx context.Context, decider *Decider) (*Decider, error) {
 	m.scalersMutex.Lock()
 	defer m.scalersMutex.Unlock()
-	key := NewMetricKey(metric.Namespace, metric.Name)
+	key := NewMetricKey(decider.Namespace, decider.Name)
 	scaler, exists := m.scalers[key]
 	if !exists {
 		var err error
-		scaler, err = m.createScaler(ctx, metric)
+		scaler, err = m.createScaler(ctx, decider)
 		if err != nil {
 			return nil, err
 		}
@@ -182,26 +168,26 @@ func (m *MultiScaler) Create(ctx context.Context, metric *Metric) (*Metric, erro
 	}
 	scaler.mux.RLock()
 	defer scaler.mux.RUnlock()
-	return (&scaler.metric).DeepCopy(), nil
+	return (&scaler.decider).DeepCopy(), nil
 }
 
-// Update applied the desired MetricSpec to a currently running Metric.
-func (m *MultiScaler) Update(ctx context.Context, metric *Metric) (*Metric, error) {
-	key := NewMetricKey(metric.Namespace, metric.Name)
+// Update applied the desired DeciderSpec to a currently running Decider.
+func (m *MultiScaler) Update(ctx context.Context, decider *Decider) (*Decider, error) {
+	key := NewMetricKey(decider.Namespace, decider.Name)
 	m.scalersMutex.Lock()
 	defer m.scalersMutex.Unlock()
 	if scaler, exists := m.scalers[key]; exists {
 		scaler.mux.Lock()
 		defer scaler.mux.Unlock()
-		scaler.metric = *metric
-		scaler.scaler.Update(metric.Spec)
-		return metric, nil
+		scaler.decider = *decider
+		scaler.scaler.Update(decider.Spec)
+		return decider, nil
 	}
 	// This GroupResource is a lie, but unfortunately this interface requires one.
-	return nil, errors.NewNotFound(kpa.Resource("Metrics"), key)
+	return nil, errors.NewNotFound(kpa.Resource("Deciders"), key)
 }
 
-// Delete stops and removes a Metric.
+// Delete stops and removes a Decider.
 func (m *MultiScaler) Delete(ctx context.Context, namespace, name string) error {
 	key := NewMetricKey(namespace, name)
 	m.scalersMutex.Lock()
@@ -213,7 +199,7 @@ func (m *MultiScaler) Delete(ctx context.Context, namespace, name string) error 
 	return nil
 }
 
-// Watch registers a singleton function to call when MetricStatus is updated.
+// Watch registers a singleton function to call when DeciderStatus is updated.
 func (m *MultiScaler) Watch(fn func(string)) {
 	m.watcherMutex.Lock()
 	defer m.watcherMutex.Unlock()
@@ -247,21 +233,21 @@ func (m *MultiScaler) setScale(metricKey string, scale int32) bool {
 	return true
 }
 
-func (m *MultiScaler) createScaler(ctx context.Context, metric *Metric) (*scalerRunner, error) {
+func (m *MultiScaler) createScaler(ctx context.Context, decider *Decider) (*scalerRunner, error) {
 
-	scaler, err := m.uniScalerFactory(metric, m.dynConfig)
+	scaler, err := m.uniScalerFactory(decider, m.dynConfig)
 	if err != nil {
 		return nil, err
 	}
 
 	stopCh := make(chan struct{})
 	runner := &scalerRunner{
-		scaler: scaler,
-		stopCh: stopCh,
-		metric: *metric,
-		pokeCh: make(chan struct{}),
+		scaler:  scaler,
+		stopCh:  stopCh,
+		decider: *decider,
+		pokeCh:  make(chan struct{}),
 	}
-	runner.metric.Status.DesiredScale = -1
+	runner.decider.Status.DesiredScale = -1
 
 	ticker := time.NewTicker(m.dynConfig.Current().TickInterval)
 
@@ -284,27 +270,7 @@ func (m *MultiScaler) createScaler(ctx context.Context, metric *Metric) (*scaler
 		}
 	}()
 
-	scraper, err := m.statsScraperFactory(metric, m.dynConfig)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create a stats scraper for metric %q: %v", metric.Name, err)
-	}
-	scraperTicker := time.NewTicker(scrapeTickInterval)
-	go func() {
-		for {
-			select {
-			case <-m.scalersStopCh:
-				scraperTicker.Stop()
-				return
-			case <-stopCh:
-				scraperTicker.Stop()
-				return
-			case <-scraperTicker.C:
-				scraper.Scrape(ctx, m.statsCh)
-			}
-		}
-	}()
-
-	metricKey := NewMetricKey(metric.Namespace, metric.Name)
+	metricKey := NewMetricKey(decider.Namespace, decider.Name)
 	go func() {
 		for {
 			select {
@@ -334,17 +300,11 @@ func (m *MultiScaler) tickScaler(ctx context.Context, scaler UniScaler, scaleCha
 			return
 		}
 
-		// Don't scale to zero if scale to zero is disabled.
-		if desiredScale == 0 && !m.dynConfig.Current().EnableScaleToZero {
-			logger.Warn("Cannot scale: Desired scale == 0 && EnableScaleToZero == false.")
-			return
-		}
-
 		scaleChan <- desiredScale
 	}
 }
 
-// RecordStat records some statistics for the given Metric.
+// RecordStat records some statistics for the given Decider.
 func (m *MultiScaler) RecordStat(key string, stat Stat) {
 	m.scalersMutex.RLock()
 	defer m.scalersMutex.RUnlock()

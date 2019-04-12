@@ -18,7 +18,7 @@ package v1alpha1
 
 import (
 	"github.com/knative/pkg/apis"
-	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
+	duckv1beta1 "github.com/knative/pkg/apis/duck/v1beta1"
 	"github.com/knative/pkg/kmeta"
 	networking "github.com/knative/serving/pkg/apis/networking"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -104,21 +104,26 @@ type ServerlessServiceSpec struct {
 
 // ServerlessServiceStatus describes the current state of the ServerlessService.
 type ServerlessServiceStatus struct {
-	duckv1alpha1.Status `json:",inline"`
+	duckv1beta1.Status `json:",inline"`
 
 	// ServiceName holds the name of a core K8s Service resource that
 	// load balances over the pods backing this Revision (activator or revision).
 	// +optional
 	ServiceName string `json:"serviceName,omitempty"`
+
+	// PrivateServiceName holds the name of a core K8s Service resource that
+	// load balances over the user service pods backing this Revision.
+	// +optional
+	PrivateServiceName string `json:"privateServiceName,omitempty"`
 }
 
 // ConditionType represents a ServerlessService condition value
 const (
 	// ServerlessServiceConditionReady is set when the clusterIngress networking setting is
 	// configured and it has a load balancer address.
-	ServerlessServiceConditionReady = duckv1alpha1.ConditionReady
+	ServerlessServiceConditionReady = apis.ConditionReady
 
 	// ServerlessServiceConditionEndspointsPopulated is set when the ServerlessService's underlying
 	// Revision K8s Service has been populated with endpoints.
-	ServerlessServiceConditionEndspointsPopulated duckv1alpha1.ConditionType = "EndpointsPopulated"
+	ServerlessServiceConditionEndspointsPopulated apis.ConditionType = "EndpointsPopulated"
 )

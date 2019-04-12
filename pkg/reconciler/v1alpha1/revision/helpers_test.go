@@ -18,15 +18,11 @@ package revision
 
 import (
 	"testing"
-	"time"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/knative/pkg/apis"
 	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func TestGetBuildDoneCondition(t *testing.T) {
@@ -90,84 +86,6 @@ func TestGetBuildDoneCondition(t *testing.T) {
 			cond := getBuildDoneCondition(test.build)
 			if diff := cmp.Diff(test.cond, cond); diff != "" {
 				t.Errorf("getBuildDoneCondition(%v); (-want +got) = %v", test.build, diff)
-			}
-		})
-	}
-
-}
-
-func TestGetIsServiceReady(t *testing.T) {
-	tests := []struct {
-		description string
-		endpoints   *corev1.Endpoints
-		ready       bool
-	}{{
-		description: "no subsets",
-		endpoints:   &corev1.Endpoints{},
-	}, {
-		description: "subset no address",
-		endpoints: &corev1.Endpoints{
-			Subsets: []corev1.EndpointSubset{{
-				Addresses: []corev1.EndpointAddress{},
-			}},
-		},
-	}, {
-		description: "subset with address",
-		endpoints: &corev1.Endpoints{
-			Subsets: []corev1.EndpointSubset{{
-				Addresses: []corev1.EndpointAddress{{
-					IP: "127.0.0.1",
-				}},
-			}},
-		},
-		ready: true,
-	}}
-
-	for _, test := range tests {
-		t.Run(test.description, func(t *testing.T) {
-			ready := isServiceReady(test.endpoints)
-			if ready != test.ready {
-				t.Errorf("getIsServiceReady(%v) = %v, want %v", test.endpoints, ready, test.ready)
-			}
-		})
-	}
-}
-
-func TestGetRevisionLastTransitionTime(t *testing.T) {
-	expectedTime := time.Now()
-	tests := []struct {
-		description string
-		rev         *v1alpha1.Revision
-	}{{
-		description: "creation time",
-		rev: &v1alpha1.Revision{
-			ObjectMeta: metav1.ObjectMeta{
-				CreationTimestamp: metav1.NewTime(expectedTime),
-			},
-		},
-	}, {
-		description: "last condition time",
-		rev: &v1alpha1.Revision{
-			ObjectMeta: metav1.ObjectMeta{
-				CreationTimestamp: metav1.NewTime(expectedTime.Add(-20 * time.Minute)),
-			},
-			Status: v1alpha1.RevisionStatus{
-				Status: duckv1alpha1.Status{
-					Conditions: duckv1alpha1.Conditions{{
-						Type:               v1alpha1.RevisionConditionReady,
-						Status:             corev1.ConditionTrue,
-						LastTransitionTime: apis.VolatileTime{Inner: metav1.NewTime(expectedTime)},
-					}},
-				},
-			},
-		},
-	}}
-
-	for _, test := range tests {
-		t.Run(test.description, func(t *testing.T) {
-			ltt := getRevisionLastTransitionTime(test.rev)
-			if ltt != expectedTime {
-				t.Errorf("getRevisionLastTransitionTime(%v) = %v, want %v", test.rev, ltt, expectedTime)
 			}
 		})
 	}

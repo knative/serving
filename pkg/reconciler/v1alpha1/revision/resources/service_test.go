@@ -20,11 +20,13 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/knative/pkg/ptr"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"github.com/knative/serving/pkg/apis/autoscaling"
+	"github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 )
@@ -48,10 +50,11 @@ func TestMakeK8sService(t *testing.T) {
 				Namespace: "foo",
 				Name:      "bar-service",
 				Labels: map[string]string{
-					autoscaling.KPALabelKey:  "bar",
-					serving.RevisionLabelKey: "bar",
-					serving.RevisionUID:      "1234",
-					AppLabelKey:              "bar",
+					autoscaling.KPALabelKey:   "bar",
+					serving.RevisionLabelKey:  "bar",
+					serving.RevisionUID:       "1234",
+					AppLabelKey:               "bar",
+					networking.ServiceTypeKey: string(networking.ServiceTypePublic),
 				},
 				Annotations: map[string]string{},
 				OwnerReferences: []metav1.OwnerReference{{
@@ -59,8 +62,8 @@ func TestMakeK8sService(t *testing.T) {
 					Kind:               "Revision",
 					Name:               "bar",
 					UID:                "1234",
-					Controller:         &boolTrue,
-					BlockOwnerDeletion: &boolTrue,
+					Controller:         ptr.Bool(true),
+					BlockOwnerDeletion: ptr.Bool(true),
 				}},
 			},
 			Spec: corev1.ServiceSpec{
@@ -69,11 +72,6 @@ func TestMakeK8sService(t *testing.T) {
 					Protocol:   corev1.ProtocolTCP,
 					Port:       ServicePort,
 					TargetPort: intstr.FromString(v1alpha1.RequestQueuePortName),
-				}, {
-					Name:       MetricsPortName,
-					Protocol:   corev1.ProtocolTCP,
-					Port:       MetricsPort,
-					TargetPort: intstr.FromString(v1alpha1.RequestQueueMetricsPortName),
 				}},
 				Selector: map[string]string{
 					serving.RevisionLabelKey: "bar",
@@ -92,7 +90,7 @@ func TestMakeK8sService(t *testing.T) {
 				},
 			},
 			Spec: v1alpha1.RevisionSpec{
-				Container: corev1.Container{
+				Container: &corev1.Container{
 					Ports: []corev1.ContainerPort{
 						{Name: "h2c"},
 					},
@@ -104,10 +102,11 @@ func TestMakeK8sService(t *testing.T) {
 				Namespace: "blah",
 				Name:      "baz-service",
 				Labels: map[string]string{
-					autoscaling.KPALabelKey:  "baz",
-					serving.RevisionLabelKey: "baz",
-					serving.RevisionUID:      "1234",
-					AppLabelKey:              "baz",
+					autoscaling.KPALabelKey:   "baz",
+					serving.RevisionLabelKey:  "baz",
+					serving.RevisionUID:       "1234",
+					AppLabelKey:               "baz",
+					networking.ServiceTypeKey: string(networking.ServiceTypePublic),
 				},
 				Annotations: map[string]string{
 					autoscaling.ClassAnnotationKey: autoscaling.KPA,
@@ -117,8 +116,8 @@ func TestMakeK8sService(t *testing.T) {
 					Kind:               "Revision",
 					Name:               "baz",
 					UID:                "1234",
-					Controller:         &boolTrue,
-					BlockOwnerDeletion: &boolTrue,
+					Controller:         ptr.Bool(true),
+					BlockOwnerDeletion: ptr.Bool(true),
 				}},
 			},
 			Spec: corev1.ServiceSpec{
@@ -127,11 +126,6 @@ func TestMakeK8sService(t *testing.T) {
 					Protocol:   corev1.ProtocolTCP,
 					Port:       ServicePort,
 					TargetPort: intstr.FromString(v1alpha1.RequestQueuePortName),
-				}, {
-					Name:       MetricsPortName,
-					Protocol:   corev1.ProtocolTCP,
-					Port:       MetricsPort,
-					TargetPort: intstr.FromString(v1alpha1.RequestQueueMetricsPortName),
 				}},
 				Selector: map[string]string{
 					serving.RevisionLabelKey: "baz",
@@ -155,9 +149,10 @@ func TestMakeK8sService(t *testing.T) {
 				Namespace: "foo",
 				Name:      "bar-service",
 				Labels: map[string]string{
-					serving.RevisionLabelKey: "bar",
-					serving.RevisionUID:      "1234",
-					AppLabelKey:              "bar",
+					serving.RevisionLabelKey:  "bar",
+					serving.RevisionUID:       "1234",
+					AppLabelKey:               "bar",
+					networking.ServiceTypeKey: string(networking.ServiceTypePublic),
 				},
 				Annotations: map[string]string{
 					autoscaling.ClassAnnotationKey: autoscaling.HPA,
@@ -167,8 +162,8 @@ func TestMakeK8sService(t *testing.T) {
 					Kind:               "Revision",
 					Name:               "bar",
 					UID:                "1234",
-					Controller:         &boolTrue,
-					BlockOwnerDeletion: &boolTrue,
+					Controller:         ptr.Bool(true),
+					BlockOwnerDeletion: ptr.Bool(true),
 				}},
 			},
 			Spec: corev1.ServiceSpec{
@@ -177,11 +172,6 @@ func TestMakeK8sService(t *testing.T) {
 					Protocol:   corev1.ProtocolTCP,
 					Port:       ServicePort,
 					TargetPort: intstr.FromString(v1alpha1.RequestQueuePortName),
-				}, {
-					Name:       MetricsPortName,
-					Protocol:   corev1.ProtocolTCP,
-					Port:       MetricsPort,
-					TargetPort: intstr.FromString(v1alpha1.RequestQueueMetricsPortName),
 				}},
 				Selector: map[string]string{
 					serving.RevisionLabelKey: "bar",

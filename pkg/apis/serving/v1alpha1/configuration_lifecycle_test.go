@@ -20,7 +20,8 @@ import (
 	"testing"
 
 	"github.com/knative/pkg/apis/duck"
-	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
+	duckv1beta1 "github.com/knative/pkg/apis/duck/v1beta1"
+	apitesting "github.com/knative/pkg/apis/testing"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
@@ -31,7 +32,7 @@ func TestConfigurationDuckTypes(t *testing.T) {
 		t    duck.Implementable
 	}{{
 		name: "conditions",
-		t:    &duckv1alpha1.Conditions{},
+		t:    &duckv1beta1.Conditions{},
 	}}
 
 	for _, test := range tests {
@@ -56,8 +57,8 @@ func TestConfigurationIsReady(t *testing.T) {
 	}, {
 		name: "Different condition type should not be ready",
 		status: ConfigurationStatus{
-			Status: duckv1alpha1.Status{
-				Conditions: duckv1alpha1.Conditions{{
+			Status: duckv1beta1.Status{
+				Conditions: duckv1beta1.Conditions{{
 					Type:   "Foo",
 					Status: corev1.ConditionTrue,
 				}},
@@ -67,8 +68,8 @@ func TestConfigurationIsReady(t *testing.T) {
 	}, {
 		name: "False condition status should not be ready",
 		status: ConfigurationStatus{
-			Status: duckv1alpha1.Status{
-				Conditions: duckv1alpha1.Conditions{{
+			Status: duckv1beta1.Status{
+				Conditions: duckv1beta1.Conditions{{
 					Type:   ConfigurationConditionReady,
 					Status: corev1.ConditionFalse,
 				}},
@@ -78,8 +79,8 @@ func TestConfigurationIsReady(t *testing.T) {
 	}, {
 		name: "Unknown condition status should not be ready",
 		status: ConfigurationStatus{
-			Status: duckv1alpha1.Status{
-				Conditions: duckv1alpha1.Conditions{{
+			Status: duckv1beta1.Status{
+				Conditions: duckv1beta1.Conditions{{
 					Type:   ConfigurationConditionReady,
 					Status: corev1.ConditionUnknown,
 				}},
@@ -89,8 +90,8 @@ func TestConfigurationIsReady(t *testing.T) {
 	}, {
 		name: "Missing condition status should not be ready",
 		status: ConfigurationStatus{
-			Status: duckv1alpha1.Status{
-				Conditions: duckv1alpha1.Conditions{{
+			Status: duckv1beta1.Status{
+				Conditions: duckv1beta1.Conditions{{
 					Type: ConfigurationConditionReady,
 				}},
 			},
@@ -99,8 +100,8 @@ func TestConfigurationIsReady(t *testing.T) {
 	}, {
 		name: "True condition status should be ready",
 		status: ConfigurationStatus{
-			Status: duckv1alpha1.Status{
-				Conditions: duckv1alpha1.Conditions{{
+			Status: duckv1beta1.Status{
+				Conditions: duckv1beta1.Conditions{{
 					Type:   ConfigurationConditionReady,
 					Status: corev1.ConditionTrue,
 				}},
@@ -110,8 +111,8 @@ func TestConfigurationIsReady(t *testing.T) {
 	}, {
 		name: "Multiple conditions with ready status should be ready",
 		status: ConfigurationStatus{
-			Status: duckv1alpha1.Status{
-				Conditions: duckv1alpha1.Conditions{{
+			Status: duckv1beta1.Status{
+				Conditions: duckv1beta1.Conditions{{
 					Type:   "Foo",
 					Status: corev1.ConditionTrue,
 				}, {
@@ -124,8 +125,8 @@ func TestConfigurationIsReady(t *testing.T) {
 	}, {
 		name: "Multiple conditions with ready status false should not be ready",
 		status: ConfigurationStatus{
-			Status: duckv1alpha1.Status{
-				Conditions: duckv1alpha1.Conditions{{
+			Status: duckv1beta1.Status{
+				Conditions: duckv1beta1.Conditions{{
 					Type:   "Foo",
 					Status: corev1.ConditionTrue,
 				}, {
@@ -138,9 +139,11 @@ func TestConfigurationIsReady(t *testing.T) {
 	}}
 
 	for _, tc := range cases {
-		if e, a := tc.isReady, tc.status.IsReady(); e != a {
-			t.Errorf("%q expected: %v got: %v", tc.name, e, a)
-		}
+		t.Run(tc.name, func(t *testing.T) {
+			if e, a := tc.isReady, tc.status.IsReady(); e != a {
+				t.Errorf("%q expected: %v got: %v", tc.name, e, a)
+			}
+		})
 	}
 }
 
@@ -152,8 +155,8 @@ func TestLatestReadyRevisionNameUpToDate(t *testing.T) {
 	}{{
 		name: "Not ready status should not be up-to-date",
 		status: ConfigurationStatus{
-			Status: duckv1alpha1.Status{
-				Conditions: duckv1alpha1.Conditions{{
+			Status: duckv1beta1.Status{
+				Conditions: duckv1beta1.Conditions{{
 					Type:   ConfigurationConditionReady,
 					Status: corev1.ConditionFalse,
 				}},
@@ -163,8 +166,8 @@ func TestLatestReadyRevisionNameUpToDate(t *testing.T) {
 	}, {
 		name: "Missing LatestReadyRevisionName should not be up-to-date",
 		status: ConfigurationStatus{
-			Status: duckv1alpha1.Status{
-				Conditions: duckv1alpha1.Conditions{{
+			Status: duckv1beta1.Status{
+				Conditions: duckv1beta1.Conditions{{
 					Type:   ConfigurationConditionReady,
 					Status: corev1.ConditionTrue,
 				}},
@@ -177,8 +180,8 @@ func TestLatestReadyRevisionNameUpToDate(t *testing.T) {
 	}, {
 		name: "Different revision names should not be up-to-date",
 		status: ConfigurationStatus{
-			Status: duckv1alpha1.Status{
-				Conditions: duckv1alpha1.Conditions{{
+			Status: duckv1beta1.Status{
+				Conditions: duckv1beta1.Conditions{{
 					Type:   ConfigurationConditionReady,
 					Status: corev1.ConditionTrue,
 				}},
@@ -192,8 +195,8 @@ func TestLatestReadyRevisionNameUpToDate(t *testing.T) {
 	}, {
 		name: "Same revision names and ready status should be up-to-date",
 		status: ConfigurationStatus{
-			Status: duckv1alpha1.Status{
-				Conditions: duckv1alpha1.Conditions{{
+			Status: duckv1beta1.Status{
+				Conditions: duckv1beta1.Conditions{{
 					Type:   ConfigurationConditionReady,
 					Status: corev1.ConditionTrue,
 				}},
@@ -214,132 +217,108 @@ func TestLatestReadyRevisionNameUpToDate(t *testing.T) {
 }
 
 func TestTypicalFlow(t *testing.T) {
-	r := &Configuration{}
-	r.Status.InitializeConditions()
-	checkConditionOngoingConfiguration(r.Status, ConfigurationConditionReady, t)
+	r := &ConfigurationStatus{}
+	r.InitializeConditions()
+	apitesting.CheckConditionOngoing(r.duck(), ConfigurationConditionReady, t)
+	r.SetLatestCreatedRevisionName("foo")
+	apitesting.CheckConditionOngoing(r.duck(), ConfigurationConditionReady, t)
 
-	r.Status.SetLatestCreatedRevisionName("foo")
-	checkConditionOngoingConfiguration(r.Status, ConfigurationConditionReady, t)
-
-	r.Status.SetLatestReadyRevisionName("foo")
-	checkConditionSucceededConfiguration(r.Status, ConfigurationConditionReady, t)
+	r.SetLatestReadyRevisionName("foo")
+	apitesting.CheckConditionSucceeded(r.duck(), ConfigurationConditionReady, t)
 
 	// Verify a second call to SetLatestCreatedRevisionName doesn't change the status from Ready
 	// e.g. on a subsequent reconciliation.
-	r.Status.SetLatestCreatedRevisionName("foo")
-	checkConditionSucceededConfiguration(r.Status, ConfigurationConditionReady, t)
+	r.SetLatestCreatedRevisionName("foo")
+	apitesting.CheckConditionSucceeded(r.duck(), ConfigurationConditionReady, t)
 
-	r.Status.SetLatestCreatedRevisionName("bar")
-	checkConditionOngoingConfiguration(r.Status, ConfigurationConditionReady, t)
+	r.SetLatestCreatedRevisionName("bar")
+	apitesting.CheckConditionOngoing(r.duck(), ConfigurationConditionReady, t)
 
-	r.Status.SetLatestReadyRevisionName("bar")
-	checkConditionSucceededConfiguration(r.Status, ConfigurationConditionReady, t)
+	r.SetLatestReadyRevisionName("bar")
+	apitesting.CheckConditionSucceeded(r.duck(), ConfigurationConditionReady, t)
 }
 
 func TestFailingFirstRevisionWithRecovery(t *testing.T) {
-	r := &Configuration{}
-	r.Status.InitializeConditions()
-	checkConditionOngoingConfiguration(r.Status, ConfigurationConditionReady, t)
+	r := &ConfigurationStatus{}
+	r.InitializeConditions()
+	apitesting.CheckConditionOngoing(r.duck(), ConfigurationConditionReady, t)
 
 	// Our first attempt to create the revision fails
-	want := "transient API server failure"
-	r.Status.MarkRevisionCreationFailed(want)
-	if c := checkConditionFailedConfiguration(r.Status, ConfigurationConditionReady, t); !strings.Contains(c.Message, want) {
+	const want = "transient API server failure"
+	r.MarkRevisionCreationFailed(want)
+	apitesting.CheckConditionFailed(r.duck(), ConfigurationConditionReady, t)
+	if c := r.GetCondition(ConfigurationConditionReady); !strings.Contains(c.Message, want) {
 		t.Errorf("MarkRevisionCreationFailed = %v, want substring %v", c.Message, want)
 	}
 
-	r.Status.SetLatestCreatedRevisionName("foo")
-	checkConditionOngoingConfiguration(r.Status, ConfigurationConditionReady, t)
+	r.SetLatestCreatedRevisionName("foo")
+	apitesting.CheckConditionOngoing(r.duck(), ConfigurationConditionReady, t)
 
 	// Then we create it, but it fails to come up.
-	want = "the message"
-	r.Status.MarkLatestCreatedFailed("foo", want)
-	if c := checkConditionFailedConfiguration(r.Status, ConfigurationConditionReady, t); !strings.Contains(c.Message, want) {
-		t.Errorf("MarkLatestCreatedFailed = %v, want substring %v", c.Message, want)
+	const want2 = "the message"
+	r.MarkLatestCreatedFailed("foo", want2)
+	apitesting.CheckConditionFailed(r.duck(), ConfigurationConditionReady, t)
+	if c := r.GetCondition(ConfigurationConditionReady); !strings.Contains(c.Message, want2) {
+		t.Errorf("MarkLatestCreatedFailed = %v, want substring %v", c.Message, want2)
 	}
 
 	// When a new revision comes along the Ready condition becomes Unknown.
-	r.Status.SetLatestCreatedRevisionName("bar")
-	checkConditionOngoingConfiguration(r.Status, ConfigurationConditionReady, t)
+	r.SetLatestCreatedRevisionName("bar")
+	apitesting.CheckConditionOngoing(r.duck(), ConfigurationConditionReady, t)
 
 	// When the new revision becomes ready, then Ready becomes true as well.
-	r.Status.SetLatestReadyRevisionName("bar")
-	checkConditionSucceededConfiguration(r.Status, ConfigurationConditionReady, t)
+	r.SetLatestReadyRevisionName("bar")
+	apitesting.CheckConditionSucceeded(r.duck(), ConfigurationConditionReady, t)
 }
 
 func TestFailingSecondRevision(t *testing.T) {
-	r := &Configuration{}
-	r.Status.InitializeConditions()
-	checkConditionOngoingConfiguration(r.Status, ConfigurationConditionReady, t)
+	r := &ConfigurationStatus{}
+	r.InitializeConditions()
+	apitesting.CheckConditionOngoing(r.duck(), ConfigurationConditionReady, t)
 
-	r.Status.SetLatestCreatedRevisionName("foo")
-	checkConditionOngoingConfiguration(r.Status, ConfigurationConditionReady, t)
+	r.SetLatestCreatedRevisionName("foo")
+	apitesting.CheckConditionOngoing(r.duck(), ConfigurationConditionReady, t)
 
-	r.Status.SetLatestReadyRevisionName("foo")
-	checkConditionSucceededConfiguration(r.Status, ConfigurationConditionReady, t)
+	r.SetLatestReadyRevisionName("foo")
+	apitesting.CheckConditionSucceeded(r.duck(), ConfigurationConditionReady, t)
 
-	r.Status.SetLatestCreatedRevisionName("bar")
-	checkConditionOngoingConfiguration(r.Status, ConfigurationConditionReady, t)
+	r.SetLatestCreatedRevisionName("bar")
+	apitesting.CheckConditionOngoing(r.duck(), ConfigurationConditionReady, t)
 
 	// When the second revision fails, the Configuration becomes Failed.
-	want := "the message"
-	r.Status.MarkLatestCreatedFailed("bar", want)
-	if c := checkConditionFailedConfiguration(r.Status, ConfigurationConditionReady, t); !strings.Contains(c.Message, want) {
+	const want = "the message"
+	r.MarkLatestCreatedFailed("bar", want)
+	apitesting.CheckConditionFailed(r.duck(), ConfigurationConditionReady, t)
+	if c := r.GetCondition(ConfigurationConditionReady); !strings.Contains(c.Message, want) {
 		t.Errorf("MarkLatestCreatedFailed = %v, want substring %v", c.Message, want)
 	}
 }
 
 func TestLatestRevisionDeletedThenFixed(t *testing.T) {
-	r := &Configuration{}
-	r.Status.InitializeConditions()
-	checkConditionOngoingConfiguration(r.Status, ConfigurationConditionReady, t)
+	r := &ConfigurationStatus{}
+	r.InitializeConditions()
+	apitesting.CheckConditionOngoing(r.duck(), ConfigurationConditionReady, t)
 
-	r.Status.SetLatestCreatedRevisionName("foo")
-	checkConditionOngoingConfiguration(r.Status, ConfigurationConditionReady, t)
+	r.SetLatestCreatedRevisionName("foo")
+	apitesting.CheckConditionOngoing(r.duck(), ConfigurationConditionReady, t)
 
-	r.Status.SetLatestReadyRevisionName("foo")
-	checkConditionSucceededConfiguration(r.Status, ConfigurationConditionReady, t)
+	r.SetLatestReadyRevisionName("foo")
+	apitesting.CheckConditionSucceeded(r.duck(), ConfigurationConditionReady, t)
 
 	// When the latest revision is deleted, the Configuration became Failed.
-	want := "was deleted"
-	r.Status.MarkLatestReadyDeleted()
-	if c := checkConditionFailedConfiguration(r.Status, ConfigurationConditionReady, t); !strings.Contains(c.Message, want) {
-		t.Errorf("MarkLatestReadyDeleted = %v, want substring %v", c.Message, want)
+	const want = "was deleted"
+	r.MarkLatestReadyDeleted()
+	apitesting.CheckConditionFailed(r.duck(), ConfigurationConditionReady, t)
+	if cnd := r.GetCondition(ConfigurationConditionReady); cnd == nil || !strings.Contains(cnd.Message, want) {
+		t.Errorf("MarkLatestReadyDeleted = %v, want substring %v", cnd.Message, want)
 	}
 
 	// But creating new revision 'bar' and making it Ready will fix things.
-	r.Status.SetLatestCreatedRevisionName("bar")
-	checkConditionOngoingConfiguration(r.Status, ConfigurationConditionReady, t)
+	r.SetLatestCreatedRevisionName("bar")
+	apitesting.CheckConditionOngoing(r.duck(), ConfigurationConditionReady, t)
 
-	r.Status.SetLatestReadyRevisionName("bar")
-	checkConditionSucceededConfiguration(r.Status, ConfigurationConditionReady, t)
-}
-
-func checkConditionSucceededConfiguration(rs ConfigurationStatus, rct duckv1alpha1.ConditionType, t *testing.T) *duckv1alpha1.Condition {
-	t.Helper()
-	return checkConditionConfiguration(rs, rct, corev1.ConditionTrue, t)
-}
-
-func checkConditionFailedConfiguration(rs ConfigurationStatus, rct duckv1alpha1.ConditionType, t *testing.T) *duckv1alpha1.Condition {
-	t.Helper()
-	return checkConditionConfiguration(rs, rct, corev1.ConditionFalse, t)
-}
-
-func checkConditionOngoingConfiguration(rs ConfigurationStatus, rct duckv1alpha1.ConditionType, t *testing.T) *duckv1alpha1.Condition {
-	t.Helper()
-	return checkConditionConfiguration(rs, rct, corev1.ConditionUnknown, t)
-}
-
-func checkConditionConfiguration(rs ConfigurationStatus, rct duckv1alpha1.ConditionType, cs corev1.ConditionStatus, t *testing.T) *duckv1alpha1.Condition {
-	t.Helper()
-	r := rs.GetCondition(rct)
-	if r == nil {
-		t.Fatalf("Get(%v) = nil, wanted %v=%v", rct, rct, cs)
-	}
-	if r.Status != cs {
-		t.Fatalf("Get(%v) = %v, wanted %v", rct, r.Status, cs)
-	}
-	return r
+	r.SetLatestReadyRevisionName("bar")
+	apitesting.CheckConditionSucceeded(r.duck(), ConfigurationConditionReady, t)
 }
 
 func TestConfigurationGetGroupVersionKind(t *testing.T) {

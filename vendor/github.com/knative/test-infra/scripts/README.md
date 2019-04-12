@@ -132,6 +132,12 @@ This is a helper script for Knative E2E test scripts. To use it:
 1. [optional] Write the `test_teardown()` function, which will tear down the test
    resources.
 
+1. [optional] Write the `cluster_setup()` function, which will set up any resources
+   before the test cluster is created.
+
+1. [optional] Write the `cluster_teardown()` function, which will tear down any
+   resources after the test cluster is destroyed.
+
 1. [optional] Write the `dump_extra_cluster_state()` function. It will be
    called when a test fails, and can dump extra information about the current state
    of the cluster (typically using `kubectl`).

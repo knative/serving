@@ -23,6 +23,7 @@ package performance
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	ingress "github.com/knative/pkg/test/ingress"
 	"github.com/knative/serving/test"
@@ -31,17 +32,26 @@ import (
 	"github.com/knative/test-infra/shared/testgrid"
 )
 
-func TestTimeToServeLatency(t *testing.T) {
-	perfClients, err := Setup(t.Logf, true)
+const (
+	sleepTime = 1 * time.Minute
+	// sleepReqTimeout should be > sleepTime. Else, the request will time out before receiving the response
+	sleepReqTimeout = 2 * time.Minute
+	hwReqtimeout    = 30 * time.Second
+)
+
+func timeToServe(t *testing.T, img, query string, reqTimeout time.Duration) {
+	t.Helper()
+	tName := t.Name()
+	perfClients, err := Setup(t)
 	if err != nil {
 		t.Fatalf("Cannot initialize performance client: %v", err)
 	}
 
+	clients := perfClients.E2EClients
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
-		Image:   "helloworld",
+		Image:   img,
 	}
-	clients := perfClients.E2EClients
 
 	defer TearDown(perfClients, names, t.Logf)
 	test.CleanupOnInterrupt(func() { TearDown(perfClients, names, t.Logf) })
@@ -63,7 +73,8 @@ func TestTimeToServeLatency(t *testing.T) {
 		NumThreads:     1,
 		NumConnections: 5,
 		Domain:         domain,
-		URL:            fmt.Sprintf("http://%s", *endpoint),
+		URL:            fmt.Sprintf("http://%s/?%s", *endpoint, query),
+		RequestTimeout: reqTimeout,
 	}
 	resp, err := opts.RunLoadTest(false)
 	if err != nil {
@@ -71,17 +82,29 @@ func TestTimeToServeLatency(t *testing.T) {
 	}
 
 	// Save the json result for benchmarking
-	resp.SaveJSON(t.Name())
+	resp.SaveJSON(tName)
 
 	// Add latency metrics
 	var tc []junit.TestCase
 	for _, p := range resp.Result.DurationHistogram.Percentiles {
 		val := float32(p.Value) * 1000
 		name := fmt.Sprintf("p%d(ms)", int(p.Percentile))
-		tc = append(tc, CreatePerfTestCase(val, name, t.Name()))
+		tc = append(tc, CreatePerfTestCase(val, name, tName))
 	}
 
-	if err = testgrid.CreateXMLOutput(tc, t.Name()); err != nil {
+	if err = testgrid.CreateXMLOutput(tc, tName); err != nil {
 		t.Fatalf("Cannot create output xml: %v", err)
 	}
+}
+
+// Performs perf test on the hello world app
+func TestTimeToServeLatency(t *testing.T) {
+	timeToServe(t, "helloworld", "", hwReqtimeout)
+}
+
+// Performs perf testing on a long running app.
+// It uses the timeout app that sleeps for the specified amount of time.
+func TestTimeToServeLatencyLongRunning(t *testing.T) {
+	q := fmt.Sprintf("timeout=%d", sleepTime/time.Millisecond)
+	timeToServe(t, "timeout", q, sleepReqTimeout)
 }

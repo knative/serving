@@ -22,9 +22,10 @@ import (
 	"testing"
 	"time"
 
-	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
+	duckv1beta1 "github.com/knative/pkg/apis/duck/v1beta1"
 	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/controller"
+	"github.com/knative/pkg/ptr"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/gc"
@@ -42,10 +43,10 @@ import (
 )
 
 var revisionSpec = v1alpha1.RevisionSpec{
-	Container: corev1.Container{
+	Container: &corev1.Container{
 		Image: "busybox",
 	},
-	TimeoutSeconds: 60,
+	TimeoutSeconds: ptr.Int64(60),
 }
 
 // This is heavily based on the way the OpenShift Ingress controller tests its reconciliation method.
@@ -96,13 +97,13 @@ func TestReconcile(t *testing.T) {
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: cfg("validation-failure", "foo", 1234, WithConfigConcurrencyModel("Bogus"),
 				// Expect Revision creation to fail with the following error.
-				MarkRevisionCreationFailed(`invalid value "Bogus": spec.concurrencyModel`)),
+				MarkRevisionCreationFailed(`invalid value: Bogus: spec.concurrencyModel`)),
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "CreationFailed", "Failed to create Revision for Configuration %q: %v",
-				"validation-failure", `invalid value "Bogus": spec.concurrencyModel`),
+				"validation-failure", `invalid value: Bogus: spec.concurrencyModel`),
 			Eventf(corev1.EventTypeWarning, "UpdateFailed", "Failed to update status for Configuration %q: %v",
-				"validation-failure", `invalid value "Bogus": spec.revisionTemplate.spec.concurrencyModel`),
+				"validation-failure", `invalid value: Bogus: spec.revisionTemplate.spec.concurrencyModel`),
 		},
 		Key: "foo/validation-failure",
 	}, {
@@ -226,8 +227,8 @@ func TestReconcile(t *testing.T) {
 			rev("bad-condition", "foo", 5555,
 				WithRevName("bad-condition"),
 				WithRevStatus(v1alpha1.RevisionStatus{
-					Status: duckv1alpha1.Status{
-						Conditions: duckv1alpha1.Conditions{{
+					Status: duckv1beta1.Status{
+						Conditions: duckv1beta1.Conditions{{
 							Type:     v1alpha1.RevisionConditionReady,
 							Status:   "Bad",
 							Severity: "Error",
@@ -532,7 +533,7 @@ func cfg(name, namespace string, generation int64, co ...ConfigOption) *v1alpha1
 		},
 		Spec: v1alpha1.ConfigurationSpec{
 			DeprecatedGeneration: generation,
-			RevisionTemplate: v1alpha1.RevisionTemplateSpec{
+			RevisionTemplate: &v1alpha1.RevisionTemplateSpec{
 				Spec: revisionSpec,
 			},
 		},

@@ -39,14 +39,14 @@ var testStatMessage = StatMessage{
 }
 
 // watchFunc generates a function to assert the changes happening in the multiscaler.
-func watchFunc(ctx context.Context, ms *MultiScaler, metric *Metric, desiredScale int, errCh chan error) func(key string) {
-	metricKey := fmt.Sprintf("%s/%s", metric.Namespace, metric.Name)
+func watchFunc(ctx context.Context, ms *MultiScaler, decider *Decider, desiredScale int, errCh chan error) func(key string) {
+	metricKey := fmt.Sprintf("%s/%s", decider.Namespace, decider.Name)
 	return func(key string) {
 		if key != metricKey {
 			errCh <- fmt.Errorf("Watch() = %v, wanted %v", key, metricKey)
 			return
 		}
-		m, err := ms.Get(ctx, metric.Namespace, metric.Name)
+		m, err := ms.Get(ctx, decider.Namespace, decider.Name)
 		if err != nil {
 			errCh <- fmt.Errorf("Get() = %v", err)
 			return
@@ -83,17 +83,6 @@ func verifyNoTick(errCh chan error) error {
 	}
 }
 
-// verifyTick verifies that we get a tick in a certain amount of time.
-func verifyStatMessageTick(statsCh chan *StatMessage) error {
-	select {
-	case <-statsCh:
-		// We got the StatMessage!
-		return nil
-	case <-time.After(2 * scrapeTickInterval):
-		return errors.New("Did not get expected StatMessage")
-	}
-}
-
 func TestMultiScalerScaling(t *testing.T) {
 	ctx := context.Background()
 	ms, stopCh, statCh, uniScaler := createMultiScaler(t, &Config{
@@ -102,20 +91,20 @@ func TestMultiScalerScaling(t *testing.T) {
 	defer close(stopCh)
 	defer close(statCh)
 
-	metric := newMetric()
+	decider := newDecider()
 	uniScaler.setScaleResult(1, true)
 
 	// Before it exists, we should get a NotFound.
-	m, err := ms.Get(ctx, metric.Namespace, metric.Name)
+	m, err := ms.Get(ctx, decider.Namespace, decider.Name)
 	if !apierrors.IsNotFound(err) {
 		t.Errorf("Get() = (%v, %v), want not found error", m, err)
 	}
 
 	errCh := make(chan error)
 	defer close(errCh)
-	ms.Watch(watchFunc(ctx, ms, metric, 1, errCh))
+	ms.Watch(watchFunc(ctx, ms, decider, 1, errCh))
 
-	_, err = ms.Create(ctx, metric)
+	_, err = ms.Create(ctx, decider)
 	if err != nil {
 		t.Errorf("Create() = %v", err)
 	}
@@ -131,11 +120,7 @@ func TestMultiScalerScaling(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := verifyStatMessageTick(statCh); err != nil {
-		t.Fatal(err)
-	}
-
-	if err := ms.Delete(ctx, metric.Namespace, metric.Name); err != nil {
+	if err := ms.Delete(ctx, decider.Namespace, decider.Name); err != nil {
 		t.Errorf("Delete() = %v", err)
 	}
 
@@ -154,20 +139,20 @@ func TestMultiScalerScaleToZero(t *testing.T) {
 	defer close(stopCh)
 	defer close(statCh)
 
-	metric := newMetric()
+	decider := newDecider()
 	uniScaler.setScaleResult(0, true)
 
 	// Before it exists, we should get a NotFound.
-	m, err := ms.Get(ctx, metric.Namespace, metric.Name)
+	m, err := ms.Get(ctx, decider.Namespace, decider.Name)
 	if !apierrors.IsNotFound(err) {
 		t.Errorf("Get() = (%v, %v), want not found error", m, err)
 	}
 
 	errCh := make(chan error)
 	defer close(errCh)
-	ms.Watch(watchFunc(ctx, ms, metric, 0, errCh))
+	ms.Watch(watchFunc(ctx, ms, decider, 0, errCh))
 
-	_, err = ms.Create(ctx, metric)
+	_, err = ms.Create(ctx, decider)
 	if err != nil {
 		t.Errorf("Create() = %v", err)
 	}
@@ -177,7 +162,7 @@ func TestMultiScalerScaleToZero(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = ms.Delete(ctx, metric.Namespace, metric.Name)
+	err = ms.Delete(ctx, decider.Namespace, decider.Name)
 	if err != nil {
 		t.Errorf("Delete() = %v", err)
 	}
@@ -197,18 +182,18 @@ func TestMultiScalerScaleFromZero(t *testing.T) {
 	defer close(stopCh)
 	defer close(statCh)
 
-	metric := newMetric()
+	decider := newDecider()
 	uniScaler.setScaleResult(1, true)
 
 	errCh := make(chan error)
 	defer close(errCh)
-	ms.Watch(watchFunc(ctx, ms, metric, 1, errCh))
+	ms.Watch(watchFunc(ctx, ms, decider, 1, errCh))
 
-	_, err := ms.Create(ctx, metric)
+	_, err := ms.Create(ctx, decider)
 	if err != nil {
 		t.Errorf("Create() = %v", err)
 	}
-	if ok := ms.setScale(NewMetricKey(metric.Namespace, metric.Name), 0); !ok {
+	if ok := ms.setScale(NewMetricKey(decider.Namespace, decider.Name), 0); !ok {
 		t.Error("Failed to set scale for metric to 0")
 	}
 
@@ -227,52 +212,6 @@ func TestMultiScalerScaleFromZero(t *testing.T) {
 	}
 }
 
-func TestMultiScalerWithoutScaleToZero(t *testing.T) {
-	ctx := context.Background()
-	ms, stopCh, statCh, uniScaler := createMultiScaler(t, &Config{
-		TickInterval:      tickInterval,
-		EnableScaleToZero: false,
-	})
-	defer close(stopCh)
-	defer close(statCh)
-
-	metric := newMetric()
-	uniScaler.setScaleResult(0, true)
-
-	// Before it exists, we should get a NotFound.
-	m, err := ms.Get(ctx, metric.Namespace, metric.Name)
-	if !apierrors.IsNotFound(err) {
-		t.Errorf("Get() = (%v, %v), want not found error", m, err)
-	}
-
-	errCh := make(chan error)
-	defer close(errCh)
-	ms.Watch(func(key string) {
-		// Let the main process know when this is called.
-		errCh <- nil
-	})
-
-	_, err = ms.Create(ctx, metric)
-	if err != nil {
-		t.Errorf("Create() = %v", err)
-	}
-
-	// Verify that we get no "ticks", because the desired scale is zero
-	if err := verifyNoTick(errCh); err != nil {
-		t.Fatal(err)
-	}
-
-	err = ms.Delete(ctx, metric.Namespace, metric.Name)
-	if err != nil {
-		t.Errorf("Delete() = %v", err)
-	}
-
-	// Verify that we stop seeing "ticks"
-	if err := verifyNoTick(errCh); err != nil {
-		t.Fatal(err)
-	}
-}
-
 func TestMultiScalerIgnoreNegativeScale(t *testing.T) {
 	ctx := context.Background()
 	ms, stopCh, statCh, uniScaler := createMultiScaler(t, &Config{
@@ -282,12 +221,12 @@ func TestMultiScalerIgnoreNegativeScale(t *testing.T) {
 	defer close(stopCh)
 	defer close(statCh)
 
-	metric := newMetric()
+	decider := newDecider()
 
 	uniScaler.setScaleResult(-1, true)
 
 	// Before it exists, we should get a NotFound.
-	m, err := ms.Get(ctx, metric.Namespace, metric.Name)
+	m, err := ms.Get(ctx, decider.Namespace, decider.Name)
 	if !apierrors.IsNotFound(err) {
 		t.Errorf("Get() = (%v, %v), want not found error", m, err)
 	}
@@ -299,7 +238,7 @@ func TestMultiScalerIgnoreNegativeScale(t *testing.T) {
 		errCh <- nil
 	})
 
-	_, err = ms.Create(ctx, metric)
+	_, err = ms.Create(ctx, decider)
 	if err != nil {
 		t.Errorf("Create() = %v", err)
 	}
@@ -309,7 +248,7 @@ func TestMultiScalerIgnoreNegativeScale(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = ms.Delete(ctx, metric.Namespace, metric.Name)
+	err = ms.Delete(ctx, decider.Namespace, decider.Name)
 	if err != nil {
 		t.Errorf("Delete() = %v", err)
 	}
@@ -328,11 +267,11 @@ func TestMultiScalerRecordsStatistics(t *testing.T) {
 	defer close(stopCh)
 	defer close(statCh)
 
-	metric := newMetric()
+	decider := newDecider()
 
 	uniScaler.setScaleResult(1, true)
 
-	_, err := ms.Create(ctx, metric)
+	_, err := ms.Create(ctx, decider)
 	if err != nil {
 		t.Errorf("Create() = %v", err)
 	}
@@ -352,7 +291,7 @@ func TestMultiScalerRecordsStatistics(t *testing.T) {
 	ms.RecordStat(testKPAKey, testStat)
 	uniScaler.checkLastStat(t, testStat)
 
-	err = ms.Delete(ctx, metric.Namespace, metric.Name)
+	err = ms.Delete(ctx, decider.Namespace, decider.Name)
 	if err != nil {
 		t.Errorf("Delete() = %v", err)
 	}
@@ -373,16 +312,16 @@ func TestMultiScalerUpdate(t *testing.T) {
 	defer close(stopCh)
 	defer close(statCh)
 
-	metric := newMetric()
-	metric.Spec.TargetConcurrency = 1.0
+	decider := newDecider()
+	decider.Spec.TargetConcurrency = 1.0
 	uniScaler.setScaleResult(0, true)
 
-	// Create the metric and verify the Spec
-	_, err := ms.Create(ctx, metric)
+	// Create the decider and verify the Spec
+	_, err := ms.Create(ctx, decider)
 	if err != nil {
 		t.Errorf("Create() = %v", err)
 	}
-	m, err := ms.Get(ctx, metric.Namespace, metric.Name)
+	m, err := ms.Get(ctx, decider.Namespace, decider.Name)
 	if err != nil {
 		t.Errorf("Get() = %v", err)
 	}
@@ -391,11 +330,11 @@ func TestMultiScalerUpdate(t *testing.T) {
 	}
 
 	// Update the target and verify the Spec
-	metric.Spec.TargetConcurrency = 10.0
-	if _, err = ms.Update(ctx, metric); err != nil {
+	decider.Spec.TargetConcurrency = 10.0
+	if _, err = ms.Update(ctx, decider); err != nil {
 		t.Errorf("Update() = %v", err)
 	}
-	m, err = ms.Get(ctx, metric.Namespace, metric.Name)
+	m, err = ms.Get(ctx, decider.Namespace, decider.Name)
 	if err != nil {
 		t.Errorf("Get() = %v", err)
 	}
@@ -407,12 +346,10 @@ func TestMultiScalerUpdate(t *testing.T) {
 func createMultiScaler(t *testing.T, config *Config) (*MultiScaler, chan<- struct{}, chan *StatMessage, *fakeUniScaler) {
 	logger := TestLogger(t)
 	uniscaler := &fakeUniScaler{}
-	statsScraper := &fakeStatsScraper{}
 
 	stopChan := make(chan struct{})
 	statChan := make(chan *StatMessage)
-	ms := NewMultiScaler(NewDynamicConfig(config, logger),
-		stopChan, statChan, uniscaler.fakeUniScalerFactory, statsScraper.fakeStatsScraperFactory, logger)
+	ms := NewMultiScaler(NewDynamicConfig(config, logger), stopChan, uniscaler.fakeUniScalerFactory, logger)
 
 	return ms, stopChan, statChan, uniscaler
 }
@@ -424,7 +361,7 @@ type fakeUniScaler struct {
 	lastStat Stat
 }
 
-func (u *fakeUniScaler) fakeUniScalerFactory(*Metric, *DynamicConfig) (UniScaler, error) {
+func (u *fakeUniScaler) fakeUniScalerFactory(*Decider, *DynamicConfig) (UniScaler, error) {
 	return u, nil
 }
 
@@ -458,32 +395,20 @@ func (u *fakeUniScaler) checkLastStat(t *testing.T, stat Stat) {
 	}
 }
 
-func (u *fakeUniScaler) Update(MetricSpec) error {
+func (u *fakeUniScaler) Update(DeciderSpec) error {
 	return nil
 }
 
-func newMetric() *Metric {
-	return &Metric{
+func newDecider() *Decider {
+	return &Decider{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: testNamespace,
 			Name:      testRevision,
 		},
-		Spec: MetricSpec{
+		Spec: DeciderSpec{
 
 			TargetConcurrency: 1,
 		},
-		Status: MetricStatus{},
+		Status: DeciderStatus{},
 	}
-}
-
-type fakeStatsScraper struct {
-}
-
-func (s *fakeStatsScraper) fakeStatsScraperFactory(*Metric, *DynamicConfig) (StatsScraper, error) {
-	return s, nil
-}
-
-// Scrape always sends the same test StatMessage.
-func (s *fakeStatsScraper) Scrape(ctx context.Context, statsCh chan<- *StatMessage) {
-	statsCh <- &testStatMessage
 }

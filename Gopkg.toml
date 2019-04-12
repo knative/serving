@@ -24,8 +24,8 @@ required = [
 
 [[override]]
   name = "github.com/knative/pkg"
-  # HEAD as of 2019-03-27
-  revision = "671c872a772b25ca519c211b9ca0a0ad274b0918"
+  # HEAD as of 2019-04-11
+  revision = "2adf7f0c98b1564c9c8b33a742a4b693e7871459"
 
 [[override]]
   name = "go.uber.org/zap"
@@ -33,13 +33,13 @@ required = [
 
 [[constraint]]
   name = "github.com/knative/caching"
-  # HEAD as of 2019-03-21
-  revision = "3fc06fd3c9880a9ebb5c401f4b20cf6666cc7bc0"
+  # HEAD as of 2019-03-29
+  revision = "babf400eeec07acdd0d6864ad28709c2bcee0c82"
 
 [[constraint]]
   name = "github.com/google/go-containerregistry"
-  # HEAD as of 2019-02-06
-  revision = "dbc4da98389f9d0c42eb314c2b346bf1d2a27310"
+  # HEAD as of 2019-04-10
+  revision = "ec69c4a8a1bff25fcbe096fcb32c9a6543fbdccf"
 
 [[override]]
   name = "k8s.io/api"

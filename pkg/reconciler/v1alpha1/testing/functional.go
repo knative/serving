@@ -20,15 +20,18 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/knative/pkg/apis"
 	"github.com/knative/pkg/apis/duck"
 	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
+	duckv1beta1 "github.com/knative/pkg/apis/duck/v1beta1"
+	"github.com/knative/pkg/ptr"
 	"github.com/knative/serving/pkg/apis/autoscaling"
 	autoscalingv1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/apis/networking"
 	netv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	routenames "github.com/knative/serving/pkg/reconciler/v1alpha1/route/resources/names"
+	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/traffic"
+	"github.com/knative/serving/pkg/reconciler/v1alpha1/serverlessservice/resources/names"
 	servicenames "github.com/knative/serving/pkg/reconciler/v1alpha1/service/resources/names"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -43,7 +46,7 @@ type BuildOption func(*unstructured.Unstructured)
 // expected success condition.
 func WithSucceededTrue(orig *unstructured.Unstructured) {
 	cp := orig.DeepCopy()
-	cp.Object["status"] = map[string]interface{}{"conditions": []duckv1alpha1.Condition{{
+	cp.Object["status"] = map[string]interface{}{"conditions": duckv1alpha1.Conditions{{
 		Type:   duckv1alpha1.ConditionSucceeded,
 		Status: corev1.ConditionTrue,
 	}}}
@@ -55,7 +58,7 @@ func WithSucceededTrue(orig *unstructured.Unstructured) {
 func WithSucceededUnknown(reason, message string) BuildOption {
 	return func(orig *unstructured.Unstructured) {
 		cp := orig.DeepCopy()
-		cp.Object["status"] = map[string]interface{}{"conditions": []duckv1alpha1.Condition{{
+		cp.Object["status"] = map[string]interface{}{"conditions": duckv1alpha1.Conditions{{
 			Type:    duckv1alpha1.ConditionSucceeded,
 			Status:  corev1.ConditionUnknown,
 			Reason:  reason,
@@ -70,7 +73,7 @@ func WithSucceededUnknown(reason, message string) BuildOption {
 func WithSucceededFalse(reason, message string) BuildOption {
 	return func(orig *unstructured.Unstructured) {
 		cp := orig.DeepCopy()
-		cp.Object["status"] = map[string]interface{}{"conditions": []duckv1alpha1.Condition{{
+		cp.Object["status"] = map[string]interface{}{"conditions": duckv1alpha1.Conditions{{
 			Type:    duckv1alpha1.ConditionSucceeded,
 			Status:  corev1.ConditionFalse,
 			Reason:  reason,
@@ -86,12 +89,12 @@ type ServiceOption func(*v1alpha1.Service)
 var (
 	// configSpec is the spec used for the different styles of Service rollout.
 	configSpec = v1alpha1.ConfigurationSpec{
-		RevisionTemplate: v1alpha1.RevisionTemplateSpec{
+		RevisionTemplate: &v1alpha1.RevisionTemplateSpec{
 			Spec: v1alpha1.RevisionSpec{
-				Container: corev1.Container{
+				Container: &corev1.Container{
 					Image: "busybox",
 				},
-				TimeoutSeconds: 60,
+				TimeoutSeconds: ptr.Int64(60),
 			},
 		},
 	}
@@ -107,7 +110,7 @@ func WithServiceDeletionTimestamp(r *v1alpha1.Service) {
 func WithRunLatestRollout(s *v1alpha1.Service) {
 	s.Spec = v1alpha1.ServiceSpec{
 		RunLatest: &v1alpha1.RunLatestType{
-			Configuration: configSpec,
+			Configuration: *configSpec.DeepCopy(),
 		},
 	}
 }
@@ -136,16 +139,16 @@ func WithServiceLabel(key, value string) ServiceOption {
 // WithResourceRequirements attaches resource requirements to the service
 func WithResourceRequirements(resourceRequirements corev1.ResourceRequirements) ServiceOption {
 	return func(svc *v1alpha1.Service) {
-		svc.Spec.RunLatest.Configuration.RevisionTemplate.Spec.Container.Resources = resourceRequirements
+		svc.Spec.RunLatest.Configuration.GetTemplate().Spec.GetContainer().Resources = resourceRequirements
 	}
 }
 
 // WithVolume adds a volume to the service
 func WithVolume(name, mountPath string, volumeSource corev1.VolumeSource) ServiceOption {
 	return func(svc *v1alpha1.Service) {
-		rt := &svc.Spec.RunLatest.Configuration.RevisionTemplate.Spec
+		rt := &svc.Spec.RunLatest.Configuration.GetTemplate().Spec
 
-		rt.Container.VolumeMounts = []corev1.VolumeMount{{
+		rt.GetContainer().VolumeMounts = []corev1.VolumeMount{{
 			Name:      name,
 			MountPath: mountPath,
 		}}
@@ -160,14 +163,14 @@ func WithVolume(name, mountPath string, volumeSource corev1.VolumeSource) Servic
 // WithConfigAnnotations assigns config annotations to a service
 func WithConfigAnnotations(annotations map[string]string) ServiceOption {
 	return func(service *v1alpha1.Service) {
-		service.Spec.RunLatest.Configuration.RevisionTemplate.ObjectMeta.Annotations = annotations
+		service.Spec.RunLatest.Configuration.GetTemplate().ObjectMeta.Annotations = annotations
 	}
 }
 
 // WithRevisionTimeoutSeconds sets revision timeout
 func WithRevisionTimeoutSeconds(revisionTimeoutSeconds int64) ServiceOption {
 	return func(service *v1alpha1.Service) {
-		service.Spec.RunLatest.Configuration.RevisionTemplate.Spec.TimeoutSeconds = revisionTimeoutSeconds
+		service.Spec.RunLatest.Configuration.GetTemplate().Spec.TimeoutSeconds = ptr.Int64(revisionTimeoutSeconds)
 	}
 }
 
@@ -185,7 +188,7 @@ func MarkRouteNotOwned(service *v1alpha1.Service) {
 // which is pinned to the named revision.
 // Deprecated, since PinnedType is deprecated.
 func WithPinnedRollout(name string) ServiceOption {
-	return WithPinnedRolloutConfigSpec(name, configSpec)
+	return WithPinnedRolloutConfigSpec(name, *configSpec.DeepCopy())
 }
 
 // WithPinnedRolloutConfigSpec WithPinnedRollout2
@@ -203,7 +206,8 @@ func WithPinnedRolloutConfigSpec(name string, config v1alpha1.ConfigurationSpec)
 // WithReleaseRolloutAndPercentage configures the Service to use a "release" rollout,
 // which spans the provided revisions.
 func WithReleaseRolloutAndPercentage(percentage int, names ...string) ServiceOption {
-	return WithReleaseRolloutAndPercentageConfigSpec(percentage, configSpec, names...)
+	return WithReleaseRolloutAndPercentageConfigSpec(percentage, *configSpec.DeepCopy(),
+		names...)
 }
 
 // WithReleaseRolloutAndPercentageConfigSpec configures the Service to use a "release" rollout,
@@ -240,7 +244,7 @@ func WithReleaseRollout(names ...string) ServiceOption {
 		s.Spec = v1alpha1.ServiceSpec{
 			Release: &v1alpha1.ReleaseType{
 				Revisions:     names,
-				Configuration: configSpec,
+				Configuration: *configSpec.DeepCopy(),
 			},
 		}
 	}
@@ -267,8 +271,8 @@ func WithManualStatus(s *v1alpha1.Service) {
 // WithReadyRoute reflects the Route's readiness in the Service resource.
 func WithReadyRoute(s *v1alpha1.Service) {
 	s.Status.PropagateRouteStatus(&v1alpha1.RouteStatus{
-		Status: duckv1alpha1.Status{
-			Conditions: []duckv1alpha1.Condition{{
+		Status: duckv1beta1.Status{
+			Conditions: duckv1beta1.Conditions{{
 				Type:   "Ready",
 				Status: "True",
 			}},
@@ -291,9 +295,18 @@ func WithSvcStatusAddress(s *v1alpha1.Service) {
 }
 
 // WithSvcStatusTraffic sets the Service's status traffic block to the specified traffic targets.
-func WithSvcStatusTraffic(traffic ...v1alpha1.TrafficTarget) ServiceOption {
+func WithSvcStatusTraffic(targets ...v1alpha1.TrafficTarget) ServiceOption {
 	return func(r *v1alpha1.Service) {
-		r.Status.Traffic = traffic
+		// Automatically inject URL into TrafficTarget status
+		for _, tt := range targets {
+			if tt.Name != "" {
+				tt.URL = traffic.SubrouteURL(traffic.HttpScheme,
+					tt.Name,
+					"example.com")
+			}
+		}
+		r.Status.Traffic = targets
+
 	}
 }
 
@@ -301,8 +314,8 @@ func WithSvcStatusTraffic(traffic ...v1alpha1.TrafficTarget) ServiceOption {
 func WithFailedRoute(reason, message string) ServiceOption {
 	return func(s *v1alpha1.Service) {
 		s.Status.PropagateRouteStatus(&v1alpha1.RouteStatus{
-			Status: duckv1alpha1.Status{
-				Conditions: []duckv1alpha1.Condition{{
+			Status: duckv1beta1.Status{
+				Conditions: duckv1beta1.Conditions{{
 					Type:    "Ready",
 					Status:  "False",
 					Reason:  reason,
@@ -319,8 +332,8 @@ func WithFailedRoute(reason, message string) ServiceOption {
 func WithReadyConfig(name string) ServiceOption {
 	return func(s *v1alpha1.Service) {
 		s.Status.PropagateConfigurationStatus(&v1alpha1.ConfigurationStatus{
-			Status: duckv1alpha1.Status{
-				Conditions: []duckv1alpha1.Condition{{
+			Status: duckv1beta1.Status{
+				Conditions: duckv1beta1.Conditions{{
 					Type:   "Ready",
 					Status: "True",
 				}},
@@ -338,8 +351,8 @@ func WithReadyConfig(name string) ServiceOption {
 func WithFailedConfig(name, reason, message string) ServiceOption {
 	return func(s *v1alpha1.Service) {
 		s.Status.PropagateConfigurationStatus(&v1alpha1.ConfigurationStatus{
-			Status: duckv1alpha1.Status{
-				Conditions: []duckv1alpha1.Condition{{
+			Status: duckv1beta1.Status{
+				Conditions: duckv1beta1.Conditions{{
 					Type:   "Ready",
 					Status: "False",
 					Reason: reason,
@@ -472,8 +485,8 @@ func MarkTrafficAssigned(r *v1alpha1.Route) {
 // MarkIngressReady propagates a Ready=True ClusterIngress status to the Route.
 func MarkIngressReady(r *v1alpha1.Route) {
 	r.Status.PropagateClusterIngressStatus(netv1alpha1.IngressStatus{
-		Status: duckv1alpha1.Status{
-			Conditions: []duckv1alpha1.Condition{{
+		Status: duckv1beta1.Status{
+			Conditions: duckv1beta1.Conditions{{
 				Type:   "Ready",
 				Status: "True",
 			}},
@@ -561,7 +574,7 @@ func WithConfigOwnersRemoved(cfg *v1alpha1.Configuration) {
 // WithConfigConcurrencyModel sets the given Configuration's concurrency model.
 func WithConfigConcurrencyModel(ss v1alpha1.RevisionRequestConcurrencyModelType) ConfigOption {
 	return func(cfg *v1alpha1.Configuration) {
-		cfg.Spec.RevisionTemplate.Spec.DeprecatedConcurrencyModel = ss
+		cfg.Spec.GetTemplate().Spec.DeprecatedConcurrencyModel = ss
 	}
 }
 
@@ -692,7 +705,7 @@ func WithCreationTimestamp(t time.Time) RevisionOption {
 // no BuildRef was specified.
 func WithNoBuild(r *v1alpha1.Revision) {
 	r.Status.PropagateBuildStatus(duckv1alpha1.Status{
-		Conditions: []duckv1alpha1.Condition{{
+		Conditions: duckv1alpha1.Conditions{{
 			Type:   duckv1alpha1.ConditionSucceeded,
 			Status: corev1.ConditionTrue,
 			Reason: "NoBuild",
@@ -703,7 +716,7 @@ func WithNoBuild(r *v1alpha1.Revision) {
 // WithOngoingBuild propagates the status of an in-progress Build to the Revision's status.
 func WithOngoingBuild(r *v1alpha1.Revision) {
 	r.Status.PropagateBuildStatus(duckv1alpha1.Status{
-		Conditions: []duckv1alpha1.Condition{{
+		Conditions: duckv1alpha1.Conditions{{
 			Type:   duckv1alpha1.ConditionSucceeded,
 			Status: corev1.ConditionUnknown,
 		}},
@@ -713,7 +726,7 @@ func WithOngoingBuild(r *v1alpha1.Revision) {
 // WithSuccessfulBuild propagates the status of a successful Build to the Revision's status.
 func WithSuccessfulBuild(r *v1alpha1.Revision) {
 	r.Status.PropagateBuildStatus(duckv1alpha1.Status{
-		Conditions: []duckv1alpha1.Condition{{
+		Conditions: duckv1alpha1.Conditions{{
 			Type:   duckv1alpha1.ConditionSucceeded,
 			Status: corev1.ConditionTrue,
 		}},
@@ -724,7 +737,7 @@ func WithSuccessfulBuild(r *v1alpha1.Revision) {
 func WithFailedBuild(reason, message string) RevisionOption {
 	return func(r *v1alpha1.Revision) {
 		r.Status.PropagateBuildStatus(duckv1alpha1.Status{
-			Conditions: []duckv1alpha1.Condition{{
+			Conditions: duckv1alpha1.Conditions{{
 				Type:    duckv1alpha1.ConditionSucceeded,
 				Status:  corev1.ConditionFalse,
 				Reason:  reason,
@@ -732,19 +745,6 @@ func WithFailedBuild(reason, message string) RevisionOption {
 			}},
 		})
 	}
-}
-
-// WithEmptyLTTs clears the LastTransitionTime fields on all of the conditions of the
-// provided Revision.
-func WithEmptyLTTs(r *v1alpha1.Revision) {
-	conds := r.Status.Conditions
-	for i, c := range conds {
-		// The LTT defaults and is long enough ago that we expire waiting
-		// on the Endpoints to become ready.
-		c.LastTransitionTime = apis.VolatileTime{}
-		conds[i] = c
-	}
-	r.Status.Conditions = conds
 }
 
 // WithLastPinned updates the "last pinned" annotation to the provided timestamp.
@@ -820,7 +820,27 @@ func MarkRevisionReady(r *v1alpha1.Revision) {
 	r.Status.MarkContainerHealthy()
 }
 
+// PodAutoscalerOption is an option that can be applied to a PA.
 type PodAutoscalerOption func(*autoscalingv1alpha1.PodAutoscaler)
+
+// WithProtocolType sets the protocol type on the PodAutoscaler.
+func WithProtocolType(pt networking.ProtocolType) PodAutoscalerOption {
+	return func(pa *autoscalingv1alpha1.PodAutoscaler) {
+		pa.Spec.ProtocolType = pt
+	}
+}
+
+// WithPAOwnersRemoved clears the owner references of this PA resource.
+func WithPAOwnersRemoved(pa *autoscalingv1alpha1.PodAutoscaler) {
+	pa.OwnerReferences = nil
+}
+
+// MarkResourceNotOwnedByPA marks PA when it's now owning a resources it is supposed to own.
+func MarkResourceNotOwnedByPA(rType, name string) PodAutoscalerOption {
+	return func(pa *autoscalingv1alpha1.PodAutoscaler) {
+		pa.Status.MarkResourceNotOwned(rType, name)
+	}
+}
 
 // WithPodAutoscalerOwnersRemoved clears the owner references of this PodAutoscaler.
 func WithPodAutoscalerOwnersRemoved(r *autoscalingv1alpha1.PodAutoscaler) {
@@ -872,9 +892,9 @@ func WithKPAClass(pa *autoscalingv1alpha1.PodAutoscaler) {
 
 // WithContainerConcurrency returns a PodAutoscalerOption which sets
 // the PodAutoscaler containerConcurrency to the provided value.
-func WithContainerConcurrency(cc int32) PodAutoscalerOption {
+func WithContainerConcurrency(cc v1alpha1.RevisionContainerConcurrencyType) PodAutoscalerOption {
 	return func(pa *autoscalingv1alpha1.PodAutoscaler) {
-		pa.Spec.ContainerConcurrency = v1alpha1.RevisionContainerConcurrencyType(cc)
+		pa.Spec.ContainerConcurrency = cc
 	}
 }
 
@@ -909,19 +929,21 @@ func MutateK8sService(svc *corev1.Service) {
 	svc.Spec = corev1.ServiceSpec{}
 }
 
+// WithClusterIP assigns a ClusterIP to the K8s Service.
 func WithClusterIP(ip string) K8sServiceOption {
 	return func(svc *corev1.Service) {
 		svc.Spec.ClusterIP = ip
 	}
 }
 
+// WithExternalName gives external name to the K8s Service.
 func WithExternalName(name string) K8sServiceOption {
 	return func(svc *corev1.Service) {
 		svc.Spec.ExternalName = name
 	}
 }
 
-// WithK8sSvcOwnersRemoved clears the owner references of this Route.
+// WithK8sSvcOwnersRemoved clears the owner references of this Service.
 func WithK8sSvcOwnersRemoved(svc *corev1.Service) {
 	svc.OwnerReferences = nil
 }
@@ -934,6 +956,11 @@ func WithSubsets(ep *corev1.Endpoints) {
 	ep.Subsets = []corev1.EndpointSubset{{
 		Addresses: []corev1.EndpointAddress{{IP: "127.0.0.1"}},
 	}}
+}
+
+// WithEndpointsOwnersRemoved clears the owner references of this Endpoints resource.
+func WithEndpointsOwnersRemoved(eps *corev1.Endpoints) {
+	eps.OwnerReferences = nil
 }
 
 // PodOption enables further configuration of a Pod.
@@ -955,4 +982,51 @@ func WithFailingContainer(name string, exitCode int, message string) PodOption {
 			},
 		}
 	}
+}
+
+// SKSOption is a callback type for decorate SKS objects.
+type SKSOption func(sks *netv1alpha1.ServerlessService)
+
+// WithPubService annotates SKS status with the given service name.
+func WithPubService(sks *netv1alpha1.ServerlessService) {
+	sks.Status.ServiceName = names.PublicService(sks)
+}
+
+// WithSelector annotates SKS with a given selector map.
+func WithSelector(sel map[string]string) SKSOption {
+	return func(sks *netv1alpha1.ServerlessService) {
+		sks.Spec.Selector = sel
+	}
+}
+
+// WithPrivateService annotates SKS status with the private service name.
+func WithPrivateService(sks *netv1alpha1.ServerlessService) {
+	sks.Status.PrivateServiceName = names.PrivateService(sks)
+}
+
+// WithSKSOwnersRemoved clears the owner references of this SKS resource.
+func WithSKSOwnersRemoved(sks *netv1alpha1.ServerlessService) {
+	sks.OwnerReferences = nil
+}
+
+// SKS creates a generic ServerlessService object.
+func SKS(ns, name string, so ...SKSOption) *netv1alpha1.ServerlessService {
+	s := &netv1alpha1.ServerlessService{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: ns,
+			UID:       "test-uid",
+		},
+		Spec: netv1alpha1.ServerlessServiceSpec{
+			Mode:         netv1alpha1.SKSOperationModeServe,
+			ProtocolType: networking.ProtocolHTTP1,
+			Selector: map[string]string{
+				"label": "value",
+			},
+		},
+	}
+	for _, opt := range so {
+		opt(s)
+	}
+	return s
 }

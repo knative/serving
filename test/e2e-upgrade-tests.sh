@@ -37,15 +37,13 @@ source $(dirname $0)/e2e-common.sh
 # version will make tests either:
 # 1. Still pass, meaning we can upgrade from earlier than latest release (good).
 # 2. Fail, which might be remedied by bumping this version.
-readonly LATEST_SERVING_RELEASE_VERSION=0.4.0
+readonly LATEST_SERVING_RELEASE_VERSION=0.5.0
 
 function install_latest_release() {
   header "Installing Knative latest public release"
   local url="https://github.com/knative/serving/releases/download/v${LATEST_SERVING_RELEASE_VERSION}"
   # TODO: should this test install istio and build at all, or only serving?
   install_knative_serving \
-    "${ISTIO_CRD_YAML}" \
-    "${ISTIO_YAML}" \
     "${url}/serving.yaml" \
     || fail_test "Knative latest release installation failed"
 }
@@ -70,16 +68,20 @@ initialize $@
 TIMEOUT=10m
 
 header "Running preupgrade tests"
-go_test_e2e -tags=preupgrade -timeout=${TIMEOUT} ./test/upgrade || fail_test
+
+go_test_e2e -tags=preupgrade -timeout=${TIMEOUT} ./test/upgrade \
+  --resolvabledomain=$(use_resolvable_domain) || fail_test
 
 install_head
 
 header "Running postupgrade tests"
-go_test_e2e -tags=postupgrade -timeout=${TIMEOUT} ./test/upgrade || fail_test
+go_test_e2e -tags=postupgrade -timeout=${TIMEOUT} ./test/upgrade \
+  --resolvabledomain=$(use_resolvable_domain) || fail_test
 
 install_latest_release
 
 header "Running postdowngrade tests"
-go_test_e2e -tags=postdowngrade -timeout=${TIMEOUT} ./test/upgrade || fail_test
+go_test_e2e -tags=postdowngrade -timeout=${TIMEOUT} ./test/upgrade \
+  --resolvabledomain=$(use_resolvable_domain) || fail_test
 
 success

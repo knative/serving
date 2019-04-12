@@ -103,10 +103,10 @@ func TestMakeVirtualServiceSpec_CorrectRoutes(t *testing.T) {
 							},
 							Percent: 100,
 						}},
-						Timeout: &metav1.Duration{Duration: v1alpha1.DefaultTimeout},
+						Timeout: &metav1.Duration{Duration: networking.DefaultTimeout},
 						Retries: &v1alpha1.HTTPRetry{
-							PerTryTimeout: &metav1.Duration{Duration: v1alpha1.DefaultTimeout},
-							Attempts:      v1alpha1.DefaultRetryCount,
+							PerTryTimeout: &metav1.Duration{Duration: networking.DefaultTimeout},
+							Attempts:      networking.DefaultRetryCount,
 						},
 					}},
 				},
@@ -125,10 +125,10 @@ func TestMakeVirtualServiceSpec_CorrectRoutes(t *testing.T) {
 							},
 							Percent: 100,
 						}},
-						Timeout: &metav1.Duration{Duration: v1alpha1.DefaultTimeout},
+						Timeout: &metav1.Duration{Duration: networking.DefaultTimeout},
 						Retries: &v1alpha1.HTTPRetry{
-							PerTryTimeout: &metav1.Duration{Duration: v1alpha1.DefaultTimeout},
-							Attempts:      v1alpha1.DefaultRetryCount,
+							PerTryTimeout: &metav1.Duration{Duration: networking.DefaultTimeout},
+							Attempts:      networking.DefaultRetryCount,
 						},
 					}},
 				},
@@ -138,16 +138,16 @@ func TestMakeVirtualServiceSpec_CorrectRoutes(t *testing.T) {
 	}
 	expected := []v1alpha3.HTTPRoute{{
 		Match: []v1alpha3.HTTPMatchRequest{{
-			Uri:       &istiov1alpha1.StringMatch{Regex: "^/pets/(.*?)?"},
+			URI:       &istiov1alpha1.StringMatch{Regex: "^/pets/(.*?)?"},
 			Authority: &istiov1alpha1.StringMatch{Regex: `^domain\.com(?::\d{1,5})?$`},
 		}, {
-			Uri:       &istiov1alpha1.StringMatch{Regex: "^/pets/(.*?)?"},
+			URI:       &istiov1alpha1.StringMatch{Regex: "^/pets/(.*?)?"},
 			Authority: &istiov1alpha1.StringMatch{Regex: `^test-route\.test-ns(?::\d{1,5})?$`},
 		}, {
-			Uri:       &istiov1alpha1.StringMatch{Regex: "^/pets/(.*?)?"},
+			URI:       &istiov1alpha1.StringMatch{Regex: "^/pets/(.*?)?"},
 			Authority: &istiov1alpha1.StringMatch{Regex: `^test-route\.test-ns\.svc(?::\d{1,5})?$`},
 		}, {
-			Uri:       &istiov1alpha1.StringMatch{Regex: "^/pets/(.*?)?"},
+			URI:       &istiov1alpha1.StringMatch{Regex: "^/pets/(.*?)?"},
 			Authority: &istiov1alpha1.StringMatch{Regex: `^test-route\.test-ns\.svc\.cluster\.local(?::\d{1,5})?$`},
 		}},
 		Route: []v1alpha3.DestinationWeight{{
@@ -157,15 +157,15 @@ func TestMakeVirtualServiceSpec_CorrectRoutes(t *testing.T) {
 			},
 			Weight: 100,
 		}},
-		Timeout: v1alpha1.DefaultTimeout.String(),
+		Timeout: networking.DefaultTimeout.String(),
 		Retries: &v1alpha3.HTTPRetry{
-			Attempts:      v1alpha1.DefaultRetryCount,
-			PerTryTimeout: v1alpha1.DefaultTimeout.String(),
+			Attempts:      networking.DefaultRetryCount,
+			PerTryTimeout: networking.DefaultTimeout.String(),
 		},
 		WebsocketUpgrade: true,
 	}, {
 		Match: []v1alpha3.HTTPMatchRequest{{
-			Uri:       &istiov1alpha1.StringMatch{Regex: "^/pets/(.*?)?"},
+			URI:       &istiov1alpha1.StringMatch{Regex: "^/pets/(.*?)?"},
 			Authority: &istiov1alpha1.StringMatch{Regex: `^v1\.domain\.com(?::\d{1,5})?$`},
 		}},
 		Route: []v1alpha3.DestinationWeight{{
@@ -175,14 +175,14 @@ func TestMakeVirtualServiceSpec_CorrectRoutes(t *testing.T) {
 			},
 			Weight: 100,
 		}},
-		Timeout: v1alpha1.DefaultTimeout.String(),
+		Timeout: networking.DefaultTimeout.String(),
 		Retries: &v1alpha3.HTTPRetry{
-			Attempts:      v1alpha1.DefaultRetryCount,
-			PerTryTimeout: v1alpha1.DefaultTimeout.String(),
+			Attempts:      networking.DefaultRetryCount,
+			PerTryTimeout: networking.DefaultTimeout.String(),
 		},
 		WebsocketUpgrade: true,
 	}}
-	routes := MakeVirtualService(ci, []string{}).Spec.Http
+	routes := MakeVirtualService(ci, []string{}).Spec.HTTP
 	if diff := cmp.Diff(expected, routes); diff != "" {
 		t.Errorf("Unexpected routes (-want +got): %v", diff)
 	}
@@ -199,10 +199,10 @@ func TestMakeVirtualServiceRoute_Vanilla(t *testing.T) {
 			},
 			Percent: 100,
 		}},
-		Timeout: &metav1.Duration{Duration: v1alpha1.DefaultTimeout},
+		Timeout: &metav1.Duration{Duration: networking.DefaultTimeout},
 		Retries: &v1alpha1.HTTPRetry{
-			PerTryTimeout: &metav1.Duration{Duration: v1alpha1.DefaultTimeout},
-			Attempts:      v1alpha1.DefaultRetryCount,
+			PerTryTimeout: &metav1.Duration{Duration: networking.DefaultTimeout},
+			Attempts:      networking.DefaultRetryCount,
 		},
 	}
 	hosts := []string{"a.com", "b.org"}
@@ -220,10 +220,10 @@ func TestMakeVirtualServiceRoute_Vanilla(t *testing.T) {
 			},
 			Weight: 100,
 		}},
-		Timeout: v1alpha1.DefaultTimeout.String(),
+		Timeout: networking.DefaultTimeout.String(),
 		Retries: &v1alpha3.HTTPRetry{
-			Attempts:      v1alpha1.DefaultRetryCount,
-			PerTryTimeout: v1alpha1.DefaultTimeout.String(),
+			Attempts:      networking.DefaultRetryCount,
+			PerTryTimeout: networking.DefaultTimeout.String(),
 		},
 		WebsocketUpgrade: true,
 	}
@@ -250,10 +250,10 @@ func TestMakeVirtualServiceRoute_TwoTargets(t *testing.T) {
 			},
 			Percent: 10,
 		}},
-		Timeout: &metav1.Duration{Duration: v1alpha1.DefaultTimeout},
+		Timeout: &metav1.Duration{Duration: networking.DefaultTimeout},
 		Retries: &v1alpha1.HTTPRetry{
-			PerTryTimeout: &metav1.Duration{Duration: v1alpha1.DefaultTimeout},
-			Attempts:      v1alpha1.DefaultRetryCount,
+			PerTryTimeout: &metav1.Duration{Duration: networking.DefaultTimeout},
+			Attempts:      networking.DefaultRetryCount,
 		},
 	}
 	hosts := []string{"test.org"}
@@ -275,10 +275,10 @@ func TestMakeVirtualServiceRoute_TwoTargets(t *testing.T) {
 			},
 			Weight: 10,
 		}},
-		Timeout: v1alpha1.DefaultTimeout.String(),
+		Timeout: networking.DefaultTimeout.String(),
 		Retries: &v1alpha3.HTTPRetry{
-			Attempts:      v1alpha1.DefaultRetryCount,
-			PerTryTimeout: v1alpha1.DefaultTimeout.String(),
+			Attempts:      networking.DefaultRetryCount,
+			PerTryTimeout: networking.DefaultTimeout.String(),
 		},
 		WebsocketUpgrade: true,
 	}

@@ -86,6 +86,11 @@ func makeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, o
 		loggingLevel = ll.String()
 	}
 
+	ts := int64(0)
+	if rev.Spec.TimeoutSeconds != nil {
+		ts = *rev.Spec.TimeoutSeconds
+	}
+
 	return &corev1.Container{
 		Name:           QueueContainerName,
 		Image:          controllerConfig.QueueSidecarImage,
@@ -115,7 +120,7 @@ func makeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, o
 			Value: strconv.Itoa(int(rev.Spec.ContainerConcurrency)),
 		}, {
 			Name:  "REVISION_TIMEOUT_SECONDS",
-			Value: strconv.Itoa(int(rev.Spec.TimeoutSeconds)),
+			Value: strconv.Itoa(int(ts)),
 		}, {
 			Name: "SERVING_POD",
 			ValueFrom: &corev1.EnvVarSource{
@@ -139,6 +144,9 @@ func makeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, o
 		}, {
 			Name:  "SERVING_REQUEST_LOG_TEMPLATE",
 			Value: observabilityConfig.RequestLogTemplate,
+		}, {
+			Name:  "SERVING_REQUEST_METRICS_BACKEND",
+			Value: observabilityConfig.RequestMetricsBackend,
 		}, {
 			Name:  "USER_PORT",
 			Value: strconv.Itoa(int(userPort)),

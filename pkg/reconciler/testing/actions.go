@@ -22,6 +22,7 @@ import (
 	clientgotesting "k8s.io/client-go/testing"
 )
 
+// Actions stores list of Actions recorded by the reactors.
 type Actions struct {
 	Creates           []clientgotesting.CreateAction
 	Updates           []clientgotesting.UpdateAction
@@ -30,12 +31,16 @@ type Actions struct {
 	Patches           []clientgotesting.PatchAction
 }
 
+// ActionRecorder contains list of K8s request actions.
 type ActionRecorder interface {
 	Actions() []clientgotesting.Action
 }
 
+// ActionRecorderList is a list of ActionRecorder objects.
 type ActionRecorderList []ActionRecorder
 
+// ActionsByVerb fills in Actions objects, sorting the actions
+// by verb.
 func (l ActionRecorderList) ActionsByVerb() (Actions, error) {
 	var a Actions
 
@@ -57,13 +62,11 @@ func (l ActionRecorderList) ActionsByVerb() (Actions, error) {
 			case "patch":
 				a.Patches = append(a.Patches,
 					action.(clientgotesting.PatchAction))
-			case "list": // avoid 'unexpected verb list' error
-			case "watch": // avoid 'unexpected verb watch' error
+			case "list", "watch": // avoid 'unexpected verb list/watch' error
 			default:
 				return a, fmt.Errorf("unexpected verb %v: %+v", action.GetVerb(), action)
 			}
 		}
 	}
-
 	return a, nil
 }

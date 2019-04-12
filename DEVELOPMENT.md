@@ -1,10 +1,10 @@
 # Development
 
 This doc explains how to setup a development environment so you can get started
-[contributing](https://github.com/knative/docs/blob/master/contributing/CONTRIBUTING.md)
-to `Knative Serving`. Also take a look at:
+[contributing](https://www.knative.dev/contributing/) to `Knative Serving`. Also
+take a look at:
 
-- [The pull request workflow](https://github.com/knative/docs/blob/master/contributing/CONTRIBUTING.md#pull-requests)
+- [The pull request workflow](https://www.knative.dev/contributing/contributing/#pull-requests)
 - [How to add and run tests](./test/README.md)
 - [Iterating](#iterating)
 
@@ -36,7 +36,7 @@ You must install these tools:
 
 ### Create a cluster and a repo
 
-1. [Set up a kubernetes cluster](https://github.com/knative/docs/blob/master/docs/install/README.md#install-guides)
+1. [Set up a kubernetes cluster](https://www.knative.dev/docs/install/)
    - Follow an install guide up through "Creating a Kubernetes Cluster"
    - You do _not_ need to install Istio or Knative using the instructions in the
      guide. Simply create the cluster and come back here.
@@ -46,7 +46,11 @@ You must install these tools:
    image registry by adjusting the authentication methods and repository paths
    mentioned in the sections below.
    - [Google Container Registry quickstart](https://cloud.google.com/container-registry/docs/pushing-and-pulling)
-   - [Docker Hub quickstart](https://docs.docker.com/docker-hub/repos/)
+   - [Docker Hub quickstart](https://docs.docker.com/docker-hub/)
+
+**Note**: You'll need to be authenticated with your `KO_DOCKER_REPO` before
+pushing images. Run `gcloud auth configure-docker` if you are using Google
+Container Registry or `docker login` if you are using Docker Hub.
 
 ### Setup your environment
 
@@ -71,15 +75,6 @@ recommend adding them to your `.bashrc`):
 export GOPATH="$HOME/go"
 export PATH="${PATH}:${GOPATH}/bin"
 export KO_DOCKER_REPO='gcr.io/my-gcloud-project-id'
-```
-
-Make sure to configure
-[authentication](https://cloud.google.com/container-registry/docs/advanced-authentication#standalone_docker_credential_helper)
-for your `KO_DOCKER_REPO` if required. To be able to push images to
-`gcr.io/<project>`, you need to run this once:
-
-```shell
-gcloud auth configure-docker
 ```
 
 ### Checkout your fork
@@ -121,9 +116,9 @@ can easily [clean your cluster up](#clean-up) and try again.
 Your user must be a cluster admin to perform the setup needed for Knative.
 
 The value you use depends on
-[your cluster setup](https://github.com/knative/docs/blob/master/docs/install/README.md#install-guides):
-when using Minikube, the user is your local user; when using GKE, the user is
-your GCP user.
+[your cluster setup](https://www.knative.dev/docs/install/): when using
+Minikube, the user is your local user; when using GKE, the user is your GCP
+user.
 
 ```shell
 # For GCP
@@ -148,7 +143,7 @@ kubectl apply -f ./third_party/istio-1.0.6/istio.yaml
 ```
 
 Follow the
-[instructions](https://github.com/knative/docs/blob/master/docs/serving/gke-assigning-static-ip-address.md)
+[instructions](https://www.knative.dev/docs/serving/gke-assigning-static-ip-address/)
 if you need to set up static IP for Ingresses in the cluster.
 
 ### Deploy Knative Serving
@@ -167,7 +162,16 @@ Next, run:
 
 ```shell
 ko apply -f config/
-PROJECT_ID="my-gcp-project-id" ./hack/dev-patch-config-gke.sh my-k8s-cluster-name  # optional
+
+# Optional steps
+
+# Configure outbound network for GKE.
+PROJECT_ID="my-gcp-project-id" ./hack/dev-patch-config-gke.sh my-k8s-cluster-name
+
+# Run post-install job to setup nice XIP.IO domain name.  This only works
+# if your Kubernetes LoadBalancer has an IP address.
+ko delete -f config/post-install --ignore-not-found
+ko apply -f config/post-install
 ```
 
 The above step is equivalent to applying the `serving.yaml` for released
@@ -258,6 +262,6 @@ ko delete --ignore-not-found=true \
 
 To access Telemetry see:
 
-- [Accessing Metrics](https://github.com/knative/docs/blob/master/docs/serving/accessing-metrics.md)
-- [Accessing Logs](https://github.com/knative/docs/blob/master/docs/serving/accessing-logs.md)
-- [Accessing Traces](https://github.com/knative/docs/blob/master/docs/serving/accessing-traces.md)
+- [Accessing Metrics](https://www.knative.dev/docs/serving/accessing-metrics/)
+- [Accessing Logs](https://www.knative.dev/docs/serving/accessing-logs/)
+- [Accessing Traces](https://www.knative.dev/docs/serving/accessing-traces/

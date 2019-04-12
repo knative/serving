@@ -21,9 +21,9 @@ import (
 
 	"github.com/knative/pkg/apis"
 	"github.com/knative/pkg/apis/duck"
-	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
+	duckv1beta1 "github.com/knative/pkg/apis/duck/v1beta1"
+	apitest "github.com/knative/pkg/apis/testing"
 	"github.com/knative/serving/pkg/apis/autoscaling"
-	serving "github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -34,7 +34,7 @@ func TestPodAutoscalerDuckTypes(t *testing.T) {
 		t    duck.Implementable
 	}{{
 		name: "conditions",
-		t:    &duckv1alpha1.Conditions{},
+		t:    &duckv1beta1.Conditions{},
 	}}
 
 	for _, test := range tests {
@@ -74,7 +74,7 @@ func TestCanScaleToZero(t *testing.T) {
 	}, {
 		name: "active condition",
 		status: PodAutoscalerStatus{
-			Conditions: duckv1alpha1.Conditions{{
+			Conditions: duckv1beta1.Conditions{{
 				Type:   PodAutoscalerConditionActive,
 				Status: corev1.ConditionTrue,
 			}},
@@ -84,7 +84,7 @@ func TestCanScaleToZero(t *testing.T) {
 	}, {
 		name: "inactive condition (no LTT)",
 		status: PodAutoscalerStatus{
-			Conditions: duckv1alpha1.Conditions{{
+			Conditions: duckv1beta1.Conditions{{
 				Type:   PodAutoscalerConditionActive,
 				Status: corev1.ConditionFalse,
 				// No LTT = beginning of time, so for sure we can.
@@ -95,7 +95,7 @@ func TestCanScaleToZero(t *testing.T) {
 	}, {
 		name: "inactive condition (LTT longer than grace period ago)",
 		status: PodAutoscalerStatus{
-			Conditions: duckv1alpha1.Conditions{{
+			Conditions: duckv1beta1.Conditions{{
 				Type:   PodAutoscalerConditionActive,
 				Status: corev1.ConditionFalse,
 				LastTransitionTime: apis.VolatileTime{
@@ -109,7 +109,7 @@ func TestCanScaleToZero(t *testing.T) {
 	}, {
 		name: "inactive condition (LTT less than grace period ago)",
 		status: PodAutoscalerStatus{
-			Conditions: duckv1alpha1.Conditions{{
+			Conditions: duckv1beta1.Conditions{{
 				Type:   PodAutoscalerConditionActive,
 				Status: corev1.ConditionFalse,
 				LastTransitionTime: apis.VolatileTime{
@@ -123,9 +123,11 @@ func TestCanScaleToZero(t *testing.T) {
 	}}
 
 	for _, tc := range cases {
-		if e, a := tc.result, tc.status.CanScaleToZero(tc.grace); e != a {
-			t.Errorf("%q expected: %v got: %v", tc.name, e, a)
-		}
+		t.Run(tc.name, func(t *testing.T) {
+			if e, a := tc.result, tc.status.CanScaleToZero(tc.grace); e != a {
+				t.Errorf("%q expected: %v got: %v", tc.name, e, a)
+			}
+		})
 	}
 }
 
@@ -143,7 +145,7 @@ func TestCanMarkInactive(t *testing.T) {
 	}, {
 		name: "inactive condition",
 		status: PodAutoscalerStatus{
-			Conditions: duckv1alpha1.Conditions{{
+			Conditions: duckv1beta1.Conditions{{
 				Type:   PodAutoscalerConditionActive,
 				Status: corev1.ConditionFalse,
 			}},
@@ -153,7 +155,7 @@ func TestCanMarkInactive(t *testing.T) {
 	}, {
 		name: "active condition (no LTT)",
 		status: PodAutoscalerStatus{
-			Conditions: duckv1alpha1.Conditions{{
+			Conditions: duckv1beta1.Conditions{{
 				Type:   PodAutoscalerConditionActive,
 				Status: corev1.ConditionTrue,
 				// No LTT = beginning of time, so for sure we can.
@@ -164,7 +166,7 @@ func TestCanMarkInactive(t *testing.T) {
 	}, {
 		name: "active condition (LTT longer than idle period ago)",
 		status: PodAutoscalerStatus{
-			Conditions: duckv1alpha1.Conditions{{
+			Conditions: duckv1beta1.Conditions{{
 				Type:   PodAutoscalerConditionActive,
 				Status: corev1.ConditionTrue,
 				LastTransitionTime: apis.VolatileTime{
@@ -178,7 +180,7 @@ func TestCanMarkInactive(t *testing.T) {
 	}, {
 		name: "active condition (LTT less than idle period ago)",
 		status: PodAutoscalerStatus{
-			Conditions: duckv1alpha1.Conditions{{
+			Conditions: duckv1beta1.Conditions{{
 				Type:   PodAutoscalerConditionActive,
 				Status: corev1.ConditionTrue,
 				LastTransitionTime: apis.VolatileTime{
@@ -210,7 +212,7 @@ func TestIsActivating(t *testing.T) {
 	}, {
 		name: "active=unknown",
 		status: PodAutoscalerStatus{
-			Conditions: duckv1alpha1.Conditions{{
+			Conditions: duckv1beta1.Conditions{{
 				Type:   PodAutoscalerConditionActive,
 				Status: corev1.ConditionUnknown,
 			}},
@@ -219,7 +221,7 @@ func TestIsActivating(t *testing.T) {
 	}, {}, {
 		name: "active=true",
 		status: PodAutoscalerStatus{
-			Conditions: duckv1alpha1.Conditions{{
+			Conditions: duckv1beta1.Conditions{{
 				Type:   PodAutoscalerConditionActive,
 				Status: corev1.ConditionTrue,
 			}},
@@ -228,7 +230,7 @@ func TestIsActivating(t *testing.T) {
 	}, {
 		name: "active=false",
 		status: PodAutoscalerStatus{
-			Conditions: duckv1alpha1.Conditions{{
+			Conditions: duckv1beta1.Conditions{{
 				Type:   PodAutoscalerConditionActive,
 				Status: corev1.ConditionTrue,
 			}},
@@ -255,7 +257,7 @@ func TestIsReady(t *testing.T) {
 	}, {
 		name: "Different condition type should not be ready",
 		status: PodAutoscalerStatus{
-			Conditions: duckv1alpha1.Conditions{{
+			Conditions: duckv1beta1.Conditions{{
 				Type:   PodAutoscalerConditionActive,
 				Status: corev1.ConditionTrue,
 			}},
@@ -264,7 +266,7 @@ func TestIsReady(t *testing.T) {
 	}, {
 		name: "False condition status should not be ready",
 		status: PodAutoscalerStatus{
-			Conditions: duckv1alpha1.Conditions{{
+			Conditions: duckv1beta1.Conditions{{
 				Type:   PodAutoscalerConditionReady,
 				Status: corev1.ConditionFalse,
 			}},
@@ -273,7 +275,7 @@ func TestIsReady(t *testing.T) {
 	}, {
 		name: "Unknown condition status should not be ready",
 		status: PodAutoscalerStatus{
-			Conditions: duckv1alpha1.Conditions{{
+			Conditions: duckv1beta1.Conditions{{
 				Type:   PodAutoscalerConditionReady,
 				Status: corev1.ConditionUnknown,
 			}},
@@ -282,7 +284,7 @@ func TestIsReady(t *testing.T) {
 	}, {
 		name: "Missing condition status should not be ready",
 		status: PodAutoscalerStatus{
-			Conditions: duckv1alpha1.Conditions{{
+			Conditions: duckv1beta1.Conditions{{
 				Type: PodAutoscalerConditionReady,
 			}},
 		},
@@ -290,7 +292,7 @@ func TestIsReady(t *testing.T) {
 	}, {
 		name: "True condition status should be ready",
 		status: PodAutoscalerStatus{
-			Conditions: duckv1alpha1.Conditions{{
+			Conditions: duckv1beta1.Conditions{{
 				Type:   PodAutoscalerConditionReady,
 				Status: corev1.ConditionTrue,
 			}},
@@ -299,7 +301,7 @@ func TestIsReady(t *testing.T) {
 	}, {
 		name: "Multiple conditions with ready status should be ready",
 		status: PodAutoscalerStatus{
-			Conditions: duckv1alpha1.Conditions{{
+			Conditions: duckv1beta1.Conditions{{
 				Type:   PodAutoscalerConditionActive,
 				Status: corev1.ConditionTrue,
 			}, {
@@ -311,7 +313,7 @@ func TestIsReady(t *testing.T) {
 	}, {
 		name: "Multiple conditions with ready status false should not be ready",
 		status: PodAutoscalerStatus{
-			Conditions: duckv1alpha1.Conditions{{
+			Conditions: duckv1beta1.Conditions{{
 				Type:   PodAutoscalerConditionActive,
 				Status: corev1.ConditionTrue,
 			}, {
@@ -467,9 +469,11 @@ func TestMarkResourceNotOwned(t *testing.T) {
 }
 
 func TestMarkResourceFailedCreation(t *testing.T) {
-	pa := pa(map[string]string{})
-	pa.Status.MarkResourceFailedCreation("doesn't", "matter")
-	active := pa.Status.GetCondition("Active")
+	pa := &PodAutoscalerStatus{}
+	pa.MarkResourceFailedCreation("doesn't", "matter")
+	apitest.CheckConditionFailed(pa.duck(), PodAutoscalerConditionActive, t)
+
+	active := pa.GetCondition("Active")
 	if active.Status != corev1.ConditionFalse {
 		t.Errorf("TestMarkResourceFailedCreation expected active.Status: False got: %v", active.Status)
 	}
@@ -525,7 +529,7 @@ func pa(annotations map[string]string) *PodAutoscaler {
 			Annotations: annotations,
 		},
 		Spec: PodAutoscalerSpec{
-			ContainerConcurrency: serving.RevisionContainerConcurrencyType(0),
+			ContainerConcurrency: 0,
 		},
 		Status: PodAutoscalerStatus{},
 	}
@@ -533,62 +537,35 @@ func pa(annotations map[string]string) *PodAutoscaler {
 }
 
 func TestTypicalFlow(t *testing.T) {
-	r := &PodAutoscaler{}
-	r.Status.InitializeConditions()
-	checkConditionOngoingPodAutoscaler(r.Status, PodAutoscalerConditionActive, t)
-	checkConditionOngoingPodAutoscaler(r.Status, PodAutoscalerConditionReady, t)
+	r := &PodAutoscalerStatus{}
+	r.InitializeConditions()
+	apitest.CheckConditionOngoing(r.duck(), PodAutoscalerConditionActive, t)
+	apitest.CheckConditionOngoing(r.duck(), PodAutoscalerConditionReady, t)
 
 	// When we see traffic, mark ourselves active.
-	r.Status.MarkActive()
-	checkConditionSucceededPodAutoscaler(r.Status, PodAutoscalerConditionActive, t)
-	checkConditionSucceededPodAutoscaler(r.Status, PodAutoscalerConditionReady, t)
+	r.MarkActive()
+	apitest.CheckConditionSucceeded(r.duck(), PodAutoscalerConditionActive, t)
+	apitest.CheckConditionSucceeded(r.duck(), PodAutoscalerConditionReady, t)
 
 	// Check idempotency.
-	r.Status.MarkActive()
-	checkConditionSucceededPodAutoscaler(r.Status, PodAutoscalerConditionActive, t)
-	checkConditionSucceededPodAutoscaler(r.Status, PodAutoscalerConditionReady, t)
+	r.MarkActive()
+	apitest.CheckConditionSucceeded(r.duck(), PodAutoscalerConditionActive, t)
+	apitest.CheckConditionSucceeded(r.duck(), PodAutoscalerConditionReady, t)
 
 	// When we stop seeing traffic, mark outselves inactive.
-	r.Status.MarkInactive("TheReason", "the message")
-	checkConditionFailedPodAutoscaler(r.Status, PodAutoscalerConditionActive, t)
-	checkConditionFailedPodAutoscaler(r.Status, PodAutoscalerConditionReady, t)
+	r.MarkInactive("TheReason", "the message")
+	apitest.CheckConditionFailed(r.duck(), PodAutoscalerConditionActive, t)
+	apitest.CheckConditionFailed(r.duck(), PodAutoscalerConditionReady, t)
 
 	// When traffic hits the activator and we scale up the deployment we mark
 	// ourselves as activating.
-	r.Status.MarkActivating("Activating", "Red team, GO!")
-	checkConditionOngoingPodAutoscaler(r.Status, PodAutoscalerConditionActive, t)
-	checkConditionOngoingPodAutoscaler(r.Status, PodAutoscalerConditionReady, t)
+	r.MarkActivating("Activating", "Red team, GO!")
+	apitest.CheckConditionOngoing(r.duck(), PodAutoscalerConditionActive, t)
+	apitest.CheckConditionOngoing(r.duck(), PodAutoscalerConditionReady, t)
 
 	// When the activator successfully forwards traffic to the deployment,
 	// we mark ourselves as active once more.
-	r.Status.MarkActive()
-	checkConditionSucceededPodAutoscaler(r.Status, PodAutoscalerConditionActive, t)
-	checkConditionSucceededPodAutoscaler(r.Status, PodAutoscalerConditionReady, t)
-}
-
-func checkConditionSucceededPodAutoscaler(rs PodAutoscalerStatus, rct duckv1alpha1.ConditionType, t *testing.T) *duckv1alpha1.Condition {
-	t.Helper()
-	return checkConditionPodAutoscaler(rs, rct, corev1.ConditionTrue, t)
-}
-
-func checkConditionFailedPodAutoscaler(rs PodAutoscalerStatus, rct duckv1alpha1.ConditionType, t *testing.T) *duckv1alpha1.Condition {
-	t.Helper()
-	return checkConditionPodAutoscaler(rs, rct, corev1.ConditionFalse, t)
-}
-
-func checkConditionOngoingPodAutoscaler(rs PodAutoscalerStatus, rct duckv1alpha1.ConditionType, t *testing.T) *duckv1alpha1.Condition {
-	t.Helper()
-	return checkConditionPodAutoscaler(rs, rct, corev1.ConditionUnknown, t)
-}
-
-func checkConditionPodAutoscaler(rs PodAutoscalerStatus, rct duckv1alpha1.ConditionType, cs corev1.ConditionStatus, t *testing.T) *duckv1alpha1.Condition {
-	t.Helper()
-	r := rs.GetCondition(rct)
-	if r == nil {
-		t.Fatalf("Get(%v) = nil, wanted %v=%v", rct, rct, cs)
-	}
-	if r.Status != cs {
-		t.Fatalf("Get(%v) = %v, wanted %v", rct, r.Status, cs)
-	}
-	return r
+	r.MarkActive()
+	apitest.CheckConditionSucceeded(r.duck(), PodAutoscalerConditionActive, t)
+	apitest.CheckConditionSucceeded(r.duck(), PodAutoscalerConditionReady, t)
 }
