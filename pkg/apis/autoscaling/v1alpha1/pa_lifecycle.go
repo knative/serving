@@ -74,6 +74,14 @@ func (pa *PodAutoscaler) ScaleBounds() (min, max int32) {
 	return
 }
 
+// Metric returns the metric annotation value or "cpu" if not present.
+func (pa *PodAutoscaler) Metric() string {
+	if m, ok := pa.Annotations[autoscaling.MetricAnnotationKey]; ok {
+		return m
+	}
+	return autoscaling.CPU
+}
+
 // Target returns the target annotation value or false if not present.
 func (pa *PodAutoscaler) Target() (target int32, ok bool) {
 	if s, ok := pa.Annotations[autoscaling.TargetAnnotationKey]; ok {

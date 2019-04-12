@@ -50,6 +50,13 @@ const (
 	Concurrency = "concurrency"
 	// CPU is the amount of the requested cpu actually being consumed by the Pod.
 	CPU = "cpu"
+	// Custom indicates a custom metric will be used to drive autoscaling.
+	Custom = "custom"
+
+	// CustomMetricAnnotationKey is the annotation to specify what custom metric the
+	// PodAutoscaler should be scaled on.  For example,
+	//   autoscaling.knative.dev/customMetric: container.googleapis.com|container|cpu|utilization
+	CustomMetricAnnotationKey = GroupName + "/customMetric"
 
 	// TargetAnnotationKey is the annotation to specify what metric value the
 	// PodAutoscaler should attempt to maintain. For example,

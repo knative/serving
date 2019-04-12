@@ -35,14 +35,14 @@ import (
 	networkinglisters "github.com/knative/serving/pkg/client/listers/networking/v1alpha1"
 	servinglisters "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
-	autoscalingv1 "k8s.io/api/autoscaling/v1"
+	autoscalingv2beta2 "k8s.io/api/autoscaling/v2beta2"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
 	appsv1listers "k8s.io/client-go/listers/apps/v1"
-	autoscalingv1listers "k8s.io/client-go/listers/autoscaling/v1"
+	autoscalingv2beta2listers "k8s.io/client-go/listers/autoscaling/v2beta2"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 )
@@ -141,8 +141,8 @@ func (l *Listers) GetPodAutoscalerLister() kpalisters.PodAutoscalerLister {
 	return kpalisters.NewPodAutoscalerLister(l.indexerFor(&kpa.PodAutoscaler{}))
 }
 
-func (l *Listers) GetHorizontalPodAutoscalerLister() autoscalingv1listers.HorizontalPodAutoscalerLister {
-	return autoscalingv1listers.NewHorizontalPodAutoscalerLister(l.indexerFor(&autoscalingv1.HorizontalPodAutoscaler{}))
+func (l *Listers) GetHorizontalPodAutoscalerLister() autoscalingv2beta2listers.HorizontalPodAutoscalerLister {
+	return autoscalingv2beta2listers.NewHorizontalPodAutoscalerLister(l.indexerFor(&autoscalingv2beta2.HorizontalPodAutoscaler{}))
 }
 
 // GetClusterIngressLister get lister for ClusterIngress resource.
