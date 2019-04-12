@@ -86,7 +86,7 @@ type Config struct {
 	// AutoTLS specifies if auto-TLS is enabled or not.
 	AutoTLS bool
 
-	// HTTPProtocol specifices the behavior of HTTP endpoint of Knative
+	// HTTPProtocol specifics the behavior of HTTP endpoint of Knative
 	// ingress.
 	HTTPProtocol HTTPProtocol
 }
