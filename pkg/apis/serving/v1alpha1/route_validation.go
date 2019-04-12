@@ -38,7 +38,7 @@ func (rs *RouteSpec) Validate(ctx context.Context) *apis.FieldError {
 		return apis.ErrMissingField(apis.CurrentField)
 	}
 
-	errs := knvalidation.CheckDeprecated(ctx, rs, nil)
+	errs := knvalidation.CheckDeprecated(ctx, rs)
 
 	// Track the targets of named TrafficTarget entries (to detect duplicates).
 	trafficMap := make(map[string]int)

@@ -48,7 +48,7 @@ func (cs *ConfigurationSpec) Validate(ctx context.Context) *apis.FieldError {
 		return apis.ErrMissingField("revisionTemplate")
 	}
 
-	errs := validation.CheckDeprecated(ctx, cs, nil)
+	errs := validation.CheckDeprecated(ctx, cs)
 
 	if cs.Build == nil {
 		// No build was specified.
