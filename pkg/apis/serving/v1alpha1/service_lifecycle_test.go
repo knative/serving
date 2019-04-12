@@ -30,6 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"github.com/knative/serving/pkg/apis/serving"
+	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 )
 
 func TestServiceDuckTypes(t *testing.T) {
@@ -613,11 +614,15 @@ func TestRouteStatusPropagation(t *testing.T) {
 	rsf := RouteStatusFields{
 		Domain: "example.com",
 		Traffic: []TrafficTarget{{
-			Percent:      100,
-			RevisionName: "newstuff",
+			TrafficTarget: v1beta1.TrafficTarget{
+				Percent:      100,
+				RevisionName: "newstuff",
+			},
 		}, {
-			Percent:      0,
-			RevisionName: "oldstuff",
+			TrafficTarget: v1beta1.TrafficTarget{
+				Percent:      0,
+				RevisionName: "oldstuff",
+			},
 		}},
 	}
 

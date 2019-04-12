@@ -23,7 +23,6 @@ import (
 	"github.com/knative/pkg/apis"
 	"github.com/knative/serving/pkg/apis/serving"
 	"k8s.io/apimachinery/pkg/api/equality"
-	"k8s.io/apimachinery/pkg/util/validation"
 )
 
 func (r *Route) Validate(ctx context.Context) *apis.FieldError {
@@ -41,31 +40,45 @@ func (rs *RouteSpec) Validate(ctx context.Context) *apis.FieldError {
 		"generation": rs.DeprecatedGeneration,
 	})
 
+	type diagnostic struct {
+		index int
+		field string
+	}
 	// Track the targets of named TrafficTarget entries (to detect duplicates).
-	trafficMap := make(map[string]int)
+	trafficMap := make(map[string]diagnostic)
 
 	percentSum := 0
 	for i, tt := range rs.Traffic {
-		errs = errs.Also(tt.Validate(ctx).ViaFieldIndex("traffic", i))
+		// Delegate to the v1beta1 validation.
+		errs = errs.Also(tt.TrafficTarget.Validate(ctx).ViaFieldIndex("traffic", i))
 
 		percentSum += tt.Percent
 
-		if tt.Name == "" {
+		if tt.Name != "" && tt.Subroute != "" {
+			errs = errs.Also(apis.ErrMultipleOneOf("name", "subroute").
+				ViaFieldIndex("traffic", i))
+		} else if tt.Name == "" && tt.Subroute == "" {
 			// No Name field, so skip the uniqueness check.
 			continue
 		}
+		name := tt.Name
+		field := "name"
+		if name == "" {
+			name = tt.Subroute
+			field = "subroute"
+		}
 
-		if ent, ok := trafficMap[tt.Name]; !ok {
+		if d, ok := trafficMap[name]; !ok {
 			// No entry exists, so add ours
-			trafficMap[tt.Name] = i
+			trafficMap[name] = diagnostic{i, field}
 		} else {
 			// We want only single definition of the route, even if it points
 			// to the same config or revision.
 			errs = errs.Also(&apis.FieldError{
-				Message: fmt.Sprintf("Multiple definitions for %q", tt.Name),
+				Message: fmt.Sprintf("Multiple definitions for %q", name),
 				Paths: []string{
-					fmt.Sprintf("traffic[%d].name", ent),
-					fmt.Sprintf("traffic[%d].name", i),
+					fmt.Sprintf("traffic[%d].%s", d.index, d.field),
+					fmt.Sprintf("traffic[%d].%s", i, field),
 				},
 			})
 		}
@@ -76,32 +89,6 @@ func (rs *RouteSpec) Validate(ctx context.Context) *apis.FieldError {
 			Message: fmt.Sprintf("Traffic targets sum to %d, want 100", percentSum),
 			Paths:   []string{"traffic"},
 		})
-	}
-	return errs
-}
-
-// Validate verifies that TrafficTarget is properly configured.
-func (tt *TrafficTarget) Validate(ctx context.Context) *apis.FieldError {
-	var errs *apis.FieldError
-	switch {
-	case tt.RevisionName != "" && tt.ConfigurationName != "":
-		errs = apis.ErrMultipleOneOf("revisionName", "configurationName")
-	case tt.RevisionName != "":
-		if verrs := validation.IsQualifiedName(tt.RevisionName); len(verrs) > 0 {
-			errs = apis.ErrInvalidKeyName(tt.RevisionName, "revisionName", verrs...)
-		}
-	case tt.ConfigurationName != "":
-		if verrs := validation.IsQualifiedName(tt.ConfigurationName); len(verrs) > 0 {
-			errs = apis.ErrInvalidKeyName(tt.ConfigurationName, "configurationName", verrs...)
-		}
-	default:
-		errs = apis.ErrMissingOneOf("revisionName", "configurationName")
-	}
-	if tt.Percent < 0 || tt.Percent > 100 {
-		errs = errs.Also(apis.ErrOutOfBoundsValue(tt.Percent, 0, 100, "percent"))
-	}
-	if tt.URL != "" {
-		errs = errs.Also(apis.ErrDisallowedFields("url"))
 	}
 	return errs
 }

@@ -27,6 +27,7 @@ import (
 	pkgTest "github.com/knative/pkg/test"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 	"github.com/knative/serving/test"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -330,12 +331,13 @@ func waitForDesiredTrafficShape(t *testing.T, sName string, want map[string]v1al
 			}
 			ignoreURLs := cmp.FilterPath(
 				func(p cmp.Path) bool {
-					return p.String() == "URL"
+					return p.String() == "TrafficTarget.URL"
 				},
 				cmp.Ignore(),
 			)
 			if !cmp.Equal(got, want, ignoreURLs) {
-				t.Logf("For service %s traffic shape mismatch: (-got, +want) %s", sName, cmp.Diff(got, want))
+				t.Logf("For service %s traffic shape mismatch: (-got, +want) %s",
+					sName, cmp.Diff(got, want, ignoreURLs))
 				return false, nil
 			}
 			return true, nil
@@ -451,13 +453,17 @@ func TestReleaseService(t *testing.T) {
 	}
 	desiredTrafficShape := map[string]v1alpha1.TrafficTarget{
 		v1alpha1.CurrentTrafficTarget: {
-			Name:         v1alpha1.CurrentTrafficTarget,
-			RevisionName: objects.Config.Status.LatestReadyRevisionName,
-			Percent:      100,
+			Name: v1alpha1.CurrentTrafficTarget,
+			TrafficTarget: v1beta1.TrafficTarget{
+				RevisionName: objects.Config.Status.LatestReadyRevisionName,
+				Percent:      100,
+			},
 		},
 		v1alpha1.LatestTrafficTarget: {
-			Name:         v1alpha1.LatestTrafficTarget,
-			RevisionName: objects.Config.Status.LatestReadyRevisionName,
+			Name: v1alpha1.LatestTrafficTarget,
+			TrafficTarget: v1beta1.TrafficTarget{
+				RevisionName: objects.Config.Status.LatestReadyRevisionName,
+			},
 		},
 	}
 	t.Log("Waiting for Service to become ready with the new shape.")
@@ -488,8 +494,10 @@ func TestReleaseService(t *testing.T) {
 
 	// Also verify traffic is in the correct shape.
 	desiredTrafficShape[v1alpha1.LatestTrafficTarget] = v1alpha1.TrafficTarget{
-		Name:         v1alpha1.LatestTrafficTarget,
-		RevisionName: names.Revision,
+		Name: v1alpha1.LatestTrafficTarget,
+		TrafficTarget: v1beta1.TrafficTarget{
+			RevisionName: names.Revision,
+		},
 	}
 	t.Log("Waiting for Service to become ready with the new shape.")
 	if err := waitForDesiredTrafficShape(t, names.Service, desiredTrafficShape, clients); err != nil {
@@ -513,18 +521,24 @@ func TestReleaseService(t *testing.T) {
 
 	desiredTrafficShape = map[string]v1alpha1.TrafficTarget{
 		v1alpha1.CurrentTrafficTarget: {
-			Name:         v1alpha1.CurrentTrafficTarget,
-			RevisionName: revisions[0],
-			Percent:      50,
+			Name: v1alpha1.CurrentTrafficTarget,
+			TrafficTarget: v1beta1.TrafficTarget{
+				RevisionName: revisions[0],
+				Percent:      50,
+			},
 		},
 		v1alpha1.CandidateTrafficTarget: {
-			Name:         v1alpha1.CandidateTrafficTarget,
-			RevisionName: revisions[1],
-			Percent:      50,
+			Name: v1alpha1.CandidateTrafficTarget,
+			TrafficTarget: v1beta1.TrafficTarget{
+				RevisionName: revisions[1],
+				Percent:      50,
+			},
 		},
 		v1alpha1.LatestTrafficTarget: {
-			Name:         v1alpha1.LatestTrafficTarget,
-			RevisionName: revisions[1],
+			Name: v1alpha1.LatestTrafficTarget,
+			TrafficTarget: v1beta1.TrafficTarget{
+				RevisionName: revisions[1],
+			},
 		},
 	}
 	t.Log("Waiting for Service to become ready with the new shape.")
@@ -552,8 +566,10 @@ func TestReleaseService(t *testing.T) {
 	}
 
 	desiredTrafficShape[v1alpha1.LatestTrafficTarget] = v1alpha1.TrafficTarget{
-		Name:         v1alpha1.LatestTrafficTarget,
-		RevisionName: names.Revision,
+		Name: v1alpha1.LatestTrafficTarget,
+		TrafficTarget: v1beta1.TrafficTarget{
+			RevisionName: names.Revision,
+		},
 	}
 	t.Log("Waiting for Service to become ready with the new shape.")
 	if err := waitForDesiredTrafficShape(t, names.Service, desiredTrafficShape, clients); err != nil {
@@ -582,9 +598,11 @@ func TestReleaseService(t *testing.T) {
 
 	// `candidate` now points to the latest.
 	desiredTrafficShape[v1alpha1.CandidateTrafficTarget] = v1alpha1.TrafficTarget{
-		Name:         v1alpha1.CandidateTrafficTarget,
-		RevisionName: names.Revision,
-		Percent:      50,
+		Name: v1alpha1.CandidateTrafficTarget,
+		TrafficTarget: v1beta1.TrafficTarget{
+			RevisionName: names.Revision,
+			Percent:      50,
+		},
 	}
 	t.Log("Waiting for Service to become ready with the new shape.")
 	if err := waitForDesiredTrafficShape(t, names.Service, desiredTrafficShape, clients); err != nil {
