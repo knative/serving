@@ -113,7 +113,7 @@ func TestReporter_Report(t *testing.T) {
 
 	r.unregisterViews()
 
-	// Test report with empty service name
+	// Test reporter with empty service name
 	r, err = NewStatsReporter(testNs, "" /*serive name*/, testConf, testRev)
 	if err != nil {
 		t.Fatalf("Unexpected error from NewStatsReporter()=%v", err)
