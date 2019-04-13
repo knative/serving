@@ -18,6 +18,7 @@ package network
 
 import (
 	"net"
+	"net/http"
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
@@ -58,6 +59,10 @@ const (
 	// DefaultDomainTemplate is the default golang template to use when
 	// constructing the Knative Route's Domain(host)
 	DefaultDomainTemplate = "{{.Name}}.{{.Namespace}}.{{.Domain}}"
+
+	// Since K8s 1.8, prober requests have
+	//   User-Agent = "kube-probe/{major-version}.{minor-version}".
+	kubeProbeUAPrefix = "kube-probe/"
 )
 
 // Config contains the networking configuration defined in the
@@ -125,4 +130,9 @@ func NewConfigFromConfigMap(configMap *corev1.ConfigMap) (*Config, error) {
 	}
 
 	return nc, nil
+}
+
+// IsKubeletProbe returns true if the request is a kubernetes probe.
+func IsKubeletProbe(r *http.Request) bool {
+	return strings.HasPrefix(r.Header.Get("User-Agent"), kubeProbeUAPrefix)
 }

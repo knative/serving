@@ -17,6 +17,7 @@ limitations under the License.
 package network
 
 import (
+	"net/http"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -303,5 +304,19 @@ func TestConfiguration(t *testing.T) {
 		if diff := cmp.Diff(actualController, tt.wantController); diff != "" {
 			t.Fatalf("Test: %q; want %v, but got %v", tt.name, tt.wantController, actualController)
 		}
+	}
+}
+
+func TestIsKubeletProbe(t *testing.T) {
+	req, err := http.NewRequest(http.MethodGet, "http://example.com/", nil)
+	if err != nil {
+		t.Fatalf("Error building request: %v", err)
+	}
+	if IsKubeletProbe(req) {
+		t.Error("Not a kubelet probe but counted as such")
+	}
+	req.Header.Set("User-Agent", kubeProbeUAPrefix+"1.14")
+	if !IsKubeletProbe(req) {
+		t.Error("kubelet probe but not counted as such")
 	}
 }
