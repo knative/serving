@@ -78,6 +78,7 @@ func (a *ActivationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		sendError(err, w)
 		return
 	}
+	logger.Errorf("#### Got the host: %s", host)
 
 	target := &url.URL{
 		Scheme: "http",
@@ -113,6 +114,7 @@ func (a *ActivationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			}
 			err := wait.ExponentialBackoff(settings, func() (bool, error) {
 				attempts++
+				logger.Errorf("#### Sending probe %d: to %s", attempts, r.Host)
 				probeResp, err := a.Transport.RoundTrip(probeReq)
 				if err != nil {
 					logger.Warnw("Pod probe failed", zap.Error(err))
