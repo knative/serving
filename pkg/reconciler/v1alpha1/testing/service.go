@@ -42,7 +42,7 @@ func Service(name, namespace string, so ...ServiceOption) *v1alpha1.Service {
 func ServiceWithoutNamespace(name string, so ...ServiceOption) *v1alpha1.Service {
 	s := &v1alpha1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
+			Name: name,
 		},
 	}
 	for _, opt := range so {
