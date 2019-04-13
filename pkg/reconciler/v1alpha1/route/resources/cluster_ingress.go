@@ -29,7 +29,6 @@ import (
 	"github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving"
 	servingv1alpha1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	"github.com/knative/serving/pkg/reconciler"
 	revisionresources "github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/resources/names"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/traffic"
@@ -91,9 +90,7 @@ func makeClusterIngressSpec(r *servingv1alpha1.Route, targets map[string]traffic
 }
 
 func routeDomains(targetName string, r *servingv1alpha1.Route) []string {
-
 	domains := []string{traffic.SubrouteDomain(targetName, r.Status.Domain)}
-
 	if targetName == traffic.DefaultTarget {
 		// The default target is also referred to by its internal K8s
 		// generated domain name.
@@ -115,8 +112,9 @@ func makeClusterIngressRule(domains []string, ns string, targets traffic.Revisio
 		splits = append(splits, v1alpha1.ClusterIngressBackendSplit{
 			ClusterIngressBackend: v1alpha1.ClusterIngressBackend{
 				ServiceNamespace: ns,
-				ServiceName:      reconciler.GetServingK8SServiceNameForObj(t.TrafficTarget.RevisionName),
-				ServicePort:      intstr.FromInt(int(revisionresources.ServicePort)),
+				//				ServiceName:      reconciler.GetServingK8SServiceNameForObj(t.TrafficTarget.RevisionName),
+				ServiceName: t.ServiceName,
+				ServicePort: intstr.FromInt(int(revisionresources.ServicePort)),
 			},
 			Percent: t.Percent,
 		})

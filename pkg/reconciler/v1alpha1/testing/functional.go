@@ -300,7 +300,7 @@ func WithSvcStatusTraffic(targets ...v1alpha1.TrafficTarget) ServiceOption {
 		// Automatically inject URL into TrafficTarget status
 		for _, tt := range targets {
 			if tt.Name != "" {
-				tt.URL = traffic.SubrouteURL(traffic.HttpScheme,
+				tt.URL = traffic.SubrouteURL(traffic.HTTPScheme,
 					tt.Name,
 					"example.com")
 			}
@@ -670,6 +670,13 @@ func WithBuildRef(name string) RevisionOption {
 			Kind:       "Build",
 			Name:       name,
 		}
+	}
+}
+
+// WithServiceName propagates the given service name to the revision status.
+func WithServiceName(sn string) RevisionOption {
+	return func(rev *v1alpha1.Revision) {
+		rev.Status.ServiceName = sn
 	}
 }
 
