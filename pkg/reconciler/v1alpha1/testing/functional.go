@@ -1003,7 +1003,7 @@ type SKSOption func(sks *netv1alpha1.ServerlessService)
 
 // WithPubService annotates SKS status with the given service name.
 func WithPubService(sks *netv1alpha1.ServerlessService) {
-	sks.Status.ServiceName = names.PublicService(sks)
+	sks.Status.ServiceName = names.PublicService(sks.Name)
 }
 
 // WithSelector annotates SKS with a given selector map.
@@ -1022,7 +1022,7 @@ func WithSKSReady(sks *netv1alpha1.ServerlessService) {
 
 // WithPrivateService annotates SKS status with the private service name.
 func WithPrivateService(sks *netv1alpha1.ServerlessService) {
-	sks.Status.PrivateServiceName = names.PrivateService(sks)
+	sks.Status.PrivateServiceName = names.PrivateService(sks.Name)
 }
 
 // WithSKSOwnersRemoved clears the owner references of this SKS resource.

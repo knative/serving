@@ -283,5 +283,5 @@ func withTimeSelector(svc *corev1.Service) {
 
 // TODO(vagababov): temp while we don't create separate public service.
 func withTempPubService(sks *nv1a1.ServerlessService) {
-	sks.Status.ServiceName = names.PrivateService(sks)
+	sks.Status.ServiceName = names.PrivateService(sks.Name)
 }

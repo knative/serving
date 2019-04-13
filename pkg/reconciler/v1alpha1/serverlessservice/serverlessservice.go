@@ -196,7 +196,7 @@ func (r *reconciler) updateStatus(sks *netv1alpha1.ServerlessService) (*netv1alp
 
 func (r *reconciler) reconcilePublicService(ctx context.Context, sks *netv1alpha1.ServerlessService) error {
 	logger := logging.FromContext(ctx)
-	sn := names.PublicService(sks)
+	sn := names.PublicService(sks.Name)
 	srv, err := r.serviceLister.Services(sks.Namespace).Get(sn)
 	if errors.IsNotFound(err) {
 		logger.Infof("K8s service %q does not exist; creating.", sn)
@@ -240,7 +240,7 @@ func (r *reconciler) reconcilePublicEndpoints(ctx context.Context, sks *netv1alp
 
 	// Service and Endpoints have the same name.
 	// Get private endpoints first, since if they are not available there's nothing we can do.
-	psn := names.PrivateService(sks)
+	psn := names.PrivateService(sks.Name)
 	srcEps, err := r.endpointsLister.Endpoints(sks.Namespace).Get(psn)
 	if err != nil {
 		logger.Error(fmt.Sprintf("Error obtaining private service endpoints: %s", psn), zap.Error(err))
@@ -248,7 +248,7 @@ func (r *reconciler) reconcilePublicEndpoints(ctx context.Context, sks *netv1alp
 	}
 	logger.Debugf("Public endpoints: %s", spew.Sprint(srcEps))
 
-	sn := names.PublicService(sks)
+	sn := names.PublicService(sks.Name)
 	eps, err := r.endpointsLister.Endpoints(sks.Namespace).Get(sn)
 
 	if errors.IsNotFound(err) {
@@ -290,7 +290,7 @@ func (r *reconciler) reconcilePublicEndpoints(ctx context.Context, sks *netv1alp
 
 func (r *reconciler) reconcilePrivateService(ctx context.Context, sks *netv1alpha1.ServerlessService) error {
 	logger := logging.FromContext(ctx)
-	sn := names.PrivateService(sks)
+	sn := names.PrivateService(sks.Name)
 	svc, err := r.serviceLister.Services(sks.Namespace).Get(sn)
 	if errors.IsNotFound(err) {
 		logger.Infof("K8s service %s does not exist; creating.", sn)
