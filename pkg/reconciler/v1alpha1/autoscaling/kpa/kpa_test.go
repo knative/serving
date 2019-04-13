@@ -679,6 +679,7 @@ func TestUpdate(t *testing.T) {
 
 	fakeDeciders := newTestDeciders()
 	fakeMetrics := newTestMetrics()
+	dynConf := newDynamicConfig(t)
 	ctl := NewController(&opts,
 		servingInformer.Autoscaling().V1alpha1().PodAutoscalers(),
 		servingInformer.Networking().V1alpha1().ServerlessServices(),
@@ -687,7 +688,7 @@ func TestUpdate(t *testing.T) {
 		fakeDeciders,
 		fakeMetrics,
 		scaler,
-		newDynamicConfig(t),
+		dynConf,
 	)
 
 	rev := newTestRevision(testNamespace, testRevision)
@@ -697,6 +698,7 @@ func TestUpdate(t *testing.T) {
 	kubeClient.CoreV1().Endpoints(testNamespace).Create(ep)
 	kubeInformer.Core().V1().Endpoints().Informer().GetIndexer().Add(ep)
 	kpa := revisionresources.MakeKPA(rev)
+	kpa.SetDefaults(context.Background())
 	servingClient.AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
 	servingInformer.Autoscaling().V1alpha1().PodAutoscalers().Informer().GetIndexer().Add(kpa)
 
@@ -712,6 +714,9 @@ func TestUpdate(t *testing.T) {
 	servingClient.NetworkingV1alpha1().ServerlessServices(testNamespace).Create(sks)
 	servingInformer.Networking().V1alpha1().ServerlessServices().Informer().GetIndexer().Add(sks)
 
+	decider := resources.MakeDecider(context.Background(), kpa, dynConf.Current())
+	decider.Labels[serving.KubernetesServiceLabelKey] = sks.Status.PrivateServiceName
+
 	// Wait for the Reconcile to complete.
 	if err := ctl.Reconciler.Reconcile(context.Background(), testNamespace+"/"+testRevision); err != nil {
 		t.Errorf("Reconcile() = %v", err)
@@ -722,6 +727,11 @@ func TestUpdate(t *testing.T) {
 	}
 	if count := fakeMetrics.createCallCount.Load(); count != 1 {
 		t.Fatalf("Metrics.Create called %d times instead of once", count)
+	}
+
+	// Verify decider shape.
+	if got, want := fakeDeciders.decider, decider; !cmp.Equal(got, want) {
+		t.Errorf("decider mismatch: diff(+got, -want): %s", cmp.Diff(got, want))
 	}
 
 	newKPA, err := servingClient.AutoscalingV1alpha1().PodAutoscalers(kpa.Namespace).Get(

@@ -184,15 +184,15 @@ func scalerConfig(logger *zap.SugaredLogger) *autoscaler.DynamicConfig {
 
 func uniScalerFactoryFunc(endpointsInformer corev1informers.EndpointsInformer) func(decider *autoscaler.Decider, dynamicConfig *autoscaler.DynamicConfig) (autoscaler.UniScaler, error) {
 	return func(decider *autoscaler.Decider, dynamicConfig *autoscaler.DynamicConfig) (autoscaler.UniScaler, error) {
-		for _, l := range []string{serving.RevisionLabelKey, serving.ConfigurationLabelKey} {
+		for _, l := range []string{serving.KubernetesServiceLabelKey, serving.ConfigurationLabelKey} {
 			if v, ok := decider.Labels[l]; !ok || v == "" {
 				return nil, fmt.Errorf("label %q not found or empty in Decider: %v", l, decider)
 			}
 		}
 
-		revName := decider.Labels[serving.RevisionLabelKey]
 		serviceName := decider.Labels[serving.ServiceLabelKey] // This can be empty.
 		configName := decider.Labels[serving.ConfigurationLabelKey]
+		k8SSvcName := decider.Labels[serving.KubernetesServiceLabelKey]
 
 		// Create a stats reporter which tags statistics by PA namespace, configuration name, and PA name.
 		reporter, err := autoscaler.NewStatsReporter(decider.Namespace, serviceName, configName, decider.Name)
@@ -201,7 +201,7 @@ func uniScalerFactoryFunc(endpointsInformer corev1informers.EndpointsInformer) f
 		}
 
 		return autoscaler.New(dynamicConfig, decider.Namespace,
-			reconciler.GetServingK8SServiceNameForObj(revName), endpointsInformer,
+			k8SSvcName, endpointsInformer,
 			decider.Spec.TargetConcurrency, reporter)
 	}
 }

@@ -29,11 +29,6 @@ func GetK8sServiceFullname(name string, namespace string) string {
 	return fmt.Sprintf("%s.%s.svc.%s", name, namespace, utils.GetClusterDomainName())
 }
 
-// GetServingK8SServiceNameForObj returns the service name for the object
-func GetServingK8SServiceNameForObj(name string) string {
-	return name + "-service"
-}
-
 // GetServingRevisionNameForK8sService returns the revision name from the service name
 func GetServingRevisionNameForK8sService(name string) string {
 	return strings.TrimSuffix(name, "-service")

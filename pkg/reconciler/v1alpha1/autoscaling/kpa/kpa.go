@@ -246,7 +246,7 @@ func (c *Reconciler) reconcile(ctx context.Context, pa *pav1alpha1.PodAutoscaler
 		return perrors.Wrap(err, "error reconciling SKS")
 	}
 
-	decider, err := c.reconcileDecider(ctx, pa)
+	decider, err := c.reconcileDecider(ctx, pa, sks.Status.PrivateServiceName)
 	if err != nil {
 		return perrors.Wrap(err, "error reconciling decider")
 	}
@@ -285,8 +285,9 @@ func (c *Reconciler) reconcile(ctx context.Context, pa *pav1alpha1.PodAutoscaler
 	return nil
 }
 
-func (c *Reconciler) reconcileDecider(ctx context.Context, pa *pav1alpha1.PodAutoscaler) (*autoscaler.Decider, error) {
+func (c *Reconciler) reconcileDecider(ctx context.Context, pa *pav1alpha1.PodAutoscaler, k8sSvc string) (*autoscaler.Decider, error) {
 	desiredDecider := resources.MakeDecider(ctx, pa, c.dynConfig.Current())
+	desiredDecider.Labels[serving.KubernetesServiceLabelKey] = k8sSvc
 	decider, err := c.kpaDeciders.Get(ctx, desiredDecider.Namespace, desiredDecider.Name)
 	if errors.IsNotFound(err) {
 		decider, err = c.kpaDeciders.Create(ctx, desiredDecider)
