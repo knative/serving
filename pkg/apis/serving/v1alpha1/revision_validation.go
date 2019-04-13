@@ -80,11 +80,15 @@ func (rt *RevisionTemplateSpec) Validate(ctx context.Context) *apis.FieldError {
 	// If the RevisionTemplate has a name specified, then check that
 	// it follows the requirements on the name.
 	if rt.Name != "" {
-		var prefix string
-		if om := apis.ParentMeta(ctx); om.Name == "" {
-			prefix = om.GenerateName
-		} else {
-			prefix = om.Name + "-"
+		om := apis.ParentMeta(ctx)
+		prefix := om.Name + "-"
+		if om.Name != "" {
+			// Even if there is GenerateName, allow the use
+			// of Name post-creation.
+		} else if om.GenerateName != "" {
+			// We disallow bringing your own name when the parent
+			// resource uses generateName (at creation).
+			return apis.ErrDisallowedFields("metadata.name")
 		}
 
 		if !strings.HasPrefix(rt.Name, prefix) {

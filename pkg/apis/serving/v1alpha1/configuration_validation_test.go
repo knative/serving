@@ -242,7 +242,7 @@ func TestConfigurationValidation(t *testing.T) {
 		},
 		want: nil,
 	}, {
-		name: "valid BYO name (with generateName)",
+		name: "invalid BYO name (with generateName)",
 		c: &Configuration{
 			ObjectMeta: metav1.ObjectMeta{
 				GenerateName: "byo-name-",
@@ -260,7 +260,7 @@ func TestConfigurationValidation(t *testing.T) {
 				},
 			},
 		},
-		want: nil,
+		want: apis.ErrDisallowedFields("spec.revisionTemplate.metadata.name"),
 	}, {
 		name: "invalid BYO name (not prefixed)",
 		c: &Configuration{
