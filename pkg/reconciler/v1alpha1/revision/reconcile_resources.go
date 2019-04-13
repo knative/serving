@@ -23,7 +23,6 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/knative/pkg/kmp"
 	"github.com/knative/pkg/logging"
 	"github.com/knative/pkg/logging/logkey"
@@ -86,6 +85,7 @@ func (c *Reconciler) reconcileDeployment(ctx context.Context, rev *v1alpha1.Revi
 			for _, status := range pod.Status.ContainerStatuses {
 				if status.Name == resources.UserContainerName {
 					if t := status.LastTerminationState.Terminated; t != nil {
+						logger.Infof("%s marking exiting with: %d/%s", rev.Name, t.ExitCode, t.Message)
 						rev.Status.MarkContainerExiting(t.ExitCode, t.Message)
 					}
 					break
@@ -165,32 +165,26 @@ func (c *Reconciler) reconcileKPA(ctx context.Context, rev *v1alpha1.Revision) e
 		rev.Status.MarkDeploying("Updating")
 	}
 
+	// Propagate the service name from the PA.
+	rev.Status.ServiceName = kpa.Status.ServiceName
+
 	// Reflect the KPA status in our own.
 	cond := kpa.Status.GetCondition(kpav1alpha1.PodAutoscalerConditionReady)
 	switch {
 	case cond == nil:
 		rev.Status.MarkActivating("Deploying", "")
 		// If not ready => SKS did not report a service name, we can reliably use.
-		rev.Status.ServiceName = ""
 	case cond.Status == corev1.ConditionUnknown:
 		rev.Status.MarkActivating(cond.Reason, cond.Message)
-		// If not ready => SKS did not report a service name, we can reliably use.
-		rev.Status.ServiceName = ""
-		// Since PA is not ready, we presume SKS isn't ready either.
-		rev.Status.MarkDeploying("Deploying")
 	case cond.Status == corev1.ConditionFalse:
 		rev.Status.MarkInactive(cond.Reason, cond.Message)
-		rev.Status.ServiceName = ""
 	case cond.Status == corev1.ConditionTrue:
 		rev.Status.MarkActive()
 
 		// Precondition for PA being active is SKS being active and
 		// that entices that |service.endpoints| > 0.
-		// Propagate the service name from the PA.
-		rev.Status.ServiceName = kpa.Status.ServiceName
 		rev.Status.MarkResourcesAvailable()
 		rev.Status.MarkContainerHealthy()
-		logger.Info("### We're here \n%v\n", spew.Sdump(rev.Status))
 	}
 	return nil
 }

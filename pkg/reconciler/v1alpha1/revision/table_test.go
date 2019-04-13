@@ -289,7 +289,6 @@ func TestReconcile(t *testing.T) {
 				// When we reconcile a ready state and our KPA is in an activating
 				// state, we should see the following mutation.
 				MarkActivating("Something", "This is something longer"),
-				MarkDeploying("Deploying"),
 			),
 		}},
 		Key: "foo/kpa-not-ready",
