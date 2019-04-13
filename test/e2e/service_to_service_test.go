@@ -202,7 +202,6 @@ func TestServiceToServiceCallFromZero(t *testing.T) {
 	t.Parallel()
 	clients := Setup(t)
 
-	// Set up helloworld app
 	t.Log("Creating helloworld Service")
 
 	helloWorldNames := test.ResourceNames{
