@@ -47,6 +47,7 @@ ${GOPATH}/bin/deepcopy-gen \
   -O zz_generated.deepcopy \
   --go-header-file ${REPO_ROOT_DIR}/hack/boilerplate/boilerplate.go.txt \
   -i github.com/knative/serving/pkg/apis/config \
+  -i github.com/knative/serving/pkg/apis/serving/v1beta1 \
   -i github.com/knative/serving/pkg/reconciler/v1alpha1/clusteringress/config \
   -i github.com/knative/serving/pkg/reconciler/v1alpha1/configuration/config \
   -i github.com/knative/serving/pkg/reconciler/v1alpha1/revision/config \
