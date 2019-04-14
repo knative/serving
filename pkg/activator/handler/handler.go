@@ -86,6 +86,7 @@ func (a *ActivationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	err = a.Throttler.Try(revID, func() {
+		logger.Errorf("### Trying....")
 		var (
 			httpStatus int
 			attempts   int
@@ -96,6 +97,7 @@ func (a *ActivationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		// returns a 200 status code.
 		success := (a.GetProbeCount == 0)
 		if !success {
+			logger.Error("### still not a success....")
 			probeReq := &http.Request{
 				Method:     http.MethodGet,
 				URL:        target,
@@ -120,6 +122,7 @@ func (a *ActivationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 					logger.Warnw("Pod probe failed", zap.Error(err))
 					return false, nil
 				}
+				logger.Errorf("#### Got the probe back: %#v", probeResp)
 				defer probeResp.Body.Close()
 				httpStatus = probeResp.StatusCode
 				if httpStatus != http.StatusOK {
