@@ -41,12 +41,12 @@ var (
 		return nil, errors.New(sampleError)
 	}
 
-	existingEndpointsGetter = func(count int) func(RevisionID) (int32, error) {
-		return func(RevisionID) (int32, error) {
+	existingEndpointsGetter = func(count int) func(*v1alpha1.Revision) (int32, error) {
+		return func(*v1alpha1.Revision) (int32, error) {
 			return int32(count), nil
 		}
 	}
-	nonExistingEndpointsGetter = func(RevisionID) (int32, error) {
+	nonExistingEndpointsGetter = func(*v1alpha1.Revision) (int32, error) {
 		return initCapacity, errors.New(sampleError)
 	}
 )
@@ -61,7 +61,7 @@ func TestThrottler_UpdateCapacity(t *testing.T) {
 	samples := []struct {
 		label           string
 		revisionGetter  func(RevisionID) (*v1alpha1.Revision, error)
-		endpointsGetter func(RevisionID) (int32, error)
+		endpointsGetter func(*v1alpha1.Revision) (int32, error)
 		maxConcurrency  int32
 		want            int32
 		wantError       string
@@ -106,7 +106,8 @@ func TestThrottler_UpdateCapacity(t *testing.T) {
 	for _, s := range samples {
 		t.Run(s.label, func(t *testing.T) {
 			throttler := getThrottler(s.maxConcurrency, s.revisionGetter, s.endpointsGetter, TestLogger(t), initCapacity)
-			endpoints, _ := s.endpointsGetter(revID)
+			rev, _ := s.revisionGetter(revID)
+			endpoints, _ := s.endpointsGetter(rev)
 			err := throttler.UpdateCapacity(revID, endpoints)
 			if s.wantError != "" {
 				if err == nil {
@@ -132,7 +133,7 @@ func TestThrottler_Try(t *testing.T) {
 		wantBreakers    int32
 		wantError       string
 		revisionGetter  func(RevisionID) (*v1alpha1.Revision, error)
-		endpointsGetter func(RevisionID) (int32, error)
+		endpointsGetter func(*v1alpha1.Revision) (int32, error)
 	}{{
 		label:           "all good",
 		addCapacity:     true,
@@ -289,7 +290,7 @@ func TestHelper_DeleteBreaker(t *testing.T) {
 	throttler := getThrottler(int32(20), existingRevisionGetter(10), existingEndpointsGetter(0), TestLogger(t), initCapacity)
 	endpoints := &corev1.Endpoints{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      revID.Name,
+			Name:      revID.Name + "-suffix",
 			Namespace: revID.Namespace,
 		},
 	}
@@ -306,7 +307,7 @@ func TestHelper_DeleteBreaker(t *testing.T) {
 
 func getThrottler(
 	maxConcurrency int32, revisionGetter func(RevisionID) (*v1alpha1.Revision, error),
-	endpointsGetter func(RevisionID) (int32, error), logger *zap.SugaredLogger,
+	endpointsGetter func(*v1alpha1.Revision) (int32, error), logger *zap.SugaredLogger,
 	initCapacity int32) *Throttler {
 	params := queue.BreakerParams{QueueDepth: 1, MaxConcurrency: maxConcurrency, InitialCapacity: initCapacity}
 	throttlerParams := ThrottlerParams{BreakerParams: params, Logger: logger, GetRevision: revisionGetter, GetEndpoints: endpointsGetter}

@@ -31,5 +31,9 @@ func GetK8sServiceFullname(name string, namespace string) string {
 
 // GetServingRevisionNameForK8sService returns the revision name from the service name
 func GetServingRevisionNameForK8sService(name string) string {
-	return strings.TrimSuffix(name, "-service")
+	li := strings.LastIndex(name, "-")
+	if li == -1 {
+		return name
+	}
+	return name[:li]
 }
