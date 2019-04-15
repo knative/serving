@@ -403,10 +403,15 @@ func TestCreateRouteWithMultipleTargets(t *testing.T) {
 						},
 						Percent: 10,
 					}},
+					AppendHeaders: map[string]string{
+						"knative-serving-revision":  cfgrev.Name,
+						"knative-serving-namespace": testNamespace,
+					},
 				}},
 			},
 		}},
 	}
+
 	if diff := cmp.Diff(expectedSpec, ci.Spec); diff != "" {
 		t.Errorf("Unexpected rule spec diff (-want +got): %v", diff)
 	}
@@ -570,6 +575,10 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 						},
 						Percent: 50,
 					}},
+					AppendHeaders: map[string]string{
+						"knative-serving-revision":  rev.Name,
+						"knative-serving-namespace": testNamespace,
+					},
 				}},
 			},
 		}, {
@@ -584,6 +593,10 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 						},
 						Percent: 100,
 					}},
+					AppendHeaders: map[string]string{
+						"knative-serving-revision":  rev.Name,
+						"knative-serving-namespace": testNamespace,
+					},
 				}},
 			},
 		}, {
@@ -598,10 +611,15 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 						},
 						Percent: 100,
 					}},
+					AppendHeaders: map[string]string{
+						"knative-serving-revision":  rev.Name,
+						"knative-serving-namespace": testNamespace,
+					},
 				}},
 			},
 		}},
 	}
+
 	if diff := cmp.Diff(expectedSpec, ci.Spec); diff != "" {
 		fmt.Printf("%+v\n", ci.Spec)
 		t.Errorf("Unexpected rule spec diff (-want +got): %v", diff)
@@ -673,6 +691,10 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 						},
 						Percent: 50,
 					}},
+					AppendHeaders: map[string]string{
+						"knative-serving-revision":  cfgrev.Name,
+						"knative-serving-namespace": testNamespace,
+					},
 				}},
 			},
 		}, {
@@ -687,6 +709,10 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 						},
 						Percent: 100,
 					}},
+					AppendHeaders: map[string]string{
+						"knative-serving-revision":  cfgrev.Name,
+						"knative-serving-namespace": testNamespace,
+					},
 				}},
 			},
 		}, {
@@ -701,10 +727,15 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 						},
 						Percent: 100,
 					}},
+					AppendHeaders: map[string]string{
+						"knative-serving-revision":  rev.Name,
+						"knative-serving-namespace": testNamespace,
+					},
 				}},
 			},
 		}},
 	}
+
 	if diff := cmp.Diff(expectedSpec, ci.Spec); diff != "" {
 		fmt.Printf("%+v\n", ci.Spec)
 		t.Errorf("Unexpected rule spec diff (-want +got): %v", diff)

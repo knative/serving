@@ -83,6 +83,7 @@ func TestMakeClusterIngressSpec_CorrectRules(t *testing.T) {
 			Active:      true,
 		}},
 	}
+
 	r := &v1alpha1.Route{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-route",
@@ -94,6 +95,7 @@ func TestMakeClusterIngressSpec_CorrectRules(t *testing.T) {
 			},
 		},
 	}
+
 	expected := []netv1alpha1.ClusterIngressRule{{
 		Hosts: []string{
 			"domain.com",
@@ -109,6 +111,10 @@ func TestMakeClusterIngressSpec_CorrectRules(t *testing.T) {
 					},
 					Percent: 100,
 				}},
+				AppendHeaders: map[string]string{
+					"knative-serving-revision":  "v2",
+					"knative-serving-namespace": "test-ns",
+				},
 			}},
 		},
 	}, {
@@ -123,9 +129,14 @@ func TestMakeClusterIngressSpec_CorrectRules(t *testing.T) {
 					},
 					Percent: 100,
 				}},
+				AppendHeaders: map[string]string{
+					"knative-serving-revision":  "v1",
+					"knative-serving-namespace": "test-ns",
+				},
 			}},
 		},
 	}}
+
 	rules := makeClusterIngressSpec(r, targets).Rules
 	if diff := cmp.Diff(expected, rules); diff != "" {
 		t.Errorf("Unexpected rules (-want, +got): %v", diff)
@@ -265,6 +276,10 @@ func TestMakeClusterIngressRule_Vanilla(t *testing.T) {
 					},
 					Percent: 100,
 				}},
+				AppendHeaders: map[string]string{
+					"knative-serving-revision":  "revision",
+					"knative-serving-namespace": "test-ns",
+				},
 			}},
 		},
 	}
@@ -307,6 +322,10 @@ func TestMakeClusterIngressRule_ZeroPercentTarget(t *testing.T) {
 					},
 					Percent: 100,
 				}},
+				AppendHeaders: map[string]string{
+					"knative-serving-revision":  "revision",
+					"knative-serving-namespace": "test-ns",
+				},
 			}},
 		},
 	}
@@ -357,6 +376,10 @@ func TestMakeClusterIngressRule_TwoTargets(t *testing.T) {
 					},
 					Percent: 20,
 				}},
+				AppendHeaders: map[string]string{
+					"knative-serving-revision":  "revision",
+					"knative-serving-namespace": "test-ns",
+				},
 			}},
 		},
 	}
@@ -439,7 +462,14 @@ func TestMakeClusterIngressRule_TwoInactiveTargets(t *testing.T) {
 						ServiceName:      "activator-service",
 						ServicePort:      intstr.FromInt(80),
 					},
-					Percent: 100,
+					Percent: 80,
+				}, {
+					ClusterIngressBackend: netv1alpha1.ClusterIngressBackend{
+						ServiceNamespace: system.Namespace(),
+						ServiceName:      "activator-service",
+						ServicePort:      intstr.FromInt(80),
+					},
+					Percent: 20,
 				}},
 				AppendHeaders: map[string]string{
 					"knative-serving-revision":  "revision",
@@ -486,6 +516,10 @@ func TestMakeClusterIngressRule_ZeroPercentTargetInactive(t *testing.T) {
 					},
 					Percent: 100,
 				}},
+				AppendHeaders: map[string]string{
+					"knative-serving-revision":  "revision",
+					"knative-serving-namespace": "test-ns",
+				},
 			}},
 		},
 	}
