@@ -49,6 +49,7 @@ type Decider struct {
 // DeciderSpec is the parameters in which the Revision should scaled.
 type DeciderSpec struct {
 	TargetConcurrency float64
+	PanicThreshold    float64
 }
 
 // DeciderStatus is the current scale recommendation.

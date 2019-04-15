@@ -47,6 +47,7 @@ func MakeDecider(ctx context.Context, pa *v1alpha1.PodAutoscaler, config *autosc
 		ObjectMeta: pa.ObjectMeta,
 		Spec: autoscaler.DeciderSpec{
 			TargetConcurrency: target,
+			// TODO: get stable and panic concurrencies from annotations.
 		},
 	}
 }

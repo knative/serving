@@ -27,5 +27,8 @@ import (
 func MakeMetric(ctx context.Context, pa *v1alpha1.PodAutoscaler, config *autoscaler.Config) *autoscaler.Metric {
 	return &autoscaler.Metric{
 		ObjectMeta: pa.ObjectMeta,
+		Spec:       autoscaler.MetricSpec{
+			// TODO: get stable and panic windows from annotations.
+		},
 	}
 }
