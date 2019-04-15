@@ -1071,11 +1071,11 @@ func TestRoundTripping(t *testing.T) {
 	}, {
 		Name:         "beta",
 		RevisionName: goodNewRev.Name,
-		URL:          SubrouteURL(HttpScheme, "beta", domain),
+		URL:          SubrouteURL(HTTPScheme, "beta", domain),
 	}, {
 		Name:         "alpha",
 		RevisionName: niceNewRev.Name,
-		URL:          SubrouteURL(HttpScheme, "alpha", domain),
+		URL:          SubrouteURL(HTTPScheme, "alpha", domain),
 	}}
 	if tc, err := BuildTrafficConfiguration(configLister, revLister, testRouteWithTrafficTargets(tts)); err != nil {
 		t.Errorf("Unexpected error %v", err)
@@ -1104,7 +1104,7 @@ func TestSubrouteURL(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.TestName, func(t *testing.T) {
-			if got, want := tt.Expected, SubrouteURL(HttpScheme, tt.Name, tt.Domain); got != want {
+			if got, want := tt.Expected, SubrouteURL(HTTPScheme, tt.Name, tt.Domain); got != want {
 				t.Errorf("SubrouteDomain = %s, want: %s", got, want)
 			}
 		})

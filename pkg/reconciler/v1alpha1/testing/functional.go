@@ -300,7 +300,7 @@ func WithSvcStatusTraffic(targets ...v1alpha1.TrafficTarget) ServiceOption {
 		// Automatically inject URL into TrafficTarget status
 		for _, tt := range targets {
 			if tt.Name != "" {
-				tt.URL = traffic.SubrouteURL(traffic.HttpScheme,
+				tt.URL = traffic.SubrouteURL(traffic.HTTPScheme,
 					tt.Name,
 					"example.com")
 			}
