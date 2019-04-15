@@ -331,8 +331,8 @@ func TestImmutableFields(t *testing.T) {
 			Message: "Immutable fields changed (-old +new)",
 			Paths:   []string{"spec"},
 			Details: `{v1alpha1.PodAutoscalerSpec}.ContainerConcurrency:
-	-: "1"
-	+: "0"
+-: "1"
++: "0"
 `,
 		},
 	}, {
@@ -367,8 +367,8 @@ func TestImmutableFields(t *testing.T) {
 			Message: "Immutable fields changed (-old +new)",
 			Paths:   []string{"spec"},
 			Details: `{v1alpha1.PodAutoscalerSpec}.ContainerConcurrency:
-	-: "1"
-	+: "0"
+-: "1"
++: "0"
 `,
 		},
 	}, {

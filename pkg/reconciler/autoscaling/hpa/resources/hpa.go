@@ -22,18 +22,18 @@ import (
 	"github.com/knative/pkg/kmeta"
 	"github.com/knative/serving/pkg/apis/autoscaling"
 	"github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
-	autoscalingv2beta2 "k8s.io/api/autoscaling/v2beta2"
+	autoscalingv2beta1 "k8s.io/api/autoscaling/v2beta1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // MakeHPA creates an HPA resource from a PA resource.
-func MakeHPA(pa *v1alpha1.PodAutoscaler) *autoscalingv2beta2.HorizontalPodAutoscaler {
+func MakeHPA(pa *v1alpha1.PodAutoscaler) *autoscalingv2beta1.HorizontalPodAutoscaler {
 	min, max := pa.ScaleBounds()
 	if max == 0 {
 		max = math.MaxInt32 // default to no limit
 	}
-	hpa := &autoscalingv2beta2.HorizontalPodAutoscaler{
+	hpa := &autoscalingv2beta1.HorizontalPodAutoscaler{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            pa.Name,
 			Namespace:       pa.Namespace,
@@ -41,12 +41,8 @@ func MakeHPA(pa *v1alpha1.PodAutoscaler) *autoscalingv2beta2.HorizontalPodAutosc
 			Annotations:     pa.Annotations,
 			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(pa)},
 		},
-		Spec: autoscalingv2beta2.HorizontalPodAutoscalerSpec{
-			ScaleTargetRef: autoscalingv1.CrossVersionObjectReference{
-				APIVersion: pa.Spec.ScaleTargetRef.APIVersion,
-				Kind:       pa.Spec.ScaleTargetRef.Kind,
-				Name:       pa.Spec.ScaleTargetRef.Name,
-			},
+		Spec: autoscalingv2beta1.HorizontalPodAutoscalerSpec{
+			ScaleTargetRef: pa.Spec.ScaleTargetRef,
 		},
 	}
 	hpa.Spec.MaxReplicas = max
@@ -57,15 +53,12 @@ func MakeHPA(pa *v1alpha1.PodAutoscaler) *autoscalingv2beta2.HorizontalPodAutosc
 	switch pa.Metric() {
 	case autoscaling.CPU:
 		if target, ok := pa.Target(); ok {
-			hpa.Spec.Metrics = []autoscalingv2beta2.MetricSpec{
+			hpa.Spec.Metrics = []autoscalingv2beta1.MetricSpec{
 				{
-					Type: autoscalingv2beta2.ResourceMetricSourceType,
-					Resource: &autoscalingv2beta2.ResourceMetricSource{
-						Name: corev1.ResourceCPU,
-						Target: autoscalingv2beta2.MetricTarget{
-							Type:               autoscalingv2beta2.UtilizationMetricType,
-							AverageUtilization: &target,
-						},
+					Type: autoscalingv2beta1.ResourceMetricSourceType,
+					Resource: &autoscalingv2beta1.ResourceMetricSource{
+						Name:                     corev1.ResourceCPU,
+						TargetAverageUtilization: &target,
 					},
 				},
 			}

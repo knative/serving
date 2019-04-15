@@ -33,7 +33,7 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 	autoscalingv1 "k8s.io/api/autoscaling/v1"
-	autoscalingv2beta2 "k8s.io/api/autoscaling/v2beta2"
+	autoscalingv2beta1 "k8s.io/api/autoscaling/v2beta1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -67,7 +67,7 @@ func TestControllerCanReconcile(t *testing.T) {
 	ctl := NewController(&opts,
 		servingInformer.Autoscaling().V1alpha1().PodAutoscalers(),
 		servingInformer.Networking().V1alpha1().ServerlessServices(),
-		kubeInformer.Autoscaling().V2beta2().HorizontalPodAutoscalers(),
+		kubeInformer.Autoscaling().V2beta1().HorizontalPodAutoscalers(),
 	)
 
 	podAutoscaler := pa(testRevision, testNamespace, WithHPAClass)
@@ -79,7 +79,7 @@ func TestControllerCanReconcile(t *testing.T) {
 		t.Errorf("Reconcile() = %v", err)
 	}
 
-	_, err = kubeClient.AutoscalingV2beta2().HorizontalPodAutoscalers(testNamespace).Get(testRevision, metav1.GetOptions{})
+	_, err = kubeClient.AutoscalingV2beta1().HorizontalPodAutoscalers(testNamespace).Get(testRevision, metav1.GetOptions{})
 	if err != nil {
 		t.Errorf("error getting hpa: %v", err)
 	}
@@ -449,13 +449,13 @@ func pa(name, namespace string, options ...PodAutoscalerOption) *autoscalingv1al
 	return pa
 }
 
-type hpaOption func(*autoscalingv2beta2.HorizontalPodAutoscaler)
+type hpaOption func(*autoscalingv2beta1.HorizontalPodAutoscaler)
 
-func withHPAOwnersRemoved(hpa *autoscalingv2beta2.HorizontalPodAutoscaler) {
+func withHPAOwnersRemoved(hpa *autoscalingv2beta1.HorizontalPodAutoscaler) {
 	hpa.OwnerReferences = nil
 }
 
-func hpa(name, namespace string, pa *autoscalingv1alpha1.PodAutoscaler, options ...hpaOption) *autoscalingv2beta2.HorizontalPodAutoscaler {
+func hpa(name, namespace string, pa *autoscalingv1alpha1.PodAutoscaler, options ...hpaOption) *autoscalingv2beta1.HorizontalPodAutoscaler {
 	h := resources.MakeHPA(pa)
 	for _, o := range options {
 		o(h)

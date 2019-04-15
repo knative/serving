@@ -26,7 +26,7 @@ import (
 	"github.com/knative/serving/pkg/apis/autoscaling"
 	"github.com/knative/serving/pkg/apis/serving"
 	servingv1alpha1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	autoscalingv2beta2 "k8s.io/api/autoscaling/v2beta2"
+	autoscalingv2beta1 "k8s.io/api/autoscaling/v2beta1"
 	"k8s.io/apimachinery/pkg/api/equality"
 )
 
@@ -97,6 +97,7 @@ func (pa *PodAutoscaler) validateMetric() *apis.FieldError {
 		case autoscaling.HPA:
 			switch metric {
 			case autoscaling.CPU:
+				fallthrough
 			case autoscaling.Custom:
 				return nil
 			}

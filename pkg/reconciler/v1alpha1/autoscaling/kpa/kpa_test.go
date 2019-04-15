@@ -41,7 +41,7 @@ import (
 	. "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
 	perrors "github.com/pkg/errors"
 	"go.uber.org/atomic"
-	autoscalingv2beta2 "k8s.io/api/autoscaling/v2beta2"
+	autoscalingv2beta1 "k8s.io/api/autoscaling/v2beta1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -307,24 +307,24 @@ func TestMetricsSvcIsReconciled(t *testing.T) {
 	}
 }
 
-type scaleOpt func(*autoscalingv2beta2.Scale)
+type scaleOpt func(*autoscalingv2beta1.Scale)
 
 func withLabelSelector(selector string) scaleOpt {
-	return func(s *autoscalingv2beta2.Scale) {
+	return func(s *autoscalingv2beta1.Scale) {
 		s.Status.Selector = selector
 	}
 }
 
-func scaleA(ga clientgotesting.GetAction, opts ...scaleOpt) *autoscalingv2beta2.Scale {
-	s := &autoscalingv2beta2.Scale{
+func scaleA(ga clientgotesting.GetAction, opts ...scaleOpt) *autoscalingv2beta1.Scale {
+	s := &autoscalingv2beta1.Scale{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      ga.GetName(),
 			Namespace: ga.GetNamespace(),
 		},
-		Spec: autoscalingv2beta2.ScaleSpec{
+		Spec: autoscalingv2beta1.ScaleSpec{
 			Replicas: 42,
 		},
-		Status: autoscalingv2beta2.ScaleStatus{
+		Status: autoscalingv2beta1.ScaleStatus{
 			Replicas: 42,
 			Selector: "a=b",
 		},
