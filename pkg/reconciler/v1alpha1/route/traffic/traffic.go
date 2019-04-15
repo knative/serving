@@ -44,25 +44,6 @@ type RevisionTarget struct {
 // RevisionTargets is a collection of revision targets.
 type RevisionTargets []RevisionTarget
 
-// GroupTargets partitions the targets by active and inactive sets.
-// GroupTargets ignores the targets with 0 percent.
-func (rt RevisionTargets) GroupTargets() (active RevisionTargets, passive RevisionTargets) {
-	// Presume all are active, optimistically
-	active = make(RevisionTargets, 0, len(rt))
-	passive = make(RevisionTargets, 0)
-	for _, t := range rt {
-		if t.Percent == 0 {
-			continue
-		}
-		if t.Active {
-			active = append(active, t)
-		} else {
-			passive = append(passive, t)
-		}
-	}
-	return
-}
-
 // Config encapsulates details of our traffic so that we don't need to make API calls, or use details of the
 // route beyond its ObjectMeta to make routing changes.
 type Config struct {
