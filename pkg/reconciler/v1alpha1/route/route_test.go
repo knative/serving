@@ -931,38 +931,33 @@ func TestRouteDomain(t *testing.T) {
 		Template string
 		Pass     bool
 		Expected string
-	}{
-		{"Default",
-			"{{.Name}}.{{.Namespace}}.{{.Domain}}",
-			true,
-			"myapp.default.example.com",
-		},
-		{"Dash",
-			"{{.Name}}-{{.Namespace}}.{{.Domain}}",
-			true,
-			"myapp-default.example.com",
-		},
-		{"Short",
-			"{{.Name}}.{{.Domain}}",
-			true,
-			"myapp.example.com",
-		},
-		{"SuperShort",
-			"{{.Name}}",
-			true,
-			"myapp",
-		},
-		{"SyntaxError",
-			"{{.Name{}}.{{.Namespace}}.{{.Domain}}",
-			false,
-			"",
-		},
-		{"BadVarName",
-			"{{.Name}}.{{.NNNamespace}}.{{.Domain}}",
-			false,
-			"",
-		},
-	}
+	}{{
+		Name:     "Default",
+		Template: "{{.Name}}.{{.Namespace}}.{{.Domain}}",
+		Pass:     true,
+		Expected: "myapp.default.example.com",
+	}, {
+		Name:     "Dash",
+		Template: "{{.Name}}-{{.Namespace}}.{{.Domain}}",
+		Pass:     true,
+		Expected: "myapp-default.example.com",
+	}, {
+		Name:     "Short",
+		Template: "{{.Name}}.{{.Domain}}",
+		Pass:     true,
+		Expected: "myapp.example.com",
+	}, {
+		Name:     "SuperShort",
+		Template: "{{.Name}}",
+		Pass:     true,
+		Expected: "myapp",
+	}, {
+		// This cannot get through our validation, but verify we handle errors.
+		Name:     "BadVarName",
+		Template: "{{.Name}}.{{.NNNamespace}}.{{.Domain}}",
+		Pass:     false,
+		Expected: "",
+	}}
 
 	for _, test := range tests {
 		cfg.Network.DomainTemplate = test.Template

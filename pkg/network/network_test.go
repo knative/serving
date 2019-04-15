@@ -17,10 +17,13 @@ limitations under the License.
 package network
 
 import (
+	"bytes"
 	"net/http"
 	"testing"
+	"text/template"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/knative/pkg/system"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -40,28 +43,30 @@ func TestOurConfig(t *testing.T) {
 }
 
 func TestConfiguration(t *testing.T) {
+	nonDefaultDomainTemplate := "{{.Namespace}}.{{.Name}}.{{.Domain}}"
+
 	networkConfigTests := []struct {
-		name           string
-		wantErr        bool
-		wantController interface{}
-		config         *corev1.ConfigMap
+		name       string
+		wantErr    bool
+		wantConfig *Config
+		config     *corev1.ConfigMap
 	}{{
 		name:    "network configuration with no network input",
 		wantErr: false,
-		wantController: &Config{
+		wantConfig: &Config{
 			IstioOutboundIPRanges:      "*",
 			DefaultClusterIngressClass: "istio.ingress.networking.knative.dev",
-			DomainTemplate:             "{{.Name}}.{{.Namespace}}.{{.Domain}}",
+			DomainTemplate:             DefaultDomainTemplate,
 		},
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: system.Namespace(),
 				Name:      ConfigName,
 			},
-		}}, {
-		name:           "network configuration with invalid outbound IP range",
-		wantErr:        true,
-		wantController: (*Config)(nil),
+		},
+	}, {
+		name:    "network configuration with invalid outbound IP range",
+		wantErr: true,
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: system.Namespace(),
@@ -70,12 +75,13 @@ func TestConfiguration(t *testing.T) {
 			Data: map[string]string{
 				IstioOutboundIPRangesKey: "10.10.10.10/33",
 			},
-		}}, {
+		},
+	}, {
 		name:    "network configuration with empty network",
 		wantErr: false,
-		wantController: &Config{
+		wantConfig: &Config{
 			DefaultClusterIngressClass: "istio.ingress.networking.knative.dev",
-			DomainTemplate:             "{{.Name}}.{{.Namespace}}.{{.Domain}}",
+			DomainTemplate:             DefaultDomainTemplate,
 		},
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
@@ -85,10 +91,10 @@ func TestConfiguration(t *testing.T) {
 			Data: map[string]string{
 				IstioOutboundIPRangesKey: "",
 			},
-		}}, {
-		name:           "network configuration with both valid and some invalid range",
-		wantErr:        true,
-		wantController: (*Config)(nil),
+		},
+	}, {
+		name:    "network configuration with both valid and some invalid range",
+		wantErr: true,
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: system.Namespace(),
@@ -97,10 +103,10 @@ func TestConfiguration(t *testing.T) {
 			Data: map[string]string{
 				IstioOutboundIPRangesKey: "10.10.10.10/12,invalid",
 			},
-		}}, {
-		name:           "network configuration with invalid network range",
-		wantErr:        true,
-		wantController: (*Config)(nil),
+		},
+	}, {
+		name:    "network configuration with invalid network range",
+		wantErr: true,
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: system.Namespace(),
@@ -109,10 +115,10 @@ func TestConfiguration(t *testing.T) {
 			Data: map[string]string{
 				IstioOutboundIPRangesKey: "10.10.10.10/12,-1.1.1.1/10",
 			},
-		}}, {
-		name:           "network configuration with invalid network key",
-		wantErr:        true,
-		wantController: (*Config)(nil),
+		},
+	}, {
+		name:    "network configuration with invalid network key",
+		wantErr: true,
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: system.Namespace(),
@@ -121,10 +127,10 @@ func TestConfiguration(t *testing.T) {
 			Data: map[string]string{
 				IstioOutboundIPRangesKey: "this is not an IP range",
 			},
-		}}, {
-		name:           "network configuration with invalid network",
-		wantErr:        true,
-		wantController: (*Config)(nil),
+		},
+	}, {
+		name:    "network configuration with invalid network",
+		wantErr: true,
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: system.Namespace(),
@@ -133,10 +139,10 @@ func TestConfiguration(t *testing.T) {
 			Data: map[string]string{
 				IstioOutboundIPRangesKey: "*,*",
 			},
-		}}, {
-		name:           "network configuration with incomplete network array",
-		wantErr:        true,
-		wantController: (*Config)(nil),
+		},
+	}, {
+		name:    "network configuration with incomplete network array",
+		wantErr: true,
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: system.Namespace(),
@@ -145,12 +151,13 @@ func TestConfiguration(t *testing.T) {
 			Data: map[string]string{
 				IstioOutboundIPRangesKey: "*,",
 			},
-		}}, {
+		},
+	}, {
 		name:    "network configuration with invalid network string",
 		wantErr: false,
-		wantController: &Config{
+		wantConfig: &Config{
 			DefaultClusterIngressClass: "istio.ingress.networking.knative.dev",
-			DomainTemplate:             "{{.Name}}.{{.Namespace}}.{{.Domain}}",
+			DomainTemplate:             DefaultDomainTemplate,
 		},
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
@@ -160,12 +167,13 @@ func TestConfiguration(t *testing.T) {
 			Data: map[string]string{
 				IstioOutboundIPRangesKey: ", ,",
 			},
-		}}, {
+		},
+	}, {
 		name:    "network configuration with invalid network string",
 		wantErr: false,
-		wantController: &Config{
+		wantConfig: &Config{
 			DefaultClusterIngressClass: "istio.ingress.networking.knative.dev",
-			DomainTemplate:             "{{.Name}}.{{.Namespace}}.{{.Domain}}",
+			DomainTemplate:             DefaultDomainTemplate,
 		},
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
@@ -175,12 +183,13 @@ func TestConfiguration(t *testing.T) {
 			Data: map[string]string{
 				IstioOutboundIPRangesKey: ",,",
 			},
-		}}, {
+		},
+	}, {
 		name:    "network configuration with invalid network range",
 		wantErr: false,
-		wantController: &Config{
+		wantConfig: &Config{
 			DefaultClusterIngressClass: "istio.ingress.networking.knative.dev",
-			DomainTemplate:             "{{.Name}}.{{.Namespace}}.{{.Domain}}",
+			DomainTemplate:             DefaultDomainTemplate,
 		},
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
@@ -190,13 +199,14 @@ func TestConfiguration(t *testing.T) {
 			Data: map[string]string{
 				IstioOutboundIPRangesKey: ",",
 			},
-		}}, {
+		},
+	}, {
 		name:    "network configuration with valid CIDR network range",
 		wantErr: false,
-		wantController: &Config{
+		wantConfig: &Config{
 			IstioOutboundIPRanges:      "10.10.10.0/24",
 			DefaultClusterIngressClass: "istio.ingress.networking.knative.dev",
-			DomainTemplate:             "{{.Name}}.{{.Namespace}}.{{.Domain}}",
+			DomainTemplate:             DefaultDomainTemplate,
 		},
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
@@ -206,13 +216,14 @@ func TestConfiguration(t *testing.T) {
 			Data: map[string]string{
 				IstioOutboundIPRangesKey: "10.10.10.0/24",
 			},
-		}}, {
+		},
+	}, {
 		name:    "network configuration with multiple valid network ranges",
 		wantErr: false,
-		wantController: &Config{
+		wantConfig: &Config{
 			IstioOutboundIPRanges:      "10.10.10.0/24,10.240.10.0/14,192.192.10.0/16",
 			DefaultClusterIngressClass: "istio.ingress.networking.knative.dev",
-			DomainTemplate:             "{{.Name}}.{{.Namespace}}.{{.Domain}}",
+			DomainTemplate:             DefaultDomainTemplate,
 		},
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
@@ -222,13 +233,14 @@ func TestConfiguration(t *testing.T) {
 			Data: map[string]string{
 				IstioOutboundIPRangesKey: "10.10.10.0/24,10.240.10.0/14,192.192.10.0/16",
 			},
-		}}, {
+		},
+	}, {
 		name:    "network configuration with valid network",
 		wantErr: false,
-		wantController: &Config{
+		wantConfig: &Config{
 			IstioOutboundIPRanges:      "*",
 			DefaultClusterIngressClass: "istio.ingress.networking.knative.dev",
-			DomainTemplate:             "{{.Name}}.{{.Namespace}}.{{.Domain}}",
+			DomainTemplate:             DefaultDomainTemplate,
 		},
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
@@ -238,13 +250,14 @@ func TestConfiguration(t *testing.T) {
 			Data: map[string]string{
 				IstioOutboundIPRangesKey: "*",
 			},
-		}}, {
+		},
+	}, {
 		name:    "network configuration with non-Istio ingress type",
 		wantErr: false,
-		wantController: &Config{
+		wantConfig: &Config{
 			IstioOutboundIPRanges:      "*",
 			DefaultClusterIngressClass: "foo-ingress",
-			DomainTemplate:             "{{.Name}}.{{.Namespace}}.{{.Domain}}",
+			DomainTemplate:             DefaultDomainTemplate,
 		},
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
@@ -255,13 +268,14 @@ func TestConfiguration(t *testing.T) {
 				IstioOutboundIPRangesKey:      "*",
 				DefaultClusterIngressClassKey: "foo-ingress",
 			},
-		}}, {
+		},
+	}, {
 		name:    "network configuration with diff domain template",
 		wantErr: false,
-		wantController: &Config{
+		wantConfig: &Config{
 			IstioOutboundIPRanges:      "*",
 			DefaultClusterIngressClass: "foo-ingress",
-			DomainTemplate:             "{{.Namespace}}.{{.Name}}.{{.Domain}}",
+			DomainTemplate:             nonDefaultDomainTemplate,
 		},
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
@@ -271,16 +285,12 @@ func TestConfiguration(t *testing.T) {
 			Data: map[string]string{
 				IstioOutboundIPRangesKey:      "*",
 				DefaultClusterIngressClassKey: "foo-ingress",
-				DomainTemplateKey:             "{{.Namespace}}.{{.Name}}.{{.Domain}}",
+				DomainTemplateKey:             nonDefaultDomainTemplate,
 			},
-		}}, {
-		name:    "network configuration with blank domain template",
-		wantErr: false,
-		wantController: &Config{
-			IstioOutboundIPRanges:      "*",
-			DefaultClusterIngressClass: "foo-ingress",
-			DomainTemplate:             "{{.Name}}.{{.Namespace}}.{{.Domain}}",
 		},
+	}, {
+		name:    "network configuration with blank domain template",
+		wantErr: true,
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: system.Namespace(),
@@ -291,20 +301,108 @@ func TestConfiguration(t *testing.T) {
 				DefaultClusterIngressClassKey: "foo-ingress",
 				DomainTemplateKey:             "",
 			},
-		}},
-	}
+		},
+	}, {
+		name:    "network configuration with bad domain template",
+		wantErr: true,
+		config: &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: system.Namespace(),
+				Name:      ConfigName,
+			},
+			Data: map[string]string{
+				IstioOutboundIPRangesKey:      "*",
+				DefaultClusterIngressClassKey: "foo-ingress",
+				// This is missing a closing brace.
+				DomainTemplateKey: "{{.Namespace}.{{.Name}}.{{.Domain}}",
+			},
+		},
+	}, {
+		name:    "network configuration with bad domain template",
+		wantErr: true,
+		config: &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: system.Namespace(),
+				Name:      ConfigName,
+			},
+			Data: map[string]string{
+				IstioOutboundIPRangesKey:      "*",
+				DefaultClusterIngressClassKey: "foo-ingress",
+				// This is missing a closing brace.
+				DomainTemplateKey: "{{.Namespace}.{{.Name}}.{{.Domain}}",
+			},
+		},
+	}, {
+		name:    "network configuration with bad url",
+		wantErr: true,
+		config: &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: system.Namespace(),
+				Name:      ConfigName,
+			},
+			Data: map[string]string{
+				IstioOutboundIPRangesKey:      "*",
+				DefaultClusterIngressClassKey: "foo-ingress",
+				// Paths are disallowed
+				DomainTemplateKey: "{{.Domain}}/{{.Namespace}}/{{.Name}}.",
+			},
+		},
+	}, {
+		name:    "network configuration with bad variable",
+		wantErr: true,
+		config: &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: system.Namespace(),
+				Name:      ConfigName,
+			},
+			Data: map[string]string{
+				IstioOutboundIPRangesKey:      "*",
+				DefaultClusterIngressClassKey: "foo-ingress",
+				// Bad variable
+				DomainTemplateKey: "{{.Name}}.{{.NAmespace}}.{{.Domain}}",
+			},
+		},
+	}}
 
 	for _, tt := range networkConfigTests {
-		actualController, err := NewConfigFromConfigMap(tt.config)
+		t.Run(tt.name, func(t *testing.T) {
+			actualConfig, err := NewConfigFromConfigMap(tt.config)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("Test: %q; NewConfigFromConfigMap() error = %v, WantErr %v",
+					tt.name, err, tt.wantErr)
+			}
+			if tt.wantErr {
+				return
+			}
 
-		if (err != nil) != tt.wantErr {
-			t.Fatalf("Test: %q; NewConfigFromConfigMap() error = %v, WantErr %v", tt.name, err, tt.wantErr)
-		}
+			data := DomainTemplateValues{
+				Name:      "foo",
+				Namespace: "bar",
+				Domain:    "baz.com",
+			}
+			want := mustExecute(t, tt.wantConfig.GetDomainTemplate(), data)
+			got := mustExecute(t, actualConfig.GetDomainTemplate(), data)
+			if got != want {
+				t.Errorf("DomainTemplate(data) = %s, wanted %s", got, want)
+			}
 
-		if diff := cmp.Diff(actualController, tt.wantController); diff != "" {
-			t.Fatalf("Test: %q; want %v, but got %v", tt.name, tt.wantController, actualController)
-		}
+			ignoreDT := cmpopts.IgnoreFields(Config{}, "DomainTemplate")
+
+			if diff := cmp.Diff(actualConfig, tt.wantConfig, ignoreDT); diff != "" {
+				t.Fatalf("want %v, but got %v",
+					tt.wantConfig, actualConfig)
+			}
+		})
 	}
+}
+
+func mustExecute(t *testing.T, tmpl *template.Template, data interface{}) string {
+	t.Helper()
+	buf := bytes.Buffer{}
+	if err := tmpl.Execute(&buf, data); err != nil {
+		t.Errorf("Error executing the DomainTemplate: %v", err)
+	}
+	return buf.String()
 }
 
 func TestIsKubeletProbe(t *testing.T) {

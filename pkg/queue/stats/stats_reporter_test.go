@@ -161,7 +161,7 @@ func checkSumData(name string, wantTags map[string]string, wantValue float64) er
 	}
 
 	if value.Value != wantValue {
-		return fmt.Errorf("Value = %v, want: %v", value.Value, wantValue)
+		return fmt.Errorf("value = %v, want: %v", value.Value, wantValue)
 	}
 
 	return nil
