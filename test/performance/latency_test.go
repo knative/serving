@@ -25,6 +25,7 @@ import (
 	"testing"
 	"time"
 
+	pkgTest "github.com/knative/pkg/test"
 	ingress "github.com/knative/pkg/test/ingress"
 	"github.com/knative/serving/test"
 	"github.com/knative/test-infra/shared/junit"
@@ -66,6 +67,16 @@ func timeToServe(t *testing.T, img, query string, reqTimeout time.Duration) {
 	endpoint, err := ingress.GetIngressEndpoint(clients.KubeClient.Kube)
 	if err != nil {
 		t.Fatalf("Cannot get service endpoint: %v", err)
+	}
+
+	if _, err := pkgTest.WaitForEndpointState(
+		clients.KubeClient,
+		t.Logf,
+		domain,
+		test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
+		"WaitForSuccessfulResponse",
+		test.ServingFlags.ResolvableDomain); err != nil {
+		t.Fatalf("Error probing domain %s: %v", domain, err)
 	}
 
 	opts := loadgenerator.GeneratorOptions{
