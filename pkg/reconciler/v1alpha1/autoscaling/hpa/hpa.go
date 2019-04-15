@@ -135,8 +135,8 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 		// to status with this stale state.
 	} else if _, err := c.updateStatus(pa); err != nil {
 		logger.Warnw("Failed to update pa status", zap.Error(err))
-		c.Recorder.Eventf(pa, corev1.EventTypeWarning, "UpdateFailed",
-			"Failed to update status for PA %q: %v", pa.Name, err)
+		c.Recorder.Eventf(pa, corev1.EventTypeWarning, "InternalError",
+			"failed to update status for PA %q: %v", pa.Name, err)
 		return err
 	}
 	if err != nil {

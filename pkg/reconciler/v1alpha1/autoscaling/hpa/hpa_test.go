@@ -305,6 +305,47 @@ func TestReconcile(t *testing.T) {
 		},
 		WantErr: true,
 	}, {
+		Name: "update pa fails",
+		Objects: []runtime.Object{
+			hpa(testRevision, testNamespace,
+				pa(testRevision, testNamespace, WithHPAClass, WithMetricAnnotation("cpu"))),
+			pa(testRevision, testNamespace, WithHPAClass, WithPAStatusService("the-wrong-one")),
+			scaleResource(testNamespace, testRevision, withLabelSelector("a=b")),
+			sks(testNamespace, testRevision, WithSelector(usualSelector), WithSKSReady),
+		},
+		WantStatusUpdates: []ktesting.UpdateActionImpl{{
+			Object: pa(testRevision, testNamespace, WithHPAClass,
+				WithTraffic, WithPAStatusService(testRevision+"-pub")),
+		}},
+		Key:     key(testRevision, testNamespace),
+		WantErr: true,
+		WithReactors: []ktesting.ReactionFunc{
+			InduceFailure("update", "podautoscalers"),
+		},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeWarning, "InternalError", `failed to update status for PA "test-revision": inducing failure for update podautoscalers`),
+		},
+	}, {
+		Name: "update hpa fails",
+		Objects: []runtime.Object{
+			pa(testRevision, testNamespace, WithHPAClass, WithTraffic,
+				WithPAStatusService(testRevision+"-pub"), WithTargetAnnotation("1")),
+			hpa(testRevision, testNamespace, pa(testRevision, testNamespace, WithHPAClass, WithMetricAnnotation("cpu"))),
+			sks(testNamespace, testRevision, WithSelector(usualSelector), WithSKSReady),
+			scaleResource(testNamespace, testRevision, withLabelSelector("a=b")),
+		},
+		Key: key(testRevision, testNamespace),
+		WantUpdates: []ktesting.UpdateActionImpl{{
+			Object: hpa(testRevision, testNamespace, pa(testRevision, testNamespace, WithHPAClass, WithTargetAnnotation("1"), WithMetricAnnotation("cpu"))),
+		}},
+		WantErr: true,
+		WithReactors: []ktesting.ReactionFunc{
+			InduceFailure("update", "horizontalpodautoscalers"),
+		},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeWarning, "InternalError", "inducing failure for update horizontalpodautoscalers"),
+		},
+	}, {
 		Name: "update hpa with target usage",
 		Objects: []runtime.Object{
 			pa(testRevision, testNamespace, WithHPAClass, WithTraffic,
