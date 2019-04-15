@@ -202,6 +202,7 @@ func main() {
 	endpointsGetter := func(rev *v1alpha1.Revision) (int32, error) {
 		// We have to read the private service endpoints in activator
 		// in order to count the serving pod count.
+		// TODO(vagababov): reduce the layer jump and use SKS.Status.PrivateService here.
 		sn := names.PrivateService(rev.Name)
 		count, err := resources.FetchReadyAddressCount(endpointInformer.Lister(), rev.Namespace, sn)
 		return int32(count), err
