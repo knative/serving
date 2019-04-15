@@ -132,11 +132,10 @@ func makeClusterIngressRule(domains []string, ns string, targets traffic.Revisio
 				ServicePort:      port,
 			},
 			Percent: t.Percent,
-			// TODO(nghia): Append headers per-split.
-			// AppendHeaders: map[string]string{
-			// 	activator.RevisionHeaderName:      t.TrafficTarget.RevisionName,
-			// 	activator.RevisionHeaderNamespace: ns,
-			// },
+			AppendHeaders: map[string]string{
+				activator.RevisionHeaderName:      t.TrafficTarget.RevisionName,
+				activator.RevisionHeaderNamespace: ns,
+			},
 		})
 	}
 

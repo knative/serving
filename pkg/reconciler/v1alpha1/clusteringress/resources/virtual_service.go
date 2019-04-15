@@ -99,17 +99,38 @@ func makeVirtualServiceRoute(hosts []string, http *v1alpha1.HTTPClusterIngressPa
 	for _, host := range expandedHosts(hosts) {
 		matches = append(matches, makeMatch(host, http.Path))
 	}
-	weights := []v1alpha3.DestinationWeight{}
+	weights := []v1alpha3.HTTPRouteDestination{}
 	for _, split := range http.Splits {
-		weights = append(weights, v1alpha3.DestinationWeight{
+
+		var h *v1alpha3.Headers
+		if len(split.AppendHeaders) > 0 {
+			h = &v1alpha3.Headers{
+				Request: &v1alpha3.HeaderOperations{
+					Add: split.AppendHeaders,
+				},
+			}
+		}
+
+		weights = append(weights, v1alpha3.HTTPRouteDestination{
 			Destination: v1alpha3.Destination{
 				Host: reconciler.GetK8sServiceFullname(
 					split.ServiceName, split.ServiceNamespace),
 				Port: makePortSelector(split.ServicePort),
 			},
-			Weight: split.Percent,
+			Weight:  split.Percent,
+			Headers: h,
 		})
 	}
+
+	var h *v1alpha3.Headers
+	if len(http.AppendHeaders) > 0 {
+		h = &v1alpha3.Headers{
+			Request: &v1alpha3.HeaderOperations{
+				Add: http.AppendHeaders,
+			},
+		}
+	}
+
 	return &v1alpha3.HTTPRoute{
 		Match:   matches,
 		Route:   weights,
@@ -118,8 +139,9 @@ func makeVirtualServiceRoute(hosts []string, http *v1alpha1.HTTPClusterIngressPa
 			Attempts:      http.Retries.Attempts,
 			PerTryTimeout: http.Retries.PerTryTimeout.Duration.String(),
 		},
-		AppendHeaders:    http.AppendHeaders,
-		WebsocketUpgrade: true,
+		DeprecatedAppendHeaders: http.AppendHeaders,
+		Headers:                 h,
+		WebsocketUpgrade:        true,
 	}
 }
 

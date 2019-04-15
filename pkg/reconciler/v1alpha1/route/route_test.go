@@ -313,6 +313,10 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 							ServicePort:      intstr.FromInt(80),
 						},
 						Percent: 100,
+						AppendHeaders: map[string]string{
+							"knative-serving-revision":  "test-rev",
+							"knative-serving-namespace": testNamespace,
+						},
 					}},
 					AppendHeaders: map[string]string{
 						"knative-serving-revision":  "test-rev",
@@ -395,6 +399,10 @@ func TestCreateRouteWithMultipleTargets(t *testing.T) {
 							ServicePort:      intstr.FromInt(80),
 						},
 						Percent: 90,
+						AppendHeaders: map[string]string{
+							"knative-serving-revision":  cfgrev.Name,
+							"knative-serving-namespace": testNamespace,
+						},
 					}, {
 						ClusterIngressBackend: netv1alpha1.ClusterIngressBackend{
 							ServiceNamespace: testNamespace,
@@ -402,6 +410,10 @@ func TestCreateRouteWithMultipleTargets(t *testing.T) {
 							ServicePort:      intstr.FromInt(80),
 						},
 						Percent: 10,
+						AppendHeaders: map[string]string{
+							"knative-serving-revision":  rev.Name,
+							"knative-serving-namespace": testNamespace,
+						},
 					}},
 					AppendHeaders: map[string]string{
 						"knative-serving-revision":  cfgrev.Name,
@@ -474,6 +486,10 @@ func TestCreateRouteWithOneTargetReserve(t *testing.T) {
 							ServicePort:      intstr.FromInt(80),
 						},
 						Percent: 90,
+						AppendHeaders: map[string]string{
+							"knative-serving-revision":  cfgrev.Name,
+							"knative-serving-namespace": testNamespace,
+						},
 					}, {
 						ClusterIngressBackend: netv1alpha1.ClusterIngressBackend{
 							ServiceNamespace: system.Namespace(),
@@ -481,6 +497,10 @@ func TestCreateRouteWithOneTargetReserve(t *testing.T) {
 							ServicePort:      intstr.FromInt(80),
 						},
 						Percent: 10,
+						AppendHeaders: map[string]string{
+							"knative-serving-revision":  rev.Name,
+							"knative-serving-namespace": testNamespace,
+						},
 					}},
 					AppendHeaders: map[string]string{
 						"knative-serving-revision":  "test-rev",
@@ -567,6 +587,10 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 							ServicePort:      intstr.FromInt(80),
 						},
 						Percent: 50,
+						AppendHeaders: map[string]string{
+							"knative-serving-revision":  cfgrev.Name,
+							"knative-serving-namespace": testNamespace,
+						},
 					}, {
 						ClusterIngressBackend: netv1alpha1.ClusterIngressBackend{
 							ServiceNamespace: testNamespace,
@@ -574,6 +598,10 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 							ServicePort:      intstr.FromInt(80),
 						},
 						Percent: 50,
+						AppendHeaders: map[string]string{
+							"knative-serving-revision":  rev.Name,
+							"knative-serving-namespace": testNamespace,
+						},
 					}},
 					AppendHeaders: map[string]string{
 						"knative-serving-revision":  rev.Name,
@@ -592,6 +620,10 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 							ServicePort:      intstr.FromInt(80),
 						},
 						Percent: 100,
+						AppendHeaders: map[string]string{
+							"knative-serving-revision":  rev.Name,
+							"knative-serving-namespace": testNamespace,
+						},
 					}},
 					AppendHeaders: map[string]string{
 						"knative-serving-revision":  rev.Name,
@@ -610,6 +642,10 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 							ServicePort:      intstr.FromInt(80),
 						},
 						Percent: 100,
+						AppendHeaders: map[string]string{
+							"knative-serving-revision":  rev.Name,
+							"knative-serving-namespace": testNamespace,
+						},
 					}},
 					AppendHeaders: map[string]string{
 						"knative-serving-revision":  rev.Name,
@@ -683,6 +719,10 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 							ServicePort:      intstr.FromInt(80),
 						},
 						Percent: 50,
+						AppendHeaders: map[string]string{
+							"knative-serving-revision":  rev.Name,
+							"knative-serving-namespace": testNamespace,
+						},
 					}, {
 						ClusterIngressBackend: netv1alpha1.ClusterIngressBackend{
 							ServiceNamespace: testNamespace,
@@ -690,6 +730,10 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 							ServicePort:      intstr.FromInt(80),
 						},
 						Percent: 50,
+						AppendHeaders: map[string]string{
+							"knative-serving-revision":  cfgrev.Name,
+							"knative-serving-namespace": testNamespace,
+						},
 					}},
 					AppendHeaders: map[string]string{
 						"knative-serving-revision":  cfgrev.Name,
@@ -708,6 +752,10 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 							ServicePort:      intstr.FromInt(80),
 						},
 						Percent: 100,
+						AppendHeaders: map[string]string{
+							"knative-serving-revision":  cfgrev.Name,
+							"knative-serving-namespace": testNamespace,
+						},
 					}},
 					AppendHeaders: map[string]string{
 						"knative-serving-revision":  cfgrev.Name,
@@ -726,6 +774,10 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 							ServicePort:      intstr.FromInt(80),
 						},
 						Percent: 100,
+						AppendHeaders: map[string]string{
+							"knative-serving-revision":  rev.Name,
+							"knative-serving-namespace": testNamespace,
+						},
 					}},
 					AppendHeaders: map[string]string{
 						"knative-serving-revision":  rev.Name,

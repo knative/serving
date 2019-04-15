@@ -108,6 +108,10 @@ func TestMakeClusterIngressSpec_CorrectRules(t *testing.T) {
 						ServicePort:      intstr.FromInt(80),
 					},
 					Percent: 100,
+					AppendHeaders: map[string]string{
+						"knative-serving-revision":  "v2",
+						"knative-serving-namespace": "test-ns",
+					},
 				}},
 				AppendHeaders: map[string]string{
 					"knative-serving-revision":  "v2",
@@ -126,6 +130,10 @@ func TestMakeClusterIngressSpec_CorrectRules(t *testing.T) {
 						ServicePort:      intstr.FromInt(80),
 					},
 					Percent: 100,
+					AppendHeaders: map[string]string{
+						"knative-serving-revision":  "v1",
+						"knative-serving-namespace": "test-ns",
+					},
 				}},
 				AppendHeaders: map[string]string{
 					"knative-serving-revision":  "v1",
@@ -272,6 +280,10 @@ func TestMakeClusterIngressRule_Vanilla(t *testing.T) {
 						ServicePort:      intstr.FromInt(80),
 					},
 					Percent: 100,
+					AppendHeaders: map[string]string{
+						"knative-serving-revision":  "revision",
+						"knative-serving-namespace": "test-ns",
+					},
 				}},
 				AppendHeaders: map[string]string{
 					"knative-serving-revision":  "revision",
@@ -317,6 +329,10 @@ func TestMakeClusterIngressRule_ZeroPercentTarget(t *testing.T) {
 						ServicePort:      intstr.FromInt(80),
 					},
 					Percent: 100,
+					AppendHeaders: map[string]string{
+						"knative-serving-revision":  "revision",
+						"knative-serving-namespace": "test-ns",
+					},
 				}},
 				AppendHeaders: map[string]string{
 					"knative-serving-revision":  "revision",
@@ -362,6 +378,10 @@ func TestMakeClusterIngressRule_TwoTargets(t *testing.T) {
 						ServicePort:      intstr.FromInt(80),
 					},
 					Percent: 80,
+					AppendHeaders: map[string]string{
+						"knative-serving-revision":  "revision",
+						"knative-serving-namespace": "test-ns",
+					},
 				}, {
 					ClusterIngressBackend: netv1alpha1.ClusterIngressBackend{
 						ServiceNamespace: "test-ns",
@@ -369,6 +389,10 @@ func TestMakeClusterIngressRule_TwoTargets(t *testing.T) {
 						ServicePort:      intstr.FromInt(80),
 					},
 					Percent: 20,
+					AppendHeaders: map[string]string{
+						"knative-serving-revision":  "new-revision",
+						"knative-serving-namespace": "test-ns",
+					},
 				}},
 				AppendHeaders: map[string]string{
 					"knative-serving-revision":  "revision",
@@ -410,6 +434,10 @@ func TestMakeClusterIngressRule_InactiveTarget(t *testing.T) {
 						ServicePort:      intstr.FromInt(80),
 					},
 					Percent: 100,
+					AppendHeaders: map[string]string{
+						"knative-serving-revision":  "revision",
+						"knative-serving-namespace": "test-ns",
+					},
 				}},
 				AppendHeaders: map[string]string{
 					"knative-serving-revision":  "revision",
@@ -418,6 +446,7 @@ func TestMakeClusterIngressRule_InactiveTarget(t *testing.T) {
 			}},
 		},
 	}
+
 	if diff := cmp.Diff(&expected, rule); diff != "" {
 		t.Errorf("Unexpected rule (-want, +got): %v", diff)
 	}
@@ -457,6 +486,10 @@ func TestMakeClusterIngressRule_TwoInactiveTargets(t *testing.T) {
 						ServicePort:      intstr.FromInt(80),
 					},
 					Percent: 80,
+					AppendHeaders: map[string]string{
+						"knative-serving-revision":  "revision",
+						"knative-serving-namespace": "test-ns",
+					},
 				}, {
 					ClusterIngressBackend: netv1alpha1.ClusterIngressBackend{
 						ServiceNamespace: system.Namespace(),
@@ -464,6 +497,10 @@ func TestMakeClusterIngressRule_TwoInactiveTargets(t *testing.T) {
 						ServicePort:      intstr.FromInt(80),
 					},
 					Percent: 20,
+					AppendHeaders: map[string]string{
+						"knative-serving-revision":  "new-revision",
+						"knative-serving-namespace": "test-ns",
+					},
 				}},
 				AppendHeaders: map[string]string{
 					"knative-serving-revision":  "revision",
@@ -507,6 +544,10 @@ func TestMakeClusterIngressRule_ZeroPercentTargetInactive(t *testing.T) {
 						ServicePort:      intstr.FromInt(80),
 					},
 					Percent: 100,
+					AppendHeaders: map[string]string{
+						"knative-serving-revision":  "revision",
+						"knative-serving-namespace": "test-ns",
+					},
 				}},
 				AppendHeaders: map[string]string{
 					"knative-serving-revision":  "revision",
