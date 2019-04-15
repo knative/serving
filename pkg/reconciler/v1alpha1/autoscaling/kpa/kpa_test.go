@@ -412,6 +412,19 @@ func TestReconcile(t *testing.T) {
 			makeSKSPrivateEndpoints(1, testNamespace, testRevision),
 		},
 	}, {
+		Name: "sks is still not ready",
+		Key:  key,
+		Objects: []runtime.Object{
+			kpa(testNamespace, testRevision, markActive, WithPAStatusService(testRevision+"-pub")),
+			sks(testNamespace, testRevision, WithSelector(usualSelector), WithPubService, WithPrivateService),
+			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector)),
+			scaleResource(testNamespace, testRevision, withLabelSelector("a=b")),
+			makeSKSPrivateEndpoints(1, testNamespace, testRevision),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: kpa(testNamespace, testRevision, markActivating, WithPAStatusService(testRevision+"-pub")),
+		}},
+	}, {
 		Name: "sks becomes ready",
 		Key:  key,
 		Objects: []runtime.Object{
@@ -445,16 +458,18 @@ func TestReconcile(t *testing.T) {
 		Key:  key,
 		Objects: []runtime.Object{
 			kpa(testNamespace, testRevision, markActive),
-			sks(testNamespace, testRevision, WithSelector(map[string]string{"i-m": "so-tired"})),
+			sks(testNamespace, testRevision, WithSelector(map[string]string{"i-m": "so-tired"}),
+				WithPubService),
 			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector)),
 			scaleResource(testNamespace, testRevision, withLabelSelector("a=b")),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			// SKS just got updated and we don't have up to date status.
-			Object: kpa(testNamespace, testRevision, markActivating),
+			Object: kpa(testNamespace, testRevision, markActivating, WithPAStatusService(testRevision+"-pub")),
 		}},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: sks(testNamespace, testRevision, WithSelector(usualSelector)),
+			Object: sks(testNamespace, testRevision, WithPubService,
+				WithSelector(usualSelector)),
 		}},
 	}, {
 		Name: "sks cannot be created",

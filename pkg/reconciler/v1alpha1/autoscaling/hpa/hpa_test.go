@@ -106,23 +106,40 @@ func TestReconcile(t *testing.T) {
 		Key: key(testRevision, testNamespace),
 		WantCreates: []metav1.Object{
 			sks(testNamespace, testRevision, WithSelector(usualSelector)),
-			hpa(testRevision, testNamespace, pa(testRevision, testNamespace, WithHPAClass, WithMetricAnnotation("cpu"))),
+			hpa(testRevision, testNamespace, pa(testRevision, testNamespace,
+				WithHPAClass, WithMetricAnnotation("cpu"))),
 		},
 		WantStatusUpdates: []ktesting.UpdateActionImpl{{
 			Object: pa(testRevision, testNamespace, WithHPAClass,
 				WithNoTraffic("ServicesNotReady", "SKS Services are not ready yet")),
 		}},
 	}, {
-		Name: "reconcile sks becomes ready",
+		Name: "reconcile sks is still not ready",
 		Objects: []runtime.Object{
 			hpa(testRevision, testNamespace,
 				pa(testRevision, testNamespace, WithHPAClass, WithMetricAnnotation("cpu"))),
 			pa(testRevision, testNamespace, WithHPAClass),
 			scaleResource(testNamespace, testRevision, withLabelSelector("a=b")),
+			sks(testNamespace, testRevision, WithSelector(usualSelector), WithPubService, WithPrivateService),
+		},
+		WantStatusUpdates: []ktesting.UpdateActionImpl{{
+			Object: pa(testRevision, testNamespace, WithHPAClass, WithTraffic,
+				WithNoTraffic("ServicesNotReady", "SKS Services are not ready yet"),
+				WithPAStatusService(testRevision+"-pub")),
+		}},
+		Key: key(testRevision, testNamespace),
+	}, {
+		Name: "reconcile sks becomes ready",
+		Objects: []runtime.Object{
+			hpa(testRevision, testNamespace,
+				pa(testRevision, testNamespace, WithHPAClass, WithMetricAnnotation("cpu"))),
+			pa(testRevision, testNamespace, WithHPAClass, WithPAStatusService("the-wrong-one")),
+			scaleResource(testNamespace, testRevision, withLabelSelector("a=b")),
 			sks(testNamespace, testRevision, WithSelector(usualSelector), WithSKSReady),
 		},
 		WantStatusUpdates: []ktesting.UpdateActionImpl{{
-			Object: pa(testRevision, testNamespace, WithHPAClass, WithTraffic, WithPAStatusService(testRevision+"-pub")),
+			Object: pa(testRevision, testNamespace, WithHPAClass,
+				WithTraffic, WithPAStatusService(testRevision+"-pub")),
 		}},
 		Key: key(testRevision, testNamespace),
 	}, {

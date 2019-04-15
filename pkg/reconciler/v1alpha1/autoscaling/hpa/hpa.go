@@ -198,11 +198,12 @@ func (c *Reconciler) reconcile(ctx context.Context, key string, pa *pav1alpha1.P
 	if err != nil {
 		return perrors.Wrap(err, "error reconciling SKS")
 	}
+	// Propagate the service name regardless of the status.
+	pa.Status.ServiceName = sks.Status.ServiceName
 	if !sks.Status.IsReady() {
 		pa.Status.MarkInactive("ServicesNotReady", "SKS Services are not ready yet")
 	} else {
 		pa.Status.MarkActive()
-		pa.Status.ServiceName = sks.Status.ServiceName
 	}
 
 	pa.Status.ObservedGeneration = pa.Generation
