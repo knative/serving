@@ -20,10 +20,13 @@ import (
 	"errors"
 	"testing"
 
+	"go.uber.org/zap"
+
 	. "github.com/knative/pkg/logging/testing"
+	"github.com/knative/pkg/test/helpers"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/queue"
-	"go.uber.org/zap"
+
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -34,7 +37,11 @@ var (
 
 	existingRevisionGetter = func(concurrency int) func(RevisionID) (*v1alpha1.Revision, error) {
 		return func(RevisionID) (*v1alpha1.Revision, error) {
-			return &v1alpha1.Revision{Spec: v1alpha1.RevisionSpec{ContainerConcurrency: v1alpha1.RevisionContainerConcurrencyType(concurrency)}}, nil
+			return &v1alpha1.Revision{
+				Spec: v1alpha1.RevisionSpec{
+					ContainerConcurrency: v1alpha1.RevisionContainerConcurrencyType(concurrency),
+				},
+			}, nil
 		}
 	}
 	nonExistingRevisionGetter = func(RevisionID) (*v1alpha1.Revision, error) {
@@ -126,6 +133,7 @@ func TestThrottler_UpdateCapacity(t *testing.T) {
 }
 
 func TestThrottler_Try(t *testing.T) {
+	defer ClearAll()
 	samples := []struct {
 		label           string
 		addCapacity     bool
@@ -257,15 +265,19 @@ func TestUpdateEndpoints(t *testing.T) {
 
 	for _, s := range samples {
 		t.Run(s.label, func(t *testing.T) {
-			throttler := getThrottler(defaultMaxConcurrency, existingRevisionGetter(revisionConcurrency), existingEndpointsGetter(0), TestLogger(t), int32(s.initCapacity))
+			throttler := getThrottler(
+				defaultMaxConcurrency, existingRevisionGetter(revisionConcurrency),
+				existingEndpointsGetter(0), TestLogger(t), int32(s.initCapacity))
 			breaker := queue.NewBreaker(throttler.breakerParams)
 			throttler.breakers[revID] = breaker
 			endpointsAfter := corev1.Endpoints{
-				ObjectMeta: metav1.ObjectMeta{Name: revID.Name + "-service", Namespace: revID.Namespace},
-				Subsets:    endpointsSubset(s.endpointsAfter, 1),
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      helpers.AppendRandomString(revID.Name),
+					Namespace: revID.Namespace,
+				},
+				Subsets: endpointsSubset(s.endpointsAfter, 1),
 			}
 			throttler.UpdateEndpoints(&endpointsAfter)
-
 			if got := breaker.Capacity(); got != int32(s.wantCapacity) {
 				t.Errorf("Breaker capacity = %d, want: %d", got, s.wantCapacity)
 			}
