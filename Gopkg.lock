@@ -434,7 +434,7 @@
   revision = "afa9ee174c6f2072b12dbb4b3bf64be8ec7bc30b"
 
 [[projects]]
-  digest = "1:02cf5fe20f7968d6c694fd4ec6184eed12d2820498e74745be17e6a1c3c3fabd"
+  digest = "1:463960ca3fa85437b95d2087f3b4fda4b9f3bbf887f57c21078b327e81ae3132"
   name = "github.com/knative/pkg"
   packages = [
     "apis",
@@ -489,8 +489,7 @@
     "websocket",
   ]
   pruneopts = "NUT"
-  revision = "0cd794873d12608cba8f6fef5cc0cd0f035ab1e5"
-  source = "github.com/dgerd/pkg"
+  revision = "1095a4eab01cb7f5bbfa4dd5d048d730a00980e3"
 
 [[projects]]
   branch = "master"

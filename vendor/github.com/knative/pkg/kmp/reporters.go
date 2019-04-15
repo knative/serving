@@ -38,8 +38,9 @@ func (r *FieldListReporter) PushStep(ps cmp.PathStep) {
 	r.path = append(r.path, ps)
 }
 
-// fieldName returns the camelCase field name on the root structure based on
-// the current path.
+// fieldName returns a readable name for the field. If the field has JSON annotations it
+// returns the JSON key. If the field does not have JSON annotations or the JSON annotation
+// marks the field as ignored it returns the field's go name
 func (r *FieldListReporter) fieldName() string {
 	if len(r.path) < 2 {
 		return r.path.Index(0).String()
@@ -48,10 +49,11 @@ func (r *FieldListReporter) fieldName() string {
 		// Prefer JSON name to fieldName if it exists
 		structField, exists := r.path.Index(0).Type().FieldByName(fieldName)
 		if exists {
-			jsonName := structField.Tag.Get("json")
-			if jsonName != "" {
-				return jsonName
+			tag := structField.Tag.Get("json")
+			if tag != "" && tag != "-" {
+				return strings.SplitN(tag, ",", 2)[0]
 			}
+
 		}
 		return fieldName
 	}
