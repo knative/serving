@@ -226,9 +226,9 @@ func main() {
 	throttler := activator.NewThrottler(throttlerParams)
 
 	handler := cache.ResourceEventHandlerFuncs{
-		AddFunc:    activator.UpdateEndpoints(throttler),
-		UpdateFunc: controller.PassNew(activator.UpdateEndpoints(throttler)),
-		DeleteFunc: activator.DeleteBreaker(throttler),
+		AddFunc:    throttler.UpdateEndpoints,
+		UpdateFunc: controller.PassNew(throttler.UpdateEndpoints),
+		DeleteFunc: throttler.DeleteBreaker,
 	}
 
 	// Update/create the breaker in the throttler when the number of endpoints changes.
