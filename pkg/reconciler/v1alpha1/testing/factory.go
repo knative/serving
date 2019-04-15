@@ -54,7 +54,7 @@ func scaleClient(f ktesting.Fake, objects ...runtime.Object) scale.ScalesGetter 
 			break
 		}
 	}
-	scaleClient := &fakescaleclient.FakeScaleClient{f}
+	scaleClient := &fakescaleclient.FakeScaleClient{Fake: f}
 	scaleClient.PrependReactor("get", "deployments", func(action ktesting.Action) (bool, runtime.Object, error) {
 		return true, scaleObj, nil
 	})

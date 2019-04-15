@@ -29,7 +29,6 @@ import (
 	"github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving"
 	servingv1alpha1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	"github.com/knative/serving/pkg/reconciler"
 	revisionresources "github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/resources/names"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/traffic"
@@ -91,7 +90,6 @@ func makeClusterIngressSpec(r *servingv1alpha1.Route, targets map[string]traffic
 
 func routeDomains(targetName string, r *servingv1alpha1.Route) []string {
 	domains := []string{traffic.SubrouteDomain(targetName, r.Status.Domain)}
-
 	if targetName == traffic.DefaultTarget {
 		// The default target is also referred to by its internal K8s
 		// generated domain name.
@@ -113,10 +111,7 @@ func makeClusterIngressRule(domains []string, ns string, targets traffic.Revisio
 			continue
 		}
 
-		// TODO(vagababov): Once SKS juggles endpoints, this should simply
-		// be the Revision service.
-		name := reconciler.GetServingK8SServiceNameForObj(
-			t.TrafficTarget.RevisionName)
+		name := t.ServiceName
 		namespace := ns
 		port := intstr.FromInt(int(revisionresources.ServicePort))
 		if !t.Active {

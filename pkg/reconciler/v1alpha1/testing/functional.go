@@ -673,6 +673,13 @@ func WithBuildRef(name string) RevisionOption {
 	}
 }
 
+// WithServiceName propagates the given service name to the revision status.
+func WithServiceName(sn string) RevisionOption {
+	return func(rev *v1alpha1.Revision) {
+		rev.Status.ServiceName = sn
+	}
+}
+
 // MarkResourceNotOwned calls the function of the same name on the Revision's status.
 func MarkResourceNotOwned(kind, name string) RevisionOption {
 	return func(rev *v1alpha1.Revision) {
@@ -852,6 +859,13 @@ func WithTraffic(pa *autoscalingv1alpha1.PodAutoscaler) {
 	pa.Status.MarkActive()
 }
 
+// WithPAStatusService annotats PA Status with the provided service name.
+func WithPAStatusService(svc string) PodAutoscalerOption {
+	return func(pa *autoscalingv1alpha1.PodAutoscaler) {
+		pa.Status.ServiceName = svc
+	}
+}
+
 // WithBufferedTraffic updates the PA to reflect that it has received
 // and buffered traffic while it is being activated.
 func WithBufferedTraffic(reason, message string) PodAutoscalerOption {
@@ -989,7 +1003,7 @@ type SKSOption func(sks *netv1alpha1.ServerlessService)
 
 // WithPubService annotates SKS status with the given service name.
 func WithPubService(sks *netv1alpha1.ServerlessService) {
-	sks.Status.ServiceName = names.PublicService(sks)
+	sks.Status.ServiceName = names.PublicService(sks.Name)
 }
 
 // WithSelector annotates SKS with a given selector map.
@@ -999,9 +1013,16 @@ func WithSelector(sel map[string]string) SKSOption {
 	}
 }
 
+// WithSKSReady marks SKS as ready.
+func WithSKSReady(sks *netv1alpha1.ServerlessService) {
+	WithPrivateService(sks)
+	WithPubService(sks)
+	sks.Status.MarkEndpointsReady()
+}
+
 // WithPrivateService annotates SKS status with the private service name.
 func WithPrivateService(sks *netv1alpha1.ServerlessService) {
-	sks.Status.PrivateServiceName = names.PrivateService(sks)
+	sks.Status.PrivateServiceName = names.PrivateService(sks.Name)
 }
 
 // WithSKSOwnersRemoved clears the owner references of this SKS resource.

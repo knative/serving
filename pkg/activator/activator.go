@@ -38,7 +38,7 @@ const (
 	ServicePortH2C int32 = 81
 )
 
-// RevisionID is the combination of namespace and service name
+// RevisionID is the combination of namespace and revision name
 type RevisionID struct {
 	Namespace string
 	Name      string

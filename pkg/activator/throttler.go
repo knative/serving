@@ -36,7 +36,7 @@ var ErrActivatorOverload = errors.New("activator overload")
 type ThrottlerParams struct {
 	BreakerParams queue.BreakerParams
 	Logger        *zap.SugaredLogger
-	GetEndpoints  func(RevisionID) (int32, error)
+	GetEndpoints  func(*v1alpha1.Revision) (int32, error)
 	GetRevision   func(RevisionID) (*v1alpha1.Revision, error)
 }
 
@@ -56,7 +56,7 @@ type Throttler struct {
 	breakers      map[RevisionID]*queue.Breaker
 	breakerParams queue.BreakerParams
 	logger        *zap.SugaredLogger
-	getEndpoints  func(RevisionID) (int32, error)
+	getEndpoints  func(*v1alpha1.Revision) (int32, error)
 	getRevision   func(RevisionID) (*v1alpha1.Revision, error)
 	mux           sync.Mutex
 }
@@ -127,11 +127,11 @@ func (t *Throttler) getOrCreateBreaker(rev RevisionID) (*queue.Breaker, bool) {
 // This avoids a potential deadlock in case if we missed the updates from the Endpoints informer.
 // This could happen because of a restart of the Activator or when a new one is added as part of scale out.
 func (t *Throttler) forceUpdateCapacity(rev RevisionID, breaker *queue.Breaker) (err error) {
-	size, err := t.getEndpoints(rev)
+	revision, err := t.getRevision(rev)
 	if err != nil {
 		return err
 	}
-	revision, err := t.getRevision(rev)
+	size, err := t.getEndpoints(revision)
 	if err != nil {
 		return err
 	}

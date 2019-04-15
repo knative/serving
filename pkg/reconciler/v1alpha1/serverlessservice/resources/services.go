@@ -45,7 +45,7 @@ const (
 func MakePublicService(sks *v1alpha1.ServerlessService) *corev1.Service {
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      names.PublicService(sks),
+			Name:      names.PublicService(sks.Name),
 			Namespace: sks.Namespace,
 			Labels: resources.UnionMaps(sks.GetLabels(), map[string]string{
 				// Add our own special key.
@@ -71,7 +71,7 @@ func MakePublicService(sks *v1alpha1.ServerlessService) *corev1.Service {
 func MakePublicEndpoints(sks *v1alpha1.ServerlessService, src *corev1.Endpoints) *corev1.Endpoints {
 	return &corev1.Endpoints{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      names.PublicService(sks), // Name of Endpoints must match that of Service.
+			Name:      names.PublicService(sks.Name), // Name of Endpoints must match that of Service.
 			Namespace: sks.Namespace,
 			Labels: resources.UnionMaps(sks.GetLabels(), map[string]string{
 				// Add our own special key.
@@ -95,7 +95,7 @@ func MakePublicEndpoints(sks *v1alpha1.ServerlessService, src *corev1.Endpoints)
 func MakePrivateService(sks *v1alpha1.ServerlessService) *corev1.Service {
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      names.PrivateService(sks),
+			Name:      names.PrivateService(sks.Name),
 			Namespace: sks.Namespace,
 			Labels: resources.UnionMaps(sks.GetLabels(), map[string]string{
 				// Add our own special key.

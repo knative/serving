@@ -70,7 +70,8 @@ func TestMakeClusterIngressSpec_CorrectRules(t *testing.T) {
 				RevisionName:      "v2",
 				Percent:           100,
 			},
-			Active: true,
+			ServiceName: "gilberto",
+			Active:      true,
 		}},
 		"v1": {{
 			TrafficTarget: v1alpha1.TrafficTarget{
@@ -78,7 +79,8 @@ func TestMakeClusterIngressSpec_CorrectRules(t *testing.T) {
 				RevisionName:      "v1",
 				Percent:           100,
 			},
-			Active: true,
+			ServiceName: "jobim",
+			Active:      true,
 		}},
 	}
 
@@ -104,7 +106,7 @@ func TestMakeClusterIngressSpec_CorrectRules(t *testing.T) {
 				Splits: []netv1alpha1.ClusterIngressBackendSplit{{
 					ClusterIngressBackend: netv1alpha1.ClusterIngressBackend{
 						ServiceNamespace: "test-ns",
-						ServiceName:      "v2-service",
+						ServiceName:      "gilberto",
 						ServicePort:      intstr.FromInt(80),
 					},
 					Percent: 100,
@@ -122,7 +124,7 @@ func TestMakeClusterIngressSpec_CorrectRules(t *testing.T) {
 				Splits: []netv1alpha1.ClusterIngressBackendSplit{{
 					ClusterIngressBackend: netv1alpha1.ClusterIngressBackend{
 						ServiceNamespace: "test-ns",
-						ServiceName:      "v1-service",
+						ServiceName:      "jobim",
 						ServicePort:      intstr.FromInt(80),
 					},
 					Percent: 100,
@@ -253,7 +255,8 @@ func TestMakeClusterIngressRule_Vanilla(t *testing.T) {
 			RevisionName:      "revision",
 			Percent:           100,
 		},
-		Active: true,
+		ServiceName: "chocolate",
+		Active:      true,
 	}}
 	domains := []string{"a.com", "b.org"}
 	const ns = "test-ns"
@@ -268,7 +271,7 @@ func TestMakeClusterIngressRule_Vanilla(t *testing.T) {
 				Splits: []netv1alpha1.ClusterIngressBackendSplit{{
 					ClusterIngressBackend: netv1alpha1.ClusterIngressBackend{
 						ServiceNamespace: "test-ns",
-						ServiceName:      "revision-service",
+						ServiceName:      "chocolate",
 						ServicePort:      intstr.FromInt(80),
 					},
 					Percent: 100,
@@ -294,7 +297,8 @@ func TestMakeClusterIngressRule_ZeroPercentTarget(t *testing.T) {
 			RevisionName:      "revision",
 			Percent:           100,
 		},
-		Active: true,
+		ServiceName: "active-target",
+		Active:      true,
 	}, {
 		TrafficTarget: v1alpha1.TrafficTarget{
 			ConfigurationName: "new-config",
@@ -313,7 +317,7 @@ func TestMakeClusterIngressRule_ZeroPercentTarget(t *testing.T) {
 				Splits: []netv1alpha1.ClusterIngressBackendSplit{{
 					ClusterIngressBackend: netv1alpha1.ClusterIngressBackend{
 						ServiceNamespace: "test-ns",
-						ServiceName:      "revision-service",
+						ServiceName:      "active-target",
 						ServicePort:      intstr.FromInt(80),
 					},
 					Percent: 100,
@@ -339,14 +343,16 @@ func TestMakeClusterIngressRule_TwoTargets(t *testing.T) {
 			RevisionName:      "revision",
 			Percent:           80,
 		},
-		Active: true,
+		ServiceName: "nigh",
+		Active:      true,
 	}, {
 		TrafficTarget: v1alpha1.TrafficTarget{
 			ConfigurationName: "new-config",
 			RevisionName:      "new-revision",
 			Percent:           20,
 		},
-		Active: true,
+		ServiceName: "death",
+		Active:      true,
 	}}
 	domains := []string{"test.org"}
 	const ns = "test-ns"
@@ -358,14 +364,14 @@ func TestMakeClusterIngressRule_TwoTargets(t *testing.T) {
 				Splits: []netv1alpha1.ClusterIngressBackendSplit{{
 					ClusterIngressBackend: netv1alpha1.ClusterIngressBackend{
 						ServiceNamespace: "test-ns",
-						ServiceName:      "revision-service",
+						ServiceName:      "nigh",
 						ServicePort:      intstr.FromInt(80),
 					},
 					Percent: 80,
 				}, {
 					ClusterIngressBackend: netv1alpha1.ClusterIngressBackend{
 						ServiceNamespace: "test-ns",
-						ServiceName:      "new-revision-service",
+						ServiceName:      "death",
 						ServicePort:      intstr.FromInt(80),
 					},
 					Percent: 20,
@@ -484,6 +490,7 @@ func TestMakeClusterIngressRule_ZeroPercentTargetInactive(t *testing.T) {
 			RevisionName:      "revision",
 			Percent:           100,
 		},
+		ServiceName: "apathy-sets-in",
 		Active: true,
 	}, {
 		TrafficTarget: v1alpha1.TrafficTarget{
@@ -491,6 +498,7 @@ func TestMakeClusterIngressRule_ZeroPercentTargetInactive(t *testing.T) {
 			RevisionName:      "new-revision",
 			Percent:           0,
 		},
+		// TODO(vagababov): when we have active handoff, service will be here.
 		Active: false,
 	}}
 	domains := []string{"test.org"}
@@ -503,7 +511,7 @@ func TestMakeClusterIngressRule_ZeroPercentTargetInactive(t *testing.T) {
 				Splits: []netv1alpha1.ClusterIngressBackendSplit{{
 					ClusterIngressBackend: netv1alpha1.ClusterIngressBackend{
 						ServiceNamespace: "test-ns",
-						ServiceName:      "revision-service",
+						ServiceName:      "apathy-sets-in",
 						ServicePort:      intstr.FromInt(80),
 					},
 					Percent: 100,
