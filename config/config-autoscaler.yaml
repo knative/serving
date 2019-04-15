@@ -57,6 +57,10 @@ data:
     # to achieve efficient resource usage (VPA CPU minimum is 300m).
     container-concurrency-target-default: "100"
 
+    # When operating in a stable mode, the autoscaler operates on the
+    # average concurrency over the stable window.
+    stable-window: "60s"
+
     # When observed average concurrency during the panic window reaches
     # panic-threshold-percentage the target concurrency, the autoscaler
     # enters panic mode. When operating in panic mode, the autoscaler

@@ -46,10 +46,13 @@ type Config struct {
 	ContainerConcurrencyTargetDefault    float64
 
 	// General autoscaler algorithm configuration.
-	MaxScaleUpRate float64
-	StableWindow   time.Duration
-	PanicWindow    time.Duration
-	TickInterval   time.Duration
+	MaxScaleUpRate           float64
+	StableWindow             time.Duration
+	PanicWindowPercentage    float64
+	PanicThresholdPercentage float64
+	// Deprecated in favor of PanicWindowPercentage.
+	PanicWindow  time.Duration
+	TickInterval time.Duration
 
 	ScaleToZeroGracePeriod time.Duration
 }
@@ -104,6 +107,14 @@ func NewConfigFromMap(data map[string]string) (*Config, error) {
 		key:          "container-concurrency-target-default",
 		field:        &lc.ContainerConcurrencyTargetDefault,
 		defaultValue: 100.0,
+	}, {
+		key:          "panic-window-percentage",
+		field:        &lc.PanicWindowPercentage,
+		defaultValue: 10.0,
+	}, {
+		key:          "panic-threshold-percentage",
+		field:        &lc.PanicThresholdPercentage,
+		defaultValue: 200.0,
 	}} {
 		if raw, ok := data[f64.key]; !ok {
 			*f64.field = f64.defaultValue
