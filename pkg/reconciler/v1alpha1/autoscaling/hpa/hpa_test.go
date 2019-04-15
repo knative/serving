@@ -323,7 +323,7 @@ func TestReconcile(t *testing.T) {
 			InduceFailure("update", "podautoscalers"),
 		},
 		WantEvents: []string{
-			Eventf(corev1.EventTypeWarning, "InternalError", `failed to update status for PA "test-revision": inducing failure for update podautoscalers`),
+			Eventf(corev1.EventTypeWarning, "UpdateFailed", `failed to update status for PA "test-revision": inducing failure for update podautoscalers`),
 		},
 	}, {
 		Name: "update hpa fails",
