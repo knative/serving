@@ -355,8 +355,8 @@ func TestImmutableFields(t *testing.T) {
 			Message: "Immutable fields changed (-old +new)",
 			Paths:   []string{"spec"},
 			Details: `{v1alpha1.PodAutoscalerSpec}.ContainerConcurrency:
-	-: v1alpha1.RevisionContainerConcurrencyType(1)
-	+: v1alpha1.RevisionContainerConcurrencyType(0)
+	-: "1"
+	+: "0"
 `,
 		},
 	}, {
@@ -393,8 +393,8 @@ func TestImmutableFields(t *testing.T) {
 			Message: "Immutable fields changed (-old +new)",
 			Paths:   []string{"spec"},
 			Details: `{v1alpha1.PodAutoscalerSpec}.ContainerConcurrency:
-	-: v1alpha1.RevisionContainerConcurrencyType(1)
-	+: v1alpha1.RevisionContainerConcurrencyType(0)
+	-: "1"
+	+: "0"
 `,
 		},
 	}, {
@@ -430,8 +430,8 @@ func TestImmutableFields(t *testing.T) {
 			Message: "Immutable fields changed (-old +new)",
 			Paths:   []string{"spec"},
 			Details: `{v1alpha1.PodAutoscalerSpec}.ContainerConcurrency:
-	-: v1alpha1.RevisionContainerConcurrencyType(1)
-	+: v1alpha1.RevisionContainerConcurrencyType(0)
+	-: "1"
+	+: "0"
 {v1alpha1.PodAutoscalerSpec}.ScaleTargetRef.Name:
 	-: "baz"
 	+: "bar"

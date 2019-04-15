@@ -56,7 +56,7 @@ func (rt *Revision) Validate(ctx context.Context) *apis.FieldError {
 }
 
 func (current *Revision) checkImmutableFields(ctx context.Context, original *Revision) *apis.FieldError {
-	if diff, err := kmp.SafeDiff(original.Spec, current.Spec); err != nil {
+	if diff, err := kmp.ShortDiff(original.Spec, current.Spec); err != nil {
 		return &apis.FieldError{
 			Message: "Failed to diff Revision",
 			Paths:   []string{"spec"},
