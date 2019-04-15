@@ -128,7 +128,7 @@ func TestObservedConcurrency(t *testing.T) {
 			tc = append(tc, testConcurrencyN(t, clients)...)
 		})
 	}
-	if err = testgrid.CreateXMLOutput(tc, t.Name()); err != nil {
+	if err := testgrid.CreateXMLOutput(tc, t.Name()); err != nil {
 		t.Fatalf("Cannot create output xml: %v", err)
 	}
 }
