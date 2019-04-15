@@ -17,12 +17,12 @@ limitations under the License.
 package tracing
 
 import (
-	"context"
 	"net/http"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/knative/serving/pkg/tracing/config"
+	openzipkin "github.com/openzipkin/zipkin-go"
 	zipkinreporter "github.com/openzipkin/zipkin-go/reporter"
 	reporterrecorder "github.com/openzipkin/zipkin-go/reporter/recorder"
 )
@@ -56,22 +56,21 @@ func TestHTTPSpanMiddleware(t *testing.T) {
 		Debug:  true,
 	}
 
+	// Create tracer with reporter recorder
 	reporter := reporterrecorder.NewReporter()
 	defer reporter.Close()
-
-	repGetter := func(cfg *config.Config) (zipkinreporter.Reporter, error) {
+	endpoint, _ := openzipkin.NewEndpoint("test", "localhost:1234")
+	oct := NewOpenCensusTracer(WithZipkinExporter(func(cfg *config.Config) (zipkinreporter.Reporter, error) {
 		return reporter, nil
-	}
-	tc := TracerCache{
-		CreateReporter: repGetter,
-	}
+	}, endpoint))
+	defer oct.Finish()
 
-	trGetter := func(ctx context.Context) *TracerRef {
-		return tc.GetTracerRefOrNoop(nil, &cfg, "test-service", "localhost:1234")
+	if err := oct.ApplyConfig(&cfg); err != nil {
+		t.Errorf("Failed to apply tracer config: %v", err)
 	}
 
 	next := testHandler{}
-	middleware := HTTPSpanMiddleware("test-op", trGetter, &next)
+	middleware := HTTPSpanMiddleware("test-op", &next)
 
 	var lastWrite []byte
 	fw := fakeWriter{lastWrite: &lastWrite}

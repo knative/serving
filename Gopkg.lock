@@ -557,15 +557,13 @@
   version = "1.0.1"
 
 [[projects]]
-  digest = "1:0e20bcd5aa0c64a27955d29ef533a480d95d6aa136390ba558c4a18bc0d4a56d"
+  digest = "1:5ff10da739fc2c719e3a11454e5794aa226c918cb0286cd3842aa6ae077a82a1"
   name = "github.com/openzipkin/zipkin-go"
   packages = [
     ".",
     "idgenerator",
-    "middleware/http",
     "model",
     "propagation",
-    "propagation/b3",
     "reporter",
     "reporter/http",
     "reporter/recorder",
@@ -669,12 +667,13 @@
   version = "v1.0.3"
 
 [[projects]]
-  digest = "1:e65b395598ef96d96c1df34e3fd3ec4dabe629edb1511de33a59efd9931df0e8"
+  digest = "1:76763f300778a3b9baef4872dc9fcc9a7463ba2a5f6b2acaf589cd7f3b392503"
   name = "go.opencensus.io"
   packages = [
     ".",
     "exemplar",
     "exporter/prometheus",
+    "exporter/zipkin",
     "internal",
     "internal/tagencoding",
     "plugin/ocgrpc",
@@ -1386,7 +1385,7 @@
     "github.com/knative/test-infra/tools/webhook-apicoverage/webhook",
     "github.com/mattbaird/jsonpatch",
     "github.com/openzipkin/zipkin-go",
-    "github.com/openzipkin/zipkin-go/middleware/http",
+    "github.com/openzipkin/zipkin-go/model",
     "github.com/openzipkin/zipkin-go/reporter",
     "github.com/openzipkin/zipkin-go/reporter/http",
     "github.com/openzipkin/zipkin-go/reporter/recorder",
@@ -1395,9 +1394,12 @@
     "github.com/prometheus/client_golang/prometheus/promhttp",
     "github.com/prometheus/client_model/go",
     "github.com/prometheus/common/expfmt",
+    "go.opencensus.io/exporter/zipkin",
+    "go.opencensus.io/plugin/ochttp",
     "go.opencensus.io/stats",
     "go.opencensus.io/stats/view",
     "go.opencensus.io/tag",
+    "go.opencensus.io/trace",
     "go.uber.org/atomic",
     "go.uber.org/zap",
     "go.uber.org/zap/zapcore",

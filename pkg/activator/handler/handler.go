@@ -34,9 +34,8 @@ import (
 	"github.com/knative/serving/pkg/queue"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources"
 
-	"github.com/knative/serving/pkg/tracing"
-	"github.com/openzipkin/zipkin-go"
-	zipkinhttp "github.com/openzipkin/zipkin-go/middleware/http"
+	"go.opencensus.io/plugin/ochttp"
+	"go.opencensus.io/trace"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/wait"
 )
@@ -48,7 +47,6 @@ type ActivationHandler struct {
 	Transport http.RoundTripper
 	Reporter  activator.StatsReporter
 	Throttler *activator.Throttler
-	TRGetter  tracing.TracerRefGetter
 
 	// GetProbeCount is the number of attempts we should
 	// make to network probe the queue-proxy after the revision becomes
@@ -61,14 +59,18 @@ type ActivationHandler struct {
 	GetSKS      activator.SKSGetter
 }
 
-func (a *ActivationHandler) probeEndpoint(logger *zap.SugaredLogger, tracer *zipkin.Tracer, r *http.Request, tr http.RoundTripper, target *url.URL) (bool, int, int) {
-	probeSpan, reqCtx := tracer.StartSpanFromContext(r.Context(), "probe")
-	defer probeSpan.Finish()
+func (a *ActivationHandler) probeEndpoint(logger *zap.SugaredLogger, r *http.Request, target *url.URL) (bool, int, int) {
+	reqCtx, probeSpan := trace.StartSpan(r.Context(), "probe")
+	defer probeSpan.End()
 
 	var (
 		httpStatus int
 		attempts   int
 	)
+
+	transport := &ochttp.Transport{
+		Base: a.Transport,
+	}
 
 	probeReq := &http.Request{
 		Method:     http.MethodGet,
@@ -89,7 +91,7 @@ func (a *ActivationHandler) probeEndpoint(logger *zap.SugaredLogger, tracer *zip
 	}
 	err := wait.ExponentialBackoff(settings, func() (bool, error) {
 		attempts++
-		probeResp, err := tr.RoundTrip(probeReq)
+		probeResp, err := transport.RoundTrip(probeReq)
 
 		if err != nil {
 			logger.Warnw("Pod probe failed", zap.Error(err))
@@ -121,10 +123,6 @@ func (a *ActivationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	logger := a.Logger.With(zap.String(logkey.Key, revID.String()))
 
-	tracerRef := a.TRGetter(r.Context())
-	defer tracerRef.Done()
-	tracer := tracerRef.Tracer
-
 	revision, err := a.GetRevision(revID)
 	if err != nil {
 		logger.Errorw("Error while getting revision", zap.Error(err))
@@ -151,15 +149,6 @@ func (a *ActivationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		Host:   host,
 	}
 
-	// Setup tracing transport
-	tr := a.Transport
-	traceTr, err := zipkinhttp.NewTransport(tracer, zipkinhttp.RoundTripper(tr))
-	if err != nil {
-		a.Logger.Errorw("Failed to create zipkin http transport", zap.Error(err))
-	} else {
-		tr = traceTr
-	}
-
 	err = a.Throttler.Try(revID, func() {
 		var (
 			httpStatus int
@@ -171,15 +160,15 @@ func (a *ActivationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		// returns a 200 status code.
 		success := a.GetProbeCount == 0
 		if !success {
-			success, httpStatus, attempts = a.probeEndpoint(logger, tracer, r, tr, target)
+			success, httpStatus, attempts = a.probeEndpoint(logger, r, target)
 		}
 
 		if success {
 			// Once we see a successful probe, send traffic.
 			attempts++
-			proxySpan, reqCtx := tracer.StartSpanFromContext(r.Context(), "proxy")
-			httpStatus = a.proxyRequest(w, r.WithContext(reqCtx), target, tr)
-			proxySpan.Finish()
+			reqCtx, proxySpan := trace.StartSpan(r.Context(), "proxy")
+			httpStatus = a.proxyRequest(w, r.WithContext(reqCtx), target)
+			proxySpan.End()
 		} else {
 			httpStatus = http.StatusInternalServerError
 			w.WriteHeader(httpStatus)
@@ -208,10 +197,12 @@ func (a *ActivationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (a *ActivationHandler) proxyRequest(w http.ResponseWriter, r *http.Request, target *url.URL, tr http.RoundTripper) int {
+func (a *ActivationHandler) proxyRequest(w http.ResponseWriter, r *http.Request, target *url.URL) int {
 	recorder := pkghttp.NewResponseRecorder(w, http.StatusOK)
 	proxy := httputil.NewSingleHostReverseProxy(target)
-	proxy.Transport = tr
+	proxy.Transport = &ochttp.Transport{
+		Base: a.Transport,
+	}
 	proxy.FlushInterval = -1
 
 	r.Header.Set(network.ProxyHeaderName, activator.Name)

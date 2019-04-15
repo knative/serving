@@ -28,23 +28,23 @@ const (
 	// ConfigName is the name of the configmap
 	ConfigName = "config-tracing"
 
-	enableKey                  = "enable"
-	zipkinCollectorEndpointKey = "zipkin-collector-endpoint"
-	debugKey                   = "debug"
-	sampleRateKey              = "sample-rate"
+	enableKey         = "enable"
+	zipkinEndpointKey = "zipkin-endpoint"
+	debugKey          = "debug"
+	sampleRateKey     = "sample-rate"
 )
 
 // Config holds the configuration for tracers
 type Config struct {
-	Enable      bool
-	EndpointURL string
-	Debug       bool
-	SampleRate  float64
+	Enable         bool
+	ZipkinEndpoint string
+	Debug          bool
+	SampleRate     float64
 }
 
 // Equals returns true if two Configs are identical
 func (cfg *Config) Equals(other *Config) bool {
-	return other.Enable == cfg.Enable && other.EndpointURL == cfg.EndpointURL && other.Debug == cfg.Debug && other.SampleRate == cfg.SampleRate
+	return other.Enable == cfg.Enable && other.ZipkinEndpoint == cfg.ZipkinEndpoint && other.Debug == cfg.Debug && other.SampleRate == cfg.SampleRate
 }
 
 // NewTracingConfigFromMap returns a Config given a map corresponding to a ConfigMap
@@ -62,12 +62,12 @@ func NewTracingConfigFromMap(cfgMap map[string]string) (*Config, error) {
 		tc.Enable = enableBool
 	}
 
-	if endpoint, ok := cfgMap[zipkinCollectorEndpointKey]; !ok {
+	if endpoint, ok := cfgMap[zipkinEndpointKey]; !ok {
 		if tc.Enable {
-			return nil, errors.New("Tracing enabled but no collector endpoint specified")
+			return nil, errors.New("Tracing enabled but no zipkin endpoint specified")
 		}
 	} else {
-		tc.EndpointURL = endpoint
+		tc.ZipkinEndpoint = endpoint
 	}
 
 	if debug, ok := cfgMap[debugKey]; ok {

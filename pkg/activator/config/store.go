@@ -47,7 +47,7 @@ type Store struct {
 }
 
 // NewStore creates a configuration Store
-func NewStore(logger configmap.Logger) *Store {
+func NewStore(logger configmap.Logger, onAfterStore ...func(name string, value interface{})) *Store {
 	return &Store{
 		UntypedStore: configmap.NewUntypedStore(
 			"activator",
@@ -55,6 +55,7 @@ func NewStore(logger configmap.Logger) *Store {
 			configmap.Constructors{
 				tracingconfig.ConfigName: tracingconfig.NewTracingConfigFromConfigMap,
 			},
+			onAfterStore...,
 		),
 	}
 }

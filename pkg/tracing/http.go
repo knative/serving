@@ -17,34 +17,28 @@ limitations under the License.
 package tracing
 
 import (
-	"context"
 	"net/http"
 
-	zipkinhttp "github.com/openzipkin/zipkin-go/middleware/http"
+	"go.opencensus.io/trace"
 )
 
-// TracerRefGetter retrurns a tracer given a context containing a tracer config
-type TracerRefGetter func(context.Context) *TracerRef
-
 type spanHandler struct {
-	opName   string
-	next     http.Handler
-	tRGetter TracerRefGetter
+	opName string
+	next   http.Handler
 }
 
 // ServeHTTP is an HTTP handler which injects a tracing span using a TracerRefGetter
 func (h *spanHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	tr := h.tRGetter(r.Context())
-	defer tr.Done()
-	middleware := zipkinhttp.NewServerMiddleware(tr.Tracer, zipkinhttp.SpanName(h.opName))
-	middleware(h.next).ServeHTTP(w, r)
+	ctx, newSpan := trace.StartSpan(r.Context(), h.opName)
+	defer newSpan.End()
+	r = r.WithContext(ctx)
+	h.next.ServeHTTP(w, r)
 }
 
 // HTTPSpanMiddleware is a http.Handler middleware which creats a span and injects a ZipkinTracer in to the request context
-func HTTPSpanMiddleware(opName string, trGetter TracerRefGetter, next http.Handler) http.Handler {
+func HTTPSpanMiddleware(opName string, next http.Handler) http.Handler {
 	return &spanHandler{
-		opName:   opName,
-		next:     next,
-		tRGetter: trGetter,
+		opName: opName,
+		next:   next,
 	}
 }

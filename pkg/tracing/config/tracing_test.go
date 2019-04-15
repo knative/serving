@@ -64,16 +64,16 @@ func TestNewConfigFromMap(t *testing.T) {
 	}, {
 		name: "Everything enabled",
 		input: map[string]string{
-			enableKey:                  "true",
-			zipkinCollectorEndpointKey: "some-endpoint",
-			debugKey:                   "true",
-			sampleRateKey:              "0.5",
+			enableKey:         "true",
+			zipkinEndpointKey: "some-endpoint",
+			debugKey:          "true",
+			sampleRateKey:     "0.5",
 		},
 		output: Config{
-			Enable:      true,
-			Debug:       true,
-			EndpointURL: "some-endpoint",
-			SampleRate:  0.5,
+			Enable:         true,
+			Debug:          true,
+			ZipkinEndpoint: "some-endpoint",
+			SampleRate:     0.5,
 		},
 	}}
 
@@ -93,14 +93,14 @@ func TestNewConfigFromMap(t *testing.T) {
 func TestConfigFromConfigMap(t *testing.T) {
 	cfg, err := NewTracingConfigFromConfigMap(&corev1.ConfigMap{
 		Data: map[string]string{
-			zipkinCollectorEndpointKey: "some-endpoint",
+			zipkinEndpointKey: "some-endpoint",
 		},
 	})
 	if err != nil {
 		t.Errorf("failed to create config from config map: %v", err)
 	}
 
-	if cfg.EndpointURL != "some-endpoint" {
+	if cfg.ZipkinEndpoint != "some-endpoint" {
 		t.Errorf("returned config does not have matching endpoint url: %v", cfg)
 	}
 }

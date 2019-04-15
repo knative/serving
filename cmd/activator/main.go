@@ -54,6 +54,9 @@ import (
 	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/resources"
 	"github.com/knative/serving/pkg/tracing"
+	tracingconfig "github.com/knative/serving/pkg/tracing/config"
+
+	"github.com/openzipkin/zipkin-go"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	kubeinformers "k8s.io/client-go/informers"
@@ -241,10 +244,25 @@ func main() {
 		Handler:    handler,
 	})
 
-	configMapWatcher := configmap.NewInformedWatcher(kubeClient, system.Namespace())
+	activatorL3 := fmt.Sprintf("%s:%d", activator.K8sServiceName, activator.ServicePortHTTP1)
+	zipkinEndpoint, err := zipkin.NewEndpoint("activator", activatorL3)
+	if err != nil {
+		logger.Error("Unable to create tracing endpoint")
+		return
+	}
+	oct := tracing.NewOpenCensusTracer(
+		tracing.WithZipkinExporter(tracing.CreateZipkinReporter, zipkinEndpoint),
+	)
+	tracerUpdater := func(name string, value interface{}) {
+		if name == tracingconfig.ConfigName {
+			cfg := value.(*tracingconfig.Config)
+			oct.ApplyConfig(cfg)
+		}
+	}
 
 	// Set up our config store
-	configStore := activatorconfig.NewStore(createdLogger)
+	configMapWatcher := configmap.NewInformedWatcher(kubeClient, system.Namespace())
+	configStore := activatorconfig.NewStore(createdLogger, tracerUpdater)
 	configStore.WatchConfigs(configMapWatcher)
 
 	// Open a websocket connection to the autoscaler
@@ -261,16 +279,6 @@ func main() {
 	cr := activatorhandler.NewConcurrencyReporter(podName, reqChan, reportTicker.C, statChan)
 	go cr.Run(stopCh)
 
-	tracerCache := tracing.TracerCache{
-		CreateReporter: tracing.CreateReporter,
-	}
-	defer tracerCache.Close()
-	trGetter := func(ctx context.Context) *tracing.TracerRef {
-		cfg := activatorconfig.FromContext(ctx)
-		activatorL3 := fmt.Sprintf("%s:%d", activator.K8sServiceName, activator.ServicePortHTTP1)
-		return tracerCache.GetTracerRefOrNoop(logger, cfg.Tracing, "activator", activatorL3)
-	}
-
 	// Create activation handler chain
 	// Note: innermost handlers are specified first, ie. the last handler in the chain will be executed first
 	var ah http.Handler = &activatorhandler.ActivationHandler{
@@ -278,21 +286,19 @@ func main() {
 		Logger:        logger,
 		Reporter:      reporter,
 		Throttler:     throttler,
-		TRGetter:      trGetter,
 		GetProbeCount: maxRetries,
 		GetRevision:   revisionGetter,
 		GetSKS:        sksGetter,
 		GetService:    serviceGetter,
 	}
 	ah = activatorhandler.NewRequestEventHandler(reqChan, ah)
-	ah = tracing.HTTPSpanMiddleware("handle_request", trGetter, ah)
+	ah = tracing.HTTPSpanMiddleware("handle_request", ah)
 	ah = configStore.HTTPMiddleware(ah)
 	ah = &activatorhandler.HealthHandler{HealthCheck: statSink.Status, NextHandler: ah}
 	ah = &activatorhandler.ProbeHandler{NextHandler: ah}
 
 	// Watch the logging config map and dynamically update logging levels.
 	configMapWatcher.Watch(logging.ConfigMapName(), logging.UpdateLevelFromConfigMap(logger, atomicLevel, component))
-
 	// Watch the observability config map and dynamically update metrics exporter.
 	configMapWatcher.Watch(metrics.ObservabilityConfigName, metrics.UpdateExporterFromConfigMap(component, logger))
 	if err = configMapWatcher.Start(stopCh); err != nil {
