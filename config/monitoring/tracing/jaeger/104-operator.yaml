@@ -16,7 +16,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: jaeger-operator
-  # istio assumes that tracing is installed in istio-system namespace - 
+  # istio assumes that tracing is installed in istio-system namespace -
   # we have to install to istio-system until istio allows overriding this behavior.
   namespace: istio-system
   labels:
