@@ -260,9 +260,11 @@ func TestUpdateEndpoints(t *testing.T) {
 			throttler := getThrottler(defaultMaxConcurrency, existingRevisionGetter(revisionConcurrency), existingEndpointsGetter(0), TestLogger(t), int32(s.initCapacity))
 			breaker := queue.NewBreaker(throttler.breakerParams)
 			throttler.breakers[revID] = breaker
-			updater := UpdateEndpoints(throttler)
-			endpointsAfter := corev1.Endpoints{ObjectMeta: metav1.ObjectMeta{Name: revID.Name + "-service", Namespace: revID.Namespace}, Subsets: endpointsSubset(s.endpointsAfter, 1)}
-			updater(&endpointsAfter)
+			endpointsAfter := corev1.Endpoints{
+				ObjectMeta: metav1.ObjectMeta{Name: revID.Name + "-service", Namespace: revID.Namespace},
+				Subsets:    endpointsSubset(s.endpointsAfter, 1),
+			}
+			throttler.UpdateEndpoints(&endpointsAfter)
 
 			if got := breaker.Capacity(); got != int32(s.wantCapacity) {
 				t.Errorf("Breaker capacity = %d, want: %d", got, s.wantCapacity)
@@ -289,7 +291,7 @@ func TestHelper_DeleteBreaker(t *testing.T) {
 	throttler := getThrottler(int32(20), existingRevisionGetter(10), existingEndpointsGetter(0), TestLogger(t), initCapacity)
 	endpoints := &corev1.Endpoints{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      revID.Name,
+			Name:      revID.Name + "-suffix",
 			Namespace: revID.Namespace,
 		},
 	}
@@ -298,9 +300,9 @@ func TestHelper_DeleteBreaker(t *testing.T) {
 	if got := len(throttler.breakers); got != 1 {
 		t.Errorf("Breaker map size got %d, want: 1", got)
 	}
-	DeleteBreaker(throttler)(endpoints)
+	throttler.DeleteBreaker(endpoints)
 	if len(throttler.breakers) != 0 {
-		t.Error("Breaker map is not empty")
+		t.Errorf("Breaker map is not empty, got: %v", throttler.breakers)
 	}
 }
 
