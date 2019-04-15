@@ -196,21 +196,3 @@ func responseCodeClass(responseCode int) string {
 	// Get the hundred digit of the response code and concatenate "xx".
 	return strconv.Itoa(responseCode/100) + "xx"
 }
-
-// unregisterViews unregisters the views register in NewStatsReporter.
-// Should be used in tests only.
-func (r *Reporter) unregisterViews() error {
-	if !r.initialized {
-		return errors.New("reporter is not initialized")
-	}
-	var views []*view.View
-	if v := view.Find(requestCountN); v != nil {
-		views = append(views, v)
-	}
-	if v := view.Find(responseTimeInMsecN); v != nil {
-		views = append(views, v)
-	}
-	view.Unregister(views...)
-	r.initialized = false
-	return nil
-}

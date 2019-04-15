@@ -82,7 +82,7 @@ func TestReporter_Report(t *testing.T) {
 
 	r, err := NewStatsReporter(testNs, testSvc, testConf, testRev)
 	if err != nil {
-		t.Fatalf("Unexpected error from NewStatsReporter()=%v", err)
+		t.Fatalf("Unexpected error from NewStatsReporter() = %v", err)
 	}
 	wantTags := map[string]string{
 		metricskey.LabelNamespaceName:     testNs,
@@ -111,12 +111,12 @@ func TestReporter_Report(t *testing.T) {
 	expectSuccess(t, "ReportRequestCount", func() error { return r.ReportResponseTime(200, 300*time.Millisecond) })
 	assertDistributionData(t, "request_latencies", wantTags, 3, 100, 300)
 
-	r.unregisterViews()
+	unregisterViews(r)
 
 	// Test reporter with empty service name
-	r, err = NewStatsReporter(testNs, "" /*serive name*/, testConf, testRev)
+	r, err = NewStatsReporter(testNs, "" /*service name*/, testConf, testRev)
 	if err != nil {
-		t.Fatalf("Unexpected error from NewStatsReporter()=%v", err)
+		t.Fatalf("Unexpected error from NewStatsReporter() = %v", err)
 	}
 	wantTags = map[string]string{
 		metricskey.LabelNamespaceName:     testNs,
@@ -131,7 +131,7 @@ func TestReporter_Report(t *testing.T) {
 	expectSuccess(t, "ReportRequestCount", func() error { return r.ReportRequestCount(200, 1) })
 	assertSumData(t, "request_count", wantTags, 1)
 
-	r.unregisterViews()
+	unregisterViews(r)
 }
 
 func expectSuccess(t *testing.T, funcName string, f func() error) {
@@ -242,5 +242,22 @@ func checkDistributionData(name string, wantTags map[string]string, wantCount in
 		return fmt.Errorf("value.Count = %v, want: %v", value.Max, wantMax)
 	}
 
+	return nil
+}
+
+// unregisterViews unregisters the views registerred in NewStatsReporter.
+func unregisterViews(r *Reporter) error {
+	if !r.initialized {
+		return errors.New("reporter is not initialized")
+	}
+	var views []*view.View
+	if v := view.Find(requestCountN); v != nil {
+		views = append(views, v)
+	}
+	if v := view.Find(responseTimeInMsecN); v != nil {
+		views = append(views, v)
+	}
+	view.Unregister(views...)
+	r.initialized = false
 	return nil
 }
