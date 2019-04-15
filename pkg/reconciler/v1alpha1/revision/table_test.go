@@ -202,7 +202,7 @@ func TestReconcile(t *testing.T) {
 		},
 		Objects: []runtime.Object{
 			rev("foo", "failure-update-deploy",
-				withK8sServiceName, WithLogURL, AllUnknownConditions),
+				withK8sServiceName("whateves"), WithLogURL, AllUnknownConditions),
 			kpa("foo", "failure-update-deploy"),
 			changeContainers(deploy("foo", "failure-update-deploy")),
 			image("foo", "failure-update-deploy"),
@@ -257,13 +257,14 @@ func TestReconcile(t *testing.T) {
 		// This signal should make our Reconcile mark the Revision as Ready.
 		Objects: []runtime.Object{
 			rev("foo", "kpa-ready",
-				withK8sServiceName, WithLogURL, AllUnknownConditions),
-			kpa("foo", "kpa-ready", WithTraffic, WithPAStatusService(serviceName("kpa-ready"))),
+				withK8sServiceName("old-stuff"), WithLogURL, AllUnknownConditions),
+			kpa("foo", "kpa-ready", WithTraffic, WithPAStatusService("new-stuff")),
 			deploy("foo", "kpa-ready"),
 			image("foo", "kpa-ready"),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: rev("foo", "kpa-ready", withK8sServiceName, WithLogURL,
+			Object: rev("foo", "kpa-ready", withK8sServiceName("new-stuff"),
+				WithLogURL,
 				// When the endpoint and KPA are ready, then we will see the
 				// Revision become ready.
 				MarkRevisionReady),
@@ -274,11 +275,13 @@ func TestReconcile(t *testing.T) {
 		Key: "foo/kpa-ready",
 	}, {
 		Name: "kpa not ready",
-		// Test propagating the KPA status to the Revision.
+		// Test propagating the KPA not ready status to the Revision.
 		Objects: []runtime.Object{
 			rev("foo", "kpa-not-ready",
-				withK8sServiceName, WithLogURL, MarkRevisionReady),
+				withK8sServiceName("somebody-told-me"), WithLogURL,
+				MarkRevisionReady),
 			kpa("foo", "kpa-not-ready",
+				WithPAStatusService("its-not-confidential"),
 				WithBufferedTraffic("Something", "This is something longer")),
 			deploy("foo", "kpa-not-ready"),
 			image("foo", "kpa-not-ready"),
@@ -286,6 +289,7 @@ func TestReconcile(t *testing.T) {
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: rev("foo", "kpa-not-ready",
 				WithLogURL, MarkRevisionReady,
+				withK8sServiceName("its-not-confidential"),
 				// When we reconcile a ready state and our KPA is in an activating
 				// state, we should see the following mutation.
 				MarkActivating("Something", "This is something longer"),
@@ -297,7 +301,7 @@ func TestReconcile(t *testing.T) {
 		// Test propagating the inactivity signal from the KPA to the Revision.
 		Objects: []runtime.Object{
 			rev("foo", "kpa-inactive",
-				withK8sServiceName, WithLogURL, MarkRevisionReady),
+				withK8sServiceName("something-in-the-way"), WithLogURL, MarkRevisionReady),
 			kpa("foo", "kpa-inactive",
 				WithNoTraffic("NoTraffic", "This thing is inactive.")),
 			deploy("foo", "kpa-inactive"),
@@ -312,13 +316,35 @@ func TestReconcile(t *testing.T) {
 		}},
 		Key: "foo/kpa-inactive",
 	}, {
+		Name: "kpa inactive, but has service",
+		// Test propagating the inactivity signal from the KPA to the Revision.
+		// But propagatethe service name.
+		Objects: []runtime.Object{
+			rev("foo", "kpa-inactive",
+				withK8sServiceName("here-comes-the-sun"), WithLogURL, MarkRevisionReady),
+			kpa("foo", "kpa-inactive",
+				WithNoTraffic("NoTraffic", "This thing is inactive."),
+				WithPAStatusService("kpa-inactive-svc")),
+			deploy("foo", "kpa-inactive"),
+			image("foo", "kpa-inactive"),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: rev("foo", "kpa-inactive",
+				WithLogURL, MarkRevisionReady,
+				withK8sServiceName("kpa-inactive-svc"),
+				// When we reconcile an "all ready" revision when the KPA
+				// is inactive, we should see the following change.
+				MarkInactive("NoTraffic", "This thing is inactive.")),
+		}},
+		Key: "foo/kpa-inactive",
+	}, {
 		Name: "mutated KPA gets fixed",
-		// This test validates, that when uers mess with the KPA directly
+		// This test validates, that when users mess with the KPA directly
 		// we bring it back to the required shape.
 		// Protocol type is the only thing that can be changed on KPA
 		Objects: []runtime.Object{
 			rev("foo", "fix-mutated-kpa",
-				withK8sServiceName, WithLogURL, MarkRevisionReady),
+				withK8sServiceName("ill-follow-the-sun"), WithLogURL, MarkRevisionReady),
 			kpa("foo", "fix-mutated-kpa", WithProtocolType(networking.ProtocolH2C), WithTraffic,
 				WithPAStatusService("fix-mutated-kpa")),
 			deploy("foo", "fix-mutated-kpa"),
@@ -341,7 +367,8 @@ func TestReconcile(t *testing.T) {
 		// Same as above, but will fail during the update.
 		Objects: []runtime.Object{
 			rev("foo", "fix-mutated-kpa-fail",
-				withK8sServiceName, WithLogURL, AllUnknownConditions),
+				withK8sServiceName("some-old-stuff"),
+				WithLogURL, AllUnknownConditions),
 			kpa("foo", "fix-mutated-kpa-fail", WithProtocolType(networking.ProtocolH2C)),
 			deploy("foo", "fix-mutated-kpa-fail"),
 			image("foo", "fix-mutated-kpa-fail"),
@@ -366,7 +393,7 @@ func TestReconcile(t *testing.T) {
 		// status of the Revision.
 		Objects: []runtime.Object{
 			rev("foo", "deploy-timeout",
-				withK8sServiceName, WithLogURL, MarkActive),
+				withK8sServiceName("the-taxman"), WithLogURL, MarkActive),
 			kpa("foo", "deploy-timeout"), // KPA can't be ready since deployment times out.
 			timeoutDeploy(deploy("foo", "deploy-timeout")),
 			image("foo", "deploy-timeout"),
@@ -392,7 +419,7 @@ func TestReconcile(t *testing.T) {
 		// that Reconcile propagates this into the status of the Revision.
 		Objects: []runtime.Object{
 			rev("foo", "pod-error",
-				withK8sServiceName, WithLogURL, AllUnknownConditions, MarkActive),
+				withK8sServiceName("a-pod-error"), WithLogURL, AllUnknownConditions, MarkActive),
 			kpa("foo", "pod-error"), // PA can't be ready, since no traffic.
 			pod("foo", "pod-error", WithFailingContainer("user-container", 5, "I failed man!")),
 			deploy("foo", "pod-error"),
@@ -532,15 +559,15 @@ func TestReconcile(t *testing.T) {
 		// Revision.  It then creates an Endpoints resource with active subsets.
 		// This signal should make our Reconcile mark the Revision as Ready.
 		Objects: []runtime.Object{
-			rev("foo", "steady-ready", withK8sServiceName, WithLogURL),
-			kpa("foo", "steady-ready", WithTraffic, WithPAStatusService(serviceName("steady-ready"))),
+			rev("foo", "steady-ready", withK8sServiceName("very-steady"), WithLogURL),
+			kpa("foo", "steady-ready", WithTraffic, WithPAStatusService("steadier-even")),
 			deploy("foo", "steady-ready"),
 			svc("foo", "steady-ready"),
 			endpoints("foo", "steady-ready", WithSubsets),
 			image("foo", "steady-ready"),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: rev("foo", "steady-ready", withK8sServiceName, WithLogURL,
+			Object: rev("foo", "steady-ready", withK8sServiceName("steadier-even"), WithLogURL,
 				// All resources are ready to go, we should see the revision being
 				// marked ready
 				MarkRevisionReady),
@@ -553,7 +580,7 @@ func TestReconcile(t *testing.T) {
 		Name:    "lost kpa owner ref",
 		WantErr: true,
 		Objects: []runtime.Object{
-			rev("foo", "missing-owners", withK8sServiceName, WithLogURL,
+			rev("foo", "missing-owners", withK8sServiceName("lesser-revision"), WithLogURL,
 				MarkRevisionReady),
 			kpa("foo", "missing-owners", WithTraffic, WithPodAutoscalerOwnersRemoved),
 			deploy("foo", "missing-owners"),
@@ -562,7 +589,7 @@ func TestReconcile(t *testing.T) {
 			image("foo", "missing-owners"),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: rev("foo", "missing-owners", withK8sServiceName, WithLogURL,
+			Object: rev("foo", "missing-owners", withK8sServiceName("lesser-revision"), WithLogURL,
 				MarkRevisionReady,
 				// When we're missing the OwnerRef for PodAutoscaler we see this update.
 				MarkResourceNotOwned("PodAutoscaler", "missing-owners")),
@@ -575,7 +602,7 @@ func TestReconcile(t *testing.T) {
 		Name:    "lost deployment owner ref",
 		WantErr: true,
 		Objects: []runtime.Object{
-			rev("foo", "missing-owners", withK8sServiceName, WithLogURL,
+			rev("foo", "missing-owners", withK8sServiceName("youre-gonna-lose"), WithLogURL,
 				MarkRevisionReady),
 			kpa("foo", "missing-owners", WithTraffic),
 			noOwner(deploy("foo", "missing-owners")),
@@ -584,7 +611,7 @@ func TestReconcile(t *testing.T) {
 			image("foo", "missing-owners"),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: rev("foo", "missing-owners", withK8sServiceName, WithLogURL,
+			Object: rev("foo", "missing-owners", withK8sServiceName("youre-gonna-lose"), WithLogURL,
 				MarkRevisionReady,
 				// When we're missing the OwnerRef for Deployment we see this update.
 				MarkResourceNotOwned("Deployment", "missing-owners-deployment")),
@@ -711,7 +738,7 @@ func TestReconcileWithVarLogEnabled(t *testing.T) {
 		},
 		Objects: []runtime.Object{
 			rev("foo", "update-configmap-failure",
-				withK8sServiceName, WithLogURL, AllUnknownConditions),
+				withK8sServiceName("more-failures"), WithLogURL, AllUnknownConditions),
 			deploy("foo", "update-configmap-failure", EnableVarLog),
 			&corev1.ConfigMap{
 				// Use the ObjectMeta, but discard the rest.
@@ -817,8 +844,10 @@ func rev(namespace, name string, ro ...RevisionOption) *v1alpha1.Revision {
 	return r
 }
 
-func withK8sServiceName(r *v1alpha1.Revision) {
-	r.Status.ServiceName = serviceName(r.Name)
+func withK8sServiceName(sn string) RevisionOption {
+	return func(r *v1alpha1.Revision) {
+		r.Status.ServiceName = sn
+	}
 }
 
 // TODO(mattmoor): Come up with a better name for this.
