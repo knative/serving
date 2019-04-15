@@ -30,7 +30,6 @@ import (
 	pkghttp "github.com/knative/serving/pkg/http"
 	"github.com/knative/serving/pkg/network"
 	"github.com/knative/serving/pkg/queue"
-	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/serverlessservice/resources/names"
 	"go.uber.org/zap"
@@ -204,7 +203,7 @@ func (a *ActivationHandler) serviceHostName(rev *v1alpha1.Revision) (string, err
 		return "", errors.New("revision needs external HTTP port")
 	}
 
-	serviceFQDN := reconciler.GetK8sServiceFullname(serviceName, rev.Namespace)
+	serviceFQDN := network.GetServiceHostname(serviceName, rev.Namespace)
 
 	return fmt.Sprintf("%s:%d", serviceFQDN, port), nil
 }

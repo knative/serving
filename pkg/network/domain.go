@@ -18,6 +18,7 @@ package network
 
 import (
 	"bufio"
+	"fmt"
 	"io"
 	"os"
 	"strings"
@@ -33,6 +34,11 @@ var (
 	domainName string
 	once       sync.Once
 )
+
+// GetServiceHostname returns the fully qualified service hostname
+func GetServiceHostname(name string, namespace string) string {
+	return fmt.Sprintf("%s.%s.svc.%s", name, namespace, GetClusterDomainName())
+}
 
 // GetClusterDomainName returns cluster's domain name or an error
 // Closes issue: https://github.com/knative/eventing/issues/714

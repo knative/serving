@@ -33,7 +33,6 @@ import (
 	"github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/network"
-	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/clusteringress/resources/names"
 )
 
@@ -103,7 +102,7 @@ func makeVirtualServiceRoute(hosts []string, http *v1alpha1.HTTPClusterIngressPa
 	for _, split := range http.Splits {
 		weights = append(weights, v1alpha3.DestinationWeight{
 			Destination: v1alpha3.Destination{
-				Host: reconciler.GetK8sServiceFullname(
+				Host: network.GetServiceHostname(
 					split.ServiceName, split.ServiceNamespace),
 				Port: makePortSelector(split.ServicePort),
 			},

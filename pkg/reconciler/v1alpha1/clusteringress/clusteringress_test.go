@@ -46,6 +46,7 @@ import (
 	"github.com/knative/serving/pkg/apis/serving"
 	fakeclientset "github.com/knative/serving/pkg/client/clientset/versioned/fake"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
+	"github.com/knative/serving/pkg/network"
 	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/clusteringress/config"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/clusteringress/resources"
@@ -166,7 +167,7 @@ func TestReconcile(t *testing.T) {
 				v1alpha1.IngressStatus{
 					LoadBalancer: &v1alpha1.LoadBalancerStatus{
 						Ingress: []v1alpha1.LoadBalancerIngressStatus{
-							{DomainInternal: reconciler.GetK8sServiceFullname("knative-ingressgateway", "istio-system")},
+							{DomainInternal: network.GetServiceHostname("knative-ingressgateway", "istio-system")},
 						},
 					},
 					Status: duckv1beta1.Status{
@@ -219,7 +220,7 @@ func TestReconcile(t *testing.T) {
 				v1alpha1.IngressStatus{
 					LoadBalancer: &v1alpha1.LoadBalancerStatus{
 						Ingress: []v1alpha1.LoadBalancerIngressStatus{
-							{DomainInternal: reconciler.GetK8sServiceFullname("knative-ingressgateway", "istio-system")},
+							{DomainInternal: network.GetServiceHostname("knative-ingressgateway", "istio-system")},
 						},
 					},
 					Status: duckv1beta1.Status{
@@ -291,7 +292,7 @@ func TestReconcile_Gateway(t *testing.T) {
 				v1alpha1.IngressStatus{
 					LoadBalancer: &v1alpha1.LoadBalancerStatus{
 						Ingress: []v1alpha1.LoadBalancerIngressStatus{
-							{DomainInternal: reconciler.GetK8sServiceFullname("istio-ingressgateway", "istio-system")},
+							{DomainInternal: network.GetServiceHostname("istio-ingressgateway", "istio-system")},
 						},
 					},
 					Status: duckv1beta1.Status{
@@ -336,7 +337,7 @@ func TestReconcile_Gateway(t *testing.T) {
 				v1alpha1.IngressStatus{
 					LoadBalancer: &v1alpha1.LoadBalancerStatus{
 						Ingress: []v1alpha1.LoadBalancerIngressStatus{
-							{DomainInternal: reconciler.GetK8sServiceFullname("istio-ingressgateway", "istio-system")},
+							{DomainInternal: network.GetServiceHostname("istio-ingressgateway", "istio-system")},
 						},
 					},
 					Status: duckv1beta1.Status{
@@ -409,7 +410,7 @@ func TestReconcile_Gateway(t *testing.T) {
 					Istio: &config.Istio{
 						IngressGateways: []config.Gateway{{
 							GatewayName: "knative-ingress-gateway",
-							ServiceURL:  reconciler.GetK8sServiceFullname("istio-ingressgateway", "istio-system"),
+							ServiceURL:  network.GetServiceHostname("istio-ingressgateway", "istio-system"),
 						}},
 					},
 				},
@@ -471,10 +472,10 @@ func ReconcilerTestConfig() *config.Config {
 		Istio: &config.Istio{
 			IngressGateways: []config.Gateway{{
 				GatewayName: "knative-shared-gateway",
-				ServiceURL:  reconciler.GetK8sServiceFullname("knative-ingressgateway", "istio-system"),
+				ServiceURL:  network.GetServiceHostname("knative-ingressgateway", "istio-system"),
 			}, {
 				GatewayName: "knative-ingress-gateway",
-				ServiceURL:  reconciler.GetK8sServiceFullname("istio-ingressgateway", "istio-system"),
+				ServiceURL:  network.GetServiceHostname("istio-ingressgateway", "istio-system"),
 			}},
 		},
 	}

@@ -1572,7 +1572,7 @@ func readyIngressStatus() netv1alpha1.IngressStatus {
 	status.InitializeConditions()
 	status.MarkNetworkConfigured()
 	status.MarkLoadBalancerReady([]netv1alpha1.LoadBalancerIngressStatus{
-		{DomainInternal: reconciler.GetK8sServiceFullname("istio-ingressgateway", "istio-system")},
+		{DomainInternal: network.GetServiceHostname("istio-ingressgateway", "istio-system")},
 	})
 
 	return status
