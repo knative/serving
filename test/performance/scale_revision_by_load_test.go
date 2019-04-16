@@ -119,8 +119,10 @@ func scaleRevisionByLoad(t *testing.T, numClients int) []junit.TestCase {
 	}
 	t.Logf("Took %v for the endpoint to start serving", time.Since(st))
 
-	scaleChannel := make(chan *scaleEvent, 100)
-	stopInformer := make(chan struct{})
+	// The number of scale events should be at most ~numClients/targetConcurrency,
+	// adding a big buffer to account for unexpected events
+	scaleCh := make(chan *scaleEvent, numClients/targetConcurrency*10)
+	stopCh := make(chan struct{})
 
 	factory := informers.NewSharedInformerFactory(clients.KubeClient.Kube, 0)
 	endpointsInformer := factory.Core().V1().Endpoints().Informer()
@@ -137,14 +139,14 @@ func scaleRevisionByLoad(t *testing.T, numClients int) []junit.TestCase {
 						timestamp: time.Now(),
 					}
 					select {
-					case scaleChannel <- event:
+					case scaleCh <- event:
 					default:
 					}
 				}
 			}
 		},
 	})
-	controller.StartInformers(stopInformer, endpointsInformer)
+	controller.StartInformers(stopCh, endpointsInformer)
 
 	opts := loadgenerator.GeneratorOptions{
 		Duration:       iterationDuration,
@@ -161,8 +163,8 @@ func scaleRevisionByLoad(t *testing.T, numClients int) []junit.TestCase {
 		t.Fatalf("Generating traffic via fortio failed: %v", err)
 	}
 
-	close(stopInformer)
-	close(scaleChannel)
+	close(stopCh)
+	close(scaleCh)
 
 	// Save the json result for benchmarking
 	resp.SaveJSON(strings.Replace(t.Name(), "/", "_", -1))
@@ -174,7 +176,7 @@ func scaleRevisionByLoad(t *testing.T, numClients int) []junit.TestCase {
 	tc = append(tc, CreatePerfTestCase(float32(resp.Result.ActualQPS), "actualQPS", t.Name()))
 	tc = append(tc, CreatePerfTestCase(float32(errorsPercentage(resp)), "errorsPercentage", t.Name()))
 
-	for ev := range scaleChannel {
+	for ev := range scaleCh {
 		t.Logf("Scaled: %d -> %d in %v", ev.oldScale, ev.newScale, ev.timestamp.Sub(resp.Result.StartTime))
 		tc = append(tc, CreatePerfTestCase(float32(ev.timestamp.Sub(resp.Result.StartTime)/time.Second), fmt.Sprintf("scale-from-%02d-to-%02d(seconds)", ev.oldScale, ev.newScale), t.Name()))
 	}
