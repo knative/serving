@@ -42,7 +42,6 @@ import (
 	"github.com/knative/serving/pkg/queue"
 	"github.com/knative/serving/pkg/queue/health"
 	queuestats "github.com/knative/serving/pkg/queue/stats"
-	"github.com/knative/serving/pkg/utils"
 
 	"k8s.io/apimachinery/pkg/util/wait"
 )
@@ -337,7 +336,7 @@ func pushRequestLogHandler(currentHandler http.Handler) http.Handler {
 		PodName:       servingPodName,
 		PodIP:         servingPodIP,
 	}
-	handler, err := queue.NewRequestLogHandler(currentHandler, utils.NewSyncFileWriter(os.Stdout), templ, revInfo)
+	handler, err := queue.NewRequestLogHandler(currentHandler, logging.NewSyncFileWriter(os.Stdout), templ, revInfo)
 
 	if err != nil {
 		logger.Errorw("Error setting up request logger. Request logs will be unavailable.", zap.Error(err))
