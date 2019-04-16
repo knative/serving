@@ -706,6 +706,16 @@ func TestContainerConcurrencyValidation(t *testing.T) {
 		cm:   RevisionRequestConcurrencyModelMulti,
 		want: apis.ErrMultipleOneOf("containerConcurrency", "concurrencyModel"),
 	}, {
+		name: "mismatching container concurrency (>1) and Multi",
+		cc:   2,
+		cm:   RevisionRequestConcurrencyModelMulti,
+		want: apis.ErrMultipleOneOf("containerConcurrency", "concurrencyModel"),
+	}, {
+		name: "mismatching container concurrency (>1) and Single",
+		cc:   2,
+		cm:   RevisionRequestConcurrencyModelSingle,
+		want: apis.ErrMultipleOneOf("containerConcurrency", "concurrencyModel"),
+	}, {
 		name: "mismatching container concurrency (0) and concurrency model (single)",
 		cc:   0,
 		cm:   RevisionRequestConcurrencyModelSingle,
@@ -758,6 +768,19 @@ func TestRevisionSpecValidation(t *testing.T) {
 		},
 		want: apis.ErrDisallowedFields("buildName", "concurrencyModel",
 			"generation", "servingState"),
+	}, {
+		name: "missing container",
+		rs: &RevisionSpec{
+			Volumes: []corev1.Volume{{
+				Name: "the-name",
+				VolumeSource: corev1.VolumeSource{
+					Secret: &corev1.SecretVolumeSource{
+						SecretName: "foo",
+					},
+				},
+			}},
+		},
+		want: apis.ErrMissingField("container"),
 	}, {
 		name: "with volume (ok)",
 		rs: &RevisionSpec{
@@ -846,6 +869,15 @@ func TestRevisionSpecValidation(t *testing.T) {
 		want: apis.ErrOutOfBoundsValue(6000, 0,
 			net.DefaultTimeout.Seconds(),
 			"timeoutSeconds"),
+	}, {
+		name: "provided zero timeout (ok)",
+		rs: &RevisionSpec{
+			Container: &corev1.Container{
+				Image: "helloworld",
+			},
+			TimeoutSeconds: ptr.Int64(0),
+		},
+		want: nil,
 	}, {
 		name: "negative timeout",
 		rs: &RevisionSpec{
