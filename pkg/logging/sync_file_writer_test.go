@@ -14,23 +14,30 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package testing
+package logging
 
 import (
-	v1 "k8s.io/api/core/v1"
+	"io/ioutil"
+	"os"
+	"testing"
 )
 
-// GetTestEndpointsSubset generates the subsets of endpoints used for testing.
-// It returns a list of desired number of subsets including the desired number of hosts per each subset.
-func GetTestEndpointsSubset(hostsPerSubset, subsets int) []v1.EndpointSubset {
-	resp := []v1.EndpointSubset{}
-	if hostsPerSubset > 0 {
-		addresses := make([]v1.EndpointAddress, hostsPerSubset)
-		subset := v1.EndpointSubset{Addresses: addresses}
-		for s := 0; s < subsets; s++ {
-			resp = append(resp, subset)
-		}
-		return resp
+func TestWrite(t *testing.T) {
+	file, err := ioutil.TempFile("", "sync_file_writer_test")
+	if err != nil {
+		t.Fatal("failed to create a temp file for the test")
 	}
-	return resp
+	defer os.Remove(file.Name())
+
+	w := NewSyncFileWriter(file)
+	w.Write([]byte("line1\n"))
+	w.Write([]byte("line2\n"))
+	file.Close()
+
+	want := "line1\nline2\n"
+	gotBytes, _ := ioutil.ReadFile(file.Name())
+	got := string(gotBytes)
+	if got != want {
+		t.Errorf("got %v, want %v", got, want)
+	}
 }

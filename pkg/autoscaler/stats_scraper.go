@@ -73,17 +73,17 @@ type ServiceScraper struct {
 }
 
 // NewServiceScraper creates a new StatsScraper for the Revision which
-// the given Decider is responsible for.
-func NewServiceScraper(decider *Decider, endpointsLister corev1listers.EndpointsLister) (*ServiceScraper, error) {
-	return newServiceScraperWithClient(decider, endpointsLister, cacheDisabledClient)
+// the given Metric is responsible for.
+func NewServiceScraper(metric *Metric, endpointsLister corev1listers.EndpointsLister) (*ServiceScraper, error) {
+	return newServiceScraperWithClient(metric, endpointsLister, cacheDisabledClient)
 }
 
 func newServiceScraperWithClient(
-	decider *Decider,
+	metric *Metric,
 	endpointsLister corev1listers.EndpointsLister,
 	httpClient *http.Client) (*ServiceScraper, error) {
-	if decider == nil {
-		return nil, errors.New("decider must not be nil")
+	if metric == nil {
+		return nil, errors.New("metric must not be nil")
 	}
 	if endpointsLister == nil {
 		return nil, errors.New("endpoints lister must not be nil")
@@ -91,18 +91,18 @@ func newServiceScraperWithClient(
 	if httpClient == nil {
 		return nil, errors.New("HTTP client must not be nil")
 	}
-	revName := decider.Labels[serving.RevisionLabelKey]
+	revName := metric.Labels[serving.RevisionLabelKey]
 	if revName == "" {
-		return nil, fmt.Errorf("no Revision label found for Decider %s", decider.Name)
+		return nil, fmt.Errorf("no Revision label found for Metric %s", metric.Name)
 	}
 
 	serviceName := names.MetricsServiceName(revName)
 	return &ServiceScraper{
 		httpClient:          httpClient,
 		endpointsLister:     endpointsLister,
-		url:                 fmt.Sprintf("http://%s.%s:%d/metrics", serviceName, decider.Namespace, v1alpha1.RequestQueueMetricsPort),
-		metricKey:           NewMetricKey(decider.Namespace, decider.Name),
-		namespace:           decider.Namespace,
+		url:                 fmt.Sprintf("http://%s.%s:%d/metrics", serviceName, metric.Namespace, v1alpha1.RequestQueueMetricsPort),
+		metricKey:           NewMetricKey(metric.Namespace, metric.Name),
+		namespace:           metric.Namespace,
 		scrapeTargetService: serviceName,
 	}, nil
 }

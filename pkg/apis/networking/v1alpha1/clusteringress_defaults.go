@@ -19,13 +19,14 @@ package v1alpha1
 import (
 	"context"
 
+	"github.com/knative/pkg/apis"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/knative/serving/pkg/apis/networking"
 )
 
 func (c *ClusterIngress) SetDefaults(ctx context.Context) {
-	c.Spec.SetDefaults(ctx)
+	c.Spec.SetDefaults(apis.WithinSpec(ctx))
 }
 
 func (c *IngressSpec) SetDefaults(ctx context.Context) {

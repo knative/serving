@@ -38,6 +38,7 @@ import (
 	"github.com/knative/serving/pkg/activator"
 	activatorhandler "github.com/knative/serving/pkg/activator/handler"
 	activatorutil "github.com/knative/serving/pkg/activator/util"
+	"github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/autoscaler"
@@ -47,10 +48,11 @@ import (
 	"github.com/knative/serving/pkg/http/h2c"
 	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/pkg/metrics"
+	"github.com/knative/serving/pkg/network"
 	"github.com/knative/serving/pkg/queue"
 	"github.com/knative/serving/pkg/reconciler"
+	"github.com/knative/serving/pkg/reconciler/v1alpha1/serverlessservice/resources/names"
 	"github.com/knative/serving/pkg/resources"
-	"github.com/knative/serving/pkg/utils"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/wait"
 	kubeinformers "k8s.io/client-go/informers"
@@ -197,8 +199,12 @@ func main() {
 	params := queue.BreakerParams{QueueDepth: breakerQueueDepth, MaxConcurrency: breakerMaxConcurrency, InitialCapacity: 0}
 
 	// Return the number of endpoints, 0 if no endpoints are found.
-	endpointsGetter := func(revID activator.RevisionID) (int32, error) {
-		count, err := resources.FetchReadyAddressCount(endpointInformer.Lister(), revID.Namespace, revID.Name)
+	endpointsGetter := func(rev *v1alpha1.Revision) (int32, error) {
+		// We have to read the private service endpoints in activator
+		// in order to count the serving pod count.
+		// TODO(vagababov): reduce the layer jump and use SKS.Status.PrivateService here.
+		sn := names.PrivateService(rev.Name)
+		count, err := resources.FetchReadyAddressCount(endpointInformer.Lister(), rev.Namespace, sn)
 		return int32(count), err
 	}
 
@@ -220,20 +226,29 @@ func main() {
 	throttler := activator.NewThrottler(throttlerParams)
 
 	handler := cache.ResourceEventHandlerFuncs{
-		AddFunc:    activator.UpdateEndpoints(throttler),
-		UpdateFunc: controller.PassNew(activator.UpdateEndpoints(throttler)),
-		DeleteFunc: activator.DeleteBreaker(throttler),
+		AddFunc:    throttler.UpdateEndpoints,
+		UpdateFunc: controller.PassNew(throttler.UpdateEndpoints),
+		DeleteFunc: throttler.DeleteBreaker,
 	}
 
 	// Update/create the breaker in the throttler when the number of endpoints changes.
+	// Pass only the endpoints created by revisions.
+	// TODO(greghaynes) we have to allow unset and use the old RevisionUID filter for backwards compat.
+	// When we can assume our ServiceTypeKey label is present in all services we can filter all but
+	// networking.ServiceTypeKey == networking.ServiceTypePublic
+	epFilter := reconciler.ChainFilterFuncs(
+		reconciler.LabelExistsFilterFunc(serving.RevisionUID),
+		// We are only interested in the private services, since that is
+		// what is populated by the actual revision backends.
+		reconciler.LabelFilterFunc(networking.ServiceTypeKey, string(networking.ServiceTypePrivate), true),
+	)
 	endpointInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
-		// Pass only the endpoints created by revisions.
-		FilterFunc: reconciler.LabelExistsFilterFunc(serving.RevisionUID),
+		FilterFunc: epFilter,
 		Handler:    handler,
 	})
 
 	// Open a websocket connection to the autoscaler
-	autoscalerEndpoint := fmt.Sprintf("ws://%s.%s.svc.%s:%d", "autoscaler", system.Namespace(), utils.GetClusterDomainName(), autoscalerPort)
+	autoscalerEndpoint := fmt.Sprintf("ws://%s.%s.svc.%s:%d", "autoscaler", system.Namespace(), network.GetClusterDomainName(), autoscalerPort)
 	logger.Info("Connecting to autoscaler at", autoscalerEndpoint)
 	statSink := websocket.NewDurableSendingConnection(autoscalerEndpoint, logger)
 	go statReporter(statSink, stopCh, statChan, logger)

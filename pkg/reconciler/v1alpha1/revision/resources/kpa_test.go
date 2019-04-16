@@ -21,8 +21,9 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	"github.com/knative/pkg/ptr"
 	autoscalingv1 "k8s.io/api/autoscaling/v1"
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -70,8 +71,8 @@ func TestMakeKPA(t *testing.T) {
 					Kind:               "Revision",
 					Name:               "bar",
 					UID:                "1234",
-					Controller:         &boolTrue,
-					BlockOwnerDeletion: &boolTrue,
+					Controller:         ptr.Bool(true),
+					BlockOwnerDeletion: ptr.Bool(true),
 				}},
 			},
 			Spec: kpa.PodAutoscalerSpec{
@@ -95,8 +96,8 @@ func TestMakeKPA(t *testing.T) {
 			},
 			Spec: v1alpha1.RevisionSpec{
 				ContainerConcurrency: 0,
-				Container: v1.Container{
-					Ports: []v1.ContainerPort{{
+				Container: &corev1.Container{
+					Ports: []corev1.ContainerPort{{
 						Name:     "h2c",
 						HostPort: int32(443),
 					}},
@@ -118,8 +119,8 @@ func TestMakeKPA(t *testing.T) {
 					Kind:               "Revision",
 					Name:               "baz",
 					UID:                "4321",
-					Controller:         &boolTrue,
-					BlockOwnerDeletion: &boolTrue,
+					Controller:         ptr.Bool(true),
+					BlockOwnerDeletion: ptr.Bool(true),
 				}},
 			},
 			Spec: kpa.PodAutoscalerSpec{

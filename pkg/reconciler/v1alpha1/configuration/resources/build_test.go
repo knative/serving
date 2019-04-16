@@ -26,8 +26,6 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-var boolTrue = true
-
 func TestBuilds(t *testing.T) {
 	tests := []struct {
 		name          string
@@ -41,9 +39,9 @@ func TestBuilds(t *testing.T) {
 				Name:      "build",
 			},
 			Spec: v1alpha1.ConfigurationSpec{
-				RevisionTemplate: v1alpha1.RevisionTemplateSpec{
+				RevisionTemplate: &v1alpha1.RevisionTemplateSpec{
 					Spec: v1alpha1.RevisionSpec{
-						Container: corev1.Container{
+						Container: &corev1.Container{
 							Image: "busybox",
 						},
 					},
@@ -64,9 +62,9 @@ func TestBuilds(t *testing.T) {
 						Image: "busybox",
 					}},
 				}},
-				RevisionTemplate: v1alpha1.RevisionTemplateSpec{
+				RevisionTemplate: &v1alpha1.RevisionTemplateSpec{
 					Spec: v1alpha1.RevisionSpec{
-						Container: corev1.Container{
+						Container: &corev1.Container{
 							Image: "busybox",
 						},
 					},
@@ -130,9 +128,9 @@ func TestBuilds(t *testing.T) {
 							}},
 						},
 					}},
-				RevisionTemplate: v1alpha1.RevisionTemplateSpec{
+				RevisionTemplate: &v1alpha1.RevisionTemplateSpec{
 					Spec: v1alpha1.RevisionSpec{
-						Container: corev1.Container{
+						Container: &corev1.Container{
 							Image: "busybox",
 						},
 					},
@@ -187,9 +185,9 @@ func TestBuilds(t *testing.T) {
 						}},
 					},
 				}},
-				RevisionTemplate: v1alpha1.RevisionTemplateSpec{
+				RevisionTemplate: &v1alpha1.RevisionTemplateSpec{
 					Spec: v1alpha1.RevisionSpec{
-						Container: corev1.Container{
+						Container: &corev1.Container{
 							Image: "busybox",
 						},
 					},

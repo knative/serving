@@ -21,7 +21,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"text/template"
 
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
@@ -71,16 +70,6 @@ var (
 type configStore interface {
 	ToContext(ctx context.Context) context.Context
 	WatchConfigs(w configmap.Watcher)
-}
-
-// DomainTemplateValues are the available properties people can choose from
-// in their Route's "DomainTemplate" golang template sting.
-// We could add more over time - e.g. RevisionName if we thought that
-// might be of interest to people.
-type DomainTemplateValues struct {
-	Name      string
-	Namespace string
-	Domain    string
 }
 
 // Reconciler implements controller.Reconciler for Route resources.
@@ -261,7 +250,7 @@ func (c *Reconciler) reconcile(ctx context.Context, r *v1alpha1.Route) error {
 
 	r.Status.InitializeConditions()
 
-	logger.Infof("Reconciling route: %v", r)
+	logger.Infof("Reconciling route: %#v", r)
 
 	// Update the information that makes us Addressable. This is needed to configure traffic and
 	// make the cluster ingress.
@@ -432,7 +421,7 @@ func objectRef(a accessor, gvk schema.GroupVersionKind) corev1.ObjectReference {
 	}
 }
 
-// routeDeomain will generate the Route's Domain(host) for the Service based on
+// routeDomain will generate the Route's Domain(host) for the Service based on
 // the "DomainTemplateKey" from the "config-network" configMap.
 func routeDomain(ctx context.Context, route *v1alpha1.Route) (string, error) {
 	domainConfig := config.FromContext(ctx).Domain
@@ -441,24 +430,16 @@ func routeDomain(ctx context.Context, route *v1alpha1.Route) (string, error) {
 	// These are the available properties they can choose from.
 	// We could add more over time - e.g. RevisionName if we thought that
 	// might be of interest to people.
-	data := DomainTemplateValues{
+	data := network.DomainTemplateValues{
 		Name:      route.Name,
 		Namespace: route.Namespace,
 		Domain:    domain,
 	}
 
 	networkConfig := config.FromContext(ctx).Network
-	text := networkConfig.DomainTemplate
-
-	// It's ok if we keep using the same name
-	templ, err := template.New("knTemplate").Parse(text)
-	if err != nil {
-		return "", fmt.Errorf("Error parsing the DomainTemplate(%s): %s", text, err)
-	}
-
 	buf := bytes.Buffer{}
-	if err := templ.Execute(&buf, data); err != nil {
-		return "", fmt.Errorf("Error executing the DomainTemplate(%s): %s", text, err)
+	if err := networkConfig.GetDomainTemplate().Execute(&buf, data); err != nil {
+		return "", fmt.Errorf("error executing the DomainTemplate: %s", err)
 	}
 	return buf.String(), nil
 }

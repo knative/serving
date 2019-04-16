@@ -13,32 +13,11 @@ limitations under the License.
 package util
 
 import (
-	"io"
 	"net/http"
 	"testing"
 
 	"k8s.io/apimachinery/pkg/util/sets"
 )
-
-type spyReadCloser struct {
-	io.ReadCloser
-	Closed         bool
-	ReadAfterClose bool
-}
-
-func (s *spyReadCloser) Read(b []byte) (n int, err error) {
-	if s.Closed {
-		s.ReadAfterClose = true
-	}
-
-	return s.ReadCloser.Read(b)
-}
-
-func (s *spyReadCloser) Close() error {
-	s.Closed = true
-
-	return s.ReadCloser.Close()
-}
 
 func TestHTTPRoundTripper(t *testing.T) {
 	wants := sets.NewString()

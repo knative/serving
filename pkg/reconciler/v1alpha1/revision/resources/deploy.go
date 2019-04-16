@@ -80,7 +80,7 @@ func rewriteUserProbe(p *corev1.Probe, userPort int) {
 }
 
 func makePodSpec(rev *v1alpha1.Revision, loggingConfig *logging.Config, observabilityConfig *config.Observability, autoscalerConfig *autoscaler.Config, controllerConfig *config.Controller) *corev1.PodSpec {
-	userContainer := rev.Spec.Container.DeepCopy()
+	userContainer := rev.Spec.GetContainer().DeepCopy()
 	// Adding or removing an overwritten corev1.Container field here? Don't forget to
 	// update the validations in pkg/webhook.validateContainer.
 	userContainer.Name = UserContainerName
@@ -111,8 +111,6 @@ func makePodSpec(rev *v1alpha1.Revision, loggingConfig *logging.Config, observab
 	rewriteUserProbe(userContainer.ReadinessProbe, userPortInt)
 	rewriteUserProbe(userContainer.LivenessProbe, userPortInt)
 
-	revisionTimeout := rev.Spec.TimeoutSeconds
-
 	podSpec := &corev1.PodSpec{
 		Containers: []corev1.Container{
 			*userContainer,
@@ -120,7 +118,7 @@ func makePodSpec(rev *v1alpha1.Revision, loggingConfig *logging.Config, observab
 		},
 		Volumes:                       append([]corev1.Volume{varLogVolume}, rev.Spec.Volumes...),
 		ServiceAccountName:            rev.Spec.ServiceAccountName,
-		TerminationGracePeriodSeconds: &revisionTimeout,
+		TerminationGracePeriodSeconds: rev.Spec.TimeoutSeconds,
 	}
 
 	// Add Fluentd sidecar and its config map volume if var log collection is enabled.
@@ -133,8 +131,8 @@ func makePodSpec(rev *v1alpha1.Revision, loggingConfig *logging.Config, observab
 }
 
 func getUserPort(rev *v1alpha1.Revision) int32 {
-	if len(rev.Spec.Container.Ports) == 1 {
-		return rev.Spec.Container.Ports[0].ContainerPort
+	if len(rev.Spec.GetContainer().Ports) == 1 {
+		return rev.Spec.GetContainer().Ports[0].ContainerPort
 	}
 
 	//TODO(#2258): Use container EXPOSE metadata from image before falling back to default value

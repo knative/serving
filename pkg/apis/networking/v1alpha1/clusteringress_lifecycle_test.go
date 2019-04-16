@@ -73,22 +73,22 @@ func TestCITypicalFlow(t *testing.T) {
 	r := &IngressStatus{}
 	r.InitializeConditions()
 
-	apitest.CheckConditionOngoing(&r.Status, ClusterIngressConditionReady, t)
+	apitest.CheckConditionOngoing(r.duck(), ClusterIngressConditionReady, t)
 
 	// Then network is configured.
 	r.MarkNetworkConfigured()
-	apitest.CheckConditionSucceeded(&r.Status, ClusterIngressConditionNetworkConfigured, t)
-	apitest.CheckConditionOngoing(&r.Status, ClusterIngressConditionReady, t)
+	apitest.CheckConditionSucceeded(r.duck(), ClusterIngressConditionNetworkConfigured, t)
+	apitest.CheckConditionOngoing(r.duck(), ClusterIngressConditionReady, t)
 
 	// Then ingress has address.
 	r.MarkLoadBalancerReady([]LoadBalancerIngressStatus{{DomainInternal: "gateway.default.svc"}})
-	apitest.CheckConditionSucceeded(&r.Status, ClusterIngressConditionLoadBalancerReady, t)
-	apitest.CheckConditionSucceeded(&r.Status, ClusterIngressConditionReady, t)
+	apitest.CheckConditionSucceeded(r.duck(), ClusterIngressConditionLoadBalancerReady, t)
+	apitest.CheckConditionSucceeded(r.duck(), ClusterIngressConditionReady, t)
 	if !r.IsReady() {
 		t.Fatal("IsReady()=false, wanted true")
 	}
 
 	// Mark not owned.
 	r.MarkResourceNotOwned("i own", "you")
-	apitest.CheckConditionFailed(&r.Status, ClusterIngressConditionReady, t)
+	apitest.CheckConditionFailed(r.duck(), ClusterIngressConditionReady, t)
 }

@@ -24,6 +24,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
+	"github.com/knative/pkg/ptr"
 	"github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving"
@@ -31,10 +32,8 @@ import (
 )
 
 var (
-	boolTrue  = true
-	boolFalse = false
-	goodPod   = "good-pod"
-	badPod    = "bad-pod"
+	goodPod = "good-pod"
+	badPod  = "bad-pod"
 )
 
 func TestMakeService(t *testing.T) {
@@ -79,8 +78,8 @@ func TestMakeService(t *testing.T) {
 					Kind:               "ServerlessService",
 					Name:               "collie",
 					UID:                "1982",
-					Controller:         &boolTrue,
-					BlockOwnerDeletion: &boolTrue,
+					Controller:         ptr.Bool(true),
+					BlockOwnerDeletion: ptr.Bool(true),
 				}},
 			},
 			Spec: corev1.ServiceSpec{
@@ -134,8 +133,8 @@ func TestMakeService(t *testing.T) {
 					Kind:               "ServerlessService",
 					Name:               "dream",
 					UID:                "1988",
-					Controller:         &boolTrue,
-					BlockOwnerDeletion: &boolTrue,
+					Controller:         ptr.Bool(true),
+					BlockOwnerDeletion: ptr.Bool(true),
 				}},
 			},
 			Spec: corev1.ServiceSpec{
@@ -157,7 +156,7 @@ func TestMakeService(t *testing.T) {
 			}
 			// Now let's patch selector.
 			test.want.Spec.Selector = test.sks.Spec.Selector
-			test.want.Name = names.PrivateService(test.sks)
+			test.want.Name = names.PrivateService(test.sks.Name)
 			test.want.Labels[networking.ServiceTypeKey] = "Private"
 
 			got = MakePrivateService(test.sks)
@@ -216,8 +215,8 @@ func TestMakeEndpoints(t *testing.T) {
 					Kind:               "ServerlessService",
 					Name:               "collie",
 					UID:                "1982",
-					Controller:         &boolTrue,
-					BlockOwnerDeletion: &boolTrue,
+					Controller:         ptr.Bool(true),
+					BlockOwnerDeletion: ptr.Bool(true),
 				}},
 			},
 		},
@@ -279,8 +278,8 @@ func TestMakeEndpoints(t *testing.T) {
 					Kind:               "ServerlessService",
 					Name:               "collie",
 					UID:                "1982",
-					Controller:         &boolTrue,
-					BlockOwnerDeletion: &boolTrue,
+					Controller:         ptr.Bool(true),
+					BlockOwnerDeletion: ptr.Bool(true),
 				}},
 			},
 			Subsets: []corev1.EndpointSubset{{

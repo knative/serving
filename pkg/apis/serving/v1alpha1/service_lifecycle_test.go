@@ -172,23 +172,22 @@ func TestServiceIsReady(t *testing.T) {
 
 func TestServiceHappyPath(t *testing.T) {
 	svc := &ServiceStatus{}
-	d := &svc.Status
 	svc.InitializeConditions()
-	apitesting.CheckConditionOngoing(d, ServiceConditionReady, t)
-	apitesting.CheckConditionOngoing(d, ServiceConditionConfigurationsReady, t)
-	apitesting.CheckConditionOngoing(d, ServiceConditionRoutesReady, t)
+	apitesting.CheckConditionOngoing(svc.duck(), ServiceConditionReady, t)
+	apitesting.CheckConditionOngoing(svc.duck(), ServiceConditionConfigurationsReady, t)
+	apitesting.CheckConditionOngoing(svc.duck(), ServiceConditionRoutesReady, t)
 
 	// Nothing from Configuration is nothing to us.
 	svc.PropagateConfigurationStatus(&ConfigurationStatus{})
-	apitesting.CheckConditionOngoing(d, ServiceConditionReady, t)
-	apitesting.CheckConditionOngoing(d, ServiceConditionConfigurationsReady, t)
-	apitesting.CheckConditionOngoing(d, ServiceConditionRoutesReady, t)
+	apitesting.CheckConditionOngoing(svc.duck(), ServiceConditionReady, t)
+	apitesting.CheckConditionOngoing(svc.duck(), ServiceConditionConfigurationsReady, t)
+	apitesting.CheckConditionOngoing(svc.duck(), ServiceConditionRoutesReady, t)
 
 	// Nothing from Route is nothing to us.
 	svc.PropagateRouteStatus(&RouteStatus{})
-	apitesting.CheckConditionOngoing(d, ServiceConditionReady, t)
-	apitesting.CheckConditionOngoing(d, ServiceConditionConfigurationsReady, t)
-	apitesting.CheckConditionOngoing(d, ServiceConditionRoutesReady, t)
+	apitesting.CheckConditionOngoing(svc.duck(), ServiceConditionReady, t)
+	apitesting.CheckConditionOngoing(svc.duck(), ServiceConditionConfigurationsReady, t)
+	apitesting.CheckConditionOngoing(svc.duck(), ServiceConditionRoutesReady, t)
 
 	// Done from Configuration moves our ConfigurationsReady condition
 	svc.PropagateConfigurationStatus(&ConfigurationStatus{
@@ -199,9 +198,9 @@ func TestServiceHappyPath(t *testing.T) {
 			}},
 		},
 	})
-	apitesting.CheckConditionOngoing(d, ServiceConditionReady, t)
-	apitesting.CheckConditionSucceeded(d, ServiceConditionConfigurationsReady, t)
-	apitesting.CheckConditionOngoing(d, ServiceConditionRoutesReady, t)
+	apitesting.CheckConditionOngoing(svc.duck(), ServiceConditionReady, t)
+	apitesting.CheckConditionSucceeded(svc.duck(), ServiceConditionConfigurationsReady, t)
+	apitesting.CheckConditionOngoing(svc.duck(), ServiceConditionRoutesReady, t)
 
 	// Done from Route moves our RoutesReady condition, which triggers us to be Ready.
 	svc.PropagateRouteStatus(&RouteStatus{
@@ -212,9 +211,9 @@ func TestServiceHappyPath(t *testing.T) {
 			}},
 		},
 	})
-	apitesting.CheckConditionSucceeded(d, ServiceConditionReady, t)
-	apitesting.CheckConditionSucceeded(d, ServiceConditionConfigurationsReady, t)
-	apitesting.CheckConditionSucceeded(d, ServiceConditionRoutesReady, t)
+	apitesting.CheckConditionSucceeded(svc.duck(), ServiceConditionReady, t)
+	apitesting.CheckConditionSucceeded(svc.duck(), ServiceConditionConfigurationsReady, t)
+	apitesting.CheckConditionSucceeded(svc.duck(), ServiceConditionRoutesReady, t)
 
 	// Check idempotency.
 	svc.PropagateRouteStatus(&RouteStatus{
@@ -225,22 +224,21 @@ func TestServiceHappyPath(t *testing.T) {
 			}},
 		},
 	})
-	apitesting.CheckConditionSucceeded(d, ServiceConditionReady, t)
-	apitesting.CheckConditionSucceeded(d, ServiceConditionConfigurationsReady, t)
-	apitesting.CheckConditionSucceeded(d, ServiceConditionRoutesReady, t)
+	apitesting.CheckConditionSucceeded(svc.duck(), ServiceConditionReady, t)
+	apitesting.CheckConditionSucceeded(svc.duck(), ServiceConditionConfigurationsReady, t)
+	apitesting.CheckConditionSucceeded(svc.duck(), ServiceConditionRoutesReady, t)
 }
 
 func TestMarkRouteNotYetReady(t *testing.T) {
 	svc := &ServiceStatus{}
-	d := &svc.Status
 	svc.InitializeConditions()
-	apitesting.CheckConditionOngoing(d, ServiceConditionReady, t)
-	apitesting.CheckConditionOngoing(d, ServiceConditionConfigurationsReady, t)
-	apitesting.CheckConditionOngoing(d, ServiceConditionRoutesReady, t)
+	apitesting.CheckConditionOngoing(svc.duck(), ServiceConditionReady, t)
+	apitesting.CheckConditionOngoing(svc.duck(), ServiceConditionConfigurationsReady, t)
+	apitesting.CheckConditionOngoing(svc.duck(), ServiceConditionRoutesReady, t)
 
 	svc.MarkRouteNotYetReady()
-	apitesting.CheckConditionOngoing(d, ServiceConditionReady, t)
-	dt := d.GetCondition(ServiceConditionReady)
+	apitesting.CheckConditionOngoing(svc.duck(), ServiceConditionReady, t)
+	dt := svc.GetCondition(ServiceConditionReady)
 	if got, want := dt.Reason, trafficNotMigratedReason; got != want {
 		t.Errorf("Condition Reason: got: %s, want: %s", got, want)
 	}
@@ -251,11 +249,10 @@ func TestMarkRouteNotYetReady(t *testing.T) {
 
 func TestFailureRecovery(t *testing.T) {
 	svc := &ServiceStatus{}
-	d := &svc.Status
 	svc.InitializeConditions()
-	apitesting.CheckConditionOngoing(d, ServiceConditionReady, t)
-	apitesting.CheckConditionOngoing(d, ServiceConditionConfigurationsReady, t)
-	apitesting.CheckConditionOngoing(d, ServiceConditionRoutesReady, t)
+	apitesting.CheckConditionOngoing(svc.duck(), ServiceConditionReady, t)
+	apitesting.CheckConditionOngoing(svc.duck(), ServiceConditionConfigurationsReady, t)
+	apitesting.CheckConditionOngoing(svc.duck(), ServiceConditionRoutesReady, t)
 
 	// Config failure causes us to become unready immediately (route still ok).
 	svc.PropagateConfigurationStatus(&ConfigurationStatus{
@@ -266,9 +263,9 @@ func TestFailureRecovery(t *testing.T) {
 			}},
 		},
 	})
-	apitesting.CheckConditionFailed(d, ServiceConditionReady, t)
-	apitesting.CheckConditionFailed(d, ServiceConditionConfigurationsReady, t)
-	apitesting.CheckConditionOngoing(d, ServiceConditionRoutesReady, t)
+	apitesting.CheckConditionFailed(svc.duck(), ServiceConditionReady, t)
+	apitesting.CheckConditionFailed(svc.duck(), ServiceConditionConfigurationsReady, t)
+	apitesting.CheckConditionOngoing(svc.duck(), ServiceConditionRoutesReady, t)
 
 	// Route failure causes route to become failed (config and service still failed).
 	svc.PropagateRouteStatus(&RouteStatus{
@@ -279,9 +276,9 @@ func TestFailureRecovery(t *testing.T) {
 			}},
 		},
 	})
-	apitesting.CheckConditionFailed(d, ServiceConditionReady, t)
-	apitesting.CheckConditionFailed(d, ServiceConditionConfigurationsReady, t)
-	apitesting.CheckConditionFailed(d, ServiceConditionRoutesReady, t)
+	apitesting.CheckConditionFailed(svc.duck(), ServiceConditionReady, t)
+	apitesting.CheckConditionFailed(svc.duck(), ServiceConditionConfigurationsReady, t)
+	apitesting.CheckConditionFailed(svc.duck(), ServiceConditionRoutesReady, t)
 
 	// Fix Configuration moves our ConfigurationsReady condition (route and service still failed).
 	svc.PropagateConfigurationStatus(&ConfigurationStatus{
@@ -292,9 +289,9 @@ func TestFailureRecovery(t *testing.T) {
 			}},
 		},
 	})
-	apitesting.CheckConditionFailed(d, ServiceConditionReady, t)
-	apitesting.CheckConditionSucceeded(d, ServiceConditionConfigurationsReady, t)
-	apitesting.CheckConditionFailed(d, ServiceConditionRoutesReady, t)
+	apitesting.CheckConditionFailed(svc.duck(), ServiceConditionReady, t)
+	apitesting.CheckConditionSucceeded(svc.duck(), ServiceConditionConfigurationsReady, t)
+	apitesting.CheckConditionFailed(svc.duck(), ServiceConditionRoutesReady, t)
 
 	// Fix route, should make everything ready.
 	svc.PropagateRouteStatus(&RouteStatus{
@@ -305,18 +302,17 @@ func TestFailureRecovery(t *testing.T) {
 			}},
 		},
 	})
-	apitesting.CheckConditionSucceeded(d, ServiceConditionReady, t)
-	apitesting.CheckConditionSucceeded(d, ServiceConditionConfigurationsReady, t)
-	apitesting.CheckConditionSucceeded(d, ServiceConditionRoutesReady, t)
+	apitesting.CheckConditionSucceeded(svc.duck(), ServiceConditionReady, t)
+	apitesting.CheckConditionSucceeded(svc.duck(), ServiceConditionConfigurationsReady, t)
+	apitesting.CheckConditionSucceeded(svc.duck(), ServiceConditionRoutesReady, t)
 }
 
 func TestConfigurationFailurePropagation(t *testing.T) {
 	svc := &ServiceStatus{}
-	d := &svc.Status
 	svc.InitializeConditions()
-	apitesting.CheckConditionOngoing(d, ServiceConditionReady, t)
-	apitesting.CheckConditionOngoing(d, ServiceConditionConfigurationsReady, t)
-	apitesting.CheckConditionOngoing(d, ServiceConditionRoutesReady, t)
+	apitesting.CheckConditionOngoing(svc.duck(), ServiceConditionReady, t)
+	apitesting.CheckConditionOngoing(svc.duck(), ServiceConditionConfigurationsReady, t)
+	apitesting.CheckConditionOngoing(svc.duck(), ServiceConditionRoutesReady, t)
 
 	// Failure causes us to become unready immediately.
 	svc.PropagateConfigurationStatus(&ConfigurationStatus{
@@ -327,19 +323,18 @@ func TestConfigurationFailurePropagation(t *testing.T) {
 			}},
 		},
 	})
-	apitesting.CheckConditionFailed(d, ServiceConditionReady, t)
-	apitesting.CheckConditionFailed(d, ServiceConditionConfigurationsReady, t)
-	apitesting.CheckConditionOngoing(d, ServiceConditionRoutesReady, t)
+	apitesting.CheckConditionFailed(svc.duck(), ServiceConditionReady, t)
+	apitesting.CheckConditionFailed(svc.duck(), ServiceConditionConfigurationsReady, t)
+	apitesting.CheckConditionOngoing(svc.duck(), ServiceConditionRoutesReady, t)
 
 }
 
 func TestConfigurationFailureRecovery(t *testing.T) {
 	svc := &ServiceStatus{}
-	d := &svc.Status
 	svc.InitializeConditions()
-	apitesting.CheckConditionOngoing(d, ServiceConditionReady, t)
-	apitesting.CheckConditionOngoing(d, ServiceConditionConfigurationsReady, t)
-	apitesting.CheckConditionOngoing(d, ServiceConditionRoutesReady, t)
+	apitesting.CheckConditionOngoing(svc.duck(), ServiceConditionReady, t)
+	apitesting.CheckConditionOngoing(svc.duck(), ServiceConditionConfigurationsReady, t)
+	apitesting.CheckConditionOngoing(svc.duck(), ServiceConditionRoutesReady, t)
 
 	// Done from Route moves our RoutesReady condition
 	svc.PropagateRouteStatus(&RouteStatus{
@@ -350,9 +345,9 @@ func TestConfigurationFailureRecovery(t *testing.T) {
 			}},
 		},
 	})
-	apitesting.CheckConditionOngoing(d, ServiceConditionReady, t)
-	apitesting.CheckConditionOngoing(d, ServiceConditionConfigurationsReady, t)
-	apitesting.CheckConditionSucceeded(d, ServiceConditionRoutesReady, t)
+	apitesting.CheckConditionOngoing(svc.duck(), ServiceConditionReady, t)
+	apitesting.CheckConditionOngoing(svc.duck(), ServiceConditionConfigurationsReady, t)
+	apitesting.CheckConditionSucceeded(svc.duck(), ServiceConditionRoutesReady, t)
 
 	// Failure causes us to become unready immediately (route still ok).
 	svc.PropagateConfigurationStatus(&ConfigurationStatus{
@@ -363,9 +358,9 @@ func TestConfigurationFailureRecovery(t *testing.T) {
 			}},
 		},
 	})
-	apitesting.CheckConditionFailed(d, ServiceConditionReady, t)
-	apitesting.CheckConditionFailed(d, ServiceConditionConfigurationsReady, t)
-	apitesting.CheckConditionSucceeded(d, ServiceConditionRoutesReady, t)
+	apitesting.CheckConditionFailed(svc.duck(), ServiceConditionReady, t)
+	apitesting.CheckConditionFailed(svc.duck(), ServiceConditionConfigurationsReady, t)
+	apitesting.CheckConditionSucceeded(svc.duck(), ServiceConditionRoutesReady, t)
 
 	// Fixed the glitch.
 	svc.PropagateConfigurationStatus(&ConfigurationStatus{
@@ -376,18 +371,17 @@ func TestConfigurationFailureRecovery(t *testing.T) {
 			}},
 		},
 	})
-	apitesting.CheckConditionSucceeded(d, ServiceConditionReady, t)
-	apitesting.CheckConditionSucceeded(d, ServiceConditionConfigurationsReady, t)
-	apitesting.CheckConditionSucceeded(d, ServiceConditionRoutesReady, t)
+	apitesting.CheckConditionSucceeded(svc.duck(), ServiceConditionReady, t)
+	apitesting.CheckConditionSucceeded(svc.duck(), ServiceConditionConfigurationsReady, t)
+	apitesting.CheckConditionSucceeded(svc.duck(), ServiceConditionRoutesReady, t)
 }
 
 func TestConfigurationUnknownPropagation(t *testing.T) {
 	svc := &ServiceStatus{}
-	d := &svc.Status
 	svc.InitializeConditions()
-	apitesting.CheckConditionOngoing(d, ServiceConditionReady, t)
-	apitesting.CheckConditionOngoing(d, ServiceConditionConfigurationsReady, t)
-	apitesting.CheckConditionOngoing(d, ServiceConditionRoutesReady, t)
+	apitesting.CheckConditionOngoing(svc.duck(), ServiceConditionReady, t)
+	apitesting.CheckConditionOngoing(svc.duck(), ServiceConditionConfigurationsReady, t)
+	apitesting.CheckConditionOngoing(svc.duck(), ServiceConditionRoutesReady, t)
 
 	// Configuration and Route become ready, making us ready.
 	svc.PropagateConfigurationStatus(&ConfigurationStatus{
@@ -406,9 +400,9 @@ func TestConfigurationUnknownPropagation(t *testing.T) {
 			}},
 		},
 	})
-	apitesting.CheckConditionSucceeded(d, ServiceConditionReady, t)
-	apitesting.CheckConditionSucceeded(d, ServiceConditionConfigurationsReady, t)
-	apitesting.CheckConditionSucceeded(d, ServiceConditionRoutesReady, t)
+	apitesting.CheckConditionSucceeded(svc.duck(), ServiceConditionReady, t)
+	apitesting.CheckConditionSucceeded(svc.duck(), ServiceConditionConfigurationsReady, t)
+	apitesting.CheckConditionSucceeded(svc.duck(), ServiceConditionRoutesReady, t)
 
 	// Configuration flipping back to Unknown causes us to become ongoing immediately
 	svc.PropagateConfigurationStatus(&ConfigurationStatus{
@@ -419,25 +413,24 @@ func TestConfigurationUnknownPropagation(t *testing.T) {
 			}},
 		},
 	})
-	apitesting.CheckConditionOngoing(d, ServiceConditionReady, t)
-	apitesting.CheckConditionOngoing(d, ServiceConditionConfigurationsReady, t)
+	apitesting.CheckConditionOngoing(svc.duck(), ServiceConditionReady, t)
+	apitesting.CheckConditionOngoing(svc.duck(), ServiceConditionConfigurationsReady, t)
 	// Route is unaffected.
-	apitesting.CheckConditionSucceeded(d, ServiceConditionRoutesReady, t)
+	apitesting.CheckConditionSucceeded(svc.duck(), ServiceConditionRoutesReady, t)
 }
 
 func TestSetManualStatus(t *testing.T) {
 	svc := &ServiceStatus{}
-	d := &svc.Status
 	svc.InitializeConditions()
-	apitesting.CheckConditionOngoing(d, ServiceConditionReady, t)
-	apitesting.CheckConditionOngoing(d, ServiceConditionConfigurationsReady, t)
-	apitesting.CheckConditionOngoing(d, ServiceConditionRoutesReady, t)
+	apitesting.CheckConditionOngoing(svc.duck(), ServiceConditionReady, t)
+	apitesting.CheckConditionOngoing(svc.duck(), ServiceConditionConfigurationsReady, t)
+	apitesting.CheckConditionOngoing(svc.duck(), ServiceConditionRoutesReady, t)
 
 	// Status should remain unknown
 	svc.SetManualStatus()
-	apitesting.CheckConditionOngoing(d, ServiceConditionReady, t)
-	apitesting.CheckConditionOngoing(d, ServiceConditionConfigurationsReady, t)
-	apitesting.CheckConditionOngoing(d, ServiceConditionRoutesReady, t)
+	apitesting.CheckConditionOngoing(svc.duck(), ServiceConditionReady, t)
+	apitesting.CheckConditionOngoing(svc.duck(), ServiceConditionConfigurationsReady, t)
+	apitesting.CheckConditionOngoing(svc.duck(), ServiceConditionRoutesReady, t)
 
 	// Going back from manual will result in propagation to reoccur, and should make us ready
 	svc.PropagateConfigurationStatus(&ConfigurationStatus{
@@ -456,15 +449,15 @@ func TestSetManualStatus(t *testing.T) {
 			}},
 		},
 	})
-	apitesting.CheckConditionSucceeded(d, ServiceConditionReady, t)
-	apitesting.CheckConditionSucceeded(d, ServiceConditionConfigurationsReady, t)
-	apitesting.CheckConditionSucceeded(d, ServiceConditionRoutesReady, t)
+	apitesting.CheckConditionSucceeded(svc.duck(), ServiceConditionReady, t)
+	apitesting.CheckConditionSucceeded(svc.duck(), ServiceConditionConfigurationsReady, t)
+	apitesting.CheckConditionSucceeded(svc.duck(), ServiceConditionRoutesReady, t)
 
 	// Going back to unknown should make us unknown again
 	svc.SetManualStatus()
-	apitesting.CheckConditionOngoing(d, ServiceConditionReady, t)
-	apitesting.CheckConditionOngoing(d, ServiceConditionConfigurationsReady, t)
-	apitesting.CheckConditionOngoing(d, ServiceConditionRoutesReady, t)
+	apitesting.CheckConditionOngoing(svc.duck(), ServiceConditionReady, t)
+	apitesting.CheckConditionOngoing(svc.duck(), ServiceConditionConfigurationsReady, t)
+	apitesting.CheckConditionOngoing(svc.duck(), ServiceConditionRoutesReady, t)
 }
 
 func TestConfigurationStatusPropagation(t *testing.T) {
@@ -489,11 +482,10 @@ func TestConfigurationStatusPropagation(t *testing.T) {
 
 func TestRouteFailurePropagation(t *testing.T) {
 	svc := &ServiceStatus{}
-	d := &svc.Status
 	svc.InitializeConditions()
-	apitesting.CheckConditionOngoing(d, ServiceConditionReady, t)
-	apitesting.CheckConditionOngoing(d, ServiceConditionConfigurationsReady, t)
-	apitesting.CheckConditionOngoing(d, ServiceConditionRoutesReady, t)
+	apitesting.CheckConditionOngoing(svc.duck(), ServiceConditionReady, t)
+	apitesting.CheckConditionOngoing(svc.duck(), ServiceConditionConfigurationsReady, t)
+	apitesting.CheckConditionOngoing(svc.duck(), ServiceConditionRoutesReady, t)
 
 	// Failure causes us to become unready immediately
 	svc.PropagateRouteStatus(&RouteStatus{
@@ -504,18 +496,17 @@ func TestRouteFailurePropagation(t *testing.T) {
 			}},
 		},
 	})
-	apitesting.CheckConditionFailed(d, ServiceConditionReady, t)
-	apitesting.CheckConditionOngoing(d, ServiceConditionConfigurationsReady, t)
-	apitesting.CheckConditionFailed(d, ServiceConditionRoutesReady, t)
+	apitesting.CheckConditionFailed(svc.duck(), ServiceConditionReady, t)
+	apitesting.CheckConditionOngoing(svc.duck(), ServiceConditionConfigurationsReady, t)
+	apitesting.CheckConditionFailed(svc.duck(), ServiceConditionRoutesReady, t)
 }
 
 func TestRouteFailureRecovery(t *testing.T) {
 	svc := &ServiceStatus{}
-	d := &svc.Status
 	svc.InitializeConditions()
-	apitesting.CheckConditionOngoing(d, ServiceConditionReady, t)
-	apitesting.CheckConditionOngoing(d, ServiceConditionConfigurationsReady, t)
-	apitesting.CheckConditionOngoing(d, ServiceConditionRoutesReady, t)
+	apitesting.CheckConditionOngoing(svc.duck(), ServiceConditionReady, t)
+	apitesting.CheckConditionOngoing(svc.duck(), ServiceConditionConfigurationsReady, t)
+	apitesting.CheckConditionOngoing(svc.duck(), ServiceConditionRoutesReady, t)
 
 	// Done from Configuration moves our ConfigurationsReady condition
 	svc.PropagateConfigurationStatus(&ConfigurationStatus{
@@ -526,9 +517,9 @@ func TestRouteFailureRecovery(t *testing.T) {
 			}},
 		},
 	})
-	apitesting.CheckConditionOngoing(d, ServiceConditionReady, t)
-	apitesting.CheckConditionSucceeded(d, ServiceConditionConfigurationsReady, t)
-	apitesting.CheckConditionOngoing(d, ServiceConditionRoutesReady, t)
+	apitesting.CheckConditionOngoing(svc.duck(), ServiceConditionReady, t)
+	apitesting.CheckConditionSucceeded(svc.duck(), ServiceConditionConfigurationsReady, t)
+	apitesting.CheckConditionOngoing(svc.duck(), ServiceConditionRoutesReady, t)
 
 	// Failure causes us to become unready immediately (config still ok).
 	svc.PropagateRouteStatus(&RouteStatus{
@@ -539,9 +530,9 @@ func TestRouteFailureRecovery(t *testing.T) {
 			}},
 		},
 	})
-	apitesting.CheckConditionFailed(d, ServiceConditionReady, t)
-	apitesting.CheckConditionSucceeded(d, ServiceConditionConfigurationsReady, t)
-	apitesting.CheckConditionFailed(d, ServiceConditionRoutesReady, t)
+	apitesting.CheckConditionFailed(svc.duck(), ServiceConditionReady, t)
+	apitesting.CheckConditionSucceeded(svc.duck(), ServiceConditionConfigurationsReady, t)
+	apitesting.CheckConditionFailed(svc.duck(), ServiceConditionRoutesReady, t)
 
 	// Fixed the glitch.
 	svc.PropagateRouteStatus(&RouteStatus{
@@ -552,18 +543,17 @@ func TestRouteFailureRecovery(t *testing.T) {
 			}},
 		},
 	})
-	apitesting.CheckConditionSucceeded(d, ServiceConditionReady, t)
-	apitesting.CheckConditionSucceeded(d, ServiceConditionConfigurationsReady, t)
-	apitesting.CheckConditionSucceeded(d, ServiceConditionRoutesReady, t)
+	apitesting.CheckConditionSucceeded(svc.duck(), ServiceConditionReady, t)
+	apitesting.CheckConditionSucceeded(svc.duck(), ServiceConditionConfigurationsReady, t)
+	apitesting.CheckConditionSucceeded(svc.duck(), ServiceConditionRoutesReady, t)
 }
 
 func TestRouteUnknownPropagation(t *testing.T) {
 	svc := &ServiceStatus{}
-	d := &svc.Status
 	svc.InitializeConditions()
-	apitesting.CheckConditionOngoing(d, ServiceConditionReady, t)
-	apitesting.CheckConditionOngoing(d, ServiceConditionConfigurationsReady, t)
-	apitesting.CheckConditionOngoing(d, ServiceConditionRoutesReady, t)
+	apitesting.CheckConditionOngoing(svc.duck(), ServiceConditionReady, t)
+	apitesting.CheckConditionOngoing(svc.duck(), ServiceConditionConfigurationsReady, t)
+	apitesting.CheckConditionOngoing(svc.duck(), ServiceConditionRoutesReady, t)
 
 	// Configuration and Route become ready, making us ready.
 	svc.PropagateConfigurationStatus(&ConfigurationStatus{
@@ -582,9 +572,9 @@ func TestRouteUnknownPropagation(t *testing.T) {
 			}},
 		},
 	})
-	apitesting.CheckConditionSucceeded(d, ServiceConditionReady, t)
-	apitesting.CheckConditionSucceeded(d, ServiceConditionConfigurationsReady, t)
-	apitesting.CheckConditionSucceeded(d, ServiceConditionRoutesReady, t)
+	apitesting.CheckConditionSucceeded(svc.duck(), ServiceConditionReady, t)
+	apitesting.CheckConditionSucceeded(svc.duck(), ServiceConditionConfigurationsReady, t)
+	apitesting.CheckConditionSucceeded(svc.duck(), ServiceConditionRoutesReady, t)
 
 	// Route flipping back to Unknown causes us to become ongoing immediately.
 	svc.PropagateRouteStatus(&RouteStatus{
@@ -595,27 +585,26 @@ func TestRouteUnknownPropagation(t *testing.T) {
 			}},
 		},
 	})
-	apitesting.CheckConditionOngoing(d, ServiceConditionReady, t)
-	apitesting.CheckConditionOngoing(d, ServiceConditionRoutesReady, t)
+	apitesting.CheckConditionOngoing(svc.duck(), ServiceConditionReady, t)
+	apitesting.CheckConditionOngoing(svc.duck(), ServiceConditionRoutesReady, t)
 	// Configuration is unaffected.
-	apitesting.CheckConditionSucceeded(d, ServiceConditionConfigurationsReady, t)
+	apitesting.CheckConditionSucceeded(svc.duck(), ServiceConditionConfigurationsReady, t)
 }
 
 func TestServiceNotOwnedStuff(t *testing.T) {
 	svc := &ServiceStatus{}
-	d := &svc.Status
 	svc.InitializeConditions()
-	apitesting.CheckConditionOngoing(d, ServiceConditionReady, t)
-	apitesting.CheckConditionOngoing(d, ServiceConditionConfigurationsReady, t)
-	apitesting.CheckConditionOngoing(d, ServiceConditionRoutesReady, t)
+	apitesting.CheckConditionOngoing(svc.duck(), ServiceConditionReady, t)
+	apitesting.CheckConditionOngoing(svc.duck(), ServiceConditionConfigurationsReady, t)
+	apitesting.CheckConditionOngoing(svc.duck(), ServiceConditionRoutesReady, t)
 
 	svc.MarkRouteNotOwned("mark")
-	apitesting.CheckConditionFailed(d, ServiceConditionRoutesReady, t)
-	apitesting.CheckConditionFailed(d, ServiceConditionReady, t)
+	apitesting.CheckConditionFailed(svc.duck(), ServiceConditionRoutesReady, t)
+	apitesting.CheckConditionFailed(svc.duck(), ServiceConditionReady, t)
 
 	svc.MarkConfigurationNotOwned("jon")
-	apitesting.CheckConditionFailed(d, ServiceConditionConfigurationsReady, t)
-	apitesting.CheckConditionFailed(d, ServiceConditionReady, t)
+	apitesting.CheckConditionFailed(svc.duck(), ServiceConditionConfigurationsReady, t)
+	apitesting.CheckConditionFailed(svc.duck(), ServiceConditionReady, t)
 }
 
 func TestRouteStatusPropagation(t *testing.T) {

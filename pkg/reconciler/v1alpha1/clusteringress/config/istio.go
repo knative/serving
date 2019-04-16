@@ -21,7 +21,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/knative/serving/pkg/utils"
+	"github.com/knative/serving/pkg/network"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/validation"
 )
@@ -41,7 +41,8 @@ const (
 var (
 	defaultGateway = Gateway{
 		GatewayName: "knative-ingress-gateway",
-		ServiceURL:  fmt.Sprintf("istio-ingressgateway.istio-system.svc.%s", utils.GetClusterDomainName()),
+		ServiceURL: fmt.Sprintf("istio-ingressgateway.istio-system.svc.%s",
+			network.GetClusterDomainName()),
 	}
 )
 

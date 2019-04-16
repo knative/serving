@@ -50,26 +50,26 @@ type TableRow struct {
 	// WantErr holds whether we should expect the reconciliation to result in an error.
 	WantErr bool
 
-	// WantCreates holds the set of Create calls we expect during reconciliation.
+	// WantCreates holds the ordered list of Create calls we expect during reconciliation.
 	WantCreates []metav1.Object
 
-	// WantUpdates holds the set of Update calls we expect during reconciliation.
+	// WantUpdates holds the ordered list of Update calls we expect during reconciliation.
 	WantUpdates []clientgotesting.UpdateActionImpl
 
-	// WantStatusUpdates holds the set of Update calls, with `status` subresource set,
+	// WantStatusUpdates holds the ordered list of Update calls, with `status` subresource set,
 	// that we expect during reconciliation.
 	WantStatusUpdates []clientgotesting.UpdateActionImpl
 
-	// WantDeletes holds the set of Delete calls we expect during reconciliation.
+	// WantDeletes holds the ordered list of Delete calls we expect during reconciliation.
 	WantDeletes []clientgotesting.DeleteActionImpl
 
-	// WantDeleteCollections holds the set of DeleteCollection calls we expect during reconciliation.
+	// WantDeleteCollections holds the ordered list of DeleteCollection calls we expect during reconciliation.
 	WantDeleteCollections []clientgotesting.DeleteCollectionActionImpl
 
-	// WantPatches holds the set of Patch calls we expect during reconciliation.
+	// WantPatches holds the ordered list of Patch calls we expect during reconciliation.
 	WantPatches []clientgotesting.PatchActionImpl
 
-	// WantEvents holds the set of events we expect during reconciliation.
+	// WantEvents holds the ordered list of events we expect during reconciliation.
 	WantEvents []string
 
 	// WantServiceReadyStats holds the ServiceReady stats we exepect during reconciliation.
@@ -98,6 +98,7 @@ type Factory func(*testing.T, *TableRow) (controller.Reconciler, ActionRecorderL
 
 // Test executes the single table test.
 func (r *TableRow) Test(t *testing.T, factory Factory) {
+	t.Helper()
 	c, recorderList, eventList, statsReporter := factory(t, r)
 
 	// Run the Reconcile we're testing.
@@ -108,7 +109,6 @@ func (r *TableRow) Test(t *testing.T, factory Factory) {
 	expectedNamespace, _, _ := cache.SplitMetaNamespaceKey(r.Key)
 
 	actions, err := recorderList.ActionsByVerb()
-
 	if err != nil {
 		t.Errorf("Error capturing actions by verb: %q", err)
 	}
@@ -198,7 +198,7 @@ func (r *TableRow) Test(t *testing.T, factory Factory) {
 		objPrevState[objKey(got)] = got
 
 		if diff := cmp.Diff(want.GetObject(), got, ignoreLastTransitionTime, safeDeployDiff, cmpopts.EquateEmpty()); diff != "" {
-			t.Errorf("Unexpected status update (-want, +got): %s\nFull: %#v", diff, got)
+			t.Errorf("Unexpected status update (-want, +got): %s\nFull: %v", diff, got)
 		}
 	}
 	if got, want := len(statusUpdates), len(r.WantStatusUpdates); got > want {
@@ -331,6 +331,7 @@ type TableTest []TableRow
 
 // Test executes the whole suite of the table tests.
 func (tt TableTest) Test(t *testing.T, factory Factory) {
+	t.Helper()
 	for _, test := range tt {
 		// Record the original objects in table.
 		originObjects := []runtime.Object{}
@@ -338,6 +339,7 @@ func (tt TableTest) Test(t *testing.T, factory Factory) {
 			originObjects = append(originObjects, obj.DeepCopyObject())
 		}
 		t.Run(test.Name, func(t *testing.T) {
+			t.Helper()
 			test.Test(t, factory)
 		})
 		// Validate cached objects do not get soiled after controller loops

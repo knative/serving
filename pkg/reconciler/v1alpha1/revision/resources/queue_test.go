@@ -23,6 +23,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/knative/pkg/logging"
+	"github.com/knative/pkg/ptr"
 	"github.com/knative/pkg/system"
 	_ "github.com/knative/pkg/system/testing"
 	"github.com/knative/serving/pkg/apis/serving"
@@ -34,8 +35,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
-
-var boolTrue = true
 
 func TestMakeQueueContainer(t *testing.T) {
 	tests := []struct {
@@ -57,7 +56,7 @@ func TestMakeQueueContainer(t *testing.T) {
 			},
 			Spec: v1alpha1.RevisionSpec{
 				ContainerConcurrency: 1,
-				TimeoutSeconds:       45,
+				TimeoutSeconds:       ptr.Int64(45),
 			},
 		},
 		lc: &logging.Config{},
@@ -139,7 +138,7 @@ func TestMakeQueueContainer(t *testing.T) {
 			},
 			Spec: v1alpha1.RevisionSpec{
 				ContainerConcurrency: 1,
-				TimeoutSeconds:       45,
+				TimeoutSeconds:       ptr.Int64(45),
 			},
 		},
 		lc: &logging.Config{},
@@ -227,7 +226,7 @@ func TestMakeQueueContainer(t *testing.T) {
 			},
 			Spec: v1alpha1.RevisionSpec{
 				ContainerConcurrency: 1,
-				TimeoutSeconds:       45,
+				TimeoutSeconds:       ptr.Int64(45),
 			},
 		},
 		lc: &logging.Config{},
@@ -312,13 +311,13 @@ func TestMakeQueueContainer(t *testing.T) {
 					APIVersion:         v1alpha1.SchemeGroupVersion.String(),
 					Kind:               "Configuration",
 					Name:               "the-parent-config-name",
-					Controller:         &boolTrue,
-					BlockOwnerDeletion: &boolTrue,
+					Controller:         ptr.Bool(true),
+					BlockOwnerDeletion: ptr.Bool(true),
 				}},
 			},
 			Spec: v1alpha1.RevisionSpec{
 				ContainerConcurrency: 0,
-				TimeoutSeconds:       45,
+				TimeoutSeconds:       ptr.Int64(45),
 			},
 		},
 		lc: &logging.Config{},
@@ -400,7 +399,7 @@ func TestMakeQueueContainer(t *testing.T) {
 			},
 			Spec: v1alpha1.RevisionSpec{
 				ContainerConcurrency: 0,
-				TimeoutSeconds:       45,
+				TimeoutSeconds:       ptr.Int64(45),
 			},
 		},
 		lc: &logging.Config{
@@ -487,7 +486,7 @@ func TestMakeQueueContainer(t *testing.T) {
 			},
 			Spec: v1alpha1.RevisionSpec{
 				ContainerConcurrency: 10,
-				TimeoutSeconds:       45,
+				TimeoutSeconds:       ptr.Int64(45),
 			},
 		},
 		lc: &logging.Config{},
@@ -569,7 +568,7 @@ func TestMakeQueueContainer(t *testing.T) {
 			},
 			Spec: v1alpha1.RevisionSpec{
 				ContainerConcurrency: 0,
-				TimeoutSeconds:       45,
+				TimeoutSeconds:       ptr.Int64(45),
 			},
 		},
 		lc: &logging.Config{},
@@ -651,7 +650,7 @@ func TestMakeQueueContainer(t *testing.T) {
 			},
 			Spec: v1alpha1.RevisionSpec{
 				ContainerConcurrency: 0,
-				TimeoutSeconds:       45,
+				TimeoutSeconds:       ptr.Int64(45),
 			},
 		},
 		lc: &logging.Config{},

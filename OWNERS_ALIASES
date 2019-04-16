@@ -17,10 +17,12 @@ aliases:
   - josephburnett
   - markusthoemmes
   - mdemirhan
+  - greghaynes
   autoscaling-reviewers:
   - josephburnett
   - markusthoemmes
   - mdemirhan
+  - greghaynes
 
   monitoring-approvers:
   - mdemirhan

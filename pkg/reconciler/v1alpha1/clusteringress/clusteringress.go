@@ -111,10 +111,11 @@ func NewController(
 
 	c.Logger.Info("Setting up event handlers")
 	myFilterFunc := reconciler.AnnotationFilterFunc(networking.IngressClassAnnotationKey, network.IstioIngressClassName, true)
-	clusterIngressInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+	ciHandler := cache.FilteringResourceEventHandler{
 		FilterFunc: myFilterFunc,
 		Handler:    reconciler.Handler(impl.Enqueue),
-	})
+	}
+	clusterIngressInformer.Informer().AddEventHandler(ciHandler)
 
 	virtualServiceInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: myFilterFunc,
@@ -131,7 +132,7 @@ func NewController(
 
 	c.Logger.Info("Setting up ConfigMap receivers")
 	resyncIngressesOnIstioConfigChange := configmap.TypeFilter(&config.Istio{})(func(string, interface{}) {
-		impl.GlobalResync(clusterIngressInformer.Informer())
+		controller.SendGlobalUpdates(clusterIngressInformer.Informer(), ciHandler)
 	})
 	c.configStore = config.NewStore(c.Logger.Named("config-store"), resyncIngressesOnIstioConfigChange)
 	c.configStore.WatchConfigs(opt.ConfigMapWatcher)
@@ -217,7 +218,7 @@ func (c *Reconciler) reconcile(ctx context.Context, ci *v1alpha1.ClusterIngress)
 	gatewayNames := gatewayNamesFromContext(ctx, ci)
 	vs := resources.MakeVirtualService(ci, gatewayNames)
 
-	logger.Infof("Reconciling clusterIngress :%v", ci)
+	logger.Infof("Reconciling clusterIngress: %#v", ci)
 	logger.Info("Creating/Updating VirtualService")
 	if err := c.reconcileVirtualService(ctx, ci, vs); err != nil {
 		// TODO(lichuqiang): should we explicitly mark the ingress as unready

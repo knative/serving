@@ -38,5 +38,5 @@ func (p ProtocolType) Validate() *apis.FieldError {
 	case ProtocolH2C, ProtocolHTTP1:
 		return nil
 	}
-	return apis.ErrInvalidValue(string(p), apis.CurrentField)
+	return apis.ErrInvalidValue(p, apis.CurrentField)
 }

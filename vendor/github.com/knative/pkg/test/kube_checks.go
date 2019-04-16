@@ -89,9 +89,9 @@ func DeploymentScaledToZeroFunc() func(d *appsv1.Deployment) (bool, error) {
 
 // WaitForLogContent waits until logs for given Pod/Container include the given content.
 // If the content is not present within timeout it returns error.
-func WaitForLogContent(client *KubeClient, podName, containerName, content string) error {
+func WaitForLogContent(client *KubeClient, podName, containerName, namespace, content string) error {
 	return wait.PollImmediate(interval, logTimeout, func() (bool, error) {
-		logs, err := client.PodLogs(podName, containerName)
+		logs, err := client.PodLogs(podName, containerName, namespace)
 		if err != nil {
 			return true, err
 		}
@@ -104,12 +104,29 @@ func WaitForAllPodsRunning(client *KubeClient, namespace string) error {
 	return WaitForPodListState(client, PodsRunning, "PodsAreRunning", namespace)
 }
 
+// WaitForPodRunning waits for the given pod to be in running state
+func WaitForPodRunning(client *KubeClient, name string, namespace string) error {
+	p := client.Kube.CoreV1().Pods(namespace)
+	return wait.PollImmediate(interval, podTimeout, func() (bool, error) {
+		p, err := p.Get(name, metav1.GetOptions{})
+		if err != nil {
+			return true, err
+		}
+		return PodRunning(p), nil
+	})
+}
+
 // PodsRunning will check the status conditions of the pod list and return true all pods are Running
 func PodsRunning(podList *corev1.PodList) (bool, error) {
 	for _, pod := range podList.Items {
-		if pod.Status.Phase != corev1.PodRunning && pod.Status.Phase != corev1.PodSucceeded {
+		if isRunning := PodRunning(&pod); !isRunning {
 			return false, nil
 		}
 	}
 	return true, nil
+}
+
+// PodRunning will check the status conditions of the pod and return true if it's Running
+func PodRunning(pod *corev1.Pod) bool {
+	return pod.Status.Phase == corev1.PodRunning || pod.Status.Phase == corev1.PodSucceeded
 }

@@ -34,9 +34,12 @@ func TestServiceValidation(t *testing.T) {
 	tests := []struct {
 		name string
 		s    *Service
+		wc   func(context.Context) context.Context
 		want *apis.FieldError
 	}{{
 		name: "valid runLatest",
+		// Should not affect anything.
+		wc: apis.DisallowDeprecated,
 		s: &Service{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "valid",
@@ -44,9 +47,9 @@ func TestServiceValidation(t *testing.T) {
 			Spec: ServiceSpec{
 				RunLatest: &RunLatestType{
 					Configuration: ConfigurationSpec{
-						RevisionTemplate: RevisionTemplateSpec{
+						RevisionTemplate: &RevisionTemplateSpec{
 							Spec: RevisionSpec{
-								Container: corev1.Container{
+								Container: &corev1.Container{
 									Image: "hellworld",
 								},
 							},
@@ -56,6 +59,29 @@ func TestServiceValidation(t *testing.T) {
 			},
 		},
 		want: nil,
+	}, {
+		name: "invalid runLatest (has spec.generation)",
+		wc:   apis.DisallowDeprecated,
+		s: &Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid",
+			},
+			Spec: ServiceSpec{
+				DeprecatedGeneration: 12,
+				RunLatest: &RunLatestType{
+					Configuration: ConfigurationSpec{
+						RevisionTemplate: &RevisionTemplateSpec{
+							Spec: RevisionSpec{
+								Container: &corev1.Container{
+									Image: "hellworld",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		want: apis.ErrDisallowedFields("spec.generation"),
 	}, {
 		name: "valid pinned",
 		s: &Service{
@@ -66,9 +92,9 @@ func TestServiceValidation(t *testing.T) {
 				DeprecatedPinned: &PinnedType{
 					RevisionName: "asdf",
 					Configuration: ConfigurationSpec{
-						RevisionTemplate: RevisionTemplateSpec{
+						RevisionTemplate: &RevisionTemplateSpec{
 							Spec: RevisionSpec{
-								Container: corev1.Container{
+								Container: &corev1.Container{
 									Image: "hellworld",
 								},
 							},
@@ -79,6 +105,29 @@ func TestServiceValidation(t *testing.T) {
 		},
 		want: nil,
 	}, {
+		name: "valid pinned (deprecated disallowed)",
+		wc:   apis.DisallowDeprecated,
+		s: &Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid",
+			},
+			Spec: ServiceSpec{
+				DeprecatedPinned: &PinnedType{
+					RevisionName: "asdf",
+					Configuration: ConfigurationSpec{
+						RevisionTemplate: &RevisionTemplateSpec{
+							Spec: RevisionSpec{
+								Container: &corev1.Container{
+									Image: "hellworld",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		want: apis.ErrDisallowedFields("spec.pinned"),
+	}, {
 		name: "valid release -- one revision",
 		s: &Service{
 			ObjectMeta: metav1.ObjectMeta{
@@ -88,9 +137,9 @@ func TestServiceValidation(t *testing.T) {
 				Release: &ReleaseType{
 					Revisions: []string{"asdf"},
 					Configuration: ConfigurationSpec{
-						RevisionTemplate: RevisionTemplateSpec{
+						RevisionTemplate: &RevisionTemplateSpec{
 							Spec: RevisionSpec{
-								Container: corev1.Container{
+								Container: &corev1.Container{
 									Image: "hellworld",
 								},
 							},
@@ -111,9 +160,9 @@ func TestServiceValidation(t *testing.T) {
 					Revisions:      []string{"asdf", "fdsa"},
 					RolloutPercent: 42,
 					Configuration: ConfigurationSpec{
-						RevisionTemplate: RevisionTemplateSpec{
+						RevisionTemplate: &RevisionTemplateSpec{
 							Spec: RevisionSpec{
-								Container: corev1.Container{
+								Container: &corev1.Container{
 									Image: "hellworld",
 								},
 							},
@@ -143,9 +192,9 @@ func TestServiceValidation(t *testing.T) {
 			Spec: ServiceSpec{
 				RunLatest: &RunLatestType{
 					Configuration: ConfigurationSpec{
-						RevisionTemplate: RevisionTemplateSpec{
+						RevisionTemplate: &RevisionTemplateSpec{
 							Spec: RevisionSpec{
-								Container: corev1.Container{
+								Container: &corev1.Container{
 									Image: "hellworld",
 								},
 							},
@@ -155,9 +204,9 @@ func TestServiceValidation(t *testing.T) {
 				DeprecatedPinned: &PinnedType{
 					RevisionName: "asdf",
 					Configuration: ConfigurationSpec{
-						RevisionTemplate: RevisionTemplateSpec{
+						RevisionTemplate: &RevisionTemplateSpec{
 							Spec: RevisionSpec{
-								Container: corev1.Container{
+								Container: &corev1.Container{
 									Image: "hellworld",
 								},
 							},
@@ -190,9 +239,9 @@ func TestServiceValidation(t *testing.T) {
 			Spec: ServiceSpec{
 				RunLatest: &RunLatestType{
 					Configuration: ConfigurationSpec{
-						RevisionTemplate: RevisionTemplateSpec{
+						RevisionTemplate: &RevisionTemplateSpec{
 							Spec: RevisionSpec{
-								Container: corev1.Container{
+								Container: &corev1.Container{
 									Name:  "foo",
 									Image: "hellworld",
 								},
@@ -213,9 +262,9 @@ func TestServiceValidation(t *testing.T) {
 				DeprecatedPinned: &PinnedType{
 					RevisionName: "asdf",
 					Configuration: ConfigurationSpec{
-						RevisionTemplate: RevisionTemplateSpec{
+						RevisionTemplate: &RevisionTemplateSpec{
 							Spec: RevisionSpec{
-								Container: corev1.Container{
+								Container: &corev1.Container{
 									Name:  "foo",
 									Image: "hellworld",
 								},
@@ -235,9 +284,9 @@ func TestServiceValidation(t *testing.T) {
 			Spec: ServiceSpec{
 				Release: &ReleaseType{
 					Configuration: ConfigurationSpec{
-						RevisionTemplate: RevisionTemplateSpec{
+						RevisionTemplate: &RevisionTemplateSpec{
 							Spec: RevisionSpec{
-								Container: corev1.Container{
+								Container: &corev1.Container{
 									Image: "hellworld",
 								},
 							},
@@ -257,9 +306,9 @@ func TestServiceValidation(t *testing.T) {
 				Release: &ReleaseType{
 					Revisions: []string{strings.Repeat("a", 64)},
 					Configuration: ConfigurationSpec{
-						RevisionTemplate: RevisionTemplateSpec{
+						RevisionTemplate: &RevisionTemplateSpec{
 							Spec: RevisionSpec{
-								Container: corev1.Container{
+								Container: &corev1.Container{
 									Image: "hellworld",
 								},
 							},
@@ -279,9 +328,9 @@ func TestServiceValidation(t *testing.T) {
 				Release: &ReleaseType{
 					Revisions: []string{".negative"},
 					Configuration: ConfigurationSpec{
-						RevisionTemplate: RevisionTemplateSpec{
+						RevisionTemplate: &RevisionTemplateSpec{
 							Spec: RevisionSpec{
-								Container: corev1.Container{
+								Container: &corev1.Container{
 									Image: "hellworld",
 								},
 							},
@@ -301,9 +350,9 @@ func TestServiceValidation(t *testing.T) {
 				Release: &ReleaseType{
 					Revisions: []string{"s-1-00001", ReleaseLatestRevisionKeyword},
 					Configuration: ConfigurationSpec{
-						RevisionTemplate: RevisionTemplateSpec{
+						RevisionTemplate: &RevisionTemplateSpec{
 							Spec: RevisionSpec{
-								Container: corev1.Container{
+								Container: &corev1.Container{
 									Image: "hellworld",
 								},
 							},
@@ -323,9 +372,9 @@ func TestServiceValidation(t *testing.T) {
 				Release: &ReleaseType{
 					Revisions: []string{},
 					Configuration: ConfigurationSpec{
-						RevisionTemplate: RevisionTemplateSpec{
+						RevisionTemplate: &RevisionTemplateSpec{
 							Spec: RevisionSpec{
-								Container: corev1.Container{
+								Container: &corev1.Container{
 									Image: "hellworld",
 								},
 							},
@@ -345,9 +394,9 @@ func TestServiceValidation(t *testing.T) {
 				Release: &ReleaseType{
 					Revisions: []string{"asdf", "fdsa", "abcde"},
 					Configuration: ConfigurationSpec{
-						RevisionTemplate: RevisionTemplateSpec{
+						RevisionTemplate: &RevisionTemplateSpec{
 							Spec: RevisionSpec{
-								Container: corev1.Container{
+								Container: &corev1.Container{
 									Image: "hellworld",
 								},
 							},
@@ -356,7 +405,7 @@ func TestServiceValidation(t *testing.T) {
 				},
 			},
 		},
-		want: apis.ErrOutOfBoundsValue("3", "1", "2", "spec.release.revisions"),
+		want: apis.ErrOutOfBoundsValue(3, 1, 2, "spec.release.revisions"),
 	}, {
 		name: "invalid release -- rollout greater than 99",
 		s: &Service{
@@ -368,9 +417,9 @@ func TestServiceValidation(t *testing.T) {
 					Revisions:      []string{"asdf", "fdsa"},
 					RolloutPercent: 100,
 					Configuration: ConfigurationSpec{
-						RevisionTemplate: RevisionTemplateSpec{
+						RevisionTemplate: &RevisionTemplateSpec{
 							Spec: RevisionSpec{
-								Container: corev1.Container{
+								Container: &corev1.Container{
 									Image: "hellworld",
 								},
 							},
@@ -379,7 +428,7 @@ func TestServiceValidation(t *testing.T) {
 				},
 			},
 		},
-		want: apis.ErrOutOfBoundsValue("100", "0", "99", "spec.release.rolloutPercent"),
+		want: apis.ErrOutOfBoundsValue(100, 0, 99, "spec.release.rolloutPercent"),
 	}, {
 		name: "invalid release -- rollout less than 0",
 		s: &Service{
@@ -391,9 +440,9 @@ func TestServiceValidation(t *testing.T) {
 					Revisions:      []string{"asdf", "fdsa"},
 					RolloutPercent: -50,
 					Configuration: ConfigurationSpec{
-						RevisionTemplate: RevisionTemplateSpec{
+						RevisionTemplate: &RevisionTemplateSpec{
 							Spec: RevisionSpec{
-								Container: corev1.Container{
+								Container: &corev1.Container{
 									Image: "hellworld",
 								},
 							},
@@ -402,7 +451,7 @@ func TestServiceValidation(t *testing.T) {
 				},
 			},
 		},
-		want: apis.ErrOutOfBoundsValue("-50", "0", "99", "spec.release.rolloutPercent"),
+		want: apis.ErrOutOfBoundsValue(-50, 0, 99, "spec.release.rolloutPercent"),
 	}, {
 		name: "invalid release -- non-zero rollout for single revision",
 		s: &Service{
@@ -414,9 +463,9 @@ func TestServiceValidation(t *testing.T) {
 					Revisions:      []string{"asdf"},
 					RolloutPercent: 10,
 					Configuration: ConfigurationSpec{
-						RevisionTemplate: RevisionTemplateSpec{
+						RevisionTemplate: &RevisionTemplateSpec{
 							Spec: RevisionSpec{
-								Container: corev1.Container{
+								Container: &corev1.Container{
 									Image: "hellworld",
 								},
 							},
@@ -425,7 +474,7 @@ func TestServiceValidation(t *testing.T) {
 				},
 			},
 		},
-		want: apis.ErrInvalidValue("10", "spec.release.rolloutPercent"),
+		want: apis.ErrInvalidValue(10, "spec.release.rolloutPercent"),
 	}, {
 		name: "invalid name - dots",
 		s: &Service{
@@ -435,9 +484,9 @@ func TestServiceValidation(t *testing.T) {
 			Spec: ServiceSpec{
 				RunLatest: &RunLatestType{
 					Configuration: ConfigurationSpec{
-						RevisionTemplate: RevisionTemplateSpec{
+						RevisionTemplate: &RevisionTemplateSpec{
 							Spec: RevisionSpec{
-								Container: corev1.Container{
+								Container: &corev1.Container{
 									Image: "hellworld",
 								},
 							},
@@ -459,9 +508,9 @@ func TestServiceValidation(t *testing.T) {
 			Spec: ServiceSpec{
 				RunLatest: &RunLatestType{
 					Configuration: ConfigurationSpec{
-						RevisionTemplate: RevisionTemplateSpec{
+						RevisionTemplate: &RevisionTemplateSpec{
 							Spec: RevisionSpec{
-								Container: corev1.Container{
+								Container: &corev1.Container{
 									Image: "hellworld",
 								},
 							},
@@ -478,7 +527,11 @@ func TestServiceValidation(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got := test.s.Validate(context.Background())
+			ctx := context.Background()
+			if test.wc != nil {
+				ctx = test.wc(ctx)
+			}
+			got := test.s.Validate(ctx)
 			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
 				t.Errorf("validateContainer (-want, +got) = %v", diff)
 			}
@@ -495,9 +548,9 @@ func TestRunLatestTypeValidation(t *testing.T) {
 		name: "valid",
 		rlt: &RunLatestType{
 			Configuration: ConfigurationSpec{
-				RevisionTemplate: RevisionTemplateSpec{
+				RevisionTemplate: &RevisionTemplateSpec{
 					Spec: RevisionSpec{
-						Container: corev1.Container{
+						Container: &corev1.Container{
 							Image: "hellworld",
 						},
 					},
@@ -509,9 +562,9 @@ func TestRunLatestTypeValidation(t *testing.T) {
 		name: "propagate revision failures",
 		rlt: &RunLatestType{
 			Configuration: ConfigurationSpec{
-				RevisionTemplate: RevisionTemplateSpec{
+				RevisionTemplate: &RevisionTemplateSpec{
 					Spec: RevisionSpec{
-						Container: corev1.Container{
+						Container: &corev1.Container{
 							Name:  "stuart",
 							Image: "hellworld",
 						},
@@ -542,9 +595,9 @@ func TestPinnedTypeValidation(t *testing.T) {
 		pt: &PinnedType{
 			RevisionName: "foo",
 			Configuration: ConfigurationSpec{
-				RevisionTemplate: RevisionTemplateSpec{
+				RevisionTemplate: &RevisionTemplateSpec{
 					Spec: RevisionSpec{
-						Container: corev1.Container{
+						Container: &corev1.Container{
 							Image: "hellworld",
 						},
 					},
@@ -556,9 +609,9 @@ func TestPinnedTypeValidation(t *testing.T) {
 		name: "missing revision name",
 		pt: &PinnedType{
 			Configuration: ConfigurationSpec{
-				RevisionTemplate: RevisionTemplateSpec{
+				RevisionTemplate: &RevisionTemplateSpec{
 					Spec: RevisionSpec{
-						Container: corev1.Container{
+						Container: &corev1.Container{
 							Image: "hellworld",
 						},
 					},
@@ -571,9 +624,9 @@ func TestPinnedTypeValidation(t *testing.T) {
 		pt: &PinnedType{
 			RevisionName: "foo",
 			Configuration: ConfigurationSpec{
-				RevisionTemplate: RevisionTemplateSpec{
+				RevisionTemplate: &RevisionTemplateSpec{
 					Spec: RevisionSpec{
-						Container: corev1.Container{
+						Container: &corev1.Container{
 							Name:  "stuart",
 							Image: "hellworld",
 						},

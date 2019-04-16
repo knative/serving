@@ -184,14 +184,14 @@ func CreateRunLatestServiceReady(t *testing.T, clients *Clients, names *Resource
 // CreateReleaseService creates a service in namespace with the name names.Service and names.Image,
 // configured with `@latest` revision.
 func CreateReleaseService(t *testing.T, clients *Clients, names ResourceNames, options *Options, fopt ...rtesting.ServiceOption) (*v1alpha1.Service, error) {
-	service := ReleaseLatestService(ServingNamespace, names, options, fopt...)
+	service := ReleaseLatestService(names, options, fopt...)
 	LogResourceObject(t, ResourceObjects{Service: service})
 	return clients.ServingClient.Services.Create(service)
 }
 
 // CreateLatestService creates a service in namespace with the name names.Service and names.Image
 func CreateLatestService(t *testing.T, clients *Clients, names ResourceNames, options *Options, fopt ...rtesting.ServiceOption) (*v1alpha1.Service, error) {
-	service := LatestService(ServingNamespace, names, options, fopt...)
+	service := LatestService(names, options, fopt...)
 	LogResourceObject(t, ResourceObjects{Service: service})
 	svc, err := clients.ServingClient.Services.Create(service)
 	return svc, err
@@ -223,11 +223,11 @@ func PatchManualService(t *testing.T, clients *Clients, svc *v1alpha1.Service) (
 func PatchServiceImage(t *testing.T, clients *Clients, svc *v1alpha1.Service, imagePath string) (*v1alpha1.Service, error) {
 	newSvc := svc.DeepCopy()
 	if svc.Spec.RunLatest != nil {
-		newSvc.Spec.RunLatest.Configuration.RevisionTemplate.Spec.Container.Image = imagePath
+		newSvc.Spec.RunLatest.Configuration.GetTemplate().Spec.GetContainer().Image = imagePath
 	} else if svc.Spec.Release != nil {
-		newSvc.Spec.Release.Configuration.RevisionTemplate.Spec.Container.Image = imagePath
+		newSvc.Spec.Release.Configuration.GetTemplate().Spec.GetContainer().Image = imagePath
 	} else if svc.Spec.DeprecatedPinned != nil {
-		newSvc.Spec.DeprecatedPinned.Configuration.RevisionTemplate.Spec.Container.Image = imagePath
+		newSvc.Spec.DeprecatedPinned.Configuration.GetTemplate().Spec.GetContainer().Image = imagePath
 	} else {
 		return nil, fmt.Errorf("UpdateImageService(%v): unable to determine service type", svc)
 	}
@@ -253,11 +253,11 @@ func PatchService(t *testing.T, clients *Clients, curSvc *v1alpha1.Service, desi
 func PatchServiceRevisionTemplateMetadata(t *testing.T, clients *Clients, svc *v1alpha1.Service, metadata metav1.ObjectMeta) (*v1alpha1.Service, error) {
 	newSvc := svc.DeepCopy()
 	if svc.Spec.RunLatest != nil {
-		newSvc.Spec.RunLatest.Configuration.RevisionTemplate.ObjectMeta = metadata
+		newSvc.Spec.RunLatest.Configuration.GetTemplate().ObjectMeta = metadata
 	} else if svc.Spec.Release != nil {
-		newSvc.Spec.Release.Configuration.RevisionTemplate.ObjectMeta = metadata
+		newSvc.Spec.Release.Configuration.GetTemplate().ObjectMeta = metadata
 	} else if svc.Spec.DeprecatedPinned != nil {
-		newSvc.Spec.DeprecatedPinned.Configuration.RevisionTemplate.ObjectMeta = metadata
+		newSvc.Spec.DeprecatedPinned.Configuration.GetTemplate().ObjectMeta = metadata
 	} else {
 		return nil, fmt.Errorf("UpdateServiceRevisionTemplateMetadata(%v): unable to determine service type", svc)
 	}

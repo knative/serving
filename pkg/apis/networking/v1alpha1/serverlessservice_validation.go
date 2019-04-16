@@ -25,7 +25,7 @@ import (
 
 // Validate inspects and validates ClusterServerlessService object.
 func (ci *ServerlessService) Validate(ctx context.Context) *apis.FieldError {
-	return ci.Spec.Validate(ctx).ViaField("spec")
+	return ci.Spec.Validate(apis.WithinSpec(ctx)).ViaField("spec")
 }
 
 // Validate inspects and validates ServerlessServiceSpec object.
@@ -42,7 +42,7 @@ func (spec *ServerlessServiceSpec) Validate(ctx context.Context) *apis.FieldErro
 	case "":
 		all = all.Also(apis.ErrMissingField("mode"))
 	default:
-		all = all.Also(apis.ErrInvalidValue(string(spec.Mode), "mode"))
+		all = all.Also(apis.ErrInvalidValue(spec.Mode, "mode"))
 	}
 	if len(spec.Selector) == 0 {
 		all = all.Also(apis.ErrMissingField("selector"))

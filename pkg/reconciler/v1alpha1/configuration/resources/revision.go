@@ -29,8 +29,8 @@ import (
 func MakeRevision(config *v1alpha1.Configuration, buildRef *corev1.ObjectReference) *v1alpha1.Revision {
 	// Start from the ObjectMeta/Spec inlined in the Configuration resources.
 	rev := &v1alpha1.Revision{
-		ObjectMeta: config.Spec.RevisionTemplate.ObjectMeta,
-		Spec:       config.Spec.RevisionTemplate.Spec,
+		ObjectMeta: config.Spec.GetTemplate().ObjectMeta,
+		Spec:       config.Spec.GetTemplate().Spec,
 	}
 	// Populate the Namespace and Name.
 	rev.Namespace = config.Namespace

@@ -25,7 +25,6 @@ import (
 	"github.com/knative/pkg/logging/logkey"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/queue"
-	"github.com/knative/serving/pkg/reconciler"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 )
@@ -37,7 +36,7 @@ var ErrActivatorOverload = errors.New("activator overload")
 type ThrottlerParams struct {
 	BreakerParams queue.BreakerParams
 	Logger        *zap.SugaredLogger
-	GetEndpoints  func(RevisionID) (int32, error)
+	GetEndpoints  func(*v1alpha1.Revision) (int32, error)
 	GetRevision   func(RevisionID) (*v1alpha1.Revision, error)
 }
 
@@ -57,7 +56,7 @@ type Throttler struct {
 	breakers      map[RevisionID]*queue.Breaker
 	breakerParams queue.BreakerParams
 	logger        *zap.SugaredLogger
-	getEndpoints  func(RevisionID) (int32, error)
+	getEndpoints  func(*v1alpha1.Revision) (int32, error)
 	getRevision   func(RevisionID) (*v1alpha1.Revision, error)
 	mux           sync.Mutex
 }
@@ -128,11 +127,11 @@ func (t *Throttler) getOrCreateBreaker(rev RevisionID) (*queue.Breaker, bool) {
 // This avoids a potential deadlock in case if we missed the updates from the Endpoints informer.
 // This could happen because of a restart of the Activator or when a new one is added as part of scale out.
 func (t *Throttler) forceUpdateCapacity(rev RevisionID, breaker *queue.Breaker) (err error) {
-	size, err := t.getEndpoints(rev)
+	revision, err := t.getRevision(rev)
 	if err != nil {
 		return err
 	}
-	revision, err := t.getRevision(rev)
+	size, err := t.getEndpoints(revision)
 	if err != nil {
 		return err
 	}
@@ -145,24 +144,20 @@ func (t *Throttler) forceUpdateCapacity(rev RevisionID, breaker *queue.Breaker) 
 // that do not belong to any revision).
 //
 // This function must not be called in parallel to not induce a wrong order of events.
-func UpdateEndpoints(throttler *Throttler) func(newObj interface{}) {
-	return func(newObj interface{}) {
-		endpoints := newObj.(*corev1.Endpoints)
-		addresses := resources.ReadyAddressCount(endpoints)
-		revID := RevisionID{endpoints.Namespace, reconciler.GetServingRevisionNameForK8sService(endpoints.Name)}
-		if err := throttler.UpdateCapacity(revID, int32(addresses)); err != nil {
-			throttler.logger.With(zap.String(logkey.Key, revID.String())).Errorw("updating capacity failed", zap.Error(err))
-		}
+func (t *Throttler) UpdateEndpoints(newObj interface{}) {
+	endpoints := newObj.(*corev1.Endpoints)
+	addresses := resources.ReadyAddressCount(endpoints)
+	revID := RevisionID{endpoints.Namespace, resources.ParentResourceFromService(endpoints.Name)}
+	if err := t.UpdateCapacity(revID, int32(addresses)); err != nil {
+		t.logger.With(zap.String(logkey.Key, revID.String())).Errorw("updating capacity failed", zap.Error(err))
 	}
 }
 
 // DeleteBreaker is a handler function to be used by the Endpoints informer.
 // It removes the Breaker from the Throttler bookkeeping.
-func DeleteBreaker(throttler *Throttler) func(obj interface{}) {
-	return func(obj interface{}) {
-		ep := obj.(*corev1.Endpoints)
-		name := reconciler.GetServingRevisionNameForK8sService(ep.Name)
-		revID := RevisionID{ep.Namespace, name}
-		throttler.Remove(revID)
-	}
+func (t *Throttler) DeleteBreaker(obj interface{}) {
+	ep := obj.(*corev1.Endpoints)
+	name := resources.ParentResourceFromService(ep.Name)
+	revID := RevisionID{ep.Namespace, name}
+	t.Remove(revID)
 }

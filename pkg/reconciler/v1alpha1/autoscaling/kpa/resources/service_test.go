@@ -21,12 +21,12 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
+	"github.com/knative/pkg/ptr"
 	pav1a1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
+	"github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/serving"
 	autoscalingv1 "k8s.io/api/autoscaling/v1"
 )
-
-var boolTrue = true
 
 func TestMakeService(t *testing.T) {
 	pa := &pav1a1.PodAutoscaler{
@@ -59,9 +59,10 @@ func TestMakeService(t *testing.T) {
 			Name:      "with-you-metrics",
 			Labels: map[string]string{
 				// Those should be propagated.
-				serving.RevisionLabelKey: "with-you",
-				serving.RevisionUID:      "2009",
-				kpaLabelKey:              "with-you",
+				serving.RevisionLabelKey:  "with-you",
+				serving.RevisionUID:       "2009",
+				kpaLabelKey:               "with-you",
+				networking.ServiceTypeKey: string(networking.ServiceTypeMetrics),
 			},
 			Annotations: map[string]string{
 				"a": "b",
@@ -71,8 +72,8 @@ func TestMakeService(t *testing.T) {
 				Kind:               "PodAutoscaler",
 				Name:               "with-you",
 				UID:                "2006",
-				Controller:         &boolTrue,
-				BlockOwnerDeletion: &boolTrue,
+				Controller:         ptr.Bool(true),
+				BlockOwnerDeletion: ptr.Bool(true),
 			}},
 		},
 		Spec: corev1.ServiceSpec{

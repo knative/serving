@@ -28,7 +28,6 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 
 	cachinginformers "github.com/knative/caching/pkg/client/informers/externalversions"
-	sharedinformers "github.com/knative/pkg/client/informers/externalversions"
 	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/controller"
 	"github.com/knative/pkg/signals"
@@ -36,7 +35,6 @@ import (
 	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/pkg/metrics"
 	"github.com/knative/serving/pkg/reconciler"
-	"github.com/knative/serving/pkg/reconciler/v1alpha1/clusteringress"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/configuration"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/labeler"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision"
@@ -78,13 +76,12 @@ func main() {
 		logger.Fatalw("Error building kubeconfig", zap.Error(err))
 	}
 
-	const numControllers = 7
+	const numControllers = 6
 	cfg.QPS = numControllers * rest.DefaultQPS
 	cfg.Burst = numControllers * rest.DefaultBurst
 	opt := reconciler.NewOptionsOrDie(cfg, logger, stopCh)
 
 	kubeInformerFactory := kubeinformers.NewSharedInformerFactory(opt.KubeClientSet, opt.ResyncPeriod)
-	sharedInformerFactory := sharedinformers.NewSharedInformerFactory(opt.SharedClientSet, opt.ResyncPeriod)
 	servingInformerFactory := informers.NewSharedInformerFactory(opt.ServingClientSet, opt.ResyncPeriod)
 	cachingInformerFactory := cachinginformers.NewSharedInformerFactory(opt.CachingClientSet, opt.ResyncPeriod)
 	buildInformerFactory := revision.KResourceTypedInformerFactory(opt)
@@ -98,11 +95,8 @@ func main() {
 	sksInformer := servingInformerFactory.Networking().V1alpha1().ServerlessServices()
 	deploymentInformer := kubeInformerFactory.Apps().V1().Deployments()
 	coreServiceInformer := kubeInformerFactory.Core().V1().Services()
-	secretInformer := kubeInformerFactory.Core().V1().Secrets()
 	endpointsInformer := kubeInformerFactory.Core().V1().Endpoints()
 	configMapInformer := kubeInformerFactory.Core().V1().ConfigMaps()
-	virtualServiceInformer := sharedInformerFactory.Networking().V1alpha3().VirtualServices()
-	gatewayInformer := sharedInformerFactory.Networking().V1alpha3().Gateways()
 	imageInformer := cachingInformerFactory.Caching().V1alpha1().Images()
 
 	// Build all of our controllers, with the clients constructed above.
@@ -144,13 +138,6 @@ func main() {
 			configurationInformer,
 			routeInformer,
 		),
-		clusteringress.NewController(
-			opt,
-			clusterIngressInformer,
-			virtualServiceInformer,
-			gatewayInformer,
-			secretInformer,
-		),
 		serverlessservice.NewController(
 			opt,
 			sksInformer,
@@ -186,9 +173,6 @@ func main() {
 		routeInformer.Informer(),
 		serviceInformer.Informer(),
 		sksInformer.Informer(),
-		secretInformer.Informer(),
-		virtualServiceInformer.Informer(),
-		gatewayInformer.Informer(),
 	); err != nil {
 		logger.Fatalf("Failed to start informers: %v", err)
 	}

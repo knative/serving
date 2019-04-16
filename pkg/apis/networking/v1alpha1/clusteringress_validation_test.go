@@ -122,7 +122,7 @@ func TestIngressSpecValidation(t *testing.T) {
 				},
 			}},
 		},
-		want: apis.ErrInvalidValue("199", "rules[0].http.paths[0].splits[0].percent"),
+		want: apis.ErrInvalidValue(199, "rules[0].http.paths[0].splits[0].percent"),
 	}, {
 		name: "missing-split",
 		cis: &IngressSpec{
@@ -269,7 +269,7 @@ func TestIngressSpecValidation(t *testing.T) {
 				},
 			}},
 		},
-		want: apis.ErrInvalidValue("-1", "rules[0].http.paths[0].retries.attempts"),
+		want: apis.ErrInvalidValue(-1, "rules[0].http.paths[0].retries.attempts"),
 	}, {
 		name: "empty-tls",
 		cis: &IngressSpec{

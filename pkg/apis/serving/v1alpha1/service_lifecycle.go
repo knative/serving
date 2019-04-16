@@ -23,6 +23,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"github.com/knative/pkg/apis"
+	duckv1beta1 "github.com/knative/pkg/apis/duck/v1beta1"
 )
 
 var serviceCondSet = apis.NewLivingConditionSet(
@@ -142,4 +143,8 @@ func (ss *ServiceStatus) SetManualStatus() {
 	newStatus.DeprecatedDomainInternal = ss.DeprecatedDomainInternal
 
 	*ss = *newStatus
+}
+
+func (ss *ServiceStatus) duck() *duckv1beta1.Status {
+	return &ss.Status
 }

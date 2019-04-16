@@ -28,6 +28,8 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 
 	pkgTest "github.com/knative/pkg/test"
 	"github.com/knative/pkg/test/spoof"
@@ -36,8 +38,6 @@ import (
 	"github.com/knative/test-infra/shared/testgrid"
 	"golang.org/x/sync/errgroup"
 )
-
-const concurrency = 5
 
 // generateTraffic loads the given endpoint with the given concurrency for the given duration.
 // All responses are forwarded to a channel, if given.
@@ -121,6 +121,19 @@ func timeToScale(events []*event, start time.Time, desiredScale int) (time.Durat
 }
 
 func TestObservedConcurrency(t *testing.T) {
+	var tc []junit.TestCase
+	tests := []int{5, 10} //going beyond 10 currently causes "overload" responses
+	for _, clients := range tests {
+		t.Run(fmt.Sprintf("scale-%02d", clients), func(t *testing.T) {
+			tc = append(tc, testConcurrencyN(t, clients)...)
+		})
+	}
+	if err := testgrid.CreateXMLOutput(tc, t.Name()); err != nil {
+		t.Fatalf("Cannot create output xml: %v", err)
+	}
+}
+
+func testConcurrencyN(t *testing.T, concurrency int) []junit.TestCase {
 	perfClients, err := Setup(t)
 	if err != nil {
 		t.Fatalf("Cannot initialize performance client: %v", err)
@@ -136,7 +149,15 @@ func TestObservedConcurrency(t *testing.T) {
 	test.CleanupOnInterrupt(func() { TearDown(perfClients, names, t.Logf) })
 
 	t.Log("Creating a new Service")
-	objs, err := test.CreateRunLatestServiceReady(t, clients, &names, &test.Options{ContainerConcurrency: 1})
+	objs, err := test.CreateRunLatestServiceReady(t, clients, &names, &test.Options{
+		ContainerConcurrency: 1,
+		ContainerResources: corev1.ResourceRequirements{
+			Requests: corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse("10m"),
+				corev1.ResourceMemory: resource.MustParse("20Mi"),
+			},
+		},
+	})
 	if err != nil {
 		t.Fatalf("Failed to create Service: %v", err)
 	}
@@ -218,7 +239,5 @@ func TestObservedConcurrency(t *testing.T) {
 	}
 	tc = append(tc, CreatePerfTestCase(float32(failedRequests), "failed requests", t.Name()))
 
-	if err = testgrid.CreateXMLOutput(tc, t.Name()); err != nil {
-		t.Fatalf("Cannot create output xml: %v", err)
-	}
+	return tc
 }

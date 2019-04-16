@@ -87,12 +87,12 @@ func getTestRevisionWithCondition(name string, cond apis.Condition) *v1alpha1.Re
 			Namespace: testNamespace,
 		},
 		Spec: v1alpha1.RevisionSpec{
-			Container: corev1.Container{
+			Container: &corev1.Container{
 				Image: "test-image",
 			},
 		},
 		Status: v1alpha1.RevisionStatus{
-			ServiceName: fmt.Sprintf("%s-service", name),
+			ServiceName: fmt.Sprintf("%s-pub", name),
 			Status: duckv1beta1.Status{
 				Conditions: duckv1beta1.Conditions{cond},
 			},
@@ -110,9 +110,9 @@ func getTestConfiguration() *v1alpha1.Configuration {
 		Spec: v1alpha1.ConfigurationSpec{
 			// This is a workaround for generation initialization
 			DeprecatedGeneration: 1,
-			RevisionTemplate: v1alpha1.RevisionTemplateSpec{
+			RevisionTemplate: &v1alpha1.RevisionTemplateSpec{
 				Spec: v1alpha1.RevisionSpec{
-					Container: corev1.Container{
+					Container: &corev1.Container{
 						Image: "test-image",
 					},
 				},
@@ -131,9 +131,9 @@ func getTestRevisionForConfig(config *v1alpha1.Configuration) *v1alpha1.Revision
 				serving.ConfigurationLabelKey: config.Name,
 			},
 		},
-		Spec: *config.Spec.RevisionTemplate.Spec.DeepCopy(),
+		Spec: *config.Spec.GetTemplate().Spec.DeepCopy(),
 		Status: v1alpha1.RevisionStatus{
-			ServiceName: "p-deadbeef-service",
+			ServiceName: "p-deadbeef-pub",
 		},
 	}
 	rev.Status.MarkResourcesAvailable()
@@ -361,7 +361,7 @@ func TestCreateRouteWithMultipleTargets(t *testing.T) {
 	servingClient.ServingV1alpha1().Revisions(testNamespace).Create(cfgrev)
 	servingInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Add(cfgrev)
 
-	// A route targeting both the config and standalone revision
+	// A route targeting both the config and standalone revision.
 	route := getTestRouteWithTrafficTargets(
 		[]v1alpha1.TrafficTarget{{
 			ConfigurationName: config.Name,
@@ -372,7 +372,7 @@ func TestCreateRouteWithMultipleTargets(t *testing.T) {
 		}},
 	)
 	servingClient.ServingV1alpha1().Routes(testNamespace).Create(route)
-	// Since Reconcile looks in the lister, we need to add it to the informer
+	// Since Reconcile looks in the lister, we need to add it to the informer.
 	servingInformer.Serving().V1alpha1().Routes().Informer().GetIndexer().Add(route)
 
 	controller.Reconcile(context.Background(), KeyOrDie(route))
@@ -391,22 +391,27 @@ func TestCreateRouteWithMultipleTargets(t *testing.T) {
 					Splits: []netv1alpha1.ClusterIngressBackendSplit{{
 						ClusterIngressBackend: netv1alpha1.ClusterIngressBackend{
 							ServiceNamespace: testNamespace,
-							ServiceName:      fmt.Sprintf("%s-service", cfgrev.Name),
+							ServiceName:      fmt.Sprintf("%s-pub", cfgrev.Name),
 							ServicePort:      intstr.FromInt(80),
 						},
 						Percent: 90,
 					}, {
 						ClusterIngressBackend: netv1alpha1.ClusterIngressBackend{
 							ServiceNamespace: testNamespace,
-							ServiceName:      fmt.Sprintf("%s-service", rev.Name),
+							ServiceName:      fmt.Sprintf("%s-pub", rev.Name),
 							ServicePort:      intstr.FromInt(80),
 						},
 						Percent: 10,
 					}},
+					AppendHeaders: map[string]string{
+						"knative-serving-revision":  cfgrev.Name,
+						"knative-serving-namespace": testNamespace,
+					},
 				}},
 			},
 		}},
 	}
+
 	if diff := cmp.Diff(expectedSpec, ci.Spec); diff != "" {
 		t.Errorf("Unexpected rule spec diff (-want +got): %v", diff)
 	}
@@ -465,7 +470,7 @@ func TestCreateRouteWithOneTargetReserve(t *testing.T) {
 					Splits: []netv1alpha1.ClusterIngressBackendSplit{{
 						ClusterIngressBackend: netv1alpha1.ClusterIngressBackend{
 							ServiceNamespace: testNamespace,
-							ServiceName:      fmt.Sprintf("%s-service", cfgrev.Name),
+							ServiceName:      fmt.Sprintf("%s-pub", cfgrev.Name),
 							ServicePort:      intstr.FromInt(80),
 						},
 						Percent: 90,
@@ -558,18 +563,22 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 					Splits: []netv1alpha1.ClusterIngressBackendSplit{{
 						ClusterIngressBackend: netv1alpha1.ClusterIngressBackend{
 							ServiceNamespace: testNamespace,
-							ServiceName:      fmt.Sprintf("%s-service", cfgrev.Name),
+							ServiceName:      fmt.Sprintf("%s-pub", cfgrev.Name),
 							ServicePort:      intstr.FromInt(80),
 						},
 						Percent: 50,
 					}, {
 						ClusterIngressBackend: netv1alpha1.ClusterIngressBackend{
 							ServiceNamespace: testNamespace,
-							ServiceName:      fmt.Sprintf("%s-service", rev.Name),
+							ServiceName:      fmt.Sprintf("%s-pub", rev.Name),
 							ServicePort:      intstr.FromInt(80),
 						},
 						Percent: 50,
 					}},
+					AppendHeaders: map[string]string{
+						"knative-serving-revision":  rev.Name,
+						"knative-serving-namespace": testNamespace,
+					},
 				}},
 			},
 		}, {
@@ -579,11 +588,15 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 					Splits: []netv1alpha1.ClusterIngressBackendSplit{{
 						ClusterIngressBackend: netv1alpha1.ClusterIngressBackend{
 							ServiceNamespace: testNamespace,
-							ServiceName:      "test-rev-service",
+							ServiceName:      "test-rev-pub",
 							ServicePort:      intstr.FromInt(80),
 						},
 						Percent: 100,
 					}},
+					AppendHeaders: map[string]string{
+						"knative-serving-revision":  rev.Name,
+						"knative-serving-namespace": testNamespace,
+					},
 				}},
 			},
 		}, {
@@ -593,15 +606,20 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 					Splits: []netv1alpha1.ClusterIngressBackendSplit{{
 						ClusterIngressBackend: netv1alpha1.ClusterIngressBackend{
 							ServiceNamespace: testNamespace,
-							ServiceName:      "test-rev-service",
+							ServiceName:      "test-rev-pub",
 							ServicePort:      intstr.FromInt(80),
 						},
 						Percent: 100,
 					}},
+					AppendHeaders: map[string]string{
+						"knative-serving-revision":  rev.Name,
+						"knative-serving-namespace": testNamespace,
+					},
 				}},
 			},
 		}},
 	}
+
 	if diff := cmp.Diff(expectedSpec, ci.Spec); diff != "" {
 		fmt.Printf("%+v\n", ci.Spec)
 		t.Errorf("Unexpected rule spec diff (-want +got): %v", diff)
@@ -661,18 +679,22 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 					Splits: []netv1alpha1.ClusterIngressBackendSplit{{
 						ClusterIngressBackend: netv1alpha1.ClusterIngressBackend{
 							ServiceNamespace: testNamespace,
-							ServiceName:      fmt.Sprintf("%s-service", rev.Name),
+							ServiceName:      fmt.Sprintf("%s-pub", rev.Name),
 							ServicePort:      intstr.FromInt(80),
 						},
 						Percent: 50,
 					}, {
 						ClusterIngressBackend: netv1alpha1.ClusterIngressBackend{
 							ServiceNamespace: testNamespace,
-							ServiceName:      fmt.Sprintf("%s-service", cfgrev.Name),
+							ServiceName:      fmt.Sprintf("%s-pub", cfgrev.Name),
 							ServicePort:      intstr.FromInt(80),
 						},
 						Percent: 50,
 					}},
+					AppendHeaders: map[string]string{
+						"knative-serving-revision":  cfgrev.Name,
+						"knative-serving-namespace": testNamespace,
+					},
 				}},
 			},
 		}, {
@@ -682,11 +704,15 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 					Splits: []netv1alpha1.ClusterIngressBackendSplit{{
 						ClusterIngressBackend: netv1alpha1.ClusterIngressBackend{
 							ServiceNamespace: testNamespace,
-							ServiceName:      fmt.Sprintf("%s-service", cfgrev.Name),
+							ServiceName:      fmt.Sprintf("%s-pub", cfgrev.Name),
 							ServicePort:      intstr.FromInt(80),
 						},
 						Percent: 100,
 					}},
+					AppendHeaders: map[string]string{
+						"knative-serving-revision":  cfgrev.Name,
+						"knative-serving-namespace": testNamespace,
+					},
 				}},
 			},
 		}, {
@@ -696,15 +722,20 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 					Splits: []netv1alpha1.ClusterIngressBackendSplit{{
 						ClusterIngressBackend: netv1alpha1.ClusterIngressBackend{
 							ServiceNamespace: testNamespace,
-							ServiceName:      fmt.Sprintf("%s-service", rev.Name),
+							ServiceName:      fmt.Sprintf("%s-pub", rev.Name),
 							ServicePort:      intstr.FromInt(80),
 						},
 						Percent: 100,
 					}},
+					AppendHeaders: map[string]string{
+						"knative-serving-revision":  rev.Name,
+						"knative-serving-namespace": testNamespace,
+					},
 				}},
 			},
 		}},
 	}
+
 	if diff := cmp.Diff(expectedSpec, ci.Spec); diff != "" {
 		fmt.Printf("%+v\n", ci.Spec)
 		t.Errorf("Unexpected rule spec diff (-want +got): %v", diff)
@@ -931,38 +962,33 @@ func TestRouteDomain(t *testing.T) {
 		Template string
 		Pass     bool
 		Expected string
-	}{
-		{"Default",
-			"{{.Name}}.{{.Namespace}}.{{.Domain}}",
-			true,
-			"myapp.default.example.com",
-		},
-		{"Dash",
-			"{{.Name}}-{{.Namespace}}.{{.Domain}}",
-			true,
-			"myapp-default.example.com",
-		},
-		{"Short",
-			"{{.Name}}.{{.Domain}}",
-			true,
-			"myapp.example.com",
-		},
-		{"SuperShort",
-			"{{.Name}}",
-			true,
-			"myapp",
-		},
-		{"SyntaxError",
-			"{{.Name{}}.{{.Namespace}}.{{.Domain}}",
-			false,
-			"",
-		},
-		{"BadVarName",
-			"{{.Name}}.{{.NNNamespace}}.{{.Domain}}",
-			false,
-			"",
-		},
-	}
+	}{{
+		Name:     "Default",
+		Template: "{{.Name}}.{{.Namespace}}.{{.Domain}}",
+		Pass:     true,
+		Expected: "myapp.default.example.com",
+	}, {
+		Name:     "Dash",
+		Template: "{{.Name}}-{{.Namespace}}.{{.Domain}}",
+		Pass:     true,
+		Expected: "myapp-default.example.com",
+	}, {
+		Name:     "Short",
+		Template: "{{.Name}}.{{.Domain}}",
+		Pass:     true,
+		Expected: "myapp.example.com",
+	}, {
+		Name:     "SuperShort",
+		Template: "{{.Name}}",
+		Pass:     true,
+		Expected: "myapp",
+	}, {
+		// This cannot get through our validation, but verify we handle errors.
+		Name:     "BadVarName",
+		Template: "{{.Name}}.{{.NNNamespace}}.{{.Domain}}",
+		Pass:     false,
+		Expected: "",
+	}}
 
 	for _, test := range tests {
 		cfg.Network.DomainTemplate = test.Template

@@ -23,6 +23,7 @@ import (
 
 	"github.com/knative/pkg/apis"
 	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
+	duckv1beta1 "github.com/knative/pkg/apis/duck/v1beta1"
 	net "github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/serving"
 	corev1 "k8s.io/api/core/v1"
@@ -80,6 +81,17 @@ func (r *Revision) GetGroupVersionKind() schema.GroupVersionKind {
 	return SchemeGroupVersion.WithKind("Revision")
 }
 
+// GetContainer returns a pointer to the relevant corev1.Container field.
+// It is never nil and should be exactly the specified container as guaranteed
+// by validation.
+func (rs *RevisionSpec) GetContainer() *corev1.Container {
+	if rs.Container != nil {
+		return rs.Container
+	}
+	// Should be unreachable post-validation, but here to ease testing.
+	return &corev1.Container{}
+}
+
 func (r *Revision) BuildRef() *corev1.ObjectReference {
 	if r.Spec.BuildRef != nil {
 		buildRef := r.Spec.BuildRef.DeepCopy()
@@ -103,7 +115,7 @@ func (r *Revision) BuildRef() *corev1.ObjectReference {
 
 // GetProtocol returns the app level network protocol.
 func (r *Revision) GetProtocol() net.ProtocolType {
-	ports := r.Spec.Container.Ports
+	ports := r.Spec.GetContainer().Ports
 	if len(ports) > 0 && ports[0].Name == string(net.ProtocolH2C) {
 		return net.ProtocolH2C
 	}
@@ -275,4 +287,8 @@ func (r *Revision) GetLastPinned() (time.Time, error) {
 	}
 
 	return time.Unix(secs, 0), nil
+}
+
+func (rs *RevisionStatus) duck() *duckv1beta1.Status {
+	return &rs.Status
 }

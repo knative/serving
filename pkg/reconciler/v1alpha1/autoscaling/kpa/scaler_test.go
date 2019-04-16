@@ -29,6 +29,7 @@ import (
 	pav1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/knative/serving/pkg/autoscaler"
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
 	fakeKna "github.com/knative/serving/pkg/client/clientset/versioned/fake"
 	revisionresources "github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources"
@@ -150,11 +151,12 @@ func TestScaler(t *testing.T) {
 		wantReplicas:  10,
 		wantScaling:   true,
 	}, {
-		label:         "ignore negative scale",
+		label:         "negative scale is bounded to minScale",
 		startReplicas: 12,
 		scaleTo:       -1,
-		wantReplicas:  12,
-		wantScaling:   false,
+		minScale:      2,
+		wantReplicas:  2,
+		wantScaling:   true,
 	}}
 
 	for _, test := range tests {
@@ -179,6 +181,59 @@ func TestScaler(t *testing.T) {
 			} else {
 				checkNoScaling(t, scaleClient)
 			}
+		})
+	}
+}
+
+func TestEnableScaleToZero(t *testing.T) {
+	defer ClearAll()
+	tests := []struct {
+		label         string
+		startReplicas int
+		scaleTo       int32
+		minScale      int32
+		maxScale      int32
+		wantReplicas  int32
+		wantScaling   bool
+	}{{
+		label:         "EnableScaleToZero == false and minScale == 0",
+		startReplicas: 10,
+		scaleTo:       0,
+		wantReplicas:  1,
+	}, {
+		label:         "EnableScaleToZero == false and minScale == 2",
+		startReplicas: 10,
+		scaleTo:       0,
+		minScale:      2,
+		wantReplicas:  2,
+	}, {
+		label:         "EnableScaleToZero == false and desire pod is -1(initial value)",
+		startReplicas: 10,
+		scaleTo:       -1,
+		wantReplicas:  1,
+	}}
+
+	for _, test := range tests {
+		t.Run(test.label, func(t *testing.T) {
+			// The clients for our testing.
+			servingClient := fakeKna.NewSimpleClientset()
+			scaleClient := &scalefake.FakeScaleClient{}
+
+			revision := newRevision(t, servingClient, test.minScale, test.maxScale)
+			deployment := newDeployment(t, scaleClient, names.Deployment(revision), test.startReplicas)
+			revisionScaler := &scaler{
+				servingClientSet: servingClient,
+				scaleClientSet:   scaleClient,
+				logger:           TestLogger(t),
+				autoscalerConfig: &autoscaler.Config{
+					EnableScaleToZero: false,
+				},
+			}
+			pa := newKPA(t, servingClient, revision)
+
+			revisionScaler.Scale(TestContextWithLogger(t), pa, test.scaleTo)
+
+			checkReplicas(t, scaleClient, deployment, test.wantReplicas)
 		})
 	}
 }

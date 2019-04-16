@@ -269,21 +269,21 @@
   revision = "e89373fe6b4a7413d7acd6da1725b83ef713e6e4"
 
 [[projects]]
-  digest = "1:d2754cafcab0d22c13541618a8029a70a8959eb3525ff201fe971637e2274cd0"
+  digest = "1:010d46ea3c1e730897e53058d1013a963f3f987675dda87df64f891b945281db"
   name = "github.com/google/go-cmp"
   packages = [
     "cmp",
     "cmp/cmpopts",
     "cmp/internal/diff",
+    "cmp/internal/flags",
     "cmp/internal/function",
     "cmp/internal/value",
   ]
   pruneopts = "NUT"
-  revision = "3af367b6b30c263d47e8895973edcca9a49cf029"
-  version = "v0.2.0"
+  revision = "6f77996f0c42f7b84e5a2b252227263f93432e9b"
 
 [[projects]]
-  digest = "1:a9593460569b42d1febee32af9e66d516067d2e98cbb51eebfad65a72c59a63a"
+  digest = "1:e8023d1263ea9bd67f5a5c2db39f6b51a4301c54d13b7327988d9dde2a7ced15"
   name = "github.com/google/go-containerregistry"
   packages = [
     "pkg/authn",
@@ -294,12 +294,11 @@
     "pkg/v1/random",
     "pkg/v1/remote",
     "pkg/v1/remote/transport",
-    "pkg/v1/stream",
     "pkg/v1/types",
     "pkg/v1/v1util",
   ]
   pruneopts = "NUT"
-  revision = "dbc4da98389f9d0c42eb314c2b346bf1d2a27310"
+  revision = "ec69c4a8a1bff25fcbe096fcb32c9a6543fbdccf"
 
 [[projects]]
   branch = "master"
@@ -415,7 +414,7 @@
   revision = "dd3ceb3323922b899a0a913f885fcf59943e7b59"
 
 [[projects]]
-  digest = "1:d978804ff9861cf5670d52fc8e4b85f38245fdac88d814952b6c9506b55406ed"
+  digest = "1:34baec0d305f6b4079e8cf7018a4ae606d6e1d31e7b1017ee4fb4bcd2426b7e7"
   name = "github.com/knative/caching"
   packages = [
     "pkg/apis/caching",
@@ -432,10 +431,10 @@
     "pkg/client/listers/caching/v1alpha1",
   ]
   pruneopts = "T"
-  revision = "babf400eeec07acdd0d6864ad28709c2bcee0c82"
+  revision = "afa9ee174c6f2072b12dbb4b3bf64be8ec7bc30b"
 
 [[projects]]
-  digest = "1:828517719ba14c379e1c2ef0bc31e4f42bbf34f5bff38d21535628ff66671f39"
+  digest = "1:5357904d235a883d6adc983544bf278de6302cf156a1cbb2f506a1c8cb9cddef"
   name = "github.com/knative/pkg"
   packages = [
     "apis",
@@ -473,6 +472,7 @@
     "logging/testing",
     "metrics",
     "metrics/metricskey",
+    "ptr",
     "signals",
     "system",
     "system/testing",
@@ -489,14 +489,15 @@
     "websocket",
   ]
   pruneopts = "NUT"
-  revision = "2b574edcd712e848556c69cc95a2622145284882"
+  revision = "efba541fddcb6ed78fb9aae0d5f100bfb0743087"
 
 [[projects]]
   branch = "master"
-  digest = "1:37372ae74214d400b7efb4b1b9839d99d8e2c6fc4e2a1ddf6c38431c979c91f1"
+  digest = "1:aa5b8815a84253b406a87b93097ed8e4a9ace745483425bd6ea9315e3d980985"
   name = "github.com/knative/test-infra"
   packages = [
     "scripts",
+    "shared/common",
     "shared/gcs",
     "shared/junit",
     "shared/loadgenerator",
@@ -511,7 +512,7 @@
     "tools/webhook-apicoverage/webhook",
   ]
   pruneopts = "UT"
-  revision = "cc62d7b1296b8ae5c93f1dec2cbfbaa84624304b"
+  revision = "c4c17967d1502ca066c7eeb8f17a6f268610b25b"
 
 [[projects]]
   digest = "1:56dbf15e091bf7926cb33a57cb6bdfc658fc6d3498d2f76f10a97ce7856f1fde"
@@ -1336,6 +1337,7 @@
     "github.com/knative/pkg/logging/testing",
     "github.com/knative/pkg/metrics",
     "github.com/knative/pkg/metrics/metricskey",
+    "github.com/knative/pkg/ptr",
     "github.com/knative/pkg/signals",
     "github.com/knative/pkg/system",
     "github.com/knative/pkg/system/testing",

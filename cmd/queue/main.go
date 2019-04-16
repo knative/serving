@@ -24,15 +24,13 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"os"
-	"strings"
 	"time"
 
-	"github.com/knative/serving/pkg/utils"
-
-	"github.com/knative/pkg/signals"
+	"go.uber.org/zap"
 
 	"github.com/knative/pkg/logging/logkey"
 	"github.com/knative/pkg/metrics"
+	"github.com/knative/pkg/signals"
 	"github.com/knative/serving/cmd/util"
 	"github.com/knative/serving/pkg/activator"
 	activatorutil "github.com/knative/serving/pkg/activator/util"
@@ -44,7 +42,7 @@ import (
 	"github.com/knative/serving/pkg/queue"
 	"github.com/knative/serving/pkg/queue/health"
 	queuestats "github.com/knative/serving/pkg/queue/stats"
-	"go.uber.org/zap"
+
 	"k8s.io/apimachinery/pkg/util/wait"
 )
 
@@ -133,12 +131,6 @@ func knativeProbeHeader(r *http.Request) string {
 	return r.Header.Get(network.ProbeHeaderName)
 }
 
-func isKubeletProbe(r *http.Request) bool {
-	// Since K8s 1.8, prober requests have
-	//   User-Agent = "kube-probe/{major-version}.{minor-version}".
-	return strings.HasPrefix(r.Header.Get("User-Agent"), "kube-probe/")
-}
-
 func knativeProxyHeader(r *http.Request) string {
 	return r.Header.Get(network.ProxyHeaderName)
 }
@@ -182,7 +174,7 @@ func handler(reqChan chan queue.ReqEvent, breaker *queue.Breaker, httpProxy, h2c
 				http.Error(w, "container not ready", http.StatusServiceUnavailable)
 			}
 			return
-		case isKubeletProbe(r):
+		case network.IsKubeletProbe(r):
 			// Do not count health checks for concurrency metrics
 			proxy.ServeHTTP(w, r)
 			return
@@ -344,7 +336,7 @@ func pushRequestLogHandler(currentHandler http.Handler) http.Handler {
 		PodName:       servingPodName,
 		PodIP:         servingPodIP,
 	}
-	handler, err := queue.NewRequestLogHandler(currentHandler, utils.NewSyncFileWriter(os.Stdout), templ, revInfo)
+	handler, err := queue.NewRequestLogHandler(currentHandler, logging.NewSyncFileWriter(os.Stdout), templ, revInfo)
 
 	if err != nil {
 		logger.Errorw("Error setting up request logger. Request logs will be unavailable.", zap.Error(err))

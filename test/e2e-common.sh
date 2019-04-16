@@ -23,9 +23,27 @@ E2E_MAX_CLUSTER_NODES=4
 # This script provides helper methods to perform cluster actions.
 source $(dirname $0)/../vendor/github.com/knative/test-infra/scripts/e2e-tests.sh
 
+# Choose a correct istio-crds.yaml file.
+# - $1 specifies Istio version.
+function istio_crds_yaml() {
+  local istio_version="$1"
+  echo "./third_party/istio-${istio_version}/istio-crds.yaml"
+}
+
+# Choose a correct istio.yaml file.
+# - $1 specifies Istio version.
+# - $2 specifies whether we should use mesh.
+function istio_yaml() {
+  local istio_version="$1"
+  local istio_mesh=$2
+  local suffix=""
+  if [[ $istio_mesh -eq 0 ]]; then
+    suffix="-lean"
+  fi
+  echo "./third_party/istio-${istio_version}/istio${suffix}.yaml"
+}
+
 # Current YAMLs used to install Knative Serving.
-INSTALL_ISTIO_CRD_YAML=""
-INSTALL_ISTIO_YAML=""
 INSTALL_RELEASE_YAML=""
 INSTALL_MONITORING_YAML=""
 
@@ -40,17 +58,32 @@ INSTALL_CUSTOM_YAMLS=""
 
 # Parse our custom flags.
 function parse_flags() {
-  if [[ "$1" == "--install-monitoring" ]]; then
-    readonly INSTALL_MONITORING=1
-    return 1
-  fi
-  if [[ "$1" == "--custom-yamls" ]]; then
-    [[ -z "$2" ]] && fail_test "Missing argument to --custom-yamls"
-    # Expect a list of comma-separated YAMLs.
-    INSTALL_CUSTOM_YAMLS="${2//,/ }"
-    readonly INSTALL_CUSTOM_YAMLS
-    return 2
-  fi
+  case "$1" in
+    --istio-version)
+      [[ $2 =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || abort "version format must be '[0-9].[0-9].[0-9]'"
+      readonly ISTIO_VERSION=$2
+      return 2
+      ;;
+    --mesh)
+      readonly ISTIO_MESH=1
+      return 1
+      ;;
+    --no-mesh)
+      readonly ISTIO_MESH=0
+      return 1
+      ;;
+    --install-monitoring)
+      readonly INSTALL_MONITORING=1
+      return 1
+      ;;
+    --custom-yamls)
+      [[ -z "$2" ]] && fail_test "Missing argument to --custom-yamls"
+      # Expect a list of comma-separated YAMLs.
+      INSTALL_CUSTOM_YAMLS="${2//,/ }"
+      readonly INSTALL_CUSTOM_YAMLS
+      return 2
+      ;;
+  esac
   return 0
 }
 
@@ -76,13 +109,11 @@ function build_knative_from_source() {
 # Installs Knative Serving in the current cluster, and waits for it to be ready.
 # If no parameters are passed, installs the current source-based build, unless custom
 # YAML files were passed using the --custom-yamls flag.
-# Parameters: $1 - Istio CRD YAML file
-#             $2 - Istio YAML file
-#             $3 - Knative Serving YAML file
-#             $4 - Knative Monitoring YAML file (optional)
+# Parameters: $1 - Knative Serving YAML file
+#             $2 - Knative Monitoring YAML file (optional)
 function install_knative_serving() {
   if [[ -z "${INSTALL_CUSTOM_YAMLS}" ]]; then
-    install_knative_serving_standard "$1" "$2" "$3" "$4"
+    install_knative_serving_standard "$1" "$2"
     return
   fi
   echo ">> Installing Knative serving from custom YAMLs"
@@ -92,48 +123,35 @@ function install_knative_serving() {
     echo "Installing '${yaml}'"
     kubectl create -f "${yaml}" || return 1
   done
-  wait_until_pods_running knative-serving || return 1
-}
-
-# Waits until all batch job pods are running in the given namespace.
-# Parameters: $1 - namespace.
-function wait_until_batch_job_complete() {
-  echo -n "Waiting until all batch job pods in namespace $1 run to completion."
-  for i in {1..150}; do  # timeout after 5 minutes
-    local pods="$(kubectl get pods --selector=job-name --no-headers -n $1 2>/dev/null | grep -v '^[[:space:]]*$')"
-    # All pods must be complete
-    local not_complete=$(echo "${pods}" | grep -v Completed | wc -l)
-    if [[ ${not_complete} -eq 0 ]]; then
-      echo -e "\nAll pods are complete:\n${pods}"
-      return 0
-    fi
-    echo -n "."
-    sleep 2
-  done
-  echo -e "\n\nERROR: timeout waiting for pods to complete\n${pods}"
-  return 1
 }
 
 # Installs Knative Serving in the current cluster, and waits for it to be ready.
 # If no parameters are passed, installs the current source-based build.
-# Parameters: $1 - Istio CRD YAML file
-#             $2 - Istio YAML file
-#             $3 - Knative Serving YAML file
-#             $4 - Knative Monitoring YAML file (optional)
+# Parameters: $1 - Knative Serving YAML file
+#             $2 - Knative Monitoring YAML file (optional)
 function install_knative_serving_standard() {
-  INSTALL_ISTIO_CRD_YAML=$1
-  INSTALL_ISTIO_YAML=$2
-  INSTALL_RELEASE_YAML=$3
-  INSTALL_MONITORING_YAML=$4
-  if [[ -z "${INSTALL_ISTIO_CRD_YAML}" ]]; then
+  INSTALL_RELEASE_YAML=$1
+  INSTALL_MONITORING_YAML=$2
+  if [[ -z "$1" ]]; then
+    # install_knative_serving_standard was called with no arg.
     build_knative_from_source
-    INSTALL_ISTIO_CRD_YAML="${ISTIO_CRD_YAML}"
-    INSTALL_ISTIO_YAML="${ISTIO_YAML}"
     INSTALL_RELEASE_YAML="${SERVING_YAML}"
     if (( INSTALL_MONITORING )); then
       INSTALL_MONITORING_YAML="${MONITORING_YAML}"
     fi
   fi
+
+  # Decide the Istio configuration to install.
+  if [[ -z "$ISTIO_VERSION" ]]; then
+     # Defaults to 1.1.2
+     ISTIO_VERSION=1.1.2
+  fi
+  if [[ -z "$ISTIO_MESH" ]]; then
+    # Defaults to using mesh.
+    ISTIO_MESH=1
+  fi
+  INSTALL_ISTIO_CRD_YAML="$(istio_crds_yaml $ISTIO_VERSION)"
+  INSTALL_ISTIO_YAML="$(istio_yaml $ISTIO_VERSION $ISTIO_MESH)"
 
   echo ">> Installing Knative serving"
   echo "Istio CRD YAML: ${INSTALL_ISTIO_CRD_YAML}"
@@ -190,15 +208,10 @@ function install_knative_serving_standard() {
     kubectl autoscale -n istio-system deploy istio-pilot --min=3 --max=10 --cpu-percent=60 || return 1
   fi
 
-  wait_until_pods_running knative-serving || return 1
-  wait_until_pods_running istio-system || return 1
-  wait_until_service_has_external_ip istio-system istio-ingressgateway
-
   if [[ -n "${INSTALL_MONITORING_YAML}" ]]; then
     echo ">> Installing Monitoring"
     echo "Knative Monitoring YAML: ${INSTALL_MONITORING_YAML}"
     kubectl apply -f "${INSTALL_MONITORING_YAML}" || return 1
-    wait_until_pods_running knative-monitoring || return 1
   fi
 }
 
@@ -249,7 +262,13 @@ function test_setup() {
   ko apply -f test/config/ || return 1
   echo ">> Creating test namespace"
   kubectl create namespace serving-tests
-  ${REPO_ROOT_DIR}/test/upload-test-images.sh
+  ${REPO_ROOT_DIR}/test/upload-test-images.sh || return 1
+  wait_until_pods_running knative-serving || return 1
+  wait_until_pods_running istio-system || return 1
+  wait_until_service_has_external_ip istio-system istio-ingressgateway
+  if [[ -n "${INSTALL_MONITORING_YAML}" ]]; then
+    wait_until_pods_running knative-monitoring || return 1
+  fi
 }
 
 # Delete test resources
@@ -257,6 +276,6 @@ function test_teardown() {
   echo ">> Removing test resources (test/config/)"
   ko delete --ignore-not-found=true --now -f test/config/
   echo ">> Removing test namespace"
-  kubectl delete all --all --ignore-not-found --now -n serving-tests
-  kubectl delete --ignore-not-found --now namespace serving-tests
+  kubectl delete all --all --ignore-not-found --now --timeout 60s -n serving-tests
+  kubectl delete --ignore-not-found --now --timeout 60s namespace serving-tests
 }

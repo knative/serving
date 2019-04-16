@@ -18,24 +18,13 @@ package names
 
 import (
 	"testing"
-
-	nv1a1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
-
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func TestServiceNames(t *testing.T) {
-	const n = "test-name"
-	sks := &nv1a1.ServerlessService{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      n,
-			Namespace: "default",
-		},
-	}
-	if got, want := PublicService(sks), "test-name-pub"; got != want {
+	if got, want := PublicService("test-name"), "test-name-pub"; got != want {
 		t.Errorf("PublicService name = %s, want: %s", got, want)
 	}
-	if got, want := PrivateService(sks), "test-name-priv"; got != want {
+	if got, want := PrivateService("test-name"), "test-name-priv"; got != want {
 		t.Errorf("PrivateService name = %s, want: %s", got, want)
 	}
 }
