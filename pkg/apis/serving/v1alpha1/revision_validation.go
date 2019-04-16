@@ -30,7 +30,6 @@ import (
 	"github.com/knative/serving/pkg/apis/serving"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
-	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation"
 )
@@ -61,8 +60,8 @@ var (
 	)
 )
 
-func (current *Revision) checkImmutableFields(ctx context.Context, original *Revision) *apis.FieldError {
-	if diff, err := kmp.ShortDiff(original.Spec, current.Spec); err != nil {
+func (r *Revision) checkImmutableFields(ctx context.Context, original *Revision) *apis.FieldError {
+	if diff, err := kmp.ShortDiff(original.Spec, r.Spec); err != nil {
 		return &apis.FieldError{
 			Message: "Failed to diff Revision",
 			Paths:   []string{"spec"},
@@ -79,12 +78,12 @@ func (current *Revision) checkImmutableFields(ctx context.Context, original *Rev
 }
 
 // Validate ensures Revision is properly configured.
-func (rt *Revision) Validate(ctx context.Context) *apis.FieldError {
-	errs := serving.ValidateObjectMetadata(rt.GetObjectMeta()).ViaField("metadata")
-	errs = errs.Also(rt.Spec.Validate(apis.WithinSpec(ctx)).ViaField("spec"))
+func (r *Revision) Validate(ctx context.Context) *apis.FieldError {
+	errs := serving.ValidateObjectMetadata(r.GetObjectMeta()).ViaField("metadata")
+	errs = errs.Also(r.Spec.Validate(apis.WithinSpec(ctx)).ViaField("spec"))
 	if apis.IsInUpdate(ctx) {
 		old := apis.GetBaseline(ctx).(*Revision)
-		errs = errs.Also(rt.checkImmutableFields(ctx, old))
+		errs = errs.Also(r.checkImmutableFields(ctx, old))
 	}
 	return errs
 }
@@ -235,7 +234,6 @@ func ValidateContainerConcurrency(cc RevisionContainerConcurrencyType, cm Revisi
 	}
 
 	// Validate combinations of ConcurrencyModel and ContainerConcurrency
-
 	if cc == 0 && cm != RevisionRequestConcurrencyModelMulti && cm != RevisionRequestConcurrencyModelType("") {
 		return apis.ErrMultipleOneOf("containerConcurrency", "concurrencyModel")
 	}
@@ -511,16 +509,16 @@ func validateProbe(p *corev1.Probe) *apis.FieldError {
 	if p == nil {
 		return nil
 	}
-	emptyPort := intstr.IntOrString{}
+	errs := validateDisallowedFields(*p, *ProbeMask(p))
+
+	h := p.Handler
+	errs = errs.Also(validateDisallowedFields(h, *HandlerMask(&h)))
+
 	switch {
-	case p.Handler.HTTPGet != nil:
-		if p.Handler.HTTPGet.Port != emptyPort {
-			return apis.ErrDisallowedFields("httpGet.port")
-		}
-	case p.Handler.TCPSocket != nil:
-		if p.Handler.TCPSocket.Port != emptyPort {
-			return apis.ErrDisallowedFields("tcpSocket.port")
-		}
+	case h.HTTPGet != nil:
+		errs = errs.Also(validateDisallowedFields(*h.HTTPGet, *HTTPGetActionMask(h.HTTPGet))).ViaField("httpGet")
+	case h.TCPSocket != nil:
+		errs = errs.Also(validateDisallowedFields(*h.TCPSocket, *TCPSocketActionMask(h.TCPSocket))).ViaField("tcpSocket")
 	}
-	return nil
+	return errs
 }

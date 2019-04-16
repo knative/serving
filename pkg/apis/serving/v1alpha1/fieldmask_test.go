@@ -22,6 +22,7 @@ import (
 	"github.com/knative/pkg/kmp"
 	"github.com/knative/pkg/ptr"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 func TestVolumeMask(t *testing.T) {
@@ -167,6 +168,96 @@ func TestProbeMask(t *testing.T) {
 		t.Errorf("Got error comparing output, err = %v", err)
 	} else if diff != "" {
 		t.Errorf("ProbeMask (-want, +got): %s", diff)
+	}
+}
+
+func TestHandlerMask(t *testing.T) {
+	want := &corev1.Handler{
+		Exec:      &corev1.ExecAction{},
+		HTTPGet:   &corev1.HTTPGetAction{},
+		TCPSocket: &corev1.TCPSocketAction{},
+	}
+	in := want
+
+	got := HandlerMask(in)
+
+	if &want == &got {
+		t.Errorf("Input and output share addresses. Want different addresses")
+	}
+
+	if diff, err := kmp.SafeDiff(want, got); err != nil {
+		t.Errorf("Got error comparing output, err = %v", err)
+	} else if diff != "" {
+		t.Errorf("HandlerMask (-want, +got): %s", diff)
+	}
+}
+
+func TestExecActionMask(t *testing.T) {
+	want := &corev1.ExecAction{
+		Command: []string{"foo", "bar"},
+	}
+	in := want
+
+	got := ExecActionMask(in)
+
+	if &want == &got {
+		t.Errorf("Input and output share addresses. Want different addresses")
+	}
+
+	if diff, err := kmp.SafeDiff(want, got); err != nil {
+		t.Errorf("Got error comparing output, err = %v", err)
+	} else if diff != "" {
+		t.Errorf("ExecActionMask (-want, +got): %s", diff)
+	}
+}
+
+func TestHTTPGetActionMask(t *testing.T) {
+	want := &corev1.HTTPGetAction{
+		Host:        "foo",
+		Path:        "/bar",
+		Scheme:      corev1.URISchemeHTTP,
+		HTTPHeaders: []corev1.HTTPHeader{{}},
+	}
+	in := &corev1.HTTPGetAction{
+		Host:        "foo",
+		Path:        "/bar",
+		Scheme:      corev1.URISchemeHTTP,
+		HTTPHeaders: []corev1.HTTPHeader{{}},
+		Port:        intstr.FromInt(8080),
+	}
+
+	got := HTTPGetActionMask(in)
+
+	if &want == &got {
+		t.Errorf("Input and output share addresses. Want different addresses")
+	}
+
+	if diff, err := kmp.SafeDiff(want, got); err != nil {
+		t.Errorf("Got error comparing output, err = %v", err)
+	} else if diff != "" {
+		t.Errorf("HTTPGetActionMask (-want, +got): %s", diff)
+	}
+}
+
+func TestTCPSocketActionMask(t *testing.T) {
+	want := &corev1.TCPSocketAction{
+		Host: "foo",
+	}
+	in := &corev1.TCPSocketAction{
+		Host: "foo",
+		Port: intstr.FromInt(8080),
+	}
+
+	got := TCPSocketActionMask(in)
+
+	if &want == &got {
+		t.Errorf("Input and output share addresses. Want different addresses")
+	}
+
+	if diff, err := kmp.SafeDiff(want, got); err != nil {
+		t.Errorf("Got error comparing output, err = %v", err)
+	} else if diff != "" {
+		t.Errorf("TCPSocketActionMask (-want, +got): %s", diff)
 	}
 }
 
