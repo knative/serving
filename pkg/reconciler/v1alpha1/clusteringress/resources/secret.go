@@ -33,7 +33,7 @@ func GetSecrets(ci *v1alpha1.ClusterIngress, secretLister corev1listers.SecretLi
 	secrets := map[string]*corev1.Secret{}
 	for _, tls := range ci.Spec.TLS {
 		ref := fmt.Sprintf("%s/%s", tls.SecretNamespace, tls.SecretName)
-		if _, ok := secrets[fmt.Sprintf("%s/%s", tls.SecretNamespace, tls.SecretName)]; ok {
+		if _, ok := secrets[ref]; ok {
 			continue
 		}
 		secret, err := secretLister.Secrets(tls.SecretNamespace).Get(tls.SecretName)
