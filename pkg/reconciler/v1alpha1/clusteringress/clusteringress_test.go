@@ -428,7 +428,7 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 				v1alpha1.IngressStatus{
 					LoadBalancer: &v1alpha1.LoadBalancerStatus{
 						Ingress: []v1alpha1.LoadBalancerIngressStatus{
-							{DomainInternal: reconciler.GetK8sServiceFullname("istio-ingressgateway", "istio-system")},
+							{DomainInternal: network.GetServiceHostname("istio-ingressgateway", "istio-system")},
 						},
 					},
 					Status: duckv1beta1.Status{
@@ -512,7 +512,7 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 				v1alpha1.IngressStatus{
 					LoadBalancer: &v1alpha1.LoadBalancerStatus{
 						Ingress: []v1alpha1.LoadBalancerIngressStatus{
-							{DomainInternal: reconciler.GetK8sServiceFullname("istio-ingressgateway", "istio-system")},
+							{DomainInternal: network.GetServiceHostname("istio-ingressgateway", "istio-system")},
 						},
 					},
 					Status: duckv1beta1.Status{
