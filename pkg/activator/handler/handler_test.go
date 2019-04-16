@@ -83,10 +83,10 @@ var stubServiceGetter = func(namespace, name string) (*corev1.Service, error) {
 
 func TestActivationHandler(t *testing.T) {
 	defer ClearAll()
-	goodEndpointsGetter := func(*v1alpha1.Revision) (int32, error) {
+	goodEndpointsGetter := func(*v1alpha1.Revision) (int, error) {
 		return 1000, nil
 	}
-	brokenEndpointGetter := func(*v1alpha1.Revision) (int32, error) {
+	brokenEndpointGetter := func(*v1alpha1.Revision) (int, error) {
 		return 0, errors.New("some error")
 	}
 	errMsg := func(msg string) string {
@@ -104,7 +104,7 @@ func TestActivationHandler(t *testing.T) {
 		probeCode       int
 		probeResp       []string
 		gpc             int
-		endpointsGetter func(*v1alpha1.Revision) (int32, error)
+		endpointsGetter func(*v1alpha1.Revision) (int, error)
 		reporterCalls   []reporterCall
 	}{{
 		label:           "active endpoint",
@@ -477,7 +477,7 @@ func sendRequests(count int, namespace, revName string, respCh chan *httptest.Re
 
 // getThrottler returns a fully setup Throttler with some sensible defaults for tests.
 func getThrottler(breakerParams queue.BreakerParams, t *testing.T) *activator.Throttler {
-	endpointsGetter := func(*v1alpha1.Revision) (int32, error) {
+	endpointsGetter := func(*v1alpha1.Revision) (int, error) {
 		// Since revisions have a concurrency of 1, this will cause the very same capacity
 		// as being set initially.
 		return breakerParams.InitialCapacity, nil

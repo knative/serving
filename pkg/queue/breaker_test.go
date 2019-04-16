@@ -27,9 +27,9 @@ import (
 )
 
 const (
-	// semAcquireTimeout is a timeout for tests that try to acquire
+	// semacquireTimeout is a timeout for tests that try to acquire
 	// a token of a semaphore.
-	semAcquireTimeout = 10 * time.Second
+	semacquireTimeout = 10 * time.Second
 
 	// semNoChangeTimeout is some additional wait time after a number
 	// of acquires is reached to assert that no more acquires get through.
@@ -95,7 +95,7 @@ func TestBreakerOverloadWithEmptySemaphore(t *testing.T) {
 	b := NewBreaker(params)           // Breaker capacity = 2
 	want := []bool{true, true, false} // Only first two requests are processed
 
-	b.sem.Release()
+	b.sem.release()
 	locks := b.concurrentRequests(3)
 
 	unlockAll(locks)
@@ -172,17 +172,17 @@ func TestBreakerLargeCapacityRecover(t *testing.T) {
 func TestBreaker_UpdateConcurrency(t *testing.T) {
 	params := BreakerParams{QueueDepth: 1, MaxConcurrency: 1, InitialCapacity: 0}
 	b := NewBreaker(params)
-	b.UpdateConcurrency(int32(1))
-	if got, want := b.Capacity(), int32(1); got != want {
+	b.UpdateConcurrency(1)
+	if got, want := b.Capacity(), 1; got != want {
 		t.Errorf("Capacity() = %d, want: %d", got, want)
 	}
 
-	b.UpdateConcurrency(int32(0))
-	if got, want := b.Capacity(), int32(0); got != want {
+	b.UpdateConcurrency(0)
+	if got, want := b.Capacity(), 0; got != want {
 		t.Errorf("Capacity() = %d, want: %d", got, want)
 	}
 
-	if err := b.UpdateConcurrency(int32(-2)); err != ErrUpdateCapacity {
+	if err := b.UpdateConcurrency(-2); err != ErrUpdateCapacity {
 		t.Errorf("UpdateConcurrency = %v, want: %v", err, ErrUpdateCapacity)
 	}
 }
@@ -190,17 +190,17 @@ func TestBreaker_UpdateConcurrency(t *testing.T) {
 func TestBreaker_UpdateConcurrency_Overlow(t *testing.T) {
 	params := BreakerParams{QueueDepth: 1, MaxConcurrency: 1, InitialCapacity: 0}
 	b := NewBreaker(params)
-	if err := b.UpdateConcurrency(int32(2)); err != ErrUpdateCapacity {
+	if err := b.UpdateConcurrency(2); err != ErrUpdateCapacity {
 		t.Errorf("UpdateConcurrency = %v, want: %v", err, ErrUpdateCapacity)
 	}
 }
 
 // Test empty semaphore, token cannot be acquired
-func TestSemaphore_Acquire_HasNoCapacity(t *testing.T) {
+func TestSemaphore_acquire_HasNoCapacity(t *testing.T) {
 	gotChan := make(chan struct{}, 1)
 
 	sem := newSemaphore(1, 0)
-	tryAcquire(sem, gotChan)
+	tryacquire(sem, gotChan)
 
 	select {
 	case <-gotChan:
@@ -211,19 +211,19 @@ func TestSemaphore_Acquire_HasNoCapacity(t *testing.T) {
 }
 
 // Test empty semaphore, add capacity, token can be acquired
-func TestSemaphore_Acquire_HasCapacity(t *testing.T) {
+func TestSemaphore_acquire_HasCapacity(t *testing.T) {
 	gotChan := make(chan struct{}, 1)
 	want := 1
 
 	sem := newSemaphore(1, 0)
-	tryAcquire(sem, gotChan)
-	sem.Release() // Allows 1 acquire
+	tryacquire(sem, gotChan)
+	sem.release() // Allows 1 acquire
 
 	for i := 0; i < want; i++ {
 		select {
 		case <-gotChan:
 			// Successfully acquired a token.
-		case <-time.After(semAcquireTimeout):
+		case <-time.After(semacquireTimeout):
 			t.Error("Was not able to acquire token before timeout")
 		}
 	}
@@ -236,115 +236,115 @@ func TestSemaphore_Acquire_HasCapacity(t *testing.T) {
 	}
 }
 
-func TestSemaphore_Release(t *testing.T) {
+func TestSemaphore_release(t *testing.T) {
 	sem := newSemaphore(1, 1)
-	sem.Acquire()
-	if err := sem.Release(); err != nil {
-		t.Errorf("Release = %v; want: %v", err, nil)
+	sem.acquire()
+	if err := sem.release(); err != nil {
+		t.Errorf("release = %v; want: %v", err, nil)
 	}
-	if err := sem.Release(); err != ErrRelease {
-		t.Errorf("Release = %v; want: %v", err, ErrRelease)
+	if err := sem.release(); err != ErrRelease {
+		t.Errorf("release = %v; want: %v", err, ErrRelease)
 	}
 }
 
-func TestSemaphore_ReleasesSeveralReducers(t *testing.T) {
-	const wantAfterFirstRelease = int32(1)
-	const wantAfterSecondRelease = int32(0)
+func TestSemaphore_releasesSeveralReducers(t *testing.T) {
+	const wantAfterFirstrelease = 1
+	const wantAfterSecondrelease = 0
 	sem := newSemaphore(2, 2)
-	sem.Acquire()
-	sem.Acquire()
-	sem.UpdateCapacity(int32(0))
-	sem.Release()
-	if got := sem.Capacity(); got != wantAfterSecondRelease {
-		t.Errorf("Capacity = %d, want: %d", got, wantAfterSecondRelease)
+	sem.acquire()
+	sem.acquire()
+	sem.updateCapacity(0)
+	sem.release()
+	if got := sem.Capacity(); got != wantAfterSecondrelease {
+		t.Errorf("Capacity = %d, want: %d", got, wantAfterSecondrelease)
 	}
-	if sem.reducers != wantAfterFirstRelease {
-		t.Errorf("sem.reducers = %d, want: %d", sem.reducers, wantAfterFirstRelease)
+	if sem.reducers != wantAfterFirstrelease {
+		t.Errorf("sem.reducers = %d, want: %d", sem.reducers, wantAfterFirstrelease)
 	}
 
-	sem.Release()
-	if got := sem.Capacity(); got != wantAfterSecondRelease {
-		t.Errorf("Capacity = %d, want: %d", got, wantAfterSecondRelease)
+	sem.release()
+	if got := sem.Capacity(); got != wantAfterSecondrelease {
+		t.Errorf("Capacity = %d, want: %d", got, wantAfterSecondrelease)
 	}
-	if sem.reducers != wantAfterSecondRelease {
-		t.Errorf("sem.reducers = %d, want: %d", sem.reducers, wantAfterSecondRelease)
+	if sem.reducers != wantAfterSecondrelease {
+		t.Errorf("sem.reducers = %d, want: %d", sem.reducers, wantAfterSecondrelease)
 	}
 }
 
-func TestSemaphore_UpdateCapacity(t *testing.T) {
-	const initialCapacity = int32(1)
+func TestSemaphore_updateCapacity(t *testing.T) {
+	const initialCapacity = 1
 	sem := newSemaphore(3, initialCapacity)
-	if got, want := sem.Capacity(), int32(1); got != want {
+	if got, want := sem.Capacity(), 1; got != want {
 		t.Errorf("Capacity = %d, want: %d", got, want)
 	}
-	sem.Acquire()
-	sem.UpdateCapacity(initialCapacity + 2)
-	if got, want := sem.Capacity(), int32(3); got != want {
+	sem.acquire()
+	sem.updateCapacity(initialCapacity + 2)
+	if got, want := sem.Capacity(), 3; got != want {
 		t.Errorf("Capacity = %d, want: %d", got, want)
 	}
 }
 
 // Test the case when we add more capacity then the number of waiting reducers
-func TestSemaphore_UpdateCapacity_LessThenReducers(t *testing.T) {
-	const initialCapacity = int32(2)
+func TestSemaphore_updateCapacity_LessThenReducers(t *testing.T) {
+	const initialCapacity = 2
 	sem := newSemaphore(2, initialCapacity)
-	sem.Acquire()
-	sem.Acquire()
-	sem.UpdateCapacity(initialCapacity - 2)
-	if got, want := sem.reducers, int32(2); got != want {
+	sem.acquire()
+	sem.acquire()
+	sem.updateCapacity(initialCapacity - 2)
+	if got, want := sem.reducers, 2; got != want {
 		t.Errorf("sem.reducers = %d, want: %d", got, want)
 	}
-	sem.Release()
-	sem.Release()
-	sem.Release()
-	if got, want := sem.reducers, int32(0); got != want {
+	sem.release()
+	sem.release()
+	sem.release()
+	if got, want := sem.reducers, 0; got != want {
 		t.Errorf("sem.reducers = %d, want: %d", got, want)
 	}
 }
 
-func TestSemaphore_UpdateCapacity_ConsumingReducers(t *testing.T) {
-	const initialCapacity = int32(2)
+func TestSemaphore_updateCapacity_ConsumingReducers(t *testing.T) {
+	const initialCapacity = 2
 	sem := newSemaphore(2, initialCapacity)
-	sem.Acquire()
-	sem.Acquire()
-	sem.UpdateCapacity(initialCapacity - 2)
-	if got, want := sem.reducers, int32(2); got != want {
+	sem.acquire()
+	sem.acquire()
+	sem.updateCapacity(initialCapacity - 2)
+	if got, want := sem.reducers, 2; got != want {
 		t.Errorf("sem.reducers = %d, want: %d", got, want)
 	}
 
-	sem.UpdateCapacity(initialCapacity)
-	if got, want := sem.reducers, int32(0); got != want {
+	sem.updateCapacity(initialCapacity)
+	if got, want := sem.reducers, 0; got != want {
 		t.Errorf("sem.reducers = %d, want: %d", got, want)
 	}
 }
 
-func TestSemaphore_UpdateCapacity_Overflow(t *testing.T) {
+func TestSemaphore_updateCapacity_Overflow(t *testing.T) {
 	sem := newSemaphore(2, 0)
-	if err := sem.UpdateCapacity(3); err != ErrUpdateCapacity {
-		t.Errorf("UpdateCapacity = %v, want: %v", err, ErrUpdateCapacity)
+	if err := sem.updateCapacity(3); err != ErrUpdateCapacity {
+		t.Errorf("updateCapacity = %v, want: %v", err, ErrUpdateCapacity)
 	}
 }
 
-func TestSemaphore_UpdateCapacity_OutOfBound(t *testing.T) {
+func TestSemaphore_updateCapacity_OutOfBound(t *testing.T) {
 	sem := newSemaphore(1, 1)
-	sem.Acquire()
-	if err := sem.UpdateCapacity(-1); err != ErrUpdateCapacity {
-		t.Errorf("UpdateCapacity = %v, want: %v", err, ErrUpdateCapacity)
+	sem.acquire()
+	if err := sem.updateCapacity(-1); err != ErrUpdateCapacity {
+		t.Errorf("updateCapacity = %v, want: %v", err, ErrUpdateCapacity)
 	}
 }
 
-func TestSemaphore_UpdateCapacity_BrokenState(t *testing.T) {
+func TestSemaphore_updateCapacity_BrokenState(t *testing.T) {
 	sem := newSemaphore(1, 0)
-	sem.Release() // This Release is not paired with an Acquire
-	if err := sem.UpdateCapacity(1); err != ErrUpdateCapacity {
-		t.Errorf("UpdateCapacity = %v, want: %v", err, ErrUpdateCapacity)
+	sem.release() // This Release is not paired with an acquire
+	if err := sem.updateCapacity(1); err != ErrUpdateCapacity {
+		t.Errorf("updateCapacity = %v, want: %v", err, ErrUpdateCapacity)
 	}
 }
 
-func TestSemaphore_UpdateCapacity_DoNothing(t *testing.T) {
+func TestSemaphore_updateCapacity_DoNothing(t *testing.T) {
 	sem := newSemaphore(1, 1)
-	if err := sem.UpdateCapacity(1); err != nil {
-		t.Errorf("UpdateCapacity = %v, want: %v", err, nil)
+	if err := sem.updateCapacity(1); err != nil {
+		t.Errorf("updateCapacity = %v, want: %v", err, nil)
 	}
 }
 
@@ -423,10 +423,10 @@ func unlockAll(requests []request) {
 	}
 }
 
-func tryAcquire(sem *semaphore, gotChan chan struct{}) {
+func tryacquire(sem *semaphore, gotChan chan struct{}) {
 	go func() {
 		// blocking until someone puts the token into the semaphore
-		sem.Acquire()
+		sem.acquire()
 		gotChan <- struct{}{}
 	}()
 }

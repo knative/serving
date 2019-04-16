@@ -199,13 +199,13 @@ func main() {
 	params := queue.BreakerParams{QueueDepth: breakerQueueDepth, MaxConcurrency: breakerMaxConcurrency, InitialCapacity: 0}
 
 	// Return the number of endpoints, 0 if no endpoints are found.
-	endpointsGetter := func(rev *v1alpha1.Revision) (int32, error) {
+	endpointsGetter := func(rev *v1alpha1.Revision) (int, error) {
 		// We have to read the private service endpoints in activator
 		// in order to count the serving pod count.
 		// TODO(vagababov): reduce the layer jump and use SKS.Status.PrivateService here.
 		sn := names.PrivateService(rev.Name)
 		count, err := resources.FetchReadyAddressCount(endpointInformer.Lister(), rev.Namespace, sn)
-		return int32(count), err
+		return count, err
 	}
 
 	// Return the revision from the observer.
