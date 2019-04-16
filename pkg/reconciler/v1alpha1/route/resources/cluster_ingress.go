@@ -29,15 +29,15 @@ import (
 	"github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving"
 	servingv1alpha1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/knative/serving/pkg/network"
 	revisionresources "github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/resources/names"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/traffic"
 	"github.com/knative/serving/pkg/resources"
-	"github.com/knative/serving/pkg/utils"
 )
 
 func isClusterLocal(r *servingv1alpha1.Route) bool {
-	return strings.HasSuffix(r.Status.Domain, utils.GetClusterDomainName())
+	return strings.HasSuffix(r.Status.Domain, network.GetClusterDomainName())
 }
 
 // MakeClusterIngress creates ClusterIngress to set up routing rules. Such ClusterIngress specifies
