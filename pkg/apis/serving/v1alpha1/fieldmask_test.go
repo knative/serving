@@ -43,6 +43,10 @@ func TestVolumeMask(t *testing.T) {
 	} else if diff != "" {
 		t.Errorf("VolumeMask (-want, +got): %s", diff)
 	}
+
+	if got = VolumeMask(nil); got != nil {
+		t.Errorf("VolumeMask(nil) = %v, want: nil", got)
+	}
 }
 
 func TestVolumeSourceMask(t *testing.T) {
@@ -66,6 +70,10 @@ func TestVolumeSourceMask(t *testing.T) {
 		t.Errorf("Got error comparing output, err = %v", err)
 	} else if diff != "" {
 		t.Errorf("VolumeSourceMask (-want, +got): %s", diff)
+	}
+
+	if got = VolumeSourceMask(nil); got != nil {
+		t.Errorf("VolumeSourceMask(nil) = %v, want: nil", got)
 	}
 }
 
@@ -116,6 +124,10 @@ func TestContainerMask(t *testing.T) {
 	} else if diff != "" {
 		t.Errorf("ContainerMask (-want, +got): %s", diff)
 	}
+
+	if got = ContainerMask(nil); got != nil {
+		t.Errorf("ContainerMask(nil) = %v, want: nil", got)
+	}
 }
 
 func TestVolumeMountMask(t *testing.T) {
@@ -145,6 +157,10 @@ func TestVolumeMountMask(t *testing.T) {
 	} else if diff != "" {
 		t.Errorf("VolumeMountMask (-want, +got): %s", diff)
 	}
+
+	if got = VolumeMountMask(nil); got != nil {
+		t.Errorf("VolumeMountMask(nil) = %v, want: nil", got)
+	}
 }
 
 func TestProbeMask(t *testing.T) {
@@ -169,6 +185,10 @@ func TestProbeMask(t *testing.T) {
 	} else if diff != "" {
 		t.Errorf("ProbeMask (-want, +got): %s", diff)
 	}
+
+	if got = ProbeMask(nil); got != nil {
+		t.Errorf("ProbeMask(nil) = %v, want: nil", got)
+	}
 }
 
 func TestHandlerMask(t *testing.T) {
@@ -190,6 +210,10 @@ func TestHandlerMask(t *testing.T) {
 	} else if diff != "" {
 		t.Errorf("HandlerMask (-want, +got): %s", diff)
 	}
+
+	if got = HandlerMask(nil); got != nil {
+		t.Errorf("HandlerMask(nil) = %v, want: nil", got)
+	}
 }
 
 func TestExecActionMask(t *testing.T) {
@@ -208,6 +232,10 @@ func TestExecActionMask(t *testing.T) {
 		t.Errorf("Got error comparing output, err = %v", err)
 	} else if diff != "" {
 		t.Errorf("ExecActionMask (-want, +got): %s", diff)
+	}
+
+	if got = ExecActionMask(nil); got != nil {
+		t.Errorf("ExecActionMask(nil) = %v, want: nil", got)
 	}
 }
 
@@ -237,6 +265,10 @@ func TestHTTPGetActionMask(t *testing.T) {
 	} else if diff != "" {
 		t.Errorf("HTTPGetActionMask (-want, +got): %s", diff)
 	}
+
+	if got = HTTPGetActionMask(nil); got != nil {
+		t.Errorf("HTTPGetActionMask(nil) = %v, want: nil", got)
+	}
 }
 
 func TestTCPSocketActionMask(t *testing.T) {
@@ -258,6 +290,10 @@ func TestTCPSocketActionMask(t *testing.T) {
 		t.Errorf("Got error comparing output, err = %v", err)
 	} else if diff != "" {
 		t.Errorf("TCPSocketActionMask (-want, +got): %s", diff)
+	}
+
+	if got = TCPSocketActionMask(nil); got != nil {
+		t.Errorf("TCPSocketActionMask(nil) = %v, want: nil", got)
 	}
 }
 
@@ -286,6 +322,10 @@ func TestContainerPortMask(t *testing.T) {
 	} else if diff != "" {
 		t.Errorf("ContainerPortMask (-want, +got): %s", diff)
 	}
+
+	if got = ContainerPortMask(nil); got != nil {
+		t.Errorf("ContainerPortMask(nil) = %v, want: nil", got)
+	}
 }
 
 func TestEnvVarMask(t *testing.T) {
@@ -306,6 +346,10 @@ func TestEnvVarMask(t *testing.T) {
 		t.Errorf("Got error comparing output, err = %v", err)
 	} else if diff != "" {
 		t.Errorf("EnvVarMask (-want, +got): %s", diff)
+	}
+
+	if got = EnvVarMask(nil); got != nil {
+		t.Errorf("EnvVarMask(nil) = %v, want: nil", got)
 	}
 }
 
@@ -332,6 +376,10 @@ func TestEnvVarSourceMask(t *testing.T) {
 	} else if diff != "" {
 		t.Errorf("EnvVarSourceMask (-want, +got): %s", diff)
 	}
+
+	if got = EnvVarSourceMask(nil); got != nil {
+		t.Errorf("EnvVarSourceMask(nil) = %v, want: nil", got)
+	}
 }
 
 func TestLocalObjectReferenceMask(t *testing.T) {
@@ -350,6 +398,10 @@ func TestLocalObjectReferenceMask(t *testing.T) {
 		t.Errorf("Got error comparing output, err = %v", err)
 	} else if diff != "" {
 		t.Errorf("LocalObjectReferenceMask (-want, +got): %s", diff)
+	}
+
+	if got = LocalObjectReferenceMask(nil); got != nil {
+		t.Errorf("LocalObjectReferenceMask(nil) = %v, want: nil", got)
 	}
 }
 
@@ -372,6 +424,10 @@ func TestConfigMapKeySelectorMask(t *testing.T) {
 	} else if diff != "" {
 		t.Errorf("ConfigMapKeySelectorMask (-want, +got): %s", diff)
 	}
+
+	if got = ConfigMapKeySelectorMask(nil); got != nil {
+		t.Errorf("ConfigMapKeySelectorMask(nil) = %v, want: nil", got)
+	}
 }
 
 func TestSecretKeySelectorMask(t *testing.T) {
@@ -393,6 +449,10 @@ func TestSecretKeySelectorMask(t *testing.T) {
 	} else if diff != "" {
 		t.Errorf("SecretKeySelectorMask (-want, +got): %s", diff)
 	}
+
+	if got = SecretKeySelectorMask(nil); got != nil {
+		t.Errorf("SecretKeySelectorMask(nil) = %v, want: nil", got)
+	}
 }
 
 func TestConfigMapEnvSourceMask(t *testing.T) {
@@ -413,6 +473,10 @@ func TestConfigMapEnvSourceMask(t *testing.T) {
 	} else if diff != "" {
 		t.Errorf("ConfigMapEnvSourceMask (-want, +got): %s", diff)
 	}
+
+	if got = ConfigMapEnvSourceMask(nil); got != nil {
+		t.Errorf("ConfigMapEnvSourceMask(nil) = %v, want: nil", got)
+	}
 }
 
 func TestSecretEnvSourceMask(t *testing.T) {
@@ -432,6 +496,10 @@ func TestSecretEnvSourceMask(t *testing.T) {
 		t.Errorf("Got error comparing output, err = %v", err)
 	} else if diff != "" {
 		t.Errorf("SecretEnvSourceMask (-want, +got): %s", diff)
+	}
+
+	if got = SecretEnvSourceMask(nil); got != nil {
+		t.Errorf("SecretEnvSourceMask(nil) = %v, want: nil", got)
 	}
 }
 
@@ -454,6 +522,10 @@ func TestEnvFromSourceMask(t *testing.T) {
 	} else if diff != "" {
 		t.Errorf("EnvFromSourceMask (-want, +got): %s", diff)
 	}
+
+	if got = EnvFromSourceMask(nil); got != nil {
+		t.Errorf("EnvFromSourceMask(nil) = %v, want: nil", got)
+	}
 }
 
 func TestResourceRequirementsMask(t *testing.T) {
@@ -473,6 +545,10 @@ func TestResourceRequirementsMask(t *testing.T) {
 		t.Errorf("Got error comparing output, err = %v", err)
 	} else if diff != "" {
 		t.Errorf("ResourceRequirementsMask (-want, +got): %s", diff)
+	}
+
+	if got = ResourceRequirementsMask(nil); got != nil {
+		t.Errorf("ResourceRequirementsMask(nil) = %v, want: nil", got)
 	}
 }
 
@@ -503,5 +579,9 @@ func TestSecurityContextMask(t *testing.T) {
 		t.Errorf("Got error comparing output, err = %v", err)
 	} else if diff != "" {
 		t.Errorf("SecurityContextMask (-want, +got): %s", diff)
+	}
+
+	if got = SecurityContextMask(nil); got != nil {
+		t.Errorf("SecurityContextMask(nil) = %v, want: nil", got)
 	}
 }
