@@ -148,7 +148,7 @@ func (t *Throttler) UpdateEndpoints(newObj interface{}) {
 	endpoints := newObj.(*corev1.Endpoints)
 	addresses := resources.ReadyAddressCount(endpoints)
 	revID := RevisionID{endpoints.Namespace, resources.ParentResourceFromService(endpoints.Name)}
-	if err := t.UpdateCapacity(revID, int(addresses)); err != nil {
+	if err := t.UpdateCapacity(revID, addresses); err != nil {
 		t.logger.With(zap.String(logkey.Key, revID.String())).Errorw("updating capacity failed", zap.Error(err))
 	}
 }

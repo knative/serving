@@ -27,9 +27,9 @@ import (
 )
 
 const (
-	// semacquireTimeout is a timeout for tests that try to acquire
+	// semAcquireTimeout is a timeout for tests that try to acquire
 	// a token of a semaphore.
-	semacquireTimeout = 10 * time.Second
+	semAcquireTimeout = 10 * time.Second
 
 	// semNoChangeTimeout is some additional wait time after a number
 	// of acquires is reached to assert that no more acquires get through.
@@ -200,7 +200,7 @@ func TestSemaphore_acquire_HasNoCapacity(t *testing.T) {
 	gotChan := make(chan struct{}, 1)
 
 	sem := newSemaphore(1, 0)
-	tryacquire(sem, gotChan)
+	tryAcquire(sem, gotChan)
 
 	select {
 	case <-gotChan:
@@ -216,14 +216,14 @@ func TestSemaphore_acquire_HasCapacity(t *testing.T) {
 	want := 1
 
 	sem := newSemaphore(1, 0)
-	tryacquire(sem, gotChan)
+	tryAcquire(sem, gotChan)
 	sem.release() // Allows 1 acquire
 
 	for i := 0; i < want; i++ {
 		select {
 		case <-gotChan:
 			// Successfully acquired a token.
-		case <-time.After(semacquireTimeout):
+		case <-time.After(semAcquireTimeout):
 			t.Error("Was not able to acquire token before timeout")
 		}
 	}
@@ -423,7 +423,7 @@ func unlockAll(requests []request) {
 	}
 }
 
-func tryacquire(sem *semaphore, gotChan chan struct{}) {
+func tryAcquire(sem *semaphore, gotChan chan struct{}) {
 	go func() {
 		// blocking until someone puts the token into the semaphore
 		sem.acquire()

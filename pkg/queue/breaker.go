@@ -25,7 +25,7 @@ import (
 var (
 	// ErrUpdateCapacity the the capacity could not be updated as wished.
 	ErrUpdateCapacity = errors.New("failed to add all capacity to the breaker")
-	// ErrRelease indicates that Release was called more often than acquire.
+	// ErrRelease indicates that release was called more often than acquire.
 	ErrRelease = errors.New("semaphore release error: returned tokens must be <= acquired tokens")
 )
 
