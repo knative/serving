@@ -30,6 +30,7 @@ spec:
         sidecar.istio.io/inject: "true"
       labels:
         app: autoscaler
+        serving.knative.dev/release: devel
     spec:
       serviceAccountName: controller
       containers:
