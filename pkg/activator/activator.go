@@ -54,7 +54,7 @@ func (rev RevisionID) String() string {
 
 // EndpointsCountGetter is a functor that given namespace and name will
 // return the number of endpoints in the endpoinst resource or an error.
-type EndpointsCountGetter func(*nv1a1.ServerlessService) (int32, error)
+type EndpointsCountGetter func(*nv1a1.ServerlessService) (int, error)
 
 // SKSGetter is a functor that given namespace and name will return the
 // corresponding SKS resource, or an error.

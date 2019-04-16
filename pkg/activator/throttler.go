@@ -79,7 +79,7 @@ func (t *Throttler) Remove(rev RevisionID) {
 }
 
 // UpdateCapacity updates the max concurrency of the Breaker corresponding to a revision.
-func (t *Throttler) UpdateCapacity(rev RevisionID, size int32) error {
+func (t *Throttler) UpdateCapacity(rev RevisionID, size int) error {
 	revision, err := t.getRevision(rev)
 	if err != nil {
 		return err
@@ -107,8 +107,8 @@ func (t *Throttler) Try(rev RevisionID, function func()) error {
 }
 
 // This method updates Breaker's concurrency.
-func (t *Throttler) updateCapacity(revision *v1alpha1.Revision, breaker *queue.Breaker, size int32) (err error) {
-	cc := int32(revision.Spec.ContainerConcurrency)
+func (t *Throttler) updateCapacity(revision *v1alpha1.Revision, breaker *queue.Breaker, size int) (err error) {
+	cc := int(revision.Spec.ContainerConcurrency)
 
 	targetCapacity := cc * size
 	if size > 0 && (cc == 0 || targetCapacity > t.breakerParams.MaxConcurrency) {
@@ -168,7 +168,7 @@ func (t *Throttler) UpdateEndpoints(newObj interface{}) {
 	endpoints := newObj.(*corev1.Endpoints)
 	addresses := resources.ReadyAddressCount(endpoints)
 	revID := RevisionID{endpoints.Namespace, resources.ParentResourceFromService(endpoints.Name)}
-	if err := t.UpdateCapacity(revID, int32(addresses)); err != nil {
+	if err := t.UpdateCapacity(revID, addresses); err != nil {
 		t.logger.With(zap.String(logkey.Key, revID.String())).Errorw("updating capacity failed", zap.Error(err))
 	}
 }

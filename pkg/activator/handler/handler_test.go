@@ -107,11 +107,11 @@ func errMsg(msg string) string {
 	return fmt.Sprintf("Error getting active endpoint: %v\n", msg)
 }
 
-func goodEndpointsGetter(*nv1a1.ServerlessService) (int32, error) {
+func goodEndpointsGetter(*nv1a1.ServerlessService) (int, error) {
 	return 1000, nil
 }
 
-func brokenEndpointsCountGetter(*nv1a1.ServerlessService) (int32, error) {
+func brokenEndpointsCountGetter(*nv1a1.ServerlessService) (int, error) {
 	return 0, errors.New("some error")
 }
 
@@ -519,7 +519,7 @@ func sendRequests(count int, namespace, revName string, respCh chan *httptest.Re
 
 // getThrottler returns a fully setup Throttler with some sensible defaults for tests.
 func getThrottler(breakerParams queue.BreakerParams, t *testing.T) *activator.Throttler {
-	endpointsGetter := func(*nv1a1.ServerlessService) (int32, error) {
+	endpointsGetter := func(*nv1a1.ServerlessService) (int, error) {
 		// Since revisions have a concurrency of 1, this will cause the very same capacity
 		// as being set initially.
 		return breakerParams.InitialCapacity, nil

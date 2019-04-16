@@ -190,9 +190,9 @@ func main() {
 	params := queue.BreakerParams{QueueDepth: breakerQueueDepth, MaxConcurrency: breakerMaxConcurrency, InitialCapacity: 0}
 
 	// Return the number of endpoints, 0 if no endpoints are found.
-	endpointsCountGetter := func(sks *nv1a1.ServerlessService) (int32, error) {
+	endpointsCountGetter := func(sks *nv1a1.ServerlessService) (int, error) {
 		count, err := resources.FetchReadyAddressCount(endpointInformer.Lister(), sks.Namespace, sks.Status.PrivateServiceName)
-		return int32(count), err
+		return count, err
 	}
 
 	// Returns the revision from the observer.
