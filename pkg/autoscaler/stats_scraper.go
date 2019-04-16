@@ -41,6 +41,8 @@ const (
 	// Instead, the autoscaler knows the stats it receives are either from the
 	// scraper or the activator.
 	scraperPodName = "service-scraper"
+
+	samplingSuccessRate = 0.8
 )
 
 // StatsScraper defines the interface for collecting Revision metrics
@@ -70,6 +72,7 @@ type ServiceScraper struct {
 	namespace           string
 	scrapeTargetService string
 	metricKey           string
+	sClient             *scrapeClient
 }
 
 // NewServiceScraper creates a new StatsScraper for the Revision which
@@ -119,10 +122,37 @@ func (s *ServiceScraper) Scrape() (*StatMessage, error) {
 		return nil, nil
 	}
 
-	stat, err := s.scrapeViaURL()
-	if err != nil {
-		return nil, err
+	sampleSize := 2
+
+	var avgCon float64
+	var avgProxiedCon float64
+	var reqC int32
+	var proxiedReqC int32
+	var sussC float64
+	var errRec error
+	for i := 0; i < sampleSize; i++ {
+		stat, err := s.scrapeViaURL()
+		if err != nil {
+			errRec = err
+			continue
+		}
+
+		sussC += 1
+		avgCon += stat.AverageConcurrentRequests
+		avgProxiedCon += stat.AverageProxiedConcurrentRequests
+		reqC += stat.RequestCount
+		proxiedReqC += stat.ProxiedRequestCount
 	}
+
+	if sussC/float64(sampleSize) < samplingSuccessRate {
+		return nil, fmt.Errorf("got too many errors when scraping metrics. One of the error: %v", errRec)
+	}
+
+	avgCon = avgCon / sussC
+	avgProxiedCon = avgProxiedCon / sussC
+	reqC = int32(float64(reqC) / sussC)
+	proxiedReqC = int32(float64(proxiedReqC) / sussC)
+	now := time.Now()
 
 	// Assumptions:
 	// 1. Traffic is routed to pods evenly.
@@ -134,12 +164,12 @@ func (s *ServiceScraper) Scrape() (*StatMessage, error) {
 	// scraperPodName so in autoscaler all stats are either from activator or
 	// scraper.
 	extrapolatedStat := Stat{
-		Time:                             stat.Time,
+		Time:                             &now,
 		PodName:                          scraperPodName,
-		AverageConcurrentRequests:        stat.AverageConcurrentRequests * float64(readyPodsCount),
-		AverageProxiedConcurrentRequests: stat.AverageProxiedConcurrentRequests * float64(readyPodsCount),
-		RequestCount:                     stat.RequestCount * int32(readyPodsCount),
-		ProxiedRequestCount:              stat.ProxiedRequestCount * int32(readyPodsCount),
+		AverageConcurrentRequests:        avgCon * float64(readyPodsCount),
+		AverageProxiedConcurrentRequests: avgProxiedCon * float64(readyPodsCount),
+		RequestCount:                     reqC * int32(readyPodsCount),
+		ProxiedRequestCount:              proxiedReqC * int32(readyPodsCount),
 	}
 
 	return &StatMessage{
@@ -172,10 +202,7 @@ func extractData(body io.Reader) (*Stat, error) {
 		return nil, fmt.Errorf("reading text format failed: %v", err)
 	}
 
-	now := time.Now()
-	stat := Stat{
-		Time: &now,
-	}
+	stat := Stat{}
 
 	if pMetric := prometheusMetric(metricFamilies, "queue_average_concurrent_requests"); pMetric != nil {
 		stat.AverageConcurrentRequests = *pMetric.Gauge.Value
@@ -213,4 +240,11 @@ func prometheusMetric(metricFamilies map[string]*dto.MetricFamily, key string) *
 	}
 
 	return nil
+}
+
+type scrapeClient interface {
+	Scrape(url string) (*StatMessage, error)
+}
+
+type httpScraper struct {
 }

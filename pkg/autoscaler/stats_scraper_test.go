@@ -211,7 +211,10 @@ func TestScrape_HappyCase(t *testing.T) {
 	createEndpoints(addIps(makeEndpoints(), 2))
 	// Scrape will set a timestamp bigger than this.
 	now := time.Now()
-	got, _ := scraper.Scrape()
+	got, err := scraper.Scrape()
+	if err != nil {
+		t.Fatalf("got error from scraper.Scrape() = %v", err)
+	}
 
 	if got.Key != testKPAKey {
 		t.Errorf("StatMessage.Key=%v, want %v", got.Key, testKPAKey)
@@ -253,6 +256,9 @@ func TestScrape_DoNotScrapeIfNoPodsFound(t *testing.T) {
 	createEndpoints(addIps(makeEndpoints(), 0))
 
 	stat, err := scraper.Scrape()
+	if err != nil {
+		t.Fatalf("got error from scraper.Scrape() = %v", err)
+	}
 	if stat != nil {
 		t.Error("Received unexpected StatMessage.")
 	}

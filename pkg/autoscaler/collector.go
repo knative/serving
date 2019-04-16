@@ -30,8 +30,7 @@ import (
 const (
 	// scrapeTickInterval is the interval of time between scraping metrics across
 	// all pods of a revision.
-	// TODO(yanweiguo): tuning this value. To be based on pod population?
-	scrapeTickInterval = time.Second / 3
+	scrapeTickInterval = time.Second
 )
 
 // Metric represents a resource to configure the metric collector with.
