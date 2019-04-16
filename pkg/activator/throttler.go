@@ -20,12 +20,13 @@ import (
 	"errors"
 	"sync"
 
-	"github.com/knative/serving/pkg/resources"
+	"go.uber.org/zap"
 
 	"github.com/knative/pkg/logging/logkey"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/queue"
-	"go.uber.org/zap"
+	"github.com/knative/serving/pkg/resources"
+
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -36,14 +37,22 @@ var ErrActivatorOverload = errors.New("activator overload")
 type ThrottlerParams struct {
 	BreakerParams queue.BreakerParams
 	Logger        *zap.SugaredLogger
-	GetEndpoints  func(*v1alpha1.Revision) (int, error)
-	GetRevision   func(RevisionID) (*v1alpha1.Revision, error)
+	GetEndpoints  EndpointsCountGetter
+	GetSKS        SKSGetter
+	GetRevision   RevisionGetter
 }
 
 // NewThrottler creates a new Throttler.
 func NewThrottler(params ThrottlerParams) *Throttler {
 	breakers := make(map[RevisionID]*queue.Breaker)
-	return &Throttler{breakers: breakers, breakerParams: params.BreakerParams, logger: params.Logger, getEndpoints: params.GetEndpoints, getRevision: params.GetRevision}
+	return &Throttler{
+		breakers:      breakers,
+		breakerParams: params.BreakerParams,
+		logger:        params.Logger,
+		getEndpoints:  params.GetEndpoints,
+		getRevision:   params.GetRevision,
+		getSKS:        params.GetSKS,
+	}
 }
 
 // Throttler keeps the mapping of Revisions to Breakers
@@ -56,8 +65,9 @@ type Throttler struct {
 	breakers      map[RevisionID]*queue.Breaker
 	breakerParams queue.BreakerParams
 	logger        *zap.SugaredLogger
-	getEndpoints  func(*v1alpha1.Revision) (int, error)
-	getRevision   func(RevisionID) (*v1alpha1.Revision, error)
+	getEndpoints  EndpointsCountGetter
+	getRevision   RevisionGetter
+	getSKS        SKSGetter
 	mux           sync.Mutex
 }
 
@@ -131,7 +141,17 @@ func (t *Throttler) forceUpdateCapacity(rev RevisionID, breaker *queue.Breaker) 
 	if err != nil {
 		return err
 	}
-	size, err := t.getEndpoints(revision)
+
+	// SKS name matches revision name.
+	sks, err := t.getSKS(rev.Namespace, rev.Name)
+	if err != nil {
+		return err
+	}
+
+	// We have to read the private service endpoints in activator
+	// in order to count the serving pod count, since the public one
+	// may point at ourselves.
+	size, err := t.getEndpoints(sks)
 	if err != nil {
 		return err
 	}
