@@ -20,6 +20,7 @@ import (
 	"fmt"
 
 	"github.com/knative/serving/pkg/apis/networking"
+	nv1a1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 )
 
 const (
@@ -47,6 +48,14 @@ type RevisionID struct {
 func (rev RevisionID) String() string {
 	return fmt.Sprintf("%s/%s", rev.Namespace, rev.Name)
 }
+
+// EndpointGetter is a functor that given namespace and name will
+// return the number of endpoints in the endpoinst resource or an error.
+type EndpointGetter func(string, string) (int32, error)
+
+// SKSGetter is a functor that given namespace and name will return the
+// corresponding SKS resource, or an error.
+type SKSGetter func(string, string) (*nv1a1.ServerlessService, error)
 
 // ServicePort returns the activator service port for the given app level protocol.
 // Default is `ServicePortHTTP1`.

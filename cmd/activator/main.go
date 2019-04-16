@@ -24,8 +24,7 @@ import (
 	"net/http"
 	"time"
 
-	v1 "k8s.io/api/core/v1"
-	"k8s.io/client-go/tools/clientcmd"
+	"go.uber.org/zap"
 
 	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/controller"
@@ -39,6 +38,7 @@ import (
 	activatorhandler "github.com/knative/serving/pkg/activator/handler"
 	activatorutil "github.com/knative/serving/pkg/activator/util"
 	"github.com/knative/serving/pkg/apis/networking"
+	nv1a1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/autoscaler"
@@ -51,16 +51,17 @@ import (
 	"github.com/knative/serving/pkg/network"
 	"github.com/knative/serving/pkg/queue"
 	"github.com/knative/serving/pkg/reconciler"
-	"github.com/knative/serving/pkg/reconciler/v1alpha1/serverlessservice/resources/names"
 	"github.com/knative/serving/pkg/resources"
-	"go.uber.org/zap"
+
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/tools/clientcmd"
 )
 
-// Fail if using unsupported go version
+// Fail if using unsupported go version.
 var _ = goversion.IsSupported()
 
 const (
@@ -174,11 +175,17 @@ func main() {
 	endpointInformer := kubeInformerFactory.Core().V1().Endpoints()
 	serviceInformer := kubeInformerFactory.Core().V1().Services()
 	revisionInformer := servingInformerFactory.Serving().V1alpha1().Revisions()
+	sksInformer := servingInformerFactory.Networking().V1alpha1().ServerlessServices()
 
 	// Run informers instead of starting them from the factory to prevent the sync hanging because of empty handler.
-	go revisionInformer.Informer().Run(stopCh)
-	go endpointInformer.Informer().Run(stopCh)
-	go serviceInformer.Informer().Run(stopCh)
+	if err := controller.StartInformers(
+		stopCh,
+		revisionInformer.Informer(),
+		endpointInformer.Informer(),
+		serviceInformer.Informer(),
+		sksInformer.Informer()); err != nil {
+		logger.Fatalf("Failed to start informers: %v", err)
+	}
 
 	logger.Info("Waiting for informer caches to sync")
 
@@ -199,18 +206,19 @@ func main() {
 	params := queue.BreakerParams{QueueDepth: breakerQueueDepth, MaxConcurrency: breakerMaxConcurrency, InitialCapacity: 0}
 
 	// Return the number of endpoints, 0 if no endpoints are found.
-	endpointsGetter := func(rev *v1alpha1.Revision) (int32, error) {
-		// We have to read the private service endpoints in activator
-		// in order to count the serving pod count.
-		// TODO(vagababov): reduce the layer jump and use SKS.Status.PrivateService here.
-		sn := names.PrivateService(rev.Name)
-		count, err := resources.FetchReadyAddressCount(endpointInformer.Lister(), rev.Namespace, sn)
+	endpointsGetter := func(ns, n string) (int32, error) {
+		count, err := resources.FetchReadyAddressCount(endpointInformer.Lister(), ns, n)
 		return int32(count), err
 	}
 
-	// Return the revision from the observer.
+	// Returns the revision from the observer.
 	revisionGetter := func(revID activator.RevisionID) (*v1alpha1.Revision, error) {
 		return revisionInformer.Lister().Revisions(revID.Namespace).Get(revID.Name)
+	}
+
+	// Returns the SKS from the observer.
+	sksGetter := func(ns, n string) (*nv1a1.ServerlessService, error) {
+		return sksInformer.Lister().ServerlessServices(ns).Get(n)
 	}
 
 	serviceGetter := func(namespace, name string) (*v1.Service, error) {
@@ -222,6 +230,7 @@ func main() {
 		Logger:        logger,
 		GetEndpoints:  endpointsGetter,
 		GetRevision:   revisionGetter,
+		GetSKS:        sksGetter,
 	}
 	throttler := activator.NewThrottler(throttlerParams)
 
@@ -270,6 +279,7 @@ func main() {
 		Throttler:     throttler,
 		GetProbeCount: maxRetries,
 		GetRevision:   revisionGetter,
+		GetSKS:        sksGetter,
 		GetService:    serviceGetter,
 	}
 	ah = activatorhandler.NewRequestEventHandler(reqChan, ah)

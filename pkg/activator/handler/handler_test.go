@@ -23,15 +23,20 @@ import (
 	"testing"
 	"time"
 
+	"github.com/knative/pkg/test/helpers"
+
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+
 	. "github.com/knative/pkg/logging/testing"
 	"github.com/knative/serving/pkg/activator"
 	"github.com/knative/serving/pkg/activator/util"
+	nv1a1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/network"
 	"github.com/knative/serving/pkg/queue"
+
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -43,7 +48,7 @@ const (
 	testRevName   = "real-name"
 )
 
-var stubRevisionGetter = func(revID activator.RevisionID) (*v1alpha1.Revision, error) {
+func stubRevisionGetter(revID activator.RevisionID) (*v1alpha1.Revision, error) {
 	if revID.Namespace != testNamespace {
 		return nil, &k8serrors.StatusError{
 			ErrStatus: metav1.Status{
@@ -66,8 +71,26 @@ var stubRevisionGetter = func(revID activator.RevisionID) (*v1alpha1.Revision, e
 	return revision, nil
 }
 
-var stubServiceGetter = func(namespace, name string) (*corev1.Service, error) {
-	service := &corev1.Service{
+func sksErrorGetter(string, string) (*nv1a1.ServerlessService, error) {
+	return nil, errors.New("no luck in this land")
+}
+
+func stubSKSGetter(namespace, name string) (*nv1a1.ServerlessService, error) {
+	return &nv1a1.ServerlessService{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: namespace,
+			Name:      name,
+		},
+		Status: nv1a1.ServerlessServiceStatus{
+			// Randomize the test.
+			PrivateServiceName: helpers.AppendRandomString(name),
+			ServiceName:        helpers.AppendRandomString(name),
+		},
+	}, nil
+}
+
+func stubServiceGetter(namespace, name string) (*corev1.Service, error) {
+	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: namespace,
 			Name:      name,
@@ -77,23 +100,25 @@ var stubServiceGetter = func(namespace, name string) (*corev1.Service, error) {
 				Name: "http",
 				Port: 8080,
 			}},
-		}}
-	return service, nil
+		}}, nil
+}
+
+func errMsg(msg string) string {
+	return fmt.Sprintf("Error getting active endpoint: %v\n", msg)
+}
+
+func goodEndpointsGetter(string, string) (int32, error) {
+	return 1000, nil
+}
+
+func brokenEndpointGetter(string, string) (int32, error) {
+	return 0, errors.New("some error")
 }
 
 func TestActivationHandler(t *testing.T) {
 	defer ClearAll()
-	goodEndpointsGetter := func(*v1alpha1.Revision) (int32, error) {
-		return 1000, nil
-	}
-	brokenEndpointGetter := func(*v1alpha1.Revision) (int32, error) {
-		return 0, errors.New("some error")
-	}
-	errMsg := func(msg string) string {
-		return fmt.Sprintf("Error getting active endpoint: %v\n", msg)
-	}
 
-	examples := []struct {
+	tests := []struct {
 		label           string
 		namespace       string
 		name            string
@@ -104,7 +129,8 @@ func TestActivationHandler(t *testing.T) {
 		probeCode       int
 		probeResp       []string
 		gpc             int
-		endpointsGetter func(*v1alpha1.Revision) (int32, error)
+		endpointsGetter activator.EndpointGetter
+		sksGetter       activator.SKSGetter
 		reporterCalls   []reporterCall
 	}{{
 		label:           "active endpoint",
@@ -294,6 +320,16 @@ func TestActivationHandler(t *testing.T) {
 			StatusCode: http.StatusOK,
 		}},
 	}, {
+		label:           "broken get SKS",
+		namespace:       testNamespace,
+		name:            testRevName,
+		wantBody:        errMsg("no luck in this land"),
+		wantCode:        http.StatusInternalServerError,
+		wantErr:         nil,
+		endpointsGetter: goodEndpointsGetter,
+		sksGetter:       sksErrorGetter,
+		reporterCalls:   nil,
+	}, {
 		label:           "broken GetEndpoints",
 		namespace:       testNamespace,
 		name:            testRevName,
@@ -304,25 +340,25 @@ func TestActivationHandler(t *testing.T) {
 		reporterCalls:   nil,
 	}}
 
-	for _, e := range examples {
-		t.Run(e.label, func(t *testing.T) {
+	for _, test := range tests {
+		t.Run(test.label, func(t *testing.T) {
 			rt := util.RoundTripperFunc(func(r *http.Request) (*http.Response, error) {
 				if r.Header.Get(network.ProbeHeaderName) != "" {
-					if e.probeErr != nil {
-						return nil, e.probeErr
+					if test.probeErr != nil {
+						return nil, test.probeErr
 					}
 					fake := httptest.NewRecorder()
-					fake.WriteHeader(e.probeCode)
+					fake.WriteHeader(test.probeCode)
 					probeResp := queue.Name
-					if len(e.probeResp) > 0 {
-						probeResp = e.probeResp[0]
-						e.probeResp = e.probeResp[1:]
+					if len(test.probeResp) > 0 {
+						probeResp = test.probeResp[0]
+						test.probeResp = test.probeResp[1:]
 					}
 					fake.WriteString(probeResp)
 					return fake.Result(), nil
 				}
-				if e.wantErr != nil {
-					return nil, e.wantErr
+				if test.wantErr != nil {
+					return nil, test.wantErr
 				}
 
 				fake := httptest.NewRecorder()
@@ -338,36 +374,41 @@ func TestActivationHandler(t *testing.T) {
 				BreakerParams: params,
 				Logger:        TestLogger(t),
 				GetRevision:   stubRevisionGetter,
-				GetEndpoints:  e.endpointsGetter,
+				GetEndpoints:  test.endpointsGetter,
+				GetSKS:        stubSKSGetter,
 			}
 			handler := ActivationHandler{
 				Transport:     rt,
 				Logger:        TestLogger(t),
 				Reporter:      reporter,
 				Throttler:     activator.NewThrottler(throttlerParams),
-				GetProbeCount: e.gpc,
+				GetProbeCount: test.gpc,
 				GetRevision:   stubRevisionGetter,
 				GetService:    stubServiceGetter,
+				GetSKS:        stubSKSGetter,
+			}
+			if test.sksGetter != nil {
+				handler.GetSKS = test.sksGetter
 			}
 
 			resp := httptest.NewRecorder()
 
 			req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
-			req.Header.Set(activator.RevisionHeaderNamespace, e.namespace)
-			req.Header.Set(activator.RevisionHeaderName, e.name)
+			req.Header.Set(activator.RevisionHeaderNamespace, test.namespace)
+			req.Header.Set(activator.RevisionHeaderName, test.name)
 
 			handler.ServeHTTP(resp, req)
 
-			if resp.Code != e.wantCode {
-				t.Errorf("Unexpected response status. Want %d, got %d", e.wantCode, resp.Code)
+			if resp.Code != test.wantCode {
+				t.Errorf("Unexpected response status. Want %d, got %d", test.wantCode, resp.Code)
 			}
 
 			gotBody, _ := ioutil.ReadAll(resp.Body)
-			if string(gotBody) != e.wantBody {
-				t.Errorf("Unexpected response body. Response body %q, want %q", gotBody, e.wantBody)
+			if string(gotBody) != test.wantBody {
+				t.Errorf("Unexpected response body. Response body %q, want %q", gotBody, test.wantBody)
 			}
 
-			if diff := cmp.Diff(e.reporterCalls, reporter.calls, ignoreDurationOption); diff != "" {
+			if diff := cmp.Diff(test.reporterCalls, reporter.calls, ignoreDurationOption); diff != "" {
 				t.Errorf("Reporting calls are different (-want, +got) = %v", diff)
 			}
 		})
@@ -442,6 +483,7 @@ func TestActivationHandler_ProxyHeader(t *testing.T) {
 		Throttler:   throttler,
 		GetRevision: stubRevisionGetter,
 		GetService:  stubServiceGetter,
+		GetSKS:      stubSKSGetter,
 	}
 
 	writer := httptest.NewRecorder()
@@ -477,12 +519,18 @@ func sendRequests(count int, namespace, revName string, respCh chan *httptest.Re
 
 // getThrottler returns a fully setup Throttler with some sensible defaults for tests.
 func getThrottler(breakerParams queue.BreakerParams, t *testing.T) *activator.Throttler {
-	endpointsGetter := func(*v1alpha1.Revision) (int32, error) {
+	endpointsGetter := func(string, string) (int32, error) {
 		// Since revisions have a concurrency of 1, this will cause the very same capacity
 		// as being set initially.
 		return breakerParams.InitialCapacity, nil
 	}
-	throttlerParams := activator.ThrottlerParams{BreakerParams: breakerParams, Logger: TestLogger(t), GetRevision: stubRevisionGetter, GetEndpoints: endpointsGetter}
+	throttlerParams := activator.ThrottlerParams{
+		BreakerParams: breakerParams,
+		Logger:        TestLogger(t),
+		GetRevision:   stubRevisionGetter,
+		GetEndpoints:  endpointsGetter,
+		GetSKS:        stubSKSGetter,
+	}
 	throttler := activator.NewThrottler(throttlerParams)
 	return throttler
 }
@@ -507,6 +555,7 @@ func getHandler(throttler *activator.Throttler, lockerCh chan struct{}, t *testi
 		Throttler:   throttler,
 		GetRevision: stubRevisionGetter,
 		GetService:  stubServiceGetter,
+		GetSKS:      stubSKSGetter,
 	}
 	return handler
 }

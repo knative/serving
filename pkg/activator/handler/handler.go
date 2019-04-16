@@ -22,6 +22,8 @@ import (
 	"net/url"
 	"time"
 
+	"go.uber.org/zap"
+
 	"github.com/knative/pkg/logging/logkey"
 	"github.com/knative/serving/pkg/activator"
 	"github.com/knative/serving/pkg/activator/util"
@@ -31,8 +33,7 @@ import (
 	"github.com/knative/serving/pkg/network"
 	"github.com/knative/serving/pkg/queue"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources"
-	"github.com/knative/serving/pkg/reconciler/v1alpha1/serverlessservice/resources/names"
-	"go.uber.org/zap"
+
 	v1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -52,8 +53,9 @@ type ActivationHandler struct {
 	// is not required.
 	GetProbeCount int
 
-	GetRevision func(revID activator.RevisionID) (*v1alpha1.Revision, error)
+	GetRevision func(activator.RevisionID) (*v1alpha1.Revision, error)
 	GetService  func(namespace, name string) (*v1.Service, error)
+	GetSKS      activator.SKSGetter
 }
 
 func (a *ActivationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -71,7 +73,14 @@ func (a *ActivationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	host, err := a.serviceHostName(revision)
+	// SKS name matches that of revision.
+	sks, err := a.GetSKS(revID.Namespace, revID.Name)
+	if err != nil {
+		logger.Errorw("Error while getting SKS", zap.Error(err))
+		sendError(err, w)
+		return
+	}
+	host, err := a.serviceHostName(revision, sks.Status.PrivateServiceName)
 	if err != nil {
 		logger.Errorw("Error while getting hostname", zap.Error(err))
 		sendError(err, w)
@@ -183,9 +192,7 @@ func (a *ActivationHandler) proxyRequest(w http.ResponseWriter, r *http.Request,
 
 // serviceHostName obtains the hostname of the underlying service and the correct
 // port to send requests to.
-func (a *ActivationHandler) serviceHostName(rev *v1alpha1.Revision) (string, error) {
-	// revision -> pa -> sks use the same name.
-	serviceName := names.PrivateService(rev.Name)
+func (a *ActivationHandler) serviceHostName(rev *v1alpha1.Revision, serviceName string) (string, error) {
 	svc, err := a.GetService(rev.Namespace, serviceName)
 	if err != nil {
 		return "", err
