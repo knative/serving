@@ -43,11 +43,22 @@ func MakeDecider(ctx context.Context, pa *v1alpha1.PodAutoscaler, config *autosc
 			target = annotationTarget
 		}
 	}
+	// Look for a panic threshold percentage annotation.
+	panicThresholdPercentage, ok := pa.PanicThresholdPercentage()
+	if !ok {
+		// Fall back on cluster config.
+		panicThresholdPercentage = config.PanicThresholdPercentage
+	}
+	if panicThresholdPercentage == 0.0 {
+		// Fall back on a hard coded value.
+		panicThresholdPercentage = 2.0
+	}
+	panicThreshold := target * panicThresholdPercentage
 	return &autoscaler.Decider{
 		ObjectMeta: pa.ObjectMeta,
 		Spec: autoscaler.DeciderSpec{
 			TargetConcurrency: target,
-			// TODO: get stable and panic concurrencies from annotations.
+			PanicThreshold:    panicThreshold,
 		},
 	}
 }

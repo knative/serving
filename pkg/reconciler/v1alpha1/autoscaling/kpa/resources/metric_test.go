@@ -19,6 +19,7 @@ package resources
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/knative/serving/pkg/apis/autoscaling"
@@ -55,6 +56,10 @@ func metric() *autoscaler.Metric {
 			Annotations: map[string]string{
 				autoscaling.ClassAnnotationKey: autoscaling.KPA,
 			},
+		},
+		Spec: autoscaler.MetricSpec{
+			StableWindow: autoscaler.DefaultStableWindow,
+			PanicWindow:  6 * time.Second,
 		},
 	}
 }

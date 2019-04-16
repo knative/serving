@@ -18,6 +18,7 @@ package resources
 
 import (
 	"context"
+	"time"
 
 	"github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/autoscaler"
@@ -25,10 +26,26 @@ import (
 
 // MakeMetric constructs a Metric resource from a PodAutoscaler
 func MakeMetric(ctx context.Context, pa *v1alpha1.PodAutoscaler, config *autoscaler.Config) *autoscaler.Metric {
+	stableWindow, ok := pa.Window()
+	if !ok {
+		stableWindow = config.StableWindow
+	}
+	// Look for a panic window percentage annotation.
+	panicWindowPercentage, ok := pa.PanicWindowPercentage()
+	if !ok {
+		// Fall back on cluster config.
+		panicWindowPercentage = config.PanicWindowPercentage
+	}
+	if panicWindowPercentage == 0.0 {
+		// Fall back on a hard coded value.
+		panicWindowPercentage = 0.1
+	}
+	panicWindow := time.Duration(float64(stableWindow) * panicWindowPercentage)
 	return &autoscaler.Metric{
 		ObjectMeta: pa.ObjectMeta,
-		Spec:       autoscaler.MetricSpec{
-			// TODO: get stable and panic windows from annotations.
+		Spec: autoscaler.MetricSpec{
+			StableWindow: stableWindow,
+			PanicWindow:  panicWindow,
 		},
 	}
 }

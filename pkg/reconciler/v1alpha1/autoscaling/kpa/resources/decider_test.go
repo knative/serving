@@ -37,23 +37,23 @@ func TestMakeDecider(t *testing.T) {
 	}{{
 		name: "defaults",
 		pa:   pa(),
-		want: decider(withTarget(100.0)),
+		want: decider(withTarget(100.0), withPanicThreshold(200.0)),
 	}, {
 		name: "with container concurrency 1",
 		pa:   pa(WithContainerConcurrency(1)),
-		want: decider(withTarget(1.0)),
+		want: decider(withTarget(1.0), withPanicThreshold(2.0)),
 	}, {
 		name: "with target annotation 1",
 		pa:   pa(WithTargetAnnotation("1")),
-		want: decider(withTarget(1.0), withTargetAnnotation("1")),
+		want: decider(withTarget(1.0), withPanicThreshold(2.0), withTargetAnnotation("1")),
 	}, {
 		name: "with container concurrency greater than target annotation (ok)",
 		pa:   pa(WithContainerConcurrency(10), WithTargetAnnotation("1")),
-		want: decider(withTarget(1.0), withTargetAnnotation("1")),
+		want: decider(withTarget(1.0), withPanicThreshold(2.0), withTargetAnnotation("1")),
 	}, {
 		name: "with target annotation greater than container concurrency (ignore annotation for safety)",
 		pa:   pa(WithContainerConcurrency(1), WithTargetAnnotation("10")),
-		want: decider(withTarget(1.0), withTargetAnnotation("10")),
+		want: decider(withTarget(1.0), withPanicThreshold(2.0), withTargetAnnotation("10")),
 	}}
 
 	for _, tc := range cases {
@@ -96,6 +96,7 @@ func decider(options ...DeciderOption) *autoscaler.Decider {
 		},
 		Spec: autoscaler.DeciderSpec{
 			TargetConcurrency: float64(100),
+			PanicThreshold:    float64(200),
 		},
 	}
 	for _, fn := range options {
@@ -112,9 +113,21 @@ func withTarget(target float64) DeciderOption {
 	}
 }
 
+func withPanicThreshold(thresh float64) DeciderOption {
+	return func(decider *autoscaler.Decider) {
+		decider.Spec.PanicThreshold = thresh
+	}
+}
+
 func withTargetAnnotation(target string) DeciderOption {
 	return func(decider *autoscaler.Decider) {
 		decider.Annotations[autoscaling.TargetAnnotationKey] = target
+	}
+}
+
+func withPanicThresholdPercentageAnnotation(thresh string) DeciderOption {
+	return func(decider *autoscaler.Decider) {
+		decider.Annotations[autoscaling.PanicThresholdPercentageAnnotationKey] = thresh
 	}
 }
 
