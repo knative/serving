@@ -34,7 +34,6 @@ import (
 	"github.com/knative/serving/pkg/queue"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources"
 
-	v1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/wait"
 )
@@ -53,8 +52,8 @@ type ActivationHandler struct {
 	// is not required.
 	GetProbeCount int
 
-	GetRevision func(activator.RevisionID) (*v1alpha1.Revision, error)
-	GetService  func(namespace, name string) (*v1.Service, error)
+	GetRevision activator.RevisionGetter
+	GetService  activator.ServiceGetter
 	GetSKS      activator.SKSGetter
 }
 

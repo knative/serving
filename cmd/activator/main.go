@@ -53,7 +53,7 @@ import (
 	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/resources"
 
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
@@ -187,27 +187,11 @@ func main() {
 		logger.Fatalf("Failed to start informers: %v", err)
 	}
 
-	logger.Info("Waiting for informer caches to sync")
-
-	informerSyncs := []cache.InformerSynced{
-		endpointInformer.Informer().HasSynced,
-		revisionInformer.Informer().HasSynced,
-		serviceInformer.Informer().HasSynced,
-	}
-	// Make sure the caches are in sync before we add the actual handler.
-	// This will prevent from missing endpoint 'Add' events during startup, e.g. when the endpoints informer
-	// is already in sync and it could not perform it because of
-	// revision informer still being synchronized.
-	for i, synced := range informerSyncs {
-		if ok := cache.WaitForCacheSync(stopCh, synced); !ok {
-			logger.Fatalf("failed to wait for cache at index %d to sync", i)
-		}
-	}
 	params := queue.BreakerParams{QueueDepth: breakerQueueDepth, MaxConcurrency: breakerMaxConcurrency, InitialCapacity: 0}
 
 	// Return the number of endpoints, 0 if no endpoints are found.
-	endpointsGetter := func(ns, n string) (int32, error) {
-		count, err := resources.FetchReadyAddressCount(endpointInformer.Lister(), ns, n)
+	endpointsCountGetter := func(sks *nv1a1.ServerlessService) (int32, error) {
+		count, err := resources.FetchReadyAddressCount(endpointInformer.Lister(), sks.Namespace, sks.Status.PrivateServiceName)
 		return int32(count), err
 	}
 
@@ -221,14 +205,14 @@ func main() {
 		return sksInformer.Lister().ServerlessServices(ns).Get(n)
 	}
 
-	serviceGetter := func(namespace, name string) (*v1.Service, error) {
+	serviceGetter := func(namespace, name string) (*corev1.Service, error) {
 		return serviceInformer.Lister().Services(namespace).Get(name)
 	}
 
 	throttlerParams := activator.ThrottlerParams{
 		BreakerParams: params,
 		Logger:        logger,
-		GetEndpoints:  endpointsGetter,
+		GetEndpoints:  endpointsCountGetter,
 		GetRevision:   revisionGetter,
 		GetSKS:        sksGetter,
 	}

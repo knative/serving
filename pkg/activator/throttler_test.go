@@ -56,12 +56,12 @@ func erroringRevisionGetter(RevisionID) (*v1alpha1.Revision, error) {
 	return nil, errTest
 }
 
-func existingEndpointsGetter(count int) EndpointGetter {
-	return func(string, string) (int32, error) {
+func existingEndpointsGetter(count int) EndpointsCountGetter {
+	return func(*nv1a1.ServerlessService) (int32, error) {
 		return int32(count), nil
 	}
 }
-func erroringEndpointGetter(string, string) (int32, error) {
+func erroringEndpointsCountGetter(*nv1a1.ServerlessService) (int32, error) {
 	return initCapacity, errTest
 }
 
@@ -86,7 +86,7 @@ func sksGetSuccess(namespace, name string) (*nv1a1.ServerlessService, error) {
 func TestThrottler_UpdateCapacity(t *testing.T) {
 	samples := []struct {
 		label          string
-		revisionGetter func(RevisionID) (*v1alpha1.Revision, error)
+		revisionGetter RevisionGetter
 		numEndpoints   int32
 		maxConcurrency int32
 		want           int32
@@ -154,8 +154,8 @@ func TestThrottler_Try(t *testing.T) {
 		addCapacity     bool
 		wantCalls       int
 		wantError       error
-		revisionGetter  func(RevisionID) (*v1alpha1.Revision, error)
-		endpointsGetter EndpointGetter
+		revisionGetter  RevisionGetter
+		endpointsGetter EndpointsCountGetter
 		sksGetter       SKSGetter
 	}{{
 		label:           "all good",
@@ -184,7 +184,7 @@ func TestThrottler_Try(t *testing.T) {
 		wantCalls:       0,
 		wantError:       errTest,
 		revisionGetter:  existingRevisionGetter(10),
-		endpointsGetter: erroringEndpointGetter,
+		endpointsGetter: erroringEndpointsCountGetter,
 		sksGetter:       sksGetSuccess,
 	}}
 	for _, s := range samples {
@@ -355,8 +355,8 @@ func TestHelper_DeleteBreaker(t *testing.T) {
 }
 
 func getThrottler(
-	maxConcurrency int32, revisionGetter func(RevisionID) (*v1alpha1.Revision, error),
-	endpointsGetter EndpointGetter, sksGetter SKSGetter,
+	maxConcurrency int32, revisionGetter RevisionGetter,
+	endpointsGetter EndpointsCountGetter, sksGetter SKSGetter,
 	logger *zap.SugaredLogger,
 	initCapacity int32) *Throttler {
 	params := queue.BreakerParams{

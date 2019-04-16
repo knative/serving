@@ -37,9 +37,9 @@ var ErrActivatorOverload = errors.New("activator overload")
 type ThrottlerParams struct {
 	BreakerParams queue.BreakerParams
 	Logger        *zap.SugaredLogger
-	GetEndpoints  EndpointGetter
+	GetEndpoints  EndpointsCountGetter
 	GetSKS        SKSGetter
-	GetRevision   func(RevisionID) (*v1alpha1.Revision, error)
+	GetRevision   RevisionGetter
 }
 
 // NewThrottler creates a new Throttler.
@@ -65,8 +65,8 @@ type Throttler struct {
 	breakers      map[RevisionID]*queue.Breaker
 	breakerParams queue.BreakerParams
 	logger        *zap.SugaredLogger
-	getEndpoints  EndpointGetter
-	getRevision   func(RevisionID) (*v1alpha1.Revision, error)
+	getEndpoints  EndpointsCountGetter
+	getRevision   RevisionGetter
 	getSKS        SKSGetter
 	mux           sync.Mutex
 }
@@ -151,7 +151,7 @@ func (t *Throttler) forceUpdateCapacity(rev RevisionID, breaker *queue.Breaker) 
 	// We have to read the private service endpoints in activator
 	// in order to count the serving pod count, since the public one
 	// may point at ourselves.
-	size, err := t.getEndpoints(sks.Namespace, sks.Status.PrivateServiceName)
+	size, err := t.getEndpoints(sks)
 	if err != nil {
 		return err
 	}
