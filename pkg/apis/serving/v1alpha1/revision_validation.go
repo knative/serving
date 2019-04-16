@@ -138,7 +138,7 @@ func validateTimeoutSeconds(timeoutSeconds int64) *apis.FieldError {
 	return nil
 }
 
-// Validate ensures RevisionRequestConcurrencyModelType is properly configured.
+// Validate ensures DeprecatedRevisionServingStateType is properly configured.
 func (ss DeprecatedRevisionServingStateType) Validate(ctx context.Context) *apis.FieldError {
 	switch ss {
 	case DeprecatedRevisionServingStateType(""),
