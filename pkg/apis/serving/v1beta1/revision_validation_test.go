@@ -314,8 +314,8 @@ func TestImmutableFields(t *testing.T) {
 			Message: "Immutable fields changed (-old +new)",
 			Paths:   []string{"spec"},
 			Details: `{v1beta1.RevisionSpec}.PodSpec.Containers[0].Resources.Requests["cpu"]:
-	-: resource.Quantity{i: resource.int64Amount{value: 100, scale: resource.Scale(-3)}, s: "100m", Format: resource.Format("DecimalSI")}
-	+: resource.Quantity{i: resource.int64Amount{value: 50, scale: resource.Scale(-3)}, s: "50m", Format: resource.Format("DecimalSI")}
+	-: resource.Quantity: "{i:{value:100 scale:-3} d:{Dec:<nil>} s:100m Format:DecimalSI}"
+	+: resource.Quantity: "{i:{value:50 scale:-3} d:{Dec:<nil>} s:50m Format:DecimalSI}"
 `,
 		},
 	}, {
@@ -384,8 +384,8 @@ func TestImmutableFields(t *testing.T) {
 			Message: "Immutable fields changed (-old +new)",
 			Paths:   []string{"spec"},
 			Details: `{v1beta1.RevisionSpec}.ContainerConcurrency:
-	-: v1beta1.RevisionContainerConcurrencyType(2)
-	+: v1beta1.RevisionContainerConcurrencyType(1)
+	-: "2"
+	+: "1"
 `,
 		},
 	}, {
@@ -419,8 +419,8 @@ func TestImmutableFields(t *testing.T) {
 			Message: "Immutable fields changed (-old +new)",
 			Paths:   []string{"spec"},
 			Details: `{v1beta1.RevisionSpec}.ContainerConcurrency:
-	-: v1beta1.RevisionContainerConcurrencyType(0)
-	+: v1beta1.RevisionContainerConcurrencyType(42)
+	-: "0"
+	+: "42"
 `,
 		},
 	}, {
@@ -458,8 +458,8 @@ func TestImmutableFields(t *testing.T) {
 	-: "busybox"
 	+: "helloworld"
 {v1beta1.RevisionSpec}.ContainerConcurrency:
-	-: v1beta1.RevisionContainerConcurrencyType(4)
-	+: v1beta1.RevisionContainerConcurrencyType(2)
+	-: "4"
+	+: "2"
 `,
 		},
 	}}

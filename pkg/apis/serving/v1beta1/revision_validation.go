@@ -35,7 +35,7 @@ func (r *Revision) Validate(ctx context.Context) *apis.FieldError {
 
 	if apis.IsInUpdate(ctx) {
 		original := apis.GetBaseline(ctx).(*Revision)
-		if diff, err := kmp.SafeDiff(original.Spec, r.Spec); err != nil {
+		if diff, err := kmp.ShortDiff(original.Spec, r.Spec); err != nil {
 			return &apis.FieldError{
 				Message: "Failed to diff Revision",
 				Paths:   []string{"spec"},
@@ -89,7 +89,7 @@ func (current *RevisionTemplateSpec) VerifyNameChange(ctx context.Context, og Re
 		return nil
 	}
 
-	if diff, err := kmp.SafeDiff(&og, current); err != nil {
+	if diff, err := kmp.ShortDiff(&og, current); err != nil {
 		return &apis.FieldError{
 			Message: "Failed to diff RevisionTemplate",
 			Paths:   []string{apis.CurrentField},
