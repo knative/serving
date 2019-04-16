@@ -113,7 +113,7 @@ func (current *RevisionTemplateSpec) VerifyNameChange(ctx context.Context, og *R
 		return nil
 	}
 
-	if diff, err := kmp.SafeDiff(og, current); err != nil {
+	if diff, err := kmp.ShortDiff(og, current); err != nil {
 		return &apis.FieldError{
 			Message: "Failed to diff RevisionTemplate",
 			Paths:   []string{apis.CurrentField},
