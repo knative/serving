@@ -28,6 +28,7 @@ import (
 const (
 	testURL = "http://test-revision-metrics.test-namespace:9090/metrics"
 
+	// TODO: Use Prometheus lib to generate the following text instead of using text format directly.
 	testAverageConcurrencyContext = `# HELP queue_average_concurrent_requests Number of requests currently being handled by this pod
 # TYPE queue_average_concurrent_requests gauge
 queue_average_concurrent_requests{destination_namespace="test-namespace",destination_revision="test-revision",destination_pod="test-revision-1234"} 3.0
