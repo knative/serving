@@ -123,12 +123,12 @@ func NewController(
 	})
 
 	c.tracker = tracker.New(impl.EnqueueKey, opt.GetTrackerLease())
-	gvk := corev1.SchemeGroupVersion.WithKind("Secret")
-	secretInfomer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    controller.EnsureTypeMeta(c.tracker.OnChanged, gvk),
-		UpdateFunc: controller.PassNew(controller.EnsureTypeMeta(c.tracker.OnChanged, gvk)),
-		DeleteFunc: controller.EnsureTypeMeta(c.tracker.OnChanged, gvk),
-	})
+	secretInfomer.Informer().AddEventHandler(reconciler.Handler(
+		controller.EnsureTypeMeta(
+			c.tracker.OnChanged,
+			corev1.SchemeGroupVersion.WithKind("Secret"),
+		),
+	))
 
 	c.Logger.Info("Setting up ConfigMap receivers")
 	resyncIngressesOnIstioConfigChange := configmap.TypeFilter(&config.Istio{})(func(string, interface{}) {
