@@ -358,7 +358,6 @@ func (r *reconciler) reconcilePrivateService(ctx context.Context, sks *netv1alph
 	return nil
 }
 
-// TODO(vagababov): this and two functions below look like a good idea to share with KPA.
 func (c *reconciler) getSelector(sks *netv1alpha1.ServerlessService) (map[string]string, error) {
 	scale, err := c.getScaleResource(sks)
 	if err != nil {
