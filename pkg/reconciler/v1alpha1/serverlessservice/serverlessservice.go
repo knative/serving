@@ -221,7 +221,6 @@ func (r *reconciler) reconcilePublicService(ctx context.Context, sks *netv1alpha
 	want.Spec.Ports = tmpl.Spec.Ports
 	want.Spec.Selector = nil
 
-	sks.Status.MarkEndpointsNotReady("UpdatingPublicService")
 	if !equality.Semantic.DeepEqual(want.Spec, srv.Spec) {
 		logger.Info("Public K8s Service changed; reconciling: ", sn)
 		if _, err = r.KubeClientSet.CoreV1().Services(sks.Namespace).Update(want); err != nil {
