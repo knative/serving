@@ -39,8 +39,8 @@ var (
 )
 
 const (
-	defaultMaxConcurrency = int(1000)
-	initCapacity          = int(0)
+	defaultMaxConcurrency = 1000
+	initCapacity          = 0
 )
 
 func existingRevisionGetter(concurrency int) func(RevisionID) (*v1alpha1.Revision, error) {
