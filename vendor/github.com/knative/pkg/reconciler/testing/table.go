@@ -40,6 +40,9 @@ type TableRow struct {
 	// Name is a descriptive name for this test suitable as a first argument to t.Run()
 	Name string
 
+	// Ctx is the context to pass to Reconcile. Defaults to context.Background()
+	Ctx context.Context
+
 	// Objects holds the state of the world at the onset of reconciliation.
 	Objects []runtime.Object
 
@@ -101,8 +104,14 @@ func (r *TableRow) Test(t *testing.T, factory Factory) {
 	t.Helper()
 	c, recorderList, eventList, statsReporter := factory(t, r)
 
+	// Set context to not be nil.
+	ctx := r.Ctx
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
 	// Run the Reconcile we're testing.
-	if err := c.Reconcile(context.Background(), r.Key); (err != nil) != r.WantErr {
+	if err := c.Reconcile(ctx, r.Key); (err != nil) != r.WantErr {
 		t.Errorf("Reconcile() error = %v, WantErr %v", err, r.WantErr)
 	}
 

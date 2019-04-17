@@ -24,12 +24,11 @@ import (
 	"github.com/knative/serving/pkg/gc"
 	"github.com/knative/serving/pkg/network"
 
-	. "github.com/knative/pkg/logging/testing"
-	. "github.com/knative/pkg/reconciler/testing"
+	. "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
 )
 
 func TestStoreLoadWithContext(t *testing.T) {
-	defer ClearAll()
+	defer ClearAllLoggers()
 	store := NewStore(TestLogger(t))
 
 	domainConfig := ConfigMapFromTestFile(t, DomainConfigName)
@@ -58,7 +57,7 @@ func TestStoreLoadWithContext(t *testing.T) {
 }
 
 func TestStoreImmutableConfig(t *testing.T) {
-	defer ClearAll()
+	defer ClearAllLoggers()
 	store := NewStore(TestLogger(t))
 	store.OnConfigChanged(ConfigMapFromTestFile(t, DomainConfigName))
 	store.OnConfigChanged(ConfigMapFromTestFile(t, network.ConfigName))
