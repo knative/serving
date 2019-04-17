@@ -22,7 +22,6 @@ import (
 	"io/ioutil"
 	"net/http"
 	"testing"
-	"time"
 )
 
 const (
@@ -80,8 +79,6 @@ func TestHTTPScrapeClient_Scrape_HappyCase(t *testing.T) {
 		t.Fatalf("newHTTPScrapeClient = %v, want no error", err)
 	}
 
-	// Scrape will set a timestamp bigger than this.
-	now := time.Now()
 	stat, err := sClient.Scrape(testURL)
 	if err != nil {
 		t.Errorf("scrapeViaURL = %v, want no error", err)
@@ -97,9 +94,6 @@ func TestHTTPScrapeClient_Scrape_HappyCase(t *testing.T) {
 	}
 	if stat.ProxiedRequestCount != 4 {
 		t.Errorf("stat.ProxiedCount = %v, want 4", stat.ProxiedRequestCount)
-	}
-	if stat.Time.Before(now) {
-		t.Errorf("stat.Time=%v, want bigger than %v", stat.Time, now)
 	}
 }
 
