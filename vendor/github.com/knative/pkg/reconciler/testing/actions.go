@@ -1,5 +1,5 @@
 /*
-Copyright 2018 The Knative Authors
+Copyright 2019 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -24,6 +24,7 @@ import (
 
 // Actions stores list of Actions recorded by the reactors.
 type Actions struct {
+	Gets              []clientgotesting.GetAction
 	Creates           []clientgotesting.CreateAction
 	Updates           []clientgotesting.UpdateAction
 	Deletes           []clientgotesting.DeleteAction
@@ -47,6 +48,9 @@ func (l ActionRecorderList) ActionsByVerb() (Actions, error) {
 	for _, recorder := range l {
 		for _, action := range recorder.Actions() {
 			switch action.GetVerb() {
+			case "get":
+				a.Gets = append(a.Gets,
+					action.(clientgotesting.GetAction))
 			case "create":
 				a.Creates = append(a.Creates,
 					action.(clientgotesting.CreateAction))

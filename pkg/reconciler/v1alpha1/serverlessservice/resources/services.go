@@ -92,7 +92,7 @@ func MakePublicEndpoints(sks *v1alpha1.ServerlessService, src *corev1.Endpoints)
 
 // MakePrivateService constructs a K8s service, that is backed by the pod selector
 // matching pods created by the revision.
-func MakePrivateService(sks *v1alpha1.ServerlessService) *corev1.Service {
+func MakePrivateService(sks *v1alpha1.ServerlessService, selector map[string]string) *corev1.Service {
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      names.PrivateService(sks.Name),
@@ -112,7 +112,7 @@ func MakePrivateService(sks *v1alpha1.ServerlessService) *corev1.Service {
 				Port:       servicePort,
 				TargetPort: intstr.FromString(requestQueuePortName),
 			}},
-			Selector: sks.Spec.Selector,
+			Selector: selector,
 		},
 	}
 }

@@ -80,14 +80,14 @@ func (rs *PodAutoscalerSpec) Validate(ctx context.Context) *apis.FieldError {
 		rs.ContainerConcurrency, ""); err != nil {
 		errs = errs.Also(err)
 	}
-	return errs.Also(validateSKSFields(rs))
+	return errs.Also(validateSKSFields(ctx, rs))
 }
 
-func validateSKSFields(rs *PodAutoscalerSpec) *apis.FieldError {
+func validateSKSFields(ctx context.Context, rs *PodAutoscalerSpec) *apis.FieldError {
 	var all *apis.FieldError
 	// TODO(vagababov) stop permitting empty protocol type, once SKS controller is live.
 	if string(rs.ProtocolType) != "" {
-		all = all.Also(rs.ProtocolType.Validate()).ViaField("protocolType")
+		all = all.Also(rs.ProtocolType.Validate(ctx)).ViaField("protocolType")
 	}
 	return all
 }

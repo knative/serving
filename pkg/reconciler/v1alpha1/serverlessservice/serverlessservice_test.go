@@ -28,6 +28,7 @@ import (
 	rpkg "github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/serverlessservice/resources"
 
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -65,22 +66,24 @@ func TestNewController(t *testing.T) {
 
 func TestReconcile(t *testing.T) {
 	table := TableTest{{
-		Name: "bad workqueue key, Part I",
-		Key:  "too/many/parts",
+		Name:                    "bad workqueue key, Part I",
+		Key:                     "too/many/parts",
 		SkipNamespaceValidation: true,
 	}, {
-		Name: "bad workqueue key, Part II",
-		Key:  "too-few-parts",
+		Name:                    "bad workqueue key, Part II",
+		Key:                     "too-few-parts",
 		SkipNamespaceValidation: true,
 	}, {
-		Name: "key not found",
-		Key:  "foo/not-found",
+		Name:                    "key not found",
+		Key:                     "foo/not-found",
 		SkipNamespaceValidation: true,
 	}, {
 		Name: "steady state",
 		Key:  "steady/state",
 		Objects: []runtime.Object{
-			SKS("steady", "state", markHappy, WithPubService, WithPrivateService),
+			SKS("steady", "state", markHappy, WithPubService, WithPrivateService,
+				WithDeployRef("bar")),
+			deploy("steady", "bar"),
 			svcpub("steady", "state"),
 			svcpriv("steady", "state"),
 			endpointspub("steady", "state", WithSubsets),
@@ -90,7 +93,9 @@ func TestReconcile(t *testing.T) {
 		Name: "user changes public svc",
 		Key:  "public/svc-change",
 		Objects: []runtime.Object{
-			SKS("public", "svc-change", markHappy, WithPubService, WithPrivateService),
+			SKS("public", "svc-change", markHappy, WithPubService, WithPrivateService,
+				WithDeployRef("bar")),
+			deploy("public", "bar"),
 			svcpub("public", "svc-change", withTimeSelector),
 			svcpriv("public", "svc-change"),
 			endpointspub("public", "svc-change", WithSubsets),
@@ -103,7 +108,9 @@ func TestReconcile(t *testing.T) {
 		Name: "user changes priv svc",
 		Key:  "private/svc-change",
 		Objects: []runtime.Object{
-			SKS("private", "svc-change", markHappy, WithPubService, WithPrivateService),
+			SKS("private", "svc-change", markHappy, WithPubService, WithPrivateService,
+				WithDeployRef("baz")),
+			deploy("private", "baz"),
 			svcpub("private", "svc-change"),
 			svcpriv("private", "svc-change", withTimeSelector),
 			endpointspub("private", "svc-change", withOtherSubsets),
@@ -118,7 +125,8 @@ func TestReconcile(t *testing.T) {
 		Name: "OnCreate-deployment-exists",
 		Key:  "on/cde",
 		Objects: []runtime.Object{
-			SKS("on", "cde"),
+			SKS("on", "cde", WithDeployRef("blah")),
+			deploy("on", "blah"),
 			// This "has" to pre-exist, otherwise I can't populate it with subsets.
 			endpointspriv("on", "cde", WithSubsets),
 		},
@@ -128,7 +136,8 @@ func TestReconcile(t *testing.T) {
 			endpointspub("on", "cde", WithSubsets),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: SKS("on", "cde", markHappy, WithPubService, WithPrivateService),
+			Object: SKS("on", "cde", WithDeployRef("blah"),
+				markHappy, WithPubService, WithPrivateService),
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Updated", `Successfully updated ServerlessService "on/cde"`),
@@ -159,7 +168,8 @@ func TestReconcile(t *testing.T) {
 		Key:     "svc/fail2",
 		WantErr: true,
 		Objects: []runtime.Object{
-			SKS("svc", "fail2"),
+			SKS("svc", "fail2", WithDeployRef("blah")),
+			deploy("svc", "blah"),
 			svcpriv("svc", "fail2"),
 			endpointspriv("svc", "fail2"),
 		},
@@ -177,7 +187,8 @@ func TestReconcile(t *testing.T) {
 		Key:     "eps/fail3",
 		WantErr: true,
 		Objects: []runtime.Object{
-			SKS("eps", "fail3"),
+			SKS("eps", "fail3", WithDeployRef("blah")),
+			deploy("eps", "blah"),
 			svcpriv("eps", "fail3"),
 			endpointspriv("eps", "fail3"),
 		},
@@ -195,7 +206,8 @@ func TestReconcile(t *testing.T) {
 		Name: "OnCreate-no-eps",
 		Key:  "on/cneps",
 		Objects: []runtime.Object{
-			SKS("on", "cneps"),
+			SKS("on", "cneps", WithDeployRef("blah")),
+			deploy("on", "blah"),
 			endpointspriv("on", "cneps"),
 		},
 		WantCreates: []metav1.Object{
@@ -204,7 +216,8 @@ func TestReconcile(t *testing.T) {
 			endpointspub("on", "cneps"),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: SKS("on", "cneps", markNoEndpoints, WithPubService, WithPrivateService),
+			Object: SKS("on", "cneps", WithDeployRef("blah"),
+				markNoEndpoints, WithPubService, WithPrivateService),
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Updated", `Successfully updated ServerlessService "on/cneps"`),
@@ -214,7 +227,8 @@ func TestReconcile(t *testing.T) {
 		Key:     "svc/fail",
 		WantErr: true,
 		Objects: []runtime.Object{
-			SKS("svc", "fail"),
+			SKS("svc", "fail", WithDeployRef("blah")),
+			deploy("svc", "blah"),
 			endpointspriv("svc", "fail"),
 		},
 		WithReactors: []clientgotesting.ReactionFunc{
@@ -231,7 +245,9 @@ func TestReconcile(t *testing.T) {
 		Key:     "update-sks/fail4",
 		WantErr: true,
 		Objects: []runtime.Object{
-			SKS("update-sks", "fail4", WithPubService, WithPrivateService),
+			SKS("update-sks", "fail4", WithPubService, WithPrivateService,
+				WithDeployRef("blah")),
+			deploy("update-sks", "blah"),
 			svcpub("update-sks", "fail4"),
 			svcpriv("update-sks", "fail4"),
 			endpointspub("update-sks", "fail4", WithSubsets),
@@ -242,7 +258,8 @@ func TestReconcile(t *testing.T) {
 		},
 		// We still record update, but it fails.
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: SKS("update-sks", "fail4", markHappy, WithPubService, WithPrivateService),
+			Object: SKS("update-sks", "fail4",
+				WithDeployRef("blah"), markHappy, WithPubService, WithPrivateService),
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "UpdateFailed", "Failed to update status: inducing failure for update serverlessservices"),
@@ -252,7 +269,9 @@ func TestReconcile(t *testing.T) {
 		Key:     "ronin-priv-service/fail5",
 		WantErr: true,
 		Objects: []runtime.Object{
-			SKS("ronin-priv-service", "fail5", WithPubService, WithPrivateService),
+			SKS("ronin-priv-service", "fail5", WithPubService, WithPrivateService,
+				WithDeployRef("blah")),
+			deploy("ronin-priv-service", "blah"),
 			svcpub("ronin-priv-service", "fail5"),
 			svcpriv("ronin-priv-service", "fail5", WithK8sSvcOwnersRemoved),
 			endpointspub("ronin-priv-service", "fail5", WithSubsets),
@@ -266,7 +285,8 @@ func TestReconcile(t *testing.T) {
 		Key:     "ronin-pub-service/fail5",
 		WantErr: true,
 		Objects: []runtime.Object{
-			SKS("ronin-pub-service", "fail5", WithPubService, WithPrivateService),
+			SKS("ronin-pub-service", "fail5", WithPubService, WithPrivateService, WithDeployRef("blah")),
+			deploy("ronin-pub-service", "blah"),
 			svcpub("ronin-pub-service", "fail5", WithK8sSvcOwnersRemoved),
 			svcpriv("ronin-pub-service", "fail5"),
 			endpointspub("ronin-pub-service", "fail5", WithSubsets),
@@ -280,11 +300,12 @@ func TestReconcile(t *testing.T) {
 		Key:     "ronin-pub-eps/fail7",
 		WantErr: true,
 		Objects: []runtime.Object{
-			SKS("ronin-pub-eps", "fail7", WithPubService), SKS("ronin-priv-service", "fail5", WithPubService, WithPrivateService),
-			svcpub("ronin-pub-eps", "fail7"), svcpub("ronin-priv-service", "fail5"),
-			svcpriv("ronin-pub-eps", "fail7"), svcpriv("ronin-priv-service", "fail5", WithK8sSvcOwnersRemoved),
-			endpointspub("ronin-pub-eps", "fail7", WithSubsets, WithEndpointsOwnersRemoved), endpointspub("ronin-priv-service", "fail5", WithSubsets),
-			endpointspriv("ronin-pub-eps", "fail7", WithSubsets), endpointspriv("ronin-priv-service", "fail5", WithSubsets),
+			SKS("ronin-pub-eps", "fail7", WithPubService, WithPrivateService, WithDeployRef("blah")),
+			deploy("ronin-pub-eps", "blah"),
+			svcpub("ronin-pub-eps", "fail7"),
+			svcpriv("ronin-pub-eps", "fail7"),
+			endpointspub("ronin-pub-eps", "fail7", WithSubsets, WithEndpointsOwnersRemoved),
+			endpointspriv("ronin-pub-eps", "fail7", WithSubsets),
 		},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "UpdateFailed", `InternalError: SKS: fail7 does not own Endpoints: fail7-pub`),
@@ -294,7 +315,9 @@ func TestReconcile(t *testing.T) {
 		Key:     "update-svc/fail9",
 		WantErr: true,
 		Objects: []runtime.Object{
-			SKS("update-svc", "fail9", WithPubService, WithPrivateService),
+			SKS("update-svc", "fail9", WithPubService, WithPrivateService,
+				WithDeployRef("blah")),
+			deploy("update-svc", "blah"),
 			svcpub("update-svc", "fail9"),
 			svcpriv("update-svc", "fail9", withTimeSelector),
 			endpointspub("update-svc", "fail9"),
@@ -306,7 +329,6 @@ func TestReconcile(t *testing.T) {
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: svcpriv("update-svc", "fail9"),
 		}},
-
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "UpdateFailed", "InternalError: inducing failure for update services"),
 		},
@@ -316,7 +338,8 @@ func TestReconcile(t *testing.T) {
 			Key:     "update-svc/fail8",
 			WantErr: true,
 			Objects: []runtime.Object{
-				SKS("update-svc", "fail8", WithPubService),
+				SKS("update-svc", "fail8", WithPubService, WithDeployRef("blah")),
+				deploy("update-svc", "blah"),
 				svcpub("update-svc", "fail8", withTimeSelector),
 				svcpriv("update-svc", "fail8"),
 				endpointspub("update-svc", "fail8", WithSubsets),
@@ -335,7 +358,8 @@ func TestReconcile(t *testing.T) {
 			Name: "pod change",
 			Key:  "pod/change",
 			Objects: []runtime.Object{
-				SKS("pod", "change", markHappy, WithPubService, WithPrivateService),
+				SKS("pod", "change", markHappy, WithPubService, WithPrivateService, WithDeployRef("blah")),
+				deploy("pod", "blah"),
 				svcpub("pod", "change"),
 				svcpriv("pod", "change"),
 				endpointspub("pod", "change", WithSubsets),
@@ -353,6 +377,7 @@ func TestReconcile(t *testing.T) {
 			sksLister:       listers.GetServerlessServiceLister(),
 			serviceLister:   listers.GetK8sServiceLister(),
 			endpointsLister: listers.GetEndpointsLister(),
+			scaleClientSet:  opt.ScaleClientSet,
 		}
 	}))
 }
@@ -372,6 +397,31 @@ func markNoEndpoints(sks *nv1a1.ServerlessService) {
 	sks.Status.MarkEndpointsNotReady("NoHealthyBackends")
 }
 
+type deploymentOption func(*appsv1.Deployment)
+
+func deploy(namespace, name string, opts ...deploymentOption) *appsv1.Deployment {
+	one := int32(1)
+	d := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: namespace,
+			Name:      name,
+		},
+		Spec: appsv1.DeploymentSpec{
+			Selector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					"label": "value",
+				},
+			},
+			Replicas: &one,
+		},
+	}
+
+	for _, opt := range opts {
+		opt(d)
+	}
+	return d
+}
+
 func svcpub(namespace, name string, so ...K8sServiceOption) *corev1.Service {
 	sks := SKS(namespace, name)
 	s := resources.MakePublicService(sks)
@@ -383,7 +433,9 @@ func svcpub(namespace, name string, so ...K8sServiceOption) *corev1.Service {
 
 func svcpriv(namespace, name string, so ...K8sServiceOption) *corev1.Service {
 	sks := SKS(namespace, name)
-	s := resources.MakePrivateService(sks)
+	s := resources.MakePrivateService(sks, map[string]string{
+		"label": "value",
+	})
 	for _, opt := range so {
 		opt(s)
 	}

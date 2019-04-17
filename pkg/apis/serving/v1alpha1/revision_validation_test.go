@@ -829,7 +829,8 @@ func TestRevisionTemplateSpecValidation(t *testing.T) {
 		name: "has revision template name",
 		rts: &RevisionTemplateSpec{
 			ObjectMeta: metav1.ObjectMeta{
-				Name: "foo",
+				// We let users bring their own revision name.
+				Name: "parent-foo",
 			},
 			Spec: RevisionSpec{
 				Container: &corev1.Container{
@@ -837,12 +838,16 @@ func TestRevisionTemplateSpecValidation(t *testing.T) {
 				},
 			},
 		},
-		want: apis.ErrDisallowedFields("metadata.name"),
+		want: nil,
 	}}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got := test.rts.Validate(context.Background())
+			ctx := apis.WithinParent(context.Background(), metav1.ObjectMeta{
+				Name: "parent",
+			})
+
+			got := test.rts.Validate(ctx)
 			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
 				t.Errorf("Validate (-want, +got) = %v", diff)
 			}
@@ -1163,7 +1168,7 @@ func TestRevisionProtocolType(t *testing.T) {
 		net.ProtocolType("token-ring"), apis.ErrInvalidValue("token-ring", apis.CurrentField),
 	}}
 	for _, test := range tests {
-		e := test.p.Validate()
+		e := test.p.Validate(context.Background())
 		if got, want := e.Error(), test.want.Error(); !cmp.Equal(got, want) {
 			t.Errorf("Got = %v, want: %v, diff: %s", got, want, cmp.Diff(got, want))
 		}

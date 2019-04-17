@@ -22,7 +22,10 @@ import (
 	"reflect"
 
 	"github.com/google/go-cmp/cmp"
+	perrors "github.com/pkg/errors"
+	"go.uber.org/zap"
 
+	"github.com/knative/pkg/apis"
 	"github.com/knative/pkg/controller"
 	"github.com/knative/pkg/logging"
 	"github.com/knative/pkg/system"
@@ -34,15 +37,18 @@ import (
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/serverlessservice/resources"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/serverlessservice/resources/names"
 	presources "github.com/knative/serving/pkg/resources"
-	"go.uber.org/zap"
 
+	autoscalingapi "k8s.io/api/autoscaling/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	corev1informers "k8s.io/client-go/informers/core/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
+	"k8s.io/client-go/scale"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -60,6 +66,8 @@ type reconciler struct {
 	sksLister       listers.ServerlessServiceLister
 	serviceLister   corev1listers.ServiceLister
 	endpointsLister corev1listers.EndpointsLister
+
+	scaleClientSet scale.ScalesGetter
 }
 
 // NewController initializes the controller and is called by the generated code.
@@ -75,6 +83,7 @@ func NewController(
 		endpointsLister: endpointsInformer.Lister(),
 		serviceLister:   serviceInformer.Lister(),
 		sksLister:       sksInformer.Lister(),
+		scaleClientSet:  opt.ScaleClientSet,
 	}
 	impl := controller.NewImpl(c, c.Logger, reconcilerName, rbase.MustNewStatsReporter(reconcilerName, c.Logger))
 
@@ -286,12 +295,18 @@ func (r *reconciler) reconcilePublicEndpoints(ctx context.Context, sks *netv1alp
 
 func (r *reconciler) reconcilePrivateService(ctx context.Context, sks *netv1alpha1.ServerlessService) error {
 	logger := logging.FromContext(ctx)
+
+	selector, err := r.getSelector(sks)
+	if err != nil {
+		return perrors.Wrap(err, "error retrieving deployment selector spec")
+	}
+
 	sn := names.PrivateService(sks.Name)
 	svc, err := r.serviceLister.Services(sks.Namespace).Get(sn)
 	if errors.IsNotFound(err) {
 		logger.Infof("K8s service %s does not exist; creating.", sn)
 		sks.Status.MarkEndpointsNotReady("CreatingPrivateService")
-		svc = resources.MakePrivateService(sks)
+		svc = resources.MakePrivateService(sks, selector)
 		_, err := r.KubeClientSet.CoreV1().Services(sks.Namespace).Create(svc)
 		if err != nil {
 			logger.Errorw(fmt.Sprint("Error creating K8s Service:", sn), zap.Error(err))
@@ -305,7 +320,7 @@ func (r *reconciler) reconcilePrivateService(ctx context.Context, sks *netv1alph
 		sks.Status.MarkEndpointsNotOwned("Service", sn)
 		return fmt.Errorf("SKS: %s does not own Service: %s", sks.Name, sn)
 	}
-	tmpl := resources.MakePrivateService(sks)
+	tmpl := resources.MakePrivateService(sks, selector)
 	want := svc.DeepCopy()
 	// Our controller manages only part of spec, so set the fields we own.
 	want.Spec.Ports = tmpl.Spec.Ports
@@ -323,4 +338,38 @@ func (r *reconciler) reconcilePrivateService(ctx context.Context, sks *netv1alph
 	sks.Status.PrivateServiceName = sn
 	logger.Debug("Done reconciling private K8s service", sn)
 	return nil
+}
+
+func (c *reconciler) getSelector(sks *netv1alpha1.ServerlessService) (map[string]string, error) {
+	scale, err := c.getScaleResource(sks)
+	if err != nil {
+		return nil, err
+	}
+	return labels.ConvertSelectorToLabelsMap(scale.Status.Selector)
+}
+
+// getScaleResource returns the current scale resource for the SKS.
+func (c *reconciler) getScaleResource(sks *netv1alpha1.ServerlessService) (*autoscalingapi.Scale, error) {
+	resource, resourceName, err := scaleResourceArgs(sks)
+	if err != nil {
+		return nil, err
+	}
+	// Identify the current scale.
+	scl, err := c.scaleClientSet.Scales(sks.Namespace).Get(*resource, resourceName)
+	if err != nil {
+		return nil, err
+	} else if scl == nil {
+		return nil, errors.NewNotFound(*resource, resourceName)
+	}
+	return scl, nil
+}
+
+// scaleResourceArgs returns GroupResource and the resource name, from the PA resource.
+func scaleResourceArgs(sks *netv1alpha1.ServerlessService) (*schema.GroupResource, string, error) {
+	gv, err := schema.ParseGroupVersion(sks.Spec.ObjectRef.APIVersion)
+	if err != nil {
+		return nil, "", err
+	}
+	resource := apis.KindToResource(gv.WithKind(sks.Spec.ObjectRef.Kind)).GroupResource()
+	return &resource, sks.Spec.ObjectRef.Name, nil
 }

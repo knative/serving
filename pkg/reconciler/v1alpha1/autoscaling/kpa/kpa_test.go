@@ -49,6 +49,7 @@ import (
 	. "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
 	perrors "github.com/pkg/errors"
 
+	appsv1 "k8s.io/api/apps/v1"
 	autoscalingv1 "k8s.io/api/autoscaling/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -326,7 +327,7 @@ func metricsSvc(ns, n string, opts ...K8sServiceOption) *corev1.Service {
 
 func sks(ns, n string, so ...SKSOption) *nv1a1.ServerlessService {
 	kpa := kpa(ns, n)
-	s := aresources.MakeSKS(kpa, map[string]string{}, nv1a1.SKSOperationModeServe)
+	s := aresources.MakeSKS(kpa, nv1a1.SKSOperationModeServe)
 	for _, opt := range so {
 		opt(s)
 	}
@@ -380,6 +381,7 @@ func makeTestEndpoints(num int, ns, n string) *corev1.Endpoints {
 
 func TestReconcile(t *testing.T) {
 	const key = testNamespace + "/" + testRevision
+	const deployName = testRevision + "-deployment"
 	usualSelector := map[string]string{"a": "b"}
 
 	// Note: due to how KPA reconciler works we are dependent on the
@@ -405,10 +407,11 @@ func TestReconcile(t *testing.T) {
 		Name: "steady state",
 		Key:  key,
 		Objects: []runtime.Object{
-			kpa(testNamespace, testRevision, markActive, WithPAStatusService(testRevision+"-pub")),
-			sks(testNamespace, testRevision, WithSelector(usualSelector), WithSKSReady),
+			kpa(testNamespace, testRevision, markActive,
+				WithPAStatusService(testRevision+"-pub")),
+			sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSReady),
 			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector)),
-			scaleResource(testNamespace, testRevision, withLabelSelector("a=b")),
+			deploy(testNamespace, testRevision),
 			makeSKSPrivateEndpoints(1, testNamespace, testRevision),
 		},
 	}, {
@@ -416,9 +419,9 @@ func TestReconcile(t *testing.T) {
 		Key:  key,
 		Objects: []runtime.Object{
 			kpa(testNamespace, testRevision, markActive, WithPAStatusService(testRevision+"-pub")),
-			sks(testNamespace, testRevision, WithSelector(usualSelector), WithPubService, WithPrivateService),
+			sks(testNamespace, testRevision, WithDeployRef(deployName), WithPubService, WithPrivateService),
 			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector)),
-			scaleResource(testNamespace, testRevision, withLabelSelector("a=b")),
+			deploy(testNamespace, testRevision),
 			makeSKSPrivateEndpoints(1, testNamespace, testRevision),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
@@ -429,9 +432,9 @@ func TestReconcile(t *testing.T) {
 		Key:  key,
 		Objects: []runtime.Object{
 			kpa(testNamespace, testRevision),
-			sks(testNamespace, testRevision, WithSelector(usualSelector), WithSKSReady),
+			sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSReady),
 			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector)),
-			scaleResource(testNamespace, testRevision, withLabelSelector("a=b")),
+			deploy(testNamespace, testRevision),
 			makeSKSPrivateEndpoints(1, testNamespace, testRevision),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
@@ -443,7 +446,7 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			kpa(testNamespace, testRevision, markActive),
 			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector)),
-			scaleResource(testNamespace, testRevision, withLabelSelector("a=b")),
+			deploy(testNamespace, testRevision),
 			makeSKSPrivateEndpoints(1, testNamespace, testRevision),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
@@ -451,17 +454,17 @@ func TestReconcile(t *testing.T) {
 			Object: kpa(testNamespace, testRevision, markActivating),
 		}},
 		WantCreates: []metav1.Object{
-			sks(testNamespace, testRevision, WithSelector(usualSelector)),
+			sks(testNamespace, testRevision, WithDeployRef(deployName)),
 		},
 	}, {
 		Name: "sks is out of whack",
 		Key:  key,
 		Objects: []runtime.Object{
 			kpa(testNamespace, testRevision, markActive),
-			sks(testNamespace, testRevision, WithSelector(map[string]string{"i-m": "so-tired"}),
+			sks(testNamespace, testRevision, WithDeployRef("bar"),
 				WithPubService),
 			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector)),
-			scaleResource(testNamespace, testRevision, withLabelSelector("a=b")),
+			deploy(testNamespace, testRevision),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			// SKS just got updated and we don't have up to date status.
@@ -469,7 +472,7 @@ func TestReconcile(t *testing.T) {
 		}},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: sks(testNamespace, testRevision, WithPubService,
-				WithSelector(usualSelector)),
+				WithDeployRef(deployName)),
 		}},
 	}, {
 		Name: "sks cannot be created",
@@ -477,14 +480,14 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			kpa(testNamespace, testRevision, markActive),
 			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector)),
-			scaleResource(testNamespace, testRevision, withLabelSelector("a=b")),
+			deploy(testNamespace, testRevision),
 		},
 		WithReactors: []clientgotesting.ReactionFunc{
 			InduceFailure("create", "serverlessservices"),
 		},
 		WantErr: true,
 		WantCreates: []metav1.Object{
-			sks(testNamespace, testRevision, WithSelector(usualSelector)),
+			sks(testNamespace, testRevision, WithDeployRef(deployName)),
 		},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "InternalError",
@@ -495,16 +498,16 @@ func TestReconcile(t *testing.T) {
 		Key:  key,
 		Objects: []runtime.Object{
 			kpa(testNamespace, testRevision, markActive),
-			sks(testNamespace, testRevision, WithSelector(map[string]string{"i-havent": "slept-a-wink"})),
+			sks(testNamespace, testRevision, WithDeployRef("bar")),
 			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector)),
-			scaleResource(testNamespace, testRevision, withLabelSelector("a=b")),
+			deploy(testNamespace, testRevision),
 		},
 		WithReactors: []clientgotesting.ReactionFunc{
 			InduceFailure("update", "serverlessservices"),
 		},
 		WantErr: true,
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: sks(testNamespace, testRevision, WithSelector(usualSelector)),
+			Object: sks(testNamespace, testRevision, WithDeployRef(deployName)),
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "InternalError", "error reconciling SKS: error updating SKS test-revision: inducing failure for update serverlessservices"),
@@ -514,9 +517,10 @@ func TestReconcile(t *testing.T) {
 		Key:  key,
 		Objects: []runtime.Object{
 			kpa(testNamespace, testRevision, markActive),
-			sks(testNamespace, testRevision, WithSelector(usualSelector), WithSKSReady, WithSKSOwnersRemoved),
+			sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSReady,
+				WithSKSOwnersRemoved),
 			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector)),
-			scaleResource(testNamespace, testRevision, withLabelSelector("a=b")),
+			deploy(testNamespace, testRevision),
 		},
 		WantErr: true,
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
@@ -580,6 +584,31 @@ func scaleResource(namespace, name string, opts ...scaleOpt) *autoscalingv1.Scal
 	return s
 }
 
+type deploymentOption func(*appsv1.Deployment)
+
+func deploy(namespace, name string, opts ...deploymentOption) *appsv1.Deployment {
+	s := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name + "-deployment",
+			Namespace: namespace,
+		},
+		Spec: appsv1.DeploymentSpec{
+			Selector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					"a": "b",
+				},
+			},
+		},
+		Status: appsv1.DeploymentStatus{
+			Replicas: 42,
+		},
+	}
+	for _, opt := range opts {
+		opt(s)
+	}
+	return s
+}
+
 func TestControllerSynchronizesCreatesAndDeletes(t *testing.T) {
 	defer ClearAllLoggers()
 
@@ -621,9 +650,8 @@ func TestControllerSynchronizesCreatesAndDeletes(t *testing.T) {
 	servingClient.AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
 	servingInformer.Autoscaling().V1alpha1().PodAutoscalers().Informer().GetIndexer().Add(kpa)
 
-	sks := sks(testNamespace, testRevision, WithSelector(map[string]string{
-		serving.RevisionLabelKey: rev.Name,
-	}), WithSKSReady)
+	sks := sks(testNamespace, testRevision, WithDeployRef(kpa.Spec.ScaleTargetRef.Name),
+		WithSKSReady)
 	servingClient.NetworkingV1alpha1().ServerlessServices(testNamespace).Create(sks)
 	servingInformer.Networking().V1alpha1().ServerlessServices().Informer().GetIndexer().Add(sks)
 
@@ -723,9 +751,8 @@ func TestUpdate(t *testing.T) {
 	kubeClient.CoreV1().Services(testNamespace).Create(msvc)
 	kubeInformer.Core().V1().Services().Informer().GetIndexer().Add(msvc)
 
-	sks := sks(testNamespace, testRevision, WithSelector(map[string]string{
-		serving.RevisionLabelKey: rev.Name,
-	}), WithSKSReady)
+	sks := sks(testNamespace, testRevision, WithDeployRef(kpa.Spec.ScaleTargetRef.Name),
+		WithSKSReady)
 	servingClient.NetworkingV1alpha1().ServerlessServices(testNamespace).Create(sks)
 	servingInformer.Networking().V1alpha1().ServerlessServices().Informer().GetIndexer().Add(sks)
 
@@ -1273,6 +1300,7 @@ func newTestRevision(namespace string, name string) *v1alpha1.Revision {
 				Args:       []string{"hello", "world"},
 				WorkingDir: "/tmp",
 			},
+			DeprecatedConcurrencyModel: v1alpha1.RevisionRequestConcurrencyModelSingle,
 		},
 	}
 }

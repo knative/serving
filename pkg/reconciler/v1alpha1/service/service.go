@@ -40,6 +40,8 @@ import (
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
+
+	cfgreconciler "github.com/knative/serving/pkg/reconciler/v1alpha1/configuration"
 )
 
 const (
@@ -55,6 +57,7 @@ type Reconciler struct {
 	// listers index properties about resources
 	serviceLister       listers.ServiceLister
 	configurationLister listers.ConfigurationLister
+	revisionLister      listers.RevisionLister
 	routeLister         listers.RouteLister
 }
 
@@ -67,6 +70,7 @@ func NewController(
 	opt reconciler.Options,
 	serviceInformer servinginformers.ServiceInformer,
 	configurationInformer servinginformers.ConfigurationInformer,
+	revisionInformer servinginformers.RevisionInformer,
 	routeInformer servinginformers.RouteInformer,
 ) *controller.Impl {
 
@@ -74,6 +78,7 @@ func NewController(
 		Base:                reconciler.NewBase(opt, controllerAgentName),
 		serviceLister:       serviceInformer.Lister(),
 		configurationLister: configurationInformer.Lister(),
+		revisionLister:      revisionInformer.Lister(),
 		routeLister:         routeInformer.Lister(),
 	}
 	impl := controller.NewImpl(c, c.Logger, ReconcilerName, reconciler.MustNewStatsReporter(ReconcilerName, c.Logger))
@@ -192,6 +197,16 @@ func (c *Reconciler) reconcile(ctx context.Context, service *v1alpha1.Service) e
 
 	// Update our Status based on the state of our underlying Configuration.
 	service.Status.PropagateConfigurationStatus(&config.Status)
+
+	// When the Configuration names a Revision, check that the named Revision is owned
+	// by our Configuration and matches its generation before reprogramming the Route,
+	// otherwise a bad patch could lead to folks inadvertently routing traffic to a
+	// pre-existing Revision (possibly for another Configuration).
+	if _, err := cfgreconciler.CheckNameAvailability(config, c.revisionLister); err != nil &&
+		!errors.IsNotFound(err) {
+		service.Status.MarkRevisionNameTaken(config.Spec.RevisionTemplate.Name)
+		return nil
+	}
 
 	routeName := resourcenames.Route(service)
 	route, err := c.routeLister.Routes(service.Namespace).Get(routeName)

@@ -34,7 +34,6 @@ import (
 	"github.com/knative/serving/pkg/autoscaler"
 	"github.com/knative/serving/pkg/network"
 	"github.com/knative/serving/pkg/reconciler"
-	rtesting "github.com/knative/serving/pkg/reconciler/testing"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/config"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources"
 	. "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
@@ -345,8 +344,8 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			rev("foo", "fix-mutated-kpa",
 				withK8sServiceName("ill-follow-the-sun"), WithLogURL, MarkRevisionReady),
-			kpa("foo", "fix-mutated-kpa", WithProtocolType(networking.ProtocolH2C), WithTraffic,
-				WithPAStatusService("fix-mutated-kpa")),
+			kpa("foo", "fix-mutated-kpa", WithProtocolType(networking.ProtocolH2C),
+				WithTraffic, WithPAStatusService("fix-mutated-kpa")),
 			deploy("foo", "fix-mutated-kpa"),
 			image("foo", "fix-mutated-kpa"),
 		},
@@ -355,11 +354,11 @@ func TestReconcile(t *testing.T) {
 				WithLogURL, AllUnknownConditions,
 				// When our reconciliation has to change the service
 				// we should see the following mutations to status.
-				// K8s Service name also goes away.
-				MarkDeploying("Updating")),
+				withK8sServiceName("fix-mutated-kpa"), WithLogURL, MarkRevisionReady),
 		}},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: kpa("foo", "fix-mutated-kpa"),
+			Object: kpa("foo", "fix-mutated-kpa", WithTraffic,
+				WithPAStatusService("fix-mutated-kpa")),
 		}},
 		Key: "foo/fix-mutated-kpa",
 	}, {
@@ -624,7 +623,7 @@ func TestReconcile(t *testing.T) {
 
 	defer ClearAllLoggers()
 	table.Test(t, MakeFactory(func(listers *Listers, opt reconciler.Options) controller.Reconciler {
-		t := &rtesting.NullTracker{}
+		t := &NullTracker{}
 		buildInformerFactory := KResourceTypedInformerFactory(opt)
 		return &Reconciler{
 			Base:                reconciler.NewBase(opt, controllerAgentName),
@@ -776,7 +775,7 @@ func TestReconcileWithVarLogEnabled(t *testing.T) {
 			endpointsLister:     listers.GetEndpointsLister(),
 			configMapLister:     listers.GetConfigMapLister(),
 			resolver:            &nopResolver{},
-			tracker:             &rtesting.NullTracker{},
+			tracker:             &NullTracker{},
 			configStore:         &testConfigStore{config: config},
 		}
 	}))

@@ -17,8 +17,9 @@ limitations under the License.
 package testing
 
 import (
+	configmaptesting "github.com/knative/pkg/configmap/testing"
 	logtesting "github.com/knative/pkg/logging/testing"
-	"github.com/knative/serving/pkg/reconciler/testing"
+	"github.com/knative/pkg/reconciler/testing"
 )
 
 type (
@@ -30,6 +31,8 @@ type (
 	Factory            = testing.Factory
 	HookResult         = testing.HookResult
 	FakeStatsReporter  = testing.FakeStatsReporter
+	FakeClock          = testing.FakeClock
+	NullTracker        = testing.NullTracker
 )
 
 var (
@@ -39,7 +42,8 @@ var (
 	ExpectNormalEventDelivery = testing.ExpectNormalEventDelivery
 	ValidateCreates           = testing.ValidateCreates
 	ValidateUpdates           = testing.ValidateUpdates
-	ConfigMapFromTestFile     = testing.ConfigMapFromTestFile
+	ConfigMapFromTestFile     = configmaptesting.ConfigMapFromTestFile
+	ConfigMapsFromTestFile    = configmaptesting.ConfigMapsFromTestFile
 	Eventf                    = testing.Eventf
 
 	PrependGenerateNameReactor = testing.PrependGenerateNameReactor

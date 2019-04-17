@@ -1,5 +1,5 @@
 /*
-Copyright 2018 The Knative Authors.
+Copyright 2019 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,16 +14,21 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package testing
+package v1beta1
 
 import (
-	"time"
+	"context"
+
+	"github.com/knative/pkg/apis"
 )
 
-type FakeClock struct {
-	Time time.Time
+// SetDefaults implements apis.Defaultable
+func (c *Configuration) SetDefaults(ctx context.Context) {
+	ctx = apis.WithinParent(ctx, c.ObjectMeta)
+	c.Spec.SetDefaults(apis.WithinSpec(ctx))
 }
 
-func (c FakeClock) Now() time.Time {
-	return c.Time
+// SetDefaults implements apis.Defaultable
+func (cs *ConfigurationSpec) SetDefaults(ctx context.Context) {
+	cs.Template.SetDefaults(ctx)
 }

@@ -1,5 +1,5 @@
 /*
-Copyright 2018 The Knative Authors
+Copyright 2019 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,21 +14,10 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package testing
+// Api versions allow the api contract for a resource to be changed while keeping
+// backward compatibility by support multiple concurrent versions
+// of the same resource
 
-import (
-	corev1 "k8s.io/api/core/v1"
-
-	"github.com/knative/pkg/tracker"
-)
-
-// NullTracker implements Tracker.
-type NullTracker struct{}
-
-var _ tracker.Interface = (*NullTracker)(nil)
-
-// OnChanged implements OnChanged.
-func (*NullTracker) OnChanged(interface{}) {}
-
-// Track implements Track.
-func (*NullTracker) Track(corev1.ObjectReference, interface{}) error { return nil }
+// +k8s:deepcopy-gen=package
+// +groupName=serving.knative.dev
+package v1beta1
