@@ -157,7 +157,10 @@ func (c *Reconciler) reconcileKPA(ctx context.Context, rev *v1alpha1.Revision) e
 	tmpl := resources.MakeKPA(rev)
 	if !equality.Semantic.DeepEqual(tmpl.Spec, kpa.Spec) {
 		logger.Infof("KPA %s needs reconciliation", kpa.Name)
-		if kpa, err = c.ServingClientSet.AutoscalingV1alpha1().PodAutoscalers(kpa.Namespace).Update(tmpl); err != nil {
+
+		want := kpa.DeepCopy()
+		want.Spec = tmpl.Spec
+		if kpa, err = c.ServingClientSet.AutoscalingV1alpha1().PodAutoscalers(kpa.Namespace).Update(want); err != nil {
 			return err
 		}
 		// This change will trigger KPA -> SKS -> K8s service change;

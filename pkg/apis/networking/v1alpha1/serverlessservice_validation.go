@@ -48,7 +48,7 @@ func (spec *ServerlessServiceSpec) Validate(ctx context.Context) *apis.FieldErro
 
 	all = all.Also(validateReference(spec.ObjectRef).ViaField("objectRef"))
 
-	return all.Also(spec.ProtocolType.Validate().ViaField("protocolType"))
+	return all.Also(spec.ProtocolType.Validate(ctx).ViaField("protocolType"))
 }
 
 func validateReference(ref autoscalingv1.CrossVersionObjectReference) *apis.FieldError {

@@ -1163,7 +1163,7 @@ func TestRevisionProtocolType(t *testing.T) {
 		net.ProtocolType("token-ring"), apis.ErrInvalidValue("token-ring", apis.CurrentField),
 	}}
 	for _, test := range tests {
-		e := test.p.Validate()
+		e := test.p.Validate(context.Background())
 		if got, want := e.Error(), test.want.Error(); !cmp.Equal(got, want) {
 			t.Errorf("Got = %v, want: %v, diff: %s", got, want, cmp.Diff(got, want))
 		}

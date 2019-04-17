@@ -345,8 +345,8 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			rev("foo", "fix-mutated-kpa",
 				withK8sServiceName("ill-follow-the-sun"), WithLogURL, MarkRevisionReady),
-			kpa("foo", "fix-mutated-kpa", WithProtocolType(networking.ProtocolH2C), WithTraffic,
-				WithPAStatusService("fix-mutated-kpa")),
+			kpa("foo", "fix-mutated-kpa", WithProtocolType(networking.ProtocolH2C),
+				WithTraffic, WithPAStatusService("fix-mutated-kpa")),
 			deploy("foo", "fix-mutated-kpa"),
 			image("foo", "fix-mutated-kpa"),
 		},
@@ -355,11 +355,11 @@ func TestReconcile(t *testing.T) {
 				WithLogURL, AllUnknownConditions,
 				// When our reconciliation has to change the service
 				// we should see the following mutations to status.
-				// K8s Service name also goes away.
-				MarkDeploying("Updating")),
+				withK8sServiceName("fix-mutated-kpa"), WithLogURL, MarkRevisionReady),
 		}},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: kpa("foo", "fix-mutated-kpa"),
+			Object: kpa("foo", "fix-mutated-kpa", WithTraffic,
+				WithPAStatusService("fix-mutated-kpa")),
 		}},
 		Key: "foo/fix-mutated-kpa",
 	}, {
