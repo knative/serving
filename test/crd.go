@@ -65,7 +65,7 @@ type ResourceObjects struct {
 func Route(names ResourceNames, fopt ...v1alpha1testing.RouteOption) *v1alpha1.Route {
 	route := &v1alpha1.Route{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      names.Route,
+			Name: names.Route,
 		},
 		Spec: v1alpha1.RouteSpec{
 			Traffic: []v1alpha1.TrafficTarget{{
@@ -88,7 +88,7 @@ func Route(names ResourceNames, fopt ...v1alpha1testing.RouteOption) *v1alpha1.R
 func BlueGreenRoute(names, blue, green ResourceNames) *v1alpha1.Route {
 	return &v1alpha1.Route{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      names.Route,
+			Name: names.Route,
 		},
 		Spec: v1alpha1.RouteSpec{
 			Traffic: []v1alpha1.TrafficTarget{{
@@ -146,7 +146,7 @@ func ConfigurationSpec(imagePath string, options *Options) *v1alpha1.Configurati
 func Configuration(names ResourceNames, options *Options, fopt ...v1alpha1testing.ConfigOption) *v1alpha1.Configuration {
 	config := &v1alpha1.Configuration{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      names.Config,
+			Name: names.Config,
 		},
 		Spec: *ConfigurationSpec(ptest.ImagePath(names.Image), options),
 	}
@@ -167,7 +167,7 @@ func Configuration(names ResourceNames, options *Options, fopt ...v1alpha1testin
 func ConfigurationWithBuild(names ResourceNames, build *v1alpha1.RawExtension) *v1alpha1.Configuration {
 	return &v1alpha1.Configuration{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      names.Config,
+			Name: names.Config,
 		},
 		Spec: v1alpha1.ConfigurationSpec{
 			Build: build,

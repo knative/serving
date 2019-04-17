@@ -18,7 +18,6 @@ package autoscaler
 
 import (
 	"fmt"
-	"io"
 	"net/http"
 	"time"
 
@@ -27,8 +26,6 @@ import (
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/autoscaling/kpa/resources/names"
 	"github.com/knative/serving/pkg/resources"
 	"github.com/pkg/errors"
-	dto "github.com/prometheus/client_model/go"
-	"github.com/prometheus/common/expfmt"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
@@ -51,6 +48,13 @@ type StatsScraper interface {
 	Scrape() (*StatMessage, error)
 }
 
+// scrapeClient defines the interface for collecting Revision metrics for a given
+// URL. Internal used only.
+type scrapeClient interface {
+	// Scrape scrapes the given URL.
+	Scrape(url string) (*Stat, error)
+}
+
 // cacheDisabledClient is a http client with cache disabled. It is shared by
 // every goruntime for a revision scraper.
 var cacheDisabledClient = &http.Client{
@@ -66,33 +70,36 @@ var cacheDisabledClient = &http.Client{
 // https://kubernetes.io/docs/concepts/services-networking/network-policies/
 // for details.
 type ServiceScraper struct {
-	httpClient          *http.Client
+	sClient             scrapeClient
 	endpointsLister     corev1listers.EndpointsLister
 	url                 string
 	namespace           string
 	scrapeTargetService string
 	metricKey           string
-	sClient             *scrapeClient
 }
 
 // NewServiceScraper creates a new StatsScraper for the Revision which
 // the given Metric is responsible for.
 func NewServiceScraper(metric *Metric, endpointsLister corev1listers.EndpointsLister) (*ServiceScraper, error) {
-	return newServiceScraperWithClient(metric, endpointsLister, cacheDisabledClient)
+	sClient, err := newHTTPScrapeClient(cacheDisabledClient)
+	if err != nil {
+		return nil, err
+	}
+	return newServiceScraperWithClient(metric, endpointsLister, sClient)
 }
 
 func newServiceScraperWithClient(
 	metric *Metric,
 	endpointsLister corev1listers.EndpointsLister,
-	httpClient *http.Client) (*ServiceScraper, error) {
+	sClient scrapeClient) (*ServiceScraper, error) {
 	if metric == nil {
 		return nil, errors.New("metric must not be nil")
 	}
 	if endpointsLister == nil {
 		return nil, errors.New("endpoints lister must not be nil")
 	}
-	if httpClient == nil {
-		return nil, errors.New("HTTP client must not be nil")
+	if sClient == nil {
+		return nil, errors.New("scrape client must not be nil")
 	}
 	revName := metric.Labels[serving.RevisionLabelKey]
 	if revName == "" {
@@ -101,7 +108,7 @@ func newServiceScraperWithClient(
 
 	serviceName := names.MetricsServiceName(revName)
 	return &ServiceScraper{
-		httpClient:          httpClient,
+		sClient:             sClient,
 		endpointsLister:     endpointsLister,
 		url:                 fmt.Sprintf("http://%s.%s:%d/metrics", serviceName, metric.Namespace, v1alpha1.RequestQueueMetricsPort),
 		metricKey:           NewMetricKey(metric.Namespace, metric.Name),
@@ -122,7 +129,7 @@ func (s *ServiceScraper) Scrape() (*StatMessage, error) {
 		return nil, nil
 	}
 
-	sampleSize := 2
+	sampleSize := 1
 
 	var avgCon float64
 	var avgProxiedCon float64
@@ -131,7 +138,7 @@ func (s *ServiceScraper) Scrape() (*StatMessage, error) {
 	var sussC float64
 	var errRec error
 	for i := 0; i < sampleSize; i++ {
-		stat, err := s.scrapeViaURL()
+		stat, err := s.sClient.Scrape(s.url)
 		if err != nil {
 			errRec = err
 			continue
@@ -145,7 +152,7 @@ func (s *ServiceScraper) Scrape() (*StatMessage, error) {
 	}
 
 	if sussC/float64(sampleSize) < samplingSuccessRate {
-		return nil, fmt.Errorf("got too many errors when scraping metrics. One of the error: %v", errRec)
+		return nil, errRec
 	}
 
 	avgCon = avgCon / sussC
@@ -176,75 +183,4 @@ func (s *ServiceScraper) Scrape() (*StatMessage, error) {
 		Stat: extrapolatedStat,
 		Key:  s.metricKey,
 	}, nil
-}
-
-func (s *ServiceScraper) scrapeViaURL() (*Stat, error) {
-	req, err := http.NewRequest(http.MethodGet, s.url, nil)
-	if err != nil {
-		return nil, err
-	}
-	resp, err := s.httpClient.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
-		return nil, fmt.Errorf("GET request for URL %q returned HTTP status %v", s.url, resp.StatusCode)
-	}
-
-	return extractData(resp.Body)
-}
-
-func extractData(body io.Reader) (*Stat, error) {
-	var parser expfmt.TextParser
-	metricFamilies, err := parser.TextToMetricFamilies(body)
-	if err != nil {
-		return nil, fmt.Errorf("reading text format failed: %v", err)
-	}
-
-	stat := Stat{}
-
-	if pMetric := prometheusMetric(metricFamilies, "queue_average_concurrent_requests"); pMetric != nil {
-		stat.AverageConcurrentRequests = *pMetric.Gauge.Value
-	} else {
-		return nil, errors.New("could not find value for queue_average_concurrent_requests in response")
-	}
-
-	if pMetric := prometheusMetric(metricFamilies, "queue_average_proxied_concurrent_requests"); pMetric != nil {
-		stat.AverageProxiedConcurrentRequests = *pMetric.Gauge.Value
-	} else {
-		return nil, errors.New("could not find value for queue_average_proxied_concurrent_requests in response")
-	}
-
-	if pMetric := prometheusMetric(metricFamilies, "queue_operations_per_second"); pMetric != nil {
-		stat.RequestCount = int32(*pMetric.Gauge.Value)
-	} else {
-		return nil, errors.New("could not find value for queue_operations_per_second in response")
-	}
-
-	if pMetric := prometheusMetric(metricFamilies, "queue_proxied_operations_per_second"); pMetric != nil {
-		stat.ProxiedRequestCount = int32(*pMetric.Gauge.Value)
-	} else {
-		return nil, errors.New("could not find value for queue_proxied_operations_per_second in response")
-	}
-
-	return &stat, nil
-}
-
-// prometheusMetric returns the point of the first Metric of the MetricFamily
-// with the given key from the given map. If there is no such MetricFamily or it
-// has no Metrics, then returns nil.
-func prometheusMetric(metricFamilies map[string]*dto.MetricFamily, key string) *dto.Metric {
-	if metric, ok := metricFamilies[key]; ok && len(metric.Metric) > 0 {
-		return metric.Metric[0]
-	}
-
-	return nil
-}
-
-type scrapeClient interface {
-	Scrape(url string) (*StatMessage, error)
-}
-
-type httpScraper struct {
 }

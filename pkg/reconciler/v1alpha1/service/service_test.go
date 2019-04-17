@@ -554,8 +554,8 @@ func TestReconcile(t *testing.T) {
 			Service("update-route-and-config", "foo", WithRunLatestRollout, WithInitSvcConditions),
 			// Mutate the Config/Route to have a different body than we want.
 			config("update-route-and-config", "foo", WithRunLatestRollout,
-				// Change the concurrency model to ensure it is corrected.
-				WithConfigConcurrencyModel("Single")),
+				// WithBuild is just an unexpected mutation of the config spec vs. the service spec.
+				WithBuild),
 			route("update-route-and-config", "foo", WithRunLatestRollout, MutateRoute),
 		},
 		Key: "foo/update-route-and-config",
@@ -601,9 +601,7 @@ func TestReconcile(t *testing.T) {
 			// There is no spec.{runLatest,pinned} in this Service, which triggers the error
 			// path updating Configuration.
 			Service("bad-config-update", "foo", WithInitSvcConditions),
-			config("bad-config-update", "foo", WithRunLatestRollout,
-				// Change the concurrency model to ensure it is corrected.
-				WithConfigConcurrencyModel("Single")),
+			config("bad-config-update", "foo", WithRunLatestRollout),
 			route("bad-config-update", "foo", WithRunLatestRollout, MutateRoute),
 		},
 		Key:     "foo/bad-config-update",
@@ -694,8 +692,8 @@ func TestReconcile(t *testing.T) {
 			route("update-config-failure", "foo", WithRunLatestRollout),
 			// Mutate the Config to have an unexpected body to trigger an update.
 			config("update-config-failure", "foo", WithRunLatestRollout,
-				// Change the concurrency model to ensure it is corrected.
-				WithConfigConcurrencyModel("Single")),
+				// WithBuild is just an unexpected mutation of the config spec vs. the service spec.
+				WithBuild),
 		},
 		Key: "foo/update-config-failure",
 		WantUpdates: []clientgotesting.UpdateActionImpl{{

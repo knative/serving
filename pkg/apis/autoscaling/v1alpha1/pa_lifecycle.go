@@ -159,5 +159,5 @@ func (pas *PodAutoscalerStatus) CanMarkInactive(idlePeriod time.Duration) bool {
 }
 
 func (pas *PodAutoscalerStatus) duck() *duckv1beta1.Status {
-	return (*duckv1beta1.Status)(pas)
+	return (*duckv1beta1.Status)(&pas.Status)
 }
