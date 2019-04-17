@@ -31,6 +31,7 @@ import (
 	aresources "github.com/knative/serving/pkg/reconciler/v1alpha1/autoscaling/resources"
 	. "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
 
+	appsv1 "k8s.io/api/apps/v1"
 	autoscalingv1 "k8s.io/api/autoscaling/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -53,7 +54,7 @@ func TestControllerCanReconcile(t *testing.T) {
 
 	scaleClient := &fakescaleclient.FakeScaleClient{Fake: kubeClient.Fake}
 	scaleClient.PrependReactor("get", "deployments", func(action ktesting.Action) (bool, runtime.Object, error) {
-		return true, scaleResource(testNamespace, testRevision, withLabelSelector("a=b")), nil
+		return true, scaleResource(testNamespace, testRevision), nil
 	})
 	opts := reconciler.Options{
 		KubeClientSet:    kubeClient,
@@ -93,7 +94,7 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			hpa(testRevision, testNamespace, pa(testRevision, testNamespace, WithHPAClass, WithMetricAnnotation("cpu"))),
 			pa(testRevision, testNamespace, WithHPAClass, WithTraffic, WithPAStatusService(testRevision+"-pub")),
-			scaleResource(testNamespace, testRevision, withLabelSelector("a=b")),
+			deploy(testNamespace, testRevision),
 			sks(testNamespace, testRevision, WithSelector(usualSelector), WithSKSReady),
 		},
 		Key: key(testRevision, testNamespace),
@@ -101,7 +102,7 @@ func TestReconcile(t *testing.T) {
 		Name: "create hpa & sks",
 		Objects: []runtime.Object{
 			pa(testRevision, testNamespace, WithHPAClass),
-			scaleResource(testNamespace, testRevision, withLabelSelector("a=b")),
+			deploy(testNamespace, testRevision),
 		},
 		Key: key(testRevision, testNamespace),
 		WantCreates: []metav1.Object{
@@ -119,7 +120,7 @@ func TestReconcile(t *testing.T) {
 			hpa(testRevision, testNamespace,
 				pa(testRevision, testNamespace, WithHPAClass, WithMetricAnnotation("cpu"))),
 			pa(testRevision, testNamespace, WithHPAClass),
-			scaleResource(testNamespace, testRevision, withLabelSelector("a=b")),
+			deploy(testNamespace, testRevision),
 			sks(testNamespace, testRevision, WithSelector(usualSelector), WithPubService, WithPrivateService),
 		},
 		WantStatusUpdates: []ktesting.UpdateActionImpl{{
@@ -134,7 +135,7 @@ func TestReconcile(t *testing.T) {
 			hpa(testRevision, testNamespace,
 				pa(testRevision, testNamespace, WithHPAClass, WithMetricAnnotation("cpu"))),
 			pa(testRevision, testNamespace, WithHPAClass, WithPAStatusService("the-wrong-one")),
-			scaleResource(testNamespace, testRevision, withLabelSelector("a=b")),
+			deploy(testNamespace, testRevision),
 			sks(testNamespace, testRevision, WithSelector(usualSelector), WithSKSReady),
 		},
 		WantStatusUpdates: []ktesting.UpdateActionImpl{{
@@ -148,7 +149,7 @@ func TestReconcile(t *testing.T) {
 			hpa(testRevision, testNamespace,
 				pa(testRevision, testNamespace, WithHPAClass, WithMetricAnnotation("cpu"))),
 			pa(testRevision, testNamespace, WithHPAClass, WithTraffic),
-			scaleResource(testNamespace, testRevision, withLabelSelector("a=b")),
+			deploy(testNamespace, testRevision),
 			sks(testNamespace, testRevision, WithSelector(map[string]string{"c": "d"}),
 				WithSKSReady),
 		},
@@ -164,7 +165,7 @@ func TestReconcile(t *testing.T) {
 		Name: "reconcile sks - update fails",
 		Objects: []runtime.Object{
 			pa(testRevision, testNamespace, WithHPAClass, WithTraffic),
-			scaleResource(testNamespace, testRevision, withLabelSelector("a=b")),
+			deploy(testNamespace, testRevision),
 			sks(testNamespace, testRevision,
 				WithSelector(map[string]string{"c": "d"}), WithSKSReady),
 			hpa(testRevision, testNamespace, pa(testRevision, testNamespace, WithHPAClass, WithMetricAnnotation("cpu"))),
@@ -184,7 +185,7 @@ func TestReconcile(t *testing.T) {
 		Name: "create sks - create fails",
 		Objects: []runtime.Object{
 			pa(testRevision, testNamespace, WithHPAClass, WithTraffic),
-			scaleResource(testNamespace, testRevision, withLabelSelector("a=b")),
+			deploy(testNamespace, testRevision),
 			hpa(testRevision, testNamespace, pa(testRevision, testNamespace, WithHPAClass, WithMetricAnnotation("cpu"))),
 		},
 		Key: key(testRevision, testNamespace),
@@ -202,7 +203,7 @@ func TestReconcile(t *testing.T) {
 		Name: "sks is disowned",
 		Objects: []runtime.Object{
 			pa(testRevision, testNamespace, WithHPAClass),
-			scaleResource(testNamespace, testRevision, withLabelSelector("a=b")),
+			deploy(testNamespace, testRevision),
 			sks(testNamespace, testRevision, WithSelector(usualSelector), WithSKSOwnersRemoved, WithSKSReady),
 			hpa(testRevision, testNamespace, pa(testRevision, testNamespace, WithHPAClass, WithMetricAnnotation("cpu"))),
 		},
@@ -218,7 +219,7 @@ func TestReconcile(t *testing.T) {
 		Name: "pa is disowned",
 		Objects: []runtime.Object{
 			pa(testRevision, testNamespace, WithHPAClass),
-			scaleResource(testNamespace, testRevision, withLabelSelector("a=b")),
+			deploy(testNamespace, testRevision),
 			sks(testNamespace, testRevision, WithSelector(usualSelector)),
 			hpa(testRevision, testNamespace,
 				pa(testRevision, testNamespace, WithHPAClass, WithMetricAnnotation("cpu"), WithPAOwnersRemoved),
@@ -244,14 +245,14 @@ func TestReconcile(t *testing.T) {
 		// Test that with a DeletionTimestamp we do nothing.
 		Objects: []runtime.Object{
 			pa(testRevision, testNamespace, WithHPAClass, WithPADeletionTimestamp),
-			scaleResource(testNamespace, testRevision, withLabelSelector("a=b")),
+			deploy(testNamespace, testRevision),
 		},
 		Key: key(testRevision, testNamespace),
 	}, {
 		Name: "delete hpa when pa does not exist",
 		Objects: []runtime.Object{
 			hpa(testRevision, testNamespace, pa(testRevision, testNamespace, WithHPAClass, WithMetricAnnotation("cpu"))),
-			scaleResource(testNamespace, testRevision, withLabelSelector("a=b")),
+			deploy(testNamespace, testRevision),
 		},
 		Key: key(testRevision, testNamespace),
 		WantDeletes: []ktesting.DeleteActionImpl{{
@@ -310,7 +311,7 @@ func TestReconcile(t *testing.T) {
 			hpa(testRevision, testNamespace,
 				pa(testRevision, testNamespace, WithHPAClass, WithMetricAnnotation("cpu"))),
 			pa(testRevision, testNamespace, WithHPAClass, WithPAStatusService("the-wrong-one")),
-			scaleResource(testNamespace, testRevision, withLabelSelector("a=b")),
+			deploy(testNamespace, testRevision),
 			sks(testNamespace, testRevision, WithSelector(usualSelector), WithSKSReady),
 		},
 		WantStatusUpdates: []ktesting.UpdateActionImpl{{
@@ -332,7 +333,7 @@ func TestReconcile(t *testing.T) {
 				WithPAStatusService(testRevision+"-pub"), WithTargetAnnotation("1")),
 			hpa(testRevision, testNamespace, pa(testRevision, testNamespace, WithHPAClass, WithMetricAnnotation("cpu"))),
 			sks(testNamespace, testRevision, WithSelector(usualSelector), WithSKSReady),
-			scaleResource(testNamespace, testRevision, withLabelSelector("a=b")),
+			deploy(testNamespace, testRevision),
 		},
 		Key: key(testRevision, testNamespace),
 		WantUpdates: []ktesting.UpdateActionImpl{{
@@ -352,7 +353,7 @@ func TestReconcile(t *testing.T) {
 				WithPAStatusService(testRevision+"-pub"), WithTargetAnnotation("1")),
 			hpa(testRevision, testNamespace, pa(testRevision, testNamespace, WithHPAClass, WithMetricAnnotation("cpu"))),
 			sks(testNamespace, testRevision, WithSelector(usualSelector), WithSKSReady),
-			scaleResource(testNamespace, testRevision, withLabelSelector("a=b")),
+			deploy(testNamespace, testRevision),
 		},
 		Key: key(testRevision, testNamespace),
 		WantUpdates: []ktesting.UpdateActionImpl{{
@@ -368,7 +369,7 @@ func TestReconcile(t *testing.T) {
 		Name: "failure to create hpa",
 		Objects: []runtime.Object{
 			pa(testRevision, testNamespace, WithHPAClass),
-			scaleResource(testNamespace, testRevision, withLabelSelector("a=b")),
+			deploy(testNamespace, testRevision),
 		},
 		Key: key(testRevision, testNamespace),
 		WantCreates: []metav1.Object{
@@ -474,4 +475,29 @@ func withLabelSelector(selector string) scaleOpt {
 	return func(s *autoscalingv1.Scale) {
 		s.Status.Selector = selector
 	}
+}
+
+type deploymentOption func(*appsv1.Deployment)
+
+func deploy(namespace, name string, opts ...deploymentOption) *appsv1.Deployment {
+	s := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name + "-deployment",
+			Namespace: namespace,
+		},
+		Spec: appsv1.DeploymentSpec{
+			Selector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					"a": "b",
+				},
+			},
+		},
+		Status: appsv1.DeploymentStatus{
+			Replicas: 42,
+		},
+	}
+	for _, opt := range opts {
+		opt(s)
+	}
+	return s
 }
