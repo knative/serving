@@ -89,6 +89,24 @@ func stubSKSGetter(namespace, name string) (*nv1a1.ServerlessService, error) {
 	}, nil
 }
 
+func erroringServiceGetter(string, string) (*corev1.Service, error) {
+	return nil, errors.New("wish this call succeeded")
+}
+
+func incorrectServiceGetter(namespace, name string) (*corev1.Service, error) {
+	return &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: namespace,
+			Name:      name,
+		},
+		Spec: corev1.ServiceSpec{
+			Ports: []corev1.ServicePort{{
+				Name: "julio",
+				Port: 8080,
+			}},
+		}}, nil
+}
+
 func stubServiceGetter(namespace, name string) (*corev1.Service, error) {
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
@@ -131,6 +149,7 @@ func TestActivationHandler(t *testing.T) {
 		gpc             int
 		endpointsGetter activator.EndpointsCountGetter
 		sksGetter       activator.SKSGetter
+		svcGetter       activator.ServiceGetter
 		reporterCalls   []reporterCall
 	}{{
 		label:           "active endpoint",
@@ -330,6 +349,26 @@ func TestActivationHandler(t *testing.T) {
 		sksGetter:       sksErrorGetter,
 		reporterCalls:   nil,
 	}, {
+		label:           "k8s svc incorrectly spec'd",
+		namespace:       testNamespace,
+		name:            testRevName,
+		wantBody:        errMsg("revision needs external HTTP port"),
+		wantCode:        http.StatusInternalServerError,
+		wantErr:         nil,
+		endpointsGetter: goodEndpointsGetter,
+		svcGetter:       incorrectServiceGetter,
+		reporterCalls:   nil,
+	}, {
+		label:           "broken get k8s svc",
+		namespace:       testNamespace,
+		name:            testRevName,
+		wantBody:        errMsg("wish this call succeeded"),
+		wantCode:        http.StatusInternalServerError,
+		wantErr:         nil,
+		endpointsGetter: goodEndpointsGetter,
+		svcGetter:       erroringServiceGetter,
+		reporterCalls:   nil,
+	}, {
 		label:           "broken GetEndpoints",
 		namespace:       testNamespace,
 		name:            testRevName,
@@ -389,6 +428,9 @@ func TestActivationHandler(t *testing.T) {
 			}
 			if test.sksGetter != nil {
 				handler.GetSKS = test.sksGetter
+			}
+			if test.svcGetter != nil {
+				handler.GetService = test.svcGetter
 			}
 
 			resp := httptest.NewRecorder()
