@@ -250,7 +250,7 @@ func (r *reconciler) reconcilePublicEndpoints(ctx context.Context, sks *netv1alp
 	psn := names.PrivateService(sks.Name)
 	srcEps, err := r.endpointsLister.Endpoints(sks.Namespace).Get(psn)
 	if err != nil {
-		logger.Error(fmt.Sprint("Error obtaining private service endpoints:", psn), zap.Error(err))
+		logger.Errorw(fmt.Sprint("Error obtaining private service endpoints:", psn), zap.Error(err))
 		return err
 	}
 
