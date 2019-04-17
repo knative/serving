@@ -77,6 +77,8 @@ func TestNewConfig(t *testing.T) {
 			"stable-window":                           "5m",
 			"panic-window":                            "10s",
 			"tick-interval":                           "2s",
+			"panic-window-percentage":                 "10",
+			"panic-threshold-percentage":              "200",
 		},
 		want: &Config{
 			EnableScaleToZero:                    true,
@@ -87,6 +89,8 @@ func TestNewConfig(t *testing.T) {
 			PanicWindow:                          10 * time.Second,
 			ScaleToZeroGracePeriod:               30 * time.Second,
 			TickInterval:                         2 * time.Second,
+			PanicWindowPercentage:                10.0,
+			PanicThresholdPercentage:             200.0,
 		},
 	}, {
 		name: "with toggles on",
@@ -98,6 +102,8 @@ func TestNewConfig(t *testing.T) {
 			"stable-window":                           "5m",
 			"panic-window":                            "10s",
 			"tick-interval":                           "2s",
+			"panic-window-percentage":                 "10",
+			"panic-threshold-percentage":              "200",
 		},
 		want: &Config{
 			EnableScaleToZero:                    true,
@@ -108,6 +114,8 @@ func TestNewConfig(t *testing.T) {
 			PanicWindow:                          10 * time.Second,
 			ScaleToZeroGracePeriod:               30 * time.Second,
 			TickInterval:                         2 * time.Second,
+			PanicWindowPercentage:                10.0,
+			PanicThresholdPercentage:             200.0,
 		},
 	}, {
 		name: "with toggles on strange casing",
@@ -119,6 +127,8 @@ func TestNewConfig(t *testing.T) {
 			"stable-window":                           "5m",
 			"panic-window":                            "10s",
 			"tick-interval":                           "2s",
+			"panic-window-percentage":                 "10",
+			"panic-threshold-percentage":              "200",
 		},
 		want: &Config{
 			EnableScaleToZero:                    true,
@@ -129,6 +139,8 @@ func TestNewConfig(t *testing.T) {
 			PanicWindow:                          10 * time.Second,
 			ScaleToZeroGracePeriod:               30 * time.Second,
 			TickInterval:                         2 * time.Second,
+			PanicWindowPercentage:                10.0,
+			PanicThresholdPercentage:             200.0,
 		},
 	}, {
 		name: "with toggles explicitly off",
@@ -140,6 +152,8 @@ func TestNewConfig(t *testing.T) {
 			"stable-window":                           "5m",
 			"panic-window":                            "10s",
 			"tick-interval":                           "2s",
+			"panic-window-percentage":                 "10",
+			"panic-threshold-percentage":              "200",
 		},
 		want: &Config{
 			ContainerConcurrencyTargetPercentage: 0.5,
@@ -149,6 +163,8 @@ func TestNewConfig(t *testing.T) {
 			PanicWindow:                          10 * time.Second,
 			ScaleToZeroGracePeriod:               30 * time.Second,
 			TickInterval:                         2 * time.Second,
+			PanicWindowPercentage:                10.0,
+			PanicThresholdPercentage:             200.0,
 		},
 	}, {
 		name: "with explicit grace period",
@@ -161,6 +177,8 @@ func TestNewConfig(t *testing.T) {
 			"panic-window":                            "10s",
 			"scale-to-zero-grace-period":              "30s",
 			"tick-interval":                           "2s",
+			"panic-window-percentage":                 "10",
+			"panic-threshold-percentage":              "200",
 		},
 		want: &Config{
 			ContainerConcurrencyTargetPercentage: 0.5,
@@ -170,6 +188,8 @@ func TestNewConfig(t *testing.T) {
 			PanicWindow:                          10 * time.Second,
 			ScaleToZeroGracePeriod:               30 * time.Second,
 			TickInterval:                         2 * time.Second,
+			PanicWindowPercentage:                10.0,
+			PanicThresholdPercentage:             200.0,
 		},
 	}, {
 		name: "malformed float",
@@ -180,6 +200,8 @@ func TestNewConfig(t *testing.T) {
 			"stable-window":                           "5m",
 			"panic-window":                            "10s",
 			"tick-interval":                           "2s",
+			"panic-window-percentage":                 "10",
+			"panic-threshold-percentage":              "200",
 		},
 		wantErr: true,
 	}, {
@@ -191,6 +213,8 @@ func TestNewConfig(t *testing.T) {
 			"stable-window":                           "not a duration",
 			"panic-window":                            "10s",
 			"tick-interval":                           "2s",
+			"panic-window-percentage":                 "10",
+			"panic-threshold-percentage":              "200",
 		},
 		wantErr: true,
 	}}
