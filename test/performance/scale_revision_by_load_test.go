@@ -153,7 +153,7 @@ func scaleRevisionByLoad(t *testing.T, numClients int) []junit.TestCase {
 		NumThreads:     numClients,
 		NumConnections: numClients,
 		Domain:         domain,
-		QPS:            qpsPerClient * float64(numClients),
+		BaseQPS:        qpsPerClient * float64(numClients),
 		URL:            fmt.Sprintf("http://%s/?timeout=%d", *endpoint, processingTimeMillis),
 	}
 
@@ -171,17 +171,17 @@ func scaleRevisionByLoad(t *testing.T, numClients int) []junit.TestCase {
 
 	tc := make([]junit.TestCase, 0)
 
-	tc = append(tc, CreatePerfTestCase(float32(resp.Result.DurationHistogram.Count), "requestCount", t.Name()))
+	tc = append(tc, CreatePerfTestCase(float32(resp.Result[0].DurationHistogram.Count), "requestCount", t.Name()))
 	tc = append(tc, CreatePerfTestCase(float32(qpsPerClient*numClients), "requestedQPS", t.Name()))
-	tc = append(tc, CreatePerfTestCase(float32(resp.Result.ActualQPS), "actualQPS", t.Name()))
+	tc = append(tc, CreatePerfTestCase(float32(resp.Result[0].ActualQPS), "actualQPS", t.Name()))
 	tc = append(tc, CreatePerfTestCase(float32(errorsPercentage(resp)), "errorsPercentage", t.Name()))
 
 	for ev := range scaleCh {
-		t.Logf("Scaled: %d -> %d in %v", ev.oldScale, ev.newScale, ev.timestamp.Sub(resp.Result.StartTime))
-		tc = append(tc, CreatePerfTestCase(float32(ev.timestamp.Sub(resp.Result.StartTime)/time.Second), fmt.Sprintf("scale-from-%02d-to-%02d(seconds)", ev.oldScale, ev.newScale), t.Name()))
+		t.Logf("Scaled: %d -> %d in %v", ev.oldScale, ev.newScale, ev.timestamp.Sub(resp.Result[0].StartTime))
+		tc = append(tc, CreatePerfTestCase(float32(ev.timestamp.Sub(resp.Result[0].StartTime)/time.Second), fmt.Sprintf("scale-from-%02d-to-%02d(seconds)", ev.oldScale, ev.newScale), t.Name()))
 	}
 
-	for _, p := range resp.Result.DurationHistogram.Percentiles {
+	for _, p := range resp.Result[0].DurationHistogram.Percentiles {
 		val := float32(p.Value) * 1000
 		name := fmt.Sprintf("p%d(ms)", int(p.Percentile))
 		tc = append(tc, CreatePerfTestCase(val, name, t.Name()))
@@ -192,7 +192,7 @@ func scaleRevisionByLoad(t *testing.T, numClients int) []junit.TestCase {
 
 func errorsPercentage(resp *loadgenerator.GeneratorResults) float64 {
 	var successes, errors int64
-	for retCode, count := range resp.Result.RetCodes {
+	for retCode, count := range resp.Result[0].RetCodes {
 		if retCode == http.StatusOK {
 			successes = successes + count
 		} else {
