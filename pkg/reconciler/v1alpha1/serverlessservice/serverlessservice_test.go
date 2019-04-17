@@ -147,7 +147,8 @@ func TestReconcile(t *testing.T) {
 		Key:     "update-eps/failA",
 		WantErr: true,
 		Objects: []runtime.Object{
-			SKS("update-eps", "failA", WithPubService, WithPrivateService),
+			SKS("update-eps", "failA", WithPubService, WithPrivateService, WithDeployRef("blah")),
+			deploy("update-eps", "blah"),
 			svcpub("update-eps", "failA"),
 			svcpriv("update-eps", "failA"),
 			endpointspub("update-eps", "failA"),
