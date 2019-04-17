@@ -32,6 +32,15 @@ func (c *Configuration) Validate(ctx context.Context) *apis.FieldError {
 	errs := serving.ValidateObjectMetadata(c.GetObjectMeta()).ViaField("metadata")
 	ctx = apis.WithinParent(ctx, c.ObjectMeta)
 	errs = errs.Also(c.Spec.Validate(apis.WithinSpec(ctx)).ViaField("spec"))
+
+	if apis.IsInUpdate(ctx) {
+		original := apis.GetBaseline(ctx).(*Configuration)
+
+		err := c.Spec.GetTemplate().VerifyNameChange(ctx,
+			original.Spec.GetTemplate())
+		errs = errs.Also(err.ViaField("spec.revisionTemplate"))
+	}
+
 	return errs
 }
 

@@ -565,6 +565,42 @@ func TestReconcile(t *testing.T) {
 			Object: route("update-route-and-config", "foo", WithRunLatestRollout),
 		}},
 	}, {
+		Name: "runLatest - update route and service (bad existing Revision)",
+		Objects: []runtime.Object{
+			Service("update-route-and-config", "foo", WithRunLatestRollout, func(svc *v1alpha1.Service) {
+				svc.Spec.RunLatest.Configuration.RevisionTemplate.Name = "update-route-and-config-blah"
+			}, WithInitSvcConditions),
+			// Mutate the Config/Route to have a different body than we want.
+			config("update-route-and-config", "foo", WithRunLatestRollout,
+				// Change the concurrency model to ensure it is corrected.
+				WithConfigConcurrencyModel("Single")),
+			route("update-route-and-config", "foo", WithRunLatestRollout, MutateRoute),
+			&v1alpha1.Revision{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "update-route-and-config-blah",
+					Namespace: "foo",
+					// Not labeled with the configuration or the right generation.
+				},
+			},
+		},
+		Key: "foo/update-route-and-config",
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: config("update-route-and-config", "foo", WithRunLatestRollout,
+				func(cfg *v1alpha1.Configuration) {
+					cfg.Spec.RevisionTemplate.Name = "update-route-and-config-blah"
+				}),
+		}},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: Service("update-route-and-config", "foo", WithRunLatestRollout, func(svc *v1alpha1.Service) {
+				svc.Spec.RunLatest.Configuration.RevisionTemplate.Name = "update-route-and-config-blah"
+			}, WithInitSvcConditions, func(svc *v1alpha1.Service) {
+				svc.Status.MarkRevisionNameTaken("update-route-and-config-blah")
+			}),
+		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "Updated", "Updated Service %q", "update-route-and-config"),
+		},
+	}, {
 		Name: "runLatest - update route and config labels",
 		Objects: []runtime.Object{
 			// Mutate the Service to add some more labels
@@ -939,6 +975,7 @@ func TestReconcile(t *testing.T) {
 			Base:                reconciler.NewBase(opt, controllerAgentName),
 			serviceLister:       listers.GetServiceLister(),
 			configurationLister: listers.GetConfigurationLister(),
+			revisionLister:      listers.GetRevisionLister(),
 			routeLister:         listers.GetRouteLister(),
 		}
 	}))
@@ -954,13 +991,14 @@ func TestNew(t *testing.T) {
 	serviceInformer := servingInformer.Serving().V1alpha1().Services()
 	routeInformer := servingInformer.Serving().V1alpha1().Routes()
 	configurationInformer := servingInformer.Serving().V1alpha1().Configurations()
+	revisionInformer := servingInformer.Serving().V1alpha1().Revisions()
 
 	c := NewController(reconciler.Options{
 		KubeClientSet:    kubeClient,
 		SharedClientSet:  sharedClient,
 		ServingClientSet: servingClient,
 		Logger:           TestLogger(t),
-	}, serviceInformer, configurationInformer, routeInformer)
+	}, serviceInformer, configurationInformer, revisionInformer, routeInformer)
 
 	if c == nil {
 		t.Fatal("Expected NewController to return a non-nil value")
