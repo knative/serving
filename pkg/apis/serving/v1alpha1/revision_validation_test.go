@@ -388,6 +388,64 @@ func TestContainerValidation(t *testing.T) {
 		},
 		want: apis.ErrOutOfBoundsValue(-10, 0, math.MaxInt32, "securityContext.runAsUser"),
 	}, {
+		name: "envFrom - None of",
+		c: corev1.Container{
+			Image:   "foo",
+			EnvFrom: []corev1.EnvFromSource{{}},
+		},
+		want: apis.ErrMissingOneOf("envFrom.configMapRef", "envFrom.secretRef"),
+	}, {
+		name: "envFrom - Multiple",
+		c: corev1.Container{
+			Image: "foo",
+			EnvFrom: []corev1.EnvFromSource{{
+				ConfigMapRef: &corev1.ConfigMapEnvSource{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: "ConfigMapName",
+					},
+				},
+				SecretRef: &corev1.SecretEnvSource{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: "SecretName",
+					},
+				},
+			}},
+		},
+		want: apis.ErrMultipleOneOf("envFrom.configMapRef", "envFrom.secretRef"),
+	}, {
+		name: "envFrom - Secret",
+		c: corev1.Container{
+			Image: "foo",
+			EnvFrom: []corev1.EnvFromSource{{
+				SecretRef: &corev1.SecretEnvSource{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: "SecretName",
+					},
+				},
+			}},
+		},
+		want: nil,
+	}, {
+		name: "envFrom - ConfigMap",
+		c: corev1.Container{
+			Image: "foo",
+			EnvFrom: []corev1.EnvFromSource{{
+				ConfigMapRef: &corev1.ConfigMapEnvSource{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: "ConfigMapName",
+					},
+				},
+			}},
+		},
+		want: nil,
+	}, {
+		name: "termination message policy",
+		c: corev1.Container{
+			Image:                    "foo",
+			TerminationMessagePolicy: corev1.TerminationMessagePolicy("Not a Policy"),
+		},
+		want: apis.ErrInvalidValue(corev1.TerminationMessagePolicy("Not a Policy"), "terminationMessagePolicy"),
+	}, {
 		name: "disallowed envvarsource",
 		c: corev1.Container{
 			Image: "foo",
