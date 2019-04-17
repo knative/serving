@@ -144,7 +144,8 @@ func compareSpec(original *PodAutoscaler, current *PodAutoscaler) (string, error
 		},
 		cmp.Ignore(),
 	)
-	return kmp.SafeDiff(original.Spec, current.Spec, opt)
+
+	return kmp.ShortDiff(original.Spec, current.Spec, opt)
 }
 
 func classAnnotationChanged(original *PodAutoscaler, current *PodAutoscaler) (string, string, bool) {

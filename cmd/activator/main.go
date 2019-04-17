@@ -24,8 +24,7 @@ import (
 	"net/http"
 	"time"
 
-	v1 "k8s.io/api/core/v1"
-	"k8s.io/client-go/tools/clientcmd"
+	"go.uber.org/zap"
 
 	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/controller"
@@ -39,6 +38,7 @@ import (
 	activatorhandler "github.com/knative/serving/pkg/activator/handler"
 	activatorutil "github.com/knative/serving/pkg/activator/util"
 	"github.com/knative/serving/pkg/apis/networking"
+	nv1a1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/autoscaler"
@@ -48,18 +48,20 @@ import (
 	"github.com/knative/serving/pkg/http/h2c"
 	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/pkg/metrics"
+	"github.com/knative/serving/pkg/network"
 	"github.com/knative/serving/pkg/queue"
 	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/resources"
-	"github.com/knative/serving/pkg/utils"
-	"go.uber.org/zap"
+
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/tools/clientcmd"
 )
 
-// Fail if using unsupported go version
+// Fail if using unsupported go version.
 var _ = goversion.IsSupported()
 
 const (
@@ -173,57 +175,53 @@ func main() {
 	endpointInformer := kubeInformerFactory.Core().V1().Endpoints()
 	serviceInformer := kubeInformerFactory.Core().V1().Services()
 	revisionInformer := servingInformerFactory.Serving().V1alpha1().Revisions()
+	sksInformer := servingInformerFactory.Networking().V1alpha1().ServerlessServices()
 
 	// Run informers instead of starting them from the factory to prevent the sync hanging because of empty handler.
-	go revisionInformer.Informer().Run(stopCh)
-	go endpointInformer.Informer().Run(stopCh)
-	go serviceInformer.Informer().Run(stopCh)
-
-	logger.Info("Waiting for informer caches to sync")
-
-	informerSyncs := []cache.InformerSynced{
-		endpointInformer.Informer().HasSynced,
-		revisionInformer.Informer().HasSynced,
-		serviceInformer.Informer().HasSynced,
+	if err := controller.StartInformers(
+		stopCh,
+		revisionInformer.Informer(),
+		endpointInformer.Informer(),
+		serviceInformer.Informer(),
+		sksInformer.Informer()); err != nil {
+		logger.Fatalf("Failed to start informers: %v", err)
 	}
-	// Make sure the caches are in sync before we add the actual handler.
-	// This will prevent from missing endpoint 'Add' events during startup, e.g. when the endpoints informer
-	// is already in sync and it could not perform it because of
-	// revision informer still being synchronized.
-	for i, synced := range informerSyncs {
-		if ok := cache.WaitForCacheSync(stopCh, synced); !ok {
-			logger.Fatalf("failed to wait for cache at index %d to sync", i)
-		}
-	}
+
 	params := queue.BreakerParams{QueueDepth: breakerQueueDepth, MaxConcurrency: breakerMaxConcurrency, InitialCapacity: 0}
 
 	// Return the number of endpoints, 0 if no endpoints are found.
-	endpointsGetter := func(revID activator.RevisionID) (int32, error) {
-		count, err := resources.FetchReadyAddressCount(endpointInformer.Lister(), revID.Namespace, revID.Name)
-		return int32(count), err
+	endpointsCountGetter := func(sks *nv1a1.ServerlessService) (int, error) {
+		count, err := resources.FetchReadyAddressCount(endpointInformer.Lister(), sks.Namespace, sks.Status.PrivateServiceName)
+		return count, err
 	}
 
-	// Return the revision from the observer.
+	// Returns the revision from the observer.
 	revisionGetter := func(revID activator.RevisionID) (*v1alpha1.Revision, error) {
 		return revisionInformer.Lister().Revisions(revID.Namespace).Get(revID.Name)
 	}
 
-	serviceGetter := func(namespace, name string) (*v1.Service, error) {
+	// Returns the SKS from the observer.
+	sksGetter := func(ns, n string) (*nv1a1.ServerlessService, error) {
+		return sksInformer.Lister().ServerlessServices(ns).Get(n)
+	}
+
+	serviceGetter := func(namespace, name string) (*corev1.Service, error) {
 		return serviceInformer.Lister().Services(namespace).Get(name)
 	}
 
 	throttlerParams := activator.ThrottlerParams{
 		BreakerParams: params,
 		Logger:        logger,
-		GetEndpoints:  endpointsGetter,
+		GetEndpoints:  endpointsCountGetter,
 		GetRevision:   revisionGetter,
+		GetSKS:        sksGetter,
 	}
 	throttler := activator.NewThrottler(throttlerParams)
 
 	handler := cache.ResourceEventHandlerFuncs{
-		AddFunc:    activator.UpdateEndpoints(throttler),
-		UpdateFunc: controller.PassNew(activator.UpdateEndpoints(throttler)),
-		DeleteFunc: activator.DeleteBreaker(throttler),
+		AddFunc:    throttler.UpdateEndpoints,
+		UpdateFunc: controller.PassNew(throttler.UpdateEndpoints),
+		DeleteFunc: throttler.DeleteBreaker,
 	}
 
 	// Update/create the breaker in the throttler when the number of endpoints changes.
@@ -233,7 +231,9 @@ func main() {
 	// networking.ServiceTypeKey == networking.ServiceTypePublic
 	epFilter := reconciler.ChainFilterFuncs(
 		reconciler.LabelExistsFilterFunc(serving.RevisionUID),
-		reconciler.LabelFilterFunc(networking.ServiceTypeKey, string(networking.ServiceTypePublic), true),
+		// We are only interested in the private services, since that is
+		// what is populated by the actual revision backends.
+		reconciler.LabelFilterFunc(networking.ServiceTypeKey, string(networking.ServiceTypePrivate), true),
 	)
 	endpointInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: epFilter,
@@ -241,7 +241,7 @@ func main() {
 	})
 
 	// Open a websocket connection to the autoscaler
-	autoscalerEndpoint := fmt.Sprintf("ws://%s.%s.svc.%s:%d", "autoscaler", system.Namespace(), utils.GetClusterDomainName(), autoscalerPort)
+	autoscalerEndpoint := fmt.Sprintf("ws://%s.%s.svc.%s:%d", "autoscaler", system.Namespace(), network.GetClusterDomainName(), autoscalerPort)
 	logger.Info("Connecting to autoscaler at", autoscalerEndpoint)
 	statSink := websocket.NewDurableSendingConnection(autoscalerEndpoint, logger)
 	go statReporter(statSink, stopCh, statChan, logger)
@@ -263,6 +263,7 @@ func main() {
 		Throttler:     throttler,
 		GetProbeCount: maxRetries,
 		GetRevision:   revisionGetter,
+		GetSKS:        sksGetter,
 		GetService:    serviceGetter,
 	}
 	ah = activatorhandler.NewRequestEventHandler(reqChan, ah)

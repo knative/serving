@@ -113,7 +113,7 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 	original, err := c.paLister.PodAutoscalers(namespace).Get(name)
 	if errors.IsNotFound(err) {
 		logger.Debug("PA no longer exists")
-		return c.deleteHpa(ctx, key)
+		return c.deleteHPA(ctx, key)
 	} else if err != nil {
 		return err
 	}
@@ -136,7 +136,7 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 	} else if _, err := c.updateStatus(pa); err != nil {
 		logger.Warnw("Failed to update pa status", zap.Error(err))
 		c.Recorder.Eventf(pa, corev1.EventTypeWarning, "UpdateFailed",
-			"Failed to update status for PA %q: %v", pa.Name, err)
+			"failed to update status for PA %q: %v", pa.Name, err)
 		return err
 	}
 	if err != nil {
@@ -169,7 +169,7 @@ func (c *Reconciler) reconcile(ctx context.Context, key string, pa *pav1alpha1.P
 	hpa, err := c.hpaLister.HorizontalPodAutoscalers(pa.Namespace).Get(desiredHpa.Name)
 	if errors.IsNotFound(err) {
 		logger.Infof("Creating HPA %q", desiredHpa.Name)
-		if _, err := c.KubeClientSet.AutoscalingV1().HorizontalPodAutoscalers(pa.Namespace).Create(desiredHpa); err != nil {
+		if hpa, err = c.KubeClientSet.AutoscalingV1().HorizontalPodAutoscalers(pa.Namespace).Create(desiredHpa); err != nil {
 			logger.Errorf("Error creating HPA %q: %v", desiredHpa.Name, err)
 			pa.Status.MarkResourceFailedCreation("HorizontalPodAutoscaler", desiredHpa.Name)
 			return err
@@ -181,13 +181,12 @@ func (c *Reconciler) reconcile(ctx context.Context, key string, pa *pav1alpha1.P
 		// Surface an error in the PodAutoscaler's status, and return an error.
 		pa.Status.MarkResourceNotOwned("HorizontalPodAutoscaler", desiredHpa.Name)
 		return fmt.Errorf("PodAutoscaler: %q does not own HPA: %q", pa.Name, desiredHpa.Name)
-	} else {
-		if !equality.Semantic.DeepEqual(desiredHpa.Spec, hpa.Spec) {
-			logger.Infof("Updating HPA %q", desiredHpa.Name)
-			if _, err := c.KubeClientSet.AutoscalingV1().HorizontalPodAutoscalers(pa.Namespace).Update(desiredHpa); err != nil {
-				logger.Errorf("Error updating HPA %q: %v", desiredHpa.Name, err)
-				return err
-			}
+	}
+	if !equality.Semantic.DeepEqual(desiredHpa.Spec, hpa.Spec) {
+		logger.Infof("Updating HPA %q", desiredHpa.Name)
+		if _, err := c.KubeClientSet.AutoscalingV1().HorizontalPodAutoscalers(pa.Namespace).Update(desiredHpa); err != nil {
+			logger.Errorf("Error updating HPA %q: %v", desiredHpa.Name, err)
+			return err
 		}
 	}
 
@@ -195,15 +194,23 @@ func (c *Reconciler) reconcile(ctx context.Context, key string, pa *pav1alpha1.P
 	if err != nil {
 		return perrors.Wrap(err, "error retrieving deployment selector spec")
 	}
-	if err := c.reconcileSKS(ctx, pa, selector); err != nil {
+	sks, err := c.reconcileSKS(ctx, pa, selector)
+	if err != nil {
 		return perrors.Wrap(err, "error reconciling SKS")
+	}
+	// Propagate the service name regardless of the status.
+	pa.Status.ServiceName = sks.Status.ServiceName
+	if !sks.Status.IsReady() {
+		pa.Status.MarkInactive("ServicesNotReady", "SKS Services are not ready yet")
+	} else {
+		pa.Status.MarkActive()
 	}
 
 	pa.Status.ObservedGeneration = pa.Generation
 	return nil
 }
 
-func (c *Reconciler) reconcileSKS(ctx context.Context, pa *pav1alpha1.PodAutoscaler, selector map[string]string) error {
+func (c *Reconciler) reconcileSKS(ctx context.Context, pa *pav1alpha1.PodAutoscaler, selector map[string]string) (*nv1alpha1.ServerlessService, error) {
 	logger := logging.FromContext(ctx)
 
 	sksName := names.SKS(pa.Name)
@@ -214,32 +221,29 @@ func (c *Reconciler) reconcileSKS(ctx context.Context, pa *pav1alpha1.PodAutosca
 		sks = aresources.MakeSKS(pa, selector, nv1alpha1.SKSOperationModeServe)
 		_, err = c.ServingClientSet.NetworkingV1alpha1().ServerlessServices(sks.Namespace).Create(sks)
 		if err != nil {
-			logger.Errorw(fmt.Sprintf("Error creating SKS %s/%s: ", pa.Namespace, sksName), zap.Error(err))
-			return err
+			return nil, perrors.Wrapf(err, "error creating SKS %s", sksName)
 		}
-		logger.Infof("Created SKS: %q", sksName)
+		logger.Info("Created SKS:", sksName)
 	} else if err != nil {
-		logger.Errorw(fmt.Sprintf("Error getting SKS %s: ", sksName), zap.Error(err))
-		return err
+		return nil, perrors.Wrapf(err, "error getting SKS: %s", sksName)
 	} else if !metav1.IsControlledBy(sks, pa) {
 		pa.Status.MarkResourceNotOwned("ServerlessService", sksName)
-		return fmt.Errorf("HPA: %q does not own SKS: %q", pa.Name, sksName)
+		return nil, fmt.Errorf("HPA: %q does not own SKS: %q", pa.Name, sksName)
 	}
 	tmpl := aresources.MakeSKS(pa, selector, nv1alpha1.SKSOperationModeServe)
 	if !equality.Semantic.DeepEqual(tmpl.Spec, sks.Spec) {
-		want := sks.DeepCopy()
-		want.Spec = tmpl.Spec
-		logger.Infof("SKS changed; reconciling: %s", sksName)
-		if _, err = c.ServingClientSet.NetworkingV1alpha1().ServerlessServices(sks.Namespace).Update(want); err != nil {
-			logger.Errorw(fmt.Sprintf("Error updating SKS %s: ", sksName), zap.Error(err))
-			return err
+		logger.Info("SKS changed; reconciling:", sksName)
+		// Just deploy the template, since the spec change will change
+		// the service and the SKS status will change as a consequence.
+		if sks, err = c.ServingClientSet.NetworkingV1alpha1().ServerlessServices(sks.Namespace).Update(tmpl); err != nil {
+			return nil, perrors.Wrapf(err, "error updating SKS %s", sksName)
 		}
 	}
-	logger.Debugf("Done reconciling SKS %s", sksName)
-	return nil
+	logger.Debug("Done reconciling SKS:", sksName)
+	return sks, nil
 }
 
-func (c *Reconciler) deleteHpa(ctx context.Context, key string) error {
+func (c *Reconciler) deleteHPA(ctx context.Context, key string) error {
 	logger := logging.FromContext(ctx)
 
 	namespace, name, err := cache.SplitMetaNamespaceKey(key)
@@ -273,6 +277,7 @@ func (c *Reconciler) updateStatus(desired *pav1alpha1.PodAutoscaler) (*pav1alpha
 	return pa, nil
 }
 
+// TODO(vagababov): this and two functions below look like a good idea to share with KPA.
 func (c *Reconciler) getSelector(pa *pav1alpha1.PodAutoscaler) (map[string]string, error) {
 	scale, err := c.getScaleResource(pa)
 	if err != nil {

@@ -56,7 +56,7 @@ func (rt *Revision) Validate(ctx context.Context) *apis.FieldError {
 }
 
 func (current *Revision) checkImmutableFields(ctx context.Context, original *Revision) *apis.FieldError {
-	if diff, err := kmp.SafeDiff(original.Spec, current.Spec); err != nil {
+	if diff, err := kmp.ShortDiff(original.Spec, current.Spec); err != nil {
 		return &apis.FieldError{
 			Message: "Failed to diff Revision",
 			Paths:   []string{"spec"},
@@ -138,7 +138,7 @@ func validateTimeoutSeconds(timeoutSeconds int64) *apis.FieldError {
 	return nil
 }
 
-// Validate ensures RevisionRequestConcurrencyModelType is properly configured.
+// Validate ensures DeprecatedRevisionServingStateType is properly configured.
 func (ss DeprecatedRevisionServingStateType) Validate(ctx context.Context) *apis.FieldError {
 	switch ss {
 	case DeprecatedRevisionServingStateType(""),

@@ -44,7 +44,7 @@ func MakeDecider(ctx context.Context, pa *v1alpha1.PodAutoscaler, config *autosc
 		}
 	}
 	return &autoscaler.Decider{
-		ObjectMeta: pa.ObjectMeta,
+		ObjectMeta: *pa.ObjectMeta.DeepCopy(),
 		Spec: autoscaler.DeciderSpec{
 			TargetConcurrency: target,
 		},

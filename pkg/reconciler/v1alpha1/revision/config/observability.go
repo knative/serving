@@ -67,7 +67,7 @@ func NewObservabilityFromConfigMap(configMap *corev1.ConfigMap) (*Observability,
 	if fsi, ok := configMap.Data["logging.fluentd-sidecar-image"]; ok {
 		oc.FluentdSidecarImage = fsi
 	} else if oc.EnableVarLogCollection {
-		return nil, fmt.Errorf("Received bad Observability ConfigMap, want %q when %q is true",
+		return nil, fmt.Errorf("received bad Observability ConfigMap, want %q when %q is true",
 			"logging.fluentd-sidecar-image", "logging.enable-var-log-collection")
 	}
 

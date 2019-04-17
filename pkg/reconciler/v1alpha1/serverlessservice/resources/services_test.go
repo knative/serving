@@ -156,7 +156,7 @@ func TestMakeService(t *testing.T) {
 			}
 			// Now let's patch selector.
 			test.want.Spec.Selector = test.sks.Spec.Selector
-			test.want.Name = names.PrivateService(test.sks)
+			test.want.Name = names.PrivateService(test.sks.Name)
 			test.want.Labels[networking.ServiceTypeKey] = "Private"
 
 			got = MakePrivateService(test.sks)

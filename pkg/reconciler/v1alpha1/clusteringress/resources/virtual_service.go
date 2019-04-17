@@ -32,9 +32,8 @@ import (
 	"github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving"
-	"github.com/knative/serving/pkg/reconciler"
+	"github.com/knative/serving/pkg/network"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/clusteringress/resources/names"
-	"github.com/knative/serving/pkg/utils"
 )
 
 // MakeVirtualService creates an Istio VirtualService as network programming.
@@ -99,17 +98,38 @@ func makeVirtualServiceRoute(hosts []string, http *v1alpha1.HTTPClusterIngressPa
 	for _, host := range expandedHosts(hosts) {
 		matches = append(matches, makeMatch(host, http.Path))
 	}
-	weights := []v1alpha3.DestinationWeight{}
+	weights := []v1alpha3.HTTPRouteDestination{}
 	for _, split := range http.Splits {
-		weights = append(weights, v1alpha3.DestinationWeight{
+
+		var h *v1alpha3.Headers
+		if len(split.AppendHeaders) > 0 {
+			h = &v1alpha3.Headers{
+				Request: &v1alpha3.HeaderOperations{
+					Add: split.AppendHeaders,
+				},
+			}
+		}
+
+		weights = append(weights, v1alpha3.HTTPRouteDestination{
 			Destination: v1alpha3.Destination{
-				Host: reconciler.GetK8sServiceFullname(
+				Host: network.GetServiceHostname(
 					split.ServiceName, split.ServiceNamespace),
 				Port: makePortSelector(split.ServicePort),
 			},
-			Weight: split.Percent,
+			Weight:  split.Percent,
+			Headers: h,
 		})
 	}
+
+	var h *v1alpha3.Headers
+	if len(http.AppendHeaders) > 0 {
+		h = &v1alpha3.Headers{
+			Request: &v1alpha3.HeaderOperations{
+				Add: http.AppendHeaders,
+			},
+		}
+	}
+
 	return &v1alpha3.HTTPRoute{
 		Match:   matches,
 		Route:   weights,
@@ -118,8 +138,12 @@ func makeVirtualServiceRoute(hosts []string, http *v1alpha1.HTTPClusterIngressPa
 			Attempts:      http.Retries.Attempts,
 			PerTryTimeout: http.Retries.PerTryTimeout.Duration.String(),
 		},
-		AppendHeaders:    http.AppendHeaders,
-		WebsocketUpgrade: true,
+		// TODO(mattmoor): Remove AppendHeaders when 1.1 is a hard dependency.
+		// AppendHeaders is deprecated in Istio 1.1 in favor of Headers,
+		// however, 1.0.x doesn't support Headers.
+		DeprecatedAppendHeaders: http.AppendHeaders,
+		Headers:                 h,
+		WebsocketUpgrade:        true,
 	}
 }
 
@@ -131,8 +155,8 @@ func expandedHosts(hosts []string) []string {
 	expanded := []string{}
 	allowedSuffixes := []string{
 		"",
-		"." + utils.GetClusterDomainName(),
-		".svc." + utils.GetClusterDomainName(),
+		"." + network.GetClusterDomainName(),
+		".svc." + network.GetClusterDomainName(),
 	}
 	for _, h := range hosts {
 		for _, suffix := range allowedSuffixes {

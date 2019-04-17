@@ -20,6 +20,10 @@ import (
 	"fmt"
 
 	"github.com/knative/serving/pkg/apis/networking"
+	nv1a1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
+	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+
+	corev1 "k8s.io/api/core/v1"
 )
 
 const (
@@ -38,7 +42,7 @@ const (
 	ServicePortH2C int32 = 81
 )
 
-// RevisionID is the combination of namespace and service name
+// RevisionID is the combination of namespace and revision name
 type RevisionID struct {
 	Namespace string
 	Name      string
@@ -47,6 +51,22 @@ type RevisionID struct {
 func (rev RevisionID) String() string {
 	return fmt.Sprintf("%s/%s", rev.Namespace, rev.Name)
 }
+
+// EndpointsCountGetter is a functor that given namespace and name will
+// return the number of endpoints in the endpoinst resource or an error.
+type EndpointsCountGetter func(*nv1a1.ServerlessService) (int, error)
+
+// SKSGetter is a functor that given namespace and name will return the
+// corresponding SKS resource, or an error.
+type SKSGetter func(string, string) (*nv1a1.ServerlessService, error)
+
+// ServiceGetter is a functor that given namespace and name will return the
+// corresponding K8s Service resource, or an error.
+type ServiceGetter func(namespace, name string) (*corev1.Service, error)
+
+// RevisionGetter is a functor that given a RevisionID will return
+// the corresponding Revision resource, or an error.
+type RevisionGetter func(RevisionID) (*v1alpha1.Revision, error)
 
 // ServicePort returns the activator service port for the given app level protocol.
 // Default is `ServicePortHTTP1`.

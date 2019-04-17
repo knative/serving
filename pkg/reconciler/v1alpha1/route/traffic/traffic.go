@@ -30,37 +30,20 @@ import (
 // DefaultTarget is the unnamed default target for the traffic.
 const DefaultTarget = ""
 
-const HttpScheme string = "http"
+// HTTPScheme is the string representation of http.
+const HTTPScheme string = "http"
 
 // A RevisionTarget adds the Active/Inactive state and the transport protocol of a
 // Revision to a flattened TrafficTarget.
 type RevisionTarget struct {
 	v1alpha1.TrafficTarget
-	Active   bool
-	Protocol net.ProtocolType
+	Active      bool
+	Protocol    net.ProtocolType
+	ServiceName string // Revision service name.
 }
 
 // RevisionTargets is a collection of revision targets.
 type RevisionTargets []RevisionTarget
-
-// GroupTargets partitions the targets by active and inactive sets.
-// GroupTargets ignores the targets with 0 percent.
-func (rt RevisionTargets) GroupTargets() (active RevisionTargets, passive RevisionTargets) {
-	// Presume all are active, optimistically
-	active = make(RevisionTargets, 0, len(rt))
-	passive = make(RevisionTargets, 0)
-	for _, t := range rt {
-		if t.Percent == 0 {
-			continue
-		}
-		if t.Active {
-			active = append(active, t)
-		} else {
-			passive = append(passive, t)
-		}
-	}
-	return
-}
 
 // Config encapsulates details of our traffic so that we don't need to make API calls, or use details of the
 // route beyond its ObjectMeta to make routing changes.
@@ -100,7 +83,7 @@ func SubrouteDomain(name, domain string) string {
 	return fmt.Sprintf("%s.%s", name, domain)
 }
 
-// subrouteURL returns the URL of the subroute given the scheme, traffic target name, and base domain. Curently
+// SubrouteURL returns the URL of the subroute given the scheme, traffic target name, and base domain. Curently
 // the subroute is represented as a subdomain of the base domain.
 func SubrouteURL(scheme, name, domain string) string {
 	return fmt.Sprintf("%s://%s", scheme, SubrouteDomain(name, domain))
@@ -115,7 +98,7 @@ func (t *Config) GetRevisionTrafficTargets(domain string) []v1alpha1.TrafficTarg
 		results[i] = v1alpha1.TrafficTarget{RevisionName: tt.RevisionName, Name: tt.Name, Percent: tt.Percent}
 		if tt.Name != "" && domain != "" {
 			// http is currently the only supported scheme
-			results[i].URL = SubrouteURL(HttpScheme, tt.Name, domain)
+			results[i].URL = SubrouteURL(HTTPScheme, tt.Name, domain)
 		}
 	}
 	return results
@@ -234,6 +217,7 @@ func (t *configBuilder) addConfigurationTarget(tt *v1alpha1.TrafficTarget) error
 		TrafficTarget: *tt,
 		Active:        !rev.Status.IsActivationRequired(),
 		Protocol:      rev.GetProtocol(),
+		ServiceName:   rev.Status.ServiceName,
 	}
 	target.TrafficTarget.RevisionName = rev.Name
 	t.addFlattenedTarget(target)
@@ -252,6 +236,7 @@ func (t *configBuilder) addRevisionTarget(tt *v1alpha1.TrafficTarget) error {
 		TrafficTarget: *tt,
 		Active:        !rev.Status.IsActivationRequired(),
 		Protocol:      rev.GetProtocol(),
+		ServiceName:   rev.Status.ServiceName,
 	}
 	t.revisions[tt.RevisionName] = rev
 	if configName, ok := rev.Labels[serving.ConfigurationLabelKey]; ok {

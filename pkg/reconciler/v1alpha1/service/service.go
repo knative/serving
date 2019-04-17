@@ -303,7 +303,7 @@ func (c *Reconciler) reconcileConfiguration(ctx context.Context, service *v1alph
 	// Route label is automatically set by another reconciler.  We
 	// want to ignore that label in our reconciliation here by setting
 	// desiredConfig[serving.RouteLabelKey] to the same as
-	// config[erving.RouteLabelKey].
+	// config[serving.RouteLabelKey].
 	ignoreRouteLabelChange(desiredConfig, config)
 
 	// TODO(#642): Remove this (needed to avoid continuous updates)

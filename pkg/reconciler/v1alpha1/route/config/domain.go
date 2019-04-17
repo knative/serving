@@ -20,7 +20,7 @@ import (
 	"strings"
 
 	"github.com/ghodss/yaml"
-	"github.com/knative/serving/pkg/utils"
+	"github.com/knative/serving/pkg/network"
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -108,7 +108,7 @@ func (c *Domain) LookupDomainForLabels(labels map[string]string) string {
 	// If we see VisibilityLabelKey sets with VisibilityClusterLocal, that
 	// will take precedence and the route will get a Cluster's Domain Name.
 	if labels[VisibilityLabelKey] == VisibilityClusterLocal {
-		return "svc." + utils.GetClusterDomainName()
+		return "svc." + network.GetClusterDomainName()
 	}
 	for k, selector := range c.Domains {
 		// Ignore if selector doesn't match, or decrease the specificity.

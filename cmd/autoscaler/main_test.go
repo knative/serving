@@ -38,32 +38,32 @@ func TestUniscalerFactoryFailures(t *testing.T) {
 		labels map[string]string
 		want   string
 	}{{
-		"nil labels", nil, fmt.Sprintf("label %q not found or empty in Decider", serving.RevisionLabelKey),
+		"nil labels", nil, fmt.Sprintf("label %q not found or empty in Decider", serving.KubernetesServiceLabelKey),
 	}, {
-		"empty labels", map[string]string{}, fmt.Sprintf("label %q not found or empty in Decider", serving.RevisionLabelKey),
-	}, {
-		"revision missing", map[string]string{
-			serving.ServiceLabelKey:       "in vino",
-			serving.ConfigurationLabelKey: "veritas",
-		},
-		fmt.Sprintf("label %q not found or empty in Decider", serving.RevisionLabelKey),
+		"empty labels", map[string]string{}, fmt.Sprintf("label %q not found or empty in Decider", serving.KubernetesServiceLabelKey),
 	}, {
 		"config missing", map[string]string{
-			serving.RevisionLabelKey: "en el vino",
-			serving.ServiceLabelKey:  "está la verdad",
+			serving.ServiceLabelKey:           "está la verdad",
+			serving.KubernetesServiceLabelKey: "lo-digo",
 		},
 		fmt.Sprintf("label %q not found or empty in Decider", serving.ConfigurationLabelKey),
 	}, {
+		"k8s svc key is missing", map[string]string{
+			serving.ConfigurationLabelKey: "blij-is",
+			serving.ServiceLabelKey:       "degene-die-wijn-drinkt",
+		},
+		fmt.Sprintf("label %q not found or empty in Decider", serving.KubernetesServiceLabelKey),
+	}, {
 		"values not ascii", map[string]string{
-			serving.RevisionLabelKey:      "dans le vin",
-			serving.ServiceLabelKey:       "la",
-			serving.ConfigurationLabelKey: "verité",
+			serving.ServiceLabelKey:           "la",
+			serving.ConfigurationLabelKey:     "verité",
+			serving.KubernetesServiceLabelKey: "nest-pas",
 		}, "invalid value: only ASCII characters accepted",
 	}, {
 		"too long of a value", map[string]string{
-			serving.RevisionLabelKey:      "the",
-			serving.ServiceLabelKey:       "cat is ",
-			serving.ConfigurationLabelKey: "l" + strings.Repeat("o", 253) + "ng",
+			serving.ServiceLabelKey:           "cat is ",
+			serving.ConfigurationLabelKey:     "l" + strings.Repeat("o", 253) + "ng",
+			serving.KubernetesServiceLabelKey: "and-dog-is-of-proper-length",
 		}, "max length must be 255 characters",
 	}}
 
@@ -77,15 +77,17 @@ func TestUniscalerFactoryFailures(t *testing.T) {
 	dynamicConfig := &autoscaler.DynamicConfig{}
 
 	for _, test := range tests {
-		decider.Labels = test.labels
+		t.Run(test.name, func(t *testing.T) {
+			decider.Labels = test.labels
 
-		_, err := uniScalerFactory(decider, dynamicConfig)
-		if err == nil {
-			t.Fatal("No error was returned")
-		}
-		if got, want := err.Error(), test.want; !strings.Contains(got, want) {
-			t.Errorf("Error = %q, want to contain = %q", got, want)
-		}
+			_, err := uniScalerFactory(decider, dynamicConfig)
+			if err == nil {
+				t.Fatal("No error was returned")
+			}
+			if got, want := err.Error(), test.want; !strings.Contains(got, want) {
+				t.Errorf("Error = %q, want to contain = %q", got, want)
+			}
+		})
 	}
 }
 
@@ -97,9 +99,10 @@ func TestUniScalerFactoryFunc(t *testing.T) {
 				Namespace: testNamespace,
 				Name:      testRevision,
 				Labels: map[string]string{
-					serving.RevisionLabelKey:      testRevision,
-					serving.ServiceLabelKey:       srv,
-					serving.ConfigurationLabelKey: "test-config",
+					serving.RevisionLabelKey:          testRevision,
+					serving.KubernetesServiceLabelKey: testRevision + "-priv",
+					serving.ServiceLabelKey:           srv,
+					serving.ConfigurationLabelKey:     "test-config",
 				},
 			},
 		}

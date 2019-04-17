@@ -14,30 +14,4 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package utils
-
-import (
-	"io/ioutil"
-	"os"
-	"testing"
-)
-
-func TestWrite(t *testing.T) {
-	file, err := ioutil.TempFile("", "sync_file_writer_test")
-	if err != nil {
-		t.Fatal("failed to create a temp file for the test")
-	}
-	defer os.Remove(file.Name())
-
-	w := NewSyncFileWriter(file)
-	w.Write([]byte("line1\n"))
-	w.Write([]byte("line2\n"))
-	file.Close()
-
-	want := "line1\nline2\n"
-	gotBytes, _ := ioutil.ReadFile(file.Name())
-	got := string(gotBytes)
-	if got != want {
-		t.Errorf("got %v, want %v", got, want)
-	}
-}
+package networking

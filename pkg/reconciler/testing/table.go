@@ -198,7 +198,7 @@ func (r *TableRow) Test(t *testing.T, factory Factory) {
 		objPrevState[objKey(got)] = got
 
 		if diff := cmp.Diff(want.GetObject(), got, ignoreLastTransitionTime, safeDeployDiff, cmpopts.EquateEmpty()); diff != "" {
-			t.Errorf("Unexpected status update (-want, +got): %s\nFull: %#v", diff, got)
+			t.Errorf("Unexpected status update (-want, +got): %s\nFull: %v", diff, got)
 		}
 	}
 	if got, want := len(statusUpdates), len(r.WantStatusUpdates); got > want {

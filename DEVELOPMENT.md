@@ -264,4 +264,4 @@ To access Telemetry see:
 
 - [Accessing Metrics](https://www.knative.dev/docs/serving/accessing-metrics/)
 - [Accessing Logs](https://www.knative.dev/docs/serving/accessing-logs/)
-- [Accessing Traces](https://www.knative.dev/docs/serving/accessing-traces/
+- [Accessing Traces](https://www.knative.dev/docs/serving/accessing-traces/)
