@@ -19,7 +19,9 @@ package testing
 import (
 	"testing"
 
+	appsv1 "k8s.io/api/apps/v1"
 	autoscalingv1 "k8s.io/api/autoscaling/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	fakedynamicclientset "k8s.io/client-go/dynamic/fake"
 	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
@@ -47,16 +49,30 @@ type Ctor func(*Listers, reconciler.Options) controller.Reconciler
 // scaleClient returns a fake scale client that will serve a single provided object.
 // Kubernetes does not come currently with a normal fake, as other APIs, so we did this...
 func scaleClient(f ktesting.Fake, objects ...runtime.Object) scale.ScalesGetter {
-	var scaleObj *autoscalingv1.Scale
-	for _, obj := range objects {
-		if so, ok := obj.(*autoscalingv1.Scale); ok {
-			scaleObj = so
-			break
-		}
-	}
 	scaleClient := &fakescaleclient.FakeScaleClient{Fake: f}
 	scaleClient.PrependReactor("get", "deployments", func(action ktesting.Action) (bool, runtime.Object, error) {
-		return true, scaleObj, nil
+		ga := action.(ktesting.GetAction)
+		for _, obj := range objects {
+			if d, ok := obj.(*appsv1.Deployment); ok {
+				if ga.GetNamespace() == d.Namespace && ga.GetName() == d.Name {
+					replicas := int32(1)
+					if d.Spec.Replicas != nil {
+						replicas = *d.Spec.Replicas
+					}
+					return true, &autoscalingv1.Scale{
+						ObjectMeta: d.ObjectMeta,
+						Spec: autoscalingv1.ScaleSpec{
+							Replicas: replicas,
+						},
+						Status: autoscalingv1.ScaleStatus{
+							Replicas: d.Status.Replicas,
+							Selector: labels.FormatLabels(d.Spec.Selector.MatchLabels),
+						},
+					}, nil
+				}
+			}
+		}
+		return false, nil, nil
 	})
 	return scaleClient
 }

@@ -49,6 +49,7 @@ import (
 	. "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
 	perrors "github.com/pkg/errors"
 
+	appsv1 "k8s.io/api/apps/v1"
 	autoscalingv1 "k8s.io/api/autoscaling/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -408,7 +409,7 @@ func TestReconcile(t *testing.T) {
 			kpa(testNamespace, testRevision, markActive, WithPAStatusService(testRevision+"-pub")),
 			sks(testNamespace, testRevision, WithSelector(usualSelector), WithSKSReady),
 			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector)),
-			scaleResource(testNamespace, testRevision, withLabelSelector("a=b")),
+			deploy(testNamespace, testRevision),
 			makeSKSPrivateEndpoints(1, testNamespace, testRevision),
 		},
 	}, {
@@ -418,7 +419,7 @@ func TestReconcile(t *testing.T) {
 			kpa(testNamespace, testRevision, markActive, WithPAStatusService(testRevision+"-pub")),
 			sks(testNamespace, testRevision, WithSelector(usualSelector), WithPubService, WithPrivateService),
 			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector)),
-			scaleResource(testNamespace, testRevision, withLabelSelector("a=b")),
+			deploy(testNamespace, testRevision),
 			makeSKSPrivateEndpoints(1, testNamespace, testRevision),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
@@ -431,7 +432,7 @@ func TestReconcile(t *testing.T) {
 			kpa(testNamespace, testRevision),
 			sks(testNamespace, testRevision, WithSelector(usualSelector), WithSKSReady),
 			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector)),
-			scaleResource(testNamespace, testRevision, withLabelSelector("a=b")),
+			deploy(testNamespace, testRevision),
 			makeSKSPrivateEndpoints(1, testNamespace, testRevision),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
@@ -443,7 +444,7 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			kpa(testNamespace, testRevision, markActive),
 			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector)),
-			scaleResource(testNamespace, testRevision, withLabelSelector("a=b")),
+			deploy(testNamespace, testRevision),
 			makeSKSPrivateEndpoints(1, testNamespace, testRevision),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
@@ -461,7 +462,7 @@ func TestReconcile(t *testing.T) {
 			sks(testNamespace, testRevision, WithSelector(map[string]string{"i-m": "so-tired"}),
 				WithPubService),
 			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector)),
-			scaleResource(testNamespace, testRevision, withLabelSelector("a=b")),
+			deploy(testNamespace, testRevision),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			// SKS just got updated and we don't have up to date status.
@@ -477,7 +478,7 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			kpa(testNamespace, testRevision, markActive),
 			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector)),
-			scaleResource(testNamespace, testRevision, withLabelSelector("a=b")),
+			deploy(testNamespace, testRevision),
 		},
 		WithReactors: []clientgotesting.ReactionFunc{
 			InduceFailure("create", "serverlessservices"),
@@ -497,7 +498,7 @@ func TestReconcile(t *testing.T) {
 			kpa(testNamespace, testRevision, markActive),
 			sks(testNamespace, testRevision, WithSelector(map[string]string{"i-havent": "slept-a-wink"})),
 			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector)),
-			scaleResource(testNamespace, testRevision, withLabelSelector("a=b")),
+			deploy(testNamespace, testRevision),
 		},
 		WithReactors: []clientgotesting.ReactionFunc{
 			InduceFailure("update", "serverlessservices"),
@@ -516,7 +517,7 @@ func TestReconcile(t *testing.T) {
 			kpa(testNamespace, testRevision, markActive),
 			sks(testNamespace, testRevision, WithSelector(usualSelector), WithSKSReady, WithSKSOwnersRemoved),
 			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector)),
-			scaleResource(testNamespace, testRevision, withLabelSelector("a=b")),
+			deploy(testNamespace, testRevision),
 		},
 		WantErr: true,
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
@@ -572,6 +573,31 @@ func scaleResource(namespace, name string, opts ...scaleOpt) *autoscalingv1.Scal
 		Status: autoscalingv1.ScaleStatus{
 			Replicas: 42,
 			Selector: "a=b",
+		},
+	}
+	for _, opt := range opts {
+		opt(s)
+	}
+	return s
+}
+
+type deploymentOption func(*appsv1.Deployment)
+
+func deploy(namespace, name string, opts ...deploymentOption) *appsv1.Deployment {
+	s := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name + "-deployment",
+			Namespace: namespace,
+		},
+		Spec: appsv1.DeploymentSpec{
+			Selector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					"a": "b",
+				},
+			},
+		},
+		Status: appsv1.DeploymentStatus{
+			Replicas: 42,
 		},
 	}
 	for _, opt := range opts {
