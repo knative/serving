@@ -34,7 +34,6 @@ import (
 	"github.com/knative/serving/pkg/autoscaler"
 	"github.com/knative/serving/pkg/network"
 	"github.com/knative/serving/pkg/reconciler"
-	rtesting "github.com/knative/serving/pkg/reconciler/testing"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/config"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources"
 	. "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
@@ -624,7 +623,7 @@ func TestReconcile(t *testing.T) {
 
 	defer ClearAllLoggers()
 	table.Test(t, MakeFactory(func(listers *Listers, opt reconciler.Options) controller.Reconciler {
-		t := &rtesting.NullTracker{}
+		t := &NullTracker{}
 		buildInformerFactory := KResourceTypedInformerFactory(opt)
 		return &Reconciler{
 			Base:                reconciler.NewBase(opt, controllerAgentName),
@@ -776,7 +775,7 @@ func TestReconcileWithVarLogEnabled(t *testing.T) {
 			endpointsLister:     listers.GetEndpointsLister(),
 			configMapLister:     listers.GetConfigMapLister(),
 			resolver:            &nopResolver{},
-			tracker:             &rtesting.NullTracker{},
+			tracker:             &NullTracker{},
 			configStore:         &testConfigStore{config: config},
 		}
 	}))

@@ -17,6 +17,7 @@ limitations under the License.
 package testing
 
 import (
+	"context"
 	"testing"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -116,8 +117,14 @@ func MakeFactory(ctor Ctor) Factory {
 		}
 
 		// Validate all Create operations through the serving client.
-		client.PrependReactor("create", "*", ValidateCreates)
-		client.PrependReactor("update", "*", ValidateUpdates)
+		client.PrependReactor("create", "*", func(action ktesting.Action) (handled bool, ret runtime.Object, err error) {
+			// TODO(n3wscott): context.Background is the best we can do at the moment, but it should be set-able.
+			return ValidateCreates(context.Background(), action)
+		})
+		client.PrependReactor("update", "*", func(action ktesting.Action) (handled bool, ret runtime.Object, err error) {
+			// TODO(n3wscott): context.Background is the best we can do at the moment, but it should be set-able.
+			return ValidateUpdates(context.Background(), action)
+		})
 
 		actionRecorderList := ActionRecorderList{sharedClient, dynamicClient, client, kubeClient, cachingClient}
 		eventList := EventList{Recorder: eventRecorder}

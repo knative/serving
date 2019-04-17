@@ -1,5 +1,5 @@
 /*
-Copyright 2018 The Knative Authors.
+Copyright 2019 The Knative Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -41,25 +41,25 @@ func InduceFailure(verb, resource string) clientgotesting.ReactionFunc {
 	}
 }
 
-func ValidateCreates(action clientgotesting.Action) (handled bool, ret runtime.Object, err error) {
+func ValidateCreates(ctx context.Context, action clientgotesting.Action) (handled bool, ret runtime.Object, err error) {
 	got := action.(clientgotesting.CreateAction).GetObject()
 	obj, ok := got.(apis.Validatable)
 	if !ok {
 		return false, nil, nil
 	}
-	if err := obj.Validate(context.Background()); err != nil {
+	if err := obj.Validate(ctx); err != nil {
 		return true, nil, err
 	}
 	return false, nil, nil
 }
 
-func ValidateUpdates(action clientgotesting.Action) (handled bool, ret runtime.Object, err error) {
+func ValidateUpdates(ctx context.Context, action clientgotesting.Action) (handled bool, ret runtime.Object, err error) {
 	got := action.(clientgotesting.UpdateAction).GetObject()
 	obj, ok := got.(apis.Validatable)
 	if !ok {
 		return false, nil, nil
 	}
-	if err := obj.Validate(context.Background()); err != nil {
+	if err := obj.Validate(ctx); err != nil {
 		return true, nil, err
 	}
 	return false, nil, nil

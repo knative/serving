@@ -20,6 +20,7 @@ import (
 	"strings"
 
 	"github.com/ghodss/yaml"
+	. "github.com/knative/pkg/configmap/testing"
 	"github.com/knative/serving/pkg/network"
 	corev1 "k8s.io/api/core/v1"
 )
@@ -38,10 +39,6 @@ const (
 	// DefaultDomain holds the domain that Route's live under by default
 	// when no label selector-based options apply.
 	DefaultDomain = "example.com"
-
-	// The key that holds our example configuration.
-	// TODO(mattmoor): We should get this from knative/pkg/configmap
-	exampleKey = "_example"
 )
 
 // LabelSelector represents map of {key,value} pairs. A single {key,value} in the
@@ -80,7 +77,7 @@ func NewDomainFromConfigMap(configMap *corev1.ConfigMap) (*Domain, error) {
 	c := Domain{Domains: map[string]*LabelSelector{}}
 	hasDefault := false
 	for k, v := range configMap.Data {
-		if k == exampleKey {
+		if k == ExampleKey {
 			continue
 		}
 		labelSelector := LabelSelector{}

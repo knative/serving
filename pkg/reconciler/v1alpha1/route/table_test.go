@@ -31,7 +31,6 @@ import (
 	"github.com/knative/serving/pkg/gc"
 	"github.com/knative/serving/pkg/network"
 	"github.com/knative/serving/pkg/reconciler"
-	rtesting "github.com/knative/serving/pkg/reconciler/testing"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/config"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/resources"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/traffic"
@@ -1505,7 +1504,7 @@ func TestReconcile(t *testing.T) {
 			revisionLister:       listers.GetRevisionLister(),
 			serviceLister:        listers.GetK8sServiceLister(),
 			clusterIngressLister: listers.GetClusterIngressLister(),
-			tracker:              &rtesting.NullTracker{},
+			tracker:              &NullTracker{},
 			configStore: &testConfigStore{
 				config: ReconcilerTestConfig(),
 			},
