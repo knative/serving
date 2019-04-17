@@ -54,6 +54,12 @@ func TestMakeDecider(t *testing.T) {
 		name: "with target annotation greater than container concurrency (ignore annotation for safety)",
 		pa:   pa(WithContainerConcurrency(1), WithTargetAnnotation("10")),
 		want: decider(withTarget(1.0), withPanicThreshold(2.0), withTargetAnnotation("10")),
+	}, {
+		name: "with higher panic target",
+		pa:   pa(WithTargetAnnotation("10"), WithPanicThresholdPercentageAnnotation("400")),
+		want: decider(
+			withTarget(10.0), withPanicThreshold(40.0),
+			withTargetAnnotation("10"), withPanicThresholdPercentageAnnotation("400")),
 	}}
 
 	for _, tc := range cases {
@@ -113,21 +119,20 @@ func withTarget(target float64) DeciderOption {
 	}
 }
 
-func withPanicThreshold(thresh float64) DeciderOption {
+func withPanicThreshold(threshold float64) DeciderOption {
 	return func(decider *autoscaler.Decider) {
-		decider.Spec.PanicThreshold = thresh
+		decider.Spec.PanicThreshold = threshold
 	}
 }
-
 func withTargetAnnotation(target string) DeciderOption {
 	return func(decider *autoscaler.Decider) {
 		decider.Annotations[autoscaling.TargetAnnotationKey] = target
 	}
 }
 
-func withPanicThresholdPercentageAnnotation(thresh string) DeciderOption {
+func withPanicThresholdPercentageAnnotation(percentage string) DeciderOption {
 	return func(decider *autoscaler.Decider) {
-		decider.Annotations[autoscaling.PanicThresholdPercentageAnnotationKey] = thresh
+		decider.Annotations[autoscaling.PanicThresholdPercentageAnnotationKey] = percentage
 	}
 }
 

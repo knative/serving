@@ -38,9 +38,9 @@ func MakeMetric(ctx context.Context, pa *v1alpha1.PodAutoscaler, config *autosca
 	}
 	if panicWindowPercentage == 0.0 {
 		// Fall back on a hard coded value.
-		panicWindowPercentage = 0.1
+		panicWindowPercentage = 10
 	}
-	panicWindow := time.Duration(float64(stableWindow) * panicWindowPercentage)
+	panicWindow := time.Duration(float64(stableWindow) * panicWindowPercentage / 100.0)
 	return &autoscaler.Metric{
 		ObjectMeta: pa.ObjectMeta,
 		Spec: autoscaler.MetricSpec{

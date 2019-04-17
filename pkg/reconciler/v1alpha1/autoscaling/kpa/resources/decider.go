@@ -51,9 +51,9 @@ func MakeDecider(ctx context.Context, pa *v1alpha1.PodAutoscaler, config *autosc
 	}
 	if panicThresholdPercentage == 0.0 {
 		// Fall back on a hard coded value.
-		panicThresholdPercentage = 2.0
+		panicThresholdPercentage = 200
 	}
-	panicThreshold := target * panicThresholdPercentage
+	panicThreshold := target * panicThresholdPercentage / 100.0
 	return &autoscaler.Decider{
 		ObjectMeta: pa.ObjectMeta,
 		Spec: autoscaler.DeciderSpec{
