@@ -25,7 +25,7 @@ import (
 
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 
-	. "github.com/knative/serving/pkg/reconciler/testing"
+	. "github.com/knative/pkg/reconciler/testing"
 )
 
 func TestTargetConcurrency(t *testing.T) {

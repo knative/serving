@@ -25,7 +25,7 @@ import (
 	"github.com/knative/serving/pkg/network"
 
 	. "github.com/knative/pkg/logging/testing"
-	. "github.com/knative/serving/pkg/reconciler/testing"
+	. "github.com/knative/pkg/reconciler/testing"
 )
 
 func TestStoreLoadWithContext(t *testing.T) {

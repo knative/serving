@@ -24,8 +24,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	. "github.com/knative/serving/pkg/reconciler/testing"
+	. "github.com/knative/pkg/reconciler/testing"
 )
 
 func TestDefaultsConfigurationFromFile(t *testing.T) {

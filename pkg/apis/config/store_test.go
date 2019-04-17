@@ -23,7 +23,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	logtesting "github.com/knative/pkg/logging/testing"
-	. "github.com/knative/serving/pkg/reconciler/testing"
+	. "github.com/knative/pkg/reconciler/testing"
 	"k8s.io/apimachinery/pkg/api/resource"
 )
 
