@@ -52,7 +52,5 @@ func newHTTPTransport(connTimeout time.Duration) http.RoundTripper {
 	return transport
 }
 
-var DefaultHTTPTransport = newHTTPTransport(network.DefaultConnTimeout)
-
 // AutoTransport uses h2c for HTTP2 requests and falls back to `http.DefaultTransport` for all others
-var AutoTransport = NewAutoTransport(DefaultHTTPTransport, h2cutil.DefaultTransport)
+var AutoTransport = NewAutoTransport(newHTTPTransport(network.DefaultConnTimeout), h2cutil.DefaultTransport)

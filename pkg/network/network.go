@@ -66,8 +66,8 @@ const (
 	//   User-Agent = "kube-probe/{major-version}.{minor-version}".
 	kubeProbeUAPrefix = "kube-probe/"
 
-	// Use a short default connection timeout to avoid hitting the
-	// issue fixed in
+	// DefaultConnTimeout specifies a short default connection timeout
+	// to avoid hitting the issue fixed in
 	// https://github.com/kubernetes/kubernetes/pull/72534 but only
 	// avalailable after Kubernetes 1.14.
 	//
