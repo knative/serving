@@ -16,7 +16,6 @@ aliases:
   autoscaling-approvers:
   - josephburnett
   - markusthoemmes
-  - mdemirhan
   - greghaynes
   autoscaling-reviewers:
   - josephburnett
@@ -25,7 +24,6 @@ aliases:
   - greghaynes
 
   monitoring-approvers:
-  - mdemirhan
   - yanweiguo
   monitoring-reviewers:
   - mdemirhan
@@ -48,8 +46,9 @@ aliases:
 
   networking-approvers:
   - markusthoemmes
-  - mdemirhan
   - tcnghia
+  - vagababov
+
   networking-reviewers:
   - lichuqiang
   - markusthoemmes
