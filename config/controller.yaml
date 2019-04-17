@@ -30,6 +30,7 @@ spec:
         sidecar.istio.io/inject: "false"
       labels:
         app: controller
+        serving.knative.dev/release: devel
     spec:
       serviceAccountName: controller
       containers:
