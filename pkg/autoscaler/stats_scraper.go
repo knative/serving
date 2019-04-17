@@ -25,6 +25,7 @@ import (
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/autoscaling/kpa/resources/names"
 	"github.com/knative/serving/pkg/resources"
+	"github.com/knative/serving/pkg/sampling"
 	"github.com/pkg/errors"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 )
@@ -55,9 +56,9 @@ type scrapeClient interface {
 	Scrape(url string) (*Stat, error)
 }
 
-// sampleClient defines the interface for getting a sample size for a given
-// population. Internal used only.
-type sampleClient interface {
+// SampleClient defines the interface for getting a sample size for a given
+// population.
+type SampleClient interface {
 	// SampleSize returns the sample size of the given population.
 	SampleSize(population int) int
 }
@@ -78,7 +79,7 @@ var cacheDisabledClient = &http.Client{
 // for details.
 type ServiceScraper struct {
 	sClient             scrapeClient
-	samClient           sampleClient
+	samClient           SampleClient
 	endpointsLister     corev1listers.EndpointsLister
 	url                 string
 	namespace           string
@@ -93,14 +94,14 @@ func NewServiceScraper(metric *Metric, endpointsLister corev1listers.EndpointsLi
 	if err != nil {
 		return nil, err
 	}
-	return newServiceScraperWithClient(metric, endpointsLister, sClient, nil)
+	return newServiceScraperWithClient(metric, endpointsLister, sClient, sampling.NewPopulationSampleClient())
 }
 
 func newServiceScraperWithClient(
 	metric *Metric,
 	endpointsLister corev1listers.EndpointsLister,
 	sClient scrapeClient,
-	samClient sampleClient) (*ServiceScraper, error) {
+	samClient SampleClient) (*ServiceScraper, error) {
 	if metric == nil {
 		return nil, errors.New("metric must not be nil")
 	}

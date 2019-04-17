@@ -75,7 +75,7 @@ func TestNewServiceScraperWithClient_ErrorCases(t *testing.T) {
 		name        string
 		metric      *Metric
 		client      scrapeClient
-		samClient   sampleClient
+		samClient   SampleClient
 		lister      corev1listers.EndpointsLister
 		expectedErr string
 	}{{
