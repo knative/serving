@@ -23,6 +23,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/knative/pkg/apis"
 	networking "github.com/knative/serving/pkg/apis/networking"
+	autoscalingv1 "k8s.io/api/autoscaling/v1"
 )
 
 func TestServerlessServiceSpecValidation(t *testing.T) {
@@ -34,8 +35,10 @@ func TestServerlessServiceSpecValidation(t *testing.T) {
 		name: "valid proxy",
 		skss: &ServerlessServiceSpec{
 			Mode: SKSOperationModeProxy,
-			Selector: map[string]string{
-				"a": "b",
+			ObjectRef: autoscalingv1.CrossVersionObjectReference{
+				APIVersion: "apps/v1",
+				Kind:       "Deployment",
+				Name:       "foo",
 			},
 			ProtocolType: networking.ProtocolHTTP1,
 		},
@@ -44,8 +47,10 @@ func TestServerlessServiceSpecValidation(t *testing.T) {
 		name: "valid serve",
 		skss: &ServerlessServiceSpec{
 			Mode: SKSOperationModeServe,
-			Selector: map[string]string{
-				"revision.knative.dev": "rev-1982",
+			ObjectRef: autoscalingv1.CrossVersionObjectReference{
+				APIVersion: "apps/v1",
+				Kind:       "Deployment",
+				Name:       "foo",
 			},
 			ProtocolType: networking.ProtocolH2C,
 		},
@@ -54,29 +59,22 @@ func TestServerlessServiceSpecValidation(t *testing.T) {
 		name: "invalid protocol",
 		skss: &ServerlessServiceSpec{
 			Mode: SKSOperationModeServe,
-			Selector: map[string]string{
-				"revision.knative.dev": "rev-1982",
+			ObjectRef: autoscalingv1.CrossVersionObjectReference{
+				APIVersion: "apps/v1",
+				Kind:       "Deployment",
+				Name:       "foo",
 			},
 			ProtocolType: networking.ProtocolType("gRPC"),
 		},
 		want: apis.ErrInvalidValue("gRPC", "protocolType"),
 	}, {
-		name: "many selectors",
-		skss: &ServerlessServiceSpec{
-			Mode: SKSOperationModeServe,
-			Selector: map[string]string{
-				"revision.knative.dev": "rev-1982",
-				"activator.service":    "act-service-1988",
-			},
-			ProtocolType: networking.ProtocolH2C,
-		},
-		want: nil,
-	}, {
 		name: "wrong mode",
 		skss: &ServerlessServiceSpec{
 			Mode: "bombastic",
-			Selector: map[string]string{
-				"revision.knative.dev": "rev-2009",
+			ObjectRef: autoscalingv1.CrossVersionObjectReference{
+				APIVersion: "apps/v1",
+				Kind:       "Deployment",
+				Name:       "foo",
 			},
 			ProtocolType: networking.ProtocolH2C,
 		},
@@ -85,59 +83,55 @@ func TestServerlessServiceSpecValidation(t *testing.T) {
 		name: "no mode",
 		skss: &ServerlessServiceSpec{
 			Mode: "",
-			Selector: map[string]string{
-				"revision.knative.dev": "rev-2009",
+			ObjectRef: autoscalingv1.CrossVersionObjectReference{
+				APIVersion: "apps/v1",
+				Kind:       "Deployment",
+				Name:       "foo",
 			},
 			ProtocolType: networking.ProtocolHTTP1,
 		},
 		want: apis.ErrMissingField("mode"),
 	}, {
-		name: "no selector",
+		name: "no object reference",
 		skss: &ServerlessServiceSpec{
 			Mode:         SKSOperationModeProxy,
 			ProtocolType: networking.ProtocolH2C,
 		},
-		want: apis.ErrMissingField("selector"),
+		want: apis.ErrMissingField("objectRef"),
 	}, {
-		name: "empty selector",
+		name: "empty object reference",
 		skss: &ServerlessServiceSpec{
 			Mode:         SKSOperationModeProxy,
-			Selector:     map[string]string{},
+			ObjectRef:    autoscalingv1.CrossVersionObjectReference{},
 			ProtocolType: networking.ProtocolHTTP1,
 		},
-		want: apis.ErrMissingField("selector"),
+		want: apis.ErrMissingField("objectRef"),
 	}, {
-		name: "empty selector key",
-		skss: &ServerlessServiceSpec{
-			Mode:         SKSOperationModeProxy,
-			Selector:     map[string]string{"": "n'importe quoi"},
-			ProtocolType: networking.ProtocolH2C,
-		},
-		want: apis.ErrInvalidKeyName("", "selector", "empty key is not permitted"),
-	}, {
-		name: "empty selector value",
+		name: "missing kind",
 		skss: &ServerlessServiceSpec{
 			Mode: SKSOperationModeProxy,
-			Selector: map[string]string{
-				"revision.knative.dev": "",
+			ObjectRef: autoscalingv1.CrossVersionObjectReference{
+				APIVersion: "apps/v1",
+				Name:       "foo",
 			},
 			ProtocolType: networking.ProtocolHTTP1,
 		},
-		want: apis.ErrInvalidValue("", apis.CurrentField).ViaKey("revision.knative.dev").ViaField("selector"),
+		want: apis.ErrMissingField("objectRef.kind"),
 	}, {
 		name: "multiple errors",
 		skss: &ServerlessServiceSpec{
-			Selector: map[string]string{
-				"revision.knative.dev": "",
+			ObjectRef: autoscalingv1.CrossVersionObjectReference{
+				Kind: "Deployment",
 			},
 			ProtocolType: networking.ProtocolH2C,
 		},
-		want: apis.ErrMissingField("mode").Also(apis.ErrInvalidValue("", apis.CurrentField).ViaKey("revision.knative.dev").ViaField("selector")),
+		want: apis.ErrMissingField("mode", "objectRef.apiVersion", "objectRef.name"),
 	}, {
 		name: "empty spec",
 		skss: &ServerlessServiceSpec{},
 		want: apis.ErrMissingField(apis.CurrentField),
 	}}
+
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			got := test.skss.Validate(context.Background())

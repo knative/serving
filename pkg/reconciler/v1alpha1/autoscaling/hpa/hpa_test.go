@@ -88,14 +88,14 @@ func TestControllerCanReconcile(t *testing.T) {
 }
 
 func TestReconcile(t *testing.T) {
-	var usualSelector = map[string]string{"a": "b"}
+	const deployName = testRevision + "-deployment"
 	table := TableTest{{
 		Name: "no op",
 		Objects: []runtime.Object{
 			hpa(testRevision, testNamespace, pa(testRevision, testNamespace, WithHPAClass, WithMetricAnnotation("cpu"))),
 			pa(testRevision, testNamespace, WithHPAClass, WithTraffic, WithPAStatusService(testRevision+"-pub")),
 			deploy(testNamespace, testRevision),
-			sks(testNamespace, testRevision, WithSelector(usualSelector), WithSKSReady),
+			sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSReady),
 		},
 		Key: key(testRevision, testNamespace),
 	}, {
@@ -106,7 +106,7 @@ func TestReconcile(t *testing.T) {
 		},
 		Key: key(testRevision, testNamespace),
 		WantCreates: []metav1.Object{
-			sks(testNamespace, testRevision, WithSelector(usualSelector)),
+			sks(testNamespace, testRevision, WithDeployRef(deployName)),
 			hpa(testRevision, testNamespace, pa(testRevision, testNamespace,
 				WithHPAClass, WithMetricAnnotation("cpu"))),
 		},
@@ -121,7 +121,8 @@ func TestReconcile(t *testing.T) {
 				pa(testRevision, testNamespace, WithHPAClass, WithMetricAnnotation("cpu"))),
 			pa(testRevision, testNamespace, WithHPAClass),
 			deploy(testNamespace, testRevision),
-			sks(testNamespace, testRevision, WithSelector(usualSelector), WithPubService, WithPrivateService),
+			sks(testNamespace, testRevision, WithDeployRef(deployName), WithPubService,
+				WithPrivateService),
 		},
 		WantStatusUpdates: []ktesting.UpdateActionImpl{{
 			Object: pa(testRevision, testNamespace, WithHPAClass, WithTraffic,
@@ -136,7 +137,7 @@ func TestReconcile(t *testing.T) {
 				pa(testRevision, testNamespace, WithHPAClass, WithMetricAnnotation("cpu"))),
 			pa(testRevision, testNamespace, WithHPAClass, WithPAStatusService("the-wrong-one")),
 			deploy(testNamespace, testRevision),
-			sks(testNamespace, testRevision, WithSelector(usualSelector), WithSKSReady),
+			sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSReady),
 		},
 		WantStatusUpdates: []ktesting.UpdateActionImpl{{
 			Object: pa(testRevision, testNamespace, WithHPAClass,
@@ -150,7 +151,7 @@ func TestReconcile(t *testing.T) {
 				pa(testRevision, testNamespace, WithHPAClass, WithMetricAnnotation("cpu"))),
 			pa(testRevision, testNamespace, WithHPAClass, WithTraffic),
 			deploy(testNamespace, testRevision),
-			sks(testNamespace, testRevision, WithSelector(map[string]string{"c": "d"}),
+			sks(testNamespace, testRevision, WithDeployRef("bar"),
 				WithSKSReady),
 		},
 		WantStatusUpdates: []ktesting.UpdateActionImpl{{
@@ -159,15 +160,14 @@ func TestReconcile(t *testing.T) {
 		}},
 		Key: key(testRevision, testNamespace),
 		WantUpdates: []ktesting.UpdateActionImpl{{
-			Object: sks(testNamespace, testRevision, WithSelector(usualSelector)),
+			Object: sks(testNamespace, testRevision, WithDeployRef(deployName)),
 		}},
 	}, {
 		Name: "reconcile sks - update fails",
 		Objects: []runtime.Object{
 			pa(testRevision, testNamespace, WithHPAClass, WithTraffic),
 			deploy(testNamespace, testRevision),
-			sks(testNamespace, testRevision,
-				WithSelector(map[string]string{"c": "d"}), WithSKSReady),
+			sks(testNamespace, testRevision, WithDeployRef("bar"), WithSKSReady),
 			hpa(testRevision, testNamespace, pa(testRevision, testNamespace, WithHPAClass, WithMetricAnnotation("cpu"))),
 		},
 		Key: key(testRevision, testNamespace),
@@ -176,7 +176,7 @@ func TestReconcile(t *testing.T) {
 		},
 		WantErr: true,
 		WantUpdates: []ktesting.UpdateActionImpl{{
-			Object: sks(testNamespace, testRevision, WithSelector(usualSelector)),
+			Object: sks(testNamespace, testRevision, WithDeployRef(deployName)),
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "InternalError", "error reconciling SKS: error updating SKS test-revision: inducing failure for update serverlessservices"),
@@ -194,7 +194,7 @@ func TestReconcile(t *testing.T) {
 		},
 		WantErr: true,
 		WantCreates: []metav1.Object{
-			sks(testNamespace, testRevision, WithSelector(usualSelector)),
+			sks(testNamespace, testRevision, WithDeployRef(deployName)),
 		},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "InternalError", "error reconciling SKS: error creating SKS test-revision: inducing failure for create serverlessservices"),
@@ -204,7 +204,7 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			pa(testRevision, testNamespace, WithHPAClass),
 			deploy(testNamespace, testRevision),
-			sks(testNamespace, testRevision, WithSelector(usualSelector), WithSKSOwnersRemoved, WithSKSReady),
+			sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSOwnersRemoved, WithSKSReady),
 			hpa(testRevision, testNamespace, pa(testRevision, testNamespace, WithHPAClass, WithMetricAnnotation("cpu"))),
 		},
 		Key:     key(testRevision, testNamespace),
@@ -220,7 +220,7 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			pa(testRevision, testNamespace, WithHPAClass),
 			deploy(testNamespace, testRevision),
-			sks(testNamespace, testRevision, WithSelector(usualSelector)),
+			sks(testNamespace, testRevision, WithDeployRef(deployName)),
 			hpa(testRevision, testNamespace,
 				pa(testRevision, testNamespace, WithHPAClass, WithMetricAnnotation("cpu"), WithPAOwnersRemoved),
 				withHPAOwnersRemoved),
@@ -312,7 +312,7 @@ func TestReconcile(t *testing.T) {
 				pa(testRevision, testNamespace, WithHPAClass, WithMetricAnnotation("cpu"))),
 			pa(testRevision, testNamespace, WithHPAClass, WithPAStatusService("the-wrong-one")),
 			deploy(testNamespace, testRevision),
-			sks(testNamespace, testRevision, WithSelector(usualSelector), WithSKSReady),
+			sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSReady),
 		},
 		WantStatusUpdates: []ktesting.UpdateActionImpl{{
 			Object: pa(testRevision, testNamespace, WithHPAClass,
@@ -324,7 +324,7 @@ func TestReconcile(t *testing.T) {
 			InduceFailure("update", "podautoscalers"),
 		},
 		WantEvents: []string{
-			Eventf(corev1.EventTypeWarning, "UpdateFailed", `failed to update status for PA "test-revision": inducing failure for update podautoscalers`),
+			Eventf(corev1.EventTypeWarning, "UpdateFailed", `Failed to update status for PA "test-revision": inducing failure for update podautoscalers`),
 		},
 	}, {
 		Name: "update hpa fails",
@@ -332,7 +332,7 @@ func TestReconcile(t *testing.T) {
 			pa(testRevision, testNamespace, WithHPAClass, WithTraffic,
 				WithPAStatusService(testRevision+"-pub"), WithTargetAnnotation("1")),
 			hpa(testRevision, testNamespace, pa(testRevision, testNamespace, WithHPAClass, WithMetricAnnotation("cpu"))),
-			sks(testNamespace, testRevision, WithSelector(usualSelector), WithSKSReady),
+			sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSReady),
 			deploy(testNamespace, testRevision),
 		},
 		Key: key(testRevision, testNamespace),
@@ -352,8 +352,8 @@ func TestReconcile(t *testing.T) {
 			pa(testRevision, testNamespace, WithHPAClass, WithTraffic,
 				WithPAStatusService(testRevision+"-pub"), WithTargetAnnotation("1")),
 			hpa(testRevision, testNamespace, pa(testRevision, testNamespace, WithHPAClass, WithMetricAnnotation("cpu"))),
-			sks(testNamespace, testRevision, WithSelector(usualSelector), WithSKSReady),
 			deploy(testNamespace, testRevision),
+			sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSReady),
 		},
 		Key: key(testRevision, testNamespace),
 		WantUpdates: []ktesting.UpdateActionImpl{{
@@ -391,18 +391,17 @@ func TestReconcile(t *testing.T) {
 	defer ClearAllLoggers()
 	table.Test(t, MakeFactory(func(listers *Listers, opt reconciler.Options) controller.Reconciler {
 		return &Reconciler{
-			Base:           reconciler.NewBase(opt, controllerAgentName),
-			paLister:       listers.GetPodAutoscalerLister(),
-			sksLister:      listers.GetServerlessServiceLister(),
-			hpaLister:      listers.GetHorizontalPodAutoscalerLister(),
-			scaleClientSet: opt.ScaleClientSet,
+			Base:      reconciler.NewBase(opt, controllerAgentName),
+			paLister:  listers.GetPodAutoscalerLister(),
+			sksLister: listers.GetServerlessServiceLister(),
+			hpaLister: listers.GetHorizontalPodAutoscalerLister(),
 		}
 	}))
 }
 
 func sks(ns, n string, so ...SKSOption) *nv1a1.ServerlessService {
 	hpa := pa(n, ns, WithHPAClass)
-	s := aresources.MakeSKS(hpa, map[string]string{}, nv1a1.SKSOperationModeServe)
+	s := aresources.MakeSKS(hpa, nv1a1.SKSOperationModeServe)
 	for _, opt := range so {
 		opt(s)
 	}

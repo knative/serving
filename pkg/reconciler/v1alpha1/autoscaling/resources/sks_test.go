@@ -25,6 +25,7 @@ import (
 	"github.com/knative/serving/pkg/apis/networking"
 	nv1a1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving"
+	autoscalingv1 "k8s.io/api/autoscaling/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -46,10 +47,14 @@ func TestMakeSKS(t *testing.T) {
 		},
 		Spec: pav1a1.PodAutoscalerSpec{
 			ProtocolType: networking.ProtocolHTTP1,
+			ScaleTargetRef: autoscalingv1.CrossVersionObjectReference{
+				APIVersion: "apps/v1",
+				Kind:       "Deployment",
+				Name:       "blah",
+			},
 		},
 	}
 
-	selector := map[string]string{"cant": "stop"}
 	const mode = nv1a1.SKSOperationModeServe
 
 	want := &nv1a1.ServerlessService{
@@ -76,10 +81,14 @@ func TestMakeSKS(t *testing.T) {
 		Spec: nv1a1.ServerlessServiceSpec{
 			ProtocolType: networking.ProtocolHTTP1,
 			Mode:         nv1a1.SKSOperationModeServe,
-			Selector:     selector,
+			ObjectRef: autoscalingv1.CrossVersionObjectReference{
+				APIVersion: "apps/v1",
+				Kind:       "Deployment",
+				Name:       "blah",
+			},
 		},
 	}
-	if got, want := MakeSKS(pa, selector, mode), want; !cmp.Equal(got, want) {
+	if got, want := MakeSKS(pa, mode), want; !cmp.Equal(got, want) {
 		t.Errorf("MakeSKS = %#v, want: %#v, diff: %s", got, want, cmp.Diff(got, want))
 	}
 }

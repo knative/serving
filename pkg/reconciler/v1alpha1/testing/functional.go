@@ -33,6 +33,7 @@ import (
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/traffic"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/serverlessservice/resources/names"
 	servicenames "github.com/knative/serving/pkg/reconciler/v1alpha1/service/resources/names"
+	autoscalingv1 "k8s.io/api/autoscaling/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -1006,10 +1007,14 @@ func WithPubService(sks *netv1alpha1.ServerlessService) {
 	sks.Status.ServiceName = names.PublicService(sks.Name)
 }
 
-// WithSelector annotates SKS with a given selector map.
-func WithSelector(sel map[string]string) SKSOption {
+// WithDeployRef annotates SKS with a deployment objectRef
+func WithDeployRef(name string) SKSOption {
 	return func(sks *netv1alpha1.ServerlessService) {
-		sks.Spec.Selector = sel
+		sks.Spec.ObjectRef = autoscalingv1.CrossVersionObjectReference{
+			APIVersion: "apps/v1",
+			Kind:       "Deployment",
+			Name:       name,
+		}
 	}
 }
 
@@ -1041,8 +1046,10 @@ func SKS(ns, name string, so ...SKSOption) *netv1alpha1.ServerlessService {
 		Spec: netv1alpha1.ServerlessServiceSpec{
 			Mode:         netv1alpha1.SKSOperationModeServe,
 			ProtocolType: networking.ProtocolHTTP1,
-			Selector: map[string]string{
-				"label": "value",
+			ObjectRef: autoscalingv1.CrossVersionObjectReference{
+				APIVersion: "apps/v1",
+				Kind:       "Deployment",
+				Name:       "foo-deployment",
 			},
 		},
 	}

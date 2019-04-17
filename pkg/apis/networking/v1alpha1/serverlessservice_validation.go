@@ -20,6 +20,7 @@ import (
 	"context"
 
 	"github.com/knative/pkg/apis"
+	autoscalingv1 "k8s.io/api/autoscaling/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 )
 
@@ -44,18 +45,25 @@ func (spec *ServerlessServiceSpec) Validate(ctx context.Context) *apis.FieldErro
 	default:
 		all = all.Also(apis.ErrInvalidValue(spec.Mode, "mode"))
 	}
-	if len(spec.Selector) == 0 {
-		all = all.Also(apis.ErrMissingField("selector"))
-	} else {
-		for k, v := range spec.Selector {
-			if k == "" {
-				all = all.Also(apis.ErrInvalidKeyName(k, "selector", "empty key is not permitted"))
-			}
-			if v == "" {
-				all = all.Also(apis.ErrInvalidValue(v, apis.CurrentField).ViaKey(k).ViaField("selector"))
-			}
-		}
-	}
+
+	all = all.Also(validateReference(spec.ObjectRef).ViaField("objectRef"))
 
 	return all.Also(spec.ProtocolType.Validate().ViaField("protocolType"))
+}
+
+func validateReference(ref autoscalingv1.CrossVersionObjectReference) *apis.FieldError {
+	if equality.Semantic.DeepEqual(ref, autoscalingv1.CrossVersionObjectReference{}) {
+		return apis.ErrMissingField(apis.CurrentField)
+	}
+	var errs *apis.FieldError
+	if ref.Kind == "" {
+		errs = errs.Also(apis.ErrMissingField("kind"))
+	}
+	if ref.Name == "" {
+		errs = errs.Also(apis.ErrMissingField("name"))
+	}
+	if ref.APIVersion == "" {
+		errs = errs.Also(apis.ErrMissingField("apiVersion"))
+	}
+	return errs
 }
