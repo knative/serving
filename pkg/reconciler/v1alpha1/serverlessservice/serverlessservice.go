@@ -249,7 +249,8 @@ func (r *reconciler) reconcilePublicEndpoints(ctx context.Context, sks *netv1alp
 		srcEps *corev1.Endpoints
 		err    error
 	)
-	if sks.Spec.Mode == netv1alpha1.SKSOperationModeServe {
+	switch sks.Spec.Mode {
+	case netv1alpha1.SKSOperationModeServe:
 		// Service and Endpoints have the same name.
 		// Get private endpoints first, since if they are not available there's nothing we can do.
 		psn := names.PrivateService(sks.Name)
@@ -259,13 +260,13 @@ func (r *reconciler) reconcilePublicEndpoints(ctx context.Context, sks *netv1alp
 			return err
 		}
 		logger.Debugf("Private endpoints: %s", spew.Sprint(srcEps))
-	} else {
+	case netv1alpha1.SKSOperationModeProxy:
 		srcEps, err = r.endpointsLister.Endpoints(system.Namespace()).Get(activatorService)
 		if err != nil {
 			logger.Errorw("Error obtaining activator service endpoints", zap.Error(err))
 			return err
 		}
-		logger.Debugf("Private endpoints: %s", spew.Sprint(srcEps))
+		logger.Debugf("Activator endpoints: %s", spew.Sprint(srcEps))
 	}
 
 	sn := names.PublicService(sks.Name)
