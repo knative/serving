@@ -248,7 +248,7 @@ func ValidateContainerConcurrency(cc RevisionContainerConcurrencyType, cm Revisi
 }
 
 func validateVolume(volume corev1.Volume) *apis.FieldError {
-	errs := validateDisallowedFields(volume, *serving.VolumeMask(&volume))
+	errs := apis.CheckDisallowedFields(volume, *serving.VolumeMask(&volume))
 	if volume.Name == "" {
 		errs = apis.ErrMissingField("name")
 	} else if len(validation.IsDNS1123Label(volume.Name)) != 0 {
@@ -256,7 +256,7 @@ func validateVolume(volume corev1.Volume) *apis.FieldError {
 	}
 
 	vs := volume.VolumeSource
-	errs = errs.Also(validateDisallowedFields(vs, *serving.VolumeSourceMask(&vs)))
+	errs = errs.Also(apis.CheckDisallowedFields(vs, *serving.VolumeSourceMask(&vs)))
 	if vs.Secret == nil && vs.ConfigMap == nil {
 		errs = errs.Also(apis.ErrMissingOneOf("secret", "configMap"))
 	}
@@ -267,13 +267,13 @@ func validateEnvValueFrom(source *corev1.EnvVarSource) *apis.FieldError {
 	if source == nil {
 		return nil
 	}
-	return validateDisallowedFields(*source, *serving.EnvVarSourceMask(source))
+	return apis.CheckDisallowedFields(*source, *serving.EnvVarSourceMask(source))
 }
 
 func validateEnv(envVars []corev1.EnvVar) *apis.FieldError {
 	var errs *apis.FieldError
 	for i, env := range envVars {
-		errs = errs.Also(validateDisallowedFields(env, *serving.EnvVarMask(&env)).ViaIndex(i)).Also(
+		errs = errs.Also(apis.CheckDisallowedFields(env, *serving.EnvVarMask(&env)).ViaIndex(i)).Also(
 			validateEnvValueFrom(env.ValueFrom).ViaField("valueFrom").ViaIndex(i))
 	}
 	return errs
@@ -282,19 +282,19 @@ func validateEnv(envVars []corev1.EnvVar) *apis.FieldError {
 func validateEnvFrom(envFromList []corev1.EnvFromSource) *apis.FieldError {
 	var errs *apis.FieldError
 	for i, envFrom := range envFromList {
-		errs = errs.Also(validateDisallowedFields(envFrom, *serving.EnvFromSourceMask(&envFrom)).ViaIndex(i))
+		errs = errs.Also(apis.CheckDisallowedFields(envFrom, *serving.EnvFromSourceMask(&envFrom)).ViaIndex(i))
 
 		cm := envFrom.ConfigMapRef
 		sm := envFrom.SecretRef
 		if sm != nil {
-			errs = errs.Also(validateDisallowedFields(*sm, *serving.SecretEnvSourceMask(sm)).ViaIndex(i))
-			errs = errs.Also(validateDisallowedFields(
+			errs = errs.Also(apis.CheckDisallowedFields(*sm, *serving.SecretEnvSourceMask(sm)).ViaIndex(i))
+			errs = errs.Also(apis.CheckDisallowedFields(
 				sm.LocalObjectReference, *serving.LocalObjectReferenceMask(&sm.LocalObjectReference))).ViaIndex(i).ViaField("secretRef")
 		}
 
 		if cm != nil {
-			errs = errs.Also(validateDisallowedFields(*cm, *serving.ConfigMapEnvSourceMask(cm)).ViaIndex(i))
-			errs = errs.Also(validateDisallowedFields(
+			errs = errs.Also(apis.CheckDisallowedFields(*cm, *serving.ConfigMapEnvSourceMask(cm)).ViaIndex(i))
+			errs = errs.Also(apis.CheckDisallowedFields(
 				cm.LocalObjectReference, *serving.LocalObjectReferenceMask(&cm.LocalObjectReference))).ViaIndex(i).ViaField("configMapRef")
 		}
 		if cm != nil && sm != nil {
@@ -311,7 +311,7 @@ func validateContainer(container corev1.Container, volumes sets.String) *apis.Fi
 		return apis.ErrMissingField(apis.CurrentField)
 	}
 
-	errs := validateDisallowedFields(container, *serving.ContainerMask(&container))
+	errs := apis.CheckDisallowedFields(container, *serving.ContainerMask(&container))
 
 	// Env
 	errs = errs.Also(validateEnv(container.Env).ViaField("env"))
@@ -352,14 +352,14 @@ func validateResources(resources *corev1.ResourceRequirements) *apis.FieldError 
 	if resources == nil {
 		return nil
 	}
-	return validateDisallowedFields(*resources, *serving.ResourceRequirementsMask(resources))
+	return apis.CheckDisallowedFields(*resources, *serving.ResourceRequirementsMask(resources))
 }
 
 func validateSecurityContext(sc *corev1.SecurityContext) *apis.FieldError {
 	if sc == nil {
 		return nil
 	}
-	errs := validateDisallowedFields(*sc, *serving.SecurityContextMask(sc))
+	errs := apis.CheckDisallowedFields(*sc, *serving.SecurityContextMask(sc))
 
 	if sc.RunAsUser != nil {
 		uid := *sc.RunAsUser
@@ -377,7 +377,7 @@ func validateVolumeMounts(mounts []corev1.VolumeMount, volumes sets.String) *api
 	seen := sets.NewString()
 	for i, vm := range mounts {
 
-		errs = errs.Also(validateDisallowedFields(vm, *serving.VolumeMountMask(&vm)).ViaIndex(i))
+		errs = errs.Also(apis.CheckDisallowedFields(vm, *serving.VolumeMountMask(&vm)).ViaIndex(i))
 		// This effectively checks that Name is non-empty because Volume name must be non-empty.
 		if !volumes.Has(vm.Name) {
 			errs = errs.Also((&apis.FieldError{
@@ -412,17 +412,6 @@ func validateVolumeMounts(mounts []corev1.VolumeMount, volumes sets.String) *api
 	return errs
 }
 
-func validateDisallowedFields(request, maskedRequest interface{}) *apis.FieldError {
-	if disallowed, err := kmp.CompareSetFields(request, maskedRequest); err != nil {
-		return &apis.FieldError{
-			Message: fmt.Sprintf("Internal Error: %v", err),
-		}
-	} else if len(disallowed) > 0 {
-		return apis.ErrDisallowedFields(disallowed...)
-	}
-	return nil
-}
-
 func validateContainerPorts(ports []corev1.ContainerPort) *apis.FieldError {
 	if len(ports) == 0 {
 		return nil
@@ -443,7 +432,7 @@ func validateContainerPorts(ports []corev1.ContainerPort) *apis.FieldError {
 
 	userPort := ports[0]
 
-	errs = errs.Also(validateDisallowedFields(userPort, *serving.ContainerPortMask(&userPort)))
+	errs = errs.Also(apis.CheckDisallowedFields(userPort, *serving.ContainerPortMask(&userPort)))
 
 	// Only allow empty (defaulting to "TCP") or explicit TCP for protocol
 	if userPort.Protocol != "" && userPort.Protocol != corev1.ProtocolTCP {
@@ -509,16 +498,16 @@ func validateProbe(p *corev1.Probe) *apis.FieldError {
 	if p == nil {
 		return nil
 	}
-	errs := validateDisallowedFields(*p, *serving.ProbeMask(p))
+	errs := apis.CheckDisallowedFields(*p, *serving.ProbeMask(p))
 
 	h := p.Handler
-	errs = errs.Also(validateDisallowedFields(h, *serving.HandlerMask(&h)))
+	errs = errs.Also(apis.CheckDisallowedFields(h, *serving.HandlerMask(&h)))
 
 	switch {
 	case h.HTTPGet != nil:
-		errs = errs.Also(validateDisallowedFields(*h.HTTPGet, *serving.HTTPGetActionMask(h.HTTPGet))).ViaField("httpGet")
+		errs = errs.Also(apis.CheckDisallowedFields(*h.HTTPGet, *serving.HTTPGetActionMask(h.HTTPGet))).ViaField("httpGet")
 	case h.TCPSocket != nil:
-		errs = errs.Also(validateDisallowedFields(*h.TCPSocket, *serving.TCPSocketActionMask(h.TCPSocket))).ViaField("tcpSocket")
+		errs = errs.Also(apis.CheckDisallowedFields(*h.TCPSocket, *serving.TCPSocketActionMask(h.TCPSocket))).ViaField("tcpSocket")
 	}
 	return errs
 }
