@@ -182,8 +182,12 @@ func ConfigurationWithBuild(names ResourceNames, build *v1alpha1.RawExtension) *
 			Build: build,
 			Template: &v1alpha1.RevisionTemplateSpec{
 				Spec: v1alpha1.RevisionSpec{
-					Container: &corev1.Container{
-						Image: ptest.ImagePath(names.Image),
+					RevisionSpec: v1beta1.RevisionSpec{
+						PodSpec: v1beta1.PodSpec{
+							Containers: []corev1.Container{{
+								Image: ptest.ImagePath(names.Image),
+							}},
+						},
 					},
 				},
 			},
