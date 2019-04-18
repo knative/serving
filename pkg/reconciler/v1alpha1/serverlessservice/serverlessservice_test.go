@@ -67,16 +67,16 @@ func TestNewController(t *testing.T) {
 
 func TestReconcile(t *testing.T) {
 	table := TableTest{{
-		Name:                    "bad workqueue key, Part I",
-		Key:                     "too/many/parts",
+		Name: "bad workqueue key, Part I",
+		Key:  "too/many/parts",
 		SkipNamespaceValidation: true,
 	}, {
-		Name:                    "bad workqueue key, Part II",
-		Key:                     "too-few-parts",
+		Name: "bad workqueue key, Part II",
+		Key:  "too-few-parts",
 		SkipNamespaceValidation: true,
 	}, {
-		Name:                    "key not found",
-		Key:                     "foo/not-found",
+		Name: "key not found",
+		Key:  "foo/not-found",
 		SkipNamespaceValidation: true,
 	}, {
 		Name: "steady state",
@@ -129,6 +129,24 @@ func TestReconcile(t *testing.T) {
 		Key:  "on/cneps",
 		Objects: []runtime.Object{
 			SKS("on", "cneps", WithDeployRef("blah")),
+			deploy("on", "blah"),
+			endpointspriv("on", "cneps"),
+		},
+		WantCreates: []metav1.Object{
+			svcpriv("on", "cneps"),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: SKS("on", "cneps", WithDeployRef("blah"),
+				markNoEndpoints, withTempPubService, WithPrivateService),
+		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "Updated", `Successfully updated ServerlessService "on/cneps"`),
+		},
+	}, {
+		Name: "OnCreate-no-activator-eps",
+		Key:  "on/cneps",
+		Objects: []runtime.Object{
+			SKS("on", "cneps", WithDeployRef("blah"), WithProxyMode),
 			deploy("on", "blah"),
 			endpointspriv("on", "cneps"),
 		},
