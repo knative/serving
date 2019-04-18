@@ -568,7 +568,7 @@ func TestReconcile(t *testing.T) {
 		Name: "runLatest - update route and service (bad existing Revision)",
 		Objects: []runtime.Object{
 			Service("update-route-and-config", "foo", WithRunLatestRollout, func(svc *v1alpha1.Service) {
-				svc.Spec.RunLatest.Configuration.RevisionTemplate.Name = "update-route-and-config-blah"
+				svc.Spec.RunLatest.Configuration.GetTemplate().Name = "update-route-and-config-blah"
 			}, WithInitSvcConditions),
 			// Mutate the Config/Route to have a different body than we want.
 			config("update-route-and-config", "foo", WithRunLatestRollout,
@@ -587,12 +587,12 @@ func TestReconcile(t *testing.T) {
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: config("update-route-and-config", "foo", WithRunLatestRollout,
 				func(cfg *v1alpha1.Configuration) {
-					cfg.Spec.RevisionTemplate.Name = "update-route-and-config-blah"
+					cfg.Spec.GetTemplate().Name = "update-route-and-config-blah"
 				}),
 		}},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: Service("update-route-and-config", "foo", WithRunLatestRollout, func(svc *v1alpha1.Service) {
-				svc.Spec.RunLatest.Configuration.RevisionTemplate.Name = "update-route-and-config-blah"
+				svc.Spec.RunLatest.Configuration.GetTemplate().Name = "update-route-and-config-blah"
 			}, WithInitSvcConditions, func(svc *v1alpha1.Service) {
 				svc.Status.MarkRevisionNameTaken("update-route-and-config-blah")
 			}),

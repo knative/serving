@@ -80,6 +80,11 @@ type ConfigurationSpec struct {
 	// the Build object created to produce the container for the Revision.
 	// +optional
 	RevisionTemplate *RevisionTemplateSpec `json:"revisionTemplate,omitempty"`
+
+	// Template holds the latest specification for the Revision to
+	// be stamped out.
+	// +optional
+	Template *RevisionTemplateSpec `json:"template,omitempty"`
 }
 
 const (

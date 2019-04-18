@@ -204,7 +204,7 @@ func (c *Reconciler) reconcile(ctx context.Context, service *v1alpha1.Service) e
 	// pre-existing Revision (possibly for another Configuration).
 	if _, err := cfgreconciler.CheckNameAvailability(config, c.revisionLister); err != nil &&
 		!errors.IsNotFound(err) {
-		service.Status.MarkRevisionNameTaken(config.Spec.RevisionTemplate.Name)
+		service.Status.MarkRevisionNameTaken(config.Spec.GetTemplate().Name)
 		return nil
 	}
 
