@@ -26,6 +26,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/knative/pkg/apis"
+	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 )
 
 const incorrectDNS1035Label = "not a DNS 1035 label: [a DNS-1035 label must consist of lower case alphanumeric characters or '-', start with an alphabetic character, and end with an alphanumeric character (e.g. 'my-name',  or 'abc-123', regex used for validation is '[a-z]([-a-z0-9]*[a-z0-9])?')]"
@@ -49,8 +50,12 @@ func TestServiceValidation(t *testing.T) {
 					Configuration: ConfigurationSpec{
 						RevisionTemplate: &RevisionTemplateSpec{
 							Spec: RevisionSpec{
-								Container: &corev1.Container{
-									Image: "hellworld",
+								RevisionSpec: v1beta1.RevisionSpec{
+									PodSpec: v1beta1.PodSpec{
+										Containers: []corev1.Container{{
+											Image: "hellworld",
+										}},
+									},
 								},
 							},
 						},
@@ -72,8 +77,12 @@ func TestServiceValidation(t *testing.T) {
 					Configuration: ConfigurationSpec{
 						RevisionTemplate: &RevisionTemplateSpec{
 							Spec: RevisionSpec{
-								Container: &corev1.Container{
-									Image: "hellworld",
+								RevisionSpec: v1beta1.RevisionSpec{
+									PodSpec: v1beta1.PodSpec{
+										Containers: []corev1.Container{{
+											Image: "hellworld",
+										}},
+									},
 								},
 							},
 						},
@@ -117,8 +126,12 @@ func TestServiceValidation(t *testing.T) {
 					Configuration: ConfigurationSpec{
 						RevisionTemplate: &RevisionTemplateSpec{
 							Spec: RevisionSpec{
-								Container: &corev1.Container{
-									Image: "hellworld",
+								RevisionSpec: v1beta1.RevisionSpec{
+									PodSpec: v1beta1.PodSpec{
+										Containers: []corev1.Container{{
+											Image: "hellworld",
+										}},
+									},
 								},
 							},
 						},

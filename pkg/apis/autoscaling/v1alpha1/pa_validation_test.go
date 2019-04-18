@@ -109,7 +109,7 @@ func TestPodAutoscalerSpecValidation(t *testing.T) {
 				Name:       "bar",
 			},
 		},
-		want: apis.ErrInvalidValue(-1, "containerConcurrency"),
+		want: apis.ErrOutOfBoundsValue(-1, 0, 1000, "containerConcurrency"),
 	}, {
 		name: "multi invalid, bad concurrency and missing ref kind",
 		rs: &PodAutoscalerSpec{
@@ -120,7 +120,7 @@ func TestPodAutoscalerSpecValidation(t *testing.T) {
 				Name:       "bar",
 			},
 		},
-		want: apis.ErrInvalidValue(-2, "containerConcurrency").Also(
+		want: apis.ErrOutOfBoundsValue(-2, 0, 1000, "containerConcurrency").Also(
 			apis.ErrMissingField("scaleTargetRef.kind")),
 	}}
 
@@ -244,7 +244,7 @@ func TestPodAutoscalerValidation(t *testing.T) {
 				},
 			},
 		},
-		want: apis.ErrInvalidValue(-1, "spec.containerConcurrency"),
+		want: apis.ErrOutOfBoundsValue(-1, 0, 1000, "spec.containerConcurrency"),
 	}}
 
 	for _, test := range tests {

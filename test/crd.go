@@ -132,7 +132,9 @@ func ConfigurationSpec(imagePath string, options *Options) *v1alpha1.Configurati
 					Ports:           options.ContainerPorts,
 					SecurityContext: options.SecurityContext,
 				},
-				ContainerConcurrency: v1alpha1.RevisionContainerConcurrencyType(options.ContainerConcurrency),
+				RevisionSpec: v1beta1.RevisionSpec{
+					ContainerConcurrency: v1beta1.RevisionContainerConcurrencyType(options.ContainerConcurrency),
+				},
 			},
 		},
 	}
@@ -180,8 +182,12 @@ func ConfigurationWithBuild(names ResourceNames, build *v1alpha1.RawExtension) *
 			Build: build,
 			Template: &v1alpha1.RevisionTemplateSpec{
 				Spec: v1alpha1.RevisionSpec{
-					Container: &corev1.Container{
-						Image: ptest.ImagePath(names.Image),
+					RevisionSpec: v1beta1.RevisionSpec{
+						PodSpec: v1beta1.PodSpec{
+							Containers: []corev1.Container{{
+								Image: ptest.ImagePath(names.Image),
+							}},
+						},
 					},
 				},
 			},

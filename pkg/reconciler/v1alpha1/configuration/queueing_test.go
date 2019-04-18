@@ -25,6 +25,7 @@ import (
 	ctrl "github.com/knative/pkg/controller"
 	"github.com/knative/pkg/system"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 	fakeclientset "github.com/knative/serving/pkg/client/clientset/versioned/fake"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
 	"github.com/knative/serving/pkg/gc"
@@ -64,7 +65,11 @@ func getTestConfiguration() *v1alpha1.Configuration {
 			DeprecatedGeneration: 1,
 			RevisionTemplate: &v1alpha1.RevisionTemplateSpec{
 				Spec: v1alpha1.RevisionSpec{
-					ServiceAccountName: "test-account",
+					RevisionSpec: v1beta1.RevisionSpec{
+						PodSpec: v1beta1.PodSpec{
+							ServiceAccountName: "test-account",
+						},
+					},
 					// corev1.Container has a lot of setting.  We try to pass many
 					// of them here to verify that we pass through the settings to
 					// the derived Revisions.

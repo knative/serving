@@ -25,6 +25,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 
 	"github.com/knative/serving/pkg/apis/config"
+	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 )
 
 func TestServiceDefaulting(t *testing.T) {
@@ -71,7 +72,9 @@ func TestServiceDefaulting(t *testing.T) {
 					Configuration: ConfigurationSpec{
 						RevisionTemplate: &RevisionTemplateSpec{
 							Spec: RevisionSpec{
-								TimeoutSeconds: ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+								RevisionSpec: v1beta1.RevisionSpec{
+									TimeoutSeconds: ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+								},
 								Container: &corev1.Container{
 									Resources: defaultResources,
 								},
@@ -89,9 +92,11 @@ func TestServiceDefaulting(t *testing.T) {
 					Configuration: ConfigurationSpec{
 						RevisionTemplate: &RevisionTemplateSpec{
 							Spec: RevisionSpec{
-								ContainerConcurrency: 1,
-								TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
-								Container:            &corev1.Container{},
+								Container: &corev1.Container{},
+								RevisionSpec: v1beta1.RevisionSpec{
+									ContainerConcurrency: 1,
+									TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+								},
 							},
 						},
 					},
@@ -104,8 +109,10 @@ func TestServiceDefaulting(t *testing.T) {
 					Configuration: ConfigurationSpec{
 						RevisionTemplate: &RevisionTemplateSpec{
 							Spec: RevisionSpec{
-								ContainerConcurrency: 1,
-								TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+								RevisionSpec: v1beta1.RevisionSpec{
+									ContainerConcurrency: 1,
+									TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+								},
 								Container: &corev1.Container{
 									Resources: defaultResources,
 								},
@@ -136,7 +143,9 @@ func TestServiceDefaulting(t *testing.T) {
 					Configuration: ConfigurationSpec{
 						RevisionTemplate: &RevisionTemplateSpec{
 							Spec: RevisionSpec{
-								TimeoutSeconds: ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+								RevisionSpec: v1beta1.RevisionSpec{
+									TimeoutSeconds: ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+								},
 								Container: &corev1.Container{
 									Resources: defaultResources,
 								},
@@ -154,9 +163,11 @@ func TestServiceDefaulting(t *testing.T) {
 					Configuration: ConfigurationSpec{
 						RevisionTemplate: &RevisionTemplateSpec{
 							Spec: RevisionSpec{
-								ContainerConcurrency: 1,
-								TimeoutSeconds:       ptr.Int64(99),
-								Container:            &corev1.Container{},
+								Container: &corev1.Container{},
+								RevisionSpec: v1beta1.RevisionSpec{
+									ContainerConcurrency: 1,
+									TimeoutSeconds:       ptr.Int64(99),
+								},
 							},
 						},
 					},
@@ -169,8 +180,10 @@ func TestServiceDefaulting(t *testing.T) {
 					Configuration: ConfigurationSpec{
 						RevisionTemplate: &RevisionTemplateSpec{
 							Spec: RevisionSpec{
-								ContainerConcurrency: 1,
-								TimeoutSeconds:       ptr.Int64(99),
+								RevisionSpec: v1beta1.RevisionSpec{
+									ContainerConcurrency: 1,
+									TimeoutSeconds:       ptr.Int64(99),
+								},
 								Container: &corev1.Container{
 									Resources: defaultResources,
 								},
@@ -201,7 +214,9 @@ func TestServiceDefaulting(t *testing.T) {
 					Configuration: ConfigurationSpec{
 						RevisionTemplate: &RevisionTemplateSpec{
 							Spec: RevisionSpec{
-								TimeoutSeconds: ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+								RevisionSpec: v1beta1.RevisionSpec{
+									TimeoutSeconds: ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+								},
 								Container: &corev1.Container{
 									Resources: defaultResources,
 								},
@@ -219,9 +234,11 @@ func TestServiceDefaulting(t *testing.T) {
 					Configuration: ConfigurationSpec{
 						RevisionTemplate: &RevisionTemplateSpec{
 							Spec: RevisionSpec{
-								ContainerConcurrency: 1,
-								TimeoutSeconds:       ptr.Int64(99),
-								Container:            &corev1.Container{},
+								Container: &corev1.Container{},
+								RevisionSpec: v1beta1.RevisionSpec{
+									ContainerConcurrency: 1,
+									TimeoutSeconds:       ptr.Int64(99),
+								},
 							},
 						},
 					},
@@ -234,8 +251,10 @@ func TestServiceDefaulting(t *testing.T) {
 					Configuration: ConfigurationSpec{
 						RevisionTemplate: &RevisionTemplateSpec{
 							Spec: RevisionSpec{
-								ContainerConcurrency: 1,
-								TimeoutSeconds:       ptr.Int64(99),
+								RevisionSpec: v1beta1.RevisionSpec{
+									ContainerConcurrency: 1,
+									TimeoutSeconds:       ptr.Int64(99),
+								},
 								Container: &corev1.Container{
 									Resources: defaultResources,
 								},

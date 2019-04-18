@@ -22,6 +22,7 @@ import (
 	"github.com/knative/pkg/kmeta"
 	net "github.com/knative/serving/pkg/apis/networking"
 	servingv1alpha1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	servingv1beta1 "github.com/knative/serving/pkg/apis/serving/v1beta1"
 	autoscalingv1 "k8s.io/api/autoscaling/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -80,7 +81,7 @@ type PodAutoscalerSpec struct {
 	// This field replaces ConcurrencyModel. A value of `1`
 	// is equivalent to `Single` and `0` is equivalent to `Multi`.
 	// +optional
-	ContainerConcurrency servingv1alpha1.RevisionContainerConcurrencyType `json:"containerConcurrency,omitempty"`
+	ContainerConcurrency servingv1beta1.RevisionContainerConcurrencyType `json:"containerConcurrency,omitempty"`
 
 	// ScaleTargetRef defines the /scale-able resource that this PodAutoscaler
 	// is responsible for quickly right-sizing.

@@ -33,6 +33,7 @@ import (
 	autoscalingv1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 	"github.com/knative/serving/pkg/autoscaler"
 	fakeclientset "github.com/knative/serving/pkg/client/clientset/versioned/fake"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
@@ -113,7 +114,10 @@ func testRevision() *v1alpha1.Revision {
 				},
 				TerminationMessagePath: "/dev/null",
 			},
-			TimeoutSeconds: ptr.Int64(60),
+			DeprecatedConcurrencyModel: v1alpha1.RevisionRequestConcurrencyModelMulti,
+			RevisionSpec: v1beta1.RevisionSpec{
+				TimeoutSeconds: ptr.Int64(60),
+			},
 		},
 	}
 }

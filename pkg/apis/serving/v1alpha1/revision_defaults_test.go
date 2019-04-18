@@ -27,6 +27,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/knative/serving/pkg/apis/config"
+	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 )
 
 func TestRevisionDefaulting(t *testing.T) {
@@ -40,8 +41,13 @@ func TestRevisionDefaulting(t *testing.T) {
 		in:   &Revision{},
 		want: &Revision{
 			Spec: RevisionSpec{
-				ContainerConcurrency: 0,
-				TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+				RevisionSpec: v1beta1.RevisionSpec{
+					ContainerConcurrency: 0,
+					TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+				},
+				Container: &corev1.Container{
+					Resources: defaultResources,
+				},
 			},
 		},
 	}, {
@@ -53,8 +59,10 @@ func TestRevisionDefaulting(t *testing.T) {
 		},
 		want: &Revision{
 			Spec: RevisionSpec{
-				ContainerConcurrency: 0,
-				TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+				RevisionSpec: v1beta1.RevisionSpec{
+					ContainerConcurrency: 0,
+					TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+				},
 				Container: &corev1.Container{
 					Resources: defaultResources,
 				},
@@ -81,8 +89,10 @@ func TestRevisionDefaulting(t *testing.T) {
 		},
 		want: &Revision{
 			Spec: RevisionSpec{
-				ContainerConcurrency: 0,
-				TimeoutSeconds:       ptr.Int64(123),
+				RevisionSpec: v1beta1.RevisionSpec{
+					ContainerConcurrency: 0,
+					TimeoutSeconds:       ptr.Int64(123),
+				},
 				Container: &corev1.Container{
 					Resources: defaultResources,
 				},
@@ -98,8 +108,10 @@ func TestRevisionDefaulting(t *testing.T) {
 						Name: "bar",
 					}},
 				},
-				ContainerConcurrency: 1,
-				TimeoutSeconds:       ptr.Int64(99),
+				RevisionSpec: v1beta1.RevisionSpec{
+					ContainerConcurrency: 1,
+					TimeoutSeconds:       ptr.Int64(99),
+				},
 			},
 		},
 		want: &Revision{
@@ -112,23 +124,29 @@ func TestRevisionDefaulting(t *testing.T) {
 					}},
 					Resources: defaultResources,
 				},
-				ContainerConcurrency: 1,
-				TimeoutSeconds:       ptr.Int64(99),
+				RevisionSpec: v1beta1.RevisionSpec{
+					ContainerConcurrency: 1,
+					TimeoutSeconds:       ptr.Int64(99),
+				},
 			},
 		},
 	}, {
 		name: "no overwrite",
 		in: &Revision{
 			Spec: RevisionSpec{
-				ContainerConcurrency: 1,
-				TimeoutSeconds:       ptr.Int64(99),
-				Container:            &corev1.Container{},
+				Container: &corev1.Container{},
+				RevisionSpec: v1beta1.RevisionSpec{
+					ContainerConcurrency: 1,
+					TimeoutSeconds:       ptr.Int64(99),
+				},
 			},
 		},
 		want: &Revision{
 			Spec: RevisionSpec{
-				ContainerConcurrency: 1,
-				TimeoutSeconds:       ptr.Int64(99),
+				RevisionSpec: v1beta1.RevisionSpec{
+					ContainerConcurrency: 1,
+					TimeoutSeconds:       ptr.Int64(99),
+				},
 				Container: &corev1.Container{
 					Resources: defaultResources,
 				},
@@ -138,14 +156,18 @@ func TestRevisionDefaulting(t *testing.T) {
 		name: "partially initialized",
 		in: &Revision{
 			Spec: RevisionSpec{
-				ContainerConcurrency: 123,
-				Container:            &corev1.Container{},
+				Container: &corev1.Container{},
+				RevisionSpec: v1beta1.RevisionSpec{
+					ContainerConcurrency: 123,
+				},
 			},
 		},
 		want: &Revision{
 			Spec: RevisionSpec{
-				ContainerConcurrency: 123,
-				TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+				RevisionSpec: v1beta1.RevisionSpec{
+					ContainerConcurrency: 123,
+					TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+				},
 				Container: &corev1.Container{
 					Resources: defaultResources,
 				},
@@ -156,15 +178,19 @@ func TestRevisionDefaulting(t *testing.T) {
 		in: &Revision{
 			Spec: RevisionSpec{
 				DeprecatedConcurrencyModel: "Single",
-				ContainerConcurrency:       0, // unspecified
-				Container:                  &corev1.Container{},
+				Container:        &corev1.Container{},
+				RevisionSpec: v1beta1.RevisionSpec{
+					ContainerConcurrency: 0, // unspecified
+				},
 			},
 		},
 		want: &Revision{
 			Spec: RevisionSpec{
 				DeprecatedConcurrencyModel: "Single",
-				ContainerConcurrency:       1,
-				TimeoutSeconds:             ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+				RevisionSpec: v1beta1.RevisionSpec{
+					ContainerConcurrency: 1,
+					TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+				},
 				Container: &corev1.Container{
 					Resources: defaultResources,
 				},

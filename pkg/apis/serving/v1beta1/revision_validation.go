@@ -105,11 +105,33 @@ func (current *RevisionTemplateSpec) VerifyNameChange(ctx context.Context, og Re
 	return nil
 }
 
+// Validate helps implement apis.Validatable
+func (ps *PodSpec) Validate(ctx context.Context) (errs *apis.FieldError) {
+	// TODO(mattmoor): Once we have the whole corev1.PodSpec, this should
+	// move to pkg/apis/serving/k8s_validation.go and needs a field mask.
+
+	volumes, err := serving.ValidateVolumes(ps.Volumes)
+	if err != nil {
+		errs = errs.Also(err.ViaField("volumes"))
+	}
+
+	switch len(ps.Containers) {
+	case 0:
+		errs = errs.Also(apis.ErrMissingField("containers"))
+	case 1:
+		errs = errs.Also(serving.ValidateContainer(ps.Containers[0], volumes).
+			ViaFieldIndex("containers", 0))
+	default:
+		errs = errs.Also(apis.ErrMultipleOneOf("containers"))
+	}
+	return errs
+}
+
 // Validate implements apis.Validatable
 func (rs *RevisionSpec) Validate(ctx context.Context) *apis.FieldError {
 	err := rs.ContainerConcurrency.Validate(ctx).ViaField("containerConcurrency")
 
-	// TODO(dangerd): Validate pod spec.
+	err = err.Also(rs.PodSpec.Validate(ctx))
 
 	if rs.TimeoutSeconds != nil {
 		ts := *rs.TimeoutSeconds
