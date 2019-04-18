@@ -72,7 +72,7 @@ func TestBlueGreenRoute(t *testing.T) {
 	// The first revision created is "blue"
 	blue.Revision = names.Revision
 
-	t.Log("Updating to a Manual Service to allow configuration and route to be manually modified")
+	t.Log("Updating to a DeprecatedManual Service to allow configuration and route to be manually modified")
 	svc, err := test.PatchManualService(t, clients, objects.Service)
 	if err != nil {
 		t.Fatalf("Failed to update Service %s: %v", names.Service, err)
@@ -109,12 +109,12 @@ func TestBlueGreenRoute(t *testing.T) {
 
 	var blueDomain, greenDomain string
 	for _, tt := range route.Status.Traffic {
-		if tt.Name == blue.TrafficTarget {
+		if tt.DeprecatedName == blue.TrafficTarget {
 			// Strip prefix as WaitForEndPointState expects a domain
 			// without scheme.
 			blueDomain = strings.TrimPrefix(tt.URL, "http://")
 		}
-		if tt.Name == green.TrafficTarget {
+		if tt.DeprecatedName == green.TrafficTarget {
 			// Strip prefix as WaitForEndPointState expects a domain
 			// without scheme.
 			greenDomain = strings.TrimPrefix(tt.URL, "http://")

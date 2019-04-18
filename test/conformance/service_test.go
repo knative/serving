@@ -154,8 +154,8 @@ func validateAnnotations(objs *test.ResourceObjects) error {
 
 func validateReleaseServiceShape(objs *test.ResourceObjects) error {
 	// Check that Spec.Revisions is as expected.
-	if got, want := objs.Service.Spec.Release.Revisions, []string{v1alpha1.ReleaseLatestRevisionKeyword}; !cmp.Equal(got, want) {
-		return fmt.Errorf("Spec.Release.Revisions mismatch: diff: %s", cmp.Diff(got, want))
+	if got, want := objs.Service.Spec.DeprecatedRelease.Revisions, []string{v1alpha1.ReleaseLatestRevisionKeyword}; !cmp.Equal(got, want) {
+		return fmt.Errorf("Spec.DeprecatedRelease.Revisions mismatch: diff: %s", cmp.Diff(got, want))
 	}
 	// Traffic should be routed to the lastest created revision.
 	if got, want := objs.Service.Status.Traffic[0].RevisionName, objs.Config.Status.LatestReadyRevisionName; got != want {
@@ -291,7 +291,7 @@ func TestRunLatestService(t *testing.T) {
 	// Update container with user port.
 	t.Logf("Updating the port of the user container for service %s to %d", names.Service, userPort)
 	desiredSvc := objects.Service.DeepCopy()
-	desiredSvc.Spec.RunLatest.Configuration.GetTemplate().Spec.GetContainer().Ports = []corev1.ContainerPort{{
+	desiredSvc.Spec.DeprecatedRunLatest.Configuration.GetTemplate().Spec.GetContainer().Ports = []corev1.ContainerPort{{
 		ContainerPort: userPort,
 	}}
 	if objects.Service, err = test.PatchService(t, clients, objects.Service, desiredSvc); err != nil {
@@ -328,7 +328,7 @@ func waitForDesiredTrafficShape(t *testing.T, sName string, want map[string]v1al
 			// Match the traffic shape.
 			got := map[string]v1alpha1.TrafficTarget{}
 			for _, tt := range s.Status.Traffic {
-				got[tt.Name] = tt
+				got[tt.DeprecatedName] = tt
 			}
 			ignoreURLs := cmpopts.IgnoreFields(v1alpha1.TrafficTarget{},
 				"TrafficTarget.URL")
@@ -359,7 +359,7 @@ func TestRunLatestServiceBYOName(t *testing.T) {
 
 	// Setup initial Service
 	objects, err := test.CreateRunLatestServiceReady(t, clients, &names, &test.Options{}, func(svc *v1alpha1.Service) {
-		svc.Spec.RunLatest.Configuration.GetTemplate().Name = revName
+		svc.Spec.DeprecatedRunLatest.Configuration.GetTemplate().Name = revName
 	})
 	if err != nil {
 		t.Fatalf("Failed to create initial Service %v: %v", names.Service, err)
@@ -450,14 +450,14 @@ func TestReleaseService(t *testing.T) {
 	}
 	desiredTrafficShape := map[string]v1alpha1.TrafficTarget{
 		v1alpha1.CurrentTrafficTarget: {
-			Name: v1alpha1.CurrentTrafficTarget,
+			DeprecatedName: v1alpha1.CurrentTrafficTarget,
 			TrafficTarget: v1beta1.TrafficTarget{
 				RevisionName: objects.Config.Status.LatestReadyRevisionName,
 				Percent:      100,
 			},
 		},
 		v1alpha1.LatestTrafficTarget: {
-			Name: v1alpha1.LatestTrafficTarget,
+			DeprecatedName: v1alpha1.LatestTrafficTarget,
 			TrafficTarget: v1beta1.TrafficTarget{
 				RevisionName: objects.Config.Status.LatestReadyRevisionName,
 			},
@@ -491,7 +491,7 @@ func TestReleaseService(t *testing.T) {
 
 	// Also verify traffic is in the correct shape.
 	desiredTrafficShape[v1alpha1.LatestTrafficTarget] = v1alpha1.TrafficTarget{
-		Name: v1alpha1.LatestTrafficTarget,
+		DeprecatedName: v1alpha1.LatestTrafficTarget,
 		TrafficTarget: v1beta1.TrafficTarget{
 			RevisionName: names.Revision,
 		},
@@ -518,21 +518,21 @@ func TestReleaseService(t *testing.T) {
 
 	desiredTrafficShape = map[string]v1alpha1.TrafficTarget{
 		v1alpha1.CurrentTrafficTarget: {
-			Name: v1alpha1.CurrentTrafficTarget,
+			DeprecatedName: v1alpha1.CurrentTrafficTarget,
 			TrafficTarget: v1beta1.TrafficTarget{
 				RevisionName: revisions[0],
 				Percent:      50,
 			},
 		},
 		v1alpha1.CandidateTrafficTarget: {
-			Name: v1alpha1.CandidateTrafficTarget,
+			DeprecatedName: v1alpha1.CandidateTrafficTarget,
 			TrafficTarget: v1beta1.TrafficTarget{
 				RevisionName: revisions[1],
 				Percent:      50,
 			},
 		},
 		v1alpha1.LatestTrafficTarget: {
-			Name: v1alpha1.LatestTrafficTarget,
+			DeprecatedName: v1alpha1.LatestTrafficTarget,
 			TrafficTarget: v1beta1.TrafficTarget{
 				RevisionName: revisions[1],
 			},
@@ -563,7 +563,7 @@ func TestReleaseService(t *testing.T) {
 	}
 
 	desiredTrafficShape[v1alpha1.LatestTrafficTarget] = v1alpha1.TrafficTarget{
-		Name: v1alpha1.LatestTrafficTarget,
+		DeprecatedName: v1alpha1.LatestTrafficTarget,
 		TrafficTarget: v1beta1.TrafficTarget{
 			RevisionName: names.Revision,
 		},
@@ -595,7 +595,7 @@ func TestReleaseService(t *testing.T) {
 
 	// `candidate` now points to the latest.
 	desiredTrafficShape[v1alpha1.CandidateTrafficTarget] = v1alpha1.TrafficTarget{
-		Name: v1alpha1.CandidateTrafficTarget,
+		DeprecatedName: v1alpha1.CandidateTrafficTarget,
 		TrafficTarget: v1beta1.TrafficTarget{
 			RevisionName: names.Revision,
 			Percent:      50,

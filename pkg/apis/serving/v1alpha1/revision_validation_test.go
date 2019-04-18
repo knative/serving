@@ -166,7 +166,7 @@ func TestRevisionSpecValidation(t *testing.T) {
 	}{{
 		name: "valid",
 		rs: &RevisionSpec{
-			Container: &corev1.Container{
+			DeprecatedContainer: &corev1.Container{
 				Image: "helloworld",
 			},
 		},
@@ -177,13 +177,13 @@ func TestRevisionSpecValidation(t *testing.T) {
 		rs: &RevisionSpec{
 			DeprecatedGeneration:   123,
 			DeprecatedServingState: "Active",
-			Container: &corev1.Container{
+			DeprecatedContainer: &corev1.Container{
 				Image: "helloworld",
 			},
 			DeprecatedConcurrencyModel: "Multi",
 			DeprecatedBuildName:        "banana",
 		},
-		want: apis.ErrDisallowedFields("buildName", "concurrencyModel",
+		want: apis.ErrDisallowedFields("buildName", "concurrencyModel", "container",
 			"generation", "servingState"),
 	}, {
 		name: "missing container",
@@ -205,7 +205,7 @@ func TestRevisionSpecValidation(t *testing.T) {
 	}, {
 		name: "with volume (ok)",
 		rs: &RevisionSpec{
-			Container: &corev1.Container{
+			DeprecatedContainer: &corev1.Container{
 				Image: "helloworld",
 				VolumeMounts: []corev1.VolumeMount{{
 					MountPath: "/mount/path",
@@ -230,7 +230,7 @@ func TestRevisionSpecValidation(t *testing.T) {
 	}, {
 		name: "with volume name collision",
 		rs: &RevisionSpec{
-			Container: &corev1.Container{
+			DeprecatedContainer: &corev1.Container{
 				Image: "helloworld",
 				VolumeMounts: []corev1.VolumeMount{{
 					MountPath: "/mount/path",
@@ -263,16 +263,16 @@ func TestRevisionSpecValidation(t *testing.T) {
 	}, {
 		name: "has bad build ref",
 		rs: &RevisionSpec{
-			Container: &corev1.Container{
+			DeprecatedContainer: &corev1.Container{
 				Image: "helloworld",
 			},
-			BuildRef: &corev1.ObjectReference{},
+			DeprecatedBuildRef: &corev1.ObjectReference{},
 		},
 		want: apis.ErrInvalidValue("", "buildRef.apiVersion"),
 	}, {
 		name: "bad concurrency model",
 		rs: &RevisionSpec{
-			Container: &corev1.Container{
+			DeprecatedContainer: &corev1.Container{
 				Image: "helloworld",
 			},
 			DeprecatedConcurrencyModel: "bogus",
@@ -281,7 +281,7 @@ func TestRevisionSpecValidation(t *testing.T) {
 	}, {
 		name: "bad container spec",
 		rs: &RevisionSpec{
-			Container: &corev1.Container{
+			DeprecatedContainer: &corev1.Container{
 				Name:  "steve",
 				Image: "helloworld",
 			},
@@ -290,7 +290,7 @@ func TestRevisionSpecValidation(t *testing.T) {
 	}, {
 		name: "exceed max timeout",
 		rs: &RevisionSpec{
-			Container: &corev1.Container{
+			DeprecatedContainer: &corev1.Container{
 				Image: "helloworld",
 			},
 			RevisionSpec: v1beta1.RevisionSpec{
@@ -303,7 +303,7 @@ func TestRevisionSpecValidation(t *testing.T) {
 	}, {
 		name: "provided zero timeout (ok)",
 		rs: &RevisionSpec{
-			Container: &corev1.Container{
+			DeprecatedContainer: &corev1.Container{
 				Image: "helloworld",
 			},
 			RevisionSpec: v1beta1.RevisionSpec{
@@ -314,7 +314,7 @@ func TestRevisionSpecValidation(t *testing.T) {
 	}, {
 		name: "negative timeout",
 		rs: &RevisionSpec{
-			Container: &corev1.Container{
+			DeprecatedContainer: &corev1.Container{
 				Image: "helloworld",
 			},
 			RevisionSpec: v1beta1.RevisionSpec{
@@ -349,7 +349,7 @@ func TestRevisionTemplateSpecValidation(t *testing.T) {
 		name: "valid",
 		rts: &RevisionTemplateSpec{
 			Spec: RevisionSpec{
-				Container: &corev1.Container{
+				DeprecatedContainer: &corev1.Container{
 					Image: "helloworld",
 				},
 			},
@@ -363,7 +363,7 @@ func TestRevisionTemplateSpecValidation(t *testing.T) {
 		name: "nested spec error",
 		rts: &RevisionTemplateSpec{
 			Spec: RevisionSpec{
-				Container: &corev1.Container{
+				DeprecatedContainer: &corev1.Container{
 					Name:  "kevin",
 					Image: "helloworld",
 				},
@@ -378,7 +378,7 @@ func TestRevisionTemplateSpecValidation(t *testing.T) {
 				Name: "parent-foo",
 			},
 			Spec: RevisionSpec{
-				Container: &corev1.Container{
+				DeprecatedContainer: &corev1.Container{
 					Image: "helloworld",
 				},
 			},
@@ -412,7 +412,7 @@ func TestRevisionValidation(t *testing.T) {
 				Name: "valid",
 			},
 			Spec: RevisionSpec{
-				Container: &corev1.Container{
+				DeprecatedContainer: &corev1.Container{
 					Image: "helloworld",
 				},
 			},
@@ -433,7 +433,7 @@ func TestRevisionValidation(t *testing.T) {
 				Name: "valid",
 			},
 			Spec: RevisionSpec{
-				Container: &corev1.Container{
+				DeprecatedContainer: &corev1.Container{
 					Name:  "kevin",
 					Image: "helloworld",
 				},
@@ -447,7 +447,7 @@ func TestRevisionValidation(t *testing.T) {
 				Name: "a" + strings.Repeat(".", 62) + "a",
 			},
 			Spec: RevisionSpec{
-				Container: &corev1.Container{
+				DeprecatedContainer: &corev1.Container{
 					Image: "helloworld",
 				},
 			},
@@ -467,7 +467,7 @@ func TestRevisionValidation(t *testing.T) {
 				},
 			},
 			Spec: RevisionSpec{
-				Container: &corev1.Container{
+				DeprecatedContainer: &corev1.Container{
 					Image: "helloworld",
 				},
 			},
@@ -501,7 +501,7 @@ func TestImmutableFields(t *testing.T) {
 				Name: "foo",
 			},
 			Spec: RevisionSpec{
-				Container: &corev1.Container{
+				DeprecatedContainer: &corev1.Container{
 					Image: "helloworld",
 				},
 			},
@@ -511,7 +511,7 @@ func TestImmutableFields(t *testing.T) {
 				Name: "foo",
 			},
 			Spec: RevisionSpec{
-				Container: &corev1.Container{
+				DeprecatedContainer: &corev1.Container{
 					Image: "helloworld",
 				},
 			},
@@ -524,7 +524,7 @@ func TestImmutableFields(t *testing.T) {
 				Name: "foo",
 			},
 			Spec: RevisionSpec{
-				Container: &corev1.Container{
+				DeprecatedContainer: &corev1.Container{
 					Image: "busybox",
 					Resources: corev1.ResourceRequirements{
 						Requests: corev1.ResourceList{
@@ -539,7 +539,7 @@ func TestImmutableFields(t *testing.T) {
 				Name: "foo",
 			},
 			Spec: RevisionSpec{
-				Container: &corev1.Container{
+				DeprecatedContainer: &corev1.Container{
 					Image: "busybox",
 					Resources: corev1.ResourceRequirements{
 						Requests: corev1.ResourceList{
@@ -552,7 +552,7 @@ func TestImmutableFields(t *testing.T) {
 		want: &apis.FieldError{
 			Message: "Immutable fields changed (-old +new)",
 			Paths:   []string{"spec"},
-			Details: `{v1alpha1.RevisionSpec}.Container.Resources.Requests["cpu"]:
+			Details: `{v1alpha1.RevisionSpec}.DeprecatedContainer.Resources.Requests["cpu"]:
 	-: resource.Quantity: "{i:{value:100 scale:-3} d:{Dec:<nil>} s:100m Format:DecimalSI}"
 	+: resource.Quantity: "{i:{value:50 scale:-3} d:{Dec:<nil>} s:50m Format:DecimalSI}"
 `,
@@ -564,7 +564,7 @@ func TestImmutableFields(t *testing.T) {
 				Name: "foo",
 			},
 			Spec: RevisionSpec{
-				Container: &corev1.Container{
+				DeprecatedContainer: &corev1.Container{
 					Image: "helloworld",
 				},
 			},
@@ -574,7 +574,7 @@ func TestImmutableFields(t *testing.T) {
 				Name: "foo",
 			},
 			Spec: RevisionSpec{
-				Container: &corev1.Container{
+				DeprecatedContainer: &corev1.Container{
 					Image: "busybox",
 				},
 			},
@@ -582,7 +582,7 @@ func TestImmutableFields(t *testing.T) {
 		want: &apis.FieldError{
 			Message: "Immutable fields changed (-old +new)",
 			Paths:   []string{"spec"},
-			Details: `{v1alpha1.RevisionSpec}.Container.Image:
+			Details: `{v1alpha1.RevisionSpec}.DeprecatedContainer.Image:
 	-: "busybox"
 	+: "helloworld"
 `,
@@ -594,7 +594,7 @@ func TestImmutableFields(t *testing.T) {
 				Name: "foo",
 			},
 			Spec: RevisionSpec{
-				Container: &corev1.Container{
+				DeprecatedContainer: &corev1.Container{
 					Image: "helloworld",
 				},
 				DeprecatedConcurrencyModel: "Multi",
@@ -605,7 +605,7 @@ func TestImmutableFields(t *testing.T) {
 				Name: "foo",
 			},
 			Spec: RevisionSpec{
-				Container: &corev1.Container{
+				DeprecatedContainer: &corev1.Container{
 					Image: "helloworld",
 				},
 				DeprecatedConcurrencyModel: "Single",
@@ -626,7 +626,7 @@ func TestImmutableFields(t *testing.T) {
 				Name: "foo",
 			},
 			Spec: RevisionSpec{
-				Container: &corev1.Container{
+				DeprecatedContainer: &corev1.Container{
 					Image: "helloworld",
 				},
 				RevisionSpec: v1beta1.RevisionSpec{
@@ -639,7 +639,7 @@ func TestImmutableFields(t *testing.T) {
 				Name: "foo",
 			},
 			Spec: RevisionSpec{
-				Container: &corev1.Container{
+				DeprecatedContainer: &corev1.Container{
 					Image: "helloworld",
 				},
 			},
@@ -659,7 +659,7 @@ func TestImmutableFields(t *testing.T) {
 				Name: "foo",
 			},
 			Spec: RevisionSpec{
-				Container: &corev1.Container{
+				DeprecatedContainer: &corev1.Container{
 					Image: "helloworld",
 				},
 				RevisionSpec: v1beta1.RevisionSpec{
@@ -672,7 +672,7 @@ func TestImmutableFields(t *testing.T) {
 				Name: "foo",
 			},
 			Spec: RevisionSpec{
-				Container: &corev1.Container{
+				DeprecatedContainer: &corev1.Container{
 					Image: "busybox",
 				},
 				RevisionSpec: v1beta1.RevisionSpec{
@@ -686,7 +686,7 @@ func TestImmutableFields(t *testing.T) {
 			Details: `{v1alpha1.RevisionSpec}.RevisionSpec.ContainerConcurrency:
 	-: "1"
 	+: "100"
-{v1alpha1.RevisionSpec}.Container.Image:
+{v1alpha1.RevisionSpec}.DeprecatedContainer.Image:
 	-: "busybox"
 	+: "helloworld"
 `,

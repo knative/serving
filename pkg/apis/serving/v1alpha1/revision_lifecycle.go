@@ -85,8 +85,8 @@ func (r *Revision) GetGroupVersionKind() schema.GroupVersionKind {
 // It is never nil and should be exactly the specified container as guaranteed
 // by validation.
 func (rs *RevisionSpec) GetContainer() *corev1.Container {
-	if rs.Container != nil {
-		return rs.Container
+	if rs.DeprecatedContainer != nil {
+		return rs.DeprecatedContainer
 	}
 	if len(rs.Containers) > 0 {
 		return &rs.Containers[0]
@@ -95,9 +95,9 @@ func (rs *RevisionSpec) GetContainer() *corev1.Container {
 	return &corev1.Container{}
 }
 
-func (r *Revision) BuildRef() *corev1.ObjectReference {
-	if r.Spec.BuildRef != nil {
-		buildRef := r.Spec.BuildRef.DeepCopy()
+func (r *Revision) DeprecatedBuildRef() *corev1.ObjectReference {
+	if r.Spec.DeprecatedBuildRef != nil {
+		buildRef := r.Spec.DeprecatedBuildRef.DeepCopy()
 		if buildRef.Namespace == "" {
 			buildRef.Namespace = r.Namespace
 		}

@@ -1202,13 +1202,13 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			route("default", "same-revision-targets", WithSpecTraffic(
 				v1alpha1.TrafficTarget{
-					Name: "gray",
+					DeprecatedName: "gray",
 					TrafficTarget: v1beta1.TrafficTarget{
 						ConfigurationName: "gray",
 						Percent:           50,
 					},
 				}, v1alpha1.TrafficTarget{
-					Name: "also-gray",
+					DeprecatedName: "also-gray",
 					TrafficTarget: v1beta1.TrafficTarget{
 						RevisionName: "gray-00001",
 						Percent:      50,
@@ -1222,13 +1222,13 @@ func TestReconcile(t *testing.T) {
 			resources.MakeClusterIngress(
 				route("default", "same-revision-targets", WithDomain, WithSpecTraffic(
 					v1alpha1.TrafficTarget{
-						Name: "gray",
+						DeprecatedName: "gray",
 						TrafficTarget: v1beta1.TrafficTarget{
 							ConfigurationName: "gray",
 							Percent:           50,
 						},
 					}, v1alpha1.TrafficTarget{
-						Name: "also-gray",
+						DeprecatedName: "also-gray",
 						TrafficTarget: v1beta1.TrafficTarget{
 							RevisionName: "gray-00001",
 							Percent:      50,
@@ -1271,13 +1271,13 @@ func TestReconcile(t *testing.T) {
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: route("default", "same-revision-targets",
 				WithSpecTraffic(v1alpha1.TrafficTarget{
-					Name: "gray",
+					DeprecatedName: "gray",
 					TrafficTarget: v1beta1.TrafficTarget{
 						ConfigurationName: "gray",
 						Percent:           50,
 					},
 				}, v1alpha1.TrafficTarget{
-					Name: "also-gray",
+					DeprecatedName: "also-gray",
 					TrafficTarget: v1beta1.TrafficTarget{
 						RevisionName: "gray-00001",
 						Percent:      50,
@@ -1286,14 +1286,14 @@ func TestReconcile(t *testing.T) {
 				WithDomain, WithDomainInternal, WithAddress, WithInitRouteConditions,
 				MarkTrafficAssigned, WithStatusTraffic(
 					v1alpha1.TrafficTarget{
-						Name: "gray",
+						DeprecatedName: "gray",
 						TrafficTarget: v1beta1.TrafficTarget{
 							RevisionName: "gray-00001",
 							Percent:      50,
 							URL:          "http://gray.same-revision-targets.default.example.com",
 						},
 					}, v1alpha1.TrafficTarget{
-						Name: "also-gray",
+						DeprecatedName: "also-gray",
 						TrafficTarget: v1beta1.TrafficTarget{
 							RevisionName: "gray-00001",
 							Percent:      50,
@@ -1314,7 +1314,7 @@ func TestReconcile(t *testing.T) {
 				WithDomain, WithDomainInternal, WithAddress, WithInitRouteConditions,
 				MarkTrafficAssigned, MarkIngressReady, WithStatusTraffic(
 					v1alpha1.TrafficTarget{
-						Name: "blue",
+						DeprecatedName: "blue",
 						TrafficTarget: v1beta1.TrafficTarget{
 							RevisionName: "blue-00001",
 							Percent:      100,
@@ -1645,9 +1645,9 @@ func cfg(namespace, name string, co ...ConfigOption) *v1alpha1.Configuration {
 		},
 		Spec: v1alpha1.ConfigurationSpec{
 			DeprecatedGeneration: 1,
-			RevisionTemplate: &v1alpha1.RevisionTemplateSpec{
+			DeprecatedRevisionTemplate: &v1alpha1.RevisionTemplateSpec{
 				Spec: v1alpha1.RevisionSpec{
-					Container: &corev1.Container{
+					DeprecatedContainer: &corev1.Container{
 						Image: "busybox",
 					},
 				},

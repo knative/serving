@@ -45,7 +45,7 @@ func TestRevisionDefaulting(t *testing.T) {
 					ContainerConcurrency: 0,
 					TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
 				},
-				Container: &corev1.Container{
+				DeprecatedContainer: &corev1.Container{
 					Resources: defaultResources,
 				},
 			},
@@ -54,7 +54,7 @@ func TestRevisionDefaulting(t *testing.T) {
 		name: "shell",
 		in: &Revision{
 			Spec: RevisionSpec{
-				Container: &corev1.Container{},
+				DeprecatedContainer: &corev1.Container{},
 			},
 		},
 		want: &Revision{
@@ -63,7 +63,7 @@ func TestRevisionDefaulting(t *testing.T) {
 					ContainerConcurrency: 0,
 					TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
 				},
-				Container: &corev1.Container{
+				DeprecatedContainer: &corev1.Container{
 					Resources: defaultResources,
 				},
 			},
@@ -72,7 +72,7 @@ func TestRevisionDefaulting(t *testing.T) {
 		name: "with context",
 		in: &Revision{
 			Spec: RevisionSpec{
-				Container: &corev1.Container{},
+				DeprecatedContainer: &corev1.Container{},
 			}},
 		wc: func(ctx context.Context) context.Context {
 			s := config.NewStore(logtesting.TestLogger(t))
@@ -93,7 +93,7 @@ func TestRevisionDefaulting(t *testing.T) {
 					ContainerConcurrency: 0,
 					TimeoutSeconds:       ptr.Int64(123),
 				},
-				Container: &corev1.Container{
+				DeprecatedContainer: &corev1.Container{
 					Resources: defaultResources,
 				},
 			},
@@ -102,7 +102,7 @@ func TestRevisionDefaulting(t *testing.T) {
 		name: "readonly volumes",
 		in: &Revision{
 			Spec: RevisionSpec{
-				Container: &corev1.Container{
+				DeprecatedContainer: &corev1.Container{
 					Image: "foo",
 					VolumeMounts: []corev1.VolumeMount{{
 						Name: "bar",
@@ -116,7 +116,7 @@ func TestRevisionDefaulting(t *testing.T) {
 		},
 		want: &Revision{
 			Spec: RevisionSpec{
-				Container: &corev1.Container{
+				DeprecatedContainer: &corev1.Container{
 					Image: "foo",
 					VolumeMounts: []corev1.VolumeMount{{
 						Name:     "bar",
@@ -134,7 +134,7 @@ func TestRevisionDefaulting(t *testing.T) {
 		name: "no overwrite",
 		in: &Revision{
 			Spec: RevisionSpec{
-				Container: &corev1.Container{},
+				DeprecatedContainer: &corev1.Container{},
 				RevisionSpec: v1beta1.RevisionSpec{
 					ContainerConcurrency: 1,
 					TimeoutSeconds:       ptr.Int64(99),
@@ -147,7 +147,7 @@ func TestRevisionDefaulting(t *testing.T) {
 					ContainerConcurrency: 1,
 					TimeoutSeconds:       ptr.Int64(99),
 				},
-				Container: &corev1.Container{
+				DeprecatedContainer: &corev1.Container{
 					Resources: defaultResources,
 				},
 			},
@@ -156,7 +156,7 @@ func TestRevisionDefaulting(t *testing.T) {
 		name: "partially initialized",
 		in: &Revision{
 			Spec: RevisionSpec{
-				Container: &corev1.Container{},
+				DeprecatedContainer: &corev1.Container{},
 				RevisionSpec: v1beta1.RevisionSpec{
 					ContainerConcurrency: 123,
 				},
@@ -168,7 +168,7 @@ func TestRevisionDefaulting(t *testing.T) {
 					ContainerConcurrency: 123,
 					TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
 				},
-				Container: &corev1.Container{
+				DeprecatedContainer: &corev1.Container{
 					Resources: defaultResources,
 				},
 			},
@@ -178,7 +178,7 @@ func TestRevisionDefaulting(t *testing.T) {
 		in: &Revision{
 			Spec: RevisionSpec{
 				DeprecatedConcurrencyModel: "Single",
-				Container:        &corev1.Container{},
+				DeprecatedContainer:        &corev1.Container{},
 				RevisionSpec: v1beta1.RevisionSpec{
 					ContainerConcurrency: 0, // unspecified
 				},
@@ -191,7 +191,7 @@ func TestRevisionDefaulting(t *testing.T) {
 					ContainerConcurrency: 1,
 					TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
 				},
-				Container: &corev1.Container{
+				DeprecatedContainer: &corev1.Container{
 					Resources: defaultResources,
 				},
 			},

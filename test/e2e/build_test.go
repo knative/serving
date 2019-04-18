@@ -98,7 +98,7 @@ func TestBuildSpecAndServe(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to get latest Revision: %v", err)
 	}
-	buildName := rev.Spec.BuildRef.Name
+	buildName := rev.Spec.DeprecatedBuildRef.Name
 	t.Logf("Latest ready Revision is %q; its build is: %q", rev.Name, buildName)
 	u, err := clients.Dynamic.Resource(schema.GroupVersionResource{
 		Group:    buildv1alpha1.SchemeGroupVersion.Group,
@@ -138,8 +138,8 @@ func TestBuildSpecAndServe(t *testing.T) {
 		t.Fatalf("Failed to get latest Revision: %v", err)
 	}
 
-	if diff := cmp.Diff(rev.Spec.BuildRef, nextRev.Spec.BuildRef); diff != "" {
-		t.Fatalf("Unexpected differences in BuildRef: %v", diff)
+	if diff := cmp.Diff(rev.Spec.DeprecatedBuildRef, nextRev.Spec.DeprecatedBuildRef); diff != "" {
+		t.Fatalf("Unexpected differences in DeprecatedBuildRef: %v", diff)
 	}
 }
 
@@ -201,7 +201,7 @@ func TestBuildAndServe(t *testing.T) {
 		t.Fatalf("Failed to get latest Revision: %v", err)
 	}
 	names.Revision = rev.Name
-	buildName := rev.Spec.BuildRef.Name
+	buildName := rev.Spec.DeprecatedBuildRef.Name
 	t.Logf("Latest ready Revision is %q, its build is: %s", rev.Name, buildName)
 	b, err := clients.BuildClient.TestBuilds.Get(buildName, metav1.GetOptions{})
 	if err != nil {
@@ -233,8 +233,8 @@ func TestBuildAndServe(t *testing.T) {
 		t.Fatalf("Failed to get latest Revision: %v", err)
 	}
 
-	if diff := cmp.Diff(rev.Spec.BuildRef, nextRev.Spec.BuildRef); diff != "" {
-		t.Fatalf("Unexpected differences in BuildRef: %v", diff)
+	if diff := cmp.Diff(rev.Spec.DeprecatedBuildRef, nextRev.Spec.DeprecatedBuildRef); diff != "" {
+		t.Fatalf("Unexpected differences in DeprecatedBuildRef: %v", diff)
 	}
 
 	// Update the Configuration's Build with an annotation, which should trigger the creation
@@ -256,8 +256,8 @@ func TestBuildAndServe(t *testing.T) {
 		t.Fatalf("Failed to get latest Revision: %v", err)
 	}
 
-	if diff := cmp.Diff(rev.Spec.BuildRef, nextRev.Spec.BuildRef); diff == "" {
-		t.Fatalf("Got matching BuildRef, wanted different: %#v", rev.Spec.BuildRef)
+	if diff := cmp.Diff(rev.Spec.DeprecatedBuildRef, nextRev.Spec.DeprecatedBuildRef); diff == "" {
+		t.Fatalf("Got matching DeprecatedBuildRef, wanted different: %#v", rev.Spec.DeprecatedBuildRef)
 	}
 }
 
@@ -313,7 +313,7 @@ func TestBuildFailure(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to get latest Revision: %v", err)
 	}
-	buildName := rev.Spec.BuildRef.Name
+	buildName := rev.Spec.DeprecatedBuildRef.Name
 	t.Logf("Latest created Revision is %q; it's build is: %q", rev.Name, buildName)
 	b, err := clients.BuildClient.TestBuilds.Get(buildName, metav1.GetOptions{})
 	if err != nil {

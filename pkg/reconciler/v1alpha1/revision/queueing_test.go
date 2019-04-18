@@ -94,7 +94,7 @@ func testRevision() *v1alpha1.Revision {
 			// corev1.Container has a lot of setting.  We try to pass many
 			// of them here to verify that we pass through the settings to
 			// derived objects.
-			Container: &corev1.Container{
+			DeprecatedContainer: &corev1.Container{
 				Image:      "gcr.io/repo/image",
 				Command:    []string{"echo"},
 				Args:       []string{"hello", "world"},

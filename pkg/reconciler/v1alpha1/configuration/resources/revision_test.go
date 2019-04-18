@@ -43,9 +43,9 @@ func TestMakeRevisions(t *testing.T) {
 				Generation: 10,
 			},
 			Spec: v1alpha1.ConfigurationSpec{
-				RevisionTemplate: &v1alpha1.RevisionTemplateSpec{
+				DeprecatedRevisionTemplate: &v1alpha1.RevisionTemplateSpec{
 					Spec: v1alpha1.RevisionSpec{
-						Container: &corev1.Container{
+						DeprecatedContainer: &corev1.Container{
 							Image: "busybox",
 						},
 					},
@@ -72,7 +72,7 @@ func TestMakeRevisions(t *testing.T) {
 				},
 			},
 			Spec: v1alpha1.RevisionSpec{
-				Container: &corev1.Container{
+				DeprecatedContainer: &corev1.Container{
 					Image: "busybox",
 				},
 			},
@@ -86,14 +86,14 @@ func TestMakeRevisions(t *testing.T) {
 				Generation: 100,
 			},
 			Spec: v1alpha1.ConfigurationSpec{
-				Build: &v1alpha1.RawExtension{BuildSpec: &buildv1alpha1.BuildSpec{
+				DeprecatedBuild: &v1alpha1.RawExtension{BuildSpec: &buildv1alpha1.BuildSpec{
 					Steps: []corev1.Container{{
 						Image: "busybox",
 					}},
 				}},
-				RevisionTemplate: &v1alpha1.RevisionTemplateSpec{
+				DeprecatedRevisionTemplate: &v1alpha1.RevisionTemplateSpec{
 					Spec: v1alpha1.RevisionSpec{
-						Container: &corev1.Container{
+						DeprecatedContainer: &corev1.Container{
 							Image: "busybox",
 						},
 					},
@@ -125,12 +125,12 @@ func TestMakeRevisions(t *testing.T) {
 				},
 			},
 			Spec: v1alpha1.RevisionSpec{
-				BuildRef: &corev1.ObjectReference{
+				DeprecatedBuildRef: &corev1.ObjectReference{
 					APIVersion: "build.knative.dev/v1alpha1",
 					Kind:       "Build",
 					Name:       "build-00099",
 				},
-				Container: &corev1.Container{
+				DeprecatedContainer: &corev1.Container{
 					Image: "busybox",
 				},
 			},
@@ -144,7 +144,7 @@ func TestMakeRevisions(t *testing.T) {
 				Generation: 100,
 			},
 			Spec: v1alpha1.ConfigurationSpec{
-				RevisionTemplate: &v1alpha1.RevisionTemplateSpec{
+				DeprecatedRevisionTemplate: &v1alpha1.RevisionTemplateSpec{
 					ObjectMeta: metav1.ObjectMeta{
 						Labels: map[string]string{
 							"foo": "bar",
@@ -152,7 +152,7 @@ func TestMakeRevisions(t *testing.T) {
 						},
 					},
 					Spec: v1alpha1.RevisionSpec{
-						Container: &corev1.Container{
+						DeprecatedContainer: &corev1.Container{
 							Image: "busybox",
 						},
 					},
@@ -181,7 +181,7 @@ func TestMakeRevisions(t *testing.T) {
 				},
 			},
 			Spec: v1alpha1.RevisionSpec{
-				Container: &corev1.Container{
+				DeprecatedContainer: &corev1.Container{
 					Image: "busybox",
 				},
 			},
@@ -195,7 +195,7 @@ func TestMakeRevisions(t *testing.T) {
 				Generation: 100,
 			},
 			Spec: v1alpha1.ConfigurationSpec{
-				RevisionTemplate: &v1alpha1.RevisionTemplateSpec{
+				DeprecatedRevisionTemplate: &v1alpha1.RevisionTemplateSpec{
 					ObjectMeta: metav1.ObjectMeta{
 						Annotations: map[string]string{
 							"foo": "bar",
@@ -203,7 +203,7 @@ func TestMakeRevisions(t *testing.T) {
 						},
 					},
 					Spec: v1alpha1.RevisionSpec{
-						Container: &corev1.Container{
+						DeprecatedContainer: &corev1.Container{
 							Image: "busybox",
 						},
 					},
@@ -233,7 +233,7 @@ func TestMakeRevisions(t *testing.T) {
 				},
 			},
 			Spec: v1alpha1.RevisionSpec{
-				Container: &corev1.Container{
+				DeprecatedContainer: &corev1.Container{
 					Image: "busybox",
 				},
 			},
@@ -250,8 +250,8 @@ func TestMakeRevisions(t *testing.T) {
 
 		t.Run(test.name+"(template)", func(t *testing.T) {
 			// Test the Template variant.
-			test.configuration.Spec.Template = test.configuration.Spec.RevisionTemplate
-			test.configuration.Spec.RevisionTemplate = nil
+			test.configuration.Spec.Template = test.configuration.Spec.DeprecatedRevisionTemplate
+			test.configuration.Spec.DeprecatedRevisionTemplate = nil
 			got := MakeRevision(test.configuration, test.buildRef)
 			if diff := cmp.Diff(test.want, got); diff != "" {
 				t.Errorf("MakeRevision (-want, +got) = %v", diff)

@@ -253,7 +253,7 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 }
 
 func (c *Reconciler) reconcileBuild(ctx context.Context, rev *v1alpha1.Revision) error {
-	buildRef := rev.BuildRef()
+	buildRef := rev.DeprecatedBuildRef()
 	if buildRef == nil {
 		rev.Status.PropagateBuildStatus(duckv1alpha1.Status{
 			Conditions: []duckv1alpha1.Condition{{
