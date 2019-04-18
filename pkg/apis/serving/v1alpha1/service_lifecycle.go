@@ -135,8 +135,8 @@ func (ss *ServiceStatus) PropagateRouteStatus(rs *RouteStatus) {
 // report Ready.
 func (ss *ServiceStatus) SetManualStatus() {
 	const (
-		reason  = "Manual"
-		message = "Service is set to Manual, and is not managing underlying resources."
+		reason  = "DeprecatedManual"
+		message = "Service is set to DeprecatedManual, and is not managing underlying resources."
 	)
 
 	// Clear our fields by creating a new status and copying over only the fields and conditions we want
