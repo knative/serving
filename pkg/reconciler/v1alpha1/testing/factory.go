@@ -103,7 +103,7 @@ func MakeFactory(ctor Ctor) Factory {
 			DynamicClientSet: dynamicClient,
 			CachingClientSet: cachingClient,
 			ServingClientSet: client,
-			ScaleClientSet:   scaleClient(&client.Fake, ls.GetKubeObjects()...),
+			ScaleClientSet:   scaleClient(client.Fake, ls.GetKubeObjects()...),
 			Recorder:         eventRecorder,
 			StatsReporter:    statsReporter,
 			Logger:           TestLogger(t),

@@ -140,6 +140,18 @@ func TestReconcile(t *testing.T) {
 			Object: endpointspub("private", "svc-change", WithSubsets),
 		}},
 	}, {
+		Name: "OnCreate-deployment-does-not-exist",
+		Key:  "on/cde",
+		Objects: []runtime.Object{
+			SKS("on", "cde", WithDeployRef("blah")),
+			deploy("on", "blah-another"),
+			endpointspriv("on", "cde", WithSubsets),
+		},
+		WantErr: true,
+		WantEvents: []string{
+			Eventf(corev1.EventTypeWarning, "UpdateFailed", `InternalError: error retrieving deployment selector spec: deployments.apps "blah" not found`),
+		},
+	}, {
 		Name: "OnCreate-deployment-exists",
 		Key:  "on/cde",
 		Objects: []runtime.Object{
