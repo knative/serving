@@ -49,7 +49,7 @@ func TestHTTPRoundTripper(t *testing.T) {
 		})
 	}
 
-	rt := NewHTTPTransport(frt("v1"), frt("v2"))
+	rt := NewAutoTransport(frt("v1"), frt("v2"))
 
 	examples := []struct {
 		label      string

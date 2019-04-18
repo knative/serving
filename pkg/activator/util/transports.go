@@ -14,9 +14,12 @@ limitations under the License.
 package util
 
 import (
+	"net"
 	"net/http"
+	"time"
 
 	h2cutil "github.com/knative/serving/pkg/http/h2c"
+	"github.com/knative/serving/pkg/network"
 )
 
 // RoundTripperFunc implementation roundtrips a request.
@@ -27,8 +30,8 @@ func (rt RoundTripperFunc) RoundTrip(r *http.Request) (*http.Response, error) {
 	return rt(r)
 }
 
-// NewHTTPTransport will use the appropriate transport for the request's HTTP protocol version
-func NewHTTPTransport(v1 http.RoundTripper, v2 http.RoundTripper) http.RoundTripper {
+// NewAutoTransport will use the appropriate transport for the request's HTTP protocol version
+func NewAutoTransport(v1 http.RoundTripper, v2 http.RoundTripper) http.RoundTripper {
 	return RoundTripperFunc(func(r *http.Request) (*http.Response, error) {
 		t := v1
 		if r.ProtoMajor == 2 {
@@ -39,5 +42,15 @@ func NewHTTPTransport(v1 http.RoundTripper, v2 http.RoundTripper) http.RoundTrip
 	})
 }
 
+func newHTTPTransport(connTimeout time.Duration) http.RoundTripper {
+	transport := *http.DefaultTransport.(*http.Transport)
+	transport.DialContext = (&net.Dialer{
+		Timeout:   connTimeout,
+		KeepAlive: 30 * time.Second,
+		DualStack: true,
+	}).DialContext
+	return &transport
+}
+
 // AutoTransport uses h2c for HTTP2 requests and falls back to `http.DefaultTransport` for all others
-var AutoTransport = NewHTTPTransport(http.DefaultTransport, h2cutil.DefaultTransport)
+var AutoTransport = NewAutoTransport(newHTTPTransport(network.DefaultConnTimeout), h2cutil.DefaultTransport)
