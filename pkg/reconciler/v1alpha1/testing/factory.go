@@ -47,8 +47,9 @@ const (
 // Ctor functions create a k8s controller with given params.
 type Ctor func(*Listers, reconciler.Options) controller.Reconciler
 
-// scaleClient returns a fake scale client that will serve a single provided object.
-// Kubernetes does not come currently with a normal fake, as other APIs, so we did this...
+// scaleClient returns a Scale fake K8s client, that returns the scale resource
+// defined by the underlying Deployment resource. That deployment resource must
+// exist in the passed in `f` clientset.
 func scaleClient(f *fakekubeclientset.Clientset) scale.ScalesGetter {
 	scaleClient := &fakescaleclient.FakeScaleClient{}
 	scaleClient.PrependReactor("get", "deployments", func(action ktesting.Action) (bool, runtime.Object, error) {
