@@ -129,17 +129,17 @@ func isPAOwnedByRevision(ctx context.Context, pa *pav1alpha1.PodAutoscaler) bool
 	if owner == nil || owner.Kind != revGVK.Kind ||
 		owner.APIVersion != revGVK.GroupVersion().String() {
 		logger.Debug("PA is not owned by a Revision.")
-		return true
+		return false
 	}
-	return false
+	return true
 }
 
 func (ks *scaler) handleScaleToZero(pa *pav1alpha1.PodAutoscaler, desiredScale int32) (int32, bool) {
 	if desiredScale == 0 {
 		// We should only scale to zero when three of the following conditions are true:
 		//   a) enable-scale-to-zero from configmap is true
-		//   b) The PA has been active for atleast the stable window, after which it gets marked inactive
-		//   c) The PA has been inactive for atleast the grace period
+		//   b) The PA has been active for at least the stable window, after which it gets marked inactive
+		//   c) The PA has been inactive for at least the grace period
 
 		config := ks.getAutoscalerConfig()
 
@@ -153,15 +153,14 @@ func (ks *scaler) handleScaleToZero(pa *pav1alpha1.PodAutoscaler, desiredScale i
 		} else if pa.Status.IsReady() { // Active=True
 			// Don't scale-to-zero if the PA is active
 
-			// Only let a revision be scaled to 0 if it's been active for at
-			// least the stable window's time.
+			// Do not scale to 0, but return desiredScale of 0 to mark PA inactive.
 			if pa.Status.CanMarkInactive(config.StableWindow) {
 				return desiredScale, false
 			}
-			// Otherwise, scale down to 1 until the idle period elapses
+			// Otherwise, scale down to 1 until the idle period elapses.
 			desiredScale = 1
 		} else { // Active=False
-			// Don't scale-to-zero if the grace period hasn't elapsed
+			// Don't scale-to-zero if the grace period hasn't elapsed.
 			if !pa.Status.CanScaleToZero(config.ScaleToZeroGracePeriod) {
 				return desiredScale, false
 			}
@@ -191,7 +190,7 @@ func (ks *scaler) applyScale(ctx context.Context, pa *pav1alpha1.PodAutoscaler, 
 func (ks *scaler) Scale(ctx context.Context, pa *pav1alpha1.PodAutoscaler, desiredScale int32) (int32, error) {
 	logger := logging.FromContext(ctx)
 
-	if isPAOwnedByRevision(ctx, pa) {
+	if !isPAOwnedByRevision(ctx, pa) {
 		return desiredScale, nil
 	}
 
@@ -199,6 +198,22 @@ func (ks *scaler) Scale(ctx context.Context, pa *pav1alpha1.PodAutoscaler, desir
 	if err != nil {
 		logger.Errorw("Unable to parse APIVersion", zap.Error(err))
 		return desiredScale, err
+	}
+
+	desiredScale, shouldApplyScale := ks.handleScaleToZero(pa, desiredScale)
+	if !shouldApplyScale {
+		return desiredScale, nil
+	}
+
+	if desiredScale < 0 {
+		logger.Debug("Metrics are not yet being collected.")
+		return desiredScale, nil
+	}
+
+	min, max := pa.ScaleBounds()
+	if newScale := applyBounds(min, max, desiredScale); newScale != desiredScale {
+		logger.Debugf("Adjusting desiredScale to meet the min and max bounds before applying: %d -> %d", desiredScale, newScale)
+		desiredScale = newScale
 	}
 
 	// Identify the current scale.
@@ -209,31 +224,10 @@ func (ks *scaler) Scale(ctx context.Context, pa *pav1alpha1.PodAutoscaler, desir
 	}
 	currentScale := scl.Spec.Replicas
 
-	min, max := pa.ScaleBounds()
-	if newScale := applyBounds(min, max, desiredScale); newScale != desiredScale {
-		logger.Debugf("Adjusting desiredScale: %d -> %d", desiredScale, newScale)
-		desiredScale = newScale
-	}
-
-	desiredScale, shouldApplyScale := ks.handleScaleToZero(pa, desiredScale)
-	if !shouldApplyScale {
-		return desiredScale, nil
-	}
-
-	// Scale from zero. When there are no metrics scale to 1.
-	if currentScale == 0 && desiredScale == scaleUnknown {
-		logger.Debugf("Scaling up from 0 to 1")
-		desiredScale = 1
-	}
-
-	if desiredScale < 0 {
-		logger.Debug("Metrics are not yet being collected.")
-		return desiredScale, nil
-	}
-
 	if desiredScale == currentScale {
 		return desiredScale, nil
 	}
+
 	logger.Infof("Scaling from %d to %d", currentScale, desiredScale)
 
 	return ks.applyScale(ctx, pa, desiredScale, resource, scl)

@@ -193,7 +193,10 @@ func TestMultiScalerScaleFromZero(t *testing.T) {
 	if err != nil {
 		t.Errorf("Create() = %v", err)
 	}
-	if ok := ms.setScale(NewMetricKey(decider.Namespace, decider.Name), 0); !ok {
+	metricKey := NewMetricKey(decider.Namespace, decider.Name)
+	if scaler, exists := ms.scalers[metricKey]; !exists {
+		t.Errorf("Failed to get scaler for metric %s", metricKey)
+	} else if !scaler.updateLatestScale(0) {
 		t.Error("Failed to set scale for metric to 0")
 	}
 
