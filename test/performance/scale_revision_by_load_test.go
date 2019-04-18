@@ -155,6 +155,7 @@ func scaleRevisionByLoad(t *testing.T, numClients int) []junit.TestCase {
 		Domain:         domain,
 		BaseQPS:        qpsPerClient * float64(numClients),
 		URL:            fmt.Sprintf("http://%s/?timeout=%d", *endpoint, processingTimeMillis),
+		LoadFactors:    []float64{1},
 	}
 
 	t.Logf("Starting test with %d clients at %s", numClients, time.Now())
