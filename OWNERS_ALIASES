@@ -17,10 +17,12 @@ aliases:
   - josephburnett
   - markusthoemmes
   - mdemirhan
+  - greghaynes
   autoscaling-reviewers:
   - josephburnett
   - markusthoemmes
   - mdemirhan
+  - greghaynes
 
   monitoring-approvers:
   - mdemirhan
@@ -48,11 +50,13 @@ aliases:
   - markusthoemmes
   - mdemirhan
   - tcnghia
+  - vagababov
   networking-reviewers:
   - lichuqiang
   - markusthoemmes
   - mdemirhan
   - tcnghia
+  - vagababov
 
   build-approvers:
   - imjasonh

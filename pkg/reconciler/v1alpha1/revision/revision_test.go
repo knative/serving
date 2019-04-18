@@ -31,6 +31,8 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-containerregistry/pkg/authn/k8schain"
+	"golang.org/x/sync/errgroup"
+
 	fakecachingclientset "github.com/knative/caching/pkg/client/clientset/versioned/fake"
 	cachinginformers "github.com/knative/caching/pkg/client/informers/externalversions"
 	"github.com/knative/pkg/apis"
@@ -39,7 +41,7 @@ import (
 	ctrl "github.com/knative/pkg/controller"
 	"github.com/knative/pkg/kmeta"
 	"github.com/knative/pkg/system"
-	kpav1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
+	av1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/autoscaler"
@@ -52,7 +54,7 @@ import (
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources"
 	resourcenames "github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources/names"
 	. "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
-	"golang.org/x/sync/errgroup"
+
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
@@ -65,7 +67,7 @@ import (
 	"k8s.io/client-go/tools/record"
 )
 
-func getTestConfiguration() *v1alpha1.Configuration {
+func testConfiguration() *v1alpha1.Configuration {
 	return &v1alpha1.Configuration{
 		ObjectMeta: metav1.ObjectMeta{
 			SelfLink:  "/apis/serving/v1alpha1/namespaces/test/configurations/test-config",
@@ -75,10 +77,14 @@ func getTestConfiguration() *v1alpha1.Configuration {
 	}
 }
 
-func getTestReadyEndpoints(revName string) *corev1.Endpoints {
+func serviceName(rn string) string {
+	return rn + "-pub"
+}
+
+func testReadyEndpoints(revName string) *corev1.Endpoints {
 	return &corev1.Endpoints{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%s-service", revName),
+			Name:      serviceName(revName),
 			Namespace: testNamespace,
 			Labels: map[string]string{
 				serving.RevisionLabelKey: revName,
@@ -92,10 +98,11 @@ func getTestReadyEndpoints(revName string) *corev1.Endpoints {
 	}
 }
 
-func getTestReadyKPA(rev *v1alpha1.Revision) *kpav1alpha1.PodAutoscaler {
+func testReadyKPA(rev *v1alpha1.Revision) *av1alpha1.PodAutoscaler {
 	kpa := resources.MakeKPA(rev)
 	kpa.Status.InitializeConditions()
 	kpa.Status.MarkActive()
+	kpa.Status.ServiceName = serviceName(rev.Name)
 	return kpa
 }
 
@@ -246,7 +253,7 @@ func addResourcesToInformers(t *testing.T,
 	kubeClient *fakekubeclientset.Clientset, kubeInformer kubeinformers.SharedInformerFactory,
 	servingClient *fakeclientset.Clientset, servingInformer informers.SharedInformerFactory,
 	cachingClient *fakecachingclientset.Clientset, cachingInformer cachinginformers.SharedInformerFactory,
-	rev *v1alpha1.Revision) (*v1alpha1.Revision, *appsv1.Deployment, *corev1.Service) {
+	rev *v1alpha1.Revision) (*v1alpha1.Revision, *appsv1.Deployment, *av1alpha1.PodAutoscaler) {
 	t.Helper()
 
 	rev, err := servingClient.ServingV1alpha1().Revisions(rev.Namespace).Get(rev.Name, metav1.GetOptions{})
@@ -289,23 +296,13 @@ func addResourcesToInformers(t *testing.T,
 		kubeInformer.Apps().V1().Deployments().Informer().GetIndexer().Add(deployment)
 	}
 
-	serviceName := resourcenames.K8sService(rev)
-	service, err := kubeClient.CoreV1().Services(ns).Get(serviceName, metav1.GetOptions{})
-	if apierrs.IsNotFound(err) && haveBuild {
-		// If we're doing a Build this won't exist yet.
-	} else if err != nil {
-		t.Errorf("Services.Get(%v) = %v", serviceName, err)
-	} else {
-		kubeInformer.Core().V1().Services().Informer().GetIndexer().Add(service)
-	}
-
 	// Add fluentd configmap if any
 	fluentdConfigMap, err := kubeClient.CoreV1().ConfigMaps(rev.Namespace).Get(resourcenames.FluentdConfigMap(rev), metav1.GetOptions{})
 	if err == nil {
 		kubeInformer.Core().V1().ConfigMaps().Informer().GetIndexer().Add(fluentdConfigMap)
 	}
 
-	return rev, deployment, service
+	return rev, deployment, kpa
 }
 
 type fixedResolver struct {
@@ -331,8 +328,8 @@ func TestResolutionFailed(t *testing.T) {
 	errorMessage := "I am the expected error message, hear me ROAR!"
 	controller.Reconciler.(*Reconciler).resolver = &errorResolver{errorMessage}
 
-	rev := getTestRevision()
-	config := getTestConfiguration()
+	rev := testRevision()
+	config := testConfiguration()
 	rev.OwnerReferences = append(rev.OwnerReferences, *kmeta.NewControllerRef(config))
 
 	createRevision(t, kubeClient, kubeInformer, servingClient, servingInformer, cachingClient, cachingInformer, controller, rev)
@@ -379,7 +376,7 @@ func TestUpdateRevWithWithUpdatedLoggingURL(t *testing.T) {
 	)
 	revClient := servingClient.ServingV1alpha1().Revisions(testNamespace)
 
-	rev := getTestRevision()
+	rev := testRevision()
 	createRevision(t, kubeClient, kubeInformer, servingClient, servingInformer, cachingClient, cachingInformer, controller, rev)
 
 	// Update controllers logging URL
@@ -411,7 +408,7 @@ func TestUpdateRevWithWithUpdatedLoggingURL(t *testing.T) {
 // TODO(mattmoor): Remove when we have coverage of EnqueueEndpointsRevision
 func TestMarkRevReadyUponEndpointBecomesReady(t *testing.T) {
 	kubeClient, servingClient, cachingClient, _, controller, kubeInformer, servingInformer, cachingInformer, _, _ := newTestController(t, nil)
-	rev := getTestRevision()
+	rev := testRevision()
 
 	fakeRecorder := controller.Reconciler.(*Reconciler).Base.Recorder.(*record.FakeRecorder)
 
@@ -435,9 +432,9 @@ func TestMarkRevReadyUponEndpointBecomesReady(t *testing.T) {
 		}
 	}
 
-	endpoints := getTestReadyEndpoints(rev.Name)
+	endpoints := testReadyEndpoints(rev.Name)
 	kubeInformer.Core().V1().Endpoints().Informer().GetIndexer().Add(endpoints)
-	kpa := getTestReadyKPA(rev)
+	kpa := testReadyKPA(rev)
 	servingInformer.Autoscaling().V1alpha1().PodAutoscalers().Informer().GetIndexer().Add(kpa)
 	f := controller.EnqueueLabelOfNamespaceScopedResource("", serving.RevisionLabelKey)
 	f(endpoints)
@@ -476,8 +473,8 @@ func TestMarkRevReadyUponEndpointBecomesReady(t *testing.T) {
 func TestNoQueueSidecarImageUpdateFail(t *testing.T) {
 	kubeClient, servingClient, cachingClient, _, controller, kubeInformer, servingInformer, cachingInformer, watcher, _ := newTestController(t, nil)
 
-	rev := getTestRevision()
-	config := getTestConfiguration()
+	rev := testRevision()
+	config := testConfiguration()
 	rev.OwnerReferences = append(
 		rev.OwnerReferences,
 		*kmeta.NewControllerRef(config),
@@ -555,8 +552,8 @@ func getPodAnnotationsForConfig(t *testing.T, configMapValue string, configAnnot
 			network.IstioOutboundIPRangesKey: configMapValue,
 		}})
 
-	rev := getTestRevision()
-	config := getTestConfiguration()
+	rev := testRevision()
+	config := testConfiguration()
 	if len(configAnnotationOverride) > 0 {
 		rev.ObjectMeta.Annotations = map[string]string{resources.IstioOutboundIPRangeAnnotation: configAnnotationOverride}
 	}
@@ -629,7 +626,7 @@ func TestGlobalResyncOnConfigMapUpdateRevision(t *testing.T) {
 				}
 			}()
 
-			rev := getTestRevision()
+			rev := testRevision()
 			revClient := servingClient.ServingV1alpha1().Revisions(rev.Namespace)
 			h := NewHooks()
 
@@ -802,7 +799,7 @@ func TestGlobalResyncOnConfigMapUpdateDeployment(t *testing.T) {
 				}
 			}()
 
-			rev := getTestRevision()
+			rev := testRevision()
 			revClient := servingClient.ServingV1alpha1().Revisions(rev.Namespace)
 			h := NewHooks()
 			h.OnUpdate(&kubeClient.Fake, "deployments", test.callback(t))

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright 2018 The Knative Authors
+# Copyright 2019 The Knative Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -38,9 +38,15 @@ function build_resource_name() {
 # Test cluster parameters
 
 # Configurable parameters
-readonly E2E_CLUSTER_REGION=${E2E_CLUSTER_REGION:-us-central1}
+# export E2E_CLUSTER_REGION and E2E_CLUSTER_ZONE as they're used in the cluster setup subprocess
+export E2E_CLUSTER_REGION=${E2E_CLUSTER_REGION:-us-central1}
 # By default we use regional clusters.
-readonly E2E_CLUSTER_ZONE=${E2E_CLUSTER_ZONE:-}
+export E2E_CLUSTER_ZONE=${E2E_CLUSTER_ZONE:-}
+
+# Default backup regions in case of stockouts; by default we don't fall back to a different zone in the same region
+readonly E2E_CLUSTER_BACKUP_REGIONS=${E2E_CLUSTER_BACKUP_REGIONS:-us-west1 us-east1}
+readonly E2E_CLUSTER_BACKUP_ZONES=${E2E_CLUSTER_BACKUP_ZONES:-}
+
 readonly E2E_CLUSTER_MACHINE=${E2E_CLUSTER_MACHINE:-n1-standard-4}
 readonly E2E_GKE_ENVIRONMENT=${E2E_GKE_ENVIRONMENT:-prod}
 readonly E2E_GKE_COMMAND_GROUP=${E2E_GKE_COMMAND_GROUP:-beta}
@@ -154,20 +160,15 @@ function create_test_cluster() {
     cluster_setup || fail_test "cluster setup failed"
   fi
 
-  header "Creating test cluster"
-
   echo "Cluster will have a minimum of ${E2E_MIN_CLUSTER_NODES} and a maximum of ${E2E_MAX_CLUSTER_NODES} nodes."
 
   # Smallest cluster required to run the end-to-end-tests
-  local geoflag="--gcp-region=${E2E_CLUSTER_REGION}"
-  [[ -n "${E2E_CLUSTER_ZONE}" ]] && geoflag="--gcp-zone=${E2E_CLUSTER_REGION}-${E2E_CLUSTER_ZONE}"
   local CLUSTER_CREATION_ARGS=(
     --gke-create-command="container clusters create --quiet --enable-autoscaling --min-nodes=${E2E_MIN_CLUSTER_NODES} --max-nodes=${E2E_MAX_CLUSTER_NODES} --scopes=cloud-platform --enable-basic-auth --no-issue-client-certificate ${EXTRA_CLUSTER_CREATION_FLAGS[@]}"
     --gke-shape={\"default\":{\"Nodes\":${E2E_MIN_CLUSTER_NODES}\,\"MachineType\":\"${E2E_CLUSTER_MACHINE}\"}}
     --provider=gke
     --deployment=gke
     --cluster="${E2E_CLUSTER_NAME}"
-    ${geoflag}
     --gcp-network="${E2E_NETWORK_NAME}"
     --gke-environment="${E2E_GKE_ENVIRONMENT}"
     --gke-command-group="${E2E_GKE_COMMAND_GROUP}"
@@ -198,11 +199,7 @@ function create_test_cluster() {
   local extra_flags=()
   # If using boskos, save time and let it tear down the cluster
   (( ! IS_BOSKOS )) && extra_flags+=(--down)
-  # Don't fail test for kubetest, as it might incorrectly report test failure
-  # if teardown fails (for details, see success() below)
-  set +o errexit
-  run_go_tool k8s.io/test-infra/kubetest \
-    kubetest "${CLUSTER_CREATION_ARGS[@]}" \
+  create_test_cluster_with_retries "${CLUSTER_CREATION_ARGS[@]}" \
     --up \
     --extract "${E2E_CLUSTER_VERSION}" \
     --gcp-node-image "${SERVING_GKE_IMAGE}" \
@@ -215,10 +212,53 @@ function create_test_cluster() {
   set +o errexit
   function_exists cluster_teardown && cluster_teardown
   delete_leaked_network_resources
-  local result="$(cat ${TEST_RESULT_FILE})"
+  local result=$(get_test_return_code)
   echo "Artifacts were written to ${ARTIFACTS}"
   echo "Test result code is ${result}"
   exit ${result}
+}
+
+# Retry backup regions/zones if cluster creations failed due to stockout.
+# Parameters: $1..$n - any kubetest flags other than geo flag.
+function create_test_cluster_with_retries() {
+  local cluster_creation_log=/tmp/${E2E_BASE_NAME}-cluster_creation-log
+  # zone_not_provided is a placeholder for e2e_cluster_zone to make for loop below work
+  local zone_not_provided="zone_not_provided"
+
+  local e2e_cluster_regions=(${E2E_CLUSTER_REGION})
+  local e2e_cluster_zones=(${E2E_CLUSTER_ZONE})
+
+  if [[ -n "${E2E_CLUSTER_BACKUP_ZONES}" ]]; then
+    e2e_cluster_zones+=(${E2E_CLUSTER_BACKUP_ZONES})
+  elif [[ -n "${E2E_CLUSTER_BACKUP_REGIONS}" ]]; then
+    e2e_cluster_regions+=(${E2E_CLUSTER_BACKUP_REGIONS})
+    e2e_cluster_zones=(${zone_not_provided})
+  else
+    echo "No backup region/zone set, cluster creation will fail in case of stockout"
+  fi
+
+  for e2e_cluster_region in "${e2e_cluster_regions[@]}"; do
+    for e2e_cluster_zone in "${e2e_cluster_zones[@]}"; do
+      E2E_CLUSTER_REGION=${e2e_cluster_region}
+      E2E_CLUSTER_ZONE=${e2e_cluster_zone}
+      [[ "${E2E_CLUSTER_ZONE}" == "${zone_not_provided}" ]] && E2E_CLUSTER_ZONE=""
+
+      local geoflag="--gcp-region=${E2E_CLUSTER_REGION}"
+      [[ -n "${E2E_CLUSTER_ZONE}" ]] && geoflag="--gcp-zone=${E2E_CLUSTER_REGION}-${E2E_CLUSTER_ZONE}"
+
+      header "Creating test cluster in $E2E_CLUSTER_REGION $E2E_CLUSTER_ZONE"
+      # Don't fail test for kubetest, as it might incorrectly report test failure
+      # if teardown fails (for details, see success() below)
+      set +o errexit
+      { run_go_tool k8s.io/test-infra/kubetest \
+        kubetest "$@" ${geoflag}; } 2>&1 | tee ${cluster_creation_log}
+
+      # Exit if test succeeded
+      [[ "$(get_test_return_code)" == "0" ]] && return
+      # If test failed not because of cluster creation stockout, return
+      [[ -z "$(grep -Eio 'does not have enough resources to fulfill the request' ${cluster_creation_log})" ]] && return
+    done
+  done
 }
 
 # Setup the test cluster for running the tests.
@@ -261,6 +301,12 @@ function setup_test_cluster() {
   if function_exists test_setup; then
     test_setup || fail_test "test setup failed"
   fi
+}
+
+# Gets the exit of of the test script.
+# For more details, see set_test_return_code().
+function get_test_return_code() {
+  echo $(cat ${TEST_RESULT_FILE})
 }
 
 # Set the return code that the test script will return.

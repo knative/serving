@@ -46,7 +46,7 @@ func IgnoreDeprecatedFields(fieldName string) bool {
 	return !strings.HasPrefix(strings.ToLower(fieldName), "deprecated")
 }
 
-// FieldRules represent all resourcetree.FieldRules specified for knativer serving.
+// FieldRules represent all resourcetree.FieldRules specified for knative serving.
 var FieldRules = resourcetree.FieldRules{
 	Rules: []func(fieldName string) bool{
 		IgnoreDeprecatedFields,

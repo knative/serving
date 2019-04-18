@@ -31,17 +31,13 @@ import (
 )
 
 func (pa *PodAutoscaler) Validate(ctx context.Context) *apis.FieldError {
-	errs := serving.ValidateObjectMetadata(pa.GetObjectMeta()).
-		ViaField("metadata").
-		Also(pa.Spec.Validate(ctx).ViaField("spec")).
-		Also(pa.validateMetric())
-
+	errs := serving.ValidateObjectMetadata(pa.GetObjectMeta()).ViaField("metadata")
+	errs = errs.Also(pa.validateMetric())
+	errs = errs.Also(pa.Spec.Validate(apis.WithinSpec(ctx)).ViaField("spec"))
 	if apis.IsInUpdate(ctx) {
 		original := apis.GetBaseline(ctx).(*PodAutoscaler)
-
 		errs = errs.Also(pa.checkImmutableFields(ctx, original))
 	}
-
 	return errs
 }
 
@@ -79,19 +75,19 @@ func (rs *PodAutoscalerSpec) Validate(ctx context.Context) *apis.FieldError {
 	if rs.ServiceName == "" {
 		errs = errs.Also(apis.ErrMissingField("serviceName"))
 	}
-	if err := rs.ConcurrencyModel.Validate(ctx); err != nil {
-		errs = errs.Also(err.ViaField("concurrencyModel"))
-	} else if err := servingv1alpha1.ValidateContainerConcurrency(rs.ContainerConcurrency, rs.ConcurrencyModel); err != nil {
+
+	if err := servingv1alpha1.ValidateContainerConcurrency(
+		rs.ContainerConcurrency, ""); err != nil {
 		errs = errs.Also(err)
 	}
-	return errs.Also(validateSKSFields(rs))
+	return errs.Also(validateSKSFields(ctx, rs))
 }
 
-func validateSKSFields(rs *PodAutoscalerSpec) *apis.FieldError {
+func validateSKSFields(ctx context.Context, rs *PodAutoscalerSpec) *apis.FieldError {
 	var all *apis.FieldError
 	// TODO(vagababov) stop permitting empty protocol type, once SKS controller is live.
 	if string(rs.ProtocolType) != "" {
-		all = all.Also(rs.ProtocolType.Validate()).ViaField("protocolType")
+		all = all.Also(rs.ProtocolType.Validate(ctx)).ViaField("protocolType")
 	}
 	return all
 }
@@ -148,7 +144,8 @@ func compareSpec(original *PodAutoscaler, current *PodAutoscaler) (string, error
 		},
 		cmp.Ignore(),
 	)
-	return kmp.SafeDiff(original.Spec, current.Spec, opt)
+
+	return kmp.ShortDiff(original.Spec, current.Spec, opt)
 }
 
 func classAnnotationChanged(original *PodAutoscaler, current *PodAutoscaler) (string, string, bool) {

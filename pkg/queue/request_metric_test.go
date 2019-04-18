@@ -60,7 +60,7 @@ func TestRequestMetricHandler(t *testing.T) {
 		t.Errorf("request count got %v, want %v", got, want)
 	}
 	if r.lastReqLatency == 0 {
-		t.Errorf("request latency got %v, want lager than 0", r.lastReqLatency)
+		t.Errorf("request latency got %v, want larger than 0", r.lastReqLatency)
 	}
 }
 
@@ -90,7 +90,7 @@ func TestRequestMetricHandler_PanickingHandler(t *testing.T) {
 			t.Errorf("request count got %v, want %v", got, want)
 		}
 		if r.lastReqLatency == 0 {
-			t.Errorf("request latency got %v, want lager than 0", r.lastReqLatency)
+			t.Errorf("request latency got %v, want larger than 0", r.lastReqLatency)
 		}
 	}()
 	handler.ServeHTTP(resp, req)

@@ -101,6 +101,11 @@ func (in *ConfigurationSpec) DeepCopyInto(out *ConfigurationSpec) {
 		*out = new(RevisionTemplateSpec)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.Template != nil {
+		in, out := &in.Template, &out.Template
+		*out = new(RevisionTemplateSpec)
+		(*in).DeepCopyInto(*out)
+	}
 	return
 }
 

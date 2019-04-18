@@ -21,6 +21,8 @@ import (
 	"time"
 
 	"github.com/google/go-containerregistry/pkg/authn/k8schain"
+	"golang.org/x/sync/errgroup"
+
 	fakecachingclientset "github.com/knative/caching/pkg/client/clientset/versioned/fake"
 	cachinginformers "github.com/knative/caching/pkg/client/informers/externalversions"
 	"github.com/knative/pkg/apis/duck"
@@ -28,6 +30,7 @@ import (
 	ctrl "github.com/knative/pkg/controller"
 	"github.com/knative/pkg/ptr"
 	"github.com/knative/pkg/system"
+	autoscalingv1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/autoscaler"
@@ -37,7 +40,7 @@ import (
 	"github.com/knative/serving/pkg/network"
 	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/config"
-	"golang.org/x/sync/errgroup"
+
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -68,7 +71,7 @@ const (
 	testQueueImage = "queueImage"
 )
 
-func getTestRevision() *v1alpha1.Revision {
+func testRevision() *v1alpha1.Revision {
 	return &v1alpha1.Revision{
 		ObjectMeta: metav1.ObjectMeta{
 			SelfLink:  "/apis/serving/v1alpha1/namespaces/test/revisions/test-rev",
@@ -110,8 +113,7 @@ func getTestRevision() *v1alpha1.Revision {
 				},
 				TerminationMessagePath: "/dev/null",
 			},
-			DeprecatedConcurrencyModel: v1alpha1.RevisionRequestConcurrencyModelMulti,
-			TimeoutSeconds:             ptr.Int64(60),
+			TimeoutSeconds: ptr.Int64(60),
 		},
 	}
 }
@@ -243,32 +245,33 @@ func TestNewRevisionCallsSyncHandler(t *testing.T) {
 		}
 	}()
 
-	rev := getTestRevision()
-	kubeClient, servingClient, _, _, controller, kubeInformer, servingInformer, _, configMapWatcher, _ := newTestController(t, stopCh)
+	rev := testRevision()
+	_, servingClient, _, _, controller, kubeInformer, servingInformer, cachingInformer, configMapWatcher, _ := newTestController(t, stopCh)
 
 	h := NewHooks()
 
 	// Check for a service created as a signal that syncHandler ran
-	h.OnCreate(&kubeClient.Fake, "services", func(obj runtime.Object) HookResult {
-		service := obj.(*corev1.Service)
-		t.Logf("service created: %q", service.Name)
-
+	h.OnCreate(&servingClient.Fake, "podautoscalers", func(obj runtime.Object) HookResult {
+		pa := obj.(*autoscalingv1alpha1.PodAutoscaler)
+		t.Logf("PA created: %s", pa.Name)
 		return HookComplete
 	})
 
 	kubeInformer.Start(stopCh)
 	servingInformer.Start(stopCh)
+	cachingInformer.Start(stopCh)
 	configMapWatcher.Start(stopCh)
 
 	kubeInformer.WaitForCacheSync(stopCh)
 	servingInformer.WaitForCacheSync(stopCh)
+	cachingInformer.WaitForCacheSync(stopCh)
 
 	eg.Go(func() error {
 		return controller.Run(2, stopCh)
 	})
 
 	if _, err := servingClient.ServingV1alpha1().Revisions(rev.Namespace).Create(rev); err != nil {
-		t.Fatalf("Unexpected error creating revision: %v", err)
+		t.Fatalf("Error creating revision: %v", err)
 	}
 
 	if err := h.WaitForHooks(time.Second * 3); err != nil {

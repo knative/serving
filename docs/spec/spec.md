@@ -140,8 +140,15 @@ spec:
       labels: ...
     spec: ...
 
-  revisionTemplate:  # template for building Revision
-    metadata: ...
+  revisionTemplate: ... # Deprecated way of expressing the same as template.
+
+  template:  # template for building Revision
+    metadata:
+      # A name may be optionally specified, but it must:
+      #  * be unique within the namespace,
+      #  * have the Configuration name as a prefix,
+      #  * be changed or removed on any subsequent revisionTemplate updates.
+      name: ...
     spec:  # knative.RevisionTemplateSpec. Copied to a new revision
 
       # +optional. DEPRECATED, use buildRef
@@ -315,7 +322,12 @@ spec:  # One of "runLatest", "release", "pinned" (DEPRECATED), or "manual"
     configuration:  # serving.knative.dev/v1alpha1.ConfigurationSpec
       # +optional. The build resource to instantiate to produce the container.
       build: ...
-      revisionTemplate:
+      revisionTemplate: ... # Deprecated way of expressing the same as template.
+      template:
+        metadata:
+          # Name may be specified here following the same rules as Configuration.
+          # When the name collides, the Route must not be updated to the
+          # conflicting Revision.
         spec: # serving.knative.dev/v1alpha1.RevisionSpec
           container: ... # See the Container section below
           volumes: ... # Optional
@@ -329,7 +341,8 @@ spec:  # One of "runLatest", "release", "pinned" (DEPRECATED), or "manual"
     configuration:  # serving.knative.dev/v1alpha1.ConfigurationSpec
       # +optional. The build resource to instantiate to produce the container.
       build: ...
-      revisionTemplate:
+      revisionTemplate: ... # Deprecated way of expressing the same as template.
+      template:
         spec: # serving.knative.dev/v1alpha1.RevisionSpec
           container: ... # See the Container section below
           volumes: ... # Optional
@@ -347,7 +360,12 @@ spec:  # One of "runLatest", "release", "pinned" (DEPRECATED), or "manual"
     configuration:  # serving.knative.dev/v1alpha1.ConfigurationSpec
       # +optional. The build resource to instantiate to produce the container.
       build: ...
-      revisionTemplate:
+      revisionTemplate: ... # Deprecated way of expressing the same as template.
+      template:
+        metadata:
+          # Name may be specified here following the same rules as Configuration.
+          # When the name collides, the Route must not be updated to the
+          # conflicting Revision.
         spec: # serving.knative.dev/v1alpha1.RevisionSpec
           container: ... # See the Container section below
           volumes: ... # Optional

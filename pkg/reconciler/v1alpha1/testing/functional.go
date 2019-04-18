@@ -34,6 +34,7 @@ import (
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/serverlessservice/resources/names"
 	servicenames "github.com/knative/serving/pkg/reconciler/v1alpha1/service/resources/names"
 	"github.com/knative/serving/pkg/resources"
+	autoscalingv1 "k8s.io/api/autoscaling/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -307,7 +308,7 @@ func WithSvcStatusTraffic(targets ...v1alpha1.TrafficTarget) ServiceOption {
 		// Automatically inject URL into TrafficTarget status
 		for _, tt := range targets {
 			if tt.Name != "" {
-				tt.URL = traffic.SubrouteURL(traffic.HttpScheme,
+				tt.URL = traffic.SubrouteURL(traffic.HTTPScheme,
 					tt.Name,
 					"example.com")
 			}
@@ -680,6 +681,13 @@ func WithBuildRef(name string) RevisionOption {
 	}
 }
 
+// WithServiceName propagates the given service name to the revision status.
+func WithServiceName(sn string) RevisionOption {
+	return func(rev *v1alpha1.Revision) {
+		rev.Status.ServiceName = sn
+	}
+}
+
 // MarkResourceNotOwned calls the function of the same name on the Revision's status.
 func MarkResourceNotOwned(kind, name string) RevisionOption {
 	return func(rev *v1alpha1.Revision) {
@@ -859,6 +867,13 @@ func WithTraffic(pa *autoscalingv1alpha1.PodAutoscaler) {
 	pa.Status.MarkActive()
 }
 
+// WithPAStatusService annotats PA Status with the provided service name.
+func WithPAStatusService(svc string) PodAutoscalerOption {
+	return func(pa *autoscalingv1alpha1.PodAutoscaler) {
+		pa.Status.ServiceName = svc
+	}
+}
+
 // WithBufferedTraffic updates the PA to reflect that it has received
 // and buffered traffic while it is being activated.
 func WithBufferedTraffic(reason, message string) PodAutoscalerOption {
@@ -996,19 +1011,30 @@ type SKSOption func(sks *netv1alpha1.ServerlessService)
 
 // WithPubService annotates SKS status with the given service name.
 func WithPubService(sks *netv1alpha1.ServerlessService) {
-	sks.Status.ServiceName = names.PublicService(sks)
+	sks.Status.ServiceName = names.PublicService(sks.Name)
 }
 
-// WithSelector annotates SKS with a given selector map.
-func WithSelector(sel map[string]string) SKSOption {
+// WithDeployRef annotates SKS with a deployment objectRef
+func WithDeployRef(name string) SKSOption {
 	return func(sks *netv1alpha1.ServerlessService) {
-		sks.Spec.Selector = sel
+		sks.Spec.ObjectRef = autoscalingv1.CrossVersionObjectReference{
+			APIVersion: "apps/v1",
+			Kind:       "Deployment",
+			Name:       name,
+		}
 	}
+}
+
+// WithSKSReady marks SKS as ready.
+func WithSKSReady(sks *netv1alpha1.ServerlessService) {
+	WithPrivateService(sks)
+	WithPubService(sks)
+	sks.Status.MarkEndpointsReady()
 }
 
 // WithPrivateService annotates SKS status with the private service name.
 func WithPrivateService(sks *netv1alpha1.ServerlessService) {
-	sks.Status.PrivateServiceName = names.PrivateService(sks)
+	sks.Status.PrivateServiceName = names.PrivateService(sks.Name)
 }
 
 // WithSKSOwnersRemoved clears the owner references of this SKS resource.
@@ -1027,8 +1053,10 @@ func SKS(ns, name string, so ...SKSOption) *netv1alpha1.ServerlessService {
 		Spec: netv1alpha1.ServerlessServiceSpec{
 			Mode:         netv1alpha1.SKSOperationModeServe,
 			ProtocolType: networking.ProtocolHTTP1,
-			Selector: map[string]string{
-				"label": "value",
+			ObjectRef: autoscalingv1.CrossVersionObjectReference{
+				APIVersion: "apps/v1",
+				Kind:       "Deployment",
+				Name:       "foo-deployment",
 			},
 		},
 	}

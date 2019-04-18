@@ -34,9 +34,12 @@ func TestServiceValidation(t *testing.T) {
 	tests := []struct {
 		name string
 		s    *Service
+		wc   func(context.Context) context.Context
 		want *apis.FieldError
 	}{{
 		name: "valid runLatest",
+		// Should not affect anything.
+		wc: apis.DisallowDeprecated,
 		s: &Service{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "valid",
@@ -56,6 +59,29 @@ func TestServiceValidation(t *testing.T) {
 			},
 		},
 		want: nil,
+	}, {
+		name: "invalid runLatest (has spec.generation)",
+		wc:   apis.DisallowDeprecated,
+		s: &Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid",
+			},
+			Spec: ServiceSpec{
+				DeprecatedGeneration: 12,
+				RunLatest: &RunLatestType{
+					Configuration: ConfigurationSpec{
+						RevisionTemplate: &RevisionTemplateSpec{
+							Spec: RevisionSpec{
+								Container: &corev1.Container{
+									Image: "hellworld",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		want: apis.ErrDisallowedFields("spec.generation"),
 	}, {
 		name: "valid pinned",
 		s: &Service{
@@ -78,6 +104,29 @@ func TestServiceValidation(t *testing.T) {
 			},
 		},
 		want: nil,
+	}, {
+		name: "valid pinned (deprecated disallowed)",
+		wc:   apis.DisallowDeprecated,
+		s: &Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid",
+			},
+			Spec: ServiceSpec{
+				DeprecatedPinned: &PinnedType{
+					RevisionName: "asdf",
+					Configuration: ConfigurationSpec{
+						RevisionTemplate: &RevisionTemplateSpec{
+							Spec: RevisionSpec{
+								Container: &corev1.Container{
+									Image: "hellworld",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		want: apis.ErrDisallowedFields("spec.pinned"),
 	}, {
 		name: "valid release -- one revision",
 		s: &Service{
@@ -478,7 +527,11 @@ func TestServiceValidation(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got := test.s.Validate(context.Background())
+			ctx := context.Background()
+			if test.wc != nil {
+				ctx = test.wc(ctx)
+			}
+			got := test.s.Validate(ctx)
 			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
 				t.Errorf("validateContainer (-want, +got) = %v", diff)
 			}
@@ -589,6 +642,252 @@ func TestPinnedTypeValidation(t *testing.T) {
 			got := test.pt.Validate(context.Background())
 			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
 				t.Errorf("validateContainer (-want, +got) = %v", diff)
+			}
+		})
+	}
+}
+
+func TestImmutableServiceFields(t *testing.T) {
+	tests := []struct {
+		name string
+		new  *Service
+		old  *Service
+		want *apis.FieldError
+	}{{
+		name: "without byo-name",
+		new: &Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "no-byo-name",
+			},
+			Spec: ServiceSpec{
+				RunLatest: &RunLatestType{
+					Configuration: ConfigurationSpec{
+						RevisionTemplate: &RevisionTemplateSpec{
+							Spec: RevisionSpec{
+								Container: &corev1.Container{
+									Image: "helloworld:foo",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		old: &Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "no-byo-name",
+			},
+			Spec: ServiceSpec{
+				RunLatest: &RunLatestType{
+					Configuration: ConfigurationSpec{
+						RevisionTemplate: &RevisionTemplateSpec{
+							Spec: RevisionSpec{
+								Container: &corev1.Container{
+									Image: "helloworld:bar",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		want: nil,
+	}, {
+		name: "good byo-name (name change)",
+		new: &Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "byo-name",
+			},
+			Spec: ServiceSpec{
+				RunLatest: &RunLatestType{
+					Configuration: ConfigurationSpec{
+						RevisionTemplate: &RevisionTemplateSpec{
+							ObjectMeta: metav1.ObjectMeta{
+								Name: "byo-name-foo",
+							},
+							Spec: RevisionSpec{
+								Container: &corev1.Container{
+									Image: "helloworld:foo",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		old: &Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "byo-name",
+			},
+			Spec: ServiceSpec{
+				RunLatest: &RunLatestType{
+					Configuration: ConfigurationSpec{
+						RevisionTemplate: &RevisionTemplateSpec{
+							ObjectMeta: metav1.ObjectMeta{
+								Name: "byo-name-bar",
+							},
+							Spec: RevisionSpec{
+								Container: &corev1.Container{
+									Image: "helloworld:bar",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		want: nil,
+	}, {
+		name: "good byo-name (mode change, no delta)",
+		new: &Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "byo-name",
+			},
+			Spec: ServiceSpec{
+				RunLatest: &RunLatestType{
+					Configuration: ConfigurationSpec{
+						RevisionTemplate: &RevisionTemplateSpec{
+							ObjectMeta: metav1.ObjectMeta{
+								Name: "byo-name-foo",
+							},
+							Spec: RevisionSpec{
+								Container: &corev1.Container{
+									Image: "helloworld:foo",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		old: &Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "byo-name",
+			},
+			Spec: ServiceSpec{
+				Release: &ReleaseType{
+					Revisions: []string{"foo"},
+					Configuration: ConfigurationSpec{
+						RevisionTemplate: &RevisionTemplateSpec{
+							ObjectMeta: metav1.ObjectMeta{
+								Name: "byo-name-foo",
+							},
+							Spec: RevisionSpec{
+								Container: &corev1.Container{
+									Image: "helloworld:foo",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		want: nil,
+	}, {
+		name: "good byo-name (mode change, with delta)",
+		new: &Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "byo-name",
+			},
+			Spec: ServiceSpec{
+				RunLatest: &RunLatestType{
+					Configuration: ConfigurationSpec{
+						RevisionTemplate: &RevisionTemplateSpec{
+							ObjectMeta: metav1.ObjectMeta{
+								Name: "byo-name-foo",
+							},
+							Spec: RevisionSpec{
+								Container: &corev1.Container{
+									Image: "helloworld:foo",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		old: &Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "byo-name",
+			},
+			Spec: ServiceSpec{
+				Release: &ReleaseType{
+					Revisions: []string{"foo"},
+					Configuration: ConfigurationSpec{
+						RevisionTemplate: &RevisionTemplateSpec{
+							ObjectMeta: metav1.ObjectMeta{
+								Name: "byo-name-bar",
+							},
+							Spec: RevisionSpec{
+								Container: &corev1.Container{
+									Image: "helloworld:bar",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		want: nil,
+	}, {
+		name: "bad byo-name (mode change, with delta)",
+		new: &Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "byo-name",
+			},
+			Spec: ServiceSpec{
+				RunLatest: &RunLatestType{
+					Configuration: ConfigurationSpec{
+						RevisionTemplate: &RevisionTemplateSpec{
+							ObjectMeta: metav1.ObjectMeta{
+								Name: "byo-name-foo",
+							},
+							Spec: RevisionSpec{
+								Container: &corev1.Container{
+									Image: "helloworld:foo",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		old: &Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "byo-name",
+			},
+			Spec: ServiceSpec{
+				Release: &ReleaseType{
+					Revisions: []string{"foo"},
+					Configuration: ConfigurationSpec{
+						RevisionTemplate: &RevisionTemplateSpec{
+							ObjectMeta: metav1.ObjectMeta{
+								Name: "byo-name-foo",
+							},
+							Spec: RevisionSpec{
+								Container: &corev1.Container{
+									Image: "helloworld:bar",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		want: &apis.FieldError{
+			Message: "Saw the following changes without a name change (-old +new)",
+			Paths:   []string{"spec.runLatest.configuration.revisionTemplate"},
+			Details: "{*v1alpha1.RevisionTemplateSpec}.Spec.Container.Image:\n\t-: \"helloworld:bar\"\n\t+: \"helloworld:foo\"\n",
+		},
+	}}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			ctx := context.Background()
+			ctx = apis.WithinUpdate(ctx, test.old)
+			got := test.new.Validate(ctx)
+			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
+				t.Errorf("Validate (-want, +got) = %v", diff)
 			}
 		})
 	}

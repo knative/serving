@@ -1,10 +1,11 @@
 /*
 Copyright 2018 The Knative Authors
+
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-	http://www.apache.org/licenses/LICENSE-2.0
+    http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -24,23 +25,31 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
+	"go.uber.org/atomic"
+
 	"github.com/knative/pkg/configmap"
+	"github.com/knative/pkg/controller"
+	"github.com/knative/pkg/kmeta"
 	"github.com/knative/pkg/system"
 	_ "github.com/knative/pkg/system/testing"
 	"github.com/knative/serving/pkg/apis/autoscaling"
-	kpa "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
+	asv1a1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
+	nv1a1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/autoscaler"
 	fakeKna "github.com/knative/serving/pkg/client/clientset/versioned/fake"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
 	"github.com/knative/serving/pkg/reconciler"
+	rpkg "github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/autoscaling/kpa/resources"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/autoscaling/kpa/resources/names"
+	aresources "github.com/knative/serving/pkg/reconciler/v1alpha1/autoscaling/resources"
 	revisionresources "github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources"
 	. "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
 	perrors "github.com/pkg/errors"
-	"go.uber.org/atomic"
+
+	appsv1 "k8s.io/api/apps/v1"
 	autoscalingv1 "k8s.io/api/autoscaling/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -155,7 +164,7 @@ func TestMetricsSvcIsReconciled(t *testing.T) {
 		scaleClientReactor: func(fsc *scalefake.FakeScaleClient) {
 			fsc.AddReactor("get", "deployments", func(action clientgotesting.Action) (bool, runtime.Object, error) {
 				ga := action.(clientgotesting.GetAction)
-				return true, scaleA(ga, withLabelSelector("i-am-not-a-valid-selector,¡so-bite-me!")), nil
+				return true, scaleResource(ga.GetNamespace(), ga.GetName(), withLabelSelector("i-am-not-a-valid-selector,¡so-bite-me!")), nil
 			})
 		},
 	}, {
@@ -169,7 +178,7 @@ func TestMetricsSvcIsReconciled(t *testing.T) {
 		scaleClientReactor: func(fsc *scalefake.FakeScaleClient) {
 			fsc.AddReactor("get", "deployments", func(action clientgotesting.Action) (bool, runtime.Object, error) {
 				ga := action.(clientgotesting.GetAction)
-				return true, scaleA(ga), nil
+				return true, scaleResource(ga.GetNamespace(), ga.GetName()), nil
 			})
 		},
 		hookShouldTO: true,
@@ -187,7 +196,7 @@ func TestMetricsSvcIsReconciled(t *testing.T) {
 		scaleClientReactor: func(fsc *scalefake.FakeScaleClient) {
 			fsc.AddReactor("get", "deployments", func(action clientgotesting.Action) (bool, runtime.Object, error) {
 				ga := action.(clientgotesting.GetAction)
-				return true, scaleA(ga), nil
+				return true, scaleResource(ga.GetNamespace(), ga.GetName()), nil
 			})
 		},
 	}, {
@@ -206,7 +215,7 @@ func TestMetricsSvcIsReconciled(t *testing.T) {
 		scaleClientReactor: func(fsc *scalefake.FakeScaleClient) {
 			fsc.AddReactor("get", "deployments", func(action clientgotesting.Action) (bool, runtime.Object, error) {
 				ga := action.(clientgotesting.GetAction)
-				return true, scaleA(ga), nil
+				return true, scaleResource(ga.GetNamespace(), ga.GetName()), nil
 			})
 		},
 		cubeClientReactor: func(f *clientgotesting.Fake) {
@@ -228,7 +237,7 @@ func TestMetricsSvcIsReconciled(t *testing.T) {
 		test := test
 		// TODO(vagababov): refactor to avoid duplicate work for setup.
 		t.Run(test.name, func(t *testing.T) {
-			//t.Parallel()
+			t.Parallel()
 			kubeClient := fakeK8s.NewSimpleClientset()
 			servingClient := fakeKna.NewSimpleClientset()
 
@@ -257,6 +266,7 @@ func TestMetricsSvcIsReconciled(t *testing.T) {
 			fakeMetrics := newTestMetrics()
 			ctl := NewController(&opts,
 				servingInformer.Autoscaling().V1alpha1().PodAutoscalers(),
+				servingInformer.Networking().V1alpha1().ServerlessServices(),
 				kubeInformer.Core().V1().Services(),
 				kubeInformer.Core().V1().Endpoints(),
 				fakeDeciders,
@@ -284,7 +294,6 @@ func TestMetricsSvcIsReconciled(t *testing.T) {
 				h.OnUpdate(&kubeClient.Fake, "services", test.upHook)
 			}
 			if test.scaleClientReactor != nil {
-
 				test.scaleClientReactor(scaleClient)
 			}
 			if test.cubeClientReactor != nil {
@@ -307,6 +316,246 @@ func TestMetricsSvcIsReconciled(t *testing.T) {
 	}
 }
 
+func metricsSvc(ns, n string, opts ...K8sServiceOption) *corev1.Service {
+	pa := kpa(ns, n)
+	svc := resources.MakeMetricsService(pa, map[string]string{})
+	for _, opt := range opts {
+		opt(svc)
+	}
+	return svc
+}
+
+func sks(ns, n string, so ...SKSOption) *nv1a1.ServerlessService {
+	kpa := kpa(ns, n)
+	s := aresources.MakeSKS(kpa, nv1a1.SKSOperationModeServe)
+	for _, opt := range so {
+		opt(s)
+	}
+	return s
+}
+
+func withSvcSelector(sel map[string]string) K8sServiceOption {
+	return func(s *corev1.Service) {
+		s.Spec.Selector = sel
+	}
+}
+
+func markActivating(pa *asv1a1.PodAutoscaler) {
+	pa.Status.MarkActivating("Queued", "Requests to the target are being buffered as resources are provisioned.")
+}
+
+func markActive(pa *asv1a1.PodAutoscaler) {
+	pa.Status.MarkActive()
+}
+
+func sksWithOwnership(pa *asv1a1.PodAutoscaler) SKSOption {
+	return func(sks *nv1a1.ServerlessService) {
+		sks.ObjectMeta.OwnerReferences = []metav1.OwnerReference{*kmeta.NewControllerRef(pa)}
+	}
+}
+
+func kpa(ns, n string, opts ...PodAutoscalerOption) *asv1a1.PodAutoscaler {
+	rev := newTestRevision(ns, n)
+	kpa := revisionresources.MakeKPA(rev)
+	kpa.Annotations["autoscaling.knative.dev/class"] = "kpa.autoscaling.knative.dev"
+	for _, opt := range opts {
+		opt(kpa)
+	}
+	return kpa
+}
+
+func markResourceNotOwned(rType, name string) PodAutoscalerOption {
+	return func(pa *asv1a1.PodAutoscaler) {
+		pa.Status.MarkResourceNotOwned(rType, name)
+	}
+}
+
+func makeTestEndpoints(num int, ns, n string) *corev1.Endpoints {
+	rev := newTestRevision(ns, n)
+	eps := makeEndpoints(rev)
+	for i := 0; i < num; i++ {
+		eps = addEndpoint(eps)
+	}
+	return eps
+}
+
+func TestReconcile(t *testing.T) {
+	const key = testNamespace + "/" + testRevision
+	const deployName = testRevision + "-deployment"
+	usualSelector := map[string]string{"a": "b"}
+
+	// Note: due to how KPA reconciler works we are dependent on the
+	// two constant objects above, which means, that all tests must share
+	// the same namespace and revision name.
+	table := TableTest{{
+		Name:                    "bad workqueue key, Part I",
+		Key:                     "too/many/parts",
+		SkipNamespaceValidation: true,
+	}, {
+		Name:                    "bad workqueue key, Part II",
+		Key:                     "too-few-parts",
+		SkipNamespaceValidation: true,
+	}, {
+		Name:                    "key not found",
+		Key:                     "foo/not-found",
+		SkipNamespaceValidation: true,
+	}, {
+		Name:                    "key not found",
+		Key:                     "foo/not-found",
+		SkipNamespaceValidation: true,
+	}, {
+		Name: "steady state",
+		Key:  key,
+		Objects: []runtime.Object{
+			kpa(testNamespace, testRevision, markActive,
+				WithPAStatusService(testRevision+"-pub")),
+			sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSReady),
+			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector)),
+			deploy(testNamespace, testRevision),
+			makeSKSPrivateEndpoints(1, testNamespace, testRevision),
+		},
+	}, {
+		Name: "sks is still not ready",
+		Key:  key,
+		Objects: []runtime.Object{
+			kpa(testNamespace, testRevision, markActive, WithPAStatusService(testRevision+"-pub")),
+			sks(testNamespace, testRevision, WithDeployRef(deployName), WithPubService, WithPrivateService),
+			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector)),
+			deploy(testNamespace, testRevision),
+			makeSKSPrivateEndpoints(1, testNamespace, testRevision),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: kpa(testNamespace, testRevision, markActivating, WithPAStatusService(testRevision+"-pub")),
+		}},
+	}, {
+		Name: "sks becomes ready",
+		Key:  key,
+		Objects: []runtime.Object{
+			kpa(testNamespace, testRevision),
+			sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSReady),
+			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector)),
+			deploy(testNamespace, testRevision),
+			makeSKSPrivateEndpoints(1, testNamespace, testRevision),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: kpa(testNamespace, testRevision, markActive, WithPAStatusService(testRevision+"-pub")),
+		}},
+	}, {
+		Name: "sks does not exist",
+		Key:  key,
+		Objects: []runtime.Object{
+			kpa(testNamespace, testRevision, markActive),
+			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector)),
+			deploy(testNamespace, testRevision),
+			makeSKSPrivateEndpoints(1, testNamespace, testRevision),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			// SKS does not exist, so we're just creating and have no status.
+			Object: kpa(testNamespace, testRevision, markActivating),
+		}},
+		WantCreates: []metav1.Object{
+			sks(testNamespace, testRevision, WithDeployRef(deployName)),
+		},
+	}, {
+		Name: "sks is out of whack",
+		Key:  key,
+		Objects: []runtime.Object{
+			kpa(testNamespace, testRevision, markActive),
+			sks(testNamespace, testRevision, WithDeployRef("bar"),
+				WithPubService),
+			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector)),
+			deploy(testNamespace, testRevision),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			// SKS just got updated and we don't have up to date status.
+			Object: kpa(testNamespace, testRevision, markActivating, WithPAStatusService(testRevision+"-pub")),
+		}},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: sks(testNamespace, testRevision, WithPubService,
+				WithDeployRef(deployName)),
+		}},
+	}, {
+		Name: "sks cannot be created",
+		Key:  key,
+		Objects: []runtime.Object{
+			kpa(testNamespace, testRevision, markActive),
+			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector)),
+			deploy(testNamespace, testRevision),
+		},
+		WithReactors: []clientgotesting.ReactionFunc{
+			InduceFailure("create", "serverlessservices"),
+		},
+		WantErr: true,
+		WantCreates: []metav1.Object{
+			sks(testNamespace, testRevision, WithDeployRef(deployName)),
+		},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeWarning, "InternalError",
+				"error reconciling SKS: error creating SKS test-revision: inducing failure for create serverlessservices"),
+		},
+	}, {
+		Name: "sks cannot be updated",
+		Key:  key,
+		Objects: []runtime.Object{
+			kpa(testNamespace, testRevision, markActive),
+			sks(testNamespace, testRevision, WithDeployRef("bar")),
+			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector)),
+			deploy(testNamespace, testRevision),
+		},
+		WithReactors: []clientgotesting.ReactionFunc{
+			InduceFailure("update", "serverlessservices"),
+		},
+		WantErr: true,
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: sks(testNamespace, testRevision, WithDeployRef(deployName)),
+		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeWarning, "InternalError", "error reconciling SKS: error updating SKS test-revision: inducing failure for update serverlessservices"),
+		},
+	}, {
+		Name: "sks is disowned",
+		Key:  key,
+		Objects: []runtime.Object{
+			kpa(testNamespace, testRevision, markActive),
+			sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSReady,
+				WithSKSOwnersRemoved),
+			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector)),
+			deploy(testNamespace, testRevision),
+		},
+		WantErr: true,
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: kpa(testNamespace, testRevision, markResourceNotOwned("ServerlessService", testRevision)),
+		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeWarning, "InternalError", "error reconciling SKS: KPA: test-revision does not own SKS: test-revision"),
+		},
+	}}
+
+	defer ClearAllLoggers()
+	table.Test(t, MakeFactory(func(listers *Listers, opt rpkg.Options) controller.Reconciler {
+		dynConf := newDynamicConfig(t)
+		fakeDeciders := newTestDeciders()
+		// TODO(vagababov): see if we can get rid of the static piece of configuration and
+		// constant namespace and revision names.
+		fakeDeciders.Create(context.Background(), resources.MakeDecider(
+			context.Background(), kpa(testNamespace, testRevision), dynConf.Current()))
+
+		fakeMetrics := newTestMetrics()
+		kpaScaler := NewScaler(opt.ServingClientSet, opt.ScaleClientSet, TestLogger(t), newConfigWatcher())
+		return &Reconciler{
+			Base:            rpkg.NewBase(opt, controllerAgentName),
+			paLister:        listers.GetPodAutoscalerLister(),
+			sksLister:       listers.GetServerlessServiceLister(),
+			serviceLister:   listers.GetK8sServiceLister(),
+			endpointsLister: listers.GetEndpointsLister(),
+			kpaDeciders:     fakeDeciders,
+			metrics:         fakeMetrics,
+			scaler:          kpaScaler,
+			dynConfig:       dynConf,
+		}
+	}))
+}
+
 type scaleOpt func(*autoscalingv1.Scale)
 
 func withLabelSelector(selector string) scaleOpt {
@@ -315,14 +564,14 @@ func withLabelSelector(selector string) scaleOpt {
 	}
 }
 
-func scaleA(ga clientgotesting.GetAction, opts ...scaleOpt) *autoscalingv1.Scale {
+func scaleResource(namespace, name string, opts ...scaleOpt) *autoscalingv1.Scale {
 	s := &autoscalingv1.Scale{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      ga.GetName(),
-			Namespace: ga.GetNamespace(),
+			Name:      name,
+			Namespace: namespace,
 		},
 		Spec: autoscalingv1.ScaleSpec{
-			Replicas: 42,
+			Replicas: 1,
 		},
 		Status: autoscalingv1.ScaleStatus{
 			Replicas: 42,
@@ -334,6 +583,32 @@ func scaleA(ga clientgotesting.GetAction, opts ...scaleOpt) *autoscalingv1.Scale
 	}
 	return s
 }
+
+type deploymentOption func(*appsv1.Deployment)
+
+func deploy(namespace, name string, opts ...deploymentOption) *appsv1.Deployment {
+	s := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name + "-deployment",
+			Namespace: namespace,
+		},
+		Spec: appsv1.DeploymentSpec{
+			Selector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					"a": "b",
+				},
+			},
+		},
+		Status: appsv1.DeploymentStatus{
+			Replicas: 42,
+		},
+	}
+	for _, opt := range opts {
+		opt(s)
+	}
+	return s
+}
+
 func TestControllerSynchronizesCreatesAndDeletes(t *testing.T) {
 	defer ClearAllLoggers()
 
@@ -356,6 +631,7 @@ func TestControllerSynchronizesCreatesAndDeletes(t *testing.T) {
 	fakeMetrics := newTestMetrics()
 	ctl := NewController(&opts,
 		servingInformer.Autoscaling().V1alpha1().PodAutoscalers(),
+		servingInformer.Networking().V1alpha1().ServerlessServices(),
 		kubeInformer.Core().V1().Services(),
 		kubeInformer.Core().V1().Endpoints(),
 		fakeDeciders,
@@ -367,12 +643,17 @@ func TestControllerSynchronizesCreatesAndDeletes(t *testing.T) {
 	rev := newTestRevision(testNamespace, testRevision)
 	servingClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
 	servingInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
-	ep := addEndpoint(makeEndpoints(rev))
+	ep := makeSKSPrivateEndpoints(1, testNamespace, testRevision)
 	kubeClient.CoreV1().Endpoints(testNamespace).Create(ep)
 	kubeInformer.Core().V1().Endpoints().Informer().GetIndexer().Add(ep)
 	kpa := revisionresources.MakeKPA(rev)
 	servingClient.AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
 	servingInformer.Autoscaling().V1alpha1().PodAutoscalers().Informer().GetIndexer().Add(kpa)
+
+	sks := sks(testNamespace, testRevision, WithDeployRef(kpa.Spec.ScaleTargetRef.Name),
+		WithSKSReady)
+	servingClient.NetworkingV1alpha1().ServerlessServices(testNamespace).Create(sks)
+	servingInformer.Networking().V1alpha1().ServerlessServices().Informer().GetIndexer().Add(sks)
 
 	msvc := resources.MakeMetricsService(kpa, map[string]string{
 		serving.RevisionLabelKey: rev.Name,
@@ -394,8 +675,8 @@ func TestControllerSynchronizesCreatesAndDeletes(t *testing.T) {
 	if err != nil {
 		t.Errorf("Get() = %v", err)
 	}
-	if cond := newKPA.Status.GetCondition("Ready"); cond == nil || cond.Status != "True" {
-		t.Errorf("GetCondition(Ready) = %v, wanted True", cond)
+	if !newKPA.Status.IsReady() {
+		t.Error("Status.IsReady() was false")
 	}
 
 	servingClient.ServingV1alpha1().Revisions(testNamespace).Delete(testRevision, nil)
@@ -441,23 +722,26 @@ func TestUpdate(t *testing.T) {
 
 	fakeDeciders := newTestDeciders()
 	fakeMetrics := newTestMetrics()
+	dynConf := newDynamicConfig(t)
 	ctl := NewController(&opts,
 		servingInformer.Autoscaling().V1alpha1().PodAutoscalers(),
+		servingInformer.Networking().V1alpha1().ServerlessServices(),
 		kubeInformer.Core().V1().Services(),
 		kubeInformer.Core().V1().Endpoints(),
 		fakeDeciders,
 		fakeMetrics,
 		scaler,
-		newDynamicConfig(t),
+		dynConf,
 	)
 
 	rev := newTestRevision(testNamespace, testRevision)
 	servingClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
 	servingInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
-	ep := addEndpoint(makeEndpoints(rev))
+	ep := makeSKSPrivateEndpoints(1, testNamespace, testRevision)
 	kubeClient.CoreV1().Endpoints(testNamespace).Create(ep)
 	kubeInformer.Core().V1().Endpoints().Informer().GetIndexer().Add(ep)
 	kpa := revisionresources.MakeKPA(rev)
+	kpa.SetDefaults(context.Background())
 	servingClient.AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
 	servingInformer.Autoscaling().V1alpha1().PodAutoscalers().Informer().GetIndexer().Add(kpa)
 
@@ -466,6 +750,14 @@ func TestUpdate(t *testing.T) {
 	})
 	kubeClient.CoreV1().Services(testNamespace).Create(msvc)
 	kubeInformer.Core().V1().Services().Informer().GetIndexer().Add(msvc)
+
+	sks := sks(testNamespace, testRevision, WithDeployRef(kpa.Spec.ScaleTargetRef.Name),
+		WithSKSReady)
+	servingClient.NetworkingV1alpha1().ServerlessServices(testNamespace).Create(sks)
+	servingInformer.Networking().V1alpha1().ServerlessServices().Informer().GetIndexer().Add(sks)
+
+	decider := resources.MakeDecider(context.Background(), kpa, dynConf.Current())
+	decider.Labels[serving.KubernetesServiceLabelKey] = sks.Status.PrivateServiceName
 
 	// Wait for the Reconcile to complete.
 	if err := ctl.Reconciler.Reconcile(context.Background(), testNamespace+"/"+testRevision); err != nil {
@@ -477,6 +769,11 @@ func TestUpdate(t *testing.T) {
 	}
 	if count := fakeMetrics.createCallCount.Load(); count != 1 {
 		t.Fatalf("Metrics.Create called %d times instead of once", count)
+	}
+
+	// Verify decider shape.
+	if got, want := fakeDeciders.decider, decider; !cmp.Equal(got, want) {
+		t.Errorf("decider mismatch: diff(+got, -want): %s", cmp.Diff(got, want))
 	}
 
 	newKPA, err := servingClient.AutoscalingV1alpha1().PodAutoscalers(kpa.Namespace).Get(
@@ -524,6 +821,7 @@ func TestNonKPAClass(t *testing.T) {
 	fakeMetrics := newTestMetrics()
 	ctl := NewController(&opts,
 		servingInformer.Autoscaling().V1alpha1().PodAutoscalers(),
+		servingInformer.Networking().V1alpha1().ServerlessServices(),
 		kubeInformer.Core().V1().Services(),
 		kubeInformer.Core().V1().Endpoints(),
 		fakeDeciders,
@@ -577,6 +875,7 @@ func TestNoEndpoints(t *testing.T) {
 
 	ctl := NewController(&opts,
 		servingInformer.Autoscaling().V1alpha1().PodAutoscalers(),
+		servingInformer.Networking().V1alpha1().ServerlessServices(),
 		kubeInformer.Core().V1().Services(),
 		kubeInformer.Core().V1().Endpoints(),
 		newTestDeciders(),
@@ -631,6 +930,7 @@ func TestEmptyEndpoints(t *testing.T) {
 
 	ctl := NewController(&opts,
 		servingInformer.Autoscaling().V1alpha1().PodAutoscalers(),
+		servingInformer.Networking().V1alpha1().ServerlessServices(),
 		kubeInformer.Core().V1().Services(),
 		kubeInformer.Core().V1().Endpoints(),
 		newTestDeciders(),
@@ -687,10 +987,11 @@ func TestControllerCreateError(t *testing.T) {
 
 	ctl := NewController(&opts,
 		servingInformer.Autoscaling().V1alpha1().PodAutoscalers(),
+		servingInformer.Networking().V1alpha1().ServerlessServices(),
 		kubeInformer.Core().V1().Services(),
 		kubeInformer.Core().V1().Endpoints(),
 		&failingDeciders{
-			getErr:    apierrors.NewNotFound(kpa.Resource("Deciders"), key),
+			getErr:    apierrors.NewNotFound(asv1a1.Resource("Deciders"), key),
 			createErr: want,
 		},
 		newTestMetrics(),
@@ -730,10 +1031,11 @@ func TestControllerUpdateError(t *testing.T) {
 
 	ctl := NewController(&opts,
 		servingInformer.Autoscaling().V1alpha1().PodAutoscalers(),
+		servingInformer.Networking().V1alpha1().ServerlessServices(),
 		kubeInformer.Core().V1().Services(),
 		kubeInformer.Core().V1().Endpoints(),
 		&failingDeciders{
-			getErr:    apierrors.NewNotFound(kpa.Resource("Deciders"), key),
+			getErr:    apierrors.NewNotFound(asv1a1.Resource("Deciders"), key),
 			createErr: want,
 		},
 		newTestMetrics(),
@@ -773,6 +1075,7 @@ func TestControllerGetError(t *testing.T) {
 
 	ctl := NewController(&opts,
 		servingInformer.Autoscaling().V1alpha1().PodAutoscalers(),
+		servingInformer.Networking().V1alpha1().ServerlessServices(),
 		kubeInformer.Core().V1().Services(),
 		kubeInformer.Core().V1().Endpoints(),
 		&failingDeciders{
@@ -813,6 +1116,7 @@ func TestScaleFailure(t *testing.T) {
 
 	ctl := NewController(&opts,
 		servingInformer.Autoscaling().V1alpha1().PodAutoscalers(),
+		servingInformer.Networking().V1alpha1().ServerlessServices(),
 		kubeInformer.Core().V1().Services(),
 		kubeInformer.Core().V1().Endpoints(),
 		newTestDeciders(),
@@ -850,6 +1154,7 @@ func TestBadKey(t *testing.T) {
 
 	ctl := NewController(&opts,
 		servingInformer.Autoscaling().V1alpha1().PodAutoscalers(),
+		servingInformer.Networking().V1alpha1().ServerlessServices(),
 		kubeInformer.Core().V1().Services(),
 		kubeInformer.Core().V1().Endpoints(),
 		newTestDeciders(),
@@ -883,7 +1188,7 @@ type testDeciders struct {
 
 func (km *testDeciders) Get(ctx context.Context, namespace, name string) (*autoscaler.Decider, error) {
 	if km.decider == nil {
-		return nil, apierrors.NewNotFound(kpa.Resource("Deciders"), autoscaler.NewMetricKey(namespace, name))
+		return nil, apierrors.NewNotFound(asv1a1.Resource("Deciders"), autoscaler.NewMetricKey(namespace, name))
 	}
 	return km.decider, nil
 }
@@ -909,8 +1214,7 @@ func (km *testDeciders) Update(ctx context.Context, decider *autoscaler.Decider)
 	return decider, nil
 }
 
-func (km *testDeciders) Watch(fn func(string)) {
-}
+func (km *testDeciders) Watch(fn func(string)) {}
 
 type failingDeciders struct {
 	getErr    error
@@ -956,7 +1260,7 @@ type testMetrics struct {
 
 func (km *testMetrics) Get(ctx context.Context, namespace, name string) (*autoscaler.Metric, error) {
 	if km.metric == nil {
-		return nil, apierrors.NewNotFound(kpa.Resource("Metric"), autoscaler.NewMetricKey(namespace, name))
+		return nil, apierrors.NewNotFound(asv1a1.Resource("Metric"), autoscaler.NewMetricKey(namespace, name))
 	}
 	return km.metric, nil
 }
@@ -999,6 +1303,20 @@ func newTestRevision(namespace string, name string) *v1alpha1.Revision {
 			DeprecatedConcurrencyModel: v1alpha1.RevisionRequestConcurrencyModelSingle,
 		},
 	}
+}
+
+func makeSKSPrivateEndpoints(num int, ns, n string) *corev1.Endpoints {
+	s := sks(testNamespace, testRevision, WithPrivateService)
+	eps := &corev1.Endpoints{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: s.Namespace,
+			Name:      s.Status.PrivateServiceName,
+		},
+	}
+	for i := 0; i < num; i++ {
+		eps = addEndpoint(eps)
+	}
+	return eps
 }
 
 func makeEndpoints(rev *v1alpha1.Revision) *corev1.Endpoints {

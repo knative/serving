@@ -16,17 +16,15 @@
 
 package names
 
-import netv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
-
 // PublicService returns the public service name for the `s`.
-func PublicService(s *netv1alpha1.ServerlessService) string {
+func PublicService(sks string) string {
 	// TODO(vagababov): evolve this use generateName (for #3236).
 	// TODO(vagababov): remove "-pub", once revision stops creating the service.
-	return s.Name + "-pub"
+	return sks + "-pub"
 }
 
 // PrivateService returns the private service name for the `s`.
-func PrivateService(s *netv1alpha1.ServerlessService) string {
+func PrivateService(sks string) string {
 	// TODO(vagababov): evolve this use generateName (for #3236).
-	return s.Name + "-priv"
+	return sks + "-priv"
 }

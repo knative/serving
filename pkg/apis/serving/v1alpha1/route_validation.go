@@ -27,8 +27,9 @@ import (
 )
 
 func (r *Route) Validate(ctx context.Context) *apis.FieldError {
-	return serving.ValidateObjectMetadata(r.GetObjectMeta()).ViaField("metadata").
-		Also(r.Spec.Validate(ctx).ViaField("spec"))
+	errs := serving.ValidateObjectMetadata(r.GetObjectMeta()).ViaField("metadata")
+	errs = errs.Also(r.Spec.Validate(apis.WithinSpec(ctx)).ViaField("spec"))
+	return errs
 }
 
 func (rs *RouteSpec) Validate(ctx context.Context) *apis.FieldError {
@@ -36,10 +37,13 @@ func (rs *RouteSpec) Validate(ctx context.Context) *apis.FieldError {
 		return apis.ErrMissingField(apis.CurrentField)
 	}
 
+	errs := CheckDeprecated(ctx, map[string]interface{}{
+		"generation": rs.DeprecatedGeneration,
+	})
+
 	// Track the targets of named TrafficTarget entries (to detect duplicates).
 	trafficMap := make(map[string]int)
 
-	var errs *apis.FieldError
 	percentSum := 0
 	for i, tt := range rs.Traffic {
 		errs = errs.Also(tt.Validate(ctx).ViaFieldIndex("traffic", i))

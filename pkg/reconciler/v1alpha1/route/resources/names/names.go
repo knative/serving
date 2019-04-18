@@ -20,7 +20,7 @@ import (
 	"fmt"
 
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	"github.com/knative/serving/pkg/reconciler"
+	"github.com/knative/serving/pkg/network"
 )
 
 func K8sService(route *v1alpha1.Route) string {
@@ -28,7 +28,7 @@ func K8sService(route *v1alpha1.Route) string {
 }
 
 func K8sServiceFullname(route *v1alpha1.Route) string {
-	return reconciler.GetK8sServiceFullname(K8sService(route), route.Namespace)
+	return network.GetServiceHostname(K8sService(route), route.Namespace)
 }
 
 // ClusterIngress returns the name for the ClusterIngress

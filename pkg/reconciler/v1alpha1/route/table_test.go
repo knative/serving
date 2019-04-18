@@ -31,7 +31,6 @@ import (
 	"github.com/knative/serving/pkg/gc"
 	"github.com/knative/serving/pkg/network"
 	"github.com/knative/serving/pkg/reconciler"
-	rtesting "github.com/knative/serving/pkg/reconciler/testing"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/config"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/resources"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/traffic"
@@ -112,7 +111,7 @@ func TestReconcile(t *testing.T) {
 			route("default", "becomes-ready", WithConfigTarget("config"), WithRouteUID("12-34")),
 			cfg("default", "config",
 				WithGeneration(1), WithLatestCreated("config-00001"), WithLatestReady("config-00001")),
-			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001")),
+			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001"), WithServiceName("mcd")),
 		},
 		WantCreates: []metav1.Object{
 			resources.MakeClusterIngress(
@@ -126,7 +125,8 @@ func TestReconcile(t *testing.T) {
 								RevisionName: "config-00001",
 								Percent:      100,
 							},
-							Active: true,
+							ServiceName: "mcd",
+							Active:      true,
 						}},
 					},
 				},
@@ -159,7 +159,7 @@ func TestReconcile(t *testing.T) {
 				WithConfigTarget("config"), WithRouteUID("12-34"), WithIngressClass("custom-ingress-class")),
 			cfg("default", "config",
 				WithGeneration(1), WithLatestCreated("config-00001"), WithLatestReady("config-00001")),
-			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001")),
+			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001"), WithServiceName("bk")),
 		},
 		WantCreates: []metav1.Object{
 			resources.MakeClusterIngress(
@@ -172,7 +172,8 @@ func TestReconcile(t *testing.T) {
 								RevisionName: "config-00001",
 								Percent:      100,
 							},
-							Active: true,
+							ServiceName: "bk",
+							Active:      true,
 						}},
 					},
 				},
@@ -206,7 +207,7 @@ func TestReconcile(t *testing.T) {
 				WithRouteUID("65-23")),
 			cfg("default", "config",
 				WithGeneration(1), WithLatestCreated("config-00001"), WithLatestReady("config-00001")),
-			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001")),
+			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001"), WithServiceName("tb")),
 		},
 		WantCreates: []metav1.Object{
 			resources.MakeClusterIngress(
@@ -221,7 +222,8 @@ func TestReconcile(t *testing.T) {
 								RevisionName: "config-00001",
 								Percent:      100,
 							},
-							Active: true,
+							ServiceName: "tb",
+							Active:      true,
 						}},
 					},
 				},
@@ -346,7 +348,7 @@ func TestReconcile(t *testing.T) {
 			route("default", "ingress-create-failure", WithConfigTarget("config"), WithRouteFinalizer),
 			cfg("default", "config",
 				WithGeneration(1), WithLatestCreated("config-00001"), WithLatestReady("config-00001")),
-			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001")),
+			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001"), WithServiceName("astrid")),
 		},
 		// We induce a failure creating the ClusterIngress.
 		WantErr: true,
@@ -366,7 +368,8 @@ func TestReconcile(t *testing.T) {
 								RevisionName: "config-00001",
 								Percent:      100,
 							},
-							Active: true,
+							ServiceName: "astrid",
+							Active:      true,
 						}},
 					},
 				},
@@ -528,7 +531,7 @@ func TestReconcile(t *testing.T) {
 				WithGeneration(2), WithLatestReady("config-00001"), WithLatestCreated("config-00002"),
 				WithConfigLabel("serving.knative.dev/route", "new-latest-created"),
 			),
-			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001")),
+			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001"), WithServiceName("daisy")),
 			// This is the name of the new revision we're referencing above.
 			rev("default", "config", 2, WithInitRevConditions, WithRevName("config-00002")),
 			simpleReadyIngress(
@@ -541,7 +544,8 @@ func TestReconcile(t *testing.T) {
 								RevisionName: "config-00001",
 								Percent:      100,
 							},
-							Active: true,
+							ServiceName: "daisy",
+							Active:      true,
 						}},
 					},
 				},
@@ -565,9 +569,9 @@ func TestReconcile(t *testing.T) {
 				// The Route controller attaches our label to this Configuration.
 				WithConfigLabel("serving.knative.dev/route", "new-latest-ready"),
 			),
-			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001")),
+			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001"), WithServiceName("magnolia")),
 			// This is the name of the new revision we're referencing above.
-			rev("default", "config", 2, MarkRevisionReady, WithRevName("config-00002")),
+			rev("default", "config", 2, MarkRevisionReady, WithRevName("config-00002"), WithServiceName("belltown")),
 			simpleReadyIngress(
 				route("default", "new-latest-ready", WithConfigTarget("config"), WithDomain),
 				&traffic.Config{
@@ -578,7 +582,8 @@ func TestReconcile(t *testing.T) {
 								RevisionName: "config-00001",
 								Percent:      100,
 							},
-							Active: true,
+							ServiceName: "magnolia",
+							Active:      true,
 						}},
 					},
 				},
@@ -597,7 +602,8 @@ func TestReconcile(t *testing.T) {
 								RevisionName: "config-00002",
 								Percent:      100,
 							},
-							Active: true,
+							ServiceName: "belltown",
+							Active:      true,
 						}},
 					},
 				},
@@ -634,9 +640,9 @@ func TestReconcile(t *testing.T) {
 				// The Route controller attaches our label to this Configuration.
 				WithConfigLabel("serving.knative.dev/route", "update-ci-failure"),
 			),
-			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001")),
+			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001"), WithServiceName("fremont")),
 			// This is the name of the new revision we're referencing above.
-			rev("default", "config", 2, MarkRevisionReady, WithRevName("config-00002")),
+			rev("default", "config", 2, MarkRevisionReady, WithRevName("config-00002"), WithServiceName("wallingford")),
 			simpleReadyIngress(
 				route("default", "update-ci-failure", WithConfigTarget("config"), WithDomain),
 				&traffic.Config{
@@ -647,7 +653,8 @@ func TestReconcile(t *testing.T) {
 								RevisionName: "config-00001",
 								Percent:      100,
 							},
-							Active: true,
+							ServiceName: "fremont",
+							Active:      true,
 						}},
 					},
 				},
@@ -665,7 +672,8 @@ func TestReconcile(t *testing.T) {
 								RevisionName: "config-00002",
 								Percent:      100,
 							},
-							Active: true,
+							ServiceName: "wallingford",
+							Active:      true,
 						}},
 					},
 				},
@@ -864,7 +872,7 @@ func TestReconcile(t *testing.T) {
 				// The Route controller attaches our label to this Configuration.
 				WithConfigLabel("serving.knative.dev/route", "ingress-mutation"),
 			),
-			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001")),
+			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001"), WithServiceName("windemere")),
 			mutateIngress(simpleReadyIngress(
 				route("default", "ingress-mutation", WithConfigTarget("config"), WithDomain),
 				&traffic.Config{
@@ -875,7 +883,8 @@ func TestReconcile(t *testing.T) {
 								RevisionName: "config-00001",
 								Percent:      100,
 							},
-							Active: true,
+							ServiceName: "magnusson-park",
+							Active:      true,
 						}},
 					},
 				},
@@ -893,7 +902,8 @@ func TestReconcile(t *testing.T) {
 								RevisionName: "config-00001",
 								Percent:      100,
 							},
-							Active: true,
+							ServiceName: "windemere",
+							Active:      true,
 						}},
 					},
 				},
@@ -920,8 +930,8 @@ func TestReconcile(t *testing.T) {
 			),
 			cfg("default", "newconfig",
 				WithGeneration(1), WithLatestCreated("newconfig-00001"), WithLatestReady("newconfig-00001")),
-			rev("default", "oldconfig", 1, MarkRevisionReady, WithRevName("oldconfig-00001")),
-			rev("default", "newconfig", 1, MarkRevisionReady, WithRevName("newconfig-00001")),
+			rev("default", "oldconfig", 1, MarkRevisionReady, WithRevName("oldconfig-00001"), WithServiceName("greenwood")),
+			rev("default", "newconfig", 1, MarkRevisionReady, WithRevName("newconfig-00001"), WithServiceName("broadview")),
 			simpleReadyIngress(
 				route("default", "change-configs", WithConfigTarget("oldconfig"), WithDomain),
 				&traffic.Config{
@@ -932,7 +942,8 @@ func TestReconcile(t *testing.T) {
 								RevisionName: "oldconfig-00001",
 								Percent:      100,
 							},
-							Active: true,
+							ServiceName: "greenwood",
+							Active:      true,
 						}},
 					},
 				},
@@ -951,7 +962,8 @@ func TestReconcile(t *testing.T) {
 								RevisionName: "newconfig-00001",
 								Percent:      100,
 							},
-							Active: true,
+							ServiceName: "broadview",
+							Active:      true,
 						}},
 					},
 				},
@@ -1058,8 +1070,8 @@ func TestReconcile(t *testing.T) {
 				WithGeneration(1), WithLatestCreated("blue-00001"), WithLatestReady("blue-00001")),
 			cfg("default", "green",
 				WithGeneration(1), WithLatestCreated("green-00001"), WithLatestReady("green-00001")),
-			rev("default", "blue", 1, MarkRevisionReady, WithRevName("blue-00001")),
-			rev("default", "green", 1, MarkRevisionReady, WithRevName("green-00001")),
+			rev("default", "blue", 1, MarkRevisionReady, WithRevName("blue-00001"), WithServiceName("blue-ridge")),
+			rev("default", "green", 1, MarkRevisionReady, WithRevName("green-00001"), WithServiceName("green-lake")),
 		},
 		WantCreates: []metav1.Object{
 			resources.MakeClusterIngress(
@@ -1079,14 +1091,16 @@ func TestReconcile(t *testing.T) {
 								RevisionName: "blue-00001",
 								Percent:      50,
 							},
-							Active: true,
+							ServiceName: "blue-ridge",
+							Active:      true,
 						}, {
 							TrafficTarget: v1alpha1.TrafficTarget{
 								// Use the Revision name from the config.
 								RevisionName: "green-00001",
 								Percent:      50,
 							},
-							Active: true,
+							ServiceName: "green-lake",
+							Active:      true,
 						}},
 					},
 				},
@@ -1132,7 +1146,7 @@ func TestReconcile(t *testing.T) {
 				}), WithRouteUID("1-2"), WithRouteFinalizer),
 			cfg("default", "gray",
 				WithGeneration(1), WithLatestCreated("gray-00001"), WithLatestReady("gray-00001")),
-			rev("default", "gray", 1, MarkRevisionReady, WithRevName("gray-00001")),
+			rev("default", "gray", 1, MarkRevisionReady, WithRevName("gray-00001"), WithServiceName("shades")),
 		},
 		WantCreates: []metav1.Object{
 			resources.MakeClusterIngress(
@@ -1154,7 +1168,8 @@ func TestReconcile(t *testing.T) {
 								RevisionName: "gray-00001",
 								Percent:      100,
 							},
-							Active: true,
+							ServiceName: "shades",
+							Active:      true,
 						}},
 						"gray": {{
 							TrafficTarget: v1alpha1.TrafficTarget{
@@ -1162,7 +1177,8 @@ func TestReconcile(t *testing.T) {
 								RevisionName: "gray-00001",
 								Percent:      100,
 							},
-							Active: true,
+							ServiceName: "shades",
+							Active:      true,
 						}},
 						"also-gray": {{
 							TrafficTarget: v1alpha1.TrafficTarget{
@@ -1170,7 +1186,8 @@ func TestReconcile(t *testing.T) {
 								RevisionName: "gray-00001",
 								Percent:      100,
 							},
-							Active: true,
+							ServiceName: "shades",
+							Active:      true,
 						}},
 					},
 				},
@@ -1226,8 +1243,8 @@ func TestReconcile(t *testing.T) {
 			),
 			cfg("default", "green",
 				WithGeneration(1), WithLatestCreated("green-00001"), WithLatestReady("green-00001")),
-			rev("default", "blue", 1, MarkRevisionReady, WithRevName("blue-00001")),
-			rev("default", "green", 1, MarkRevisionReady, WithRevName("green-00001")),
+			rev("default", "blue", 1, MarkRevisionReady, WithRevName("blue-00001"), WithServiceName("alki-beach")),
+			rev("default", "green", 1, MarkRevisionReady, WithRevName("green-00001"), WithServiceName("rainier-beach")),
 			simpleReadyIngress(
 				route("default", "switch-configs", WithConfigTarget("blue"), WithDomain),
 				&traffic.Config{
@@ -1238,7 +1255,8 @@ func TestReconcile(t *testing.T) {
 								RevisionName: "blue-00001",
 								Percent:      100,
 							},
-							Active: true,
+							ServiceName: "alki-beach",
+							Active:      true,
 						}},
 					},
 				},
@@ -1256,7 +1274,8 @@ func TestReconcile(t *testing.T) {
 								RevisionName: "green-00001",
 								Percent:      100,
 							},
-							Active: true,
+							ServiceName: "rainier-beach",
+							Active:      true,
 						}},
 					},
 				},
@@ -1485,7 +1504,7 @@ func TestReconcile(t *testing.T) {
 			revisionLister:       listers.GetRevisionLister(),
 			serviceLister:        listers.GetK8sServiceLister(),
 			clusterIngressLister: listers.GetClusterIngressLister(),
-			tracker:              &rtesting.NullTracker{},
+			tracker:              &NullTracker{},
 			configStore: &testConfigStore{
 				config: ReconcilerTestConfig(),
 			},
@@ -1552,7 +1571,7 @@ func readyIngressStatus() netv1alpha1.IngressStatus {
 	status.InitializeConditions()
 	status.MarkNetworkConfigured()
 	status.MarkLoadBalancerReady([]netv1alpha1.LoadBalancerIngressStatus{
-		{DomainInternal: reconciler.GetK8sServiceFullname("istio-ingressgateway", "istio-system")},
+		{DomainInternal: network.GetServiceHostname("istio-ingressgateway", "istio-system")},
 	})
 
 	return status

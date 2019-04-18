@@ -85,6 +85,13 @@ func (ss *ServiceStatus) PropagateConfigurationStatus(cs *ConfigurationStatus) {
 	}
 }
 
+// MarkRevisionNameTaken notes that the Route has not been programmed because the revision name is taken by a
+// conflicting revision definition.
+func (ss *ServiceStatus) MarkRevisionNameTaken(name string) {
+	serviceCondSet.Manage(ss).MarkFalse(ServiceConditionRoutesReady, "RevisionNameTaken",
+		"The revision name %q is taken by a conflicting Revision, so traffic will not be migrated", name)
+}
+
 const (
 	trafficNotMigratedReason  = "TrafficNotMigrated"
 	trafficNotMigratedMessage = "Traffic is not yet migrated to the latest revision."

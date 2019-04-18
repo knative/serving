@@ -22,6 +22,8 @@ import (
 	"net/url"
 	"time"
 
+	"go.uber.org/zap"
+
 	"github.com/knative/pkg/logging/logkey"
 	"github.com/knative/serving/pkg/activator"
 	"github.com/knative/serving/pkg/activator/util"
@@ -30,11 +32,8 @@ import (
 	pkghttp "github.com/knative/serving/pkg/http"
 	"github.com/knative/serving/pkg/network"
 	"github.com/knative/serving/pkg/queue"
-	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources"
-	resourcenames "github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources/names"
-	"go.uber.org/zap"
-	v1 "k8s.io/api/core/v1"
+
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/wait"
 )
@@ -53,8 +52,9 @@ type ActivationHandler struct {
 	// is not required.
 	GetProbeCount int
 
-	GetRevision func(revID activator.RevisionID) (*v1alpha1.Revision, error)
-	GetService  func(namespace, name string) (*v1.Service, error)
+	GetRevision activator.RevisionGetter
+	GetService  activator.ServiceGetter
+	GetSKS      activator.SKSGetter
 }
 
 func (a *ActivationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -72,7 +72,14 @@ func (a *ActivationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	host, err := a.serviceHostName(revision)
+	// SKS name matches that of revision.
+	sks, err := a.GetSKS(revID.Namespace, revID.Name)
+	if err != nil {
+		logger.Errorw("Error while getting SKS", zap.Error(err))
+		sendError(err, w)
+		return
+	}
+	host, err := a.serviceHostName(revision, sks.Status.PrivateServiceName)
 	if err != nil {
 		logger.Errorw("Error while getting hostname", zap.Error(err))
 		sendError(err, w)
@@ -184,8 +191,7 @@ func (a *ActivationHandler) proxyRequest(w http.ResponseWriter, r *http.Request,
 
 // serviceHostName obtains the hostname of the underlying service and the correct
 // port to send requests to.
-func (a *ActivationHandler) serviceHostName(rev *v1alpha1.Revision) (string, error) {
-	serviceName := resourcenames.K8sService(rev)
+func (a *ActivationHandler) serviceHostName(rev *v1alpha1.Revision, serviceName string) (string, error) {
 	svc, err := a.GetService(rev.Namespace, serviceName)
 	if err != nil {
 		return "", err
@@ -203,7 +209,7 @@ func (a *ActivationHandler) serviceHostName(rev *v1alpha1.Revision) (string, err
 		return "", errors.New("revision needs external HTTP port")
 	}
 
-	serviceFQDN := reconciler.GetK8sServiceFullname(serviceName, rev.Namespace)
+	serviceFQDN := network.GetServiceHostname(serviceName, rev.Namespace)
 
 	return fmt.Sprintf("%s:%d", serviceFQDN, port), nil
 }

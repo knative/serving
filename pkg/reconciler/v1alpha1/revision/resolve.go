@@ -106,13 +106,9 @@ func (r *digestResolver) Resolve(
 		return "", nil
 	}
 
-	img, err := remote.Image(tag, remote.WithTransport(r.transport), remote.WithAuthFromKeychain(kc))
+	desc, err := remote.Get(tag, remote.WithTransport(r.transport), remote.WithAuthFromKeychain(kc))
 	if err != nil {
 		return "", err
 	}
-	digest, err := img.Digest()
-	if err != nil {
-		return "", err
-	}
-	return fmt.Sprintf("%s@%s", tag.Repository.String(), digest), nil
+	return fmt.Sprintf("%s@%s", tag.Repository.String(), desc.Digest), nil
 }

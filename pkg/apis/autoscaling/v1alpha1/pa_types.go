@@ -70,11 +70,9 @@ type PodAutoscalerSpec struct {
 	// +optional
 	DeprecatedGeneration int64 `json:"generation,omitempty"`
 
-	// ConcurrencyModel specifies the desired concurrency model
-	// (Single or Multi) for the scale target. Defaults to Multi.
-	// Deprecated in favor of ContainerConcurrency.
+	// DeprecatedConcurrencyModel no longer does anything, use ContainerConcurrency.
 	// +optional
-	ConcurrencyModel servingv1alpha1.RevisionRequestConcurrencyModelType `json:"concurrencyModel,omitempty"`
+	DeprecatedConcurrencyModel servingv1alpha1.RevisionRequestConcurrencyModelType `json:"concurrencyModel,omitempty"`
 
 	// ContainerConcurrency specifies the maximum allowed
 	// in-flight (concurrent) requests per container of the Revision.
@@ -90,6 +88,7 @@ type PodAutoscalerSpec struct {
 
 	// ServiceName holds the name of a core Kubernetes Service resource that
 	// load balances over the pods referenced by the ScaleTargetRef.
+	// TODO(vagababov): deprecate.
 	ServiceName string `json:"serviceName"`
 
 	// The application-layer protocol. Matches `ProtocolType` inferred from the revision spec.
@@ -105,7 +104,13 @@ const (
 )
 
 // PodAutoscalerStatus communicates the observed state of the PodAutoscaler (from the controller).
-type PodAutoscalerStatus duckv1beta1.Status
+type PodAutoscalerStatus struct {
+	duckv1beta1.Status
+
+	// ServiceName is the K8s Service name that serves the revision, scaled by this PA.
+	// The service is created and owned by the ServerlessService object owned by this PA.
+	ServiceName string `json:"serviceName`
+}
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 

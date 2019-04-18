@@ -26,8 +26,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// MakeSKS makes an SKS resource from the PA, selector and operation mode.
-func MakeSKS(pa *pav1alpha1.PodAutoscaler, selector map[string]string, mode nv1a1.ServerlessServiceOperationMode) *nv1a1.ServerlessService {
+// MakeSKS makes an SKS resource from the PA and operation mode.
+func MakeSKS(pa *pav1alpha1.PodAutoscaler, mode nv1a1.ServerlessServiceOperationMode) *nv1a1.ServerlessService {
 	return &nv1a1.ServerlessService{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      names.SKS(pa.Name),
@@ -39,8 +39,8 @@ func MakeSKS(pa *pav1alpha1.PodAutoscaler, selector map[string]string, mode nv1a
 			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(pa)},
 		},
 		Spec: nv1a1.ServerlessServiceSpec{
-			Selector:     selector,
 			Mode:         mode,
+			ObjectRef:    pa.Spec.ScaleTargetRef,
 			ProtocolType: pa.Spec.ProtocolType,
 		},
 	}

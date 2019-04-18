@@ -21,11 +21,11 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/knative/pkg/system"
-	"github.com/knative/serving/pkg/utils"
+	"github.com/knative/serving/pkg/network"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	. "github.com/knative/serving/pkg/reconciler/testing"
+	. "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
 )
 
 func TestSelectorMatches(t *testing.T) {
@@ -172,7 +172,7 @@ func TestLookupDomainForLabels(t *testing.T) {
 		domain: "default.com",
 	}, {
 		labels: map[string]string{"serving.knative.dev/visibility": "cluster-local"},
-		domain: "svc." + utils.GetClusterDomainName(),
+		domain: "svc." + network.GetClusterDomainName(),
 	}}
 
 	for _, expected := range expectations {
