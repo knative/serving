@@ -20,6 +20,8 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+
+	"github.com/knative/pkg/kmp"
 )
 
 // CurrentField is a constant to supply as a fieldPath for when there is
@@ -350,4 +352,19 @@ func ErrOutOfBoundsValue(value, lower, upper interface{}, fieldPath string) *Fie
 		Message: fmt.Sprintf("expected %v <= %v <= %v", lower, value, upper),
 		Paths:   []string{fieldPath},
 	}
+}
+
+// CheckDisallowedFields compares the request object against a masked request object. Fields
+// that are set in the request object that are unset in the mask are reported back as disallowed fields. If
+// there is an error comparing the two objects FieldError of "Internal Error" is returned.
+func CheckDisallowedFields(request, maskedRequest interface{}) *FieldError {
+	if disallowed, err := kmp.CompareSetFields(request, maskedRequest); err != nil {
+		return &FieldError{
+			Message: fmt.Sprintf("Internal Error"),
+			Paths:   []string{CurrentField},
+		}
+	} else if len(disallowed) > 0 {
+		return ErrDisallowedFields(disallowed...)
+	}
+	return nil
 }
