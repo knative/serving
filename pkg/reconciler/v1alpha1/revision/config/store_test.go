@@ -23,16 +23,17 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	logtesting "github.com/knative/pkg/logging/testing"
 	"github.com/knative/serving/pkg/autoscaler"
 	"github.com/knative/serving/pkg/logging"
-
 	"github.com/knative/serving/pkg/network"
-	. "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
+
+	. "github.com/knative/pkg/configmap/testing"
 )
 
 func TestStoreLoadWithContext(t *testing.T) {
-	defer ClearAllLoggers()
-	store := NewStore(TestLogger(t))
+	defer logtesting.ClearAll()
+	store := NewStore(logtesting.TestLogger(t))
 
 	controllerConfig := ConfigMapFromTestFile(t, ControllerConfigName, queueSidecarImageKey)
 	networkConfig := ConfigMapFromTestFile(t, network.ConfigName)
@@ -87,8 +88,8 @@ func TestStoreLoadWithContext(t *testing.T) {
 }
 
 func TestStoreImmutableConfig(t *testing.T) {
-	defer ClearAllLoggers()
-	store := NewStore(TestLogger(t))
+	defer logtesting.ClearAll()
+	store := NewStore(logtesting.TestLogger(t))
 
 	store.OnConfigChanged(ConfigMapFromTestFile(t, ControllerConfigName, queueSidecarImageKey))
 	store.OnConfigChanged(ConfigMapFromTestFile(t, network.ConfigName))

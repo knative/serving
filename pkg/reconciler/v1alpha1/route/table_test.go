@@ -24,6 +24,7 @@ import (
 
 	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/controller"
+	logtesting "github.com/knative/pkg/logging/testing"
 	"github.com/knative/pkg/ptr"
 	netv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving"
@@ -41,6 +42,8 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgotesting "k8s.io/client-go/testing"
+
+	. "github.com/knative/pkg/reconciler/testing"
 )
 
 const TestIngressClass = "ingress-class-foo"
@@ -1602,7 +1605,7 @@ func TestReconcile(t *testing.T) {
 	// TODO(mattmoor): Revision inactive (indirect reference)
 	// TODO(mattmoor): Multiple inactive Revisions
 
-	defer ClearAllLoggers()
+	defer logtesting.ClearAll()
 	table.Test(t, MakeFactory(func(listers *Listers, opt reconciler.Options) controller.Reconciler {
 		return &Reconciler{
 			Base:                 reconciler.NewBase(opt, controllerAgentName),

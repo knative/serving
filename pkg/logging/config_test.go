@@ -27,7 +27,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	. "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
+	. "github.com/knative/pkg/configmap/testing"
 )
 
 func TestNewLogger(t *testing.T) {

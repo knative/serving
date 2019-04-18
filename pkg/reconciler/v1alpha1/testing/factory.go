@@ -20,6 +20,7 @@ import (
 	"context"
 	"testing"
 
+	logtesting "github.com/knative/pkg/logging/testing"
 	autoscalingv1 "k8s.io/api/autoscaling/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -36,6 +37,8 @@ import (
 	"github.com/knative/pkg/controller"
 	fakeclientset "github.com/knative/serving/pkg/client/clientset/versioned/fake"
 	"github.com/knative/serving/pkg/reconciler"
+
+	. "github.com/knative/pkg/reconciler/testing"
 )
 
 const (
@@ -103,7 +106,7 @@ func MakeFactory(ctor Ctor) Factory {
 			ScaleClientSet:   scaleClient(kubeClient),
 			Recorder:         eventRecorder,
 			StatsReporter:    statsReporter,
-			Logger:           TestLogger(t),
+			Logger:           logtesting.TestLogger(t),
 		})
 
 		for _, reactor := range r.WithReactors {

@@ -40,6 +40,7 @@ import (
 	"github.com/knative/pkg/configmap"
 	ctrl "github.com/knative/pkg/controller"
 	"github.com/knative/pkg/kmeta"
+	logtesting "github.com/knative/pkg/logging/testing"
 	"github.com/knative/pkg/system"
 	av1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving"
@@ -53,7 +54,6 @@ import (
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/config"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources"
 	resourcenames "github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources/names"
-	. "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -65,6 +65,8 @@ import (
 	kubeinformers "k8s.io/client-go/informers"
 	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/tools/record"
+
+	. "github.com/knative/pkg/reconciler/testing"
 )
 
 func testConfiguration() *v1alpha1.Configuration {
@@ -132,7 +134,7 @@ func newTestControllerWithConfig(t *testing.T, controllerConfig *config.Controll
 		DynamicClientSet: dynamicClient,
 		CachingClientSet: cachingClient,
 		ConfigMapWatcher: configMapWatcher,
-		Logger:           TestLogger(t),
+		Logger:           logtesting.TestLogger(t),
 		ResyncPeriod:     0,
 		StopChannel:      nil,
 	}
@@ -574,7 +576,7 @@ func getPodAnnotationsForConfig(t *testing.T, configMapValue string, configAnnot
 }
 
 func TestGlobalResyncOnConfigMapUpdateRevision(t *testing.T) {
-	defer ClearAllLoggers()
+	defer logtesting.ClearAll()
 	// Test that changes to the ConfigMap result in the desired changes on an existing
 	// revision.
 	tests := []struct {
@@ -657,7 +659,7 @@ func TestGlobalResyncOnConfigMapUpdateRevision(t *testing.T) {
 }
 
 func TestGlobalResyncOnConfigMapUpdateDeployment(t *testing.T) {
-	defer ClearAllLoggers()
+	defer logtesting.ClearAll()
 	// Test that changes to the ConfigMap result in the desired changes on an existing
 	// deployment.
 	tests := []struct {

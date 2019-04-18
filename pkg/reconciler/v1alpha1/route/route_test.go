@@ -28,6 +28,7 @@ import (
 	duckv1beta1 "github.com/knative/pkg/apis/duck/v1beta1"
 	"github.com/knative/pkg/configmap"
 	ctrl "github.com/knative/pkg/controller"
+	logtesting "github.com/knative/pkg/logging/testing"
 	"github.com/knative/pkg/system"
 	netv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving"
@@ -39,7 +40,6 @@ import (
 	"github.com/knative/serving/pkg/network"
 	rclr "github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/config"
-	. "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
 	"golang.org/x/sync/errgroup"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -48,6 +48,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	kubeinformers "k8s.io/client-go/informers"
 	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
+
+	. "github.com/knative/pkg/reconciler/testing"
 )
 
 const (
@@ -201,7 +203,7 @@ func newTestSetup(t *testing.T, configs ...*corev1.ConfigMap) (
 			KubeClientSet:    kubeClient,
 			ServingClientSet: servingClient,
 			ConfigMapWatcher: configMapWatcher,
-			Logger:           TestLogger(t),
+			Logger:           logtesting.TestLogger(t),
 		},
 		servingInformer.Serving().V1alpha1().Routes(),
 		servingInformer.Serving().V1alpha1().Configurations(),
@@ -859,7 +861,7 @@ func TestUpdateDomainConfigMap(t *testing.T) {
 }
 
 func TestGlobalResyncOnUpdateDomainConfigMap(t *testing.T) {
-	defer ClearAllLoggers()
+	defer logtesting.ClearAll()
 	// Test changes in domain config map. Routes should get updated appropriately.
 	// We're expecting exactly one route modification per config-map change.
 	tests := []struct {
