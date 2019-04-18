@@ -95,6 +95,14 @@ type ServiceSpec struct {
 	// to be split between two revisions. This type replaces the deprecated Pinned type.
 	// +optional
 	Release *ReleaseType `json:"release,omitempty"`
+
+	// We are moving to a shape where the Configuration and Route specifications
+	// are inlined into the Service, which gives them compatible shapes.  We are
+	// staging this change here as a path to this in v1beta1, which drops the
+	// "mode" based specifications above.  Ultimately all non-v1beta1 fields will
+	// be deprecated, and then dropped in v1beta1.
+	ConfigurationSpec `json:",inline"`
+	RouteSpec         `json:",inline"`
 }
 
 // ManualType contains the options for configuring a manual service. See ServiceSpec for

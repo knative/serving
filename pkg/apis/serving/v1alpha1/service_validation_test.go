@@ -26,6 +26,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/knative/pkg/apis"
+	"github.com/knative/pkg/ptr"
 	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 )
 
@@ -241,7 +242,8 @@ func TestServiceValidation(t *testing.T) {
 		},
 		want: &apis.FieldError{
 			Message: "expected exactly one, got neither",
-			Paths:   []string{"spec.manual", "spec.pinned", "spec.release", "spec.runLatest"},
+			Paths: []string{"spec.manual", "spec.pinned", "spec.release",
+				"spec.template", "spec.runLatest"},
 		},
 	}, {
 		name: "invalid runLatest",
@@ -536,7 +538,132 @@ func TestServiceValidation(t *testing.T) {
 			Message: "not a DNS 1035 label: [must be no more than 63 characters]",
 			Paths:   []string{"metadata.name"},
 		},
+	}, {
+		name: "runLatest with traffic",
+		s: &Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "invalid",
+			},
+			Spec: ServiceSpec{
+				RunLatest: &RunLatestType{
+					Configuration: ConfigurationSpec{
+						RevisionTemplate: &RevisionTemplateSpec{
+							Spec: RevisionSpec{
+								Container: &corev1.Container{
+									Image: "hellworld",
+								},
+							},
+						},
+					},
+				},
+				RouteSpec: RouteSpec{
+					Traffic: []TrafficTarget{{
+						TrafficTarget: v1beta1.TrafficTarget{
+							LatestRevision: ptr.Bool(true),
+							Percent:        100,
+						},
+					}},
+				},
+			},
+		},
+		want: apis.ErrMultipleOneOf("spec.runLatest", "spec.traffic"),
+	}, {
+		name: "valid v1beta1 subset (pinned)",
+		s: &Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid",
+			},
+			Spec: ServiceSpec{
+				ConfigurationSpec: ConfigurationSpec{
+					Template: &RevisionTemplateSpec{
+						Spec: RevisionSpec{
+							RevisionSpec: v1beta1.RevisionSpec{
+								PodSpec: v1beta1.PodSpec{
+									Containers: []corev1.Container{{
+										Image: "helloworld",
+									}},
+								},
+							},
+						},
+					},
+				},
+				RouteSpec: RouteSpec{
+					Traffic: []TrafficTarget{{
+						TrafficTarget: v1beta1.TrafficTarget{
+							RevisionName: "valid-00001",
+							Percent:      100,
+						},
+					}},
+				},
+			},
+		},
+		want: nil,
+	}, {
+		name: "invalid v1beta1 subset (deprecated field within inline spec)",
+		s: &Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid",
+			},
+			Spec: ServiceSpec{
+				ConfigurationSpec: ConfigurationSpec{
+					Template: &RevisionTemplateSpec{
+						Spec: RevisionSpec{
+							DeprecatedConcurrencyModel: "Multi",
+							RevisionSpec: v1beta1.RevisionSpec{
+								PodSpec: v1beta1.PodSpec{
+									Containers: []corev1.Container{{
+										Image: "helloworld",
+									}},
+								},
+							},
+						},
+					},
+				},
+				RouteSpec: RouteSpec{
+					Traffic: []TrafficTarget{{
+						TrafficTarget: v1beta1.TrafficTarget{
+							RevisionName: "valid-00001",
+							Percent:      100,
+						},
+					}},
+				},
+			},
+		},
+		want: apis.ErrDisallowedFields("spec.template.spec.concurrencyModel"),
+	}, {
+		name: "valid v1beta1 subset (run latest)",
+		s: &Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid",
+			},
+			Spec: ServiceSpec{
+				ConfigurationSpec: ConfigurationSpec{
+					Template: &RevisionTemplateSpec{
+						Spec: RevisionSpec{
+							RevisionSpec: v1beta1.RevisionSpec{
+								PodSpec: v1beta1.PodSpec{
+									Containers: []corev1.Container{{
+										Image: "helloworld",
+									}},
+								},
+							},
+						},
+					},
+				},
+				RouteSpec: RouteSpec{
+					Traffic: []TrafficTarget{{
+						TrafficTarget: v1beta1.TrafficTarget{
+							LatestRevision: ptr.Bool(true),
+							Percent:        100,
+						},
+					}},
+				},
+			},
+		},
+		want: nil,
 	}}
+
+	// TODO(mattmoor): Add a test for default configurationName
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

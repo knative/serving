@@ -53,18 +53,24 @@ func TestReconcile(t *testing.T) {
 		},
 		Key: "foo/delete-pending",
 	}, {
-		Name: "incomplete service",
+		Name: "inline - create route and service",
 		Objects: []runtime.Object{
-			// There is no spec.{runLatest,pinned} in this Service to
-			// trigger the error condition.
-			Service("incomplete", "foo", WithInitSvcConditions),
+			Service("run-latest", "foo", WithInlineRollout),
 		},
-		Key:     "foo/incomplete",
-		WantErr: true,
+		Key: "foo/run-latest",
+		WantCreates: []metav1.Object{
+			config("run-latest", "foo", WithInlineRollout),
+			route("run-latest", "foo", WithInlineRollout),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: Service("run-latest", "foo", WithInlineRollout,
+				// The first reconciliation will initialize the status conditions.
+				WithInitSvcConditions),
+		}},
 		WantEvents: []string{
-			Eventf(corev1.EventTypeWarning, "CreationFailed", "Failed to create Configuration %q: %v",
-				"incomplete", "malformed Service: MakeConfiguration requires one of runLatest, pinned, or release must be present"),
-			Eventf(corev1.EventTypeWarning, "InternalError", "malformed Service: MakeConfiguration requires one of runLatest, pinned, or release must be present"),
+			Eventf(corev1.EventTypeNormal, "Created", "Created Configuration %q", "run-latest"),
+			Eventf(corev1.EventTypeNormal, "Created", "Created Route %q", "run-latest"),
+			Eventf(corev1.EventTypeNormal, "Updated", "Updated Service %q", "run-latest"),
 		},
 	}, {
 		Name: "runLatest - create route and service",
@@ -706,8 +712,13 @@ func TestReconcile(t *testing.T) {
 		},
 		Key:     "foo/bad-config-update",
 		WantErr: true,
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			// Use WithInitSvcConditions as a HACK to create the
+			// empty Configuration.
+			Object: config("bad-config-update", "foo", WithInitSvcConditions),
+		}},
 		WantEvents: []string{
-			Eventf(corev1.EventTypeWarning, "InternalError", "malformed Service: MakeConfiguration requires one of runLatest, pinned, or release must be present"),
+			Eventf(corev1.EventTypeWarning, "InternalError", "missing field(s): spec"),
 		},
 	}, {
 		Name: "runLatest - route creation failure",

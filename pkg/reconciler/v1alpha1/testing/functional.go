@@ -110,6 +110,21 @@ func WithServiceDeletionTimestamp(r *v1alpha1.Service) {
 	r.ObjectMeta.SetDeletionTimestamp(&t)
 }
 
+// WithInlineRollout configures the Service to be "run latest" via inline
+// Route/Configuration
+func WithInlineRollout(s *v1alpha1.Service) {
+	s.Spec = v1alpha1.ServiceSpec{
+		ConfigurationSpec: *configSpec.DeepCopy(),
+		RouteSpec: v1alpha1.RouteSpec{
+			Traffic: []v1alpha1.TrafficTarget{{
+				TrafficTarget: v1beta1.TrafficTarget{
+					Percent: 100,
+				},
+			}},
+		},
+	}
+}
+
 // WithRunLatestRollout configures the Service to use a "runLatest" rollout.
 func WithRunLatestRollout(s *v1alpha1.Service) {
 	s.Spec = v1alpha1.ServiceSpec{
@@ -119,7 +134,21 @@ func WithRunLatestRollout(s *v1alpha1.Service) {
 	}
 }
 
-// WithRunLatestConfigSpec confgures the Service to use a "runLastest" configuration
+// WithInlineConfigSpec confgures the Service to use the given config spec
+func WithInlineConfigSpec(config v1alpha1.ConfigurationSpec) ServiceOption {
+	return func(svc *v1alpha1.Service) {
+		svc.Spec.ConfigurationSpec = config
+	}
+}
+
+// WithInlineRouteSpec confgures the Service to use the given route spec
+func WithInlineRouteSpec(config v1alpha1.RouteSpec) ServiceOption {
+	return func(svc *v1alpha1.Service) {
+		svc.Spec.RouteSpec = config
+	}
+}
+
+// WithRunLatestConfigSpec confgures the Service to use a "runLatest" configuration
 func WithRunLatestConfigSpec(config v1alpha1.ConfigurationSpec) ServiceOption {
 	return func(svc *v1alpha1.Service) {
 		svc.Spec = v1alpha1.ServiceSpec{
