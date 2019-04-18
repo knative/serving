@@ -158,7 +158,7 @@ func routeWithTraffic(namespace, name string, traffic ...v1alpha1.TrafficTarget)
 func simpleRunLatest(namespace, name, config string) *v1alpha1.Route {
 	return routeWithTraffic(namespace, name, v1alpha1.TrafficTarget{
 		TrafficTarget: v1beta1.TrafficTarget{
-			RevisionName: config + "-00001",
+			RevisionName: config + "-dbnfd",
 			Percent:      100,
 		},
 	})
@@ -181,8 +181,8 @@ func simpleConfig(namespace, name string) *v1alpha1.Configuration {
 		},
 	}
 	cfg.Status.InitializeConditions()
-	cfg.Status.SetLatestCreatedRevisionName(name + "-00001")
-	cfg.Status.SetLatestReadyRevisionName(name + "-00001")
+	cfg.Status.SetLatestCreatedRevisionName(name + "-dbnfd")
+	cfg.Status.SetLatestReadyRevisionName(name + "-dbnfd")
 	return cfg
 }
 

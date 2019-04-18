@@ -24,6 +24,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	pkgTest "github.com/knative/pkg/test"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
@@ -329,12 +330,8 @@ func waitForDesiredTrafficShape(t *testing.T, sName string, want map[string]v1al
 			for _, tt := range s.Status.Traffic {
 				got[tt.Name] = tt
 			}
-			ignoreURLs := cmp.FilterPath(
-				func(p cmp.Path) bool {
-					return p.String() == "TrafficTarget.URL"
-				},
-				cmp.Ignore(),
-			)
+			ignoreURLs := cmpopts.IgnoreFields(v1alpha1.TrafficTarget{},
+				"TrafficTarget.URL")
 			if !cmp.Equal(got, want, ignoreURLs) {
 				t.Logf("For service %s traffic shape mismatch: (-got, +want) %s",
 					sName, cmp.Diff(got, want, ignoreURLs))
