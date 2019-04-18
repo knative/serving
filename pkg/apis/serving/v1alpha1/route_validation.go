@@ -54,18 +54,18 @@ func (rs *RouteSpec) Validate(ctx context.Context) *apis.FieldError {
 
 		percentSum += tt.Percent
 
-		if tt.Name != "" && tt.Subroute != "" {
-			errs = errs.Also(apis.ErrMultipleOneOf("name", "subroute").
+		if tt.Name != "" && tt.Tag != "" {
+			errs = errs.Also(apis.ErrMultipleOneOf("name", "tag").
 				ViaFieldIndex("traffic", i))
-		} else if tt.Name == "" && tt.Subroute == "" {
+		} else if tt.Name == "" && tt.Tag == "" {
 			// No Name field, so skip the uniqueness check.
 			continue
 		}
 		name := tt.Name
 		field := "name"
 		if name == "" {
-			name = tt.Subroute
-			field = "subroute"
+			name = tt.Tag
+			field = "tag"
 		}
 
 		if d, ok := trafficMap[name]; !ok {

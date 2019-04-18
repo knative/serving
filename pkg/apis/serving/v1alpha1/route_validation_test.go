@@ -334,13 +334,13 @@ func TestRouteSpecValidation(t *testing.T) {
 			Traffic: []TrafficTarget{{
 				Name: "foo",
 				TrafficTarget: v1beta1.TrafficTarget{
-					Subroute:     "foo",
+					Tag:          "foo",
 					RevisionName: "bar",
 					Percent:      100,
 				},
 			}},
 		},
-		want: apis.ErrMultipleOneOf("traffic[0].name", "traffic[0].subroute"),
+		want: apis.ErrMultipleOneOf("traffic[0].name", "traffic[0].tag"),
 	}, {
 		name: "conflicting with different names",
 		rs: &RouteSpec{
@@ -352,7 +352,7 @@ func TestRouteSpecValidation(t *testing.T) {
 				},
 			}, {
 				TrafficTarget: v1beta1.TrafficTarget{
-					Subroute:     "foo",
+					Tag:          "foo",
 					RevisionName: "bar",
 					Percent:      50,
 				},
@@ -362,7 +362,7 @@ func TestRouteSpecValidation(t *testing.T) {
 			Message: `Multiple definitions for "foo"`,
 			Paths: []string{
 				"traffic[0].name",
-				"traffic[1].subroute",
+				"traffic[1].tag",
 			},
 		},
 	}}

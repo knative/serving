@@ -398,7 +398,7 @@ func TestBuildTrafficConfiguration_Consolidated(t *testing.T) {
 		Targets: map[string]RevisionTargets{
 			DefaultTarget: {{
 				TrafficTarget: v1beta1.TrafficTarget{
-					Subroute:          "one",
+					Tag:               "one",
 					ConfigurationName: goodConfig.Name,
 					RevisionName:      goodOldRev.Name,
 					Percent:           49,
@@ -407,7 +407,7 @@ func TestBuildTrafficConfiguration_Consolidated(t *testing.T) {
 				Protocol: net.ProtocolHTTP1,
 			}, {
 				TrafficTarget: v1beta1.TrafficTarget{
-					Subroute:          "two",
+					Tag:               "two",
 					ConfigurationName: goodConfig.Name,
 					RevisionName:      goodNewRev.Name,
 					Percent:           51,
@@ -417,7 +417,7 @@ func TestBuildTrafficConfiguration_Consolidated(t *testing.T) {
 			}},
 			"one": {{
 				TrafficTarget: v1beta1.TrafficTarget{
-					Subroute:          "one",
+					Tag:               "one",
 					ConfigurationName: goodConfig.Name,
 					RevisionName:      goodOldRev.Name,
 					Percent:           100,
@@ -427,7 +427,7 @@ func TestBuildTrafficConfiguration_Consolidated(t *testing.T) {
 			}},
 			"two": {{
 				TrafficTarget: v1beta1.TrafficTarget{
-					Subroute:          "two",
+					Tag:               "two",
 					ConfigurationName: goodConfig.Name,
 					RevisionName:      goodNewRev.Name,
 					Percent:           100,
@@ -437,7 +437,7 @@ func TestBuildTrafficConfiguration_Consolidated(t *testing.T) {
 			}},
 			"also-two": {{
 				TrafficTarget: v1beta1.TrafficTarget{
-					Subroute:          "also-two",
+					Tag:               "also-two",
 					ConfigurationName: goodConfig.Name,
 					RevisionName:      goodNewRev.Name,
 					Percent:           100,
@@ -448,7 +448,7 @@ func TestBuildTrafficConfiguration_Consolidated(t *testing.T) {
 		},
 		revisionTargets: []RevisionTarget{{
 			TrafficTarget: v1beta1.TrafficTarget{
-				Subroute:          "one",
+				Tag:               "one",
 				ConfigurationName: goodConfig.Name,
 				RevisionName:      goodOldRev.Name,
 				Percent:           49,
@@ -457,7 +457,7 @@ func TestBuildTrafficConfiguration_Consolidated(t *testing.T) {
 			Protocol: net.ProtocolHTTP1,
 		}, {
 			TrafficTarget: v1beta1.TrafficTarget{
-				Subroute:          "two",
+				Tag:               "two",
 				ConfigurationName: goodConfig.Name,
 				RevisionName:      goodNewRev.Name,
 				Percent:           50,
@@ -466,7 +466,7 @@ func TestBuildTrafficConfiguration_Consolidated(t *testing.T) {
 			Protocol: net.ProtocolH2C,
 		}, {
 			TrafficTarget: v1beta1.TrafficTarget{
-				Subroute:          "also-two",
+				Tag:               "also-two",
 				ConfigurationName: goodConfig.Name,
 				RevisionName:      goodNewRev.Name,
 				Percent:           1,
@@ -650,7 +650,7 @@ func TestBuildTrafficConfiguration_Preliminary(t *testing.T) {
 				Protocol: net.ProtocolHTTP1,
 			}, {
 				TrafficTarget: v1beta1.TrafficTarget{
-					Subroute:          "beta",
+					Tag:               "beta",
 					ConfigurationName: goodConfig.Name,
 					RevisionName:      goodNewRev.Name,
 				},
@@ -658,7 +658,7 @@ func TestBuildTrafficConfiguration_Preliminary(t *testing.T) {
 				Protocol: net.ProtocolH2C,
 			}, {
 				TrafficTarget: v1beta1.TrafficTarget{
-					Subroute:          "alpha",
+					Tag:               "alpha",
 					ConfigurationName: niceConfig.Name,
 					RevisionName:      niceNewRev.Name,
 				},
@@ -667,7 +667,7 @@ func TestBuildTrafficConfiguration_Preliminary(t *testing.T) {
 			}},
 			"beta": {{
 				TrafficTarget: v1beta1.TrafficTarget{
-					Subroute:          "beta",
+					Tag:               "beta",
 					ConfigurationName: goodConfig.Name,
 					RevisionName:      goodNewRev.Name,
 					Percent:           100,
@@ -677,7 +677,7 @@ func TestBuildTrafficConfiguration_Preliminary(t *testing.T) {
 			}},
 			"alpha": {{
 				TrafficTarget: v1beta1.TrafficTarget{
-					Subroute:          "alpha",
+					Tag:               "alpha",
 					ConfigurationName: niceConfig.Name,
 					RevisionName:      niceNewRev.Name,
 					Percent:           100,
@@ -696,7 +696,7 @@ func TestBuildTrafficConfiguration_Preliminary(t *testing.T) {
 			Protocol: net.ProtocolHTTP1,
 		}, {
 			TrafficTarget: v1beta1.TrafficTarget{
-				Subroute:          "beta",
+				Tag:               "beta",
 				ConfigurationName: goodConfig.Name,
 				RevisionName:      goodNewRev.Name,
 			},
@@ -704,7 +704,7 @@ func TestBuildTrafficConfiguration_Preliminary(t *testing.T) {
 			Protocol: net.ProtocolH2C,
 		}, {
 			TrafficTarget: v1beta1.TrafficTarget{
-				Subroute:          "alpha",
+				Tag:               "alpha",
 				ConfigurationName: niceConfig.Name,
 				RevisionName:      niceNewRev.Name,
 			},
@@ -944,13 +944,13 @@ func TestRoundTripping(t *testing.T) {
 		Name: "beta",
 		TrafficTarget: v1beta1.TrafficTarget{
 			RevisionName: goodNewRev.Name,
-			URL:          SubrouteURL(HTTPScheme, "beta", domain),
+			URL:          TagURL(HTTPScheme, "beta", domain),
 		},
 	}, {
 		Name: "alpha",
 		TrafficTarget: v1beta1.TrafficTarget{
 			RevisionName: niceNewRev.Name,
-			URL:          SubrouteURL(HTTPScheme, "alpha", domain),
+			URL:          TagURL(HTTPScheme, "alpha", domain),
 		},
 	}}
 	if tc, err := BuildTrafficConfiguration(configLister, revLister, testRouteWithTrafficTargets(tts)); err != nil {
@@ -960,7 +960,7 @@ func TestRoundTripping(t *testing.T) {
 	}
 }
 
-func TestSubrouteURL(t *testing.T) {
+func TestTagURL(t *testing.T) {
 	tests := []struct {
 		TestName string
 		Name     string
@@ -980,15 +980,15 @@ func TestSubrouteURL(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.TestName, func(t *testing.T) {
-			if got, want := tt.Expected, SubrouteURL(HTTPScheme, tt.Name, tt.Domain); got != want {
-				t.Errorf("SubrouteDomain = %s, want: %s", got, want)
+			if got, want := tt.Expected, TagURL(HTTPScheme, tt.Name, tt.Domain); got != want {
+				t.Errorf("TagDomain = %s, want: %s", got, want)
 			}
 		})
 	}
 
 }
 
-func TestSubrouteDomain(t *testing.T) {
+func TestTagDomain(t *testing.T) {
 	tests := []struct {
 		TestName string
 		Name     string
@@ -1008,8 +1008,8 @@ func TestSubrouteDomain(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.TestName, func(t *testing.T) {
-			if got, want := tt.Expected, SubrouteDomain(tt.Name, tt.Domain); got != want {
-				t.Errorf("SubrouteDomain = %s, want: %s", got, want)
+			if got, want := tt.Expected, TagDomain(tt.Name, tt.Domain); got != want {
+				t.Errorf("TagDomain = %s, want: %s", got, want)
 			}
 		})
 	}

@@ -76,18 +76,18 @@ func BuildTrafficConfiguration(configLister listers.ConfigurationLister, revList
 	return builder.build()
 }
 
-// SubrouteDomain returns the domain name of a traffic target given the traffic target name and the Route's base domain.
-func SubrouteDomain(name, domain string) string {
+// TagDomain returns the domain name of a traffic target given the traffic target name and the Route's base domain.
+func TagDomain(name, domain string) string {
 	if name == DefaultTarget {
 		return domain
 	}
 	return fmt.Sprintf("%s.%s", name, domain)
 }
 
-// SubrouteURL returns the URL of the subroute given the scheme, traffic target name, and base domain. Curently
-// the subroute is represented as a subdomain of the base domain.
-func SubrouteURL(scheme, name, domain string) string {
-	return fmt.Sprintf("%s://%s", scheme, SubrouteDomain(name, domain))
+// TagURL returns the URL of the tag given the scheme, traffic target name, and base domain. Curently
+// the tag is represented as a subdomain of the base domain.
+func TagURL(scheme, name, domain string) string {
+	return fmt.Sprintf("%s://%s", scheme, TagDomain(name, domain))
 }
 
 // GetRevisionTrafficTargets returns a list of TrafficTarget flattened to the RevisionName, and having ConfigurationName cleared out.
@@ -97,15 +97,15 @@ func (t *Config) GetRevisionTrafficTargets(domain string) []v1alpha1.TrafficTarg
 		// We cannot `DeepCopy` here, since tt.TrafficTarget might contain both
 		// configuration and revision.
 		results[i] = v1alpha1.TrafficTarget{
-			Name: tt.Subroute,
+			Name: tt.Tag,
 			TrafficTarget: v1beta1.TrafficTarget{
 				RevisionName: tt.RevisionName,
 				Percent:      tt.Percent,
 			},
 		}
-		if tt.Subroute != "" && domain != "" {
+		if tt.Tag != "" && domain != "" {
 			// http is currently the only supported scheme
-			results[i].URL = SubrouteURL(HTTPScheme, tt.Subroute, domain)
+			results[i].URL = TagURL(HTTPScheme, tt.Tag, domain)
 		}
 	}
 	return results
@@ -221,8 +221,8 @@ func (t *configBuilder) addConfigurationTarget(tt *v1alpha1.TrafficTarget) error
 		return err
 	}
 	ntt := tt.TrafficTarget.DeepCopy()
-	if ntt.Subroute == "" {
-		ntt.Subroute = tt.Name
+	if ntt.Tag == "" {
+		ntt.Tag = tt.Name
 	}
 	target := RevisionTarget{
 		TrafficTarget: *ntt,
@@ -244,8 +244,8 @@ func (t *configBuilder) addRevisionTarget(tt *v1alpha1.TrafficTarget) error {
 		return errUnreadyRevision(rev)
 	}
 	ntt := tt.TrafficTarget.DeepCopy()
-	if ntt.Subroute == "" {
-		ntt.Subroute = tt.Name
+	if ntt.Tag == "" {
+		ntt.Tag = tt.Name
 	}
 	target := RevisionTarget{
 		TrafficTarget: *ntt,
@@ -265,7 +265,7 @@ func (t *configBuilder) addRevisionTarget(tt *v1alpha1.TrafficTarget) error {
 }
 
 func (t *configBuilder) addFlattenedTarget(target RevisionTarget) {
-	name := target.TrafficTarget.Subroute
+	name := target.TrafficTarget.Tag
 	t.revisionTargets = append(t.revisionTargets, target)
 	t.targets[DefaultTarget] = append(t.targets[DefaultTarget], target)
 	if name != "" {

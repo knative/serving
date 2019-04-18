@@ -246,13 +246,13 @@ func (c *Reconciler) reconcile(ctx context.Context, service *v1alpha1.Service) e
 				if want[idx].ConfigurationName == config.Name {
 					want[idx].RevisionName = config.Status.LatestReadyRevisionName
 					want[idx].ConfigurationName = ""
-					// Normalize Name into Subroute for comparison.
+					// Normalize Name into Tag for comparison.
 					if want[idx].Name != "" {
-						want[idx].Subroute = want[idx].Name
+						want[idx].Tag = want[idx].Name
 						want[idx].Name = ""
 					}
 					if got[idx].Name != "" {
-						got[idx].Subroute = got[idx].Name
+						got[idx].Tag = got[idx].Name
 						got[idx].Name = ""
 					}
 				}
