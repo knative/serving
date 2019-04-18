@@ -185,25 +185,21 @@ func NewConfigFromConfigMap(configMap *corev1.ConfigMap) (*Config, error) {
 		nc.DomainTemplate = dt
 	}
 
-	if autoTLS, ok := configMap.Data[AutoTLSKey]; !ok {
-		nc.AutoTLS = false
-	} else {
-		nc.AutoTLS = strings.ToLower(autoTLS) == "enabled"
-	}
+	nc.AutoTLS = strings.ToLower(configMap.Data[AutoTLSKey]) == "enabled"
 
-	if httpProtocol, ok := configMap.Data[HTTPProtocolKey]; !ok {
+	switch strings.ToLower(configMap.Data[HTTPProtocolKey]) {
+	case strings.ToLower(string(HTTPEnabled)):
 		nc.HTTPProtocol = HTTPEnabled
-	} else {
-		switch strings.ToLower(httpProtocol) {
-		case strings.ToLower(string(HTTPEnabled)):
-			nc.HTTPProtocol = HTTPEnabled
-		case strings.ToLower(string(HTTPDisabled)):
-			nc.HTTPProtocol = HTTPDisabled
-		case strings.ToLower(string(HTTPRedirected)):
-			nc.HTTPProtocol = HTTPRedirected
-		default:
-			return nil, fmt.Errorf("httpProtocol %s in config-network ConfigMap is not supported", httpProtocol)
-		}
+	case "":
+		// If HTTPProtocol is not set in the config-network, we set the default value
+		// to HTTPEnabled.
+		nc.HTTPProtocol = HTTPEnabled
+	case strings.ToLower(string(HTTPDisabled)):
+		nc.HTTPProtocol = HTTPDisabled
+	case strings.ToLower(string(HTTPRedirected)):
+		nc.HTTPProtocol = HTTPRedirected
+	default:
+		return nil, fmt.Errorf("httpProtocol %s in config-network ConfigMap is not supported", configMap.Data[HTTPProtocolKey])
 	}
 	return nc, nil
 }
