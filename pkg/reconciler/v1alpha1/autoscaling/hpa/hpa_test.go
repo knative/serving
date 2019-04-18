@@ -155,12 +155,30 @@ func TestReconcile(t *testing.T) {
 				WithSKSReady),
 		},
 		WantStatusUpdates: []ktesting.UpdateActionImpl{{
-			Object: pa(testRevision, testNamespace, WithHPAClass,
-				WithNoTraffic("ServicesNotReady", "SKS Services are not ready yet")),
+			Object: pa(testRevision, testNamespace, WithHPAClass, WithTraffic, WithPAStatusService(testRevision+"-pub")),
 		}},
 		Key: key(testRevision, testNamespace),
 		WantUpdates: []ktesting.UpdateActionImpl{{
-			Object: sks(testNamespace, testRevision, WithDeployRef(deployName)),
+			Object: sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSReady),
+		}},
+	}, {
+		Name: "reconcile unhappy sks",
+		Objects: []runtime.Object{
+			hpa(testRevision, testNamespace,
+				pa(testRevision, testNamespace, WithHPAClass, WithMetricAnnotation("cpu"))),
+			pa(testRevision, testNamespace, WithHPAClass, WithTraffic),
+			deploy(testNamespace, testRevision),
+			sks(testNamespace, testRevision, WithDeployRef(deployName+"-hairy"),
+				WithPubService, WithPrivateService),
+		},
+		WantStatusUpdates: []ktesting.UpdateActionImpl{{
+			Object: pa(testRevision, testNamespace, WithHPAClass,
+				WithNoTraffic("ServicesNotReady", "SKS Services are not ready yet"),
+				WithPAStatusService(testRevision+"-pub")),
+		}},
+		Key: key(testRevision, testNamespace),
+		WantUpdates: []ktesting.UpdateActionImpl{{
+			Object: sks(testNamespace, testRevision, WithDeployRef(deployName), WithPubService, WithPrivateService),
 		}},
 	}, {
 		Name: "reconcile sks - update fails",
@@ -176,7 +194,7 @@ func TestReconcile(t *testing.T) {
 		},
 		WantErr: true,
 		WantUpdates: []ktesting.UpdateActionImpl{{
-			Object: sks(testNamespace, testRevision, WithDeployRef(deployName)),
+			Object: sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSReady),
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "InternalError", "error reconciling SKS: error updating SKS test-revision: inducing failure for update serverlessservices"),

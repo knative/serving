@@ -221,10 +221,12 @@ func (c *Reconciler) reconcileSKS(ctx context.Context, pa *pav1alpha1.PodAutosca
 	}
 	tmpl := aresources.MakeSKS(pa, nv1alpha1.SKSOperationModeServe)
 	if !equality.Semantic.DeepEqual(tmpl.Spec, sks.Spec) {
+		want := sks.DeepCopy()
+		want.Spec = tmpl.Spec
 		logger.Info("SKS changed; reconciling:", sksName)
 		// Just deploy the template, since the spec change will change
 		// the service and the SKS status will change as a consequence.
-		if sks, err = c.ServingClientSet.NetworkingV1alpha1().ServerlessServices(sks.Namespace).Update(tmpl); err != nil {
+		if sks, err = c.ServingClientSet.NetworkingV1alpha1().ServerlessServices(sks.Namespace).Update(want); err != nil {
 			return nil, perrors.Wrapf(err, "error updating SKS %s", sksName)
 		}
 	}
