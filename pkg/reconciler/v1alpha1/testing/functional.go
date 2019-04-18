@@ -33,6 +33,7 @@ import (
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/traffic"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/serverlessservice/resources/names"
 	servicenames "github.com/knative/serving/pkg/reconciler/v1alpha1/service/resources/names"
+	"github.com/knative/serving/pkg/resources"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -160,13 +161,9 @@ func WithVolume(name, mountPath string, volumeSource corev1.VolumeSource) Servic
 	}
 }
 
-// WithIngressClassAnnotation assigns network ingress class annotation to a service
-func WithIngressClassAnnotation(ingressClass string) ServiceOption {
+func WithServiceAnnotations(annotations map[string]string) ServiceOption {
 	return func(service *v1alpha1.Service) {
-		if service.ObjectMeta.Annotations == nil {
-			service.ObjectMeta.Annotations = make(map[string]string)
-		}
-		service.ObjectMeta.Annotations[networking.IngressClassAnnotationKey] = ingressClass
+		service.Annotations = resources.UnionMaps(service.Annotations, annotations)
 	}
 }
 

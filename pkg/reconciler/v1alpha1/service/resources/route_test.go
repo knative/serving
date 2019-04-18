@@ -20,7 +20,6 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/service/resources/names"
@@ -60,7 +59,7 @@ func TestRouteRunLatest(t *testing.T) {
 	}
 
 	wantA := map[string]string{
-		networking.IngressClassAnnotationKey: ingressClassName,
+		testAnnotationKey: testAnnotationValue,
 	}
 	if got, want := r.Annotations, wantA; !cmp.Equal(got, want) {
 		t.Errorf("Annotations mismatch: diff (-got, +want): %s", cmp.Diff(got, want))
