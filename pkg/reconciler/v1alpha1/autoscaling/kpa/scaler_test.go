@@ -62,8 +62,16 @@ func TestScaler(t *testing.T) {
 		label:         "waits to scale to zero (just before idle period)",
 		startReplicas: 1,
 		scaleTo:       0,
-		wantReplicas:  1,
 		wantScaling:   false,
+		kpaMutation: func(k *pav1alpha1.PodAutoscaler) {
+			kpaMarkActive(k, time.Now().Add(-stableWindow).Add(1*time.Second))
+		},
+	}, {
+		label:         "scale to 1 waiting for idle expires",
+		startReplicas: 10,
+		scaleTo:       0,
+		wantReplicas:  1,
+		wantScaling:   true,
 		kpaMutation: func(k *pav1alpha1.PodAutoscaler) {
 			kpaMarkActive(k, time.Now().Add(-stableWindow).Add(1*time.Second))
 		},
@@ -71,7 +79,6 @@ func TestScaler(t *testing.T) {
 		label:         "waits to scale to zero after idle period",
 		startReplicas: 1,
 		scaleTo:       0,
-		wantReplicas:  1,
 		wantScaling:   false,
 		kpaMutation: func(k *pav1alpha1.PodAutoscaler) {
 			kpaMarkActive(k, time.Now().Add(-stableWindow))
@@ -80,7 +87,6 @@ func TestScaler(t *testing.T) {
 		label:         "waits to scale to zero (just before grace period)",
 		startReplicas: 1,
 		scaleTo:       0,
-		wantReplicas:  1,
 		wantScaling:   false,
 		kpaMutation: func(k *pav1alpha1.PodAutoscaler) {
 			kpaMarkInactive(k, time.Now().Add(-gracePeriod).Add(1*time.Second))
@@ -98,7 +104,6 @@ func TestScaler(t *testing.T) {
 		label:         "does not scale while activating",
 		startReplicas: 1,
 		scaleTo:       0,
-		wantReplicas:  1,
 		wantScaling:   false,
 		kpaMutation: func(k *pav1alpha1.PodAutoscaler) {
 			k.Status.MarkActivating("", "")
@@ -111,7 +116,7 @@ func TestScaler(t *testing.T) {
 		wantReplicas:  2,
 		wantScaling:   true,
 		kpaMutation: func(k *pav1alpha1.PodAutoscaler) {
-			kpaMarkActive(k, time.Now().Add(-stableWindow))
+			kpaMarkInactive(k, time.Now().Add(-gracePeriod))
 		},
 	}, {
 		label:         "scales up",
@@ -128,16 +133,18 @@ func TestScaler(t *testing.T) {
 		wantScaling:   true,
 	}, {
 		label:         "scale up inactive revision",
-		startReplicas: 0,
+		startReplicas: 1,
 		scaleTo:       10,
 		wantReplicas:  10,
 		wantScaling:   true,
+		kpaMutation: func(k *pav1alpha1.PodAutoscaler) {
+			kpaMarkInactive(k, time.Now().Add(-gracePeriod/2))
+		},
 	}, {
-		label:         "scales up from zero with no metrics",
+		label:         "not scales up from zero with no metrics",
 		startReplicas: 0,
 		scaleTo:       -1, // no metrics
-		wantReplicas:  1,
-		wantScaling:   true,
+		wantScaling:   false,
 	}, {
 		label:         "scales up from zero to desired one",
 		startReplicas: 0,
@@ -151,12 +158,10 @@ func TestScaler(t *testing.T) {
 		wantReplicas:  10,
 		wantScaling:   true,
 	}, {
-		label:         "negative scale is bounded to minScale",
+		label:         "negative scale does not scale",
 		startReplicas: 12,
 		scaleTo:       -1,
-		minScale:      2,
-		wantReplicas:  2,
-		wantScaling:   true,
+		wantScaling:   false,
 	}}
 
 	for _, test := range tests {
@@ -174,9 +179,15 @@ func TestScaler(t *testing.T) {
 				test.kpaMutation(pa)
 			}
 
-			revisionScaler.Scale(TestContextWithLogger(t), pa, test.scaleTo)
+			desiredScale, err := revisionScaler.Scale(TestContextWithLogger(t), pa, test.scaleTo)
 
+			if err != nil {
+				t.Error("Scale got an unexpected error: ", err)
+			}
 			if test.wantScaling {
+				if err == nil && desiredScale != test.wantReplicas {
+					t.Errorf("desiredScale = %d, wanted %d", desiredScale, test.wantReplicas)
+				}
 				checkReplicas(t, scaleClient, deployment, test.wantReplicas)
 			} else {
 				checkNoScaling(t, scaleClient)
@@ -185,7 +196,7 @@ func TestScaler(t *testing.T) {
 	}
 }
 
-func TestEnableScaleToZero(t *testing.T) {
+func TestDisableScaleToZero(t *testing.T) {
 	defer ClearAll()
 	tests := []struct {
 		label         string
@@ -200,17 +211,19 @@ func TestEnableScaleToZero(t *testing.T) {
 		startReplicas: 10,
 		scaleTo:       0,
 		wantReplicas:  1,
+		wantScaling:   true,
 	}, {
 		label:         "EnableScaleToZero == false and minScale == 2",
 		startReplicas: 10,
 		scaleTo:       0,
 		minScale:      2,
 		wantReplicas:  2,
+		wantScaling:   true,
 	}, {
 		label:         "EnableScaleToZero == false and desire pod is -1(initial value)",
 		startReplicas: 10,
 		scaleTo:       -1,
-		wantReplicas:  1,
+		wantScaling:   false,
 	}}
 
 	for _, test := range tests {
@@ -231,9 +244,19 @@ func TestEnableScaleToZero(t *testing.T) {
 			}
 			pa := newKPA(t, servingClient, revision)
 
-			revisionScaler.Scale(TestContextWithLogger(t), pa, test.scaleTo)
+			desiredScale, err := revisionScaler.Scale(TestContextWithLogger(t), pa, test.scaleTo)
 
-			checkReplicas(t, scaleClient, deployment, test.wantReplicas)
+			if err != nil {
+				t.Error("Scale got an unexpected error: ", err)
+			}
+			if test.wantScaling {
+				if err == nil && desiredScale != test.wantReplicas {
+					t.Errorf("desiredScale = %d, wanted %d", desiredScale, test.wantReplicas)
+				}
+				checkReplicas(t, scaleClient, deployment, test.wantReplicas)
+			} else {
+				checkNoScaling(t, scaleClient)
+			}
 		})
 	}
 }
@@ -350,6 +373,13 @@ func kpaMarkActive(pa *pav1alpha1.PodAutoscaler, ltt time.Time) {
 
 func kpaMarkInactive(pa *pav1alpha1.PodAutoscaler, ltt time.Time) {
 	pa.Status.MarkInactive("", "")
+
+	// This works because the conditions are sorted alphabetically
+	pa.Status.Conditions[0].LastTransitionTime = apis.VolatileTime{Inner: metav1.NewTime(ltt)}
+}
+
+func kpaMarkActivating(pa *pav1alpha1.PodAutoscaler, ltt time.Time) {
+	pa.Status.MarkActivating("", "")
 
 	// This works because the conditions are sorted alphabetically
 	pa.Status.Conditions[0].LastTransitionTime = apis.VolatileTime{Inner: metav1.NewTime(ltt)}
