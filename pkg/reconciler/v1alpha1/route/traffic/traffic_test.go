@@ -24,6 +24,7 @@ import (
 	net "github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 	fakeclientset "github.com/knative/serving/pkg/client/clientset/versioned/fake"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
 	listers "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
@@ -117,14 +118,16 @@ func setUp() {
 // The vanilla use case of 100% directing to latest ready revision of a single configuration.
 func TestBuildTrafficConfiguration_Vanilla(t *testing.T) {
 	tts := []v1alpha1.TrafficTarget{{
-		ConfigurationName: goodConfig.Name,
-		Percent:           100,
+		TrafficTarget: v1beta1.TrafficTarget{
+			ConfigurationName: goodConfig.Name,
+			Percent:           100,
+		},
 	}}
 
 	expected := &Config{
 		Targets: map[string]RevisionTargets{
 			DefaultTarget: {{
-				TrafficTarget: v1alpha1.TrafficTarget{
+				TrafficTarget: v1beta1.TrafficTarget{
 					ConfigurationName: goodConfig.Name,
 					RevisionName:      goodNewRev.Name,
 					Percent:           100,
@@ -134,7 +137,7 @@ func TestBuildTrafficConfiguration_Vanilla(t *testing.T) {
 			}},
 		},
 		revisionTargets: []RevisionTarget{{
-			TrafficTarget: v1alpha1.TrafficTarget{
+			TrafficTarget: v1beta1.TrafficTarget{
 				ConfigurationName: goodConfig.Name,
 				RevisionName:      goodNewRev.Name,
 				Percent:           100,
@@ -158,13 +161,15 @@ func TestBuildTrafficConfiguration_Vanilla(t *testing.T) {
 
 func TestBuildTrafficConfiguration_NoNameRevision(t *testing.T) {
 	tts := []v1alpha1.TrafficTarget{{
-		RevisionName: goodNewRev.Name,
-		Percent:      100,
+		TrafficTarget: v1beta1.TrafficTarget{
+			RevisionName: goodNewRev.Name,
+			Percent:      100,
+		},
 	}}
 	expected := &Config{
 		Targets: map[string]RevisionTargets{
 			DefaultTarget: {{
-				TrafficTarget: v1alpha1.TrafficTarget{
+				TrafficTarget: v1beta1.TrafficTarget{
 					RevisionName:      goodNewRev.Name,
 					ConfigurationName: goodConfig.Name,
 					Percent:           100,
@@ -174,7 +179,7 @@ func TestBuildTrafficConfiguration_NoNameRevision(t *testing.T) {
 			}},
 		},
 		revisionTargets: []RevisionTarget{{
-			TrafficTarget: v1alpha1.TrafficTarget{
+			TrafficTarget: v1beta1.TrafficTarget{
 				ConfigurationName: goodConfig.Name,
 				RevisionName:      goodNewRev.Name,
 				Percent:           100,
@@ -195,13 +200,15 @@ func TestBuildTrafficConfiguration_NoNameRevision(t *testing.T) {
 // The vanilla use case of 100% directing to latest revision of an inactive configuration.
 func TestBuildTrafficConfiguration_VanillaScaledToZero(t *testing.T) {
 	tts := []v1alpha1.TrafficTarget{{
-		ConfigurationName: inactiveConfig.Name,
-		Percent:           100,
+		TrafficTarget: v1beta1.TrafficTarget{
+			ConfigurationName: inactiveConfig.Name,
+			Percent:           100,
+		},
 	}}
 	expected := &Config{
 		Targets: map[string]RevisionTargets{
 			DefaultTarget: {{
-				TrafficTarget: v1alpha1.TrafficTarget{
+				TrafficTarget: v1beta1.TrafficTarget{
 					ConfigurationName: inactiveConfig.Name,
 					RevisionName:      inactiveRev.Name,
 					Percent:           100,
@@ -211,7 +218,7 @@ func TestBuildTrafficConfiguration_VanillaScaledToZero(t *testing.T) {
 			}},
 		},
 		revisionTargets: []RevisionTarget{{
-			TrafficTarget: v1alpha1.TrafficTarget{
+			TrafficTarget: v1beta1.TrafficTarget{
 				ConfigurationName: inactiveConfig.Name,
 				RevisionName:      inactiveRev.Name,
 				Percent:           100,
@@ -236,16 +243,20 @@ func TestBuildTrafficConfiguration_VanillaScaledToZero(t *testing.T) {
 // Transitioning from one good config to another by splitting traffic.
 func TestBuildTrafficConfiguration_TwoConfigs(t *testing.T) {
 	tts := []v1alpha1.TrafficTarget{{
-		ConfigurationName: niceConfig.Name,
-		Percent:           90,
+		TrafficTarget: v1beta1.TrafficTarget{
+			ConfigurationName: niceConfig.Name,
+			Percent:           90,
+		},
 	}, {
-		ConfigurationName: goodConfig.Name,
-		Percent:           10,
+		TrafficTarget: v1beta1.TrafficTarget{
+			ConfigurationName: goodConfig.Name,
+			Percent:           10,
+		},
 	}}
 	expected := &Config{
 		Targets: map[string]RevisionTargets{
 			DefaultTarget: {{
-				TrafficTarget: v1alpha1.TrafficTarget{
+				TrafficTarget: v1beta1.TrafficTarget{
 					ConfigurationName: niceConfig.Name,
 					RevisionName:      niceNewRev.Name,
 					Percent:           90,
@@ -253,7 +264,7 @@ func TestBuildTrafficConfiguration_TwoConfigs(t *testing.T) {
 				Active:   true,
 				Protocol: net.ProtocolH2C,
 			}, {
-				TrafficTarget: v1alpha1.TrafficTarget{
+				TrafficTarget: v1beta1.TrafficTarget{
 					ConfigurationName: goodConfig.Name,
 					RevisionName:      goodNewRev.Name,
 					Percent:           10,
@@ -263,7 +274,7 @@ func TestBuildTrafficConfiguration_TwoConfigs(t *testing.T) {
 			}},
 		},
 		revisionTargets: []RevisionTarget{{
-			TrafficTarget: v1alpha1.TrafficTarget{
+			TrafficTarget: v1beta1.TrafficTarget{
 				ConfigurationName: niceConfig.Name,
 				RevisionName:      niceNewRev.Name,
 				Percent:           90,
@@ -271,7 +282,7 @@ func TestBuildTrafficConfiguration_TwoConfigs(t *testing.T) {
 			Active:   true,
 			Protocol: net.ProtocolH2C,
 		}, {
-			TrafficTarget: v1alpha1.TrafficTarget{
+			TrafficTarget: v1beta1.TrafficTarget{
 				ConfigurationName: goodConfig.Name,
 				RevisionName:      goodNewRev.Name,
 				Percent:           10,
@@ -299,16 +310,20 @@ func TestBuildTrafficConfiguration_TwoConfigs(t *testing.T) {
 // Splitting traffic between a fixed revision and the latest revision (canary).
 func TestBuildTrafficConfiguration_Canary(t *testing.T) {
 	tts := []v1alpha1.TrafficTarget{{
-		RevisionName: goodOldRev.Name,
-		Percent:      90,
+		TrafficTarget: v1beta1.TrafficTarget{
+			RevisionName: goodOldRev.Name,
+			Percent:      90,
+		},
 	}, {
-		ConfigurationName: goodConfig.Name,
-		Percent:           10,
+		TrafficTarget: v1beta1.TrafficTarget{
+			ConfigurationName: goodConfig.Name,
+			Percent:           10,
+		},
 	}}
 	expected := &Config{
 		Targets: map[string]RevisionTargets{
 			DefaultTarget: {{
-				TrafficTarget: v1alpha1.TrafficTarget{
+				TrafficTarget: v1beta1.TrafficTarget{
 					ConfigurationName: goodConfig.Name,
 					RevisionName:      goodOldRev.Name,
 					Percent:           90,
@@ -316,7 +331,7 @@ func TestBuildTrafficConfiguration_Canary(t *testing.T) {
 				Active:   true,
 				Protocol: net.ProtocolHTTP1,
 			}, {
-				TrafficTarget: v1alpha1.TrafficTarget{
+				TrafficTarget: v1beta1.TrafficTarget{
 					ConfigurationName: goodConfig.Name,
 					RevisionName:      goodNewRev.Name,
 					Percent:           10,
@@ -326,7 +341,7 @@ func TestBuildTrafficConfiguration_Canary(t *testing.T) {
 			}},
 		},
 		revisionTargets: []RevisionTarget{{
-			TrafficTarget: v1alpha1.TrafficTarget{
+			TrafficTarget: v1beta1.TrafficTarget{
 				ConfigurationName: goodConfig.Name,
 				RevisionName:      goodOldRev.Name,
 				Percent:           90,
@@ -334,7 +349,7 @@ func TestBuildTrafficConfiguration_Canary(t *testing.T) {
 			Active:   true,
 			Protocol: net.ProtocolHTTP1,
 		}, {
-			TrafficTarget: v1alpha1.TrafficTarget{
+			TrafficTarget: v1beta1.TrafficTarget{
 				ConfigurationName: goodConfig.Name,
 				RevisionName:      goodNewRev.Name,
 				Percent:           10,
@@ -361,23 +376,29 @@ func TestBuildTrafficConfiguration_Canary(t *testing.T) {
 // Splitting traffic between latest revision and a fixed revision which is also latest.
 func TestBuildTrafficConfiguration_Consolidated(t *testing.T) {
 	tts := []v1alpha1.TrafficTarget{{
-		Name:         "one",
-		RevisionName: goodOldRev.Name,
-		Percent:      49,
+		Name: "one",
+		TrafficTarget: v1beta1.TrafficTarget{
+			RevisionName: goodOldRev.Name,
+			Percent:      49,
+		},
 	}, {
-		Name:         "two",
-		RevisionName: goodNewRev.Name,
-		Percent:      50,
+		Name: "two",
+		TrafficTarget: v1beta1.TrafficTarget{
+			RevisionName: goodNewRev.Name,
+			Percent:      50,
+		},
 	}, {
-		Name:              "also-two",
-		ConfigurationName: goodConfig.Name,
-		Percent:           1,
+		Name: "also-two",
+		TrafficTarget: v1beta1.TrafficTarget{
+			ConfigurationName: goodConfig.Name,
+			Percent:           1,
+		},
 	}}
 	expected := &Config{
 		Targets: map[string]RevisionTargets{
 			DefaultTarget: {{
-				TrafficTarget: v1alpha1.TrafficTarget{
-					Name:              "one",
+				TrafficTarget: v1beta1.TrafficTarget{
+					Tag:               "one",
 					ConfigurationName: goodConfig.Name,
 					RevisionName:      goodOldRev.Name,
 					Percent:           49,
@@ -385,8 +406,8 @@ func TestBuildTrafficConfiguration_Consolidated(t *testing.T) {
 				Active:   true,
 				Protocol: net.ProtocolHTTP1,
 			}, {
-				TrafficTarget: v1alpha1.TrafficTarget{
-					Name:              "two",
+				TrafficTarget: v1beta1.TrafficTarget{
+					Tag:               "two",
 					ConfigurationName: goodConfig.Name,
 					RevisionName:      goodNewRev.Name,
 					Percent:           51,
@@ -395,8 +416,8 @@ func TestBuildTrafficConfiguration_Consolidated(t *testing.T) {
 				Protocol: net.ProtocolH2C,
 			}},
 			"one": {{
-				TrafficTarget: v1alpha1.TrafficTarget{
-					Name:              "one",
+				TrafficTarget: v1beta1.TrafficTarget{
+					Tag:               "one",
 					ConfigurationName: goodConfig.Name,
 					RevisionName:      goodOldRev.Name,
 					Percent:           100,
@@ -405,8 +426,8 @@ func TestBuildTrafficConfiguration_Consolidated(t *testing.T) {
 				Protocol: net.ProtocolHTTP1,
 			}},
 			"two": {{
-				TrafficTarget: v1alpha1.TrafficTarget{
-					Name:              "two",
+				TrafficTarget: v1beta1.TrafficTarget{
+					Tag:               "two",
 					ConfigurationName: goodConfig.Name,
 					RevisionName:      goodNewRev.Name,
 					Percent:           100,
@@ -415,8 +436,8 @@ func TestBuildTrafficConfiguration_Consolidated(t *testing.T) {
 				Protocol: net.ProtocolH2C,
 			}},
 			"also-two": {{
-				TrafficTarget: v1alpha1.TrafficTarget{
-					Name:              "also-two",
+				TrafficTarget: v1beta1.TrafficTarget{
+					Tag:               "also-two",
 					ConfigurationName: goodConfig.Name,
 					RevisionName:      goodNewRev.Name,
 					Percent:           100,
@@ -426,8 +447,8 @@ func TestBuildTrafficConfiguration_Consolidated(t *testing.T) {
 			}},
 		},
 		revisionTargets: []RevisionTarget{{
-			TrafficTarget: v1alpha1.TrafficTarget{
-				Name:              "one",
+			TrafficTarget: v1beta1.TrafficTarget{
+				Tag:               "one",
 				ConfigurationName: goodConfig.Name,
 				RevisionName:      goodOldRev.Name,
 				Percent:           49,
@@ -435,8 +456,8 @@ func TestBuildTrafficConfiguration_Consolidated(t *testing.T) {
 			Active:   true,
 			Protocol: net.ProtocolHTTP1,
 		}, {
-			TrafficTarget: v1alpha1.TrafficTarget{
-				Name:              "two",
+			TrafficTarget: v1beta1.TrafficTarget{
+				Tag:               "two",
 				ConfigurationName: goodConfig.Name,
 				RevisionName:      goodNewRev.Name,
 				Percent:           50,
@@ -444,8 +465,8 @@ func TestBuildTrafficConfiguration_Consolidated(t *testing.T) {
 			Active:   true,
 			Protocol: net.ProtocolH2C,
 		}, {
-			TrafficTarget: v1alpha1.TrafficTarget{
-				Name:              "also-two",
+			TrafficTarget: v1beta1.TrafficTarget{
+				Tag:               "also-two",
 				ConfigurationName: goodConfig.Name,
 				RevisionName:      goodNewRev.Name,
 				Percent:           1,
@@ -471,16 +492,20 @@ func TestBuildTrafficConfiguration_Consolidated(t *testing.T) {
 // Splitting traffic between a two fixed revisions.
 func TestBuildTrafficConfiguration_TwoFixedRevisions(t *testing.T) {
 	tts := []v1alpha1.TrafficTarget{{
-		RevisionName: goodOldRev.Name,
-		Percent:      90,
+		TrafficTarget: v1beta1.TrafficTarget{
+			RevisionName: goodOldRev.Name,
+			Percent:      90,
+		},
 	}, {
-		RevisionName: goodNewRev.Name,
-		Percent:      10,
+		TrafficTarget: v1beta1.TrafficTarget{
+			RevisionName: goodNewRev.Name,
+			Percent:      10,
+		},
 	}}
 	expected := &Config{
 		Targets: map[string]RevisionTargets{
 			DefaultTarget: {{
-				TrafficTarget: v1alpha1.TrafficTarget{
+				TrafficTarget: v1beta1.TrafficTarget{
 					ConfigurationName: goodConfig.Name,
 					RevisionName:      goodOldRev.Name,
 					Percent:           90,
@@ -488,7 +513,7 @@ func TestBuildTrafficConfiguration_TwoFixedRevisions(t *testing.T) {
 				Active:   true,
 				Protocol: net.ProtocolHTTP1,
 			}, {
-				TrafficTarget: v1alpha1.TrafficTarget{
+				TrafficTarget: v1beta1.TrafficTarget{
 					ConfigurationName: goodConfig.Name,
 					RevisionName:      goodNewRev.Name,
 					Percent:           10,
@@ -498,7 +523,7 @@ func TestBuildTrafficConfiguration_TwoFixedRevisions(t *testing.T) {
 			}},
 		},
 		revisionTargets: []RevisionTarget{{
-			TrafficTarget: v1alpha1.TrafficTarget{
+			TrafficTarget: v1beta1.TrafficTarget{
 				ConfigurationName: goodConfig.Name,
 				RevisionName:      goodOldRev.Name,
 				Percent:           90,
@@ -506,7 +531,7 @@ func TestBuildTrafficConfiguration_TwoFixedRevisions(t *testing.T) {
 			Active:   true,
 			Protocol: net.ProtocolHTTP1,
 		}, {
-			TrafficTarget: v1alpha1.TrafficTarget{
+			TrafficTarget: v1beta1.TrafficTarget{
 				ConfigurationName: goodConfig.Name,
 				RevisionName:      goodNewRev.Name,
 				Percent:           10,
@@ -532,16 +557,20 @@ func TestBuildTrafficConfiguration_TwoFixedRevisions(t *testing.T) {
 // Splitting traffic between a two fixed revisions of two configurations.
 func TestBuildTrafficConfiguration_TwoFixedRevisionsFromTwoConfigurations(t *testing.T) {
 	tts := []v1alpha1.TrafficTarget{{
-		RevisionName: goodNewRev.Name,
-		Percent:      40,
+		TrafficTarget: v1beta1.TrafficTarget{
+			RevisionName: goodNewRev.Name,
+			Percent:      40,
+		},
 	}, {
-		RevisionName: niceNewRev.Name,
-		Percent:      60,
+		TrafficTarget: v1beta1.TrafficTarget{
+			RevisionName: niceNewRev.Name,
+			Percent:      60,
+		},
 	}}
 	expected := &Config{
 		Targets: map[string]RevisionTargets{
 			DefaultTarget: {{
-				TrafficTarget: v1alpha1.TrafficTarget{
+				TrafficTarget: v1beta1.TrafficTarget{
 					ConfigurationName: goodConfig.Name,
 					RevisionName:      goodNewRev.Name,
 					Percent:           40,
@@ -549,7 +578,7 @@ func TestBuildTrafficConfiguration_TwoFixedRevisionsFromTwoConfigurations(t *tes
 				Active:   true,
 				Protocol: net.ProtocolH2C,
 			}, {
-				TrafficTarget: v1alpha1.TrafficTarget{
+				TrafficTarget: v1beta1.TrafficTarget{
 					ConfigurationName: niceConfig.Name,
 					RevisionName:      niceNewRev.Name,
 					Percent:           60,
@@ -559,7 +588,7 @@ func TestBuildTrafficConfiguration_TwoFixedRevisionsFromTwoConfigurations(t *tes
 			}},
 		},
 		revisionTargets: []RevisionTarget{{
-			TrafficTarget: v1alpha1.TrafficTarget{
+			TrafficTarget: v1beta1.TrafficTarget{
 				ConfigurationName: goodConfig.Name,
 				RevisionName:      goodNewRev.Name,
 				Percent:           40,
@@ -567,7 +596,7 @@ func TestBuildTrafficConfiguration_TwoFixedRevisionsFromTwoConfigurations(t *tes
 			Active:   true,
 			Protocol: net.ProtocolH2C,
 		}, {
-			TrafficTarget: v1alpha1.TrafficTarget{
+			TrafficTarget: v1beta1.TrafficTarget{
 				ConfigurationName: niceConfig.Name,
 				RevisionName:      niceNewRev.Name,
 				Percent:           60,
@@ -594,19 +623,25 @@ func TestBuildTrafficConfiguration_TwoFixedRevisionsFromTwoConfigurations(t *tes
 // One fixed, two named targets for newer stuffs.
 func TestBuildTrafficConfiguration_Preliminary(t *testing.T) {
 	tts := []v1alpha1.TrafficTarget{{
-		RevisionName: goodOldRev.Name,
-		Percent:      100,
+		TrafficTarget: v1beta1.TrafficTarget{
+			RevisionName: goodOldRev.Name,
+			Percent:      100,
+		},
 	}, {
-		Name:         "beta",
-		RevisionName: goodNewRev.Name,
+		Name: "beta",
+		TrafficTarget: v1beta1.TrafficTarget{
+			RevisionName: goodNewRev.Name,
+		},
 	}, {
-		Name:              "alpha",
-		ConfigurationName: niceConfig.Name,
+		Name: "alpha",
+		TrafficTarget: v1beta1.TrafficTarget{
+			ConfigurationName: niceConfig.Name,
+		},
 	}}
 	expected := &Config{
 		Targets: map[string]RevisionTargets{
 			DefaultTarget: {{
-				TrafficTarget: v1alpha1.TrafficTarget{
+				TrafficTarget: v1beta1.TrafficTarget{
 					ConfigurationName: goodConfig.Name,
 					RevisionName:      goodOldRev.Name,
 					Percent:           100,
@@ -614,16 +649,16 @@ func TestBuildTrafficConfiguration_Preliminary(t *testing.T) {
 				Active:   true,
 				Protocol: net.ProtocolHTTP1,
 			}, {
-				TrafficTarget: v1alpha1.TrafficTarget{
-					Name:              "beta",
+				TrafficTarget: v1beta1.TrafficTarget{
+					Tag:               "beta",
 					ConfigurationName: goodConfig.Name,
 					RevisionName:      goodNewRev.Name,
 				},
 				Active:   true,
 				Protocol: net.ProtocolH2C,
 			}, {
-				TrafficTarget: v1alpha1.TrafficTarget{
-					Name:              "alpha",
+				TrafficTarget: v1beta1.TrafficTarget{
+					Tag:               "alpha",
 					ConfigurationName: niceConfig.Name,
 					RevisionName:      niceNewRev.Name,
 				},
@@ -631,8 +666,8 @@ func TestBuildTrafficConfiguration_Preliminary(t *testing.T) {
 				Protocol: net.ProtocolH2C,
 			}},
 			"beta": {{
-				TrafficTarget: v1alpha1.TrafficTarget{
-					Name:              "beta",
+				TrafficTarget: v1beta1.TrafficTarget{
+					Tag:               "beta",
 					ConfigurationName: goodConfig.Name,
 					RevisionName:      goodNewRev.Name,
 					Percent:           100,
@@ -641,8 +676,8 @@ func TestBuildTrafficConfiguration_Preliminary(t *testing.T) {
 				Protocol: net.ProtocolH2C,
 			}},
 			"alpha": {{
-				TrafficTarget: v1alpha1.TrafficTarget{
-					Name:              "alpha",
+				TrafficTarget: v1beta1.TrafficTarget{
+					Tag:               "alpha",
 					ConfigurationName: niceConfig.Name,
 					RevisionName:      niceNewRev.Name,
 					Percent:           100,
@@ -652,7 +687,7 @@ func TestBuildTrafficConfiguration_Preliminary(t *testing.T) {
 			}},
 		},
 		revisionTargets: []RevisionTarget{{
-			TrafficTarget: v1alpha1.TrafficTarget{
+			TrafficTarget: v1beta1.TrafficTarget{
 				ConfigurationName: goodConfig.Name,
 				RevisionName:      goodOldRev.Name,
 				Percent:           100,
@@ -660,16 +695,16 @@ func TestBuildTrafficConfiguration_Preliminary(t *testing.T) {
 			Active:   true,
 			Protocol: net.ProtocolHTTP1,
 		}, {
-			TrafficTarget: v1alpha1.TrafficTarget{
-				Name:              "beta",
+			TrafficTarget: v1beta1.TrafficTarget{
+				Tag:               "beta",
 				ConfigurationName: goodConfig.Name,
 				RevisionName:      goodNewRev.Name,
 			},
 			Active:   true,
 			Protocol: net.ProtocolH2C,
 		}, {
-			TrafficTarget: v1alpha1.TrafficTarget{
-				Name:              "alpha",
+			TrafficTarget: v1beta1.TrafficTarget{
+				Tag:               "alpha",
 				ConfigurationName: niceConfig.Name,
 				RevisionName:      niceNewRev.Name,
 			},
@@ -696,14 +731,20 @@ func TestBuildTrafficConfiguration_Preliminary(t *testing.T) {
 
 func TestBuildTrafficConfiguration_MissingConfig(t *testing.T) {
 	tts := []v1alpha1.TrafficTarget{{
-		RevisionName: goodOldRev.Name,
-		Percent:      100,
+		TrafficTarget: v1beta1.TrafficTarget{
+			RevisionName: goodOldRev.Name,
+			Percent:      100,
+		},
 	}, {
-		Name:         "beta",
-		RevisionName: goodNewRev.Name,
+		Name: "beta",
+		TrafficTarget: v1beta1.TrafficTarget{
+			RevisionName: goodNewRev.Name,
+		},
 	}, {
-		Name:              "alpha",
-		ConfigurationName: missingConfig.Name,
+		Name: "alpha",
+		TrafficTarget: v1beta1.TrafficTarget{
+			ConfigurationName: missingConfig.Name,
+		},
 	}}
 	expected := &Config{
 		Targets: map[string]RevisionTargets{},
@@ -727,8 +768,10 @@ func TestBuildTrafficConfiguration_MissingConfig(t *testing.T) {
 
 func TestBuildTrafficConfiguration_NotRoutableRevision(t *testing.T) {
 	tts := []v1alpha1.TrafficTarget{{
-		RevisionName: unreadyRev.Name,
-		Percent:      100,
+		TrafficTarget: v1beta1.TrafficTarget{
+			RevisionName: unreadyRev.Name,
+			Percent:      100,
+		},
 	}}
 	expected := &Config{
 		Targets:        map[string]RevisionTargets{},
@@ -746,8 +789,10 @@ func TestBuildTrafficConfiguration_NotRoutableRevision(t *testing.T) {
 
 func TestBuildTrafficConfiguration_NotRoutableConfiguration(t *testing.T) {
 	tts := []v1alpha1.TrafficTarget{{
-		ConfigurationName: unreadyConfig.Name,
-		Percent:           100,
+		TrafficTarget: v1beta1.TrafficTarget{
+			ConfigurationName: unreadyConfig.Name,
+			Percent:           100,
+		},
 	}}
 	expected := &Config{
 		Targets:        map[string]RevisionTargets{},
@@ -765,8 +810,10 @@ func TestBuildTrafficConfiguration_NotRoutableConfiguration(t *testing.T) {
 
 func TestBuildTrafficConfiguration_EmptyConfiguration(t *testing.T) {
 	tts := []v1alpha1.TrafficTarget{{
-		ConfigurationName: emptyConfig.Name,
-		Percent:           100,
+		TrafficTarget: v1beta1.TrafficTarget{
+			ConfigurationName: emptyConfig.Name,
+			Percent:           100,
+		},
 	}}
 
 	expected := &Config{
@@ -788,11 +835,15 @@ func TestBuildTrafficConfiguration_EmptyConfiguration(t *testing.T) {
 
 func TestBuildTrafficConfiguration_EmptyAndFailedConfigurations(t *testing.T) {
 	tts := []v1alpha1.TrafficTarget{{
-		ConfigurationName: emptyConfig.Name,
-		Percent:           50,
+		TrafficTarget: v1beta1.TrafficTarget{
+			ConfigurationName: emptyConfig.Name,
+			Percent:           50,
+		},
 	}, {
-		ConfigurationName: failedConfig.Name,
-		Percent:           50,
+		TrafficTarget: v1beta1.TrafficTarget{
+			ConfigurationName: failedConfig.Name,
+			Percent:           50,
+		},
 	}}
 	expected := &Config{
 		Targets: map[string]RevisionTargets{},
@@ -813,11 +864,15 @@ func TestBuildTrafficConfiguration_EmptyAndFailedConfigurations(t *testing.T) {
 
 func TestBuildTrafficConfiguration_FailedAndEmptyConfigurations(t *testing.T) {
 	tts := []v1alpha1.TrafficTarget{{
-		ConfigurationName: failedConfig.Name,
-		Percent:           50,
+		TrafficTarget: v1beta1.TrafficTarget{
+			ConfigurationName: failedConfig.Name,
+			Percent:           50,
+		},
 	}, {
-		ConfigurationName: emptyConfig.Name,
-		Percent:           50,
+		TrafficTarget: v1beta1.TrafficTarget{
+			ConfigurationName: emptyConfig.Name,
+			Percent:           50,
+		},
 	}}
 	expected := &Config{
 		Targets: map[string]RevisionTargets{},
@@ -838,11 +893,15 @@ func TestBuildTrafficConfiguration_FailedAndEmptyConfigurations(t *testing.T) {
 
 func TestBuildTrafficConfiguration_MissingRevision(t *testing.T) {
 	tts := []v1alpha1.TrafficTarget{{
-		RevisionName: missingRev.Name,
-		Percent:      50,
+		TrafficTarget: v1beta1.TrafficTarget{
+			RevisionName: missingRev.Name,
+			Percent:      50,
+		},
 	}, {
-		RevisionName: goodNewRev.Name,
-		Percent:      50,
+		TrafficTarget: v1beta1.TrafficTarget{
+			RevisionName: goodNewRev.Name,
+			Percent:      50,
+		},
 	}}
 	expected := &Config{
 		Targets:        map[string]RevisionTargets{},
@@ -861,26 +920,38 @@ func TestBuildTrafficConfiguration_MissingRevision(t *testing.T) {
 func TestRoundTripping(t *testing.T) {
 	domain := "domain.com"
 	tts := []v1alpha1.TrafficTarget{{
-		RevisionName: goodOldRev.Name,
-		Percent:      100,
+		TrafficTarget: v1beta1.TrafficTarget{
+			RevisionName: goodOldRev.Name,
+			Percent:      100,
+		},
 	}, {
-		Name:         "beta",
-		RevisionName: goodNewRev.Name,
+		Name: "beta",
+		TrafficTarget: v1beta1.TrafficTarget{
+			RevisionName: goodNewRev.Name,
+		},
 	}, {
-		Name:              "alpha",
-		ConfigurationName: niceConfig.Name,
+		Name: "alpha",
+		TrafficTarget: v1beta1.TrafficTarget{
+			ConfigurationName: niceConfig.Name,
+		},
 	}}
 	expected := []v1alpha1.TrafficTarget{{
-		RevisionName: goodOldRev.Name,
-		Percent:      100,
+		TrafficTarget: v1beta1.TrafficTarget{
+			RevisionName: goodOldRev.Name,
+			Percent:      100,
+		},
 	}, {
-		Name:         "beta",
-		RevisionName: goodNewRev.Name,
-		URL:          SubrouteURL(HTTPScheme, "beta", domain),
+		Name: "beta",
+		TrafficTarget: v1beta1.TrafficTarget{
+			RevisionName: goodNewRev.Name,
+			URL:          TagURL(HTTPScheme, "beta", domain),
+		},
 	}, {
-		Name:         "alpha",
-		RevisionName: niceNewRev.Name,
-		URL:          SubrouteURL(HTTPScheme, "alpha", domain),
+		Name: "alpha",
+		TrafficTarget: v1beta1.TrafficTarget{
+			RevisionName: niceNewRev.Name,
+			URL:          TagURL(HTTPScheme, "alpha", domain),
+		},
 	}}
 	if tc, err := BuildTrafficConfiguration(configLister, revLister, testRouteWithTrafficTargets(tts)); err != nil {
 		t.Errorf("Unexpected error %v", err)
@@ -889,7 +960,7 @@ func TestRoundTripping(t *testing.T) {
 	}
 }
 
-func TestSubrouteURL(t *testing.T) {
+func TestTagURL(t *testing.T) {
 	tests := []struct {
 		TestName string
 		Name     string
@@ -909,15 +980,15 @@ func TestSubrouteURL(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.TestName, func(t *testing.T) {
-			if got, want := tt.Expected, SubrouteURL(HTTPScheme, tt.Name, tt.Domain); got != want {
-				t.Errorf("SubrouteDomain = %s, want: %s", got, want)
+			if got, want := tt.Expected, TagURL(HTTPScheme, tt.Name, tt.Domain); got != want {
+				t.Errorf("TagDomain = %s, want: %s", got, want)
 			}
 		})
 	}
 
 }
 
-func TestSubrouteDomain(t *testing.T) {
+func TestTagDomain(t *testing.T) {
 	tests := []struct {
 		TestName string
 		Name     string
@@ -937,8 +1008,8 @@ func TestSubrouteDomain(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.TestName, func(t *testing.T) {
-			if got, want := tt.Expected, SubrouteDomain(tt.Name, tt.Domain); got != want {
-				t.Errorf("SubrouteDomain = %s, want: %s", got, want)
+			if got, want := tt.Expected, TagDomain(tt.Name, tt.Domain); got != want {
+				t.Errorf("TagDomain = %s, want: %s", got, want)
 			}
 		})
 	}

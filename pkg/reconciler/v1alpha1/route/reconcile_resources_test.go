@@ -26,6 +26,7 @@ import (
 	. "github.com/knative/pkg/logging/testing"
 	netv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 	"github.com/knative/serving/pkg/gc"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/config"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/resources"
@@ -102,7 +103,7 @@ func TestReconcileTargetRevisions(t *testing.T) {
 		name: "Valid target revision",
 		tc: traffic.Config{Targets: map[string]traffic.RevisionTargets{
 			traffic.DefaultTarget: {{
-				TrafficTarget: v1alpha1.TrafficTarget{
+				TrafficTarget: v1beta1.TrafficTarget{
 					RevisionName: "revision",
 					Percent:      100,
 				},
@@ -112,7 +113,7 @@ func TestReconcileTargetRevisions(t *testing.T) {
 		name: "invalid target revision",
 		tc: traffic.Config{Targets: map[string]traffic.RevisionTargets{
 			traffic.DefaultTarget: {{
-				TrafficTarget: v1alpha1.TrafficTarget{
+				TrafficTarget: v1beta1.TrafficTarget{
 					RevisionName: "inal-revision",
 					Percent:      100,
 				},
@@ -141,7 +142,7 @@ func TestReconcileTargetRevisions(t *testing.T) {
 func newTestClusterIngress(r *v1alpha1.Route) *netv1alpha1.ClusterIngress {
 	tc := &traffic.Config{Targets: map[string]traffic.RevisionTargets{
 		traffic.DefaultTarget: {{
-			TrafficTarget: v1alpha1.TrafficTarget{
+			TrafficTarget: v1beta1.TrafficTarget{
 				RevisionName: "revision",
 				Percent:      100,
 			},

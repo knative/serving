@@ -22,7 +22,7 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/knative/pkg/controller"
 	"github.com/knative/pkg/kmp"
 	"github.com/knative/pkg/logging"
@@ -235,23 +235,33 @@ func (c *Reconciler) reconcile(ctx context.Context, service *v1alpha1.Service) e
 	ss.PropagateRouteStatus(&route.Status)
 
 	// `manual` is not reconciled.
-	if rc := service.Status.GetCondition(v1alpha1.ServiceConditionRoutesReady); rc != nil && rc.Status == corev1.ConditionTrue {
-		want, got := route.Spec.DeepCopy().Traffic, route.Status.Traffic
-		// Replace `configuration` target with its latest ready revision.
-		for idx := range want {
-			if want[idx].ConfigurationName == config.Name {
-				want[idx].RevisionName = config.Status.LatestReadyRevisionName
-				want[idx].ConfigurationName = ""
-			}
-		}
-		ignoreURLs := cmp.FilterPath(
-			func(p cmp.Path) bool {
-				return p.String() == "URL"
-			},
-			cmp.Ignore(),
-		)
-		if eq, err := kmp.SafeEqual(got, want, ignoreURLs); !eq || err != nil {
+	rc := service.Status.GetCondition(v1alpha1.ServiceConditionRoutesReady)
+	if rc != nil && rc.Status == corev1.ConditionTrue {
+		if len(route.Spec.Traffic) != len(route.Status.Traffic) {
 			service.Status.MarkRouteNotYetReady()
+		} else {
+			want, got := route.Spec.DeepCopy().Traffic, route.Status.DeepCopy().Traffic
+			// Replace `configuration` target with its latest ready revision.
+			for idx := range want {
+				if want[idx].ConfigurationName == config.Name {
+					want[idx].RevisionName = config.Status.LatestReadyRevisionName
+					want[idx].ConfigurationName = ""
+					// Normalize Name into Tag for comparison.
+					if want[idx].Name != "" {
+						want[idx].Tag = want[idx].Name
+						want[idx].Name = ""
+					}
+					if got[idx].Name != "" {
+						got[idx].Tag = got[idx].Name
+						got[idx].Name = ""
+					}
+				}
+			}
+			ignoreFields := cmpopts.IgnoreFields(v1alpha1.TrafficTarget{},
+				"TrafficTarget.URL", "TrafficTarget.LatestRevision")
+			if eq, err := kmp.SafeEqual(got, want, ignoreFields); !eq || err != nil {
+				service.Status.MarkRouteNotYetReady()
+			}
 		}
 	}
 	service.Status.ObservedGeneration = service.Generation

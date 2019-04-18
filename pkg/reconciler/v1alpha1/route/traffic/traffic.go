@@ -24,6 +24,7 @@ import (
 	net "github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 	listers "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
 )
 
@@ -36,7 +37,7 @@ const HTTPScheme string = "http"
 // A RevisionTarget adds the Active/Inactive state and the transport protocol of a
 // Revision to a flattened TrafficTarget.
 type RevisionTarget struct {
-	v1alpha1.TrafficTarget
+	v1beta1.TrafficTarget
 	Active      bool
 	Protocol    net.ProtocolType
 	ServiceName string // Revision service name.
@@ -75,18 +76,18 @@ func BuildTrafficConfiguration(configLister listers.ConfigurationLister, revList
 	return builder.build()
 }
 
-// SubrouteDomain returns the domain name of a traffic target given the traffic target name and the Route's base domain.
-func SubrouteDomain(name, domain string) string {
+// TagDomain returns the domain name of a traffic target given the traffic target name and the Route's base domain.
+func TagDomain(name, domain string) string {
 	if name == DefaultTarget {
 		return domain
 	}
 	return fmt.Sprintf("%s.%s", name, domain)
 }
 
-// SubrouteURL returns the URL of the subroute given the scheme, traffic target name, and base domain. Curently
-// the subroute is represented as a subdomain of the base domain.
-func SubrouteURL(scheme, name, domain string) string {
-	return fmt.Sprintf("%s://%s", scheme, SubrouteDomain(name, domain))
+// TagURL returns the URL of the tag given the scheme, traffic target name, and base domain. Curently
+// the tag is represented as a subdomain of the base domain.
+func TagURL(scheme, name, domain string) string {
+	return fmt.Sprintf("%s://%s", scheme, TagDomain(name, domain))
 }
 
 // GetRevisionTrafficTargets returns a list of TrafficTarget flattened to the RevisionName, and having ConfigurationName cleared out.
@@ -95,10 +96,16 @@ func (t *Config) GetRevisionTrafficTargets(domain string) []v1alpha1.TrafficTarg
 	for i, tt := range t.revisionTargets {
 		// We cannot `DeepCopy` here, since tt.TrafficTarget might contain both
 		// configuration and revision.
-		results[i] = v1alpha1.TrafficTarget{RevisionName: tt.RevisionName, Name: tt.Name, Percent: tt.Percent}
-		if tt.Name != "" && domain != "" {
+		results[i] = v1alpha1.TrafficTarget{
+			Name: tt.Tag,
+			TrafficTarget: v1beta1.TrafficTarget{
+				RevisionName: tt.RevisionName,
+				Percent:      tt.Percent,
+			},
+		}
+		if tt.Tag != "" && domain != "" {
 			// http is currently the only supported scheme
-			results[i].URL = SubrouteURL(HTTPScheme, tt.Name, domain)
+			results[i].URL = TagURL(HTTPScheme, tt.Tag, domain)
 		}
 	}
 	return results
@@ -213,8 +220,12 @@ func (t *configBuilder) addConfigurationTarget(tt *v1alpha1.TrafficTarget) error
 	if err != nil {
 		return err
 	}
+	ntt := tt.TrafficTarget.DeepCopy()
+	if ntt.Tag == "" {
+		ntt.Tag = tt.Name
+	}
 	target := RevisionTarget{
-		TrafficTarget: *tt,
+		TrafficTarget: *ntt,
 		Active:        !rev.Status.IsActivationRequired(),
 		Protocol:      rev.GetProtocol(),
 		ServiceName:   rev.Status.ServiceName,
@@ -232,8 +243,12 @@ func (t *configBuilder) addRevisionTarget(tt *v1alpha1.TrafficTarget) error {
 	if !rev.Status.IsReady() {
 		return errUnreadyRevision(rev)
 	}
+	ntt := tt.TrafficTarget.DeepCopy()
+	if ntt.Tag == "" {
+		ntt.Tag = tt.Name
+	}
 	target := RevisionTarget{
-		TrafficTarget: *tt,
+		TrafficTarget: *ntt,
 		Active:        !rev.Status.IsActivationRequired(),
 		Protocol:      rev.GetProtocol(),
 		ServiceName:   rev.Status.ServiceName,
@@ -250,7 +265,7 @@ func (t *configBuilder) addRevisionTarget(tt *v1alpha1.TrafficTarget) error {
 }
 
 func (t *configBuilder) addFlattenedTarget(target RevisionTarget) {
-	name := target.TrafficTarget.Name
+	name := target.TrafficTarget.Tag
 	t.revisionTargets = append(t.revisionTargets, target)
 	t.targets[DefaultTarget] = append(t.targets[DefaultTarget], target)
 	if name != "" {

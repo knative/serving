@@ -89,7 +89,7 @@ func makeClusterIngressSpec(r *servingv1alpha1.Route, targets map[string]traffic
 }
 
 func routeDomains(targetName string, r *servingv1alpha1.Route) []string {
-	domains := []string{traffic.SubrouteDomain(targetName, r.Status.Domain)}
+	domains := []string{traffic.TagDomain(targetName, r.Status.Domain)}
 	if targetName == traffic.DefaultTarget {
 		// The default target is also referred to by its internal K8s
 		// generated domain name.

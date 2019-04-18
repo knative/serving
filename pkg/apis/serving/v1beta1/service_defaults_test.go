@@ -155,15 +155,15 @@ func TestServiceDefaulting(t *testing.T) {
 				},
 				RouteSpec: RouteSpec{
 					Traffic: []TrafficTarget{{
-						Subroute:     "current",
+						Tag:          "current",
 						RevisionName: "foo",
 						Percent:      90,
 					}, {
-						Subroute:     "candidate",
+						Tag:          "candidate",
 						RevisionName: "bar",
 						Percent:      10,
 					}, {
-						Subroute: "latest",
+						Tag: "latest",
 					}},
 				},
 			},
@@ -185,17 +185,17 @@ func TestServiceDefaulting(t *testing.T) {
 				},
 				RouteSpec: RouteSpec{
 					Traffic: []TrafficTarget{{
-						Subroute:       "current",
+						Tag:            "current",
 						RevisionName:   "foo",
 						Percent:        90,
 						LatestRevision: ptr.Bool(false),
 					}, {
-						Subroute:       "candidate",
+						Tag:            "candidate",
 						RevisionName:   "bar",
 						Percent:        10,
 						LatestRevision: ptr.Bool(false),
 					}, {
-						Subroute:       "latest",
+						Tag:            "latest",
 						LatestRevision: ptr.Bool(true),
 					}},
 				},

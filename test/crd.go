@@ -27,6 +27,7 @@ import (
 	ptest "github.com/knative/pkg/test"
 	"github.com/knative/pkg/test/helpers"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 	v1alpha1testing "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -69,9 +70,11 @@ func Route(names ResourceNames, fopt ...v1alpha1testing.RouteOption) *v1alpha1.R
 		},
 		Spec: v1alpha1.RouteSpec{
 			Traffic: []v1alpha1.TrafficTarget{{
-				Name:              names.TrafficTarget,
-				ConfigurationName: names.Config,
-				Percent:           100,
+				Name: names.TrafficTarget,
+				TrafficTarget: v1beta1.TrafficTarget{
+					ConfigurationName: names.Config,
+					Percent:           100,
+				},
 			}},
 		},
 	}
@@ -92,13 +95,17 @@ func BlueGreenRoute(names, blue, green ResourceNames) *v1alpha1.Route {
 		},
 		Spec: v1alpha1.RouteSpec{
 			Traffic: []v1alpha1.TrafficTarget{{
-				Name:         blue.TrafficTarget,
-				RevisionName: blue.Revision,
-				Percent:      50,
+				Name: blue.TrafficTarget,
+				TrafficTarget: v1beta1.TrafficTarget{
+					RevisionName: blue.Revision,
+					Percent:      50,
+				},
 			}, {
-				Name:         green.TrafficTarget,
-				RevisionName: green.Revision,
-				Percent:      50,
+				Name: green.TrafficTarget,
+				TrafficTarget: v1beta1.TrafficTarget{
+					RevisionName: green.Revision,
+					Percent:      50,
+				},
 			}},
 		},
 	}

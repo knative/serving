@@ -23,6 +23,8 @@ import (
 	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 	duckv1beta1 "github.com/knative/pkg/apis/duck/v1beta1"
 	"github.com/knative/pkg/kmeta"
+
+	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 )
 
 // +genclient
@@ -65,28 +67,9 @@ type TrafficTarget struct {
 	// +optional
 	Name string `json:"name,omitempty"`
 
-	// RevisionName of a specific revision to which to send this portion of traffic.
-	// This is mutually exclusive with ConfigurationName.
-	// +optional
-	RevisionName string `json:"revisionName,omitempty"`
-
-	// ConfigurationName of a configuration to whose latest revision we will send
-	// this portion of traffic. When the "status.latestReadyRevisionName" of the
-	// referenced configuration changes, we will automatically migrate traffic
-	// from the prior "latest ready" revision to the new one.
-	// This field is never set in Route's status, only its spec.
-	// This is mutually exclusive with RevisionName.
-	// +optional
-	ConfigurationName string `json:"configurationName,omitempty"`
-
-	// Percent specifies percent of the traffic to this Revision or Configuration.
-	// This defaults to zero if unspecified.
-	Percent int `json:"percent"`
-
-	// URL displays the URL for accessing named traffic targets. URL is displayed in
-	// status, and is disallowed on spec. URL must contain a scheme (e.g. http://) and
-	// a hostname, but may not contain anything else (e.g. basic auth, url path, etc.)
-	URL string `json:"url,omitempty"`
+	// We inherit most of our fields by inlining the v1beta1 type.
+	// Ultimately all non-v1beta1 fields will be deprecated.
+	v1beta1.TrafficTarget `json:",inline"`
 }
 
 // RouteSpec holds the desired state of the Route (from the client).
