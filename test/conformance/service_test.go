@@ -360,7 +360,7 @@ func TestRunLatestServiceBYOName(t *testing.T) {
 
 	// Setup initial Service
 	objects, err := test.CreateRunLatestServiceReady(t, clients, &names, &test.Options{}, func(svc *v1alpha1.Service) {
-		svc.Spec.RunLatest.Configuration.RevisionTemplate.Name = revName
+		svc.Spec.RunLatest.Configuration.GetTemplate().Name = revName
 	})
 	if err != nil {
 		t.Fatalf("Failed to create initial Service %v: %v", names.Service, err)
