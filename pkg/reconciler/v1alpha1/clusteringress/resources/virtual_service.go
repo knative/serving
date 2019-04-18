@@ -102,13 +102,15 @@ func makeVirtualServiceRoute(hosts []string, http *v1alpha1.HTTPClusterIngressPa
 	for _, split := range http.Splits {
 
 		var h *v1alpha3.Headers
-		if len(split.AppendHeaders) > 0 {
-			h = &v1alpha3.Headers{
-				Request: &v1alpha3.HeaderOperations{
-					Add: split.AppendHeaders,
-				},
-			}
-		}
+		// TODO(mattmoor): Switch to Headers when we can have a hard
+		// dependency on 1.1, but 1.0.x rejects the unknown fields.
+		// if len(split.AppendHeaders) > 0 {
+		// 	h = &v1alpha3.Headers{
+		// 		Request: &v1alpha3.HeaderOperations{
+		// 			Add: split.AppendHeaders,
+		// 		},
+		// 	}
+		// }
 
 		weights = append(weights, v1alpha3.HTTPRouteDestination{
 			Destination: v1alpha3.Destination{
@@ -122,13 +124,15 @@ func makeVirtualServiceRoute(hosts []string, http *v1alpha1.HTTPClusterIngressPa
 	}
 
 	var h *v1alpha3.Headers
-	if len(http.AppendHeaders) > 0 {
-		h = &v1alpha3.Headers{
-			Request: &v1alpha3.HeaderOperations{
-				Add: http.AppendHeaders,
-			},
-		}
-	}
+	// TODO(mattmoor): Switch to Headers when we can have a hard
+	// dependency on 1.1, but 1.0.x rejects the unknown fields.
+	// if len(http.AppendHeaders) > 0 {
+	// 	h = &v1alpha3.Headers{
+	// 		Request: &v1alpha3.HeaderOperations{
+	// 			Add: http.AppendHeaders,
+	// 		},
+	// 	}
+	// }
 
 	return &v1alpha3.HTTPRoute{
 		Match:   matches,
