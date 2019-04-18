@@ -86,6 +86,7 @@ func timeToServe(t *testing.T, img, query string, reqTimeout time.Duration) {
 		Domain:         domain,
 		URL:            fmt.Sprintf("http://%s/?%s", *endpoint, query),
 		RequestTimeout: reqTimeout,
+		LoadFactors:    []float64{1},
 	}
 	resp, err := opts.RunLoadTest(false)
 	if err != nil {
@@ -94,6 +95,10 @@ func timeToServe(t *testing.T, img, query string, reqTimeout time.Duration) {
 
 	// Save the json result for benchmarking
 	resp.SaveJSON(tName)
+
+	if len(resp.Result) == 0 {
+		t.Fatalf("No result found for the load test")
+	}
 
 	// Add latency metrics
 	var tc []junit.TestCase
