@@ -31,7 +31,38 @@ func (s *Service) Validate(ctx context.Context) *apis.FieldError {
 	errs := serving.ValidateObjectMetadata(s.GetObjectMeta()).ViaField("metadata")
 	ctx = apis.WithinParent(ctx, s.ObjectMeta)
 	errs = errs.Also(s.Spec.Validate(apis.WithinSpec(ctx)).ViaField("spec"))
+
+	if apis.IsInUpdate(ctx) {
+		original := apis.GetBaseline(ctx).(*Service)
+
+		field, currentConfig := s.Spec.getConfigurationSpec()
+		_, originalConfig := original.Spec.getConfigurationSpec()
+
+		if currentConfig != nil && originalConfig != nil {
+			err := currentConfig.GetTemplate().VerifyNameChange(ctx,
+				originalConfig.GetTemplate())
+			errs = errs.Also(err.ViaField(
+				// TODO(mattmoor): revisionTemplate -> field
+				"spec", field, "configuration", "revisionTemplate"))
+		}
+	}
+
 	return errs
+}
+
+func (ss *ServiceSpec) getConfigurationSpec() (string, *ConfigurationSpec) {
+	switch {
+	case ss.RunLatest != nil:
+		return "runLatest", &ss.RunLatest.Configuration
+	case ss.Release != nil:
+		return "release", &ss.Release.Configuration
+	case ss.Manual != nil:
+		return "", nil
+	case ss.DeprecatedPinned != nil:
+		return "pinned", &ss.DeprecatedPinned.Configuration
+	default:
+		return "", nil
+	}
 }
 
 // CheckDeprecated checks whether the provided named deprecated fields
@@ -115,7 +146,6 @@ func (rt *ReleaseType) Validate(ctx context.Context) *apis.FieldError {
 	var errs *apis.FieldError
 
 	numRevisions := len(rt.Revisions)
-
 	if numRevisions == 0 {
 		errs = errs.Also(apis.ErrMissingField("revisions"))
 	}
@@ -129,7 +159,8 @@ func (rt *ReleaseType) Validate(ctx context.Context) *apis.FieldError {
 		}
 		if msgs := validation.IsDNS1035Label(r); len(msgs) > 0 {
 			errs = errs.Also(apis.ErrInvalidArrayValue(
-				fmt.Sprintf("not a DNS 1035 label: %v", msgs), "revisions", i))
+				fmt.Sprintf("not a DNS 1035 label: %v", msgs),
+				"revisions", i))
 		}
 	}
 
@@ -138,7 +169,9 @@ func (rt *ReleaseType) Validate(ctx context.Context) *apis.FieldError {
 	}
 
 	if rt.RolloutPercent < 0 || rt.RolloutPercent > 99 {
-		errs = errs.Also(apis.ErrOutOfBoundsValue(rt.RolloutPercent, 0, 99, "rolloutPercent"))
+		errs = errs.Also(apis.ErrOutOfBoundsValue(
+			rt.RolloutPercent, 0, 99,
+			"rolloutPercent"))
 	}
 
 	return errs.Also(rt.Configuration.Validate(ctx).ViaField("configuration"))
