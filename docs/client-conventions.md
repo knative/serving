@@ -100,7 +100,7 @@ kind: Configuration
 metadata:
   name: my-service # Named the same as the Service
 spec:
-  revisionTemplate: # template for building Revision
+  template: # template for building Revision
     metadata:
       # In the spec of Configuration, but the metadata of the revision.
       labels:
@@ -187,7 +187,7 @@ Non-convention-following clients can mess with this in the following ways:
 - Attempt to deploy new code by changing something other than `image`. This will
   not work once a conventional client changes it to a digest. All clients should
   not assume that new code will be deployed unless they set the `image` field to
-  their desired code _and_ change something about the `revisionTemplate`.
+  their desired code _and_ change something about the `template`.
 
 Furthermore, _before_ a user has used a well-behaved client to change an env var
 or something, using an unaware client like kubectl to change an env var will
