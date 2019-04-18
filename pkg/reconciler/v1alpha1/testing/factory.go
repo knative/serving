@@ -36,6 +36,7 @@ import (
 	"github.com/knative/pkg/controller"
 	fakeclientset "github.com/knative/serving/pkg/client/clientset/versioned/fake"
 	"github.com/knative/serving/pkg/reconciler"
+	apierrs "k8s.io/apimachinery/pkg/api/errors"
 )
 
 const (
@@ -73,7 +74,7 @@ func scaleClient(f ktesting.Fake, objects ...runtime.Object) scale.ScalesGetter 
 				}
 			}
 		}
-		return false, nil, nil
+		return true, nil, apierrs.NewNotFound(ga.GetResource().GroupResource(), ga.GetName())
 	})
 	return scaleClient
 }
@@ -102,7 +103,7 @@ func MakeFactory(ctor Ctor) Factory {
 			DynamicClientSet: dynamicClient,
 			CachingClientSet: cachingClient,
 			ServingClientSet: client,
-			ScaleClientSet:   scaleClient(client.Fake, ls.GetKubeObjects()...),
+			ScaleClientSet:   scaleClient(&client.Fake, ls.GetKubeObjects()...),
 			Recorder:         eventRecorder,
 			StatsReporter:    statsReporter,
 			Logger:           TestLogger(t),

@@ -49,12 +49,6 @@ func (cs *ConfigurationSpec) Validate(ctx context.Context) *apis.FieldError {
 	if equality.Semantic.DeepEqual(cs, &ConfigurationSpec{}) {
 		return apis.ErrMissingField(apis.CurrentField)
 	}
-	var templateField string
-	if cs.RevisionTemplate != nil {
-		templateField = "revisionTemplate"
-	} else {
-		return apis.ErrMissingField("revisionTemplate")
-	}
 
 	errs := CheckDeprecated(ctx, map[string]interface{}{
 		"generation": cs.DeprecatedGeneration,
@@ -68,6 +62,20 @@ func (cs *ConfigurationSpec) Validate(ctx context.Context) *apis.FieldError {
 		// It is an unstructured.Unstructured.
 	} else {
 		errs = errs.Also(apis.ErrInvalidValue(err, "build"))
+	}
+
+	var templateField string
+	switch {
+	case cs.RevisionTemplate != nil && cs.Template != nil:
+		return apis.ErrMultipleOneOf("revisionTemplate", "template")
+	case cs.RevisionTemplate != nil:
+		templateField = "revisionTemplate"
+	case cs.Template != nil:
+		templateField = "template"
+		// Disallow the use of deprecated fields under "template".
+		ctx = apis.DisallowDeprecated(ctx)
+	default:
+		return apis.ErrMissingOneOf("revisionTemplate", "template")
 	}
 
 	return errs.Also(cs.GetTemplate().Validate(ctx).ViaField(templateField))

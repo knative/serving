@@ -235,9 +235,9 @@ func (c *Reconciler) reconcile(ctx context.Context, config *v1alpha1.Configurati
 // CheckNameAvailability checks that if the named Revision specified by the Configuration
 // is available (not found), exists (but matches), or exists with conflict (doesn't match).
 func CheckNameAvailability(config *v1alpha1.Configuration, lister listers.RevisionLister) (*v1alpha1.Revision, error) {
-	// If config.Spec.RevisionTemplate.Name is set, then we can directly look up
+	// If config.Spec.GetTemplate().Name is set, then we can directly look up
 	// the revision by name.
-	name := config.Spec.RevisionTemplate.Name
+	name := config.Spec.GetTemplate().Name
 	if name == "" {
 		return nil, nil
 	}

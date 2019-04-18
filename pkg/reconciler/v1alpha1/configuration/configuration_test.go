@@ -88,7 +88,7 @@ func TestReconcile(t *testing.T) {
 		Name: "create revision byo name",
 		Objects: []runtime.Object{
 			cfg("byo-name-create", "foo", 1234, func(cfg *v1alpha1.Configuration) {
-				cfg.Spec.RevisionTemplate.Name = "byo-name-create-foo"
+				cfg.Spec.GetTemplate().Name = "byo-name-create-foo"
 			}),
 		},
 		WantCreates: []metav1.Object{
@@ -99,7 +99,7 @@ func TestReconcile(t *testing.T) {
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: cfg("byo-name-create", "foo", 1234, func(cfg *v1alpha1.Configuration) {
-				cfg.Spec.RevisionTemplate.Name = "byo-name-create-foo"
+				cfg.Spec.GetTemplate().Name = "byo-name-create-foo"
 			},
 				// The following properties are set when we first reconcile a
 				// Configuration and a Revision is created.
@@ -113,7 +113,7 @@ func TestReconcile(t *testing.T) {
 		Name: "create revision byo name (exists)",
 		Objects: []runtime.Object{
 			cfg("byo-name-exists", "foo", 1234, func(cfg *v1alpha1.Configuration) {
-				cfg.Spec.RevisionTemplate.Name = "byo-name-exists-foo"
+				cfg.Spec.GetTemplate().Name = "byo-name-exists-foo"
 			},
 				// The following properties are set when we first reconcile a
 				// Configuration and a Revision is created.
@@ -129,7 +129,7 @@ func TestReconcile(t *testing.T) {
 		// This example shows what we might see with a `git revert` in GitOps.
 		Objects: []runtime.Object{
 			cfg("byo-name-git-revert", "foo", 1234, func(cfg *v1alpha1.Configuration) {
-				cfg.Spec.RevisionTemplate.Name = "byo-name-git-revert-foo"
+				cfg.Spec.GetTemplate().Name = "byo-name-git-revert-foo"
 			}),
 			rev("byo-name-git-revert", "foo", 1200, func(rev *v1alpha1.Revision) {
 				rev.Name = "byo-name-git-revert-foo"
@@ -138,7 +138,7 @@ func TestReconcile(t *testing.T) {
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: cfg("byo-name-git-revert", "foo", 1234, func(cfg *v1alpha1.Configuration) {
-				cfg.Spec.RevisionTemplate.Name = "byo-name-git-revert-foo"
+				cfg.Spec.GetTemplate().Name = "byo-name-git-revert-foo"
 			}, WithLatestCreated("byo-name-git-revert-foo"), WithObservedGen),
 		}},
 		Key: "foo/byo-name-git-revert",
@@ -146,7 +146,7 @@ func TestReconcile(t *testing.T) {
 		Name: "create revision byo name (exists @ wrong generation w/ wrong spec)",
 		Objects: []runtime.Object{
 			cfg("byo-name-wrong-gen-wrong-spec", "foo", 1234, func(cfg *v1alpha1.Configuration) {
-				cfg.Spec.RevisionTemplate.Name = "byo-name-wrong-gen-wrong-spec-foo"
+				cfg.Spec.GetTemplate().Name = "byo-name-wrong-gen-wrong-spec-foo"
 			}),
 			rev("byo-name-wrong-gen-wrong-spec", "foo", 1200, func(rev *v1alpha1.Revision) {
 				rev.Name = "byo-name-wrong-gen-wrong-spec-foo"
@@ -159,7 +159,7 @@ func TestReconcile(t *testing.T) {
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: cfg("byo-name-wrong-gen-wrong-spec", "foo", 1234, func(cfg *v1alpha1.Configuration) {
-				cfg.Spec.RevisionTemplate.Name = "byo-name-wrong-gen-wrong-spec-foo"
+				cfg.Spec.GetTemplate().Name = "byo-name-wrong-gen-wrong-spec-foo"
 			}, MarkRevisionCreationFailed(`revisions.serving.knative.dev "byo-name-wrong-gen-wrong-spec-foo" already exists`)),
 		}},
 		Key: "foo/byo-name-wrong-gen-wrong-spec",
@@ -167,7 +167,7 @@ func TestReconcile(t *testing.T) {
 		Name: "create revision byo name (exists not owned)",
 		Objects: []runtime.Object{
 			cfg("byo-rev-not-owned", "foo", 1234, func(cfg *v1alpha1.Configuration) {
-				cfg.Spec.RevisionTemplate.Name = "byo-rev-not-owned-foo"
+				cfg.Spec.GetTemplate().Name = "byo-rev-not-owned-foo"
 			}),
 			rev("byo-rev-not-owned", "foo", 1200, func(rev *v1alpha1.Revision) {
 				rev.Name = "byo-rev-not-owned-foo"
@@ -177,7 +177,7 @@ func TestReconcile(t *testing.T) {
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: cfg("byo-rev-not-owned", "foo", 1234, func(cfg *v1alpha1.Configuration) {
-				cfg.Spec.RevisionTemplate.Name = "byo-rev-not-owned-foo"
+				cfg.Spec.GetTemplate().Name = "byo-rev-not-owned-foo"
 			}, MarkRevisionCreationFailed(`revisions.serving.knative.dev "byo-rev-not-owned-foo" already exists`)),
 		}},
 		Key: "foo/byo-rev-not-owned",

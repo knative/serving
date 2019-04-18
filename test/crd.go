@@ -171,7 +171,7 @@ func ConfigurationWithBuild(names ResourceNames, build *v1alpha1.RawExtension) *
 		},
 		Spec: v1alpha1.ConfigurationSpec{
 			Build: build,
-			RevisionTemplate: &v1alpha1.RevisionTemplateSpec{
+			Template: &v1alpha1.RevisionTemplateSpec{
 				Spec: v1alpha1.RevisionSpec{
 					Container: &corev1.Container{
 						Image: ptest.ImagePath(names.Image),
