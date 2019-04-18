@@ -406,7 +406,7 @@ func validateVolumeMounts(mounts []corev1.VolumeMount, volumes sets.String) *api
 	if missing := volumes.Difference(seen); missing.Len() > 0 {
 		errs = errs.Also(&apis.FieldError{
 			Message: fmt.Sprintf("volumes not mounted: %v", missing.List()),
-			Paths:   []string{""},
+			Paths:   []string{apis.CurrentField},
 		})
 	}
 	return errs
