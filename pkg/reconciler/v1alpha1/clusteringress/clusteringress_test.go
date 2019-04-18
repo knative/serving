@@ -48,7 +48,6 @@ import (
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
 	"github.com/knative/serving/pkg/network"
 	"github.com/knative/serving/pkg/reconciler"
-	ctesting "github.com/knative/serving/pkg/reconciler/testing"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/clusteringress/config"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/clusteringress/resources"
 	. "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
@@ -556,7 +555,7 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 			clusterIngressLister: listers.GetClusterIngressLister(),
 			gatewayLister:        listers.GetGatewayLister(),
 			secretLister:         listers.GetSecretLister(),
-			tracker:              &ctesting.NullTracker{},
+			tracker:              &NullTracker{},
 			// Enable reconciling gateway.
 			enableReconcilingGateway: true,
 			configStore: &testConfigStore{
