@@ -20,8 +20,8 @@ import (
 	"context"
 	"testing"
 
-	appsv1 "k8s.io/api/apps/v1"
 	autoscalingv1 "k8s.io/api/autoscaling/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	fakedynamicclientset "k8s.io/client-go/dynamic/fake"
@@ -47,33 +47,31 @@ const (
 // Ctor functions create a k8s controller with given params.
 type Ctor func(*Listers, reconciler.Options) controller.Reconciler
 
-// scaleClient returns a fake scale client that will serve a single provided object.
-// Kubernetes does not come currently with a normal fake, as other APIs, so we did this...
-func scaleClient(f ktesting.Fake, objects ...runtime.Object) scale.ScalesGetter {
-	scaleClient := &fakescaleclient.FakeScaleClient{Fake: f}
+// scaleClient returns a Scale fake K8s client, that returns the scale resource
+// defined by the underlying Deployment resource. That deployment resource must
+// exist in the passed in `f` clientset.
+func scaleClient(f *fakekubeclientset.Clientset) scale.ScalesGetter {
+	scaleClient := &fakescaleclient.FakeScaleClient{}
 	scaleClient.PrependReactor("get", "deployments", func(action ktesting.Action) (bool, runtime.Object, error) {
 		ga := action.(ktesting.GetAction)
-		for _, obj := range objects {
-			if d, ok := obj.(*appsv1.Deployment); ok {
-				if ga.GetNamespace() == d.Namespace && ga.GetName() == d.Name {
-					replicas := int32(1)
-					if d.Spec.Replicas != nil {
-						replicas = *d.Spec.Replicas
-					}
-					return true, &autoscalingv1.Scale{
-						ObjectMeta: d.ObjectMeta,
-						Spec: autoscalingv1.ScaleSpec{
-							Replicas: replicas,
-						},
-						Status: autoscalingv1.ScaleStatus{
-							Replicas: d.Status.Replicas,
-							Selector: labels.FormatLabels(d.Spec.Selector.MatchLabels),
-						},
-					}, nil
-				}
-			}
+		d, err := f.AppsV1().Deployments(ga.GetNamespace()).Get(ga.GetName(), metav1.GetOptions{})
+		if err != nil {
+			return true, nil, err
 		}
-		return false, nil, nil
+		replicas := int32(1)
+		if d.Spec.Replicas != nil {
+			replicas = *d.Spec.Replicas
+		}
+		return true, &autoscalingv1.Scale{
+			ObjectMeta: d.ObjectMeta,
+			Spec: autoscalingv1.ScaleSpec{
+				Replicas: replicas,
+			},
+			Status: autoscalingv1.ScaleStatus{
+				Replicas: d.Status.Replicas,
+				Selector: labels.FormatLabels(d.Spec.Selector.MatchLabels),
+			},
+		}, nil
 	})
 	return scaleClient
 }
@@ -102,7 +100,7 @@ func MakeFactory(ctor Ctor) Factory {
 			DynamicClientSet: dynamicClient,
 			CachingClientSet: cachingClient,
 			ServingClientSet: client,
-			ScaleClientSet:   scaleClient(client.Fake, ls.GetKubeObjects()...),
+			ScaleClientSet:   scaleClient(kubeClient),
 			Recorder:         eventRecorder,
 			StatsReporter:    statsReporter,
 			Logger:           TestLogger(t),

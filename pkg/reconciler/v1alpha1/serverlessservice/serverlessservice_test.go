@@ -21,6 +21,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/knative/pkg/system"
+
 	"github.com/knative/pkg/controller"
 	nv1a1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	fakeclientset "github.com/knative/serving/pkg/client/clientset/versioned/fake"
@@ -66,16 +68,16 @@ func TestNewController(t *testing.T) {
 
 func TestReconcile(t *testing.T) {
 	table := TableTest{{
-		Name:                    "bad workqueue key, Part I",
-		Key:                     "too/many/parts",
+		Name: "bad workqueue key, Part I",
+		Key:  "too/many/parts",
 		SkipNamespaceValidation: true,
 	}, {
-		Name:                    "bad workqueue key, Part II",
-		Key:                     "too-few-parts",
+		Name: "bad workqueue key, Part II",
+		Key:  "too-few-parts",
 		SkipNamespaceValidation: true,
 	}, {
-		Name:                    "key not found",
-		Key:                     "foo/not-found",
+		Name: "key not found",
+		Key:  "foo/not-found",
 		SkipNamespaceValidation: true,
 	}, {
 		Name: "steady state",
@@ -89,6 +91,22 @@ func TestReconcile(t *testing.T) {
 			endpointspub("steady", "state", WithSubsets),
 			endpointspriv("steady", "state", WithSubsets),
 		},
+	}, {
+		Name: "steady switch to proxy mode",
+		Key:  "steady/to-proxy",
+		Objects: []runtime.Object{
+			SKS("steady", "to-proxy", markHappy, WithPubService, WithPrivateService,
+				WithDeployRef("bar"), WithProxyMode),
+			deploy("steady", "bar"),
+			svcpub("steady", "to-proxy"),
+			svcpriv("steady", "to-proxy"),
+			endpointspub("steady", "to-proxy", withOtherSubsets),
+			endpointspriv("steady", "to-proxy", withOtherSubsets),
+			activatorEndpoints(WithSubsets),
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: endpointspub("steady", "to-proxy", WithSubsets),
+		}},
 	}, {
 		Name: "user changes public svc",
 		Key:  "public/svc-change",
@@ -121,6 +139,18 @@ func TestReconcile(t *testing.T) {
 		}, {
 			Object: endpointspub("private", "svc-change", WithSubsets),
 		}},
+	}, {
+		Name: "OnCreate-deployment-does-not-exist",
+		Key:  "on/cde",
+		Objects: []runtime.Object{
+			SKS("on", "cde", WithDeployRef("blah")),
+			deploy("on", "blah-another"),
+			endpointspriv("on", "cde", WithSubsets),
+		},
+		WantErr: true,
+		WantEvents: []string{
+			Eventf(corev1.EventTypeWarning, "UpdateFailed", `InternalError: error retrieving deployment selector spec: deployments.apps "blah" not found`),
+		},
 	}, {
 		Name: "OnCreate-deployment-exists",
 		Key:  "on/cde",
@@ -222,6 +252,27 @@ func TestReconcile(t *testing.T) {
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Updated", `Successfully updated ServerlessService "on/cneps"`),
+		},
+	}, {
+		Name: "OnCreate-no-activator-eps",
+		Key:  "on/cnaeps",
+		Objects: []runtime.Object{
+			SKS("on", "cnaeps", WithDeployRef("blah"), WithProxyMode),
+			deploy("on", "blah"),
+			endpointspriv("on", "cnaeps", WithSubsets), // This should be ignored.
+			activatorEndpoints(),
+		},
+		WantCreates: []metav1.Object{
+			svcpriv("on", "cnaeps"),
+			svcpub("on", "cnaeps"),
+			endpointspub("on", "cnaeps"),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: SKS("on", "cnaeps", WithDeployRef("blah"), WithProxyMode,
+				markNoEndpoints, WithPubService, WithPrivateService),
+		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "Updated", `Successfully updated ServerlessService "on/cnaeps"`),
 		},
 	}, {
 		Name:    "svc-fail-priv",
@@ -443,6 +494,18 @@ func svcpriv(namespace, name string, so ...K8sServiceOption) *corev1.Service {
 	return s
 }
 
+func activatorEndpoints(eo ...EndpointsOption) *corev1.Endpoints {
+	ep := &corev1.Endpoints{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: system.Namespace(),
+			Name:      activatorService,
+		},
+	}
+	for _, opt := range eo {
+		opt(ep)
+	}
+	return ep
+}
 func endpointspriv(namespace, name string, eo ...EndpointsOption) *corev1.Endpoints {
 	service := svcpriv(namespace, name)
 	ep := &corev1.Endpoints{

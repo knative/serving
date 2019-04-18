@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"reflect"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/google/go-cmp/cmp"
 	perrors "github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -104,7 +105,7 @@ func NewController(
 
 	// Watch activator-service endpoints.
 	grCb := func(obj interface{}) {
-		// Since changes in the Activar Service endpoints affect all the SKS objects,
+		// Since changes in the Activator Service endpoints affect all the SKS objects,
 		// do a global resync.
 		c.Logger.Info("Doing a global resync due to activator endpoint changes")
 		impl.GlobalResync(sksInformer.Informer())
@@ -245,13 +246,28 @@ func (r *reconciler) reconcilePublicService(ctx context.Context, sks *netv1alpha
 func (r *reconciler) reconcilePublicEndpoints(ctx context.Context, sks *netv1alpha1.ServerlessService) error {
 	logger := logging.FromContext(ctx)
 
-	// Service and Endpoints have the same name.
-	// Get private endpoints first, since if they are not available there's nothing we can do.
-	psn := names.PrivateService(sks.Name)
-	srcEps, err := r.endpointsLister.Endpoints(sks.Namespace).Get(psn)
-	if err != nil {
-		logger.Errorw(fmt.Sprint("Error obtaining private service endpoints:", psn), zap.Error(err))
-		return err
+	var (
+		srcEps *corev1.Endpoints
+		err    error
+	)
+	switch sks.Spec.Mode {
+	case netv1alpha1.SKSOperationModeServe:
+		// Service and Endpoints have the same name.
+		// Get private endpoints first, since if they are not available there's nothing we can do.
+		psn := names.PrivateService(sks.Name)
+		srcEps, err = r.endpointsLister.Endpoints(sks.Namespace).Get(psn)
+		if err != nil {
+			logger.Errorw(fmt.Sprintf("Error obtaining private service endpoints: %s", psn), zap.Error(err))
+			return err
+		}
+		logger.Debugf("Private endpoints: %s", spew.Sprint(srcEps))
+	case netv1alpha1.SKSOperationModeProxy:
+		srcEps, err = r.endpointsLister.Endpoints(system.Namespace()).Get(activatorService)
+		if err != nil {
+			logger.Errorw("Error obtaining activator service endpoints", zap.Error(err))
+			return err
+		}
+		logger.Debugf("Activator endpoints: %s", spew.Sprint(srcEps))
 	}
 
 	sn := names.PublicService(sks.Name)
@@ -286,7 +302,7 @@ func (r *reconciler) reconcilePublicEndpoints(ctx context.Context, sks *netv1alp
 	if r := presources.ReadyAddressCount(eps); r > 0 {
 		sks.Status.MarkEndpointsReady()
 	} else {
-		logger.Info("Endpoints %s has no ready endpoints", sn)
+		logger.Infof("Endpoints %s has no ready endpoints", sn)
 		sks.Status.MarkEndpointsNotReady("NoHealthyBackends")
 	}
 	logger.Debug("Done reconciling public K8s endpoints: ", sn)
