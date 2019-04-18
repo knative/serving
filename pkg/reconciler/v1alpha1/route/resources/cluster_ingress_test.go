@@ -32,6 +32,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
+const ns = "test-ns"
+
 func TestMakeClusterIngress_CorrectMetadata(t *testing.T) {
 	targets := map[string]traffic.RevisionTargets{}
 	ingressClass := "foo-ingress"
@@ -260,7 +262,6 @@ func TestMakeClusterIngressRule_Vanilla(t *testing.T) {
 		Active:      true,
 	}}
 	domains := []string{"a.com", "b.org"}
-	const ns = "test-ns"
 	rule := makeClusterIngressRule(domains, ns, targets)
 	expected := netv1alpha1.ClusterIngressRule{
 		Hosts: []string{
@@ -356,7 +357,6 @@ func TestMakeClusterIngressRule_TwoTargets(t *testing.T) {
 		Active:      true,
 	}}
 	domains := []string{"test.org"}
-	const ns = "test-ns"
 	rule := makeClusterIngressRule(domains, ns, targets)
 	expected := netv1alpha1.ClusterIngressRule{
 		Hosts: []string{"test.org"},
@@ -401,7 +401,6 @@ func TestMakeClusterIngressRule_InactiveTarget(t *testing.T) {
 		Active: false,
 	}}
 	domains := []string{"a.com", "b.org"}
-	const ns = "test-ns"
 	rule := makeClusterIngressRule(domains, ns, targets)
 	expected := netv1alpha1.ClusterIngressRule{
 		Hosts: []string{
@@ -448,7 +447,6 @@ func TestMakeClusterIngressRule_TwoInactiveTargets(t *testing.T) {
 		Active: false,
 	}}
 	domains := []string{"a.com", "b.org"}
-	const ns = "test-ns"
 	rule := makeClusterIngressRule(domains, ns, targets)
 	expected := netv1alpha1.ClusterIngressRule{
 		Hosts: []string{
@@ -492,7 +490,7 @@ func TestMakeClusterIngressRule_ZeroPercentTargetInactive(t *testing.T) {
 			Percent:           100,
 		},
 		ServiceName: "apathy-sets-in",
-		Active: true,
+		Active:      true,
 	}, {
 		TrafficTarget: v1beta1.TrafficTarget{
 			ConfigurationName: "new-config",
@@ -503,7 +501,6 @@ func TestMakeClusterIngressRule_ZeroPercentTargetInactive(t *testing.T) {
 		Active: false,
 	}}
 	domains := []string{"test.org"}
-	const ns = "test-ns"
 	rule := makeClusterIngressRule(domains, ns, targets)
 	expected := netv1alpha1.ClusterIngressRule{
 		Hosts: []string{"test.org"},
