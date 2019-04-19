@@ -29,7 +29,7 @@ func FetchReadyAddressCount(lister corev1listers.EndpointsLister, ns, name strin
 	endpoints, err := lister.Endpoints(ns).Get(name)
 	if apierrors.IsNotFound(err) {
 		// Treat a not-found error as 0 ready addresses
-		return 0, nil
+		return 0, err
 	} else if err != nil {
 		return 0, err
 	}

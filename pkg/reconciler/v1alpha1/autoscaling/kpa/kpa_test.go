@@ -339,9 +339,7 @@ func sks(ns, n string, so ...SKSOption) *nv1a1.ServerlessService {
 }
 
 func markOld(pa *asv1a1.PodAutoscaler) {
-	fmt.Printf("### Cond: %+v\n", pa.Status.Conditions[0])
 	pa.Status.Conditions[0].LastTransitionTime.Inner.Time = time.Now().Add(-1 * time.Hour)
-	fmt.Printf("### Cond: %+v\n", pa.Status.Conditions[0])
 }
 
 func withSvcSelector(sel map[string]string) K8sServiceOption {
@@ -401,10 +399,70 @@ func TestReconcileAndScaleToZero(t *testing.T) {
 	usualSelector := map[string]string{"a": "b"}
 
 	table := TableTest{{
-		Name: "steady state",
+		Name: "steady not serving",
+		Key:  key,
+		Objects: []runtime.Object{
+			kpa(testNamespace, testRevision,
+				WithNoTraffic("NoTraffic", "The target is not receiving traffic."),
+				markOld, WithPAStatusService(testRevision+"-pub")),
+			sks(testNamespace, testRevision, WithDeployRef(deployName), WithProxyMode, WithSKSReady),
+			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector)),
+			deploy(testNamespace, testRevision),
+			makeSKSPrivateEndpoints(1, testNamespace, testRevision),
+		},
+	}, {
+		Name: "from serving to proxy",
 		Key:  key,
 		Objects: []runtime.Object{
 			kpa(testNamespace, testRevision, markActive, markOld,
+				WithPAStatusService(testRevision+"-pub")),
+			sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSReady),
+			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector)),
+			deploy(testNamespace, testRevision),
+			makeSKSPrivateEndpoints(1, testNamespace, testRevision),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: kpa(testNamespace, testRevision,
+				WithNoTraffic("NoTraffic", "The target is not receiving traffic."),
+				WithPAStatusService(testRevision+"-pub")),
+		}},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: sks(testNamespace, testRevision, WithSKSReady,
+				WithDeployRef(deployName), WithProxyMode),
+		}},
+	}, {
+		Name: "from serving to proxy, sks update fail :-(",
+		Key:  key,
+		Objects: []runtime.Object{
+			kpa(testNamespace, testRevision, markActive, markOld,
+				WithPAStatusService(testRevision+"-pub")),
+			sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSReady),
+			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector)),
+			deploy(testNamespace, testRevision),
+			makeSKSPrivateEndpoints(1, testNamespace, testRevision),
+		},
+		WantErr: true,
+		WithReactors: []clientgotesting.ReactionFunc{
+			InduceFailure("update", "serverlessservices"),
+		},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeWarning, "InternalError",
+				"error re-reconciling SKS: error updating SKS test-revision: inducing failure for update serverlessservices"),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: kpa(testNamespace, testRevision,
+				WithNoTraffic("NoTraffic", "The target is not receiving traffic."),
+				WithPAStatusService(testRevision+"-pub")),
+		}},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: sks(testNamespace, testRevision, WithSKSReady,
+				WithDeployRef(deployName), WithProxyMode),
+		}},
+	}, {
+		Name: "scaling to 0, but not stable for long enough, so no-op",
+		Key:  key,
+		Objects: []runtime.Object{
+			kpa(testNamespace, testRevision, markActive,
 				WithPAStatusService(testRevision+"-pub")),
 			sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSReady),
 			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector)),
@@ -417,7 +475,7 @@ func TestReconcileAndScaleToZero(t *testing.T) {
 	table.Test(t, MakeFactory(func(listers *Listers, opt rpkg.Options) controller.Reconciler {
 		dynConf := newDynamicConfig(t)
 		fakeDeciders := newTestDeciders()
-		// Make sure we can scale to 0.
+		// Make sure we want to scale to 0.
 		decider := resources.MakeDecider(
 			context.Background(), kpa(testNamespace, testRevision), dynConf.Current())
 		decider.Status.DesiredScale = 0
@@ -476,16 +534,39 @@ func TestReconcile(t *testing.T) {
 			makeSKSPrivateEndpoints(1, testNamespace, testRevision),
 		},
 	}, {
-		Name: "steady state, pa inactive",
+		Name: "can't read endpoints",
+		Key:  key,
+		Objects: []runtime.Object{
+			kpa(testNamespace, testRevision, markActive,
+				WithPAStatusService(testRevision+"-pub")),
+			sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSReady),
+			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector)),
+			deploy(testNamespace, testRevision),
+		},
+		WantErr: true,
+		WantEvents: []string{
+			Eventf(corev1.EventTypeWarning, "InternalError",
+				`error checking endpoints test-revision-priv: endpoints "test-revision-priv" not found`),
+		},
+	}, {
+		Name: "pa activates",
 		Key:  key,
 		Objects: []runtime.Object{
 			kpa(testNamespace, testRevision, WithNoTraffic("NoTraffic", "The target is not receiving traffic."),
 				WithPAStatusService(testRevision+"-pub")),
+			// SKS is ready here, since its endpoints are populated with Activator endpoints.
 			sks(testNamespace, testRevision, WithProxyMode, WithDeployRef(deployName), WithSKSReady),
 			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector)),
 			deploy(testNamespace, testRevision),
 			makeSKSPrivateEndpoints(1, testNamespace, testRevision),
 		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: sks(testNamespace, testRevision, WithSKSReady,
+				WithDeployRef(deployName)),
+		}},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: kpa(testNamespace, testRevision, markActivating, WithPAStatusService(testRevision+"-pub")),
+		}},
 	}, {
 		Name: "sks is still not ready",
 		Key:  key,
@@ -545,26 +626,6 @@ func TestReconcile(t *testing.T) {
 		}},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: sks(testNamespace, testRevision, WithPubService,
-				WithDeployRef(deployName)),
-		}},
-	}, {
-		Name: "pa goes inactive",
-		Key:  key,
-		Objects: []runtime.Object{
-			kpa(testNamespace, testRevision,
-				WithNoTraffic("NoTraffic", "The target is not receiving traffic.")),
-			sks(testNamespace, testRevision, WithDeployRef(deployName),
-				WithPubService),
-			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector)),
-			deploy(testNamespace, testRevision),
-		},
-		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: kpa(testNamespace, testRevision,
-				WithNoTraffic("NoTraffic", "The target is not receiving traffic."),
-				WithPAStatusService(testRevision+"-pub")),
-		}},
-		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: sks(testNamespace, testRevision, WithPubService, WithProxyMode,
 				WithDeployRef(deployName)),
 		}},
 	}, {
@@ -630,8 +691,12 @@ func TestReconcile(t *testing.T) {
 		fakeDeciders := newTestDeciders()
 		// TODO(vagababov): see if we can get rid of the static piece of configuration and
 		// constant namespace and revision names.
-		fakeDeciders.Create(context.Background(), resources.MakeDecider(
-			context.Background(), kpa(testNamespace, testRevision), dynConf.Current()))
+		// Make sure we don't want to scale to 0.
+		decider := resources.MakeDecider(
+			context.Background(), kpa(testNamespace, testRevision), dynConf.Current())
+		decider.Status.DesiredScale = 11
+		decider.Generation = 2112
+		fakeDeciders.Create(context.Background(), decider)
 
 		fakeMetrics := newTestMetrics()
 		kpaScaler := NewScaler(opt.ServingClientSet, opt.ScaleClientSet, logtesting.TestLogger(t), newConfigWatcher())
