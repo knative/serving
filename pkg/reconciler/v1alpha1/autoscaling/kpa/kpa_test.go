@@ -38,6 +38,7 @@ import (
 	nv1a1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 	"github.com/knative/serving/pkg/autoscaler"
 	fakeKna "github.com/knative/serving/pkg/client/clientset/versioned/fake"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
@@ -337,6 +338,12 @@ func sks(ns, n string, so ...SKSOption) *nv1a1.ServerlessService {
 	return s
 }
 
+func markOld(pa *asv1a1.PodAutoscaler) {
+	fmt.Printf("### Cond: %+v\n", pa.Status.Conditions[0])
+	pa.Status.Conditions[0].LastTransitionTime.Inner.Time = time.Now().Add(-1 * time.Hour)
+	fmt.Printf("### Cond: %+v\n", pa.Status.Conditions[0])
+}
+
 func withSvcSelector(sel map[string]string) K8sServiceOption {
 	return func(s *corev1.Service) {
 		s.Spec.Selector = sel
@@ -369,7 +376,7 @@ func kpa(ns, n string, opts ...PodAutoscalerOption) *asv1a1.PodAutoscaler {
 
 func withConcurrency(n int) PodAutoscalerOption {
 	return func(pa *asv1a1.PodAutoscaler) {
-		pa.Spec.ContainerConcurrency = v1alpha1.RevisionContainerConcurrencyType(n)
+		pa.Spec.ContainerConcurrency = v1beta1.RevisionContainerConcurrencyType(n)
 	}
 }
 
@@ -386,6 +393,51 @@ func makeTestEndpoints(num int, ns, n string) *corev1.Endpoints {
 		eps = addEndpoint(eps)
 	}
 	return eps
+}
+
+func TestReconcileAndScaleToZero(t *testing.T) {
+	const key = testNamespace + "/" + testRevision
+	const deployName = testRevision + "-deployment"
+	usualSelector := map[string]string{"a": "b"}
+
+	table := TableTest{{
+		Name: "steady state",
+		Key:  key,
+		Objects: []runtime.Object{
+			kpa(testNamespace, testRevision, markActive, markOld,
+				WithPAStatusService(testRevision+"-pub")),
+			sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSReady),
+			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector)),
+			deploy(testNamespace, testRevision),
+			makeSKSPrivateEndpoints(1, testNamespace, testRevision),
+		},
+	}}
+
+	defer logtesting.ClearAll()
+	table.Test(t, MakeFactory(func(listers *Listers, opt rpkg.Options) controller.Reconciler {
+		dynConf := newDynamicConfig(t)
+		fakeDeciders := newTestDeciders()
+		// Make sure we can scale to 0.
+		decider := resources.MakeDecider(
+			context.Background(), kpa(testNamespace, testRevision), dynConf.Current())
+		decider.Status.DesiredScale = 0
+		decider.Generation = 42
+		fakeDeciders.Create(context.Background(), decider)
+
+		fakeMetrics := newTestMetrics()
+		kpaScaler := NewScaler(opt.ServingClientSet, opt.ScaleClientSet, logtesting.TestLogger(t), newConfigWatcher())
+		return &Reconciler{
+			Base:            rpkg.NewBase(opt, controllerAgentName),
+			paLister:        listers.GetPodAutoscalerLister(),
+			sksLister:       listers.GetServerlessServiceLister(),
+			serviceLister:   listers.GetK8sServiceLister(),
+			endpointsLister: listers.GetEndpointsLister(),
+			kpaDeciders:     fakeDeciders,
+			metrics:         fakeMetrics,
+			scaler:          kpaScaler,
+			dynConfig:       dynConf,
+		}
+	}))
 }
 
 func TestReconcile(t *testing.T) {
@@ -928,10 +980,6 @@ func TestNoEndpoints(t *testing.T) {
 	rev := newTestRevision(testNamespace, testRevision)
 	servingClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
 	servingInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
-	// These do not exist yet.
-	// ep := addEndpoint(makeEndpoints(rev))
-	// kubeClient.CoreV1().Endpoints(testNamespace).Create(ep)
-	// kubeInformer.Core().V1().Endpoints().Informer().GetIndexer().Add(ep)
 	kpa := revisionresources.MakeKPA(rev)
 	servingClient.AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
 	servingInformer.Autoscaling().V1alpha1().PodAutoscalers().Informer().GetIndexer().Add(kpa)
@@ -1234,10 +1282,10 @@ func (km *testDeciders) Get(ctx context.Context, namespace, name string) (*autos
 	return km.decider, nil
 }
 
-func (km *testDeciders) Create(ctx context.Context, desider *autoscaler.Decider) (*autoscaler.Decider, error) {
-	km.decider = desider
+func (km *testDeciders) Create(ctx context.Context, decider *autoscaler.Decider) (*autoscaler.Decider, error) {
+	km.decider = decider
 	km.createCallCount.Add(1)
-	return desider, nil
+	return decider, nil
 }
 
 func (km *testDeciders) Delete(ctx context.Context, namespace, name string) error {

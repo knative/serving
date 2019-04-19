@@ -223,7 +223,6 @@ func (m *MultiScaler) Inform(event string) bool {
 }
 
 func (m *MultiScaler) createScaler(ctx context.Context, decider *Decider) (*scalerRunner, error) {
-
 	scaler, err := m.uniScalerFactory(decider, m.dynConfig)
 	if err != nil {
 		return nil, err

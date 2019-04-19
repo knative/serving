@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/google/go-cmp/cmp"
 	perrors "github.com/pkg/errors"
 	"go.uber.org/zap"
 
@@ -263,6 +262,7 @@ func (c *Reconciler) reconcile(ctx context.Context, pa *pav1alpha1.PodAutoscaler
 
 	// Get the appropriate current scale from the metric, and right size
 	// the scaleTargetRef based on it.
+	fmt.Printf("###3 desired scale: %d\n", decider.Status.DesiredScale)
 	want, err := c.scaler.Scale(ctx, pa, decider.Status.DesiredScale)
 	if err != nil {
 		return perrors.Wrap(err, "error scaling target")
@@ -282,27 +282,18 @@ func (c *Reconciler) reconcile(ctx context.Context, pa *pav1alpha1.PodAutoscaler
 		logger.Infof("PA got=%v, want=%v", got, want)
 
 	}
-	// We need to update SKS again, to put it into proxy mode.
-	if want == 0 && sks.Spec.Mode != nv1alpha1.SKSOperationModeProxy {
-		want := sks.DeepCopy()
-		sks.Spec.Mode = nv1alpha1.SKSOperationModeProxy
-		if _, err = c.ServingClientSet.NetworkingV1alpha1().ServerlessServices(sks.Namespace).Update(want); err != nil {
-			return perrors.Wrapf(err, "error updating SKS %s", sks.Name)
-		}
-	}
+
 	err = reportMetrics(pa, want, got)
 	if err != nil {
 		return perrors.Wrap(err, "error reporting metrics")
 	}
 
-	logger.Infof("### ===== Current active state: %v", pa.Status.GetCondition(pav1alpha1.PodAutoscalerConditionActive))
 	if updatePAStatus(pa, want, got) {
-		_, err := c.reconcileSKS2(ctx, pa)
+		_, err := c.reconcileSKS(ctx, pa)
 		if err != nil {
 			return perrors.Wrap(err, "error re-reconciling SKS")
 		}
 	}
-	logger.Infof("### ==== After update active state: %v", pa.Status.GetCondition(pav1alpha1.PodAutoscalerConditionActive))
 	return nil
 }
 
@@ -330,44 +321,7 @@ func (c *Reconciler) reconcileDecider(ctx context.Context, pa *pav1alpha1.PodAut
 
 	return decider, nil
 }
-func (c *Reconciler) reconcileSKS2(ctx context.Context, pa *pav1alpha1.PodAutoscaler) (*nv1alpha1.ServerlessService, error) {
-	logger := logging.FromContext(ctx)
 
-	mode := nv1alpha1.SKSOperationModeServe
-	if pa.Status.IsInactive() {
-		mode = nv1alpha1.SKSOperationModeProxy
-	}
-	logger.Infof("### reconciling SKS to mode %v PA status: %v", mode, pa.Status.GetCondition(pav1alpha1.PodAutoscalerConditionActive))
-	sksName := anames.SKS(pa.Name)
-	sks, err := c.sksLister.ServerlessServices(pa.Namespace).Get(sksName)
-	if errors.IsNotFound(err) {
-		logger.Infof("SKS %s/%s does not exist; creating.", pa.Namespace, sksName)
-		sks = aresources.MakeSKS(pa, mode)
-		_, err = c.ServingClientSet.NetworkingV1alpha1().ServerlessServices(sks.Namespace).Create(sks)
-		if err != nil {
-			return nil, perrors.Wrapf(err, "error creating SKS %s", sksName)
-		}
-		logger.Info("Created SKS:", sksName)
-	} else if err != nil {
-		return nil, perrors.Wrapf(err, "error getting SKS %s", sksName)
-	} else if !metav1.IsControlledBy(sks, pa) {
-		pa.Status.MarkResourceNotOwned("ServerlessService", sksName)
-		return nil, fmt.Errorf("KPA: %s does not own SKS: %s", pa.Name, sksName)
-	}
-	logger.Infof("### --> Got SKS mode: %v", sks.Spec.Mode)
-	tmpl := aresources.MakeSKS(pa, mode)
-	if !equality.Semantic.DeepEqual(tmpl.Spec, sks.Spec) {
-		logger.Infof("### SKS Spec diff: %s", cmp.Diff(tmpl.Spec, sks.Spec))
-		want := sks.DeepCopy()
-		want.Spec = tmpl.Spec
-		logger.Info("SKS changed; reconciling:", sksName)
-		if sks, err = c.ServingClientSet.NetworkingV1alpha1().ServerlessServices(sks.Namespace).Update(want); err != nil {
-			return nil, perrors.Wrapf(err, "error updating SKS %s", sksName)
-		}
-	}
-	logger.Debug("Done reconciling SKS", sksName)
-	return sks, nil
-}
 func (c *Reconciler) reconcileSKS(ctx context.Context, pa *pav1alpha1.PodAutoscaler) (*nv1alpha1.ServerlessService, error) {
 	logger := logging.FromContext(ctx)
 
@@ -375,10 +329,8 @@ func (c *Reconciler) reconcileSKS(ctx context.Context, pa *pav1alpha1.PodAutosca
 	if pa.Status.IsInactive() {
 		mode = nv1alpha1.SKSOperationModeProxy
 	}
-	logger.Infof("### reconciling SKS to mode %v PA status: %v", mode, pa.Status.GetCondition(pav1alpha1.PodAutoscalerConditionActive))
 	sksName := anames.SKS(pa.Name)
 	sks, err := c.sksLister.ServerlessServices(pa.Namespace).Get(sksName)
-	logger.Infof("### --> Got SKS mode: %v", sks.Spec.Mode)
 	if errors.IsNotFound(err) {
 		logger.Infof("SKS %s/%s does not exist; creating.", pa.Namespace, sksName)
 		sks = aresources.MakeSKS(pa, mode)
@@ -387,7 +339,6 @@ func (c *Reconciler) reconcileSKS(ctx context.Context, pa *pav1alpha1.PodAutosca
 			return nil, perrors.Wrapf(err, "error creating SKS %s", sksName)
 		}
 		logger.Info("Created SKS:", sksName)
-		logger.Info("#### Created SKS:", sksName)
 	} else if err != nil {
 		return nil, perrors.Wrapf(err, "error getting SKS %s", sksName)
 	} else if !metav1.IsControlledBy(sks, pa) {
@@ -396,7 +347,6 @@ func (c *Reconciler) reconcileSKS(ctx context.Context, pa *pav1alpha1.PodAutosca
 	}
 	tmpl := aresources.MakeSKS(pa, mode)
 	if !equality.Semantic.DeepEqual(tmpl.Spec, sks.Spec) {
-		logger.Infof("### SKS Spec diff: %s", cmp.Diff(tmpl.Spec, sks.Spec))
 		want := sks.DeepCopy()
 		want.Spec = tmpl.Spec
 		logger.Info("SKS changed; reconciling:", sksName)
