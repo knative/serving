@@ -65,7 +65,7 @@ type TrafficTarget struct {
 	// Name is optionally used to expose a dedicated hostname for referencing this
 	// target exclusively. It has the form: {name}.${route.status.domain}
 	// +optional
-	Name string `json:"name,omitempty"`
+	DeprecatedName string `json:"name,omitempty"`
 
 	// We inherit most of our fields by inlining the v1beta1 type.
 	// Ultimately all non-v1beta1 fields will be deprecated.

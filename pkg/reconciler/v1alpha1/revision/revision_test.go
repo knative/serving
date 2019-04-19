@@ -264,7 +264,7 @@ func addResourcesToInformers(t *testing.T,
 	}
 	servingInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
 
-	haveBuild := rev.Spec.BuildRef != nil
+	haveBuild := rev.Spec.DeprecatedBuildRef != nil
 
 	ns := rev.Namespace
 

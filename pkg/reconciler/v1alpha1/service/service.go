@@ -124,7 +124,7 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 	// Don't modify the informers copy
 	service := original.DeepCopy()
 
-	if service.Spec.Manual != nil {
+	if service.Spec.DeprecatedManual != nil {
 		// We do not know the status when in manual mode. The Route can be
 		// updated with Configurations not known to the Service which would
 		// make attempts to display status potentially incorrect
@@ -247,13 +247,13 @@ func (c *Reconciler) reconcile(ctx context.Context, service *v1alpha1.Service) e
 					want[idx].RevisionName = config.Status.LatestReadyRevisionName
 					want[idx].ConfigurationName = ""
 					// Normalize Name into Tag for comparison.
-					if want[idx].Name != "" {
-						want[idx].Tag = want[idx].Name
-						want[idx].Name = ""
+					if want[idx].DeprecatedName != "" {
+						want[idx].Tag = want[idx].DeprecatedName
+						want[idx].DeprecatedName = ""
 					}
-					if got[idx].Name != "" {
-						got[idx].Tag = got[idx].Name
-						got[idx].Name = ""
+					if got[idx].DeprecatedName != "" {
+						got[idx].Tag = got[idx].DeprecatedName
+						got[idx].DeprecatedName = ""
 					}
 				}
 			}

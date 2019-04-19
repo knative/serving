@@ -38,12 +38,12 @@ func (rs *RevisionSpec) SetDefaults(ctx context.Context) {
 	// into the PodSpec for the scope of defaulting and then move
 	// it back as we return.
 	if len(rs.Containers) == 0 {
-		if rs.Container == nil {
-			rs.Container = &corev1.Container{}
+		if rs.DeprecatedContainer == nil {
+			rs.DeprecatedContainer = &corev1.Container{}
 		}
-		rs.Containers = []corev1.Container{*rs.Container}
+		rs.Containers = []corev1.Container{*rs.DeprecatedContainer}
 		defer func() {
-			rs.Container = &rs.Containers[0]
+			rs.DeprecatedContainer = &rs.Containers[0]
 			rs.Containers = nil
 		}()
 	}

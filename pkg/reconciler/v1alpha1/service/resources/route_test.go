@@ -113,13 +113,13 @@ func TestRouteReleaseSingleRevision(t *testing.T) {
 		t.Errorf("Expected %q for service namespace got %q", want, got)
 	}
 	wantT := []v1alpha1.TrafficTarget{{
-		Name: v1alpha1.CurrentTrafficTarget,
+		DeprecatedName: v1alpha1.CurrentTrafficTarget,
 		TrafficTarget: v1beta1.TrafficTarget{
 			Percent:      100,
 			RevisionName: testRevisionName,
 		},
 	}, {
-		Name: v1alpha1.LatestTrafficTarget,
+		DeprecatedName: v1alpha1.LatestTrafficTarget,
 		TrafficTarget: v1beta1.TrafficTarget{
 			ConfigurationName: testConfigName,
 		},
@@ -143,7 +143,7 @@ func TestRouteLatestRevisionSplit(t *testing.T) {
 		currentPercent = 100 - rolloutPercent
 	)
 	s := createServiceWithRelease(2 /*num revisions*/, rolloutPercent)
-	s.Spec.Release.Revisions = []string{v1alpha1.ReleaseLatestRevisionKeyword, "juicy-revision"}
+	s.Spec.DeprecatedRelease.Revisions = []string{v1alpha1.ReleaseLatestRevisionKeyword, "juicy-revision"}
 	testConfigName := names.Configuration(s)
 	r, err := MakeRoute(s)
 	if err != nil {
@@ -156,19 +156,19 @@ func TestRouteLatestRevisionSplit(t *testing.T) {
 		t.Errorf("Expected %q for service namespace got %q", want, got)
 	}
 	wantT := []v1alpha1.TrafficTarget{{
-		Name: v1alpha1.CurrentTrafficTarget,
+		DeprecatedName: v1alpha1.CurrentTrafficTarget,
 		TrafficTarget: v1beta1.TrafficTarget{
 			Percent:           currentPercent,
 			ConfigurationName: testConfigName,
 		},
 	}, {
-		Name: v1alpha1.CandidateTrafficTarget,
+		DeprecatedName: v1alpha1.CandidateTrafficTarget,
 		TrafficTarget: v1beta1.TrafficTarget{
 			Percent:      rolloutPercent,
 			RevisionName: "juicy-revision",
 		},
 	}, {
-		Name: v1alpha1.LatestTrafficTarget,
+		DeprecatedName: v1alpha1.LatestTrafficTarget,
 		TrafficTarget: v1beta1.TrafficTarget{
 			ConfigurationName: testConfigName,
 		},
@@ -192,7 +192,7 @@ func TestRouteLatestRevisionSplitCandidate(t *testing.T) {
 		currentPercent = 100 - rolloutPercent
 	)
 	s := createServiceWithRelease(2 /*num revisions*/, rolloutPercent)
-	s.Spec.Release.Revisions = []string{"squishy-revision", v1alpha1.ReleaseLatestRevisionKeyword}
+	s.Spec.DeprecatedRelease.Revisions = []string{"squishy-revision", v1alpha1.ReleaseLatestRevisionKeyword}
 	testConfigName := names.Configuration(s)
 	r, err := MakeRoute(s)
 	if err != nil {
@@ -205,19 +205,19 @@ func TestRouteLatestRevisionSplitCandidate(t *testing.T) {
 		t.Errorf("Expected %q for service namespace got %q", want, got)
 	}
 	wantT := []v1alpha1.TrafficTarget{{
-		Name: v1alpha1.CurrentTrafficTarget,
+		DeprecatedName: v1alpha1.CurrentTrafficTarget,
 		TrafficTarget: v1beta1.TrafficTarget{
 			Percent:      currentPercent,
 			RevisionName: "squishy-revision",
 		},
 	}, {
-		Name: v1alpha1.CandidateTrafficTarget,
+		DeprecatedName: v1alpha1.CandidateTrafficTarget,
 		TrafficTarget: v1beta1.TrafficTarget{
 			Percent:           rolloutPercent,
 			ConfigurationName: testConfigName,
 		},
 	}, {
-		Name: v1alpha1.LatestTrafficTarget,
+		DeprecatedName: v1alpha1.LatestTrafficTarget,
 		TrafficTarget: v1beta1.TrafficTarget{
 			ConfigurationName: testConfigName,
 		},
@@ -237,7 +237,7 @@ func TestRouteLatestRevisionSplitCandidate(t *testing.T) {
 }
 func TestRouteLatestRevisionNoSplit(t *testing.T) {
 	s := createServiceWithRelease(1 /*num revisions*/, 0 /*unused*/)
-	s.Spec.Release.Revisions = []string{v1alpha1.ReleaseLatestRevisionKeyword}
+	s.Spec.DeprecatedRelease.Revisions = []string{v1alpha1.ReleaseLatestRevisionKeyword}
 	testConfigName := names.Configuration(s)
 	r, err := MakeRoute(s)
 
@@ -252,13 +252,13 @@ func TestRouteLatestRevisionNoSplit(t *testing.T) {
 	}
 	// Should have 2 named traffic targets (current, latest)
 	wantT := []v1alpha1.TrafficTarget{{
-		Name: v1alpha1.CurrentTrafficTarget,
+		DeprecatedName: v1alpha1.CurrentTrafficTarget,
 		TrafficTarget: v1beta1.TrafficTarget{
 			Percent:           100,
 			ConfigurationName: testConfigName,
 		},
 	}, {
-		Name: v1alpha1.LatestTrafficTarget,
+		DeprecatedName: v1alpha1.LatestTrafficTarget,
 		TrafficTarget: v1beta1.TrafficTarget{
 			ConfigurationName: testConfigName,
 		},
@@ -296,19 +296,19 @@ func TestRouteReleaseTwoRevisions(t *testing.T) {
 	}
 	// Should have 3 named traffic targets (current, candidate, latest)
 	wantT := []v1alpha1.TrafficTarget{{
-		Name: v1alpha1.CurrentTrafficTarget,
+		DeprecatedName: v1alpha1.CurrentTrafficTarget,
 		TrafficTarget: v1beta1.TrafficTarget{
 			Percent:      currentPercent,
 			RevisionName: testRevisionName,
 		},
 	}, {
-		Name: v1alpha1.CandidateTrafficTarget,
+		DeprecatedName: v1alpha1.CandidateTrafficTarget,
 		TrafficTarget: v1beta1.TrafficTarget{
 			Percent:      100 - currentPercent,
 			RevisionName: testCandidateRevisionName,
 		},
 	}, {
-		Name: v1alpha1.LatestTrafficTarget,
+		DeprecatedName: v1alpha1.LatestTrafficTarget,
 		TrafficTarget: v1beta1.TrafficTarget{
 			ConfigurationName: testConfigName,
 		},

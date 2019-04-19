@@ -90,7 +90,7 @@ func getTestRevisionWithCondition(name string, cond apis.Condition) *v1alpha1.Re
 			Namespace: testNamespace,
 		},
 		Spec: v1alpha1.RevisionSpec{
-			Container: &corev1.Container{
+			DeprecatedContainer: &corev1.Container{
 				Image: "test-image",
 			},
 		},
@@ -113,9 +113,9 @@ func getTestConfiguration() *v1alpha1.Configuration {
 		Spec: v1alpha1.ConfigurationSpec{
 			// This is a workaround for generation initialization
 			DeprecatedGeneration: 1,
-			RevisionTemplate: &v1alpha1.RevisionTemplateSpec{
+			DeprecatedRevisionTemplate: &v1alpha1.RevisionTemplateSpec{
 				Spec: v1alpha1.RevisionSpec{
-					Container: &corev1.Container{
+					DeprecatedContainer: &corev1.Container{
 						Image: "test-image",
 					},
 				},
@@ -551,19 +551,19 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 				Percent:      5,
 			},
 		}, {
-			Name: "test-revision-1",
+			DeprecatedName: "test-revision-1",
 			TrafficTarget: v1beta1.TrafficTarget{
 				RevisionName: "test-rev",
 				Percent:      10,
 			},
 		}, {
-			Name: "test-revision-1",
+			DeprecatedName: "test-revision-1",
 			TrafficTarget: v1beta1.TrafficTarget{
 				RevisionName: "test-rev",
 				Percent:      10,
 			},
 		}, {
-			Name: "test-revision-2",
+			DeprecatedName: "test-revision-2",
 			TrafficTarget: v1beta1.TrafficTarget{
 				RevisionName: "test-rev",
 				Percent:      15,
@@ -676,13 +676,13 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 	// targets
 	route := getTestRouteWithTrafficTargets(
 		[]v1alpha1.TrafficTarget{{
-			Name: "foo",
+			DeprecatedName: "foo",
 			TrafficTarget: v1beta1.TrafficTarget{
 				RevisionName: "test-rev",
 				Percent:      50,
 			},
 		}, {
-			Name: "bar",
+			DeprecatedName: "bar",
 			TrafficTarget: v1beta1.TrafficTarget{
 				ConfigurationName: "test-config",
 				Percent:           50,

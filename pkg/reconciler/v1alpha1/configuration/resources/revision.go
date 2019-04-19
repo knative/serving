@@ -49,7 +49,7 @@ func MakeRevision(config *v1alpha1.Configuration, buildRef *corev1.ObjectReferen
 	rev.OwnerReferences = append(rev.OwnerReferences, *kmeta.NewControllerRef(config))
 
 	// Fill in buildRef if build is involved
-	rev.Spec.BuildRef = buildRef
+	rev.Spec.DeprecatedBuildRef = buildRef
 
 	return rev
 }

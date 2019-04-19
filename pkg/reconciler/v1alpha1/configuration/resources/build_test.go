@@ -39,9 +39,9 @@ func TestBuilds(t *testing.T) {
 				Name:      "build",
 			},
 			Spec: v1alpha1.ConfigurationSpec{
-				RevisionTemplate: &v1alpha1.RevisionTemplateSpec{
+				DeprecatedRevisionTemplate: &v1alpha1.RevisionTemplateSpec{
 					Spec: v1alpha1.RevisionSpec{
-						Container: &corev1.Container{
+						DeprecatedContainer: &corev1.Container{
 							Image: "busybox",
 						},
 					},
@@ -57,14 +57,14 @@ func TestBuilds(t *testing.T) {
 				Name:      "build",
 			},
 			Spec: v1alpha1.ConfigurationSpec{
-				Build: &v1alpha1.RawExtension{BuildSpec: &buildv1alpha1.BuildSpec{
+				DeprecatedBuild: &v1alpha1.RawExtension{BuildSpec: &buildv1alpha1.BuildSpec{
 					Steps: []corev1.Container{{
 						Image: "busybox",
 					}},
 				}},
-				RevisionTemplate: &v1alpha1.RevisionTemplateSpec{
+				DeprecatedRevisionTemplate: &v1alpha1.RevisionTemplateSpec{
 					Spec: v1alpha1.RevisionSpec{
-						Container: &corev1.Container{
+						DeprecatedContainer: &corev1.Container{
 							Image: "busybox",
 						},
 					},
@@ -112,7 +112,7 @@ func TestBuilds(t *testing.T) {
 				Name:      "build",
 			},
 			Spec: v1alpha1.ConfigurationSpec{
-				Build: &v1alpha1.RawExtension{
+				DeprecatedBuild: &v1alpha1.RawExtension{
 					Object: &buildv1alpha1.Build{
 						TypeMeta: metav1.TypeMeta{
 							APIVersion: buildv1alpha1.SchemeGroupVersion.String(),
@@ -128,9 +128,9 @@ func TestBuilds(t *testing.T) {
 							}},
 						},
 					}},
-				RevisionTemplate: &v1alpha1.RevisionTemplateSpec{
+				DeprecatedRevisionTemplate: &v1alpha1.RevisionTemplateSpec{
 					Spec: v1alpha1.RevisionSpec{
-						Container: &corev1.Container{
+						DeprecatedContainer: &corev1.Container{
 							Image: "busybox",
 						},
 					},
@@ -176,7 +176,7 @@ func TestBuilds(t *testing.T) {
 				Name:      "build-template",
 			},
 			Spec: v1alpha1.ConfigurationSpec{
-				Build: &v1alpha1.RawExtension{BuildSpec: &buildv1alpha1.BuildSpec{
+				DeprecatedBuild: &v1alpha1.RawExtension{BuildSpec: &buildv1alpha1.BuildSpec{
 					Template: &buildv1alpha1.TemplateInstantiationSpec{
 						Name: "buildpacks",
 						Arguments: []buildv1alpha1.ArgumentSpec{{
@@ -185,9 +185,9 @@ func TestBuilds(t *testing.T) {
 						}},
 					},
 				}},
-				RevisionTemplate: &v1alpha1.RevisionTemplateSpec{
+				DeprecatedRevisionTemplate: &v1alpha1.RevisionTemplateSpec{
 					Spec: v1alpha1.RevisionSpec{
-						Container: &corev1.Container{
+						DeprecatedContainer: &corev1.Container{
 							Image: "busybox",
 						},
 					},

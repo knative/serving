@@ -32,8 +32,8 @@ func (r *Configuration) GetGroupVersionKind() schema.GroupVersionKind {
 // It is never nil and should be exactly the specified template as guaranteed
 // by validation.
 func (cs *ConfigurationSpec) GetTemplate() *RevisionTemplateSpec {
-	if cs.RevisionTemplate != nil {
-		return cs.RevisionTemplate
+	if cs.DeprecatedRevisionTemplate != nil {
+		return cs.DeprecatedRevisionTemplate
 	}
 	if cs.Template != nil {
 		return cs.Template

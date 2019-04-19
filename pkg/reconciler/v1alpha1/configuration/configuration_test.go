@@ -46,7 +46,7 @@ import (
 )
 
 var revisionSpec = v1alpha1.RevisionSpec{
-	Container: &corev1.Container{
+	DeprecatedContainer: &corev1.Container{
 		Image: "busybox",
 	},
 	RevisionSpec: v1beta1.RevisionSpec{
@@ -635,7 +635,7 @@ func cfg(name, namespace string, generation int64, co ...ConfigOption) *v1alpha1
 		},
 		Spec: v1alpha1.ConfigurationSpec{
 			DeprecatedGeneration: generation,
-			RevisionTemplate: &v1alpha1.RevisionTemplateSpec{
+			DeprecatedRevisionTemplate: &v1alpha1.RevisionTemplateSpec{
 				Spec: *revisionSpec.DeepCopy(),
 			},
 		},

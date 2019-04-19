@@ -52,20 +52,17 @@ func (rs *RouteSpec) Validate(ctx context.Context) *apis.FieldError {
 
 		percentSum += tt.Percent
 
-		if tt.Name != "" && tt.Tag != "" {
+		if tt.DeprecatedName != "" && tt.Tag != "" {
 			errs = errs.Also(apis.ErrMultipleOneOf("name", "tag").
 				ViaFieldIndex("traffic", i))
-		} else if tt.Name == "" && tt.Tag == "" {
+		} else if tt.DeprecatedName == "" && tt.Tag == "" {
 			// No Name field, so skip the uniqueness check.
 			continue
 		}
 
-		// TODO(mattmoor): Deprecate name
-		// errs = errs.Also(CheckDeprecated(ctx, map[string]interface{}{
-		// 	"name": tt.Name,
-		// }).ViaFieldIndex("traffic", i))
+		errs = errs.Also(apis.CheckDeprecated(ctx, tt).ViaFieldIndex("traffic", i))
 
-		name := tt.Name
+		name := tt.DeprecatedName
 		field := "name"
 		if name == "" {
 			name = tt.Tag

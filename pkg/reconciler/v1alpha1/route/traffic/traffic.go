@@ -99,7 +99,7 @@ func (t *Config) GetRevisionTrafficTargets(domain string) []v1alpha1.TrafficTarg
 		// We cannot `DeepCopy` here, since tt.TrafficTarget might contain both
 		// configuration and revision.
 		results[i] = v1alpha1.TrafficTarget{
-			Name: tt.Tag,
+			DeprecatedName: tt.Tag,
 			TrafficTarget: v1beta1.TrafficTarget{
 				RevisionName: tt.RevisionName,
 				Percent:      tt.Percent,
@@ -224,7 +224,7 @@ func (t *configBuilder) addConfigurationTarget(tt *v1alpha1.TrafficTarget) error
 	}
 	ntt := tt.TrafficTarget.DeepCopy()
 	if ntt.Tag == "" {
-		ntt.Tag = tt.Name
+		ntt.Tag = tt.DeprecatedName
 	}
 	target := RevisionTarget{
 		TrafficTarget: *ntt,
@@ -247,7 +247,7 @@ func (t *configBuilder) addRevisionTarget(tt *v1alpha1.TrafficTarget) error {
 	}
 	ntt := tt.TrafficTarget.DeepCopy()
 	if ntt.Tag == "" {
-		ntt.Tag = tt.Name
+		ntt.Tag = tt.DeprecatedName
 	}
 	target := RevisionTarget{
 		TrafficTarget: *ntt,

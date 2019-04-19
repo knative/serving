@@ -555,7 +555,7 @@ func TestRevisionBuildRefFromName(t *testing.T) {
 			DeprecatedBuildName: "bar-build",
 		},
 	}
-	got := *r.BuildRef()
+	got := *r.DeprecatedBuildRef()
 	want := corev1.ObjectReference{
 		APIVersion: "build.knative.dev/v1alpha1",
 		Kind:       "Build",
@@ -581,10 +581,10 @@ func TestRevisionBuildRef(t *testing.T) {
 		},
 		Spec: RevisionSpec{
 			DeprecatedBuildName: "bar",
-			BuildRef:            &buildRef,
+			DeprecatedBuildRef:  &buildRef,
 		},
 	}
-	got := *r.BuildRef()
+	got := *r.DeprecatedBuildRef()
 	want := buildRef
 	if got != want {
 		t.Errorf("got: %#v, want: %#v", got, want)
@@ -598,7 +598,7 @@ func TestRevisionBuildRefNil(t *testing.T) {
 			Name:      "foo",
 		},
 	}
-	got := r.BuildRef()
+	got := r.DeprecatedBuildRef()
 
 	var want *corev1.ObjectReference
 	if got != want {
@@ -641,7 +641,7 @@ func TestRevisionGetProtocol(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			r := &Revision{
 				Spec: RevisionSpec{
-					Container: &tt.container,
+					DeprecatedContainer: &tt.container,
 				},
 			}
 

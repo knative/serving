@@ -41,11 +41,14 @@ func (s *Service) Validate(ctx context.Context) *apis.FieldError {
 		_, originalConfig := original.Spec.getConfigurationSpec()
 
 		if currentConfig != nil && originalConfig != nil {
+			templateField := "template"
+			if currentConfig.GetTemplate() == currentConfig.DeprecatedRevisionTemplate {
+				templateField = "revisionTemplate"
+			}
 			err := currentConfig.GetTemplate().VerifyNameChange(ctx,
 				originalConfig.GetTemplate())
 			errs = errs.Also(err.ViaField(
-				// TODO(#3816): revisionTemplate -> field
-				"spec", field, "configuration", "revisionTemplate"))
+				"spec", field, "configuration", templateField))
 		}
 	}
 
@@ -54,16 +57,16 @@ func (s *Service) Validate(ctx context.Context) *apis.FieldError {
 
 func (ss *ServiceSpec) getConfigurationSpec() (string, *ConfigurationSpec) {
 	switch {
-	case ss.RunLatest != nil:
-		return "runLatest", &ss.RunLatest.Configuration
-	case ss.Release != nil:
-		return "release", &ss.Release.Configuration
-	case ss.Manual != nil:
+	case ss.DeprecatedRunLatest != nil:
+		return "runLatest", &ss.DeprecatedRunLatest.Configuration
+	case ss.DeprecatedRelease != nil:
+		return "release", &ss.DeprecatedRelease.Configuration
+	case ss.DeprecatedManual != nil:
 		return "", nil
 	case ss.DeprecatedPinned != nil:
 		return "pinned", &ss.DeprecatedPinned.Configuration
 	default:
-		return "", nil
+		return "", &ss.ConfigurationSpec
 	}
 }
 
@@ -80,17 +83,17 @@ func (ss *ServiceSpec) Validate(ctx context.Context) *apis.FieldError {
 
 	set := []string{}
 
-	if ss.RunLatest != nil {
+	if ss.DeprecatedRunLatest != nil {
 		set = append(set, "runLatest")
-		errs = errs.Also(ss.RunLatest.Validate(ctx).ViaField("runLatest"))
+		errs = errs.Also(ss.DeprecatedRunLatest.Validate(ctx).ViaField("runLatest"))
 	}
-	if ss.Release != nil {
+	if ss.DeprecatedRelease != nil {
 		set = append(set, "release")
-		errs = errs.Also(ss.Release.Validate(ctx).ViaField("release"))
+		errs = errs.Also(ss.DeprecatedRelease.Validate(ctx).ViaField("release"))
 	}
-	if ss.Manual != nil {
+	if ss.DeprecatedManual != nil {
 		set = append(set, "manual")
-		errs = errs.Also(ss.Manual.Validate(ctx).ViaField("manual"))
+		errs = errs.Also(ss.DeprecatedManual.Validate(ctx).ViaField("manual"))
 	}
 	if ss.DeprecatedPinned != nil {
 		set = append(set, "pinned")
