@@ -36,9 +36,7 @@ func (rs *RouteSpec) Validate(ctx context.Context) *apis.FieldError {
 		return apis.ErrMissingField(apis.CurrentField)
 	}
 
-	errs := CheckDeprecated(ctx, map[string]interface{}{
-		"generation": rs.DeprecatedGeneration,
-	})
+	errs := apis.CheckDeprecated(ctx, rs)
 
 	type diagnostic struct {
 		index int

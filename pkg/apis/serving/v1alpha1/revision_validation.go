@@ -120,14 +120,7 @@ func (rs *RevisionSpec) Validate(ctx context.Context) *apis.FieldError {
 		return apis.ErrMissingField(apis.CurrentField)
 	}
 
-	errs := CheckDeprecated(ctx, map[string]interface{}{
-		"generation":       rs.DeprecatedGeneration,
-		"servingState":     rs.DeprecatedServingState,
-		"concurrencyModel": rs.DeprecatedConcurrencyModel,
-		"buildName":        rs.DeprecatedBuildName,
-		// TODO(#3816): "container": rs.Container,
-		// TODO(#3816): "buildRef": rs.BuildRef,
-	})
+	errs := apis.CheckDeprecated(ctx, rs)
 
 	switch {
 	case len(rs.PodSpec.Containers) > 0 && rs.Container != nil:

@@ -50,10 +50,7 @@ func (cs *ConfigurationSpec) Validate(ctx context.Context) *apis.FieldError {
 		return apis.ErrMissingField(apis.CurrentField)
 	}
 
-	errs := CheckDeprecated(ctx, map[string]interface{}{
-		"generation": cs.DeprecatedGeneration,
-		// TODO(#3816): "revisionTemplate": cs.RevisionTemplate,
-	})
+	errs := apis.CheckDeprecated(ctx, cs)
 
 	if cs.Build == nil {
 		// No build was specified.
