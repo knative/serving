@@ -49,7 +49,7 @@ metadata:
   name: my-service
   namespace: default
   labels:
-    knative.dev/service: ...  # name of the Service automatically filled in
+    knative.dev/service: ...  # name of the Service, system generated when owned by a Service
   annotations:
     serving.knative.dev/creator: ...       # the user identity who created the service, system generated.
     serving.knative.dev/lastModifier: ...  # the user identity who last modified the service, system generated.
@@ -67,9 +67,11 @@ spec:
   #  configurationName watches configurations to address latest latestReadyRevisionName
   #  revisionName pins a specific revision
   - configurationName: ...
-    name: ...  # +optional. Access as {name}.${status.domain},
-               #  e.g. oss: current.my-service.default.mydomain.com
+    tag: ...  # +optional. This will cause the Route to have a
+                   # stable "url:" associated with it in the status block.
     percent: 100  # list percentages must add to 100. 0 is a valid list value
+    latestRevision: true | false  # +optional. Matches whether revisionName is omitted.
+    name: ...  # DEPRECATED, see tag.
   - ...
 
 status:
@@ -90,15 +92,15 @@ status:
   # current rollout status list. configurationName references
   #   are dereferenced to latest revision
   - revisionName: ...  # latestReadyRevisionName from a configurationName in spec
-    name: ...
+    name: ...  # DEPRECATED rely on tag instead
+    tag: ...
     percent: ...  # percentages add to 100. 0 is a valid list value
+    latestRevision: ...
     url: ... # present when name is set. URL of the named traffic target
   - ...
 
   conditions:  # See also the [error conditions documentation](errors.md)
   - type: Ready
-    status: True
-  - type: AllTrafficAssigned
     status: True
   - ...
 
@@ -117,8 +119,8 @@ metadata:
   name: my-service
   namespace: default
   labels:
-    knative.dev/service: ...  # name of the Service automatically filled in
-    knative.dev/route: ...  # name of the Route automatically filled in
+    knative.dev/service: ...  # name of the Service, system generated when owned by a Service
+    knative.dev/route: ...  # name of the referring Route, system generated when routeable
   # system generated meta
   uid: ...
   resourceVersion: ...  # used for optimistic concurrency control
@@ -127,20 +129,9 @@ metadata:
   selfLink: ...
   ...
 spec:
-  # +optional. a complete definition of the build resource to create.
-  # For back-compat, this may also be a build.knative.dev/v1alpha1.BuildSpec
-  build:
-    # This inlines an example with knative/build, but may be any kubernetes
-    # resource that completes with a Succeeded condition as outlined in our
-    # errors.md
-    apiVersion: build.knative.dev
-    kind: Build
-    metadata:
-      annotations: ...
-      labels: ...
-    spec: ...
+  build: ... # DEPRECATED builds should be orchestrated by clients of this API.
 
-  revisionTemplate: ... # Deprecated way of expressing the same as template.
+  revisionTemplate: ... # DEPRECATED way of expressing the same as template.
 
   template:  # template for building Revision
     metadata:
@@ -151,18 +142,8 @@ spec:
       name: ...
     spec:  # knative.RevisionTemplateSpec. Copied to a new revision
 
-      # +optional. DEPRECATED, use buildRef
-      buildName: ...
-
-      # +optional. if rolling back, the client may set this to the
-      #   previous revision's build to avoid triggering a rebuild
-      buildRef:  # corev1.ObjectReference
-        apiVersion: build.knative.dev/v1alpha1
-        kind: Build
-        name: foo-bar-00001
-
-      # is a core.v1.Container; some fields not allowed, such as resources, ports
-      container: ... # See the Container section below
+      # is a singleton []corev1.Container; See the Container section below.
+      containers: ...
 
       # is a heavily restricted []core.v1.Volume; only the secret and configMap
       # types are allowed.
@@ -172,16 +153,20 @@ spec:
       - name: bar
         configMap: ...
 
-      # +optional concurrency strategy.  Defaults to Multi.
-      # Deprecated in favor of ContainerConcurrency.
-      concurrencyModel: ...
-      # +optional max request concurrency per instance.  Defaults to `0` (system decides)
-      # when concurrencyModel is unspecified as well.  Defaults to `1` when
-      # concurrencyModel `Single` is provided.
+      # +optional max request concurrency per instance.
+      # Defaults to `0` (system decides) when unspecified.
       containerConcurrency: ...
+
       # +optional. max time the instance is allowed for responding to a request
-      timeoutSeconds: ...
-      serviceAccountName: ...  # Name of the service account the code should run as.
+      timeoutSeconds: NNN
+
+      # +optional. Name of the service account the code should run as.
+      serviceAccountName: ...
+
+      buildName: ...  # DEPRECATED
+      buildRef: ...  # DEPRECATED
+      container: ...  # DEPRECATED see containers
+      concurrencyModel: ...  # DEPRECATED see containerConcurrency
 
 status:
   # the latest created and ready to serve. Watched by Route
@@ -221,18 +206,7 @@ metadata:
 
 # spec populated by Configuration
 spec:
-  # +optional. DEPRECATED use buildRef
-  buildName: ...
-
-  # +optional. a reference to the Kubernetes resource that is responsible
-  # for producing this Revision's image. This resource is expected to
-  # terminate with a "Succeeded" condition as outlined in errors.md
-  buildRef:  # corev1.ObjectReference
-    apiVersion: build.knative.dev/v1alpha1
-    kind: Build
-    name: foo-bar-00001
-
-  container: ... # See the Container section below
+  containers: ... # See the Container section below
 
   # is a heavily restricted []core.v1.Volume; only the secret and configMap
   # types are allowed.
@@ -245,10 +219,6 @@ spec:
   # Name of the service account the code should run as.
   serviceAccountName: ...
 
-  # Deprecated and not updated anymore
-  # Used to be the Revision's level of readiness for receiving traffic.
-  servingState: Active | Reserve | Retired
-
   # Some function or server frameworks or application code may be
   # written to expect that each request will be granted a single-tenant
   # process to run (i.e. that the request code is run
@@ -258,26 +228,21 @@ spec:
   # limit request concurrency to that value.  A value of `0` means the
   # system should decide.
   containerConcurrency: 0 | 1 | 2-N
-  # Deprecated in favor of containerConcurrency
-  concurrencyModel: Single | Multi
 
   # Many higher-level systems impose a per-request response deadline.
-  timeoutSeconds: ...
+  timeoutSeconds: NNN
+
+  buildName: ...  # DEPRECATED
+  buildRef: ...  # DEPRECATED
+  container: ...  # DEPRECATED see containers
+  servingState: ...  # DEPRECATED
+  concurrencyModel: ...  # DEPRECATED see containerConcurrency
 
 status:
-  # This is a copy of metadata from the container image or grafeas,
-  # indicating the provenance of the revision. This is based on the
-  # container image, but may need further clarification.
-  imageSource:
-    git|gcs: ...
-
   conditions:  # See also the documentation in errors.md
    - type: Ready
      status: False
      message: "Starting Instances"
-  # If spec.buildRef is provided
-  - type: BuildSucceeded
-    status: True
   - ...
 
   # URL for accessing the logs generated by this specific revision.
@@ -314,69 +279,43 @@ metadata:
   selfLink: ...
   ...
 
-# spec contains one of several possible rollout styles
-spec:  # One of "runLatest", "release", "pinned" (DEPRECATED), or "manual"
+spec:
+  template:
+    metadata:
+      # Name may be specified here following the same rules as Configuration.
+      # When the name collides, the Route must not be updated to the
+      # conflicting Revision.
+    spec:
+      # Service supports the full inline Configuration spec.
+      containers: ... # See the Container section below
+      volumes: ...
+      serviceAccountName: ...
+      containerConcurrency: ...
+      timeoutSeconds: NNN
 
-  # Example, only one of "runLatest", "release", "pinned" (DEPRECATED), or "manual" can be set in practice.
-  runLatest:
-    configuration:  # serving.knative.dev/v1alpha1.ConfigurationSpec
-      # +optional. The build resource to instantiate to produce the container.
-      build: ...
-      revisionTemplate: ... # Deprecated way of expressing the same as template.
-      template:
-        metadata:
-          # Name may be specified here following the same rules as Configuration.
-          # When the name collides, the Route must not be updated to the
-          # conflicting Revision.
-        spec: # serving.knative.dev/v1alpha1.RevisionSpec
-          container: ... # See the Container section below
-          volumes: ... # Optional
-          containerConcurrency: ... # Optional
-          timeoutSeconds: ... # Optional
-          serviceAccountName: ...  # Name of the service account the code should run as
+  # Service supports an inline Route spec.
+  # Unlike the Route, use of configurationName is disallowed, and the
+  # omission of revisionName will behave as if configurationName were
+  # the name of the Service-managed Configuration with the spec above.
+  # Also unlike Route, this block is optional.  When omitted, it will
+  # default to a simply 100% block that will run the latest revision
+  # instantiated from the above configuration spec.
+  traffic:
+  - revisionName: ...
+    tag: ...  # +optional. This will cause the Service to have a
+                   # stable "url:" associated with it in the status block.
+    percent: 100  # list percentages must add to 100. 0 is a valid list value
+    latestRevision: true | false  # +optional. Matches whether revisionName is omitted.
+    name: ...  # DEPRECATED, see tag.
+  - ...
 
-  # Example, only one of "runLatest", "release", "pinned" (DEPRECATED), or "manual" can be set in practice.
-  pinned:
-    revisionName: myservice-00013  # Auto-generated revision name
-    configuration:  # serving.knative.dev/v1alpha1.ConfigurationSpec
-      # +optional. The build resource to instantiate to produce the container.
-      build: ...
-      revisionTemplate: ... # Deprecated way of expressing the same as template.
-      template:
-        spec: # serving.knative.dev/v1alpha1.RevisionSpec
-          container: ... # See the Container section below
-          volumes: ... # Optional
-          containerConcurrency: ... # Optional
-          timeoutSeconds: ... # Optional
-          serviceAccountName: ...  # Name of the service account the code should run as
 
-  # Example, only one of "runLatest", "release", "pinned" (DEPRECATED), or "manual" can be set in practice.
-  release:
-    # Ordered list of 1 or 2 revisions. First revision is traffic target
-    # "current" and second revision is traffic target "candidate".
-    # It is possible to specify `"@latest"` string as a shortcut to the lastest available revision.
-    revisions: ["myservice-00013", "myservice-00015"]
-    rolloutPercent: 50 # Percent [0-99] of traffic to route to "candidate" revision
-    configuration:  # serving.knative.dev/v1alpha1.ConfigurationSpec
-      # +optional. The build resource to instantiate to produce the container.
-      build: ...
-      revisionTemplate: ... # Deprecated way of expressing the same as template.
-      template:
-        metadata:
-          # Name may be specified here following the same rules as Configuration.
-          # When the name collides, the Route must not be updated to the
-          # conflicting Revision.
-        spec: # serving.knative.dev/v1alpha1.RevisionSpec
-          container: ... # See the Container section below
-          volumes: ... # Optional
-          containerConcurrency: ... # Optional
-          timeoutSeconds: ... # Optional
-          serviceAccountName: ...  # Name of the service account the code should run as
+  # We have DEPRECATED support for several "modes", but prefer the style above.
+  runLatest: ...  # DEPRECATED
+  pinned: ...  # DEPRECATED
+  release: ...  # DEPRECATED
+  manual: ...  # DEPRECATED
 
-  # Example, only one of "runLatest", "release", "pinned" (DEPRECATED), or "manual" can be set in practice.
-  # Manual has no fields. It enables direct access to modify a previously created
-  # Route and Configuration
-  manual: {}
 status:
   # This information is copied from the owned Configuration and Route.
 
@@ -402,21 +341,14 @@ status:
   #   are dereferenced to latest revision
   traffic:
   - revisionName: ...  # latestReadyRevisionName from a configurationName in spec
-    name: ...
+    name: ...  # DEPRECATED rely on tag instead
+    tag: ...
     percent: ...  # percentages add to 100. 0 is a valid list value
     url: ... # present when name is set. URL of the named traffic target
   - ...
 
   conditions:  # See also the documentation in errors.md
   - type: Ready
-    status: False
-    reason: RevisionMissing
-    message: "Revision 'qyzz' referenced in traffic not found"
-  - type: ConfigurationsReady
-    status: False
-    reason: ContainerMissing
-    message: "Unable to start because container is missing failed."
-  - type: RoutesReady
     status: False
     reason: RevisionMissing
     message: "Revision 'qyzz' referenced in traffic not found"
@@ -460,7 +392,7 @@ container: # v1.Container
     periodSeconds: ...
     successThreshold: ...
     tcpSocket: ...
-    timeoutSeconds: ...
+    timeoutSeconds: NNN
 
   # Only a single containerPort may be specified.
   # This can be specified to select a specific port for incoming traffic.
@@ -482,7 +414,7 @@ container: # v1.Container
     periodSeconds: ...
     successThreshold: ...
     tcpSocket: ...
-    timeoutSeconds: ...
+    timeoutSeconds: NNN
 
   resources: ... # Optional
   securityContext: ... # Optional

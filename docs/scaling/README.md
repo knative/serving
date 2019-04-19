@@ -8,8 +8,8 @@ There are cases when Operators need to set lower and upper bounds on the number
 of pods serving their apps (e.g. avoiding cold-start, control compute costs,
 etc).
 
-The following annotations can be used on `configuration.revisionTemplate` or
-`revision` (propagated to `PodAutoscaler` objects) to do exactly that:
+The following annotations can be used on `spec.template.metadata.annotation`
+(propagated to `PodAutoscaler` objects) to do exactly that:
 
 ```yaml
 # +optional
