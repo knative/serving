@@ -155,7 +155,11 @@ func NewController(
 
 	// Watch all the services that we have created.
 	serviceInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
-		FilterFunc: controller.Filter(pav1alpha1.SchemeGroupVersion.WithKind("PodAutoscaler")),
+		FilterFunc: onlyKpaClass,
+		Handler:    reconciler.Handler(impl.EnqueueControllerOf),
+	})
+	sksInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+		FilterFunc: onlyKpaClass,
 		Handler:    reconciler.Handler(impl.EnqueueControllerOf),
 	})
 

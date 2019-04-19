@@ -90,6 +90,10 @@ func NewController(
 		Handler:    reconciler.Handler(impl.EnqueueControllerOf),
 	})
 
+	sksInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+		FilterFunc: onlyHpaClass,
+		Handler:    reconciler.Handler(impl.EnqueueControllerOf),
+	})
 	return impl
 }
 
