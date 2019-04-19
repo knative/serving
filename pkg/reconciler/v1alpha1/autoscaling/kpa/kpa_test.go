@@ -1452,7 +1452,7 @@ func newTestRevision(namespace string, name string) *v1alpha1.Revision {
 			Namespace: namespace,
 		},
 		Spec: v1alpha1.RevisionSpec{
-			Container: &corev1.Container{
+			DeprecatedContainer: &corev1.Container{
 				Image:      "gcr.io/repo/image",
 				Command:    []string{"echo"},
 				Args:       []string{"hello", "world"},

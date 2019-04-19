@@ -40,16 +40,14 @@ func TestServiceValidation(t *testing.T) {
 		want *apis.FieldError
 	}{{
 		name: "valid runLatest",
-		// Should not affect anything.
-		wc: apis.DisallowDeprecated,
 		s: &Service{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "valid",
 			},
 			Spec: ServiceSpec{
-				RunLatest: &RunLatestType{
+				DeprecatedRunLatest: &RunLatestType{
 					Configuration: ConfigurationSpec{
-						RevisionTemplate: &RevisionTemplateSpec{
+						DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 							Spec: RevisionSpec{
 								RevisionSpec: v1beta1.RevisionSpec{
 									PodSpec: v1beta1.PodSpec{
@@ -74,9 +72,9 @@ func TestServiceValidation(t *testing.T) {
 			},
 			Spec: ServiceSpec{
 				DeprecatedGeneration: 12,
-				RunLatest: &RunLatestType{
+				DeprecatedRunLatest: &RunLatestType{
 					Configuration: ConfigurationSpec{
-						RevisionTemplate: &RevisionTemplateSpec{
+						DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 							Spec: RevisionSpec{
 								RevisionSpec: v1beta1.RevisionSpec{
 									PodSpec: v1beta1.PodSpec{
@@ -91,7 +89,8 @@ func TestServiceValidation(t *testing.T) {
 				},
 			},
 		},
-		want: apis.ErrDisallowedFields("spec.generation"),
+		want: apis.ErrDisallowedFields("spec.generation", "spec.runLatest",
+			"spec.runLatest.configuration.revisionTemplate"),
 	}, {
 		name: "valid pinned",
 		s: &Service{
@@ -102,9 +101,9 @@ func TestServiceValidation(t *testing.T) {
 				DeprecatedPinned: &PinnedType{
 					RevisionName: "asdf",
 					Configuration: ConfigurationSpec{
-						RevisionTemplate: &RevisionTemplateSpec{
+						DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 							Spec: RevisionSpec{
-								Container: &corev1.Container{
+								DeprecatedContainer: &corev1.Container{
 									Image: "hellworld",
 								},
 							},
@@ -125,7 +124,7 @@ func TestServiceValidation(t *testing.T) {
 				DeprecatedPinned: &PinnedType{
 					RevisionName: "asdf",
 					Configuration: ConfigurationSpec{
-						RevisionTemplate: &RevisionTemplateSpec{
+						DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 							Spec: RevisionSpec{
 								RevisionSpec: v1beta1.RevisionSpec{
 									PodSpec: v1beta1.PodSpec{
@@ -140,7 +139,8 @@ func TestServiceValidation(t *testing.T) {
 				},
 			},
 		},
-		want: apis.ErrDisallowedFields("spec.pinned"),
+		want: apis.ErrDisallowedFields("spec.pinned",
+			"spec.pinned.configuration.revisionTemplate"),
 	}, {
 		name: "valid release -- one revision",
 		s: &Service{
@@ -148,12 +148,12 @@ func TestServiceValidation(t *testing.T) {
 				Name: "valid",
 			},
 			Spec: ServiceSpec{
-				Release: &ReleaseType{
+				DeprecatedRelease: &ReleaseType{
 					Revisions: []string{"asdf"},
 					Configuration: ConfigurationSpec{
-						RevisionTemplate: &RevisionTemplateSpec{
+						DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 							Spec: RevisionSpec{
-								Container: &corev1.Container{
+								DeprecatedContainer: &corev1.Container{
 									Image: "hellworld",
 								},
 							},
@@ -170,13 +170,13 @@ func TestServiceValidation(t *testing.T) {
 				Name: "valid",
 			},
 			Spec: ServiceSpec{
-				Release: &ReleaseType{
+				DeprecatedRelease: &ReleaseType{
 					Revisions:      []string{"asdf", "fdsa"},
 					RolloutPercent: 42,
 					Configuration: ConfigurationSpec{
-						RevisionTemplate: &RevisionTemplateSpec{
+						DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 							Spec: RevisionSpec{
-								Container: &corev1.Container{
+								DeprecatedContainer: &corev1.Container{
 									Image: "hellworld",
 								},
 							},
@@ -193,7 +193,7 @@ func TestServiceValidation(t *testing.T) {
 				Name: "valid",
 			},
 			Spec: ServiceSpec{
-				Manual: &ManualType{},
+				DeprecatedManual: &ManualType{},
 			},
 		},
 		want: nil,
@@ -204,11 +204,11 @@ func TestServiceValidation(t *testing.T) {
 				Name: "valid",
 			},
 			Spec: ServiceSpec{
-				RunLatest: &RunLatestType{
+				DeprecatedRunLatest: &RunLatestType{
 					Configuration: ConfigurationSpec{
-						RevisionTemplate: &RevisionTemplateSpec{
+						DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 							Spec: RevisionSpec{
-								Container: &corev1.Container{
+								DeprecatedContainer: &corev1.Container{
 									Image: "hellworld",
 								},
 							},
@@ -218,9 +218,9 @@ func TestServiceValidation(t *testing.T) {
 				DeprecatedPinned: &PinnedType{
 					RevisionName: "asdf",
 					Configuration: ConfigurationSpec{
-						RevisionTemplate: &RevisionTemplateSpec{
+						DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 							Spec: RevisionSpec{
-								Container: &corev1.Container{
+								DeprecatedContainer: &corev1.Container{
 									Image: "hellworld",
 								},
 							},
@@ -252,11 +252,11 @@ func TestServiceValidation(t *testing.T) {
 				Name: "valid",
 			},
 			Spec: ServiceSpec{
-				RunLatest: &RunLatestType{
+				DeprecatedRunLatest: &RunLatestType{
 					Configuration: ConfigurationSpec{
-						RevisionTemplate: &RevisionTemplateSpec{
+						DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 							Spec: RevisionSpec{
-								Container: &corev1.Container{
+								DeprecatedContainer: &corev1.Container{
 									Name:  "foo",
 									Image: "hellworld",
 								},
@@ -277,9 +277,9 @@ func TestServiceValidation(t *testing.T) {
 				DeprecatedPinned: &PinnedType{
 					RevisionName: "asdf",
 					Configuration: ConfigurationSpec{
-						RevisionTemplate: &RevisionTemplateSpec{
+						DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 							Spec: RevisionSpec{
-								Container: &corev1.Container{
+								DeprecatedContainer: &corev1.Container{
 									Name:  "foo",
 									Image: "hellworld",
 								},
@@ -297,11 +297,11 @@ func TestServiceValidation(t *testing.T) {
 				Name: "valid",
 			},
 			Spec: ServiceSpec{
-				Release: &ReleaseType{
+				DeprecatedRelease: &ReleaseType{
 					Configuration: ConfigurationSpec{
-						RevisionTemplate: &RevisionTemplateSpec{
+						DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 							Spec: RevisionSpec{
-								Container: &corev1.Container{
+								DeprecatedContainer: &corev1.Container{
 									Image: "hellworld",
 								},
 							},
@@ -318,12 +318,12 @@ func TestServiceValidation(t *testing.T) {
 				Name: "valid",
 			},
 			Spec: ServiceSpec{
-				Release: &ReleaseType{
+				DeprecatedRelease: &ReleaseType{
 					Revisions: []string{strings.Repeat("a", 64)},
 					Configuration: ConfigurationSpec{
-						RevisionTemplate: &RevisionTemplateSpec{
+						DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 							Spec: RevisionSpec{
-								Container: &corev1.Container{
+								DeprecatedContainer: &corev1.Container{
 									Image: "hellworld",
 								},
 							},
@@ -340,12 +340,12 @@ func TestServiceValidation(t *testing.T) {
 				Name: "valid",
 			},
 			Spec: ServiceSpec{
-				Release: &ReleaseType{
+				DeprecatedRelease: &ReleaseType{
 					Revisions: []string{".negative"},
 					Configuration: ConfigurationSpec{
-						RevisionTemplate: &RevisionTemplateSpec{
+						DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 							Spec: RevisionSpec{
-								Container: &corev1.Container{
+								DeprecatedContainer: &corev1.Container{
 									Image: "hellworld",
 								},
 							},
@@ -362,12 +362,12 @@ func TestServiceValidation(t *testing.T) {
 				Name: "valid",
 			},
 			Spec: ServiceSpec{
-				Release: &ReleaseType{
+				DeprecatedRelease: &ReleaseType{
 					Revisions: []string{"s-1-00001", ReleaseLatestRevisionKeyword},
 					Configuration: ConfigurationSpec{
-						RevisionTemplate: &RevisionTemplateSpec{
+						DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 							Spec: RevisionSpec{
-								Container: &corev1.Container{
+								DeprecatedContainer: &corev1.Container{
 									Image: "hellworld",
 								},
 							},
@@ -384,12 +384,12 @@ func TestServiceValidation(t *testing.T) {
 				Name: "valid",
 			},
 			Spec: ServiceSpec{
-				Release: &ReleaseType{
+				DeprecatedRelease: &ReleaseType{
 					Revisions: []string{},
 					Configuration: ConfigurationSpec{
-						RevisionTemplate: &RevisionTemplateSpec{
+						DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 							Spec: RevisionSpec{
-								Container: &corev1.Container{
+								DeprecatedContainer: &corev1.Container{
 									Image: "hellworld",
 								},
 							},
@@ -406,12 +406,12 @@ func TestServiceValidation(t *testing.T) {
 				Name: "valid",
 			},
 			Spec: ServiceSpec{
-				Release: &ReleaseType{
+				DeprecatedRelease: &ReleaseType{
 					Revisions: []string{"asdf", "fdsa", "abcde"},
 					Configuration: ConfigurationSpec{
-						RevisionTemplate: &RevisionTemplateSpec{
+						DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 							Spec: RevisionSpec{
-								Container: &corev1.Container{
+								DeprecatedContainer: &corev1.Container{
 									Image: "hellworld",
 								},
 							},
@@ -428,13 +428,13 @@ func TestServiceValidation(t *testing.T) {
 				Name: "valid",
 			},
 			Spec: ServiceSpec{
-				Release: &ReleaseType{
+				DeprecatedRelease: &ReleaseType{
 					Revisions:      []string{"asdf", "fdsa"},
 					RolloutPercent: 100,
 					Configuration: ConfigurationSpec{
-						RevisionTemplate: &RevisionTemplateSpec{
+						DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 							Spec: RevisionSpec{
-								Container: &corev1.Container{
+								DeprecatedContainer: &corev1.Container{
 									Image: "hellworld",
 								},
 							},
@@ -451,13 +451,13 @@ func TestServiceValidation(t *testing.T) {
 				Name: "valid",
 			},
 			Spec: ServiceSpec{
-				Release: &ReleaseType{
+				DeprecatedRelease: &ReleaseType{
 					Revisions:      []string{"asdf", "fdsa"},
 					RolloutPercent: -50,
 					Configuration: ConfigurationSpec{
-						RevisionTemplate: &RevisionTemplateSpec{
+						DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 							Spec: RevisionSpec{
-								Container: &corev1.Container{
+								DeprecatedContainer: &corev1.Container{
 									Image: "hellworld",
 								},
 							},
@@ -474,13 +474,13 @@ func TestServiceValidation(t *testing.T) {
 				Name: "valid",
 			},
 			Spec: ServiceSpec{
-				Release: &ReleaseType{
+				DeprecatedRelease: &ReleaseType{
 					Revisions:      []string{"asdf"},
 					RolloutPercent: 10,
 					Configuration: ConfigurationSpec{
-						RevisionTemplate: &RevisionTemplateSpec{
+						DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 							Spec: RevisionSpec{
-								Container: &corev1.Container{
+								DeprecatedContainer: &corev1.Container{
 									Image: "hellworld",
 								},
 							},
@@ -497,11 +497,11 @@ func TestServiceValidation(t *testing.T) {
 				Name: "do.not.use.dots",
 			},
 			Spec: ServiceSpec{
-				RunLatest: &RunLatestType{
+				DeprecatedRunLatest: &RunLatestType{
 					Configuration: ConfigurationSpec{
-						RevisionTemplate: &RevisionTemplateSpec{
+						DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 							Spec: RevisionSpec{
-								Container: &corev1.Container{
+								DeprecatedContainer: &corev1.Container{
 									Image: "hellworld",
 								},
 							},
@@ -521,11 +521,11 @@ func TestServiceValidation(t *testing.T) {
 				Name: strings.Repeat("a", 64),
 			},
 			Spec: ServiceSpec{
-				RunLatest: &RunLatestType{
+				DeprecatedRunLatest: &RunLatestType{
 					Configuration: ConfigurationSpec{
-						RevisionTemplate: &RevisionTemplateSpec{
+						DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 							Spec: RevisionSpec{
-								Container: &corev1.Container{
+								DeprecatedContainer: &corev1.Container{
 									Image: "hellworld",
 								},
 							},
@@ -545,11 +545,11 @@ func TestServiceValidation(t *testing.T) {
 				Name: "invalid",
 			},
 			Spec: ServiceSpec{
-				RunLatest: &RunLatestType{
+				DeprecatedRunLatest: &RunLatestType{
 					Configuration: ConfigurationSpec{
-						RevisionTemplate: &RevisionTemplateSpec{
+						DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 							Spec: RevisionSpec{
-								Container: &corev1.Container{
+								DeprecatedContainer: &corev1.Container{
 									Image: "hellworld",
 								},
 							},
@@ -720,9 +720,9 @@ func TestRunLatestTypeValidation(t *testing.T) {
 		name: "valid",
 		rlt: &RunLatestType{
 			Configuration: ConfigurationSpec{
-				RevisionTemplate: &RevisionTemplateSpec{
+				DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 					Spec: RevisionSpec{
-						Container: &corev1.Container{
+						DeprecatedContainer: &corev1.Container{
 							Image: "hellworld",
 						},
 					},
@@ -734,9 +734,9 @@ func TestRunLatestTypeValidation(t *testing.T) {
 		name: "propagate revision failures",
 		rlt: &RunLatestType{
 			Configuration: ConfigurationSpec{
-				RevisionTemplate: &RevisionTemplateSpec{
+				DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 					Spec: RevisionSpec{
-						Container: &corev1.Container{
+						DeprecatedContainer: &corev1.Container{
 							Name:  "stuart",
 							Image: "hellworld",
 						},
@@ -767,9 +767,9 @@ func TestPinnedTypeValidation(t *testing.T) {
 		pt: &PinnedType{
 			RevisionName: "foo",
 			Configuration: ConfigurationSpec{
-				RevisionTemplate: &RevisionTemplateSpec{
+				DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 					Spec: RevisionSpec{
-						Container: &corev1.Container{
+						DeprecatedContainer: &corev1.Container{
 							Image: "hellworld",
 						},
 					},
@@ -781,9 +781,9 @@ func TestPinnedTypeValidation(t *testing.T) {
 		name: "missing revision name",
 		pt: &PinnedType{
 			Configuration: ConfigurationSpec{
-				RevisionTemplate: &RevisionTemplateSpec{
+				DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 					Spec: RevisionSpec{
-						Container: &corev1.Container{
+						DeprecatedContainer: &corev1.Container{
 							Image: "hellworld",
 						},
 					},
@@ -796,9 +796,9 @@ func TestPinnedTypeValidation(t *testing.T) {
 		pt: &PinnedType{
 			RevisionName: "foo",
 			Configuration: ConfigurationSpec{
-				RevisionTemplate: &RevisionTemplateSpec{
+				DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 					Spec: RevisionSpec{
-						Container: &corev1.Container{
+						DeprecatedContainer: &corev1.Container{
 							Name:  "stuart",
 							Image: "hellworld",
 						},
@@ -832,11 +832,11 @@ func TestImmutableServiceFields(t *testing.T) {
 				Name: "no-byo-name",
 			},
 			Spec: ServiceSpec{
-				RunLatest: &RunLatestType{
+				DeprecatedRunLatest: &RunLatestType{
 					Configuration: ConfigurationSpec{
-						RevisionTemplate: &RevisionTemplateSpec{
+						DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 							Spec: RevisionSpec{
-								Container: &corev1.Container{
+								DeprecatedContainer: &corev1.Container{
 									Image: "helloworld:foo",
 								},
 							},
@@ -850,11 +850,11 @@ func TestImmutableServiceFields(t *testing.T) {
 				Name: "no-byo-name",
 			},
 			Spec: ServiceSpec{
-				RunLatest: &RunLatestType{
+				DeprecatedRunLatest: &RunLatestType{
 					Configuration: ConfigurationSpec{
-						RevisionTemplate: &RevisionTemplateSpec{
+						DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 							Spec: RevisionSpec{
-								Container: &corev1.Container{
+								DeprecatedContainer: &corev1.Container{
 									Image: "helloworld:bar",
 								},
 							},
@@ -871,14 +871,14 @@ func TestImmutableServiceFields(t *testing.T) {
 				Name: "byo-name",
 			},
 			Spec: ServiceSpec{
-				RunLatest: &RunLatestType{
+				DeprecatedRunLatest: &RunLatestType{
 					Configuration: ConfigurationSpec{
-						RevisionTemplate: &RevisionTemplateSpec{
+						DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 							ObjectMeta: metav1.ObjectMeta{
 								Name: "byo-name-foo",
 							},
 							Spec: RevisionSpec{
-								Container: &corev1.Container{
+								DeprecatedContainer: &corev1.Container{
 									Image: "helloworld:foo",
 								},
 							},
@@ -892,14 +892,14 @@ func TestImmutableServiceFields(t *testing.T) {
 				Name: "byo-name",
 			},
 			Spec: ServiceSpec{
-				RunLatest: &RunLatestType{
+				DeprecatedRunLatest: &RunLatestType{
 					Configuration: ConfigurationSpec{
-						RevisionTemplate: &RevisionTemplateSpec{
+						DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 							ObjectMeta: metav1.ObjectMeta{
 								Name: "byo-name-bar",
 							},
 							Spec: RevisionSpec{
-								Container: &corev1.Container{
+								DeprecatedContainer: &corev1.Container{
 									Image: "helloworld:bar",
 								},
 							},
@@ -916,14 +916,14 @@ func TestImmutableServiceFields(t *testing.T) {
 				Name: "byo-name",
 			},
 			Spec: ServiceSpec{
-				RunLatest: &RunLatestType{
+				DeprecatedRunLatest: &RunLatestType{
 					Configuration: ConfigurationSpec{
-						RevisionTemplate: &RevisionTemplateSpec{
+						DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 							ObjectMeta: metav1.ObjectMeta{
 								Name: "byo-name-foo",
 							},
 							Spec: RevisionSpec{
-								Container: &corev1.Container{
+								DeprecatedContainer: &corev1.Container{
 									Image: "helloworld:foo",
 								},
 							},
@@ -937,15 +937,15 @@ func TestImmutableServiceFields(t *testing.T) {
 				Name: "byo-name",
 			},
 			Spec: ServiceSpec{
-				Release: &ReleaseType{
+				DeprecatedRelease: &ReleaseType{
 					Revisions: []string{"foo"},
 					Configuration: ConfigurationSpec{
-						RevisionTemplate: &RevisionTemplateSpec{
+						DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 							ObjectMeta: metav1.ObjectMeta{
 								Name: "byo-name-foo",
 							},
 							Spec: RevisionSpec{
-								Container: &corev1.Container{
+								DeprecatedContainer: &corev1.Container{
 									Image: "helloworld:foo",
 								},
 							},
@@ -965,12 +965,12 @@ func TestImmutableServiceFields(t *testing.T) {
 				DeprecatedPinned: &PinnedType{
 					RevisionName: "bar",
 					Configuration: ConfigurationSpec{
-						RevisionTemplate: &RevisionTemplateSpec{
+						DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 							ObjectMeta: metav1.ObjectMeta{
 								Name: "byo-name-foo",
 							},
 							Spec: RevisionSpec{
-								Container: &corev1.Container{
+								DeprecatedContainer: &corev1.Container{
 									Image: "helloworld:foo",
 								},
 							},
@@ -1013,13 +1013,13 @@ func TestImmutableServiceFields(t *testing.T) {
 				DeprecatedPinned: &PinnedType{
 					RevisionName: "bar",
 					Configuration: ConfigurationSpec{
-						RevisionTemplate: &RevisionTemplateSpec{
+						DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 							ObjectMeta: metav1.ObjectMeta{
 								Name: "byo-name-foo",
 							},
 							Spec: RevisionSpec{
-								Container: &corev1.Container{
-									Image: "helloworld:foo",
+								DeprecatedContainer: &corev1.Container{
+									Image: "helloworld:bar",
 								},
 							},
 						},
@@ -1032,7 +1032,7 @@ func TestImmutableServiceFields(t *testing.T) {
 				Name: "byo-name",
 			},
 			Spec: ServiceSpec{
-				Manual: &ManualType{},
+				DeprecatedManual: &ManualType{},
 			},
 		},
 		want: nil,
@@ -1043,14 +1043,14 @@ func TestImmutableServiceFields(t *testing.T) {
 				Name: "byo-name",
 			},
 			Spec: ServiceSpec{
-				RunLatest: &RunLatestType{
+				DeprecatedRunLatest: &RunLatestType{
 					Configuration: ConfigurationSpec{
-						RevisionTemplate: &RevisionTemplateSpec{
+						DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 							ObjectMeta: metav1.ObjectMeta{
 								Name: "byo-name-foo",
 							},
 							Spec: RevisionSpec{
-								Container: &corev1.Container{
+								DeprecatedContainer: &corev1.Container{
 									Image: "helloworld:foo",
 								},
 							},
@@ -1064,15 +1064,15 @@ func TestImmutableServiceFields(t *testing.T) {
 				Name: "byo-name",
 			},
 			Spec: ServiceSpec{
-				Release: &ReleaseType{
+				DeprecatedRelease: &ReleaseType{
 					Revisions: []string{"foo"},
 					Configuration: ConfigurationSpec{
-						RevisionTemplate: &RevisionTemplateSpec{
+						DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 							ObjectMeta: metav1.ObjectMeta{
 								Name: "byo-name-foo",
 							},
 							Spec: RevisionSpec{
-								Container: &corev1.Container{
+								DeprecatedContainer: &corev1.Container{
 									Image: "helloworld:bar",
 								},
 							},
@@ -1084,7 +1084,7 @@ func TestImmutableServiceFields(t *testing.T) {
 		want: &apis.FieldError{
 			Message: "Saw the following changes without a name change (-old +new)",
 			Paths:   []string{"spec.runLatest.configuration.revisionTemplate"},
-			Details: "{*v1alpha1.RevisionTemplateSpec}.Spec.Container.Image:\n\t-: \"helloworld:bar\"\n\t+: \"helloworld:foo\"\n",
+			Details: "{*v1alpha1.RevisionTemplateSpec}.Spec.DeprecatedContainer.Image:\n\t-: \"helloworld:bar\"\n\t+: \"helloworld:foo\"\n",
 		},
 	}}
 

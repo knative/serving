@@ -57,13 +57,13 @@ func TestRouteValidation(t *testing.T) {
 			},
 			Spec: RouteSpec{
 				Traffic: []TrafficTarget{{
-					Name: "prod",
+					DeprecatedName: "prod",
 					TrafficTarget: v1beta1.TrafficTarget{
 						RevisionName: "foo",
 						Percent:      90,
 					},
 				}, {
-					Name: "experiment",
+					DeprecatedName: "experiment",
 					TrafficTarget: v1beta1.TrafficTarget{
 						ConfigurationName: "bar",
 						Percent:           10,
@@ -80,7 +80,7 @@ func TestRouteValidation(t *testing.T) {
 			},
 			Spec: RouteSpec{
 				Traffic: []TrafficTarget{{
-					Name: "foo",
+					DeprecatedName: "foo",
 					TrafficTarget: v1beta1.TrafficTarget{
 						Percent: 100,
 					},
@@ -190,13 +190,13 @@ func TestRouteSpecValidation(t *testing.T) {
 		name: "valid split",
 		rs: &RouteSpec{
 			Traffic: []TrafficTarget{{
-				Name: "prod",
+				DeprecatedName: "prod",
 				TrafficTarget: v1beta1.TrafficTarget{
 					RevisionName: "foo",
 					Percent:      90,
 				},
 			}, {
-				Name: "experiment",
+				DeprecatedName: "experiment",
 				TrafficTarget: v1beta1.TrafficTarget{
 					ConfigurationName: "bar",
 					Percent:           10,
@@ -212,7 +212,7 @@ func TestRouteSpecValidation(t *testing.T) {
 		name: "invalid traffic entry",
 		rs: &RouteSpec{
 			Traffic: []TrafficTarget{{
-				Name: "foo",
+				DeprecatedName: "foo",
 				TrafficTarget: v1beta1.TrafficTarget{
 					Percent: 100,
 				},
@@ -259,13 +259,13 @@ func TestRouteSpecValidation(t *testing.T) {
 		name: "invalid name conflict",
 		rs: &RouteSpec{
 			Traffic: []TrafficTarget{{
-				Name: "foo",
+				DeprecatedName: "foo",
 				TrafficTarget: v1beta1.TrafficTarget{
 					RevisionName: "bar",
 					Percent:      50,
 				},
 			}, {
-				Name: "foo",
+				DeprecatedName: "foo",
 				TrafficTarget: v1beta1.TrafficTarget{
 					RevisionName: "baz",
 					Percent:      50,
@@ -277,13 +277,13 @@ func TestRouteSpecValidation(t *testing.T) {
 		name: "collision (same revision)",
 		rs: &RouteSpec{
 			Traffic: []TrafficTarget{{
-				Name: "foo",
+				DeprecatedName: "foo",
 				TrafficTarget: v1beta1.TrafficTarget{
 					RevisionName: "bar",
 					Percent:      50,
 				},
 			}, {
-				Name: "foo",
+				DeprecatedName: "foo",
 				TrafficTarget: v1beta1.TrafficTarget{
 					RevisionName: "bar",
 					Percent:      50,
@@ -295,13 +295,13 @@ func TestRouteSpecValidation(t *testing.T) {
 		name: "collision (same config)",
 		rs: &RouteSpec{
 			Traffic: []TrafficTarget{{
-				Name: "foo",
+				DeprecatedName: "foo",
 				TrafficTarget: v1beta1.TrafficTarget{
 					ConfigurationName: "bar",
 					Percent:           50,
 				},
 			}, {
-				Name: "foo",
+				DeprecatedName: "foo",
 				TrafficTarget: v1beta1.TrafficTarget{
 					ConfigurationName: "bar",
 					Percent:           50,
@@ -332,7 +332,7 @@ func TestRouteSpecValidation(t *testing.T) {
 		name: "multiple names",
 		rs: &RouteSpec{
 			Traffic: []TrafficTarget{{
-				Name: "foo",
+				DeprecatedName: "foo",
 				TrafficTarget: v1beta1.TrafficTarget{
 					Tag:          "foo",
 					RevisionName: "bar",
@@ -345,7 +345,7 @@ func TestRouteSpecValidation(t *testing.T) {
 		name: "conflicting with different names",
 		rs: &RouteSpec{
 			Traffic: []TrafficTarget{{
-				Name: "foo",
+				DeprecatedName: "foo",
 				TrafficTarget: v1beta1.TrafficTarget{
 					RevisionName: "bar",
 					Percent:      50,
@@ -385,7 +385,7 @@ func TestTrafficTargetValidation(t *testing.T) {
 	}{{
 		name: "valid with name and revision",
 		tt: &TrafficTarget{
-			Name: "foo",
+			DeprecatedName: "foo",
 			TrafficTarget: v1beta1.TrafficTarget{
 				RevisionName: "bar",
 				Percent:      12,
@@ -395,7 +395,7 @@ func TestTrafficTargetValidation(t *testing.T) {
 	}, {
 		name: "valid with name and configuration",
 		tt: &TrafficTarget{
-			Name: "baz",
+			DeprecatedName: "baz",
 			TrafficTarget: v1beta1.TrafficTarget{
 				ConfigurationName: "blah",
 				Percent:           37,
@@ -405,7 +405,7 @@ func TestTrafficTargetValidation(t *testing.T) {
 	}, {
 		name: "valid with no percent",
 		tt: &TrafficTarget{
-			Name: "ooga",
+			DeprecatedName: "ooga",
 			TrafficTarget: v1beta1.TrafficTarget{
 				ConfigurationName: "booga",
 			},
@@ -435,7 +435,7 @@ func TestTrafficTargetValidation(t *testing.T) {
 	}, {
 		name: "invalid with neither",
 		tt: &TrafficTarget{
-			Name: "foo",
+			DeprecatedName: "foo",
 			TrafficTarget: v1beta1.TrafficTarget{
 				Percent: 100,
 			},

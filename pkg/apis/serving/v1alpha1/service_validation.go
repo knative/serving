@@ -19,7 +19,6 @@ package v1alpha1
 import (
 	"context"
 	"fmt"
-	"reflect"
 
 	"github.com/knative/pkg/apis"
 	"github.com/knative/serving/pkg/apis/serving"
@@ -42,11 +41,14 @@ func (s *Service) Validate(ctx context.Context) *apis.FieldError {
 		_, originalConfig := original.Spec.getConfigurationSpec()
 
 		if currentConfig != nil && originalConfig != nil {
+			templateField := "template"
+			if currentConfig.GetTemplate() == currentConfig.DeprecatedRevisionTemplate {
+				templateField = "revisionTemplate"
+			}
 			err := currentConfig.GetTemplate().VerifyNameChange(ctx,
 				originalConfig.GetTemplate())
 			errs = errs.Also(err.ViaField(
-				// TODO(#3816): revisionTemplate -> field
-				"spec", field, "configuration", "revisionTemplate"))
+				"spec", field, "configuration", templateField))
 		}
 	}
 
@@ -55,33 +57,17 @@ func (s *Service) Validate(ctx context.Context) *apis.FieldError {
 
 func (ss *ServiceSpec) getConfigurationSpec() (string, *ConfigurationSpec) {
 	switch {
-	case ss.RunLatest != nil:
-		return "runLatest", &ss.RunLatest.Configuration
-	case ss.Release != nil:
-		return "release", &ss.Release.Configuration
-	case ss.Manual != nil:
+	case ss.DeprecatedRunLatest != nil:
+		return "runLatest", &ss.DeprecatedRunLatest.Configuration
+	case ss.DeprecatedRelease != nil:
+		return "release", &ss.DeprecatedRelease.Configuration
+	case ss.DeprecatedManual != nil:
 		return "", nil
 	case ss.DeprecatedPinned != nil:
 		return "pinned", &ss.DeprecatedPinned.Configuration
 	default:
-		return "", nil
+		return "", &ss.ConfigurationSpec
 	}
-}
-
-// CheckDeprecated checks whether the provided named deprecated fields
-// are set in a context where deprecation is disallowed.
-func CheckDeprecated(ctx context.Context, fields map[string]interface{}) *apis.FieldError {
-	if apis.IsDeprecatedAllowed(ctx) {
-		return nil
-	}
-	var errs *apis.FieldError
-	for name, field := range fields {
-		// From: https://stackoverflow.com/questions/13901819/quick-way-to-detect-empty-values-via-reflection-in-go
-		if !reflect.DeepEqual(field, reflect.Zero(reflect.TypeOf(field)).Interface()) {
-			errs = errs.Also(apis.ErrDisallowedFields(name))
-		}
-	}
-	return errs
 }
 
 // Validate validates the fields belonging to ServiceSpec recursively
@@ -93,27 +79,21 @@ func (ss *ServiceSpec) Validate(ctx context.Context) *apis.FieldError {
 	// 	return apis.ErrMissingField(currentField)
 	// }
 
-	errs := CheckDeprecated(ctx, map[string]interface{}{
-		"generation": ss.DeprecatedGeneration,
-		"pinned":     ss.DeprecatedPinned,
-		// TODO(#3816): "runLatest": ss.RunLatest,
-		// TODO(#3816): "release": ss.Release,
-		// TODO(#3816): "manual": ss.Manual,
-	})
+	errs := apis.CheckDeprecated(ctx, ss)
 
 	set := []string{}
 
-	if ss.RunLatest != nil {
+	if ss.DeprecatedRunLatest != nil {
 		set = append(set, "runLatest")
-		errs = errs.Also(ss.RunLatest.Validate(ctx).ViaField("runLatest"))
+		errs = errs.Also(ss.DeprecatedRunLatest.Validate(ctx).ViaField("runLatest"))
 	}
-	if ss.Release != nil {
+	if ss.DeprecatedRelease != nil {
 		set = append(set, "release")
-		errs = errs.Also(ss.Release.Validate(ctx).ViaField("release"))
+		errs = errs.Also(ss.DeprecatedRelease.Validate(ctx).ViaField("release"))
 	}
-	if ss.Manual != nil {
+	if ss.DeprecatedManual != nil {
 		set = append(set, "manual")
-		errs = errs.Also(ss.Manual.Validate(ctx).ViaField("manual"))
+		errs = errs.Also(ss.DeprecatedManual.Validate(ctx).ViaField("manual"))
 	}
 	if ss.DeprecatedPinned != nil {
 		set = append(set, "pinned")

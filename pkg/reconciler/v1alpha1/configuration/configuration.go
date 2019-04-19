@@ -294,7 +294,7 @@ func (c *Reconciler) createRevision(ctx context.Context, config *v1alpha1.Config
 	logger := logging.FromContext(ctx)
 
 	var buildRef *corev1.ObjectReference
-	if config.Spec.Build != nil {
+	if config.Spec.DeprecatedBuild != nil {
 		// TODO(mattmoor): Determine whether we reuse the previous build.
 		build := resources.MakeBuild(config)
 		gvr, _ := meta.UnsafeGuessKindToResource(build.GroupVersionKind())

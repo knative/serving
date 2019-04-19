@@ -705,12 +705,12 @@ func TestAnnotateUserInfo(t *testing.T) {
 		user: u2,
 		this: &Service{
 			Spec: ServiceSpec{
-				Release: &ReleaseType{},
+				DeprecatedRelease: &ReleaseType{},
 			},
 		},
 		prev: &Service{
 			Spec: ServiceSpec{
-				RunLatest: &RunLatestType{},
+				DeprecatedRunLatest: &RunLatestType{},
 			},
 		},
 		wantAnns: map[string]string{
@@ -721,12 +721,12 @@ func TestAnnotateUserInfo(t *testing.T) {
 		user: u3,
 		this: withUserAnns(u1, u2, &Service{
 			Spec: ServiceSpec{
-				Release: &ReleaseType{},
+				DeprecatedRelease: &ReleaseType{},
 			},
 		}),
 		prev: withUserAnns(u1, u2, &Service{
 			Spec: ServiceSpec{
-				RunLatest: &RunLatestType{},
+				DeprecatedRunLatest: &RunLatestType{},
 			},
 		}),
 		wantAnns: map[string]string{

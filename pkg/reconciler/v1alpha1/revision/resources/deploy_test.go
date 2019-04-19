@@ -214,7 +214,7 @@ var (
 			},
 		},
 		Spec: v1alpha1.RevisionSpec{
-			Container: &corev1.Container{
+			DeprecatedContainer: &corev1.Container{
 				Image: "busybox",
 			},
 			RevisionSpec: v1beta1.RevisionSpec{
@@ -697,9 +697,9 @@ func TestMakePodSpec(t *testing.T) {
 
 			// Same test, but via podspec.
 			test.rev.Spec.Containers = []corev1.Container{
-				*test.rev.Spec.Container,
+				*test.rev.Spec.DeprecatedContainer,
 			}
-			test.rev.Spec.Container = nil
+			test.rev.Spec.DeprecatedContainer = nil
 
 			got := makePodSpec(test.rev, test.lc, test.oc, test.ac, test.cc)
 			if diff := cmp.Diff(test.want, got, quantityComparer); diff != "" {

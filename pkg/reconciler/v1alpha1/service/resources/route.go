@@ -45,18 +45,18 @@ func MakeRoute(service *v1alpha1.Service) (*v1alpha1.Route, error) {
 		},
 	}
 
-	if service.Spec.Release != nil {
-		rolloutPercent := service.Spec.Release.RolloutPercent
-		numRevisions := len(service.Spec.Release.Revisions)
+	if service.Spec.DeprecatedRelease != nil {
+		rolloutPercent := service.Spec.DeprecatedRelease.RolloutPercent
+		numRevisions := len(service.Spec.DeprecatedRelease.Revisions)
 
 		// Configure the 'current' route.
 		ttCurrent := v1alpha1.TrafficTarget{
-			Name: v1alpha1.CurrentTrafficTarget,
+			DeprecatedName: v1alpha1.CurrentTrafficTarget,
 			TrafficTarget: v1beta1.TrafficTarget{
 				Percent: 100 - rolloutPercent,
 			},
 		}
-		currentRevisionName := service.Spec.Release.Revisions[0]
+		currentRevisionName := service.Spec.DeprecatedRelease.Revisions[0]
 
 		// If the `current` revision refers to the well known name of the last
 		// known revision, use `Configuration` instead.
@@ -72,12 +72,12 @@ func MakeRoute(service *v1alpha1.Service) (*v1alpha1.Route, error) {
 		// Configure the 'candidate' route.
 		if numRevisions == 2 {
 			ttCandidate := v1alpha1.TrafficTarget{
-				Name: v1alpha1.CandidateTrafficTarget,
+				DeprecatedName: v1alpha1.CandidateTrafficTarget,
 				TrafficTarget: v1beta1.TrafficTarget{
 					Percent: rolloutPercent,
 				},
 			}
-			candidateRevisionName := service.Spec.Release.Revisions[1]
+			candidateRevisionName := service.Spec.DeprecatedRelease.Revisions[1]
 			if candidateRevisionName == v1alpha1.ReleaseLatestRevisionKeyword {
 				ttCandidate.ConfigurationName = names.Configuration(service)
 			} else {
@@ -88,14 +88,14 @@ func MakeRoute(service *v1alpha1.Service) (*v1alpha1.Route, error) {
 
 		// Configure the 'latest' route.
 		ttLatest := v1alpha1.TrafficTarget{
-			Name: v1alpha1.LatestTrafficTarget,
+			DeprecatedName: v1alpha1.LatestTrafficTarget,
 			TrafficTarget: v1beta1.TrafficTarget{
 				ConfigurationName: names.Configuration(service),
 				Percent:           0,
 			},
 		}
 		c.Spec.Traffic = append(c.Spec.Traffic, ttLatest)
-	} else if service.Spec.RunLatest != nil {
+	} else if service.Spec.DeprecatedRunLatest != nil {
 		tt := v1alpha1.TrafficTarget{
 			TrafficTarget: v1beta1.TrafficTarget{
 				ConfigurationName: names.Configuration(service),
@@ -111,8 +111,8 @@ func MakeRoute(service *v1alpha1.Service) (*v1alpha1.Route, error) {
 			},
 		}
 		c.Spec.Traffic = append(c.Spec.Traffic, tt)
-	} else if service.Spec.Manual != nil {
-		// Manual does not have a route and should not reach this path.
+	} else if service.Spec.DeprecatedManual != nil {
+		// DeprecatedManual does not have a route and should not reach this path.
 		return nil, errors.New("malformed Service: MakeRoute requires one of runLatest, pinned, or release must be present")
 	} else {
 		c.Spec = *service.Spec.RouteSpec.DeepCopy()

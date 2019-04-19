@@ -62,7 +62,7 @@ func (r *Revision) Validate(ctx context.Context) *apis.FieldError {
 func (rt *RevisionTemplateSpec) Validate(ctx context.Context) *apis.FieldError {
 	errs := rt.Spec.Validate(ctx).ViaField("spec")
 
-	// If the RevisionTemplate has a name specified, then check that
+	// If the DeprecatedRevisionTemplate has a name specified, then check that
 	// it follows the requirements on the name.
 	if rt.Name != "" {
 		om := apis.ParentMeta(ctx)
@@ -90,7 +90,7 @@ func (rt *RevisionTemplateSpec) Validate(ctx context.Context) *apis.FieldError {
 // changes at the appropriate times.
 func (current *RevisionTemplateSpec) VerifyNameChange(ctx context.Context, og *RevisionTemplateSpec) *apis.FieldError {
 	if current.Name == "" {
-		// We only check that Name changes when the RevisionTemplate changes.
+		// We only check that Name changes when the DeprecatedRevisionTemplate changes.
 		return nil
 	}
 	if current.Name != og.Name {
@@ -100,7 +100,7 @@ func (current *RevisionTemplateSpec) VerifyNameChange(ctx context.Context, og *R
 
 	if diff, err := kmp.ShortDiff(og, current); err != nil {
 		return &apis.FieldError{
-			Message: "Failed to diff RevisionTemplate",
+			Message: "Failed to diff DeprecatedRevisionTemplate",
 			Paths:   []string{apis.CurrentField},
 			Details: err.Error(),
 		}
@@ -120,31 +120,24 @@ func (rs *RevisionSpec) Validate(ctx context.Context) *apis.FieldError {
 		return apis.ErrMissingField(apis.CurrentField)
 	}
 
-	errs := CheckDeprecated(ctx, map[string]interface{}{
-		"generation":       rs.DeprecatedGeneration,
-		"servingState":     rs.DeprecatedServingState,
-		"concurrencyModel": rs.DeprecatedConcurrencyModel,
-		"buildName":        rs.DeprecatedBuildName,
-		// TODO(#3816): "container": rs.Container,
-		// TODO(#3816): "buildRef": rs.BuildRef,
-	})
+	errs := apis.CheckDeprecated(ctx, rs)
 
 	switch {
-	case len(rs.PodSpec.Containers) > 0 && rs.Container != nil:
+	case len(rs.PodSpec.Containers) > 0 && rs.DeprecatedContainer != nil:
 		errs = errs.Also(apis.ErrMultipleOneOf("container", "containers"))
 	case len(rs.PodSpec.Containers) > 0:
 		errs = errs.Also(rs.RevisionSpec.Validate(ctx))
-	case rs.Container != nil:
+	case rs.DeprecatedContainer != nil:
 		volumes, err := serving.ValidateVolumes(rs.Volumes)
 		if err != nil {
 			errs = errs.Also(err.ViaField("volumes"))
 		}
 		errs = errs.Also(serving.ValidateContainer(
-			*rs.Container, volumes).ViaField("container"))
+			*rs.DeprecatedContainer, volumes).ViaField("container"))
 	default:
 		errs = errs.Also(apis.ErrMissingOneOf("container", "containers"))
 	}
-	errs = errs.Also(validateBuildRef(rs.BuildRef).ViaField("buildRef"))
+	errs = errs.Also(validateBuildRef(rs.DeprecatedBuildRef).ViaField("buildRef"))
 
 	if err := rs.DeprecatedConcurrencyModel.Validate(ctx).ViaField("concurrencyModel"); err != nil {
 		errs = errs.Also(err)

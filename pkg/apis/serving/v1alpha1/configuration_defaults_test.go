@@ -52,21 +52,21 @@ func TestConfigurationDefaulting(t *testing.T) {
 		name: "shell",
 		in: &Configuration{
 			Spec: ConfigurationSpec{
-				RevisionTemplate: &RevisionTemplateSpec{
+				DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 					Spec: RevisionSpec{
-						Container: &corev1.Container{},
+						DeprecatedContainer: &corev1.Container{},
 					},
 				},
 			},
 		},
 		want: &Configuration{
 			Spec: ConfigurationSpec{
-				RevisionTemplate: &RevisionTemplateSpec{
+				DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 					Spec: RevisionSpec{
 						RevisionSpec: v1beta1.RevisionSpec{
 							TimeoutSeconds: ptr.Int64(config.DefaultRevisionTimeoutSeconds),
 						},
-						Container: &corev1.Container{
+						DeprecatedContainer: &corev1.Container{
 							Resources: defaultResources,
 						},
 					},
@@ -77,7 +77,7 @@ func TestConfigurationDefaulting(t *testing.T) {
 		name: "shell podspec",
 		in: &Configuration{
 			Spec: ConfigurationSpec{
-				RevisionTemplate: &RevisionTemplateSpec{
+				DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 					Spec: RevisionSpec{
 						RevisionSpec: v1beta1.RevisionSpec{
 							PodSpec: v1beta1.PodSpec{
@@ -90,7 +90,7 @@ func TestConfigurationDefaulting(t *testing.T) {
 		},
 		want: &Configuration{
 			Spec: ConfigurationSpec{
-				RevisionTemplate: &RevisionTemplateSpec{
+				DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 					Spec: RevisionSpec{
 						RevisionSpec: v1beta1.RevisionSpec{
 							TimeoutSeconds: ptr.Int64(config.DefaultRevisionTimeoutSeconds),
@@ -108,13 +108,13 @@ func TestConfigurationDefaulting(t *testing.T) {
 		name: "no overwrite values",
 		in: &Configuration{
 			Spec: ConfigurationSpec{
-				RevisionTemplate: &RevisionTemplateSpec{
+				DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 					Spec: RevisionSpec{
 						RevisionSpec: v1beta1.RevisionSpec{
 							ContainerConcurrency: 1,
 							TimeoutSeconds:       ptr.Int64(99),
 						},
-						Container: &corev1.Container{
+						DeprecatedContainer: &corev1.Container{
 							Resources: defaultResources,
 						},
 					},
@@ -123,13 +123,13 @@ func TestConfigurationDefaulting(t *testing.T) {
 		},
 		want: &Configuration{
 			Spec: ConfigurationSpec{
-				RevisionTemplate: &RevisionTemplateSpec{
+				DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 					Spec: RevisionSpec{
 						RevisionSpec: v1beta1.RevisionSpec{
 							ContainerConcurrency: 1,
 							TimeoutSeconds:       ptr.Int64(99),
 						},
-						Container: &corev1.Container{
+						DeprecatedContainer: &corev1.Container{
 							Resources: defaultResources,
 						},
 					},

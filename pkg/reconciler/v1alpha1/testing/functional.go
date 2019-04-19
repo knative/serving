@@ -91,9 +91,9 @@ type ServiceOption func(*v1alpha1.Service)
 var (
 	// configSpec is the spec used for the different styles of Service rollout.
 	configSpec = v1alpha1.ConfigurationSpec{
-		RevisionTemplate: &v1alpha1.RevisionTemplateSpec{
+		DeprecatedRevisionTemplate: &v1alpha1.RevisionTemplateSpec{
 			Spec: v1alpha1.RevisionSpec{
-				Container: &corev1.Container{
+				DeprecatedContainer: &corev1.Container{
 					Image: "busybox",
 				},
 				RevisionSpec: v1beta1.RevisionSpec{
@@ -114,7 +114,20 @@ func WithServiceDeletionTimestamp(r *v1alpha1.Service) {
 // Route/Configuration
 func WithInlineRollout(s *v1alpha1.Service) {
 	s.Spec = v1alpha1.ServiceSpec{
-		ConfigurationSpec: *configSpec.DeepCopy(),
+		ConfigurationSpec: v1alpha1.ConfigurationSpec{
+			Template: &v1alpha1.RevisionTemplateSpec{
+				Spec: v1alpha1.RevisionSpec{
+					RevisionSpec: v1beta1.RevisionSpec{
+						PodSpec: v1beta1.PodSpec{
+							Containers: []corev1.Container{{
+								Image: "busybox",
+							}},
+						},
+						TimeoutSeconds: ptr.Int64(60),
+					},
+				},
+			},
+		},
 		RouteSpec: v1alpha1.RouteSpec{
 			Traffic: []v1alpha1.TrafficTarget{{
 				TrafficTarget: v1beta1.TrafficTarget{
@@ -128,7 +141,7 @@ func WithInlineRollout(s *v1alpha1.Service) {
 // WithRunLatestRollout configures the Service to use a "runLatest" rollout.
 func WithRunLatestRollout(s *v1alpha1.Service) {
 	s.Spec = v1alpha1.ServiceSpec{
-		RunLatest: &v1alpha1.RunLatestType{
+		DeprecatedRunLatest: &v1alpha1.RunLatestType{
 			Configuration: *configSpec.DeepCopy(),
 		},
 	}
@@ -152,7 +165,7 @@ func WithInlineRouteSpec(config v1alpha1.RouteSpec) ServiceOption {
 func WithRunLatestConfigSpec(config v1alpha1.ConfigurationSpec) ServiceOption {
 	return func(svc *v1alpha1.Service) {
 		svc.Spec = v1alpha1.ServiceSpec{
-			RunLatest: &v1alpha1.RunLatestType{
+			DeprecatedRunLatest: &v1alpha1.RunLatestType{
 				Configuration: config,
 			},
 		}
@@ -172,14 +185,14 @@ func WithServiceLabel(key, value string) ServiceOption {
 // WithResourceRequirements attaches resource requirements to the service
 func WithResourceRequirements(resourceRequirements corev1.ResourceRequirements) ServiceOption {
 	return func(svc *v1alpha1.Service) {
-		svc.Spec.RunLatest.Configuration.GetTemplate().Spec.GetContainer().Resources = resourceRequirements
+		svc.Spec.DeprecatedRunLatest.Configuration.GetTemplate().Spec.GetContainer().Resources = resourceRequirements
 	}
 }
 
 // WithVolume adds a volume to the service
 func WithVolume(name, mountPath string, volumeSource corev1.VolumeSource) ServiceOption {
 	return func(svc *v1alpha1.Service) {
-		rt := &svc.Spec.RunLatest.Configuration.GetTemplate().Spec
+		rt := &svc.Spec.DeprecatedRunLatest.Configuration.GetTemplate().Spec
 
 		rt.GetContainer().VolumeMounts = []corev1.VolumeMount{{
 			Name:      name,
@@ -196,14 +209,14 @@ func WithVolume(name, mountPath string, volumeSource corev1.VolumeSource) Servic
 // WithConfigAnnotations assigns config annotations to a service
 func WithConfigAnnotations(annotations map[string]string) ServiceOption {
 	return func(service *v1alpha1.Service) {
-		service.Spec.RunLatest.Configuration.GetTemplate().ObjectMeta.Annotations = annotations
+		service.Spec.DeprecatedRunLatest.Configuration.GetTemplate().ObjectMeta.Annotations = annotations
 	}
 }
 
 // WithRevisionTimeoutSeconds sets revision timeout
 func WithRevisionTimeoutSeconds(revisionTimeoutSeconds int64) ServiceOption {
 	return func(service *v1alpha1.Service) {
-		service.Spec.RunLatest.Configuration.GetTemplate().Spec.TimeoutSeconds = ptr.Int64(revisionTimeoutSeconds)
+		service.Spec.DeprecatedRunLatest.Configuration.GetTemplate().Spec.TimeoutSeconds = ptr.Int64(revisionTimeoutSeconds)
 	}
 }
 
@@ -248,7 +261,7 @@ func WithReleaseRolloutAndPercentage(percentage int, names ...string) ServiceOpt
 func WithReleaseRolloutAndPercentageConfigSpec(percentage int, config v1alpha1.ConfigurationSpec, names ...string) ServiceOption {
 	return func(s *v1alpha1.Service) {
 		s.Spec = v1alpha1.ServiceSpec{
-			Release: &v1alpha1.ReleaseType{
+			DeprecatedRelease: &v1alpha1.ReleaseType{
 				Revisions:      names,
 				RolloutPercent: percentage,
 				Configuration:  config,
@@ -262,7 +275,7 @@ func WithReleaseRolloutAndPercentageConfigSpec(percentage int, config v1alpha1.C
 func WithReleaseRolloutConfigSpec(config v1alpha1.ConfigurationSpec, names ...string) ServiceOption {
 	return func(s *v1alpha1.Service) {
 		s.Spec = v1alpha1.ServiceSpec{
-			Release: &v1alpha1.ReleaseType{
+			DeprecatedRelease: &v1alpha1.ReleaseType{
 				Revisions:     names,
 				Configuration: config,
 			},
@@ -275,7 +288,7 @@ func WithReleaseRolloutConfigSpec(config v1alpha1.ConfigurationSpec, names ...st
 func WithReleaseRollout(names ...string) ServiceOption {
 	return func(s *v1alpha1.Service) {
 		s.Spec = v1alpha1.ServiceSpec{
-			Release: &v1alpha1.ReleaseType{
+			DeprecatedRelease: &v1alpha1.ReleaseType{
 				Revisions:     names,
 				Configuration: *configSpec.DeepCopy(),
 			},
@@ -286,7 +299,7 @@ func WithReleaseRollout(names ...string) ServiceOption {
 // WithManualRollout configures the Service to use a "manual" rollout.
 func WithManualRollout(s *v1alpha1.Service) {
 	s.Spec = v1alpha1.ServiceSpec{
-		Manual: &v1alpha1.ManualType{},
+		DeprecatedManual: &v1alpha1.ManualType{},
 	}
 }
 
@@ -332,14 +345,15 @@ func WithSvcStatusTraffic(targets ...v1alpha1.TrafficTarget) ServiceOption {
 	return func(r *v1alpha1.Service) {
 		// Automatically inject URL into TrafficTarget status
 		for _, tt := range targets {
-			if tt.Name != "" {
+			if tt.DeprecatedName != "" {
 				tt.URL = traffic.TagURL(traffic.HTTPScheme,
-					tt.Name,
-					"example.com")
+					tt.DeprecatedName, "example.com")
+			} else if tt.Tag != "" {
+				tt.URL = traffic.TagURL(traffic.HTTPScheme,
+					tt.Tag, "example.com")
 			}
 		}
 		r.Status.Traffic = targets
-
 	}
 }
 
@@ -583,7 +597,7 @@ func WithConfigDeletionTimestamp(r *v1alpha1.Configuration) {
 
 // WithBuild adds a Build to the provided Configuration.
 func WithBuild(cfg *v1alpha1.Configuration) {
-	cfg.Spec.Build = &v1alpha1.RawExtension{
+	cfg.Spec.DeprecatedBuild = &v1alpha1.RawExtension{
 		Object: &unstructured.Unstructured{
 			Object: map[string]interface{}{
 				"apiVersion": "testing.build.knative.dev/v1alpha1",
@@ -698,11 +712,11 @@ func WithRevName(name string) RevisionOption {
 	}
 }
 
-// WithBuildRef sets the .Spec.BuildRef on the Revision to match what we'd get
+// WithBuildRef sets the .Spec.DeprecatedBuildRef on the Revision to match what we'd get
 // using WithBuild(name).
 func WithBuildRef(name string) RevisionOption {
 	return func(rev *v1alpha1.Revision) {
-		rev.Spec.BuildRef = &corev1.ObjectReference{
+		rev.Spec.DeprecatedBuildRef = &corev1.ObjectReference{
 			APIVersion: "testing.build.knative.dev/v1alpha1",
 			Kind:       "Build",
 			Name:       name,
@@ -746,7 +760,7 @@ func WithCreationTimestamp(t time.Time) RevisionOption {
 }
 
 // WithNoBuild updates the status conditions to propagate a Build status as-if
-// no BuildRef was specified.
+// no DeprecatedBuildRef was specified.
 func WithNoBuild(r *v1alpha1.Revision) {
 	r.Status.PropagateBuildStatus(duckv1alpha1.Status{
 		Conditions: duckv1alpha1.Conditions{{

@@ -129,7 +129,7 @@ func TestRevisionTimeout(t *testing.T) {
 		t.Fatalf("The Service %s was not marked as Ready to serve traffic to Revision %s: %v", names.Service, names.Revision, err)
 	}
 
-	t.Log("Patching to a Manual Service to allow configuration and route to be manually modified")
+	t.Log("Patching to a DeprecatedManual Service to allow configuration and route to be manually modified")
 	_, err = test.PatchManualService(t, clients, svc)
 	if err != nil {
 		t.Fatalf("Failed to update Service %s: %v", names.Service, err)

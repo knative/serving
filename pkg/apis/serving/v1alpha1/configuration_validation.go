@@ -50,16 +50,13 @@ func (cs *ConfigurationSpec) Validate(ctx context.Context) *apis.FieldError {
 		return apis.ErrMissingField(apis.CurrentField)
 	}
 
-	errs := CheckDeprecated(ctx, map[string]interface{}{
-		"generation": cs.DeprecatedGeneration,
-		// TODO(#3816): "revisionTemplate": cs.RevisionTemplate,
-	})
+	errs := apis.CheckDeprecated(ctx, cs)
 
-	if cs.Build == nil {
+	if cs.DeprecatedBuild == nil {
 		// No build was specified.
-	} else if err := cs.Build.As(&buildv1alpha1.BuildSpec{}); err == nil {
+	} else if err := cs.DeprecatedBuild.As(&buildv1alpha1.BuildSpec{}); err == nil {
 		// It is a BuildSpec, this is the legacy path.
-	} else if err = cs.Build.As(&unstructured.Unstructured{}); err == nil {
+	} else if err = cs.DeprecatedBuild.As(&unstructured.Unstructured{}); err == nil {
 		// It is an unstructured.Unstructured.
 	} else {
 		errs = errs.Also(apis.ErrInvalidValue(err, "build"))
@@ -67,9 +64,9 @@ func (cs *ConfigurationSpec) Validate(ctx context.Context) *apis.FieldError {
 
 	var templateField string
 	switch {
-	case cs.RevisionTemplate != nil && cs.Template != nil:
+	case cs.DeprecatedRevisionTemplate != nil && cs.Template != nil:
 		return apis.ErrMultipleOneOf("revisionTemplate", "template")
-	case cs.RevisionTemplate != nil:
+	case cs.DeprecatedRevisionTemplate != nil:
 		templateField = "revisionTemplate"
 	case cs.Template != nil:
 		templateField = "template"

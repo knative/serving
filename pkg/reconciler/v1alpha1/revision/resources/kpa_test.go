@@ -101,7 +101,7 @@ func TestMakeKPA(t *testing.T) {
 				RevisionSpec: v1beta1.RevisionSpec{
 					ContainerConcurrency: 0,
 				},
-				Container: &corev1.Container{
+				DeprecatedContainer: &corev1.Container{
 					Ports: []corev1.ContainerPort{{
 						Name:     "h2c",
 						HostPort: int32(443),
