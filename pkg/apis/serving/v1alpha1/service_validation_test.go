@@ -661,6 +661,38 @@ func TestServiceValidation(t *testing.T) {
 			},
 		},
 		want: nil,
+	}, {
+		name: "valid inline",
+		// Should not affect anything.
+		wc: apis.DisallowDeprecated,
+		s: &Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid",
+			},
+			Spec: ServiceSpec{
+				ConfigurationSpec: ConfigurationSpec{
+					Template: &RevisionTemplateSpec{
+						Spec: RevisionSpec{
+							RevisionSpec: v1beta1.RevisionSpec{
+								PodSpec: v1beta1.PodSpec{
+									Containers: []corev1.Container{{
+										Image: "hellworld",
+									}},
+								},
+							},
+						},
+					},
+				},
+				RouteSpec: RouteSpec{
+					Traffic: []TrafficTarget{{
+						TrafficTarget: v1beta1.TrafficTarget{
+							Percent: 100,
+						},
+					}},
+				},
+			},
+		},
+		want: nil,
 	}}
 
 	// TODO(mattmoor): Add a test for default configurationName
@@ -673,7 +705,7 @@ func TestServiceValidation(t *testing.T) {
 			}
 			got := test.s.Validate(ctx)
 			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
-				t.Errorf("validateContainer (-want, +got) = %v", diff)
+				t.Errorf("Validate() (-want, +got) = %v", diff)
 			}
 		})
 	}
@@ -930,7 +962,8 @@ func TestImmutableServiceFields(t *testing.T) {
 				Name: "byo-name",
 			},
 			Spec: ServiceSpec{
-				RunLatest: &RunLatestType{
+				DeprecatedPinned: &PinnedType{
+					RevisionName: "bar",
 					Configuration: ConfigurationSpec{
 						RevisionTemplate: &RevisionTemplateSpec{
 							ObjectMeta: metav1.ObjectMeta{
@@ -951,21 +984,55 @@ func TestImmutableServiceFields(t *testing.T) {
 				Name: "byo-name",
 			},
 			Spec: ServiceSpec{
-				Release: &ReleaseType{
-					Revisions: []string{"foo"},
-					Configuration: ConfigurationSpec{
-						RevisionTemplate: &RevisionTemplateSpec{
-							ObjectMeta: metav1.ObjectMeta{
-								Name: "byo-name-bar",
-							},
-							Spec: RevisionSpec{
-								Container: &corev1.Container{
-									Image: "helloworld:bar",
+				ConfigurationSpec: ConfigurationSpec{
+					Template: &RevisionTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "byo-name-bar",
+						},
+						Spec: RevisionSpec{
+							RevisionSpec: v1beta1.RevisionSpec{
+								PodSpec: v1beta1.PodSpec{
+									Containers: []corev1.Container{{
+										Image: "helloworld:bar",
+									}},
 								},
 							},
 						},
 					},
 				},
+			},
+		},
+		want: nil,
+	}, {
+		name: "good byo-name (mode change to manual)",
+		new: &Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "byo-name",
+			},
+			Spec: ServiceSpec{
+				DeprecatedPinned: &PinnedType{
+					RevisionName: "bar",
+					Configuration: ConfigurationSpec{
+						RevisionTemplate: &RevisionTemplateSpec{
+							ObjectMeta: metav1.ObjectMeta{
+								Name: "byo-name-foo",
+							},
+							Spec: RevisionSpec{
+								Container: &corev1.Container{
+									Image: "helloworld:foo",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		old: &Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "byo-name",
+			},
+			Spec: ServiceSpec{
+				Manual: &ManualType{},
 			},
 		},
 		want: nil,

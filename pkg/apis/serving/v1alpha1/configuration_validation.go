@@ -52,7 +52,7 @@ func (cs *ConfigurationSpec) Validate(ctx context.Context) *apis.FieldError {
 
 	errs := CheckDeprecated(ctx, map[string]interface{}{
 		"generation": cs.DeprecatedGeneration,
-		// TODO(mattmoor): "revisionTemplate": cs.RevisionTemplate,
+		// TODO(#3816): "revisionTemplate": cs.RevisionTemplate,
 	})
 
 	if cs.Build == nil {

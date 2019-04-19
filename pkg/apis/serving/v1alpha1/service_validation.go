@@ -45,7 +45,7 @@ func (s *Service) Validate(ctx context.Context) *apis.FieldError {
 			err := currentConfig.GetTemplate().VerifyNameChange(ctx,
 				originalConfig.GetTemplate())
 			errs = errs.Also(err.ViaField(
-				// TODO(mattmoor): revisionTemplate -> field
+				// TODO(#3816): revisionTemplate -> field
 				"spec", field, "configuration", "revisionTemplate"))
 		}
 	}
@@ -96,9 +96,9 @@ func (ss *ServiceSpec) Validate(ctx context.Context) *apis.FieldError {
 	errs := CheckDeprecated(ctx, map[string]interface{}{
 		"generation": ss.DeprecatedGeneration,
 		"pinned":     ss.DeprecatedPinned,
-		// TODO(mattmoor): "runLatest": ss.RunLatest,
-		// TODO(mattmoor): "release": ss.Release,
-		// TODO(mattmoor): "manual": ss.Manual,
+		// TODO(#3816): "runLatest": ss.RunLatest,
+		// TODO(#3816): "release": ss.Release,
+		// TODO(#3816): "manual": ss.Manual,
 	})
 
 	set := []string{}
