@@ -434,7 +434,7 @@
   revision = "afa9ee174c6f2072b12dbb4b3bf64be8ec7bc30b"
 
 [[projects]]
-  digest = "1:0ee8a40ab26538a2c83f24fdb1c64db2b3f3ff080208d167f27c365fcbf46aad"
+  digest = "1:9df6ef1d7e65d2b35784af66e25d22ee1a96efe0b26b9e2321c3e58cd4be054a"
   name = "github.com/knative/pkg"
   packages = [
     "apis",
@@ -491,7 +491,7 @@
     "websocket",
   ]
   pruneopts = "NUT"
-  revision = "6fa5cc22e3ecd17f7e9085d4198bf1ae9fd30aec"
+  revision = "3c8c4a93547f62b542013c273068f51875b5c942"
 
 [[projects]]
   branch = "master"
@@ -555,6 +555,22 @@
   pruneopts = "NUT"
   revision = "4b7aa43c6742a2c18fdef89dd197aaae7dac7ccd"
   version = "1.0.1"
+
+[[projects]]
+  digest = "1:5ff10da739fc2c719e3a11454e5794aa226c918cb0286cd3842aa6ae077a82a1"
+  name = "github.com/openzipkin/zipkin-go"
+  packages = [
+    ".",
+    "idgenerator",
+    "model",
+    "propagation",
+    "reporter",
+    "reporter/http",
+    "reporter/recorder",
+  ]
+  pruneopts = "NUT"
+  revision = "bf896b1c622eed731380e8291d9b6c02043de5e8"
+  version = "v0.1.5"
 
 [[projects]]
   branch = "master"
@@ -651,12 +667,13 @@
   version = "v1.0.3"
 
 [[projects]]
-  digest = "1:e65b395598ef96d96c1df34e3fd3ec4dabe629edb1511de33a59efd9931df0e8"
+  digest = "1:76763f300778a3b9baef4872dc9fcc9a7463ba2a5f6b2acaf589cd7f3b392503"
   name = "go.opencensus.io"
   packages = [
     ".",
     "exemplar",
     "exporter/prometheus",
+    "exporter/zipkin",
     "internal",
     "internal/tagencoding",
     "plugin/ocgrpc",
@@ -1367,14 +1384,22 @@
     "github.com/knative/test-infra/tools/webhook-apicoverage/view",
     "github.com/knative/test-infra/tools/webhook-apicoverage/webhook",
     "github.com/mattbaird/jsonpatch",
+    "github.com/openzipkin/zipkin-go",
+    "github.com/openzipkin/zipkin-go/model",
+    "github.com/openzipkin/zipkin-go/reporter",
+    "github.com/openzipkin/zipkin-go/reporter/http",
+    "github.com/openzipkin/zipkin-go/reporter/recorder",
     "github.com/pkg/errors",
     "github.com/prometheus/client_golang/prometheus",
     "github.com/prometheus/client_golang/prometheus/promhttp",
     "github.com/prometheus/client_model/go",
     "github.com/prometheus/common/expfmt",
+    "go.opencensus.io/exporter/zipkin",
+    "go.opencensus.io/plugin/ochttp",
     "go.opencensus.io/stats",
     "go.opencensus.io/stats/view",
     "go.opencensus.io/tag",
+    "go.opencensus.io/trace",
     "go.uber.org/atomic",
     "go.uber.org/zap",
     "go.uber.org/zap/zapcore",

@@ -130,6 +130,7 @@ func waitForIngressGatewayAddress(kubeclient *kubernetes.Clientset) (addr *corev
 func main() {
 	flag.Parse()
 	logger := logging.FromContext(context.Background()).Named(appName)
+	defer logger.Sync()
 
 	kubeClient, err := kubeClientFromFlags()
 	if err != nil {

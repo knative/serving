@@ -591,6 +591,8 @@ func (in *ServiceSpec) DeepCopyInto(out *ServiceSpec) {
 		*out = new(ReleaseType)
 		(*in).DeepCopyInto(*out)
 	}
+	in.ConfigurationSpec.DeepCopyInto(&out.ConfigurationSpec)
+	in.RouteSpec.DeepCopyInto(&out.RouteSpec)
 	return
 }
 

@@ -105,10 +105,24 @@ func TestManual(t *testing.T) {
 	}
 }
 
-func TestMalformed(t *testing.T) {
-	s := createServiceMeta()
-	c, err := MakeConfiguration(s)
-	if err == nil {
-		t.Errorf("MakeConfiguration() = %v, wanted error", c)
+func TestInlineConfigurationSpec(t *testing.T) {
+	s := createServiceInline()
+	c, _ := MakeConfiguration(s)
+	if got, want := c.Name, testServiceName; got != want {
+		t.Errorf("expected %q for service name got %q", want, got)
+	}
+	if got, want := c.Namespace, testServiceNamespace; got != want {
+		t.Errorf("expected %q for service namespace got %q", want, got)
+	}
+	if got, want := c.Spec.GetTemplate().Spec.GetContainer().Name, testContainerNameInline; got != want {
+		t.Errorf("expected %q for container name got %q", want, got)
+	}
+	expectOwnerReferencesSetCorrectly(t, c.OwnerReferences)
+
+	if got, want := len(c.Labels), 1; got != want {
+		t.Errorf("expected %d labels got %d", want, got)
+	}
+	if got, want := c.Labels[serving.ServiceLabelKey], testServiceName; got != want {
+		t.Errorf("expected %q labels got %q", want, got)
 	}
 }

@@ -30,6 +30,7 @@ import (
 	cachinginformers "github.com/knative/caching/pkg/client/informers/externalversions"
 	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/controller"
+	pkgmetrics "github.com/knative/pkg/metrics"
 	"github.com/knative/pkg/signals"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
 	"github.com/knative/serving/pkg/logging"
@@ -66,7 +67,7 @@ func main() {
 		log.Fatalf("Error parsing logging configuration: %v", err)
 	}
 	logger, atomicLevel := logging.NewLoggerFromConfig(loggingConfig, component)
-	defer logger.Sync()
+	defer flush(logger)
 
 	// Set up signals so we handle the first shutdown signal gracefully.
 	stopCh := signals.SetupSignalHandler()
@@ -182,4 +183,9 @@ func main() {
 	logger.Info("Starting controllers.")
 	go controller.StartAll(stopCh, controllers...)
 	<-stopCh
+}
+
+func flush(logger *zap.SugaredLogger) {
+	logger.Sync()
+	pkgmetrics.FlushExporter()
 }

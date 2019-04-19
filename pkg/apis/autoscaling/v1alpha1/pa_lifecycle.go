@@ -152,11 +152,8 @@ func (pas *PodAutoscalerStatus) CanMarkInactive(idlePeriod time.Duration) bool {
 // the specified status for at least the specified duration. Otherwise it returns false,
 // including when the status is undetermined (Active condition is not found.)
 func (pas *PodAutoscalerStatus) inStatusFor(status corev1.ConditionStatus, dur time.Duration) bool {
-	if cond := pas.GetCondition(PodAutoscalerConditionActive); cond != nil && cond.Status == status {
-		fmt.Printf("#### TimeNow: %v LTT: %v, diff: %v\n", time.Now(), cond.LastTransitionTime.Inner, time.Now().Sub(cond.LastTransitionTime.Inner.Time))
-		return time.Now().After(cond.LastTransitionTime.Inner.Add(dur))
-	}
-	return false
+	cond := pas.GetCondition(PodAutoscalerConditionActive)
+	return cond != nil && cond.Status == status && time.Now().After(cond.LastTransitionTime.Inner.Add(dur))
 }
 
 func (pas *PodAutoscalerStatus) duck() *duckv1beta1.Status {

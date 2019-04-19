@@ -596,6 +596,7 @@ func getHandler(throttler *activator.Throttler, lockerCh chan struct{}, t *testi
 
 		return fake.Result(), nil
 	})
+
 	handler := ActivationHandler{
 		Transport:   rt,
 		Logger:      TestLogger(t),

@@ -656,6 +656,7 @@ func TestAnnotateUserInfo(t *testing.T) {
 		u2 = "cabra@knative.dev"
 		u3 = "vaca@knative.dev"
 	)
+
 	withUserAnns := func(u1, u2 string, s *Service) *Service {
 		a := s.GetAnnotations()
 		if a == nil {
@@ -666,6 +667,7 @@ func TestAnnotateUserInfo(t *testing.T) {
 		a[serving.UpdaterAnnotation] = u2
 		return s
 	}
+
 	tests := []struct {
 		name     string
 		user     string
@@ -673,36 +675,61 @@ func TestAnnotateUserInfo(t *testing.T) {
 		prev     *Service
 		wantAnns map[string]string
 	}{{
-		"create-new", u1, &Service{}, nil,
-		map[string]string{
+		name: "create-new",
+		user: u1,
+		this: &Service{},
+		prev: nil,
+		wantAnns: map[string]string{
 			serving.CreatorAnnotation: u1,
 			serving.UpdaterAnnotation: u1,
 		},
 	}, {
 		// Old objects don't have the annotation, and unless there's a change in
 		// data they won't get it.
-		"update-no-diff-old-object", u1, &Service{}, &Service{},
-		map[string]string{},
+		name:     "update-no-diff-old-object",
+		user:     u1,
+		this:     &Service{},
+		prev:     &Service{},
+		wantAnns: map[string]string{},
 	}, {
-		"update-no-diff-new-object", u2,
-		withUserAnns(u1, u1, &Service{}),
-		withUserAnns(u1, u1, &Service{}),
-		map[string]string{
+		name: "update-no-diff-new-object",
+		user: u2,
+		this: withUserAnns(u1, u1, &Service{}),
+		prev: withUserAnns(u1, u1, &Service{}),
+		wantAnns: map[string]string{
 			serving.CreatorAnnotation: u1,
 			serving.UpdaterAnnotation: u1,
 		},
 	}, {
-		"update-diff-old-object", u2,
-		&Service{Spec: ServiceSpec{Release: &ReleaseType{}}},
-		&Service{Spec: ServiceSpec{RunLatest: &RunLatestType{}}},
-		map[string]string{
+		name: "update-diff-old-object",
+		user: u2,
+		this: &Service{
+			Spec: ServiceSpec{
+				Release: &ReleaseType{},
+			},
+		},
+		prev: &Service{
+			Spec: ServiceSpec{
+				RunLatest: &RunLatestType{},
+			},
+		},
+		wantAnns: map[string]string{
 			serving.UpdaterAnnotation: u2,
 		},
 	}, {
-		"update-diff-new-object", u3,
-		withUserAnns(u1, u2, &Service{Spec: ServiceSpec{Release: &ReleaseType{}}}),
-		withUserAnns(u1, u2, &Service{Spec: ServiceSpec{RunLatest: &RunLatestType{}}}),
-		map[string]string{
+		name: "update-diff-new-object",
+		user: u3,
+		this: withUserAnns(u1, u2, &Service{
+			Spec: ServiceSpec{
+				Release: &ReleaseType{},
+			},
+		}),
+		prev: withUserAnns(u1, u2, &Service{
+			Spec: ServiceSpec{
+				RunLatest: &RunLatestType{},
+			},
+		}),
+		wantAnns: map[string]string{
 			serving.CreatorAnnotation: u1,
 			serving.UpdaterAnnotation: u3,
 		},
@@ -717,6 +744,7 @@ func TestAnnotateUserInfo(t *testing.T) {
 			})
 			if test.prev != nil {
 				ctx = apis.WithinUpdate(ctx, test.prev)
+				test.prev.SetDefaults(ctx)
 			}
 			test.this.SetDefaults(ctx)
 			if got, want := test.this.GetAnnotations(), test.wantAnns; !cmp.Equal(got, want) {
