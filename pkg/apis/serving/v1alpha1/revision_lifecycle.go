@@ -46,7 +46,7 @@ const (
 
 	// RequestQueuePort specifies the port number to use for http requests
 	// in queue-proxy container.
-	RequestQueuePort = 8012
+	RequestQueuePort = serving.RequestQueuePort
 
 	// RequestQueueAdminPortName specifies the port name for
 	// health check and lifecyle hooks for queue-proxy.
@@ -54,11 +54,11 @@ const (
 
 	// RequestQueueAdminPort specifies the port number for
 	// health check and lifecyle hooks for queue-proxy.
-	RequestQueueAdminPort = 8022
+	RequestQueueAdminPort = serving.RequestQueueAdminPort
 
 	// RequestQueueMetricsPort specifies the port number for metrics emitted
 	// by queue-proxy.
-	RequestQueueMetricsPort = 9090
+	RequestQueueMetricsPort = serving.RequestQueueMetricsPort
 
 	// RequestQueueMetricsPortName specifies the port name to use for metrics
 	// emitted by queue-proxy.
@@ -87,6 +87,9 @@ func (r *Revision) GetGroupVersionKind() schema.GroupVersionKind {
 func (rs *RevisionSpec) GetContainer() *corev1.Container {
 	if rs.Container != nil {
 		return rs.Container
+	}
+	if len(rs.Containers) > 0 {
+		return &rs.Containers[0]
 	}
 	// Should be unreachable post-validation, but here to ease testing.
 	return &corev1.Container{}

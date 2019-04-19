@@ -25,6 +25,7 @@ import (
 	"testing"
 	"time"
 
+	pkgTest "github.com/knative/pkg/test"
 	ingress "github.com/knative/pkg/test/ingress"
 	"github.com/knative/serving/test"
 	"github.com/knative/test-infra/shared/junit"
@@ -68,6 +69,16 @@ func timeToServe(t *testing.T, img, query string, reqTimeout time.Duration) {
 		t.Fatalf("Cannot get service endpoint: %v", err)
 	}
 
+	if _, err := pkgTest.WaitForEndpointState(
+		clients.KubeClient,
+		t.Logf,
+		domain,
+		test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
+		"WaitForSuccessfulResponse",
+		test.ServingFlags.ResolvableDomain); err != nil {
+		t.Fatalf("Error probing domain %s: %v", domain, err)
+	}
+
 	opts := loadgenerator.GeneratorOptions{
 		Duration:       duration,
 		NumThreads:     1,
@@ -75,6 +86,7 @@ func timeToServe(t *testing.T, img, query string, reqTimeout time.Duration) {
 		Domain:         domain,
 		URL:            fmt.Sprintf("http://%s/?%s", *endpoint, query),
 		RequestTimeout: reqTimeout,
+		LoadFactors:    []float64{1},
 	}
 	resp, err := opts.RunLoadTest(false)
 	if err != nil {
@@ -84,9 +96,13 @@ func timeToServe(t *testing.T, img, query string, reqTimeout time.Duration) {
 	// Save the json result for benchmarking
 	resp.SaveJSON(tName)
 
+	if len(resp.Result) == 0 {
+		t.Fatalf("No result found for the load test")
+	}
+
 	// Add latency metrics
 	var tc []junit.TestCase
-	for _, p := range resp.Result.DurationHistogram.Percentiles {
+	for _, p := range resp.Result[0].DurationHistogram.Percentiles {
 		val := float32(p.Value) * 1000
 		name := fmt.Sprintf("p%d(ms)", int(p.Percentile))
 		tc = append(tc, CreatePerfTestCase(val, name, tName))

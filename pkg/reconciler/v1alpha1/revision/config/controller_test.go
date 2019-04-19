@@ -25,7 +25,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 
-	. "github.com/knative/serving/pkg/reconciler/testing"
+	. "github.com/knative/pkg/configmap/testing"
+	_ "github.com/knative/pkg/system/testing"
 )
 
 var noSidecarImage = ""

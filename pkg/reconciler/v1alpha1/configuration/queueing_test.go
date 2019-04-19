@@ -23,8 +23,10 @@ import (
 	fakesharedclientset "github.com/knative/pkg/client/clientset/versioned/fake"
 	"github.com/knative/pkg/configmap"
 	ctrl "github.com/knative/pkg/controller"
+	logtesting "github.com/knative/pkg/logging/testing"
 	"github.com/knative/pkg/system"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 	fakeclientset "github.com/knative/serving/pkg/client/clientset/versioned/fake"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
 	"github.com/knative/serving/pkg/gc"
@@ -37,7 +39,7 @@ import (
 	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/tools/record"
 
-	. "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
+	. "github.com/knative/pkg/reconciler/testing"
 )
 
 /* TODO tests:
@@ -64,7 +66,11 @@ func getTestConfiguration() *v1alpha1.Configuration {
 			DeprecatedGeneration: 1,
 			RevisionTemplate: &v1alpha1.RevisionTemplateSpec{
 				Spec: v1alpha1.RevisionSpec{
-					ServiceAccountName: "test-account",
+					RevisionSpec: v1beta1.RevisionSpec{
+						PodSpec: v1beta1.PodSpec{
+							ServiceAccountName: "test-account",
+						},
+					},
 					// corev1.Container has a lot of setting.  We try to pass many
 					// of them here to verify that we pass through the settings to
 					// the derived Revisions.
@@ -126,7 +132,7 @@ func newTestController(t *testing.T, stopCh chan struct{}) (
 			SharedClientSet:  sharedClient,
 			ServingClientSet: servingClient,
 			ConfigMapWatcher: configMapWatcher,
-			Logger:           TestLogger(t),
+			Logger:           logtesting.TestLogger(t),
 			StopChannel:      stopCh,
 			Recorder:         record.NewFakeRecorder(1000),
 		},

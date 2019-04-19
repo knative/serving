@@ -22,7 +22,10 @@ import (
 
 	"github.com/knative/pkg/apis"
 	"github.com/knative/serving/pkg/apis/serving"
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/util/validation"
+
+	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 )
 
 // Validate validates the fields belonging to Service
@@ -30,7 +33,38 @@ func (s *Service) Validate(ctx context.Context) *apis.FieldError {
 	errs := serving.ValidateObjectMetadata(s.GetObjectMeta()).ViaField("metadata")
 	ctx = apis.WithinParent(ctx, s.ObjectMeta)
 	errs = errs.Also(s.Spec.Validate(apis.WithinSpec(ctx)).ViaField("spec"))
+
+	if apis.IsInUpdate(ctx) {
+		original := apis.GetBaseline(ctx).(*Service)
+
+		field, currentConfig := s.Spec.getConfigurationSpec()
+		_, originalConfig := original.Spec.getConfigurationSpec()
+
+		if currentConfig != nil && originalConfig != nil {
+			err := currentConfig.GetTemplate().VerifyNameChange(ctx,
+				originalConfig.GetTemplate())
+			errs = errs.Also(err.ViaField(
+				// TODO(#3816): revisionTemplate -> field
+				"spec", field, "configuration", "revisionTemplate"))
+		}
+	}
+
 	return errs
+}
+
+func (ss *ServiceSpec) getConfigurationSpec() (string, *ConfigurationSpec) {
+	switch {
+	case ss.RunLatest != nil:
+		return "runLatest", &ss.RunLatest.Configuration
+	case ss.Release != nil:
+		return "release", &ss.Release.Configuration
+	case ss.Manual != nil:
+		return "", nil
+	case ss.DeprecatedPinned != nil:
+		return "pinned", &ss.DeprecatedPinned.Configuration
+	default:
+		return "", nil
+	}
 }
 
 // Validate validates the fields belonging to ServiceSpec recursively
@@ -63,10 +97,31 @@ func (ss *ServiceSpec) Validate(ctx context.Context) *apis.FieldError {
 		errs = errs.Also(ss.DeprecatedPinned.Validate(ctx).ViaField("pinned"))
 	}
 
+	// Before checking ConfigurationSpec, check RouteSpec.
+	if len(set) > 0 && len(ss.RouteSpec.Traffic) > 0 {
+		errs = errs.Also(apis.ErrMultipleOneOf(
+			append([]string{"traffic"}, set...)...))
+	}
+
+	if !equality.Semantic.DeepEqual(ss.ConfigurationSpec, ConfigurationSpec{}) {
+		set = append(set, "template")
+
+		// Disallow the use of deprecated fields within our inlined
+		// Configuration and Route specs.
+		ctx = apis.DisallowDeprecated(ctx)
+
+		errs = errs.Also(ss.ConfigurationSpec.Validate(ctx))
+		errs = errs.Also(ss.RouteSpec.Validate(
+			// Within the context of Service, the RouteSpec has a default
+			// configurationName.
+			v1beta1.WithDefaultConfigurationName(ctx)))
+	}
+
 	if len(set) > 1 {
 		errs = errs.Also(apis.ErrMultipleOneOf(set...))
 	} else if len(set) == 0 {
-		errs = errs.Also(apis.ErrMissingOneOf("runLatest", "release", "manual", "pinned"))
+		errs = errs.Also(apis.ErrMissingOneOf("runLatest", "release", "manual",
+			"pinned", "template"))
 	}
 	return errs
 }
@@ -95,7 +150,6 @@ func (rt *ReleaseType) Validate(ctx context.Context) *apis.FieldError {
 	var errs *apis.FieldError
 
 	numRevisions := len(rt.Revisions)
-
 	if numRevisions == 0 {
 		errs = errs.Also(apis.ErrMissingField("revisions"))
 	}
@@ -109,7 +163,8 @@ func (rt *ReleaseType) Validate(ctx context.Context) *apis.FieldError {
 		}
 		if msgs := validation.IsDNS1035Label(r); len(msgs) > 0 {
 			errs = errs.Also(apis.ErrInvalidArrayValue(
-				fmt.Sprintf("not a DNS 1035 label: %v", msgs), "revisions", i))
+				fmt.Sprintf("not a DNS 1035 label: %v", msgs),
+				"revisions", i))
 		}
 	}
 
@@ -118,7 +173,9 @@ func (rt *ReleaseType) Validate(ctx context.Context) *apis.FieldError {
 	}
 
 	if rt.RolloutPercent < 0 || rt.RolloutPercent > 99 {
-		errs = errs.Also(apis.ErrOutOfBoundsValue(rt.RolloutPercent, 0, 99, "rolloutPercent"))
+		errs = errs.Also(apis.ErrOutOfBoundsValue(
+			rt.RolloutPercent, 0, 99,
+			"rolloutPercent"))
 	}
 
 	return errs.Also(rt.Configuration.Validate(ctx).ViaField("configuration"))

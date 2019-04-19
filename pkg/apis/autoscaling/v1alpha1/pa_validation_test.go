@@ -27,6 +27,7 @@ import (
 	"github.com/knative/pkg/apis"
 	"github.com/knative/serving/pkg/apis/autoscaling"
 	net "github.com/knative/serving/pkg/apis/networking"
+	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 	autoscalingv1 "k8s.io/api/autoscaling/v1"
 )
 
@@ -109,7 +110,8 @@ func TestPodAutoscalerSpecValidation(t *testing.T) {
 				Name:       "bar",
 			},
 		},
-		want: apis.ErrInvalidValue(-1, "containerConcurrency"),
+		want: apis.ErrOutOfBoundsValue(-1, 0,
+			v1beta1.RevisionContainerConcurrencyMax, "containerConcurrency"),
 	}, {
 		name: "multi invalid, bad concurrency and missing ref kind",
 		rs: &PodAutoscalerSpec{
@@ -120,7 +122,8 @@ func TestPodAutoscalerSpecValidation(t *testing.T) {
 				Name:       "bar",
 			},
 		},
-		want: apis.ErrInvalidValue(-2, "containerConcurrency").Also(
+		want: apis.ErrOutOfBoundsValue(-2, 0,
+			v1beta1.RevisionContainerConcurrencyMax, "containerConcurrency").Also(
 			apis.ErrMissingField("scaleTargetRef.kind")),
 	}}
 
@@ -244,7 +247,8 @@ func TestPodAutoscalerValidation(t *testing.T) {
 				},
 			},
 		},
-		want: apis.ErrInvalidValue(-1, "spec.containerConcurrency"),
+		want: apis.ErrOutOfBoundsValue(-1, 0,
+			v1beta1.RevisionContainerConcurrencyMax, "spec.containerConcurrency"),
 	}}
 
 	for _, test := range tests {
@@ -355,8 +359,8 @@ func TestImmutableFields(t *testing.T) {
 			Message: "Immutable fields changed (-old +new)",
 			Paths:   []string{"spec"},
 			Details: `{v1alpha1.PodAutoscalerSpec}.ContainerConcurrency:
-	-: v1alpha1.RevisionContainerConcurrencyType(1)
-	+: v1alpha1.RevisionContainerConcurrencyType(0)
+	-: "1"
+	+: "0"
 `,
 		},
 	}, {
@@ -393,8 +397,8 @@ func TestImmutableFields(t *testing.T) {
 			Message: "Immutable fields changed (-old +new)",
 			Paths:   []string{"spec"},
 			Details: `{v1alpha1.PodAutoscalerSpec}.ContainerConcurrency:
-	-: v1alpha1.RevisionContainerConcurrencyType(1)
-	+: v1alpha1.RevisionContainerConcurrencyType(0)
+	-: "1"
+	+: "0"
 `,
 		},
 	}, {
@@ -430,8 +434,8 @@ func TestImmutableFields(t *testing.T) {
 			Message: "Immutable fields changed (-old +new)",
 			Paths:   []string{"spec"},
 			Details: `{v1alpha1.PodAutoscalerSpec}.ContainerConcurrency:
-	-: v1alpha1.RevisionContainerConcurrencyType(1)
-	+: v1alpha1.RevisionContainerConcurrencyType(0)
+	-: "1"
+	+: "0"
 {v1alpha1.PodAutoscalerSpec}.ScaleTargetRef.Name:
 	-: "baz"
 	+: "bar"

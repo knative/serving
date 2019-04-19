@@ -341,7 +341,7 @@ func getNextRevisionName(clients *test.Clients, names test.ResourceNames) (strin
 func updateConfigWithEnvVars(clients *test.Clients, names test.ResourceNames, ev []corev1.EnvVar) error {
 	patches := []jsonpatch.JsonPatchOperation{{
 		Operation: "add",
-		Path:      "/spec/revisionTemplate/spec/container/env",
+		Path:      "/spec/template/spec/containers/0/env",
 		Value:     ev,
 	}}
 	patchBytes, err := json.Marshal(patches)

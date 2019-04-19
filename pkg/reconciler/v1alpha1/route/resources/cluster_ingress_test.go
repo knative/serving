@@ -26,10 +26,13 @@ import (
 	netv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/traffic"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
+
+const ns = "test-ns"
 
 func TestMakeClusterIngress_CorrectMetadata(t *testing.T) {
 	targets := map[string]traffic.RevisionTargets{}
@@ -65,22 +68,25 @@ func TestMakeClusterIngress_CorrectMetadata(t *testing.T) {
 func TestMakeClusterIngressSpec_CorrectRules(t *testing.T) {
 	targets := map[string]traffic.RevisionTargets{
 		traffic.DefaultTarget: {{
-			TrafficTarget: v1alpha1.TrafficTarget{
+			TrafficTarget: v1beta1.TrafficTarget{
 				ConfigurationName: "config",
 				RevisionName:      "v2",
 				Percent:           100,
 			},
-			Active: true,
+			ServiceName: "gilberto",
+			Active:      true,
 		}},
 		"v1": {{
-			TrafficTarget: v1alpha1.TrafficTarget{
+			TrafficTarget: v1beta1.TrafficTarget{
 				ConfigurationName: "config",
 				RevisionName:      "v1",
 				Percent:           100,
 			},
-			Active: true,
+			ServiceName: "jobim",
+			Active:      true,
 		}},
 	}
+
 	r := &v1alpha1.Route{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-route",
@@ -92,6 +98,7 @@ func TestMakeClusterIngressSpec_CorrectRules(t *testing.T) {
 			},
 		},
 	}
+
 	expected := []netv1alpha1.ClusterIngressRule{{
 		Hosts: []string{
 			"domain.com",
@@ -102,11 +109,15 @@ func TestMakeClusterIngressSpec_CorrectRules(t *testing.T) {
 				Splits: []netv1alpha1.ClusterIngressBackendSplit{{
 					ClusterIngressBackend: netv1alpha1.ClusterIngressBackend{
 						ServiceNamespace: "test-ns",
-						ServiceName:      "v2-service",
+						ServiceName:      "gilberto",
 						ServicePort:      intstr.FromInt(80),
 					},
 					Percent: 100,
 				}},
+				AppendHeaders: map[string]string{
+					"knative-serving-revision":  "v2",
+					"knative-serving-namespace": "test-ns",
+				},
 			}},
 		},
 	}, {
@@ -116,14 +127,19 @@ func TestMakeClusterIngressSpec_CorrectRules(t *testing.T) {
 				Splits: []netv1alpha1.ClusterIngressBackendSplit{{
 					ClusterIngressBackend: netv1alpha1.ClusterIngressBackend{
 						ServiceNamespace: "test-ns",
-						ServiceName:      "v1-service",
+						ServiceName:      "jobim",
 						ServicePort:      intstr.FromInt(80),
 					},
 					Percent: 100,
 				}},
+				AppendHeaders: map[string]string{
+					"knative-serving-revision":  "v1",
+					"knative-serving-namespace": "test-ns",
+				},
 			}},
 		},
 	}}
+
 	rules := makeClusterIngressSpec(r, targets).Rules
 	if diff := cmp.Diff(expected, rules); diff != "" {
 		t.Errorf("Unexpected rules (-want, +got): %v", diff)
@@ -237,15 +253,15 @@ func TestGetRouteDomains_NamedTarget(t *testing.T) {
 // One active target.
 func TestMakeClusterIngressRule_Vanilla(t *testing.T) {
 	targets := []traffic.RevisionTarget{{
-		TrafficTarget: v1alpha1.TrafficTarget{
+		TrafficTarget: v1beta1.TrafficTarget{
 			ConfigurationName: "config",
 			RevisionName:      "revision",
 			Percent:           100,
 		},
-		Active: true,
+		ServiceName: "chocolate",
+		Active:      true,
 	}}
 	domains := []string{"a.com", "b.org"}
-	const ns = "test-ns"
 	rule := makeClusterIngressRule(domains, ns, targets)
 	expected := netv1alpha1.ClusterIngressRule{
 		Hosts: []string{
@@ -257,11 +273,15 @@ func TestMakeClusterIngressRule_Vanilla(t *testing.T) {
 				Splits: []netv1alpha1.ClusterIngressBackendSplit{{
 					ClusterIngressBackend: netv1alpha1.ClusterIngressBackend{
 						ServiceNamespace: "test-ns",
-						ServiceName:      "revision-service",
+						ServiceName:      "chocolate",
 						ServicePort:      intstr.FromInt(80),
 					},
 					Percent: 100,
 				}},
+				AppendHeaders: map[string]string{
+					"knative-serving-revision":  "revision",
+					"knative-serving-namespace": "test-ns",
+				},
 			}},
 		},
 	}
@@ -274,14 +294,15 @@ func TestMakeClusterIngressRule_Vanilla(t *testing.T) {
 // One active target and a target of zero percent.
 func TestMakeClusterIngressRule_ZeroPercentTarget(t *testing.T) {
 	targets := []traffic.RevisionTarget{{
-		TrafficTarget: v1alpha1.TrafficTarget{
+		TrafficTarget: v1beta1.TrafficTarget{
 			ConfigurationName: "config",
 			RevisionName:      "revision",
 			Percent:           100,
 		},
-		Active: true,
+		ServiceName: "active-target",
+		Active:      true,
 	}, {
-		TrafficTarget: v1alpha1.TrafficTarget{
+		TrafficTarget: v1beta1.TrafficTarget{
 			ConfigurationName: "new-config",
 			RevisionName:      "new-revision",
 			Percent:           0,
@@ -298,11 +319,15 @@ func TestMakeClusterIngressRule_ZeroPercentTarget(t *testing.T) {
 				Splits: []netv1alpha1.ClusterIngressBackendSplit{{
 					ClusterIngressBackend: netv1alpha1.ClusterIngressBackend{
 						ServiceNamespace: "test-ns",
-						ServiceName:      "revision-service",
+						ServiceName:      "active-target",
 						ServicePort:      intstr.FromInt(80),
 					},
 					Percent: 100,
 				}},
+				AppendHeaders: map[string]string{
+					"knative-serving-revision":  "revision",
+					"knative-serving-namespace": "test-ns",
+				},
 			}},
 		},
 	}
@@ -315,22 +340,23 @@ func TestMakeClusterIngressRule_ZeroPercentTarget(t *testing.T) {
 // Two active targets.
 func TestMakeClusterIngressRule_TwoTargets(t *testing.T) {
 	targets := []traffic.RevisionTarget{{
-		TrafficTarget: v1alpha1.TrafficTarget{
+		TrafficTarget: v1beta1.TrafficTarget{
 			ConfigurationName: "config",
 			RevisionName:      "revision",
 			Percent:           80,
 		},
-		Active: true,
+		ServiceName: "nigh",
+		Active:      true,
 	}, {
-		TrafficTarget: v1alpha1.TrafficTarget{
+		TrafficTarget: v1beta1.TrafficTarget{
 			ConfigurationName: "new-config",
 			RevisionName:      "new-revision",
 			Percent:           20,
 		},
-		Active: true,
+		ServiceName: "death",
+		Active:      true,
 	}}
 	domains := []string{"test.org"}
-	const ns = "test-ns"
 	rule := makeClusterIngressRule(domains, ns, targets)
 	expected := netv1alpha1.ClusterIngressRule{
 		Hosts: []string{"test.org"},
@@ -339,18 +365,22 @@ func TestMakeClusterIngressRule_TwoTargets(t *testing.T) {
 				Splits: []netv1alpha1.ClusterIngressBackendSplit{{
 					ClusterIngressBackend: netv1alpha1.ClusterIngressBackend{
 						ServiceNamespace: "test-ns",
-						ServiceName:      "revision-service",
+						ServiceName:      "nigh",
 						ServicePort:      intstr.FromInt(80),
 					},
 					Percent: 80,
 				}, {
 					ClusterIngressBackend: netv1alpha1.ClusterIngressBackend{
 						ServiceNamespace: "test-ns",
-						ServiceName:      "new-revision-service",
+						ServiceName:      "death",
 						ServicePort:      intstr.FromInt(80),
 					},
 					Percent: 20,
 				}},
+				AppendHeaders: map[string]string{
+					"knative-serving-revision":  "revision",
+					"knative-serving-namespace": "test-ns",
+				},
 			}},
 		},
 	}
@@ -363,7 +393,7 @@ func TestMakeClusterIngressRule_TwoTargets(t *testing.T) {
 // Inactive target.
 func TestMakeClusterIngressRule_InactiveTarget(t *testing.T) {
 	targets := []traffic.RevisionTarget{{
-		TrafficTarget: v1alpha1.TrafficTarget{
+		TrafficTarget: v1beta1.TrafficTarget{
 			ConfigurationName: "config",
 			RevisionName:      "revision",
 			Percent:           100,
@@ -371,7 +401,6 @@ func TestMakeClusterIngressRule_InactiveTarget(t *testing.T) {
 		Active: false,
 	}}
 	domains := []string{"a.com", "b.org"}
-	const ns = "test-ns"
 	rule := makeClusterIngressRule(domains, ns, targets)
 	expected := netv1alpha1.ClusterIngressRule{
 		Hosts: []string{
@@ -403,14 +432,14 @@ func TestMakeClusterIngressRule_InactiveTarget(t *testing.T) {
 // Two inactive targets.
 func TestMakeClusterIngressRule_TwoInactiveTargets(t *testing.T) {
 	targets := []traffic.RevisionTarget{{
-		TrafficTarget: v1alpha1.TrafficTarget{
+		TrafficTarget: v1beta1.TrafficTarget{
 			ConfigurationName: "config",
 			RevisionName:      "revision",
 			Percent:           80,
 		},
 		Active: false,
 	}, {
-		TrafficTarget: v1alpha1.TrafficTarget{
+		TrafficTarget: v1beta1.TrafficTarget{
 			ConfigurationName: "new-config",
 			RevisionName:      "new-revision",
 			Percent:           20,
@@ -418,7 +447,6 @@ func TestMakeClusterIngressRule_TwoInactiveTargets(t *testing.T) {
 		Active: false,
 	}}
 	domains := []string{"a.com", "b.org"}
-	const ns = "test-ns"
 	rule := makeClusterIngressRule(domains, ns, targets)
 	expected := netv1alpha1.ClusterIngressRule{
 		Hosts: []string{
@@ -433,7 +461,14 @@ func TestMakeClusterIngressRule_TwoInactiveTargets(t *testing.T) {
 						ServiceName:      "activator-service",
 						ServicePort:      intstr.FromInt(80),
 					},
-					Percent: 100,
+					Percent: 80,
+				}, {
+					ClusterIngressBackend: netv1alpha1.ClusterIngressBackend{
+						ServiceNamespace: system.Namespace(),
+						ServiceName:      "activator-service",
+						ServicePort:      intstr.FromInt(80),
+					},
+					Percent: 20,
 				}},
 				AppendHeaders: map[string]string{
 					"knative-serving-revision":  "revision",
@@ -449,22 +484,23 @@ func TestMakeClusterIngressRule_TwoInactiveTargets(t *testing.T) {
 
 func TestMakeClusterIngressRule_ZeroPercentTargetInactive(t *testing.T) {
 	targets := []traffic.RevisionTarget{{
-		TrafficTarget: v1alpha1.TrafficTarget{
+		TrafficTarget: v1beta1.TrafficTarget{
 			ConfigurationName: "config",
 			RevisionName:      "revision",
 			Percent:           100,
 		},
-		Active: true,
+		ServiceName: "apathy-sets-in",
+		Active:      true,
 	}, {
-		TrafficTarget: v1alpha1.TrafficTarget{
+		TrafficTarget: v1beta1.TrafficTarget{
 			ConfigurationName: "new-config",
 			RevisionName:      "new-revision",
 			Percent:           0,
 		},
+		// TODO(vagababov): when we have active handoff, service will be here.
 		Active: false,
 	}}
 	domains := []string{"test.org"}
-	const ns = "test-ns"
 	rule := makeClusterIngressRule(domains, ns, targets)
 	expected := netv1alpha1.ClusterIngressRule{
 		Hosts: []string{"test.org"},
@@ -473,11 +509,15 @@ func TestMakeClusterIngressRule_ZeroPercentTargetInactive(t *testing.T) {
 				Splits: []netv1alpha1.ClusterIngressBackendSplit{{
 					ClusterIngressBackend: netv1alpha1.ClusterIngressBackend{
 						ServiceNamespace: "test-ns",
-						ServiceName:      "revision-service",
+						ServiceName:      "apathy-sets-in",
 						ServicePort:      intstr.FromInt(80),
 					},
 					Percent: 100,
 				}},
+				AppendHeaders: map[string]string{
+					"knative-serving-revision":  "revision",
+					"knative-serving-namespace": "test-ns",
+				},
 			}},
 		},
 	}

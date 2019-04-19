@@ -29,21 +29,21 @@ import (
 	"github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving"
 	servingv1alpha1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	"github.com/knative/serving/pkg/reconciler"
+	"github.com/knative/serving/pkg/network"
 	revisionresources "github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/resources/names"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/traffic"
-	"github.com/knative/serving/pkg/utils"
+	"github.com/knative/serving/pkg/resources"
 )
 
 func isClusterLocal(r *servingv1alpha1.Route) bool {
-	return strings.HasSuffix(r.Status.Domain, utils.GetClusterDomainName())
+	return strings.HasSuffix(r.Status.Domain, network.GetClusterDomainName())
 }
 
 // MakeClusterIngress creates ClusterIngress to set up routing rules. Such ClusterIngress specifies
 // which Hosts that it applies to, as well as the routing rules.
 func MakeClusterIngress(r *servingv1alpha1.Route, tc *traffic.Config, ingressClass string) *v1alpha1.ClusterIngress {
-	ci := &v1alpha1.ClusterIngress{
+	return &v1alpha1.ClusterIngress{
 		ObjectMeta: metav1.ObjectMeta{
 			// As ClusterIngress resource is cluster-scoped,
 			// here we use GenerateName to avoid conflict.
@@ -52,16 +52,12 @@ func MakeClusterIngress(r *servingv1alpha1.Route, tc *traffic.Config, ingressCla
 				serving.RouteLabelKey:          r.Name,
 				serving.RouteNamespaceLabelKey: r.Namespace,
 			},
-			Annotations: r.ObjectMeta.Annotations,
+			Annotations: resources.UnionMaps(map[string]string{
+				networking.IngressClassAnnotationKey: ingressClass,
+			}, r.ObjectMeta.Annotations),
 		},
 		Spec: makeClusterIngressSpec(r, tc.Targets),
 	}
-	// Set the ingress class annotation.
-	if ci.ObjectMeta.Annotations == nil {
-		ci.ObjectMeta.Annotations = make(map[string]string)
-	}
-	ci.ObjectMeta.Annotations[networking.IngressClassAnnotationKey] = ingressClass
-	return ci
 }
 
 func makeClusterIngressSpec(r *servingv1alpha1.Route, targets map[string]traffic.RevisionTargets) v1alpha1.IngressSpec {
@@ -80,20 +76,20 @@ func makeClusterIngressSpec(r *servingv1alpha1.Route, targets map[string]traffic
 		rules = append(rules, *makeClusterIngressRule(
 			routeDomains(name, r), r.Namespace, targets[name]))
 	}
-	spec := v1alpha1.IngressSpec{
-		Rules:      rules,
-		Visibility: v1alpha1.IngressVisibilityExternalIP,
-	}
+
+	visibility := v1alpha1.IngressVisibilityExternalIP
 	if isClusterLocal(r) {
-		spec.Visibility = v1alpha1.IngressVisibilityClusterLocal
+		visibility = v1alpha1.IngressVisibilityClusterLocal
 	}
-	return spec
+
+	return v1alpha1.IngressSpec{
+		Rules:      rules,
+		Visibility: visibility,
+	}
 }
 
 func routeDomains(targetName string, r *servingv1alpha1.Route) []string {
-
-	domains := []string{traffic.SubrouteDomain(targetName, r.Status.Domain)}
-
+	domains := []string{traffic.TagDomain(targetName, r.Status.Domain)}
 	if targetName == traffic.DefaultTarget {
 		// The default target is also referred to by its internal K8s
 		// generated domain name.
@@ -108,57 +104,76 @@ func routeDomains(targetName string, r *servingv1alpha1.Route) []string {
 }
 
 func makeClusterIngressRule(domains []string, ns string, targets traffic.RevisionTargets) *v1alpha1.ClusterIngressRule {
-	active, inactive := targets.GroupTargets()
-	// Optimistically allocate |active| elements.
-	splits := make([]v1alpha1.ClusterIngressBackendSplit, 0, len(active))
-	for _, t := range active {
+	// Optimistically allocate |targets| elements.
+	splits := make([]v1alpha1.ClusterIngressBackendSplit, 0, len(targets))
+	for _, t := range targets {
+		if t.Percent == 0 {
+			continue
+		}
+
+		name := t.ServiceName
+		namespace := ns
+		port := intstr.FromInt(int(revisionresources.ServicePort))
+		if !t.Active {
+			name = activator.K8sServiceName
+			namespace = system.Namespace()
+			port = intstr.FromInt(int(activator.ServicePort(t.Protocol)))
+		}
+
 		splits = append(splits, v1alpha1.ClusterIngressBackendSplit{
 			ClusterIngressBackend: v1alpha1.ClusterIngressBackend{
-				ServiceNamespace: ns,
-				ServiceName:      reconciler.GetServingK8SServiceNameForObj(t.TrafficTarget.RevisionName),
-				ServicePort:      intstr.FromInt(int(revisionresources.ServicePort)),
+				ServiceNamespace: namespace,
+				ServiceName:      name,
+				ServicePort:      port,
 			},
 			Percent: t.Percent,
+			// TODO(nghia): Append headers per-split.
+			// AppendHeaders: map[string]string{
+			// 	activator.RevisionHeaderName:      t.TrafficTarget.RevisionName,
+			// 	activator.RevisionHeaderNamespace: ns,
+			// },
 		})
 	}
-	path := &v1alpha1.HTTPClusterIngressPath{
-		Splits: splits,
-		// TODO(lichuqiang): #2201, plumbing to config timeout and retries.
-	}
+
 	return &v1alpha1.ClusterIngressRule{
 		Hosts: domains,
 		HTTP: &v1alpha1.HTTPClusterIngressRuleValue{
-			Paths: []v1alpha1.HTTPClusterIngressPath{
-				*addInactive(path, ns, inactive),
-			},
+			Paths: []v1alpha1.HTTPClusterIngressPath{{
+				Splits: splits,
+				// TODO(lichuqiang): #2201, plumbing to config timeout and retries.
+				AppendHeaders: map[string]string{
+					activator.RevisionHeaderName:      maxInactive(targets),
+					activator.RevisionHeaderNamespace: ns,
+				},
+			}},
 		},
 	}
 }
 
-// addInactive constructs Splits for the inactive targets, and add into given IngressPath.
-func addInactive(r *v1alpha1.HTTPClusterIngressPath, ns string, inactive traffic.RevisionTargets) *v1alpha1.HTTPClusterIngressPath {
-	if len(inactive) == 0 {
-		return r
-	}
-	totalInactivePercent := 0
-	maxInactiveTarget := &inactive[0]
-	for i, t := range inactive {
-		totalInactivePercent += t.Percent
-		if t.Percent >= maxInactiveTarget.Percent {
-			maxInactiveTarget = &inactive[i]
+// maxInactive constructs Splits for the inactive targets, and add into given IngressPath.
+func maxInactive(targets traffic.RevisionTargets) string {
+	revisionName, inactiveRevisionName := "", ""
+	maxTargetPercent := 0         // There must be a non-zero target if things add to 100
+	maxInactiveTargetPercent := 0 // There must be a non-zero target if things add to 100
+
+	for _, t := range targets {
+		if t.Percent == 0 {
+			continue
+		}
+		if t.Percent >= maxTargetPercent {
+			revisionName = t.RevisionName
+			maxTargetPercent = t.Percent
+		}
+		if t.Active {
+			continue
+		}
+		if t.Percent >= maxInactiveTargetPercent {
+			inactiveRevisionName = t.RevisionName
+			maxInactiveTargetPercent = t.Percent
 		}
 	}
-	r.Splits = append(r.Splits, v1alpha1.ClusterIngressBackendSplit{
-		ClusterIngressBackend: v1alpha1.ClusterIngressBackend{
-			ServiceNamespace: system.Namespace(),
-			ServiceName:      activator.K8sServiceName,
-			ServicePort:      intstr.FromInt(int(activator.ServicePort(maxInactiveTarget.Protocol))),
-		},
-		Percent: totalInactivePercent,
-	})
-	r.AppendHeaders = map[string]string{
-		activator.RevisionHeaderName:      maxInactiveTarget.RevisionName,
-		activator.RevisionHeaderNamespace: ns,
+	if inactiveRevisionName != "" {
+		return inactiveRevisionName
 	}
-	return r
+	return revisionName
 }

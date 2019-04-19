@@ -22,14 +22,15 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 
-	. "github.com/knative/pkg/logging/testing"
+	logtesting "github.com/knative/pkg/logging/testing"
 	"github.com/knative/serving/pkg/gc"
-	. "github.com/knative/serving/pkg/reconciler/testing"
+
+	. "github.com/knative/pkg/configmap/testing"
 )
 
 func TestStoreLoadWithContext(t *testing.T) {
-	defer ClearAll()
-	store := NewStore(TestLogger(t))
+	defer logtesting.ClearAll()
+	store := NewStore(logtesting.TestLogger(t))
 
 	gcConfig := ConfigMapFromTestFile(t, "config-gc")
 

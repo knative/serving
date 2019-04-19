@@ -38,9 +38,10 @@ var (
 
 func TestMakeService(t *testing.T) {
 	tests := []struct {
-		name string
-		sks  *v1alpha1.ServerlessService
-		want *corev1.Service
+		name     string
+		sks      *v1alpha1.ServerlessService
+		selector map[string]string
+		want     *corev1.Service
 	}{{
 		name: "HTTP",
 		sks: &v1alpha1.ServerlessService{
@@ -56,10 +57,10 @@ func TestMakeService(t *testing.T) {
 			},
 			Spec: v1alpha1.ServerlessServiceSpec{
 				ProtocolType: networking.ProtocolHTTP1,
-				Selector: map[string]string{
-					"app": "sadness",
-				},
 			},
+		},
+		selector: map[string]string{
+			"app": "sadness",
 		},
 		want: &corev1.Service{
 			ObjectMeta: metav1.ObjectMeta{
@@ -109,10 +110,10 @@ func TestMakeService(t *testing.T) {
 			},
 			Spec: v1alpha1.ServerlessServiceSpec{
 				ProtocolType: networking.ProtocolH2C,
-				Selector: map[string]string{
-					"app": "today",
-				},
 			},
+		},
+		selector: map[string]string{
+			"app": "today",
 		},
 		want: &corev1.Service{
 			ObjectMeta: metav1.ObjectMeta{
@@ -155,11 +156,11 @@ func TestMakeService(t *testing.T) {
 				t.Errorf("Public K8s Service mismatch (-want, +got) = %v", diff)
 			}
 			// Now let's patch selector.
-			test.want.Spec.Selector = test.sks.Spec.Selector
-			test.want.Name = names.PrivateService(test.sks)
+			test.want.Spec.Selector = test.selector
+			test.want.Name = names.PrivateService(test.sks.Name)
 			test.want.Labels[networking.ServiceTypeKey] = "Private"
 
-			got = MakePrivateService(test.sks)
+			got = MakePrivateService(test.sks, test.selector)
 			if diff := cmp.Diff(test.want, got); diff != "" {
 				t.Errorf("Private K8s Service mismatch (-want, +got) = %v", diff)
 			}
@@ -191,9 +192,6 @@ func TestMakeEndpoints(t *testing.T) {
 			},
 			Spec: v1alpha1.ServerlessServiceSpec{
 				ProtocolType: networking.ProtocolHTTP1,
-				Selector: map[string]string{
-					"app": "sadness",
-				},
 			},
 		},
 		eps: &corev1.Endpoints{},
@@ -239,9 +237,6 @@ func TestMakeEndpoints(t *testing.T) {
 			},
 			Spec: v1alpha1.ServerlessServiceSpec{
 				ProtocolType: networking.ProtocolHTTP1,
-				Selector: map[string]string{
-					"app": "sadness",
-				},
 			},
 		},
 		eps: &corev1.Endpoints{

@@ -28,15 +28,14 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 
 	cachinginformers "github.com/knative/caching/pkg/client/informers/externalversions"
-	sharedinformers "github.com/knative/pkg/client/informers/externalversions"
 	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/controller"
+	pkgmetrics "github.com/knative/pkg/metrics"
 	"github.com/knative/pkg/signals"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
 	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/pkg/metrics"
 	"github.com/knative/serving/pkg/reconciler"
-	"github.com/knative/serving/pkg/reconciler/v1alpha1/clusteringress"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/configuration"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/labeler"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision"
@@ -68,7 +67,7 @@ func main() {
 		log.Fatalf("Error parsing logging configuration: %v", err)
 	}
 	logger, atomicLevel := logging.NewLoggerFromConfig(loggingConfig, component)
-	defer logger.Sync()
+	defer flush(logger)
 
 	// Set up signals so we handle the first shutdown signal gracefully.
 	stopCh := signals.SetupSignalHandler()
@@ -78,13 +77,12 @@ func main() {
 		logger.Fatalw("Error building kubeconfig", zap.Error(err))
 	}
 
-	const numControllers = 7
+	const numControllers = 6
 	cfg.QPS = numControllers * rest.DefaultQPS
 	cfg.Burst = numControllers * rest.DefaultBurst
 	opt := reconciler.NewOptionsOrDie(cfg, logger, stopCh)
 
 	kubeInformerFactory := kubeinformers.NewSharedInformerFactory(opt.KubeClientSet, opt.ResyncPeriod)
-	sharedInformerFactory := sharedinformers.NewSharedInformerFactory(opt.SharedClientSet, opt.ResyncPeriod)
 	servingInformerFactory := informers.NewSharedInformerFactory(opt.ServingClientSet, opt.ResyncPeriod)
 	cachingInformerFactory := cachinginformers.NewSharedInformerFactory(opt.CachingClientSet, opt.ResyncPeriod)
 	buildInformerFactory := revision.KResourceTypedInformerFactory(opt)
@@ -100,8 +98,6 @@ func main() {
 	coreServiceInformer := kubeInformerFactory.Core().V1().Services()
 	endpointsInformer := kubeInformerFactory.Core().V1().Endpoints()
 	configMapInformer := kubeInformerFactory.Core().V1().ConfigMaps()
-	virtualServiceInformer := sharedInformerFactory.Networking().V1alpha3().VirtualServices()
-	gatewayInformer := sharedInformerFactory.Networking().V1alpha3().Gateways()
 	imageInformer := cachingInformerFactory.Caching().V1alpha1().Images()
 
 	// Build all of our controllers, with the clients constructed above.
@@ -141,13 +137,8 @@ func main() {
 			opt,
 			serviceInformer,
 			configurationInformer,
+			revisionInformer,
 			routeInformer,
-		),
-		clusteringress.NewController(
-			opt,
-			clusterIngressInformer,
-			virtualServiceInformer,
-			gatewayInformer,
 		),
 		serverlessservice.NewController(
 			opt,
@@ -184,7 +175,6 @@ func main() {
 		routeInformer.Informer(),
 		serviceInformer.Informer(),
 		sksInformer.Informer(),
-		virtualServiceInformer.Informer(),
 	); err != nil {
 		logger.Fatalf("Failed to start informers: %v", err)
 	}
@@ -193,4 +183,9 @@ func main() {
 	logger.Info("Starting controllers.")
 	go controller.StartAll(stopCh, controllers...)
 	<-stopCh
+}
+
+func flush(logger *zap.SugaredLogger) {
+	logger.Sync()
+	pkgmetrics.FlushExporter()
 }

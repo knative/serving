@@ -28,6 +28,7 @@ import (
 	_ "github.com/knative/pkg/system/testing"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 	"github.com/knative/serving/pkg/autoscaler"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/config"
 	"go.uber.org/zap/zapcore"
@@ -55,8 +56,10 @@ func TestMakeQueueContainer(t *testing.T) {
 				UID:       "1234",
 			},
 			Spec: v1alpha1.RevisionSpec{
-				ContainerConcurrency: 1,
-				TimeoutSeconds:       ptr.Int64(45),
+				RevisionSpec: v1beta1.RevisionSpec{
+					ContainerConcurrency: 1,
+					TimeoutSeconds:       ptr.Int64(45),
+				},
 			},
 		},
 		lc: &logging.Config{},
@@ -137,8 +140,10 @@ func TestMakeQueueContainer(t *testing.T) {
 				UID:       "1234",
 			},
 			Spec: v1alpha1.RevisionSpec{
-				ContainerConcurrency: 1,
-				TimeoutSeconds:       ptr.Int64(45),
+				RevisionSpec: v1beta1.RevisionSpec{
+					ContainerConcurrency: 1,
+					TimeoutSeconds:       ptr.Int64(45),
+				},
 			},
 		},
 		lc: &logging.Config{},
@@ -225,8 +230,10 @@ func TestMakeQueueContainer(t *testing.T) {
 				},
 			},
 			Spec: v1alpha1.RevisionSpec{
-				ContainerConcurrency: 1,
-				TimeoutSeconds:       ptr.Int64(45),
+				RevisionSpec: v1beta1.RevisionSpec{
+					ContainerConcurrency: 1,
+					TimeoutSeconds:       ptr.Int64(45),
+				},
 			},
 		},
 		lc: &logging.Config{},
@@ -316,8 +323,10 @@ func TestMakeQueueContainer(t *testing.T) {
 				}},
 			},
 			Spec: v1alpha1.RevisionSpec{
-				ContainerConcurrency: 0,
-				TimeoutSeconds:       ptr.Int64(45),
+				RevisionSpec: v1beta1.RevisionSpec{
+					ContainerConcurrency: 0,
+					TimeoutSeconds:       ptr.Int64(45),
+				},
 			},
 		},
 		lc: &logging.Config{},
@@ -398,8 +407,10 @@ func TestMakeQueueContainer(t *testing.T) {
 				UID:       "1234",
 			},
 			Spec: v1alpha1.RevisionSpec{
-				ContainerConcurrency: 0,
-				TimeoutSeconds:       ptr.Int64(45),
+				RevisionSpec: v1beta1.RevisionSpec{
+					ContainerConcurrency: 0,
+					TimeoutSeconds:       ptr.Int64(45),
+				},
 			},
 		},
 		lc: &logging.Config{
@@ -485,8 +496,10 @@ func TestMakeQueueContainer(t *testing.T) {
 				UID:       "1234",
 			},
 			Spec: v1alpha1.RevisionSpec{
-				ContainerConcurrency: 10,
-				TimeoutSeconds:       ptr.Int64(45),
+				RevisionSpec: v1beta1.RevisionSpec{
+					ContainerConcurrency: 10,
+					TimeoutSeconds:       ptr.Int64(45),
+				},
 			},
 		},
 		lc: &logging.Config{},
@@ -567,8 +580,10 @@ func TestMakeQueueContainer(t *testing.T) {
 				UID:       "1234",
 			},
 			Spec: v1alpha1.RevisionSpec{
-				ContainerConcurrency: 0,
-				TimeoutSeconds:       ptr.Int64(45),
+				RevisionSpec: v1beta1.RevisionSpec{
+					ContainerConcurrency: 0,
+					TimeoutSeconds:       ptr.Int64(45),
+				},
 			},
 		},
 		lc: &logging.Config{},
@@ -649,8 +664,10 @@ func TestMakeQueueContainer(t *testing.T) {
 				UID:       "1234",
 			},
 			Spec: v1alpha1.RevisionSpec{
-				ContainerConcurrency: 0,
-				TimeoutSeconds:       ptr.Int64(45),
+				RevisionSpec: v1beta1.RevisionSpec{
+					ContainerConcurrency: 0,
+					TimeoutSeconds:       ptr.Int64(45),
+				},
 			},
 		},
 		lc: &logging.Config{},

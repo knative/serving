@@ -27,6 +27,7 @@ import (
 	ptest "github.com/knative/pkg/test"
 	"github.com/knative/pkg/test/helpers"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 	v1alpha1testing "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -65,13 +66,15 @@ type ResourceObjects struct {
 func Route(names ResourceNames, fopt ...v1alpha1testing.RouteOption) *v1alpha1.Route {
 	route := &v1alpha1.Route{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      names.Route,
+			Name: names.Route,
 		},
 		Spec: v1alpha1.RouteSpec{
 			Traffic: []v1alpha1.TrafficTarget{{
-				Name:              names.TrafficTarget,
-				ConfigurationName: names.Config,
-				Percent:           100,
+				Name: names.TrafficTarget,
+				TrafficTarget: v1beta1.TrafficTarget{
+					ConfigurationName: names.Config,
+					Percent:           100,
+				},
 			}},
 		},
 	}
@@ -88,17 +91,21 @@ func Route(names ResourceNames, fopt ...v1alpha1testing.RouteOption) *v1alpha1.R
 func BlueGreenRoute(names, blue, green ResourceNames) *v1alpha1.Route {
 	return &v1alpha1.Route{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      names.Route,
+			Name: names.Route,
 		},
 		Spec: v1alpha1.RouteSpec{
 			Traffic: []v1alpha1.TrafficTarget{{
-				Name:         blue.TrafficTarget,
-				RevisionName: blue.Revision,
-				Percent:      50,
+				Name: blue.TrafficTarget,
+				TrafficTarget: v1beta1.TrafficTarget{
+					RevisionName: blue.Revision,
+					Percent:      50,
+				},
 			}, {
-				Name:         green.TrafficTarget,
-				RevisionName: green.Revision,
-				Percent:      50,
+				Name: green.TrafficTarget,
+				TrafficTarget: v1beta1.TrafficTarget{
+					RevisionName: green.Revision,
+					Percent:      50,
+				},
 			}},
 		},
 	}
@@ -125,7 +132,9 @@ func ConfigurationSpec(imagePath string, options *Options) *v1alpha1.Configurati
 					Ports:           options.ContainerPorts,
 					SecurityContext: options.SecurityContext,
 				},
-				ContainerConcurrency: v1alpha1.RevisionContainerConcurrencyType(options.ContainerConcurrency),
+				RevisionSpec: v1beta1.RevisionSpec{
+					ContainerConcurrency: v1beta1.RevisionContainerConcurrencyType(options.ContainerConcurrency),
+				},
 			},
 		},
 	}
@@ -146,7 +155,7 @@ func ConfigurationSpec(imagePath string, options *Options) *v1alpha1.Configurati
 func Configuration(names ResourceNames, options *Options, fopt ...v1alpha1testing.ConfigOption) *v1alpha1.Configuration {
 	config := &v1alpha1.Configuration{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      names.Config,
+			Name: names.Config,
 		},
 		Spec: *ConfigurationSpec(ptest.ImagePath(names.Image), options),
 	}
@@ -167,14 +176,18 @@ func Configuration(names ResourceNames, options *Options, fopt ...v1alpha1testin
 func ConfigurationWithBuild(names ResourceNames, build *v1alpha1.RawExtension) *v1alpha1.Configuration {
 	return &v1alpha1.Configuration{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      names.Config,
+			Name: names.Config,
 		},
 		Spec: v1alpha1.ConfigurationSpec{
 			Build: build,
-			RevisionTemplate: &v1alpha1.RevisionTemplateSpec{
+			Template: &v1alpha1.RevisionTemplateSpec{
 				Spec: v1alpha1.RevisionSpec{
-					Container: &corev1.Container{
-						Image: ptest.ImagePath(names.Image),
+					RevisionSpec: v1beta1.RevisionSpec{
+						PodSpec: v1beta1.PodSpec{
+							Containers: []corev1.Container{{
+								Image: ptest.ImagePath(names.Image),
+							}},
+						},
 					},
 				},
 			},

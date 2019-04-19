@@ -34,7 +34,10 @@ func MakeRevision(config *v1alpha1.Configuration, buildRef *corev1.ObjectReferen
 	}
 	// Populate the Namespace and Name.
 	rev.Namespace = config.Namespace
-	rev.GenerateName = config.Name + "-"
+
+	if rev.Name == "" {
+		rev.GenerateName = config.Name + "-"
+	}
 
 	UpdateRevisionLabels(rev, config)
 

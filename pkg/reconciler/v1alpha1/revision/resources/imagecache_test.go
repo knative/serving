@@ -20,13 +20,14 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/knative/pkg/ptr"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	caching "github.com/knative/caching/pkg/apis/caching/v1alpha1"
+	"github.com/knative/pkg/ptr"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 )
 
 func TestMakeImageCache(t *testing.T) {
@@ -47,7 +48,9 @@ func TestMakeImageCache(t *testing.T) {
 				UID: "1234",
 			},
 			Spec: v1alpha1.RevisionSpec{
-				ContainerConcurrency: 1,
+				RevisionSpec: v1beta1.RevisionSpec{
+					ContainerConcurrency: 1,
+				},
 				Container: &corev1.Container{
 					Image: "busybox",
 				},
@@ -90,8 +93,12 @@ func TestMakeImageCache(t *testing.T) {
 				UID:       "1234",
 			},
 			Spec: v1alpha1.RevisionSpec{
-				ContainerConcurrency: 1,
-				ServiceAccountName:   "privilegeless",
+				RevisionSpec: v1beta1.RevisionSpec{
+					ContainerConcurrency: 1,
+					PodSpec: v1beta1.PodSpec{
+						ServiceAccountName: "privilegeless",
+					},
+				},
 				Container: &corev1.Container{
 					Image: "busybox",
 				},

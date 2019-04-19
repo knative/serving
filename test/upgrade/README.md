@@ -33,8 +33,6 @@ To achieve that, we just have three separate build tags:
 1. Run the `preupgrade` tests in this directory.
 1. Install at HEAD (`ko apply -f config/`).
 1. Run the `postupgrade` tests in this directory.
-1. Install the latest release from GitHub.
-1. Run the `postdowngrade` tests in this directory.
 
 ## Tests
 
@@ -51,8 +49,3 @@ Create a RunLatest Service pointing to `image1`, ensure it responds correctly.
 
 Ensure the Service still responds correctly after upgrading. Update it to point
 to `image2`, ensure it responds correctly.
-
-#### postdowngrade
-
-Ensure the Service still responds correctly after downgrading. Update it to
-point back to `image1`, ensure it responds correctly.

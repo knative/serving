@@ -35,6 +35,9 @@ func (cs *ConfigurationSpec) GetTemplate() *RevisionTemplateSpec {
 	if cs.RevisionTemplate != nil {
 		return cs.RevisionTemplate
 	}
+	if cs.Template != nil {
+		return cs.Template
+	}
 	// Should be unreachable post-validation, but here to ease testing.
 	return &RevisionTemplateSpec{}
 }

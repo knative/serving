@@ -25,7 +25,6 @@ import (
 	"github.com/knative/pkg/kmp"
 	"github.com/knative/serving/pkg/apis/autoscaling"
 	"github.com/knative/serving/pkg/apis/serving"
-	servingv1alpha1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	autoscalingv1 "k8s.io/api/autoscaling/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 )
@@ -75,19 +74,16 @@ func (rs *PodAutoscalerSpec) Validate(ctx context.Context) *apis.FieldError {
 	if rs.ServiceName == "" {
 		errs = errs.Also(apis.ErrMissingField("serviceName"))
 	}
-
-	if err := servingv1alpha1.ValidateContainerConcurrency(
-		rs.ContainerConcurrency, ""); err != nil {
-		errs = errs.Also(err)
-	}
-	return errs.Also(validateSKSFields(rs))
+	errs = errs.Also(rs.ContainerConcurrency.Validate(ctx).
+		ViaField("containerConcurrency"))
+	return errs.Also(validateSKSFields(ctx, rs))
 }
 
-func validateSKSFields(rs *PodAutoscalerSpec) *apis.FieldError {
+func validateSKSFields(ctx context.Context, rs *PodAutoscalerSpec) *apis.FieldError {
 	var all *apis.FieldError
 	// TODO(vagababov) stop permitting empty protocol type, once SKS controller is live.
 	if string(rs.ProtocolType) != "" {
-		all = all.Also(rs.ProtocolType.Validate()).ViaField("protocolType")
+		all = all.Also(rs.ProtocolType.Validate(ctx)).ViaField("protocolType")
 	}
 	return all
 }
@@ -144,7 +140,8 @@ func compareSpec(original *PodAutoscaler, current *PodAutoscaler) (string, error
 		},
 		cmp.Ignore(),
 	)
-	return kmp.SafeDiff(original.Spec, current.Spec, opt)
+
+	return kmp.ShortDiff(original.Spec, current.Spec, opt)
 }
 
 func classAnnotationChanged(original *PodAutoscaler, current *PodAutoscaler) (string, string, bool) {

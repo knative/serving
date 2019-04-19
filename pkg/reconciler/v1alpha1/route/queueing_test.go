@@ -22,9 +22,11 @@ import (
 
 	fakesharedclientset "github.com/knative/pkg/client/clientset/versioned/fake"
 	"github.com/knative/pkg/configmap"
+	logtesting "github.com/knative/pkg/logging/testing"
 	"github.com/knative/pkg/system"
 	netv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 	fakeclientset "github.com/knative/serving/pkg/client/clientset/versioned/fake"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
 	"github.com/knative/serving/pkg/gc"
@@ -39,7 +41,7 @@ import (
 	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/tools/record"
 
-	. "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
+	. "github.com/knative/pkg/reconciler/testing"
 )
 
 /* TODO tests:
@@ -51,14 +53,16 @@ import (
 */
 
 func TestNewRouteCallsSyncHandler(t *testing.T) {
-	defer ClearAllLoggers()
+	defer logtesting.ClearAll()
 	// A standalone revision
 	rev := getTestRevision("test-rev")
 	// A route targeting the revision
 	route := getTestRouteWithTrafficTargets(
 		[]v1alpha1.TrafficTarget{{
-			RevisionName: "test-rev",
-			Percent:      100,
+			TrafficTarget: v1beta1.TrafficTarget{
+				RevisionName: "test-rev",
+				Percent:      100,
+			},
 		}},
 	)
 
@@ -100,7 +104,7 @@ func TestNewRouteCallsSyncHandler(t *testing.T) {
 			SharedClientSet:  sharedClient,
 			ServingClientSet: servingClient,
 			ConfigMapWatcher: configMapWatcher,
-			Logger:           TestLogger(t),
+			Logger:           logtesting.TestLogger(t),
 			Recorder:         record.NewFakeRecorder(1000),
 		},
 		servingInformer.Serving().V1alpha1().Routes(),

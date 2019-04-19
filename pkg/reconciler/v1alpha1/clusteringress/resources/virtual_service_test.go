@@ -102,7 +102,13 @@ func TestMakeVirtualServiceSpec_CorrectRoutes(t *testing.T) {
 								ServicePort:      intstr.FromInt(80),
 							},
 							Percent: 100,
+							AppendHeaders: map[string]string{
+								"ugh": "blah",
+							},
 						}},
+						AppendHeaders: map[string]string{
+							"foo": "bar",
+						},
 						Timeout: &metav1.Duration{Duration: networking.DefaultTimeout},
 						Retries: &v1alpha1.HTTPRetry{
 							PerTryTimeout: &metav1.Duration{Duration: networking.DefaultTimeout},
@@ -125,6 +131,9 @@ func TestMakeVirtualServiceSpec_CorrectRoutes(t *testing.T) {
 							},
 							Percent: 100,
 						}},
+						AppendHeaders: map[string]string{
+							"foo": "baz",
+						},
 						Timeout: &metav1.Duration{Duration: networking.DefaultTimeout},
 						Retries: &v1alpha1.HTTPRetry{
 							PerTryTimeout: &metav1.Duration{Duration: networking.DefaultTimeout},
@@ -132,10 +141,10 @@ func TestMakeVirtualServiceSpec_CorrectRoutes(t *testing.T) {
 						},
 					}},
 				},
-			},
-			},
+			}},
 		},
 	}
+
 	expected := []v1alpha3.HTTPRoute{{
 		Match: []v1alpha3.HTTPMatchRequest{{
 			URI:       &istiov1alpha1.StringMatch{Regex: "^/pets/(.*?)?"},
@@ -150,13 +159,30 @@ func TestMakeVirtualServiceSpec_CorrectRoutes(t *testing.T) {
 			URI:       &istiov1alpha1.StringMatch{Regex: "^/pets/(.*?)?"},
 			Authority: &istiov1alpha1.StringMatch{Regex: `^test-route\.test-ns\.svc\.cluster\.local(?::\d{1,5})?$`},
 		}},
-		Route: []v1alpha3.DestinationWeight{{
+		Route: []v1alpha3.HTTPRouteDestination{{
 			Destination: v1alpha3.Destination{
 				Host: "v2-service.test-ns.svc.cluster.local",
 				Port: v1alpha3.PortSelector{Number: 80},
 			},
 			Weight: 100,
+			// Headers: &v1alpha3.Headers{
+			// 	Request: &v1alpha3.HeaderOperations{
+			// 		Add: map[string]string{
+			// 			"ugh": "blah",
+			// 		},
+			// 	},
+			// },
 		}},
+		// Headers: &v1alpha3.Headers{
+		// 	Request: &v1alpha3.HeaderOperations{
+		// 		Add: map[string]string{
+		// 			"foo": "bar",
+		// 		},
+		// 	},
+		// },
+		DeprecatedAppendHeaders: map[string]string{
+			"foo": "bar",
+		},
 		Timeout: networking.DefaultTimeout.String(),
 		Retries: &v1alpha3.HTTPRetry{
 			Attempts:      networking.DefaultRetryCount,
@@ -168,13 +194,23 @@ func TestMakeVirtualServiceSpec_CorrectRoutes(t *testing.T) {
 			URI:       &istiov1alpha1.StringMatch{Regex: "^/pets/(.*?)?"},
 			Authority: &istiov1alpha1.StringMatch{Regex: `^v1\.domain\.com(?::\d{1,5})?$`},
 		}},
-		Route: []v1alpha3.DestinationWeight{{
+		Route: []v1alpha3.HTTPRouteDestination{{
 			Destination: v1alpha3.Destination{
 				Host: "v1-service.test-ns.svc.cluster.local",
 				Port: v1alpha3.PortSelector{Number: 80},
 			},
 			Weight: 100,
 		}},
+		// Headers: &v1alpha3.Headers{
+		// 	Request: &v1alpha3.HeaderOperations{
+		// 		Add: map[string]string{
+		// 			"foo": "baz",
+		// 		},
+		// 	},
+		// },
+		DeprecatedAppendHeaders: map[string]string{
+			"foo": "baz",
+		},
 		Timeout: networking.DefaultTimeout.String(),
 		Retries: &v1alpha3.HTTPRetry{
 			Attempts:      networking.DefaultRetryCount,
@@ -182,6 +218,7 @@ func TestMakeVirtualServiceSpec_CorrectRoutes(t *testing.T) {
 		},
 		WebsocketUpgrade: true,
 	}}
+
 	routes := MakeVirtualService(ci, []string{}).Spec.HTTP
 	if diff := cmp.Diff(expected, routes); diff != "" {
 		t.Errorf("Unexpected routes (-want +got): %v", diff)
@@ -213,7 +250,7 @@ func TestMakeVirtualServiceRoute_Vanilla(t *testing.T) {
 		}, {
 			Authority: &istiov1alpha1.StringMatch{Regex: `^b\.org(?::\d{1,5})?$`},
 		}},
-		Route: []v1alpha3.DestinationWeight{{
+		Route: []v1alpha3.HTTPRouteDestination{{
 			Destination: v1alpha3.Destination{
 				Host: "revision-service.test-ns.svc.cluster.local",
 				Port: v1alpha3.PortSelector{Number: 80},
@@ -262,7 +299,7 @@ func TestMakeVirtualServiceRoute_TwoTargets(t *testing.T) {
 		Match: []v1alpha3.HTTPMatchRequest{{
 			Authority: &istiov1alpha1.StringMatch{Regex: `^test\.org(?::\d{1,5})?$`},
 		}},
-		Route: []v1alpha3.DestinationWeight{{
+		Route: []v1alpha3.HTTPRouteDestination{{
 			Destination: v1alpha3.Destination{
 				Host: "revision-service.test-ns.svc.cluster.local",
 				Port: v1alpha3.PortSelector{Number: 80},

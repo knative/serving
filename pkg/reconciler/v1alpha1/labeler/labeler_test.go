@@ -27,10 +27,14 @@ import (
 
 	"github.com/knative/pkg/controller"
 	"github.com/knative/pkg/kmeta"
+	logtesting "github.com/knative/pkg/logging/testing"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 	fakeclientset "github.com/knative/serving/pkg/client/clientset/versioned/fake"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
 	"github.com/knative/serving/pkg/reconciler"
+
+	. "github.com/knative/pkg/reconciler/testing"
 	. "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
 )
 
@@ -129,7 +133,7 @@ func TestReconcile(t *testing.T) {
 		Key: "default/delete-label-failure",
 	}}
 
-	defer ClearAllLoggers()
+	defer logtesting.ClearAll()
 	table.Test(t, MakeFactory(func(listers *Listers, opt reconciler.Options) controller.Reconciler {
 		return &Reconciler{
 			Base:                reconciler.NewBase(opt, controllerAgentName),
@@ -156,8 +160,10 @@ func routeWithTraffic(namespace, name string, traffic ...v1alpha1.TrafficTarget)
 
 func simpleRunLatest(namespace, name, config string) *v1alpha1.Route {
 	return routeWithTraffic(namespace, name, v1alpha1.TrafficTarget{
-		RevisionName: config + "-00001",
-		Percent:      100,
+		TrafficTarget: v1beta1.TrafficTarget{
+			RevisionName: config + "-dbnfd",
+			Percent:      100,
+		},
 	})
 }
 
@@ -178,8 +184,8 @@ func simpleConfig(namespace, name string) *v1alpha1.Configuration {
 		},
 	}
 	cfg.Status.InitializeConditions()
-	cfg.Status.SetLatestCreatedRevisionName(name + "-00001")
-	cfg.Status.SetLatestReadyRevisionName(name + "-00001")
+	cfg.Status.SetLatestCreatedRevisionName(name + "-dbnfd")
+	cfg.Status.SetLatestReadyRevisionName(name + "-dbnfd")
 	return cfg
 }
 
@@ -217,7 +223,7 @@ func patchAddLabel(namespace, name, key, value, version string) clientgotesting.
 }
 
 func TestNew(t *testing.T) {
-	defer ClearAllLoggers()
+	defer logtesting.ClearAll()
 	kubeClient := fakekubeclientset.NewSimpleClientset()
 	servingClient := fakeclientset.NewSimpleClientset()
 	servingInformer := informers.NewSharedInformerFactory(servingClient, 0)
@@ -229,7 +235,7 @@ func TestNew(t *testing.T) {
 	c := NewRouteToConfigurationController(reconciler.Options{
 		KubeClientSet:    kubeClient,
 		ServingClientSet: servingClient,
-		Logger:           TestLogger(t),
+		Logger:           logtesting.TestLogger(t),
 	}, routeInformer, configurationInformer, revisionInformer)
 
 	if c == nil {

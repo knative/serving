@@ -42,7 +42,6 @@ import (
 	"github.com/knative/serving/pkg/queue"
 	"github.com/knative/serving/pkg/queue/health"
 	queuestats "github.com/knative/serving/pkg/queue/stats"
-	"github.com/knative/serving/pkg/utils"
 
 	"k8s.io/apimachinery/pkg/util/wait"
 )
@@ -74,11 +73,8 @@ var (
 	servingNamespace       string
 	servingRevision        string
 	servingRevisionKey     string
-	servingAutoscaler      string
 	servingPodIP           string
 	servingPodName         string
-	autoscalerNamespace    string
-	servingAutoscalerPort  int
 	userTargetPort         int
 	userTargetAddress      string
 	containerConcurrency   int
@@ -100,11 +96,8 @@ func initEnv() {
 	servingConfig = util.GetRequiredEnvOrFatal("SERVING_CONFIGURATION", logger)
 	servingNamespace = util.GetRequiredEnvOrFatal("SERVING_NAMESPACE", logger)
 	servingRevision = util.GetRequiredEnvOrFatal("SERVING_REVISION", logger)
-	servingAutoscaler = util.GetRequiredEnvOrFatal("SERVING_AUTOSCALER", logger)
 	servingPodIP = util.GetRequiredEnvOrFatal("SERVING_POD_IP", logger)
 	servingPodName = util.GetRequiredEnvOrFatal("SERVING_POD", logger)
-	autoscalerNamespace = util.GetRequiredEnvOrFatal("SYSTEM_NAMESPACE", logger)
-	servingAutoscalerPort = util.MustParseIntEnvOrFatal("SERVING_AUTOSCALER_PORT", logger)
 	containerConcurrency = util.MustParseIntEnvOrFatal("CONTAINER_CONCURRENCY", logger)
 	revisionTimeoutSeconds = util.MustParseIntEnvOrFatal("REVISION_TIMEOUT_SECONDS", logger)
 	userTargetPort = util.MustParseIntEnvOrFatal("USER_PORT", logger)
@@ -248,7 +241,7 @@ func main() {
 		if queueDepth < 10 {
 			queueDepth = 10
 		}
-		params := queue.BreakerParams{QueueDepth: int32(queueDepth), MaxConcurrency: int32(containerConcurrency), InitialCapacity: int32(containerConcurrency)}
+		params := queue.BreakerParams{QueueDepth: queueDepth, MaxConcurrency: containerConcurrency, InitialCapacity: containerConcurrency}
 		breaker = queue.NewBreaker(params)
 		logger.Infof("Queue container is starting with %#v", params)
 	}
@@ -337,7 +330,7 @@ func pushRequestLogHandler(currentHandler http.Handler) http.Handler {
 		PodName:       servingPodName,
 		PodIP:         servingPodIP,
 	}
-	handler, err := queue.NewRequestLogHandler(currentHandler, utils.NewSyncFileWriter(os.Stdout), templ, revInfo)
+	handler, err := queue.NewRequestLogHandler(currentHandler, logging.NewSyncFileWriter(os.Stdout), templ, revInfo)
 
 	if err != nil {
 		logger.Errorw("Error setting up request logger. Request logs will be unavailable.", zap.Error(err))
@@ -391,4 +384,5 @@ func flush(logger *zap.SugaredLogger) {
 	logger.Sync()
 	os.Stdout.Sync()
 	os.Stderr.Sync()
+	metrics.FlushExporter()
 }

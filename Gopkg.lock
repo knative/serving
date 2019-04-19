@@ -269,18 +269,18 @@
   revision = "e89373fe6b4a7413d7acd6da1725b83ef713e6e4"
 
 [[projects]]
-  digest = "1:d2754cafcab0d22c13541618a8029a70a8959eb3525ff201fe971637e2274cd0"
+  digest = "1:010d46ea3c1e730897e53058d1013a963f3f987675dda87df64f891b945281db"
   name = "github.com/google/go-cmp"
   packages = [
     "cmp",
     "cmp/cmpopts",
     "cmp/internal/diff",
+    "cmp/internal/flags",
     "cmp/internal/function",
     "cmp/internal/value",
   ]
   pruneopts = "NUT"
-  revision = "3af367b6b30c263d47e8895973edcca9a49cf029"
-  version = "v0.2.0"
+  revision = "6f77996f0c42f7b84e5a2b252227263f93432e9b"
 
 [[projects]]
   digest = "1:e8023d1263ea9bd67f5a5c2db39f6b51a4301c54d13b7327988d9dde2a7ced15"
@@ -414,7 +414,7 @@
   revision = "dd3ceb3323922b899a0a913f885fcf59943e7b59"
 
 [[projects]]
-  digest = "1:d978804ff9861cf5670d52fc8e4b85f38245fdac88d814952b6c9506b55406ed"
+  digest = "1:34baec0d305f6b4079e8cf7018a4ae606d6e1d31e7b1017ee4fb4bcd2426b7e7"
   name = "github.com/knative/caching"
   packages = [
     "pkg/apis/caching",
@@ -431,10 +431,10 @@
     "pkg/client/listers/caching/v1alpha1",
   ]
   pruneopts = "T"
-  revision = "babf400eeec07acdd0d6864ad28709c2bcee0c82"
+  revision = "afa9ee174c6f2072b12dbb4b3bf64be8ec7bc30b"
 
 [[projects]]
-  digest = "1:1e6036fbaae7d3e91b9dfe277fff0d85de703dcc95f4bbfa642415e8323d6076"
+  digest = "1:9df6ef1d7e65d2b35784af66e25d22ee1a96efe0b26b9e2321c3e58cd4be054a"
   name = "github.com/knative/pkg"
   packages = [
     "apis",
@@ -464,6 +464,7 @@
     "client/listers/authentication/v1alpha1",
     "client/listers/istio/v1alpha3",
     "configmap",
+    "configmap/testing",
     "controller",
     "kmeta",
     "kmp",
@@ -473,6 +474,7 @@
     "metrics",
     "metrics/metricskey",
     "ptr",
+    "reconciler/testing",
     "signals",
     "system",
     "system/testing",
@@ -489,12 +491,11 @@
     "websocket",
   ]
   pruneopts = "NUT"
-  revision = "1af670c81418d71674e90b59aecc60f1502c76f9"
-  source = "github.com/n3wscott/pkg"
+  revision = "3c8c4a93547f62b542013c273068f51875b5c942"
 
 [[projects]]
   branch = "master"
-  digest = "1:aa5b8815a84253b406a87b93097ed8e4a9ace745483425bd6ea9315e3d980985"
+  digest = "1:ad01b9e32abc25aaba8f7b7d9be5abc0d50bf804da30b82af75475af59c0a784"
   name = "github.com/knative/test-infra"
   packages = [
     "scripts",
@@ -513,7 +514,7 @@
     "tools/webhook-apicoverage/webhook",
   ]
   pruneopts = "UT"
-  revision = "c4c17967d1502ca066c7eeb8f17a6f268610b25b"
+  revision = "3a09cd7f5428743509941d116fdee644041a3507"
 
 [[projects]]
   digest = "1:56dbf15e091bf7926cb33a57cb6bdfc658fc6d3498d2f76f10a97ce7856f1fde"
@@ -554,6 +555,22 @@
   pruneopts = "NUT"
   revision = "4b7aa43c6742a2c18fdef89dd197aaae7dac7ccd"
   version = "1.0.1"
+
+[[projects]]
+  digest = "1:5ff10da739fc2c719e3a11454e5794aa226c918cb0286cd3842aa6ae077a82a1"
+  name = "github.com/openzipkin/zipkin-go"
+  packages = [
+    ".",
+    "idgenerator",
+    "model",
+    "propagation",
+    "reporter",
+    "reporter/http",
+    "reporter/recorder",
+  ]
+  pruneopts = "NUT"
+  revision = "bf896b1c622eed731380e8291d9b6c02043de5e8"
+  version = "v0.1.5"
 
 [[projects]]
   branch = "master"
@@ -650,12 +667,13 @@
   version = "v1.0.3"
 
 [[projects]]
-  digest = "1:e65b395598ef96d96c1df34e3fd3ec4dabe629edb1511de33a59efd9931df0e8"
+  digest = "1:76763f300778a3b9baef4872dc9fcc9a7463ba2a5f6b2acaf589cd7f3b392503"
   name = "go.opencensus.io"
   packages = [
     ".",
     "exemplar",
     "exporter/prometheus",
+    "exporter/zipkin",
     "internal",
     "internal/tagencoding",
     "plugin/ocgrpc",
@@ -1330,6 +1348,7 @@
     "github.com/knative/pkg/client/informers/externalversions/istio/v1alpha3",
     "github.com/knative/pkg/client/listers/istio/v1alpha3",
     "github.com/knative/pkg/configmap",
+    "github.com/knative/pkg/configmap/testing",
     "github.com/knative/pkg/controller",
     "github.com/knative/pkg/kmeta",
     "github.com/knative/pkg/kmp",
@@ -1339,6 +1358,7 @@
     "github.com/knative/pkg/metrics",
     "github.com/knative/pkg/metrics/metricskey",
     "github.com/knative/pkg/ptr",
+    "github.com/knative/pkg/reconciler/testing",
     "github.com/knative/pkg/signals",
     "github.com/knative/pkg/system",
     "github.com/knative/pkg/system/testing",
@@ -1364,14 +1384,22 @@
     "github.com/knative/test-infra/tools/webhook-apicoverage/view",
     "github.com/knative/test-infra/tools/webhook-apicoverage/webhook",
     "github.com/mattbaird/jsonpatch",
+    "github.com/openzipkin/zipkin-go",
+    "github.com/openzipkin/zipkin-go/model",
+    "github.com/openzipkin/zipkin-go/reporter",
+    "github.com/openzipkin/zipkin-go/reporter/http",
+    "github.com/openzipkin/zipkin-go/reporter/recorder",
     "github.com/pkg/errors",
     "github.com/prometheus/client_golang/prometheus",
     "github.com/prometheus/client_golang/prometheus/promhttp",
     "github.com/prometheus/client_model/go",
     "github.com/prometheus/common/expfmt",
+    "go.opencensus.io/exporter/zipkin",
+    "go.opencensus.io/plugin/ochttp",
     "go.opencensus.io/stats",
     "go.opencensus.io/stats/view",
     "go.opencensus.io/tag",
+    "go.opencensus.io/trace",
     "go.uber.org/atomic",
     "go.uber.org/zap",
     "go.uber.org/zap/zapcore",

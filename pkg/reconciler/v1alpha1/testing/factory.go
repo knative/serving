@@ -17,9 +17,13 @@ limitations under the License.
 package testing
 
 import (
+	"context"
 	"testing"
 
+	logtesting "github.com/knative/pkg/logging/testing"
 	autoscalingv1 "k8s.io/api/autoscaling/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	fakedynamicclientset "k8s.io/client-go/dynamic/fake"
 	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
@@ -33,6 +37,8 @@ import (
 	"github.com/knative/pkg/controller"
 	fakeclientset "github.com/knative/serving/pkg/client/clientset/versioned/fake"
 	"github.com/knative/serving/pkg/reconciler"
+
+	. "github.com/knative/pkg/reconciler/testing"
 )
 
 const (
@@ -44,19 +50,31 @@ const (
 // Ctor functions create a k8s controller with given params.
 type Ctor func(*Listers, reconciler.Options) controller.Reconciler
 
-// scaleClient returns a fake scale client that will serve a single provided object.
-// Kubernetes does not come currently with a normal fake, as other APIs, so we did this...
-func scaleClient(f ktesting.Fake, objects ...runtime.Object) scale.ScalesGetter {
-	var scaleObj *autoscalingv1.Scale
-	for _, obj := range objects {
-		if so, ok := obj.(*autoscalingv1.Scale); ok {
-			scaleObj = so
-			break
-		}
-	}
-	scaleClient := &fakescaleclient.FakeScaleClient{f}
+// scaleClient returns a Scale fake K8s client, that returns the scale resource
+// defined by the underlying Deployment resource. That deployment resource must
+// exist in the passed in `f` clientset.
+func scaleClient(f *fakekubeclientset.Clientset) scale.ScalesGetter {
+	scaleClient := &fakescaleclient.FakeScaleClient{}
 	scaleClient.PrependReactor("get", "deployments", func(action ktesting.Action) (bool, runtime.Object, error) {
-		return true, scaleObj, nil
+		ga := action.(ktesting.GetAction)
+		d, err := f.AppsV1().Deployments(ga.GetNamespace()).Get(ga.GetName(), metav1.GetOptions{})
+		if err != nil {
+			return true, nil, err
+		}
+		replicas := int32(1)
+		if d.Spec.Replicas != nil {
+			replicas = *d.Spec.Replicas
+		}
+		return true, &autoscalingv1.Scale{
+			ObjectMeta: d.ObjectMeta,
+			Spec: autoscalingv1.ScaleSpec{
+				Replicas: replicas,
+			},
+			Status: autoscalingv1.ScaleStatus{
+				Replicas: d.Status.Replicas,
+				Selector: labels.FormatLabels(d.Spec.Selector.MatchLabels),
+			},
+		}, nil
 	})
 	return scaleClient
 }
@@ -85,10 +103,10 @@ func MakeFactory(ctor Ctor) Factory {
 			DynamicClientSet: dynamicClient,
 			CachingClientSet: cachingClient,
 			ServingClientSet: client,
-			ScaleClientSet:   scaleClient(client.Fake, ls.GetKubeObjects()...),
+			ScaleClientSet:   scaleClient(kubeClient),
 			Recorder:         eventRecorder,
 			StatsReporter:    statsReporter,
-			Logger:           TestLogger(t),
+			Logger:           logtesting.TestLogger(t),
 		})
 
 		for _, reactor := range r.WithReactors {
@@ -100,8 +118,14 @@ func MakeFactory(ctor Ctor) Factory {
 		}
 
 		// Validate all Create operations through the serving client.
-		client.PrependReactor("create", "*", ValidateCreates)
-		client.PrependReactor("update", "*", ValidateUpdates)
+		client.PrependReactor("create", "*", func(action ktesting.Action) (handled bool, ret runtime.Object, err error) {
+			// TODO(n3wscott): context.Background is the best we can do at the moment, but it should be set-able.
+			return ValidateCreates(context.Background(), action)
+		})
+		client.PrependReactor("update", "*", func(action ktesting.Action) (handled bool, ret runtime.Object, err error) {
+			// TODO(n3wscott): context.Background is the best we can do at the moment, but it should be set-able.
+			return ValidateUpdates(context.Background(), action)
+		})
 
 		actionRecorderList := ActionRecorderList{sharedClient, dynamicClient, client, kubeClient, cachingClient}
 		eventList := EventList{Recorder: eventRecorder}

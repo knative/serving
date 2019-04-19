@@ -21,16 +21,17 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	"github.com/knative/pkg/ptr"
 	autoscalingv1 "k8s.io/api/autoscaling/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"github.com/knative/pkg/ptr"
 	kpa "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 )
 
 func TestMakeKPA(t *testing.T) {
@@ -51,7 +52,9 @@ func TestMakeKPA(t *testing.T) {
 				},
 			},
 			Spec: v1alpha1.RevisionSpec{
-				ContainerConcurrency: 1,
+				RevisionSpec: v1beta1.RevisionSpec{
+					ContainerConcurrency: 1,
+				},
 			},
 		},
 		want: &kpa.PodAutoscaler{
@@ -95,7 +98,9 @@ func TestMakeKPA(t *testing.T) {
 				UID:       "4321",
 			},
 			Spec: v1alpha1.RevisionSpec{
-				ContainerConcurrency: 0,
+				RevisionSpec: v1beta1.RevisionSpec{
+					ContainerConcurrency: 0,
+				},
 				Container: &corev1.Container{
 					Ports: []corev1.ContainerPort{{
 						Name:     "h2c",
