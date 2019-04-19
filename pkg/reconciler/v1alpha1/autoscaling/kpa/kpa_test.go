@@ -408,7 +408,8 @@ func TestReconcileAndScaleToZero(t *testing.T) {
 			sks(testNamespace, testRevision, WithDeployRef(deployName), WithProxyMode, WithSKSReady),
 			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector)),
 			deploy(testNamespace, testRevision),
-			makeSKSPrivateEndpoints(1, testNamespace, testRevision),
+			// Should be present, but empty.
+			makeSKSPrivateEndpoints(0, testNamespace, testRevision),
 		},
 	}, {
 		Name: "from serving to proxy",

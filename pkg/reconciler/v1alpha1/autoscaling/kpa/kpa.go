@@ -274,8 +274,6 @@ func (c *Reconciler) reconcile(ctx context.Context, pa *pav1alpha1.PodAutoscaler
 	got := 0
 	// Propagate service name.
 	pa.Status.ServiceName = sks.Status.ServiceName
-	// In proxy mode the endpoints will have > 0, but we don't _want_ these
-	// endpoints to be counted.
 	if sks.Status.IsReady() && sks.Spec.Mode != nv1alpha1.SKSOperationModeProxy {
 		got, err = resourceutil.FetchReadyAddressCount(c.endpointsLister, pa.Namespace, sks.Status.PrivateServiceName)
 		if err != nil {
