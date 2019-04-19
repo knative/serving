@@ -111,9 +111,18 @@ func MakeRoute(service *v1alpha1.Service) (*v1alpha1.Route, error) {
 			},
 		}
 		c.Spec.Traffic = append(c.Spec.Traffic, tt)
-	} else {
+	} else if service.Spec.Manual != nil {
 		// Manual does not have a route and should not reach this path.
 		return nil, errors.New("malformed Service: MakeRoute requires one of runLatest, pinned, or release must be present")
+	} else {
+		c.Spec = *service.Spec.RouteSpec.DeepCopy()
+		// Fill in any missing ConfigurationName fields when translating
+		// from Service to Route.
+		for idx := range c.Spec.Traffic {
+			if c.Spec.Traffic[idx].RevisionName == "" {
+				c.Spec.Traffic[idx].ConfigurationName = names.Configuration(service)
+			}
+		}
 	}
 
 	return c, nil

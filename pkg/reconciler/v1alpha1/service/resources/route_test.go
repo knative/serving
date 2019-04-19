@@ -20,6 +20,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/knative/pkg/ptr"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1beta1"
@@ -335,5 +336,41 @@ func TestRouteManual(t *testing.T) {
 	}
 	if err == nil {
 		t.Error("Expected err got nil")
+	}
+}
+
+func TestInlineRouteSpec(t *testing.T) {
+	s := createServiceInline()
+	testConfigName := names.Configuration(s)
+	r, err := MakeRoute(s)
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+	if got, want := r.Name, testServiceName; got != want {
+		t.Errorf("Expected %q for service name got %q", want, got)
+	}
+	if got, want := r.Namespace, testServiceNamespace; got != want {
+		t.Errorf("Expected %q for service namespace got %q", want, got)
+	}
+	if got, want := len(r.Spec.Traffic), 1; got != want {
+		t.Fatalf("Expected %d traffic targets got %d", want, got)
+	}
+	wantT := []v1alpha1.TrafficTarget{{
+		TrafficTarget: v1beta1.TrafficTarget{
+			Percent:           100,
+			ConfigurationName: testConfigName,
+			LatestRevision:    ptr.Bool(true),
+		},
+	}}
+	if got, want := r.Spec.Traffic, wantT; !cmp.Equal(got, want) {
+		t.Errorf("Traffic mismatch: diff (-got, +want): %s", cmp.Diff(got, want))
+	}
+	expectOwnerReferencesSetCorrectly(t, r.OwnerReferences)
+
+	if got, want := len(r.Labels), 1; got != want {
+		t.Errorf("expected %d labels got %d", want, got)
+	}
+	if got, want := r.Labels[serving.ServiceLabelKey], testServiceName; got != want {
+		t.Errorf("expected %q labels got %q", want, got)
 	}
 }

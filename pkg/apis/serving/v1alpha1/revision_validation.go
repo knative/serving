@@ -125,8 +125,8 @@ func (rs *RevisionSpec) Validate(ctx context.Context) *apis.FieldError {
 		"servingState":     rs.DeprecatedServingState,
 		"concurrencyModel": rs.DeprecatedConcurrencyModel,
 		"buildName":        rs.DeprecatedBuildName,
-		// TODO(mattmoor): "container": rs.Container,
-		// TODO(mattmoor): "buildRef": rs.BuildRef,
+		// TODO(#3816): "container": rs.Container,
+		// TODO(#3816): "buildRef": rs.BuildRef,
 	})
 
 	switch {

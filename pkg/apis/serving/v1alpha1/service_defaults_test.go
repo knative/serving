@@ -36,8 +36,19 @@ func TestServiceDefaulting(t *testing.T) {
 	}{{
 		name: "empty",
 		in:   &Service{},
-		// Do nothing when no type is provided
-		want: &Service{},
+		// When nothing is provided, we still get the "run latest" inline RouteSpec.
+		want: &Service{
+			Spec: ServiceSpec{
+				RouteSpec: RouteSpec{
+					Traffic: []TrafficTarget{{
+						TrafficTarget: v1beta1.TrafficTarget{
+							LatestRevision: ptr.Bool(true),
+							Percent:        100,
+						},
+					}},
+				},
+			},
+		},
 	}, {
 		name: "manual",
 		in: &Service{
@@ -261,6 +272,190 @@ func TestServiceDefaulting(t *testing.T) {
 							},
 						},
 					},
+				},
+			},
+		},
+	}, {
+		name: "inline defaults to run latest",
+		in: &Service{
+			Spec: ServiceSpec{
+				ConfigurationSpec: ConfigurationSpec{
+					RevisionTemplate: &RevisionTemplateSpec{
+						Spec: RevisionSpec{
+							RevisionSpec: v1beta1.RevisionSpec{
+								PodSpec: v1beta1.PodSpec{
+									Containers: []corev1.Container{{
+										Image: "blah",
+									}},
+								},
+							},
+						},
+					},
+				},
+				// No RouteSpec should get defaulted to "run latest"
+			},
+		},
+		want: &Service{
+			Spec: ServiceSpec{
+				ConfigurationSpec: ConfigurationSpec{
+					RevisionTemplate: &RevisionTemplateSpec{
+						Spec: RevisionSpec{
+							RevisionSpec: v1beta1.RevisionSpec{
+								TimeoutSeconds: ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+								PodSpec: v1beta1.PodSpec{
+									Containers: []corev1.Container{{
+										Image:     "blah",
+										Resources: defaultResources,
+									}},
+								},
+							},
+						},
+					},
+				},
+				RouteSpec: RouteSpec{
+					Traffic: []TrafficTarget{{
+						TrafficTarget: v1beta1.TrafficTarget{
+							LatestRevision: ptr.Bool(true),
+							Percent:        100,
+						},
+					}},
+				},
+			},
+		},
+	}, {
+		name: "inline with empty RevisionSpec",
+		in: &Service{
+			Spec: ServiceSpec{
+				ConfigurationSpec: ConfigurationSpec{
+					RevisionTemplate: &RevisionTemplateSpec{},
+				},
+				// No RouteSpec should get defaulted to "run latest"
+			},
+		},
+		want: &Service{
+			Spec: ServiceSpec{
+				ConfigurationSpec: ConfigurationSpec{
+					RevisionTemplate: &RevisionTemplateSpec{
+						Spec: RevisionSpec{
+							RevisionSpec: v1beta1.RevisionSpec{
+								TimeoutSeconds: ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+							},
+							Container: &corev1.Container{
+								Resources: defaultResources,
+							},
+						},
+					},
+				},
+				RouteSpec: RouteSpec{
+					Traffic: []TrafficTarget{{
+						TrafficTarget: v1beta1.TrafficTarget{
+							LatestRevision: ptr.Bool(true),
+							Percent:        100,
+						},
+					}},
+				},
+			},
+		},
+	}, {
+		name: "inline defaults to run latest (non-nil traffic)",
+		in: &Service{
+			Spec: ServiceSpec{
+				ConfigurationSpec: ConfigurationSpec{
+					RevisionTemplate: &RevisionTemplateSpec{
+						Spec: RevisionSpec{
+							RevisionSpec: v1beta1.RevisionSpec{
+								PodSpec: v1beta1.PodSpec{
+									Containers: []corev1.Container{{
+										Image: "blah",
+									}},
+								},
+							},
+						},
+					},
+				},
+				// No RouteSpec should get defaulted to "run latest"
+				RouteSpec: RouteSpec{
+					Traffic: []TrafficTarget{},
+				},
+			},
+		},
+		want: &Service{
+			Spec: ServiceSpec{
+				ConfigurationSpec: ConfigurationSpec{
+					RevisionTemplate: &RevisionTemplateSpec{
+						Spec: RevisionSpec{
+							RevisionSpec: v1beta1.RevisionSpec{
+								TimeoutSeconds: ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+								PodSpec: v1beta1.PodSpec{
+									Containers: []corev1.Container{{
+										Image:     "blah",
+										Resources: defaultResources,
+									}},
+								},
+							},
+						},
+					},
+				},
+				RouteSpec: RouteSpec{
+					Traffic: []TrafficTarget{{
+						TrafficTarget: v1beta1.TrafficTarget{
+							LatestRevision: ptr.Bool(true),
+							Percent:        100,
+						},
+					}},
+				},
+			},
+		},
+	}, {
+		name: "inline with just percent",
+		in: &Service{
+			Spec: ServiceSpec{
+				ConfigurationSpec: ConfigurationSpec{
+					RevisionTemplate: &RevisionTemplateSpec{
+						Spec: RevisionSpec{
+							RevisionSpec: v1beta1.RevisionSpec{
+								PodSpec: v1beta1.PodSpec{
+									Containers: []corev1.Container{{
+										Image: "blah",
+									}},
+								},
+							},
+						},
+					},
+				},
+				RouteSpec: RouteSpec{
+					Traffic: []TrafficTarget{{
+						TrafficTarget: v1beta1.TrafficTarget{
+							Percent: 100,
+						},
+					}},
+				},
+			},
+		},
+		want: &Service{
+			Spec: ServiceSpec{
+				ConfigurationSpec: ConfigurationSpec{
+					RevisionTemplate: &RevisionTemplateSpec{
+						Spec: RevisionSpec{
+							RevisionSpec: v1beta1.RevisionSpec{
+								TimeoutSeconds: ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+								PodSpec: v1beta1.PodSpec{
+									Containers: []corev1.Container{{
+										Image:     "blah",
+										Resources: defaultResources,
+									}},
+								},
+							},
+						},
+					},
+				},
+				RouteSpec: RouteSpec{
+					Traffic: []TrafficTarget{{
+						TrafficTarget: v1beta1.TrafficTarget{
+							LatestRevision: ptr.Bool(true),
+							Percent:        100,
+						},
+					}},
 				},
 			},
 		},

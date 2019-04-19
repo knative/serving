@@ -61,6 +61,12 @@ func (rs *RouteSpec) Validate(ctx context.Context) *apis.FieldError {
 			// No Name field, so skip the uniqueness check.
 			continue
 		}
+
+		// TODO(mattmoor): Deprecate name
+		// errs = errs.Also(CheckDeprecated(ctx, map[string]interface{}{
+		// 	"name": tt.Name,
+		// }).ViaFieldIndex("traffic", i))
+
 		name := tt.Name
 		field := "name"
 		if name == "" {

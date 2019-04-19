@@ -23,7 +23,10 @@ import (
 
 	"github.com/knative/pkg/apis"
 	"github.com/knative/serving/pkg/apis/serving"
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/util/validation"
+
+	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 )
 
 // Validate validates the fields belonging to Service
@@ -42,7 +45,7 @@ func (s *Service) Validate(ctx context.Context) *apis.FieldError {
 			err := currentConfig.GetTemplate().VerifyNameChange(ctx,
 				originalConfig.GetTemplate())
 			errs = errs.Also(err.ViaField(
-				// TODO(mattmoor): revisionTemplate -> field
+				// TODO(#3816): revisionTemplate -> field
 				"spec", field, "configuration", "revisionTemplate"))
 		}
 	}
@@ -93,6 +96,9 @@ func (ss *ServiceSpec) Validate(ctx context.Context) *apis.FieldError {
 	errs := CheckDeprecated(ctx, map[string]interface{}{
 		"generation": ss.DeprecatedGeneration,
 		"pinned":     ss.DeprecatedPinned,
+		// TODO(#3816): "runLatest": ss.RunLatest,
+		// TODO(#3816): "release": ss.Release,
+		// TODO(#3816): "manual": ss.Manual,
 	})
 
 	set := []string{}
@@ -114,10 +120,31 @@ func (ss *ServiceSpec) Validate(ctx context.Context) *apis.FieldError {
 		errs = errs.Also(ss.DeprecatedPinned.Validate(ctx).ViaField("pinned"))
 	}
 
+	// Before checking ConfigurationSpec, check RouteSpec.
+	if len(set) > 0 && len(ss.RouteSpec.Traffic) > 0 {
+		errs = errs.Also(apis.ErrMultipleOneOf(
+			append([]string{"traffic"}, set...)...))
+	}
+
+	if !equality.Semantic.DeepEqual(ss.ConfigurationSpec, ConfigurationSpec{}) {
+		set = append(set, "template")
+
+		// Disallow the use of deprecated fields within our inlined
+		// Configuration and Route specs.
+		ctx = apis.DisallowDeprecated(ctx)
+
+		errs = errs.Also(ss.ConfigurationSpec.Validate(ctx))
+		errs = errs.Also(ss.RouteSpec.Validate(
+			// Within the context of Service, the RouteSpec has a default
+			// configurationName.
+			v1beta1.WithDefaultConfigurationName(ctx)))
+	}
+
 	if len(set) > 1 {
 		errs = errs.Also(apis.ErrMultipleOneOf(set...))
 	} else if len(set) == 0 {
-		errs = errs.Also(apis.ErrMissingOneOf("runLatest", "release", "manual", "pinned"))
+		errs = errs.Also(apis.ErrMissingOneOf("runLatest", "release", "manual",
+			"pinned", "template"))
 	}
 	return errs
 }
