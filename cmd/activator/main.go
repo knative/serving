@@ -29,6 +29,7 @@ import (
 	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/controller"
 	"github.com/knative/pkg/logging/logkey"
+	pkgmetrics "github.com/knative/pkg/metrics"
 	"github.com/knative/pkg/signals"
 	"github.com/knative/pkg/system"
 	"github.com/knative/pkg/version"
@@ -130,7 +131,7 @@ func main() {
 	}
 	createdLogger, atomicLevel := logging.NewLoggerFromConfig(config, component)
 	logger := createdLogger.With(zap.String(logkey.ControllerType, "activator"))
-	defer logger.Sync()
+	defer flush(logger)
 
 	logger.Info("Starting the knative activator")
 
@@ -296,4 +297,9 @@ func main() {
 	<-stopCh
 	http1Srv.Shutdown(context.Background())
 	h2cSrv.Shutdown(context.Background())
+}
+
+func flush(logger *zap.SugaredLogger) {
+	logger.Sync()
+	pkgmetrics.FlushExporter()
 }
