@@ -39,6 +39,7 @@ import (
 	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/controller"
 	"github.com/knative/pkg/kmeta"
+	logtesting "github.com/knative/pkg/logging/testing"
 	"github.com/knative/pkg/system"
 	_ "github.com/knative/pkg/system/testing"
 	"github.com/knative/serving/pkg/apis/networking"
@@ -50,8 +51,10 @@ import (
 	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/clusteringress/config"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/clusteringress/resources"
-	. "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
 	presources "github.com/knative/serving/pkg/resources"
+
+	. "github.com/knative/pkg/reconciler/testing"
+	. "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
 )
 
 const (
@@ -248,7 +251,7 @@ func TestReconcile(t *testing.T) {
 		Key: "reconcile-virtualservice",
 	}}
 
-	defer ClearAllLoggers()
+	defer logtesting.ClearAll()
 	table.Test(t, MakeFactory(func(listers *Listers, opt reconciler.Options) controller.Reconciler {
 		return &Reconciler{
 			Base:                     reconciler.NewBase(opt, controllerAgentName),
@@ -556,7 +559,7 @@ func newTestSetup(t *testing.T, configs ...*corev1.ConfigMap) (
 			SharedClientSet:  sharedClient,
 			ServingClientSet: servingClient,
 			ConfigMapWatcher: configMapWatcher,
-			Logger:           TestLogger(t),
+			Logger:           logtesting.TestLogger(t),
 		},
 		servingInformer.Networking().V1alpha1().ClusterIngresses(),
 		sharedInformer.Networking().V1alpha3().VirtualServices(),
@@ -573,7 +576,7 @@ func newTestSetup(t *testing.T, configs ...*corev1.ConfigMap) (
 }
 
 func TestGlobalResyncOnUpdateGatewayConfigMap(t *testing.T) {
-	defer ClearAllLoggers()
+	defer logtesting.ClearAll()
 	_, _, servingClient, controller, _, _, sharedInformer, servingInformer, watcher := newTestSetup(t)
 
 	stopCh := make(chan struct{})

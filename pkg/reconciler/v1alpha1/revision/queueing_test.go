@@ -51,7 +51,9 @@ import (
 	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/tools/record"
 
-	. "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
+	logtesting "github.com/knative/pkg/logging/testing"
+
+	. "github.com/knative/pkg/reconciler/testing"
 )
 
 type nopResolver struct{}
@@ -167,7 +169,7 @@ func newTestController(t *testing.T, stopCh <-chan struct{}) (
 		DynamicClientSet: dynamicClient,
 		CachingClientSet: cachingClient,
 		ConfigMapWatcher: configMapWatcher,
-		Logger:           TestLogger(t),
+		Logger:           logtesting.TestLogger(t),
 		ResyncPeriod:     0,
 		StopChannel:      stopCh,
 		Recorder:         record.NewFakeRecorder(1000),
