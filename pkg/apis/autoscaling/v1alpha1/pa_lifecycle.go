@@ -84,11 +84,17 @@ func (pas *PodAutoscalerStatus) IsReady() bool {
 	return podCondSet.Manage(pas.duck()).IsHappy()
 }
 
-// IsActivating assumes the pod autoscaler is Activating if it is neither
+// IsActivating returns true if the pod autoscaler is Activating if it is neither
 // Active nor Inactive
 func (pas *PodAutoscalerStatus) IsActivating() bool {
 	cond := pas.GetCondition(PodAutoscalerConditionActive)
 	return cond != nil && cond.Status == corev1.ConditionUnknown
+}
+
+// IsInactive returns true if the pod autoscaler is Inactive.
+func (pas *PodAutoscalerStatus) IsInactive() bool {
+	cond := pas.GetCondition(PodAutoscalerConditionActive)
+	return cond != nil && cond.Status == corev1.ConditionFalse
 }
 
 // GetCondition gets the condition `t`.

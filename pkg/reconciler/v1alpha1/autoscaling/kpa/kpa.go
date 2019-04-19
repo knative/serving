@@ -143,7 +143,7 @@ func NewController(
 	impl := controller.NewImpl(c, c.Logger, "KPA-Class Autoscaling", reconciler.MustNewStatsReporter("KPA-Class Autoscaling", c.Logger))
 
 	c.Logger.Info("Setting up KPA-Class event handlers")
-	// Handler PodAutoscalers missing the class annotation for backward compatibility.
+	// Handle PodAutoscalers missing the class annotation for backward compatibility.
 	onlyKpaClass := reconciler.AnnotationFilterFunc(autoscaling.ClassAnnotationKey, autoscaling.KPA, true)
 	paInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: onlyKpaClass,
@@ -245,6 +245,7 @@ func (c *Reconciler) reconcile(ctx context.Context, pa *pav1alpha1.PodAutoscaler
 	if err := c.reconcileMetricsService(ctx, pa, selector); err != nil {
 		return perrors.Wrap(err, "error reconciling metrics service")
 	}
+
 	sks, err := c.reconcileSKS(ctx, pa)
 	if err != nil {
 		return perrors.Wrap(err, "error reconciling SKS")
@@ -277,15 +278,22 @@ func (c *Reconciler) reconcile(ctx context.Context, pa *pav1alpha1.PodAutoscaler
 		if err != nil {
 			return perrors.Wrapf(err, "error checking endpoints %s", sks.Status.PrivateServiceName)
 		}
-		logger.Infof("PA got=%v, want=%v", got, want)
-
+		logger.Infof("PA scale got=%v, want=%v", got, want)
 	}
+
 	err = reportMetrics(pa, want, got)
 	if err != nil {
 		return perrors.Wrap(err, "error reporting metrics")
 	}
 
-	updatePAStatus(pa, want, got)
+	// computeActiveCondition decides if we need to change the SKS mode,
+	// and returns true if the status has changed.
+	if changed := computeActiveCondition(pa, want, got); changed {
+		_, err := c.reconcileSKS(ctx, pa)
+		if err != nil {
+			return perrors.Wrap(err, "error re-reconciling SKS")
+		}
+	}
 	return nil
 }
 
@@ -317,11 +325,15 @@ func (c *Reconciler) reconcileDecider(ctx context.Context, pa *pav1alpha1.PodAut
 func (c *Reconciler) reconcileSKS(ctx context.Context, pa *pav1alpha1.PodAutoscaler) (*nv1alpha1.ServerlessService, error) {
 	logger := logging.FromContext(ctx)
 
+	mode := nv1alpha1.SKSOperationModeServe
+	if pa.Status.IsInactive() {
+		mode = nv1alpha1.SKSOperationModeProxy
+	}
 	sksName := anames.SKS(pa.Name)
 	sks, err := c.sksLister.ServerlessServices(pa.Namespace).Get(sksName)
 	if errors.IsNotFound(err) {
 		logger.Infof("SKS %s/%s does not exist; creating.", pa.Namespace, sksName)
-		sks = aresources.MakeSKS(pa, nv1alpha1.SKSOperationModeServe)
+		sks = aresources.MakeSKS(pa, mode)
 		_, err = c.ServingClientSet.NetworkingV1alpha1().ServerlessServices(sks.Namespace).Create(sks)
 		if err != nil {
 			return nil, perrors.Wrapf(err, "error creating SKS %s", sksName)
@@ -333,7 +345,7 @@ func (c *Reconciler) reconcileSKS(ctx context.Context, pa *pav1alpha1.PodAutosca
 		pa.Status.MarkResourceNotOwned("ServerlessService", sksName)
 		return nil, fmt.Errorf("KPA: %s does not own SKS: %s", pa.Name, sksName)
 	}
-	tmpl := aresources.MakeSKS(pa, nv1alpha1.SKSOperationModeServe)
+	tmpl := aresources.MakeSKS(pa, mode)
 	if !equality.Semantic.DeepEqual(tmpl.Spec, sks.Spec) {
 		want := sks.DeepCopy()
 		want.Spec = tmpl.Spec
@@ -424,20 +436,26 @@ func reportMetrics(pa *pav1alpha1.PodAutoscaler, want int32, got int) error {
 	return nil
 }
 
-func updatePAStatus(pa *pav1alpha1.PodAutoscaler, want int32, got int) {
+// computeActiveCondition updates the status of PA, depending on scales desired and present.
+// computeActiveCondition returns true if it thinks SKS needs an update.
+func computeActiveCondition(pa *pav1alpha1.PodAutoscaler, want int32, got int) (ret bool) {
 	switch {
 	case want == 0:
+		ret = !pa.Status.IsInactive() // Any state but inactive should change SKS.
 		pa.Status.MarkInactive("NoTraffic", "The target is not receiving traffic.")
 
 	case got == 0 && want != 0:
+		ret = pa.Status.IsInactive() // If we were inactive and became activating.
 		pa.Status.MarkActivating(
 			"Queued", "Requests to the target are being buffered as resources are provisioned.")
 
 	case got > 0:
+		// SKS should already be active.
 		pa.Status.MarkActive()
 	}
 
 	pa.Status.ObservedGeneration = pa.Generation
+	return
 }
 
 func (c *Reconciler) updateStatus(desired *pav1alpha1.PodAutoscaler) (*pav1alpha1.PodAutoscaler, error) {

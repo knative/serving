@@ -591,6 +591,9 @@ func TestTypicalFlow(t *testing.T) {
 	// When we stop seeing traffic, mark outselves inactive.
 	r.MarkInactive("TheReason", "the message")
 	apitest.CheckConditionFailed(r.duck(), PodAutoscalerConditionActive, t)
+	if !r.IsInactive() {
+		t.Errorf("IsInactive was not set.")
+	}
 	apitest.CheckConditionFailed(r.duck(), PodAutoscalerConditionReady, t)
 
 	// When traffic hits the activator and we scale up the deployment we mark
