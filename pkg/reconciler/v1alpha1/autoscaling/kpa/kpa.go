@@ -286,8 +286,9 @@ func (c *Reconciler) reconcile(ctx context.Context, pa *pav1alpha1.PodAutoscaler
 		return perrors.Wrap(err, "error reporting metrics")
 	}
 
-	// computeActiveCondition decides if we need to change the SKS mode.
-	if computeActiveCondition(pa, want, got) {
+	// computeActiveCondition decides if we need to change the SKS mode,
+	// and returns true if the status has changed.
+	if changed := computeActiveCondition(pa, want, got); changed {
 		_, err := c.reconcileSKS(ctx, pa)
 		if err != nil {
 			return perrors.Wrap(err, "error re-reconciling SKS")
