@@ -18,10 +18,10 @@ metadata:
   name: configuration-example
   namespace: default
 spec:
-  revisionTemplate:
+  template:
     spec:
-      container:
-        # This is the Go import path for the binary to containerize
+      containers:
+      - # This is the Go import path for the binary to containerize
         # and substitute here.
         image: github.com/knative/serving/test/test_images/helloworld
         readinessProbe:
