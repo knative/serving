@@ -364,6 +364,12 @@ func kpa(ns, n string, opts ...PodAutoscalerOption) *asv1a1.PodAutoscaler {
 	return kpa
 }
 
+func withConcurrency(n int) PodAutoscalerOption {
+	return func(pa *asv1a1.PodAutoscaler) {
+		pa.Spec.ContainerConcurrency = v1alpha1.RevisionContainerConcurrencyType(n)
+	}
+}
+
 func markResourceNotOwned(rType, name string) PodAutoscalerOption {
 	return func(pa *asv1a1.PodAutoscaler) {
 		pa.Status.MarkResourceNotOwned(rType, name)
@@ -388,20 +394,20 @@ func TestReconcile(t *testing.T) {
 	// two constant objects above, which means, that all tests must share
 	// the same namespace and revision name.
 	table := TableTest{{
-		Name:                    "bad workqueue key, Part I",
-		Key:                     "too/many/parts",
+		Name: "bad workqueue key, Part I",
+		Key:  "too/many/parts",
 		SkipNamespaceValidation: true,
 	}, {
-		Name:                    "bad workqueue key, Part II",
-		Key:                     "too-few-parts",
+		Name: "bad workqueue key, Part II",
+		Key:  "too-few-parts",
 		SkipNamespaceValidation: true,
 	}, {
-		Name:                    "key not found",
-		Key:                     "foo/not-found",
+		Name: "key not found",
+		Key:  "foo/not-found",
 		SkipNamespaceValidation: true,
 	}, {
-		Name:                    "key not found",
-		Key:                     "foo/not-found",
+		Name: "key not found",
+		Key:  "foo/not-found",
 		SkipNamespaceValidation: true,
 	}, {
 		Name: "steady state",
@@ -415,10 +421,22 @@ func TestReconcile(t *testing.T) {
 			makeSKSPrivateEndpoints(1, testNamespace, testRevision),
 		},
 	}, {
+		Name: "steady state, pa inactive",
+		Key:  key,
+		Objects: []runtime.Object{
+			kpa(testNamespace, testRevision, WithNoTraffic("NoTraffic", "The target is not receiving traffic."),
+				WithPAStatusService(testRevision+"-pub")),
+			sks(testNamespace, testRevision, WithProxyMode, WithDeployRef(deployName), WithSKSReady),
+			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector)),
+			deploy(testNamespace, testRevision),
+			makeSKSPrivateEndpoints(1, testNamespace, testRevision),
+		},
+	}, {
 		Name: "sks is still not ready",
 		Key:  key,
 		Objects: []runtime.Object{
-			kpa(testNamespace, testRevision, markActive, WithPAStatusService(testRevision+"-pub")),
+			kpa(testNamespace, testRevision, WithTraffic,
+				WithPAStatusService(testRevision+"-pub")),
 			sks(testNamespace, testRevision, WithDeployRef(deployName), WithPubService, WithPrivateService),
 			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector)),
 			deploy(testNamespace, testRevision),
@@ -472,6 +490,26 @@ func TestReconcile(t *testing.T) {
 		}},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: sks(testNamespace, testRevision, WithPubService,
+				WithDeployRef(deployName)),
+		}},
+	}, {
+		Name: "pa goes inactive",
+		Key:  key,
+		Objects: []runtime.Object{
+			kpa(testNamespace, testRevision,
+				WithNoTraffic("NoTraffic", "The target is not receiving traffic.")),
+			sks(testNamespace, testRevision, WithDeployRef(deployName),
+				WithPubService),
+			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector)),
+			deploy(testNamespace, testRevision),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: kpa(testNamespace, testRevision,
+				WithNoTraffic("NoTraffic", "The target is not receiving traffic."),
+				WithPAStatusService(testRevision+"-pub")),
+		}},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: sks(testNamespace, testRevision, WithPubService, WithProxyMode,
 				WithDeployRef(deployName)),
 		}},
 	}, {

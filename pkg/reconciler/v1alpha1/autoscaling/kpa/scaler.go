@@ -135,6 +135,7 @@ func isPAOwnedByRevision(ctx context.Context, pa *pav1alpha1.PodAutoscaler) bool
 }
 
 func (ks *scaler) handleScaleToZero(pa *pav1alpha1.PodAutoscaler, desiredScale int32) (int32, bool) {
+	ks.logger.Warnf("### Scaling to %d for %s", desiredScale, pa.Name)
 	if desiredScale == 0 {
 		// We should only scale to zero when three of the following conditions are true:
 		//   a) enable-scale-to-zero from configmap is true
@@ -162,8 +163,10 @@ func (ks *scaler) handleScaleToZero(pa *pav1alpha1.PodAutoscaler, desiredScale i
 		} else { // Active=False
 			// Don't scale-to-zero if the grace period hasn't elapsed.
 			if !pa.Status.CanScaleToZero(config.ScaleToZeroGracePeriod) {
+				ks.logger.Warnf("### inactive, can't scale to 0 %d for %s", desiredScale, pa.Name)
 				return desiredScale, false
 			}
+			ks.logger.Warnf("### inactive, and CAN scale to 0 %d for %s", desiredScale, pa.Name)
 		}
 	}
 	return desiredScale, true
@@ -230,5 +233,6 @@ func (ks *scaler) Scale(ctx context.Context, pa *pav1alpha1.PodAutoscaler, desir
 
 	logger.Infof("Scaling from %d to %d", currentScale, desiredScale)
 
+	logger.Warnf("### Scaling from %d to %d", currentScale, desiredScale)
 	return ks.applyScale(ctx, pa, desiredScale, resource, scl)
 }
