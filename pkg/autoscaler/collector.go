@@ -82,7 +82,7 @@ func (c *MetricCollector) Get(ctx context.Context, namespace, name string) (*Met
 	key := NewMetricKey(namespace, name)
 	collector, ok := c.collections[key]
 	if !ok {
-		return nil, k8serrors.NewNotFound(kpa.Resource("Deciders"), key)
+		return nil, k8serrors.NewNotFound(kpa.Resource("Metrics"), key)
 	}
 
 	return collector.metric.DeepCopy(), nil

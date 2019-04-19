@@ -20,11 +20,11 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/knative/pkg/ptr"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
+	"github.com/knative/pkg/ptr"
 	"github.com/knative/serving/pkg/apis/autoscaling"
 	"github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/serving"
@@ -91,9 +91,9 @@ func TestMakeK8sService(t *testing.T) {
 			},
 			Spec: v1alpha1.RevisionSpec{
 				Container: &corev1.Container{
-					Ports: []corev1.ContainerPort{
-						{Name: "h2c"},
-					},
+					Ports: []corev1.ContainerPort{{
+						Name: "h2c",
+					}},
 				},
 			},
 		},

@@ -19,6 +19,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/knative/serving/pkg/network"
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
 )
@@ -46,11 +47,10 @@ var DefaultTransport http.RoundTripper = &http2.Transport{
 	AllowHTTP: true,
 	DialTLS: func(netw, addr string, cfg *tls.Config) (net.Conn, error) {
 		d := &net.Dialer{
-			Timeout:   30 * time.Second,
+			Timeout:   network.DefaultConnTimeout,
 			KeepAlive: 30 * time.Second,
 			DualStack: true,
 		}
-
 		return d.Dial(netw, addr)
 	},
 }

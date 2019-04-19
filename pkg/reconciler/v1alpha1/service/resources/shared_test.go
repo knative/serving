@@ -25,6 +25,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 	. "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
 )
 
@@ -36,6 +37,7 @@ const (
 	testContainerNameRunLatest = "test-container-run-latest"
 	testContainerNamePinned    = "test-container-pinned"
 	testContainerNameRelease   = "test-container-release"
+	testContainerNameInline    = "test-container-inline"
 	testLabelKey               = "test-label-key"
 	testLabelValuePinned       = "test-label-value-pinned"
 	testLabelValueRunLatest    = "test-label-value-run-latest"
@@ -72,8 +74,16 @@ func createConfiguration(containerName string) v1alpha1.ConfigurationSpec {
 	}
 }
 
-func createServiceMeta() *v1alpha1.Service {
-	return Service(testServiceName, testServiceNamespace)
+func createServiceInline() *v1alpha1.Service {
+	return Service(testServiceName, testServiceNamespace,
+		WithInlineConfigSpec(createConfiguration(testContainerNameInline)),
+		WithInlineRouteSpec(v1alpha1.RouteSpec{
+			Traffic: []v1alpha1.TrafficTarget{{
+				TrafficTarget: v1beta1.TrafficTarget{
+					Percent: 100,
+				},
+			}},
+		}))
 }
 
 func createServiceWithRunLatest() *v1alpha1.Service {

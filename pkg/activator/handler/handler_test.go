@@ -34,6 +34,7 @@ import (
 	nv1a1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 	"github.com/knative/serving/pkg/network"
 	"github.com/knative/serving/pkg/queue"
 
@@ -67,7 +68,12 @@ func stubRevisionGetter(revID activator.RevisionID) (*v1alpha1.Revision, error) 
 				serving.ServiceLabelKey:       "service-" + revID.Name,
 			},
 		},
-		Spec: v1alpha1.RevisionSpec{ContainerConcurrency: 1}}
+		Spec: v1alpha1.RevisionSpec{
+			RevisionSpec: v1beta1.RevisionSpec{
+				ContainerConcurrency: 1,
+			},
+		},
+	}
 	return revision, nil
 }
 
@@ -87,6 +93,24 @@ func stubSKSGetter(namespace, name string) (*nv1a1.ServerlessService, error) {
 			ServiceName:        helpers.AppendRandomString(name),
 		},
 	}, nil
+}
+
+func erroringServiceGetter(string, string) (*corev1.Service, error) {
+	return nil, errors.New("wish this call succeeded")
+}
+
+func incorrectServiceGetter(namespace, name string) (*corev1.Service, error) {
+	return &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: namespace,
+			Name:      name,
+		},
+		Spec: corev1.ServiceSpec{
+			Ports: []corev1.ServicePort{{
+				Name: "julio",
+				Port: 8080,
+			}},
+		}}, nil
 }
 
 func stubServiceGetter(namespace, name string) (*corev1.Service, error) {
@@ -131,6 +155,7 @@ func TestActivationHandler(t *testing.T) {
 		gpc             int
 		endpointsGetter activator.EndpointsCountGetter
 		sksGetter       activator.SKSGetter
+		svcGetter       activator.ServiceGetter
 		reporterCalls   []reporterCall
 	}{{
 		label:           "active endpoint",
@@ -330,6 +355,26 @@ func TestActivationHandler(t *testing.T) {
 		sksGetter:       sksErrorGetter,
 		reporterCalls:   nil,
 	}, {
+		label:           "k8s svc incorrectly spec'd",
+		namespace:       testNamespace,
+		name:            testRevName,
+		wantBody:        errMsg("revision needs external HTTP port"),
+		wantCode:        http.StatusInternalServerError,
+		wantErr:         nil,
+		endpointsGetter: goodEndpointsGetter,
+		svcGetter:       incorrectServiceGetter,
+		reporterCalls:   nil,
+	}, {
+		label:           "broken get k8s svc",
+		namespace:       testNamespace,
+		name:            testRevName,
+		wantBody:        errMsg("wish this call succeeded"),
+		wantCode:        http.StatusInternalServerError,
+		wantErr:         nil,
+		endpointsGetter: goodEndpointsGetter,
+		svcGetter:       erroringServiceGetter,
+		reporterCalls:   nil,
+	}, {
 		label:           "broken GetEndpoints",
 		namespace:       testNamespace,
 		name:            testRevName,
@@ -389,6 +434,9 @@ func TestActivationHandler(t *testing.T) {
 			}
 			if test.sksGetter != nil {
 				handler.GetSKS = test.sksGetter
+			}
+			if test.svcGetter != nil {
+				handler.GetService = test.svcGetter
 			}
 
 			resp := httptest.NewRecorder()
@@ -548,6 +596,7 @@ func getHandler(throttler *activator.Throttler, lockerCh chan struct{}, t *testi
 
 		return fake.Result(), nil
 	})
+
 	handler := ActivationHandler{
 		Transport:   rt,
 		Logger:      TestLogger(t),

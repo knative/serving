@@ -33,6 +33,7 @@ import (
 	autoscalingv1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 	"github.com/knative/serving/pkg/autoscaler"
 	fakeclientset "github.com/knative/serving/pkg/client/clientset/versioned/fake"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
@@ -50,7 +51,9 @@ import (
 	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/tools/record"
 
-	. "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
+	logtesting "github.com/knative/pkg/logging/testing"
+
+	. "github.com/knative/pkg/reconciler/testing"
 )
 
 type nopResolver struct{}
@@ -113,7 +116,10 @@ func testRevision() *v1alpha1.Revision {
 				},
 				TerminationMessagePath: "/dev/null",
 			},
-			TimeoutSeconds: ptr.Int64(60),
+			DeprecatedConcurrencyModel: v1alpha1.RevisionRequestConcurrencyModelMulti,
+			RevisionSpec: v1beta1.RevisionSpec{
+				TimeoutSeconds: ptr.Int64(60),
+			},
 		},
 	}
 }
@@ -163,7 +169,7 @@ func newTestController(t *testing.T, stopCh <-chan struct{}) (
 		DynamicClientSet: dynamicClient,
 		CachingClientSet: cachingClient,
 		ConfigMapWatcher: configMapWatcher,
-		Logger:           TestLogger(t),
+		Logger:           logtesting.TestLogger(t),
 		ResyncPeriod:     0,
 		StopChannel:      stopCh,
 		Recorder:         record.NewFakeRecorder(1000),

@@ -28,17 +28,18 @@ import (
 	duckv1beta1 "github.com/knative/pkg/apis/duck/v1beta1"
 	"github.com/knative/pkg/configmap"
 	ctrl "github.com/knative/pkg/controller"
+	logtesting "github.com/knative/pkg/logging/testing"
 	"github.com/knative/pkg/system"
 	netv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 	fakeclientset "github.com/knative/serving/pkg/client/clientset/versioned/fake"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
 	"github.com/knative/serving/pkg/gc"
 	"github.com/knative/serving/pkg/network"
 	rclr "github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/config"
-	. "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
 	"golang.org/x/sync/errgroup"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -47,6 +48,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	kubeinformers "k8s.io/client-go/informers"
 	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
+
+	. "github.com/knative/pkg/reconciler/testing"
 )
 
 const (
@@ -200,7 +203,7 @@ func newTestSetup(t *testing.T, configs ...*corev1.ConfigMap) (
 			KubeClientSet:    kubeClient,
 			ServingClientSet: servingClient,
 			ConfigMapWatcher: configMapWatcher,
-			Logger:           TestLogger(t),
+			Logger:           logtesting.TestLogger(t),
 		},
 		servingInformer.Serving().V1alpha1().Routes(),
 		servingInformer.Serving().V1alpha1().Configurations(),
@@ -274,9 +277,11 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 	// A route targeting the revision
 	route := getTestRouteWithTrafficTargets(
 		[]v1alpha1.TrafficTarget{{
-			RevisionName:      "test-rev",
-			ConfigurationName: "test-config",
-			Percent:           100,
+			TrafficTarget: v1beta1.TrafficTarget{
+				RevisionName:      "test-rev",
+				ConfigurationName: "test-config",
+				Percent:           100,
+			},
 		}},
 	)
 	servingClient.ServingV1alpha1().Routes(testNamespace).Create(route)
@@ -364,11 +369,15 @@ func TestCreateRouteWithMultipleTargets(t *testing.T) {
 	// A route targeting both the config and standalone revision.
 	route := getTestRouteWithTrafficTargets(
 		[]v1alpha1.TrafficTarget{{
-			ConfigurationName: config.Name,
-			Percent:           90,
+			TrafficTarget: v1beta1.TrafficTarget{
+				ConfigurationName: config.Name,
+				Percent:           90,
+			},
 		}, {
-			RevisionName: rev.Name,
-			Percent:      10,
+			TrafficTarget: v1beta1.TrafficTarget{
+				RevisionName: rev.Name,
+				Percent:      10,
+			},
 		}},
 	)
 	servingClient.ServingV1alpha1().Routes(testNamespace).Create(route)
@@ -442,12 +451,16 @@ func TestCreateRouteWithOneTargetReserve(t *testing.T) {
 	// A route targeting both the config and standalone revision
 	route := getTestRouteWithTrafficTargets(
 		[]v1alpha1.TrafficTarget{{
-			ConfigurationName: config.Name,
-			Percent:           90,
+			TrafficTarget: v1beta1.TrafficTarget{
+				ConfigurationName: config.Name,
+				Percent:           90,
+			},
 		}, {
-			RevisionName:      rev.Name,
-			ConfigurationName: "test-config",
-			Percent:           10,
+			TrafficTarget: v1beta1.TrafficTarget{
+				RevisionName:      rev.Name,
+				ConfigurationName: "test-config",
+				Percent:           10,
+			},
 		}},
 	)
 	servingClient.ServingV1alpha1().Routes(testNamespace).Create(route)
@@ -518,29 +531,43 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 	// A route with duplicate targets. These will be deduped.
 	route := getTestRouteWithTrafficTargets(
 		[]v1alpha1.TrafficTarget{{
-			ConfigurationName: "test-config",
-			Percent:           30,
+			TrafficTarget: v1beta1.TrafficTarget{
+				ConfigurationName: "test-config",
+				Percent:           30,
+			},
 		}, {
-			ConfigurationName: "test-config",
-			Percent:           20,
+			TrafficTarget: v1beta1.TrafficTarget{
+				ConfigurationName: "test-config",
+				Percent:           20,
+			},
 		}, {
-			RevisionName: "test-rev",
-			Percent:      10,
+			TrafficTarget: v1beta1.TrafficTarget{
+				RevisionName: "test-rev",
+				Percent:      10,
+			},
 		}, {
-			RevisionName: "test-rev",
-			Percent:      5,
+			TrafficTarget: v1beta1.TrafficTarget{
+				RevisionName: "test-rev",
+				Percent:      5,
+			},
 		}, {
-			Name:         "test-revision-1",
-			RevisionName: "test-rev",
-			Percent:      10,
+			Name: "test-revision-1",
+			TrafficTarget: v1beta1.TrafficTarget{
+				RevisionName: "test-rev",
+				Percent:      10,
+			},
 		}, {
-			Name:         "test-revision-1",
-			RevisionName: "test-rev",
-			Percent:      10,
+			Name: "test-revision-1",
+			TrafficTarget: v1beta1.TrafficTarget{
+				RevisionName: "test-rev",
+				Percent:      10,
+			},
 		}, {
-			Name:         "test-revision-2",
-			RevisionName: "test-rev",
-			Percent:      15,
+			Name: "test-revision-2",
+			TrafficTarget: v1beta1.TrafficTarget{
+				RevisionName: "test-rev",
+				Percent:      15,
+			},
 		}},
 	)
 	servingClient.ServingV1alpha1().Routes(testNamespace).Create(route)
@@ -649,13 +676,17 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 	// targets
 	route := getTestRouteWithTrafficTargets(
 		[]v1alpha1.TrafficTarget{{
-			Name:         "foo",
-			RevisionName: "test-rev",
-			Percent:      50,
+			Name: "foo",
+			TrafficTarget: v1beta1.TrafficTarget{
+				RevisionName: "test-rev",
+				Percent:      50,
+			},
 		}, {
-			Name:              "bar",
-			ConfigurationName: "test-config",
-			Percent:           50,
+			Name: "bar",
+			TrafficTarget: v1beta1.TrafficTarget{
+				ConfigurationName: "test-config",
+				Percent:           50,
+			},
 		}},
 	)
 
@@ -830,7 +861,7 @@ func TestUpdateDomainConfigMap(t *testing.T) {
 }
 
 func TestGlobalResyncOnUpdateDomainConfigMap(t *testing.T) {
-	defer ClearAllLoggers()
+	defer logtesting.ClearAll()
 	// Test changes in domain config map. Routes should get updated appropriately.
 	// We're expecting exactly one route modification per config-map change.
 	tests := []struct {

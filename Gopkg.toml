@@ -24,8 +24,8 @@ required = [
 
 [[override]]
   name = "github.com/knative/pkg"
-  # HEAD as of 2019-04-15
-  revision = "efba541fddcb6ed78fb9aae0d5f100bfb0743087"
+  # HEAD as of 2019-04-19
+  revision = "70ab9cc77d6b025b3e0e591ad730a7feb097f4ea"
 
 [[override]]
   name = "go.uber.org/zap"

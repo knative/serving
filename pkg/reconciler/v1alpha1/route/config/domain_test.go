@@ -20,12 +20,13 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	. "github.com/knative/pkg/configmap/testing"
 	"github.com/knative/pkg/system"
 	"github.com/knative/serving/pkg/network"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	. "github.com/knative/serving/pkg/reconciler/testing"
+	_ "github.com/knative/pkg/system/testing"
 )
 
 func TestSelectorMatches(t *testing.T) {

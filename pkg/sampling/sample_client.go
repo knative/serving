@@ -16,8 +16,7 @@ limitations under the License.
 
 package sampling
 
-// PopulationSampleClient implements autoscaler.SampleClient interface based on
-// https://select-statistics.co.uk/calculators/sample-size-calculator-population-mean/
+// PopulationSampleClient implements autoscaler.SampleClient interface.
 type PopulationSampleClient struct{}
 
 // NewPopulationSampleClient returns a point to a new PopulationSampleClient object.

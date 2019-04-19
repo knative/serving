@@ -23,6 +23,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 
 	"github.com/knative/serving/pkg/apis/serving"
+	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 )
 
 func (s *Service) SetDefaults(ctx context.Context) {
@@ -55,5 +56,9 @@ func (ss *ServiceSpec) SetDefaults(ctx context.Context) {
 		ss.DeprecatedPinned.Configuration.SetDefaults(ctx)
 	} else if ss.Release != nil {
 		ss.Release.Configuration.SetDefaults(ctx)
+	} else if ss.Manual != nil {
+	} else {
+		ss.ConfigurationSpec.SetDefaults(ctx)
+		ss.RouteSpec.SetDefaults(v1beta1.WithDefaultConfigurationName(ctx))
 	}
 }

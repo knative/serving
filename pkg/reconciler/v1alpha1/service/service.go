@@ -22,7 +22,7 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/knative/pkg/controller"
 	"github.com/knative/pkg/kmp"
 	"github.com/knative/pkg/logging"
@@ -40,6 +40,8 @@ import (
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
+
+	cfgreconciler "github.com/knative/serving/pkg/reconciler/v1alpha1/configuration"
 )
 
 const (
@@ -55,6 +57,7 @@ type Reconciler struct {
 	// listers index properties about resources
 	serviceLister       listers.ServiceLister
 	configurationLister listers.ConfigurationLister
+	revisionLister      listers.RevisionLister
 	routeLister         listers.RouteLister
 }
 
@@ -67,6 +70,7 @@ func NewController(
 	opt reconciler.Options,
 	serviceInformer servinginformers.ServiceInformer,
 	configurationInformer servinginformers.ConfigurationInformer,
+	revisionInformer servinginformers.RevisionInformer,
 	routeInformer servinginformers.RouteInformer,
 ) *controller.Impl {
 
@@ -74,6 +78,7 @@ func NewController(
 		Base:                reconciler.NewBase(opt, controllerAgentName),
 		serviceLister:       serviceInformer.Lister(),
 		configurationLister: configurationInformer.Lister(),
+		revisionLister:      revisionInformer.Lister(),
 		routeLister:         routeInformer.Lister(),
 	}
 	impl := controller.NewImpl(c, c.Logger, ReconcilerName, reconciler.MustNewStatsReporter(ReconcilerName, c.Logger))
@@ -193,6 +198,16 @@ func (c *Reconciler) reconcile(ctx context.Context, service *v1alpha1.Service) e
 	// Update our Status based on the state of our underlying Configuration.
 	service.Status.PropagateConfigurationStatus(&config.Status)
 
+	// When the Configuration names a Revision, check that the named Revision is owned
+	// by our Configuration and matches its generation before reprogramming the Route,
+	// otherwise a bad patch could lead to folks inadvertently routing traffic to a
+	// pre-existing Revision (possibly for another Configuration).
+	if _, err := cfgreconciler.CheckNameAvailability(config, c.revisionLister); err != nil &&
+		!errors.IsNotFound(err) {
+		service.Status.MarkRevisionNameTaken(config.Spec.GetTemplate().Name)
+		return nil
+	}
+
 	routeName := resourcenames.Route(service)
 	route, err := c.routeLister.Routes(service.Namespace).Get(routeName)
 	if errors.IsNotFound(err) {
@@ -220,23 +235,33 @@ func (c *Reconciler) reconcile(ctx context.Context, service *v1alpha1.Service) e
 	ss.PropagateRouteStatus(&route.Status)
 
 	// `manual` is not reconciled.
-	if rc := service.Status.GetCondition(v1alpha1.ServiceConditionRoutesReady); rc != nil && rc.Status == corev1.ConditionTrue {
-		want, got := route.Spec.DeepCopy().Traffic, route.Status.Traffic
-		// Replace `configuration` target with its latest ready revision.
-		for idx := range want {
-			if want[idx].ConfigurationName == config.Name {
-				want[idx].RevisionName = config.Status.LatestReadyRevisionName
-				want[idx].ConfigurationName = ""
-			}
-		}
-		ignoreURLs := cmp.FilterPath(
-			func(p cmp.Path) bool {
-				return p.String() == "URL"
-			},
-			cmp.Ignore(),
-		)
-		if eq, err := kmp.SafeEqual(got, want, ignoreURLs); !eq || err != nil {
+	rc := service.Status.GetCondition(v1alpha1.ServiceConditionRoutesReady)
+	if rc != nil && rc.Status == corev1.ConditionTrue {
+		if len(route.Spec.Traffic) != len(route.Status.Traffic) {
 			service.Status.MarkRouteNotYetReady()
+		} else {
+			want, got := route.Spec.DeepCopy().Traffic, route.Status.DeepCopy().Traffic
+			// Replace `configuration` target with its latest ready revision.
+			for idx := range want {
+				if want[idx].ConfigurationName == config.Name {
+					want[idx].RevisionName = config.Status.LatestReadyRevisionName
+					want[idx].ConfigurationName = ""
+					// Normalize Name into Tag for comparison.
+					if want[idx].Name != "" {
+						want[idx].Tag = want[idx].Name
+						want[idx].Name = ""
+					}
+					if got[idx].Name != "" {
+						got[idx].Tag = got[idx].Name
+						got[idx].Name = ""
+					}
+				}
+			}
+			ignoreFields := cmpopts.IgnoreFields(v1alpha1.TrafficTarget{},
+				"TrafficTarget.URL", "TrafficTarget.LatestRevision")
+			if eq, err := kmp.SafeEqual(got, want, ignoreFields); !eq || err != nil {
+				service.Status.MarkRouteNotYetReady()
+			}
 		}
 	}
 	service.Status.ObservedGeneration = service.Generation

@@ -155,7 +155,11 @@ func NewController(
 
 	// Watch all the services that we have created.
 	serviceInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
-		FilterFunc: controller.Filter(pav1alpha1.SchemeGroupVersion.WithKind("PodAutoscaler")),
+		FilterFunc: onlyKpaClass,
+		Handler:    reconciler.Handler(impl.EnqueueControllerOf),
+	})
+	sksInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+		FilterFunc: onlyKpaClass,
 		Handler:    reconciler.Handler(impl.EnqueueControllerOf),
 	})
 
@@ -241,7 +245,7 @@ func (c *Reconciler) reconcile(ctx context.Context, pa *pav1alpha1.PodAutoscaler
 	if err := c.reconcileMetricsService(ctx, pa, selector); err != nil {
 		return perrors.Wrap(err, "error reconciling metrics service")
 	}
-	sks, err := c.reconcileSKS(ctx, pa, selector)
+	sks, err := c.reconcileSKS(ctx, pa)
 	if err != nil {
 		return perrors.Wrap(err, "error reconciling SKS")
 	}
@@ -310,14 +314,14 @@ func (c *Reconciler) reconcileDecider(ctx context.Context, pa *pav1alpha1.PodAut
 	return decider, nil
 }
 
-func (c *Reconciler) reconcileSKS(ctx context.Context, pa *pav1alpha1.PodAutoscaler, selector map[string]string) (*nv1alpha1.ServerlessService, error) {
+func (c *Reconciler) reconcileSKS(ctx context.Context, pa *pav1alpha1.PodAutoscaler) (*nv1alpha1.ServerlessService, error) {
 	logger := logging.FromContext(ctx)
 
 	sksName := anames.SKS(pa.Name)
 	sks, err := c.sksLister.ServerlessServices(pa.Namespace).Get(sksName)
 	if errors.IsNotFound(err) {
 		logger.Infof("SKS %s/%s does not exist; creating.", pa.Namespace, sksName)
-		sks = aresources.MakeSKS(pa, selector, nv1alpha1.SKSOperationModeServe)
+		sks = aresources.MakeSKS(pa, nv1alpha1.SKSOperationModeServe)
 		_, err = c.ServingClientSet.NetworkingV1alpha1().ServerlessServices(sks.Namespace).Create(sks)
 		if err != nil {
 			return nil, perrors.Wrapf(err, "error creating SKS %s", sksName)
@@ -329,7 +333,7 @@ func (c *Reconciler) reconcileSKS(ctx context.Context, pa *pav1alpha1.PodAutosca
 		pa.Status.MarkResourceNotOwned("ServerlessService", sksName)
 		return nil, fmt.Errorf("KPA: %s does not own SKS: %s", pa.Name, sksName)
 	}
-	tmpl := aresources.MakeSKS(pa, selector, nv1alpha1.SKSOperationModeServe)
+	tmpl := aresources.MakeSKS(pa, nv1alpha1.SKSOperationModeServe)
 	if !equality.Semantic.DeepEqual(tmpl.Spec, sks.Spec) {
 		want := sks.DeepCopy()
 		want.Spec = tmpl.Spec

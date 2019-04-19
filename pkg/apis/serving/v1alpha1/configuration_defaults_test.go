@@ -27,6 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 
 	"github.com/knative/serving/pkg/apis/config"
+	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 )
 
 var (
@@ -62,9 +63,42 @@ func TestConfigurationDefaulting(t *testing.T) {
 			Spec: ConfigurationSpec{
 				RevisionTemplate: &RevisionTemplateSpec{
 					Spec: RevisionSpec{
-						TimeoutSeconds: ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+						RevisionSpec: v1beta1.RevisionSpec{
+							TimeoutSeconds: ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+						},
 						Container: &corev1.Container{
 							Resources: defaultResources,
+						},
+					},
+				},
+			},
+		},
+	}, {
+		name: "shell podspec",
+		in: &Configuration{
+			Spec: ConfigurationSpec{
+				RevisionTemplate: &RevisionTemplateSpec{
+					Spec: RevisionSpec{
+						RevisionSpec: v1beta1.RevisionSpec{
+							PodSpec: v1beta1.PodSpec{
+								Containers: []corev1.Container{{}},
+							},
+						},
+					},
+				},
+			},
+		},
+		want: &Configuration{
+			Spec: ConfigurationSpec{
+				RevisionTemplate: &RevisionTemplateSpec{
+					Spec: RevisionSpec{
+						RevisionSpec: v1beta1.RevisionSpec{
+							TimeoutSeconds: ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+							PodSpec: v1beta1.PodSpec{
+								Containers: []corev1.Container{{
+									Resources: defaultResources,
+								}},
+							},
 						},
 					},
 				},
@@ -76,8 +110,10 @@ func TestConfigurationDefaulting(t *testing.T) {
 			Spec: ConfigurationSpec{
 				RevisionTemplate: &RevisionTemplateSpec{
 					Spec: RevisionSpec{
-						ContainerConcurrency: 1,
-						TimeoutSeconds:       ptr.Int64(99),
+						RevisionSpec: v1beta1.RevisionSpec{
+							ContainerConcurrency: 1,
+							TimeoutSeconds:       ptr.Int64(99),
+						},
 						Container: &corev1.Container{
 							Resources: defaultResources,
 						},
@@ -89,8 +125,10 @@ func TestConfigurationDefaulting(t *testing.T) {
 			Spec: ConfigurationSpec{
 				RevisionTemplate: &RevisionTemplateSpec{
 					Spec: RevisionSpec{
-						ContainerConcurrency: 1,
-						TimeoutSeconds:       ptr.Int64(99),
+						RevisionSpec: v1beta1.RevisionSpec{
+							ContainerConcurrency: 1,
+							TimeoutSeconds:       ptr.Int64(99),
+						},
 						Container: &corev1.Container{
 							Resources: defaultResources,
 						},

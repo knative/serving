@@ -27,6 +27,7 @@ import (
 	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/controller"
 	"github.com/knative/pkg/logging"
+	logtesting "github.com/knative/pkg/logging/testing"
 	autoscalingv1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/serving"
@@ -34,10 +35,8 @@ import (
 	"github.com/knative/serving/pkg/autoscaler"
 	"github.com/knative/serving/pkg/network"
 	"github.com/knative/serving/pkg/reconciler"
-	rtesting "github.com/knative/serving/pkg/reconciler/testing"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/config"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources"
-	. "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -45,6 +44,9 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	clientgotesting "k8s.io/client-go/testing"
+
+	. "github.com/knative/pkg/reconciler/testing"
+	. "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
 )
 
 // This is heavily based on the way the OpenShift Ingress controller tests its reconciliation method.
@@ -345,8 +347,8 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			rev("foo", "fix-mutated-kpa",
 				withK8sServiceName("ill-follow-the-sun"), WithLogURL, MarkRevisionReady),
-			kpa("foo", "fix-mutated-kpa", WithProtocolType(networking.ProtocolH2C), WithTraffic,
-				WithPAStatusService("fix-mutated-kpa")),
+			kpa("foo", "fix-mutated-kpa", WithProtocolType(networking.ProtocolH2C),
+				WithTraffic, WithPAStatusService("fix-mutated-kpa")),
 			deploy("foo", "fix-mutated-kpa"),
 			image("foo", "fix-mutated-kpa"),
 		},
@@ -355,11 +357,11 @@ func TestReconcile(t *testing.T) {
 				WithLogURL, AllUnknownConditions,
 				// When our reconciliation has to change the service
 				// we should see the following mutations to status.
-				// K8s Service name also goes away.
-				MarkDeploying("Updating")),
+				withK8sServiceName("fix-mutated-kpa"), WithLogURL, MarkRevisionReady),
 		}},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: kpa("foo", "fix-mutated-kpa"),
+			Object: kpa("foo", "fix-mutated-kpa", WithTraffic,
+				WithPAStatusService("fix-mutated-kpa")),
 		}},
 		Key: "foo/fix-mutated-kpa",
 	}, {
@@ -622,9 +624,9 @@ func TestReconcile(t *testing.T) {
 		Key: "foo/missing-owners",
 	}}
 
-	defer ClearAllLoggers()
+	defer logtesting.ClearAll()
 	table.Test(t, MakeFactory(func(listers *Listers, opt reconciler.Options) controller.Reconciler {
-		t := &rtesting.NullTracker{}
+		t := &NullTracker{}
 		buildInformerFactory := KResourceTypedInformerFactory(opt)
 		return &Reconciler{
 			Base:                reconciler.NewBase(opt, controllerAgentName),
@@ -763,7 +765,7 @@ func TestReconcileWithVarLogEnabled(t *testing.T) {
 	config := ReconcilerTestConfig()
 	EnableVarLog(config)
 
-	defer ClearAllLoggers()
+	defer logtesting.ClearAll()
 
 	table.Test(t, MakeFactory(func(listers *Listers, opt reconciler.Options) controller.Reconciler {
 		return &Reconciler{
@@ -776,7 +778,7 @@ func TestReconcileWithVarLogEnabled(t *testing.T) {
 			endpointsLister:     listers.GetEndpointsLister(),
 			configMapLister:     listers.GetConfigMapLister(),
 			resolver:            &nopResolver{},
-			tracker:             &rtesting.NullTracker{},
+			tracker:             &NullTracker{},
 			configStore:         &testConfigStore{config: config},
 		}
 	}))

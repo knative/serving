@@ -30,6 +30,7 @@ import (
 	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/controller"
 	"github.com/knative/pkg/kmeta"
+	logtesting "github.com/knative/pkg/logging/testing"
 	"github.com/knative/pkg/system"
 	_ "github.com/knative/pkg/system/testing"
 	"github.com/knative/serving/pkg/apis/autoscaling"
@@ -46,9 +47,9 @@ import (
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/autoscaling/kpa/resources/names"
 	aresources "github.com/knative/serving/pkg/reconciler/v1alpha1/autoscaling/resources"
 	revisionresources "github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources"
-	. "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
 	perrors "github.com/pkg/errors"
 
+	appsv1 "k8s.io/api/apps/v1"
 	autoscalingv1 "k8s.io/api/autoscaling/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -59,6 +60,9 @@ import (
 	fakeK8s "k8s.io/client-go/kubernetes/fake"
 	scalefake "k8s.io/client-go/scale/fake"
 	clientgotesting "k8s.io/client-go/testing"
+
+	. "github.com/knative/pkg/reconciler/testing"
+	. "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
 )
 
 var (
@@ -86,7 +90,7 @@ func newConfigWatcher() configmap.Watcher {
 }
 
 func newDynamicConfig(t *testing.T) *autoscaler.DynamicConfig {
-	dynConfig, err := autoscaler.NewDynamicConfigFromMap(configMapData, TestLogger(t))
+	dynConfig, err := autoscaler.NewDynamicConfigFromMap(configMapData, logtesting.TestLogger(t))
 	if err != nil {
 		t.Errorf("Error creating DynamicConfig: %v", err)
 	}
@@ -96,7 +100,7 @@ func newDynamicConfig(t *testing.T) *autoscaler.DynamicConfig {
 // TODO(#3591): Convert KPA tests to table tests.
 
 func TestMetricsSvcIsReconciled(t *testing.T) {
-	defer ClearAllLoggers()
+	defer logtesting.ClearAll()
 
 	rev := newTestRevision(testNamespace, testRevision)
 	ep := addEndpoint(makeEndpoints(rev))
@@ -243,7 +247,7 @@ func TestMetricsSvcIsReconciled(t *testing.T) {
 			opts := reconciler.Options{
 				KubeClientSet:    kubeClient,
 				ServingClientSet: servingClient,
-				Logger:           TestLogger(t),
+				Logger:           logtesting.TestLogger(t),
 			}
 
 			servingInformer := informers.NewSharedInformerFactory(servingClient, 0)
@@ -256,7 +260,7 @@ func TestMetricsSvcIsReconciled(t *testing.T) {
 			if test.cubeClientReactor != nil {
 				test.cubeClientReactor(&kubeClient.Fake)
 			}
-			kpaScaler := NewScaler(servingClient, scaleClient, TestLogger(t), newConfigWatcher())
+			kpaScaler := NewScaler(servingClient, scaleClient, logtesting.TestLogger(t), newConfigWatcher())
 
 			// This makes controller reconcile synchronously.
 			dynConf := newDynamicConfig(t)
@@ -326,7 +330,7 @@ func metricsSvc(ns, n string, opts ...K8sServiceOption) *corev1.Service {
 
 func sks(ns, n string, so ...SKSOption) *nv1a1.ServerlessService {
 	kpa := kpa(ns, n)
-	s := aresources.MakeSKS(kpa, map[string]string{}, nv1a1.SKSOperationModeServe)
+	s := aresources.MakeSKS(kpa, nv1a1.SKSOperationModeServe)
 	for _, opt := range so {
 		opt(s)
 	}
@@ -380,6 +384,7 @@ func makeTestEndpoints(num int, ns, n string) *corev1.Endpoints {
 
 func TestReconcile(t *testing.T) {
 	const key = testNamespace + "/" + testRevision
+	const deployName = testRevision + "-deployment"
 	usualSelector := map[string]string{"a": "b"}
 
 	// Note: due to how KPA reconciler works we are dependent on the
@@ -405,10 +410,11 @@ func TestReconcile(t *testing.T) {
 		Name: "steady state",
 		Key:  key,
 		Objects: []runtime.Object{
-			kpa(testNamespace, testRevision, markActive, WithPAStatusService(testRevision+"-pub")),
-			sks(testNamespace, testRevision, WithSelector(usualSelector), WithSKSReady),
+			kpa(testNamespace, testRevision, markActive,
+				WithPAStatusService(testRevision+"-pub")),
+			sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSReady),
 			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector)),
-			scaleResource(testNamespace, testRevision, withLabelSelector("a=b")),
+			deploy(testNamespace, testRevision),
 			makeSKSPrivateEndpoints(1, testNamespace, testRevision),
 		},
 	}, {
@@ -416,9 +422,9 @@ func TestReconcile(t *testing.T) {
 		Key:  key,
 		Objects: []runtime.Object{
 			kpa(testNamespace, testRevision, markActive, WithPAStatusService(testRevision+"-pub")),
-			sks(testNamespace, testRevision, WithSelector(usualSelector), WithPubService, WithPrivateService),
+			sks(testNamespace, testRevision, WithDeployRef(deployName), WithPubService, WithPrivateService),
 			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector)),
-			scaleResource(testNamespace, testRevision, withLabelSelector("a=b")),
+			deploy(testNamespace, testRevision),
 			makeSKSPrivateEndpoints(1, testNamespace, testRevision),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
@@ -429,9 +435,9 @@ func TestReconcile(t *testing.T) {
 		Key:  key,
 		Objects: []runtime.Object{
 			kpa(testNamespace, testRevision),
-			sks(testNamespace, testRevision, WithSelector(usualSelector), WithSKSReady),
+			sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSReady),
 			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector)),
-			scaleResource(testNamespace, testRevision, withLabelSelector("a=b")),
+			deploy(testNamespace, testRevision),
 			makeSKSPrivateEndpoints(1, testNamespace, testRevision),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
@@ -443,7 +449,7 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			kpa(testNamespace, testRevision, markActive),
 			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector)),
-			scaleResource(testNamespace, testRevision, withLabelSelector("a=b")),
+			deploy(testNamespace, testRevision),
 			makeSKSPrivateEndpoints(1, testNamespace, testRevision),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
@@ -451,17 +457,17 @@ func TestReconcile(t *testing.T) {
 			Object: kpa(testNamespace, testRevision, markActivating),
 		}},
 		WantCreates: []metav1.Object{
-			sks(testNamespace, testRevision, WithSelector(usualSelector)),
+			sks(testNamespace, testRevision, WithDeployRef(deployName)),
 		},
 	}, {
 		Name: "sks is out of whack",
 		Key:  key,
 		Objects: []runtime.Object{
 			kpa(testNamespace, testRevision, markActive),
-			sks(testNamespace, testRevision, WithSelector(map[string]string{"i-m": "so-tired"}),
+			sks(testNamespace, testRevision, WithDeployRef("bar"),
 				WithPubService),
 			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector)),
-			scaleResource(testNamespace, testRevision, withLabelSelector("a=b")),
+			deploy(testNamespace, testRevision),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			// SKS just got updated and we don't have up to date status.
@@ -469,7 +475,7 @@ func TestReconcile(t *testing.T) {
 		}},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: sks(testNamespace, testRevision, WithPubService,
-				WithSelector(usualSelector)),
+				WithDeployRef(deployName)),
 		}},
 	}, {
 		Name: "sks cannot be created",
@@ -477,14 +483,14 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			kpa(testNamespace, testRevision, markActive),
 			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector)),
-			scaleResource(testNamespace, testRevision, withLabelSelector("a=b")),
+			deploy(testNamespace, testRevision),
 		},
 		WithReactors: []clientgotesting.ReactionFunc{
 			InduceFailure("create", "serverlessservices"),
 		},
 		WantErr: true,
 		WantCreates: []metav1.Object{
-			sks(testNamespace, testRevision, WithSelector(usualSelector)),
+			sks(testNamespace, testRevision, WithDeployRef(deployName)),
 		},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "InternalError",
@@ -495,16 +501,16 @@ func TestReconcile(t *testing.T) {
 		Key:  key,
 		Objects: []runtime.Object{
 			kpa(testNamespace, testRevision, markActive),
-			sks(testNamespace, testRevision, WithSelector(map[string]string{"i-havent": "slept-a-wink"})),
+			sks(testNamespace, testRevision, WithDeployRef("bar")),
 			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector)),
-			scaleResource(testNamespace, testRevision, withLabelSelector("a=b")),
+			deploy(testNamespace, testRevision),
 		},
 		WithReactors: []clientgotesting.ReactionFunc{
 			InduceFailure("update", "serverlessservices"),
 		},
 		WantErr: true,
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: sks(testNamespace, testRevision, WithSelector(usualSelector)),
+			Object: sks(testNamespace, testRevision, WithDeployRef(deployName)),
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "InternalError", "error reconciling SKS: error updating SKS test-revision: inducing failure for update serverlessservices"),
@@ -514,9 +520,10 @@ func TestReconcile(t *testing.T) {
 		Key:  key,
 		Objects: []runtime.Object{
 			kpa(testNamespace, testRevision, markActive),
-			sks(testNamespace, testRevision, WithSelector(usualSelector), WithSKSReady, WithSKSOwnersRemoved),
+			sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSReady,
+				WithSKSOwnersRemoved),
 			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector)),
-			scaleResource(testNamespace, testRevision, withLabelSelector("a=b")),
+			deploy(testNamespace, testRevision),
 		},
 		WantErr: true,
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
@@ -527,7 +534,7 @@ func TestReconcile(t *testing.T) {
 		},
 	}}
 
-	defer ClearAllLoggers()
+	defer logtesting.ClearAll()
 	table.Test(t, MakeFactory(func(listers *Listers, opt rpkg.Options) controller.Reconciler {
 		dynConf := newDynamicConfig(t)
 		fakeDeciders := newTestDeciders()
@@ -537,7 +544,7 @@ func TestReconcile(t *testing.T) {
 			context.Background(), kpa(testNamespace, testRevision), dynConf.Current()))
 
 		fakeMetrics := newTestMetrics()
-		kpaScaler := NewScaler(opt.ServingClientSet, opt.ScaleClientSet, TestLogger(t), newConfigWatcher())
+		kpaScaler := NewScaler(opt.ServingClientSet, opt.ScaleClientSet, logtesting.TestLogger(t), newConfigWatcher())
 		return &Reconciler{
 			Base:            rpkg.NewBase(opt, controllerAgentName),
 			paLister:        listers.GetPodAutoscalerLister(),
@@ -580,8 +587,33 @@ func scaleResource(namespace, name string, opts ...scaleOpt) *autoscalingv1.Scal
 	return s
 }
 
+type deploymentOption func(*appsv1.Deployment)
+
+func deploy(namespace, name string, opts ...deploymentOption) *appsv1.Deployment {
+	s := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name + "-deployment",
+			Namespace: namespace,
+		},
+		Spec: appsv1.DeploymentSpec{
+			Selector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					"a": "b",
+				},
+			},
+		},
+		Status: appsv1.DeploymentStatus{
+			Replicas: 42,
+		},
+	}
+	for _, opt := range opts {
+		opt(s)
+	}
+	return s
+}
+
 func TestControllerSynchronizesCreatesAndDeletes(t *testing.T) {
-	defer ClearAllLoggers()
+	defer logtesting.ClearAll()
 
 	kubeClient := fakeK8s.NewSimpleClientset()
 	servingClient := fakeKna.NewSimpleClientset()
@@ -589,14 +621,14 @@ func TestControllerSynchronizesCreatesAndDeletes(t *testing.T) {
 	opts := reconciler.Options{
 		KubeClientSet:    kubeClient,
 		ServingClientSet: servingClient,
-		Logger:           TestLogger(t),
+		Logger:           logtesting.TestLogger(t),
 	}
 
 	servingInformer := informers.NewSharedInformerFactory(servingClient, 0)
 	kubeInformer := kubeinformers.NewSharedInformerFactory(kubeClient, 0)
 
 	scaleClient := &scalefake.FakeScaleClient{}
-	scaler := NewScaler(servingClient, scaleClient, TestLogger(t), newConfigWatcher())
+	scaler := NewScaler(servingClient, scaleClient, logtesting.TestLogger(t), newConfigWatcher())
 
 	fakeDeciders := newTestDeciders()
 	fakeMetrics := newTestMetrics()
@@ -621,9 +653,8 @@ func TestControllerSynchronizesCreatesAndDeletes(t *testing.T) {
 	servingClient.AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
 	servingInformer.Autoscaling().V1alpha1().PodAutoscalers().Informer().GetIndexer().Add(kpa)
 
-	sks := sks(testNamespace, testRevision, WithSelector(map[string]string{
-		serving.RevisionLabelKey: rev.Name,
-	}), WithSKSReady)
+	sks := sks(testNamespace, testRevision, WithDeployRef(kpa.Spec.ScaleTargetRef.Name),
+		WithSKSReady)
 	servingClient.NetworkingV1alpha1().ServerlessServices(testNamespace).Create(sks)
 	servingInformer.Networking().V1alpha1().ServerlessServices().Informer().GetIndexer().Add(sks)
 
@@ -675,7 +706,7 @@ func TestControllerSynchronizesCreatesAndDeletes(t *testing.T) {
 }
 
 func TestUpdate(t *testing.T) {
-	defer ClearAllLoggers()
+	defer logtesting.ClearAll()
 
 	kubeClient := fakeK8s.NewSimpleClientset()
 	servingClient := fakeKna.NewSimpleClientset()
@@ -683,14 +714,14 @@ func TestUpdate(t *testing.T) {
 	opts := reconciler.Options{
 		KubeClientSet:    kubeClient,
 		ServingClientSet: servingClient,
-		Logger:           TestLogger(t),
+		Logger:           logtesting.TestLogger(t),
 	}
 
 	servingInformer := informers.NewSharedInformerFactory(servingClient, 0)
 	kubeInformer := kubeinformers.NewSharedInformerFactory(kubeClient, 0)
 
 	scaleClient := &scalefake.FakeScaleClient{}
-	scaler := NewScaler(servingClient, scaleClient, TestLogger(t), newConfigWatcher())
+	scaler := NewScaler(servingClient, scaleClient, logtesting.TestLogger(t), newConfigWatcher())
 
 	fakeDeciders := newTestDeciders()
 	fakeMetrics := newTestMetrics()
@@ -723,9 +754,8 @@ func TestUpdate(t *testing.T) {
 	kubeClient.CoreV1().Services(testNamespace).Create(msvc)
 	kubeInformer.Core().V1().Services().Informer().GetIndexer().Add(msvc)
 
-	sks := sks(testNamespace, testRevision, WithSelector(map[string]string{
-		serving.RevisionLabelKey: rev.Name,
-	}), WithSKSReady)
+	sks := sks(testNamespace, testRevision, WithDeployRef(kpa.Spec.ScaleTargetRef.Name),
+		WithSKSReady)
 	servingClient.NetworkingV1alpha1().ServerlessServices(testNamespace).Create(sks)
 	servingInformer.Networking().V1alpha1().ServerlessServices().Informer().GetIndexer().Add(sks)
 
@@ -773,7 +803,7 @@ func TestUpdate(t *testing.T) {
 }
 
 func TestNonKPAClass(t *testing.T) {
-	defer ClearAllLoggers()
+	defer logtesting.ClearAll()
 
 	kubeClient := fakeK8s.NewSimpleClientset()
 	servingClient := fakeKna.NewSimpleClientset()
@@ -781,14 +811,14 @@ func TestNonKPAClass(t *testing.T) {
 	opts := reconciler.Options{
 		KubeClientSet:    kubeClient,
 		ServingClientSet: servingClient,
-		Logger:           TestLogger(t),
+		Logger:           logtesting.TestLogger(t),
 	}
 
 	servingInformer := informers.NewSharedInformerFactory(servingClient, 0)
 	kubeInformer := kubeinformers.NewSharedInformerFactory(kubeClient, 0)
 
 	scaleClient := &scalefake.FakeScaleClient{}
-	scaler := NewScaler(servingClient, scaleClient, TestLogger(t), newConfigWatcher())
+	scaler := NewScaler(servingClient, scaleClient, logtesting.TestLogger(t), newConfigWatcher())
 
 	fakeDeciders := newTestDeciders()
 	fakeMetrics := newTestMetrics()
@@ -829,7 +859,7 @@ func TestNonKPAClass(t *testing.T) {
 }
 
 func TestNoEndpoints(t *testing.T) {
-	defer ClearAllLoggers()
+	defer logtesting.ClearAll()
 
 	kubeClient := fakeK8s.NewSimpleClientset()
 	servingClient := fakeKna.NewSimpleClientset()
@@ -837,14 +867,14 @@ func TestNoEndpoints(t *testing.T) {
 	opts := reconciler.Options{
 		KubeClientSet:    kubeClient,
 		ServingClientSet: servingClient,
-		Logger:           TestLogger(t),
+		Logger:           logtesting.TestLogger(t),
 	}
 
 	servingInformer := informers.NewSharedInformerFactory(servingClient, 0)
 	kubeInformer := kubeinformers.NewSharedInformerFactory(kubeClient, 0)
 
 	scaleClient := &scalefake.FakeScaleClient{}
-	scaler := NewScaler(servingClient, scaleClient, TestLogger(t), newConfigWatcher())
+	scaler := NewScaler(servingClient, scaleClient, logtesting.TestLogger(t), newConfigWatcher())
 
 	ctl := NewController(&opts,
 		servingInformer.Autoscaling().V1alpha1().PodAutoscalers(),
@@ -884,7 +914,7 @@ func TestNoEndpoints(t *testing.T) {
 }
 
 func TestEmptyEndpoints(t *testing.T) {
-	defer ClearAllLoggers()
+	defer logtesting.ClearAll()
 
 	kubeClient := fakeK8s.NewSimpleClientset()
 	servingClient := fakeKna.NewSimpleClientset()
@@ -892,14 +922,14 @@ func TestEmptyEndpoints(t *testing.T) {
 	opts := reconciler.Options{
 		KubeClientSet:    kubeClient,
 		ServingClientSet: servingClient,
-		Logger:           TestLogger(t),
+		Logger:           logtesting.TestLogger(t),
 	}
 
 	servingInformer := informers.NewSharedInformerFactory(servingClient, 0)
 	kubeInformer := kubeinformers.NewSharedInformerFactory(kubeClient, 0)
 
 	scaleClient := &scalefake.FakeScaleClient{}
-	scaler := NewScaler(servingClient, scaleClient, TestLogger(t), newConfigWatcher())
+	scaler := NewScaler(servingClient, scaleClient, logtesting.TestLogger(t), newConfigWatcher())
 
 	ctl := NewController(&opts,
 		servingInformer.Autoscaling().V1alpha1().PodAutoscalers(),
@@ -939,7 +969,7 @@ func TestEmptyEndpoints(t *testing.T) {
 }
 
 func TestControllerCreateError(t *testing.T) {
-	defer ClearAllLoggers()
+	defer logtesting.ClearAll()
 
 	kubeClient := fakeK8s.NewSimpleClientset()
 	servingClient := fakeKna.NewSimpleClientset()
@@ -950,13 +980,13 @@ func TestControllerCreateError(t *testing.T) {
 	opts := reconciler.Options{
 		KubeClientSet:    kubeClient,
 		ServingClientSet: servingClient,
-		Logger:           TestLogger(t),
+		Logger:           logtesting.TestLogger(t),
 	}
 
 	servingInformer := informers.NewSharedInformerFactory(servingClient, 0)
 	kubeInformer := kubeinformers.NewSharedInformerFactory(kubeClient, 0)
 	scaleClient := &scalefake.FakeScaleClient{}
-	scaler := NewScaler(servingClient, scaleClient, TestLogger(t), newConfigWatcher())
+	scaler := NewScaler(servingClient, scaleClient, logtesting.TestLogger(t), newConfigWatcher())
 
 	ctl := NewController(&opts,
 		servingInformer.Autoscaling().V1alpha1().PodAutoscalers(),
@@ -983,7 +1013,7 @@ func TestControllerCreateError(t *testing.T) {
 }
 
 func TestControllerUpdateError(t *testing.T) {
-	defer ClearAllLoggers()
+	defer logtesting.ClearAll()
 
 	kubeClient := fakeK8s.NewSimpleClientset()
 	servingClient := fakeKna.NewSimpleClientset()
@@ -994,13 +1024,13 @@ func TestControllerUpdateError(t *testing.T) {
 	opts := reconciler.Options{
 		KubeClientSet:    kubeClient,
 		ServingClientSet: servingClient,
-		Logger:           TestLogger(t),
+		Logger:           logtesting.TestLogger(t),
 	}
 
 	servingInformer := informers.NewSharedInformerFactory(servingClient, 0)
 	kubeInformer := kubeinformers.NewSharedInformerFactory(kubeClient, 0)
 	scaleClient := &scalefake.FakeScaleClient{}
-	scaler := NewScaler(servingClient, scaleClient, TestLogger(t), newConfigWatcher())
+	scaler := NewScaler(servingClient, scaleClient, logtesting.TestLogger(t), newConfigWatcher())
 
 	ctl := NewController(&opts,
 		servingInformer.Autoscaling().V1alpha1().PodAutoscalers(),
@@ -1027,7 +1057,7 @@ func TestControllerUpdateError(t *testing.T) {
 }
 
 func TestControllerGetError(t *testing.T) {
-	defer ClearAllLoggers()
+	defer logtesting.ClearAll()
 
 	kubeClient := fakeK8s.NewSimpleClientset()
 	servingClient := fakeKna.NewSimpleClientset()
@@ -1038,13 +1068,13 @@ func TestControllerGetError(t *testing.T) {
 	opts := reconciler.Options{
 		KubeClientSet:    kubeClient,
 		ServingClientSet: servingClient,
-		Logger:           TestLogger(t),
+		Logger:           logtesting.TestLogger(t),
 	}
 
 	servingInformer := informers.NewSharedInformerFactory(servingClient, 0)
 	kubeInformer := kubeinformers.NewSharedInformerFactory(kubeClient, 0)
 	scaleClient := &scalefake.FakeScaleClient{}
-	scaler := NewScaler(servingClient, scaleClient, TestLogger(t), newConfigWatcher())
+	scaler := NewScaler(servingClient, scaleClient, logtesting.TestLogger(t), newConfigWatcher())
 
 	ctl := NewController(&opts,
 		servingInformer.Autoscaling().V1alpha1().PodAutoscalers(),
@@ -1070,7 +1100,7 @@ func TestControllerGetError(t *testing.T) {
 }
 
 func TestScaleFailure(t *testing.T) {
-	defer ClearAllLoggers()
+	defer logtesting.ClearAll()
 
 	kubeClient := fakeK8s.NewSimpleClientset()
 	servingClient := fakeKna.NewSimpleClientset()
@@ -1078,14 +1108,14 @@ func TestScaleFailure(t *testing.T) {
 	opts := reconciler.Options{
 		KubeClientSet:    kubeClient,
 		ServingClientSet: servingClient,
-		Logger:           TestLogger(t),
+		Logger:           logtesting.TestLogger(t),
 	}
 
 	servingInformer := informers.NewSharedInformerFactory(servingClient, 0)
 	kubeInformer := kubeinformers.NewSharedInformerFactory(kubeClient, 0)
 
 	scaleClient := &scalefake.FakeScaleClient{}
-	scaler := NewScaler(servingClient, scaleClient, TestLogger(t), newConfigWatcher())
+	scaler := NewScaler(servingClient, scaleClient, logtesting.TestLogger(t), newConfigWatcher())
 
 	ctl := NewController(&opts,
 		servingInformer.Autoscaling().V1alpha1().PodAutoscalers(),
@@ -1109,7 +1139,7 @@ func TestScaleFailure(t *testing.T) {
 }
 
 func TestBadKey(t *testing.T) {
-	defer ClearAllLoggers()
+	defer logtesting.ClearAll()
 
 	kubeClient := fakeK8s.NewSimpleClientset()
 	servingClient := fakeKna.NewSimpleClientset()
@@ -1117,13 +1147,13 @@ func TestBadKey(t *testing.T) {
 	opts := reconciler.Options{
 		KubeClientSet:    kubeClient,
 		ServingClientSet: servingClient,
-		Logger:           TestLogger(t),
+		Logger:           logtesting.TestLogger(t),
 	}
 
 	servingInformer := informers.NewSharedInformerFactory(servingClient, 0)
 	kubeInformer := kubeinformers.NewSharedInformerFactory(kubeClient, 0)
 	scaleClient := &scalefake.FakeScaleClient{}
-	scaler := NewScaler(servingClient, scaleClient, TestLogger(t), newConfigWatcher())
+	scaler := NewScaler(servingClient, scaleClient, logtesting.TestLogger(t), newConfigWatcher())
 
 	ctl := NewController(&opts,
 		servingInformer.Autoscaling().V1alpha1().PodAutoscalers(),
@@ -1273,6 +1303,7 @@ func newTestRevision(namespace string, name string) *v1alpha1.Revision {
 				Args:       []string{"hello", "world"},
 				WorkingDir: "/tmp",
 			},
+			DeprecatedConcurrencyModel: v1alpha1.RevisionRequestConcurrencyModelSingle,
 		},
 	}
 }

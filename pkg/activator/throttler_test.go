@@ -26,6 +26,7 @@ import (
 	"github.com/knative/pkg/test/helpers"
 	nv1a1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 	"github.com/knative/serving/pkg/queue"
 
 	corev1 "k8s.io/api/core/v1"
@@ -39,15 +40,17 @@ var (
 )
 
 const (
-	defaultMaxConcurrency = int(1000)
-	initCapacity          = int(0)
+	defaultMaxConcurrency = 1000
+	initCapacity          = 0
 )
 
-func existingRevisionGetter(concurrency int) func(RevisionID) (*v1alpha1.Revision, error) {
+func existingRevisionGetter(concurrency v1beta1.RevisionContainerConcurrencyType) func(RevisionID) (*v1alpha1.Revision, error) {
 	return func(RevisionID) (*v1alpha1.Revision, error) {
 		return &v1alpha1.Revision{
 			Spec: v1alpha1.RevisionSpec{
-				ContainerConcurrency: v1alpha1.RevisionContainerConcurrencyType(concurrency),
+				RevisionSpec: v1beta1.RevisionSpec{
+					ContainerConcurrency: concurrency,
+				},
 			},
 		}, nil
 	}
@@ -287,9 +290,9 @@ func TestUpdateEndpoints(t *testing.T) {
 	for _, s := range samples {
 		t.Run(s.label, func(t *testing.T) {
 			throttler := getThrottler(
-				defaultMaxConcurrency, existingRevisionGetter(revisionConcurrency),
-				existingEndpointsGetter(0), sksGetSuccess,
-				TestLogger(t), int(s.initCapacity))
+				defaultMaxConcurrency, existingRevisionGetter(
+					v1beta1.RevisionContainerConcurrencyType(revisionConcurrency)),
+				existingEndpointsGetter(0), sksGetSuccess, TestLogger(t), s.initCapacity)
 			breaker := queue.NewBreaker(throttler.breakerParams)
 			throttler.breakers[revID] = breaker
 			endpointsAfter := corev1.Endpoints{

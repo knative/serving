@@ -26,10 +26,13 @@ import (
 	netv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/traffic"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
+
+const ns = "test-ns"
 
 func TestMakeClusterIngress_CorrectMetadata(t *testing.T) {
 	targets := map[string]traffic.RevisionTargets{}
@@ -65,7 +68,7 @@ func TestMakeClusterIngress_CorrectMetadata(t *testing.T) {
 func TestMakeClusterIngressSpec_CorrectRules(t *testing.T) {
 	targets := map[string]traffic.RevisionTargets{
 		traffic.DefaultTarget: {{
-			TrafficTarget: v1alpha1.TrafficTarget{
+			TrafficTarget: v1beta1.TrafficTarget{
 				ConfigurationName: "config",
 				RevisionName:      "v2",
 				Percent:           100,
@@ -74,7 +77,7 @@ func TestMakeClusterIngressSpec_CorrectRules(t *testing.T) {
 			Active:      true,
 		}},
 		"v1": {{
-			TrafficTarget: v1alpha1.TrafficTarget{
+			TrafficTarget: v1beta1.TrafficTarget{
 				ConfigurationName: "config",
 				RevisionName:      "v1",
 				Percent:           100,
@@ -250,7 +253,7 @@ func TestGetRouteDomains_NamedTarget(t *testing.T) {
 // One active target.
 func TestMakeClusterIngressRule_Vanilla(t *testing.T) {
 	targets := []traffic.RevisionTarget{{
-		TrafficTarget: v1alpha1.TrafficTarget{
+		TrafficTarget: v1beta1.TrafficTarget{
 			ConfigurationName: "config",
 			RevisionName:      "revision",
 			Percent:           100,
@@ -259,7 +262,6 @@ func TestMakeClusterIngressRule_Vanilla(t *testing.T) {
 		Active:      true,
 	}}
 	domains := []string{"a.com", "b.org"}
-	const ns = "test-ns"
 	rule := makeClusterIngressRule(domains, ns, targets)
 	expected := netv1alpha1.ClusterIngressRule{
 		Hosts: []string{
@@ -292,7 +294,7 @@ func TestMakeClusterIngressRule_Vanilla(t *testing.T) {
 // One active target and a target of zero percent.
 func TestMakeClusterIngressRule_ZeroPercentTarget(t *testing.T) {
 	targets := []traffic.RevisionTarget{{
-		TrafficTarget: v1alpha1.TrafficTarget{
+		TrafficTarget: v1beta1.TrafficTarget{
 			ConfigurationName: "config",
 			RevisionName:      "revision",
 			Percent:           100,
@@ -300,7 +302,7 @@ func TestMakeClusterIngressRule_ZeroPercentTarget(t *testing.T) {
 		ServiceName: "active-target",
 		Active:      true,
 	}, {
-		TrafficTarget: v1alpha1.TrafficTarget{
+		TrafficTarget: v1beta1.TrafficTarget{
 			ConfigurationName: "new-config",
 			RevisionName:      "new-revision",
 			Percent:           0,
@@ -338,7 +340,7 @@ func TestMakeClusterIngressRule_ZeroPercentTarget(t *testing.T) {
 // Two active targets.
 func TestMakeClusterIngressRule_TwoTargets(t *testing.T) {
 	targets := []traffic.RevisionTarget{{
-		TrafficTarget: v1alpha1.TrafficTarget{
+		TrafficTarget: v1beta1.TrafficTarget{
 			ConfigurationName: "config",
 			RevisionName:      "revision",
 			Percent:           80,
@@ -346,7 +348,7 @@ func TestMakeClusterIngressRule_TwoTargets(t *testing.T) {
 		ServiceName: "nigh",
 		Active:      true,
 	}, {
-		TrafficTarget: v1alpha1.TrafficTarget{
+		TrafficTarget: v1beta1.TrafficTarget{
 			ConfigurationName: "new-config",
 			RevisionName:      "new-revision",
 			Percent:           20,
@@ -355,7 +357,6 @@ func TestMakeClusterIngressRule_TwoTargets(t *testing.T) {
 		Active:      true,
 	}}
 	domains := []string{"test.org"}
-	const ns = "test-ns"
 	rule := makeClusterIngressRule(domains, ns, targets)
 	expected := netv1alpha1.ClusterIngressRule{
 		Hosts: []string{"test.org"},
@@ -392,7 +393,7 @@ func TestMakeClusterIngressRule_TwoTargets(t *testing.T) {
 // Inactive target.
 func TestMakeClusterIngressRule_InactiveTarget(t *testing.T) {
 	targets := []traffic.RevisionTarget{{
-		TrafficTarget: v1alpha1.TrafficTarget{
+		TrafficTarget: v1beta1.TrafficTarget{
 			ConfigurationName: "config",
 			RevisionName:      "revision",
 			Percent:           100,
@@ -400,7 +401,6 @@ func TestMakeClusterIngressRule_InactiveTarget(t *testing.T) {
 		Active: false,
 	}}
 	domains := []string{"a.com", "b.org"}
-	const ns = "test-ns"
 	rule := makeClusterIngressRule(domains, ns, targets)
 	expected := netv1alpha1.ClusterIngressRule{
 		Hosts: []string{
@@ -432,14 +432,14 @@ func TestMakeClusterIngressRule_InactiveTarget(t *testing.T) {
 // Two inactive targets.
 func TestMakeClusterIngressRule_TwoInactiveTargets(t *testing.T) {
 	targets := []traffic.RevisionTarget{{
-		TrafficTarget: v1alpha1.TrafficTarget{
+		TrafficTarget: v1beta1.TrafficTarget{
 			ConfigurationName: "config",
 			RevisionName:      "revision",
 			Percent:           80,
 		},
 		Active: false,
 	}, {
-		TrafficTarget: v1alpha1.TrafficTarget{
+		TrafficTarget: v1beta1.TrafficTarget{
 			ConfigurationName: "new-config",
 			RevisionName:      "new-revision",
 			Percent:           20,
@@ -447,7 +447,6 @@ func TestMakeClusterIngressRule_TwoInactiveTargets(t *testing.T) {
 		Active: false,
 	}}
 	domains := []string{"a.com", "b.org"}
-	const ns = "test-ns"
 	rule := makeClusterIngressRule(domains, ns, targets)
 	expected := netv1alpha1.ClusterIngressRule{
 		Hosts: []string{
@@ -485,15 +484,15 @@ func TestMakeClusterIngressRule_TwoInactiveTargets(t *testing.T) {
 
 func TestMakeClusterIngressRule_ZeroPercentTargetInactive(t *testing.T) {
 	targets := []traffic.RevisionTarget{{
-		TrafficTarget: v1alpha1.TrafficTarget{
+		TrafficTarget: v1beta1.TrafficTarget{
 			ConfigurationName: "config",
 			RevisionName:      "revision",
 			Percent:           100,
 		},
 		ServiceName: "apathy-sets-in",
-		Active: true,
+		Active:      true,
 	}, {
-		TrafficTarget: v1alpha1.TrafficTarget{
+		TrafficTarget: v1beta1.TrafficTarget{
 			ConfigurationName: "new-config",
 			RevisionName:      "new-revision",
 			Percent:           0,
@@ -502,7 +501,6 @@ func TestMakeClusterIngressRule_ZeroPercentTargetInactive(t *testing.T) {
 		Active: false,
 	}}
 	domains := []string{"test.org"}
-	const ns = "test-ns"
 	rule := makeClusterIngressRule(domains, ns, targets)
 	expected := netv1alpha1.ClusterIngressRule{
 		Hosts: []string{"test.org"},
