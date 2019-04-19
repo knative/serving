@@ -27,6 +27,7 @@ import (
 	"github.com/knative/pkg/apis"
 	"github.com/knative/serving/pkg/apis/autoscaling"
 	net "github.com/knative/serving/pkg/apis/networking"
+	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 	autoscalingv1 "k8s.io/api/autoscaling/v1"
 )
 
@@ -109,7 +110,8 @@ func TestPodAutoscalerSpecValidation(t *testing.T) {
 				Name:       "bar",
 			},
 		},
-		want: apis.ErrOutOfBoundsValue(-1, 0, 1000, "containerConcurrency"),
+		want: apis.ErrOutOfBoundsValue(-1, 0,
+			v1beta1.RevisionContainerConcurrencyMax, "containerConcurrency"),
 	}, {
 		name: "multi invalid, bad concurrency and missing ref kind",
 		rs: &PodAutoscalerSpec{
@@ -120,7 +122,8 @@ func TestPodAutoscalerSpecValidation(t *testing.T) {
 				Name:       "bar",
 			},
 		},
-		want: apis.ErrOutOfBoundsValue(-2, 0, 1000, "containerConcurrency").Also(
+		want: apis.ErrOutOfBoundsValue(-2, 0,
+			v1beta1.RevisionContainerConcurrencyMax, "containerConcurrency").Also(
 			apis.ErrMissingField("scaleTargetRef.kind")),
 	}}
 
@@ -244,7 +247,8 @@ func TestPodAutoscalerValidation(t *testing.T) {
 				},
 			},
 		},
-		want: apis.ErrOutOfBoundsValue(-1, 0, 1000, "spec.containerConcurrency"),
+		want: apis.ErrOutOfBoundsValue(-1, 0,
+			v1beta1.RevisionContainerConcurrencyMax, "spec.containerConcurrency"),
 	}}
 
 	for _, test := range tests {
