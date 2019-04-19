@@ -144,7 +144,7 @@ func NewController(
 	impl := controller.NewImpl(c, c.Logger, "KPA-Class Autoscaling", reconciler.MustNewStatsReporter("KPA-Class Autoscaling", c.Logger))
 
 	c.Logger.Info("Setting up KPA-Class event handlers")
-	// Handler PodAutoscalers missing the class annotation for backward compatibility.
+	// Handle PodAutoscalers missing the class annotation for backward compatibility.
 	onlyKpaClass := reconciler.AnnotationFilterFunc(autoscaling.ClassAnnotationKey, autoscaling.KPA, true)
 	paInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: onlyKpaClass,
@@ -378,6 +378,7 @@ func (c *Reconciler) reconcileSKS(ctx context.Context, pa *pav1alpha1.PodAutosca
 	logger.Infof("### reconciling SKS to mode %v PA status: %v", mode, pa.Status.GetCondition(pav1alpha1.PodAutoscalerConditionActive))
 	sksName := anames.SKS(pa.Name)
 	sks, err := c.sksLister.ServerlessServices(pa.Namespace).Get(sksName)
+	logger.Infof("### --> Got SKS mode: %v", sks.Spec.Mode)
 	if errors.IsNotFound(err) {
 		logger.Infof("SKS %s/%s does not exist; creating.", pa.Namespace, sksName)
 		sks = aresources.MakeSKS(pa, mode)
@@ -386,13 +387,13 @@ func (c *Reconciler) reconcileSKS(ctx context.Context, pa *pav1alpha1.PodAutosca
 			return nil, perrors.Wrapf(err, "error creating SKS %s", sksName)
 		}
 		logger.Info("Created SKS:", sksName)
+		logger.Info("#### Created SKS:", sksName)
 	} else if err != nil {
 		return nil, perrors.Wrapf(err, "error getting SKS %s", sksName)
 	} else if !metav1.IsControlledBy(sks, pa) {
 		pa.Status.MarkResourceNotOwned("ServerlessService", sksName)
 		return nil, fmt.Errorf("KPA: %s does not own SKS: %s", pa.Name, sksName)
 	}
-	logger.Infof("### --> Got SKS mode: %v", sks.Spec.Mode)
 	tmpl := aresources.MakeSKS(pa, mode)
 	if !equality.Semantic.DeepEqual(tmpl.Spec, sks.Spec) {
 		logger.Infof("### SKS Spec diff: %s", cmp.Diff(tmpl.Spec, sks.Spec))
