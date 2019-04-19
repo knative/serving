@@ -99,9 +99,6 @@ type ControllerOptions struct {
 	// TLS Client Authentication.
 	// The default value is tls.NoClientCert.
 	ClientAuth tls.ClientAuthType
-
-	// Strict defines strict mode validation.
-	Strict bool
 }
 
 // ResourceCallback defines a signature for resource specific (Route, Configuration, etc.)
@@ -565,11 +562,6 @@ func (ac *AdmissionController) mutate(ctx context.Context, req *admissionv1beta1
 		// Return the error message as-is to give the defaulter callback
 		// discretion over (our portion of) the message that the user sees.
 		return nil, err
-	}
-
-	// Strict mode does not allow setting or updating deprecated fields.
-	if ac.Options.Strict {
-		ctx = apis.DisallowDeprecated(ctx)
 	}
 
 	// None of the validators will accept a nil value for newObj.
