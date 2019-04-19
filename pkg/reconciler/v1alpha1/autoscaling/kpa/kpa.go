@@ -278,7 +278,7 @@ func (c *Reconciler) reconcile(ctx context.Context, pa *pav1alpha1.PodAutoscaler
 		if err != nil {
 			return perrors.Wrapf(err, "error checking endpoints %s", sks.Status.PrivateServiceName)
 		}
-		logger.Infof("PA scale got=%v, want=%v", pa.Name, got, want)
+		logger.Infof("PA scale got=%v, want=%v", got, want)
 	}
 
 	err = reportMetrics(pa, want, got)
