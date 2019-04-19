@@ -28,8 +28,8 @@ import (
 )
 
 const (
-	// scrapeTickInterval is the interval of time between scraping metrics across
-	// all pods of a revision.
+	// scrapeTickInterval is the interval of time between triggring StatsScraper.Scrape()
+	// to get metrics across all pods of a revision.
 	scrapeTickInterval = time.Second
 )
 

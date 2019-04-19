@@ -40,6 +40,8 @@ const (
 	// scraper or the activator.
 	scraperPodName = "service-scraper"
 
+	// samplingSuccessRate is the threshold to decide whether the results of a batch
+	// of scrape requests can be used.
 	samplingSuccessRate = 0.8
 )
 
@@ -144,6 +146,9 @@ func (s *ServiceScraper) Scrape() (*StatMessage, error) {
 	}
 
 	sampleSize := s.samClient.SampleSize(readyPodsCount)
+	if sampleSize == 0 {
+		return nil, nil
+	}
 
 	var avgCon float64
 	var avgProxiedCon float64

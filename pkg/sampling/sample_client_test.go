@@ -21,9 +21,36 @@ import (
 )
 
 func TestSampleSize(t *testing.T) {
-	client := NewPopulationSampleClient()
+	testCases := []struct {
+		popSize        int
+		wantSampleSize int
+	}{{
+		popSize:        0,
+		wantSampleSize: 0,
+	}, {
+		popSize:        1,
+		wantSampleSize: 1,
+	}, {
+		popSize:        2,
+		wantSampleSize: 2,
+	}, {
+		popSize:        5,
+		wantSampleSize: 4,
+	}, {
+		popSize:        10,
+		wantSampleSize: 7,
+	}, {
+		popSize:        100,
+		wantSampleSize: 14,
+	}, {
+		popSize:        1000,
+		wantSampleSize: 16,
+	}}
 
-	if got, want := client.SampleSize(1), 3; got != want {
-		t.Errorf("client.SampleSize(1) = %v, want %v", got, want)
+	client := NewPopulationSampleClient()
+	for _, testCase := range testCases {
+		if got, want := client.SampleSize(testCase.popSize), testCase.wantSampleSize; got != want {
+			t.Errorf("client.SampleSize(%v) = %v, want %v", testCase.popSize, got, want)
+		}
 	}
 }
