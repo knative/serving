@@ -36,6 +36,7 @@ import (
 	"github.com/knative/pkg/websocket"
 	"github.com/knative/serving/cmd/util"
 	"github.com/knative/serving/pkg/activator"
+	activatorconfig "github.com/knative/serving/pkg/activator/config"
 	activatorhandler "github.com/knative/serving/pkg/activator/handler"
 	activatorutil "github.com/knative/serving/pkg/activator/util"
 	"github.com/knative/serving/pkg/apis/networking"
@@ -53,7 +54,10 @@ import (
 	"github.com/knative/serving/pkg/queue"
 	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/resources"
+	"github.com/knative/serving/pkg/tracing"
+	tracingconfig "github.com/knative/serving/pkg/tracing/config"
 
+	"github.com/openzipkin/zipkin-go"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	kubeinformers "k8s.io/client-go/informers"
@@ -125,11 +129,11 @@ func main() {
 	if err != nil {
 		log.Fatalf("Error loading logging configuration: %v", err)
 	}
-	config, err := logging.NewConfigFromMap(cm)
+	logConfig, err := logging.NewConfigFromMap(cm)
 	if err != nil {
 		log.Fatalf("Error parsing logging configuration: %v", err)
 	}
-	createdLogger, atomicLevel := logging.NewLoggerFromConfig(config, component)
+	createdLogger, atomicLevel := logging.NewLoggerFromConfig(logConfig, component)
 	logger := createdLogger.With(zap.String(logkey.ControllerType, "activator"))
 	defer flush(logger)
 
@@ -241,6 +245,27 @@ func main() {
 		Handler:    handler,
 	})
 
+	activatorL3 := fmt.Sprintf("%s:%d", activator.K8sServiceName, activator.ServicePortHTTP1)
+	zipkinEndpoint, err := zipkin.NewEndpoint("activator", activatorL3)
+	if err != nil {
+		logger.Error("Unable to create tracing endpoint")
+		return
+	}
+	oct := tracing.NewOpenCensusTracer(
+		tracing.WithZipkinExporter(tracing.CreateZipkinReporter, zipkinEndpoint),
+	)
+	tracerUpdater := func(name string, value interface{}) {
+		if name == tracingconfig.ConfigName {
+			cfg := value.(*tracingconfig.Config)
+			oct.ApplyConfig(cfg)
+		}
+	}
+
+	// Set up our config store
+	configMapWatcher := configmap.NewInformedWatcher(kubeClient, system.Namespace())
+	configStore := activatorconfig.NewStore(createdLogger, tracerUpdater)
+	configStore.WatchConfigs(configMapWatcher)
+
 	// Open a websocket connection to the autoscaler
 	autoscalerEndpoint := fmt.Sprintf("ws://%s.%s.svc.%s:%d", "autoscaler", system.Namespace(), network.GetClusterDomainName(), autoscalerPort)
 	logger.Info("Connecting to autoscaler at", autoscalerEndpoint)
@@ -268,11 +293,12 @@ func main() {
 		GetService:    serviceGetter,
 	}
 	ah = activatorhandler.NewRequestEventHandler(reqChan, ah)
+	ah = tracing.HTTPSpanMiddleware("handle_request", ah)
+	ah = configStore.HTTPMiddleware(ah)
 	ah = &activatorhandler.HealthHandler{HealthCheck: statSink.Status, NextHandler: ah}
 	ah = &activatorhandler.ProbeHandler{NextHandler: ah}
 
 	// Watch the logging config map and dynamically update logging levels.
-	configMapWatcher := configmap.NewInformedWatcher(kubeClient, system.Namespace())
 	configMapWatcher.Watch(logging.ConfigMapName(), logging.UpdateLevelFromConfigMap(logger, atomicLevel, component))
 	// Watch the observability config map and dynamically update metrics exporter.
 	configMapWatcher.Watch(metrics.ObservabilityConfigName, metrics.UpdateExporterFromConfigMap(component, logger))
