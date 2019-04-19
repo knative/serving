@@ -286,8 +286,8 @@ func (c *Reconciler) reconcile(ctx context.Context, pa *pav1alpha1.PodAutoscaler
 		return perrors.Wrap(err, "error reporting metrics")
 	}
 
-	// updatePAStatus decides if we need to change the SKS mode.
-	if updatePAStatus(pa, want, got) {
+	// computeActiveCondition decides if we need to change the SKS mode.
+	if computeActiveCondition(pa, want, got) {
 		_, err := c.reconcileSKS(ctx, pa)
 		if err != nil {
 			return perrors.Wrap(err, "error re-reconciling SKS")
@@ -435,9 +435,9 @@ func reportMetrics(pa *pav1alpha1.PodAutoscaler, want int32, got int) error {
 	return nil
 }
 
-// updatePAStatus updates the status of PA, depending on scales desired and present.
-// updatePAStatus returns true if it thinks SKS needs an update.
-func updatePAStatus(pa *pav1alpha1.PodAutoscaler, want int32, got int) (ret bool) {
+// computeActiveCondition updates the status of PA, depending on scales desired and present.
+// computeActiveCondition returns true if it thinks SKS needs an update.
+func computeActiveCondition(pa *pav1alpha1.PodAutoscaler, want int32, got int) (ret bool) {
 	switch {
 	case want == 0:
 		ret = !pa.Status.IsInactive() // Any state but inactive should change SKS.
