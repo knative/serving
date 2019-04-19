@@ -51,8 +51,8 @@ func MakeRoute(service *v1alpha1.Service) (*v1alpha1.Route, error) {
 
 		// Configure the 'current' route.
 		ttCurrent := v1alpha1.TrafficTarget{
-			DeprecatedName: v1alpha1.CurrentTrafficTarget,
 			TrafficTarget: v1beta1.TrafficTarget{
+				Tag:     v1alpha1.CurrentTrafficTarget,
 				Percent: 100 - rolloutPercent,
 			},
 		}
@@ -72,8 +72,8 @@ func MakeRoute(service *v1alpha1.Service) (*v1alpha1.Route, error) {
 		// Configure the 'candidate' route.
 		if numRevisions == 2 {
 			ttCandidate := v1alpha1.TrafficTarget{
-				DeprecatedName: v1alpha1.CandidateTrafficTarget,
 				TrafficTarget: v1beta1.TrafficTarget{
+					Tag:     v1alpha1.CandidateTrafficTarget,
 					Percent: rolloutPercent,
 				},
 			}
@@ -88,8 +88,8 @@ func MakeRoute(service *v1alpha1.Service) (*v1alpha1.Route, error) {
 
 		// Configure the 'latest' route.
 		ttLatest := v1alpha1.TrafficTarget{
-			DeprecatedName: v1alpha1.LatestTrafficTarget,
 			TrafficTarget: v1beta1.TrafficTarget{
+				Tag:               v1alpha1.LatestTrafficTarget,
 				ConfigurationName: names.Configuration(service),
 				Percent:           0,
 			},

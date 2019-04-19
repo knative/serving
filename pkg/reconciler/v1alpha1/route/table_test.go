@@ -147,8 +147,9 @@ func TestReconcile(t *testing.T) {
 				WithDomain, WithDomainInternal, WithAddress, WithInitRouteConditions,
 				MarkTrafficAssigned, WithStatusTraffic(v1alpha1.TrafficTarget{
 					TrafficTarget: v1beta1.TrafficTarget{
-						RevisionName: "config-00001",
-						Percent:      100,
+						RevisionName:   "config-00001",
+						Percent:        100,
+						LatestRevision: ptr.Bool(true),
 					},
 				})),
 		}},
@@ -196,8 +197,9 @@ func TestReconcile(t *testing.T) {
 				WithDomain, WithDomainInternal, WithAddress, WithInitRouteConditions,
 				MarkTrafficAssigned, WithStatusTraffic(v1alpha1.TrafficTarget{
 					TrafficTarget: v1beta1.TrafficTarget{
-						RevisionName: "config-00001",
-						Percent:      100,
+						RevisionName:   "config-00001",
+						Percent:        100,
+						LatestRevision: ptr.Bool(true),
 					},
 				})),
 		}},
@@ -249,8 +251,9 @@ func TestReconcile(t *testing.T) {
 				WithRouteLabel("serving.knative.dev/visibility", "cluster-local"),
 				MarkTrafficAssigned, WithStatusTraffic(v1alpha1.TrafficTarget{
 					TrafficTarget: v1beta1.TrafficTarget{
-						RevisionName: "config-00001",
-						Percent:      100,
+						RevisionName:   "config-00001",
+						Percent:        100,
+						LatestRevision: ptr.Bool(true),
 					},
 				})),
 		}},
@@ -296,8 +299,9 @@ func TestReconcile(t *testing.T) {
 				MarkTrafficAssigned, MarkIngressReady, WithStatusTraffic(
 					v1alpha1.TrafficTarget{
 						TrafficTarget: v1beta1.TrafficTarget{
-							RevisionName: "config-00001",
-							Percent:      100,
+							RevisionName:   "config-00001",
+							Percent:        100,
+							LatestRevision: ptr.Bool(true),
 						},
 					})),
 		}},
@@ -345,8 +349,9 @@ func TestReconcile(t *testing.T) {
 				MarkTrafficAssigned, MarkIngressReady, WithStatusTraffic(
 					v1alpha1.TrafficTarget{
 						TrafficTarget: v1beta1.TrafficTarget{
-							RevisionName: "config-00001",
-							Percent:      100,
+							RevisionName:   "config-00001",
+							Percent:        100,
+							LatestRevision: ptr.Bool(true),
 						},
 					})),
 		}},
@@ -398,8 +403,9 @@ func TestReconcile(t *testing.T) {
 				WithDomain, WithDomainInternal, WithAddress, WithInitRouteConditions,
 				MarkTrafficAssigned, WithStatusTraffic(v1alpha1.TrafficTarget{
 					TrafficTarget: v1beta1.TrafficTarget{
-						RevisionName: "config-00001",
-						Percent:      100,
+						RevisionName:   "config-00001",
+						Percent:        100,
+						LatestRevision: ptr.Bool(true),
 					},
 				})),
 		}},
@@ -419,8 +425,9 @@ func TestReconcile(t *testing.T) {
 				WithRouteFinalizer, WithStatusTraffic(
 					v1alpha1.TrafficTarget{
 						TrafficTarget: v1beta1.TrafficTarget{
-							RevisionName: "config-00001",
-							Percent:      100,
+							RevisionName:   "config-00001",
+							Percent:        100,
+							LatestRevision: ptr.Bool(true),
 						},
 					})),
 			cfg("default", "config",
@@ -490,8 +497,9 @@ func TestReconcile(t *testing.T) {
 				MarkTrafficAssigned, MarkIngressReady, WithRouteFinalizer, WithStatusTraffic(
 					v1alpha1.TrafficTarget{
 						TrafficTarget: v1beta1.TrafficTarget{
-							RevisionName: "config-00001",
-							Percent:      100,
+							RevisionName:   "config-00001",
+							Percent:        100,
+							LatestRevision: ptr.Bool(true),
 						},
 					}),
 				// The owner is not us, so we are unhappy.
@@ -512,8 +520,9 @@ func TestReconcile(t *testing.T) {
 				WithInitRouteConditions, MarkTrafficAssigned, MarkIngressReady,
 				WithRouteFinalizer, WithStatusTraffic(v1alpha1.TrafficTarget{
 					TrafficTarget: v1beta1.TrafficTarget{
-						RevisionName: "config-00001",
-						Percent:      100,
+						RevisionName:   "config-00001",
+						Percent:        100,
+						LatestRevision: ptr.Bool(true),
 					},
 				}), WithRouteLabel("app", "prod")),
 			cfg("default", "config",
@@ -549,8 +558,9 @@ func TestReconcile(t *testing.T) {
 				MarkTrafficAssigned, MarkIngressReady, WithRouteFinalizer, WithStatusTraffic(
 					v1alpha1.TrafficTarget{
 						TrafficTarget: v1beta1.TrafficTarget{
-							RevisionName: "config-00001",
-							Percent:      100,
+							RevisionName:   "config-00001",
+							Percent:        100,
+							LatestRevision: ptr.Bool(true),
 						},
 					})),
 			cfg("default", "config",
@@ -643,8 +653,9 @@ func TestReconcile(t *testing.T) {
 				MarkTrafficAssigned, MarkIngressReady, WithRouteFinalizer, WithStatusTraffic(
 					v1alpha1.TrafficTarget{
 						TrafficTarget: v1beta1.TrafficTarget{
-							RevisionName: "config-00002",
-							Percent:      100,
+							RevisionName:   "config-00002",
+							Percent:        100,
+							LatestRevision: ptr.Bool(true),
 						},
 					})),
 		}},
@@ -717,8 +728,9 @@ func TestReconcile(t *testing.T) {
 				MarkTrafficAssigned, MarkIngressReady, WithRouteFinalizer, WithStatusTraffic(
 					v1alpha1.TrafficTarget{
 						TrafficTarget: v1beta1.TrafficTarget{
-							RevisionName: "config-00002",
-							Percent:      100,
+							RevisionName:   "config-00002",
+							Percent:        100,
+							LatestRevision: ptr.Bool(true),
 						},
 					})),
 		}},
@@ -735,8 +747,9 @@ func TestReconcile(t *testing.T) {
 				MarkTrafficAssigned, MarkIngressReady, WithRouteFinalizer, WithStatusTraffic(
 					v1alpha1.TrafficTarget{
 						TrafficTarget: v1beta1.TrafficTarget{
-							RevisionName: "config-00001",
-							Percent:      100,
+							RevisionName:   "config-00001",
+							Percent:        100,
+							LatestRevision: ptr.Bool(true),
 						},
 					})),
 			cfg("default", "config",
@@ -780,8 +793,9 @@ func TestReconcile(t *testing.T) {
 				MarkTrafficAssigned, MarkIngressReady, WithStatusTraffic(
 					v1alpha1.TrafficTarget{
 						TrafficTarget: v1beta1.TrafficTarget{
-							RevisionName: "config-00001",
-							Percent:      100,
+							RevisionName:   "config-00001",
+							Percent:        100,
+							LatestRevision: ptr.Bool(true),
 						},
 					})),
 			cfg("default", "config",
@@ -826,8 +840,9 @@ func TestReconcile(t *testing.T) {
 				MarkTrafficAssigned, MarkIngressReady, WithStatusTraffic(
 					v1alpha1.TrafficTarget{
 						TrafficTarget: v1beta1.TrafficTarget{
-							RevisionName: "config-00001",
-							Percent:      100,
+							RevisionName:   "config-00001",
+							Percent:        100,
+							LatestRevision: ptr.Bool(true),
 						},
 					})),
 			cfg("default", "config",
@@ -867,8 +882,9 @@ func TestReconcile(t *testing.T) {
 				MarkTrafficAssigned, MarkIngressReady, WithStatusTraffic(
 					v1alpha1.TrafficTarget{
 						TrafficTarget: v1beta1.TrafficTarget{
-							RevisionName: "config-00001",
-							Percent:      100,
+							RevisionName:   "config-00001",
+							Percent:        100,
+							LatestRevision: ptr.Bool(true),
 						},
 					})),
 			cfg("default", "config",
@@ -907,8 +923,9 @@ func TestReconcile(t *testing.T) {
 				MarkTrafficAssigned, MarkIngressReady, WithStatusTraffic(
 					v1alpha1.TrafficTarget{
 						TrafficTarget: v1beta1.TrafficTarget{
-							RevisionName: "config-00001",
-							Percent:      100,
+							RevisionName:   "config-00001",
+							Percent:        100,
+							LatestRevision: ptr.Bool(true),
 						},
 					})),
 			cfg("default", "config",
@@ -1022,8 +1039,9 @@ func TestReconcile(t *testing.T) {
 				MarkTrafficAssigned, MarkIngressReady, WithRouteFinalizer, WithStatusTraffic(
 					v1alpha1.TrafficTarget{
 						TrafficTarget: v1beta1.TrafficTarget{
-							RevisionName: "newconfig-00001",
-							Percent:      100,
+							RevisionName:   "newconfig-00001",
+							Percent:        100,
+							LatestRevision: ptr.Bool(true),
 						},
 					})),
 		}},
@@ -1098,8 +1116,9 @@ func TestReconcile(t *testing.T) {
 				MarkTrafficAssigned, MarkIngressReady, WithStatusTraffic(
 					v1alpha1.TrafficTarget{
 						TrafficTarget: v1beta1.TrafficTarget{
-							RevisionName: "config-00001",
-							Percent:      100,
+							RevisionName:   "config-00001",
+							Percent:        100,
+							LatestRevision: ptr.Bool(false),
 						},
 					})),
 		}},
@@ -1182,13 +1201,15 @@ func TestReconcile(t *testing.T) {
 				MarkTrafficAssigned, WithStatusTraffic(
 					v1alpha1.TrafficTarget{
 						TrafficTarget: v1beta1.TrafficTarget{
-							RevisionName: "blue-00001",
-							Percent:      50,
+							RevisionName:   "blue-00001",
+							Percent:        50,
+							LatestRevision: ptr.Bool(true),
 						},
 					}, v1alpha1.TrafficTarget{
 						TrafficTarget: v1beta1.TrafficTarget{
-							RevisionName: "green-00001",
-							Percent:      50,
+							RevisionName:   "green-00001",
+							Percent:        50,
+							LatestRevision: ptr.Bool(true),
 						},
 					})),
 		}},
@@ -1288,16 +1309,20 @@ func TestReconcile(t *testing.T) {
 					v1alpha1.TrafficTarget{
 						DeprecatedName: "gray",
 						TrafficTarget: v1beta1.TrafficTarget{
-							RevisionName: "gray-00001",
-							Percent:      50,
-							URL:          "http://gray.same-revision-targets.default.example.com",
+							Tag:            "gray",
+							RevisionName:   "gray-00001",
+							Percent:        50,
+							LatestRevision: ptr.Bool(true),
+							URL:            "http://gray.same-revision-targets.default.example.com",
 						},
 					}, v1alpha1.TrafficTarget{
 						DeprecatedName: "also-gray",
 						TrafficTarget: v1beta1.TrafficTarget{
-							RevisionName: "gray-00001",
-							Percent:      50,
-							URL:          "http://also-gray.same-revision-targets.default.example.com",
+							Tag:            "also-gray",
+							RevisionName:   "gray-00001",
+							Percent:        50,
+							LatestRevision: ptr.Bool(false),
+							URL:            "http://also-gray.same-revision-targets.default.example.com",
 						},
 					})),
 		}},
@@ -1371,8 +1396,9 @@ func TestReconcile(t *testing.T) {
 				MarkTrafficAssigned, MarkIngressReady, WithStatusTraffic(
 					v1alpha1.TrafficTarget{
 						TrafficTarget: v1beta1.TrafficTarget{
-							RevisionName: "green-00001",
-							Percent:      100,
+							RevisionName:   "green-00001",
+							Percent:        100,
+							LatestRevision: ptr.Bool(true),
 						},
 					}), WithRouteFinalizer),
 		}},
@@ -1402,6 +1428,7 @@ func TestReconcile(t *testing.T) {
 						TrafficTarget: v1beta1.TrafficTarget{
 							ConfigurationName: "blue",
 							Percent:           100,
+							LatestRevision:    ptr.Bool(true),
 						},
 					},
 				)),
@@ -1449,6 +1476,7 @@ func TestReconcile(t *testing.T) {
 						TrafficTarget: v1beta1.TrafficTarget{
 							ConfigurationName: "blue",
 							Percent:           100,
+							LatestRevision:    ptr.Bool(true),
 						},
 					})),
 		}},
@@ -1462,8 +1490,9 @@ func TestReconcile(t *testing.T) {
 				MarkTrafficAssigned, MarkIngressReady, WithRouteFinalizer, WithStatusTraffic(
 					v1alpha1.TrafficTarget{
 						TrafficTarget: v1beta1.TrafficTarget{
-							RevisionName: "config-00001",
-							Percent:      100,
+							RevisionName:   "config-00001",
+							Percent:        100,
+							LatestRevision: ptr.Bool(true),
 						},
 					})),
 			cfg("default", "config",
@@ -1503,8 +1532,9 @@ func TestReconcile(t *testing.T) {
 				MarkTrafficAssigned, MarkIngressReady, WithStatusTraffic(
 					v1alpha1.TrafficTarget{
 						TrafficTarget: v1beta1.TrafficTarget{
-							RevisionName: "config-00001",
-							Percent:      100,
+							RevisionName:   "config-00001",
+							Percent:        100,
+							LatestRevision: ptr.Bool(true),
 						},
 					})),
 			cfg("default", "config",

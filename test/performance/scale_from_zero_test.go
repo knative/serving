@@ -127,7 +127,7 @@ func parallelScaleFromZero(t *testing.T, count int) ([]time.Duration, error) {
 	sos := []ktest.ServiceOption{
 		// We set a small resource alloc so that we can pack more pods into the cluster.
 		func(svc *v1alpha1.Service) {
-			svc.Spec.DeprecatedRunLatest.Configuration.GetTemplate().Spec.GetContainer().Resources = corev1.ResourceRequirements{
+			svc.Spec.ConfigurationSpec.Template.Spec.Containers[0].Resources = corev1.ResourceRequirements{
 				Limits: corev1.ResourceList{
 					corev1.ResourceCPU:    resource.MustParse("10m"),
 					corev1.ResourceMemory: resource.MustParse("50Mi"),
