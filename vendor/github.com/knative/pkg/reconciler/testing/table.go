@@ -23,8 +23,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/davecgh/go-spew/spew"
-
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/knative/pkg/controller"
@@ -183,7 +181,7 @@ func (r *TableRow) Test(t *testing.T, factory Factory) {
 	}
 	if got, want := len(updates), len(r.WantUpdates); got > want {
 		for _, extra := range updates[want:] {
-			t.Errorf("Extra update: %s", spew.Sdump(extra))
+			t.Errorf("Extra update: %#v", extra)
 		}
 	}
 
