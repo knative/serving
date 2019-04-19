@@ -262,7 +262,6 @@ func (c *Reconciler) reconcile(ctx context.Context, pa *pav1alpha1.PodAutoscaler
 
 	// Get the appropriate current scale from the metric, and right size
 	// the scaleTargetRef based on it.
-	fmt.Printf("### desired scale: %d\n", decider.Status.DesiredScale)
 	want, err := c.scaler.Scale(ctx, pa, decider.Status.DesiredScale)
 	if err != nil {
 		return perrors.Wrap(err, "error scaling target")
@@ -274,12 +273,12 @@ func (c *Reconciler) reconcile(ctx context.Context, pa *pav1alpha1.PodAutoscaler
 	got := 0
 	// Propagate service name.
 	pa.Status.ServiceName = sks.Status.ServiceName
-	if sks.Status.IsReady() && sks.Spec.Mode != nv1alpha1.SKSOperationModeProxy {
+	if sks.Status.IsReady() {
 		got, err = resourceutil.FetchReadyAddressCount(c.endpointsLister, pa.Namespace, sks.Status.PrivateServiceName)
 		if err != nil {
 			return perrors.Wrapf(err, "error checking endpoints %s", sks.Status.PrivateServiceName)
 		}
-		logger.Infof("PA got=%v, want=%v", got, want)
+		logger.Infof("PA scale got=%v, want=%v", pa.Name, got, want)
 	}
 
 	err = reportMetrics(pa, want, got)
@@ -287,6 +286,7 @@ func (c *Reconciler) reconcile(ctx context.Context, pa *pav1alpha1.PodAutoscaler
 		return perrors.Wrap(err, "error reporting metrics")
 	}
 
+	// updatePAStatus decides if we need to change the SKS mode.
 	if updatePAStatus(pa, want, got) {
 		_, err := c.reconcileSKS(ctx, pa)
 		if err != nil {

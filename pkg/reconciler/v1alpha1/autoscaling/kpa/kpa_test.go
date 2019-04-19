@@ -394,6 +394,8 @@ func makeTestEndpoints(num int, ns, n string) *corev1.Endpoints {
 }
 
 func TestReconcileAndScaleToZero(t *testing.T) {
+	// This test suite uses special decider that will
+	// force KPA to scale to 0.
 	const key = testNamespace + "/" + testRevision
 	const deployName = testRevision + "-deployment"
 	usualSelector := map[string]string{"a": "b"}
@@ -559,7 +561,8 @@ func TestReconcile(t *testing.T) {
 			sks(testNamespace, testRevision, WithProxyMode, WithDeployRef(deployName), WithSKSReady),
 			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector)),
 			deploy(testNamespace, testRevision),
-			makeSKSPrivateEndpoints(1, testNamespace, testRevision),
+			// When PA is passive num private endpoints must be 0.
+			makeSKSPrivateEndpoints(0, testNamespace, testRevision),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: sks(testNamespace, testRevision, WithSKSReady,
