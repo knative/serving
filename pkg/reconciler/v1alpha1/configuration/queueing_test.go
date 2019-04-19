@@ -23,6 +23,7 @@ import (
 	fakesharedclientset "github.com/knative/pkg/client/clientset/versioned/fake"
 	"github.com/knative/pkg/configmap"
 	ctrl "github.com/knative/pkg/controller"
+	logtesting "github.com/knative/pkg/logging/testing"
 	"github.com/knative/pkg/system"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1beta1"
@@ -38,7 +39,7 @@ import (
 	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/tools/record"
 
-	. "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
+	. "github.com/knative/pkg/reconciler/testing"
 )
 
 /* TODO tests:
@@ -131,7 +132,7 @@ func newTestController(t *testing.T, stopCh chan struct{}) (
 			SharedClientSet:  sharedClient,
 			ServingClientSet: servingClient,
 			ConfigMapWatcher: configMapWatcher,
-			Logger:           TestLogger(t),
+			Logger:           logtesting.TestLogger(t),
 			StopChannel:      stopCh,
 			Recorder:         record.NewFakeRecorder(1000),
 		},

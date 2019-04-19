@@ -21,6 +21,7 @@ import (
 	"testing"
 
 	"github.com/knative/pkg/controller"
+	logtesting "github.com/knative/pkg/logging/testing"
 	autoscalingv1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/apis/networking"
 	nv1a1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
@@ -29,7 +30,6 @@ import (
 	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/autoscaling/hpa/resources"
 	aresources "github.com/knative/serving/pkg/reconciler/v1alpha1/autoscaling/resources"
-	. "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
 
 	appsv1 "k8s.io/api/apps/v1"
 	autoscalingv1 "k8s.io/api/autoscaling/v1"
@@ -41,6 +41,9 @@ import (
 	fakeK8s "k8s.io/client-go/kubernetes/fake"
 	fakescaleclient "k8s.io/client-go/scale/fake"
 	ktesting "k8s.io/client-go/testing"
+
+	. "github.com/knative/pkg/reconciler/testing"
+	. "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
 )
 
 const (
@@ -60,7 +63,7 @@ func TestControllerCanReconcile(t *testing.T) {
 		KubeClientSet:    kubeClient,
 		ServingClientSet: servingClient,
 		ScaleClientSet:   scaleClient,
-		Logger:           TestLogger(t),
+		Logger:           logtesting.TestLogger(t),
 	}
 
 	servingInformer := informers.NewSharedInformerFactory(servingClient, 0)
@@ -406,7 +409,7 @@ func TestReconcile(t *testing.T) {
 		},
 	}}
 
-	defer ClearAllLoggers()
+	defer logtesting.ClearAll()
 	table.Test(t, MakeFactory(func(listers *Listers, opt reconciler.Options) controller.Reconciler {
 		return &Reconciler{
 			Base:      reconciler.NewBase(opt, controllerAgentName),

@@ -23,7 +23,7 @@ import (
 	"time"
 
 	"github.com/knative/pkg/apis"
-	. "github.com/knative/pkg/logging/testing"
+	logtesting "github.com/knative/pkg/logging/testing"
 	_ "github.com/knative/pkg/system/testing"
 	"github.com/knative/serving/pkg/apis/autoscaling"
 	pav1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
@@ -48,7 +48,7 @@ const (
 )
 
 func TestScaler(t *testing.T) {
-	defer ClearAll()
+	defer logtesting.ClearAll()
 	tests := []struct {
 		label         string
 		startReplicas int
@@ -172,14 +172,14 @@ func TestScaler(t *testing.T) {
 
 			revision := newRevision(t, servingClient, test.minScale, test.maxScale)
 			deployment := newDeployment(t, scaleClient, names.Deployment(revision), test.startReplicas)
-			revisionScaler := NewScaler(servingClient, scaleClient, TestLogger(t), newConfigWatcher())
+			revisionScaler := NewScaler(servingClient, scaleClient, logtesting.TestLogger(t), newConfigWatcher())
 
 			pa := newKPA(t, servingClient, revision)
 			if test.kpaMutation != nil {
 				test.kpaMutation(pa)
 			}
 
-			desiredScale, err := revisionScaler.Scale(TestContextWithLogger(t), pa, test.scaleTo)
+			desiredScale, err := revisionScaler.Scale(logtesting.TestContextWithLogger(t), pa, test.scaleTo)
 
 			if err != nil {
 				t.Error("Scale got an unexpected error: ", err)
@@ -197,7 +197,7 @@ func TestScaler(t *testing.T) {
 }
 
 func TestDisableScaleToZero(t *testing.T) {
-	defer ClearAll()
+	defer logtesting.ClearAll()
 	tests := []struct {
 		label         string
 		startReplicas int
@@ -237,14 +237,14 @@ func TestDisableScaleToZero(t *testing.T) {
 			revisionScaler := &scaler{
 				servingClientSet: servingClient,
 				scaleClientSet:   scaleClient,
-				logger:           TestLogger(t),
+				logger:           logtesting.TestLogger(t),
 				autoscalerConfig: &autoscaler.Config{
 					EnableScaleToZero: false,
 				},
 			}
 			pa := newKPA(t, servingClient, revision)
 
-			desiredScale, err := revisionScaler.Scale(TestContextWithLogger(t), pa, test.scaleTo)
+			desiredScale, err := revisionScaler.Scale(logtesting.TestContextWithLogger(t), pa, test.scaleTo)
 
 			if err != nil {
 				t.Error("Scale got an unexpected error: ", err)
@@ -262,14 +262,14 @@ func TestDisableScaleToZero(t *testing.T) {
 }
 
 func TestGetScaleResource(t *testing.T) {
-	defer ClearAll()
+	defer logtesting.ClearAll()
 	servingClient := fakeKna.NewSimpleClientset()
 	scaleClient := &scalefake.FakeScaleClient{}
 
 	revision := newRevision(t, servingClient, 1, 10)
 	// This setups reactor as well.
 	newDeployment(t, scaleClient, names.Deployment(revision), 5)
-	revisionScaler := NewScaler(servingClient, scaleClient, TestLogger(t), newConfigWatcher())
+	revisionScaler := NewScaler(servingClient, scaleClient, logtesting.TestLogger(t), newConfigWatcher())
 
 	pa := newKPA(t, servingClient, revision)
 	scale, err := revisionScaler.GetScaleResource(pa)

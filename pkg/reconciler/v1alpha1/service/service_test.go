@@ -23,6 +23,7 @@ import (
 	duckv1beta1 "github.com/knative/pkg/apis/duck/v1beta1"
 	fakesharedclientset "github.com/knative/pkg/client/clientset/versioned/fake"
 	"github.com/knative/pkg/controller"
+	logtesting "github.com/knative/pkg/logging/testing"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 	fakeclientset "github.com/knative/serving/pkg/client/clientset/versioned/fake"
@@ -35,6 +36,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
 	clientgotesting "k8s.io/client-go/testing"
+
+	. "github.com/knative/pkg/reconciler/testing"
 )
 
 // This is heavily based on the way the OpenShift Ingress controller tests its reconciliation method.
@@ -1049,7 +1052,7 @@ func TestReconcile(t *testing.T) {
 		},
 	}}
 
-	defer ClearAllLoggers()
+	defer logtesting.ClearAll()
 	table.Test(t, MakeFactory(func(listers *Listers, opt reconciler.Options) controller.Reconciler {
 		return &Reconciler{
 			Base:                reconciler.NewBase(opt, controllerAgentName),
@@ -1062,7 +1065,7 @@ func TestReconcile(t *testing.T) {
 }
 
 func TestNew(t *testing.T) {
-	defer ClearAllLoggers()
+	defer logtesting.ClearAll()
 	kubeClient := fakekubeclientset.NewSimpleClientset()
 	sharedClient := fakesharedclientset.NewSimpleClientset()
 	servingClient := fakeclientset.NewSimpleClientset()
@@ -1077,7 +1080,7 @@ func TestNew(t *testing.T) {
 		KubeClientSet:    kubeClient,
 		SharedClientSet:  sharedClient,
 		ServingClientSet: servingClient,
-		Logger:           TestLogger(t),
+		Logger:           logtesting.TestLogger(t),
 	}, serviceInformer, configurationInformer, revisionInformer, routeInformer)
 
 	if c == nil {

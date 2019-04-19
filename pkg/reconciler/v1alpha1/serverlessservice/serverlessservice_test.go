@@ -30,6 +30,7 @@ import (
 	rpkg "github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/serverlessservice/resources"
 
+	logtesting "github.com/knative/pkg/logging/testing"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -38,11 +39,12 @@ import (
 	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
 	clientgotesting "k8s.io/client-go/testing"
 
+	. "github.com/knative/pkg/reconciler/testing"
 	. "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
 )
 
 func TestNewController(t *testing.T) {
-	defer ClearAllLoggers()
+	defer logtesting.ClearAll()
 
 	kubeClient := fakekubeclientset.NewSimpleClientset()
 	kubeInformer := kubeinformers.NewSharedInformerFactory(kubeClient, 0)
@@ -57,7 +59,7 @@ func TestNewController(t *testing.T) {
 	opt := rpkg.Options{
 		KubeClientSet:    kubeClient,
 		ServingClientSet: servingClient,
-		Logger:           TestLogger(t),
+		Logger:           logtesting.TestLogger(t),
 	}
 	c := NewController(opt, sksInformer, servicesInformer, endpointsInformer)
 
@@ -68,16 +70,16 @@ func TestNewController(t *testing.T) {
 
 func TestReconcile(t *testing.T) {
 	table := TableTest{{
-		Name: "bad workqueue key, Part I",
-		Key:  "too/many/parts",
+		Name:                    "bad workqueue key, Part I",
+		Key:                     "too/many/parts",
 		SkipNamespaceValidation: true,
 	}, {
-		Name: "bad workqueue key, Part II",
-		Key:  "too-few-parts",
+		Name:                    "bad workqueue key, Part II",
+		Key:                     "too-few-parts",
 		SkipNamespaceValidation: true,
 	}, {
-		Name: "key not found",
-		Key:  "foo/not-found",
+		Name:                    "key not found",
+		Key:                     "foo/not-found",
 		SkipNamespaceValidation: true,
 	}, {
 		Name: "steady state",
@@ -422,7 +424,7 @@ func TestReconcile(t *testing.T) {
 			}},
 		}}
 
-	defer ClearAllLoggers()
+	defer logtesting.ClearAll()
 	table.Test(t, MakeFactory(func(listers *Listers, opt rpkg.Options) controller.Reconciler {
 		return &reconciler{
 			Base:            rpkg.NewBase(opt, controllerAgentName),
