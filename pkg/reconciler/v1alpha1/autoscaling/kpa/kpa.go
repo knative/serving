@@ -268,8 +268,8 @@ func (c *Reconciler) reconcile(ctx context.Context, pa *pav1alpha1.PodAutoscaler
 		if err != nil {
 			return perrors.Wrapf(err, "error checking endpoints %s", sks.Status.PrivateServiceName)
 		}
-		logger.Infof("PA scale got=%v, want=%v", got, want)
 	}
+	logger.Infof("PA scale got=%v, want=%v", got, want)
 
 	err = reportMetrics(pa, want, got)
 	if err != nil {
@@ -446,7 +446,7 @@ func computeActiveCondition(pa *pav1alpha1.PodAutoscaler, want int32, got int) (
 		ret = !pa.Status.IsInactive() // Any state but inactive should change SKS.
 		pa.Status.MarkInactive("NoTraffic", "The target is not receiving traffic.")
 
-	case got == 0 && want != 0:
+	case got == 0 && want > 0:
 		ret = pa.Status.IsInactive() // If we were inactive and became activating.
 		pa.Status.MarkActivating(
 			"Queued", "Requests to the target are being buffered as resources are provisioned.")
@@ -454,6 +454,8 @@ func computeActiveCondition(pa *pav1alpha1.PodAutoscaler, want int32, got int) (
 	case got > 0:
 		// SKS should already be active.
 		pa.Status.MarkActive()
+	case want == scaleUnknown:
+		// We don't know what scale we want, so don't touch PA at all.
 	}
 
 	pa.Status.ObservedGeneration = pa.Generation
