@@ -53,6 +53,9 @@ var (
 	_ apis.Validatable = (*Route)(nil)
 	_ apis.Defaultable = (*Route)(nil)
 
+	// Check that Route can be converted to higher versions.
+	_ apis.Convertible = (*Route)(nil)
+
 	// Check that we can create OwnerReferences to a Route.
 	_ kmeta.OwnerRefable = (*Route)(nil)
 )
