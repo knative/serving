@@ -48,10 +48,10 @@ ${GOPATH}/bin/deepcopy-gen \
   --go-header-file ${REPO_ROOT_DIR}/hack/boilerplate/boilerplate.go.txt \
   -i github.com/knative/serving/pkg/apis/config \
   -i github.com/knative/serving/pkg/apis/serving/v1beta1 \
-  -i github.com/knative/serving/pkg/reconciler/v1alpha1/clusteringress/config \
-  -i github.com/knative/serving/pkg/reconciler/v1alpha1/configuration/config \
-  -i github.com/knative/serving/pkg/reconciler/v1alpha1/revision/config \
-  -i github.com/knative/serving/pkg/reconciler/v1alpha1/route/config \
+  -i github.com/knative/serving/pkg/reconciler/clusteringress/config \
+  -i github.com/knative/serving/pkg/reconciler/configuration/config \
+  -i github.com/knative/serving/pkg/reconciler/revision/config \
+  -i github.com/knative/serving/pkg/reconciler/route/config \
   -i github.com/knative/serving/pkg/tracing/config \
   -i github.com/knative/serving/pkg/activator/config \
   -i github.com/knative/serving/pkg/autoscaler \

@@ -24,11 +24,11 @@ import (
 
 	"github.com/knative/pkg/apis/duck"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	serviceresourcenames "github.com/knative/serving/pkg/reconciler/v1alpha1/service/resources/names"
+	serviceresourcenames "github.com/knative/serving/pkg/reconciler/service/resources/names"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
-	rtesting "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
+	rtesting "github.com/knative/serving/pkg/reconciler/testing"
 )
 
 // TODO(dangerd): Move function to duck.CreateBytePatch

@@ -28,7 +28,7 @@ import (
 	"github.com/knative/pkg/controller"
 	pkgTest "github.com/knative/pkg/test"
 	ingress "github.com/knative/pkg/test/ingress"
-	testingv1alpha1 "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
+	testingv1alpha1 "github.com/knative/serving/pkg/reconciler/testing"
 	"github.com/knative/serving/pkg/resources"
 	"github.com/knative/serving/test"
 	"github.com/knative/test-infra/shared/junit"

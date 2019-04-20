@@ -28,7 +28,7 @@ import (
 	"github.com/knative/pkg/test/helpers"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1beta1"
-	v1alpha1testing "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
+	v1alpha1testing "github.com/knative/serving/pkg/reconciler/testing"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

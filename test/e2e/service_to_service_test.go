@@ -30,9 +30,9 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources/names"
-	routeconfig "github.com/knative/serving/pkg/reconciler/v1alpha1/route/config"
-	. "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
+	"github.com/knative/serving/pkg/reconciler/revision/resources/names"
+	routeconfig "github.com/knative/serving/pkg/reconciler/route/config"
+	. "github.com/knative/serving/pkg/reconciler/testing"
 )
 
 const (
