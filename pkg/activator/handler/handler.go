@@ -32,7 +32,7 @@ import (
 	pkghttp "github.com/knative/serving/pkg/http"
 	"github.com/knative/serving/pkg/network"
 	"github.com/knative/serving/pkg/queue"
-	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources"
+	"github.com/knative/serving/pkg/reconciler/revision/resources"
 
 	"go.opencensus.io/plugin/ochttp"
 	"go.opencensus.io/trace"

@@ -27,8 +27,8 @@ import (
 
 	pkgTest "github.com/knative/pkg/test"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	serviceresourcenames "github.com/knative/serving/pkg/reconciler/v1alpha1/service/resources/names"
-	. "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
+	serviceresourcenames "github.com/knative/serving/pkg/reconciler/service/resources/names"
+	. "github.com/knative/serving/pkg/reconciler/testing"
 	"github.com/knative/serving/test"
 	"github.com/mattbaird/jsonpatch"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

@@ -36,12 +36,12 @@ import (
 	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/pkg/metrics"
 	"github.com/knative/serving/pkg/reconciler"
-	"github.com/knative/serving/pkg/reconciler/v1alpha1/configuration"
-	"github.com/knative/serving/pkg/reconciler/v1alpha1/labeler"
-	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision"
-	"github.com/knative/serving/pkg/reconciler/v1alpha1/route"
-	"github.com/knative/serving/pkg/reconciler/v1alpha1/serverlessservice"
-	"github.com/knative/serving/pkg/reconciler/v1alpha1/service"
+	"github.com/knative/serving/pkg/reconciler/configuration"
+	"github.com/knative/serving/pkg/reconciler/labeler"
+	"github.com/knative/serving/pkg/reconciler/revision"
+	"github.com/knative/serving/pkg/reconciler/route"
+	"github.com/knative/serving/pkg/reconciler/serverlessservice"
+	"github.com/knative/serving/pkg/reconciler/service"
 	"go.uber.org/zap"
 )
 
