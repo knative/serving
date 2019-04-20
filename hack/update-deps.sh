@@ -21,7 +21,7 @@ set -o pipefail
 source $(dirname $0)/../vendor/github.com/knative/test-infra/scripts/library.sh
 
 # Remove symlinks in /vendor that are broken or lead outside the repo.
-function remove_broken_symlinks() {
+remove_broken_symlinks() {
   for link in $(find ./vendor -type l); do
     # Remove broken symlinks
     if [[ ! -e ${link} ]]; then

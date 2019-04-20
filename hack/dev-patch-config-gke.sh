@@ -26,7 +26,7 @@ readonly K8S_CLUSTER_ZONE
 readonly SET_CLUSTER_CIDR=${SET_CLUSTER_CIDR:-true}
 
 # Patch configmap `config-network` in `knative-serving` namespace.
-function patch_network_config_gke() {
+patch_network_config_gke() {
   local ip_ranges=""
   if [[ "$SET_CLUSTER_CIDR" == "true" ]]; then
     echo "Getting clusterIpv4Cidr from cluster ${K8S_CLUSTER_NAME}..."

@@ -16,7 +16,7 @@
 
 source $(dirname $0)/../vendor/github.com/knative/test-infra/scripts/release.sh
 
-function build_release() {
+build_release() {
   # Run `generate-yamls.sh`, which should be versioned with the
   # branch since the detail of building may change over time.
   local YAML_LIST="$(mktemp)"

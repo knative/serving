@@ -29,7 +29,7 @@ readonly K8S_CLUSTER_NODES=5
 readonly PROJECT_USER=$(gcloud config get-value core/account)
 readonly CURRENT_PROJECT=$(gcloud config get-value project)
 
-function cleanup() {
+cleanup() {
   gcloud config set project ${CURRENT_PROJECT}
 }
 
