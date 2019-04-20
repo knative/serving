@@ -37,9 +37,9 @@ import (
 )
 
 var (
-	masterURL  = flag.String("master", "", "The address of the Kubernetes API server. Overrides any value in kubeconfig. Only required if out-of-cluster.")
-	kubeconfig = flag.String("kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
-	magicDNS   = flag.String("magic-dns", "", "The hostname for the magic DNS service, e.g. xip.io or nip.io")
+	controlPlaneURL = flag.String("control-plane", "", "The address of the Kubernetes API server. Overrides any value in kubeconfig. Only required if out-of-cluster.")
+	kubeconfig      = flag.String("kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
+	magicDNS        = flag.String("magic-dns", "", "The hostname for the magic DNS service, e.g. xip.io or nip.io")
 )
 
 const (
@@ -51,7 +51,7 @@ const (
 )
 
 func kubeClientFromFlags() (*kubernetes.Clientset, error) {
-	cfg, err := clientcmd.BuildConfigFromFlags(*masterURL, *kubeconfig)
+	cfg, err := clientcmd.BuildConfigFromFlags(*controlPlaneURL, *kubeconfig)
 	if err != nil {
 		return nil, fmt.Errorf("error building kubeconfig: %v", err)
 	}
