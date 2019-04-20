@@ -52,6 +52,9 @@ var (
 	_ apis.Validatable = (*Configuration)(nil)
 	_ apis.Defaultable = (*Configuration)(nil)
 
+	// Check that Configuration can be converted to higher versions.
+	_ apis.Convertible = (*Configuration)(nil)
+
 	// Check that we can create OwnerReferences to a Configuration.
 	_ kmeta.OwnerRefable = (*Configuration)(nil)
 )

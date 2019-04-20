@@ -50,6 +50,9 @@ var (
 	_ apis.Validatable = (*Revision)(nil)
 	_ apis.Defaultable = (*Revision)(nil)
 
+	// Check that Revision can be converted to higher versions.
+	_ apis.Convertible = (*Revision)(nil)
+
 	// Check that we can create OwnerReferences to a Revision.
 	_ kmeta.OwnerRefable = (*Revision)(nil)
 )
