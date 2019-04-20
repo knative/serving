@@ -70,8 +70,8 @@ func Route(names ResourceNames, fopt ...v1alpha1testing.RouteOption) *v1alpha1.R
 		},
 		Spec: v1alpha1.RouteSpec{
 			Traffic: []v1alpha1.TrafficTarget{{
-				DeprecatedName: names.TrafficTarget,
 				TrafficTarget: v1beta1.TrafficTarget{
+					Tag:               names.TrafficTarget,
 					ConfigurationName: names.Config,
 					Percent:           100,
 				},
@@ -86,34 +86,50 @@ func Route(names ResourceNames, fopt ...v1alpha1testing.RouteOption) *v1alpha1.R
 	return route
 }
 
-// BlueGreenRoute returns a Route object in namespace using the route and configuration
-// names in names. Traffic is split evenly between blue and green.
-func BlueGreenRoute(names, blue, green ResourceNames) *v1alpha1.Route {
-	return &v1alpha1.Route{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: names.Route,
-		},
-		Spec: v1alpha1.RouteSpec{
-			Traffic: []v1alpha1.TrafficTarget{{
-				DeprecatedName: blue.TrafficTarget,
-				TrafficTarget: v1beta1.TrafficTarget{
-					RevisionName: blue.Revision,
-					Percent:      50,
-				},
-			}, {
-				DeprecatedName: green.TrafficTarget,
-				TrafficTarget: v1beta1.TrafficTarget{
-					RevisionName: green.Revision,
-					Percent:      50,
-				},
-			}},
-		},
-	}
-}
-
 // ConfigurationSpec returns the spec of a configuration to be used throughout different
 // CRD helpers.
 func ConfigurationSpec(imagePath string, options *Options) *v1alpha1.ConfigurationSpec {
+	if options.ContainerResources.Limits == nil && options.ContainerResources.Requests == nil {
+		options.ContainerResources = corev1.ResourceRequirements{
+			Requests: corev1.ResourceList{
+				corev1.ResourceCPU: resource.MustParse(defaultRequestCPU),
+			},
+		}
+	}
+
+	spec := &v1alpha1.ConfigurationSpec{
+		Template: &v1alpha1.RevisionTemplateSpec{
+			Spec: v1alpha1.RevisionSpec{
+				RevisionSpec: v1beta1.RevisionSpec{
+					PodSpec: v1beta1.PodSpec{
+						Containers: []corev1.Container{{
+							Image:           imagePath,
+							Resources:       options.ContainerResources,
+							ReadinessProbe:  options.ReadinessProbe,
+							Ports:           options.ContainerPorts,
+							SecurityContext: options.SecurityContext,
+						}},
+					},
+					ContainerConcurrency: v1beta1.RevisionContainerConcurrencyType(options.ContainerConcurrency),
+				},
+			},
+		},
+	}
+
+	if options.RevisionTimeoutSeconds > 0 {
+		spec.GetTemplate().Spec.TimeoutSeconds = ptr.Int64(options.RevisionTimeoutSeconds)
+	}
+
+	if options.EnvVars != nil {
+		spec.GetTemplate().Spec.GetContainer().Env = options.EnvVars
+	}
+
+	return spec
+}
+
+// LegacyConfigurationSpec returns the spec of a configuration to be used throughout different
+// CRD helpers.
+func LegacyConfigurationSpec(imagePath string, options *Options) *v1alpha1.ConfigurationSpec {
 	if options.ContainerResources.Limits == nil && options.ContainerResources.Requests == nil {
 		options.ContainerResources = corev1.ResourceRequirements{
 			Requests: corev1.ResourceList{
@@ -195,57 +211,22 @@ func ConfigurationWithBuild(names ResourceNames, build *v1alpha1.RawExtension) *
 	}
 }
 
-// LatestService returns a DeprecatedRunLatest Service object in namespace with the name names.Service
+// LatestService returns a Service object in namespace with the name names.Service
 // that uses the image specified by names.Image.
 func LatestService(names ResourceNames, options *Options, fopt ...v1alpha1testing.ServiceOption) *v1alpha1.Service {
 	a := append([]v1alpha1testing.ServiceOption{
-		v1alpha1testing.WithRunLatestConfigSpec(*ConfigurationSpec(ptest.ImagePath(names.Image), options)),
+		v1alpha1testing.WithInlineConfigSpec(*ConfigurationSpec(ptest.ImagePath(names.Image), options)),
 	}, fopt...)
 	return v1alpha1testing.ServiceWithoutNamespace(names.Service, a...)
-
 }
 
-// ReleaseLatestService returns a Release Service object in namespace with the name names.Service
-// that uses the image specified by names.Image and `@latest` as the only revision.
-func ReleaseLatestService(names ResourceNames, options *Options, fopt ...v1alpha1testing.ServiceOption) *v1alpha1.Service {
+// LatestServiceLegacy returns a DeprecatedRunLatest Service object in namespace with the name names.Service
+// that uses the image specified by names.Image.
+func LatestServiceLegacy(names ResourceNames, options *Options, fopt ...v1alpha1testing.ServiceOption) *v1alpha1.Service {
 	a := append([]v1alpha1testing.ServiceOption{
-		v1alpha1testing.WithReleaseRolloutConfigSpec(*ConfigurationSpec(ptest.ImagePath(names.Image), options),
-			[]string{v1alpha1.ReleaseLatestRevisionKeyword}...)}, fopt...)
+		v1alpha1testing.WithRunLatestConfigSpec(*LegacyConfigurationSpec(ptest.ImagePath(names.Image), options)),
+	}, fopt...)
 	return v1alpha1testing.ServiceWithoutNamespace(names.Service, a...)
-}
-
-// ReleaseService returns a Release Service object in namespace with the name names.Service that uses
-// the image specified by names.Image. It also takes a list of 1-2 revisons and a rolloutPercent to be
-// used to configure routing
-func ReleaseService(svc *v1alpha1.Service, revisions []string, rolloutPercent int) *v1alpha1.Service {
-	var config v1alpha1.ConfigurationSpec
-	if svc.Spec.DeprecatedRunLatest != nil {
-		config = svc.Spec.DeprecatedRunLatest.Configuration
-	} else if svc.Spec.DeprecatedRelease != nil {
-		config = svc.Spec.DeprecatedRelease.Configuration
-	} else if svc.Spec.DeprecatedPinned != nil {
-		config = svc.Spec.DeprecatedPinned.Configuration
-	}
-	return &v1alpha1.Service{
-		ObjectMeta: svc.ObjectMeta,
-		Spec: v1alpha1.ServiceSpec{
-			DeprecatedRelease: &v1alpha1.ReleaseType{
-				Revisions:      revisions,
-				RolloutPercent: rolloutPercent,
-				Configuration:  config,
-			},
-		},
-	}
-}
-
-// ManualService returns a DeprecatedManual Service object in namespace with the name names.Service
-func ManualService(svc *v1alpha1.Service) *v1alpha1.Service {
-	return &v1alpha1.Service{
-		ObjectMeta: svc.ObjectMeta,
-		Spec: v1alpha1.ServiceSpec{
-			DeprecatedManual: &v1alpha1.ManualType{},
-		},
-	}
 }
 
 // AppendRandomString will generate a random string that begins with prefix. This is useful

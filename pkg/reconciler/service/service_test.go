@@ -151,12 +151,14 @@ func TestReconcile(t *testing.T) {
 				WithStatusTraffic(v1alpha1.TrafficTarget{
 					DeprecatedName: v1alpha1.CurrentTrafficTarget,
 					TrafficTarget: v1beta1.TrafficTarget{
+						Tag:          v1alpha1.CurrentTrafficTarget,
 						RevisionName: "pinned3-00001",
 						Percent:      100,
 					},
 				}, v1alpha1.TrafficTarget{
 					DeprecatedName: v1alpha1.LatestTrafficTarget,
 					TrafficTarget: v1beta1.TrafficTarget{
+						Tag:          v1alpha1.LatestTrafficTarget,
 						RevisionName: "pinned3-00001",
 						Percent:      0,
 					},
@@ -176,12 +178,14 @@ func TestReconcile(t *testing.T) {
 				WithSvcStatusTraffic(v1alpha1.TrafficTarget{
 					DeprecatedName: v1alpha1.CurrentTrafficTarget,
 					TrafficTarget: v1beta1.TrafficTarget{
+						Tag:          v1alpha1.CurrentTrafficTarget,
 						RevisionName: "pinned3-00001",
 						Percent:      100,
 					},
 				}, v1alpha1.TrafficTarget{
 					DeprecatedName: v1alpha1.LatestTrafficTarget,
 					TrafficTarget: v1beta1.TrafficTarget{
+						Tag:          v1alpha1.LatestTrafficTarget,
 						RevisionName: "pinned3-00001",
 						Percent:      0,
 					},
@@ -399,12 +403,14 @@ func TestReconcile(t *testing.T) {
 				WithStatusTraffic([]v1alpha1.TrafficTarget{{
 					DeprecatedName: v1alpha1.CurrentTrafficTarget,
 					TrafficTarget: v1beta1.TrafficTarget{
+						Tag:          v1alpha1.CurrentTrafficTarget,
 						RevisionName: "release-ready-lr-00001",
 						Percent:      100,
 					},
 				}, {
 					DeprecatedName: v1alpha1.LatestTrafficTarget,
 					TrafficTarget: v1beta1.TrafficTarget{
+						Tag:          v1alpha1.LatestTrafficTarget,
 						RevisionName: "release-ready-lr-00001",
 					},
 				}}...), MarkTrafficAssigned, MarkIngressReady),
@@ -424,12 +430,14 @@ func TestReconcile(t *testing.T) {
 				WithSvcStatusTraffic([]v1alpha1.TrafficTarget{{
 					DeprecatedName: v1alpha1.CurrentTrafficTarget,
 					TrafficTarget: v1beta1.TrafficTarget{
+						Tag:          v1alpha1.CurrentTrafficTarget,
 						RevisionName: "release-ready-lr-00001",
 						Percent:      100,
 					},
 				}, {
 					DeprecatedName: v1alpha1.LatestTrafficTarget,
 					TrafficTarget: v1beta1.TrafficTarget{
+						Tag:          v1alpha1.LatestTrafficTarget,
 						RevisionName: "release-ready-lr-00001",
 					},
 				}}...),
@@ -454,18 +462,21 @@ func TestReconcile(t *testing.T) {
 				WithStatusTraffic([]v1alpha1.TrafficTarget{{
 					DeprecatedName: v1alpha1.CurrentTrafficTarget,
 					TrafficTarget: v1beta1.TrafficTarget{
+						Tag:          v1alpha1.CurrentTrafficTarget,
 						RevisionName: "release-ready-lr-00001",
 						Percent:      58,
 					},
 				}, {
 					DeprecatedName: v1alpha1.CandidateTrafficTarget,
 					TrafficTarget: v1beta1.TrafficTarget{
+						Tag:          v1alpha1.CandidateTrafficTarget,
 						RevisionName: "release-ready-lr-00002",
 						Percent:      42,
 					},
 				}, {
 					DeprecatedName: v1alpha1.LatestTrafficTarget,
 					TrafficTarget: v1beta1.TrafficTarget{
+						Tag:          v1alpha1.LatestTrafficTarget,
 						RevisionName: "release-ready-lr-00002",
 					},
 				}}...), MarkTrafficAssigned, MarkIngressReady),
@@ -486,18 +497,21 @@ func TestReconcile(t *testing.T) {
 				WithSvcStatusTraffic([]v1alpha1.TrafficTarget{{
 					DeprecatedName: v1alpha1.CurrentTrafficTarget,
 					TrafficTarget: v1beta1.TrafficTarget{
+						Tag:          v1alpha1.CurrentTrafficTarget,
 						RevisionName: "release-ready-lr-00001",
 						Percent:      58,
 					},
 				}, {
 					DeprecatedName: v1alpha1.CandidateTrafficTarget,
 					TrafficTarget: v1beta1.TrafficTarget{
+						Tag:          v1alpha1.CandidateTrafficTarget,
 						RevisionName: "release-ready-lr-00002",
 						Percent:      42,
 					},
 				}, {
 					DeprecatedName: v1alpha1.LatestTrafficTarget,
 					TrafficTarget: v1beta1.TrafficTarget{
+						Tag:          v1alpha1.LatestTrafficTarget,
 						RevisionName: "release-ready-lr-00002",
 					},
 				}}...),
@@ -522,18 +536,21 @@ func TestReconcile(t *testing.T) {
 				WithStatusTraffic(v1alpha1.TrafficTarget{
 					DeprecatedName: v1alpha1.CurrentTrafficTarget,
 					TrafficTarget: v1beta1.TrafficTarget{
+						Tag:          v1alpha1.CurrentTrafficTarget,
 						RevisionName: "release-ready-00001",
 						Percent:      42,
 					},
 				}, v1alpha1.TrafficTarget{
 					DeprecatedName: v1alpha1.CandidateTrafficTarget,
 					TrafficTarget: v1beta1.TrafficTarget{
+						Tag:          v1alpha1.CandidateTrafficTarget,
 						RevisionName: "release-ready-00002",
 						Percent:      58,
 					},
 				}, v1alpha1.TrafficTarget{
 					DeprecatedName: v1alpha1.LatestTrafficTarget,
 					TrafficTarget: v1beta1.TrafficTarget{
+						Tag:          v1alpha1.LatestTrafficTarget,
 						RevisionName: "release-ready-00002",
 						Percent:      0,
 					},
@@ -554,18 +571,21 @@ func TestReconcile(t *testing.T) {
 				WithSvcStatusTraffic(v1alpha1.TrafficTarget{
 					DeprecatedName: v1alpha1.CurrentTrafficTarget,
 					TrafficTarget: v1beta1.TrafficTarget{
+						Tag:          v1alpha1.CurrentTrafficTarget,
 						RevisionName: "release-ready-00001",
 						Percent:      42,
 					},
 				}, v1alpha1.TrafficTarget{
 					DeprecatedName: v1alpha1.CandidateTrafficTarget,
 					TrafficTarget: v1beta1.TrafficTarget{
+						Tag:          v1alpha1.CandidateTrafficTarget,
 						RevisionName: "release-ready-00002",
 						Percent:      58,
 					},
 				}, v1alpha1.TrafficTarget{
 					DeprecatedName: v1alpha1.LatestTrafficTarget,
 					TrafficTarget: v1beta1.TrafficTarget{
+						Tag:          v1alpha1.LatestTrafficTarget,
 						RevisionName: "release-ready-00002",
 						Percent:      0,
 					},
