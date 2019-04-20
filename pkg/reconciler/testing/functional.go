@@ -185,14 +185,23 @@ func WithServiceLabel(key, value string) ServiceOption {
 // WithResourceRequirements attaches resource requirements to the service
 func WithResourceRequirements(resourceRequirements corev1.ResourceRequirements) ServiceOption {
 	return func(svc *v1alpha1.Service) {
-		svc.Spec.DeprecatedRunLatest.Configuration.GetTemplate().Spec.GetContainer().Resources = resourceRequirements
+		if svc.Spec.DeprecatedRunLatest != nil {
+			svc.Spec.DeprecatedRunLatest.Configuration.GetTemplate().Spec.GetContainer().Resources = resourceRequirements
+		} else {
+			svc.Spec.ConfigurationSpec.Template.Spec.Containers[0].Resources = resourceRequirements
+		}
 	}
 }
 
 // WithVolume adds a volume to the service
 func WithVolume(name, mountPath string, volumeSource corev1.VolumeSource) ServiceOption {
 	return func(svc *v1alpha1.Service) {
-		rt := &svc.Spec.DeprecatedRunLatest.Configuration.GetTemplate().Spec
+		var rt *v1alpha1.RevisionSpec
+		if svc.Spec.DeprecatedRunLatest != nil {
+			rt = &svc.Spec.DeprecatedRunLatest.Configuration.GetTemplate().Spec
+		} else {
+			rt = &svc.Spec.ConfigurationSpec.Template.Spec
+		}
 
 		rt.GetContainer().VolumeMounts = []corev1.VolumeMount{{
 			Name:      name,
@@ -209,14 +218,22 @@ func WithVolume(name, mountPath string, volumeSource corev1.VolumeSource) Servic
 // WithConfigAnnotations assigns config annotations to a service
 func WithConfigAnnotations(annotations map[string]string) ServiceOption {
 	return func(service *v1alpha1.Service) {
-		service.Spec.DeprecatedRunLatest.Configuration.GetTemplate().ObjectMeta.Annotations = annotations
+		if service.Spec.DeprecatedRunLatest != nil {
+			service.Spec.DeprecatedRunLatest.Configuration.GetTemplate().ObjectMeta.Annotations = annotations
+		} else {
+			service.Spec.ConfigurationSpec.Template.ObjectMeta.Annotations = annotations
+		}
 	}
 }
 
 // WithRevisionTimeoutSeconds sets revision timeout
 func WithRevisionTimeoutSeconds(revisionTimeoutSeconds int64) ServiceOption {
 	return func(service *v1alpha1.Service) {
-		service.Spec.DeprecatedRunLatest.Configuration.GetTemplate().Spec.TimeoutSeconds = ptr.Int64(revisionTimeoutSeconds)
+		if service.Spec.DeprecatedRunLatest != nil {
+			service.Spec.DeprecatedRunLatest.Configuration.GetTemplate().Spec.TimeoutSeconds = ptr.Int64(revisionTimeoutSeconds)
+		} else {
+			service.Spec.ConfigurationSpec.Template.Spec.TimeoutSeconds = ptr.Int64(revisionTimeoutSeconds)
+		}
 	}
 }
 

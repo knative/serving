@@ -101,8 +101,10 @@ func (t *Config) GetRevisionTrafficTargets(domain string) []v1alpha1.TrafficTarg
 		results[i] = v1alpha1.TrafficTarget{
 			DeprecatedName: tt.Tag,
 			TrafficTarget: v1beta1.TrafficTarget{
-				RevisionName: tt.RevisionName,
-				Percent:      tt.Percent,
+				Tag:            tt.Tag,
+				RevisionName:   tt.RevisionName,
+				Percent:        tt.Percent,
+				LatestRevision: tt.LatestRevision,
 			},
 		}
 		if tt.Tag != "" && domain != "" {

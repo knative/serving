@@ -113,14 +113,14 @@ func TestRouteReleaseSingleRevision(t *testing.T) {
 		t.Errorf("Expected %q for service namespace got %q", want, got)
 	}
 	wantT := []v1alpha1.TrafficTarget{{
-		DeprecatedName: v1alpha1.CurrentTrafficTarget,
 		TrafficTarget: v1beta1.TrafficTarget{
+			Tag:          v1alpha1.CurrentTrafficTarget,
 			Percent:      100,
 			RevisionName: testRevisionName,
 		},
 	}, {
-		DeprecatedName: v1alpha1.LatestTrafficTarget,
 		TrafficTarget: v1beta1.TrafficTarget{
+			Tag:               v1alpha1.LatestTrafficTarget,
 			ConfigurationName: testConfigName,
 		},
 	}}
@@ -156,20 +156,20 @@ func TestRouteLatestRevisionSplit(t *testing.T) {
 		t.Errorf("Expected %q for service namespace got %q", want, got)
 	}
 	wantT := []v1alpha1.TrafficTarget{{
-		DeprecatedName: v1alpha1.CurrentTrafficTarget,
 		TrafficTarget: v1beta1.TrafficTarget{
+			Tag:               v1alpha1.CurrentTrafficTarget,
 			Percent:           currentPercent,
 			ConfigurationName: testConfigName,
 		},
 	}, {
-		DeprecatedName: v1alpha1.CandidateTrafficTarget,
 		TrafficTarget: v1beta1.TrafficTarget{
+			Tag:          v1alpha1.CandidateTrafficTarget,
 			Percent:      rolloutPercent,
 			RevisionName: "juicy-revision",
 		},
 	}, {
-		DeprecatedName: v1alpha1.LatestTrafficTarget,
 		TrafficTarget: v1beta1.TrafficTarget{
+			Tag:               v1alpha1.LatestTrafficTarget,
 			ConfigurationName: testConfigName,
 		},
 	}}
@@ -205,20 +205,20 @@ func TestRouteLatestRevisionSplitCandidate(t *testing.T) {
 		t.Errorf("Expected %q for service namespace got %q", want, got)
 	}
 	wantT := []v1alpha1.TrafficTarget{{
-		DeprecatedName: v1alpha1.CurrentTrafficTarget,
 		TrafficTarget: v1beta1.TrafficTarget{
+			Tag:          v1alpha1.CurrentTrafficTarget,
 			Percent:      currentPercent,
 			RevisionName: "squishy-revision",
 		},
 	}, {
-		DeprecatedName: v1alpha1.CandidateTrafficTarget,
 		TrafficTarget: v1beta1.TrafficTarget{
+			Tag:               v1alpha1.CandidateTrafficTarget,
 			Percent:           rolloutPercent,
 			ConfigurationName: testConfigName,
 		},
 	}, {
-		DeprecatedName: v1alpha1.LatestTrafficTarget,
 		TrafficTarget: v1beta1.TrafficTarget{
+			Tag:               v1alpha1.LatestTrafficTarget,
 			ConfigurationName: testConfigName,
 		},
 	}}
@@ -252,14 +252,14 @@ func TestRouteLatestRevisionNoSplit(t *testing.T) {
 	}
 	// Should have 2 named traffic targets (current, latest)
 	wantT := []v1alpha1.TrafficTarget{{
-		DeprecatedName: v1alpha1.CurrentTrafficTarget,
 		TrafficTarget: v1beta1.TrafficTarget{
+			Tag:               v1alpha1.CurrentTrafficTarget,
 			Percent:           100,
 			ConfigurationName: testConfigName,
 		},
 	}, {
-		DeprecatedName: v1alpha1.LatestTrafficTarget,
 		TrafficTarget: v1beta1.TrafficTarget{
+			Tag:               v1alpha1.LatestTrafficTarget,
 			ConfigurationName: testConfigName,
 		},
 	}}
@@ -296,20 +296,20 @@ func TestRouteReleaseTwoRevisions(t *testing.T) {
 	}
 	// Should have 3 named traffic targets (current, candidate, latest)
 	wantT := []v1alpha1.TrafficTarget{{
-		DeprecatedName: v1alpha1.CurrentTrafficTarget,
 		TrafficTarget: v1beta1.TrafficTarget{
+			Tag:          v1alpha1.CurrentTrafficTarget,
 			Percent:      currentPercent,
 			RevisionName: testRevisionName,
 		},
 	}, {
-		DeprecatedName: v1alpha1.CandidateTrafficTarget,
 		TrafficTarget: v1beta1.TrafficTarget{
+			Tag:          v1alpha1.CandidateTrafficTarget,
 			Percent:      100 - currentPercent,
 			RevisionName: testCandidateRevisionName,
 		},
 	}, {
-		DeprecatedName: v1alpha1.LatestTrafficTarget,
 		TrafficTarget: v1beta1.TrafficTarget{
+			Tag:               v1alpha1.LatestTrafficTarget,
 			ConfigurationName: testConfigName,
 		},
 	}}
