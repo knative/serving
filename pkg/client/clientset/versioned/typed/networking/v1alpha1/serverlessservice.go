@@ -123,7 +123,6 @@ func (c *serverlessServices) Update(serverlessService *v1alpha1.ServerlessServic
 
 // UpdateStatus was generated because the type contains a Status member.
 // Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-
 func (c *serverlessServices) UpdateStatus(serverlessService *v1alpha1.ServerlessService) (result *v1alpha1.ServerlessService, err error) {
 	result = &v1alpha1.ServerlessService{}
 	err = c.client.Put().

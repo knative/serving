@@ -123,7 +123,6 @@ func (c *podAutoscalers) Update(podAutoscaler *v1alpha1.PodAutoscaler) (result *
 
 // UpdateStatus was generated because the type contains a Status member.
 // Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-
 func (c *podAutoscalers) UpdateStatus(podAutoscaler *v1alpha1.PodAutoscaler) (result *v1alpha1.PodAutoscaler, err error) {
 	result = &v1alpha1.PodAutoscaler{}
 	err = c.client.Put().

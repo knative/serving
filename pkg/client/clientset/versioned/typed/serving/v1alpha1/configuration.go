@@ -123,7 +123,6 @@ func (c *configurations) Update(configuration *v1alpha1.Configuration) (result *
 
 // UpdateStatus was generated because the type contains a Status member.
 // Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-
 func (c *configurations) UpdateStatus(configuration *v1alpha1.Configuration) (result *v1alpha1.Configuration, err error) {
 	result = &v1alpha1.Configuration{}
 	err = c.client.Put().

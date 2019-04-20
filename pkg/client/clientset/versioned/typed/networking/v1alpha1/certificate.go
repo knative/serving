@@ -123,7 +123,6 @@ func (c *certificates) Update(certificate *v1alpha1.Certificate) (result *v1alph
 
 // UpdateStatus was generated because the type contains a Status member.
 // Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-
 func (c *certificates) UpdateStatus(certificate *v1alpha1.Certificate) (result *v1alpha1.Certificate, err error) {
 	result = &v1alpha1.Certificate{}
 	err = c.client.Put().

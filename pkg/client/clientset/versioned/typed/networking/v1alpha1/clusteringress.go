@@ -116,7 +116,6 @@ func (c *clusterIngresses) Update(clusterIngress *v1alpha1.ClusterIngress) (resu
 
 // UpdateStatus was generated because the type contains a Status member.
 // Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-
 func (c *clusterIngresses) UpdateStatus(clusterIngress *v1alpha1.ClusterIngress) (result *v1alpha1.ClusterIngress, err error) {
 	result = &v1alpha1.ClusterIngress{}
 	err = c.client.Put().
