@@ -30,6 +30,125 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
+func TestPodSpecValidation(t *testing.T) {
+	tests := []struct {
+		name string
+		ps   corev1.PodSpec
+		want *apis.FieldError
+	}{{
+		name: "valid",
+		ps: corev1.PodSpec{
+			Containers: []corev1.Container{{
+				Image: "helloworld",
+			}},
+		},
+		want: nil,
+	}, {
+		name: "with volume (ok)",
+		ps: corev1.PodSpec{
+			Containers: []corev1.Container{{
+				Image: "helloworld",
+				VolumeMounts: []corev1.VolumeMount{{
+					MountPath: "/mount/path",
+					Name:      "the-name",
+					ReadOnly:  true,
+				}},
+			}},
+			Volumes: []corev1.Volume{{
+				Name: "the-name",
+				VolumeSource: corev1.VolumeSource{
+					Secret: &corev1.SecretVolumeSource{
+						SecretName: "foo",
+					},
+				},
+			}},
+		},
+		want: nil,
+	}, {
+		name: "with volume name collision",
+		ps: corev1.PodSpec{
+			Containers: []corev1.Container{{
+				Image: "helloworld",
+				VolumeMounts: []corev1.VolumeMount{{
+					MountPath: "/mount/path",
+					Name:      "the-name",
+					ReadOnly:  true,
+				}},
+			}},
+			Volumes: []corev1.Volume{{
+				Name: "the-name",
+				VolumeSource: corev1.VolumeSource{
+					Secret: &corev1.SecretVolumeSource{
+						SecretName: "foo",
+					},
+				},
+			}, {
+				Name: "the-name",
+				VolumeSource: corev1.VolumeSource{
+					ConfigMap: &corev1.ConfigMapVolumeSource{},
+				},
+			}},
+		},
+		want: (&apis.FieldError{
+			Message: fmt.Sprintf(`duplicate volume name "the-name"`),
+			Paths:   []string{"name"},
+		}).ViaFieldIndex("volumes", 1),
+	}, {
+		name: "bad pod spec",
+		ps: corev1.PodSpec{
+			Containers: []corev1.Container{{
+				Name:  "steve",
+				Image: "helloworld",
+			}},
+		},
+		want: apis.ErrDisallowedFields("containers[0].name"),
+	}, {
+		name: "missing all",
+		ps: corev1.PodSpec{
+			Containers: []corev1.Container{},
+		},
+		want: apis.ErrMissingField(apis.CurrentField),
+	}, {
+		name: "missing container",
+		ps: corev1.PodSpec{
+			ServiceAccountName: "bob",
+			Containers:         []corev1.Container{},
+		},
+		want: apis.ErrMissingField("containers"),
+	}, {
+		name: "too many containers",
+		ps: corev1.PodSpec{
+			Containers: []corev1.Container{{
+				Image: "busybox",
+			}, {
+				Image: "helloworld",
+			}},
+		},
+		want: apis.ErrMultipleOneOf("containers"),
+	}, {
+		name: "extra field",
+		ps: corev1.PodSpec{
+			Containers: []corev1.Container{{
+				Image: "busybox",
+			}},
+			InitContainers: []corev1.Container{{
+				Image: "helloworld",
+			}},
+		},
+		want: apis.ErrDisallowedFields("initContainers"),
+	}}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			got := ValidatePodSpec(test.ps)
+			if !cmp.Equal(test.want.Error(), got.Error()) {
+				t.Errorf("ValidatePodSpec (-want, +got) = %v",
+					cmp.Diff(test.want.Error(), got.Error()))
+			}
+		})
+	}
+}
+
 func TestContainerValidation(t *testing.T) {
 	bidir := corev1.MountPropagationBidirectional
 

@@ -142,6 +142,30 @@ func validateEnvFrom(envFromList []corev1.EnvFromSource) *apis.FieldError {
 	return errs
 }
 
+func ValidatePodSpec(ps corev1.PodSpec) *apis.FieldError {
+	if equality.Semantic.DeepEqual(ps, corev1.PodSpec{}) {
+		return apis.ErrMissingField(apis.CurrentField)
+	}
+
+	errs := apis.CheckDisallowedFields(ps, *PodSpecMask(&ps))
+
+	volumes, err := ValidateVolumes(ps.Volumes)
+	if err != nil {
+		errs = errs.Also(err.ViaField("volumes"))
+	}
+
+	switch len(ps.Containers) {
+	case 0:
+		errs = errs.Also(apis.ErrMissingField("containers"))
+	case 1:
+		errs = errs.Also(ValidateContainer(ps.Containers[0], volumes).
+			ViaFieldIndex("containers", 0))
+	default:
+		errs = errs.Also(apis.ErrMultipleOneOf("containers"))
+	}
+	return errs
+}
+
 func ValidateContainer(container corev1.Container, volumes sets.String) *apis.FieldError {
 	if equality.Semantic.DeepEqual(container, corev1.Container{}) {
 		return apis.ErrMissingField(apis.CurrentField)

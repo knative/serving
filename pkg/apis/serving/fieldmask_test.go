@@ -77,6 +77,57 @@ func TestVolumeSourceMask(t *testing.T) {
 	}
 }
 
+func TestPodSpecMask(t *testing.T) {
+	want := &corev1.PodSpec{
+		ServiceAccountName: "default",
+		Containers: []corev1.Container{{
+			Image: "helloworld",
+		}},
+		Volumes: []corev1.Volume{{
+			Name: "the-name",
+			VolumeSource: corev1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{
+					SecretName: "foo",
+				},
+			},
+		}},
+	}
+	in := &corev1.PodSpec{
+		ServiceAccountName: "default",
+		Containers: []corev1.Container{{
+			Image: "helloworld",
+		}},
+		Volumes: []corev1.Volume{{
+			Name: "the-name",
+			VolumeSource: corev1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{
+					SecretName: "foo",
+				},
+			},
+		}},
+		// Stripped out.
+		InitContainers: []corev1.Container{{
+			Image: "busybox",
+		}},
+	}
+
+	got := PodSpecMask(in)
+
+	if &want == &got {
+		t.Errorf("Input and output share addresses. Want different addresses")
+	}
+
+	if diff, err := kmp.SafeDiff(want, got); err != nil {
+		t.Errorf("Got error comparing output, err = %v", err)
+	} else if diff != "" {
+		t.Errorf("PodSpecMask (-want, +got): %s", diff)
+	}
+
+	if got = PodSpecMask(nil); got != nil {
+		t.Errorf("PodSpecMask(nil) = %v, want: nil", got)
+	}
+}
+
 func TestContainerMask(t *testing.T) {
 	want := &corev1.Container{
 		Args:                     []string{"hello"},

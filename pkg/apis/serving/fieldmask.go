@@ -56,6 +56,53 @@ func VolumeSourceMask(in *corev1.VolumeSource) *corev1.VolumeSource {
 	return out
 }
 
+// PodSpecMask performs a _shallow_ copy of the Kubernetes PodSpec object to a new
+// Kubernetes PodSpec object bringing over only the fields allowed in the Knative API. This
+// does not validate the contents or the bounds of the provided fields.
+func PodSpecMask(in *corev1.PodSpec) *corev1.PodSpec {
+	if in == nil {
+		return nil
+	}
+
+	out := new(corev1.PodSpec)
+
+	// Allowed fields
+	out.ServiceAccountName = in.ServiceAccountName
+	out.Containers = in.Containers
+	out.Volumes = in.Volumes
+
+	// Disallowed fields
+	// This list is unneccessry, but added here for clarity
+	out.InitContainers = nil
+	out.RestartPolicy = ""
+	out.TerminationGracePeriodSeconds = nil
+	out.ActiveDeadlineSeconds = nil
+	out.DNSPolicy = ""
+	out.NodeSelector = nil
+	out.AutomountServiceAccountToken = nil
+	out.NodeName = ""
+	out.HostNetwork = false
+	out.HostPID = false
+	out.HostIPC = false
+	out.ShareProcessNamespace = nil
+	out.SecurityContext = nil
+	out.ImagePullSecrets = nil
+	out.Hostname = ""
+	out.Subdomain = ""
+	out.Affinity = nil
+	out.SchedulerName = ""
+	out.Tolerations = nil
+	out.HostAliases = nil
+	out.PriorityClassName = ""
+	out.Priority = nil
+	out.DNSConfig = nil
+	out.ReadinessGates = nil
+	out.RuntimeClassName = nil
+	// TODO(mattmoor): Coming in 1.13: out.EnableServiceLinks = nil
+
+	return out
+}
+
 // ContainerMask performs a _shallow_ copy of the Kubernetes Container object to a new
 // Kubernetes Container object bringing over only the fields allowed in the Knative API. This
 // does not validate the contents or the bounds of the provided fields.
