@@ -48,6 +48,18 @@ func (rs *RouteStatus) InitializeConditions() {
 	routeCondSet.Manage(rs).InitializeConditions()
 }
 
+// // MarkResourceNotConvertible adds a Warning-severity condition to the resource noting that
+// // it cannot be converted to a higher version.
+// func (rs *RouteStatus) MarkResourceNotConvertible(err *CannotConvertError) {
+// 	routeCondSet.Manage(rs).SetCondition(apis.Condition{
+// 		Type:     ConditionTypeConvertible,
+// 		Status:   corev1.ConditionFalse,
+// 		Severity: apis.ConditionSeverityWarning,
+// 		Reason:   err.Field,
+// 		Message:  err.Message,
+// 	})
+// }
+
 // MarkServiceNotOwned changes the IngressReady status to be false with the reason being that
 // there is a pre-existing placeholder service with the name we wanted to use.
 func (rs *RouteStatus) MarkServiceNotOwned(name string) {

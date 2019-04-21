@@ -269,6 +269,10 @@ func TestTypicalFlowWithBuild(t *testing.T) {
 	apitest.CheckConditionOngoing(r.duck(), RevisionConditionContainerHealthy, t)
 	apitest.CheckConditionOngoing(r.duck(), RevisionConditionReady, t)
 
+	r.MarkResourceNotConvertible(ConvertErrorf("buildRef", "something something not allowed.").(*CannotConvertError))
+	apitest.CheckConditionOngoing(r.duck(), RevisionConditionReady, t)
+	apitest.CheckConditionFailed(r.duck(), ConditionTypeConvertible, t)
+
 	// Empty BuildStatus keeps things as-is.
 	r.PropagateBuildStatus(duckv1alpha1.Status{})
 	apitest.CheckConditionOngoing(r.duck(), RevisionConditionBuildSucceeded, t)

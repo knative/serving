@@ -99,7 +99,7 @@ func (source *ServiceSpec) ConvertUp(ctx context.Context, sink *v1beta1.ServiceS
 		return source.DeprecatedPinned.Configuration.ConvertUp(ctx, &sink.ConfigurationSpec)
 
 	case source.DeprecatedManual != nil:
-		return ConvertErrorf("manual", "manual mode cannot be migrated forward, got %#v", source)
+		return ConvertErrorf("manual", "manual mode cannot be migrated forward.")
 
 	default:
 		source.RouteSpec.ConvertUp(ctx, &sink.RouteSpec)

@@ -28,6 +28,7 @@ import (
 	"github.com/knative/pkg/logging"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 	servinginformers "github.com/knative/serving/pkg/client/informers/externalversions/serving/v1alpha1"
 	listers "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
 	"github.com/knative/serving/pkg/reconciler"
@@ -134,6 +135,15 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 		// updates regardless of whether the reconciliation errored out.
 		err = c.reconcile(ctx, service)
 	}
+
+	if err := service.ConvertUp(ctx, &v1beta1.Service{}); err != nil {
+		if ce, ok := err.(*v1alpha1.CannotConvertError); ok {
+			service.Status.MarkResourceNotConvertible(ce)
+		} else {
+			return err
+		}
+	}
+
 	if equality.Semantic.DeepEqual(original.Status, service.Status) {
 		// If we didn't change anything then don't call updateStatus.
 		// This is important because the copy we loaded from the informer's
@@ -166,7 +176,6 @@ func (c *Reconciler) reconcile(ctx context.Context, service *v1alpha1.Service) e
 	// in this getting written back to the API Server, but lets downstream logic make
 	// assumptions about defaulting.
 	service.SetDefaults(ctx)
-
 	service.Status.InitializeConditions()
 
 	configName := resourcenames.Configuration(service)

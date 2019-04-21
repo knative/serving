@@ -44,6 +44,7 @@ import (
 	"github.com/knative/pkg/tracker"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 	painformers "github.com/knative/serving/pkg/client/informers/externalversions/autoscaling/v1alpha1"
 	servinginformers "github.com/knative/serving/pkg/client/informers/externalversions/serving/v1alpha1"
 	kpalisters "github.com/knative/serving/pkg/client/listers/autoscaling/v1alpha1"
@@ -343,6 +344,14 @@ func (c *Reconciler) reconcile(ctx context.Context, rev *v1alpha1.Revision) erro
 
 	rev.Status.InitializeConditions()
 	c.updateRevisionLoggingURL(ctx, rev)
+
+	if err := rev.ConvertUp(ctx, &v1beta1.Revision{}); err != nil {
+		if ce, ok := err.(*v1alpha1.CannotConvertError); ok {
+			rev.Status.MarkResourceNotConvertible(ce)
+		} else {
+			return err
+		}
+	}
 
 	if err := c.reconcileBuild(ctx, rev); err != nil {
 		return err

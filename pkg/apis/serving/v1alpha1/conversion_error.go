@@ -16,7 +16,19 @@ limitations under the License.
 
 package v1alpha1
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/knative/pkg/apis"
+)
+
+// ConditionType represents a Service condition value
+const (
+	// ConditionTypeConvertible is a Warning condition that is set on
+	// resources when they cannot be converted to warn of a forthcoming
+	// breakage.
+	ConditionTypeConvertible apis.ConditionType = "Convertible"
+)
 
 // CannotConvertError is returned when a field cannot be converted.
 type CannotConvertError struct {

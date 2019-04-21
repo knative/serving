@@ -203,6 +203,12 @@ func TestServiceHappyPath(t *testing.T) {
 	apitesting.CheckConditionSucceeded(svc.duck(), ServiceConditionConfigurationsReady, t)
 	apitesting.CheckConditionOngoing(svc.duck(), ServiceConditionRoutesReady, t)
 
+	svc.MarkResourceNotConvertible(ConvertErrorf("manual", "something something not allowed.").(*CannotConvertError))
+	apitesting.CheckConditionOngoing(svc.duck(), ServiceConditionReady, t)
+	apitesting.CheckConditionSucceeded(svc.duck(), ServiceConditionConfigurationsReady, t)
+	apitesting.CheckConditionOngoing(svc.duck(), ServiceConditionRoutesReady, t)
+	apitesting.CheckConditionFailed(svc.duck(), ConditionTypeConvertible, t)
+
 	// Done from Route moves our RoutesReady condition, which triggers us to be Ready.
 	svc.PropagateRouteStatus(&RouteStatus{
 		Status: duckv1beta1.Status{

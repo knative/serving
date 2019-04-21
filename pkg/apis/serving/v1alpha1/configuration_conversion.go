@@ -41,8 +41,7 @@ func (source *Configuration) ConvertUp(ctx context.Context, obj apis.Convertible
 // ConvertUp helps implement apis.Convertible
 func (source *ConfigurationSpec) ConvertUp(ctx context.Context, sink *v1beta1.ConfigurationSpec) error {
 	if source.DeprecatedBuild != nil {
-		return ConvertErrorf("build",
-			"build cannot be migrated forward, got: %#v", source.DeprecatedBuild)
+		return ConvertErrorf("build", "build cannot be migrated forward.")
 	}
 	return source.GetTemplate().ConvertUp(ctx, &sink.Template)
 }
