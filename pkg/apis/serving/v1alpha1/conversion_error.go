@@ -22,7 +22,6 @@ import (
 	"github.com/knative/pkg/apis"
 )
 
-// ConditionType represents a Service condition value
 const (
 	// ConditionTypeConvertible is a Warning condition that is set on
 	// resources when they cannot be converted to warn of a forthcoming
