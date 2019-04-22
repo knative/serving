@@ -63,6 +63,7 @@ func TestScaler(t *testing.T) {
 		label:         "waits to scale to zero (just before idle period)",
 		startReplicas: 1,
 		scaleTo:       0,
+		wantReplicas:  1,
 		wantScaling:   false,
 		kpaMutation: func(k *pav1alpha1.PodAutoscaler) {
 			kpaMarkActive(k, time.Now().Add(-stableWindow).Add(1*time.Second))
@@ -80,6 +81,7 @@ func TestScaler(t *testing.T) {
 		label:         "waits to scale to zero after idle period",
 		startReplicas: 1,
 		scaleTo:       0,
+		wantReplicas:  0,
 		wantScaling:   false,
 		kpaMutation: func(k *pav1alpha1.PodAutoscaler) {
 			kpaMarkActive(k, time.Now().Add(-stableWindow))
@@ -88,6 +90,7 @@ func TestScaler(t *testing.T) {
 		label:         "waits to scale to zero (just before grace period)",
 		startReplicas: 1,
 		scaleTo:       0,
+		wantReplicas:  0,
 		wantScaling:   false,
 		kpaMutation: func(k *pav1alpha1.PodAutoscaler) {
 			kpaMarkInactive(k, time.Now().Add(-gracePeriod).Add(1*time.Second))
@@ -105,6 +108,7 @@ func TestScaler(t *testing.T) {
 		label:         "does not scale while activating",
 		startReplicas: 1,
 		scaleTo:       0,
+		wantReplicas:  -1,
 		wantScaling:   false,
 		kpaMutation: func(k *pav1alpha1.PodAutoscaler) {
 			k.Status.MarkActivating("", "")
@@ -142,9 +146,10 @@ func TestScaler(t *testing.T) {
 			kpaMarkInactive(k, time.Now().Add(-gracePeriod/2))
 		},
 	}, {
-		label:         "not scales up from zero with no metrics",
+		label:         "does not scale up from zero with no metrics",
 		startReplicas: 0,
 		scaleTo:       -1, // no metrics
+		wantReplicas:  -1,
 		wantScaling:   false,
 	}, {
 		label:         "scales up from zero to desired one",
@@ -162,6 +167,7 @@ func TestScaler(t *testing.T) {
 		label:         "negative scale does not scale",
 		startReplicas: 12,
 		scaleTo:       -1,
+		wantReplicas:  -1,
 		wantScaling:   false,
 	}}
 
@@ -191,10 +197,10 @@ func TestScaler(t *testing.T) {
 			if err != nil {
 				t.Error("Scale got an unexpected error: ", err)
 			}
+			if err == nil && desiredScale != test.wantReplicas {
+				t.Errorf("desiredScale = %d, wanted %d", desiredScale, test.wantReplicas)
+			}
 			if test.wantScaling {
-				if err == nil && desiredScale != test.wantReplicas {
-					t.Errorf("desiredScale = %d, wanted %d", desiredScale, test.wantReplicas)
-				}
 				checkReplicas(t, scaleClient, deployment, test.wantReplicas)
 			} else {
 				checkNoScaling(t, scaleClient)
@@ -230,6 +236,7 @@ func TestDisableScaleToZero(t *testing.T) {
 		label:         "EnableScaleToZero == false and desire pod is -1(initial value)",
 		startReplicas: 10,
 		scaleTo:       -1,
+		wantReplicas:  -1,
 		wantScaling:   false,
 	}}
 
@@ -255,10 +262,10 @@ func TestDisableScaleToZero(t *testing.T) {
 			if err != nil {
 				t.Error("Scale got an unexpected error: ", err)
 			}
+			if err == nil && desiredScale != test.wantReplicas {
+				t.Errorf("desiredScale = %d, wanted %d", desiredScale, test.wantReplicas)
+			}
 			if test.wantScaling {
-				if err == nil && desiredScale != test.wantReplicas {
-					t.Errorf("desiredScale = %d, wanted %d", desiredScale, test.wantReplicas)
-				}
 				checkReplicas(t, scaleClient, deployment, test.wantReplicas)
 			} else {
 				checkNoScaling(t, scaleClient)
