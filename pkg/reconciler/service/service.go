@@ -255,15 +255,15 @@ func (c *Reconciler) reconcile(ctx context.Context, service *v1alpha1.Service) e
 				if want[idx].ConfigurationName == config.Name {
 					want[idx].RevisionName = config.Status.LatestReadyRevisionName
 					want[idx].ConfigurationName = ""
-					// Normalize Name into Tag for comparison.
-					if want[idx].DeprecatedName != "" {
-						want[idx].Tag = want[idx].DeprecatedName
-						want[idx].DeprecatedName = ""
-					}
-					if got[idx].DeprecatedName != "" {
-						got[idx].Tag = got[idx].DeprecatedName
-						got[idx].DeprecatedName = ""
-					}
+				}
+				// Normalize Name into Tag for comparison.
+				if want[idx].DeprecatedName != "" {
+					want[idx].Tag = want[idx].DeprecatedName
+					want[idx].DeprecatedName = ""
+				}
+				if got[idx].DeprecatedName != "" {
+					got[idx].Tag = got[idx].DeprecatedName
+					got[idx].DeprecatedName = ""
 				}
 			}
 			ignoreFields := cmpopts.IgnoreFields(v1alpha1.TrafficTarget{},
