@@ -28,6 +28,7 @@ import (
 	"github.com/knative/pkg/logging"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 	servinginformers "github.com/knative/serving/pkg/client/informers/externalversions/serving/v1alpha1"
 	listers "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
 	"github.com/knative/serving/pkg/reconciler"
@@ -152,8 +153,15 @@ func (c *Reconciler) reconcile(ctx context.Context, config *v1alpha1.Configurati
 	// in this getting written back to the API Server, but lets downstream logic make
 	// assumptions about defaulting.
 	config.SetDefaults(ctx)
-
 	config.Status.InitializeConditions()
+
+	if err := config.ConvertUp(ctx, &v1beta1.Configuration{}); err != nil {
+		if ce, ok := err.(*v1alpha1.CannotConvertError); ok {
+			config.Status.MarkResourceNotConvertible(ce)
+		} else {
+			return err
+		}
+	}
 
 	// First, fetch the revision that should exist for the current generation.
 	lcr, err := c.latestCreatedRevision(config)

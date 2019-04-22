@@ -19,6 +19,7 @@ package v1alpha1
 import (
 	"github.com/knative/pkg/apis"
 	duckv1beta1 "github.com/knative/pkg/apis/duck/v1beta1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
@@ -26,6 +27,18 @@ var confCondSet = apis.NewLivingConditionSet()
 
 func (r *Configuration) GetGroupVersionKind() schema.GroupVersionKind {
 	return SchemeGroupVersion.WithKind("Configuration")
+}
+
+// MarkResourceNotConvertible adds a Warning-severity condition to the resource noting that
+// it cannot be converted to a higher version.
+func (cs *ConfigurationStatus) MarkResourceNotConvertible(err *CannotConvertError) {
+	confCondSet.Manage(cs).SetCondition(apis.Condition{
+		Type:     ConditionTypeConvertible,
+		Status:   corev1.ConditionFalse,
+		Severity: apis.ConditionSeverityWarning,
+		Reason:   err.Field,
+		Message:  err.Message,
+	})
 }
 
 // GetTemplate returns a pointer to the relevant RevisionTemplateSpec field.

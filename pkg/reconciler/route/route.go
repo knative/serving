@@ -247,8 +247,17 @@ func (c *Reconciler) reconcile(ctx context.Context, r *v1alpha1.Route) error {
 	// in this getting written back to the API Server, but lets downstream logic make
 	// assumptions about defaulting.
 	r.SetDefaults(ctx)
-
 	r.Status.InitializeConditions()
+
+	// There are no conditions that would trigger this, but if they were we'd have a
+	// block like this here (as the other controllers).
+	// if err := r.ConvertUp(ctx, &v1beta1.Route{}); err != nil {
+	// 	if ce, ok := err.(*v1alpha1.CannotConvertError); ok {
+	// 		r.Status.MarkResourceNotConvertible(ce)
+	// 	} else {
+	// 		return err
+	// 	}
+	// }
 
 	logger.Infof("Reconciling route: %#v", r)
 

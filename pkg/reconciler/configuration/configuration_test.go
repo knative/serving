@@ -219,7 +219,7 @@ func TestReconcile(t *testing.T) {
 			rev("need-rev-and-build", "foo", 99998, WithBuildRef("something-else-12345")),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: cfg("need-rev-and-build", "foo", 99998, WithBuild,
+			Object: cfg("need-rev-and-build", "foo", 99998, WithBuild, WithBuildWarning,
 				// The following properties are set when we first reconcile a Configuration
 				// that stamps out a Revision with an existing Build.
 				WithLatestCreated("need-rev-and-build-00001"), WithObservedGen),
@@ -238,7 +238,7 @@ func TestReconcile(t *testing.T) {
 			rev("need-rev-and-build", "foo", 99998, WithBuildRef("need-rev-and-build-00001")),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: cfg("need-rev-and-build", "foo", 99998, WithBuild,
+			Object: cfg("need-rev-and-build", "foo", 99998, WithBuild, WithBuildWarning,
 				// The following properties are set when we first reconcile a Configuration
 				// that stamps our a Revision and a Build.
 				WithLatestCreated("need-rev-and-build-00001"), WithObservedGen),
@@ -358,7 +358,7 @@ func TestReconcile(t *testing.T) {
 			// No Revision gets created.
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: cfg("create-build-failure", "foo", 99998, WithBuild,
+			Object: cfg("create-build-failure", "foo", 99998, WithBuild, WithBuildWarning,
 				// When we fail to create a Build it should be surfaced in
 				// the Configuration status.
 				MarkRevisionCreationFailed(`Failed to create Build for Configuration "create-build-failure": inducing failure for create builds`)),
@@ -776,6 +776,12 @@ func TestIsRevisionStale(t *testing.T) {
 			}
 		})
 	}
+}
+
+// WithBuildWarning adds a Warning condition for the Build
+func WithBuildWarning(c *v1alpha1.Configuration) {
+	c.Status.MarkResourceNotConvertible(v1alpha1.ConvertErrorf("build",
+		"build cannot be migrated forward.").(*v1alpha1.CannotConvertError))
 }
 
 func WithoutConfigMetadataGenerationLabel(rev *v1alpha1.Revision) {

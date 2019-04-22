@@ -608,7 +608,7 @@ func TestReconcile(t *testing.T) {
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: Service("manual", "foo", WithManualRollout,
 				// The first reconciliation will initialize the status conditions.
-				WithManualStatus),
+				WithManualStatus, WithManualWarning),
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Updated", "Updated Service %q", "manual"),
@@ -1152,4 +1152,10 @@ func RouteFailed(reason, message string) RouteOption {
 			},
 		}
 	}
+}
+
+// WithManualWarning adds a Warning condition for the Manual
+func WithManualWarning(c *v1alpha1.Service) {
+	c.Status.MarkResourceNotConvertible(v1alpha1.ConvertErrorf("manual",
+		"manual mode cannot be migrated forward.").(*v1alpha1.CannotConvertError))
 }

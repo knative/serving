@@ -163,6 +163,18 @@ func (rs *RevisionStatus) PropagateBuildStatus(bs duckv1alpha1.Status) {
 	}
 }
 
+// MarkResourceNotConvertible adds a Warning-severity condition to the resource noting that
+// it cannot be converted to a higher version.
+func (rs *RevisionStatus) MarkResourceNotConvertible(err *CannotConvertError) {
+	revCondSet.Manage(rs).SetCondition(apis.Condition{
+		Type:     ConditionTypeConvertible,
+		Status:   corev1.ConditionFalse,
+		Severity: apis.ConditionSeverityWarning,
+		Reason:   err.Field,
+		Message:  err.Message,
+	})
+}
+
 // MarkResourceNotOwned changes the "ResourcesAvailable" condition to false to reflect that the
 // resource of the given kind and name has already been created, and we do not own it.
 func (rs *RevisionStatus) MarkResourceNotOwned(kind, name string) {

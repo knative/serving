@@ -447,7 +447,7 @@ func TestReconcile(t *testing.T) {
 			Object: rev("foo", "missing-build", WithBuildRef("the-build"),
 				// When we first reconcile a revision with a Build (that's missing)
 				// we should see the following status changes.
-				WithLogURL, WithInitRevConditions),
+				WithLogURL, WithInitRevConditions, WithBuildRefWarning),
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "InternalError", `builds.testing.build.knative.dev "the-build" not found`),
@@ -468,7 +468,7 @@ func TestReconcile(t *testing.T) {
 			Object: rev("foo", "running-build", WithBuildRef("the-build"),
 				// When we first reconcile a revision with a Build (not done)
 				// we should see the following status changes.
-				WithLogURL, WithInitRevConditions, WithOngoingBuild),
+				WithLogURL, WithInitRevConditions, WithOngoingBuild, WithBuildRefWarning),
 		}},
 		Key: "foo/running-build",
 	}, {
@@ -492,7 +492,7 @@ func TestReconcile(t *testing.T) {
 			Object: rev("foo", "done-build", WithBuildRef("the-build"), WithInitRevConditions,
 				// When we reconcile a Revision after the Build completes, we should
 				// see the following updates to its status.
-				WithLogURL, WithSuccessfulBuild,
+				WithLogURL, WithSuccessfulBuild, WithBuildRefWarning,
 				MarkDeploying("Deploying"), MarkActivating("Deploying", "")),
 		}},
 		WantEvents: []string{
@@ -508,7 +508,7 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			rev("foo", "stable-reconcile-with-build",
 				WithBuildRef("the-build"), WithLogURL,
-				WithInitRevConditions, WithSuccessfulBuild,
+				WithInitRevConditions, WithSuccessfulBuild, WithBuildRefWarning,
 				MarkDeploying("Deploying"), MarkActivating("Deploying", "")),
 			kpa("foo", "stable-reconcile-with-build"),
 			build("foo", "the-build", WithSucceededTrue),
@@ -531,7 +531,7 @@ func TestReconcile(t *testing.T) {
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: rev("foo", "failed-build",
-				WithBuildRef("the-build"), WithLogURL, WithInitRevConditions,
+				WithBuildRef("the-build"), WithLogURL, WithInitRevConditions, WithBuildRefWarning,
 				// When we reconcile a Revision whose build has failed, we sill see that
 				// failure reflected in the Revision status as follows:
 				WithFailedBuild("SomeReason", "This is why the build failed.")),
@@ -548,7 +548,8 @@ func TestReconcile(t *testing.T) {
 		// Reconcile has nothing to change.
 		Objects: []runtime.Object{
 			rev("foo", "failed-build-stable", WithBuildRef("the-build"), WithInitRevConditions,
-				WithLogURL, WithFailedBuild("SomeReason", "This is why the build failed.")),
+				WithLogURL, WithFailedBuild("SomeReason", "This is why the build failed."),
+				WithBuildRefWarning),
 			build("foo", "the-build",
 				WithSucceededFalse("SomeReason", "This is why the build failed.")),
 		},
@@ -989,6 +990,12 @@ func ReconcilerTestConfig() *config.Config {
 // this forces the type to be a 'configOption'
 var EnableVarLog configOption = func(cfg *config.Config) {
 	cfg.Observability.EnableVarLogCollection = true
+}
+
+// WithBuildRefWarning adds a Warning condition for the BuildRef
+func WithBuildRefWarning(r *v1alpha1.Revision) {
+	r.Status.MarkResourceNotConvertible(v1alpha1.ConvertErrorf("buildRef",
+		`buildRef cannot be migrated forward, got: &v1.ObjectReference{Kind:"Build", Namespace:"", Name:"the-build", UID:"", APIVersion:"testing.build.knative.dev/v1alpha1", ResourceVersion:"", FieldPath:""}`).(*v1alpha1.CannotConvertError))
 }
 
 // WithConfigurationGenerationLabel sets the label on the revision
