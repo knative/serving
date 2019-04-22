@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	rnames "github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources/names"
+	rnames "github.com/knative/serving/pkg/reconciler/revision/resources/names"
 	"github.com/knative/serving/test"
 
 	v1types "k8s.io/api/core/v1"

@@ -17,9 +17,7 @@ metadata:
   name: websocket-server
   namespace: default
 spec:
-  runLatest:
-    configuration:
-      revisionTemplate:
-        spec:
-          container:
-            image: github.com/knative/serving/test/test_images/wsserver
+  template:
+    spec:
+      containers:
+      - image: github.com/knative/serving/test/test_images/wsserver

@@ -21,6 +21,9 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+
+	"github.com/knative/pkg/ptr"
+	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 )
 
 func TestRouteDefaulting(t *testing.T) {
@@ -30,9 +33,38 @@ func TestRouteDefaulting(t *testing.T) {
 		want *Route
 	}{{
 		name: "empty",
-		in:   &Route{},
-		// At present, Route doesn't initialize any defaults.
-		want: &Route{},
+		in: &Route{
+			Spec: RouteSpec{
+				Traffic: []TrafficTarget{{
+					TrafficTarget: v1beta1.TrafficTarget{
+						ConfigurationName: "foo",
+						Percent:           50,
+					},
+				}, {
+					TrafficTarget: v1beta1.TrafficTarget{
+						RevisionName: "foo",
+						Percent:      50,
+					},
+				}},
+			},
+		},
+		want: &Route{
+			Spec: RouteSpec{
+				Traffic: []TrafficTarget{{
+					TrafficTarget: v1beta1.TrafficTarget{
+						ConfigurationName: "foo",
+						Percent:           50,
+						LatestRevision:    ptr.Bool(true),
+					},
+				}, {
+					TrafficTarget: v1beta1.TrafficTarget{
+						RevisionName:   "foo",
+						Percent:        50,
+						LatestRevision: ptr.Bool(false),
+					},
+				}},
+			},
+		},
 	}}
 
 	for _, test := range tests {

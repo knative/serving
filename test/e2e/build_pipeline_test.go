@@ -240,7 +240,7 @@ func TestPipeline(t *testing.T) {
 			names.Revision = rev.Name
 			if tc.validateFn != nil {
 				t.Logf("Latest ready Revision is %q", rev.Name)
-				buildName := rev.Spec.BuildRef.Name
+				buildName := rev.Spec.DeprecatedBuildRef.Name
 				tc.validateFn(t, buildName, clients)
 			}
 
@@ -264,8 +264,8 @@ func TestPipeline(t *testing.T) {
 				t.Fatalf("Failed to get latest Revision: %v", err)
 			}
 
-			if diff := cmp.Diff(rev.Spec.BuildRef, nextRev.Spec.BuildRef); diff != "" {
-				t.Fatalf("Unexpected differences in BuildRef: %v", diff)
+			if diff := cmp.Diff(rev.Spec.DeprecatedBuildRef, nextRev.Spec.DeprecatedBuildRef); diff != "" {
+				t.Fatalf("Unexpected differences in DeprecatedBuildRef: %v", diff)
 			}
 
 			// Update the Configuration's Build with an annotation, which should trigger the creation
@@ -287,8 +287,8 @@ func TestPipeline(t *testing.T) {
 				t.Fatalf("Failed to get latest Revision: %v", err)
 			}
 
-			if diff := cmp.Diff(rev.Spec.BuildRef, nextRev.Spec.BuildRef); diff == "" {
-				t.Fatalf("Got matching BuildRef, wanted different: %#v", rev.Spec.BuildRef)
+			if diff := cmp.Diff(rev.Spec.DeprecatedBuildRef, nextRev.Spec.DeprecatedBuildRef); diff == "" {
+				t.Fatalf("Got matching DeprecatedBuildRef, wanted different: %#v", rev.Spec.DeprecatedBuildRef)
 			}
 		})
 	}

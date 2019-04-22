@@ -46,7 +46,7 @@ const (
 
 	// RequestQueuePort specifies the port number to use for http requests
 	// in queue-proxy container.
-	RequestQueuePort = 8012
+	RequestQueuePort = serving.RequestQueuePort
 
 	// RequestQueueAdminPortName specifies the port name for
 	// health check and lifecyle hooks for queue-proxy.
@@ -54,11 +54,11 @@ const (
 
 	// RequestQueueAdminPort specifies the port number for
 	// health check and lifecyle hooks for queue-proxy.
-	RequestQueueAdminPort = 8022
+	RequestQueueAdminPort = serving.RequestQueueAdminPort
 
 	// RequestQueueMetricsPort specifies the port number for metrics emitted
 	// by queue-proxy.
-	RequestQueueMetricsPort = 9090
+	RequestQueueMetricsPort = serving.RequestQueueMetricsPort
 
 	// RequestQueueMetricsPortName specifies the port name to use for metrics
 	// emitted by queue-proxy.
@@ -85,16 +85,19 @@ func (r *Revision) GetGroupVersionKind() schema.GroupVersionKind {
 // It is never nil and should be exactly the specified container as guaranteed
 // by validation.
 func (rs *RevisionSpec) GetContainer() *corev1.Container {
-	if rs.Container != nil {
-		return rs.Container
+	if rs.DeprecatedContainer != nil {
+		return rs.DeprecatedContainer
+	}
+	if len(rs.Containers) > 0 {
+		return &rs.Containers[0]
 	}
 	// Should be unreachable post-validation, but here to ease testing.
 	return &corev1.Container{}
 }
 
-func (r *Revision) BuildRef() *corev1.ObjectReference {
-	if r.Spec.BuildRef != nil {
-		buildRef := r.Spec.BuildRef.DeepCopy()
+func (r *Revision) DeprecatedBuildRef() *corev1.ObjectReference {
+	if r.Spec.DeprecatedBuildRef != nil {
+		buildRef := r.Spec.DeprecatedBuildRef.DeepCopy()
 		if buildRef.Namespace == "" {
 			buildRef.Namespace = r.Namespace
 		}
@@ -158,6 +161,18 @@ func (rs *RevisionStatus) PropagateBuildStatus(bs duckv1alpha1.Status) {
 	case bc.Status == corev1.ConditionFalse:
 		revCondSet.Manage(rs).MarkFalse(RevisionConditionBuildSucceeded, bc.Reason, bc.Message)
 	}
+}
+
+// MarkResourceNotConvertible adds a Warning-severity condition to the resource noting that
+// it cannot be converted to a higher version.
+func (rs *RevisionStatus) MarkResourceNotConvertible(err *CannotConvertError) {
+	revCondSet.Manage(rs).SetCondition(apis.Condition{
+		Type:     ConditionTypeConvertible,
+		Status:   corev1.ConditionFalse,
+		Severity: apis.ConditionSeverityWarning,
+		Reason:   err.Field,
+		Message:  err.Message,
+	})
 }
 
 // MarkResourceNotOwned changes the "ResourcesAvailable" condition to false to reflect that the

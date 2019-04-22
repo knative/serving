@@ -30,17 +30,18 @@ import (
 	cachinginformers "github.com/knative/caching/pkg/client/informers/externalversions"
 	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/controller"
+	pkgmetrics "github.com/knative/pkg/metrics"
 	"github.com/knative/pkg/signals"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
 	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/pkg/metrics"
 	"github.com/knative/serving/pkg/reconciler"
-	"github.com/knative/serving/pkg/reconciler/v1alpha1/configuration"
-	"github.com/knative/serving/pkg/reconciler/v1alpha1/labeler"
-	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision"
-	"github.com/knative/serving/pkg/reconciler/v1alpha1/route"
-	"github.com/knative/serving/pkg/reconciler/v1alpha1/serverlessservice"
-	"github.com/knative/serving/pkg/reconciler/v1alpha1/service"
+	"github.com/knative/serving/pkg/reconciler/configuration"
+	"github.com/knative/serving/pkg/reconciler/labeler"
+	"github.com/knative/serving/pkg/reconciler/revision"
+	"github.com/knative/serving/pkg/reconciler/route"
+	"github.com/knative/serving/pkg/reconciler/serverlessservice"
+	"github.com/knative/serving/pkg/reconciler/service"
 	"go.uber.org/zap"
 )
 
@@ -66,7 +67,7 @@ func main() {
 		log.Fatalf("Error parsing logging configuration: %v", err)
 	}
 	logger, atomicLevel := logging.NewLoggerFromConfig(loggingConfig, component)
-	defer logger.Sync()
+	defer flush(logger)
 
 	// Set up signals so we handle the first shutdown signal gracefully.
 	stopCh := signals.SetupSignalHandler()
@@ -136,6 +137,7 @@ func main() {
 			opt,
 			serviceInformer,
 			configurationInformer,
+			revisionInformer,
 			routeInformer,
 		),
 		serverlessservice.NewController(
@@ -181,4 +183,9 @@ func main() {
 	logger.Info("Starting controllers.")
 	go controller.StartAll(stopCh, controllers...)
 	<-stopCh
+}
+
+func flush(logger *zap.SugaredLogger) {
+	logger.Sync()
+	pkgmetrics.FlushExporter()
 }

@@ -23,8 +23,9 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	logtesting "github.com/knative/pkg/logging/testing"
-	. "github.com/knative/serving/pkg/reconciler/testing"
 	"k8s.io/apimachinery/pkg/api/resource"
+
+	. "github.com/knative/pkg/configmap/testing"
 )
 
 var ignoreResourceQuantity = cmpopts.IgnoreUnexported(resource.Quantity{})

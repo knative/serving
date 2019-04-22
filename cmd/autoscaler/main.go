@@ -24,6 +24,7 @@ import (
 
 	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/controller"
+	pkgmetrics "github.com/knative/pkg/metrics"
 	"github.com/knative/pkg/signals"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/autoscaler"
@@ -32,8 +33,8 @@ import (
 	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/pkg/metrics"
 	"github.com/knative/serving/pkg/reconciler"
-	"github.com/knative/serving/pkg/reconciler/v1alpha1/autoscaling/hpa"
-	"github.com/knative/serving/pkg/reconciler/v1alpha1/autoscaling/kpa"
+	"github.com/knative/serving/pkg/reconciler/autoscaling/hpa"
+	"github.com/knative/serving/pkg/reconciler/autoscaling/kpa"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	kubeinformers "k8s.io/client-go/informers"
@@ -57,7 +58,7 @@ func main() {
 	flag.Parse()
 
 	logger, atomicLevel := setupLogger()
-	defer logger.Sync()
+	defer flush(logger)
 
 	// Set up signals so we handle the first shutdown signal gracefully.
 	stopCh := signals.SetupSignalHandler()
@@ -210,4 +211,9 @@ func statsScraperFactoryFunc(endpointsLister corev1listers.EndpointsLister) func
 	return func(metric *autoscaler.Metric) (autoscaler.StatsScraper, error) {
 		return autoscaler.NewServiceScraper(metric, endpointsLister)
 	}
+}
+
+func flush(logger *zap.SugaredLogger) {
+	logger.Sync()
+	pkgmetrics.FlushExporter()
 }

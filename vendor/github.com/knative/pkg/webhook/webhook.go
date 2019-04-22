@@ -227,6 +227,7 @@ func validate(ctx context.Context, new GenericCRD) error {
 	if err := new.Validate(ctx); err != nil {
 		return err
 	}
+
 	return nil
 }
 
@@ -573,6 +574,7 @@ func (ac *AdmissionController) mutate(ctx context.Context, req *admissionv1beta1
 		// discretion over (our portion of) the message that the user sees.
 		return nil, err
 	}
+
 	return json.Marshal(patches)
 }
 

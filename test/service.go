@@ -24,11 +24,11 @@ import (
 
 	"github.com/knative/pkg/apis/duck"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	serviceresourcenames "github.com/knative/serving/pkg/reconciler/v1alpha1/service/resources/names"
+	serviceresourcenames "github.com/knative/serving/pkg/reconciler/service/resources/names"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
-	rtesting "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
+	rtesting "github.com/knative/serving/pkg/reconciler/testing"
 )
 
 // TODO(dangerd): Move function to duck.CreateBytePatch
@@ -139,7 +139,7 @@ func CreateReleaseServiceWithLatest(
 	return GetResourceObjects(clients, *names)
 }
 
-// CreateRunLatestServiceReady creates a new RunLatest Service in state 'Ready'. This function expects Service and Image name passed in through 'names'.
+// CreateRunLatestServiceReady creates a new DeprecatedRunLatest Service in state 'Ready'. This function expects Service and Image name passed in through 'names'.
 // Names is updated with the Route and Configuration created by the Service and ResourceObjects is returned with the Service, Route, and Configuration objects.
 // Returns error if the service does not come up correctly.
 func CreateRunLatestServiceReady(t *testing.T, clients *Clients, names *ResourceNames, options *Options, fopt ...rtesting.ServiceOption) (*ResourceObjects, error) {
@@ -147,7 +147,7 @@ func CreateRunLatestServiceReady(t *testing.T, clients *Clients, names *Resource
 		return nil, fmt.Errorf("expected non-empty Image name; got Image=%v", names.Image)
 	}
 
-	t.Logf("Creating a new Service %s as RunLatest.", names.Service)
+	t.Logf("Creating a new Service %s as DeprecatedRunLatest.", names.Service)
 	svc, err := CreateLatestService(t, clients, *names, options, fopt...)
 	if err != nil {
 		return nil, err
@@ -222,10 +222,10 @@ func PatchManualService(t *testing.T, clients *Clients, svc *v1alpha1.Service) (
 // PatchServiceImage patches the existing service passed in with a new imagePath. Returns the latest service object
 func PatchServiceImage(t *testing.T, clients *Clients, svc *v1alpha1.Service, imagePath string) (*v1alpha1.Service, error) {
 	newSvc := svc.DeepCopy()
-	if svc.Spec.RunLatest != nil {
-		newSvc.Spec.RunLatest.Configuration.GetTemplate().Spec.GetContainer().Image = imagePath
-	} else if svc.Spec.Release != nil {
-		newSvc.Spec.Release.Configuration.GetTemplate().Spec.GetContainer().Image = imagePath
+	if svc.Spec.DeprecatedRunLatest != nil {
+		newSvc.Spec.DeprecatedRunLatest.Configuration.GetTemplate().Spec.GetContainer().Image = imagePath
+	} else if svc.Spec.DeprecatedRelease != nil {
+		newSvc.Spec.DeprecatedRelease.Configuration.GetTemplate().Spec.GetContainer().Image = imagePath
 	} else if svc.Spec.DeprecatedPinned != nil {
 		newSvc.Spec.DeprecatedPinned.Configuration.GetTemplate().Spec.GetContainer().Image = imagePath
 	} else {
@@ -252,10 +252,10 @@ func PatchService(t *testing.T, clients *Clients, curSvc *v1alpha1.Service, desi
 // PatchServiceRevisionTemplateMetadata patches an existing service by adding metadata to the service's RevisionTemplateSpec.
 func PatchServiceRevisionTemplateMetadata(t *testing.T, clients *Clients, svc *v1alpha1.Service, metadata metav1.ObjectMeta) (*v1alpha1.Service, error) {
 	newSvc := svc.DeepCopy()
-	if svc.Spec.RunLatest != nil {
-		newSvc.Spec.RunLatest.Configuration.GetTemplate().ObjectMeta = metadata
-	} else if svc.Spec.Release != nil {
-		newSvc.Spec.Release.Configuration.GetTemplate().ObjectMeta = metadata
+	if svc.Spec.DeprecatedRunLatest != nil {
+		newSvc.Spec.DeprecatedRunLatest.Configuration.GetTemplate().ObjectMeta = metadata
+	} else if svc.Spec.DeprecatedRelease != nil {
+		newSvc.Spec.DeprecatedRelease.Configuration.GetTemplate().ObjectMeta = metadata
 	} else if svc.Spec.DeprecatedPinned != nil {
 		newSvc.Spec.DeprecatedPinned.Configuration.GetTemplate().ObjectMeta = metadata
 	} else {

@@ -236,6 +236,10 @@ func TestTypicalFlow(t *testing.T) {
 
 	r.SetLatestReadyRevisionName("bar")
 	apitesting.CheckConditionSucceeded(r.duck(), ConfigurationConditionReady, t)
+
+	r.MarkResourceNotConvertible(ConvertErrorf("build", "something something not allowed.").(*CannotConvertError))
+	apitesting.CheckConditionSucceeded(r.duck(), ConfigurationConditionReady, t)
+	apitesting.CheckConditionFailed(r.duck(), ConditionTypeConvertible, t)
 }
 
 func TestFailingFirstRevisionWithRecovery(t *testing.T) {
