@@ -175,7 +175,7 @@ func TestRevisionTimeout(t *testing.T) {
 			},
 		}},
 	}); err != nil {
-		t.Fatalf("Failed to create Service: %v", err)
+		t.Fatalf("Failed to update Service: %v", err)
 	}
 
 	t.Log("Wait for the service domains to be ready")

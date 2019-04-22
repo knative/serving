@@ -75,12 +75,6 @@ func TestBlueGreenRoute(t *testing.T) {
 	// The first revision created is "blue"
 	blue.Revision = names.Revision
 
-	service, err := clients.ServingClient.Services.Get(names.Service, metav1.GetOptions{})
-	if err != nil {
-		t.Fatalf("Error fetching Service %s: %v", names.Service, err)
-	}
-	objects.Service = service
-
 	t.Log("Updating the Service to use a different image")
 	svc, err := test.PatchServiceImage(t, clients, objects.Service, imagePaths[1])
 	if err != nil {
@@ -98,19 +92,19 @@ func TestBlueGreenRoute(t *testing.T) {
 	if _, err := test.UpdateServiceRouteSpec(t, clients, names, v1alpha1.RouteSpec{
 		Traffic: []v1alpha1.TrafficTarget{{
 			TrafficTarget: v1beta1.TrafficTarget{
-				Tag:          "blue",
+				Tag:          blue.TrafficTarget,
 				RevisionName: blue.Revision,
 				Percent:      50,
 			},
 		}, {
 			TrafficTarget: v1beta1.TrafficTarget{
-				Tag:          "green",
+				Tag:          green.TrafficTarget,
 				RevisionName: green.Revision,
 				Percent:      50,
 			},
 		}},
 	}); err != nil {
-		t.Fatalf("Failed to create Service: %v", err)
+		t.Fatalf("Failed to update Service: %v", err)
 	}
 
 	t.Log("Wait for the service domains to be ready")
@@ -118,7 +112,7 @@ func TestBlueGreenRoute(t *testing.T) {
 		t.Fatalf("The Service %s was not marked as Ready to serve traffic: %v", names.Service, err)
 	}
 
-	service, err = clients.ServingClient.Services.Get(names.Service, metav1.GetOptions{})
+	service, err := clients.ServingClient.Services.Get(names.Service, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Error fetching Service %s: %v", names.Service, err)
 	}

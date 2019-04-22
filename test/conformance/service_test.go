@@ -399,10 +399,10 @@ func TestRunLatestServiceBYOName(t *testing.T) {
 // TestReleaseService creates a Service with a variety of "release"-like traffic shapes.
 // Currently tests for the following combinations:
 // 1. One Revision Specified, current == latest
-// 2. One Revision Specified, current != latset
+// 2. One Revision Specified, current != latest
 // 3. Two Revisions Specified, 50% rollout,  candidate == latest
 // 4. Two Revisions Specified, 50% rollout, candidate != latest
-// 5. Two Revisions Specified, 50% rollout, candidate != latest, latest referred to as `@latest`.
+// 5. Two Revisions Specified, 50% rollout, candidate != latest, candidate is configurationName.
 func TestReleaseService(t *testing.T) {
 	t.Parallel()
 	// Create Initial Service
