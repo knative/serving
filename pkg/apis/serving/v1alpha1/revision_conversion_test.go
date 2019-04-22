@@ -24,6 +24,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"github.com/knative/pkg/apis"
 	duckv1beta1 "github.com/knative/pkg/apis/duck/v1beta1"
 	"github.com/knative/pkg/ptr"
 	"github.com/knative/serving/pkg/apis/serving/v1beta1"
@@ -197,6 +198,93 @@ func TestRevisionConversion(t *testing.T) {
 				t.Errorf("ConvertDown() = %v", err)
 			}
 			if diff := cmp.Diff(test.in, got); diff != "" {
+				t.Errorf("roundtrip (-want, +got) = %v", diff)
+			}
+		})
+	}
+}
+
+func TestRevisionConversionError(t *testing.T) {
+	tests := []struct {
+		name string
+		in   *Revision
+		want *apis.FieldError
+	}{{
+		name: "multiple containers in podspec",
+		in: &Revision{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:       "asdf",
+				Namespace:  "blah",
+				Generation: 1,
+			},
+			Spec: RevisionSpec{
+				RevisionSpec: v1beta1.RevisionSpec{
+					PodSpec: v1beta1.PodSpec{
+						ServiceAccountName: "robocop",
+						Containers: []corev1.Container{{
+							Image: "busybox",
+						}, {
+							Image: "helloworld",
+						}},
+					},
+					TimeoutSeconds:       ptr.Int64(18),
+					ContainerConcurrency: 53,
+				},
+			},
+			Status: RevisionStatus{
+				Status: duckv1beta1.Status{
+					ObservedGeneration: 1,
+					Conditions: duckv1beta1.Conditions{{
+						Type:   "Ready",
+						Status: "True",
+					}},
+				},
+				ServiceName: "foo-bar",
+				LogURL:      "http://logger.io",
+			},
+		},
+		want: apis.ErrMultipleOneOf("containers"),
+	}, {
+		name: "multiple containers in podspec",
+		in: &Revision{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:       "asdf",
+				Namespace:  "blah",
+				Generation: 1,
+			},
+			Spec: RevisionSpec{
+				RevisionSpec: v1beta1.RevisionSpec{
+					PodSpec: v1beta1.PodSpec{
+						ServiceAccountName: "robocop",
+						Containers:         []corev1.Container{},
+					},
+					TimeoutSeconds:       ptr.Int64(18),
+					ContainerConcurrency: 53,
+				},
+			},
+			Status: RevisionStatus{
+				Status: duckv1beta1.Status{
+					ObservedGeneration: 1,
+					Conditions: duckv1beta1.Conditions{{
+						Type:   "Ready",
+						Status: "True",
+					}},
+				},
+				ServiceName: "foo-bar",
+				LogURL:      "http://logger.io",
+			},
+		},
+		want: apis.ErrMissingOneOf("container", "containers"),
+	}}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			beta := &v1beta1.Revision{}
+			got := test.in.ConvertUp(context.Background(), beta)
+			if got == nil {
+				t.Errorf("ConvertUp() = %#v, wanted %v", beta, test.want)
+			}
+			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
 				t.Errorf("roundtrip (-want, +got) = %v", diff)
 			}
 		})

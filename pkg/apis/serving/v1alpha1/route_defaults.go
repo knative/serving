@@ -31,10 +31,11 @@ func (r *Route) SetDefaults(ctx context.Context) {
 func (rs *RouteSpec) SetDefaults(ctx context.Context) {
 	if v1beta1.IsUpgradeViaDefaulting(ctx) {
 		beta := v1beta1.RouteSpec{}
-		rs.ConvertUp(ctx, &beta)
-		alpha := RouteSpec{}
-		alpha.ConvertDown(ctx, beta)
-		*rs = alpha
+		if rs.ConvertUp(ctx, &beta) == nil {
+			alpha := RouteSpec{}
+			alpha.ConvertDown(ctx, beta)
+			*rs = alpha
+		}
 	}
 
 	if len(rs.Traffic) == 0 && v1beta1.HasDefaultConfigurationName(ctx) {

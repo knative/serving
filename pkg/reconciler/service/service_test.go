@@ -709,19 +709,23 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			// There is no spec.{runLatest,pinned} in this Service, which triggers the error
 			// path updating Configuration.
-			Service("bad-config-update", "foo", WithInitSvcConditions),
+			Service("bad-config-update", "foo", WithInitSvcConditions, WithRunLatestRollout,
+				func(svc *v1alpha1.Service) {
+					svc.Spec.DeprecatedRunLatest.Configuration.GetTemplate().Spec.GetContainer().Image = "#"
+				}),
 			config("bad-config-update", "foo", WithRunLatestRollout),
-			route("bad-config-update", "foo", WithRunLatestRollout, MutateRoute),
+			route("bad-config-update", "foo", WithRunLatestRollout),
 		},
 		Key:     "foo/bad-config-update",
 		WantErr: true,
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			// Use WithInitSvcConditions as a HACK to create the
-			// empty Configuration.
-			Object: config("bad-config-update", "foo", WithInitSvcConditions),
+			Object: config("bad-config-update", "foo", WithRunLatestRollout,
+				func(cfg *v1alpha1.Configuration) {
+					cfg.Spec.GetTemplate().Spec.GetContainer().Image = "#"
+				}),
 		}},
 		WantEvents: []string{
-			Eventf(corev1.EventTypeWarning, "InternalError", "missing field(s): spec"),
+			Eventf(corev1.EventTypeWarning, "InternalError", "Failed to parse image reference: spec.revisionTemplate.spec.container.image\nimage: \"#\", error: could not parse reference"),
 		},
 	}, {
 		Name: "runLatest - route creation failure",

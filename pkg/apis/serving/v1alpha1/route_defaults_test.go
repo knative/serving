@@ -109,6 +109,86 @@ func TestRouteDefaulting(t *testing.T) {
 				}},
 			},
 		},
+	}, {
+		name: "lemonade (conflict)",
+		wc:   v1beta1.WithUpgradeViaDefaulting,
+		in: &Route{
+			Spec: RouteSpec{
+				Traffic: []TrafficTarget{{
+					DeprecatedName: "foo",
+					TrafficTarget: v1beta1.TrafficTarget{
+						ConfigurationName: "foo",
+						Percent:           50,
+					},
+				}, {
+					DeprecatedName: "baz",
+					TrafficTarget: v1beta1.TrafficTarget{
+						Tag:          "bar",
+						RevisionName: "foo",
+						Percent:      50,
+					},
+				}},
+			},
+		},
+		want: &Route{
+			Spec: RouteSpec{
+				Traffic: []TrafficTarget{{
+					DeprecatedName: "foo",
+					TrafficTarget: v1beta1.TrafficTarget{
+						ConfigurationName: "foo",
+						Percent:           50,
+						LatestRevision:    ptr.Bool(true),
+					},
+				}, {
+					DeprecatedName: "baz",
+					TrafficTarget: v1beta1.TrafficTarget{
+						Tag:            "bar",
+						RevisionName:   "foo",
+						Percent:        50,
+						LatestRevision: ptr.Bool(false),
+					},
+				}},
+			},
+		},
+	}, {
+		name: "lemonade (collision)",
+		wc:   v1beta1.WithUpgradeViaDefaulting,
+		in: &Route{
+			Spec: RouteSpec{
+				Traffic: []TrafficTarget{{
+					DeprecatedName: "bar",
+					TrafficTarget: v1beta1.TrafficTarget{
+						ConfigurationName: "foo",
+						Percent:           50,
+					},
+				}, {
+					TrafficTarget: v1beta1.TrafficTarget{
+						Tag:          "bar",
+						RevisionName: "foo",
+						Percent:      50,
+					},
+				}},
+			},
+		},
+		want: &Route{
+			Spec: RouteSpec{
+				Traffic: []TrafficTarget{{
+					TrafficTarget: v1beta1.TrafficTarget{
+						Tag:               "bar",
+						ConfigurationName: "foo",
+						Percent:           50,
+						LatestRevision:    ptr.Bool(true),
+					},
+				}, {
+					TrafficTarget: v1beta1.TrafficTarget{
+						Tag:            "bar",
+						RevisionName:   "foo",
+						Percent:        50,
+						LatestRevision: ptr.Bool(false),
+					},
+				}},
+			},
+		},
 	}}
 
 	for _, test := range tests {
