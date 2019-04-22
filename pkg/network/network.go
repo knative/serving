@@ -118,13 +118,13 @@ type HTTPProtocol string
 
 const (
 	// HTTPEnabled represents HTTP proocol is enabled in Knative ingress.
-	HTTPEnabled HTTPProtocol = "Enabled"
+	HTTPEnabled HTTPProtocol = "enabled"
 
 	// HTTPDisabled represents HTTP protocol is disabled in Knative ingress.
-	HTTPDisabled HTTPProtocol = "Disabled"
+	HTTPDisabled HTTPProtocol = "disabled"
 
 	// HTTPRedirected represents HTTP connection is redirected to HTTPS in Knative ingress.
-	HTTPRedirected HTTPProtocol = "Redirected"
+	HTTPRedirected HTTPProtocol = "redirected"
 )
 
 func validateAndNormalizeOutboundIPRanges(s string) (string, error) {
@@ -188,15 +188,15 @@ func NewConfigFromConfigMap(configMap *corev1.ConfigMap) (*Config, error) {
 	nc.AutoTLS = strings.ToLower(configMap.Data[AutoTLSKey]) == "enabled"
 
 	switch strings.ToLower(configMap.Data[HTTPProtocolKey]) {
-	case strings.ToLower(string(HTTPEnabled)):
+	case string(HTTPEnabled):
 		nc.HTTPProtocol = HTTPEnabled
 	case "":
 		// If HTTPProtocol is not set in the config-network, we set the default value
 		// to HTTPEnabled.
 		nc.HTTPProtocol = HTTPEnabled
-	case strings.ToLower(string(HTTPDisabled)):
+	case string(HTTPDisabled):
 		nc.HTTPProtocol = HTTPDisabled
-	case strings.ToLower(string(HTTPRedirected)):
+	case string(HTTPRedirected):
 		nc.HTTPProtocol = HTTPRedirected
 	default:
 		return nil, fmt.Errorf("httpProtocol %s in config-network ConfigMap is not supported", configMap.Data[HTTPProtocolKey])

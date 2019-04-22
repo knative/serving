@@ -692,7 +692,7 @@ func TestGlobalResyncOnUpdateNetwork(t *testing.T) {
 		// The expected gateway should include the Istio TLS server.
 		expectedGateway := gateway("knative-shared-gateway", system.Namespace(), []v1alpha3.Server{ingressTLSServer})
 		if diff := cmp.Diff(updatedGateway, expectedGateway); diff != "" {
-			t.Logf("Want Gateway %v, but got %v", expectedGateway, updatedGateway)
+			t.Logf("Want Gateway %+v, but got %+v", expectedGateway, updatedGateway)
 			return HookIncomplete
 		}
 

@@ -112,5 +112,5 @@ data:
     # 2. Disabled: The Knative ingress ter will reject HTTP traffic.
     # 3. Redirected: The Knative ingress will send a 302 redirect for all
     # http connections, asking the clients to use HTTPS
-    httpProtocol: Enabled
+    httpProtocol: "Enabled"
 
