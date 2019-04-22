@@ -622,10 +622,10 @@ func WithConfigOwnersRemoved(cfg *v1alpha1.Configuration) {
 	cfg.OwnerReferences = nil
 }
 
-// WithConfigConcurrencyModel sets the given Configuration's concurrency model.
-func WithConfigConcurrencyModel(ss v1alpha1.RevisionRequestConcurrencyModelType) ConfigOption {
+// WithConfigContainerConcurrency sets the given Configuration's concurrency.
+func WithConfigContainerConcurrency(cc v1beta1.RevisionContainerConcurrencyType) ConfigOption {
 	return func(cfg *v1alpha1.Configuration) {
-		cfg.Spec.GetTemplate().Spec.DeprecatedConcurrencyModel = ss
+		cfg.Spec.GetTemplate().Spec.ContainerConcurrency = cc
 	}
 }
 
@@ -738,10 +738,10 @@ func MarkResourceNotOwned(kind, name string) RevisionOption {
 	}
 }
 
-// WithRevConcurrencyModel sets the concurrency model on the Revision.
-func WithRevConcurrencyModel(ss v1alpha1.RevisionRequestConcurrencyModelType) RevisionOption {
+// WithRevContainerConcurrency sets the given Revision's concurrency.
+func WithRevContainerConcurrency(cc v1beta1.RevisionContainerConcurrencyType) RevisionOption {
 	return func(rev *v1alpha1.Revision) {
-		rev.Spec.DeprecatedConcurrencyModel = ss
+		rev.Spec.ContainerConcurrency = cc
 	}
 }
 
