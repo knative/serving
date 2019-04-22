@@ -40,6 +40,7 @@ import (
 	"github.com/knative/serving/pkg/apis/networking"
 	netv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 	networkinglisters "github.com/knative/serving/pkg/client/listers/networking/v1alpha1"
 	listers "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
 	"github.com/knative/serving/pkg/reconciler"
@@ -144,18 +145,18 @@ func (c *Reconciler) reconcile(ctx context.Context, r *v1alpha1.Route) error {
 	// and may not have had all of the assumed defaults specified.  This won't result
 	// in this getting written back to the API Server, but lets downstream logic make
 	// assumptions about defaulting.
-	r.SetDefaults(ctx)
+	r.SetDefaults(v1beta1.WithUpgradeViaDefaulting(ctx))
 	r.Status.InitializeConditions()
 
-	// There are no conditions that would trigger this, but if they were we'd have a
-	// block like this here (as the other controllers).
-	// if err := r.ConvertUp(ctx, &v1beta1.Route{}); err != nil {
-	// 	if ce, ok := err.(*v1alpha1.CannotConvertError); ok {
-	// 		r.Status.MarkResourceNotConvertible(ce)
-	// 	} else {
-	// 		return err
-	// 	}
-	// }
+	if err := r.ConvertUp(ctx, &v1beta1.Route{}); err != nil {
+		// There are no conditions that would trigger this, but if they were we'd have a
+		// block like this here (as the other controllers).
+		// if ce, ok := err.(*v1alpha1.CannotConvertError); ok {
+		// 	r.Status.MarkResourceNotConvertible(ce)
+		// } else {
+		return err
+		// }
+	}
 
 	logger.Infof("Reconciling route: %#v", r)
 

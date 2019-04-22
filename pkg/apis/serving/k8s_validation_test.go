@@ -689,12 +689,7 @@ func TestContainerValidation(t *testing.T) {
 			Lifecycle: &corev1.Lifecycle{},
 		},
 		want: apis.ErrDisallowedFields("name", "lifecycle").Also(
-			&apis.FieldError{
-				Message: "Failed to parse image reference",
-				Paths:   []string{"image"},
-				Details: "image: \"\", error: could not parse reference",
-			},
-		),
+			apis.ErrMissingField("image")),
 	}}
 
 	for _, test := range tests {
