@@ -166,7 +166,10 @@ ko apply -f config/
 # Optional steps
 
 # Configure outbound network for GKE.
-PROJECT_ID="my-gcp-project-id" ./hack/dev-patch-config-gke.sh my-k8s-cluster-name
+export PROJECT_ID="my-gcp-project-id"
+export K8S_CLUSTER_ZONE="my-cluster-zone" # Set K8S_CLUSTER_REGION for regional
+clusters
+./hack/dev-patch-config-gke.sh my-k8s-cluster-name
 
 # Run post-install job to setup nice XIP.IO domain name.  This only works
 # if your Kubernetes LoadBalancer has an IP address.
