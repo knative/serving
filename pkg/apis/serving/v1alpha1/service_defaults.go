@@ -50,6 +50,16 @@ func (s *Service) SetDefaults(ctx context.Context) {
 }
 
 func (ss *ServiceSpec) SetDefaults(ctx context.Context) {
+	if v1beta1.IsUpgradeViaDefaulting(ctx) {
+		beta := v1beta1.ServiceSpec{}
+		if ss.ConvertUp(ctx, &beta) == nil {
+			alpha := ServiceSpec{}
+			if alpha.ConvertDown(ctx, beta) == nil {
+				*ss = alpha
+			}
+		}
+	}
+
 	if ss.DeprecatedRunLatest != nil {
 		ss.DeprecatedRunLatest.Configuration.SetDefaults(ctx)
 	} else if ss.DeprecatedPinned != nil {

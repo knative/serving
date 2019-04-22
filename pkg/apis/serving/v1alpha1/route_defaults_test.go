@@ -31,17 +31,59 @@ func TestRouteDefaulting(t *testing.T) {
 		name string
 		in   *Route
 		want *Route
+		wc   func(context.Context) context.Context
 	}{{
-		name: "empty",
+		name: "simple",
 		in: &Route{
 			Spec: RouteSpec{
 				Traffic: []TrafficTarget{{
+					DeprecatedName: "foo",
 					TrafficTarget: v1beta1.TrafficTarget{
 						ConfigurationName: "foo",
 						Percent:           50,
 					},
 				}, {
 					TrafficTarget: v1beta1.TrafficTarget{
+						Tag:          "bar",
+						RevisionName: "foo",
+						Percent:      50,
+					},
+				}},
+			},
+		},
+		want: &Route{
+			Spec: RouteSpec{
+				Traffic: []TrafficTarget{{
+					DeprecatedName: "foo",
+					TrafficTarget: v1beta1.TrafficTarget{
+						ConfigurationName: "foo",
+						Percent:           50,
+						LatestRevision:    ptr.Bool(true),
+					},
+				}, {
+					TrafficTarget: v1beta1.TrafficTarget{
+						Tag:            "bar",
+						RevisionName:   "foo",
+						Percent:        50,
+						LatestRevision: ptr.Bool(false),
+					},
+				}},
+			},
+		},
+	}, {
+		name: "lemonade",
+		wc:   v1beta1.WithUpgradeViaDefaulting,
+		in: &Route{
+			Spec: RouteSpec{
+				Traffic: []TrafficTarget{{
+					DeprecatedName: "foo",
+					TrafficTarget: v1beta1.TrafficTarget{
+						ConfigurationName: "foo",
+						Percent:           50,
+					},
+				}, {
+					TrafficTarget: v1beta1.TrafficTarget{
+						Tag:          "bar",
 						RevisionName: "foo",
 						Percent:      50,
 					},
@@ -52,12 +94,14 @@ func TestRouteDefaulting(t *testing.T) {
 			Spec: RouteSpec{
 				Traffic: []TrafficTarget{{
 					TrafficTarget: v1beta1.TrafficTarget{
+						Tag:               "foo",
 						ConfigurationName: "foo",
 						Percent:           50,
 						LatestRevision:    ptr.Bool(true),
 					},
 				}, {
 					TrafficTarget: v1beta1.TrafficTarget{
+						Tag:            "bar",
 						RevisionName:   "foo",
 						Percent:        50,
 						LatestRevision: ptr.Bool(false),
@@ -70,7 +114,11 @@ func TestRouteDefaulting(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			got := test.in
-			got.SetDefaults(context.Background())
+			ctx := context.Background()
+			if test.wc != nil {
+				ctx = test.wc(ctx)
+			}
+			got.SetDefaults(ctx)
 			if diff := cmp.Diff(test.want, got); diff != "" {
 				t.Errorf("SetDefaults (-want, +got) = %v", diff)
 			}
