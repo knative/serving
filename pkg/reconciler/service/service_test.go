@@ -645,8 +645,8 @@ func TestReconcile(t *testing.T) {
 			}, WithInitSvcConditions),
 			// Mutate the Config/Route to have a different body than we want.
 			config("update-route-and-config", "foo", WithRunLatestRollout,
-				// Change the concurrency model to ensure it is corrected.
-				WithConfigConcurrencyModel("Single")),
+				// Change the concurrency to ensure it is corrected.
+				WithConfigContainerConcurrency(5)),
 			route("update-route-and-config", "foo", WithRunLatestRollout, MutateRoute),
 			&v1alpha1.Revision{
 				ObjectMeta: metav1.ObjectMeta{

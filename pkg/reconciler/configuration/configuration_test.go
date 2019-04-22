@@ -188,24 +188,24 @@ func TestReconcile(t *testing.T) {
 		Key: "foo/byo-rev-not-owned",
 	}, {
 		Name: "webhook validation failure",
-		// If we attempt to create a Revision with a bad ConcurrencyModel set, we fail.
+		// If we attempt to create a Revision with a bad ContainerConcurrency set, we fail.
 		WantErr: true,
 		Objects: []runtime.Object{
-			cfg("validation-failure", "foo", 1234, WithConfigConcurrencyModel("Bogus")),
+			cfg("validation-failure", "foo", 1234, WithConfigContainerConcurrency(-1)),
 		},
 		WantCreates: []metav1.Object{
-			rev("validation-failure", "foo", 1234, WithRevConcurrencyModel("Bogus")),
+			rev("validation-failure", "foo", 1234, WithRevContainerConcurrency(-1)),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: cfg("validation-failure", "foo", 1234, WithConfigConcurrencyModel("Bogus"),
+			Object: cfg("validation-failure", "foo", 1234, WithConfigContainerConcurrency(-1),
 				// Expect Revision creation to fail with the following error.
-				MarkRevisionCreationFailed(`invalid value: Bogus: spec.concurrencyModel`)),
+				MarkRevisionCreationFailed("expected 0 <= -1 <= 1000: spec.containerConcurrency")),
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "CreationFailed", "Failed to create Revision for Configuration %q: %v",
-				"validation-failure", `invalid value: Bogus: spec.concurrencyModel`),
+				"validation-failure", "expected 0 <= -1 <= 1000: spec.containerConcurrency"),
 			Eventf(corev1.EventTypeWarning, "UpdateFailed", "Failed to update status for Configuration %q: %v",
-				"validation-failure", `invalid value: Bogus: spec.revisionTemplate.spec.concurrencyModel`),
+				"validation-failure", "expected 0 <= -1 <= 1000: spec.revisionTemplate.spec.containerConcurrency"),
 		},
 		Key: "foo/validation-failure",
 	}, {
