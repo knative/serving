@@ -160,7 +160,9 @@ func (a *ActivationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		// returns a 200 status code.
 		success := a.GetProbeCount == 0
 		if !success {
+			st := time.Now()
 			success, httpStatus, attempts = a.probeEndpoint(logger, r, target)
+			logger.Infof("Took %v to probe target", time.Since(st), target)
 		}
 
 		if success {
