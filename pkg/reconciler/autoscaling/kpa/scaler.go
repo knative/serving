@@ -25,14 +25,11 @@ import (
 	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/logging"
 	pav1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/autoscaler"
-	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
 	perrors "github.com/pkg/errors"
 	"go.uber.org/zap"
 	autoscalingapi "k8s.io/api/autoscaling/v1"
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/scale"
 )
@@ -41,9 +38,8 @@ const scaleUnknown = -1
 
 // scaler scales the target of a kpa-class PA up or down including scaling to zero.
 type scaler struct {
-	servingClientSet clientset.Interface
-	scaleClientSet   scale.ScalesGetter
-	logger           *zap.SugaredLogger
+	scaleClientSet scale.ScalesGetter
+	logger         *zap.SugaredLogger
 
 	// autoscalerConfig could change over time and access to it
 	// must go through autoscalerConfigMutex
@@ -52,12 +48,11 @@ type scaler struct {
 }
 
 // NewScaler creates a scaler.
-func NewScaler(servingClientSet clientset.Interface, scaleClientSet scale.ScalesGetter,
+func NewScaler(scaleClientSet scale.ScalesGetter,
 	logger *zap.SugaredLogger, configMapWatcher configmap.Watcher) Scaler {
 	ks := &scaler{
-		servingClientSet: servingClientSet,
-		scaleClientSet:   scaleClientSet,
-		logger:           logger,
+		scaleClientSet: scaleClientSet,
+		logger:         logger,
 	}
 
 	// Watch for config changes.
@@ -119,21 +114,6 @@ func scaleResourceArgs(pa *pav1alpha1.PodAutoscaler) (*schema.GroupResource, str
 	return &resource, pa.Spec.ScaleTargetRef.Name, nil
 }
 
-func isPAOwnedByRevision(ctx context.Context, pa *pav1alpha1.PodAutoscaler) bool {
-	logger := logging.FromContext(ctx)
-
-	// TODO(mattmoor): Drop this once the KPA is the source of truth and we
-	// scale exclusively on metrics.
-	revGVK := v1alpha1.SchemeGroupVersion.WithKind("Revision")
-	owner := metav1.GetControllerOf(pa)
-	if owner == nil || owner.Kind != revGVK.Kind ||
-		owner.APIVersion != revGVK.GroupVersion().String() {
-		logger.Debug("PA is not owned by a Revision.")
-		return false
-	}
-	return true
-}
-
 func (ks *scaler) handleScaleToZero(pa *pav1alpha1.PodAutoscaler, desiredScale int32) (int32, bool) {
 	if desiredScale == 0 {
 		// We should only scale to zero when three of the following conditions are true:
@@ -169,12 +149,18 @@ func (ks *scaler) handleScaleToZero(pa *pav1alpha1.PodAutoscaler, desiredScale i
 	return desiredScale, true
 }
 
-func (ks *scaler) applyScale(ctx context.Context, pa *pav1alpha1.PodAutoscaler, desiredScale int32, resource *schema.GroupResource, scl *autoscalingapi.Scale) (int32, error) {
+func (ks *scaler) applyScale(ctx context.Context, pa *pav1alpha1.PodAutoscaler, desiredScale int32, scl *autoscalingapi.Scale) (int32, error) {
 	logger := logging.FromContext(ctx)
+
+	// Identify the current scale.
+	resource, _, err := scaleResourceArgs(pa)
+	if err != nil {
+		return desiredScale, err
+	}
 
 	// Scale the target reference.
 	scl.Spec.Replicas = desiredScale
-	_, err := ks.scaleClientSet.Scales(pa.Namespace).Update(*resource, scl)
+	_, err = ks.scaleClientSet.Scales(pa.Namespace).Update(*resource, scl)
 	if err != nil {
 		resourceName := pa.Spec.ScaleTargetRef.Name
 		logger.Errorw(fmt.Sprintf("Error scaling target reference %s", resourceName), zap.Error(err))
@@ -189,16 +175,6 @@ func (ks *scaler) applyScale(ctx context.Context, pa *pav1alpha1.PodAutoscaler, 
 // Scale attempts to scale the given PA's target reference to the desired scale.
 func (ks *scaler) Scale(ctx context.Context, pa *pav1alpha1.PodAutoscaler, desiredScale int32) (int32, error) {
 	logger := logging.FromContext(ctx)
-
-	if !isPAOwnedByRevision(ctx, pa) {
-		return desiredScale, nil
-	}
-
-	resource, resourceName, err := scaleResourceArgs(pa)
-	if err != nil {
-		logger.Errorw("Unable to parse APIVersion", zap.Error(err))
-		return desiredScale, err
-	}
 
 	desiredScale, shouldApplyScale := ks.handleScaleToZero(pa, desiredScale)
 	if !shouldApplyScale {
@@ -216,10 +192,9 @@ func (ks *scaler) Scale(ctx context.Context, pa *pav1alpha1.PodAutoscaler, desir
 		desiredScale = newScale
 	}
 
-	// Identify the current scale.
-	scl, err := ks.scaleClientSet.Scales(pa.Namespace).Get(*resource, resourceName)
+	scl, err := ks.GetScaleResource(pa)
 	if err != nil {
-		logger.Errorw(fmt.Sprintf("Resource %q not found", resourceName), zap.Error(err))
+		logger.Errorw(fmt.Sprintf("Resource %q not found", pa.Name), zap.Error(err))
 		return desiredScale, err
 	}
 	currentScale := scl.Spec.Replicas
@@ -230,5 +205,5 @@ func (ks *scaler) Scale(ctx context.Context, pa *pav1alpha1.PodAutoscaler, desir
 
 	logger.Infof("Scaling from %d to %d", currentScale, desiredScale)
 
-	return ks.applyScale(ctx, pa, desiredScale, resource, scl)
+	return ks.applyScale(ctx, pa, desiredScale, scl)
 }

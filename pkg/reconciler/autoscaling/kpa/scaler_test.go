@@ -172,7 +172,7 @@ func TestScaler(t *testing.T) {
 
 			revision := newRevision(t, servingClient, test.minScale, test.maxScale)
 			deployment := newDeployment(t, scaleClient, names.Deployment(revision), test.startReplicas)
-			revisionScaler := NewScaler(servingClient, scaleClient, logtesting.TestLogger(t), newConfigWatcher())
+			revisionScaler := NewScaler(scaleClient, logtesting.TestLogger(t), newConfigWatcher())
 
 			pa := newKPA(t, servingClient, revision)
 			if test.kpaMutation != nil {
@@ -235,9 +235,8 @@ func TestDisableScaleToZero(t *testing.T) {
 			revision := newRevision(t, servingClient, test.minScale, test.maxScale)
 			deployment := newDeployment(t, scaleClient, names.Deployment(revision), test.startReplicas)
 			revisionScaler := &scaler{
-				servingClientSet: servingClient,
-				scaleClientSet:   scaleClient,
-				logger:           logtesting.TestLogger(t),
+				scaleClientSet: scaleClient,
+				logger:         logtesting.TestLogger(t),
 				autoscalerConfig: &autoscaler.Config{
 					EnableScaleToZero: false,
 				},
@@ -269,7 +268,7 @@ func TestGetScaleResource(t *testing.T) {
 	revision := newRevision(t, servingClient, 1, 10)
 	// This setups reactor as well.
 	newDeployment(t, scaleClient, names.Deployment(revision), 5)
-	revisionScaler := NewScaler(servingClient, scaleClient, logtesting.TestLogger(t), newConfigWatcher())
+	revisionScaler := NewScaler(scaleClient, logtesting.TestLogger(t), newConfigWatcher())
 
 	pa := newKPA(t, servingClient, revision)
 	scale, err := revisionScaler.GetScaleResource(pa)
