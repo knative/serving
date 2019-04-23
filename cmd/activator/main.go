@@ -127,11 +127,11 @@ func main() {
 	flag.Parse()
 	cm, err := configmap.Load("/etc/config-logging")
 	if err != nil {
-		log.Fatalf("Error loading logging configuration: %v", err)
+		log.Fatal("Error loading logging configuration:", err)
 	}
 	logConfig, err := logging.NewConfigFromMap(cm)
 	if err != nil {
-		log.Fatalf("Error parsing logging configuration: %v", err)
+		log.Fatal("Error parsing logging configuration:", err)
 	}
 	createdLogger, atomicLevel := logging.NewLoggerFromConfig(logConfig, component)
 	logger := createdLogger.With(zap.String(logkey.ControllerType, "activator"))
@@ -189,7 +189,7 @@ func main() {
 		endpointInformer.Informer(),
 		serviceInformer.Informer(),
 		sksInformer.Informer()); err != nil {
-		logger.Fatalf("Failed to start informers: %v", err)
+		logger.Fatalw("Failed to start informers", err)
 	}
 
 	params := queue.BreakerParams{QueueDepth: breakerQueueDepth, MaxConcurrency: breakerMaxConcurrency, InitialCapacity: 0}
