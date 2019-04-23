@@ -110,7 +110,7 @@ type PodAutoscalerStatus struct {
 
 	// ServiceName is the K8s Service name that serves the revision, scaled by this PA.
 	// The service is created and owned by the ServerlessService object owned by this PA.
-	ServiceName string `json:"serviceName`
+	ServiceName string `json:"serviceName"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

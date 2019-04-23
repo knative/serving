@@ -43,13 +43,21 @@ func NewAutoTransport(v1 http.RoundTripper, v2 http.RoundTripper) http.RoundTrip
 }
 
 func newHTTPTransport(connTimeout time.Duration) http.RoundTripper {
-	transport := *http.DefaultTransport.(*http.Transport)
-	transport.DialContext = (&net.Dialer{
-		Timeout:   connTimeout,
-		KeepAlive: 30 * time.Second,
-		DualStack: true,
-	}).DialContext
-	return &transport
+	return &http.Transport{
+		// Those match net/http/transport.go
+		Proxy:                 http.ProxyFromEnvironment,
+		MaxIdleConns:          100,
+		IdleConnTimeout:       90 * time.Second,
+		TLSHandshakeTimeout:   10 * time.Second,
+		ExpectContinueTimeout: 1 * time.Second,
+
+		// This is bespoke.
+		DialContext: (&net.Dialer{
+			Timeout:   connTimeout,
+			KeepAlive: 30 * time.Second,
+			DualStack: true,
+		}).DialContext,
+	}
 }
 
 // AutoTransport uses h2c for HTTP2 requests and falls back to `http.DefaultTransport` for all others
