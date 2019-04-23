@@ -40,6 +40,7 @@ import (
 	"github.com/knative/pkg/system"
 	"github.com/knative/pkg/tracker"
 	"github.com/knative/serving/pkg/apis/networking"
+	netv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	networkinginformers "github.com/knative/serving/pkg/client/informers/externalversions/networking/v1alpha1"
@@ -52,6 +53,7 @@ import (
 	"github.com/knative/serving/pkg/reconciler/route/resources"
 	resourcenames "github.com/knative/serving/pkg/reconciler/route/resources/names"
 	"github.com/knative/serving/pkg/reconciler/route/traffic"
+	tr "github.com/knative/serving/pkg/reconciler/route/traffic"
 )
 
 const (
@@ -82,10 +84,14 @@ type Reconciler struct {
 	revisionLister       listers.RevisionLister
 	serviceLister        corev1listers.ServiceLister
 	clusterIngressLister networkinglisters.ClusterIngressLister
+	certificateLister    networkinglisters.CertificateLister
 	configStore          configStore
 	tracker              tracker.Interface
 
 	clock system.Clock
+
+	// TODO(zhiminx): use the feature flag in the confg-network ConfigMap.
+	enableAutoTLS bool
 }
 
 // Check that our Reconciler implements controller.Reconciler
@@ -103,9 +109,10 @@ func NewController(
 	revisionInformer servinginformers.RevisionInformer,
 	serviceInformer corev1informers.ServiceInformer,
 	clusterIngressInformer networkinginformers.ClusterIngressInformer,
+	certificateInformer networkinginformers.CertificateInformer,
 ) *controller.Impl {
 	return NewControllerWithClock(opt, routeInformer, configInformer, revisionInformer,
-		serviceInformer, clusterIngressInformer, system.RealClock{})
+		serviceInformer, clusterIngressInformer, certificateInformer, system.RealClock{})
 }
 
 func NewControllerWithClock(
@@ -115,6 +122,7 @@ func NewControllerWithClock(
 	revisionInformer servinginformers.RevisionInformer,
 	serviceInformer corev1informers.ServiceInformer,
 	clusterIngressInformer networkinginformers.ClusterIngressInformer,
+	certificateInformer networkinginformers.CertificateInformer,
 	clock system.Clock,
 ) *controller.Impl {
 
@@ -127,6 +135,7 @@ func NewControllerWithClock(
 		revisionLister:       revisionInformer.Lister(),
 		serviceLister:        serviceInformer.Lister(),
 		clusterIngressLister: clusterIngressInformer.Lister(),
+		certificateLister:    certificateInformer.Lister(),
 		clock:                clock,
 	}
 	impl := controller.NewImpl(c, c.Logger, "Routes", reconciler.MustNewStatsReporter("Routes", c.Logger))
@@ -162,6 +171,13 @@ func NewControllerWithClock(
 		controller.EnsureTypeMeta(
 			c.tracker.OnChanged,
 			v1alpha1.SchemeGroupVersion.WithKind("Revision"),
+		),
+	))
+
+	certificateInformer.Informer().AddEventHandler(reconciler.Handler(
+		controller.EnsureTypeMeta(
+			c.tracker.OnChanged,
+			netv1alpha1.SchemeGroupVersion.WithKind("Certificate"),
 		),
 	))
 
@@ -288,13 +304,33 @@ func (c *Reconciler) reconcile(ctx context.Context, r *v1alpha1.Route) error {
 		Hostname: resourcenames.K8sServiceFullname(r),
 	}
 
+	tls := []netv1alpha1.ClusterIngressTLS{}
+	if c.enableAutoTLS {
+		domains := tr.GetDomains(r.Status.Domain, traffic.Targets)
+		// TODO(zhiminx): add a feature flag in config-network ConfgiMap to control the types of certs (wildcard/non-wildcard)
+		desiredCerts, err := resources.MakeCertificates(ctx, r, domains, true)
+		if err != nil {
+			return err
+		}
+		desiredCerts, err = c.reconcileCertificates(ctx, r, desiredCerts)
+		if err != nil {
+			return err
+		}
+		r.Status.PropagateCertificateStatus(desiredCerts)
+
+		tls, err = resources.MakeClusterIngressTLS(desiredCerts, domains)
+		if err != nil {
+			return err
+		}
+	}
+
 	// Add the finalizer before creating the ClusterIngress so that we can be sure it gets cleaned up.
 	if err := c.ensureFinalizer(r); err != nil {
 		return err
 	}
 
 	logger.Info("Creating ClusterIngress.")
-	desired := resources.MakeClusterIngress(r, traffic, ingressClassForRoute(ctx, r))
+	desired := resources.MakeClusterIngress(r, traffic, tls, ingressClassForRoute(ctx, r))
 	clusterIngress, err := c.reconcileClusterIngress(ctx, r, desired)
 	if err != nil {
 		return err
@@ -339,7 +375,7 @@ func (c *Reconciler) reconcileDeletion(ctx context.Context, r *v1alpha1.Route) e
 //
 // If traffic is configured we update the RouteStatus with AllTrafficAssigned = True.  Otherwise we
 // mark AllTrafficAssigned = False, with a message referring to one of the missing target.
-func (c *Reconciler) configureTraffic(ctx context.Context, r *v1alpha1.Route) (*traffic.Config, error) {
+func (c *Reconciler) configureTraffic(ctx context.Context, r *v1alpha1.Route) (*tr.Config, error) {
 	logger := logging.FromContext(ctx)
 	t, err := traffic.BuildTrafficConfiguration(c.configurationLister, c.revisionLister, r)
 

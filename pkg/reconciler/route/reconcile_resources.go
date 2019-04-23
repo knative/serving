@@ -240,3 +240,49 @@ func (c *Reconciler) reconcileTargetRevisions(ctx context.Context, t *traffic.Co
 	}
 	return eg.Wait()
 }
+
+func (c *Reconciler) reconcileCertificates(ctx context.Context, r *v1alpha1.Route, desiredCerts []*netv1alpha1.Certificate) ([]*netv1alpha1.Certificate, error) {
+	result := []*netv1alpha1.Certificate{}
+	gvk := netv1alpha1.SchemeGroupVersion.WithKind("Certificate")
+	for _, desiredCert := range desiredCerts {
+		c.tracker.Track(objectRef(desiredCert, gvk), r)
+		cert, err := c.reconcileCert(ctx, r, desiredCert)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, cert)
+	}
+	return result, nil
+}
+
+func (c *Reconciler) reconcileCert(ctx context.Context, r *v1alpha1.Route, desiredCert *netv1alpha1.Certificate) (*netv1alpha1.Certificate, error) {
+	cert, err := c.certificateLister.Certificates(desiredCert.Namespace).Get(desiredCert.Name)
+	if apierrs.IsNotFound(err) {
+		cert, err = c.ServingClientSet.NetworkingV1alpha1().Certificates(desiredCert.Namespace).Create(desiredCert)
+		if err != nil {
+			c.Logger.Error("Failed to create Certificate", zap.Error(err))
+			c.Recorder.Eventf(r, corev1.EventTypeWarning, "CreationFailed",
+				"Failed to create Certificate for route %s/%s: %v", r.Namespace, r.Name, err)
+			return nil, err
+		}
+		c.Recorder.Eventf(r, corev1.EventTypeNormal, "Created",
+			"Created Certificate %q/%q", cert.Name, cert.Namespace)
+		return cert, nil
+	} else if err != nil {
+		return nil, err
+	} else {
+		if !equality.Semantic.DeepEqual(cert.Spec, desiredCert.Spec) {
+			// Don't modify the informers copy
+			existing := cert.DeepCopy()
+			existing.Spec = desiredCert.Spec
+			cert, err := c.ServingClientSet.NetworkingV1alpha1().Certificates(existing.Namespace).Update(existing)
+			if err != nil {
+				return nil, err
+			}
+			c.Recorder.Eventf(existing, corev1.EventTypeNormal, "Updated",
+				"Updated Spec for Certificate %q/%q", existing.Name, existing.Namespace)
+			return cert, nil
+		}
+	}
+	return cert, nil
+}

@@ -134,6 +134,25 @@ type RouteStatusFields struct {
 	// LatestReadyRevisionName that we last observed.
 	// +optional
 	Traffic []TrafficTarget `json:"traffic,omitempty"`
+
+	// Certificates holds the information of the certificates that are automatically
+	// provisioned by the system.
+	Certificates []Certificate `json:"certificates,omitempty"`
+}
+
+// Certificate holds the certificate information provisioned for a Route.
+type Certificate struct {
+	// Name is the name of the certificate.
+	Name string `json:"name,omitempty"`
+
+	// Namespace is the namespace of the certificate.
+	Namespace string `json:"namespace,omitempty"`
+
+	// Condition is the condition of the certificate.
+	Conditions duckv1beta1.Conditions `json:"conditions,omitempty"`
+
+	// The expiration time of the TLS certificate.
+	NotAfter *metav1.Time `json:"notAfter,omitempty"`
 }
 
 // RouteStatus communicates the observed state of the Route (from the controller).

@@ -49,7 +49,7 @@ rules:
     resources: ["images"]
     verbs: ["get", "list", "create", "update", "delete", "patch", "watch"]
   - apiGroups: ["networking.internal.knative.dev"]
-    resources: ["clusteringresses", "clusteringresses/status", "serverlessservices", "serverlessservices/status"]
+    resources: ["clusteringresses", "clusteringresses/status", "serverlessservices", "serverlessservices/status", "certificates", "certificates/status"]
     verbs: ["get", "list", "create", "update", "delete", "deletecollection", "patch", "watch"]
 ---
 kind: ClusterRole
