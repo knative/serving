@@ -24,8 +24,6 @@ import (
 
 	"github.com/knative/pkg/test/spoof"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 
 	rtesting "github.com/knative/serving/pkg/reconciler/testing"
 )
@@ -35,31 +33,6 @@ func CreateRoute(t *testing.T, clients *Clients, names ResourceNames, fopt ...rt
 	route := Route(names, fopt...)
 	LogResourceObject(t, ResourceObjects{Route: route})
 	return clients.ServingClient.Routes.Create(route)
-}
-
-// CreateBlueGreenRoute creates a route in the given namespace using the route name in names.
-// Traffic is evenly split between the two routes specified by blue and green.
-func CreateBlueGreenRoute(t *testing.T, clients *Clients, names, blue, green ResourceNames) error {
-	route := BlueGreenRoute(names, blue, green)
-	LogResourceObject(t, ResourceObjects{Route: route})
-	_, err := clients.ServingClient.Routes.Create(route)
-	return err
-}
-
-// UpdateBlueGreenRoute updates a route in the given namespace using the route name in names.
-func UpdateBlueGreenRoute(t *testing.T, clients *Clients, names, blue, green ResourceNames) (*v1alpha1.Route, error) {
-	route, err := clients.ServingClient.Routes.Get(names.Route, metav1.GetOptions{})
-	if err != nil {
-		return nil, err
-	}
-	newRoute := BlueGreenRoute(names, blue, green)
-	newRoute.ObjectMeta = route.ObjectMeta
-	LogResourceObject(t, ResourceObjects{Route: newRoute})
-	patchBytes, err := createPatch(route, newRoute)
-	if err != nil {
-		return nil, err
-	}
-	return clients.ServingClient.Routes.Patch(names.Route, types.JSONPatchType, patchBytes, "")
 }
 
 // RetryingRouteInconsistency retries common requests seen when creating a new route

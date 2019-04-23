@@ -39,8 +39,8 @@ func AllRouteTrafficAtRevision(names ResourceNames) func(r *v1alpha1.Route) (boo
 					return true, fmt.Errorf("expected traffic revision name to be %s but actually is %s", names.Revision, tt.RevisionName)
 				}
 
-				if tt.DeprecatedName != names.TrafficTarget {
-					return true, fmt.Errorf("expected traffic target name to be %s but actually is %s", names.TrafficTarget, tt.DeprecatedName)
+				if tt.Tag != names.TrafficTarget {
+					return true, fmt.Errorf("expected traffic target name to be %s but actually is %s", names.TrafficTarget, tt.Tag)
 				}
 
 				return true, nil
