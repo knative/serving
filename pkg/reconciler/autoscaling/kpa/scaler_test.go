@@ -32,6 +32,7 @@ import (
 	"github.com/knative/serving/pkg/autoscaler"
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
 	fakeKna "github.com/knative/serving/pkg/client/clientset/versioned/fake"
+	"github.com/knative/serving/pkg/reconciler"
 	revisionresources "github.com/knative/serving/pkg/reconciler/revision/resources"
 	"github.com/knative/serving/pkg/reconciler/revision/resources/names"
 	v1 "k8s.io/api/apps/v1"
@@ -170,9 +171,15 @@ func TestScaler(t *testing.T) {
 			servingClient := fakeKna.NewSimpleClientset()
 			scaleClient := &scalefake.FakeScaleClient{}
 
+			opts := reconciler.Options{
+				ScaleClientSet:   scaleClient,
+				Logger:           logtesting.TestLogger(t),
+				ConfigMapWatcher: newConfigWatcher(),
+			}
+
 			revision := newRevision(t, servingClient, test.minScale, test.maxScale)
 			deployment := newDeployment(t, scaleClient, names.Deployment(revision), test.startReplicas)
-			revisionScaler := NewScaler(scaleClient, logtesting.TestLogger(t), newConfigWatcher())
+			revisionScaler := NewScaler(opts)
 
 			pa := newKPA(t, servingClient, revision)
 			if test.kpaMutation != nil {
@@ -265,10 +272,16 @@ func TestGetScaleResource(t *testing.T) {
 	servingClient := fakeKna.NewSimpleClientset()
 	scaleClient := &scalefake.FakeScaleClient{}
 
+	opts := reconciler.Options{
+		ScaleClientSet:   scaleClient,
+		Logger:           logtesting.TestLogger(t),
+		ConfigMapWatcher: newConfigWatcher(),
+	}
+
 	revision := newRevision(t, servingClient, 1, 10)
 	// This setups reactor as well.
 	newDeployment(t, scaleClient, names.Deployment(revision), 5)
-	revisionScaler := NewScaler(scaleClient, logtesting.TestLogger(t), newConfigWatcher())
+	revisionScaler := NewScaler(opts)
 
 	pa := newKPA(t, servingClient, revision)
 	scale, err := revisionScaler.GetScaleResource(pa)

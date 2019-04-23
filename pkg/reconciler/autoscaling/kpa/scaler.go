@@ -22,10 +22,10 @@ import (
 	"sync"
 
 	"github.com/knative/pkg/apis"
-	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/logging"
 	pav1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/autoscaler"
+	"github.com/knative/serving/pkg/reconciler"
 	perrors "github.com/pkg/errors"
 	"go.uber.org/zap"
 	autoscalingapi "k8s.io/api/autoscaling/v1"
@@ -48,15 +48,14 @@ type scaler struct {
 }
 
 // NewScaler creates a scaler.
-func NewScaler(scaleClientSet scale.ScalesGetter,
-	logger *zap.SugaredLogger, configMapWatcher configmap.Watcher) Scaler {
+func NewScaler(opt reconciler.Options) Scaler {
 	ks := &scaler{
-		scaleClientSet: scaleClientSet,
-		logger:         logger,
+		scaleClientSet: opt.ScaleClientSet,
+		logger:         opt.Logger,
 	}
 
 	// Watch for config changes.
-	configMapWatcher.Watch(autoscaler.ConfigName, ks.receiveAutoscalerConfig)
+	opt.ConfigMapWatcher.Watch(autoscaler.ConfigName, ks.receiveAutoscalerConfig)
 	return ks
 }
 
