@@ -169,12 +169,18 @@ func (ks *scaler) handleScaleToZero(pa *pav1alpha1.PodAutoscaler, desiredScale i
 	return desiredScale, true
 }
 
-func (ks *scaler) applyScale(ctx context.Context, pa *pav1alpha1.PodAutoscaler, desiredScale int32, resource *schema.GroupResource, scl *autoscalingapi.Scale) (int32, error) {
+func (ks *scaler) applyScale(ctx context.Context, pa *pav1alpha1.PodAutoscaler, desiredScale int32, scl *autoscalingapi.Scale) (int32, error) {
 	logger := logging.FromContext(ctx)
+
+	// Identify the current scale.
+	resource, _, err := scaleResourceArgs(pa)
+	if err != nil {
+		return desiredScale, err
+	}
 
 	// Scale the target reference.
 	scl.Spec.Replicas = desiredScale
-	_, err := ks.scaleClientSet.Scales(pa.Namespace).Update(*resource, scl)
+	_, err = ks.scaleClientSet.Scales(pa.Namespace).Update(*resource, scl)
 	if err != nil {
 		resourceName := pa.Spec.ScaleTargetRef.Name
 		logger.Errorw(fmt.Sprintf("Error scaling target reference %s", resourceName), zap.Error(err))
@@ -194,12 +200,6 @@ func (ks *scaler) Scale(ctx context.Context, pa *pav1alpha1.PodAutoscaler, desir
 		return desiredScale, nil
 	}
 
-	resource, resourceName, err := scaleResourceArgs(pa)
-	if err != nil {
-		logger.Errorw("Unable to parse APIVersion", zap.Error(err))
-		return desiredScale, err
-	}
-
 	desiredScale, shouldApplyScale := ks.handleScaleToZero(pa, desiredScale)
 	if !shouldApplyScale {
 		return desiredScale, nil
@@ -216,10 +216,9 @@ func (ks *scaler) Scale(ctx context.Context, pa *pav1alpha1.PodAutoscaler, desir
 		desiredScale = newScale
 	}
 
-	// Identify the current scale.
-	scl, err := ks.scaleClientSet.Scales(pa.Namespace).Get(*resource, resourceName)
+	scl, err := ks.GetScaleResource(pa)
 	if err != nil {
-		logger.Errorw(fmt.Sprintf("Resource %q not found", resourceName), zap.Error(err))
+		logger.Errorw(fmt.Sprintf("Resource %q not found", pa.Name), zap.Error(err))
 		return desiredScale, err
 	}
 	currentScale := scl.Spec.Replicas
@@ -230,5 +229,5 @@ func (ks *scaler) Scale(ctx context.Context, pa *pav1alpha1.PodAutoscaler, desir
 
 	logger.Infof("Scaling from %d to %d", currentScale, desiredScale)
 
-	return ks.applyScale(ctx, pa, desiredScale, resource, scl)
+	return ks.applyScale(ctx, pa, desiredScale, scl)
 }
