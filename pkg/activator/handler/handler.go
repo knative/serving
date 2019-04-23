@@ -60,13 +60,16 @@ type ActivationHandler struct {
 }
 
 func (a *ActivationHandler) probeEndpoint(logger *zap.SugaredLogger, r *http.Request, target *url.URL) (bool, int, int) {
-	reqCtx, probeSpan := trace.StartSpan(r.Context(), "probe")
-	defer probeSpan.End()
-
 	var (
 		httpStatus int
 		attempts   int
+		st         = time.Now()
 	)
+	reqCtx, probeSpan := trace.StartSpan(r.Context(), "probe")
+	defer func() {
+		probeSpan.End()
+		a.Logger.Infof("Probing %s took %d attempts and %v time", target.String(), attempts, time.Since(st))
+	}()
 
 	transport := &ochttp.Transport{
 		Base: a.Transport,
@@ -160,9 +163,7 @@ func (a *ActivationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		// returns a 200 status code.
 		success := a.GetProbeCount == 0
 		if !success {
-			st := time.Now()
 			success, httpStatus, attempts = a.probeEndpoint(logger, r, target)
-			logger.Infof("Took %v to probe target", time.Since(st), target)
 		}
 
 		if success {
