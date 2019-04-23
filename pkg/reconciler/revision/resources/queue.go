@@ -62,6 +62,8 @@ var (
 		// bit more often than the default.  It is a small
 		// sacrifice for a low rate of 503s.
 		PeriodSeconds: 1,
+		// Give the queue-proxy some time to get started.
+		InitialDelaySeconds: 2,
 		// We keep the connection open for a while because we're
 		// actively probing the user-container on that endpoint and
 		// thus don't want to be limited by K8s granularity here.
