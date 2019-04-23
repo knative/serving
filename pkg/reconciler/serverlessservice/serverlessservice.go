@@ -389,8 +389,8 @@ func (r *reconciler) reconcilePrivateService(ctx context.Context, sks *netv1alph
 	return nil
 }
 
-func (c *reconciler) getSelector(sks *netv1alpha1.ServerlessService) (map[string]string, error) {
-	scale, err := c.getScaleResource(sks)
+func (r *reconciler) getSelector(sks *netv1alpha1.ServerlessService) (map[string]string, error) {
+	scale, err := r.getScaleResource(sks)
 	if err != nil {
 		return nil, err
 	}
@@ -398,13 +398,13 @@ func (c *reconciler) getSelector(sks *netv1alpha1.ServerlessService) (map[string
 }
 
 // getScaleResource returns the current scale resource for the SKS.
-func (c *reconciler) getScaleResource(sks *netv1alpha1.ServerlessService) (*autoscalingapi.Scale, error) {
+func (r *reconciler) getScaleResource(sks *netv1alpha1.ServerlessService) (*autoscalingapi.Scale, error) {
 	resource, resourceName, err := scaleResourceArgs(sks)
 	if err != nil {
 		return nil, err
 	}
 	// Identify the current scale.
-	scl, err := c.scaleClientSet.Scales(sks.Namespace).Get(*resource, resourceName)
+	scl, err := r.scaleClientSet.Scales(sks.Namespace).Get(*resource, resourceName)
 	if err != nil {
 		return nil, err
 	} else if scl == nil {

@@ -233,11 +233,7 @@ func (c *Reconciler) reconcile(ctx context.Context, config *v1alpha1.Configurati
 		return err
 	}
 
-	if err := c.gcRevisions(ctx, config); err != nil {
-		return err
-	}
-
-	return nil
+	return c.gcRevisions(ctx, config)
 }
 
 // CheckNameAvailability checks that if the named Revision specified by the Configuration

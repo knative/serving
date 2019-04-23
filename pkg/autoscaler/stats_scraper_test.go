@@ -33,14 +33,12 @@ const (
 )
 
 var (
-	testStats = []*Stat{
-		&Stat{
-			AverageConcurrentRequests:        3.0,
-			AverageProxiedConcurrentRequests: 2.0,
-			RequestCount:                     5,
-			ProxiedRequestCount:              4,
-		},
-	}
+	testStats = []*Stat{{
+		AverageConcurrentRequests:        3.0,
+		AverageProxiedConcurrentRequests: 2.0,
+		RequestCount:                     5,
+		ProxiedRequestCount:              4,
+	}}
 )
 
 func TestNewServiceScraperWithClient_HappyCase(t *testing.T) {
@@ -179,6 +177,9 @@ func TestScrape_DoNotScrapeIfNoPodsFound(t *testing.T) {
 	createEndpoints(addIps(makeEndpoints(), 0))
 
 	stat, err := scraper.Scrape()
+	if err != nil {
+		t.Errorf("Error calling Scrape: %v", err)
+	}
 	if stat != nil {
 		t.Error("Received unexpected StatMessage.")
 	}

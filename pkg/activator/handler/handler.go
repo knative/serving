@@ -163,7 +163,7 @@ func (a *ActivationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		// returns a 200 status code.
 		success := a.GetProbeCount == 0
 		if !success {
-			success, httpStatus, attempts = a.probeEndpoint(logger, r, target)
+			success, _, attempts = a.probeEndpoint(logger, r, target)
 		}
 
 		if success {
