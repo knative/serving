@@ -43,10 +43,12 @@ func TestFetchReadyAddressCount(t *testing.T) {
 		name      string
 		endpoints *corev1.Endpoints
 		want      int
+		wantErr   bool
 	}{{
 		name:      "no endpoints at all",
 		endpoints: nil,
 		want:      0,
+		wantErr:   true,
 	}, {
 		name:      "no ready addresses",
 		endpoints: endpoints(0),
@@ -66,8 +68,12 @@ func TestFetchReadyAddressCount(t *testing.T) {
 			if test.endpoints != nil {
 				createEndpoints(test.endpoints)
 			}
-			if got, _ := FetchReadyAddressCount(endpointsClient.Lister(), testNamespace, testService); got != test.want {
+			got, err := FetchReadyAddressCount(endpointsClient.Lister(), testNamespace, testService)
+			if got != test.want {
 				t.Errorf("ReadyAddressCount() = %d, want: %d", got, test.want)
+			}
+			if got, want := (err != nil), test.wantErr; got != want {
+				t.Errorf("WantErr = %v, want: %v, err: %v", got, want, err)
 			}
 		})
 	}
@@ -116,4 +122,19 @@ func endpoints(ipCount int) *corev1.Endpoints {
 		Addresses: addresses,
 	}}
 	return ep
+}
+
+func TestParentResourceFromService(t *testing.T) {
+	tests := map[string]string{
+		"":      "",
+		"a":     "a",
+		"a-":    "a",
+		"a-b":   "a",
+		"a-b-c": "a-b",
+	}
+	for in, want := range tests {
+		if got := ParentResourceFromService(in); got != want {
+			t.Errorf("%s => got: %s, want: %s", in, got, want)
+		}
+	}
 }

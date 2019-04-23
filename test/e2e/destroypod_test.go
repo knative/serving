@@ -30,7 +30,7 @@ import (
 
 	pkgTest "github.com/knative/pkg/test"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	rnames "github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources/names"
+	rnames "github.com/knative/serving/pkg/reconciler/revision/resources/names"
 	"github.com/knative/serving/test"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -136,7 +136,7 @@ const (
 	// Give the pods plenty of time to disappear. It will take them at least 20 seconds to vanish
 	// because we have a hard-coded sleep of 20 seconds before initiating the shutdown process.
 	// This is still well below the 5 minutes it might take them to disappear max.
-	maxTimeToDelete = 60 * time.Second
+	maxTimeToDelete = 90 * time.Second
 )
 
 func TestDestroyPodTimely(t *testing.T) {

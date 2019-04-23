@@ -18,15 +18,25 @@ import (
 )
 
 const (
+	pizzaPlanet1 = "pizzaplanetv1"
+	pizzaPlanet2 = "pizzaplanetv2"
+
+	pizzaPlanetText1         = "What a spaceport!"
+	pizzaPlanetText2         = "Re-energize yourself with a slice of pepperoni!"
 	helloWorldExpectedOutput = "Hello World! How about some tasty noodles?"
 )
 
 // Setup creates the client objects needed in the e2e tests.
 func Setup(t *testing.T) *test.Clients {
+	return SetupWithNamespace(t, test.ServingNamespace)
+}
+
+// SetupWithNamespace creates the client objects needed in the e2e tests under the specified namespace.
+func SetupWithNamespace(t *testing.T, namespace string) *test.Clients {
 	clients, err := test.NewClients(
 		pkgTest.Flags.Kubeconfig,
 		pkgTest.Flags.Cluster,
-		test.ServingNamespace)
+		namespace)
 	if err != nil {
 		t.Fatalf("Couldn't initialize clients: %v", err)
 	}

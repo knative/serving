@@ -30,8 +30,9 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	routeconfig "github.com/knative/serving/pkg/reconciler/v1alpha1/route/config"
-	. "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
+	"github.com/knative/serving/pkg/reconciler/revision/resources/names"
+	routeconfig "github.com/knative/serving/pkg/reconciler/route/config"
+	. "github.com/knative/serving/pkg/reconciler/testing"
 )
 
 const (
@@ -83,8 +84,10 @@ func testProxyToHelloworld(t *testing.T, clients *test.Clients, helloworldDomain
 	if err != nil {
 		t.Fatalf("Failed to create Route and Configuration: %v", err)
 	}
+
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, httpProxyNames) })
 	defer test.TearDown(clients, httpProxyNames)
+
 	if err := test.WaitForRouteState(clients.ServingClient, httpProxyNames.Route, test.IsRouteReady, "RouteIsReady"); err != nil {
 		t.Fatalf("The Route %s was not marked as Ready to serve traffic: %v", httpProxyNames.Route, err)
 	}
@@ -149,6 +152,9 @@ func TestServiceToServiceCall(t *testing.T) {
 		Image:  "helloworld",
 	}
 
+	test.CleanupOnInterrupt(func() { test.TearDown(clients, helloWorldNames) })
+	defer test.TearDown(clients, helloWorldNames)
+
 	if _, err := test.CreateConfiguration(t, clients, helloWorldNames, &test.Options{}); err != nil {
 		t.Fatalf("Failed to create Configuration: %v", err)
 	}
@@ -159,9 +165,6 @@ func TestServiceToServiceCall(t *testing.T) {
 	if _, err := test.CreateRoute(t, clients, helloWorldNames, withInternalVisibility); err != nil {
 		t.Fatalf("Failed to create Route: %v", err)
 	}
-
-	test.CleanupOnInterrupt(func() { test.TearDown(clients, helloWorldNames) })
-	defer test.TearDown(clients, helloWorldNames)
 
 	// Verify that Route is set up correctly to helloworld app.
 	if err := test.WaitForRouteState(clients.ServingClient, helloWorldNames.Route, test.IsRouteReady, "RouteIsReady"); err != nil {
@@ -191,4 +194,38 @@ func TestServiceToServiceCall(t *testing.T) {
 			testProxyToHelloworld(t, clients, helloworldDomain)
 		})
 	}
+}
+
+// Same test as TestServiceToServiceCall but before sending requests
+// we're waiting for target app to be scaled to zero
+func TestServiceToServiceCallFromZero(t *testing.T) {
+	t.Parallel()
+	clients := Setup(t)
+
+	t.Log("Creating helloworld Service")
+
+	helloWorldNames := test.ResourceNames{
+		Service: test.ObjectNameForTest(t),
+		Image:   "helloworld",
+	}
+
+	withInternalVisibility := WithServiceLabel(
+		routeconfig.VisibilityLabelKey, routeconfig.VisibilityClusterLocal)
+
+	test.CleanupOnInterrupt(func() { test.TearDown(clients, helloWorldNames) })
+	defer test.TearDown(clients, helloWorldNames)
+
+	helloWorld, err := test.CreateRunLatestServiceReady(t, clients, &helloWorldNames, &test.Options{}, withInternalVisibility)
+	if err != nil {
+		t.Fatalf("Failed to create a service: %v", err)
+	}
+
+	// Wait for service to be scaled to zero
+	deploymentName := names.Deployment(helloWorld.Revision)
+	if err := WaitForScaleToZero(t, deploymentName, clients); err != nil {
+		t.Fatalf("Could not scale to zero: %v", err)
+	}
+
+	// Send request to helloworld app via httpproxy service
+	testProxyToHelloworld(t, clients, helloWorld.Route.Status.Domain)
 }

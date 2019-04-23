@@ -31,12 +31,12 @@ readonly SERVING_TEST_DIR=$(dirname $0)
 readonly APICOVERAGE_IMAGE=$SERVING_TEST_DIR/apicoverage/image
 readonly APICOVERAGE_TOOL=$SERVING_TEST_DIR/apicoverage/tools
 
+function knative_setup() {
+  install_knative_serving
+}
+
 # Script entry point.
 initialize $@
-
-header "Setting up environment"
-
-install_knative_serving || fail_test "Knative Serving installation failed"
 
 header "Setting up API Coverage Webhook"
 kubectl apply -f $APICOVERAGE_IMAGE/service-account.yaml || fail_test "Failed setting up service account for apicoverage-webhook"

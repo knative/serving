@@ -17,21 +17,18 @@ limitations under the License.
 package resources
 
 import (
+	"strings"
+
 	corev1 "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
 // FetchReadyAddressCount fetches endpoints and returns the total number of addresses ready for them.
 func FetchReadyAddressCount(lister corev1listers.EndpointsLister, ns, name string) (int, error) {
 	endpoints, err := lister.Endpoints(ns).Get(name)
-	if apierrors.IsNotFound(err) {
-		// Treat a not-found error as 0 ready addresses
-		return 0, nil
-	} else if err != nil {
+	if err != nil {
 		return 0, err
 	}
-
 	return ReadyAddressCount(endpoints), nil
 }
 
@@ -42,4 +39,17 @@ func ReadyAddressCount(endpoints *corev1.Endpoints) int {
 		total += len(subset.Addresses)
 	}
 	return total
+}
+
+// ParentResourceFromService returns the parent resource name from
+// endpoints or k8s service resource.
+// The function is based upon knowledge that all knative built services
+// have `parent-resource-<svc-unique-suffix` format.
+func ParentResourceFromService(name string) string {
+	li := strings.LastIndex(name, "-")
+	if li == -1 {
+		// Presume same.
+		return name
+	}
+	return name[:li]
 }

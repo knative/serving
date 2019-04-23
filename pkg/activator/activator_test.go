@@ -47,3 +47,12 @@ func TestServicePort(t *testing.T) {
 		})
 	}
 }
+
+func TestRevIDString(t *testing.T) {
+	if got, want := (&RevisionID{
+		Namespace: "bulk",
+		Name:      "goods",
+	}).String(), "bulk/goods"; got != want {
+		t.Errorf("RevID.String = %q, want: %q", got, want)
+	}
+}

@@ -23,10 +23,11 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 
 	"github.com/knative/serving/pkg/apis/serving"
+	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 )
 
 func (s *Service) SetDefaults(ctx context.Context) {
-	s.Spec.SetDefaults(ctx)
+	s.Spec.SetDefaults(apis.WithinSpec(ctx))
 
 	if ui := apis.GetUserInfo(ctx); ui != nil {
 		ans := s.GetAnnotations()
@@ -49,11 +50,15 @@ func (s *Service) SetDefaults(ctx context.Context) {
 }
 
 func (ss *ServiceSpec) SetDefaults(ctx context.Context) {
-	if ss.RunLatest != nil {
-		ss.RunLatest.Configuration.SetDefaults(ctx)
+	if ss.DeprecatedRunLatest != nil {
+		ss.DeprecatedRunLatest.Configuration.SetDefaults(ctx)
 	} else if ss.DeprecatedPinned != nil {
 		ss.DeprecatedPinned.Configuration.SetDefaults(ctx)
-	} else if ss.Release != nil {
-		ss.Release.Configuration.SetDefaults(ctx)
+	} else if ss.DeprecatedRelease != nil {
+		ss.DeprecatedRelease.Configuration.SetDefaults(ctx)
+	} else if ss.DeprecatedManual != nil {
+	} else {
+		ss.ConfigurationSpec.SetDefaults(ctx)
+		ss.RouteSpec.SetDefaults(v1beta1.WithDefaultConfigurationName(ctx))
 	}
 }

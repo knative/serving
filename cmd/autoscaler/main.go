@@ -24,6 +24,7 @@ import (
 
 	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/controller"
+	pkgmetrics "github.com/knative/pkg/metrics"
 	"github.com/knative/pkg/signals"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/autoscaler"
@@ -32,8 +33,8 @@ import (
 	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/pkg/metrics"
 	"github.com/knative/serving/pkg/reconciler"
-	"github.com/knative/serving/pkg/reconciler/v1alpha1/autoscaling/hpa"
-	"github.com/knative/serving/pkg/reconciler/v1alpha1/autoscaling/kpa"
+	"github.com/knative/serving/pkg/reconciler/autoscaling/hpa"
+	"github.com/knative/serving/pkg/reconciler/autoscaling/kpa"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	kubeinformers "k8s.io/client-go/informers"
@@ -57,7 +58,7 @@ func main() {
 	flag.Parse()
 
 	logger, atomicLevel := setupLogger()
-	defer logger.Sync()
+	defer flush(logger)
 
 	// Set up signals so we handle the first shutdown signal gracefully.
 	stopCh := signals.SetupSignalHandler()
@@ -97,10 +98,10 @@ func main() {
 	// Set up scalers.
 	// uniScalerFactory depends endpointsInformer to be set.
 	multiScaler := autoscaler.NewMultiScaler(dynConfig, stopCh, uniScalerFactoryFunc(endpointsInformer), logger)
-	scaler := kpa.NewScaler(opt.ServingClientSet, opt.ScaleClientSet, logger, opt.ConfigMapWatcher)
+	scaler := kpa.NewScaler(opt)
 
 	controllers := []*controller.Impl{
-		kpa.NewController(&opt, paInformer, serviceInformer, endpointsInformer, multiScaler, collector, scaler, dynConfig),
+		kpa.NewController(&opt, paInformer, sksInformer, serviceInformer, endpointsInformer, multiScaler, collector, scaler, dynConfig),
 		hpa.NewController(&opt, paInformer, sksInformer, hpaInformer),
 	}
 
@@ -184,15 +185,15 @@ func scalerConfig(logger *zap.SugaredLogger) *autoscaler.DynamicConfig {
 
 func uniScalerFactoryFunc(endpointsInformer corev1informers.EndpointsInformer) func(decider *autoscaler.Decider, dynamicConfig *autoscaler.DynamicConfig) (autoscaler.UniScaler, error) {
 	return func(decider *autoscaler.Decider, dynamicConfig *autoscaler.DynamicConfig) (autoscaler.UniScaler, error) {
-		for _, l := range []string{serving.RevisionLabelKey, serving.ConfigurationLabelKey} {
+		for _, l := range []string{serving.KubernetesServiceLabelKey, serving.ConfigurationLabelKey} {
 			if v, ok := decider.Labels[l]; !ok || v == "" {
 				return nil, fmt.Errorf("label %q not found or empty in Decider: %v", l, decider)
 			}
 		}
 
-		revName := decider.Labels[serving.RevisionLabelKey]
 		serviceName := decider.Labels[serving.ServiceLabelKey] // This can be empty.
 		configName := decider.Labels[serving.ConfigurationLabelKey]
+		k8SSvcName := decider.Labels[serving.KubernetesServiceLabelKey]
 
 		// Create a stats reporter which tags statistics by PA namespace, configuration name, and PA name.
 		reporter, err := autoscaler.NewStatsReporter(decider.Namespace, serviceName, configName, decider.Name)
@@ -201,7 +202,7 @@ func uniScalerFactoryFunc(endpointsInformer corev1informers.EndpointsInformer) f
 		}
 
 		return autoscaler.New(dynamicConfig, decider.Namespace,
-			reconciler.GetServingK8SServiceNameForObj(revName), endpointsInformer,
+			k8SSvcName, endpointsInformer,
 			decider.Spec.TargetConcurrency, reporter)
 	}
 }
@@ -210,4 +211,9 @@ func statsScraperFactoryFunc(endpointsLister corev1listers.EndpointsLister) func
 	return func(metric *autoscaler.Metric) (autoscaler.StatsScraper, error) {
 		return autoscaler.NewServiceScraper(metric, endpointsLister)
 	}
+}
+
+func flush(logger *zap.SugaredLogger) {
+	logger.Sync()
+	pkgmetrics.FlushExporter()
 }

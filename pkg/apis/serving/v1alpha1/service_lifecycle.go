@@ -51,6 +51,18 @@ func (ss *ServiceStatus) InitializeConditions() {
 	serviceCondSet.Manage(ss).InitializeConditions()
 }
 
+// MarkResourceNotConvertible adds a Warning-severity condition to the resource noting that
+// it cannot be converted to a higher version.
+func (ss *ServiceStatus) MarkResourceNotConvertible(err *CannotConvertError) {
+	serviceCondSet.Manage(ss).SetCondition(apis.Condition{
+		Type:     ConditionTypeConvertible,
+		Status:   corev1.ConditionFalse,
+		Severity: apis.ConditionSeverityWarning,
+		Reason:   err.Field,
+		Message:  err.Message,
+	})
+}
+
 // MarkConfigurationNotOwned surfaces a failure via the ConfigurationsReady
 // status noting that the Configuration with the name we want has already
 // been created and we do not own it.
@@ -83,6 +95,13 @@ func (ss *ServiceStatus) PropagateConfigurationStatus(cs *ConfigurationStatus) {
 	case cc.Status == corev1.ConditionFalse:
 		serviceCondSet.Manage(ss).MarkFalse(ServiceConditionConfigurationsReady, cc.Reason, cc.Message)
 	}
+}
+
+// MarkRevisionNameTaken notes that the Route has not been programmed because the revision name is taken by a
+// conflicting revision definition.
+func (ss *ServiceStatus) MarkRevisionNameTaken(name string) {
+	serviceCondSet.Manage(ss).MarkFalse(ServiceConditionRoutesReady, "RevisionNameTaken",
+		"The revision name %q is taken by a conflicting Revision, so traffic will not be migrated", name)
 }
 
 const (

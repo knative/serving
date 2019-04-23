@@ -4,9 +4,7 @@ metadata:
   name: failing-test-image
   namespace: default
 spec:
-  runLatest:
-    configuration:
-      revisionTemplate:
-        spec:
-          container:
-            image: github.com/knative/serving/test/test_images/failing
+  template:
+    spec:
+      containers:
+      - image: github.com/knative/serving/test/test_images/failing

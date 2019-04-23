@@ -27,12 +27,12 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
-	rtesting "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
+	rtesting "github.com/knative/serving/pkg/reconciler/testing"
 )
 
 // CreateRoute creates a route in the given namespace using the route name in names
 func CreateRoute(t *testing.T, clients *Clients, names ResourceNames, fopt ...rtesting.RouteOption) (*v1alpha1.Route, error) {
-	route := Route(ServingNamespace, names, fopt...)
+	route := Route(names, fopt...)
 	LogResourceObject(t, ResourceObjects{Route: route})
 	return clients.ServingClient.Routes.Create(route)
 }
@@ -40,7 +40,7 @@ func CreateRoute(t *testing.T, clients *Clients, names ResourceNames, fopt ...rt
 // CreateBlueGreenRoute creates a route in the given namespace using the route name in names.
 // Traffic is evenly split between the two routes specified by blue and green.
 func CreateBlueGreenRoute(t *testing.T, clients *Clients, names, blue, green ResourceNames) error {
-	route := BlueGreenRoute(ServingNamespace, names, blue, green)
+	route := BlueGreenRoute(names, blue, green)
 	LogResourceObject(t, ResourceObjects{Route: route})
 	_, err := clients.ServingClient.Routes.Create(route)
 	return err
@@ -52,7 +52,7 @@ func UpdateBlueGreenRoute(t *testing.T, clients *Clients, names, blue, green Res
 	if err != nil {
 		return nil, err
 	}
-	newRoute := BlueGreenRoute(ServingNamespace, names, blue, green)
+	newRoute := BlueGreenRoute(names, blue, green)
 	newRoute.ObjectMeta = route.ObjectMeta
 	LogResourceObject(t, ResourceObjects{Route: newRoute})
 	patchBytes, err := createPatch(route, newRoute)

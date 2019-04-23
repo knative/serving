@@ -17,8 +17,15 @@ limitations under the License.
 package network
 
 import (
+	"bytes"
+	"errors"
+	"fmt"
 	"net"
+	"net/http"
+	"net/url"
 	"strings"
+	"text/template"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 )
@@ -55,10 +62,39 @@ const (
 	// Knative service's DNS name.
 	DomainTemplateKey = "domainTemplate"
 
+	// Since K8s 1.8, prober requests have
+	//   User-Agent = "kube-probe/{major-version}.{minor-version}".
+	kubeProbeUAPrefix = "kube-probe/"
+
+	// DefaultConnTimeout specifies a short default connection timeout
+	// to avoid hitting the issue fixed in
+	// https://github.com/kubernetes/kubernetes/pull/72534 but only
+	// avalailable after Kubernetes 1.14.
+	//
+	// Our connections are usually between pods in the same cluster
+	// like activator <-> queue-proxy, or even between containers
+	// within the same pod queue-proxy <-> user-container, so a
+	// smaller connect timeout would be justifiable.
+	//
+	// We should consider exposing this as a configuration.
+	DefaultConnTimeout = 200 * time.Millisecond
+)
+
+var (
 	// DefaultDomainTemplate is the default golang template to use when
 	// constructing the Knative Route's Domain(host)
 	DefaultDomainTemplate = "{{.Name}}.{{.Namespace}}.{{.Domain}}"
 )
+
+// DomainTemplateValues are the available properties people can choose from
+// in their Route's "DomainTemplate" golang template sting.
+// We could add more over time - e.g. RevisionName if we thought that
+// might be of interest to people.
+type DomainTemplateValues struct {
+	Name      string
+	Namespace string
+	Domain    string
+}
 
 // Config contains the networking configuration defined in the
 // network config map.
@@ -119,10 +155,58 @@ func NewConfigFromConfigMap(configMap *corev1.ConfigMap) (*Config, error) {
 	}
 
 	// Blank DomainTemplate makes no sense so use our default
-	nc.DomainTemplate = configMap.Data[DomainTemplateKey]
-	if nc.DomainTemplate == "" {
+	if dt, ok := configMap.Data[DomainTemplateKey]; !ok {
 		nc.DomainTemplate = DefaultDomainTemplate
+	} else {
+		t, err := template.New("domain-template").Parse(dt)
+		if err != nil {
+			return nil, err
+		}
+		if err := checkTemplate(t); err != nil {
+			return nil, err
+		}
+
+		nc.DomainTemplate = dt
 	}
 
 	return nc, nil
+}
+
+func (c *Config) GetDomainTemplate() *template.Template {
+	return template.Must(template.New("domain-template").Parse(
+		c.DomainTemplate))
+}
+
+func checkTemplate(t *template.Template) error {
+	// To a test run of applying the template, and see if the
+	// result is a valid URL.
+	data := DomainTemplateValues{
+		Name:      "foo",
+		Namespace: "bar",
+		Domain:    "baz.com",
+	}
+	buf := bytes.Buffer{}
+	if err := t.Execute(&buf, data); err != nil {
+		return err
+	}
+	u, err := url.Parse("https://" + buf.String())
+	if err != nil {
+		return err
+	}
+
+	// TODO(mattmoor): Consider validating things like changing
+	// Name / Namespace changes the resulting hostname.
+	if u.Hostname() == "" {
+		return errors.New("empty hostname")
+	}
+	if u.RequestURI() != "/" {
+		return fmt.Errorf("domain template has url path: %s", u.RequestURI())
+	}
+
+	return nil
+}
+
+// IsKubeletProbe returns true if the request is a kubernetes probe.
+func IsKubeletProbe(r *http.Request) bool {
+	return strings.HasPrefix(r.Header.Get("User-Agent"), kubeProbeUAPrefix)
 }

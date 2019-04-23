@@ -23,9 +23,9 @@ import (
 	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
 
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 
-	. "github.com/knative/serving/pkg/reconciler/testing"
+	. "github.com/knative/pkg/configmap/testing"
 )
 
 func TestTargetConcurrency(t *testing.T) {
@@ -36,7 +36,7 @@ func TestTargetConcurrency(t *testing.T) {
 
 	tests := []struct {
 		name                 string
-		containerConcurrency v1alpha1.RevisionContainerConcurrencyType
+		containerConcurrency v1beta1.RevisionContainerConcurrencyType
 		want                 float64
 	}{{
 		name:                 "default",

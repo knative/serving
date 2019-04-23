@@ -27,8 +27,8 @@ import (
 
 	pkgTest "github.com/knative/pkg/test"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	serviceresourcenames "github.com/knative/serving/pkg/reconciler/v1alpha1/service/resources/names"
-	. "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
+	serviceresourcenames "github.com/knative/serving/pkg/reconciler/service/resources/names"
+	. "github.com/knative/serving/pkg/reconciler/testing"
 	"github.com/knative/serving/test"
 	"github.com/mattbaird/jsonpatch"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -38,7 +38,7 @@ import (
 // createLatestService creates a service in namespace with the name names.Service
 // that uses the image specified by names.Image
 func createLatestService(t *testing.T, clients *test.Clients, names test.ResourceNames, revisionTimeoutSeconds int64) (*v1alpha1.Service, error) {
-	service := test.LatestService(test.ServingNamespace, names, &test.Options{}, WithRevisionTimeoutSeconds(revisionTimeoutSeconds))
+	service := test.LatestService(names, &test.Options{}, WithRevisionTimeoutSeconds(revisionTimeoutSeconds))
 	test.LogResourceObject(t, test.ResourceObjects{Service: service})
 	svc, err := clients.ServingClient.Services.Create(service)
 	return svc, err
@@ -129,7 +129,7 @@ func TestRevisionTimeout(t *testing.T) {
 		t.Fatalf("The Service %s was not marked as Ready to serve traffic to Revision %s: %v", names.Service, names.Revision, err)
 	}
 
-	t.Log("Patching to a Manual Service to allow configuration and route to be manually modified")
+	t.Log("Patching to a DeprecatedManual Service to allow configuration and route to be manually modified")
 	_, err = test.PatchManualService(t, clients, svc)
 	if err != nil {
 		t.Fatalf("Failed to update Service %s: %v", names.Service, err)

@@ -31,8 +31,8 @@ import (
 	pkgTest "github.com/knative/pkg/test"
 	"github.com/knative/pkg/test/zipkin"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources/names"
-	ktest "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
+	"github.com/knative/serving/pkg/reconciler/revision/resources/names"
+	ktest "github.com/knative/serving/pkg/reconciler/testing"
 	"github.com/knative/serving/test"
 	"github.com/knative/test-infra/shared/junit"
 	"github.com/knative/test-infra/shared/testgrid"
@@ -127,7 +127,7 @@ func parallelScaleFromZero(t *testing.T, count int) ([]time.Duration, error) {
 	sos := []ktest.ServiceOption{
 		// We set a small resource alloc so that we can pack more pods into the cluster.
 		func(svc *v1alpha1.Service) {
-			svc.Spec.RunLatest.Configuration.RevisionTemplate.Spec.Container.Resources = corev1.ResourceRequirements{
+			svc.Spec.DeprecatedRunLatest.Configuration.GetTemplate().Spec.GetContainer().Resources = corev1.ResourceRequirements{
 				Limits: corev1.ResourceList{
 					corev1.ResourceCPU:    resource.MustParse("10m"),
 					corev1.ResourceMemory: resource.MustParse("50Mi"),
