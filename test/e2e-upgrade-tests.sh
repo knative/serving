@@ -52,6 +52,7 @@ function install_latest_release() {
 function install_head() {
   header "Installing Knative head release"
   install_knative_serving || fail_test "Knative head release installation failed"
+  wait_until_pods_running knative-serving
 }
 
 function knative_setup() {
@@ -78,7 +79,5 @@ install_head
 header "Running postupgrade tests"
 go_test_e2e -tags=postupgrade -timeout=${TIMEOUT} ./test/upgrade \
   --resolvabledomain=$(use_resolvable_domain) || fail_test
-
-install_latest_release
 
 success
