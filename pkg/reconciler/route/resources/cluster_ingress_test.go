@@ -20,7 +20,6 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/knative/pkg/system"
 	_ "github.com/knative/pkg/system/testing"
 	"github.com/knative/serving/pkg/apis/networking"
 	netv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
@@ -398,7 +397,8 @@ func TestMakeClusterIngressRule_InactiveTarget(t *testing.T) {
 			RevisionName:      "revision",
 			Percent:           100,
 		},
-		Active: false,
+		ServiceName: "strange-quark-pub",
+		Active:      false,
 	}}
 	domains := []string{"a.com", "b.org"}
 	rule := makeClusterIngressRule(domains, ns, targets)
@@ -411,8 +411,8 @@ func TestMakeClusterIngressRule_InactiveTarget(t *testing.T) {
 			Paths: []netv1alpha1.HTTPClusterIngressPath{{
 				Splits: []netv1alpha1.ClusterIngressBackendSplit{{
 					ClusterIngressBackend: netv1alpha1.ClusterIngressBackend{
-						ServiceNamespace: system.Namespace(),
-						ServiceName:      "activator-service",
+						ServiceNamespace: ns,
+						ServiceName:      targets[0].ServiceName,
 						ServicePort:      intstr.FromInt(80),
 					},
 					Percent: 100,
@@ -437,14 +437,16 @@ func TestMakeClusterIngressRule_TwoInactiveTargets(t *testing.T) {
 			RevisionName:      "revision",
 			Percent:           80,
 		},
-		Active: false,
+		ServiceName: "up-quark-pub",
+		Active:      false,
 	}, {
 		TrafficTarget: v1beta1.TrafficTarget{
 			ConfigurationName: "new-config",
 			RevisionName:      "new-revision",
 			Percent:           20,
 		},
-		Active: false,
+		ServiceName: "down-quark-pub",
+		Active:      false,
 	}}
 	domains := []string{"a.com", "b.org"}
 	rule := makeClusterIngressRule(domains, ns, targets)
@@ -457,15 +459,15 @@ func TestMakeClusterIngressRule_TwoInactiveTargets(t *testing.T) {
 			Paths: []netv1alpha1.HTTPClusterIngressPath{{
 				Splits: []netv1alpha1.ClusterIngressBackendSplit{{
 					ClusterIngressBackend: netv1alpha1.ClusterIngressBackend{
-						ServiceNamespace: system.Namespace(),
-						ServiceName:      "activator-service",
+						ServiceNamespace: ns,
+						ServiceName:      targets[0].ServiceName,
 						ServicePort:      intstr.FromInt(80),
 					},
 					Percent: 80,
 				}, {
 					ClusterIngressBackend: netv1alpha1.ClusterIngressBackend{
-						ServiceNamespace: system.Namespace(),
-						ServiceName:      "activator-service",
+						ServiceNamespace: ns,
+						ServiceName:      targets[1].ServiceName,
 						ServicePort:      intstr.FromInt(80),
 					},
 					Percent: 20,

@@ -206,36 +206,49 @@ func (r *reconciler) updateStatus(sks *netv1alpha1.ServerlessService) (*netv1alp
 
 func (r *reconciler) reconcilePublicService(ctx context.Context, sks *netv1alpha1.ServerlessService) error {
 	logger := logging.FromContext(ctx)
+
+	// We need to program the public service to direct traffic to the Activator
+	// until we have serving backends. Thus, regardless of the SKS serving mode,
+	// we should configure service to be backed by Activator, until there are ready pods.
+	psn := names.PrivateService(sks.Name)
+	numBackends, err := presources.FetchReadyAddressCount(r.endpointsLister, sks.Namespace, psn)
+	if err != nil {
+		logger.Errorw("Error counting private endpoints", zap.Error(err))
+		return perrors.Wrapf(err, "error counting private endpoints: %s", psn)
+	}
+	logger.Infof("%s got %d private endpoints", psn, numBackends)
+
 	sn := names.PublicService(sks.Name)
 	srv, err := r.serviceLister.Services(sks.Namespace).Get(sn)
 	if errors.IsNotFound(err) {
 		logger.Infof("K8s service %s does not exist; creating.", sn)
 		// We've just created the service, so it has no endpoints.
 		sks.Status.MarkEndpointsNotReady("CreatingPublicService")
-		srv = resources.MakePublicService(sks)
+		srv = resources.MakePublicService(sks, numBackends > 0)
 		_, err := r.KubeClientSet.CoreV1().Services(sks.Namespace).Create(srv)
 		if err != nil {
 			logger.Errorw(fmt.Sprint("Error creating K8s Service:", sn), zap.Error(err))
 			return err
 		}
-		logger.Info("Created K8s service:", sn)
+		logger.Info("Created K8s service: ", sn)
 	} else if err != nil {
 		logger.Errorw(fmt.Sprint("Error getting K8s Service:", sn), zap.Error(err))
 		return err
 	} else if !metav1.IsControlledBy(srv, sks) {
 		sks.Status.MarkEndpointsNotOwned("Service", sn)
 		return fmt.Errorf("SKS: %s does not own Service: %s", sks.Name, sn)
-	}
-	tmpl := resources.MakePublicService(sks)
-	want := srv.DeepCopy()
-	want.Spec.Ports = tmpl.Spec.Ports
-	want.Spec.Selector = nil
+	} else {
+		tmpl := resources.MakePublicService(sks, numBackends > 0)
+		want := srv.DeepCopy()
+		want.Spec.Ports = tmpl.Spec.Ports
+		want.Spec.Selector = nil
 
-	if !equality.Semantic.DeepEqual(want.Spec, srv.Spec) {
-		logger.Info("Public K8s Service changed; reconciling: ", sn)
-		if _, err = r.KubeClientSet.CoreV1().Services(sks.Namespace).Update(want); err != nil {
-			logger.Errorw(fmt.Sprint("Error updating public K8s Service:", sn), zap.Error(err))
-			return err
+		if !equality.Semantic.DeepEqual(want.Spec, srv.Spec) {
+			logger.Info("Public K8s Service changed; reconciling: ", sn, cmp.Diff(want.Spec, srv.Spec))
+			if _, err = r.KubeClientSet.CoreV1().Services(sks.Namespace).Update(want); err != nil {
+				logger.Errorw(fmt.Sprint("Error updating public K8s Service:", sn), zap.Error(err))
+				return err
+			}
 		}
 	}
 	sks.Status.ServiceName = sn
@@ -247,13 +260,32 @@ func (r *reconciler) reconcilePublicEndpoints(ctx context.Context, sks *netv1alp
 	logger := logging.FromContext(ctx)
 
 	var (
-		srcEps *corev1.Endpoints
-		err    error
+		srcEps                *corev1.Endpoints
+		activatorEps          *corev1.Endpoints
+		err                   error
+		foundServingEndpoints bool
 	)
+	activatorEps, err = r.endpointsLister.Endpoints(system.Namespace()).Get(activatorService)
+	if err != nil {
+		logger.Errorw("Error obtaining activator service endpoints", zap.Error(err))
+		return err
+	}
+	logger.Debugf("Activator endpoints: %s", spew.Sprint(activatorEps))
+
+	// The logic below is as follows:
+	// if mode == serve:
+	//   if len(private_service_endpoints) > 0:
+	//     srcEps = private_service_endpoints
+	//   else:
+	//     srcEps = activator_endpoints
+	// else:
+	//    srcEps = activator_endpoints
+	// The reason for this is, we don't want to leave the public service endpoints empty,
+	// since those endpoints are the ones programmed into the VirtualService.
+	//
 	switch sks.Spec.Mode {
 	case netv1alpha1.SKSOperationModeServe:
 		// Service and Endpoints have the same name.
-		// Get private endpoints first, since if they are not available there's nothing we can do.
 		psn := names.PrivateService(sks.Name)
 		srcEps, err = r.endpointsLister.Endpoints(sks.Namespace).Get(psn)
 		if err != nil {
@@ -261,13 +293,14 @@ func (r *reconciler) reconcilePublicEndpoints(ctx context.Context, sks *netv1alp
 			return err
 		}
 		logger.Debugf("Private endpoints: %s", spew.Sprint(srcEps))
-	case netv1alpha1.SKSOperationModeProxy:
-		srcEps, err = r.endpointsLister.Endpoints(system.Namespace()).Get(activatorService)
-		if err != nil {
-			logger.Errorw("Error obtaining activator service endpoints", zap.Error(err))
-			return err
+		if r := presources.ReadyAddressCount(srcEps); r == 0 {
+			logger.Infof("%s is in mode Serve but has no endpoints, using Activator endpoints for now", psn)
+			srcEps = activatorEps
+		} else {
+			foundServingEndpoints = true
 		}
-		logger.Debugf("Activator endpoints: %s", spew.Sprint(srcEps))
+	case netv1alpha1.SKSOperationModeProxy:
+		srcEps = activatorEps
 	}
 
 	sn := names.PublicService(sks.Name)
@@ -299,7 +332,7 @@ func (r *reconciler) reconcilePublicEndpoints(ctx context.Context, sks *netv1alp
 			return err
 		}
 	}
-	if r := presources.ReadyAddressCount(eps); r > 0 {
+	if foundServingEndpoints {
 		sks.Status.MarkEndpointsReady()
 	} else {
 		logger.Infof("Endpoints %s has no ready endpoints", sn)

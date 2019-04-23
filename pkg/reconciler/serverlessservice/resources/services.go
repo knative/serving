@@ -33,16 +33,39 @@ const (
 	servicePortNameH2C   = "http2"
 
 	// ServicePort is the external port of the service
-	servicePort = int32(80)
+	servicePort              = int32(80)
+	serviceHTTP2Port         = int32(81)
+	activatorTargetHTTP1Port = 8080
+	activatorTargetHTTP2Port = 8081
 
 	// RequestQueuePortName specifies the port name to use for http requests
 	// in queue-proxy container.
 	requestQueuePortName string = "queue-port"
 )
 
+func pubTargetPort(sks *v1alpha1.ServerlessService, hasBackends bool) intstr.IntOrString {
+	switch {
+	case sks.Spec.Mode == v1alpha1.SKSOperationModeServe && hasBackends:
+		return intstr.FromString(requestQueuePortName)
+	case sks.Spec.Mode == v1alpha1.SKSOperationModeProxy || !hasBackends:
+		if sks.Spec.ProtocolType == networking.ProtocolH2C {
+			return intstr.FromInt(activatorTargetHTTP2Port)
+		}
+		return intstr.FromInt(activatorTargetHTTP1Port)
+	}
+	panic("webhook validation failed")
+}
+
+func pubServicePort(sks *v1alpha1.ServerlessService) int32 {
+	if sks.Spec.ProtocolType == networking.ProtocolH2C {
+		return serviceHTTP2Port
+	}
+	return servicePort
+}
+
 // MakePublicService constructs a K8s Service that is not backed a selector
 // and will be manually reconciled by the SKS controller.
-func MakePublicService(sks *v1alpha1.ServerlessService) *corev1.Service {
+func MakePublicService(sks *v1alpha1.ServerlessService, hasBackends bool) *corev1.Service {
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      names.PublicService(sks.Name),
@@ -59,8 +82,8 @@ func MakePublicService(sks *v1alpha1.ServerlessService) *corev1.Service {
 			Ports: []corev1.ServicePort{{
 				Name:       servicePortName(sks),
 				Protocol:   corev1.ProtocolTCP,
-				Port:       servicePort,
-				TargetPort: intstr.FromString(requestQueuePortName),
+				Port:       pubServicePort(sks),
+				TargetPort: pubTargetPort(sks, hasBackends),
 			}},
 		},
 	}
@@ -107,8 +130,9 @@ func MakePrivateService(sks *v1alpha1.ServerlessService, selector map[string]str
 		},
 		Spec: corev1.ServiceSpec{
 			Ports: []corev1.ServicePort{{
-				Name:       servicePortName(sks),
-				Protocol:   corev1.ProtocolTCP,
+				Name:     servicePortName(sks),
+				Protocol: corev1.ProtocolTCP,
+				// TODO(vagababov): make this work with matching port.
 				Port:       servicePort,
 				TargetPort: intstr.FromString(requestQueuePortName),
 			}},

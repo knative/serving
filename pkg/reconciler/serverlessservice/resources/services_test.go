@@ -28,7 +28,6 @@ import (
 	"github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving"
-	"github.com/knative/serving/pkg/reconciler/serverlessservice/resources/names"
 )
 
 var (
@@ -36,14 +35,15 @@ var (
 	badPod  = "bad-pod"
 )
 
-func TestMakeService(t *testing.T) {
+// TODO(vagababov): Add templating here to get rid of the boilerplate.
+func TestMakePublicService(t *testing.T) {
 	tests := []struct {
-		name     string
-		sks      *v1alpha1.ServerlessService
-		selector map[string]string
-		want     *corev1.Service
+		name        string
+		sks         *v1alpha1.ServerlessService
+		hasBackends bool
+		want        *corev1.Service
 	}{{
-		name: "HTTP",
+		name: "HTTP - serve",
 		sks: &v1alpha1.ServerlessService{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: "melon",
@@ -57,11 +57,10 @@ func TestMakeService(t *testing.T) {
 			},
 			Spec: v1alpha1.ServerlessServiceSpec{
 				ProtocolType: networking.ProtocolHTTP1,
+				Mode:         v1alpha1.SKSOperationModeServe,
 			},
 		},
-		selector: map[string]string{
-			"app": "sadness",
-		},
+		hasBackends: true,
 		want: &corev1.Service{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: "melon",
@@ -93,7 +92,56 @@ func TestMakeService(t *testing.T) {
 			},
 		},
 	}, {
-		name: "HTTP2",
+		name: "HTTP - proxy",
+		sks: &v1alpha1.ServerlessService{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: "melon",
+				Name:      "collie",
+				UID:       "1982",
+				// Those labels are propagated from the Revision->KPA.
+				Labels: map[string]string{
+					serving.RevisionLabelKey: "collie",
+					serving.RevisionUID:      "1982",
+				},
+			},
+			Spec: v1alpha1.ServerlessServiceSpec{
+				Mode:         v1alpha1.SKSOperationModeProxy,
+				ProtocolType: networking.ProtocolHTTP1,
+			},
+		},
+		hasBackends: true,
+		want: &corev1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: "melon",
+				Name:      "collie-pub",
+				Labels: map[string]string{
+					// Those should be propagated.
+					serving.RevisionLabelKey:  "collie",
+					serving.RevisionUID:       "1982",
+					networking.SKSLabelKey:    "collie",
+					networking.ServiceTypeKey: "Public",
+				},
+				Annotations: map[string]string{},
+				OwnerReferences: []metav1.OwnerReference{{
+					APIVersion:         v1alpha1.SchemeGroupVersion.String(),
+					Kind:               "ServerlessService",
+					Name:               "collie",
+					UID:                "1982",
+					Controller:         ptr.Bool(true),
+					BlockOwnerDeletion: ptr.Bool(true),
+				}},
+			},
+			Spec: corev1.ServiceSpec{
+				Ports: []corev1.ServicePort{{
+					Name:       servicePortNameHTTP1,
+					Protocol:   corev1.ProtocolTCP,
+					Port:       servicePort,
+					TargetPort: intstr.FromInt(activatorTargetHTTP1Port),
+				}},
+			},
+		},
+	}, {
+		name: "HTTP2 -  serve",
 		sks: &v1alpha1.ServerlessService{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: "siamese",
@@ -110,10 +158,62 @@ func TestMakeService(t *testing.T) {
 			},
 			Spec: v1alpha1.ServerlessServiceSpec{
 				ProtocolType: networking.ProtocolH2C,
+				Mode:         v1alpha1.SKSOperationModeServe,
 			},
 		},
-		selector: map[string]string{
-			"app": "today",
+		hasBackends: true,
+		want: &corev1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: "siamese",
+				Name:      "dream-pub",
+				Labels: map[string]string{
+					// Those should be propagated.
+					serving.RevisionLabelKey:  "dream",
+					serving.RevisionUID:       "1988",
+					networking.SKSLabelKey:    "dream",
+					networking.ServiceTypeKey: "Public",
+				},
+				Annotations: map[string]string{
+					"cherub": "rock",
+				},
+				OwnerReferences: []metav1.OwnerReference{{
+					APIVersion:         v1alpha1.SchemeGroupVersion.String(),
+					Kind:               "ServerlessService",
+					Name:               "dream",
+					UID:                "1988",
+					Controller:         ptr.Bool(true),
+					BlockOwnerDeletion: ptr.Bool(true),
+				}},
+			},
+			Spec: corev1.ServiceSpec{
+				Ports: []corev1.ServicePort{{
+					Name:       servicePortNameH2C,
+					Protocol:   corev1.ProtocolTCP,
+					Port:       serviceHTTP2Port,
+					TargetPort: intstr.FromString(requestQueuePortName),
+				}},
+			},
+		},
+	}, {
+		name: "HTTP2 -  serve - no backends",
+		sks: &v1alpha1.ServerlessService{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: "siamese",
+				Name:      "dream",
+				UID:       "1988",
+				// Those labels are propagated from the Revision->KPA.
+				Labels: map[string]string{
+					serving.RevisionLabelKey: "dream",
+					serving.RevisionUID:      "1988",
+				},
+				Annotations: map[string]string{
+					"cherub": "rock",
+				},
+			},
+			Spec: v1alpha1.ServerlessServiceSpec{
+				ProtocolType: networking.ProtocolH2C,
+				Mode:         v1alpha1.SKSOperationModeServe,
+			},
 		},
 		want: &corev1.Service{
 			ObjectMeta: metav1.ObjectMeta{
@@ -142,8 +242,62 @@ func TestMakeService(t *testing.T) {
 				Ports: []corev1.ServicePort{{
 					Name:       servicePortNameH2C,
 					Protocol:   corev1.ProtocolTCP,
-					Port:       servicePort,
-					TargetPort: intstr.FromString(requestQueuePortName),
+					Port:       serviceHTTP2Port,
+					TargetPort: intstr.FromInt(activatorTargetHTTP2Port),
+				}},
+			},
+		},
+	}, {
+		name: "HTTP2 - proxy",
+		sks: &v1alpha1.ServerlessService{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: "siamese",
+				Name:      "dream",
+				UID:       "1988",
+				// Those labels are propagated from the Revision->KPA.
+				Labels: map[string]string{
+					serving.RevisionLabelKey: "dream",
+					serving.RevisionUID:      "1988",
+				},
+				Annotations: map[string]string{
+					"cherub": "rock",
+				},
+			},
+			Spec: v1alpha1.ServerlessServiceSpec{
+				ProtocolType: networking.ProtocolH2C,
+				Mode:         v1alpha1.SKSOperationModeProxy,
+			},
+		},
+		hasBackends: true,
+		want: &corev1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: "siamese",
+				Name:      "dream-pub",
+				Labels: map[string]string{
+					// Those should be propagated.
+					serving.RevisionLabelKey:  "dream",
+					serving.RevisionUID:       "1988",
+					networking.SKSLabelKey:    "dream",
+					networking.ServiceTypeKey: "Public",
+				},
+				Annotations: map[string]string{
+					"cherub": "rock",
+				},
+				OwnerReferences: []metav1.OwnerReference{{
+					APIVersion:         v1alpha1.SchemeGroupVersion.String(),
+					Kind:               "ServerlessService",
+					Name:               "dream",
+					UID:                "1988",
+					Controller:         ptr.Bool(true),
+					BlockOwnerDeletion: ptr.Bool(true),
+				}},
+			},
+			Spec: corev1.ServiceSpec{
+				Ports: []corev1.ServicePort{{
+					Name:       servicePortNameH2C,
+					Protocol:   corev1.ProtocolTCP,
+					Port:       serviceHTTP2Port,
+					TargetPort: intstr.FromInt(activatorTargetHTTP2Port),
 				}},
 			},
 		},
@@ -151,18 +305,9 @@ func TestMakeService(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got := MakePublicService(test.sks)
+			got := MakePublicService(test.sks, test.hasBackends)
 			if diff := cmp.Diff(test.want, got); diff != "" {
 				t.Errorf("Public K8s Service mismatch (-want, +got) = %v", diff)
-			}
-			// Now let's patch selector.
-			test.want.Spec.Selector = test.selector
-			test.want.Name = names.PrivateService(test.sks.Name)
-			test.want.Labels[networking.ServiceTypeKey] = "Private"
-
-			got = MakePrivateService(test.sks, test.selector)
-			if diff := cmp.Diff(test.want, got); diff != "" {
-				t.Errorf("Private K8s Service mismatch (-want, +got) = %v", diff)
 			}
 		})
 	}
@@ -192,6 +337,7 @@ func TestMakeEndpoints(t *testing.T) {
 			},
 			Spec: v1alpha1.ServerlessServiceSpec{
 				ProtocolType: networking.ProtocolHTTP1,
+				Mode:         v1alpha1.SKSOperationModeServe,
 			},
 		},
 		eps: &corev1.Endpoints{},
@@ -299,6 +445,137 @@ func TestMakeEndpoints(t *testing.T) {
 			got := MakePublicEndpoints(test.sks, test.eps)
 			if diff := cmp.Diff(test.want, got); diff != "" {
 				t.Errorf("Public K8s Endpoints mismatch (-want, +got) = %v", diff)
+			}
+		})
+	}
+}
+
+func TestMakePrivateService(t *testing.T) {
+	tests := []struct {
+		name     string
+		sks      *v1alpha1.ServerlessService
+		selector map[string]string
+		want     *corev1.Service
+	}{{
+		name: "HTTP",
+		sks: &v1alpha1.ServerlessService{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: "melon",
+				Name:      "collie",
+				UID:       "1982",
+				// Those labels are propagated from the Revision->KPA.
+				Labels: map[string]string{
+					serving.RevisionLabelKey: "collie",
+					serving.RevisionUID:      "1982",
+				},
+			},
+			Spec: v1alpha1.ServerlessServiceSpec{
+				ProtocolType: networking.ProtocolHTTP1,
+				// To make sure this does not affect private service in any way.
+				Mode: v1alpha1.SKSOperationModeProxy,
+			},
+		},
+		selector: map[string]string{
+			"app": "sadness",
+		},
+		want: &corev1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: "melon",
+				Name:      "collie-priv",
+				Labels: map[string]string{
+					// Those should be propagated.
+					serving.RevisionLabelKey:  "collie",
+					serving.RevisionUID:       "1982",
+					networking.SKSLabelKey:    "collie",
+					networking.ServiceTypeKey: "Private",
+				},
+				Annotations: map[string]string{},
+				OwnerReferences: []metav1.OwnerReference{{
+					APIVersion:         v1alpha1.SchemeGroupVersion.String(),
+					Kind:               "ServerlessService",
+					Name:               "collie",
+					UID:                "1982",
+					Controller:         ptr.Bool(true),
+					BlockOwnerDeletion: ptr.Bool(true),
+				}},
+			},
+			Spec: corev1.ServiceSpec{
+				Selector: map[string]string{
+					"app": "sadness",
+				},
+				Ports: []corev1.ServicePort{{
+					Name:       servicePortNameHTTP1,
+					Protocol:   corev1.ProtocolTCP,
+					Port:       servicePort,
+					TargetPort: intstr.FromString(requestQueuePortName),
+				}},
+			},
+		},
+	}, {
+		name: "HTTP2",
+		sks: &v1alpha1.ServerlessService{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: "siamese",
+				Name:      "dream",
+				UID:       "1988",
+				// Those labels are propagated from the Revision->KPA.
+				Labels: map[string]string{
+					serving.RevisionLabelKey: "dream",
+					serving.RevisionUID:      "1988",
+				},
+				Annotations: map[string]string{
+					"cherub": "rock",
+				},
+			},
+			Spec: v1alpha1.ServerlessServiceSpec{
+				ProtocolType: networking.ProtocolH2C,
+			},
+		},
+		selector: map[string]string{
+			"app": "today",
+		},
+		want: &corev1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: "siamese",
+				Name:      "dream-priv",
+				Labels: map[string]string{
+					// Those should be propagated.
+					serving.RevisionLabelKey:  "dream",
+					serving.RevisionUID:       "1988",
+					networking.SKSLabelKey:    "dream",
+					networking.ServiceTypeKey: "Private",
+				},
+				Annotations: map[string]string{
+					"cherub": "rock",
+				},
+				OwnerReferences: []metav1.OwnerReference{{
+					APIVersion:         v1alpha1.SchemeGroupVersion.String(),
+					Kind:               "ServerlessService",
+					Name:               "dream",
+					UID:                "1988",
+					Controller:         ptr.Bool(true),
+					BlockOwnerDeletion: ptr.Bool(true),
+				}},
+			},
+			Spec: corev1.ServiceSpec{
+				Selector: map[string]string{
+					"app": "today",
+				},
+				Ports: []corev1.ServicePort{{
+					Name:       servicePortNameH2C,
+					Protocol:   corev1.ProtocolTCP,
+					Port:       servicePort,
+					TargetPort: intstr.FromString(requestQueuePortName),
+				}},
+			},
+		},
+	}}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			got := MakePrivateService(test.sks, test.selector)
+			if diff := cmp.Diff(test.want, got); diff != "" {
+				t.Errorf("Private K8s Service mismatch (-want, +got) = %v", diff)
 			}
 		})
 	}
