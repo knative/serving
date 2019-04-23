@@ -23,14 +23,12 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
-	"github.com/knative/pkg/system"
 	"github.com/knative/serving/pkg/activator"
 	"github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving"
 	servingv1alpha1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/network"
-	revisionresources "github.com/knative/serving/pkg/reconciler/revision/resources"
 	"github.com/knative/serving/pkg/reconciler/route/resources/names"
 	"github.com/knative/serving/pkg/reconciler/route/traffic"
 	"github.com/knative/serving/pkg/resources"
@@ -111,20 +109,13 @@ func makeClusterIngressRule(domains []string, ns string, targets traffic.Revisio
 			continue
 		}
 
-		name := t.ServiceName
-		namespace := ns
-		port := intstr.FromInt(int(revisionresources.ServicePort))
-		if !t.Active {
-			name = activator.K8sServiceName
-			namespace = system.Namespace()
-			port = intstr.FromInt(int(activator.ServicePort(t.Protocol)))
-		}
-
 		splits = append(splits, v1alpha1.ClusterIngressBackendSplit{
 			ClusterIngressBackend: v1alpha1.ClusterIngressBackend{
-				ServiceNamespace: namespace,
-				ServiceName:      name,
-				ServicePort:      port,
+				ServiceNamespace: ns,
+				ServiceName:      t.ServiceName,
+				// Port on the public service must match port on the activator.
+				// Otherwise, the serverless services can't guarantee seamless positive handoff.
+				ServicePort: intstr.FromInt(int(activator.ServicePort(t.Protocol))),
 			},
 			Percent: t.Percent,
 			// TODO(nghia): Append headers per-split.
