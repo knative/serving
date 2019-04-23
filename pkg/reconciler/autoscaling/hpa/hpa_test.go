@@ -39,7 +39,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	kubeinformers "k8s.io/client-go/informers"
 	fakeK8s "k8s.io/client-go/kubernetes/fake"
-	fakescaleclient "k8s.io/client-go/scale/fake"
 	ktesting "k8s.io/client-go/testing"
 
 	. "github.com/knative/pkg/reconciler/testing"
@@ -55,14 +54,9 @@ func TestControllerCanReconcile(t *testing.T) {
 	kubeClient := fakeK8s.NewSimpleClientset()
 	servingClient := fakeKna.NewSimpleClientset()
 
-	scaleClient := &fakescaleclient.FakeScaleClient{Fake: kubeClient.Fake}
-	scaleClient.PrependReactor("get", "deployments", func(action ktesting.Action) (bool, runtime.Object, error) {
-		return true, scaleResource(testNamespace, testRevision), nil
-	})
 	opts := reconciler.Options{
 		KubeClientSet:    kubeClient,
 		ServingClientSet: servingClient,
-		ScaleClientSet:   scaleClient,
 		Logger:           logtesting.TestLogger(t),
 	}
 
