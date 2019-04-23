@@ -46,6 +46,7 @@ function install_latest_release() {
   install_knative_serving \
     "${url}/serving.yaml" \
     || fail_test "Knative latest release installation failed"
+  wait_until_pods_running knative-serving
 }
 
 function install_head() {
