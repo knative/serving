@@ -88,7 +88,7 @@ func MakeFactory(ctor Ctor) Factory {
 		sharedClient := fakesharedclientset.NewSimpleClientset(ls.GetSharedObjects()...)
 		client := fakeclientset.NewSimpleClientset(ls.GetServingObjects()...)
 
-		dynamicClient := fakedynamicclientset.NewSimpleDynamicClient(runtime.NewScheme(), ls.GetBuildObjects()...)
+		dynamicClient := fakedynamicclientset.NewSimpleDynamicClient(NewScheme(), r.Objects...)
 		cachingClient := fakecachingclientset.NewSimpleClientset(ls.GetCachingObjects()...)
 		eventRecorder := record.NewFakeRecorder(maxEventBufferSize)
 		statsReporter := &FakeStatsReporter{}

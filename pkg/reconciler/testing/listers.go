@@ -54,6 +54,7 @@ var clientSetSchemes = []func(*runtime.Scheme) error{
 	fakesharedclientset.AddToScheme,
 	fakeservingclientset.AddToScheme,
 	fakecachingclientset.AddToScheme,
+	autoscalingv1.AddToScheme,
 	buildAddToScheme,
 }
 
@@ -61,12 +62,17 @@ type Listers struct {
 	sorter testing.ObjectSorter
 }
 
-func NewListers(objs []runtime.Object) Listers {
+func NewScheme() *runtime.Scheme {
 	scheme := runtime.NewScheme()
 
 	for _, addTo := range clientSetSchemes {
 		addTo(scheme)
 	}
+	return scheme
+}
+
+func NewListers(objs []runtime.Object) Listers {
+	scheme := NewScheme()
 
 	ls := Listers{
 		sorter: testing.NewObjectSorter(scheme),

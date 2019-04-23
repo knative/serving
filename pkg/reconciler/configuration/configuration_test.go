@@ -460,7 +460,7 @@ func TestReconcile(t *testing.T) {
 				WithLatestReady("first-trouble-00001"), WithObservedGen),
 
 			rev("first-trouble", "foo", 1,
-				WithRevName("double-trouble-00001"),
+				WithRevName("first-trouble-00001"),
 				WithCreationTimestamp(now), MarkRevisionReady),
 			rev("double-trouble", "foo", 1,
 				WithRevName("double-trouble-00001"),
