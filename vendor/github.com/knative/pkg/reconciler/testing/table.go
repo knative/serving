@@ -147,7 +147,7 @@ func (r *TableRow) Test(t *testing.T, factory Factory) {
 	}
 	if got, want := len(actions.Creates), len(r.WantCreates); got > want {
 		for _, extra := range actions.Creates[want:] {
-			t.Errorf("Extra create: %#v", extra)
+			t.Errorf("Extra create: %#v", extra.GetObject())
 		}
 	}
 
@@ -181,7 +181,7 @@ func (r *TableRow) Test(t *testing.T, factory Factory) {
 	}
 	if got, want := len(updates), len(r.WantUpdates); got > want {
 		for _, extra := range updates[want:] {
-			t.Errorf("Extra update: %#v", extra)
+			t.Errorf("Extra update: %#v", extra.GetObject())
 		}
 	}
 
@@ -225,11 +225,11 @@ func (r *TableRow) Test(t *testing.T, factory Factory) {
 	}
 
 	if len(statusUpdates)+len(updates) != len(actions.Updates) {
-		var unexpected []clientgotesting.UpdateAction
+		var unexpected []runtime.Object
 
 		for _, update := range actions.Updates {
 			if update.GetSubresource() != "status" && update.GetSubresource() != "" {
-				unexpected = append(unexpected, update)
+				unexpected = append(unexpected, update.GetObject())
 			}
 		}
 
@@ -251,7 +251,7 @@ func (r *TableRow) Test(t *testing.T, factory Factory) {
 	}
 	if got, want := len(actions.Deletes), len(r.WantDeletes); got > want {
 		for _, extra := range actions.Deletes[want:] {
-			t.Errorf("Extra delete: %#v", extra)
+			t.Errorf("Extra delete: %s/%s", extra.GetNamespace(), extra.GetName())
 		}
 	}
 
