@@ -27,7 +27,6 @@ import (
 	pav1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/autoscaler"
-	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
 	perrors "github.com/pkg/errors"
 	"go.uber.org/zap"
 	autoscalingapi "k8s.io/api/autoscaling/v1"
@@ -41,9 +40,8 @@ const scaleUnknown = -1
 
 // scaler scales the target of a kpa-class PA up or down including scaling to zero.
 type scaler struct {
-	servingClientSet clientset.Interface
-	scaleClientSet   scale.ScalesGetter
-	logger           *zap.SugaredLogger
+	scaleClientSet scale.ScalesGetter
+	logger         *zap.SugaredLogger
 
 	// autoscalerConfig could change over time and access to it
 	// must go through autoscalerConfigMutex
@@ -52,12 +50,11 @@ type scaler struct {
 }
 
 // NewScaler creates a scaler.
-func NewScaler(servingClientSet clientset.Interface, scaleClientSet scale.ScalesGetter,
+func NewScaler(scaleClientSet scale.ScalesGetter,
 	logger *zap.SugaredLogger, configMapWatcher configmap.Watcher) Scaler {
 	ks := &scaler{
-		servingClientSet: servingClientSet,
-		scaleClientSet:   scaleClientSet,
-		logger:           logger,
+		scaleClientSet: scaleClientSet,
+		logger:         logger,
 	}
 
 	// Watch for config changes.
