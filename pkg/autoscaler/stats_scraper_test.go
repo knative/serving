@@ -35,13 +35,12 @@ const (
 
 var (
 	testStats = []*Stat{
-		&Stat{
+		{
 			AverageConcurrentRequests:        3.0,
 			AverageProxiedConcurrentRequests: 2.0,
 			RequestCount:                     5,
 			ProxiedRequestCount:              4,
-		},
-		&Stat{
+		}, {
 			AverageConcurrentRequests:        5.0,
 			AverageProxiedConcurrentRequests: 4.0,
 			RequestCount:                     7,
@@ -230,6 +229,27 @@ func TestScrape_PopulateErrorFromScrapeClient(t *testing.T) {
 	} else {
 		t.Error("Expected an error from scraper.Scrape() but got none")
 	}
+}
+
+func TestScrape_PopulateErrorFromScrapeClient(t *testing.T) {
+	errMsg := "test"
+	client := newTestScrapeClient(testStats, errors.New(errMsg))
+	scraper, err := serviceScraperForTest(client)
+	if err != nil {
+		t.Fatalf("newServiceScraperWithClient=%v, want no error", err)
+	}
+
+	// Make an Endpoints with 2 pods.
+	createEndpoints(addIps(makeEndpoints(), 2))
+
+	if _, err := scraper.Scrape(); err != nil {
+		if got, want := err.Error(), errMsg; got != want {
+			t.Errorf("Got error message: %v. Want: %v", got, want)
+		}
+	} else {
+		t.Error("Expected an error from scraper.Scrape() but got none")
+	}
+
 }
 
 func TestScrape_DoNotScrapeIfNoPodsFound(t *testing.T) {

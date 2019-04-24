@@ -4,11 +4,9 @@ metadata:
   name: runtime-test-image
   namespace: default
 spec:
-  runLatest:
-    configuration:
-      revisionTemplate:
-        spec:
-          container:
-            image: github.com/knative/serving/test/test_images/runtime
-            securityContext:
-              runAsUser: 2020
+  template:
+    spec:
+      containers:
+      - image: github.com/knative/serving/test/test_images/runtime
+        securityContext:
+          runAsUser: 2020

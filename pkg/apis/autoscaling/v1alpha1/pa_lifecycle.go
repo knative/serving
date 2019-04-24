@@ -56,6 +56,15 @@ func (pa *PodAutoscaler) annotationInt32(key string) int32 {
 	return 0
 }
 
+func (pa *PodAutoscaler) annotationFloat64(key string) (float64, bool) {
+	if s, ok := pa.Annotations[key]; ok {
+		if f, err := strconv.ParseFloat(s, 64); err == nil {
+			return f, true
+		}
+	}
+	return 0.0, false
+}
+
 // ScaleBounds returns scale bounds annotations values as a tuple:
 // `(min, max int32)`. The value of 0 for any of min or max means the bound is
 // not set
@@ -78,17 +87,57 @@ func (pa *PodAutoscaler) Target() (target int32, ok bool) {
 	return 0, false
 }
 
+// Window returns the window annotation value or false if not present.
+func (pa *PodAutoscaler) Window() (window time.Duration, ok bool) {
+	if s, ok := pa.Annotations[autoscaling.WindowAnnotationKey]; ok {
+		d, err := time.ParseDuration(s)
+		if err != nil {
+			return 0, false
+		}
+		if d < autoscaling.WindowMin {
+			return 0, false
+		}
+		return d, true
+	}
+	return 0, false
+}
+
+// PanicWindowPercentage returns panic window annotation value or false if not present.
+func (pa *PodAutoscaler) PanicWindowPercentage() (percentage float64, ok bool) {
+	percentage, ok = pa.annotationFloat64(autoscaling.PanicWindowPercentageAnnotationKey)
+	if !ok || percentage > autoscaling.PanicWindowPercentageMax ||
+		percentage < autoscaling.PanicWindowPercentageMin {
+		return 0, false
+	}
+	return percentage, ok
+}
+
+// PanicThresholdPercentage return the panic target annotation value or false if not present.
+func (pa *PodAutoscaler) PanicThresholdPercentage() (percentage float64, ok bool) {
+	percentage, ok = pa.annotationFloat64(autoscaling.PanicThresholdPercentageAnnotationKey)
+	if !ok || percentage < autoscaling.PanicThresholdPercentageMin {
+		return 0, false
+	}
+	return percentage, ok
+}
+
 // IsReady looks at the conditions and if the Status has a condition
 // PodAutoscalerConditionReady returns true if ConditionStatus is True
 func (pas *PodAutoscalerStatus) IsReady() bool {
 	return podCondSet.Manage(pas.duck()).IsHappy()
 }
 
-// IsActivating assumes the pod autoscaler is Activating if it is neither
+// IsActivating returns true if the pod autoscaler is Activating if it is neither
 // Active nor Inactive
 func (pas *PodAutoscalerStatus) IsActivating() bool {
 	cond := pas.GetCondition(PodAutoscalerConditionActive)
 	return cond != nil && cond.Status == corev1.ConditionUnknown
+}
+
+// IsInactive returns true if the pod autoscaler is Inactive.
+func (pas *PodAutoscalerStatus) IsInactive() bool {
+	cond := pas.GetCondition(PodAutoscalerConditionActive)
+	return cond != nil && cond.Status == corev1.ConditionFalse
 }
 
 // GetCondition gets the condition `t`.
@@ -133,29 +182,21 @@ func (pas *PodAutoscalerStatus) MarkResourceFailedCreation(kind, name string) {
 // CanScaleToZero checks whether the pod autoscaler has been in an inactive state
 // for at least the specified grace period.
 func (pas *PodAutoscalerStatus) CanScaleToZero(gracePeriod time.Duration) bool {
-	if cond := pas.GetCondition(PodAutoscalerConditionActive); cond != nil {
-		switch cond.Status {
-		case corev1.ConditionFalse:
-			// Check that this PodAutoscaler has been inactive for
-			// at least the grace period.
-			return time.Now().After(cond.LastTransitionTime.Inner.Add(gracePeriod))
-		}
-	}
-	return false
+	return pas.inStatusFor(corev1.ConditionFalse, gracePeriod)
 }
 
 // CanMarkInactive checks whether the pod autoscaler has been in an active state
 // for at least the specified idle period.
 func (pas *PodAutoscalerStatus) CanMarkInactive(idlePeriod time.Duration) bool {
-	if cond := pas.GetCondition(PodAutoscalerConditionActive); cond != nil {
-		switch cond.Status {
-		case corev1.ConditionTrue:
-			// Check that this PodAutoscaler has been active for
-			// at least the grace period.
-			return time.Now().After(cond.LastTransitionTime.Inner.Add(idlePeriod))
-		}
-	}
-	return false
+	return pas.inStatusFor(corev1.ConditionTrue, idlePeriod)
+}
+
+// inStatusFor returns true if the PodAutoscalerStatus's Active condition has stayed in
+// the specified status for at least the specified duration. Otherwise it returns false,
+// including when the status is undetermined (Active condition is not found.)
+func (pas *PodAutoscalerStatus) inStatusFor(status corev1.ConditionStatus, dur time.Duration) bool {
+	cond := pas.GetCondition(PodAutoscalerConditionActive)
+	return cond != nil && cond.Status == status && time.Now().After(cond.LastTransitionTime.Inner.Add(dur))
 }
 
 func (pas *PodAutoscalerStatus) duck() *duckv1beta1.Status {

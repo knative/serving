@@ -73,11 +73,8 @@ var (
 	servingNamespace       string
 	servingRevision        string
 	servingRevisionKey     string
-	servingAutoscaler      string
 	servingPodIP           string
 	servingPodName         string
-	autoscalerNamespace    string
-	servingAutoscalerPort  int
 	userTargetPort         int
 	userTargetAddress      string
 	containerConcurrency   int
@@ -99,11 +96,8 @@ func initEnv() {
 	servingConfig = util.GetRequiredEnvOrFatal("SERVING_CONFIGURATION", logger)
 	servingNamespace = util.GetRequiredEnvOrFatal("SERVING_NAMESPACE", logger)
 	servingRevision = util.GetRequiredEnvOrFatal("SERVING_REVISION", logger)
-	servingAutoscaler = util.GetRequiredEnvOrFatal("SERVING_AUTOSCALER", logger)
 	servingPodIP = util.GetRequiredEnvOrFatal("SERVING_POD_IP", logger)
 	servingPodName = util.GetRequiredEnvOrFatal("SERVING_POD", logger)
-	autoscalerNamespace = util.GetRequiredEnvOrFatal("SYSTEM_NAMESPACE", logger)
-	servingAutoscalerPort = util.MustParseIntEnvOrFatal("SERVING_AUTOSCALER_PORT", logger)
 	containerConcurrency = util.MustParseIntEnvOrFatal("CONTAINER_CONCURRENCY", logger)
 	revisionTimeoutSeconds = util.MustParseIntEnvOrFatal("REVISION_TIMEOUT_SECONDS", logger)
 	userTargetPort = util.MustParseIntEnvOrFatal("USER_PORT", logger)
@@ -311,7 +305,7 @@ func main() {
 			// Calling server.Shutdown() allows pending requests to
 			// complete, while no new work is accepted.
 			if err := server.Shutdown(context.Background()); err != nil {
-				logger.Errorf("Failed to shutdown proxy server", zap.Error(err))
+				logger.Errorw("Failed to shutdown proxy server", zap.Error(err))
 			}
 		})
 
@@ -390,4 +384,5 @@ func flush(logger *zap.SugaredLogger) {
 	logger.Sync()
 	os.Stdout.Sync()
 	os.Stderr.Sync()
+	metrics.FlushExporter()
 }

@@ -767,7 +767,7 @@ type CorsPolicy struct {
 	// access. Serialized into Access-Control-Expose-Headers header.
 	ExposeHeaders []string `json:"exposeHeaders,omitempty"`
 
-	// Specifies how long the the results of a preflight request can be
+	// Specifies how long the results of a preflight request can be
 	// cached. Translates to the Access-Control-Max-Age header.
 	MaxAge string `json:"maxAge,omitempty"`
 

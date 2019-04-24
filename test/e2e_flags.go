@@ -30,6 +30,10 @@ const (
 	// ServingNamespace is the default namespace for serving e2e tests
 	ServingNamespace = "serving-tests"
 
+	// AlternativeServingNamespace is a different namepace to run cross-
+	// namespace tests in.
+	AlternativeServingNamespace = "serving-tests-alt"
+
 	// E2EMetricExporter is the name for the metrics exporter logger
 	E2EMetricExporter = "e2e-metrics"
 )
@@ -52,8 +56,6 @@ func initializeServingFlags() *ServingEnvironmentFlags {
 	flag.Set("alsologtostderr", "true")
 	logging.InitializeLogger(test.Flags.LogVerbose)
 
-	// TODO(srinivashegde86): remove this once pkg is updated.
-	test.Flags.Tag = "latest"
 	if test.Flags.EmitMetrics {
 		logging.InitializeMetricExporter(E2EMetricExporter)
 	}

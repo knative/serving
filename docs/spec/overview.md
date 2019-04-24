@@ -31,45 +31,37 @@ addressable subdomains to any or all backing revisions.
 ## Revision
 
 **Revision** is an immutable snapshot of code and configuration. A revision
-references a container image, and optionally a build that is responsible for
-materializing that container image from source. Revisions are created by updates
-to a **Configuration**.
+references a container image. Revisions are created by updates to a
+**Configuration**.
 
-Revisions that are not addressable via a Route will be _retired_ and all
-underlying K8s resources will be deleted. This provides a lightweight history of
-the revisions a configuration has produced over time, and enables users to
-easily rollback to a prior revision.
-
-Revisions that are addressable via a Route will have resource utilization
-proportional to the load they are under.
+Revisions that are not addressable via a Route may be garbage collected and all
+underlying K8s resources will be deleted.  Revisions that are addressable via
+a Route will have resource utilization proportional to the load they are under.
 
 ## Configuration
 
 A **Configuration** describes the desired latest Revision state, and creates and
 tracks the status of Revisions as the desired state is updated. A configuration
-might include instructions on how to transform a source package (either git repo
-or archive) into a container by referencing a
-[Build](https://github.com/knative/build), or might simply reference a container
-image and associated execution metadata needed by the Revision. On updates to a
-Configuration, a new build and/or deployment (creating a Revision) may be
-performed; the Configuration's controller will track the status of created
-Revisions and makes both the most recently created and most recently _ready_
-(i.e. healthy) Revision available in the status section.
+will reference a container image and associated execution metadata needed by the
+Revision. On updates to a Configuration's spec, a new Revision will be created;
+the Configuration's controller will track the status of created
+Revisions and makes the most recently created and most recently _ready_
+Revisions available in the status section.
 
 ## Service
 
-A **Service** encapsulates a set of **Routes** and **Configurations** which
-together provide a software component. Service exists to provide a singular
-abstraction which can be access controlled, reasoned about, and which
-encapsulates software lifecycle decisions such as rollout policy and team
-resource ownership. Service acts only as an orchestrator of the underlying
-Routes and Configurations (much as a kubernetes Deployment orchestrates
-ReplicaSets), and its usage is optional but recommended.
+A **Service** encapsulates a **Route** and **Configuration** which together
+provide a software component. Service exists to provide a singular abstraction
+which can be access controlled, reasoned about, and which encapsulates software
+lifecycle decisions such as rollout policy and team resource ownership. Service
+acts only as an orchestrator of the underlying Routes and Configurations (much
+as a kubernetes Deployment orchestrates ReplicaSets), and its usage is optional
+but recommended.
 
 The Service's controller will track the statuses of its owned Configuration and
 Route, reflecting their statuses and conditions as its own.
 
-The owned Configurations' Ready conditions are surfaced as the Service's
+The owned Configuration's Ready conditions are surfaced as the Service's
 ConfigurationsReady condition. The owned Routes' Ready conditions are surfaced
 as the Service's RoutesReady condition.
 
@@ -92,16 +84,13 @@ In the conventional single live revision scenario, a service creates both a
 route and a configuration with the same name as the service. Update operations
 on the service enable scenarios such as:
 
-- _"Push code, keep config":_ Specifying a new revision with updated source,
+- _"Push image, keep config":_ Specifying a new revision with updated image,
   inheriting configuration such as env vars from the configuration.
-- _"Update config, keep code"_: Specifying a new revision as just a change to
+- _"Update config, keep image"_: Specifying a new revision as just a change to
   configuration, such as updating an env variable, inheriting all other
-  configuration and source/image.
-- _"Execute a manual rollout"_: Updating the service when in pinned rollout mode
-  allows manual testing of a revision before making it live.
+  configuration and image.
+- _"Execute a controlled rollout"_: Updating the service's traffic spec allows
+  testing of revisions before making them live, and controlled rollouts.
 
-Using a Service object to orchestrate the creation a both route and
-configuration allows deployment of code (e.g. from a github button) to avoid
-needing to reason about sequencing and failure modes of parallel resource
-creation. The [sample API usage](normative_examples.md) section illustrates
-conventional usage of the API.
+The [sample API usage](normative_examples.md) section illustrates conventional
+usage of the API.

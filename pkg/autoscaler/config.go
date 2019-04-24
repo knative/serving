@@ -22,7 +22,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -46,17 +46,20 @@ type Config struct {
 	ContainerConcurrencyTargetDefault    float64
 
 	// General autoscaler algorithm configuration.
-	MaxScaleUpRate float64
-	StableWindow   time.Duration
-	PanicWindow    time.Duration
-	TickInterval   time.Duration
+	MaxScaleUpRate           float64
+	StableWindow             time.Duration
+	PanicWindowPercentage    float64
+	PanicThresholdPercentage float64
+	// Deprecated in favor of PanicWindowPercentage.
+	PanicWindow  time.Duration
+	TickInterval time.Duration
 
 	ScaleToZeroGracePeriod time.Duration
 }
 
 // TargetConcurrency calculates the target concurrency for a given container-concurrency
 // taking the container-concurrency-target-percentage into account.
-func (c *Config) TargetConcurrency(concurrency v1alpha1.RevisionContainerConcurrencyType) float64 {
+func (c *Config) TargetConcurrency(concurrency v1beta1.RevisionContainerConcurrencyType) float64 {
 	if concurrency == 0 {
 		return c.ContainerConcurrencyTargetDefault
 	}
@@ -104,6 +107,14 @@ func NewConfigFromMap(data map[string]string) (*Config, error) {
 		key:          "container-concurrency-target-default",
 		field:        &lc.ContainerConcurrencyTargetDefault,
 		defaultValue: 100.0,
+	}, {
+		key:          "panic-window-percentage",
+		field:        &lc.PanicWindowPercentage,
+		defaultValue: 10.0,
+	}, {
+		key:          "panic-threshold-percentage",
+		field:        &lc.PanicThresholdPercentage,
+		defaultValue: 200.0,
 	}} {
 		if raw, ok := data[f64.key]; !ok {
 			*f64.field = f64.defaultValue

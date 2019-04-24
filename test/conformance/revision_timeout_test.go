@@ -22,13 +22,15 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 
 	pkgTest "github.com/knative/pkg/test"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	serviceresourcenames "github.com/knative/serving/pkg/reconciler/v1alpha1/service/resources/names"
-	. "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
+	"github.com/knative/serving/pkg/apis/serving/v1beta1"
+	serviceresourcenames "github.com/knative/serving/pkg/reconciler/service/resources/names"
+	. "github.com/knative/serving/pkg/reconciler/testing"
 	"github.com/knative/serving/test"
 	"github.com/mattbaird/jsonpatch"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -44,17 +46,17 @@ func createLatestService(t *testing.T, clients *test.Clients, names test.Resourc
 	return svc, err
 }
 
-func updateConfigWithTimeout(clients *test.Clients, names test.ResourceNames, revisionTimeoutSeconds int) error {
+func updateServiceWithTimeout(clients *test.Clients, names test.ResourceNames, revisionTimeoutSeconds int) error {
 	patches := []jsonpatch.JsonPatchOperation{{
 		Operation: "replace",
-		Path:      "/spec/revisionTemplate/spec/timeoutSeconds",
+		Path:      "/spec/template/spec/timeoutSeconds",
 		Value:     revisionTimeoutSeconds,
 	}}
 	patchBytes, err := json.Marshal(patches)
 	if err != nil {
 		return err
 	}
-	_, err = clients.ServingClient.Configs.Patch(names.Config, types.JSONPatchType, patchBytes, "")
+	_, err = clients.ServingClient.Services.Patch(names.Service, types.JSONPatchType, patchBytes, "")
 	if err != nil {
 		return err
 	}
@@ -129,25 +131,19 @@ func TestRevisionTimeout(t *testing.T) {
 		t.Fatalf("The Service %s was not marked as Ready to serve traffic to Revision %s: %v", names.Service, names.Revision, err)
 	}
 
-	t.Log("Patching to a Manual Service to allow configuration and route to be manually modified")
-	_, err = test.PatchManualService(t, clients, svc)
+	t.Log("Updating the Service to use a different revision timeout")
+	err = updateServiceWithTimeout(clients, names, 5)
 	if err != nil {
-		t.Fatalf("Failed to update Service %s: %v", names.Service, err)
-	}
-
-	t.Log("Updating the Configuration to use a different revision timeout")
-	err = updateConfigWithTimeout(clients, names, 5)
-	if err != nil {
-		t.Fatalf("Patch update for Configuration %s with new timeout 5s failed: %v", names.Config, err)
+		t.Fatalf("Patch update for Service %s with new timeout 5s failed: %v", names.Service, err)
 	}
 
 	// getNextRevisionName waits for names.Revision to change, so we set it to the rev2s revision and wait for the (new) rev5s revision.
 	names.Revision = rev2s.Revision
 
-	t.Log("Since the Configuration was updated a new Revision will be created and the Configuration will be updated")
-	rev5s.Revision, err = test.WaitForConfigLatestRevision(clients, names)
+	t.Log("Since the Service was updated a new Revision will be created and the Service will be updated")
+	rev5s.Revision, err = test.WaitForServiceLatestRevision(clients, names)
 	if err != nil {
-		t.Fatalf("Configuration %s was not updated with the Revision with timeout 5s: %v", names.Config, err)
+		t.Fatalf("Service %s was not updated with the Revision with timeout 5s: %v", names.Service, err)
 	}
 
 	t.Logf("Waiting for revision %q to be ready", rev2s.Revision)
@@ -163,23 +159,51 @@ func TestRevisionTimeout(t *testing.T) {
 	rev2s.TrafficTarget = "rev2s"
 	rev5s.TrafficTarget = "rev5s"
 
-	t.Log("Updating Route")
-	if _, err := test.UpdateBlueGreenRoute(t, clients, names, rev2s, rev5s); err != nil {
-		t.Fatalf("Failed to create Route: %v", err)
+	t.Log("Updating RouteSpec")
+	if _, err := test.UpdateServiceRouteSpec(t, clients, names, v1alpha1.RouteSpec{
+		Traffic: []v1alpha1.TrafficTarget{{
+			TrafficTarget: v1beta1.TrafficTarget{
+				Tag:          rev2s.TrafficTarget,
+				RevisionName: rev2s.Revision,
+				Percent:      50,
+			},
+		}, {
+			TrafficTarget: v1beta1.TrafficTarget{
+				Tag:          rev5s.TrafficTarget,
+				RevisionName: rev5s.Revision,
+				Percent:      50,
+			},
+		}},
+	}); err != nil {
+		t.Fatalf("Failed to update Service: %v", err)
 	}
 
-	t.Log("Wait for the route domains to be ready")
-	if err := test.WaitForRouteState(clients.ServingClient, names.Route, test.IsRouteReady, "RouteIsReady"); err != nil {
-		t.Fatalf("The Route %s was not marked as Ready to serve traffic: %v", names.Route, err)
+	t.Log("Wait for the service domains to be ready")
+	if err := test.WaitForServiceState(clients.ServingClient, names.Service, test.IsServiceReady, "ServiceIsReady"); err != nil {
+		t.Fatalf("The Service %s was not marked as Ready to serve traffic: %v", names.Service, err)
 	}
 
-	route, err := clients.ServingClient.Routes.Get(names.Route, metav1.GetOptions{})
+	service, err := clients.ServingClient.Services.Get(names.Service, metav1.GetOptions{})
 	if err != nil {
-		t.Fatalf("Error fetching Route %s: %v", names.Route, err)
+		t.Fatalf("Error fetching Service %s: %v", names.Service, err)
 	}
 
-	rev2sDomain := fmt.Sprintf("%s.%s", rev2s.TrafficTarget, route.Status.Domain)
-	rev5sDomain := fmt.Sprintf("%s.%s", rev5s.TrafficTarget, route.Status.Domain)
+	var rev2sDomain, rev5sDomain string
+	for _, tt := range service.Status.Traffic {
+		if tt.Tag == rev2s.TrafficTarget {
+			// Strip prefix as WaitForEndPointState expects a domain
+			// without scheme.
+			rev2sDomain = strings.TrimPrefix(tt.URL, "http://")
+		}
+		if tt.Tag == rev5s.TrafficTarget {
+			// Strip prefix as WaitForEndPointState expects a domain
+			// without scheme.
+			rev5sDomain = strings.TrimPrefix(tt.URL, "http://")
+		}
+	}
+	if rev2sDomain == "" || rev5sDomain == "" {
+		t.Fatalf("Unable to fetch URLs from traffic targets: %#v", service.Status.Traffic)
+	}
 
 	t.Logf("Probing domain %s", rev5sDomain)
 	if _, err := pkgTest.WaitForEndpointState(

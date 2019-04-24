@@ -88,9 +88,7 @@ func (g *GeneratorOptions) addDefaults() {
 
 // CreateRunnerOptions sets up the fortio client with the knobs needed to run the load test
 func (g *GeneratorOptions) CreateRunnerOptions(resolvableDomain bool) *fhttp.HTTPRunnerOptions {
-	g.addDefaults()
 	o := fhttp.NewHTTPOptions(g.URL)
-
 	o.NumConnections = g.NumConnections
 	o.HTTPReqTimeOut = g.RequestTimeout
 
@@ -125,6 +123,7 @@ For LoadFactors=[1,2,4], baseQPS=q, duration=d
             1       2       3  <--- factors
 */
 func (g *GeneratorOptions) RunLoadTest(resolvableDomain bool) (*GeneratorResults, error) {
+	g.addDefaults()
 	res := make([]*fhttp.HTTPRunnerResults, len(g.LoadFactors))
 
 	for i, f := range g.LoadFactors {

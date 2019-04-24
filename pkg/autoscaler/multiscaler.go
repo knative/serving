@@ -49,6 +49,9 @@ type Decider struct {
 // DeciderSpec is the parameters in which the Revision should scaled.
 type DeciderSpec struct {
 	TargetConcurrency float64
+	PanicThreshold    float64
+	// TODO: remove MetricSpec when the custom metrics adapter implements Metric.
+	MetricSpec MetricSpec
 }
 
 // DeciderStatus is the current scale recommendation.
@@ -222,19 +225,7 @@ func (m *MultiScaler) Inform(event string) bool {
 	return false
 }
 
-// setScale directly sets the scale for a given metric key. This does not perform any ticking
-// or updating of other scaler components.
-func (m *MultiScaler) setScale(metricKey string, scale int32) bool {
-	scaler, exists := m.scalers[metricKey]
-	if !exists {
-		return false
-	}
-	scaler.updateLatestScale(scale)
-	return true
-}
-
 func (m *MultiScaler) createScaler(ctx context.Context, decider *Decider) (*scalerRunner, error) {
-
 	scaler, err := m.uniScalerFactory(decider, m.dynConfig)
 	if err != nil {
 		return nil, err
