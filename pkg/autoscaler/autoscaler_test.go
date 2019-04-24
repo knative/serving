@@ -45,7 +45,7 @@ func TestNew_ErrorWhenGivenNilInterface(t *testing.T) {
 	dynConfig := &DynamicConfig{}
 	var endpointsInformer corev1informers.EndpointsInformer
 
-	_, err := New(dynConfig, testNamespace, testService, endpointsInformer, 10, &mockReporter{})
+	_, err := New(dynConfig, testNamespace, testService, endpointsInformer, DeciderSpec{TargetConcurrency: 10}, &mockReporter{})
 	if err == nil {
 		t.Error("Expected error when EndpointsInformer interface is nil, but got none.")
 	}
@@ -55,7 +55,7 @@ func TestNew_ErrorWhenGivenNilStatsReporter(t *testing.T) {
 	dynConfig := &DynamicConfig{}
 	var reporter StatsReporter
 
-	_, err := New(dynConfig, testNamespace, testService, kubeInformer.Core().V1().Endpoints(), 10, reporter)
+	_, err := New(dynConfig, testNamespace, testService, kubeInformer.Core().V1().Endpoints(), DeciderSpec{TargetConcurrency: 10}, reporter)
 	if err == nil {
 		t.Error("Expected error when EndpointsInformer interface is nil, but got none.")
 	}
@@ -470,6 +470,8 @@ func TestAutoscaler_UpdateTarget(t *testing.T) {
 	a.expectScale(t, now, 10, true)
 	a.Update(DeciderSpec{
 		TargetConcurrency: 1.0,
+		PanicThreshold:    2.0,
+		MetricSpec:        a.deciderSpec.MetricSpec,
 	})
 	a.expectScale(t, now, 100, true)
 }
@@ -567,7 +569,16 @@ func newTestAutoscaler(containerConcurrency int) *Autoscaler {
 		logger: zap.NewNop().Sugar(),
 	}
 
-	a, _ := New(dynConfig, testNamespace, testService, kubeInformer.Core().V1().Endpoints(), float64(containerConcurrency), &mockReporter{})
+	deciderSpec := DeciderSpec{
+		TargetConcurrency: float64(containerConcurrency),
+		PanicThreshold:    2 * float64(containerConcurrency),
+		MetricSpec: MetricSpec{
+			StableWindow: stableWindow,
+			PanicWindow:  panicWindow,
+		},
+	}
+
+	a, _ := New(dynConfig, testNamespace, testService, kubeInformer.Core().V1().Endpoints(), deciderSpec, &mockReporter{})
 	return a
 }
 

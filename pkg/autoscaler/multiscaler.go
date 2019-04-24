@@ -50,6 +50,8 @@ type Decider struct {
 type DeciderSpec struct {
 	TargetConcurrency float64
 	PanicThreshold    float64
+	// TODO: remove MetricSpec when the custom metrics adapter implements Metric.
+	MetricSpec MetricSpec
 }
 
 // DeciderStatus is the current scale recommendation.

@@ -54,11 +54,14 @@ func MakeDecider(ctx context.Context, pa *v1alpha1.PodAutoscaler, config *autosc
 		panicThresholdPercentage = 200
 	}
 	panicThreshold := target * panicThresholdPercentage / 100.0
+	// TODO: remove MetricSpec when the custom metrics adapter implements Metric.
+	metricSpec := MakeMetric(ctx, pa, config)
 	return &autoscaler.Decider{
 		ObjectMeta: *pa.ObjectMeta.DeepCopy(),
 		Spec: autoscaler.DeciderSpec{
 			TargetConcurrency: target,
 			PanicThreshold:    panicThreshold,
+			MetricSpec:        metricSpec,
 		},
 	}
 }
