@@ -38,11 +38,6 @@ const (
 
 	autoscalerPort = 8080
 
-	// ServicePortNameHTTP1 is the name of the external port of the service for HTTP/1.1
-	ServicePortNameHTTP1 = "http"
-	// ServicePortNameH2C is the name of the external port of the service for HTTP/2
-	ServicePortNameH2C = "http2"
-
 	// ServicePort is the external port of the service
 	ServicePort = int32(80)
 	AppLabelKey = "app"

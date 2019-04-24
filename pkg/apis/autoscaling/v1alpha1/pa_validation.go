@@ -71,9 +71,6 @@ func (rs *PodAutoscalerSpec) Validate(ctx context.Context) *apis.FieldError {
 		return apis.ErrMissingField(apis.CurrentField)
 	}
 	errs := validateReference(rs.ScaleTargetRef).ViaField("scaleTargetRef")
-	if rs.ServiceName == "" {
-		errs = errs.Also(apis.ErrMissingField("serviceName"))
-	}
 	errs = errs.Also(rs.ContainerConcurrency.Validate(ctx).
 		ViaField("containerConcurrency"))
 	return errs.Also(validateSKSFields(ctx, rs))

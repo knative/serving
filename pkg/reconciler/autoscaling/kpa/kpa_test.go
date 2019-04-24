@@ -1504,11 +1504,10 @@ func makeSKSPrivateEndpoints(num int, ns, n string) *corev1.Endpoints {
 }
 
 func makeEndpoints(rev *v1alpha1.Revision) *corev1.Endpoints {
-	service := revisionresources.MakeK8sService(rev)
 	return &corev1.Endpoints{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: service.Namespace,
-			Name:      service.Name,
+			Namespace: rev.Namespace,
+			Name:      rev.Name + "-metrics",
 		},
 	}
 }

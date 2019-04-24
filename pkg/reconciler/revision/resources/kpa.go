@@ -48,8 +48,7 @@ func MakeKPA(rev *v1alpha1.Revision) *kpa.PodAutoscaler {
 				Kind:       "Deployment",
 				Name:       names.Deployment(rev),
 			},
-			ServiceName:  names.K8sService(rev),
-			ProtocolType: rev.GetProtocol(),
+			ProtocolType:          rev.GetProtocol(),
 		},
 	}
 }
