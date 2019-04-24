@@ -203,7 +203,7 @@ func uniScalerFactoryFunc(endpointsInformer corev1informers.EndpointsInformer) f
 
 		return autoscaler.New(dynamicConfig, decider.Namespace,
 			k8SSvcName, endpointsInformer,
-			decider.Spec.TargetConcurrency, reporter)
+			decider.Spec, reporter)
 	}
 }
 

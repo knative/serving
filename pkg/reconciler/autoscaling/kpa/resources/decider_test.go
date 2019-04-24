@@ -37,23 +37,29 @@ func TestMakeDecider(t *testing.T) {
 	}{{
 		name: "defaults",
 		pa:   pa(),
-		want: decider(withTarget(100.0)),
+		want: decider(withTarget(100.0), withPanicThreshold(200.0)),
 	}, {
 		name: "with container concurrency 1",
 		pa:   pa(WithContainerConcurrency(1)),
-		want: decider(withTarget(1.0)),
+		want: decider(withTarget(1.0), withPanicThreshold(2.0)),
 	}, {
 		name: "with target annotation 1",
 		pa:   pa(WithTargetAnnotation("1")),
-		want: decider(withTarget(1.0), withTargetAnnotation("1")),
+		want: decider(withTarget(1.0), withPanicThreshold(2.0), withTargetAnnotation("1")),
 	}, {
 		name: "with container concurrency greater than target annotation (ok)",
 		pa:   pa(WithContainerConcurrency(10), WithTargetAnnotation("1")),
-		want: decider(withTarget(1.0), withTargetAnnotation("1")),
+		want: decider(withTarget(1.0), withPanicThreshold(2.0), withTargetAnnotation("1")),
 	}, {
 		name: "with target annotation greater than container concurrency (ignore annotation for safety)",
 		pa:   pa(WithContainerConcurrency(1), WithTargetAnnotation("10")),
-		want: decider(withTarget(1.0), withTargetAnnotation("10")),
+		want: decider(withTarget(1.0), withPanicThreshold(2.0), withTargetAnnotation("10")),
+	}, {
+		name: "with higher panic target",
+		pa:   pa(WithTargetAnnotation("10"), WithPanicThresholdPercentageAnnotation("400")),
+		want: decider(
+			withTarget(10.0), withPanicThreshold(40.0),
+			withTargetAnnotation("10"), withPanicThresholdPercentageAnnotation("400")),
 	}}
 
 	for _, tc := range cases {
@@ -96,6 +102,11 @@ func decider(options ...DeciderOption) *autoscaler.Decider {
 		},
 		Spec: autoscaler.DeciderSpec{
 			TargetConcurrency: float64(100),
+			PanicThreshold:    float64(200),
+			MetricSpec: autoscaler.MetricSpec{
+				StableWindow: config.StableWindow,
+				PanicWindow:  config.PanicWindow,
+			},
 		},
 	}
 	for _, fn := range options {
@@ -112,9 +123,20 @@ func withTarget(target float64) DeciderOption {
 	}
 }
 
+func withPanicThreshold(threshold float64) DeciderOption {
+	return func(decider *autoscaler.Decider) {
+		decider.Spec.PanicThreshold = threshold
+	}
+}
 func withTargetAnnotation(target string) DeciderOption {
 	return func(decider *autoscaler.Decider) {
 		decider.Annotations[autoscaling.TargetAnnotationKey] = target
+	}
+}
+
+func withPanicThresholdPercentageAnnotation(percentage string) DeciderOption {
+	return func(decider *autoscaler.Decider) {
+		decider.Annotations[autoscaling.PanicThresholdPercentageAnnotationKey] = percentage
 	}
 }
 
@@ -124,7 +146,9 @@ var config = &autoscaler.Config{
 	ContainerConcurrencyTargetDefault:    100.0,
 	MaxScaleUpRate:                       10.0,
 	StableWindow:                         60 * time.Second,
+	PanicThresholdPercentage:             200,
 	PanicWindow:                          6 * time.Second,
+	PanicWindowPercentage:                10,
 	TickInterval:                         2 * time.Second,
 	ScaleToZeroGracePeriod:               30 * time.Second,
 }

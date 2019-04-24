@@ -43,7 +43,10 @@ type Metric struct {
 }
 
 // MetricSpec contains all values the metric collector needs to operate.
-type MetricSpec struct{}
+type MetricSpec struct {
+	StableWindow time.Duration
+	PanicWindow  time.Duration
+}
 
 // MetricStatus reflects the status of metric collection for this specific entity.
 type MetricStatus struct{}
