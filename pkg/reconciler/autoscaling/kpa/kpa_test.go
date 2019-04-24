@@ -104,7 +104,6 @@ func TestMetricsSvcIsReconciled(t *testing.T) {
 	defer logtesting.ClearAll()
 
 	rev := newTestRevision(testNamespace, testRevision)
-	ep := addEndpoint(makeEndpoints(rev))
 	kpa := revisionresources.MakeKPA(rev)
 	tests := []struct {
 		name               string
@@ -283,8 +282,6 @@ func TestMetricsSvcIsReconciled(t *testing.T) {
 
 			servingClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
 			servingInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
-			kubeClient.CoreV1().Endpoints(testNamespace).Create(ep)
-			kubeInformer.Core().V1().Endpoints().Informer().GetIndexer().Add(ep)
 			servingClient.AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
 			servingInformer.Autoscaling().V1alpha1().PodAutoscalers().Informer().GetIndexer().Add(kpa)
 
@@ -384,15 +381,6 @@ func markResourceNotOwned(rType, name string) PodAutoscalerOption {
 	return func(pa *asv1a1.PodAutoscaler) {
 		pa.Status.MarkResourceNotOwned(rType, name)
 	}
-}
-
-func makeTestEndpoints(num int, ns, n string) *corev1.Endpoints {
-	rev := newTestRevision(ns, n)
-	eps := makeEndpoints(rev)
-	for i := 0; i < num; i++ {
-		eps = addEndpoint(eps)
-	}
-	return eps
 }
 
 func TestReconcileAndScaleToZero(t *testing.T) {
@@ -1116,10 +1104,6 @@ func TestEmptyEndpoints(t *testing.T) {
 	rev := newTestRevision(testNamespace, testRevision)
 	servingClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
 	servingInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
-	// This is empty still.
-	ep := makeEndpoints(rev)
-	kubeClient.CoreV1().Endpoints(testNamespace).Create(ep)
-	kubeInformer.Core().V1().Endpoints().Informer().GetIndexer().Add(ep)
 	kpa := revisionresources.MakeKPA(rev)
 	servingClient.AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
 	servingInformer.Autoscaling().V1alpha1().PodAutoscalers().Informer().GetIndexer().Add(kpa)
@@ -1501,15 +1485,6 @@ func makeSKSPrivateEndpoints(num int, ns, n string) *corev1.Endpoints {
 		eps = addEndpoint(eps)
 	}
 	return eps
-}
-
-func makeEndpoints(rev *v1alpha1.Revision) *corev1.Endpoints {
-	return &corev1.Endpoints{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: rev.Namespace,
-			Name:      rev.Name + "-metrics",
-		},
-	}
 }
 
 func addEndpoint(ep *corev1.Endpoints) *corev1.Endpoints {
