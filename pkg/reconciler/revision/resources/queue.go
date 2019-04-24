@@ -32,6 +32,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+const (
+	requestQueueHTTPPortName  = "queue-port"
+	requestQueueHTTP2PortName = "queue-port2"
+)
+
 var (
 	queueResources = corev1.ResourceRequirements{
 		Requests: corev1.ResourceList{
@@ -39,8 +44,11 @@ var (
 		},
 	}
 	queuePorts = []corev1.ContainerPort{{
-		Name:          v1alpha1.RequestQueuePortName,
-		ContainerPort: int32(v1alpha1.RequestQueuePort),
+		Name:          requestQueueHTTPPortName,
+		ContainerPort: int32(networking.BackendHTTPPort),
+	}, {
+		Name:          requestQueueHTTP2PortName,
+		ContainerPort: int32(networking.BackendHTTP2Port),
 	}, {
 		// Provides health checks and lifecycle hooks.
 		Name:          v1alpha1.RequestQueueAdminPortName,
