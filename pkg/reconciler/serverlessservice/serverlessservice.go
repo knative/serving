@@ -207,24 +207,13 @@ func (r *reconciler) updateStatus(sks *netv1alpha1.ServerlessService) (*netv1alp
 func (r *reconciler) reconcilePublicService(ctx context.Context, sks *netv1alpha1.ServerlessService) error {
 	logger := logging.FromContext(ctx)
 
-	// We need to program the public service to direct traffic to the Activator
-	// until we have serving backends. Thus, regardless of the SKS serving mode,
-	// we should configure service to be backed by Activator, until there are ready pods.
-	psn := names.PrivateService(sks.Name)
-	numBackends, err := presources.FetchReadyAddressCount(r.endpointsLister, sks.Namespace, psn)
-	if err != nil {
-		logger.Errorw("Error counting private endpoints", zap.Error(err))
-		return perrors.Wrapf(err, "error counting private endpoints: %s", psn)
-	}
-	logger.Infof("%s got %d private endpoints", psn, numBackends)
-
 	sn := names.PublicService(sks.Name)
 	srv, err := r.serviceLister.Services(sks.Namespace).Get(sn)
 	if errors.IsNotFound(err) {
 		logger.Infof("K8s service %s does not exist; creating.", sn)
 		// We've just created the service, so it has no endpoints.
 		sks.Status.MarkEndpointsNotReady("CreatingPublicService")
-		srv = resources.MakePublicService(sks, numBackends > 0)
+		srv = resources.MakePublicService(sks)
 		_, err := r.KubeClientSet.CoreV1().Services(sks.Namespace).Create(srv)
 		if err != nil {
 			logger.Errorw(fmt.Sprint("Error creating K8s Service:", sn), zap.Error(err))
@@ -238,7 +227,7 @@ func (r *reconciler) reconcilePublicService(ctx context.Context, sks *netv1alpha
 		sks.Status.MarkEndpointsNotOwned("Service", sn)
 		return fmt.Errorf("SKS: %s does not own Service: %s", sks.Name, sn)
 	} else {
-		tmpl := resources.MakePublicService(sks, numBackends > 0)
+		tmpl := resources.MakePublicService(sks)
 		want := srv.DeepCopy()
 		want.Spec.Ports = tmpl.Spec.Ports
 		want.Spec.Selector = nil

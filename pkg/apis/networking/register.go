@@ -74,3 +74,19 @@ var (
 	// DefaultRetryCount will be set if Attempts not specified.
 	DefaultRetryCount = 3
 )
+
+// The ports we setup on our services.
+const (
+	// ServiceHTTPPort is the port that we setup our Serving and Activator K8s services for
+	// HTTP/1 endpoints.
+	ServiceHTTPPort = 80
+	// ServiceHTTP2Port is the port that we setup our Serving and Activator K8s services for
+	// HTTP/2 endpoints.
+	ServiceHTTP2Port = 81
+
+	// BackendHTTPPort is the backend, i.e. `targetPort` that we setup for HTTP services.
+	BackendHTTPPort = 8012
+
+	// BackendHTTP2Port is the backend, i.e. `targetPort` that we setup for HTTP services.
+	BackendHTTP2Port = 8013
+)

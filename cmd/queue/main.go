@@ -26,6 +26,8 @@ import (
 	"os"
 	"time"
 
+	"github.com/knative/serving/cmd/networking"
+
 	"go.uber.org/zap"
 
 	"github.com/knative/pkg/logging/logkey"
@@ -272,9 +274,12 @@ func main() {
 	timeoutHandler := queue.TimeToFirstByteTimeoutHandler(http.HandlerFunc(handler(reqChan, breaker, httpProxy, h2cProxy)),
 		time.Duration(revisionTimeoutSeconds)*time.Second, "request timeout")
 	composedHandler := pushRequestMetricHandler(pushRequestLogHandler(timeoutHandler))
-	server = h2c.NewServer(fmt.Sprintf(":%d", v1alpha1.RequestQueuePort), composedHandler)
+	// We listen on two ports to match the behavior of activator
+	// so that we don't have to reprogram the k8s services.
+	server := h2c.NewServer(fmt.Sprintf(":%d", networking.BackendHTTPPort), composedHandler)
+	server2 := h2c.NewServer(fmt.Sprintf(":%d", networking.BackendHTTP2Port), composedHandler)
 
-	errChan := make(chan error, 2)
+	errChan := make(chan error, 3)
 	defer close(errChan)
 	// Runs a server created by creator and sends fatal errors to the errChan.
 	// Does not act on the ErrServerClosed error since that indicates we're
@@ -286,6 +291,7 @@ func main() {
 	}
 
 	go catchServerError(server.ListenAndServe)
+	go catchServerError(server2.ListenAndServe)
 	go catchServerError(adminServer.ListenAndServe)
 
 	// Blocks until we actually receive a TERM signal or one of the servers
@@ -299,13 +305,16 @@ func main() {
 	case <-signals.SetupSignalHandler():
 		logger.Info("Received TERM signal, attempting to gracefully shutdown servers.")
 		healthState.Shutdown(func() {
-			// Give istio time to sync our "not ready" state
+			// Give Istio time to sync our "not ready" state.
 			time.Sleep(quitSleepDuration)
 
 			// Calling server.Shutdown() allows pending requests to
 			// complete, while no new work is accepted.
 			if err := server.Shutdown(context.Background()); err != nil {
 				logger.Errorf("Failed to shutdown proxy server", zap.Error(err))
+			}
+			if err := server2.Shutdown(context.Background()); err != nil {
+				logger.Errorf("Failed to shutdown proxy server2", zap.Error(err))
 			}
 		})
 
