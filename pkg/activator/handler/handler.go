@@ -158,10 +158,15 @@ func (a *activationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		Host:   host,
 	}
 
+	_, ccWaitSpan := trace.StartSpan(r.Context(), "capacity_wait")
+	ccWaitStart := time.Now()
 	err = a.throttler.Try(revID, func() {
 		var (
 			httpStatus int
 		)
+
+		ccWaitSpan.End()
+		a.logger.Infof("Waiting for capacity took %v time", time.Since(ccWaitStart))
 
 		success, attempts := a.probeEndpoint(logger, r, target)
 		if success {
@@ -189,6 +194,12 @@ func (a *activationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		a.reporter.ReportResponseTime(namespace, serviceName, configurationName, name, httpStatus, duration)
 	})
 	if err != nil {
+		// Set error on our capacity waiting span and end it
+		ccWaitSpan.Annotate([]trace.Attribute{
+			trace.StringAttribute("activator.throttler.error", err.Error()),
+		}, "CapacityWait")
+		ccWaitSpan.End()
+
 		if err == activator.ErrActivatorOverload {
 			http.Error(w, activator.ErrActivatorOverload.Error(), http.StatusServiceUnavailable)
 		} else {
