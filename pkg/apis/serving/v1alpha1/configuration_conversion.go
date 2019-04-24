@@ -43,7 +43,16 @@ func (source *ConfigurationSpec) ConvertUp(ctx context.Context, sink *v1beta1.Co
 	if source.DeprecatedBuild != nil {
 		return ConvertErrorf("build", "build cannot be migrated forward.")
 	}
-	return source.GetTemplate().ConvertUp(ctx, &sink.Template)
+	switch {
+	case source.DeprecatedRevisionTemplate != nil && source.Template != nil:
+		return apis.ErrMultipleOneOf("revisionTemplate", "template")
+	case source.DeprecatedRevisionTemplate != nil:
+		return source.DeprecatedRevisionTemplate.ConvertUp(ctx, &sink.Template)
+	case source.Template != nil:
+		return source.Template.ConvertUp(ctx, &sink.Template)
+	default:
+		return apis.ErrMissingOneOf("revisionTemplate", "template")
+	}
 }
 
 // ConvertUp helps implement apis.Convertible
