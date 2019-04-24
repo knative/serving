@@ -58,33 +58,43 @@ INSTALL_CUSTOM_YAMLS=""
 
 # Parse our custom flags.
 function parse_flags() {
-  case "$1" in
-    --istio-version)
-      [[ $2 =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || abort "version format must be '[0-9].[0-9].[0-9]'"
-      readonly ISTIO_VERSION=$2
-      return 2
-      ;;
-    --mesh)
-      readonly ISTIO_MESH=1
-      return 1
-      ;;
-    --no-mesh)
-      readonly ISTIO_MESH=0
-      return 1
-      ;;
-    --install-monitoring)
-      readonly INSTALL_MONITORING=1
-      return 1
-      ;;
-    --custom-yamls)
-      [[ -z "$2" ]] && fail_test "Missing argument to --custom-yamls"
-      # Expect a list of comma-separated YAMLs.
-      INSTALL_CUSTOM_YAMLS="${2//,/ }"
-      readonly INSTALL_CUSTOM_YAMLS
-      return 2
-      ;;
-  esac
-  return 0
+  local count=0
+  for (( i=1; i <= "$#"; i++ )); do
+    local parameter=${!i}
+    case ${parameter} in
+      --istio-version)
+        i=$(($i+1))
+        local version=${!i}
+        [[ $value =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || abort "version format must be '[0-9].[0-9].[0-9]'"
+        readonly ISTIO_VERSION=$version
+        count=$(($count+2))
+        ;;
+      --mesh)
+        readonly ISTIO_MESH=1
+        count=$(($count+1))
+        ;;
+      --no-mesh)
+        readonly ISTIO_MESH=0
+        count=$(($count+1))
+        ;;
+      --install-monitoring)
+        readonly INSTALL_MONITORING=1
+        count=$(($count+1))
+        ;;
+      --custom-yamls)
+        i=$(($i+1))
+        local yaml=${!i}
+        [[ -z "$yaml" ]] && fail_test "Missing argument to --custom-yamls"
+        # Expect a list of comma-separated YAMLs.
+        INSTALL_CUSTOM_YAMLS="${yaml//,/ }"
+        readonly INSTALL_CUSTOM_YAMLS
+        count=$(($count+2))
+        ;;
+      *)
+        return $count
+    esac
+  done
+  return $count
 }
 
 # Create all manifests required to install Knative Serving.
