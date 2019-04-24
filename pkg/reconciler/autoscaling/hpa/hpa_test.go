@@ -439,7 +439,6 @@ func pa(name, namespace string, options ...PodAutoscalerOption) *autoscalingv1al
 				Kind:       "Deployment",
 				Name:       name + "-deployment",
 			},
-			ServiceName:  name + "-service",
 			ProtocolType: networking.ProtocolHTTP1,
 		},
 	}

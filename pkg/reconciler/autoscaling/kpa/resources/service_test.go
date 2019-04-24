@@ -49,7 +49,6 @@ func TestMakeService(t *testing.T) {
 				Kind:       "Deployment",
 				Name:       "with-you",
 			},
-			ServiceName: "with-you-service",
 		},
 	}
 	selector := map[string]string{"cant": "stop"}

@@ -27,12 +27,12 @@ import (
 	"github.com/knative/pkg/logging/logkey"
 	"github.com/knative/serving/pkg/activator"
 	"github.com/knative/serving/pkg/activator/util"
+	"github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	pkghttp "github.com/knative/serving/pkg/http"
 	"github.com/knative/serving/pkg/network"
 	"github.com/knative/serving/pkg/queue"
-	"github.com/knative/serving/pkg/reconciler/revision/resources"
 
 	"go.opencensus.io/plugin/ochttp"
 	"go.opencensus.io/trace"
@@ -227,7 +227,7 @@ func (a *ActivationHandler) serviceHostName(rev *v1alpha1.Revision, serviceName 
 	// Search for the appropriate port
 	port := int32(-1)
 	for _, p := range svc.Spec.Ports {
-		if p.Name == resources.ServicePortName(rev) {
+		if p.Name == networking.ServicePortName(rev.GetProtocol()) {
 			port = p.Port
 			break
 		}
