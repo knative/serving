@@ -20,7 +20,6 @@ import (
 	"context"
 	"strconv"
 	"testing"
-	"time"
 
 	caching "github.com/knative/caching/pkg/apis/caching/v1alpha1"
 	"github.com/knative/pkg/apis/duck"
@@ -513,7 +512,6 @@ func TestReconcile(t *testing.T) {
 			kpa("foo", "stable-reconcile-with-build"),
 			build("foo", "the-build", WithSucceededTrue),
 			deploy("foo", "stable-reconcile-with-build"),
-			svc("foo", "stable-reconcile-with-build"),
 			image("foo", "stable-reconcile-with-build"),
 		},
 		// No changes are made to any objects.
@@ -565,8 +563,6 @@ func TestReconcile(t *testing.T) {
 			rev("foo", "steady-ready", withK8sServiceName("very-steady"), WithLogURL),
 			kpa("foo", "steady-ready", WithTraffic, WithPAStatusService("steadier-even")),
 			deploy("foo", "steady-ready"),
-			svc("foo", "steady-ready"),
-			endpoints("foo", "steady-ready", WithSubsets),
 			image("foo", "steady-ready"),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
@@ -587,8 +583,6 @@ func TestReconcile(t *testing.T) {
 				MarkRevisionReady),
 			kpa("foo", "missing-owners", WithTraffic, WithPodAutoscalerOwnersRemoved),
 			deploy("foo", "missing-owners"),
-			svc("foo", "missing-owners"),
-			endpoints("foo", "missing-owners", WithSubsets),
 			image("foo", "missing-owners"),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
@@ -609,8 +603,6 @@ func TestReconcile(t *testing.T) {
 				MarkRevisionReady),
 			kpa("foo", "missing-owners", WithTraffic),
 			noOwner(deploy("foo", "missing-owners")),
-			svc("foo", "missing-owners"),
-			endpoints("foo", "missing-owners", WithSubsets),
 			image("foo", "missing-owners"),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
@@ -916,30 +908,6 @@ func kpa(namespace, name string, ko ...PodAutoscalerOption) *autoscalingv1alpha1
 		opt(k)
 	}
 	return k
-}
-
-func svc(namespace, name string, so ...K8sServiceOption) *corev1.Service {
-	rev := rev(namespace, name)
-	s := resources.MakeK8sService(rev)
-	for _, opt := range so {
-		opt(s)
-	}
-	return s
-}
-
-func endpoints(namespace, name string, eo ...EndpointsOption) *corev1.Endpoints {
-	service := svc(namespace, name)
-	ep := &corev1.Endpoints{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace:         service.Namespace,
-			Name:              service.Name,
-			CreationTimestamp: metav1.Time{time.Now()},
-		},
-	}
-	for _, opt := range eo {
-		opt(ep)
-	}
-	return ep
 }
 
 func pod(namespace, name string, po ...PodOption) *corev1.Pod {

@@ -87,10 +87,9 @@ type PodAutoscalerSpec struct {
 	// is responsible for quickly right-sizing.
 	ScaleTargetRef autoscalingv1.CrossVersionObjectReference `json:"scaleTargetRef"`
 
-	// ServiceName holds the name of a core Kubernetes Service resource that
+	// DeprecatedServiceName holds the name of a core Kubernetes Service resource that
 	// load balances over the pods referenced by the ScaleTargetRef.
-	// TODO(vagababov): deprecate.
-	ServiceName string `json:"serviceName"`
+	DeprecatedServiceName string `json:"serviceName"`
 
 	// The application-layer protocol. Matches `ProtocolType` inferred from the revision spec.
 	ProtocolType net.ProtocolType

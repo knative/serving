@@ -47,7 +47,7 @@ func TestMakeKPA(t *testing.T) {
 				Name:      "bar",
 				UID:       "1234",
 				Annotations: map[string]string{
-					"a":                                     "b",
+					"a": "b",
 					serving.RevisionLastPinnedAnnotationKey: "timeless",
 				},
 			},
@@ -85,7 +85,6 @@ func TestMakeKPA(t *testing.T) {
 					Kind:       "Deployment",
 					Name:       "bar-deployment",
 				},
-				ServiceName:  "bar-service",
 				ProtocolType: networking.ProtocolHTTP1,
 			},
 		},
@@ -135,7 +134,6 @@ func TestMakeKPA(t *testing.T) {
 					Kind:       "Deployment",
 					Name:       "baz-deployment",
 				},
-				ServiceName:  "baz-service",
 				ProtocolType: networking.ProtocolH2C,
 			}},
 	}}

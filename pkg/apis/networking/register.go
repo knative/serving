@@ -16,7 +16,9 @@ limitations under the License.
 
 package networking
 
-import "time"
+import (
+	"time"
+)
 
 const (
 	// GroupName is the name for the networking API group.
@@ -48,6 +50,11 @@ const (
 	// ServiceTypeKey is the label key attached to a service specifying the type of service.
 	// e.g. Public, Metrics
 	ServiceTypeKey = GroupName + "/serviceType"
+
+	// ServicePortNameHTTP1 is the name of the external port of the service for HTTP/1.1
+	ServicePortNameHTTP1 = "http"
+	// ServicePortNameH2C is the name of the external port of the service for HTTP/2
+	ServicePortNameH2C = "http2"
 )
 
 // ServiceType is the enumeration type for the Kubernetes services
@@ -74,3 +81,11 @@ var (
 	// DefaultRetryCount will be set if Attempts not specified.
 	DefaultRetryCount = 3
 )
+
+// ServicePortName returns the port for the app level protocol.
+func ServicePortName(proto ProtocolType) string {
+	if proto == ProtocolH2C {
+		return ServicePortNameH2C
+	}
+	return ServicePortNameHTTP1
+}
