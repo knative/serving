@@ -18,11 +18,14 @@ package testing
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 
 	logtesting "github.com/knative/pkg/logging/testing"
 	autoscalingv1 "k8s.io/api/autoscaling/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	fakedynamicclientset "k8s.io/client-go/dynamic/fake"
@@ -88,7 +91,47 @@ func MakeFactory(ctor Ctor) Factory {
 		sharedClient := fakesharedclientset.NewSimpleClientset(ls.GetSharedObjects()...)
 		client := fakeclientset.NewSimpleClientset(ls.GetServingObjects()...)
 
-		dynamicClient := fakedynamicclientset.NewSimpleDynamicClient(NewScheme(), r.Objects...)
+		sch := NewScheme()
+
+		// We must pass objects as Unstructured to the dynamic client fake, or it
+		// won't handle them properly.
+		us := []runtime.Object{}
+		for _, obj := range r.Objects {
+			obj = obj.DeepCopyObject() // Don't mess with the primary copy
+			// Determine and set the TypeMeta for this object based on our test scheme.
+			gvks, _, err := sch.ObjectKinds(obj)
+			if err != nil {
+				t.Fatalf("Unable to determine kind for type: %v", err)
+			}
+			apiv, k := gvks[0].ToAPIVersionAndKind()
+			ta, err := meta.TypeAccessor(obj)
+			if err != nil {
+				t.Fatalf("Unable to create type accessor: %v", err)
+			}
+			ta.SetAPIVersion(apiv)
+			ta.SetKind(k)
+
+			b, err := json.Marshal(obj)
+			if err != nil {
+				t.Fatalf("Unable to marshal: %v", err)
+			}
+			u := &unstructured.Unstructured{}
+			if err := json.Unmarshal(b, u); err != nil {
+				t.Fatalf("Unable to unmarshal: %v", err)
+			}
+			us = append(us, u)
+		}
+
+		dynamicClient := fakedynamicclientset.NewSimpleDynamicClient(sch, us...)
+
+		// The dynamic client's support for patching is BS.  Implement it
+		// here via PrependReactor (this can be overridden below by the
+		// provided reactors).
+		dynamicClient.PrependReactor("patch", "*",
+			func(action ktesting.Action) (bool, runtime.Object, error) {
+				return true, nil, nil
+			})
+
 		cachingClient := fakecachingclientset.NewSimpleClientset(ls.GetCachingObjects()...)
 		eventRecorder := record.NewFakeRecorder(maxEventBufferSize)
 		statsReporter := &FakeStatsReporter{}
