@@ -123,7 +123,7 @@ func main() {
 		serviceInformer.Informer(),
 		sksInformer.Informer(),
 	); err != nil {
-		logger.Fatalf("Failed to start informers: %v", err)
+		logger.Fatalw("Failed to start informers", err)
 	}
 
 	go controller.StartAll(stopCh, controllers...)
@@ -162,11 +162,11 @@ func main() {
 func setupLogger() (*zap.SugaredLogger, zap.AtomicLevel) {
 	loggingConfigMap, err := configmap.Load("/etc/config-logging")
 	if err != nil {
-		log.Fatalf("Error loading logging configuration: %v", err)
+		log.Fatal("Error loading logging configuration:", err)
 	}
 	loggingConfig, err := logging.NewConfigFromMap(loggingConfigMap)
 	if err != nil {
-		log.Fatalf("Error parsing logging configuration: %v", err)
+		log.Fatal("Error parsing logging configuration:", err)
 	}
 	return logging.NewLoggerFromConfig(loggingConfig, component)
 }
@@ -203,7 +203,7 @@ func uniScalerFactoryFunc(endpointsInformer corev1informers.EndpointsInformer) f
 
 		return autoscaler.New(dynamicConfig, decider.Namespace,
 			k8SSvcName, endpointsInformer,
-			decider.Spec.TargetConcurrency, reporter)
+			decider.Spec, reporter)
 	}
 }
 

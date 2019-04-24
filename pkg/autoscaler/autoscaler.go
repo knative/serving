@@ -105,9 +105,9 @@ type Autoscaler struct {
 	panicTime    *time.Time
 	maxPanicPods int32
 
-	// targetMutex guards the elements in the block below.
-	targetMutex sync.RWMutex
-	target      float64
+	// specMux guards the elements in the block below.
+	specMux     sync.RWMutex
+	deciderSpec DeciderSpec
 
 	// statsMutex guards the elements in the block below.
 	statsMutex sync.Mutex
@@ -120,7 +120,7 @@ func New(
 	namespace string,
 	revisionService string,
 	endpointsInformer corev1informers.EndpointsInformer,
-	target float64,
+	deciderSpec DeciderSpec,
 	reporter StatsReporter) (*Autoscaler, error) {
 	if endpointsInformer == nil {
 		return nil, errors.New("'endpointsEnformer' must not be nil")
@@ -137,17 +137,17 @@ func New(
 		namespace:       namespace,
 		revisionService: revisionService,
 		endpointsLister: endpointsInformer.Lister(),
-		target:          target,
+		deciderSpec:     deciderSpec,
 		bucketed:        make(map[time.Time]statsBucket),
 		reporter:        reporter,
 	}, nil
 }
 
 // Update reconfigures the UniScaler according to the DeciderSpec.
-func (a *Autoscaler) Update(spec DeciderSpec) error {
-	a.targetMutex.Lock()
-	defer a.targetMutex.Unlock()
-	a.target = spec.TargetConcurrency
+func (a *Autoscaler) Update(deciderSpec DeciderSpec) error {
+	a.specMux.Lock()
+	defer a.specMux.Unlock()
+	a.deciderSpec = deciderSpec
 	return nil
 }
 
@@ -175,6 +175,8 @@ func (a *Autoscaler) Record(ctx context.Context, stat Stat) {
 func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (int32, bool) {
 	logger := logging.FromContext(ctx)
 
+	spec := a.currentSpec()
+
 	originalReadyPodsCount, err := resources.FetchReadyAddressCount(a.endpointsLister, a.namespace, a.revisionService)
 	if err != nil {
 		// If the error is NotFound, then presume 0.
@@ -186,9 +188,7 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (int32, bool) {
 	// Use 1 if there are zero current pods.
 	readyPodsCount := math.Max(1, float64(originalReadyPodsCount))
 
-	config := a.Current()
-
-	observedStableConcurrency, observedPanicConcurrency, lastBucket := a.aggregateData(now, config.StableWindow, config.PanicWindow)
+	observedStableConcurrency, observedPanicConcurrency, lastBucket := a.aggregateData(now, spec.MetricSpec.StableWindow, spec.MetricSpec.PanicWindow)
 	if len(a.bucketed) == 0 {
 		logger.Debug("No data to scale on.")
 		return 0, false
@@ -197,27 +197,26 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (int32, bool) {
 	// Log system totals.
 	logger.Debugf("Current concurrent clients: %0.3f", lastBucket.concurrency())
 
-	target := a.targetConcurrency()
 	// Desired pod count is observed concurrency of the revision over desired (stable) concurrency per pod.
 	// The scaling up rate is limited to the MaxScaleUpRate.
-	desiredStablePodCount := a.podCountLimited(math.Ceil(observedStableConcurrency/target), readyPodsCount)
-	desiredPanicPodCount := a.podCountLimited(math.Ceil(observedPanicConcurrency/target), readyPodsCount)
+	desiredStablePodCount := a.podCountLimited(math.Ceil(observedStableConcurrency/spec.TargetConcurrency), readyPodsCount)
+	desiredPanicPodCount := a.podCountLimited(math.Ceil(observedPanicConcurrency/spec.TargetConcurrency), readyPodsCount)
 
 	a.reporter.ReportStableRequestConcurrency(observedStableConcurrency)
 	a.reporter.ReportPanicRequestConcurrency(observedPanicConcurrency)
-	a.reporter.ReportTargetRequestConcurrency(target)
+	a.reporter.ReportTargetRequestConcurrency(spec.TargetConcurrency)
 
-	logger.Debugf("STABLE: Observed average %0.3f concurrency over %v seconds.", observedStableConcurrency, config.StableWindow)
-	logger.Debugf("PANIC: Observed average %0.3f concurrency over %v seconds.", observedPanicConcurrency, config.PanicWindow)
+	logger.Debugf("STABLE: Observed average %0.3f concurrency over %v seconds.", observedStableConcurrency, spec.MetricSpec.StableWindow)
+	logger.Debugf("PANIC: Observed average %0.3f concurrency over %v seconds.", observedPanicConcurrency, spec.MetricSpec.PanicWindow)
 
-	isOverPanicThreshold := observedPanicConcurrency/readyPodsCount >= target*2
+	isOverPanicThreshold := observedPanicConcurrency/readyPodsCount >= spec.PanicThreshold
 
 	if a.panicTime == nil && isOverPanicThreshold {
 		// Begin panicking when we cross the concurrency threshold in the panic window.
 		logger.Info("PANICKING")
 		a.panicTime = &now
 		a.reporter.ReportPanic(1)
-	} else if a.panicTime != nil && !isOverPanicThreshold && a.panicTime.Add(config.StableWindow).Before(now) {
+	} else if a.panicTime != nil && !isOverPanicThreshold && a.panicTime.Add(spec.MetricSpec.StableWindow).Before(now) {
 		// Stop panicking after the surge has made its way into the stable metric.
 		logger.Info("Un-panicking.")
 		a.panicTime = nil
@@ -242,6 +241,12 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (int32, bool) {
 
 	a.reporter.ReportDesiredPodCount(int64(desiredPodCount))
 	return desiredPodCount, true
+}
+
+func (a *Autoscaler) currentSpec() DeciderSpec {
+	a.specMux.RLock()
+	defer a.specMux.RUnlock()
+	return a.deciderSpec
 }
 
 // aggregateData aggregates bucketed stats over the stableWindow and panicWindow
@@ -288,12 +293,6 @@ func (a *Autoscaler) aggregateData(now time.Time, stableWindow, panicWindow time
 	}
 
 	return stableConcurrency, panicConcurrency, lastBucket
-}
-
-func (a *Autoscaler) targetConcurrency() float64 {
-	a.targetMutex.RLock()
-	defer a.targetMutex.RUnlock()
-	return a.target
 }
 
 func (a *Autoscaler) podCountLimited(desiredPodCount, currentPodCount float64) int32 {

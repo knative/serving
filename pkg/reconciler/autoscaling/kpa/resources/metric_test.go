@@ -19,11 +19,13 @@ package resources
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/knative/serving/pkg/apis/autoscaling"
 	"github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/autoscaler"
+	. "github.com/knative/serving/pkg/reconciler/testing"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -36,6 +38,18 @@ func TestMakeMetric(t *testing.T) {
 		name: "defaults",
 		pa:   pa(),
 		want: metric(),
+	}, {
+		name: "with longer stable window, no panic window percentage, defaults to 10%",
+		pa:   pa(WithWindowAnnotation("10m")),
+		want: metric(
+			withStableWindow(10*time.Minute), withPanicWindow(time.Minute),
+			withWindowAnnotation("10m")),
+	}, {
+		name: "with longer panic window percentage",
+		pa:   pa(WithPanicWindowPercentageAnnotation("50")),
+		want: metric(
+			withStableWindow(time.Minute), withPanicWindow(30*time.Second),
+			withPanicWindowPercentageAnnotation("50")),
 	}}
 
 	for _, tc := range cases {
@@ -47,8 +61,34 @@ func TestMakeMetric(t *testing.T) {
 	}
 }
 
-func metric() *autoscaler.Metric {
-	return &autoscaler.Metric{
+type MetricOption func(*autoscaler.Metric)
+
+func withStableWindow(window time.Duration) MetricOption {
+	return func(metric *autoscaler.Metric) {
+		metric.Spec.StableWindow = window
+	}
+}
+
+func withPanicWindow(window time.Duration) MetricOption {
+	return func(metric *autoscaler.Metric) {
+		metric.Spec.PanicWindow = window
+	}
+}
+
+func withWindowAnnotation(window string) MetricOption {
+	return func(metric *autoscaler.Metric) {
+		metric.Annotations[autoscaling.WindowAnnotationKey] = window
+	}
+}
+
+func withPanicWindowPercentageAnnotation(percentage string) MetricOption {
+	return func(metric *autoscaler.Metric) {
+		metric.Annotations[autoscaling.PanicWindowPercentageAnnotationKey] = percentage
+	}
+}
+
+func metric(options ...MetricOption) *autoscaler.Metric {
+	m := &autoscaler.Metric{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: "test-namespace",
 			Name:      "test-name",
@@ -56,5 +96,13 @@ func metric() *autoscaler.Metric {
 				autoscaling.ClassAnnotationKey: autoscaling.KPA,
 			},
 		},
+		Spec: autoscaler.MetricSpec{
+			StableWindow: autoscaler.DefaultStableWindow,
+			PanicWindow:  6 * time.Second,
+		},
 	}
+	for _, fn := range options {
+		fn(m)
+	}
+	return m
 }

@@ -50,11 +50,11 @@ func main() {
 	// Set up our logger.
 	loggingConfigMap, err := configmap.Load("/etc/config-logging")
 	if err != nil {
-		log.Fatalf("Error loading logging configuration: %v", err)
+		log.Fatal("Error loading logging configuration:", err)
 	}
 	loggingConfig, err := logging.NewConfigFromMap(loggingConfigMap)
 	if err != nil {
-		log.Fatalf("Error parsing logging configuration: %v", err)
+		log.Fatal("Error parsing logging configuration:", err)
 	}
 	logger, atomicLevel := logging.NewLoggerFromConfig(loggingConfig, component)
 	defer logger.Sync()

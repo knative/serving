@@ -131,6 +131,78 @@ func TestRevisionDefaulting(t *testing.T) {
 			},
 		},
 	}, {
+		name: "lemonade",
+		wc:   v1beta1.WithUpgradeViaDefaulting,
+		in: &Revision{
+			Spec: RevisionSpec{
+				DeprecatedContainer: &corev1.Container{
+					Image: "foo",
+					VolumeMounts: []corev1.VolumeMount{{
+						Name: "bar",
+					}},
+				},
+				RevisionSpec: v1beta1.RevisionSpec{
+					ContainerConcurrency: 1,
+					TimeoutSeconds:       ptr.Int64(99),
+				},
+			},
+		},
+		want: &Revision{
+			Spec: RevisionSpec{
+				RevisionSpec: v1beta1.RevisionSpec{
+					PodSpec: v1beta1.PodSpec{
+						Containers: []corev1.Container{{
+							Image: "foo",
+							VolumeMounts: []corev1.VolumeMount{{
+								Name:     "bar",
+								ReadOnly: true,
+							}},
+							Resources: defaultResources,
+						}},
+					},
+					ContainerConcurrency: 1,
+					TimeoutSeconds:       ptr.Int64(99),
+				},
+			},
+		},
+	}, {
+		name: "lemonade (no overwrite)",
+		wc:   v1beta1.WithUpgradeViaDefaulting,
+		in: &Revision{
+			Spec: RevisionSpec{
+				DeprecatedContainer: &corev1.Container{
+					Image: "bar",
+				},
+				RevisionSpec: v1beta1.RevisionSpec{
+					ContainerConcurrency: 1,
+					TimeoutSeconds:       ptr.Int64(99),
+					PodSpec: v1beta1.PodSpec{
+						Containers: []corev1.Container{{
+							Image:     "foo",
+							Resources: defaultResources,
+						}},
+					},
+				},
+			},
+		},
+		want: &Revision{
+			Spec: RevisionSpec{
+				DeprecatedContainer: &corev1.Container{
+					Image: "bar",
+				},
+				RevisionSpec: v1beta1.RevisionSpec{
+					ContainerConcurrency: 1,
+					TimeoutSeconds:       ptr.Int64(99),
+					PodSpec: v1beta1.PodSpec{
+						Containers: []corev1.Container{{
+							Image:     "foo",
+							Resources: defaultResources,
+						}},
+					},
+				},
+			},
+		},
+	}, {
 		name: "no overwrite",
 		in: &Revision{
 			Spec: RevisionSpec{
