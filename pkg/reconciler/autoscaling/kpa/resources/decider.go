@@ -49,10 +49,6 @@ func MakeDecider(ctx context.Context, pa *v1alpha1.PodAutoscaler, config *autosc
 		// Fall back on cluster config.
 		panicThresholdPercentage = config.PanicThresholdPercentage
 	}
-	if panicThresholdPercentage == 0.0 {
-		// Fall back on a hard coded value.
-		panicThresholdPercentage = 200
-	}
 	panicThreshold := target * panicThresholdPercentage / 100.0
 	// TODO: remove MetricSpec when the custom metrics adapter implements Metric.
 	metricSpec := MakeMetric(ctx, pa, config).Spec

@@ -146,7 +146,9 @@ var config = &autoscaler.Config{
 	ContainerConcurrencyTargetDefault:    100.0,
 	MaxScaleUpRate:                       10.0,
 	StableWindow:                         60 * time.Second,
+	PanicThresholdPercentage:             200,
 	PanicWindow:                          6 * time.Second,
+	PanicWindowPercentage:                10,
 	TickInterval:                         2 * time.Second,
 	ScaleToZeroGracePeriod:               30 * time.Second,
 }
