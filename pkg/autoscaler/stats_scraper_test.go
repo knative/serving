@@ -68,51 +68,39 @@ func TestNewServiceScraperWithClient_ErrorCases(t *testing.T) {
 	invalidMetric := getTestMetric()
 	invalidMetric.Labels = map[string]string{}
 	client := newTestScrapeClient(testStats, []error{nil})
-	samClient := &fakeSampleClient{}
 	lister := kubeInformer.Core().V1().Endpoints().Lister()
 	testCases := []struct {
 		name        string
 		metric      *Metric
 		client      scrapeClient
-		samClient   SampleClient
 		lister      corev1listers.EndpointsLister
 		expectedErr string
 	}{{
 		name:        "Empty Decider",
 		client:      client,
-		samClient:   samClient,
 		lister:      lister,
 		expectedErr: "metric must not be nil",
 	}, {
 		name:        "Missing revision label in Decider",
 		metric:      invalidMetric,
 		client:      client,
-		samClient:   samClient,
 		lister:      lister,
 		expectedErr: "no Revision label found for Metric test-revision",
 	}, {
 		name:        "Empty scrape client",
 		metric:      metric,
-		samClient:   samClient,
 		lister:      lister,
 		expectedErr: "scrape client must not be nil",
 	}, {
 		name:        "Empty lister",
 		metric:      metric,
-		samClient:   samClient,
 		client:      client,
 		expectedErr: "endpoints lister must not be nil",
-	}, {
-		name:        "Empty sample client",
-		metric:      metric,
-		client:      client,
-		lister:      lister,
-		expectedErr: "sample client must not be nil",
 	}}
 
 	for _, test := range testCases {
 		t.Run(test.name, func(t *testing.T) {
-			if _, err := newServiceScraperWithClient(test.metric, test.lister, test.client, test.samClient); err != nil {
+			if _, err := newServiceScraperWithClient(test.metric, test.lister, test.client); err != nil {
 				got := err.Error()
 				want := test.expectedErr
 				if got != want {
@@ -231,27 +219,6 @@ func TestScrape_PopulateErrorFromScrapeClient(t *testing.T) {
 	}
 }
 
-func TestScrape_PopulateErrorFromScrapeClient(t *testing.T) {
-	errMsg := "test"
-	client := newTestScrapeClient(testStats, errors.New(errMsg))
-	scraper, err := serviceScraperForTest(client)
-	if err != nil {
-		t.Fatalf("newServiceScraperWithClient=%v, want no error", err)
-	}
-
-	// Make an Endpoints with 2 pods.
-	createEndpoints(addIps(makeEndpoints(), 2))
-
-	if _, err := scraper.Scrape(); err != nil {
-		if got, want := err.Error(), errMsg; got != want {
-			t.Errorf("Got error message: %v. Want: %v", got, want)
-		}
-	} else {
-		t.Error("Expected an error from scraper.Scrape() but got none")
-	}
-
-}
-
 func TestScrape_DoNotScrapeIfNoPodsFound(t *testing.T) {
 	client := newTestScrapeClient(testStats, nil)
 	scraper, err := serviceScraperForTest(client)
@@ -273,7 +240,7 @@ func TestScrape_DoNotScrapeIfNoPodsFound(t *testing.T) {
 
 func serviceScraperForTest(sClient scrapeClient) (*ServiceScraper, error) {
 	metric := getTestMetric()
-	return newServiceScraperWithClient(metric, kubeInformer.Core().V1().Endpoints().Lister(), sClient, fullPopulation)
+	return newServiceScraperWithClient(metric, kubeInformer.Core().V1().Endpoints().Lister(), sClient)
 }
 
 func getTestMetric() *Metric {
@@ -307,8 +274,4 @@ func (c *fakeScrapeClient) Scrape(url string) (*Stat, error) {
 	err := c.errs[c.i%len(c.errs)]
 	c.i++
 	return ans, err
-}
-
-func fullPopulation(population int) int {
-	return population
 }

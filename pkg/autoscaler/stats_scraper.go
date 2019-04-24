@@ -25,7 +25,6 @@ import (
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/reconciler/autoscaling/kpa/resources/names"
 	"github.com/knative/serving/pkg/resources"
-	"github.com/knative/serving/pkg/sampling"
 	"github.com/pkg/errors"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 )
@@ -40,6 +39,8 @@ const (
 	// scraper or the activator.
 	scraperPodName = "service-scraper"
 
+	// samplingSuccessRate is the threshold to decide whether the results of a batch
+	// of scrape requests can be used.
 	samplingSuccessRate = 0.8
 )
 
@@ -91,14 +92,13 @@ func NewServiceScraper(metric *Metric, endpointsLister corev1listers.EndpointsLi
 	if err != nil {
 		return nil, err
 	}
-	return newServiceScraperWithClient(metric, endpointsLister, sClient, sampling.NewPopulationSampleClient())
+	return newServiceScraperWithClient(metric, endpointsLister, sClient)
 }
 
 func newServiceScraperWithClient(
 	metric *Metric,
 	endpointsLister corev1listers.EndpointsLister,
-	sClient scrapeClient,
-	sampleSizeFunc SampleSizeFunc) (*ServiceScraper, error) {
+	sClient scrapeClient) (*ServiceScraper, error) {
 	if metric == nil {
 		return nil, errors.New("metric must not be nil")
 	}
@@ -108,9 +108,6 @@ func newServiceScraperWithClient(
 	if sClient == nil {
 		return nil, errors.New("scrape client must not be nil")
 	}
-	if sampleSizeFunc == nil {
-		return nil, errors.New("sample size function must not be nil")
-	}
 	revName := metric.Labels[serving.RevisionLabelKey]
 	if revName == "" {
 		return nil, fmt.Errorf("no Revision label found for Metric %s", metric.Name)
@@ -119,7 +116,6 @@ func newServiceScraperWithClient(
 	serviceName := names.MetricsServiceName(revName)
 	return &ServiceScraper{
 		sClient:             sClient,
-		sampleSizeFunc:      sampleSizeFunc,
 		endpointsLister:     endpointsLister,
 		url:                 fmt.Sprintf("http://%s.%s:%d/metrics", serviceName, metric.Namespace, v1alpha1.RequestQueueMetricsPort),
 		metricKey:           NewMetricKey(metric.Namespace, metric.Name),
@@ -140,36 +136,36 @@ func (s *ServiceScraper) Scrape() (*StatMessage, error) {
 		return nil, nil
 	}
 
-	sampleSize := s.sampleSizeFunc(readyPodsCount)
+	sampleSize := populationMeanSampleSize(readyPodsCount)
 
-	var avgCon float64
-	var avgProxiedCon float64
-	var reqC int32
-	var proxiedReqC int32
-	var sussC float64
-	var errRec error
+	var avgConcurrency float64
+	var avgProxiedConcurrency float64
+	var reqCount int32
+	var proxiedReqCount int32
+	var successCount float64
+	var errRecord error
 	for i := 0; i < sampleSize; i++ {
 		stat, err := s.sClient.Scrape(s.url)
 		if err != nil {
-			errRec = err
+			errRecord = err
 			continue
 		}
 
-		sussC++
-		avgCon += stat.AverageConcurrentRequests
-		avgProxiedCon += stat.AverageProxiedConcurrentRequests
-		reqC += stat.RequestCount
-		proxiedReqC += stat.ProxiedRequestCount
+		successCount++
+		avgConcurrency += stat.AverageConcurrentRequests
+		avgProxiedConcurrency += stat.AverageProxiedConcurrentRequests
+		reqCount += stat.RequestCount
+		proxiedReqCount += stat.ProxiedRequestCount
 	}
 
-	if sussC/float64(sampleSize) < samplingSuccessRate {
-		return nil, errRec
+	if successCount/float64(sampleSize) < samplingSuccessRate {
+		return nil, errRecord
 	}
 
-	avgCon = avgCon / sussC
-	avgProxiedCon = avgProxiedCon / sussC
-	reqC = int32(float64(reqC) / sussC)
-	proxiedReqC = int32(float64(proxiedReqC) / sussC)
+	avgConcurrency = avgConcurrency / successCount
+	avgProxiedConcurrency = avgProxiedConcurrency / successCount
+	reqCount = int32(float64(reqCount) / successCount)
+	proxiedReqCount = int32(float64(proxiedReqCount) / successCount)
 	now := time.Now()
 
 	// Assumptions:
@@ -184,10 +180,10 @@ func (s *ServiceScraper) Scrape() (*StatMessage, error) {
 	extrapolatedStat := Stat{
 		Time:                             &now,
 		PodName:                          scraperPodName,
-		AverageConcurrentRequests:        avgCon * float64(readyPodsCount),
-		AverageProxiedConcurrentRequests: avgProxiedCon * float64(readyPodsCount),
-		RequestCount:                     reqC * int32(readyPodsCount),
-		ProxiedRequestCount:              proxiedReqC * int32(readyPodsCount),
+		AverageConcurrentRequests:        avgConcurrency * float64(readyPodsCount),
+		AverageProxiedConcurrentRequests: avgProxiedConcurrency * float64(readyPodsCount),
+		RequestCount:                     reqCount * int32(readyPodsCount),
+		ProxiedRequestCount:              proxiedReqCount * int32(readyPodsCount),
 	}
 
 	return &StatMessage{
