@@ -245,7 +245,7 @@ func TestRevisionConversionError(t *testing.T) {
 		},
 		want: apis.ErrMultipleOneOf("containers"),
 	}, {
-		name: "multiple containers in podspec",
+		name: "no containers in podspec",
 		in: &Revision{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:       "asdf",
