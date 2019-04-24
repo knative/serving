@@ -16,6 +16,8 @@ limitations under the License.
 
 package autoscaling
 
+import "time"
+
 const (
 	InternalGroupName = "autoscaling.internal.knative.dev"
 
@@ -66,14 +68,14 @@ const (
 	// Only the kpa.autoscaling.knative.dev class autoscaler supports
 	// the window annotation.
 	WindowAnnotationKey = GroupName + "/window"
-	// WindowMinSeconds is the minimum allowable stable autoscaling
+	// WindowMin is the minimum allowable stable autoscaling
 	// window. KPA-class autoscalers calculate the desired replica
 	// count every 2 seconds (tick-interval in config-autoscaler) so
 	// the closer the window gets to that value, the more likely data
 	// points will be missed entirely by the panic window which is
 	// smaller than the stable window. Anything less than 6 second
 	// isn't going to work well.
-	WindowMinSeconds = 6
+	WindowMin = 6 * time.Second
 
 	// PanicWindowPercentageAnnotationKey is the annotation to
 	// specify the time interval over which to calculate the average

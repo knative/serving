@@ -94,7 +94,7 @@ func (pa *PodAutoscaler) Window() (window time.Duration, ok bool) {
 		if err != nil {
 			return 0, false
 		}
-		if d < autoscaling.WindowMinSeconds*time.Second {
+		if d < autoscaling.WindowMin {
 			return 0, false
 		}
 		return d, true
