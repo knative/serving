@@ -56,12 +56,9 @@ type scrapeClient interface {
 	Scrape(url string) (*Stat, error)
 }
 
-// SampleClient defines the interface for getting a sample size for a given
+// SampleSizeFunc is the function for getting a sample size for a given
 // population.
-type SampleClient interface {
-	// SampleSize returns the sample size of the given population.
-	SampleSize(population int) int
-}
+type SampleSizeFunc func(int) int
 
 // cacheDisabledClient is a http client with cache disabled. It is shared by
 // every goruntime for a revision scraper.
@@ -79,7 +76,7 @@ var cacheDisabledClient = &http.Client{
 // for details.
 type ServiceScraper struct {
 	sClient             scrapeClient
-	samClient           SampleClient
+	sampleSizeFunc      SampleSizeFunc
 	endpointsLister     corev1listers.EndpointsLister
 	url                 string
 	namespace           string
@@ -101,7 +98,7 @@ func newServiceScraperWithClient(
 	metric *Metric,
 	endpointsLister corev1listers.EndpointsLister,
 	sClient scrapeClient,
-	samClient SampleClient) (*ServiceScraper, error) {
+	sampleSizeFunc SampleSizeFunc) (*ServiceScraper, error) {
 	if metric == nil {
 		return nil, errors.New("metric must not be nil")
 	}
@@ -111,8 +108,8 @@ func newServiceScraperWithClient(
 	if sClient == nil {
 		return nil, errors.New("scrape client must not be nil")
 	}
-	if samClient == nil {
-		return nil, errors.New("sample client must not be nil")
+	if sampleSizeFunc == nil {
+		return nil, errors.New("sample size function must not be nil")
 	}
 	revName := metric.Labels[serving.RevisionLabelKey]
 	if revName == "" {
@@ -122,7 +119,7 @@ func newServiceScraperWithClient(
 	serviceName := names.MetricsServiceName(revName)
 	return &ServiceScraper{
 		sClient:             sClient,
-		samClient:           samClient,
+		sampleSizeFunc:      sampleSizeFunc,
 		endpointsLister:     endpointsLister,
 		url:                 fmt.Sprintf("http://%s.%s:%d/metrics", serviceName, metric.Namespace, v1alpha1.RequestQueueMetricsPort),
 		metricKey:           NewMetricKey(metric.Namespace, metric.Name),
@@ -143,7 +140,7 @@ func (s *ServiceScraper) Scrape() (*StatMessage, error) {
 		return nil, nil
 	}
 
-	sampleSize := s.samClient.SampleSize(readyPodsCount)
+	sampleSize := s.sampleSizeFunc(readyPodsCount)
 
 	var avgCon float64
 	var avgProxiedCon float64

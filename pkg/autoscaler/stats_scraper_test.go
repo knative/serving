@@ -273,7 +273,7 @@ func TestScrape_DoNotScrapeIfNoPodsFound(t *testing.T) {
 
 func serviceScraperForTest(sClient scrapeClient) (*ServiceScraper, error) {
 	metric := getTestMetric()
-	return newServiceScraperWithClient(metric, kubeInformer.Core().V1().Endpoints().Lister(), sClient, &fakeSampleClient{})
+	return newServiceScraperWithClient(metric, kubeInformer.Core().V1().Endpoints().Lister(), sClient, fullPopulation)
 }
 
 func getTestMetric() *Metric {
@@ -309,9 +309,6 @@ func (c *fakeScrapeClient) Scrape(url string) (*Stat, error) {
 	return ans, err
 }
 
-type fakeSampleClient struct{}
-
-// SampleSize return the given population as sample size.
-func (c *fakeSampleClient) SampleSize(population int) int {
+func fullPopulation(population int) int {
 	return population
 }
