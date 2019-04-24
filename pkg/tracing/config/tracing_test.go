@@ -64,16 +64,18 @@ func TestNewConfigFromMap(t *testing.T) {
 	}, {
 		name: "Everything enabled",
 		input: map[string]string{
-			enableKey:         "true",
-			zipkinEndpointKey: "some-endpoint",
-			debugKey:          "true",
-			sampleRateKey:     "0.5",
+			enableKey:              "true",
+			zipkinEndpointKey:      "some-endpoint",
+			debugKey:               "true",
+			sampleRateKey:          "0.5",
+			kubeResourceTracingKey: "true",
 		},
 		output: Config{
-			Enable:         true,
-			Debug:          true,
-			ZipkinEndpoint: "some-endpoint",
-			SampleRate:     0.5,
+			Enable:              true,
+			Debug:               true,
+			ZipkinEndpoint:      "some-endpoint",
+			SampleRate:          0.5,
+			KubeResourceTracing: true,
 		},
 	}}
 

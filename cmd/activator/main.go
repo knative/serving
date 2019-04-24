@@ -227,6 +227,7 @@ func main() {
 		revisionInformer.Lister(),
 		serviceInformer.Lister(),
 		sksInformer.Lister(),
+		kubeClient,
 	)
 	ah = activatorhandler.NewRequestEventHandler(reqChan, ah)
 	ah = tracing.HTTPSpanMiddleware(ah)

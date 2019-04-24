@@ -49,3 +49,7 @@ data:
 
     # Percentage (0-1) of requests to trace
     sample-rate: "0.1"
+
+    # Enable tracing of kubernetes resources where possible.
+    # NOTE: This can have significant performance impact
+    kube-resource-tracing: "false"

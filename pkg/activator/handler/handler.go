@@ -29,6 +29,7 @@ import (
 
 	"github.com/knative/pkg/logging/logkey"
 	"github.com/knative/serving/pkg/activator"
+	"github.com/knative/serving/pkg/activator/config"
 	"github.com/knative/serving/pkg/activator/util"
 	"github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/serving"
@@ -39,19 +40,23 @@ import (
 	"github.com/knative/serving/pkg/network"
 	"github.com/knative/serving/pkg/network/prober"
 	"github.com/knative/serving/pkg/queue"
+	"github.com/knative/serving/pkg/tracing"
 
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/kubernetes"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
 // activationHandler will wait for an active endpoint for a revision
 // to be available before proxing the request
 type activationHandler struct {
-	logger    *zap.SugaredLogger
-	transport http.RoundTripper
-	reporter  activator.StatsReporter
-	throttler *activator.Throttler
+	logger     *zap.SugaredLogger
+	transport  http.RoundTripper
+	reporter   activator.StatsReporter
+	throttler  *activator.Throttler
+	kubeClient kubernetes.Interface
 
 	probeTimeout time.Duration
 
@@ -66,7 +71,7 @@ const defaulTimeout = 2 * time.Minute
 // New constructs a new http.Handler that deals with revision activation.
 func New(l *zap.SugaredLogger, r activator.StatsReporter, t *activator.Throttler,
 	rl servinglisters.RevisionLister, sl corev1listers.ServiceLister,
-	sksL netlisters.ServerlessServiceLister) http.Handler {
+	sksL netlisters.ServerlessServiceLister, kubeClient kubernetes.Interface) http.Handler {
 
 	// In activator we collect metrics, so we're wrapping
 	// the Roundtripper the prober would use inside annotating transport.
@@ -80,6 +85,7 @@ func New(l *zap.SugaredLogger, r activator.StatsReporter, t *activator.Throttler
 		transport:      network.AutoTransport,
 		reporter:       r,
 		throttler:      t,
+		kubeClient:     kubeClient,
 		revisionLister: rl,
 		sksLister:      sksL,
 		serviceLister:  sl,
@@ -158,8 +164,26 @@ func (a *activationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		Host:   host,
 	}
 
-	_, ccWaitSpan := trace.StartSpan(r.Context(), "capacity_wait")
+	ccWaitCtx, ccWaitSpan := trace.StartSpan(r.Context(), "capacity_wait")
 	ccWaitStart := time.Now()
+
+	// Setup k8s resource tracking if configured and our span is sampled
+	config := config.FromContext(r.Context())
+	if config.Tracing.DoKubeResourceTracing() && ccWaitSpan.SpanContext().IsSampled() {
+		lo := metav1.ListOptions{LabelSelector: fmt.Sprintf("app=%s", name)}
+		watch, err := a.kubeClient.CoreV1().Pods(namespace).Watch(lo)
+		if err != nil {
+			logger.Errorw("Failed to set up pod watch for tracing", zap.Error(err))
+		} else {
+			defer watch.Stop()
+
+			stopCh := make(chan struct{})
+			defer close(stopCh)
+
+			go tracing.TracePodStartup(ccWaitCtx, stopCh, watch.ResultChan())
+		}
+	}
+
 	err = a.throttler.Try(revID, func() {
 		var (
 			httpStatus int
