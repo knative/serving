@@ -72,7 +72,7 @@ type reconciler struct {
 }
 
 // podScalableTypedInformerFactory returns a duck.InformerFactory that returns
-// liaster/informer pairs for PodScalable resources.
+// lister/informer pairs for PodScalable resources.
 func podScalableTypedInformerFactory(opt rbase.Options) duck.InformerFactory {
 	return &duck.TypedInformerFactory{
 		Client:       opt.DynamicClientSet,
@@ -430,7 +430,7 @@ func (r *reconciler) getScaleResource(sks *netv1alpha1.ServerlessService) (*pav1
 	return psObj.(*pav1alpha1.PodScalable), nil
 }
 
-// scaleResourceArgs returns GroupResource and the resource name, from the PA resource.
+// scaleResourceArgs returns GroupVersionResource and the resource name, from the SKS resource.
 func scaleResourceArgs(sks *netv1alpha1.ServerlessService) (*schema.GroupVersionResource, string, error) {
 	gv, err := schema.ParseGroupVersion(sks.Spec.ObjectRef.APIVersion)
 	if err != nil {

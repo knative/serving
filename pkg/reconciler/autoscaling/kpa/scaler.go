@@ -67,7 +67,7 @@ func NewScaler(opt reconciler.Options) Scaler {
 }
 
 // podScalableTypedInformerFactory returns a duck.InformerFactory that returns
-// liaster/informer pairs for PodScalable resources.
+// lister/informer pairs for PodScalable resources.
 func podScalableTypedInformerFactory(opt reconciler.Options) duck.InformerFactory {
 	return &duck.TypedInformerFactory{
 		Client:       opt.DynamicClientSet,
