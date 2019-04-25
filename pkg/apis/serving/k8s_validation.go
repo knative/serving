@@ -31,14 +31,6 @@ import (
 )
 
 const (
-	// RequestQueueAdminPort specifies the port number for
-	// health check and lifecyle hooks for queue-proxy.
-	RequestQueueAdminPort = 8022
-
-	// RequestQueueMetricsPort specifies the port number for metrics emitted
-	// by queue-proxy.
-	RequestQueueMetricsPort = 9090
-
 	minUserID = 0
 	maxUserID = math.MaxInt32
 )
@@ -299,8 +291,8 @@ func validateContainerPorts(ports []corev1.ContainerPort) *apis.FieldError {
 	// Don't allow userPort to conflict with QueueProxy sidecar
 	if userPort.ContainerPort == networking.BackendHTTPPort ||
 		userPort.ContainerPort == networking.BackendHTTP2Port ||
-		userPort.ContainerPort == RequestQueueAdminPort ||
-		userPort.ContainerPort == RequestQueueMetricsPort {
+		userPort.ContainerPort == networking.RequestQueueAdminPort ||
+		userPort.ContainerPort == networking.RequestQueueMetricsPort {
 		errs = errs.Also(apis.ErrInvalidValue(userPort.ContainerPort, "containerPort"))
 	}
 

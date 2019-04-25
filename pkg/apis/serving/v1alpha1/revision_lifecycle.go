@@ -44,14 +44,6 @@ const (
 	// health check and lifecyle hooks for queue-proxy.
 	RequestQueueAdminPortName string = "queueadm-port"
 
-	// RequestQueueAdminPort specifies the port number for
-	// health check and lifecyle hooks for queue-proxy.
-	RequestQueueAdminPort = serving.RequestQueueAdminPort
-
-	// RequestQueueMetricsPort specifies the port number for metrics emitted
-	// by queue-proxy.
-	RequestQueueMetricsPort = serving.RequestQueueMetricsPort
-
 	// RequestQueueMetricsPortName specifies the port name to use for metrics
 	// emitted by queue-proxy.
 	RequestQueueMetricsPortName = "queue-metrics"
