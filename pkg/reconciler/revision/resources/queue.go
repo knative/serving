@@ -104,7 +104,7 @@ func makeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, o
 	// we know the protocol that is being used by this application.
 	ports := queueNonServingPorts
 	if rev.GetProtocol() == networking.ProtocolH2C {
-		ports = append(ports, queueHTTPPort)
+		ports = append(ports, queueHTTP2Port)
 	} else {
 		ports = append(ports, queueHTTPPort)
 	}
