@@ -21,6 +21,7 @@ import (
 
 	"github.com/knative/pkg/kmeta"
 	"github.com/knative/pkg/logging"
+	"github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/autoscaler"
@@ -58,7 +59,7 @@ var (
 	userLifecycle = &corev1.Lifecycle{
 		PreStop: &corev1.Handler{
 			HTTPGet: &corev1.HTTPGetAction{
-				Port: intstr.FromInt(v1alpha1.RequestQueueAdminPort),
+				Port: intstr.FromInt(networking.RequestQueueAdminPort),
 				Path: queue.RequestQueueDrainPath,
 			},
 		},
@@ -73,7 +74,8 @@ func rewriteUserProbe(p *corev1.Probe, userPort int) {
 	case p.HTTPGet != nil:
 		// For HTTP probes, we route them through the queue container
 		// so that we know the queue proxy is ready/live as well.
-		p.HTTPGet.Port = intstr.FromInt(v1alpha1.RequestQueuePort)
+		// It doesn't matter to which queue serving port we are forwarding the probe.
+		p.HTTPGet.Port = intstr.FromInt(networking.BackendHTTPPort)
 	case p.TCPSocket != nil:
 		p.TCPSocket.Port = intstr.FromInt(userPort)
 	}

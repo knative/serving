@@ -82,6 +82,30 @@ var (
 	DefaultRetryCount = 3
 )
 
+// The ports we setup on our services.
+const (
+	// ServiceHTTPPort is the port that we setup our Serving and Activator K8s services for
+	// HTTP/1 endpoints.
+	ServiceHTTPPort = 80
+	// ServiceHTTP2Port is the port that we setup our Serving and Activator K8s services for
+	// HTTP/2 endpoints.
+	ServiceHTTP2Port = 81
+
+	// BackendHTTPPort is the backend, i.e. `targetPort` that we setup for HTTP services.
+	BackendHTTPPort = 8012
+
+	// BackendHTTP2Port is the backend, i.e. `targetPort` that we setup for HTTP services.
+	BackendHTTP2Port = 8013
+
+	// RequestQueueAdminPort specifies the port number for
+	// health check and lifecyle hooks for queue-proxy.
+	RequestQueueAdminPort = 8022
+
+	// RequestQueueMetricsPort specifies the port number for metrics emitted
+	// by queue-proxy.
+	RequestQueueMetricsPort = 9090
+)
+
 // ServicePortName returns the port for the app level protocol.
 func ServicePortName(proto ProtocolType) string {
 	if proto == ProtocolH2C {

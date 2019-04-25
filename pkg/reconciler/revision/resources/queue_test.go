@@ -26,6 +26,7 @@ import (
 	"github.com/knative/pkg/ptr"
 	"github.com/knative/pkg/system"
 	_ "github.com/knative/pkg/system/testing"
+	"github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1beta1"
@@ -39,14 +40,13 @@ import (
 
 func TestMakeQueueContainer(t *testing.T) {
 	tests := []struct {
-		name     string
-		rev      *v1alpha1.Revision
-		lc       *logging.Config
-		oc       *config.Observability
-		ac       *autoscaler.Config
-		cc       *config.Controller
-		userport *corev1.ContainerPort
-		want     *corev1.Container
+		name string
+		rev  *v1alpha1.Revision
+		lc   *logging.Config
+		oc   *config.Observability
+		ac   *autoscaler.Config
+		cc   *config.Controller
+		want *corev1.Container
 	}{{
 		name: "no owner no autoscaler single",
 		rev: &v1alpha1.Revision{
@@ -66,15 +66,11 @@ func TestMakeQueueContainer(t *testing.T) {
 		oc: &config.Observability{},
 		ac: &autoscaler.Config{},
 		cc: &config.Controller{},
-		userport: &corev1.ContainerPort{
-			Name:          userPortEnvName,
-			ContainerPort: v1alpha1.DefaultUserPort,
-		},
 		want: &corev1.Container{
 			// These are effectively constant
 			Name:           QueueContainerName,
 			Resources:      queueResources,
-			Ports:          queuePorts,
+			Ports:          append(queueNonServingPorts, queueHTTPPort),
 			ReadinessProbe: queueReadinessProbe,
 			// These changed based on the Revision and configs passed in.
 			Env: []corev1.EnvVar{{
@@ -143,6 +139,14 @@ func TestMakeQueueContainer(t *testing.T) {
 				RevisionSpec: v1beta1.RevisionSpec{
 					ContainerConcurrency: 1,
 					TimeoutSeconds:       ptr.Int64(45),
+					PodSpec: v1beta1.PodSpec{
+						Containers: []corev1.Container{{
+							Ports: []corev1.ContainerPort{{
+								ContainerPort: 1955,
+								Name:          string(networking.ProtocolH2C),
+							}},
+						}},
+					},
 				},
 			},
 		},
@@ -152,15 +156,11 @@ func TestMakeQueueContainer(t *testing.T) {
 		cc: &config.Controller{
 			QueueSidecarImage: "alpine",
 		},
-		userport: &corev1.ContainerPort{
-			Name:          userPortEnvName,
-			ContainerPort: v1alpha1.DefaultUserPort,
-		},
 		want: &corev1.Container{
 			// These are effectively constant
 			Name:           QueueContainerName,
 			Resources:      queueResources,
-			Ports:          queuePorts,
+			Ports:          append(queueNonServingPorts, queueHTTP2Port),
 			ReadinessProbe: queueReadinessProbe,
 			// These changed based on the Revision and configs passed in.
 			Image: "alpine",
@@ -212,7 +212,7 @@ func TestMakeQueueContainer(t *testing.T) {
 				Value: "",
 			}, {
 				Name:  "USER_PORT",
-				Value: strconv.Itoa(v1alpha1.DefaultUserPort),
+				Value: "1955",
 			}, {
 				Name:  "SYSTEM_NAMESPACE",
 				Value: system.Namespace(),
@@ -242,15 +242,11 @@ func TestMakeQueueContainer(t *testing.T) {
 		cc: &config.Controller{
 			QueueSidecarImage: "alpine",
 		},
-		userport: &corev1.ContainerPort{
-			Name:          userPortEnvName,
-			ContainerPort: v1alpha1.DefaultUserPort,
-		},
 		want: &corev1.Container{
 			// These are effectively constant
 			Name:           QueueContainerName,
 			Resources:      queueResources,
-			Ports:          queuePorts,
+			Ports:          append(queueNonServingPorts, queueHTTPPort),
 			ReadinessProbe: queueReadinessProbe,
 			// These changed based on the Revision and configs passed in.
 			Image: "alpine",
@@ -333,15 +329,11 @@ func TestMakeQueueContainer(t *testing.T) {
 		oc: &config.Observability{},
 		ac: &autoscaler.Config{},
 		cc: &config.Controller{},
-		userport: &corev1.ContainerPort{
-			Name:          userPortEnvName,
-			ContainerPort: v1alpha1.DefaultUserPort,
-		},
 		want: &corev1.Container{
 			// These are effectively constant
 			Name:           QueueContainerName,
 			Resources:      queueResources,
-			Ports:          queuePorts,
+			Ports:          append(queueNonServingPorts, queueHTTPPort),
 			ReadinessProbe: queueReadinessProbe,
 			// These changed based on the Revision and configs passed in.
 			Env: []corev1.EnvVar{{
@@ -422,15 +414,11 @@ func TestMakeQueueContainer(t *testing.T) {
 		oc: &config.Observability{},
 		ac: &autoscaler.Config{},
 		cc: &config.Controller{},
-		userport: &corev1.ContainerPort{
-			Name:          userPortEnvName,
-			ContainerPort: v1alpha1.DefaultUserPort,
-		},
 		want: &corev1.Container{
 			// These are effectively constant
 			Name:           QueueContainerName,
 			Resources:      queueResources,
-			Ports:          queuePorts,
+			Ports:          append(queueNonServingPorts, queueHTTPPort),
 			ReadinessProbe: queueReadinessProbe,
 			// These changed based on the Revision and configs passed in.
 			Env: []corev1.EnvVar{{
@@ -506,15 +494,11 @@ func TestMakeQueueContainer(t *testing.T) {
 		oc: &config.Observability{},
 		ac: &autoscaler.Config{},
 		cc: &config.Controller{},
-		userport: &corev1.ContainerPort{
-			Name:          userPortEnvName,
-			ContainerPort: v1alpha1.DefaultUserPort,
-		},
 		want: &corev1.Container{
 			// These are effectively constant
 			Name:           QueueContainerName,
 			Resources:      queueResources,
-			Ports:          queuePorts,
+			Ports:          append(queueNonServingPorts, queueHTTPPort),
 			ReadinessProbe: queueReadinessProbe,
 			// These changed based on the Revision and configs passed in.
 			Env: []corev1.EnvVar{{
@@ -590,15 +574,11 @@ func TestMakeQueueContainer(t *testing.T) {
 		oc: &config.Observability{RequestLogTemplate: "test template"},
 		ac: &autoscaler.Config{},
 		cc: &config.Controller{},
-		userport: &corev1.ContainerPort{
-			Name:          userPortEnvName,
-			ContainerPort: v1alpha1.DefaultUserPort,
-		},
 		want: &corev1.Container{
 			// These are effectively constant
 			Name:           QueueContainerName,
 			Resources:      queueResources,
-			Ports:          queuePorts,
+			Ports:          append(queueNonServingPorts, queueHTTPPort),
 			ReadinessProbe: queueReadinessProbe,
 			// These changed based on the Revision and configs passed in.
 			Env: []corev1.EnvVar{{
@@ -676,15 +656,11 @@ func TestMakeQueueContainer(t *testing.T) {
 		},
 		ac: &autoscaler.Config{},
 		cc: &config.Controller{},
-		userport: &corev1.ContainerPort{
-			Name:          userPortEnvName,
-			ContainerPort: v1alpha1.DefaultUserPort,
-		},
 		want: &corev1.Container{
 			// These are effectively constant
 			Name:           QueueContainerName,
 			Resources:      queueResources,
-			Ports:          queuePorts,
+			Ports:          append(queueNonServingPorts, queueHTTPPort),
 			ReadinessProbe: queueReadinessProbe,
 			// These changed based on the Revision and configs passed in.
 			Env: []corev1.EnvVar{{

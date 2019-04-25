@@ -23,6 +23,7 @@ import (
 
 	"github.com/knative/pkg/logging"
 	"github.com/knative/pkg/system"
+	"github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/autoscaler"
@@ -32,28 +33,36 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+const requestQueueHTTPPortName = "queue-port"
+
 var (
 	queueResources = corev1.ResourceRequirements{
 		Requests: corev1.ResourceList{
 			corev1.ResourceName("cpu"): queueContainerCPU,
 		},
 	}
-	queuePorts = []corev1.ContainerPort{{
-		Name:          v1alpha1.RequestQueuePortName,
-		ContainerPort: int32(v1alpha1.RequestQueuePort),
-	}, {
+
+	queueHTTPPort = corev1.ContainerPort{
+		Name:          requestQueueHTTPPortName,
+		ContainerPort: int32(networking.BackendHTTPPort),
+	}
+	queueHTTP2Port = corev1.ContainerPort{
+		Name:          requestQueueHTTPPortName,
+		ContainerPort: int32(networking.BackendHTTP2Port),
+	}
+	queueNonServingPorts = []corev1.ContainerPort{{
 		// Provides health checks and lifecycle hooks.
 		Name:          v1alpha1.RequestQueueAdminPortName,
-		ContainerPort: int32(v1alpha1.RequestQueueAdminPort),
+		ContainerPort: int32(networking.RequestQueueAdminPort),
 	}, {
 		Name:          v1alpha1.RequestQueueMetricsPortName,
-		ContainerPort: int32(v1alpha1.RequestQueueMetricsPort),
+		ContainerPort: int32(networking.RequestQueueMetricsPort),
 	}}
 
 	queueReadinessProbe = &corev1.Probe{
 		Handler: corev1.Handler{
 			HTTPGet: &corev1.HTTPGetAction{
-				Port: intstr.FromInt(v1alpha1.RequestQueueAdminPort),
+				Port: intstr.FromInt(networking.RequestQueueAdminPort),
 				Path: queue.RequestQueueHealthPath,
 			},
 		},
@@ -69,7 +78,7 @@ var (
 	}
 )
 
-// makeQueueContainer creates the container spec for queue sidecar.
+// makeQueueContainer creates the container spec for the queue sidecar.
 func makeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, observabilityConfig *config.Observability,
 	autoscalerConfig *autoscaler.Config, controllerConfig *config.Controller) *corev1.Container {
 	configName := ""
@@ -91,11 +100,20 @@ func makeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, o
 		ts = *rev.Spec.TimeoutSeconds
 	}
 
+	// We need to configure only one serving port for the Queue proxy, since
+	// we know the protocol that is being used by this application.
+	ports := queueNonServingPorts
+	if rev.GetProtocol() == networking.ProtocolH2C {
+		ports = append(ports, queueHTTP2Port)
+	} else {
+		ports = append(ports, queueHTTPPort)
+	}
+
 	return &corev1.Container{
 		Name:           QueueContainerName,
 		Image:          controllerConfig.QueueSidecarImage,
 		Resources:      queueResources,
-		Ports:          queuePorts,
+		Ports:          ports,
 		ReadinessProbe: queueReadinessProbe,
 		Env: []corev1.EnvVar{{
 			Name:  "SERVING_NAMESPACE",

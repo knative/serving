@@ -306,14 +306,14 @@ func main() {
 		logger.Fatalw("Failed to start configuration manager", zap.Error(err))
 	}
 
-	http1Srv := h2c.NewServer(":8080", ah)
+	http1Srv := h2c.NewServer(fmt.Sprintf(":%d", networking.BackendHTTPPort), ah)
 	go func() {
 		if err := http1Srv.ListenAndServe(); err != nil {
 			logger.Errorw("Error running HTTP server", zap.Error(err))
 		}
 	}()
 
-	h2cSrv := h2c.NewServer(":8081", ah)
+	h2cSrv := h2c.NewServer(fmt.Sprintf(":%d", networking.BackendHTTP2Port), ah)
 	go func() {
 		if err := h2cSrv.ListenAndServe(); err != nil {
 			logger.Errorw("Error running HTTP server", zap.Error(err))
