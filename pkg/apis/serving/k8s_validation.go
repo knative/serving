@@ -23,6 +23,7 @@ import (
 
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/knative/pkg/apis"
+	"github.com/knative/serving/pkg/apis/networking"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -30,10 +31,6 @@ import (
 )
 
 const (
-	// RequestQueuePort specifies the port number to use for http requests
-	// in queue-proxy container.
-	RequestQueuePort = 8012
-
 	// RequestQueueAdminPort specifies the port number for
 	// health check and lifecyle hooks for queue-proxy.
 	RequestQueueAdminPort = 8022
@@ -300,7 +297,8 @@ func validateContainerPorts(ports []corev1.ContainerPort) *apis.FieldError {
 	}
 
 	// Don't allow userPort to conflict with QueueProxy sidecar
-	if userPort.ContainerPort == RequestQueuePort ||
+	if userPort.ContainerPort == networking.BackendHTTPPort ||
+		userPort.ContainerPort == networking.BackendHTTP2Port ||
 		userPort.ContainerPort == RequestQueueAdminPort ||
 		userPort.ContainerPort == RequestQueueMetricsPort {
 		errs = errs.Also(apis.ErrInvalidValue(userPort.ContainerPort, "containerPort"))

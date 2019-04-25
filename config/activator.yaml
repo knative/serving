@@ -41,9 +41,9 @@ spec:
         image: github.com/knative/serving/cmd/activator
         ports:
         - name: http1-port
-          containerPort: 8080
+          containerPort: 8012
         - name: h2c-port
-          containerPort: 8081
+          containerPort: 8013
         - name: metrics-port
           containerPort: 9090
         args:
@@ -55,12 +55,12 @@ spec:
           httpGet:
             # The path does not matter, we look for kubelet probe headers.
             path: /healthz
-            port: 8080
+            port: 8012
         livenessProbe:
           httpGet:
             # The path does not matter, we look for kubelet probe headers.
             path: /healthz
-            port: 8080
+            port: 8012
         resources:
           # Request 2x what we saw running e2e
           requests:

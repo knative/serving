@@ -38,10 +38,9 @@ var (
 // TODO(vagababov): Add templating here to get rid of the boilerplate.
 func TestMakePublicService(t *testing.T) {
 	tests := []struct {
-		name        string
-		sks         *v1alpha1.ServerlessService
-		hasBackends bool
-		want        *corev1.Service
+		name string
+		sks  *v1alpha1.ServerlessService
+		want *corev1.Service
 	}{{
 		name: "HTTP - serve",
 		sks: &v1alpha1.ServerlessService{
@@ -60,7 +59,6 @@ func TestMakePublicService(t *testing.T) {
 				Mode:         v1alpha1.SKSOperationModeServe,
 			},
 		},
-		hasBackends: true,
 		want: &corev1.Service{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: "melon",
@@ -86,8 +84,8 @@ func TestMakePublicService(t *testing.T) {
 				Ports: []corev1.ServicePort{{
 					Name:       servicePortNameHTTP1,
 					Protocol:   corev1.ProtocolTCP,
-					Port:       servicePort,
-					TargetPort: intstr.FromString(requestQueuePortName),
+					Port:       networking.ServiceHTTPPort,
+					TargetPort: intstr.FromInt(networking.BackendHTTPPort),
 				}},
 			},
 		},
@@ -109,7 +107,6 @@ func TestMakePublicService(t *testing.T) {
 				ProtocolType: networking.ProtocolHTTP1,
 			},
 		},
-		hasBackends: true,
 		want: &corev1.Service{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: "melon",
@@ -135,8 +132,8 @@ func TestMakePublicService(t *testing.T) {
 				Ports: []corev1.ServicePort{{
 					Name:       servicePortNameHTTP1,
 					Protocol:   corev1.ProtocolTCP,
-					Port:       servicePort,
-					TargetPort: intstr.FromInt(activatorTargetHTTP1Port),
+					Port:       networking.ServiceHTTPPort,
+					TargetPort: intstr.FromInt(networking.BackendHTTPPort),
 				}},
 			},
 		},
@@ -161,7 +158,6 @@ func TestMakePublicService(t *testing.T) {
 				Mode:         v1alpha1.SKSOperationModeServe,
 			},
 		},
-		hasBackends: true,
 		want: &corev1.Service{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: "siamese",
@@ -189,8 +185,8 @@ func TestMakePublicService(t *testing.T) {
 				Ports: []corev1.ServicePort{{
 					Name:       servicePortNameH2C,
 					Protocol:   corev1.ProtocolTCP,
-					Port:       serviceHTTP2Port,
-					TargetPort: intstr.FromString(requestQueuePortName),
+					Port:       networking.ServiceHTTP2Port,
+					TargetPort: intstr.FromInt(networking.BackendHTTP2Port),
 				}},
 			},
 		},
@@ -242,8 +238,8 @@ func TestMakePublicService(t *testing.T) {
 				Ports: []corev1.ServicePort{{
 					Name:       servicePortNameH2C,
 					Protocol:   corev1.ProtocolTCP,
-					Port:       serviceHTTP2Port,
-					TargetPort: intstr.FromInt(activatorTargetHTTP2Port),
+					Port:       networking.ServiceHTTP2Port,
+					TargetPort: intstr.FromInt(networking.BackendHTTP2Port),
 				}},
 			},
 		},
@@ -268,7 +264,6 @@ func TestMakePublicService(t *testing.T) {
 				Mode:         v1alpha1.SKSOperationModeProxy,
 			},
 		},
-		hasBackends: true,
 		want: &corev1.Service{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: "siamese",
@@ -296,8 +291,8 @@ func TestMakePublicService(t *testing.T) {
 				Ports: []corev1.ServicePort{{
 					Name:       servicePortNameH2C,
 					Protocol:   corev1.ProtocolTCP,
-					Port:       serviceHTTP2Port,
-					TargetPort: intstr.FromInt(activatorTargetHTTP2Port),
+					Port:       networking.ServiceHTTP2Port,
+					TargetPort: intstr.FromInt(networking.BackendHTTP2Port),
 				}},
 			},
 		},
@@ -305,7 +300,7 @@ func TestMakePublicService(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got := MakePublicService(test.sks, test.hasBackends)
+			got := MakePublicService(test.sks)
 			if diff := cmp.Diff(test.want, got); diff != "" {
 				t.Errorf("Public K8s Service mismatch (-want, +got) = %v", diff)
 			}
@@ -506,8 +501,8 @@ func TestMakePrivateService(t *testing.T) {
 				Ports: []corev1.ServicePort{{
 					Name:       servicePortNameHTTP1,
 					Protocol:   corev1.ProtocolTCP,
-					Port:       servicePort,
-					TargetPort: intstr.FromString(requestQueuePortName),
+					Port:       networking.ServiceHTTPPort,
+					TargetPort: intstr.FromInt(networking.BackendHTTPPort),
 				}},
 			},
 		},
@@ -564,8 +559,8 @@ func TestMakePrivateService(t *testing.T) {
 				Ports: []corev1.ServicePort{{
 					Name:       servicePortNameH2C,
 					Protocol:   corev1.ProtocolTCP,
-					Port:       servicePort,
-					TargetPort: intstr.FromString(requestQueuePortName),
+					Port:       networking.ServiceHTTPPort,
+					TargetPort: intstr.FromInt(networking.BackendHTTP2Port),
 				}},
 			},
 		},
