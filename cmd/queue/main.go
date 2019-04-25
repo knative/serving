@@ -309,10 +309,10 @@ func main() {
 			// Calling server.Shutdown() allows pending requests to
 			// complete, while no new work is accepted.
 			if err := serverHTTP.Shutdown(context.Background()); err != nil {
-				logger.Errorw("Failed to shutdown proxy server", zap.Error(err))
+				logger.Errorw("Failed to shutdown proxy server for HTTP/1", zap.Error(err))
 			}
 			if err := serverHTTP2.Shutdown(context.Background()); err != nil {
-				logger.Errorf("Failed to shutdown proxy server2", zap.Error(err))
+				logger.Errorf("Failed to shutdown proxy server for HTTP/2", zap.Error(err))
 			}
 		})
 

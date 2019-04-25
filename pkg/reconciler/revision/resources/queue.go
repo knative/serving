@@ -33,10 +33,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-const (
-	requestQueueHTTPPortName  = "queue-port"
-	requestQueueHTTP2PortName = "queue-port2"
-)
+const requestQueueHTTPPortName = "queue-port"
 
 var (
 	queueResources = corev1.ResourceRequirements{
@@ -103,9 +100,11 @@ func makeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, o
 		ts = *rev.Spec.TimeoutSeconds
 	}
 
+	// We need to configure only one serving port for the Queue proxy, since
+	// we know the protocol that is being used by this application.
 	ports := queueNonServingPorts
 	if rev.GetProtocol() == networking.ProtocolH2C {
-		ports = append(ports, queueHTTP2Port)
+		ports = append(ports, queueHTTPPort)
 	} else {
 		ports = append(ports, queueHTTPPort)
 	}

@@ -87,7 +87,6 @@ const (
 	// ServiceHTTPPort is the port that we setup our Serving and Activator K8s services for
 	// HTTP/1 endpoints.
 	ServiceHTTPPort = 80
-
 	// ServiceHTTP2Port is the port that we setup our Serving and Activator K8s services for
 	// HTTP/2 endpoints.
 	ServiceHTTP2Port = 81
