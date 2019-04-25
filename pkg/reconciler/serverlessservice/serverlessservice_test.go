@@ -207,7 +207,6 @@ func TestReconcile(t *testing.T) {
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: endpointspub("update-eps", "failA", WithSubsets), // The attempted update.
 		}},
-
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "UpdateFailed", "InternalError: inducing failure for update endpoints"),
 		},
@@ -538,11 +537,11 @@ func TestReconcile(t *testing.T) {
 	defer logtesting.ClearAll()
 	table.Test(t, MakeFactory(func(listers *Listers, opt rpkg.Options) controller.Reconciler {
 		return &reconciler{
-			Base:            rpkg.NewBase(opt, controllerAgentName),
-			sksLister:       listers.GetServerlessServiceLister(),
-			serviceLister:   listers.GetK8sServiceLister(),
-			endpointsLister: listers.GetEndpointsLister(),
-			scaleClientSet:  opt.ScaleClientSet,
+			Base:              rpkg.NewBase(opt, controllerAgentName),
+			sksLister:         listers.GetServerlessServiceLister(),
+			serviceLister:     listers.GetK8sServiceLister(),
+			endpointsLister:   listers.GetEndpointsLister(),
+			psInformerFactory: podScalableTypedInformerFactory(opt),
 		}
 	}))
 }
