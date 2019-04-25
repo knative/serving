@@ -285,7 +285,7 @@ func TestDisableScaleToZero(t *testing.T) {
 			revision := newRevision(t, servingClient, test.minScale, test.maxScale)
 			deployment := newDeployment(t, dynamicClient, names.Deployment(revision), test.startReplicas)
 			revisionScaler := &scaler{
-				psInformerFactory: PodScalableTypedInformerFactory(opts),
+				psInformerFactory: podScalableTypedInformerFactory(opts),
 				dynamicClient:     opts.DynamicClientSet,
 				logger:            opts.Logger,
 				autoscalerConfig: &autoscaler.Config{

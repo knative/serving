@@ -55,7 +55,7 @@ func NewScaler(opt reconciler.Options) Scaler {
 		// Wrap it in a cache, so that we don't stamp out a new
 		// informer/lister each time.
 		psInformerFactory: &duck.CachedInformerFactory{
-			Delegate: PodScalableTypedInformerFactory(opt),
+			Delegate: podScalableTypedInformerFactory(opt),
 		},
 		dynamicClient: opt.DynamicClientSet,
 		logger:        opt.Logger,
@@ -66,9 +66,9 @@ func NewScaler(opt reconciler.Options) Scaler {
 	return ks
 }
 
-// PodScalableTypedInformerFactory returns a duck.InformerFactory that returns
+// podScalableTypedInformerFactory returns a duck.InformerFactory that returns
 // liaster/informer pairs for PodScalable resources.
-func PodScalableTypedInformerFactory(opt reconciler.Options) duck.InformerFactory {
+func podScalableTypedInformerFactory(opt reconciler.Options) duck.InformerFactory {
 	return &duck.TypedInformerFactory{
 		Client:       opt.DynamicClientSet,
 		Type:         &pav1alpha1.PodScalable{},
