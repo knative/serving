@@ -25,6 +25,7 @@ import (
 	"github.com/knative/pkg/ptr"
 	"github.com/knative/pkg/system"
 	_ "github.com/knative/pkg/system/testing"
+	"github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1beta1"
@@ -507,7 +508,7 @@ func TestMakePodSpec(t *testing.T) {
 		cc: &config.Controller{},
 		want: podSpec([]corev1.Container{
 			userContainer(
-				withHTTPReadinessProbe(v1alpha1.RequestQueuePort),
+				withHTTPReadinessProbe(networking.BackendHTTPPort),
 			),
 			queueContainer(
 				withEnvVar("CONTAINER_CONCURRENCY", "0"),
@@ -553,7 +554,7 @@ func TestMakePodSpec(t *testing.T) {
 		cc: &config.Controller{},
 		want: podSpec([]corev1.Container{
 			userContainer(
-				withHTTPReadinessProbe(v1alpha1.RequestQueuePort),
+				withHTTPReadinessProbe(networking.BackendHTTPPort),
 			),
 			queueContainer(
 				withEnvVar("CONTAINER_CONCURRENCY", "0"),

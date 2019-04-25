@@ -26,8 +26,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/knative/serving/cmd/networking"
-
 	"go.uber.org/zap"
 
 	"github.com/knative/pkg/logging/logkey"
@@ -36,6 +34,7 @@ import (
 	"github.com/knative/serving/cmd/util"
 	"github.com/knative/serving/pkg/activator"
 	activatorutil "github.com/knative/serving/pkg/activator/util"
+	"github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/autoscaler"
 	"github.com/knative/serving/pkg/http/h2c"
