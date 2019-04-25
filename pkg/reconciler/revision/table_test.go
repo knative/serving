@@ -32,6 +32,7 @@ import (
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/autoscaler"
+	"github.com/knative/serving/pkg/metrics"
 	"github.com/knative/serving/pkg/network"
 	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/revision/config"
@@ -947,7 +948,7 @@ func ReconcilerTestConfig() *config.Config {
 	return &config.Config{
 		Controller: getTestControllerConfig(),
 		Network:    &network.Config{IstioOutboundIPRanges: "*"},
-		Observability: &config.Observability{
+		Observability: &metrics.ObservabilityConfig{
 			LoggingURLTemplate: "http://logger.io/${REVISION_UID}",
 		},
 		Logging:    &logging.Config{},

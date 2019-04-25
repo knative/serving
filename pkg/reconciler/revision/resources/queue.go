@@ -27,6 +27,7 @@ import (
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/autoscaler"
+	"github.com/knative/serving/pkg/metrics"
 	"github.com/knative/serving/pkg/queue"
 	"github.com/knative/serving/pkg/reconciler/revision/config"
 	corev1 "k8s.io/api/core/v1"
@@ -79,7 +80,7 @@ var (
 )
 
 // makeQueueContainer creates the container spec for the queue sidecar.
-func makeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, observabilityConfig *config.Observability,
+func makeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, observabilityConfig *metrics.ObservabilityConfig,
 	autoscalerConfig *autoscaler.Config, controllerConfig *config.Controller) *corev1.Container {
 	configName := ""
 	if owner := metav1.GetControllerOf(rev); owner != nil && owner.Kind == "Configuration" {

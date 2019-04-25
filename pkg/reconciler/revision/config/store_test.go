@@ -26,6 +26,7 @@ import (
 	logtesting "github.com/knative/pkg/logging/testing"
 	"github.com/knative/serving/pkg/autoscaler"
 	"github.com/knative/serving/pkg/logging"
+	"github.com/knative/serving/pkg/metrics"
 	"github.com/knative/serving/pkg/network"
 
 	. "github.com/knative/pkg/configmap/testing"
@@ -37,7 +38,7 @@ func TestStoreLoadWithContext(t *testing.T) {
 
 	controllerConfig := ConfigMapFromTestFile(t, ControllerConfigName, queueSidecarImageKey)
 	networkConfig := ConfigMapFromTestFile(t, network.ConfigName)
-	observabilityConfig := ConfigMapFromTestFile(t, ObservabilityConfigName)
+	observabilityConfig := ConfigMapFromTestFile(t, metrics.ObservabilityConfigName)
 	loggingConfig := ConfigMapFromTestFile(t, logging.ConfigMapName())
 	autoscalerConfig := ConfigMapFromTestFile(t, autoscaler.ConfigName)
 
@@ -66,7 +67,7 @@ func TestStoreLoadWithContext(t *testing.T) {
 	})
 
 	t.Run("observability", func(t *testing.T) {
-		expected, _ := NewObservabilityFromConfigMap(observabilityConfig)
+		expected, _ := metrics.NewObservabilityConfigFromConfigMap(observabilityConfig)
 		if diff := cmp.Diff(expected, config.Observability); diff != "" {
 			t.Errorf("Unexpected observability config (-want, +got): %v", diff)
 		}
@@ -93,7 +94,7 @@ func TestStoreImmutableConfig(t *testing.T) {
 
 	store.OnConfigChanged(ConfigMapFromTestFile(t, ControllerConfigName, queueSidecarImageKey))
 	store.OnConfigChanged(ConfigMapFromTestFile(t, network.ConfigName))
-	store.OnConfigChanged(ConfigMapFromTestFile(t, ObservabilityConfigName))
+	store.OnConfigChanged(ConfigMapFromTestFile(t, metrics.ObservabilityConfigName))
 	store.OnConfigChanged(ConfigMapFromTestFile(t, logging.ConfigMapName()))
 	store.OnConfigChanged(ConfigMapFromTestFile(t, autoscaler.ConfigName))
 

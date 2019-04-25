@@ -31,6 +31,7 @@ import (
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 	"github.com/knative/serving/pkg/autoscaler"
+	"github.com/knative/serving/pkg/metrics"
 	"github.com/knative/serving/pkg/reconciler/revision/config"
 	"go.uber.org/zap/zapcore"
 	corev1 "k8s.io/api/core/v1"
@@ -43,7 +44,7 @@ func TestMakeQueueContainer(t *testing.T) {
 		name string
 		rev  *v1alpha1.Revision
 		lc   *logging.Config
-		oc   *config.Observability
+		oc   *metrics.ObservabilityConfig
 		ac   *autoscaler.Config
 		cc   *config.Controller
 		want *corev1.Container
@@ -63,7 +64,7 @@ func TestMakeQueueContainer(t *testing.T) {
 			},
 		},
 		lc: &logging.Config{},
-		oc: &config.Observability{},
+		oc: &metrics.ObservabilityConfig{},
 		ac: &autoscaler.Config{},
 		cc: &config.Controller{},
 		want: &corev1.Container{
@@ -151,7 +152,7 @@ func TestMakeQueueContainer(t *testing.T) {
 			},
 		},
 		lc: &logging.Config{},
-		oc: &config.Observability{},
+		oc: &metrics.ObservabilityConfig{},
 		ac: &autoscaler.Config{},
 		cc: &config.Controller{
 			QueueSidecarImage: "alpine",
@@ -237,7 +238,7 @@ func TestMakeQueueContainer(t *testing.T) {
 			},
 		},
 		lc: &logging.Config{},
-		oc: &config.Observability{},
+		oc: &metrics.ObservabilityConfig{},
 		ac: &autoscaler.Config{},
 		cc: &config.Controller{
 			QueueSidecarImage: "alpine",
@@ -326,7 +327,7 @@ func TestMakeQueueContainer(t *testing.T) {
 			},
 		},
 		lc: &logging.Config{},
-		oc: &config.Observability{},
+		oc: &metrics.ObservabilityConfig{},
 		ac: &autoscaler.Config{},
 		cc: &config.Controller{},
 		want: &corev1.Container{
@@ -411,7 +412,7 @@ func TestMakeQueueContainer(t *testing.T) {
 				"queueproxy": zapcore.ErrorLevel,
 			},
 		},
-		oc: &config.Observability{},
+		oc: &metrics.ObservabilityConfig{},
 		ac: &autoscaler.Config{},
 		cc: &config.Controller{},
 		want: &corev1.Container{
@@ -491,7 +492,7 @@ func TestMakeQueueContainer(t *testing.T) {
 			},
 		},
 		lc: &logging.Config{},
-		oc: &config.Observability{},
+		oc: &metrics.ObservabilityConfig{},
 		ac: &autoscaler.Config{},
 		cc: &config.Controller{},
 		want: &corev1.Container{
@@ -571,7 +572,7 @@ func TestMakeQueueContainer(t *testing.T) {
 			},
 		},
 		lc: &logging.Config{},
-		oc: &config.Observability{RequestLogTemplate: "test template"},
+		oc: &metrics.ObservabilityConfig{RequestLogTemplate: "test template"},
 		ac: &autoscaler.Config{},
 		cc: &config.Controller{},
 		want: &corev1.Container{
@@ -651,7 +652,7 @@ func TestMakeQueueContainer(t *testing.T) {
 			},
 		},
 		lc: &logging.Config{},
-		oc: &config.Observability{
+		oc: &metrics.ObservabilityConfig{
 			RequestMetricsBackend: "prometheus",
 		},
 		ac: &autoscaler.Config{},

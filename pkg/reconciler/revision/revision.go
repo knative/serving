@@ -49,6 +49,7 @@ import (
 	servinginformers "github.com/knative/serving/pkg/client/informers/externalversions/serving/v1alpha1"
 	kpalisters "github.com/knative/serving/pkg/client/listers/autoscaling/v1alpha1"
 	listers "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
+	"github.com/knative/serving/pkg/metrics"
 	"github.com/knative/serving/pkg/network"
 	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/revision/config"
@@ -171,7 +172,7 @@ func NewController(
 
 	configsToResync := []interface{}{
 		&network.Config{},
-		&config.Observability{},
+		&metrics.ObservabilityConfig{},
 		&config.Controller{},
 	}
 
