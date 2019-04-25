@@ -52,9 +52,13 @@ type scaler struct {
 // NewScaler creates a scaler.
 func NewScaler(opt reconciler.Options) Scaler {
 	ks := &scaler{
-		psInformerFactory: PodScalableTypedInformerFactory(opt),
-		dynamicClient:     opt.DynamicClientSet,
-		logger:            opt.Logger,
+		// Wrap it in a cache, so that we don't stamp out a new
+		// informer/lister each time.
+		psInformerFactory: &duck.CachedInformerFactory{
+			Delegate: PodScalableTypedInformerFactory(opt),
+		},
+		dynamicClient: opt.DynamicClientSet,
+		logger:        opt.Logger,
 	}
 
 	// Watch for config changes.

@@ -39,12 +39,16 @@ type PodScalable struct {
 	Status PodScalableStatus `json:"status"`
 }
 
+// PodScalableSpec is the specification for the desired state of a
+// PodScalable (or at least our shared portion).
 type PodScalableSpec struct {
 	Replicas *int32                 `json:"replicas,omitempty"`
 	Selector *metav1.LabelSelector  `json:"selector"`
 	Template corev1.PodTemplateSpec `json:"template"`
 }
 
+// PodScalableStatus is the observed state of a PodScalable (or at
+// least our shared portion).
 type PodScalableStatus struct {
 	Replicas int32 `json:"replicas,omitempty"`
 }

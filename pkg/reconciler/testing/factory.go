@@ -90,39 +90,8 @@ func MakeFactory(ctor Ctor) Factory {
 		kubeClient := fakekubeclientset.NewSimpleClientset(ls.GetKubeObjects()...)
 		sharedClient := fakesharedclientset.NewSimpleClientset(ls.GetSharedObjects()...)
 		client := fakeclientset.NewSimpleClientset(ls.GetServingObjects()...)
-
-		sch := NewScheme()
-
-		// We must pass objects as Unstructured to the dynamic client fake, or it
-		// won't handle them properly.
-		us := []runtime.Object{}
-		for _, obj := range r.Objects {
-			obj = obj.DeepCopyObject() // Don't mess with the primary copy
-			// Determine and set the TypeMeta for this object based on our test scheme.
-			gvks, _, err := sch.ObjectKinds(obj)
-			if err != nil {
-				t.Fatalf("Unable to determine kind for type: %v", err)
-			}
-			apiv, k := gvks[0].ToAPIVersionAndKind()
-			ta, err := meta.TypeAccessor(obj)
-			if err != nil {
-				t.Fatalf("Unable to create type accessor: %v", err)
-			}
-			ta.SetAPIVersion(apiv)
-			ta.SetKind(k)
-
-			b, err := json.Marshal(obj)
-			if err != nil {
-				t.Fatalf("Unable to marshal: %v", err)
-			}
-			u := &unstructured.Unstructured{}
-			if err := json.Unmarshal(b, u); err != nil {
-				t.Fatalf("Unable to unmarshal: %v", err)
-			}
-			us = append(us, u)
-		}
-
-		dynamicClient := fakedynamicclientset.NewSimpleDynamicClient(sch, us...)
+		dynamicClient := fakedynamicclientset.NewSimpleDynamicClient(
+			NewScheme(), toUnstructured(t, r.Objects)...)
 
 		// The dynamic client's support for patching is BS.  Implement it
 		// here via PrependReactor (this can be overridden below by the
@@ -175,4 +144,36 @@ func MakeFactory(ctor Ctor) Factory {
 
 		return c, actionRecorderList, eventList, statsReporter
 	}
+}
+
+// We must pass objects as Unstructured to the dynamic client fake, or it
+// won't handle them properly.
+func toUnstructured(t *testing.T, objs []runtime.Object) (us []runtime.Object) {
+	sch := NewScheme()
+	for _, obj := range objs {
+		obj = obj.DeepCopyObject() // Don't mess with the primary copy
+		// Determine and set the TypeMeta for this object based on our test scheme.
+		gvks, _, err := sch.ObjectKinds(obj)
+		if err != nil {
+			t.Fatalf("Unable to determine kind for type: %v", err)
+		}
+		apiv, k := gvks[0].ToAPIVersionAndKind()
+		ta, err := meta.TypeAccessor(obj)
+		if err != nil {
+			t.Fatalf("Unable to create type accessor: %v", err)
+		}
+		ta.SetAPIVersion(apiv)
+		ta.SetKind(k)
+
+		b, err := json.Marshal(obj)
+		if err != nil {
+			t.Fatalf("Unable to marshal: %v", err)
+		}
+		u := &unstructured.Unstructured{}
+		if err := json.Unmarshal(b, u); err != nil {
+			t.Fatalf("Unable to unmarshal: %v", err)
+		}
+		us = append(us, u)
+	}
+	return
 }
