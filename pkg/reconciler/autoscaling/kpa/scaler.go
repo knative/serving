@@ -1,5 +1,5 @@
 /*
-Copyright 2018 The Knative Authors
+Copyright 2019 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -22,24 +22,26 @@ import (
 	"sync"
 
 	"github.com/knative/pkg/apis"
+	"github.com/knative/pkg/apis/duck"
 	"github.com/knative/pkg/logging"
 	pav1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/autoscaler"
 	"github.com/knative/serving/pkg/reconciler"
-	perrors "github.com/pkg/errors"
 	"go.uber.org/zap"
-	autoscalingapi "k8s.io/api/autoscaling/v1"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/client-go/scale"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/dynamic"
 )
 
 const scaleUnknown = -1
 
 // scaler scales the target of a kpa-class PA up or down including scaling to zero.
 type scaler struct {
-	scaleClientSet scale.ScalesGetter
-	logger         *zap.SugaredLogger
+	psInformerFactory duck.InformerFactory
+	dynamicClient     dynamic.Interface
+	logger            *zap.SugaredLogger
 
 	// autoscalerConfig could change over time and access to it
 	// must go through autoscalerConfigMutex
@@ -50,13 +52,29 @@ type scaler struct {
 // NewScaler creates a scaler.
 func NewScaler(opt reconciler.Options) Scaler {
 	ks := &scaler{
-		scaleClientSet: opt.ScaleClientSet,
-		logger:         opt.Logger,
+		// Wrap it in a cache, so that we don't stamp out a new
+		// informer/lister each time.
+		psInformerFactory: &duck.CachedInformerFactory{
+			Delegate: podScalableTypedInformerFactory(opt),
+		},
+		dynamicClient: opt.DynamicClientSet,
+		logger:        opt.Logger,
 	}
 
 	// Watch for config changes.
 	opt.ConfigMapWatcher.Watch(autoscaler.ConfigName, ks.receiveAutoscalerConfig)
 	return ks
+}
+
+// podScalableTypedInformerFactory returns a duck.InformerFactory that returns
+// liaster/informer pairs for PodScalable resources.
+func podScalableTypedInformerFactory(opt reconciler.Options) duck.InformerFactory {
+	return &duck.TypedInformerFactory{
+		Client:       opt.DynamicClientSet,
+		Type:         &pav1alpha1.PodScalable{},
+		ResyncPeriod: opt.ResyncPeriod,
+		StopChannel:  opt.StopChannel,
+	}
 }
 
 func (ks *scaler) receiveAutoscalerConfig(configMap *corev1.ConfigMap) {
@@ -93,23 +111,34 @@ func applyBounds(min, max, x int32) int32 {
 }
 
 // GetScaleResource returns the current scale resource for the PA.
-func (ks *scaler) GetScaleResource(pa *pav1alpha1.PodAutoscaler) (*autoscalingapi.Scale, error) {
-	resource, resourceName, err := scaleResourceArgs(pa)
+func (ks *scaler) GetScaleResource(pa *pav1alpha1.PodAutoscaler) (*pav1alpha1.PodScalable, error) {
+	gvr, name, err := scaleResourceArgs(pa)
 	if err != nil {
-		return nil, perrors.Wrap(err, "error Get'ting /scale resource")
+		ks.logger.Errorf("Error getting the scale arguments", err)
+		return nil, err
+	}
+	_, lister, err := ks.psInformerFactory.Get(*gvr)
+	if err != nil {
+		ks.logger.Errorf("Error getting a lister for a pod scalable resource '%+v': %+v", gvr, err)
+		return nil, err
 	}
 
-	// Identify the current scale.
-	return ks.scaleClientSet.Scales(pa.Namespace).Get(*resource, resourceName)
+	psObj, err := lister.ByNamespace(pa.Namespace).Get(name)
+	if err != nil {
+		ks.logger.Errorf("Error fetching Pod Scalable %q for PodAutoscaler %q: %v",
+			pa.Spec.ScaleTargetRef.Name, pa.Name, err)
+		return nil, err
+	}
+	return psObj.(*pav1alpha1.PodScalable), nil
 }
 
 // scaleResourceArgs returns GroupResource and the resource name, from the PA resource.
-func scaleResourceArgs(pa *pav1alpha1.PodAutoscaler) (*schema.GroupResource, string, error) {
+func scaleResourceArgs(pa *pav1alpha1.PodAutoscaler) (*schema.GroupVersionResource, string, error) {
 	gv, err := schema.ParseGroupVersion(pa.Spec.ScaleTargetRef.APIVersion)
 	if err != nil {
 		return nil, "", err
 	}
-	resource := apis.KindToResource(gv.WithKind(pa.Spec.ScaleTargetRef.Kind)).GroupResource()
+	resource := apis.KindToResource(gv.WithKind(pa.Spec.ScaleTargetRef.Kind))
 	return &resource, pa.Spec.ScaleTargetRef.Name, nil
 }
 
@@ -148,21 +177,30 @@ func (ks *scaler) handleScaleToZero(pa *pav1alpha1.PodAutoscaler, desiredScale i
 	return desiredScale, true
 }
 
-func (ks *scaler) applyScale(ctx context.Context, pa *pav1alpha1.PodAutoscaler, desiredScale int32, scl *autoscalingapi.Scale) (int32, error) {
+func (ks *scaler) applyScale(ctx context.Context, pa *pav1alpha1.PodAutoscaler, desiredScale int32,
+	ps *pav1alpha1.PodScalable) (int32, error) {
 	logger := logging.FromContext(ctx)
 
-	// Identify the current scale.
-	resource, _, err := scaleResourceArgs(pa)
+	gvr, name, err := scaleResourceArgs(pa)
 	if err != nil {
 		return desiredScale, err
 	}
 
-	// Scale the target reference.
-	scl.Spec.Replicas = desiredScale
-	_, err = ks.scaleClientSet.Scales(pa.Namespace).Update(*resource, scl)
+	psNew := ps.DeepCopy()
+	psNew.Spec.Replicas = &desiredScale
+	patch, err := duck.CreatePatch(ps, psNew)
 	if err != nil {
-		resourceName := pa.Spec.ScaleTargetRef.Name
-		logger.Errorw(fmt.Sprintf("Error scaling target reference %s", resourceName), zap.Error(err))
+		return desiredScale, err
+	}
+	patchBytes, err := patch.MarshalJSON()
+	if err != nil {
+		return desiredScale, err
+	}
+
+	_, err = ks.dynamicClient.Resource(*gvr).Namespace(pa.Namespace).Patch(ps.Name, types.JSONPatchType,
+		patchBytes, metav1.UpdateOptions{})
+	if err != nil {
+		logger.Errorw(fmt.Sprintf("Error scaling target reference %s", name), zap.Error(err))
 		return desiredScale, err
 	}
 
@@ -191,12 +229,15 @@ func (ks *scaler) Scale(ctx context.Context, pa *pav1alpha1.PodAutoscaler, desir
 		desiredScale = newScale
 	}
 
-	scl, err := ks.GetScaleResource(pa)
+	ps, err := ks.GetScaleResource(pa)
 	if err != nil {
 		logger.Errorw(fmt.Sprintf("Resource %q not found", pa.Name), zap.Error(err))
 		return desiredScale, err
 	}
-	currentScale := scl.Spec.Replicas
+	currentScale := int32(1)
+	if ps.Spec.Replicas != nil {
+		currentScale = *ps.Spec.Replicas
+	}
 
 	if desiredScale == currentScale {
 		return desiredScale, nil
@@ -204,5 +245,5 @@ func (ks *scaler) Scale(ctx context.Context, pa *pav1alpha1.PodAutoscaler, desir
 
 	logger.Infof("Scaling from %d to %d", currentScale, desiredScale)
 
-	return ks.applyScale(ctx, pa, desiredScale, scl)
+	return ks.applyScale(ctx, pa, desiredScale, ps)
 }
