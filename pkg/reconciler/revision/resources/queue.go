@@ -23,6 +23,7 @@ import (
 
 	"github.com/knative/pkg/logging"
 	"github.com/knative/pkg/system"
+	"github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/autoscaler"
@@ -43,13 +44,16 @@ var (
 			corev1.ResourceName("cpu"): queueContainerCPU,
 		},
 	}
-	queuePorts = []corev1.ContainerPort{{
+
+	queueHTTPPort = corev1.ContainerPort{
 		Name:          requestQueueHTTPPortName,
 		ContainerPort: int32(networking.BackendHTTPPort),
-	}, {
-		Name:          requestQueueHTTP2PortName,
+	}
+	queueHTTP2Port = corev1.ContainerPort{
+		Name:          requestQueueHTTPPortName,
 		ContainerPort: int32(networking.BackendHTTP2Port),
-	}, {
+	}
+	queueNonServingPorts = []corev1.ContainerPort{{
 		// Provides health checks and lifecycle hooks.
 		Name:          v1alpha1.RequestQueueAdminPortName,
 		ContainerPort: int32(v1alpha1.RequestQueueAdminPort),
@@ -77,7 +81,7 @@ var (
 	}
 )
 
-// makeQueueContainer creates the container spec for queue sidecar.
+// makeQueueContainer creates the container spec for the queue sidecar.
 func makeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, observabilityConfig *config.Observability,
 	autoscalerConfig *autoscaler.Config, controllerConfig *config.Controller) *corev1.Container {
 	configName := ""
@@ -99,11 +103,18 @@ func makeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, o
 		ts = *rev.Spec.TimeoutSeconds
 	}
 
+	ports := queueNonServingPorts
+	if rev.GetProtocol() == networking.ProtocolH2C {
+		ports = append(ports, queueHTTP2Port)
+	} else {
+		ports = append(ports, queueHTTPPort)
+	}
+
 	return &corev1.Container{
 		Name:           QueueContainerName,
 		Image:          controllerConfig.QueueSidecarImage,
 		Resources:      queueResources,
-		Ports:          queuePorts,
+		Ports:          ports,
 		ReadinessProbe: queueReadinessProbe,
 		Env: []corev1.EnvVar{{
 			Name:  "SERVING_NAMESPACE",
