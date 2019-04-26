@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"math"
 	"path/filepath"
+	"strings"
 
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/knative/pkg/apis"
@@ -338,18 +339,18 @@ func ValidateNamespacedObjectReference(p *corev1.ObjectReference) *apis.FieldErr
 
 	if p.APIVersion == "" {
 		errs = errs.Also(apis.ErrMissingField("apiVersion"))
-	} else if len(validation.IsQualifiedName(p.APIVersion)) != 0 {
-		errs = errs.Also(apis.ErrInvalidValue(p.APIVersion, "apiVersion"))
+	} else if verrs := validation.IsQualifiedName(p.APIVersion); len(verrs) != 0 {
+		errs = errs.Also(apis.ErrInvalidValue(strings.Join(verrs, ", "), "apiVersion"))
 	}
 	if p.Kind == "" {
 		errs = errs.Also(apis.ErrMissingField("kind"))
-	} else if len(validation.IsCIdentifier(p.Kind)) != 0 {
-		errs = errs.Also(apis.ErrInvalidValue(p.Kind, "kind"))
+	} else if verrs := validation.IsCIdentifier(p.Kind); len(verrs) != 0 {
+		errs = errs.Also(apis.ErrInvalidValue(strings.Join(verrs, ", "), "kind"))
 	}
 	if p.Name == "" {
 		errs = errs.Also(apis.ErrMissingField("name"))
-	} else if len(validation.IsDNS1123Label(p.Name)) != 0 {
-		errs = errs.Also(apis.ErrInvalidValue(p.Name, "name"))
+	} else if verrs := validation.IsDNS1123Label(p.Name); len(verrs) != 0 {
+		errs = errs.Also(apis.ErrInvalidValue(strings.Join(verrs, ", "), "name"))
 	}
 	return errs
 }

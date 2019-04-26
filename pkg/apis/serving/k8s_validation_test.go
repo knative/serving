@@ -753,7 +753,7 @@ func TestObjectReferenceValidation(t *testing.T) {
 			Kind:       "Bar",
 			Name:       "foo",
 		},
-		want: apis.ErrInvalidValue("/v1alpha1", "apiVersion"),
+		want: apis.ErrInvalidValue("prefix part must be non-empty", "apiVersion"),
 	}, {
 		name: "no kind",
 		r: &corev1.ObjectReference{
@@ -768,7 +768,7 @@ func TestObjectReferenceValidation(t *testing.T) {
 			Kind:       "Bad Kind",
 			Name:       "foo",
 		},
-		want: apis.ErrInvalidValue("Bad Kind", "kind"),
+		want: apis.ErrInvalidValue("a valid C identifier must start with alphabetic character or '_', followed by a string of alphanumeric characters or '_' (e.g. 'my_name',  or 'MY_NAME',  or 'MyName', regex used for validation is '[A-Za-z_][A-Za-z0-9_]*')", "kind"),
 	}, {
 		name: "no namespace",
 		r: &corev1.ObjectReference{
@@ -791,7 +791,7 @@ func TestObjectReferenceValidation(t *testing.T) {
 			Kind:       "Bar",
 			Name:       "bad name",
 		},
-		want: apis.ErrInvalidValue("bad name", "name"),
+		want: apis.ErrInvalidValue("a DNS-1123 label must consist of lower case alphanumeric characters or '-', and must start and end with an alphanumeric character (e.g. 'my-name',  or '123-abc', regex used for validation is '[a-z0-9]([-a-z0-9]*[a-z0-9])?')", "name"),
 	}, {
 		name: "disallowed fields",
 		r: &corev1.ObjectReference{
