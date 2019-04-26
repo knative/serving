@@ -95,7 +95,7 @@ func getTestRevisionWithCondition(name string, cond apis.Condition) *v1alpha1.Re
 			},
 		},
 		Status: v1alpha1.RevisionStatus{
-			ServiceName: fmt.Sprintf("%s-pub", name),
+			ServiceName: name,
 			Status: duckv1beta1.Status{
 				Conditions: duckv1beta1.Conditions{cond},
 			},
@@ -136,7 +136,7 @@ func getTestRevisionForConfig(config *v1alpha1.Configuration) *v1alpha1.Revision
 		},
 		Spec: *config.Spec.GetTemplate().Spec.DeepCopy(),
 		Status: v1alpha1.RevisionStatus{
-			ServiceName: "p-deadbeef-pub",
+			ServiceName: "p-deadbeef",
 		},
 	}
 	rev.Status.MarkResourcesAvailable()
@@ -590,14 +590,14 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 					Splits: []netv1alpha1.ClusterIngressBackendSplit{{
 						ClusterIngressBackend: netv1alpha1.ClusterIngressBackend{
 							ServiceNamespace: testNamespace,
-							ServiceName:      fmt.Sprintf("%s-pub", cfgrev.Name),
+							ServiceName:      cfgrev.Name,
 							ServicePort:      intstr.FromInt(80),
 						},
 						Percent: 50,
 					}, {
 						ClusterIngressBackend: netv1alpha1.ClusterIngressBackend{
 							ServiceNamespace: testNamespace,
-							ServiceName:      fmt.Sprintf("%s-pub", rev.Name),
+							ServiceName:      rev.Name,
 							ServicePort:      intstr.FromInt(80),
 						},
 						Percent: 50,
@@ -615,7 +615,7 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 					Splits: []netv1alpha1.ClusterIngressBackendSplit{{
 						ClusterIngressBackend: netv1alpha1.ClusterIngressBackend{
 							ServiceNamespace: testNamespace,
-							ServiceName:      "test-rev-pub",
+							ServiceName:      "test-rev",
 							ServicePort:      intstr.FromInt(80),
 						},
 						Percent: 100,
@@ -633,7 +633,7 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 					Splits: []netv1alpha1.ClusterIngressBackendSplit{{
 						ClusterIngressBackend: netv1alpha1.ClusterIngressBackend{
 							ServiceNamespace: testNamespace,
-							ServiceName:      "test-rev-pub",
+							ServiceName:      "test-rev",
 							ServicePort:      intstr.FromInt(80),
 						},
 						Percent: 100,
@@ -710,14 +710,14 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 					Splits: []netv1alpha1.ClusterIngressBackendSplit{{
 						ClusterIngressBackend: netv1alpha1.ClusterIngressBackend{
 							ServiceNamespace: testNamespace,
-							ServiceName:      fmt.Sprintf("%s-pub", rev.Name),
+							ServiceName:      rev.Name,
 							ServicePort:      intstr.FromInt(80),
 						},
 						Percent: 50,
 					}, {
 						ClusterIngressBackend: netv1alpha1.ClusterIngressBackend{
 							ServiceNamespace: testNamespace,
-							ServiceName:      fmt.Sprintf("%s-pub", cfgrev.Name),
+							ServiceName:      cfgrev.Name,
 							ServicePort:      intstr.FromInt(80),
 						},
 						Percent: 50,
@@ -735,7 +735,7 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 					Splits: []netv1alpha1.ClusterIngressBackendSplit{{
 						ClusterIngressBackend: netv1alpha1.ClusterIngressBackend{
 							ServiceNamespace: testNamespace,
-							ServiceName:      fmt.Sprintf("%s-pub", cfgrev.Name),
+							ServiceName:      cfgrev.Name,
 							ServicePort:      intstr.FromInt(80),
 						},
 						Percent: 100,
@@ -753,7 +753,7 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 					Splits: []netv1alpha1.ClusterIngressBackendSplit{{
 						ClusterIngressBackend: netv1alpha1.ClusterIngressBackend{
 							ServiceNamespace: testNamespace,
-							ServiceName:      fmt.Sprintf("%s-pub", rev.Name),
+							ServiceName:      rev.Name,
 							ServicePort:      intstr.FromInt(80),
 						},
 						Percent: 100,
