@@ -329,3 +329,27 @@ func validateProbe(p *corev1.Probe) *apis.FieldError {
 	}
 	return errs
 }
+
+func ValidateNamespacedObjectReference(p *corev1.ObjectReference) *apis.FieldError {
+	if p == nil {
+		return nil
+	}
+	errs := apis.CheckDisallowedFields(*p, *NamespacedObjectReferenceMask(p))
+
+	if p.APIVersion == "" {
+		errs = errs.Also(apis.ErrMissingField("apiVersion"))
+	} else if len(validation.IsQualifiedName(p.APIVersion)) != 0 {
+		errs = errs.Also(apis.ErrInvalidValue(p.APIVersion, "apiVersion"))
+	}
+	if p.Kind == "" {
+		errs = errs.Also(apis.ErrMissingField("kind"))
+	} else if len(validation.IsCIdentifier(p.Kind)) != 0 {
+		errs = errs.Also(apis.ErrInvalidValue(p.Kind, "kind"))
+	}
+	if p.Name == "" {
+		errs = errs.Also(apis.ErrMissingField("name"))
+	} else if len(validation.IsDNS1123Label(p.Name)) != 0 {
+		errs = errs.Also(apis.ErrInvalidValue(p.Name, "name"))
+	}
+	return errs
+}

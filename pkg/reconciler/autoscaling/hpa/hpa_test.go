@@ -434,7 +434,7 @@ func pa(name, namespace string, options ...PodAutoscalerOption) *autoscalingv1al
 			Namespace: namespace,
 		},
 		Spec: autoscalingv1alpha1.PodAutoscalerSpec{
-			ScaleTargetRef: autoscalingv1.CrossVersionObjectReference{
+			ScaleTargetRef: corev1.ObjectReference{
 				APIVersion: "apps/v1",
 				Kind:       "Deployment",
 				Name:       name + "-deployment",

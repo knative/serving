@@ -23,7 +23,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/knative/pkg/apis"
 	networking "github.com/knative/serving/pkg/apis/networking"
-	autoscalingv1 "k8s.io/api/autoscaling/v1"
+	corev1 "k8s.io/api/core/v1"
 )
 
 func TestServerlessServiceSpecValidation(t *testing.T) {
@@ -35,7 +35,7 @@ func TestServerlessServiceSpecValidation(t *testing.T) {
 		name: "valid proxy",
 		skss: &ServerlessServiceSpec{
 			Mode: SKSOperationModeProxy,
-			ObjectRef: autoscalingv1.CrossVersionObjectReference{
+			ObjectRef: corev1.ObjectReference{
 				APIVersion: "apps/v1",
 				Kind:       "Deployment",
 				Name:       "foo",
@@ -47,7 +47,7 @@ func TestServerlessServiceSpecValidation(t *testing.T) {
 		name: "valid serve",
 		skss: &ServerlessServiceSpec{
 			Mode: SKSOperationModeServe,
-			ObjectRef: autoscalingv1.CrossVersionObjectReference{
+			ObjectRef: corev1.ObjectReference{
 				APIVersion: "apps/v1",
 				Kind:       "Deployment",
 				Name:       "foo",
@@ -59,7 +59,7 @@ func TestServerlessServiceSpecValidation(t *testing.T) {
 		name: "invalid protocol",
 		skss: &ServerlessServiceSpec{
 			Mode: SKSOperationModeServe,
-			ObjectRef: autoscalingv1.CrossVersionObjectReference{
+			ObjectRef: corev1.ObjectReference{
 				APIVersion: "apps/v1",
 				Kind:       "Deployment",
 				Name:       "foo",
@@ -71,7 +71,7 @@ func TestServerlessServiceSpecValidation(t *testing.T) {
 		name: "wrong mode",
 		skss: &ServerlessServiceSpec{
 			Mode: "bombastic",
-			ObjectRef: autoscalingv1.CrossVersionObjectReference{
+			ObjectRef: corev1.ObjectReference{
 				APIVersion: "apps/v1",
 				Kind:       "Deployment",
 				Name:       "foo",
@@ -83,7 +83,7 @@ func TestServerlessServiceSpecValidation(t *testing.T) {
 		name: "no mode",
 		skss: &ServerlessServiceSpec{
 			Mode: "",
-			ObjectRef: autoscalingv1.CrossVersionObjectReference{
+			ObjectRef: corev1.ObjectReference{
 				APIVersion: "apps/v1",
 				Kind:       "Deployment",
 				Name:       "foo",
@@ -97,20 +97,20 @@ func TestServerlessServiceSpecValidation(t *testing.T) {
 			Mode:         SKSOperationModeProxy,
 			ProtocolType: networking.ProtocolH2C,
 		},
-		want: apis.ErrMissingField("objectRef"),
+		want: apis.ErrMissingField("objectRef.apiVersion", "objectRef.kind", "objectRef.name"),
 	}, {
 		name: "empty object reference",
 		skss: &ServerlessServiceSpec{
 			Mode:         SKSOperationModeProxy,
-			ObjectRef:    autoscalingv1.CrossVersionObjectReference{},
+			ObjectRef:    corev1.ObjectReference{},
 			ProtocolType: networking.ProtocolHTTP1,
 		},
-		want: apis.ErrMissingField("objectRef"),
+		want: apis.ErrMissingField("objectRef.apiVersion", "objectRef.kind", "objectRef.name"),
 	}, {
 		name: "missing kind",
 		skss: &ServerlessServiceSpec{
 			Mode: SKSOperationModeProxy,
-			ObjectRef: autoscalingv1.CrossVersionObjectReference{
+			ObjectRef: corev1.ObjectReference{
 				APIVersion: "apps/v1",
 				Name:       "foo",
 			},
@@ -120,7 +120,7 @@ func TestServerlessServiceSpecValidation(t *testing.T) {
 	}, {
 		name: "multiple errors",
 		skss: &ServerlessServiceSpec{
-			ObjectRef: autoscalingv1.CrossVersionObjectReference{
+			ObjectRef: corev1.ObjectReference{
 				Kind: "Deployment",
 			},
 			ProtocolType: networking.ProtocolH2C,
