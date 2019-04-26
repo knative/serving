@@ -366,14 +366,19 @@ func TestAutoscaler_Stats_TrimAfterStableWindow(t *testing.T) {
 			podCount:         1,
 		})
 	a.expectScale(t, now, 1, true)
-	if len(a.bucketed) != 30 {
-		t.Errorf("Unexpected stat count. Expected 30. Got %v.", len(a.bucketed))
+	currentValues := a.buckets.GetAndLock()
+	if len(currentValues) != 30 {
+		t.Errorf("Unexpected stat count. Expected 30. Got %v.", len(currentValues))
 	}
+	a.buckets.Unlock()
 	now = now.Add(time.Minute)
+
 	a.expectScale(t, now, 0, false)
-	if len(a.bucketed) != 0 {
-		t.Errorf("Unexpected stat count. Expected 0. Got %v.", len(a.bucketed))
+	currentValues = a.buckets.GetAndLock()
+	if len(currentValues) != 0 {
+		t.Errorf("Unexpected stat count. Expected 0. Got %v.", len(currentValues))
 	}
+	a.buckets.Unlock()
 }
 
 func TestAutoscaler_Stats_DenyNoTime(t *testing.T) {
@@ -386,10 +391,11 @@ func TestAutoscaler_Stats_DenyNoTime(t *testing.T) {
 	}
 	a.Record(TestContextWithLogger(t), stat)
 
-	if len(a.bucketed) != 0 {
-		t.Errorf("Unexpected stat count. Expected 0. Got %v.", len(a.bucketed))
-	}
 	a.expectScale(t, roundedNow(), 0, false)
+	currentValues := a.buckets.GetAndLock()
+	if len(currentValues) != 0 {
+		t.Errorf("Unexpected stat count. Expected 0. Got %v.", len(currentValues))
+	}
 }
 
 func TestAutoscaler_RateLimit_ScaleUp(t *testing.T) {
