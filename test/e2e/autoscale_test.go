@@ -253,7 +253,7 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 }
 
 func assertNumberOfPods(ctx *testContext, numReplicasMin int32, numReplicasMax int32) error {
-	deployment, err := ctx.clients.KubeClient.Kube.Apps().Deployments("serving-tests").Get(ctx.deploymentName, metav1.GetOptions{})
+	deployment, err := ctx.clients.KubeClient.Kube.Apps().Deployments(test.ServingNamespace).Get(ctx.deploymentName, metav1.GetOptions{})
 	if err != nil {
 		return errors.Wrapf(err, "Failed to get deployment %q", deployment)
 	}

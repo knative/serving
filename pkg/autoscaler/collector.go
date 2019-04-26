@@ -43,7 +43,10 @@ type Metric struct {
 }
 
 // MetricSpec contains all values the metric collector needs to operate.
-type MetricSpec struct{}
+type MetricSpec struct {
+	StableWindow time.Duration
+	PanicWindow  time.Duration
+}
 
 // MetricStatus reflects the status of metric collection for this specific entity.
 type MetricStatus struct{}
@@ -83,7 +86,7 @@ func (c *MetricCollector) Get(ctx context.Context, namespace, name string) (*Met
 	key := NewMetricKey(namespace, name)
 	collector, ok := c.collections[key]
 	if !ok {
-		return nil, k8serrors.NewNotFound(kpa.Resource("Deciders"), key)
+		return nil, k8serrors.NewNotFound(kpa.Resource("Metrics"), key)
 	}
 
 	return collector.metric.DeepCopy(), nil

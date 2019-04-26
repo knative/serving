@@ -20,12 +20,13 @@ import (
 	"errors"
 	"sync"
 
-	"github.com/knative/serving/pkg/resources"
+	"go.uber.org/zap"
 
 	"github.com/knative/pkg/logging/logkey"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/queue"
-	"go.uber.org/zap"
+	"github.com/knative/serving/pkg/resources"
+
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -36,14 +37,22 @@ var ErrActivatorOverload = errors.New("activator overload")
 type ThrottlerParams struct {
 	BreakerParams queue.BreakerParams
 	Logger        *zap.SugaredLogger
-	GetEndpoints  func(*v1alpha1.Revision) (int32, error)
-	GetRevision   func(RevisionID) (*v1alpha1.Revision, error)
+	GetEndpoints  EndpointsCountGetter
+	GetSKS        SKSGetter
+	GetRevision   RevisionGetter
 }
 
 // NewThrottler creates a new Throttler.
 func NewThrottler(params ThrottlerParams) *Throttler {
 	breakers := make(map[RevisionID]*queue.Breaker)
-	return &Throttler{breakers: breakers, breakerParams: params.BreakerParams, logger: params.Logger, getEndpoints: params.GetEndpoints, getRevision: params.GetRevision}
+	return &Throttler{
+		breakers:      breakers,
+		breakerParams: params.BreakerParams,
+		logger:        params.Logger,
+		getEndpoints:  params.GetEndpoints,
+		getRevision:   params.GetRevision,
+		getSKS:        params.GetSKS,
+	}
 }
 
 // Throttler keeps the mapping of Revisions to Breakers
@@ -56,8 +65,9 @@ type Throttler struct {
 	breakers      map[RevisionID]*queue.Breaker
 	breakerParams queue.BreakerParams
 	logger        *zap.SugaredLogger
-	getEndpoints  func(*v1alpha1.Revision) (int32, error)
-	getRevision   func(RevisionID) (*v1alpha1.Revision, error)
+	getEndpoints  EndpointsCountGetter
+	getRevision   RevisionGetter
+	getSKS        SKSGetter
 	mux           sync.Mutex
 }
 
@@ -69,7 +79,7 @@ func (t *Throttler) Remove(rev RevisionID) {
 }
 
 // UpdateCapacity updates the max concurrency of the Breaker corresponding to a revision.
-func (t *Throttler) UpdateCapacity(rev RevisionID, size int32) error {
+func (t *Throttler) UpdateCapacity(rev RevisionID, size int) error {
 	revision, err := t.getRevision(rev)
 	if err != nil {
 		return err
@@ -97,8 +107,8 @@ func (t *Throttler) Try(rev RevisionID, function func()) error {
 }
 
 // This method updates Breaker's concurrency.
-func (t *Throttler) updateCapacity(revision *v1alpha1.Revision, breaker *queue.Breaker, size int32) (err error) {
-	cc := int32(revision.Spec.ContainerConcurrency)
+func (t *Throttler) updateCapacity(revision *v1alpha1.Revision, breaker *queue.Breaker, size int) (err error) {
+	cc := int(revision.Spec.ContainerConcurrency)
 
 	targetCapacity := cc * size
 	if size > 0 && (cc == 0 || targetCapacity > t.breakerParams.MaxConcurrency) {
@@ -131,7 +141,17 @@ func (t *Throttler) forceUpdateCapacity(rev RevisionID, breaker *queue.Breaker) 
 	if err != nil {
 		return err
 	}
-	size, err := t.getEndpoints(revision)
+
+	// SKS name matches revision name.
+	sks, err := t.getSKS(rev.Namespace, rev.Name)
+	if err != nil {
+		return err
+	}
+
+	// We have to read the private service endpoints in activator
+	// in order to count the serving pod count, since the public one
+	// may point at ourselves.
+	size, err := t.getEndpoints(sks)
 	if err != nil {
 		return err
 	}
@@ -148,7 +168,7 @@ func (t *Throttler) UpdateEndpoints(newObj interface{}) {
 	endpoints := newObj.(*corev1.Endpoints)
 	addresses := resources.ReadyAddressCount(endpoints)
 	revID := RevisionID{endpoints.Namespace, resources.ParentResourceFromService(endpoints.Name)}
-	if err := t.UpdateCapacity(revID, int32(addresses)); err != nil {
+	if err := t.UpdateCapacity(revID, addresses); err != nil {
 		t.logger.With(zap.String(logkey.Key, revID.String())).Errorw("updating capacity failed", zap.Error(err))
 	}
 }

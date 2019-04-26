@@ -34,7 +34,7 @@ import (
 	"github.com/knative/serving/cmd/util"
 	"github.com/knative/serving/pkg/activator"
 	activatorutil "github.com/knative/serving/pkg/activator/util"
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/autoscaler"
 	"github.com/knative/serving/pkg/http/h2c"
 	"github.com/knative/serving/pkg/logging"
@@ -73,11 +73,8 @@ var (
 	servingNamespace       string
 	servingRevision        string
 	servingRevisionKey     string
-	servingAutoscaler      string
 	servingPodIP           string
 	servingPodName         string
-	autoscalerNamespace    string
-	servingAutoscalerPort  int
 	userTargetPort         int
 	userTargetAddress      string
 	containerConcurrency   int
@@ -99,11 +96,8 @@ func initEnv() {
 	servingConfig = util.GetRequiredEnvOrFatal("SERVING_CONFIGURATION", logger)
 	servingNamespace = util.GetRequiredEnvOrFatal("SERVING_NAMESPACE", logger)
 	servingRevision = util.GetRequiredEnvOrFatal("SERVING_REVISION", logger)
-	servingAutoscaler = util.GetRequiredEnvOrFatal("SERVING_AUTOSCALER", logger)
 	servingPodIP = util.GetRequiredEnvOrFatal("SERVING_POD_IP", logger)
 	servingPodName = util.GetRequiredEnvOrFatal("SERVING_POD", logger)
-	autoscalerNamespace = util.GetRequiredEnvOrFatal("SYSTEM_NAMESPACE", logger)
-	servingAutoscalerPort = util.MustParseIntEnvOrFatal("SERVING_AUTOSCALER_PORT", logger)
 	containerConcurrency = util.MustParseIntEnvOrFatal("CONTAINER_CONCURRENCY", logger)
 	revisionTimeoutSeconds = util.MustParseIntEnvOrFatal("REVISION_TIMEOUT_SECONDS", logger)
 	userTargetPort = util.MustParseIntEnvOrFatal("USER_PORT", logger)
@@ -247,7 +241,7 @@ func main() {
 		if queueDepth < 10 {
 			queueDepth = 10
 		}
-		params := queue.BreakerParams{QueueDepth: int32(queueDepth), MaxConcurrency: int32(containerConcurrency), InitialCapacity: int32(containerConcurrency)}
+		params := queue.BreakerParams{QueueDepth: queueDepth, MaxConcurrency: containerConcurrency, InitialCapacity: containerConcurrency}
 		breaker = queue.NewBreaker(params)
 		logger.Infof("Queue container is starting with %#v", params)
 	}
@@ -255,7 +249,7 @@ func main() {
 	go func() {
 		mux := http.NewServeMux()
 		mux.Handle("/metrics", promStatReporter.Handler())
-		http.ListenAndServe(fmt.Sprintf(":%d", v1alpha1.RequestQueueMetricsPort), mux)
+		http.ListenAndServe(fmt.Sprintf(":%d", networking.RequestQueueMetricsPort), mux)
 	}()
 
 	statChan := make(chan *autoscaler.Stat, statReportingQueueLength)
@@ -271,16 +265,19 @@ func main() {
 	}, time.Now())
 
 	adminServer := &http.Server{
-		Addr:    fmt.Sprintf(":%d", v1alpha1.RequestQueueAdminPort),
+		Addr:    fmt.Sprintf(":%d", networking.RequestQueueAdminPort),
 		Handler: createAdminHandlers(),
 	}
 
 	timeoutHandler := queue.TimeToFirstByteTimeoutHandler(http.HandlerFunc(handler(reqChan, breaker, httpProxy, h2cProxy)),
 		time.Duration(revisionTimeoutSeconds)*time.Second, "request timeout")
 	composedHandler := pushRequestMetricHandler(pushRequestLogHandler(timeoutHandler))
-	server = h2c.NewServer(fmt.Sprintf(":%d", v1alpha1.RequestQueuePort), composedHandler)
+	// We listen on two ports to match the behavior of activator
+	// so that we don't have to reprogram the k8s services.
+	serverHTTP := h2c.NewServer(fmt.Sprintf(":%d", networking.BackendHTTPPort), composedHandler)
+	serverHTTP2 := h2c.NewServer(fmt.Sprintf(":%d", networking.BackendHTTP2Port), composedHandler)
 
-	errChan := make(chan error, 2)
+	errChan := make(chan error, 3)
 	defer close(errChan)
 	// Runs a server created by creator and sends fatal errors to the errChan.
 	// Does not act on the ErrServerClosed error since that indicates we're
@@ -291,7 +288,8 @@ func main() {
 		}
 	}
 
-	go catchServerError(server.ListenAndServe)
+	go catchServerError(serverHTTP.ListenAndServe)
+	go catchServerError(serverHTTP2.ListenAndServe)
 	go catchServerError(adminServer.ListenAndServe)
 
 	// Blocks until we actually receive a TERM signal or one of the servers
@@ -305,13 +303,16 @@ func main() {
 	case <-signals.SetupSignalHandler():
 		logger.Info("Received TERM signal, attempting to gracefully shutdown servers.")
 		healthState.Shutdown(func() {
-			// Give istio time to sync our "not ready" state
+			// Give Istio time to sync our "not ready" state.
 			time.Sleep(quitSleepDuration)
 
 			// Calling server.Shutdown() allows pending requests to
 			// complete, while no new work is accepted.
-			if err := server.Shutdown(context.Background()); err != nil {
-				logger.Errorf("Failed to shutdown proxy server", zap.Error(err))
+			if err := serverHTTP.Shutdown(context.Background()); err != nil {
+				logger.Errorw("Failed to shutdown proxy server for HTTP/1", zap.Error(err))
+			}
+			if err := serverHTTP2.Shutdown(context.Background()); err != nil {
+				logger.Errorf("Failed to shutdown proxy server for HTTP/2", zap.Error(err))
 			}
 		})
 
@@ -390,4 +391,5 @@ func flush(logger *zap.SugaredLogger) {
 	logger.Sync()
 	os.Stdout.Sync()
 	os.Stderr.Sync()
+	metrics.FlushExporter()
 }

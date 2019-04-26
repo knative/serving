@@ -26,7 +26,7 @@ import (
 
 	pkgTest "github.com/knative/pkg/test"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	rtesting "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
+	rtesting "github.com/knative/serving/pkg/reconciler/testing"
 	"github.com/knative/serving/test"
 )
 

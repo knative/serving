@@ -4,12 +4,10 @@ metadata:
   name: grpc-ping-test-image
   namespace: default
 spec:
-  runLatest:
-    configuration:
-      revisionTemplate:
-        spec:
-          container:
-            image: github.com/knative/serving/test/test_images/grpc-ping
-            ports:
-              - name: h2c
-                containerPort: 8080
+  template:
+    spec:
+      containers:
+      - image: github.com/knative/serving/test/test_images/grpc-ping
+        ports:
+        - name: h2c
+          containerPort: 8080

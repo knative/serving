@@ -260,8 +260,10 @@ function knative_teardown() {
 function test_setup() {
   echo ">> Creating test resources (test/config/)"
   ko apply -f test/config/ || return 1
-  echo ">> Creating test namespace"
+  echo ">> Creating test namespaces"
   kubectl create namespace serving-tests
+  kubectl create namespace serving-tests-alt
+
   ${REPO_ROOT_DIR}/test/upload-test-images.sh || return 1
   wait_until_pods_running knative-serving || return 1
   wait_until_pods_running istio-system || return 1
@@ -275,7 +277,9 @@ function test_setup() {
 function test_teardown() {
   echo ">> Removing test resources (test/config/)"
   ko delete --ignore-not-found=true --now -f test/config/
-  echo ">> Removing test namespace"
+  echo ">> Removing test namespaces"
   kubectl delete all --all --ignore-not-found --now --timeout 60s -n serving-tests
   kubectl delete --ignore-not-found --now --timeout 60s namespace serving-tests
+  kubectl delete all --all --ignore-not-found --now --timeout 60s -n serving-tests-alt
+  kubectl delete --ignore-not-found --now --timeout 60s namespace serving-tests-alt
 }

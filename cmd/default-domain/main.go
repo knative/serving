@@ -31,8 +31,8 @@ import (
 
 	"github.com/knative/pkg/logging"
 	"github.com/knative/pkg/system"
-	cicfg "github.com/knative/serving/pkg/reconciler/v1alpha1/clusteringress/config"
-	routecfg "github.com/knative/serving/pkg/reconciler/v1alpha1/route/config"
+	cicfg "github.com/knative/serving/pkg/reconciler/clusteringress/config"
+	routecfg "github.com/knative/serving/pkg/reconciler/route/config"
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -130,6 +130,7 @@ func waitForIngressGatewayAddress(kubeclient *kubernetes.Clientset) (addr *corev
 func main() {
 	flag.Parse()
 	logger := logging.FromContext(context.Background()).Named(appName)
+	defer logger.Sync()
 
 	kubeClient, err := kubeClientFromFlags()
 	if err != nil {

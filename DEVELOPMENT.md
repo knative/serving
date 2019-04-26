@@ -135,11 +135,11 @@ kubectl create clusterrolebinding cluster-admin-binding \
 ### Deploy Istio
 
 ```shell
-kubectl apply -f ./third_party/istio-1.0.6/istio-crds.yaml
-while [ $(kubectl get crd gateways.networking.istio.io -o jsonpath='{.status.conditions[?(@.type=="Established")].status}') != 'True' ]; do
+kubectl apply -f ./third_party/istio-1.1.2/istio-crds.yaml
+while [[ $(kubectl get crd gateways.networking.istio.io -o jsonpath='{.status.conditions[?(@.type=="Established")].status}') != 'True' ]]; do
   echo "Waiting on Istio CRDs"; sleep 1
 done
-kubectl apply -f ./third_party/istio-1.0.6/istio.yaml
+kubectl apply -f ./third_party/istio-1.1.2/istio.yaml
 ```
 
 Follow the
@@ -181,11 +181,13 @@ You can see things running with:
 
 ```console
 kubectl -n knative-serving get pods
-NAME                          READY     STATUS    RESTARTS   AGE
-activator-c8495dc9-z7xpz      2/2       Running   0          6d
-autoscaler-66897845df-t5cwg   2/2       Running   0          6d
-controller-699fb46bb5-xhlkg   1/1       Running   0          6d
-webhook-76b87b8459-tzj6r      1/1       Running   0          6d
+NAME                                READY   STATUS      RESTARTS   AGE
+activator-5b87795885-f8t7k          2/2     Running     0          18m
+autoscaler-6495f7f79d-86jsr         2/2     Running     0          18m
+controller-5fd7fddc58-klmt4         1/1     Running     0          18m
+default-domain-6hs98                0/1     Completed   0          13s
+networking-istio-6755db495d-wtj4d   1/1     Running     0          18m
+webhook-84b8c9886d-dsqqv            1/1     Running     0          18m
 ```
 
 You can access the Knative Serving Controller's logs with:
@@ -254,8 +256,8 @@ ko delete --ignore-not-found=true \
   -f config/monitoring/100-namespace.yaml \
   -f config/ \
   -f ./third_party/config/build/release.yaml \
-  -f ./third_party/istio-1.0.6/istio.yaml \
-  -f ./third_party/istio-1.0.6/istio-crds.yaml
+  -f ./third_party/istio-1.1.2/istio.yaml \
+  -f ./third_party/istio-1.1.2/istio-crds.yaml
 ```
 
 ## Telemetry

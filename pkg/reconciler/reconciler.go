@@ -21,16 +21,12 @@ import (
 
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apimachinery/pkg/watch"
-	"k8s.io/client-go/discovery/cached"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"
-	"k8s.io/client-go/restmapper"
-	"k8s.io/client-go/scale"
 	"k8s.io/client-go/tools/record"
 
 	cachingclientset "github.com/knative/caching/pkg/client/clientset/versioned"
@@ -49,7 +45,6 @@ type Options struct {
 	KubeClientSet    kubernetes.Interface
 	SharedClientSet  sharedclientset.Interface
 	DynamicClientSet dynamic.Interface
-	ScaleClientSet   scale.ScalesGetter
 
 	ServingClientSet clientset.Interface
 	CachingClientSet cachingclientset.Interface
@@ -73,30 +68,12 @@ func NewOptionsOrDie(cfg *rest.Config, logger *zap.SugaredLogger, stopCh <-chan 
 	servingClient := clientset.NewForConfigOrDie(cfg)
 	dynamicClient := dynamic.NewForConfigOrDie(cfg)
 	cachingClient := cachingclientset.NewForConfigOrDie(cfg)
-
-	// This is based on how Kubernetes sets up its discovery-based client:
-	// https://github.com/kubernetes/kubernetes/blob/f2c6473e2/cmd/kube-controller-manager/app/controllermanager.go#L410-L414
-	cachedClient := cached.NewMemCacheClient(kubeClient.Discovery())
-	rm := restmapper.NewDeferredDiscoveryRESTMapper(cachedClient)
-	go wait.Until(func() {
-		rm.Reset()
-	}, resetPeriod, stopCh)
-
-	// This is based on how Kubernetes sets up its scale client based on discovery:
-	// https://github.com/kubernetes/kubernetes/blob/94c2c6c84/cmd/kube-controller-manager/app/autoscaling.go#L75-L81
-	scaleClient, err := scale.NewForConfig(cfg, rm, dynamic.LegacyAPIPathResolverFunc,
-		scale.NewDiscoveryScaleKindResolver(kubeClient.Discovery()))
-	if err != nil {
-		panic(err)
-	}
-
 	configMapWatcher := configmap.NewInformedWatcher(kubeClient, system.Namespace())
 
 	return Options{
 		KubeClientSet:    kubeClient,
 		SharedClientSet:  sharedClient,
 		DynamicClientSet: dynamicClient,
-		ScaleClientSet:   scaleClient,
 		ServingClientSet: servingClient,
 		CachingClientSet: cachingClient,
 		ConfigMapWatcher: configMapWatcher,

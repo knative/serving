@@ -108,8 +108,10 @@ This is a helper script for Knative E2E test scripts. To use it:
    if the default values don't fit your needs:
 
    - `E2E_CLUSTER_REGION`: Cluster region, defaults to `us-central1`.
+   - `E2E_CLUSTER_BACKUP_REGIONS`: Space-separated list of regions to retry test cluster creation in case of stockout. Defaults to `us-west1 us-east1`.
    - `E2E_CLUSTER_ZONE`: Cluster zone (e.g., `a`), defaults to none (i.e. use a regional
      cluster).
+   - `E2E_CLUSTER_BACKUP_ZONES`: Space-separated list of zones to retry test cluster creation in case of stockout. If defined, `E2E_CLUSTER_BACKUP_REGIONS` will be ignored thus it defaults to none.
    - `E2E_CLUSTER_MACHINE`: Cluster node machine type, defaults to `n1-standard-4}`.
    - `E2E_MIN_CLUSTER_NODES`: Minimum number of nodes in the cluster when autoscaling,
      defaults to 1.
@@ -153,8 +155,9 @@ This is a helper script for Knative E2E test scripts. To use it:
 1. Write logic for the end-to-end tests. Run all go tests using `go_test_e2e()`
    (or `report_go_test()` if you need a more fine-grained control) and call
    `fail_test()` or `success()` if any of them failed. The environment variable
-   `KO_DOCKER_REPO` will be set according to the test cluster. You can also use
-   the following boolean (0 is false, 1 is true) environment variables for the logic:
+   `KO_DOCKER_REPO` and `E2E_PROJECT_ID` will be set according to the test cluster.
+   You can also use the following boolean (0 is false, 1 is true) environment
+   variables for the logic:
 
    - `EMIT_METRICS`: true if `--emit-metrics` was passed.
 

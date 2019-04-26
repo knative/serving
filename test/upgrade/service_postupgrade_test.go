@@ -23,7 +23,7 @@ import (
 
 	_ "github.com/knative/pkg/system/testing"
 	ptest "github.com/knative/pkg/test"
-	serviceresourcenames "github.com/knative/serving/pkg/reconciler/v1alpha1/service/resources/names"
+	serviceresourcenames "github.com/knative/serving/pkg/reconciler/service/resources/names"
 	"github.com/knative/serving/test"
 	"github.com/knative/serving/test/e2e"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

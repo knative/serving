@@ -60,9 +60,11 @@ type AddressStatus struct {
 	Address *Addressable `json:"address,omitempty"`
 }
 
-// Verify AddressableType resources meet duck contracts.
-var _ duck.Populatable = (*AddressableType)(nil)
-var _ apis.Listable = (*AddressableType)(nil)
+var (
+	// Verify AddressableType resources meet duck contracts.
+	_ duck.Populatable = (*AddressableType)(nil)
+	_ apis.Listable    = (*AddressableType)(nil)
+)
 
 // GetFullType implements duck.Implementable
 func (*Addressable) GetFullType() duck.Populatable {

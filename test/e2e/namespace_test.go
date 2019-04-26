@@ -43,17 +43,10 @@ func checkResponse(t *testing.T, clients *test.Clients, names test.ResourceNames
 func TestMultipleNamespace(t *testing.T) {
 	t.Parallel()
 
-	altServiceNamespace := fmt.Sprintf("%s-%s", test.ServingNamespace, test.ObjectNameForTest(t))
-	serviceName := test.ObjectNameForTest(t)
-
 	defaultClients := Setup(t) // This one uses the default namespace `test.ServingNamespace`
-	altClients := SetupWithNamespace(t, altServiceNamespace)
+	altClients := SetupAlternativeNamespace(t)
 
-	defer test.DeleteNamespace(altClients, altServiceNamespace)
-	err := test.CreateNamespace(altClients, altServiceNamespace)
-	if err != nil {
-		t.Fatal(err)
-	}
+	serviceName := test.ObjectNameForTest(t)
 
 	defaultResources := test.ResourceNames{
 		Service: serviceName,
@@ -70,7 +63,7 @@ func TestMultipleNamespace(t *testing.T) {
 	}
 	defer test.TearDown(altClients, altResources)
 	if _, err := test.CreateRunLatestServiceReady(t, altClients, &altResources, &test.Options{}); err != nil {
-		t.Fatalf("Failed to create Service %v in namespace %v: %v", altResources.Service, altServiceNamespace, err)
+		t.Fatalf("Failed to create Service %v in namespace %v: %v", altResources.Service, test.AlternativeServingNamespace, err)
 	}
 
 	if err := checkResponse(t, defaultClients, defaultResources, pizzaPlanetText1); err != nil {

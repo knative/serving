@@ -53,11 +53,11 @@ func main() {
 	flag.Parse()
 	cm, err := configmap.Load("/etc/config-logging")
 	if err != nil {
-		log.Fatalf("Error loading logging configuration: %v", err)
+		log.Fatal("Error loading logging configuration:", err)
 	}
 	config, err := logging.NewConfigFromMap(cm)
 	if err != nil {
-		log.Fatalf("Error parsing logging configuration: %v", err)
+		log.Fatal("Error parsing logging configuration:", err)
 	}
 	logger, atomicLevel := logging.NewLoggerFromConfig(config, component)
 	defer logger.Sync()
@@ -79,7 +79,7 @@ func main() {
 	}
 
 	if err := version.CheckMinimumVersion(kubeClient.Discovery()); err != nil {
-		logger.Fatalf("Version check failed: %v", err)
+		logger.Fatalw("Version check failed", err)
 	}
 
 	// Watch the logging config map and dynamically update logging levels.
@@ -119,6 +119,7 @@ func main() {
 
 		// Decorate contexts with the current state of the config.
 		WithContext: func(ctx context.Context) context.Context {
+			// TODO(mattmoor): Once we cut 0.6, we should pass v1beta1.UpgradeViaDefaulting here.
 			return store.ToContext(ctx)
 		},
 	}

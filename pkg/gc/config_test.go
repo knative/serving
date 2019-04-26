@@ -21,8 +21,9 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
-	. "github.com/knative/serving/pkg/reconciler/testing"
 	corev1 "k8s.io/api/core/v1"
+
+	. "github.com/knative/pkg/configmap/testing"
 )
 
 func TestOurConfig(t *testing.T) {

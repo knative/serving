@@ -27,15 +27,13 @@ spec:
   - name: http
     protocol: TCP
     port: 80
-    targetPort: 8080
-    nodePort: # empty removing existing value to avoid upgrade error # TODO delete after v0.4
+    targetPort: 8012
   - name: http2
     protocol: TCP
     port: 81
-    targetPort: 8081
+    targetPort: 8013
   - name: metrics
     protocol: TCP
     port: 9090
     targetPort: 9090
-    nodePort: # empty removing existing value to avoid upgrade error # TODO delete after v0.4
   type: ClusterIP
