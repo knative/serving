@@ -136,7 +136,7 @@ kubectl create clusterrolebinding cluster-admin-binding \
 
 ```shell
 kubectl apply -f ./third_party/istio-1.1.2/istio-crds.yaml
-while [ $(kubectl get crd gateways.networking.istio.io -o jsonpath='{.status.conditions[?(@.type=="Established")].status}') != 'True' ]; do
+while [[ $(kubectl get crd gateways.networking.istio.io -o jsonpath='{.status.conditions[?(@.type=="Established")].status}') != 'True' ]]; do
   echo "Waiting on Istio CRDs"; sleep 1
 done
 kubectl apply -f ./third_party/istio-1.1.2/istio.yaml
