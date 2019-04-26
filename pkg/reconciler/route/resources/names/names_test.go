@@ -61,6 +61,17 @@ func TestNamer(t *testing.T) {
 		},
 		f:    ClusterIngress,
 		want: "route-1234-5678-910",
+	}, {
+		name: "Certificate",
+		route: &v1alpha1.Route{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "bar",
+				Namespace: "default",
+				UID:       "1234-5678-910",
+			},
+		},
+		f:    Certificate,
+		want: "route-1234-5678-910",
 	}}
 
 	for _, test := range tests {

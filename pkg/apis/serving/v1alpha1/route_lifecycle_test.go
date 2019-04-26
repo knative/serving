@@ -17,6 +17,9 @@ package v1alpha1
 
 import (
 	"testing"
+	"time"
+
+	"github.com/google/go-cmp/cmp"
 
 	"github.com/knative/pkg/apis/duck"
 	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
@@ -24,6 +27,7 @@ import (
 	apitesting "github.com/knative/pkg/apis/testing"
 	netv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
@@ -344,5 +348,53 @@ func TestRouteGetGroupVersionKind(t *testing.T) {
 	}
 	if got := r.GetGroupVersionKind(); got != want {
 		t.Errorf("got: %v, want: %v", got, want)
+	}
+}
+
+func TestRouteGetCertificateStatus(t *testing.T) {
+	certificates := []*netv1alpha1.Certificate{
+		&netv1alpha1.Certificate{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "cert-1",
+				Namespace: "knative-testing",
+			},
+			Spec: netv1alpha1.CertificateSpec{
+				DNSNames: []string{"*.default.example.com"},
+			},
+			Status: netv1alpha1.CertificateStatus{
+				Status: duckv1beta1.Status{
+					Conditions: duckv1beta1.Conditions{{
+						Type:   netv1alpha1.CertificateCondidtionReady,
+						Status: corev1.ConditionTrue,
+					}},
+				},
+				NotAfter: &metav1.Time{
+					Time: time.Unix(100, 100),
+				},
+			},
+		},
+	}
+	r := &RouteStatus{}
+	want := &RouteStatus{
+		RouteStatusFields: RouteStatusFields{
+			Certificates: []Certificate{
+				Certificate{
+					Name:      "cert-1",
+					Namespace: "knative-testing",
+					DNSNames:  []string{"*.default.example.com"},
+					Conditions: duckv1beta1.Conditions{{
+						Type:   netv1alpha1.CertificateCondidtionReady,
+						Status: corev1.ConditionTrue,
+					}},
+					NotAfter: &metav1.Time{
+						Time: time.Unix(100, 100),
+					},
+				},
+			},
+		},
+	}
+	r.PropagateCertificateStatus(certificates)
+	if diff := cmp.Diff(want, r); diff != "" {
+		t.Errorf("MakeCertificates (-want, +got) = %v", diff)
 	}
 }

@@ -210,6 +210,7 @@ func newTestSetup(t *testing.T, configs ...*corev1.ConfigMap) (
 		servingInformer.Serving().V1alpha1().Revisions(),
 		kubeInformer.Core().V1().Services(),
 		servingInformer.Networking().V1alpha1().ClusterIngresses(),
+		servingInformer.Networking().V1alpha1().Certificates(),
 	)
 
 	reconciler = controller.Reconciler.(*Reconciler)
@@ -238,6 +239,18 @@ func getRouteIngressFromClient(t *testing.T, servingClient *fakeclientset.Client
 	}
 
 	return &cis.Items[0]
+}
+
+func getCertificatesFromClient(t *testing.T, servingClient *fakeclientset.Clientset, desiredCerts []*netv1alpha1.Certificate) []*netv1alpha1.Certificate {
+	result := []*netv1alpha1.Certificate{}
+	for _, desired := range desiredCerts {
+		created, err := servingClient.NetworkingV1alpha1().Certificates(desired.Namespace).Get(desired.Name, metav1.GetOptions{})
+		if err != nil {
+			t.Errorf("Certificates(%s).Get(%s) = %v", desired.Namespace, desired.Name, err)
+		}
+		result = append(result, created)
+	}
+	return result
 }
 
 func addResourcesToInformers(

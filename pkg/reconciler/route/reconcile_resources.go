@@ -277,10 +277,12 @@ func (c *Reconciler) reconcileCert(ctx context.Context, r *v1alpha1.Route, desir
 			existing.Spec = desiredCert.Spec
 			cert, err := c.ServingClientSet.NetworkingV1alpha1().Certificates(existing.Namespace).Update(existing)
 			if err != nil {
+				c.Recorder.Eventf(r, corev1.EventTypeWarning, "UpdateFailed",
+					"Failed to update Certificate %s/%s: %v", existing.Namespace, existing.Name, err)
 				return nil, err
 			}
 			c.Recorder.Eventf(existing, corev1.EventTypeNormal, "Updated",
-				"Updated Spec for Certificate %q/%q", existing.Name, existing.Namespace)
+				"Updated Spec for Certificate %s/%s", existing.Namespace, existing.Name)
 			return cert, nil
 		}
 	}

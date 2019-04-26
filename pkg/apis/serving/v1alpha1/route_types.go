@@ -148,6 +148,9 @@ type Certificate struct {
 	// Namespace is the namespace of the certificate.
 	Namespace string `json:"namespace,omitempty"`
 
+	// DNSNames is the DNS names the certificate supports.
+	DNSNames []string `json:"dnsNames,omitempty"`
+
 	// Condition is the condition of the certificate.
 	Conditions duckv1beta1.Conditions `json:"conditions,omitempty"`
 

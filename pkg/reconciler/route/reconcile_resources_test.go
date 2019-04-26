@@ -24,6 +24,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	. "github.com/knative/pkg/logging/testing"
+	"github.com/knative/pkg/system"
 	netv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1beta1"
@@ -148,5 +149,75 @@ func newTestClusterIngress(r *v1alpha1.Route) *netv1alpha1.ClusterIngress {
 			},
 			Active: true,
 		}}}}
-	return resources.MakeClusterIngress(r, tc, "foo-ingress")
+	tls := []netv1alpha1.ClusterIngressTLS{
+		netv1alpha1.ClusterIngressTLS{
+			Hosts:             []string{"test-route.test-ns.example.com"},
+			PrivateKey:        "tls.key",
+			SecretName:        "test-secret",
+			SecretNamespace:   "test-ns",
+			ServerCertificate: "tls.crt",
+		},
+	}
+	return resources.MakeClusterIngress(r, tc, tls, "foo-ingress")
+}
+
+func TestReconcileCertificates_Insert(t *testing.T) {
+	_, servingClient, c, _, _, _ := newTestReconciler(t)
+	r := &v1alpha1.Route{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-route",
+			Namespace: "test-ns",
+		},
+	}
+	certificates := []*netv1alpha1.Certificate{newCerts([]string{"*.default.example.com"})}
+	if _, err := c.reconcileCertificates(TestContextWithLogger(t), r, certificates); err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+	created := getCertificatesFromClient(t, servingClient, certificates)
+	if diff := cmp.Diff(certificates, created); diff != "" {
+		t.Errorf("Unexpected diff (-want +got): %v", diff)
+	}
+}
+
+func TestReconcileCertificates_Update(t *testing.T) {
+	_, servingClient, c, _, servingInformer, _ := newTestReconciler(t)
+	r := &v1alpha1.Route{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-route",
+			Namespace: "test-ns",
+		},
+	}
+	certificates := []*netv1alpha1.Certificate{newCerts([]string{"old.example.com"})}
+	if _, err := c.reconcileCertificates(TestContextWithLogger(t), r, certificates); err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+
+	storedCerts := getCertificatesFromClient(t, servingClient, certificates)
+	servingInformer.Networking().V1alpha1().Certificates().Informer().GetIndexer().Add(storedCerts[0])
+
+	newCertificates := []*netv1alpha1.Certificate{newCerts([]string{"new.example.com"})}
+	if _, err := c.reconcileCertificates(TestContextWithLogger(t), r, newCertificates); err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+
+	updated := getCertificatesFromClient(t, servingClient, newCertificates)
+	if diff := cmp.Diff(newCertificates, updated); diff != "" {
+		t.Errorf("Unexpected diff (-want +got): %v", diff)
+	}
+	if diff := cmp.Diff(certificates, updated); diff == "" {
+		t.Error("Expected difference, but found none")
+	}
+}
+
+func newCerts(dnsNames []string) *netv1alpha1.Certificate {
+	return &netv1alpha1.Certificate{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-cert",
+			Namespace: system.Namespace(),
+		},
+		Spec: netv1alpha1.CertificateSpec{
+			DNSNames:   dnsNames,
+			SecretName: "test-secret",
+		},
+	}
 }

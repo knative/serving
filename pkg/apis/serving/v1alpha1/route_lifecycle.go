@@ -124,12 +124,13 @@ func (rs *RouteStatus) PropagateClusterIngressStatus(cs v1alpha1.IngressStatus) 
 
 // PropagateCertificateStatus propagates the statuses of Certificates to the Route
 // that owns the Certificates.
-func (rs *RouteStatus) PropagateCertificateStatus(desired []*v1alpha1.Certificate) {
+func (rs *RouteStatus) PropagateCertificateStatus(certificates []*v1alpha1.Certificate) {
 	certs := []Certificate{}
-	for _, c := range desired {
+	for _, c := range certificates {
 		certs = append(certs, Certificate{
 			Name:       c.Name,
 			Namespace:  c.Namespace,
+			DNSNames:   c.Spec.DNSNames,
 			Conditions: c.Status.Conditions,
 			NotAfter:   c.Status.NotAfter,
 		})

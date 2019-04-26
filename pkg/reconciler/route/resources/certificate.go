@@ -1,9 +1,12 @@
 /*
 Copyright 2019 The Knative Authors
+
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
-    http://www.apache.org/licenses/LICENSE-2.0
+
+    https://www.apache.org/licenses/LICENSE-2.0
+
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -14,7 +17,6 @@ limitations under the License.
 package resources
 
 import (
-	"context"
 	"fmt"
 	"strings"
 
@@ -27,7 +29,7 @@ import (
 )
 
 // MakeCertificates creates Certificates for the Route to request TLS certificates.
-func MakeCertificates(ctx context.Context, route *v1alpha1.Route, dnsNames []string, enableWildcardCert bool) ([]*networkingv1alpha1.Certificate, error) {
+func MakeCertificates(route *v1alpha1.Route, dnsNames []string, enableWildcardCert bool) []*networkingv1alpha1.Certificate {
 	certs := []*networkingv1alpha1.Certificate{}
 	if enableWildcardCert {
 		wildcardDNSNames := sets.String{}
@@ -36,27 +38,21 @@ func MakeCertificates(ctx context.Context, route *v1alpha1.Route, dnsNames []str
 			wildcardDNSNames.Insert(wildcardDNS)
 		}
 
-		for wildcardDNSName := range wildcardDNSNames {
+		for _, wildcardDNSName := range wildcardDNSNames.List() {
 			certName := wildcardCertName(wildcardDNSName)
-			cert, err := makeCert(route, []string{wildcardDNSName}, certName)
-			if err != nil {
-				return nil, err
-			}
+			cert := makeCert([]string{wildcardDNSName}, certName)
 			certs = append(certs, cert)
 		}
 	} else {
 		// For non-wildcard certificate, it is Route-specific. Therefore, we generate
 		// the certificate name based on Route information.
-		cert, err := makeCert(route, dnsNames, names.Certificate(route))
-		if err != nil {
-			return nil, err
-		}
+		cert := makeCert(dnsNames, names.Certificate(route))
 		certs = append(certs, cert)
 	}
-	return certs, nil
+	return certs
 }
 
-func makeCert(route *v1alpha1.Route, dnsNames []string, certName string) (*networkingv1alpha1.Certificate, error) {
+func makeCert(dnsNames []string, certName string) *networkingv1alpha1.Certificate {
 	return &networkingv1alpha1.Certificate{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: certName,
@@ -67,7 +63,7 @@ func makeCert(route *v1alpha1.Route, dnsNames []string, certName string) (*netwo
 			DNSNames:   dnsNames,
 			SecretName: certName,
 		},
-	}, nil
+	}
 }
 
 func wildcard(dnsName string) string {

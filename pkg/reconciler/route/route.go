@@ -308,10 +308,7 @@ func (c *Reconciler) reconcile(ctx context.Context, r *v1alpha1.Route) error {
 	if c.enableAutoTLS {
 		domains := tr.GetDomains(r.Status.Domain, traffic.Targets)
 		// TODO(zhiminx): add a feature flag in config-network ConfgiMap to control the types of certs (wildcard/non-wildcard)
-		desiredCerts, err := resources.MakeCertificates(ctx, r, domains, true)
-		if err != nil {
-			return err
-		}
+		desiredCerts := resources.MakeCertificates(r, domains, true)
 		desiredCerts, err = c.reconcileCertificates(ctx, r, desiredCerts)
 		if err != nil {
 			return err
