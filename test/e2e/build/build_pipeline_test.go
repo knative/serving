@@ -31,6 +31,7 @@ import (
 	pkgTest "github.com/knative/pkg/test"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/test"
+	"github.com/knative/serving/test/e2e"
 )
 
 func TestPipeline(t *testing.T) {
@@ -187,7 +188,7 @@ func TestPipeline(t *testing.T) {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			clients := Setup(t)
+			clients := e2e.Setup(t)
 
 			t.Log("Creating a new Route and Configuration with build")
 			svcName := test.ObjectNameForTest(t)

@@ -36,13 +36,15 @@ import (
 	pkgTest "github.com/knative/pkg/test"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/test"
+	"github.com/knative/serving/test/e2e"
 )
 
+const helloWorldExpectedOutput = "Hello World! How about some tasty noodles?"
 var buildCondSet = duckv1alpha1.NewBatchConditionSet()
 
 func TestBuildSpecAndServe(t *testing.T) {
 	t.Parallel()
-	clients := Setup(t)
+	clients := e2e.Setup(t)
 
 	t.Log("Creating a new Route and Configuration with build")
 
@@ -145,7 +147,7 @@ func TestBuildSpecAndServe(t *testing.T) {
 
 func TestBuildAndServe(t *testing.T) {
 	t.Parallel()
-	clients := Setup(t)
+	clients := e2e.Setup(t)
 	t.Log("Creating a new Route and Configuration with build")
 
 	svcName := test.ObjectNameForTest(t)
@@ -263,7 +265,7 @@ func TestBuildAndServe(t *testing.T) {
 
 func TestBuildFailure(t *testing.T) {
 	t.Parallel()
-	clients := Setup(t)
+	clients := e2e.Setup(t)
 
 	t.Log("Creating a new Configuration with failing build")
 	names := test.ResourceNames{
