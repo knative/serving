@@ -52,7 +52,7 @@ func ValidateAnnotations(annotations map[string]string) *apis.FieldError {
 		return err
 	}
 
-	if max < min {
+	if max != 0 && max < min {
 		return &apis.FieldError{
 			Message: fmt.Sprintf("%s=%v is less than %s=%v", MaxScaleAnnotationKey, max, MinScaleAnnotationKey, min),
 			Paths:   []string{MaxScaleAnnotationKey, MinScaleAnnotationKey},
