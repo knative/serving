@@ -20,6 +20,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/knative/pkg/system"
 	_ "github.com/knative/pkg/system/testing"
 	"github.com/knative/serving/pkg/apis/networking"
 	netv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
