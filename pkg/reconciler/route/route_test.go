@@ -1003,7 +1003,7 @@ func TestRouteDomain(t *testing.T) {
 	}
 
 	context := context.Background()
-	cfg := ReconcilerTestConfig()
+	cfg := ReconcilerTestConfig(false)
 	context = config.ToContext(context, cfg)
 
 	tests := []struct {
