@@ -1045,11 +1045,10 @@
   version = "kubernetes-1.12.6"
 
 [[projects]]
-  digest = "1:4a78a0b5d925cf97f85b20141ce596373a81c019200f730e9bf6feb4009c33e9"
+  digest = "1:54c31536653e43d472dc0a2e586380f032ad9f61a1ea0b8d40e7f8bb2621bb0e"
   name = "k8s.io/client-go"
   packages = [
     "discovery",
-    "discovery/cached",
     "discovery/fake",
     "dynamic",
     "dynamic/fake",
@@ -1198,16 +1197,6 @@
     "plugin/pkg/client/auth/oidc",
     "rest",
     "rest/watch",
-    "restmapper",
-    "scale",
-    "scale/fake",
-    "scale/scheme",
-    "scale/scheme/appsint",
-    "scale/scheme/appsv1beta1",
-    "scale/scheme/appsv1beta2",
-    "scale/scheme/autoscalingv1",
-    "scale/scheme/extensionsint",
-    "scale/scheme/extensionsv1beta1",
     "testing",
     "third_party/forked/golang/template",
     "tools/auth",
@@ -1431,7 +1420,6 @@
     "k8s.io/apimachinery/pkg/util/wait",
     "k8s.io/apimachinery/pkg/watch",
     "k8s.io/client-go/discovery",
-    "k8s.io/client-go/discovery/cached",
     "k8s.io/client-go/discovery/fake",
     "k8s.io/client-go/dynamic",
     "k8s.io/client-go/dynamic/fake",
@@ -1449,9 +1437,6 @@
     "k8s.io/client-go/plugin/pkg/client/auth/gcp",
     "k8s.io/client-go/plugin/pkg/client/auth/oidc",
     "k8s.io/client-go/rest",
-    "k8s.io/client-go/restmapper",
-    "k8s.io/client-go/scale",
-    "k8s.io/client-go/scale/fake",
     "k8s.io/client-go/testing",
     "k8s.io/client-go/tools/cache",
     "k8s.io/client-go/tools/clientcmd",

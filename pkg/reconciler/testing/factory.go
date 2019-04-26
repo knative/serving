@@ -22,16 +22,11 @@ import (
 	"testing"
 
 	logtesting "github.com/knative/pkg/logging/testing"
-	autoscalingv1 "k8s.io/api/autoscaling/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	fakedynamicclientset "k8s.io/client-go/dynamic/fake"
 	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
-	"k8s.io/client-go/scale"
-	fakescaleclient "k8s.io/client-go/scale/fake"
 	ktesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/record"
 
@@ -52,35 +47,6 @@ const (
 
 // Ctor functions create a k8s controller with given params.
 type Ctor func(*Listers, reconciler.Options) controller.Reconciler
-
-// scaleClient returns a Scale fake K8s client, that returns the scale resource
-// defined by the underlying Deployment resource. That deployment resource must
-// exist in the passed in `f` clientset.
-func scaleClient(f *fakekubeclientset.Clientset) scale.ScalesGetter {
-	scaleClient := &fakescaleclient.FakeScaleClient{}
-	scaleClient.PrependReactor("get", "deployments", func(action ktesting.Action) (bool, runtime.Object, error) {
-		ga := action.(ktesting.GetAction)
-		d, err := f.AppsV1().Deployments(ga.GetNamespace()).Get(ga.GetName(), metav1.GetOptions{})
-		if err != nil {
-			return true, nil, err
-		}
-		replicas := int32(1)
-		if d.Spec.Replicas != nil {
-			replicas = *d.Spec.Replicas
-		}
-		return true, &autoscalingv1.Scale{
-			ObjectMeta: d.ObjectMeta,
-			Spec: autoscalingv1.ScaleSpec{
-				Replicas: replicas,
-			},
-			Status: autoscalingv1.ScaleStatus{
-				Replicas: d.Status.Replicas,
-				Selector: labels.FormatLabels(d.Spec.Selector.MatchLabels),
-			},
-		}, nil
-	})
-	return scaleClient
-}
 
 // MakeFactory creates a reconciler factory with fake clients and controller created by `ctor`.
 func MakeFactory(ctor Ctor) Factory {
@@ -115,7 +81,6 @@ func MakeFactory(ctor Ctor) Factory {
 			DynamicClientSet: dynamicClient,
 			CachingClientSet: cachingClient,
 			ServingClientSet: client,
-			ScaleClientSet:   scaleClient(kubeClient),
 			Recorder:         eventRecorder,
 			StatsReporter:    statsReporter,
 			Logger:           logtesting.TestLogger(t),

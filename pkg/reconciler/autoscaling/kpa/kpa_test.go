@@ -49,7 +49,6 @@ import (
 	fakedynamic "k8s.io/client-go/dynamic/fake"
 
 	appsv1 "k8s.io/api/apps/v1"
-	autoscalingv1 "k8s.io/api/autoscaling/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -654,34 +653,6 @@ func TestReconcile(t *testing.T) {
 			dynConfig:       dynConf,
 		}
 	}))
-}
-
-type scaleOpt func(*autoscalingv1.Scale)
-
-func withLabelSelector(selector string) scaleOpt {
-	return func(s *autoscalingv1.Scale) {
-		s.Status.Selector = selector
-	}
-}
-
-func scaleResource(namespace, name string, opts ...scaleOpt) *autoscalingv1.Scale {
-	s := &autoscalingv1.Scale{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
-		},
-		Spec: autoscalingv1.ScaleSpec{
-			Replicas: 1,
-		},
-		Status: autoscalingv1.ScaleStatus{
-			Replicas: 42,
-			Selector: "a=b",
-		},
-	}
-	for _, opt := range opts {
-		opt(s)
-	}
-	return s
 }
 
 type deploymentOption func(*appsv1.Deployment)

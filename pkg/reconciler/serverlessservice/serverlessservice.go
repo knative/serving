@@ -27,9 +27,11 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/knative/pkg/apis"
+	"github.com/knative/pkg/apis/duck"
 	"github.com/knative/pkg/controller"
 	"github.com/knative/pkg/logging"
 	"github.com/knative/pkg/system"
+	pav1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/apis/networking"
 	netv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions/networking/v1alpha1"
@@ -39,17 +41,14 @@ import (
 	"github.com/knative/serving/pkg/reconciler/serverlessservice/resources/names"
 	presources "github.com/knative/serving/pkg/resources"
 
-	autoscalingapi "k8s.io/api/autoscaling/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	corev1informers "k8s.io/client-go/informers/core/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
-	"k8s.io/client-go/scale"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -68,7 +67,19 @@ type reconciler struct {
 	serviceLister   corev1listers.ServiceLister
 	endpointsLister corev1listers.EndpointsLister
 
-	scaleClientSet scale.ScalesGetter
+	// Used to get PodScalables from object references.
+	psInformerFactory duck.InformerFactory
+}
+
+// podScalableTypedInformerFactory returns a duck.InformerFactory that returns
+// lister/informer pairs for PodScalable resources.
+func podScalableTypedInformerFactory(opt rbase.Options) duck.InformerFactory {
+	return &duck.TypedInformerFactory{
+		Client:       opt.DynamicClientSet,
+		Type:         &pav1alpha1.PodScalable{},
+		ResyncPeriod: opt.ResyncPeriod,
+		StopChannel:  opt.StopChannel,
+	}
 }
 
 // NewController initializes the controller and is called by the generated code.
@@ -84,7 +95,9 @@ func NewController(
 		endpointsLister: endpointsInformer.Lister(),
 		serviceLister:   serviceInformer.Lister(),
 		sksLister:       sksInformer.Lister(),
-		scaleClientSet:  opt.ScaleClientSet,
+		psInformerFactory: &duck.CachedInformerFactory{
+			Delegate: podScalableTypedInformerFactory(opt),
+		},
 	}
 	impl := controller.NewImpl(c, c.Logger, reconcilerName, rbase.MustNewStatsReporter(reconcilerName, c.Logger))
 
@@ -383,31 +396,35 @@ func (r *reconciler) getSelector(sks *netv1alpha1.ServerlessService) (map[string
 	if err != nil {
 		return nil, err
 	}
-	return labels.ConvertSelectorToLabelsMap(scale.Status.Selector)
+	return scale.Spec.Selector.MatchLabels, nil
 }
 
 // getScaleResource returns the current scale resource for the SKS.
-func (r *reconciler) getScaleResource(sks *netv1alpha1.ServerlessService) (*autoscalingapi.Scale, error) {
-	resource, resourceName, err := scaleResourceArgs(sks)
+func (r *reconciler) getScaleResource(sks *netv1alpha1.ServerlessService) (*pav1alpha1.PodScalable, error) {
+	gvr, name, err := scaleResourceArgs(sks)
 	if err != nil {
+		r.Logger.Errorf("Error getting the scale arguments", err)
 		return nil, err
 	}
-	// Identify the current scale.
-	scl, err := r.scaleClientSet.Scales(sks.Namespace).Get(*resource, resourceName)
+	_, lister, err := r.psInformerFactory.Get(*gvr)
 	if err != nil {
+		r.Logger.Errorf("Error getting a lister for a pod scalable resource '%+v': %+v", gvr, err)
 		return nil, err
-	} else if scl == nil {
-		return nil, errors.NewNotFound(*resource, resourceName)
 	}
-	return scl, nil
+	psObj, err := lister.ByNamespace(sks.Namespace).Get(name)
+	if err != nil {
+		r.Logger.Errorf("Error fetching Pod Scalable %q for SKS %q: %v", name, sks.Name, err)
+		return nil, err
+	}
+	return psObj.(*pav1alpha1.PodScalable), nil
 }
 
-// scaleResourceArgs returns GroupResource and the resource name, from the PA resource.
-func scaleResourceArgs(sks *netv1alpha1.ServerlessService) (*schema.GroupResource, string, error) {
+// scaleResourceArgs returns GroupVersionResource and the resource name, from the SKS resource.
+func scaleResourceArgs(sks *netv1alpha1.ServerlessService) (*schema.GroupVersionResource, string, error) {
 	gv, err := schema.ParseGroupVersion(sks.Spec.ObjectRef.APIVersion)
 	if err != nil {
 		return nil, "", err
 	}
-	resource := apis.KindToResource(gv.WithKind(sks.Spec.ObjectRef.Kind)).GroupResource()
+	resource := apis.KindToResource(gv.WithKind(sks.Spec.ObjectRef.Kind))
 	return &resource, sks.Spec.ObjectRef.Name, nil
 }
