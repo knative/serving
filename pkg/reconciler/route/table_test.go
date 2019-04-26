@@ -1654,7 +1654,7 @@ func TestReconcile(t *testing.T) {
 			clusterIngressLister: listers.GetClusterIngressLister(),
 			tracker:              &NullTracker{},
 			configStore: &testConfigStore{
-				config: ReconcilerTestConfig(),
+				config: ReconcilerTestConfig(false),
 			},
 			clock: FakeClock{Time: fakeCurTime},
 		}
@@ -1812,10 +1812,9 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 			serviceLister:        listers.GetK8sServiceLister(),
 			clusterIngressLister: listers.GetClusterIngressLister(),
 			certificateLister:    listers.GetCertificateLister(),
-			enableAutoTLS:        true,
 			tracker:              &NullTracker{},
 			configStore: &testConfigStore{
-				config: ReconcilerTestConfig(),
+				config: ReconcilerTestConfig(true),
 			},
 			clock: FakeClock{Time: fakeCurTime},
 		}
@@ -1959,7 +1958,7 @@ func (t *testConfigStore) WatchConfigs(w configmap.Watcher) {}
 
 var _ configStore = (*testConfigStore)(nil)
 
-func ReconcilerTestConfig() *config.Config {
+func ReconcilerTestConfig(enableAutoTLS bool) *config.Config {
 	return &config.Config{
 		Domain: &config.Domain{
 			Domains: map[string]*config.LabelSelector{
@@ -1971,6 +1970,7 @@ func ReconcilerTestConfig() *config.Config {
 		},
 		Network: &network.Config{
 			DefaultClusterIngressClass: TestIngressClass,
+			AutoTLS:                    enableAutoTLS,
 			DomainTemplate:             network.DefaultDomainTemplate,
 		},
 		GC: &gc.Config{

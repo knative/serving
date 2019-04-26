@@ -89,9 +89,6 @@ type Reconciler struct {
 	tracker              tracker.Interface
 
 	clock system.Clock
-
-	// TODO(zhiminx): use the feature flag in the confg-network ConfigMap.
-	enableAutoTLS bool
 }
 
 // Check that our Reconciler implements controller.Reconciler
@@ -305,7 +302,7 @@ func (c *Reconciler) reconcile(ctx context.Context, r *v1alpha1.Route) error {
 	}
 
 	tls := []netv1alpha1.ClusterIngressTLS{}
-	if c.enableAutoTLS {
+	if config.FromContext(ctx).Network.AutoTLS {
 		domains := tr.GetDomains(r.Status.Domain, traffic.Targets)
 		// TODO(zhiminx): add a feature flag in config-network ConfgiMap to control the types of certs (wildcard/non-wildcard)
 		desiredCerts := resources.MakeCertificates(r, domains, true)
