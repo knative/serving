@@ -21,7 +21,7 @@ import (
 )
 
 func TestServiceNames(t *testing.T) {
-	if got, want := PublicService("test-name"), "test-name-pub"; got != want {
+	if got, want := PublicService("test-name"), "test-name"; got != want {
 		t.Errorf("PublicService name = %s, want: %s", got, want)
 	}
 	if got, want := PrivateService("test-name"), "test-name-priv"; got != want {

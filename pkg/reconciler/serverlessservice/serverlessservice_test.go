@@ -374,20 +374,20 @@ func TestReconcile(t *testing.T) {
 			Eventf(corev1.EventTypeWarning, "UpdateFailed", `InternalError: SKS: fail5 does not own Service: fail5-priv`),
 		},
 	}, {
-		Name:    "ronin-pub-service/fail5",
-		Key:     "ronin-pub-service/fail5",
+		Name:    "ronin-pub-service/fail6",
+		Key:     "ronin-pub-service/fail6",
 		WantErr: true,
 		Objects: []runtime.Object{
-			SKS("ronin-pub-service", "fail5", WithPubService, WithPrivateService, WithDeployRef("blah")),
+			SKS("ronin-pub-service", "fail6", WithPubService, WithPrivateService, WithDeployRef("blah")),
 			deploy("ronin-pub-service", "blah"),
-			svcpub("ronin-pub-service", "fail5", WithK8sSvcOwnersRemoved),
-			svcpriv("ronin-pub-service", "fail5"),
-			endpointspub("ronin-pub-service", "fail5", WithSubsets),
-			endpointspriv("ronin-pub-service", "fail5", WithSubsets),
+			svcpub("ronin-pub-service", "fail6", WithK8sSvcOwnersRemoved),
+			svcpriv("ronin-pub-service", "fail6"),
+			endpointspub("ronin-pub-service", "fail6", WithSubsets),
+			endpointspriv("ronin-pub-service", "fail6", WithSubsets),
 			activatorEndpoints(WithSubsets),
 		},
 		WantEvents: []string{
-			Eventf(corev1.EventTypeWarning, "UpdateFailed", `InternalError: SKS: fail5 does not own Service: fail5-pub`),
+			Eventf(corev1.EventTypeWarning, "UpdateFailed", `InternalError: SKS: fail6 does not own Service: fail6`),
 		},
 	}, {
 		Name:    "ronin-pub-eps/fail7",
@@ -403,7 +403,7 @@ func TestReconcile(t *testing.T) {
 			activatorEndpoints(WithSubsets),
 		},
 		WantEvents: []string{
-			Eventf(corev1.EventTypeWarning, "UpdateFailed", `InternalError: SKS: fail7 does not own Endpoints: fail7-pub`),
+			Eventf(corev1.EventTypeWarning, "UpdateFailed", `InternalError: SKS: fail7 does not own Endpoints: fail7`),
 		},
 	}, {
 		Name:    "update-svc-fail-priv",

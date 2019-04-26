@@ -19,8 +19,7 @@ package names
 // PublicService returns the public service name for the `s`.
 func PublicService(sks string) string {
 	// TODO(vagababov): evolve this use generateName (for #3236).
-	// TODO(vagababov): remove "-pub", once revision stops creating the service.
-	return sks + "-pub"
+	return sks
 }
 
 // PrivateService returns the private service name for the `s`.
