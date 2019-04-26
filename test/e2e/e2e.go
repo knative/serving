@@ -10,7 +10,6 @@ import (
 	// https://github.com/kubernetes/client-go/issues/242
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 
-	"github.com/knative/pkg/system"
 	pkgTest "github.com/knative/pkg/test"
 	"github.com/knative/serving/pkg/autoscaler"
 	"github.com/knative/serving/test"
@@ -72,12 +71,13 @@ func WaitForScaleToZero(t *testing.T, deploymentName string, clients *test.Clien
 	t.Helper()
 	t.Logf("Waiting for %q to scale to zero", deploymentName)
 
-	autoscalerCM, err := clients.KubeClient.Kube.CoreV1().ConfigMaps(system.Namespace()).Get(autoscaler.ConfigName, metav1.GetOptions{})
-	if err != nil {
-		return perrors.Wrapf(err, "failed to get autoscaler configmap %q in namespace %q", autoscaler.ConfigName, system.Namespace())
+	// Assume an empty map (and therefore return defaults) if getting the config map fails.
+	cmData := make(map[string]string)
+	if autoscalerCM, err := clients.KubeClient.Kube.CoreV1().ConfigMaps("knative-serving").Get(autoscaler.ConfigName, metav1.GetOptions{}); err == nil {
+		cmData = autoscalerCM.Data
 	}
 
-	config, err := autoscaler.NewConfigFromConfigMap(autoscalerCM)
+	config, err := autoscaler.NewConfigFromMap(cmData)
 	if err != nil {
 		return perrors.Wrap(err, "failed to parse configmap")
 	}
