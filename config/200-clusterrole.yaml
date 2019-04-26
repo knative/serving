@@ -22,7 +22,7 @@ rules:
     resources: ["pods", "namespaces", "secrets", "configmaps", "endpoints", "services", "events", "serviceaccounts"]
     verbs: ["get", "list", "create", "update", "delete", "patch", "watch"]
   - apiGroups: ["apps"]
-    resources: ["deployments"]
+    resources: ["deployments", "deployments/finalizers"] # finalizers are needed for the owner reference of the webhook
     verbs: ["get", "list", "create", "update", "delete", "patch", "watch"]
   - apiGroups: ["admissionregistration.k8s.io"]
     resources: ["mutatingwebhookconfigurations"]
@@ -31,10 +31,15 @@ rules:
     resources: ["customresourcedefinitions"]
     verbs: ["get", "list", "create", "update", "delete", "patch", "watch"]
   - apiGroups: ["serving.knative.dev"]
-    resources: ["configurations", "configurations/status", "routes", "routes/status", "route/finalizers", "revisions", "revisions/status", "services", "services/status"]
+    resources: [
+      "configurations", "configurations/status", "configurations/finalizers",
+      "routes", "routes/status", "route/finalizers",
+      "revisions", "revisions/status", "revisions/finalizers",
+      "services", "services/status", "revisions/finalizers"
+    ]
     verbs: ["get", "list", "create", "update", "delete", "patch", "watch"]
   - apiGroups: ["autoscaling.internal.knative.dev"]
-    resources: ["podautoscalers", "podautoscalers/status"]
+    resources: ["podautoscalers", "podautoscalers/status", "podautoscalers/finalizers"]
     verbs: ["get", "list", "create", "update", "delete", "patch", "watch"]
   - apiGroups: ["autoscaling"]
     resources: ["horizontalpodautoscalers"]
@@ -43,7 +48,10 @@ rules:
     resources: ["images"]
     verbs: ["get", "list", "create", "update", "delete", "patch", "watch"]
   - apiGroups: ["networking.internal.knative.dev"]
-    resources: ["clusteringresses", "clusteringresses/status", "clusteringresses/finalizers", "serverlessservices", "serverlessservices/status"]
+    resources: [
+      "clusteringresses", "clusteringresses/status", "clusteringresses/finalizers",
+      "serverlessservices", "serverlessservices/status", "serverlessservices/finalizers"
+    ]
     verbs: ["get", "list", "create", "update", "delete", "deletecollection", "patch", "watch"]
 ---
 kind: ClusterRole
