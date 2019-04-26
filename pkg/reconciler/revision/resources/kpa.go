@@ -17,7 +17,7 @@ limitations under the License.
 package resources
 
 import (
-	autoscalingv1 "k8s.io/api/autoscaling/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/knative/pkg/kmeta"
@@ -43,12 +43,12 @@ func MakeKPA(rev *v1alpha1.Revision) *kpa.PodAutoscaler {
 		},
 		Spec: kpa.PodAutoscalerSpec{
 			ContainerConcurrency: rev.Spec.ContainerConcurrency,
-			ScaleTargetRef: autoscalingv1.CrossVersionObjectReference{
+			ScaleTargetRef: corev1.ObjectReference{
 				APIVersion: "apps/v1",
 				Kind:       "Deployment",
 				Name:       names.Deployment(rev),
 			},
-			ProtocolType:          rev.GetProtocol(),
+			ProtocolType: rev.GetProtocol(),
 		},
 	}
 }

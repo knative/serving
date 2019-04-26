@@ -30,7 +30,7 @@ func VolumeMask(in *corev1.Volume) *corev1.Volume {
 
 	out := new(corev1.Volume)
 
-	//Allowed fields
+	// Allowed fields
 	out.Name = in.Name
 	out.VolumeSource = in.VolumeSource
 
@@ -72,7 +72,7 @@ func PodSpecMask(in *corev1.PodSpec) *corev1.PodSpec {
 	out.Volumes = in.Volumes
 
 	// Disallowed fields
-	// This list is unneccessry, but added here for clarity
+	// This list is unnecessary, but added here for clarity
 	out.InitContainers = nil
 	out.RestartPolicy = ""
 	out.TerminationGracePeriodSeconds = nil
@@ -130,7 +130,7 @@ func ContainerMask(in *corev1.Container) *corev1.Container {
 	out.VolumeMounts = in.VolumeMounts
 
 	// Disallowed fields
-	// This list is unneccessry, but added here for clarity
+	// This list is unnecessary, but added here for clarity
 	out.Lifecycle = nil
 	out.Name = ""
 	out.Stdin = false
@@ -157,7 +157,7 @@ func VolumeMountMask(in *corev1.VolumeMount) *corev1.VolumeMount {
 	out.MountPath = in.MountPath
 
 	// Disallowed fields
-	// This list is unneccessry, but added here for clarity
+	// This list is unnecessary, but added here for clarity
 	out.SubPath = ""
 	out.MountPropagation = nil
 
@@ -244,7 +244,7 @@ func TCPSocketActionMask(in *corev1.TCPSocketAction) *corev1.TCPSocketAction {
 	}
 	out := new(corev1.TCPSocketAction)
 
-	//Allowed fields
+	// Allowed fields
 	out.Host = in.Host
 
 	return out
@@ -266,7 +266,7 @@ func ContainerPortMask(in *corev1.ContainerPort) *corev1.ContainerPort {
 	out.Protocol = in.Protocol
 
 	//Disallowed fields
-	// This list is unneccessry, but added here for clarity
+	// This list is unnecessary, but added here for clarity
 	out.HostIP = ""
 	out.HostPort = 0
 
@@ -301,12 +301,12 @@ func EnvVarSourceMask(in *corev1.EnvVarSource) *corev1.EnvVarSource {
 
 	out := new(corev1.EnvVarSource)
 
-	//Allowed fields
+	// Allowed fields
 	out.ConfigMapKeyRef = in.ConfigMapKeyRef
 	out.SecretKeyRef = in.SecretKeyRef
 
 	// Disallowed
-	// This list is unneccessry, but added here for clarity
+	// This list is unnecessary, but added here for clarity
 	out.FieldRef = nil
 	out.ResourceFieldRef = nil
 
@@ -452,7 +452,7 @@ func SecurityContextMask(in *corev1.SecurityContext) *corev1.SecurityContext {
 	out.RunAsUser = in.RunAsUser
 
 	// Disallowed
-	// This list is unneccessry, but added here for clarity
+	// This list is unnecessary, but added here for clarity
 	out.Capabilities = nil
 	out.Privileged = nil
 	out.SELinuxOptions = nil
@@ -461,6 +461,31 @@ func SecurityContextMask(in *corev1.SecurityContext) *corev1.SecurityContext {
 	out.ReadOnlyRootFilesystem = nil
 	out.AllowPrivilegeEscalation = nil
 	out.ProcMount = nil
+
+	return out
+}
+
+// NamespacedObjectReferenceMask performs a _shallow_ copy of the Kubernetes ObjectReference
+// object to a new Kubernetes ObjectReference object bringing over only the fields allowed in
+// the Knative API. This does not validate the contents or the bounds of the provided fields.
+func NamespacedObjectReferenceMask(in *corev1.ObjectReference) *corev1.ObjectReference {
+	if in == nil {
+		return nil
+	}
+
+	out := new(corev1.ObjectReference)
+
+	// Allowed fields
+	out.APIVersion = in.APIVersion
+	out.Kind = in.Kind
+	out.Name = in.Name
+
+	// Disallowed
+	// This list is unnecessary, but added here for clarity
+	out.Namespace = ""
+	out.FieldPath = ""
+	out.ResourceVersion = ""
+	out.UID = ""
 
 	return out
 }

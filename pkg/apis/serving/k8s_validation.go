@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"math"
 	"path/filepath"
+	"strings"
 
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/knative/pkg/apis"
@@ -326,6 +327,30 @@ func validateProbe(p *corev1.Probe) *apis.FieldError {
 		errs = errs.Also(apis.CheckDisallowedFields(*h.HTTPGet, *HTTPGetActionMask(h.HTTPGet))).ViaField("httpGet")
 	case h.TCPSocket != nil:
 		errs = errs.Also(apis.CheckDisallowedFields(*h.TCPSocket, *TCPSocketActionMask(h.TCPSocket))).ViaField("tcpSocket")
+	}
+	return errs
+}
+
+func ValidateNamespacedObjectReference(p *corev1.ObjectReference) *apis.FieldError {
+	if p == nil {
+		return nil
+	}
+	errs := apis.CheckDisallowedFields(*p, *NamespacedObjectReferenceMask(p))
+
+	if p.APIVersion == "" {
+		errs = errs.Also(apis.ErrMissingField("apiVersion"))
+	} else if verrs := validation.IsQualifiedName(p.APIVersion); len(verrs) != 0 {
+		errs = errs.Also(apis.ErrInvalidValue(strings.Join(verrs, ", "), "apiVersion"))
+	}
+	if p.Kind == "" {
+		errs = errs.Also(apis.ErrMissingField("kind"))
+	} else if verrs := validation.IsCIdentifier(p.Kind); len(verrs) != 0 {
+		errs = errs.Also(apis.ErrInvalidValue(strings.Join(verrs, ", "), "kind"))
+	}
+	if p.Name == "" {
+		errs = errs.Also(apis.ErrMissingField("name"))
+	} else if verrs := validation.IsDNS1123Label(p.Name); len(verrs) != 0 {
+		errs = errs.Also(apis.ErrInvalidValue(strings.Join(verrs, ", "), "name"))
 	}
 	return errs
 }
