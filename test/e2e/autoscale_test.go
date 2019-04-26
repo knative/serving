@@ -28,7 +28,6 @@ import (
 
 	_ "github.com/knative/pkg/system/testing"
 	pkgTest "github.com/knative/pkg/test"
-	"github.com/knative/serving/pkg/autoscaler"
 	"github.com/knative/serving/test"
 	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
@@ -201,22 +200,14 @@ func assertScaleUp(ctx *testContext) {
 }
 
 func assertScaleDown(ctx *testContext) {
-	ctx.t.Log("The autoscaler successfully scales down when devoid of traffic. Waiting for scale to zero.")
-	err := pkgTest.WaitForDeploymentState(
-		ctx.clients.KubeClient,
-		ctx.deploymentName,
-		test.DeploymentScaledToZeroFunc,
-		"DeploymentScaledToZero",
-		test.ServingNamespace,
-		autoscaler.DefaultScaleToZeroGracePeriod+autoscaler.DefaultStableWindow+2*time.Minute)
-	if err != nil {
-		ctx.t.Fatalf("Unable to observe the Deployment named %s scaling down. %s", ctx.deploymentName, err)
+	if err := WaitForScaleToZero(ctx.t, ctx.deploymentName, ctx.clients); err != nil {
+		ctx.t.Fatalf("Unable to observe the Deployment named %s scaling down: %v", ctx.deploymentName, err)
 	}
 
 	// Account for the case where scaling up uses all available pods.
 	ctx.t.Log("Wait for all pods to terminate.")
 
-	err = pkgTest.WaitForPodListState(
+	err := pkgTest.WaitForPodListState(
 		ctx.clients.KubeClient,
 		func(p *v1.PodList) (bool, error) {
 			for _, pod := range p.Items {

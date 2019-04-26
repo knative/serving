@@ -2,9 +2,7 @@ package e2e
 
 import (
 	"testing"
-	"time"
 
-	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	// Mysteriously required to support GCP auth (required by k8s libs).
@@ -12,9 +10,11 @@ import (
 	// https://github.com/kubernetes/client-go/issues/242
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 
+	"github.com/knative/pkg/system"
 	pkgTest "github.com/knative/pkg/test"
 	"github.com/knative/serving/pkg/autoscaler"
 	"github.com/knative/serving/test"
+	perrors "github.com/pkg/errors"
 )
 
 const (
@@ -70,36 +70,24 @@ func CreateRouteAndConfig(t *testing.T, clients *test.Clients, image string, opt
 // Will wait up to 6 times the configured ScaleToZeroGracePeriod before failing.
 func WaitForScaleToZero(t *testing.T, deploymentName string, clients *test.Clients) error {
 	t.Helper()
-
 	t.Logf("Waiting for %q to scale to zero", deploymentName)
 
-	return pkgTest.WaitForDeploymentState(
-		clients.KubeClient,
-		deploymentName,
-		func(d *appsv1.Deployment) (bool, error) {
-			t.Logf("Deployment %q has %d replicas", deploymentName, d.Status.ReadyReplicas)
-			return d.Status.ReadyReplicas == 0, nil
-		},
-		"DeploymentIsScaledDown",
-		test.ServingNamespace,
-		scaleToZeroGracePeriod(t, clients.KubeClient)*6,
-	)
-}
-
-func scaleToZeroGracePeriod(t *testing.T, client *pkgTest.KubeClient) time.Duration {
-	t.Helper()
-
-	autoscalerCM, err := client.Kube.CoreV1().ConfigMaps("knative-serving").Get("config-autoscaler", metav1.GetOptions{})
+	autoscalerCM, err := clients.KubeClient.Kube.CoreV1().ConfigMaps(system.Namespace()).Get(autoscaler.ConfigName, metav1.GetOptions{})
 	if err != nil {
-		t.Logf("Failed to Get autoscaler configmap = %v, falling back to DefaultScaleToZeroGracePeriod", err)
-		return autoscaler.DefaultScaleToZeroGracePeriod
+		return perrors.Wrapf(err, "failed to get autoscaler configmap %q in namespace %q", autoscaler.ConfigName, system.Namespace())
 	}
 
 	config, err := autoscaler.NewConfigFromConfigMap(autoscalerCM)
 	if err != nil {
-		t.Log("Failed to build autoscaler config, falling back to DefaultScaleToZeroGracePeriod")
-		return autoscaler.DefaultScaleToZeroGracePeriod
+		return perrors.Wrap(err, "failed to parse configmap")
 	}
 
-	return config.ScaleToZeroGracePeriod
+	return pkgTest.WaitForDeploymentState(
+		clients.KubeClient,
+		deploymentName,
+		test.DeploymentScaledToZeroFunc,
+		"DeploymentIsScaledDown",
+		test.ServingNamespace,
+		config.ScaleToZeroGracePeriod*6,
+	)
 }
