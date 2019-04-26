@@ -38,6 +38,7 @@ import (
 	fakeclientset "github.com/knative/serving/pkg/client/clientset/versioned/fake"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
 	"github.com/knative/serving/pkg/logging"
+	"github.com/knative/serving/pkg/metrics"
 	"github.com/knative/serving/pkg/network"
 	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/revision/config"
@@ -212,7 +213,7 @@ func newTestController(t *testing.T, stopCh <-chan struct{}) (
 			}}, {
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: system.Namespace(),
-				Name:      config.ObservabilityConfigName,
+				Name:      metrics.ObservabilityConfigName,
 			},
 			Data: map[string]string{
 				"logging.enable-var-log-collection":     "true",

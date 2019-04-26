@@ -49,6 +49,7 @@ import (
 	fakeclientset "github.com/knative/serving/pkg/client/clientset/versioned/fake"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
 	"github.com/knative/serving/pkg/logging"
+	"github.com/knative/serving/pkg/metrics"
 	"github.com/knative/serving/pkg/network"
 	rclr "github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/revision/config"
@@ -177,7 +178,7 @@ func newTestControllerWithConfig(t *testing.T, controllerConfig *config.Controll
 	}, {
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: system.Namespace(),
-			Name:      config.ObservabilityConfigName,
+			Name:      metrics.ObservabilityConfigName,
 		},
 		Data: map[string]string{
 			"logging.enable-var-log-collection":     "true",
@@ -366,7 +367,7 @@ func TestUpdateRevWithWithUpdatedLoggingURL(t *testing.T) {
 
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: system.Namespace(),
-			Name:      config.ObservabilityConfigName,
+			Name:      metrics.ObservabilityConfigName,
 		},
 		Data: map[string]string{
 			"logging.enable-var-log-collection":     "true",
@@ -385,7 +386,7 @@ func TestUpdateRevWithWithUpdatedLoggingURL(t *testing.T) {
 	watcher.OnChange(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: system.Namespace(),
-			Name:      config.ObservabilityConfigName,
+			Name:      metrics.ObservabilityConfigName,
 		},
 		Data: map[string]string{
 			"logging.enable-var-log-collection":     "true",
@@ -588,7 +589,7 @@ func TestGlobalResyncOnConfigMapUpdateRevision(t *testing.T) {
 		configMapToUpdate: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: system.Namespace(),
-				Name:      config.ObservabilityConfigName,
+				Name:      metrics.ObservabilityConfigName,
 			},
 			Data: map[string]string{
 				"logging.enable-var-log-collection":     "true",
@@ -699,7 +700,7 @@ func TestGlobalResyncOnConfigMapUpdateDeployment(t *testing.T) {
 		configMapToUpdate: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: system.Namespace(),
-				Name:      config.ObservabilityConfigName,
+				Name:      metrics.ObservabilityConfigName,
 			},
 			Data: map[string]string{
 				"logging.enable-var-log-collection": "false",
@@ -726,7 +727,7 @@ func TestGlobalResyncOnConfigMapUpdateDeployment(t *testing.T) {
 		configMapToUpdate: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: system.Namespace(),
-				Name:      config.ObservabilityConfigName,
+				Name:      metrics.ObservabilityConfigName,
 			},
 			Data: map[string]string{
 				"logging.enable-var-log-collection":     "true",

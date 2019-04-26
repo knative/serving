@@ -23,6 +23,7 @@ import (
 	pkglogging "github.com/knative/pkg/logging"
 	"github.com/knative/serving/pkg/autoscaler"
 	"github.com/knative/serving/pkg/logging"
+	"github.com/knative/serving/pkg/metrics"
 	"github.com/knative/serving/pkg/network"
 )
 
@@ -32,7 +33,7 @@ type cfgKey struct{}
 type Config struct {
 	Controller    *Controller
 	Network       *network.Config
-	Observability *Observability
+	Observability *metrics.ObservabilityConfig
 	Logging       *pkglogging.Config
 	Autoscaler    *autoscaler.Config
 }
@@ -57,11 +58,11 @@ func NewStore(logger configmap.Logger, onAfterStore ...func(name string, value i
 			"revision",
 			logger,
 			configmap.Constructors{
-				ControllerConfigName:      NewControllerConfigFromConfigMap,
-				network.ConfigName:        network.NewConfigFromConfigMap,
-				ObservabilityConfigName:   NewObservabilityFromConfigMap,
-				autoscaler.ConfigName:     autoscaler.NewConfigFromConfigMap,
-				(logging.ConfigMapName()): logging.NewConfigFromConfigMap,
+				ControllerConfigName:            NewControllerConfigFromConfigMap,
+				network.ConfigName:              network.NewConfigFromConfigMap,
+				metrics.ObservabilityConfigName: metrics.NewObservabilityConfigFromConfigMap,
+				autoscaler.ConfigName:           autoscaler.NewConfigFromConfigMap,
+				(logging.ConfigMapName()):       logging.NewConfigFromConfigMap,
 			},
 			onAfterStore...,
 		),
@@ -78,7 +79,7 @@ func (s *Store) Load() *Config {
 	return &Config{
 		Controller:    s.UntypedLoad(ControllerConfigName).(*Controller).DeepCopy(),
 		Network:       s.UntypedLoad(network.ConfigName).(*network.Config).DeepCopy(),
-		Observability: s.UntypedLoad(ObservabilityConfigName).(*Observability).DeepCopy(),
+		Observability: s.UntypedLoad(metrics.ObservabilityConfigName).(*metrics.ObservabilityConfig).DeepCopy(),
 		Logging:       s.UntypedLoad((logging.ConfigMapName())).(*pkglogging.Config).DeepCopy(),
 		Autoscaler:    s.UntypedLoad(autoscaler.ConfigName).(*autoscaler.Config).DeepCopy(),
 	}

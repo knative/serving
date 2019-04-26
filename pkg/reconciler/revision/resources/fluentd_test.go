@@ -28,14 +28,14 @@ import (
 	"github.com/knative/pkg/ptr"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	"github.com/knative/serving/pkg/reconciler/revision/config"
+	"github.com/knative/serving/pkg/metrics"
 )
 
 func TestMakeFluentdConfigMap(t *testing.T) {
 	tests := []struct {
 		name string
 		rev  *v1alpha1.Revision
-		oc   *config.Observability
+		oc   *metrics.ObservabilityConfig
 		want *corev1.ConfigMap
 	}{{
 		name: "empty config",
@@ -50,7 +50,7 @@ func TestMakeFluentdConfigMap(t *testing.T) {
 				},
 			},
 		},
-		oc: &config.Observability{},
+		oc: &metrics.ObservabilityConfig{},
 		want: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: "foo",
@@ -85,7 +85,7 @@ func TestMakeFluentdConfigMap(t *testing.T) {
 				UID:       "1234",
 			},
 		},
-		oc: &config.Observability{
+		oc: &metrics.ObservabilityConfig{
 			FluentdSidecarOutputConfig: "foo bar config",
 		},
 		want: &corev1.ConfigMap{
@@ -163,7 +163,7 @@ func TestMakeFluentdContainer(t *testing.T) {
 	tests := []struct {
 		name string
 		rev  *v1alpha1.Revision
-		oc   *config.Observability
+		oc   *metrics.ObservabilityConfig
 		want *corev1.Container
 	}{{
 		name: "no owner no observability config",
@@ -174,7 +174,7 @@ func TestMakeFluentdContainer(t *testing.T) {
 				UID:       "1234",
 			},
 		},
-		oc: &config.Observability{},
+		oc: &metrics.ObservabilityConfig{},
 		want: &corev1.Container{
 			// These are effectively constant
 			Name:      FluentdContainerName,
@@ -218,7 +218,7 @@ func TestMakeFluentdContainer(t *testing.T) {
 				}},
 			},
 		},
-		oc: &config.Observability{},
+		oc: &metrics.ObservabilityConfig{},
 		want: &corev1.Container{
 			// These are effectively constant
 			Name:      FluentdContainerName,
@@ -255,7 +255,7 @@ func TestMakeFluentdContainer(t *testing.T) {
 				UID:       "1234",
 			},
 		},
-		oc: &config.Observability{
+		oc: &metrics.ObservabilityConfig{
 			FluentdSidecarImage: "some-test-image",
 		},
 		want: &corev1.Container{

@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package config
+package metrics
 
 import (
 	"testing"
@@ -25,16 +25,17 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	. "github.com/knative/pkg/configmap/testing"
+	_ "github.com/knative/pkg/system/testing"
 )
 
 func TestOurObservability(t *testing.T) {
 	cm, example := ConfigMapsFromTestFile(t, ObservabilityConfigName)
 
-	if _, err := NewObservabilityFromConfigMap(cm); err != nil {
+	if _, err := NewObservabilityConfigFromConfigMap(cm); err != nil {
 		t.Errorf("NewObservabilityFromConfigMap(actual) = %v", err)
 	}
 
-	if _, err := NewObservabilityFromConfigMap(example); err != nil {
+	if _, err := NewObservabilityConfigFromConfigMap(example); err != nil {
 		t.Errorf("NewObservabilityFromConfigMap(example) = %v", err)
 	}
 }
@@ -48,7 +49,7 @@ func TestObservabilityConfiguration(t *testing.T) {
 	}{{
 		name:    "observability configuration with all inputs",
 		wantErr: false,
-		wantController: &Observability{
+		wantController: &ObservabilityConfig{
 			LoggingURLTemplate:         "https://logging.io",
 			FluentdSidecarOutputConfig: "the-config",
 			FluentdSidecarImage:        "gcr.io/log-stuff/fluentd:latest",
@@ -74,7 +75,7 @@ func TestObservabilityConfiguration(t *testing.T) {
 	}, {
 		name:    "observability config with no map",
 		wantErr: false,
-		wantController: &Observability{
+		wantController: &ObservabilityConfig{
 			EnableVarLogCollection: false,
 			LoggingURLTemplate:     defaultLogURLTemplate,
 			RequestLogTemplate:     "",
@@ -89,7 +90,7 @@ func TestObservabilityConfiguration(t *testing.T) {
 	}, {
 		name:           "observability configuration with no side car image",
 		wantErr:        true,
-		wantController: (*Observability)(nil),
+		wantController: (*ObservabilityConfig)(nil),
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: system.Namespace(),
@@ -102,7 +103,7 @@ func TestObservabilityConfiguration(t *testing.T) {
 	}, {
 		name:           "invalid request log template",
 		wantErr:        true,
-		wantController: (*Observability)(nil),
+		wantController: (*ObservabilityConfig)(nil),
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: system.Namespace(),
@@ -116,7 +117,7 @@ func TestObservabilityConfiguration(t *testing.T) {
 
 	for _, tt := range observabilityConfigTests {
 		t.Run(tt.name, func(t *testing.T) {
-			actualController, err := NewObservabilityFromConfigMap(tt.config)
+			actualController, err := NewObservabilityConfigFromConfigMap(tt.config)
 
 			if (err != nil) != tt.wantErr {
 				t.Fatalf("Test: %q; NewObservabilityFromConfigMap() error = %v, WantErr %v", tt.name, err, tt.wantErr)
