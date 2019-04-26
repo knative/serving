@@ -400,7 +400,7 @@ container: # v1.Container
   # on through the $PORT environment variable that is always set within the container.
   # Some fields are not allowed, such as hostIP and hostPort.
   ports: # Optional
-    # Valid range is [1-65535], except 8012 (RequestQueuePort)
+    # Valid range is [1-65535], except 8012 and 8013 (RequestQueuePorts)
     # and 8022 (RequestQueueAdminPort).
     - containerPort: ...
       name: ... # Optional, one of "http1", "h2c"

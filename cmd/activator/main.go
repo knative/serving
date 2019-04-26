@@ -127,11 +127,11 @@ func main() {
 	flag.Parse()
 	cm, err := configmap.Load("/etc/config-logging")
 	if err != nil {
-		log.Fatalf("Error loading logging configuration: %v", err)
+		log.Fatal("Error loading logging configuration:", err)
 	}
 	logConfig, err := logging.NewConfigFromMap(cm)
 	if err != nil {
-		log.Fatalf("Error parsing logging configuration: %v", err)
+		log.Fatal("Error parsing logging configuration:", err)
 	}
 	createdLogger, atomicLevel := logging.NewLoggerFromConfig(logConfig, component)
 	logger := createdLogger.With(zap.String(logkey.ControllerType, "activator"))
@@ -189,7 +189,7 @@ func main() {
 		endpointInformer.Informer(),
 		serviceInformer.Informer(),
 		sksInformer.Informer()); err != nil {
-		logger.Fatalf("Failed to start informers: %v", err)
+		logger.Fatalw("Failed to start informers", err)
 	}
 
 	params := queue.BreakerParams{QueueDepth: breakerQueueDepth, MaxConcurrency: breakerMaxConcurrency, InitialCapacity: 0}
@@ -306,14 +306,14 @@ func main() {
 		logger.Fatalw("Failed to start configuration manager", zap.Error(err))
 	}
 
-	http1Srv := h2c.NewServer(":8080", ah)
+	http1Srv := h2c.NewServer(fmt.Sprintf(":%d", networking.BackendHTTPPort), ah)
 	go func() {
 		if err := http1Srv.ListenAndServe(); err != nil {
 			logger.Errorw("Error running HTTP server", zap.Error(err))
 		}
 	}()
 
-	h2cSrv := h2c.NewServer(":8081", ah)
+	h2cSrv := h2c.NewServer(fmt.Sprintf(":%d", networking.BackendHTTP2Port), ah)
 	go func() {
 		if err := h2cSrv.ListenAndServe(); err != nil {
 			logger.Errorw("Error running HTTP server", zap.Error(err))

@@ -185,14 +185,23 @@ func WithServiceLabel(key, value string) ServiceOption {
 // WithResourceRequirements attaches resource requirements to the service
 func WithResourceRequirements(resourceRequirements corev1.ResourceRequirements) ServiceOption {
 	return func(svc *v1alpha1.Service) {
-		svc.Spec.DeprecatedRunLatest.Configuration.GetTemplate().Spec.GetContainer().Resources = resourceRequirements
+		if svc.Spec.DeprecatedRunLatest != nil {
+			svc.Spec.DeprecatedRunLatest.Configuration.GetTemplate().Spec.GetContainer().Resources = resourceRequirements
+		} else {
+			svc.Spec.ConfigurationSpec.Template.Spec.Containers[0].Resources = resourceRequirements
+		}
 	}
 }
 
 // WithVolume adds a volume to the service
 func WithVolume(name, mountPath string, volumeSource corev1.VolumeSource) ServiceOption {
 	return func(svc *v1alpha1.Service) {
-		rt := &svc.Spec.DeprecatedRunLatest.Configuration.GetTemplate().Spec
+		var rt *v1alpha1.RevisionSpec
+		if svc.Spec.DeprecatedRunLatest != nil {
+			rt = &svc.Spec.DeprecatedRunLatest.Configuration.GetTemplate().Spec
+		} else {
+			rt = &svc.Spec.ConfigurationSpec.Template.Spec
+		}
 
 		rt.GetContainer().VolumeMounts = []corev1.VolumeMount{{
 			Name:      name,
@@ -209,14 +218,22 @@ func WithVolume(name, mountPath string, volumeSource corev1.VolumeSource) Servic
 // WithConfigAnnotations assigns config annotations to a service
 func WithConfigAnnotations(annotations map[string]string) ServiceOption {
 	return func(service *v1alpha1.Service) {
-		service.Spec.DeprecatedRunLatest.Configuration.GetTemplate().ObjectMeta.Annotations = annotations
+		if service.Spec.DeprecatedRunLatest != nil {
+			service.Spec.DeprecatedRunLatest.Configuration.GetTemplate().ObjectMeta.Annotations = annotations
+		} else {
+			service.Spec.ConfigurationSpec.Template.ObjectMeta.Annotations = annotations
+		}
 	}
 }
 
 // WithRevisionTimeoutSeconds sets revision timeout
 func WithRevisionTimeoutSeconds(revisionTimeoutSeconds int64) ServiceOption {
 	return func(service *v1alpha1.Service) {
-		service.Spec.DeprecatedRunLatest.Configuration.GetTemplate().Spec.TimeoutSeconds = ptr.Int64(revisionTimeoutSeconds)
+		if service.Spec.DeprecatedRunLatest != nil {
+			service.Spec.DeprecatedRunLatest.Configuration.GetTemplate().Spec.TimeoutSeconds = ptr.Int64(revisionTimeoutSeconds)
+		} else {
+			service.Spec.ConfigurationSpec.Template.Spec.TimeoutSeconds = ptr.Int64(revisionTimeoutSeconds)
+		}
 	}
 }
 
@@ -970,26 +987,48 @@ func WithContainerConcurrency(cc v1beta1.RevisionContainerConcurrencyType) PodAu
 	}
 }
 
-// WithTargetAnnotation returns a PodAutoscalerOption which sets
-// the PodAutoscaler autoscaling.knative.dev/target to the provided
-// value.
-func WithTargetAnnotation(target string) PodAutoscalerOption {
+func withAnnotationValue(key, value string) PodAutoscalerOption {
 	return func(pa *autoscalingv1alpha1.PodAutoscaler) {
 		if pa.Annotations == nil {
 			pa.Annotations = make(map[string]string)
 		}
-		pa.Annotations[autoscaling.TargetAnnotationKey] = target
+		pa.Annotations[key] = value
 	}
+}
+
+// WithTargetAnnotation returns a PodAutoscalerOption which sets
+// the PodAutoscaler autoscaling.knative.dev/target annotation to the
+// provided value.
+func WithTargetAnnotation(target string) PodAutoscalerOption {
+	return withAnnotationValue(autoscaling.TargetAnnotationKey, target)
+}
+
+// WithWindowAnnotation returns a PodAutoScalerOption which sets
+// the PodAutoscaler autoscaling.knative.dev/window annotation to the
+// provided value.
+func WithWindowAnnotation(window string) PodAutoscalerOption {
+	return withAnnotationValue(autoscaling.WindowAnnotationKey, window)
+}
+
+// WithPanicThresholdPercentageAnnotation returns a PodAutoscalerOption
+// which sets the PodAutoscaler
+// autoscaling.knative.dev/targetPanicPercentage annotation to the
+// provided value.
+func WithPanicThresholdPercentageAnnotation(percentage string) PodAutoscalerOption {
+	return withAnnotationValue(autoscaling.PanicThresholdPercentageAnnotationKey, percentage)
+}
+
+// WithWindowPanicPercentageAnnotation retturn a PodAutoscalerOption
+// which set the PodAutoscaler
+// autoscaling.knative.dev/windowPanicPercentage annotation to the
+// provided value.
+func WithPanicWindowPercentageAnnotation(percentage string) PodAutoscalerOption {
+	return withAnnotationValue(autoscaling.PanicWindowPercentageAnnotationKey, percentage)
 }
 
 // WithMetricAnnotation adds a metric annotation to the PA.
 func WithMetricAnnotation(metric string) PodAutoscalerOption {
-	return func(pa *autoscalingv1alpha1.PodAutoscaler) {
-		if pa.Annotations == nil {
-			pa.Annotations = make(map[string]string)
-		}
-		pa.Annotations[autoscaling.MetricAnnotationKey] = metric
-	}
+	return withAnnotationValue(autoscaling.MetricAnnotationKey, metric)
 }
 
 // K8sServiceOption enables further configuration of the Kubernetes Service.

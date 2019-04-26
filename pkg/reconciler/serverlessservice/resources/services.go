@@ -31,14 +31,23 @@ import (
 const (
 	servicePortNameHTTP1 = "http"
 	servicePortNameH2C   = "http2"
-
-	// ServicePort is the external port of the service
-	servicePort = int32(80)
-
-	// RequestQueuePortName specifies the port name to use for http requests
-	// in queue-proxy container.
-	requestQueuePortName string = "queue-port"
 )
+
+// targetPort chooses the target (pod) port for the public and private service.
+func targetPort(sks *v1alpha1.ServerlessService) intstr.IntOrString {
+	if sks.Spec.ProtocolType == networking.ProtocolH2C {
+		return intstr.FromInt(networking.BackendHTTP2Port)
+	}
+	return intstr.FromInt(networking.BackendHTTPPort)
+}
+
+// servicePort chooses the service (load balancer) port for the public service.
+func servicePort(sks *v1alpha1.ServerlessService) int32 {
+	if sks.Spec.ProtocolType == networking.ProtocolH2C {
+		return networking.ServiceHTTP2Port
+	}
+	return networking.ServiceHTTPPort
+}
 
 // MakePublicService constructs a K8s Service that is not backed a selector
 // and will be manually reconciled by the SKS controller.
@@ -59,8 +68,8 @@ func MakePublicService(sks *v1alpha1.ServerlessService) *corev1.Service {
 			Ports: []corev1.ServicePort{{
 				Name:       servicePortName(sks),
 				Protocol:   corev1.ProtocolTCP,
-				Port:       servicePort,
-				TargetPort: intstr.FromString(requestQueuePortName),
+				Port:       servicePort(sks),
+				TargetPort: targetPort(sks),
 			}},
 		},
 	}
@@ -107,10 +116,13 @@ func MakePrivateService(sks *v1alpha1.ServerlessService, selector map[string]str
 		},
 		Spec: corev1.ServiceSpec{
 			Ports: []corev1.ServicePort{{
-				Name:       servicePortName(sks),
-				Protocol:   corev1.ProtocolTCP,
-				Port:       servicePort,
-				TargetPort: intstr.FromString(requestQueuePortName),
+				Name:     servicePortName(sks),
+				Protocol: corev1.ProtocolTCP,
+				// TODO(vagababov): make this work with matching port.
+				Port: networking.ServiceHTTPPort,
+				// This one is matching the public one, since this is the
+				// port queue-proxy listens on.
+				TargetPort: targetPort(sks),
 			}},
 			Selector: selector,
 		},

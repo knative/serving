@@ -23,7 +23,7 @@ import (
 	"github.com/knative/pkg/kmeta"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	"github.com/knative/serving/pkg/reconciler/revision/config"
+	"github.com/knative/serving/pkg/metrics"
 	"github.com/knative/serving/pkg/reconciler/revision/resources/names"
 	"github.com/knative/serving/pkg/resources"
 )
@@ -86,7 +86,7 @@ var (
 )
 
 // MakeFluentdConfigMap constructs a ConfigMap for fluentd.
-func MakeFluentdConfigMap(rev *v1alpha1.Revision, observabilityConfig *config.Observability) *corev1.ConfigMap {
+func MakeFluentdConfigMap(rev *v1alpha1.Revision, observabilityConfig *metrics.ObservabilityConfig) *corev1.ConfigMap {
 	varlogConf := fluentdSidecarPreOutputConfig + observabilityConfig.FluentdSidecarOutputConfig
 	return &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
@@ -118,7 +118,7 @@ func makeFluentdConfigMapVolume(rev *v1alpha1.Revision) *corev1.Volume {
 	}
 }
 
-func makeFluentdContainer(rev *v1alpha1.Revision, observabilityConfig *config.Observability) *corev1.Container {
+func makeFluentdContainer(rev *v1alpha1.Revision, observabilityConfig *metrics.ObservabilityConfig) *corev1.Container {
 	configName := ""
 	if owner := metav1.GetControllerOf(rev); owner != nil && owner.Kind == "Configuration" {
 		configName = owner.Name

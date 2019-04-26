@@ -27,12 +27,12 @@ import (
 	"github.com/knative/pkg/logging/logkey"
 	"github.com/knative/serving/pkg/activator"
 	"github.com/knative/serving/pkg/activator/util"
+	"github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	pkghttp "github.com/knative/serving/pkg/http"
 	"github.com/knative/serving/pkg/network"
 	"github.com/knative/serving/pkg/queue"
-	"github.com/knative/serving/pkg/reconciler/revision/resources"
 
 	"go.opencensus.io/plugin/ochttp"
 	"go.opencensus.io/trace"
@@ -60,13 +60,16 @@ type ActivationHandler struct {
 }
 
 func (a *ActivationHandler) probeEndpoint(logger *zap.SugaredLogger, r *http.Request, target *url.URL) (bool, int, int) {
-	reqCtx, probeSpan := trace.StartSpan(r.Context(), "probe")
-	defer probeSpan.End()
-
 	var (
 		httpStatus int
 		attempts   int
+		st         = time.Now()
 	)
+	reqCtx, probeSpan := trace.StartSpan(r.Context(), "probe")
+	defer func() {
+		probeSpan.End()
+		a.Logger.Infof("Probing %s took %d attempts and %v time", target.String(), attempts, time.Since(st))
+	}()
 
 	transport := &ochttp.Transport{
 		Base: a.Transport,
@@ -160,7 +163,7 @@ func (a *ActivationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		// returns a 200 status code.
 		success := a.GetProbeCount == 0
 		if !success {
-			success, httpStatus, attempts = a.probeEndpoint(logger, r, target)
+			success, _, attempts = a.probeEndpoint(logger, r, target)
 		}
 
 		if success {
@@ -224,7 +227,7 @@ func (a *ActivationHandler) serviceHostName(rev *v1alpha1.Revision, serviceName 
 	// Search for the appropriate port
 	port := int32(-1)
 	for _, p := range svc.Spec.Ports {
-		if p.Name == resources.ServicePortName(rev) {
+		if p.Name == networking.ServicePortName(rev.GetProtocol()) {
 			port = p.Port
 			break
 		}

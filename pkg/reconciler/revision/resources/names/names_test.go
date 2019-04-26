@@ -58,15 +58,6 @@ func TestNamer(t *testing.T) {
 		f:    KPA,
 		want: "baz",
 	}, {
-		name: "K8sService",
-		rev: &v1alpha1.Revision{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "blah",
-			},
-		},
-		f:    K8sService,
-		want: "blah-service",
-	}, {
 		name: "FluentdConfigMap",
 		rev: &v1alpha1.Revision{
 			ObjectMeta: metav1.ObjectMeta{

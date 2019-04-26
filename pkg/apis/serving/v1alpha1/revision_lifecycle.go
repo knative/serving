@@ -40,25 +40,9 @@ const (
 	// use for connecting to the user container.
 	DefaultUserPort = 8080
 
-	// RequestQueuePortName specifies the port name to use for http requests
-	// in queue-proxy container.
-	RequestQueuePortName string = "queue-port"
-
-	// RequestQueuePort specifies the port number to use for http requests
-	// in queue-proxy container.
-	RequestQueuePort = serving.RequestQueuePort
-
 	// RequestQueueAdminPortName specifies the port name for
 	// health check and lifecyle hooks for queue-proxy.
 	RequestQueueAdminPortName string = "queueadm-port"
-
-	// RequestQueueAdminPort specifies the port number for
-	// health check and lifecyle hooks for queue-proxy.
-	RequestQueueAdminPort = serving.RequestQueueAdminPort
-
-	// RequestQueueMetricsPort specifies the port number for metrics emitted
-	// by queue-proxy.
-	RequestQueueMetricsPort = serving.RequestQueueMetricsPort
 
 	// RequestQueueMetricsPortName specifies the port name to use for metrics
 	// emitted by queue-proxy.

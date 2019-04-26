@@ -29,6 +29,9 @@ import (
 	"github.com/knative/serving/test"
 	"golang.org/x/sync/errgroup"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 )
 
 const (
@@ -72,62 +75,69 @@ func TestBlueGreenRoute(t *testing.T) {
 	// The first revision created is "blue"
 	blue.Revision = names.Revision
 
-	t.Log("Updating to a DeprecatedManual Service to allow configuration and route to be manually modified")
-	svc, err := test.PatchManualService(t, clients, objects.Service)
+	t.Log("Updating the Service to use a different image")
+	svc, err := test.PatchServiceImage(t, clients, objects.Service, imagePaths[1])
 	if err != nil {
-		t.Fatalf("Failed to update Service %s: %v", names.Service, err)
+		t.Fatalf("Patch update for Service %s with new image %s failed: %v", names.Service, imagePaths[1], err)
 	}
 	objects.Service = svc
 
-	t.Log("Updating the Configuration to use a different image")
-	cfg, err := test.PatchConfigImage(clients, objects.Config, imagePaths[1])
+	t.Log("Since the Service was updated a new Revision will be created and the Service will be updated")
+	green.Revision, err = test.WaitForServiceLatestRevision(clients, names)
 	if err != nil {
-		t.Fatalf("Patch update for Configuration %s with new image %s failed: %v", names.Config, imagePaths[1], err)
+		t.Fatalf("Service %s was not updated with the Revision for image %s: %v", names.Service, imagePaths[1], err)
 	}
-	objects.Config = cfg
 
-	t.Log("Since the Configuration was updated a new Revision will be created and the Configuration will be updated")
-	green.Revision, err = test.WaitForConfigLatestRevision(clients, names)
+	t.Log("Updating RouteSpec")
+	if _, err := test.UpdateServiceRouteSpec(t, clients, names, v1alpha1.RouteSpec{
+		Traffic: []v1alpha1.TrafficTarget{{
+			TrafficTarget: v1beta1.TrafficTarget{
+				Tag:          blue.TrafficTarget,
+				RevisionName: blue.Revision,
+				Percent:      50,
+			},
+		}, {
+			TrafficTarget: v1beta1.TrafficTarget{
+				Tag:          green.TrafficTarget,
+				RevisionName: green.Revision,
+				Percent:      50,
+			},
+		}},
+	}); err != nil {
+		t.Fatalf("Failed to update Service: %v", err)
+	}
+
+	t.Log("Wait for the service domains to be ready")
+	if err := test.WaitForServiceState(clients.ServingClient, names.Service, test.IsServiceReady, "ServiceIsReady"); err != nil {
+		t.Fatalf("The Service %s was not marked as Ready to serve traffic: %v", names.Service, err)
+	}
+
+	service, err := clients.ServingClient.Services.Get(names.Service, metav1.GetOptions{})
 	if err != nil {
-		t.Fatalf("Configuration %s was not updated with the Revision for image %s: %v", names.Config, imagePaths[1], err)
-	}
-
-	t.Log("Updating Route")
-	if _, err := test.UpdateBlueGreenRoute(t, clients, names, blue, green); err != nil {
-		t.Fatalf("Failed to create Route: %v", err)
-	}
-
-	t.Log("Wait for the route domains to be ready")
-	if err := test.WaitForRouteState(clients.ServingClient, names.Route, test.IsRouteReady, "RouteIsReady"); err != nil {
-		t.Fatalf("The Route %s was not marked as Ready to serve traffic: %v", names.Route, err)
-	}
-
-	route, err := clients.ServingClient.Routes.Get(names.Route, metav1.GetOptions{})
-	if err != nil {
-		t.Fatalf("Error fetching Route %s: %v", names.Route, err)
+		t.Fatalf("Error fetching Service %s: %v", names.Service, err)
 	}
 
 	var blueDomain, greenDomain string
-	for _, tt := range route.Status.Traffic {
-		if tt.DeprecatedName == blue.TrafficTarget {
+	for _, tt := range service.Status.Traffic {
+		if tt.Tag == blue.TrafficTarget {
 			// Strip prefix as WaitForEndPointState expects a domain
 			// without scheme.
 			blueDomain = strings.TrimPrefix(tt.URL, "http://")
 		}
-		if tt.DeprecatedName == green.TrafficTarget {
+		if tt.Tag == green.TrafficTarget {
 			// Strip prefix as WaitForEndPointState expects a domain
 			// without scheme.
 			greenDomain = strings.TrimPrefix(tt.URL, "http://")
 		}
 	}
 	if blueDomain == "" || greenDomain == "" {
-		t.Fatalf("Unable to fetch URLs from traffic targets: %#v", route.Status.Traffic)
+		t.Fatalf("Unable to fetch URLs from traffic targets: %#v", service.Status.Traffic)
 	}
-	tealDomain := route.Status.Domain
+	tealDomain := service.Status.Domain
 
 	// Istio network programming takes some time to be effective.  Currently Istio
 	// does not expose a Status, so we rely on probes to know when they are effective.
-	// Since we are updating the route the teal domain probe will succeed before our changes
+	// Since we are updating the service the teal domain probe will succeed before our changes
 	// take effect so we probe the green domain.
 	t.Logf("Probing domain %s", greenDomain)
 	if _, err := pkgTest.WaitForEndpointState(

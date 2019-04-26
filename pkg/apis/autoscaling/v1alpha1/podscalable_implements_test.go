@@ -1,5 +1,5 @@
 /*
-Copyright 2017 The Kubernetes Authors.
+Copyright 2019 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,9 +14,26 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// +k8s:deepcopy-gen=package
+package v1alpha1
 
-// Package scheme contains a runtime.Scheme to be used for serializing
-// and deserializing different versions of Scale, and for converting
-// in between them.
-package scheme
+import (
+	"testing"
+
+	appsv1 "k8s.io/api/apps/v1"
+
+	"github.com/knative/pkg/apis/duck"
+)
+
+func TestImplementsPodScalable(t *testing.T) {
+	instances := []interface{}{
+		&PodScalable{},
+		&appsv1.ReplicaSet{},
+		&appsv1.Deployment{},
+		&appsv1.StatefulSet{},
+	}
+	for _, instance := range instances {
+		if err := duck.VerifyType(instance, &PodScalable{}); err != nil {
+			t.Error(err)
+		}
+	}
+}

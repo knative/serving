@@ -84,6 +84,14 @@ var (
 	// DefaultDomainTemplate is the default golang template to use when
 	// constructing the Knative Route's Domain(host)
 	DefaultDomainTemplate = "{{.Name}}.{{.Namespace}}.{{.Domain}}"
+
+	// AutoTLSKey is the name of the configuration entry
+	// that specifies enabling auto-TLS or not.
+	AutoTLSKey = "autoTLS"
+
+	// HTTPProtocolKey is the name of the configuration entry that
+	// specifies the HTTP endpoint behavior of Knative ingress.
+	HTTPProtocolKey = "httpProtocol"
 )
 
 // DomainTemplateValues are the available properties people can choose from
@@ -109,7 +117,29 @@ type Config struct {
 	// DomainTemplate is the golang text template to use to generate the
 	// Route's domain (host) for the Service.
 	DomainTemplate string
+
+	// AutoTLS specifies if auto-TLS is enabled or not.
+	AutoTLS bool
+
+	// HTTPProtocol specifics the behavior of HTTP endpoint of Knative
+	// ingress.
+	HTTPProtocol HTTPProtocol
 }
+
+// HTTPProtocol indicates a type of HTTP endpoint behavior
+// that Knative ingress could take.
+type HTTPProtocol string
+
+const (
+	// HTTPEnabled represents HTTP proocol is enabled in Knative ingress.
+	HTTPEnabled HTTPProtocol = "enabled"
+
+	// HTTPDisabled represents HTTP protocol is disabled in Knative ingress.
+	HTTPDisabled HTTPProtocol = "disabled"
+
+	// HTTPRedirected represents HTTP connection is redirected to HTTPS in Knative ingress.
+	HTTPRedirected HTTPProtocol = "redirected"
+)
 
 func validateAndNormalizeOutboundIPRanges(s string) (string, error) {
 	s = strings.TrimSpace(s)
@@ -169,6 +199,22 @@ func NewConfigFromConfigMap(configMap *corev1.ConfigMap) (*Config, error) {
 		nc.DomainTemplate = dt
 	}
 
+	nc.AutoTLS = strings.ToLower(configMap.Data[AutoTLSKey]) == "enabled"
+
+	switch strings.ToLower(configMap.Data[HTTPProtocolKey]) {
+	case string(HTTPEnabled):
+		nc.HTTPProtocol = HTTPEnabled
+	case "":
+		// If HTTPProtocol is not set in the config-network, we set the default value
+		// to HTTPEnabled.
+		nc.HTTPProtocol = HTTPEnabled
+	case string(HTTPDisabled):
+		nc.HTTPProtocol = HTTPDisabled
+	case string(HTTPRedirected):
+		nc.HTTPProtocol = HTTPRedirected
+	default:
+		return nil, fmt.Errorf("httpProtocol %s in config-network ConfigMap is not supported", configMap.Data[HTTPProtocolKey])
+	}
 	return nc, nil
 }
 

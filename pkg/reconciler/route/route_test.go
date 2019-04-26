@@ -326,8 +326,8 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 				Paths: []netv1alpha1.HTTPClusterIngressPath{{
 					Splits: []netv1alpha1.ClusterIngressBackendSplit{{
 						ClusterIngressBackend: netv1alpha1.ClusterIngressBackend{
-							ServiceNamespace: system.Namespace(),
-							ServiceName:      "activator-service",
+							ServiceNamespace: testNamespace,
+							ServiceName:      rev.Status.ServiceName,
 							ServicePort:      intstr.FromInt(80),
 						},
 						Percent: 100,
@@ -413,14 +413,14 @@ func TestCreateRouteWithMultipleTargets(t *testing.T) {
 					Splits: []netv1alpha1.ClusterIngressBackendSplit{{
 						ClusterIngressBackend: netv1alpha1.ClusterIngressBackend{
 							ServiceNamespace: testNamespace,
-							ServiceName:      fmt.Sprintf("%s-pub", cfgrev.Name),
+							ServiceName:      cfgrev.Status.ServiceName,
 							ServicePort:      intstr.FromInt(80),
 						},
 						Percent: 90,
 					}, {
 						ClusterIngressBackend: netv1alpha1.ClusterIngressBackend{
 							ServiceNamespace: testNamespace,
-							ServiceName:      fmt.Sprintf("%s-pub", rev.Name),
+							ServiceName:      rev.Status.ServiceName,
 							ServicePort:      intstr.FromInt(80),
 						},
 						Percent: 10,
@@ -496,14 +496,14 @@ func TestCreateRouteWithOneTargetReserve(t *testing.T) {
 					Splits: []netv1alpha1.ClusterIngressBackendSplit{{
 						ClusterIngressBackend: netv1alpha1.ClusterIngressBackend{
 							ServiceNamespace: testNamespace,
-							ServiceName:      fmt.Sprintf("%s-pub", cfgrev.Name),
+							ServiceName:      cfgrev.Status.ServiceName,
 							ServicePort:      intstr.FromInt(80),
 						},
 						Percent: 90,
 					}, {
 						ClusterIngressBackend: netv1alpha1.ClusterIngressBackend{
-							ServiceNamespace: system.Namespace(),
-							ServiceName:      "activator-service",
+							ServiceNamespace: testNamespace,
+							ServiceName:      rev.Status.ServiceName,
 							ServicePort:      intstr.FromInt(80),
 						},
 						Percent: 10,

@@ -723,7 +723,7 @@ func TestBuildTrafficConfiguration_Preliminary(t *testing.T) {
 	}
 	if tc, err := BuildTrafficConfiguration(configLister, revLister, testRouteWithTrafficTargets(tts)); err != nil {
 		t.Errorf("Unexpected error %v", err)
-	} else if got, want := expected, tc; !cmp.Equal(got, want, cmpOpts...) {
+	} else if got, want := tc, expected; !cmp.Equal(want, got, cmpOpts...) {
 		t.Errorf("Unexpected traffic diff (-want +got): %v", cmp.Diff(got, want, cmpOpts...))
 	}
 
@@ -943,12 +943,14 @@ func TestRoundTripping(t *testing.T) {
 	}, {
 		DeprecatedName: "beta",
 		TrafficTarget: v1beta1.TrafficTarget{
+			Tag:          "beta",
 			RevisionName: goodNewRev.Name,
 			URL:          TagURL(HTTPScheme, "beta", domain),
 		},
 	}, {
 		DeprecatedName: "alpha",
 		TrafficTarget: v1beta1.TrafficTarget{
+			Tag:          "alpha",
 			RevisionName: niceNewRev.Name,
 			URL:          TagURL(HTTPScheme, "alpha", domain),
 		},

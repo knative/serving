@@ -27,9 +27,11 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/knative/pkg/apis"
+	"github.com/knative/pkg/apis/duck"
 	"github.com/knative/pkg/controller"
 	"github.com/knative/pkg/logging"
 	"github.com/knative/pkg/system"
+	pav1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/apis/networking"
 	netv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions/networking/v1alpha1"
@@ -39,17 +41,14 @@ import (
 	"github.com/knative/serving/pkg/reconciler/serverlessservice/resources/names"
 	presources "github.com/knative/serving/pkg/resources"
 
-	autoscalingapi "k8s.io/api/autoscaling/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	corev1informers "k8s.io/client-go/informers/core/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
-	"k8s.io/client-go/scale"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -68,7 +67,19 @@ type reconciler struct {
 	serviceLister   corev1listers.ServiceLister
 	endpointsLister corev1listers.EndpointsLister
 
-	scaleClientSet scale.ScalesGetter
+	// Used to get PodScalables from object references.
+	psInformerFactory duck.InformerFactory
+}
+
+// podScalableTypedInformerFactory returns a duck.InformerFactory that returns
+// lister/informer pairs for PodScalable resources.
+func podScalableTypedInformerFactory(opt rbase.Options) duck.InformerFactory {
+	return &duck.TypedInformerFactory{
+		Client:       opt.DynamicClientSet,
+		Type:         &pav1alpha1.PodScalable{},
+		ResyncPeriod: opt.ResyncPeriod,
+		StopChannel:  opt.StopChannel,
+	}
 }
 
 // NewController initializes the controller and is called by the generated code.
@@ -84,7 +95,9 @@ func NewController(
 		endpointsLister: endpointsInformer.Lister(),
 		serviceLister:   serviceInformer.Lister(),
 		sksLister:       sksInformer.Lister(),
-		scaleClientSet:  opt.ScaleClientSet,
+		psInformerFactory: &duck.CachedInformerFactory{
+			Delegate: podScalableTypedInformerFactory(opt),
+		},
 	}
 	impl := controller.NewImpl(c, c.Logger, reconcilerName, rbase.MustNewStatsReporter(reconcilerName, c.Logger))
 
@@ -206,6 +219,7 @@ func (r *reconciler) updateStatus(sks *netv1alpha1.ServerlessService) (*netv1alp
 
 func (r *reconciler) reconcilePublicService(ctx context.Context, sks *netv1alpha1.ServerlessService) error {
 	logger := logging.FromContext(ctx)
+
 	sn := names.PublicService(sks.Name)
 	srv, err := r.serviceLister.Services(sks.Namespace).Get(sn)
 	if errors.IsNotFound(err) {
@@ -218,24 +232,25 @@ func (r *reconciler) reconcilePublicService(ctx context.Context, sks *netv1alpha
 			logger.Errorw(fmt.Sprint("Error creating K8s Service:", sn), zap.Error(err))
 			return err
 		}
-		logger.Info("Created K8s service:", sn)
+		logger.Info("Created K8s service: ", sn)
 	} else if err != nil {
 		logger.Errorw(fmt.Sprint("Error getting K8s Service:", sn), zap.Error(err))
 		return err
 	} else if !metav1.IsControlledBy(srv, sks) {
 		sks.Status.MarkEndpointsNotOwned("Service", sn)
 		return fmt.Errorf("SKS: %s does not own Service: %s", sks.Name, sn)
-	}
-	tmpl := resources.MakePublicService(sks)
-	want := srv.DeepCopy()
-	want.Spec.Ports = tmpl.Spec.Ports
-	want.Spec.Selector = nil
+	} else {
+		tmpl := resources.MakePublicService(sks)
+		want := srv.DeepCopy()
+		want.Spec.Ports = tmpl.Spec.Ports
+		want.Spec.Selector = nil
 
-	if !equality.Semantic.DeepEqual(want.Spec, srv.Spec) {
-		logger.Info("Public K8s Service changed; reconciling: ", sn)
-		if _, err = r.KubeClientSet.CoreV1().Services(sks.Namespace).Update(want); err != nil {
-			logger.Errorw(fmt.Sprint("Error updating public K8s Service:", sn), zap.Error(err))
-			return err
+		if !equality.Semantic.DeepEqual(want.Spec, srv.Spec) {
+			logger.Info("Public K8s Service changed; reconciling: ", sn, cmp.Diff(want.Spec, srv.Spec))
+			if _, err = r.KubeClientSet.CoreV1().Services(sks.Namespace).Update(want); err != nil {
+				logger.Errorw(fmt.Sprint("Error updating public K8s Service:", sn), zap.Error(err))
+				return err
+			}
 		}
 	}
 	sks.Status.ServiceName = sn
@@ -247,13 +262,32 @@ func (r *reconciler) reconcilePublicEndpoints(ctx context.Context, sks *netv1alp
 	logger := logging.FromContext(ctx)
 
 	var (
-		srcEps *corev1.Endpoints
-		err    error
+		srcEps                *corev1.Endpoints
+		activatorEps          *corev1.Endpoints
+		err                   error
+		foundServingEndpoints bool
 	)
+	activatorEps, err = r.endpointsLister.Endpoints(system.Namespace()).Get(activatorService)
+	if err != nil {
+		logger.Errorw("Error obtaining activator service endpoints", zap.Error(err))
+		return err
+	}
+	logger.Debugf("Activator endpoints: %s", spew.Sprint(activatorEps))
+
+	// The logic below is as follows:
+	// if mode == serve:
+	//   if len(private_service_endpoints) > 0:
+	//     srcEps = private_service_endpoints
+	//   else:
+	//     srcEps = activator_endpoints
+	// else:
+	//    srcEps = activator_endpoints
+	// The reason for this is, we don't want to leave the public service endpoints empty,
+	// since those endpoints are the ones programmed into the VirtualService.
+	//
 	switch sks.Spec.Mode {
 	case netv1alpha1.SKSOperationModeServe:
 		// Service and Endpoints have the same name.
-		// Get private endpoints first, since if they are not available there's nothing we can do.
 		psn := names.PrivateService(sks.Name)
 		srcEps, err = r.endpointsLister.Endpoints(sks.Namespace).Get(psn)
 		if err != nil {
@@ -261,13 +295,14 @@ func (r *reconciler) reconcilePublicEndpoints(ctx context.Context, sks *netv1alp
 			return err
 		}
 		logger.Debugf("Private endpoints: %s", spew.Sprint(srcEps))
-	case netv1alpha1.SKSOperationModeProxy:
-		srcEps, err = r.endpointsLister.Endpoints(system.Namespace()).Get(activatorService)
-		if err != nil {
-			logger.Errorw("Error obtaining activator service endpoints", zap.Error(err))
-			return err
+		if r := presources.ReadyAddressCount(srcEps); r == 0 {
+			logger.Infof("%s is in mode Serve but has no endpoints, using Activator endpoints for now", psn)
+			srcEps = activatorEps
+		} else {
+			foundServingEndpoints = true
 		}
-		logger.Debugf("Activator endpoints: %s", spew.Sprint(srcEps))
+	case netv1alpha1.SKSOperationModeProxy:
+		srcEps = activatorEps
 	}
 
 	sn := names.PublicService(sks.Name)
@@ -299,7 +334,7 @@ func (r *reconciler) reconcilePublicEndpoints(ctx context.Context, sks *netv1alp
 			return err
 		}
 	}
-	if r := presources.ReadyAddressCount(eps); r > 0 {
+	if foundServingEndpoints {
 		sks.Status.MarkEndpointsReady()
 	} else {
 		logger.Infof("Endpoints %s has no ready endpoints", sn)
@@ -356,36 +391,40 @@ func (r *reconciler) reconcilePrivateService(ctx context.Context, sks *netv1alph
 	return nil
 }
 
-func (c *reconciler) getSelector(sks *netv1alpha1.ServerlessService) (map[string]string, error) {
-	scale, err := c.getScaleResource(sks)
+func (r *reconciler) getSelector(sks *netv1alpha1.ServerlessService) (map[string]string, error) {
+	scale, err := r.getScaleResource(sks)
 	if err != nil {
 		return nil, err
 	}
-	return labels.ConvertSelectorToLabelsMap(scale.Status.Selector)
+	return scale.Spec.Selector.MatchLabels, nil
 }
 
 // getScaleResource returns the current scale resource for the SKS.
-func (c *reconciler) getScaleResource(sks *netv1alpha1.ServerlessService) (*autoscalingapi.Scale, error) {
-	resource, resourceName, err := scaleResourceArgs(sks)
+func (r *reconciler) getScaleResource(sks *netv1alpha1.ServerlessService) (*pav1alpha1.PodScalable, error) {
+	gvr, name, err := scaleResourceArgs(sks)
 	if err != nil {
+		r.Logger.Errorf("Error getting the scale arguments", err)
 		return nil, err
 	}
-	// Identify the current scale.
-	scl, err := c.scaleClientSet.Scales(sks.Namespace).Get(*resource, resourceName)
+	_, lister, err := r.psInformerFactory.Get(*gvr)
 	if err != nil {
+		r.Logger.Errorf("Error getting a lister for a pod scalable resource '%+v': %+v", gvr, err)
 		return nil, err
-	} else if scl == nil {
-		return nil, errors.NewNotFound(*resource, resourceName)
 	}
-	return scl, nil
+	psObj, err := lister.ByNamespace(sks.Namespace).Get(name)
+	if err != nil {
+		r.Logger.Errorf("Error fetching Pod Scalable %q for SKS %q: %v", name, sks.Name, err)
+		return nil, err
+	}
+	return psObj.(*pav1alpha1.PodScalable), nil
 }
 
-// scaleResourceArgs returns GroupResource and the resource name, from the PA resource.
-func scaleResourceArgs(sks *netv1alpha1.ServerlessService) (*schema.GroupResource, string, error) {
+// scaleResourceArgs returns GroupVersionResource and the resource name, from the SKS resource.
+func scaleResourceArgs(sks *netv1alpha1.ServerlessService) (*schema.GroupVersionResource, string, error) {
 	gv, err := schema.ParseGroupVersion(sks.Spec.ObjectRef.APIVersion)
 	if err != nil {
 		return nil, "", err
 	}
-	resource := apis.KindToResource(gv.WithKind(sks.Spec.ObjectRef.Kind)).GroupResource()
+	resource := apis.KindToResource(gv.WithKind(sks.Spec.ObjectRef.Kind))
 	return &resource, sks.Spec.ObjectRef.Name, nil
 }

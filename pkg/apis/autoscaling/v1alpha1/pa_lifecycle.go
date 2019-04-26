@@ -56,6 +56,15 @@ func (pa *PodAutoscaler) annotationInt32(key string) int32 {
 	return 0
 }
 
+func (pa *PodAutoscaler) annotationFloat64(key string) (float64, bool) {
+	if s, ok := pa.Annotations[key]; ok {
+		if f, err := strconv.ParseFloat(s, 64); err == nil {
+			return f, true
+		}
+	}
+	return 0.0, false
+}
+
 // ScaleBounds returns scale bounds annotations values as a tuple:
 // `(min, max int32)`. The value of 0 for any of min or max means the bound is
 // not set
@@ -76,6 +85,40 @@ func (pa *PodAutoscaler) Target() (target int32, ok bool) {
 		}
 	}
 	return 0, false
+}
+
+// Window returns the window annotation value or false if not present.
+func (pa *PodAutoscaler) Window() (window time.Duration, ok bool) {
+	if s, ok := pa.Annotations[autoscaling.WindowAnnotationKey]; ok {
+		d, err := time.ParseDuration(s)
+		if err != nil {
+			return 0, false
+		}
+		if d < autoscaling.WindowMin {
+			return 0, false
+		}
+		return d, true
+	}
+	return 0, false
+}
+
+// PanicWindowPercentage returns panic window annotation value or false if not present.
+func (pa *PodAutoscaler) PanicWindowPercentage() (percentage float64, ok bool) {
+	percentage, ok = pa.annotationFloat64(autoscaling.PanicWindowPercentageAnnotationKey)
+	if !ok || percentage > autoscaling.PanicWindowPercentageMax ||
+		percentage < autoscaling.PanicWindowPercentageMin {
+		return 0, false
+	}
+	return percentage, ok
+}
+
+// PanicThresholdPercentage return the panic target annotation value or false if not present.
+func (pa *PodAutoscaler) PanicThresholdPercentage() (percentage float64, ok bool) {
+	percentage, ok = pa.annotationFloat64(autoscaling.PanicThresholdPercentageAnnotationKey)
+	if !ok || percentage < autoscaling.PanicThresholdPercentageMin {
+		return 0, false
+	}
+	return percentage, ok
 }
 
 // IsReady looks at the conditions and if the Status has a condition

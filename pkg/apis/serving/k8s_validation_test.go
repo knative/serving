@@ -327,6 +327,15 @@ func TestContainerValidation(t *testing.T) {
 		c: corev1.Container{
 			Image: "foo",
 			Ports: []corev1.ContainerPort{{
+				ContainerPort: 8013,
+			}},
+		},
+		want: apis.ErrInvalidValue(8013, "ports.containerPort"),
+	}, {
+		name: "port conflicts with queue proxy",
+		c: corev1.Container{
+			Image: "foo",
+			Ports: []corev1.ContainerPort{{
 				ContainerPort: 8012,
 			}},
 		},
@@ -555,7 +564,7 @@ func TestContainerValidation(t *testing.T) {
 	}, {
 		name: "termination message policy",
 		c: corev1.Container{
-			Image:                    "foo",
+			Image: "foo",
 			TerminationMessagePolicy: corev1.TerminationMessagePolicy("Not a Policy"),
 		},
 		want: apis.ErrInvalidValue(corev1.TerminationMessagePolicy("Not a Policy"), "terminationMessagePolicy"),

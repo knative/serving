@@ -25,10 +25,12 @@ import (
 	"github.com/knative/pkg/ptr"
 	"github.com/knative/pkg/system"
 	_ "github.com/knative/pkg/system/testing"
+	"github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 	"github.com/knative/serving/pkg/autoscaler"
+	"github.com/knative/serving/pkg/metrics"
 	"github.com/knative/serving/pkg/network"
 	"github.com/knative/serving/pkg/reconciler/revision/config"
 	appsv1 "k8s.io/api/apps/v1"
@@ -68,7 +70,7 @@ var (
 	defaultQueueContainer = &corev1.Container{
 		Name:           QueueContainerName,
 		Resources:      queueResources,
-		Ports:          queuePorts,
+		Ports:          append(queueNonServingPorts, queueHTTPPort),
 		ReadinessProbe: queueReadinessProbe,
 		Env: []corev1.EnvVar{{
 			Name:  "SERVING_NAMESPACE",
@@ -363,7 +365,7 @@ func TestMakePodSpec(t *testing.T) {
 		name string
 		rev  *v1alpha1.Revision
 		lc   *logging.Config
-		oc   *config.Observability
+		oc   *metrics.ObservabilityConfig
 		ac   *autoscaler.Config
 		cc   *config.Controller
 		want *corev1.PodSpec
@@ -378,7 +380,7 @@ func TestMakePodSpec(t *testing.T) {
 			},
 		),
 		lc: &logging.Config{},
-		oc: &config.Observability{},
+		oc: &metrics.ObservabilityConfig{},
 		ac: &autoscaler.Config{},
 		cc: &config.Controller{},
 		want: podSpec([]corev1.Container{
@@ -416,7 +418,7 @@ func TestMakePodSpec(t *testing.T) {
 			},
 		),
 		lc: &logging.Config{},
-		oc: &config.Observability{},
+		oc: &metrics.ObservabilityConfig{},
 		ac: &autoscaler.Config{},
 		cc: &config.Controller{},
 		want: podSpec([]corev1.Container{
@@ -446,7 +448,7 @@ func TestMakePodSpec(t *testing.T) {
 		name: "simple concurrency=single no owner",
 		rev:  revision(withContainerConcurrency(1)),
 		lc:   &logging.Config{},
-		oc:   &config.Observability{},
+		oc:   &metrics.ObservabilityConfig{},
 		ac:   &autoscaler.Config{},
 		cc:   &config.Controller{},
 		want: podSpec([]corev1.Container{
@@ -466,7 +468,7 @@ func TestMakePodSpec(t *testing.T) {
 			},
 		),
 		lc: &logging.Config{},
-		oc: &config.Observability{},
+		oc: &metrics.ObservabilityConfig{},
 		ac: &autoscaler.Config{},
 		cc: &config.Controller{},
 		want: podSpec([]corev1.Container{
@@ -484,7 +486,7 @@ func TestMakePodSpec(t *testing.T) {
 			withOwnerReference("parent-config"),
 		),
 		lc: &logging.Config{},
-		oc: &config.Observability{},
+		oc: &metrics.ObservabilityConfig{},
 		ac: &autoscaler.Config{},
 		cc: &config.Controller{},
 		want: podSpec([]corev1.Container{
@@ -502,12 +504,12 @@ func TestMakePodSpec(t *testing.T) {
 			)
 		}),
 		lc: &logging.Config{},
-		oc: &config.Observability{},
+		oc: &metrics.ObservabilityConfig{},
 		ac: &autoscaler.Config{},
 		cc: &config.Controller{},
 		want: podSpec([]corev1.Container{
 			userContainer(
-				withHTTPReadinessProbe(v1alpha1.RequestQueuePort),
+				withHTTPReadinessProbe(networking.BackendHTTPPort),
 			),
 			queueContainer(
 				withEnvVar("CONTAINER_CONCURRENCY", "0"),
@@ -523,7 +525,7 @@ func TestMakePodSpec(t *testing.T) {
 			)
 		}),
 		lc: &logging.Config{},
-		oc: &config.Observability{},
+		oc: &metrics.ObservabilityConfig{},
 		ac: &autoscaler.Config{},
 		cc: &config.Controller{},
 		want: podSpec([]corev1.Container{
@@ -548,12 +550,12 @@ func TestMakePodSpec(t *testing.T) {
 			)
 		}),
 		lc: &logging.Config{},
-		oc: &config.Observability{},
+		oc: &metrics.ObservabilityConfig{},
 		ac: &autoscaler.Config{},
 		cc: &config.Controller{},
 		want: podSpec([]corev1.Container{
 			userContainer(
-				withHTTPReadinessProbe(v1alpha1.RequestQueuePort),
+				withHTTPReadinessProbe(networking.BackendHTTPPort),
 			),
 			queueContainer(
 				withEnvVar("CONTAINER_CONCURRENCY", "0"),
@@ -569,7 +571,7 @@ func TestMakePodSpec(t *testing.T) {
 			)
 		}),
 		lc: &logging.Config{},
-		oc: &config.Observability{},
+		oc: &metrics.ObservabilityConfig{},
 		ac: &autoscaler.Config{},
 		cc: &config.Controller{},
 		want: podSpec([]corev1.Container{
@@ -588,7 +590,7 @@ func TestMakePodSpec(t *testing.T) {
 		name: "with /var/log collection",
 		rev:  revision(withContainerConcurrency(1)),
 		lc:   &logging.Config{},
-		oc: &config.Observability{
+		oc: &metrics.ObservabilityConfig{
 			EnableVarLogCollection: true,
 			FluentdSidecarImage:    "indiana:jones",
 		},
@@ -641,7 +643,7 @@ func TestMakePodSpec(t *testing.T) {
 			},
 		),
 		lc: &logging.Config{},
-		oc: &config.Observability{},
+		oc: &metrics.ObservabilityConfig{},
 		ac: &autoscaler.Config{},
 		cc: &config.Controller{},
 		want: podSpec([]corev1.Container{
@@ -715,7 +717,7 @@ func TestMakeDeployment(t *testing.T) {
 		rev  *v1alpha1.Revision
 		lc   *logging.Config
 		nc   *network.Config
-		oc   *config.Observability
+		oc   *metrics.ObservabilityConfig
 		ac   *autoscaler.Config
 		cc   *config.Controller
 		want *appsv1.Deployment
@@ -727,7 +729,7 @@ func TestMakeDeployment(t *testing.T) {
 		),
 		lc:   &logging.Config{},
 		nc:   &network.Config{},
-		oc:   &config.Observability{},
+		oc:   &metrics.ObservabilityConfig{},
 		ac:   &autoscaler.Config{},
 		cc:   &config.Controller{},
 		want: deployment(),
@@ -739,7 +741,7 @@ func TestMakeDeployment(t *testing.T) {
 		),
 		lc:   &logging.Config{},
 		nc:   &network.Config{},
-		oc:   &config.Observability{},
+		oc:   &metrics.ObservabilityConfig{},
 		ac:   &autoscaler.Config{},
 		cc:   &config.Controller{},
 		want: deployment(),
@@ -750,7 +752,7 @@ func TestMakeDeployment(t *testing.T) {
 		nc: &network.Config{
 			IstioOutboundIPRanges: "*",
 		},
-		oc: &config.Observability{},
+		oc: &metrics.ObservabilityConfig{},
 		ac: &autoscaler.Config{},
 		cc: &config.Controller{},
 		want: deployment(func(deploy *appsv1.Deployment) {
@@ -770,7 +772,7 @@ func TestMakeDeployment(t *testing.T) {
 		nc: &network.Config{
 			IstioOutboundIPRanges: "*",
 		},
-		oc: &config.Observability{},
+		oc: &metrics.ObservabilityConfig{},
 		ac: &autoscaler.Config{},
 		cc: &config.Controller{},
 		want: deployment(func(deploy *appsv1.Deployment) {

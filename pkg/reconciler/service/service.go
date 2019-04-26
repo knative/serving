@@ -122,6 +122,10 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 		return err
 	}
 
+	if original.GetDeletionTimestamp() != nil {
+		return nil
+	}
+
 	// Don't modify the informers copy
 	service := original.DeepCopy()
 
@@ -130,18 +134,18 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 		// updated with Configurations not known to the Service which would
 		// make attempts to display status potentially incorrect
 		service.Status.SetManualStatus()
+
+		if err := service.ConvertUp(ctx, &v1beta1.Service{}); err != nil {
+			if ce, ok := err.(*v1alpha1.CannotConvertError); ok {
+				service.Status.MarkResourceNotConvertible(ce)
+			} else {
+				return err
+			}
+		}
 	} else {
 		// Reconcile this copy of the service and then write back any status
 		// updates regardless of whether the reconciliation errored out.
 		err = c.reconcile(ctx, service)
-	}
-
-	if err := service.ConvertUp(ctx, &v1beta1.Service{}); err != nil {
-		if ce, ok := err.(*v1alpha1.CannotConvertError); ok {
-			service.Status.MarkResourceNotConvertible(ce)
-		} else {
-			return err
-		}
 	}
 
 	if equality.Semantic.DeepEqual(original.Status, service.Status) {
@@ -167,9 +171,6 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 
 func (c *Reconciler) reconcile(ctx context.Context, service *v1alpha1.Service) error {
 	logger := logging.FromContext(ctx)
-	if service.GetDeletionTimestamp() != nil {
-		return nil
-	}
 
 	// We may be reading a version of the object that was stored at an older version
 	// and may not have had all of the assumed defaults specified.  This won't result
@@ -177,6 +178,14 @@ func (c *Reconciler) reconcile(ctx context.Context, service *v1alpha1.Service) e
 	// assumptions about defaulting.
 	service.SetDefaults(ctx)
 	service.Status.InitializeConditions()
+
+	if err := service.ConvertUp(ctx, &v1beta1.Service{}); err != nil {
+		if ce, ok := err.(*v1alpha1.CannotConvertError); ok {
+			service.Status.MarkResourceNotConvertible(ce)
+		} else {
+			return err
+		}
+	}
 
 	configName := resourcenames.Configuration(service)
 	config, err := c.configurationLister.Configurations(service.Namespace).Get(configName)
@@ -256,19 +265,15 @@ func (c *Reconciler) reconcile(ctx context.Context, service *v1alpha1.Service) e
 					want[idx].RevisionName = config.Status.LatestReadyRevisionName
 					want[idx].ConfigurationName = ""
 				}
-				// Normalize Name into Tag for comparison.
-				if want[idx].DeprecatedName != "" {
-					want[idx].Tag = want[idx].DeprecatedName
-					want[idx].DeprecatedName = ""
-				}
-				if got[idx].DeprecatedName != "" {
-					got[idx].Tag = got[idx].DeprecatedName
-					got[idx].DeprecatedName = ""
-				}
 			}
 			ignoreFields := cmpopts.IgnoreFields(v1alpha1.TrafficTarget{},
-				"TrafficTarget.URL", "TrafficTarget.LatestRevision")
-			if eq, err := kmp.SafeEqual(got, want, ignoreFields); !eq || err != nil {
+				"TrafficTarget.URL", "TrafficTarget.LatestRevision",
+				// We specify the Routing via Tag in spec, but the status surfaces it
+				// via both names for now, so ignore the deprecated name field when
+				// comparing them.
+				"DeprecatedName")
+			if diff, err := kmp.SafeDiff(got, want, ignoreFields); err != nil || diff != "" {
+				logger.Errorf("Route %q is not yet what we want: %s", service.Name, diff)
 				service.Status.MarkRouteNotYetReady()
 			}
 		}

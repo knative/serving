@@ -21,6 +21,8 @@ import (
 
 	"github.com/knative/pkg/apis"
 	corev1 "k8s.io/api/core/v1"
+
+	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 )
 
 func (r *Revision) SetDefaults(ctx context.Context) {
@@ -28,6 +30,16 @@ func (r *Revision) SetDefaults(ctx context.Context) {
 }
 
 func (rs *RevisionSpec) SetDefaults(ctx context.Context) {
+	if v1beta1.IsUpgradeViaDefaulting(ctx) {
+		beta := v1beta1.RevisionSpec{}
+		if rs.ConvertUp(ctx, &beta) == nil {
+			alpha := RevisionSpec{}
+			if alpha.ConvertDown(ctx, beta) == nil {
+				*rs = alpha
+			}
+		}
+	}
+
 	// When ConcurrencyModel is specified but ContainerConcurrency
 	// is not (0), use the ConcurrencyModel value.
 	if rs.DeprecatedConcurrencyModel == RevisionRequestConcurrencyModelSingle && rs.ContainerConcurrency == 0 {

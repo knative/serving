@@ -41,12 +41,10 @@ import (
 	anames "github.com/knative/serving/pkg/reconciler/autoscaling/resources/names"
 	resourceutil "github.com/knative/serving/pkg/resources"
 
-	autoscalingapi "k8s.io/api/autoscaling/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	corev1informers "k8s.io/client-go/informers/core/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
@@ -96,7 +94,7 @@ type Scaler interface {
 	Scale(ctx context.Context, pa *pav1alpha1.PodAutoscaler, desiredScale int32) (int32, error)
 
 	// GetScaleResource returns the current scale resource for the PA.
-	GetScaleResource(pa *pav1alpha1.PodAutoscaler) (*autoscalingapi.Scale, error)
+	GetScaleResource(pa *pav1alpha1.PodAutoscaler) (*pav1alpha1.PodScalable, error)
 }
 
 // Reconciler tracks PAs and right sizes the ScaleTargetRef based on the
@@ -356,10 +354,7 @@ func (c *Reconciler) reconcileMetricsService(ctx context.Context, pa *pav1alpha1
 	if err != nil {
 		return perrors.Wrap(err, "error retrieving scale")
 	}
-	selector, err := labels.ConvertSelectorToLabelsMap(scale.Status.Selector)
-	if err != nil {
-		return perrors.Wrapf(err, "error parsing selector %q", scale.Status.Selector)
-	}
+	selector := scale.Spec.Selector.MatchLabels
 	logger.Debugf("PA's %s selector: %v", pa.Name, selector)
 
 	sn := names.MetricsServiceName(pa.Name)

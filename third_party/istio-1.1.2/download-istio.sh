@@ -42,6 +42,8 @@ helm template --namespace=istio-system \
   --set global.proxy.autoInject=disabled \
   --set global.disablePolicyChecks=true \
   --set prometheus.enabled=false \
+  `# Disable mixer prometheus adapter to remove istio default metrics.` \
+  --set mixer.adapters.prometheus.enabled=false \
   `# Disable mixer policy check, since in our template we set no policy.` \
   --set global.disablePolicyChecks=true \
   `# Set gateway pods to 1 to sidestep eventual consistency / readiness problems.` \
@@ -69,6 +71,8 @@ helm template --namespace=istio-system \
   --set global.omitSidecarInjectorConfigMap=true \
   --set global.disablePolicyChecks=true \
   --set prometheus.enabled=false \
+  `# Disable mixer prometheus adapter to remove istio default metrics.` \
+  --set mixer.adapters.prometheus.enabled=false \
   `# Disable mixer policy check, since in our template we set no policy.` \
   --set global.disablePolicyChecks=true \
   `# Set gateway pods to 1 to sidestep eventual consistency / readiness problems.` \

@@ -61,11 +61,22 @@ data:
     # average concurrency over the stable window.
     stable-window: "60s"
 
-    # When observed average concurrency during the panic window reaches 2x
-    # the target concurrency, the autoscaler enters panic mode. When
-    # operating in panic mode, the autoscaler operates on the average
-    # concurrency over the panic window.
+    # When observed average concurrency during the panic window reaches
+    # panic-threshold-percentage the target concurrency, the autoscaler
+    # enters panic mode. When operating in panic mode, the autoscaler
+    # scales on the average concurrency over the panic window which is
+    # panic-window-percentage of the stable-window.
+    panic-window-percentage: "10.0"
+
+    # Absolute panic window duration.
+    # Deprecated in favor of panic-window-percentage.
+    # Existing revisions will continue to scale based on panic-window
+    # but new revisions will default to panic-window-percentage.
     panic-window: "6s"
+
+    # The percentage of the container concurrency target at which to
+    # enter panic mode when reached within the panic window.
+    panic-threshold-percentage: "200.0"
 
     # Max scale up rate limits the rate at which the autoscaler will
     # increase pod count. It is the maximum ratio of desired pods versus

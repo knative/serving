@@ -51,11 +51,21 @@ func (source *RevisionSpec) ConvertUp(ctx context.Context, sink *v1beta1.Revisio
 	if source.TimeoutSeconds != nil {
 		sink.TimeoutSeconds = ptr.Int64(*source.TimeoutSeconds)
 	}
-	// TODO(mattmoor): Support PodSpec
-	sink.PodSpec = v1beta1.PodSpec{
-		ServiceAccountName: source.ServiceAccountName,
-		Containers:         []corev1.Container{*source.GetContainer()},
-		Volumes:            source.Volumes,
+	switch {
+	case source.DeprecatedContainer != nil && len(source.Containers) > 0:
+		return apis.ErrMultipleOneOf("container", "containers")
+	case source.DeprecatedContainer != nil:
+		sink.PodSpec = v1beta1.PodSpec{
+			ServiceAccountName: source.ServiceAccountName,
+			Containers:         []corev1.Container{*source.DeprecatedContainer},
+			Volumes:            source.Volumes,
+		}
+	case len(source.Containers) == 1:
+		sink.PodSpec = source.PodSpec
+	case len(source.Containers) > 1:
+		return apis.ErrMultipleOneOf("containers")
+	default:
+		return apis.ErrMissingOneOf("container", "containers")
 	}
 	if source.DeprecatedBuildRef != nil {
 		return ConvertErrorf("buildRef",
