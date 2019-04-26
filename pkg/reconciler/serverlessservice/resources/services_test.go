@@ -62,7 +62,7 @@ func TestMakePublicService(t *testing.T) {
 		want: &corev1.Service{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: "melon",
-				Name:      "collie-pub",
+				Name:      "collie",
 				Labels: map[string]string{
 					// Those should be propagated.
 					serving.RevisionLabelKey:  "collie",
@@ -110,7 +110,7 @@ func TestMakePublicService(t *testing.T) {
 		want: &corev1.Service{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: "melon",
-				Name:      "collie-pub",
+				Name:      "collie",
 				Labels: map[string]string{
 					// Those should be propagated.
 					serving.RevisionLabelKey:  "collie",
@@ -161,7 +161,7 @@ func TestMakePublicService(t *testing.T) {
 		want: &corev1.Service{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: "siamese",
-				Name:      "dream-pub",
+				Name:      "dream",
 				Labels: map[string]string{
 					// Those should be propagated.
 					serving.RevisionLabelKey:  "dream",
@@ -214,7 +214,7 @@ func TestMakePublicService(t *testing.T) {
 		want: &corev1.Service{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: "siamese",
-				Name:      "dream-pub",
+				Name:      "dream",
 				Labels: map[string]string{
 					// Those should be propagated.
 					serving.RevisionLabelKey:  "dream",
@@ -267,7 +267,7 @@ func TestMakePublicService(t *testing.T) {
 		want: &corev1.Service{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: "siamese",
-				Name:      "dream-pub",
+				Name:      "dream",
 				Labels: map[string]string{
 					// Those should be propagated.
 					serving.RevisionLabelKey:  "dream",
@@ -339,7 +339,7 @@ func TestMakeEndpoints(t *testing.T) {
 		want: &corev1.Endpoints{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: "melon",
-				Name:      "collie-pub",
+				Name:      "collie",
 				Labels: map[string]string{
 					serving.RevisionLabelKey:  "collie",
 					serving.RevisionUID:       "1982",
@@ -399,7 +399,7 @@ func TestMakeEndpoints(t *testing.T) {
 		want: &corev1.Endpoints{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: "melon",
-				Name:      "collie-pub",
+				Name:      "collie",
 				Labels: map[string]string{
 					serving.RevisionLabelKey:  "collie",
 					serving.RevisionUID:       "1982",

@@ -34,7 +34,6 @@ import (
 	"github.com/knative/serving/pkg/reconciler/route/traffic"
 	"github.com/knative/serving/pkg/reconciler/serverlessservice/resources/names"
 	servicenames "github.com/knative/serving/pkg/reconciler/service/resources/names"
-	autoscalingv1 "k8s.io/api/autoscaling/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -1104,7 +1103,7 @@ func WithPubService(sks *netv1alpha1.ServerlessService) {
 // WithDeployRef annotates SKS with a deployment objectRef
 func WithDeployRef(name string) SKSOption {
 	return func(sks *netv1alpha1.ServerlessService) {
-		sks.Spec.ObjectRef = autoscalingv1.CrossVersionObjectReference{
+		sks.Spec.ObjectRef = corev1.ObjectReference{
 			APIVersion: "apps/v1",
 			Kind:       "Deployment",
 			Name:       name,
@@ -1145,7 +1144,7 @@ func SKS(ns, name string, so ...SKSOption) *netv1alpha1.ServerlessService {
 		Spec: netv1alpha1.ServerlessServiceSpec{
 			Mode:         netv1alpha1.SKSOperationModeServe,
 			ProtocolType: networking.ProtocolHTTP1,
-			ObjectRef: autoscalingv1.CrossVersionObjectReference{
+			ObjectRef: corev1.ObjectReference{
 				APIVersion: "apps/v1",
 				Kind:       "Deployment",
 				Name:       "foo-deployment",

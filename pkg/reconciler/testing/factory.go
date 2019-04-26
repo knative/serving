@@ -57,7 +57,7 @@ func MakeFactory(ctor Ctor) Factory {
 		sharedClient := fakesharedclientset.NewSimpleClientset(ls.GetSharedObjects()...)
 		client := fakeclientset.NewSimpleClientset(ls.GetServingObjects()...)
 		dynamicClient := fakedynamicclientset.NewSimpleDynamicClient(
-			NewScheme(), toUnstructured(t, r.Objects)...)
+			NewScheme(), ToUnstructured(t, r.Objects)...)
 
 		// The dynamic client's support for patching is BS.  Implement it
 		// here via PrependReactor (this can be overridden below by the
@@ -111,9 +111,11 @@ func MakeFactory(ctor Ctor) Factory {
 	}
 }
 
+// ToUnstructured takes a list of k8s resources and converts them to
+// Unstructured objects.
 // We must pass objects as Unstructured to the dynamic client fake, or it
 // won't handle them properly.
-func toUnstructured(t *testing.T, objs []runtime.Object) (us []runtime.Object) {
+func ToUnstructured(t *testing.T, objs []runtime.Object) (us []runtime.Object) {
 	sch := NewScheme()
 	for _, obj := range objs {
 		obj = obj.DeepCopyObject() // Don't mess with the primary copy
