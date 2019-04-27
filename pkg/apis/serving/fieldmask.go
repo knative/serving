@@ -117,6 +117,7 @@ func ContainerMask(in *corev1.Container) *corev1.Container {
 	out.Args = in.Args
 	out.Command = in.Command
 	out.Env = in.Env
+	out.WorkingDir = in.WorkingDir
 	out.EnvFrom = in.EnvFrom
 	out.Image = in.Image
 	out.ImagePullPolicy = in.ImagePullPolicy
