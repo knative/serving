@@ -103,10 +103,11 @@ These tests require:
    ko apply -f test/config
    ```
 
-1. The namespace `serving-tests`:
+1. The namespaces `serving-tests` and `serving-tests-alt`:
 
    ```bash
    kubectl create namespace serving-tests
+   kubectl create namespace serving-tests-alt
    ```
 
 1. A docker repo containing [the test images](#test-images)
@@ -151,7 +152,7 @@ To run the script for all end to end test images:
 ```
 
 A docker tag may be passed as an optional parameter. This can be useful on
-[Minikube] in tandem with the `--tag` [flag](#using-a-docker-tag):
+Minikube in tandem with the `--tag` [flag](#using-a-docker-tag):
 
 ```bash
 eval $(minikube docker-env)
@@ -191,7 +192,7 @@ go test -v -tags=e2e -count=1 ./test/e2e --dockerrepo gcr.myhappyproject
 ### Using a docker tag
 
 The default docker tag used for the test images is `latest`, which can be
-problematic on [Minikube]. To avoid having to configure a remote container
+problematic on Minikube. To avoid having to configure a remote container
 registry to support the `Always` pull policy for `latest` tags, you can have the
 tests use a specific tag:
 

@@ -60,14 +60,16 @@ type TargetStatus struct {
 	Targetable *Targetable `json:"targetable,omitempty"`
 }
 
-// In order for Targetable to be Implementable, Target must be Populatable.
-var _ duck.Populatable = (*Target)(nil)
+var (
+	// In order for Targetable to be Implementable, Target must be Populatable.
+	_ duck.Populatable = (*Target)(nil)
 
-// Ensure Target satisfies apis.Listable
-var _ apis.Listable = (*Target)(nil)
+	// Ensure Target satisfies apis.Listable
+	_ apis.Listable = (*Target)(nil)
+)
 
 // GetFullType implements duck.Implementable
-func (_ *Targetable) GetFullType() duck.Populatable {
+func (*Targetable) GetFullType() duck.Populatable {
 	return &Target{}
 }
 
@@ -82,7 +84,7 @@ func (t *Target) Populate() {
 }
 
 // GetListType implements apis.Listable
-func (r *Target) GetListType() runtime.Object {
+func (*Target) GetListType() runtime.Object {
 	return &TargetList{}
 }
 

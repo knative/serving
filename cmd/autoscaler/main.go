@@ -24,6 +24,7 @@ import (
 
 	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/controller"
+	pkgmetrics "github.com/knative/pkg/metrics"
 	"github.com/knative/pkg/signals"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/autoscaler"
@@ -32,8 +33,8 @@ import (
 	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/pkg/metrics"
 	"github.com/knative/serving/pkg/reconciler"
-	"github.com/knative/serving/pkg/reconciler/v1alpha1/autoscaling/hpa"
-	"github.com/knative/serving/pkg/reconciler/v1alpha1/autoscaling/kpa"
+	"github.com/knative/serving/pkg/reconciler/autoscaling/hpa"
+	"github.com/knative/serving/pkg/reconciler/autoscaling/kpa"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	kubeinformers "k8s.io/client-go/informers"
@@ -57,7 +58,7 @@ func main() {
 	flag.Parse()
 
 	logger, atomicLevel := setupLogger()
-	defer logger.Sync()
+	defer flush(logger)
 
 	// Set up signals so we handle the first shutdown signal gracefully.
 	stopCh := signals.SetupSignalHandler()
@@ -87,19 +88,21 @@ func main() {
 
 	// Set up informers.
 	paInformer := servingInformerFactory.Autoscaling().V1alpha1().PodAutoscalers()
+	sksInformer := servingInformerFactory.Networking().V1alpha1().ServerlessServices()
 	endpointsInformer := kubeInformerFactory.Core().V1().Endpoints()
 	serviceInformer := kubeInformerFactory.Core().V1().Services()
 	hpaInformer := kubeInformerFactory.Autoscaling().V1().HorizontalPodAutoscalers()
 
+	collector := autoscaler.NewMetricCollector(statsScraperFactoryFunc(endpointsInformer.Lister()), statsCh, logger)
+
 	// Set up scalers.
 	// uniScalerFactory depends endpointsInformer to be set.
-	multiScaler := autoscaler.NewMultiScaler(
-		dynConfig, stopCh, statsCh, uniScalerFactoryFunc(endpointsInformer), statsScraperFactoryFunc(endpointsInformer.Lister()), logger)
-	scaler := kpa.NewScaler(opt.ServingClientSet, opt.ScaleClientSet, logger, opt.ConfigMapWatcher)
+	multiScaler := autoscaler.NewMultiScaler(dynConfig, stopCh, uniScalerFactoryFunc(endpointsInformer), logger)
+	scaler := kpa.NewScaler(opt)
 
 	controllers := []*controller.Impl{
-		kpa.NewController(&opt, paInformer, serviceInformer, endpointsInformer, multiScaler, scaler, dynConfig),
-		hpa.NewController(&opt, paInformer, hpaInformer),
+		kpa.NewController(&opt, paInformer, sksInformer, serviceInformer, endpointsInformer, multiScaler, collector, scaler, dynConfig),
+		hpa.NewController(&opt, paInformer, sksInformer, hpaInformer),
 	}
 
 	// Set up a statserver.
@@ -118,8 +121,9 @@ func main() {
 		hpaInformer.Informer(),
 		paInformer.Informer(),
 		serviceInformer.Informer(),
+		sksInformer.Informer(),
 	); err != nil {
-		logger.Fatalf("Failed to start informers: %v", err)
+		logger.Fatalw("Failed to start informers", err)
 	}
 
 	go controller.StartAll(stopCh, controllers...)
@@ -158,11 +162,11 @@ func main() {
 func setupLogger() (*zap.SugaredLogger, zap.AtomicLevel) {
 	loggingConfigMap, err := configmap.Load("/etc/config-logging")
 	if err != nil {
-		log.Fatalf("Error loading logging configuration: %v", err)
+		log.Fatal("Error loading logging configuration:", err)
 	}
 	loggingConfig, err := logging.NewConfigFromMap(loggingConfigMap)
 	if err != nil {
-		log.Fatalf("Error parsing logging configuration: %v", err)
+		log.Fatal("Error parsing logging configuration:", err)
 	}
 	return logging.NewLoggerFromConfig(loggingConfig, component)
 }
@@ -181,30 +185,35 @@ func scalerConfig(logger *zap.SugaredLogger) *autoscaler.DynamicConfig {
 
 func uniScalerFactoryFunc(endpointsInformer corev1informers.EndpointsInformer) func(decider *autoscaler.Decider, dynamicConfig *autoscaler.DynamicConfig) (autoscaler.UniScaler, error) {
 	return func(decider *autoscaler.Decider, dynamicConfig *autoscaler.DynamicConfig) (autoscaler.UniScaler, error) {
-		if decider.Labels == nil {
-			return nil, fmt.Errorf("no labels set on Decider: %v", decider)
+		for _, l := range []string{serving.KubernetesServiceLabelKey, serving.ConfigurationLabelKey} {
+			if v, ok := decider.Labels[l]; !ok || v == "" {
+				return nil, fmt.Errorf("label %q not found or empty in Decider: %v", l, decider)
+			}
 		}
 
+		serviceName := decider.Labels[serving.ServiceLabelKey] // This can be empty.
+		configName := decider.Labels[serving.ConfigurationLabelKey]
+		k8SSvcName := decider.Labels[serving.KubernetesServiceLabelKey]
+
 		// Create a stats reporter which tags statistics by PA namespace, configuration name, and PA name.
-		reporter, err := autoscaler.NewStatsReporter(decider.Namespace,
-			decider.Labels[serving.ServiceLabelKey], decider.Labels[serving.ConfigurationLabelKey], decider.Name)
+		reporter, err := autoscaler.NewStatsReporter(decider.Namespace, serviceName, configName, decider.Name)
 		if err != nil {
 			return nil, err
 		}
 
-		revName := decider.Labels[serving.RevisionLabelKey]
-		if revName == "" {
-			return nil, fmt.Errorf("no Revision label found in Decider: %v", decider)
-		}
-
 		return autoscaler.New(dynamicConfig, decider.Namespace,
-			reconciler.GetServingK8SServiceNameForObj(revName), endpointsInformer,
-			decider.Spec.TargetConcurrency, reporter)
+			k8SSvcName, endpointsInformer,
+			decider.Spec, reporter)
 	}
 }
 
-func statsScraperFactoryFunc(endpointsLister corev1listers.EndpointsLister) func(decider *autoscaler.Decider) (autoscaler.StatsScraper, error) {
-	return func(decider *autoscaler.Decider) (autoscaler.StatsScraper, error) {
-		return autoscaler.NewServiceScraper(decider, endpointsLister)
+func statsScraperFactoryFunc(endpointsLister corev1listers.EndpointsLister) func(metric *autoscaler.Metric) (autoscaler.StatsScraper, error) {
+	return func(metric *autoscaler.Metric) (autoscaler.StatsScraper, error) {
+		return autoscaler.NewServiceScraper(metric, endpointsLister)
 	}
+}
+
+func flush(logger *zap.SugaredLogger) {
+	logger.Sync()
+	pkgmetrics.FlushExporter()
 }

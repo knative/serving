@@ -21,6 +21,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/knative/pkg/apis/duck"
 	duckv1beta1 "github.com/knative/pkg/apis/duck/v1beta1"
+	apitest "github.com/knative/pkg/apis/testing"
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -54,26 +55,28 @@ func TestCertificateGetGroupVersionKind(t *testing.T) {
 func TestMarkReady(t *testing.T) {
 	c := &CertificateStatus{}
 	c.InitializeConditions()
-	checkCondition(c, CertificateCondidtionReady, corev1.ConditionUnknown, t)
+	apitest.CheckConditionOngoing(c.duck(), CertificateCondidtionReady, t)
 
 	c.MarkReady()
-	checkIsReady(c, t)
+	if !c.IsReady() {
+		t.Error("IsReady=false, want: true")
+	}
 }
 
 func TestMarkUnknown(t *testing.T) {
 	c := &CertificateStatus{}
 	c.InitializeConditions()
-	checkCondition(c, CertificateCondidtionReady, corev1.ConditionUnknown, t)
+	apitest.CheckCondition(c.duck(), CertificateCondidtionReady, corev1.ConditionUnknown)
 
 	c.MarkUnknown("unknow", "unknown")
-	checkCondition(c, CertificateCondidtionReady, corev1.ConditionUnknown, t)
+	apitest.CheckCondition(c.duck(), CertificateCondidtionReady, corev1.ConditionUnknown)
 }
 
 func TestMarkNotReady(t *testing.T) {
 	c := &CertificateStatus{}
 	c.InitializeConditions()
-	checkCondition(c, CertificateCondidtionReady, corev1.ConditionUnknown, t)
+	apitest.CheckCondition(c.duck(), CertificateCondidtionReady, corev1.ConditionUnknown)
 
 	c.MarkNotReady("not ready", "not ready")
-	checkCondition(c, CertificateCondidtionReady, corev1.ConditionFalse, t)
+	apitest.CheckConditionFailed(c.duck(), CertificateCondidtionReady, t)
 }

@@ -22,7 +22,6 @@ import (
 	"encoding/gob"
 	"net"
 	"net/http"
-	"strings"
 	"sync"
 	"time"
 
@@ -158,11 +157,7 @@ func (s *Server) Handler(w http.ResponseWriter, r *http.Request) {
 		sm.Stat.Time = &now
 
 		s.logger.Debugf("Received stat message: %+v", sm)
-		// TODO(yanweiguo): Remove this after version 0.5.
-		// Drop stats not from activator
-		if isActivator(sm.Stat.PodName) {
-			s.statsCh <- &sm
-		}
+		s.statsCh <- &sm
 	}
 }
 
@@ -196,8 +191,4 @@ func (s *Server) Shutdown(timeout time.Duration) {
 	case <-ctx.Done():
 		s.logger.Warn("Shutdown timed out")
 	}
-}
-
-func isActivator(podName string) bool {
-	return strings.HasPrefix(podName, "activator")
 }

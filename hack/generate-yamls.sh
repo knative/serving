@@ -42,9 +42,10 @@ readonly YAML_REPO_ROOT=${1:?"First argument must be the repo root dir"}
 readonly YAML_LIST_FILE=${2:?"Second argument must be the output file"}
 
 # Location of istio YAMLs
-readonly ISTIO_CRD_YAML=${YAML_REPO_ROOT}/third_party/istio-1.1.1/istio-crds.yaml
-readonly ISTIO_YAML=${YAML_REPO_ROOT}/third_party/istio-1.1.1/istio.yaml
-readonly ISTIO_LEAN_YAML=${YAML_REPO_ROOT}/third_party/istio-1.1.1/istio-lean.yaml
+readonly ISTIO_CRD_YAML=${YAML_REPO_ROOT}/third_party/istio-1.1.2/istio-crds.yaml
+readonly ISTIO_YAML=${YAML_REPO_ROOT}/third_party/istio-1.1.2/istio.yaml
+readonly ISTIO_LEAN_YAML=${YAML_REPO_ROOT}/third_party/istio-1.1.2/istio-lean.yaml
+readonly ISTIO_KNATIVE_EXTRAS_YAML=${YAML_REPO_ROOT}/third_party/istio-1.1.2/istio-knative-extras.yaml
 
 # Set output directory
 if [[ -z "${YAML_OUTPUT_DIR:-}" ]]; then
@@ -58,6 +59,8 @@ readonly MONITORING_YAML=${YAML_OUTPUT_DIR}/monitoring.yaml
 readonly MONITORING_METRIC_PROMETHEUS_YAML=${YAML_OUTPUT_DIR}/monitoring-metrics-prometheus.yaml
 readonly MONITORING_TRACE_ZIPKIN_YAML=${YAML_OUTPUT_DIR}/monitoring-tracing-zipkin.yaml
 readonly MONITORING_TRACE_ZIPKIN_IN_MEM_YAML=${YAML_OUTPUT_DIR}/monitoring-tracing-zipkin-in-mem.yaml
+readonly MONITORING_TRACE_JAEGER_YAML=${YAML_OUTPUT_DIR}/monitoring-tracing-jaeger.yaml
+readonly MONITORING_TRACE_JAEGER_IN_MEM_YAML=${YAML_OUTPUT_DIR}/monitoring-tracing-jaeger-in-mem.yaml
 readonly MONITORING_LOG_ELASTICSEARCH_YAML=${YAML_OUTPUT_DIR}/monitoring-logs-elasticsearch.yaml
 
 # Flags for all ko commands
@@ -102,10 +105,16 @@ ko resolve ${KO_YAML_FLAGS} -R -f config/monitoring/tracing/zipkin | "${LABEL_YA
 # Traces via Zipkin in Memory when ElasticSearch is not installed
 ko resolve ${KO_YAML_FLAGS} -R -f config/monitoring/tracing/zipkin-in-mem | "${LABEL_YAML_CMD[@]}" > "${MONITORING_TRACE_ZIPKIN_IN_MEM_YAML}"
 
+# Traces via Jaeger when ElasticSearch is installed
+ko resolve ${KO_YAML_FLAGS} -R -f config/monitoring/tracing/jaeger -f config/monitoring/tracing/jaeger/elasticsearch | "${LABEL_YAML_CMD[@]}" > "${MONITORING_TRACE_JAEGER_YAML}"
+
+# Traces via Jaeger in Memory when ElasticSearch is not installed
+ko resolve ${KO_YAML_FLAGS} -R -f config/monitoring/tracing/jaeger -f config/monitoring/tracing/jaeger/memory | "${LABEL_YAML_CMD[@]}" > "${MONITORING_TRACE_JAEGER_IN_MEM_YAML}"
+
 echo "All manifests generated"
 
 # List generated YAML files, with serving.yaml first.
 
 ls -1 ${SERVING_YAML} > ${YAML_LIST_FILE}
 ls -1 ${YAML_OUTPUT_DIR}/*.yaml | grep -v ${SERVING_YAML} >> ${YAML_LIST_FILE}
-ls -1 ${ISTIO_CRD_YAML} ${ISTIO_YAML} ${ISTIO_LEAN_YAML} >> ${YAML_LIST_FILE}
+ls -1 ${ISTIO_CRD_YAML} ${ISTIO_YAML} ${ISTIO_LEAN_YAML} ${ISTIO_KNATIVE_EXTRAS_YAML} >> ${YAML_LIST_FILE}

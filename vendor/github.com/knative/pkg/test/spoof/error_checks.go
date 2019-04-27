@@ -20,7 +20,6 @@ package spoof
 
 import (
 	"net"
-	"net/url"
 	"strings"
 )
 
@@ -30,14 +29,15 @@ func isTCPTimeout(e error) bool {
 }
 
 func isDNSError(err error) bool {
-	if err, ok := err.(*url.Error); err != nil && ok {
-		if err, ok := err.Err.(*net.OpError); err != nil && ok {
-			if err, ok := err.Err.(*net.DNSError); err != nil && ok {
-				return true
-			}
-		}
+	if err == nil {
+		return false
 	}
-	return false
+	// Checking by casting to url.Error and casting the nested error
+	// seems to be not as robust as string check.
+	msg := strings.ToLower(err.Error())
+	// Example error message:
+	//   > Get http://this.url.does.not.exist: dial tcp: lookup this.url.does.not.exist on 127.0.0.1:53: no such host
+	return strings.Contains(msg, "no such host") || strings.Contains(msg, ":53")
 }
 
 func isTCPConnectRefuse(err error) bool {

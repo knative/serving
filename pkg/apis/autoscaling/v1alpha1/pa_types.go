@@ -22,7 +22,8 @@ import (
 	"github.com/knative/pkg/kmeta"
 	net "github.com/knative/serving/pkg/apis/networking"
 	servingv1alpha1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	autoscalingv1 "k8s.io/api/autoscaling/v1"
+	servingv1beta1 "github.com/knative/serving/pkg/apis/serving/v1beta1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -52,7 +53,6 @@ var (
 	// Check that PodAutoscaler can be validated, can be defaulted, and has immutable fields.
 	_ apis.Validatable = (*PodAutoscaler)(nil)
 	_ apis.Defaultable = (*PodAutoscaler)(nil)
-	_ apis.Immutable   = (*PodAutoscaler)(nil)
 
 	// Check that we can create OwnerReferences to a PodAutoscaler.
 	_ kmeta.OwnerRefable = (*PodAutoscaler)(nil)
@@ -71,11 +71,9 @@ type PodAutoscalerSpec struct {
 	// +optional
 	DeprecatedGeneration int64 `json:"generation,omitempty"`
 
-	// ConcurrencyModel specifies the desired concurrency model
-	// (Single or Multi) for the scale target. Defaults to Multi.
-	// Deprecated in favor of ContainerConcurrency.
+	// DeprecatedConcurrencyModel no longer does anything, use ContainerConcurrency.
 	// +optional
-	ConcurrencyModel servingv1alpha1.RevisionRequestConcurrencyModelType `json:"concurrencyModel,omitempty"`
+	DeprecatedConcurrencyModel servingv1alpha1.RevisionRequestConcurrencyModelType `json:"concurrencyModel,omitempty"`
 
 	// ContainerConcurrency specifies the maximum allowed
 	// in-flight (concurrent) requests per container of the Revision.
@@ -83,15 +81,15 @@ type PodAutoscalerSpec struct {
 	// This field replaces ConcurrencyModel. A value of `1`
 	// is equivalent to `Single` and `0` is equivalent to `Multi`.
 	// +optional
-	ContainerConcurrency servingv1alpha1.RevisionContainerConcurrencyType `json:"containerConcurrency,omitempty"`
+	ContainerConcurrency servingv1beta1.RevisionContainerConcurrencyType `json:"containerConcurrency,omitempty"`
 
 	// ScaleTargetRef defines the /scale-able resource that this PodAutoscaler
 	// is responsible for quickly right-sizing.
-	ScaleTargetRef autoscalingv1.CrossVersionObjectReference `json:"scaleTargetRef"`
+	ScaleTargetRef corev1.ObjectReference `json:"scaleTargetRef"`
 
-	// ServiceName holds the name of a core Kubernetes Service resource that
+	// DeprecatedServiceName holds the name of a core Kubernetes Service resource that
 	// load balances over the pods referenced by the ScaleTargetRef.
-	ServiceName string `json:"serviceName"`
+	DeprecatedServiceName string `json:"serviceName"`
 
 	// The application-layer protocol. Matches `ProtocolType` inferred from the revision spec.
 	ProtocolType net.ProtocolType
@@ -106,7 +104,13 @@ const (
 )
 
 // PodAutoscalerStatus communicates the observed state of the PodAutoscaler (from the controller).
-type PodAutoscalerStatus duckv1beta1.Status
+type PodAutoscalerStatus struct {
+	duckv1beta1.Status
+
+	// ServiceName is the K8s Service name that serves the revision, scaled by this PA.
+	// The service is created and owned by the ServerlessService object owned by this PA.
+	ServiceName string `json:"serviceName"`
+}
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 

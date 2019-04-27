@@ -35,11 +35,6 @@ const (
 	// seconds while an http request is taking the full timeout of 5
 	// second.
 	scaleBufferSize = 10
-
-	// scrapeTickInterval is the interval of time between scraping metrics across
-	// all pods of a revision.
-	// TODO(yanweiguo): tuning this value. To be based on pod population?
-	scrapeTickInterval = time.Second / 3
 )
 
 // Decider is a resource which observes the request load of a Revision and
@@ -54,6 +49,9 @@ type Decider struct {
 // DeciderSpec is the parameters in which the Revision should scaled.
 type DeciderSpec struct {
 	TargetConcurrency float64
+	PanicThreshold    float64
+	// TODO: remove MetricSpec when the custom metrics adapter implements Metric.
+	MetricSpec MetricSpec
 }
 
 // DeciderStatus is the current scale recommendation.
@@ -76,9 +74,6 @@ type UniScaler interface {
 
 // UniScalerFactory creates a UniScaler for a given PA using the given dynamic configuration.
 type UniScalerFactory func(*Decider, *DynamicConfig) (UniScaler, error)
-
-// StatsScraperFactory creates a StatsScraper for a given PA using the given dynamic configuration.
-type StatsScraperFactory func(*Decider) (StatsScraper, error)
 
 // scalerRunner wraps a UniScaler and a channel for implementing shutdown behavior.
 type scalerRunner struct {
@@ -118,12 +113,10 @@ type MultiScaler struct {
 	scalers       map[string]*scalerRunner
 	scalersMutex  sync.RWMutex
 	scalersStopCh <-chan struct{}
-	statsCh       chan<- *StatMessage
 
 	dynConfig *DynamicConfig
 
-	uniScalerFactory    UniScalerFactory
-	statsScraperFactory StatsScraperFactory
+	uniScalerFactory UniScalerFactory
 
 	logger *zap.SugaredLogger
 
@@ -135,19 +128,15 @@ type MultiScaler struct {
 func NewMultiScaler(
 	dynConfig *DynamicConfig,
 	stopCh <-chan struct{},
-	statsCh chan<- *StatMessage,
 	uniScalerFactory UniScalerFactory,
-	statsScraperFactory StatsScraperFactory,
 	logger *zap.SugaredLogger) *MultiScaler {
 	logger.Debugf("Creating MultiScaler with configuration %#v", dynConfig)
 	return &MultiScaler{
-		scalers:             make(map[string]*scalerRunner),
-		scalersStopCh:       stopCh,
-		statsCh:             statsCh,
-		dynConfig:           dynConfig,
-		uniScalerFactory:    uniScalerFactory,
-		statsScraperFactory: statsScraperFactory,
-		logger:              logger,
+		scalers:          make(map[string]*scalerRunner),
+		scalersStopCh:    stopCh,
+		dynConfig:        dynConfig,
+		uniScalerFactory: uniScalerFactory,
+		logger:           logger,
 	}
 }
 
@@ -236,19 +225,7 @@ func (m *MultiScaler) Inform(event string) bool {
 	return false
 }
 
-// setScale directly sets the scale for a given metric key. This does not perform any ticking
-// or updating of other scaler components.
-func (m *MultiScaler) setScale(metricKey string, scale int32) bool {
-	scaler, exists := m.scalers[metricKey]
-	if !exists {
-		return false
-	}
-	scaler.updateLatestScale(scale)
-	return true
-}
-
 func (m *MultiScaler) createScaler(ctx context.Context, decider *Decider) (*scalerRunner, error) {
-
 	scaler, err := m.uniScalerFactory(decider, m.dynConfig)
 	if err != nil {
 		return nil, err
@@ -284,32 +261,6 @@ func (m *MultiScaler) createScaler(ctx context.Context, decider *Decider) (*scal
 		}
 	}()
 
-	scraper, err := m.statsScraperFactory(decider)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create a stats scraper for decider %q: %v", decider.Name, err)
-	}
-	scraperTicker := time.NewTicker(scrapeTickInterval)
-	go func() {
-		for {
-			select {
-			case <-m.scalersStopCh:
-				scraperTicker.Stop()
-				return
-			case <-stopCh:
-				scraperTicker.Stop()
-				return
-			case <-scraperTicker.C:
-				stat, err := scraper.Scrape()
-				if err != nil {
-					m.logger.Errorw("Failed to scrape metrics", zap.Error(err))
-				}
-				if stat != nil {
-					m.statsCh <- stat
-				}
-			}
-		}
-	}()
-
 	metricKey := NewMetricKey(decider.Namespace, decider.Name)
 	go func() {
 		for {
@@ -337,12 +288,6 @@ func (m *MultiScaler) tickScaler(ctx context.Context, scaler UniScaler, scaleCha
 		// Cannot scale negative.
 		if desiredScale < 0 {
 			logger.Errorf("Cannot scale: desiredScale %d < 0.", desiredScale)
-			return
-		}
-
-		// Don't scale to zero if scale to zero is disabled.
-		if desiredScale == 0 && !m.dynConfig.Current().EnableScaleToZero {
-			logger.Warn("Cannot scale: Desired scale == 0 && EnableScaleToZero == false.")
 			return
 		}
 

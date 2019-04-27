@@ -20,12 +20,13 @@ import (
 	"context"
 
 	"github.com/knative/pkg/apis"
+	"github.com/knative/serving/pkg/apis/serving"
 	"k8s.io/apimachinery/pkg/api/equality"
 )
 
 // Validate inspects and validates ClusterServerlessService object.
 func (ci *ServerlessService) Validate(ctx context.Context) *apis.FieldError {
-	return ci.Spec.Validate(ctx).ViaField("spec")
+	return ci.Spec.Validate(apis.WithinSpec(ctx)).ViaField("spec")
 }
 
 // Validate inspects and validates ServerlessServiceSpec object.
@@ -42,20 +43,10 @@ func (spec *ServerlessServiceSpec) Validate(ctx context.Context) *apis.FieldErro
 	case "":
 		all = all.Also(apis.ErrMissingField("mode"))
 	default:
-		all = all.Also(apis.ErrInvalidValue(string(spec.Mode), "mode"))
-	}
-	if len(spec.Selector) == 0 {
-		all = all.Also(apis.ErrMissingField("selector"))
-	} else {
-		for k, v := range spec.Selector {
-			if k == "" {
-				all = all.Also(apis.ErrInvalidKeyName(k, "selector", "empty key is not permitted"))
-			}
-			if v == "" {
-				all = all.Also(apis.ErrInvalidValue(v, apis.CurrentField).ViaKey(k).ViaField("selector"))
-			}
-		}
+		all = all.Also(apis.ErrInvalidValue(spec.Mode, "mode"))
 	}
 
-	return all.Also(spec.ProtocolType.Validate().ViaField("protocolType"))
+	all = all.Also(serving.ValidateNamespacedObjectReference(&spec.ObjectRef).ViaField("objectRef"))
+
+	return all.Also(spec.ProtocolType.Validate(ctx).ViaField("protocolType"))
 }

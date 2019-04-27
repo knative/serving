@@ -22,17 +22,18 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	"github.com/knative/pkg/ptr"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 
 	"github.com/knative/serving/pkg/apis/config"
+	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 )
 
 var (
 	defaultResources = corev1.ResourceRequirements{
-		Requests: corev1.ResourceList{
-			corev1.ResourceCPU: resource.MustParse("400m"),
-		},
+		Requests: corev1.ResourceList{},
+		Limits:   corev1.ResourceList{},
 	}
 	ignoreUnexportedResources = cmpopts.IgnoreUnexported(resource.Quantity{})
 )
@@ -42,16 +43,93 @@ func TestConfigurationDefaulting(t *testing.T) {
 		name string
 		in   *Configuration
 		want *Configuration
+		wc   func(context.Context) context.Context
 	}{{
 		name: "empty",
 		in:   &Configuration{},
+		want: &Configuration{},
+	}, {
+		name: "shell",
+		in: &Configuration{
+			Spec: ConfigurationSpec{
+				DeprecatedRevisionTemplate: &RevisionTemplateSpec{
+					Spec: RevisionSpec{
+						DeprecatedContainer: &corev1.Container{},
+					},
+				},
+			},
+		},
 		want: &Configuration{
 			Spec: ConfigurationSpec{
-				RevisionTemplate: RevisionTemplateSpec{
+				DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 					Spec: RevisionSpec{
-						TimeoutSeconds: config.DefaultRevisionTimeoutSeconds,
-						Container: corev1.Container{
+						RevisionSpec: v1beta1.RevisionSpec{
+							TimeoutSeconds: ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+						},
+						DeprecatedContainer: &corev1.Container{
 							Resources: defaultResources,
+						},
+					},
+				},
+			},
+		},
+	}, {
+		name: "lemonade",
+		wc:   v1beta1.WithUpgradeViaDefaulting,
+		in: &Configuration{
+			Spec: ConfigurationSpec{
+				DeprecatedRevisionTemplate: &RevisionTemplateSpec{
+					Spec: RevisionSpec{
+						DeprecatedContainer: &corev1.Container{
+							Image: "busybox",
+						},
+					},
+				},
+			},
+		},
+		want: &Configuration{
+			Spec: ConfigurationSpec{
+				Template: &RevisionTemplateSpec{
+					Spec: RevisionSpec{
+						RevisionSpec: v1beta1.RevisionSpec{
+							TimeoutSeconds: ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+							PodSpec: v1beta1.PodSpec{
+								Containers: []corev1.Container{{
+									Image:     "busybox",
+									Resources: defaultResources,
+								}},
+							},
+						},
+					},
+				},
+			},
+		},
+	}, {
+		name: "shell podspec",
+		in: &Configuration{
+			Spec: ConfigurationSpec{
+				DeprecatedRevisionTemplate: &RevisionTemplateSpec{
+					Spec: RevisionSpec{
+						RevisionSpec: v1beta1.RevisionSpec{
+							PodSpec: v1beta1.PodSpec{
+								Containers: []corev1.Container{{}},
+							},
+						},
+					},
+				},
+			},
+		},
+		want: &Configuration{
+			Spec: ConfigurationSpec{
+				DeprecatedRevisionTemplate: &RevisionTemplateSpec{
+					Spec: RevisionSpec{
+						RevisionSpec: v1beta1.RevisionSpec{
+							TimeoutSeconds: ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+							PodSpec: v1beta1.PodSpec{
+								Containers: []corev1.Container{{
+									Resources: defaultResources,
+								}},
+							},
 						},
 					},
 				},
@@ -61,11 +139,13 @@ func TestConfigurationDefaulting(t *testing.T) {
 		name: "no overwrite values",
 		in: &Configuration{
 			Spec: ConfigurationSpec{
-				RevisionTemplate: RevisionTemplateSpec{
+				DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 					Spec: RevisionSpec{
-						ContainerConcurrency: 1,
-						TimeoutSeconds:       99,
-						Container: corev1.Container{
+						RevisionSpec: v1beta1.RevisionSpec{
+							ContainerConcurrency: 1,
+							TimeoutSeconds:       ptr.Int64(99),
+						},
+						DeprecatedContainer: &corev1.Container{
 							Resources: defaultResources,
 						},
 					},
@@ -74,11 +154,13 @@ func TestConfigurationDefaulting(t *testing.T) {
 		},
 		want: &Configuration{
 			Spec: ConfigurationSpec{
-				RevisionTemplate: RevisionTemplateSpec{
+				DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 					Spec: RevisionSpec{
-						ContainerConcurrency: 1,
-						TimeoutSeconds:       99,
-						Container: corev1.Container{
+						RevisionSpec: v1beta1.RevisionSpec{
+							ContainerConcurrency: 1,
+							TimeoutSeconds:       ptr.Int64(99),
+						},
+						DeprecatedContainer: &corev1.Container{
 							Resources: defaultResources,
 						},
 					},
@@ -90,7 +172,11 @@ func TestConfigurationDefaulting(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			got := test.in
-			got.SetDefaults(context.Background())
+			ctx := context.Background()
+			if test.wc != nil {
+				ctx = test.wc(ctx)
+			}
+			got.SetDefaults(ctx)
 			if diff := cmp.Diff(test.want, got, ignoreUnexportedResources); diff != "" {
 				t.Errorf("SetDefaults (-want, +got) = %v", diff)
 			}

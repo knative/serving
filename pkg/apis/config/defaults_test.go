@@ -25,7 +25,8 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	. "github.com/knative/serving/pkg/reconciler/testing"
+	. "github.com/knative/pkg/configmap/testing"
+	_ "github.com/knative/pkg/system/testing"
 )
 
 func TestDefaultsConfigurationFromFile(t *testing.T) {
@@ -41,6 +42,7 @@ func TestDefaultsConfigurationFromFile(t *testing.T) {
 }
 
 func TestDefaultsConfiguration(t *testing.T) {
+	oneTwoThree := resource.MustParse("123m")
 	configTests := []struct {
 		name         string
 		wantErr      bool
@@ -51,7 +53,6 @@ func TestDefaultsConfiguration(t *testing.T) {
 		wantErr: false,
 		wantDefaults: &Defaults{
 			RevisionTimeoutSeconds: DefaultRevisionTimeoutSeconds,
-			RevisionCPURequest:     DefaultRevisionCPURequest,
 		},
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
@@ -65,7 +66,7 @@ func TestDefaultsConfiguration(t *testing.T) {
 		wantErr: false,
 		wantDefaults: &Defaults{
 			RevisionTimeoutSeconds: 123,
-			RevisionCPURequest:     resource.MustParse("123m"),
+			RevisionCPURequest:     &oneTwoThree,
 		},
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{

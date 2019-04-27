@@ -31,8 +31,8 @@ import (
 
 	"github.com/knative/pkg/logging"
 	"github.com/knative/pkg/system"
-	cicfg "github.com/knative/serving/pkg/reconciler/v1alpha1/clusteringress/config"
-	routecfg "github.com/knative/serving/pkg/reconciler/v1alpha1/route/config"
+	cicfg "github.com/knative/serving/pkg/reconciler/clusteringress/config"
+	routecfg "github.com/knative/serving/pkg/reconciler/route/config"
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -53,11 +53,11 @@ const (
 func kubeClientFromFlags() (*kubernetes.Clientset, error) {
 	cfg, err := clientcmd.BuildConfigFromFlags(*masterURL, *kubeconfig)
 	if err != nil {
-		return nil, fmt.Errorf("Error building kubeconfig: %v", err)
+		return nil, fmt.Errorf("error building kubeconfig: %v", err)
 	}
 	kubeClient, err := kubernetes.NewForConfig(cfg)
 	if err != nil {
-		return nil, fmt.Errorf("Error building kube clientset: %v", err)
+		return nil, fmt.Errorf("error building kube clientset: %v", err)
 	}
 	return kubeClient, nil
 }
@@ -74,7 +74,7 @@ func lookupIngressGateway(kubeClient *kubernetes.Clientset) (*corev1.Service, er
 	}
 	istioConfig, err := cicfg.NewIstioFromConfigMap(istioCM)
 	if err != nil {
-		return nil, fmt.Errorf("Error parsing ConfigMap: %v", err)
+		return nil, fmt.Errorf("error parsing ConfigMap: %v", err)
 	}
 	// Parse the service name to determine which Kubernetes Service resource to fetch.
 	serviceURL := istioConfig.IngressGateways[0].ServiceURL
@@ -82,7 +82,7 @@ func lookupIngressGateway(kubeClient *kubernetes.Clientset) (*corev1.Service, er
 	// serviceName.namespace.svc.cluster.local.
 	parts := strings.SplitN(serviceURL, ".", 3)
 	if len(parts) != 3 {
-		return nil, fmt.Errorf("Unexpected service URL form: %s", serviceURL)
+		return nil, fmt.Errorf("unexpected service URL form: %s", serviceURL)
 	}
 
 	// Use the first two name parts to lookup the Kubernetes Service resource.
@@ -93,7 +93,7 @@ func lookupIngressGateway(kubeClient *kubernetes.Clientset) (*corev1.Service, er
 func lookupIngressGatewayAddress(kubeClient *kubernetes.Clientset) (*corev1.LoadBalancerIngress, error) {
 	svc, err := lookupIngressGateway(kubeClient)
 	if err != nil {
-		return nil, fmt.Errorf("Error looking up IngressGateway: %v", err)
+		return nil, fmt.Errorf("error looking up IngressGateway: %v", err)
 	}
 	// Walk the list of Ingress entries in the Service's LoadBalancer status.
 	// If one of IP address is found, return it.  Otherwise, keep one with
@@ -130,6 +130,7 @@ func waitForIngressGatewayAddress(kubeclient *kubernetes.Clientset) (addr *corev
 func main() {
 	flag.Parse()
 	logger := logging.FromContext(context.Background()).Named(appName)
+	defer logger.Sync()
 
 	kubeClient, err := kubeClientFromFlags()
 	if err != nil {

@@ -24,8 +24,12 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
+	"github.com/knative/pkg/ptr"
 	pkgTest "github.com/knative/pkg/test"
+	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 	"github.com/knative/serving/test"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -141,7 +145,7 @@ func validateAnnotations(objs *test.ResourceObjects) error {
 	// List of issues listing annotations that we check: #1642.
 
 	anns := objs.Service.GetAnnotations()
-	for _, a := range []string{v1alpha1.CreatorAnnotation, v1alpha1.UpdaterAnnotation} {
+	for _, a := range []string{serving.CreatorAnnotation, serving.UpdaterAnnotation} {
 		if got := anns[a]; got == "" {
 			return fmt.Errorf("Expected %s annotation to be set, but was empty", a)
 		}
@@ -150,10 +154,6 @@ func validateAnnotations(objs *test.ResourceObjects) error {
 }
 
 func validateReleaseServiceShape(objs *test.ResourceObjects) error {
-	// Check that Spec.Revisions is as expected.
-	if got, want := objs.Service.Spec.Release.Revisions, []string{v1alpha1.ReleaseLatestRevisionKeyword}; !cmp.Equal(got, want) {
-		return fmt.Errorf("Spec.Release.Revisions mismatch: diff: %s", cmp.Diff(got, want))
-	}
 	// Traffic should be routed to the lastest created revision.
 	if got, want := objs.Service.Status.Traffic[0].RevisionName, objs.Config.Status.LatestReadyRevisionName; got != want {
 		return fmt.Errorf("Status.Traffic[0].RevisionsName = %s, want: %s", got, want)
@@ -245,7 +245,7 @@ func TestRunLatestService(t *testing.T) {
 			"labelY": "def",
 		},
 	}
-	if objects.Service, err = test.PatchServiceRevisionTemplateMetadata(t, clients, objects.Service, metadata); err != nil {
+	if objects.Service, err = test.PatchServiceTemplateMetadata(t, clients, objects.Service, metadata); err != nil {
 		t.Fatalf("Service %s was not updated with labels in its RevisionTemplateSpec: %v", names.Service, err)
 	}
 
@@ -262,7 +262,7 @@ func TestRunLatestService(t *testing.T) {
 			"annotationB": "456",
 		},
 	}
-	if objects.Service, err = test.PatchServiceRevisionTemplateMetadata(t, clients, objects.Service, metadata); err != nil {
+	if objects.Service, err = test.PatchServiceTemplateMetadata(t, clients, objects.Service, metadata); err != nil {
 		t.Fatalf("Service %s was not updated with annotation in its RevisionTemplateSpec: %v", names.Service, err)
 	}
 
@@ -288,7 +288,7 @@ func TestRunLatestService(t *testing.T) {
 	// Update container with user port.
 	t.Logf("Updating the port of the user container for service %s to %d", names.Service, userPort)
 	desiredSvc := objects.Service.DeepCopy()
-	desiredSvc.Spec.RunLatest.Configuration.RevisionTemplate.Spec.Container.Ports = []corev1.ContainerPort{{
+	desiredSvc.Spec.ConfigurationSpec.GetTemplate().Spec.GetContainer().Ports = []corev1.ContainerPort{{
 		ContainerPort: userPort,
 	}}
 	if objects.Service, err = test.PatchService(t, clients, objects.Service, desiredSvc); err != nil {
@@ -325,16 +325,13 @@ func waitForDesiredTrafficShape(t *testing.T, sName string, want map[string]v1al
 			// Match the traffic shape.
 			got := map[string]v1alpha1.TrafficTarget{}
 			for _, tt := range s.Status.Traffic {
-				got[tt.Name] = tt
+				got[tt.Tag] = tt
 			}
-			ignoreURLs := cmp.FilterPath(
-				func(p cmp.Path) bool {
-					return p.String() == "URL"
-				},
-				cmp.Ignore(),
-			)
+			ignoreURLs := cmpopts.IgnoreFields(v1alpha1.TrafficTarget{},
+				"TrafficTarget.URL", "DeprecatedName")
 			if !cmp.Equal(got, want, ignoreURLs) {
-				t.Logf("For service %s traffic shape mismatch: (-got, +want) %s", sName, cmp.Diff(got, want))
+				t.Logf("For service %s traffic shape mismatch: (-got, +want) %s",
+					sName, cmp.Diff(got, want, ignoreURLs))
 				return false, nil
 			}
 			return true, nil
@@ -342,15 +339,70 @@ func waitForDesiredTrafficShape(t *testing.T, sName string, want map[string]v1al
 	)
 }
 
-// TestReleaseService creates a Service in `release` mode with the only revision
-// being `@latest`. Once this succeeded, the test goes through Update/Validate to
-// try different possible configurations for a release service.
+func TestRunLatestServiceBYOName(t *testing.T) {
+	t.Parallel()
+	clients := setup(t)
+
+	names := test.ResourceNames{
+		Service: test.ObjectNameForTest(t),
+		Image:   pizzaPlanet1,
+	}
+
+	// Clean up on test failure or interrupt
+	defer test.TearDown(clients, names)
+	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
+
+	revName := names.Service + "-byoname"
+
+	// Setup initial Service
+	objects, err := test.CreateRunLatestServiceReady(t, clients, &names, &test.Options{}, func(svc *v1alpha1.Service) {
+		svc.Spec.ConfigurationSpec.GetTemplate().Name = revName
+	})
+	if err != nil {
+		t.Fatalf("Failed to create initial Service %v: %v", names.Service, err)
+	}
+	if got, want := names.Revision, revName; got != want {
+		t.Errorf("CreateRunLatestServiceReady() = %s, wanted %s", got, want)
+	}
+
+	// Validate State after Creation
+
+	if err = validateRunLatestControlPlane(t, clients, names, "1"); err != nil {
+		t.Error(err)
+	}
+
+	if err = validateRunLatestDataPlane(t, clients, names, pizzaPlanetText1); err != nil {
+		t.Error(err)
+	}
+
+	if err = validateLabelsPropagation(t, *objects, names); err != nil {
+		t.Error(err)
+	}
+
+	if err := validateAnnotations(objects); err != nil {
+		t.Errorf("Service annotations are incorrect: %v", err)
+	}
+
+	// We start a background prober to test if Route is always healthy even during Route update.
+	prober := test.RunRouteProber(t, clients, names.Domain)
+	defer test.AssertProberDefault(t, prober)
+
+	// Update Container Image
+	t.Log("Updating the Service to use a different image.")
+	names.Image = printport
+	image2 := pkgTest.ImagePath(names.Image)
+	if _, err := test.PatchServiceImage(t, clients, objects.Service, image2); err == nil {
+		t.Fatalf("Patch update for Service %s didn't fail.", names.Service)
+	}
+}
+
+// TestReleaseService creates a Service with a variety of "release"-like traffic shapes.
 // Currently tests for the following combinations:
 // 1. One Revision Specified, current == latest
-// 2. One Revision Specified, current != latset
+// 2. One Revision Specified, current != latest
 // 3. Two Revisions Specified, 50% rollout,  candidate == latest
 // 4. Two Revisions Specified, 50% rollout, candidate != latest
-// 5. Two Revisions Specified, 50% rollout, candidate != latest, latest referred to as `@latest`.
+// 5. Two Revisions Specified, 50% rollout, candidate != latest, candidate is configurationName.
 func TestReleaseService(t *testing.T) {
 	t.Parallel()
 	// Create Initial Service
@@ -371,7 +423,8 @@ func TestReleaseService(t *testing.T) {
 		expectedThirdRev  = helloWorldText
 	)
 
-	objects, err := test.CreateReleaseServiceWithLatest(t, clients, &names, &test.Options{})
+	// Setup initial Service
+	objects, err := test.CreateRunLatestServiceReady(t, clients, &names, &test.Options{})
 	if err != nil {
 		t.Fatalf("Failed to create initial Service %v: %v", names.Service, err)
 	}
@@ -383,23 +436,43 @@ func TestReleaseService(t *testing.T) {
 	if err := validateAnnotations(objects); err != nil {
 		t.Errorf("Service annotations are incorrect: %v", err)
 	}
-	revisions := []string{names.Revision}
+	firstRevision := names.Revision
 
 	// 1. One Revision Specified, current == latest.
 	t.Log("1. Updating Service to ReleaseType using lastCreatedRevision")
-	objects.Service, err = test.PatchReleaseService(t, clients, objects.Service, revisions, 0)
+	objects.Service, err = test.UpdateServiceRouteSpec(t, clients, names, v1alpha1.RouteSpec{
+		Traffic: []v1alpha1.TrafficTarget{{
+			TrafficTarget: v1beta1.TrafficTarget{
+				Tag:          "current",
+				RevisionName: firstRevision,
+				Percent:      100,
+			},
+		}, {
+			TrafficTarget: v1beta1.TrafficTarget{
+				Tag:     "latest",
+				Percent: 0,
+			},
+		}},
+	})
 	if err != nil {
-		t.Fatalf("Service %s was not updated to release: %v", names.Service, err)
+		t.Fatalf("Failed to update Service: %v", err)
 	}
+
 	desiredTrafficShape := map[string]v1alpha1.TrafficTarget{
-		v1alpha1.CurrentTrafficTarget: {
-			Name:         v1alpha1.CurrentTrafficTarget,
-			RevisionName: objects.Config.Status.LatestReadyRevisionName,
-			Percent:      100,
+		"current": {
+			TrafficTarget: v1beta1.TrafficTarget{
+				Tag:            "current",
+				RevisionName:   objects.Config.Status.LatestReadyRevisionName,
+				Percent:        100,
+				LatestRevision: ptr.Bool(false),
+			},
 		},
-		v1alpha1.LatestTrafficTarget: {
-			Name:         v1alpha1.LatestTrafficTarget,
-			RevisionName: objects.Config.Status.LatestReadyRevisionName,
+		"latest": {
+			TrafficTarget: v1beta1.TrafficTarget{
+				Tag:            "latest",
+				RevisionName:   objects.Config.Status.LatestReadyRevisionName,
+				LatestRevision: ptr.Bool(true),
+			},
 		},
 	}
 	t.Log("Waiting for Service to become ready with the new shape.")
@@ -411,14 +484,14 @@ func TestReleaseService(t *testing.T) {
 	if err := validateDomains(t, clients,
 		names.Domain,
 		[]string{expectedFirstRev},
-		[]string{v1alpha1.LatestTrafficTarget, v1alpha1.CurrentTrafficTarget},
+		[]string{"latest", "current"},
 		[]string{expectedFirstRev, expectedFirstRev}); err != nil {
 		t.Fatal(err)
 	}
 
 	// 2. One Revision Specified, current != latest.
 	t.Log("2. Updating the Service Spec with a new image")
-	if _, err := test.PatchServiceImage(t, clients, objects.Service, releaseImagePath2); err != nil {
+	if objects.Service, err = test.PatchServiceImage(t, clients, objects.Service, releaseImagePath2); err != nil {
 		t.Fatalf("Patch update for Service %s with new image %s failed: %v", names.Service, releaseImagePath2, err)
 	}
 
@@ -426,12 +499,15 @@ func TestReleaseService(t *testing.T) {
 	if names.Revision, err = test.WaitForServiceLatestRevision(clients, names); err != nil {
 		t.Fatalf("The Service %s was not updated with new revision %s: %v", names.Service, names.Revision, err)
 	}
-	revisions = append(revisions, names.Revision)
+	secondRevision := names.Revision
 
 	// Also verify traffic is in the correct shape.
-	desiredTrafficShape[v1alpha1.LatestTrafficTarget] = v1alpha1.TrafficTarget{
-		Name:         v1alpha1.LatestTrafficTarget,
-		RevisionName: names.Revision,
+	desiredTrafficShape["latest"] = v1alpha1.TrafficTarget{
+		TrafficTarget: v1beta1.TrafficTarget{
+			Tag:            "latest",
+			RevisionName:   secondRevision,
+			LatestRevision: ptr.Bool(true),
+		},
 	}
 	t.Log("Waiting for Service to become ready with the new shape.")
 	if err := waitForDesiredTrafficShape(t, names.Service, desiredTrafficShape, clients); err != nil {
@@ -442,31 +518,60 @@ func TestReleaseService(t *testing.T) {
 	if err := validateDomains(t, clients,
 		names.Domain,
 		[]string{expectedFirstRev},
-		[]string{v1alpha1.LatestTrafficTarget, v1alpha1.CurrentTrafficTarget},
+		[]string{"latest", "current"},
 		[]string{expectedSecondRev, expectedFirstRev}); err != nil {
 		t.Fatal(err)
 	}
 
 	// 3. Two Revisions Specified, 50% rollout, candidate == latest.
 	t.Log("3. Updating Service to split traffic between two revisions using Release mode")
-	if objects.Service, err = test.PatchReleaseService(t, clients, objects.Service, revisions, 50); err != nil {
-		t.Fatalf("Service %s was not updated to release: %v", names.Service, err)
+	objects.Service, err = test.UpdateServiceRouteSpec(t, clients, names, v1alpha1.RouteSpec{
+		Traffic: []v1alpha1.TrafficTarget{{
+			TrafficTarget: v1beta1.TrafficTarget{
+				Tag:          "current",
+				RevisionName: firstRevision,
+				Percent:      50,
+			},
+		}, {
+			TrafficTarget: v1beta1.TrafficTarget{
+				Tag:          "candidate",
+				RevisionName: secondRevision,
+				Percent:      50,
+			},
+		}, {
+			TrafficTarget: v1beta1.TrafficTarget{
+				Tag:     "latest",
+				Percent: 0,
+			},
+		}},
+	})
+	if err != nil {
+		t.Fatalf("Failed to update Service: %v", err)
 	}
 
 	desiredTrafficShape = map[string]v1alpha1.TrafficTarget{
-		v1alpha1.CurrentTrafficTarget: {
-			Name:         v1alpha1.CurrentTrafficTarget,
-			RevisionName: revisions[0],
-			Percent:      50,
+		"current": {
+			TrafficTarget: v1beta1.TrafficTarget{
+				Tag:            "current",
+				RevisionName:   firstRevision,
+				Percent:        50,
+				LatestRevision: ptr.Bool(false),
+			},
 		},
-		v1alpha1.CandidateTrafficTarget: {
-			Name:         v1alpha1.CandidateTrafficTarget,
-			RevisionName: revisions[1],
-			Percent:      50,
+		"candidate": {
+			TrafficTarget: v1beta1.TrafficTarget{
+				Tag:            "candidate",
+				RevisionName:   secondRevision,
+				Percent:        50,
+				LatestRevision: ptr.Bool(false),
+			},
 		},
-		v1alpha1.LatestTrafficTarget: {
-			Name:         v1alpha1.LatestTrafficTarget,
-			RevisionName: revisions[1],
+		"latest": {
+			TrafficTarget: v1beta1.TrafficTarget{
+				Tag:            "latest",
+				RevisionName:   secondRevision,
+				LatestRevision: ptr.Bool(true),
+			},
 		},
 	}
 	t.Log("Waiting for Service to become ready with the new shape.")
@@ -478,24 +583,28 @@ func TestReleaseService(t *testing.T) {
 	if err := validateDomains(t, clients,
 		names.Domain,
 		[]string{expectedFirstRev, expectedSecondRev},
-		[]string{v1alpha1.CandidateTrafficTarget, v1alpha1.LatestTrafficTarget, v1alpha1.CurrentTrafficTarget},
+		[]string{"candidate", "latest", "current"},
 		[]string{expectedSecondRev, expectedSecondRev, expectedFirstRev}); err != nil {
 		t.Fatal(err)
 	}
 
 	// 4. Two Revisions Specified, 50% rollout, candidate != latest.
 	t.Log("4. Updating the Service Spec with a new image")
-	if _, err := test.PatchServiceImage(t, clients, objects.Service, releaseImagePath3); err != nil {
+	if objects.Service, err = test.PatchServiceImage(t, clients, objects.Service, releaseImagePath3); err != nil {
 		t.Fatalf("Patch update for Service %s with new image %s failed: %v", names.Service, releaseImagePath3, err)
 	}
 	t.Log("Since the Service was updated a new Revision will be created")
 	if names.Revision, err = test.WaitForServiceLatestRevision(clients, names); err != nil {
 		t.Fatalf("The Service %s was not updated with new revision %s: %v", names.Service, names.Revision, err)
 	}
+	thirdRevision := names.Revision
 
-	desiredTrafficShape[v1alpha1.LatestTrafficTarget] = v1alpha1.TrafficTarget{
-		Name:         v1alpha1.LatestTrafficTarget,
-		RevisionName: names.Revision,
+	desiredTrafficShape["latest"] = v1alpha1.TrafficTarget{
+		TrafficTarget: v1beta1.TrafficTarget{
+			Tag:            "latest",
+			RevisionName:   thirdRevision,
+			LatestRevision: ptr.Bool(true),
+		},
 	}
 	t.Log("Waiting for Service to become ready with the new shape.")
 	if err := waitForDesiredTrafficShape(t, names.Service, desiredTrafficShape, clients); err != nil {
@@ -506,27 +615,50 @@ func TestReleaseService(t *testing.T) {
 	if err := validateDomains(t, clients,
 		names.Domain,
 		[]string{expectedFirstRev, expectedSecondRev},
-		[]string{v1alpha1.LatestTrafficTarget, v1alpha1.CandidateTrafficTarget, v1alpha1.CurrentTrafficTarget},
+		[]string{"latest", "candidate", "current"},
 		[]string{expectedThirdRev, expectedSecondRev, expectedFirstRev}); err != nil {
 		t.Fatal(err)
 	}
 
 	// Now update the service to use `@latest` as candidate.
-	revisions[1] = v1alpha1.ReleaseLatestRevisionKeyword
 	t.Log("5. Updating Service to split traffic between two `current` and `@latest`")
-	if objects.Service, err = test.PatchReleaseService(t, clients, objects.Service, revisions, 50); err != nil {
-		t.Fatalf("Service %s was not updated to release: %v", names.Service, err)
+
+	objects.Service, err = test.UpdateServiceRouteSpec(t, clients, names, v1alpha1.RouteSpec{
+		Traffic: []v1alpha1.TrafficTarget{{
+			TrafficTarget: v1beta1.TrafficTarget{
+				Tag:          "current",
+				RevisionName: firstRevision,
+				Percent:      50,
+			},
+		}, {
+			TrafficTarget: v1beta1.TrafficTarget{
+				Tag:     "candidate",
+				Percent: 50,
+			},
+		}, {
+			TrafficTarget: v1beta1.TrafficTarget{
+				Tag:     "latest",
+				Percent: 0,
+			},
+		}},
+	})
+	if err != nil {
+		t.Fatalf("Failed to update Service: %v", err)
 	}
+
 	// Verify in the end it's still the case.
 	if err := validateAnnotations(objects); err != nil {
 		t.Errorf("Service annotations are incorrect: %v", err)
 	}
 
 	// `candidate` now points to the latest.
-	desiredTrafficShape[v1alpha1.CandidateTrafficTarget] = v1alpha1.TrafficTarget{
-		Name:         v1alpha1.CandidateTrafficTarget,
-		RevisionName: names.Revision,
-		Percent:      50,
+	desiredTrafficShape["candidate"] = v1alpha1.TrafficTarget{
+		TrafficTarget: v1beta1.TrafficTarget{
+			Tag:            "candidate",
+			RevisionName:   thirdRevision,
+			Percent:        50,
+			LatestRevision: ptr.Bool(true),
+		},
 	}
 	t.Log("Waiting for Service to become ready with the new shape.")
 	if err := waitForDesiredTrafficShape(t, names.Service, desiredTrafficShape, clients); err != nil {
@@ -536,10 +668,8 @@ func TestReleaseService(t *testing.T) {
 	if err := validateDomains(t, clients,
 		names.Domain,
 		[]string{expectedFirstRev, expectedThirdRev},
-		[]string{v1alpha1.LatestTrafficTarget, v1alpha1.CandidateTrafficTarget, v1alpha1.CurrentTrafficTarget},
+		[]string{"latest", "candidate", "current"},
 		[]string{expectedThirdRev, expectedThirdRev, expectedFirstRev}); err != nil {
 		t.Fatal(err)
 	}
 }
-
-// TODO(jonjohnsonjr): Examples of deploying from source.

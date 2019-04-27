@@ -1,10 +1,10 @@
 # Development
 
 This doc explains how to setup a development environment so you can get started
-[contributing](https://github.com/knative/docs/blob/master/contributing/CONTRIBUTING.md)
-to `Knative Serving`. Also take a look at:
+[contributing](https://www.knative.dev/contributing/) to `Knative Serving`. Also
+take a look at:
 
-- [The pull request workflow](https://github.com/knative/docs/blob/master/contributing/CONTRIBUTING.md#pull-requests)
+- [The pull request workflow](https://www.knative.dev/contributing/contributing/#pull-requests)
 - [How to add and run tests](./test/README.md)
 - [Iterating](#iterating)
 
@@ -36,7 +36,7 @@ You must install these tools:
 
 ### Create a cluster and a repo
 
-1. [Set up a kubernetes cluster](https://github.com/knative/docs/blob/master/docs/install/README.md#install-guides)
+1. [Set up a kubernetes cluster](https://www.knative.dev/docs/install/)
    - Follow an install guide up through "Creating a Kubernetes Cluster"
    - You do _not_ need to install Istio or Knative using the instructions in the
      guide. Simply create the cluster and come back here.
@@ -116,9 +116,9 @@ can easily [clean your cluster up](#clean-up) and try again.
 Your user must be a cluster admin to perform the setup needed for Knative.
 
 The value you use depends on
-[your cluster setup](https://github.com/knative/docs/blob/master/docs/install/README.md#install-guides):
-when using Minikube, the user is your local user; when using GKE, the user is
-your GCP user.
+[your cluster setup](https://www.knative.dev/docs/install/): when using
+Minikube, the user is your local user; when using GKE, the user is your GCP
+user.
 
 ```shell
 # For GCP
@@ -135,15 +135,15 @@ kubectl create clusterrolebinding cluster-admin-binding \
 ### Deploy Istio
 
 ```shell
-kubectl apply -f ./third_party/istio-1.0.6/istio-crds.yaml
-while [ $(kubectl get crd gateways.networking.istio.io -o jsonpath='{.status.conditions[?(@.type=="Established")].status}') != 'True' ]; do
+kubectl apply -f ./third_party/istio-1.1.2/istio-crds.yaml
+while [[ $(kubectl get crd gateways.networking.istio.io -o jsonpath='{.status.conditions[?(@.type=="Established")].status}') != 'True' ]]; do
   echo "Waiting on Istio CRDs"; sleep 1
 done
-kubectl apply -f ./third_party/istio-1.0.6/istio.yaml
+kubectl apply -f ./third_party/istio-1.1.2/istio.yaml
 ```
 
 Follow the
-[instructions](https://github.com/knative/docs/blob/master/docs/serving/gke-assigning-static-ip-address.md)
+[instructions](https://www.knative.dev/docs/serving/gke-assigning-static-ip-address/)
 if you need to set up static IP for Ingresses in the cluster.
 
 ### Deploy Knative Serving
@@ -181,11 +181,13 @@ You can see things running with:
 
 ```console
 kubectl -n knative-serving get pods
-NAME                          READY     STATUS    RESTARTS   AGE
-activator-c8495dc9-z7xpz      2/2       Running   0          6d
-autoscaler-66897845df-t5cwg   2/2       Running   0          6d
-controller-699fb46bb5-xhlkg   1/1       Running   0          6d
-webhook-76b87b8459-tzj6r      1/1       Running   0          6d
+NAME                                READY   STATUS      RESTARTS   AGE
+activator-5b87795885-f8t7k          2/2     Running     0          18m
+autoscaler-6495f7f79d-86jsr         2/2     Running     0          18m
+controller-5fd7fddc58-klmt4         1/1     Running     0          18m
+default-domain-6hs98                0/1     Completed   0          13s
+networking-istio-6755db495d-wtj4d   1/1     Running     0          18m
+webhook-84b8c9886d-dsqqv            1/1     Running     0          18m
 ```
 
 You can access the Knative Serving Controller's logs with:
@@ -254,14 +256,14 @@ ko delete --ignore-not-found=true \
   -f config/monitoring/100-namespace.yaml \
   -f config/ \
   -f ./third_party/config/build/release.yaml \
-  -f ./third_party/istio-1.0.6/istio.yaml \
-  -f ./third_party/istio-1.0.6/istio-crds.yaml
+  -f ./third_party/istio-1.1.2/istio.yaml \
+  -f ./third_party/istio-1.1.2/istio-crds.yaml
 ```
 
 ## Telemetry
 
 To access Telemetry see:
 
-- [Accessing Metrics](https://github.com/knative/docs/blob/master/docs/serving/accessing-metrics.md)
-- [Accessing Logs](https://github.com/knative/docs/blob/master/docs/serving/accessing-logs.md)
-- [Accessing Traces](https://github.com/knative/docs/blob/master/docs/serving/accessing-traces.md)
+- [Accessing Metrics](https://www.knative.dev/docs/serving/accessing-metrics/)
+- [Accessing Logs](https://www.knative.dev/docs/serving/accessing-logs/)
+- [Accessing Traces](https://www.knative.dev/docs/serving/accessing-traces/)

@@ -16,6 +16,10 @@ limitations under the License.
 
 package networking
 
+import (
+	"time"
+)
+
 const (
 	// GroupName is the name for the networking API group.
 	GroupName = "networking.internal.knative.dev"
@@ -42,4 +46,70 @@ const (
 	// SKSLabelKey is the label key that SKS Controller attaches to the
 	// underlying resources it controls.
 	SKSLabelKey = GroupName + "/serverlessservice"
+
+	// ServiceTypeKey is the label key attached to a service specifying the type of service.
+	// e.g. Public, Metrics
+	ServiceTypeKey = GroupName + "/serviceType"
+
+	// ServicePortNameHTTP1 is the name of the external port of the service for HTTP/1.1
+	ServicePortNameHTTP1 = "http"
+	// ServicePortNameH2C is the name of the external port of the service for HTTP/2
+	ServicePortNameH2C = "http2"
 )
+
+// ServiceType is the enumeration type for the Kubernetes services
+// that we have in our system, classified by usage purpose.
+type ServiceType string
+
+const (
+	// ServiceTypePrivate is the label value for internal only services
+	// for user applications.
+	ServiceTypePrivate ServiceType = "Private"
+	// ServiceTypePublic is the label value for externally reachable
+	// services for user applications.
+	ServiceTypePublic ServiceType = "Public"
+	// ServiceTypeMetrics is the label value for Metrics services. Such services
+	// are used for meric scraping.
+	ServiceTypeMetrics ServiceType = "Metrics"
+)
+
+// Pseudo-constants
+var (
+	// DefaultTimeout will be set if timeout not specified.
+	DefaultTimeout = 10 * time.Minute
+
+	// DefaultRetryCount will be set if Attempts not specified.
+	DefaultRetryCount = 3
+)
+
+// The ports we setup on our services.
+const (
+	// ServiceHTTPPort is the port that we setup our Serving and Activator K8s services for
+	// HTTP/1 endpoints.
+	ServiceHTTPPort = 80
+	// ServiceHTTP2Port is the port that we setup our Serving and Activator K8s services for
+	// HTTP/2 endpoints.
+	ServiceHTTP2Port = 81
+
+	// BackendHTTPPort is the backend, i.e. `targetPort` that we setup for HTTP services.
+	BackendHTTPPort = 8012
+
+	// BackendHTTP2Port is the backend, i.e. `targetPort` that we setup for HTTP services.
+	BackendHTTP2Port = 8013
+
+	// RequestQueueAdminPort specifies the port number for
+	// health check and lifecyle hooks for queue-proxy.
+	RequestQueueAdminPort = 8022
+
+	// RequestQueueMetricsPort specifies the port number for metrics emitted
+	// by queue-proxy.
+	RequestQueueMetricsPort = 9090
+)
+
+// ServicePortName returns the port for the app level protocol.
+func ServicePortName(proto ProtocolType) string {
+	if proto == ProtocolH2C {
+		return ServicePortNameH2C
+	}
+	return ServicePortNameHTTP1
+}

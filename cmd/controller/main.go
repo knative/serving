@@ -30,22 +30,21 @@ import (
 	certmanagerclientset "github.com/jetstack/cert-manager/pkg/client/clientset/versioned"
 	certmanagerinformers "github.com/jetstack/cert-manager/pkg/client/informers/externalversions"
 	cachinginformers "github.com/knative/caching/pkg/client/informers/externalversions"
-	sharedinformers "github.com/knative/pkg/client/informers/externalversions"
 	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/controller"
+	pkgmetrics "github.com/knative/pkg/metrics"
 	"github.com/knative/pkg/signals"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
 	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/pkg/metrics"
 	"github.com/knative/serving/pkg/reconciler"
-	"github.com/knative/serving/pkg/reconciler/v1alpha1/certificate"
-	"github.com/knative/serving/pkg/reconciler/v1alpha1/clusteringress"
-	"github.com/knative/serving/pkg/reconciler/v1alpha1/configuration"
-	"github.com/knative/serving/pkg/reconciler/v1alpha1/labeler"
-	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision"
-	"github.com/knative/serving/pkg/reconciler/v1alpha1/route"
-	"github.com/knative/serving/pkg/reconciler/v1alpha1/serverlessservice"
-	"github.com/knative/serving/pkg/reconciler/v1alpha1/service"
+	"github.com/knative/serving/pkg/reconciler/certificate"
+	"github.com/knative/serving/pkg/reconciler/configuration"
+	"github.com/knative/serving/pkg/reconciler/labeler"
+	"github.com/knative/serving/pkg/reconciler/revision"
+	"github.com/knative/serving/pkg/reconciler/route"
+	"github.com/knative/serving/pkg/reconciler/serverlessservice"
+	"github.com/knative/serving/pkg/reconciler/service"
 	"go.uber.org/zap"
 )
 
@@ -64,14 +63,14 @@ func main() {
 	// Set up our logger.
 	loggingConfigMap, err := configmap.Load("/etc/config-logging")
 	if err != nil {
-		log.Fatalf("Error loading logging configuration: %v", err)
+		log.Fatal("Error loading logging configuration:", err)
 	}
 	loggingConfig, err := logging.NewConfigFromMap(loggingConfigMap)
 	if err != nil {
-		log.Fatalf("Error parsing logging configuration: %v", err)
+		log.Fatal("Error parsing logging configuration:", err)
 	}
 	logger, atomicLevel := logging.NewLoggerFromConfig(loggingConfig, component)
-	defer logger.Sync()
+	defer flush(logger)
 
 	// Set up signals so we handle the first shutdown signal gracefully.
 	stopCh := signals.SetupSignalHandler()
@@ -81,13 +80,12 @@ func main() {
 		logger.Fatalw("Error building kubeconfig", zap.Error(err))
 	}
 
-	const numControllers = 8
+	const numControllers = 7
 	cfg.QPS = numControllers * rest.DefaultQPS
 	cfg.Burst = numControllers * rest.DefaultBurst
 	opt := reconciler.NewOptionsOrDie(cfg, logger, stopCh)
 
 	kubeInformerFactory := kubeinformers.NewSharedInformerFactory(opt.KubeClientSet, opt.ResyncPeriod)
-	sharedInformerFactory := sharedinformers.NewSharedInformerFactory(opt.SharedClientSet, opt.ResyncPeriod)
 	servingInformerFactory := informers.NewSharedInformerFactory(opt.ServingClientSet, opt.ResyncPeriod)
 	cachingInformerFactory := cachinginformers.NewSharedInformerFactory(opt.CachingClientSet, opt.ResyncPeriod)
 	buildInformerFactory := revision.KResourceTypedInformerFactory(opt)
@@ -109,8 +107,6 @@ func main() {
 	coreServiceInformer := kubeInformerFactory.Core().V1().Services()
 	endpointsInformer := kubeInformerFactory.Core().V1().Endpoints()
 	configMapInformer := kubeInformerFactory.Core().V1().ConfigMaps()
-	virtualServiceInformer := sharedInformerFactory.Networking().V1alpha3().VirtualServices()
-	gatewayInformer := sharedInformerFactory.Networking().V1alpha3().Gateways()
 	imageInformer := cachingInformerFactory.Caching().V1alpha1().Images()
 	knCertInformer := servingInformerFactory.Networking().V1alpha1().Certificates()
 	cmCertInformer := cmCertInformerFactory.Certmanager().V1alpha1().Certificates()
@@ -152,13 +148,8 @@ func main() {
 			opt,
 			serviceInformer,
 			configurationInformer,
+			revisionInformer,
 			routeInformer,
-		),
-		clusteringress.NewController(
-			opt,
-			clusterIngressInformer,
-			virtualServiceInformer,
-			gatewayInformer,
 		),
 		certificate.NewController(
 			opt,
@@ -201,15 +192,19 @@ func main() {
 		routeInformer.Informer(),
 		serviceInformer.Informer(),
 		sksInformer.Informer(),
-		virtualServiceInformer.Informer(),
 		knCertInformer.Informer(),
 		cmCertInformer.Informer(),
 	); err != nil {
-		logger.Fatalf("Failed to start informers: %v", err)
+		logger.Fatalw("Failed to start informers", err)
 	}
 
 	// Start all of the controllers.
 	logger.Info("Starting controllers.")
 	go controller.StartAll(stopCh, controllers...)
 	<-stopCh
+}
+
+func flush(logger *zap.SugaredLogger) {
+	logger.Sync()
+	pkgmetrics.FlushExporter()
 }

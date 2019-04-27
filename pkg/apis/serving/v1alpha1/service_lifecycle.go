@@ -17,15 +17,13 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"context"
 	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"github.com/knative/pkg/apis"
-	authv1 "k8s.io/api/authentication/v1"
+	duckv1beta1 "github.com/knative/pkg/apis/duck/v1beta1"
 )
 
 var serviceCondSet = apis.NewLivingConditionSet(
@@ -51,6 +49,18 @@ func (ss *ServiceStatus) GetCondition(t apis.ConditionType) *apis.Condition {
 // InitializeConditions sets the initial values to the conditions.
 func (ss *ServiceStatus) InitializeConditions() {
 	serviceCondSet.Manage(ss).InitializeConditions()
+}
+
+// MarkResourceNotConvertible adds a Warning-severity condition to the resource noting that
+// it cannot be converted to a higher version.
+func (ss *ServiceStatus) MarkResourceNotConvertible(err *CannotConvertError) {
+	serviceCondSet.Manage(ss).SetCondition(apis.Condition{
+		Type:     ConditionTypeConvertible,
+		Status:   corev1.ConditionFalse,
+		Severity: apis.ConditionSeverityWarning,
+		Reason:   err.Field,
+		Message:  err.Message,
+	})
 }
 
 // MarkConfigurationNotOwned surfaces a failure via the ConfigurationsReady
@@ -85,6 +95,13 @@ func (ss *ServiceStatus) PropagateConfigurationStatus(cs *ConfigurationStatus) {
 	case cc.Status == corev1.ConditionFalse:
 		serviceCondSet.Manage(ss).MarkFalse(ServiceConditionConfigurationsReady, cc.Reason, cc.Message)
 	}
+}
+
+// MarkRevisionNameTaken notes that the Route has not been programmed because the revision name is taken by a
+// conflicting revision definition.
+func (ss *ServiceStatus) MarkRevisionNameTaken(name string) {
+	serviceCondSet.Manage(ss).MarkFalse(ServiceConditionRoutesReady, "RevisionNameTaken",
+		"The revision name %q is taken by a conflicting Revision, so traffic will not be migrated", name)
 }
 
 const (
@@ -147,38 +164,6 @@ func (ss *ServiceStatus) SetManualStatus() {
 	*ss = *newStatus
 }
 
-const (
-	// CreatorAnnotation is the annotation key to describe the user that
-	// created the resource.
-	CreatorAnnotation = "serving.knative.dev/creator"
-	// UpdaterAnnotation is the annotation key to describe the user that
-	// last updated the resource.
-	UpdaterAnnotation = "serving.knative.dev/lastModifier"
-)
-
-// AnnotateUserInfo satisfay the apis.Annotatable interface, and set the proper annotations
-// on the Service resource about the user that performed the action.
-func (s *Service) AnnotateUserInfo(ctx context.Context, prev apis.Annotatable, ui *authv1.UserInfo) {
-	ans := s.GetAnnotations()
-	if ans == nil {
-		ans = map[string]string{}
-		defer s.SetAnnotations(ans)
-	}
-
-	// WebHook makes sure we get the proper type here.
-	ps, _ := prev.(*Service)
-
-	// Creation.
-	if ps == nil {
-		ans[CreatorAnnotation] = ui.Username
-		ans[UpdaterAnnotation] = ui.Username
-		return
-	}
-
-	// Compare the Spec's, we update the `lastModifier` key iff
-	// there's a change in the spec.
-	if equality.Semantic.DeepEqual(ps.Spec, s.Spec) {
-		return
-	}
-	ans[UpdaterAnnotation] = ui.Username
+func (ss *ServiceStatus) duck() *duckv1beta1.Status {
+	return &ss.Status
 }

@@ -56,6 +56,15 @@ func (pa *PodAutoscaler) annotationInt32(key string) int32 {
 	return 0
 }
 
+func (pa *PodAutoscaler) annotationFloat64(key string) (float64, bool) {
+	if s, ok := pa.Annotations[key]; ok {
+		if f, err := strconv.ParseFloat(s, 64); err == nil {
+			return f, true
+		}
+	}
+	return 0.0, false
+}
+
 // ScaleBounds returns scale bounds annotations values as a tuple:
 // `(min, max int32)`. The value of 0 for any of min or max means the bound is
 // not set
@@ -78,78 +87,118 @@ func (pa *PodAutoscaler) Target() (target int32, ok bool) {
 	return 0, false
 }
 
-// IsReady looks at the conditions and if the Status has a condition
-// PodAutoscalerConditionReady returns true if ConditionStatus is True
-func (rs *PodAutoscalerStatus) IsReady() bool {
-	return podCondSet.Manage((*duckv1beta1.Status)(rs)).IsHappy()
+// Window returns the window annotation value or false if not present.
+func (pa *PodAutoscaler) Window() (window time.Duration, ok bool) {
+	if s, ok := pa.Annotations[autoscaling.WindowAnnotationKey]; ok {
+		d, err := time.ParseDuration(s)
+		if err != nil {
+			return 0, false
+		}
+		if d < autoscaling.WindowMin {
+			return 0, false
+		}
+		return d, true
+	}
+	return 0, false
 }
 
-// IsActivating assumes the pod autoscaler is Activating if it is neither
-// Active nor Inactive
-func (rs *PodAutoscalerStatus) IsActivating() bool {
-	cond := rs.GetCondition(PodAutoscalerConditionActive)
+// PanicWindowPercentage returns panic window annotation value or false if not present.
+func (pa *PodAutoscaler) PanicWindowPercentage() (percentage float64, ok bool) {
+	percentage, ok = pa.annotationFloat64(autoscaling.PanicWindowPercentageAnnotationKey)
+	if !ok || percentage > autoscaling.PanicWindowPercentageMax ||
+		percentage < autoscaling.PanicWindowPercentageMin {
+		return 0, false
+	}
+	return percentage, ok
+}
 
+// PanicThresholdPercentage return the panic target annotation value or false if not present.
+func (pa *PodAutoscaler) PanicThresholdPercentage() (percentage float64, ok bool) {
+	percentage, ok = pa.annotationFloat64(autoscaling.PanicThresholdPercentageAnnotationKey)
+	if !ok || percentage < autoscaling.PanicThresholdPercentageMin {
+		return 0, false
+	}
+	return percentage, ok
+}
+
+// IsReady looks at the conditions and if the Status has a condition
+// PodAutoscalerConditionReady returns true if ConditionStatus is True
+func (pas *PodAutoscalerStatus) IsReady() bool {
+	return podCondSet.Manage(pas.duck()).IsHappy()
+}
+
+// IsActivating returns true if the pod autoscaler is Activating if it is neither
+// Active nor Inactive
+func (pas *PodAutoscalerStatus) IsActivating() bool {
+	cond := pas.GetCondition(PodAutoscalerConditionActive)
 	return cond != nil && cond.Status == corev1.ConditionUnknown
 }
 
-func (rs *PodAutoscalerStatus) GetCondition(t apis.ConditionType) *apis.Condition {
-	return podCondSet.Manage((*duckv1beta1.Status)(rs)).GetCondition(t)
+// IsInactive returns true if the pod autoscaler is Inactive.
+func (pas *PodAutoscalerStatus) IsInactive() bool {
+	cond := pas.GetCondition(PodAutoscalerConditionActive)
+	return cond != nil && cond.Status == corev1.ConditionFalse
 }
 
-func (rs *PodAutoscalerStatus) InitializeConditions() {
-	podCondSet.Manage((*duckv1beta1.Status)(rs)).InitializeConditions()
+// GetCondition gets the condition `t`.
+func (pas *PodAutoscalerStatus) GetCondition(t apis.ConditionType) *apis.Condition {
+	return podCondSet.Manage(pas.duck()).GetCondition(t)
 }
 
-func (rs *PodAutoscalerStatus) MarkActive() {
-	podCondSet.Manage((*duckv1beta1.Status)(rs)).MarkTrue(PodAutoscalerConditionActive)
+// InitializeConditions initializes the conditionhs of the PA.
+func (pas *PodAutoscalerStatus) InitializeConditions() {
+	podCondSet.Manage(pas.duck()).InitializeConditions()
 }
 
-func (rs *PodAutoscalerStatus) MarkActivating(reason, message string) {
-	podCondSet.Manage((*duckv1beta1.Status)(rs)).MarkUnknown(PodAutoscalerConditionActive, reason, message)
+// MarkActive marks the PA active.
+func (pas *PodAutoscalerStatus) MarkActive() {
+	podCondSet.Manage(pas.duck()).MarkTrue(PodAutoscalerConditionActive)
 }
 
-func (rs *PodAutoscalerStatus) MarkInactive(reason, message string) {
-	podCondSet.Manage((*duckv1beta1.Status)(rs)).MarkFalse(PodAutoscalerConditionActive, reason, message)
+// MarkActivating marks the PA as activating.
+func (pas *PodAutoscalerStatus) MarkActivating(reason, message string) {
+	podCondSet.Manage(pas.duck()).MarkUnknown(PodAutoscalerConditionActive, reason, message)
+}
+
+// MarkInactive marks the PA as inactive.
+func (pas *PodAutoscalerStatus) MarkInactive(reason, message string) {
+	podCondSet.Manage(pas.duck()).MarkFalse(PodAutoscalerConditionActive, reason, message)
 }
 
 // MarkResourceNotOwned changes the "Active" condition to false to reflect that the
 // resource of the given kind and name has already been created, and we do not own it.
-func (rs *PodAutoscalerStatus) MarkResourceNotOwned(kind, name string) {
-	rs.MarkInactive("NotOwned",
+func (pas *PodAutoscalerStatus) MarkResourceNotOwned(kind, name string) {
+	pas.MarkInactive("NotOwned",
 		fmt.Sprintf("There is an existing %s %q that we do not own.", kind, name))
 }
 
 // MarkResourceFailedCreation changes the "Active" condition to false to reflect that a
 // critical resource of the given kind and name was unable to be created.
-func (rs *PodAutoscalerStatus) MarkResourceFailedCreation(kind, name string) {
-	rs.MarkInactive("FailedCreate",
+func (pas *PodAutoscalerStatus) MarkResourceFailedCreation(kind, name string) {
+	pas.MarkInactive("FailedCreate",
 		fmt.Sprintf("Failed to create %s %q.", kind, name))
 }
 
 // CanScaleToZero checks whether the pod autoscaler has been in an inactive state
 // for at least the specified grace period.
-func (rs *PodAutoscalerStatus) CanScaleToZero(gracePeriod time.Duration) bool {
-	if cond := rs.GetCondition(PodAutoscalerConditionActive); cond != nil {
-		switch cond.Status {
-		case corev1.ConditionFalse:
-			// Check that this PodAutoscaler has been inactive for
-			// at least the grace period.
-			return time.Now().After(cond.LastTransitionTime.Inner.Add(gracePeriod))
-		}
-	}
-	return false
+func (pas *PodAutoscalerStatus) CanScaleToZero(gracePeriod time.Duration) bool {
+	return pas.inStatusFor(corev1.ConditionFalse, gracePeriod)
 }
 
 // CanMarkInactive checks whether the pod autoscaler has been in an active state
 // for at least the specified idle period.
-func (rs *PodAutoscalerStatus) CanMarkInactive(idlePeriod time.Duration) bool {
-	if cond := rs.GetCondition(PodAutoscalerConditionActive); cond != nil {
-		switch cond.Status {
-		case corev1.ConditionTrue:
-			// Check that this PodAutoscaler has been active for
-			// at least the grace period.
-			return time.Now().After(cond.LastTransitionTime.Inner.Add(idlePeriod))
-		}
-	}
-	return false
+func (pas *PodAutoscalerStatus) CanMarkInactive(idlePeriod time.Duration) bool {
+	return pas.inStatusFor(corev1.ConditionTrue, idlePeriod)
+}
+
+// inStatusFor returns true if the PodAutoscalerStatus's Active condition has stayed in
+// the specified status for at least the specified duration. Otherwise it returns false,
+// including when the status is undetermined (Active condition is not found.)
+func (pas *PodAutoscalerStatus) inStatusFor(status corev1.ConditionStatus, dur time.Duration) bool {
+	cond := pas.GetCondition(PodAutoscalerConditionActive)
+	return cond != nil && cond.Status == status && time.Now().After(cond.LastTransitionTime.Inner.Add(dur))
+}
+
+func (pas *PodAutoscalerStatus) duck() *duckv1beta1.Status {
+	return (*duckv1beta1.Status)(&pas.Status)
 }

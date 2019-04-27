@@ -24,20 +24,23 @@ import (
 	"net/http"
 	"time"
 
-	v1 "k8s.io/api/core/v1"
-	"k8s.io/client-go/tools/clientcmd"
+	"go.uber.org/zap"
 
 	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/controller"
 	"github.com/knative/pkg/logging/logkey"
+	pkgmetrics "github.com/knative/pkg/metrics"
 	"github.com/knative/pkg/signals"
 	"github.com/knative/pkg/system"
 	"github.com/knative/pkg/version"
 	"github.com/knative/pkg/websocket"
 	"github.com/knative/serving/cmd/util"
 	"github.com/knative/serving/pkg/activator"
+	activatorconfig "github.com/knative/serving/pkg/activator/config"
 	activatorhandler "github.com/knative/serving/pkg/activator/handler"
 	activatorutil "github.com/knative/serving/pkg/activator/util"
+	"github.com/knative/serving/pkg/apis/networking"
+	nv1a1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/autoscaler"
@@ -47,18 +50,23 @@ import (
 	"github.com/knative/serving/pkg/http/h2c"
 	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/pkg/metrics"
+	"github.com/knative/serving/pkg/network"
 	"github.com/knative/serving/pkg/queue"
 	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/resources"
-	"github.com/knative/serving/pkg/utils"
-	"go.uber.org/zap"
+	"github.com/knative/serving/pkg/tracing"
+	tracingconfig "github.com/knative/serving/pkg/tracing/config"
+
+	"github.com/openzipkin/zipkin-go"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/tools/clientcmd"
 )
 
-// Fail if using unsupported go version
+// Fail if using unsupported go version.
 var _ = goversion.IsSupported()
 
 const (
@@ -119,15 +127,15 @@ func main() {
 	flag.Parse()
 	cm, err := configmap.Load("/etc/config-logging")
 	if err != nil {
-		log.Fatalf("Error loading logging configuration: %v", err)
+		log.Fatal("Error loading logging configuration:", err)
 	}
-	config, err := logging.NewConfigFromMap(cm)
+	logConfig, err := logging.NewConfigFromMap(cm)
 	if err != nil {
-		log.Fatalf("Error parsing logging configuration: %v", err)
+		log.Fatal("Error parsing logging configuration:", err)
 	}
-	createdLogger, atomicLevel := logging.NewLoggerFromConfig(config, component)
+	createdLogger, atomicLevel := logging.NewLoggerFromConfig(logConfig, component)
 	logger := createdLogger.With(zap.String(logkey.ControllerType, "activator"))
-	defer logger.Sync()
+	defer flush(logger)
 
 	logger.Info("Starting the knative activator")
 
@@ -172,68 +180,94 @@ func main() {
 	endpointInformer := kubeInformerFactory.Core().V1().Endpoints()
 	serviceInformer := kubeInformerFactory.Core().V1().Services()
 	revisionInformer := servingInformerFactory.Serving().V1alpha1().Revisions()
+	sksInformer := servingInformerFactory.Networking().V1alpha1().ServerlessServices()
 
 	// Run informers instead of starting them from the factory to prevent the sync hanging because of empty handler.
-	go revisionInformer.Informer().Run(stopCh)
-	go endpointInformer.Informer().Run(stopCh)
-	go serviceInformer.Informer().Run(stopCh)
-
-	logger.Info("Waiting for informer caches to sync")
-
-	informerSyncs := []cache.InformerSynced{
-		endpointInformer.Informer().HasSynced,
-		revisionInformer.Informer().HasSynced,
-		serviceInformer.Informer().HasSynced,
+	if err := controller.StartInformers(
+		stopCh,
+		revisionInformer.Informer(),
+		endpointInformer.Informer(),
+		serviceInformer.Informer(),
+		sksInformer.Informer()); err != nil {
+		logger.Fatalw("Failed to start informers", err)
 	}
-	// Make sure the caches are in sync before we add the actual handler.
-	// This will prevent from missing endpoint 'Add' events during startup, e.g. when the endpoints informer
-	// is already in sync and it could not perform it because of
-	// revision informer still being synchronized.
-	for i, synced := range informerSyncs {
-		if ok := cache.WaitForCacheSync(stopCh, synced); !ok {
-			logger.Fatalf("failed to wait for cache at index %d to sync", i)
-		}
-	}
+
 	params := queue.BreakerParams{QueueDepth: breakerQueueDepth, MaxConcurrency: breakerMaxConcurrency, InitialCapacity: 0}
 
 	// Return the number of endpoints, 0 if no endpoints are found.
-	endpointsGetter := func(revID activator.RevisionID) (int32, error) {
-		count, err := resources.FetchReadyAddressCount(endpointInformer.Lister(), revID.Namespace, revID.Name)
-		return int32(count), err
+	endpointsCountGetter := func(sks *nv1a1.ServerlessService) (int, error) {
+		count, err := resources.FetchReadyAddressCount(endpointInformer.Lister(), sks.Namespace, sks.Status.PrivateServiceName)
+		return count, err
 	}
 
-	// Return the revision from the observer.
+	// Returns the revision from the observer.
 	revisionGetter := func(revID activator.RevisionID) (*v1alpha1.Revision, error) {
 		return revisionInformer.Lister().Revisions(revID.Namespace).Get(revID.Name)
 	}
 
-	serviceGetter := func(namespace, name string) (*v1.Service, error) {
+	// Returns the SKS from the observer.
+	sksGetter := func(ns, n string) (*nv1a1.ServerlessService, error) {
+		return sksInformer.Lister().ServerlessServices(ns).Get(n)
+	}
+
+	serviceGetter := func(namespace, name string) (*corev1.Service, error) {
 		return serviceInformer.Lister().Services(namespace).Get(name)
 	}
 
 	throttlerParams := activator.ThrottlerParams{
 		BreakerParams: params,
 		Logger:        logger,
-		GetEndpoints:  endpointsGetter,
+		GetEndpoints:  endpointsCountGetter,
 		GetRevision:   revisionGetter,
+		GetSKS:        sksGetter,
 	}
 	throttler := activator.NewThrottler(throttlerParams)
 
 	handler := cache.ResourceEventHandlerFuncs{
-		AddFunc:    activator.UpdateEndpoints(throttler),
-		UpdateFunc: controller.PassNew(activator.UpdateEndpoints(throttler)),
-		DeleteFunc: activator.DeleteBreaker(throttler),
+		AddFunc:    throttler.UpdateEndpoints,
+		UpdateFunc: controller.PassNew(throttler.UpdateEndpoints),
+		DeleteFunc: throttler.DeleteBreaker,
 	}
 
 	// Update/create the breaker in the throttler when the number of endpoints changes.
+	// Pass only the endpoints created by revisions.
+	// TODO(greghaynes) we have to allow unset and use the old RevisionUID filter for backwards compat.
+	// When we can assume our ServiceTypeKey label is present in all services we can filter all but
+	// networking.ServiceTypeKey == networking.ServiceTypePublic
+	epFilter := reconciler.ChainFilterFuncs(
+		reconciler.LabelExistsFilterFunc(serving.RevisionUID),
+		// We are only interested in the private services, since that is
+		// what is populated by the actual revision backends.
+		reconciler.LabelFilterFunc(networking.ServiceTypeKey, string(networking.ServiceTypePrivate), true),
+	)
 	endpointInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
-		// Pass only the endpoints created by revisions.
-		FilterFunc: reconciler.LabelExistsFilterFunc(serving.RevisionUID),
+		FilterFunc: epFilter,
 		Handler:    handler,
 	})
 
+	activatorL3 := fmt.Sprintf("%s:%d", activator.K8sServiceName, activator.ServicePortHTTP1)
+	zipkinEndpoint, err := zipkin.NewEndpoint("activator", activatorL3)
+	if err != nil {
+		logger.Error("Unable to create tracing endpoint")
+		return
+	}
+	oct := tracing.NewOpenCensusTracer(
+		tracing.WithZipkinExporter(tracing.CreateZipkinReporter, zipkinEndpoint),
+	)
+	tracerUpdater := func(name string, value interface{}) {
+		if name == tracingconfig.ConfigName {
+			cfg := value.(*tracingconfig.Config)
+			oct.ApplyConfig(cfg)
+		}
+	}
+
+	// Set up our config store
+	configMapWatcher := configmap.NewInformedWatcher(kubeClient, system.Namespace())
+	configStore := activatorconfig.NewStore(createdLogger, tracerUpdater)
+	configStore.WatchConfigs(configMapWatcher)
+
 	// Open a websocket connection to the autoscaler
-	autoscalerEndpoint := fmt.Sprintf("ws://%s.%s.svc.%s:%d", "autoscaler", system.Namespace(), utils.GetClusterDomainName(), autoscalerPort)
+	autoscalerEndpoint := fmt.Sprintf("ws://%s.%s.svc.%s:%d", "autoscaler", system.Namespace(), network.GetClusterDomainName(), autoscalerPort)
 	logger.Info("Connecting to autoscaler at", autoscalerEndpoint)
 	statSink := websocket.NewDurableSendingConnection(autoscalerEndpoint, logger)
 	go statReporter(statSink, stopCh, statChan, logger)
@@ -255,14 +289,16 @@ func main() {
 		Throttler:     throttler,
 		GetProbeCount: maxRetries,
 		GetRevision:   revisionGetter,
+		GetSKS:        sksGetter,
 		GetService:    serviceGetter,
 	}
 	ah = activatorhandler.NewRequestEventHandler(reqChan, ah)
+	ah = tracing.HTTPSpanMiddleware("handle_request", ah)
+	ah = configStore.HTTPMiddleware(ah)
 	ah = &activatorhandler.HealthHandler{HealthCheck: statSink.Status, NextHandler: ah}
 	ah = &activatorhandler.ProbeHandler{NextHandler: ah}
 
 	// Watch the logging config map and dynamically update logging levels.
-	configMapWatcher := configmap.NewInformedWatcher(kubeClient, system.Namespace())
 	configMapWatcher.Watch(logging.ConfigMapName(), logging.UpdateLevelFromConfigMap(logger, atomicLevel, component))
 	// Watch the observability config map and dynamically update metrics exporter.
 	configMapWatcher.Watch(metrics.ObservabilityConfigName, metrics.UpdateExporterFromConfigMap(component, logger))
@@ -270,14 +306,14 @@ func main() {
 		logger.Fatalw("Failed to start configuration manager", zap.Error(err))
 	}
 
-	http1Srv := h2c.NewServer(":8080", ah)
+	http1Srv := h2c.NewServer(fmt.Sprintf(":%d", networking.BackendHTTPPort), ah)
 	go func() {
 		if err := http1Srv.ListenAndServe(); err != nil {
 			logger.Errorw("Error running HTTP server", zap.Error(err))
 		}
 	}()
 
-	h2cSrv := h2c.NewServer(":8081", ah)
+	h2cSrv := h2c.NewServer(fmt.Sprintf(":%d", networking.BackendHTTP2Port), ah)
 	go func() {
 		if err := h2cSrv.ListenAndServe(); err != nil {
 			logger.Errorw("Error running HTTP server", zap.Error(err))
@@ -287,4 +323,9 @@ func main() {
 	<-stopCh
 	http1Srv.Shutdown(context.Background())
 	h2cSrv.Shutdown(context.Background())
+}
+
+func flush(logger *zap.SugaredLogger) {
+	logger.Sync()
+	pkgmetrics.FlushExporter()
 }

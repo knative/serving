@@ -16,6 +16,8 @@ limitations under the License.
 package main
 
 import (
+	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/knative/serving/pkg/apis/serving"
@@ -30,34 +32,85 @@ const (
 	testRevision  = "test-Revision"
 )
 
-func TestUniScalerFactoryFunc(t *testing.T) {
+func TestUniscalerFactoryFailures(t *testing.T) {
+	tests := []struct {
+		name   string
+		labels map[string]string
+		want   string
+	}{{
+		"nil labels", nil, fmt.Sprintf("label %q not found or empty in Decider", serving.KubernetesServiceLabelKey),
+	}, {
+		"empty labels", map[string]string{}, fmt.Sprintf("label %q not found or empty in Decider", serving.KubernetesServiceLabelKey),
+	}, {
+		"config missing", map[string]string{
+			serving.ServiceLabelKey:           "está la verdad",
+			serving.KubernetesServiceLabelKey: "lo-digo",
+		},
+		fmt.Sprintf("label %q not found or empty in Decider", serving.ConfigurationLabelKey),
+	}, {
+		"k8s svc key is missing", map[string]string{
+			serving.ConfigurationLabelKey: "blij-is",
+			serving.ServiceLabelKey:       "degene-die-wijn-drinkt",
+		},
+		fmt.Sprintf("label %q not found or empty in Decider", serving.KubernetesServiceLabelKey),
+	}, {
+		"values not ascii", map[string]string{
+			serving.ServiceLabelKey:           "la",
+			serving.ConfigurationLabelKey:     "verité",
+			serving.KubernetesServiceLabelKey: "nest-pas",
+		}, "invalid value: only ASCII characters accepted",
+	}, {
+		"too long of a value", map[string]string{
+			serving.ServiceLabelKey:           "cat is ",
+			serving.ConfigurationLabelKey:     "l" + strings.Repeat("o", 253) + "ng",
+			serving.KubernetesServiceLabelKey: "and-dog-is-of-proper-length",
+		}, "max length must be 255 characters",
+	}}
+
 	uniScalerFactory := getTestUniScalerFactory()
 	decider := &autoscaler.Decider{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: testNamespace,
 			Name:      testRevision,
-			Labels:    map[string]string{serving.RevisionLabelKey: testRevision},
 		},
 	}
 	dynamicConfig := &autoscaler.DynamicConfig{}
 
-	if _, err := uniScalerFactory(decider, dynamicConfig); err != nil {
-		t.Errorf("got error from uniScalerFactory: %v", err)
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			decider.Labels = test.labels
+
+			_, err := uniScalerFactory(decider, dynamicConfig)
+			if err == nil {
+				t.Fatal("No error was returned")
+			}
+			if got, want := err.Error(), test.want; !strings.Contains(got, want) {
+				t.Errorf("Error = %q, want to contain = %q", got, want)
+			}
+		})
 	}
 }
 
-func TestUniScalerFactoryFunc_FailWhenRevisionLabelMissing(t *testing.T) {
+func TestUniScalerFactoryFunc(t *testing.T) {
 	uniScalerFactory := getTestUniScalerFactory()
-	decider := &autoscaler.Decider{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: testNamespace,
-			Name:      testRevision,
-		},
-	}
-	dynamicConfig := &autoscaler.DynamicConfig{}
+	for _, srv := range []string{"some", ""} {
+		decider := &autoscaler.Decider{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: testNamespace,
+				Name:      testRevision,
+				Labels: map[string]string{
+					serving.RevisionLabelKey:          testRevision,
+					serving.KubernetesServiceLabelKey: testRevision + "-priv",
+					serving.ServiceLabelKey:           srv,
+					serving.ConfigurationLabelKey:     "test-config",
+				},
+			},
+		}
+		dynamicConfig := &autoscaler.DynamicConfig{}
 
-	if _, err := uniScalerFactory(decider, dynamicConfig); err == nil {
-		t.Errorf("expected error when revision label missing but got none")
+		if _, err := uniScalerFactory(decider, dynamicConfig); err != nil {
+			t.Errorf("got error from uniScalerFactory: %v", err)
+		}
 	}
 }
 

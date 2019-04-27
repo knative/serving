@@ -23,6 +23,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"github.com/knative/pkg/apis"
+	duckv1beta1 "github.com/knative/pkg/apis/duck/v1beta1"
 	"github.com/knative/serving/pkg/apis/networking/v1alpha1"
 )
 
@@ -46,6 +47,18 @@ func (rs *RouteStatus) GetCondition(t apis.ConditionType) *apis.Condition {
 func (rs *RouteStatus) InitializeConditions() {
 	routeCondSet.Manage(rs).InitializeConditions()
 }
+
+// // MarkResourceNotConvertible adds a Warning-severity condition to the resource noting that
+// // it cannot be converted to a higher version.
+// func (rs *RouteStatus) MarkResourceNotConvertible(err *CannotConvertError) {
+// 	routeCondSet.Manage(rs).SetCondition(apis.Condition{
+// 		Type:     ConditionTypeConvertible,
+// 		Status:   corev1.ConditionFalse,
+// 		Severity: apis.ConditionSeverityWarning,
+// 		Reason:   err.Field,
+// 		Message:  err.Message,
+// 	})
+// }
 
 // MarkServiceNotOwned changes the IngressReady status to be false with the reason being that
 // there is a pre-existing placeholder service with the name we wanted to use.
@@ -107,4 +120,8 @@ func (rs *RouteStatus) PropagateClusterIngressStatus(cs v1alpha1.IngressStatus) 
 	case cc.Status == corev1.ConditionFalse:
 		routeCondSet.Manage(rs).MarkFalse(RouteConditionIngressReady, cc.Reason, cc.Message)
 	}
+}
+
+func (rs *RouteStatus) duck() *duckv1beta1.Status {
+	return &rs.Status
 }

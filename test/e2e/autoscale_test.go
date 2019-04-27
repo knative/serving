@@ -22,13 +22,12 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
-	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	_ "github.com/knative/pkg/system/testing"
 	pkgTest "github.com/knative/pkg/test"
-	"github.com/knative/serving/pkg/autoscaler"
 	"github.com/knative/serving/test"
 	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
@@ -53,54 +52,45 @@ func tearDown(ctx *testContext) {
 
 func generateTraffic(ctx *testContext, concurrency int, duration time.Duration, stopChan chan struct{}) error {
 	var (
-		totalRequests      int
-		successfulRequests int
-		mux                sync.Mutex
+		totalRequests      int32
+		successfulRequests int32
 		group              errgroup.Group
 	)
 
 	ctx.t.Logf("Maintaining %d concurrent requests for %v.", concurrency, duration)
+	client, err := pkgTest.NewSpoofingClient(ctx.clients.KubeClient, ctx.t.Logf, ctx.domain, test.ServingFlags.ResolvableDomain)
+	if err != nil {
+		return fmt.Errorf("error creating spoofing client: %v", err)
+	}
 	for i := 0; i < concurrency; i++ {
 		group.Go(func() error {
-			done := time.After(duration)
-			client, err := pkgTest.NewSpoofingClient(ctx.clients.KubeClient, ctx.t.Logf, ctx.domain, test.ServingFlags.ResolvableDomain)
-			if err != nil {
-				return fmt.Errorf("error creating spoofing client: %v", err)
-			}
 			req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://%s", ctx.domain), nil)
 			if err != nil {
-				return fmt.Errorf("error creating spoofing client: %v", err)
+				return fmt.Errorf("error creating HTTP request: %v", err)
 			}
+			done := time.After(duration)
 			for {
 				select {
 				case <-stopChan:
 					ctx.t.Log("Stopping generateTraffic")
 					return nil
 				case <-done:
-					ctx.t.Log("Time up, done")
+					ctx.t.Log("Time is up; done")
 					return nil
 				default:
-					mux.Lock()
-					requestID := totalRequests + 1
-					totalRequests = requestID
-					mux.Unlock()
-					start := time.Now()
+					atomic.AddInt32(&totalRequests, 1)
 					res, err := client.Do(req)
 					if err != nil {
-						ctx.t.Logf("error making request %v", err)
+						ctx.t.Logf("Error making request %v", err)
 						continue
 					}
-					duration := time.Since(start)
-					ctx.t.Logf("Request took: %v", duration)
 
 					if res.StatusCode != http.StatusOK {
-						ctx.t.Logf("status = %d, want: %d", res.StatusCode, http.StatusOK)
-						ctx.t.Logf("response: %s", res)
+						ctx.t.Logf("Status = %d, want: %d", res.StatusCode, http.StatusOK)
+						ctx.t.Logf("Response: %s", res)
 						continue
 					}
-					mux.Lock()
-					successfulRequests++
-					mux.Unlock()
+					atomic.AddInt32(&successfulRequests, 1)
 				}
 			}
 		})
@@ -108,11 +98,11 @@ func generateTraffic(ctx *testContext, concurrency int, duration time.Duration, 
 
 	ctx.t.Log("Waiting for all requests to complete.")
 	if err := group.Wait(); err != nil {
-		return fmt.Errorf("error making requests for scale up: %v.", err)
+		return fmt.Errorf("error making requests for scale up: %v", err)
 	}
 
 	if successfulRequests != totalRequests {
-		return fmt.Errorf("error making requests for scale up. Got %d successful requests. Wanted %d.",
+		return fmt.Errorf("error making requests for scale up. Got %d successful requests, wanted: %d",
 			successfulRequests, totalRequests)
 	}
 	return nil
@@ -139,16 +129,15 @@ func setup(t *testing.T) *testContext {
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 
 	t.Log("When the Revision can have traffic routed to it, the Route is marked as Ready.")
-	err = test.WaitForRouteState(
+	if err := test.WaitForRouteState(
 		clients.ServingClient,
 		names.Route,
 		test.IsRouteReady,
-		"RouteIsReady")
-	if err != nil {
+		"RouteIsReady"); err != nil {
 		t.Fatalf("The Route %s was not marked as Ready to serve traffic: %v", names.Route, err)
 	}
 
-	t.Log("Serves the expected data at the endpoint")
+	t.Log("Served the expected data at the endpoint")
 	config, err := clients.ServingClient.Configs.Get(names.Config, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Configuration %s was not updated with the new revision: %v", names.Config, err)
@@ -161,7 +150,7 @@ func setup(t *testing.T) *testContext {
 	}
 	domain := route.Status.Domain
 
-	_, err = pkgTest.WaitForEndpointState(
+	if _, err := pkgTest.WaitForEndpointState(
 		clients.KubeClient,
 		t.Logf,
 		domain,
@@ -169,8 +158,7 @@ func setup(t *testing.T) *testContext {
 		// TODO(tcnghia): Remove this when https://github.com/istio/istio/issues/882 is fixed.
 		test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.EventuallyMatchesBody(autoscaleExpectedOutput))),
 		"CheckingEndpointAfterUpdating",
-		test.ServingFlags.ResolvableDomain)
-	if err != nil {
+		test.ServingFlags.ResolvableDomain); err != nil {
 		t.Fatalf("The endpoint for Route %s at domain %s didn't serve the expected text \"%v\": %v",
 			names.Route, domain, autoscaleExpectedOutput, err)
 	}
@@ -193,40 +181,30 @@ func setup(t *testing.T) *testContext {
 
 func assertScaleUp(ctx *testContext) {
 	ctx.t.Log("The autoscaler spins up additional replicas when traffic increases.")
-	err := generateTraffic(ctx, 20, 20*time.Second, nil)
-	if err != nil {
+	if err := generateTraffic(ctx, 20, 20*time.Second, nil); err != nil {
 		ctx.t.Fatalf("Error during initial scale up: %v", err)
 	}
 	ctx.t.Logf("Waiting for scale up revision %s", ctx.names.Revision)
-	err = pkgTest.WaitForDeploymentState(
+	if err := pkgTest.WaitForDeploymentState(
 		ctx.clients.KubeClient,
 		ctx.deploymentName,
 		isDeploymentScaledUp(),
 		"DeploymentIsScaledUp",
 		test.ServingNamespace,
-		2*time.Minute)
-	if err != nil {
+		2*time.Minute); err != nil {
 		ctx.t.Fatalf("Unable to observe the Deployment named %s scaling up. %s", ctx.deploymentName, err)
 	}
 }
 
 func assertScaleDown(ctx *testContext) {
-	ctx.t.Log("The autoscaler successfully scales down when devoid of traffic. Waiting for scale to zero.")
-	err := pkgTest.WaitForDeploymentState(
-		ctx.clients.KubeClient,
-		ctx.deploymentName,
-		test.DeploymentScaledToZeroFunc,
-		"DeploymentScaledToZero",
-		test.ServingNamespace,
-		autoscaler.DefaultScaleToZeroGracePeriod+autoscaler.DefaultStableWindow+2*time.Minute)
-	if err != nil {
-		ctx.t.Fatalf("Unable to observe the Deployment named %s scaling down. %s", ctx.deploymentName, err)
+	if err := WaitForScaleToZero(ctx.t, ctx.deploymentName, ctx.clients); err != nil {
+		ctx.t.Fatalf("Unable to observe the Deployment named %s scaling down: %v", ctx.deploymentName, err)
 	}
 
 	// Account for the case where scaling up uses all available pods.
 	ctx.t.Log("Wait for all pods to terminate.")
 
-	err = pkgTest.WaitForPodListState(
+	if err := pkgTest.WaitForPodListState(
 		ctx.clients.KubeClient,
 		func(p *v1.PodList) (bool, error) {
 			for _, pod := range p.Items {
@@ -237,8 +215,7 @@ func assertScaleDown(ctx *testContext) {
 			}
 			return true, nil
 		},
-		"WaitForAvailablePods", test.ServingNamespace)
-	if err != nil {
+		"WaitForAvailablePods", test.ServingNamespace); err != nil {
 		ctx.t.Fatalf("Waiting for Pod.List to have no non-Evicted pods of %q: %v", ctx.deploymentName, err)
 	}
 
@@ -263,7 +240,7 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 }
 
 func assertNumberOfPods(ctx *testContext, numReplicasMin int32, numReplicasMax int32) error {
-	deployment, err := ctx.clients.KubeClient.Kube.Apps().Deployments("serving-tests").Get(ctx.deploymentName, metav1.GetOptions{})
+	deployment, err := ctx.clients.KubeClient.Kube.Apps().Deployments(test.ServingNamespace).Get(ctx.deploymentName, metav1.GetOptions{})
 	if err != nil {
 		return errors.Wrapf(err, "Failed to get deployment %q", deployment)
 	}

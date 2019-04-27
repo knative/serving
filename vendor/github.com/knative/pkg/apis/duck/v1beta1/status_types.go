@@ -17,6 +17,7 @@ limitations under the License.
 package v1beta1
 
 import (
+	"context"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -96,6 +97,20 @@ func (s *Status) GetCondition(t apis.ConditionType) *apis.Condition {
 	return nil
 }
 
+// ConvertTo helps implement apis.Convertible for types embedding this Status.
+func (source *Status) ConvertTo(ctx context.Context, sink *Status) {
+	sink.ObservedGeneration = source.ObservedGeneration
+	for _, c := range source.Conditions {
+		switch c.Type {
+		// Copy over the "happy" condition, which is the only condition that
+		// we can reliably transfer.
+		case apis.ConditionReady, apis.ConditionSucceeded:
+			sink.SetConditions(apis.Conditions{c})
+			return
+		}
+	}
+}
+
 // Populate implements duck.Populatable
 func (t *KResource) Populate() {
 	t.Status.ObservedGeneration = 42
@@ -110,7 +125,7 @@ func (t *KResource) Populate() {
 }
 
 // GetListType implements apis.Listable
-func (r *KResource) GetListType() runtime.Object {
+func (*KResource) GetListType() runtime.Object {
 	return &KResourceList{}
 }
 
