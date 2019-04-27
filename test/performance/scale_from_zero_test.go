@@ -237,7 +237,5 @@ func TestScaleFromZero5(t *testing.T) {
 }
 
 func TestScaleFromZero50(t *testing.T) {
-	// See: #3021
-	t.Skip()
 	testScaleFromZero(t, 50 /* parallelism */, 5 /* runs */)
 }
