@@ -32,7 +32,7 @@ import (
 func GetSecrets(ci *v1alpha1.ClusterIngress, secretLister corev1listers.SecretLister) (map[string]*corev1.Secret, error) {
 	secrets := map[string]*corev1.Secret{}
 	for _, tls := range ci.Spec.TLS {
-		ref := fmt.Sprintf("%s/%s", tls.SecretNamespace, tls.SecretName)
+		ref := secretKey(&tls)
 		if _, ok := secrets[ref]; ok {
 			continue
 		}
@@ -79,7 +79,7 @@ func makeSecret(originSecret *corev1.Secret, targetNamespace string) *corev1.Sec
 
 // targetSecret returns the name of the Secret that is copied from the origin Secret.
 func targetSecret(originSecret *corev1.Secret) string {
-	return fmt.Sprintf("%s--%s--%s", originSecret.Namespace, originSecret.Name, originSecret.UID)
+	return fmt.Sprintf("tls-%s", originSecret.UID)
 }
 
 // SecretRef returns the ObjectReference of a secret given the namespace and name of the secret.
@@ -92,4 +92,9 @@ func SecretRef(namespace, name string) corev1.ObjectReference {
 		Namespace:  namespace,
 		Name:       name,
 	}
+}
+
+// Generates the k8s secret key with the given TLS.
+func secretKey(tls *v1alpha1.ClusterIngressTLS) string {
+	return fmt.Sprintf("%s/%s", tls.SecretNamespace, tls.SecretName)
 }

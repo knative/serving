@@ -17,10 +17,12 @@ limitations under the License.
 package resources
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/knative/pkg/apis/istio/v1alpha3"
+	"github.com/knative/pkg/system"
 	"github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/reconciler/clusteringress/config"
 	corev1 "k8s.io/api/core/v1"
@@ -30,7 +32,7 @@ import (
 var secret = corev1.Secret{
 	ObjectMeta: metav1.ObjectMeta{
 		Name:      "secret0",
-		Namespace: "knative-serving",
+		Namespace: system.Namespace(),
 	},
 	Data: map[string][]byte{
 		"test": []byte("test"),
@@ -38,7 +40,7 @@ var secret = corev1.Secret{
 }
 
 var originSecrets = map[string]*corev1.Secret{
-	"knative-serving/secret0": &secret,
+	fmt.Sprintf("%s/secret0", system.Namespace()): &secret,
 }
 
 var gateway = v1alpha3.Gateway{
@@ -85,7 +87,7 @@ var clusterIngress = v1alpha1.ClusterIngress{
 		TLS: []v1alpha1.ClusterIngressTLS{{
 			Hosts:             []string{"host1.example.com"},
 			SecretName:        "secret0",
-			SecretNamespace:   "knative-serving",
+			SecretNamespace:   system.Namespace(),
 			ServerCertificate: "tls.crt",
 			PrivateKey:        "tls.key",
 		}},
@@ -124,7 +126,7 @@ func TestMakeServers(t *testing.T) {
 	}{{
 		name: "secret namespace is the different from the gateway service namespace",
 		ci:   &clusterIngress,
-		// gateway service namespace is "istio-system", while the secret namespace is "knative-serving".
+		// gateway service namespace is "istio-system", while the secret namespace is system.Namespace()("knative-testing").
 		gatewayServiceNamespace: "istio-system",
 		originSecrets:           originSecrets,
 		expected: []v1alpha3.Server{{
@@ -144,8 +146,8 @@ func TestMakeServers(t *testing.T) {
 	}, {
 		name: "secret namespace is the same as the gateway service namespace",
 		ci:   &clusterIngress,
-		// gateway service namespace and the secret namespace are both in "knative-serving".
-		gatewayServiceNamespace: "knative-serving",
+		// gateway service namespace and the secret namespace are both in system.Namespace().
+		gatewayServiceNamespace: system.Namespace(),
 		originSecrets:           originSecrets,
 		expected: []v1alpha3.Server{{
 			Hosts: []string{"host1.example.com"},

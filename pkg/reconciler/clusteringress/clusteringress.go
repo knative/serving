@@ -457,6 +457,8 @@ func (c *Reconciler) reconcileCertSecrets(ctx context.Context, ci *v1alpha1.Clus
 }
 
 func (c *Reconciler) reconcileCertSecret(ctx context.Context, ci *v1alpha1.ClusterIngress, desired *corev1.Secret) error {
+	// We track the origin and desired secrets so that desired secrets could be synced accordingly when the origin TLS certificate
+	// secret is refreshed.
 	c.tracker.Track(resources.SecretRef(desired.Namespace, desired.Name), ci)
 	c.tracker.Track(resources.SecretRef(desired.Labels[networking.OriginSecretNamespaceLabelKey], desired.Labels[networking.OriginSecretNameLabelKey]), ci)
 

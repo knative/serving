@@ -80,11 +80,11 @@ func MakeServers(ci *v1alpha1.ClusterIngress, gatewayServiceNamespace string, or
 		// If the origin secret is not in the target namespace, then it should have been
 		// copied into the target namespace. So we use the name of the copy.
 		if tls.SecretNamespace != gatewayServiceNamespace {
-			orginSecret, ok := originSecrets[fmt.Sprintf("%s/%s", tls.SecretNamespace, tls.SecretName)]
+			originSecret, ok := originSecrets[secretKey(&tls)]
 			if !ok {
 				return nil, fmt.Errorf("Unable to get the original secret %s/%s", tls.SecretNamespace, tls.SecretName)
 			}
-			credentialName = targetSecret(orginSecret)
+			credentialName = targetSecret(originSecret)
 		}
 		servers = append(servers, v1alpha3.Server{
 			Hosts: tls.Hosts,
