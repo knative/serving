@@ -39,7 +39,7 @@ func TestCmdArgsService(t *testing.T) {
 	defer test.TearDown(clients, names)
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 
-	text := "THIS IS THE CMD AND ARGS TEST"
+	const text = "THIS IS THE CMD AND ARGS TEST"
 
 	// Setup initial Service
 	_, err := test.CreateRunLatestServiceReady(t, clients, &names, &test.Options{},
