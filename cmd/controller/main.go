@@ -27,8 +27,6 @@ import (
 	// Uncomment the following line to load the gcp plugin (only required to authenticate against GKE clusters).
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 
-	certmanagerclientset "github.com/jetstack/cert-manager/pkg/client/clientset/versioned"
-	certmanagerinformers "github.com/jetstack/cert-manager/pkg/client/informers/externalversions"
 	cachinginformers "github.com/knative/caching/pkg/client/informers/externalversions"
 	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/controller"
@@ -38,7 +36,6 @@ import (
 	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/pkg/metrics"
 	"github.com/knative/serving/pkg/reconciler"
-	"github.com/knative/serving/pkg/reconciler/certificate"
 	"github.com/knative/serving/pkg/reconciler/configuration"
 	"github.com/knative/serving/pkg/reconciler/labeler"
 	"github.com/knative/serving/pkg/reconciler/revision"
@@ -80,7 +77,7 @@ func main() {
 		logger.Fatalw("Error building kubeconfig", zap.Error(err))
 	}
 
-	const numControllers = 7
+	const numControllers = 6
 	cfg.QPS = numControllers * rest.DefaultQPS
 	cfg.Burst = numControllers * rest.DefaultBurst
 	opt := reconciler.NewOptionsOrDie(cfg, logger, stopCh)
@@ -89,12 +86,6 @@ func main() {
 	servingInformerFactory := informers.NewSharedInformerFactory(opt.ServingClientSet, opt.ResyncPeriod)
 	cachingInformerFactory := cachinginformers.NewSharedInformerFactory(opt.CachingClientSet, opt.ResyncPeriod)
 	buildInformerFactory := revision.KResourceTypedInformerFactory(opt)
-
-	certManagerClient, err := certmanagerclientset.NewForConfig(cfg)
-	if err != nil {
-		logger.Fatalf("Error building cert manager clientset: %v", err)
-	}
-	cmCertInformerFactory := certmanagerinformers.NewSharedInformerFactory(certManagerClient, opt.ResyncPeriod)
 
 	serviceInformer := servingInformerFactory.Serving().V1alpha1().Services()
 	routeInformer := servingInformerFactory.Serving().V1alpha1().Routes()
@@ -108,8 +99,6 @@ func main() {
 	endpointsInformer := kubeInformerFactory.Core().V1().Endpoints()
 	configMapInformer := kubeInformerFactory.Core().V1().ConfigMaps()
 	imageInformer := cachingInformerFactory.Caching().V1alpha1().Images()
-	knCertInformer := servingInformerFactory.Networking().V1alpha1().Certificates()
-	cmCertInformer := cmCertInformerFactory.Certmanager().V1alpha1().Certificates()
 
 	// Build all of our controllers, with the clients constructed above.
 	// Add new controllers to this array.
@@ -151,12 +140,6 @@ func main() {
 			revisionInformer,
 			routeInformer,
 		),
-		certificate.NewController(
-			opt,
-			knCertInformer,
-			cmCertInformer,
-			certManagerClient,
-		),
 		serverlessservice.NewController(
 			opt,
 			sksInformer,
@@ -192,8 +175,6 @@ func main() {
 		routeInformer.Informer(),
 		serviceInformer.Informer(),
 		sksInformer.Informer(),
-		knCertInformer.Informer(),
-		cmCertInformer.Informer(),
 	); err != nil {
 		logger.Fatalw("Failed to start informers", err)
 	}
