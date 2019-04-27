@@ -102,7 +102,7 @@ func main() {
 
 	// Build all of our controllers, with the clients constructed above.
 	// Add new controllers to this array.
-	controllers := []*controller.Impl{
+	controllersArray := [...]*controller.Impl{
 		configuration.NewController(
 			opt,
 			configurationInformer,
@@ -147,9 +147,9 @@ func main() {
 			endpointsInformer,
 		),
 	}
-	if len(controllers) != numControllers {
-		logger.Fatalf("Number of controllers and QPS settings mismatch: %d != %d", len(controllers), numControllers)
-	}
+	controllers := controllersArray[:]
+	// compile-time assert numControllers == len(controllersArray)
+	var _ [numControllers - len(controllersArray)][len(controllersArray) - numControllers]int
 
 	// Watch the logging config map and dynamically update logging levels.
 	opt.ConfigMapWatcher.Watch(logging.ConfigMapName(), logging.UpdateLevelFromConfigMap(logger, atomicLevel, component))
