@@ -38,7 +38,6 @@ import (
 	"github.com/knative/serving/pkg/activator"
 	activatorconfig "github.com/knative/serving/pkg/activator/config"
 	activatorhandler "github.com/knative/serving/pkg/activator/handler"
-	activatorutil "github.com/knative/serving/pkg/activator/util"
 	"github.com/knative/serving/pkg/apis/networking"
 	nv1a1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving"
@@ -47,7 +46,6 @@ import (
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
 	servinginformers "github.com/knative/serving/pkg/client/informers/externalversions"
 	"github.com/knative/serving/pkg/goversion"
-	"github.com/knative/serving/pkg/http/h2c"
 	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/pkg/metrics"
 	"github.com/knative/serving/pkg/network"
@@ -283,7 +281,7 @@ func main() {
 	// Create activation handler chain
 	// Note: innermost handlers are specified first, ie. the last handler in the chain will be executed first
 	var ah http.Handler = &activatorhandler.ActivationHandler{
-		Transport:     activatorutil.AutoTransport,
+		Transport:     network.AutoTransport,
 		Logger:        logger,
 		Reporter:      reporter,
 		Throttler:     throttler,
@@ -306,14 +304,14 @@ func main() {
 		logger.Fatalw("Failed to start configuration manager", zap.Error(err))
 	}
 
-	http1Srv := h2c.NewServer(fmt.Sprintf(":%d", networking.BackendHTTPPort), ah)
+	http1Srv := network.NewServer(fmt.Sprintf(":%d", networking.BackendHTTPPort), ah)
 	go func() {
 		if err := http1Srv.ListenAndServe(); err != nil {
 			logger.Errorw("Error running HTTP server", zap.Error(err))
 		}
 	}()
 
-	h2cSrv := h2c.NewServer(fmt.Sprintf(":%d", networking.BackendHTTP2Port), ah)
+	h2cSrv := network.NewServer(fmt.Sprintf(":%d", networking.BackendHTTP2Port), ah)
 	go func() {
 		if err := h2cSrv.ListenAndServe(); err != nil {
 			logger.Errorw("Error running HTTP server", zap.Error(err))
