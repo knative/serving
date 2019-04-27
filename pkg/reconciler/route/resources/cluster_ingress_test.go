@@ -397,7 +397,7 @@ func TestMakeClusterIngressRule_InactiveTarget(t *testing.T) {
 			RevisionName:      "revision",
 			Percent:           100,
 		},
-		ServiceName: "strange-quark-pub",
+		ServiceName: "strange-quark",
 		Active:      false,
 	}}
 	domains := []string{"a.com", "b.org"}
@@ -437,7 +437,7 @@ func TestMakeClusterIngressRule_TwoInactiveTargets(t *testing.T) {
 			RevisionName:      "revision",
 			Percent:           80,
 		},
-		ServiceName: "up-quark-pub",
+		ServiceName: "up-quark",
 		Active:      false,
 	}, {
 		TrafficTarget: v1beta1.TrafficTarget{
@@ -445,7 +445,7 @@ func TestMakeClusterIngressRule_TwoInactiveTargets(t *testing.T) {
 			RevisionName:      "new-revision",
 			Percent:           20,
 		},
-		ServiceName: "down-quark-pub",
+		ServiceName: "down-quark",
 		Active:      false,
 	}}
 	domains := []string{"a.com", "b.org"}

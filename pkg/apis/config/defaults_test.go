@@ -42,6 +42,7 @@ func TestDefaultsConfigurationFromFile(t *testing.T) {
 }
 
 func TestDefaultsConfiguration(t *testing.T) {
+	oneTwoThree := resource.MustParse("123m")
 	configTests := []struct {
 		name         string
 		wantErr      bool
@@ -52,7 +53,6 @@ func TestDefaultsConfiguration(t *testing.T) {
 		wantErr: false,
 		wantDefaults: &Defaults{
 			RevisionTimeoutSeconds: DefaultRevisionTimeoutSeconds,
-			RevisionCPURequest:     DefaultRevisionCPURequest,
 		},
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
@@ -66,7 +66,7 @@ func TestDefaultsConfiguration(t *testing.T) {
 		wantErr: false,
 		wantDefaults: &Defaults{
 			RevisionTimeoutSeconds: 123,
-			RevisionCPURequest:     resource.MustParse("123m"),
+			RevisionCPURequest:     &oneTwoThree,
 		},
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{

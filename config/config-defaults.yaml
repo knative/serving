@@ -42,5 +42,21 @@ data:
     revision-timeout-seconds: "300"  # 5 minutes
 
     # revision-cpu-request contains the cpu allocation to assign
-    # to revisions by default.
+    # to revisions by default.  If omitted, no value is specified
+    # and the system default is used.
     revision-cpu-request: "400m"  # 0.4 of a CPU (aka 400 milli-CPU)
+
+    # revision-memory-request contains the memory allocation to assign
+    # to revisions by default.  If omitted, no value is specified
+    # and the system default is used.
+    revision-memory-request: "100M"  # 100 megabytes of memory
+
+    # revision-cpu-limit contains the cpu allocation to limit
+    # revisions to by default.  If omitted, no value is specified
+    # and the system default is used.
+    revision-cpu-limit: "1000m"  # 1 CPU (aka 1000 milli-CPU)
+
+    # revision-memory-limit contains the memory allocation to limit
+    # revisions to by default.  If omitted, no value is specified
+    # and the system default is used.
+    revision-memory-limit: "200M"  # 200 megabytes of memory
