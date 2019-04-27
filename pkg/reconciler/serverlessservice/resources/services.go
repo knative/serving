@@ -28,25 +28,12 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
-const (
-	servicePortNameHTTP1 = "http"
-	servicePortNameH2C   = "http2"
-)
-
 // targetPort chooses the target (pod) port for the public and private service.
 func targetPort(sks *v1alpha1.ServerlessService) intstr.IntOrString {
 	if sks.Spec.ProtocolType == networking.ProtocolH2C {
 		return intstr.FromInt(networking.BackendHTTP2Port)
 	}
 	return intstr.FromInt(networking.BackendHTTPPort)
-}
-
-// servicePort chooses the service (load balancer) port for the public service.
-func servicePort(sks *v1alpha1.ServerlessService) int32 {
-	if sks.Spec.ProtocolType == networking.ProtocolH2C {
-		return networking.ServiceHTTP2Port
-	}
-	return networking.ServiceHTTPPort
 }
 
 // MakePublicService constructs a K8s Service that is not backed a selector
@@ -66,9 +53,9 @@ func MakePublicService(sks *v1alpha1.ServerlessService) *corev1.Service {
 		},
 		Spec: corev1.ServiceSpec{
 			Ports: []corev1.ServicePort{{
-				Name:       servicePortName(sks),
+				Name:       networking.ServicePortName(sks.Spec.ProtocolType),
 				Protocol:   corev1.ProtocolTCP,
-				Port:       servicePort(sks),
+				Port:       networking.ServicePort(sks.Spec.ProtocolType),
 				TargetPort: targetPort(sks),
 			}},
 		},
@@ -116,7 +103,7 @@ func MakePrivateService(sks *v1alpha1.ServerlessService, selector map[string]str
 		},
 		Spec: corev1.ServiceSpec{
 			Ports: []corev1.ServicePort{{
-				Name:     servicePortName(sks),
+				Name:     networking.ServicePortName(sks.Spec.ProtocolType),
 				Protocol: corev1.ProtocolTCP,
 				// TODO(vagababov): make this work with matching port.
 				Port: networking.ServiceHTTPPort,
@@ -127,12 +114,4 @@ func MakePrivateService(sks *v1alpha1.ServerlessService, selector map[string]str
 			Selector: selector,
 		},
 	}
-}
-
-// servicePortName returns the well-known port name.
-func servicePortName(sks *v1alpha1.ServerlessService) string {
-	if sks.Spec.ProtocolType == "h2c" {
-		return servicePortNameH2C
-	}
-	return servicePortNameHTTP1
 }

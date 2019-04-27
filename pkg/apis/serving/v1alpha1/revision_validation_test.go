@@ -34,92 +34,6 @@ import (
 	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 )
 
-func TestBuildRefValidation(t *testing.T) {
-	tests := []struct {
-		name string
-		r    *corev1.ObjectReference
-		want *apis.FieldError
-	}{{
-		name: "nil",
-	}, {
-		name: "no api version",
-		r:    &corev1.ObjectReference{},
-		want: apis.ErrInvalidValue("", "apiVersion"),
-	}, {
-		name: "bad api version",
-		r: &corev1.ObjectReference{
-			APIVersion: "/v1alpha1",
-		},
-		want: apis.ErrInvalidValue("/v1alpha1", "apiVersion"),
-	}, {
-		name: "no kind",
-		r: &corev1.ObjectReference{
-			APIVersion: "foo/v1alpha1",
-		},
-		want: apis.ErrInvalidValue("", "kind"),
-	}, {
-		name: "bad kind",
-		r: &corev1.ObjectReference{
-			APIVersion: "foo/v1alpha1",
-			Kind:       "Bad Kind",
-		},
-		want: apis.ErrInvalidValue("Bad Kind", "kind"),
-	}, {
-		name: "no namespace",
-		r: &corev1.ObjectReference{
-			APIVersion: "foo.group/v1alpha1",
-			Kind:       "Bar",
-			Name:       "the-bar-0001",
-		},
-		want: nil,
-	}, {
-		name: "no name",
-		r: &corev1.ObjectReference{
-			APIVersion: "foo.group/v1alpha1",
-			Kind:       "Bar",
-		},
-		want: apis.ErrInvalidValue("", "name"),
-	}, {
-		name: "bad name",
-		r: &corev1.ObjectReference{
-			APIVersion: "foo.group/v1alpha1",
-			Kind:       "Bar",
-			Name:       "bad name",
-		},
-		want: apis.ErrInvalidValue("bad name", "name"),
-	}, {
-		name: "disallowed fields",
-		r: &corev1.ObjectReference{
-			APIVersion: "foo.group/v1alpha1",
-			Kind:       "Bar",
-			Name:       "bar0001",
-
-			Namespace:       "foo",
-			FieldPath:       "some.field.path",
-			ResourceVersion: "234234",
-			UID:             "deadbeefcafebabe",
-		},
-		want: apis.ErrDisallowedFields("namespace", "fieldPath", "resourceVersion", "uid"),
-	}, {
-		name: "all good",
-		r: &corev1.ObjectReference{
-			APIVersion: "foo.group/v1alpha1",
-			Kind:       "Bar",
-			Name:       "bar0001",
-		},
-		want: nil,
-	}}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			got := validateBuildRef(test.r)
-			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
-				t.Errorf("validateBuildRef (-want, +got) = %v", diff)
-			}
-		})
-	}
-}
-
 func TestConcurrencyModelValidation(t *testing.T) {
 	tests := []struct {
 		name string
@@ -268,7 +182,8 @@ func TestRevisionSpecValidation(t *testing.T) {
 			},
 			DeprecatedBuildRef: &corev1.ObjectReference{},
 		},
-		want: apis.ErrInvalidValue("", "buildRef.apiVersion"),
+		want: apis.ErrMissingField("buildRef.apiVersion",
+			"buildRef.kind", "buildRef.name"),
 	}, {
 		name: "bad concurrency model",
 		rs: &RevisionSpec{

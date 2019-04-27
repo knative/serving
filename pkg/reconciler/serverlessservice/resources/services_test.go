@@ -62,7 +62,7 @@ func TestMakePublicService(t *testing.T) {
 		want: &corev1.Service{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: "melon",
-				Name:      "collie-pub",
+				Name:      "collie",
 				Labels: map[string]string{
 					// Those should be propagated.
 					serving.RevisionLabelKey:  "collie",
@@ -82,7 +82,7 @@ func TestMakePublicService(t *testing.T) {
 			},
 			Spec: corev1.ServiceSpec{
 				Ports: []corev1.ServicePort{{
-					Name:       servicePortNameHTTP1,
+					Name:       networking.ServicePortNameHTTP1,
 					Protocol:   corev1.ProtocolTCP,
 					Port:       networking.ServiceHTTPPort,
 					TargetPort: intstr.FromInt(networking.BackendHTTPPort),
@@ -110,7 +110,7 @@ func TestMakePublicService(t *testing.T) {
 		want: &corev1.Service{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: "melon",
-				Name:      "collie-pub",
+				Name:      "collie",
 				Labels: map[string]string{
 					// Those should be propagated.
 					serving.RevisionLabelKey:  "collie",
@@ -130,7 +130,7 @@ func TestMakePublicService(t *testing.T) {
 			},
 			Spec: corev1.ServiceSpec{
 				Ports: []corev1.ServicePort{{
-					Name:       servicePortNameHTTP1,
+					Name:       networking.ServicePortNameHTTP1,
 					Protocol:   corev1.ProtocolTCP,
 					Port:       networking.ServiceHTTPPort,
 					TargetPort: intstr.FromInt(networking.BackendHTTPPort),
@@ -161,7 +161,7 @@ func TestMakePublicService(t *testing.T) {
 		want: &corev1.Service{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: "siamese",
-				Name:      "dream-pub",
+				Name:      "dream",
 				Labels: map[string]string{
 					// Those should be propagated.
 					serving.RevisionLabelKey:  "dream",
@@ -183,7 +183,7 @@ func TestMakePublicService(t *testing.T) {
 			},
 			Spec: corev1.ServiceSpec{
 				Ports: []corev1.ServicePort{{
-					Name:       servicePortNameH2C,
+					Name:       networking.ServicePortNameH2C,
 					Protocol:   corev1.ProtocolTCP,
 					Port:       networking.ServiceHTTP2Port,
 					TargetPort: intstr.FromInt(networking.BackendHTTP2Port),
@@ -214,7 +214,7 @@ func TestMakePublicService(t *testing.T) {
 		want: &corev1.Service{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: "siamese",
-				Name:      "dream-pub",
+				Name:      "dream",
 				Labels: map[string]string{
 					// Those should be propagated.
 					serving.RevisionLabelKey:  "dream",
@@ -236,7 +236,7 @@ func TestMakePublicService(t *testing.T) {
 			},
 			Spec: corev1.ServiceSpec{
 				Ports: []corev1.ServicePort{{
-					Name:       servicePortNameH2C,
+					Name:       networking.ServicePortNameH2C,
 					Protocol:   corev1.ProtocolTCP,
 					Port:       networking.ServiceHTTP2Port,
 					TargetPort: intstr.FromInt(networking.BackendHTTP2Port),
@@ -267,7 +267,7 @@ func TestMakePublicService(t *testing.T) {
 		want: &corev1.Service{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: "siamese",
-				Name:      "dream-pub",
+				Name:      "dream",
 				Labels: map[string]string{
 					// Those should be propagated.
 					serving.RevisionLabelKey:  "dream",
@@ -289,7 +289,7 @@ func TestMakePublicService(t *testing.T) {
 			},
 			Spec: corev1.ServiceSpec{
 				Ports: []corev1.ServicePort{{
-					Name:       servicePortNameH2C,
+					Name:       networking.ServicePortNameH2C,
 					Protocol:   corev1.ProtocolTCP,
 					Port:       networking.ServiceHTTP2Port,
 					TargetPort: intstr.FromInt(networking.BackendHTTP2Port),
@@ -339,7 +339,7 @@ func TestMakeEndpoints(t *testing.T) {
 		want: &corev1.Endpoints{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: "melon",
-				Name:      "collie-pub",
+				Name:      "collie",
 				Labels: map[string]string{
 					serving.RevisionLabelKey:  "collie",
 					serving.RevisionUID:       "1982",
@@ -399,7 +399,7 @@ func TestMakeEndpoints(t *testing.T) {
 		want: &corev1.Endpoints{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: "melon",
-				Name:      "collie-pub",
+				Name:      "collie",
 				Labels: map[string]string{
 					serving.RevisionLabelKey:  "collie",
 					serving.RevisionUID:       "1982",
@@ -499,7 +499,7 @@ func TestMakePrivateService(t *testing.T) {
 					"app": "sadness",
 				},
 				Ports: []corev1.ServicePort{{
-					Name:       servicePortNameHTTP1,
+					Name:       networking.ServicePortNameHTTP1,
 					Protocol:   corev1.ProtocolTCP,
 					Port:       networking.ServiceHTTPPort,
 					TargetPort: intstr.FromInt(networking.BackendHTTPPort),
@@ -557,7 +557,7 @@ func TestMakePrivateService(t *testing.T) {
 					"app": "today",
 				},
 				Ports: []corev1.ServicePort{{
-					Name:       servicePortNameH2C,
+					Name:       networking.ServicePortNameH2C,
 					Protocol:   corev1.ProtocolTCP,
 					Port:       networking.ServiceHTTPPort,
 					TargetPort: intstr.FromInt(networking.BackendHTTP2Port),

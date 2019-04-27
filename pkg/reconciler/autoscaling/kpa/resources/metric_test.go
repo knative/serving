@@ -97,7 +97,7 @@ func metric(options ...MetricOption) *autoscaler.Metric {
 			},
 		},
 		Spec: autoscaler.MetricSpec{
-			StableWindow: autoscaler.DefaultStableWindow,
+			StableWindow: 60 * time.Second,
 			PanicWindow:  6 * time.Second,
 		},
 	}

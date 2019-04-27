@@ -81,7 +81,7 @@ func testConfiguration() *v1alpha1.Configuration {
 }
 
 func serviceName(rn string) string {
-	return rn + "-pub"
+	return rn
 }
 
 func testReadyEndpoints(revName string) *corev1.Endpoints {

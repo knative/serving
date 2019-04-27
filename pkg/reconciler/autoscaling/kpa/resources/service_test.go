@@ -25,7 +25,6 @@ import (
 	pav1a1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/serving"
-	autoscalingv1 "k8s.io/api/autoscaling/v1"
 )
 
 func TestMakeService(t *testing.T) {
@@ -44,7 +43,7 @@ func TestMakeService(t *testing.T) {
 			},
 		},
 		Spec: pav1a1.PodAutoscalerSpec{
-			ScaleTargetRef: autoscalingv1.CrossVersionObjectReference{
+			ScaleTargetRef: corev1.ObjectReference{
 				APIVersion: "apps/v1",
 				Kind:       "Deployment",
 				Name:       "with-you",

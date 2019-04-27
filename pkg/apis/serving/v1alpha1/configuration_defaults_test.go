@@ -32,9 +32,8 @@ import (
 
 var (
 	defaultResources = corev1.ResourceRequirements{
-		Requests: corev1.ResourceList{
-			corev1.ResourceCPU: resource.MustParse("400m"),
-		},
+		Requests: corev1.ResourceList{},
+		Limits:   corev1.ResourceList{},
 	}
 	ignoreUnexportedResources = cmpopts.IgnoreUnexported(resource.Quantity{})
 )
