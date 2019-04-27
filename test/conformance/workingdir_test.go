@@ -38,7 +38,7 @@ func TestWorkingDirService(t *testing.T) {
 	defer test.TearDown(clients, names)
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 
-	wd := "/foo/bar/baz"
+	const wd = "/foo/bar/baz"
 
 	// Setup initial Service
 	_, err := test.CreateRunLatestServiceReady(t, clients, &names, &test.Options{},

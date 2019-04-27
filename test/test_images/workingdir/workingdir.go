@@ -26,18 +26,16 @@ import (
 	"github.com/knative/serving/test"
 )
 
+var wd string
+
 func handler(w http.ResponseWriter, r *http.Request) {
-	wd, err := os.Getwd()
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
 	fmt.Fprintln(w, wd)
 }
 
 func main() {
 	flag.Parse()
-	log.Print("WorkingDir app started.")
+	wd, _ = os.Getwd()
+	log.Printf("WorkingDir app started in %q.", wd)
 
 	test.ListenAndServeGracefully(":8080", handler)
 }
