@@ -30,7 +30,6 @@ import (
 
 	. "github.com/knative/pkg/logging/testing"
 	"github.com/knative/serving/pkg/activator"
-	"github.com/knative/serving/pkg/activator/util"
 	nv1a1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
@@ -387,7 +386,7 @@ func TestActivationHandler(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.label, func(t *testing.T) {
-			rt := util.RoundTripperFunc(func(r *http.Request) (*http.Response, error) {
+			rt := network.RoundTripperFunc(func(r *http.Request) (*http.Response, error) {
 				if r.Header.Get(network.ProbeHeaderName) != "" {
 					if test.probeErr != nil {
 						return nil, test.probeErr
@@ -517,7 +516,7 @@ func TestActivationHandler_ProxyHeader(t *testing.T) {
 	namespace, revName := testNamespace, testRevName
 
 	interceptCh := make(chan *http.Request, 1)
-	rt := util.RoundTripperFunc(func(r *http.Request) (*http.Response, error) {
+	rt := network.RoundTripperFunc(func(r *http.Request) (*http.Response, error) {
 		interceptCh <- r
 		fake := httptest.NewRecorder()
 		return fake.Result(), nil
@@ -586,7 +585,7 @@ func getThrottler(breakerParams queue.BreakerParams, t *testing.T) *activator.Th
 // getHandler returns an already setup ActivationHandler. The roundtripper is controlled
 // via the given `lockerCh`.
 func getHandler(throttler *activator.Throttler, lockerCh chan struct{}, t *testing.T) ActivationHandler {
-	rt := util.RoundTripperFunc(func(r *http.Request) (*http.Response, error) {
+	rt := network.RoundTripperFunc(func(r *http.Request) (*http.Response, error) {
 		// Allows only one request at a time until read from.
 		lockerCh <- struct{}{}
 

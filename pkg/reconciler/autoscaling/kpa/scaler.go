@@ -168,7 +168,18 @@ func (ks *scaler) handleScaleToZero(pa *pav1alpha1.PodAutoscaler, desiredScale i
 			// Otherwise, scale down to 1 until the idle period elapses.
 			desiredScale = 1
 		} else { // Active=False
+			r, err := activatorProbe(pa)
+			ks.logger.Infof("%s probing activator = %v, err = %v", pa.Name, r, err)
+			if err != nil {
+				ks.logger.Errorf("Error probing activator: %v", err)
+				return desiredScale, false
+			}
+			if !r {
+				ks.logger.Infof("%s is not yet backed by activator, cannot scale to zero", pa.Name)
+				return desiredScale, false
+			}
 			// Don't scale-to-zero if the grace period hasn't elapsed.
+			// TODO(vagababov): perhaps get rid of this?
 			if !pa.Status.CanScaleToZero(config.ScaleToZeroGracePeriod) {
 				return desiredScale, false
 			}
@@ -244,6 +255,5 @@ func (ks *scaler) Scale(ctx context.Context, pa *pav1alpha1.PodAutoscaler, desir
 	}
 
 	logger.Infof("Scaling from %d to %d", currentScale, desiredScale)
-
 	return ks.applyScale(ctx, pa, desiredScale, ps)
 }

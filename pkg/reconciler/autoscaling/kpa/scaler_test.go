@@ -17,6 +17,7 @@ limitations under the License.
 package kpa
 
 import (
+	"errors"
 	"fmt"
 	"strconv"
 	"testing"
@@ -63,6 +64,7 @@ func TestScaler(t *testing.T) {
 		wantReplicas  int32
 		wantScaling   bool
 		kpaMutation   func(*pav1alpha1.PodAutoscaler)
+		proberfunc    func(*pav1alpha1.PodAutoscaler) (bool, error)
 	}{{
 		label:         "waits to scale to zero (just before idle period)",
 		startReplicas: 1,
@@ -108,6 +110,26 @@ func TestScaler(t *testing.T) {
 		kpaMutation: func(k *pav1alpha1.PodAutoscaler) {
 			kpaMarkInactive(k, time.Now().Add(-gracePeriod))
 		},
+	}, {
+		label:         "scale to zero after grace period, but fail prober",
+		startReplicas: 1,
+		scaleTo:       0,
+		wantReplicas:  0,
+		wantScaling:   false,
+		kpaMutation: func(k *pav1alpha1.PodAutoscaler) {
+			kpaMarkInactive(k, time.Now().Add(-gracePeriod))
+		},
+		proberfunc: func(*pav1alpha1.PodAutoscaler) (bool, error) { return true, errors.New("hell or high water") },
+	}, {
+		label:         "scale to zero after grace period, but wrong prober response",
+		startReplicas: 1,
+		scaleTo:       0,
+		wantReplicas:  0,
+		wantScaling:   false,
+		kpaMutation: func(k *pav1alpha1.PodAutoscaler) {
+			kpaMarkInactive(k, time.Now().Add(-gracePeriod))
+		},
+		proberfunc: func(*pav1alpha1.PodAutoscaler) (bool, error) { return false, nil },
 	}, {
 		label:         "does not scale while activating",
 		startReplicas: 1,
@@ -180,6 +202,11 @@ func TestScaler(t *testing.T) {
 			// The clients for our testing.
 			servingClient := fakeKna.NewSimpleClientset()
 			dynamicClient := fakedynamic.NewSimpleDynamicClient(NewScheme())
+			if test.proberfunc != nil {
+				activatorProbe = test.proberfunc
+			} else {
+				activatorProbe = func(*pav1alpha1.PodAutoscaler) (bool, error) { return true, nil }
+			}
 
 			opts := reconciler.Options{
 				DynamicClientSet: dynamicClient,
