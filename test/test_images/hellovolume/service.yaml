@@ -26,7 +26,8 @@ spec:
         image: github.com/knative/serving/test/test_images/hellovolume
         volumeMounts:
         - name: foo
-          mountPath: /hello
+          mountPath: /hello/world
+          subPath: world
       volumes:
       - name: foo
         secret:

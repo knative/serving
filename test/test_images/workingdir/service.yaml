@@ -1,0 +1,11 @@
+apiVersion: serving.knative.dev/v1alpha1
+kind: Service
+metadata:
+  name: workingdir-test-image
+  namespace: default
+spec:
+  template:
+    spec:
+      containers:
+      - image: github.com/knative/serving/test/test_images/workingdir
+        workingdir: /foo/bar/baz
