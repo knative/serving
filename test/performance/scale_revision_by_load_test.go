@@ -175,7 +175,7 @@ func scaleRevisionByLoad(t *testing.T, numClients int) []junit.TestCase {
 	tc = append(tc, CreatePerfTestCase(float32(resp.Result[0].DurationHistogram.Count), "requestCount", t.Name()))
 	tc = append(tc, CreatePerfTestCase(float32(qpsPerClient*numClients), "requestedQPS", t.Name()))
 	tc = append(tc, CreatePerfTestCase(float32(resp.Result[0].ActualQPS), "actualQPS", t.Name()))
-	tc = append(tc, CreatePerfTestCase(float32(errorsPercentage(resp)), "errorsPercentage", t.Name()))
+	tc = append(tc, CreatePerfTestCase(float32(ErrorsPercentage(resp)), "errorsPercentage", t.Name()))
 
 	for ev := range scaleCh {
 		t.Logf("Scaled: %d -> %d in %v", ev.oldScale, ev.newScale, ev.timestamp.Sub(resp.Result[0].StartTime))
@@ -189,16 +189,4 @@ func scaleRevisionByLoad(t *testing.T, numClients int) []junit.TestCase {
 	}
 
 	return tc
-}
-
-func errorsPercentage(resp *loadgenerator.GeneratorResults) float64 {
-	var successes, errors int64
-	for retCode, count := range resp.Result[0].RetCodes {
-		if retCode == http.StatusOK {
-			successes = successes + count
-		} else {
-			errors = errors + count
-		}
-	}
-	return float64(errors*100) / float64(errors+successes)
 }

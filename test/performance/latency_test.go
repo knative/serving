@@ -100,6 +100,10 @@ func timeToServe(t *testing.T, img, query string, reqTimeout time.Duration) {
 		t.Fatalf("No result found for the load test")
 	}
 
+	if ErrorsPercentage(resp) > 0 {
+		t.Fatalf("Found non 200 response")
+	}
+
 	// Add latency metrics
 	var tc []junit.TestCase
 	for _, p := range resp.Result[0].DurationHistogram.Percentiles {
