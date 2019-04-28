@@ -48,11 +48,10 @@ $ knative deploy --service my-service
 ![Automatic Rollout](images/auto_rollout.png)
 
 After the initial Route and Configuration have been created (which is shown in
-the [second example](#2-creating-a-new-service)), the
-typical interaction is to update the revision configuration, resulting in the
-creation of a new revision, which will be automatically rolled out by the route.
-Revision configuration updates can be handled as either a PUT or PATCH
-operation:
+the [second example](#2-creating-a-new-service)), the typical interaction is to
+update the revision configuration, resulting in the creation of a new revision,
+which will be automatically rolled out by the route. Revision configuration
+updates can be handled as either a PUT or PATCH operation:
 
 - Optimistic concurrency controls for PUT operations in a read/modify/write
   routine work as expected in kubernetes.
@@ -64,8 +63,8 @@ In this and following examples PATCH is used. Revisions are built by directly
 supplying a container, which this first scenario illustrates. The example
 demonstrates the PATCH issued by the client, followed by several GET calls to
 illustrate each step in the reconciliation process as the system materializes
-the new revision, and begins shifting traffic from the old revision to the
-new revision.
+the new revision, and begins shifting traffic from the old revision to the new
+revision.
 
 The client PATCHes the service's configuration with new container image,
 inheriting previous environment values from the configuration spec:
@@ -83,7 +82,7 @@ spec:
   template: # template for building Revision
     spec:
       containers:
-      - image: gcr.io/... # new image
+        - image: gcr.io/... # new image
 ```
 
 This causes the controller to update the configuration's template revision with
@@ -98,7 +97,7 @@ spec:
   tempate: # template for building Revision
     spec:
       containers:
-      - image: gcr.io/... # new image
+        - image: gcr.io/... # new image
 ```
 
 The update to the Configuration triggers a new Revision being created, and the
@@ -282,11 +281,11 @@ creating a new Service, which will create both a Configuration and a new Route
 referring to that configuration. In turn, the Configuration will generate a new
 Revision. Note that these steps may occur in in parallel.
 
-With the Service defaults, the Route will reference the latest ready revision
-of a Configuration, as this example illustrates. This is the most
-straightforward scenario that many Knative Serving customers are expected to
-use, and is consistent with the experience of deploying code that is rolled out
-immediately. A Route may also directly reference a Revision, which is shown in
+With the Service defaults, the Route will reference the latest ready revision of
+a Configuration, as this example illustrates. This is the most straightforward
+scenario that many Knative Serving customers are expected to use, and is
+consistent with the experience of deploying code that is rolled out immediately.
+A Route may also directly reference a Revision, which is shown in
 [example 3](#3-managed-release-of-a-new-revision---config-change-only).
 
 The example shows the POST calls issued by the client, followed by several GET
@@ -495,11 +494,10 @@ status:
 
 **_Scenario_**: User updates configuration with new runtime arguments (env var
 change) to an existing service, tests the revision, then proceeds with a
-human-controlled rollout to 100%.  This scenario also illustrates being able
-to "bring your own revision name" to be able to rewrite the routing rules at
-the same time as the Revision is created (it will wait for the Revision to
-become Ready).
-
+human-controlled rollout to 100%. This scenario also illustrates being able to
+"bring your own revision name" to be able to rewrite the routing rules at the
+same time as the Revision is created (it will wait for the Revision to become
+Ready).
 
 ```
 $ knative release --service my-service strategy release
@@ -554,11 +552,10 @@ current,latest    100%     ghi   2018-01-19 12:16    user1
 - Update the Service's `traffic` block from the default using
   `latestRevision: true` to one using a specific `revisionName`.
 
-- Update the Service with the new configuration (env var), and
-  a name for that new Revision.
+- Update the Service with the new configuration (env var), and a name for that
+  new Revision.
 
-- Update the Service's `traffic` to reference the new revision
-  as `candidate`.
+- Update the Service's `traffic` to reference the new revision as `candidate`.
 
 - Adjust the `percentRollout` controlling the traffic on `candidate`.
 
@@ -566,10 +563,10 @@ current,latest    100%     ghi   2018-01-19 12:16    user1
 
 **Results:**
 
-- The system creates the new revision from the configuration, addressable at
-  a url available in `status.traffic`, but none of the main traffic is routed
-  to it until the rollout has adjusted the assigned percentage.  Upon
-  completing the rollout, the candidate revision is now the current revision.
+- The system creates the new revision from the configuration, addressable at a
+  url available in `status.traffic`, but none of the main traffic is routed to
+  it until the rollout has adjusted the assigned percentage. Upon completing the
+  rollout, the candidate revision is now the current revision.
 
 ![Release mode](images/release_mode.png)
 
@@ -577,9 +574,9 @@ In the previous examples, the Service automatically made changes to the
 configuration (newly created Revision) routable when they became ready. While
 this pattern is useful for many scenarios such as functions-as-a-service and
 simple development flows, the Service can also reference Revisions directly to
-route traffic to specific revisions.  This is also useful for rollbacks.
-(Note: see [example 3](#3-managed-release-of-a-new-revision---config-change-only)
-for a semi-automatic variation of managed rollouts).
+route traffic to specific revisions. This is also useful for rollbacks. (Note:
+see [example 3](#3-managed-release-of-a-new-revision---config-change-only) for a
+semi-automatic variation of managed rollouts).
 
 The client updates the service to change the traffic block:
 
@@ -596,14 +593,14 @@ spec:
   template:
     spec:
       containers:
-      - image: gcr.io/...
+        - image: gcr.io/...
   traffic:
-  - revisionName: def
-    tag: current
-    percent: 100
-  - latestRevision: true
-    tag: latest
-    percent: 0 # no direct traffic ever.
+    - revisionName: def
+      tag: current
+      percent: 100
+    - latestRevision: true
+      tag: latest
+      percent: 0 # no direct traffic ever.
 ```
 
 The Service controller updates the Route to put all traffic on the specified
@@ -617,12 +614,12 @@ metadata:
   name: my-service
 spec:
   traffic:
-  - revisionName: def
-    tag: current
-    percent: 100
-  - configurationName: my-service  # LatestReadyRevision of my-service
-    tag: latest
-    percent: 0 # no direct traffic ever.
+    - revisionName: def
+      tag: current
+      percent: 100
+    - configurationName: my-service # LatestReadyRevision of my-service
+      tag: latest
+      percent: 0 # no direct traffic ever.
 ```
 
 Next, the user updates the Service with the new variables and name, which causes
@@ -644,10 +641,10 @@ spec:
       name: ghi
     spec:
       containers:
-      - image: gcr.io/...
-        env:
-        - name: HELLO
-          value: blurg # changed value
+        - image: gcr.io/...
+          env:
+            - name: HELLO
+              value: blurg # changed value
 ```
 
 As in the previous example, the configuration is updated to trigger the creation
@@ -681,8 +678,8 @@ status:
 
 Even when ready, the new revision does not automatically start serving
 production traffic, as the route is still directing all traffic to revision
-`def`. It will, however, be optionally accessible via the url associated
-with the 0% `latest` tag for initial validation.
+`def`. It will, however, be optionally accessible via the url associated with
+the 0% `latest` tag for initial validation.
 
 The user can then begin the rollout of revision `ghi`:
 
@@ -697,21 +694,21 @@ metadata:
   name: my-service
 spec:
   traffic:
-  - revisionName: def
-    tag: current
-    percent: 100
-  - revisionName: ghi
-    tag: candidate
-    percent: 0
-  - latestRevision: true
-    tag: latest
-    percent: 0
+    - revisionName: def
+      tag: current
+      percent: 100
+    - revisionName: ghi
+      tag: candidate
+      percent: 0
+    - latestRevision: true
+      tag: latest
+      percent: 0
 ```
 
 This makes the route update the `candidate` name to point to the revision `ghi`.
 The new revision will still not receive any traffic, but can be accessed for
-testing, verification, etc under the url associated with the `candidate`
-tag under `status.traffic`.
+testing, verification, etc under the url associated with the `candidate` tag
+under `status.traffic`.
 
 To put traffic on `ghi`, the user can adjust `traffic`:
 
@@ -726,15 +723,15 @@ metadata:
   name: my-service
 spec:
   traffic:
-  - revisionName: def
-    tag: current
-    percent: 95
-  - revisionName: ghi
-    tag: candidate
-    percent: 5
-  - latestRevision: true
-    tag: latest
-    percent: 0
+    - revisionName: def
+      tag: current
+      percent: 95
+    - revisionName: ghi
+      tag: candidate
+      percent: 5
+    - latestRevision: true
+      tag: latest
+      percent: 0
 ```
 
 ```http
@@ -778,8 +775,8 @@ status:
 ```
 
 After testing and gradually rolling out the `candidate` revision, it can be
-promoted to `current` by updating the service to list only `ghi`
-in the `traffic` block.
+promoted to `current` by updating the service to list only `ghi` in the
+`traffic` block.
 
 ```http
 PATCH /apis/serving.knative.dev/v1alpha1/namespaces/default/services/my-service
@@ -792,12 +789,12 @@ metadata:
   name: my-service
 spec:
   traffic:
-  - revisionName: ghi
-    tag: current
-    percent: 100
-  - latestRevision: true
-    tag: latest
-    percent: 0 # no direct traffic ever.
+    - revisionName: ghi
+      tag: current
+      percent: 100
+    - latestRevision: true
+      tag: latest
+      percent: 0 # no direct traffic ever.
 ```
 
 This causes the service to update the route to assign 100% of traffic to ghi.
@@ -859,7 +856,7 @@ Rolled back to revision [abc] serving at [my-service.default.mydomain.com]
 **Steps**:
 
 - Set the service `traffic` block to send 100% of traffic to the supplied
-  revision.  Leave the configuration the same.
+  revision. Leave the configuration the same.
 
 **Results**:
 
@@ -880,12 +877,12 @@ spec:
   template:
     spec:
       containers:
-      - image: gcr.io/...
+        - image: gcr.io/...
   traffic:
-  - revisionName: abc
-    percent: 100
-  - latestRevision: true
-    percent: 0
+    - revisionName: abc
+      percent: 100
+    - latestRevision: true
+      percent: 0
 ```
 
 Since the Configuration does not change, this does not create a new revision. It
