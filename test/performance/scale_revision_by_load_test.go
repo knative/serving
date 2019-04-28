@@ -20,7 +20,6 @@ package performance
 
 import (
 	"fmt"
-	"net/http"
 	"strings"
 	"testing"
 	"time"
