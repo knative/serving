@@ -26,6 +26,8 @@ import (
 	"time"
 )
 
+// RequestLogHandler implements an http.Handler that writes request logs
+// and calls the next handler.
 type RequestLogHandler struct {
 	handler     http.Handler
 	inputGetter RequestLogTemplateInputGetter
@@ -53,8 +55,8 @@ type RequestLogResponse struct {
 	Latency float64
 }
 
-// RequestLogTemplateInput is the wrapper struct that provides all necessary information
-// for the template execution.
+// RequestLogTemplateInput is the wrapper struct that provides all
+// necessary information for the template execution.
 type RequestLogTemplateInput struct {
 	Request  *http.Request
 	Response *RequestLogResponse
@@ -90,11 +92,9 @@ func NewRequestLogHandler(h http.Handler, w io.Writer, templateStr string,
 	return reqHandler, nil
 }
 
+// SetTemplate sets the template to use for formatting request logs.
+// Setting the template to an empty string turns of writing request logs.
 func (h *RequestLogHandler) SetTemplate(templateStr string) error {
-	if templateStr == h.templateStr {
-		return nil
-	}
-
 	var t *template.Template
 	// If templateStr is empty, we will set the template to nil
 	// and effectively disable request logs.
