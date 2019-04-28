@@ -190,12 +190,13 @@ func TestVolumeMountMask(t *testing.T) {
 		Name:      "foo",
 		ReadOnly:  true,
 		MountPath: "/foo/bar",
+		SubPath:   "baz",
 	}
 	in := &corev1.VolumeMount{
 		Name:             "foo",
 		ReadOnly:         true,
 		MountPath:        "/foo/bar",
-		SubPath:          "baz/",
+		SubPath:          "baz",
 		MountPropagation: &mode,
 	}
 

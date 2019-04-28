@@ -245,7 +245,7 @@ func checkDistributionData(name string, wantTags map[string]string, wantCount in
 	return nil
 }
 
-// unregisterViews unregisters the views registerred in NewStatsReporter.
+// unregisterViews unregisters the views registered in NewStatsReporter.
 func unregisterViews(r *Reporter) error {
 	if !r.initialized {
 		return errors.New("reporter is not initialized")

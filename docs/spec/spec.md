@@ -428,5 +428,6 @@ container: # v1.Container
     - name: ... # This must match a name from Volumes
       mountPath: ... # Where to mount the named Volume.
       readOnly: ... # Must be True, will default to True, so it may be omitted.
+      subPath: ...
   workingDir: ... # Optional
 ```

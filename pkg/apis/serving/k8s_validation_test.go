@@ -379,7 +379,6 @@ func TestContainerValidation(t *testing.T) {
 		}).ViaFieldIndex("volumeMounts", 0).Also(
 			apis.ErrMissingField("readOnly").ViaFieldIndex("volumeMounts", 0)).Also(
 			apis.ErrMissingField("mountPath").ViaFieldIndex("volumeMounts", 0)).Also(
-			apis.ErrDisallowedFields("subPath").ViaFieldIndex("volumeMounts", 0)).Also(
 			apis.ErrDisallowedFields("mountPropagation").ViaFieldIndex("volumeMounts", 0)),
 	}, {
 		name: "missing known volumeMounts",
