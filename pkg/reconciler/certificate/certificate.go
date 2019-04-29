@@ -43,7 +43,9 @@ import (
 )
 
 const (
-	controllerAgentName = "certificate-controller"
+	controllerAgentName  = "certificate-controller"
+	noCMConditionReason  = "NoCertManagerCertCondition"
+	noCMConditionMessage = "The ready condition of Cert Manager Certifiate does not exist."
 )
 
 type configStore interface {
@@ -170,7 +172,7 @@ func (c *Reconciler) reconcile(ctx context.Context, knCert *v1alpha1.Certificate
 	cmCertReadyCondition := resources.GetReadyCondition(cmCert)
 	switch {
 	case cmCertReadyCondition == nil:
-		knCert.Status.MarkUnknown("NoCertManagerCertCondition", "The ready condition of Cert Manager Certifiate does not exist.")
+		knCert.Status.MarkUnknown(noCMConditionReason, noCMConditionMessage)
 	case cmCertReadyCondition.Status == cmv1alpha1.ConditionUnknown:
 		knCert.Status.MarkUnknown(cmCertReadyCondition.Reason, cmCertReadyCondition.Message)
 	case cmCertReadyCondition.Status == cmv1alpha1.ConditionTrue:
