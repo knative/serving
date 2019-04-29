@@ -150,7 +150,11 @@ func (c *Reconciler) reconcileKPA(ctx context.Context, rev *v1alpha1.Revision) e
 		rev.Status.MarkResourceNotOwned("PodAutoscaler", kpaName)
 		return fmt.Errorf("Revision: %q does not own PodAutoscaler: %q", rev.Name, kpaName)
 	} else {
-
+		kpa, _, err = c.checkAndUpdateKPA(ctx, rev, kpa)
+		if err != nil {
+			logger.Errorf("Error updating podautoscaler %q: %v", kpaName, err)
+			return err
+		}
 	}
 
 	// Perhaps tha KPA spec changed underneath ourselves?

@@ -99,7 +99,7 @@ func (c *Reconciler) checkAndUpdateDeployment(ctx context.Context, rev *v1alpha1
 	if equality.Semantic.DeepEqual(have.Spec, d.Spec) {
 		return d, nil
 	}
-	diff, err := kmp.SafeDiff(c1, c2)
+	diff, err := diffContent(c1, c2)
 	if err != nil {
 		return nil, err
 	}
@@ -153,7 +153,7 @@ func (c *Reconciler) checkAndUpdateKPA(ctx context.Context, rev *v1alpha1.Revisi
 		Spec:        have.Spec,
 	}
 
-	diff, err := kmp.SafeDiff(c1, c3)
+	diff, err := diffContent(c1, c3)
 	if err != nil {
 		return nil, unchanged, fmt.Errorf("failed to diff kpa: %v", err)
 	}
@@ -206,7 +206,7 @@ func (c *Reconciler) checkAndUpdateService(ctx context.Context, rev *v1alpha1.Re
 	if equality.Semantic.DeepEqual(c1, c2) {
 		return service, unchanged, nil
 	}
-	diff, err := kmp.SafeDiff(c1, c3)
+	diff, err := diffContent(c1, c3)
 	if err != nil {
 		return nil, unchanged, fmt.Errorf("failed to diff Service: %v", err)
 	}
@@ -220,4 +220,24 @@ type updateContent struct {
 	Annotations map[string]string
 	Labels      map[string]string
 	Spec        interface{}
+}
+
+func diffContent(c1, c2 updateContent) (string, error) {
+	diff := ""
+	d, e := kmp.SafeDiff(c1.Annotations, c2.Annotations)
+	if e != nil {
+		return diff, e
+	}
+	diff += d + "\n"
+	d, e = kmp.SafeDiff(c1.Labels, c2.Labels)
+	if e != nil {
+		return diff, e
+	}
+	diff += d + "\n"
+	d, e = kmp.SafeDiff(c1.Spec, c2.Spec)
+	if e != nil {
+		return diff, e
+	}
+	diff += d + "\n"
+	return diff, nil
 }
