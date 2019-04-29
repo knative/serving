@@ -40,6 +40,7 @@ import (
 )
 
 const helloWorldExpectedOutput = "Hello World! How about some tasty noodles?"
+
 var buildCondSet = duckv1alpha1.NewBatchConditionSet()
 
 func TestBuildSpecAndServe(t *testing.T) {

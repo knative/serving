@@ -37,11 +37,11 @@ import (
 	"github.com/knative/serving/pkg/autoscaler"
 	fakeclientset "github.com/knative/serving/pkg/client/clientset/versioned/fake"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
+	"github.com/knative/serving/pkg/deployment"
 	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/pkg/metrics"
 	"github.com/knative/serving/pkg/network"
 	"github.com/knative/serving/pkg/reconciler"
-	"github.com/knative/serving/pkg/reconciler/revision/config"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -125,16 +125,16 @@ func testRevision() *v1alpha1.Revision {
 	}
 }
 
-func getTestControllerConfig() *config.Controller {
-	c, _ := config.NewControllerConfigFromConfigMap(getTestControllerConfigMap())
+func getTestDeploymentConfig() *deployment.Config {
+	c, _ := deployment.NewConfigFromConfigMap(getTestDeploymentConfigMap())
 	// ignoring error as test controller is generated
 	return c
 }
 
-func getTestControllerConfigMap() *corev1.ConfigMap {
+func getTestDeploymentConfigMap() *corev1.ConfigMap {
 	return &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      config.ControllerConfigName,
+			Name:      deployment.ConfigName,
 			Namespace: system.Namespace(),
 		},
 		Data: map[string]string{
@@ -197,7 +197,7 @@ func newTestController(t *testing.T, stopCh <-chan struct{}) (
 
 	controller.Reconciler.(*Reconciler).resolver = &nopResolver{}
 	configs := []*corev1.ConfigMap{
-		getTestControllerConfigMap(),
+		getTestDeploymentConfigMap(),
 		{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: system.Namespace(),

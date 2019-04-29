@@ -34,6 +34,7 @@ import (
 	"github.com/knative/serving/pkg/reconciler/route/traffic"
 	"github.com/knative/serving/pkg/reconciler/serverlessservice/resources/names"
 	servicenames "github.com/knative/serving/pkg/reconciler/service/resources/names"
+	"github.com/knative/serving/pkg/resources"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -211,6 +212,12 @@ func WithVolume(name, mountPath string, volumeSource corev1.VolumeSource) Servic
 			Name:         name,
 			VolumeSource: volumeSource,
 		}}
+	}
+}
+
+func WithServiceAnnotations(annotations map[string]string) ServiceOption {
+	return func(service *v1alpha1.Service) {
+		service.Annotations = resources.UnionMaps(service.Annotations, annotations)
 	}
 }
 

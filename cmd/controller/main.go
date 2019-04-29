@@ -181,8 +181,7 @@ func main() {
 
 	// Start all of the controllers.
 	logger.Info("Starting controllers.")
-	go controller.StartAll(stopCh, controllers...)
-	<-stopCh
+	controller.StartAll(stopCh, controllers...)
 }
 
 func flush(logger *zap.SugaredLogger) {
