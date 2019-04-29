@@ -34,7 +34,7 @@ func TestStoreLoadWithContext(t *testing.T) {
 
 	expected, _ := NewCertManagerConfigFromConfigMap(certManagerConfig)
 	if diff := cmp.Diff(expected, config.CertManager); diff != "" {
-		t.Errorf("Unexpected istio config (-want, +got): %v", diff)
+		t.Errorf("Unexpected CertManager config (-want, +got): %v", diff)
 	}
 }
 
