@@ -49,6 +49,7 @@ import (
 	servinginformers "github.com/knative/serving/pkg/client/informers/externalversions/serving/v1alpha1"
 	kpalisters "github.com/knative/serving/pkg/client/listers/autoscaling/v1alpha1"
 	listers "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
+	"github.com/knative/serving/pkg/deployment"
 	"github.com/knative/serving/pkg/metrics"
 	"github.com/knative/serving/pkg/network"
 	"github.com/knative/serving/pkg/reconciler"
@@ -173,7 +174,7 @@ func NewController(
 	configsToResync := []interface{}{
 		&network.Config{},
 		&metrics.ObservabilityConfig{},
-		&config.Controller{},
+		&deployment.Config{},
 	}
 
 	resync := configmap.TypeFilter(configsToResync...)(func(string, interface{}) {
@@ -317,7 +318,7 @@ func (c *Reconciler) reconcileDigest(ctx context.Context, rev *v1alpha1.Revision
 		// don't expose such a field.
 	}
 	digest, err := c.resolver.Resolve(rev.Spec.GetContainer().Image,
-		opt, cfgs.Controller.RegistriesSkippingTagResolving)
+		opt, cfgs.Deployment.RegistriesSkippingTagResolving)
 	if err != nil {
 		rev.Status.MarkContainerMissing(
 			v1alpha1.RevisionContainerMissingMessage(

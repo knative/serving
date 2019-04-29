@@ -42,7 +42,7 @@ func (c *Reconciler) createDeployment(ctx context.Context, rev *v1alpha1.Revisio
 		cfgs.Network,
 		cfgs.Observability,
 		cfgs.Autoscaler,
-		cfgs.Controller,
+		cfgs.Deployment,
 	)
 
 	return c.KubeClientSet.AppsV1().Deployments(deployment.Namespace).Create(deployment)
@@ -58,7 +58,7 @@ func (c *Reconciler) checkAndUpdateDeployment(ctx context.Context, rev *v1alpha1
 		cfgs.Network,
 		cfgs.Observability,
 		cfgs.Autoscaler,
-		cfgs.Controller,
+		cfgs.Deployment,
 	)
 
 	// Preserve the current scale of the Deployment.
