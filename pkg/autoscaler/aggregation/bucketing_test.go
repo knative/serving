@@ -43,10 +43,10 @@ func TestTimedFloat64Buckets(t *testing.T) {
 		name:        "granularity = 1s",
 		granularity: 1 * time.Second,
 		stats: []args{
-			{zero, pod, 1.0},
-			{zero.Add(100 * time.Millisecond), pod, 1.0}, // same bucket
-			{zero.Add(1 * time.Second), pod, 1.0},        // next bucket
-			{zero.Add(3 * time.Second), pod, 1.0},        // nextnextnext bucket
+			{trunc1, pod, 1.0},
+			{trunc1.Add(100 * time.Millisecond), pod, 1.0}, // same bucket
+			{trunc1.Add(1 * time.Second), pod, 1.0},        // next bucket
+			{trunc1.Add(3 * time.Second), pod, 1.0},        // nextnextnext bucket
 		},
 		want: map[time.Time]float64{
 			trunc1:                      1.0,
@@ -57,9 +57,9 @@ func TestTimedFloat64Buckets(t *testing.T) {
 		name:        "granularity = 5s",
 		granularity: 5 * time.Second,
 		stats: []args{
-			{zero, pod, 1.0},
-			{zero.Add(3 * time.Second), pod, 1.0}, // same bucket
-			{zero.Add(6 * time.Second), pod, 1.0}, // next bucket
+			{trunc5, pod, 1.0},
+			{trunc5.Add(3 * time.Second), pod, 1.0}, // same bucket
+			{trunc5.Add(6 * time.Second), pod, 1.0}, // next bucket
 		},
 		want: map[time.Time]float64{
 			trunc5:                      1.0,
