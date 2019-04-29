@@ -25,6 +25,7 @@ import (
 	"github.com/knative/pkg/logging"
 	kpav1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/knative/serving/pkg/deployment"
 	"github.com/knative/serving/pkg/reconciler/revision/config"
 	"github.com/knative/serving/pkg/reconciler/revision/resources"
 	presources "github.com/knative/serving/pkg/resources"
@@ -36,7 +37,7 @@ import (
 func (c *Reconciler) createDeployment(ctx context.Context, rev *v1alpha1.Revision) (*appsv1.Deployment, error) {
 	cfgs := config.FromContext(ctx)
 
-	deployment := resources.MakeDeployment(
+	deployment := deployment.MakeDeployment(
 		rev,
 		cfgs.Logging,
 		cfgs.Network,
@@ -52,7 +53,7 @@ func (c *Reconciler) checkAndUpdateDeployment(ctx context.Context, rev *v1alpha1
 	logger := logging.FromContext(ctx)
 	cfgs := config.FromContext(ctx)
 
-	deployment := resources.MakeDeployment(
+	deployment := deployment.MakeDeployment(
 		rev,
 		cfgs.Logging,
 		cfgs.Network,

@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package resources
+package deployment
 
 import (
 	"testing"
@@ -30,7 +30,6 @@ import (
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 	"github.com/knative/serving/pkg/autoscaler"
-	"github.com/knative/serving/pkg/deployment"
 	"github.com/knative/serving/pkg/metrics"
 	"github.com/knative/serving/pkg/network"
 	appsv1 "k8s.io/api/apps/v1"
@@ -367,7 +366,7 @@ func TestMakePodSpec(t *testing.T) {
 		lc   *logging.Config
 		oc   *metrics.ObservabilityConfig
 		ac   *autoscaler.Config
-		cc   *deployment.Config
+		cc   *Config
 		want *corev1.PodSpec
 	}{{
 		name: "user-defined user port, queue proxy have PORT env",
@@ -382,7 +381,7 @@ func TestMakePodSpec(t *testing.T) {
 		lc: &logging.Config{},
 		oc: &metrics.ObservabilityConfig{},
 		ac: &autoscaler.Config{},
-		cc: &deployment.Config{},
+		cc: &Config{},
 		want: podSpec([]corev1.Container{
 			userContainer(
 				func(container *corev1.Container) {
@@ -420,7 +419,7 @@ func TestMakePodSpec(t *testing.T) {
 		lc: &logging.Config{},
 		oc: &metrics.ObservabilityConfig{},
 		ac: &autoscaler.Config{},
-		cc: &deployment.Config{},
+		cc: &Config{},
 		want: podSpec([]corev1.Container{
 			userContainer(
 				func(container *corev1.Container) {
@@ -450,7 +449,7 @@ func TestMakePodSpec(t *testing.T) {
 		lc:   &logging.Config{},
 		oc:   &metrics.ObservabilityConfig{},
 		ac:   &autoscaler.Config{},
-		cc:   &deployment.Config{},
+		cc:   &Config{},
 		want: podSpec([]corev1.Container{
 			userContainer(),
 			queueContainer(
@@ -470,7 +469,7 @@ func TestMakePodSpec(t *testing.T) {
 		lc: &logging.Config{},
 		oc: &metrics.ObservabilityConfig{},
 		ac: &autoscaler.Config{},
-		cc: &deployment.Config{},
+		cc: &Config{},
 		want: podSpec([]corev1.Container{
 			userContainer(func(container *corev1.Container) {
 				container.Image = "busybox@sha256:deadbeef"
@@ -488,7 +487,7 @@ func TestMakePodSpec(t *testing.T) {
 		lc: &logging.Config{},
 		oc: &metrics.ObservabilityConfig{},
 		ac: &autoscaler.Config{},
-		cc: &deployment.Config{},
+		cc: &Config{},
 		want: podSpec([]corev1.Container{
 			userContainer(),
 			queueContainer(
@@ -506,7 +505,7 @@ func TestMakePodSpec(t *testing.T) {
 		lc: &logging.Config{},
 		oc: &metrics.ObservabilityConfig{},
 		ac: &autoscaler.Config{},
-		cc: &deployment.Config{},
+		cc: &Config{},
 		want: podSpec([]corev1.Container{
 			userContainer(
 				withHTTPReadinessProbe(networking.BackendHTTPPort),
@@ -527,7 +526,7 @@ func TestMakePodSpec(t *testing.T) {
 		lc: &logging.Config{},
 		oc: &metrics.ObservabilityConfig{},
 		ac: &autoscaler.Config{},
-		cc: &deployment.Config{},
+		cc: &Config{},
 		want: podSpec([]corev1.Container{
 			userContainer(
 				withExecReadinessProbe(
@@ -552,7 +551,7 @@ func TestMakePodSpec(t *testing.T) {
 		lc: &logging.Config{},
 		oc: &metrics.ObservabilityConfig{},
 		ac: &autoscaler.Config{},
-		cc: &deployment.Config{},
+		cc: &Config{},
 		want: podSpec([]corev1.Container{
 			userContainer(
 				withHTTPReadinessProbe(networking.BackendHTTPPort),
@@ -573,7 +572,7 @@ func TestMakePodSpec(t *testing.T) {
 		lc: &logging.Config{},
 		oc: &metrics.ObservabilityConfig{},
 		ac: &autoscaler.Config{},
-		cc: &deployment.Config{},
+		cc: &Config{},
 		want: podSpec([]corev1.Container{
 			userContainer(
 				withLivenessProbe(corev1.Handler{
@@ -595,7 +594,7 @@ func TestMakePodSpec(t *testing.T) {
 			FluentdSidecarImage:    "indiana:jones",
 		},
 		ac: &autoscaler.Config{},
-		cc: &deployment.Config{},
+		cc: &Config{},
 		want: podSpec(
 			[]corev1.Container{
 				userContainer(),
@@ -645,7 +644,7 @@ func TestMakePodSpec(t *testing.T) {
 		lc: &logging.Config{},
 		oc: &metrics.ObservabilityConfig{},
 		ac: &autoscaler.Config{},
-		cc: &deployment.Config{},
+		cc: &Config{},
 		want: podSpec([]corev1.Container{
 			userContainer(
 				func(container *corev1.Container) {
@@ -719,7 +718,7 @@ func TestMakeDeployment(t *testing.T) {
 		nc   *network.Config
 		oc   *metrics.ObservabilityConfig
 		ac   *autoscaler.Config
-		cc   *deployment.Config
+		cc   *Config
 		want *appsv1.Deployment
 	}{{
 		name: "simple concurrency=single no owner",
@@ -731,7 +730,7 @@ func TestMakeDeployment(t *testing.T) {
 		nc:   &network.Config{},
 		oc:   &metrics.ObservabilityConfig{},
 		ac:   &autoscaler.Config{},
-		cc:   &deployment.Config{},
+		cc:   &Config{},
 		want: makeDeployment(),
 	}, {
 		name: "simple concurrency=multi with owner",
@@ -743,7 +742,7 @@ func TestMakeDeployment(t *testing.T) {
 		nc:   &network.Config{},
 		oc:   &metrics.ObservabilityConfig{},
 		ac:   &autoscaler.Config{},
-		cc:   &deployment.Config{},
+		cc:   &Config{},
 		want: makeDeployment(),
 	}, {
 		name: "simple concurrency=multi with outbound IP range configured",
@@ -754,7 +753,7 @@ func TestMakeDeployment(t *testing.T) {
 		},
 		oc: &metrics.ObservabilityConfig{},
 		ac: &autoscaler.Config{},
-		cc: &deployment.Config{},
+		cc: &Config{},
 		want: makeDeployment(func(deploy *appsv1.Deployment) {
 			deploy.Spec.Template.ObjectMeta.Annotations["traffic.sidecar.istio.io/includeOutboundIPRanges"] = "*"
 		}),
@@ -774,7 +773,7 @@ func TestMakeDeployment(t *testing.T) {
 		},
 		oc: &metrics.ObservabilityConfig{},
 		ac: &autoscaler.Config{},
-		cc: &deployment.Config{},
+		cc: &Config{},
 		want: makeDeployment(func(deploy *appsv1.Deployment) {
 			deploy.ObjectMeta.Annotations[IstioOutboundIPRangeAnnotation] = "10.4.0.0/14,10.7.240.0/20"
 			deploy.Spec.Template.ObjectMeta.Annotations["traffic.sidecar.istio.io/includeOutboundIPRanges"] = "10.4.0.0/14,10.7.240.0/20"

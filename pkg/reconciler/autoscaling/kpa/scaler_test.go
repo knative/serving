@@ -33,9 +33,9 @@ import (
 	"github.com/knative/serving/pkg/autoscaler"
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
 	fakeKna "github.com/knative/serving/pkg/client/clientset/versioned/fake"
+	deploymentnames "github.com/knative/serving/pkg/deployment/names"
 	"github.com/knative/serving/pkg/reconciler"
 	revisionresources "github.com/knative/serving/pkg/reconciler/revision/resources"
-	"github.com/knative/serving/pkg/reconciler/revision/resources/names"
 	v1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -188,7 +188,7 @@ func TestScaler(t *testing.T) {
 			}
 
 			revision := newRevision(t, servingClient, test.minScale, test.maxScale)
-			deployment := newDeployment(t, dynamicClient, names.Deployment(revision), test.startReplicas)
+			deployment := newDeployment(t, dynamicClient, deploymentnames.Deployment(revision), test.startReplicas)
 			revisionScaler := NewScaler(opts)
 
 			// We test like this because the dynamic client's fake doesn't properly handle
@@ -283,7 +283,7 @@ func TestDisableScaleToZero(t *testing.T) {
 				})
 
 			revision := newRevision(t, servingClient, test.minScale, test.maxScale)
-			deployment := newDeployment(t, dynamicClient, names.Deployment(revision), test.startReplicas)
+			deployment := newDeployment(t, dynamicClient, deploymentnames.Deployment(revision), test.startReplicas)
 			revisionScaler := &scaler{
 				psInformerFactory: podScalableTypedInformerFactory(opts),
 				dynamicClient:     opts.DynamicClientSet,
@@ -325,7 +325,7 @@ func TestGetScaleResource(t *testing.T) {
 
 	revision := newRevision(t, servingClient, 1, 10)
 	// This setups reactor as well.
-	newDeployment(t, dynamicClient, names.Deployment(revision), 5)
+	newDeployment(t, dynamicClient, deploymentnames.Deployment(revision), 5)
 	revisionScaler := NewScaler(opts)
 
 	pa := newKPA(t, servingClient, revision)

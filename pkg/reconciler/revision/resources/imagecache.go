@@ -23,6 +23,7 @@ import (
 	"github.com/knative/pkg/kmeta"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/knative/serving/pkg/deployment"
 	"github.com/knative/serving/pkg/reconciler/revision/resources/names"
 	"github.com/knative/serving/pkg/resources"
 )
@@ -38,7 +39,7 @@ func MakeImageCache(rev *v1alpha1.Revision) *caching.Image {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      names.ImageCache(rev),
 			Namespace: rev.Namespace,
-			Labels:    makeLabels(rev),
+			Labels:    deployment.MakeRevisionLabels(rev),
 			Annotations: resources.FilterMap(rev.GetAnnotations(), func(k string) bool {
 				// Ignore last pinned annotation.
 				return k == serving.RevisionLastPinnedAnnotationKey

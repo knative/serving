@@ -28,6 +28,7 @@ import (
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1beta1"
+	"github.com/knative/serving/pkg/deployment"
 )
 
 func TestMakeImageCache(t *testing.T) {
@@ -66,7 +67,7 @@ func TestMakeImageCache(t *testing.T) {
 				Labels: map[string]string{
 					serving.RevisionLabelKey: "bar",
 					serving.RevisionUID:      "1234",
-					AppLabelKey:              "bar",
+					deployment.AppLabelKey:   "bar",
 				},
 				Annotations: map[string]string{
 					"a": "b",
@@ -111,7 +112,7 @@ func TestMakeImageCache(t *testing.T) {
 				Labels: map[string]string{
 					serving.RevisionLabelKey: "bar",
 					serving.RevisionUID:      "1234",
-					AppLabelKey:              "bar",
+					deployment.AppLabelKey:   "bar",
 				},
 				Annotations: map[string]string{},
 				OwnerReferences: []metav1.OwnerReference{{

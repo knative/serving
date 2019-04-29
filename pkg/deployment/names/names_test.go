@@ -31,23 +31,23 @@ func TestNamer(t *testing.T) {
 		f    func(*v1alpha1.Revision) string
 		want string
 	}{{
-		name: "ImageCache",
+		name: "Deployment",
 		rev: &v1alpha1.Revision{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "foo",
 			},
 		},
-		f:    ImageCache,
-		want: "foo-cache",
+		f:    Deployment,
+		want: "foo-deployment",
 	}, {
-		name: "KPA",
+		name: "FluentdConfigMap",
 		rev: &v1alpha1.Revision{
 			ObjectMeta: metav1.ObjectMeta{
-				Name: "baz",
+				Name: "bazinga",
 			},
 		},
-		f:    KPA,
-		want: "baz",
+		f:    FluentdConfigMap,
+		want: "bazinga-fluentd",
 	}}
 
 	for _, test := range tests {

@@ -1,5 +1,5 @@
 /*
-Copyright 2018 The Knative Authors
+Copyright 2019 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -20,12 +20,12 @@ import (
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 )
 
-func ImageCache(rev *v1alpha1.Revision) string {
-	return rev.Name + "-cache"
+// Deployment returns the deployment name for a given revision
+func Deployment(rev *v1alpha1.Revision) string {
+	return rev.Name + "-deployment"
 }
 
-func KPA(rev *v1alpha1.Revision) string {
-	// We want the KPA's "key" to match the revision,
-	// to simplify the transition to the KPA.
-	return rev.Name
+// FluentdConfigMap returns the fluentd configmap name for a given revision
+func FluentdConfigMap(rev *v1alpha1.Revision) string {
+	return rev.Name + "-fluentd"
 }

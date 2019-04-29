@@ -24,6 +24,8 @@ import (
 	kpa "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/knative/serving/pkg/deployment"
+	deploymentnames "github.com/knative/serving/pkg/deployment/names"
 	"github.com/knative/serving/pkg/reconciler/revision/resources/names"
 	"github.com/knative/serving/pkg/resources"
 )
@@ -34,7 +36,7 @@ func MakeKPA(rev *v1alpha1.Revision) *kpa.PodAutoscaler {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      names.KPA(rev),
 			Namespace: rev.Namespace,
-			Labels:    makeLabels(rev),
+			Labels:    deployment.MakeRevisionLabels(rev),
 			Annotations: resources.FilterMap(rev.GetAnnotations(), func(k string) bool {
 				// Ignore last pinned annotation.
 				return k == serving.RevisionLastPinnedAnnotationKey
@@ -46,7 +48,7 @@ func MakeKPA(rev *v1alpha1.Revision) *kpa.PodAutoscaler {
 			ScaleTargetRef: corev1.ObjectReference{
 				APIVersion: "apps/v1",
 				Kind:       "Deployment",
-				Name:       names.Deployment(rev),
+				Name:       deploymentnames.Deployment(rev),
 			},
 			ProtocolType: rev.GetProtocol(),
 		},

@@ -26,7 +26,7 @@ import (
 
 	pkgTest "github.com/knative/pkg/test"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	rnames "github.com/knative/serving/pkg/reconciler/revision/resources/names"
+	deploymentnames "github.com/knative/serving/pkg/deployment/names"
 	"github.com/knative/serving/test"
 )
 
@@ -62,7 +62,7 @@ func TestActivatorOverload(t *testing.T) {
 	}
 	domain := resources.Route.Status.Domain
 
-	deploymentName := rnames.Deployment(resources.Revision)
+	deploymentName := deploymentnames.Deployment(resources.Revision)
 	if err := WaitForScaleToZero(t, deploymentName, clients); err != nil {
 		t.Fatalf("Unable to observe the Deployment named %s scaling down: %v", deploymentName, err)
 	}

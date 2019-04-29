@@ -1,5 +1,5 @@
 /*
-Copyright 2018 The Knative Authors
+Copyright 2019 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package resources
+package deployment
 
 import (
 	"strconv"
@@ -25,11 +25,10 @@ import (
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/autoscaler"
-	"github.com/knative/serving/pkg/deployment"
+	"github.com/knative/serving/pkg/deployment/names"
 	"github.com/knative/serving/pkg/metrics"
 	"github.com/knative/serving/pkg/network"
 	"github.com/knative/serving/pkg/queue"
-	"github.com/knative/serving/pkg/reconciler/revision/resources/names"
 	"github.com/knative/serving/pkg/resources"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -82,7 +81,7 @@ func rewriteUserProbe(p *corev1.Probe, userPort int) {
 	}
 }
 
-func makePodSpec(rev *v1alpha1.Revision, loggingConfig *logging.Config, observabilityConfig *metrics.ObservabilityConfig, autoscalerConfig *autoscaler.Config, deploymentConfig *deployment.Config) *corev1.PodSpec {
+func makePodSpec(rev *v1alpha1.Revision, loggingConfig *logging.Config, observabilityConfig *metrics.ObservabilityConfig, autoscalerConfig *autoscaler.Config, deploymentConfig *Config) *corev1.PodSpec {
 	userContainer := rev.Spec.GetContainer().DeepCopy()
 	// Adding or removing an overwritten corev1.Container field here? Don't forget to
 	// update the validations in pkg/webhook.validateContainer.
@@ -160,7 +159,7 @@ func buildUserPortEnv(userPort string) corev1.EnvVar {
 // MakeDeployment constructs a K8s Deployment resource from a revision.
 func MakeDeployment(rev *v1alpha1.Revision,
 	loggingConfig *logging.Config, networkConfig *network.Config, observabilityConfig *metrics.ObservabilityConfig,
-	autoscalerConfig *autoscaler.Config, deploymentConfig *deployment.Config) *appsv1.Deployment {
+	autoscalerConfig *autoscaler.Config, deploymentConfig *Config) *appsv1.Deployment {
 
 	podTemplateAnnotations := resources.FilterMap(rev.GetAnnotations(), func(k string) bool {
 		return k == serving.RevisionLastPinnedAnnotationKey
@@ -190,7 +189,7 @@ func MakeDeployment(rev *v1alpha1.Revision,
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      names.Deployment(rev),
 			Namespace: rev.Namespace,
-			Labels:    makeLabels(rev),
+			Labels:    MakeRevisionLabels(rev),
 			Annotations: resources.FilterMap(rev.GetAnnotations(), func(k string) bool {
 				// Exclude the heartbeat label, which can have high variance.
 				return k == serving.RevisionLastPinnedAnnotationKey
@@ -199,11 +198,11 @@ func MakeDeployment(rev *v1alpha1.Revision,
 		},
 		Spec: appsv1.DeploymentSpec{
 			Replicas:                &one,
-			Selector:                makeSelector(rev),
+			Selector:                MakeRevisionSelector(rev),
 			ProgressDeadlineSeconds: &ProgressDeadlineSeconds,
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Labels:      makeLabels(rev),
+					Labels:      MakeRevisionLabels(rev),
 					Annotations: podTemplateAnnotations,
 				},
 				Spec: *makePodSpec(rev, loggingConfig, observabilityConfig, autoscalerConfig, deploymentConfig),

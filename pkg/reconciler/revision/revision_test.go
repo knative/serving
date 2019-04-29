@@ -49,6 +49,7 @@ import (
 	fakeclientset "github.com/knative/serving/pkg/client/clientset/versioned/fake"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
 	"github.com/knative/serving/pkg/deployment"
+	deploymentnames "github.com/knative/serving/pkg/deployment/names"
 	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/pkg/metrics"
 	"github.com/knative/serving/pkg/network"
@@ -289,7 +290,7 @@ func addResourcesToInformers(t *testing.T,
 		cachingInformer.Caching().V1alpha1().Images().Informer().GetIndexer().Add(image)
 	}
 
-	deploymentName := resourcenames.Deployment(rev)
+	deploymentName := deploymentnames.Deployment(rev)
 	deployment, err := kubeClient.AppsV1().Deployments(ns).Get(deploymentName, metav1.GetOptions{})
 	if apierrs.IsNotFound(err) && haveBuild {
 		// If we're doing a Build this won't exist yet.
@@ -300,7 +301,7 @@ func addResourcesToInformers(t *testing.T,
 	}
 
 	// Add fluentd configmap if any
-	fluentdConfigMap, err := kubeClient.CoreV1().ConfigMaps(rev.Namespace).Get(resourcenames.FluentdConfigMap(rev), metav1.GetOptions{})
+	fluentdConfigMap, err := kubeClient.CoreV1().ConfigMaps(rev.Namespace).Get(deploymentnames.FluentdConfigMap(rev), metav1.GetOptions{})
 	if err == nil {
 		kubeInformer.Core().V1().ConfigMaps().Informer().GetIndexer().Add(fluentdConfigMap)
 	}
@@ -507,34 +508,34 @@ func TestIstioOutboundIPRangesInjection(t *testing.T) {
 	in := "  10.10.10.0/24\r,,\t,\n,,"
 	want := "10.10.10.0/24"
 	annotations = getPodAnnotationsForConfig(t, in, "")
-	if got := annotations[resources.IstioOutboundIPRangeAnnotation]; want != got {
-		t.Fatalf("%v annotation expected to be %v, but is %v.", resources.IstioOutboundIPRangeAnnotation, want, got)
+	if got := annotations[deployment.IstioOutboundIPRangeAnnotation]; want != got {
+		t.Fatalf("%v annotation expected to be %v, but is %v.", deployment.IstioOutboundIPRangeAnnotation, want, got)
 	}
 
 	// Multiple valid ranges with whitespaces
 	in = " \t\t10.10.10.0/24,  ,,\t\n\r\n,10.240.10.0/14\n,   192.192.10.0/16"
 	want = "10.10.10.0/24,10.240.10.0/14,192.192.10.0/16"
 	annotations = getPodAnnotationsForConfig(t, in, "")
-	if got := annotations[resources.IstioOutboundIPRangeAnnotation]; want != got {
-		t.Fatalf("%v annotation expected to be %v, but is %v.", resources.IstioOutboundIPRangeAnnotation, want, got)
+	if got := annotations[deployment.IstioOutboundIPRangeAnnotation]; want != got {
+		t.Fatalf("%v annotation expected to be %v, but is %v.", deployment.IstioOutboundIPRangeAnnotation, want, got)
 	}
 
 	// An invalid IP range
 	in = "10.10.10.10/33"
 	annotations = getPodAnnotationsForConfig(t, in, "")
-	if got, ok := annotations[resources.IstioOutboundIPRangeAnnotation]; !ok {
-		t.Fatalf("Expected to have no %v annotation for invalid option %v. But found value %v", resources.IstioOutboundIPRangeAnnotation, want, got)
+	if got, ok := annotations[deployment.IstioOutboundIPRangeAnnotation]; !ok {
+		t.Fatalf("Expected to have no %v annotation for invalid option %v. But found value %v", deployment.IstioOutboundIPRangeAnnotation, want, got)
 	}
 
 	// Configuration has an annotation override - its value must be preserved
 	want = "10.240.10.0/14"
 	annotations = getPodAnnotationsForConfig(t, "", want)
-	if got := annotations[resources.IstioOutboundIPRangeAnnotation]; got != want {
-		t.Fatalf("%v annotation is expected to have %v but got %v", resources.IstioOutboundIPRangeAnnotation, want, got)
+	if got := annotations[deployment.IstioOutboundIPRangeAnnotation]; got != want {
+		t.Fatalf("%v annotation is expected to have %v but got %v", deployment.IstioOutboundIPRangeAnnotation, want, got)
 	}
 	annotations = getPodAnnotationsForConfig(t, "10.10.10.0/24", want)
-	if got := annotations[resources.IstioOutboundIPRangeAnnotation]; got != want {
-		t.Fatalf("%v annotation is expected to have %v but got %v", resources.IstioOutboundIPRangeAnnotation, want, got)
+	if got := annotations[deployment.IstioOutboundIPRangeAnnotation]; got != want {
+		t.Fatalf("%v annotation is expected to have %v but got %v", deployment.IstioOutboundIPRangeAnnotation, want, got)
 	}
 }
 
@@ -558,7 +559,7 @@ func getPodAnnotationsForConfig(t *testing.T, configMapValue string, configAnnot
 	rev := testRevision()
 	config := testConfiguration()
 	if len(configAnnotationOverride) > 0 {
-		rev.ObjectMeta.Annotations = map[string]string{resources.IstioOutboundIPRangeAnnotation: configAnnotationOverride}
+		rev.ObjectMeta.Annotations = map[string]string{deployment.IstioOutboundIPRangeAnnotation: configAnnotationOverride}
 	}
 
 	rev.OwnerReferences = append(
@@ -680,12 +681,12 @@ func TestGlobalResyncOnConfigMapUpdateDeployment(t *testing.T) {
 		},
 		callback: func(t *testing.T) func(runtime.Object) HookResult {
 			return func(obj runtime.Object) HookResult {
-				deployment := obj.(*appsv1.Deployment)
-				t.Logf("Deployment updated: %v", deployment.Name)
+				dep := obj.(*appsv1.Deployment)
+				t.Logf("Deployment updated: %v", dep.Name)
 
 				expected := "10.0.0.1/24"
-				annotations := deployment.Spec.Template.ObjectMeta.Annotations
-				got := annotations[resources.IstioOutboundIPRangeAnnotation]
+				annotations := dep.Spec.Template.ObjectMeta.Annotations
+				got := annotations[deployment.IstioOutboundIPRangeAnnotation]
 
 				if got != expected {
 					t.Logf("No update occurred; expected: %s got: %s", expected, got)
@@ -708,13 +709,13 @@ func TestGlobalResyncOnConfigMapUpdateDeployment(t *testing.T) {
 		},
 		callback: func(t *testing.T) func(runtime.Object) HookResult {
 			return func(obj runtime.Object) HookResult {
-				deployment := obj.(*appsv1.Deployment)
-				t.Logf("Deployment updated: %v", deployment.Name)
+				dep := obj.(*appsv1.Deployment)
+				t.Logf("Deployment updated: %v", dep.Name)
 
 				expected := ""
 
-				for _, c := range deployment.Spec.Template.Spec.Containers {
-					if c.Name == resources.FluentdContainerName {
+				for _, c := range dep.Spec.Template.Spec.Containers {
+					if c.Name == deployment.FluentdContainerName {
 						t.Logf("No update occurred; expected: %s got: %s", expected, c.Image)
 						return HookIncomplete
 					}
@@ -737,13 +738,13 @@ func TestGlobalResyncOnConfigMapUpdateDeployment(t *testing.T) {
 		},
 		callback: func(t *testing.T) func(runtime.Object) HookResult {
 			return func(obj runtime.Object) HookResult {
-				deployment := obj.(*appsv1.Deployment)
-				t.Logf("Deployment updated: %v", deployment.Name)
+				dep := obj.(*appsv1.Deployment)
+				t.Logf("Deployment updated: %v", dep.Name)
 
 				expected := "newFluentdImage"
 				var got string
-				for _, c := range deployment.Spec.Template.Spec.Containers {
-					if c.Name == resources.FluentdContainerName {
+				for _, c := range dep.Spec.Template.Spec.Containers {
+					if c.Name == deployment.FluentdContainerName {
 						got = c.Image
 						if got == expected {
 							return HookComplete
@@ -767,14 +768,14 @@ func TestGlobalResyncOnConfigMapUpdateDeployment(t *testing.T) {
 		},
 		callback: func(t *testing.T) func(runtime.Object) HookResult {
 			return func(obj runtime.Object) HookResult {
-				deployment := obj.(*appsv1.Deployment)
-				t.Logf("Deployment updated: %v", deployment.Name)
+				dep := obj.(*appsv1.Deployment)
+				t.Logf("Deployment updated: %v", dep.Name)
 
 				expected := "myAwesomeQueueImage"
 
 				var got string
-				for _, c := range deployment.Spec.Template.Spec.Containers {
-					if c.Name == resources.QueueContainerName {
+				for _, c := range dep.Spec.Template.Spec.Containers {
+					if c.Name == deployment.QueueContainerName {
 						got = c.Image
 						if got == expected {
 							return HookComplete

@@ -32,6 +32,7 @@ import (
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/autoscaler"
+	"github.com/knative/serving/pkg/deployment"
 	"github.com/knative/serving/pkg/metrics"
 	"github.com/knative/serving/pkg/network"
 	"github.com/knative/serving/pkg/reconciler"
@@ -876,7 +877,7 @@ func deploy(namespace, name string, opts ...interface{}) *appsv1.Deployment {
 	// Do this here instead of in `rev` itself to ensure that we populate defaults
 	// before calling MakeDeployment within Reconcile.
 	rev.SetDefaults(context.Background())
-	return resources.MakeDeployment(rev, cfg.Logging, cfg.Network,
+	return deployment.MakeDeployment(rev, cfg.Logging, cfg.Network,
 		cfg.Observability, cfg.Autoscaler, cfg.Deployment,
 	)
 
@@ -898,7 +899,7 @@ func fluentdConfigMap(namespace, name string, co ...configOption) *corev1.Config
 	}
 
 	rev := rev(namespace, name)
-	return resources.MakeFluentdConfigMap(rev, config.Observability)
+	return deployment.MakeFluentdConfigMap(rev, config.Observability)
 }
 
 func kpa(namespace, name string, ko ...PodAutoscalerOption) *autoscalingv1alpha1.PodAutoscaler {

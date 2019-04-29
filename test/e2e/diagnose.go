@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	rnames "github.com/knative/serving/pkg/reconciler/revision/resources/names"
+	deploymentnames "github.com/knative/serving/pkg/deployment/names"
 	"github.com/knative/serving/test"
 
 	v1types "k8s.io/api/core/v1"
@@ -52,7 +52,7 @@ func checkCurrentPodCount(t *testing.T, clients *test.Clients) {
 		return
 	}
 	for _, r := range revs.Items {
-		deploymentName := rnames.Deployment(&r)
+		deploymentName := deploymentnames.Deployment(&r)
 		dep, err := clients.KubeClient.Kube.AppsV1().Deployments(test.ServingNamespace).Get(deploymentName, metav1.GetOptions{})
 		if err != nil {
 			t.Logf("Could not get deployment %v", deploymentName)

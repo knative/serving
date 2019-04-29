@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package resources
+package deployment
 
 import (
 	corev1 "k8s.io/api/core/v1"
@@ -23,8 +23,8 @@ import (
 	"github.com/knative/pkg/kmeta"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/knative/serving/pkg/deployment/names"
 	"github.com/knative/serving/pkg/metrics"
-	"github.com/knative/serving/pkg/reconciler/revision/resources/names"
 	"github.com/knative/serving/pkg/resources"
 )
 
@@ -92,7 +92,7 @@ func MakeFluentdConfigMap(rev *v1alpha1.Revision, observabilityConfig *metrics.O
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      names.FluentdConfigMap(rev),
 			Namespace: rev.Namespace,
-			Labels:    makeLabels(rev),
+			Labels:    MakeRevisionLabels(rev),
 			Annotations: resources.FilterMap(rev.GetAnnotations(), func(k string) bool {
 				// Ignore last pinned annotation.
 				return k == serving.RevisionLastPinnedAnnotationKey

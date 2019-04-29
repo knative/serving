@@ -30,7 +30,7 @@ import (
 
 	pkgTest "github.com/knative/pkg/test"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	rnames "github.com/knative/serving/pkg/reconciler/revision/resources/names"
+	deploymentnames "github.com/knative/serving/pkg/deployment/names"
 	"github.com/knative/serving/test"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -162,7 +162,7 @@ func TestDestroyPodTimely(t *testing.T) {
 	clients.ServingClient.Services.Delete(names.Service, nil)
 
 	// Wait until the pods have disappeared.
-	deploymentName := rnames.Deployment(objects.Revision)
+	deploymentName := deploymentnames.Deployment(objects.Revision)
 	pkgTest.WaitForPodListState(
 		clients.KubeClient,
 		func(p *v1.PodList) (bool, error) {

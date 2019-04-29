@@ -25,7 +25,7 @@ import (
 
 	"github.com/gorilla/websocket"
 	ingress "github.com/knative/pkg/test/ingress"
-	rnames "github.com/knative/serving/pkg/reconciler/revision/resources/names"
+	deploymentnames "github.com/knative/serving/pkg/deployment/names"
 	"github.com/knative/serving/test"
 	"k8s.io/apimachinery/pkg/util/wait"
 )
@@ -144,7 +144,7 @@ func TestWebSocketFromZero(t *testing.T) {
 		t.Fatalf("Failed to create WebSocket server: %v", err)
 	}
 
-	deploymentName := rnames.Deployment(resources.Revision)
+	deploymentName := deploymentnames.Deployment(resources.Revision)
 
 	if err := WaitForScaleToZero(t, deploymentName, clients); err != nil {
 		t.Fatalf("Could not scale to zero: %v", err)

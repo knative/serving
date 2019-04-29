@@ -28,6 +28,8 @@ import (
 	"github.com/knative/pkg/logging/logkey"
 	kpav1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/knative/serving/pkg/deployment"
+	deploymentnames "github.com/knative/serving/pkg/deployment/names"
 	"github.com/knative/serving/pkg/reconciler/revision/config"
 	"github.com/knative/serving/pkg/reconciler/revision/resources"
 	resourcenames "github.com/knative/serving/pkg/reconciler/revision/resources/names"
@@ -44,14 +46,14 @@ const (
 
 func (c *Reconciler) reconcileDeployment(ctx context.Context, rev *v1alpha1.Revision) error {
 	ns := rev.Namespace
-	deploymentName := resourcenames.Deployment(rev)
+	deploymentName := deploymentnames.Deployment(rev)
 	logger := logging.FromContext(ctx).With(zap.String(logkey.Deployment, deploymentName))
 
-	deployment, err := c.deploymentLister.Deployments(ns).Get(deploymentName)
+	target, err := c.deploymentLister.Deployments(ns).Get(deploymentName)
 	if apierrs.IsNotFound(err) {
 		// Deployment does not exist. Create it.
 		rev.Status.MarkDeploying("Deploying")
-		deployment, err = c.createDeployment(ctx, rev)
+		target, err = c.createDeployment(ctx, rev)
 		if err != nil {
 			logger.Errorf("Error creating deployment %q: %v", deploymentName, err)
 			return err
@@ -60,13 +62,13 @@ func (c *Reconciler) reconcileDeployment(ctx context.Context, rev *v1alpha1.Revi
 	} else if err != nil {
 		logger.Errorf("Error reconciling deployment %q: %v", deploymentName, err)
 		return err
-	} else if !metav1.IsControlledBy(deployment, rev) {
+	} else if !metav1.IsControlledBy(target, rev) {
 		// Surface an error in the revision's status, and return an error.
 		rev.Status.MarkResourceNotOwned("Deployment", deploymentName)
 		return fmt.Errorf("Revision: %q does not own Deployment: %q", rev.Name, deploymentName)
 	} else {
 		// The deployment exists, but make sure that it has the shape that we expect.
-		deployment, err = c.checkAndUpdateDeployment(ctx, rev, deployment)
+		target, err = c.checkAndUpdateDeployment(ctx, rev, target)
 		if err != nil {
 			logger.Errorf("Error updating deployment %q: %v", deploymentName, err)
 			return err
@@ -74,8 +76,8 @@ func (c *Reconciler) reconcileDeployment(ctx context.Context, rev *v1alpha1.Revi
 	}
 
 	// If a container keeps crashing (no active pods in the deployment although we want some)
-	if *deployment.Spec.Replicas > 0 && deployment.Status.AvailableReplicas == 0 {
-		pods, err := c.KubeClientSet.CoreV1().Pods(ns).List(metav1.ListOptions{LabelSelector: metav1.FormatLabelSelector(deployment.Spec.Selector)})
+	if *target.Spec.Replicas > 0 && target.Status.AvailableReplicas == 0 {
+		pods, err := c.KubeClientSet.CoreV1().Pods(ns).List(metav1.ListOptions{LabelSelector: metav1.FormatLabelSelector(target.Spec.Selector)})
 		if err != nil {
 			logger.Errorf("Error getting pods: %v", err)
 		} else if len(pods.Items) > 0 {
@@ -83,7 +85,7 @@ func (c *Reconciler) reconcileDeployment(ctx context.Context, rev *v1alpha1.Revi
 			pod := pods.Items[0]
 
 			for _, status := range pod.Status.ContainerStatuses {
-				if status.Name == resources.UserContainerName {
+				if status.Name == deployment.UserContainerName {
 					if t := status.LastTerminationState.Terminated; t != nil {
 						logger.Infof("%s marking exiting with: %d/%s", rev.Name, t.ExitCode, t.Message)
 						rev.Status.MarkContainerExiting(t.ExitCode, t.Message)
@@ -96,9 +98,9 @@ func (c *Reconciler) reconcileDeployment(ctx context.Context, rev *v1alpha1.Revi
 
 	// Now that we have a Deployment, determine whether there is any relevant
 	// status to surface in the Revision.
-	if hasDeploymentTimedOut(deployment) && !rev.Status.IsActivationRequired() {
+	if hasDeploymentTimedOut(target) && !rev.Status.IsActivationRequired() {
 		rev.Status.MarkProgressDeadlineExceeded(fmt.Sprintf(
-			"Unable to create pods for more than %d seconds.", resources.ProgressDeadlineSeconds))
+			"Unable to create pods for more than %d seconds.", deployment.ProgressDeadlineSeconds))
 		c.Recorder.Eventf(rev, corev1.EventTypeNormal, "ProgressDeadlineExceeded",
 			"Revision %s not ready due to Deployment timeout", rev.Name)
 	}
@@ -201,12 +203,12 @@ func (c *Reconciler) reconcileFluentdConfigMap(ctx context.Context, rev *v1alpha
 	}
 
 	ns := rev.Namespace
-	name := resourcenames.FluentdConfigMap(rev)
+	name := deploymentnames.FluentdConfigMap(rev)
 
 	configMap, err := c.configMapLister.ConfigMaps(ns).Get(name)
 	if apierrs.IsNotFound(err) {
 		// ConfigMap doesn't exist, going to create it
-		desiredConfigMap := resources.MakeFluentdConfigMap(rev, cfgs.Observability)
+		desiredConfigMap := deployment.MakeFluentdConfigMap(rev, cfgs.Observability)
 		_, err = c.KubeClientSet.CoreV1().ConfigMaps(ns).Create(desiredConfigMap)
 		if err != nil {
 			logger.Errorw("Error creating fluentd configmap", zap.Error(err))
@@ -217,7 +219,7 @@ func (c *Reconciler) reconcileFluentdConfigMap(ctx context.Context, rev *v1alpha
 		logger.Errorf("configmaps.Get for %q failed: %s", name, err)
 		return err
 	} else {
-		desiredConfigMap := resources.MakeFluentdConfigMap(rev, cfgs.Observability)
+		desiredConfigMap := deployment.MakeFluentdConfigMap(rev, cfgs.Observability)
 		if !equality.Semantic.DeepEqual(configMap.Data, desiredConfigMap.Data) {
 			diff, err := kmp.SafeDiff(desiredConfigMap.Data, configMap.Data)
 			if err != nil {

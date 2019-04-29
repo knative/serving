@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package resources
+package deployment
 
 import (
 	"testing"
@@ -26,7 +26,7 @@ import (
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 )
 
-func TestMakeLabels(t *testing.T) {
+func TestMakeRevisionLabels(t *testing.T) {
 	tests := []struct {
 		name string
 		rev  *v1alpha1.Revision
@@ -86,7 +86,7 @@ func TestMakeLabels(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got := makeLabels(test.rev)
+			got := MakeRevisionLabels(test.rev)
 			if diff := cmp.Diff(test.want, got); diff != "" {
 				t.Errorf("makeLabels (-want, +got) = %v", diff)
 			}
@@ -94,7 +94,7 @@ func TestMakeLabels(t *testing.T) {
 			wantSelector := &metav1.LabelSelector{
 				MatchLabels: map[string]string{serving.RevisionUID: "1234"},
 			}
-			gotSelector := makeSelector(test.rev)
+			gotSelector := MakeRevisionSelector(test.rev)
 			if diff := cmp.Diff(wantSelector, gotSelector); diff != "" {
 				t.Errorf("makeLabels (-want, +got) = %v", diff)
 			}

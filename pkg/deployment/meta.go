@@ -1,5 +1,5 @@
 /*
-Copyright 2018 The Knative Authors
+Copyright 2019 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package resources
+package deployment
 
 import (
 	"github.com/knative/serving/pkg/apis/serving"
@@ -23,8 +23,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// makeLabels constructs the labels we will apply to K8s resources.
-func makeLabels(revision *v1alpha1.Revision) map[string]string {
+// MakeRevisionLabels constructs the labels we will apply to K8s resources for a given revision.
+func MakeRevisionLabels(revision *v1alpha1.Revision) map[string]string {
 	labels := resources.UnionMaps(revision.GetLabels(), map[string]string{
 		serving.RevisionLabelKey: revision.Name,
 		serving.RevisionUID:      string(revision.UID),
@@ -39,8 +39,8 @@ func makeLabels(revision *v1alpha1.Revision) map[string]string {
 	return labels
 }
 
-// makeSelector constructs the Selector we will apply to K8s resources.
-func makeSelector(revision *v1alpha1.Revision) *metav1.LabelSelector {
+// MakeRevisionSelector constructs the Selector we will apply to K8s resources for a given revision.
+func MakeRevisionSelector(revision *v1alpha1.Revision) *metav1.LabelSelector {
 	return &metav1.LabelSelector{
 		MatchLabels: map[string]string{
 			serving.RevisionUID: string(revision.UID),

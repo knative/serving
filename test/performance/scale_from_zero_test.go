@@ -31,7 +31,7 @@ import (
 	pkgTest "github.com/knative/pkg/test"
 	"github.com/knative/pkg/test/zipkin"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	"github.com/knative/serving/pkg/reconciler/revision/resources/names"
+	deploymentnames "github.com/knative/serving/pkg/deployment/names"
 	ktest "github.com/knative/serving/pkg/reconciler/testing"
 	"github.com/knative/serving/test"
 	"github.com/knative/serving/test/e2e"
@@ -55,7 +55,7 @@ type stats struct {
 
 func runScaleFromZero(idx int, t *testing.T, clients *test.Clients, ro *test.ResourceObjects) (time.Duration, error) {
 	t.Helper()
-	deploymentName := names.Deployment(ro.Revision)
+	deploymentName := deploymentnames.Deployment(ro.Revision)
 
 	domain := ro.Route.Status.Domain
 	t.Logf("%02d: waiting for deployment to scale to zero.", idx)

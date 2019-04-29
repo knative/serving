@@ -27,7 +27,7 @@ import (
 	"github.com/knative/serving/pkg/apis/networking"
 	netv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	"github.com/knative/serving/pkg/reconciler/revision/resources"
+	"github.com/knative/serving/pkg/deployment"
 	"github.com/knative/serving/pkg/reconciler/route/resources/names"
 )
 
@@ -90,7 +90,7 @@ func makeServiceSpec(ingress *netv1alpha1.ClusterIngress) (*corev1.ServiceSpec, 
 			Type: corev1.ServiceTypeClusterIP,
 			Ports: []corev1.ServicePort{{
 				Name: networking.ServicePortNameHTTP1,
-				Port: resources.ServicePort,
+				Port: deployment.ServicePort,
 			}},
 		}, nil
 	case len(balancer.IP) != 0:
