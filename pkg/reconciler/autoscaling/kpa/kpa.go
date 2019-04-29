@@ -196,22 +196,22 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 
 	// Reconcile this copy of the pa and then write back any status
 	// updates regardless of whether the reconciliation errored out.
-	err = c.reconcile(ctx, pa)
+	reconcileErr := c.reconcile(ctx, pa)
 	if equality.Semantic.DeepEqual(original.Status, pa.Status) {
 		// If we didn't change anything then don't call updateStatus.
 		// This is important because the copy we loaded from the informer's
 		// cache may be stale and we don't want to overwrite a prior update
 		// to status with this stale state.
-	} else if _, err := c.updateStatus(pa); err != nil {
+	} else if _, err = c.updateStatus(pa); err != nil {
 		logger.Warnw("Failed to update kpa status", zap.Error(err))
 		c.Recorder.Eventf(pa, corev1.EventTypeWarning, "UpdateFailed",
 			"Failed to update status for PA %q: %v", pa.Name, err)
 		return err
 	}
-	if err != nil {
-		c.Recorder.Event(pa, corev1.EventTypeWarning, "InternalError", err.Error())
+	if reconcileErr != nil {
+		c.Recorder.Event(pa, corev1.EventTypeWarning, "InternalError", reconcileErr.Error())
 	}
-	return err
+	return reconcileErr
 }
 
 func (c *Reconciler) reconcile(ctx context.Context, pa *pav1alpha1.PodAutoscaler) error {
