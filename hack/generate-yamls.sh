@@ -106,10 +106,10 @@ ko resolve ${KO_YAML_FLAGS} -R -f config/monitoring/tracing/zipkin | "${LABEL_YA
 ko resolve ${KO_YAML_FLAGS} -R -f config/monitoring/tracing/zipkin-in-mem | "${LABEL_YAML_CMD[@]}" > "${MONITORING_TRACE_ZIPKIN_IN_MEM_YAML}"
 
 # Traces via Jaeger when ElasticSearch is installed
-ko resolve ${KO_YAML_FLAGS} -R -f config/monitoring/tracing/jaeger -f config/monitoring/tracing/jaeger/elasticsearch | "${LABEL_YAML_CMD[@]}" > "${MONITORING_TRACE_JAEGER_YAML}"
+ko resolve ${KO_YAML_FLAGS} -R -f config/monitoring/tracing/jaeger/elasticsearch -f config/monitoring/tracing/jaeger/105-zipkin-service.yaml | "${LABEL_YAML_CMD[@]}" > "${MONITORING_TRACE_JAEGER_YAML}"
 
 # Traces via Jaeger in Memory when ElasticSearch is not installed
-ko resolve ${KO_YAML_FLAGS} -R -f config/monitoring/tracing/jaeger -f config/monitoring/tracing/jaeger/memory | "${LABEL_YAML_CMD[@]}" > "${MONITORING_TRACE_JAEGER_IN_MEM_YAML}"
+ko resolve ${KO_YAML_FLAGS} -R -f config/monitoring/tracing/jaeger/memory -f config/monitoring/tracing/jaeger/105-zipkin-service.yaml | "${LABEL_YAML_CMD[@]}" > "${MONITORING_TRACE_JAEGER_IN_MEM_YAML}"
 
 echo "All manifests generated"
 
