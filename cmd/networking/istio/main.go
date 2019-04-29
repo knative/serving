@@ -105,6 +105,5 @@ func main() {
 
 	// Start all of the controllers.
 	logger.Info("Starting controllers.")
-	go controller.StartAll(stopCh, ciController)
-	<-stopCh
+	controller.StartAll(stopCh, ciController)
 }
