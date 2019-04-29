@@ -84,11 +84,11 @@ func TestTimedFloat64Buckets(t *testing.T) {
 			}
 			buckets.Unlock()
 
-			if diff := cmp.Diff(tt.want, got); diff != "" {
-				t.Errorf("Unexpected values (-want +got): %v", diff)
+			if !cmp.Equal(tt.want, got) {
+				t.Errorf("Unexpected values (-want +got): %v", cmp.Diff(tt.want, got))
 			}
 			if len(tt.want) == 0 && !buckets.IsEmpty() {
-				t.Errorf("IsEmpty() = false, want true")
+				t.Error("IsEmpty() = false, want true")
 			}
 		})
 	}
