@@ -32,7 +32,6 @@ func TestCmdArgsService(t *testing.T) {
 
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
-		Image:   pizzaPlanet1,
 	}
 
 	// Clean up on test failure or interrupt
@@ -45,7 +44,7 @@ func TestCmdArgsService(t *testing.T) {
 	_, err := test.CreateRunLatestServiceReady(t, clients, &names, &test.Options{},
 		func(svc *v1alpha1.Service) {
 			c := &svc.Spec.Template.Spec.Containers[0]
-			c.Image = "python"
+			c.Image = "python:3"
 			c.Command = []string{"python"}
 			c.Args = []string{"-c", fmt.Sprintf(`
 import http.server
