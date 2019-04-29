@@ -48,11 +48,11 @@ import (
 	"github.com/knative/serving/pkg/autoscaler"
 	fakeclientset "github.com/knative/serving/pkg/client/clientset/versioned/fake"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
+	"github.com/knative/serving/pkg/deployment"
 	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/pkg/metrics"
 	"github.com/knative/serving/pkg/network"
 	rclr "github.com/knative/serving/pkg/reconciler"
-	"github.com/knative/serving/pkg/reconciler/revision/config"
 	"github.com/knative/serving/pkg/reconciler/revision/resources"
 	resourcenames "github.com/knative/serving/pkg/reconciler/revision/resources/names"
 
@@ -109,7 +109,7 @@ func testReadyKPA(rev *v1alpha1.Revision) *av1alpha1.PodAutoscaler {
 	return kpa
 }
 
-func newTestControllerWithConfig(t *testing.T, controllerConfig *config.Controller, configs ...*corev1.ConfigMap) (
+func newTestControllerWithConfig(t *testing.T, deploymentConfig *deployment.Config, configs ...*corev1.ConfigMap) (
 	kubeClient *fakekubeclientset.Clientset,
 	servingClient *fakeclientset.Clientset,
 	cachingClient *fakecachingclientset.Clientset,
@@ -198,7 +198,7 @@ func newTestControllerWithConfig(t *testing.T, controllerConfig *config.Controll
 			"panic-window":                            "10s",
 			"tick-interval":                           "2s",
 		},
-	}, getTestControllerConfigMap()}
+	}, getTestDeploymentConfigMap()}
 
 	cms = append(cms, configs...)
 
@@ -362,8 +362,8 @@ func TestResolutionFailed(t *testing.T) {
 
 // TODO(mattmoor): add coverage of a Reconcile fixing a stale logging URL
 func TestUpdateRevWithWithUpdatedLoggingURL(t *testing.T) {
-	controllerConfig := getTestControllerConfig()
-	kubeClient, servingClient, cachingClient, _, controller, kubeInformer, servingInformer, cachingInformer, watcher, _ := newTestControllerWithConfig(t, controllerConfig, &corev1.ConfigMap{
+	deploymentConfig := getTestDeploymentConfig()
+	kubeClient, servingClient, cachingClient, _, controller, kubeInformer, servingInformer, cachingInformer, watcher, _ := newTestControllerWithConfig(t, deploymentConfig, &corev1.ConfigMap{
 
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: system.Namespace(),
@@ -375,7 +375,7 @@ func TestUpdateRevWithWithUpdatedLoggingURL(t *testing.T) {
 			"logging.fluentd-sidecar-output-config": testFluentdSidecarOutputConfig,
 			"logging.revision-url-template":         "http://old-logging.test.com?filter=${REVISION_UID}",
 		},
-	}, getTestControllerConfigMap(),
+	}, getTestDeploymentConfigMap(),
 	)
 	revClient := servingClient.ServingV1alpha1().Revisions(testNamespace)
 
@@ -539,7 +539,7 @@ func TestIstioOutboundIPRangesInjection(t *testing.T) {
 }
 
 func getPodAnnotationsForConfig(t *testing.T, configMapValue string, configAnnotationOverride string) map[string]string {
-	controllerConfig := getTestControllerConfig()
+	controllerConfig := getTestDeploymentConfig()
 	kubeClient, servingClient, cachingClient, _, controller, kubeInformer, servingInformer, cachingInformer, watcher, _ := newTestControllerWithConfig(t, controllerConfig)
 
 	// Resolve image references to this "digest"
@@ -617,7 +617,7 @@ func TestGlobalResyncOnConfigMapUpdateRevision(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			controllerConfig := getTestControllerConfig()
+			controllerConfig := getTestDeploymentConfig()
 			_, servingClient, _, _, controller, kubeInformer, servingInformer, cachingInformer, watcher, _ := newTestControllerWithConfig(t, controllerConfig)
 
 			stopCh := make(chan struct{})
@@ -759,7 +759,7 @@ func TestGlobalResyncOnConfigMapUpdateDeployment(t *testing.T) {
 		configMapToUpdate: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: system.Namespace(),
-				Name:      config.ControllerConfigName,
+				Name:      deployment.ConfigName,
 			},
 			Data: map[string]string{
 				"queueSidecarImage": "myAwesomeQueueImage",
@@ -790,7 +790,7 @@ func TestGlobalResyncOnConfigMapUpdateDeployment(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			controllerConfig := getTestControllerConfig()
+			controllerConfig := getTestDeploymentConfig()
 			kubeClient, servingClient, _, _, controller, kubeInformer, servingInformer, cachingInformer, watcher, _ := newTestControllerWithConfig(t, controllerConfig)
 
 			stopCh := make(chan struct{})

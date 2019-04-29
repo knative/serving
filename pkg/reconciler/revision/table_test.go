@@ -877,7 +877,7 @@ func deploy(namespace, name string, opts ...interface{}) *appsv1.Deployment {
 	// before calling MakeDeployment within Reconcile.
 	rev.SetDefaults(context.Background())
 	return resources.MakeDeployment(rev, cfg.Logging, cfg.Network,
-		cfg.Observability, cfg.Autoscaler, cfg.Controller,
+		cfg.Observability, cfg.Autoscaler, cfg.Deployment,
 	)
 
 }
@@ -946,7 +946,7 @@ var _ configStore = (*testConfigStore)(nil)
 
 func ReconcilerTestConfig() *config.Config {
 	return &config.Config{
-		Controller: getTestControllerConfig(),
+		Deployment: getTestDeploymentConfig(),
 		Network:    &network.Config{IstioOutboundIPRanges: "*"},
 		Observability: &metrics.ObservabilityConfig{
 			LoggingURLTemplate: "http://logger.io/${REVISION_UID}",

@@ -31,8 +31,8 @@ import (
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 	"github.com/knative/serving/pkg/autoscaler"
+	"github.com/knative/serving/pkg/deployment"
 	"github.com/knative/serving/pkg/metrics"
-	"github.com/knative/serving/pkg/reconciler/revision/config"
 	"go.uber.org/zap/zapcore"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -46,7 +46,7 @@ func TestMakeQueueContainer(t *testing.T) {
 		lc   *logging.Config
 		oc   *metrics.ObservabilityConfig
 		ac   *autoscaler.Config
-		cc   *config.Controller
+		cc   *deployment.Config
 		want *corev1.Container
 	}{{
 		name: "no owner no autoscaler single",
@@ -66,7 +66,7 @@ func TestMakeQueueContainer(t *testing.T) {
 		lc: &logging.Config{},
 		oc: &metrics.ObservabilityConfig{},
 		ac: &autoscaler.Config{},
-		cc: &config.Controller{},
+		cc: &deployment.Config{},
 		want: &corev1.Container{
 			// These are effectively constant
 			Name:           QueueContainerName,
@@ -154,7 +154,7 @@ func TestMakeQueueContainer(t *testing.T) {
 		lc: &logging.Config{},
 		oc: &metrics.ObservabilityConfig{},
 		ac: &autoscaler.Config{},
-		cc: &config.Controller{
+		cc: &deployment.Config{
 			QueueSidecarImage: "alpine",
 		},
 		want: &corev1.Container{
@@ -240,7 +240,7 @@ func TestMakeQueueContainer(t *testing.T) {
 		lc: &logging.Config{},
 		oc: &metrics.ObservabilityConfig{},
 		ac: &autoscaler.Config{},
-		cc: &config.Controller{
+		cc: &deployment.Config{
 			QueueSidecarImage: "alpine",
 		},
 		want: &corev1.Container{
@@ -329,7 +329,7 @@ func TestMakeQueueContainer(t *testing.T) {
 		lc: &logging.Config{},
 		oc: &metrics.ObservabilityConfig{},
 		ac: &autoscaler.Config{},
-		cc: &config.Controller{},
+		cc: &deployment.Config{},
 		want: &corev1.Container{
 			// These are effectively constant
 			Name:           QueueContainerName,
@@ -414,7 +414,7 @@ func TestMakeQueueContainer(t *testing.T) {
 		},
 		oc: &metrics.ObservabilityConfig{},
 		ac: &autoscaler.Config{},
-		cc: &config.Controller{},
+		cc: &deployment.Config{},
 		want: &corev1.Container{
 			// These are effectively constant
 			Name:           QueueContainerName,
@@ -494,7 +494,7 @@ func TestMakeQueueContainer(t *testing.T) {
 		lc: &logging.Config{},
 		oc: &metrics.ObservabilityConfig{},
 		ac: &autoscaler.Config{},
-		cc: &config.Controller{},
+		cc: &deployment.Config{},
 		want: &corev1.Container{
 			// These are effectively constant
 			Name:           QueueContainerName,
@@ -574,7 +574,7 @@ func TestMakeQueueContainer(t *testing.T) {
 		lc: &logging.Config{},
 		oc: &metrics.ObservabilityConfig{RequestLogTemplate: "test template"},
 		ac: &autoscaler.Config{},
-		cc: &config.Controller{},
+		cc: &deployment.Config{},
 		want: &corev1.Container{
 			// These are effectively constant
 			Name:           QueueContainerName,
@@ -656,7 +656,7 @@ func TestMakeQueueContainer(t *testing.T) {
 			RequestMetricsBackend: "prometheus",
 		},
 		ac: &autoscaler.Config{},
-		cc: &config.Controller{},
+		cc: &deployment.Config{},
 		want: &corev1.Container{
 			// These are effectively constant
 			Name:           QueueContainerName,
