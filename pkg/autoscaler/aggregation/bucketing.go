@@ -75,25 +75,31 @@ func (t *TimedFloat64Buckets) Unlock() {
 }
 
 // Float64Bucket keeps all the stats that fall into a defined bucket.
-type Float64Bucket map[string][]float64
+type Float64Bucket map[string]float64Value
+
+// float64Value is a single value for a Float64Bucket. It maintains a summed
+// up value and a count to ultimately calculate an average.
+type float64Value struct {
+	sum   float64
+	count float64
+}
 
 // Record adds a value to the bucket. Buckets with the same given name
 // will be collapsed.
 func (b Float64Bucket) Record(name string, value float64) {
-	b[name] = append(b[name], value)
+	current := b[name]
+	b[name] = float64Value{
+		sum:   current.sum + value,
+		count: current.count + 1.0,
+	}
 }
 
 // Sum calculates the sum over the bucket. Values of the same name in
 // the same bucket will be averaged between themselves first.
 func (b Float64Bucket) Sum() float64 {
 	var total float64
-	for _, perNameValues := range b {
-		var subtotal float64
-		for _, value := range perNameValues {
-			subtotal += value
-		}
-		total += subtotal / float64(len(perNameValues))
+	for _, value := range b {
+		total += value.sum / value.count
 	}
-
 	return total
 }
