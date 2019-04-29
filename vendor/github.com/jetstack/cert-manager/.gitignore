@@ -1,9 +1,0 @@
-.DS_Store
-.idea
-/acmesolver
-/controller
-/ingress-shim
-/hack/build/dockerfiles/cert-manager-*_*_*
-.vscode
-.venv
-bazel-*

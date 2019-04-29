@@ -92,7 +92,3 @@ required = [
   name = "github.com/knative/test-infra"
   non-go = false
 
-[[prune.project]]
-  name = "github.com/jetstack/cert-manager"
-  unused-packages = false
-  non-go = false
