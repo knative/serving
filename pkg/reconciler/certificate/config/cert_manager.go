@@ -43,21 +43,21 @@ type CertManagerConfig struct {
 func NewCertManagerConfigFromConfigMap(configMap *corev1.ConfigMap) (*CertManagerConfig, error) {
 	// TODO(zhiminx): do we need to provide the default values here?
 
-	solverConfig := &certmanagerv1alpha1.SolverConfig{}
+	config := &CertManagerConfig{
+		SolverConfig: &certmanagerv1alpha1.SolverConfig{},
+		IssuerRef:    &certmanagerv1alpha1.ObjectReference{},
+	}
+
 	if v, ok := configMap.Data[solverConfigKey]; ok {
-		if err := yaml.Unmarshal([]byte(v), solverConfig); err != nil {
+		if err := yaml.Unmarshal([]byte(v), config.SolverConfig); err != nil {
 			return nil, err
 		}
 	}
 
-	issuerRef := &certmanagerv1alpha1.ObjectReference{}
 	if v, ok := configMap.Data[issuerRefKey]; ok {
-		if err := yaml.Unmarshal([]byte(v), issuerRef); err != nil {
+		if err := yaml.Unmarshal([]byte(v), config.IssuerRef); err != nil {
 			return nil, err
 		}
 	}
-	return &CertManagerConfig{
-		SolverConfig: solverConfig,
-		IssuerRef:    issuerRef,
-	}, nil
+	return config, nil
 }

@@ -17,6 +17,8 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"fmt"
+
 	"github.com/knative/pkg/apis"
 	duckv1beta1 "github.com/knative/pkg/apis/duck/v1beta1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -40,6 +42,13 @@ func (cs *CertificateStatus) MarkUnknown(reason, message string) {
 // MarkNotReady marks the certificate as not ready.
 func (cs *CertificateStatus) MarkNotReady(reason, message string) {
 	certificateCondSet.Manage(cs).MarkFalse(CertificateCondidtionReady, reason, message)
+}
+
+// MarkResourceNotOwned changes the ready condition to false to reflect that we don't own the
+// resource of the given kind and name.
+func (cs *CertificateStatus) MarkResourceNotOwned(kind, name string) {
+	certificateCondSet.Manage(cs).MarkFalse(CertificateCondidtionReady, "NotOwned",
+		fmt.Sprintf("There is an existing %s %q that we do not own.", kind, name))
 }
 
 // IsReady returns true is the Certificate is ready.

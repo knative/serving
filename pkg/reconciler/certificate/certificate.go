@@ -18,6 +18,7 @@ package certificate
 
 import (
 	"context"
+	"fmt"
 	"reflect"
 
 	cmv1alpha1 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1alpha1"
@@ -37,6 +38,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -166,10 +168,9 @@ func (c *Reconciler) reconcile(ctx context.Context, knCert *v1alpha1.Certificate
 	knCert.Status.ObservedGeneration = knCert.Generation
 	// Propagate cert-manager Certificate status to Knative Certificate.
 	cmCertReadyCondition := resources.GetReadyCondition(cmCert)
-	if cmCertReadyCondition == nil {
-		return nil
-	}
 	switch {
+	case cmCertReadyCondition == nil:
+		knCert.Status.MarkUnknown("NoCertManagerCertCondition", "The ready condition of Cert Manager Certifiate does not exist.")
 	case cmCertReadyCondition.Status == cmv1alpha1.ConditionUnknown:
 		knCert.Status.MarkUnknown(cmCertReadyCondition.Reason, cmCertReadyCondition.Message)
 	case cmCertReadyCondition.Status == cmv1alpha1.ConditionTrue:
@@ -195,6 +196,9 @@ func (c *Reconciler) reconcileCMCertificate(ctx context.Context, knCert *v1alpha
 			"Created Cert-Manager Certificate %s/%s", desired.Namespace, desired.Name)
 	} else if err != nil {
 		return nil, err
+	} else if !metav1.IsControlledBy(desired, knCert) {
+		knCert.Status.MarkResourceNotOwned("CertManagerCertificate", desired.Name)
+		return nil, fmt.Errorf("Knative Certificate %s in namespace %s does not own CertManager Certificate: %s", knCert.Name, knCert.Namespace, desired.Name)
 	} else if !equality.Semantic.DeepEqual(cmCert.Spec, desired.Spec) {
 		copy := cmCert.DeepCopy()
 		copy.Spec = desired.Spec
