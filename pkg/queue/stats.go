@@ -145,10 +145,11 @@ func weightedAverage(times map[int32]time.Duration) float64 {
 	}
 	avg := 0.0
 	if totalTimeUsed > 0 {
+		sum := 0.0
 		for c, val := range times {
-			ratio := float64(val) / float64(totalTimeUsed)
-			avg += float64(c) * ratio
+			sum += float64(c) * val.Seconds()
 		}
+		avg = sum / totalTimeUsed.Seconds()
 	}
 	return avg
 }
