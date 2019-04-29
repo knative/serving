@@ -24,7 +24,7 @@ import (
 // TimedFloat64Buckets keeps buckets that have been collected at a certain time.
 type TimedFloat64Buckets struct {
 	bucketsMutex sync.RWMutex
-	buckets      map[time.Time]Float64Bucket
+	buckets      map[time.Time]float64Bucket
 
 	granularity time.Duration
 }
@@ -33,7 +33,7 @@ type TimedFloat64Buckets struct {
 // granularity.
 func NewTimedFloat64Buckets(granularity time.Duration) *TimedFloat64Buckets {
 	return &TimedFloat64Buckets{
-		buckets:     make(map[time.Time]Float64Bucket),
+		buckets:     make(map[time.Time]float64Bucket),
 		granularity: granularity,
 	}
 }
@@ -46,7 +46,7 @@ func (t *TimedFloat64Buckets) Record(time time.Time, name string, value float64)
 	bucketKey := time.Truncate(t.granularity)
 	bucket, ok := t.buckets[bucketKey]
 	if !ok {
-		bucket = Float64Bucket{}
+		bucket = float64Bucket{}
 		t.buckets[bucketKey] = bucket
 	}
 	bucket.Record(name, value)
@@ -60,22 +60,32 @@ func (t *TimedFloat64Buckets) IsEmpty() bool {
 	return len(t.buckets) == 0
 }
 
-// GetAndLock returns the buckets and secures them via a mutex. The contents of
-// the returned map can be modified and the modifications will be visible to other
-// readers. Unlock must be called after the client is done reading/manipulating
-// the data.
-func (t *TimedFloat64Buckets) GetAndLock() map[time.Time]Float64Bucket {
+// Process processes all buckets saved currently with the given Accumulutor functions.
+func (t *TimedFloat64Buckets) Process(accs ...Accumulator) {
+	t.bucketsMutex.RLock()
+	defer t.bucketsMutex.RUnlock()
+
+	for bucketTime, bucket := range t.buckets {
+		for _, acc := range accs {
+			acc(bucketTime, bucket)
+		}
+	}
+}
+
+// RemoveOlderThan removes buckets older than the given time from the state.
+func (t *TimedFloat64Buckets) RemoveOlderThan(time time.Time) {
 	t.bucketsMutex.Lock()
-	return t.buckets
+	defer t.bucketsMutex.Unlock()
+
+	for bucketTime := range t.buckets {
+		if bucketTime.Before(time) {
+			delete(t.buckets, bucketTime)
+		}
+	}
 }
 
-// Unlock unlocks the mutex locked via GetAndLock.
-func (t *TimedFloat64Buckets) Unlock() {
-	t.bucketsMutex.Unlock()
-}
-
-// Float64Bucket keeps all the stats that fall into a defined bucket.
-type Float64Bucket map[string]float64Value
+// float64Bucket keeps all the stats that fall into a defined bucket.
+type float64Bucket map[string]float64Value
 
 // float64Value is a single value for a Float64Bucket. It maintains a summed
 // up value and a count to ultimately calculate an average.
@@ -86,7 +96,7 @@ type float64Value struct {
 
 // Record adds a value to the bucket. Buckets with the same given name
 // will be collapsed.
-func (b Float64Bucket) Record(name string, value float64) {
+func (b float64Bucket) Record(name string, value float64) {
 	current := b[name]
 	b[name] = float64Value{
 		sum:   current.sum + value,
@@ -96,7 +106,7 @@ func (b Float64Bucket) Record(name string, value float64) {
 
 // Sum calculates the sum over the bucket. Values of the same name in
 // the same bucket will be averaged between themselves first.
-func (b Float64Bucket) Sum() float64 {
+func (b float64Bucket) Sum() float64 {
 	var total float64
 	for _, value := range b {
 		total += value.sum / value.count
