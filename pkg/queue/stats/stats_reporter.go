@@ -29,13 +29,18 @@ import (
 	"go.opencensus.io/tag"
 )
 
+const (
+	requestCountN       = "request_count"
+	responseTimeInMsecN = "request_latencies"
+)
+
 var (
 	requestCountM = stats.Int64(
-		"request_count",
+		requestCountN,
 		"The number of requests that are routed to queue-proxy",
 		stats.UnitDimensionless)
 	responseTimeInMsecM = stats.Float64(
-		"request_latencies",
+		responseTimeInMsecN,
 		"The response time in millisecond",
 		stats.UnitMilliseconds)
 )

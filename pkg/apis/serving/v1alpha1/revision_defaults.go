@@ -22,7 +22,7 @@ import (
 	"github.com/knative/pkg/apis"
 	corev1 "k8s.io/api/core/v1"
 
-	"github.com/knative/serving/pkg/apis/config"
+	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 )
 
 func (r *Revision) SetDefaults(ctx context.Context) {
@@ -30,7 +30,15 @@ func (r *Revision) SetDefaults(ctx context.Context) {
 }
 
 func (rs *RevisionSpec) SetDefaults(ctx context.Context) {
-	cfg := config.FromContextOrDefaults(ctx)
+	if v1beta1.IsUpgradeViaDefaulting(ctx) {
+		beta := v1beta1.RevisionSpec{}
+		if rs.ConvertUp(ctx, &beta) == nil {
+			alpha := RevisionSpec{}
+			if alpha.ConvertDown(ctx, beta) == nil {
+				*rs = alpha
+			}
+		}
+	}
 
 	// When ConcurrencyModel is specified but ContainerConcurrency
 	// is not (0), use the ConcurrencyModel value.
@@ -38,21 +46,18 @@ func (rs *RevisionSpec) SetDefaults(ctx context.Context) {
 		rs.ContainerConcurrency = 1
 	}
 
-	if rs.TimeoutSeconds == nil {
-		ts := cfg.Defaults.RevisionTimeoutSeconds
-		rs.TimeoutSeconds = &ts
+	// When the PodSpec has no containers, move the single Container
+	// into the PodSpec for the scope of defaulting and then move
+	// it back as we return.
+	if len(rs.Containers) == 0 {
+		if rs.DeprecatedContainer == nil {
+			rs.DeprecatedContainer = &corev1.Container{}
+		}
+		rs.Containers = []corev1.Container{*rs.DeprecatedContainer}
+		defer func() {
+			rs.DeprecatedContainer = &rs.Containers[0]
+			rs.Containers = nil
+		}()
 	}
-
-	c := rs.GetContainer()
-	if c.Resources.Requests == nil {
-		c.Resources.Requests = corev1.ResourceList{}
-	}
-	if _, ok := c.Resources.Requests[corev1.ResourceCPU]; !ok {
-		c.Resources.Requests[corev1.ResourceCPU] = cfg.Defaults.RevisionCPURequest
-	}
-
-	vms := c.VolumeMounts
-	for i := range vms {
-		vms[i].ReadOnly = true
-	}
+	rs.RevisionSpec.SetDefaults(ctx)
 }

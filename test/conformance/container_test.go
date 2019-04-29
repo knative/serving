@@ -40,7 +40,7 @@ func TestMustNotContainerConstraints(t *testing.T) {
 	}{{
 		name: "TestArbitraryPortName",
 		options: func(s *v1alpha1.Service) {
-			s.Spec.RunLatest.Configuration.GetTemplate().Spec.GetContainer().Ports = []corev1.ContainerPort{{
+			s.Spec.ConfigurationSpec.GetTemplate().Spec.GetContainer().Ports = []corev1.ContainerPort{{
 				Name:          "arbitrary",
 				ContainerPort: 8080,
 			}}
@@ -49,7 +49,7 @@ func TestMustNotContainerConstraints(t *testing.T) {
 		name: "TestMountPropagation",
 		options: func(s *v1alpha1.Service) {
 			propagationMode := corev1.MountPropagationHostToContainer
-			s.Spec.RunLatest.Configuration.GetTemplate().Spec.GetContainer().VolumeMounts = []corev1.VolumeMount{{
+			s.Spec.ConfigurationSpec.GetTemplate().Spec.GetContainer().VolumeMounts = []corev1.VolumeMount{{
 				Name:             "VolumeMount",
 				MountPath:        "/",
 				MountPropagation: &propagationMode,
@@ -58,7 +58,7 @@ func TestMustNotContainerConstraints(t *testing.T) {
 	}, {
 		name: "TestReadinessHTTPProbePort",
 		options: func(s *v1alpha1.Service) {
-			s.Spec.RunLatest.Configuration.GetTemplate().Spec.GetContainer().ReadinessProbe = &corev1.Probe{
+			s.Spec.ConfigurationSpec.GetTemplate().Spec.GetContainer().ReadinessProbe = &corev1.Probe{
 				Handler: corev1.Handler{
 					HTTPGet: &corev1.HTTPGetAction{
 						Path: "/",
@@ -70,7 +70,7 @@ func TestMustNotContainerConstraints(t *testing.T) {
 	}, {
 		name: "TestLivenessHTTPProbePort",
 		options: func(s *v1alpha1.Service) {
-			s.Spec.RunLatest.Configuration.GetTemplate().Spec.GetContainer().LivenessProbe = &corev1.Probe{
+			s.Spec.ConfigurationSpec.GetTemplate().Spec.GetContainer().LivenessProbe = &corev1.Probe{
 				Handler: corev1.Handler{
 					HTTPGet: &corev1.HTTPGetAction{
 						Path: "/",
@@ -82,7 +82,7 @@ func TestMustNotContainerConstraints(t *testing.T) {
 	}, {
 		name: "TestReadinessTCPProbePort",
 		options: func(s *v1alpha1.Service) {
-			s.Spec.RunLatest.Configuration.GetTemplate().Spec.GetContainer().ReadinessProbe = &corev1.Probe{
+			s.Spec.ConfigurationSpec.GetTemplate().Spec.GetContainer().ReadinessProbe = &corev1.Probe{
 				Handler: corev1.Handler{
 					TCPSocket: &corev1.TCPSocketAction{Port: intstr.FromInt(8888)},
 				},
@@ -91,7 +91,7 @@ func TestMustNotContainerConstraints(t *testing.T) {
 	}, {
 		name: "TestLivenessTCPProbePort",
 		options: func(s *v1alpha1.Service) {
-			s.Spec.RunLatest.Configuration.GetTemplate().Spec.GetContainer().LivenessProbe = &corev1.Probe{
+			s.Spec.ConfigurationSpec.GetTemplate().Spec.GetContainer().LivenessProbe = &corev1.Probe{
 				Handler: corev1.Handler{
 					TCPSocket: &corev1.TCPSocketAction{Port: intstr.FromInt(8888)},
 				},
@@ -129,7 +129,7 @@ func TestShouldNotContainerConstraints(t *testing.T) {
 			lifecycleHandler := &corev1.ExecAction{
 				Command: []string{"/bin/sh", "-c", "echo Hello from the post start handler > /usr/share/message"},
 			}
-			s.Spec.RunLatest.Configuration.GetTemplate().Spec.GetContainer().Lifecycle = &corev1.Lifecycle{
+			s.Spec.ConfigurationSpec.GetTemplate().Spec.GetContainer().Lifecycle = &corev1.Lifecycle{
 				PostStart: &corev1.Handler{Exec: lifecycleHandler},
 			}
 		},
@@ -139,14 +139,14 @@ func TestShouldNotContainerConstraints(t *testing.T) {
 			lifecycleHandler := &corev1.ExecAction{
 				Command: []string{"/bin/sh", "-c", "echo Hello from the pre stop handler > /usr/share/message"},
 			}
-			s.Spec.RunLatest.Configuration.GetTemplate().Spec.GetContainer().Lifecycle = &corev1.Lifecycle{
+			s.Spec.ConfigurationSpec.GetTemplate().Spec.GetContainer().Lifecycle = &corev1.Lifecycle{
 				PreStop: &corev1.Handler{Exec: lifecycleHandler},
 			}
 		},
 	}, {
 		name: "TestMultiplePorts",
 		options: func(s *v1alpha1.Service) {
-			s.Spec.RunLatest.Configuration.GetTemplate().Spec.GetContainer().Ports = []corev1.ContainerPort{
+			s.Spec.ConfigurationSpec.GetTemplate().Spec.GetContainer().Ports = []corev1.ContainerPort{
 				{ContainerPort: 80},
 				{ContainerPort: 81},
 			}
@@ -154,7 +154,7 @@ func TestShouldNotContainerConstraints(t *testing.T) {
 	}, {
 		name: "TestHostPort",
 		options: func(s *v1alpha1.Service) {
-			s.Spec.RunLatest.Configuration.GetTemplate().Spec.GetContainer().Ports = []corev1.ContainerPort{{
+			s.Spec.ConfigurationSpec.GetTemplate().Spec.GetContainer().Ports = []corev1.ContainerPort{{
 				ContainerPort: 8081,
 				HostPort:      80,
 			}}

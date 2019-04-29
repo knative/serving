@@ -25,8 +25,6 @@ import (
 	"github.com/knative/pkg/kmp"
 	"github.com/knative/serving/pkg/apis/autoscaling"
 	"github.com/knative/serving/pkg/apis/serving"
-	servingv1alpha1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	autoscalingv1 "k8s.io/api/autoscaling/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 )
 
@@ -71,15 +69,9 @@ func (rs *PodAutoscalerSpec) Validate(ctx context.Context) *apis.FieldError {
 	if equality.Semantic.DeepEqual(rs, &PodAutoscalerSpec{}) {
 		return apis.ErrMissingField(apis.CurrentField)
 	}
-	errs := validateReference(rs.ScaleTargetRef).ViaField("scaleTargetRef")
-	if rs.ServiceName == "" {
-		errs = errs.Also(apis.ErrMissingField("serviceName"))
-	}
-
-	if err := servingv1alpha1.ValidateContainerConcurrency(
-		rs.ContainerConcurrency, ""); err != nil {
-		errs = errs.Also(err)
-	}
+	errs := serving.ValidateNamespacedObjectReference(&rs.ScaleTargetRef).ViaField("scaleTargetRef")
+	errs = errs.Also(rs.ContainerConcurrency.Validate(ctx).
+		ViaField("containerConcurrency"))
 	return errs.Also(validateSKSFields(ctx, rs))
 }
 
@@ -90,23 +82,6 @@ func validateSKSFields(ctx context.Context, rs *PodAutoscalerSpec) *apis.FieldEr
 		all = all.Also(rs.ProtocolType.Validate(ctx)).ViaField("protocolType")
 	}
 	return all
-}
-
-func validateReference(ref autoscalingv1.CrossVersionObjectReference) *apis.FieldError {
-	if equality.Semantic.DeepEqual(ref, autoscalingv1.CrossVersionObjectReference{}) {
-		return apis.ErrMissingField(apis.CurrentField)
-	}
-	var errs *apis.FieldError
-	if ref.Kind == "" {
-		errs = errs.Also(apis.ErrMissingField("kind"))
-	}
-	if ref.Name == "" {
-		errs = errs.Also(apis.ErrMissingField("name"))
-	}
-	if ref.APIVersion == "" {
-		errs = errs.Also(apis.ErrMissingField("apiVersion"))
-	}
-	return errs
 }
 
 func (pa *PodAutoscaler) validateMetric() *apis.FieldError {

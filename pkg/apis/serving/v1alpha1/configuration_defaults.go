@@ -20,6 +20,8 @@ import (
 	"context"
 
 	"github.com/knative/pkg/apis"
+
+	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 )
 
 func (c *Configuration) SetDefaults(ctx context.Context) {
@@ -27,5 +29,15 @@ func (c *Configuration) SetDefaults(ctx context.Context) {
 }
 
 func (cs *ConfigurationSpec) SetDefaults(ctx context.Context) {
+	if v1beta1.IsUpgradeViaDefaulting(ctx) {
+		beta := v1beta1.ConfigurationSpec{}
+		if cs.ConvertUp(ctx, &beta) == nil {
+			alpha := ConfigurationSpec{}
+			if alpha.ConvertDown(ctx, beta) == nil {
+				*cs = alpha
+			}
+		}
+	}
+
 	cs.GetTemplate().Spec.SetDefaults(ctx)
 }

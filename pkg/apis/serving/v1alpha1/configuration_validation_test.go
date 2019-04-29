@@ -27,6 +27,7 @@ import (
 
 	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
 	"github.com/knative/pkg/apis"
+	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 )
 
 func TestConfigurationSpecValidation(t *testing.T) {
@@ -37,10 +38,26 @@ func TestConfigurationSpecValidation(t *testing.T) {
 	}{{
 		name: "valid",
 		c: &ConfigurationSpec{
-			RevisionTemplate: &RevisionTemplateSpec{
+			DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 				Spec: RevisionSpec{
-					Container: &corev1.Container{
+					DeprecatedContainer: &corev1.Container{
 						Image: "hellworld",
+					},
+				},
+			},
+		},
+		want: nil,
+	}, {
+		name: "valid podspec",
+		c: &ConfigurationSpec{
+			DeprecatedRevisionTemplate: &RevisionTemplateSpec{
+				Spec: RevisionSpec{
+					RevisionSpec: v1beta1.RevisionSpec{
+						PodSpec: v1beta1.PodSpec{
+							Containers: []corev1.Container{{
+								Image: "hellworld",
+							}},
+						},
 					},
 				},
 			},
@@ -49,9 +66,9 @@ func TestConfigurationSpecValidation(t *testing.T) {
 	}, {
 		name: "propagate revision failures",
 		c: &ConfigurationSpec{
-			RevisionTemplate: &RevisionTemplateSpec{
+			DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 				Spec: RevisionSpec{
-					Container: &corev1.Container{
+					DeprecatedContainer: &corev1.Container{
 						Name:  "stuart",
 						Image: "hellworld",
 					},
@@ -62,16 +79,16 @@ func TestConfigurationSpecValidation(t *testing.T) {
 	}, {
 		name: "build is a BuildSpec",
 		c: &ConfigurationSpec{
-			Build: &RawExtension{
+			DeprecatedBuild: &RawExtension{
 				BuildSpec: &buildv1alpha1.BuildSpec{
 					Steps: []corev1.Container{{
 						Image: "foo",
 					}},
 				},
 			},
-			RevisionTemplate: &RevisionTemplateSpec{
+			DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 				Spec: RevisionSpec{
-					Container: &corev1.Container{
+					DeprecatedContainer: &corev1.Container{
 						Image: "hellworld",
 					},
 				},
@@ -81,7 +98,7 @@ func TestConfigurationSpecValidation(t *testing.T) {
 	}, {
 		name: "build is an Object",
 		c: &ConfigurationSpec{
-			Build: &RawExtension{
+			DeprecatedBuild: &RawExtension{
 				Object: &buildv1alpha1.Build{
 					TypeMeta: metav1.TypeMeta{
 						APIVersion: "build.knative.dev/v1alpha1",
@@ -94,9 +111,9 @@ func TestConfigurationSpecValidation(t *testing.T) {
 					},
 				},
 			},
-			RevisionTemplate: &RevisionTemplateSpec{
+			DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 				Spec: RevisionSpec{
-					Container: &corev1.Container{
+					DeprecatedContainer: &corev1.Container{
 						Image: "hellworld",
 					},
 				},
@@ -106,7 +123,7 @@ func TestConfigurationSpecValidation(t *testing.T) {
 	}, {
 		name: "build is missing TypeMeta",
 		c: &ConfigurationSpec{
-			Build: &RawExtension{
+			DeprecatedBuild: &RawExtension{
 				Object: &buildv1alpha1.Build{
 					Spec: buildv1alpha1.BuildSpec{
 						Steps: []corev1.Container{{
@@ -115,9 +132,9 @@ func TestConfigurationSpecValidation(t *testing.T) {
 					},
 				},
 			},
-			RevisionTemplate: &RevisionTemplateSpec{
+			DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 				Spec: RevisionSpec{
-					Container: &corev1.Container{
+					DeprecatedContainer: &corev1.Container{
 						Image: "hellworld",
 					},
 				},
@@ -127,12 +144,12 @@ func TestConfigurationSpecValidation(t *testing.T) {
 	}, {
 		name: "build is not an object",
 		c: &ConfigurationSpec{
-			Build: &RawExtension{
+			DeprecatedBuild: &RawExtension{
 				Raw: []byte(`"foo"`),
 			},
-			RevisionTemplate: &RevisionTemplateSpec{
+			DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 				Spec: RevisionSpec{
-					Container: &corev1.Container{
+					DeprecatedContainer: &corev1.Container{
 						Image: "hellworld",
 					},
 				},
@@ -142,7 +159,7 @@ func TestConfigurationSpecValidation(t *testing.T) {
 	}, {
 		name: "no revision template",
 		c: &ConfigurationSpec{
-			Build: &RawExtension{
+			DeprecatedBuild: &RawExtension{
 				BuildSpec: &buildv1alpha1.BuildSpec{
 					Steps: []corev1.Container{{
 						Image: "foo",
@@ -154,16 +171,16 @@ func TestConfigurationSpecValidation(t *testing.T) {
 	}, {
 		name: "too many revision templates",
 		c: &ConfigurationSpec{
-			RevisionTemplate: &RevisionTemplateSpec{
+			DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 				Spec: RevisionSpec{
-					Container: &corev1.Container{
+					DeprecatedContainer: &corev1.Container{
 						Image: "hellworld",
 					},
 				},
 			},
 			Template: &RevisionTemplateSpec{
 				Spec: RevisionSpec{
-					Container: &corev1.Container{
+					DeprecatedContainer: &corev1.Container{
 						Image: "hellworld",
 					},
 				},
@@ -175,8 +192,12 @@ func TestConfigurationSpecValidation(t *testing.T) {
 		c: &ConfigurationSpec{
 			Template: &RevisionTemplateSpec{
 				Spec: RevisionSpec{
-					Container: &corev1.Container{
-						Image: "hellworld",
+					RevisionSpec: v1beta1.RevisionSpec{
+						PodSpec: v1beta1.PodSpec{
+							Containers: []corev1.Container{{
+								Image: "hellworld",
+							}},
+						},
 					},
 				},
 			},
@@ -188,13 +209,14 @@ func TestConfigurationSpecValidation(t *testing.T) {
 			Template: &RevisionTemplateSpec{
 				Spec: RevisionSpec{
 					DeprecatedConcurrencyModel: "Multi",
-					Container: &corev1.Container{
+					DeprecatedContainer: &corev1.Container{
 						Image: "hellworld",
 					},
 				},
 			},
 		},
-		want: apis.ErrDisallowedFields("template.spec.concurrencyModel"),
+		want: apis.ErrDisallowedFields(
+			"template.spec.concurrencyModel", "template.spec.container"),
 	}}
 
 	for _, test := range tests {
@@ -219,9 +241,9 @@ func TestConfigurationValidation(t *testing.T) {
 				Name: "valid",
 			},
 			Spec: ConfigurationSpec{
-				RevisionTemplate: &RevisionTemplateSpec{
+				DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 					Spec: RevisionSpec{
-						Container: &corev1.Container{
+						DeprecatedContainer: &corev1.Container{
 							Image: "hellworld",
 						},
 					},
@@ -236,9 +258,9 @@ func TestConfigurationValidation(t *testing.T) {
 				Name: "valid",
 			},
 			Spec: ConfigurationSpec{
-				RevisionTemplate: &RevisionTemplateSpec{
+				DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 					Spec: RevisionSpec{
-						Container: &corev1.Container{
+						DeprecatedContainer: &corev1.Container{
 							Name:  "stuart",
 							Image: "hellworld",
 						},
@@ -256,15 +278,14 @@ func TestConfigurationValidation(t *testing.T) {
 			Spec: ConfigurationSpec{
 				Template: &RevisionTemplateSpec{
 					Spec: RevisionSpec{
-						Container: &corev1.Container{
-							Name:  "stuart",
+						DeprecatedContainer: &corev1.Container{
 							Image: "hellworld",
 						},
 					},
 				},
 			},
 		},
-		want: apis.ErrDisallowedFields("spec.template.spec.container.name"),
+		want: apis.ErrDisallowedFields("spec.template.spec.container"),
 	}, {
 		name: "empty spec",
 		c: &Configuration{
@@ -302,12 +323,12 @@ func TestConfigurationValidation(t *testing.T) {
 				Name: "byo-name",
 			},
 			Spec: ConfigurationSpec{
-				RevisionTemplate: &RevisionTemplateSpec{
+				DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "byo-name-foo",
 					},
 					Spec: RevisionSpec{
-						Container: &corev1.Container{
+						DeprecatedContainer: &corev1.Container{
 							Image: "hellworld",
 						},
 					},
@@ -322,12 +343,12 @@ func TestConfigurationValidation(t *testing.T) {
 				GenerateName: "byo-name-",
 			},
 			Spec: ConfigurationSpec{
-				RevisionTemplate: &RevisionTemplateSpec{
+				DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "byo-name-foo",
 					},
 					Spec: RevisionSpec{
-						Container: &corev1.Container{
+						DeprecatedContainer: &corev1.Container{
 							Image: "hellworld",
 						},
 					},
@@ -342,12 +363,12 @@ func TestConfigurationValidation(t *testing.T) {
 				Name: "byo-name",
 			},
 			Spec: ConfigurationSpec{
-				RevisionTemplate: &RevisionTemplateSpec{
+				DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "foo",
 					},
 					Spec: RevisionSpec{
-						Container: &corev1.Container{
+						DeprecatedContainer: &corev1.Container{
 							Image: "hellworld",
 						},
 					},
@@ -381,9 +402,9 @@ func TestImmutableConfigurationFields(t *testing.T) {
 				Name: "no-byo-name",
 			},
 			Spec: ConfigurationSpec{
-				RevisionTemplate: &RevisionTemplateSpec{
+				DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 					Spec: RevisionSpec{
-						Container: &corev1.Container{
+						DeprecatedContainer: &corev1.Container{
 							Image: "helloworld:foo",
 						},
 					},
@@ -395,9 +416,9 @@ func TestImmutableConfigurationFields(t *testing.T) {
 				Name: "no-byo-name",
 			},
 			Spec: ConfigurationSpec{
-				RevisionTemplate: &RevisionTemplateSpec{
+				DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 					Spec: RevisionSpec{
-						Container: &corev1.Container{
+						DeprecatedContainer: &corev1.Container{
 							Image: "helloworld:bar",
 						},
 					},
@@ -412,12 +433,12 @@ func TestImmutableConfigurationFields(t *testing.T) {
 				Name: "byo-name",
 			},
 			Spec: ConfigurationSpec{
-				RevisionTemplate: &RevisionTemplateSpec{
+				DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "byo-name-foo",
 					},
 					Spec: RevisionSpec{
-						Container: &corev1.Container{
+						DeprecatedContainer: &corev1.Container{
 							Image: "helloworld:foo",
 						},
 					},
@@ -429,12 +450,12 @@ func TestImmutableConfigurationFields(t *testing.T) {
 				Name: "byo-name",
 			},
 			Spec: ConfigurationSpec{
-				RevisionTemplate: &RevisionTemplateSpec{
+				DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "byo-name-bar",
 					},
 					Spec: RevisionSpec{
-						Container: &corev1.Container{
+						DeprecatedContainer: &corev1.Container{
 							Image: "helloworld:bar",
 						},
 					},
@@ -449,12 +470,12 @@ func TestImmutableConfigurationFields(t *testing.T) {
 				Name: "byo-name",
 			},
 			Spec: ConfigurationSpec{
-				RevisionTemplate: &RevisionTemplateSpec{
+				DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "byo-name-foo",
 					},
 					Spec: RevisionSpec{
-						Container: &corev1.Container{
+						DeprecatedContainer: &corev1.Container{
 							Image: "helloworld:foo",
 						},
 					},
@@ -466,12 +487,12 @@ func TestImmutableConfigurationFields(t *testing.T) {
 				Name: "byo-name",
 			},
 			Spec: ConfigurationSpec{
-				RevisionTemplate: &RevisionTemplateSpec{
+				DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "byo-name-foo",
 					},
 					Spec: RevisionSpec{
-						Container: &corev1.Container{
+						DeprecatedContainer: &corev1.Container{
 							Image: "helloworld:foo",
 						},
 					},
@@ -486,12 +507,12 @@ func TestImmutableConfigurationFields(t *testing.T) {
 				Name: "byo-name",
 			},
 			Spec: ConfigurationSpec{
-				RevisionTemplate: &RevisionTemplateSpec{
+				DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "byo-name-foo",
 					},
 					Spec: RevisionSpec{
-						Container: &corev1.Container{
+						DeprecatedContainer: &corev1.Container{
 							Image: "helloworld:foo",
 						},
 					},
@@ -503,12 +524,12 @@ func TestImmutableConfigurationFields(t *testing.T) {
 				Name: "byo-name",
 			},
 			Spec: ConfigurationSpec{
-				RevisionTemplate: &RevisionTemplateSpec{
+				DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "byo-name-foo",
 					},
 					Spec: RevisionSpec{
-						Container: &corev1.Container{
+						DeprecatedContainer: &corev1.Container{
 							Image: "helloworld:bar",
 						},
 					},
@@ -518,7 +539,7 @@ func TestImmutableConfigurationFields(t *testing.T) {
 		want: &apis.FieldError{
 			Message: "Saw the following changes without a name change (-old +new)",
 			Paths:   []string{"spec.revisionTemplate"},
-			Details: "{*v1alpha1.RevisionTemplateSpec}.Spec.Container.Image:\n\t-: \"helloworld:bar\"\n\t+: \"helloworld:foo\"\n",
+			Details: "{*v1alpha1.RevisionTemplateSpec}.Spec.DeprecatedContainer.Image:\n\t-: \"helloworld:bar\"\n\t+: \"helloworld:foo\"\n",
 		},
 	}}
 

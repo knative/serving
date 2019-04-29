@@ -2,6 +2,16 @@
 
 This folder contains deployment files for monitoring and logging components.
 
+## Tracing
+
+Deployment files are available for a range of distributed tracing solutions.
+However, only one solution can be deployed at a time. Refer to the following
+links to find out more information on capabilities and benefits of each
+solution.
+
+- [Zipkin](https://zipkin.io/)
+- [Jaeger](https://www.jaegertracing.io/)
+
 ## Notes for Contributors
 
 `kubectl -R -f` installs the files within a folder in alphabetical order. In

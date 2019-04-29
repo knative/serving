@@ -2,9 +2,7 @@ package e2e
 
 import (
 	"testing"
-	"time"
 
-	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	// Mysteriously required to support GCP auth (required by k8s libs).
@@ -15,6 +13,7 @@ import (
 	pkgTest "github.com/knative/pkg/test"
 	"github.com/knative/serving/pkg/autoscaler"
 	"github.com/knative/serving/test"
+	perrors "github.com/pkg/errors"
 )
 
 const (
@@ -29,6 +28,12 @@ const (
 // Setup creates the client objects needed in the e2e tests.
 func Setup(t *testing.T) *test.Clients {
 	return SetupWithNamespace(t, test.ServingNamespace)
+}
+
+// SetupAlternativeNamespace creates the client objects needed in e2e tests
+// under the alternative namespace.
+func SetupAlternativeNamespace(t *testing.T) *test.Clients {
+	return SetupWithNamespace(t, test.AlternativeServingNamespace)
 }
 
 // SetupWithNamespace creates the client objects needed in the e2e tests under the specified namespace.
@@ -64,36 +69,25 @@ func CreateRouteAndConfig(t *testing.T, clients *test.Clients, image string, opt
 // Will wait up to 6 times the configured ScaleToZeroGracePeriod before failing.
 func WaitForScaleToZero(t *testing.T, deploymentName string, clients *test.Clients) error {
 	t.Helper()
-
 	t.Logf("Waiting for %q to scale to zero", deploymentName)
+
+	// Assume an empty map (and therefore return defaults) if getting the config map fails.
+	cmData := make(map[string]string)
+	if autoscalerCM, err := clients.KubeClient.Kube.CoreV1().ConfigMaps("knative-serving").Get(autoscaler.ConfigName, metav1.GetOptions{}); err == nil {
+		cmData = autoscalerCM.Data
+	}
+
+	config, err := autoscaler.NewConfigFromMap(cmData)
+	if err != nil {
+		return perrors.Wrap(err, "failed to parse configmap")
+	}
 
 	return pkgTest.WaitForDeploymentState(
 		clients.KubeClient,
 		deploymentName,
-		func(d *appsv1.Deployment) (bool, error) {
-			t.Logf("Deployment %q has %d replicas", deploymentName, d.Status.ReadyReplicas)
-			return d.Status.ReadyReplicas == 0, nil
-		},
+		test.DeploymentScaledToZeroFunc,
 		"DeploymentIsScaledDown",
 		test.ServingNamespace,
-		scaleToZeroGracePeriod(t, clients.KubeClient)*6,
+		config.ScaleToZeroGracePeriod*6,
 	)
-}
-
-func scaleToZeroGracePeriod(t *testing.T, client *pkgTest.KubeClient) time.Duration {
-	t.Helper()
-
-	autoscalerCM, err := client.Kube.CoreV1().ConfigMaps("knative-serving").Get("config-autoscaler", metav1.GetOptions{})
-	if err != nil {
-		t.Logf("Failed to Get autoscaler configmap = %v, falling back to DefaultScaleToZeroGracePeriod", err)
-		return autoscaler.DefaultScaleToZeroGracePeriod
-	}
-
-	config, err := autoscaler.NewConfigFromConfigMap(autoscalerCM)
-	if err != nil {
-		t.Log("Failed to build autoscaler config, falling back to DefaultScaleToZeroGracePeriod")
-		return autoscaler.DefaultScaleToZeroGracePeriod
-	}
-
-	return config.ScaleToZeroGracePeriod
 }

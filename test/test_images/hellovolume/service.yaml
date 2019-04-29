@@ -18,21 +18,20 @@ metadata:
   name: hello-volume
   namespace: default
 spec:
-  runLatest:
-    configuration:
-      revisionTemplate:
-        spec:
-          container:
-            # This is the Go import path for the binary to containerize
-            # and substitute here.
-            image: github.com/knative/serving/test/test_images/hellovolume
-            volumeMounts:
-            - name: foo
-              mountPath: /hello
-          volumes:
-          - name: foo
-            secret:
-              secretName: bar
+  template:
+    spec:
+      containers:
+      - # This is the Go import path for the binary to containerize
+        # and substitute here.
+        image: github.com/knative/serving/test/test_images/hellovolume
+        volumeMounts:
+        - name: foo
+          mountPath: /hello/world
+          subPath: world
+      volumes:
+      - name: foo
+        secret:
+          secretName: bar
 ---
 apiVersion: v1
 kind: Secret

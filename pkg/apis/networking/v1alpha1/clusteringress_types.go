@@ -142,7 +142,7 @@ type ClusterIngressTLS struct {
 	SecretNamespace string `json:"secretNamespace,omitempty"`
 
 	// ServerCertificate identifies the certificate filename in the secret.
-	// Defaults to `tls.cert`.
+	// Defaults to `tls.crt`.
 	// +optional
 	ServerCertificate string `json:"serverCertificate,omitempty"`
 

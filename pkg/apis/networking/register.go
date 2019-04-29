@@ -16,7 +16,9 @@ limitations under the License.
 
 package networking
 
-import "time"
+import (
+	"time"
+)
 
 const (
 	// GroupName is the name for the networking API group.

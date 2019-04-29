@@ -55,20 +55,26 @@ func NewDefaultsConfigFromMap(data map[string]string) (*Defaults, error) {
 	// Process resource quantity fields
 	for _, rsrc := range []struct {
 		key   string
-		field *resource.Quantity
-		// specified exactly when optional
-		defaultValue resource.Quantity
+		field **resource.Quantity
 	}{{
-		key:          "revision-cpu-request",
-		field:        &nc.RevisionCPURequest,
-		defaultValue: DefaultRevisionCPURequest,
+		key:   "revision-cpu-request",
+		field: &nc.RevisionCPURequest,
+	}, {
+		key:   "revision-memory-request",
+		field: &nc.RevisionMemoryRequest,
+	}, {
+		key:   "revision-cpu-limit",
+		field: &nc.RevisionCPULimit,
+	}, {
+		key:   "revision-memory-limit",
+		field: &nc.RevisionMemoryLimit,
 	}} {
 		if raw, ok := data[rsrc.key]; !ok {
-			*rsrc.field = rsrc.defaultValue
+			*rsrc.field = nil
 		} else if val, err := resource.ParseQuantity(raw); err != nil {
 			return nil, err
 		} else {
-			*rsrc.field = val
+			*rsrc.field = &val
 		}
 	}
 
@@ -85,15 +91,12 @@ const (
 	DefaultRevisionTimeoutSeconds = 5 * 60
 )
 
-// Pseudo-constants
-var (
-	// DefaultRevisionCPURequest will be set if resources.requests.cpu is not specified.
-	DefaultRevisionCPURequest = resource.MustParse("400m")
-)
-
 // Defaults includes the default values to be populated by the webhook.
 type Defaults struct {
 	RevisionTimeoutSeconds int64
 
-	RevisionCPURequest resource.Quantity
+	RevisionCPURequest    *resource.Quantity
+	RevisionCPULimit      *resource.Quantity
+	RevisionMemoryRequest *resource.Quantity
+	RevisionMemoryLimit   *resource.Quantity
 }

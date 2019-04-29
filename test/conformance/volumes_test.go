@@ -22,7 +22,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	. "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
+	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	. "github.com/knative/serving/pkg/reconciler/testing"
 	"github.com/knative/serving/test"
 
 	corev1 "k8s.io/api/core/v1"
@@ -129,15 +130,19 @@ func TestSecretVolume(t *testing.T) {
 	defer cleanup()
 	test.CleanupOnInterrupt(cleanup)
 
-	withVolume := WithVolume("asdf", filepath.Dir(test.HelloVolumePath), corev1.VolumeSource{
+	withVolume := WithVolume("asdf", "overwritten below", corev1.VolumeSource{
 		Secret: &corev1.SecretVolumeSource{
 			SecretName: secret.Name,
 		},
 	})
+	withSubpath := func(svc *v1alpha1.Service) {
+		vm := &svc.Spec.Template.Spec.Containers[0].VolumeMounts[0]
+		vm.MountPath = test.HelloVolumePath
+		vm.SubPath = filepath.Base(test.HelloVolumePath)
+	}
 
 	// Setup initial Service
-	if _, err := test.CreateRunLatestServiceReady(t, clients, &names, &test.Options{}, withVolume); err != nil {
-
+	if _, err := test.CreateRunLatestServiceReady(t, clients, &names, &test.Options{}, withVolume, withSubpath); err != nil {
 		t.Fatalf("Failed to create initial Service %v: %v", names.Service, err)
 	}
 

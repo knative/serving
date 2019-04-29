@@ -23,11 +23,10 @@ import (
 	"net/http"
 	"sync"
 	"testing"
-	"time"
 
 	pkgTest "github.com/knative/pkg/test"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	rnames "github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources/names"
+	rnames "github.com/knative/serving/pkg/reconciler/revision/resources/names"
 	"github.com/knative/serving/test"
 )
 
@@ -55,23 +54,17 @@ func TestActivatorOverload(t *testing.T) {
 	// Create a service with concurrency 1 that sleeps for N ms.
 	// Limit its maxScale to 10 containers, wait for the service to scale down and hit it with concurrent requests.
 	resources, err := test.CreateRunLatestServiceReady(t, clients, &names, &test.Options{}, func(service *v1alpha1.Service) {
-		service.Spec.RunLatest.Configuration.GetTemplate().Spec.ContainerConcurrency = 1
-		service.Spec.RunLatest.Configuration.GetTemplate().Annotations = map[string]string{"autoscaling.knative.dev/maxScale": "10"}
+		service.Spec.ConfigurationSpec.Template.Spec.ContainerConcurrency = 1
+		service.Spec.ConfigurationSpec.Template.Annotations = map[string]string{"autoscaling.knative.dev/maxScale": "10"}
 	})
 	if err != nil {
 		t.Fatalf("Unable to create resources: %v", err)
 	}
 	domain := resources.Route.Status.Domain
 
-	t.Log("Waiting for deployment to scale to zero.")
-	if err := pkgTest.WaitForDeploymentState(
-		clients.KubeClient,
-		rnames.Deployment(resources.Revision),
-		test.DeploymentScaledToZeroFunc,
-		"DeploymentScaledToZero",
-		test.ServingNamespace,
-		3*time.Minute); err != nil {
-		t.Fatalf("Failed waiting for deployment to scale to zero: %v", err)
+	deploymentName := rnames.Deployment(resources.Revision)
+	if err := WaitForScaleToZero(t, deploymentName, clients); err != nil {
+		t.Fatalf("Unable to observe the Deployment named %s scaling down: %v", deploymentName, err)
 	}
 
 	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, t.Logf, domain, test.ServingFlags.ResolvableDomain)

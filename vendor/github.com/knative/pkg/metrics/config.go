@@ -226,6 +226,8 @@ func UpdateExporter(ops ExporterOptions, logger *zap.SugaredLogger) error {
 	}
 
 	if isNewExporterRequired(newConfig) {
+		logger.Info("Flushing the existing exporter before setting up the new exporter.")
+		FlushExporter()
 		e, err := newMetricsExporter(newConfig, logger)
 		if err != nil {
 			logger.Errorf("Failed to update a new metrics exporter based on metric config %v. error: %v", newConfig, err)

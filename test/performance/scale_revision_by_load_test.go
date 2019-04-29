@@ -28,7 +28,7 @@ import (
 	"github.com/knative/pkg/controller"
 	pkgTest "github.com/knative/pkg/test"
 	ingress "github.com/knative/pkg/test/ingress"
-	testingv1alpha1 "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
+	testingv1alpha1 "github.com/knative/serving/pkg/reconciler/testing"
 	"github.com/knative/serving/pkg/resources"
 	"github.com/knative/serving/test"
 	"github.com/knative/test-infra/shared/junit"
@@ -155,6 +155,7 @@ func scaleRevisionByLoad(t *testing.T, numClients int) []junit.TestCase {
 		Domain:         domain,
 		BaseQPS:        qpsPerClient * float64(numClients),
 		URL:            fmt.Sprintf("http://%s/?timeout=%d", *endpoint, processingTimeMillis),
+		LoadFactors:    []float64{1},
 	}
 
 	t.Logf("Starting test with %d clients at %s", numClients, time.Now())

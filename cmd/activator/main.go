@@ -29,12 +29,14 @@ import (
 	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/controller"
 	"github.com/knative/pkg/logging/logkey"
+	pkgmetrics "github.com/knative/pkg/metrics"
 	"github.com/knative/pkg/signals"
 	"github.com/knative/pkg/system"
 	"github.com/knative/pkg/version"
 	"github.com/knative/pkg/websocket"
 	"github.com/knative/serving/cmd/util"
 	"github.com/knative/serving/pkg/activator"
+	activatorconfig "github.com/knative/serving/pkg/activator/config"
 	activatorhandler "github.com/knative/serving/pkg/activator/handler"
 	activatorutil "github.com/knative/serving/pkg/activator/util"
 	"github.com/knative/serving/pkg/apis/networking"
@@ -52,7 +54,10 @@ import (
 	"github.com/knative/serving/pkg/queue"
 	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/resources"
+	"github.com/knative/serving/pkg/tracing"
+	tracingconfig "github.com/knative/serving/pkg/tracing/config"
 
+	zipkin "github.com/openzipkin/zipkin-go"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	kubeinformers "k8s.io/client-go/informers"
@@ -122,15 +127,15 @@ func main() {
 	flag.Parse()
 	cm, err := configmap.Load("/etc/config-logging")
 	if err != nil {
-		log.Fatalf("Error loading logging configuration: %v", err)
+		log.Fatal("Error loading logging configuration:", err)
 	}
-	config, err := logging.NewConfigFromMap(cm)
+	logConfig, err := logging.NewConfigFromMap(cm)
 	if err != nil {
-		log.Fatalf("Error parsing logging configuration: %v", err)
+		log.Fatal("Error parsing logging configuration:", err)
 	}
-	createdLogger, atomicLevel := logging.NewLoggerFromConfig(config, component)
+	createdLogger, atomicLevel := logging.NewLoggerFromConfig(logConfig, component)
 	logger := createdLogger.With(zap.String(logkey.ControllerType, "activator"))
-	defer logger.Sync()
+	defer flush(logger)
 
 	logger.Info("Starting the knative activator")
 
@@ -184,7 +189,7 @@ func main() {
 		endpointInformer.Informer(),
 		serviceInformer.Informer(),
 		sksInformer.Informer()); err != nil {
-		logger.Fatalf("Failed to start informers: %v", err)
+		logger.Fatalw("Failed to start informers", err)
 	}
 
 	params := queue.BreakerParams{QueueDepth: breakerQueueDepth, MaxConcurrency: breakerMaxConcurrency, InitialCapacity: 0}
@@ -240,6 +245,27 @@ func main() {
 		Handler:    handler,
 	})
 
+	activatorL3 := fmt.Sprintf("%s:%d", activator.K8sServiceName, activator.ServicePortHTTP1)
+	zipkinEndpoint, err := zipkin.NewEndpoint("activator", activatorL3)
+	if err != nil {
+		logger.Error("Unable to create tracing endpoint")
+		return
+	}
+	oct := tracing.NewOpenCensusTracer(
+		tracing.WithZipkinExporter(tracing.CreateZipkinReporter, zipkinEndpoint),
+	)
+	tracerUpdater := func(name string, value interface{}) {
+		if name == tracingconfig.ConfigName {
+			cfg := value.(*tracingconfig.Config)
+			oct.ApplyConfig(cfg)
+		}
+	}
+
+	// Set up our config store
+	configMapWatcher := configmap.NewInformedWatcher(kubeClient, system.Namespace())
+	configStore := activatorconfig.NewStore(createdLogger, tracerUpdater)
+	configStore.WatchConfigs(configMapWatcher)
+
 	// Open a websocket connection to the autoscaler
 	autoscalerEndpoint := fmt.Sprintf("ws://%s.%s.svc.%s:%d", "autoscaler", system.Namespace(), network.GetClusterDomainName(), autoscalerPort)
 	logger.Info("Connecting to autoscaler at", autoscalerEndpoint)
@@ -267,11 +293,12 @@ func main() {
 		GetService:    serviceGetter,
 	}
 	ah = activatorhandler.NewRequestEventHandler(reqChan, ah)
+	ah = tracing.HTTPSpanMiddleware("handle_request", ah)
+	ah = configStore.HTTPMiddleware(ah)
 	ah = &activatorhandler.HealthHandler{HealthCheck: statSink.Status, NextHandler: ah}
 	ah = &activatorhandler.ProbeHandler{NextHandler: ah}
 
 	// Watch the logging config map and dynamically update logging levels.
-	configMapWatcher := configmap.NewInformedWatcher(kubeClient, system.Namespace())
 	configMapWatcher.Watch(logging.ConfigMapName(), logging.UpdateLevelFromConfigMap(logger, atomicLevel, component))
 	// Watch the observability config map and dynamically update metrics exporter.
 	configMapWatcher.Watch(metrics.ObservabilityConfigName, metrics.UpdateExporterFromConfigMap(component, logger))
@@ -279,14 +306,14 @@ func main() {
 		logger.Fatalw("Failed to start configuration manager", zap.Error(err))
 	}
 
-	http1Srv := h2c.NewServer(":8080", ah)
+	http1Srv := h2c.NewServer(fmt.Sprintf(":%d", networking.BackendHTTPPort), ah)
 	go func() {
 		if err := http1Srv.ListenAndServe(); err != nil {
 			logger.Errorw("Error running HTTP server", zap.Error(err))
 		}
 	}()
 
-	h2cSrv := h2c.NewServer(":8081", ah)
+	h2cSrv := h2c.NewServer(fmt.Sprintf(":%d", networking.BackendHTTP2Port), ah)
 	go func() {
 		if err := h2cSrv.ListenAndServe(); err != nil {
 			logger.Errorw("Error running HTTP server", zap.Error(err))
@@ -296,4 +323,9 @@ func main() {
 	<-stopCh
 	http1Srv.Shutdown(context.Background())
 	h2cSrv.Shutdown(context.Background())
+}
+
+func flush(logger *zap.SugaredLogger) {
+	logger.Sync()
+	pkgmetrics.FlushExporter()
 }

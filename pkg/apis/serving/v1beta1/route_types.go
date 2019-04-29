@@ -53,17 +53,20 @@ var (
 	_ apis.Validatable = (*Route)(nil)
 	_ apis.Defaultable = (*Route)(nil)
 
+	// Check that Route can be converted to higher versions.
+	_ apis.Convertible = (*Route)(nil)
+
 	// Check that we can create OwnerReferences to a Route.
 	_ kmeta.OwnerRefable = (*Route)(nil)
 )
 
 // TrafficTarget holds a single entry of the routing table for a Route.
 type TrafficTarget struct {
-	// Subroute is optionally used to expose a dedicated url for referencing
+	// Tag is optionally used to expose a dedicated url for referencing
 	// this target exclusively.
 	// +optional
 	// TODO(mattmoor): Discuss alternative naming options.
-	Subroute string `json:"subroute,omitempty"`
+	Tag string `json:"tag,omitempty"`
 
 	// RevisionName of a specific revision to which to send this portion of
 	// traffic.  This is mutually exclusive with ConfigurationName.

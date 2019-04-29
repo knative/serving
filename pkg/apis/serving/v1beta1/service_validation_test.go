@@ -72,17 +72,17 @@ func TestServiceValidation(t *testing.T) {
 				ConfigurationSpec: goodConfigSpec,
 				RouteSpec: RouteSpec{
 					Traffic: []TrafficTarget{{
-						Subroute:       "current",
+						Tag:            "current",
 						LatestRevision: ptr.Bool(false),
 						RevisionName:   "valid-00001",
 						Percent:        98,
 					}, {
-						Subroute:       "candidate",
+						Tag:            "candidate",
 						LatestRevision: ptr.Bool(false),
 						RevisionName:   "valid-00002",
 						Percent:        2,
 					}, {
-						Subroute:       "latest",
+						Tag:            "latest",
 						LatestRevision: ptr.Bool(true),
 						Percent:        0,
 					}},

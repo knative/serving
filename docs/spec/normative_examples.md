@@ -6,21 +6,23 @@ from the smallest, most frequent operations.
 
 Examples in this section illustrate:
 
-- [Automatic rollout of a new Revision to an existing Service with a pre-built container](#1-automatic-rollout-of-a-new-revision-to-existing-service---pre-built-container)
-- [Creating a new Service with a pre-built container](#2-creating-a-new-service-with-a-pre-built-container)
+- [Automatic rollout of a new Revision to an existing Service](#1-automatic-rollout-of-a-new-revision-to-existing-service)
+- [Creating a new Service](#2-creating-a-new-service)
 - [Configuration changes and managed rollout options](#3-managed-release-of-a-new-revision---config-change-only)
 - [Roll back to a known-good revision](#4-roll-back-to-a-known-good-revision)
-- [Creating a revision from source](#5-deploy-a-revision-from-source)
-- [Creating a function from source](#6-deploy-a-function)
 
-Note that these API operations are identical for both app and function based
-services. (to see the full resource definitions, see the
-[Resource YAML Definitions](spec.md)).
+Note that Serving operates at the level of an HTTP-based service, which **can**
+support FaaS, PaaS, and CaaS workloads, but the expectation is that the
+translation from Function or App to Container is handled by Build-level
+code-generation, and we deal with Containers as the canonical packaging unit.
+See the [knative/build](https://github.com/knative/build) and
+[Tekton](https://github.com/tektoncd) projects for complementary build-capable
+resources.
 
 CLI samples are for illustrative purposes, and not intended to represent final
 CLI design.
 
-## 1) Automatic rollout of a new Revision to existing Service - pre-built container
+## 1) Automatic rollout of a new Revision to existing Service
 
 **_Scenario_**: User deploys a new revision to an existing service with a new
 container image, rolling out automatically to 100%
@@ -46,11 +48,10 @@ $ knative deploy --service my-service
 ![Automatic Rollout](images/auto_rollout.png)
 
 After the initial Route and Configuration have been created (which is shown in
-the [second example](#2-creating-a-new-service-with-a-pre-built-container)), the
-typical interaction is to update the revision configuration, resulting in the
-creation of a new revision, which will be automatically rolled out by the route.
-Revision configuration updates can be handled as either a PUT or PATCH
-operation:
+the [second example](#2-creating-a-new-service)), the typical interaction is to
+update the revision configuration, resulting in the creation of a new revision,
+which will be automatically rolled out by the route. Revision configuration
+updates can be handled as either a PUT or PATCH operation:
 
 - Optimistic concurrency controls for PUT operations in a read/modify/write
   routine work as expected in kubernetes.
@@ -58,12 +59,12 @@ operation:
 - PATCH semantics should work as expected in kubernetes, but may have some
   limitations imposed by CRDs at the moment.
 
-In this and following examples PATCH is used. Revisions can be built from
-source, which results in a container image, or by directly supplying a pre-built
-container, which this first scenario illustrates. The example demonstrates the
-PATCH issued by the client, followed by several GET calls to illustrate each
-step in the reconciliation process as the system materializes the new revision,
-and begins shifting traffic from the old revision to the new revision.
+In this and following examples PATCH is used. Revisions are built by directly
+supplying a container, which this first scenario illustrates. The example
+demonstrates the PATCH issued by the client, followed by several GET calls to
+illustrate each step in the reconciliation process as the system materializes
+the new revision, and begins shifting traffic from the old revision to the new
+revision.
 
 The client PATCHes the service's configuration with new container image,
 inheriting previous environment values from the configuration spec:
@@ -78,20 +79,14 @@ kind: Service
 metadata:
   name: my-service
 spec:
-  runLatest:
-    configuration:
-      revisionTemplate: # template for building Revision
-        spec:
-          container:
-            image: gcr.io/... # new image
+  template: # template for building Revision
+    spec:
+      containers:
+        - image: gcr.io/... # new image
 ```
 
-This causes the controller to PATCH the configuration's template revision with
+This causes the controller to update the configuration's template revision with
 the new container image:
-
-```http
-PATCH /apis/serving.knative.dev/v1alpha1/namespaces/default/configurations/my-service
-```
 
 ```yaml
 apiVersion: serving.knative.dev/v1alpha1
@@ -99,10 +94,10 @@ kind: Configuration
 metadata:
   name: my-service # Named the same as the Service
 spec:
-  revisionTemplate: # template for building Revision
+  tempate: # template for building Revision
     spec:
-      container:
-        image: gcr.io/... # new image
+      containers:
+        - image: gcr.io/... # new image
 ```
 
 The update to the Configuration triggers a new Revision being created, and the
@@ -166,8 +161,8 @@ metadata:
     knative.dev/configurationGeneration: 1235
   ...
 spec:
-  container:  # k8s core.v1.Container
-    image: gcr.io/...  # new container
+  containers:  # k8s []core.v1.Container
+  - image: gcr.io/...  # new container
     # same config as previous revision
     env:
     - name: FOO
@@ -200,14 +195,12 @@ metadata:
   name: my-service
   ...
 spec:
-  rollout:
-    traffic:
-    - configurationName: my-service
-      percent: 100
+  traffic:
+  - configurationName: my-service
+    percent: 100
 
 status:
   # domain:
-  # oss: my-service.namespace.mydomain.com
   domain: my-service.namespace.mydomain.com
   # percentages add to 100
   traffic:  # in status, all configurationName refs are dereferenced
@@ -233,10 +226,9 @@ metadata:
   name: my-service
   ...
 spec:
-  rollout:
-    traffic:
-    - configurationName: my-service
-      percent: 100
+  traffic:
+  - configurationName: my-service
+    percent: 100
 status:
   domain: my-service.default.mydomain.com
   traffic:
@@ -248,10 +240,9 @@ status:
   ...
 ```
 
-## 2) Creating a new Service with a pre-built container
+## 2) Creating a new Service
 
-**Scenario**: User creates a new Service and deploys their first Revision based
-on a pre-built container
+**Scenario**: User creates a new Service and deploys their first Revision.
 
 ```console
 $ knative deploy --service my-service --region us-central1
@@ -290,18 +281,18 @@ creating a new Service, which will create both a Configuration and a new Route
 referring to that configuration. In turn, the Configuration will generate a new
 Revision. Note that these steps may occur in in parallel.
 
-In the `runLatest` style of Service, the Route always references the latest
-ready revision of a Configuration, as this example illustrates. This is the most
-straightforward scenario that many Knative Serving customers are expected to
-use, and is consistent with the experience of deploying code that is rolled out
-immediately. A Route may also directly reference a Revision, which is shown in
+With the Service defaults, the Route will reference the latest ready revision of
+a Configuration, as this example illustrates. This is the most straightforward
+scenario that many Knative Serving customers are expected to use, and is
+consistent with the experience of deploying code that is rolled out immediately.
+A Route may also directly reference a Revision, which is shown in
 [example 3](#3-managed-release-of-a-new-revision---config-change-only).
 
 The example shows the POST calls issued by the client, followed by several GET
 calls to illustrate each step in the reconciliation process as the system
 materializes and begins routing traffic to the revision.
 
-The client creates the service in `runLatest` mode:
+The client creates the service:
 
 ```http
 POST /apis/serving.knative.dev/v1alpha1/namespaces/default/services
@@ -313,19 +304,17 @@ kind: Service
 metadata:
   name: my-service
 spec:
-  runLatest:
-    configuration:
-      revisionTemplate:  # template for building Revision
-        metadata: ...
-        spec:
-          container: # k8s core.v1.Container
-            image: gcr.io/...
-            env:
-            - name: FOO
-              value: bar
-            - name: HELLO
-              value: world
-          ...
+  template:  # template for building Revision
+    metadata: ...
+    spec:
+      containers: # k8s core.v1.Container
+      - image: gcr.io/...
+        env:
+        - name: FOO
+          value: bar
+        - name: HELLO
+          value: world
+      ...
 ```
 
 This causes the service controller to create route and configuration objects
@@ -341,10 +330,9 @@ kind: Route
 metadata:
   name: my-service
 spec:
-  rollout:
-    traffic:
-      - configurationName: my-service # named reference to Configuration
-        percent: 100 # automatically activate new Revisions from the configuration
+  traffic:
+    - configurationName: my-service # named reference to Configuration
+      percent: 100 # automatically activate new Revisions from the configuration
 ```
 
 ```http
@@ -358,12 +346,12 @@ metadata:
   name: my-service  # By convention (not req'd), same name as the service.
                     # This will also be set as the "knative.dev/configuration"
                     # label on the created Revision.
-spec:  # Contents from service's spec.runLatest.configuration
-  revisionTemplate:
+spec:
+  template:
     metadata: ...
     spec:
-      container: # k8s core.v1.Container
-        image: gcr.io/...
+      containers: # k8s core.v1.Container
+      - image: gcr.io/...
         env:
         - name: FOO
           value: bar
@@ -460,10 +448,9 @@ metadata:
   generation: 2145
   ...
 spec:
-  rollout:
-    traffic:
-    - configurationName: my-service
-      percent: 100
+  traffic:
+  - configurationName: my-service
+    percent: 100
 
 status:
   domain: my-service.default.mydomain.com
@@ -507,43 +494,46 @@ status:
 
 **_Scenario_**: User updates configuration with new runtime arguments (env var
 change) to an existing service, tests the revision, then proceeds with a
-human-controlled rollout to 100%.
+human-controlled rollout to 100%. This scenario also illustrates being able to
+"bring your own revision name" to be able to rewrite the routing rules at the
+same time as the Revision is created (it will wait for the Revision to become
+Ready).
 
 ```
 $ knative release --service my-service strategy release
 
 $ knative revisions list --service my-service
-Route           Traffic  Id    Date                Deployer      Git SHA
-current,latest  100%     def   2018-01-18 20:34    user1         a6f92d1
-                         abc   2018-01-17 10:32    user1         33643fc
+Route           Traffic  Id    Date                Deployer
+current,latest  100%     def   2018-01-18 20:34    user1
+                         abc   2018-01-17 10:32    user1
 
-$ knative deploy --service my-service --env HELLO="blurg"
+$ knative deploy --service my-service --env HELLO="blurg" --name="ghi"
 [...]
 Deployed revision ghi to https://latest.my-service.default.mydomain.com
 You can begin rolling out this revision with [knative release begin ghi]
 
 $ knative revisions list --service my-service
-Route           Traffic  Id    Date                Deployer     Git SHA
-latest          0%       ghi   2018-01-19 12:16    user1        a6f92d1
-current         100%     def   2018-01-18 20:34    user1        a6f92d1
-                         abc   2018-01-17 10:32    user1        33643fc
+Route            Traffic  Id    Date                Deployer
+latest,candidate 0%       ghi   2018-01-19 12:16    user1
+current          100%     def   2018-01-18 20:34    user1
+                          abc   2018-01-17 10:32    user1
 
 $ knative release --service my-service begin ghi
 
 $ knative revisions list --service my-service
-Route             Traffic  Id    Date                Deployer     Git SHA
-candidate,latest  0%       ghi   2018-01-19 12:16    user1        a6f92d1
-current           100%     def   2018-01-18 20:34    user1        a6f92d1
-                           abc   2018-01-17 10:32    user1        33643fc
+Route             Traffic  Id    Date                Deployer
+candidate,latest  0%       ghi   2018-01-19 12:16    user1
+current           100%     def   2018-01-18 20:34    user1
+                           abc   2018-01-17 10:32    user1
 
 $ knative release percent 5
 [...]
 
 $ knative revisions list --service my-service
-Route             Traffic  Id    Date                Deployer     Git SHA
-candidate,latest  5%       ghi   2018-01-19 12:16    user1        a6f92d1
-current           95%      def   2018-01-18 20:34    user1        a6f92d1
-                           abc   2018-01-17 10:32    user1        33643fc
+Route             Traffic  Id    Date                Deployer
+candidate,latest  5%       ghi   2018-01-19 12:16    user1
+current           95%      def   2018-01-18 20:34    user1
+                           abc   2018-01-17 10:32    user1
 
 $ knative release --service my-service percent 50
 [...]
@@ -551,21 +541,21 @@ $ knative release --service my-service finish
 [...]
 
 $ knative revisions list --service my-service
-Route             Traffic  Id    Date                Deployer      Git SHA
-current,latest    100%     ghi   2018-01-19 12:16    user1         a6f92d1
-                           def   2018-01-18 20:34    user1         a6f92d1
-                           abc   2018-01-17 10:32    user1         33643fc
+Route             Traffic  Id    Date                Deployer
+current,latest    100%     ghi   2018-01-19 12:16    user1
+                           def   2018-01-18 20:34    user1
+                           abc   2018-01-17 10:32    user1
 ```
 
 **Steps**:
 
-- Update the Service to switch from a `runLatest` strategy to a `release`
-  strategy.
+- Update the Service's `traffic` block from the default using
+  `latestRevision: true` to one using a specific `revisionName`.
 
-- Update the Service with the new configuration (env var).
+- Update the Service with the new configuration (env var), and a name for that
+  new Revision.
 
-- Update the Service include the new revision in its revision list, which makes
-  it address the new Revision as `candidate`.
+- Update the Service's `traffic` to reference the new revision as `candidate`.
 
 - Adjust the `percentRollout` controlling the traffic on `candidate`.
 
@@ -573,26 +563,22 @@ current,latest    100%     ghi   2018-01-19 12:16    user1         a6f92d1
 
 **Results:**
 
-- The system creates the new revision from the configuration, addressable at
-  `latest.my-service...`, but traffic is not routed to it until the rollout to
-  that revision is begun (which marks it as `candidate.my-service...`) and the
-  percentage is manually ramped up. Upon completing the rollout, the candidate
-  revision is now the current revision.
+- The system creates the new revision from the configuration, addressable at a
+  url available in `status.traffic`, but none of the main traffic is routed to
+  it until the rollout has adjusted the assigned percentage. Upon completing the
+  rollout, the candidate revision is now the current revision.
 
 ![Release mode](images/release_mode.png)
 
 In the previous examples, the Service automatically made changes to the
 configuration (newly created Revision) routable when they became ready. While
 this pattern is useful for many scenarios such as functions-as-a-service and
-simple development flows, the Service can also reference Revisions directly in
-`release` mode to route traffic to two specific revisions: the revision that's
-been running, and the new revision the user would like test or canary a portion
-of traffic to, prior to rolling out entirely. This mode is also useful to roll
-back to a known-good previous revision. (Note: see
-[example 3](#3-managed-release-of-a-new-revision---config-change-only) for a
+simple development flows, the Service can also reference Revisions directly to
+route traffic to specific revisions. This is also useful for rollbacks. (Note:
+see [example 3](#3-managed-release-of-a-new-revision---config-change-only) for a
 semi-automatic variation of managed rollouts).
 
-The client updates the service to switch to release mode.
+The client updates the service to change the traffic block:
 
 ```http
 PUT /apis/serving.knative.dev/v1alpha1/namespaces/default/services/my-service
@@ -604,22 +590,22 @@ kind: Service
 metadata:
   name: my-service
 spec:
-  release:
-    revisions: [def]
-    configuration: # Copied from spec.runLatest.configuration
-      revisionTemplate:
-        spec:
-          container:
-            image: gcr.io/...
+  template:
+    spec:
+      containers:
+        - image: gcr.io/...
+  traffic:
+    - revisionName: def
+      tag: current
+      percent: 100
+    - latestRevision: true
+      tag: latest
+      percent: 0 # no direct traffic ever.
 ```
 
 The Service controller updates the Route to put all traffic on the specified
 revision (note that the Configuration between the two is equivalent, and
 therefore unchanged).
-
-```http
-PATCH /apis/serving.knative.dev/v1alpha1/namespaces/default/routes/my-service
-```
 
 ```yaml
 apiVersion: serving.knative.dev/v1alpha1
@@ -627,22 +613,21 @@ kind: Route
 metadata:
   name: my-service
 spec:
-  rollout:
-    traffic:
-      - revisionName: def
-        name: current # addressable as current.my-service.default.mydomain.com
-        percent: 100
-      - configurationName: my-service # LatestReadyRevision of my-service
-        name: latest # addressable as latest.my-service.default.mydomain.com
-        percent: 0 # no direct traffic ever.
+  traffic:
+    - revisionName: def
+      tag: current
+      percent: 100
+    - configurationName: my-service # LatestReadyRevision of my-service
+      tag: latest
+      percent: 0 # no direct traffic ever.
 ```
 
-Next, the user updates the Service with the new variables, which causes the
-service controller to update the Configuration, in this case updating the
+Next, the user updates the Service with the new variables and name, which causes
+the service controller to update the Configuration, in this case updating the
 environment but keeping the same container image:
 
 ```http
-PATCH /apis/serving.knative.dev/v1alpha1/namespaces/default/services/my-service
+PUT /apis/serving.knative.dev/v1alpha1/namespaces/default/services/my-service
 ```
 
 ```yaml
@@ -651,29 +636,23 @@ kind: Service
 metadata:
   name: my-service
 spec:
-  release:
-    configuration:
-      revisionTemplate:
-        metadata:
-          labels:
-            revisionNonce: "l01itSaN0nC3"
-        spec:
-          container:
-            env: # k8s-style strategic merge patch, updating a single list value
-              # Image etc. do not change
-              - name: HELLO
-                value: blurg # changed value
+  template:
+    metadata:
+      name: ghi
+    spec:
+      containers:
+        - image: gcr.io/...
+          env:
+            - name: HELLO
+              value: blurg # changed value
 ```
 
 As in the previous example, the configuration is updated to trigger the creation
 of a new revision, and a new revision `ghi` is created that has the same code as
-the previous revision `def`, but different config. Note that we included a nonce
-label in the revision metadata, so that we can easily programatically fetch the
-appropriate revision using a label selector to release it later. This nonce is
-not required, but is recommended.
+the previous revision `def`, but different config.
 
 ```http
-GET /apis/serving.knative.dev/v1alpha1/namespaces/default/revisions?labelSelector=revisionNonce%3Dl01itSaN0nC3
+GET /apis/serving.knative.dev/v1alpha1/namespaces/default/revisions/ghi
 ```
 
 ```yaml
@@ -683,8 +662,8 @@ metadata:
   name: ghi
    ...
 spec:
-  container:
-    image: gcr.io/...  # same container as previous revision abc
+  containers:
+  - image: gcr.io/...  # same container as previous revision abc
     env:
     - name: FOO
       value: bar
@@ -699,8 +678,8 @@ status:
 
 Even when ready, the new revision does not automatically start serving
 production traffic, as the route is still directing all traffic to revision
-`def`. It will, however, be optionally accessible under the name
-`latest.my-service...` for initial validation.
+`def`. It will, however, be optionally accessible via the url associated with
+the 0% `latest` tag for initial validation.
 
 The user can then begin the rollout of revision `ghi`:
 
@@ -714,18 +693,24 @@ kind: Service
 metadata:
   name: my-service
 spec:
-  release:
-    revisions: [def, ghi]
-    rolloutPercent: 0
+  traffic:
+    - revisionName: def
+      tag: current
+      percent: 100
+    - revisionName: ghi
+      tag: candidate
+      percent: 0
+    - latestRevision: true
+      tag: latest
+      percent: 0
 ```
 
 This makes the route update the `candidate` name to point to the revision `ghi`.
-(The list of revisions can contain one or two items. If two, the first is
-`current` and the latter is `candidate`.) The new revision will still not
-receive any traffic, but can be accessed for testing, verification, etc under
-the `candidate.my-service...` name.
+The new revision will still not receive any traffic, but can be accessed for
+testing, verification, etc under the url associated with the `candidate` tag
+under `status.traffic`.
 
-To put traffic on `ghi`, the user can adjust `rolloutPercent`:
+To put traffic on `ghi`, the user can adjust `traffic`:
 
 ```http
 PATCH /apis/serving.knative.dev/v1alpha1/namespaces/default/services/my-service
@@ -737,8 +722,16 @@ kind: Service
 metadata:
   name: my-service
 spec:
-  release:
-    rolloutPercent: 5
+  traffic:
+    - revisionName: def
+      tag: current
+      percent: 95
+    - revisionName: ghi
+      tag: candidate
+      percent: 5
+    - latestRevision: true
+      tag: latest
+      percent: 0
 ```
 
 ```http
@@ -751,38 +744,39 @@ kind: Route
 metadata:
   name: my-service
 spec:
-  rollout:
-    traffic:
-      - revisionName: def
-        name: current # addressable as current.my-service.default.mydomain.com
-        percent: 95
-      - revisionName: ghi
-        name: candidate # addressable as candidate.my-service.default.mydomain.com
-        percent: 5
-      - configurationName: my-service # LatestReadyRevision of my-service
-        name: latest # addressable as latest.my-service.default.mydomain.com
-        percent: 0 # no direct traffic ever.
+  traffic:
+    - revisionName: def
+      tag: current
+      percent: 95
+    - revisionName: ghi
+      tag: candidate
+      percent: 5
+    - configurationName: my-service
+      tag: latest
+      percent: 0
 status:
   domain: my-service.default.mydomain.com
   traffic:
     - revisionName: def
-      name: current # addressable as current.my-service.default.mydomain.com
+      tag: current
+      url: http://current.my-service.default.mydomain.com
       percent: 95
     - revisionName: ghi
-      name: candidate # addressable as candidate.my-service.default.mydomain.com
+      tag: candidate
+      url: http://candidate.my-service.default.mydomain.com
       percent: 5
-    - configurationName: my-service # LatestReadyRevision of my-service
-      name: latest
+    - revisionName: ghi
+      tag: latest
+      url: http://latest.my-service.default.mydomain.com
       percent: 0
   conditions:
     - type: Ready
       status: True
 ```
 
-After testing and gradually rolling out the new revision at
-`candidate.my-service.default.mydomain.com`, it can be promoted to a
-fully-rolled-out `current` revision by updating the service to list only `ghi`
-in the revision list.
+After testing and gradually rolling out the `candidate` revision, it can be
+promoted to `current` by updating the service to list only `ghi` in the
+`traffic` block.
 
 ```http
 PATCH /apis/serving.knative.dev/v1alpha1/namespaces/default/services/my-service
@@ -794,8 +788,13 @@ kind: Service
 metadata:
   name: my-service
 spec:
-  release:
-    revisions: [ghi]
+  traffic:
+    - revisionName: ghi
+      tag: current
+      percent: 100
+    - latestRevision: true
+      tag: latest
+      percent: 0 # no direct traffic ever.
 ```
 
 This causes the service to update the route to assign 100% of traffic to ghi.
@@ -820,22 +819,23 @@ kind: Route
 metadata:
   name: my-service
 spec:
-  rollout:
-    traffic:
-      - revisionName: ghi
-        name: current
-        percent: 100
-      - configurationName: my-service # LatestReadyRevision of my-service
-        name: latest
-        percent: 0
+  traffic:
+    - revisionName: ghi
+      tag: current
+      percent: 100
+    - configurationName: my-service
+      tag: latest
+      percent: 0
 status:
   domain: my-service.default.mydomain.com
   traffic:
     - revisionName: ghi
-      name: current # addressable as current.my-service.default.mydomain.com
+      tag: current
+      url: http://current.my-service.default.mydomain.com
       percent: 100
-    - configurationName: my-service
-      name: latest # addressable as latest.my-service.default.mydomain.com
+    - revisionName: ghi
+      tag: latest
+      url: http://latest.my-service.default.mydomain.com
       percent: 0
   conditions:
     - type: Ready
@@ -855,16 +855,14 @@ Rolled back to revision [abc] serving at [my-service.default.mydomain.com]
 
 **Steps**:
 
-- Set the service to `release` mode (if it isn't already there), with the
-  `revisions` list equal to the revision you need to roll back to. Leave the
-  configuration the same (or copy it over from `runLatest` mode, if the service
-  wasn't already in `release` mode).
+- Set the service `traffic` block to send 100% of traffic to the supplied
+  revision. Leave the configuration the same.
 
 **Results**:
 
 - The Route is updated to put 100% of traffic on your rollback Revision. Your
-  latest ready Revision remains available for validation under the
-  `latest.my-service.defaultdomain.com`-style name.
+  latest ready Revision remains available for validation via the url associated
+  with the tag `latest`.
 
 ```http
 PUT /apis/serving.knative.dev/v1alpha1/namespaces/default/services/my-service
@@ -876,261 +874,17 @@ kind: Service
 metadata:
   name: my-service
 spec:
-  release:
-    revisions: [abc]
-    configuration: # Copied from spec.runLatest.configuration if needed
-      revisionTemplate:
-        spec:
-          container:
-            image: gcr.io/...
+  template:
+    spec:
+      containers:
+        - image: gcr.io/...
+  traffic:
+    - revisionName: abc
+      percent: 100
+    - latestRevision: true
+      percent: 0
 ```
 
 Since the Configuration does not change, this does not create a new revision. It
-does, however, point all production traffic to the revision named `abc`,
-effecting a rollback.
-
-## 5) Deploy a Revision from source
-
-**Scenario**: User deploys a revision to an existing service from source rather
-than a pre-built container
-
-```console
-$ knative deploy --service my-service
-  Deploying app to service [my-service]:
-✓ Uploading     [=================]
-✓ Detected [node-8-9-4] runtime
-✓ Building
-✓ Starting
-✓ Promoting
-  Done.
-  Deployed to https://my-service.default.mydomain.com
-```
-
-**Steps**:
-
-- Create/Update the service, updating build source information and using a new
-  container label.
-
-**Results**:
-
-- The Configuration is created/updated, which generates a container build and a
-  new Revision based on the template, and can be rolled out per earlier examples
-
-![Build Example](images/build_example.png)
-
-Previous examples demonstrated services created with pre-built containers.
-Revisions can also be created by providing build information to the service,
-which results in a container image built by the system. The build information is
-supplied by inlining the Kubernetes resource definition for a build resource in
-the Configuration. This build resource may be any resource that culminates in a
-`Succeeded` condition as outlined in our
-[conditions documentation](./errors.md).
-
-Using knative/build as an examplar build resource, the client updates the
-configuration in the service inlining a build spec:
-
-```http
-PATCH /apis/serving.knative.dev/v1alpha1/namespaces/default/service
-```
-
-```yaml
-apiVersion: serving.knative.dev/v1alpha1
-kind: Service
-metadata:
-  name: my-service
-spec:
-  runLatest:
-    configuration:
-      build:
-        # Example is in terms of knative/build, but this may be any
-        # Kubernetes resource that culminates in a Succeeded condition
-        # as outlined in errors.md
-        apiVersion: build.knative.dev/v1alpha1
-        kind: Build
-        spec: ...
-
-      revisionTemplate: # template for building Revision
-        metadata: ...
-        spec:
-          container: # k8s core.v1.Container
-            image:
-              gcr.io/... # Promise of a future build. Same as supplied in
-              # build.template.arguments[_IMAGE]
-            env: # Updated environment variables to go live with new source.
-              - name: FOO
-                value: bar
-              - name: HELLO
-                value: world
-```
-
-Note the `revisionTemplate.spec.container.image` above is supplied with the
-destination of the build. This enables one-step changes to both environment and
-source code. If the build step were responsible for updating the
-`revisionTemplate.spec.container.image` at the completion of the build, an
-update to both source and config could result in the creation of two Revisions,
-one with the config change, and the other with the new code deployment. It is
-expected that Revision will wait for the `buildRef` to reach a "Succeeded" state
-and the `revisionTemplate.spec.container.image` to be live before marking the
-Revision as "Ready".
-
-Upon creating/updating the service's configuration, the contents are copied into
-the corresponding Configuration object. Once updated, the configuration
-controller creates a new revision. The configuration controller will also create
-a build, populating the revision’s buildRef with a reference to the underlying
-Build resource. The revision controller watches status updates on the build
-reference, and the high-level state of the build is mirrored into conditions in
-the Revision’s status for convenience:
-
-```http
-GET /apis/serving.knative.dev/v1alpha1/namespaces/default/revisions/abc
-```
-
-```yaml
-apiVersion: serving.knative.dev/v1alpha1
-kind: Revision
-metadata:
-  name: abc
-  labels:
-    knative.dev/configuration: my-service
-    knative.dev/configurationGeneration: 1234
-  ...
-spec:
-  # Reference to the build resource to track.
-  # Set by Configuration.
-  buildRef: # K8s core.v1.ObjectReference
-    apiVersion: ...
-    kind: ...
-    name: ...
-
-  # spec from the configuration, with container.image containing the
-  # newly built container
-  container: # k8s core.v1.Container
-    image: gcr.io/...
-    env:
-    - name: FOO
-      value: bar
-    - name: HELLO
-      value: world
-status:
-  # This is a copy of metadata from the container image or grafeas, indicating
-  # the provenance of the revision, annotated on the container
-  imageSource:
-    archive|manifest|repository: ...
-    context: ...
-  conditions:
-  - type: Ready
-    status: True
-  - type: BuildSucceeded
-    status: True
-```
-
-Rollout operations in the route are identical to the pre-built container
-examples.
-
-Also analogous is creating the service from scratch with source files - in this
-case, the source would be provided to the configuration's inlined build spec,
-which would initiate a new container build, and the creation of a new revision.
-If the first build fails `LatestReadyRevisionName` will be entirely unset until
-a Revision is created which can become ready.
-
-## 6) Deploy a Function
-
-**Scenario**: User deploys a new function revision to an existing service
-
-```console
-$ knative deploy --function index --service my-function
-  Deploying function to service [my-function]:
-✓ Uploading     [=================]
-✓ Detected [node-8-9-4] runtime
-✓ Building
-✓ Starting
-✓ Promoting
-  Done.
-  Deployed to https://my-function.default.mydomain.com
-```
-
-**Steps**:
-
-- Create/Update a service, specifying source code and function details.
-
-**Results**:
-
-- The Configuration is created/updated, which generates a new revision based on
-  the template build and spec which can be rolled out per previous examples
-
-![Build Function](images/build_function.png)
-
-Previous examples illustrated creating and deploying revisions in the context of
-application containers. Functions are created and deployed in the same manner
-(in particular, as containers which respond to HTTP). In the build phase of the
-deployment, additional function metadata may be taken into account in order to
-wrap the supplied code in a language-specific functions framework which
-translates from HTTP to language-native constructs.
-
-Functions are configured with a language-specific entryPoint. The entryPoint may
-be provided as an argument to the build template, if language-native
-autodetection is insufficient. By convention, a type metadata label may also be
-added that designates revisions as a function, supporting listing revisions by
-type; there is no change to the system behavior based on type.
-
-Note that a function may be connected to one or more event sources via Bindings
-in the Eventing API; the binding of events to functions is not a core function
-of the compute API.
-
-Creating the service with build and function metadata:
-
-```http
-POST /apis/serving.knative.dev/v1alpha1/namespaces/default/services
-```
-
-```yaml
-apiVersion: serving.knative.dev/v1alpha1
-kind: Service
-metadata:
-  name: my-function
-spec:
-  runLatest:
-    configuration:
-      build:
-        # knative/build as an example.
-        apiVersion: build.knative.def/v1alpha1
-        kind: Build
-        spec:
-          source:
-            git:
-              url: https://...
-              commit: ...
-          template: # defines build template
-            name: go_1_9_fn # function builder
-            namespace: build-templates
-            arguments:
-              - name: _IMAGE
-                value: gcr.io/... # destination for image
-              - name: _ENTRY_POINT
-                value: index # language dependent, function-only entrypoint
-
-      revisionTemplate: # template for building Revision
-        metadata:
-          labels:
-            # One-of "function" or "app", convention for CLI/UI clients to list/select
-            knative.dev/type: "function"
-        spec:
-          container: # k8s core.v1.Container
-            image:
-              gcr.io/... # Promise of a future build. Same as supplied in
-              # build.template.arguments[_IMAGE]
-            env:
-              - name: FOO
-                value: bar
-              - name: HELLO
-                value: world
-
-          # serializes requests for function. Default value for functions
-          containerConcurrency: 1
-          # max time allowed to respond to request
-          timeoutSeconds: 20
-```
-
-Upon creating or updating the service, values are copied to the configuration,
-which causes a new Revision to be created per the previous examples. Rollout
-operations are also identical to the previous examples.
+does, however, point all traffic to the revision named `abc`, effecting a
+rollback.

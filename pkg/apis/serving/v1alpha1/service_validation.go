@@ -19,11 +19,13 @@ package v1alpha1
 import (
 	"context"
 	"fmt"
-	"reflect"
 
 	"github.com/knative/pkg/apis"
 	"github.com/knative/serving/pkg/apis/serving"
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/util/validation"
+
+	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 )
 
 // Validate validates the fields belonging to Service
@@ -39,11 +41,14 @@ func (s *Service) Validate(ctx context.Context) *apis.FieldError {
 		_, originalConfig := original.Spec.getConfigurationSpec()
 
 		if currentConfig != nil && originalConfig != nil {
+			templateField := "template"
+			if currentConfig.GetTemplate() == currentConfig.DeprecatedRevisionTemplate {
+				templateField = "revisionTemplate"
+			}
 			err := currentConfig.GetTemplate().VerifyNameChange(ctx,
 				originalConfig.GetTemplate())
 			errs = errs.Also(err.ViaField(
-				// TODO(mattmoor): revisionTemplate -> field
-				"spec", field, "configuration", "revisionTemplate"))
+				"spec", field, "configuration", templateField))
 		}
 	}
 
@@ -52,33 +57,17 @@ func (s *Service) Validate(ctx context.Context) *apis.FieldError {
 
 func (ss *ServiceSpec) getConfigurationSpec() (string, *ConfigurationSpec) {
 	switch {
-	case ss.RunLatest != nil:
-		return "runLatest", &ss.RunLatest.Configuration
-	case ss.Release != nil:
-		return "release", &ss.Release.Configuration
-	case ss.Manual != nil:
+	case ss.DeprecatedRunLatest != nil:
+		return "runLatest", &ss.DeprecatedRunLatest.Configuration
+	case ss.DeprecatedRelease != nil:
+		return "release", &ss.DeprecatedRelease.Configuration
+	case ss.DeprecatedManual != nil:
 		return "", nil
 	case ss.DeprecatedPinned != nil:
 		return "pinned", &ss.DeprecatedPinned.Configuration
 	default:
-		return "", nil
+		return "", &ss.ConfigurationSpec
 	}
-}
-
-// CheckDeprecated checks whether the provided named deprecated fields
-// are set in a context where deprecation is disallowed.
-func CheckDeprecated(ctx context.Context, fields map[string]interface{}) *apis.FieldError {
-	if apis.IsDeprecatedAllowed(ctx) {
-		return nil
-	}
-	var errs *apis.FieldError
-	for name, field := range fields {
-		// From: https://stackoverflow.com/questions/13901819/quick-way-to-detect-empty-values-via-reflection-in-go
-		if !reflect.DeepEqual(field, reflect.Zero(reflect.TypeOf(field)).Interface()) {
-			errs = errs.Also(apis.ErrDisallowedFields(name))
-		}
-	}
-	return errs
 }
 
 // Validate validates the fields belonging to ServiceSpec recursively
@@ -90,34 +79,52 @@ func (ss *ServiceSpec) Validate(ctx context.Context) *apis.FieldError {
 	// 	return apis.ErrMissingField(currentField)
 	// }
 
-	errs := CheckDeprecated(ctx, map[string]interface{}{
-		"generation": ss.DeprecatedGeneration,
-		"pinned":     ss.DeprecatedPinned,
-	})
+	errs := apis.CheckDeprecated(ctx, ss)
 
 	set := []string{}
 
-	if ss.RunLatest != nil {
+	if ss.DeprecatedRunLatest != nil {
 		set = append(set, "runLatest")
-		errs = errs.Also(ss.RunLatest.Validate(ctx).ViaField("runLatest"))
+		errs = errs.Also(ss.DeprecatedRunLatest.Validate(ctx).ViaField("runLatest"))
 	}
-	if ss.Release != nil {
+	if ss.DeprecatedRelease != nil {
 		set = append(set, "release")
-		errs = errs.Also(ss.Release.Validate(ctx).ViaField("release"))
+		errs = errs.Also(ss.DeprecatedRelease.Validate(ctx).ViaField("release"))
 	}
-	if ss.Manual != nil {
+	if ss.DeprecatedManual != nil {
 		set = append(set, "manual")
-		errs = errs.Also(ss.Manual.Validate(ctx).ViaField("manual"))
+		errs = errs.Also(ss.DeprecatedManual.Validate(ctx).ViaField("manual"))
 	}
 	if ss.DeprecatedPinned != nil {
 		set = append(set, "pinned")
 		errs = errs.Also(ss.DeprecatedPinned.Validate(ctx).ViaField("pinned"))
 	}
 
+	// Before checking ConfigurationSpec, check RouteSpec.
+	if len(set) > 0 && len(ss.RouteSpec.Traffic) > 0 {
+		errs = errs.Also(apis.ErrMultipleOneOf(
+			append([]string{"traffic"}, set...)...))
+	}
+
+	if !equality.Semantic.DeepEqual(ss.ConfigurationSpec, ConfigurationSpec{}) {
+		set = append(set, "template")
+
+		// Disallow the use of deprecated fields within our inlined
+		// Configuration and Route specs.
+		ctx = apis.DisallowDeprecated(ctx)
+
+		errs = errs.Also(ss.ConfigurationSpec.Validate(ctx))
+		errs = errs.Also(ss.RouteSpec.Validate(
+			// Within the context of Service, the RouteSpec has a default
+			// configurationName.
+			v1beta1.WithDefaultConfigurationName(ctx)))
+	}
+
 	if len(set) > 1 {
 		errs = errs.Also(apis.ErrMultipleOneOf(set...))
 	} else if len(set) == 0 {
-		errs = errs.Also(apis.ErrMissingOneOf("runLatest", "release", "manual", "pinned"))
+		errs = errs.Also(apis.ErrMissingOneOf("runLatest", "release", "manual",
+			"pinned", "template"))
 	}
 	return errs
 }

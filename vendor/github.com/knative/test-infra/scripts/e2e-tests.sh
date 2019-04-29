@@ -67,6 +67,8 @@ IS_BOSKOS=0
 
 # Tear down the test resources.
 function teardown_test_resources() {
+  # On boskos, save time and don't teardown as the cluster will be destroyed anyway.
+  (( IS_BOSKOS )) && return
   header "Tearing down test environment"
   function_exists test_teardown && test_teardown
   (( ! SKIP_KNATIVE_SETUP )) && function_exists knative_teardown && knative_teardown
@@ -113,8 +115,7 @@ function save_metadata() {
     geo_key="Zone"
     geo_value="${E2E_CLUSTER_REGION}-${E2E_CLUSTER_ZONE}"
   fi
-  local gcloud_project="$(gcloud config get-value project)"
-  local cluster_version="$(gcloud container clusters list --project=${gcloud_project} --format='value(currentMasterVersion)')"
+  local cluster_version="$(gcloud container clusters list --project=${E2E_PROJECT_ID} --format='value(currentMasterVersion)')"
   cat << EOF > ${ARTIFACTS}/metadata.json
 {
   "E2E:${geo_key}": "${geo_value}",
@@ -130,6 +131,7 @@ EOF
 # See https://github.com/knative/serving/issues/959 for details.
 # TODO(adrcunha): Remove once the leak issue is resolved.
 function delete_leaked_network_resources() {
+  # On boskos, don't bother with leaks as the janitor will delete everything in the project.
   (( IS_BOSKOS )) && return
   # Ensure we're using the GCP project used by kubetest
   local gcloud_project="$(gcloud config get-value project)"
@@ -269,6 +271,11 @@ function setup_test_cluster() {
 
   header "Setting up test cluster"
 
+  # Set the actual project the test cluster resides in
+  # It will be a project assigned by Boskos if test is running on Prow, 
+  # otherwise will be ${GCP_PROJECT} set up by user.
+  readonly export E2E_PROJECT_ID="$(gcloud config get-value project)"
+
   # Save some metadata about cluster creation for using in prow and testgrid
   save_metadata
 
@@ -280,9 +287,10 @@ function setup_test_cluster() {
   if [[ -z "$(kubectl get clusterrolebinding cluster-admin-binding 2> /dev/null)" ]]; then
     acquire_cluster_admin_role ${k8s_user} ${E2E_CLUSTER_NAME} ${E2E_CLUSTER_REGION} ${E2E_CLUSTER_ZONE}
     kubectl config set-context ${k8s_cluster} --namespace=default
-    export KO_DOCKER_REPO=gcr.io/$(gcloud config get-value project)/${E2E_BASE_NAME}-e2e-img
+    export KO_DOCKER_REPO=gcr.io/${E2E_PROJECT_ID}/${E2E_BASE_NAME}-e2e-img
   fi
 
+  echo "- Project is ${E2E_PROJECT_ID}"
   echo "- Cluster is ${k8s_cluster}"
   echo "- User is ${k8s_user}"
   echo "- Docker is ${KO_DOCKER_REPO}"
@@ -303,7 +311,7 @@ function setup_test_cluster() {
   fi
 }
 
-# Gets the exit of of the test script.
+# Gets the exit of the test script.
 # For more details, see set_test_return_code().
 function get_test_return_code() {
   echo $(cat ${TEST_RESULT_FILE})

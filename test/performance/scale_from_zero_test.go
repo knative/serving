@@ -31,9 +31,10 @@ import (
 	pkgTest "github.com/knative/pkg/test"
 	"github.com/knative/pkg/test/zipkin"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources/names"
-	ktest "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
+	"github.com/knative/serving/pkg/reconciler/revision/resources/names"
+	ktest "github.com/knative/serving/pkg/reconciler/testing"
 	"github.com/knative/serving/test"
+	"github.com/knative/serving/test/e2e"
 	"github.com/knative/test-infra/shared/junit"
 	"github.com/knative/test-infra/shared/testgrid"
 )
@@ -58,13 +59,7 @@ func runScaleFromZero(idx int, t *testing.T, clients *test.Clients, ro *test.Res
 
 	domain := ro.Route.Status.Domain
 	t.Logf("%02d: waiting for deployment to scale to zero.", idx)
-	if err := pkgTest.WaitForDeploymentState(
-		clients.KubeClient,
-		deploymentName,
-		test.DeploymentScaledToZeroFunc,
-		"DeploymentScaledToZero",
-		test.ServingNamespace,
-		3*time.Minute); err != nil {
+	if err := e2e.WaitForScaleToZero(t, deploymentName, clients); err != nil {
 		m := fmt.Sprintf("%02d: failed waiting for deployment to scale to zero: %v", idx, err)
 		t.Log(m)
 		return 0, errors.New(m)
@@ -127,7 +122,7 @@ func parallelScaleFromZero(t *testing.T, count int) ([]time.Duration, error) {
 	sos := []ktest.ServiceOption{
 		// We set a small resource alloc so that we can pack more pods into the cluster.
 		func(svc *v1alpha1.Service) {
-			svc.Spec.RunLatest.Configuration.GetTemplate().Spec.GetContainer().Resources = corev1.ResourceRequirements{
+			svc.Spec.ConfigurationSpec.Template.Spec.Containers[0].Resources = corev1.ResourceRequirements{
 				Limits: corev1.ResourceList{
 					corev1.ResourceCPU:    resource.MustParse("10m"),
 					corev1.ResourceMemory: resource.MustParse("50Mi"),
@@ -242,7 +237,5 @@ func TestScaleFromZero5(t *testing.T) {
 }
 
 func TestScaleFromZero50(t *testing.T) {
-	// See: #3021
-	t.Skip()
 	testScaleFromZero(t, 50 /* parallelism */, 5 /* runs */)
 }

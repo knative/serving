@@ -28,7 +28,6 @@ import (
 
 	_ "github.com/knative/pkg/system/testing"
 	pkgTest "github.com/knative/pkg/test"
-	"github.com/knative/serving/pkg/autoscaler"
 	"github.com/knative/serving/test"
 	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
@@ -130,7 +129,7 @@ func setup(t *testing.T) *testContext {
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 
 	t.Log("When the Revision can have traffic routed to it, the Route is marked as Ready.")
-	if err = test.WaitForRouteState(
+	if err := test.WaitForRouteState(
 		clients.ServingClient,
 		names.Route,
 		test.IsRouteReady,
@@ -151,7 +150,7 @@ func setup(t *testing.T) *testContext {
 	}
 	domain := route.Status.Domain
 
-	_, err = pkgTest.WaitForEndpointState(
+	if _, err := pkgTest.WaitForEndpointState(
 		clients.KubeClient,
 		t.Logf,
 		domain,
@@ -159,8 +158,7 @@ func setup(t *testing.T) *testContext {
 		// TODO(tcnghia): Remove this when https://github.com/istio/istio/issues/882 is fixed.
 		test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.EventuallyMatchesBody(autoscaleExpectedOutput))),
 		"CheckingEndpointAfterUpdating",
-		test.ServingFlags.ResolvableDomain)
-	if err != nil {
+		test.ServingFlags.ResolvableDomain); err != nil {
 		t.Fatalf("The endpoint for Route %s at domain %s didn't serve the expected text \"%v\": %v",
 			names.Route, domain, autoscaleExpectedOutput, err)
 	}
@@ -183,40 +181,30 @@ func setup(t *testing.T) *testContext {
 
 func assertScaleUp(ctx *testContext) {
 	ctx.t.Log("The autoscaler spins up additional replicas when traffic increases.")
-	err := generateTraffic(ctx, 20, 20*time.Second, nil)
-	if err != nil {
+	if err := generateTraffic(ctx, 20, 20*time.Second, nil); err != nil {
 		ctx.t.Fatalf("Error during initial scale up: %v", err)
 	}
 	ctx.t.Logf("Waiting for scale up revision %s", ctx.names.Revision)
-	err = pkgTest.WaitForDeploymentState(
+	if err := pkgTest.WaitForDeploymentState(
 		ctx.clients.KubeClient,
 		ctx.deploymentName,
 		isDeploymentScaledUp(),
 		"DeploymentIsScaledUp",
 		test.ServingNamespace,
-		2*time.Minute)
-	if err != nil {
+		2*time.Minute); err != nil {
 		ctx.t.Fatalf("Unable to observe the Deployment named %s scaling up. %s", ctx.deploymentName, err)
 	}
 }
 
 func assertScaleDown(ctx *testContext) {
-	ctx.t.Log("The autoscaler successfully scales down when devoid of traffic. Waiting for scale to zero.")
-	err := pkgTest.WaitForDeploymentState(
-		ctx.clients.KubeClient,
-		ctx.deploymentName,
-		test.DeploymentScaledToZeroFunc,
-		"DeploymentScaledToZero",
-		test.ServingNamespace,
-		autoscaler.DefaultScaleToZeroGracePeriod+autoscaler.DefaultStableWindow+2*time.Minute)
-	if err != nil {
-		ctx.t.Fatalf("Unable to observe the Deployment named %s scaling down. %s", ctx.deploymentName, err)
+	if err := WaitForScaleToZero(ctx.t, ctx.deploymentName, ctx.clients); err != nil {
+		ctx.t.Fatalf("Unable to observe the Deployment named %s scaling down: %v", ctx.deploymentName, err)
 	}
 
 	// Account for the case where scaling up uses all available pods.
 	ctx.t.Log("Wait for all pods to terminate.")
 
-	err = pkgTest.WaitForPodListState(
+	if err := pkgTest.WaitForPodListState(
 		ctx.clients.KubeClient,
 		func(p *v1.PodList) (bool, error) {
 			for _, pod := range p.Items {
@@ -227,8 +215,7 @@ func assertScaleDown(ctx *testContext) {
 			}
 			return true, nil
 		},
-		"WaitForAvailablePods", test.ServingNamespace)
-	if err != nil {
+		"WaitForAvailablePods", test.ServingNamespace); err != nil {
 		ctx.t.Fatalf("Waiting for Pod.List to have no non-Evicted pods of %q: %v", ctx.deploymentName, err)
 	}
 
@@ -253,7 +240,7 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 }
 
 func assertNumberOfPods(ctx *testContext, numReplicasMin int32, numReplicasMax int32) error {
-	deployment, err := ctx.clients.KubeClient.Kube.Apps().Deployments("serving-tests").Get(ctx.deploymentName, metav1.GetOptions{})
+	deployment, err := ctx.clients.KubeClient.Kube.Apps().Deployments(test.ServingNamespace).Get(ctx.deploymentName, metav1.GetOptions{})
 	if err != nil {
 		return errors.Wrapf(err, "Failed to get deployment %q", deployment)
 	}
