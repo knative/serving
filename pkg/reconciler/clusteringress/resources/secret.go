@@ -32,7 +32,7 @@ import (
 func GetSecrets(ci *v1alpha1.ClusterIngress, secretLister corev1listers.SecretLister) (map[string]*corev1.Secret, error) {
 	secrets := map[string]*corev1.Secret{}
 	for _, tls := range ci.Spec.TLS {
-		ref := secretKey(&tls)
+		ref := secretKey(tls)
 		if _, ok := secrets[ref]; ok {
 			continue
 		}
@@ -95,6 +95,6 @@ func SecretRef(namespace, name string) corev1.ObjectReference {
 }
 
 // Generates the k8s secret key with the given TLS.
-func secretKey(tls *v1alpha1.ClusterIngressTLS) string {
+func secretKey(tls v1alpha1.ClusterIngressTLS) string {
 	return fmt.Sprintf("%s/%s", tls.SecretNamespace, tls.SecretName)
 }
