@@ -105,6 +105,36 @@ func (rs *RouteStatus) MarkMissingTrafficTarget(kind, name string) {
 		"%s %q referenced in traffic not found.", kind, name)
 }
 
+func (rs *RouteStatus) MarkCertificateProvisionFailed(names []string) {
+	routeCondSet.Manage(rs).SetCondition(apis.Condition{
+		Type:     RouteConditionCertificateProvisioned,
+		Status:   corev1.ConditionFalse,
+		Severity: apis.ConditionSeverityWarning,
+		Reason:   "CertificatesProvisionFailed",
+		Message:  fmt.Sprintf("Certificates %v fail to be provisioned.", names),
+	})
+}
+
+func (rs *RouteStatus) MarkCertificatesReady(names []string) {
+	routeCondSet.Manage(rs).SetCondition(apis.Condition{
+		Type:     RouteConditionCertificateProvisioned,
+		Status:   corev1.ConditionTrue,
+		Severity: apis.ConditionSeverityWarning,
+		Reason:   "CertificatesReady",
+		Message:  fmt.Sprintf("Certificates %v are successfully provisioned", names),
+	})
+}
+
+func (rs *RouteStatus) MarkCertificatesNotReady(names []string) {
+	routeCondSet.Manage(rs).SetCondition(apis.Condition{
+		Type:     RouteConditionCertificateProvisioned,
+		Status:   corev1.ConditionFalse,
+		Severity: apis.ConditionSeverityWarning,
+		Reason:   "CertificatesNotReady",
+		Message:  fmt.Sprintf("Certificates %v are not ready.", names),
+	})
+}
+
 // PropagateClusterIngressStatus update RouteConditionIngressReady condition
 // in RouteStatus according to IngressStatus.
 func (rs *RouteStatus) PropagateClusterIngressStatus(cs v1alpha1.IngressStatus) {
@@ -120,22 +150,6 @@ func (rs *RouteStatus) PropagateClusterIngressStatus(cs v1alpha1.IngressStatus) 
 	case cc.Status == corev1.ConditionFalse:
 		routeCondSet.Manage(rs).MarkFalse(RouteConditionIngressReady, cc.Reason, cc.Message)
 	}
-}
-
-// PropagateCertificateStatus propagates the statuses of Certificates to the Route
-// that owns the Certificates.
-func (rs *RouteStatus) PropagateCertificateStatus(certificates []*v1alpha1.Certificate) {
-	certs := []Certificate{}
-	for _, c := range certificates {
-		certs = append(certs, Certificate{
-			Name:       c.Name,
-			Namespace:  c.Namespace,
-			DNSNames:   c.Spec.DNSNames,
-			Conditions: c.Status.Conditions,
-			NotAfter:   c.Status.NotAfter,
-		})
-	}
-	rs.Certificates = certs
 }
 
 func (rs *RouteStatus) duck() *duckv1beta1.Status {
