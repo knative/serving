@@ -3,7 +3,9 @@ Copyright 2018 The Knative Authors
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
+
     http://www.apache.org/licenses/LICENSE-2.0
+
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -11,7 +13,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package h2c
+package network
 
 import (
 	"crypto/tls"
@@ -19,7 +21,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/knative/serving/pkg/network"
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
 )
@@ -34,7 +35,7 @@ func NewServer(addr string, h http.Handler) *http.Server {
 	return h1s
 }
 
-// ListenAndServe starts a new server and listens on the `addr`
+// ListenAndServe starts a new server and listens on the `addr`.
 func ListenAndServe(addr string, h http.Handler) error {
 	s := NewServer(addr, h)
 	return s.ListenAndServe()
@@ -43,11 +44,11 @@ func ListenAndServe(addr string, h http.Handler) error {
 // DefaultTransport will reroute all https traffic to http. This is
 // to explicitly allow h2c (http2 without TLS) transport.
 // See https://github.com/golang/go/issues/14141 for more details.
-var DefaultTransport http.RoundTripper = &http2.Transport{
+var DefaultH2CTransport http.RoundTripper = &http2.Transport{
 	AllowHTTP: true,
 	DialTLS: func(netw, addr string, cfg *tls.Config) (net.Conn, error) {
 		d := &net.Dialer{
-			Timeout:   network.DefaultConnTimeout,
+			Timeout:   DefaultConnTimeout,
 			KeepAlive: 30 * time.Second,
 			DualStack: true,
 		}

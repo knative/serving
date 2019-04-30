@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/knative/pkg/logging"
+	"github.com/knative/serving/pkg/autoscaler/aggregation"
 	"github.com/knative/serving/pkg/resources"
 	"go.uber.org/zap"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -65,34 +66,6 @@ type StatMessage struct {
 	Stat Stat
 }
 
-// statsBucket keeps all the stats that fall into a defined bucket.
-type statsBucket map[string][]*Stat
-
-// add adds a Stat to the bucket. Stats from the same pod will be
-// collapsed.
-func (b statsBucket) add(stat *Stat) {
-	b[stat.PodName] = append(b[stat.PodName], stat)
-}
-
-// concurrency calculates the overall concurrency as measured by this
-// bucket. All stats that belong to the same pod will be averaged.
-// The overall concurrency is the sum of the measured concurrency of all
-// pods (including activator metrics).
-func (b statsBucket) concurrency() float64 {
-	var total float64
-	for _, podStats := range b {
-		var subtotal float64
-		for _, stat := range podStats {
-			// Proxied requests have been counted at the activator. Subtract
-			// AverageProxiedConcurrentRequests to avoid double counting.
-			subtotal += stat.AverageConcurrentRequests - stat.AverageProxiedConcurrentRequests
-		}
-		total += subtotal / float64(len(podStats))
-	}
-
-	return total
-}
-
 // Autoscaler stores current state of an instance of an autoscaler
 type Autoscaler struct {
 	*DynamicConfig
@@ -109,9 +82,7 @@ type Autoscaler struct {
 	specMux     sync.RWMutex
 	deciderSpec DeciderSpec
 
-	// statsMutex guards the elements in the block below.
-	statsMutex sync.Mutex
-	bucketed   map[time.Time]statsBucket
+	buckets *aggregation.TimedFloat64Buckets
 }
 
 // New creates a new instance of autoscaler
@@ -138,7 +109,7 @@ func New(
 		revisionService: revisionService,
 		endpointsLister: endpointsInformer.Lister(),
 		deciderSpec:     deciderSpec,
-		bucketed:        make(map[time.Time]statsBucket),
+		buckets:         aggregation.NewTimedFloat64Buckets(bucketSize),
 		reporter:        reporter,
 	}, nil
 }
@@ -159,16 +130,9 @@ func (a *Autoscaler) Record(ctx context.Context, stat Stat) {
 		return
 	}
 
-	a.statsMutex.Lock()
-	defer a.statsMutex.Unlock()
-
-	bucketKey := stat.Time.Truncate(bucketSize)
-	bucket, ok := a.bucketed[bucketKey]
-	if !ok {
-		bucket = statsBucket{}
-		a.bucketed[bucketKey] = bucket
-	}
-	bucket.add(&stat)
+	// Proxied requests have been counted at the activator. Subtract
+	// AverageProxiedConcurrentRequests to avoid double counting.
+	a.buckets.Record(*stat.Time, stat.PodName, stat.AverageConcurrentRequests-stat.AverageProxiedConcurrentRequests)
 }
 
 // Scale calculates the desired scale based on current statistics given the current time.
@@ -189,13 +153,13 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (int32, bool) {
 	readyPodsCount := math.Max(1, float64(originalReadyPodsCount))
 
 	observedStableConcurrency, observedPanicConcurrency, lastBucket := a.aggregateData(now, spec.MetricSpec.StableWindow, spec.MetricSpec.PanicWindow)
-	if len(a.bucketed) == 0 {
+	if a.buckets.IsEmpty() {
 		logger.Debug("No data to scale on.")
 		return 0, false
 	}
 
 	// Log system totals.
-	logger.Debugf("Current concurrent clients: %0.3f", lastBucket.concurrency())
+	logger.Debugf("Current concurrent clients: %0.3f", lastBucket.Sum())
 
 	// Desired pod count is observed concurrency of the revision over desired (stable) concurrency per pod.
 	// The scaling up rate is limited to the MaxScaleUpRate.
@@ -253,9 +217,9 @@ func (a *Autoscaler) currentSpec() DeciderSpec {
 // respectively and returns the observedStableConcurrency, observedPanicConcurrency
 // and the last bucket that was aggregated.
 func (a *Autoscaler) aggregateData(now time.Time, stableWindow, panicWindow time.Duration) (
-	stableConcurrency float64, panicConcurrency float64, lastBucket statsBucket) {
-	a.statsMutex.Lock()
-	defer a.statsMutex.Unlock()
+	stableConcurrency float64, panicConcurrency float64, lastBucket aggregation.Float64Bucket) {
+	buckets := a.buckets.GetAndLock()
+	defer a.buckets.Unlock()
 
 	var (
 		stableBuckets float64
@@ -266,17 +230,17 @@ func (a *Autoscaler) aggregateData(now time.Time, stableWindow, panicWindow time
 
 		lastBucketTime time.Time
 	)
-	for bucketTime, bucket := range a.bucketed {
+	for bucketTime, bucket := range buckets {
 		if !bucketTime.Add(panicWindow).Before(now) {
 			panicBuckets++
-			panicTotal += bucket.concurrency()
+			panicTotal += bucket.Sum()
 		}
 
 		if !bucketTime.Add(stableWindow).Before(now) {
 			stableBuckets++
-			stableTotal += bucket.concurrency()
+			stableTotal += bucket.Sum()
 		} else {
-			delete(a.bucketed, bucketTime)
+			delete(buckets, bucketTime)
 		}
 
 		if bucketTime.After(lastBucketTime) {

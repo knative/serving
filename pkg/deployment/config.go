@@ -1,5 +1,5 @@
 /*
-Copyright 2018 The Knative Authors
+Copyright 2019 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package config
+package deployment
 
 import (
 	"errors"
@@ -25,17 +25,18 @@ import (
 )
 
 const (
-	// ControllerConfigName is the name of config map for the controller.
-	ControllerConfigName = "config-controller"
+	// ConfigName is the name of config map for the deployment.
+	ConfigName = "config-deployment"
 
-	queueSidecarImageKey           = "queueSidecarImage"
+	// QueueSidecarImageKey is the config map key for queue sidecar image
+	QueueSidecarImageKey           = "queueSidecarImage"
 	registriesSkippingTagResolving = "registriesSkippingTagResolving"
 )
 
-// NewControllerConfigFromMap creates a Controller from the supplied Map
-func NewControllerConfigFromMap(configMap map[string]string) (*Controller, error) {
-	nc := &Controller{}
-	qsideCarImage, ok := configMap[queueSidecarImageKey]
+// NewConfigFromMap creates a DeploymentConfig from the supplied Map
+func NewConfigFromMap(configMap map[string]string) (*Config, error) {
+	nc := &Config{}
+	qsideCarImage, ok := configMap[QueueSidecarImageKey]
 	if !ok {
 		return nil, errors.New("Queue sidecar image is missing")
 	}
@@ -50,13 +51,13 @@ func NewControllerConfigFromMap(configMap map[string]string) (*Controller, error
 	return nc, nil
 }
 
-// NewControllerConfigFromConfigMap creates a Controller from the supplied configMap
-func NewControllerConfigFromConfigMap(config *corev1.ConfigMap) (*Controller, error) {
-	return NewControllerConfigFromMap(config.Data)
+// NewConfigFromConfigMap creates a DeploymentConfig from the supplied configMap
+func NewConfigFromConfigMap(config *corev1.ConfigMap) (*Config, error) {
+	return NewConfigFromMap(config.Data)
 }
 
-// Controller includes the configurations for the controller.
-type Controller struct {
+// Config includes the configurations for the controller.
+type Config struct {
 	// QueueSidecarImage is the name of the image used for the queue sidecar
 	// injected into the revision pod
 	QueueSidecarImage string

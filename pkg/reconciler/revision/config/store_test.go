@@ -25,6 +25,7 @@ import (
 	"github.com/google/go-cmp/cmp/cmpopts"
 	logtesting "github.com/knative/pkg/logging/testing"
 	"github.com/knative/serving/pkg/autoscaler"
+	deployment "github.com/knative/serving/pkg/deployment"
 	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/pkg/metrics"
 	"github.com/knative/serving/pkg/network"
@@ -36,13 +37,13 @@ func TestStoreLoadWithContext(t *testing.T) {
 	defer logtesting.ClearAll()
 	store := NewStore(logtesting.TestLogger(t))
 
-	controllerConfig := ConfigMapFromTestFile(t, ControllerConfigName, queueSidecarImageKey)
+	deploymentConfig := ConfigMapFromTestFile(t, deployment.ConfigName, deployment.QueueSidecarImageKey)
 	networkConfig := ConfigMapFromTestFile(t, network.ConfigName)
 	observabilityConfig := ConfigMapFromTestFile(t, metrics.ObservabilityConfigName)
 	loggingConfig := ConfigMapFromTestFile(t, logging.ConfigMapName())
 	autoscalerConfig := ConfigMapFromTestFile(t, autoscaler.ConfigName)
 
-	store.OnConfigChanged(controllerConfig)
+	store.OnConfigChanged(deploymentConfig)
 	store.OnConfigChanged(networkConfig)
 	store.OnConfigChanged(observabilityConfig)
 	store.OnConfigChanged(loggingConfig)
@@ -50,10 +51,10 @@ func TestStoreLoadWithContext(t *testing.T) {
 
 	config := FromContext(store.ToContext(context.Background()))
 
-	t.Run("controller", func(t *testing.T) {
-		expected, _ := NewControllerConfigFromConfigMap(controllerConfig)
-		if diff := cmp.Diff(expected, config.Controller); diff != "" {
-			t.Errorf("Unexpected controller config (-want, +got): %v", diff)
+	t.Run("Deployment", func(t *testing.T) {
+		expected, _ := deployment.NewConfigFromConfigMap(deploymentConfig)
+		if diff := cmp.Diff(expected, config.Deployment); diff != "" {
+			t.Errorf("Unexpected deployment (-want, +got): %v", diff)
 		}
 	})
 
@@ -92,7 +93,7 @@ func TestStoreImmutableConfig(t *testing.T) {
 	defer logtesting.ClearAll()
 	store := NewStore(logtesting.TestLogger(t))
 
-	store.OnConfigChanged(ConfigMapFromTestFile(t, ControllerConfigName, queueSidecarImageKey))
+	store.OnConfigChanged(ConfigMapFromTestFile(t, deployment.ConfigName, deployment.QueueSidecarImageKey))
 	store.OnConfigChanged(ConfigMapFromTestFile(t, network.ConfigName))
 	store.OnConfigChanged(ConfigMapFromTestFile(t, metrics.ObservabilityConfigName))
 	store.OnConfigChanged(ConfigMapFromTestFile(t, logging.ConfigMapName()))
@@ -100,7 +101,7 @@ func TestStoreImmutableConfig(t *testing.T) {
 
 	config := store.Load()
 
-	config.Controller.QueueSidecarImage = "mutated"
+	config.Deployment.QueueSidecarImage = "mutated"
 	config.Network.IstioOutboundIPRanges = "mutated"
 	config.Observability.FluentdSidecarImage = "mutated"
 	config.Logging.LoggingConfig = "mutated"
@@ -108,7 +109,7 @@ func TestStoreImmutableConfig(t *testing.T) {
 
 	newConfig := store.Load()
 
-	if newConfig.Controller.QueueSidecarImage == "mutated" {
+	if newConfig.Deployment.QueueSidecarImage == "mutated" {
 		t.Error("Controller config is not immutable")
 	}
 	if newConfig.Network.IstioOutboundIPRanges == "mutated" {

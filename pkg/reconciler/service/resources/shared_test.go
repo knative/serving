@@ -43,6 +43,8 @@ const (
 	testLabelValueRunLatest    = "test-label-value-run-latest"
 	testLabelValueRelease      = "test-label-value-release"
 	testLabelValueManual       = "test-label-value-manual"
+	testAnnotationKey          = "test-annotation-key"
+	testAnnotationValue        = "test-annotation-value"
 )
 
 func expectOwnerReferencesSetCorrectly(t *testing.T, ownerRefs []metav1.OwnerReference) {
@@ -89,7 +91,10 @@ func createServiceInline() *v1alpha1.Service {
 func createServiceWithRunLatest() *v1alpha1.Service {
 	return Service(testServiceName, testServiceNamespace,
 		WithRunLatestConfigSpec(createConfiguration(testContainerNameRunLatest)),
-		WithServiceLabel(testLabelKey, testLabelValueRunLatest))
+		WithServiceLabel(testLabelKey, testLabelValueRunLatest),
+		WithServiceAnnotations(map[string]string{
+			testAnnotationKey: testAnnotationValue,
+		}))
 }
 
 func createServiceWithPinned() *v1alpha1.Service {

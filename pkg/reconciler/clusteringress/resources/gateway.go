@@ -17,12 +17,15 @@ limitations under the License.
 package resources
 
 import (
+	"context"
 	"fmt"
 	"sort"
 	"strings"
 
 	"github.com/knative/pkg/apis/istio/v1alpha3"
 	"github.com/knative/serving/pkg/apis/networking/v1alpha1"
+	"github.com/knative/serving/pkg/reconciler/clusteringress/config"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
@@ -66,13 +69,23 @@ func sortServers(servers []v1alpha3.Server) []v1alpha3.Server {
 	return servers
 }
 
-// MakeServers creates the expected Gateway `Servers` according to the given
+// MakeServers creates the expected Gateway `Servers` based on the given
 // ClusterIngress.
-func MakeServers(ci *v1alpha1.ClusterIngress) []v1alpha3.Server {
+func MakeServers(ci *v1alpha1.ClusterIngress, gatewayServiceNamespace string, originSecrets map[string]*corev1.Secret) ([]v1alpha3.Server, error) {
 	servers := []v1alpha3.Server{}
 	// TODO(zhiminx): for the hosts that does not included in the ClusterIngressTLS but listed in the ClusterIngressRule,
 	// do we consider them as hosts for HTTP?
 	for i, tls := range ci.Spec.TLS {
+		credentialName := tls.SecretName
+		// If the origin secret is not in the target namespace, then it should have been
+		// copied into the target namespace. So we use the name of the copy.
+		if tls.SecretNamespace != gatewayServiceNamespace {
+			originSecret, ok := originSecrets[secretKey(tls)]
+			if !ok {
+				return nil, fmt.Errorf("Unable to get the original secret %s/%s", tls.SecretNamespace, tls.SecretName)
+			}
+			credentialName = targetSecret(originSecret)
+		}
 		servers = append(servers, v1alpha3.Server{
 			Hosts: tls.Hosts,
 			Port: v1alpha3.Port{
@@ -84,12 +97,43 @@ func MakeServers(ci *v1alpha1.ClusterIngress) []v1alpha3.Server {
 				Mode:              v1alpha3.TLSModeSimple,
 				ServerCertificate: tls.ServerCertificate,
 				PrivateKey:        tls.PrivateKey,
-				// TODO(zhiminx): When Istio 1.1 is ready, set "credentialName" of TLS
-				// with the secret name.
+				CredentialName:    credentialName,
 			},
 		})
 	}
-	return sortServers(servers)
+	return sortServers(servers), nil
+}
+
+// GatewayServiceNamespace returns the namespace of the gateway service that the `Gateway` object
+// with name `gatewayName` is associated with.
+func GatewayServiceNamespace(ingressGateways []config.Gateway, gatewayName string) (string, error) {
+	for _, gw := range ingressGateways {
+		if gw.GatewayName != gatewayName {
+			continue
+		}
+		// serviceURL should be of the form serviceName.namespace.<domain>, for example
+		// serviceName.namespace.svc.cluster.local.
+		parts := strings.SplitN(gw.ServiceURL, ".", 3)
+		if len(parts) != 3 {
+			return "", fmt.Errorf("Unexpected service URL form: %s", gw.ServiceURL)
+		}
+		return parts[1], nil
+	}
+	return "", fmt.Errorf("No Gateway configuration is found for gateway %s", gatewayName)
+}
+
+// getAllGatewaySvcNamespaces gets all of the namespaces of Istio gateway services from context.
+func getAllGatewaySvcNamespaces(ctx context.Context) []string {
+	cfg := config.FromContext(ctx).Istio
+	namespaces := sets.String{}
+	for _, ingressgateway := range cfg.IngressGateways {
+		// serviceURL should be of the form serviceName.namespace.<domain>, for example
+		// serviceName.namespace.svc.cluster.local.
+
+		ns := strings.Split(ingressgateway.ServiceURL, ".")[1]
+		namespaces.Insert(ns)
+	}
+	return namespaces.List()
 }
 
 // UpdateGateway replaces the existing servers with the wanted servers.

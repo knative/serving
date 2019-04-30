@@ -82,7 +82,7 @@ func TestMakePublicService(t *testing.T) {
 			},
 			Spec: corev1.ServiceSpec{
 				Ports: []corev1.ServicePort{{
-					Name:       servicePortNameHTTP1,
+					Name:       networking.ServicePortNameHTTP1,
 					Protocol:   corev1.ProtocolTCP,
 					Port:       networking.ServiceHTTPPort,
 					TargetPort: intstr.FromInt(networking.BackendHTTPPort),
@@ -130,7 +130,7 @@ func TestMakePublicService(t *testing.T) {
 			},
 			Spec: corev1.ServiceSpec{
 				Ports: []corev1.ServicePort{{
-					Name:       servicePortNameHTTP1,
+					Name:       networking.ServicePortNameHTTP1,
 					Protocol:   corev1.ProtocolTCP,
 					Port:       networking.ServiceHTTPPort,
 					TargetPort: intstr.FromInt(networking.BackendHTTPPort),
@@ -183,7 +183,7 @@ func TestMakePublicService(t *testing.T) {
 			},
 			Spec: corev1.ServiceSpec{
 				Ports: []corev1.ServicePort{{
-					Name:       servicePortNameH2C,
+					Name:       networking.ServicePortNameH2C,
 					Protocol:   corev1.ProtocolTCP,
 					Port:       networking.ServiceHTTP2Port,
 					TargetPort: intstr.FromInt(networking.BackendHTTP2Port),
@@ -236,7 +236,7 @@ func TestMakePublicService(t *testing.T) {
 			},
 			Spec: corev1.ServiceSpec{
 				Ports: []corev1.ServicePort{{
-					Name:       servicePortNameH2C,
+					Name:       networking.ServicePortNameH2C,
 					Protocol:   corev1.ProtocolTCP,
 					Port:       networking.ServiceHTTP2Port,
 					TargetPort: intstr.FromInt(networking.BackendHTTP2Port),
@@ -289,7 +289,7 @@ func TestMakePublicService(t *testing.T) {
 			},
 			Spec: corev1.ServiceSpec{
 				Ports: []corev1.ServicePort{{
-					Name:       servicePortNameH2C,
+					Name:       networking.ServicePortNameH2C,
 					Protocol:   corev1.ProtocolTCP,
 					Port:       networking.ServiceHTTP2Port,
 					TargetPort: intstr.FromInt(networking.BackendHTTP2Port),
@@ -499,7 +499,7 @@ func TestMakePrivateService(t *testing.T) {
 					"app": "sadness",
 				},
 				Ports: []corev1.ServicePort{{
-					Name:       servicePortNameHTTP1,
+					Name:       networking.ServicePortNameHTTP1,
 					Protocol:   corev1.ProtocolTCP,
 					Port:       networking.ServiceHTTPPort,
 					TargetPort: intstr.FromInt(networking.BackendHTTPPort),
@@ -557,7 +557,7 @@ func TestMakePrivateService(t *testing.T) {
 					"app": "today",
 				},
 				Ports: []corev1.ServicePort{{
-					Name:       servicePortNameH2C,
+					Name:       networking.ServicePortNameH2C,
 					Protocol:   corev1.ProtocolTCP,
 					Port:       networking.ServiceHTTPPort,
 					TargetPort: intstr.FromInt(networking.BackendHTTP2Port),

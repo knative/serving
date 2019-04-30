@@ -22,9 +22,8 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"time"
-
-	"go.uber.org/zap"
 
 	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/controller"
@@ -38,7 +37,6 @@ import (
 	"github.com/knative/serving/pkg/activator"
 	activatorconfig "github.com/knative/serving/pkg/activator/config"
 	activatorhandler "github.com/knative/serving/pkg/activator/handler"
-	activatorutil "github.com/knative/serving/pkg/activator/util"
 	"github.com/knative/serving/pkg/apis/networking"
 	nv1a1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving"
@@ -47,7 +45,7 @@ import (
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
 	servinginformers "github.com/knative/serving/pkg/client/informers/externalversions"
 	"github.com/knative/serving/pkg/goversion"
-	"github.com/knative/serving/pkg/http/h2c"
+	pkghttp "github.com/knative/serving/pkg/http"
 	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/pkg/metrics"
 	"github.com/knative/serving/pkg/network"
@@ -56,8 +54,8 @@ import (
 	"github.com/knative/serving/pkg/resources"
 	"github.com/knative/serving/pkg/tracing"
 	tracingconfig "github.com/knative/serving/pkg/tracing/config"
-
 	"github.com/openzipkin/zipkin-go"
+	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	kubeinformers "k8s.io/client-go/informers"
@@ -100,11 +98,13 @@ const (
 )
 
 var (
-	masterURL  = flag.String("master", "", "The address of the Kubernetes API server. Overrides any value in kubeconfig. Only required if out-of-cluster.")
+	masterURL = flag.String("master", "", "The address of the Kubernetes API server. "+
+		"Overrides any value in kubeconfig. Only required if out-of-cluster.")
 	kubeconfig = flag.String("kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
 )
 
-func statReporter(statSink *websocket.ManagedConnection, stopCh <-chan struct{}, statChan <-chan *autoscaler.StatMessage, logger *zap.SugaredLogger) {
+func statReporter(statSink *websocket.ManagedConnection, stopCh <-chan struct{},
+	statChan <-chan *autoscaler.StatMessage, logger *zap.SugaredLogger) {
 	for {
 		select {
 		case sm := <-statChan:
@@ -283,7 +283,7 @@ func main() {
 	// Create activation handler chain
 	// Note: innermost handlers are specified first, ie. the last handler in the chain will be executed first
 	var ah http.Handler = &activatorhandler.ActivationHandler{
-		Transport:     activatorutil.AutoTransport,
+		Transport:     network.AutoTransport,
 		Logger:        logger,
 		Reporter:      reporter,
 		Throttler:     throttler,
@@ -295,6 +295,12 @@ func main() {
 	ah = activatorhandler.NewRequestEventHandler(reqChan, ah)
 	ah = tracing.HTTPSpanMiddleware("handle_request", ah)
 	ah = configStore.HTTPMiddleware(ah)
+	reqLogHandler, err := pkghttp.NewRequestLogHandler(ah, logging.NewSyncFileWriter(os.Stdout), "",
+		requestLogTemplateInputGetter(revisionGetter))
+	if err != nil {
+		logger.Fatalw("Unable to create request log handler", zap.Error(err))
+	}
+	ah = reqLogHandler
 	ah = &activatorhandler.HealthHandler{HealthCheck: statSink.Status, NextHandler: ah}
 	ah = &activatorhandler.ProbeHandler{NextHandler: ah}
 
@@ -302,18 +308,20 @@ func main() {
 	configMapWatcher.Watch(logging.ConfigMapName(), logging.UpdateLevelFromConfigMap(logger, atomicLevel, component))
 	// Watch the observability config map and dynamically update metrics exporter.
 	configMapWatcher.Watch(metrics.ObservabilityConfigName, metrics.UpdateExporterFromConfigMap(component, logger))
+	// Watch the observability config map and dynamically update request logs.
+	configMapWatcher.Watch(metrics.ObservabilityConfigName, updateRequestLogFromConfigMap(logger, reqLogHandler))
 	if err = configMapWatcher.Start(stopCh); err != nil {
 		logger.Fatalw("Failed to start configuration manager", zap.Error(err))
 	}
 
-	http1Srv := h2c.NewServer(fmt.Sprintf(":%d", networking.BackendHTTPPort), ah)
+	http1Srv := network.NewServer(fmt.Sprintf(":%d", networking.BackendHTTPPort), ah)
 	go func() {
 		if err := http1Srv.ListenAndServe(); err != nil {
 			logger.Errorw("Error running HTTP server", zap.Error(err))
 		}
 	}()
 
-	h2cSrv := h2c.NewServer(fmt.Sprintf(":%d", networking.BackendHTTP2Port), ah)
+	h2cSrv := network.NewServer(fmt.Sprintf(":%d", networking.BackendHTTP2Port), ah)
 	go func() {
 		if err := h2cSrv.ListenAndServe(); err != nil {
 			logger.Errorw("Error running HTTP server", zap.Error(err))
@@ -327,5 +335,7 @@ func main() {
 
 func flush(logger *zap.SugaredLogger) {
 	logger.Sync()
+	os.Stdout.Sync()
+	os.Stderr.Sync()
 	pkgmetrics.FlushExporter()
 }
