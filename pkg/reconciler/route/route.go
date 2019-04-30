@@ -210,22 +210,22 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 
 	// Reconcile this copy of the route and then write back any status
 	// updates regardless of whether the reconciliation errored out.
-	err = c.reconcile(ctx, route)
+	reconcileErr := c.reconcile(ctx, route)
 	if equality.Semantic.DeepEqual(original.Status, route.Status) {
 		// If we didn't change anything then don't call updateStatus.
 		// This is important because the copy we loaded from the informer's
 		// cache may be stale and we don't want to overwrite a prior update
 		// to status with this stale state.
-	} else if _, err := c.updateStatus(route); err != nil {
+	} else if _, err = c.updateStatus(route); err != nil {
 		logger.Warnw("Failed to update route status", zap.Error(err))
 		c.Recorder.Eventf(route, corev1.EventTypeWarning, "UpdateFailed",
 			"Failed to update status for Route %q: %v", route.Name, err)
 		return err
 	}
-	if err != nil {
-		c.Recorder.Event(route, corev1.EventTypeWarning, "InternalError", err.Error())
+	if reconcileErr != nil {
+		c.Recorder.Event(route, corev1.EventTypeWarning, "InternalError", reconcileErr.Error())
 	}
-	return err
+	return reconcileErr
 }
 
 func ingressClassForRoute(ctx context.Context, r *v1alpha1.Route) string {
