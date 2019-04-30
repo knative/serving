@@ -143,8 +143,8 @@ function install_knative_serving_standard() {
 
   # Decide the Istio configuration to install.
   if [[ -z "$ISTIO_VERSION" ]]; then
-     # Defaults to 1.1.2
-     ISTIO_VERSION=1.1.2
+     # Defaults to 1.1-latest
+     ISTIO_VERSION=1.1-latest
   fi
   if [[ -z "$ISTIO_MESH" ]]; then
     # Defaults to using mesh.
