@@ -26,6 +26,8 @@ import (
 	"os"
 	"time"
 
+	"go.uber.org/zap"
+
 	"github.com/knative/pkg/logging/logkey"
 	"github.com/knative/pkg/metrics"
 	"github.com/knative/pkg/signals"
@@ -40,7 +42,7 @@ import (
 	"github.com/knative/serving/pkg/queue"
 	"github.com/knative/serving/pkg/queue/health"
 	queuestats "github.com/knative/serving/pkg/queue/stats"
-	"go.uber.org/zap"
+
 	"k8s.io/apimachinery/pkg/util/wait"
 )
 
@@ -63,6 +65,8 @@ const (
 	// are exposed in Prometheus. This is different from the metrics used
 	// for autoscaling, which are exposed in 9090.
 	commonMetricsPort = 9091
+
+	badProbeTemplate = "unexpected probe header value: %s"
 )
 
 var (
@@ -149,7 +153,7 @@ func handler(reqChan chan queue.ReqEvent, breaker *queue.Breaker, proxy *httputi
 		switch {
 		case ph != "":
 			if ph != queue.Name {
-				http.Error(w, fmt.Sprintf("unexpected probe header value: %q", ph), http.StatusBadRequest)
+				http.Error(w, fmt.Sprintf(badProbeTemplate, ph), http.StatusBadRequest)
 				return
 			}
 			if probeUserContainer() {
@@ -165,7 +169,7 @@ func handler(reqChan chan queue.ReqEvent, breaker *queue.Breaker, proxy *httputi
 			return
 		}
 
-		// Metrics for autoscaling
+		// Metrics for autoscaling.
 		h := knativeProxyHeader(r)
 		in, out := queue.ReqIn, queue.ReqOut
 		if activator.Name == h {
@@ -175,8 +179,9 @@ func handler(reqChan chan queue.ReqEvent, breaker *queue.Breaker, proxy *httputi
 		defer func() {
 			reqChan <- queue.ReqEvent{Time: time.Now(), EventType: out}
 		}()
+		rewriteHost(r)
 
-		// Enforce queuing and concurrency limits
+		// Enforce queuing and concurrency limits.
 		if breaker != nil {
 			ok := breaker.Maybe(func() {
 				proxy.ServeHTTP(w, r)
@@ -187,6 +192,18 @@ func handler(reqChan chan queue.ReqEvent, breaker *queue.Breaker, proxy *httputi
 		} else {
 			proxy.ServeHTTP(w, r)
 		}
+	}
+}
+
+// rewriteHost undoes the `rewriteHost` action in the Activator.
+// rewriteHost checks if OriginalHostHeader was set and if it was,
+// then uses that as the r.Host (which takes priority over Request.Header["Host"].
+// If the request did not have the OriginalHostHeader header set, the request is untouched.
+func rewriteHost(r *http.Request) {
+	if ohh := r.Header.Get(network.OriginalHostHeader); ohh != "" {
+		r.Host = ohh
+		r.Header.Del("Host")
+		r.Header.Del(network.OriginalHostHeader)
 	}
 }
 
@@ -210,9 +227,9 @@ func main() {
 		zap.String(logkey.Key, servingRevisionKey),
 		zap.String(logkey.Pod, servingPodName))
 
-	target, err := url.Parse(fmt.Sprintf("http://%s", userTargetAddress))
+	target, err := url.Parse("http://" + userTargetAddress)
 	if err != nil {
-		logger.Fatalw("Failed to parse localhost url", zap.Error(err))
+		logger.Fatalw("Failed to parse localhost URL", zap.Error(err))
 	}
 
 	httpProxy = httputil.NewSingleHostReverseProxy(target)

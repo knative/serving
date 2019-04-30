@@ -35,11 +35,17 @@ const (
 	// requests to probe the knative networking layer.  Requests
 	// with this header will not be passed to the user container or
 	// included in request metrics.
-	ProbeHeaderName = "k-network-probe"
+	ProbeHeaderName = "K-Network-Probe"
 
 	// ProxyHeaderName is the name of an internal header that activator
 	// uses to mark requests going through it.
-	ProxyHeaderName = "k-proxy-request"
+	ProxyHeaderName = "K-Proxy-Request"
+
+	// OriginalHostHeader is used to avoid Istio host based routing rules
+	// in Activator.
+	// The header contains the original Host value that can be rewritten
+	// at the Queue proxy level back to be a host header.
+	OriginalHostHeader = "K-Proxy-Header"
 
 	// ConfigName is the name of the configmap containing all
 	// customizations for networking features.
