@@ -74,7 +74,7 @@ func makeSecret(originSecret *corev1.Secret, targetNamespace string, ci *v1alpha
 			},
 			// TODO(zhiminx): currently we temporarily tie the lifecycle of the copied secrets to ClusterIngress.
 			// But this won't work in the future when we have a wildcard certificate because wildecard
-			// certificate can be shared across mutliple ClusterIngress. So we need a better way
+			// certificate can be shared across multiple ClusterIngress. So we need a better way
 			// to handle the lifecyle when landing wildcard certificate.
 			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(ci)},
 		},

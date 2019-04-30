@@ -131,7 +131,7 @@ func (rs *RouteStatus) MarkCertificateNotReady(name string) {
 		Status:   corev1.ConditionUnknown,
 		Severity: apis.ConditionSeverityWarning,
 		Reason:   "CertificateNotReady",
-		Message:  fmt.Sprintf("Certificate %s are not ready.", name),
+		Message:  fmt.Sprintf("Certificate %s is not ready.", name),
 	})
 }
 
