@@ -50,6 +50,14 @@ const (
 	// ServiceTypeKey is the label key attached to a service specifying the type of service.
 	// e.g. Public, Metrics
 	ServiceTypeKey = GroupName + "/serviceType"
+
+	// OriginSecretNameLabelKey is the label key attached to the TLS secret to indicate
+	// the name of the origin secret that the TLS secret is copied from.
+	OriginSecretNameLabelKey = GroupName + "/originSecretName"
+
+	// OriginSecretNamespaceLabelKey is the label key attached to the TLS secret
+	// to indicate the namespace of the origin secret that the TLS secret is copied from.
+	OriginSecretNamespaceLabelKey = GroupName + "/originSecretNamespace"
 )
 
 // ServiceType is the enumeration type for the Kubernetes services

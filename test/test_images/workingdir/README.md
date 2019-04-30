@@ -3,8 +3,8 @@
 This directory contains the test image used in the WorkingDir conformance test.
 
 The image contains a simple Go webserver, `workingdir.go`, that will, by
-default, listen on port `8080` and expose a service at `/` that returns
-the working directory configured by the test.
+default, listen on port `8080` and expose a service at `/` that returns the
+working directory configured by the test.
 
 ## Trying out
 

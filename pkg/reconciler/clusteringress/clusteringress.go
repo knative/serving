@@ -22,6 +22,8 @@ import (
 	"fmt"
 	"reflect"
 
+	"github.com/knative/pkg/tracker"
+
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 
@@ -45,6 +47,8 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	corev1informers "k8s.io/client-go/informers/core/v1"
+	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -74,7 +78,10 @@ type Reconciler struct {
 	clusterIngressLister listers.ClusterIngressLister
 	virtualServiceLister istiolisters.VirtualServiceLister
 	gatewayLister        istiolisters.GatewayLister
+	secretLister         corev1listers.SecretLister
 	configStore          configStore
+
+	tracker tracker.Interface
 }
 
 // Check that our Reconciler implements controller.Reconciler
@@ -87,6 +94,7 @@ func NewController(
 	clusterIngressInformer informers.ClusterIngressInformer,
 	virtualServiceInformer istioinformers.VirtualServiceInformer,
 	gatewayInformer istioinformers.GatewayInformer,
+	secretInfomer corev1informers.SecretInformer,
 ) *controller.Impl {
 
 	c := &Reconciler{
@@ -94,6 +102,7 @@ func NewController(
 		clusterIngressLister: clusterIngressInformer.Lister(),
 		virtualServiceLister: virtualServiceInformer.Lister(),
 		gatewayLister:        gatewayInformer.Lister(),
+		secretLister:         secretInfomer.Lister(),
 	}
 	impl := controller.NewImpl(c, c.Logger, "ClusterIngresses", reconciler.MustNewStatsReporter("ClusterIngress", c.Logger))
 
@@ -109,6 +118,14 @@ func NewController(
 		FilterFunc: myFilterFunc,
 		Handler:    reconciler.Handler(impl.EnqueueLabelOfClusterScopedResource(networking.IngressLabelKey)),
 	})
+
+	c.tracker = tracker.New(impl.EnqueueKey, opt.GetTrackerLease())
+	secretInfomer.Informer().AddEventHandler(reconciler.Handler(
+		controller.EnsureTypeMeta(
+			c.tracker.OnChanged,
+			corev1.SchemeGroupVersion.WithKind("Secret"),
+		),
+	))
 
 	c.Logger.Info("Setting up ConfigMap receivers")
 	configsToResync := []interface{}{
@@ -217,26 +234,43 @@ func (c *Reconciler) reconcile(ctx context.Context, ci *v1alpha1.ClusterIngress)
 	ci.Status.MarkLoadBalancerReady(getLBStatus(gatewayServiceURLFromContext(ctx, ci)))
 	ci.Status.ObservedGeneration = ci.Generation
 
-	// TODO(zhiminx): Istio requires to put certificates under the namespace where Istio ingress
-	// (pods) are deployed so that Istio ingress pods can consume them.
-	// So we need to copy certificates from their origin namespace to the Istio ingress namespace.
-
 	if enablesAutoTLS(ctx) {
+		if !ci.IsPublic() {
+			logger.Infof("ClusterIngress %s is not public. So no need to configure TLS.", ci.Name)
+			return nil
+		}
+
 		// Add the finalizer before adding `Servers` into Gateway so that we can be sure
 		// the `Servers` get cleaned up from Gateway.
 		if err := c.ensureFinalizer(ci); err != nil {
 			return err
 		}
 
-		// TODO(zhiminx): Make Servers based on HTTPProtocol.
-		desiredServers := resources.MakeServers(ci)
-		if err := c.reconcileGateways(ctx, ci, gatewayNames, desiredServers); err != nil {
+		originSecrets, err := resources.GetSecrets(ci, c.secretLister)
+		if err != nil {
 			return err
+		}
+		targetSecrets := resources.MakeSecrets(ctx, originSecrets)
+		if err := c.reconcileCertSecrets(ctx, ci, targetSecrets); err != nil {
+			return err
+		}
+
+		for _, gatewayName := range gatewayNames {
+			ns, err := resources.GatewayServiceNamespace(config.FromContext(ctx).Istio.IngressGateways, gatewayName)
+			if err != nil {
+				return err
+			}
+			desired, err := resources.MakeServers(ci, ns, originSecrets)
+			if err != nil {
+				return err
+			}
+			if err := c.reconcileGateway(ctx, ci, gatewayName, desired); err != nil {
+				return err
+			}
 		}
 	}
 
 	// TODO(zhiminx): Mark Route status to indicate that Gateway is configured.
-
 	logger.Info("ClusterIngress successfully synced")
 	return nil
 }
@@ -372,8 +406,10 @@ func (c *Reconciler) reconcileDeletion(ctx context.Context, ci *v1alpha1.Cluster
 	gatewayNames := gatewayNamesFromContext(ctx, ci)
 	logger.Infof("Cleaning up Gateway Servers for ClusterIngress %s", ci.Name)
 	// No desired Servers means deleting all of the existing Servers associated with the CI.
-	if err := c.reconcileGateways(ctx, ci, gatewayNames, []v1alpha3.Server{}); err != nil {
-		return err
+	for _, gatewayName := range gatewayNames {
+		if err := c.reconcileGateway(ctx, ci, gatewayName, []v1alpha3.Server{}); err != nil {
+			return err
+		}
 	}
 
 	// Update the ClusterIngress to remove the Finalizer.
@@ -381,15 +417,6 @@ func (c *Reconciler) reconcileDeletion(ctx context.Context, ci *v1alpha1.Cluster
 	ci.Finalizers = ci.Finalizers[1:]
 	_, err := c.ServingClientSet.NetworkingV1alpha1().ClusterIngresses().Update(ci)
 	return err
-}
-
-func (c *Reconciler) reconcileGateways(ctx context.Context, ci *v1alpha1.ClusterIngress, gatewayNames []string, desiredServers []v1alpha3.Server) error {
-	for _, gatewayName := range gatewayNames {
-		if err := c.reconcileGateway(ctx, ci, gatewayName, desiredServers); err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 func (c *Reconciler) reconcileGateway(ctx context.Context, ci *v1alpha1.ClusterIngress, gatewayName string, desired []v1alpha3.Server) error {
@@ -417,5 +444,51 @@ func (c *Reconciler) reconcileGateway(ctx context.Context, ci *v1alpha1.ClusterI
 	}
 	c.Recorder.Eventf(ci, corev1.EventTypeNormal, "Updated",
 		"Updated Gateway %q/%q", gateway.Namespace, gateway.Name)
+	return nil
+}
+
+func (c *Reconciler) reconcileCertSecrets(ctx context.Context, ci *v1alpha1.ClusterIngress, desiredSecrets []*corev1.Secret) error {
+	for _, certSecret := range desiredSecrets {
+		if err := c.reconcileCertSecret(ctx, ci, certSecret); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (c *Reconciler) reconcileCertSecret(ctx context.Context, ci *v1alpha1.ClusterIngress, desired *corev1.Secret) error {
+	// We track the origin and desired secrets so that desired secrets could be synced accordingly when the origin TLS certificate
+	// secret is refreshed.
+	c.tracker.Track(resources.SecretRef(desired.Namespace, desired.Name), ci)
+	c.tracker.Track(resources.SecretRef(desired.Labels[networking.OriginSecretNamespaceLabelKey], desired.Labels[networking.OriginSecretNameLabelKey]), ci)
+
+	logger := logging.FromContext(ctx)
+	existing, err := c.secretLister.Secrets(desired.Namespace).Get(desired.Name)
+	if apierrs.IsNotFound(err) {
+		_, err = c.KubeClientSet.CoreV1().Secrets(desired.Namespace).Create(desired)
+		if err != nil {
+			logger.Errorw("Failed to create Certificate Secret", zap.Error(err))
+			c.Recorder.Eventf(ci, corev1.EventTypeWarning, "CreationFailed",
+				"Failed to create Secret %s/%s: %v", desired.Namespace, desired.Name, err)
+			return err
+		}
+		c.Recorder.Eventf(ci, corev1.EventTypeNormal, "Created",
+			"Created Secret %s/%s", desired.Namespace, desired.Name)
+	} else if err != nil {
+		return err
+	} else if !equality.Semantic.DeepEqual(existing.Data, desired.Data) {
+		// Don't modify the informers copy
+		copy := existing.DeepCopy()
+		copy.Data = desired.Data
+		_, err = c.KubeClientSet.CoreV1().Secrets(copy.Namespace).Update(copy)
+		if err != nil {
+			logger.Errorw("Failed to update target secret", zap.Error(err))
+			c.Recorder.Eventf(ci, corev1.EventTypeWarning, "UpdateFailed",
+				"Failed to update Secret %s/%s: %v", desired.Namespace, desired.Name, err)
+			return err
+		}
+		c.Recorder.Eventf(ci, corev1.EventTypeNormal, "Updated",
+			"Updated Secret %s/%s", copy.Namespace, copy.Name)
+	}
 	return nil
 }

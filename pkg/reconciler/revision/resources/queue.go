@@ -27,9 +27,9 @@ import (
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/autoscaler"
+	"github.com/knative/serving/pkg/deployment"
 	"github.com/knative/serving/pkg/metrics"
 	"github.com/knative/serving/pkg/queue"
-	"github.com/knative/serving/pkg/reconciler/revision/config"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -81,7 +81,7 @@ var (
 
 // makeQueueContainer creates the container spec for the queue sidecar.
 func makeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, observabilityConfig *metrics.ObservabilityConfig,
-	autoscalerConfig *autoscaler.Config, controllerConfig *config.Controller) *corev1.Container {
+	autoscalerConfig *autoscaler.Config, deploymentConfig *deployment.Config) *corev1.Container {
 	configName := ""
 	if owner := metav1.GetControllerOf(rev); owner != nil && owner.Kind == "Configuration" {
 		configName = owner.Name
@@ -112,7 +112,7 @@ func makeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, o
 
 	return &corev1.Container{
 		Name:           QueueContainerName,
-		Image:          controllerConfig.QueueSidecarImage,
+		Image:          deploymentConfig.QueueSidecarImage,
 		Resources:      queueResources,
 		Ports:          ports,
 		ReadinessProbe: queueReadinessProbe,

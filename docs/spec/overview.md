@@ -35,8 +35,8 @@ references a container image. Revisions are created by updates to a
 **Configuration**.
 
 Revisions that are not addressable via a Route may be garbage collected and all
-underlying K8s resources will be deleted.  Revisions that are addressable via
-a Route will have resource utilization proportional to the load they are under.
+underlying K8s resources will be deleted. Revisions that are addressable via a
+Route will have resource utilization proportional to the load they are under.
 
 ## Configuration
 
@@ -44,9 +44,9 @@ A **Configuration** describes the desired latest Revision state, and creates and
 tracks the status of Revisions as the desired state is updated. A configuration
 will reference a container image and associated execution metadata needed by the
 Revision. On updates to a Configuration's spec, a new Revision will be created;
-the Configuration's controller will track the status of created
-Revisions and makes the most recently created and most recently _ready_
-Revisions available in the status section.
+the Configuration's controller will track the status of created Revisions and
+makes the most recently created and most recently _ready_ Revisions available in
+the status section.
 
 ## Service
 

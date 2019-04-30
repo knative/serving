@@ -288,10 +288,10 @@ startup SHOULD occur even if the container would not serve any user requests. If
 a container cannot satisfy the `readinessProbe` during deployment startup, the
 Revision SHOULD be marked as failed.
 
-Initial readiness probes allow the platform to avoid attempting to
-later provision or scale deployments (Revisions) which cannot become healthy,
-and act as a backstop to developer testing (via CI/CD or otherwise) which has
-been performed on the supplied container. Common causes of these failures can
+Initial readiness probes allow the platform to avoid attempting to later
+provision or scale deployments (Revisions) which cannot become healthy, and act
+as a backstop to developer testing (via CI/CD or otherwise) which has been
+performed on the supplied container. Common causes of these failures can
 include: malformed dynamic code not tested in the container, environment
 differences between testing and deployment environment, and missing or
 misconfigured backends. This also provides an opportunity for the container to

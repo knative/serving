@@ -31,7 +31,7 @@ const HelloVolumePath = "/hello/world"
 
 // LogResourceObject logs the resource object with the resource name and value
 func LogResourceObject(t *testing.T, value ResourceObjects) {
-	t.Logf("resource %s", spew.Sdump(value))
+	t.Logf("resource %s", spew.Sprint(value))
 }
 
 // ListenAndServeGracefully calls into ListenAndServeGracefullyWithPattern

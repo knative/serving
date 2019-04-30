@@ -61,6 +61,13 @@ func TestRouteRunLatest(t *testing.T) {
 	if got, want := r.Labels, wantL; !cmp.Equal(got, want) {
 		t.Errorf("Labels mismatch: diff (-got, +want): %s", cmp.Diff(got, want))
 	}
+
+	wantA := map[string]string{
+		testAnnotationKey: testAnnotationValue,
+	}
+	if got, want := r.Annotations, wantA; !cmp.Equal(got, want) {
+		t.Errorf("Annotations mismatch: diff (-got, +want): %s", cmp.Diff(got, want))
+	}
 }
 
 func TestRoutePinned(t *testing.T) {

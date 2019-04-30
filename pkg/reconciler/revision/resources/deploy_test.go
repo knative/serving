@@ -30,9 +30,9 @@ import (
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 	"github.com/knative/serving/pkg/autoscaler"
+	"github.com/knative/serving/pkg/deployment"
 	"github.com/knative/serving/pkg/metrics"
 	"github.com/knative/serving/pkg/network"
-	"github.com/knative/serving/pkg/reconciler/revision/config"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -322,12 +322,12 @@ func withAppendedVolumes(volumes ...corev1.Volume) podSpecOption {
 	}
 }
 
-func deployment(opts ...deploymentOption) *appsv1.Deployment {
-	deployment := defaultDeployment.DeepCopy()
+func makeDeployment(opts ...deploymentOption) *appsv1.Deployment {
+	deploy := defaultDeployment.DeepCopy()
 	for _, option := range opts {
-		option(deployment)
+		option(deploy)
 	}
-	return deployment
+	return deploy
 }
 
 func revision(opts ...revisionOption) *v1alpha1.Revision {
@@ -367,7 +367,7 @@ func TestMakePodSpec(t *testing.T) {
 		lc   *logging.Config
 		oc   *metrics.ObservabilityConfig
 		ac   *autoscaler.Config
-		cc   *config.Controller
+		cc   *deployment.Config
 		want *corev1.PodSpec
 	}{{
 		name: "user-defined user port, queue proxy have PORT env",
@@ -382,7 +382,7 @@ func TestMakePodSpec(t *testing.T) {
 		lc: &logging.Config{},
 		oc: &metrics.ObservabilityConfig{},
 		ac: &autoscaler.Config{},
-		cc: &config.Controller{},
+		cc: &deployment.Config{},
 		want: podSpec([]corev1.Container{
 			userContainer(
 				func(container *corev1.Container) {
@@ -420,7 +420,7 @@ func TestMakePodSpec(t *testing.T) {
 		lc: &logging.Config{},
 		oc: &metrics.ObservabilityConfig{},
 		ac: &autoscaler.Config{},
-		cc: &config.Controller{},
+		cc: &deployment.Config{},
 		want: podSpec([]corev1.Container{
 			userContainer(
 				func(container *corev1.Container) {
@@ -450,7 +450,7 @@ func TestMakePodSpec(t *testing.T) {
 		lc:   &logging.Config{},
 		oc:   &metrics.ObservabilityConfig{},
 		ac:   &autoscaler.Config{},
-		cc:   &config.Controller{},
+		cc:   &deployment.Config{},
 		want: podSpec([]corev1.Container{
 			userContainer(),
 			queueContainer(
@@ -470,7 +470,7 @@ func TestMakePodSpec(t *testing.T) {
 		lc: &logging.Config{},
 		oc: &metrics.ObservabilityConfig{},
 		ac: &autoscaler.Config{},
-		cc: &config.Controller{},
+		cc: &deployment.Config{},
 		want: podSpec([]corev1.Container{
 			userContainer(func(container *corev1.Container) {
 				container.Image = "busybox@sha256:deadbeef"
@@ -488,7 +488,7 @@ func TestMakePodSpec(t *testing.T) {
 		lc: &logging.Config{},
 		oc: &metrics.ObservabilityConfig{},
 		ac: &autoscaler.Config{},
-		cc: &config.Controller{},
+		cc: &deployment.Config{},
 		want: podSpec([]corev1.Container{
 			userContainer(),
 			queueContainer(
@@ -506,7 +506,7 @@ func TestMakePodSpec(t *testing.T) {
 		lc: &logging.Config{},
 		oc: &metrics.ObservabilityConfig{},
 		ac: &autoscaler.Config{},
-		cc: &config.Controller{},
+		cc: &deployment.Config{},
 		want: podSpec([]corev1.Container{
 			userContainer(
 				withHTTPReadinessProbe(networking.BackendHTTPPort),
@@ -527,7 +527,7 @@ func TestMakePodSpec(t *testing.T) {
 		lc: &logging.Config{},
 		oc: &metrics.ObservabilityConfig{},
 		ac: &autoscaler.Config{},
-		cc: &config.Controller{},
+		cc: &deployment.Config{},
 		want: podSpec([]corev1.Container{
 			userContainer(
 				withExecReadinessProbe(
@@ -552,7 +552,7 @@ func TestMakePodSpec(t *testing.T) {
 		lc: &logging.Config{},
 		oc: &metrics.ObservabilityConfig{},
 		ac: &autoscaler.Config{},
-		cc: &config.Controller{},
+		cc: &deployment.Config{},
 		want: podSpec([]corev1.Container{
 			userContainer(
 				withHTTPReadinessProbe(networking.BackendHTTPPort),
@@ -573,7 +573,7 @@ func TestMakePodSpec(t *testing.T) {
 		lc: &logging.Config{},
 		oc: &metrics.ObservabilityConfig{},
 		ac: &autoscaler.Config{},
-		cc: &config.Controller{},
+		cc: &deployment.Config{},
 		want: podSpec([]corev1.Container{
 			userContainer(
 				withLivenessProbe(corev1.Handler{
@@ -595,7 +595,7 @@ func TestMakePodSpec(t *testing.T) {
 			FluentdSidecarImage:    "indiana:jones",
 		},
 		ac: &autoscaler.Config{},
-		cc: &config.Controller{},
+		cc: &deployment.Config{},
 		want: podSpec(
 			[]corev1.Container{
 				userContainer(),
@@ -645,7 +645,7 @@ func TestMakePodSpec(t *testing.T) {
 		lc: &logging.Config{},
 		oc: &metrics.ObservabilityConfig{},
 		ac: &autoscaler.Config{},
-		cc: &config.Controller{},
+		cc: &deployment.Config{},
 		want: podSpec([]corev1.Container{
 			userContainer(
 				func(container *corev1.Container) {
@@ -719,7 +719,7 @@ func TestMakeDeployment(t *testing.T) {
 		nc   *network.Config
 		oc   *metrics.ObservabilityConfig
 		ac   *autoscaler.Config
-		cc   *config.Controller
+		cc   *deployment.Config
 		want *appsv1.Deployment
 	}{{
 		name: "simple concurrency=single no owner",
@@ -731,8 +731,8 @@ func TestMakeDeployment(t *testing.T) {
 		nc:   &network.Config{},
 		oc:   &metrics.ObservabilityConfig{},
 		ac:   &autoscaler.Config{},
-		cc:   &config.Controller{},
-		want: deployment(),
+		cc:   &deployment.Config{},
+		want: makeDeployment(),
 	}, {
 		name: "simple concurrency=multi with owner",
 		rev: revision(
@@ -743,8 +743,8 @@ func TestMakeDeployment(t *testing.T) {
 		nc:   &network.Config{},
 		oc:   &metrics.ObservabilityConfig{},
 		ac:   &autoscaler.Config{},
-		cc:   &config.Controller{},
-		want: deployment(),
+		cc:   &deployment.Config{},
+		want: makeDeployment(),
 	}, {
 		name: "simple concurrency=multi with outbound IP range configured",
 		rev:  revision(withoutLabels),
@@ -754,8 +754,8 @@ func TestMakeDeployment(t *testing.T) {
 		},
 		oc: &metrics.ObservabilityConfig{},
 		ac: &autoscaler.Config{},
-		cc: &config.Controller{},
-		want: deployment(func(deploy *appsv1.Deployment) {
+		cc: &deployment.Config{},
+		want: makeDeployment(func(deploy *appsv1.Deployment) {
 			deploy.Spec.Template.ObjectMeta.Annotations["traffic.sidecar.istio.io/includeOutboundIPRanges"] = "*"
 		}),
 	}, {
@@ -774,8 +774,8 @@ func TestMakeDeployment(t *testing.T) {
 		},
 		oc: &metrics.ObservabilityConfig{},
 		ac: &autoscaler.Config{},
-		cc: &config.Controller{},
-		want: deployment(func(deploy *appsv1.Deployment) {
+		cc: &deployment.Config{},
+		want: makeDeployment(func(deploy *appsv1.Deployment) {
 			deploy.ObjectMeta.Annotations[IstioOutboundIPRangeAnnotation] = "10.4.0.0/14,10.7.240.0/20"
 			deploy.Spec.Template.ObjectMeta.Annotations["traffic.sidecar.istio.io/includeOutboundIPRanges"] = "10.4.0.0/14,10.7.240.0/20"
 		}),
