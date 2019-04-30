@@ -23,6 +23,7 @@ const (
 	pizzaPlanetText1         = "What a spaceport!"
 	pizzaPlanetText2         = "Re-energize yourself with a slice of pepperoni!"
 	helloWorldExpectedOutput = "Hello World! How about some tasty noodles?"
+	externalConnectivityExpectedOutput = "Hello! We are connected to the outside world."
 )
 
 // Setup creates the client objects needed in the e2e tests.
