@@ -30,7 +30,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		fmt.Fprintln(w, "Failure to access the outside world.")
 		return
-	} 
+	}
 	if resp.StatusCode >= 200 && resp.StatusCode <= 299 {
         fmt.Fprintln(w, "Hello! We are connected to the outside world.")
     } else {
