@@ -53,7 +53,7 @@ func TestHandler_ReqEvent(t *testing.T) {
 	params := queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}
 	breaker := queue.NewBreaker(params)
 	reqChan := make(chan queue.ReqEvent, 10)
-	h := handler(reqChan, breaker, proxy, proxy)
+	h := handler(reqChan, breaker, proxy)
 
 	writer := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)

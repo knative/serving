@@ -81,7 +81,6 @@ var (
 	logger                 *zap.SugaredLogger
 	breaker                *queue.Breaker
 
-	h2cProxy  *httputil.ReverseProxy
 	httpProxy *httputil.ReverseProxy
 
 	healthState      = &health.State{}
@@ -144,13 +143,8 @@ func probeUserContainer() bool {
 }
 
 // Make handler a closure for testing.
-func handler(reqChan chan queue.ReqEvent, breaker *queue.Breaker, httpProxy, h2cProxy *httputil.ReverseProxy) func(http.ResponseWriter, *http.Request) {
+func handler(reqChan chan queue.ReqEvent, breaker *queue.Breaker, proxy *httputil.ReverseProxy) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		proxy := httpProxy
-		if r.ProtoMajor == 2 {
-			proxy = h2cProxy
-		}
-
 		ph := knativeProbeHeader(r)
 		switch {
 		case ph != "":
@@ -222,13 +216,10 @@ func main() {
 	}
 
 	httpProxy = httputil.NewSingleHostReverseProxy(target)
+	httpProxy.Transport = network.AutoTransport
 	httpProxy.FlushInterval = -1
-	h2cProxy = httputil.NewSingleHostReverseProxy(target)
-	h2cProxy.Transport = network.DefaultH2CTransport
-	h2cProxy.FlushInterval = -1
 
 	activatorutil.SetupHeaderPruning(httpProxy)
-	activatorutil.SetupHeaderPruning(h2cProxy)
 
 	// If containerConcurrency == 0 then concurrency is unlimited.
 	if containerConcurrency > 0 {
@@ -266,7 +257,7 @@ func main() {
 		Handler: createAdminHandlers(),
 	}
 
-	timeoutHandler := queue.TimeToFirstByteTimeoutHandler(http.HandlerFunc(handler(reqChan, breaker, httpProxy, h2cProxy)),
+	timeoutHandler := queue.TimeToFirstByteTimeoutHandler(http.HandlerFunc(handler(reqChan, breaker, httpProxy)),
 		time.Duration(revisionTimeoutSeconds)*time.Second, "request timeout")
 	composedHandler := pushRequestMetricHandler(pushRequestLogHandler(timeoutHandler))
 	// We listen on two ports to match the behavior of activator
