@@ -126,7 +126,7 @@ func CreatePerfTestCase(metricValue float32, metricName, testName string) junit.
 	return tc
 }
 
-// ErrorsPErcentage returns the error percentage based on response codes.
+// ErrorsPercentage returns the error percentage based on response codes.
 // Any non 200 response will provide a value > 0.0
 func ErrorsPercentage(resp *loadgenerator.GeneratorResults) float64 {
 	var successes, errors int64
