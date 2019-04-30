@@ -60,8 +60,8 @@ func (t *TimedFloat64Buckets) IsEmpty() bool {
 	return len(t.buckets) == 0
 }
 
-// Process processes all buckets saved currently with the given Accumulutor functions.
-func (t *TimedFloat64Buckets) Process(accs ...Accumulator) {
+// ForEachBucket calls the given Accumulator function for each bucket.
+func (t *TimedFloat64Buckets) ForEachBucket(accs ...Accumulator) {
 	t.bucketsMutex.RLock()
 	defer t.bucketsMutex.RUnlock()
 

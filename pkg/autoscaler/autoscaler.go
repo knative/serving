@@ -162,7 +162,7 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (int32, bool) {
 	// Compute data to scale on.
 	panicAverage := aggregation.Average{}
 	stableAverage := aggregation.Average{}
-	a.buckets.Process(
+	a.buckets.ForEachBucket(
 		aggregation.YoungerThan(now.Add(-spec.MetricSpec.PanicWindow), panicAverage.Accumulate),
 		stableAverage.Accumulate, // No need to add a YoungerThan condition as we already deleted all outdated stats above.
 	)

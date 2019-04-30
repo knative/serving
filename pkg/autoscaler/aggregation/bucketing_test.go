@@ -92,7 +92,7 @@ func TestTimedFloat64Buckets(t *testing.T) {
 	}
 }
 
-func TestTimedFloat64Buckets_Process(t *testing.T) {
+func TestTimedFloat64Buckets_ForEachBucket(t *testing.T) {
 	pod := "pod"
 	granularity := 1 * time.Second
 	trunc1 := time.Now().Truncate(granularity)
@@ -105,7 +105,7 @@ func TestTimedFloat64Buckets_Process(t *testing.T) {
 
 	acc1 := 0
 	acc2 := 0
-	buckets.Process(
+	buckets.ForEachBucket(
 		func(time time.Time, bucket float64Bucket) {
 			acc1++
 		},
