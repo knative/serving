@@ -17,7 +17,6 @@ limitations under the License.
 package resources
 
 import (
-	"fmt"
 	"sort"
 	"strings"
 
@@ -40,12 +39,11 @@ func isClusterLocal(r *servingv1alpha1.Route) bool {
 }
 
 // MakeClusterIngressTLS creates ClusterIngressTLS to configure the ingress TLS.
-func MakeClusterIngressTLS(certs *v1alpha1.Certificate, hostNames []string) v1alpha1.ClusterIngressTLS {
+func MakeClusterIngressTLS(cert *v1alpha1.Certificate, hostNames []string) v1alpha1.ClusterIngressTLS {
 	return v1alpha1.ClusterIngressTLS{
-			Hosts:           hostNames,
-			SecretName:      cert.Spec.SecretName,
-			SecretNamespace: cert.Namespace,
-		})
+		Hosts:           hostNames,
+		SecretName:      cert.Spec.SecretName,
+		SecretNamespace: cert.Namespace,
 	}
 }
 

@@ -174,7 +174,7 @@ func NewControllerWithClock(
 	certificateInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: controller.Filter(v1alpha1.SchemeGroupVersion.WithKind("Route")),
 		Handler:    reconciler.Handler(impl.EnqueueControllerOf),
-	))
+	})
 
 	c.Logger.Info("Setting up ConfigMap receivers")
 	configsToResync := []interface{}{
@@ -303,9 +303,9 @@ func (c *Reconciler) reconcile(ctx context.Context, r *v1alpha1.Route) error {
 	if config.FromContext(ctx).Network.AutoTLS {
 		domains := tr.GetDomains(r.Status.Domain, traffic.Targets)
 		desiredCert := resources.MakeCertificate(r, domains)
-		cert, err = c.reconcileCertificate(ctx, r, desiredCert)
+		cert, err := c.reconcileCertificate(ctx, r, desiredCert)
 		if err != nil {
-			r.Status.MarkCertificatePrivisonFailed(cert.Name)
+			r.Status.MarkCertificateProvisionFailed(desiredCert.Name)
 			return err
 		}
 

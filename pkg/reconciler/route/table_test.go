@@ -22,7 +22,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/knative/pkg/system"
+	"github.com/knative/pkg/kmeta"
 
 	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/controller"
@@ -1671,8 +1671,8 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001"), WithServiceName("mcd")),
 		},
 		WantCreates: []metav1.Object{
-			resources.MakeCertificates(route("default", "becomes-ready", WithConfigTarget("config"), WithDomain, WithRouteUID("12-34")),
-				[]string{"becomes-ready.default.example.com"}, true)[0],
+			resources.MakeCertificate(route("default", "becomes-ready", WithConfigTarget("config"), WithDomain, WithRouteUID("12-34")),
+				[]string{"becomes-ready.default.example.com"}),
 			resources.MakeClusterIngress(
 				route("default", "becomes-ready", WithConfigTarget("config"), WithDomain,
 					WithRouteUID("12-34")),
@@ -1692,8 +1692,8 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 				[]netv1alpha1.ClusterIngressTLS{
 					netv1alpha1.ClusterIngressTLS{
 						Hosts:           []string{"becomes-ready.default.example.com"},
-						SecretName:      "default.example.com",
-						SecretNamespace: system.Namespace(),
+						SecretName:      "route-12-34",
+						SecretNamespace: "default",
 					},
 				},
 				TestIngressClass,
@@ -1713,14 +1713,10 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 						Percent:        100,
 						LatestRevision: ptr.Bool(true),
 					},
-				}), WithStatusCertificates(v1alpha1.Certificate{
-					Name:      "default.example.com",
-					Namespace: system.Namespace(),
-					DNSNames:  []string{"*.default.example.com"},
-				})),
+				}), MarkCertificateNotReady),
 		}},
 		WantEvents: []string{
-			Eventf(corev1.EventTypeNormal, "Created", "Created Certificate %q/%q", "default.example.com", system.Namespace()),
+			Eventf(corev1.EventTypeNormal, "Created", "Created Certificate %q/%q", "default", "route-12-34"),
 			Eventf(corev1.EventTypeNormal, "Created", "Created ClusterIngress %q", "route-12-34"),
 		},
 		Key:                     "default/becomes-ready",
@@ -1736,11 +1732,13 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 			// needed by the input Route.
 			&netv1alpha1.Certificate{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "default.example.com",
-					Namespace: system.Namespace(),
+					Name:      "route-12-34",
+					Namespace: "default",
+					OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(
+						route("default", "becomes-ready", WithConfigTarget("config"), WithRouteUID("12-34")))},
 				},
 				Spec: netv1alpha1.CertificateSpec{
-					DNSNames: []string{"*.test.example.com"},
+					DNSNames: []string{"abc.test.example.com"},
 				},
 			},
 		},
@@ -1764,16 +1762,16 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 				[]netv1alpha1.ClusterIngressTLS{
 					netv1alpha1.ClusterIngressTLS{
 						Hosts:           []string{"becomes-ready.default.example.com"},
-						SecretName:      "default.example.com",
-						SecretNamespace: system.Namespace(),
+						SecretName:      "route-12-34",
+						SecretNamespace: "default",
 					},
 				},
 				TestIngressClass,
 			),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: resources.MakeCertificates(route("default", "becomes-ready", WithConfigTarget("config"), WithDomain, WithRouteUID("12-34")),
-				[]string{"becomes-ready.default.example.com"}, true)[0],
+			Object: resources.MakeCertificate(route("default", "becomes-ready", WithConfigTarget("config"), WithDomain, WithRouteUID("12-34")),
+				[]string{"becomes-ready.default.example.com"}),
 		}},
 		WantPatches: []clientgotesting.PatchActionImpl{
 			patchFinalizers("default", "becomes-ready"),
@@ -1789,14 +1787,10 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 						Percent:        100,
 						LatestRevision: ptr.Bool(true),
 					},
-				}), WithStatusCertificates(v1alpha1.Certificate{
-					Name:      "default.example.com",
-					Namespace: system.Namespace(),
-					DNSNames:  []string{"*.default.example.com"},
-				})),
+				}), MarkCertificateNotReady),
 		}},
 		WantEvents: []string{
-			Eventf(corev1.EventTypeNormal, "Updated", "Updated Spec for Certificate %s/%s", system.Namespace(), "default.example.com"),
+			Eventf(corev1.EventTypeNormal, "Updated", "Updated Spec for Certificate %s/%s", "default", "route-12-34"),
 			Eventf(corev1.EventTypeNormal, "Created", "Created ClusterIngress %q", "route-12-34"),
 		},
 		Key:                     "default/becomes-ready",

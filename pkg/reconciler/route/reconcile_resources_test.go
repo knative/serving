@@ -20,6 +20,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/knative/pkg/kmeta"
+
 	"github.com/google/go-cmp/cmp"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -169,17 +171,17 @@ func TestReconcileCertificates_Insert(t *testing.T) {
 			Namespace: "test-ns",
 		},
 	}
-	certificates := []*netv1alpha1.Certificate{newCerts([]string{"*.default.example.com"})}
-	if _, err := c.reconcileCertificates(TestContextWithLogger(t), r, certificates); err != nil {
+	certificate := newCerts([]string{"*.default.example.com"}, r)
+	if _, err := c.reconcileCertificate(TestContextWithLogger(t), r, certificate); err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
-	created := getCertificatesFromClient(t, servingClient, certificates)
-	if diff := cmp.Diff(certificates, created); diff != "" {
+	created := getCertificateFromClient(t, servingClient, certificate)
+	if diff := cmp.Diff(certificate, created); diff != "" {
 		t.Errorf("Unexpected diff (-want +got): %v", diff)
 	}
 }
 
-func TestReconcileCertificates_Update(t *testing.T) {
+func TestReconcileCertificate_Update(t *testing.T) {
 	_, servingClient, c, _, servingInformer, _ := newTestReconciler(t)
 	r := &v1alpha1.Route{
 		ObjectMeta: metav1.ObjectMeta{
@@ -187,33 +189,34 @@ func TestReconcileCertificates_Update(t *testing.T) {
 			Namespace: "test-ns",
 		},
 	}
-	certificates := []*netv1alpha1.Certificate{newCerts([]string{"old.example.com"})}
-	if _, err := c.reconcileCertificates(TestContextWithLogger(t), r, certificates); err != nil {
+	certificate := newCerts([]string{"old.example.com"}, r)
+	if _, err := c.reconcileCertificate(TestContextWithLogger(t), r, certificate); err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
 
-	storedCerts := getCertificatesFromClient(t, servingClient, certificates)
-	servingInformer.Networking().V1alpha1().Certificates().Informer().GetIndexer().Add(storedCerts[0])
+	storedCert := getCertificateFromClient(t, servingClient, certificate)
+	servingInformer.Networking().V1alpha1().Certificates().Informer().GetIndexer().Add(storedCert)
 
-	newCertificates := []*netv1alpha1.Certificate{newCerts([]string{"new.example.com"})}
-	if _, err := c.reconcileCertificates(TestContextWithLogger(t), r, newCertificates); err != nil {
+	newCertificate := newCerts([]string{"new.example.com"}, r)
+	if _, err := c.reconcileCertificate(TestContextWithLogger(t), r, newCertificate); err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
 
-	updated := getCertificatesFromClient(t, servingClient, newCertificates)
-	if diff := cmp.Diff(newCertificates, updated); diff != "" {
+	updated := getCertificateFromClient(t, servingClient, newCertificate)
+	if diff := cmp.Diff(newCertificate, updated); diff != "" {
 		t.Errorf("Unexpected diff (-want +got): %v", diff)
 	}
-	if diff := cmp.Diff(certificates, updated); diff == "" {
+	if diff := cmp.Diff(certificate, updated); diff == "" {
 		t.Error("Expected difference, but found none")
 	}
 }
 
-func newCerts(dnsNames []string) *netv1alpha1.Certificate {
+func newCerts(dnsNames []string, r *v1alpha1.Route) *netv1alpha1.Certificate {
 	return &netv1alpha1.Certificate{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-cert",
-			Namespace: system.Namespace(),
+			Name:            "test-cert",
+			Namespace:       system.Namespace(),
+			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(r)},
 		},
 		Spec: netv1alpha1.CertificateSpec{
 			DNSNames:   dnsNames,

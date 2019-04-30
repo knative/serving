@@ -17,9 +17,6 @@ package v1alpha1
 
 import (
 	"testing"
-	"time"
-
-	"github.com/google/go-cmp/cmp"
 
 	"github.com/knative/pkg/apis/duck"
 	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
@@ -27,7 +24,6 @@ import (
 	apitesting "github.com/knative/pkg/apis/testing"
 	netv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
@@ -351,50 +347,34 @@ func TestRouteGetGroupVersionKind(t *testing.T) {
 	}
 }
 
-func TestRouteGetCertificateStatus(t *testing.T) {
-	certificates := []*netv1alpha1.Certificate{
-		&netv1alpha1.Certificate{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "cert-1",
-				Namespace: "knative-testing",
-			},
-			Spec: netv1alpha1.CertificateSpec{
-				DNSNames: []string{"*.default.example.com"},
-			},
-			Status: netv1alpha1.CertificateStatus{
-				Status: duckv1beta1.Status{
-					Conditions: duckv1beta1.Conditions{{
-						Type:   netv1alpha1.CertificateCondidtionReady,
-						Status: corev1.ConditionTrue,
-					}},
-				},
-				NotAfter: &metav1.Time{
-					Time: time.Unix(100, 100),
-				},
-			},
-		},
-	}
+func TestCertificateReady(t *testing.T) {
 	r := &RouteStatus{}
-	want := &RouteStatus{
-		RouteStatusFields: RouteStatusFields{
-			Certificates: []Certificate{
-				Certificate{
-					Name:      "cert-1",
-					Namespace: "knative-testing",
-					DNSNames:  []string{"*.default.example.com"},
-					Conditions: duckv1beta1.Conditions{{
-						Type:   netv1alpha1.CertificateCondidtionReady,
-						Status: corev1.ConditionTrue,
-					}},
-					NotAfter: &metav1.Time{
-						Time: time.Unix(100, 100),
-					},
-				},
-			},
-		},
-	}
-	r.PropagateCertificateStatus(certificates)
-	if diff := cmp.Diff(want, r); diff != "" {
-		t.Errorf("MakeCertificates (-want, +got) = %v", diff)
-	}
+	r.InitializeConditions()
+	r.MarkCertificateReady("cert")
+
+	apitesting.CheckConditionSucceeded(r.duck(), RouteConditionCertificateProvisioned, t)
+}
+
+func TestCertificateNotReady(t *testing.T) {
+	r := &RouteStatus{}
+	r.InitializeConditions()
+	r.MarkCertificateNotReady("cert")
+
+	apitesting.CheckConditionOngoing(r.duck(), RouteConditionCertificateProvisioned, t)
+}
+
+func TestCertificateProvisionFailed(t *testing.T) {
+	r := &RouteStatus{}
+	r.InitializeConditions()
+	r.MarkCertificateProvisionFailed("cert")
+
+	apitesting.CheckConditionFailed(r.duck(), RouteConditionCertificateProvisioned, t)
+}
+
+func TestRouteNotOwnCertificate(t *testing.T) {
+	r := &RouteStatus{}
+	r.InitializeConditions()
+	r.MarkCertificateNotOwned("cert")
+
+	apitesting.CheckConditionFailed(r.duck(), RouteConditionCertificateProvisioned, t)
 }

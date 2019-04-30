@@ -20,6 +20,8 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/knative/pkg/kmeta"
+
 	"github.com/google/go-cmp/cmp"
 	. "github.com/knative/pkg/logging/testing"
 	"github.com/knative/serving/pkg/apis/networking"
@@ -41,6 +43,19 @@ var testSecret = corev1.Secret{
 	},
 }
 
+var ci = v1alpha1.ClusterIngress{
+	ObjectMeta: metav1.ObjectMeta{
+		Name: "ingress",
+	},
+	Spec: v1alpha1.IngressSpec{
+		TLS: []v1alpha1.ClusterIngressTLS{{
+			Hosts:           []string{"example.com"},
+			SecretName:      "secret0",
+			SecretNamespace: "knative-serving",
+		}},
+	},
+}
+
 func TestGetSecrets(t *testing.T) {
 	kubeClient := fakek8s.NewSimpleClientset()
 	secretClient := kubeinformers.NewSharedInformerFactory(kubeClient, 0).Core().V1().Secrets()
@@ -58,15 +73,7 @@ func TestGetSecrets(t *testing.T) {
 	}{{
 		name:   "Get secrets successfully.",
 		secret: &testSecret,
-		ci: &v1alpha1.ClusterIngress{
-			Spec: v1alpha1.IngressSpec{
-				TLS: []v1alpha1.ClusterIngressTLS{{
-					Hosts:           []string{"example.com"},
-					SecretName:      "secret0",
-					SecretNamespace: "knative-serving",
-				}},
-			},
-		},
+		ci:     &ci,
 		expected: map[string]*corev1.Secret{
 			"knative-serving/secret0": &testSecret,
 		},
@@ -77,8 +84,8 @@ func TestGetSecrets(t *testing.T) {
 			Spec: v1alpha1.IngressSpec{
 				TLS: []v1alpha1.ClusterIngressTLS{{
 					Hosts:           []string{"example.com"},
-					SecretName:      "secret-1",
-					SecretNamespace: "knative-serving-1",
+					SecretName:      "no-exist-secret",
+					SecretNamespace: "no-exist-namespace",
 				}},
 			},
 		},
@@ -114,7 +121,6 @@ func TestMakeSecrets(t *testing.T) {
 		name         string
 		originSecret *corev1.Secret
 		expected     []*corev1.Secret
-		wantErr      bool
 	}{{
 		name: "target secret namespace (istio-system) is the same as the origin secret namespace (istio-system).",
 		originSecret: &corev1.Secret{
@@ -149,6 +155,7 @@ func TestMakeSecrets(t *testing.T) {
 					networking.OriginSecretNameLabelKey:      "test-secret",
 					networking.OriginSecretNamespaceLabelKey: "knative-serving",
 				},
+				OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(&ci)},
 			},
 			Data: map[string][]byte{
 				"test-data": []byte("abcd"),
@@ -160,7 +167,7 @@ func TestMakeSecrets(t *testing.T) {
 			originSecrets := map[string]*corev1.Secret{
 				fmt.Sprintf("%s/%s", c.originSecret.Namespace, c.originSecret.Name): c.originSecret,
 			}
-			secrets := MakeSecrets(ctx, originSecrets)
+			secrets := MakeSecrets(ctx, originSecrets, &ci)
 			if diff := cmp.Diff(c.expected, secrets); diff != "" {
 				t.Errorf("Unexpected secrets (-want, +got): %v", diff)
 			}

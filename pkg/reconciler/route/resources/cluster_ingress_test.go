@@ -577,88 +577,24 @@ func TestMakeClusterIngress_WithTLS(t *testing.T) {
 }
 
 func TestMakeClusterIngressTLS(t *testing.T) {
-	tests := []struct {
-		name      string
-		certs     []*netv1alpha1.Certificate
-		hostNames []string
-		wantErr   bool
-		want      []netv1alpha1.ClusterIngressTLS
-	}{{
-		name: "make TLS with wildcard certificate",
-		certs: []*netv1alpha1.Certificate{
-			&netv1alpha1.Certificate{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "default.example.com",
-					Namespace: system.Namespace(),
-				},
-				Spec: netv1alpha1.CertificateSpec{
-					DNSNames:   []string{"*.default.example.com"},
-					SecretName: "default.example.com",
-				},
-			},
-			&netv1alpha1.Certificate{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test.default.example.com",
-					Namespace: system.Namespace(),
-				},
-				Spec: netv1alpha1.CertificateSpec{
-					DNSNames:   []string{"*.test.default.example.com"},
-					SecretName: "test.default.example.com",
-				},
-			},
+	cert := &netv1alpha1.Certificate{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "route-1234",
+			Namespace: system.Namespace(),
 		},
-		hostNames: []string{"test.default.example.com", "v1.test.default.example.com"},
-		wantErr:   false,
-		want: []netv1alpha1.ClusterIngressTLS{
-			netv1alpha1.ClusterIngressTLS{
-				Hosts:           []string{"test.default.example.com"},
-				SecretName:      "default.example.com",
-				SecretNamespace: system.Namespace(),
-			},
-			netv1alpha1.ClusterIngressTLS{
-				Hosts:           []string{"v1.test.default.example.com"},
-				SecretName:      "test.default.example.com",
-				SecretNamespace: system.Namespace(),
-			},
+		Spec: netv1alpha1.CertificateSpec{
+			DNSNames:   []string{"test.default.example.com", "v1.test.default.example.com"},
+			SecretName: "route-1234",
 		},
-	}, {
-		name: "make TLS with non-wildcard cert",
-		certs: []*netv1alpha1.Certificate{
-			&netv1alpha1.Certificate{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "route-1234",
-					Namespace: system.Namespace(),
-				},
-				Spec: netv1alpha1.CertificateSpec{
-					DNSNames:   []string{"test.default.example.com", "v1.test.default.example.com"},
-					SecretName: "route-1234",
-				},
-			},
-		},
-		hostNames: []string{"test.default.example.com", "v1.test.default.example.com"},
-		wantErr:   false,
-		want: []netv1alpha1.ClusterIngressTLS{
-			netv1alpha1.ClusterIngressTLS{
-				Hosts:           []string{"test.default.example.com", "v1.test.default.example.com"},
-				SecretName:      "route-1234",
-				SecretNamespace: system.Namespace(),
-			},
-		},
-	}, {
-		name:      "error case: no cert found for a hostname",
-		certs:     []*netv1alpha1.Certificate{},
-		hostNames: []string{"test.default.example.com"},
-		wantErr:   true,
-	}}
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			got, err := MakeClusterIngressTLS(test.certs, test.hostNames)
-			if (err != nil) != test.wantErr {
-				t.Errorf("Test: %q; MakeClusterIngressTLS() error = %v, WantErr %v", test.name, err, test.wantErr)
-			}
-			if diff := cmp.Diff(test.want, got); diff != "" {
-				t.Errorf("Unexpected ClusterIngressTLS (-want, +got): %v", diff)
-			}
-		})
+	}
+	want := netv1alpha1.ClusterIngressTLS{
+		Hosts:           []string{"test.default.example.com", "v1.test.default.example.com"},
+		SecretName:      "route-1234",
+		SecretNamespace: system.Namespace(),
+	}
+	hostNames := []string{"test.default.example.com", "v1.test.default.example.com"}
+	got := MakeClusterIngressTLS(cert, hostNames)
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("Unexpected ClusterIngressTLS (-want, +got): %v", diff)
 	}
 }

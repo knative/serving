@@ -252,14 +252,14 @@ func (c *Reconciler) reconcileCertificate(ctx context.Context, r *v1alpha1.Route
 			return nil, err
 		}
 		c.Recorder.Eventf(r, corev1.EventTypeNormal, "Created",
-			"Created Certificate %q/%q", cert.Name, cert.Namespace)
+			"Created Certificate %q/%q", cert.Namespace, cert.Name)
 		return cert, nil
 	} else if err != nil {
 		return nil, err
-	} else if !metav1.IsControlledBy(cert, route) {
+	} else if !metav1.IsControlledBy(cert, r) {
 		// Surface an error in the route's status, and return an error.
-		route.Status.MarkCertificateNotOwned(cert.Name)
-		return fmt.Errorf("Route: %s does not own Certificate: %s", route.Name, cert.Name)
+		r.Status.MarkCertificateNotOwned(cert.Name)
+		return nil, fmt.Errorf("Route: %s does not own Certificate: %s", r.Name, cert.Name)
 	} else {
 		if !equality.Semantic.DeepEqual(cert.Spec, desiredCert.Spec) {
 			// Don't modify the informers copy

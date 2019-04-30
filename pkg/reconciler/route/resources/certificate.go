@@ -35,7 +35,7 @@ func MakeCertificate(route *v1alpha1.Route, dnsNames []string) *networkingv1alph
 			// as we probably want to cache the TLS certificate for a while for the future reuse
 			// in order to save some certificates quota.
 			// We may want to use a moderate GC strategy if it is necessary.
-			OwnerReferences: *kmeta.NewControllerRef(r),
+			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(route)},
 		},
 		Spec: networkingv1alpha1.CertificateSpec{
 			DNSNames:   dnsNames,

@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/knative/pkg/kmeta"
 	"github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
@@ -46,7 +47,7 @@ func GetSecrets(ci *v1alpha1.ClusterIngress, secretLister corev1listers.SecretLi
 }
 
 // MakeSecrets makes copies of the origin Secrets under the namespace of Istio gateway service.
-func MakeSecrets(ctx context.Context, originSecrets map[string]*corev1.Secret) []*corev1.Secret {
+func MakeSecrets(ctx context.Context, originSecrets map[string]*corev1.Secret, ci *v1alpha1.ClusterIngress) []*corev1.Secret {
 	gatewaySvcNamespaces := getAllGatewaySvcNamespaces(ctx)
 	secrets := []*corev1.Secret{}
 	for _, originSecret := range originSecrets {
@@ -56,13 +57,13 @@ func MakeSecrets(ctx context.Context, originSecrets map[string]*corev1.Secret) [
 				// as the origin namespace
 				continue
 			}
-			secrets = append(secrets, makeSecret(originSecret, ns))
+			secrets = append(secrets, makeSecret(originSecret, ns, ci))
 		}
 	}
 	return secrets
 }
 
-func makeSecret(originSecret *corev1.Secret, targetNamespace string) *corev1.Secret {
+func makeSecret(originSecret *corev1.Secret, targetNamespace string, ci *v1alpha1.ClusterIngress) *corev1.Secret {
 	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      targetSecret(originSecret),
@@ -71,6 +72,11 @@ func makeSecret(originSecret *corev1.Secret, targetNamespace string) *corev1.Sec
 				networking.OriginSecretNameLabelKey:      originSecret.Name,
 				networking.OriginSecretNamespaceLabelKey: originSecret.Namespace,
 			},
+			// TODO(zhiminx): currently we temporarily tie the lifecycle of the copied secrets to ClusterIngress.
+			// But this won't work in the future when we have a wildcard certificate because wildecard
+			// certificate can be shared across mutliple ClusterIngress. So we need a better way
+			// to handle the lifecyle when landing wildcard certificate.
+			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(ci)},
 		},
 		Data: originSecret.Data,
 		Type: originSecret.Type,

@@ -509,13 +509,6 @@ func WithStatusTraffic(traffic ...v1alpha1.TrafficTarget) RouteOption {
 	}
 }
 
-// WithStatusCertificates sets the Route's certificates status.
-func WithStatusCertificates(certs ...v1alpha1.Certificate) RouteOption {
-	return func(r *v1alpha1.Route) {
-		r.Status.Certificates = certs
-	}
-}
-
 // WithRouteOwnersRemoved clears the owner references of this Route.
 func WithRouteOwnersRemoved(r *v1alpha1.Route) {
 	r.OwnerReferences = nil
@@ -561,6 +554,11 @@ func WithInitRouteConditions(rt *v1alpha1.Route) {
 // MarkTrafficAssigned calls the method of the same name on .Status
 func MarkTrafficAssigned(r *v1alpha1.Route) {
 	r.Status.MarkTrafficAssigned()
+}
+
+// MarkCertificateNotReady calls the method of the same name on .Status
+func MarkCertificateNotReady(r *v1alpha1.Route) {
+	r.Status.MarkCertificateNotReady(routenames.Certificate(r))
 }
 
 // MarkIngressReady propagates a Ready=True ClusterIngress status to the Route.

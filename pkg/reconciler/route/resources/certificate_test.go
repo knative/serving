@@ -19,7 +19,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/knative/pkg/system"
+	"github.com/knative/pkg/kmeta"
 
 	"github.com/google/go-cmp/cmp"
 	netv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
@@ -29,65 +29,28 @@ import (
 
 var route = &v1alpha1.Route{
 	ObjectMeta: metav1.ObjectMeta{
-		Name: "route",
-		UID:  "12345",
+		Name:      "route",
+		Namespace: "default",
+		UID:       "12345",
 	},
 }
 
 var dnsNames = []string{"v1.default.example.com", "subroute.v1.default.example.com"}
 
-func TestMakeCertificates(t *testing.T) {
-	tests := []struct {
-		name           string
-		enableWildcard bool
-		want           []*netv1alpha1.Certificate
-	}{{
-		name:           "wildcard certificate",
-		enableWildcard: true,
-		want: []*netv1alpha1.Certificate{
-			&netv1alpha1.Certificate{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "default.example.com",
-					Namespace: system.Namespace(),
-				},
-				Spec: netv1alpha1.CertificateSpec{
-					DNSNames:   []string{"*.default.example.com"},
-					SecretName: "default.example.com",
-				},
-			},
-			&netv1alpha1.Certificate{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "v1.default.example.com",
-					Namespace: system.Namespace(),
-				},
-				Spec: netv1alpha1.CertificateSpec{
-					DNSNames:   []string{"*.v1.default.example.com"},
-					SecretName: "v1.default.example.com",
-				},
-			},
+func TestMakeCertificate(t *testing.T) {
+	want := &netv1alpha1.Certificate{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            fmt.Sprintf("%s-%s", route.Name, route.UID),
+			Namespace:       "default",
+			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(route)},
 		},
-	}, {
-		name:           "non-wildcard certificate",
-		enableWildcard: false,
-		want: []*netv1alpha1.Certificate{
-			&netv1alpha1.Certificate{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      fmt.Sprintf("%s-%s", route.Name, route.UID),
-					Namespace: system.Namespace(),
-				},
-				Spec: netv1alpha1.CertificateSpec{
-					DNSNames:   dnsNames,
-					SecretName: fmt.Sprintf("%s-%s", route.Name, route.UID),
-				},
-			},
+		Spec: netv1alpha1.CertificateSpec{
+			DNSNames:   dnsNames,
+			SecretName: fmt.Sprintf("%s-%s", route.Name, route.UID),
 		},
-	}}
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			got := MakeCertificates(route, dnsNames, test.enableWildcard)
-			if diff := cmp.Diff(test.want, got); diff != "" {
-				t.Errorf("MakeCertificates (-want, +got) = %v", diff)
-			}
-		})
+	}
+	got := MakeCertificate(route, dnsNames)
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("MakeCertificate (-want, +got) = %v", diff)
 	}
 }
