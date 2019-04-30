@@ -49,8 +49,9 @@ var testCases = []struct {
 	suffix string
 }{
 	{"fqdn", ""},
-	{"short", ".cluster.local"},
-	{"shortest", ".svc.cluster.local"},
+	// TODO(#3824) reinstate these after #3284 is fixed.
+	// {"short", ".cluster.local"},
+	// {"shortest", ".svc.cluster.local"},
 }
 
 func sendRequest(t *testing.T, clients *test.Clients, resolvableDomain bool, domain string) (*spoof.Response, error) {

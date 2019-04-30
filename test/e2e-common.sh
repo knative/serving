@@ -156,8 +156,8 @@ function install_knative_serving_standard() {
      ISTIO_VERSION=1.1-latest
   fi
   if [[ -z "$ISTIO_MESH" ]]; then
-    # Defaults to using mesh.
-    ISTIO_MESH=1
+    # Defaults to not using sidecar.
+    ISTIO_MESH=0
   fi
   INSTALL_ISTIO_CRD_YAML="$(istio_crds_yaml $ISTIO_VERSION)"
   INSTALL_ISTIO_YAML="$(istio_yaml $ISTIO_VERSION $ISTIO_MESH)"
