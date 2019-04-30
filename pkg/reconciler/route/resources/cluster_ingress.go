@@ -40,32 +40,13 @@ func isClusterLocal(r *servingv1alpha1.Route) bool {
 }
 
 // MakeClusterIngressTLS creates ClusterIngressTLS to configure the ingress TLS.
-func MakeClusterIngressTLS(certs []*v1alpha1.Certificate, hostNames []string) ([]v1alpha1.ClusterIngressTLS, error) {
-	certMap := make(map[string]*v1alpha1.Certificate)
-	for _, cert := range certs {
-		for _, dns := range cert.Spec.DNSNames {
-			certMap[dns] = cert
-		}
-	}
-	tls := make(map[*v1alpha1.Certificate][]string)
-	for _, hostName := range hostNames {
-		if cert, ok := certMap[hostName]; ok {
-			tls[cert] = append(tls[cert], hostName)
-		} else if cert, ok := certMap[wildcard(hostName)]; ok {
-			tls[cert] = append(tls[cert], hostName)
-		} else {
-			return nil, fmt.Errorf("Cannot find Certificate for host name %s", hostName)
-		}
-	}
-	result := []v1alpha1.ClusterIngressTLS{}
-	for cert, hosts := range tls {
-		result = append(result, v1alpha1.ClusterIngressTLS{
-			Hosts:           hosts,
+func MakeClusterIngressTLS(certs *v1alpha1.Certificate, hostNames []string) v1alpha1.ClusterIngressTLS {
+	return v1alpha1.ClusterIngressTLS{
+			Hosts:           hostNames,
 			SecretName:      cert.Spec.SecretName,
 			SecretNamespace: cert.Namespace,
 		})
 	}
-	return result, nil
 }
 
 // MakeClusterIngress creates ClusterIngress to set up routing rules. Such ClusterIngress specifies

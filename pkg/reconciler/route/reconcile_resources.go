@@ -241,21 +241,7 @@ func (c *Reconciler) reconcileTargetRevisions(ctx context.Context, t *traffic.Co
 	return eg.Wait()
 }
 
-func (c *Reconciler) reconcileCertificates(ctx context.Context, r *v1alpha1.Route, desiredCerts []*netv1alpha1.Certificate) ([]*netv1alpha1.Certificate, error) {
-	result := []*netv1alpha1.Certificate{}
-	gvk := netv1alpha1.SchemeGroupVersion.WithKind("Certificate")
-	for _, desiredCert := range desiredCerts {
-		c.tracker.Track(objectRef(desiredCert, gvk), r)
-		cert, err := c.reconcileCert(ctx, r, desiredCert)
-		if err != nil {
-			return nil, err
-		}
-		result = append(result, cert)
-	}
-	return result, nil
-}
-
-func (c *Reconciler) reconcileCert(ctx context.Context, r *v1alpha1.Route, desiredCert *netv1alpha1.Certificate) (*netv1alpha1.Certificate, error) {
+func (c *Reconciler) reconcileCertificate(ctx context.Context, r *v1alpha1.Route, desiredCert *netv1alpha1.Certificate) (*netv1alpha1.Certificate, error) {
 	cert, err := c.certificateLister.Certificates(desiredCert.Namespace).Get(desiredCert.Name)
 	if apierrs.IsNotFound(err) {
 		cert, err = c.ServingClientSet.NetworkingV1alpha1().Certificates(desiredCert.Namespace).Create(desiredCert)
@@ -270,6 +256,10 @@ func (c *Reconciler) reconcileCert(ctx context.Context, r *v1alpha1.Route, desir
 		return cert, nil
 	} else if err != nil {
 		return nil, err
+	} else if !metav1.IsControlledBy(cert, route) {
+		// Surface an error in the route's status, and return an error.
+		route.Status.MarkCertificateNotOwned(cert.Name)
+		return fmt.Errorf("Route: %s does not own Certificate: %s", route.Name, cert.Name)
 	} else {
 		if !equality.Semantic.DeepEqual(cert.Spec, desiredCert.Spec) {
 			// Don't modify the informers copy

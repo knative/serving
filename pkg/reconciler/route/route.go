@@ -171,11 +171,9 @@ func NewControllerWithClock(
 		),
 	))
 
-	certificateInformer.Informer().AddEventHandler(reconciler.Handler(
-		controller.EnsureTypeMeta(
-			c.tracker.OnChanged,
-			netv1alpha1.SchemeGroupVersion.WithKind("Certificate"),
-		),
+	certificateInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+		FilterFunc: controller.Filter(v1alpha1.SchemeGroupVersion.WithKind("Route")),
+		Handler:    reconciler.Handler(impl.EnqueueControllerOf),
 	))
 
 	c.Logger.Info("Setting up ConfigMap receivers")
@@ -304,18 +302,20 @@ func (c *Reconciler) reconcile(ctx context.Context, r *v1alpha1.Route) error {
 	tls := []netv1alpha1.ClusterIngressTLS{}
 	if config.FromContext(ctx).Network.AutoTLS {
 		domains := tr.GetDomains(r.Status.Domain, traffic.Targets)
-		// TODO(zhiminx): add a feature flag in config-network ConfgiMap to control the types of certs (wildcard/non-wildcard)
-		desiredCerts := resources.MakeCertificates(r, domains, true)
-		desiredCerts, err = c.reconcileCertificates(ctx, r, desiredCerts)
+		desiredCert := resources.MakeCertificate(r, domains)
+		cert, err = c.reconcileCertificate(ctx, r, desiredCert)
 		if err != nil {
+			r.Status.MarkCertificatePrivisonFailed(cert.Name)
 			return err
 		}
-		r.Status.PropagateCertificateStatus(desiredCerts)
 
-		tls, err = resources.MakeClusterIngressTLS(desiredCerts, domains)
-		if err != nil {
-			return err
+		if cert.Status.IsReady() {
+			r.Status.MarkCertificateReady(cert.Name)
+		} else {
+			r.Status.MarkCertificateNotReady(cert.Name)
 		}
+
+		tls = append(tls, resources.MakeClusterIngressTLS(cert, domains))
 	}
 
 	// Add the finalizer before creating the ClusterIngress so that we can be sure it gets cleaned up.

@@ -17,61 +17,29 @@ limitations under the License.
 package resources
 
 import (
-	"fmt"
-	"strings"
-
-	"github.com/knative/pkg/system"
+	"github.com/knative/pkg/kmeta"
 	networkingv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/reconciler/route/resources/names"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/sets"
 )
 
-// MakeCertificates creates Certificates for the Route to request TLS certificates.
-func MakeCertificates(route *v1alpha1.Route, dnsNames []string, enableWildcardCert bool) []*networkingv1alpha1.Certificate {
-	certs := []*networkingv1alpha1.Certificate{}
-	if enableWildcardCert {
-		wildcardDNSNames := sets.String{}
-		for _, dnsName := range dnsNames {
-			wildcardDNS := wildcard(dnsName)
-			wildcardDNSNames.Insert(wildcardDNS)
-		}
-
-		for _, wildcardDNSName := range wildcardDNSNames.List() {
-			certName := wildcardCertName(wildcardDNSName)
-			cert := makeCert([]string{wildcardDNSName}, certName)
-			certs = append(certs, cert)
-		}
-	} else {
-		// For non-wildcard certificate, it is Route-specific. Therefore, we generate
-		// the certificate name based on Route information.
-		cert := makeCert(dnsNames, names.Certificate(route))
-		certs = append(certs, cert)
-	}
-	return certs
-}
-
-func makeCert(dnsNames []string, certName string) *networkingv1alpha1.Certificate {
+// MakeCertificate creates Certificate for the Route to request TLS certificates.
+func MakeCertificate(route *v1alpha1.Route, dnsNames []string) *networkingv1alpha1.Certificate {
 	return &networkingv1alpha1.Certificate{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: certName,
-			// TODO(zhiminx): make certificate namespace configurable
-			Namespace: system.Namespace(),
+			Name:      names.Certificate(route),
+			Namespace: route.Namespace,
+			// TODO(zhiminx): adding ownerreferces here means the Certificate will be deleted
+			// when deleting the Route that owns it. This GC strategy may be a bit agressive
+			// as we probably want to cache the TLS certificate for a while for the future reuse
+			// in order to save some certificates quota.
+			// We may want to use a moderate GC strategy if it is necessary.
+			OwnerReferences: *kmeta.NewControllerRef(r),
 		},
 		Spec: networkingv1alpha1.CertificateSpec{
 			DNSNames:   dnsNames,
-			SecretName: certName,
+			SecretName: names.Certificate(route),
 		},
 	}
-}
-
-func wildcard(dnsName string) string {
-	splits := strings.Split(dnsName, ".")
-	return fmt.Sprintf("*.%s", strings.Join(splits[1:], "."))
-}
-
-func wildcardCertName(wildcardDNSName string) string {
-	splits := strings.Split(wildcardDNSName, ".")
-	return strings.Join(splits[1:], ".")
 }

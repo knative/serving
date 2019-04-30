@@ -105,33 +105,43 @@ func (rs *RouteStatus) MarkMissingTrafficTarget(kind, name string) {
 		"%s %q referenced in traffic not found.", kind, name)
 }
 
-func (rs *RouteStatus) MarkCertificateProvisionFailed(names []string) {
+func (rs *RouteStatus) MarkCertificateProvisionFailed(name string) {
 	routeCondSet.Manage(rs).SetCondition(apis.Condition{
 		Type:     RouteConditionCertificateProvisioned,
 		Status:   corev1.ConditionFalse,
 		Severity: apis.ConditionSeverityWarning,
-		Reason:   "CertificatesProvisionFailed",
-		Message:  fmt.Sprintf("Certificates %v fail to be provisioned.", names),
+		Reason:   "CertificateProvisionFailed",
+		Message:  fmt.Sprintf("Certificate %s fails to be provisioned.", name),
 	})
 }
 
-func (rs *RouteStatus) MarkCertificatesReady(names []string) {
+func (rs *RouteStatus) MarkCertificateReady(name string) {
 	routeCondSet.Manage(rs).SetCondition(apis.Condition{
 		Type:     RouteConditionCertificateProvisioned,
 		Status:   corev1.ConditionTrue,
 		Severity: apis.ConditionSeverityWarning,
-		Reason:   "CertificatesReady",
-		Message:  fmt.Sprintf("Certificates %v are successfully provisioned", names),
+		Reason:   "CertificateReady",
+		Message:  fmt.Sprintf("Certificate %s is successfully provisioned", name),
 	})
 }
 
-func (rs *RouteStatus) MarkCertificatesNotReady(names []string) {
+func (rs *RouteStatus) MarkCertificateNotReady(name string) {
+	routeCondSet.Manage(rs).SetCondition(apis.Condition{
+		Type:     RouteConditionCertificateProvisioned,
+		Status:   corev1.ConditionUnknown,
+		Severity: apis.ConditionSeverityWarning,
+		Reason:   "CertificateNotReady",
+		Message:  fmt.Sprintf("Certificate %s are not ready.", name),
+	})
+}
+
+func (rs *RouteStatus) MarkCertificateNotOwned(name string) {
 	routeCondSet.Manage(rs).SetCondition(apis.Condition{
 		Type:     RouteConditionCertificateProvisioned,
 		Status:   corev1.ConditionFalse,
 		Severity: apis.ConditionSeverityWarning,
-		Reason:   "CertificatesNotReady",
-		Message:  fmt.Sprintf("Certificates %v are not ready.", names),
+		Reason:   "CertificateNotOwned",
+		Message:  fmt.Sprintf("There is an existing certificate %s that we don't own.", name),
 	})
 }
 
