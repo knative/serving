@@ -166,6 +166,10 @@ func (l *Listers) GetEndpointsLister() corev1listers.EndpointsLister {
 	return corev1listers.NewEndpointsLister(l.indexerFor(&corev1.Endpoints{}))
 }
 
+func (l *Listers) GetSecretLister() corev1listers.SecretLister {
+	return corev1listers.NewSecretLister(l.indexerFor(&corev1.Secret{}))
+}
+
 func (l *Listers) GetConfigMapLister() corev1listers.ConfigMapLister {
 	return corev1listers.NewConfigMapLister(l.indexerFor(&corev1.ConfigMap{}))
 }
