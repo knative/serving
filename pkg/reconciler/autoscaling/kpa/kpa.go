@@ -18,7 +18,6 @@ package kpa
 import (
 	"context"
 	"fmt"
-	"net/http"
 	"reflect"
 
 	perrors "github.com/pkg/errors"
@@ -26,10 +25,8 @@ import (
 
 	"github.com/knative/pkg/controller"
 	"github.com/knative/pkg/logging"
-	"github.com/knative/serving/pkg/activator"
 	"github.com/knative/serving/pkg/apis/autoscaling"
 	pav1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
-	"github.com/knative/serving/pkg/apis/networking"
 	nv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/autoscaler"
@@ -37,8 +34,6 @@ import (
 	ninformers "github.com/knative/serving/pkg/client/informers/externalversions/networking/v1alpha1"
 	listers "github.com/knative/serving/pkg/client/listers/autoscaling/v1alpha1"
 	nlisters "github.com/knative/serving/pkg/client/listers/networking/v1alpha1"
-	"github.com/knative/serving/pkg/network"
-	"github.com/knative/serving/pkg/network/prober"
 	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/autoscaling/kpa/resources"
 	"github.com/knative/serving/pkg/reconciler/autoscaling/kpa/resources/names"
@@ -59,24 +54,6 @@ import (
 const (
 	controllerAgentName = "kpa-class-podautoscaler-controller"
 )
-
-// activatorProbe returns true if via probe it determines that the
-// PA is backed by the Activator.
-var activatorProbe = func(pa *pav1alpha1.PodAutoscaler) (bool, error) {
-	// No service name -- no probe.
-	if pa.Status.ServiceName == "" {
-		return false, nil
-	}
-
-	// Resolve the hostname and port to probe.
-	svc := network.GetServiceHostname(pa.Status.ServiceName, pa.Namespace)
-	port := networking.ServicePort(pa.Spec.ProtocolType)
-	st, body, err := prober.Do(context.Background(), fmt.Sprintf("http://%s:%d/", svc, port), activator.Name)
-	if err != nil {
-		return false, err
-	}
-	return st == http.StatusOK && body == activator.Name, nil
-}
 
 // Deciders is an interface for notifying the presence or absence of KPAs.
 type Deciders interface {

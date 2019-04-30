@@ -19,13 +19,18 @@ package kpa
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"sync"
 
 	"github.com/knative/pkg/apis"
 	"github.com/knative/pkg/apis/duck"
 	"github.com/knative/pkg/logging"
+	"github.com/knative/serving/pkg/activator"
 	pav1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
+	"github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/autoscaler"
+	"github.com/knative/serving/pkg/network"
+	"github.com/knative/serving/pkg/network/prober"
 	"github.com/knative/serving/pkg/reconciler"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
@@ -64,6 +69,24 @@ func NewScaler(opt reconciler.Options) Scaler {
 	// Watch for config changes.
 	opt.ConfigMapWatcher.Watch(autoscaler.ConfigName, ks.receiveAutoscalerConfig)
 	return ks
+}
+
+// activatorProbe returns true if via probe it determines that the
+// PA is backed by the Activator.
+var activatorProbe = func(pa *pav1alpha1.PodAutoscaler) (bool, error) {
+	// No service name -- no probe.
+	if pa.Status.ServiceName == "" {
+		return false, nil
+	}
+
+	// Resolve the hostname and port to probe.
+	svc := network.GetServiceHostname(pa.Status.ServiceName, pa.Namespace)
+	port := networking.ServicePort(pa.Spec.ProtocolType)
+	st, body, err := prober.Do(context.Background(), fmt.Sprintf("http://%s:%d/", svc, port), activator.Name)
+	if err != nil {
+		return false, err
+	}
+	return st == http.StatusOK && body == activator.Name, nil
 }
 
 // podScalableTypedInformerFactory returns a duck.InformerFactory that returns

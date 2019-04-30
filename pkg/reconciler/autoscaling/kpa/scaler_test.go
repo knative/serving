@@ -19,6 +19,8 @@ package kpa
 import (
 	"errors"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"strconv"
 	"testing"
 	"time"
@@ -27,6 +29,7 @@ import (
 	"github.com/knative/pkg/apis/duck"
 	logtesting "github.com/knative/pkg/logging/testing"
 	_ "github.com/knative/pkg/system/testing"
+	"github.com/knative/serving/pkg/activator"
 	"github.com/knative/serving/pkg/apis/autoscaling"
 	pav1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving"
@@ -34,6 +37,7 @@ import (
 	"github.com/knative/serving/pkg/autoscaler"
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
 	fakeKna "github.com/knative/serving/pkg/client/clientset/versioned/fake"
+	"github.com/knative/serving/pkg/network"
 	"github.com/knative/serving/pkg/reconciler"
 	revisionresources "github.com/knative/serving/pkg/reconciler/revision/resources"
 	"github.com/knative/serving/pkg/reconciler/revision/resources/names"
@@ -55,6 +59,10 @@ const (
 
 func TestScaler(t *testing.T) {
 	defer logtesting.ClearAll()
+	afn := activatorProbe
+	defer func() {
+		activatorProbe = afn
+	}()
 	tests := []struct {
 		label         string
 		startReplicas int
@@ -499,5 +507,69 @@ func checkNoScaling(t *testing.T, dynamicClient *fakedynamic.FakeDynamicClient) 
 		case "update":
 			t.Errorf("Unexpected update: %v", action)
 		}
+	}
+}
+
+func TestActivatorProbe(t *testing.T) {
+	oldRT := network.AutoTransport
+	defer func() {
+		network.AutoTransport = oldRT
+	}()
+	theErr := errors.New("rain")
+
+	pa := kpa("who-let", "the-dogs-out", WithPAStatusService("woof"))
+	tests := []struct {
+		name    string
+		rt      network.RoundTripperFunc
+		wantRes bool
+		wantErr error
+	}{{
+		name: "ok",
+		rt: func(r *http.Request) (*http.Response, error) {
+			rsp := httptest.NewRecorder()
+			rsp.Write([]byte(activator.Name))
+			return rsp.Result(), nil
+		},
+		wantRes: true,
+		wantErr: nil,
+	}, {
+		name: "400",
+		rt: func(r *http.Request) (*http.Response, error) {
+			rsp := httptest.NewRecorder()
+			rsp.Code = http.StatusBadRequest
+			rsp.Write([]byte("wrong header, I guess?"))
+			return rsp.Result(), nil
+		},
+		wantRes: false,
+		wantErr: nil,
+	}, {
+		name: "wrong body",
+		rt: func(r *http.Request) (*http.Response, error) {
+			rsp := httptest.NewRecorder()
+			rsp.Write([]byte("haxoorprober"))
+			return rsp.Result(), nil
+		},
+		wantRes: false,
+		wantErr: nil,
+	}, {
+		name: "all wrong",
+		rt: func(r *http.Request) (*http.Response, error) {
+			return nil, theErr
+		},
+		wantRes: false,
+		wantErr: theErr,
+	}}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			network.AutoTransport = test.rt
+			res, err := activatorProbe(pa)
+			if got, want := res, test.wantRes; got != want {
+				t.Errorf("Result = %v, want: %v", got, want)
+			}
+			if got, want := err, test.wantErr; got != want {
+				t.Errorf("Err = %v, want: %v", got, want)
+			}
+		})
 	}
 }

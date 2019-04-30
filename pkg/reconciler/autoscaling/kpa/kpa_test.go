@@ -18,10 +18,7 @@ package kpa
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"net/http"
-	"net/http/httptest"
 	"testing"
 	"time"
 
@@ -34,7 +31,6 @@ import (
 	logtesting "github.com/knative/pkg/logging/testing"
 	"github.com/knative/pkg/system"
 	_ "github.com/knative/pkg/system/testing"
-	"github.com/knative/serving/pkg/activator"
 	"github.com/knative/serving/pkg/apis/autoscaling"
 	asv1a1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	nv1a1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
@@ -44,7 +40,6 @@ import (
 	"github.com/knative/serving/pkg/autoscaler"
 	fakeKna "github.com/knative/serving/pkg/client/clientset/versioned/fake"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
-	"github.com/knative/serving/pkg/network"
 	"github.com/knative/serving/pkg/reconciler"
 	rpkg "github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/autoscaling/kpa/resources"
@@ -319,20 +314,20 @@ func TestReconcile(t *testing.T) {
 	// two constant objects above, which means, that all tests must share
 	// the same namespace and revision name.
 	table := TableTest{{
-		Name:                    "bad workqueue key, Part I",
-		Key:                     "too/many/parts",
+		Name: "bad workqueue key, Part I",
+		Key:  "too/many/parts",
 		SkipNamespaceValidation: true,
 	}, {
-		Name:                    "bad workqueue key, Part II",
-		Key:                     "too-few-parts",
+		Name: "bad workqueue key, Part II",
+		Key:  "too-few-parts",
 		SkipNamespaceValidation: true,
 	}, {
-		Name:                    "key not found",
-		Key:                     "foo/not-found",
+		Name: "key not found",
+		Key:  "foo/not-found",
 		SkipNamespaceValidation: true,
 	}, {
-		Name:                    "key not found",
-		Key:                     "foo/not-found",
+		Name: "key not found",
+		Key:  "foo/not-found",
 		SkipNamespaceValidation: true,
 	}, {
 		Name: "steady state",
@@ -1439,65 +1434,4 @@ func addEndpoint(ep *corev1.Endpoints) *corev1.Endpoints {
 		Addresses: []corev1.EndpointAddress{{IP: "127.0.0.1"}},
 	}}
 	return ep
-}
-
-func TestActivatorProbe(t *testing.T) {
-	oldRT := network.AutoTransport
-	defer func() {
-		network.AutoTransport = oldRT
-	}()
-	theErr := errors.New("rain")
-
-	pa := kpa("who-let", "the-dogs-out", WithPAStatusService("woof"))
-	tests := []struct {
-		name    string
-		rt      network.RoundTripperFunc
-		wantRes bool
-		wantErr error
-	}{{
-		name: "ok",
-		rt: func(r *http.Request) (*http.Response, error) {
-			rsp := httptest.NewRecorder()
-			rsp.Write([]byte(activator.Name))
-			return rsp.Result(), nil
-		},
-		wantRes: true,
-		wantErr: nil,
-	}, {
-		name: "400",
-		rt: func(r *http.Request) (*http.Response, error) {
-			rsp := httptest.NewRecorder()
-			rsp.Code = http.StatusBadRequest
-			rsp.Write([]byte("wrong header, I guess?"))
-			return rsp.Result(), nil
-		},
-		wantRes: false,
-		wantErr: nil,
-	}, {
-		name: "wrong body",
-		rt: func(r *http.Request) (*http.Response, error) {
-			rsp := httptest.NewRecorder()
-			rsp.Write([]byte("haxoorprober"))
-			return rsp.Result(), nil
-		},
-		wantRes: false,
-		wantErr: nil,
-	}, {
-		name: "all wrong",
-		rt: func(r *http.Request) (*http.Response, error) {
-			return nil, theErr
-		},
-		wantRes: false,
-		wantErr: theErr,
-	}}
-	for _, test := range tests {
-		network.AutoTransport = test.rt
-		res, err := activatorProbe(pa)
-		if got, want := res, test.wantRes; got != want {
-			t.Errorf("Result = %v, want: %v", got, want)
-		}
-		if got, want := err, test.wantErr; got != want {
-			t.Errorf("Err = %v, want: %v", got, want)
-		}
-	}
 }
