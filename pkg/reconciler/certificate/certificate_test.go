@@ -116,7 +116,7 @@ func TestReconcile(t *testing.T) {
 					Status: duckv1beta1.Status{
 						ObservedGeneration: generation,
 						Conditions: duckv1beta1.Conditions{{
-							Type:     v1alpha1.CertificateCondidtionReady,
+							Type:     v1alpha1.CertificateConditionReady,
 							Status:   corev1.ConditionUnknown,
 							Severity: apis.ConditionSeverityError,
 							Reason:   noCMConditionReason,
@@ -144,7 +144,7 @@ func TestReconcile(t *testing.T) {
 					Status: duckv1beta1.Status{
 						ObservedGeneration: generation,
 						Conditions: duckv1beta1.Conditions{{
-							Type:     v1alpha1.CertificateCondidtionReady,
+							Type:     v1alpha1.CertificateConditionReady,
 							Status:   corev1.ConditionUnknown,
 							Severity: apis.ConditionSeverityError,
 							Reason:   noCMConditionReason,
@@ -170,7 +170,7 @@ func TestReconcile(t *testing.T) {
 					Status: duckv1beta1.Status{
 						ObservedGeneration: generation,
 						Conditions: duckv1beta1.Conditions{{
-							Type:     v1alpha1.CertificateCondidtionReady,
+							Type:     v1alpha1.CertificateConditionReady,
 							Status:   corev1.ConditionTrue,
 							Severity: apis.ConditionSeverityError,
 						}},
@@ -191,7 +191,7 @@ func TestReconcile(t *testing.T) {
 					Status: duckv1beta1.Status{
 						ObservedGeneration: generation,
 						Conditions: duckv1beta1.Conditions{{
-							Type:     v1alpha1.CertificateCondidtionReady,
+							Type:     v1alpha1.CertificateConditionReady,
 							Status:   corev1.ConditionUnknown,
 							Severity: apis.ConditionSeverityError,
 						}},
@@ -212,7 +212,7 @@ func TestReconcile(t *testing.T) {
 					Status: duckv1beta1.Status{
 						ObservedGeneration: generation,
 						Conditions: duckv1beta1.Conditions{{
-							Type:     v1alpha1.CertificateCondidtionReady,
+							Type:     v1alpha1.CertificateConditionReady,
 							Status:   corev1.ConditionFalse,
 							Severity: apis.ConditionSeverityError,
 						}},

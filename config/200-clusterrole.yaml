@@ -62,7 +62,7 @@ metadata:
   labels:
     serving.knative.dev/release: devel
     serving.knative.dev/controller: "true"
-    networking.knative.dev/certificate-provider: certmanager
+    networking.knative.dev/certificate-provider: cert-manager
 rules:
   - apiGroups: ["certmanager.k8s.io"]
     resources: ["certificates"]

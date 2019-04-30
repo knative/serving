@@ -55,7 +55,7 @@ func TestCertificateGetGroupVersionKind(t *testing.T) {
 func TestMarkReady(t *testing.T) {
 	c := &CertificateStatus{}
 	c.InitializeConditions()
-	apitest.CheckConditionOngoing(c.duck(), CertificateCondidtionReady, t)
+	apitest.CheckConditionOngoing(c.duck(), CertificateConditionReady, t)
 
 	c.MarkReady()
 	if !c.IsReady() {
@@ -66,17 +66,17 @@ func TestMarkReady(t *testing.T) {
 func TestMarkUnknown(t *testing.T) {
 	c := &CertificateStatus{}
 	c.InitializeConditions()
-	apitest.CheckCondition(c.duck(), CertificateCondidtionReady, corev1.ConditionUnknown)
+	apitest.CheckCondition(c.duck(), CertificateConditionReady, corev1.ConditionUnknown)
 
 	c.MarkUnknown("unknow", "unknown")
-	apitest.CheckCondition(c.duck(), CertificateCondidtionReady, corev1.ConditionUnknown)
+	apitest.CheckCondition(c.duck(), CertificateConditionReady, corev1.ConditionUnknown)
 }
 
 func TestMarkNotReady(t *testing.T) {
 	c := &CertificateStatus{}
 	c.InitializeConditions()
-	apitest.CheckCondition(c.duck(), CertificateCondidtionReady, corev1.ConditionUnknown)
+	apitest.CheckCondition(c.duck(), CertificateConditionReady, corev1.ConditionUnknown)
 
 	c.MarkNotReady("not ready", "not ready")
-	apitest.CheckConditionFailed(c.duck(), CertificateCondidtionReady, t)
+	apitest.CheckConditionFailed(c.duck(), CertificateConditionReady, t)
 }

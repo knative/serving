@@ -31,23 +31,23 @@ func (cs *CertificateStatus) InitializeConditions() {
 
 // MarkReady marks the certificate as ready to use.
 func (cs *CertificateStatus) MarkReady() {
-	certificateCondSet.Manage(cs).MarkTrue(CertificateCondidtionReady)
+	certificateCondSet.Manage(cs).MarkTrue(CertificateConditionReady)
 }
 
 // MarkUnknown marks the certificate status as unknown.
 func (cs *CertificateStatus) MarkUnknown(reason, message string) {
-	certificateCondSet.Manage(cs).MarkUnknown(CertificateCondidtionReady, reason, message)
+	certificateCondSet.Manage(cs).MarkUnknown(CertificateConditionReady, reason, message)
 }
 
 // MarkNotReady marks the certificate as not ready.
 func (cs *CertificateStatus) MarkNotReady(reason, message string) {
-	certificateCondSet.Manage(cs).MarkFalse(CertificateCondidtionReady, reason, message)
+	certificateCondSet.Manage(cs).MarkFalse(CertificateConditionReady, reason, message)
 }
 
 // MarkResourceNotOwned changes the ready condition to false to reflect that we don't own the
 // resource of the given kind and name.
 func (cs *CertificateStatus) MarkResourceNotOwned(kind, name string) {
-	certificateCondSet.Manage(cs).MarkFalse(CertificateCondidtionReady, "NotOwned",
+	certificateCondSet.Manage(cs).MarkFalse(CertificateConditionReady, "NotOwned",
 		fmt.Sprintf("There is an existing %s %q that we do not own.", kind, name))
 }
 
@@ -65,10 +65,10 @@ func (cs *CertificateStatus) GetCondition(t apis.ConditionType) *apis.Condition 
 const (
 	// CertificateConditionReady is set when the requested certificate
 	// is provioned and valid.
-	CertificateCondidtionReady = apis.ConditionReady
+	CertificateConditionReady = apis.ConditionReady
 )
 
-var certificateCondSet = apis.NewLivingConditionSet(CertificateCondidtionReady)
+var certificateCondSet = apis.NewLivingConditionSet(CertificateConditionReady)
 
 // GetGroupVersionKind returns the GroupVersionKind of Certificate.
 func (c *Certificate) GetGroupVersionKind() schema.GroupVersionKind {
