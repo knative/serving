@@ -346,18 +346,16 @@ func (c *Reconciler) configureTraffic(ctx context.Context, r *v1alpha1.Route) (*
 	if t != nil {
 		// Tell our trackers to reconcile Route whenever the things referred to by our
 		// Traffic stanza change.
-		gvk := v1alpha1.SchemeGroupVersion.WithKind("Configuration")
 		for _, configuration := range t.Configurations {
-			if err := c.tracker.Track(objectRef(configuration, gvk), r); err != nil {
+			if err := c.tracker.Track(objectRef(configuration), r); err != nil {
 				return nil, err
 			}
 		}
-		gvk = v1alpha1.SchemeGroupVersion.WithKind("Revision")
 		for _, revision := range t.Revisions {
 			if revision.Status.IsActivationRequired() {
 				logger.Infof("Revision %s/%s is inactive", revision.Namespace, revision.Name)
 			}
-			if err := c.tracker.Track(objectRef(revision, gvk), r); err != nil {
+			if err := c.tracker.Track(objectRef(revision), r); err != nil {
 				return nil, err
 			}
 		}
@@ -411,16 +409,13 @@ func (c *Reconciler) ensureFinalizer(route *v1alpha1.Route) error {
 /////////////////////////////////////////
 
 type accessor interface {
-	GroupVersionKind() schema.GroupVersionKind
+	GetGroupVersionKind() schema.GroupVersionKind
 	GetNamespace() string
 	GetName() string
 }
 
-func objectRef(a accessor, gvk schema.GroupVersionKind) corev1.ObjectReference {
-	// We can't always rely on the TypeMeta being populated.
-	// See: https://github.com/knative/serving/issues/2372
-	// Also: https://github.com/kubernetes/apiextensions-apiserver/issues/29
-	// gvk := a.GroupVersionKind()
+func objectRef(a accessor) corev1.ObjectReference {
+	gvk := a.GetGroupVersionKind()
 	apiVersion, kind := gvk.ToAPIVersionAndKind()
 	return corev1.ObjectReference{
 		APIVersion: apiVersion,
