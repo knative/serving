@@ -50,6 +50,10 @@ data:
     # try to maintain when the Revision specifies unlimited concurrency.
     # Even when specifying unlimited concurrency, the autoscaler will
     # horizontally scale the application based on this target concurrency.
+    # To configure the autoscaler use the `/target` setting. 
+    # Using `/target` configures the autoscaler to scale, based on an observed amount of concurrent requests to the application.
+    # Using `containerConcurrency` is only advised if the application needs to have an enforced constraint of concurrency. 
+    # ContainerConcurrency limits the amount of concurrent requests allowed into the application.
     #
     # A value of 100 is chosen because it's enough to allow vertical pod
     # autoscaling to tune resource requests. E.g. maintaining 1 concurrent
