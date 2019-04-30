@@ -26,8 +26,6 @@ import (
 	"os"
 	"time"
 
-	"go.uber.org/zap"
-
 	"github.com/knative/pkg/logging/logkey"
 	"github.com/knative/pkg/metrics"
 	"github.com/knative/pkg/signals"
@@ -36,12 +34,13 @@ import (
 	activatorutil "github.com/knative/serving/pkg/activator/util"
 	"github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/autoscaler"
+	pkghttp "github.com/knative/serving/pkg/http"
 	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/pkg/network"
 	"github.com/knative/serving/pkg/queue"
 	"github.com/knative/serving/pkg/queue/health"
 	queuestats "github.com/knative/serving/pkg/queue/stats"
-
+	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/wait"
 )
 
@@ -85,7 +84,6 @@ var (
 	h2cProxy  *httputil.ReverseProxy
 	httpProxy *httputil.ReverseProxy
 
-	server           *http.Server
 	healthState      = &health.State{}
 	promStatReporter *queue.PrometheusStatsReporter // Prometheus stats reporter.
 )
@@ -328,7 +326,7 @@ func pushRequestLogHandler(currentHandler http.Handler) http.Handler {
 		return currentHandler
 	}
 
-	revInfo := &queue.RequestLogRevInfo{
+	revInfo := &pkghttp.RequestLogRevision{
 		Name:          servingRevision,
 		Namespace:     servingNamespace,
 		Service:       servingService,
@@ -336,7 +334,8 @@ func pushRequestLogHandler(currentHandler http.Handler) http.Handler {
 		PodName:       servingPodName,
 		PodIP:         servingPodIP,
 	}
-	handler, err := queue.NewRequestLogHandler(currentHandler, logging.NewSyncFileWriter(os.Stdout), templ, revInfo)
+	handler, err := pkghttp.NewRequestLogHandler(currentHandler, logging.NewSyncFileWriter(os.Stdout), templ,
+		pkghttp.RequestLogTemplateInputGetterFromRevision(revInfo))
 
 	if err != nil {
 		logger.Errorw("Error setting up request logger. Request logs will be unavailable.", zap.Error(err))
