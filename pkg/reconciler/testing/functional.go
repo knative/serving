@@ -31,8 +31,8 @@ import (
 	netv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1beta1"
+	"github.com/knative/serving/pkg/reconciler/route/domains"
 	routenames "github.com/knative/serving/pkg/reconciler/route/resources/names"
-	"github.com/knative/serving/pkg/reconciler/route/traffic"
 	"github.com/knative/serving/pkg/reconciler/serverlessservice/resources/names"
 	servicenames "github.com/knative/serving/pkg/reconciler/service/resources/names"
 	"github.com/knative/serving/pkg/resources"
@@ -394,11 +394,9 @@ func WithSvcStatusTraffic(targets ...v1alpha1.TrafficTarget) ServiceOption {
 		// Automatically inject URL into TrafficTarget status
 		for _, tt := range targets {
 			if tt.DeprecatedName != "" {
-				tt.URL = traffic.TagURL(traffic.HTTPScheme,
-					tt.DeprecatedName, "example.com")
+				tt.URL = domains.URL(domains.HTTPScheme, tt.DeprecatedName+".example.com")
 			} else if tt.Tag != "" {
-				tt.URL = traffic.TagURL(traffic.HTTPScheme,
-					tt.Tag, "example.com")
+				tt.URL = domains.URL(domains.HTTPScheme, tt.Tag+".example.com")
 			}
 		}
 		r.Status.Traffic = targets
@@ -1094,6 +1092,13 @@ func WithMetricAnnotation(metric string) PodAutoscalerOption {
 // K8sServiceOption enables further configuration of the Kubernetes Service.
 type K8sServiceOption func(*corev1.Service)
 
+// OverrideServiceName changes the name of the Kubernetes Service.
+func OverrideServiceName(name string) K8sServiceOption {
+	return func(svc *corev1.Service) {
+		svc.Name = name
+	}
+}
+
 // MutateK8sService changes the service in a way that must be reconciled.
 func MutateK8sService(svc *corev1.Service) {
 	// An effective hammer ;-P
@@ -1150,6 +1155,16 @@ func WithFailingContainer(name string, exitCode int, message string) PodOption {
 				},
 			},
 		}}
+	}
+}
+
+// ClusterIngressOption enables further configuration of the Cluster Ingress.
+type ClusterIngressOption func(*netv1alpha1.ClusterIngress)
+
+// WithHosts sets the Hosts of the ingress rule specified index
+func WithHosts(index int, hosts ...string) ClusterIngressOption {
+	return func(ingress *netv1alpha1.ClusterIngress) {
+		ingress.Spec.Rules[index].Hosts = hosts
 	}
 }
 

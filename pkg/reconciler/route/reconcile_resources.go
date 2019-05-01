@@ -21,15 +21,6 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/knative/pkg/apis/duck"
-	"github.com/knative/pkg/logging"
-	netv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
-	"github.com/knative/serving/pkg/apis/serving"
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	"github.com/knative/serving/pkg/reconciler/route/config"
-	"github.com/knative/serving/pkg/reconciler/route/resources"
-	resourcenames "github.com/knative/serving/pkg/reconciler/route/resources/names"
-	"github.com/knative/serving/pkg/reconciler/route/traffic"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	corev1 "k8s.io/api/core/v1"
@@ -38,6 +29,18 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/sets"
+
+	"github.com/knative/pkg/apis/duck"
+	"github.com/knative/pkg/logging"
+	netv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
+	"github.com/knative/serving/pkg/apis/serving"
+	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/knative/serving/pkg/reconciler/route/config"
+	"github.com/knative/serving/pkg/reconciler/route/domains"
+	"github.com/knative/serving/pkg/reconciler/route/resources"
+	resourcenames "github.com/knative/serving/pkg/reconciler/route/resources/names"
+	"github.com/knative/serving/pkg/reconciler/route/traffic"
 )
 
 func (c *Reconciler) getClusterIngressForRoute(route *v1alpha1.Route) (*netv1alpha1.ClusterIngress, error) {
@@ -123,37 +126,100 @@ func (c *Reconciler) reconcileClusterIngress(
 	return clusterIngress, err
 }
 
-func (c *Reconciler) reconcilePlaceholderService(ctx context.Context, route *v1alpha1.Route, ingress *netv1alpha1.ClusterIngress) error {
-	logger := logging.FromContext(ctx)
-	ns := route.Namespace
-	name := resourcenames.K8sService(route)
-
-	desiredService, err := resources.MakeK8sService(route, ingress)
-	if err != nil {
-		// Loadbalancer not ready, no need to create.
-		logger.Warnf("Failed to construct placeholder k8s service: %v", err)
-		return nil
-	}
-
-	service, err := c.serviceLister.Services(ns).Get(name)
-	if apierrs.IsNotFound(err) {
-		// Doesn't exist, create it.
-		service, err = c.KubeClientSet.CoreV1().Services(ns).Create(desiredService)
-		if err != nil {
-			logger.Errorw("Failed to create service", zap.Error(err))
-			c.Recorder.Eventf(route, corev1.EventTypeWarning, "CreationFailed",
-				"Failed to create service %q: %v", name, err)
+func (c *Reconciler) deleteServices(namespace string, serviceNames sets.String) error {
+	for _, serviceName := range serviceNames.List() {
+		if err := c.KubeClientSet.CoreV1().Services(namespace).Delete(serviceName, nil); err != nil {
+			c.Logger.Errorw("Failed to delete service", zap.Error(err))
 			return err
 		}
-		logger.Infof("Created service %s", name)
-		c.Recorder.Eventf(route, corev1.EventTypeNormal, "Created", "Created service %q", name)
-	} else if err != nil {
-		return err
-	} else if !metav1.IsControlledBy(service, route) {
-		// Surface an error in the route's status, and return an error.
-		route.Status.MarkServiceNotOwned(name)
-		return fmt.Errorf("Route: %q does not own Service: %q", route.Name, name)
-	} else {
+	}
+
+	return nil
+}
+
+func (c *Reconciler) getServiceNameSet(route *v1alpha1.Route) (sets.String, error) {
+	currentServices, err := c.serviceLister.List(resources.SelectorFromRoute(route))
+	if err != nil {
+		return nil, err
+	}
+
+	serviceNames := sets.NewString()
+	for _, svc := range currentServices {
+		serviceNames.Insert(svc.Name)
+	}
+
+	return serviceNames, nil
+}
+
+func (c *Reconciler) reconcilePlaceholderServices(ctx context.Context, route *v1alpha1.Route, targets map[string]traffic.RevisionTargets) ([]*corev1.Service, error) {
+	logger := logging.FromContext(ctx)
+	ns := route.Namespace
+
+	currentServices, err := c.getServiceNameSet(route)
+	if err != nil {
+		return nil, err
+	}
+
+	names := sets.NewString()
+	for name := range targets {
+		names.Insert(name)
+	}
+
+	var services []*corev1.Service
+	for _, name := range names.List() {
+		desiredServiceName := domains.SubdomainName(route, name)
+		desiredService, err := resources.MakeK8sPlaceholderService(ctx, route, name)
+		if err != nil {
+			logger.Warnw("Failed to construct placeholder k8s service", zap.Error(err))
+			return nil, err
+		}
+
+		service, err := c.serviceLister.Services(ns).Get(desiredService.Name)
+		if apierrs.IsNotFound(err) {
+			// Doesn't exist, create it.
+			service, err = c.KubeClientSet.CoreV1().Services(ns).Create(desiredService)
+			if err != nil {
+				logger.Errorw("Failed to create placeholder service", zap.Error(err))
+				c.Recorder.Eventf(route, corev1.EventTypeWarning, "CreationFailed",
+					"Failed to create placeholder service %q: %v", desiredServiceName, err)
+				return nil, err
+			}
+			logger.Infof("Created service %s", desiredServiceName)
+			c.Recorder.Eventf(route, corev1.EventTypeNormal, "Created", "Created placeholder service %q", desiredServiceName)
+		} else if err != nil {
+			return nil, err
+		} else if !metav1.IsControlledBy(service, route) {
+			// Surface an error in the route's status, and return an error.
+			route.Status.MarkServiceNotOwned(desiredServiceName)
+			return nil, fmt.Errorf("route: %q does not own Service: %q", route.Name, desiredServiceName)
+		}
+
+		services = append(services, service)
+		delete(currentServices, desiredServiceName)
+	}
+
+	// Delete any current services that was no longer desired.
+	if err := c.deleteServices(ns, currentServices); err != nil {
+		return nil, err
+	}
+
+	// TODO(mattmoor): This is where we'd look at the state of the Service and
+	// reflect any necessary state into the Route.
+	return services, nil
+}
+
+func (c *Reconciler) updatePlaceholderServices(ctx context.Context, route *v1alpha1.Route, services []*corev1.Service, ingress *netv1alpha1.ClusterIngress) error {
+	logger := logging.FromContext(ctx)
+	ns := route.Namespace
+
+	for _, service := range services {
+		desiredService, err := resources.MakeK8sService(route, service.Name, ingress)
+		if err != nil {
+			// Loadbalancer not ready, no need to update.
+			logger.Warnf("Failed to update k8s service: %v", err)
+			return nil
+		}
+
 		// Make sure that the service has the proper specification.
 		if !equality.Semantic.DeepEqual(service.Spec, desiredService.Spec) {
 			// Don't modify the informers copy

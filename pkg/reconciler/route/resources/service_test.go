@@ -17,15 +17,25 @@ limitations under the License.
 package resources
 
 import (
+	"context"
 	"testing"
+	"time"
 
-	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/knative/pkg/kmeta"
 	netv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
+	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/knative/serving/pkg/apis/serving/v1beta1"
+	"github.com/knative/serving/pkg/gc"
+	"github.com/knative/serving/pkg/network"
+	"github.com/knative/serving/pkg/reconciler/route/config"
+	"github.com/knative/serving/pkg/reconciler/route/domains"
+	"github.com/knative/serving/pkg/reconciler/route/traffic"
 )
 
 var (
@@ -41,6 +51,9 @@ var (
 		OwnerReferences: []metav1.OwnerReference{
 			*kmeta.NewControllerRef(r),
 		},
+		Labels: map[string]string{
+			serving.RouteLabelKey: r.Name,
+		},
 	}
 )
 
@@ -49,7 +62,9 @@ func TestNewMakeK8SService(t *testing.T) {
 		// Inputs
 		route        *v1alpha1.Route
 		ingress      *netv1alpha1.ClusterIngress
+		targetName   string
 		expectedSpec corev1.ServiceSpec
+		expectedMeta metav1.ObjectMeta
 		shouldFail   bool
 	}{
 		"no-loadbalancer": {
@@ -57,7 +72,8 @@ func TestNewMakeK8SService(t *testing.T) {
 			ingress: &netv1alpha1.ClusterIngress{
 				Status: netv1alpha1.IngressStatus{},
 			},
-			shouldFail: true,
+			expectedMeta: expectedMeta,
+			shouldFail:   true,
 		},
 		"empty-loadbalancer": {
 			route: r,
@@ -68,7 +84,8 @@ func TestNewMakeK8SService(t *testing.T) {
 					},
 				},
 			},
-			shouldFail: true,
+			expectedMeta: expectedMeta,
+			shouldFail:   true,
 		},
 		"multi-loadbalancer": {
 			route: r,
@@ -83,7 +100,8 @@ func TestNewMakeK8SService(t *testing.T) {
 					},
 				},
 			},
-			shouldFail: true,
+			expectedMeta: expectedMeta,
+			shouldFail:   true,
 		},
 		"ingress-with-domain": {
 			route: r,
@@ -94,6 +112,7 @@ func TestNewMakeK8SService(t *testing.T) {
 					},
 				},
 			},
+			expectedMeta: expectedMeta,
 			expectedSpec: corev1.ServiceSpec{
 				Type:         corev1.ServiceTypeExternalName,
 				ExternalName: "domain.com",
@@ -108,6 +127,7 @@ func TestNewMakeK8SService(t *testing.T) {
 					},
 				},
 			},
+			expectedMeta: expectedMeta,
 			expectedSpec: corev1.ServiceSpec{
 				Type:         corev1.ServiceTypeExternalName,
 				ExternalName: "istio-ingressgateway.istio-system.svc.cluster.local",
@@ -122,6 +142,35 @@ func TestNewMakeK8SService(t *testing.T) {
 					},
 				},
 			},
+			expectedMeta: expectedMeta,
+			expectedSpec: corev1.ServiceSpec{
+				Type: corev1.ServiceTypeClusterIP,
+				Ports: []corev1.ServicePort{{
+					Name: "http",
+					Port: 80,
+				}},
+			},
+		},
+		"with-target-name-specified": {
+			route:      r,
+			targetName: "my-target-name",
+			ingress: &netv1alpha1.ClusterIngress{
+				Status: netv1alpha1.IngressStatus{
+					LoadBalancer: &netv1alpha1.LoadBalancerStatus{
+						Ingress: []netv1alpha1.LoadBalancerIngressStatus{{MeshOnly: true}},
+					},
+				},
+			},
+			expectedMeta: metav1.ObjectMeta{
+				Name:      "test-route-my-target-name",
+				Namespace: r.Namespace,
+				OwnerReferences: []metav1.OwnerReference{
+					*kmeta.NewControllerRef(r),
+				},
+				Labels: map[string]string{
+					serving.RouteLabelKey: r.Name,
+				},
+			},
 			expectedSpec: corev1.ServiceSpec{
 				Type: corev1.ServiceTypeClusterIP,
 				Ports: []corev1.ServicePort{{
@@ -133,7 +182,7 @@ func TestNewMakeK8SService(t *testing.T) {
 	}
 
 	for name, scenario := range scenarios {
-		service, err := MakeK8sService(scenario.route, scenario.ingress)
+		service, err := MakeK8sService(scenario.route, scenario.targetName, scenario.ingress)
 		// Validate
 		if scenario.shouldFail && err == nil {
 			t.Errorf("Test %q failed: returned success but expected error", name)
@@ -142,12 +191,79 @@ func TestNewMakeK8SService(t *testing.T) {
 			if err != nil {
 				t.Errorf("Test %q failed: returned error: %v", name, err)
 			}
-			if diff := cmp.Diff(expectedMeta, service.ObjectMeta); diff != "" {
-				t.Errorf("Unexpected Metadata  (-want +got): %v", diff)
+
+			if !cmp.Equal(scenario.expectedMeta, service.ObjectMeta) {
+				t.Errorf("Unexpected Metadata (-want +got): %s", cmp.Diff(scenario.expectedMeta, service.ObjectMeta))
 			}
-			if diff := cmp.Diff(scenario.expectedSpec, service.Spec); diff != "" {
-				t.Errorf("Unexpected ServiceSpec (-want +got): %v", diff)
+			if !cmp.Equal(scenario.expectedSpec, service.Spec) {
+				t.Errorf("Unexpected ServiceSpec (-want +got): %s", cmp.Diff(scenario.expectedSpec, service.Spec))
 			}
 		}
+	}
+}
+
+func TestMakePlaceholderK8sService(t *testing.T) {
+	target := traffic.RevisionTarget{
+		TrafficTarget: v1beta1.TrafficTarget{
+			Tag: "foo",
+		},
+	}
+
+	ctx := context.Background()
+	cfg := testConfig()
+	ctx = config.ToContext(ctx, cfg)
+
+	service, err := MakeK8sPlaceholderService(ctx, r, target.Tag)
+	expectedMeta := metav1.ObjectMeta{
+		Name:      domains.SubdomainName(r, target.Tag),
+		Namespace: r.Namespace,
+		OwnerReferences: []metav1.OwnerReference{
+			*kmeta.NewControllerRef(r),
+		},
+		Labels: map[string]string{
+			serving.RouteLabelKey: r.Name,
+		},
+	}
+	expectedSpec := corev1.ServiceSpec{
+		Type:         corev1.ServiceTypeExternalName,
+		ExternalName: "test-route-foo.test-ns.example.com",
+	}
+
+	if err != nil {
+		t.Errorf("Unexpected error %v returned", err)
+	}
+
+	if !cmp.Equal(expectedMeta, service.ObjectMeta) {
+		t.Errorf("Unexpected Metadata (-want +got): %s", cmp.Diff(expectedMeta, service.ObjectMeta))
+	}
+	if !cmp.Equal(expectedSpec, service.Spec) {
+		t.Errorf("Unexpected ServiceSpec (-want +got): %s", cmp.Diff(expectedSpec, service.Spec))
+	}
+}
+
+func TestSelectorFromRoute(t *testing.T) {
+	selector := SelectorFromRoute(r)
+	if !selector.Matches(labels.Set{serving.RouteLabelKey: r.Name}) {
+		t.Errorf("Unexpected labels in selector")
+	}
+}
+
+func testConfig() *config.Config {
+	return &config.Config{
+		Domain: &config.Domain{
+			Domains: map[string]*config.LabelSelector{
+				"example.com": {},
+				"another-example.com": {
+					Selector: map[string]string{"app": "prod"},
+				},
+			},
+		},
+		Network: &network.Config{
+			DefaultClusterIngressClass: "test-ingress-class",
+			DomainTemplate:             network.DefaultDomainTemplate,
+		},
+		GC: &gc.Config{
+			StaleRevisionLastpinnedDebounce: time.Duration(1 * time.Minute),
+		},
 	}
 }
