@@ -52,6 +52,8 @@ type scaler struct {
 	// must go through autoscalerConfigMutex
 	autoscalerConfig      *autoscaler.Config
 	autoscalerConfigMutex sync.Mutex
+
+	activatorProbe func(pa *pav1alpha1.PodAutoscaler) (bool, error)
 }
 
 // NewScaler creates a scaler.
@@ -64,6 +66,9 @@ func NewScaler(opt reconciler.Options) Scaler {
 		},
 		dynamicClient: opt.DynamicClientSet,
 		logger:        opt.Logger,
+
+		// Production setup uses the default probe implementation.
+		activatorProbe: activatorProbe,
 	}
 
 	// Watch for config changes.
@@ -73,7 +78,7 @@ func NewScaler(opt reconciler.Options) Scaler {
 
 // activatorProbe returns true if via probe it determines that the
 // PA is backed by the Activator.
-var activatorProbe = func(pa *pav1alpha1.PodAutoscaler) (bool, error) {
+func activatorProbe(pa *pav1alpha1.PodAutoscaler) (bool, error) {
 	// No service name -- no probe.
 	if pa.Status.ServiceName == "" {
 		return false, nil
@@ -191,7 +196,7 @@ func (ks *scaler) handleScaleToZero(pa *pav1alpha1.PodAutoscaler, desiredScale i
 			// Otherwise, scale down to 1 until the idle period elapses.
 			desiredScale = 1
 		} else { // Active=False
-			r, err := activatorProbe(pa)
+			r, err := ks.activatorProbe(pa)
 			ks.logger.Infof("%s probing activator = %v, err = %v", pa.Name, r, err)
 			if err != nil {
 				ks.logger.Errorf("Error probing activator: %v", err)

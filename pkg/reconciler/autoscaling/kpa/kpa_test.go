@@ -166,11 +166,6 @@ func TestReconcileAndScaleToZero(t *testing.T) {
 	const key = testNamespace + "/" + testRevision
 	const deployName = testRevision + "-deployment"
 	usualSelector := map[string]string{"a": "b"}
-	fn := activatorProbe
-	defer func() {
-		activatorProbe = fn
-	}()
-	activatorProbe = func(*asv1a1.PodAutoscaler) (bool, error) { return true, nil }
 
 	table := TableTest{{
 		Name: "steady not serving",
@@ -283,7 +278,8 @@ func TestReconcileAndScaleToZero(t *testing.T) {
 		opt.ConfigMapWatcher = newConfigWatcher()
 
 		fakeMetrics := newTestMetrics()
-		kpaScaler := NewScaler(opt)
+		kpaScaler := NewScaler(opt).(*scaler)
+		kpaScaler.activatorProbe = func(*asv1a1.PodAutoscaler) (bool, error) { return true, nil }
 		return &Reconciler{
 			Base:            rpkg.NewBase(opt, controllerAgentName),
 			paLister:        listers.GetPodAutoscalerLister(),
@@ -314,20 +310,20 @@ func TestReconcile(t *testing.T) {
 	// two constant objects above, which means, that all tests must share
 	// the same namespace and revision name.
 	table := TableTest{{
-		Name: "bad workqueue key, Part I",
-		Key:  "too/many/parts",
+		Name:                    "bad workqueue key, Part I",
+		Key:                     "too/many/parts",
 		SkipNamespaceValidation: true,
 	}, {
-		Name: "bad workqueue key, Part II",
-		Key:  "too-few-parts",
+		Name:                    "bad workqueue key, Part II",
+		Key:                     "too-few-parts",
 		SkipNamespaceValidation: true,
 	}, {
-		Name: "key not found",
-		Key:  "foo/not-found",
+		Name:                    "key not found",
+		Key:                     "foo/not-found",
 		SkipNamespaceValidation: true,
 	}, {
-		Name: "key not found",
-		Key:  "foo/not-found",
+		Name:                    "key not found",
+		Key:                     "foo/not-found",
 		SkipNamespaceValidation: true,
 	}, {
 		Name: "steady state",

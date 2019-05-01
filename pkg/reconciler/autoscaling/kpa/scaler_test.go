@@ -59,10 +59,6 @@ const (
 
 func TestScaler(t *testing.T) {
 	defer logtesting.ClearAll()
-	afn := activatorProbe
-	defer func() {
-		activatorProbe = afn
-	}()
 	tests := []struct {
 		label         string
 		startReplicas int
@@ -210,11 +206,6 @@ func TestScaler(t *testing.T) {
 			// The clients for our testing.
 			servingClient := fakeKna.NewSimpleClientset()
 			dynamicClient := fakedynamic.NewSimpleDynamicClient(NewScheme())
-			if test.proberfunc != nil {
-				activatorProbe = test.proberfunc
-			} else {
-				activatorProbe = func(*pav1alpha1.PodAutoscaler) (bool, error) { return true, nil }
-			}
 
 			opts := reconciler.Options{
 				DynamicClientSet: dynamicClient,
@@ -224,7 +215,12 @@ func TestScaler(t *testing.T) {
 
 			revision := newRevision(t, servingClient, test.minScale, test.maxScale)
 			deployment := newDeployment(t, dynamicClient, names.Deployment(revision), test.startReplicas)
-			revisionScaler := NewScaler(opts)
+			revisionScaler := NewScaler(opts).(*scaler)
+			if test.proberfunc != nil {
+				revisionScaler.activatorProbe = test.proberfunc
+			} else {
+				revisionScaler.activatorProbe = func(*pav1alpha1.PodAutoscaler) (bool, error) { return true, nil }
+			}
 
 			// We test like this because the dynamic client's fake doesn't properly handle
 			// patch modes prior to 1.13 (where vaikas added JSON Patch support).
