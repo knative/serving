@@ -30,6 +30,13 @@ function istio_crds_yaml() {
   echo "./third_party/istio-${istio_version}/istio-crds.yaml"
 }
 
+# Choose a correct cert-manager-crds.yaml file.
+# - $1 specifies cert-manager version.
+function cert_manager_crds_yaml() {
+  local cert_manager_version="$1"
+  echo "./third_party/cert-manager-${cert_manager_version}/cert-manager-crds.yaml" 
+}
+
 # Choose a correct istio.yaml file.
 # - $1 specifies Istio version.
 # - $2 specifies whether we should use mesh.
@@ -62,6 +69,11 @@ function parse_flags() {
     --istio-version)
       [[ $2 =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || abort "version format must be '[0-9].[0-9].[0-9]'"
       readonly ISTIO_VERSION=$2
+      return 2
+      ;;
+    --cert-manager-version)
+      [[ $2 =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || abort "version format must be '[0-9].[0-9].[0-9]'"
+      readonly CERT_MANAGER_VERSION=$2
       return 2
       ;;
     --mesh)
@@ -153,6 +165,12 @@ function install_knative_serving_standard() {
   INSTALL_ISTIO_CRD_YAML="$(istio_crds_yaml $ISTIO_VERSION)"
   INSTALL_ISTIO_YAML="$(istio_yaml $ISTIO_VERSION $ISTIO_MESH)"
 
+  if [[ -z "$CERT_MANAGER_VERSION" ]]; then
+    # Defaults to 0.6.1
+    CERT_MANAGER_VERSION=0.6.1
+  fi
+  INSTALL_CERT_MANAGER_CRD_YAML="$(cert_manager_crds_yaml $CERT_MANAGER_VERSION)"
+
   echo ">> Installing Knative serving"
   echo "Istio CRD YAML: ${INSTALL_ISTIO_CRD_YAML}"
   echo "Istio YAML: ${INSTALL_ISTIO_YAML}"
@@ -167,6 +185,11 @@ function install_knative_serving_standard() {
 
   echo ">> Running Istio"
   kubectl apply -f "${INSTALL_ISTIO_YAML}" || return 1
+
+  echo ">> Installing Cert-Manager CRDs"
+  kubectl apply -f "${INSTALL_CERT_MANAGER_CRD_YAML}" || return 1
+
+  # TODO: install full cert-manager when auto TLS is landed.
 
   echo ">> Installing Build"
   # TODO: should this use a released copy of Build?
@@ -238,6 +261,7 @@ function knative_teardown() {
   else
     echo ">> Uninstalling Knative serving"
     echo "Istio YAML: ${INSTALL_ISTIO_YAML}"
+    echo "Cert-Manager CRD YAML: ${INSTALL_CERT_MANAGER_CRD_YAML}"
     echo "Knative YAML: ${INSTALL_RELEASE_YAML}"
     echo "Knative Build YAML: ${INSTALL_BUILD_DIR}"
     echo "Knative Build Pipeline YAML: ${INSTALL_PIPELINE_DIR}"
@@ -253,6 +277,9 @@ function knative_teardown() {
     echo ">> Bringing down Istio"
     kubectl delete --ignore-not-found=true -f "${INSTALL_ISTIO_YAML}" || return 1
     kubectl delete --ignore-not-found=true clusterrolebinding cluster-admin-binding
+    echo ">> Bringing down Cert-Manager"
+    # TODO: bring down the full cert-manager when auto TLS is landed.
+    kubectl delete --ignore-not-found=true -f "${INSTALL_CERT_MANAGER_CRD_YAML}" || return 1
   fi
 }
 
