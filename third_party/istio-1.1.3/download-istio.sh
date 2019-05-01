@@ -42,6 +42,9 @@ helm template --namespace=istio-system \
   --set global.proxy.autoInject=disabled \
   --set global.disablePolicyChecks=true \
   --set prometheus.enabled=false \
+  `# Enable egress traffic.` \
+  --set global.outboundTrafficPolicy.mode=ALLOW_ANY \
+  --set pilot.env.PILOT_ENABLE_FALLTHROUGH_ROUTE=1 \
   `# Disable mixer prometheus adapter to remove istio default metrics.` \
   --set mixer.adapters.prometheus.enabled=false \
   `# Disable mixer policy check, since in our template we set no policy.` \
