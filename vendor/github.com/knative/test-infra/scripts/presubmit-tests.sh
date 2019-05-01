@@ -43,7 +43,7 @@ IS_DOCUMENTATION_PR=0
 # Returns true if PR only contains the given file regexes.
 # Parameters: $1 - file regexes, space separated.
 function pr_only_contains() {
-  [[ -z "$(echo "${CHANGED_FILES}" | grep -v \(${1// /\\|}\)$))" ]]
+  [[ -z "$(echo "${CHANGED_FILES}" | grep -v "\(${1// /\\|}\)$")" ]]
 }
 
 # List changed files in the current PR.

@@ -110,7 +110,7 @@ type Metadata map[string]interface{}
 
 /* Local logics */
 
-// GetLocalArtifactsDir gets the aritfacts directory where prow looks for artifacts.
+// GetLocalArtifactsDir gets the artifacts directory where prow looks for artifacts.
 // By default, it will look at the env var ARTIFACTS.
 func GetLocalArtifactsDir() string {
 	dir := os.Getenv("ARTIFACTS")
