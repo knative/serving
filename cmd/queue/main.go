@@ -262,9 +262,13 @@ func main() {
 		Handler: createAdminHandlers(),
 	}
 
-	timeoutHandler := queue.TimeToFirstByteTimeoutHandler(http.HandlerFunc(handler(reqChan, breaker, httpProxy)),
+	// Create queue handler chain
+	// Note: innermost handlers are specified first, ie. the last handler in the chain will be executed first
+	var composedHandler http.Handler = http.HandlerFunc(handler(reqChan, breaker, httpProxy))
+	composedHandler = queue.TimeToFirstByteTimeoutHandler(composedHandler,
 		time.Duration(revisionTimeoutSeconds)*time.Second, "request timeout")
-	composedHandler := pushRequestMetricHandler(pushRequestLogHandler(timeoutHandler))
+	composedHandler = pushRequestLogHandler(composedHandler)
+	composedHandler = pushRequestMetricHandler(composedHandler)
 	// We listen on two ports to match the behavior of activator
 	// so that we don't have to reprogram the k8s services.
 	serverHTTP := network.NewServer(fmt.Sprintf(":%d", networking.BackendHTTPPort), composedHandler)
