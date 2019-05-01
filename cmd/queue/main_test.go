@@ -16,18 +16,24 @@ limitations under the License.
 package main
 
 import (
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/http/httputil"
 	"net/url"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
+
+	logtesting "github.com/knative/pkg/logging/testing"
 	"github.com/knative/serving/pkg/activator"
 	"github.com/knative/serving/pkg/network"
-
 	"github.com/knative/serving/pkg/queue"
 )
+
+const wantHost = "a-better-host.com"
 
 func TestHandler_ReqEvent(t *testing.T) {
 	var httpHandler http.HandlerFunc = func(w http.ResponseWriter, r *http.Request) {
@@ -39,6 +45,13 @@ func TestHandler_ReqEvent(t *testing.T) {
 		if r.Header.Get(activator.RevisionHeaderNamespace) != "" {
 			w.WriteHeader(http.StatusBadRequest)
 			return
+		}
+
+		if got, want := r.Host, wantHost; got != want {
+			t.Errorf("Host header = %q, want: %q", got, want)
+		}
+		if got, want := r.Header.Get(network.OriginalHostHeader), ""; got != want {
+			t.Errorf("%s header was preserved", network.OriginalHostHeader)
 		}
 
 		w.WriteHeader(http.StatusOK)
@@ -57,6 +70,11 @@ func TestHandler_ReqEvent(t *testing.T) {
 
 	writer := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
+
+	// Verify the Original host header processing.
+	req.Host = "nimporte.pas"
+	req.Header.Set(network.OriginalHostHeader, wantHost)
+
 	req.Header.Set(network.ProxyHeaderName, activator.Name)
 	h(writer, req)
 	select {
@@ -66,5 +84,50 @@ func TestHandler_ReqEvent(t *testing.T) {
 		}
 	case <-time.After(5 * time.Second):
 		t.Fatal("Timed out waiting for an event to be intercepted")
+	}
+}
+
+func TestProberHandler(t *testing.T) {
+	defer logtesting.ClearAll()
+	logger = logtesting.TestLogger(t)
+
+	// All arguments are needed only for serving.
+	h := handler(nil, nil, nil)
+
+	writer := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
+
+	req.Header.Set(network.ProbeHeaderName, "test-probe")
+	req.Header.Set(network.ProxyHeaderName, activator.Name)
+
+	h(writer, req)
+
+	// Should get 400.
+	if got, want := writer.Code, http.StatusBadRequest; got != want {
+		t.Errorf("Bad probe status = %v, want: %v", got, want)
+	}
+	if got, want := strings.TrimSpace(writer.Body.String()), fmt.Sprintf(badProbeTemplate, "test-probe"); got != want {
+		// \r\n might be inserted, etc.
+		t.Errorf("Bad probe body = %q, want: %q, diff: %s", got, want, cmp.Diff(got, want))
+	}
+
+	// Fix up the header.
+	writer = httptest.NewRecorder()
+	req.Header.Set(network.ProbeHeaderName, queue.Name)
+
+	server := httptest.NewServer(http.HandlerFunc(h))
+	defer server.Close()
+	userTargetAddress = strings.TrimPrefix(server.URL, "http://")
+	h(writer, req)
+
+	// Should get 200.
+	if got, want := writer.Code, http.StatusOK; got != want {
+		t.Errorf("Good probe status = %v, want: %v", got, want)
+	}
+
+	// Body should be the `queue`.
+	if got, want := strings.TrimSpace(writer.Body.String()), queue.Name; got != want {
+		// \r\n might be inserted, etc.
+		t.Errorf("Good probe body = %q, want: %q, diff: %s", got, want, cmp.Diff(got, want))
 	}
 }
