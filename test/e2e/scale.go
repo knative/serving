@@ -105,7 +105,6 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 					},
 				}),
 				WithConfigAnnotations(map[string]string{
-					"autoscaling.knative.dev/minScale": "0",
 					"autoscaling.knative.dev/maxScale": "1",
 				}))
 
