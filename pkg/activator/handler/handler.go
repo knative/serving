@@ -199,19 +199,8 @@ func (a *ActivationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// rewriteHost removes the `Host` header from the inbound request
-// and replaces it with our custom header. This is done to avoid
-// Istio Host based routing.
-// Queue-Proxy will execute the reverse process.
-func rewriteHost(r *http.Request) {
-	h := r.Host
-	r.Host = ""
-	r.Header.Del("Host")
-	r.Header.Set(network.OriginalHostHeader, h)
-}
-
 func (a *ActivationHandler) proxyRequest(w http.ResponseWriter, r *http.Request, target *url.URL) int {
-	rewriteHost(r)
+	network.RewriteHostIn(r)
 	recorder := pkghttp.NewResponseRecorder(w, http.StatusOK)
 	proxy := httputil.NewSingleHostReverseProxy(target)
 	proxy.Transport = &ochttp.Transport{

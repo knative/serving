@@ -262,3 +262,26 @@ func checkTemplate(t *template.Template) error {
 func IsKubeletProbe(r *http.Request) bool {
 	return strings.HasPrefix(r.Header.Get("User-Agent"), kubeProbeUAPrefix)
 }
+
+// RewriteHostIn removes the `Host` header from the inbound (server) request
+// and replaces it with our custom header.
+// This is done to avoid Istio Host based routing, see #3870.
+// Queue-Proxy will execute the reverse process.
+func RewriteHostIn(r *http.Request) {
+	h := r.Host
+	r.Host = ""
+	r.Header.Del("Host")
+	r.Header.Set(OriginalHostHeader, h)
+}
+
+// RewriteHostOut undoes the `RewriteHostIn` action.
+// RewriteHostOut checks if network.OriginalHostHeader was set and if it was,
+// then uses that as the r.Host (which takes priority over Request.Header["Host"]).
+// If the request did not have the OriginalHostHeader header set, the request is untouched.
+func RewriteHostOut(r *http.Request) {
+	if ohh := r.Header.Get(OriginalHostHeader); ohh != "" {
+		r.Host = ohh
+		r.Header.Del("Host")
+		r.Header.Del(OriginalHostHeader)
+	}
+}

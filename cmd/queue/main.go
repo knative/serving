@@ -179,7 +179,7 @@ func handler(reqChan chan queue.ReqEvent, breaker *queue.Breaker, proxy *httputi
 		defer func() {
 			reqChan <- queue.ReqEvent{Time: time.Now(), EventType: out}
 		}()
-		rewriteHost(r)
+		network.RewriteHostOut(r)
 
 		// Enforce queuing and concurrency limits.
 		if breaker != nil {
@@ -192,18 +192,6 @@ func handler(reqChan chan queue.ReqEvent, breaker *queue.Breaker, proxy *httputi
 		} else {
 			proxy.ServeHTTP(w, r)
 		}
-	}
-}
-
-// rewriteHost undoes the `rewriteHost` action in the Activator.
-// rewriteHost checks if OriginalHostHeader was set and if it was,
-// then uses that as the r.Host (which takes priority over Request.Header["Host"].
-// If the request did not have the OriginalHostHeader header set, the request is untouched.
-func rewriteHost(r *http.Request) {
-	if ohh := r.Header.Get(network.OriginalHostHeader); ohh != "" {
-		r.Host = ohh
-		r.Header.Del("Host")
-		r.Header.Del(network.OriginalHostHeader)
 	}
 }
 
