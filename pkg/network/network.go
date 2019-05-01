@@ -45,7 +45,7 @@ const (
 	// in Activator.
 	// The header contains the original Host value that can be rewritten
 	// at the Queue proxy level back to be a host header.
-	OriginalHostHeader = "K-Proxy-Header"
+	OriginalHostHeader = "K-Original-Host"
 
 	// ConfigName is the name of the configmap containing all
 	// customizations for networking features.
