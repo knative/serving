@@ -56,11 +56,14 @@ header "Running tests"
 failed=0
 
 # Run conformance and e2e tests.
-#go_test_e2e -timeout=30m ./test/conformance ./test/e2e \
-#  --resolvabledomain=$(use_resolvable_domain) || failed=1
+go_test_e2e -timeout=30m \
+  ./test/conformance \
+  ./test/e2e \
+  ./test/e2e/build \
+  "--resolvabledomain=$(use_resolvable_domain)" || failed=1
 
 # Run scale tests.
-#go_test_e2e -timeout=10m ./test/scale || failed=1
+go_test_e2e -timeout=10m ./test/scale || failed=1
 
 # Require that both set of tests succeeded.
 (( failed )) && fail_test

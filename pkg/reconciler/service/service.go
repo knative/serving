@@ -129,6 +129,8 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 	// Don't modify the informers copy
 	service := original.DeepCopy()
 
+	var reconcileErr error
+
 	if service.Spec.DeprecatedManual != nil {
 		// We do not know the status when in manual mode. The Route can be
 		// updated with Configurations not known to the Service which would
@@ -145,7 +147,7 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 	} else {
 		// Reconcile this copy of the service and then write back any status
 		// updates regardless of whether the reconciliation errored out.
-		err = c.reconcile(ctx, service)
+		reconcileErr = c.reconcile(ctx, service)
 	}
 
 	if equality.Semantic.DeepEqual(original.Status, service.Status) {
@@ -159,14 +161,14 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 		c.Recorder.Eventf(service, corev1.EventTypeWarning, "UpdateFailed",
 			"Failed to update status for Service %q: %v", service.Name, uErr)
 		return uErr
-	} else if err == nil {
-		// If there was a difference and there was no error.
+	} else if reconcileErr == nil {
+		// There was a difference and updateStatus did not return an error.
 		c.Recorder.Eventf(service, corev1.EventTypeNormal, "Updated", "Updated Service %q", service.GetName())
 	}
-	if err != nil {
-		c.Recorder.Event(service, corev1.EventTypeWarning, "InternalError", err.Error())
+	if reconcileErr != nil {
+		c.Recorder.Event(service, corev1.EventTypeWarning, "InternalError", reconcileErr.Error())
 	}
-	return err
+	return reconcileErr
 }
 
 func (c *Reconciler) reconcile(ctx context.Context, service *v1alpha1.Service) error {

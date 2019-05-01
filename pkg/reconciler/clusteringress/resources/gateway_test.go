@@ -17,13 +17,31 @@ limitations under the License.
 package resources
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/knative/pkg/apis/istio/v1alpha3"
+	"github.com/knative/pkg/system"
 	"github.com/knative/serving/pkg/apis/networking/v1alpha1"
+	"github.com/knative/serving/pkg/reconciler/clusteringress/config"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
+
+var secret = corev1.Secret{
+	ObjectMeta: metav1.ObjectMeta{
+		Name:      "secret0",
+		Namespace: system.Namespace(),
+	},
+	Data: map[string][]byte{
+		"test": []byte("test"),
+	},
+}
+
+var originSecrets = map[string]*corev1.Secret{
+	fmt.Sprintf("%s/secret0", system.Namespace()): &secret,
+}
 
 var gateway = v1alpha3.Gateway{
 	Spec: v1alpha3.GatewaySpec{
@@ -69,7 +87,7 @@ var clusterIngress = v1alpha1.ClusterIngress{
 		TLS: []v1alpha1.ClusterIngressTLS{{
 			Hosts:             []string{"host1.example.com"},
 			SecretName:        "secret0",
-			SecretNamespace:   "istio-system",
+			SecretNamespace:   system.Namespace(),
 			ServerCertificate: "tls.crt",
 			PrivateKey:        "tls.key",
 		}},
@@ -98,22 +116,109 @@ func TestGetServers(t *testing.T) {
 }
 
 func TestMakeServers(t *testing.T) {
-	servers := MakeServers(&clusterIngress)
-	expected := []v1alpha3.Server{{
-		Hosts: []string{"host1.example.com"},
-		Port: v1alpha3.Port{
-			Name:     "clusteringress:0",
-			Number:   443,
-			Protocol: v1alpha3.ProtocolHTTPS,
-		},
-		TLS: &v1alpha3.TLSOptions{
-			Mode:              v1alpha3.TLSModeSimple,
-			ServerCertificate: "tls.crt",
-			PrivateKey:        "tls.key",
-		},
+	cases := []struct {
+		name                    string
+		ci                      *v1alpha1.ClusterIngress
+		gatewayServiceNamespace string
+		originSecrets           map[string]*corev1.Secret
+		expected                []v1alpha3.Server
+		wantErr                 bool
+	}{{
+		name: "secret namespace is the different from the gateway service namespace",
+		ci:   &clusterIngress,
+		// gateway service namespace is "istio-system", while the secret namespace is system.Namespace()("knative-testing").
+		gatewayServiceNamespace: "istio-system",
+		originSecrets:           originSecrets,
+		expected: []v1alpha3.Server{{
+			Hosts: []string{"host1.example.com"},
+			Port: v1alpha3.Port{
+				Name:     "clusteringress:0",
+				Number:   443,
+				Protocol: v1alpha3.ProtocolHTTPS,
+			},
+			TLS: &v1alpha3.TLSOptions{
+				Mode:              v1alpha3.TLSModeSimple,
+				ServerCertificate: "tls.crt",
+				PrivateKey:        "tls.key",
+				CredentialName:    targetSecret(&secret),
+			},
+		}},
+	}, {
+		name: "secret namespace is the same as the gateway service namespace",
+		ci:   &clusterIngress,
+		// gateway service namespace and the secret namespace are both in system.Namespace().
+		gatewayServiceNamespace: system.Namespace(),
+		originSecrets:           originSecrets,
+		expected: []v1alpha3.Server{{
+			Hosts: []string{"host1.example.com"},
+			Port: v1alpha3.Port{
+				Name:     "clusteringress:0",
+				Number:   443,
+				Protocol: v1alpha3.ProtocolHTTPS,
+			},
+			TLS: &v1alpha3.TLSOptions{
+				Mode:              v1alpha3.TLSModeSimple,
+				ServerCertificate: "tls.crt",
+				PrivateKey:        "tls.key",
+				CredentialName:    "secret0",
+			},
+		}},
+	}, {
+		name:                    "error to make servers because of incorrect originSecrets",
+		ci:                      &clusterIngress,
+		gatewayServiceNamespace: "istio-system",
+		originSecrets:           map[string]*corev1.Secret{},
+		wantErr:                 true,
 	}}
-	if diff := cmp.Diff(expected, servers); diff != "" {
-		t.Errorf("Unexpected servers (-want +got): %v", diff)
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			servers, err := MakeServers(c.ci, c.gatewayServiceNamespace, c.originSecrets)
+			if (err != nil) != c.wantErr {
+				t.Fatalf("Test: %s; MakeServers error = %v, WantErr %v", c.name, err, c.wantErr)
+			}
+			if diff := cmp.Diff(c.expected, servers); diff != "" {
+				t.Errorf("Unexpected servers (-want, +got): %v", diff)
+			}
+		})
+	}
+}
+
+func TestGatewayServiceNamespace(t *testing.T) {
+	cases := []struct {
+		name            string
+		ingressGateways []config.Gateway
+		gatewayName     string
+		expected        string
+		wantErr         bool
+	}{{
+		name: "Gateway service exists.",
+		ingressGateways: []config.Gateway{{
+			GatewayName: "test-gateway",
+			ServiceURL:  "istio-ingressgateway.istio-system.svc.cluster.local",
+		}},
+		gatewayName: "test-gateway",
+		expected:    "istio-system",
+		wantErr:     false,
+	}, {
+		name: "Gateway service does not exists.",
+		ingressGateways: []config.Gateway{{
+			GatewayName: "test-gateway",
+			ServiceURL:  "istio-ingressgateway.istio-system.svc.cluster.local",
+		}},
+		gatewayName: "non-exist-gateway",
+		wantErr:     true,
+	}}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			gatewayServiceNamespace, err := GatewayServiceNamespace(c.ingressGateways, c.gatewayName)
+			if (err != nil) != c.wantErr {
+				t.Fatalf("Test: %s; GatewayServiceNamespace error = %v, WantErr %v", c.name, err, c.wantErr)
+			}
+
+			if diff := cmp.Diff(c.expected, gatewayServiceNamespace); diff != "" {
+				t.Errorf("Unexpected gateway service namespace (-want, +got): %v", diff)
+			}
+		})
 	}
 }
 

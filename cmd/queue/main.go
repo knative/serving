@@ -26,8 +26,6 @@ import (
 	"os"
 	"time"
 
-	"go.uber.org/zap"
-
 	"github.com/knative/pkg/logging/logkey"
 	"github.com/knative/pkg/metrics"
 	"github.com/knative/pkg/signals"
@@ -36,13 +34,13 @@ import (
 	activatorutil "github.com/knative/serving/pkg/activator/util"
 	"github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/autoscaler"
-	"github.com/knative/serving/pkg/http/h2c"
+	pkghttp "github.com/knative/serving/pkg/http"
 	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/pkg/network"
 	"github.com/knative/serving/pkg/queue"
 	"github.com/knative/serving/pkg/queue/health"
 	queuestats "github.com/knative/serving/pkg/queue/stats"
-
+	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/wait"
 )
 
@@ -83,10 +81,8 @@ var (
 	logger                 *zap.SugaredLogger
 	breaker                *queue.Breaker
 
-	h2cProxy  *httputil.ReverseProxy
 	httpProxy *httputil.ReverseProxy
 
-	server           *http.Server
 	healthState      = &health.State{}
 	promStatReporter *queue.PrometheusStatsReporter // Prometheus stats reporter.
 )
@@ -147,13 +143,8 @@ func probeUserContainer() bool {
 }
 
 // Make handler a closure for testing.
-func handler(reqChan chan queue.ReqEvent, breaker *queue.Breaker, httpProxy, h2cProxy *httputil.ReverseProxy) func(http.ResponseWriter, *http.Request) {
+func handler(reqChan chan queue.ReqEvent, breaker *queue.Breaker, proxy *httputil.ReverseProxy) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		proxy := httpProxy
-		if r.ProtoMajor == 2 {
-			proxy = h2cProxy
-		}
-
 		ph := knativeProbeHeader(r)
 		switch {
 		case ph != "":
@@ -225,13 +216,10 @@ func main() {
 	}
 
 	httpProxy = httputil.NewSingleHostReverseProxy(target)
+	httpProxy.Transport = network.AutoTransport
 	httpProxy.FlushInterval = -1
-	h2cProxy = httputil.NewSingleHostReverseProxy(target)
-	h2cProxy.Transport = h2c.DefaultTransport
-	h2cProxy.FlushInterval = -1
 
 	activatorutil.SetupHeaderPruning(httpProxy)
-	activatorutil.SetupHeaderPruning(h2cProxy)
 
 	// If containerConcurrency == 0 then concurrency is unlimited.
 	if containerConcurrency > 0 {
@@ -269,13 +257,13 @@ func main() {
 		Handler: createAdminHandlers(),
 	}
 
-	timeoutHandler := queue.TimeToFirstByteTimeoutHandler(http.HandlerFunc(handler(reqChan, breaker, httpProxy, h2cProxy)),
+	timeoutHandler := queue.TimeToFirstByteTimeoutHandler(http.HandlerFunc(handler(reqChan, breaker, httpProxy)),
 		time.Duration(revisionTimeoutSeconds)*time.Second, "request timeout")
 	composedHandler := pushRequestMetricHandler(pushRequestLogHandler(timeoutHandler))
 	// We listen on two ports to match the behavior of activator
 	// so that we don't have to reprogram the k8s services.
-	serverHTTP := h2c.NewServer(fmt.Sprintf(":%d", networking.BackendHTTPPort), composedHandler)
-	serverHTTP2 := h2c.NewServer(fmt.Sprintf(":%d", networking.BackendHTTP2Port), composedHandler)
+	serverHTTP := network.NewServer(fmt.Sprintf(":%d", networking.BackendHTTPPort), composedHandler)
+	serverHTTP2 := network.NewServer(fmt.Sprintf(":%d", networking.BackendHTTP2Port), composedHandler)
 
 	errChan := make(chan error, 3)
 	defer close(errChan)
@@ -329,7 +317,7 @@ func pushRequestLogHandler(currentHandler http.Handler) http.Handler {
 		return currentHandler
 	}
 
-	revInfo := &queue.RequestLogRevInfo{
+	revInfo := &pkghttp.RequestLogRevision{
 		Name:          servingRevision,
 		Namespace:     servingNamespace,
 		Service:       servingService,
@@ -337,7 +325,8 @@ func pushRequestLogHandler(currentHandler http.Handler) http.Handler {
 		PodName:       servingPodName,
 		PodIP:         servingPodIP,
 	}
-	handler, err := queue.NewRequestLogHandler(currentHandler, logging.NewSyncFileWriter(os.Stdout), templ, revInfo)
+	handler, err := pkghttp.NewRequestLogHandler(currentHandler, logging.NewSyncFileWriter(os.Stdout), templ,
+		pkghttp.RequestLogTemplateInputGetterFromRevision(revInfo))
 
 	if err != nil {
 		logger.Errorw("Error setting up request logger. Request logs will be unavailable.", zap.Error(err))

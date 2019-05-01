@@ -117,6 +117,7 @@ func ContainerMask(in *corev1.Container) *corev1.Container {
 	out.Args = in.Args
 	out.Command = in.Command
 	out.Env = in.Env
+	out.WorkingDir = in.WorkingDir
 	out.EnvFrom = in.EnvFrom
 	out.Image = in.Image
 	out.ImagePullPolicy = in.ImagePullPolicy
@@ -155,10 +156,10 @@ func VolumeMountMask(in *corev1.VolumeMount) *corev1.VolumeMount {
 	out.Name = in.Name
 	out.ReadOnly = in.ReadOnly
 	out.MountPath = in.MountPath
+	out.SubPath = in.SubPath
 
 	// Disallowed fields
 	// This list is unnecessary, but added here for clarity
-	out.SubPath = ""
 	out.MountPropagation = nil
 
 	return out

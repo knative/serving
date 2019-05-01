@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package queue
+package http
 
 import (
 	"bytes"
@@ -24,7 +24,7 @@ import (
 	"testing"
 )
 
-var defaultRevInfo = &RequestLogRevInfo{
+var defaultRevInfo = &RequestLogRevision{
 	Name:          "rev",
 	Namespace:     "ns",
 	Service:       "svc",
@@ -50,7 +50,7 @@ func TestRequestLogHandler(t *testing.T) {
 		url:      "http://example.com/testpage",
 		body:     "test",
 		template: "",
-		want:     "\n",
+		want:     "",
 		wantErr:  false,
 	}, {
 		name:     "template with new line",
@@ -85,7 +85,8 @@ func TestRequestLogHandler(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			buf := bytes.NewBufferString("")
-			handler, err := NewRequestLogHandler(baseHandler, buf, test.template, defaultRevInfo)
+			handler, err := NewRequestLogHandler(baseHandler, buf, test.template,
+				RequestLogTemplateInputGetterFromRevision(defaultRevInfo))
 			if test.wantErr != (err != nil) {
 				t.Errorf("got %v, want error %v", err, test.wantErr)
 			}
@@ -109,7 +110,8 @@ func TestPanickingHandler(t *testing.T) {
 		panic("no!")
 	})
 	buf := bytes.NewBufferString("")
-	handler, err := NewRequestLogHandler(baseHandler, buf, "{{.Request.URL}}", defaultRevInfo)
+	handler, err := NewRequestLogHandler(baseHandler, buf, "{{.Request.URL}}",
+		RequestLogTemplateInputGetterFromRevision(defaultRevInfo))
 	if err != nil {
 		t.Errorf("got %v, want error: %v", err, false)
 	}
@@ -135,7 +137,8 @@ func TestFailedTemplateExecution(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	})
 	buf := bytes.NewBufferString("")
-	handler, err := NewRequestLogHandler(baseHandler, buf, "{{.Request.Something}}", defaultRevInfo)
+	handler, err := NewRequestLogHandler(baseHandler, buf, "{{.Request.Something}}",
+		RequestLogTemplateInputGetterFromRevision(defaultRevInfo))
 	if err != nil {
 		t.Errorf("got %v, wantErr %v, ", err, false)
 	}
@@ -147,5 +150,76 @@ func TestFailedTemplateExecution(t *testing.T) {
 	got := string(buf.Bytes())
 	if want := "Invalid request log template: "; !strings.HasPrefix(got, want) {
 		t.Errorf("got: '%v', want: '%v'", got, want)
+	}
+}
+
+func TestSetTemplate(t *testing.T) {
+	baseHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+
+	url, body := "http://example.com/testpage", "test"
+	tests := []struct {
+		name     string
+		template string
+		want     string
+		wantErr  bool
+	}{{
+		name:     "empty template 1",
+		template: "",
+		want:     "",
+		wantErr:  false,
+	}, {
+		name:     "template with new line",
+		template: "{{.Request.URL}}\n",
+		want:     "http://example.com/testpage\n",
+		wantErr:  false,
+	}, {
+		name:     "empty template 2",
+		template: "",
+		want:     "",
+		wantErr:  false,
+	}, {
+		name:     "template without new line",
+		template: "{{.Request.ContentLength}}",
+		want:     "4\n",
+		wantErr:  false,
+	}, {
+		name:     "empty template 3",
+		template: "",
+		want:     "",
+		wantErr:  false,
+	}, {
+		name:     "invalid template",
+		template: "{{}}",
+		want:     "",
+		wantErr:  true,
+	}}
+
+	buf := bytes.NewBufferString("")
+	handler, err := NewRequestLogHandler(baseHandler, buf, "",
+		RequestLogTemplateInputGetterFromRevision(defaultRevInfo))
+	if err != nil {
+		t.Fatalf("want: no error, got: %v", err)
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			err := handler.SetTemplate(test.template)
+			if test.wantErr != (err != nil) {
+				t.Errorf("got %v, want error %v", err, test.wantErr)
+			}
+
+			if !test.wantErr {
+				buf.Reset()
+				resp := httptest.NewRecorder()
+				req := httptest.NewRequest(http.MethodPost, url, bytes.NewBufferString(body))
+				handler.ServeHTTP(resp, req)
+				got := string(buf.Bytes())
+				if got != test.want {
+					t.Errorf("got '%v', want '%v'", got, test.want)
+				}
+			}
+		})
 	}
 }

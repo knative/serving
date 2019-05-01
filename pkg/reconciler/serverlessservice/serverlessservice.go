@@ -162,10 +162,10 @@ func (r *reconciler) Reconcile(ctx context.Context, key string) error {
 
 	// Don't modify the informers copy.
 	sks := original.DeepCopy()
-	err = r.reconcile(ctx, sks)
-	if err != nil {
-		r.Recorder.Eventf(sks, corev1.EventTypeWarning, "UpdateFailed", "InternalError: %v", err.Error())
-		return err
+	reconcileErr := r.reconcile(ctx, sks)
+	if reconcileErr != nil {
+		r.Recorder.Eventf(sks, corev1.EventTypeWarning, "UpdateFailed", "InternalError: %v", reconcileErr.Error())
+		return reconcileErr
 	}
 	if !equality.Semantic.DeepEqual(sks.Status, original.Status) {
 		// Only update status if it changed.
