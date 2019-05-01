@@ -167,8 +167,10 @@ ko apply -f config/
 
 # Configure outbound network for GKE.
 export PROJECT_ID="my-gcp-project-id"
-export K8S_CLUSTER_ZONE="my-cluster-zone" # Set K8S_CLUSTER_REGION for regional
-clusters
+# Set K8S_CLUSTER_ZONE if using a zonal cluster
+export K8S_CLUSTER_ZONE="my-cluster-zone"
+# Set K8S_CLUSTER_REGION if using a regional cluster
+export K8S_CLUSTER_REGION="my-cluster-region"
 ./hack/dev-patch-config-gke.sh my-k8s-cluster-name
 
 # Run post-install job to setup nice XIP.IO domain name.  This only works
