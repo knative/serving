@@ -70,17 +70,18 @@ const (
 )
 
 var (
-	servingService         string
+	containerConcurrency   int
+	queueServingPort       int
+	revisionTimeoutSeconds int
 	servingConfig          string
 	servingNamespace       string
-	servingRevision        string
-	servingRevisionKey     string
 	servingPodIP           string
 	servingPodName         string
-	userTargetPort         int
+	servingRevision        string
+	servingRevisionKey     string
+	servingService         string
 	userTargetAddress      string
-	containerConcurrency   int
-	revisionTimeoutSeconds int
+	userTargetPort         int
 	reqChan                = make(chan queue.ReqEvent, requestCountingQueueLength)
 	logger                 *zap.SugaredLogger
 	breaker                *queue.Breaker
@@ -92,14 +93,15 @@ var (
 )
 
 func initEnv() {
-	servingService = os.Getenv("SERVING_SERVICE") // KService is optional
+	containerConcurrency = util.MustParseIntEnvOrFatal("CONTAINER_CONCURRENCY", logger)
+	queueServingPort = util.MustParseIntEnvOrFatal("QUEUE_SERVING_PORT", logger)
+	revisionTimeoutSeconds = util.MustParseIntEnvOrFatal("REVISION_TIMEOUT_SECONDS", logger)
 	servingConfig = util.GetRequiredEnvOrFatal("SERVING_CONFIGURATION", logger)
 	servingNamespace = util.GetRequiredEnvOrFatal("SERVING_NAMESPACE", logger)
-	servingRevision = util.GetRequiredEnvOrFatal("SERVING_REVISION", logger)
 	servingPodIP = util.GetRequiredEnvOrFatal("SERVING_POD_IP", logger)
 	servingPodName = util.GetRequiredEnvOrFatal("SERVING_POD", logger)
-	containerConcurrency = util.MustParseIntEnvOrFatal("CONTAINER_CONCURRENCY", logger)
-	revisionTimeoutSeconds = util.MustParseIntEnvOrFatal("REVISION_TIMEOUT_SECONDS", logger)
+	servingRevision = util.GetRequiredEnvOrFatal("SERVING_REVISION", logger)
+	servingService = os.Getenv("SERVING_SERVICE") // KService is optional
 	userTargetPort = util.MustParseIntEnvOrFatal("USER_PORT", logger)
 	userTargetAddress = fmt.Sprintf("127.0.0.1:%d", userTargetPort)
 
@@ -269,12 +271,10 @@ func main() {
 		time.Duration(revisionTimeoutSeconds)*time.Second, "request timeout")
 	composedHandler = pushRequestLogHandler(composedHandler)
 	composedHandler = pushRequestMetricHandler(composedHandler)
-	// We listen on two ports to match the behavior of activator
-	// so that we don't have to reprogram the k8s services.
-	serverHTTP := network.NewServer(fmt.Sprintf(":%d", networking.BackendHTTPPort), composedHandler)
-	serverHTTP2 := network.NewServer(fmt.Sprintf(":%d", networking.BackendHTTP2Port), composedHandler)
+	logger.Infof("Queue-proxy will listen on port %d", queueServingPort)
+	server := network.NewServer(fmt.Sprintf(":%d", queueServingPort), composedHandler)
 
-	errChan := make(chan error, 3)
+	errChan := make(chan error, 2)
 	defer close(errChan)
 	// Runs a server created by creator and sends fatal errors to the errChan.
 	// Does not act on the ErrServerClosed error since that indicates we're
@@ -285,8 +285,7 @@ func main() {
 		}
 	}
 
-	go catchServerError(serverHTTP.ListenAndServe)
-	go catchServerError(serverHTTP2.ListenAndServe)
+	go catchServerError(server.ListenAndServe)
 	go catchServerError(adminServer.ListenAndServe)
 
 	// Blocks until we actually receive a TERM signal or one of the servers
@@ -305,11 +304,8 @@ func main() {
 
 			// Calling server.Shutdown() allows pending requests to
 			// complete, while no new work is accepted.
-			if err := serverHTTP.Shutdown(context.Background()); err != nil {
-				logger.Errorw("Failed to shutdown proxy server for HTTP/1", zap.Error(err))
-			}
-			if err := serverHTTP2.Shutdown(context.Background()); err != nil {
-				logger.Errorf("Failed to shutdown proxy server for HTTP/2", zap.Error(err))
+			if err := server.Shutdown(context.Background()); err != nil {
+				logger.Errorw("Failed to shutdown proxy server", zap.Error(err))
 			}
 		})
 

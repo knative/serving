@@ -93,6 +93,9 @@ func TestMakeQueueContainer(t *testing.T) {
 				Name:  "SERVING_AUTOSCALER_PORT",
 				Value: "8080",
 			}, {
+				Name:  "QUEUE_SERVING_PORT",
+				Value: "8012",
+			}, {
 				Name:  "CONTAINER_CONCURRENCY",
 				Value: "1",
 			}, {
@@ -184,6 +187,9 @@ func TestMakeQueueContainer(t *testing.T) {
 				Name:  "SERVING_AUTOSCALER_PORT",
 				Value: "8080",
 			}, {
+				Name:  "QUEUE_SERVING_PORT",
+				Value: "8013",
+			}, {
 				Name:  "CONTAINER_CONCURRENCY",
 				Value: "1",
 			}, {
@@ -269,6 +275,9 @@ func TestMakeQueueContainer(t *testing.T) {
 			}, {
 				Name:  "SERVING_AUTOSCALER_PORT",
 				Value: "8080",
+			}, {
+				Name:  "QUEUE_SERVING_PORT",
+				Value: "8012",
 			}, {
 				Name:  "CONTAINER_CONCURRENCY",
 				Value: "1",
@@ -356,6 +365,9 @@ func TestMakeQueueContainer(t *testing.T) {
 				Name:  "SERVING_AUTOSCALER_PORT",
 				Value: "8080",
 			}, {
+				Name:  "QUEUE_SERVING_PORT",
+				Value: "8012",
+			}, {
 				Name:  "CONTAINER_CONCURRENCY",
 				Value: "0",
 			}, {
@@ -441,6 +453,9 @@ func TestMakeQueueContainer(t *testing.T) {
 				Name:  "SERVING_AUTOSCALER_PORT",
 				Value: "8080",
 			}, {
+				Name:  "QUEUE_SERVING_PORT",
+				Value: "8012",
+			}, {
 				Name:  "CONTAINER_CONCURRENCY",
 				Value: "0",
 			}, {
@@ -521,6 +536,9 @@ func TestMakeQueueContainer(t *testing.T) {
 				Name:  "SERVING_AUTOSCALER_PORT",
 				Value: "8080",
 			}, {
+				Name:  "QUEUE_SERVING_PORT",
+				Value: "8012",
+			}, {
 				Name:  "CONTAINER_CONCURRENCY",
 				Value: "10",
 			}, {
@@ -600,6 +618,9 @@ func TestMakeQueueContainer(t *testing.T) {
 			}, {
 				Name:  "SERVING_AUTOSCALER_PORT",
 				Value: "8080",
+			}, {
+				Name:  "QUEUE_SERVING_PORT",
+				Value: "8012",
 			}, {
 				Name:  "CONTAINER_CONCURRENCY",
 				Value: "0",
@@ -682,6 +703,9 @@ func TestMakeQueueContainer(t *testing.T) {
 			}, {
 				Name:  "SERVING_AUTOSCALER_PORT",
 				Value: "8080",
+			}, {
+				Name:  "QUEUE_SERVING_PORT",
+				Value: "8012",
 			}, {
 				Name:  "CONTAINER_CONCURRENCY",
 				Value: "0",
