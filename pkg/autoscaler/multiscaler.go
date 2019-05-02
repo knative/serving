@@ -237,6 +237,7 @@ func (m *MultiScaler) createScaler(ctx context.Context, decider *Decider) (*scal
 	}
 	runner.decider.Status.DesiredScale = -1
 
+	// TODO(#3977): Make sure this is reconciled if the tick interval changes.
 	ticker := time.NewTicker(decider.Spec.TickInterval)
 
 	scaleChan := make(chan int32, scaleBufferSize)
