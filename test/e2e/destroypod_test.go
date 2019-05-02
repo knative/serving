@@ -63,7 +63,7 @@ func TestDestroyPodInflight(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Error fetching Route %s: %v", names.Route, err)
 	}
-	domain := route.Status.Domain
+	domain := route.Status.URL.Host
 
 	err = test.WaitForConfigurationState(clients.ServingClient, names.Config, func(c *v1alpha1.Configuration) (bool, error) {
 		if c.Status.LatestCreatedRevisionName != names.Revision {

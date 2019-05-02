@@ -20,6 +20,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/knative/pkg/apis"
 	_ "github.com/knative/pkg/system/testing"
 	"github.com/knative/serving/pkg/apis/networking"
 	netv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
@@ -44,7 +45,10 @@ func TestMakeClusterIngress_CorrectMetadata(t *testing.T) {
 		},
 		Status: v1alpha1.RouteStatus{
 			RouteStatusFields: v1alpha1.RouteStatusFields{
-				Domain: "domain.com",
+				URL: &apis.URL{
+					Scheme: "http",
+					Host:   "domain.com",
+				},
 			},
 		},
 	}
@@ -93,7 +97,10 @@ func TestMakeClusterIngressSpec_CorrectRules(t *testing.T) {
 		},
 		Status: v1alpha1.RouteStatus{
 			RouteStatusFields: v1alpha1.RouteStatusFields{
-				Domain: "domain.com",
+				URL: &apis.URL{
+					Scheme: "http",
+					Host:   "domain.com",
+				},
 			},
 		},
 	}
@@ -155,7 +162,10 @@ func TestMakeClusterIngressSpec_CorrectVisibility(t *testing.T) {
 		route: v1alpha1.Route{
 			Status: v1alpha1.RouteStatus{
 				RouteStatusFields: v1alpha1.RouteStatusFields{
-					Domain: "domain.com",
+					URL: &apis.URL{
+						Scheme: "http",
+						Host:   "domain.com",
+					},
 				},
 			},
 		},
@@ -165,7 +175,10 @@ func TestMakeClusterIngressSpec_CorrectVisibility(t *testing.T) {
 		route: v1alpha1.Route{
 			Status: v1alpha1.RouteStatus{
 				RouteStatusFields: v1alpha1.RouteStatusFields{
-					Domain: "local-route.default.svc.cluster.local",
+					URL: &apis.URL{
+						Scheme: "http",
+						Host:   "local-route.default.svc.cluster.local",
+					},
 				},
 			},
 		},
@@ -190,7 +203,10 @@ func TestGetRouteDomains_NamelessTargetDup(t *testing.T) {
 		},
 		Status: v1alpha1.RouteStatus{
 			RouteStatusFields: v1alpha1.RouteStatusFields{
-				Domain: base,
+				URL: &apis.URL{
+					Scheme: "http",
+					Host:   base,
+				},
 			},
 		},
 	}
@@ -212,7 +228,10 @@ func TestGetRouteDomains_NamelessTarget(t *testing.T) {
 		},
 		Status: v1alpha1.RouteStatus{
 			RouteStatusFields: v1alpha1.RouteStatusFields{
-				Domain: base,
+				URL: &apis.URL{
+					Scheme: "http",
+					Host:   base,
+				},
 			},
 		},
 	}
@@ -238,7 +257,10 @@ func TestGetRouteDomains_NamedTarget(t *testing.T) {
 		},
 		Status: v1alpha1.RouteStatus{
 			RouteStatusFields: v1alpha1.RouteStatusFields{
-				Domain: base,
+				URL: &apis.URL{
+					Scheme: "http",
+					Host:   base,
+				},
 			},
 		},
 	}

@@ -468,7 +468,9 @@ func TestTrafficTargetValidation(t *testing.T) {
 			TrafficTarget: v1beta1.TrafficTarget{
 				ConfigurationName: "foo",
 				Percent:           100,
-				URL:               "ShouldNotBeSet",
+				URL: &apis.URL{
+					Host: "should.not.be.set",
+				},
 			},
 		},
 		want: apis.ErrDisallowedFields("url"),

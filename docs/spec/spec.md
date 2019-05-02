@@ -75,10 +75,13 @@ spec:
   - ...
 
 status:
-  # domain: The hostname used to access the default (traffic-split)
+  # DEPRECATED: see url (below)
+  domain: my-service.default.mydomain.com
+
+  # url: The url used to access the default (traffic-split)
   #   route. Typically, this will be composed of the name and namespace
   #   along with a cluster-specific prefix (here, mydomain.com).
-  domain: my-service.default.mydomain.com
+  url: http://my-service.default.mydomain.com
 
   address: # knative/pkg/apis/duck/v1alpha1.Addressable
     # hostname: A DNS name for the default (traffic-split) route which can
@@ -324,10 +327,13 @@ status:
   # Latest created Revision, may still be in the process of being materialized.
   latestCreatedRevisionName: def
 
-  # domain: The hostname used to access the default (traffic-split)
-  #   route. Typically, this will be composed of the name and namespace
+  # DEPRECATED: see url (below)
+  domain: my-service.default.mydomain.com
+
+  # url: The url used to access the default (traffic-split)
+  #   service. Typically, this will be composed of the name and namespace
   #   along with a cluster-specific prefix (here, mydomain.com).
-  domain: myservice.default.mydomain.com
+  url: http://my-service.default.mydomain.com
 
   address: # knative/pkg/apis/duck/v1alpha1.Addressable
     # hostname: A DNS name for the default (traffic-split) route which can

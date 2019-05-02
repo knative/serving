@@ -70,8 +70,10 @@ func (source *RouteStatus) ConvertUp(ctx context.Context, sink *v1beta1.RouteSta
 
 // ConvertUp helps implement apis.Convertible
 func (source *RouteStatusFields) ConvertUp(ctx context.Context, sink *v1beta1.RouteStatusFields) {
-	// TODO(mattmoor): Domain
-	// TODO(mattmoor): DomainInternal
+	if source.URL != nil {
+		sink.URL = *source.URL
+	}
+
 	// TODO(mattmoor): Address
 
 	sink.Traffic = make([]v1beta1.TrafficTarget, len(source.Traffic))
@@ -115,8 +117,10 @@ func (sink *RouteStatus) ConvertDown(ctx context.Context, source v1beta1.RouteSt
 
 // ConvertDown helps implement apis.Convertible
 func (sink *RouteStatusFields) ConvertDown(ctx context.Context, source v1beta1.RouteStatusFields) {
-	// TODO(mattmoor): Domain
-	// TODO(mattmoor): DomainInternal
+	if source.URL.Host != "" {
+		sink.URL = source.URL.DeepCopy()
+	}
+
 	// TODO(mattmoor): Address
 
 	sink.Traffic = make([]TrafficTarget, len(source.Traffic))

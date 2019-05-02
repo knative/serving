@@ -83,7 +83,7 @@ func getRouteDomain(clients *test.Clients, names test.ResourceNames) (string, er
 		clients.ServingClient,
 		names.Route,
 		func(r *v1alpha1.Route) (bool, error) {
-			domain = r.Status.Domain
+			domain = r.Status.URL.Host
 			return domain != "", nil
 		},
 		"RouteDomain",

@@ -90,7 +90,7 @@ func testProxyToHelloworld(t *testing.T, clients *test.Clients, helloworldDomain
 		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
 	}
 
-	domain := resources.Route.Status.Domain
+	domain := resources.Route.Status.URL.Host
 	if _, err = pkgTest.WaitForEndpointState(
 		clients.KubeClient,
 		t.Logf,
@@ -155,21 +155,21 @@ func TestServiceToServiceCall(t *testing.T) {
 		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
 	}
 
-	if resources.Route.Status.Domain == "" {
-		t.Fatalf("Route is missing .Status.Domain: %#v", resources.Route.Status)
+	if resources.Route.Status.URL.Host == "" {
+		t.Fatalf("Route is missing .Status.URL: %#v", resources.Route.Status)
 	}
 	if resources.Route.Status.Address == nil {
 		t.Fatalf("Route is missing .Status.Address: %#v", resources.Route.Status)
 	}
 	// Check that the target Route's Domain matches its cluster local address.
-	if want, got := resources.Route.Status.Address.Hostname, resources.Route.Status.Domain; got != want {
-		t.Errorf("Route.Domain = %v, want %v", got, want)
+	if want, got := resources.Route.Status.Address.Hostname, resources.Route.Status.URL.Host; got != want {
+		t.Errorf("Route.Status.URL.Host = %v, want %v", got, want)
 	}
-	t.Logf("helloworld internal domain is %s.", resources.Route.Status.Domain)
+	t.Logf("helloworld internal domain is %s.", resources.Route.Status.URL.Host)
 
 	// helloworld app and its route are ready. Running the test cases now.
 	for _, tc := range testCases {
-		helloworldDomain := strings.TrimSuffix(resources.Route.Status.Domain, tc.suffix)
+		helloworldDomain := strings.TrimSuffix(resources.Route.Status.URL.Host, tc.suffix)
 		t.Run(tc.name, func(t *testing.T) {
 			testProxyToHelloworld(t, clients, helloworldDomain)
 		})
@@ -207,5 +207,5 @@ func TestServiceToServiceCallFromZero(t *testing.T) {
 	}
 
 	// Send request to helloworld app via httpproxy service
-	testProxyToHelloworld(t, clients, helloWorld.Route.Status.Domain)
+	testProxyToHelloworld(t, clients, helloWorld.Route.Status.URL.Host)
 }

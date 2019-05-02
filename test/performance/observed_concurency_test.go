@@ -162,7 +162,7 @@ func testConcurrencyN(t *testing.T, concurrency int) []junit.TestCase {
 		t.Fatalf("Failed to create Service: %v", err)
 	}
 
-	domain := objs.Route.Status.Domain
+	domain := objs.Route.Status.URL.Host
 
 	url := fmt.Sprintf("http://%s/?timeout=1000", domain)
 	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, t.Logf, domain, test.ServingFlags.ResolvableDomain)
