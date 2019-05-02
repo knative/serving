@@ -26,12 +26,12 @@ import (
 
 const (
 	// ConfigName is the name of the configmap
-	ConfigName = "config-tracing"
+	ConfigName = "config-observability"
 
-	enableKey         = "enable"
-	zipkinEndpointKey = "zipkin-endpoint"
-	debugKey          = "debug"
-	sampleRateKey     = "sample-rate"
+	enableKey         = "tracing.enable"
+	zipkinEndpointKey = "tracing.zipkin-endpoint"
+	debugKey          = "tracing.debug"
+	sampleRateKey     = "tracing.sample-rate"
 )
 
 // Config holds the configuration for tracers

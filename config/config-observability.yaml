@@ -149,3 +149,16 @@ data:
     # flag to "true" could cause extra Stackdriver charge.
     # If metrics.backend-destination is not Stackdriver, this is ignored.
     metrics.allow-stackdriver-custom-metrics: "false"
+
+    # If true we enable adding spans within our applications.
+    tracing.enable: "false"
+
+    # URL to zipkin collector where traces are sent.
+    tracing.zipkin-endpoint: "http://zipkin.istio-system.svc.cluster.local:9411/api/v2/spans"
+
+    # Enable zipkin debug mode. This allows all spans to be sent to the server
+    # bypassing sampling.
+    tracing.debug: "false"
+
+    # Percentage (0-1) of requests to trace
+    tracing.sample-rate: "0.1"
