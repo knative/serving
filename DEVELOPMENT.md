@@ -156,7 +156,7 @@ within the file. If this file is edited and deployed after Knative Serving
 installation, the changes in it will be effective only for newly created
 revisions. Alternatively, if you are developing on GKE, you can skip the editing
 and use the patching tool in `hack/dev-patch-config-gke.sh` after deploying
-knative. 
+knative.
 
 Edited `config-network.yaml` example:
 
