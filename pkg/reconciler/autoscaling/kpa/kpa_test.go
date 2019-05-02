@@ -22,8 +22,11 @@ import (
 	"testing"
 	"time"
 
+	"k8s.io/apimachinery/pkg/util/wait"
+
 	"github.com/google/go-cmp/cmp"
 	"go.uber.org/atomic"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/controller"
@@ -62,22 +65,26 @@ import (
 	. "github.com/knative/serving/pkg/reconciler/testing"
 )
 
-var (
-	gracePeriod   = 60 * time.Second
-	stableWindow  = 5 * time.Minute
-	configMapData = map[string]string{
+const (
+	gracePeriod              = 60 * time.Second
+	stableWindow             = 5 * time.Minute
+	defaultConcurrencyTarget = 10.0
+)
+
+func defaultConfigMapData() map[string]string {
+	return map[string]string{
 		"max-scale-up-rate":                       "1.0",
 		"container-concurrency-target-percentage": "0.5",
-		"container-concurrency-target-default":    "10.0",
+		"container-concurrency-target-default":    fmt.Sprintf("%v", defaultConcurrencyTarget),
 		"stable-window":                           stableWindow.String(),
 		"panic-window":                            "10s",
 		"scale-to-zero-grace-period":              gracePeriod.String(),
 		"tick-interval":                           "2s",
 	}
-)
+}
 
 func defaultConfig() *config.Config {
-	autoscalerConfig, _ := autoscaler.NewConfigFromMap(configMapData)
+	autoscalerConfig, _ := autoscaler.NewConfigFromMap(defaultConfigMapData())
 	return &config.Config{
 		Autoscaler: autoscalerConfig,
 	}
@@ -89,7 +96,7 @@ func newConfigWatcher() configmap.Watcher {
 			Namespace: system.Namespace(),
 			Name:      autoscaler.ConfigName,
 		},
-		Data: configMapData,
+		Data: defaultConfigMapData(),
 	})
 }
 
@@ -679,6 +686,104 @@ func deploy(namespace, name string, opts ...deploymentOption) *appsv1.Deployment
 	return s
 }
 
+func TestGlobalResyncOnUpdateAutoscalerConfigMap(t *testing.T) {
+	defer logtesting.ClearAll()
+
+	kubeClient := fakeK8s.NewSimpleClientset()
+	servingClient := fakeKna.NewSimpleClientset()
+	dynamicClient := fakedynamic.NewSimpleDynamicClient(runtime.NewScheme())
+	watcher := &configmap.ManualWatcher{Namespace: system.Namespace()}
+
+	opts := reconciler.Options{
+		KubeClientSet:    kubeClient,
+		ServingClientSet: servingClient,
+		DynamicClientSet: dynamicClient,
+		Logger:           logtesting.TestLogger(t),
+		ConfigMapWatcher: watcher,
+	}
+
+	servingInformer := informers.NewSharedInformerFactory(servingClient, 0)
+	kubeInformer := kubeinformers.NewSharedInformerFactory(kubeClient, 0)
+
+	scaler := NewScaler(opts)
+
+	fakeDeciders := newTestDeciders()
+	fakeMetrics := newTestMetrics()
+	ctl := NewController(&opts,
+		servingInformer.Autoscaling().V1alpha1().PodAutoscalers(),
+		servingInformer.Networking().V1alpha1().ServerlessServices(),
+		kubeInformer.Core().V1().Services(),
+		kubeInformer.Core().V1().Endpoints(),
+		fakeDeciders,
+		fakeMetrics,
+		scaler,
+	)
+
+	// Load default config
+	watcher.OnChange(&corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      autoscaler.ConfigName,
+			Namespace: system.Namespace(),
+		},
+		Data: defaultConfigMapData(),
+	})
+
+	stopCh := make(chan struct{})
+	grp := errgroup.Group{}
+	defer func() {
+		close(stopCh)
+		if err := grp.Wait(); err != nil {
+			t.Errorf("Wait() = %v", err)
+		}
+	}()
+
+	servingInformer.Start(stopCh)
+	kubeInformer.Start(stopCh)
+	if err := watcher.Start(stopCh); err != nil {
+		t.Fatalf("failed to start configmap watcher: %v", err)
+	}
+
+	servingInformer.WaitForCacheSync(stopCh)
+	kubeInformer.WaitForCacheSync(stopCh)
+
+	grp.Go(func() error { return ctl.Run(1, stopCh) })
+
+	rev := newTestRevision(testNamespace, testRevision)
+	newDeployment(t, dynamicClient, testRevision+"-deployment", 3)
+
+	kpa := revisionresources.MakeKPA(rev)
+	servingClient.AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
+	servingInformer.Autoscaling().V1alpha1().PodAutoscalers().Informer().GetIndexer().Add(kpa)
+
+	// Wait for decider to be created.
+	if decider, err := pollDeciders(fakeDeciders, testNamespace, testRevision, nil); err != nil {
+		t.Fatalf("Failed to get decider: %v", err)
+	} else if got, want := decider.Spec.TargetConcurrency, defaultConcurrencyTarget; got != want {
+		t.Fatalf("TargetConcurrency = %v, want %v", got, want)
+	}
+
+	concurrencyTargetAfterUpdate := 100.0
+	data := defaultConfigMapData()
+	data["container-concurrency-target-default"] = fmt.Sprintf("%v", concurrencyTargetAfterUpdate)
+	watcher.OnChange(&corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      autoscaler.ConfigName,
+			Namespace: system.Namespace(),
+		},
+		Data: data,
+	})
+
+	// Wait for decider to be updated with the new values from the configMap.
+	cond := func(d *autoscaler.Decider) bool {
+		return d.Spec.TargetConcurrency == concurrencyTargetAfterUpdate
+	}
+	if decider, err := pollDeciders(fakeDeciders, testNamespace, testRevision, cond); err != nil {
+		t.Fatalf("Failed to get decider: %v", err)
+	} else if got, want := decider.Spec.TargetConcurrency, concurrencyTargetAfterUpdate; got != want {
+		t.Fatalf("TargetConcurrency = %v, want %v", got, want)
+	}
+}
+
 func TestControllerSynchronizesCreatesAndDeletes(t *testing.T) {
 	defer logtesting.ClearAll()
 
@@ -1260,6 +1365,20 @@ func TestBadKey(t *testing.T) {
 	if err != nil {
 		t.Errorf("Reconcile() = %v", err)
 	}
+}
+
+func pollDeciders(deciders *testDeciders, namespace, name string, cond func(*autoscaler.Decider) bool) (decider *autoscaler.Decider, err error) {
+	wait.PollImmediate(10*time.Millisecond, 3*time.Second, func() (bool, error) {
+		decider, err = deciders.Get(context.Background(), namespace, name)
+		if err != nil {
+			return false, nil
+		}
+		if cond == nil {
+			return true, nil
+		}
+		return cond(decider), nil
+	})
+	return decider, err
 }
 
 func newTestDeciders() *testDeciders {
