@@ -66,16 +66,12 @@ func MakeSecrets(ctx context.Context, originSecrets map[string]*corev1.Secret, c
 func makeSecret(originSecret *corev1.Secret, targetNamespace string, ci *v1alpha1.ClusterIngress) *corev1.Secret {
 	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      targetSecret(originSecret),
+			Name:      targetSecret(originSecret, ci),
 			Namespace: targetNamespace,
 			Labels: map[string]string{
 				networking.OriginSecretNameLabelKey:      originSecret.Name,
 				networking.OriginSecretNamespaceLabelKey: originSecret.Namespace,
 			},
-			// TODO(zhiminx): currently we temporarily tie the lifecycle of the copied secrets to ClusterIngress.
-			// But this won't work in the future when we have a wildcard certificate because wildecard
-			// certificate can be shared across multiple ClusterIngress. So we need a better way
-			// to handle the lifecyle when landing wildcard certificate.
 			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(ci)},
 		},
 		Data: originSecret.Data,
@@ -84,8 +80,8 @@ func makeSecret(originSecret *corev1.Secret, targetNamespace string, ci *v1alpha
 }
 
 // targetSecret returns the name of the Secret that is copied from the origin Secret.
-func targetSecret(originSecret *corev1.Secret) string {
-	return fmt.Sprintf("tls-%s", originSecret.UID)
+func targetSecret(originSecret *corev1.Secret, ci *v1alpha1.ClusterIngress) string {
+	return fmt.Sprintf("%s-%s", ci.Name, originSecret.UID)
 }
 
 // SecretRef returns the ObjectReference of a secret given the namespace and name of the secret.

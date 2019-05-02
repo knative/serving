@@ -63,7 +63,7 @@ import (
 const (
 	originDomainInternal = "origin.istio-system.svc.cluster.local"
 	newDomainInternal    = "custom.istio-system.svc.cluster.local"
-	targetSecretName     = "tls-uid"
+	targetSecretName     = "reconciling-clusteringress-uid"
 )
 
 var (

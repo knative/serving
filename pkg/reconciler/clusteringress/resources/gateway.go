@@ -84,7 +84,7 @@ func MakeServers(ci *v1alpha1.ClusterIngress, gatewayServiceNamespace string, or
 			if !ok {
 				return nil, fmt.Errorf("Unable to get the original secret %s/%s", tls.SecretNamespace, tls.SecretName)
 			}
-			credentialName = targetSecret(originSecret)
+			credentialName = targetSecret(originSecret, ci)
 		}
 		servers = append(servers, v1alpha3.Server{
 			Hosts: tls.Hosts,
