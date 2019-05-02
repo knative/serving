@@ -34,15 +34,9 @@ const (
 	tickTimeout  = 50 * time.Millisecond
 )
 
-var (
-	config = &Config{
-		TickInterval: tickInterval,
-	}
-
-	testStatMessage = StatMessage{
-		Key: testKPAKey,
-	}
-)
+var testStatMessage = StatMessage{
+	Key: testKPAKey,
+}
 
 // watchFunc generates a function to assert the changes happening in the multiscaler.
 func watchFunc(ctx context.Context, ms *MultiScaler, decider *Decider, desiredScale int, errCh chan error) func(key string) {
