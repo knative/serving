@@ -152,7 +152,7 @@ func buildContainerPorts(userPort int32) []corev1.ContainerPort {
 
 func buildUserPortEnv(userPort string) corev1.EnvVar {
 	return corev1.EnvVar{
-		Name:  userPortEnvName,
+		Name:  "PORT",
 		Value: userPort,
 	}
 }

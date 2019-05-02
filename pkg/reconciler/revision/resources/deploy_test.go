@@ -85,12 +85,6 @@ var (
 			Name:  "SERVING_REVISION",
 			Value: "bar", // matches name
 		}, {
-			Name:  "SERVING_AUTOSCALER",
-			Value: "autoscaler", // no autoscaler configured.
-		}, {
-			Name:  "SERVING_AUTOSCALER_PORT",
-			Value: "8080",
-		}, {
 			Name:  "QUEUE_SERVING_PORT",
 			Value: "8012",
 		}, {
