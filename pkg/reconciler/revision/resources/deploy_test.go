@@ -91,6 +91,9 @@ var (
 			Name:  "SERVING_AUTOSCALER_PORT",
 			Value: "8080",
 		}, {
+			Name:  "QUEUE_SERVING_PORT",
+			Value: "8012",
+		}, {
 			Name:  "CONTAINER_CONCURRENCY",
 			Value: "0",
 		}, {
