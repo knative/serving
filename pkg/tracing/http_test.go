@@ -25,6 +25,7 @@ import (
 	openzipkin "github.com/openzipkin/zipkin-go"
 	zipkinreporter "github.com/openzipkin/zipkin-go/reporter"
 	reporterrecorder "github.com/openzipkin/zipkin-go/reporter/recorder"
+	"go.opencensus.io/plugin/ochttp"
 )
 
 type fakeWriter struct {
@@ -71,6 +72,9 @@ func TestHTTPSpanMiddleware(t *testing.T) {
 
 	next := testHandler{}
 	middleware := HTTPSpanMiddleware("test-op", &next)
+	middleware = &ochttp.Handler{
+		Handler: middleware,
+	}
 
 	var lastWrite []byte
 	fw := fakeWriter{lastWrite: &lastWrite}
@@ -79,6 +83,9 @@ func TestHTTPSpanMiddleware(t *testing.T) {
 	if err != nil {
 		t.Errorf("Failed to make fake request: %v", err)
 	}
+	req.Header["X-B3-Traceid"] = []string{"821e0d50d931235a5ba3fa42eddddd8f"}
+	req.Header["X-B3-Spanid"] = []string{"b3bd5e1c4318c78a"}
+
 	middleware.ServeHTTP(fw, req)
 
 	// Assert our next handler was called
@@ -87,7 +94,16 @@ func TestHTTPSpanMiddleware(t *testing.T) {
 	}
 
 	spans := reporter.Flush()
-	if len(spans) != 1 {
-		t.Errorf("Got %d spans, expected 1", len(spans))
+	if len(spans) != 2 {
+		t.Errorf("Got %d spans, expected 2", len(spans))
+	}
+	if spans[0].TraceID.String() != "821e0d50d931235a5ba3fa42eddddd8f" {
+		t.Error("Span 1's TraceID is not correct")
+	}
+	if spans[1].TraceID.String() != "821e0d50d931235a5ba3fa42eddddd8f" {
+		t.Error("Span 2's TraceID is not correct")
+	}
+	if spans[0].ParentID.String() != spans[1].ID.String() {
+		t.Errorf("Span 2 (id %v) should be parent of span 1 (parentId %v)", spans[1].ID.String(), spans[0].ParentID.String())
 	}
 }

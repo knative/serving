@@ -55,6 +55,7 @@ import (
 	"github.com/knative/serving/pkg/tracing"
 	tracingconfig "github.com/knative/serving/pkg/tracing/config"
 	zipkin "github.com/openzipkin/zipkin-go"
+	"go.opencensus.io/plugin/ochttp"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -294,6 +295,9 @@ func main() {
 	}
 	ah = activatorhandler.NewRequestEventHandler(reqChan, ah)
 	ah = tracing.HTTPSpanMiddleware("handle_request", ah)
+	ah = &ochttp.Handler{
+		Handler: ah,
+	}
 	ah = configStore.HTTPMiddleware(ah)
 	reqLogHandler, err := pkghttp.NewRequestLogHandler(ah, logging.NewSyncFileWriter(os.Stdout), "",
 		requestLogTemplateInputGetter(revisionGetter))
