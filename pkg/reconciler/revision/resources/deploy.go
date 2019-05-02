@@ -165,6 +165,7 @@ func MakeDeployment(rev *v1alpha1.Revision,
 	podTemplateAnnotations := resources.FilterMap(rev.GetAnnotations(), func(k string) bool {
 		return k == serving.RevisionLastPinnedAnnotationKey
 	})
+
 	// TODO(nghia): Remove the need for this
 	// Only force-set the inject annotation if the revision does not state otherwise.
 	if _, ok := podTemplateAnnotations[sidecarIstioInjectAnnotation]; !ok {
