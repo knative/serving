@@ -458,6 +458,7 @@ func TestAutoscaler_UpdateTarget(t *testing.T) {
 	a.Update(DeciderSpec{
 		TargetConcurrency: 1.0,
 		PanicThreshold:    2.0,
+		MaxScaleUpRate:    10.0,
 		MetricSpec:        a.deciderSpec.MetricSpec,
 	})
 	a.expectScale(t, now, 100, true)
@@ -541,19 +542,10 @@ func (r *mockReporter) ReportPanic(v int64) error {
 }
 
 func newTestAutoscaler(containerConcurrency int) *Autoscaler {
-	scaleToZeroGracePeriod := 30 * time.Second
-	config := &Config{
-		ContainerConcurrencyTargetPercentage: 1.0, // targeting 100% makes the test easier to read
-		ContainerConcurrencyTargetDefault:    10.0,
-		MaxScaleUpRate:                       10.0,
-		StableWindow:                         stableWindow,
-		PanicWindow:                          panicWindow,
-		ScaleToZeroGracePeriod:               scaleToZeroGracePeriod,
-	}
-
 	deciderSpec := DeciderSpec{
 		TargetConcurrency: float64(containerConcurrency),
 		PanicThreshold:    2 * float64(containerConcurrency),
+		MaxScaleUpRate:    10.0,
 		MetricSpec: MetricSpec{
 			StableWindow: stableWindow,
 			PanicWindow:  panicWindow,
