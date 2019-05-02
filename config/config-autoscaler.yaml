@@ -34,7 +34,8 @@ data:
     # to users that `kubectl edit` this config map.
     #
     # These sample configuration options may be copied out of
-    # this block and unindented to actually change the configuration.
+    # this example block and unindented to be in the data block 
+    # to actually change the configuration.
 
     # The Revision ContainerConcurrency field specifies the maximum number
     # of requests the Container can handle at once. Container concurrency
