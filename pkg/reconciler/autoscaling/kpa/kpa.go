@@ -35,6 +35,7 @@ import (
 	listers "github.com/knative/serving/pkg/client/listers/autoscaling/v1alpha1"
 	nlisters "github.com/knative/serving/pkg/client/listers/networking/v1alpha1"
 	"github.com/knative/serving/pkg/reconciler"
+	"github.com/knative/serving/pkg/reconciler/autoscaling/config"
 	"github.com/knative/serving/pkg/reconciler/autoscaling/kpa/resources"
 	"github.com/knative/serving/pkg/reconciler/autoscaling/kpa/resources/names"
 	aresources "github.com/knative/serving/pkg/reconciler/autoscaling/resources"
@@ -108,7 +109,7 @@ type Reconciler struct {
 	kpaDeciders     Deciders
 	metrics         Metrics
 	scaler          Scaler
-	dynConfig       *autoscaler.DynamicConfig
+	configStore     *config.Store
 }
 
 // Check that our Reconciler implements controller.Reconciler
@@ -124,7 +125,7 @@ func NewController(
 	kpaDeciders Deciders,
 	metrics Metrics,
 	scaler Scaler,
-	dynConfig *autoscaler.DynamicConfig,
+	configStore *config.Store,
 ) *controller.Impl {
 
 	c := &Reconciler{
@@ -136,7 +137,7 @@ func NewController(
 		kpaDeciders:     kpaDeciders,
 		metrics:         metrics,
 		scaler:          scaler,
-		dynConfig:       dynConfig,
+		configStore:     configStore,
 	}
 	impl := controller.NewImpl(c, c.Logger, "KPA-Class Autoscaling", reconciler.MustNewStatsReporter("KPA-Class Autoscaling", c.Logger))
 
@@ -174,6 +175,8 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 		return nil
 	}
 	logger := logging.FromContext(ctx)
+	ctx = c.configStore.ToContext(ctx)
+
 	logger.Debug("Reconcile kpa-class PodAutoscaler")
 
 	original, err := c.paLister.PodAutoscalers(namespace).Get(name)
@@ -286,7 +289,7 @@ func (c *Reconciler) reconcile(ctx context.Context, pa *pav1alpha1.PodAutoscaler
 }
 
 func (c *Reconciler) reconcileDecider(ctx context.Context, pa *pav1alpha1.PodAutoscaler, k8sSvc string) (*autoscaler.Decider, error) {
-	desiredDecider := resources.MakeDecider(ctx, pa, c.dynConfig.Current())
+	desiredDecider := resources.MakeDecider(ctx, pa, config.FromContext(ctx).Autoscaler)
 	desiredDecider.Labels[serving.KubernetesServiceLabelKey] = k8sSvc
 	decider, err := c.kpaDeciders.Get(ctx, desiredDecider.Namespace, desiredDecider.Name)
 	if errors.IsNotFound(err) {
@@ -390,7 +393,7 @@ func (c *Reconciler) reconcileMetricsService(ctx context.Context, pa *pav1alpha1
 }
 
 func (c *Reconciler) reconcileMetric(ctx context.Context, pa *pav1alpha1.PodAutoscaler) error {
-	desiredMetric := resources.MakeMetric(ctx, pa, c.dynConfig.Current())
+	desiredMetric := resources.MakeMetric(ctx, pa, config.FromContext(ctx).Autoscaler)
 	metric, err := c.metrics.Get(ctx, desiredMetric.Namespace, desiredMetric.Name)
 	if errors.IsNotFound(err) {
 		metric, err = c.metrics.Create(ctx, desiredMetric)
