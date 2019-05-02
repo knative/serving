@@ -30,11 +30,11 @@ function istio_crds_yaml() {
   echo "./third_party/istio-${istio_version}/istio-crds.yaml"
 }
 
-# Choose a correct cert-manager-crds.yaml file.
+# Choose a correct cert-manager.yaml file.
 # - $1 specifies cert-manager version.
-function cert_manager_crds_yaml() {
+function cert_manager_yaml() {
   local cert_manager_version="$1"
-  echo "./third_party/cert-manager-${cert_manager_version}/cert-manager-crds.yaml" 
+  echo "./third_party/cert-manager-${cert_manager_version}/cert-manager.yaml" 
 }
 
 # Choose a correct istio.yaml file.
@@ -169,11 +169,12 @@ function install_knative_serving_standard() {
     # Defaults to 0.6.1
     CERT_MANAGER_VERSION=0.6.1
   fi
-  INSTALL_CERT_MANAGER_CRD_YAML="$(cert_manager_crds_yaml $CERT_MANAGER_VERSION)"
+  INSTALL_CERT_MANAGER_YAML="$(cert_manager_yaml $CERT_MANAGER_VERSION)"
 
   echo ">> Installing Knative serving"
   echo "Istio CRD YAML: ${INSTALL_ISTIO_CRD_YAML}"
   echo "Istio YAML: ${INSTALL_ISTIO_YAML}"
+  echo "Cert Manager YAML: ${INSTALL_CERT_MANAGER_YAML}"
   echo "Knative YAML: ${INSTALL_RELEASE_YAML}"
   echo "Knative Build YAML: ${INSTALL_BUILD_DIR}"
   echo "Knative Build Pipeline YAML: ${INSTALL_PIPELINE_DIR}"
@@ -186,10 +187,8 @@ function install_knative_serving_standard() {
   echo ">> Running Istio"
   kubectl apply -f "${INSTALL_ISTIO_YAML}" || return 1
 
-  echo ">> Installing Cert-Manager CRDs"
-  kubectl apply -f "${INSTALL_CERT_MANAGER_CRD_YAML}" || return 1
-
-  # TODO: install full cert-manager when auto TLS is landed.
+  echo ">> Installing Cert-Manager"
+  kubectl apply -f "${INSTALL_CERT_MANAGER_YAML}" || return 1
 
   echo ">> Installing Build"
   # TODO: should this use a released copy of Build?
@@ -278,8 +277,7 @@ function knative_teardown() {
     kubectl delete --ignore-not-found=true -f "${INSTALL_ISTIO_YAML}" || return 1
     kubectl delete --ignore-not-found=true clusterrolebinding cluster-admin-binding
     echo ">> Bringing down Cert-Manager"
-    # TODO: bring down the full cert-manager when auto TLS is landed.
-    kubectl delete --ignore-not-found=true -f "${INSTALL_CERT_MANAGER_CRD_YAML}" || return 1
+    kubectl delete --ignore-not-found=true -f "${INSTALL_CERT_MANAGER_YAML}" || return 1
   fi
 }
 

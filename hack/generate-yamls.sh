@@ -47,9 +47,6 @@ readonly ISTIO_YAML=${YAML_REPO_ROOT}/third_party/istio-1.1-latest/istio.yaml
 readonly ISTIO_LEAN_YAML=${YAML_REPO_ROOT}/third_party/istio-1.1-latest/istio-lean.yaml
 readonly ISTIO_KNATIVE_EXTRAS_YAML=${YAML_REPO_ROOT}/third_party/istio-1.1-latest/istio-knative-extras.yaml
 
-# Location of cert-manager YAMLS
-readonly CERT_MANAGER_CRD_YAML=${YAML_REPO_ROOT}/third_party/cert-manager-0.6.1/cert-manager-crds.yaml
-
 # Set output directory
 if [[ -z "${YAML_OUTPUT_DIR:-}" ]]; then
   readonly YAML_OUTPUT_DIR="$(mktemp -d)"
@@ -121,5 +118,3 @@ echo "All manifests generated"
 ls -1 ${SERVING_YAML} > ${YAML_LIST_FILE}
 ls -1 ${YAML_OUTPUT_DIR}/*.yaml | grep -v ${SERVING_YAML} >> ${YAML_LIST_FILE}
 ls -1 ${ISTIO_CRD_YAML} ${ISTIO_YAML} ${ISTIO_LEAN_YAML} ${ISTIO_KNATIVE_EXTRAS_YAML} >> ${YAML_LIST_FILE}
-ls -1 ${CERT_MANAGER_CRD_YAML} >> ${YAML_LIST_FILE}
-# TODO: add cert-manager.yaml file when auto TLS is landed.
