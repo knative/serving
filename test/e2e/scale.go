@@ -104,10 +104,7 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 						corev1.ResourceMemory: resource.MustParse("20Mi"),
 					},
 				}),
-				// See #2946 for why we do this.
-				// turns off auto scaling by setting max and min scale to 1
 				WithConfigAnnotations(map[string]string{
-					"autoscaling.knative.dev/minScale": "1",
 					"autoscaling.knative.dev/maxScale": "1",
 				}))
 
