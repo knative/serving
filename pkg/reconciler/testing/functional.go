@@ -378,6 +378,12 @@ func WithSvcStatusDomain(s *v1alpha1.Service) {
 // WithSvcStatusAddress updates the service's status with the address.
 func WithSvcStatusAddress(s *v1alpha1.Service) {
 	s.Status.Address = &duckv1alpha1.Addressable{
+		Addressable: duckv1beta1.Addressable{
+			URL: &apis.URL{
+				Scheme: "http",
+				Host:   fmt.Sprintf("%s.%s.svc.cluster.local", s.Name, s.Namespace),
+			},
+		},
 		Hostname: fmt.Sprintf("%s.%s.svc.cluster.local", s.Name, s.Namespace),
 	}
 }
@@ -555,6 +561,12 @@ func WithDomainInternal(r *v1alpha1.Route) {
 // WithAddress sets the .Status.Address field to the prototypical internal hostname.
 func WithAddress(r *v1alpha1.Route) {
 	r.Status.Address = &duckv1alpha1.Addressable{
+		Addressable: duckv1beta1.Addressable{
+			URL: &apis.URL{
+				Scheme: "http",
+				Host:   fmt.Sprintf("%s.%s.svc.cluster.local", r.Name, r.Namespace),
+			},
+		},
 		Hostname: fmt.Sprintf("%s.%s.svc.cluster.local", r.Name, r.Namespace),
 	}
 }

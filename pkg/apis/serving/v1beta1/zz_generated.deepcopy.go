@@ -22,6 +22,7 @@ package v1beta1
 
 import (
 	apis "github.com/knative/pkg/apis"
+	duckv1beta1 "github.com/knative/pkg/apis/duck/v1beta1"
 	v1 "k8s.io/api/core/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 )
@@ -394,6 +395,11 @@ func (in *RouteStatusFields) DeepCopyInto(out *RouteStatusFields) {
 	if in.URL != nil {
 		in, out := &in.URL, &out.URL
 		*out = new(apis.URL)
+		(*in).DeepCopyInto(*out)
+	}
+	if in.Address != nil {
+		in, out := &in.Address, &out.Address
+		*out = new(duckv1beta1.Addressable)
 		(*in).DeepCopyInto(*out)
 	}
 	if in.Traffic != nil {
