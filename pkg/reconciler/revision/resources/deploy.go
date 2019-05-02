@@ -165,8 +165,12 @@ func MakeDeployment(rev *v1alpha1.Revision,
 	podTemplateAnnotations := resources.FilterMap(rev.GetAnnotations(), func(k string) bool {
 		return k == serving.RevisionLastPinnedAnnotationKey
 	})
+
 	// TODO(nghia): Remove the need for this
-	podTemplateAnnotations[sidecarIstioInjectAnnotation] = "true"
+	// Only force-set the inject annotation if the revision does not state otherwise.
+	if _, ok := podTemplateAnnotations[sidecarIstioInjectAnnotation]; !ok {
+		podTemplateAnnotations[sidecarIstioInjectAnnotation] = "true"
+	}
 	// TODO(mattmoor): Once we have a mechanism for decorating arbitrary deployments (and opting
 	// out via annotation) we should explicitly disable that here to avoid redundant Image
 	// resources.

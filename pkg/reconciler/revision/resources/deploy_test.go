@@ -725,7 +725,7 @@ func TestMakeDeployment(t *testing.T) {
 		cc   *deployment.Config
 		want *appsv1.Deployment
 	}{{
-		name: "simple concurrency=single no owner",
+		name: "with concurrency=1",
 		rev: revision(
 			withoutLabels,
 			withContainerConcurrency(1),
@@ -737,7 +737,7 @@ func TestMakeDeployment(t *testing.T) {
 		cc:   &deployment.Config{},
 		want: makeDeployment(),
 	}, {
-		name: "simple concurrency=multi with owner",
+		name: "with owner",
 		rev: revision(
 			withoutLabels,
 			withOwnerReference("parent-config"),
@@ -749,7 +749,7 @@ func TestMakeDeployment(t *testing.T) {
 		cc:   &deployment.Config{},
 		want: makeDeployment(),
 	}, {
-		name: "simple concurrency=multi with outbound IP range configured",
+		name: "with outbound IP range configured",
 		rev:  revision(withoutLabels),
 		lc:   &logging.Config{},
 		nc: &network.Config{
@@ -759,10 +759,26 @@ func TestMakeDeployment(t *testing.T) {
 		ac: &autoscaler.Config{},
 		cc: &deployment.Config{},
 		want: makeDeployment(func(deploy *appsv1.Deployment) {
-			deploy.Spec.Template.ObjectMeta.Annotations["traffic.sidecar.istio.io/includeOutboundIPRanges"] = "*"
+			deploy.Spec.Template.ObjectMeta.Annotations[IstioOutboundIPRangeAnnotation] = "*"
 		}),
 	}, {
-		name: "simple concurrency=multi with outbound IP range override",
+		name: "with sidecar annotation override",
+		rev: revision(withoutLabels, func(revision *v1alpha1.Revision) {
+			revision.ObjectMeta.Annotations = map[string]string{
+				sidecarIstioInjectAnnotation: "false",
+			}
+		}),
+		lc: &logging.Config{},
+		nc: &network.Config{},
+		oc: &metrics.ObservabilityConfig{},
+		ac: &autoscaler.Config{},
+		cc: &deployment.Config{},
+		want: makeDeployment(func(deploy *appsv1.Deployment) {
+			deploy.ObjectMeta.Annotations[sidecarIstioInjectAnnotation] = "false"
+			deploy.Spec.Template.ObjectMeta.Annotations[sidecarIstioInjectAnnotation] = "false"
+		}),
+	}, {
+		name: "with outbound IP range override",
 		rev: revision(
 			withoutLabels,
 			func(revision *v1alpha1.Revision) {
@@ -780,7 +796,7 @@ func TestMakeDeployment(t *testing.T) {
 		cc: &deployment.Config{},
 		want: makeDeployment(func(deploy *appsv1.Deployment) {
 			deploy.ObjectMeta.Annotations[IstioOutboundIPRangeAnnotation] = "10.4.0.0/14,10.7.240.0/20"
-			deploy.Spec.Template.ObjectMeta.Annotations["traffic.sidecar.istio.io/includeOutboundIPRanges"] = "10.4.0.0/14,10.7.240.0/20"
+			deploy.Spec.Template.ObjectMeta.Annotations[IstioOutboundIPRangeAnnotation] = "10.4.0.0/14,10.7.240.0/20"
 		}),
 	}}
 
