@@ -295,9 +295,7 @@ func main() {
 	}
 	ah = activatorhandler.NewRequestEventHandler(reqChan, ah)
 	ah = tracing.HTTPSpanMiddleware("handle_request", ah)
-	ah = &ochttp.Handler{
-		Handler: ah,
-	}
+	ah = &ochttp.Handler{Handler: ah}
 	ah = configStore.HTTPMiddleware(ah)
 	reqLogHandler, err := pkghttp.NewRequestLogHandler(ah, logging.NewSyncFileWriter(os.Stdout), "",
 		requestLogTemplateInputGetter(revisionGetter))

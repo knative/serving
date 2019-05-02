@@ -83,7 +83,8 @@ func TestHTTPSpanMiddleware(t *testing.T) {
 	if err != nil {
 		t.Errorf("Failed to make fake request: %v", err)
 	}
-	req.Header["X-B3-Traceid"] = []string{"821e0d50d931235a5ba3fa42eddddd8f"}
+	traceID := "821e0d50d931235a5ba3fa42eddddd8f"
+	req.Header["X-B3-Traceid"] = []string{traceID}
 	req.Header["X-B3-Spanid"] = []string{"b3bd5e1c4318c78a"}
 
 	middleware.ServeHTTP(fw, req)
@@ -95,13 +96,13 @@ func TestHTTPSpanMiddleware(t *testing.T) {
 
 	spans := reporter.Flush()
 	if len(spans) != 2 {
-		t.Errorf("Got %d spans, expected 2", len(spans))
+		t.Errorf("Got %d spans, expected 2: spans = %v", len(spans), spans)
 	}
-	if spans[0].TraceID.String() != "821e0d50d931235a5ba3fa42eddddd8f" {
-		t.Error("Span 1's TraceID is not correct")
+	if got := spans[0].TraceID.String(); got != traceID {
+		t.Errorf("spans[0].TraceID = %v, want %v", got, traceID)
 	}
-	if spans[1].TraceID.String() != "821e0d50d931235a5ba3fa42eddddd8f" {
-		t.Error("Span 2's TraceID is not correct")
+	if got := spans[1].TraceID.String(); got != traceID {
+		t.Errorf("spans[1].TraceID = %v, want %v", got, traceID)
 	}
 	if spans[0].ParentID.String() != spans[1].ID.String() {
 		t.Errorf("Span 2 (id %v) should be parent of span 1 (parentId %v)", spans[1].ID.String(), spans[0].ParentID.String())
