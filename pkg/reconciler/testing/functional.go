@@ -110,6 +110,20 @@ func WithServiceDeletionTimestamp(r *v1alpha1.Service) {
 	r.ObjectMeta.SetDeletionTimestamp(&t)
 }
 
+// WithEnv configures the Service to use the provided environment variables.
+func WithEnv(evs ...corev1.EnvVar) ServiceOption {
+	return func(s *v1alpha1.Service) {
+		s.Spec.Template.Spec.Containers[0].Env = evs
+	}
+}
+
+// WithEnvFrom configures the Service to use the provided environment variables.
+func WithEnvFrom(evs ...corev1.EnvFromSource) ServiceOption {
+	return func(s *v1alpha1.Service) {
+		s.Spec.Template.Spec.Containers[0].EnvFrom = evs
+	}
+}
+
 // WithInlineRollout configures the Service to be "run latest" via inline
 // Route/Configuration
 func WithInlineRollout(s *v1alpha1.Service) {
