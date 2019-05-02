@@ -33,7 +33,6 @@ import (
 	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/pkg/metrics"
 	"github.com/knative/serving/pkg/reconciler"
-	autoscalerconfig "github.com/knative/serving/pkg/reconciler/autoscaling/config"
 	"github.com/knative/serving/pkg/reconciler/autoscaling/hpa"
 	"github.com/knative/serving/pkg/reconciler/autoscaling/kpa"
 	"go.uber.org/zap"
@@ -90,9 +89,6 @@ func main() {
 	serviceInformer := kubeInformerFactory.Core().V1().Services()
 	hpaInformer := kubeInformerFactory.Autoscaling().V1().HorizontalPodAutoscalers()
 
-	configStore := autoscalerconfig.NewStore(logger)
-	configStore.WatchConfigs(opt.ConfigMapWatcher)
-
 	collector := autoscaler.NewMetricCollector(statsScraperFactoryFunc(endpointsInformer.Lister()), statsCh, logger)
 
 	// Set up scalers.
@@ -101,7 +97,7 @@ func main() {
 	scaler := kpa.NewScaler(opt)
 
 	controllers := []*controller.Impl{
-		kpa.NewController(&opt, paInformer, sksInformer, serviceInformer, endpointsInformer, multiScaler, collector, scaler, configStore),
+		kpa.NewController(&opt, paInformer, sksInformer, serviceInformer, endpointsInformer, multiScaler, collector, scaler),
 		hpa.NewController(&opt, paInformer, sksInformer, hpaInformer),
 	}
 

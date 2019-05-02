@@ -42,6 +42,7 @@ import (
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
 	"github.com/knative/serving/pkg/reconciler"
 	rpkg "github.com/knative/serving/pkg/reconciler"
+	"github.com/knative/serving/pkg/reconciler/autoscaling/config"
 	"github.com/knative/serving/pkg/reconciler/autoscaling/kpa/resources"
 	aresources "github.com/knative/serving/pkg/reconciler/autoscaling/resources"
 	revisionresources "github.com/knative/serving/pkg/reconciler/revision/resources"
@@ -75,6 +76,13 @@ var (
 	}
 )
 
+func defaultConfig() *config.Config {
+	autoscalerConfig, _ := autoscaler.NewConfigFromMap(configMapData)
+	return &config.Config{
+		Autoscaler: autoscalerConfig,
+	}
+}
+
 func newConfigWatcher() configmap.Watcher {
 	return configmap.NewStaticWatcher(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
@@ -83,14 +91,6 @@ func newConfigWatcher() configmap.Watcher {
 		},
 		Data: configMapData,
 	})
-}
-
-func newDynamicConfig(t *testing.T) *autoscaler.DynamicConfig {
-	dynConfig, err := autoscaler.NewDynamicConfigFromMap(configMapData, logtesting.TestLogger(t))
-	if err != nil {
-		t.Errorf("Error creating DynamicConfig: %v", err)
-	}
-	return dynConfig
 }
 
 // TODO(#3591): Convert KPA tests to table tests.
@@ -266,11 +266,10 @@ func TestReconcileAndScaleToZero(t *testing.T) {
 
 	defer logtesting.ClearAll()
 	table.Test(t, MakeFactory(func(listers *Listers, opt rpkg.Options) controller.Reconciler {
-		dynConf := newDynamicConfig(t)
 		fakeDeciders := newTestDeciders()
 		// Make sure we want to scale to 0.
 		decider := resources.MakeDecider(
-			context.Background(), kpa(testNamespace, testRevision), dynConf.Current())
+			context.Background(), kpa(testNamespace, testRevision), defaultConfig().Autoscaler)
 		decider.Status.DesiredScale = 0
 		decider.Generation = 42
 		fakeDeciders.Create(context.Background(), decider)
@@ -289,7 +288,7 @@ func TestReconcileAndScaleToZero(t *testing.T) {
 			kpaDeciders:     fakeDeciders,
 			metrics:         fakeMetrics,
 			scaler:          kpaScaler,
-			dynConfig:       dynConf,
+			configStore:     &testConfigStore{config: defaultConfig()},
 		}
 	}))
 }
@@ -627,13 +626,12 @@ func TestReconcile(t *testing.T) {
 
 	defer logtesting.ClearAll()
 	table.Test(t, MakeFactory(func(listers *Listers, opt rpkg.Options) controller.Reconciler {
-		dynConf := newDynamicConfig(t)
 		fakeDeciders := newTestDeciders()
 		// TODO(vagababov): see if we can get rid of the static piece of configuration and
 		// constant namespace and revision names.
 		// Make sure we don't want to scale to 0.
 		decider := resources.MakeDecider(
-			context.Background(), kpa(testNamespace, testRevision), dynConf.Current())
+			context.Background(), kpa(testNamespace, testRevision), defaultConfig().Autoscaler)
 		decider.Status.DesiredScale = desiredScale
 		decider.Generation = 2112
 		fakeDeciders.Create(context.Background(), decider)
@@ -651,7 +649,7 @@ func TestReconcile(t *testing.T) {
 			kpaDeciders:     fakeDeciders,
 			metrics:         fakeMetrics,
 			scaler:          kpaScaler,
-			dynConfig:       dynConf,
+			configStore:     &testConfigStore{config: defaultConfig()},
 		}
 	}))
 }
@@ -711,7 +709,6 @@ func TestControllerSynchronizesCreatesAndDeletes(t *testing.T) {
 		fakeDeciders,
 		fakeMetrics,
 		scaler,
-		newDynamicConfig(t),
 	)
 
 	rev := newTestRevision(testNamespace, testRevision)
@@ -802,7 +799,6 @@ func TestUpdate(t *testing.T) {
 
 	fakeDeciders := newTestDeciders()
 	fakeMetrics := newTestMetrics()
-	dynConf := newDynamicConfig(t)
 	ctl := NewController(&opts,
 		servingInformer.Autoscaling().V1alpha1().PodAutoscalers(),
 		servingInformer.Networking().V1alpha1().ServerlessServices(),
@@ -811,7 +807,6 @@ func TestUpdate(t *testing.T) {
 		fakeDeciders,
 		fakeMetrics,
 		scaler,
-		dynConf,
 	)
 
 	rev := newTestRevision(testNamespace, testRevision)
@@ -840,7 +835,7 @@ func TestUpdate(t *testing.T) {
 	servingClient.NetworkingV1alpha1().ServerlessServices(testNamespace).Create(sks)
 	servingInformer.Networking().V1alpha1().ServerlessServices().Informer().GetIndexer().Add(sks)
 
-	decider := resources.MakeDecider(context.Background(), kpa, dynConf.Current())
+	decider := resources.MakeDecider(context.Background(), kpa, defaultConfig().Autoscaler)
 	decider.Labels[serving.KubernetesServiceLabelKey] = sks.Status.PrivateServiceName
 
 	// Wait for the Reconcile to complete.
@@ -913,7 +908,6 @@ func TestNonKPAClass(t *testing.T) {
 		fakeDeciders,
 		fakeMetrics,
 		scaler,
-		newDynamicConfig(t),
 	)
 
 	rev := newTestRevision(testNamespace, testRevision)
@@ -969,7 +963,6 @@ func TestNoEndpoints(t *testing.T) {
 		newTestDeciders(),
 		newTestMetrics(),
 		scaler,
-		newDynamicConfig(t),
 	)
 
 	rev := newTestRevision(testNamespace, testRevision)
@@ -1025,7 +1018,6 @@ func TestEmptyEndpoints(t *testing.T) {
 		newTestDeciders(),
 		newTestMetrics(),
 		scaler,
-		newDynamicConfig(t),
 	)
 
 	rev := newTestRevision(testNamespace, testRevision)
@@ -1086,7 +1078,6 @@ func TestControllerCreateError(t *testing.T) {
 		},
 		newTestMetrics(),
 		scaler,
-		newDynamicConfig(t),
 	)
 
 	kpa := revisionresources.MakeKPA(newTestRevision(testNamespace, testRevision))
@@ -1134,7 +1125,6 @@ func TestControllerUpdateError(t *testing.T) {
 		},
 		newTestMetrics(),
 		scaler,
-		newDynamicConfig(t),
 	)
 
 	kpa := revisionresources.MakeKPA(newTestRevision(testNamespace, testRevision))
@@ -1181,7 +1171,6 @@ func TestControllerGetError(t *testing.T) {
 		},
 		newTestMetrics(),
 		scaler,
-		newDynamicConfig(t),
 	)
 
 	kpa := revisionresources.MakeKPA(newTestRevision(testNamespace, testRevision))
@@ -1224,7 +1213,6 @@ func TestScaleFailure(t *testing.T) {
 		newTestDeciders(),
 		newTestMetrics(),
 		scaler,
-		newDynamicConfig(t),
 	)
 
 	// Only put the KPA in the lister, which will prompt failures scaling it.
@@ -1266,7 +1254,6 @@ func TestBadKey(t *testing.T) {
 		newTestDeciders(),
 		newTestMetrics(),
 		scaler,
-		newDynamicConfig(t),
 	)
 
 	err := ctl.Reconciler.Reconcile(context.Background(), "too/many/parts")
@@ -1431,3 +1418,15 @@ func addEndpoint(ep *corev1.Endpoints) *corev1.Endpoints {
 	}}
 	return ep
 }
+
+type testConfigStore struct {
+	config *config.Config
+}
+
+func (t *testConfigStore) ToContext(ctx context.Context) context.Context {
+	return config.ToContext(ctx, t.config)
+}
+
+func (t *testConfigStore) WatchConfigs(w configmap.Watcher) {}
+
+var _ configStore = (*testConfigStore)(nil)

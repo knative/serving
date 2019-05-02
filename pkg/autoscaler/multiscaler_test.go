@@ -352,7 +352,7 @@ func createMultiScaler(t *testing.T, config *Config) (*MultiScaler, chan<- struc
 
 	stopChan := make(chan struct{})
 	statChan := make(chan *StatMessage)
-	ms := NewMultiScaler(NewDynamicConfig(config, logger), stopChan, uniscaler.fakeUniScalerFactory, logger)
+	ms := NewMultiScaler(stopChan, uniscaler.fakeUniScalerFactory, logger)
 
 	return ms, stopChan, statChan, uniscaler
 }
@@ -364,7 +364,7 @@ type fakeUniScaler struct {
 	lastStat Stat
 }
 
-func (u *fakeUniScaler) fakeUniScalerFactory(*Decider, *DynamicConfig) (UniScaler, error) {
+func (u *fakeUniScaler) fakeUniScalerFactory(*Decider) (UniScaler, error) {
 	return u, nil
 }
 

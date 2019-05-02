@@ -23,6 +23,7 @@ import (
 	perrors "github.com/pkg/errors"
 	"go.uber.org/zap"
 
+	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/controller"
 	"github.com/knative/pkg/logging"
 	"github.com/knative/serving/pkg/apis/autoscaling"
@@ -98,6 +99,12 @@ type Scaler interface {
 	GetScaleResource(pa *pav1alpha1.PodAutoscaler) (*pav1alpha1.PodScalable, error)
 }
 
+// configStore is a minimized interface of the actual configStore.
+type configStore interface {
+	ToContext(ctx context.Context) context.Context
+	WatchConfigs(w configmap.Watcher)
+}
+
 // Reconciler tracks PAs and right sizes the ScaleTargetRef based on the
 // information from Deciders.
 type Reconciler struct {
@@ -109,7 +116,7 @@ type Reconciler struct {
 	kpaDeciders     Deciders
 	metrics         Metrics
 	scaler          Scaler
-	configStore     *config.Store
+	configStore     configStore
 }
 
 // Check that our Reconciler implements controller.Reconciler
@@ -125,7 +132,6 @@ func NewController(
 	kpaDeciders Deciders,
 	metrics Metrics,
 	scaler Scaler,
-	configStore *config.Store,
 ) *controller.Impl {
 
 	c := &Reconciler{
@@ -137,17 +143,17 @@ func NewController(
 		kpaDeciders:     kpaDeciders,
 		metrics:         metrics,
 		scaler:          scaler,
-		configStore:     configStore,
 	}
 	impl := controller.NewImpl(c, c.Logger, "KPA-Class Autoscaling", reconciler.MustNewStatsReporter("KPA-Class Autoscaling", c.Logger))
 
 	c.Logger.Info("Setting up KPA-Class event handlers")
 	// Handle PodAutoscalers missing the class annotation for backward compatibility.
 	onlyKpaClass := reconciler.AnnotationFilterFunc(autoscaling.ClassAnnotationKey, autoscaling.KPA, true)
-	paInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+	paHandler := cache.FilteringResourceEventHandler{
 		FilterFunc: onlyKpaClass,
 		Handler:    reconciler.Handler(impl.Enqueue),
-	})
+	}
+	paInformer.Informer().AddEventHandler(paHandler)
 
 	endpointsInformer.Informer().AddEventHandler(
 		reconciler.Handler(impl.EnqueueLabelOfNamespaceScopedResource("", autoscaling.KPALabelKey)))
@@ -164,6 +170,16 @@ func NewController(
 
 	// Have the Deciders enqueue the PAs whose decisions have changed.
 	kpaDeciders.Watch(impl.EnqueueKey)
+
+	c.Logger.Info("Setting up ConfigMap receivers")
+	configsToResync := []interface{}{
+		&autoscaler.Config{},
+	}
+	resync := configmap.TypeFilter(configsToResync...)(func(string, interface{}) {
+		controller.SendGlobalUpdates(paInformer.Informer(), paHandler)
+	})
+	c.configStore = config.NewStore(c.Logger.Named("config-store"), resync)
+	c.configStore.WatchConfigs(opts.ConfigMapWatcher)
 	return impl
 }
 
