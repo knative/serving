@@ -24,6 +24,7 @@ import (
 	"github.com/knative/pkg/apis/istio/v1alpha3"
 	"github.com/knative/pkg/system"
 	"github.com/knative/serving/pkg/apis/networking/v1alpha1"
+	"github.com/knative/serving/pkg/network"
 	"github.com/knative/serving/pkg/reconciler/clusteringress/config"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -73,6 +74,15 @@ var gateway = v1alpha3.Gateway{
 	},
 }
 
+var httpServer = v1alpha3.Server{
+	Hosts: []string{"*"},
+	Port: v1alpha3.Port{
+		Name:     httpServerPortName,
+		Number:   80,
+		Protocol: v1alpha3.ProtocolHTTP,
+	},
+}
+
 var gatewayWithPlaceholderServer = v1alpha3.Gateway{
 	Spec: v1alpha3.GatewaySpec{
 		Servers: []v1alpha3.Server{placeholderServer},
@@ -112,6 +122,23 @@ func TestGetServers(t *testing.T) {
 
 	if diff := cmp.Diff(expected, servers); diff != "" {
 		t.Errorf("Unexpected servers (-want +got): %v", diff)
+	}
+}
+
+func TestGetHTTPServer(t *testing.T) {
+	newGateway := gateway
+	newGateway.Spec.Servers = append(newGateway.Spec.Servers, httpServer)
+	server := GetHTTPServer(&newGateway)
+	expected := v1alpha3.Server{
+		Hosts: []string{"*"},
+		Port: v1alpha3.Port{
+			Name:     httpServerPortName,
+			Number:   80,
+			Protocol: v1alpha3.ProtocolHTTP,
+		},
+	}
+	if diff := cmp.Diff(expected, *server); diff != "" {
+		t.Errorf("Unexpected server (-want +got): %v", diff)
 	}
 }
 
@@ -178,6 +205,51 @@ func TestMakeServers(t *testing.T) {
 			}
 			if diff := cmp.Diff(c.expected, servers); diff != "" {
 				t.Errorf("Unexpected servers (-want, +got): %v", diff)
+			}
+		})
+	}
+}
+
+func TestMakeHTTPServer(t *testing.T) {
+	cases := []struct {
+		name         string
+		httpProtocol network.HTTPProtocol
+		expected     *v1alpha3.Server
+	}{{
+		name:         "nil HTTP Server",
+		httpProtocol: network.HTTPDisabled,
+		expected:     nil,
+	}, {
+		name:         "HTTP server",
+		httpProtocol: network.HTTPEnabled,
+		expected: &v1alpha3.Server{
+			Hosts: []string{"*"},
+			Port: v1alpha3.Port{
+				Name:     httpServerPortName,
+				Number:   80,
+				Protocol: "HTTP",
+			},
+		},
+	}, {
+		name:         "Redirect HTTP server",
+		httpProtocol: network.HTTPRedirected,
+		expected: &v1alpha3.Server{
+			Hosts: []string{"*"},
+			Port: v1alpha3.Port{
+				Name:     httpServerPortName,
+				Number:   80,
+				Protocol: "HTTP",
+			},
+			TLS: &v1alpha3.TLSOptions{
+				HTTPSRedirect: true,
+			},
+		},
+	}}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			got := MakeHTTPServer(c.httpProtocol)
+			if diff := cmp.Diff(c.expected, got); diff != "" {
+				t.Errorf("Unexpected HTTP Server (-want, +got): %v", diff)
 			}
 		})
 	}
