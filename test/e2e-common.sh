@@ -188,7 +188,7 @@ function install_knative_serving_standard() {
   kubectl apply -f "${INSTALL_ISTIO_YAML}" || return 1
 
   echo ">> Installing Cert-Manager"
-  kubectl apply -f "${INSTALL_CERT_MANAGER_YAML}" || return 1
+  kubectl apply -f "${INSTALL_CERT_MANAGER_YAML}" --validate=false || return 1
 
   echo ">> Installing Build"
   # TODO: should this use a released copy of Build?

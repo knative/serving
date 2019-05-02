@@ -162,7 +162,8 @@ if you need to set up static IP for Ingresses in the cluster.
    If you want to use the feature of automatically provisioning TLS for Knative services, you need to install
    the full cert-manager.
    ```shell
-   kubectl apply -f ./third_party/cert-manager-0.6.1/cert-manager.yaml
+   # For kubernetes version 1.13 or above, --validate=false is not needed.
+   kubectl apply -f ./third_party/cert-manager-0.6.1/cert-manager.yaml --validate=false
    ```
 
 ### Deploy Knative Serving
