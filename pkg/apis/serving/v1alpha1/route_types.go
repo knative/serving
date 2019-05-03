@@ -113,7 +113,7 @@ const (
 // copy them.
 type RouteStatusFields struct {
 	// URL holds the url that will distribute traffic over the provided traffic targets.
-	// It generally has the form {route-name}.{route-namespace}.{cluster-level-suffix}
+	// It generally has the form http[s]://{route-name}.{route-namespace}.{cluster-level-suffix}
 	// +optional
 	URL *apis.URL `json:"url,omitempty"`
 

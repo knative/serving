@@ -71,7 +71,7 @@ func (source *RouteStatus) ConvertUp(ctx context.Context, sink *v1beta1.RouteSta
 // ConvertUp helps implement apis.Convertible
 func (source *RouteStatusFields) ConvertUp(ctx context.Context, sink *v1beta1.RouteStatusFields) {
 	if source.URL != nil {
-		sink.URL = *source.URL
+		sink.URL = source.URL.DeepCopy()
 	}
 
 	// TODO(mattmoor): Address
@@ -117,7 +117,7 @@ func (sink *RouteStatus) ConvertDown(ctx context.Context, source v1beta1.RouteSt
 
 // ConvertDown helps implement apis.Convertible
 func (sink *RouteStatusFields) ConvertDown(ctx context.Context, source v1beta1.RouteStatusFields) {
-	if source.URL.Host != "" {
+	if source.URL != nil {
 		sink.URL = source.URL.DeepCopy()
 	}
 
