@@ -55,7 +55,7 @@ func MakePublicService(sks *v1alpha1.ServerlessService) *corev1.Service {
 			Ports: []corev1.ServicePort{{
 				Name:       networking.ServicePortName(sks.Spec.ProtocolType),
 				Protocol:   corev1.ProtocolTCP,
-				Port:       networking.ServicePort(sks.Spec.ProtocolType),
+				Port:       int32(networking.ServicePort(sks.Spec.ProtocolType)),
 				TargetPort: targetPort(sks),
 			}},
 		},

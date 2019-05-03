@@ -55,7 +55,7 @@ func ServicePortName(proto ProtocolType) string {
 }
 
 // ServicePort chooses the service (load balancer) port for the public service.
-func ServicePort(proto ProtocolType) int32 {
+func ServicePort(proto ProtocolType) int {
 	if proto == ProtocolH2C {
 		return ServiceHTTP2Port
 	}
