@@ -20,7 +20,7 @@ function build_release() {
   # Run `generate-yamls.sh`, which should be versioned with the
   # branch since the detail of building may change over time.
   local YAML_LIST="$(mktemp)"
-  # We publish our own istio.yaml, so users don't need to use helm
+  export TAG
   $(dirname $0)/generate-yamls.sh "${REPO_ROOT_DIR}" "${YAML_LIST}"
   YAMLS_TO_PUBLISH=$(cat "${YAML_LIST}" | tr '\n' ' ')
   if (( ! PUBLISH_RELEASE )); then
