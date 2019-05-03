@@ -484,7 +484,7 @@ func (in *RouteStatusFields) DeepCopyInto(out *RouteStatusFields) {
 	if in.Address != nil {
 		in, out := &in.Address, &out.Address
 		*out = new(duckv1alpha1.Addressable)
-		**out = **in
+		(*in).DeepCopyInto(*out)
 	}
 	if in.Traffic != nil {
 		in, out := &in.Traffic, &out.Traffic
