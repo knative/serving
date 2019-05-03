@@ -118,7 +118,7 @@ func makeClusterIngressRule(domains []string, ns string, targets traffic.Revisio
 				ServiceName:      t.ServiceName,
 				// Port on the public service must match port on the activator.
 				// Otherwise, the serverless services can't guarantee seamless positive handoff.
-				ServicePort: intstr.FromInt(int(activator.ServicePort(t.Protocol))),
+				ServicePort: intstr.FromInt(int(networking.ServicePort(t.Protocol))),
 			},
 			Percent: t.Percent,
 			// TODO(nghia): Append headers per-split.

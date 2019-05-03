@@ -19,7 +19,6 @@ package activator
 import (
 	"fmt"
 
-	"github.com/knative/serving/pkg/apis/networking"
 	nv1a1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 
@@ -35,11 +34,6 @@ const (
 	RevisionHeaderName string = "knative-serving-revision"
 	// RevisionHeaderNamespace is the header key for revision's namespace
 	RevisionHeaderNamespace string = "knative-serving-namespace"
-
-	// ServicePortHTTP1 is the port number for activating HTTP1 revisions
-	ServicePortHTTP1 int32 = 80
-	// ServicePortH2C is the port number for activating H2C revisions
-	ServicePortH2C int32 = 81
 )
 
 // RevisionID is the combination of namespace and revision name
@@ -67,12 +61,3 @@ type ServiceGetter func(namespace, name string) (*corev1.Service, error)
 // RevisionGetter is a functor that given a RevisionID will return
 // the corresponding Revision resource, or an error.
 type RevisionGetter func(RevisionID) (*v1alpha1.Revision, error)
-
-// ServicePort returns the activator service port for the given app level protocol.
-// Default is `ServicePortHTTP1`.
-func ServicePort(protocol networking.ProtocolType) int32 {
-	if protocol == networking.ProtocolH2C {
-		return ServicePortH2C
-	}
-	return ServicePortHTTP1
-}
