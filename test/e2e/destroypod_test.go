@@ -161,14 +161,22 @@ func TestDestroyPodTimely(t *testing.T) {
 	// Deleting the service will also delete all pods.
 	clients.ServingClient.Services.Delete(names.Service, nil)
 
-	// Wait until the pods have disappeared.
+	// Wait until the pod is shutdown. We don't wait for the pod itself to vanish but rather until all
+	// of the containers of that pod are no longer running. It can take an arbitrarily long time to
+	// actually remove the pod itself while we only care about containers being stopped.
 	deploymentName := rnames.Deployment(objects.Revision)
 	pkgTest.WaitForPodListState(
 		clients.KubeClient,
 		func(p *v1.PodList) (bool, error) {
 			for _, pod := range p.Items {
-				if strings.Contains(pod.Name, deploymentName) {
-					return false, nil
+				if !strings.Contains(pod.Name, deploymentName) {
+					continue
+				}
+				for _, status := range pod.Status.ContainerStatuses {
+					// There are still containers running, keep retrying.
+					if status.State.Running != nil {
+						return false, nil
+					}
 				}
 			}
 			return true, nil
