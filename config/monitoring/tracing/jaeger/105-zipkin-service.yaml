@@ -27,4 +27,3 @@ spec:
     port: 9411
   selector:
     app: jaeger
----
