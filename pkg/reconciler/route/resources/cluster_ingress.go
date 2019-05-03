@@ -118,11 +118,6 @@ func makeClusterIngressRule(domains []string, ns string, targets traffic.Revisio
 				ServicePort: intstr.FromInt(int(activator.ServicePort(t.Protocol))),
 			},
 			Percent: t.Percent,
-			// TODO(nghia): Append headers per-split.
-			// AppendHeaders: map[string]string{
-			// 	activator.RevisionHeaderName:      t.TrafficTarget.RevisionName,
-			// 	activator.RevisionHeaderNamespace: ns,
-			// },
 		})
 	}
 
@@ -131,11 +126,6 @@ func makeClusterIngressRule(domains []string, ns string, targets traffic.Revisio
 		HTTP: &v1alpha1.HTTPClusterIngressRuleValue{
 			Paths: []v1alpha1.HTTPClusterIngressPath{{
 				Splits: splits,
-				// TODO(lichuqiang): #2201, plumbing to config timeout and retries.
-				AppendHeaders: map[string]string{
-					activator.RevisionHeaderName:      maxInactive(targets),
-					activator.RevisionHeaderNamespace: ns,
-				},
 			}},
 		},
 	}

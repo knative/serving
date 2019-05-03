@@ -101,38 +101,15 @@ func makeVirtualServiceRoute(hosts []string, http *v1alpha1.HTTPClusterIngressPa
 	weights := []v1alpha3.HTTPRouteDestination{}
 	for _, split := range http.Splits {
 
-		var h *v1alpha3.Headers
-		// TODO(mattmoor): Switch to Headers when we can have a hard
-		// dependency on 1.1, but 1.0.x rejects the unknown fields.
-		// if len(split.AppendHeaders) > 0 {
-		// 	h = &v1alpha3.Headers{
-		// 		Request: &v1alpha3.HeaderOperations{
-		// 			Add: split.AppendHeaders,
-		// 		},
-		// 	}
-		// }
-
 		weights = append(weights, v1alpha3.HTTPRouteDestination{
 			Destination: v1alpha3.Destination{
 				Host: network.GetServiceHostname(
 					split.ServiceName, split.ServiceNamespace),
 				Port: makePortSelector(split.ServicePort),
 			},
-			Weight:  split.Percent,
-			Headers: h,
+			Weight: split.Percent,
 		})
 	}
-
-	var h *v1alpha3.Headers
-	// TODO(mattmoor): Switch to Headers when we can have a hard
-	// dependency on 1.1, but 1.0.x rejects the unknown fields.
-	// if len(http.AppendHeaders) > 0 {
-	// 	h = &v1alpha3.Headers{
-	// 		Request: &v1alpha3.HeaderOperations{
-	// 			Add: http.AppendHeaders,
-	// 		},
-	// 	}
-	// }
 
 	return &v1alpha3.HTTPRoute{
 		Match:   matches,
@@ -142,12 +119,7 @@ func makeVirtualServiceRoute(hosts []string, http *v1alpha1.HTTPClusterIngressPa
 			Attempts:      http.Retries.Attempts,
 			PerTryTimeout: http.Retries.PerTryTimeout.Duration.String(),
 		},
-		// TODO(mattmoor): Remove AppendHeaders when 1.1 is a hard dependency.
-		// AppendHeaders is deprecated in Istio 1.1 in favor of Headers,
-		// however, 1.0.x doesn't support Headers.
-		DeprecatedAppendHeaders: http.AppendHeaders,
-		Headers:                 h,
-		WebsocketUpgrade:        true,
+		WebsocketUpgrade: true,
 	}
 }
 
