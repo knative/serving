@@ -85,9 +85,7 @@ func verifyNoTick(errCh chan error) error {
 
 func TestMultiScalerScaling(t *testing.T) {
 	ctx := context.Background()
-	ms, stopCh, statCh, uniScaler := createMultiScaler(t, &Config{
-		TickInterval: tickInterval,
-	})
+	ms, stopCh, statCh, uniScaler := createMultiScaler(t)
 	defer close(stopCh)
 	defer close(statCh)
 
@@ -132,10 +130,7 @@ func TestMultiScalerScaling(t *testing.T) {
 
 func TestMultiScalerScaleToZero(t *testing.T) {
 	ctx := context.Background()
-	ms, stopCh, statCh, uniScaler := createMultiScaler(t, &Config{
-		TickInterval:      tickInterval,
-		EnableScaleToZero: true,
-	})
+	ms, stopCh, statCh, uniScaler := createMultiScaler(t)
 	defer close(stopCh)
 	defer close(statCh)
 
@@ -175,14 +170,12 @@ func TestMultiScalerScaleToZero(t *testing.T) {
 
 func TestMultiScalerScaleFromZero(t *testing.T) {
 	ctx := context.Background()
-	ms, stopCh, statCh, uniScaler := createMultiScaler(t, &Config{
-		TickInterval:      time.Second * 60,
-		EnableScaleToZero: true,
-	})
+	ms, stopCh, statCh, uniScaler := createMultiScaler(t)
 	defer close(stopCh)
 	defer close(statCh)
 
 	decider := newDecider()
+	decider.Spec.TickInterval = 60 * time.Second
 	uniScaler.setScaleResult(1, true)
 
 	errCh := make(chan error)
@@ -217,10 +210,7 @@ func TestMultiScalerScaleFromZero(t *testing.T) {
 
 func TestMultiScalerIgnoreNegativeScale(t *testing.T) {
 	ctx := context.Background()
-	ms, stopCh, statCh, uniScaler := createMultiScaler(t, &Config{
-		TickInterval:      tickInterval,
-		EnableScaleToZero: true,
-	})
+	ms, stopCh, statCh, uniScaler := createMultiScaler(t)
 	defer close(stopCh)
 	defer close(statCh)
 
@@ -264,9 +254,7 @@ func TestMultiScalerIgnoreNegativeScale(t *testing.T) {
 
 func TestMultiScalerRecordsStatistics(t *testing.T) {
 	ctx := context.Background()
-	ms, stopCh, statCh, uniScaler := createMultiScaler(t, &Config{
-		TickInterval: tickInterval,
-	})
+	ms, stopCh, statCh, uniScaler := createMultiScaler(t)
 	defer close(stopCh)
 	defer close(statCh)
 
@@ -308,10 +296,7 @@ func TestMultiScalerRecordsStatistics(t *testing.T) {
 
 func TestMultiScalerUpdate(t *testing.T) {
 	ctx := context.Background()
-	ms, stopCh, statCh, uniScaler := createMultiScaler(t, &Config{
-		TickInterval:      tickInterval,
-		EnableScaleToZero: false,
-	})
+	ms, stopCh, statCh, uniScaler := createMultiScaler(t)
 	defer close(stopCh)
 	defer close(statCh)
 
@@ -346,13 +331,13 @@ func TestMultiScalerUpdate(t *testing.T) {
 	}
 }
 
-func createMultiScaler(t *testing.T, config *Config) (*MultiScaler, chan<- struct{}, chan *StatMessage, *fakeUniScaler) {
+func createMultiScaler(t *testing.T) (*MultiScaler, chan<- struct{}, chan *StatMessage, *fakeUniScaler) {
 	logger := TestLogger(t)
 	uniscaler := &fakeUniScaler{}
 
 	stopChan := make(chan struct{})
 	statChan := make(chan *StatMessage)
-	ms := NewMultiScaler(NewDynamicConfig(config, logger), stopChan, uniscaler.fakeUniScalerFactory, logger)
+	ms := NewMultiScaler(stopChan, uniscaler.fakeUniScalerFactory, logger)
 
 	return ms, stopChan, statChan, uniscaler
 }
@@ -364,7 +349,7 @@ type fakeUniScaler struct {
 	lastStat Stat
 }
 
-func (u *fakeUniScaler) fakeUniScalerFactory(*Decider, *DynamicConfig) (UniScaler, error) {
+func (u *fakeUniScaler) fakeUniScalerFactory(*Decider) (UniScaler, error) {
 	return u, nil
 }
 
@@ -409,7 +394,7 @@ func newDecider() *Decider {
 			Name:      testRevision,
 		},
 		Spec: DeciderSpec{
-
+			TickInterval:      tickInterval,
 			TargetConcurrency: 1,
 		},
 		Status: DeciderStatus{},

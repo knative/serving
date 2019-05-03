@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"sync"
 
 	"github.com/knative/pkg/apis"
 	"github.com/knative/pkg/apis/duck"
@@ -32,8 +31,8 @@ import (
 	"github.com/knative/serving/pkg/network"
 	"github.com/knative/serving/pkg/network/prober"
 	"github.com/knative/serving/pkg/reconciler"
+	"github.com/knative/serving/pkg/reconciler/autoscaling/config"
 	"go.uber.org/zap"
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
@@ -47,11 +46,6 @@ type scaler struct {
 	psInformerFactory duck.InformerFactory
 	dynamicClient     dynamic.Interface
 	logger            *zap.SugaredLogger
-
-	// autoscalerConfig could change over time and access to it
-	// must go through autoscalerConfigMutex
-	autoscalerConfig      *autoscaler.Config
-	autoscalerConfigMutex sync.Mutex
 
 	activatorProbe func(pa *pav1alpha1.PodAutoscaler) (bool, error)
 }
@@ -70,9 +64,6 @@ func NewScaler(opt reconciler.Options) Scaler {
 		// Production setup uses the default probe implementation.
 		activatorProbe: activatorProbe,
 	}
-
-	// Watch for config changes.
-	opt.ConfigMapWatcher.Watch(autoscaler.ConfigName, ks.receiveAutoscalerConfig)
 	return ks
 }
 
@@ -103,28 +94,6 @@ func podScalableTypedInformerFactory(opt reconciler.Options) duck.InformerFactor
 		ResyncPeriod: opt.ResyncPeriod,
 		StopChannel:  opt.StopChannel,
 	}
-}
-
-func (ks *scaler) receiveAutoscalerConfig(configMap *corev1.ConfigMap) {
-	newAutoscalerConfig, err := autoscaler.NewConfigFromConfigMap(configMap)
-	ks.autoscalerConfigMutex.Lock()
-	defer ks.autoscalerConfigMutex.Unlock()
-	if err != nil {
-		if ks.autoscalerConfig != nil {
-			ks.logger.Errorf("Error updating Autoscaler ConfigMap: %v", err)
-		} else {
-			ks.logger.Fatalf("Error initializing Autoscaler ConfigMap: %v", err)
-		}
-		return
-	}
-	ks.logger.Infof("Autoscaler config map is added or updated: %v", configMap)
-	ks.autoscalerConfig = newAutoscalerConfig
-}
-
-func (ks *scaler) getAutoscalerConfig() *autoscaler.Config {
-	ks.autoscalerConfigMutex.Lock()
-	defer ks.autoscalerConfigMutex.Unlock()
-	return ks.autoscalerConfig.DeepCopy()
 }
 
 // pre: 0 <= min <= max && 0 <= x
@@ -170,14 +139,12 @@ func scaleResourceArgs(pa *pav1alpha1.PodAutoscaler) (*schema.GroupVersionResour
 	return &resource, pa.Spec.ScaleTargetRef.Name, nil
 }
 
-func (ks *scaler) handleScaleToZero(pa *pav1alpha1.PodAutoscaler, desiredScale int32) (int32, bool) {
+func (ks *scaler) handleScaleToZero(pa *pav1alpha1.PodAutoscaler, desiredScale int32, config *autoscaler.Config) (int32, bool) {
 	if desiredScale == 0 {
 		// We should only scale to zero when three of the following conditions are true:
 		//   a) enable-scale-to-zero from configmap is true
 		//   b) The PA has been active for at least the stable window, after which it gets marked inactive
 		//   c) The PA has been inactive for at least the grace period
-
-		config := ks.getAutoscalerConfig()
 
 		if config.EnableScaleToZero == false {
 			return 1, true
@@ -252,7 +219,7 @@ func (ks *scaler) applyScale(ctx context.Context, pa *pav1alpha1.PodAutoscaler, 
 func (ks *scaler) Scale(ctx context.Context, pa *pav1alpha1.PodAutoscaler, desiredScale int32) (int32, error) {
 	logger := logging.FromContext(ctx)
 
-	desiredScale, shouldApplyScale := ks.handleScaleToZero(pa, desiredScale)
+	desiredScale, shouldApplyScale := ks.handleScaleToZero(pa, desiredScale, config.FromContext(ctx).Autoscaler)
 	if !shouldApplyScale {
 		return desiredScale, nil
 	}

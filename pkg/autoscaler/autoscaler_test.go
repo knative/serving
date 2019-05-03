@@ -22,7 +22,6 @@ import (
 	"time"
 
 	. "github.com/knative/pkg/logging/testing"
-	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubeinformers "k8s.io/client-go/informers"
@@ -42,20 +41,18 @@ var (
 )
 
 func TestNew_ErrorWhenGivenNilInterface(t *testing.T) {
-	dynConfig := &DynamicConfig{}
 	var endpointsInformer corev1informers.EndpointsInformer
 
-	_, err := New(dynConfig, testNamespace, testService, endpointsInformer, DeciderSpec{TargetConcurrency: 10}, &mockReporter{})
+	_, err := New(testNamespace, testService, endpointsInformer, DeciderSpec{TargetConcurrency: 10}, &mockReporter{})
 	if err == nil {
 		t.Error("Expected error when EndpointsInformer interface is nil, but got none.")
 	}
 }
 
 func TestNew_ErrorWhenGivenNilStatsReporter(t *testing.T) {
-	dynConfig := &DynamicConfig{}
 	var reporter StatsReporter
 
-	_, err := New(dynConfig, testNamespace, testService, kubeInformer.Core().V1().Endpoints(), DeciderSpec{TargetConcurrency: 10}, reporter)
+	_, err := New(testNamespace, testService, kubeInformer.Core().V1().Endpoints(), DeciderSpec{TargetConcurrency: 10}, reporter)
 	if err == nil {
 		t.Error("Expected error when EndpointsInformer interface is nil, but got none.")
 	}
@@ -461,6 +458,7 @@ func TestAutoscaler_UpdateTarget(t *testing.T) {
 	a.Update(DeciderSpec{
 		TargetConcurrency: 1.0,
 		PanicThreshold:    2.0,
+		MaxScaleUpRate:    10.0,
 		MetricSpec:        a.deciderSpec.MetricSpec,
 	})
 	a.expectScale(t, now, 100, true)
@@ -544,31 +542,17 @@ func (r *mockReporter) ReportPanic(v int64) error {
 }
 
 func newTestAutoscaler(containerConcurrency int) *Autoscaler {
-	scaleToZeroGracePeriod := 30 * time.Second
-	config := &Config{
-		ContainerConcurrencyTargetPercentage: 1.0, // targeting 100% makes the test easier to read
-		ContainerConcurrencyTargetDefault:    10.0,
-		MaxScaleUpRate:                       10.0,
-		StableWindow:                         stableWindow,
-		PanicWindow:                          panicWindow,
-		ScaleToZeroGracePeriod:               scaleToZeroGracePeriod,
-	}
-
-	dynConfig := &DynamicConfig{
-		config: config,
-		logger: zap.NewNop().Sugar(),
-	}
-
 	deciderSpec := DeciderSpec{
 		TargetConcurrency: float64(containerConcurrency),
 		PanicThreshold:    2 * float64(containerConcurrency),
+		MaxScaleUpRate:    10.0,
 		MetricSpec: MetricSpec{
 			StableWindow: stableWindow,
 			PanicWindow:  panicWindow,
 		},
 	}
 
-	a, _ := New(dynConfig, testNamespace, testService, kubeInformer.Core().V1().Endpoints(), deciderSpec, &mockReporter{})
+	a, _ := New(testNamespace, testService, kubeInformer.Core().V1().Endpoints(), deciderSpec, &mockReporter{})
 	return a
 }
 

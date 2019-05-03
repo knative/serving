@@ -34,11 +34,11 @@ import (
 	pav1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	"github.com/knative/serving/pkg/autoscaler"
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
 	fakeKna "github.com/knative/serving/pkg/client/clientset/versioned/fake"
 	"github.com/knative/serving/pkg/network"
 	"github.com/knative/serving/pkg/reconciler"
+	"github.com/knative/serving/pkg/reconciler/autoscaling/config"
 	revisionresources "github.com/knative/serving/pkg/reconciler/revision/resources"
 	"github.com/knative/serving/pkg/reconciler/revision/resources/names"
 	v1 "k8s.io/api/apps/v1"
@@ -240,7 +240,9 @@ func TestScaler(t *testing.T) {
 				test.kpaMutation(pa)
 			}
 
-			desiredScale, err := revisionScaler.Scale(logtesting.TestContextWithLogger(t), pa, test.scaleTo)
+			ctx := logtesting.TestContextWithLogger(t)
+			ctx = config.ToContext(ctx, defaultConfig())
+			desiredScale, err := revisionScaler.Scale(ctx, pa, test.scaleTo)
 			if err != nil {
 				t.Error("Scale got an unexpected error: ", err)
 			}
@@ -319,13 +321,14 @@ func TestDisableScaleToZero(t *testing.T) {
 				psInformerFactory: podScalableTypedInformerFactory(opts),
 				dynamicClient:     opts.DynamicClientSet,
 				logger:            opts.Logger,
-				autoscalerConfig: &autoscaler.Config{
-					EnableScaleToZero: false,
-				},
 			}
 			pa := newKPA(t, servingClient, revision)
 
-			desiredScale, err := revisionScaler.Scale(logtesting.TestContextWithLogger(t), pa, test.scaleTo)
+			ctx := logtesting.TestContextWithLogger(t)
+			conf := defaultConfig()
+			conf.Autoscaler.EnableScaleToZero = false
+			ctx = config.ToContext(ctx, conf)
+			desiredScale, err := revisionScaler.Scale(ctx, pa, test.scaleTo)
 
 			if err != nil {
 				t.Error("Scale got an unexpected error: ", err)

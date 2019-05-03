@@ -48,6 +48,8 @@ type Decider struct {
 
 // DeciderSpec is the parameters in which the Revision should scaled.
 type DeciderSpec struct {
+	TickInterval      time.Duration
+	MaxScaleUpRate    float64
 	TargetConcurrency float64
 	PanicThreshold    float64
 	// TODO: remove MetricSpec when the custom metrics adapter implements Metric.
@@ -73,7 +75,7 @@ type UniScaler interface {
 }
 
 // UniScalerFactory creates a UniScaler for a given PA using the given dynamic configuration.
-type UniScalerFactory func(*Decider, *DynamicConfig) (UniScaler, error)
+type UniScalerFactory func(*Decider) (UniScaler, error)
 
 // scalerRunner wraps a UniScaler and a channel for implementing shutdown behavior.
 type scalerRunner struct {
@@ -114,8 +116,6 @@ type MultiScaler struct {
 	scalersMutex  sync.RWMutex
 	scalersStopCh <-chan struct{}
 
-	dynConfig *DynamicConfig
-
 	uniScalerFactory UniScalerFactory
 
 	logger *zap.SugaredLogger
@@ -126,15 +126,12 @@ type MultiScaler struct {
 
 // NewMultiScaler constructs a MultiScaler.
 func NewMultiScaler(
-	dynConfig *DynamicConfig,
 	stopCh <-chan struct{},
 	uniScalerFactory UniScalerFactory,
 	logger *zap.SugaredLogger) *MultiScaler {
-	logger.Debugf("Creating MultiScaler with configuration %#v", dynConfig)
 	return &MultiScaler{
 		scalers:          make(map[string]*scalerRunner),
 		scalersStopCh:    stopCh,
-		dynConfig:        dynConfig,
 		uniScalerFactory: uniScalerFactory,
 		logger:           logger,
 	}
@@ -226,7 +223,7 @@ func (m *MultiScaler) Inform(event string) bool {
 }
 
 func (m *MultiScaler) createScaler(ctx context.Context, decider *Decider) (*scalerRunner, error) {
-	scaler, err := m.uniScalerFactory(decider, m.dynConfig)
+	scaler, err := m.uniScalerFactory(decider)
 	if err != nil {
 		return nil, err
 	}
@@ -240,7 +237,8 @@ func (m *MultiScaler) createScaler(ctx context.Context, decider *Decider) (*scal
 	}
 	runner.decider.Status.DesiredScale = -1
 
-	ticker := time.NewTicker(m.dynConfig.Current().TickInterval)
+	// TODO(#3977): Make sure this is reconciled if the tick interval changes.
+	ticker := time.NewTicker(decider.Spec.TickInterval)
 
 	scaleChan := make(chan int32, scaleBufferSize)
 

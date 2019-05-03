@@ -101,6 +101,8 @@ func decider(options ...DeciderOption) *autoscaler.Decider {
 			},
 		},
 		Spec: autoscaler.DeciderSpec{
+			MaxScaleUpRate:    config.MaxScaleUpRate,
+			TickInterval:      config.TickInterval,
 			TargetConcurrency: float64(100),
 			PanicThreshold:    float64(200),
 			MetricSpec: autoscaler.MetricSpec{

@@ -68,7 +68,6 @@ type StatMessage struct {
 
 // Autoscaler stores current state of an instance of an autoscaler
 type Autoscaler struct {
-	*DynamicConfig
 	namespace       string
 	revisionService string
 	endpointsLister corev1listers.EndpointsLister
@@ -87,7 +86,6 @@ type Autoscaler struct {
 
 // New creates a new instance of autoscaler
 func New(
-	dynamicConfig *DynamicConfig,
 	namespace string,
 	revisionService string,
 	endpointsInformer corev1informers.EndpointsInformer,
@@ -104,7 +102,6 @@ func New(
 	reporter.ReportPanic(0)
 
 	return &Autoscaler{
-		DynamicConfig:   dynamicConfig,
 		namespace:       namespace,
 		revisionService: revisionService,
 		endpointsLister: endpointsInformer.Lister(),
@@ -222,5 +219,5 @@ func (a *Autoscaler) currentSpec() DeciderSpec {
 }
 
 func (a *Autoscaler) podCountLimited(desiredPodCount, currentPodCount float64) int32 {
-	return int32(math.Min(desiredPodCount, a.Current().MaxScaleUpRate*currentPodCount))
+	return int32(math.Min(desiredPodCount, a.deciderSpec.MaxScaleUpRate*currentPodCount))
 }

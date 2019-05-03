@@ -55,6 +55,8 @@ func MakeDecider(ctx context.Context, pa *v1alpha1.PodAutoscaler, config *autosc
 	return &autoscaler.Decider{
 		ObjectMeta: *pa.ObjectMeta.DeepCopy(),
 		Spec: autoscaler.DeciderSpec{
+			TickInterval:      config.TickInterval,
+			MaxScaleUpRate:    config.MaxScaleUpRate,
 			TargetConcurrency: target,
 			PanicThreshold:    panicThreshold,
 			MetricSpec:        metricSpec,
