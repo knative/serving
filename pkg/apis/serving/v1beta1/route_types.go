@@ -124,7 +124,9 @@ type RouteStatusFields struct {
 	// +optional
 	URL *apis.URL `json:"url,omitempty"`
 
-	// TODO(mattmoor): duckv1beta1.Addressable
+	// Address holds the information needed for a Route to be the target of an event.
+	// +optional
+	Address *duckv1beta1.Addressable `json:"address,omitempty"`
 
 	// Traffic holds the configured traffic distribution.
 	// These entries will always contain RevisionName references.
