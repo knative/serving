@@ -63,17 +63,18 @@ func (h *RevisionHandler) addRoute(r interface{}) {
 
 	baseTargets := []types.NamespacedName{}
 	baseDomain := route.Status.Domain
-
 	for _, target := range route.Status.Traffic {
 		nsname := types.NamespacedName{
 			Namespace: route.Namespace,
 			Name:      target.RevisionName,
 		}
 
+		// Only consider non-zero splits for the base domain.
 		if target.Percent != 0 {
 			baseTargets = append(baseTargets, nsname)
 		}
 
+		// Add all subdomains ("tags") having only a single target.
 		subDomain := traffic.TagDomain(target.Tag, baseDomain)
 		h.domainMapping[subDomain] = []types.NamespacedName{nsname}
 	}
@@ -100,6 +101,7 @@ func (h *RevisionHandler) getTargets(domain string) []types.NamespacedName {
 func (h *RevisionHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Only try to infer a revision if the header is not already set.
 	if r.Header.Get(activator.RevisionHeaderName) == "" {
+		// Drop the ports part of the hostname set by grpc requests.
 		targets := h.getTargets(strings.Split(r.Host, ":")[0])
 
 		// pick a target randomly
