@@ -19,6 +19,7 @@ package kpa
 import (
 	"context"
 	"fmt"
+	"sync"
 	"testing"
 	"time"
 
@@ -1396,9 +1397,13 @@ type testDeciders struct {
 	updateCallCount    *atomic.Uint32
 	deleteBeforeCreate *atomic.Bool
 	decider            *autoscaler.Decider
+	mutex              sync.Mutex
 }
 
 func (km *testDeciders) Get(ctx context.Context, namespace, name string) (*autoscaler.Decider, error) {
+	km.mutex.Lock()
+	defer km.mutex.Unlock()
+
 	if km.decider == nil {
 		return nil, apierrors.NewNotFound(asv1a1.Resource("Deciders"), autoscaler.NewMetricKey(namespace, name))
 	}
@@ -1406,12 +1411,18 @@ func (km *testDeciders) Get(ctx context.Context, namespace, name string) (*autos
 }
 
 func (km *testDeciders) Create(ctx context.Context, decider *autoscaler.Decider) (*autoscaler.Decider, error) {
+	km.mutex.Lock()
+	defer km.mutex.Unlock()
+
 	km.decider = decider
 	km.createCallCount.Add(1)
 	return decider, nil
 }
 
 func (km *testDeciders) Delete(ctx context.Context, namespace, name string) error {
+	km.mutex.Lock()
+	defer km.mutex.Unlock()
+
 	km.decider = nil
 	km.deleteCallCount.Add(1)
 	if km.createCallCount.Load() == 0 {
@@ -1421,6 +1432,9 @@ func (km *testDeciders) Delete(ctx context.Context, namespace, name string) erro
 }
 
 func (km *testDeciders) Update(ctx context.Context, decider *autoscaler.Decider) (*autoscaler.Decider, error) {
+	km.mutex.Lock()
+	defer km.mutex.Unlock()
+
 	km.decider = decider
 	km.updateCallCount.Add(1)
 	return decider, nil
