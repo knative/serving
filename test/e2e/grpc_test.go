@@ -155,7 +155,7 @@ func testGRPC(t *testing.T, f grpcTest) {
 	if err != nil {
 		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
 	}
-	domain := resources.Route.Status.Domain
+	domain := resources.Route.Status.URL.Host
 
 	if _, err = pkgTest.WaitForEndpointState(
 		clients.KubeClient,

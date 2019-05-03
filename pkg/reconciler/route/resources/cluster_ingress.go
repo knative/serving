@@ -35,7 +35,7 @@ import (
 )
 
 func isClusterLocal(r *servingv1alpha1.Route) bool {
-	return strings.HasSuffix(r.Status.Domain, network.GetClusterDomainName())
+	return r.Status.URL != nil && strings.HasSuffix(r.Status.URL.Host, network.GetClusterDomainName())
 }
 
 // MakeClusterIngress creates ClusterIngress to set up routing rules. Such ClusterIngress specifies
@@ -87,7 +87,10 @@ func makeClusterIngressSpec(r *servingv1alpha1.Route, targets map[string]traffic
 }
 
 func routeDomains(targetName string, r *servingv1alpha1.Route) []string {
-	domains := []string{traffic.TagDomain(targetName, r.Status.Domain)}
+	if r.Status.URL == nil {
+		return nil
+	}
+	domains := []string{traffic.TagDomain(targetName, r.Status.URL.Host)}
 	if targetName == traffic.DefaultTarget {
 		// The default target is also referred to by its internal K8s
 		// generated domain name.

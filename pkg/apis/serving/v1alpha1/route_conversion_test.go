@@ -23,6 +23,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"github.com/knative/pkg/apis"
 	duckv1beta1 "github.com/knative/pkg/apis/duck/v1beta1"
 	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 )
@@ -161,21 +162,30 @@ func TestRouteConversion(t *testing.T) {
 							RevisionName: "foo-00001",
 							Percent:      90,
 							Tag:          "current",
-							URL:          "http://current.foo.bar",
+							URL: &apis.URL{
+								Scheme: "http",
+								Host:   "current.foo.bar",
+							},
 						},
 					}, {
 						TrafficTarget: v1beta1.TrafficTarget{
 							RevisionName: "foo-00002",
 							Percent:      10,
 							Tag:          "candidate",
-							URL:          "http://candidate.foo.bar",
+							URL: &apis.URL{
+								Scheme: "http",
+								Host:   "candidate.foo.bar",
+							},
 						},
 					}, {
 						TrafficTarget: v1beta1.TrafficTarget{
 							RevisionName: "foo-00003",
 							Percent:      0,
 							Tag:          "latest",
-							URL:          "http://latest.foo.bar",
+							URL: &apis.URL{
+								Scheme: "http",
+								Host:   "latest.foo.bar",
+							},
 						},
 					}},
 					// TODO(mattmoor): Addressable

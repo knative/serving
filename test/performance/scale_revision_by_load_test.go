@@ -97,7 +97,7 @@ func scaleRevisionByLoad(t *testing.T, numClients int) []junit.TestCase {
 		t.Fatalf("Failed to create Service: %v", err)
 	}
 
-	domain := objs.Route.Status.Domain
+	domain := objs.Route.Status.URL.Host
 	endpoint, err := ingress.GetIngressEndpoint(clients.KubeClient.Kube)
 	if err != nil {
 		t.Fatalf("Cannot get service endpoint: %v", err)

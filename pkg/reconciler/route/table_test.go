@@ -22,6 +22,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/knative/pkg/apis"
 	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/controller"
 	logtesting "github.com/knative/pkg/logging/testing"
@@ -1314,7 +1315,10 @@ func TestReconcile(t *testing.T) {
 							RevisionName:   "gray-00001",
 							Percent:        50,
 							LatestRevision: ptr.Bool(true),
-							URL:            "http://gray.same-revision-targets.default.example.com",
+							URL: &apis.URL{
+								Scheme: "http",
+								Host:   "gray.same-revision-targets.default.example.com",
+							},
 						},
 					}, v1alpha1.TrafficTarget{
 						DeprecatedName: "also-gray",
@@ -1323,7 +1327,10 @@ func TestReconcile(t *testing.T) {
 							RevisionName:   "gray-00001",
 							Percent:        50,
 							LatestRevision: ptr.Bool(false),
-							URL:            "http://also-gray.same-revision-targets.default.example.com",
+							URL: &apis.URL{
+								Scheme: "http",
+								Host:   "also-gray.same-revision-targets.default.example.com",
+							},
 						},
 					})),
 		}},

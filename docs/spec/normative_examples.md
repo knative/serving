@@ -200,8 +200,8 @@ spec:
     percent: 100
 
 status:
-  # domain:
-  domain: my-service.namespace.mydomain.com
+  # url:
+  url: http://my-service.namespace.mydomain.com
   # percentages add to 100
   traffic:  # in status, all configurationName refs are dereferenced
   - revisionName: abc
@@ -230,7 +230,7 @@ spec:
   - configurationName: my-service
     percent: 100
 status:
-  domain: my-service.default.mydomain.com
+  url: http://my-service.default.mydomain.com
   traffic:
   - revisionName: def
     percent: 100
@@ -453,7 +453,7 @@ spec:
     percent: 100
 
 status:
-  domain: my-service.default.mydomain.com
+  url: http://my-service.default.mydomain.com
 
   traffic:  # in status, all configurationName refs are dereferenced to latest revision
   - revisionName: abc  # latestReadyRevisionName from configurationName in spec
@@ -755,7 +755,7 @@ spec:
       tag: latest
       percent: 0
 status:
-  domain: my-service.default.mydomain.com
+  url: http://my-service.default.mydomain.com
   traffic:
     - revisionName: def
       tag: current
@@ -827,7 +827,7 @@ spec:
       tag: latest
       percent: 0
 status:
-  domain: my-service.default.mydomain.com
+  url: http://my-service.default.mydomain.com
   traffic:
     - revisionName: ghi
       tag: current

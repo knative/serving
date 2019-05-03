@@ -56,7 +56,10 @@ func TestTrafficTargetValidation(t *testing.T) {
 			Tag:          "foo",
 			RevisionName: "bar",
 			Percent:      12,
-			URL:          "http://foo.bar.com",
+			URL: &apis.URL{
+				Scheme: "http",
+				Host:   "foo.bar.com",
+			},
 		},
 		wc:   apis.WithinStatus,
 		want: nil,
@@ -253,7 +256,9 @@ func TestTrafficTargetValidation(t *testing.T) {
 		tt: &TrafficTarget{
 			ConfigurationName: "foo",
 			Percent:           100,
-			URL:               "ShouldNotBeSet",
+			URL: &apis.URL{
+				Host: "should.not.be.set",
+			},
 		},
 		wc:   apis.WithinSpec,
 		want: apis.ErrDisallowedFields("url"),
@@ -298,7 +303,10 @@ func TestRouteValidation(t *testing.T) {
 						Tag:          "bar",
 						RevisionName: "foo",
 						Percent:      100,
-						URL:          "http://bar.blah.com",
+						URL: &apis.URL{
+							Scheme: "http",
+							Host:   "bar.blah.com",
+						},
 					}},
 				},
 			},

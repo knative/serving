@@ -60,7 +60,7 @@ func TestActivatorOverload(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Unable to create resources: %v", err)
 	}
-	domain := resources.Route.Status.Domain
+	domain := resources.Route.Status.URL.Host
 
 	deploymentName := rnames.Deployment(resources.Revision)
 	if err := WaitForScaleToZero(t, deploymentName, clients); err != nil {

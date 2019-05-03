@@ -55,7 +55,7 @@ func fetchRuntimeInfo(t *testing.T, clients *test.Clients, options *test.Options
 	resp, err := pkgTest.WaitForEndpointState(
 		clients.KubeClient,
 		t.Logf,
-		objects.Service.Status.Domain,
+		objects.Service.Status.URL.Host,
 		test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
 		"RuntimeInfo",
 		test.ServingFlags.ResolvableDomain)
@@ -116,7 +116,7 @@ func fetchEnvInfo(t *testing.T, clients *test.Clients, urlPath string, opts ...S
 		return nil, nil, errors.New(fmt.Sprintf("Error fetching Route %s: %v", names.Route, err))
 	}
 
-	url := route.Status.Domain + urlPath
+	url := route.Status.URL.Host + urlPath
 	resp, err := pkgTest.WaitForEndpointState(
 		clients.KubeClient,
 		t.Logf,
