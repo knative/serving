@@ -45,14 +45,14 @@ func newHTTPTransport(connTimeout time.Duration) http.RoundTripper {
 		// Those match net/http/transport.go
 		Proxy:                 http.ProxyFromEnvironment,
 		MaxIdleConns:          100,
-		IdleConnTimeout:       90 * time.Second,
+		IdleConnTimeout:       5 * time.Second,
 		TLSHandshakeTimeout:   10 * time.Second,
 		ExpectContinueTimeout: 1 * time.Second,
 
 		// This is bespoke.
 		DialContext: (&net.Dialer{
 			Timeout:   connTimeout,
-			KeepAlive: 30 * time.Second,
+			KeepAlive: 5 * time.Second,
 			DualStack: true,
 		}).DialContext,
 	}
