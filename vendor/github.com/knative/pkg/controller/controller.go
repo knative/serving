@@ -212,6 +212,12 @@ func (c *Impl) EnqueueKey(key string) {
 	c.WorkQueue.Add(key)
 }
 
+// EnqueueKeyAfter takes a namespace/name string and schedules its execution in
+// the work queue after given delay.
+func (c *Impl) EnqueueKeyAfter(key string, delay time.Duration) {
+	c.WorkQueue.AddAfter(key, delay)
+}
+
 // Run starts the controller's worker threads, the number of which is threadiness.
 // It then blocks until stopCh is closed, at which point it shuts down its internal
 // work queue and waits for workers to finish processing their current work items.

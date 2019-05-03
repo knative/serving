@@ -264,9 +264,8 @@ func (r *TableRow) Test(t *testing.T, factory Factory) {
 		if got, want := got.GetListRestrictions().Labels, want.GetListRestrictions().Labels; (got != nil) != (want != nil) || got.String() != want.String() {
 			t.Errorf("Unexpected delete-collection[%d].Labels = %v, wanted %v", i, got, want)
 		}
-		// TODO(mattmoor): Add this if/when we need support.
-		if got := got.GetListRestrictions().Fields; got.String() != "" {
-			t.Errorf("Unexpected delete-collection[%d].Fields = %v, wanted ''", i, got)
+		if got, want := got.GetListRestrictions().Fields, want.GetListRestrictions().Fields; (got != nil) != (want != nil) || got.String() != want.String() {
+			t.Errorf("Unexpected delete-collection[%d].Fields = %v, wanted %v", i, got, want)
 		}
 		if !r.SkipNamespaceValidation && got.GetNamespace() != expectedNamespace {
 			t.Errorf("Unexpected delete-collection[%d]: %#v, wanted %s", i, got, expectedNamespace)
