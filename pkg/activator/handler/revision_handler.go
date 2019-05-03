@@ -23,6 +23,8 @@ import (
 	"github.com/knative/serving/pkg/activator"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	v1a1inf "github.com/knative/serving/pkg/client/informers/externalversions/serving/v1alpha1"
+	"github.com/knative/serving/pkg/reconciler/route/traffic"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -32,7 +34,7 @@ func NewRevisionHandler(routeInformer v1a1inf.RouteInformer, next http.Handler) 
 
 	handler := &RevisionHandler{
 		nextHandler:   next,
-		domainMapping: make(map[string]*v1alpha1.Route),
+		domainMapping: make(map[string][]types.NamespacedName),
 	}
 
 	routeInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -49,7 +51,7 @@ type RevisionHandler struct {
 	nextHandler http.Handler
 
 	domainMux     sync.RWMutex
-	domainMapping map[string]*v1alpha1.Route
+	domainMapping map[string][]types.NamespacedName
 }
 
 func (h *RevisionHandler) addRoute(r interface{}) {
@@ -58,7 +60,23 @@ func (h *RevisionHandler) addRoute(r interface{}) {
 	h.domainMux.Lock()
 	defer h.domainMux.Unlock()
 
-	h.domainMapping[route.Status.Domain] = route
+	baseTargets := []types.NamespacedName{}
+	baseDomain := route.Status.Domain
+
+	for _, target := range route.Status.Traffic {
+		nsname := types.NamespacedName{
+			Namespace: route.Namespace,
+			Name:      target.RevisionName,
+		}
+
+		if target.Percent != 0 {
+			baseTargets = append(baseTargets, nsname)
+		}
+
+		subDomain := traffic.TagDomain(target.Tag, baseDomain)
+		h.domainMapping[subDomain] = []types.NamespacedName{nsname}
+	}
+	h.domainMapping[baseDomain] = baseTargets
 }
 
 func (h *RevisionHandler) deleteRoute(r interface{}) {
@@ -70,7 +88,7 @@ func (h *RevisionHandler) deleteRoute(r interface{}) {
 	delete(h.domainMapping, route.Name)
 }
 
-func (h *RevisionHandler) getRoute(domain string) *v1alpha1.Route {
+func (h *RevisionHandler) getTargets(domain string) []types.NamespacedName {
 	h.domainMux.RLock()
 	defer h.domainMux.RUnlock()
 
@@ -81,14 +99,14 @@ func (h *RevisionHandler) getRoute(domain string) *v1alpha1.Route {
 func (h *RevisionHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Only try to infer a revision if the header is not already set.
 	if r.Header.Get(activator.RevisionHeaderName) == "" {
-		route := h.getRoute(r.Host)
+		targets := h.getTargets(r.Host)
 
 		// pick a target randomly
-		revisionName := route.Status.Traffic[rand.Intn(len(route.Status.Traffic))].RevisionName
+		target := targets[rand.Intn(len(targets))]
 
 		// set headers accordingly
-		r.Header.Add(activator.RevisionHeaderName, revisionName)
-		r.Header.Add(activator.RevisionHeaderNamespace, route.Namespace)
+		r.Header.Add(activator.RevisionHeaderName, target.Name)
+		r.Header.Add(activator.RevisionHeaderNamespace, target.Namespace)
 	}
 
 	h.nextHandler.ServeHTTP(w, r)
