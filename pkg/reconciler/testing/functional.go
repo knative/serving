@@ -887,6 +887,7 @@ func MarkDeploying(reason string) RevisionOption {
 // with the message we expect the Revision Reconciler to pass.
 func MarkProgressDeadlineExceeded(r *v1alpha1.Revision) {
 	r.Status.MarkProgressDeadlineExceeded("Unable to create pods for more than 120 seconds.")
+	r.Status.MarkInactive("ProgressDeadlineExceeded", "Unable to create pods for more than 120 seconds.")
 }
 
 // MarkServiceTimeout calls .Status.MarkServiceTimeout on the Revision.
@@ -903,6 +904,7 @@ func MarkContainerMissing(rev *v1alpha1.Revision) {
 func MarkContainerExiting(exitCode int32, message string) RevisionOption {
 	return func(r *v1alpha1.Revision) {
 		r.Status.MarkContainerExiting(exitCode, message)
+		r.Status.MarkInactive(fmt.Sprintf("ExitCode%d", exitCode), fmt.Sprintf("Container failed with: %s", message))
 	}
 }
 
@@ -1031,7 +1033,7 @@ func WithPanicThresholdPercentageAnnotation(percentage string) PodAutoscalerOpti
 	return withAnnotationValue(autoscaling.PanicThresholdPercentageAnnotationKey, percentage)
 }
 
-// WithWindowPanicPercentageAnnotation retturn a PodAutoscalerOption
+// WithPanicWindowPercentageAnnotation retturn a PodAutoscalerOption
 // which set the PodAutoscaler
 // autoscaling.knative.dev/windowPanicPercentage annotation to the
 // provided value.
@@ -1042,6 +1044,14 @@ func WithPanicWindowPercentageAnnotation(percentage string) PodAutoscalerOption 
 // WithMetricAnnotation adds a metric annotation to the PA.
 func WithMetricAnnotation(metric string) PodAutoscalerOption {
 	return withAnnotationValue(autoscaling.MetricAnnotationKey, metric)
+}
+
+// WithFailedRevision marks the PodAutoscaler failed with the same reason and message as the revision.
+func WithFailedRevision(rev *v1alpha1.Revision) PodAutoscalerOption {
+	return func(pa *autoscalingv1alpha1.PodAutoscaler) {
+		cond := rev.Status.GetCondition(v1alpha1.RevisionConditionReady)
+		pa.Status.MarkInactive(cond.Reason, cond.Message)
+	}
 }
 
 // K8sServiceOption enables further configuration of the Kubernetes Service.

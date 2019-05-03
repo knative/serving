@@ -400,13 +400,18 @@ func TestReconcile(t *testing.T) {
 			timeoutDeploy(deploy("foo", "deploy-timeout")),
 			image("foo", "deploy-timeout"),
 		},
-		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: rev("foo", "deploy-timeout",
+		WantStatusUpdates: func() []clientgotesting.UpdateActionImpl {
+			r := rev("foo", "deploy-timeout",
 				WithLogURL, AllUnknownConditions,
 				// When the revision is reconciled after a Deployment has
 				// timed out, we should see it marked with the PDE state.
-				MarkProgressDeadlineExceeded),
-		}},
+				MarkProgressDeadlineExceeded)
+			return []clientgotesting.UpdateActionImpl{{
+				Object: kpa("foo", "deploy-timeout", WithFailedRevision(r)),
+			}, {
+				Object: r,
+			}}
+		}(),
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "ProgressDeadlineExceeded",
 				"Revision %s not ready due to Deployment timeout",
@@ -427,10 +432,14 @@ func TestReconcile(t *testing.T) {
 			deploy("foo", "pod-error"),
 			image("foo", "pod-error"),
 		},
-		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: rev("foo", "pod-error",
-				WithLogURL, AllUnknownConditions, MarkContainerExiting(5, "I failed man!")),
-		}},
+		WantStatusUpdates: func() []clientgotesting.UpdateActionImpl {
+			r := rev("foo", "pod-error", WithLogURL, AllUnknownConditions, MarkContainerExiting(5, "I failed man!"))
+			return []clientgotesting.UpdateActionImpl{{
+				Object: kpa("foo", "pod-error", WithFailedRevision(r)),
+			}, {
+				Object: r,
+			}}
+		}(),
 		Key: "foo/pod-error",
 	}, {
 		Name: "build missing",

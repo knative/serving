@@ -115,6 +115,15 @@ func TestScaler(t *testing.T) {
 			kpaMarkInactive(k, time.Now().Add(-gracePeriod))
 		},
 	}, {
+		label:         "scale to zero when inactive and no metric",
+		startReplicas: 1,
+		scaleTo:       -1,
+		wantReplicas:  0,
+		wantScaling:   true,
+		kpaMutation: func(k *pav1alpha1.PodAutoscaler) {
+			kpaMarkInactive(k, time.Now().Add(-gracePeriod))
+		},
+	}, {
 		label:         "scale to zero after grace period, but fail prober",
 		startReplicas: 1,
 		scaleTo:       0,

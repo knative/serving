@@ -155,6 +155,8 @@ func (c *Reconciler) reconcileKPA(ctx context.Context, rev *v1alpha1.Revision) e
 	// TODO(vagababov): required for #1997. Should be removed in 0.7,
 	// to fix the protocol type when it's unset.
 	tmpl := resources.MakeKPA(rev)
+	// Keep immutable fields unchanged.
+	tmpl.Spec.DeprecatedServiceName = kpa.Spec.DeprecatedServiceName
 	if !equality.Semantic.DeepEqual(tmpl.Spec, kpa.Spec) {
 		logger.Infof("KPA %s needs reconciliation", kpa.Name)
 
@@ -171,23 +173,37 @@ func (c *Reconciler) reconcileKPA(ctx context.Context, rev *v1alpha1.Revision) e
 	// Propagate the service name from the PA.
 	rev.Status.ServiceName = kpa.Status.ServiceName
 
-	// Reflect the KPA status in our own.
-	cond := kpa.Status.GetCondition(kpav1alpha1.PodAutoscalerConditionReady)
-	switch {
-	case cond == nil:
-		rev.Status.MarkActivating("Deploying", "")
-		// If not ready => SKS did not report a service name, we can reliably use.
-	case cond.Status == corev1.ConditionUnknown:
-		rev.Status.MarkActivating(cond.Reason, cond.Message)
-	case cond.Status == corev1.ConditionFalse:
+	// Reconcile KPA's and revision's statuses.
+	if cond := rev.Status.GetCondition(v1alpha1.RevisionConditionReady); cond.Status == corev1.ConditionFalse {
+		// If the revision fails to become ready (Ready condition is false), the PodAutoscaler will be marked
+		// inactive, because it cannot become active with a failed revision.
+		logger.Infof("Rev %s failed to become ready, marking pa %s inactive.", rev.Name, kpa.Name)
+		want := kpa.DeepCopy()
+		want.Status.MarkInactive(cond.Reason, cond.Message)
+		if kpa, err = c.ServingClientSet.AutoscalingV1alpha1().PodAutoscalers(kpa.Namespace).UpdateStatus(want); err != nil {
+			return err
+		}
 		rev.Status.MarkInactive(cond.Reason, cond.Message)
-	case cond.Status == corev1.ConditionTrue:
-		rev.Status.MarkActive()
+	} else {
+		// If the revision is not known to have failed, it can be activated by the PodAutoscaler. So the Active
+		// condtion of the revision follows the PodAutoscaler's Ready condition.
+		cond := kpa.Status.GetCondition(kpav1alpha1.PodAutoscalerConditionReady)
+		switch {
+		case cond == nil:
+			rev.Status.MarkActivating("Deploying", "")
+			// If not ready => SKS did not report a service name, we can reliably use.
+		case cond.Status == corev1.ConditionUnknown:
+			rev.Status.MarkActivating(cond.Reason, cond.Message)
+		case cond.Status == corev1.ConditionFalse:
+			rev.Status.MarkInactive(cond.Reason, cond.Message)
+		case cond.Status == corev1.ConditionTrue:
+			rev.Status.MarkActive()
 
-		// Precondition for PA being active is SKS being active and
-		// that entices that |service.endpoints| > 0.
-		rev.Status.MarkResourcesAvailable()
-		rev.Status.MarkContainerHealthy()
+			// Precondition for PA being active is SKS being active and
+			// that entices that |service.endpoints| > 0.
+			rev.Status.MarkResourcesAvailable()
+			rev.Status.MarkContainerHealthy()
+		}
 	}
 	return nil
 }

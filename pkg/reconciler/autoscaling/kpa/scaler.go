@@ -252,6 +252,9 @@ func (ks *scaler) applyScale(ctx context.Context, pa *pav1alpha1.PodAutoscaler, 
 func (ks *scaler) Scale(ctx context.Context, pa *pav1alpha1.PodAutoscaler, desiredScale int32) (int32, error) {
 	logger := logging.FromContext(ctx)
 
+	if desiredScale < 0 && pa.Status.IsInactive() {
+		desiredScale = 0
+	}
 	desiredScale, shouldApplyScale := ks.handleScaleToZero(pa, desiredScale)
 	if !shouldApplyScale {
 		return desiredScale, nil
