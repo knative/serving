@@ -177,10 +177,12 @@ func main() {
 
 	kubeInformerFactory := kubeinformers.NewSharedInformerFactory(kubeClient, defaultResyncInterval)
 	servingInformerFactory := servinginformers.NewSharedInformerFactory(servingClient, defaultResyncInterval)
+
 	endpointInformer := kubeInformerFactory.Core().V1().Endpoints()
 	serviceInformer := kubeInformerFactory.Core().V1().Services()
 	revisionInformer := servingInformerFactory.Serving().V1alpha1().Revisions()
 	sksInformer := servingInformerFactory.Networking().V1alpha1().ServerlessServices()
+	routeInformer := servingInformerFactory.Serving().V1alpha1().Routes()
 
 	// Run informers instead of starting them from the factory to prevent the sync hanging because of empty handler.
 	if err := controller.StartInformers(
@@ -188,7 +190,8 @@ func main() {
 		revisionInformer.Informer(),
 		endpointInformer.Informer(),
 		serviceInformer.Informer(),
-		sksInformer.Informer()); err != nil {
+		sksInformer.Informer(),
+		routeInformer.Informer()); err != nil {
 		logger.Fatalw("Failed to start informers", err)
 	}
 
@@ -293,6 +296,7 @@ func main() {
 		GetService:    serviceGetter,
 	}
 	ah = activatorhandler.NewRequestEventHandler(reqChan, ah)
+	ah = activatorhandler.NewRevisionHandler(routeInformer, ah)
 	ah = tracing.HTTPSpanMiddleware(ah)
 	ah = configStore.HTTPMiddleware(ah)
 	reqLogHandler, err := pkghttp.NewRequestLogHandler(ah, logging.NewSyncFileWriter(os.Stdout), "",
