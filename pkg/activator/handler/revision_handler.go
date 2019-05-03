@@ -16,6 +16,7 @@ package handler
 import (
 	"math/rand"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -99,7 +100,7 @@ func (h *RevisionHandler) getTargets(domain string) []types.NamespacedName {
 func (h *RevisionHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Only try to infer a revision if the header is not already set.
 	if r.Header.Get(activator.RevisionHeaderName) == "" {
-		targets := h.getTargets(r.Host)
+		targets := h.getTargets(strings.Split(r.Host, ":")[0])
 
 		// pick a target randomly
 		target := targets[rand.Intn(len(targets))]
