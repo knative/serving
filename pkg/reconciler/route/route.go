@@ -33,6 +33,7 @@ import (
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 
+	"github.com/knative/pkg/apis"
 	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/controller"
@@ -263,11 +264,17 @@ func (c *Reconciler) reconcile(ctx context.Context, r *v1alpha1.Route) error {
 
 	// Update the information that makes us Addressable. This is needed to configure traffic and
 	// make the cluster ingress.
-	var err error
-	r.Status.Domain, err = routeDomain(ctx, r)
+	host, err := routeDomain(ctx, r)
 	if err != nil {
 		return err
 	}
+
+	r.Status.URL = &apis.URL{
+		// TODO(zhiminx): Support HTTPS here.
+		Scheme: "http",
+		Host:   host,
+	}
+	r.Status.DeprecatedDomain = host
 
 	// Configure traffic based on the RouteSpec.
 	traffic, err := c.configureTraffic(ctx, r)
@@ -377,7 +384,7 @@ func (c *Reconciler) configureTraffic(ctx context.Context, r *v1alpha1.Route) (*
 
 	logger.Info("All referred targets are routable, marking AllTrafficAssigned with traffic information.")
 	// Domain should already be present
-	r.Status.Traffic = t.GetRevisionTrafficTargets(r.Status.Domain)
+	r.Status.Traffic = t.GetRevisionTrafficTargets(r.Status.URL.Host)
 	r.Status.MarkTrafficAssigned()
 
 	return t, nil

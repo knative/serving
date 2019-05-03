@@ -50,7 +50,7 @@ func TestSingleConcurrency(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create Service: %v", err)
 	}
-	domain := objects.Service.Status.Domain
+	domain := objects.Service.Status.URL.Host
 
 	// Ready does not actually mean Ready for a Route just yet.
 	// See https://github.com/knative/serving/issues/1582

@@ -123,10 +123,10 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 			t.Logf("Wait for %s to become ready.", names.Service)
 			var domain string
 			err = test.WaitForServiceState(clients.ServingClient, names.Service, func(s *v1alpha1.Service) (bool, error) {
-				if s.Status.Domain == "" {
+				if s.Status.URL == nil {
 					return false, nil
 				}
-				domain = s.Status.Domain
+				domain = s.Status.URL.Host
 				return test.IsServiceReady(s)
 			}, "ServiceUpdatedWithDomain")
 			if err != nil {

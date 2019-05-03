@@ -112,10 +112,15 @@ const (
 // These are defined outline so that we can also inline them into Service, and more easily
 // copy them.
 type RouteStatusFields struct {
-	// Domain holds the top-level domain that will distribute traffic over the provided targets.
+	// URL holds the url that will distribute traffic over the provided traffic targets.
+	// It generally has the form http[s]://{route-name}.{route-namespace}.{cluster-level-suffix}
+	// +optional
+	URL *apis.URL `json:"url,omitempty"`
+
+	// DeprecatedDomain holds the top-level domain that will distribute traffic over the provided targets.
 	// It generally has the form {route-name}.{route-namespace}.{cluster-level-suffix}
 	// +optional
-	Domain string `json:"domain,omitempty"`
+	DeprecatedDomain string `json:"domain,omitempty"`
 
 	// DeprecatedDomainInternal holds the top-level domain that will distribute traffic over the provided
 	// targets from inside the cluster. It generally has the form

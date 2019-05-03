@@ -89,7 +89,7 @@ func (pt *protocolsTest) createService(options *test.Options) string {
 		pt.t.Fatalf("Failed to create service %v", err)
 	}
 
-	return objects.Route.Status.Domain
+	return objects.Route.Status.URL.Host
 }
 
 type protocol struct {

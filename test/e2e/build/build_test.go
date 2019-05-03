@@ -84,7 +84,7 @@ func TestBuildSpecAndServe(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Error fetching Route %s: %v", names.Route, err)
 	}
-	domain := route.Status.Domain
+	domain := route.Status.URL.Host
 
 	endState := test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesBody(helloWorldExpectedOutput)))
 	if _, err := pkgTest.WaitForEndpointState(clients.KubeClient, t.Logf, domain, endState, "HelloWorldServesText", test.ServingFlags.ResolvableDomain); err != nil {
@@ -186,7 +186,7 @@ func TestBuildAndServe(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Error fetching Route %s: %v", names.Route, err)
 	}
-	domain := route.Status.Domain
+	domain := route.Status.URL.Host
 
 	endState := test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesBody(helloWorldExpectedOutput)))
 	if _, err := pkgTest.WaitForEndpointState(clients.KubeClient, t.Logf, domain, endState, "HelloWorldServesText", test.ServingFlags.ResolvableDomain); err != nil {
