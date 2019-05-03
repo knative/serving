@@ -199,7 +199,7 @@ func TestPodAutoscalerValidation(t *testing.T) {
 			},
 		},
 		want: (&apis.FieldError{
-			Message: fmt.Sprintf("Invalid %s annotation value: must be an integer greater than 0", autoscaling.MinScaleAnnotationKey),
+			Message: fmt.Sprintf("Invalid %s annotation value: must be an integer equal or greater than 0", autoscaling.MinScaleAnnotationKey),
 			Paths:   []string{autoscaling.MinScaleAnnotationKey},
 		}).ViaField("annotations").ViaField("metadata"),
 	}, {

@@ -70,7 +70,7 @@ func TestHTTPSpanMiddleware(t *testing.T) {
 	}
 
 	next := testHandler{}
-	middleware := HTTPSpanMiddleware("test-op", &next)
+	middleware := HTTPSpanMiddleware(&next)
 
 	var lastWrite []byte
 	fw := fakeWriter{lastWrite: &lastWrite}
@@ -79,6 +79,10 @@ func TestHTTPSpanMiddleware(t *testing.T) {
 	if err != nil {
 		t.Errorf("Failed to make fake request: %v", err)
 	}
+	traceID := "821e0d50d931235a5ba3fa42eddddd8f"
+	req.Header["X-B3-Traceid"] = []string{traceID}
+	req.Header["X-B3-Spanid"] = []string{"b3bd5e1c4318c78a"}
+
 	middleware.ServeHTTP(fw, req)
 
 	// Assert our next handler was called
@@ -88,6 +92,9 @@ func TestHTTPSpanMiddleware(t *testing.T) {
 
 	spans := reporter.Flush()
 	if len(spans) != 1 {
-		t.Errorf("Got %d spans, expected 1", len(spans))
+		t.Errorf("Got %d spans, expected 1: spans = %v", len(spans), spans)
+	}
+	if got := spans[0].TraceID.String(); got != traceID {
+		t.Errorf("spans[0].TraceID = %s, want %s", got, traceID)
 	}
 }

@@ -76,6 +76,7 @@ func main() {
 	clusterIngressInformer := servingInformerFactory.Networking().V1alpha1().ClusterIngresses()
 	virtualServiceInformer := sharedInformerFactory.Networking().V1alpha3().VirtualServices()
 	gatewayInformer := sharedInformerFactory.Networking().V1alpha3().Gateways()
+	secretInformer := kubeInformerFactory.Core().V1().Secrets()
 	configMapInformer := kubeInformerFactory.Core().V1().ConfigMaps()
 
 	// Build our controller
@@ -84,6 +85,7 @@ func main() {
 		clusterIngressInformer,
 		virtualServiceInformer,
 		gatewayInformer,
+		secretInformer,
 	)
 
 	// Watch the logging config map and dynamically update logging levels.
@@ -98,6 +100,8 @@ func main() {
 		stopCh,
 		clusterIngressInformer.Informer(),
 		virtualServiceInformer.Informer(),
+		secretInformer.Informer(),
+		gatewayInformer.Informer(),
 		configMapInformer.Informer(),
 	); err != nil {
 		logger.Fatalw("Failed to start informers", zap.Error(err))

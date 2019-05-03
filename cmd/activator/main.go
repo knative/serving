@@ -22,9 +22,8 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"time"
-
-	"go.uber.org/zap"
 
 	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/controller"
@@ -46,6 +45,7 @@ import (
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
 	servinginformers "github.com/knative/serving/pkg/client/informers/externalversions"
 	"github.com/knative/serving/pkg/goversion"
+	pkghttp "github.com/knative/serving/pkg/http"
 	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/pkg/metrics"
 	"github.com/knative/serving/pkg/network"
@@ -54,8 +54,8 @@ import (
 	"github.com/knative/serving/pkg/resources"
 	"github.com/knative/serving/pkg/tracing"
 	tracingconfig "github.com/knative/serving/pkg/tracing/config"
-
 	zipkin "github.com/openzipkin/zipkin-go"
+	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	kubeinformers "k8s.io/client-go/informers"
@@ -98,11 +98,13 @@ const (
 )
 
 var (
-	masterURL  = flag.String("master", "", "The address of the Kubernetes API server. Overrides any value in kubeconfig. Only required if out-of-cluster.")
+	masterURL = flag.String("master", "", "The address of the Kubernetes API server. "+
+		"Overrides any value in kubeconfig. Only required if out-of-cluster.")
 	kubeconfig = flag.String("kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
 )
 
-func statReporter(statSink *websocket.ManagedConnection, stopCh <-chan struct{}, statChan <-chan *autoscaler.StatMessage, logger *zap.SugaredLogger) {
+func statReporter(statSink *websocket.ManagedConnection, stopCh <-chan struct{},
+	statChan <-chan *autoscaler.StatMessage, logger *zap.SugaredLogger) {
 	for {
 		select {
 		case sm := <-statChan:
@@ -291,15 +293,23 @@ func main() {
 		GetService:    serviceGetter,
 	}
 	ah = activatorhandler.NewRequestEventHandler(reqChan, ah)
-	ah = tracing.HTTPSpanMiddleware("handle_request", ah)
+	ah = tracing.HTTPSpanMiddleware(ah)
 	ah = configStore.HTTPMiddleware(ah)
-	ah = &activatorhandler.HealthHandler{HealthCheck: statSink.Status, NextHandler: ah}
+	reqLogHandler, err := pkghttp.NewRequestLogHandler(ah, logging.NewSyncFileWriter(os.Stdout), "",
+		requestLogTemplateInputGetter(revisionGetter))
+	if err != nil {
+		logger.Fatalw("Unable to create request log handler", zap.Error(err))
+	}
+	ah = reqLogHandler
 	ah = &activatorhandler.ProbeHandler{NextHandler: ah}
+	ah = &activatorhandler.HealthHandler{HealthCheck: statSink.Status, NextHandler: ah}
 
 	// Watch the logging config map and dynamically update logging levels.
 	configMapWatcher.Watch(logging.ConfigMapName(), logging.UpdateLevelFromConfigMap(logger, atomicLevel, component))
 	// Watch the observability config map and dynamically update metrics exporter.
 	configMapWatcher.Watch(metrics.ObservabilityConfigName, metrics.UpdateExporterFromConfigMap(component, logger))
+	// Watch the observability config map and dynamically update request logs.
+	configMapWatcher.Watch(metrics.ObservabilityConfigName, updateRequestLogFromConfigMap(logger, reqLogHandler))
 	if err = configMapWatcher.Start(stopCh); err != nil {
 		logger.Fatalw("Failed to start configuration manager", zap.Error(err))
 	}
@@ -325,5 +335,7 @@ func main() {
 
 func flush(logger *zap.SugaredLogger) {
 	logger.Sync()
+	os.Stdout.Sync()
+	os.Stderr.Sync()
 	pkgmetrics.FlushExporter()
 }

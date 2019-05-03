@@ -97,7 +97,11 @@ func timeToServe(t *testing.T, img, query string, reqTimeout time.Duration) {
 	resp.SaveJSON(tName)
 
 	if len(resp.Result) == 0 {
-		t.Fatalf("No result found for the load test")
+		t.Fatal("No result found for the load test")
+	}
+
+	if ErrorsPercentage(resp) > 0 {
+		t.Fatal("Found non 200 response")
 	}
 
 	// Add latency metrics

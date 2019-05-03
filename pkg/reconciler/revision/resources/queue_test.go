@@ -17,8 +17,11 @@ limitations under the License.
 package resources
 
 import (
+	"sort"
 	"strconv"
 	"testing"
+
+	"github.com/knative/serving/pkg/resources"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -74,59 +77,7 @@ func TestMakeQueueContainer(t *testing.T) {
 			Ports:          append(queueNonServingPorts, queueHTTPPort),
 			ReadinessProbe: queueReadinessProbe,
 			// These changed based on the Revision and configs passed in.
-			Env: []corev1.EnvVar{{
-				Name:  "SERVING_NAMESPACE",
-				Value: "foo", // matches namespace
-			}, {
-				Name:  "SERVING_SERVICE",
-				Value: "", // not set in the labels
-			}, {
-				Name: "SERVING_CONFIGURATION",
-				// No OwnerReference
-			}, {
-				Name:  "SERVING_REVISION",
-				Value: "bar", // matches name
-			}, {
-				Name:  "SERVING_AUTOSCALER",
-				Value: "autoscaler", // no autoscaler configured.
-			}, {
-				Name:  "SERVING_AUTOSCALER_PORT",
-				Value: "8080",
-			}, {
-				Name:  "CONTAINER_CONCURRENCY",
-				Value: "1",
-			}, {
-				Name:  "REVISION_TIMEOUT_SECONDS",
-				Value: "45",
-			}, {
-				Name: "SERVING_POD",
-				ValueFrom: &corev1.EnvVarSource{
-					FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
-				},
-			}, {
-				Name: "SERVING_POD_IP",
-				ValueFrom: &corev1.EnvVarSource{
-					FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
-				},
-			}, {
-				Name: "SERVING_LOGGING_CONFIG",
-				// No logging configuration
-			}, {
-				Name: "SERVING_LOGGING_LEVEL",
-				// No logging level
-			}, {
-				Name:  "SERVING_REQUEST_LOG_TEMPLATE",
-				Value: "",
-			}, {
-				Name:  "SERVING_REQUEST_METRICS_BACKEND",
-				Value: "",
-			}, {
-				Name:  "USER_PORT",
-				Value: strconv.Itoa(v1alpha1.DefaultUserPort),
-			}, {
-				Name:  "SYSTEM_NAMESPACE",
-				Value: system.Namespace(),
-			}},
+			Env: env(nil),
 		},
 	}, {
 		name: "no owner no autoscaler single",
@@ -165,59 +116,10 @@ func TestMakeQueueContainer(t *testing.T) {
 			ReadinessProbe: queueReadinessProbe,
 			// These changed based on the Revision and configs passed in.
 			Image: "alpine",
-			Env: []corev1.EnvVar{{
-				Name:  "SERVING_NAMESPACE",
-				Value: "foo", // matches namespace
-			}, {
-				Name:  "SERVING_SERVICE",
-				Value: "", // not set in the labels
-			}, {
-				Name: "SERVING_CONFIGURATION",
-				// No OwnerReference
-			}, {
-				Name:  "SERVING_REVISION",
-				Value: "bar", // matches name
-			}, {
-				Name:  "SERVING_AUTOSCALER",
-				Value: "autoscaler", // no autoscaler configured.
-			}, {
-				Name:  "SERVING_AUTOSCALER_PORT",
-				Value: "8080",
-			}, {
-				Name:  "CONTAINER_CONCURRENCY",
-				Value: "1",
-			}, {
-				Name:  "REVISION_TIMEOUT_SECONDS",
-				Value: "45",
-			}, {
-				Name: "SERVING_POD",
-				ValueFrom: &corev1.EnvVarSource{
-					FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
-				},
-			}, {
-				Name: "SERVING_POD_IP",
-				ValueFrom: &corev1.EnvVarSource{
-					FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
-				},
-			}, {
-				Name: "SERVING_LOGGING_CONFIG",
-				// No logging configuration
-			}, {
-				Name: "SERVING_LOGGING_LEVEL",
-				// No logging level
-			}, {
-				Name:  "SERVING_REQUEST_LOG_TEMPLATE",
-				Value: "",
-			}, {
-				Name:  "SERVING_REQUEST_METRICS_BACKEND",
-				Value: "",
-			}, {
-				Name:  "USER_PORT",
-				Value: "1955",
-			}, {
-				Name:  "SYSTEM_NAMESPACE",
-				Value: system.Namespace(),
-			}},
+			Env: env(map[string]string{
+				"USER_PORT":          "1955",
+				"QUEUE_SERVING_PORT": "8013",
+			}),
 		},
 	}, {
 		name: "service name in labels",
@@ -251,61 +153,11 @@ func TestMakeQueueContainer(t *testing.T) {
 			ReadinessProbe: queueReadinessProbe,
 			// These changed based on the Revision and configs passed in.
 			Image: "alpine",
-			Env: []corev1.EnvVar{{
-				Name:  "SERVING_NAMESPACE",
-				Value: "foo", // matches namespace
-			}, {
-				Name:  "SERVING_SERVICE",
-				Value: "svc", // matches service name
-			}, {
-				Name: "SERVING_CONFIGURATION",
-				// No OwnerReference
-			}, {
-				Name:  "SERVING_REVISION",
-				Value: "bar", // matches name
-			}, {
-				Name:  "SERVING_AUTOSCALER",
-				Value: "autoscaler", // no autoscaler configured.
-			}, {
-				Name:  "SERVING_AUTOSCALER_PORT",
-				Value: "8080",
-			}, {
-				Name:  "CONTAINER_CONCURRENCY",
-				Value: "1",
-			}, {
-				Name:  "REVISION_TIMEOUT_SECONDS",
-				Value: "45",
-			}, {
-				Name: "SERVING_POD",
-				ValueFrom: &corev1.EnvVarSource{
-					FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
-				},
-			}, {
-				Name: "SERVING_POD_IP",
-				ValueFrom: &corev1.EnvVarSource{
-					FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
-				},
-			}, {
-				Name: "SERVING_LOGGING_CONFIG",
-				// No logging configuration
-			}, {
-				Name: "SERVING_LOGGING_LEVEL",
-				// No logging level
-			}, {
-				Name:  "SERVING_REQUEST_LOG_TEMPLATE",
-				Value: "",
-			}, {
-				Name:  "SERVING_REQUEST_METRICS_BACKEND",
-				Value: "",
-			}, {
-				Name:  "USER_PORT",
-				Value: strconv.Itoa(v1alpha1.DefaultUserPort),
-			}, {
-				Name:  "SYSTEM_NAMESPACE",
-				Value: system.Namespace(),
-			}},
+			Env: env(map[string]string{
+				"SERVING_SERVICE": "svc",
+			}),
 		}}, {
-		name: "config owner as env var, multi-concurrency",
+		name: "config owner as env var, zero concurrency",
 		rev: &v1alpha1.Revision{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: "baz",
@@ -337,59 +189,12 @@ func TestMakeQueueContainer(t *testing.T) {
 			Ports:          append(queueNonServingPorts, queueHTTPPort),
 			ReadinessProbe: queueReadinessProbe,
 			// These changed based on the Revision and configs passed in.
-			Env: []corev1.EnvVar{{
-				Name:  "SERVING_NAMESPACE",
-				Value: "baz", // matches namespace
-			}, {
-				Name:  "SERVING_SERVICE",
-				Value: "", // not set in the labels
-			}, {
-				Name:  "SERVING_CONFIGURATION",
-				Value: "the-parent-config-name",
-			}, {
-				Name:  "SERVING_REVISION",
-				Value: "blah", // matches name
-			}, {
-				Name:  "SERVING_AUTOSCALER",
-				Value: "autoscaler", // no autoscaler configured.
-			}, {
-				Name:  "SERVING_AUTOSCALER_PORT",
-				Value: "8080",
-			}, {
-				Name:  "CONTAINER_CONCURRENCY",
-				Value: "0",
-			}, {
-				Name:  "REVISION_TIMEOUT_SECONDS",
-				Value: "45",
-			}, {
-				Name: "SERVING_POD",
-				ValueFrom: &corev1.EnvVarSource{
-					FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
-				},
-			}, {
-				Name: "SERVING_POD_IP",
-				ValueFrom: &corev1.EnvVarSource{
-					FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
-				},
-			}, {
-				Name: "SERVING_LOGGING_CONFIG",
-				// No logging configuration
-			}, {
-				Name: "SERVING_LOGGING_LEVEL",
-				// No logging level
-			}, {
-				Name:  "SERVING_REQUEST_LOG_TEMPLATE",
-				Value: "",
-			}, {
-				Name:  "SERVING_REQUEST_METRICS_BACKEND",
-				Value: "",
-			}, {
-				Name:  "USER_PORT",
-				Value: strconv.Itoa(v1alpha1.DefaultUserPort),
-			}, {
-				Name:  "SYSTEM_NAMESPACE",
-				Value: system.Namespace(),
-			}},
+			Env: env(map[string]string{
+				"CONTAINER_CONCURRENCY": "0",
+				"SERVING_CONFIGURATION": "the-parent-config-name",
+				"SERVING_NAMESPACE":     "baz",
+				"SERVING_REVISION":      "blah",
+			}),
 		},
 	}, {
 		name: "logging configuration as env var",
@@ -422,59 +227,13 @@ func TestMakeQueueContainer(t *testing.T) {
 			Ports:          append(queueNonServingPorts, queueHTTPPort),
 			ReadinessProbe: queueReadinessProbe,
 			// These changed based on the Revision and configs passed in.
-			Env: []corev1.EnvVar{{
-				Name:  "SERVING_NAMESPACE",
-				Value: "log", // matches namespace
-			}, {
-				Name:  "SERVING_SERVICE",
-				Value: "", // not set in the labels
-			}, {
-				Name: "SERVING_CONFIGURATION",
-				// No Configuration owner.
-			}, {
-				Name:  "SERVING_REVISION",
-				Value: "this", // matches name
-			}, {
-				Name:  "SERVING_AUTOSCALER",
-				Value: "autoscaler", // no autoscaler configured.
-			}, {
-				Name:  "SERVING_AUTOSCALER_PORT",
-				Value: "8080",
-			}, {
-				Name:  "CONTAINER_CONCURRENCY",
-				Value: "0",
-			}, {
-				Name:  "REVISION_TIMEOUT_SECONDS",
-				Value: "45",
-			}, {
-				Name: "SERVING_POD",
-				ValueFrom: &corev1.EnvVarSource{
-					FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
-				},
-			}, {
-				Name: "SERVING_POD_IP",
-				ValueFrom: &corev1.EnvVarSource{
-					FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
-				},
-			}, {
-				Name:  "SERVING_LOGGING_CONFIG",
-				Value: "The logging configuration goes here", // from logging config
-			}, {
-				Name:  "SERVING_LOGGING_LEVEL",
-				Value: "error", // from logging config
-			}, {
-				Name:  "SERVING_REQUEST_LOG_TEMPLATE",
-				Value: "",
-			}, {
-				Name:  "SERVING_REQUEST_METRICS_BACKEND",
-				Value: "",
-			}, {
-				Name:  "USER_PORT",
-				Value: strconv.Itoa(v1alpha1.DefaultUserPort),
-			}, {
-				Name:  "SYSTEM_NAMESPACE",
-				Value: system.Namespace(),
-			}},
+			Env: env(map[string]string{
+				"CONTAINER_CONCURRENCY":  "0",
+				"SERVING_LOGGING_CONFIG": "The logging configuration goes here",
+				"SERVING_LOGGING_LEVEL":  "error",
+				"SERVING_NAMESPACE":      "log",
+				"SERVING_REVISION":       "this",
+			}),
 		},
 	}, {
 		name: "container concurrency 10",
@@ -502,59 +261,9 @@ func TestMakeQueueContainer(t *testing.T) {
 			Ports:          append(queueNonServingPorts, queueHTTPPort),
 			ReadinessProbe: queueReadinessProbe,
 			// These changed based on the Revision and configs passed in.
-			Env: []corev1.EnvVar{{
-				Name:  "SERVING_NAMESPACE",
-				Value: "foo", // matches namespace
-			}, {
-				Name:  "SERVING_SERVICE",
-				Value: "", // not set in the labels
-			}, {
-				Name: "SERVING_CONFIGURATION",
-				// No OwnerReference
-			}, {
-				Name:  "SERVING_REVISION",
-				Value: "bar", // matches name
-			}, {
-				Name:  "SERVING_AUTOSCALER",
-				Value: "autoscaler", // no autoscaler configured.
-			}, {
-				Name:  "SERVING_AUTOSCALER_PORT",
-				Value: "8080",
-			}, {
-				Name:  "CONTAINER_CONCURRENCY",
-				Value: "10",
-			}, {
-				Name:  "REVISION_TIMEOUT_SECONDS",
-				Value: "45",
-			}, {
-				Name: "SERVING_POD",
-				ValueFrom: &corev1.EnvVarSource{
-					FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
-				},
-			}, {
-				Name: "SERVING_POD_IP",
-				ValueFrom: &corev1.EnvVarSource{
-					FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
-				},
-			}, {
-				Name: "SERVING_LOGGING_CONFIG",
-				// No logging configuration
-			}, {
-				Name: "SERVING_LOGGING_LEVEL",
-				// No logging level
-			}, {
-				Name:  "SERVING_REQUEST_LOG_TEMPLATE",
-				Value: "",
-			}, {
-				Name:  "SERVING_REQUEST_METRICS_BACKEND",
-				Value: "",
-			}, {
-				Name:  "USER_PORT",
-				Value: strconv.Itoa(v1alpha1.DefaultUserPort),
-			}, {
-				Name:  "SYSTEM_NAMESPACE",
-				Value: system.Namespace(),
-			}},
+			Env: env(map[string]string{
+				"CONTAINER_CONCURRENCY": "10",
+			}),
 		},
 	}, {
 		name: "request log as env var",
@@ -582,59 +291,10 @@ func TestMakeQueueContainer(t *testing.T) {
 			Ports:          append(queueNonServingPorts, queueHTTPPort),
 			ReadinessProbe: queueReadinessProbe,
 			// These changed based on the Revision and configs passed in.
-			Env: []corev1.EnvVar{{
-				Name:  "SERVING_NAMESPACE",
-				Value: "foo", // matches namespace
-			}, {
-				Name:  "SERVING_SERVICE",
-				Value: "", // not set in the labels
-			}, {
-				Name: "SERVING_CONFIGURATION",
-				// No OwnerReference
-			}, {
-				Name:  "SERVING_REVISION",
-				Value: "bar", // matches name
-			}, {
-				Name:  "SERVING_AUTOSCALER",
-				Value: "autoscaler", // no autoscaler configured.
-			}, {
-				Name:  "SERVING_AUTOSCALER_PORT",
-				Value: "8080",
-			}, {
-				Name:  "CONTAINER_CONCURRENCY",
-				Value: "0",
-			}, {
-				Name:  "REVISION_TIMEOUT_SECONDS",
-				Value: "45",
-			}, {
-				Name: "SERVING_POD",
-				ValueFrom: &corev1.EnvVarSource{
-					FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
-				},
-			}, {
-				Name: "SERVING_POD_IP",
-				ValueFrom: &corev1.EnvVarSource{
-					FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
-				},
-			}, {
-				Name: "SERVING_LOGGING_CONFIG",
-				// No logging configuration
-			}, {
-				Name: "SERVING_LOGGING_LEVEL",
-				// No logging level
-			}, {
-				Name:  "SERVING_REQUEST_LOG_TEMPLATE",
-				Value: "test template",
-			}, {
-				Name:  "SERVING_REQUEST_METRICS_BACKEND",
-				Value: "",
-			}, {
-				Name:  "USER_PORT",
-				Value: strconv.Itoa(v1alpha1.DefaultUserPort),
-			}, {
-				Name:  "SYSTEM_NAMESPACE",
-				Value: system.Namespace(),
-			}},
+			Env: env(map[string]string{
+				"CONTAINER_CONCURRENCY":        "0",
+				"SERVING_REQUEST_LOG_TEMPLATE": "test template",
+			}),
 		},
 	}, {
 		name: "request metrics backend as env var",
@@ -664,68 +324,72 @@ func TestMakeQueueContainer(t *testing.T) {
 			Ports:          append(queueNonServingPorts, queueHTTPPort),
 			ReadinessProbe: queueReadinessProbe,
 			// These changed based on the Revision and configs passed in.
-			Env: []corev1.EnvVar{{
-				Name:  "SERVING_NAMESPACE",
-				Value: "foo", // matches namespace
-			}, {
-				Name:  "SERVING_SERVICE",
-				Value: "", // not set in the labels
-			}, {
-				Name: "SERVING_CONFIGURATION",
-				// No OwnerReference
-			}, {
-				Name:  "SERVING_REVISION",
-				Value: "bar", // matches name
-			}, {
-				Name:  "SERVING_AUTOSCALER",
-				Value: "autoscaler", // no autoscaler configured.
-			}, {
-				Name:  "SERVING_AUTOSCALER_PORT",
-				Value: "8080",
-			}, {
-				Name:  "CONTAINER_CONCURRENCY",
-				Value: "0",
-			}, {
-				Name:  "REVISION_TIMEOUT_SECONDS",
-				Value: "45",
-			}, {
-				Name: "SERVING_POD",
-				ValueFrom: &corev1.EnvVarSource{
-					FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
-				},
-			}, {
-				Name: "SERVING_POD_IP",
-				ValueFrom: &corev1.EnvVarSource{
-					FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
-				},
-			}, {
-				Name: "SERVING_LOGGING_CONFIG",
-				// No logging configuration
-			}, {
-				Name: "SERVING_LOGGING_LEVEL",
-				// No logging level
-			}, {
-				Name:  "SERVING_REQUEST_LOG_TEMPLATE",
-				Value: "",
-			}, {
-				Name:  "SERVING_REQUEST_METRICS_BACKEND",
-				Value: "prometheus",
-			}, {
-				Name:  "USER_PORT",
-				Value: strconv.Itoa(v1alpha1.DefaultUserPort),
-			}, {
-				Name:  "SYSTEM_NAMESPACE",
-				Value: system.Namespace(),
-			}},
+			Env: env(map[string]string{
+				"CONTAINER_CONCURRENCY":           "0",
+				"SERVING_REQUEST_METRICS_BACKEND": "prometheus",
+			}),
 		},
 	}}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			got := makeQueueContainer(test.rev, test.lc, test.oc, test.ac, test.cc)
+			sortEnv(got.Env)
 			if diff := cmp.Diff(test.want, got, cmpopts.IgnoreUnexported(resource.Quantity{})); diff != "" {
 				t.Errorf("makeQueueContainer (-want, +got) = %v", diff)
 			}
 		})
 	}
+}
+
+var defaultEnv = map[string]string{
+	"SERVING_NAMESPACE":               "foo",
+	"SERVING_SERVICE":                 "",
+	"SERVING_CONFIGURATION":           "",
+	"SERVING_REVISION":                "bar",
+	"CONTAINER_CONCURRENCY":           "1",
+	"REVISION_TIMEOUT_SECONDS":        "45",
+	"SERVING_LOGGING_CONFIG":          "",
+	"SERVING_LOGGING_LEVEL":           "",
+	"SERVING_REQUEST_LOG_TEMPLATE":    "",
+	"SERVING_REQUEST_METRICS_BACKEND": "",
+	"USER_PORT":                       strconv.Itoa(v1alpha1.DefaultUserPort),
+	"SYSTEM_NAMESPACE":                system.Namespace(),
+	"QUEUE_SERVING_PORT":              "8012",
+}
+
+func env(overrides map[string]string) []corev1.EnvVar {
+	values := resources.UnionMaps(defaultEnv, overrides)
+
+	var env []corev1.EnvVar
+	for key, value := range values {
+		env = append(env, corev1.EnvVar{
+			Name:  key,
+			Value: value,
+		})
+	}
+
+	env = append(env, []corev1.EnvVar{
+		{
+			Name: "SERVING_POD",
+			ValueFrom: &corev1.EnvVarSource{
+				FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
+			},
+		},
+		{
+			Name: "SERVING_POD_IP",
+			ValueFrom: &corev1.EnvVarSource{
+				FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
+			},
+		},
+	}...)
+
+	sortEnv(env)
+	return env
+}
+
+func sortEnv(envs []corev1.EnvVar) {
+	sort.SliceStable(envs, func(i, j int) bool {
+		return envs[i].Name < envs[j].Name
+	})
 }

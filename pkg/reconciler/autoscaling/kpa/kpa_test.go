@@ -278,7 +278,8 @@ func TestReconcileAndScaleToZero(t *testing.T) {
 		opt.ConfigMapWatcher = newConfigWatcher()
 
 		fakeMetrics := newTestMetrics()
-		kpaScaler := NewScaler(opt)
+		kpaScaler := NewScaler(opt).(*scaler)
+		kpaScaler.activatorProbe = func(*asv1a1.PodAutoscaler) (bool, error) { return true, nil }
 		return &Reconciler{
 			Base:            rpkg.NewBase(opt, controllerAgentName),
 			paLister:        listers.GetPodAutoscalerLister(),

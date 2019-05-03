@@ -18,9 +18,95 @@
   fields:
     - Name
     - VolumeDevices
+    - Stdin
+    - Lifecycle
+    - TTY
+    - StdinOnce
 - package: meta/v1
   type: ObjectMeta
   fields:
     - Initializers
     - ClusterName
     - DeletionGracePeriodSeconds
+- package: core/v1
+  type: VolumeSource
+  fields:
+    - FlexVolume
+    - PhotonPersistentDisk
+    - Flocker
+    - DownwardAPI
+    - RBD
+    - AzureDisk
+    - GCEPersistentDisk
+    - EmptyDir
+    - Cinder
+    - FC
+    - StorageOS
+    - VsphereVolume
+    - CephFS
+    - GitRepo
+    - ScaleIO
+    - PortworxVolume
+    - Glusterfs
+    - NFS
+    - Quobyte
+    - Projected
+    - AzureFile
+    - HostPath
+    - AWSElasticBlockStore
+    - ISCSI
+    - PersistentVolumeClaim
+- package: core/v1
+  type: SecurityContext
+  fields:
+    - Capabilities
+    - Privileged
+    - SELinuxOptions
+    - RunAsGroup
+    - RunAsNonRoot
+    - ReadOnlyRootFilesystem
+    - AllowPrivilegeEscalation
+    - ProcMount
+- package: core/v1
+  type: EnvVarSource
+  fields:
+    - FieldRef
+    - ResourceFieldRef
+- package: core/v1
+  type: ContainerPort
+  fields:
+    - HostIP
+    - HostPort
+- package: core/v1
+  type: VolumeMount
+  fields:
+    - SubPath
+    - MountPropagation
+- package: core/v1
+  type: PodSpec
+  fields:
+    - InitContainers
+    - RestartPolicy
+    - TerminationGracePeriodSeconds
+    - ActiveDeadlineSeconds
+    - DNSPolicy
+    - NodeSelector
+    - AutomountServiceAccountToken
+    - NodeName
+    - HostNetwork
+    - HostPID
+    - HostIPC
+    - ShareProcessNamespace
+    - SecurityContext
+    - ImagePullSecrets
+    - Hostname
+    - Subdomain
+    - Affinity
+    - SchedulerName
+    - Tolerations
+    - HostAliases
+    - PriorityClassName
+    - Priority
+    - DNSConfig
+    - ReadinessGates
+    - RuntimeClassName
