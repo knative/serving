@@ -109,7 +109,7 @@ func (r *digestResolver) Resolve(
 	}
 
 	// TODO(#3997): Use remote.Get to resolve manifest lists to digests as well
-	// once CRI-O is fixed.
+	// once CRI-O is fixed: https://github.com/cri-o/cri-o/issues/2157
 	platform := v1.Platform{
 		Architecture: runtime.GOARCH,
 		OS:           runtime.GOOS,
