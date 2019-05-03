@@ -442,7 +442,7 @@ func TestMakePodSpec(t *testing.T) {
 			},
 		})),
 	}, {
-		name: "simple concurrency=single no owner",
+		name: "concurrency=1 no owner",
 		rev:  revision(withContainerConcurrency(1)),
 		lc:   &logging.Config{},
 		oc:   &metrics.ObservabilityConfig{},
@@ -455,7 +455,7 @@ func TestMakePodSpec(t *testing.T) {
 			),
 		}),
 	}, {
-		name: "simple concurrency=single no owner digest resolved",
+		name: "concurrency=1 no owner digest resolved",
 		rev: revision(
 			withContainerConcurrency(1),
 			func(revision *v1alpha1.Revision) {
@@ -477,7 +477,7 @@ func TestMakePodSpec(t *testing.T) {
 			),
 		}),
 	}, {
-		name: "simple concurrency=single with owner",
+		name: "concurrency=1 with owner",
 		rev: revision(
 			withContainerConcurrency(1),
 			withOwnerReference("parent-config"),
@@ -494,7 +494,7 @@ func TestMakePodSpec(t *testing.T) {
 			),
 		}),
 	}, {
-		name: "simple concurrency=multi http readiness probe",
+		name: "with http readiness probe",
 		rev: revision(func(revision *v1alpha1.Revision) {
 			container(revision.Spec.GetContainer(),
 				withHTTPReadinessProbe(v1alpha1.DefaultUserPort),
@@ -513,7 +513,7 @@ func TestMakePodSpec(t *testing.T) {
 			),
 		}),
 	}, {
-		name: "concurrency=multi, readinessprobe=shell",
+		name: "with shell readiness probe",
 		rev: revision(func(revision *v1alpha1.Revision) {
 			container(revision.Spec.GetContainer(),
 				withExecReadinessProbe(
@@ -536,10 +536,10 @@ func TestMakePodSpec(t *testing.T) {
 			),
 		}),
 	}, {
-		name: "concurrency=multi, readinessprobe=http",
+		name: "with http liveness probe",
 		rev: revision(func(revision *v1alpha1.Revision) {
 			container(revision.Spec.GetContainer(),
-				withReadinessProbe(corev1.Handler{
+				withLivenessProbe(corev1.Handler{
 					HTTPGet: &corev1.HTTPGetAction{
 						Path: "/",
 					},
@@ -552,14 +552,19 @@ func TestMakePodSpec(t *testing.T) {
 		cc: &deployment.Config{},
 		want: podSpec([]corev1.Container{
 			userContainer(
-				withHTTPReadinessProbe(networking.BackendHTTPPort),
+				withLivenessProbe(corev1.Handler{
+					HTTPGet: &corev1.HTTPGetAction{
+						Path: "/",
+						Port: intstr.FromInt(networking.BackendHTTPPort),
+					},
+				}),
 			),
 			queueContainer(
 				withEnvVar("CONTAINER_CONCURRENCY", "0"),
 			),
 		}),
 	}, {
-		name: "concurrency=multi, livenessprobe=tcp",
+		name: "with tcp liveness probe",
 		rev: revision(func(revision *v1alpha1.Revision) {
 			container(revision.Spec.GetContainer(),
 				withLivenessProbe(corev1.Handler{
