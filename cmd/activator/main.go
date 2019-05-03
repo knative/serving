@@ -293,7 +293,7 @@ func main() {
 		GetService:    serviceGetter,
 	}
 	ah = activatorhandler.NewRequestEventHandler(reqChan, ah)
-	ah = tracing.HTTPSpanMiddleware("handle_request", ah)
+	ah = tracing.HTTPSpanMiddleware(ah)
 	ah = configStore.HTTPMiddleware(ah)
 	reqLogHandler, err := pkghttp.NewRequestLogHandler(ah, logging.NewSyncFileWriter(os.Stdout), "",
 		requestLogTemplateInputGetter(revisionGetter))
