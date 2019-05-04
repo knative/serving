@@ -245,7 +245,7 @@ func main() {
 		Handler:    handler,
 	})
 
-	activatorL3 := fmt.Sprintf("%s:%d", activator.K8sServiceName, activator.ServicePortHTTP1)
+	activatorL3 := fmt.Sprintf("%s:%d", activator.K8sServiceName, networking.ServiceHTTPPort)
 	zipkinEndpoint, err := zipkin.NewEndpoint("activator", activatorL3)
 	if err != nil {
 		logger.Error("Unable to create tracing endpoint")
