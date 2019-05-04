@@ -56,6 +56,8 @@ func Do(ctx context.Context, target, headerValue string) (bool, error) {
 // Done is a callback that is executed when the async probe has finished.
 // `arg` is given by the caller at the offering time, while `success` and `err`
 // are the return values of the `Do` call.
+// It is assumed that the opaque arg is consistent for a given target and
+// we will coalesce concurrent Offer invocations on target.
 type Done func(arg interface{}, success bool, err error)
 
 // Manager manages async probes and makes sure we run concurrently only a single

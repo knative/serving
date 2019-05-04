@@ -77,11 +77,7 @@ func activatorProbe(pa *pav1alpha1.PodAutoscaler) (bool, error) {
 	// Resolve the hostname and port to probe.
 	svc := network.GetServiceHostname(pa.Status.ServiceName, pa.Namespace)
 	port := networking.ServicePort(pa.Spec.ProtocolType)
-	success, err := prober.Do(context.Background(), fmt.Sprintf("http://%s:%d/", svc, port), activator.Name)
-	if err != nil {
-		return false, err
-	}
-	return success, nil
+	return prober.Do(context.Background(), fmt.Sprintf("http://%s:%d/", svc, port), activator.Name)
 }
 
 // podScalableTypedInformerFactory returns a duck.InformerFactory that returns
