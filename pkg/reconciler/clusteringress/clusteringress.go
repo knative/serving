@@ -22,6 +22,12 @@ import (
 	"fmt"
 	"reflect"
 
+	"github.com/knative/pkg/tracker"
+
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/sets"
+
 	"github.com/knative/pkg/apis/istio/v1alpha3"
 	istiolisters "github.com/knative/pkg/client/listers/istio/v1alpha3"
 	"github.com/knative/pkg/controller"
@@ -30,6 +36,7 @@ import (
 	"github.com/knative/pkg/tracker"
 	"github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/networking/v1alpha1"
+	"github.com/knative/serving/pkg/apis/serving"
 	listers "github.com/knative/serving/pkg/client/listers/networking/v1alpha1"
 	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/clusteringress/config"
@@ -153,17 +160,18 @@ func (c *Reconciler) reconcile(ctx context.Context, ci *v1alpha1.ClusterIngress)
 	ci.SetDefaults(ctx)
 
 	ci.Status.InitializeConditions()
-	gatewayNames := gatewayNamesFromContext(ctx, ci)
-	vs := resources.MakeVirtualService(ci, gatewayNames)
-
 	logger.Infof("Reconciling clusterIngress: %#v", ci)
-	logger.Info("Creating/Updating VirtualService")
-	if err := c.reconcileVirtualService(ctx, ci, vs); err != nil {
+
+	gatewayNames := gatewayNamesFromContext(ctx, ci)
+	vses := resources.MakeVirtualServices(ci, gatewayNames)
+
+	// First, create the VirtualServices.
+	logger.Infof("Creating/Updating VirtualServices")
+	if err := c.reconcileVirtualServices(ctx, ci, vses); err != nil {
 		// TODO(lichuqiang): should we explicitly mark the ingress as unready
 		// when error reconciling VirtualService?
 		return err
 	}
-
 	// As underlying network programming (VirtualService now) is stateless,
 	// here we simply mark the ingress as ready if the VirtualService
 	// is successfully synced.
@@ -268,6 +276,35 @@ func dedup(strs []string) []string {
 		}
 	}
 	return unique
+}
+
+func (c *Reconciler) reconcileVirtualServices(ctx context.Context, ci *v1alpha1.ClusterIngress,
+	desired []*v1alpha3.VirtualService) error {
+	logger := logging.FromContext(ctx)
+	// First, create all needed VirtualServices.
+	kept := sets.NewString()
+	for _, d := range desired {
+		if err := c.reconcileVirtualService(ctx, ci, d); err != nil {
+			return err
+		}
+		kept.Insert(d.Name)
+	}
+	// Now, remove the extra ones.
+	vses, err := c.virtualServiceLister.VirtualServices(resources.VirtualServiceNamespace(ci)).List(
+		labels.Set(map[string]string{
+			serving.RouteLabelKey:          ci.Labels[serving.RouteLabelKey],
+			serving.RouteNamespaceLabelKey: ci.Labels[serving.RouteNamespaceLabelKey]}).AsSelector())
+	for _, vs := range vses {
+		n, ns := vs.Name, vs.Namespace
+		if kept.Has(n) {
+			continue
+		}
+		if err = c.SharedClientSet.NetworkingV1alpha3().VirtualServices(ns).Delete(n, &metav1.DeleteOptions{}); err != nil {
+			logger.Errorw("Failed to delete VirtualService", zap.Error(err))
+			return err
+		}
+	}
+	return nil
 }
 
 func (c *Reconciler) reconcileVirtualService(ctx context.Context, ci *v1alpha1.ClusterIngress,
