@@ -19,7 +19,6 @@ package kpa
 import (
 	"context"
 	"fmt"
-	"net/http"
 
 	"github.com/knative/pkg/apis"
 	"github.com/knative/pkg/apis/duck"
@@ -78,11 +77,11 @@ func activatorProbe(pa *pav1alpha1.PodAutoscaler) (bool, error) {
 	// Resolve the hostname and port to probe.
 	svc := network.GetServiceHostname(pa.Status.ServiceName, pa.Namespace)
 	port := networking.ServicePort(pa.Spec.ProtocolType)
-	st, body, err := prober.Do(context.Background(), fmt.Sprintf("http://%s:%d/", svc, port), activator.Name)
+	success, err := prober.Do(context.Background(), fmt.Sprintf("http://%s:%d/", svc, port), activator.Name)
 	if err != nil {
 		return false, err
 	}
-	return st == http.StatusOK && body == activator.Name, nil
+	return success, nil
 }
 
 // podScalableTypedInformerFactory returns a duck.InformerFactory that returns

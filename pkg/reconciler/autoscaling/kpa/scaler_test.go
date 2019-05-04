@@ -521,7 +521,7 @@ func TestActivatorProbe(t *testing.T) {
 		name    string
 		rt      network.RoundTripperFunc
 		wantRes bool
-		wantErr error
+		wantErr bool
 	}{{
 		name: "ok",
 		rt: func(r *http.Request) (*http.Response, error) {
@@ -530,7 +530,6 @@ func TestActivatorProbe(t *testing.T) {
 			return rsp.Result(), nil
 		},
 		wantRes: true,
-		wantErr: nil,
 	}, {
 		name: "400",
 		rt: func(r *http.Request) (*http.Response, error) {
@@ -540,7 +539,6 @@ func TestActivatorProbe(t *testing.T) {
 			return rsp.Result(), nil
 		},
 		wantRes: false,
-		wantErr: nil,
 	}, {
 		name: "wrong body",
 		rt: func(r *http.Request) (*http.Response, error) {
@@ -549,14 +547,13 @@ func TestActivatorProbe(t *testing.T) {
 			return rsp.Result(), nil
 		},
 		wantRes: false,
-		wantErr: nil,
 	}, {
 		name: "all wrong",
 		rt: func(r *http.Request) (*http.Response, error) {
 			return nil, theErr
 		},
 		wantRes: false,
-		wantErr: theErr,
+		wantErr: true,
 	}}
 
 	for _, test := range tests {
@@ -566,8 +563,8 @@ func TestActivatorProbe(t *testing.T) {
 			if got, want := res, test.wantRes; got != want {
 				t.Errorf("Result = %v, want: %v", got, want)
 			}
-			if got, want := err, test.wantErr; got != want {
-				t.Errorf("Err = %v, want: %v", got, want)
+			if got, want := err != nil, test.wantErr; got != want {
+				t.Errorf("WantErr = %v, want: %v", got, want)
 			}
 		})
 	}
