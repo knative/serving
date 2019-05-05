@@ -41,7 +41,7 @@ func ListenAndServe(addr string, h http.Handler) error {
 	return s.ListenAndServe()
 }
 
-// DefaultTransport will reroute all https traffic to http. This is
+// DefaultH2CTransport will reroute all https traffic to http. This is
 // to explicitly allow h2c (http2 without TLS) transport.
 // See https://github.com/golang/go/issues/14141 for more details.
 var DefaultH2CTransport http.RoundTripper = &http2.Transport{

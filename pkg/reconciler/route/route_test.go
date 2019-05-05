@@ -867,8 +867,8 @@ func TestUpdateDomainConfigMap(t *testing.T) {
 
 			route, _ = routeClient.Get(route.Name, metav1.GetOptions{})
 			expectedDomain := fmt.Sprintf("%s.%s.%s", route.Name, route.Namespace, expectation.expectedDomainSuffix)
-			if route.Status.Domain != expectedDomain {
-				t.Errorf("Expected domain %q but saw %q", expectedDomain, route.Status.Domain)
+			if route.Status.URL.Host != expectedDomain {
+				t.Errorf("Expected domain %q but saw %q", expectedDomain, route.Status.URL.Host)
 			}
 		})
 	}
@@ -951,8 +951,8 @@ func TestGlobalResyncOnUpdateDomainConfigMap(t *testing.T) {
 				t.Logf("route updated: %q", rt.Name)
 
 				expectedDomain := fmt.Sprintf("%s.%s.%s", rt.Name, rt.Namespace, test.expectedDomainSuffix)
-				if rt.Status.Domain != expectedDomain {
-					t.Logf("Expected domain %q but saw %q", expectedDomain, rt.Status.Domain)
+				if rt.Status.URL.Host != expectedDomain {
+					t.Logf("Expected domain %q but saw %q", expectedDomain, rt.Status.URL.Host)
 					return HookIncomplete
 				}
 

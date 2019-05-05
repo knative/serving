@@ -32,6 +32,8 @@ import (
 	"github.com/knative/serving/test/types"
 	"github.com/pkg/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	. "github.com/knative/serving/pkg/reconciler/testing"
 )
 
 // fetchRuntimeInfo creates a Service that uses the 'runtime' test image, and extracts the returned output into the
@@ -53,7 +55,7 @@ func fetchRuntimeInfo(t *testing.T, clients *test.Clients, options *test.Options
 	resp, err := pkgTest.WaitForEndpointState(
 		clients.KubeClient,
 		t.Logf,
-		objects.Service.Status.Domain,
+		objects.Service.Status.URL.Host,
 		test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
 		"RuntimeInfo",
 		test.ServingFlags.ResolvableDomain)
@@ -70,12 +72,12 @@ func fetchRuntimeInfo(t *testing.T, clients *test.Clients, options *test.Options
 }
 
 // fetchEnvInfo creates the service using test_images/environment and fetches environment info defined inside the container dictated by urlPath.
-func fetchEnvInfo(t *testing.T, clients *test.Clients, urlPath string, options *test.Options) ([]byte, *test.ResourceNames, error) {
+func fetchEnvInfo(t *testing.T, clients *test.Clients, urlPath string, opts ...ServiceOption) ([]byte, *test.ResourceNames, error) {
 	t.Log("Creating a new Service")
 	var names test.ResourceNames
 	names.Service = test.ObjectNameForTest(t)
 	names.Image = "environment"
-	svc, err := test.CreateLatestService(t, clients, names, options)
+	svc, err := test.CreateLatestService(t, clients, names, &test.Options{}, opts...)
 	if err != nil {
 		return nil, nil, errors.New(fmt.Sprintf("Failed to create Service: %v", err))
 	}
@@ -114,7 +116,7 @@ func fetchEnvInfo(t *testing.T, clients *test.Clients, urlPath string, options *
 		return nil, nil, errors.New(fmt.Sprintf("Error fetching Route %s: %v", names.Route, err))
 	}
 
-	url := route.Status.Domain + urlPath
+	url := route.Status.URL.Host + urlPath
 	resp, err := pkgTest.WaitForEndpointState(
 		clients.KubeClient,
 		t.Logf,

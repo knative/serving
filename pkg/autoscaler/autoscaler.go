@@ -68,7 +68,6 @@ type StatMessage struct {
 
 // Autoscaler stores current state of an instance of an autoscaler
 type Autoscaler struct {
-	*DynamicConfig
 	namespace       string
 	revisionService string
 	endpointsLister corev1listers.EndpointsLister
@@ -87,7 +86,6 @@ type Autoscaler struct {
 
 // New creates a new instance of autoscaler
 func New(
-	dynamicConfig *DynamicConfig,
 	namespace string,
 	revisionService string,
 	endpointsInformer corev1informers.EndpointsInformer,
@@ -104,7 +102,6 @@ func New(
 	reporter.ReportPanic(0)
 
 	return &Autoscaler{
-		DynamicConfig:   dynamicConfig,
 		namespace:       namespace,
 		revisionService: revisionService,
 		endpointsLister: endpointsInformer.Lister(),
@@ -152,14 +149,22 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (int32, bool) {
 	// Use 1 if there are zero current pods.
 	readyPodsCount := math.Max(1, float64(originalReadyPodsCount))
 
-	observedStableConcurrency, observedPanicConcurrency, lastBucket := a.aggregateData(now, spec.MetricSpec.StableWindow, spec.MetricSpec.PanicWindow)
+	// Remove outdated data.
+	a.buckets.RemoveOlderThan(now.Add(-spec.MetricSpec.StableWindow))
 	if a.buckets.IsEmpty() {
 		logger.Debug("No data to scale on.")
 		return 0, false
 	}
 
-	// Log system totals.
-	logger.Debugf("Current concurrent clients: %0.3f", lastBucket.Sum())
+	// Compute data to scale on.
+	panicAverage := aggregation.Average{}
+	stableAverage := aggregation.Average{}
+	a.buckets.ForEachBucket(
+		aggregation.YoungerThan(now.Add(-spec.MetricSpec.PanicWindow), panicAverage.Accumulate),
+		stableAverage.Accumulate, // No need to add a YoungerThan condition as we already deleted all outdated stats above.
+	)
+	observedStableConcurrency := stableAverage.Value()
+	observedPanicConcurrency := panicAverage.Value()
 
 	// Desired pod count is observed concurrency of the revision over desired (stable) concurrency per pod.
 	// The scaling up rate is limited to the MaxScaleUpRate.
@@ -213,52 +218,6 @@ func (a *Autoscaler) currentSpec() DeciderSpec {
 	return a.deciderSpec
 }
 
-// aggregateData aggregates bucketed stats over the stableWindow and panicWindow
-// respectively and returns the observedStableConcurrency, observedPanicConcurrency
-// and the last bucket that was aggregated.
-func (a *Autoscaler) aggregateData(now time.Time, stableWindow, panicWindow time.Duration) (
-	stableConcurrency float64, panicConcurrency float64, lastBucket aggregation.Float64Bucket) {
-	buckets := a.buckets.GetAndLock()
-	defer a.buckets.Unlock()
-
-	var (
-		stableBuckets float64
-		stableTotal   float64
-
-		panicBuckets float64
-		panicTotal   float64
-
-		lastBucketTime time.Time
-	)
-	for bucketTime, bucket := range buckets {
-		if !bucketTime.Add(panicWindow).Before(now) {
-			panicBuckets++
-			panicTotal += bucket.Sum()
-		}
-
-		if !bucketTime.Add(stableWindow).Before(now) {
-			stableBuckets++
-			stableTotal += bucket.Sum()
-		} else {
-			delete(buckets, bucketTime)
-		}
-
-		if bucketTime.After(lastBucketTime) {
-			lastBucketTime = bucketTime
-			lastBucket = bucket
-		}
-	}
-
-	if stableBuckets > 0 {
-		stableConcurrency = stableTotal / stableBuckets
-	}
-	if panicBuckets > 0 {
-		panicConcurrency = panicTotal / panicBuckets
-	}
-
-	return stableConcurrency, panicConcurrency, lastBucket
-}
-
 func (a *Autoscaler) podCountLimited(desiredPodCount, currentPodCount float64) int32 {
-	return int32(math.Min(desiredPodCount, a.Current().MaxScaleUpRate*currentPodCount))
+	return int32(math.Min(desiredPodCount, a.deciderSpec.MaxScaleUpRate*currentPodCount))
 }

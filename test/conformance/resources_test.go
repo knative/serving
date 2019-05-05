@@ -57,7 +57,7 @@ func TestCustomResourcesLimits(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create initial Service %v: %v", names.Service, err)
 	}
-	domain := objects.Route.Status.Domain
+	domain := objects.Route.Status.URL.Host
 
 	want := "Moo!"
 	_, err = pkgTest.WaitForEndpointState(

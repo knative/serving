@@ -135,11 +135,11 @@ kubectl create clusterrolebinding cluster-admin-binding \
 ### Deploy Istio
 
 ```shell
-kubectl apply -f ./third_party/istio-1.1.2/istio-crds.yaml
+kubectl apply -f ./third_party/istio-1.1-latest/istio-crds.yaml
 while [[ $(kubectl get crd gateways.networking.istio.io -o jsonpath='{.status.conditions[?(@.type=="Established")].status}') != 'True' ]]; do
   echo "Waiting on Istio CRDs"; sleep 1
 done
-kubectl apply -f ./third_party/istio-1.1.2/istio.yaml
+kubectl apply -f ./third_party/istio-1.1-latest/istio.yaml
 ```
 
 Follow the
@@ -166,7 +166,12 @@ ko apply -f config/
 # Optional steps
 
 # Configure outbound network for GKE.
-PROJECT_ID="my-gcp-project-id" ./hack/dev-patch-config-gke.sh my-k8s-cluster-name
+export PROJECT_ID="my-gcp-project-id"
+# Set K8S_CLUSTER_ZONE if using a zonal cluster
+export K8S_CLUSTER_ZONE="my-cluster-zone"
+# Set K8S_CLUSTER_REGION if using a regional cluster
+export K8S_CLUSTER_REGION="my-cluster-region"
+./hack/dev-patch-config-gke.sh my-k8s-cluster-name
 
 # Run post-install job to setup nice XIP.IO domain name.  This only works
 # if your Kubernetes LoadBalancer has an IP address.
@@ -256,8 +261,8 @@ ko delete --ignore-not-found=true \
   -f config/monitoring/100-namespace.yaml \
   -f config/ \
   -f ./third_party/config/build/release.yaml \
-  -f ./third_party/istio-1.1.2/istio.yaml \
-  -f ./third_party/istio-1.1.2/istio-crds.yaml
+  -f ./third_party/istio-1.1-latest/istio.yaml \
+  -f ./third_party/istio-1.1-latest/istio-crds.yaml
 ```
 
 ## Telemetry

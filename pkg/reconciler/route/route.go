@@ -33,7 +33,9 @@ import (
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 
+	"github.com/knative/pkg/apis"
 	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
+	duckv1beta1 "github.com/knative/pkg/apis/duck/v1beta1"
 	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/controller"
 	"github.com/knative/pkg/logging"
@@ -221,22 +223,22 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 
 	// Reconcile this copy of the route and then write back any status
 	// updates regardless of whether the reconciliation errored out.
-	err = c.reconcile(ctx, route)
+	reconcileErr := c.reconcile(ctx, route)
 	if equality.Semantic.DeepEqual(original.Status, route.Status) {
 		// If we didn't change anything then don't call updateStatus.
 		// This is important because the copy we loaded from the informer's
 		// cache may be stale and we don't want to overwrite a prior update
 		// to status with this stale state.
-	} else if _, err := c.updateStatus(route); err != nil {
+	} else if _, err = c.updateStatus(route); err != nil {
 		logger.Warnw("Failed to update route status", zap.Error(err))
 		c.Recorder.Eventf(route, corev1.EventTypeWarning, "UpdateFailed",
 			"Failed to update status for Route %q: %v", route.Name, err)
 		return err
 	}
-	if err != nil {
-		c.Recorder.Event(route, corev1.EventTypeWarning, "InternalError", err.Error())
+	if reconcileErr != nil {
+		c.Recorder.Event(route, corev1.EventTypeWarning, "InternalError", reconcileErr.Error())
 	}
-	return err
+	return reconcileErr
 }
 
 func ingressClassForRoute(ctx context.Context, r *v1alpha1.Route) string {
@@ -274,11 +276,17 @@ func (c *Reconciler) reconcile(ctx context.Context, r *v1alpha1.Route) error {
 
 	// Update the information that makes us Addressable. This is needed to configure traffic and
 	// make the cluster ingress.
-	var err error
-	r.Status.Domain, err = routeDomain(ctx, r)
+	host, err := routeDomain(ctx, r)
 	if err != nil {
 		return err
 	}
+
+	r.Status.URL = &apis.URL{
+		// TODO(zhiminx): Support HTTPS here.
+		Scheme: "http",
+		Host:   host,
+	}
+	r.Status.DeprecatedDomain = host
 
 	// Configure traffic based on the RouteSpec.
 	traffic, err := c.configureTraffic(ctx, r)
@@ -296,12 +304,18 @@ func (c *Reconciler) reconcile(ctx context.Context, r *v1alpha1.Route) error {
 
 	r.Status.DeprecatedDomainInternal = resourcenames.K8sServiceFullname(r)
 	r.Status.Address = &duckv1alpha1.Addressable{
+		Addressable: duckv1beta1.Addressable{
+			URL: &apis.URL{
+				Scheme: "http",
+				Host:   resourcenames.K8sServiceFullname(r),
+			},
+		},
 		Hostname: resourcenames.K8sServiceFullname(r),
 	}
 
 	tls := []netv1alpha1.ClusterIngressTLS{}
 	if config.FromContext(ctx).Network.AutoTLS {
-		domains := tr.GetDomains(r.Status.Domain, traffic.Targets)
+		domains := tr.GetDomains(r.Status.URL.Host, traffic.Targets)
 		desiredCert := resources.MakeCertificate(r, domains)
 		cert, err := c.reconcileCertificate(ctx, r, desiredCert)
 		if err != nil {
@@ -407,7 +421,7 @@ func (c *Reconciler) configureTraffic(ctx context.Context, r *v1alpha1.Route) (*
 
 	logger.Info("All referred targets are routable, marking AllTrafficAssigned with traffic information.")
 	// Domain should already be present
-	r.Status.Traffic = t.GetRevisionTrafficTargets(r.Status.Domain)
+	r.Status.Traffic = t.GetRevisionTrafficTargets(r.Status.URL.Host)
 	r.Status.MarkTrafficAssigned()
 
 	return t, nil

@@ -18,7 +18,6 @@ package revision
 
 import (
 	"context"
-	"fmt"
 
 	caching "github.com/knative/caching/pkg/apis/caching/v1alpha1"
 	"github.com/knative/pkg/kmp"
@@ -29,7 +28,6 @@ import (
 	"github.com/knative/serving/pkg/reconciler/revision/resources"
 	presources "github.com/knative/serving/pkg/resources"
 	appsv1 "k8s.io/api/apps/v1"
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 )
 
@@ -110,35 +108,4 @@ func (c *Reconciler) createKPA(ctx context.Context, rev *v1alpha1.Revision) (*kp
 	kpa := resources.MakeKPA(rev)
 
 	return c.ServingClientSet.AutoscalingV1alpha1().PodAutoscalers(kpa.Namespace).Create(kpa)
-}
-
-type serviceFactory func(*v1alpha1.Revision) *corev1.Service
-
-func (c *Reconciler) createService(ctx context.Context, rev *v1alpha1.Revision, sf serviceFactory) (*corev1.Service, error) {
-	// Create the service.
-	service := sf(rev)
-
-	return c.KubeClientSet.CoreV1().Services(service.Namespace).Create(service)
-}
-
-func (c *Reconciler) checkAndUpdateService(ctx context.Context, rev *v1alpha1.Revision, sf serviceFactory, service *corev1.Service) (*corev1.Service, changed, error) {
-	logger := logging.FromContext(ctx)
-
-	// Note: only reconcile the spec we set.
-	rawDesiredService := sf(rev)
-	desiredService := service.DeepCopy()
-	desiredService.Spec.Selector = rawDesiredService.Spec.Selector
-	desiredService.Spec.Ports = rawDesiredService.Spec.Ports
-
-	if equality.Semantic.DeepEqual(desiredService.Spec, service.Spec) {
-		return service, unchanged, nil
-	}
-	diff, err := kmp.SafeDiff(desiredService.Spec, service.Spec)
-	if err != nil {
-		return nil, unchanged, fmt.Errorf("failed to diff Service: %v", err)
-	}
-	logger.Infof("Reconciling service diff (-desired, +observed): %v", diff)
-
-	d, err := c.KubeClientSet.CoreV1().Services(service.Namespace).Update(desiredService)
-	return d, wasChanged, err
 }

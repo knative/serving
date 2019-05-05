@@ -168,22 +168,22 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 
 	// Reconcile this copy of the ClusterIngress and then write back any status
 	// updates regardless of whether the reconciliation errored out.
-	err = c.reconcile(ctx, ci)
+	reconcileErr := c.reconcile(ctx, ci)
 	if equality.Semantic.DeepEqual(original.Status, ci.Status) {
 		// If we didn't change anything then don't call updateStatus.
 		// This is important because the copy we loaded from the informer's
 		// cache may be stale and we don't want to overwrite a prior update
 		// to status with this stale state.
-	} else if _, err := c.updateStatus(ci); err != nil {
+	} else if _, err = c.updateStatus(ci); err != nil {
 		logger.Warnw("Failed to update clusterIngress status", zap.Error(err))
 		c.Recorder.Eventf(ci, corev1.EventTypeWarning, "UpdateFailed",
 			"Failed to update status for ClusterIngress %q: %v", ci.Name, err)
 		return err
 	}
-	if err != nil {
-		c.Recorder.Event(ci, corev1.EventTypeWarning, "InternalError", err.Error())
+	if reconcileErr != nil {
+		c.Recorder.Event(ci, corev1.EventTypeWarning, "InternalError", reconcileErr.Error())
 	}
-	return err
+	return reconcileErr
 }
 
 // Update the Status of the ClusterIngress.  Caller is responsible for checking

@@ -28,7 +28,6 @@ import (
 	"github.com/knative/serving/test"
 
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/knative/serving/pkg/reconciler/revision/resources/names"
 	routeconfig "github.com/knative/serving/pkg/reconciler/route/config"
@@ -76,29 +75,27 @@ func testProxyToHelloworld(t *testing.T, clients *test.Clients, helloworldDomain
 	}}
 
 	// Set up httpproxy app.
-	t.Log("Creating a Route and Configuration for httpproxy test app.")
+	t.Log("Creating a Service for the httpproxy test app.")
+	names := test.ResourceNames{
+		Service: test.ObjectNameForTest(t),
+		Image:   "httpproxy",
+	}
 
-	httpProxyNames, err := CreateRouteAndConfig(t, clients, "httpproxy", &test.Options{
+	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
+	defer test.TearDown(clients, names)
+	resources, err := test.CreateRunLatestServiceReady(t, clients, &names, &test.Options{
 		EnvVars: envVars,
 	})
 	if err != nil {
-		t.Fatalf("Failed to create Route and Configuration: %v", err)
+		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
 	}
 
-	test.CleanupOnInterrupt(func() { test.TearDown(clients, httpProxyNames) })
-	defer test.TearDown(clients, httpProxyNames)
-
-	if err := test.WaitForRouteState(clients.ServingClient, httpProxyNames.Route, test.IsRouteReady, "RouteIsReady"); err != nil {
-		t.Fatalf("The Route %s was not marked as Ready to serve traffic: %v", httpProxyNames.Route, err)
-	}
-	httpProxyRoute, err := clients.ServingClient.Routes.Get(httpProxyNames.Route, metav1.GetOptions{})
-	if err != nil {
-		t.Fatalf("Failed to get Route %s: %v", httpProxyNames.Route, err)
-	}
+	domain := resources.Route.Status.URL.Host
 	if _, err = pkgTest.WaitForEndpointState(
 		clients.KubeClient,
 		t.Logf,
-		httpProxyRoute.Status.Domain, pkgTest.Retrying(pkgTest.IsStatusOK, http.StatusNotFound),
+		domain,
+		pkgTest.Retrying(pkgTest.IsStatusOK, http.StatusNotFound),
 		"HTTPProxy",
 		test.ServingFlags.ResolvableDomain); err != nil {
 		t.Fatalf("Failed to start endpoint of httpproxy: %v", err)
@@ -106,7 +103,7 @@ func testProxyToHelloworld(t *testing.T, clients *test.Clients, helloworldDomain
 	t.Log("httpproxy is ready.")
 
 	// Send request to httpproxy to trigger the http call from httpproxy Pod to internal service of helloworld app.
-	response, err := sendRequest(t, clients, test.ServingFlags.ResolvableDomain, httpProxyRoute.Status.Domain)
+	response, err := sendRequest(t, clients, test.ServingFlags.ResolvableDomain, domain)
 	if err != nil {
 		t.Fatalf("Failed to send request to httpproxy: %v", err)
 	}
@@ -142,54 +139,37 @@ func TestServiceToServiceCall(t *testing.T) {
 	t.Parallel()
 	clients := Setup(t)
 
-	// Set up helloworld app.
-	t.Log("Creating a Route and Configuration for helloworld test app.")
-
-	svcName := test.ObjectNameForTest(t)
-	helloWorldNames := test.ResourceNames{
-		Config: svcName,
-		Route:  svcName,
-		Image:  "helloworld",
+	t.Log("Creating a Service for the helloworld test app.")
+	names := test.ResourceNames{
+		Service: test.ObjectNameForTest(t),
+		Image:   "helloworld",
 	}
 
-	test.CleanupOnInterrupt(func() { test.TearDown(clients, helloWorldNames) })
-	defer test.TearDown(clients, helloWorldNames)
+	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
+	defer test.TearDown(clients, names)
 
-	if _, err := test.CreateConfiguration(t, clients, helloWorldNames, &test.Options{}); err != nil {
-		t.Fatalf("Failed to create Configuration: %v", err)
-	}
-
-	withInternalVisibility := WithRouteLabel(
+	withInternalVisibility := WithServiceLabel(
 		routeconfig.VisibilityLabelKey, routeconfig.VisibilityClusterLocal)
-
-	if _, err := test.CreateRoute(t, clients, helloWorldNames, withInternalVisibility); err != nil {
-		t.Fatalf("Failed to create Route: %v", err)
-	}
-
-	// Verify that Route is set up correctly to helloworld app.
-	if err := test.WaitForRouteState(clients.ServingClient, helloWorldNames.Route, test.IsRouteReady, "RouteIsReady"); err != nil {
-		t.Fatalf("The Route %s was not marked as Ready to serve traffic: %v", helloWorldNames.Route, err)
-	}
-
-	helloWorldRoute, err := clients.ServingClient.Routes.Get(helloWorldNames.Route, metav1.GetOptions{})
+	resources, err := test.CreateRunLatestServiceReady(t, clients, &names, &test.Options{}, withInternalVisibility)
 	if err != nil {
-		t.Fatalf("Failed to get Route %q of helloworld app: %v", helloWorldNames.Route, err)
+		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
 	}
-	if helloWorldRoute.Status.Domain == "" {
-		t.Fatalf("Route is missing .Status.Domain: %#v", helloWorldRoute.Status)
+
+	if resources.Route.Status.URL.Host == "" {
+		t.Fatalf("Route is missing .Status.URL: %#v", resources.Route.Status)
 	}
-	if helloWorldRoute.Status.Address == nil {
-		t.Fatalf("Route is missing .Status.Address: %#v", helloWorldRoute.Status)
+	if resources.Route.Status.Address == nil {
+		t.Fatalf("Route is missing .Status.Address: %#v", resources.Route.Status)
 	}
 	// Check that the target Route's Domain matches its cluster local address.
-	if want, got := helloWorldRoute.Status.Address.Hostname, helloWorldRoute.Status.Domain; got != want {
-		t.Errorf("Route.Domain = %v, want %v", got, want)
+	if want, got := resources.Route.Status.Address.Hostname, resources.Route.Status.URL.Host; got != want {
+		t.Errorf("Route.Status.URL.Host = %v, want %v", got, want)
 	}
-	t.Logf("helloworld internal domain is %s.", helloWorldRoute.Status.Domain)
+	t.Logf("helloworld internal domain is %s.", resources.Route.Status.URL.Host)
 
 	// helloworld app and its route are ready. Running the test cases now.
 	for _, tc := range testCases {
-		helloworldDomain := strings.TrimSuffix(helloWorldRoute.Status.Domain, tc.suffix)
+		helloworldDomain := strings.TrimSuffix(resources.Route.Status.URL.Host, tc.suffix)
 		t.Run(tc.name, func(t *testing.T) {
 			testProxyToHelloworld(t, clients, helloworldDomain)
 		})
@@ -227,5 +207,5 @@ func TestServiceToServiceCallFromZero(t *testing.T) {
 	}
 
 	// Send request to helloworld app via httpproxy service
-	testProxyToHelloworld(t, clients, helloWorld.Route.Status.Domain)
+	testProxyToHelloworld(t, clients, helloWorld.Route.Status.URL.Host)
 }

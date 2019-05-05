@@ -23,7 +23,7 @@ import (
 	"time"
 
 	"github.com/knative/pkg/kmeta"
-
+	"github.com/knative/pkg/apis"
 	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/controller"
 	logtesting "github.com/knative/pkg/logging/testing"
@@ -41,6 +41,7 @@ import (
 	. "github.com/knative/serving/pkg/reconciler/testing"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgotesting "k8s.io/client-go/testing"
@@ -1321,7 +1322,10 @@ func TestReconcile(t *testing.T) {
 							RevisionName:   "gray-00001",
 							Percent:        50,
 							LatestRevision: ptr.Bool(true),
-							URL:            "http://gray.same-revision-targets.default.example.com",
+							URL: &apis.URL{
+								Scheme: "http",
+								Host:   "gray.same-revision-targets.default.example.com",
+							},
 						},
 					}, v1alpha1.TrafficTarget{
 						DeprecatedName: "also-gray",
@@ -1330,7 +1334,10 @@ func TestReconcile(t *testing.T) {
 							RevisionName:   "gray-00001",
 							Percent:        50,
 							LatestRevision: ptr.Bool(false),
-							URL:            "http://also-gray.same-revision-targets.default.example.com",
+							URL: &apis.URL{
+								Scheme: "http",
+								Host:   "also-gray.same-revision-targets.default.example.com",
+							},
 						},
 					})),
 		}},
@@ -1620,6 +1627,7 @@ func TestReconcile(t *testing.T) {
 					serving.RouteLabelKey:          "delete-in-progress",
 					serving.RouteNamespaceLabelKey: "default",
 				}).AsSelector(),
+				Fields: fields.Nothing(),
 			},
 		}},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{

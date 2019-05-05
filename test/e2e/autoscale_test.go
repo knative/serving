@@ -28,6 +28,7 @@ import (
 
 	_ "github.com/knative/pkg/system/testing"
 	pkgTest "github.com/knative/pkg/test"
+	resourcenames "github.com/knative/serving/pkg/reconciler/revision/resources/names"
 	"github.com/knative/serving/test"
 	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
@@ -120,36 +121,19 @@ func setup(t *testing.T) *testContext {
 	clients := Setup(t)
 
 	t.Log("Creating a new Route and Configuration")
-	names, err := CreateRouteAndConfig(t, clients, "autoscale", &test.Options{
+	names := test.ResourceNames{
+		Service: test.ObjectNameForTest(t),
+		Image:   "autoscale",
+	}
+	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
+	resources, err := test.CreateRunLatestServiceReady(t, clients, &names, &test.Options{
 		ContainerConcurrency: 10,
 	})
 	if err != nil {
-		t.Fatalf("Failed to create Route and Configuration: %v", err)
-	}
-	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
-
-	t.Log("When the Revision can have traffic routed to it, the Route is marked as Ready.")
-	if err := test.WaitForRouteState(
-		clients.ServingClient,
-		names.Route,
-		test.IsRouteReady,
-		"RouteIsReady"); err != nil {
-		t.Fatalf("The Route %s was not marked as Ready to serve traffic: %v", names.Route, err)
+		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
 	}
 
-	t.Log("Served the expected data at the endpoint")
-	config, err := clients.ServingClient.Configs.Get(names.Config, metav1.GetOptions{})
-	if err != nil {
-		t.Fatalf("Configuration %s was not updated with the new revision: %v", names.Config, err)
-	}
-	names.Revision = config.Status.LatestCreatedRevisionName
-	deploymentName := names.Revision + "-deployment"
-	route, err := clients.ServingClient.Routes.Get(names.Route, metav1.GetOptions{})
-	if err != nil {
-		t.Fatalf("Error fetching Route %s: %v", names.Route, err)
-	}
-	domain := route.Status.Domain
-
+	domain := resources.Route.Status.URL.Host
 	if _, err := pkgTest.WaitForEndpointState(
 		clients.KubeClient,
 		t.Logf,
@@ -163,18 +147,11 @@ func setup(t *testing.T) *testContext {
 			names.Route, domain, autoscaleExpectedOutput, err)
 	}
 
-	t.Logf("Revision under test: %s", names.Revision)
-
-	// verify that revision is consistent and is ready
-	if err := test.CheckRevisionState(clients.ServingClient, names.Revision, test.IsRevisionReady); err != nil {
-		t.Fatalf("The Revision %s is not in ready state: %v", names.Revision, err)
-	}
-
 	return &testContext{
 		t:              t,
 		clients:        clients,
 		names:          names,
-		deploymentName: deploymentName,
+		deploymentName: resourcenames.Deployment(resources.Revision),
 		domain:         domain,
 	}
 }

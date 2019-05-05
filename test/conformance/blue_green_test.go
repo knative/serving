@@ -21,7 +21,6 @@ package conformance
 import (
 	"context"
 	"math"
-	"strings"
 	"testing"
 
 	_ "github.com/knative/pkg/system/testing"
@@ -122,18 +121,18 @@ func TestBlueGreenRoute(t *testing.T) {
 		if tt.Tag == blue.TrafficTarget {
 			// Strip prefix as WaitForEndPointState expects a domain
 			// without scheme.
-			blueDomain = strings.TrimPrefix(tt.URL, "http://")
+			blueDomain = tt.URL.Host
 		}
 		if tt.Tag == green.TrafficTarget {
 			// Strip prefix as WaitForEndPointState expects a domain
 			// without scheme.
-			greenDomain = strings.TrimPrefix(tt.URL, "http://")
+			greenDomain = tt.URL.Host
 		}
 	}
 	if blueDomain == "" || greenDomain == "" {
 		t.Fatalf("Unable to fetch URLs from traffic targets: %#v", service.Status.Traffic)
 	}
-	tealDomain := service.Status.Domain
+	tealDomain := service.Status.URL.Host
 
 	// Istio network programming takes some time to be effective.  Currently Istio
 	// does not expose a Status, so we rely on probes to know when they are effective.

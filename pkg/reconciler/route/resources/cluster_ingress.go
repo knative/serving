@@ -35,7 +35,7 @@ import (
 )
 
 func isClusterLocal(r *servingv1alpha1.Route) bool {
-	return strings.HasSuffix(r.Status.Domain, network.GetClusterDomainName())
+	return r.Status.URL != nil && strings.HasSuffix(r.Status.URL.Host, network.GetClusterDomainName())
 }
 
 // MakeClusterIngressTLS creates ClusterIngressTLS to configure the ingress TLS.
@@ -97,7 +97,10 @@ func makeClusterIngressSpec(r *servingv1alpha1.Route, tls []v1alpha1.ClusterIngr
 }
 
 func routeDomains(targetName string, r *servingv1alpha1.Route) []string {
-	domains := []string{traffic.TagDomain(targetName, r.Status.Domain)}
+	if r.Status.URL == nil {
+		return nil
+	}
+	domains := []string{traffic.TagDomain(targetName, r.Status.URL.Host)}
 	if targetName == traffic.DefaultTarget {
 		// The default target is also referred to by its internal K8s
 		// generated domain name.
@@ -125,7 +128,7 @@ func makeClusterIngressRule(domains []string, ns string, targets traffic.Revisio
 				ServiceName:      t.ServiceName,
 				// Port on the public service must match port on the activator.
 				// Otherwise, the serverless services can't guarantee seamless positive handoff.
-				ServicePort: intstr.FromInt(int(activator.ServicePort(t.Protocol))),
+				ServicePort: intstr.FromInt(int(networking.ServicePort(t.Protocol))),
 			},
 			Percent: t.Percent,
 			// TODO(nghia): Append headers per-split.

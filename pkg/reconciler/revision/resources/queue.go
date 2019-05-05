@@ -88,7 +88,6 @@ func makeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, o
 	}
 	serviceName := rev.Labels[serving.ServiceLabelKey]
 
-	autoscalerAddress := "autoscaler"
 	userPort := getUserPort(rev)
 
 	var loggingLevel string
@@ -129,11 +128,8 @@ func makeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, o
 			Name:  "SERVING_REVISION",
 			Value: rev.Name,
 		}, {
-			Name:  "SERVING_AUTOSCALER",
-			Value: autoscalerAddress,
-		}, {
-			Name:  "SERVING_AUTOSCALER_PORT",
-			Value: strconv.Itoa(autoscalerPort),
+			Name:  "QUEUE_SERVING_PORT",
+			Value: strconv.Itoa(int(ports[len(ports)-1].ContainerPort)),
 		}, {
 			Name:  "CONTAINER_CONCURRENCY",
 			Value: strconv.Itoa(int(rev.Spec.ContainerConcurrency)),

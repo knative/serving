@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/knative/pkg/apis"
 	"github.com/knative/pkg/apis/duck"
 	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 	duckv1beta1 "github.com/knative/pkg/apis/duck/v1beta1"
@@ -108,6 +109,20 @@ var (
 func WithServiceDeletionTimestamp(r *v1alpha1.Service) {
 	t := metav1.NewTime(time.Unix(1e9, 0))
 	r.ObjectMeta.SetDeletionTimestamp(&t)
+}
+
+// WithEnv configures the Service to use the provided environment variables.
+func WithEnv(evs ...corev1.EnvVar) ServiceOption {
+	return func(s *v1alpha1.Service) {
+		s.Spec.Template.Spec.Containers[0].Env = evs
+	}
+}
+
+// WithEnvFrom configures the Service to use the provided environment variables.
+func WithEnvFrom(evs ...corev1.EnvFromSource) ServiceOption {
+	return func(s *v1alpha1.Service) {
+		s.Spec.Template.Spec.Containers[0].EnvFrom = evs
+	}
 }
 
 // WithInlineRollout configures the Service to be "run latest" via inline
@@ -352,13 +367,23 @@ func WithReadyRoute(s *v1alpha1.Service) {
 // WithSvcStatusDomain propagates the domain name to the status of the Service.
 func WithSvcStatusDomain(s *v1alpha1.Service) {
 	n, ns := s.GetName(), s.GetNamespace()
-	s.Status.Domain = fmt.Sprintf("%s.%s.example.com", n, ns)
+	s.Status.URL = &apis.URL{
+		Scheme: "http",
+		Host:   fmt.Sprintf("%s.%s.example.com", n, ns),
+	}
+	s.Status.DeprecatedDomain = s.Status.URL.Host
 	s.Status.DeprecatedDomainInternal = fmt.Sprintf("%s.%s.svc.cluster.local", n, ns)
 }
 
 // WithSvcStatusAddress updates the service's status with the address.
 func WithSvcStatusAddress(s *v1alpha1.Service) {
 	s.Status.Address = &duckv1alpha1.Addressable{
+		Addressable: duckv1beta1.Addressable{
+			URL: &apis.URL{
+				Scheme: "http",
+				Host:   fmt.Sprintf("%s.%s.svc.cluster.local", s.Name, s.Namespace),
+			},
+		},
 		Hostname: fmt.Sprintf("%s.%s.svc.cluster.local", s.Name, s.Namespace),
 	}
 }
@@ -521,7 +546,11 @@ func MarkServiceNotOwned(r *v1alpha1.Route) {
 
 // WithDomain sets the .Status.Domain field to the prototypical domain.
 func WithDomain(r *v1alpha1.Route) {
-	r.Status.Domain = fmt.Sprintf("%s.%s.example.com", r.Name, r.Namespace)
+	r.Status.URL = &apis.URL{
+		Scheme: "http",
+		Host:   fmt.Sprintf("%s.%s.example.com", r.Name, r.Namespace),
+	}
+	r.Status.DeprecatedDomain = r.Status.URL.Host
 }
 
 // WithDomainInternal sets the .Status.DomainInternal field to the prototypical internal domain.
@@ -532,18 +561,32 @@ func WithDomainInternal(r *v1alpha1.Route) {
 // WithAddress sets the .Status.Address field to the prototypical internal hostname.
 func WithAddress(r *v1alpha1.Route) {
 	r.Status.Address = &duckv1alpha1.Addressable{
+		Addressable: duckv1beta1.Addressable{
+			URL: &apis.URL{
+				Scheme: "http",
+				Host:   fmt.Sprintf("%s.%s.svc.cluster.local", r.Name, r.Namespace),
+			},
+		},
 		Hostname: fmt.Sprintf("%s.%s.svc.cluster.local", r.Name, r.Namespace),
 	}
 }
 
 // WithAnotherDomain sets the .Status.Domain field to an atypical domain.
 func WithAnotherDomain(r *v1alpha1.Route) {
-	r.Status.Domain = fmt.Sprintf("%s.%s.another-example.com", r.Name, r.Namespace)
+	r.Status.URL = &apis.URL{
+		Scheme: "http",
+		Host:   fmt.Sprintf("%s.%s.another-example.com", r.Name, r.Namespace),
+	}
+	r.Status.DeprecatedDomain = r.Status.URL.Host
 }
 
 // WithLocalDomain sets the .Status.Domain field to use `svc.cluster.local` suffix.
 func WithLocalDomain(r *v1alpha1.Route) {
-	r.Status.Domain = fmt.Sprintf("%s.%s.svc.cluster.local", r.Name, r.Namespace)
+	r.Status.URL = &apis.URL{
+		Scheme: "http",
+		Host:   fmt.Sprintf("%s.%s.svc.cluster.local", r.Name, r.Namespace),
+	}
+	r.Status.DeprecatedDomain = r.Status.URL.Host
 }
 
 // WithInitRouteConditions initializes the Service's conditions.

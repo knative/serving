@@ -23,6 +23,7 @@ import (
 	perrors "github.com/pkg/errors"
 	"go.uber.org/zap"
 
+	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/controller"
 	"github.com/knative/pkg/logging"
 	"github.com/knative/serving/pkg/apis/autoscaling"
@@ -35,6 +36,7 @@ import (
 	listers "github.com/knative/serving/pkg/client/listers/autoscaling/v1alpha1"
 	nlisters "github.com/knative/serving/pkg/client/listers/networking/v1alpha1"
 	"github.com/knative/serving/pkg/reconciler"
+	"github.com/knative/serving/pkg/reconciler/autoscaling/config"
 	"github.com/knative/serving/pkg/reconciler/autoscaling/kpa/resources"
 	"github.com/knative/serving/pkg/reconciler/autoscaling/kpa/resources/names"
 	aresources "github.com/knative/serving/pkg/reconciler/autoscaling/resources"
@@ -97,6 +99,12 @@ type Scaler interface {
 	GetScaleResource(pa *pav1alpha1.PodAutoscaler) (*pav1alpha1.PodScalable, error)
 }
 
+// configStore is a minimized interface of the actual configStore.
+type configStore interface {
+	ToContext(ctx context.Context) context.Context
+	WatchConfigs(w configmap.Watcher)
+}
+
 // Reconciler tracks PAs and right sizes the ScaleTargetRef based on the
 // information from Deciders.
 type Reconciler struct {
@@ -108,7 +116,7 @@ type Reconciler struct {
 	kpaDeciders     Deciders
 	metrics         Metrics
 	scaler          Scaler
-	dynConfig       *autoscaler.DynamicConfig
+	configStore     configStore
 }
 
 // Check that our Reconciler implements controller.Reconciler
@@ -124,7 +132,6 @@ func NewController(
 	kpaDeciders Deciders,
 	metrics Metrics,
 	scaler Scaler,
-	dynConfig *autoscaler.DynamicConfig,
 ) *controller.Impl {
 
 	c := &Reconciler{
@@ -136,17 +143,17 @@ func NewController(
 		kpaDeciders:     kpaDeciders,
 		metrics:         metrics,
 		scaler:          scaler,
-		dynConfig:       dynConfig,
 	}
 	impl := controller.NewImpl(c, c.Logger, "KPA-Class Autoscaling", reconciler.MustNewStatsReporter("KPA-Class Autoscaling", c.Logger))
 
 	c.Logger.Info("Setting up KPA-Class event handlers")
 	// Handle PodAutoscalers missing the class annotation for backward compatibility.
 	onlyKpaClass := reconciler.AnnotationFilterFunc(autoscaling.ClassAnnotationKey, autoscaling.KPA, true)
-	paInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+	paHandler := cache.FilteringResourceEventHandler{
 		FilterFunc: onlyKpaClass,
 		Handler:    reconciler.Handler(impl.Enqueue),
-	})
+	}
+	paInformer.Informer().AddEventHandler(paHandler)
 
 	endpointsInformer.Informer().AddEventHandler(
 		reconciler.Handler(impl.EnqueueLabelOfNamespaceScopedResource("", autoscaling.KPALabelKey)))
@@ -163,6 +170,16 @@ func NewController(
 
 	// Have the Deciders enqueue the PAs whose decisions have changed.
 	kpaDeciders.Watch(impl.EnqueueKey)
+
+	c.Logger.Info("Setting up ConfigMap receivers")
+	configsToResync := []interface{}{
+		&autoscaler.Config{},
+	}
+	resync := configmap.TypeFilter(configsToResync...)(func(string, interface{}) {
+		controller.SendGlobalUpdates(paInformer.Informer(), paHandler)
+	})
+	c.configStore = config.NewStore(c.Logger.Named("config-store"), resync)
+	c.configStore.WatchConfigs(opts.ConfigMapWatcher)
 	return impl
 }
 
@@ -174,6 +191,8 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 		return nil
 	}
 	logger := logging.FromContext(ctx)
+	ctx = c.configStore.ToContext(ctx)
+
 	logger.Debug("Reconcile kpa-class PodAutoscaler")
 
 	original, err := c.paLister.PodAutoscalers(namespace).Get(name)
@@ -196,22 +215,22 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 
 	// Reconcile this copy of the pa and then write back any status
 	// updates regardless of whether the reconciliation errored out.
-	err = c.reconcile(ctx, pa)
+	reconcileErr := c.reconcile(ctx, pa)
 	if equality.Semantic.DeepEqual(original.Status, pa.Status) {
 		// If we didn't change anything then don't call updateStatus.
 		// This is important because the copy we loaded from the informer's
 		// cache may be stale and we don't want to overwrite a prior update
 		// to status with this stale state.
-	} else if _, err := c.updateStatus(pa); err != nil {
+	} else if _, err = c.updateStatus(pa); err != nil {
 		logger.Warnw("Failed to update kpa status", zap.Error(err))
 		c.Recorder.Eventf(pa, corev1.EventTypeWarning, "UpdateFailed",
 			"Failed to update status for PA %q: %v", pa.Name, err)
 		return err
 	}
-	if err != nil {
-		c.Recorder.Event(pa, corev1.EventTypeWarning, "InternalError", err.Error())
+	if reconcileErr != nil {
+		c.Recorder.Event(pa, corev1.EventTypeWarning, "InternalError", reconcileErr.Error())
 	}
-	return err
+	return reconcileErr
 }
 
 func (c *Reconciler) reconcile(ctx context.Context, pa *pav1alpha1.PodAutoscaler) error {
@@ -286,7 +305,7 @@ func (c *Reconciler) reconcile(ctx context.Context, pa *pav1alpha1.PodAutoscaler
 }
 
 func (c *Reconciler) reconcileDecider(ctx context.Context, pa *pav1alpha1.PodAutoscaler, k8sSvc string) (*autoscaler.Decider, error) {
-	desiredDecider := resources.MakeDecider(ctx, pa, c.dynConfig.Current())
+	desiredDecider := resources.MakeDecider(ctx, pa, config.FromContext(ctx).Autoscaler)
 	desiredDecider.Labels[serving.KubernetesServiceLabelKey] = k8sSvc
 	decider, err := c.kpaDeciders.Get(ctx, desiredDecider.Namespace, desiredDecider.Name)
 	if errors.IsNotFound(err) {
@@ -390,7 +409,7 @@ func (c *Reconciler) reconcileMetricsService(ctx context.Context, pa *pav1alpha1
 }
 
 func (c *Reconciler) reconcileMetric(ctx context.Context, pa *pav1alpha1.PodAutoscaler) error {
-	desiredMetric := resources.MakeMetric(ctx, pa, c.dynConfig.Current())
+	desiredMetric := resources.MakeMetric(ctx, pa, config.FromContext(ctx).Autoscaler)
 	metric, err := c.metrics.Get(ctx, desiredMetric.Namespace, desiredMetric.Name)
 	if errors.IsNotFound(err) {
 		metric, err = c.metrics.Create(ctx, desiredMetric)

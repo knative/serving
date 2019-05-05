@@ -57,7 +57,7 @@ func runScaleFromZero(idx int, t *testing.T, clients *test.Clients, ro *test.Res
 	t.Helper()
 	deploymentName := names.Deployment(ro.Revision)
 
-	domain := ro.Route.Status.Domain
+	domain := ro.Route.Status.URL.Host
 	t.Logf("%02d: waiting for deployment to scale to zero.", idx)
 	if err := e2e.WaitForScaleToZero(t, deploymentName, clients); err != nil {
 		m := fmt.Sprintf("%02d: failed waiting for deployment to scale to zero: %v", idx, err)

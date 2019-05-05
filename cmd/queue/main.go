@@ -26,6 +26,8 @@ import (
 	"os"
 	"time"
 
+	"go.uber.org/zap"
+
 	"github.com/knative/pkg/logging/logkey"
 	"github.com/knative/pkg/metrics"
 	"github.com/knative/pkg/signals"
@@ -40,7 +42,7 @@ import (
 	"github.com/knative/serving/pkg/queue"
 	"github.com/knative/serving/pkg/queue/health"
 	queuestats "github.com/knative/serving/pkg/queue/stats"
-	"go.uber.org/zap"
+
 	"k8s.io/apimachinery/pkg/util/wait"
 )
 
@@ -63,25 +65,27 @@ const (
 	// are exposed in Prometheus. This is different from the metrics used
 	// for autoscaling, which are exposed in 9090.
 	commonMetricsPort = 9091
+
+	badProbeTemplate = "unexpected probe header value: %s"
 )
 
 var (
-	servingService         string
+	containerConcurrency   int
+	queueServingPort       int
+	revisionTimeoutSeconds int
 	servingConfig          string
 	servingNamespace       string
-	servingRevision        string
-	servingRevisionKey     string
 	servingPodIP           string
 	servingPodName         string
-	userTargetPort         int
+	servingRevision        string
+	servingRevisionKey     string
+	servingService         string
 	userTargetAddress      string
-	containerConcurrency   int
-	revisionTimeoutSeconds int
+	userTargetPort         int
 	reqChan                = make(chan queue.ReqEvent, requestCountingQueueLength)
 	logger                 *zap.SugaredLogger
 	breaker                *queue.Breaker
 
-	h2cProxy  *httputil.ReverseProxy
 	httpProxy *httputil.ReverseProxy
 
 	healthState      = &health.State{}
@@ -89,14 +93,15 @@ var (
 )
 
 func initEnv() {
-	servingService = os.Getenv("SERVING_SERVICE") // KService is optional
+	containerConcurrency = util.MustParseIntEnvOrFatal("CONTAINER_CONCURRENCY", logger)
+	queueServingPort = util.MustParseIntEnvOrFatal("QUEUE_SERVING_PORT", logger)
+	revisionTimeoutSeconds = util.MustParseIntEnvOrFatal("REVISION_TIMEOUT_SECONDS", logger)
 	servingConfig = util.GetRequiredEnvOrFatal("SERVING_CONFIGURATION", logger)
 	servingNamespace = util.GetRequiredEnvOrFatal("SERVING_NAMESPACE", logger)
-	servingRevision = util.GetRequiredEnvOrFatal("SERVING_REVISION", logger)
 	servingPodIP = util.GetRequiredEnvOrFatal("SERVING_POD_IP", logger)
 	servingPodName = util.GetRequiredEnvOrFatal("SERVING_POD", logger)
-	containerConcurrency = util.MustParseIntEnvOrFatal("CONTAINER_CONCURRENCY", logger)
-	revisionTimeoutSeconds = util.MustParseIntEnvOrFatal("REVISION_TIMEOUT_SECONDS", logger)
+	servingRevision = util.GetRequiredEnvOrFatal("SERVING_REVISION", logger)
+	servingService = os.Getenv("SERVING_SERVICE") // KService is optional
 	userTargetPort = util.MustParseIntEnvOrFatal("USER_PORT", logger)
 	userTargetAddress = fmt.Sprintf("127.0.0.1:%d", userTargetPort)
 
@@ -144,18 +149,13 @@ func probeUserContainer() bool {
 }
 
 // Make handler a closure for testing.
-func handler(reqChan chan queue.ReqEvent, breaker *queue.Breaker, httpProxy, h2cProxy *httputil.ReverseProxy) func(http.ResponseWriter, *http.Request) {
+func handler(reqChan chan queue.ReqEvent, breaker *queue.Breaker, proxy *httputil.ReverseProxy) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		proxy := httpProxy
-		if r.ProtoMajor == 2 {
-			proxy = h2cProxy
-		}
-
 		ph := knativeProbeHeader(r)
 		switch {
 		case ph != "":
 			if ph != queue.Name {
-				http.Error(w, fmt.Sprintf("unexpected probe header value: %q", ph), http.StatusBadRequest)
+				http.Error(w, fmt.Sprintf(badProbeTemplate, ph), http.StatusBadRequest)
 				return
 			}
 			if probeUserContainer() {
@@ -171,7 +171,7 @@ func handler(reqChan chan queue.ReqEvent, breaker *queue.Breaker, httpProxy, h2c
 			return
 		}
 
-		// Metrics for autoscaling
+		// Metrics for autoscaling.
 		h := knativeProxyHeader(r)
 		in, out := queue.ReqIn, queue.ReqOut
 		if activator.Name == h {
@@ -181,8 +181,9 @@ func handler(reqChan chan queue.ReqEvent, breaker *queue.Breaker, httpProxy, h2c
 		defer func() {
 			reqChan <- queue.ReqEvent{Time: time.Now(), EventType: out}
 		}()
+		network.RewriteHostOut(r)
 
-		// Enforce queuing and concurrency limits
+		// Enforce queuing and concurrency limits.
 		if breaker != nil {
 			ok := breaker.Maybe(func() {
 				proxy.ServeHTTP(w, r)
@@ -216,19 +217,16 @@ func main() {
 		zap.String(logkey.Key, servingRevisionKey),
 		zap.String(logkey.Pod, servingPodName))
 
-	target, err := url.Parse(fmt.Sprintf("http://%s", userTargetAddress))
+	target, err := url.Parse("http://" + userTargetAddress)
 	if err != nil {
-		logger.Fatalw("Failed to parse localhost url", zap.Error(err))
+		logger.Fatalw("Failed to parse localhost URL", zap.Error(err))
 	}
 
 	httpProxy = httputil.NewSingleHostReverseProxy(target)
+	httpProxy.Transport = network.AutoTransport
 	httpProxy.FlushInterval = -1
-	h2cProxy = httputil.NewSingleHostReverseProxy(target)
-	h2cProxy.Transport = network.DefaultH2CTransport
-	h2cProxy.FlushInterval = -1
 
 	activatorutil.SetupHeaderPruning(httpProxy)
-	activatorutil.SetupHeaderPruning(h2cProxy)
 
 	// If containerConcurrency == 0 then concurrency is unlimited.
 	if containerConcurrency > 0 {
@@ -266,15 +264,17 @@ func main() {
 		Handler: createAdminHandlers(),
 	}
 
-	timeoutHandler := queue.TimeToFirstByteTimeoutHandler(http.HandlerFunc(handler(reqChan, breaker, httpProxy, h2cProxy)),
+	// Create queue handler chain
+	// Note: innermost handlers are specified first, ie. the last handler in the chain will be executed first
+	var composedHandler http.Handler = http.HandlerFunc(handler(reqChan, breaker, httpProxy))
+	composedHandler = queue.TimeToFirstByteTimeoutHandler(composedHandler,
 		time.Duration(revisionTimeoutSeconds)*time.Second, "request timeout")
-	composedHandler := pushRequestMetricHandler(pushRequestLogHandler(timeoutHandler))
-	// We listen on two ports to match the behavior of activator
-	// so that we don't have to reprogram the k8s services.
-	serverHTTP := network.NewServer(fmt.Sprintf(":%d", networking.BackendHTTPPort), composedHandler)
-	serverHTTP2 := network.NewServer(fmt.Sprintf(":%d", networking.BackendHTTP2Port), composedHandler)
+	composedHandler = pushRequestLogHandler(composedHandler)
+	composedHandler = pushRequestMetricHandler(composedHandler)
+	logger.Infof("Queue-proxy will listen on port %d", queueServingPort)
+	server := network.NewServer(fmt.Sprintf(":%d", queueServingPort), composedHandler)
 
-	errChan := make(chan error, 3)
+	errChan := make(chan error, 2)
 	defer close(errChan)
 	// Runs a server created by creator and sends fatal errors to the errChan.
 	// Does not act on the ErrServerClosed error since that indicates we're
@@ -285,8 +285,7 @@ func main() {
 		}
 	}
 
-	go catchServerError(serverHTTP.ListenAndServe)
-	go catchServerError(serverHTTP2.ListenAndServe)
+	go catchServerError(server.ListenAndServe)
 	go catchServerError(adminServer.ListenAndServe)
 
 	// Blocks until we actually receive a TERM signal or one of the servers
@@ -305,11 +304,8 @@ func main() {
 
 			// Calling server.Shutdown() allows pending requests to
 			// complete, while no new work is accepted.
-			if err := serverHTTP.Shutdown(context.Background()); err != nil {
-				logger.Errorw("Failed to shutdown proxy server for HTTP/1", zap.Error(err))
-			}
-			if err := serverHTTP2.Shutdown(context.Background()); err != nil {
-				logger.Errorf("Failed to shutdown proxy server for HTTP/2", zap.Error(err))
+			if err := server.Shutdown(context.Background()); err != nil {
+				logger.Errorw("Failed to shutdown proxy server", zap.Error(err))
 			}
 		})
 

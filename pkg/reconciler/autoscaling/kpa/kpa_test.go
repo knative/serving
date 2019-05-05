@@ -19,11 +19,15 @@ package kpa
 import (
 	"context"
 	"fmt"
+	"sync"
 	"testing"
 	"time"
 
+	"k8s.io/apimachinery/pkg/util/wait"
+
 	"github.com/google/go-cmp/cmp"
 	"go.uber.org/atomic"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/controller"
@@ -42,6 +46,7 @@ import (
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
 	"github.com/knative/serving/pkg/reconciler"
 	rpkg "github.com/knative/serving/pkg/reconciler"
+	"github.com/knative/serving/pkg/reconciler/autoscaling/config"
 	"github.com/knative/serving/pkg/reconciler/autoscaling/kpa/resources"
 	aresources "github.com/knative/serving/pkg/reconciler/autoscaling/resources"
 	revisionresources "github.com/knative/serving/pkg/reconciler/revision/resources"
@@ -61,19 +66,30 @@ import (
 	. "github.com/knative/serving/pkg/reconciler/testing"
 )
 
-var (
-	gracePeriod   = 60 * time.Second
-	stableWindow  = 5 * time.Minute
-	configMapData = map[string]string{
+const (
+	gracePeriod              = 60 * time.Second
+	stableWindow             = 5 * time.Minute
+	defaultConcurrencyTarget = 10.0
+)
+
+func defaultConfigMapData() map[string]string {
+	return map[string]string{
 		"max-scale-up-rate":                       "1.0",
 		"container-concurrency-target-percentage": "0.5",
-		"container-concurrency-target-default":    "10.0",
+		"container-concurrency-target-default":    fmt.Sprintf("%v", defaultConcurrencyTarget),
 		"stable-window":                           stableWindow.String(),
 		"panic-window":                            "10s",
 		"scale-to-zero-grace-period":              gracePeriod.String(),
 		"tick-interval":                           "2s",
 	}
-)
+}
+
+func defaultConfig() *config.Config {
+	autoscalerConfig, _ := autoscaler.NewConfigFromMap(defaultConfigMapData())
+	return &config.Config{
+		Autoscaler: autoscalerConfig,
+	}
+}
 
 func newConfigWatcher() configmap.Watcher {
 	return configmap.NewStaticWatcher(&corev1.ConfigMap{
@@ -81,16 +97,8 @@ func newConfigWatcher() configmap.Watcher {
 			Namespace: system.Namespace(),
 			Name:      autoscaler.ConfigName,
 		},
-		Data: configMapData,
+		Data: defaultConfigMapData(),
 	})
-}
-
-func newDynamicConfig(t *testing.T) *autoscaler.DynamicConfig {
-	dynConfig, err := autoscaler.NewDynamicConfigFromMap(configMapData, logtesting.TestLogger(t))
-	if err != nil {
-		t.Errorf("Error creating DynamicConfig: %v", err)
-	}
-	return dynConfig
 }
 
 // TODO(#3591): Convert KPA tests to table tests.
@@ -166,11 +174,6 @@ func TestReconcileAndScaleToZero(t *testing.T) {
 	const key = testNamespace + "/" + testRevision
 	const deployName = testRevision + "-deployment"
 	usualSelector := map[string]string{"a": "b"}
-	fn := activatorProbe
-	defer func() {
-		activatorProbe = fn
-	}()
-	activatorProbe = func(*asv1a1.PodAutoscaler) (bool, error) { return true, nil }
 
 	table := TableTest{{
 		Name: "steady not serving",
@@ -271,11 +274,10 @@ func TestReconcileAndScaleToZero(t *testing.T) {
 
 	defer logtesting.ClearAll()
 	table.Test(t, MakeFactory(func(listers *Listers, opt rpkg.Options) controller.Reconciler {
-		dynConf := newDynamicConfig(t)
 		fakeDeciders := newTestDeciders()
 		// Make sure we want to scale to 0.
 		decider := resources.MakeDecider(
-			context.Background(), kpa(testNamespace, testRevision), dynConf.Current())
+			context.Background(), kpa(testNamespace, testRevision), defaultConfig().Autoscaler)
 		decider.Status.DesiredScale = 0
 		decider.Generation = 42
 		fakeDeciders.Create(context.Background(), decider)
@@ -283,7 +285,8 @@ func TestReconcileAndScaleToZero(t *testing.T) {
 		opt.ConfigMapWatcher = newConfigWatcher()
 
 		fakeMetrics := newTestMetrics()
-		kpaScaler := NewScaler(opt)
+		kpaScaler := NewScaler(opt).(*scaler)
+		kpaScaler.activatorProbe = func(*asv1a1.PodAutoscaler) (bool, error) { return true, nil }
 		return &Reconciler{
 			Base:            rpkg.NewBase(opt, controllerAgentName),
 			paLister:        listers.GetPodAutoscalerLister(),
@@ -293,7 +296,7 @@ func TestReconcileAndScaleToZero(t *testing.T) {
 			kpaDeciders:     fakeDeciders,
 			metrics:         fakeMetrics,
 			scaler:          kpaScaler,
-			dynConfig:       dynConf,
+			configStore:     &testConfigStore{config: defaultConfig()},
 		}
 	}))
 }
@@ -314,20 +317,20 @@ func TestReconcile(t *testing.T) {
 	// two constant objects above, which means, that all tests must share
 	// the same namespace and revision name.
 	table := TableTest{{
-		Name: "bad workqueue key, Part I",
-		Key:  "too/many/parts",
+		Name:                    "bad workqueue key, Part I",
+		Key:                     "too/many/parts",
 		SkipNamespaceValidation: true,
 	}, {
-		Name: "bad workqueue key, Part II",
-		Key:  "too-few-parts",
+		Name:                    "bad workqueue key, Part II",
+		Key:                     "too-few-parts",
 		SkipNamespaceValidation: true,
 	}, {
-		Name: "key not found",
-		Key:  "foo/not-found",
+		Name:                    "key not found",
+		Key:                     "foo/not-found",
 		SkipNamespaceValidation: true,
 	}, {
-		Name: "key not found",
-		Key:  "foo/not-found",
+		Name:                    "key not found",
+		Key:                     "foo/not-found",
 		SkipNamespaceValidation: true,
 	}, {
 		Name: "steady state",
@@ -631,13 +634,12 @@ func TestReconcile(t *testing.T) {
 
 	defer logtesting.ClearAll()
 	table.Test(t, MakeFactory(func(listers *Listers, opt rpkg.Options) controller.Reconciler {
-		dynConf := newDynamicConfig(t)
 		fakeDeciders := newTestDeciders()
 		// TODO(vagababov): see if we can get rid of the static piece of configuration and
 		// constant namespace and revision names.
 		// Make sure we don't want to scale to 0.
 		decider := resources.MakeDecider(
-			context.Background(), kpa(testNamespace, testRevision), dynConf.Current())
+			context.Background(), kpa(testNamespace, testRevision), defaultConfig().Autoscaler)
 		decider.Status.DesiredScale = desiredScale
 		decider.Generation = 2112
 		fakeDeciders.Create(context.Background(), decider)
@@ -655,7 +657,7 @@ func TestReconcile(t *testing.T) {
 			kpaDeciders:     fakeDeciders,
 			metrics:         fakeMetrics,
 			scaler:          kpaScaler,
-			dynConfig:       dynConf,
+			configStore:     &testConfigStore{config: defaultConfig()},
 		}
 	}))
 }
@@ -683,6 +685,104 @@ func deploy(namespace, name string, opts ...deploymentOption) *appsv1.Deployment
 		opt(s)
 	}
 	return s
+}
+
+func TestGlobalResyncOnUpdateAutoscalerConfigMap(t *testing.T) {
+	defer logtesting.ClearAll()
+
+	kubeClient := fakeK8s.NewSimpleClientset()
+	servingClient := fakeKna.NewSimpleClientset()
+	dynamicClient := fakedynamic.NewSimpleDynamicClient(runtime.NewScheme())
+	watcher := &configmap.ManualWatcher{Namespace: system.Namespace()}
+
+	opts := reconciler.Options{
+		KubeClientSet:    kubeClient,
+		ServingClientSet: servingClient,
+		DynamicClientSet: dynamicClient,
+		Logger:           logtesting.TestLogger(t),
+		ConfigMapWatcher: watcher,
+	}
+
+	servingInformer := informers.NewSharedInformerFactory(servingClient, 0)
+	kubeInformer := kubeinformers.NewSharedInformerFactory(kubeClient, 0)
+
+	scaler := NewScaler(opts)
+
+	fakeDeciders := newTestDeciders()
+	fakeMetrics := newTestMetrics()
+	ctl := NewController(&opts,
+		servingInformer.Autoscaling().V1alpha1().PodAutoscalers(),
+		servingInformer.Networking().V1alpha1().ServerlessServices(),
+		kubeInformer.Core().V1().Services(),
+		kubeInformer.Core().V1().Endpoints(),
+		fakeDeciders,
+		fakeMetrics,
+		scaler,
+	)
+
+	// Load default config
+	watcher.OnChange(&corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      autoscaler.ConfigName,
+			Namespace: system.Namespace(),
+		},
+		Data: defaultConfigMapData(),
+	})
+
+	stopCh := make(chan struct{})
+	grp := errgroup.Group{}
+	defer func() {
+		close(stopCh)
+		if err := grp.Wait(); err != nil {
+			t.Errorf("Wait() = %v", err)
+		}
+	}()
+
+	servingInformer.Start(stopCh)
+	kubeInformer.Start(stopCh)
+	if err := watcher.Start(stopCh); err != nil {
+		t.Fatalf("failed to start configmap watcher: %v", err)
+	}
+
+	servingInformer.WaitForCacheSync(stopCh)
+	kubeInformer.WaitForCacheSync(stopCh)
+
+	grp.Go(func() error { return ctl.Run(1, stopCh) })
+
+	rev := newTestRevision(testNamespace, testRevision)
+	newDeployment(t, dynamicClient, testRevision+"-deployment", 3)
+
+	kpa := revisionresources.MakeKPA(rev)
+	servingClient.AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
+	servingInformer.Autoscaling().V1alpha1().PodAutoscalers().Informer().GetIndexer().Add(kpa)
+
+	// Wait for decider to be created.
+	if decider, err := pollDeciders(fakeDeciders, testNamespace, testRevision, nil); err != nil {
+		t.Fatalf("Failed to get decider: %v", err)
+	} else if got, want := decider.Spec.TargetConcurrency, defaultConcurrencyTarget; got != want {
+		t.Fatalf("TargetConcurrency = %v, want %v", got, want)
+	}
+
+	concurrencyTargetAfterUpdate := 100.0
+	data := defaultConfigMapData()
+	data["container-concurrency-target-default"] = fmt.Sprintf("%v", concurrencyTargetAfterUpdate)
+	watcher.OnChange(&corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      autoscaler.ConfigName,
+			Namespace: system.Namespace(),
+		},
+		Data: data,
+	})
+
+	// Wait for decider to be updated with the new values from the configMap.
+	cond := func(d *autoscaler.Decider) bool {
+		return d.Spec.TargetConcurrency == concurrencyTargetAfterUpdate
+	}
+	if decider, err := pollDeciders(fakeDeciders, testNamespace, testRevision, cond); err != nil {
+		t.Fatalf("Failed to get decider: %v", err)
+	} else if got, want := decider.Spec.TargetConcurrency, concurrencyTargetAfterUpdate; got != want {
+		t.Fatalf("TargetConcurrency = %v, want %v", got, want)
+	}
 }
 
 func TestControllerSynchronizesCreatesAndDeletes(t *testing.T) {
@@ -715,7 +815,6 @@ func TestControllerSynchronizesCreatesAndDeletes(t *testing.T) {
 		fakeDeciders,
 		fakeMetrics,
 		scaler,
-		newDynamicConfig(t),
 	)
 
 	rev := newTestRevision(testNamespace, testRevision)
@@ -806,7 +905,6 @@ func TestUpdate(t *testing.T) {
 
 	fakeDeciders := newTestDeciders()
 	fakeMetrics := newTestMetrics()
-	dynConf := newDynamicConfig(t)
 	ctl := NewController(&opts,
 		servingInformer.Autoscaling().V1alpha1().PodAutoscalers(),
 		servingInformer.Networking().V1alpha1().ServerlessServices(),
@@ -815,7 +913,6 @@ func TestUpdate(t *testing.T) {
 		fakeDeciders,
 		fakeMetrics,
 		scaler,
-		dynConf,
 	)
 
 	rev := newTestRevision(testNamespace, testRevision)
@@ -844,7 +941,7 @@ func TestUpdate(t *testing.T) {
 	servingClient.NetworkingV1alpha1().ServerlessServices(testNamespace).Create(sks)
 	servingInformer.Networking().V1alpha1().ServerlessServices().Informer().GetIndexer().Add(sks)
 
-	decider := resources.MakeDecider(context.Background(), kpa, dynConf.Current())
+	decider := resources.MakeDecider(context.Background(), kpa, defaultConfig().Autoscaler)
 	decider.Labels[serving.KubernetesServiceLabelKey] = sks.Status.PrivateServiceName
 
 	// Wait for the Reconcile to complete.
@@ -917,7 +1014,6 @@ func TestNonKPAClass(t *testing.T) {
 		fakeDeciders,
 		fakeMetrics,
 		scaler,
-		newDynamicConfig(t),
 	)
 
 	rev := newTestRevision(testNamespace, testRevision)
@@ -973,7 +1069,6 @@ func TestNoEndpoints(t *testing.T) {
 		newTestDeciders(),
 		newTestMetrics(),
 		scaler,
-		newDynamicConfig(t),
 	)
 
 	rev := newTestRevision(testNamespace, testRevision)
@@ -1029,7 +1124,6 @@ func TestEmptyEndpoints(t *testing.T) {
 		newTestDeciders(),
 		newTestMetrics(),
 		scaler,
-		newDynamicConfig(t),
 	)
 
 	rev := newTestRevision(testNamespace, testRevision)
@@ -1090,7 +1184,6 @@ func TestControllerCreateError(t *testing.T) {
 		},
 		newTestMetrics(),
 		scaler,
-		newDynamicConfig(t),
 	)
 
 	kpa := revisionresources.MakeKPA(newTestRevision(testNamespace, testRevision))
@@ -1138,7 +1231,6 @@ func TestControllerUpdateError(t *testing.T) {
 		},
 		newTestMetrics(),
 		scaler,
-		newDynamicConfig(t),
 	)
 
 	kpa := revisionresources.MakeKPA(newTestRevision(testNamespace, testRevision))
@@ -1185,7 +1277,6 @@ func TestControllerGetError(t *testing.T) {
 		},
 		newTestMetrics(),
 		scaler,
-		newDynamicConfig(t),
 	)
 
 	kpa := revisionresources.MakeKPA(newTestRevision(testNamespace, testRevision))
@@ -1228,7 +1319,6 @@ func TestScaleFailure(t *testing.T) {
 		newTestDeciders(),
 		newTestMetrics(),
 		scaler,
-		newDynamicConfig(t),
 	)
 
 	// Only put the KPA in the lister, which will prompt failures scaling it.
@@ -1270,13 +1360,26 @@ func TestBadKey(t *testing.T) {
 		newTestDeciders(),
 		newTestMetrics(),
 		scaler,
-		newDynamicConfig(t),
 	)
 
 	err := ctl.Reconciler.Reconcile(context.Background(), "too/many/parts")
 	if err != nil {
 		t.Errorf("Reconcile() = %v", err)
 	}
+}
+
+func pollDeciders(deciders *testDeciders, namespace, name string, cond func(*autoscaler.Decider) bool) (decider *autoscaler.Decider, err error) {
+	wait.PollImmediate(10*time.Millisecond, 3*time.Second, func() (bool, error) {
+		decider, err = deciders.Get(context.Background(), namespace, name)
+		if err != nil {
+			return false, nil
+		}
+		if cond == nil {
+			return true, nil
+		}
+		return cond(decider), nil
+	})
+	return decider, err
 }
 
 func newTestDeciders() *testDeciders {
@@ -1294,9 +1397,13 @@ type testDeciders struct {
 	updateCallCount    *atomic.Uint32
 	deleteBeforeCreate *atomic.Bool
 	decider            *autoscaler.Decider
+	mutex              sync.Mutex
 }
 
 func (km *testDeciders) Get(ctx context.Context, namespace, name string) (*autoscaler.Decider, error) {
+	km.mutex.Lock()
+	defer km.mutex.Unlock()
+
 	if km.decider == nil {
 		return nil, apierrors.NewNotFound(asv1a1.Resource("Deciders"), autoscaler.NewMetricKey(namespace, name))
 	}
@@ -1304,12 +1411,18 @@ func (km *testDeciders) Get(ctx context.Context, namespace, name string) (*autos
 }
 
 func (km *testDeciders) Create(ctx context.Context, decider *autoscaler.Decider) (*autoscaler.Decider, error) {
+	km.mutex.Lock()
+	defer km.mutex.Unlock()
+
 	km.decider = decider
 	km.createCallCount.Add(1)
 	return decider, nil
 }
 
 func (km *testDeciders) Delete(ctx context.Context, namespace, name string) error {
+	km.mutex.Lock()
+	defer km.mutex.Unlock()
+
 	km.decider = nil
 	km.deleteCallCount.Add(1)
 	if km.createCallCount.Load() == 0 {
@@ -1319,6 +1432,9 @@ func (km *testDeciders) Delete(ctx context.Context, namespace, name string) erro
 }
 
 func (km *testDeciders) Update(ctx context.Context, decider *autoscaler.Decider) (*autoscaler.Decider, error) {
+	km.mutex.Lock()
+	defer km.mutex.Unlock()
+
 	km.decider = decider
 	km.updateCallCount.Add(1)
 	return decider, nil
@@ -1435,3 +1551,15 @@ func addEndpoint(ep *corev1.Endpoints) *corev1.Endpoints {
 	}}
 	return ep
 }
+
+type testConfigStore struct {
+	config *config.Config
+}
+
+func (t *testConfigStore) ToContext(ctx context.Context) context.Context {
+	return config.ToContext(ctx, t.config)
+}
+
+func (t *testConfigStore) WatchConfigs(w configmap.Watcher) {}
+
+var _ configStore = (*testConfigStore)(nil)

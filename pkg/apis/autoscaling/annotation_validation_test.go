@@ -40,29 +40,37 @@ func TestValidateScaleBoundAnnotations(t *testing.T) {
 	}, {
 		name:        "minScale is 0",
 		annotations: map[string]string{MinScaleAnnotationKey: "0"},
-		expectErr: &apis.FieldError{
-			Message: fmt.Sprintf("Invalid %s annotation value: must be an integer greater than 0", MinScaleAnnotationKey),
-			Paths:   []string{MinScaleAnnotationKey},
-		},
+		expectErr:   nil,
 	}, {
 		name:        "maxScale is 0",
 		annotations: map[string]string{MaxScaleAnnotationKey: "0"},
+		expectErr:   nil,
+	}, {
+		name:        "minScale is -1",
+		annotations: map[string]string{MinScaleAnnotationKey: "-1"},
 		expectErr: &apis.FieldError{
-			Message: fmt.Sprintf("Invalid %s annotation value: must be an integer greater than 0", MaxScaleAnnotationKey),
+			Message: fmt.Sprintf("Invalid %s annotation value: must be an integer equal or greater than 0", MinScaleAnnotationKey),
+			Paths:   []string{MinScaleAnnotationKey},
+		},
+	}, {
+		name:        "maxScale is -1",
+		annotations: map[string]string{MaxScaleAnnotationKey: "-1"},
+		expectErr: &apis.FieldError{
+			Message: fmt.Sprintf("Invalid %s annotation value: must be an integer equal or greater than 0", MaxScaleAnnotationKey),
 			Paths:   []string{MaxScaleAnnotationKey},
 		},
 	}, {
 		name:        "minScale is foo",
 		annotations: map[string]string{MinScaleAnnotationKey: "foo"},
 		expectErr: &apis.FieldError{
-			Message: fmt.Sprintf("Invalid %s annotation value: must be an integer greater than 0", MinScaleAnnotationKey),
+			Message: fmt.Sprintf("Invalid %s annotation value: must be an integer equal or greater than 0", MinScaleAnnotationKey),
 			Paths:   []string{MinScaleAnnotationKey},
 		},
 	}, {
 		name:        "maxScale is bar",
 		annotations: map[string]string{MaxScaleAnnotationKey: "bar"},
 		expectErr: &apis.FieldError{
-			Message: fmt.Sprintf("Invalid %s annotation value: must be an integer greater than 0", MaxScaleAnnotationKey),
+			Message: fmt.Sprintf("Invalid %s annotation value: must be an integer equal or greater than 0", MaxScaleAnnotationKey),
 			Paths:   []string{MaxScaleAnnotationKey},
 		},
 	}, {
@@ -84,6 +92,13 @@ func TestValidateScaleBoundAnnotations(t *testing.T) {
 			Message: fmt.Sprintf("%s=%v is less than %s=%v", MaxScaleAnnotationKey, 2, MinScaleAnnotationKey, 5),
 			Paths:   []string{MaxScaleAnnotationKey, MinScaleAnnotationKey},
 		},
+	}, {
+		name: "minScale is 0, maxScale is 0",
+		annotations: map[string]string{
+			MinScaleAnnotationKey: "0",
+			MaxScaleAnnotationKey: "0",
+		},
+		expectErr: nil,
 	}}
 
 	for _, c := range cases {

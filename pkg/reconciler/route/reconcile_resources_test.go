@@ -25,6 +25,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"github.com/knative/pkg/apis"
 	. "github.com/knative/pkg/logging/testing"
 	"github.com/knative/pkg/system"
 	netv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
@@ -71,7 +72,10 @@ func TestReconcileClusterIngress_Update(t *testing.T) {
 	updated := getRouteIngressFromClient(t, servingClient, r)
 	servingInformer.Networking().V1alpha1().ClusterIngresses().Informer().GetIndexer().Add(updated)
 
-	r.Status.Domain = "bar.com"
+	r.Status.URL = &apis.URL{
+		Scheme: "http",
+		Host:   "bar.com",
+	}
 	ci2 := newTestClusterIngress(r)
 	if _, err := c.reconcileClusterIngress(TestContextWithLogger(t), r, ci2); err != nil {
 		t.Errorf("Unexpected error: %v", err)

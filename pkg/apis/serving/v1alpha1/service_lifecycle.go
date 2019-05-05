@@ -158,7 +158,8 @@ func (ss *ServiceStatus) SetManualStatus() {
 	serviceCondSet.Manage(newStatus).MarkUnknown(ServiceConditionRoutesReady, reason, message)
 
 	newStatus.Address = ss.Address
-	newStatus.Domain = ss.Domain
+	newStatus.URL = ss.URL
+	newStatus.DeprecatedDomain = ss.DeprecatedDomain
 	newStatus.DeprecatedDomainInternal = ss.DeprecatedDomainInternal
 
 	*ss = *newStatus
