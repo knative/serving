@@ -28,13 +28,8 @@ import (
 func MakeCertificate(route *v1alpha1.Route, dnsNames []string) *networkingv1alpha1.Certificate {
 	return &networkingv1alpha1.Certificate{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      names.Certificate(route),
-			Namespace: route.Namespace,
-			// TODO(zhiminx): adding ownerreferces here means the Certificate will be deleted
-			// when deleting the Route that owns it. This GC strategy may be a bit aggressive
-			// as we probably want to cache the TLS certificate for a while for the future reuse
-			// in order to save some certificates quota.
-			// We may want to use a moderate GC strategy if it is necessary.
+			Name:            names.Certificate(route),
+			Namespace:       route.Namespace,
 			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(route)},
 		},
 		Spec: networkingv1alpha1.CertificateSpec{
