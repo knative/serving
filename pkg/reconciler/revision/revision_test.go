@@ -29,6 +29,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/knative/serving/pkg/apis/autoscaling"
+
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-containerregistry/pkg/authn/k8schain"
 	"golang.org/x/sync/errgroup"
@@ -405,6 +407,45 @@ func TestUpdateRevWithWithUpdatedLoggingURL(t *testing.T) {
 	expectedLoggingURL := fmt.Sprintf("http://new-logging.test.com?filter=%s", rev.UID)
 	if updatedRev.Status.LogURL != expectedLoggingURL {
 		t.Errorf("Updated revision does not have an updated logging URL: expected: %s, got: %s", expectedLoggingURL, updatedRev.Status.LogURL)
+	}
+}
+
+func TestUpdateRevLabelAnnotation(t *testing.T) {
+	deploymentConfig := getTestDeploymentConfig()
+	kubeClient, servingClient, cachingClient, _, controller, kubeInformer, servingInformer, cachingInformer, _, _ := newTestControllerWithConfig(t, deploymentConfig)
+	revClient := servingClient.ServingV1alpha1().Revisions(testNamespace)
+
+	minScale := "0"
+	maxScale := "2"
+	rev := testRevision()
+	createRevision(t, kubeClient, kubeInformer, servingClient, servingInformer, cachingClient, cachingInformer, controller, rev)
+	rev.Annotations[autoscaling.MinScaleAnnotationKey] = minScale
+	rev.Annotations[autoscaling.MaxScaleAnnotationKey] = maxScale
+	updateRevision(t, kubeClient, kubeInformer, servingClient, servingInformer, cachingClient, cachingInformer, controller, rev)
+
+	updatedRev, err := revClient.Get(rev.Name, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Couldn't get revision: %v", err)
+	}
+	t.Logf("updated revision: %v", updatedRev)
+
+	kpa, err := servingClient.Autoscaling().PodAutoscalers(rev.Namespace).Get(resourcenames.KPA(rev), metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Couldn't get deployment: %v", err)
+	}
+	if minScale != kpa.Annotations[autoscaling.MinScaleAnnotationKey] ||
+		maxScale != kpa.Annotations[autoscaling.MaxScaleAnnotationKey] {
+		t.Fatalf("Fail to update annotation to it's workload.")
+	}
+
+	d, err := kubeClient.AppsV1().Deployments(rev.Namespace).Get(resourcenames.Deployment(rev), metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Couldn't get deployment: %v", err)
+	}
+
+	if minScale != d.Annotations[autoscaling.MinScaleAnnotationKey] ||
+		maxScale != d.Annotations[autoscaling.MaxScaleAnnotationKey] {
+		t.Fatalf("Fail to update annotation to it's workload.")
 	}
 }
 

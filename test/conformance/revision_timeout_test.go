@@ -22,12 +22,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strconv"
 	"testing"
 	"time"
 
 	pkgTest "github.com/knative/pkg/test"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1beta1"
+	revisionresourcenames "github.com/knative/serving/pkg/reconciler/revision/resources/names"
 	serviceresourcenames "github.com/knative/serving/pkg/reconciler/service/resources/names"
 	. "github.com/knative/serving/pkg/reconciler/testing"
 	"github.com/knative/serving/test"
@@ -60,6 +62,31 @@ func updateServiceWithTimeout(clients *test.Clients, names test.ResourceNames, r
 		return err
 	}
 	return nil
+}
+
+func updateRevisionWithMinScale(clients *test.Clients, names test.ResourceNames, minScale int) error {
+	patches := []jsonpatch.JsonPatchOperation{{
+		Operation: "replace",
+		Path:      "/metadata/annotations/autoscaling.knative.dev~1minScale",
+		Value:     strconv.Itoa(minScale),
+	}}
+	patchBytes, err := json.Marshal(patches)
+	if err != nil {
+		return err
+	}
+	_, err = clients.ServingClient.Revisions.Patch(names.Revision, types.JSONPatchType, patchBytes, "")
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func getRevisionDesiredReplica(clients *test.Clients, names test.ResourceNames) (*int32, error) {
+	rev, err := clients.ServingClient.Revisions.Get(names.Revision, metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+	return clients.KubeClient.GetDeploymentReplica(revisionresourcenames.Deployment(rev), rev.Namespace)
 }
 
 // sendRequests send a request to "domain", returns error if unexpected response code, nil otherwise.
@@ -237,5 +264,56 @@ func TestRevisionTimeout(t *testing.T) {
 	}
 	if err := sendRequest(t, clients, rev5sDomain, 3, 3, http.StatusOK); err != nil {
 		t.Errorf("Failed request with sleep 3s/3s with revision timeout 5s: %v", err)
+	}
+}
+
+func TestRevisionReplicaUpdate(t *testing.T) {
+	t.Parallel()
+	clients := setup(t)
+
+	names := test.ResourceNames{
+		Service: test.ObjectNameForTest(t),
+		Image:   helloworld,
+	}
+
+	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
+	defer test.TearDown(clients, names)
+
+	t.Log("Creating a new Service in runLatest")
+	svc, err := createLatestService(t, clients, names, 2)
+	if err != nil {
+		t.Fatalf("Failed to create Service: %v", err)
+	}
+	names.Route = serviceresourcenames.Route(svc)
+	names.Config = serviceresourcenames.Configuration(svc)
+
+	t.Log("The Service will be updated with the name of the Revision once it is created")
+	revisionName, err := test.WaitForServiceLatestRevision(clients, names)
+	if err != nil {
+		t.Fatalf("Service %s was not updated with the new revision: %v", names.Service, err)
+	}
+	names.Revision = revisionName
+	t.Log("Updating the Service to use a different revision timeout")
+	err = updateRevisionWithMinScale(clients, names, 2)
+	if err != nil {
+		t.Fatalf("Patch update for Revision %s with new minScale 2 failed: %v", names.Revision, err)
+	}
+
+	t.Log("When the Service reports as Ready, everything should be ready")
+	if err := test.WaitForServiceState(clients.ServingClient, names.Service, test.IsServiceReady, "ServiceIsReady"); err != nil {
+		t.Fatalf("The Service %s was not marked as Ready to serve traffic to Revision %s: %v", names.Service, names.Revision, err)
+	}
+
+	t.Logf("Waiting for revision %q to be ready", names.Revision)
+	if err := test.WaitForRevisionState(clients.ServingClient, names.Revision, test.IsRevisionReady, "RevisionIsReady"); err != nil {
+		t.Fatalf("The Revision %q still can't serve traffic: %v", names.Revision, err)
+	}
+
+	cnt, err := getRevisionDesiredReplica(clients, names)
+	if err != nil {
+		t.Fatal("Get Revision replicas failed", err)
+	}
+	if *cnt != 2 {
+		t.Fatal("Update Revision replicas by annotation failed")
 	}
 }
