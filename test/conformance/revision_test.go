@@ -86,7 +86,12 @@ func getRevisionDesiredReplica(clients *test.Clients, names test.ResourceNames) 
 	if err != nil {
 		return nil, err
 	}
-	return clients.KubeClient.GetDeploymentReplica(revisionresourcenames.Deployment(rev), rev.Namespace)
+
+	d, err := clients.KubeClient.Kube.AppsV1().Deployments(rev.Namespace).Get(revisionresourcenames.Deployment(rev), metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+	return d.Spec.Replicas, nil
 }
 
 // sendRequests send a request to "domain", returns error if unexpected response code, nil otherwise.

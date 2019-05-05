@@ -112,11 +112,3 @@ func (client *KubeClient) PodLogs(podName, containerName, namespace string) ([]b
 	}
 	return nil, fmt.Errorf("Could not find logs for %s/%s", podName, containerName)
 }
-
-func (client *KubeClient) GetDeploymentReplica(deploymentName, namespace string) (*int32, error) {
-	d, err := client.Kube.AppsV1().Deployments(namespace).Get(deploymentName, metav1.GetOptions{})
-	if err != nil {
-		return nil, err
-	}
-	return d.Spec.Replicas, nil
-}
