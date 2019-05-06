@@ -495,7 +495,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:6366bd359a44920aeb314c2da668930c289b1ea2b7172d0d5ddfe957f2e36ef9"
+  digest = "1:4728c42d780b63d894e11879cb1035b3c4b7447f9a9b7a32911bee47e66e4fa7"
   name = "github.com/knative/test-infra"
   packages = [
     "scripts",
@@ -514,7 +514,7 @@
     "tools/webhook-apicoverage/webhook",
   ]
   pruneopts = "UT"
-  revision = "691caf51f2bb9ef86888772a8cc5d7952687b7c6"
+  revision = "03b0eab127a39bccf71c1eadc3446f7fb13f8669"
 
 [[projects]]
   digest = "1:56dbf15e091bf7926cb33a57cb6bdfc658fc6d3498d2f76f10a97ce7856f1fde"
