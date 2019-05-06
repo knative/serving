@@ -986,14 +986,3 @@ func WithConfigurationGenerationAnnotation(generation int) RevisionOption {
 		r.Annotations[serving.ConfigurationGenerationLabelKey] = strconv.Itoa(generation)
 	}
 }
-
-// WithDeprecatedConfigurationMetadataGenerationLabel sets the label on the revision
-func WithDeprecatedConfigurationMetadataGenerationLabel(generation int) RevisionOption {
-	return func(r *v1alpha1.Revision) {
-		if r.Labels == nil {
-			r.Labels = make(map[string]string)
-		}
-
-		r.Labels[serving.DeprecatedConfigurationMetadataGenerationLabelKey] = strconv.Itoa(generation)
-	}
-}

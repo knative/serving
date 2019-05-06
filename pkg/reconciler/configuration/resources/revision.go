@@ -64,7 +64,6 @@ func UpdateRevisionLabels(rev *v1alpha1.Revision, config *v1alpha1.Configuration
 		serving.ConfigurationLabelKey,
 		serving.ServiceLabelKey,
 		serving.ConfigurationGenerationLabelKey,
-		serving.DeprecatedConfigurationMetadataGenerationLabelKey,
 	} {
 		rev.Labels[key] = RevisionLabelValueForKey(key, config)
 	}
@@ -78,8 +77,6 @@ func RevisionLabelValueForKey(key string, config *v1alpha1.Configuration) string
 	case serving.ServiceLabelKey:
 		return config.Labels[serving.ServiceLabelKey]
 	case serving.ConfigurationGenerationLabelKey:
-		return fmt.Sprintf("%d", config.Generation)
-	case serving.DeprecatedConfigurationMetadataGenerationLabelKey:
 		return fmt.Sprintf("%d", config.Generation)
 	}
 
