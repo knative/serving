@@ -27,7 +27,6 @@ import (
 	"github.com/knative/pkg/controller"
 	logtesting "github.com/knative/pkg/logging/testing"
 	"github.com/knative/pkg/ptr"
-	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 	"github.com/knative/serving/pkg/gc"
@@ -290,16 +289,6 @@ func TestReconcile(t *testing.T) {
 			cfg("matching-revision-done-idempotent", "foo", 5566,
 				WithObservedGen, WithLatestCreated("matching-revision"), WithLatestReady("matching-revision")),
 			rev("matching-revision-done-idempotent", "foo", 5566,
-				WithCreationTimestamp(now), MarkRevisionReady, WithRevName("matching-revision")),
-		},
-		Key: "foo/matching-revision-done-idempotent",
-	}, {
-		Name: "reconcile revision matching generation (ready: true, idempotent, no deprecated generation label)",
-		Objects: []runtime.Object{
-			cfg("matching-revision-done-idempotent", "foo", 5566,
-				WithObservedGen, WithLatestCreated("matching-revision"), WithLatestReady("matching-revision")),
-			rev("matching-revision-done-idempotent", "foo", 5566,
-				WithoutConfigMetadataGenerationLabel,
 				WithCreationTimestamp(now), MarkRevisionReady, WithRevName("matching-revision")),
 		},
 		Key: "foo/matching-revision-done-idempotent",
@@ -782,8 +771,4 @@ func TestIsRevisionStale(t *testing.T) {
 func WithBuildWarning(c *v1alpha1.Configuration) {
 	c.Status.MarkResourceNotConvertible(v1alpha1.ConvertErrorf("build",
 		"build cannot be migrated forward.").(*v1alpha1.CannotConvertError))
-}
-
-func WithoutConfigMetadataGenerationLabel(rev *v1alpha1.Revision) {
-	delete(rev.Labels, serving.DeprecatedConfigurationMetadataGenerationLabelKey)
 }

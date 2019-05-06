@@ -65,10 +65,9 @@ func TestMakeRevisions(t *testing.T) {
 					BlockOwnerDeletion: ptr.Bool(true),
 				}},
 				Labels: map[string]string{
-					serving.ConfigurationLabelKey:                             "build",
-					serving.ConfigurationGenerationLabelKey:                   "10",
-					serving.DeprecatedConfigurationMetadataGenerationLabelKey: "10",
-					serving.ServiceLabelKey:                                   "",
+					serving.ConfigurationLabelKey:           "build",
+					serving.ConfigurationGenerationLabelKey: "10",
+					serving.ServiceLabelKey:                 "",
 				},
 			},
 			Spec: v1alpha1.RevisionSpec{
@@ -118,10 +117,9 @@ func TestMakeRevisions(t *testing.T) {
 					BlockOwnerDeletion: ptr.Bool(true),
 				}},
 				Labels: map[string]string{
-					serving.ConfigurationLabelKey:                             "build",
-					serving.ConfigurationGenerationLabelKey:                   "100",
-					serving.DeprecatedConfigurationMetadataGenerationLabelKey: "100",
-					serving.ServiceLabelKey:                                   "",
+					serving.ConfigurationLabelKey:           "build",
+					serving.ConfigurationGenerationLabelKey: "100",
+					serving.ServiceLabelKey:                 "",
 				},
 			},
 			Spec: v1alpha1.RevisionSpec{
@@ -172,12 +170,11 @@ func TestMakeRevisions(t *testing.T) {
 					BlockOwnerDeletion: ptr.Bool(true),
 				}},
 				Labels: map[string]string{
-					serving.ConfigurationLabelKey:                             "labels",
-					serving.ConfigurationGenerationLabelKey:                   "100",
-					serving.DeprecatedConfigurationMetadataGenerationLabelKey: "100",
-					serving.ServiceLabelKey:                                   "",
-					"foo":                                                     "bar",
-					"baz":                                                     "blah",
+					serving.ConfigurationLabelKey:           "labels",
+					serving.ConfigurationGenerationLabelKey: "100",
+					serving.ServiceLabelKey:                 "",
+					"foo":                                   "bar",
+					"baz":                                   "blah",
 				},
 			},
 			Spec: v1alpha1.RevisionSpec{
@@ -222,10 +219,9 @@ func TestMakeRevisions(t *testing.T) {
 					BlockOwnerDeletion: ptr.Bool(true),
 				}},
 				Labels: map[string]string{
-					serving.ConfigurationLabelKey:                             "annotations",
-					serving.ConfigurationGenerationLabelKey:                   "100",
-					serving.DeprecatedConfigurationMetadataGenerationLabelKey: "100",
-					serving.ServiceLabelKey:                                   "",
+					serving.ConfigurationLabelKey:           "annotations",
+					serving.ConfigurationGenerationLabelKey: "100",
+					serving.ServiceLabelKey:                 "",
 				},
 				Annotations: map[string]string{
 					"foo": "bar",
