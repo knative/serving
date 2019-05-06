@@ -171,7 +171,7 @@ func uniScalerFactoryFunc(endpointsInformer corev1informers.EndpointsInformer) f
 	return func(decider *autoscaler.Decider) (autoscaler.UniScaler, error) {
 		for _, l := range []string{serving.KubernetesServiceLabelKey, serving.ConfigurationLabelKey} {
 			if v, ok := decider.Labels[l]; !ok || v == "" {
-				return nil, fmt.Errorf("label %q not found or empty in Decider: %v", l, decider)
+				return nil, fmt.Errorf("label %q not found or empty in Decider %s", l, decider.Name)
 			}
 		}
 
