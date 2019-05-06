@@ -72,6 +72,10 @@ const (
 	//   User-Agent = "kube-probe/{major-version}.{minor-version}".
 	kubeProbeUAPrefix = "kube-probe/"
 
+	// Istio with mTLS rewrites probes, but their probes pass a different
+	// user-agent.  So we augment the probes with this header.
+	KubeletProbeHeaderName = "K-Kubelet-Probe"
+
 	// DefaultConnTimeout specifies a short default connection timeout
 	// to avoid hitting the issue fixed in
 	// https://github.com/kubernetes/kubernetes/pull/72534 but only
@@ -260,7 +264,8 @@ func checkTemplate(t *template.Template) error {
 
 // IsKubeletProbe returns true if the request is a kubernetes probe.
 func IsKubeletProbe(r *http.Request) bool {
-	return strings.HasPrefix(r.Header.Get("User-Agent"), kubeProbeUAPrefix)
+	return strings.HasPrefix(r.Header.Get("User-Agent"), kubeProbeUAPrefix) ||
+		r.Header.Get(KubeletProbeHeaderName) != ""
 }
 
 // RewriteHostIn removes the `Host` header from the inbound (server) request

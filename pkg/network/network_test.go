@@ -511,6 +511,14 @@ func TestIsKubeletProbe(t *testing.T) {
 	if !IsKubeletProbe(req) {
 		t.Error("kubelet probe but not counted as such")
 	}
+	req.Header.Del("User-Agent")
+	if IsKubeletProbe(req) {
+		t.Error("Not a kubelet probe but counted as such")
+	}
+	req.Header.Set(KubeletProbeHeaderName, "no matter")
+	if !IsKubeletProbe(req) {
+		t.Error("kubelet probe but not counted as such")
+	}
 }
 
 func TestRewriteHost(t *testing.T) {
