@@ -322,7 +322,7 @@ func (c *Reconciler) createRevision(ctx context.Context, config *v1alpha1.Config
 			if err != nil {
 				return nil, errutil.Wrapf(err, "Failed to create Build for Configuration %q", config.GetName())
 			}
-			logger.Infof("Created Build:\n%+v", result.GetName())
+			logger.Infof("Created Build: %+v", result)
 			c.Recorder.Eventf(config, corev1.EventTypeNormal, "Created", "Created Build %q", result.GetName())
 		}
 		buildRef = &corev1.ObjectReference{
@@ -337,7 +337,7 @@ func (c *Reconciler) createRevision(ctx context.Context, config *v1alpha1.Config
 	if err != nil {
 		return nil, err
 	}
-	c.Recorder.Eventf(config, corev1.EventTypeNormal, "Created", "Created Revision %q", rev.Name)
+	c.Recorder.Eventf(config, corev1.EventTypeNormal, "Created", "Created Revision %q", created.Name)
 	logger.Infof("Created Revision: %+v", created)
 
 	return created, nil
