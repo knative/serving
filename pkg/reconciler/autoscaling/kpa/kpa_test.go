@@ -942,7 +942,7 @@ func TestUpdate(t *testing.T) {
 	servingInformer.Networking().V1alpha1().ServerlessServices().Informer().GetIndexer().Add(sks)
 
 	decider := resources.MakeDecider(context.Background(), kpa, defaultConfig().Autoscaler)
-	decider.Labels[serving.KubernetesServiceLabelKey] = sks.Status.PrivateServiceName
+	decider.Labels[serving.KubernetesServiceLabelKey] = msvc.Name
 
 	// Wait for the Reconcile to complete.
 	if err := ctl.Reconciler.Reconcile(context.Background(), testNamespace+"/"+testRevision); err != nil {
