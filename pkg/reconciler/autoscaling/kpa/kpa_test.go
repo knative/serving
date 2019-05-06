@@ -277,7 +277,7 @@ func TestReconcileAndScaleToZero(t *testing.T) {
 		fakeDeciders := newTestDeciders()
 		// Make sure we want to scale to 0.
 		decider := resources.MakeDecider(
-			context.Background(), kpa(testNamespace, testRevision), defaultConfig().Autoscaler)
+			context.Background(), kpa(testNamespace, testRevision), defaultConfig().Autoscaler, "not-important-here")
 		decider.Status.DesiredScale = 0
 		decider.Generation = 42
 		fakeDeciders.Create(context.Background(), decider)
@@ -639,7 +639,7 @@ func TestReconcile(t *testing.T) {
 		// constant namespace and revision names.
 		// Make sure we don't want to scale to 0.
 		decider := resources.MakeDecider(
-			context.Background(), kpa(testNamespace, testRevision), defaultConfig().Autoscaler)
+			context.Background(), kpa(testNamespace, testRevision), defaultConfig().Autoscaler, "trying-hard-to-care-in-this-test")
 		decider.Status.DesiredScale = desiredScale
 		decider.Generation = 2112
 		fakeDeciders.Create(context.Background(), decider)
@@ -941,8 +941,7 @@ func TestUpdate(t *testing.T) {
 	servingClient.NetworkingV1alpha1().ServerlessServices(testNamespace).Create(sks)
 	servingInformer.Networking().V1alpha1().ServerlessServices().Informer().GetIndexer().Add(sks)
 
-	decider := resources.MakeDecider(context.Background(), kpa, defaultConfig().Autoscaler)
-	decider.Labels[serving.KubernetesServiceLabelKey] = msvc.Name
+	decider := resources.MakeDecider(context.Background(), kpa, defaultConfig().Autoscaler, msvc.Name)
 
 	// Wait for the Reconcile to complete.
 	if err := ctl.Reconciler.Reconcile(context.Background(), testNamespace+"/"+testRevision); err != nil {

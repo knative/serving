@@ -89,7 +89,6 @@ type Autoscaler struct {
 // New creates a new instance of autoscaler
 func New(
 	namespace string,
-	revisionService string,
 	endpointsInformer corev1informers.EndpointsInformer,
 	deciderSpec DeciderSpec,
 	reporter StatsReporter) (*Autoscaler, error) {
@@ -105,7 +104,7 @@ func New(
 
 	return &Autoscaler{
 		namespace:       namespace,
-		revisionService: revisionService,
+		revisionService: deciderSpec.ServiceName, // To avoid locking to read the decider spec.
 		endpointsLister: endpointsInformer.Lister(),
 		deciderSpec:     deciderSpec,
 		buckets:         aggregation.NewTimedFloat64Buckets(bucketSize),
