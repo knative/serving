@@ -19,6 +19,7 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"strconv"
 
 	perrors "github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -309,7 +310,6 @@ func (c *Reconciler) reconcileDecider(ctx context.Context, pa *pav1alpha1.PodAut
 	} else if err != nil {
 		return nil, perrors.Wrap(err, "error fetching decider")
 	}
-
 	// Ignore status when reconciling
 	desiredDecider.Status = decider.Status
 	if !equality.Semantic.DeepEqual(desiredDecider, decider) {
@@ -448,25 +448,41 @@ func reportMetrics(pa *pav1alpha1.PodAutoscaler, want int32, got int) error {
 // computeActiveCondition updates the status of PA, depending on scales desired and present.
 // computeActiveCondition returns true if it thinks SKS needs an update.
 func computeActiveCondition(pa *pav1alpha1.PodAutoscaler, want int32, got int) (ret bool) {
+	minReady := activeThreshold(pa)
+
 	switch {
 	case want == 0:
 		ret = !pa.Status.IsInactive() // Any state but inactive should change SKS.
 		pa.Status.MarkInactive("NoTraffic", "The target is not receiving traffic.")
 
-	case got == 0 && want > 0:
+	case got >= 0 && got < minReady && want > 0:
 		ret = pa.Status.IsInactive() // If we were inactive and became activating.
 		pa.Status.MarkActivating(
 			"Queued", "Requests to the target are being buffered as resources are provisioned.")
 
-	case got > 0:
+	case got >= minReady:
 		// SKS should already be active.
 		pa.Status.MarkActive()
+
 	case want == scaleUnknown:
 		// We don't know what scale we want, so don't touch PA at all.
 	}
 
 	pa.Status.ObservedGeneration = pa.Generation
 	return
+}
+
+// activeThreshold returns the scale required for the kpa to be marked Active
+func activeThreshold(pa *pav1alpha1.PodAutoscaler) int {
+	if min, ok := pa.Annotations[autoscaling.MinScaleAnnotationKey]; ok {
+		if ms, err := strconv.Atoi(min); err == nil {
+			if ms > 1 {
+				return ms
+			}
+		}
+	}
+
+	return 1
 }
 
 func (c *Reconciler) updateStatus(desired *pav1alpha1.PodAutoscaler) (*pav1alpha1.PodAutoscaler, error) {

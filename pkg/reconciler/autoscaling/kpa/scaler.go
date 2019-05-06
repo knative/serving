@@ -138,6 +138,7 @@ func (ks *scaler) handleScaleToZero(pa *pav1alpha1.PodAutoscaler, desiredScale i
 	if desiredScale != 0 {
 		return desiredScale, true
 	}
+
 	// We should only scale to zero when three of the following conditions are true:
 	//   a) enable-scale-to-zero from configmap is true
 	//   b) The PA has been active for at least the stable window, after which it gets marked inactive
@@ -149,7 +150,9 @@ func (ks *scaler) handleScaleToZero(pa *pav1alpha1.PodAutoscaler, desiredScale i
 
 	if pa.Status.IsActivating() { // Active=Unknown
 		// Don't scale-to-zero during activation
-		desiredScale = scaleUnknown
+		if min, _ := pa.ScaleBounds(); min == 0 {
+			return scaleUnknown, false
+		}
 	} else if pa.Status.IsReady() { // Active=True
 		// Don't scale-to-zero if the PA is active
 
@@ -176,6 +179,7 @@ func (ks *scaler) handleScaleToZero(pa *pav1alpha1.PodAutoscaler, desiredScale i
 			return desiredScale, false
 		}
 	}
+
 	return desiredScale, true
 }
 
@@ -208,24 +212,24 @@ func (ks *scaler) applyScale(ctx context.Context, pa *pav1alpha1.PodAutoscaler, 
 
 	logger.Debug("Successfully scaled.")
 	return desiredScale, nil
-
 }
 
 // Scale attempts to scale the given PA's target reference to the desired scale.
 func (ks *scaler) Scale(ctx context.Context, pa *pav1alpha1.PodAutoscaler, desiredScale int32) (int32, error) {
 	logger := logging.FromContext(ctx)
 
-	desiredScale, shouldApplyScale := ks.handleScaleToZero(pa, desiredScale, config.FromContext(ctx).Autoscaler)
-	if !shouldApplyScale {
-		return desiredScale, nil
-	}
-
 	if desiredScale < 0 {
 		logger.Debug("Metrics are not yet being collected.")
 		return desiredScale, nil
 	}
 
+	desiredScale, shouldApplyScale := ks.handleScaleToZero(pa, desiredScale, config.FromContext(ctx).Autoscaler)
+	if !shouldApplyScale {
+		return desiredScale, nil
+	}
+
 	min, max := pa.ScaleBounds()
+
 	if newScale := applyBounds(min, max, desiredScale); newScale != desiredScale {
 		logger.Debugf("Adjusting desiredScale to meet the min and max bounds before applying: %d -> %d", desiredScale, newScale)
 		desiredScale = newScale
@@ -240,7 +244,6 @@ func (ks *scaler) Scale(ctx context.Context, pa *pav1alpha1.PodAutoscaler, desir
 	if ps.Spec.Replicas != nil {
 		currentScale = *ps.Spec.Replicas
 	}
-
 	if desiredScale == currentScale {
 		return desiredScale, nil
 	}
