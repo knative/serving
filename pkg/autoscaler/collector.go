@@ -21,6 +21,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/knative/serving/pkg/autoscaler/aggregation"
+
 	kpa "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"go.uber.org/zap"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -54,24 +56,58 @@ type MetricStatus struct{}
 // StatsScraperFactory creates a StatsScraper for a given Metric.
 type StatsScraperFactory func(*Metric) (StatsScraper, error)
 
+// Stat defines a single measurement at a point in time
+type Stat struct {
+	// The time the data point was received by autoscaler.
+	Time *time.Time
+
+	// The unique identity of this pod.  Used to count how many pods
+	// are contributing to the metrics.
+	PodName string
+
+	// Average number of requests currently being handled by this pod.
+	AverageConcurrentRequests float64
+
+	// Part of AverageConcurrentRequests, for requests going through a proxy.
+	AverageProxiedConcurrentRequests float64
+
+	// Number of requests received since last Stat (approximately QPS).
+	RequestCount int32
+
+	// Part of RequestCount, for requests going through a proxy.
+	ProxiedRequestCount int32
+}
+
+// StatMessage wraps a Stat with identifying information so it can be routed
+// to the correct receiver.
+type StatMessage struct {
+	Key  string
+	Stat Stat
+}
+
+// MetricClient surfaces the metrics that can be obtained via the collector.
+type MetricClient interface {
+	StableAndPanicConcurrency(key string) (float64, float64, error)
+}
+
 // MetricCollector manages collection of metrics for many entities.
 type MetricCollector struct {
 	logger *zap.SugaredLogger
 
 	statsScraperFactory StatsScraperFactory
-	statsCh             chan *StatMessage
 
 	collections      map[string]*collection
 	collectionsMutex sync.RWMutex
 }
 
+var _ MetricClient = &MetricCollector{}
+
 // NewMetricCollector creates a new metric collector.
-func NewMetricCollector(statsScraperFactory StatsScraperFactory, statsCh chan *StatMessage, logger *zap.SugaredLogger) *MetricCollector {
+func NewMetricCollector(statsScraperFactory StatsScraperFactory, logger *zap.SugaredLogger) *MetricCollector {
 	collector := &MetricCollector{
 		logger:              logger,
 		collections:         make(map[string]*collection),
 		statsScraperFactory: statsScraperFactory,
-		statsCh:             statsCh,
 	}
 
 	return collector
@@ -107,7 +143,7 @@ func (c *MetricCollector) Create(ctx context.Context, metric *Metric) (*Metric, 
 		if err != nil {
 			return nil, err
 		}
-		coll = newCollection(metric, scraper, c.statsCh, c.logger)
+		coll = newCollection(metric, scraper, c.logger)
 		c.collections[key] = coll
 	}
 
@@ -143,18 +179,43 @@ func (c *MetricCollector) Delete(ctx context.Context, namespace, name string) er
 	return nil
 }
 
+// Record records a stat that's been generated outside of the metric collector.
+func (c *MetricCollector) Record(key string, stat Stat) {
+	c.collectionsMutex.RLock()
+	defer c.collectionsMutex.RUnlock()
+
+	if collection, exists := c.collections[key]; exists {
+		collection.record(stat)
+	}
+}
+
+// StableAndPanicConcurrency returns both the stable and the panic concurrency.
+func (c *MetricCollector) StableAndPanicConcurrency(key string) (float64, float64, error) {
+	collection, exists := c.collections[key]
+	if !exists {
+		return 0, 0, k8serrors.NewNotFound(kpa.Resource("Metrics"), key)
+	}
+
+	stable, panic := collection.stableAndPanicConcurrency(time.Now())
+	return stable, panic, nil
+}
+
 // collection represents the collection of metrics for one specific entity.
 type collection struct {
-	metricMux sync.RWMutex
-	metric    *Metric
+	metricMutex sync.RWMutex
+	metric      *Metric
+
+	buckets *aggregation.TimedFloat64Buckets
 
 	grp    sync.WaitGroup
 	stopCh chan struct{}
 }
 
-func newCollection(metric *Metric, scraper StatsScraper, statsCh chan *StatMessage, logger *zap.SugaredLogger) *collection {
+func newCollection(metric *Metric, scraper StatsScraper, logger *zap.SugaredLogger) *collection {
 	c := &collection{
-		metric: metric,
+		metric:  metric,
+		buckets: aggregation.NewTimedFloat64Buckets(2 * time.Second),
+
 		stopCh: make(chan struct{}),
 	}
 
@@ -174,7 +235,7 @@ func newCollection(metric *Metric, scraper StatsScraper, statsCh chan *StatMessa
 					logger.Errorw("Failed to scrape metrics", zap.Error(err))
 				}
 				if message != nil {
-					statsCh <- message
+					c.record(message.Stat)
 				}
 			}
 		}
@@ -184,10 +245,37 @@ func newCollection(metric *Metric, scraper StatsScraper, statsCh chan *StatMessa
 }
 
 func (c *collection) updateMetric(metric *Metric) {
-	c.metricMux.Lock()
-	defer c.metricMux.Unlock()
+	c.metricMutex.Lock()
+	defer c.metricMutex.Unlock()
 
 	c.metric = metric
+}
+
+func (c *collection) currentMetric() *Metric {
+	c.metricMutex.RLock()
+	defer c.metricMutex.RUnlock()
+
+	return c.metric
+}
+
+func (c *collection) record(stat Stat) {
+	// Proxied requests have been counted at the activator. Subtract
+	// AverageProxiedConcurrentRequests to avoid double counting.
+	c.buckets.Record(*stat.Time, stat.PodName, stat.AverageConcurrentRequests-stat.AverageProxiedConcurrentRequests)
+}
+
+func (c *collection) stableAndPanicConcurrency(now time.Time) (float64, float64) {
+	spec := c.currentMetric().Spec
+
+	c.buckets.RemoveOlderThan(now.Add(-spec.StableWindow))
+	panicAverage := aggregation.Average{}
+	stableAverage := aggregation.Average{}
+	c.buckets.ForEachBucket(
+		aggregation.YoungerThan(now.Add(-spec.PanicWindow), panicAverage.Accumulate),
+		stableAverage.Accumulate, // No need to add a YoungerThan condition as we already deleted all outdated stats above.
+	)
+
+	return stableAverage.Value(), panicAverage.Value()
 }
 
 func (c *collection) close() {
