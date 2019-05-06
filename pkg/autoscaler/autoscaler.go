@@ -167,11 +167,8 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (int32, bool) {
 	)
 	observedStableConcurrency := stableAverage.Value()
 	observedPanicConcurrency := panicAverage.Value()
-
-	// Desired pod count is observed concurrency of the revision over desired (stable) concurrency per pod.
-	// The scaling up rate is limited to the MaxScaleUpRate.
-	desiredStablePodCount := podCountLimited(math.Ceil(observedStableConcurrency/spec.TargetConcurrency), readyPodsCount, spec.MaxScaleUpRate)
-	desiredPanicPodCount := podCountLimited(math.Ceil(observedPanicConcurrency/spec.TargetConcurrency), readyPodsCount, spec.MaxScaleUpRate)
+	desiredStablePodCount := int32(math.Min(math.Ceil(observedStableConcurrency/spec.TargetConcurrency), spec.MaxScaleUpRate*readyPodsCount))
+	desiredPanicPodCount := int32(math.Min(math.Ceil(observedPanicConcurrency/spec.TargetConcurrency), spec.MaxScaleUpRate*readyPodsCount))
 
 	a.reporter.ReportStableRequestConcurrency(observedStableConcurrency)
 	a.reporter.ReportPanicRequestConcurrency(observedPanicConcurrency)
@@ -220,8 +217,4 @@ func (a *Autoscaler) currentSpec() DeciderSpec {
 	a.specMux.RLock()
 	defer a.specMux.RUnlock()
 	return a.deciderSpec
-}
-
-func podCountLimited(desiredPodCount, currentPodCount, maxScaleUpRate float64) int32 {
-	return int32(math.Min(desiredPodCount, maxScaleUpRate*currentPodCount))
 }
