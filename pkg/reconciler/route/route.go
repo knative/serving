@@ -282,11 +282,11 @@ func (c *Reconciler) reconcile(ctx context.Context, r *v1alpha1.Route) error {
 	}
 
 	r.Status.URL = &apis.URL{
-		// TODO(zhiminx): Support HTTPS here.
 		Scheme: "http",
 		Host:   host,
 	}
 	r.Status.DeprecatedDomain = host
+	setTargetsScheme(&r.Status, "http")
 
 	// Configure traffic based on the RouteSpec.
 	traffic, err := c.configureTraffic(ctx, r)
@@ -325,8 +325,20 @@ func (c *Reconciler) reconcile(ctx context.Context, r *v1alpha1.Route) error {
 
 		if cert.Status.IsReady() {
 			r.Status.MarkCertificateReady(cert.Name)
+			r.Status.URL = &apis.URL{
+				Scheme: "https",
+				Host:   host,
+			}
+			// TODO: we should only mark https for the public visible targets when
+			// we are able to configure visibility per target.
+			setTargetsScheme(&r.Status, "https")
 		} else {
 			r.Status.MarkCertificateNotReady(cert.Name)
+			r.Status.URL = &apis.URL{
+				Scheme: "http",
+				Host:   host,
+			}
+			setTargetsScheme(&r.Status, "http")
 		}
 
 		tls = append(tls, resources.MakeClusterIngressTLS(cert, domains))
@@ -490,4 +502,21 @@ func routeDomain(ctx context.Context, route *v1alpha1.Route) (string, error) {
 		return "", fmt.Errorf("error executing the DomainTemplate: %s", err)
 	}
 	return buf.String(), nil
+}
+
+func setTargetsScheme(rs *v1alpha1.RouteStatus, scheme string) {
+	for i := range rs.Traffic {
+		if rs.Traffic[i].Tag == "" && rs.Traffic[i].DeprecatedName == "" {
+			continue
+		}
+		tagName := rs.Traffic[i].DeprecatedName
+		if tagName == "" {
+			tagName = rs.Traffic[i].Tag
+		}
+		tagHost := traffic.TagDomain(tagName, rs.URL.Host)
+		rs.Traffic[i].URL = &apis.URL{
+			Scheme: scheme,
+			Host:   tagHost,
+		}
+	}
 }

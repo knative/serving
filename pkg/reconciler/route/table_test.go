@@ -22,10 +22,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/knative/pkg/kmeta"
 	"github.com/knative/pkg/apis"
 	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/controller"
+	"github.com/knative/pkg/kmeta"
 	logtesting "github.com/knative/pkg/logging/testing"
 	"github.com/knative/pkg/ptr"
 	netv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
@@ -1748,6 +1748,7 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 				Spec: netv1alpha1.CertificateSpec{
 					DNSNames: []string{"abc.test.example.com"},
 				},
+				Status: readyCertStatus(),
 			},
 		},
 		WantCreates: []metav1.Object{
@@ -1778,8 +1779,8 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 			),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: resources.MakeCertificate(route("default", "becomes-ready", WithConfigTarget("config"), WithDomain, WithRouteUID("12-34")),
-				[]string{"becomes-ready.default.example.com"}),
+			Object: certificateWithStatus(resources.MakeCertificate(route("default", "becomes-ready", WithConfigTarget("config"), WithDomain, WithRouteUID("12-34")),
+				[]string{"becomes-ready.default.example.com"}), readyCertStatus()),
 		}},
 		WantPatches: []clientgotesting.PatchActionImpl{
 			patchFinalizers("default", "becomes-ready"),
@@ -1788,14 +1789,16 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 			Object: route("default", "becomes-ready", WithConfigTarget("config"),
 				WithRouteUID("12-34"),
 				// Populated by reconciliation when all traffic has been assigned.
-				WithDomain, WithDomainInternal, WithAddress, WithInitRouteConditions,
+				WithDomainInternal, WithAddress, WithInitRouteConditions,
 				MarkTrafficAssigned, WithStatusTraffic(v1alpha1.TrafficTarget{
 					TrafficTarget: v1beta1.TrafficTarget{
 						RevisionName:   "config-00001",
 						Percent:        100,
 						LatestRevision: ptr.Bool(true),
 					},
-				}), MarkCertificateNotReady),
+				}), MarkCertificateReady,
+				// The certificate is ready. So we want to have HTTPS URL.
+				WithHTTPSDomain),
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Updated", "Updated Spec for Certificate %s/%s", "default", "route-12-34"),
@@ -1979,4 +1982,15 @@ func ReconcilerTestConfig(enableAutoTLS bool) *config.Config {
 			StaleRevisionLastpinnedDebounce: time.Duration(1 * time.Minute),
 		},
 	}
+}
+
+func readyCertStatus() netv1alpha1.CertificateStatus {
+	certStatus := &netv1alpha1.CertificateStatus{}
+	certStatus.MarkReady()
+	return *certStatus
+}
+
+func certificateWithStatus(cert *netv1alpha1.Certificate, status netv1alpha1.CertificateStatus) *netv1alpha1.Certificate {
+	cert.Status = status
+	return cert
 }
