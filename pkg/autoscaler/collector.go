@@ -122,8 +122,8 @@ func (c *MetricCollector) Update(ctx context.Context, metric *Metric) (*Metric, 
 
 	key := NewMetricKey(metric.Namespace, metric.Name)
 	if collection, exists := c.collections[key]; exists {
-		collection.metric = metric
-		return collection.metric.DeepCopy(), nil
+		collection.updateMetric(metric)
+		return metric.DeepCopy(), nil
 	}
 	return nil, k8serrors.NewNotFound(kpa.Resource("Metrics"), key)
 }
@@ -145,7 +145,8 @@ func (c *MetricCollector) Delete(ctx context.Context, namespace, name string) er
 
 // collection represents the collection of metrics for one specific entity.
 type collection struct {
-	metric *Metric
+	metricMux sync.RWMutex
+	metric    *Metric
 
 	grp    sync.WaitGroup
 	stopCh chan struct{}
@@ -180,6 +181,13 @@ func newCollection(metric *Metric, scraper StatsScraper, statsCh chan *StatMessa
 	}()
 
 	return c
+}
+
+func (c *collection) updateMetric(metric *Metric) {
+	c.metricMux.Lock()
+	defer c.metricMux.Unlock()
+
+	c.metric = metric
 }
 
 func (c *collection) close() {
