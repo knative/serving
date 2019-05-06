@@ -73,11 +73,13 @@ type Autoscaler struct {
 	endpointsLister corev1listers.EndpointsLister
 	reporter        StatsReporter
 
-	// State in panic mode. Carries over multiple Scale calls.
+	// State in panic mode. Carries over multiple Scale calls. Guarded
+	// by the stateMux.
+	stateMux     sync.Mutex
 	panicTime    *time.Time
 	maxPanicPods int32
 
-	// specMux guards the elements in the block below.
+	// specMux guards the current DeciderSpec.
 	specMux     sync.RWMutex
 	deciderSpec DeciderSpec
 
@@ -168,8 +170,8 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (int32, bool) {
 
 	// Desired pod count is observed concurrency of the revision over desired (stable) concurrency per pod.
 	// The scaling up rate is limited to the MaxScaleUpRate.
-	desiredStablePodCount := a.podCountLimited(math.Ceil(observedStableConcurrency/spec.TargetConcurrency), readyPodsCount)
-	desiredPanicPodCount := a.podCountLimited(math.Ceil(observedPanicConcurrency/spec.TargetConcurrency), readyPodsCount)
+	desiredStablePodCount := podCountLimited(math.Ceil(observedStableConcurrency/spec.TargetConcurrency), readyPodsCount, spec.MaxScaleUpRate)
+	desiredPanicPodCount := podCountLimited(math.Ceil(observedPanicConcurrency/spec.TargetConcurrency), readyPodsCount, spec.MaxScaleUpRate)
 
 	a.reporter.ReportStableRequestConcurrency(observedStableConcurrency)
 	a.reporter.ReportPanicRequestConcurrency(observedPanicConcurrency)
@@ -180,6 +182,8 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (int32, bool) {
 
 	isOverPanicThreshold := observedPanicConcurrency/readyPodsCount >= spec.PanicThreshold
 
+	a.stateMux.Lock()
+	defer a.stateMux.Unlock()
 	if a.panicTime == nil && isOverPanicThreshold {
 		// Begin panicking when we cross the concurrency threshold in the panic window.
 		logger.Info("PANICKING")
@@ -218,6 +222,6 @@ func (a *Autoscaler) currentSpec() DeciderSpec {
 	return a.deciderSpec
 }
 
-func (a *Autoscaler) podCountLimited(desiredPodCount, currentPodCount float64) int32 {
-	return int32(math.Min(desiredPodCount, a.deciderSpec.MaxScaleUpRate*currentPodCount))
+func podCountLimited(desiredPodCount, currentPodCount, maxScaleUpRate float64) int32 {
+	return int32(math.Min(desiredPodCount, maxScaleUpRate*currentPodCount))
 }
