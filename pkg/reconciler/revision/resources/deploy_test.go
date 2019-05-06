@@ -282,6 +282,19 @@ func withHTTPReadinessProbe(port int) containerOption {
 	})
 }
 
+func withHTTPQPReadinessProbe(c *corev1.Container) {
+	withReadinessProbe(corev1.Handler{
+		HTTPGet: &corev1.HTTPGetAction{
+			Port: intstr.FromInt(networking.BackendHTTPPort),
+			Path: "/",
+			HTTPHeaders: []corev1.HTTPHeader{{
+				Name:  network.KubeletProbeHeaderName,
+				Value: "queue",
+			}},
+		},
+	})(c)
+}
+
 func withExecReadinessProbe(command []string) containerOption {
 	return withReadinessProbe(corev1.Handler{
 		Exec: &corev1.ExecAction{
@@ -506,7 +519,7 @@ func TestMakePodSpec(t *testing.T) {
 		cc: &deployment.Config{},
 		want: podSpec([]corev1.Container{
 			userContainer(
-				withHTTPReadinessProbe(networking.BackendHTTPPort),
+				withHTTPQPReadinessProbe,
 			),
 			queueContainer(
 				withEnvVar("CONTAINER_CONCURRENCY", "0"),
@@ -556,6 +569,10 @@ func TestMakePodSpec(t *testing.T) {
 					HTTPGet: &corev1.HTTPGetAction{
 						Path: "/",
 						Port: intstr.FromInt(networking.BackendHTTPPort),
+						HTTPHeaders: []corev1.HTTPHeader{{
+							Name:  network.KubeletProbeHeaderName,
+							Value: "queue",
+						}},
 					},
 				}),
 			),
