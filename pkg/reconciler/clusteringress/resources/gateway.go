@@ -24,11 +24,14 @@ import (
 
 	"github.com/knative/pkg/apis/istio/v1alpha3"
 	"github.com/knative/serving/pkg/apis/networking/v1alpha1"
+	"github.com/knative/serving/pkg/network"
 	"github.com/knative/serving/pkg/reconciler/clusteringress/config"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
+
+var httpServerPortName = "http-server"
 
 // Istio Gateway requires to have at least one server. This placeholderServer is used when
 // all of the real servers are deleted.
@@ -49,7 +52,17 @@ func GetServers(gateway *v1alpha3.Gateway, ci *v1alpha1.ClusterIngress) []v1alph
 			servers = append(servers, gateway.Spec.Servers[i])
 		}
 	}
-	return sortServers(servers)
+	return SortServers(servers)
+}
+
+// GetHTTPServer gets the HTTP `Server` from `Gateway`.
+func GetHTTPServer(gateway *v1alpha3.Gateway) *v1alpha3.Server {
+	for _, server := range gateway.Spec.Servers {
+		if server.Port.Name == httpServerPortName {
+			return &server
+		}
+	}
+	return nil
 }
 
 func belongsToClusterIngress(server *v1alpha3.Server, ci *v1alpha1.ClusterIngress) bool {
@@ -62,7 +75,8 @@ func belongsToClusterIngress(server *v1alpha3.Server, ci *v1alpha1.ClusterIngres
 	return portNameSplits[0] == ci.Name
 }
 
-func sortServers(servers []v1alpha3.Server) []v1alpha3.Server {
+// SortServers sorts `Server` according to its port name.
+func SortServers(servers []v1alpha3.Server) []v1alpha3.Server {
 	sort.Slice(servers, func(i, j int) bool {
 		return strings.Compare(servers[i].Port.Name, servers[j].Port.Name) < 0
 	})
@@ -91,7 +105,7 @@ func MakeServers(ci *v1alpha1.ClusterIngress, gatewayServiceNamespace string, or
 			Port: v1alpha3.Port{
 				Name:     fmt.Sprintf("%s:%d", ci.Name, i),
 				Number:   443,
-				Protocol: "HTTPS",
+				Protocol: v1alpha3.ProtocolHTTPS,
 			},
 			TLS: &v1alpha3.TLSOptions{
 				Mode:              v1alpha3.TLSModeSimple,
@@ -101,7 +115,29 @@ func MakeServers(ci *v1alpha1.ClusterIngress, gatewayServiceNamespace string, or
 			},
 		})
 	}
-	return sortServers(servers), nil
+	return SortServers(servers), nil
+}
+
+// MakeHTTPServer creates a HTTP Gateway `Server` based on the HTTPProtocol
+// configureation.
+func MakeHTTPServer(httpProtocol network.HTTPProtocol) *v1alpha3.Server {
+	if httpProtocol == network.HTTPDisabled {
+		return nil
+	}
+	server := &v1alpha3.Server{
+		Hosts: []string{"*"},
+		Port: v1alpha3.Port{
+			Name:     httpServerPortName,
+			Number:   80,
+			Protocol: v1alpha3.ProtocolHTTP,
+		},
+	}
+	if httpProtocol == network.HTTPRedirected {
+		server.TLS = &v1alpha3.TLSOptions{
+			HTTPSRedirect: true,
+		}
+	}
+	return server
 }
 
 // GatewayServiceNamespace returns the namespace of the gateway service that the `Gateway` object
@@ -162,7 +198,7 @@ func UpdateGateway(gateway *v1alpha3.Gateway, want []v1alpha3.Server, existing [
 		servers = append(servers, placeholderServer)
 	}
 
-	sortServers(servers)
+	SortServers(servers)
 	gateway.Spec.Servers = servers
 	return gateway
 }
