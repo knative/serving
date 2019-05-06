@@ -158,6 +158,22 @@ revisions. Alternatively, if you are developing on GKE, you can skip the editing
 and use the patching tool in `hack/dev-patch-config-gke.sh` after deploying
 knative.
 
+Edited `config-network.yaml` example:
+
+```yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: config-network
+  namespace: knative-serving
+  labels:
+    serving.knative.dev/release: devel
+
+data:
+  istio.sidecar.includeOutboundIPRanges: "172.30.0.0/16,172.20.0.0/16,10.10.10.0/24"
+  clusteringress.class: "istio.ingress.networking.knative.dev"
+```
+
 Next, run:
 
 ```shell
