@@ -30,13 +30,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-const (
-	// Enough buffer to store scale requests generated every 2
-	// seconds while an http request is taking the full timeout of 5
-	// second.
-	scaleBufferSize = 10
-)
-
 // Decider is a resource which observes the request load of a Revision and
 // recommends a number of replicas to run.
 // +k8s:deepcopy-gen=true
@@ -236,12 +229,10 @@ func (m *MultiScaler) createScaler(ctx context.Context, decider *Decider) (*scal
 		pokeCh:  make(chan struct{}),
 	}
 	runner.decider.Status.DesiredScale = -1
+	metricKey := NewMetricKey(decider.Namespace, decider.Name)
 
 	// TODO(#3977): Make sure this is reconciled if the tick interval changes.
 	ticker := time.NewTicker(decider.Spec.TickInterval)
-
-	scaleChan := make(chan int32, scaleBufferSize)
-
 	go func() {
 		for {
 			select {
@@ -252,25 +243,9 @@ func (m *MultiScaler) createScaler(ctx context.Context, decider *Decider) (*scal
 				ticker.Stop()
 				return
 			case <-ticker.C:
-				m.tickScaler(ctx, scaler, scaleChan)
+				m.tickScaler(ctx, scaler, runner, metricKey)
 			case <-runner.pokeCh:
-				m.tickScaler(ctx, scaler, scaleChan)
-			}
-		}
-	}()
-
-	metricKey := NewMetricKey(decider.Namespace, decider.Name)
-	go func() {
-		for {
-			select {
-			case <-m.scalersStopCh:
-				return
-			case <-stopCh:
-				return
-			case desiredScale := <-scaleChan:
-				if runner.updateLatestScale(desiredScale) {
-					m.Inform(metricKey)
-				}
+				m.tickScaler(ctx, scaler, runner, metricKey)
 			}
 		}
 	}()
@@ -278,18 +253,22 @@ func (m *MultiScaler) createScaler(ctx context.Context, decider *Decider) (*scal
 	return runner, nil
 }
 
-func (m *MultiScaler) tickScaler(ctx context.Context, scaler UniScaler, scaleChan chan<- int32) {
+func (m *MultiScaler) tickScaler(ctx context.Context, scaler UniScaler, runner *scalerRunner, metricKey string) {
 	logger := logging.FromContext(ctx)
 	desiredScale, scaled := scaler.Scale(ctx, time.Now())
 
-	if scaled {
-		// Cannot scale negative.
-		if desiredScale < 0 {
-			logger.Errorf("Cannot scale: desiredScale %d < 0.", desiredScale)
-			return
-		}
+	if !scaled {
+		return
+	}
 
-		scaleChan <- desiredScale
+	// Cannot scale negative.
+	if desiredScale < 0 {
+		logger.Errorf("Cannot scale: desiredScale %d < 0.", desiredScale)
+		return
+	}
+
+	if runner.updateLatestScale(desiredScale) {
+		m.Inform(metricKey)
 	}
 }
 
@@ -299,13 +278,15 @@ func (m *MultiScaler) RecordStat(key string, stat Stat) {
 	defer m.scalersMutex.RUnlock()
 
 	scaler, exists := m.scalers[key]
-	if exists {
-		logger := m.logger.With(zap.String(logkey.Key, key))
-		ctx := logging.WithLogger(context.Background(), logger)
+	if !exists {
+		return
+	}
 
-		scaler.scaler.Record(ctx, stat)
-		if scaler.getLatestScale() == 0 && stat.AverageConcurrentRequests != 0 {
-			scaler.pokeCh <- struct{}{}
-		}
+	logger := m.logger.With(zap.String(logkey.Key, key))
+	ctx := logging.WithLogger(context.Background(), logger)
+
+	scaler.scaler.Record(ctx, stat)
+	if scaler.getLatestScale() == 0 && stat.AverageConcurrentRequests != 0 {
+		scaler.pokeCh <- struct{}{}
 	}
 }
