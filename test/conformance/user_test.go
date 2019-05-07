@@ -39,7 +39,7 @@ func TestMustRunAsUser(t *testing.T) {
 		RunAsUser: &runAsUser,
 	}
 
-	ri, err := fetchRuntimeInfo(t, clients, &test.Options{SecurityContext: securityContext})
+	_, ri, err := fetchRuntimeInfo(t, clients, &test.Options{SecurityContext: securityContext})
 	if err != nil {
 		t.Fatalf("Error fetching runtime info: %v", err)
 	}
