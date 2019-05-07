@@ -536,7 +536,23 @@ func TestRewriteHost(t *testing.T) {
 	}
 
 	if got, want := r.Header.Get(OriginalHostHeader), "love.is"; got != want {
-		t.Errorf("r.Header[%s] = %q	, want: %q", OriginalHostHeader, got, want)
+		t.Errorf("r.Header[%s] = %q, want: %q", OriginalHostHeader, got, want)
+	}
+
+	// Do it again, but make sure that the ORIGINAL domain is still preserved.
+	r.Header.Set("Host", "hate.is")
+	RewriteHostIn(r)
+
+	if got, want := r.Host, ""; got != want {
+		t.Errorf("r.Host = %q, want: %q", got, want)
+	}
+
+	if got, want := r.Header.Get("Host"), ""; got != want {
+		t.Errorf("r.Header['Host'] = %q, want: %q", got, want)
+	}
+
+	if got, want := r.Header.Get(OriginalHostHeader), "love.is"; got != want {
+		t.Errorf("r.Header[%s] = %q, want: %q", OriginalHostHeader, got, want)
 	}
 
 	RewriteHostOut(r)
