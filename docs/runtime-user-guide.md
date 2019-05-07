@@ -85,7 +85,7 @@ Container storage may remain across requests, but no local storage should be use
 persistent data as it is not retained in the event of container termination.
 
 It is recommended to store temporary state such as local caches or working data in `/tmp`
-as this space is guarenteed to be present and mounted Read-Write.
+as this space is guaranteed to be present and mounted Read-Write.
 
 # Probes
 
