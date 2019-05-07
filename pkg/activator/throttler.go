@@ -36,15 +36,6 @@ import (
 // ErrActivatorOverload indicates that throttler has no free slots to buffer the request.
 var ErrActivatorOverload = errors.New("activator overload")
 
-// ThrottlerParams defines the parameters of the Throttler.
-type ThrottlerParams struct {
-	BreakerParams   queue.BreakerParams
-	Logger          *zap.SugaredLogger
-	EndpointsLister corev1listers.EndpointsLister
-	SksLister       netlisters.ServerlessServiceLister
-	RevisionLister  servinglisters.RevisionLister
-}
-
 // Throttler keeps the mapping of Revisions to Breakers
 // and allows updating max concurrency dynamically of respective Breakers.
 // Max concurrency is essentially the number of semaphore tokens the Breaker has in rotation.
@@ -62,14 +53,19 @@ type Throttler struct {
 }
 
 // NewThrottler creates a new Throttler.
-func NewThrottler(params ThrottlerParams) *Throttler {
+func NewThrottler(
+	params queue.BreakerParams,
+	endpointsLister corev1listers.EndpointsLister,
+	sksLister netlisters.ServerlessServiceLister,
+	revisionLister servinglisters.RevisionLister,
+	logger *zap.SugaredLogger) *Throttler {
 	return &Throttler{
 		breakers:        make(map[RevisionID]*queue.Breaker),
-		breakerParams:   params.BreakerParams,
-		logger:          params.Logger,
-		endpointsLister: params.EndpointsLister,
-		revisionLister:  params.RevisionLister,
-		sksLister:       params.SksLister,
+		breakerParams:   params,
+		logger:          logger,
+		endpointsLister: endpointsLister,
+		revisionLister:  revisionLister,
+		sksLister:       sksLister,
 	}
 }
 

@@ -189,15 +189,7 @@ func main() {
 	}
 
 	params := queue.BreakerParams{QueueDepth: breakerQueueDepth, MaxConcurrency: breakerMaxConcurrency, InitialCapacity: 0}
-
-	throttlerParams := activator.ThrottlerParams{
-		BreakerParams:   params,
-		Logger:          logger,
-		EndpointsLister: endpointInformer.Lister(),
-		RevisionLister:  revisionInformer.Lister(),
-		SksLister:       sksInformer.Lister(),
-	}
-	throttler := activator.NewThrottler(throttlerParams)
+	throttler := activator.NewThrottler(params, endpointInformer.Lister(), sksInformer.Lister(), revisionInformer.Lister(), logger)
 
 	handler := cache.ResourceEventHandlerFuncs{
 		AddFunc:    throttler.UpdateEndpoints,
