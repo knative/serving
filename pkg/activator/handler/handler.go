@@ -32,12 +32,15 @@ import (
 	"github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	netlisters "github.com/knative/serving/pkg/client/listers/networking/v1alpha1"
+	servinglisters "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
 	pkghttp "github.com/knative/serving/pkg/http"
 	"github.com/knative/serving/pkg/network"
 	"github.com/knative/serving/pkg/queue"
 
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/wait"
+	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
 // ActivationHandler will wait for an active endpoint for a revision
@@ -54,9 +57,9 @@ type ActivationHandler struct {
 	// is not required.
 	GetProbeCount int
 
-	GetRevision activator.RevisionGetter
-	GetService  activator.ServiceGetter
-	GetSKS      activator.SKSGetter
+	RevisionLister servinglisters.RevisionLister
+	ServiceLister  corev1listers.ServiceLister
+	SksLister      netlisters.ServerlessServiceLister
 }
 
 func (a *ActivationHandler) probeEndpoint(logger *zap.SugaredLogger, r *http.Request, target *url.URL) (bool, int, int) {
@@ -125,7 +128,7 @@ func (a *ActivationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	logger := a.Logger.With(zap.String(logkey.Key, revID.String()))
 
-	revision, err := a.GetRevision(revID)
+	revision, err := a.RevisionLister.Revisions(namespace).Get(name)
 	if err != nil {
 		logger.Errorw("Error while getting revision", zap.Error(err))
 		sendError(err, w)
@@ -133,7 +136,7 @@ func (a *ActivationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// SKS name matches that of revision.
-	sks, err := a.GetSKS(revID.Namespace, revID.Name)
+	sks, err := a.SksLister.ServerlessServices(namespace).Get(name)
 	if err != nil {
 		logger.Errorw("Error while getting SKS", zap.Error(err))
 		sendError(err, w)
@@ -219,7 +222,7 @@ func (a *ActivationHandler) proxyRequest(w http.ResponseWriter, r *http.Request,
 // serviceHostName obtains the hostname of the underlying service and the correct
 // port to send requests to.
 func (a *ActivationHandler) serviceHostName(rev *v1alpha1.Revision, serviceName string) (string, error) {
-	svc, err := a.GetService(rev.Namespace, serviceName)
+	svc, err := a.ServiceLister.Services(rev.Namespace).Get(serviceName)
 	if err != nil {
 		return "", err
 	}

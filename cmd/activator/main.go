@@ -38,9 +38,7 @@ import (
 	activatorconfig "github.com/knative/serving/pkg/activator/config"
 	activatorhandler "github.com/knative/serving/pkg/activator/handler"
 	"github.com/knative/serving/pkg/apis/networking"
-	nv1a1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving"
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/autoscaler"
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
 	servinginformers "github.com/knative/serving/pkg/client/informers/externalversions"
@@ -51,12 +49,10 @@ import (
 	"github.com/knative/serving/pkg/network"
 	"github.com/knative/serving/pkg/queue"
 	"github.com/knative/serving/pkg/reconciler"
-	"github.com/knative/serving/pkg/resources"
 	"github.com/knative/serving/pkg/tracing"
 	tracingconfig "github.com/knative/serving/pkg/tracing/config"
 	zipkin "github.com/openzipkin/zipkin-go"
 	"go.uber.org/zap"
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
@@ -194,32 +190,12 @@ func main() {
 
 	params := queue.BreakerParams{QueueDepth: breakerQueueDepth, MaxConcurrency: breakerMaxConcurrency, InitialCapacity: 0}
 
-	// Return the number of endpoints, 0 if no endpoints are found.
-	endpointsCountGetter := func(sks *nv1a1.ServerlessService) (int, error) {
-		count, err := resources.FetchReadyAddressCount(endpointInformer.Lister(), sks.Namespace, sks.Status.PrivateServiceName)
-		return count, err
-	}
-
-	// Returns the revision from the observer.
-	revisionGetter := func(revID activator.RevisionID) (*v1alpha1.Revision, error) {
-		return revisionInformer.Lister().Revisions(revID.Namespace).Get(revID.Name)
-	}
-
-	// Returns the SKS from the observer.
-	sksGetter := func(ns, n string) (*nv1a1.ServerlessService, error) {
-		return sksInformer.Lister().ServerlessServices(ns).Get(n)
-	}
-
-	serviceGetter := func(namespace, name string) (*corev1.Service, error) {
-		return serviceInformer.Lister().Services(namespace).Get(name)
-	}
-
 	throttlerParams := activator.ThrottlerParams{
-		BreakerParams: params,
-		Logger:        logger,
-		GetEndpoints:  endpointsCountGetter,
-		GetRevision:   revisionGetter,
-		GetSKS:        sksGetter,
+		BreakerParams:   params,
+		Logger:          logger,
+		EndpointsLister: endpointInformer.Lister(),
+		RevisionLister:  revisionInformer.Lister(),
+		SksLister:       sksInformer.Lister(),
 	}
 	throttler := activator.NewThrottler(throttlerParams)
 
@@ -283,20 +259,20 @@ func main() {
 	// Create activation handler chain
 	// Note: innermost handlers are specified first, ie. the last handler in the chain will be executed first
 	var ah http.Handler = &activatorhandler.ActivationHandler{
-		Transport:     network.AutoTransport,
-		Logger:        logger,
-		Reporter:      reporter,
-		Throttler:     throttler,
-		GetProbeCount: maxRetries,
-		GetRevision:   revisionGetter,
-		GetSKS:        sksGetter,
-		GetService:    serviceGetter,
+		Transport:      network.AutoTransport,
+		Logger:         logger,
+		Reporter:       reporter,
+		Throttler:      throttler,
+		GetProbeCount:  maxRetries,
+		RevisionLister: revisionInformer.Lister(),
+		SksLister:      sksInformer.Lister(),
+		ServiceLister:  serviceInformer.Lister(),
 	}
 	ah = activatorhandler.NewRequestEventHandler(reqChan, ah)
 	ah = tracing.HTTPSpanMiddleware(ah)
 	ah = configStore.HTTPMiddleware(ah)
 	reqLogHandler, err := pkghttp.NewRequestLogHandler(ah, logging.NewSyncFileWriter(os.Stdout), "",
-		requestLogTemplateInputGetter(revisionGetter))
+		requestLogTemplateInputGetter(revisionInformer.Lister()))
 	if err != nil {
 		logger.Fatalw("Unable to create request log handler", zap.Error(err))
 	}
