@@ -125,6 +125,18 @@ var (
 		},
 	}
 
+	ingressHTTPRedirectServer = v1alpha3.Server{
+		Hosts: []string{"*"},
+		Port: v1alpha3.Port{
+			Name:     "http-server",
+			Number:   80,
+			Protocol: v1alpha3.ProtocolHTTP,
+		},
+		TLS: &v1alpha3.TLSOptions{
+			HTTPSRedirect: true,
+		},
+	}
+
 	// The gateway server irrelevant to ingressTLS.
 	irrelevantServer = v1alpha3.Server{
 		Hosts: []string{"test.example.com"},
@@ -444,7 +456,8 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 						}},
 					},
 					Network: &network.Config{
-						AutoTLS: true,
+						AutoTLS:      true,
+						HTTPProtocol: network.HTTPDisabled,
 					},
 				},
 			},
@@ -756,6 +769,9 @@ func TestGlobalResyncOnUpdateNetwork(t *testing.T) {
 		updatedGateway := obj.(*v1alpha3.Gateway)
 		// The expected gateway should include the Istio TLS server.
 		expectedGateway := gateway("knative-test-gateway", system.Namespace(), []v1alpha3.Server{ingressTLSServer})
+		expectedGateway.Spec.Servers = append(expectedGateway.Spec.Servers, ingressHTTPRedirectServer)
+		expectedGateway.Spec.Servers = resources.SortServers(expectedGateway.Spec.Servers)
+
 		if diff := cmp.Diff(updatedGateway, expectedGateway); diff != "" {
 			t.Logf("Unexpected Gateway (-want, +got): %v", diff)
 			return HookIncomplete
@@ -826,7 +842,8 @@ func TestGlobalResyncOnUpdateNetwork(t *testing.T) {
 			Namespace: system.Namespace(),
 		},
 		Data: map[string]string{
-			"autoTLS": "Enabled",
+			"autoTLS":      "Enabled",
+			"httpProtocol": "Redirected",
 		},
 	}
 	watcher.OnChange(&networkConfig)
