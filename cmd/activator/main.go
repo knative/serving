@@ -282,23 +282,31 @@ func main() {
 		logger.Fatalw("Failed to start configuration manager", zap.Error(err))
 	}
 
-	http1Srv := network.NewServer(fmt.Sprintf(":%d", networking.BackendHTTPPort), ah)
-	go func() {
-		if err := http1Srv.ListenAndServe(); err != nil {
-			logger.Errorw("Error running HTTP server", zap.Error(err))
-		}
-	}()
+	servers := []*http.Server{
+		network.NewServer(fmt.Sprintf(":%d", networking.BackendHTTPPort), ah),
+		network.NewServer(fmt.Sprintf(":%d", networking.BackendHTTP2Port), ah),
+	}
 
-	h2cSrv := network.NewServer(fmt.Sprintf(":%d", networking.BackendHTTP2Port), ah)
-	go func() {
-		if err := h2cSrv.ListenAndServe(); err != nil {
-			logger.Errorw("Error running HTTP server", zap.Error(err))
-		}
-	}()
+	errCh := make(chan error)
+	for _, server := range servers {
+		go func(s *http.Server) {
+			// Don't forward ErrServerClosed as that indicates we're already shutting down.
+			if err := s.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+				errCh <- err
+			}
+		}(server)
+	}
 
-	<-stopCh
-	http1Srv.Shutdown(context.Background())
-	h2cSrv.Shutdown(context.Background())
+	// Exit as soon as we see a shutdown signal or one of the servers failed.
+	select {
+	case <-stopCh:
+	case err := <-errCh:
+		logger.Errorw("Failed to run HTTP server", zap.Error(err))
+	}
+
+	for _, server := range servers {
+		server.Shutdown(context.Background())
+	}
 }
 
 func flush(logger *zap.SugaredLogger) {
