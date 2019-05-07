@@ -21,6 +21,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/knative/pkg/apis"
+	"github.com/knative/pkg/system"
 	_ "github.com/knative/pkg/system/testing"
 	"github.com/knative/serving/pkg/apis/networking"
 	netv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
@@ -62,7 +63,7 @@ func TestMakeClusterIngress_CorrectMetadata(t *testing.T) {
 			networking.IngressClassAnnotationKey: ingressClass,
 		},
 	}
-	meta := MakeClusterIngress(r, &traffic.Config{Targets: targets}, ingressClass).ObjectMeta
+	meta := MakeClusterIngress(r, &traffic.Config{Targets: targets}, nil, ingressClass).ObjectMeta
 	if diff := cmp.Diff(expected, meta); diff != "" {
 		t.Errorf("Unexpected metadata (-want, +got): %v", diff)
 	}
@@ -146,7 +147,7 @@ func TestMakeClusterIngressSpec_CorrectRules(t *testing.T) {
 		},
 	}}
 
-	rules := makeClusterIngressSpec(r, targets).Rules
+	rules := makeClusterIngressSpec(r, nil, targets).Rules
 	if diff := cmp.Diff(expected, rules); diff != "" {
 		t.Errorf("Unexpected rules (-want, +got): %v", diff)
 	}
@@ -186,7 +187,7 @@ func TestMakeClusterIngressSpec_CorrectVisibility(t *testing.T) {
 	}}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			v := makeClusterIngressSpec(&c.route, nil).Visibility
+			v := makeClusterIngressSpec(&c.route, nil, nil).Visibility
 			if diff := cmp.Diff(c.expectedVisbility, v); diff != "" {
 				t.Errorf("Unexpected visibility (-want, +got): %s", diff)
 			}
@@ -548,5 +549,76 @@ func TestMakeClusterIngressRule_ZeroPercentTargetInactive(t *testing.T) {
 
 	if diff := cmp.Diff(&expected, rule); diff != "" {
 		t.Errorf("Unexpected rule (-want, +got): %v", diff)
+	}
+}
+
+func TestMakeClusterIngress_WithTLS(t *testing.T) {
+	targets := map[string]traffic.RevisionTargets{}
+	ingressClass := "foo-ingress"
+	r := &v1alpha1.Route{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-route",
+			Namespace: "test-ns",
+			UID:       "1234-5678",
+		},
+		Status: v1alpha1.RouteStatus{
+			RouteStatusFields: v1alpha1.RouteStatusFields{
+				URL: &apis.URL{
+					Host: "domain.com",
+				},
+			},
+		},
+	}
+	tls := []netv1alpha1.ClusterIngressTLS{
+		netv1alpha1.ClusterIngressTLS{
+			Hosts:             []string{"*.default.domain.com"},
+			PrivateKey:        "tls.key",
+			SecretName:        "secret",
+			ServerCertificate: "tls.crt",
+		},
+	}
+	expected := &netv1alpha1.ClusterIngress{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "route-1234-5678",
+			Annotations: map[string]string{
+				networking.IngressClassAnnotationKey: ingressClass,
+			},
+			Labels: map[string]string{
+				serving.RouteLabelKey:          "test-route",
+				serving.RouteNamespaceLabelKey: "test-ns",
+			},
+		},
+		Spec: netv1alpha1.IngressSpec{
+			Rules:      []netv1alpha1.ClusterIngressRule{},
+			TLS:        tls,
+			Visibility: netv1alpha1.IngressVisibilityExternalIP,
+		},
+	}
+	got := MakeClusterIngress(r, &traffic.Config{Targets: targets}, tls, ingressClass)
+	if diff := cmp.Diff(expected, got); diff != "" {
+		t.Errorf("Unexpected metadata (-want, +got): %v", diff)
+	}
+}
+
+func TestMakeClusterIngressTLS(t *testing.T) {
+	cert := &netv1alpha1.Certificate{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "route-1234",
+			Namespace: system.Namespace(),
+		},
+		Spec: netv1alpha1.CertificateSpec{
+			DNSNames:   []string{"test.default.example.com", "v1.test.default.example.com"},
+			SecretName: "route-1234",
+		},
+	}
+	want := netv1alpha1.ClusterIngressTLS{
+		Hosts:           []string{"test.default.example.com", "v1.test.default.example.com"},
+		SecretName:      "route-1234",
+		SecretNamespace: system.Namespace(),
+	}
+	hostNames := []string{"test.default.example.com", "v1.test.default.example.com"}
+	got := MakeClusterIngressTLS(cert, hostNames)
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("Unexpected ClusterIngressTLS (-want, +got): %v", diff)
 	}
 }

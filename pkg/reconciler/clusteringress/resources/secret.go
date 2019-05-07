@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/knative/pkg/kmeta"
 	"github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
@@ -46,7 +47,7 @@ func GetSecrets(ci *v1alpha1.ClusterIngress, secretLister corev1listers.SecretLi
 }
 
 // MakeSecrets makes copies of the origin Secrets under the namespace of Istio gateway service.
-func MakeSecrets(ctx context.Context, originSecrets map[string]*corev1.Secret) []*corev1.Secret {
+func MakeSecrets(ctx context.Context, originSecrets map[string]*corev1.Secret, ci *v1alpha1.ClusterIngress) []*corev1.Secret {
 	gatewaySvcNamespaces := getAllGatewaySvcNamespaces(ctx)
 	secrets := []*corev1.Secret{}
 	for _, originSecret := range originSecrets {
@@ -56,21 +57,22 @@ func MakeSecrets(ctx context.Context, originSecrets map[string]*corev1.Secret) [
 				// as the origin namespace
 				continue
 			}
-			secrets = append(secrets, makeSecret(originSecret, ns))
+			secrets = append(secrets, makeSecret(originSecret, ns, ci))
 		}
 	}
 	return secrets
 }
 
-func makeSecret(originSecret *corev1.Secret, targetNamespace string) *corev1.Secret {
+func makeSecret(originSecret *corev1.Secret, targetNamespace string, ci *v1alpha1.ClusterIngress) *corev1.Secret {
 	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      targetSecret(originSecret),
+			Name:      targetSecret(originSecret, ci),
 			Namespace: targetNamespace,
 			Labels: map[string]string{
 				networking.OriginSecretNameLabelKey:      originSecret.Name,
 				networking.OriginSecretNamespaceLabelKey: originSecret.Namespace,
 			},
+			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(ci)},
 		},
 		Data: originSecret.Data,
 		Type: originSecret.Type,
@@ -78,8 +80,8 @@ func makeSecret(originSecret *corev1.Secret, targetNamespace string) *corev1.Sec
 }
 
 // targetSecret returns the name of the Secret that is copied from the origin Secret.
-func targetSecret(originSecret *corev1.Secret) string {
-	return fmt.Sprintf("tls-%s", originSecret.UID)
+func targetSecret(originSecret *corev1.Secret, ci *v1alpha1.ClusterIngress) string {
+	return fmt.Sprintf("%s-%s", ci.Name, originSecret.UID)
 }
 
 // SecretRef returns the ObjectReference of a secret given the namespace and name of the secret.

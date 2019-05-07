@@ -42,6 +42,7 @@ import (
 	"github.com/knative/pkg/system"
 	"github.com/knative/pkg/tracker"
 	"github.com/knative/serving/pkg/apis/networking"
+	netv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	networkinginformers "github.com/knative/serving/pkg/client/informers/externalversions/networking/v1alpha1"
@@ -54,6 +55,7 @@ import (
 	"github.com/knative/serving/pkg/reconciler/route/resources"
 	resourcenames "github.com/knative/serving/pkg/reconciler/route/resources/names"
 	"github.com/knative/serving/pkg/reconciler/route/traffic"
+	tr "github.com/knative/serving/pkg/reconciler/route/traffic"
 )
 
 const (
@@ -84,6 +86,7 @@ type Reconciler struct {
 	revisionLister       listers.RevisionLister
 	serviceLister        corev1listers.ServiceLister
 	clusterIngressLister networkinglisters.ClusterIngressLister
+	certificateLister    networkinglisters.CertificateLister
 	configStore          configStore
 	tracker              tracker.Interface
 
@@ -105,9 +108,10 @@ func NewController(
 	revisionInformer servinginformers.RevisionInformer,
 	serviceInformer corev1informers.ServiceInformer,
 	clusterIngressInformer networkinginformers.ClusterIngressInformer,
+	certificateInformer networkinginformers.CertificateInformer,
 ) *controller.Impl {
 	return NewControllerWithClock(opt, routeInformer, configInformer, revisionInformer,
-		serviceInformer, clusterIngressInformer, system.RealClock{})
+		serviceInformer, clusterIngressInformer, certificateInformer, system.RealClock{})
 }
 
 func NewControllerWithClock(
@@ -117,6 +121,7 @@ func NewControllerWithClock(
 	revisionInformer servinginformers.RevisionInformer,
 	serviceInformer corev1informers.ServiceInformer,
 	clusterIngressInformer networkinginformers.ClusterIngressInformer,
+	certificateInformer networkinginformers.CertificateInformer,
 	clock system.Clock,
 ) *controller.Impl {
 
@@ -129,6 +134,7 @@ func NewControllerWithClock(
 		revisionLister:       revisionInformer.Lister(),
 		serviceLister:        serviceInformer.Lister(),
 		clusterIngressLister: clusterIngressInformer.Lister(),
+		certificateLister:    certificateInformer.Lister(),
 		clock:                clock,
 	}
 	impl := controller.NewImpl(c, c.Logger, "Routes", reconciler.MustNewStatsReporter("Routes", c.Logger))
@@ -166,6 +172,11 @@ func NewControllerWithClock(
 			v1alpha1.SchemeGroupVersion.WithKind("Revision"),
 		),
 	))
+
+	certificateInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+		FilterFunc: controller.Filter(v1alpha1.SchemeGroupVersion.WithKind("Route")),
+		Handler:    reconciler.Handler(impl.EnqueueControllerOf),
+	})
 
 	c.Logger.Info("Setting up ConfigMap receivers")
 	configsToResync := []interface{}{
@@ -271,7 +282,6 @@ func (c *Reconciler) reconcile(ctx context.Context, r *v1alpha1.Route) error {
 	}
 
 	r.Status.URL = &apis.URL{
-		// TODO(zhiminx): Support HTTPS here.
 		Scheme: "http",
 		Host:   host,
 	}
@@ -302,13 +312,41 @@ func (c *Reconciler) reconcile(ctx context.Context, r *v1alpha1.Route) error {
 		Hostname: resourcenames.K8sServiceFullname(r),
 	}
 
+	tls := []netv1alpha1.ClusterIngressTLS{}
+	if config.FromContext(ctx).Network.AutoTLS {
+		domains := tr.GetDomains(r.Status.URL.Host, traffic.Targets)
+		desiredCert := resources.MakeCertificate(r, domains)
+		cert, err := c.reconcileCertificate(ctx, r, desiredCert)
+		if err != nil {
+			r.Status.MarkCertificateProvisionFailed(desiredCert.Name)
+			return err
+		}
+
+		if cert.Status.IsReady() {
+			r.Status.MarkCertificateReady(cert.Name)
+			r.Status.URL.Scheme = "https"
+			// TODO: we should only mark https for the public visible targets when
+			// we are able to configure visibility per target.
+			setTargetsScheme(&r.Status, "https")
+		} else {
+			r.Status.MarkCertificateNotReady(cert.Name)
+			r.Status.URL = &apis.URL{
+				Scheme: "http",
+				Host:   host,
+			}
+			setTargetsScheme(&r.Status, "http")
+		}
+
+		tls = append(tls, resources.MakeClusterIngressTLS(cert, domains))
+	}
+
 	// Add the finalizer before creating the ClusterIngress so that we can be sure it gets cleaned up.
 	if err := c.ensureFinalizer(r); err != nil {
 		return err
 	}
 
 	logger.Info("Creating ClusterIngress.")
-	desired := resources.MakeClusterIngress(r, traffic, ingressClassForRoute(ctx, r))
+	desired := resources.MakeClusterIngress(r, traffic, tls, ingressClassForRoute(ctx, r))
 	clusterIngress, err := c.reconcileClusterIngress(ctx, r, desired)
 	if err != nil {
 		return err
@@ -353,7 +391,7 @@ func (c *Reconciler) reconcileDeletion(ctx context.Context, r *v1alpha1.Route) e
 //
 // If traffic is configured we update the RouteStatus with AllTrafficAssigned = True.  Otherwise we
 // mark AllTrafficAssigned = False, with a message referring to one of the missing target.
-func (c *Reconciler) configureTraffic(ctx context.Context, r *v1alpha1.Route) (*traffic.Config, error) {
+func (c *Reconciler) configureTraffic(ctx context.Context, r *v1alpha1.Route) (*tr.Config, error) {
 	logger := logging.FromContext(ctx)
 	t, err := traffic.BuildTrafficConfiguration(c.configurationLister, c.revisionLister, r)
 
@@ -460,4 +498,13 @@ func routeDomain(ctx context.Context, route *v1alpha1.Route) (string, error) {
 		return "", fmt.Errorf("error executing the DomainTemplate: %s", err)
 	}
 	return buf.String(), nil
+}
+
+func setTargetsScheme(rs *v1alpha1.RouteStatus, scheme string) {
+	for i := range rs.Traffic {
+		if rs.Traffic[i].URL == nil {
+			continue
+		}
+		rs.Traffic[i].URL.Scheme = scheme
+	}
 }

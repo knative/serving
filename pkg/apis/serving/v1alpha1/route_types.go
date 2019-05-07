@@ -106,6 +106,10 @@ const (
 	// RouteConditionIngressReady is set to False when the
 	// ClusterIngress fails to become Ready.
 	RouteConditionIngressReady apis.ConditionType = "IngressReady"
+
+	// RouteConditionCertificateProvisioned is set to False when the
+	// Knative Certificates fail to be provisioned for the Route.
+	RouteConditionCertificateProvisioned apis.ConditionType = "CertificateProvisioned"
 )
 
 // RouteStatusFields holds all of the non-duckv1beta1.Status status fields of a Route.

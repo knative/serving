@@ -167,7 +167,7 @@ func TestMakeServers(t *testing.T) {
 				Mode:              v1alpha3.TLSModeSimple,
 				ServerCertificate: "tls.crt",
 				PrivateKey:        "tls.key",
-				CredentialName:    targetSecret(&secret),
+				CredentialName:    targetSecret(&secret, &clusterIngress),
 			},
 		}},
 	}, {

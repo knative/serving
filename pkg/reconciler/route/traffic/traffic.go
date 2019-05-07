@@ -20,6 +20,7 @@ import (
 	"fmt"
 
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/knative/pkg/apis"
 	net "github.com/knative/serving/pkg/apis/networking"
@@ -77,6 +78,15 @@ func BuildTrafficConfiguration(configLister listers.ConfigurationLister, revList
 	builder := newBuilder(configLister, revLister, u.Namespace, len(u.Spec.Traffic))
 	builder.applySpecTraffic(u.Spec.Traffic)
 	return builder.build()
+}
+
+// GetDomains returns all of the domains and tag domains (sub-domains) of a Route
+func GetDomains(domain string, targets map[string]RevisionTargets) []string {
+	allDomains := sets.NewString(domain)
+	for name := range targets {
+		allDomains.Insert(TagDomain(name, domain))
+	}
+	return allDomains.List()
 }
 
 // TagDomain returns the domain name of a traffic target given the traffic target name and the Route's base domain.

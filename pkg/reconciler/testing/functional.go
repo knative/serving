@@ -553,6 +553,14 @@ func WithDomain(r *v1alpha1.Route) {
 	r.Status.DeprecatedDomain = r.Status.URL.Host
 }
 
+func WithHTTPSDomain(r *v1alpha1.Route) {
+	r.Status.URL = &apis.URL{
+		Scheme: "https",
+		Host:   fmt.Sprintf("%s.%s.example.com", r.Name, r.Namespace),
+	}
+	r.Status.DeprecatedDomain = r.Status.URL.Host
+}
+
 // WithDomainInternal sets the .Status.DomainInternal field to the prototypical internal domain.
 func WithDomainInternal(r *v1alpha1.Route) {
 	r.Status.DeprecatedDomainInternal = fmt.Sprintf("%s.%s.svc.cluster.local", r.Name, r.Namespace)
@@ -597,6 +605,16 @@ func WithInitRouteConditions(rt *v1alpha1.Route) {
 // MarkTrafficAssigned calls the method of the same name on .Status
 func MarkTrafficAssigned(r *v1alpha1.Route) {
 	r.Status.MarkTrafficAssigned()
+}
+
+// MarkCertificateNotReady calls the method of the same name on .Status
+func MarkCertificateNotReady(r *v1alpha1.Route) {
+	r.Status.MarkCertificateNotReady(routenames.Certificate(r))
+}
+
+// MarkCertificateReady calls the method of the same name on .Status
+func MarkCertificateReady(r *v1alpha1.Route) {
+	r.Status.MarkCertificateReady(routenames.Certificate(r))
 }
 
 // MarkIngressReady propagates a Ready=True ClusterIngress status to the Route.

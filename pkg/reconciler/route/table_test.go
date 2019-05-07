@@ -25,6 +25,7 @@ import (
 	"github.com/knative/pkg/apis"
 	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/controller"
+	"github.com/knative/pkg/kmeta"
 	logtesting "github.com/knative/pkg/logging/testing"
 	"github.com/knative/pkg/ptr"
 	netv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
@@ -136,6 +137,7 @@ func TestReconcile(t *testing.T) {
 						}},
 					},
 				},
+				nil,
 				TestIngressClass,
 			),
 		},
@@ -186,6 +188,7 @@ func TestReconcile(t *testing.T) {
 						}},
 					},
 				},
+				nil,
 				"custom-ingress-class",
 			),
 		},
@@ -239,6 +242,7 @@ func TestReconcile(t *testing.T) {
 						}},
 					},
 				},
+				nil,
 				TestIngressClass,
 			),
 		},
@@ -394,6 +398,7 @@ func TestReconcile(t *testing.T) {
 						}},
 					},
 				},
+				nil,
 				TestIngressClass,
 			),
 		},
@@ -1183,6 +1188,7 @@ func TestReconcile(t *testing.T) {
 						}},
 					},
 				},
+				nil,
 				TestIngressClass,
 			),
 		},
@@ -1288,6 +1294,7 @@ func TestReconcile(t *testing.T) {
 						}},
 					},
 				},
+				nil,
 				TestIngressClass,
 			),
 		},
@@ -1655,7 +1662,164 @@ func TestReconcile(t *testing.T) {
 			clusterIngressLister: listers.GetClusterIngressLister(),
 			tracker:              &NullTracker{},
 			configStore: &testConfigStore{
-				config: ReconcilerTestConfig(),
+				config: ReconcilerTestConfig(false),
+			},
+			clock: FakeClock{Time: fakeCurTime},
+		}
+	}))
+}
+
+func TestReconcile_EnableAutoTLS(t *testing.T) {
+	table := TableTest{{
+		Name: "check that Certificate and ClusterIngressTLS are correctly configured when creating a Route",
+		Objects: []runtime.Object{
+			route("default", "becomes-ready", WithConfigTarget("config"), WithRouteUID("12-34")),
+			cfg("default", "config",
+				WithGeneration(1), WithLatestCreated("config-00001"), WithLatestReady("config-00001")),
+			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001"), WithServiceName("mcd")),
+		},
+		WantCreates: []metav1.Object{
+			resources.MakeCertificate(route("default", "becomes-ready", WithConfigTarget("config"), WithDomain, WithRouteUID("12-34")),
+				[]string{"becomes-ready.default.example.com"}),
+			resources.MakeClusterIngress(
+				route("default", "becomes-ready", WithConfigTarget("config"), WithDomain,
+					WithRouteUID("12-34")),
+				&traffic.Config{
+					Targets: map[string]traffic.RevisionTargets{
+						traffic.DefaultTarget: {{
+							TrafficTarget: v1beta1.TrafficTarget{
+								// Use the Revision name from the config.
+								RevisionName: "config-00001",
+								Percent:      100,
+							},
+							ServiceName: "mcd",
+							Active:      true,
+						}},
+					},
+				},
+				[]netv1alpha1.ClusterIngressTLS{
+					netv1alpha1.ClusterIngressTLS{
+						Hosts:           []string{"becomes-ready.default.example.com"},
+						SecretName:      "route-12-34",
+						SecretNamespace: "default",
+					},
+				},
+				TestIngressClass,
+			),
+		},
+		WantPatches: []clientgotesting.PatchActionImpl{
+			patchFinalizers("default", "becomes-ready"),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: route("default", "becomes-ready", WithConfigTarget("config"),
+				WithRouteUID("12-34"),
+				// Populated by reconciliation when all traffic has been assigned.
+				WithDomain, WithDomainInternal, WithAddress, WithInitRouteConditions,
+				MarkTrafficAssigned, WithStatusTraffic(v1alpha1.TrafficTarget{
+					TrafficTarget: v1beta1.TrafficTarget{
+						RevisionName:   "config-00001",
+						Percent:        100,
+						LatestRevision: ptr.Bool(true),
+					},
+				}), MarkCertificateNotReady),
+		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "Created", "Created Certificate %q/%q", "default", "route-12-34"),
+			Eventf(corev1.EventTypeNormal, "Created", "Created ClusterIngress %q", "route-12-34"),
+		},
+		Key:                     "default/becomes-ready",
+		SkipNamespaceValidation: true,
+	}, {
+		Name: "check that Certificate and ClusterIngressTLS are correctly updated when updating a Route",
+		Objects: []runtime.Object{
+			route("default", "becomes-ready", WithConfigTarget("config"), WithRouteUID("12-34")),
+			cfg("default", "config",
+				WithGeneration(1), WithLatestCreated("config-00001"), WithLatestReady("config-00001")),
+			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001"), WithServiceName("mcd")),
+			// MakeCertificates will create a certificate with DNS name "*.test-ns.example.com" which is not the host name
+			// needed by the input Route.
+			&netv1alpha1.Certificate{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "route-12-34",
+					Namespace: "default",
+					OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(
+						route("default", "becomes-ready", WithConfigTarget("config"), WithRouteUID("12-34")))},
+				},
+				Spec: netv1alpha1.CertificateSpec{
+					DNSNames: []string{"abc.test.example.com"},
+				},
+				Status: readyCertStatus(),
+			},
+		},
+		WantCreates: []metav1.Object{
+			resources.MakeClusterIngress(
+				route("default", "becomes-ready", WithConfigTarget("config"), WithDomain,
+					WithRouteUID("12-34")),
+				&traffic.Config{
+					Targets: map[string]traffic.RevisionTargets{
+						traffic.DefaultTarget: {{
+							TrafficTarget: v1beta1.TrafficTarget{
+								// Use the Revision name from the config.
+								RevisionName: "config-00001",
+								Percent:      100,
+							},
+							ServiceName: "mcd",
+							Active:      true,
+						}},
+					},
+				},
+				[]netv1alpha1.ClusterIngressTLS{
+					netv1alpha1.ClusterIngressTLS{
+						Hosts:           []string{"becomes-ready.default.example.com"},
+						SecretName:      "route-12-34",
+						SecretNamespace: "default",
+					},
+				},
+				TestIngressClass,
+			),
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: certificateWithStatus(resources.MakeCertificate(route("default", "becomes-ready", WithConfigTarget("config"), WithDomain, WithRouteUID("12-34")),
+				[]string{"becomes-ready.default.example.com"}), readyCertStatus()),
+		}},
+		WantPatches: []clientgotesting.PatchActionImpl{
+			patchFinalizers("default", "becomes-ready"),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: route("default", "becomes-ready", WithConfigTarget("config"),
+				WithRouteUID("12-34"),
+				// Populated by reconciliation when all traffic has been assigned.
+				WithDomainInternal, WithAddress, WithInitRouteConditions,
+				MarkTrafficAssigned, WithStatusTraffic(v1alpha1.TrafficTarget{
+					TrafficTarget: v1beta1.TrafficTarget{
+						RevisionName:   "config-00001",
+						Percent:        100,
+						LatestRevision: ptr.Bool(true),
+					},
+				}), MarkCertificateReady,
+				// The certificate is ready. So we want to have HTTPS URL.
+				WithHTTPSDomain),
+		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "Updated", "Updated Spec for Certificate %s/%s", "default", "route-12-34"),
+			Eventf(corev1.EventTypeNormal, "Created", "Created ClusterIngress %q", "route-12-34"),
+		},
+		Key:                     "default/becomes-ready",
+		SkipNamespaceValidation: true,
+	}}
+	defer logtesting.ClearAll()
+	table.Test(t, MakeFactory(func(listers *Listers, opt reconciler.Options) controller.Reconciler {
+		return &Reconciler{
+			Base:                 reconciler.NewBase(opt, controllerAgentName),
+			routeLister:          listers.GetRouteLister(),
+			configurationLister:  listers.GetConfigurationLister(),
+			revisionLister:       listers.GetRevisionLister(),
+			serviceLister:        listers.GetK8sServiceLister(),
+			clusterIngressLister: listers.GetClusterIngressLister(),
+			certificateLister:    listers.GetCertificateLister(),
+			tracker:              &NullTracker{},
+			configStore: &testConfigStore{
+				config: ReconcilerTestConfig(true),
 			},
 			clock: FakeClock{Time: fakeCurTime},
 		}
@@ -1727,7 +1891,7 @@ func readyIngressStatus() netv1alpha1.IngressStatus {
 }
 
 func ingressWithStatus(r *v1alpha1.Route, tc *traffic.Config, status netv1alpha1.IngressStatus) *netv1alpha1.ClusterIngress {
-	ci := resources.MakeClusterIngress(r, tc, TestIngressClass)
+	ci := resources.MakeClusterIngress(r, tc, nil, TestIngressClass)
 	ci.Name = r.Name
 	ci.Status = status
 
@@ -1799,7 +1963,7 @@ func (t *testConfigStore) WatchConfigs(w configmap.Watcher) {}
 
 var _ configStore = (*testConfigStore)(nil)
 
-func ReconcilerTestConfig() *config.Config {
+func ReconcilerTestConfig(enableAutoTLS bool) *config.Config {
 	return &config.Config{
 		Domain: &config.Domain{
 			Domains: map[string]*config.LabelSelector{
@@ -1811,10 +1975,22 @@ func ReconcilerTestConfig() *config.Config {
 		},
 		Network: &network.Config{
 			DefaultClusterIngressClass: TestIngressClass,
+			AutoTLS:                    enableAutoTLS,
 			DomainTemplate:             network.DefaultDomainTemplate,
 		},
 		GC: &gc.Config{
 			StaleRevisionLastpinnedDebounce: time.Duration(1 * time.Minute),
 		},
 	}
+}
+
+func readyCertStatus() netv1alpha1.CertificateStatus {
+	certStatus := &netv1alpha1.CertificateStatus{}
+	certStatus.MarkReady()
+	return *certStatus
+}
+
+func certificateWithStatus(cert *netv1alpha1.Certificate, status netv1alpha1.CertificateStatus) *netv1alpha1.Certificate {
+	cert.Status = status
+	return cert
 }

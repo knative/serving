@@ -1012,6 +1012,20 @@ func TestTagDomain(t *testing.T) {
 	}
 }
 
+func TestGetDomains(t *testing.T) {
+	domain := "default.example.com"
+	targets := map[string]RevisionTargets{
+		"":       RevisionTargets{},
+		"test-1": RevisionTargets{},
+		"test-2": RevisionTargets{},
+	}
+	want := []string{"default.example.com", "test-1.default.example.com", "test-2.default.example.com"}
+	got := GetDomains(domain, targets)
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("Unexpected domains (-want, +got): %v", diff)
+	}
+}
+
 func testConfig(name string) *v1alpha1.Configuration {
 	return &v1alpha1.Configuration{
 		ObjectMeta: metav1.ObjectMeta{

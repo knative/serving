@@ -240,3 +240,41 @@ func (c *Reconciler) reconcileTargetRevisions(ctx context.Context, t *traffic.Co
 	}
 	return eg.Wait()
 }
+
+func (c *Reconciler) reconcileCertificate(ctx context.Context, r *v1alpha1.Route, desiredCert *netv1alpha1.Certificate) (*netv1alpha1.Certificate, error) {
+	cert, err := c.certificateLister.Certificates(desiredCert.Namespace).Get(desiredCert.Name)
+	if apierrs.IsNotFound(err) {
+		cert, err = c.ServingClientSet.NetworkingV1alpha1().Certificates(desiredCert.Namespace).Create(desiredCert)
+		if err != nil {
+			c.Logger.Error("Failed to create Certificate", zap.Error(err))
+			c.Recorder.Eventf(r, corev1.EventTypeWarning, "CreationFailed",
+				"Failed to create Certificate for route %s/%s: %v", r.Namespace, r.Name, err)
+			return nil, err
+		}
+		c.Recorder.Eventf(r, corev1.EventTypeNormal, "Created",
+			"Created Certificate %q/%q", cert.Namespace, cert.Name)
+		return cert, nil
+	} else if err != nil {
+		return nil, err
+	} else if !metav1.IsControlledBy(cert, r) {
+		// Surface an error in the route's status, and return an error.
+		r.Status.MarkCertificateNotOwned(cert.Name)
+		return nil, fmt.Errorf("Route: %s does not own Certificate: %s", r.Name, cert.Name)
+	} else {
+		if !equality.Semantic.DeepEqual(cert.Spec, desiredCert.Spec) {
+			// Don't modify the informers copy
+			existing := cert.DeepCopy()
+			existing.Spec = desiredCert.Spec
+			cert, err := c.ServingClientSet.NetworkingV1alpha1().Certificates(existing.Namespace).Update(existing)
+			if err != nil {
+				c.Recorder.Eventf(r, corev1.EventTypeWarning, "UpdateFailed",
+					"Failed to update Certificate %s/%s: %v", existing.Namespace, existing.Name, err)
+				return nil, err
+			}
+			c.Recorder.Eventf(existing, corev1.EventTypeNormal, "Updated",
+				"Updated Spec for Certificate %s/%s", existing.Namespace, existing.Name)
+			return cert, nil
+		}
+	}
+	return cert, nil
+}

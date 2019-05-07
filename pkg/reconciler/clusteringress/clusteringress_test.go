@@ -22,6 +22,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/knative/pkg/kmeta"
+
 	"github.com/google/go-cmp/cmp"
 
 	"golang.org/x/sync/errgroup"
@@ -61,7 +63,7 @@ import (
 const (
 	originDomainInternal = "origin.istio-system.svc.cluster.local"
 	newDomainInternal    = "custom.istio-system.svc.cluster.local"
-	targetSecretName     = "tls-uid"
+	targetSecretName     = "reconciling-clusteringress-uid"
 )
 
 var (
@@ -496,9 +498,10 @@ func originSecret(namespace, name string) *corev1.Secret {
 func secret(namespace, name string, labels map[string]string) *corev1.Secret {
 	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
-			Labels:    labels,
+			Name:            name,
+			Namespace:       namespace,
+			Labels:          labels,
+			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(ingress("reconciling-clusteringress", 1234))},
 		},
 		Data: map[string][]byte{
 			"test-secret": []byte("abcd"),
