@@ -38,7 +38,6 @@ import (
 	aresources "github.com/knative/serving/pkg/reconciler/autoscaling/resources"
 	"github.com/knative/serving/pkg/reconciler/autoscaling/resources/names"
 
-	autoscalingv1 "k8s.io/api/autoscaling/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -46,7 +45,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/runtime"
 	autoscalingv2beta1informers "k8s.io/client-go/informers/autoscaling/v2beta1"
 	autoscalingv2beta1listers "k8s.io/client-go/listers/autoscaling/v2beta1"
-	"k8s.io/client-go/scale"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -58,10 +56,9 @@ const (
 type Reconciler struct {
 	*reconciler.Base
 
-	paLister       listers.PodAutoscalerLister
-	sksLister      nlisters.ServerlessServiceLister
-	hpaLister      autoscalingv2beta1listers.HorizontalPodAutoscalerLister
-	scaleClientSet scale.ScalesGetter
+	paLister  listers.PodAutoscalerLister
+	sksLister nlisters.ServerlessServiceLister
+	hpaLister autoscalingv2beta1listers.HorizontalPodAutoscalerLister
 }
 
 var _ controller.Reconciler = (*Reconciler)(nil)
@@ -274,32 +271,4 @@ func (c *Reconciler) updateStatus(desired *pav1alpha1.PodAutoscaler) (*pav1alpha
 		return c.ServingClientSet.AutoscalingV1alpha1().PodAutoscalers(pa.Namespace).UpdateStatus(existing)
 	}
 	return pa, nil
-}
-
-func (c *Reconciler) getSelector(pa *pav1alpha1.PodAutoscaler) (map[string]string, error) {
-	scale, err := c.getScaleResource(pa)
-	if err != nil {
-		return nil, err
-	}
-	return labels.ConvertSelectorToLabelsMap(scale.Status.Selector)
-}
-
-// getScaleResource returns the current scale resource for the PA.
-func (c *Reconciler) getScaleResource(pa *pav1alpha1.PodAutoscaler) (*autoscalingv1.Scale, error) {
-	resource, resourceName, err := scaleResourceArgs(pa)
-	if err != nil {
-		return nil, err
-	}
-	// Identify the current scale.
-	return c.scaleClientSet.Scales(pa.Namespace).Get(*resource, resourceName)
-}
-
-// scaleResourceArgs returns GroupResource and the resource name, from the PA resource.
-func scaleResourceArgs(pa *pav1alpha1.PodAutoscaler) (*schema.GroupResource, string, error) {
-	gv, err := schema.ParseGroupVersion(pa.Spec.ScaleTargetRef.APIVersion)
-	if err != nil {
-		return nil, "", err
-	}
-	resource := apis.KindToResource(gv.WithKind(pa.Spec.ScaleTargetRef.Kind)).GroupResource()
-	return &resource, pa.Spec.ScaleTargetRef.Name, nil
 }

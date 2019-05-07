@@ -465,32 +465,6 @@ func hpa(name, namespace string, pa *autoscalingv1alpha1.PodAutoscaler, options 
 
 type scaleOpt func(*autoscalingv1.Scale)
 
-func scaleResource(namespace, name string, opts ...scaleOpt) *autoscalingv1.Scale {
-	s := &autoscalingv1.Scale{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
-		},
-		Spec: autoscalingv1.ScaleSpec{
-			Replicas: 1,
-		},
-		Status: autoscalingv1.ScaleStatus{
-			Replicas: 42,
-			Selector: "a=b",
-		},
-	}
-	for _, opt := range opts {
-		opt(s)
-	}
-	return s
-}
-
-func withLabelSelector(selector string) scaleOpt {
-	return func(s *autoscalingv1.Scale) {
-		s.Status.Selector = selector
-	}
-}
-
 type deploymentOption func(*appsv1.Deployment)
 
 func deploy(namespace, name string, opts ...deploymentOption) *appsv1.Deployment {

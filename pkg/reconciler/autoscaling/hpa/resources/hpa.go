@@ -43,7 +43,11 @@ func MakeHPA(pa *v1alpha1.PodAutoscaler) *autoscalingv2beta1.HorizontalPodAutosc
 			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(pa)},
 		},
 		Spec: autoscalingv2beta1.HorizontalPodAutoscalerSpec{
-			ScaleTargetRef: pa.Spec.ScaleTargetRef,
+			ScaleTargetRef: autoscalingv2beta1.CrossVersionObjectReference{
+				APIVersion: pa.Spec.ScaleTargetRef.APIVersion,
+				Kind:       pa.Spec.ScaleTargetRef.Kind,
+				Name:       pa.Spec.ScaleTargetRef.Name,
+			},
 		},
 	}
 	hpa.Spec.MaxReplicas = max

@@ -58,7 +58,7 @@ var clientSetSchemes = []func(*runtime.Scheme) error{
 	fakeservingclientset.AddToScheme,
 	fakecachingclientset.AddToScheme,
 	certmanagerv1alpha1.AddToScheme,
-	autoscalingv1.AddToScheme,
+	autoscalingv2beta1.AddToScheme,
 	buildAddToScheme,
 }
 
