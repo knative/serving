@@ -49,10 +49,6 @@ const (
 	// which Autoscaler deployment it is created.
 	AutoscalerLabelKey = GroupName + "/autoscaler"
 
-	// KubernetesServiceLabelKey is the label key attached to the decider, that contains
-	// the kubernetes service is uses for pod counting.
-	KubernetesServiceLabelKey = GroupName + "/kubernetesService"
-
 	// ServiceLabelKey is the label key attached to a Route and Configuration indicating by
 	// which Service they are created.
 	ServiceLabelKey = GroupName + "/service"

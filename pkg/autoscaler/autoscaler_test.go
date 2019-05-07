@@ -43,7 +43,7 @@ var (
 func TestNew_ErrorWhenGivenNilInterface(t *testing.T) {
 	var endpointsInformer corev1informers.EndpointsInformer
 
-	_, err := New(testNamespace, testService, endpointsInformer, DeciderSpec{TargetConcurrency: 10}, &mockReporter{})
+	_, err := New(testNamespace, endpointsInformer, DeciderSpec{TargetConcurrency: 10, ServiceName: testService}, &mockReporter{})
 	if err == nil {
 		t.Error("Expected error when EndpointsInformer interface is nil, but got none.")
 	}
@@ -52,7 +52,8 @@ func TestNew_ErrorWhenGivenNilInterface(t *testing.T) {
 func TestNew_ErrorWhenGivenNilStatsReporter(t *testing.T) {
 	var reporter StatsReporter
 
-	_, err := New(testNamespace, testService, kubeInformer.Core().V1().Endpoints(), DeciderSpec{TargetConcurrency: 10}, reporter)
+	_, err := New(testNamespace, kubeInformer.Core().V1().Endpoints(),
+		DeciderSpec{TargetConcurrency: 10, ServiceName: testService}, reporter)
 	if err == nil {
 		t.Error("Expected error when EndpointsInformer interface is nil, but got none.")
 	}
@@ -460,6 +461,7 @@ func TestAutoscaler_UpdateTarget(t *testing.T) {
 		PanicThreshold:    2.0,
 		MaxScaleUpRate:    10.0,
 		MetricSpec:        a.deciderSpec.MetricSpec,
+		ServiceName:       testService,
 	})
 	a.expectScale(t, now, 100, true)
 }
@@ -550,18 +552,22 @@ func newTestAutoscaler(containerConcurrency int) *Autoscaler {
 			StableWindow: stableWindow,
 			PanicWindow:  panicWindow,
 		},
+		ServiceName: testService,
 	}
 
-	a, _ := New(testNamespace, testService, kubeInformer.Core().V1().Endpoints(), deciderSpec, &mockReporter{})
+	a, _ := New(testNamespace, kubeInformer.Core().V1().Endpoints(), deciderSpec, &mockReporter{})
 	return a
 }
 
 // Record a data point every second, for every pod, for duration of the
 // linear series, on the line from start to end concurrency.
 func (a *Autoscaler) recordLinearSeries(test *testing.T, now time.Time, s linearSeries) time.Time {
-	points := make([]int32, 0)
+	points := make([]int32, 0, int(s.duration.Seconds()+1))
 	for i := 1; i <= int(s.duration.Seconds()); i++ {
-		points = append(points, int32(float64(s.startConcurrency)+float64(s.endConcurrency-s.startConcurrency)*(float64(i)/s.duration.Seconds())))
+		points = append(points,
+			int32(
+				float64(s.startConcurrency)+
+					float64(s.endConcurrency-s.startConcurrency)*(float64(i)/s.duration.Seconds())))
 	}
 	test.Logf("Recording points: %v.", points)
 	for _, point := range points {

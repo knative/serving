@@ -69,7 +69,6 @@ type StatMessage struct {
 // Autoscaler stores current state of an instance of an autoscaler
 type Autoscaler struct {
 	namespace       string
-	revisionService string
 	endpointsLister corev1listers.EndpointsLister
 	reporter        StatsReporter
 
@@ -89,7 +88,6 @@ type Autoscaler struct {
 // New creates a new instance of autoscaler
 func New(
 	namespace string,
-	revisionService string,
 	endpointsInformer corev1informers.EndpointsInformer,
 	deciderSpec DeciderSpec,
 	reporter StatsReporter) (*Autoscaler, error) {
@@ -105,7 +103,6 @@ func New(
 
 	return &Autoscaler{
 		namespace:       namespace,
-		revisionService: revisionService,
 		endpointsLister: endpointsInformer.Lister(),
 		deciderSpec:     deciderSpec,
 		buckets:         aggregation.NewTimedFloat64Buckets(bucketSize),
@@ -140,7 +137,7 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (int32, bool) {
 
 	spec := a.currentSpec()
 
-	originalReadyPodsCount, err := resources.FetchReadyAddressCount(a.endpointsLister, a.namespace, a.revisionService)
+	originalReadyPodsCount, err := resources.FetchReadyAddressCount(a.endpointsLister, a.namespace, spec.ServiceName)
 	if err != nil {
 		// If the error is NotFound, then presume 0.
 		if !apierrors.IsNotFound(err) {

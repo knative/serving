@@ -169,15 +169,15 @@ func setupLogger() (*zap.SugaredLogger, zap.AtomicLevel) {
 
 func uniScalerFactoryFunc(endpointsInformer corev1informers.EndpointsInformer) func(decider *autoscaler.Decider) (autoscaler.UniScaler, error) {
 	return func(decider *autoscaler.Decider) (autoscaler.UniScaler, error) {
-		for _, l := range []string{serving.KubernetesServiceLabelKey, serving.ConfigurationLabelKey} {
-			if v, ok := decider.Labels[l]; !ok || v == "" {
-				return nil, fmt.Errorf("label %q not found or empty in Decider %s", l, decider.Name)
-			}
+		if v, ok := decider.Labels[serving.ConfigurationLabelKey]; !ok || v == "" {
+			return nil, fmt.Errorf("label %q not found or empty in Decider %s", serving.ConfigurationLabelKey, decider.Name)
+		}
+		if decider.Spec.ServiceName == "" {
+			return nil, fmt.Errorf("%s decider has empty ServiceName", decider.Name)
 		}
 
 		serviceName := decider.Labels[serving.ServiceLabelKey] // This can be empty.
 		configName := decider.Labels[serving.ConfigurationLabelKey]
-		k8SSvcName := decider.Labels[serving.KubernetesServiceLabelKey]
 
 		// Create a stats reporter which tags statistics by PA namespace, configuration name, and PA name.
 		reporter, err := autoscaler.NewStatsReporter(decider.Namespace, serviceName, configName, decider.Name)
@@ -185,7 +185,7 @@ func uniScalerFactoryFunc(endpointsInformer corev1informers.EndpointsInformer) f
 			return nil, err
 		}
 
-		return autoscaler.New(decider.Namespace, k8SSvcName, endpointsInformer, decider.Spec, reporter)
+		return autoscaler.New(decider.Namespace, endpointsInformer, decider.Spec, reporter)
 	}
 }
 

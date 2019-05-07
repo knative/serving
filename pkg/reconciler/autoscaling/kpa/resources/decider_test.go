@@ -33,6 +33,7 @@ func TestMakeDecider(t *testing.T) {
 	cases := []struct {
 		name string
 		pa   *v1alpha1.PodAutoscaler
+		svc  string
 		want *autoscaler.Decider
 	}{{
 		name: "defaults",
@@ -60,11 +61,19 @@ func TestMakeDecider(t *testing.T) {
 		want: decider(
 			withTarget(10.0), withPanicThreshold(40.0),
 			withTargetAnnotation("10"), withPanicThresholdPercentageAnnotation("400")),
+	}, {
+		name: "with service name",
+		pa:   pa(WithTargetAnnotation("10"), WithPanicThresholdPercentageAnnotation("400")),
+		svc:  "rock-solid",
+		want: decider(
+			withService("rock-solid"),
+			withTarget(10.0), withPanicThreshold(40.0),
+			withTargetAnnotation("10"), withPanicThresholdPercentageAnnotation("400")),
 	}}
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			if diff := cmp.Diff(tc.want, MakeDecider(context.Background(), tc.pa, config)); diff != "" {
+			if diff := cmp.Diff(tc.want, MakeDecider(context.Background(), tc.pa, config, tc.svc)); diff != "" {
 				t.Errorf("%q (-want, +got):\n%v", tc.name, diff)
 			}
 		})
@@ -122,6 +131,12 @@ type DeciderOption func(*autoscaler.Decider)
 func withTarget(target float64) DeciderOption {
 	return func(decider *autoscaler.Decider) {
 		decider.Spec.TargetConcurrency = target
+	}
+}
+
+func withService(s string) DeciderOption {
+	return func(d *autoscaler.Decider) {
+		d.Spec.ServiceName = s
 	}
 }
 

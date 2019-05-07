@@ -27,7 +27,7 @@ import (
 // MakeDecider constructs a Decider resource from a PodAutoscaler taking
 // into account the PA's ContainerConcurrency and the relevant
 // autoscaling annotation.
-func MakeDecider(ctx context.Context, pa *v1alpha1.PodAutoscaler, config *autoscaler.Config) *autoscaler.Decider {
+func MakeDecider(ctx context.Context, pa *v1alpha1.PodAutoscaler, config *autoscaler.Config, svc string) *autoscaler.Decider {
 	logger := logging.FromContext(ctx)
 
 	target := config.TargetConcurrency(pa.Spec.ContainerConcurrency)
@@ -60,6 +60,7 @@ func MakeDecider(ctx context.Context, pa *v1alpha1.PodAutoscaler, config *autosc
 			TargetConcurrency: target,
 			PanicThreshold:    panicThreshold,
 			MetricSpec:        metricSpec,
+			ServiceName:       svc,
 		},
 	}
 }

@@ -47,6 +47,9 @@ type DeciderSpec struct {
 	PanicThreshold    float64
 	// TODO: remove MetricSpec when the custom metrics adapter implements Metric.
 	MetricSpec MetricSpec
+
+	// The name of the k8s service for pod information.
+	ServiceName string
 }
 
 // DeciderStatus is the current scale recommendation.

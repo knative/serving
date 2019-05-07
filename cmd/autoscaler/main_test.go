@@ -38,32 +38,23 @@ func TestUniscalerFactoryFailures(t *testing.T) {
 		labels map[string]string
 		want   string
 	}{{
-		"nil labels", nil, fmt.Sprintf("label %q not found or empty in Decider", serving.KubernetesServiceLabelKey),
+		"nil labels", nil, fmt.Sprintf("label %q not found or empty in Decider", serving.ConfigurationLabelKey),
 	}, {
-		"empty labels", map[string]string{}, fmt.Sprintf("label %q not found or empty in Decider", serving.KubernetesServiceLabelKey),
+		"empty labels", map[string]string{}, fmt.Sprintf("label %q not found or empty in Decider", serving.ConfigurationLabelKey),
 	}, {
 		"config missing", map[string]string{
-			serving.ServiceLabelKey:           "está la verdad",
-			serving.KubernetesServiceLabelKey: "lo-digo",
+			"some-unimportant-label": "lo-digo",
 		},
 		fmt.Sprintf("label %q not found or empty in Decider", serving.ConfigurationLabelKey),
 	}, {
-		"k8s svc key is missing", map[string]string{
-			serving.ConfigurationLabelKey: "blij-is",
-			serving.ServiceLabelKey:       "degene-die-wijn-drinkt",
-		},
-		fmt.Sprintf("label %q not found or empty in Decider", serving.KubernetesServiceLabelKey),
-	}, {
 		"values not ascii", map[string]string{
-			serving.ServiceLabelKey:           "la",
-			serving.ConfigurationLabelKey:     "verité",
-			serving.KubernetesServiceLabelKey: "nest-pas",
+			serving.ServiceLabelKey:       "la",
+			serving.ConfigurationLabelKey: "verité",
 		}, "invalid value: only ASCII characters accepted",
 	}, {
 		"too long of a value", map[string]string{
-			serving.ServiceLabelKey:           "cat is ",
-			serving.ConfigurationLabelKey:     "l" + strings.Repeat("o", 253) + "ng",
-			serving.KubernetesServiceLabelKey: "and-dog-is-of-proper-length",
+			serving.ServiceLabelKey:       "cat is ",
+			serving.ConfigurationLabelKey: "l" + strings.Repeat("o", 253) + "ng",
 		}, "max length must be 255 characters",
 	}}
 
@@ -72,6 +63,9 @@ func TestUniscalerFactoryFailures(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: testNamespace,
 			Name:      testRevision,
+		},
+		Spec: autoscaler.DeciderSpec{
+			ServiceName: "wholesome-service",
 		},
 	}
 
@@ -88,6 +82,22 @@ func TestUniscalerFactoryFailures(t *testing.T) {
 			}
 		})
 	}
+
+	// Now blank out service name and give correct labels.
+	decider.Spec.ServiceName = ""
+	decider.Labels = map[string]string{
+		serving.RevisionLabelKey:      testRevision,
+		serving.ServiceLabelKey:       "some-nice-service",
+		serving.ConfigurationLabelKey: "test-config",
+	}
+
+	_, err := uniScalerFactory(decider)
+	if err == nil {
+		t.Fatal("No error was returned")
+	}
+	if got, want := err.Error(), "decider has empty ServiceName"; !strings.Contains(got, want) {
+		t.Errorf("Error = %q, want to contain = %q", got, want)
+	}
 }
 
 func TestUniScalerFactoryFunc(t *testing.T) {
@@ -98,11 +108,13 @@ func TestUniScalerFactoryFunc(t *testing.T) {
 				Namespace: testNamespace,
 				Name:      testRevision,
 				Labels: map[string]string{
-					serving.RevisionLabelKey:          testRevision,
-					serving.KubernetesServiceLabelKey: testRevision + "-priv",
-					serving.ServiceLabelKey:           srv,
-					serving.ConfigurationLabelKey:     "test-config",
+					serving.RevisionLabelKey:      testRevision,
+					serving.ServiceLabelKey:       srv,
+					serving.ConfigurationLabelKey: "test-config",
 				},
+			},
+			Spec: autoscaler.DeciderSpec{
+				ServiceName: "magic-services-offered",
 			},
 		}
 
