@@ -78,7 +78,7 @@ func (t *Throttler) Remove(rev RevisionID) {
 
 // UpdateCapacity updates the max concurrency of the Breaker corresponding to a revision.
 func (t *Throttler) UpdateCapacity(rev RevisionID, size int) error {
-	revision, err := t.revisionLister.Revisions(rev.Name).Get(rev.Name)
+	revision, err := t.revisionLister.Revisions(rev.Namespace).Get(rev.Name)
 	if err != nil {
 		return err
 	}
@@ -135,7 +135,7 @@ func (t *Throttler) getOrCreateBreaker(rev RevisionID) (*queue.Breaker, bool) {
 // This avoids a potential deadlock in case if we missed the updates from the Endpoints informer.
 // This could happen because of a restart of the Activator or when a new one is added as part of scale out.
 func (t *Throttler) forceUpdateCapacity(rev RevisionID, breaker *queue.Breaker) (err error) {
-	revision, err := t.revisionLister.Revisions(rev.Name).Get(rev.Name)
+	revision, err := t.revisionLister.Revisions(rev.Namespace).Get(rev.Name)
 	if err != nil {
 		return err
 	}
