@@ -37,6 +37,7 @@ import (
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
 	fakeKna "github.com/knative/serving/pkg/client/clientset/versioned/fake"
 	"github.com/knative/serving/pkg/network"
+	"github.com/knative/serving/pkg/network/prober"
 	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/autoscaling/config"
 	revisionresources "github.com/knative/serving/pkg/reconciler/revision/resources"
@@ -558,7 +559,9 @@ func TestActivatorProbe(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			network.AutoTransport = test.rt
+			prober.TransportFactory = func() http.RoundTripper {
+				return test.rt
+			}
 			res, err := activatorProbe(pa)
 			if got, want := res, test.wantRes; got != want {
 				t.Errorf("Result = %v, want: %v", got, want)
