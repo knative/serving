@@ -18,7 +18,7 @@ package coveragecalculator
 
 // CoverageValues encapsulates all the coverage related values.
 type CoverageValues struct {
-	TotalFields int
+	TotalFields   int
 	CoveredFields int
 	IgnoredFields int
 }

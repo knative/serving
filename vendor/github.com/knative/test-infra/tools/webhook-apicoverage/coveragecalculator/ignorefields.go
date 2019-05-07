@@ -29,12 +29,11 @@ type IgnoredFields struct {
 	ignoredFields map[string]map[string]bool
 }
 
-
 // This type is used for deserialization from the input .yaml file
 type inputIgnoredFields struct {
-	Package string `yaml:"package"`
-	Type string `yaml:"type"`
-	Fields []string `yaml:"fields"`
+	Package string   `yaml:"package"`
+	Type    string   `yaml:"type"`
+	Fields  []string `yaml:"fields"`
 }
 
 // ReadFromFile is a utility method that can be used by repos to read .yaml input file into
@@ -51,7 +50,7 @@ func (ig *IgnoredFields) ReadFromFile(filePath string) error {
 		return fmt.Errorf("Error unmarshalling ignoredfields input yaml file: %s Content: %s Error: %v", filePath, string(data), err)
 	}
 
-	ig.ignoredFields = map[string]map[string]bool {}
+	ig.ignoredFields = map[string]map[string]bool{}
 
 	for _, entry := range inputEntries {
 		if _, ok := ig.ignoredFields[entry.Package]; !ok {
@@ -59,7 +58,7 @@ func (ig *IgnoredFields) ReadFromFile(filePath string) error {
 		}
 
 		for _, field := range entry.Fields {
-			ig.ignoredFields[entry.Package][entry.Type + "." + field] = true
+			ig.ignoredFields[entry.Package][entry.Type+"."+field] = true
 		}
 	}
 	return nil
@@ -70,7 +69,7 @@ func (ig *IgnoredFields) FieldIgnored(packageName string, typeName string, field
 	if ig.ignoredFields != nil {
 		for key, value := range ig.ignoredFields {
 			if strings.HasSuffix(packageName, key) {
-				if _, ok := value[typeName + "." + fieldName]; ok {
+				if _, ok := value[typeName+"."+fieldName]; ok {
 					return true
 				}
 			}

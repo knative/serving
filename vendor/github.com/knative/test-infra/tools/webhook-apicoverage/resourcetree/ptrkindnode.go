@@ -50,16 +50,16 @@ func (p *PtrKindNode) buildChildNodes(t reflect.Type) {
 func (p *PtrKindNode) updateCoverage(v reflect.Value) {
 	if !v.IsNil() {
 		p.Covered = true
-		p.Children[p.Field + ptrNodeNameSuffix].updateCoverage(v.Elem())
+		p.Children[p.Field+ptrNodeNameSuffix].updateCoverage(v.Elem())
 	}
 }
 
 func (p *PtrKindNode) buildCoverageData(coverageHelper coverageDataHelper) {
 	if p.objKind == reflect.Struct {
-		p.Children[p.Field + ptrNodeNameSuffix].buildCoverageData(coverageHelper)
+		p.Children[p.Field+ptrNodeNameSuffix].buildCoverageData(coverageHelper)
 	}
 }
 
-func (p *PtrKindNode) getValues() (map[string]bool) {
+func (p *PtrKindNode) getValues() map[string]bool {
 	return nil
 }

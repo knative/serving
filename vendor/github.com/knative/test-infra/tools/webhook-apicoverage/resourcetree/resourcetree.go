@@ -26,18 +26,18 @@ import (
 // ResourceTree encapsulates a tree corresponding to a resource type.
 type ResourceTree struct {
 	ResourceName string
-	Root NodeInterface
-	Forest *ResourceForest
+	Root         NodeInterface
+	Forest       *ResourceForest
 }
 
 // coverageDataHelper is a encapsulator parameter type to the BuildCoverageData method
 // so as to avoid long parameter list.
 type coverageDataHelper struct {
-	typeCoverage *[]coveragecalculator.TypeCoverage
-	nodeRules NodeRules
-	fieldRules FieldRules
+	typeCoverage  *[]coveragecalculator.TypeCoverage
+	nodeRules     NodeRules
+	fieldRules    FieldRules
 	ignoredFields coveragecalculator.IgnoredFields
-	coveredTypes map[string]bool
+	coveredTypes  map[string]bool
 }
 
 func (r *ResourceTree) createNode(field string, parent NodeInterface, t reflect.Type) NodeInterface {
@@ -83,13 +83,13 @@ func (r *ResourceTree) UpdateCoverage(v reflect.Value) {
 
 // BuildCoverageData calculates the coverage information for a resource tree by applying provided Node and Field rules.
 func (r *ResourceTree) BuildCoverageData(nodeRules NodeRules, fieldRules FieldRules,
-	ignoredFields coveragecalculator.IgnoredFields) ([]coveragecalculator.TypeCoverage) {
+	ignoredFields coveragecalculator.IgnoredFields) []coveragecalculator.TypeCoverage {
 	coverageHelper := coverageDataHelper{
-		nodeRules: nodeRules,
-		fieldRules: fieldRules,
-		typeCoverage: &[]coveragecalculator.TypeCoverage{},
+		nodeRules:     nodeRules,
+		fieldRules:    fieldRules,
+		typeCoverage:  &[]coveragecalculator.TypeCoverage{},
 		ignoredFields: ignoredFields,
-		coveredTypes: make(map[string]bool),
+		coveredTypes:  make(map[string]bool),
 	}
 	r.Root.buildCoverageData(coverageHelper)
 	return *coverageHelper.typeCoverage

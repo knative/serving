@@ -123,7 +123,7 @@ func GetHTMLCoverageValuesDisplay(coverageValues *coveragecalculator.CoverageVal
 
 	percentCoverage := 0.0
 	if coverageValues.TotalFields > 0 {
-		percentCoverage = (float64(coverageValues.CoveredFields) / float64(coverageValues.TotalFields - coverageValues.IgnoredFields)) * 100
+		percentCoverage = (float64(coverageValues.CoveredFields) / float64(coverageValues.TotalFields-coverageValues.IgnoredFields)) * 100
 	}
 	buffer.WriteString(fmt.Sprintf(`<tr class="styleheader"><td>Coverage Percentage</td><td>%f</td></tr>`, percentCoverage))
 	buffer.WriteString(fmt.Sprint(`</table>`))

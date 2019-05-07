@@ -166,7 +166,7 @@ function create_test_cluster() {
 
   # Smallest cluster required to run the end-to-end-tests
   local CLUSTER_CREATION_ARGS=(
-    --gke-create-command="container clusters create --quiet --enable-autoscaling --min-nodes=${E2E_MIN_CLUSTER_NODES} --max-nodes=${E2E_MAX_CLUSTER_NODES} --scopes=cloud-platform --enable-basic-auth --no-issue-client-certificate ${EXTRA_CLUSTER_CREATION_FLAGS[@]}"
+    --gke-create-command="container clusters create --quiet --enable-autoscaling --min-nodes=${E2E_MIN_CLUSTER_NODES} --max-nodes=${E2E_MAX_CLUSTER_NODES} --scopes=cloud-platform --enable-basic-auth --no-issue-client-certificate ${GKE_ADDONS} ${EXTRA_CLUSTER_CREATION_FLAGS[@]}"
     --gke-shape={\"default\":{\"Nodes\":${E2E_MIN_CLUSTER_NODES}\,\"MachineType\":\"${E2E_CLUSTER_MACHINE}\"}}
     --provider=gke
     --deployment=gke
@@ -189,6 +189,7 @@ function create_test_cluster() {
   local gcloud_project="${GCP_PROJECT}"
   [[ -z "${gcloud_project}" ]] && gcloud_project="$(gcloud config get-value project)"
   echo "gcloud project is ${gcloud_project}"
+  echo "gcloud user is $(gcloud config get-value core/account)"
   (( IS_BOSKOS )) && echo "Using boskos for the test cluster"
   [[ -n "${GCP_PROJECT}" ]] && echo "GCP project for test cluster is ${GCP_PROJECT}"
   echo "Test script is ${E2E_SCRIPT}"
@@ -349,9 +350,11 @@ function fail_test() {
 RUN_TESTS=0
 EMIT_METRICS=0
 SKIP_KNATIVE_SETUP=0
+SKIP_ISTIO=0
 GCP_PROJECT=""
 E2E_SCRIPT=""
 E2E_CLUSTER_VERSION=""
+GKE_ADDONS=""
 EXTRA_CLUSTER_CREATION_FLAGS=()
 EXTRA_KUBETEST_FLAGS=()
 E2E_SCRIPT_CUSTOM_FLAGS=()
@@ -383,6 +386,7 @@ function initialize() {
       --run-tests) RUN_TESTS=1 ;;
       --emit-metrics) EMIT_METRICS=1 ;;
       --skip-knative-setup) SKIP_KNATIVE_SETUP=1 ;;
+      --skip-istio) SKIP_ISTIO=1 ;;
       *)
         [[ $# -ge 2 ]] || abort "missing parameter after $1"
         shift
@@ -412,6 +416,8 @@ function initialize() {
   is_protected_gcr ${KO_DOCKER_REPO} && \
     abort "\$KO_DOCKER_REPO set to ${KO_DOCKER_REPO}, which is forbidden"
 
+  (( SKIP_ISTIO )) || GKE_ADDONS="--addons=Istio"
+
   readonly RUN_TESTS
   readonly EMIT_METRICS
   readonly GCP_PROJECT
@@ -419,6 +425,7 @@ function initialize() {
   readonly EXTRA_CLUSTER_CREATION_FLAGS
   readonly EXTRA_KUBETEST_FLAGS
   readonly SKIP_KNATIVE_SETUP
+  readonly GKE_ADDONS
 
   if (( ! RUN_TESTS )); then
     create_test_cluster

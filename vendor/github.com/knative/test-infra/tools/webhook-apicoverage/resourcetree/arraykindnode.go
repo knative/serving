@@ -31,11 +31,11 @@ type ArrayKindNode struct {
 }
 
 // GetData returns node data
-func (a *ArrayKindNode ) GetData() NodeData {
+func (a *ArrayKindNode) GetData() NodeData {
 	return a.NodeData
 }
 
-func (a *ArrayKindNode ) initialize(field string, parent NodeInterface, t reflect.Type, rt *ResourceTree) {
+func (a *ArrayKindNode) initialize(field string, parent NodeInterface, t reflect.Type, rt *ResourceTree) {
 	a.NodeData.initialize(field, parent, t, rt)
 	a.arrKind = t.Elem().Kind()
 }
@@ -51,17 +51,17 @@ func (a *ArrayKindNode) updateCoverage(v reflect.Value) {
 	if !v.IsNil() {
 		a.Covered = true
 		for i := 0; i < v.Len(); i++ {
-			a.Children[a.Field + arrayNodeNameSuffix].updateCoverage(v.Index(i))
+			a.Children[a.Field+arrayNodeNameSuffix].updateCoverage(v.Index(i))
 		}
 	}
 }
 
 func (a *ArrayKindNode) buildCoverageData(coverageHelper coverageDataHelper) {
 	if a.arrKind == reflect.Struct {
-		a.Children[a.Field + arrayNodeNameSuffix].buildCoverageData(coverageHelper)
+		a.Children[a.Field+arrayNodeNameSuffix].buildCoverageData(coverageHelper)
 	}
 }
 
-func (a *ArrayKindNode) getValues() (map[string]bool) {
+func (a *ArrayKindNode) getValues() map[string]bool {
 	return nil
 }
