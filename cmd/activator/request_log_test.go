@@ -22,21 +22,17 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/knative/serving/pkg/client/clientset/versioned/fake"
-
-	testing2 "github.com/knative/pkg/logging/testing"
-
-	corev1 "k8s.io/api/core/v1"
-
 	"github.com/google/go-cmp/cmp"
-
+	testing2 "github.com/knative/pkg/logging/testing"
 	"github.com/knative/serving/pkg/activator"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	pkghttp "github.com/knative/serving/pkg/http"
-
+	"github.com/knative/serving/pkg/client/clientset/versioned/fake"
 	servinginformers "github.com/knative/serving/pkg/client/informers/externalversions"
 	servinglisters "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
+	pkghttp "github.com/knative/serving/pkg/http"
+
+	corev1 "k8s.io/api/core/v1"
 )
 
 const (
