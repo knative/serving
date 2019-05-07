@@ -17,7 +17,6 @@ limitations under the License.
 package activator
 
 import (
-	"errors"
 	"testing"
 
 	"go.uber.org/zap"
@@ -41,75 +40,16 @@ import (
 	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
-var (
-	testNamespace = "good-namespace"
-	testRevision  = "good-name"
-	revID         = RevisionID{testNamespace, testRevision}
-	errTest       = errors.New("some error")
-)
-
 const (
+	testNamespace         = "good-namespace"
+	testRevision          = "good-name"
 	defaultMaxConcurrency = 1000
 	initCapacity          = 0
 )
 
-func revisionLister(namespace, name string, concurrency v1beta1.RevisionContainerConcurrencyType) servinglisters.RevisionLister {
-	rev := &v1alpha1.Revision{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
-		},
-		Spec: v1alpha1.RevisionSpec{
-			RevisionSpec: v1beta1.RevisionSpec{
-				ContainerConcurrency: concurrency,
-			},
-		},
-	}
-
-	fake := servingfake.NewSimpleClientset(rev)
-	informer := servinginformers.NewSharedInformerFactory(fake, 0)
-	revisions := informer.Serving().V1alpha1().Revisions()
-	revisions.Informer().GetIndexer().Add(rev)
-
-	return revisions.Lister()
-}
-
-func endpointsLister(namespace, name string, count int) corev1listers.EndpointsLister {
-	ep := &corev1.Endpoints{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
-		},
-		Subsets: endpointsSubset(count, 1),
-	}
-
-	fake := kubefake.NewSimpleClientset(ep)
-	informer := kubeinformers.NewSharedInformerFactory(fake, 0)
-	endpoints := informer.Core().V1().Endpoints()
-	endpoints.Informer().GetIndexer().Add(ep)
-
-	return endpoints.Lister()
-}
-
-func sksLister(namespace, name string) netlisters.ServerlessServiceLister {
-	sks := &nv1a1.ServerlessService{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: namespace,
-			Name:      name,
-		},
-		Status: nv1a1.ServerlessServiceStatus{
-			PrivateServiceName: name,
-			ServiceName:        helpers.AppendRandomString(name),
-		},
-	}
-
-	fake := servingfake.NewSimpleClientset(sks)
-	informer := servinginformers.NewSharedInformerFactory(fake, 0)
-	skss := informer.Networking().V1alpha1().ServerlessServices()
-	skss.Informer().GetIndexer().Add(sks)
-
-	return skss.Lister()
-}
+var (
+	revID = RevisionID{testNamespace, testRevision}
+)
 
 func TestThrottler_UpdateCapacity(t *testing.T) {
 	samples := []struct {
@@ -402,6 +342,64 @@ func TestHelper_DeleteBreaker(t *testing.T) {
 	if len(throttler.breakers) != 0 {
 		t.Errorf("Breaker map is not empty, got: %v", throttler.breakers)
 	}
+}
+
+func revisionLister(namespace, name string, concurrency v1beta1.RevisionContainerConcurrencyType) servinglisters.RevisionLister {
+	rev := &v1alpha1.Revision{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+		Spec: v1alpha1.RevisionSpec{
+			RevisionSpec: v1beta1.RevisionSpec{
+				ContainerConcurrency: concurrency,
+			},
+		},
+	}
+
+	fake := servingfake.NewSimpleClientset(rev)
+	informer := servinginformers.NewSharedInformerFactory(fake, 0)
+	revisions := informer.Serving().V1alpha1().Revisions()
+	revisions.Informer().GetIndexer().Add(rev)
+
+	return revisions.Lister()
+}
+
+func endpointsLister(namespace, name string, count int) corev1listers.EndpointsLister {
+	ep := &corev1.Endpoints{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+		Subsets: endpointsSubset(count, 1),
+	}
+
+	fake := kubefake.NewSimpleClientset(ep)
+	informer := kubeinformers.NewSharedInformerFactory(fake, 0)
+	endpoints := informer.Core().V1().Endpoints()
+	endpoints.Informer().GetIndexer().Add(ep)
+
+	return endpoints.Lister()
+}
+
+func sksLister(namespace, name string) netlisters.ServerlessServiceLister {
+	sks := &nv1a1.ServerlessService{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: namespace,
+			Name:      name,
+		},
+		Status: nv1a1.ServerlessServiceStatus{
+			PrivateServiceName: name,
+			ServiceName:        helpers.AppendRandomString(name),
+		},
+	}
+
+	fake := servingfake.NewSimpleClientset(sks)
+	informer := servinginformers.NewSharedInformerFactory(fake, 0)
+	skss := informer.Networking().V1alpha1().ServerlessServices()
+	skss.Informer().GetIndexer().Add(sks)
+
+	return skss.Lister()
 }
 
 func getThrottler(
