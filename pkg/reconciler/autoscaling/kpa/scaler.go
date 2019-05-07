@@ -49,8 +49,8 @@ type scaler struct {
 	activatorProbe func(pa *pav1alpha1.PodAutoscaler) (bool, error)
 }
 
-// NewScaler creates a scaler.
-func NewScaler(opt reconciler.Options) Scaler {
+// newScaler creates a scaler.
+func newScaler(opt *reconciler.Options) *scaler {
 	ks := &scaler{
 		// Wrap it in a cache, so that we don't stamp out a new
 		// informer/lister each time.
@@ -82,7 +82,7 @@ func activatorProbe(pa *pav1alpha1.PodAutoscaler) (bool, error) {
 
 // podScalableTypedInformerFactory returns a duck.InformerFactory that returns
 // lister/informer pairs for PodScalable resources.
-func podScalableTypedInformerFactory(opt reconciler.Options) duck.InformerFactory {
+func podScalableTypedInformerFactory(opt *reconciler.Options) duck.InformerFactory {
 	return &duck.TypedInformerFactory{
 		Client:       opt.DynamicClientSet,
 		Type:         &pav1alpha1.PodScalable{},

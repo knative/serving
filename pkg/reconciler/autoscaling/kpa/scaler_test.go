@@ -208,7 +208,7 @@ func TestScaler(t *testing.T) {
 			servingClient := fakeKna.NewSimpleClientset()
 			dynamicClient := fakedynamic.NewSimpleDynamicClient(NewScheme())
 
-			opts := reconciler.Options{
+			opts := &reconciler.Options{
 				DynamicClientSet: dynamicClient,
 				Logger:           logtesting.TestLogger(t),
 				ConfigMapWatcher: newConfigWatcher(),
@@ -216,7 +216,7 @@ func TestScaler(t *testing.T) {
 
 			revision := newRevision(t, servingClient, test.minScale, test.maxScale)
 			deployment := newDeployment(t, dynamicClient, names.Deployment(revision), test.startReplicas)
-			revisionScaler := NewScaler(opts).(*scaler)
+			revisionScaler := newScaler(opts)
 			if test.proberfunc != nil {
 				revisionScaler.activatorProbe = test.proberfunc
 			} else {
@@ -319,7 +319,7 @@ func TestDisableScaleToZero(t *testing.T) {
 			revision := newRevision(t, servingClient, test.minScale, test.maxScale)
 			deployment := newDeployment(t, dynamicClient, names.Deployment(revision), test.startReplicas)
 			revisionScaler := &scaler{
-				psInformerFactory: podScalableTypedInformerFactory(opts),
+				psInformerFactory: podScalableTypedInformerFactory(&opts),
 				dynamicClient:     opts.DynamicClientSet,
 				logger:            opts.Logger,
 			}
@@ -352,7 +352,7 @@ func TestGetScaleResource(t *testing.T) {
 	servingClient := fakeKna.NewSimpleClientset()
 	dynamicClient := fakedynamic.NewSimpleDynamicClient(runtime.NewScheme())
 
-	opts := reconciler.Options{
+	opts := &reconciler.Options{
 		DynamicClientSet: dynamicClient,
 		Logger:           logtesting.TestLogger(t),
 		ConfigMapWatcher: newConfigWatcher(),
@@ -361,7 +361,7 @@ func TestGetScaleResource(t *testing.T) {
 	revision := newRevision(t, servingClient, 1, 10)
 	// This setups reactor as well.
 	newDeployment(t, dynamicClient, names.Deployment(revision), 5)
-	revisionScaler := NewScaler(opts)
+	revisionScaler := newScaler(opts)
 
 	pa := newKPA(t, servingClient, revision)
 	scale, err := revisionScaler.GetScaleResource(pa)
