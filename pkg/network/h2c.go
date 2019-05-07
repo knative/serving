@@ -41,11 +41,11 @@ func ListenAndServe(addr string, h http.Handler) error {
 	return s.ListenAndServe()
 }
 
-// NewTransport constructs a new H2C transport.
+// NewH2CTransport constructs a new H2C transport.
 // That transport will reroute all HTTPS traffic to HTTP. This is
 // to explicitly allow h2c (http2 without TLS) transport.
 // See https://github.com/golang/go/issues/14141 for more details.
-func NewTransport() http.RoundTripper {
+func NewH2CTransport() http.RoundTripper {
 	return &http2.Transport{
 		AllowHTTP: true,
 		DialTLS: func(netw, addr string, cfg *tls.Config) (net.Conn, error) {
@@ -60,4 +60,4 @@ func NewTransport() http.RoundTripper {
 }
 
 // DefaultH2CTransport is a singleton instance of H2C transport.
-var DefaultH2CTransport http.RoundTripper = NewTransport()
+var DefaultH2CTransport http.RoundTripper = NewH2CTransport()

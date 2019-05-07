@@ -60,7 +60,7 @@ func newHTTPTransport(connTimeout time.Duration) http.RoundTripper {
 // NewAutoTransport creates a RoundTripper that can use appropriate transport
 // based on the request's HTTP version.
 func NewAutoTransport() http.RoundTripper {
-	return newAutoTransport(newHTTPTransport(DefaultConnTimeout), DefaultH2CTransport)
+	return newAutoTransport(newHTTPTransport(DefaultConnTimeout), NewH2CTransport())
 }
 
 // AutoTransport uses h2c for HTTP2 requests and falls back to `http.DefaultTransport` for all others
