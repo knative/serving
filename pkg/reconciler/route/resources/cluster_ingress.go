@@ -17,6 +17,7 @@ limitations under the License.
 package resources
 
 import (
+	"context"
 	"sort"
 	"strings"
 
@@ -29,6 +30,7 @@ import (
 	"github.com/knative/serving/pkg/apis/serving"
 	servingv1alpha1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/network"
+	"github.com/knative/serving/pkg/reconciler/route/domains"
 	"github.com/knative/serving/pkg/reconciler/route/resources/names"
 	"github.com/knative/serving/pkg/reconciler/route/traffic"
 	"github.com/knative/serving/pkg/resources"
@@ -49,7 +51,11 @@ func MakeClusterIngressTLS(cert *v1alpha1.Certificate, hostNames []string) v1alp
 
 // MakeClusterIngress creates ClusterIngress to set up routing rules. Such ClusterIngress specifies
 // which Hosts that it applies to, as well as the routing rules.
-func MakeClusterIngress(r *servingv1alpha1.Route, tc *traffic.Config, tls []v1alpha1.ClusterIngressTLS, ingressClass string) *v1alpha1.ClusterIngress {
+func MakeClusterIngress(ctx context.Context, r *servingv1alpha1.Route, tc *traffic.Config, tls []v1alpha1.ClusterIngressTLS, ingressClass string) (*v1alpha1.ClusterIngress, error) {
+	spec, err := makeClusterIngressSpec(ctx, r, tls, tc.Targets)
+	if err != nil {
+		return nil, err
+	}
 	return &v1alpha1.ClusterIngress{
 		ObjectMeta: metav1.ObjectMeta{
 			// As ClusterIngress resource is cluster-scoped,
@@ -63,11 +69,11 @@ func MakeClusterIngress(r *servingv1alpha1.Route, tc *traffic.Config, tls []v1al
 				networking.IngressClassAnnotationKey: ingressClass,
 			}, r.ObjectMeta.Annotations),
 		},
-		Spec: makeClusterIngressSpec(r, tls, tc.Targets),
-	}
+		Spec: spec,
+	}, nil
 }
 
-func makeClusterIngressSpec(r *servingv1alpha1.Route, tls []v1alpha1.ClusterIngressTLS, targets map[string]traffic.RevisionTargets) v1alpha1.IngressSpec {
+func makeClusterIngressSpec(ctx context.Context, r *servingv1alpha1.Route, tls []v1alpha1.ClusterIngressTLS, targets map[string]traffic.RevisionTargets) (v1alpha1.IngressSpec, error) {
 	// Domain should have been specified in route status
 	// before calling this func.
 	names := make([]string, 0, len(targets))
@@ -80,8 +86,12 @@ func makeClusterIngressSpec(r *servingv1alpha1.Route, tls []v1alpha1.ClusterIngr
 	// The routes are matching rule based on domain name to traffic split targets.
 	rules := make([]v1alpha1.ClusterIngressRule, 0, len(names))
 	for _, name := range names {
+		domains, err := routeDomains(ctx, name, r)
+		if err != nil {
+			return v1alpha1.IngressSpec{}, err
+		}
 		rules = append(rules, *makeClusterIngressRule(
-			routeDomains(name, r), r.Namespace, targets[name]))
+			domains, r.Namespace, targets[name]))
 	}
 
 	visibility := v1alpha1.IngressVisibilityExternalIP
@@ -93,25 +103,36 @@ func makeClusterIngressSpec(r *servingv1alpha1.Route, tls []v1alpha1.ClusterIngr
 		Rules:      rules,
 		Visibility: visibility,
 		TLS:        tls,
-	}
+	}, nil
 }
 
-func routeDomains(targetName string, r *servingv1alpha1.Route) []string {
-	if r.Status.URL == nil {
-		return nil
+func routeDomains(ctx context.Context, targetName string, r *servingv1alpha1.Route) ([]string, error) {
+	fullName, err := domains.DomainNameFromTemplate(ctx, r, domains.SubdomainName(r, targetName))
+	if err != nil {
+		return nil, err
 	}
-	domains := []string{traffic.TagDomain(targetName, r.Status.URL.Host)}
+
+	ruleDomains := []string{fullName}
+
+	// TODO(andrew-su): We are adding this for backwards compatibility. This should be removed when
+	// we feel the users had sufficient time to move away from the deprecated name.
+	if r.Status.URL != nil {
+		deprecatedFullName := traffic.TagDomain(targetName, r.Status.URL.Host)
+		if fullName != deprecatedFullName {
+			ruleDomains = append(ruleDomains, deprecatedFullName)
+		}
+	}
+
 	if targetName == traffic.DefaultTarget {
 		// The default target is also referred to by its internal K8s
 		// generated domain name.
 		internalHost := names.K8sServiceFullname(r)
-		if internalHost != "" && domains[0] != internalHost {
-			domains = append(domains, internalHost)
+		if internalHost != "" && ruleDomains[0] != internalHost {
+			ruleDomains = append(ruleDomains, internalHost)
 		}
 	}
 
-	return domains
-
+	return ruleDomains, nil
 }
 
 func makeClusterIngressRule(domains []string, ns string, targets traffic.RevisionTargets) *v1alpha1.ClusterIngressRule {

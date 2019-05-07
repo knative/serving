@@ -24,6 +24,15 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
+	"golang.org/x/sync/errgroup"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/intstr"
+	kubeinformers "k8s.io/client-go/informers"
+	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
+
 	"github.com/knative/pkg/apis"
 	duckv1beta1 "github.com/knative/pkg/apis/duck/v1beta1"
 	"github.com/knative/pkg/configmap"
@@ -40,14 +49,6 @@ import (
 	"github.com/knative/serving/pkg/network"
 	rclr "github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/route/config"
-	"golang.org/x/sync/errgroup"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/util/intstr"
-	kubeinformers "k8s.io/client-go/informers"
-	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
 
 	. "github.com/knative/pkg/reconciler/testing"
 )
@@ -273,7 +274,7 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 	h := NewHooks()
 	// Look for the events. Events are delivered asynchronously so we need to use
 	// hooks here. Each hook tests for a specific event.
-	h.OnCreate(&kubeClient.Fake, "events", ExpectNormalEventDelivery(t, `Created service "test-route"`))
+	h.OnCreate(&kubeClient.Fake, "events", ExpectNormalEventDelivery(t, `Created placeholder service "test-route"`))
 	h.OnCreate(&kubeClient.Fake, "events", ExpectNormalEventDelivery(t, "^Created ClusterIngress.*" /*ingress name is unset in test*/))
 
 	// An inactive revision
@@ -622,7 +623,10 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 				}},
 			},
 		}, {
-			Hosts: []string{"test-revision-1." + domain},
+			Hosts: []string{
+				"test-route-test-revision-1.test.test-domain.dev",
+				"test-revision-1." + domain,
+			},
 			HTTP: &netv1alpha1.HTTPClusterIngressRuleValue{
 				Paths: []netv1alpha1.HTTPClusterIngressPath{{
 					Splits: []netv1alpha1.ClusterIngressBackendSplit{{
@@ -640,7 +644,10 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 				}},
 			},
 		}, {
-			Hosts: []string{"test-revision-2." + domain},
+			Hosts: []string{
+				"test-route-test-revision-2.test.test-domain.dev",
+				"test-revision-2." + domain,
+			},
 			HTTP: &netv1alpha1.HTTPClusterIngressRuleValue{
 				Paths: []netv1alpha1.HTTPClusterIngressPath{{
 					Splits: []netv1alpha1.ClusterIngressBackendSplit{{
@@ -743,7 +750,10 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 				}},
 			},
 		}, {
-			Hosts: []string{"bar." + domain},
+			Hosts: []string{
+				"test-route-bar.test.test-domain.dev",
+				"bar." + domain,
+			},
 			HTTP: &netv1alpha1.HTTPClusterIngressRuleValue{
 				Paths: []netv1alpha1.HTTPClusterIngressPath{{
 					Splits: []netv1alpha1.ClusterIngressBackendSplit{{
@@ -761,7 +771,9 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 				}},
 			},
 		}, {
-			Hosts: []string{"foo." + domain},
+			Hosts: []string{
+				"test-route-foo.test.test-domain.dev",
+				"foo." + domain},
 			HTTP: &netv1alpha1.HTTPClusterIngressRuleValue{
 				Paths: []netv1alpha1.HTTPClusterIngressPath{{
 					Splits: []netv1alpha1.ClusterIngressBackendSplit{{

@@ -17,16 +17,15 @@ limitations under the License.
 package route
 
 import (
+	"context"
 	"testing"
 	"time"
-
-	"github.com/knative/pkg/kmeta"
 
 	"github.com/google/go-cmp/cmp"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/knative/pkg/apis"
-	. "github.com/knative/pkg/logging/testing"
+	"github.com/knative/pkg/kmeta"
 	"github.com/knative/pkg/system"
 	netv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
@@ -35,6 +34,8 @@ import (
 	"github.com/knative/serving/pkg/reconciler/route/config"
 	"github.com/knative/serving/pkg/reconciler/route/resources"
 	"github.com/knative/serving/pkg/reconciler/route/traffic"
+
+	. "github.com/knative/pkg/logging/testing"
 )
 
 func TestReconcileClusterIngress_Insert(t *testing.T) {
@@ -45,7 +46,7 @@ func TestReconcileClusterIngress_Insert(t *testing.T) {
 			Namespace: "test-ns",
 		},
 	}
-	ci := newTestClusterIngress(r)
+	ci := newTestClusterIngress(t, r)
 	if _, err := c.reconcileClusterIngress(TestContextWithLogger(t), r, ci); err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
@@ -64,7 +65,7 @@ func TestReconcileClusterIngress_Update(t *testing.T) {
 		},
 	}
 
-	ci := newTestClusterIngress(r)
+	ci := newTestClusterIngress(t, r)
 	if _, err := c.reconcileClusterIngress(TestContextWithLogger(t), r, ci); err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
@@ -76,7 +77,7 @@ func TestReconcileClusterIngress_Update(t *testing.T) {
 		Scheme: "http",
 		Host:   "bar.com",
 	}
-	ci2 := newTestClusterIngress(r)
+	ci2 := newTestClusterIngress(t, r)
 	if _, err := c.reconcileClusterIngress(TestContextWithLogger(t), r, ci2); err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
@@ -146,7 +147,7 @@ func TestReconcileTargetRevisions(t *testing.T) {
 	}
 }
 
-func newTestClusterIngress(r *v1alpha1.Route) *netv1alpha1.ClusterIngress {
+func newTestClusterIngress(t *testing.T, r *v1alpha1.Route) *netv1alpha1.ClusterIngress {
 	tc := &traffic.Config{Targets: map[string]traffic.RevisionTargets{
 		traffic.DefaultTarget: {{
 			TrafficTarget: v1beta1.TrafficTarget{
@@ -164,7 +165,11 @@ func newTestClusterIngress(r *v1alpha1.Route) *netv1alpha1.ClusterIngress {
 			ServerCertificate: "tls.crt",
 		},
 	}
-	return resources.MakeClusterIngress(r, tc, tls, "foo-ingress")
+	ingress, err := resources.MakeClusterIngress(getContext(), r, tc, tls, "foo-ingress")
+	if err != nil {
+		t.Errorf("Unexpected error %v", err)
+	}
+	return ingress
 }
 
 func TestReconcileCertificates_Insert(t *testing.T) {
@@ -227,4 +232,10 @@ func newCerts(dnsNames []string, r *v1alpha1.Route) *netv1alpha1.Certificate {
 			SecretName: "test-secret",
 		},
 	}
+}
+
+func getContext() context.Context {
+	ctx := context.Background()
+	cfg := ReconcilerTestConfig(false)
+	return config.ToContext(ctx, cfg)
 }

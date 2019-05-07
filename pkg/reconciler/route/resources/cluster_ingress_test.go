@@ -17,6 +17,8 @@ limitations under the License.
 package resources
 
 import (
+	"context"
+	"github.com/knative/serving/pkg/reconciler/route/config"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -63,9 +65,13 @@ func TestMakeClusterIngress_CorrectMetadata(t *testing.T) {
 			networking.IngressClassAnnotationKey: ingressClass,
 		},
 	}
-	meta := MakeClusterIngress(r, &traffic.Config{Targets: targets}, nil, ingressClass).ObjectMeta
-	if diff := cmp.Diff(expected, meta); diff != "" {
-		t.Errorf("Unexpected metadata (-want, +got): %v", diff)
+	ci, err := MakeClusterIngress(getContext(), r, &traffic.Config{Targets: targets}, nil, ingressClass)
+	if err != nil {
+		t.Errorf("Unexpected error %v", err)
+	}
+
+	if !cmp.Equal(expected, ci.ObjectMeta) {
+		t.Errorf("Unexpected metadata (-want, +got): %s", cmp.Diff(expected, ci.ObjectMeta))
 	}
 }
 
@@ -108,6 +114,7 @@ func TestMakeClusterIngressSpec_CorrectRules(t *testing.T) {
 
 	expected := []netv1alpha1.ClusterIngressRule{{
 		Hosts: []string{
+			"test-route.test-ns.example.com",
 			"domain.com",
 			"test-route.test-ns.svc.cluster.local",
 		},
@@ -128,7 +135,10 @@ func TestMakeClusterIngressSpec_CorrectRules(t *testing.T) {
 			}},
 		},
 	}, {
-		Hosts: []string{"v1.domain.com"},
+		Hosts: []string{
+			"test-route-v1.test-ns.example.com",
+			"v1.domain.com",
+		},
 		HTTP: &netv1alpha1.HTTPClusterIngressRuleValue{
 			Paths: []netv1alpha1.HTTPClusterIngressPath{{
 				Splits: []netv1alpha1.ClusterIngressBackendSplit{{
@@ -147,9 +157,13 @@ func TestMakeClusterIngressSpec_CorrectRules(t *testing.T) {
 		},
 	}}
 
-	rules := makeClusterIngressSpec(r, nil, targets).Rules
-	if diff := cmp.Diff(expected, rules); diff != "" {
-		t.Errorf("Unexpected rules (-want, +got): %v", diff)
+	ci, err := makeClusterIngressSpec(getContext(), r, nil, targets)
+	if err != nil {
+		t.Errorf("Unexpected error %v", err)
+	}
+
+	if !cmp.Equal(expected, ci.Rules) {
+		t.Errorf("Unexpected rules (-want, +got): %s", cmp.Diff(expected, ci.Rules))
 	}
 }
 
@@ -187,9 +201,13 @@ func TestMakeClusterIngressSpec_CorrectVisibility(t *testing.T) {
 	}}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			v := makeClusterIngressSpec(&c.route, nil, nil).Visibility
-			if diff := cmp.Diff(c.expectedVisbility, v); diff != "" {
-				t.Errorf("Unexpected visibility (-want, +got): %s", diff)
+			ci, err := makeClusterIngressSpec(getContext(), &c.route, nil, nil)
+			if err != nil {
+				t.Errorf("Unexpected error %v", err)
+			}
+
+			if !cmp.Equal(c.expectedVisbility, ci.Visibility) {
+				t.Errorf("Unexpected visibility (-want, +got): %s", cmp.Diff(c.expectedVisbility, ci.Visibility))
 			}
 		})
 	}
@@ -212,12 +230,17 @@ func TestGetRouteDomains_NamelessTargetDup(t *testing.T) {
 		},
 	}
 	expected := []string{
+		"test-route.test-ns.example.com",
 		base,
 		"test-route.test-ns.svc.cluster.local",
 	}
-	domains := routeDomains("", r)
-	if diff := cmp.Diff(expected, domains); diff != "" {
-		t.Errorf("Unexpected domains  (-want, +got): %s", diff)
+	domains, err := routeDomains(getContext(), "", r)
+	if err != nil {
+		t.Errorf("Unexpected error %v", err)
+	}
+
+	if !cmp.Equal(expected, domains) {
+		t.Errorf("Unexpected domains (-want, +got): %s", cmp.Diff(expected, domains))
 	}
 }
 func TestGetRouteDomains_NamelessTarget(t *testing.T) {
@@ -237,12 +260,17 @@ func TestGetRouteDomains_NamelessTarget(t *testing.T) {
 		},
 	}
 	expected := []string{
+		"test-route.test-ns.example.com",
 		base,
 		"test-route.test-ns.svc.cluster.local",
 	}
-	domains := routeDomains("", r)
-	if diff := cmp.Diff(expected, domains); diff != "" {
-		t.Errorf("Unexpected domains  (-want, +got): %s", diff)
+	domains, err := routeDomains(getContext(), "", r)
+	if err != nil {
+		t.Errorf("Unexpected error %v", err)
+	}
+
+	if !cmp.Equal(expected, domains) {
+		t.Errorf("Unexpected domains (-want, +got): %s", cmp.Diff(expected, domains))
 	}
 }
 
@@ -265,10 +293,17 @@ func TestGetRouteDomains_NamedTarget(t *testing.T) {
 			},
 		},
 	}
-	expected := []string{"v1.domain.com"}
-	domains := routeDomains(name, r)
-	if diff := cmp.Diff(expected, domains); diff != "" {
-		t.Errorf("Unexpected domains  (-want, +got): %s", diff)
+	expected := []string{
+		"test-route-v1.test-ns.example.com",
+		"v1.domain.com",
+	}
+	domains, err := routeDomains(getContext(), name, r)
+	if err != nil {
+		t.Errorf("Unexpected error %v", err)
+	}
+
+	if !cmp.Equal(expected, domains) {
+		t.Errorf("Unexpected domains (-want, +got): %s", cmp.Diff(expected, domains))
 	}
 }
 
@@ -308,8 +343,8 @@ func TestMakeClusterIngressRule_Vanilla(t *testing.T) {
 		},
 	}
 
-	if diff := cmp.Diff(&expected, rule); diff != "" {
-		t.Errorf("Unexpected rule (-want, +got): %v", diff)
+	if !cmp.Equal(&expected, rule) {
+		t.Errorf("Unexpected rule (-want, +got): %s", cmp.Diff(&expected, rule))
 	}
 }
 
@@ -354,8 +389,8 @@ func TestMakeClusterIngressRule_ZeroPercentTarget(t *testing.T) {
 		},
 	}
 
-	if diff := cmp.Diff(&expected, rule); diff != "" {
-		t.Errorf("Unexpected rule (-want, +got): %v", diff)
+	if !cmp.Equal(&expected, rule) {
+		t.Errorf("Unexpected rule (-want, +got): %s", cmp.Diff(&expected, rule))
 	}
 }
 
@@ -407,8 +442,8 @@ func TestMakeClusterIngressRule_TwoTargets(t *testing.T) {
 		},
 	}
 
-	if diff := cmp.Diff(&expected, rule); diff != "" {
-		t.Errorf("Unexpected rule (-want, +got): %v", diff)
+	if !cmp.Equal(&expected, rule) {
+		t.Errorf("Unexpected rule (-want, +got): %s", cmp.Diff(&expected, rule))
 	}
 }
 
@@ -447,8 +482,8 @@ func TestMakeClusterIngressRule_InactiveTarget(t *testing.T) {
 			}},
 		},
 	}
-	if diff := cmp.Diff(&expected, rule); diff != "" {
-		t.Errorf("Unexpected rule (-want, +got): %v", diff)
+	if !cmp.Equal(&expected, rule) {
+		t.Errorf("Unexpected rule (-want, +got): %s", cmp.Diff(&expected, rule))
 	}
 }
 
@@ -502,8 +537,8 @@ func TestMakeClusterIngressRule_TwoInactiveTargets(t *testing.T) {
 			}},
 		},
 	}
-	if diff := cmp.Diff(&expected, rule); diff != "" {
-		t.Errorf("Unexpected rule (-want, +got): %v", diff)
+	if !cmp.Equal(&expected, rule) {
+		t.Errorf("Unexpected rule (-want, +got): %s", cmp.Diff(&expected, rule))
 	}
 }
 
@@ -547,8 +582,8 @@ func TestMakeClusterIngressRule_ZeroPercentTargetInactive(t *testing.T) {
 		},
 	}
 
-	if diff := cmp.Diff(&expected, rule); diff != "" {
-		t.Errorf("Unexpected rule (-want, +got): %v", diff)
+	if !cmp.Equal(&expected, rule) {
+		t.Errorf("Unexpected rule (-want, +got): %s", cmp.Diff(&expected, rule))
 	}
 }
 
@@ -594,7 +629,11 @@ func TestMakeClusterIngress_WithTLS(t *testing.T) {
 			Visibility: netv1alpha1.IngressVisibilityExternalIP,
 		},
 	}
-	got := MakeClusterIngress(r, &traffic.Config{Targets: targets}, tls, ingressClass)
+	got, err := MakeClusterIngress(getContext(), r, &traffic.Config{Targets: targets}, tls, ingressClass)
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+
 	if diff := cmp.Diff(expected, got); diff != "" {
 		t.Errorf("Unexpected metadata (-want, +got): %v", diff)
 	}
@@ -621,4 +660,10 @@ func TestMakeClusterIngressTLS(t *testing.T) {
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("Unexpected ClusterIngressTLS (-want, +got): %v", diff)
 	}
+}
+
+func getContext() context.Context {
+	ctx := context.Background()
+	cfg := testConfig()
+	return config.ToContext(ctx, cfg)
 }

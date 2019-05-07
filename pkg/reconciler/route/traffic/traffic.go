@@ -17,25 +17,23 @@ limitations under the License.
 package traffic
 
 import (
+	"context"
 	"fmt"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
 
-	"github.com/knative/pkg/apis"
 	net "github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 	listers "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
+	"github.com/knative/serving/pkg/reconciler/route/domains"
 )
 
 const (
 	// DefaultTarget is the unnamed default target for the traffic.
 	DefaultTarget = ""
-
-	// HTTPScheme is the string representation of http.
-	HTTPScheme string = "http"
 )
 
 // A RevisionTarget adds the Active/Inactive state and the transport protocol of a
@@ -97,17 +95,8 @@ func TagDomain(name, domain string) string {
 	return fmt.Sprintf("%s.%s", name, domain)
 }
 
-// TagURL returns the URL of the tag given the scheme, traffic target name, and base domain. Curently
-// the tag is represented as a subdomain of the base domain.
-func TagURL(scheme, name, domain string) *apis.URL {
-	return &apis.URL{
-		Scheme: scheme,
-		Host:   TagDomain(name, domain),
-	}
-}
-
 // GetRevisionTrafficTargets returns a list of TrafficTarget flattened to the RevisionName, and having ConfigurationName cleared out.
-func (t *Config) GetRevisionTrafficTargets(domain string) []v1alpha1.TrafficTarget {
+func (t *Config) GetRevisionTrafficTargets(ctx context.Context, r *v1alpha1.Route) ([]v1alpha1.TrafficTarget, error) {
 	results := make([]v1alpha1.TrafficTarget, len(t.revisionTargets))
 	for i, tt := range t.revisionTargets {
 		// We cannot `DeepCopy` here, since tt.TrafficTarget might contain both
@@ -121,12 +110,16 @@ func (t *Config) GetRevisionTrafficTargets(domain string) []v1alpha1.TrafficTarg
 				LatestRevision: tt.LatestRevision,
 			},
 		}
-		if tt.Tag != "" && domain != "" {
+		if tt.Tag != "" {
 			// http is currently the only supported scheme
-			results[i].URL = TagURL(HTTPScheme, tt.Tag, domain)
+			fullDomain, err := domains.DomainNameFromTemplate(ctx, r, domains.SubdomainName(r, tt.Tag))
+			if err != nil {
+				return nil, err
+			}
+			results[i].URL = domains.URL(domains.HTTPScheme, fullDomain)
 		}
 	}
-	return results
+	return results, nil
 }
 
 type configBuilder struct {

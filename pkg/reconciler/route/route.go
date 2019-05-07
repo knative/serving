@@ -54,7 +54,6 @@ import (
 	"github.com/knative/serving/pkg/reconciler/route/config"
 	"github.com/knative/serving/pkg/reconciler/route/resources"
 	resourcenames "github.com/knative/serving/pkg/reconciler/route/resources/names"
-	"github.com/knative/serving/pkg/reconciler/route/traffic"
 	tr "github.com/knative/serving/pkg/reconciler/route/traffic"
 )
 
@@ -312,6 +311,17 @@ func (c *Reconciler) reconcile(ctx context.Context, r *v1alpha1.Route) error {
 		Hostname: resourcenames.K8sServiceFullname(r),
 	}
 
+	// Add the finalizer before creating the ClusterIngress so that we can be sure it gets cleaned up.
+	if err := c.ensureFinalizer(r); err != nil {
+		return err
+	}
+
+	logger.Info("Creating placeholder k8s services")
+	services, err := c.reconcilePlaceholderServices(ctx, r, traffic.Targets)
+	if err != nil {
+		return err
+	}
+
 	tls := []netv1alpha1.ClusterIngressTLS{}
 	if config.FromContext(ctx).Network.AutoTLS {
 		domains := tr.GetDomains(r.Status.URL.Host, traffic.Targets)
@@ -340,21 +350,19 @@ func (c *Reconciler) reconcile(ctx context.Context, r *v1alpha1.Route) error {
 		tls = append(tls, resources.MakeClusterIngressTLS(cert, domains))
 	}
 
-	// Add the finalizer before creating the ClusterIngress so that we can be sure it gets cleaned up.
-	if err := c.ensureFinalizer(r); err != nil {
+	logger.Info("Creating ClusterIngress.")
+	desired, err := resources.MakeClusterIngress(ctx, r, traffic, tls, ingressClassForRoute(ctx, r))
+	if err != nil {
 		return err
 	}
-
-	logger.Info("Creating ClusterIngress.")
-	desired := resources.MakeClusterIngress(r, traffic, tls, ingressClassForRoute(ctx, r))
 	clusterIngress, err := c.reconcileClusterIngress(ctx, r, desired)
 	if err != nil {
 		return err
 	}
 	r.Status.PropagateClusterIngressStatus(clusterIngress.Status)
 
-	logger.Info("Creating/Updating placeholder k8s services")
-	if err := c.reconcilePlaceholderService(ctx, r, clusterIngress); err != nil {
+	logger.Info("Updating placeholder k8s services with clusterIngress information")
+	if err := c.updatePlaceholderServices(ctx, r, services, clusterIngress); err != nil {
 		return err
 	}
 
@@ -393,7 +401,7 @@ func (c *Reconciler) reconcileDeletion(ctx context.Context, r *v1alpha1.Route) e
 // mark AllTrafficAssigned = False, with a message referring to one of the missing target.
 func (c *Reconciler) configureTraffic(ctx context.Context, r *v1alpha1.Route) (*tr.Config, error) {
 	logger := logging.FromContext(ctx)
-	t, err := traffic.BuildTrafficConfiguration(c.configurationLister, c.revisionLister, r)
+	t, err := tr.BuildTrafficConfiguration(c.configurationLister, c.revisionLister, r)
 
 	if t != nil {
 		// Tell our trackers to reconcile Route whenever the things referred to by our
@@ -413,7 +421,7 @@ func (c *Reconciler) configureTraffic(ctx context.Context, r *v1alpha1.Route) (*
 		}
 	}
 
-	badTarget, isTargetError := err.(traffic.TargetError)
+	badTarget, isTargetError := err.(tr.TargetError)
 	if err != nil && !isTargetError {
 		// An error that's not due to missing traffic target should
 		// make us fail fast.
@@ -429,7 +437,11 @@ func (c *Reconciler) configureTraffic(ctx context.Context, r *v1alpha1.Route) (*
 
 	logger.Info("All referred targets are routable, marking AllTrafficAssigned with traffic information.")
 	// Domain should already be present
-	r.Status.Traffic = t.GetRevisionTrafficTargets(r.Status.URL.Host)
+	r.Status.Traffic, err = t.GetRevisionTrafficTargets(ctx, r)
+	if err != nil {
+		return nil, err
+	}
+
 	r.Status.MarkTrafficAssigned()
 
 	return t, nil
