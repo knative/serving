@@ -189,7 +189,8 @@ func getRevisionLister(addLabels bool) servinglisters.RevisionLister {
 
 	fake := fake.NewSimpleClientset(rev)
 	informer := servinginformers.NewSharedInformerFactory(fake, 0)
-	informer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
+	revisions := informer.Serving().V1alpha1().Revisions()
+	revisions.Informer().GetIndexer().Add(rev)
 
-	return informer.Serving().V1alpha1().Revisions().Lister()
+	return revisions.Lister()
 }
