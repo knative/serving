@@ -30,8 +30,9 @@ import (
 	"github.com/knative/test-infra/tools/webhook-apicoverage/view"
 	"github.com/knative/test-infra/tools/webhook-apicoverage/webhook"
 
-	"k8s.io/apimachinery/pkg/apis/meta/v1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+
 	// Mysteriously required to support GCP auth (required by k8s libs).
 	// Apparently just importing it is enough. @_@ side effects @_@.
 	// https://github.com/kubernetes/client-go/issues/242
@@ -102,8 +103,8 @@ func GetWebhookServiceIP(kubeConfigPath string, clusterName string, namespace st
 // GetResourceCoverage is a helper method to get Coverage data for a resource from the service webhook.
 func GetResourceCoverage(webhookIP string, resourceName string) (string, error) {
 	client := &http.Client{Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-		},
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+	},
 	}
 	resp, err := client.Get(fmt.Sprintf(WebhookResourceCoverageEndPoint, webhookIP, resourceName))
 	if err != nil {
@@ -120,10 +121,10 @@ func GetResourceCoverage(webhookIP string, resourceName string) (string, error) 
 	return string(body), nil
 }
 
- // GetAndWriteResourceCoverage is a helper method that uses GetResourceCoverage to get coverage and write it to a file.
-func GetAndWriteResourceCoverage(webhookIP string, resourceName string, outputFile string, displayRules view.DisplayRules) (error) {
+// GetAndWriteResourceCoverage is a helper method that uses GetResourceCoverage to get coverage and write it to a file.
+func GetAndWriteResourceCoverage(webhookIP string, resourceName string, outputFile string, displayRules view.DisplayRules) error {
 	var (
-		err error
+		err              error
 		resourceCoverage string
 	)
 
@@ -131,7 +132,7 @@ func GetAndWriteResourceCoverage(webhookIP string, resourceName string, outputFi
 		return err
 	}
 
-	if err = ioutil.WriteFile(outputFile, []byte(resourceCoverage), 0400); err !=nil {
+	if err = ioutil.WriteFile(outputFile, []byte(resourceCoverage), 0400); err != nil {
 		return fmt.Errorf("error writing resource coverage to output file: %s, error: %v coverage: %s", outputFile, err, resourceCoverage)
 	}
 
@@ -141,8 +142,8 @@ func GetAndWriteResourceCoverage(webhookIP string, resourceName string, outputFi
 // GetTotalCoverage calls the total coverage API to retrieve total coverage values.
 func GetTotalCoverage(webhookIP string) (*coveragecalculator.CoverageValues, error) {
 	client := &http.Client{Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-		},
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+	},
 	}
 
 	resp, err := client.Get(fmt.Sprintf(WebhookTotalCoverageEndPoint, webhookIP))
@@ -169,7 +170,7 @@ func GetTotalCoverage(webhookIP string) (*coveragecalculator.CoverageValues, err
 func GetAndWriteTotalCoverage(webhookIP string, outputFile string) error {
 	var (
 		totalCoverage *coveragecalculator.CoverageValues
-		err error
+		err           error
 	)
 
 	if totalCoverage, err = GetTotalCoverage(webhookIP); err != nil {
@@ -181,7 +182,7 @@ func GetAndWriteTotalCoverage(webhookIP string, outputFile string) error {
 	totalCoverageDisplay := view.GetHTMLCoverageValuesDisplay(totalCoverage)
 	buffer.WriteString(totalCoverageDisplay)
 	buffer.WriteString(view.HTMLFooter)
-	if err = ioutil.WriteFile(outputFile, []byte(buffer.String()), 0400); err !=nil {
+	if err = ioutil.WriteFile(outputFile, []byte(buffer.String()), 0400); err != nil {
 		return fmt.Errorf("error writing total coverage to output file: %s, error: %v coverage: %s", outputFile, err, totalCoverageDisplay)
 	}
 

@@ -20,16 +20,16 @@ package gcs
 
 import (
 	"context"
+	"io"
 	"io/ioutil"
 	"log"
-	"path"
 	"os"
-	"io"
+	"path"
 	"strings"
 
 	"cloud.google.com/go/storage"
-	"google.golang.org/api/option"
 	"google.golang.org/api/iterator"
+	"google.golang.org/api/option"
 )
 
 var client *storage.Client
@@ -51,13 +51,13 @@ func Exists(ctx context.Context, bucketName, storagePath string) bool {
 	}
 	// Check if this is a directory,
 	// gcs directory paths are virtual paths, they automatically got deleted if there is no child file
-	_, err := getObjectsIter(ctx, bucketName, strings.TrimRight(storagePath, " /") + "/", "").Next()
+	_, err := getObjectsIter(ctx, bucketName, strings.TrimRight(storagePath, " /")+"/", "").Next()
 	return nil == err
 }
 
 // ListChildrenFiles recursively lists all children files.
 func ListChildrenFiles(ctx context.Context, bucketName, storagePath string) []string {
-	return list(ctx, bucketName, strings.TrimRight(storagePath, " /") + "/", "")
+	return list(ctx, bucketName, strings.TrimRight(storagePath, " /")+"/", "")
 }
 
 // ListDirectChildren lists direct children paths (including files and directories).
@@ -65,7 +65,7 @@ func ListDirectChildren(ctx context.Context, bucketName, storagePath string) []s
 	// If there are 2 directories named "foo" and "foobar",
 	// then given storagePath "foo" will get files both under "foo" and "foobar".
 	// Add trailling slash to storagePath, so that only gets children under given directory.
-	return list(ctx, bucketName, strings.TrimRight(storagePath, " /") + "/", "/")
+	return list(ctx, bucketName, strings.TrimRight(storagePath, " /")+"/", "/")
 }
 
 // Copy file from within gcs
@@ -179,7 +179,7 @@ func list(ctx context.Context, bucketName, storagePath, exclusionFilter string) 
 // get objects iterator under given storagePath and bucketName, use exclusionFilter to eliminate some files.
 func getObjectsIter(ctx context.Context, bucketName, storagePath, exclusionFilter string) *storage.ObjectIterator {
 	return client.Bucket(bucketName).Objects(ctx, &storage.Query{
-		Prefix:	storagePath,
+		Prefix:    storagePath,
 		Delimiter: exclusionFilter,
 	})
 }

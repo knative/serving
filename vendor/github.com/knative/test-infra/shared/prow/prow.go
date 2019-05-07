@@ -20,44 +20,44 @@ limitations under the License.
 package prow
 
 import (
-	"os"
 	"bufio"
 	"context"
 	"encoding/json"
 	"log"
-	"strconv"
-	"strings"
+	"os"
 	"path"
 	"sort"
+	"strconv"
+	"strings"
 
 	"github.com/knative/test-infra/shared/gcs"
 )
 
 const (
 	// OrgName is the name of knative org
-	OrgName	= "knative"
+	OrgName = "knative"
 
 	// BucketName is the gcs bucket for all knative builds
-	BucketName    = "knative-prow"
+	BucketName = "knative-prow"
 	// Latest is the filename storing latest build number
-	Latest        = "latest-build.txt"
+	Latest = "latest-build.txt"
 	// BuildLog is the filename for build log
-	BuildLog      = "build-log.txt"
+	BuildLog = "build-log.txt"
 	// StartedJSON is the json file containing build started info
-	StartedJSON   = "started.json"
+	StartedJSON = "started.json"
 	// FinishedJSON is the json file containing build finished info
-	FinishedJSON  = "finished.json"
+	FinishedJSON = "finished.json"
 	// ArtifactsDir is the dir containing artifacts
-	ArtifactsDir  = "artifacts"
+	ArtifactsDir = "artifacts"
 
 	// PresubmitJob means it runs on unmerged PRs.
-	PresubmitJob  = "presubmit"
+	PresubmitJob = "presubmit"
 	// PostsubmitJob means it runs on each new commit.
 	PostsubmitJob = "postsubmit"
 	// PeriodicJob means it runs on a time-basis, unrelated to git changes.
-	PeriodicJob   = "periodic"
+	PeriodicJob = "periodic"
 	// BatchJob tests multiple unmerged PRs at the same time.
-	BatchJob      = "batch"
+	BatchJob = "batch"
 )
 
 // defined here so that it can be mocked for unit testing
@@ -70,18 +70,18 @@ var ctx = context.Background()
 type Job struct {
 	Name        string
 	Type        string
-	Bucket      string // optional
-	Repo        string // optional
-	StoragePath string // optional
-	PullID      int // only for Presubmit jobs
+	Bucket      string  // optional
+	Repo        string  // optional
+	StoragePath string  // optional
+	PullID      int     // only for Presubmit jobs
 	Builds      []Build // optional
 }
 
 // Build points to a build stored under a particular gcs path.
 type Build struct {
-	JobName	    string
+	JobName     string
 	StoragePath string
-	BuildID	    int
+	BuildID     int
 	Bucket      string // optional
 	StartTime   *int64
 	FinishTime  *int64
@@ -99,10 +99,10 @@ type Started struct {
 // Finished holds the finished.json values of the build
 type Finished struct {
 	// Timestamp is epoch seconds
-	Timestamp   int64            `json:"timestamp"`
-	Passed      bool             `json:"passed"`
-	JobVersion  string           `json:"job-version"`
-	Metadata    Metadata         `json:"metadata"`
+	Timestamp  int64    `json:"timestamp"`
+	Passed     bool     `json:"passed"`
+	JobVersion string   `json:"job-version"`
+	Metadata   Metadata `json:"metadata"`
 }
 
 // Metadata contains metadata in finished.json
@@ -132,21 +132,21 @@ func Initialize(serviceAccount string) error {
 // pullID is only saved by Presubmit job for determining StoragePath
 func NewJob(jobName, jobType, repoName string, pullID int) *Job {
 	job := Job{
-		Name: jobName,
-		Type: jobType,
+		Name:   jobName,
+		Type:   jobType,
 		Bucket: BucketName,
 	}
 
 	switch jobType {
-		case PeriodicJob, PostsubmitJob:
-			job.StoragePath = path.Join("logs", jobName)
-		case PresubmitJob:
-			job.PullID = pullID
-			job.StoragePath = path.Join("pr-logs", "pull", OrgName + "_" + repoName, strconv.Itoa(pullID), jobName)
-		case BatchJob:
-			job.StoragePath = path.Join("pr-logs", "pull", "batch", jobName)
-		default:
-			logFatalf("unknown job spec type: %v", jobType)
+	case PeriodicJob, PostsubmitJob:
+		job.StoragePath = path.Join("logs", jobName)
+	case PresubmitJob:
+		job.PullID = pullID
+		job.StoragePath = path.Join("pr-logs", "pull", OrgName+"_"+repoName, strconv.Itoa(pullID), jobName)
+	case BatchJob:
+		job.StoragePath = path.Join("pr-logs", "pull", "batch", jobName)
+	default:
+		logFatalf("unknown job spec type: %v", jobType)
 	}
 	return &job
 }
@@ -174,10 +174,10 @@ func (j *Job) GetLatestBuildNumber() (int, error) {
 // No gcs operation is performed by this function
 func (j *Job) NewBuild(buildID int) *Build {
 	build := Build{
-		Bucket: BucketName,
-		JobName: j.Name,
+		Bucket:      BucketName,
+		JobName:     j.Name,
 		StoragePath: path.Join(j.StoragePath, strconv.Itoa(buildID)),
-		BuildID: buildID,
+		BuildID:     buildID,
 	}
 
 	if startTime, err := build.GetStartTime(); nil == err {
@@ -229,7 +229,7 @@ func (j *Job) GetBuildIDs() []int {
 // GetLatestBuilds get latest builds from gcs, sort by start time from newest to oldest,
 // will return count number of builds
 func (j *Job) GetLatestBuilds(count int) []Build {
-	// The timestamp of gcs directories are not usable, 
+	// The timestamp of gcs directories are not usable,
 	// as they are all set to '0001-01-01 00:00:00 +0000 UTC',
 	// so use 'started.json' creation date for latest builds
 	builds := j.GetFinishedBuilds()
@@ -284,7 +284,7 @@ func (b *Build) GetArtifacts() []string {
 }
 
 // GetArtifactsDir gets gcs path for artifacts of current build
-func(b *Build) GetArtifactsDir() string {
+func (b *Build) GetArtifactsDir() string {
 	return path.Join(b.StoragePath, ArtifactsDir)
 }
 
@@ -326,7 +326,7 @@ func getBuildIDFromBuildPath(buildPath string) (int, error) {
 
 // unmarshalJSONFile reads a file from gcs, parses it with xml and write to v.
 // v must be an arbitrary struct, slice, or string.
-func unmarshalJSONFile(storagePath string, v interface{} ) error {
+func unmarshalJSONFile(storagePath string, v interface{}) error {
 	contents, err := gcs.Read(ctx, BucketName, storagePath)
 	if nil != err {
 		return err

@@ -38,21 +38,6 @@
   revision = "c06c82c832edca4eaf7b0241bd655560a1be0346"
 
 [[projects]]
-  digest = "1:94eff9ba92a0bf4938a2ec911c44b58b5c366a94f5f72b2b3c454629781c506f"
-  name = "fortio.org/fortio"
-  packages = [
-    "fhttp",
-    "fnet",
-    "log",
-    "periodic",
-    "stats",
-    "version",
-  ]
-  pruneopts = "NUT"
-  revision = "bf3f2d9ff07ed03ef16be56af20d58dc0300e60f"
-  version = "v1.3.0"
-
-[[projects]]
   digest = "1:042dd95511f495f6e7c0ad6a9398b8c5c77bf940efa6e568cbac9f818401f36a"
   name = "github.com/Azure/azure-sdk-for-go"
   packages = ["arm/containerregistry"]
@@ -495,7 +480,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:4728c42d780b63d894e11879cb1035b3c4b7447f9a9b7a32911bee47e66e4fa7"
+  digest = "1:27e0bcd0462939f3dcdac495b3992bdf049aa4b38562625ee636abab1ebae760"
   name = "github.com/knative/test-infra"
   packages = [
     "scripts",
@@ -514,7 +499,7 @@
     "tools/webhook-apicoverage/webhook",
   ]
   pruneopts = "UT"
-  revision = "03b0eab127a39bccf71c1eadc3446f7fb13f8669"
+  revision = "3b83fe759361bca3bc3daa6b644fef9d0e8072b3"
 
 [[projects]]
   digest = "1:56dbf15e091bf7926cb33a57cb6bdfc658fc6d3498d2f76f10a97ce7856f1fde"
@@ -947,6 +932,20 @@
   pruneopts = "NUT"
   revision = "5420a8b6744d3b0345ab293f6fcba19c978f1183"
   version = "v2.2.1"
+
+[[projects]]
+  digest = "1:ebecaaec2e2f0ae0bdac3ce5697ae8a8e5bb2107ae00fd6acbd8c70b9d8698c2"
+  name = "istio.io/fortio"
+  packages = [
+    "fhttp",
+    "fnet",
+    "log",
+    "periodic",
+    "stats",
+  ]
+  pruneopts = "NUT"
+  revision = "abaacfd56859479cd712c45e70c8f1362be15e5b"
+  version = "v0.6.8"
 
 [[projects]]
   digest = "1:1d34342a53d8f8c625260d6c4c2e5c99442b1635bbf4208f426bd12aa210b870"

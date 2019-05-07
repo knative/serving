@@ -25,8 +25,8 @@ import (
 // BasicTypeKindNode represents resource tree node of basic types like int, float, etc.
 type BasicTypeKindNode struct {
 	NodeData
-	values map[string]bool // Values seen for this node. Useful for enum types.
-	possibleEnum bool // Flag to indicate if this is a possible enum.
+	values       map[string]bool // Values seen for this node. Useful for enum types.
+	possibleEnum bool            // Flag to indicate if this is a possible enum.
 }
 
 // GetData returns node data
@@ -90,7 +90,7 @@ func (b *BasicTypeKindNode) addValue(value string) {
 	}
 }
 
-func (b *BasicTypeKindNode) getValues() (map[string]bool) {
+func (b *BasicTypeKindNode) getValues() map[string]bool {
 	if b.possibleEnum {
 		return b.values
 	}
