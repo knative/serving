@@ -286,7 +286,6 @@ func (c *Reconciler) reconcile(ctx context.Context, r *v1alpha1.Route) error {
 		Host:   host,
 	}
 	r.Status.DeprecatedDomain = host
-	setTargetsScheme(&r.Status, "http")
 
 	// Configure traffic based on the RouteSpec.
 	traffic, err := c.configureTraffic(ctx, r)
@@ -325,10 +324,7 @@ func (c *Reconciler) reconcile(ctx context.Context, r *v1alpha1.Route) error {
 
 		if cert.Status.IsReady() {
 			r.Status.MarkCertificateReady(cert.Name)
-			r.Status.URL = &apis.URL{
-				Scheme: "https",
-				Host:   host,
-			}
+			r.Status.URL.Scheme = "https"
 			// TODO: we should only mark https for the public visible targets when
 			// we are able to configure visibility per target.
 			setTargetsScheme(&r.Status, "https")
@@ -506,17 +502,9 @@ func routeDomain(ctx context.Context, route *v1alpha1.Route) (string, error) {
 
 func setTargetsScheme(rs *v1alpha1.RouteStatus, scheme string) {
 	for i := range rs.Traffic {
-		if rs.Traffic[i].Tag == "" && rs.Traffic[i].DeprecatedName == "" {
+		if rs.Traffic[i].URL == nil {
 			continue
 		}
-		tagName := rs.Traffic[i].DeprecatedName
-		if tagName == "" {
-			tagName = rs.Traffic[i].Tag
-		}
-		tagHost := traffic.TagDomain(tagName, rs.URL.Host)
-		rs.Traffic[i].URL = &apis.URL{
-			Scheme: scheme,
-			Host:   tagHost,
-		}
+		rs.Traffic[i].URL.Scheme = scheme
 	}
 }
