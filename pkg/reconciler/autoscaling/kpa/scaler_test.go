@@ -37,6 +37,7 @@ import (
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
 	fakeKna "github.com/knative/serving/pkg/client/clientset/versioned/fake"
 	"github.com/knative/serving/pkg/network"
+	"github.com/knative/serving/pkg/network/prober"
 	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/autoscaling/config"
 	revisionresources "github.com/knative/serving/pkg/reconciler/revision/resources"
