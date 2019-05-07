@@ -22,15 +22,21 @@ import (
 
 	"go.uber.org/zap"
 
+	"github.com/knative/pkg/controller"
 	"github.com/knative/pkg/logging/logkey"
+	"github.com/knative/serving/pkg/apis/networking"
+	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	netlisters "github.com/knative/serving/pkg/client/listers/networking/v1alpha1"
 	servinglisters "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
 	"github.com/knative/serving/pkg/queue"
+	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/resources"
 
 	corev1 "k8s.io/api/core/v1"
+	corev1informers "k8s.io/client-go/informers/core/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
+	"k8s.io/client-go/tools/cache"
 )
 
 // ErrActivatorOverload indicates that throttler has no free slots to buffer the request.
@@ -55,18 +61,40 @@ type Throttler struct {
 // NewThrottler creates a new Throttler.
 func NewThrottler(
 	params queue.BreakerParams,
-	endpointsLister corev1listers.EndpointsLister,
+	endpointsInformer corev1informers.EndpointsInformer,
 	sksLister netlisters.ServerlessServiceLister,
 	revisionLister servinglisters.RevisionLister,
 	logger *zap.SugaredLogger) *Throttler {
-	return &Throttler{
+
+	throttler := &Throttler{
 		breakers:        make(map[RevisionID]*queue.Breaker),
 		breakerParams:   params,
 		logger:          logger,
-		endpointsLister: endpointsLister,
+		endpointsLister: endpointsInformer.Lister(),
 		revisionLister:  revisionLister,
 		sksLister:       sksLister,
 	}
+
+	// Update/create the breaker in the throttler when the number of endpoints changes.
+	// Pass only the endpoints created by revisions.
+	// TODO(greghaynes) we have to allow unset and use the old RevisionUID filter for backwards compat.
+	// When we can assume our ServiceTypeKey label is present in all services we can filter all but
+	// networking.ServiceTypeKey == networking.ServiceTypePublic
+	endpointsInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+		FilterFunc: reconciler.ChainFilterFuncs(
+			reconciler.LabelExistsFilterFunc(serving.RevisionUID),
+			// We are only interested in the private services, since that is
+			// what is populated by the actual revision backends.
+			reconciler.LabelFilterFunc(networking.ServiceTypeKey, string(networking.ServiceTypePrivate), true),
+		),
+		Handler: cache.ResourceEventHandlerFuncs{
+			AddFunc:    throttler.endpointsUpdated,
+			UpdateFunc: controller.PassNew(throttler.endpointsUpdated),
+			DeleteFunc: throttler.endpointsDeleted,
+		},
+	})
+
+	return throttler
 }
 
 // Remove deletes the breaker from the bookkeeping.
@@ -162,7 +190,7 @@ func (t *Throttler) forceUpdateCapacity(rev RevisionID, breaker *queue.Breaker) 
 // that do not belong to any revision).
 //
 // This function must not be called in parallel to not induce a wrong order of events.
-func (t *Throttler) UpdateEndpoints(newObj interface{}) {
+func (t *Throttler) endpointsUpdated(newObj interface{}) {
 	endpoints := newObj.(*corev1.Endpoints)
 	addresses := resources.ReadyAddressCount(endpoints)
 	revID := RevisionID{endpoints.Namespace, resources.ParentResourceFromService(endpoints.Name)}
@@ -173,7 +201,7 @@ func (t *Throttler) UpdateEndpoints(newObj interface{}) {
 
 // DeleteBreaker is a handler function to be used by the Endpoints informer.
 // It removes the Breaker from the Throttler bookkeeping.
-func (t *Throttler) DeleteBreaker(obj interface{}) {
+func (t *Throttler) endpointsDeleted(obj interface{}) {
 	ep := obj.(*corev1.Endpoints)
 	name := resources.ParentResourceFromService(ep.Name)
 	revID := RevisionID{ep.Namespace, name}
