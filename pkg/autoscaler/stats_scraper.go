@@ -19,6 +19,7 @@ package autoscaler
 import (
 	"fmt"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/knative/serving/pkg/apis/serving"
@@ -38,10 +39,6 @@ const (
 	// Instead, the autoscaler knows the stats it receives are either from the
 	// scraper or the activator.
 	scraperPodName = "service-scraper"
-
-	// samplingSuccessRate is the threshold to decide whether the results of a batch
-	// of scrape requests can be used.
-	samplingSuccessRate = 0.8
 )
 
 // StatsScraper defines the interface for collecting Revision metrics
@@ -138,28 +135,40 @@ func (s *ServiceScraper) Scrape() (*StatMessage, error) {
 
 	sampleSize := populationMeanSampleSize(readyPodsCount)
 
-	var avgConcurrency float64
-	var avgProxiedConcurrency float64
-	var reqCount int32
-	var proxiedReqCount int32
-	var successCount float64
-	var errRecord error
-	for i := 0; i < sampleSize; i++ {
-		stat, err := s.sClient.Scrape(s.url)
-		if err != nil {
-			errRecord = err
-			continue
-		}
+	var (
+		avgConcurrency        float64
+		avgProxiedConcurrency float64
+		reqCount              int32
+		proxiedReqCount       int32
+		successCount          float64
 
-		successCount++
-		avgConcurrency += stat.AverageConcurrentRequests
-		avgProxiedConcurrency += stat.AverageProxiedConcurrentRequests
-		reqCount += stat.RequestCount
-		proxiedReqCount += stat.ProxiedRequestCount
+		waitGroup sync.WaitGroup
+		statMutex sync.Mutex
+	)
+
+	waitGroup.Add(sampleSize)
+	for i := 0; i < sampleSize; i++ {
+		go func() {
+			defer waitGroup.Done()
+
+			stat, err := s.sClient.Scrape(s.url)
+			if err != nil {
+				return
+			}
+
+			statMutex.Lock()
+			defer statMutex.Unlock()
+			successCount++
+			avgConcurrency += stat.AverageConcurrentRequests
+			avgProxiedConcurrency += stat.AverageProxiedConcurrentRequests
+			reqCount += stat.RequestCount
+			proxiedReqCount += stat.ProxiedRequestCount
+		}()
 	}
 
-	if successCount/float64(sampleSize) < samplingSuccessRate {
-		return nil, errRecord
+	waitGroup.Wait()
+	if successCount == 0 {
+		return nil, fmt.Errorf("fail to get a successful scrape for %v tries", sampleSize)
 	}
 
 	avgConcurrency = avgConcurrency / successCount

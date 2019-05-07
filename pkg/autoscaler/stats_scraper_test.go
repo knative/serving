@@ -17,6 +17,7 @@ limitations under the License.
 package autoscaler
 
 import (
+	"sync"
 	"testing"
 	"time"
 
@@ -113,7 +114,7 @@ func TestNewServiceScraperWithClient_ErrorCases(t *testing.T) {
 	}
 }
 
-func TestScrape_HappyCase(t *testing.T) {
+func TestScrape_ReportStatWhenAllCallsSucceed(t *testing.T) {
 	client := newTestScrapeClient(testStats, []error{nil})
 	scraper, err := serviceScraperForTest(client)
 	if err != nil {
@@ -159,32 +160,32 @@ func TestScrape_HappyCase(t *testing.T) {
 	}
 }
 
-func TestScrape_ReportStat_ReachSampleSuccessRate(t *testing.T) {
+func TestScrape_ReportStatWhenAtLeastOneCallSucceeds(t *testing.T) {
 	errTest := errors.New("test")
-	client := newTestScrapeClient(testStats, []error{nil, nil, nil, nil, errTest})
+	client := newTestScrapeClient(testStats, []error{nil, errTest, errTest})
 	scraper, err := serviceScraperForTest(client)
 	if err != nil {
 		t.Fatalf("newServiceScraperWithClient=%v, want no error", err)
 	}
 
-	// Make an Endpoints with 5 pods. 80% success rate.
-	createEndpoints(addIps(makeEndpoints(), 5))
+	// Make an Endpoints with 3 pods.
+	createEndpoints(addIps(makeEndpoints(), 3))
 
 	got, err := scraper.Scrape()
 	if err != nil {
 		t.Fatalf("unexpected error from scraper.Scrape(): %v", err)
 	}
-	// Only 4 samples.
-	// (3.0 + 5.0 + 3.0 + 5.0) / 4.0 * 5
-	if got.Stat.AverageConcurrentRequests != 20.0 {
+	// Only first sample.
+	// 3.0 * 3
+	if got.Stat.AverageConcurrentRequests != 9.0 {
 		t.Errorf("StatMessage.Stat.AverageConcurrentRequests=%v, want %v",
-			got.Stat.AverageConcurrentRequests, 20.0)
+			got.Stat.AverageConcurrentRequests, 9.0)
 	}
 }
 
-func TestScrape_ReportError_LowerThanSampleSuccessRate(t *testing.T) {
+func TestScrape_ReportErrorIfAllFail(t *testing.T) {
 	errTest := errors.New("test")
-	client := newTestScrapeClient(testStats, []error{nil, errTest})
+	client := newTestScrapeClient(testStats, []error{errTest, errTest})
 	scraper, err := serviceScraperForTest(client)
 	if err != nil {
 		t.Fatalf("newServiceScraperWithClient=%v, want no error", err)
@@ -196,26 +197,6 @@ func TestScrape_ReportError_LowerThanSampleSuccessRate(t *testing.T) {
 	_, err = scraper.Scrape()
 	if err == nil {
 		t.Errorf("Expected error from scraper.Scrape(), got nil")
-	}
-}
-
-func TestScrape_PopulateErrorFromScrapeClient(t *testing.T) {
-	errMsg := "test"
-	client := newTestScrapeClient(testStats, []error{errors.New(errMsg)})
-	scraper, err := serviceScraperForTest(client)
-	if err != nil {
-		t.Fatalf("newServiceScraperWithClient=%v, want no error", err)
-	}
-
-	// Make an Endpoints with 1 pod.
-	createEndpoints(addIps(makeEndpoints(), 1))
-
-	if _, err := scraper.Scrape(); err != nil {
-		if got, want := err.Error(), errMsg; got != want {
-			t.Errorf("Got error message: %v. Want: %v", got, want)
-		}
-	} else {
-		t.Error("Expected an error from scraper.Scrape() but got none")
 	}
 }
 
@@ -266,10 +247,13 @@ type fakeScrapeClient struct {
 	i     int
 	stats []*Stat
 	errs  []error
+	mutex sync.Mutex
 }
 
 // Scrape return the next item in the stats and error array of fakeScrapeClient.
 func (c *fakeScrapeClient) Scrape(url string) (*Stat, error) {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
 	ans := c.stats[c.i%len(c.stats)]
 	err := c.errs[c.i%len(c.errs)]
 	c.i++
