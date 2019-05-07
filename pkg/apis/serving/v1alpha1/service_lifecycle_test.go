@@ -618,7 +618,10 @@ func TestRouteStatusPropagation(t *testing.T) {
 	svc := &Service{}
 
 	rsf := RouteStatusFields{
-		Domain: "example.com",
+		URL: &apis.URL{
+			Scheme: "http",
+			Host:   "route.namespace.example.com",
+		},
 		Traffic: []TrafficTarget{{
 			TrafficTarget: v1beta1.TrafficTarget{
 				Percent:      100,

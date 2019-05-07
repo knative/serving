@@ -210,6 +210,7 @@ func newTestSetup(t *testing.T, configs ...*corev1.ConfigMap) (
 		servingInformer.Serving().V1alpha1().Revisions(),
 		kubeInformer.Core().V1().Services(),
 		servingInformer.Networking().V1alpha1().ClusterIngresses(),
+		servingInformer.Networking().V1alpha1().Certificates(),
 	)
 
 	reconciler = controller.Reconciler.(*Reconciler)
@@ -238,6 +239,14 @@ func getRouteIngressFromClient(t *testing.T, servingClient *fakeclientset.Client
 	}
 
 	return &cis.Items[0]
+}
+
+func getCertificateFromClient(t *testing.T, servingClient *fakeclientset.Clientset, desired *netv1alpha1.Certificate) *netv1alpha1.Certificate {
+	created, err := servingClient.NetworkingV1alpha1().Certificates(desired.Namespace).Get(desired.Name, metav1.GetOptions{})
+	if err != nil {
+		t.Errorf("Certificates(%s).Get(%s) = %v", desired.Namespace, desired.Name, err)
+	}
+	return created
 }
 
 func addResourcesToInformers(
@@ -304,6 +313,7 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 	domain := strings.Join([]string{route.Name, route.Namespace, defaultDomainSuffix}, ".")
 	expectedSpec := netv1alpha1.IngressSpec{
 		Visibility: netv1alpha1.IngressVisibilityExternalIP,
+		TLS:        []netv1alpha1.ClusterIngressTLS{},
 		Rules: []netv1alpha1.ClusterIngressRule{{
 			Hosts: []string{
 				domain,
@@ -390,6 +400,7 @@ func TestCreateRouteWithMultipleTargets(t *testing.T) {
 	domain := strings.Join([]string{route.Name, route.Namespace, defaultDomainSuffix}, ".")
 	expectedSpec := netv1alpha1.IngressSpec{
 		Visibility: netv1alpha1.IngressVisibilityExternalIP,
+		TLS:        []netv1alpha1.ClusterIngressTLS{},
 		Rules: []netv1alpha1.ClusterIngressRule{{
 			Hosts: []string{
 				domain,
@@ -473,6 +484,7 @@ func TestCreateRouteWithOneTargetReserve(t *testing.T) {
 	domain := strings.Join([]string{route.Name, route.Namespace, defaultDomainSuffix}, ".")
 	expectedSpec := netv1alpha1.IngressSpec{
 		Visibility: netv1alpha1.IngressVisibilityExternalIP,
+		TLS:        []netv1alpha1.ClusterIngressTLS{},
 		Rules: []netv1alpha1.ClusterIngressRule{{
 			Hosts: []string{
 				domain,
@@ -580,6 +592,7 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 	domain := strings.Join([]string{route.Name, route.Namespace, defaultDomainSuffix}, ".")
 	expectedSpec := netv1alpha1.IngressSpec{
 		Visibility: netv1alpha1.IngressVisibilityExternalIP,
+		TLS:        []netv1alpha1.ClusterIngressTLS{},
 		Rules: []netv1alpha1.ClusterIngressRule{{
 			Hosts: []string{
 				domain,
@@ -700,6 +713,7 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 	domain := strings.Join([]string{route.Name, route.Namespace, defaultDomainSuffix}, ".")
 	expectedSpec := netv1alpha1.IngressSpec{
 		Visibility: netv1alpha1.IngressVisibilityExternalIP,
+		TLS:        []netv1alpha1.ClusterIngressTLS{},
 		Rules: []netv1alpha1.ClusterIngressRule{{
 			Hosts: []string{
 				domain,
@@ -853,8 +867,8 @@ func TestUpdateDomainConfigMap(t *testing.T) {
 
 			route, _ = routeClient.Get(route.Name, metav1.GetOptions{})
 			expectedDomain := fmt.Sprintf("%s.%s.%s", route.Name, route.Namespace, expectation.expectedDomainSuffix)
-			if route.Status.Domain != expectedDomain {
-				t.Errorf("Expected domain %q but saw %q", expectedDomain, route.Status.Domain)
+			if route.Status.URL.Host != expectedDomain {
+				t.Errorf("Expected domain %q but saw %q", expectedDomain, route.Status.URL.Host)
 			}
 		})
 	}
@@ -937,8 +951,8 @@ func TestGlobalResyncOnUpdateDomainConfigMap(t *testing.T) {
 				t.Logf("route updated: %q", rt.Name)
 
 				expectedDomain := fmt.Sprintf("%s.%s.%s", rt.Name, rt.Namespace, test.expectedDomainSuffix)
-				if rt.Status.Domain != expectedDomain {
-					t.Logf("Expected domain %q but saw %q", expectedDomain, rt.Status.Domain)
+				if rt.Status.URL.Host != expectedDomain {
+					t.Logf("Expected domain %q but saw %q", expectedDomain, rt.Status.URL.Host)
 					return HookIncomplete
 				}
 
@@ -985,7 +999,7 @@ func TestRouteDomain(t *testing.T) {
 	}
 
 	context := context.Background()
-	cfg := ReconcilerTestConfig()
+	cfg := ReconcilerTestConfig(false)
 	context = config.ToContext(context, cfg)
 
 	tests := []struct {

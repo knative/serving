@@ -74,13 +74,12 @@ func TestUniscalerFactoryFailures(t *testing.T) {
 			Name:      testRevision,
 		},
 	}
-	dynamicConfig := &autoscaler.DynamicConfig{}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			decider.Labels = test.labels
 
-			_, err := uniScalerFactory(decider, dynamicConfig)
+			_, err := uniScalerFactory(decider)
 			if err == nil {
 				t.Fatal("No error was returned")
 			}
@@ -106,15 +105,14 @@ func TestUniScalerFactoryFunc(t *testing.T) {
 				},
 			},
 		}
-		dynamicConfig := &autoscaler.DynamicConfig{}
 
-		if _, err := uniScalerFactory(decider, dynamicConfig); err != nil {
+		if _, err := uniScalerFactory(decider); err != nil {
 			t.Errorf("got error from uniScalerFactory: %v", err)
 		}
 	}
 }
 
-func getTestUniScalerFactory() func(decider *autoscaler.Decider, dynamicConfig *autoscaler.DynamicConfig) (autoscaler.UniScaler, error) {
+func getTestUniScalerFactory() func(decider *autoscaler.Decider) (autoscaler.UniScaler, error) {
 	kubeClient := fakeK8s.NewSimpleClientset()
 	kubeInformer := kubeinformers.NewSharedInformerFactory(kubeClient, 0)
 	return uniScalerFactoryFunc(kubeInformer.Core().V1().Endpoints())

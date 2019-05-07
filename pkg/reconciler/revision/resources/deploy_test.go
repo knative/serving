@@ -85,11 +85,8 @@ var (
 			Name:  "SERVING_REVISION",
 			Value: "bar", // matches name
 		}, {
-			Name:  "SERVING_AUTOSCALER",
-			Value: "autoscaler", // no autoscaler configured.
-		}, {
-			Name:  "SERVING_AUTOSCALER_PORT",
-			Value: "8080",
+			Name:  "QUEUE_SERVING_PORT",
+			Value: "8012",
 		}, {
 			Name:  "CONTAINER_CONCURRENCY",
 			Value: "0",
@@ -285,6 +282,19 @@ func withHTTPReadinessProbe(port int) containerOption {
 	})
 }
 
+func withHTTPQPReadinessProbe(c *corev1.Container) {
+	withReadinessProbe(corev1.Handler{
+		HTTPGet: &corev1.HTTPGetAction{
+			Port: intstr.FromInt(networking.BackendHTTPPort),
+			Path: "/",
+			HTTPHeaders: []corev1.HTTPHeader{{
+				Name:  network.KubeletProbeHeaderName,
+				Value: "queue",
+			}},
+		},
+	})(c)
+}
+
 func withExecReadinessProbe(command []string) containerOption {
 	return withReadinessProbe(corev1.Handler{
 		Exec: &corev1.ExecAction{
@@ -445,7 +455,7 @@ func TestMakePodSpec(t *testing.T) {
 			},
 		})),
 	}, {
-		name: "simple concurrency=single no owner",
+		name: "concurrency=1 no owner",
 		rev:  revision(withContainerConcurrency(1)),
 		lc:   &logging.Config{},
 		oc:   &metrics.ObservabilityConfig{},
@@ -458,7 +468,7 @@ func TestMakePodSpec(t *testing.T) {
 			),
 		}),
 	}, {
-		name: "simple concurrency=single no owner digest resolved",
+		name: "concurrency=1 no owner digest resolved",
 		rev: revision(
 			withContainerConcurrency(1),
 			func(revision *v1alpha1.Revision) {
@@ -480,7 +490,7 @@ func TestMakePodSpec(t *testing.T) {
 			),
 		}),
 	}, {
-		name: "simple concurrency=single with owner",
+		name: "concurrency=1 with owner",
 		rev: revision(
 			withContainerConcurrency(1),
 			withOwnerReference("parent-config"),
@@ -497,7 +507,7 @@ func TestMakePodSpec(t *testing.T) {
 			),
 		}),
 	}, {
-		name: "simple concurrency=multi http readiness probe",
+		name: "with http readiness probe",
 		rev: revision(func(revision *v1alpha1.Revision) {
 			container(revision.Spec.GetContainer(),
 				withHTTPReadinessProbe(v1alpha1.DefaultUserPort),
@@ -509,14 +519,14 @@ func TestMakePodSpec(t *testing.T) {
 		cc: &deployment.Config{},
 		want: podSpec([]corev1.Container{
 			userContainer(
-				withHTTPReadinessProbe(networking.BackendHTTPPort),
+				withHTTPQPReadinessProbe,
 			),
 			queueContainer(
 				withEnvVar("CONTAINER_CONCURRENCY", "0"),
 			),
 		}),
 	}, {
-		name: "concurrency=multi, readinessprobe=shell",
+		name: "with shell readiness probe",
 		rev: revision(func(revision *v1alpha1.Revision) {
 			container(revision.Spec.GetContainer(),
 				withExecReadinessProbe(
@@ -539,10 +549,10 @@ func TestMakePodSpec(t *testing.T) {
 			),
 		}),
 	}, {
-		name: "concurrency=multi, readinessprobe=http",
+		name: "with http liveness probe",
 		rev: revision(func(revision *v1alpha1.Revision) {
 			container(revision.Spec.GetContainer(),
-				withReadinessProbe(corev1.Handler{
+				withLivenessProbe(corev1.Handler{
 					HTTPGet: &corev1.HTTPGetAction{
 						Path: "/",
 					},
@@ -555,14 +565,23 @@ func TestMakePodSpec(t *testing.T) {
 		cc: &deployment.Config{},
 		want: podSpec([]corev1.Container{
 			userContainer(
-				withHTTPReadinessProbe(networking.BackendHTTPPort),
+				withLivenessProbe(corev1.Handler{
+					HTTPGet: &corev1.HTTPGetAction{
+						Path: "/",
+						Port: intstr.FromInt(networking.BackendHTTPPort),
+						HTTPHeaders: []corev1.HTTPHeader{{
+							Name:  network.KubeletProbeHeaderName,
+							Value: "queue",
+						}},
+					},
+				}),
 			),
 			queueContainer(
 				withEnvVar("CONTAINER_CONCURRENCY", "0"),
 			),
 		}),
 	}, {
-		name: "concurrency=multi, livenessprobe=tcp",
+		name: "with tcp liveness probe",
 		rev: revision(func(revision *v1alpha1.Revision) {
 			container(revision.Spec.GetContainer(),
 				withLivenessProbe(corev1.Handler{
@@ -722,7 +741,7 @@ func TestMakeDeployment(t *testing.T) {
 		cc   *deployment.Config
 		want *appsv1.Deployment
 	}{{
-		name: "simple concurrency=single no owner",
+		name: "with concurrency=1",
 		rev: revision(
 			withoutLabels,
 			withContainerConcurrency(1),
@@ -734,7 +753,7 @@ func TestMakeDeployment(t *testing.T) {
 		cc:   &deployment.Config{},
 		want: makeDeployment(),
 	}, {
-		name: "simple concurrency=multi with owner",
+		name: "with owner",
 		rev: revision(
 			withoutLabels,
 			withOwnerReference("parent-config"),
@@ -746,7 +765,7 @@ func TestMakeDeployment(t *testing.T) {
 		cc:   &deployment.Config{},
 		want: makeDeployment(),
 	}, {
-		name: "simple concurrency=multi with outbound IP range configured",
+		name: "with outbound IP range configured",
 		rev:  revision(withoutLabels),
 		lc:   &logging.Config{},
 		nc: &network.Config{
@@ -756,10 +775,26 @@ func TestMakeDeployment(t *testing.T) {
 		ac: &autoscaler.Config{},
 		cc: &deployment.Config{},
 		want: makeDeployment(func(deploy *appsv1.Deployment) {
-			deploy.Spec.Template.ObjectMeta.Annotations["traffic.sidecar.istio.io/includeOutboundIPRanges"] = "*"
+			deploy.Spec.Template.ObjectMeta.Annotations[IstioOutboundIPRangeAnnotation] = "*"
 		}),
 	}, {
-		name: "simple concurrency=multi with outbound IP range override",
+		name: "with sidecar annotation override",
+		rev: revision(withoutLabels, func(revision *v1alpha1.Revision) {
+			revision.ObjectMeta.Annotations = map[string]string{
+				sidecarIstioInjectAnnotation: "false",
+			}
+		}),
+		lc: &logging.Config{},
+		nc: &network.Config{},
+		oc: &metrics.ObservabilityConfig{},
+		ac: &autoscaler.Config{},
+		cc: &deployment.Config{},
+		want: makeDeployment(func(deploy *appsv1.Deployment) {
+			deploy.ObjectMeta.Annotations[sidecarIstioInjectAnnotation] = "false"
+			deploy.Spec.Template.ObjectMeta.Annotations[sidecarIstioInjectAnnotation] = "false"
+		}),
+	}, {
+		name: "with outbound IP range override",
 		rev: revision(
 			withoutLabels,
 			func(revision *v1alpha1.Revision) {
@@ -777,7 +812,7 @@ func TestMakeDeployment(t *testing.T) {
 		cc: &deployment.Config{},
 		want: makeDeployment(func(deploy *appsv1.Deployment) {
 			deploy.ObjectMeta.Annotations[IstioOutboundIPRangeAnnotation] = "10.4.0.0/14,10.7.240.0/20"
-			deploy.Spec.Template.ObjectMeta.Annotations["traffic.sidecar.istio.io/includeOutboundIPRanges"] = "10.4.0.0/14,10.7.240.0/20"
+			deploy.Spec.Template.ObjectMeta.Annotations[IstioOutboundIPRangeAnnotation] = "10.4.0.0/14,10.7.240.0/20"
 		}),
 	}}
 

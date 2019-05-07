@@ -20,7 +20,9 @@ import (
 	"fmt"
 
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/util/sets"
 
+	"github.com/knative/pkg/apis"
 	net "github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
@@ -78,6 +80,15 @@ func BuildTrafficConfiguration(configLister listers.ConfigurationLister, revList
 	return builder.build()
 }
 
+// GetDomains returns all of the domains and tag domains (sub-domains) of a Route
+func GetDomains(domain string, targets map[string]RevisionTargets) []string {
+	allDomains := sets.NewString(domain)
+	for name := range targets {
+		allDomains.Insert(TagDomain(name, domain))
+	}
+	return allDomains.List()
+}
+
 // TagDomain returns the domain name of a traffic target given the traffic target name and the Route's base domain.
 func TagDomain(name, domain string) string {
 	if name == DefaultTarget {
@@ -88,8 +99,11 @@ func TagDomain(name, domain string) string {
 
 // TagURL returns the URL of the tag given the scheme, traffic target name, and base domain. Curently
 // the tag is represented as a subdomain of the base domain.
-func TagURL(scheme, name, domain string) string {
-	return fmt.Sprintf("%s://%s", scheme, TagDomain(name, domain))
+func TagURL(scheme, name, domain string) *apis.URL {
+	return &apis.URL{
+		Scheme: scheme,
+		Host:   TagDomain(name, domain),
+	}
 }
 
 // GetRevisionTrafficTargets returns a list of TrafficTarget flattened to the RevisionName, and having ConfigurationName cleared out.

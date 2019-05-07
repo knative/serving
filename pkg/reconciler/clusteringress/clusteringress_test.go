@@ -22,6 +22,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/knative/pkg/kmeta"
+
 	"github.com/google/go-cmp/cmp"
 
 	"golang.org/x/sync/errgroup"
@@ -61,7 +63,7 @@ import (
 const (
 	originDomainInternal = "origin.istio-system.svc.cluster.local"
 	newDomainInternal    = "custom.istio-system.svc.cluster.local"
-	targetSecretName     = "tls-uid"
+	targetSecretName     = "reconciling-clusteringress-uid"
 )
 
 var (
@@ -122,6 +124,18 @@ var (
 			ServerCertificate: "tls.crt",
 			PrivateKey:        "tls.key",
 			CredentialName:    "secret0",
+		},
+	}
+
+	ingressHTTPRedirectServer = v1alpha3.Server{
+		Hosts: []string{"*"},
+		Port: v1alpha3.Port{
+			Name:     "http-server",
+			Number:   80,
+			Protocol: v1alpha3.ProtocolHTTP,
+		},
+		TLS: &v1alpha3.TLSOptions{
+			HTTPSRedirect: true,
 		},
 	}
 
@@ -444,7 +458,8 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 						}},
 					},
 					Network: &network.Config{
-						AutoTLS: true,
+						AutoTLS:      true,
+						HTTPProtocol: network.HTTPDisabled,
 					},
 				},
 			},
@@ -483,9 +498,10 @@ func originSecret(namespace, name string) *corev1.Secret {
 func secret(namespace, name string, labels map[string]string) *corev1.Secret {
 	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
-			Labels:    labels,
+			Name:            name,
+			Namespace:       namespace,
+			Labels:          labels,
+			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(ingress("reconciling-clusteringress", 1234))},
 		},
 		Data: map[string][]byte{
 			"test-secret": []byte("abcd"),
@@ -756,6 +772,9 @@ func TestGlobalResyncOnUpdateNetwork(t *testing.T) {
 		updatedGateway := obj.(*v1alpha3.Gateway)
 		// The expected gateway should include the Istio TLS server.
 		expectedGateway := gateway("knative-test-gateway", system.Namespace(), []v1alpha3.Server{ingressTLSServer})
+		expectedGateway.Spec.Servers = append(expectedGateway.Spec.Servers, ingressHTTPRedirectServer)
+		expectedGateway.Spec.Servers = resources.SortServers(expectedGateway.Spec.Servers)
+
 		if diff := cmp.Diff(updatedGateway, expectedGateway); diff != "" {
 			t.Logf("Unexpected Gateway (-want, +got): %v", diff)
 			return HookIncomplete
@@ -826,7 +845,8 @@ func TestGlobalResyncOnUpdateNetwork(t *testing.T) {
 			Namespace: system.Namespace(),
 		},
 		Data: map[string]string{
-			"autoTLS": "Enabled",
+			"autoTLS":      "Enabled",
+			"httpProtocol": "Redirected",
 		},
 	}
 	watcher.OnChange(&networkConfig)

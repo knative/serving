@@ -30,7 +30,7 @@ import (
 func TestShouldEnvVars(t *testing.T) {
 	t.Parallel()
 	clients := setup(t)
-	resp, names, err := fetchEnvInfo(t, clients, test.EnvImageEnvVarsPath, &test.Options{})
+	resp, names, err := fetchEnvInfo(t, clients, test.EnvImageEnvVarsPath)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -54,7 +54,7 @@ func TestShouldEnvVars(t *testing.T) {
 func TestMustEnvVars(t *testing.T) {
 	t.Parallel()
 	clients := setup(t)
-	resp, _, err := fetchEnvInfo(t, clients, test.EnvImageEnvVarsPath, &test.Options{})
+	resp, _, err := fetchEnvInfo(t, clients, test.EnvImageEnvVarsPath)
 	if err != nil {
 		t.Fatal(err)
 	}

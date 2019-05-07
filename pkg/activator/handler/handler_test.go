@@ -392,6 +392,12 @@ func TestActivationHandler(t *testing.T) {
 						return nil, test.probeErr
 					}
 					fake := httptest.NewRecorder()
+					// Make sure the probe is attributed with correct header.
+					if r.Header.Get(network.ProbeHeaderName) != queue.Name {
+						fake.WriteHeader(http.StatusBadRequest)
+						fake.WriteString("probe sent to a wrong system")
+						return fake.Result(), nil
+					}
 					fake.WriteHeader(test.probeCode)
 					probeResp := queue.Name
 					if len(test.probeResp) > 0 {
@@ -401,8 +407,20 @@ func TestActivationHandler(t *testing.T) {
 					fake.WriteString(probeResp)
 					return fake.Result(), nil
 				}
+				// Actual request test handler.
 				if test.wantErr != nil {
 					return nil, test.wantErr
+				}
+
+				// Now verify that the request has the required rewritten host header.
+				if got, want := r.Host, ""; got != want {
+					t.Errorf("The r.Host has not been cleared out, was: %q", got)
+				}
+				if got, want := r.Header.Get("Host"), ""; got != want {
+					t.Errorf("The Host header has not been cleared out, was: %q", got)
+				}
+				if got, want := r.Header.Get(network.OriginalHostHeader), "test-host"; got != want {
+					t.Errorf("The %s header = %q, want: %q", network.OriginalHostHeader, got, want)
 				}
 
 				fake := httptest.NewRecorder()
@@ -443,6 +461,7 @@ func TestActivationHandler(t *testing.T) {
 			req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
 			req.Header.Set(activator.RevisionHeaderNamespace, test.namespace)
 			req.Header.Set(activator.RevisionHeaderName, test.name)
+			req.Host = "test-host"
 
 			handler.ServeHTTP(resp, req)
 

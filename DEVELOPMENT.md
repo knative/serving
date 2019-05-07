@@ -178,6 +178,22 @@ revisions. Alternatively, if you are developing on GKE, you can skip the editing
 and use the patching tool in `hack/dev-patch-config-gke.sh` after deploying
 knative.
 
+Edited `config-network.yaml` example:
+
+```yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: config-network
+  namespace: knative-serving
+  labels:
+    serving.knative.dev/release: devel
+
+data:
+  istio.sidecar.includeOutboundIPRanges: "172.30.0.0/16,172.20.0.0/16,10.10.10.0/24"
+  clusteringress.class: "istio.ingress.networking.knative.dev"
+```
+
 Next, run:
 
 ```shell
@@ -186,7 +202,12 @@ ko apply -f config/
 # Optional steps
 
 # Configure outbound network for GKE.
-PROJECT_ID="my-gcp-project-id" ./hack/dev-patch-config-gke.sh my-k8s-cluster-name
+export PROJECT_ID="my-gcp-project-id"
+# Set K8S_CLUSTER_ZONE if using a zonal cluster
+export K8S_CLUSTER_ZONE="my-cluster-zone"
+# Set K8S_CLUSTER_REGION if using a regional cluster
+export K8S_CLUSTER_REGION="my-cluster-region"
+./hack/dev-patch-config-gke.sh my-k8s-cluster-name
 
 # Run post-install job to setup nice XIP.IO domain name.  This only works
 # if your Kubernetes LoadBalancer has an IP address.

@@ -250,7 +250,7 @@ func (c *Reconciler) reconcile(ctx context.Context, ci *v1alpha1.ClusterIngress)
 		if err != nil {
 			return err
 		}
-		targetSecrets := resources.MakeSecrets(ctx, originSecrets)
+		targetSecrets := resources.MakeSecrets(ctx, originSecrets, ci)
 		if err := c.reconcileCertSecrets(ctx, ci, targetSecrets); err != nil {
 			return err
 		}
@@ -432,6 +432,16 @@ func (c *Reconciler) reconcileGateway(ctx context.Context, ci *v1alpha1.ClusterI
 	}
 
 	existing := resources.GetServers(gateway, ci)
+	existingHTTPServer := resources.GetHTTPServer(gateway)
+	if existingHTTPServer != nil {
+		existing = append(existing, *existingHTTPServer)
+	}
+
+	desiredHTTPServer := resources.MakeHTTPServer(config.FromContext(ctx).Network.HTTPProtocol)
+	if desiredHTTPServer != nil {
+		desired = append(desired, *desiredHTTPServer)
+	}
+
 	if equality.Semantic.DeepEqual(existing, desired) {
 		return nil
 	}

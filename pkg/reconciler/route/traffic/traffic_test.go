@@ -978,8 +978,8 @@ func TestTagURL(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.TestName, func(t *testing.T) {
-			if got, want := TagURL(HTTPScheme, tt.Name, tt.Domain), tt.Expected; got != want {
-				t.Errorf("TagDomain = %s, want: %s", got, want)
+			if got, want := TagURL(HTTPScheme, tt.Name, tt.Domain), tt.Expected; got.String() != want {
+				t.Errorf("TagDomain = %v, want: %s", got, want)
 			}
 		})
 	}
@@ -1009,6 +1009,20 @@ func TestTagDomain(t *testing.T) {
 				t.Errorf("TagDomain = %s, want: %s", got, want)
 			}
 		})
+	}
+}
+
+func TestGetDomains(t *testing.T) {
+	domain := "default.example.com"
+	targets := map[string]RevisionTargets{
+		"":       RevisionTargets{},
+		"test-1": RevisionTargets{},
+		"test-2": RevisionTargets{},
+	}
+	want := []string{"default.example.com", "test-1.default.example.com", "test-2.default.example.com"}
+	got := GetDomains(domain, targets)
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("Unexpected domains (-want, +got): %v", diff)
 	}
 }
 

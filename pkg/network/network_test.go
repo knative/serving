@@ -19,6 +19,7 @@ package network
 import (
 	"bytes"
 	"net/http"
+	"net/http/httptest"
 	"testing"
 	"text/template"
 
@@ -509,5 +510,45 @@ func TestIsKubeletProbe(t *testing.T) {
 	req.Header.Set("User-Agent", kubeProbeUAPrefix+"1.14")
 	if !IsKubeletProbe(req) {
 		t.Error("kubelet probe but not counted as such")
+	}
+	req.Header.Del("User-Agent")
+	if IsKubeletProbe(req) {
+		t.Error("Not a kubelet probe but counted as such")
+	}
+	req.Header.Set(KubeletProbeHeaderName, "no matter")
+	if !IsKubeletProbe(req) {
+		t.Error("kubelet probe but not counted as such")
+	}
+}
+
+func TestRewriteHost(t *testing.T) {
+	r := httptest.NewRequest(http.MethodGet, "http://love.is/not-hate", nil)
+	r.Header.Set("Host", "love.is")
+
+	RewriteHostIn(r)
+
+	if got, want := r.Host, ""; got != want {
+		t.Errorf("r.Host = %q, want: %q", got, want)
+	}
+
+	if got, want := r.Header.Get("Host"), ""; got != want {
+		t.Errorf("r.Header['Host'] = %q, want: %q", got, want)
+	}
+
+	if got, want := r.Header.Get(OriginalHostHeader), "love.is"; got != want {
+		t.Errorf("r.Header[%s] = %q	, want: %q", OriginalHostHeader, got, want)
+	}
+
+	RewriteHostOut(r)
+	if got, want := r.Host, "love.is"; got != want {
+		t.Errorf("r.Host = %q, want: %q", got, want)
+	}
+
+	if got, want := r.Header.Get("Host"), ""; got != want {
+		t.Errorf("r.Header['Host'] = %q, want: %q", got, want)
+	}
+
+	if got, want := r.Header.Get(OriginalHostHeader), ""; got != want {
+		t.Errorf("r.Header[%s] = %q	, want: %q", OriginalHostHeader, got, want)
 	}
 }

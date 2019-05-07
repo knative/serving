@@ -35,11 +35,17 @@ const (
 	// requests to probe the knative networking layer.  Requests
 	// with this header will not be passed to the user container or
 	// included in request metrics.
-	ProbeHeaderName = "k-network-probe"
+	ProbeHeaderName = "K-Network-Probe"
 
 	// ProxyHeaderName is the name of an internal header that activator
 	// uses to mark requests going through it.
-	ProxyHeaderName = "k-proxy-request"
+	ProxyHeaderName = "K-Proxy-Request"
+
+	// OriginalHostHeader is used to avoid Istio host based routing rules
+	// in Activator.
+	// The header contains the original Host value that can be rewritten
+	// at the Queue proxy level back to be a host header.
+	OriginalHostHeader = "K-Original-Host"
 
 	// ConfigName is the name of the configmap containing all
 	// customizations for networking features.
@@ -65,6 +71,10 @@ const (
 	// Since K8s 1.8, prober requests have
 	//   User-Agent = "kube-probe/{major-version}.{minor-version}".
 	kubeProbeUAPrefix = "kube-probe/"
+
+	// Istio with mTLS rewrites probes, but their probes pass a different
+	// user-agent.  So we augment the probes with this header.
+	KubeletProbeHeaderName = "K-Kubelet-Probe"
 
 	// DefaultConnTimeout specifies a short default connection timeout
 	// to avoid hitting the issue fixed in
@@ -254,5 +264,29 @@ func checkTemplate(t *template.Template) error {
 
 // IsKubeletProbe returns true if the request is a kubernetes probe.
 func IsKubeletProbe(r *http.Request) bool {
-	return strings.HasPrefix(r.Header.Get("User-Agent"), kubeProbeUAPrefix)
+	return strings.HasPrefix(r.Header.Get("User-Agent"), kubeProbeUAPrefix) ||
+		r.Header.Get(KubeletProbeHeaderName) != ""
+}
+
+// RewriteHostIn removes the `Host` header from the inbound (server) request
+// and replaces it with our custom header.
+// This is done to avoid Istio Host based routing, see #3870.
+// Queue-Proxy will execute the reverse process.
+func RewriteHostIn(r *http.Request) {
+	h := r.Host
+	r.Host = ""
+	r.Header.Del("Host")
+	r.Header.Set(OriginalHostHeader, h)
+}
+
+// RewriteHostOut undoes the `RewriteHostIn` action.
+// RewriteHostOut checks if network.OriginalHostHeader was set and if it was,
+// then uses that as the r.Host (which takes priority over Request.Header["Host"]).
+// If the request did not have the OriginalHostHeader header set, the request is untouched.
+func RewriteHostOut(r *http.Request) {
+	if ohh := r.Header.Get(OriginalHostHeader); ohh != "" {
+		r.Host = ohh
+		r.Header.Del("Host")
+		r.Header.Del(OriginalHostHeader)
+	}
 }

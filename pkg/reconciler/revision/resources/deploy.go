@@ -77,6 +77,13 @@ func rewriteUserProbe(p *corev1.Probe, userPort int) {
 		// so that we know the queue proxy is ready/live as well.
 		// It doesn't matter to which queue serving port we are forwarding the probe.
 		p.HTTPGet.Port = intstr.FromInt(networking.BackendHTTPPort)
+		// With mTLS enabled, Istio rewrites probes, but doesn't spoof the kubelet
+		// user agent, so we need to inject an extra header to be able to distinguish
+		// between probes and real requests.
+		p.HTTPGet.HTTPHeaders = append(p.HTTPGet.HTTPHeaders, corev1.HTTPHeader{
+			Name:  network.KubeletProbeHeaderName,
+			Value: "queue",
+		})
 	case p.TCPSocket != nil:
 		p.TCPSocket.Port = intstr.FromInt(userPort)
 	}
@@ -152,7 +159,7 @@ func buildContainerPorts(userPort int32) []corev1.ContainerPort {
 
 func buildUserPortEnv(userPort string) corev1.EnvVar {
 	return corev1.EnvVar{
-		Name:  userPortEnvName,
+		Name:  "PORT",
 		Value: userPort,
 	}
 }
@@ -165,8 +172,12 @@ func MakeDeployment(rev *v1alpha1.Revision,
 	podTemplateAnnotations := resources.FilterMap(rev.GetAnnotations(), func(k string) bool {
 		return k == serving.RevisionLastPinnedAnnotationKey
 	})
+
 	// TODO(nghia): Remove the need for this
-	podTemplateAnnotations[sidecarIstioInjectAnnotation] = "true"
+	// Only force-set the inject annotation if the revision does not state otherwise.
+	if _, ok := podTemplateAnnotations[sidecarIstioInjectAnnotation]; !ok {
+		podTemplateAnnotations[sidecarIstioInjectAnnotation] = "true"
+	}
 	// TODO(mattmoor): Once we have a mechanism for decorating arbitrary deployments (and opting
 	// out via annotation) we should explicitly disable that here to avoid redundant Image
 	// resources.

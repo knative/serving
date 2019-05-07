@@ -21,8 +21,10 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/knative/serving/pkg/network"
+	"k8s.io/apimachinery/pkg/util/wait"
 )
 
 const (
@@ -52,45 +54,37 @@ func TestDoServing(t *testing.T) {
 	tests := []struct {
 		name        string
 		headerValue string
-		status      int
-		body        string
+		want        bool
 	}{{
 		name:        "ok",
 		headerValue: systemName,
-		status:      http.StatusOK,
-		body:        systemName,
+		want:        true,
 	}, {
 		name:        "wrong system",
 		headerValue: "bells-and-whistles",
-		status:      http.StatusBadRequest,
-		body:        unexpectedProbeMessage,
+		want:        false,
 	}, {
 		name:        "no header",
 		headerValue: "",
-		status:      http.StatusNotFound,
-		body:        "",
+		want:        false,
 	}}
 	for _, test := range tests {
-		st, body, err := Do(context.Background(), ts.URL, test.headerValue)
-		if got, want := st, test.status; got != want {
-			t.Errorf("Status = %v, want: %v", got, want)
-		}
-		if got, want := body, test.body; got != want {
-			t.Errorf("Body = %q, want: %q", got, want)
-		}
-		if err != nil {
-			t.Errorf("Do returned error: %v", err)
-		}
+		t.Run(test.name, func(t *testing.T) {
+			got, err := Do(context.Background(), ts.URL, test.headerValue)
+			if want := test.want; got != want {
+				t.Errorf("Got = %v, want: %v", got, want)
+			}
+			if err != nil {
+				t.Errorf("Do returned error: %v", err)
+			}
+		})
 	}
 }
 
 func TestBlackHole(t *testing.T) {
-	st, body, err := Do(context.Background(), "http://gone.fishing.svc.custer.local:8080", systemName)
-	if got, want := st, 0; got != want {
-		t.Errorf("Status = %v, want: %v", got, want)
-	}
-	if got, want := body, ""; got != want {
-		t.Errorf("Body = %q, want: %q", got, want)
+	got, err := Do(context.Background(), "http://gone.fishing.svc.custer.local:8080", systemName)
+	if want := false; got != want {
+		t.Errorf("Got = %v, want: %v", got, want)
 	}
 	if err == nil {
 		t.Error("Do did not return an error")
@@ -98,9 +92,160 @@ func TestBlackHole(t *testing.T) {
 }
 
 func TestBadURL(t *testing.T) {
-	_, _, err := Do(context.Background(), ":foo", systemName)
+	_, err := Do(context.Background(), ":foo", systemName)
 	if err == nil {
 		t.Error("Do did not return an error")
 	}
 	t.Logf("For the curious the error was: %v", err)
+}
+
+func TestDoAsync(t *testing.T) {
+	// This replicates the TestDo.
+	ts := httptest.NewServer(http.HandlerFunc(probeServeFunc))
+	defer ts.Close()
+
+	wch := make(chan interface{})
+	defer close(wch)
+	tests := []struct {
+		name        string
+		headerValue string
+		cb          Done
+	}{{
+		name:        "ok",
+		headerValue: systemName,
+		cb: func(arg interface{}, ret bool, err error) {
+			defer func() {
+				wch <- 42
+			}()
+			if got, want := arg.(string), "ok"; got != want {
+				t.Errorf("arg = %s, want: %s", got, want)
+			}
+			if !ret {
+				t.Error("result was false")
+			}
+		},
+	}, {
+		name:        "wrong system",
+		headerValue: "bells-and-whistles",
+		cb: func(arg interface{}, ret bool, err error) {
+			defer func() {
+				wch <- 1984
+			}()
+			if ret {
+				t.Error("result was true")
+			}
+		},
+	}, {
+		name:        "no header",
+		headerValue: "",
+		cb: func(arg interface{}, ret bool, err error) {
+			defer func() {
+				wch <- 2006
+			}()
+			if ret {
+				t.Error("result was true")
+			}
+		},
+	}}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			m := New(test.cb)
+			m.Offer(context.Background(), ts.URL, test.headerValue, test.name, 50*time.Millisecond, 2*time.Second)
+			<-wch
+		})
+	}
+}
+
+type thirdTimesTheCharmProber struct {
+	calls int
+}
+
+func (t *thirdTimesTheCharmProber) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	t.calls++
+	if t.calls < 3 {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(unexpectedProbeMessage))
+		return
+	}
+	w.Write([]byte(systemName))
+}
+
+func TestDoAsyncRepeat(t *testing.T) {
+	c := &thirdTimesTheCharmProber{}
+	ts := httptest.NewServer(c)
+	defer ts.Close()
+
+	wch := make(chan interface{})
+	defer close(wch)
+	cb := func(arg interface{}, done bool, err error) {
+		if !done {
+			t.Error("done was false")
+		}
+		if err != nil {
+			t.Errorf("Unexpected error = %v", err)
+		}
+		wch <- arg
+	}
+	m := New(cb)
+	m.Offer(context.Background(), ts.URL, systemName, 42, 50*time.Millisecond, 3*time.Second)
+	<-wch
+	if got, want := c.calls, 3; got != want {
+		t.Errorf("Probe invocation count = %d, want: %d", got, want)
+	}
+}
+
+func TestDoAsyncTimeout(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer ts.Close()
+
+	wch := make(chan interface{})
+	defer close(wch)
+
+	cb := func(arg interface{}, done bool, err error) {
+		if err != wait.ErrWaitTimeout {
+			t.Errorf("Unexpected error = %v", err)
+		}
+		wch <- arg
+	}
+	m := New(cb)
+	m.Offer(context.Background(), ts.URL, systemName, 2009, 10*time.Millisecond, 200*time.Millisecond)
+	<-wch
+}
+
+func TestAsyncMultiple(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(probeServeFunc))
+	defer ts.Close()
+
+	wch := make(chan interface{})
+	defer close(wch)
+	cb := func(arg interface{}, done bool, err error) {
+		<-wch
+		wch <- 2006
+	}
+	m := New(cb)
+	if !m.Offer(context.Background(), ts.URL, systemName, 1984, 100*time.Millisecond, 1*time.Second) {
+		t.Error("First call to offer returned false")
+	}
+	if m.Offer(context.Background(), ts.URL, systemName, 1982, 100*time.Millisecond, 1*time.Second) {
+		t.Error("Second call to offer returned true")
+	}
+	if got, want := m.len(), 1; got != want {
+		t.Errorf("Number of queued items = %d, want: %d", got, want)
+	}
+	// Make sure we terminate the first probe.
+	wch <- 2009
+	<-wch
+	// ಠ_ಠ gotta wait for the cb to end.
+	time.Sleep(300 * time.Millisecond)
+	if got, want := m.len(), 0; got != want {
+		t.Errorf("Number of queued items = %d, want: %d", got, want)
+	}
+}
+
+func (m *Manager) len() int {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.keys.Len()
 }

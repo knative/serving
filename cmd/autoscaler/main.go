@@ -73,14 +73,10 @@ func main() {
 
 	opt := reconciler.NewOptionsOrDie(cfg, logger, stopCh)
 
-	dynConfig := scalerConfig(logger)
-
 	// Watch the logging config map and dynamically update logging levels.
 	opt.ConfigMapWatcher.Watch(logging.ConfigMapName(), logging.UpdateLevelFromConfigMap(logger, atomicLevel, component))
 	// Watch the observability config map and dynamically update metrics exporter.
 	opt.ConfigMapWatcher.Watch(metrics.ObservabilityConfigName, metrics.UpdateExporterFromConfigMap(component, logger))
-	// Watch the autoscaler config map and dynamically update autoscaler config.
-	opt.ConfigMapWatcher.Watch(autoscaler.ConfigName, dynConfig.Update)
 
 	// Set up informer factories.
 	servingInformerFactory := informers.NewSharedInformerFactory(opt.ServingClientSet, time.Second*30)
@@ -97,11 +93,11 @@ func main() {
 
 	// Set up scalers.
 	// uniScalerFactory depends endpointsInformer to be set.
-	multiScaler := autoscaler.NewMultiScaler(dynConfig, stopCh, uniScalerFactoryFunc(endpointsInformer), logger)
+	multiScaler := autoscaler.NewMultiScaler(stopCh, uniScalerFactoryFunc(endpointsInformer), logger)
 	scaler := kpa.NewScaler(opt)
 
 	controllers := []*controller.Impl{
-		kpa.NewController(&opt, paInformer, sksInformer, serviceInformer, endpointsInformer, multiScaler, collector, scaler, dynConfig),
+		kpa.NewController(&opt, paInformer, sksInformer, serviceInformer, endpointsInformer, multiScaler, collector, scaler),
 		hpa.NewController(&opt, paInformer, sksInformer, hpaInformer),
 	}
 
@@ -171,23 +167,11 @@ func setupLogger() (*zap.SugaredLogger, zap.AtomicLevel) {
 	return logging.NewLoggerFromConfig(loggingConfig, component)
 }
 
-func scalerConfig(logger *zap.SugaredLogger) *autoscaler.DynamicConfig {
-	rawConfig, err := configmap.Load("/etc/config-autoscaler")
-	if err != nil {
-		logger.Fatalw("Error reading autoscaler configuration", zap.Error(err))
-	}
-	dynConfig, err := autoscaler.NewDynamicConfigFromMap(rawConfig, logger)
-	if err != nil {
-		logger.Fatalw("Error parsing autoscaler configuration", zap.Error(err))
-	}
-	return dynConfig
-}
-
-func uniScalerFactoryFunc(endpointsInformer corev1informers.EndpointsInformer) func(decider *autoscaler.Decider, dynamicConfig *autoscaler.DynamicConfig) (autoscaler.UniScaler, error) {
-	return func(decider *autoscaler.Decider, dynamicConfig *autoscaler.DynamicConfig) (autoscaler.UniScaler, error) {
+func uniScalerFactoryFunc(endpointsInformer corev1informers.EndpointsInformer) func(decider *autoscaler.Decider) (autoscaler.UniScaler, error) {
+	return func(decider *autoscaler.Decider) (autoscaler.UniScaler, error) {
 		for _, l := range []string{serving.KubernetesServiceLabelKey, serving.ConfigurationLabelKey} {
 			if v, ok := decider.Labels[l]; !ok || v == "" {
-				return nil, fmt.Errorf("label %q not found or empty in Decider: %v", l, decider)
+				return nil, fmt.Errorf("label %q not found or empty in Decider %s", l, decider.Name)
 			}
 		}
 
@@ -201,9 +185,7 @@ func uniScalerFactoryFunc(endpointsInformer corev1informers.EndpointsInformer) f
 			return nil, err
 		}
 
-		return autoscaler.New(dynamicConfig, decider.Namespace,
-			k8SSvcName, endpointsInformer,
-			decider.Spec, reporter)
+		return autoscaler.New(decider.Namespace, k8SSvcName, endpointsInformer, decider.Spec, reporter)
 	}
 }
 

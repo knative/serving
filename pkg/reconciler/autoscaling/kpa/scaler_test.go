@@ -34,11 +34,12 @@ import (
 	pav1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	"github.com/knative/serving/pkg/autoscaler"
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
 	fakeKna "github.com/knative/serving/pkg/client/clientset/versioned/fake"
 	"github.com/knative/serving/pkg/network"
+	"github.com/knative/serving/pkg/network/prober"
 	"github.com/knative/serving/pkg/reconciler"
+	"github.com/knative/serving/pkg/reconciler/autoscaling/config"
 	revisionresources "github.com/knative/serving/pkg/reconciler/revision/resources"
 	"github.com/knative/serving/pkg/reconciler/revision/resources/names"
 	v1 "k8s.io/api/apps/v1"
@@ -59,10 +60,6 @@ const (
 
 func TestScaler(t *testing.T) {
 	defer logtesting.ClearAll()
-	afn := activatorProbe
-	defer func() {
-		activatorProbe = afn
-	}()
 	tests := []struct {
 		label         string
 		startReplicas int
@@ -210,11 +207,6 @@ func TestScaler(t *testing.T) {
 			// The clients for our testing.
 			servingClient := fakeKna.NewSimpleClientset()
 			dynamicClient := fakedynamic.NewSimpleDynamicClient(NewScheme())
-			if test.proberfunc != nil {
-				activatorProbe = test.proberfunc
-			} else {
-				activatorProbe = func(*pav1alpha1.PodAutoscaler) (bool, error) { return true, nil }
-			}
 
 			opts := reconciler.Options{
 				DynamicClientSet: dynamicClient,
@@ -224,7 +216,12 @@ func TestScaler(t *testing.T) {
 
 			revision := newRevision(t, servingClient, test.minScale, test.maxScale)
 			deployment := newDeployment(t, dynamicClient, names.Deployment(revision), test.startReplicas)
-			revisionScaler := NewScaler(opts)
+			revisionScaler := NewScaler(opts).(*scaler)
+			if test.proberfunc != nil {
+				revisionScaler.activatorProbe = test.proberfunc
+			} else {
+				revisionScaler.activatorProbe = func(*pav1alpha1.PodAutoscaler) (bool, error) { return true, nil }
+			}
 
 			// We test like this because the dynamic client's fake doesn't properly handle
 			// patch modes prior to 1.13 (where vaikas added JSON Patch support).
@@ -244,7 +241,9 @@ func TestScaler(t *testing.T) {
 				test.kpaMutation(pa)
 			}
 
-			desiredScale, err := revisionScaler.Scale(logtesting.TestContextWithLogger(t), pa, test.scaleTo)
+			ctx := logtesting.TestContextWithLogger(t)
+			ctx = config.ToContext(ctx, defaultConfig())
+			desiredScale, err := revisionScaler.Scale(ctx, pa, test.scaleTo)
 			if err != nil {
 				t.Error("Scale got an unexpected error: ", err)
 			}
@@ -323,13 +322,14 @@ func TestDisableScaleToZero(t *testing.T) {
 				psInformerFactory: podScalableTypedInformerFactory(opts),
 				dynamicClient:     opts.DynamicClientSet,
 				logger:            opts.Logger,
-				autoscalerConfig: &autoscaler.Config{
-					EnableScaleToZero: false,
-				},
 			}
 			pa := newKPA(t, servingClient, revision)
 
-			desiredScale, err := revisionScaler.Scale(logtesting.TestContextWithLogger(t), pa, test.scaleTo)
+			ctx := logtesting.TestContextWithLogger(t)
+			conf := defaultConfig()
+			conf.Autoscaler.EnableScaleToZero = false
+			ctx = config.ToContext(ctx, conf)
+			desiredScale, err := revisionScaler.Scale(ctx, pa, test.scaleTo)
 
 			if err != nil {
 				t.Error("Scale got an unexpected error: ", err)
@@ -522,7 +522,7 @@ func TestActivatorProbe(t *testing.T) {
 		name    string
 		rt      network.RoundTripperFunc
 		wantRes bool
-		wantErr error
+		wantErr bool
 	}{{
 		name: "ok",
 		rt: func(r *http.Request) (*http.Response, error) {
@@ -531,7 +531,6 @@ func TestActivatorProbe(t *testing.T) {
 			return rsp.Result(), nil
 		},
 		wantRes: true,
-		wantErr: nil,
 	}, {
 		name: "400",
 		rt: func(r *http.Request) (*http.Response, error) {
@@ -541,7 +540,6 @@ func TestActivatorProbe(t *testing.T) {
 			return rsp.Result(), nil
 		},
 		wantRes: false,
-		wantErr: nil,
 	}, {
 		name: "wrong body",
 		rt: func(r *http.Request) (*http.Response, error) {
@@ -550,25 +548,26 @@ func TestActivatorProbe(t *testing.T) {
 			return rsp.Result(), nil
 		},
 		wantRes: false,
-		wantErr: nil,
 	}, {
 		name: "all wrong",
 		rt: func(r *http.Request) (*http.Response, error) {
 			return nil, theErr
 		},
 		wantRes: false,
-		wantErr: theErr,
+		wantErr: true,
 	}}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			network.AutoTransport = test.rt
+			prober.TransportFactory = func() http.RoundTripper {
+				return test.rt
+			}
 			res, err := activatorProbe(pa)
 			if got, want := res, test.wantRes; got != want {
 				t.Errorf("Result = %v, want: %v", got, want)
 			}
-			if got, want := err, test.wantErr; got != want {
-				t.Errorf("Err = %v, want: %v", got, want)
+			if got, want := err != nil, test.wantErr; got != want {
+				t.Errorf("WantErr = %v, want: %v", got, want)
 			}
 		})
 	}

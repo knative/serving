@@ -29,8 +29,7 @@ func (rt RoundTripperFunc) RoundTrip(r *http.Request) (*http.Response, error) {
 	return rt(r)
 }
 
-// NewAutoTransport will use the appropriate transport for the request's HTTP protocol version
-func NewAutoTransport(v1 http.RoundTripper, v2 http.RoundTripper) http.RoundTripper {
+func newAutoTransport(v1 http.RoundTripper, v2 http.RoundTripper) http.RoundTripper {
 	return RoundTripperFunc(func(r *http.Request) (*http.Response, error) {
 		t := v1
 		if r.ProtoMajor == 2 {
@@ -45,18 +44,24 @@ func newHTTPTransport(connTimeout time.Duration) http.RoundTripper {
 		// Those match net/http/transport.go
 		Proxy:                 http.ProxyFromEnvironment,
 		MaxIdleConns:          100,
-		IdleConnTimeout:       90 * time.Second,
+		IdleConnTimeout:       5 * time.Second,
 		TLSHandshakeTimeout:   10 * time.Second,
 		ExpectContinueTimeout: 1 * time.Second,
 
 		// This is bespoke.
 		DialContext: (&net.Dialer{
 			Timeout:   connTimeout,
-			KeepAlive: 30 * time.Second,
+			KeepAlive: 5 * time.Second,
 			DualStack: true,
 		}).DialContext,
 	}
 }
 
+// NewAutoTransport creates a RoundTripper that can use appropriate transport
+// based on the request's HTTP version.
+func NewAutoTransport() http.RoundTripper {
+	return newAutoTransport(newHTTPTransport(DefaultConnTimeout), NewH2CTransport())
+}
+
 // AutoTransport uses h2c for HTTP2 requests and falls back to `http.DefaultTransport` for all others
-var AutoTransport = NewAutoTransport(newHTTPTransport(DefaultConnTimeout), DefaultH2CTransport)
+var AutoTransport = NewAutoTransport()
