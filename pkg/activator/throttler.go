@@ -24,36 +24,17 @@ import (
 
 	"github.com/knative/pkg/logging/logkey"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	netlisters "github.com/knative/serving/pkg/client/listers/networking/v1alpha1"
+	servinglisters "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
 	"github.com/knative/serving/pkg/queue"
 	"github.com/knative/serving/pkg/resources"
 
 	corev1 "k8s.io/api/core/v1"
+	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
 // ErrActivatorOverload indicates that throttler has no free slots to buffer the request.
 var ErrActivatorOverload = errors.New("activator overload")
-
-// ThrottlerParams defines the parameters of the Throttler.
-type ThrottlerParams struct {
-	BreakerParams queue.BreakerParams
-	Logger        *zap.SugaredLogger
-	GetEndpoints  EndpointsCountGetter
-	GetSKS        SKSGetter
-	GetRevision   RevisionGetter
-}
-
-// NewThrottler creates a new Throttler.
-func NewThrottler(params ThrottlerParams) *Throttler {
-	breakers := make(map[RevisionID]*queue.Breaker)
-	return &Throttler{
-		breakers:      breakers,
-		breakerParams: params.BreakerParams,
-		logger:        params.Logger,
-		getEndpoints:  params.GetEndpoints,
-		getRevision:   params.GetRevision,
-		getSKS:        params.GetSKS,
-	}
-}
 
 // Throttler keeps the mapping of Revisions to Breakers
 // and allows updating max concurrency dynamically of respective Breakers.
@@ -62,13 +43,30 @@ func NewThrottler(params ThrottlerParams) *Throttler {
 // It enables the use case to start with max concurrency set to 0 (no requests are sent because no endpoints are available)
 // and gradually increase its value depending on the external condition (e.g. new endpoints become available)
 type Throttler struct {
-	breakers      map[RevisionID]*queue.Breaker
-	breakerParams queue.BreakerParams
-	logger        *zap.SugaredLogger
-	getEndpoints  EndpointsCountGetter
-	getRevision   RevisionGetter
-	getSKS        SKSGetter
-	mux           sync.Mutex
+	breakers        map[RevisionID]*queue.Breaker
+	breakerParams   queue.BreakerParams
+	logger          *zap.SugaredLogger
+	endpointsLister corev1listers.EndpointsLister
+	revisionLister  servinglisters.RevisionLister
+	sksLister       netlisters.ServerlessServiceLister
+	mux             sync.Mutex
+}
+
+// NewThrottler creates a new Throttler.
+func NewThrottler(
+	params queue.BreakerParams,
+	endpointsLister corev1listers.EndpointsLister,
+	sksLister netlisters.ServerlessServiceLister,
+	revisionLister servinglisters.RevisionLister,
+	logger *zap.SugaredLogger) *Throttler {
+	return &Throttler{
+		breakers:        make(map[RevisionID]*queue.Breaker),
+		breakerParams:   params,
+		logger:          logger,
+		endpointsLister: endpointsLister,
+		revisionLister:  revisionLister,
+		sksLister:       sksLister,
+	}
 }
 
 // Remove deletes the breaker from the bookkeeping.
@@ -80,7 +78,7 @@ func (t *Throttler) Remove(rev RevisionID) {
 
 // UpdateCapacity updates the max concurrency of the Breaker corresponding to a revision.
 func (t *Throttler) UpdateCapacity(rev RevisionID, size int) error {
-	revision, err := t.getRevision(rev)
+	revision, err := t.revisionLister.Revisions(rev.Namespace).Get(rev.Name)
 	if err != nil {
 		return err
 	}
@@ -137,13 +135,13 @@ func (t *Throttler) getOrCreateBreaker(rev RevisionID) (*queue.Breaker, bool) {
 // This avoids a potential deadlock in case if we missed the updates from the Endpoints informer.
 // This could happen because of a restart of the Activator or when a new one is added as part of scale out.
 func (t *Throttler) forceUpdateCapacity(rev RevisionID, breaker *queue.Breaker) (err error) {
-	revision, err := t.getRevision(rev)
+	revision, err := t.revisionLister.Revisions(rev.Namespace).Get(rev.Name)
 	if err != nil {
 		return err
 	}
 
 	// SKS name matches revision name.
-	sks, err := t.getSKS(rev.Namespace, rev.Name)
+	sks, err := t.sksLister.ServerlessServices(rev.Namespace).Get(rev.Name)
 	if err != nil {
 		return err
 	}
@@ -151,7 +149,7 @@ func (t *Throttler) forceUpdateCapacity(rev RevisionID, breaker *queue.Breaker) 
 	// We have to read the private service endpoints in activator
 	// in order to count the serving pod count, since the public one
 	// may point at ourselves.
-	size, err := t.getEndpoints(sks)
+	size, err := resources.FetchReadyAddressCount(t.endpointsLister, sks.Namespace, sks.Status.PrivateServiceName)
 	if err != nil {
 		return err
 	}

@@ -21,6 +21,7 @@ import (
 
 	"github.com/knative/serving/pkg/activator"
 	"github.com/knative/serving/pkg/apis/serving"
+	servinglisters "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
 	pkghttp "github.com/knative/serving/pkg/http"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
@@ -37,7 +38,7 @@ func updateRequestLogFromConfigMap(logger *zap.SugaredLogger, h *pkghttp.Request
 	}
 }
 
-func requestLogTemplateInputGetter(getRevision activator.RevisionGetter) pkghttp.RequestLogTemplateInputGetter {
+func requestLogTemplateInputGetter(revisionLister servinglisters.RevisionLister) pkghttp.RequestLogTemplateInputGetter {
 	return func(req *http.Request, resp *pkghttp.RequestLogResponse) *pkghttp.RequestLogTemplateInput {
 		namespace := pkghttp.LastHeaderValue(req.Header, activator.RevisionHeaderNamespace)
 		name := pkghttp.LastHeaderValue(req.Header, activator.RevisionHeaderName)
@@ -46,7 +47,7 @@ func requestLogTemplateInputGetter(getRevision activator.RevisionGetter) pkghttp
 			Name:      name,
 		}
 
-		revision, err := getRevision(activator.RevisionID{Namespace: namespace, Name: name})
+		revision, err := revisionLister.Revisions(namespace).Get(name)
 		if err == nil && revision.Labels != nil {
 			revInfo.Configuration = revision.Labels[serving.ConfigurationLabelKey]
 			revInfo.Service = revision.Labels[serving.ServiceLabelKey]
