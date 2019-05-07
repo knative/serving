@@ -22,18 +22,21 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/knative/serving/pkg/client/clientset/versioned/fake"
+
 	testing2 "github.com/knative/pkg/logging/testing"
 
 	corev1 "k8s.io/api/core/v1"
 
 	"github.com/google/go-cmp/cmp"
 
-	"github.com/pkg/errors"
-
 	"github.com/knative/serving/pkg/activator"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	pkghttp "github.com/knative/serving/pkg/http"
+
+	servinginformers "github.com/knative/serving/pkg/client/informers/externalversions"
+	servinglisters "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
 )
 
 const (
@@ -49,7 +52,7 @@ func TestUpdateRequestLogFromConfigMap(t *testing.T) {
 	})
 	buf := bytes.NewBufferString("")
 	handler, err := pkghttp.NewRequestLogHandler(baseHandler, buf, "",
-		requestLogTemplateInputGetter(getRevisionMock(true)))
+		requestLogTemplateInputGetter(getRevisionLister(true)))
 	if err != nil {
 		t.Fatalf("want: no error, got: %v", err)
 	}
@@ -123,7 +126,7 @@ func TestRequestLogTemplateInputGetter(t *testing.T) {
 		want     pkghttp.RequestLogRevision
 	}{{
 		name:   "success",
-		getter: requestLogTemplateInputGetter(getRevisionMock(true)),
+		getter: requestLogTemplateInputGetter(getRevisionLister(true)),
 		request: &http.Request{Header: map[string][]string{
 			http.CanonicalHeaderKey(activator.RevisionHeaderName):      {testRevisionName},
 			http.CanonicalHeaderKey(activator.RevisionHeaderNamespace): {testNamespaceName},
@@ -137,7 +140,7 @@ func TestRequestLogTemplateInputGetter(t *testing.T) {
 		},
 	}, {
 		name:   "revision not found",
-		getter: requestLogTemplateInputGetter(getRevisionMock(true)),
+		getter: requestLogTemplateInputGetter(getRevisionLister(true)),
 		request: &http.Request{Header: map[string][]string{
 			http.CanonicalHeaderKey(activator.RevisionHeaderName):      {"foo"},
 			http.CanonicalHeaderKey(activator.RevisionHeaderNamespace): {"bar"},
@@ -149,7 +152,7 @@ func TestRequestLogTemplateInputGetter(t *testing.T) {
 		},
 	}, {
 		name:   "labels not found",
-		getter: requestLogTemplateInputGetter(getRevisionMock(false)),
+		getter: requestLogTemplateInputGetter(getRevisionLister(false)),
 		request: &http.Request{Header: map[string][]string{
 			http.CanonicalHeaderKey(activator.RevisionHeaderName):      {testRevisionName},
 			http.CanonicalHeaderKey(activator.RevisionHeaderNamespace): {testNamespaceName},
@@ -177,20 +180,20 @@ func TestRequestLogTemplateInputGetter(t *testing.T) {
 	}
 }
 
-func getRevisionMock(addLabels bool) func(revID activator.RevisionID) (*v1alpha1.Revision, error) {
-	return func(revID activator.RevisionID) (*v1alpha1.Revision, error) {
-		rev := &v1alpha1.Revision{}
-		if revID.Name != testRevisionName || revID.Namespace != testNamespaceName {
-			return nil, errors.New("revision not found")
+func getRevisionLister(addLabels bool) servinglisters.RevisionLister {
+	rev := &v1alpha1.Revision{}
+	rev.Name = testRevisionName
+	rev.Namespace = testNamespaceName
+	if addLabels {
+		rev.Labels = map[string]string{
+			serving.ConfigurationLabelKey: testConfigName,
+			serving.ServiceLabelKey:       testServiceName,
 		}
-		rev.Name = revID.Name
-		rev.Namespace = revID.Namespace
-		if addLabels {
-			rev.Labels = map[string]string{
-				serving.ConfigurationLabelKey: testConfigName,
-				serving.ServiceLabelKey:       testServiceName,
-			}
-		}
-		return rev, nil
 	}
+
+	fake := fake.NewSimpleClientset(rev)
+	informer := servinginformers.NewSharedInformerFactory(fake, 0)
+	informer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
+
+	return informer.Serving().V1alpha1().Revisions().Lister()
 }
