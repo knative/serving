@@ -52,6 +52,7 @@ import (
 	"github.com/knative/serving/pkg/tracing"
 	tracingconfig "github.com/knative/serving/pkg/tracing/config"
 	zipkin "github.com/openzipkin/zipkin-go"
+	perrors "github.com/pkg/errors"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/wait"
 	kubeinformers "k8s.io/client-go/informers"
@@ -282,23 +283,31 @@ func main() {
 		logger.Fatalw("Failed to start configuration manager", zap.Error(err))
 	}
 
-	http1Srv := network.NewServer(fmt.Sprintf(":%d", networking.BackendHTTPPort), ah)
-	go func() {
-		if err := http1Srv.ListenAndServe(); err != nil {
-			logger.Errorw("Error running HTTP server", zap.Error(err))
-		}
-	}()
+	servers := map[string]*http.Server{
+		"http1": network.NewServer(fmt.Sprintf(":%d", networking.BackendHTTPPort), ah),
+		"h2c":   network.NewServer(fmt.Sprintf(":%d", networking.BackendHTTP2Port), ah),
+	}
 
-	h2cSrv := network.NewServer(fmt.Sprintf(":%d", networking.BackendHTTP2Port), ah)
-	go func() {
-		if err := h2cSrv.ListenAndServe(); err != nil {
-			logger.Errorw("Error running HTTP server", zap.Error(err))
-		}
-	}()
+	errCh := make(chan error, len(servers))
+	for name, server := range servers {
+		go func(name string, s *http.Server) {
+			// Don't forward ErrServerClosed as that indicates we're already shutting down.
+			if err := s.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+				errCh <- perrors.Wrapf(err, "%s server failed", name)
+			}
+		}(name, server)
+	}
 
-	<-stopCh
-	http1Srv.Shutdown(context.Background())
-	h2cSrv.Shutdown(context.Background())
+	// Exit as soon as we see a shutdown signal or one of the servers failed.
+	select {
+	case <-stopCh:
+	case err := <-errCh:
+		logger.Errorw("Failed to run HTTP server", zap.Error(err))
+	}
+
+	for _, server := range servers {
+		server.Shutdown(context.Background())
+	}
 }
 
 func flush(logger *zap.SugaredLogger) {
