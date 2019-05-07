@@ -47,7 +47,7 @@ Knative authors is to push as much of the required functionality into Kubernetes
 and/or Istio as possible, rather than implementing reach-around layers.
 
 This document is aimed at _operators_ with the goal of providing a consistent
-runtime enviornment for _developers_.
+runtime environment for _developers_.
 
 - **Developers** write code which is packaged into a container which is run on
   the Knative cluster.

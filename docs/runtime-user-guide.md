@@ -2,7 +2,7 @@
 
 This document is focused on clarifying the expectations of the user
 container running in a Knative envioronment. This is separate from the expectations of the
-environment itself. The expectations of the enviornment are detailed in the [runtime
+environment itself. The expectations of the environment are detailed in the [runtime
 contract](https://github.com/knative/serving/blob/master/docs/runtime-contract.md).
 
 The target audience of this document are _developers_ and _language and tooling
