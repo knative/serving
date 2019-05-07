@@ -52,14 +52,6 @@ func (t *TimedFloat64Buckets) Record(time time.Time, name string, value float64)
 	bucket.Record(name, value)
 }
 
-// Size returns the number of buckets stored.
-func (t *TimedFloat64Buckets) Size() int {
-	t.bucketsMutex.RLock()
-	defer t.bucketsMutex.RUnlock()
-
-	return len(t.buckets)
-}
-
 // ForEachBucket calls the given Accumulator function for each bucket.
 func (t *TimedFloat64Buckets) ForEachBucket(accs ...Accumulator) {
 	t.bucketsMutex.RLock()

@@ -118,11 +118,13 @@ func TestMetricCollectorScraper(t *testing.T) {
 
 	now := time.Now()
 	metricKey := NewMetricKey(defaultNamespace, defaultName)
+	want := 10.0
 	stat := &StatMessage{
 		Key: metricKey,
 		Stat: Stat{
-			Time:    &now,
-			PodName: "testPod",
+			Time:                      &now,
+			PodName:                   "testPod",
+			AverageConcurrentRequests: 10.0,
 		},
 	}
 	scraper := testScraper(func() (*StatMessage, error) {
@@ -133,13 +135,14 @@ func TestMetricCollectorScraper(t *testing.T) {
 	coll := NewMetricCollector(factory, logger)
 	coll.Create(ctx, defaultMetric)
 
-	var got int
+	// stable concurrency should eventually be equal to the stat.
+	var got float64
 	wait.PollImmediate(10*time.Millisecond, 1*time.Second, func() (bool, error) {
-		got = coll.collections[metricKey].buckets.Size()
-		return got > 0, nil
+		got, _, _ = coll.StableAndPanicConcurrency(metricKey)
+		return got == want, nil
 	})
-	if got < 1 {
-		t.Errorf("buckets.Size() = %v, want > 0", got)
+	if got != want {
+		t.Errorf("StableAndPanicConcurrency() = %v, want %v", got, want)
 	}
 
 	coll.Delete(ctx, defaultNamespace, defaultName)
@@ -162,7 +165,7 @@ func TestMetricCollectorRecord(t *testing.T) {
 		Time:                             &now,
 		PodName:                          "testPod",
 		AverageConcurrentRequests:        want + 10,
-		AverageProxiedConcurrentRequests: 10, // this should be subtracted from the above
+		AverageProxiedConcurrentRequests: 10, // this should be subtracted from the above.
 	}
 	scraper := testScraper(func() (*StatMessage, error) {
 		return nil, nil
@@ -172,10 +175,6 @@ func TestMetricCollectorRecord(t *testing.T) {
 	coll := NewMetricCollector(factory, logger)
 	coll.Create(ctx, defaultMetric)
 	coll.Record(metricKey, stat)
-
-	if got, want := coll.collections[metricKey].buckets.Size(), 1; got != want {
-		t.Errorf("buckets.Size() = %d, want %d", got, want)
-	}
 
 	if stable, panic, _ := coll.StableAndPanicConcurrency(metricKey); stable != panic && stable != want {
 		t.Errorf("StableAndPanicConcurrency() = %v, %v; want %v (for both)", stable, panic, want)
