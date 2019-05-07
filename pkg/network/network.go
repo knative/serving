@@ -276,7 +276,10 @@ func RewriteHostIn(r *http.Request) {
 	h := r.Host
 	r.Host = ""
 	r.Header.Del("Host")
-	r.Header.Set(OriginalHostHeader, h)
+	// Don't overwrite an existing OriginalHostHeader.
+	if r.Header.Get(OriginalHostHeader) == "" {
+		r.Header.Set(OriginalHostHeader, h)
+	}
 }
 
 // RewriteHostOut undoes the `RewriteHostIn` action.
