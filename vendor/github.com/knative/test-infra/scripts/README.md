@@ -172,7 +172,7 @@ This is a helper script for Knative E2E test scripts. To use it:
    will immediately start the tests against the cluster currently configured for
    `kubectl`.
 
-1. By default Istio is installed on the cluster via Addon, using `--skip-istio` if
+1. By default Istio is installed on the cluster via Addon, use `--skip-istio-addon` if
    you choose not to have it preinstalled.
 
 1. You can force running the tests against a specific GKE cluster version by using

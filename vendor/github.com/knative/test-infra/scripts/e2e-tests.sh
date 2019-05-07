@@ -350,7 +350,7 @@ function fail_test() {
 RUN_TESTS=0
 EMIT_METRICS=0
 SKIP_KNATIVE_SETUP=0
-SKIP_ISTIO=0
+SKIP_ISTIO_ADDON=0
 GCP_PROJECT=""
 E2E_SCRIPT=""
 E2E_CLUSTER_VERSION=""
@@ -386,7 +386,7 @@ function initialize() {
       --run-tests) RUN_TESTS=1 ;;
       --emit-metrics) EMIT_METRICS=1 ;;
       --skip-knative-setup) SKIP_KNATIVE_SETUP=1 ;;
-      --skip-istio) SKIP_ISTIO=1 ;;
+      --skip-istio-addon) SKIP_ISTIO_ADDON=1 ;;
       *)
         [[ $# -ge 2 ]] || abort "missing parameter after $1"
         shift
@@ -416,7 +416,7 @@ function initialize() {
   is_protected_gcr ${KO_DOCKER_REPO} && \
     abort "\$KO_DOCKER_REPO set to ${KO_DOCKER_REPO}, which is forbidden"
 
-  (( SKIP_ISTIO )) || GKE_ADDONS="--addons=Istio"
+  (( SKIP_ISTIO_ADDON )) || GKE_ADDONS="--addons=Istio"
 
   readonly RUN_TESTS
   readonly EMIT_METRICS

@@ -48,8 +48,8 @@ function knative_setup() {
 
 # Script entry point.
 
-# Istio is installed as a add-on with cluster by default. Skip installing it again.
-initialize $@ --skip-istio
+# Skip installing istio as an add-on
+initialize $@ --skip-istio-addon
 
 # Run the tests
 header "Running tests"
