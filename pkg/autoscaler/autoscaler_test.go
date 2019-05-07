@@ -461,6 +461,7 @@ func TestAutoscaler_UpdateTarget(t *testing.T) {
 		PanicThreshold:    2.0,
 		MaxScaleUpRate:    10.0,
 		MetricSpec:        a.deciderSpec.MetricSpec,
+		ServiceName:       testService,
 	})
 	a.expectScale(t, now, 100, true)
 }
