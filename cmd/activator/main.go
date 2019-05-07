@@ -52,6 +52,7 @@ import (
 	"github.com/knative/serving/pkg/tracing"
 	tracingconfig "github.com/knative/serving/pkg/tracing/config"
 	zipkin "github.com/openzipkin/zipkin-go"
+	perrors "github.com/pkg/errors"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/wait"
 	kubeinformers "k8s.io/client-go/informers"
@@ -282,19 +283,19 @@ func main() {
 		logger.Fatalw("Failed to start configuration manager", zap.Error(err))
 	}
 
-	servers := []*http.Server{
-		network.NewServer(fmt.Sprintf(":%d", networking.BackendHTTPPort), ah),
-		network.NewServer(fmt.Sprintf(":%d", networking.BackendHTTP2Port), ah),
+	servers := map[string]*http.Server{
+		"http1": network.NewServer(fmt.Sprintf(":%d", networking.BackendHTTPPort), ah),
+		"h2c":   network.NewServer(fmt.Sprintf(":%d", networking.BackendHTTP2Port), ah),
 	}
 
-	errCh := make(chan error)
-	for _, server := range servers {
-		go func(s *http.Server) {
+	errCh := make(chan error, len(servers))
+	for name, server := range servers {
+		go func(name string, s *http.Server) {
 			// Don't forward ErrServerClosed as that indicates we're already shutting down.
 			if err := s.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-				errCh <- err
+				errCh <- perrors.Wrapf(err, "%s server failed", name)
 			}
-		}(server)
+		}(name, server)
 	}
 
 	// Exit as soon as we see a shutdown signal or one of the servers failed.
