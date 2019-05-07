@@ -53,10 +53,22 @@ const (
 	// Custom indicates a custom metric will be used to drive autoscaling.
 	Custom = "custom"
 
-	// CustomMetricAnnotationKey is the annotation to specify what custom metric the
+	// MetricNameAnnotationKey is the annotation to specify what custom metric the
 	// PodAutoscaler should be scaled on.  For example,
-	//   autoscaling.knative.dev/customMetric: container.googleapis.com|container|cpu|utilization
-	CustomMetricAnnotationKey = GroupName + "/customMetric"
+	//   autoscaling.knative.dev/metricName: container.googleapis.com|container|cpu|utilization
+	MetricNameAnnotationKey = GroupName + "/metricName"
+	// MetricSourceTypeAnnotationKey is the annotation to specify the type of the metric source.
+	// Valid values are: resource, pods, object, external
+	MetricSourceTypeAnnotationKey = GroupName + "/metricSourceType"
+	// TargetAverageUtilizationAnnotationKey is the annotation to specify a target average utilization amount.
+	// Valid for resource metric source types.
+	TargetAverageUtilizationAnnotationKey = GroupName + "/targetAverageUtilization"
+	// TargetAverageValueAnnotationKey is the annotation to specify a target average value amount.
+	// Valid for object, resource, pods, and external metric source types.
+	TargetAverageValueAnnotationKey = GroupName + "/targetAverageValue"
+	// TargetValueAnnotationKey is the annotation to specify a target value amount.
+	// Valid for object and external metric source types.
+	TargetValueAnnotationKey = GroupName + "/targetValue"
 
 	// TargetAnnotationKey is the annotation to specify what metric value the
 	// PodAutoscaler should attempt to maintain. For example,
