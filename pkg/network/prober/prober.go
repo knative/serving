@@ -30,6 +30,9 @@ import (
 	"github.com/knative/serving/pkg/network"
 )
 
+// TransportFactory creates new transport.
+var TransportFactory = network.NewAutoTransport
+
 // Do sends a single probe to given target, e.g. `http://revision.default.svc.cluster.local:81`.
 // headerValue is the value for the `k-network-probe` header.
 // Do returns whether the probe was successful or not, or there was an error probing.
@@ -41,7 +44,7 @@ func Do(ctx context.Context, target, headerValue string) (bool, error) {
 
 	req.Header.Set(http.CanonicalHeaderKey(network.ProbeHeaderName), headerValue)
 	req = req.WithContext(ctx)
-	resp, err := network.AutoTransport.RoundTrip(req)
+	resp, err := TransportFactory().RoundTrip(req)
 	if err != nil {
 		return false, errors.Wrapf(err, "error roundtripping %s", target)
 	}

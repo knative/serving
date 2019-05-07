@@ -558,7 +558,9 @@ func TestActivatorProbe(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			network.AutoTransport = test.rt
+			prober.TransportFactory = func() http.RoundTripper {
+				return test.rt
+			}
 			res, err := activatorProbe(pa)
 			if got, want := res, test.wantRes; got != want {
 				t.Errorf("Result = %v, want: %v", got, want)
