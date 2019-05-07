@@ -1698,7 +1698,7 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 					},
 				},
 				[]netv1alpha1.ClusterIngressTLS{
-					netv1alpha1.ClusterIngressTLS{
+					{
 						Hosts:           []string{"becomes-ready.default.example.com"},
 						SecretName:      "route-12-34",
 						SecretNamespace: "default",
@@ -1769,7 +1769,7 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 					},
 				},
 				[]netv1alpha1.ClusterIngressTLS{
-					netv1alpha1.ClusterIngressTLS{
+					{
 						Hosts:           []string{"becomes-ready.default.example.com"},
 						SecretName:      "route-12-34",
 						SecretNamespace: "default",
