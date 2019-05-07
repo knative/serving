@@ -87,6 +87,7 @@ type StatMessage struct {
 
 // MetricClient surfaces the metrics that can be obtained via the collector.
 type MetricClient interface {
+	// StableAndPanicConcurrency returns both the stable and the panic concurrency.
 	StableAndPanicConcurrency(key string) (float64, float64, error)
 }
 
@@ -211,6 +212,7 @@ type collection struct {
 	stopCh chan struct{}
 }
 
+// newCollection creates a new collection.
 func newCollection(metric *Metric, scraper StatsScraper, logger *zap.SugaredLogger) *collection {
 	c := &collection{
 		metric:  metric,
@@ -244,6 +246,7 @@ func newCollection(metric *Metric, scraper StatsScraper, logger *zap.SugaredLogg
 	return c
 }
 
+// updateMetric safely updates the metric stored in the collection.
 func (c *collection) updateMetric(metric *Metric) {
 	c.metricMutex.Lock()
 	defer c.metricMutex.Unlock()
@@ -251,6 +254,7 @@ func (c *collection) updateMetric(metric *Metric) {
 	c.metric = metric
 }
 
+// currentMetric safely returns the current metric stored in the collection.
 func (c *collection) currentMetric() *Metric {
 	c.metricMutex.RLock()
 	defer c.metricMutex.RUnlock()
@@ -258,12 +262,15 @@ func (c *collection) currentMetric() *Metric {
 	return c.metric
 }
 
+// record adds a stat to the current collection.
 func (c *collection) record(stat Stat) {
 	// Proxied requests have been counted at the activator. Subtract
 	// AverageProxiedConcurrentRequests to avoid double counting.
 	c.buckets.Record(*stat.Time, stat.PodName, stat.AverageConcurrentRequests-stat.AverageProxiedConcurrentRequests)
 }
 
+// stableAndPanicConcurrency calculates both stable and panic concurrency based on the
+// current stats.
 func (c *collection) stableAndPanicConcurrency(now time.Time) (float64, float64) {
 	spec := c.currentMetric().Spec
 
@@ -278,6 +285,7 @@ func (c *collection) stableAndPanicConcurrency(now time.Time) (float64, float64)
 	return stableAverage.Value(), panicAverage.Value()
 }
 
+// close stops collecting metrics, stops the scraper.
 func (c *collection) close() {
 	close(c.stopCh)
 	c.grp.Wait()
