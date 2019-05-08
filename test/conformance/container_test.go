@@ -159,6 +159,21 @@ func TestShouldNotContainerConstraints(t *testing.T) {
 				HostPort:      80,
 			}}
 		},
+	}, {
+		name: "TestStdin",
+		options: func(s *v1alpha1.Service) {
+			s.Spec.ConfigurationSpec.GetTemplate().Spec.GetContainer().Stdin = true
+		},
+	}, {
+		name: "TestStdinOnce",
+		options: func(s *v1alpha1.Service) {
+			s.Spec.ConfigurationSpec.GetTemplate().Spec.GetContainer().StdinOnce = true
+		},
+	}, {
+		name: "TestTTY",
+		options: func(s *v1alpha1.Service) {
+			s.Spec.ConfigurationSpec.GetTemplate().Spec.GetContainer().TTY = true
+		},
 	}}
 
 	for _, tc := range testCases {
