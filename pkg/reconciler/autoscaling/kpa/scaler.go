@@ -135,44 +135,45 @@ func scaleResourceArgs(pa *pav1alpha1.PodAutoscaler) (*schema.GroupVersionResour
 }
 
 func (ks *scaler) handleScaleToZero(pa *pav1alpha1.PodAutoscaler, desiredScale int32, config *autoscaler.Config) (int32, bool) {
-	if desiredScale == 0 {
-		// We should only scale to zero when three of the following conditions are true:
-		//   a) enable-scale-to-zero from configmap is true
-		//   b) The PA has been active for at least the stable window, after which it gets marked inactive
-		//   c) The PA has been inactive for at least the grace period
+	if desiredScale != 0 {
+		return desiredScale, true
+	}
+	// We should only scale to zero when three of the following conditions are true:
+	//   a) enable-scale-to-zero from configmap is true
+	//   b) The PA has been active for at least the stable window, after which it gets marked inactive
+	//   c) The PA has been inactive for at least the grace period
 
-		if config.EnableScaleToZero == false {
-			return 1, true
+	if config.EnableScaleToZero == false {
+		return 1, true
+	}
+
+	if pa.Status.IsActivating() { // Active=Unknown
+		// Don't scale-to-zero during activation
+		desiredScale = scaleUnknown
+	} else if pa.Status.IsReady() { // Active=True
+		// Don't scale-to-zero if the PA is active
+
+		// Do not scale to 0, but return desiredScale of 0 to mark PA inactive.
+		if pa.Status.CanMarkInactive(config.StableWindow) {
+			return desiredScale, false
 		}
-
-		if pa.Status.IsActivating() { // Active=Unknown
-			// Don't scale-to-zero during activation
-			desiredScale = scaleUnknown
-		} else if pa.Status.IsReady() { // Active=True
-			// Don't scale-to-zero if the PA is active
-
-			// Do not scale to 0, but return desiredScale of 0 to mark PA inactive.
-			if pa.Status.CanMarkInactive(config.StableWindow) {
-				return desiredScale, false
-			}
-			// Otherwise, scale down to 1 until the idle period elapses.
-			desiredScale = 1
-		} else { // Active=False
-			r, err := ks.activatorProbe(pa)
-			ks.logger.Infof("%s probing activator = %v, err = %v", pa.Name, r, err)
-			if err != nil {
-				ks.logger.Errorf("Error probing activator: %v", err)
-				return desiredScale, false
-			}
-			if !r {
-				ks.logger.Infof("%s is not yet backed by activator, cannot scale to zero", pa.Name)
-				return desiredScale, false
-			}
-			// Don't scale-to-zero if the grace period hasn't elapsed.
-			// TODO(vagababov): perhaps get rid of this?
-			if !pa.Status.CanScaleToZero(config.ScaleToZeroGracePeriod) {
-				return desiredScale, false
-			}
+		// Otherwise, scale down to 1 until the idle period elapses.
+		desiredScale = 1
+	} else { // Active=False
+		r, err := ks.activatorProbe(pa)
+		ks.logger.Infof("%s probing activator = %v, err = %v", pa.Name, r, err)
+		if err != nil {
+			ks.logger.Errorf("Error probing activator: %v", err)
+			return desiredScale, false
+		}
+		if !r {
+			ks.logger.Infof("%s is not yet backed by activator, cannot scale to zero", pa.Name)
+			return desiredScale, false
+		}
+		// Don't scale-to-zero if the grace period hasn't elapsed.
+		// TODO(vagababov): perhaps get rid of this?
+		if !pa.Status.CanScaleToZero(config.ScaleToZeroGracePeriod) {
+			return desiredScale, false
 		}
 	}
 	return desiredScale, true
