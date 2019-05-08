@@ -106,7 +106,11 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (int32, bool) {
 	metricKey := NewMetricKey(a.namespace, a.revision)
 	observedStableConcurrency, observedPanicConcurrency, err := a.metricClient.StableAndPanicConcurrency(metricKey)
 	if err != nil {
-		logger.Errorw("Failed to obtain metrics", zap.Error(err))
+		if err == ErrNoData {
+			logger.Debug("No data to scale on yet")
+		} else {
+			logger.Errorw("Failed to obtain metrics", zap.Error(err))
+		}
 		return 0, false
 	}
 

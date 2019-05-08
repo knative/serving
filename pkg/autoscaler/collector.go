@@ -40,6 +40,11 @@ const (
 	bucketSize = 2 * time.Second
 )
 
+var (
+	// ErrNoData denotes that the collector could not calculate data.
+	ErrNoData = errors.New("no data available")
+)
+
 // Metric represents a resource to configure the metric collector with.
 // +k8s:deepcopy-gen=true
 type Metric struct {
@@ -280,7 +285,7 @@ func (c *collection) stableAndPanicConcurrency(now time.Time) (float64, float64,
 	c.buckets.RemoveOlderThan(now.Add(-spec.StableWindow))
 
 	if c.buckets.IsEmpty() {
-		return 0, 0, errors.New("no data available")
+		return 0, 0, ErrNoData
 	}
 
 	panicAverage := aggregation.Average{}
