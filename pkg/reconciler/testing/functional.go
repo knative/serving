@@ -18,7 +18,6 @@ package testing
 
 import (
 	"fmt"
-	"strconv"
 	"time"
 
 	"github.com/knative/pkg/apis"
@@ -997,15 +996,6 @@ func WithTraffic(pa *autoscalingv1alpha1.PodAutoscaler) {
 func WithPAStatusService(svc string) PodAutoscalerOption {
 	return func(pa *autoscalingv1alpha1.PodAutoscaler) {
 		pa.Status.ServiceName = svc
-	}
-}
-
-func WithMinScale(minScale int) PodAutoscalerOption {
-	return func(pa *autoscalingv1alpha1.PodAutoscaler) {
-		if pa.Annotations == nil {
-			pa.Annotations = make(map[string]string)
-		}
-		pa.Annotations[autoscaling.MinScaleAnnotationKey] = strconv.Itoa(minScale)
 	}
 }
 

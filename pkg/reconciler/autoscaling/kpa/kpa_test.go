@@ -19,6 +19,7 @@ package kpa
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"sync"
 	"testing"
 	"time"
@@ -545,27 +546,27 @@ func TestReconcile(t *testing.T) {
 		Name: "kpa does not become ready without minScale endpoints",
 		Key:  key,
 		Objects: []runtime.Object{
-			kpa(testNamespace, testRevision, WithMinScale(2)),
+			kpa(testNamespace, testRevision, withMinScale(2)),
 			sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSReady),
 			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector)),
 			expectedDeploy,
 			makeSKSPrivateEndpoints(1, testNamespace, testRevision),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: kpa(testNamespace, testRevision, markActivating, WithMinScale(2), WithPAStatusService(testRevision)),
+			Object: kpa(testNamespace, testRevision, markActivating, withMinScale(2), WithPAStatusService(testRevision)),
 		}},
 	}, {
 		Name: "kpa becomes ready with minScale endpoints",
 		Key:  key,
 		Objects: []runtime.Object{
-			kpa(testNamespace, testRevision, markActivating, WithMinScale(2), WithPAStatusService(testRevision)),
+			kpa(testNamespace, testRevision, markActivating, withMinScale(2), WithPAStatusService(testRevision)),
 			sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSReady),
 			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector)),
 			expectedDeploy,
 			makeSKSPrivateEndpoints(2, testNamespace, testRevision),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: kpa(testNamespace, testRevision, markActive, WithMinScale(2), WithPAStatusService(testRevision)),
+			Object: kpa(testNamespace, testRevision, markActive, withMinScale(2), WithPAStatusService(testRevision)),
 		}},
 	}, {
 		Name: "sks does not exist",
@@ -1540,13 +1541,21 @@ func makeSKSPrivateEndpoints(num int, ns, n string) *corev1.Endpoints {
 func addEndpoint(ep *corev1.Endpoints) *corev1.Endpoints {
 	if ep.Subsets == nil {
 		ep.Subsets = []corev1.EndpointSubset{{
-			Addresses: []corev1.EndpointAddress{{IP: "127.0.0.1"}},
+			Addresses: []corev1.EndpointAddress{},
 		}}
-		return ep
 	}
 
 	ep.Subsets[0].Addresses = append(ep.Subsets[0].Addresses, corev1.EndpointAddress{IP: "127.0.0.1"})
 	return ep
+}
+
+func withMinScale(minScale int) PodAutoscalerOption {
+	return func(pa *asv1a1.PodAutoscaler) {
+		if pa.Annotations == nil {
+			pa.Annotations = make(map[string]string)
+		}
+		pa.Annotations[autoscaling.MinScaleAnnotationKey] = strconv.Itoa(minScale)
+	}
 }
 
 type testConfigStore struct {
