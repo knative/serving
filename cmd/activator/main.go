@@ -64,11 +64,6 @@ var _ = goversion.IsSupported()
 const (
 	component = "activator"
 
-	// This is the number of times we will perform network probes to
-	// see if the Revision is accessible before forwarding the actual
-	// request.
-	maxRetries = 18
-
 	// Add a little buffer space between request handling and stat
 	// reporting so that latency in the stat pipeline doesn't
 	// interfere with request handling.
@@ -226,16 +221,14 @@ func main() {
 
 	// Create activation handler chain
 	// Note: innermost handlers are specified first, ie. the last handler in the chain will be executed first
-	var ah http.Handler = &activatorhandler.ActivationHandler{
-		Transport:      network.AutoTransport,
-		Logger:         logger,
-		Reporter:       reporter,
-		Throttler:      throttler,
-		GetProbeCount:  maxRetries,
-		RevisionLister: revisionInformer.Lister(),
-		SksLister:      sksInformer.Lister(),
-		ServiceLister:  serviceInformer.Lister(),
-	}
+	var ah http.Handler = activatorhandler.New(
+		logger,
+		reporter,
+		throttler,
+		revisionInformer.Lister(),
+		serviceInformer.Lister(),
+		sksInformer.Lister(),
+	)
 	ah = activatorhandler.NewRequestEventHandler(reqChan, ah)
 	ah = tracing.HTTPSpanMiddleware(ah)
 	ah = configStore.HTTPMiddleware(ah)
