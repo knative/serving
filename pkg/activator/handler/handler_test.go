@@ -44,6 +44,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubeinformers "k8s.io/client-go/informers"
+	corev1informers "k8s.io/client-go/informers/core/v1"
 	kubefake "k8s.io/client-go/kubernetes/fake"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 )
@@ -59,28 +60,28 @@ func TestActivationHandler(t *testing.T) {
 	defer ClearAll()
 
 	tests := []struct {
-		label           string
-		namespace       string
-		name            string
-		wantBody        string
-		wantCode        int
-		wantErr         error
-		probeErr        error
-		probeCode       int
-		probeResp       []string
-		gpc             int
-		endpointsLister corev1listers.EndpointsLister
-		sksLister       netlisters.ServerlessServiceLister
-		svcLister       corev1listers.ServiceLister
-		reporterCalls   []reporterCall
+		label             string
+		namespace         string
+		name              string
+		wantBody          string
+		wantCode          int
+		wantErr           error
+		probeErr          error
+		probeCode         int
+		probeResp         []string
+		gpc               int
+		endpointsInformer corev1informers.EndpointsInformer
+		sksLister         netlisters.ServerlessServiceLister
+		svcLister         corev1listers.ServiceLister
+		reporterCalls     []reporterCall
 	}{{
-		label:           "active endpoint",
-		namespace:       testNamespace,
-		name:            testRevName,
-		wantBody:        "everything good!",
-		wantCode:        http.StatusOK,
-		wantErr:         nil,
-		endpointsLister: endpointsLister(endpoints(testNamespace, testRevName, 1000)),
+		label:             "active endpoint",
+		namespace:         testNamespace,
+		name:              testRevName,
+		wantBody:          "everything good!",
+		wantCode:          http.StatusOK,
+		wantErr:           nil,
+		endpointsInformer: endpointsInformer(endpoints(testNamespace, testRevName, 1000)),
 		reporterCalls: []reporterCall{{
 			Op:         "ReportRequestCount",
 			Namespace:  testNamespace,
@@ -100,14 +101,14 @@ func TestActivationHandler(t *testing.T) {
 		}},
 		gpc: 1,
 	}, {
-		label:           "slowly active endpoint",
-		namespace:       testNamespace,
-		name:            testRevName,
-		wantBody:        "everything good!",
-		wantCode:        http.StatusOK,
-		wantErr:         nil,
-		probeResp:       []string{activator.Name, queue.Name},
-		endpointsLister: endpointsLister(endpoints(testNamespace, testRevName, 1000)),
+		label:             "slowly active endpoint",
+		namespace:         testNamespace,
+		name:              testRevName,
+		wantBody:          "everything good!",
+		wantCode:          http.StatusOK,
+		wantErr:           nil,
+		probeResp:         []string{activator.Name, queue.Name},
+		endpointsInformer: endpointsInformer(endpoints(testNamespace, testRevName, 1000)),
 		reporterCalls: []reporterCall{{
 			Op:         "ReportRequestCount",
 			Namespace:  testNamespace,
@@ -127,13 +128,13 @@ func TestActivationHandler(t *testing.T) {
 		}},
 		gpc: 2,
 	}, {
-		label:           "active endpoint with missing count header",
-		namespace:       testNamespace,
-		name:            testRevName,
-		wantBody:        "everything good!",
-		wantCode:        http.StatusOK,
-		wantErr:         nil,
-		endpointsLister: endpointsLister(endpoints(testNamespace, testRevName, 1000)),
+		label:             "active endpoint with missing count header",
+		namespace:         testNamespace,
+		name:              testRevName,
+		wantBody:          "everything good!",
+		wantCode:          http.StatusOK,
+		wantErr:           nil,
+		endpointsInformer: endpointsInformer(endpoints(testNamespace, testRevName, 1000)),
 		reporterCalls: []reporterCall{{
 			Op:         "ReportRequestCount",
 			Namespace:  testNamespace,
@@ -152,22 +153,22 @@ func TestActivationHandler(t *testing.T) {
 			StatusCode: http.StatusOK,
 		}},
 	}, {
-		label:           "no active endpoint",
-		namespace:       "fake-namespace",
-		name:            "fake-name",
-		wantBody:        errMsg("revision.serving.knative.dev \"fake-name\" not found"),
-		wantCode:        http.StatusNotFound,
-		wantErr:         nil,
-		endpointsLister: endpointsLister(endpoints(testNamespace, testRevName, 1000)),
-		reporterCalls:   nil,
+		label:             "no active endpoint",
+		namespace:         "fake-namespace",
+		name:              "fake-name",
+		wantBody:          errMsg("revision.serving.knative.dev \"fake-name\" not found"),
+		wantCode:          http.StatusNotFound,
+		wantErr:           nil,
+		endpointsInformer: endpointsInformer(endpoints(testNamespace, testRevName, 1000)),
+		reporterCalls:     nil,
 	}, {
-		label:           "active endpoint (probe failure)",
-		namespace:       testNamespace,
-		name:            testRevName,
-		probeErr:        errors.New("probe error"),
-		wantCode:        http.StatusInternalServerError,
-		endpointsLister: endpointsLister(endpoints(testNamespace, testRevName, 1000)),
-		gpc:             1,
+		label:             "active endpoint (probe failure)",
+		namespace:         testNamespace,
+		name:              testRevName,
+		probeErr:          errors.New("probe error"),
+		wantCode:          http.StatusInternalServerError,
+		endpointsInformer: endpointsInformer(endpoints(testNamespace, testRevName, 1000)),
+		gpc:               1,
 		reporterCalls: []reporterCall{{
 			Op:         "ReportRequestCount",
 			Namespace:  testNamespace,
@@ -186,13 +187,13 @@ func TestActivationHandler(t *testing.T) {
 			StatusCode: http.StatusInternalServerError,
 		}},
 	}, {
-		label:           "active endpoint (probe 500)",
-		namespace:       testNamespace,
-		name:            testRevName,
-		probeCode:       http.StatusServiceUnavailable,
-		wantCode:        http.StatusInternalServerError,
-		endpointsLister: endpointsLister(endpoints(testNamespace, testRevName, 1000)),
-		gpc:             1,
+		label:             "active endpoint (probe 500)",
+		namespace:         testNamespace,
+		name:              testRevName,
+		probeCode:         http.StatusServiceUnavailable,
+		wantCode:          http.StatusInternalServerError,
+		endpointsInformer: endpointsInformer(endpoints(testNamespace, testRevName, 1000)),
+		gpc:               1,
 		reporterCalls: []reporterCall{{
 			Op:         "ReportRequestCount",
 			Namespace:  testNamespace,
@@ -211,13 +212,13 @@ func TestActivationHandler(t *testing.T) {
 			StatusCode: http.StatusInternalServerError,
 		}},
 	}, {
-		label:           "request error",
-		namespace:       testNamespace,
-		name:            testRevName,
-		wantBody:        "",
-		wantCode:        http.StatusBadGateway,
-		wantErr:         errors.New("request error"),
-		endpointsLister: endpointsLister(endpoints(testNamespace, testRevName, 1000)),
+		label:             "request error",
+		namespace:         testNamespace,
+		name:              testRevName,
+		wantBody:          "",
+		wantCode:          http.StatusBadGateway,
+		wantErr:           errors.New("request error"),
+		endpointsInformer: endpointsInformer(endpoints(testNamespace, testRevName, 1000)),
 		reporterCalls: []reporterCall{{
 			Op:         "ReportRequestCount",
 			Namespace:  testNamespace,
@@ -236,13 +237,13 @@ func TestActivationHandler(t *testing.T) {
 			StatusCode: http.StatusBadGateway,
 		}},
 	}, {
-		label:           "invalid number of attempts",
-		namespace:       testNamespace,
-		name:            testRevName,
-		wantBody:        "everything good!",
-		wantCode:        http.StatusOK,
-		wantErr:         nil,
-		endpointsLister: endpointsLister(endpoints(testNamespace, testRevName, 1000)),
+		label:             "invalid number of attempts",
+		namespace:         testNamespace,
+		name:              testRevName,
+		wantBody:          "everything good!",
+		wantCode:          http.StatusOK,
+		wantErr:           nil,
+		endpointsInformer: endpointsInformer(endpoints(testNamespace, testRevName, 1000)),
 		reporterCalls: []reporterCall{{
 			Op:         "ReportRequestCount",
 			Namespace:  testNamespace,
@@ -261,44 +262,44 @@ func TestActivationHandler(t *testing.T) {
 			StatusCode: http.StatusOK,
 		}},
 	}, {
-		label:           "broken get SKS",
-		namespace:       testNamespace,
-		name:            testRevName,
-		wantBody:        errMsg("serverlessservice.networking.internal.knative.dev \"real-name\" not found"),
-		wantCode:        http.StatusNotFound,
-		wantErr:         nil,
-		endpointsLister: endpointsLister(endpoints(testNamespace, testRevName, 1000)),
-		sksLister:       sksLister(sks("bogus-namespace", testRevName)),
-		reporterCalls:   nil,
+		label:             "broken get SKS",
+		namespace:         testNamespace,
+		name:              testRevName,
+		wantBody:          errMsg("serverlessservice.networking.internal.knative.dev \"real-name\" not found"),
+		wantCode:          http.StatusNotFound,
+		wantErr:           nil,
+		endpointsInformer: endpointsInformer(endpoints(testNamespace, testRevName, 1000)),
+		sksLister:         sksLister(sks("bogus-namespace", testRevName)),
+		reporterCalls:     nil,
 	}, {
-		label:           "k8s svc incorrectly spec'd",
-		namespace:       testNamespace,
-		name:            testRevName,
-		wantBody:        errMsg("revision needs external HTTP port"),
-		wantCode:        http.StatusInternalServerError,
-		wantErr:         nil,
-		endpointsLister: endpointsLister(endpoints(testNamespace, testRevName, 1000)),
-		svcLister:       serviceLister(service(testNamespace, testRevName, "bogus")),
-		reporterCalls:   nil,
+		label:             "k8s svc incorrectly spec'd",
+		namespace:         testNamespace,
+		name:              testRevName,
+		wantBody:          errMsg("revision needs external HTTP port"),
+		wantCode:          http.StatusInternalServerError,
+		wantErr:           nil,
+		endpointsInformer: endpointsInformer(endpoints(testNamespace, testRevName, 1000)),
+		svcLister:         serviceLister(service(testNamespace, testRevName, "bogus")),
+		reporterCalls:     nil,
 	}, {
-		label:           "broken get k8s svc",
-		namespace:       testNamespace,
-		name:            testRevName,
-		wantBody:        errMsg("service \"real-name\" not found"),
-		wantCode:        http.StatusNotFound,
-		wantErr:         nil,
-		endpointsLister: endpointsLister(endpoints("bogus-namespace", testRevName, 1000)),
-		svcLister:       serviceLister(service("bogus-namespace", testRevName, "http")),
-		reporterCalls:   nil,
+		label:             "broken get k8s svc",
+		namespace:         testNamespace,
+		name:              testRevName,
+		wantBody:          errMsg("service \"real-name\" not found"),
+		wantCode:          http.StatusNotFound,
+		wantErr:           nil,
+		endpointsInformer: endpointsInformer(endpoints("bogus-namespace", testRevName, 1000)),
+		svcLister:         serviceLister(service("bogus-namespace", testRevName, "http")),
+		reporterCalls:     nil,
 	}, {
-		label:           "broken get endpoints",
-		namespace:       testNamespace,
-		name:            testRevName,
-		wantBody:        "",
-		wantCode:        http.StatusInternalServerError,
-		wantErr:         nil,
-		endpointsLister: endpointsLister(endpoints("bogus-namespace", testRevName, 1000)),
-		reporterCalls:   nil,
+		label:             "broken get endpoints",
+		namespace:         testNamespace,
+		name:              testRevName,
+		wantBody:          "",
+		wantCode:          http.StatusInternalServerError,
+		wantErr:           nil,
+		endpointsInformer: endpointsInformer(endpoints("bogus-namespace", testRevName, 1000)),
+		reporterCalls:     nil,
 	}}
 
 	for _, test := range tests {
@@ -351,7 +352,7 @@ func TestActivationHandler(t *testing.T) {
 			params := queue.BreakerParams{QueueDepth: 1000, MaxConcurrency: 1000, InitialCapacity: 0}
 			throttler := activator.NewThrottler(
 				params,
-				test.endpointsLister,
+				test.endpointsInformer,
 				sksLister(sks(testNamespace, testRevName)),
 				revisionLister(revision(testNamespace, testRevName)),
 				TestLogger(t))
@@ -413,7 +414,7 @@ func TestActivationHandler_Overflow(t *testing.T) {
 	breakerParams := queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}
 	throttler := activator.NewThrottler(
 		breakerParams,
-		endpointsLister(endpoints(namespace, revName, breakerParams.InitialCapacity)),
+		endpointsInformer(endpoints(namespace, revName, breakerParams.InitialCapacity)),
 		sksLister(sks(namespace, revName)),
 		revisionLister(revision(namespace, revName)),
 		TestLogger(t))
@@ -438,7 +439,7 @@ func TestActivationHandler_OverflowSeveralRevisions(t *testing.T) {
 	revisions := []string{rev1, rev2}
 
 	breakerParams := queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}
-	epClient := endpointsLister(endpoints(testNamespace, rev1, breakerParams.InitialCapacity), endpoints(testNamespace, rev2, breakerParams.InitialCapacity))
+	epClient := endpointsInformer(endpoints(testNamespace, rev1, breakerParams.InitialCapacity), endpoints(testNamespace, rev2, breakerParams.InitialCapacity))
 	sksClient := sksLister(sks(testNamespace, rev1), sks(testNamespace, rev2))
 	revClient := revisionLister(revision(testNamespace, rev1), revision(testNamespace, rev2))
 	svcClient := serviceLister(service(testNamespace, rev1, "http"), service(testNamespace, rev2, "http"))
@@ -472,7 +473,7 @@ func TestActivationHandler_ProxyHeader(t *testing.T) {
 	})
 	throttler := activator.NewThrottler(
 		breakerParams,
-		endpointsLister(endpoints(namespace, revName, breakerParams.InitialCapacity)),
+		endpointsInformer(endpoints(namespace, revName, breakerParams.InitialCapacity)),
 		sksLister(sks(namespace, revName)),
 		revisionLister(revision(namespace, revName)),
 		TestLogger(t))
@@ -764,7 +765,7 @@ func endpoints(namespace, name string, count int) *corev1.Endpoints {
 	return ep
 }
 
-func endpointsLister(eps ...*corev1.Endpoints) corev1listers.EndpointsLister {
+func endpointsInformer(eps ...*corev1.Endpoints) corev1informers.EndpointsInformer {
 	fake := kubefake.NewSimpleClientset()
 	informer := kubeinformers.NewSharedInformerFactory(fake, 0)
 	endpoints := informer.Core().V1().Endpoints()
@@ -774,7 +775,7 @@ func endpointsLister(eps ...*corev1.Endpoints) corev1listers.EndpointsLister {
 		endpoints.Informer().GetIndexer().Add(ep)
 	}
 
-	return endpoints.Lister()
+	return endpoints
 }
 
 func errMsg(msg string) string {

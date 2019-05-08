@@ -38,7 +38,6 @@ import (
 	activatorconfig "github.com/knative/serving/pkg/activator/config"
 	activatorhandler "github.com/knative/serving/pkg/activator/handler"
 	"github.com/knative/serving/pkg/apis/networking"
-	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/autoscaler"
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
 	servinginformers "github.com/knative/serving/pkg/client/informers/externalversions"
@@ -48,7 +47,6 @@ import (
 	"github.com/knative/serving/pkg/metrics"
 	"github.com/knative/serving/pkg/network"
 	"github.com/knative/serving/pkg/queue"
-	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/tracing"
 	tracingconfig "github.com/knative/serving/pkg/tracing/config"
 	zipkin "github.com/openzipkin/zipkin-go"
@@ -57,7 +55,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
 )
 
@@ -190,29 +187,7 @@ func main() {
 	}
 
 	params := queue.BreakerParams{QueueDepth: breakerQueueDepth, MaxConcurrency: breakerMaxConcurrency, InitialCapacity: 0}
-	throttler := activator.NewThrottler(params, endpointInformer.Lister(), sksInformer.Lister(), revisionInformer.Lister(), logger)
-
-	handler := cache.ResourceEventHandlerFuncs{
-		AddFunc:    throttler.UpdateEndpoints,
-		UpdateFunc: controller.PassNew(throttler.UpdateEndpoints),
-		DeleteFunc: throttler.DeleteBreaker,
-	}
-
-	// Update/create the breaker in the throttler when the number of endpoints changes.
-	// Pass only the endpoints created by revisions.
-	// TODO(greghaynes) we have to allow unset and use the old RevisionUID filter for backwards compat.
-	// When we can assume our ServiceTypeKey label is present in all services we can filter all but
-	// networking.ServiceTypeKey == networking.ServiceTypePublic
-	epFilter := reconciler.ChainFilterFuncs(
-		reconciler.LabelExistsFilterFunc(serving.RevisionUID),
-		// We are only interested in the private services, since that is
-		// what is populated by the actual revision backends.
-		reconciler.LabelFilterFunc(networking.ServiceTypeKey, string(networking.ServiceTypePrivate), true),
-	)
-	endpointInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
-		FilterFunc: epFilter,
-		Handler:    handler,
-	})
+	throttler := activator.NewThrottler(params, endpointInformer, sksInformer.Lister(), revisionInformer.Lister(), logger)
 
 	activatorL3 := fmt.Sprintf("%s:%d", activator.K8sServiceName, networking.ServiceHTTPPort)
 	zipkinEndpoint, err := zipkin.NewEndpoint("activator", activatorL3)

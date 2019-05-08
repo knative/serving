@@ -18,12 +18,18 @@ package activator
 
 import (
 	"testing"
+	"time"
+
+	"k8s.io/apimachinery/pkg/util/wait"
 
 	"go.uber.org/zap"
 
+	"github.com/knative/pkg/controller"
 	. "github.com/knative/pkg/logging/testing"
 	"github.com/knative/pkg/test/helpers"
+	"github.com/knative/serving/pkg/apis/networking"
 	nv1a1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
+	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 	servingfake "github.com/knative/serving/pkg/client/clientset/versioned/fake"
@@ -36,8 +42,8 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubeinformers "k8s.io/client-go/informers"
+	corev1informers "k8s.io/client-go/informers/core/v1"
 	kubefake "k8s.io/client-go/kubernetes/fake"
-	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
 const (
@@ -102,7 +108,7 @@ func TestThrottler_UpdateCapacity(t *testing.T) {
 			throttler := getThrottler(
 				s.maxConcurrency,
 				s.revisionLister,
-				nil, /*endpointsLister*/
+				endpointsInformer(testNamespace, testRevision, 1),
 				nil, /*sksLister*/
 				TestLogger(t),
 				initCapacity)
@@ -125,42 +131,42 @@ func TestThrottler_UpdateCapacity(t *testing.T) {
 func TestThrottler_Try(t *testing.T) {
 	defer ClearAll()
 	samples := []struct {
-		label           string
-		addCapacity     bool
-		revisionLister  servinglisters.RevisionLister
-		endpointsLister corev1listers.EndpointsLister
-		sksLister       netlisters.ServerlessServiceLister
-		wantCalls       int
-		wantError       bool
+		label             string
+		addCapacity       bool
+		revisionLister    servinglisters.RevisionLister
+		endpointsInformer corev1informers.EndpointsInformer
+		sksLister         netlisters.ServerlessServiceLister
+		wantCalls         int
+		wantError         bool
 	}{{
-		label:           "all good",
-		addCapacity:     true,
-		revisionLister:  revisionLister(testNamespace, testRevision, 10),
-		endpointsLister: endpointsLister(testNamespace, testRevision, 0),
-		sksLister:       sksLister(testNamespace, testRevision),
-		wantCalls:       1,
+		label:             "all good",
+		addCapacity:       true,
+		revisionLister:    revisionLister(testNamespace, testRevision, 10),
+		endpointsInformer: endpointsInformer(testNamespace, testRevision, 0),
+		sksLister:         sksLister(testNamespace, testRevision),
+		wantCalls:         1,
 	}, {
-		label:           "non-existing revision",
-		addCapacity:     true,
-		revisionLister:  revisionLister("bogus-namespace", testRevision, 10),
-		endpointsLister: endpointsLister(testNamespace, testRevision, 0),
-		sksLister:       sksLister(testNamespace, testRevision),
-		wantCalls:       0,
-		wantError:       true,
+		label:             "non-existing revision",
+		addCapacity:       true,
+		revisionLister:    revisionLister("bogus-namespace", testRevision, 10),
+		endpointsInformer: endpointsInformer(testNamespace, testRevision, 0),
+		sksLister:         sksLister(testNamespace, testRevision),
+		wantCalls:         0,
+		wantError:         true,
 	}, {
-		label:           "error getting SKS",
-		revisionLister:  revisionLister(testNamespace, testRevision, 10),
-		endpointsLister: endpointsLister(testNamespace, testRevision, 1),
-		sksLister:       sksLister("bogus-namespace", testRevision),
-		wantCalls:       0,
-		wantError:       true,
+		label:             "error getting SKS",
+		revisionLister:    revisionLister(testNamespace, testRevision, 10),
+		endpointsInformer: endpointsInformer(testNamespace, testRevision, 1),
+		sksLister:         sksLister("bogus-namespace", testRevision),
+		wantCalls:         0,
+		wantError:         true,
 	}, {
-		label:           "error getting endpoint",
-		revisionLister:  revisionLister(testNamespace, testRevision, 10),
-		endpointsLister: endpointsLister("bogus-namespace", testRevision, 0),
-		sksLister:       sksLister(testNamespace, testRevision),
-		wantCalls:       0,
-		wantError:       true,
+		label:             "error getting endpoint",
+		revisionLister:    revisionLister(testNamespace, testRevision, 10),
+		endpointsInformer: endpointsInformer("bogus-namespace", testRevision, 0),
+		sksLister:         sksLister(testNamespace, testRevision),
+		wantCalls:         0,
+		wantError:         true,
 	}}
 	for _, s := range samples {
 		t.Run(s.label, func(t *testing.T) {
@@ -168,7 +174,7 @@ func TestThrottler_Try(t *testing.T) {
 			throttler := getThrottler(
 				defaultMaxConcurrency,
 				s.revisionLister,
-				s.endpointsLister,
+				s.endpointsInformer,
 				s.sksLister,
 				TestLogger(t),
 				initCapacity)
@@ -198,7 +204,7 @@ func TestThrottler_TryOverload(t *testing.T) {
 	th := getThrottler(
 		maxConcurrency,
 		revisionLister(testNamespace, testRevision, 1),
-		endpointsLister(testNamespace, testRevision, 1),
+		endpointsInformer(testNamespace, testRevision, 1),
 		sksLister(testNamespace, testRevision),
 		TestLogger(t),
 		initialCapacity)
@@ -238,70 +244,11 @@ func TestThrottler_TryOverload(t *testing.T) {
 	}
 }
 
-func TestUpdateEndpoints(t *testing.T) {
-	revisionConcurrency := 10
-
-	samples := []struct {
-		label          string
-		endpointsAfter int
-		wantCapacity   int
-		initCapacity   int
-	}{{
-		label:          "add single endpoint",
-		endpointsAfter: 1,
-		wantCapacity:   1 * revisionConcurrency,
-	}, {
-		label:          "add several endpoints",
-		endpointsAfter: 2,
-		wantCapacity:   2 * revisionConcurrency,
-	}, {
-		label:          "do nothing",
-		endpointsAfter: 1,
-		wantCapacity:   1 * revisionConcurrency,
-		initCapacity:   10,
-	}, {
-		label:          "reduce endpoints",
-		endpointsAfter: 0,
-		wantCapacity:   0,
-		initCapacity:   10,
-	}, {
-		label:          "exceed max concurrency",
-		endpointsAfter: 101 * revisionConcurrency,
-		wantCapacity:   defaultMaxConcurrency,
-	}}
-
-	for _, s := range samples {
-		t.Run(s.label, func(t *testing.T) {
-			throttler := getThrottler(
-				defaultMaxConcurrency,
-				revisionLister(testNamespace, testRevision, v1beta1.RevisionContainerConcurrencyType(revisionConcurrency)),
-				endpointsLister(testNamespace, testRevision, 0),
-				sksLister(testNamespace, testRevision),
-				TestLogger(t),
-				s.initCapacity)
-
-			breaker := queue.NewBreaker(throttler.breakerParams)
-			throttler.breakers[revID] = breaker
-			endpointsAfter := corev1.Endpoints{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      helpers.AppendRandomString(revID.Name),
-					Namespace: revID.Namespace,
-				},
-				Subsets: endpointsSubset(s.endpointsAfter, 1),
-			}
-			throttler.UpdateEndpoints(&endpointsAfter)
-			if got := breaker.Capacity(); got != s.wantCapacity {
-				t.Errorf("Breaker capacity = %d, want: %d", got, s.wantCapacity)
-			}
-		})
-	}
-}
-
 func TestThrottler_Remove(t *testing.T) {
 	throttler := getThrottler(
 		defaultMaxConcurrency,
 		revisionLister(testNamespace, testRevision, 10),
-		endpointsLister(testNamespace, testRevision, 0),
+		endpointsInformer(testNamespace, testRevision, 0),
 		sksLister(testNamespace, testRevision),
 		TestLogger(t),
 		initCapacity)
@@ -317,30 +264,69 @@ func TestThrottler_Remove(t *testing.T) {
 	}
 }
 
-func TestHelper_DeleteBreaker(t *testing.T) {
+func TestHelper_ReactToEndpoints(t *testing.T) {
+	const updatePollInterval = 10 * time.Millisecond
+	const updatePollTimeout = 3 * time.Second
+
+	ep := &corev1.Endpoints{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      testRevision + "-service",
+			Namespace: testNamespace,
+			Labels: map[string]string{
+				serving.RevisionUID:       "test",
+				networking.ServiceTypeKey: string(networking.ServiceTypePrivate),
+			},
+		},
+		Subsets: endpointsSubset(0, 1),
+	}
+
+	fake := kubefake.NewSimpleClientset()
+	informer := kubeinformers.NewSharedInformerFactory(fake, 0)
+	endpointsInformer := informer.Core().V1().Endpoints()
+
+	stopCh := make(chan struct{})
+	defer close(stopCh)
+	controller.StartInformers(stopCh, endpointsInformer.Informer())
+
 	throttler := getThrottler(
-		20,
+		200,
 		revisionLister(testNamespace, testRevision, 10),
-		endpointsLister(testNamespace, testRevision, 0),
+		endpointsInformer,
 		sksLister(testNamespace, testRevision),
 		TestLogger(t),
 		initCapacity)
 
-	endpoints := &corev1.Endpoints{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      revID.Name + "-suffix",
-			Namespace: revID.Namespace,
-		},
+	// Breaker is created with 0 ready addresses.
+	fake.CoreV1().Endpoints(ep.Namespace).Create(ep)
+	wait.PollImmediate(updatePollInterval, updatePollTimeout, func() (bool, error) {
+		return breakerCount(throttler) == 1, nil
+	})
+	if got := breakerCount(throttler); got != 1 {
+		t.Errorf("breakerCount() = %d, want 1", got)
 	}
-	revID := RevisionID{Namespace: revID.Namespace, Name: revID.Name}
-	throttler.breakers[revID] = queue.NewBreaker(throttler.breakerParams)
-	if got := len(throttler.breakers); got != 1 {
-		t.Errorf("Breaker map size got %d, want: 1", got)
+	breaker := throttler.breakers[RevisionID{Name: testRevision, Namespace: testNamespace}]
+	if got := breaker.Capacity(); got != 0 {
+		t.Errorf("Capacity() = %d, want 0", got)
 	}
 
-	throttler.DeleteBreaker(endpoints)
-	if len(throttler.breakers) != 0 {
-		t.Errorf("Breaker map is not empty, got: %v", throttler.breakers)
+	// Add 10 addresses, 10 * 10 = 100 = new capacity
+	newEp := ep.DeepCopy()
+	newEp.Subsets = endpointsSubset(10, 1)
+	fake.Core().Endpoints(ep.Namespace).Update(newEp)
+	wait.PollImmediate(updatePollInterval, updatePollTimeout, func() (bool, error) {
+		return breaker.Capacity() == 100, nil
+	})
+	if got := breaker.Capacity(); got != 100 {
+		t.Errorf("Capacity() = %d, want 100", got)
+	}
+
+	// Removing the endpoints causes the breaker to be removed.
+	fake.Core().Endpoints(ep.Namespace).Delete(ep.Name, &metav1.DeleteOptions{})
+	wait.PollImmediate(updatePollInterval, updatePollTimeout, func() (bool, error) {
+		return breakerCount(throttler) == 0, nil
+	})
+	if got := breakerCount(throttler); got != 0 {
+		t.Errorf("breakerCount() = %d, want 0", got)
 	}
 }
 
@@ -365,7 +351,7 @@ func revisionLister(namespace, name string, concurrency v1beta1.RevisionContaine
 	return revisions.Lister()
 }
 
-func endpointsLister(namespace, name string, count int) corev1listers.EndpointsLister {
+func endpointsInformer(namespace, name string, count int) corev1informers.EndpointsInformer {
 	ep := &corev1.Endpoints{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -379,7 +365,7 @@ func endpointsLister(namespace, name string, count int) corev1listers.EndpointsL
 	endpoints := informer.Core().V1().Endpoints()
 	endpoints.Informer().GetIndexer().Add(ep)
 
-	return endpoints.Lister()
+	return endpoints
 }
 
 func sksLister(namespace, name string) netlisters.ServerlessServiceLister {
@@ -405,7 +391,7 @@ func sksLister(namespace, name string) netlisters.ServerlessServiceLister {
 func getThrottler(
 	maxConcurrency int,
 	revisionLister servinglisters.RevisionLister,
-	endpointsLister corev1listers.EndpointsLister,
+	endpointsInformer corev1informers.EndpointsInformer,
 	sksLister netlisters.ServerlessServiceLister,
 	logger *zap.SugaredLogger,
 	initCapacity int) *Throttler {
@@ -414,7 +400,13 @@ func getThrottler(
 		MaxConcurrency:  maxConcurrency,
 		InitialCapacity: initCapacity,
 	}
-	return NewThrottler(params, endpointsLister, sksLister, revisionLister, logger)
+	return NewThrottler(params, endpointsInformer, sksLister, revisionLister, logger)
+}
+
+func breakerCount(t *Throttler) int {
+	t.breakersMux.Lock()
+	defer t.breakersMux.Unlock()
+	return len(t.breakers)
 }
 
 func endpointsSubset(hostsPerSubset, subsets int) []v1.EndpointSubset {
