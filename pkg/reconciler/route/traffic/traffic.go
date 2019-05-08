@@ -21,7 +21,6 @@ import (
 	"fmt"
 
 	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/util/sets"
 
 	net "github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/serving"
@@ -78,17 +77,9 @@ func BuildTrafficConfiguration(configLister listers.ConfigurationLister, revList
 	return builder.build()
 }
 
-// GetDomains returns all of the domains and tag domains (sub-domains) of a Route
-func GetDomains(domain string, targets map[string]RevisionTargets) []string {
-	allDomains := sets.NewString(domain)
-	for name := range targets {
-		allDomains.Insert(TagDomain(name, domain))
-	}
-	return allDomains.List()
-}
-
-// TagDomain returns the domain name of a traffic target given the traffic target name and the Route's base domain.
-func TagDomain(name, domain string) string {
+// DeprecatedTagDomain returns the deprecated domain name of a traffic target given the traffic target name and the Route's base domain.
+// This function has been deprected.
+func DeprecatedTagDomain(name, domain string) string {
 	if name == DefaultTarget {
 		return domain
 	}

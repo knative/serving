@@ -36,7 +36,8 @@ import (
 	"github.com/knative/serving/pkg/resources"
 )
 
-func isClusterLocal(r *servingv1alpha1.Route) bool {
+// IsClusterLocal checks if a Route is publicly visible or only visible with cluster.
+func IsClusterLocal(r *servingv1alpha1.Route) bool {
 	return r.Status.URL != nil && strings.HasSuffix(r.Status.URL.Host, network.GetClusterDomainName())
 }
 
@@ -95,7 +96,7 @@ func makeClusterIngressSpec(ctx context.Context, r *servingv1alpha1.Route, tls [
 	}
 
 	visibility := v1alpha1.IngressVisibilityExternalIP
-	if isClusterLocal(r) {
+	if IsClusterLocal(r) {
 		visibility = v1alpha1.IngressVisibilityClusterLocal
 	}
 
@@ -117,7 +118,7 @@ func routeDomains(ctx context.Context, targetName string, r *servingv1alpha1.Rou
 	// TODO(andrew-su): We are adding this for backwards compatibility. This should be removed when
 	// we feel the users had sufficient time to move away from the deprecated name.
 	if r.Status.URL != nil {
-		deprecatedFullName := traffic.TagDomain(targetName, r.Status.URL.Host)
+		deprecatedFullName := traffic.DeprecatedTagDomain(targetName, r.Status.URL.Host)
 		if fullName != deprecatedFullName {
 			ruleDomains = append(ruleDomains, deprecatedFullName)
 		}

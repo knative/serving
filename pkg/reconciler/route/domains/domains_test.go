@@ -17,10 +17,11 @@ package domains
 
 import (
 	"context"
-	"github.com/google/go-cmp/cmp"
-	"github.com/knative/pkg/apis"
 	"testing"
 	"time"
+
+	"github.com/google/go-cmp/cmp"
+	"github.com/knative/pkg/apis"
 
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/gc"
@@ -107,11 +108,11 @@ func TestDomainNameFromTemplate(t *testing.T) {
 
 			got, err := DomainNameFromTemplate(ctx, route, tt.args.name)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("BuildSubRouteWithName() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("DomainNameFromTemplate() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if got != tt.want {
-				t.Errorf("BuildSubRouteWithName() = %v, want %v", got, tt.want)
+				t.Errorf("DomainNameFromTemplate() = %v, want %v", got, tt.want)
 			}
 		})
 	}
@@ -159,20 +160,20 @@ func TestURL(t *testing.T) {
 		domain   string
 		Expected apis.URL
 	}{{
-		name:     "subdomain",
-		scheme:   HTTPScheme,
-		domain:   "current.svc.local.com",
+		name:   "subdomain",
+		scheme: HTTPScheme,
+		domain: "current.svc.local.com",
 		Expected: apis.URL{
 			Scheme: "http",
-			Path : "current.svc.local.com",
+			Path:   "current.svc.local.com",
 		},
 	}, {
-		name:     "default target",
-		scheme:   HTTPScheme,
-		domain:   "example.com",
+		name:   "default target",
+		scheme: HTTPScheme,
+		domain: "example.com",
 		Expected: apis.URL{
 			Scheme: "http",
-			Path : "example.com",
+			Path:   "example.com",
 		},
 	}}
 
@@ -180,6 +181,52 @@ func TestURL(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got, want := *URL(tt.scheme, tt.domain), tt.Expected; !cmp.Equal(want, got) {
 				t.Errorf("URL = %v, want: %v", got, want)
+			}
+		})
+	}
+}
+
+func TestGetAllDomains(t *testing.T) {
+	tests := []struct {
+		name     string
+		template string
+		want     []string
+		wantErr  bool
+	}{{
+		name:     "happy case",
+		template: "{{.Name}}.{{.Namespace}}.{{.Domain}}",
+		want:     []string{"myroute-target-1.default.example.com", "myroute-target-2.default.example.com", "myroute.default.example.com"},
+	}, {
+		name:     "bad template",
+		template: "{{.NNName}}.{{.Namespace}}.{{.Domain}}",
+		wantErr:  true,
+	}}
+
+	route := &v1alpha1.Route{
+		ObjectMeta: metav1.ObjectMeta{
+			SelfLink:  "/apis/serving/v1alpha1/namespaces/test/Routes/myapp",
+			Name:      "myroute",
+			Namespace: "default",
+			Labels: map[string]string{
+				"route": "myapp",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := context.Background()
+			cfg := testConfig()
+			cfg.Network.DomainTemplate = tt.template
+			ctx = config.ToContext(ctx, cfg)
+
+			got, err := GetAllDomains(ctx, route, []string{"target-1", "target-2"})
+			if (err != nil) != tt.wantErr {
+				t.Errorf("GetAllDomains() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if diff := cmp.Diff(tt.want, got); diff != "" {
+				t.Errorf("GetAllDomains() diff (-want +got): %v", diff)
 			}
 		})
 	}

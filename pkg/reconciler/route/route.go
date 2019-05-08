@@ -17,10 +17,8 @@ limitations under the License.
 package route
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
-	"fmt"
 
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
@@ -52,8 +50,10 @@ import (
 	"github.com/knative/serving/pkg/network"
 	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/route/config"
+	"github.com/knative/serving/pkg/reconciler/route/domains"
 	"github.com/knative/serving/pkg/reconciler/route/resources"
 	resourcenames "github.com/knative/serving/pkg/reconciler/route/resources/names"
+	"github.com/knative/serving/pkg/reconciler/route/traffic"
 	tr "github.com/knative/serving/pkg/reconciler/route/traffic"
 )
 
@@ -275,7 +275,7 @@ func (c *Reconciler) reconcile(ctx context.Context, r *v1alpha1.Route) error {
 
 	// Update the information that makes us Addressable. This is needed to configure traffic and
 	// make the cluster ingress.
-	host, err := routeDomain(ctx, r)
+	host, err := domains.RouteDomain(ctx, r)
 	if err != nil {
 		return err
 	}
@@ -323,9 +323,12 @@ func (c *Reconciler) reconcile(ctx context.Context, r *v1alpha1.Route) error {
 	}
 
 	tls := []netv1alpha1.ClusterIngressTLS{}
-	if config.FromContext(ctx).Network.AutoTLS {
-		domains := tr.GetDomains(r.Status.URL.Host, traffic.Targets)
-		desiredCert := resources.MakeCertificate(r, domains)
+	if config.FromContext(ctx).Network.AutoTLS && !resources.IsClusterLocal(r) {
+		allDomains, err := domains.GetAllDomains(ctx, r, getTrafficNames(traffic.Targets))
+		if err != nil {
+			return err
+		}
+		desiredCert := resources.MakeCertificate(r, allDomains)
 		cert, err := c.reconcileCertificate(ctx, r, desiredCert)
 		if err != nil {
 			r.Status.MarkCertificateProvisionFailed(desiredCert.Name)
@@ -347,7 +350,7 @@ func (c *Reconciler) reconcile(ctx context.Context, r *v1alpha1.Route) error {
 			setTargetsScheme(&r.Status, "http")
 		}
 
-		tls = append(tls, resources.MakeClusterIngressTLS(cert, domains))
+		tls = append(tls, resources.MakeClusterIngressTLS(cert, allDomains))
 	}
 
 	logger.Info("Creating ClusterIngress.")
@@ -489,27 +492,12 @@ func objectRef(a accessor) corev1.ObjectReference {
 	}
 }
 
-// routeDomain will generate the Route's Domain(host) for the Service based on
-// the "DomainTemplateKey" from the "config-network" configMap.
-func routeDomain(ctx context.Context, route *v1alpha1.Route) (string, error) {
-	domainConfig := config.FromContext(ctx).Domain
-	domain := domainConfig.LookupDomainForLabels(route.ObjectMeta.Labels)
-
-	// These are the available properties they can choose from.
-	// We could add more over time - e.g. RevisionName if we thought that
-	// might be of interest to people.
-	data := network.DomainTemplateValues{
-		Name:      route.Name,
-		Namespace: route.Namespace,
-		Domain:    domain,
+func getTrafficNames(targets map[string]traffic.RevisionTargets) []string {
+	names := []string{}
+	for name := range targets {
+		names = append(names, name)
 	}
-
-	networkConfig := config.FromContext(ctx).Network
-	buf := bytes.Buffer{}
-	if err := networkConfig.GetDomainTemplate().Execute(&buf, data); err != nil {
-		return "", fmt.Errorf("error executing the DomainTemplate: %s", err)
-	}
-	return buf.String(), nil
+	return names
 }
 
 func setTargetsScheme(rs *v1alpha1.RouteStatus, scheme string) {

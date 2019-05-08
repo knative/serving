@@ -20,6 +20,9 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+
+	"k8s.io/apimachinery/pkg/util/sets"
+
 	"github.com/knative/pkg/apis"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/network"
@@ -28,6 +31,23 @@ import (
 
 // HTTPScheme is the string representation of http.
 const HTTPScheme string = "http"
+
+// GetAllDomains returns all of the domains (including subdomains) associated with a Route
+func GetAllDomains(ctx context.Context, r *v1alpha1.Route, names []string) ([]string, error) {
+	majorDomain, err := DomainNameFromTemplate(ctx, r, r.Name)
+	if err != nil {
+		return nil, err
+	}
+	allDomains := sets.NewString(majorDomain)
+	for _, name := range names {
+		subDomain, err := DomainNameFromTemplate(ctx, r, SubdomainName(r, name))
+		if err != nil {
+			return nil, err
+		}
+		allDomains.Insert(subDomain)
+	}
+	return allDomains.List(), nil
+}
 
 // SubdomainName generates a name which represents the subdomain of a route
 func SubdomainName(r *v1alpha1.Route, suffix string) string {
@@ -66,4 +86,27 @@ func URL(scheme, fqdn string) *apis.URL {
 		Scheme: scheme,
 		Path:   fqdn,
 	}
+}
+
+// RouteDomain will generate the Route's Domain(host) for the Service based on
+// the "DomainTemplateKey" from the "config-network" configMap.
+func RouteDomain(ctx context.Context, route *v1alpha1.Route) (string, error) {
+	domainConfig := config.FromContext(ctx).Domain
+	domain := domainConfig.LookupDomainForLabels(route.ObjectMeta.Labels)
+
+	// These are the available properties they can choose from.
+	// We could add more over time - e.g. RevisionName if we thought that
+	// might be of interest to people.
+	data := network.DomainTemplateValues{
+		Name:      route.Name,
+		Namespace: route.Namespace,
+		Domain:    domain,
+	}
+
+	networkConfig := config.FromContext(ctx).Network
+	buf := bytes.Buffer{}
+	if err := networkConfig.GetDomainTemplate().Execute(&buf, data); err != nil {
+		return "", fmt.Errorf("error executing the DomainTemplate: %s", err)
+	}
+	return buf.String(), nil
 }
