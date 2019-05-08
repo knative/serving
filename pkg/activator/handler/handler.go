@@ -63,6 +63,7 @@ type activationHandler struct {
 // request.
 const maxRetries = 18
 
+// New constructs a new http.Handler that deals with revision activation.
 func New(l *zap.SugaredLogger, r activator.StatsReporter, t *activator.Throttler,
 	rl servinglisters.RevisionLister, sl corev1listers.ServiceLister,
 	sksL netlisters.ServerlessServiceLister) http.Handler {
