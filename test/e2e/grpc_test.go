@@ -20,9 +20,9 @@ package e2e
 
 import (
 	"context"
-	"fmt"
 	"io"
-	"net/url"
+	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -38,25 +38,16 @@ import (
 type grpcTest func(*testing.T, *test.ResourceObjects, *test.Clients, string, string)
 
 // getPort gets port from a URL
-func getPort(u string) (string, error) {
-	var port string
-
-	asURL, err := url.Parse(fmt.Sprintf("http://%s", u))
-	if err != nil {
-		asURL, err = url.Parse(u)
-		if err != nil {
-			return port, err
-		}
-	}
-
-	return asURL.Port(), nil
+func getPort(u string) (int, error) {
+	parts := strings.Split(u, ":")
+	return strconv.Atoi(parts[len(parts)-1])
 }
 
 func dial(host, domain string) (*grpc.ClientConn, error) {
-	if p, _ := getPort(host); p == "" {
+	if _, err := getPort(host); err != nil {
 		host = host + ":80"
 	}
-	if p, _ := getPort(domain); p == "" {
+	if _, err := getPort(domain); err != nil {
 		domain = domain + ":80"
 	}
 
