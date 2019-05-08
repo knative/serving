@@ -87,26 +87,3 @@ func URL(scheme, fqdn string) *apis.URL {
 		Path:   fqdn,
 	}
 }
-
-// RouteDomain will generate the Route's Domain(host) for the Service based on
-// the "DomainTemplateKey" from the "config-network" configMap.
-func RouteDomain(ctx context.Context, route *v1alpha1.Route) (string, error) {
-	domainConfig := config.FromContext(ctx).Domain
-	domain := domainConfig.LookupDomainForLabels(route.ObjectMeta.Labels)
-
-	// These are the available properties they can choose from.
-	// We could add more over time - e.g. RevisionName if we thought that
-	// might be of interest to people.
-	data := network.DomainTemplateValues{
-		Name:      route.Name,
-		Namespace: route.Namespace,
-		Domain:    domain,
-	}
-
-	networkConfig := config.FromContext(ctx).Network
-	buf := bytes.Buffer{}
-	if err := networkConfig.GetDomainTemplate().Execute(&buf, data); err != nil {
-		return "", fmt.Errorf("error executing the DomainTemplate: %s", err)
-	}
-	return buf.String(), nil
-}

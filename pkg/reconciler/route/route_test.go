@@ -1051,7 +1051,7 @@ func TestRouteDomain(t *testing.T) {
 	for _, test := range tests {
 		cfg.Network.DomainTemplate = test.Template
 
-		res, err := domains.RouteDomain(context, route)
+		res, err := domains.DomainNameFromTemplate(context, route, route.Name)
 
 		if test.Pass != (err == nil) {
 			t.Fatalf("TestRouteDomain %q test: supposed to fail but didn't",

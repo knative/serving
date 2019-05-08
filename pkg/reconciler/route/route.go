@@ -275,7 +275,7 @@ func (c *Reconciler) reconcile(ctx context.Context, r *v1alpha1.Route) error {
 
 	// Update the information that makes us Addressable. This is needed to configure traffic and
 	// make the cluster ingress.
-	host, err := domains.RouteDomain(ctx, r)
+	host, err := domains.DomainNameFromTemplate(ctx, r, r.Name)
 	if err != nil {
 		return err
 	}

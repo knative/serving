@@ -78,7 +78,7 @@ func BuildTrafficConfiguration(configLister listers.ConfigurationLister, revList
 }
 
 // DeprecatedTagDomain returns the deprecated domain name of a traffic target given the traffic target name and the Route's base domain.
-// This function has been deprected.
+// This function has been deprecated.
 func DeprecatedTagDomain(name, domain string) string {
 	if name == DefaultTarget {
 		return domain
