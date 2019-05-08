@@ -36,7 +36,7 @@ function knative_setup() {
 }
 
 # Script entry point.
-initialize $@
+initialize $@ --skip-istio-addon
 
 header "Setting up API Coverage Webhook"
 kubectl apply -f $APICOVERAGE_IMAGE/service-account.yaml || fail_test "Failed setting up service account for apicoverage-webhook"
