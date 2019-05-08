@@ -51,6 +51,7 @@ import (
 	"github.com/knative/serving/pkg/reconciler/autoscaling/kpa/resources"
 	aresources "github.com/knative/serving/pkg/reconciler/autoscaling/resources"
 	revisionresources "github.com/knative/serving/pkg/reconciler/revision/resources"
+	presources "github.com/knative/serving/pkg/resources"
 	perrors "github.com/pkg/errors"
 	fakedynamic "k8s.io/client-go/dynamic/fake"
 
@@ -1551,10 +1552,10 @@ func addEndpoint(ep *corev1.Endpoints) *corev1.Endpoints {
 
 func withMinScale(minScale int) PodAutoscalerOption {
 	return func(pa *asv1a1.PodAutoscaler) {
-		if pa.Annotations == nil {
-			pa.Annotations = make(map[string]string)
-		}
-		pa.Annotations[autoscaling.MinScaleAnnotationKey] = strconv.Itoa(minScale)
+		pa.Annotations = presources.UnionMaps(
+			pa.Annotations,
+			map[string]string{autoscaling.MinScaleAnnotationKey: strconv.Itoa(minScale)},
+		)
 	}
 }
 

@@ -29,8 +29,9 @@ import (
 )
 
 func TestMinScale(t *testing.T) {
+	const minScale = 4
+
 	clients := Setup(t)
-	minScale := 4
 
 	names := test.ResourceNames{
 		Config: test.ObjectNameForTest(t),
@@ -70,7 +71,7 @@ func TestMinScale(t *testing.T) {
 
 	deployment, err := clients.KubeClient.Kube.ExtensionsV1beta1().Deployments(test.ServingNamespace).Get(revName+"-deployment", metav1.GetOptions{})
 	if err != nil {
-		t.Fatalf("failed to get Deployment for Revision %s, err: %v", revName, err)
+		t.Fatalf("Failed to get Deployment for Revision %s, err: %v", revName, err)
 	}
 
 	if deployment.Status.AvailableReplicas < int32(minScale) {
