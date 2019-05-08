@@ -235,10 +235,10 @@ func main() {
 
 	// If containerConcurrency == 0 then concurrency is unlimited.
 	if containerConcurrency > 0 {
-		// We set the queue depth to be equal to the container concurrency * 100 to
+		// We set the queue depth to be equal to the container concurrency * 10 to
 		// allow the autoscaler to get a strong enough signal.
 		//
-		queueDepth := containerConcurrency * 100
+		queueDepth := containerConcurrency * 10
 		
 		params := queue.BreakerParams{QueueDepth: queueDepth, MaxConcurrency: containerConcurrency, InitialCapacity: containerConcurrency}
 		breaker = queue.NewBreaker(params)
