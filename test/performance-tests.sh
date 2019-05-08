@@ -25,7 +25,7 @@ function knative_setup() {
   install_knative_serving "${SERVING_YAML}" "${MONITORING_YAML}"
 }
 
-initialize $@
+initialize $@ --skip-istio-addon
 
 # Run the tests
 header "Running tests"
