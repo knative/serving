@@ -265,6 +265,9 @@ func TestThrottler_Remove(t *testing.T) {
 }
 
 func TestHelper_ReactToEndpoints(t *testing.T) {
+	const updatePollInterval = 10 * time.Millisecond
+	const updatePollTimeout = 3 * time.Second
+
 	ep := &corev1.Endpoints{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      testRevision + "-service",
@@ -295,35 +298,35 @@ func TestHelper_ReactToEndpoints(t *testing.T) {
 
 	// Breaker is created with 0 ready addresses.
 	fake.CoreV1().Endpoints(ep.Namespace).Create(ep)
-	wait.PollImmediate(10*time.Millisecond, 3*time.Second, func() (bool, error) {
-		return len(throttler.breakers) == 1, nil
+	wait.PollImmediate(updatePollInterval, updatePollTimeout, func() (bool, error) {
+		return breakerCount(throttler) == 1, nil
 	})
-	if got := len(throttler.breakers); got != 1 {
-		t.Errorf("Breaker map size got %d, want: 1", got)
+	if got := breakerCount(throttler); got != 1 {
+		t.Errorf("breakerCount() = %d, want 1", got)
 	}
 	breaker := throttler.breakers[RevisionID{Name: testRevision, Namespace: testNamespace}]
 	if got := breaker.Capacity(); got != 0 {
-		t.Errorf("Capacity() = %v, want 0", got)
+		t.Errorf("Capacity() = %d, want 0", got)
 	}
 
 	// Add 10 addresses, 10 * 10 = 100 = new capacity
 	newEp := ep.DeepCopy()
 	newEp.Subsets = endpointsSubset(10, 1)
 	fake.Core().Endpoints(ep.Namespace).Update(newEp)
-	wait.PollImmediate(10*time.Millisecond, 3*time.Second, func() (bool, error) {
+	wait.PollImmediate(updatePollInterval, updatePollTimeout, func() (bool, error) {
 		return breaker.Capacity() == 100, nil
 	})
 	if got := breaker.Capacity(); got != 100 {
-		t.Errorf("Capacity() = %v, want 100", got)
+		t.Errorf("Capacity() = %d, want 100", got)
 	}
 
 	// Removing the endpoints causes the breaker to be removed.
 	fake.Core().Endpoints(ep.Namespace).Delete(ep.Name, &metav1.DeleteOptions{})
-	wait.PollImmediate(10*time.Millisecond, 3*time.Second, func() (bool, error) {
-		return len(throttler.breakers) == 0, nil
+	wait.PollImmediate(updatePollInterval, updatePollTimeout, func() (bool, error) {
+		return breakerCount(throttler) == 0, nil
 	})
-	if len(throttler.breakers) != 0 {
-		t.Errorf("Breaker map is not empty, got: %v", throttler.breakers)
+	if got := breakerCount(throttler); got != 0 {
+		t.Errorf("breakerCount() = %d, want 0", got)
 	}
 }
 
@@ -398,6 +401,12 @@ func getThrottler(
 		InitialCapacity: initCapacity,
 	}
 	return NewThrottler(params, endpointsInformer, sksLister, revisionLister, logger)
+}
+
+func breakerCount(t *Throttler) int {
+	t.breakersMux.Lock()
+	defer t.breakersMux.Unlock()
+	return len(t.breakers)
 }
 
 func endpointsSubset(hostsPerSubset, subsets int) []v1.EndpointSubset {

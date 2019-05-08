@@ -49,13 +49,14 @@ var ErrActivatorOverload = errors.New("activator overload")
 // It enables the use case to start with max concurrency set to 0 (no requests are sent because no endpoints are available)
 // and gradually increase its value depending on the external condition (e.g. new endpoints become available)
 type Throttler struct {
-	breakers        map[RevisionID]*queue.Breaker
+	breakersMux sync.Mutex
+	breakers    map[RevisionID]*queue.Breaker
+
 	breakerParams   queue.BreakerParams
 	logger          *zap.SugaredLogger
 	endpointsLister corev1listers.EndpointsLister
 	revisionLister  servinglisters.RevisionLister
 	sksLister       netlisters.ServerlessServiceLister
-	mux             sync.Mutex
 }
 
 // NewThrottler creates a new Throttler.
@@ -99,8 +100,8 @@ func NewThrottler(
 
 // Remove deletes the breaker from the bookkeeping.
 func (t *Throttler) Remove(rev RevisionID) {
-	t.mux.Lock()
-	defer t.mux.Unlock()
+	t.breakersMux.Lock()
+	defer t.breakersMux.Unlock()
 	delete(t.breakers, rev)
 }
 
@@ -149,8 +150,8 @@ func (t *Throttler) updateCapacity(revision *v1alpha1.Revision, breaker *queue.B
 // This is important for not loosing the update signals
 // that came before the requests reached the Activator's Handler.
 func (t *Throttler) getOrCreateBreaker(rev RevisionID) (*queue.Breaker, bool) {
-	t.mux.Lock()
-	defer t.mux.Unlock()
+	t.breakersMux.Lock()
+	defer t.breakersMux.Unlock()
 	breaker, ok := t.breakers[rev]
 	if !ok {
 		breaker = queue.NewBreaker(t.breakerParams)
