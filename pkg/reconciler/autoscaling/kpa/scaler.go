@@ -19,6 +19,7 @@ package kpa
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/knative/pkg/apis"
 	"github.com/knative/pkg/apis/duck"
@@ -38,7 +39,20 @@ import (
 	"k8s.io/client-go/dynamic"
 )
 
-const scaleUnknown = -1
+const (
+	scaleUnknown = -1
+	probePeriod  = 1 * time.Second
+	probeTimeout = 45 * time.Second
+	// The time after which the PA will be re-enqueued.
+	// This number is small, since `handleScaleToZero` below will
+	// re-enque for the configured grace period.
+	reenqeuePeriod = 1 * time.Second
+)
+
+// for mocking in tests
+type asyncProber interface {
+	Offer(context.Context, string, string, interface{}, time.Duration, time.Duration) bool
+}
 
 // scaler scales the target of a kpa-class PA up or down including scaling to zero.
 type scaler struct {
@@ -46,11 +60,16 @@ type scaler struct {
 	dynamicClient     dynamic.Interface
 	logger            *zap.SugaredLogger
 
+	// For sync probes.
 	activatorProbe func(pa *pav1alpha1.PodAutoscaler) (bool, error)
+
+	// For async probes.
+	probeManager asyncProber
+	enqueueCB    func(*pav1alpha1.PodAutoscaler, time.Duration)
 }
 
 // newScaler creates a scaler.
-func newScaler(opt *reconciler.Options) *scaler {
+func newScaler(opt *reconciler.Options, enqueueCB func(*pav1alpha1.PodAutoscaler, time.Duration)) *scaler {
 	ks := &scaler{
 		// Wrap it in a cache, so that we don't stamp out a new
 		// informer/lister each time.
@@ -62,8 +81,22 @@ func newScaler(opt *reconciler.Options) *scaler {
 
 		// Production setup uses the default probe implementation.
 		activatorProbe: activatorProbe,
+		probeManager: prober.New(func(arg interface{}, success bool, err error) {
+			pa := arg.(*pav1alpha1.PodAutoscaler)
+			opt.Logger.Infof("Async prober is done for key %s: success?: %v error: %v", pa, success, err)
+			// Re-enqeue the PA in any case. If the probe timed out to retry again, if succeeded to scale to 0.
+			enqueueCB(pa, reenqeuePeriod)
+		}),
+		enqueueCB: enqueueCB,
 	}
 	return ks
+}
+
+// Resolves the pa to hostname:port.
+func paToProbeTarget(pa *pav1alpha1.PodAutoscaler) string {
+	svc := network.GetServiceHostname(pa.Status.ServiceName, pa.Namespace)
+	port := networking.ServicePort(pa.Spec.ProtocolType)
+	return fmt.Sprintf("http://%s:%d/", svc, port)
 }
 
 // activatorProbe returns true if via probe it determines that the
@@ -73,11 +106,7 @@ func activatorProbe(pa *pav1alpha1.PodAutoscaler) (bool, error) {
 	if pa.Status.ServiceName == "" {
 		return false, nil
 	}
-
-	// Resolve the hostname and port to probe.
-	svc := network.GetServiceHostname(pa.Status.ServiceName, pa.Namespace)
-	port := networking.ServicePort(pa.Spec.ProtocolType)
-	return prober.Do(context.Background(), fmt.Sprintf("http://%s:%d/", svc, port), activator.Name)
+	return prober.Do(context.Background(), paToProbeTarget(pa), activator.Name)
 }
 
 // podScalableTypedInformerFactory returns a duck.InformerFactory that returns
@@ -155,26 +184,34 @@ func (ks *scaler) handleScaleToZero(pa *pav1alpha1.PodAutoscaler, desiredScale i
 
 		// Do not scale to 0, but return desiredScale of 0 to mark PA inactive.
 		if pa.Status.CanMarkInactive(config.StableWindow) {
+			// We do not need to enqueue PA here, since this will
+			// make SKS reconcile and when it's done, PA will be reconciled again.
 			return desiredScale, false
 		}
-		// Otherwise, scale down to 1 until the idle period elapses.
+		// Otherwise, scale down to 1 until the idle period elapses and re-enqueue
+		// the PA for reconciliation at that time.
+		ks.enqueueCB(pa, config.StableWindow)
 		desiredScale = 1
 	} else { // Active=False
 		r, err := ks.activatorProbe(pa)
 		ks.logger.Infof("%s probing activator = %v, err = %v", pa.Name, r, err)
-		if err != nil {
-			ks.logger.Errorf("Error probing activator: %v", err)
+		if r {
+			// Make sure we've been inactive for enough time.
+			if pa.Status.CanScaleToZero(config.ScaleToZeroGracePeriod) {
+				return desiredScale, true
+			}
+			// Re-enqeue the PA for reconciliation after grace period.
+			// In istio-lean this can be close to 0.
+			ks.enqueueCB(pa, config.ScaleToZeroGracePeriod)
 			return desiredScale, false
 		}
-		if !r {
-			ks.logger.Infof("%s is not yet backed by activator, cannot scale to zero", pa.Name)
-			return desiredScale, false
+
+		// Otherwise (any prober failure) start the async probe.
+		ks.logger.Infof("%s is not yet backed by activator, cannot scale to zero", pa.Name)
+		if !ks.probeManager.Offer(context.Background(), paToProbeTarget(pa), activator.Name, pa, probePeriod, probeTimeout) {
+			ks.logger.Infof("Probe for %s is already in flight", pa.Name)
 		}
-		// Don't scale-to-zero if the grace period hasn't elapsed.
-		// TODO(vagababov): perhaps get rid of this?
-		if !pa.Status.CanScaleToZero(config.ScaleToZeroGracePeriod) {
-			return desiredScale, false
-		}
+		return desiredScale, false
 	}
 	return desiredScale, true
 }
