@@ -90,15 +90,6 @@ type Metrics interface {
 	Update(ctx context.Context, metric *autoscaler.Metric) (*autoscaler.Metric, error)
 }
 
-// Scaler knows how to scale the targets of KPA-Class PodAutoscalers.
-type Scaler interface {
-	// Scale attempts to scale the given PA's target to the desired scale.
-	Scale(ctx context.Context, pa *pav1alpha1.PodAutoscaler, desiredScale int32) (int32, error)
-
-	// GetScaleResource returns the current scale resource for the PA.
-	GetScaleResource(pa *pav1alpha1.PodAutoscaler) (*pav1alpha1.PodScalable, error)
-}
-
 // configStore is a minimized interface of the actual configStore.
 type configStore interface {
 	ToContext(ctx context.Context) context.Context
@@ -115,7 +106,7 @@ type Reconciler struct {
 	endpointsLister corev1listers.EndpointsLister
 	kpaDeciders     Deciders
 	metrics         Metrics
-	scaler          Scaler
+	scaler          *scaler
 	configStore     configStore
 }
 
@@ -131,9 +122,8 @@ func NewController(
 	endpointsInformer corev1informers.EndpointsInformer,
 	kpaDeciders Deciders,
 	metrics Metrics,
-	scaler Scaler,
 ) *controller.Impl {
-
+	scaler := newScaler(opts)
 	c := &Reconciler{
 		Base:            reconciler.NewBase(*opts, controllerAgentName),
 		paLister:        paInformer.Lister(),

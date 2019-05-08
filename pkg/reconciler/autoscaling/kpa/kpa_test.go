@@ -285,7 +285,7 @@ func TestReconcileAndScaleToZero(t *testing.T) {
 		opt.ConfigMapWatcher = newConfigWatcher()
 
 		fakeMetrics := newTestMetrics()
-		kpaScaler := NewScaler(opt).(*scaler)
+		kpaScaler := newScaler(&opt)
 		kpaScaler.activatorProbe = func(*asv1a1.PodAutoscaler) (bool, error) { return true, nil }
 		return &Reconciler{
 			Base:            rpkg.NewBase(opt, controllerAgentName),
@@ -647,7 +647,6 @@ func TestReconcile(t *testing.T) {
 		opt.ConfigMapWatcher = newConfigWatcher()
 
 		fakeMetrics := newTestMetrics()
-		kpaScaler := NewScaler(opt)
 		return &Reconciler{
 			Base:            rpkg.NewBase(opt, controllerAgentName),
 			paLister:        listers.GetPodAutoscalerLister(),
@@ -656,7 +655,7 @@ func TestReconcile(t *testing.T) {
 			endpointsLister: listers.GetEndpointsLister(),
 			kpaDeciders:     fakeDeciders,
 			metrics:         fakeMetrics,
-			scaler:          kpaScaler,
+			scaler:          newScaler(&opt),
 			configStore:     &testConfigStore{config: defaultConfig()},
 		}
 	}))
@@ -706,8 +705,6 @@ func TestGlobalResyncOnUpdateAutoscalerConfigMap(t *testing.T) {
 	servingInformer := informers.NewSharedInformerFactory(servingClient, 0)
 	kubeInformer := kubeinformers.NewSharedInformerFactory(kubeClient, 0)
 
-	scaler := NewScaler(opts)
-
 	fakeDeciders := newTestDeciders()
 	fakeMetrics := newTestMetrics()
 	ctl := NewController(&opts,
@@ -717,7 +714,6 @@ func TestGlobalResyncOnUpdateAutoscalerConfigMap(t *testing.T) {
 		kubeInformer.Core().V1().Endpoints(),
 		fakeDeciders,
 		fakeMetrics,
-		scaler,
 	)
 
 	// Load default config
@@ -803,8 +799,6 @@ func TestControllerSynchronizesCreatesAndDeletes(t *testing.T) {
 	servingInformer := informers.NewSharedInformerFactory(servingClient, 0)
 	kubeInformer := kubeinformers.NewSharedInformerFactory(kubeClient, 0)
 
-	scaler := NewScaler(opts)
-
 	fakeDeciders := newTestDeciders()
 	fakeMetrics := newTestMetrics()
 	ctl := NewController(&opts,
@@ -814,7 +808,6 @@ func TestControllerSynchronizesCreatesAndDeletes(t *testing.T) {
 		kubeInformer.Core().V1().Endpoints(),
 		fakeDeciders,
 		fakeMetrics,
-		scaler,
 	)
 
 	rev := newTestRevision(testNamespace, testRevision)
@@ -901,8 +894,6 @@ func TestUpdate(t *testing.T) {
 	servingInformer := informers.NewSharedInformerFactory(servingClient, 0)
 	kubeInformer := kubeinformers.NewSharedInformerFactory(kubeClient, 0)
 
-	scaler := NewScaler(opts)
-
 	fakeDeciders := newTestDeciders()
 	fakeMetrics := newTestMetrics()
 	ctl := NewController(&opts,
@@ -912,7 +903,6 @@ func TestUpdate(t *testing.T) {
 		kubeInformer.Core().V1().Endpoints(),
 		fakeDeciders,
 		fakeMetrics,
-		scaler,
 	)
 
 	rev := newTestRevision(testNamespace, testRevision)
@@ -1001,8 +991,6 @@ func TestNonKPAClass(t *testing.T) {
 	servingInformer := informers.NewSharedInformerFactory(servingClient, 0)
 	kubeInformer := kubeinformers.NewSharedInformerFactory(kubeClient, 0)
 
-	scaler := NewScaler(opts)
-
 	fakeDeciders := newTestDeciders()
 	fakeMetrics := newTestMetrics()
 	ctl := NewController(&opts,
@@ -1012,7 +1000,6 @@ func TestNonKPAClass(t *testing.T) {
 		kubeInformer.Core().V1().Endpoints(),
 		fakeDeciders,
 		fakeMetrics,
-		scaler,
 	)
 
 	rev := newTestRevision(testNamespace, testRevision)
@@ -1058,8 +1045,6 @@ func TestNoEndpoints(t *testing.T) {
 	servingInformer := informers.NewSharedInformerFactory(servingClient, 0)
 	kubeInformer := kubeinformers.NewSharedInformerFactory(kubeClient, 0)
 
-	scaler := NewScaler(opts)
-
 	ctl := NewController(&opts,
 		servingInformer.Autoscaling().V1alpha1().PodAutoscalers(),
 		servingInformer.Networking().V1alpha1().ServerlessServices(),
@@ -1067,7 +1052,6 @@ func TestNoEndpoints(t *testing.T) {
 		kubeInformer.Core().V1().Endpoints(),
 		newTestDeciders(),
 		newTestMetrics(),
-		scaler,
 	)
 
 	rev := newTestRevision(testNamespace, testRevision)
@@ -1113,8 +1097,6 @@ func TestEmptyEndpoints(t *testing.T) {
 	servingInformer := informers.NewSharedInformerFactory(servingClient, 0)
 	kubeInformer := kubeinformers.NewSharedInformerFactory(kubeClient, 0)
 
-	scaler := NewScaler(opts)
-
 	ctl := NewController(&opts,
 		servingInformer.Autoscaling().V1alpha1().PodAutoscalers(),
 		servingInformer.Networking().V1alpha1().ServerlessServices(),
@@ -1122,7 +1104,6 @@ func TestEmptyEndpoints(t *testing.T) {
 		kubeInformer.Core().V1().Endpoints(),
 		newTestDeciders(),
 		newTestMetrics(),
-		scaler,
 	)
 
 	rev := newTestRevision(testNamespace, testRevision)
@@ -1170,8 +1151,6 @@ func TestControllerCreateError(t *testing.T) {
 
 	servingInformer := informers.NewSharedInformerFactory(servingClient, 0)
 	kubeInformer := kubeinformers.NewSharedInformerFactory(kubeClient, 0)
-	scaler := NewScaler(opts)
-
 	ctl := NewController(&opts,
 		servingInformer.Autoscaling().V1alpha1().PodAutoscalers(),
 		servingInformer.Networking().V1alpha1().ServerlessServices(),
@@ -1182,7 +1161,6 @@ func TestControllerCreateError(t *testing.T) {
 			createErr: want,
 		},
 		newTestMetrics(),
-		scaler,
 	)
 
 	kpa := revisionresources.MakeKPA(newTestRevision(testNamespace, testRevision))
@@ -1217,8 +1195,6 @@ func TestControllerUpdateError(t *testing.T) {
 
 	servingInformer := informers.NewSharedInformerFactory(servingClient, 0)
 	kubeInformer := kubeinformers.NewSharedInformerFactory(kubeClient, 0)
-	scaler := NewScaler(opts)
-
 	ctl := NewController(&opts,
 		servingInformer.Autoscaling().V1alpha1().PodAutoscalers(),
 		servingInformer.Networking().V1alpha1().ServerlessServices(),
@@ -1229,7 +1205,6 @@ func TestControllerUpdateError(t *testing.T) {
 			createErr: want,
 		},
 		newTestMetrics(),
-		scaler,
 	)
 
 	kpa := revisionresources.MakeKPA(newTestRevision(testNamespace, testRevision))
@@ -1264,7 +1239,6 @@ func TestControllerGetError(t *testing.T) {
 
 	servingInformer := informers.NewSharedInformerFactory(servingClient, 0)
 	kubeInformer := kubeinformers.NewSharedInformerFactory(kubeClient, 0)
-	scaler := NewScaler(opts)
 
 	ctl := NewController(&opts,
 		servingInformer.Autoscaling().V1alpha1().PodAutoscalers(),
@@ -1275,7 +1249,6 @@ func TestControllerGetError(t *testing.T) {
 			getErr: want,
 		},
 		newTestMetrics(),
-		scaler,
 	)
 
 	kpa := revisionresources.MakeKPA(newTestRevision(testNamespace, testRevision))
@@ -1308,8 +1281,6 @@ func TestScaleFailure(t *testing.T) {
 	servingInformer := informers.NewSharedInformerFactory(servingClient, 0)
 	kubeInformer := kubeinformers.NewSharedInformerFactory(kubeClient, 0)
 
-	scaler := NewScaler(opts)
-
 	ctl := NewController(&opts,
 		servingInformer.Autoscaling().V1alpha1().PodAutoscalers(),
 		servingInformer.Networking().V1alpha1().ServerlessServices(),
@@ -1317,7 +1288,6 @@ func TestScaleFailure(t *testing.T) {
 		kubeInformer.Core().V1().Endpoints(),
 		newTestDeciders(),
 		newTestMetrics(),
-		scaler,
 	)
 
 	// Only put the KPA in the lister, which will prompt failures scaling it.
@@ -1339,7 +1309,7 @@ func TestBadKey(t *testing.T) {
 	servingClient := fakeKna.NewSimpleClientset()
 	dynamicClient := fakedynamic.NewSimpleDynamicClient(runtime.NewScheme())
 
-	opts := reconciler.Options{
+	opts := &reconciler.Options{
 		KubeClientSet:    kubeClient,
 		ServingClientSet: servingClient,
 		DynamicClientSet: dynamicClient,
@@ -1349,16 +1319,13 @@ func TestBadKey(t *testing.T) {
 
 	servingInformer := informers.NewSharedInformerFactory(servingClient, 0)
 	kubeInformer := kubeinformers.NewSharedInformerFactory(kubeClient, 0)
-	scaler := NewScaler(opts)
-
-	ctl := NewController(&opts,
+	ctl := NewController(opts,
 		servingInformer.Autoscaling().V1alpha1().PodAutoscalers(),
 		servingInformer.Networking().V1alpha1().ServerlessServices(),
 		kubeInformer.Core().V1().Services(),
 		kubeInformer.Core().V1().Endpoints(),
 		newTestDeciders(),
 		newTestMetrics(),
-		scaler,
 	)
 
 	err := ctl.Reconciler.Reconcile(context.Background(), "too/many/parts")

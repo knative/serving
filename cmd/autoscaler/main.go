@@ -94,10 +94,9 @@ func main() {
 	// Set up scalers.
 	// uniScalerFactory depends endpointsInformer to be set.
 	multiScaler := autoscaler.NewMultiScaler(stopCh, uniScalerFactoryFunc(endpointsInformer), logger)
-	scaler := kpa.NewScaler(opt)
 
 	controllers := []*controller.Impl{
-		kpa.NewController(&opt, paInformer, sksInformer, serviceInformer, endpointsInformer, multiScaler, collector, scaler),
+		kpa.NewController(&opt, paInformer, sksInformer, serviceInformer, endpointsInformer, multiScaler, collector),
 		hpa.NewController(&opt, paInformer, sksInformer, hpaInformer),
 	}
 
