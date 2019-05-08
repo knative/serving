@@ -16,7 +16,101 @@ package types
 import (
 	"net/http"
 	"time"
+
+	"github.com/knative/pkg/ptr"
 )
+
+// MustEnvVars defines environment variables that "MUST" be set.
+// The value provided is an example value.
+var MustEnvVars = map[string]string{
+	"PORT": "8801",
+}
+
+// ShouldEnvVars defines environment variables that "SHOULD" be set.
+// To match these values with test service parameters,
+// map values must represent corresponding test.ResourceNames fields
+var ShouldEnvVars = map[string]string{
+	"K_SERVICE":       "Service",
+	"K_CONFIGURATION": "Config",
+	"K_REVISION":      "Revision",
+}
+
+// MustFilePathSpecs specifies the file-paths and expected permissions that MUST be set as specified in the runtime contract.
+// See https://golang.org/pkg/os/#FileMode for "Mode" string meaning. '*' indicates no specification.
+var MustFiles = map[string]FileInfo{
+	"/dev/fd": {
+		IsDir:      ptr.Bool(true),
+		SourceFile: "/proc/self/fd",
+	},
+	"/dev/full": {
+		IsDir: ptr.Bool(false),
+	},
+	// TODO(#822): Add conformance tests for "/dev/log" once implemented
+	//"/dev/log": {
+	//},
+	"/dev/null": {
+		IsDir: ptr.Bool(false),
+	},
+	"/dev/ptmx": {
+		IsDir: ptr.Bool(false),
+	},
+	"/dev/random": {
+		IsDir: ptr.Bool(false),
+	},
+	"/dev/stdin": {
+		IsDir:      ptr.Bool(false),
+		SourceFile: "/proc/self/fd/0",
+	},
+	"/dev/stdout": {
+		IsDir:      ptr.Bool(false),
+		SourceFile: "/proc/self/fd/1",
+	},
+	"/dev/stderr": {
+		IsDir:      ptr.Bool(false),
+		SourceFile: "/proc/self/fd/2",
+	},
+	"/dev/tty": {
+		IsDir: ptr.Bool(false),
+	},
+	"/dev/urandom": {
+		IsDir: ptr.Bool(false),
+	},
+	"/dev/zero": {
+		IsDir: ptr.Bool(false),
+	},
+	"/proc/self/fd": {
+		IsDir: ptr.Bool(true),
+	},
+	"/proc/self/fd/0": {
+		IsDir: ptr.Bool(false),
+	},
+	"/proc/self/fd/1": {
+		IsDir: ptr.Bool(false),
+	},
+	"/proc/self/fd/2": {
+		IsDir: ptr.Bool(false),
+	},
+	"/tmp": {
+		IsDir: ptr.Bool(true),
+		Mode:  "dtrwxrwxrwx",
+	},
+	"/var/log": {
+		IsDir: ptr.Bool(true),
+		Mode:  "drwxrwxrwx",
+	},
+}
+
+// ShouldFilePathSpecs specifies the file paths and expected permissions that SHOULD be set as specified in the runtime contract.
+// See https://golang.org/pkg/os/#FileMode for "Mode" string meaning. '*' indicates no specification.
+var ShouldFiles = map[string]FileInfo{
+	"/etc/resolv.conf": {
+		IsDir: ptr.Bool(false),
+		Mode:  "*rw*r**r**",
+	},
+	"/dev/console": { // This file SHOULD NOT exist.
+		Error: "stat /dev/console: no such file or directory",
+	},
+}
 
 // RuntimeInfo encapsulates both the host and request information.
 type RuntimeInfo struct {
@@ -43,7 +137,7 @@ type RequestInfo struct {
 // HostInfo contains information about the host environment.
 type HostInfo struct {
 	// Files is a map of file metadata.
-	Files []*FileInfo `json:"files"`
+	Files map[string]FileInfo `json:"files"`
 	// EnvVars is a map of all environment variables set.
 	EnvVars map[string]string `json:"envs"`
 	// Cgroups is a list of cgroup information.
@@ -72,14 +166,15 @@ type UserInfo struct {
 
 // FileInfo contains the metadata for a given file.
 type FileInfo struct {
-	// Name is the full filename.
-	Name string `json:"name"`
 	// Size is the length in bytes for regular files; system-dependent for others.
 	Size *int64 `json:"size,omitempty"`
 	// Mode is the file mode bits.
 	Mode string `json:"mode,omitempty"`
 	// ModTime is the file last modified time
 	ModTime time.Time `json:"modTime,omitempty"`
+	// SourceFile is populated if this file is a symlink. The SourceFile is the file where
+	// the symlink resolves.
+	SourceFile string `json:"sourceFile,omitempty"`
 	// IsDir is true if the file is a directory.
 	IsDir *bool `json:"isDir,omitempty"`
 	// Error is the String representation of the error returned obtaining the information.

@@ -20,9 +20,11 @@ package conformance
 
 import (
 	"reflect"
+	"strconv"
 	"testing"
 
 	"github.com/knative/serving/test"
+	"github.com/knative/serving/test/types"
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -35,7 +37,7 @@ func TestShouldEnvVars(t *testing.T) {
 		t.Fatal(err)
 	}
 	r := reflect.ValueOf(names)
-	for k, v := range ShouldEnvVars {
+	for k, v := range types.ShouldEnvVars {
 		value, exist := ri.Host.EnvVars[k]
 		if !exist {
 			t.Fatalf("Runtime contract env variable %q is not set", k)
@@ -51,15 +53,23 @@ func TestShouldEnvVars(t *testing.T) {
 func TestMustEnvVars(t *testing.T) {
 	t.Parallel()
 	clients := setup(t)
+	portStr, ok := types.MustEnvVars["PORT"]
+	if !ok {
+		t.Fatalf("Missing PORT from set of MustEnvVars")
+	}
+	port, err := strconv.Atoi(portStr)
+	if err != nil {
+		t.Fatalf("Invalid PORT value in MustEnvVars")
+	}
 	_, ri, err := fetchRuntimeInfo(t, clients, &test.Options{
 		ContainerPorts: []corev1.ContainerPort{
-			{ContainerPort: int32(mustEnvCustomPort)},
+			{ContainerPort: int32(port)},
 		},
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	for k, v := range MustEnvVars {
+	for k, v := range types.MustEnvVars {
 		value, exist := ri.Host.EnvVars[k]
 		if !exist {
 			t.Fatalf("Runtime contract env variable %q is not set", k)

@@ -19,31 +19,25 @@ import (
 	"github.com/knative/serving/test/types"
 )
 
-// filePaths is the set of filepaths probed and returned to the
-// client as FileInfo.
-var filePaths = []string{"/tmp",
-	"/var/log",
-	"/dev/log",
-	"/etc/hosts",
-	"/etc/hostname",
-	"/etc/resolv.conf"}
-
-func fileInfo(paths ...string) []*types.FileInfo {
-	var infoList []*types.FileInfo
-
+func fileInfo(paths ...string) map[string]types.FileInfo {
+	files := map[string]types.FileInfo{}
 	for _, path := range paths {
 		file, err := os.Stat(path)
 		if err != nil {
-			infoList = append(infoList, &types.FileInfo{Name: path, Error: err.Error()})
+			files[path] = types.FileInfo{Error: err.Error()}
 			continue
 		}
 		size := file.Size()
 		dir := file.IsDir()
-		infoList = append(infoList, &types.FileInfo{Name: path,
-			Size:    &size,
-			Mode:    file.Mode().String(),
-			ModTime: file.ModTime(),
-			IsDir:   &dir})
+		mode := file.Mode()
+		source, _ := os.Readlink(path)
+
+		files[path] = types.FileInfo{
+			Size:       &size,
+			Mode:       mode.String(),
+			ModTime:    file.ModTime(),
+			SourceFile: source,
+			IsDir:      &dir}
 	}
-	return infoList
+	return files
 }
