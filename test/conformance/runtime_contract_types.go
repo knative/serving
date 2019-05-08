@@ -35,7 +35,7 @@ var ShouldEnvVars = map[string]string{
 
 // MustEnvVars defines environment variables that "MUST" be set.
 var MustEnvVars = map[string]string{
-	"PORT": strconv.Itoa(test.EnvImageServerPort),
+	"PORT": strconv.Itoa(test.RuntimeImageServerPort),
 }
 
 // FilePathInfo data object returned by the environment test-image.

@@ -23,6 +23,7 @@ import (
 	"testing"
 
 	"github.com/knative/serving/test"
+	corev1 "k8s.io/api/core/v1"
 )
 
 // TestShouldEnvVars verifies environment variables that are declared as "SHOULD be set" in runtime-contract
@@ -50,7 +51,11 @@ func TestShouldEnvVars(t *testing.T) {
 func TestMustEnvVars(t *testing.T) {
 	t.Parallel()
 	clients := setup(t)
-	_, ri, err := fetchRuntimeInfo(t, clients, &test.Options{})
+	_, ri, err := fetchRuntimeInfo(t, clients, &test.Options{
+		ContainerPorts: []corev1.ContainerPort{
+			{ContainerPort: int32(test.RuntimeImageServerPort)},
+		},
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
