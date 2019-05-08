@@ -47,8 +47,8 @@ proxy.
 All Knative containers must listen for incoming traffic on a specific port. A
 port may be specified through the API otherwise a platform-provided port will be chosen.
 
-The selected port will be made available within the container as the enviornment variable `$PORT`.
-It is recommended to consume the enviornment variable `$PORT` rather than hard-code a particular
+The selected port will be made available within the container as the environment variable `$PORT`.
+It is recommended to consume the environment variable `$PORT` rather than hard-code a particular
 port within the application.
 
 Example (See
