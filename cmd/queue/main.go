@@ -239,7 +239,6 @@ func main() {
 		// allow the autoscaler to get a strong enough signal.
 		//
 		queueDepth := containerConcurrency * 10
-		
 		params := queue.BreakerParams{QueueDepth: queueDepth, MaxConcurrency: containerConcurrency, InitialCapacity: containerConcurrency}
 		breaker = queue.NewBreaker(params)
 		logger.Infof("Queue container is starting with %#v", params)
