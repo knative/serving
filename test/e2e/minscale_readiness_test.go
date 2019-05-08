@@ -57,7 +57,6 @@ func TestMinScale(t *testing.T) {
 		t.Fatalf("The Configuration %q does not have a LatestCreatedRevisionName: %v", names.Config, err)
 	}
 
-	// Get Configuration's latest Revision's Build, and check that the Build failed.
 	config, err := clients.ServingClient.Configs.Get(names.Config, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Failed to get Configuration after it was seen to be live: %v", err)
