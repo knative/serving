@@ -324,8 +324,8 @@ Serverless applications which scale horizontally are expected to be managed in a
 declarative fashion, and individual instances SHOULD NOT be interacted with or
 connected directly.
 
-- As the `stdin` file descriptor is not allocated, the environment SHOULD NOT allocate a `tty` to
-  the container.
+- The environment [SHOULD NOT](https://github.com/knative/serving/blob/master/test/conformance/container_test.go)
+  allocate a `tty` to the container. As a result, the `/dev/console` device SHOULD NOT be present within the container.
 - The [linux process](https://github.com/opencontainers/runtime-spec/blob/29686dbc5559d93fb1ef402eeda3e35c38d75af4/config.md#linux-process)
   OCI properties MUST NOT be configurable by the developer, and MAY be set by the operator or platform provider.
 
