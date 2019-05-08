@@ -133,7 +133,6 @@ func NewController(
 	}
 	impl := controller.NewImpl(c, c.Logger, "KPA-Class Autoscaling", reconciler.MustNewStatsReporter("KPA-Class Autoscaling", c.Logger))
 	c.scaler = newScaler(opts, func(pa string, after time.Duration) {
-		c.Logger.Warnf("#### CALLING THE CB: %s", pa)
 		impl.EnqueueKeyAfter(pa, after)
 	})
 
