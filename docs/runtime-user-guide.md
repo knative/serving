@@ -1,7 +1,7 @@
 # Runtime User Guide
 
 This document is focused on clarifying the expectations of the user
-container running in a Knative envioronment. This is separate from the expectations of the
+container running in a Knative environment. This is separate from the expectations of the
 environment itself. The expectations of the environment are detailed in the [runtime
 contract](https://github.com/knative/serving/blob/master/docs/runtime-contract.md).
 
@@ -23,7 +23,7 @@ containers should have the following properties:
   minmized to enable the platform to provide rapid autoscaling and scale-to-zero
   semantics.
 - Minimize local state: The container may be killed and replaced to support
-  autoscaling and cluster maintence operations. The performance or correctness
+  autoscaling and cluster maintenance operations. The performance or correctness
   of the application should not rely on state persisted locally.
 - CPU usage only while requests are active: As containers may be killed or
   suspended when no connections are active the container should only perform
@@ -39,7 +39,7 @@ necessary for a graceful shutdown.
 A Knative container must package a webserver that can respond to HTTP/1.1
 requests on a specified port.
 
-All traffic the comes to the container should be expected to pass through a
+All traffic that comes to the container should be expected to pass through a
 proxy.
 
 ### Ports

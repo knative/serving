@@ -275,7 +275,7 @@ providers.
 
 #### DNS
 
-To enable local DNS lookups, Platform providers MAY override the DNS related
+To enable local DNS lookups, platform providers MAY override the DNS related
 configuration files under `/etc` to enable local DNS lookups in the target environment
 (see [Default Filesystems](#default-filesystems)).
 
@@ -283,7 +283,7 @@ configuration files under `/etc` to enable local DNS lookups in the target envir
 
 Platform providers MAY provide a network service to provide introspection and
 environment information to the running process. If the network service is provided, the
-service SHOULD be an HTTP server with an operator- or provider-define URL schema.
+service SHOULD be an HTTP server with an operator- or provider-defined URL schema.
 If a metadata-service is provided, the schema MUST be documented. Sample use cases for such
 metadata include:
 
@@ -327,7 +327,7 @@ connected directly.
 - As the `stdin` file descriptor is not allocated, the environment SHOULD NOT allocate a `tty` to
   the container.
 - The [linux process](https://github.com/opencontainers/runtime-spec/blob/29686dbc5559d93fb1ef402eeda3e35c38d75af4/config.md#linux-process)
-  OCI properties MUST NOT be configurable by the developer, and MAY set by the operator or platform provider.
+  OCI properties MUST NOT be configurable by the developer, and MAY be set by the operator or platform provider.
 
 The following environment variables
 [MUST](https://github.com/knative/serving/blob/master/test/conformance/envvars_test.go) be set:
