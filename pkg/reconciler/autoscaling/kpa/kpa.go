@@ -19,6 +19,7 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"time"
 
 	perrors "github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -53,9 +54,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
-const (
-	controllerAgentName = "kpa-class-podautoscaler-controller"
-)
+const controllerAgentName = "kpa-class-podautoscaler-controller"
 
 // Deciders is an interface for notifying the presence or absence of KPAs.
 type Deciders interface {
@@ -123,7 +122,6 @@ func NewController(
 	kpaDeciders Deciders,
 	metrics Metrics,
 ) *controller.Impl {
-	scaler := newScaler(opts)
 	c := &Reconciler{
 		Base:            reconciler.NewBase(*opts, controllerAgentName),
 		paLister:        paInformer.Lister(),
@@ -132,9 +130,12 @@ func NewController(
 		endpointsLister: endpointsInformer.Lister(),
 		kpaDeciders:     kpaDeciders,
 		metrics:         metrics,
-		scaler:          scaler,
 	}
 	impl := controller.NewImpl(c, c.Logger, "KPA-Class Autoscaling", reconciler.MustNewStatsReporter("KPA-Class Autoscaling", c.Logger))
+	c.scaler = newScaler(opts, func(pa string, after time.Duration) {
+		c.Logger.Warnf("#### CALLING THE CB: %s", pa)
+		impl.EnqueueKeyAfter(pa, after)
+	})
 
 	c.Logger.Info("Setting up KPA-Class event handlers")
 	// Handle PodAutoscalers missing the class annotation for backward compatibility.
@@ -170,6 +171,7 @@ func NewController(
 	})
 	c.configStore = config.NewStore(c.Logger.Named("config-store"), resync)
 	c.configStore.WatchConfigs(opts.ConfigMapWatcher)
+
 	return impl
 }
 
