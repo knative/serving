@@ -605,7 +605,7 @@ func TestMakeClusterIngress_WithTLS(t *testing.T) {
 		},
 	}
 	tls := []netv1alpha1.ClusterIngressTLS{
-		netv1alpha1.ClusterIngressTLS{
+		{
 			Hosts:             []string{"*.default.domain.com"},
 			PrivateKey:        "tls.key",
 			SecretName:        "secret",
