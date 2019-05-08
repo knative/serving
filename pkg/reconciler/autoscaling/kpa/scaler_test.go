@@ -229,7 +229,7 @@ func TestScaler(t *testing.T) {
 			revision := newRevision(t, servingClient, test.minScale, test.maxScale)
 			deployment := newDeployment(t, dynamicClient, names.Deployment(revision), test.startReplicas)
 			cbCount := 0
-			revisionScaler := newScaler(opts, func(string, time.Duration) {
+			revisionScaler := newScaler(opts, func(*pav1alpha1.PodAutoscaler, time.Duration) {
 				cbCount++
 			})
 			if test.proberfunc != nil {
@@ -384,7 +384,7 @@ func TestGetScaleResource(t *testing.T) {
 	revision := newRevision(t, servingClient, 1, 10)
 	// This setups reactor as well.
 	newDeployment(t, dynamicClient, names.Deployment(revision), 5)
-	revisionScaler := newScaler(opts, func(string, time.Duration) {})
+	revisionScaler := newScaler(opts, func(*pav1alpha1.PodAutoscaler, time.Duration) {})
 
 	pa := newKPA(t, servingClient, revision)
 	scale, err := revisionScaler.GetScaleResource(pa)

@@ -65,11 +65,11 @@ type scaler struct {
 
 	// For async probes.
 	probeManager asyncProber
-	enqueueCB    func(string, time.Duration)
+	enqueueCB    func(*pav1alpha1.PodAutoscaler, time.Duration)
 }
 
 // newScaler creates a scaler.
-func newScaler(opt *reconciler.Options, enqueueCB func(string, time.Duration)) *scaler {
+func newScaler(opt *reconciler.Options, enqueueCB func(*pav1alpha1.PodAutoscaler, time.Duration)) *scaler {
 	ks := &scaler{
 		// Wrap it in a cache, so that we don't stamp out a new
 		// informer/lister each time.
@@ -82,7 +82,7 @@ func newScaler(opt *reconciler.Options, enqueueCB func(string, time.Duration)) *
 		// Production setup uses the default probe implementation.
 		activatorProbe: activatorProbe,
 		probeManager: prober.New(func(arg interface{}, success bool, err error) {
-			pa := arg.(string)
+			pa := arg.(*pav1alpha1.PodAutoscaler)
 			opt.Logger.Infof("Async prober is done for key %s: success?: %v error: %v", pa, success, err)
 			// Re-enqeue the PA in any case. If the probe timed out to retry again, if succeeded to scale to 0.
 			enqueueCB(pa, reenqeuePeriod)
@@ -175,7 +175,6 @@ func (ks *scaler) handleScaleToZero(pa *pav1alpha1.PodAutoscaler, desiredScale i
 	if config.EnableScaleToZero == false {
 		return 1, true
 	}
-	key := pa.GetNamespace() + "/" + pa.GetName()
 
 	if pa.Status.IsActivating() { // Active=Unknown
 		// Don't scale-to-zero during activation
@@ -191,7 +190,7 @@ func (ks *scaler) handleScaleToZero(pa *pav1alpha1.PodAutoscaler, desiredScale i
 		}
 		// Otherwise, scale down to 1 until the idle period elapses and re-enqueue
 		// the PA for reconciliation at that time.
-		ks.enqueueCB(key, config.StableWindow)
+		ks.enqueueCB(pa, config.StableWindow)
 		desiredScale = 1
 	} else { // Active=False
 		r, err := ks.activatorProbe(pa)
@@ -203,13 +202,13 @@ func (ks *scaler) handleScaleToZero(pa *pav1alpha1.PodAutoscaler, desiredScale i
 			}
 			// Re-enqeue the PA for reconciliation after grace period.
 			// In istio-lean this can be close to 0.
-			ks.enqueueCB(key, config.ScaleToZeroGracePeriod)
+			ks.enqueueCB(pa, config.ScaleToZeroGracePeriod)
 			return desiredScale, false
 		}
 
 		// Otherwise (any prober failure) start the async probe.
 		ks.logger.Infof("%s is not yet backed by activator, cannot scale to zero", pa.Name)
-		if !ks.probeManager.Offer(context.Background(), paToProbeTarget(pa), activator.Name, key, probePeriod, probeTimeout) {
+		if !ks.probeManager.Offer(context.Background(), paToProbeTarget(pa), activator.Name, pa, probePeriod, probeTimeout) {
 			ks.logger.Infof("Probe for %s is already in flight", pa.Name)
 		}
 		return desiredScale, false

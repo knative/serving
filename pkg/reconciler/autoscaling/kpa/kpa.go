@@ -132,8 +132,10 @@ func NewController(
 		metrics:         metrics,
 	}
 	impl := controller.NewImpl(c, c.Logger, "KPA-Class Autoscaling", reconciler.MustNewStatsReporter("KPA-Class Autoscaling", c.Logger))
-	c.scaler = newScaler(opts, func(pa string, after time.Duration) {
-		impl.EnqueueKeyAfter(pa, after)
+	c.scaler = newScaler(opts, func(pa *pav1alpha1.PodAutoscaler, after time.Duration) {
+		// TODO(vagababov): remove this after pkg is updated to have `EnqueueAfter`.
+		key := fmt.Sprintf("%s/%s", pa.Namespace, pa.Name)
+		impl.EnqueueKeyAfter(key, after)
 	})
 
 	c.Logger.Info("Setting up KPA-Class event handlers")
