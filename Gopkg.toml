@@ -41,6 +41,10 @@ required = [
   # HEAD as of 2019-04-10
   revision = "ec69c4a8a1bff25fcbe096fcb32c9a6543fbdccf"
 
+[[constraint]]
+  name = "github.com/jetstack/cert-manager"
+  revision = "45fbfcd16cdd6a6a73c79f26d67ce72a2886c746"
+
 [[override]]
   name = "k8s.io/api"
   version = "kubernetes-1.12.6"
@@ -87,3 +91,4 @@ required = [
 [[prune.project]]
   name = "github.com/knative/test-infra"
   non-go = false
+
