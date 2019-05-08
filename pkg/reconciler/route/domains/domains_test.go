@@ -17,10 +17,11 @@ package domains
 
 import (
 	"context"
-	"github.com/google/go-cmp/cmp"
-	"github.com/knative/pkg/apis"
 	"testing"
 	"time"
+
+	"github.com/google/go-cmp/cmp"
+	"github.com/knative/pkg/apis"
 
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/gc"
@@ -159,20 +160,20 @@ func TestURL(t *testing.T) {
 		domain   string
 		Expected apis.URL
 	}{{
-		name:     "subdomain",
-		scheme:   HTTPScheme,
-		domain:   "current.svc.local.com",
+		name:   "subdomain",
+		scheme: HTTPScheme,
+		domain: "current.svc.local.com",
 		Expected: apis.URL{
 			Scheme: "http",
-			Path : "current.svc.local.com",
+			Path:   "current.svc.local.com",
 		},
 	}, {
-		name:     "default target",
-		scheme:   HTTPScheme,
-		domain:   "example.com",
+		name:   "default target",
+		scheme: HTTPScheme,
+		domain: "example.com",
 		Expected: apis.URL{
 			Scheme: "http",
-			Path : "example.com",
+			Path:   "example.com",
 		},
 	}}
 
