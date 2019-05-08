@@ -34,6 +34,9 @@ const (
 	// all pods of a revision.
 	// TODO(yanweiguo): tuning this value. To be based on pod population?
 	scrapeTickInterval = time.Second / 3
+
+	// bucketSize is the size of the buckets of stats we create.
+	bucketSize = 2 * time.Second
 )
 
 // Metric represents a resource to configure the metric collector with.
@@ -216,7 +219,7 @@ type collection struct {
 func newCollection(metric *Metric, scraper StatsScraper, logger *zap.SugaredLogger) *collection {
 	c := &collection{
 		metric:  metric,
-		buckets: aggregation.NewTimedFloat64Buckets(2 * time.Second),
+		buckets: aggregation.NewTimedFloat64Buckets(bucketSize),
 
 		stopCh: make(chan struct{}),
 	}
