@@ -59,6 +59,9 @@ func serviceHostname() string {
 }
 
 func ingressAddress(gateway string, addressType string) string {
+	if ptest.Flags.IngressEndpoint != "" {
+		return ptest.Flags.IngressEndpoint
+	}
 	return noStderrShell("kubectl", "get", "svc", gateway, "-n", "istio-system",
 		"-o", fmt.Sprintf("jsonpath={.status.loadBalancer.ingress[*]['%s']}", addressType))
 }
