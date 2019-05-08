@@ -310,6 +310,7 @@ func (c *Reconciler) reconcileDecider(ctx context.Context, pa *pav1alpha1.PodAut
 	} else if err != nil {
 		return nil, perrors.Wrap(err, "error fetching decider")
 	}
+
 	// Ignore status when reconciling
 	desiredDecider.Status = decider.Status
 	if !equality.Semantic.DeepEqual(desiredDecider, decider) {
