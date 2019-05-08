@@ -455,7 +455,7 @@ func computeActiveCondition(pa *pav1alpha1.PodAutoscaler, want int32, got int) (
 		ret = !pa.Status.IsInactive() // Any state but inactive should change SKS.
 		pa.Status.MarkInactive("NoTraffic", "The target is not receiving traffic.")
 
-	case got >= 0 && got < minReady && want > 0:
+	case got < minReady && want > 0:
 		ret = pa.Status.IsInactive() // If we were inactive and became activating.
 		pa.Status.MarkActivating(
 			"Queued", "Requests to the target are being buffered as resources are provisioned.")
