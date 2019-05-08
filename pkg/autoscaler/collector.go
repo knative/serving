@@ -18,6 +18,7 @@ package autoscaler
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"time"
 
@@ -200,8 +201,7 @@ func (c *MetricCollector) StableAndPanicConcurrency(key string) (float64, float6
 		return 0, 0, k8serrors.NewNotFound(kpa.Resource("Metrics"), key)
 	}
 
-	stable, panic := collection.stableAndPanicConcurrency(time.Now())
-	return stable, panic, nil
+	return collection.stableAndPanicConcurrency(time.Now())
 }
 
 // collection represents the collection of metrics for one specific entity.
@@ -274,10 +274,15 @@ func (c *collection) record(stat Stat) {
 
 // stableAndPanicConcurrency calculates both stable and panic concurrency based on the
 // current stats.
-func (c *collection) stableAndPanicConcurrency(now time.Time) (float64, float64) {
+func (c *collection) stableAndPanicConcurrency(now time.Time) (float64, float64, error) {
 	spec := c.currentMetric().Spec
 
 	c.buckets.RemoveOlderThan(now.Add(-spec.StableWindow))
+
+	if c.buckets.IsEmpty() {
+		return 0, 0, errors.New("no data available")
+	}
+
 	panicAverage := aggregation.Average{}
 	stableAverage := aggregation.Average{}
 	c.buckets.ForEachBucket(
@@ -285,7 +290,7 @@ func (c *collection) stableAndPanicConcurrency(now time.Time) (float64, float64)
 		stableAverage.Accumulate, // No need to add a YoungerThan condition as we already deleted all outdated stats above.
 	)
 
-	return stableAverage.Value(), panicAverage.Value()
+	return stableAverage.Value(), panicAverage.Value(), nil
 }
 
 // close stops collecting metrics, stops the scraper.

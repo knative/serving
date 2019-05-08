@@ -173,9 +173,15 @@ func TestMetricCollectorRecord(t *testing.T) {
 	factory := scraperFactory(scraper, nil)
 
 	coll := NewMetricCollector(factory, logger)
-	coll.Create(ctx, defaultMetric)
-	coll.Record(metricKey, stat)
 
+	// Freshly created collection does not contain any metrics and should return an error.
+	coll.Create(ctx, defaultMetric)
+	if _, _, err := coll.StableAndPanicConcurrency(metricKey); err == nil {
+		t.Error("StableAndPanicConcurrency() = nil, wanted an error")
+	}
+
+	// After adding a stat the concurrencies are calculated correctly.
+	coll.Record(metricKey, stat)
 	if stable, panic, _ := coll.StableAndPanicConcurrency(metricKey); stable != panic && stable != want {
 		t.Errorf("StableAndPanicConcurrency() = %v, %v; want %v (for both)", stable, panic, want)
 	}

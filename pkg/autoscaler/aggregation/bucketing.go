@@ -52,6 +52,14 @@ func (t *TimedFloat64Buckets) Record(time time.Time, name string, value float64)
 	bucket.Record(name, value)
 }
 
+// IsEmpty returns whether or not there are no values currently stored.
+func (t *TimedFloat64Buckets) IsEmpty() bool {
+	t.bucketsMutex.RLock()
+	defer t.bucketsMutex.RUnlock()
+
+	return len(t.buckets) == 0
+}
+
 // ForEachBucket calls the given Accumulator function for each bucket.
 func (t *TimedFloat64Buckets) ForEachBucket(accs ...Accumulator) {
 	t.bucketsMutex.RLock()
