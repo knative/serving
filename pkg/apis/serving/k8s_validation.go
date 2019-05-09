@@ -46,6 +46,13 @@ var (
 		"/var/log",
 	)
 
+	reservedEnvVars = sets.NewString(
+		"PORT",
+		"K_SERVICE",
+		"K_CONFIGURATION",
+		"K_REVISION",
+	)
+
 	// The port is named "user-port" on the deployment, but a user cannot set an arbitrary name on the port
 	// in Configuration. The name field is reserved for content-negotiation. Currently 'h2c' and 'http1' are
 	// allowed.
@@ -96,11 +103,25 @@ func validateEnvValueFrom(source *corev1.EnvVarSource) *apis.FieldError {
 	return apis.CheckDisallowedFields(*source, *EnvVarSourceMask(source))
 }
 
+func validateEnvVar(env corev1.EnvVar) *apis.FieldError {
+	errs := apis.CheckDisallowedFields(env, *EnvVarMask(&env))
+
+	if env.Name == "" {
+		errs = errs.Also(apis.ErrMissingField("name"))
+	} else if reservedEnvVars.Has(env.Name) {
+		errs = errs.Also(&apis.FieldError{
+			Message: fmt.Sprintf("%q is a reserved environment variable", env.Name),
+			Paths:   []string{"name"},
+		})
+	}
+
+	return errs.Also(validateEnvValueFrom(env.ValueFrom).ViaField("valueFrom"))
+}
+
 func validateEnv(envVars []corev1.EnvVar) *apis.FieldError {
 	var errs *apis.FieldError
 	for i, env := range envVars {
-		errs = errs.Also(apis.CheckDisallowedFields(env, *EnvVarMask(&env)).ViaIndex(i)).Also(
-			validateEnvValueFrom(env.ValueFrom).ViaField("valueFrom").ViaIndex(i))
+		errs = errs.Also(validateEnvVar(env).ViaIndex(i))
 	}
 	return errs
 }
