@@ -43,6 +43,8 @@ var (
 		responseTimeInMsecN,
 		"The response time in millisecond",
 		stats.UnitMilliseconds)
+
+	defaultLatencyDistribution = view.Distribution(0, 5, 10, 20, 40, 60, 80, 100, 150, 200, 250, 300, 350, 400, 450, 500, 600, 700, 800, 900, 1000, 2000, 5000, 10000, 20000, 50000, 100000)
 )
 
 // StatsReporter defines the interface for sending queue-proxy metrics
@@ -112,7 +114,7 @@ func NewStatsReporter(ns, service, config, rev string) (*Reporter, error) {
 		&view.View{
 			Description: "The response time in millisecond",
 			Measure:     responseTimeInMsecM,
-			Aggregation: view.Distribution(1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000, 9000, 10000, 11000, 12000, 13000, 14000, 15000),
+			Aggregation: defaultLatencyDistribution,
 			TagKeys:     []tag.Key{nsTag, svcTag, configTag, revTag, responseCodeTag, responseCodeClassTag},
 		},
 	)
