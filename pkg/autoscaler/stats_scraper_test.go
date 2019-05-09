@@ -113,7 +113,7 @@ func TestScrape_HappyCase(t *testing.T) {
 	}
 
 	// Make an Endpoints with 2 pods.
-	createEndpoints(addIps(makeEndpoints(), 2))
+	endpoints(2)
 	got, err := scraper.Scrape()
 	if err != nil {
 		t.Fatalf("unexpected error from scraper.Scrape(): %v", err)
@@ -154,7 +154,7 @@ func TestScrape_PopulateErrorFromScrapeClient(t *testing.T) {
 	}
 
 	// Make an Endpoints with 2 pods.
-	createEndpoints(addIps(makeEndpoints(), 2))
+	endpoints(2)
 
 	if _, err := scraper.Scrape(); err != nil {
 		if got, want := err.Error(), errMsg; got != want {
@@ -174,7 +174,7 @@ func TestScrape_DoNotScrapeIfNoPodsFound(t *testing.T) {
 	}
 
 	// Override the Endpoints with 0 pods.
-	createEndpoints(addIps(makeEndpoints(), 0))
+	endpoints(0)
 
 	stat, err := scraper.Scrape()
 	if err != nil {

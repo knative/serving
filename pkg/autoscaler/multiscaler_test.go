@@ -200,7 +200,7 @@ func TestMultiScalerScaleFromZero(t *testing.T) {
 		AverageConcurrentRequests: 1,
 		RequestCount:              1,
 	}
-	ms.RecordStat(testKPAKey, testStat)
+	ms.Poke(testKPAKey, testStat)
 
 	// Verify that we see a "tick"
 	if err := verifyTick(errCh); err != nil {
@@ -250,48 +250,6 @@ func TestMultiScalerIgnoreNegativeScale(t *testing.T) {
 	if err := verifyNoTick(errCh); err != nil {
 		t.Fatal(err)
 	}
-}
-
-func TestMultiScalerRecordsStatistics(t *testing.T) {
-	ctx := context.Background()
-	ms, stopCh, statCh, uniScaler := createMultiScaler(t)
-	defer close(stopCh)
-	defer close(statCh)
-
-	decider := newDecider()
-
-	uniScaler.setScaleResult(1, true)
-
-	_, err := ms.Create(ctx, decider)
-	if err != nil {
-		t.Errorf("Create() = %v", err)
-	}
-
-	now := time.Now()
-	testStat := Stat{
-		Time:                      &now,
-		PodName:                   "test-pod",
-		AverageConcurrentRequests: 3.5,
-		RequestCount:              20,
-	}
-
-	ms.RecordStat(testKPAKey, testStat)
-	uniScaler.checkLastStat(t, testStat)
-
-	testStat.RequestCount = 10
-	ms.RecordStat(testKPAKey, testStat)
-	uniScaler.checkLastStat(t, testStat)
-
-	err = ms.Delete(ctx, decider.Namespace, decider.Name)
-	if err != nil {
-		t.Errorf("Delete() = %v", err)
-	}
-
-	// Should not continue to record statistics after the KPA has been deleted.
-	newStat := testStat
-	newStat.RequestCount = 30
-	ms.RecordStat(testKPAKey, newStat)
-	uniScaler.checkLastStat(t, testStat)
 }
 
 func TestMultiScalerUpdate(t *testing.T) {
