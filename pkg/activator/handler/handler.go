@@ -16,7 +16,6 @@ limitations under the License.
 package handler
 
 import (
-	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httputil"
@@ -27,21 +26,18 @@ import (
 	"go.opencensus.io/trace"
 	"go.uber.org/zap"
 
-	"knative.dev/pkg/logging/logkey"
 	"github.com/knative/serving/pkg/activator"
+	activatornetwork "github.com/knative/serving/pkg/activator/network"
 	"github.com/knative/serving/pkg/activator/util"
-	"github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/serving"
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	netlisters "github.com/knative/serving/pkg/client/listers/networking/v1alpha1"
 	servinglisters "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
 	pkghttp "github.com/knative/serving/pkg/http"
 	"github.com/knative/serving/pkg/network"
 	"github.com/knative/serving/pkg/network/prober"
-	"github.com/knative/serving/pkg/queue"
+	"knative.dev/pkg/logging/logkey"
 
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/util/wait"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
@@ -90,49 +86,6 @@ func New(l *zap.SugaredLogger, r activator.StatsReporter, t *activator.Throttler
 	}
 }
 
-func withOrigProto(or *http.Request) prober.Preparer {
-	return func(r *http.Request) *http.Request {
-		r.Proto = or.Proto
-		r.ProtoMajor = or.ProtoMajor
-		r.ProtoMinor = or.ProtoMinor
-		return r
-	}
-}
-
-func (a *activationHandler) probeEndpoint(logger *zap.SugaredLogger, r *http.Request, target *url.URL) (bool, int) {
-	var (
-		attempts int
-		st       = time.Now()
-	)
-
-	reqCtx, probeSpan := trace.StartSpan(r.Context(), "probe")
-	defer func() {
-		probeSpan.End()
-		a.logger.Debugf("Probing %s took %d attempts and %v time", target.String(), attempts, time.Since(st))
-	}()
-
-	err := wait.PollImmediate(100*time.Millisecond, a.probeTimeout, func() (bool, error) {
-		attempts++
-		ret, err := prober.Do(
-			reqCtx,
-			a.probeTransportFactory(),
-			target.String(),
-			prober.WithHeader(network.ProbeHeaderName, queue.Name),
-			prober.ExpectsBody(queue.Name),
-			withOrigProto(r))
-		if err != nil {
-			logger.Warnw("Pod probe failed", zap.Error(err))
-			return false, nil
-		}
-		if !ret {
-			logger.Warn("Pod probe unsuccessful")
-			return false, nil
-		}
-		return true, nil
-	})
-	return (err == nil), attempts
-}
-
 func (a *activationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	namespace := pkghttp.LastHeaderValue(r.Header, activator.RevisionHeaderNamespace)
 	name := pkghttp.LastHeaderValue(r.Header, activator.RevisionHeaderName)
@@ -148,16 +101,9 @@ func (a *activationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// SKS name matches that of revision.
-	sks, err := a.sksLister.ServerlessServices(namespace).Get(name)
+	host, err := activatornetwork.PrivateEndpointForRevision(namespace, name, revision.GetProtocol(), a.sksLister, a.serviceLister)
 	if err != nil {
-		logger.Errorw("Error while getting SKS", zap.Error(err))
-		sendError(err, w)
-		return
-	}
-	host, err := a.serviceHostName(revision, sks.Status.PrivateServiceName)
-	if err != nil {
-		logger.Errorw("Error while getting hostname", zap.Error(err))
+		logger.Errorw("Failed to get endpoint for private service", zap.Error(err))
 		sendError(err, w)
 		return
 	}
@@ -168,26 +114,15 @@ func (a *activationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	_, ttSpan := trace.StartSpan(r.Context(), "throttler_try")
-	ttStart := time.Now()
 	err = a.throttler.Try(a.endpointTimeout, revID, func() {
 		var (
 			httpStatus int
 		)
 
-		ttSpan.End()
-		a.logger.Debugf("Waiting for throttler took %v time", time.Since(ttStart))
-
-		success, attempts := a.probeEndpoint(logger, r, target)
-		if success {
-			// Once we see a successful probe, send traffic.
-			attempts++
-			reqCtx, proxySpan := trace.StartSpan(r.Context(), "proxy")
-			httpStatus = a.proxyRequest(w, r.WithContext(reqCtx), target)
-			proxySpan.End()
-		} else {
-			httpStatus = http.StatusInternalServerError
-			w.WriteHeader(httpStatus)
-		}
+		// Send request
+		reqCtx, proxySpan := trace.StartSpan(r.Context(), "proxy")
+		httpStatus = a.proxyRequest(w, r.WithContext(reqCtx), target)
+		proxySpan.End()
 
 		// Report the metrics
 		duration := time.Since(start)
@@ -199,7 +134,7 @@ func (a *activationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			serviceName = revision.Labels[serving.ServiceLabelKey]
 		}
 
-		a.reporter.ReportRequestCount(namespace, serviceName, configurationName, name, httpStatus, attempts, 1.0)
+		a.reporter.ReportRequestCount(namespace, serviceName, configurationName, name, httpStatus, 1, 1.0)
 		a.reporter.ReportResponseTime(namespace, serviceName, configurationName, name, httpStatus, duration)
 	})
 	if err != nil {
@@ -233,31 +168,6 @@ func (a *activationHandler) proxyRequest(w http.ResponseWriter, r *http.Request,
 
 	proxy.ServeHTTP(recorder, r)
 	return recorder.ResponseCode
-}
-
-// serviceHostName obtains the hostname of the underlying service and the correct
-// port to send requests to.
-func (a *activationHandler) serviceHostName(rev *v1alpha1.Revision, serviceName string) (string, error) {
-	svc, err := a.serviceLister.Services(rev.Namespace).Get(serviceName)
-	if err != nil {
-		return "", err
-	}
-
-	// Search for the appropriate port
-	port := -1
-	for _, p := range svc.Spec.Ports {
-		if p.Name == networking.ServicePortName(rev.GetProtocol()) {
-			port = int(p.Port)
-			break
-		}
-	}
-	if port == -1 {
-		return "", errors.New("revision needs external HTTP port")
-	}
-
-	serviceFQDN := network.GetServiceHostname(serviceName, rev.Namespace)
-
-	return fmt.Sprintf("%s:%d", serviceFQDN, port), nil
 }
 
 func sendError(err error, w http.ResponseWriter) {

@@ -182,7 +182,7 @@ func main() {
 	}
 
 	params := queue.BreakerParams{QueueDepth: breakerQueueDepth, MaxConcurrency: breakerMaxConcurrency, InitialCapacity: 0}
-	throttler := activator.NewThrottler(params, endpointInformer, sksInformer.Lister(), revisionInformer.Lister(), logger)
+	throttler := activator.NewThrottler(params, network.NewAutoTransport(), endpointInformer, sksInformer.Lister(), serviceInformer.Lister(), revisionInformer.Lister(), logger)
 
 	activatorL3 := fmt.Sprintf("%s:%d", activator.K8sServiceName, networking.ServiceHTTPPort)
 	zipkinEndpoint, err := zipkin.NewEndpoint("activator", activatorL3)

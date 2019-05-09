@@ -48,6 +48,7 @@ type FakeRoundTripper struct {
 	// Response to non-probe requests
 	RequestResponse *FakeResponse
 	responseMux     sync.Mutex
+	ProbeCnt        int
 }
 
 func defaultProbeResponse() *FakeResponse {
@@ -76,6 +77,8 @@ func response(fr *FakeResponse) (*http.Response, error) {
 func (rt *FakeRoundTripper) popResponse() *FakeResponse {
 	rt.responseMux.Lock()
 	defer rt.responseMux.Unlock()
+
+	rt.ProbeCnt += 1
 
 	responses := rt.ProbeResponses
 	if responses == nil || len(responses) == 0 {

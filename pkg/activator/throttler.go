@@ -18,14 +18,12 @@ package activator
 
 import (
 	"errors"
+	"net/http"
 	"sync"
 	"time"
 
 	"go.uber.org/zap"
 
-	"knative.dev/pkg/controller"
-	"knative.dev/pkg/logging/logkey"
-	"knative.dev/pkg/system"
 	"github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/serving"
 	netlisters "github.com/knative/serving/pkg/client/listers/networking/v1alpha1"
@@ -33,6 +31,9 @@ import (
 	"github.com/knative/serving/pkg/queue"
 	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/resources"
+	"knative.dev/pkg/controller"
+	"knative.dev/pkg/logging/logkey"
+	"knative.dev/pkg/system"
 
 	corev1 "k8s.io/api/core/v1"
 	corev1informers "k8s.io/client-go/informers/core/v1"
@@ -51,7 +52,7 @@ var ErrActivatorOverload = errors.New("activator overload")
 // and gradually increase its value depending on the external condition (e.g. new endpoints become available)
 type Throttler struct {
 	breakersMux sync.Mutex
-	breakers    map[RevisionID]*queue.Breaker
+	breakers    map[RevisionID]*Breaker
 
 	breakerParams   queue.BreakerParams
 	logger          *zap.SugaredLogger
@@ -61,23 +62,29 @@ type Throttler struct {
 
 	numActivatorsMux sync.RWMutex
 	numActivators    int
+	serviceLister    corev1listers.ServiceLister
+	transport        http.RoundTripper
 }
 
 // NewThrottler creates a new Throttler.
 func NewThrottler(
 	params queue.BreakerParams,
+	transport http.RoundTripper,
 	endpointsInformer corev1informers.EndpointsInformer,
 	sksLister netlisters.ServerlessServiceLister,
+	serviceLister corev1listers.ServiceLister,
 	revisionLister servinglisters.RevisionLister,
 	logger *zap.SugaredLogger) *Throttler {
 
 	throttler := &Throttler{
-		breakers:        make(map[RevisionID]*queue.Breaker),
+		breakers:        make(map[RevisionID]*Breaker),
 		breakerParams:   params,
 		logger:          logger,
 		endpointsLister: endpointsInformer.Lister(),
 		revisionLister:  revisionLister,
 		sksLister:       sksLister,
+		serviceLister:   serviceLister,
+		transport:       transport,
 	}
 
 	// Update/create the breaker in the throttler when the number of endpoints changes.
@@ -113,11 +120,24 @@ func NewThrottler(
 	return throttler
 }
 
+// Shutdown shuts down all the breakers from polling
+func (t *Throttler) Shutdown() {
+	t.breakersMux.Lock()
+	defer t.breakersMux.Unlock()
+
+	for _, breaker := range t.breakers {
+		breaker.Shutdown()
+	}
+}
+
 // Remove deletes the breaker from the bookkeeping.
 func (t *Throttler) Remove(rev RevisionID) {
 	t.breakersMux.Lock()
 	defer t.breakersMux.Unlock()
-	delete(t.breakers, rev)
+	if breaker, ok := t.breakers[rev]; ok {
+		breaker.Shutdown()
+		delete(t.breakers, rev)
+	}
 }
 
 // UpdateCapacity updates the max concurrency of the Breaker corresponding to a revision.
@@ -127,7 +147,8 @@ func (t *Throttler) UpdateCapacity(rev RevisionID, size int) error {
 		return err
 	}
 	breaker, _ := t.getOrCreateBreaker(rev)
-	return t.updateCapacity(breaker, int(revision.Spec.ContainerConcurrency), size, t.activatorCount())
+	breaker.UpdateSize(size, int(revision.Spec.ContainerConcurrency), t.activatorCount())
+	return nil
 }
 
 // Try potentially registers a new breaker in our bookkeeping
@@ -165,37 +186,15 @@ func (t *Throttler) activatorEndpointsUpdated(newObj interface{}) {
 	t.updateAllBreakerCapacity(t.numActivators)
 }
 
-// minOneOrValue function returns num if its greater than 1
-// else the function returns 1
-func minOneOrValue(num int) int {
-	if num > 1 {
-		return num
-	}
-	return 1
-}
-
-// This method updates Breaker's concurrency.
-func (t *Throttler) updateCapacity(breaker *queue.Breaker, cc, size, activatorCount int) (err error) {
-	targetCapacity := cc * size
-
-	if size > 0 && (cc == 0 || targetCapacity > t.breakerParams.MaxConcurrency) {
-		// The concurrency is unlimited, thus hand out as many tokens as we can in this breaker.
-		targetCapacity = t.breakerParams.MaxConcurrency
-	} else if targetCapacity > 0 {
-		targetCapacity = minOneOrValue(targetCapacity / minOneOrValue(activatorCount))
-	}
-	return breaker.UpdateConcurrency(targetCapacity)
-}
-
 // getOrCreateBreaker retrieves existing breaker or creates a new one.
 // This is important for not loosing the update signals
 // that came before the requests reached the Activator's Handler.
-func (t *Throttler) getOrCreateBreaker(rev RevisionID) (*queue.Breaker, bool) {
+func (t *Throttler) getOrCreateBreaker(rev RevisionID) (*Breaker, bool) {
 	t.breakersMux.Lock()
 	defer t.breakersMux.Unlock()
 	breaker, ok := t.breakers[rev]
 	if !ok {
-		breaker = queue.NewBreaker(t.breakerParams)
+		breaker = NewBreaker(t.logger, t.transport, t.breakerParams, t.activatorCount(), t.sksLister, t.serviceLister, rev)
 		t.breakers[rev] = breaker
 	}
 	return breaker, ok
@@ -204,7 +203,7 @@ func (t *Throttler) getOrCreateBreaker(rev RevisionID) (*queue.Breaker, bool) {
 // forceUpdateCapacity fetches the endpoints and updates the capacity of the newly created breaker.
 // This avoids a potential deadlock in case if we missed the updates from the Endpoints informer.
 // This could happen because of a restart of the Activator or when a new one is added as part of scale out.
-func (t *Throttler) forceUpdateCapacity(rev RevisionID, breaker *queue.Breaker, activatorCount int) (err error) {
+func (t *Throttler) forceUpdateCapacity(rev RevisionID, breaker *Breaker, activatorCount int) (err error) {
 	revision, err := t.revisionLister.Revisions(rev.Namespace).Get(rev.Name)
 	if err != nil {
 		return err
@@ -225,7 +224,8 @@ func (t *Throttler) forceUpdateCapacity(rev RevisionID, breaker *queue.Breaker, 
 		return err
 	}
 
-	return t.updateCapacity(breaker, int(revision.Spec.ContainerConcurrency), size, activatorCount)
+	breaker.UpdateSize(size, int(revision.Spec.ContainerConcurrency), activatorCount)
+	return nil
 }
 
 // updateAllBreakerCapacity updates the capacity of all breakers.

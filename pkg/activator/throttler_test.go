@@ -17,6 +17,7 @@ limitations under the License.
 package activator
 
 import (
+	"net/http"
 	"testing"
 	"time"
 
@@ -24,10 +25,7 @@ import (
 
 	"go.uber.org/zap"
 
-	"knative.dev/pkg/controller"
-	. "knative.dev/pkg/logging/testing"
-	"knative.dev/pkg/system"
-	"knative.dev/pkg/test/helpers"
+	activatortest "github.com/knative/serving/pkg/activator/testing"
 	"github.com/knative/serving/pkg/apis/networking"
 	nv1a1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving"
@@ -37,15 +35,21 @@ import (
 	servinginformers "github.com/knative/serving/pkg/client/informers/externalversions"
 	netlisters "github.com/knative/serving/pkg/client/listers/networking/v1alpha1"
 	servinglisters "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
+	"github.com/knative/serving/pkg/network"
 	"github.com/knative/serving/pkg/queue"
+	"knative.dev/pkg/controller"
+	. "knative.dev/pkg/logging/testing"
+	"knative.dev/pkg/system"
+	"knative.dev/pkg/test/helpers"
 
-	_ "knative.dev/pkg/system/testing"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubeinformers "k8s.io/client-go/informers"
 	corev1informers "k8s.io/client-go/informers/core/v1"
 	kubefake "k8s.io/client-go/kubernetes/fake"
+	corev1listers "k8s.io/client-go/listers/core/v1"
+	_ "knative.dev/pkg/system/testing"
 )
 
 const (
@@ -59,10 +63,139 @@ var (
 	revID = RevisionID{testNamespace, testRevision}
 )
 
+func TestThrottlerProbe(t *testing.T) {
+	for _, test := range []struct {
+		name string
+
+		reqRevId       RevisionID
+		probeResponses []activatortest.FakeResponse
+		tryTimeout     time.Duration
+		revisionLister servinglisters.RevisionLister
+		sksLister      netlisters.ServerlessServiceLister
+		serviceLister  corev1listers.ServiceLister
+
+		expectProbeCnt   int
+		expectTrySuccess bool
+	}{{
+		name: "successful probe",
+
+		reqRevId:       RevisionID{testNamespace, testRevision},
+		revisionLister: revisionLister(testNamespace, testRevision, 10),
+		sksLister:      sksLister(testNamespace, testRevision),
+		serviceLister:  serviceLister(service(testNamespace, testRevision, "http")),
+
+		expectProbeCnt:   1,
+		tryTimeout:       10 * time.Millisecond,
+		expectTrySuccess: true,
+	}, {
+		name: "slowly activate",
+
+		reqRevId: RevisionID{testNamespace, testRevision},
+		probeResponses: []activatortest.FakeResponse{{
+			Code: http.StatusOK,
+			Body: "activator",
+		}, {
+			Code: http.StatusOK,
+			Body: queue.Name,
+		}},
+		revisionLister: revisionLister(testNamespace, testRevision, 10),
+		sksLister:      sksLister(testNamespace, testRevision),
+		serviceLister:  serviceLister(service(testNamespace, testRevision, "http")),
+
+		expectProbeCnt:   2,
+		expectTrySuccess: true,
+	}, {
+		name: "never activate",
+
+		reqRevId: RevisionID{testNamespace, testRevision},
+		probeResponses: []activatortest.FakeResponse{{
+			Code: http.StatusOK,
+			Body: "activator",
+		}},
+		revisionLister: revisionLister(testNamespace, testRevision, 10),
+		sksLister:      sksLister(testNamespace, testRevision),
+		serviceLister:  serviceLister(service(testNamespace, testRevision, "http")),
+
+		tryTimeout:       10 * time.Millisecond,
+		expectTrySuccess: false,
+	}, {
+		name: "probe servererror",
+
+		reqRevId: RevisionID{testNamespace, testRevision},
+		probeResponses: []activatortest.FakeResponse{{
+			Code: http.StatusInternalServerError,
+			Body: "failed",
+		}},
+		revisionLister: revisionLister(testNamespace, testRevision, 10),
+		sksLister:      sksLister(testNamespace, testRevision),
+		serviceLister:  serviceLister(service(testNamespace, testRevision, "http")),
+
+		tryTimeout:       10 * time.Millisecond,
+		expectTrySuccess: false,
+	}, {
+		name: "missing revision namespace",
+
+		reqRevId:       RevisionID{"missing-namespace", testRevision},
+		revisionLister: revisionLister(testNamespace, testRevision, 10),
+		sksLister:      sksLister(testNamespace, testRevision),
+		serviceLister:  serviceLister(service(testNamespace, testRevision, "http")),
+
+		tryTimeout:       10 * time.Millisecond,
+		expectTrySuccess: false,
+	}, {
+		name: "missing revision name",
+
+		reqRevId:       RevisionID{testNamespace, "missing-name"},
+		revisionLister: revisionLister(testNamespace, testRevision, 10),
+		sksLister:      sksLister(testNamespace, testRevision),
+		serviceLister:  serviceLister(service(testNamespace, testRevision, "http")),
+
+		tryTimeout:       10 * time.Millisecond,
+		expectTrySuccess: false,
+	}} {
+		t.Run(test.name, func(t *testing.T) {
+			// Setup transports.
+			fakeRT := activatortest.FakeRoundTripper{
+				ExpectHost:     "test-host",
+				LockerCh:       nil,
+				ProbeResponses: test.probeResponses,
+				RequestResponse: &activatortest.FakeResponse{
+					Err:  nil,
+					Code: http.StatusOK,
+					Body: "hello, world!",
+				},
+			}
+			rt := network.RoundTripperFunc(fakeRT.RT)
+
+			params := queue.BreakerParams{QueueDepth: 1000, MaxConcurrency: 1000, InitialCapacity: 0}
+			throttler := NewThrottler(
+				params,
+				rt,
+				endpointsInformer(testNamespace, testRevision, 1),
+				test.sksLister,
+				test.serviceLister,
+				test.revisionLister,
+				TestLogger(t))
+			defer throttler.Shutdown()
+
+			trySuccess := false
+			throttler.Try(test.tryTimeout, test.reqRevId, func() {
+				trySuccess = true
+			})
+
+			if trySuccess != test.expectTrySuccess {
+				t.Errorf("Got try success %v, expected %v", trySuccess, test.expectTrySuccess)
+			}
+		})
+	}
+}
+
 func TestThrottlerUpdateCapacity(t *testing.T) {
 	samples := []struct {
 		label          string
 		revisionLister servinglisters.RevisionLister
+		sksLister      netlisters.ServerlessServiceLister
+		serviceLister  corev1listers.ServiceLister
 		numEndpoints   int
 		maxConcurrency int
 		want           int
@@ -70,18 +203,24 @@ func TestThrottlerUpdateCapacity(t *testing.T) {
 	}{{
 		label:          "all good",
 		revisionLister: revisionLister(testNamespace, testRevision, 10),
+		sksLister:      sksLister(testNamespace, testRevision),
+		serviceLister:  serviceLister(service(testNamespace, testRevision, "http")),
 		numEndpoints:   1,
 		maxConcurrency: defaultMaxConcurrency,
 		want:           10,
 	}, {
 		label:          "unlimited concurrency",
 		revisionLister: revisionLister(testNamespace, testRevision, 0),
+		sksLister:      sksLister(testNamespace, testRevision),
+		serviceLister:  serviceLister(service(testNamespace, testRevision, "http")),
 		numEndpoints:   1,
 		maxConcurrency: 100,
 		want:           100,
 	}, {
 		label:          "non-existing revision",
 		revisionLister: revisionLister("bogus-namespace", testRevision, 10),
+		sksLister:      sksLister("bogus-namespace", testRevision),
+		serviceLister:  serviceLister(service("bogus-namespace", testRevision, "http")),
 		numEndpoints:   1,
 		maxConcurrency: defaultMaxConcurrency,
 		want:           0,
@@ -89,31 +228,44 @@ func TestThrottlerUpdateCapacity(t *testing.T) {
 	}, {
 		label:          "exceeds maxConcurrency",
 		revisionLister: revisionLister(testNamespace, testRevision, 10),
+		sksLister:      sksLister(testNamespace, testRevision),
+		serviceLister:  serviceLister(service(testNamespace, testRevision, "http")),
 		numEndpoints:   1,
 		maxConcurrency: 5,
 		want:           5,
 	}, {
 		label:          "no endpoints",
 		revisionLister: revisionLister(testNamespace, testRevision, 1),
+		sksLister:      sksLister(testNamespace, testRevision),
+		serviceLister:  serviceLister(service(testNamespace, testRevision, "http")),
 		numEndpoints:   0,
 		maxConcurrency: 5,
 		want:           0,
 	}, {
 		label:          "no endpoints, unlimited concurrency",
 		revisionLister: revisionLister(testNamespace, testRevision, 0),
+		sksLister:      sksLister(testNamespace, testRevision),
+		serviceLister:  serviceLister(service(testNamespace, testRevision, "http")),
 		numEndpoints:   0,
 		maxConcurrency: 5,
 		want:           0,
 	}}
 	for _, s := range samples {
 		t.Run(s.label, func(t *testing.T) {
+			// Setup our roundtripper
+			fakeRT := activatortest.FakeRoundTripper{}
+			rt := network.RoundTripperFunc(fakeRT.RT)
+
 			throttler := getThrottler(
+				rt,
 				s.maxConcurrency,
 				s.revisionLister,
 				endpointsInformer(testNamespace, testRevision, 1),
-				nil, /*sksLister*/
+				s.sksLister,
+				s.serviceLister,
 				TestLogger(t),
 				initCapacity)
+			defer throttler.Shutdown()
 
 			err := throttler.UpdateCapacity(revID, s.numEndpoints)
 			if err == nil && s.wantError {
@@ -122,9 +274,17 @@ func TestThrottlerUpdateCapacity(t *testing.T) {
 				t.Errorf("UpdateCapacity() = %v, wanted no error", err)
 			}
 			if s.want > 0 {
-				if got := throttler.breakers[revID].Capacity(); got != s.want {
-					t.Errorf("breakers[revID].Capacity() = %d, want %d", got, s.want)
-				}
+				func() {
+					// Force probe / concurrency update in breaker
+					breaker := throttler.breakers[revID]
+					breaker.mux.Lock()
+					defer breaker.mux.Unlock()
+					breaker.probeAndSetConcurrency()
+
+					if got := throttler.breakers[revID].Capacity(); got != s.want {
+						t.Errorf("breakers[revID].Capacity() = %d, want %d", got, s.want)
+					}
+				}()
 			}
 		})
 	}
@@ -179,14 +339,19 @@ func TestThrottlerActivatorEndpoints(t *testing.T) {
 				Subsets: endpointsSubset(1, s.activatorCount),
 			}
 
+			fakeRT := activatortest.FakeRoundTripper{}
+			rt := network.RoundTripperFunc(fakeRT.RT)
 			throttler := getThrottler(
+				rt,
 				defaultMaxConcurrency,
 				revisionLister(testNamespace, testRevision, v1beta1.RevisionContainerConcurrencyType(s.revisionConcurrency)),
 				endpoints,
 				sksLister(testNamespace, testRevision),
+				serviceLister(service(testNamespace, testRevision, "http")),
 				TestLogger(t),
 				initCapacity,
 			)
+			defer throttler.Shutdown()
 			throttler.UpdateCapacity(revID, 1) // This sets the initial breaker
 
 			fake.CoreV1().Endpoints(activatorEp.Namespace).Create(activatorEp)
@@ -211,6 +376,7 @@ func TestThrottlerTry(t *testing.T) {
 		revisionLister    servinglisters.RevisionLister
 		endpointsInformer corev1informers.EndpointsInformer
 		sksLister         netlisters.ServerlessServiceLister
+		serviceLister     corev1listers.ServiceLister
 		wantCalls         int
 		wantError         bool
 	}{{
@@ -219,6 +385,7 @@ func TestThrottlerTry(t *testing.T) {
 		revisionLister:    revisionLister(testNamespace, testRevision, 10),
 		endpointsInformer: endpointsInformer(testNamespace, testRevision, 0),
 		sksLister:         sksLister(testNamespace, testRevision),
+		serviceLister:     serviceLister(service(testNamespace, testRevision, "http")),
 		wantCalls:         1,
 	}, {
 		label:             "non-existing revision",
@@ -226,6 +393,7 @@ func TestThrottlerTry(t *testing.T) {
 		revisionLister:    revisionLister("bogus-namespace", testRevision, 10),
 		endpointsInformer: endpointsInformer(testNamespace, testRevision, 0),
 		sksLister:         sksLister(testNamespace, testRevision),
+		serviceLister:     serviceLister(service(testNamespace, testRevision, "http")),
 		wantCalls:         0,
 		wantError:         true,
 	}, {
@@ -233,6 +401,7 @@ func TestThrottlerTry(t *testing.T) {
 		revisionLister:    revisionLister(testNamespace, testRevision, 10),
 		endpointsInformer: endpointsInformer(testNamespace, testRevision, 1),
 		sksLister:         sksLister("bogus-namespace", testRevision),
+		serviceLister:     serviceLister(service("bogus-namespace", testRevision, "http")),
 		wantCalls:         0,
 		wantError:         true,
 	}, {
@@ -240,17 +409,24 @@ func TestThrottlerTry(t *testing.T) {
 		revisionLister:    revisionLister(testNamespace, testRevision, 10),
 		endpointsInformer: endpointsInformer("bogus-namespace", testRevision, 0),
 		sksLister:         sksLister(testNamespace, testRevision),
+		serviceLister:     serviceLister(service(testNamespace, testRevision, "http")),
 		wantCalls:         0,
 		wantError:         true,
 	}}
 	for _, s := range samples {
 		t.Run(s.label, func(t *testing.T) {
+			// Setup our roundtripper
+			fakeRT := activatortest.FakeRoundTripper{}
+			rt := network.RoundTripperFunc(fakeRT.RT)
+
 			var called int
 			throttler := getThrottler(
+				rt,
 				defaultMaxConcurrency,
 				s.revisionLister,
 				s.endpointsInformer,
 				s.sksLister,
+				s.serviceLister,
 				TestLogger(t),
 				initCapacity)
 
@@ -276,11 +452,17 @@ func TestThrottlerTryOverload(t *testing.T) {
 	maxConcurrency := 1
 	initialCapacity := 1
 	queueLength := 1
+
+	fakeRT := activatortest.FakeRoundTripper{}
+	rt := network.RoundTripperFunc(fakeRT.RT)
+
 	th := getThrottler(
+		rt,
 		maxConcurrency,
 		revisionLister(testNamespace, testRevision, 1),
 		endpointsInformer(testNamespace, testRevision, 1),
 		sksLister(testNamespace, testRevision),
+		serviceLister(service(testNamespace, testRevision, "http")),
 		TestLogger(t),
 		initialCapacity)
 
@@ -321,14 +503,16 @@ func TestThrottlerTryOverload(t *testing.T) {
 
 func TestThrottlerRemove(t *testing.T) {
 	throttler := getThrottler(
+		network.NewAutoTransport(),
 		defaultMaxConcurrency,
 		revisionLister(testNamespace, testRevision, 10),
 		endpointsInformer(testNamespace, testRevision, 0),
 		sksLister(testNamespace, testRevision),
+		serviceLister(service(testNamespace, testRevision, "http")),
 		TestLogger(t),
 		initCapacity)
 
-	throttler.breakers[revID] = queue.NewBreaker(throttler.breakerParams)
+	throttler.breakers[revID] = NewBreaker(TestLogger(t), network.NewAutoTransport(), throttler.breakerParams, 1, sksLister(testNamespace, testRevision), serviceLister(service(testNamespace, testRevision, "http")), revID)
 	if got := len(throttler.breakers); got != 1 {
 		t.Errorf("Number of Breakers created = %d, want: 1", got)
 	}
@@ -363,11 +547,17 @@ func TestHelper_ReactToEndpoints(t *testing.T) {
 	defer close(stopCh)
 	controller.StartInformers(stopCh, endpointsInformer.Informer())
 
+	// Setup our roundtripper
+	fakeRT := activatortest.FakeRoundTripper{}
+	rt := network.RoundTripperFunc(fakeRT.RT)
+
 	throttler := getThrottler(
+		rt,
 		200,
 		revisionLister(testNamespace, testRevision, 10),
 		endpointsInformer,
 		sksLister(testNamespace, testRevision),
+		serviceLister(service(testNamespace, testRevision, "http")),
 		TestLogger(t),
 		initCapacity)
 
@@ -443,6 +633,33 @@ func endpointsInformer(namespace, name string, count int) corev1informers.Endpoi
 	return endpoints
 }
 
+func service(namespace, name string, portName string) *corev1.Service {
+	return &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: namespace,
+			Name:      name,
+		},
+		Spec: corev1.ServiceSpec{
+			Ports: []corev1.ServicePort{{
+				Name: portName,
+				Port: 8080,
+			}},
+		}}
+}
+
+func serviceLister(svcs ...*corev1.Service) corev1listers.ServiceLister {
+	fake := kubefake.NewSimpleClientset()
+	informer := kubeinformers.NewSharedInformerFactory(fake, 0)
+	services := informer.Core().V1().Services()
+
+	for _, svc := range svcs {
+		fake.Core().Services(svc.Namespace).Create(svc)
+		services.Informer().GetIndexer().Add(svc)
+	}
+
+	return services.Lister()
+}
+
 func sksLister(namespace, name string) netlisters.ServerlessServiceLister {
 	sks := &nv1a1.ServerlessService{
 		ObjectMeta: metav1.ObjectMeta{
@@ -464,10 +681,12 @@ func sksLister(namespace, name string) netlisters.ServerlessServiceLister {
 }
 
 func getThrottler(
+	transport http.RoundTripper,
 	maxConcurrency int,
 	revisionLister servinglisters.RevisionLister,
 	endpointsInformer corev1informers.EndpointsInformer,
 	sksLister netlisters.ServerlessServiceLister,
+	serviceLister corev1listers.ServiceLister,
 	logger *zap.SugaredLogger,
 	initCapacity int) *Throttler {
 	params := queue.BreakerParams{
@@ -475,7 +694,7 @@ func getThrottler(
 		MaxConcurrency:  maxConcurrency,
 		InitialCapacity: initCapacity,
 	}
-	return NewThrottler(params, endpointsInformer, sksLister, revisionLister, logger)
+	return NewThrottler(params, transport, endpointsInformer, sksLister, serviceLister, revisionLister, logger)
 }
 
 func breakerCount(t *Throttler) int {
