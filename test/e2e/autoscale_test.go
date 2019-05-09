@@ -28,7 +28,9 @@ import (
 	"time"
 
 	pkgTest "github.com/knative/pkg/test"
+	"github.com/knative/serving/pkg/apis/autoscaling"
 	resourcenames "github.com/knative/serving/pkg/reconciler/revision/resources/names"
+	rtesting "github.com/knative/serving/pkg/testing/v1alpha1"
 	"github.com/knative/serving/test"
 	v1a1test "github.com/knative/serving/test/v1alpha1"
 	"github.com/pkg/errors"
@@ -115,7 +117,7 @@ type testContext struct {
 	domain         string
 }
 
-func setup(t *testing.T) *testContext {
+func setup(t *testing.T, class string, metric string) *testContext {
 	clients := Setup(t)
 
 	t.Log("Creating a new Route and Configuration")
@@ -126,7 +128,10 @@ func setup(t *testing.T) *testContext {
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 	resources, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, &v1a1test.Options{
 		ContainerConcurrency: containerConcurrency,
-	})
+	}, rtesting.WithConfigAnnotations(map[string]string{
+		autoscaling.ClassAnnotationKey:  class,
+		autoscaling.MetricAnnotationKey: metric,
+	}))
 	if err != nil {
 		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
 	}
@@ -281,7 +286,7 @@ func assertAutoscaleUpToNumPods(ctx *testContext, curPods, targetPods int32, dur
 func TestAutoscaleUpDownUp(t *testing.T) {
 	t.Parallel()
 
-	ctx := setup(t)
+	ctx := setup(t, autoscaling.KPA, autoscaling.Concurrency)
 	defer test.TearDown(ctx.clients, ctx.names)
 
 	sc := startDiagnosis(t, ctx.clients, 15*time.Second)
@@ -294,20 +299,33 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 
 func TestAutoscaleUpCountPods(t *testing.T) {
 	t.Parallel()
-	ctx := setup(t)
-	defer test.TearDown(ctx.clients, ctx.names)
 
-	ctx.t.Log("The autoscaler spins up additional replicas when traffic increases.")
-	// note: without the warm-up / gradual increase of load the test is retrieving a 503 (overload) from the envoy
+	classes := map[string]string{
+		"hpa": autoscaling.HPA,
+		"kpa": autoscaling.KPA,
+	}
 
-	// Increase workload for 2 replicas for 60s
-	// Assert the number of expected replicas is between n-1 and n+1, where n is the # of desired replicas for 60s.
-	// Assert the number of expected replicas is n and n+1 at the end of 60s, where n is the # of desired replicas.
-	assertAutoscaleUpToNumPods(ctx, 1, 2, 60*time.Second, true)
-	// Increase workload scale to 3 replicas, assert between [n-1, n+1] during scale up, assert between [n, n+1] after scaleup.
-	assertAutoscaleUpToNumPods(ctx, 2, 3, 60*time.Second, true)
-	// Increase workload scale to 4 replicas, assert between [n-1, n+1] during scale up, assert between [n, n+1] after scaleup.
-	assertAutoscaleUpToNumPods(ctx, 3, 4, 60*time.Second, true)
+	for name, class := range classes {
+		name, class := name, class
+		t.Run(name, func(tt *testing.T) {
+			tt.Parallel()
+
+			ctx := setup(tt, class, autoscaling.Concurrency)
+			defer test.TearDown(ctx.clients, ctx.names)
+
+			ctx.t.Log("The autoscaler spins up additional replicas when traffic increases.")
+			// note: without the warm-up / gradual increase of load the test is retrieving a 503 (overload) from the envoy
+
+			// Increase workload for 2 replicas for 60s
+			// Assert the number of expected replicas is between n-1 and n+1, where n is the # of desired replicas for 60s.
+			// Assert the number of expected replicas is n and n+1 at the end of 60s, where n is the # of desired replicas.
+			assertAutoscaleUpToNumPods(ctx, 1, 2, 60*time.Second, true)
+			// Increase workload scale to 3 replicas, assert between [n-1, n+1] during scale up, assert between [n, n+1] after scaleup.
+			assertAutoscaleUpToNumPods(ctx, 2, 3, 60*time.Second, true)
+			// Increase workload scale to 4 replicas, assert between [n-1, n+1] during scale up, assert between [n, n+1] after scaleup.
+			assertAutoscaleUpToNumPods(ctx, 3, 4, 60*time.Second, true)
+		})
+	}
 }
 
 func TestAutoscaleSustaining(t *testing.T) {
@@ -315,7 +333,7 @@ func TestAutoscaleSustaining(t *testing.T) {
 	// as long as the traffic sustains, despite whether it is switching modes between
 	// normal and panic.
 	t.Parallel()
-	ctx := setup(t)
+	ctx := setup(t, autoscaling.KPA, autoscaling.Concurrency)
 	defer test.TearDown(ctx.clients, ctx.names)
 
 	assertAutoscaleUpToNumPods(ctx, 1, 10, 3*time.Minute, false)

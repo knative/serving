@@ -28,6 +28,7 @@ import (
 	"github.com/knative/serving/pkg/apis/autoscaling"
 	pav1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	areconciler "github.com/knative/serving/pkg/reconciler/autoscaling"
+	"github.com/knative/serving/pkg/reconciler/autoscaling/config"
 	"github.com/knative/serving/pkg/reconciler/autoscaling/hpa/resources"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -60,7 +61,13 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 	original, err := c.PALister.PodAutoscalers(namespace).Get(name)
 	if errors.IsNotFound(err) {
 		logger.Debug("PA no longer exists")
-		return c.deleteHPA(ctx, key)
+		if err := c.Metrics.Delete(ctx, namespace, name); err != nil {
+			return err
+		}
+		if err := c.deleteHPA(ctx, key); err != nil {
+			return err
+		}
+		return nil
 	} else if err != nil {
 		return err
 	}
@@ -112,7 +119,7 @@ func (c *Reconciler) reconcile(ctx context.Context, key string, pa *pav1alpha1.P
 	pa.Status.MarkActive()
 
 	// HPA-class PA delegates autoscaling to the Kubernetes Horizontal Pod Autoscaler.
-	desiredHpa := resources.MakeHPA(pa)
+	desiredHpa := resources.MakeHPA(pa, config.FromContext(ctx).Autoscaler)
 	hpa, err := c.hpaLister.HorizontalPodAutoscalers(pa.Namespace).Get(desiredHpa.Name)
 	if errors.IsNotFound(err) {
 		logger.Infof("Creating HPA %q", desiredHpa.Name)
@@ -134,6 +141,18 @@ func (c *Reconciler) reconcile(ctx context.Context, key string, pa *pav1alpha1.P
 		if _, err := c.KubeClientSet.AutoscalingV2beta1().HorizontalPodAutoscalers(pa.Namespace).Update(desiredHpa); err != nil {
 			logger.Errorf("Error updating HPA %q: %v", desiredHpa.Name, err)
 			return err
+		}
+	}
+
+	// Only create metrics service and metric entity if we actually need to gather metrics.
+	if pa.Metric() == autoscaling.Concurrency {
+		metricSvc, err := c.ReconcileMetricsService(ctx, pa)
+		if err != nil {
+			return perrors.Wrap(err, "error reconciling metrics service")
+		}
+
+		if err := c.ReconcileMetric(ctx, pa, metricSvc); err != nil {
+			return perrors.Wrap(err, "error reconciling metric")
 		}
 	}
 

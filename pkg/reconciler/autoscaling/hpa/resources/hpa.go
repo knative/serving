@@ -20,14 +20,19 @@ import (
 	"math"
 
 	"github.com/knative/pkg/kmeta"
+	"github.com/knative/serving/pkg/apis/autoscaling"
 	"github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
+	servingv1alpha1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/knative/serving/pkg/autoscaler"
+	aresources "github.com/knative/serving/pkg/reconciler/autoscaling/resources"
 	autoscalingv2beta1 "k8s.io/api/autoscaling/v2beta1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // MakeHPA creates an HPA resource from a PA resource.
-func MakeHPA(pa *v1alpha1.PodAutoscaler) *autoscalingv2beta1.HorizontalPodAutoscaler {
+func MakeHPA(pa *v1alpha1.PodAutoscaler, config *autoscaler.Config) *autoscalingv2beta1.HorizontalPodAutoscaler {
 	min, max := pa.ScaleBounds()
 	if max == 0 {
 		max = math.MaxInt32 // default to no limit
@@ -52,12 +57,31 @@ func MakeHPA(pa *v1alpha1.PodAutoscaler) *autoscalingv2beta1.HorizontalPodAutosc
 	if min > 0 {
 		hpa.Spec.MinReplicas = &min
 	}
-	if target, ok := pa.Target(); ok {
+
+	switch pa.Metric() {
+	case autoscaling.CPU:
+		if target, ok := pa.Target(); ok {
+			hpa.Spec.Metrics = []autoscalingv2beta1.MetricSpec{{
+				Type: autoscalingv2beta1.ResourceMetricSourceType,
+				Resource: &autoscalingv2beta1.ResourceMetricSource{
+					Name:                     corev1.ResourceCPU,
+					TargetAverageUtilization: &target,
+				},
+			}}
+		}
+	case autoscaling.Concurrency:
+		target := int64(math.Ceil(aresources.ResolveTargetConcurrency(pa, config)))
 		hpa.Spec.Metrics = []autoscalingv2beta1.MetricSpec{{
-			Type: autoscalingv2beta1.ResourceMetricSourceType,
-			Resource: &autoscalingv2beta1.ResourceMetricSource{
-				Name:                     corev1.ResourceCPU,
-				TargetAverageUtilization: &target,
+			Type: autoscalingv2beta1.ObjectMetricSourceType,
+			Object: &autoscalingv2beta1.ObjectMetricSource{
+				Target: autoscalingv2beta1.CrossVersionObjectReference{
+					APIVersion: servingv1alpha1.SchemeGroupVersion.String(),
+					Kind:       "revision",
+					Name:       pa.Name,
+				},
+				MetricName:   autoscaling.Concurrency,
+				AverageValue: resource.NewQuantity(target, resource.DecimalSI),
+				TargetValue:  *resource.NewQuantity(target, resource.DecimalSI),
 			},
 		}}
 	}

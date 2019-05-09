@@ -19,17 +19,27 @@ package resources
 import (
 	"math"
 	"testing"
+	"time"
 
-	"github.com/google/go-cmp/cmp"
+	"github.com/knative/pkg/kmp"
+
 	"github.com/knative/pkg/ptr"
 	"github.com/knative/serving/pkg/apis/autoscaling"
 	"github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
+	servingv1alpha1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/knative/serving/pkg/autoscaler"
 
 	autoscalingv2beta1 "k8s.io/api/autoscaling/v2beta1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	. "github.com/knative/serving/pkg/testing"
+)
+
+const (
+	testNamespace = "test-namespace"
+	testName      = "test-name"
 )
 
 func TestMakeHPA(t *testing.T) {
@@ -62,13 +72,56 @@ func TestMakeHPA(t *testing.T) {
 					TargetAverageUtilization: ptr.Int32(50),
 				},
 			})),
+	}, {
+		name: "with metric=concurrency",
+		pa:   pa(WithMetricAnnotation(autoscaling.Concurrency)),
+		want: hpa(
+			withAnnotationValue(autoscaling.MetricAnnotationKey, autoscaling.Concurrency),
+			withMetric(autoscalingv2beta1.MetricSpec{
+				Type: autoscalingv2beta1.ObjectMetricSourceType,
+				Object: &autoscalingv2beta1.ObjectMetricSource{
+					Target: autoscalingv2beta1.CrossVersionObjectReference{
+						APIVersion: servingv1alpha1.SchemeGroupVersion.String(),
+						Kind:       "revision",
+						Name:       testName,
+					},
+					MetricName:   autoscaling.Concurrency,
+					AverageValue: resource.NewQuantity(100, resource.DecimalSI),
+					TargetValue:  *resource.NewQuantity(100, resource.DecimalSI),
+				},
+			})),
+	}, {
+		name: "with metric=concurrency and target=50",
+		pa:   pa(WithTargetAnnotation("50"), WithMetricAnnotation(autoscaling.Concurrency)),
+		want: hpa(
+			withAnnotationValue(autoscaling.MetricAnnotationKey, autoscaling.Concurrency),
+			withAnnotationValue(autoscaling.TargetAnnotationKey, "50"),
+			withMetric(autoscalingv2beta1.MetricSpec{
+				Type: autoscalingv2beta1.ObjectMetricSourceType,
+				Object: &autoscalingv2beta1.ObjectMetricSource{
+					Target: autoscalingv2beta1.CrossVersionObjectReference{
+						APIVersion: servingv1alpha1.SchemeGroupVersion.String(),
+						Kind:       "revision",
+						Name:       testName,
+					},
+					MetricName:   autoscaling.Concurrency,
+					AverageValue: resource.NewQuantity(50, resource.DecimalSI),
+					TargetValue:  *resource.NewQuantity(50, resource.DecimalSI),
+				},
+			})),
 	}}
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			got := MakeHPA(tc.pa)
-			if !cmp.Equal(tc.want, got) {
-				t.Errorf("MakeHPA() = (-want, +got):\n%v", cmp.Diff(tc.want, got))
+			got := MakeHPA(tc.pa, config)
+			if equal, err := kmp.SafeEqual(tc.want, got); err != nil {
+				t.Errorf("Got error comparing output, err = %v", err)
+			} else if !equal {
+				if diff, err := kmp.SafeDiff(tc.want, got); err != nil {
+					t.Errorf("Got error diffing output, err = %v", err)
+				} else {
+					t.Errorf("MakeHPA() = (-want, +got):\n%v", diff)
+				}
 			}
 		})
 	}
@@ -77,8 +130,8 @@ func TestMakeHPA(t *testing.T) {
 func pa(options ...PodAutoscalerOption) *v1alpha1.PodAutoscaler {
 	p := &v1alpha1.PodAutoscaler{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: "test-namespace",
-			Name:      "test-name",
+			Namespace: testNamespace,
+			Name:      testName,
 			UID:       "2006",
 			Annotations: map[string]string{
 				autoscaling.ClassAnnotationKey: autoscaling.HPA,
@@ -101,15 +154,15 @@ func pa(options ...PodAutoscalerOption) *v1alpha1.PodAutoscaler {
 func hpa(options ...hpaOption) *autoscalingv2beta1.HorizontalPodAutoscaler {
 	h := &autoscalingv2beta1.HorizontalPodAutoscaler{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-name",
-			Namespace: "test-namespace",
+			Name:      testName,
+			Namespace: testNamespace,
 			Annotations: map[string]string{
 				autoscaling.ClassAnnotationKey: autoscaling.HPA,
 			},
 			OwnerReferences: []metav1.OwnerReference{{
 				APIVersion:         v1alpha1.SchemeGroupVersion.String(),
 				Kind:               "PodAutoscaler",
-				Name:               "test-name",
+				Name:               testName,
 				UID:                "2006",
 				Controller:         ptr.Bool(true),
 				BlockOwnerDeletion: ptr.Bool(true),
@@ -158,4 +211,17 @@ func withMetric(m autoscalingv2beta1.MetricSpec) hpaOption {
 	return func(hpa *autoscalingv2beta1.HorizontalPodAutoscaler) {
 		hpa.Spec.Metrics = []autoscalingv2beta1.MetricSpec{m}
 	}
+}
+
+var config = &autoscaler.Config{
+	EnableScaleToZero:                    true,
+	ContainerConcurrencyTargetPercentage: 1.0,
+	ContainerConcurrencyTargetDefault:    100.0,
+	MaxScaleUpRate:                       10.0,
+	StableWindow:                         60 * time.Second,
+	PanicThresholdPercentage:             200,
+	PanicWindow:                          6 * time.Second,
+	PanicWindowPercentage:                10,
+	TickInterval:                         2 * time.Second,
+	ScaleToZeroGracePeriod:               30 * time.Second,
 }
