@@ -17,6 +17,7 @@ limitations under the License.
 package kpa
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -60,16 +61,22 @@ const (
 
 func TestScaler(t *testing.T) {
 	defer logtesting.ClearAll()
+	ptf := prober.TransportFactory
+	defer func() {
+		prober.TransportFactory = ptf
+	}()
 	tests := []struct {
-		label         string
-		startReplicas int
-		scaleTo       int32
-		minScale      int32
-		maxScale      int32
-		wantReplicas  int32
-		wantScaling   bool
-		kpaMutation   func(*pav1alpha1.PodAutoscaler)
-		proberfunc    func(*pav1alpha1.PodAutoscaler) (bool, error)
+		label               string
+		startReplicas       int
+		scaleTo             int32
+		minScale            int32
+		maxScale            int32
+		wantReplicas        int32
+		wantScaling         bool
+		kpaMutation         func(*pav1alpha1.PodAutoscaler)
+		proberfunc          func(*pav1alpha1.PodAutoscaler) (bool, error)
+		wantCBCount         int
+		wantAsyncProbeCount int
 	}{{
 		label:         "waits to scale to zero (just before idle period)",
 		startReplicas: 1,
@@ -79,6 +86,7 @@ func TestScaler(t *testing.T) {
 		kpaMutation: func(k *pav1alpha1.PodAutoscaler) {
 			kpaMarkActive(k, time.Now().Add(-stableWindow).Add(1*time.Second))
 		},
+		wantCBCount: 1,
 	}, {
 		label:         "scale to 1 waiting for idle expires",
 		startReplicas: 10,
@@ -88,6 +96,7 @@ func TestScaler(t *testing.T) {
 		kpaMutation: func(k *pav1alpha1.PodAutoscaler) {
 			kpaMarkActive(k, time.Now().Add(-stableWindow).Add(1*time.Second))
 		},
+		wantCBCount: 1,
 	}, {
 		label:         "waits to scale to zero after idle period",
 		startReplicas: 1,
@@ -96,15 +105,6 @@ func TestScaler(t *testing.T) {
 		wantScaling:   false,
 		kpaMutation: func(k *pav1alpha1.PodAutoscaler) {
 			kpaMarkActive(k, time.Now().Add(-stableWindow))
-		},
-	}, {
-		label:         "waits to scale to zero (just before grace period)",
-		startReplicas: 1,
-		scaleTo:       0,
-		wantReplicas:  0,
-		wantScaling:   false,
-		kpaMutation: func(k *pav1alpha1.PodAutoscaler) {
-			kpaMarkInactive(k, time.Now().Add(-gracePeriod).Add(1*time.Second))
 		},
 	}, {
 		label:         "scale to zero after grace period",
@@ -116,6 +116,16 @@ func TestScaler(t *testing.T) {
 			kpaMarkInactive(k, time.Now().Add(-gracePeriod))
 		},
 	}, {
+		label:         "waits to scale to zero (just before grace period)",
+		startReplicas: 1,
+		scaleTo:       0,
+		wantReplicas:  0,
+		wantScaling:   false,
+		kpaMutation: func(k *pav1alpha1.PodAutoscaler) {
+			kpaMarkInactive(k, time.Now().Add(-gracePeriod).Add(1*time.Second))
+		},
+		wantCBCount: 1,
+	}, {
 		label:         "scale to zero after grace period, but fail prober",
 		startReplicas: 1,
 		scaleTo:       0,
@@ -124,7 +134,8 @@ func TestScaler(t *testing.T) {
 		kpaMutation: func(k *pav1alpha1.PodAutoscaler) {
 			kpaMarkInactive(k, time.Now().Add(-gracePeriod))
 		},
-		proberfunc: func(*pav1alpha1.PodAutoscaler) (bool, error) { return true, errors.New("hell or high water") },
+		proberfunc:          func(*pav1alpha1.PodAutoscaler) (bool, error) { return false, errors.New("hell or high water") },
+		wantAsyncProbeCount: 1,
 	}, {
 		label:         "scale to zero after grace period, but wrong prober response",
 		startReplicas: 1,
@@ -134,7 +145,8 @@ func TestScaler(t *testing.T) {
 		kpaMutation: func(k *pav1alpha1.PodAutoscaler) {
 			kpaMarkInactive(k, time.Now().Add(-gracePeriod))
 		},
-		proberfunc: func(*pav1alpha1.PodAutoscaler) (bool, error) { return false, nil },
+		proberfunc:          func(*pav1alpha1.PodAutoscaler) (bool, error) { return false, nil },
+		wantAsyncProbeCount: 1,
 	}, {
 		label:         "does not scale while activating",
 		startReplicas: 1,
@@ -216,12 +228,17 @@ func TestScaler(t *testing.T) {
 
 			revision := newRevision(t, servingClient, test.minScale, test.maxScale)
 			deployment := newDeployment(t, dynamicClient, names.Deployment(revision), test.startReplicas)
-			revisionScaler := newScaler(opts)
+			cbCount := 0
+			revisionScaler := newScaler(opts, func(*pav1alpha1.PodAutoscaler, time.Duration) {
+				cbCount++
+			})
 			if test.proberfunc != nil {
 				revisionScaler.activatorProbe = test.proberfunc
 			} else {
 				revisionScaler.activatorProbe = func(*pav1alpha1.PodAutoscaler) (bool, error) { return true, nil }
 			}
+			cp := &countingProber{}
+			revisionScaler.probeManager = cp
 
 			// We test like this because the dynamic client's fake doesn't properly handle
 			// patch modes prior to 1.13 (where vaikas added JSON Patch support).
@@ -249,6 +266,12 @@ func TestScaler(t *testing.T) {
 			}
 			if err == nil && desiredScale != test.wantReplicas {
 				t.Errorf("desiredScale = %d, wanted %d", desiredScale, test.wantReplicas)
+			}
+			if got, want := cp.count, test.wantAsyncProbeCount; got != want {
+				t.Errorf("Async probe invoked = %d time, want: %d", got, want)
+			}
+			if got, want := cbCount, test.wantCBCount; got != want {
+				t.Errorf("Enqueue callback invoked = %d time, want: %d", got, want)
 			}
 			if test.wantScaling {
 				if !gotScaling {
@@ -361,7 +384,7 @@ func TestGetScaleResource(t *testing.T) {
 	revision := newRevision(t, servingClient, 1, 10)
 	// This setups reactor as well.
 	newDeployment(t, dynamicClient, names.Deployment(revision), 5)
-	revisionScaler := newScaler(opts)
+	revisionScaler := newScaler(opts, func(*pav1alpha1.PodAutoscaler, time.Duration) {})
 
 	pa := newKPA(t, servingClient, revision)
 	scale, err := revisionScaler.GetScaleResource(pa)
@@ -571,4 +594,13 @@ func TestActivatorProbe(t *testing.T) {
 			}
 		})
 	}
+}
+
+type countingProber struct {
+	count int
+}
+
+func (c *countingProber) Offer(ctx context.Context, target, headerValue string, arg interface{}, period, timeout time.Duration) bool {
+	c.count++
+	return true
 }

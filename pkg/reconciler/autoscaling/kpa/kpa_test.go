@@ -285,8 +285,8 @@ func TestReconcileAndScaleToZero(t *testing.T) {
 		opt.ConfigMapWatcher = newConfigWatcher()
 
 		fakeMetrics := newTestMetrics()
-		kpaScaler := newScaler(&opt)
-		kpaScaler.activatorProbe = func(*asv1a1.PodAutoscaler) (bool, error) { return true, nil }
+		scaler := newScaler(&opt, func(*asv1a1.PodAutoscaler, time.Duration) {})
+		scaler.activatorProbe = func(*asv1a1.PodAutoscaler) (bool, error) { return true, nil }
 		return &Reconciler{
 			Base:            rpkg.NewBase(opt, controllerAgentName),
 			paLister:        listers.GetPodAutoscalerLister(),
@@ -295,7 +295,7 @@ func TestReconcileAndScaleToZero(t *testing.T) {
 			endpointsLister: listers.GetEndpointsLister(),
 			kpaDeciders:     fakeDeciders,
 			metrics:         fakeMetrics,
-			scaler:          kpaScaler,
+			scaler:          scaler,
 			configStore:     &testConfigStore{config: defaultConfig()},
 		}
 	}))
@@ -655,7 +655,7 @@ func TestReconcile(t *testing.T) {
 			endpointsLister: listers.GetEndpointsLister(),
 			kpaDeciders:     fakeDeciders,
 			metrics:         fakeMetrics,
-			scaler:          newScaler(&opt),
+			scaler:          newScaler(&opt, func(*asv1a1.PodAutoscaler, time.Duration) {}),
 			configStore:     &testConfigStore{config: defaultConfig()},
 		}
 	}))

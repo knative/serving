@@ -56,7 +56,7 @@ const (
 	testRevNameOther = "other-name"
 )
 
-func TestActivationHandler(t *testing.T) {
+func TestactivationHandler(t *testing.T) {
 	defer ClearAll()
 
 	tests := []struct {
@@ -357,21 +357,21 @@ func TestActivationHandler(t *testing.T) {
 				revisionLister(revision(testNamespace, testRevName)),
 				TestLogger(t))
 
-			handler := ActivationHandler{
-				Transport:      rt,
-				Logger:         TestLogger(t),
-				Reporter:       reporter,
-				Throttler:      throttler,
-				GetProbeCount:  test.gpc,
-				RevisionLister: revisionLister(revision(testNamespace, testRevName)),
-				ServiceLister:  serviceLister(service(testNamespace, testRevName, "http")),
-				SksLister:      sksLister(sks(testNamespace, testRevName)),
+			handler := activationHandler{
+				transport:      rt,
+				logger:         TestLogger(t),
+				reporter:       reporter,
+				throttler:      throttler,
+				probeCount:     test.gpc,
+				revisionLister: revisionLister(revision(testNamespace, testRevName)),
+				serviceLister:  serviceLister(service(testNamespace, testRevName, "http")),
+				sksLister:      sksLister(sks(testNamespace, testRevName)),
 			}
 			if test.sksLister != nil {
-				handler.SksLister = test.sksLister
+				handler.sksLister = test.sksLister
 			}
 			if test.svcLister != nil {
-				handler.ServiceLister = test.svcLister
+				handler.serviceLister = test.svcLister
 			}
 
 			resp := httptest.NewRecorder()
@@ -401,7 +401,7 @@ func TestActivationHandler(t *testing.T) {
 }
 
 // Make sure we return http internal server error when the Breaker is overflowed
-func TestActivationHandler_Overflow(t *testing.T) {
+func TestactivationHandler_Overflow(t *testing.T) {
 	const (
 		wantedSuccess = 20
 		wantedFailure = 1
@@ -427,7 +427,7 @@ func TestActivationHandler_Overflow(t *testing.T) {
 }
 
 // Make sure if one breaker is overflowed, the requests to other revisions are still served
-func TestActivationHandler_OverflowSeveralRevisions(t *testing.T) {
+func TestactivationHandler_OverflowSeveralRevisions(t *testing.T) {
 	const (
 		wantedSuccess   = 40
 		wantedFailure   = 2
@@ -451,9 +451,9 @@ func TestActivationHandler_OverflowSeveralRevisions(t *testing.T) {
 
 	for _, revName := range revisions {
 		handler := getHandler(throttler, lockerCh, t)
-		handler.SksLister = sksClient
-		handler.RevisionLister = revClient
-		handler.ServiceLister = svcClient
+		handler.sksLister = sksClient
+		handler.revisionLister = revClient
+		handler.serviceLister = svcClient
 
 		requestCount := overallRequests / len(revisions)
 		sendRequests(requestCount, testNamespace, revName, respCh, handler)
@@ -461,7 +461,7 @@ func TestActivationHandler_OverflowSeveralRevisions(t *testing.T) {
 	assertResponses(wantedSuccess, wantedFailure, overallRequests, lockerCh, respCh, t)
 }
 
-func TestActivationHandler_ProxyHeader(t *testing.T) {
+func TestactivationHandler_ProxyHeader(t *testing.T) {
 	breakerParams := queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}
 	namespace, revName := testNamespace, testRevName
 
@@ -478,14 +478,14 @@ func TestActivationHandler_ProxyHeader(t *testing.T) {
 		revisionLister(revision(namespace, revName)),
 		TestLogger(t))
 
-	handler := ActivationHandler{
-		Transport:      rt,
-		Logger:         TestLogger(t),
-		Reporter:       &fakeReporter{},
-		Throttler:      throttler,
-		RevisionLister: revisionLister(revision(testNamespace, testRevName)),
-		ServiceLister:  serviceLister(service(testNamespace, testRevName, "http")),
-		SksLister:      sksLister(sks(testNamespace, testRevName)),
+	handler := activationHandler{
+		transport:      rt,
+		logger:         TestLogger(t),
+		reporter:       &fakeReporter{},
+		throttler:      throttler,
+		revisionLister: revisionLister(revision(testNamespace, testRevName)),
+		serviceLister:  serviceLister(service(testNamespace, testRevName, "http")),
+		sksLister:      sksLister(sks(testNamespace, testRevName)),
 	}
 
 	writer := httptest.NewRecorder()
@@ -506,7 +506,7 @@ func TestActivationHandler_ProxyHeader(t *testing.T) {
 
 // sendRequests sends `count` concurrent requests via the given handler and writes
 // the recorded responses to the `respCh`.
-func sendRequests(count int, namespace, revName string, respCh chan *httptest.ResponseRecorder, handler ActivationHandler) {
+func sendRequests(count int, namespace, revName string, respCh chan *httptest.ResponseRecorder, handler activationHandler) {
 	for i := 0; i < count; i++ {
 		go func() {
 			resp := httptest.NewRecorder()
@@ -519,9 +519,9 @@ func sendRequests(count int, namespace, revName string, respCh chan *httptest.Re
 	}
 }
 
-// getHandler returns an already setup ActivationHandler. The roundtripper is controlled
+// getHandler returns an already setup activationHandler. The roundtripper is controlled
 // via the given `lockerCh`.
-func getHandler(throttler *activator.Throttler, lockerCh chan struct{}, t *testing.T) ActivationHandler {
+func getHandler(throttler *activator.Throttler, lockerCh chan struct{}, t *testing.T) activationHandler {
 	rt := network.RoundTripperFunc(func(r *http.Request) (*http.Response, error) {
 		// Allows only one request at a time until read from.
 		lockerCh <- struct{}{}
@@ -533,14 +533,14 @@ func getHandler(throttler *activator.Throttler, lockerCh chan struct{}, t *testi
 		return fake.Result(), nil
 	})
 
-	handler := ActivationHandler{
-		Transport:      rt,
-		Logger:         TestLogger(t),
-		Reporter:       &fakeReporter{},
-		Throttler:      throttler,
-		RevisionLister: revisionLister(revision(testNamespace, testRevName)),
-		ServiceLister:  serviceLister(service(testNamespace, testRevName, "http")),
-		SksLister:      sksLister(sks(testNamespace, testRevName)),
+	handler := activationHandler{
+		transport:      rt,
+		logger:         TestLogger(t),
+		reporter:       &fakeReporter{},
+		throttler:      throttler,
+		revisionLister: revisionLister(revision(testNamespace, testRevName)),
+		serviceLister:  serviceLister(service(testNamespace, testRevName, "http")),
+		sksLister:      sksLister(sks(testNamespace, testRevName)),
 	}
 	return handler
 }

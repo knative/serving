@@ -367,6 +367,26 @@
   version = "v0.3.6"
 
 [[projects]]
+  digest = "1:c6ef9d1125bf02aa8798c31798ebedd87c99646799ec063d8560d5321e739898"
+  name = "github.com/jetstack/cert-manager"
+  packages = [
+    "pkg/apis/certmanager",
+    "pkg/apis/certmanager/v1alpha1",
+    "pkg/client/clientset/versioned",
+    "pkg/client/clientset/versioned/fake",
+    "pkg/client/clientset/versioned/scheme",
+    "pkg/client/clientset/versioned/typed/certmanager/v1alpha1",
+    "pkg/client/clientset/versioned/typed/certmanager/v1alpha1/fake",
+    "pkg/client/informers/externalversions",
+    "pkg/client/informers/externalversions/certmanager",
+    "pkg/client/informers/externalversions/certmanager/v1alpha1",
+    "pkg/client/informers/externalversions/internalinterfaces",
+    "pkg/client/listers/certmanager/v1alpha1",
+  ]
+  pruneopts = "T"
+  revision = "45fbfcd16cdd6a6a73c79f26d67ce72a2886c746"
+
+[[projects]]
   digest = "1:1f2aebae7e7c856562355ec0198d8ca2fa222fb05e5b1b66632a1fce39631885"
   name = "github.com/jmespath/go-jmespath"
   packages = ["."]
@@ -480,7 +500,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:27e0bcd0462939f3dcdac495b3992bdf049aa4b38562625ee636abab1ebae760"
+  digest = "1:42be597901bc26c2d414093d43527444691f31dbe2b53565a2de5a0256afb2d0"
   name = "github.com/knative/test-infra"
   packages = [
     "scripts",
@@ -499,7 +519,7 @@
     "tools/webhook-apicoverage/webhook",
   ]
   pruneopts = "UT"
-  revision = "3b83fe759361bca3bc3daa6b644fef9d0e8072b3"
+  revision = "bc30454936e210896ec6c91528c040e844b14b39"
 
 [[projects]]
   digest = "1:56dbf15e091bf7926cb33a57cb6bdfc658fc6d3498d2f76f10a97ce7856f1fde"
@@ -1315,6 +1335,12 @@
     "github.com/google/go-containerregistry/pkg/v1/remote",
     "github.com/google/go-containerregistry/pkg/v1/remote/transport",
     "github.com/gorilla/websocket",
+    "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1alpha1",
+    "github.com/jetstack/cert-manager/pkg/client/clientset/versioned",
+    "github.com/jetstack/cert-manager/pkg/client/clientset/versioned/fake",
+    "github.com/jetstack/cert-manager/pkg/client/informers/externalversions",
+    "github.com/jetstack/cert-manager/pkg/client/informers/externalversions/certmanager/v1alpha1",
+    "github.com/jetstack/cert-manager/pkg/client/listers/certmanager/v1alpha1",
     "github.com/knative/build/pkg/apis/build/v1alpha1",
     "github.com/knative/caching/pkg/apis/caching",
     "github.com/knative/caching/pkg/apis/caching/v1alpha1",

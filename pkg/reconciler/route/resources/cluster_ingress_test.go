@@ -18,8 +18,9 @@ package resources
 
 import (
 	"context"
-	"github.com/knative/serving/pkg/reconciler/route/config"
 	"testing"
+
+	"github.com/knative/serving/pkg/reconciler/route/config"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/knative/pkg/apis"

@@ -79,8 +79,8 @@ func main() {
 	opt.ConfigMapWatcher.Watch(metrics.ObservabilityConfigName, metrics.UpdateExporterFromConfigMap(component, logger))
 
 	// Set up informer factories.
-	servingInformerFactory := informers.NewSharedInformerFactory(opt.ServingClientSet, time.Second*30)
-	kubeInformerFactory := kubeinformers.NewSharedInformerFactory(opt.KubeClientSet, time.Second*30)
+	servingInformerFactory := informers.NewSharedInformerFactory(opt.ServingClientSet, opt.ResyncPeriod)
+	kubeInformerFactory := kubeinformers.NewSharedInformerFactory(opt.KubeClientSet, opt.ResyncPeriod)
 
 	// Set up informers.
 	paInformer := servingInformerFactory.Autoscaling().V1alpha1().PodAutoscalers()
