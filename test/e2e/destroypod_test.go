@@ -28,6 +28,7 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
+	"github.com/davecgh/go-spew/spew"
 	pkgTest "github.com/knative/pkg/test"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	rnames "github.com/knative/serving/pkg/reconciler/revision/resources/names"
@@ -165,9 +166,11 @@ func TestDestroyPodTimely(t *testing.T) {
 	// of the containers of that pod are no longer running. It can take an arbitrarily long time to
 	// actually remove the pod itself while we only care about containers being stopped.
 	deploymentName := rnames.Deployment(objects.Revision)
+	var podList *v1.PodList
 	pkgTest.WaitForPodListState(
 		clients.KubeClient,
 		func(p *v1.PodList) (bool, error) {
+			podList = p
 			for _, pod := range p.Items {
 				if !strings.Contains(pod.Name, deploymentName) {
 					continue
@@ -185,6 +188,7 @@ func TestDestroyPodTimely(t *testing.T) {
 
 	timeToDelete := time.Since(start)
 	if timeToDelete > maxTimeToDelete {
+		t.Logf("Pod list: %s", spew.Sprint(podList))
 		t.Errorf("Time to delete pods = %v, want < %v", timeToDelete, maxTimeToDelete)
 	}
 }
