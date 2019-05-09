@@ -34,10 +34,6 @@ func KPA(rev *v1alpha1.Revision) string {
 	return rev.Name
 }
 
-func K8sService(rev *v1alpha1.Revision) string {
-	return rev.Name + "-service"
-}
-
 func FluentdConfigMap(rev *v1alpha1.Revision) string {
 	return rev.Name + "-fluentd"
 }

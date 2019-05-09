@@ -25,6 +25,18 @@ readonly K8S_CLUSTER_REGION
 readonly K8S_CLUSTER_ZONE
 readonly SET_CLUSTER_CIDR=${SET_CLUSTER_CIDR:-true}
 
+function validate_arguments() {
+  if [ -n "${K8S_CLUSTER_REGION}" -a -n "${K8S_CLUSTER_ZONE}" ]; then
+      echo "Must set one of K8S_CLUSTER_REGION or K8S_CLUSTER_ZONE. Both are set."
+      exit 1
+  fi
+
+  if [ -z "${K8S_CLUSTER_REGION}" -a -z "${K8S_CLUSTER_ZONE}" ]; then
+      echo "Must set one of K8S_CLUSTER_REGION or K8S_CLUSTER_ZONE. Neither are set."
+      exit 1
+  fi
+}
+
 # Patch configmap `config-network` in `knative-serving` namespace.
 function patch_network_config_gke() {
   local ip_ranges=""
@@ -67,4 +79,5 @@ function patch_network_config_gke() {
   fi
 }
 
+validate_arguments
 patch_network_config_gke

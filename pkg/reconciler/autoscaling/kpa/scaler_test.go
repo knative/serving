@@ -17,30 +17,41 @@ limitations under the License.
 package kpa
 
 import (
+	"context"
 	"errors"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"strconv"
 	"testing"
 	"time"
 
 	"github.com/knative/pkg/apis"
+	"github.com/knative/pkg/apis/duck"
 	logtesting "github.com/knative/pkg/logging/testing"
 	_ "github.com/knative/pkg/system/testing"
+	"github.com/knative/serving/pkg/activator"
 	"github.com/knative/serving/pkg/apis/autoscaling"
 	pav1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	"github.com/knative/serving/pkg/autoscaler"
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
 	fakeKna "github.com/knative/serving/pkg/client/clientset/versioned/fake"
+	"github.com/knative/serving/pkg/network"
+	"github.com/knative/serving/pkg/network/prober"
 	"github.com/knative/serving/pkg/reconciler"
+	"github.com/knative/serving/pkg/reconciler/autoscaling/config"
 	revisionresources "github.com/knative/serving/pkg/reconciler/revision/resources"
 	"github.com/knative/serving/pkg/reconciler/revision/resources/names"
 	v1 "k8s.io/api/apps/v1"
-	autoscalingv1 "k8s.io/api/autoscaling/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
-	scalefake "k8s.io/client-go/scale/fake"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	fakedynamic "k8s.io/client-go/dynamic/fake"
 	clientgotesting "k8s.io/client-go/testing"
+
+	. "github.com/knative/serving/pkg/reconciler/testing"
 )
 
 const (
@@ -50,15 +61,22 @@ const (
 
 func TestScaler(t *testing.T) {
 	defer logtesting.ClearAll()
+	ptf := prober.TransportFactory
+	defer func() {
+		prober.TransportFactory = ptf
+	}()
 	tests := []struct {
-		label         string
-		startReplicas int
-		scaleTo       int32
-		minScale      int32
-		maxScale      int32
-		wantReplicas  int32
-		wantScaling   bool
-		kpaMutation   func(*pav1alpha1.PodAutoscaler)
+		label               string
+		startReplicas       int
+		scaleTo             int32
+		minScale            int32
+		maxScale            int32
+		wantReplicas        int32
+		wantScaling         bool
+		kpaMutation         func(*pav1alpha1.PodAutoscaler)
+		proberfunc          func(*pav1alpha1.PodAutoscaler) (bool, error)
+		wantCBCount         int
+		wantAsyncProbeCount int
 	}{{
 		label:         "waits to scale to zero (just before idle period)",
 		startReplicas: 1,
@@ -68,6 +86,7 @@ func TestScaler(t *testing.T) {
 		kpaMutation: func(k *pav1alpha1.PodAutoscaler) {
 			kpaMarkActive(k, time.Now().Add(-stableWindow).Add(1*time.Second))
 		},
+		wantCBCount: 1,
 	}, {
 		label:         "scale to 1 waiting for idle expires",
 		startReplicas: 10,
@@ -77,6 +96,7 @@ func TestScaler(t *testing.T) {
 		kpaMutation: func(k *pav1alpha1.PodAutoscaler) {
 			kpaMarkActive(k, time.Now().Add(-stableWindow).Add(1*time.Second))
 		},
+		wantCBCount: 1,
 	}, {
 		label:         "waits to scale to zero after idle period",
 		startReplicas: 1,
@@ -87,15 +107,6 @@ func TestScaler(t *testing.T) {
 			kpaMarkActive(k, time.Now().Add(-stableWindow))
 		},
 	}, {
-		label:         "waits to scale to zero (just before grace period)",
-		startReplicas: 1,
-		scaleTo:       0,
-		wantReplicas:  0,
-		wantScaling:   false,
-		kpaMutation: func(k *pav1alpha1.PodAutoscaler) {
-			kpaMarkInactive(k, time.Now().Add(-gracePeriod).Add(1*time.Second))
-		},
-	}, {
 		label:         "scale to zero after grace period",
 		startReplicas: 1,
 		scaleTo:       0,
@@ -104,6 +115,38 @@ func TestScaler(t *testing.T) {
 		kpaMutation: func(k *pav1alpha1.PodAutoscaler) {
 			kpaMarkInactive(k, time.Now().Add(-gracePeriod))
 		},
+	}, {
+		label:         "waits to scale to zero (just before grace period)",
+		startReplicas: 1,
+		scaleTo:       0,
+		wantReplicas:  0,
+		wantScaling:   false,
+		kpaMutation: func(k *pav1alpha1.PodAutoscaler) {
+			kpaMarkInactive(k, time.Now().Add(-gracePeriod).Add(1*time.Second))
+		},
+		wantCBCount: 1,
+	}, {
+		label:         "scale to zero after grace period, but fail prober",
+		startReplicas: 1,
+		scaleTo:       0,
+		wantReplicas:  0,
+		wantScaling:   false,
+		kpaMutation: func(k *pav1alpha1.PodAutoscaler) {
+			kpaMarkInactive(k, time.Now().Add(-gracePeriod))
+		},
+		proberfunc:          func(*pav1alpha1.PodAutoscaler) (bool, error) { return false, errors.New("hell or high water") },
+		wantAsyncProbeCount: 1,
+	}, {
+		label:         "scale to zero after grace period, but wrong prober response",
+		startReplicas: 1,
+		scaleTo:       0,
+		wantReplicas:  0,
+		wantScaling:   false,
+		kpaMutation: func(k *pav1alpha1.PodAutoscaler) {
+			kpaMarkInactive(k, time.Now().Add(-gracePeriod))
+		},
+		proberfunc:          func(*pav1alpha1.PodAutoscaler) (bool, error) { return false, nil },
+		wantAsyncProbeCount: 1,
 	}, {
 		label:         "does not scale while activating",
 		startReplicas: 1,
@@ -175,35 +218,66 @@ func TestScaler(t *testing.T) {
 		t.Run(test.label, func(t *testing.T) {
 			// The clients for our testing.
 			servingClient := fakeKna.NewSimpleClientset()
-			scaleClient := &scalefake.FakeScaleClient{}
+			dynamicClient := fakedynamic.NewSimpleDynamicClient(NewScheme())
 
-			opts := reconciler.Options{
-				ScaleClientSet:   scaleClient,
+			opts := &reconciler.Options{
+				DynamicClientSet: dynamicClient,
 				Logger:           logtesting.TestLogger(t),
 				ConfigMapWatcher: newConfigWatcher(),
 			}
 
 			revision := newRevision(t, servingClient, test.minScale, test.maxScale)
-			deployment := newDeployment(t, scaleClient, names.Deployment(revision), test.startReplicas)
-			revisionScaler := NewScaler(opts)
+			deployment := newDeployment(t, dynamicClient, names.Deployment(revision), test.startReplicas)
+			cbCount := 0
+			revisionScaler := newScaler(opts, func(interface{}, time.Duration) {
+				cbCount++
+			})
+			if test.proberfunc != nil {
+				revisionScaler.activatorProbe = test.proberfunc
+			} else {
+				revisionScaler.activatorProbe = func(*pav1alpha1.PodAutoscaler) (bool, error) { return true, nil }
+			}
+			cp := &countingProber{}
+			revisionScaler.probeManager = cp
+
+			// We test like this because the dynamic client's fake doesn't properly handle
+			// patch modes prior to 1.13 (where vaikas added JSON Patch support).
+			gotScaling := false
+			dynamicClient.PrependReactor("patch", "deployments",
+				func(action clientgotesting.Action) (bool, runtime.Object, error) {
+					patch := action.(clientgotesting.PatchAction)
+					if !test.wantScaling {
+						t.Errorf("don't want scaling, but got patch: %s", string(patch.GetPatch()))
+					}
+					gotScaling = true
+					return true, nil, nil
+				})
 
 			pa := newKPA(t, servingClient, revision)
 			if test.kpaMutation != nil {
 				test.kpaMutation(pa)
 			}
 
-			desiredScale, err := revisionScaler.Scale(logtesting.TestContextWithLogger(t), pa, test.scaleTo)
-
+			ctx := logtesting.TestContextWithLogger(t)
+			ctx = config.ToContext(ctx, defaultConfig())
+			desiredScale, err := revisionScaler.Scale(ctx, pa, test.scaleTo)
 			if err != nil {
 				t.Error("Scale got an unexpected error: ", err)
 			}
 			if err == nil && desiredScale != test.wantReplicas {
 				t.Errorf("desiredScale = %d, wanted %d", desiredScale, test.wantReplicas)
 			}
+			if got, want := cp.count, test.wantAsyncProbeCount; got != want {
+				t.Errorf("Async probe invoked = %d time, want: %d", got, want)
+			}
+			if got, want := cbCount, test.wantCBCount; got != want {
+				t.Errorf("Enqueue callback invoked = %d time, want: %d", got, want)
+			}
 			if test.wantScaling {
-				checkReplicas(t, scaleClient, deployment, test.wantReplicas)
-			} else {
-				checkNoScaling(t, scaleClient)
+				if !gotScaling {
+					t.Error("want scaling, but got no scaling")
+				}
+				checkReplicas(t, dynamicClient, deployment, test.wantReplicas)
 			}
 		})
 	}
@@ -244,20 +318,41 @@ func TestDisableScaleToZero(t *testing.T) {
 		t.Run(test.label, func(t *testing.T) {
 			// The clients for our testing.
 			servingClient := fakeKna.NewSimpleClientset()
-			scaleClient := &scalefake.FakeScaleClient{}
+			dynamicClient := fakedynamic.NewSimpleDynamicClient(runtime.NewScheme())
+
+			opts := reconciler.Options{
+				DynamicClientSet: dynamicClient,
+				Logger:           logtesting.TestLogger(t),
+				ConfigMapWatcher: newConfigWatcher(),
+			}
+
+			// We test like this because the dynamic client's fake doesn't properly handle
+			// patch modes prior to 1.13 (where vaikas added JSON Patch support).
+			gotScaling := false
+			dynamicClient.PrependReactor("patch", "deployments",
+				func(action clientgotesting.Action) (bool, runtime.Object, error) {
+					patch := action.(clientgotesting.PatchAction)
+					if !test.wantScaling {
+						t.Errorf("don't want scaling, but got patch: %s", string(patch.GetPatch()))
+					}
+					gotScaling = true
+					return true, nil, nil
+				})
 
 			revision := newRevision(t, servingClient, test.minScale, test.maxScale)
-			deployment := newDeployment(t, scaleClient, names.Deployment(revision), test.startReplicas)
+			deployment := newDeployment(t, dynamicClient, names.Deployment(revision), test.startReplicas)
 			revisionScaler := &scaler{
-				scaleClientSet: scaleClient,
-				logger:         logtesting.TestLogger(t),
-				autoscalerConfig: &autoscaler.Config{
-					EnableScaleToZero: false,
-				},
+				psInformerFactory: podScalableTypedInformerFactory(&opts),
+				dynamicClient:     opts.DynamicClientSet,
+				logger:            opts.Logger,
 			}
 			pa := newKPA(t, servingClient, revision)
 
-			desiredScale, err := revisionScaler.Scale(logtesting.TestContextWithLogger(t), pa, test.scaleTo)
+			ctx := logtesting.TestContextWithLogger(t)
+			conf := defaultConfig()
+			conf.Autoscaler.EnableScaleToZero = false
+			ctx = config.ToContext(ctx, conf)
+			desiredScale, err := revisionScaler.Scale(ctx, pa, test.scaleTo)
 
 			if err != nil {
 				t.Error("Scale got an unexpected error: ", err)
@@ -266,9 +361,10 @@ func TestDisableScaleToZero(t *testing.T) {
 				t.Errorf("desiredScale = %d, wanted %d", desiredScale, test.wantReplicas)
 			}
 			if test.wantScaling {
-				checkReplicas(t, scaleClient, deployment, test.wantReplicas)
-			} else {
-				checkNoScaling(t, scaleClient)
+				if !gotScaling {
+					t.Error("want scaling, but got no scaling")
+				}
+				checkReplicas(t, dynamicClient, deployment, test.wantReplicas)
 			}
 		})
 	}
@@ -277,18 +373,18 @@ func TestDisableScaleToZero(t *testing.T) {
 func TestGetScaleResource(t *testing.T) {
 	defer logtesting.ClearAll()
 	servingClient := fakeKna.NewSimpleClientset()
-	scaleClient := &scalefake.FakeScaleClient{}
+	dynamicClient := fakedynamic.NewSimpleDynamicClient(runtime.NewScheme())
 
-	opts := reconciler.Options{
-		ScaleClientSet:   scaleClient,
+	opts := &reconciler.Options{
+		DynamicClientSet: dynamicClient,
 		Logger:           logtesting.TestLogger(t),
 		ConfigMapWatcher: newConfigWatcher(),
 	}
 
 	revision := newRevision(t, servingClient, 1, 10)
 	// This setups reactor as well.
-	newDeployment(t, scaleClient, names.Deployment(revision), 5)
-	revisionScaler := NewScaler(opts)
+	newDeployment(t, dynamicClient, names.Deployment(revision), 5)
+	revisionScaler := newScaler(opts, func(interface{}, time.Duration) {})
 
 	pa := newKPA(t, servingClient, revision)
 	scale, err := revisionScaler.GetScaleResource(pa)
@@ -298,7 +394,7 @@ func TestGetScaleResource(t *testing.T) {
 	if got, want := scale.Status.Replicas, int32(5); got != want {
 		t.Errorf("GetScale.Status.Replicas = %d, want: %d", got, want)
 	}
-	if got, want := scale.Status.Selector, serving.RevisionUID+"=1982"; got != want {
+	if got, want := scale.Spec.Selector.MatchLabels[serving.RevisionUID], "1982"; got != want {
 		t.Errorf("GetScale.Status.Selector = %q, want = %q", got, want)
 	}
 }
@@ -339,47 +435,45 @@ func newRevision(t *testing.T, servingClient clientset.Interface, minScale, maxS
 	return rev
 }
 
-func newDeployment(t *testing.T, scaleClient *scalefake.FakeScaleClient, name string, replicas int) *v1.Deployment {
-	scale := int32(replicas)
-	deployment := &v1.Deployment{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: testNamespace,
-			Name:      name,
-			UID:       "1982",
-		},
-		Spec: v1.DeploymentSpec{
-			Replicas: &scale,
-			Selector: &metav1.LabelSelector{
-				MatchLabels: map[string]string{
-					serving.RevisionUID: "1982",
+func newDeployment(t *testing.T, dynamicClient *fakedynamic.FakeDynamicClient, name string, replicas int) *v1.Deployment {
+	t.Helper()
+
+	uns := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "apps/v1",
+			"kind":       "Deployment",
+			"metadata": map[string]interface{}{
+				"namespace": testNamespace,
+				"name":      name,
+				"uid":       "1982",
+			},
+			"spec": map[string]interface{}{
+				"replicas": int64(replicas),
+				"selector": map[string]interface{}{
+					"matchLabels": map[string]interface{}{
+						serving.RevisionUID: "1982",
+					},
 				},
 			},
-		},
-		Status: v1.DeploymentStatus{
-			Replicas: scale,
+			"status": map[string]interface{}{
+				"replicas": int64(replicas),
+			},
 		},
 	}
 
-	scaleClient.AddReactor("get", "deployments", func(action clientgotesting.Action) (bool, runtime.Object, error) {
-		if action.(clientgotesting.GetAction).GetName() != deployment.Name {
-			return false, nil, errors.New("wrong resource requested")
-		}
-		obj := &autoscalingv1.Scale{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      deployment.Name,
-				Namespace: deployment.Namespace,
-			},
-			Spec: autoscalingv1.ScaleSpec{
-				Replicas: *deployment.Spec.Replicas,
-			},
-			Status: autoscalingv1.ScaleStatus{
-				Replicas: deployment.Status.Replicas,
-				Selector: serving.RevisionUID + "=1982",
-			},
-		}
-		return true, obj, nil
-	})
+	u, err := dynamicClient.Resource(schema.GroupVersionResource{
+		Group:    "apps",
+		Version:  "v1",
+		Resource: "deployments",
+	}).Namespace(testNamespace).Create(uns, metav1.CreateOptions{})
+	if err != nil {
+		t.Fatalf("Create() = %v", err)
+	}
 
+	deployment := &v1.Deployment{}
+	if err := duck.FromUnstructured(u, deployment); err != nil {
+		t.Fatalf("FromUnstructured() = %v", err)
+	}
 	return deployment
 }
 
@@ -404,19 +498,20 @@ func kpaMarkActivating(pa *pav1alpha1.PodAutoscaler, ltt time.Time) {
 	pa.Status.Conditions[0].LastTransitionTime = apis.VolatileTime{Inner: metav1.NewTime(ltt)}
 }
 
-func checkReplicas(t *testing.T, scaleClient *scalefake.FakeScaleClient, deployment *v1.Deployment, expectedScale int32) {
+func checkReplicas(t *testing.T, dynamicClient *fakedynamic.FakeDynamicClient, deployment *v1.Deployment, expectedScale int32) {
 	t.Helper()
 
 	found := false
-	for _, action := range scaleClient.Actions() {
+	for _, action := range dynamicClient.Actions() {
 		switch action.GetVerb() {
-		case "update":
-			scl := action.(clientgotesting.UpdateAction).GetObject().(*autoscalingv1.Scale)
-			if scl.Name != deployment.Name {
+		case "patch":
+			patch := action.(clientgotesting.PatchAction)
+			if patch.GetName() != deployment.Name {
 				continue
 			}
-			if got, want := scl.Spec.Replicas, expectedScale; got != want {
-				t.Errorf("Replicas = %d, wanted %d", got, want)
+			want := fmt.Sprintf(`[{"op":"replace","path":"/spec/replicas","value":%d}]`, expectedScale)
+			if got := string(patch.GetPatch()); got != want {
+				t.Errorf("Patch = %s, wanted %s", got, want)
 			}
 			found = true
 		}
@@ -427,13 +522,85 @@ func checkReplicas(t *testing.T, scaleClient *scalefake.FakeScaleClient, deploym
 	}
 }
 
-func checkNoScaling(t *testing.T, scaleClient *scalefake.FakeScaleClient) {
+func checkNoScaling(t *testing.T, dynamicClient *fakedynamic.FakeDynamicClient) {
 	t.Helper()
 
-	for _, action := range scaleClient.Actions() {
+	for _, action := range dynamicClient.Actions() {
 		switch action.GetVerb() {
 		case "update":
 			t.Errorf("Unexpected update: %v", action)
 		}
 	}
+}
+
+func TestActivatorProbe(t *testing.T) {
+	oldRT := network.AutoTransport
+	defer func() {
+		network.AutoTransport = oldRT
+	}()
+	theErr := errors.New("rain")
+
+	pa := kpa("who-let", "the-dogs-out", WithPAStatusService("woof"))
+	tests := []struct {
+		name    string
+		rt      network.RoundTripperFunc
+		wantRes bool
+		wantErr bool
+	}{{
+		name: "ok",
+		rt: func(r *http.Request) (*http.Response, error) {
+			rsp := httptest.NewRecorder()
+			rsp.Write([]byte(activator.Name))
+			return rsp.Result(), nil
+		},
+		wantRes: true,
+	}, {
+		name: "400",
+		rt: func(r *http.Request) (*http.Response, error) {
+			rsp := httptest.NewRecorder()
+			rsp.Code = http.StatusBadRequest
+			rsp.Write([]byte("wrong header, I guess?"))
+			return rsp.Result(), nil
+		},
+		wantRes: false,
+	}, {
+		name: "wrong body",
+		rt: func(r *http.Request) (*http.Response, error) {
+			rsp := httptest.NewRecorder()
+			rsp.Write([]byte("haxoorprober"))
+			return rsp.Result(), nil
+		},
+		wantRes: false,
+	}, {
+		name: "all wrong",
+		rt: func(r *http.Request) (*http.Response, error) {
+			return nil, theErr
+		},
+		wantRes: false,
+		wantErr: true,
+	}}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			prober.TransportFactory = func() http.RoundTripper {
+				return test.rt
+			}
+			res, err := activatorProbe(pa)
+			if got, want := res, test.wantRes; got != want {
+				t.Errorf("Result = %v, want: %v", got, want)
+			}
+			if got, want := err != nil, test.wantErr; got != want {
+				t.Errorf("WantErr = %v, want: %v", got, want)
+			}
+		})
+	}
+}
+
+type countingProber struct {
+	count int
+}
+
+func (c *countingProber) Offer(ctx context.Context, target, headerValue string, arg interface{}, period, timeout time.Duration) bool {
+	c.count++
+	return true
 }

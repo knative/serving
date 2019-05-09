@@ -25,16 +25,16 @@ import (
 
 // ResourceForest represents the top-level forest that contains individual resource trees for top-level resource types and all connected nodes across resource trees.
 type ResourceForest struct {
-	Version string
-	TopLevelTrees map[string]ResourceTree // Key is ResourceTree.ResourceName
-	ConnectedNodes map[string]*list.List // Head of the linked list keyed by nodeData.fieldType.pkg + nodeData.fieldType.Name()
+	Version        string
+	TopLevelTrees  map[string]ResourceTree // Key is ResourceTree.ResourceName
+	ConnectedNodes map[string]*list.List   // Head of the linked list keyed by nodeData.fieldType.pkg + nodeData.fieldType.Name()
 }
 
 // AddResourceTree adds a resource tree to the resource forest.
 func (r *ResourceForest) AddResourceTree(resourceName string, resourceType reflect.Type) {
 	tree := ResourceTree{
 		ResourceName: resourceName,
-		Forest: r,
+		Forest:       r,
 	}
 	tree.BuildResourceTree(resourceType)
 	r.TopLevelTrees[resourceName] = tree
@@ -42,25 +42,25 @@ func (r *ResourceForest) AddResourceTree(resourceName string, resourceType refle
 
 // getConnectedNodeCoverage calculates the outlined coverage for a Type using ConnectedNodes linkedlist. We traverse through each element in the linkedlist and merge
 // coverage data into a single coveragecalculator.TypeCoverage object.
-func (r *ResourceForest) getConnectedNodeCoverage(fieldType reflect.Type, fieldRules FieldRules, ignoredFields coveragecalculator.IgnoredFields) (coveragecalculator.TypeCoverage) {
+func (r *ResourceForest) getConnectedNodeCoverage(fieldType reflect.Type, fieldRules FieldRules, ignoredFields coveragecalculator.IgnoredFields) coveragecalculator.TypeCoverage {
 	//packageName := strings.Replace(fieldType.PkgPath(), "/", ".", -1)
 	packageName := fieldType.PkgPath()
-	coverage := coveragecalculator.TypeCoverage {
-		Type: fieldType.Name(),
+	coverage := coveragecalculator.TypeCoverage{
+		Type:    fieldType.Name(),
 		Package: packageName,
-		Fields : make(map[string]*coveragecalculator.FieldCoverage),
+		Fields:  make(map[string]*coveragecalculator.FieldCoverage),
 	}
 
-	if value, ok := r.ConnectedNodes[fieldType.PkgPath() + "." + fieldType.Name()]; ok {
+	if value, ok := r.ConnectedNodes[fieldType.PkgPath()+"."+fieldType.Name()]; ok {
 		for elem := value.Front(); elem != nil; elem = elem.Next() {
 			node := elem.Value.(NodeInterface)
 			for field, v := range node.GetData().Children {
 				if fieldRules.Apply(field) {
 					if _, ok := coverage.Fields[field]; !ok {
-						coverage.Fields[field] = &coveragecalculator.FieldCoverage {
-							Field: field,
+						coverage.Fields[field] = &coveragecalculator.FieldCoverage{
+							Field:   field,
 							Ignored: ignoredFields.FieldIgnored(packageName, fieldType.Name(), field),
-							Values : make(map[string]bool),
+							Values:  make(map[string]bool),
 						}
 					}
 					// merge values across the list.

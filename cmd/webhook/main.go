@@ -97,7 +97,7 @@ func main() {
 		ServiceName:    "webhook",
 		DeploymentName: "webhook",
 		Namespace:      system.Namespace(),
-		Port:           443,
+		Port:           8443,
 		SecretName:     "webhook-certs",
 		WebhookName:    "webhook.serving.knative.dev",
 	}
@@ -119,6 +119,7 @@ func main() {
 
 		// Decorate contexts with the current state of the config.
 		WithContext: func(ctx context.Context) context.Context {
+			// TODO(mattmoor): Once we cut 0.6, we should pass v1beta1.UpgradeViaDefaulting here.
 			return store.ToContext(ctx)
 		},
 	}

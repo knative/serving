@@ -20,9 +20,11 @@ import (
 	"fmt"
 	"math"
 	"path/filepath"
+	"strings"
 
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/knative/pkg/apis"
+	"github.com/knative/serving/pkg/apis/networking"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -30,18 +32,6 @@ import (
 )
 
 const (
-	// RequestQueuePort specifies the port number to use for http requests
-	// in queue-proxy container.
-	RequestQueuePort = 8012
-
-	// RequestQueueAdminPort specifies the port number for
-	// health check and lifecyle hooks for queue-proxy.
-	RequestQueueAdminPort = 8022
-
-	// RequestQueueMetricsPort specifies the port number for metrics emitted
-	// by queue-proxy.
-	RequestQueueMetricsPort = 9090
-
 	minUserID = 0
 	maxUserID = math.MaxInt32
 )
@@ -54,6 +44,13 @@ var (
 		"/tmp",
 		"/var",
 		"/var/log",
+	)
+
+	reservedEnvVars = sets.NewString(
+		"PORT",
+		"K_SERVICE",
+		"K_CONFIGURATION",
+		"K_REVISION",
 	)
 
 	// The port is named "user-port" on the deployment, but a user cannot set an arbitrary name on the port
@@ -106,11 +103,25 @@ func validateEnvValueFrom(source *corev1.EnvVarSource) *apis.FieldError {
 	return apis.CheckDisallowedFields(*source, *EnvVarSourceMask(source))
 }
 
+func validateEnvVar(env corev1.EnvVar) *apis.FieldError {
+	errs := apis.CheckDisallowedFields(env, *EnvVarMask(&env))
+
+	if env.Name == "" {
+		errs = errs.Also(apis.ErrMissingField("name"))
+	} else if reservedEnvVars.Has(env.Name) {
+		errs = errs.Also(&apis.FieldError{
+			Message: fmt.Sprintf("%q is a reserved environment variable", env.Name),
+			Paths:   []string{"name"},
+		})
+	}
+
+	return errs.Also(validateEnvValueFrom(env.ValueFrom).ViaField("valueFrom"))
+}
+
 func validateEnv(envVars []corev1.EnvVar) *apis.FieldError {
 	var errs *apis.FieldError
 	for i, env := range envVars {
-		errs = errs.Also(apis.CheckDisallowedFields(env, *EnvVarMask(&env)).ViaIndex(i)).Also(
-			validateEnvValueFrom(env.ValueFrom).ViaField("valueFrom").ViaIndex(i))
+		errs = errs.Also(validateEnvVar(env).ViaIndex(i))
 	}
 	return errs
 }
@@ -300,9 +311,10 @@ func validateContainerPorts(ports []corev1.ContainerPort) *apis.FieldError {
 	}
 
 	// Don't allow userPort to conflict with QueueProxy sidecar
-	if userPort.ContainerPort == RequestQueuePort ||
-		userPort.ContainerPort == RequestQueueAdminPort ||
-		userPort.ContainerPort == RequestQueueMetricsPort {
+	if userPort.ContainerPort == networking.BackendHTTPPort ||
+		userPort.ContainerPort == networking.BackendHTTP2Port ||
+		userPort.ContainerPort == networking.RequestQueueAdminPort ||
+		userPort.ContainerPort == networking.RequestQueueMetricsPort {
 		errs = errs.Also(apis.ErrInvalidValue(userPort.ContainerPort, "containerPort"))
 	}
 
@@ -336,6 +348,30 @@ func validateProbe(p *corev1.Probe) *apis.FieldError {
 		errs = errs.Also(apis.CheckDisallowedFields(*h.HTTPGet, *HTTPGetActionMask(h.HTTPGet))).ViaField("httpGet")
 	case h.TCPSocket != nil:
 		errs = errs.Also(apis.CheckDisallowedFields(*h.TCPSocket, *TCPSocketActionMask(h.TCPSocket))).ViaField("tcpSocket")
+	}
+	return errs
+}
+
+func ValidateNamespacedObjectReference(p *corev1.ObjectReference) *apis.FieldError {
+	if p == nil {
+		return nil
+	}
+	errs := apis.CheckDisallowedFields(*p, *NamespacedObjectReferenceMask(p))
+
+	if p.APIVersion == "" {
+		errs = errs.Also(apis.ErrMissingField("apiVersion"))
+	} else if verrs := validation.IsQualifiedName(p.APIVersion); len(verrs) != 0 {
+		errs = errs.Also(apis.ErrInvalidValue(strings.Join(verrs, ", "), "apiVersion"))
+	}
+	if p.Kind == "" {
+		errs = errs.Also(apis.ErrMissingField("kind"))
+	} else if verrs := validation.IsCIdentifier(p.Kind); len(verrs) != 0 {
+		errs = errs.Also(apis.ErrInvalidValue(strings.Join(verrs, ", "), "kind"))
+	}
+	if p.Name == "" {
+		errs = errs.Also(apis.ErrMissingField("name"))
+	} else if verrs := validation.IsDNS1123Label(p.Name); len(verrs) != 0 {
+		errs = errs.Also(apis.ErrInvalidValue(strings.Join(verrs, ", "), "name"))
 	}
 	return errs
 }

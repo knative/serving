@@ -66,8 +66,8 @@ func waitForServiceLatestCreatedRevision(clients *test.Clients, names test.Resou
 func waitForServiceDomain(clients *test.Clients, names test.ResourceNames) (string, error) {
 	var routeDomain string
 	err := test.WaitForServiceState(clients.ServingClient, names.Service, func(s *v1alpha1.Service) (bool, error) {
-		if s.Status.Domain != "" {
-			routeDomain = s.Status.Domain
+		if s.Status.DeprecatedDomain != "" {
+			routeDomain = s.Status.DeprecatedDomain
 			return true, nil
 		}
 		return false, nil

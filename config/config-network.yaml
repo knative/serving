@@ -34,7 +34,8 @@ data:
     # to users that `kubectl edit` this config map.
     #
     # These sample configuration options may be copied out of
-    # this block and unindented to actually change the configuration.
+    # this example block and unindented to be in the data block
+    # to actually change the configuration.
 
     # istio.sidecar.includeOutboundIPRanges specifies the IP ranges that Istio sidecar
     # will intercept.
@@ -99,3 +100,18 @@ data:
     # characters such as `-` in their service, or namespace, names.
     #
     domainTemplate: "{{.Name}}.{{.Namespace}}.{{.Domain}}"
+
+    # Controls whether TLS certificates are automatically provisioned and
+    # installed in the Knative ingress to terminate external TLS connection.
+    # 1. Enabled: enabling auto-TLS feature.
+    # 2. Disabled: disabling auto-TLS feature.
+    autoTLS: "Disabled"
+
+    # Controls the behavior of the HTTP endpoint for the Knative ingress.
+    # It requires autoTLS to be enabled.
+    # 1. Enabled: The Knative ingress will be able to serve HTTP connection.
+    # 2. Disabled: The Knative ingress ter will reject HTTP traffic.
+    # 3. Redirected: The Knative ingress will send a 302 redirect for all
+    # http connections, asking the clients to use HTTPS
+    httpProtocol: "Enabled"
+

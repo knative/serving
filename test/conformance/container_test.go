@@ -22,6 +22,7 @@ import (
 	"testing"
 
 	"github.com/davecgh/go-spew/spew"
+	"github.com/knative/pkg/ptr"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/test"
 	corev1 "k8s.io/api/core/v1"
@@ -158,6 +159,28 @@ func TestShouldNotContainerConstraints(t *testing.T) {
 				ContainerPort: 8081,
 				HostPort:      80,
 			}}
+		},
+	}, {
+		name: "TestStdin",
+		options: func(s *v1alpha1.Service) {
+			s.Spec.ConfigurationSpec.GetTemplate().Spec.GetContainer().Stdin = true
+		},
+	}, {
+		name: "TestStdinOnce",
+		options: func(s *v1alpha1.Service) {
+			s.Spec.ConfigurationSpec.GetTemplate().Spec.GetContainer().StdinOnce = true
+		},
+	}, {
+		name: "TestTTY",
+		options: func(s *v1alpha1.Service) {
+			s.Spec.ConfigurationSpec.GetTemplate().Spec.GetContainer().TTY = true
+		},
+	}, {
+		name: "TestInvalidUID",
+		options: func(s *v1alpha1.Service) {
+			s.Spec.ConfigurationSpec.GetTemplate().Spec.GetContainer().SecurityContext = &corev1.SecurityContext{
+				RunAsUser: ptr.Int64(-10),
+			}
 		},
 	}}
 

@@ -41,12 +41,6 @@ set -o pipefail
 readonly YAML_REPO_ROOT=${1:?"First argument must be the repo root dir"}
 readonly YAML_LIST_FILE=${2:?"Second argument must be the output file"}
 
-# Location of istio YAMLs
-readonly ISTIO_CRD_YAML=${YAML_REPO_ROOT}/third_party/istio-1.1.2/istio-crds.yaml
-readonly ISTIO_YAML=${YAML_REPO_ROOT}/third_party/istio-1.1.2/istio.yaml
-readonly ISTIO_LEAN_YAML=${YAML_REPO_ROOT}/third_party/istio-1.1.2/istio-lean.yaml
-readonly ISTIO_KNATIVE_EXTRAS_YAML=${YAML_REPO_ROOT}/third_party/istio-1.1.2/istio-knative-extras.yaml
-
 # Set output directory
 if [[ -z "${YAML_OUTPUT_DIR:-}" ]]; then
   readonly YAML_OUTPUT_DIR="$(mktemp -d)"
@@ -106,10 +100,10 @@ ko resolve ${KO_YAML_FLAGS} -R -f config/monitoring/tracing/zipkin | "${LABEL_YA
 ko resolve ${KO_YAML_FLAGS} -R -f config/monitoring/tracing/zipkin-in-mem | "${LABEL_YAML_CMD[@]}" > "${MONITORING_TRACE_ZIPKIN_IN_MEM_YAML}"
 
 # Traces via Jaeger when ElasticSearch is installed
-ko resolve ${KO_YAML_FLAGS} -R -f config/monitoring/tracing/jaeger -f config/monitoring/tracing/jaeger/elasticsearch | "${LABEL_YAML_CMD[@]}" > "${MONITORING_TRACE_JAEGER_YAML}"
+ko resolve ${KO_YAML_FLAGS} -R -f config/monitoring/tracing/jaeger/elasticsearch -f config/monitoring/tracing/jaeger/105-zipkin-service.yaml | "${LABEL_YAML_CMD[@]}" > "${MONITORING_TRACE_JAEGER_YAML}"
 
 # Traces via Jaeger in Memory when ElasticSearch is not installed
-ko resolve ${KO_YAML_FLAGS} -R -f config/monitoring/tracing/jaeger -f config/monitoring/tracing/jaeger/memory | "${LABEL_YAML_CMD[@]}" > "${MONITORING_TRACE_JAEGER_IN_MEM_YAML}"
+ko resolve ${KO_YAML_FLAGS} -R -f config/monitoring/tracing/jaeger/memory -f config/monitoring/tracing/jaeger/105-zipkin-service.yaml | "${LABEL_YAML_CMD[@]}" > "${MONITORING_TRACE_JAEGER_IN_MEM_YAML}"
 
 echo "All manifests generated"
 
@@ -117,4 +111,3 @@ echo "All manifests generated"
 
 ls -1 ${SERVING_YAML} > ${YAML_LIST_FILE}
 ls -1 ${YAML_OUTPUT_DIR}/*.yaml | grep -v ${SERVING_YAML} >> ${YAML_LIST_FILE}
-ls -1 ${ISTIO_CRD_YAML} ${ISTIO_YAML} ${ISTIO_LEAN_YAML} ${ISTIO_KNATIVE_EXTRAS_YAML} >> ${YAML_LIST_FILE}

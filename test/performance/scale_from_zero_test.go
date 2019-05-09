@@ -34,6 +34,7 @@ import (
 	"github.com/knative/serving/pkg/reconciler/revision/resources/names"
 	ktest "github.com/knative/serving/pkg/reconciler/testing"
 	"github.com/knative/serving/test"
+	"github.com/knative/serving/test/e2e"
 	"github.com/knative/test-infra/shared/junit"
 	"github.com/knative/test-infra/shared/testgrid"
 )
@@ -56,15 +57,9 @@ func runScaleFromZero(idx int, t *testing.T, clients *test.Clients, ro *test.Res
 	t.Helper()
 	deploymentName := names.Deployment(ro.Revision)
 
-	domain := ro.Route.Status.Domain
+	domain := ro.Route.Status.URL.Host
 	t.Logf("%02d: waiting for deployment to scale to zero.", idx)
-	if err := pkgTest.WaitForDeploymentState(
-		clients.KubeClient,
-		deploymentName,
-		test.DeploymentScaledToZeroFunc,
-		"DeploymentScaledToZero",
-		test.ServingNamespace,
-		3*time.Minute); err != nil {
+	if err := e2e.WaitForScaleToZero(t, deploymentName, clients); err != nil {
 		m := fmt.Sprintf("%02d: failed waiting for deployment to scale to zero: %v", idx, err)
 		t.Log(m)
 		return 0, errors.New(m)
@@ -242,7 +237,5 @@ func TestScaleFromZero5(t *testing.T) {
 }
 
 func TestScaleFromZero50(t *testing.T) {
-	// See: #3021
-	t.Skip()
 	testScaleFromZero(t, 50 /* parallelism */, 5 /* runs */)
 }

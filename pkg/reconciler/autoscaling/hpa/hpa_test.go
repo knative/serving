@@ -90,7 +90,7 @@ func TestReconcile(t *testing.T) {
 		Name: "no op",
 		Objects: []runtime.Object{
 			hpa(testRevision, testNamespace, pa(testRevision, testNamespace, WithHPAClass, WithMetricAnnotation("cpu"))),
-			pa(testRevision, testNamespace, WithHPAClass, WithTraffic, WithPAStatusService(testRevision+"-pub")),
+			pa(testRevision, testNamespace, WithHPAClass, WithTraffic, WithPAStatusService(testRevision)),
 			deploy(testNamespace, testRevision),
 			sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSReady),
 		},
@@ -124,7 +124,7 @@ func TestReconcile(t *testing.T) {
 		WantStatusUpdates: []ktesting.UpdateActionImpl{{
 			Object: pa(testRevision, testNamespace, WithHPAClass, WithTraffic,
 				WithNoTraffic("ServicesNotReady", "SKS Services are not ready yet"),
-				WithPAStatusService(testRevision+"-pub")),
+				WithPAStatusService(testRevision)),
 		}},
 		Key: key(testRevision, testNamespace),
 	}, {
@@ -138,7 +138,7 @@ func TestReconcile(t *testing.T) {
 		},
 		WantStatusUpdates: []ktesting.UpdateActionImpl{{
 			Object: pa(testRevision, testNamespace, WithHPAClass,
-				WithTraffic, WithPAStatusService(testRevision+"-pub")),
+				WithTraffic, WithPAStatusService(testRevision)),
 		}},
 		Key: key(testRevision, testNamespace),
 	}, {
@@ -152,7 +152,7 @@ func TestReconcile(t *testing.T) {
 				WithSKSReady),
 		},
 		WantStatusUpdates: []ktesting.UpdateActionImpl{{
-			Object: pa(testRevision, testNamespace, WithHPAClass, WithTraffic, WithPAStatusService(testRevision+"-pub")),
+			Object: pa(testRevision, testNamespace, WithHPAClass, WithTraffic, WithPAStatusService(testRevision)),
 		}},
 		Key: key(testRevision, testNamespace),
 		WantUpdates: []ktesting.UpdateActionImpl{{
@@ -171,7 +171,7 @@ func TestReconcile(t *testing.T) {
 		WantStatusUpdates: []ktesting.UpdateActionImpl{{
 			Object: pa(testRevision, testNamespace, WithHPAClass,
 				WithNoTraffic("ServicesNotReady", "SKS Services are not ready yet"),
-				WithPAStatusService(testRevision+"-pub")),
+				WithPAStatusService(testRevision)),
 		}},
 		Key: key(testRevision, testNamespace),
 		WantUpdates: []ktesting.UpdateActionImpl{{
@@ -331,7 +331,7 @@ func TestReconcile(t *testing.T) {
 		},
 		WantStatusUpdates: []ktesting.UpdateActionImpl{{
 			Object: pa(testRevision, testNamespace, WithHPAClass,
-				WithTraffic, WithPAStatusService(testRevision+"-pub")),
+				WithTraffic, WithPAStatusService(testRevision)),
 		}},
 		Key:     key(testRevision, testNamespace),
 		WantErr: true,
@@ -345,7 +345,7 @@ func TestReconcile(t *testing.T) {
 		Name: "update hpa fails",
 		Objects: []runtime.Object{
 			pa(testRevision, testNamespace, WithHPAClass, WithTraffic,
-				WithPAStatusService(testRevision+"-pub"), WithTargetAnnotation("1")),
+				WithPAStatusService(testRevision), WithTargetAnnotation("1")),
 			hpa(testRevision, testNamespace, pa(testRevision, testNamespace, WithHPAClass, WithMetricAnnotation("cpu"))),
 			sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSReady),
 			deploy(testNamespace, testRevision),
@@ -365,7 +365,7 @@ func TestReconcile(t *testing.T) {
 		Name: "update hpa with target usage",
 		Objects: []runtime.Object{
 			pa(testRevision, testNamespace, WithHPAClass, WithTraffic,
-				WithPAStatusService(testRevision+"-pub"), WithTargetAnnotation("1")),
+				WithPAStatusService(testRevision), WithTargetAnnotation("1")),
 			hpa(testRevision, testNamespace, pa(testRevision, testNamespace, WithHPAClass, WithMetricAnnotation("cpu"))),
 			deploy(testNamespace, testRevision),
 			sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSReady),
@@ -434,12 +434,11 @@ func pa(name, namespace string, options ...PodAutoscalerOption) *autoscalingv1al
 			Namespace: namespace,
 		},
 		Spec: autoscalingv1alpha1.PodAutoscalerSpec{
-			ScaleTargetRef: autoscalingv1.CrossVersionObjectReference{
+			ScaleTargetRef: corev1.ObjectReference{
 				APIVersion: "apps/v1",
 				Kind:       "Deployment",
 				Name:       name + "-deployment",
 			},
-			ServiceName:  name + "-service",
 			ProtocolType: networking.ProtocolHTTP1,
 		},
 	}

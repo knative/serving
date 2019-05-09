@@ -17,10 +17,8 @@ limitations under the License.
 package route
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
-	"fmt"
 
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
@@ -33,13 +31,16 @@ import (
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 
+	"github.com/knative/pkg/apis"
 	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
+	duckv1beta1 "github.com/knative/pkg/apis/duck/v1beta1"
 	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/controller"
 	"github.com/knative/pkg/logging"
 	"github.com/knative/pkg/system"
 	"github.com/knative/pkg/tracker"
 	"github.com/knative/serving/pkg/apis/networking"
+	netv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	networkinginformers "github.com/knative/serving/pkg/client/informers/externalversions/networking/v1alpha1"
@@ -49,9 +50,11 @@ import (
 	"github.com/knative/serving/pkg/network"
 	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/route/config"
+	"github.com/knative/serving/pkg/reconciler/route/domains"
 	"github.com/knative/serving/pkg/reconciler/route/resources"
 	resourcenames "github.com/knative/serving/pkg/reconciler/route/resources/names"
 	"github.com/knative/serving/pkg/reconciler/route/traffic"
+	tr "github.com/knative/serving/pkg/reconciler/route/traffic"
 )
 
 const (
@@ -82,6 +85,7 @@ type Reconciler struct {
 	revisionLister       listers.RevisionLister
 	serviceLister        corev1listers.ServiceLister
 	clusterIngressLister networkinglisters.ClusterIngressLister
+	certificateLister    networkinglisters.CertificateLister
 	configStore          configStore
 	tracker              tracker.Interface
 
@@ -103,9 +107,10 @@ func NewController(
 	revisionInformer servinginformers.RevisionInformer,
 	serviceInformer corev1informers.ServiceInformer,
 	clusterIngressInformer networkinginformers.ClusterIngressInformer,
+	certificateInformer networkinginformers.CertificateInformer,
 ) *controller.Impl {
 	return NewControllerWithClock(opt, routeInformer, configInformer, revisionInformer,
-		serviceInformer, clusterIngressInformer, system.RealClock{})
+		serviceInformer, clusterIngressInformer, certificateInformer, system.RealClock{})
 }
 
 func NewControllerWithClock(
@@ -115,6 +120,7 @@ func NewControllerWithClock(
 	revisionInformer servinginformers.RevisionInformer,
 	serviceInformer corev1informers.ServiceInformer,
 	clusterIngressInformer networkinginformers.ClusterIngressInformer,
+	certificateInformer networkinginformers.CertificateInformer,
 	clock system.Clock,
 ) *controller.Impl {
 
@@ -127,6 +133,7 @@ func NewControllerWithClock(
 		revisionLister:       revisionInformer.Lister(),
 		serviceLister:        serviceInformer.Lister(),
 		clusterIngressLister: clusterIngressInformer.Lister(),
+		certificateLister:    certificateInformer.Lister(),
 		clock:                clock,
 	}
 	impl := controller.NewImpl(c, c.Logger, "Routes", reconciler.MustNewStatsReporter("Routes", c.Logger))
@@ -164,6 +171,11 @@ func NewControllerWithClock(
 			v1alpha1.SchemeGroupVersion.WithKind("Revision"),
 		),
 	))
+
+	certificateInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+		FilterFunc: controller.Filter(v1alpha1.SchemeGroupVersion.WithKind("Route")),
+		Handler:    reconciler.Handler(impl.EnqueueControllerOf),
+	})
 
 	c.Logger.Info("Setting up ConfigMap receivers")
 	configsToResync := []interface{}{
@@ -210,22 +222,22 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 
 	// Reconcile this copy of the route and then write back any status
 	// updates regardless of whether the reconciliation errored out.
-	err = c.reconcile(ctx, route)
+	reconcileErr := c.reconcile(ctx, route)
 	if equality.Semantic.DeepEqual(original.Status, route.Status) {
 		// If we didn't change anything then don't call updateStatus.
 		// This is important because the copy we loaded from the informer's
 		// cache may be stale and we don't want to overwrite a prior update
 		// to status with this stale state.
-	} else if _, err := c.updateStatus(route); err != nil {
+	} else if _, err = c.updateStatus(route); err != nil {
 		logger.Warnw("Failed to update route status", zap.Error(err))
 		c.Recorder.Eventf(route, corev1.EventTypeWarning, "UpdateFailed",
 			"Failed to update status for Route %q: %v", route.Name, err)
 		return err
 	}
-	if err != nil {
-		c.Recorder.Event(route, corev1.EventTypeWarning, "InternalError", err.Error())
+	if reconcileErr != nil {
+		c.Recorder.Event(route, corev1.EventTypeWarning, "InternalError", reconcileErr.Error())
 	}
-	return err
+	return reconcileErr
 }
 
 func ingressClassForRoute(ctx context.Context, r *v1alpha1.Route) string {
@@ -263,11 +275,16 @@ func (c *Reconciler) reconcile(ctx context.Context, r *v1alpha1.Route) error {
 
 	// Update the information that makes us Addressable. This is needed to configure traffic and
 	// make the cluster ingress.
-	var err error
-	r.Status.Domain, err = routeDomain(ctx, r)
+	host, err := domains.DomainNameFromTemplate(ctx, r, r.Name)
 	if err != nil {
 		return err
 	}
+
+	r.Status.URL = &apis.URL{
+		Scheme: "http",
+		Host:   host,
+	}
+	r.Status.DeprecatedDomain = host
 
 	// Configure traffic based on the RouteSpec.
 	traffic, err := c.configureTraffic(ctx, r)
@@ -285,6 +302,12 @@ func (c *Reconciler) reconcile(ctx context.Context, r *v1alpha1.Route) error {
 
 	r.Status.DeprecatedDomainInternal = resourcenames.K8sServiceFullname(r)
 	r.Status.Address = &duckv1alpha1.Addressable{
+		Addressable: duckv1beta1.Addressable{
+			URL: &apis.URL{
+				Scheme: "http",
+				Host:   resourcenames.K8sServiceFullname(r),
+			},
+		},
 		Hostname: resourcenames.K8sServiceFullname(r),
 	}
 
@@ -293,16 +316,56 @@ func (c *Reconciler) reconcile(ctx context.Context, r *v1alpha1.Route) error {
 		return err
 	}
 
+	logger.Info("Creating placeholder k8s services")
+	services, err := c.reconcilePlaceholderServices(ctx, r, traffic.Targets)
+	if err != nil {
+		return err
+	}
+
+	tls := []netv1alpha1.ClusterIngressTLS{}
+	if config.FromContext(ctx).Network.AutoTLS && !resources.IsClusterLocal(r) {
+		allDomains, err := domains.GetAllDomains(ctx, r, getTrafficNames(traffic.Targets))
+		if err != nil {
+			return err
+		}
+		desiredCert := resources.MakeCertificate(r, allDomains)
+		cert, err := c.reconcileCertificate(ctx, r, desiredCert)
+		if err != nil {
+			r.Status.MarkCertificateProvisionFailed(desiredCert.Name)
+			return err
+		}
+
+		if cert.Status.IsReady() {
+			r.Status.MarkCertificateReady(cert.Name)
+			r.Status.URL.Scheme = "https"
+			// TODO: we should only mark https for the public visible targets when
+			// we are able to configure visibility per target.
+			setTargetsScheme(&r.Status, "https")
+		} else {
+			r.Status.MarkCertificateNotReady(cert.Name)
+			r.Status.URL = &apis.URL{
+				Scheme: "http",
+				Host:   host,
+			}
+			setTargetsScheme(&r.Status, "http")
+		}
+
+		tls = append(tls, resources.MakeClusterIngressTLS(cert, allDomains))
+	}
+
 	logger.Info("Creating ClusterIngress.")
-	desired := resources.MakeClusterIngress(r, traffic, ingressClassForRoute(ctx, r))
+	desired, err := resources.MakeClusterIngress(ctx, r, traffic, tls, ingressClassForRoute(ctx, r))
+	if err != nil {
+		return err
+	}
 	clusterIngress, err := c.reconcileClusterIngress(ctx, r, desired)
 	if err != nil {
 		return err
 	}
 	r.Status.PropagateClusterIngressStatus(clusterIngress.Status)
 
-	logger.Info("Creating/Updating placeholder k8s services")
-	if err := c.reconcilePlaceholderService(ctx, r, clusterIngress); err != nil {
+	logger.Info("Updating placeholder k8s services with clusterIngress information")
+	if err := c.updatePlaceholderServices(ctx, r, services, clusterIngress); err != nil {
 		return err
 	}
 
@@ -339,31 +402,29 @@ func (c *Reconciler) reconcileDeletion(ctx context.Context, r *v1alpha1.Route) e
 //
 // If traffic is configured we update the RouteStatus with AllTrafficAssigned = True.  Otherwise we
 // mark AllTrafficAssigned = False, with a message referring to one of the missing target.
-func (c *Reconciler) configureTraffic(ctx context.Context, r *v1alpha1.Route) (*traffic.Config, error) {
+func (c *Reconciler) configureTraffic(ctx context.Context, r *v1alpha1.Route) (*tr.Config, error) {
 	logger := logging.FromContext(ctx)
-	t, err := traffic.BuildTrafficConfiguration(c.configurationLister, c.revisionLister, r)
+	t, err := tr.BuildTrafficConfiguration(c.configurationLister, c.revisionLister, r)
 
 	if t != nil {
 		// Tell our trackers to reconcile Route whenever the things referred to by our
 		// Traffic stanza change.
-		gvk := v1alpha1.SchemeGroupVersion.WithKind("Configuration")
 		for _, configuration := range t.Configurations {
-			if err := c.tracker.Track(objectRef(configuration, gvk), r); err != nil {
+			if err := c.tracker.Track(objectRef(configuration), r); err != nil {
 				return nil, err
 			}
 		}
-		gvk = v1alpha1.SchemeGroupVersion.WithKind("Revision")
 		for _, revision := range t.Revisions {
 			if revision.Status.IsActivationRequired() {
 				logger.Infof("Revision %s/%s is inactive", revision.Namespace, revision.Name)
 			}
-			if err := c.tracker.Track(objectRef(revision, gvk), r); err != nil {
+			if err := c.tracker.Track(objectRef(revision), r); err != nil {
 				return nil, err
 			}
 		}
 	}
 
-	badTarget, isTargetError := err.(traffic.TargetError)
+	badTarget, isTargetError := err.(tr.TargetError)
 	if err != nil && !isTargetError {
 		// An error that's not due to missing traffic target should
 		// make us fail fast.
@@ -379,7 +440,11 @@ func (c *Reconciler) configureTraffic(ctx context.Context, r *v1alpha1.Route) (*
 
 	logger.Info("All referred targets are routable, marking AllTrafficAssigned with traffic information.")
 	// Domain should already be present
-	r.Status.Traffic = t.GetRevisionTrafficTargets(r.Status.Domain)
+	r.Status.Traffic, err = t.GetRevisionTrafficTargets(ctx, r)
+	if err != nil {
+		return nil, err
+	}
+
 	r.Status.MarkTrafficAssigned()
 
 	return t, nil
@@ -411,16 +476,13 @@ func (c *Reconciler) ensureFinalizer(route *v1alpha1.Route) error {
 /////////////////////////////////////////
 
 type accessor interface {
-	GroupVersionKind() schema.GroupVersionKind
+	GetGroupVersionKind() schema.GroupVersionKind
 	GetNamespace() string
 	GetName() string
 }
 
-func objectRef(a accessor, gvk schema.GroupVersionKind) corev1.ObjectReference {
-	// We can't always rely on the TypeMeta being populated.
-	// See: https://github.com/knative/serving/issues/2372
-	// Also: https://github.com/kubernetes/apiextensions-apiserver/issues/29
-	// gvk := a.GroupVersionKind()
+func objectRef(a accessor) corev1.ObjectReference {
+	gvk := a.GetGroupVersionKind()
 	apiVersion, kind := gvk.ToAPIVersionAndKind()
 	return corev1.ObjectReference{
 		APIVersion: apiVersion,
@@ -430,25 +492,19 @@ func objectRef(a accessor, gvk schema.GroupVersionKind) corev1.ObjectReference {
 	}
 }
 
-// routeDomain will generate the Route's Domain(host) for the Service based on
-// the "DomainTemplateKey" from the "config-network" configMap.
-func routeDomain(ctx context.Context, route *v1alpha1.Route) (string, error) {
-	domainConfig := config.FromContext(ctx).Domain
-	domain := domainConfig.LookupDomainForLabels(route.ObjectMeta.Labels)
-
-	// These are the available properties they can choose from.
-	// We could add more over time - e.g. RevisionName if we thought that
-	// might be of interest to people.
-	data := network.DomainTemplateValues{
-		Name:      route.Name,
-		Namespace: route.Namespace,
-		Domain:    domain,
+func getTrafficNames(targets map[string]traffic.RevisionTargets) []string {
+	names := []string{}
+	for name := range targets {
+		names = append(names, name)
 	}
+	return names
+}
 
-	networkConfig := config.FromContext(ctx).Network
-	buf := bytes.Buffer{}
-	if err := networkConfig.GetDomainTemplate().Execute(&buf, data); err != nil {
-		return "", fmt.Errorf("error executing the DomainTemplate: %s", err)
+func setTargetsScheme(rs *v1alpha1.RouteStatus, scheme string) {
+	for i := range rs.Traffic {
+		if rs.Traffic[i].URL == nil {
+			continue
+		}
+		rs.Traffic[i].URL.Scheme = scheme
 	}
-	return buf.String(), nil
 }

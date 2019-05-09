@@ -34,7 +34,8 @@ data:
     # to users that `kubectl edit` this config map.
     #
     # These sample configuration options may be copied out of
-    # this block and unindented to actually change the configuration.
+    # this example block and unindented to be in the data block
+    # to actually change the configuration.
 
     # revision-timeout-seconds contains the default number of
     # seconds to use for the revision's per-request timeout, if
@@ -42,5 +43,21 @@ data:
     revision-timeout-seconds: "300"  # 5 minutes
 
     # revision-cpu-request contains the cpu allocation to assign
-    # to revisions by default.
+    # to revisions by default.  If omitted, no value is specified
+    # and the system default is used.
     revision-cpu-request: "400m"  # 0.4 of a CPU (aka 400 milli-CPU)
+
+    # revision-memory-request contains the memory allocation to assign
+    # to revisions by default.  If omitted, no value is specified
+    # and the system default is used.
+    revision-memory-request: "100M"  # 100 megabytes of memory
+
+    # revision-cpu-limit contains the cpu allocation to limit
+    # revisions to by default.  If omitted, no value is specified
+    # and the system default is used.
+    revision-cpu-limit: "1000m"  # 1 CPU (aka 1000 milli-CPU)
+
+    # revision-memory-limit contains the memory allocation to limit
+    # revisions to by default.  If omitted, no value is specified
+    # and the system default is used.
+    revision-memory-limit: "200M"  # 200 megabytes of memory

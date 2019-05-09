@@ -75,10 +75,13 @@ spec:
   - ...
 
 status:
-  # domain: The hostname used to access the default (traffic-split)
+  # DEPRECATED: see url (below)
+  domain: my-service.default.mydomain.com
+
+  # url: The url used to access the default (traffic-split)
   #   route. Typically, this will be composed of the name and namespace
   #   along with a cluster-specific prefix (here, mydomain.com).
-  domain: my-service.default.mydomain.com
+  url: http://my-service.default.mydomain.com
 
   address: # knative/pkg/apis/duck/v1alpha1.Addressable
     # hostname: A DNS name for the default (traffic-split) route which can
@@ -324,10 +327,13 @@ status:
   # Latest created Revision, may still be in the process of being materialized.
   latestCreatedRevisionName: def
 
-  # domain: The hostname used to access the default (traffic-split)
-  #   route. Typically, this will be composed of the name and namespace
+  # DEPRECATED: see url (below)
+  domain: my-service.default.mydomain.com
+
+  # url: The url used to access the default (traffic-split)
+  #   service. Typically, this will be composed of the name and namespace
   #   along with a cluster-specific prefix (here, mydomain.com).
-  domain: myservice.default.mydomain.com
+  url: http://my-service.default.mydomain.com
 
   address: # knative/pkg/apis/duck/v1alpha1.Addressable
     # hostname: A DNS name for the default (traffic-split) route which can
@@ -400,7 +406,7 @@ container: # v1.Container
   # on through the $PORT environment variable that is always set within the container.
   # Some fields are not allowed, such as hostIP and hostPort.
   ports: # Optional
-    # Valid range is [1-65535], except 8012 (RequestQueuePort)
+    # Valid range is [1-65535], except 8012 and 8013 (RequestQueuePorts)
     # and 8022 (RequestQueueAdminPort).
     - containerPort: ...
       name: ... # Optional, one of "http1", "h2c"
@@ -428,5 +434,6 @@ container: # v1.Container
     - name: ... # This must match a name from Volumes
       mountPath: ... # Where to mount the named Volume.
       readOnly: ... # Must be True, will default to True, so it may be omitted.
+      subPath: ...
   workingDir: ... # Optional
 ```

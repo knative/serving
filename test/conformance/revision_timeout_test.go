@@ -22,7 +22,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"strings"
 	"testing"
 	"time"
 
@@ -193,12 +192,12 @@ func TestRevisionTimeout(t *testing.T) {
 		if tt.Tag == rev2s.TrafficTarget {
 			// Strip prefix as WaitForEndPointState expects a domain
 			// without scheme.
-			rev2sDomain = strings.TrimPrefix(tt.URL, "http://")
+			rev2sDomain = tt.URL.Host
 		}
 		if tt.Tag == rev5s.TrafficTarget {
 			// Strip prefix as WaitForEndPointState expects a domain
 			// without scheme.
-			rev5sDomain = strings.TrimPrefix(tt.URL, "http://")
+			rev5sDomain = tt.URL.Host
 		}
 	}
 	if rev2sDomain == "" || rev5sDomain == "" {

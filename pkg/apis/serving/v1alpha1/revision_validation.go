@@ -25,9 +25,7 @@ import (
 	"github.com/knative/pkg/kmp"
 	"github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/serving"
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
-	"k8s.io/apimachinery/pkg/util/validation"
 )
 
 func (r *Revision) checkImmutableFields(ctx context.Context, original *Revision) *apis.FieldError {
@@ -137,7 +135,7 @@ func (rs *RevisionSpec) Validate(ctx context.Context) *apis.FieldError {
 	default:
 		errs = errs.Also(apis.ErrMissingOneOf("container", "containers"))
 	}
-	errs = errs.Also(validateBuildRef(rs.DeprecatedBuildRef).ViaField("buildRef"))
+	errs = errs.Also(serving.ValidateNamespacedObjectReference(rs.DeprecatedBuildRef).ViaField("buildRef"))
 
 	if err := rs.DeprecatedConcurrencyModel.Validate(ctx).ViaField("concurrencyModel"); err != nil {
 		errs = errs.Also(err)
@@ -185,36 +183,4 @@ func (cm RevisionRequestConcurrencyModelType) Validate(ctx context.Context) *api
 	default:
 		return apis.ErrInvalidValue(cm, apis.CurrentField)
 	}
-}
-
-func validateBuildRef(buildRef *corev1.ObjectReference) *apis.FieldError {
-	if buildRef == nil {
-		return nil
-	}
-	if len(validation.IsQualifiedName(buildRef.APIVersion)) != 0 {
-		return apis.ErrInvalidValue(buildRef.APIVersion, "apiVersion")
-	}
-	if len(validation.IsCIdentifier(buildRef.Kind)) != 0 {
-		return apis.ErrInvalidValue(buildRef.Kind, "kind")
-	}
-	if len(validation.IsDNS1123Label(buildRef.Name)) != 0 {
-		return apis.ErrInvalidValue(buildRef.Name, "name")
-	}
-	var disallowedFields []string
-	if buildRef.Namespace != "" {
-		disallowedFields = append(disallowedFields, "namespace")
-	}
-	if buildRef.FieldPath != "" {
-		disallowedFields = append(disallowedFields, "fieldPath")
-	}
-	if buildRef.ResourceVersion != "" {
-		disallowedFields = append(disallowedFields, "resourceVersion")
-	}
-	if buildRef.UID != "" {
-		disallowedFields = append(disallowedFields, "uid")
-	}
-	if len(disallowedFields) != 0 {
-		return apis.ErrDisallowedFields(disallowedFields...)
-	}
-	return nil
 }

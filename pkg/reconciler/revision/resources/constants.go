@@ -25,31 +25,23 @@ const (
 	UserContainerName = "user-container"
 	// FluentdContainerName is the name of the fluentd sidecar when enabled
 	FluentdContainerName = "fluentd-proxy"
-	// EnvoyContainerName is the name of the envoy sidecar when enabled
-	EnvoyContainerName = "istio-proxy"
 	// QueueContainerName is the name of the queue proxy side car
 	QueueContainerName = "queue-proxy"
 
 	sidecarIstioInjectAnnotation = "sidecar.istio.io/inject"
+	// IstioOutboundIPRangeAnnotation defines the outbound ip ranges istio allows.
 	// TODO(mattmoor): Make this private once we remove revision_test.go
 	IstioOutboundIPRangeAnnotation = "traffic.sidecar.istio.io/includeOutboundIPRanges"
 
-	userPortEnvName = "PORT"
-
-	autoscalerPort = 8080
-
-	// ServicePortNameHTTP1 is the name of the external port of the service for HTTP/1.1
-	ServicePortNameHTTP1 = "http"
-	// ServicePortNameH2C is the name of the external port of the service for HTTP/2
-	ServicePortNameH2C = "http2"
-
-	// ServicePort is the external port of the service
-	ServicePort = int32(80)
+	// AppLabelKey is the label defining the application's name.
 	AppLabelKey = "app"
 )
 
 var (
-	ProgressDeadlineSeconds int32 = 120
+	// ProgressDeadlineSeconds is the time in seconds we wait for the deployment to
+	// be ready before considering it failed.
+	ProgressDeadlineSeconds = int32(120)
+
 	// See https://github.com/knative/serving/pull/1124#issuecomment-397120430
 	// for how CPU and memory values were calculated.
 	fluentdContainerCPU = resource.MustParse("25m")

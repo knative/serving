@@ -22,8 +22,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/serving"
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/reconciler/autoscaling/kpa/resources/names"
 	"github.com/knative/serving/pkg/resources"
 	"github.com/pkg/errors"
@@ -114,7 +114,7 @@ func newServiceScraperWithClient(
 	return &ServiceScraper{
 		sClient:             sClient,
 		endpointsLister:     endpointsLister,
-		url:                 fmt.Sprintf("http://%s.%s:%d/metrics", serviceName, metric.Namespace, v1alpha1.RequestQueueMetricsPort),
+		url:                 fmt.Sprintf("http://%s.%s:%d/metrics", serviceName, metric.Namespace, networking.RequestQueueMetricsPort),
 		metricKey:           NewMetricKey(metric.Namespace, metric.Name),
 		namespace:           metric.Namespace,
 		scrapeTargetService: serviceName,

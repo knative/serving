@@ -19,6 +19,7 @@ package network
 import (
 	"bytes"
 	"net/http"
+	"net/http/httptest"
 	"testing"
 	"text/template"
 
@@ -58,6 +59,7 @@ func TestConfiguration(t *testing.T) {
 			IstioOutboundIPRanges:      "*",
 			DefaultClusterIngressClass: "istio.ingress.networking.knative.dev",
 			DomainTemplate:             DefaultDomainTemplate,
+			HTTPProtocol:               HTTPEnabled,
 		},
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
@@ -83,6 +85,7 @@ func TestConfiguration(t *testing.T) {
 		wantConfig: &Config{
 			DefaultClusterIngressClass: "istio.ingress.networking.knative.dev",
 			DomainTemplate:             DefaultDomainTemplate,
+			HTTPProtocol:               HTTPEnabled,
 		},
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
@@ -159,6 +162,7 @@ func TestConfiguration(t *testing.T) {
 		wantConfig: &Config{
 			DefaultClusterIngressClass: "istio.ingress.networking.knative.dev",
 			DomainTemplate:             DefaultDomainTemplate,
+			HTTPProtocol:               HTTPEnabled,
 		},
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
@@ -175,6 +179,7 @@ func TestConfiguration(t *testing.T) {
 		wantConfig: &Config{
 			DefaultClusterIngressClass: "istio.ingress.networking.knative.dev",
 			DomainTemplate:             DefaultDomainTemplate,
+			HTTPProtocol:               HTTPEnabled,
 		},
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
@@ -191,6 +196,7 @@ func TestConfiguration(t *testing.T) {
 		wantConfig: &Config{
 			DefaultClusterIngressClass: "istio.ingress.networking.knative.dev",
 			DomainTemplate:             DefaultDomainTemplate,
+			HTTPProtocol:               HTTPEnabled,
 		},
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
@@ -208,6 +214,7 @@ func TestConfiguration(t *testing.T) {
 			IstioOutboundIPRanges:      "10.10.10.0/24",
 			DefaultClusterIngressClass: "istio.ingress.networking.knative.dev",
 			DomainTemplate:             DefaultDomainTemplate,
+			HTTPProtocol:               HTTPEnabled,
 		},
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
@@ -225,6 +232,7 @@ func TestConfiguration(t *testing.T) {
 			IstioOutboundIPRanges:      "10.10.10.0/24,10.240.10.0/14,192.192.10.0/16",
 			DefaultClusterIngressClass: "istio.ingress.networking.knative.dev",
 			DomainTemplate:             DefaultDomainTemplate,
+			HTTPProtocol:               HTTPEnabled,
 		},
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
@@ -242,6 +250,7 @@ func TestConfiguration(t *testing.T) {
 			IstioOutboundIPRanges:      "*",
 			DefaultClusterIngressClass: "istio.ingress.networking.knative.dev",
 			DomainTemplate:             DefaultDomainTemplate,
+			HTTPProtocol:               HTTPEnabled,
 		},
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
@@ -259,6 +268,7 @@ func TestConfiguration(t *testing.T) {
 			IstioOutboundIPRanges:      "*",
 			DefaultClusterIngressClass: "foo-ingress",
 			DomainTemplate:             DefaultDomainTemplate,
+			HTTPProtocol:               HTTPEnabled,
 		},
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
@@ -277,6 +287,7 @@ func TestConfiguration(t *testing.T) {
 			IstioOutboundIPRanges:      "*",
 			DefaultClusterIngressClass: "foo-ingress",
 			DomainTemplate:             nonDefaultDomainTemplate,
+			HTTPProtocol:               HTTPEnabled,
 		},
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
@@ -363,6 +374,88 @@ func TestConfiguration(t *testing.T) {
 				DomainTemplateKey: "{{.Name}}.{{.NAmespace}}.{{.Domain}}",
 			},
 		},
+	}, {
+		name:    "network configuration with Auto TLS enabled",
+		wantErr: false,
+		wantConfig: &Config{
+			IstioOutboundIPRanges:      "*",
+			DefaultClusterIngressClass: "istio.ingress.networking.knative.dev",
+			DomainTemplate:             DefaultDomainTemplate,
+			AutoTLS:                    true,
+			HTTPProtocol:               HTTPEnabled,
+		},
+		config: &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: system.Namespace(),
+				Name:      ConfigName,
+			},
+			Data: map[string]string{
+				IstioOutboundIPRangesKey: "*",
+				AutoTLSKey:               "enabled",
+			},
+		},
+	}, {
+		name:    "network configuration with Auto TLS disabled",
+		wantErr: false,
+		wantConfig: &Config{
+			IstioOutboundIPRanges:      "*",
+			DefaultClusterIngressClass: "istio.ingress.networking.knative.dev",
+			DomainTemplate:             DefaultDomainTemplate,
+			AutoTLS:                    false,
+			HTTPProtocol:               HTTPEnabled,
+		},
+		config: &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: system.Namespace(),
+				Name:      ConfigName,
+			},
+			Data: map[string]string{
+				IstioOutboundIPRangesKey: "*",
+				AutoTLSKey:               "disabled",
+			},
+		},
+	}, {
+		name:    "network configuration with HTTPProtocol disabled",
+		wantErr: false,
+		wantConfig: &Config{
+			IstioOutboundIPRanges:      "*",
+			DefaultClusterIngressClass: "istio.ingress.networking.knative.dev",
+			DomainTemplate:             DefaultDomainTemplate,
+			AutoTLS:                    true,
+			HTTPProtocol:               HTTPDisabled,
+		},
+		config: &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: system.Namespace(),
+				Name:      ConfigName,
+			},
+			Data: map[string]string{
+				IstioOutboundIPRangesKey: "*",
+				AutoTLSKey:               "enabled",
+				HTTPProtocolKey:          "Disabled",
+			},
+		},
+	}, {
+		name:    "network configuration with HTTPProtocol redirected",
+		wantErr: false,
+		wantConfig: &Config{
+			IstioOutboundIPRanges:      "*",
+			DefaultClusterIngressClass: "istio.ingress.networking.knative.dev",
+			DomainTemplate:             DefaultDomainTemplate,
+			AutoTLS:                    true,
+			HTTPProtocol:               HTTPRedirected,
+		},
+		config: &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: system.Namespace(),
+				Name:      ConfigName,
+			},
+			Data: map[string]string{
+				IstioOutboundIPRangesKey: "*",
+				AutoTLSKey:               "enabled",
+				HTTPProtocolKey:          "Redirected",
+			},
+		},
 	}}
 
 	for _, tt := range networkConfigTests {
@@ -417,5 +510,61 @@ func TestIsKubeletProbe(t *testing.T) {
 	req.Header.Set("User-Agent", kubeProbeUAPrefix+"1.14")
 	if !IsKubeletProbe(req) {
 		t.Error("kubelet probe but not counted as such")
+	}
+	req.Header.Del("User-Agent")
+	if IsKubeletProbe(req) {
+		t.Error("Not a kubelet probe but counted as such")
+	}
+	req.Header.Set(KubeletProbeHeaderName, "no matter")
+	if !IsKubeletProbe(req) {
+		t.Error("kubelet probe but not counted as such")
+	}
+}
+
+func TestRewriteHost(t *testing.T) {
+	r := httptest.NewRequest(http.MethodGet, "http://love.is/not-hate", nil)
+	r.Header.Set("Host", "love.is")
+
+	RewriteHostIn(r)
+
+	if got, want := r.Host, ""; got != want {
+		t.Errorf("r.Host = %q, want: %q", got, want)
+	}
+
+	if got, want := r.Header.Get("Host"), ""; got != want {
+		t.Errorf("r.Header['Host'] = %q, want: %q", got, want)
+	}
+
+	if got, want := r.Header.Get(OriginalHostHeader), "love.is"; got != want {
+		t.Errorf("r.Header[%s] = %q, want: %q", OriginalHostHeader, got, want)
+	}
+
+	// Do it again, but make sure that the ORIGINAL domain is still preserved.
+	r.Header.Set("Host", "hate.is")
+	RewriteHostIn(r)
+
+	if got, want := r.Host, ""; got != want {
+		t.Errorf("r.Host = %q, want: %q", got, want)
+	}
+
+	if got, want := r.Header.Get("Host"), ""; got != want {
+		t.Errorf("r.Header['Host'] = %q, want: %q", got, want)
+	}
+
+	if got, want := r.Header.Get(OriginalHostHeader), "love.is"; got != want {
+		t.Errorf("r.Header[%s] = %q, want: %q", OriginalHostHeader, got, want)
+	}
+
+	RewriteHostOut(r)
+	if got, want := r.Host, "love.is"; got != want {
+		t.Errorf("r.Host = %q, want: %q", got, want)
+	}
+
+	if got, want := r.Header.Get("Host"), ""; got != want {
+		t.Errorf("r.Header['Host'] = %q, want: %q", got, want)
+	}
+
+	if got, want := r.Header.Get(OriginalHostHeader), ""; got != want {
+		t.Errorf("r.Header[%s] = %q	, want: %q", OriginalHostHeader, got, want)
 	}
 }

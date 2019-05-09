@@ -117,6 +117,17 @@ func NewImpl(r Reconciler, logger *zap.SugaredLogger, workQueueName string, repo
 	}
 }
 
+// EnqueueAfter takes a resource, converts it into a namespace/name string,
+// and passes it to EnqueueKey.
+func (c *Impl) EnqueueAfter(obj interface{}, after time.Duration) {
+	key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
+	if err != nil {
+		c.logger.Errorw("Enqueue", zap.Error(err))
+		return
+	}
+	c.EnqueueKeyAfter(key, after)
+}
+
 // Enqueue takes a resource, converts it into a namespace/name string,
 // and passes it to EnqueueKey.
 func (c *Impl) Enqueue(obj interface{}) {
@@ -210,6 +221,12 @@ func (c *Impl) EnqueueLabelOfClusterScopedResource(nameLabel string) func(obj in
 // EnqueueKey takes a namespace/name string and puts it onto the work queue.
 func (c *Impl) EnqueueKey(key string) {
 	c.WorkQueue.Add(key)
+}
+
+// EnqueueKeyAfter takes a namespace/name string and schedules its execution in
+// the work queue after given delay.
+func (c *Impl) EnqueueKeyAfter(key string, delay time.Duration) {
+	c.WorkQueue.AddAfter(key, delay)
 }
 
 // Run starts the controller's worker threads, the number of which is threadiness.

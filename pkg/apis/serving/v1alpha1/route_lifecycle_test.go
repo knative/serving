@@ -346,3 +346,35 @@ func TestRouteGetGroupVersionKind(t *testing.T) {
 		t.Errorf("got: %v, want: %v", got, want)
 	}
 }
+
+func TestCertificateReady(t *testing.T) {
+	r := &RouteStatus{}
+	r.InitializeConditions()
+	r.MarkCertificateReady("cert")
+
+	apitesting.CheckConditionSucceeded(r.duck(), RouteConditionCertificateProvisioned, t)
+}
+
+func TestCertificateNotReady(t *testing.T) {
+	r := &RouteStatus{}
+	r.InitializeConditions()
+	r.MarkCertificateNotReady("cert")
+
+	apitesting.CheckConditionOngoing(r.duck(), RouteConditionCertificateProvisioned, t)
+}
+
+func TestCertificateProvisionFailed(t *testing.T) {
+	r := &RouteStatus{}
+	r.InitializeConditions()
+	r.MarkCertificateProvisionFailed("cert")
+
+	apitesting.CheckConditionFailed(r.duck(), RouteConditionCertificateProvisioned, t)
+}
+
+func TestRouteNotOwnCertificate(t *testing.T) {
+	r := &RouteStatus{}
+	r.InitializeConditions()
+	r.MarkCertificateNotOwned("cert")
+
+	apitesting.CheckConditionFailed(r.duck(), RouteConditionCertificateProvisioned, t)
+}

@@ -29,6 +29,15 @@ func (r *Route) SetDefaults(ctx context.Context) {
 }
 
 func (rs *RouteSpec) SetDefaults(ctx context.Context) {
+	if v1beta1.IsUpgradeViaDefaulting(ctx) {
+		beta := v1beta1.RouteSpec{}
+		if rs.ConvertUp(ctx, &beta) == nil {
+			alpha := RouteSpec{}
+			alpha.ConvertDown(ctx, beta)
+			*rs = alpha
+		}
+	}
+
 	if len(rs.Traffic) == 0 && v1beta1.HasDefaultConfigurationName(ctx) {
 		rs.Traffic = []TrafficTarget{{
 			TrafficTarget: v1beta1.TrafficTarget{

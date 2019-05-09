@@ -22,9 +22,8 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"time"
-
-	"go.uber.org/zap"
 
 	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/controller"
@@ -38,31 +37,24 @@ import (
 	"github.com/knative/serving/pkg/activator"
 	activatorconfig "github.com/knative/serving/pkg/activator/config"
 	activatorhandler "github.com/knative/serving/pkg/activator/handler"
-	activatorutil "github.com/knative/serving/pkg/activator/util"
 	"github.com/knative/serving/pkg/apis/networking"
-	nv1a1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
-	"github.com/knative/serving/pkg/apis/serving"
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/autoscaler"
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
 	servinginformers "github.com/knative/serving/pkg/client/informers/externalversions"
 	"github.com/knative/serving/pkg/goversion"
-	"github.com/knative/serving/pkg/http/h2c"
+	pkghttp "github.com/knative/serving/pkg/http"
 	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/pkg/metrics"
 	"github.com/knative/serving/pkg/network"
 	"github.com/knative/serving/pkg/queue"
-	"github.com/knative/serving/pkg/reconciler"
-	"github.com/knative/serving/pkg/resources"
 	"github.com/knative/serving/pkg/tracing"
 	tracingconfig "github.com/knative/serving/pkg/tracing/config"
-
-	"github.com/openzipkin/zipkin-go"
-	corev1 "k8s.io/api/core/v1"
+	zipkin "github.com/openzipkin/zipkin-go"
+	perrors "github.com/pkg/errors"
+	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/wait"
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
 )
 
@@ -71,11 +63,6 @@ var _ = goversion.IsSupported()
 
 const (
 	component = "activator"
-
-	// This is the number of times we will perform network probes to
-	// see if the Revision is accessible before forwarding the actual
-	// request.
-	maxRetries = 18
 
 	// Add a little buffer space between request handling and stat
 	// reporting so that latency in the stat pipeline doesn't
@@ -100,11 +87,13 @@ const (
 )
 
 var (
-	masterURL  = flag.String("master", "", "The address of the Kubernetes API server. Overrides any value in kubeconfig. Only required if out-of-cluster.")
+	masterURL = flag.String("master", "", "The address of the Kubernetes API server. "+
+		"Overrides any value in kubeconfig. Only required if out-of-cluster.")
 	kubeconfig = flag.String("kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
 )
 
-func statReporter(statSink *websocket.ManagedConnection, stopCh <-chan struct{}, statChan <-chan *autoscaler.StatMessage, logger *zap.SugaredLogger) {
+func statReporter(statSink *websocket.ManagedConnection, stopCh <-chan struct{},
+	statChan <-chan *autoscaler.StatMessage, logger *zap.SugaredLogger) {
 	for {
 		select {
 		case sm := <-statChan:
@@ -193,59 +182,9 @@ func main() {
 	}
 
 	params := queue.BreakerParams{QueueDepth: breakerQueueDepth, MaxConcurrency: breakerMaxConcurrency, InitialCapacity: 0}
+	throttler := activator.NewThrottler(params, endpointInformer, sksInformer.Lister(), revisionInformer.Lister(), logger)
 
-	// Return the number of endpoints, 0 if no endpoints are found.
-	endpointsCountGetter := func(sks *nv1a1.ServerlessService) (int, error) {
-		count, err := resources.FetchReadyAddressCount(endpointInformer.Lister(), sks.Namespace, sks.Status.PrivateServiceName)
-		return count, err
-	}
-
-	// Returns the revision from the observer.
-	revisionGetter := func(revID activator.RevisionID) (*v1alpha1.Revision, error) {
-		return revisionInformer.Lister().Revisions(revID.Namespace).Get(revID.Name)
-	}
-
-	// Returns the SKS from the observer.
-	sksGetter := func(ns, n string) (*nv1a1.ServerlessService, error) {
-		return sksInformer.Lister().ServerlessServices(ns).Get(n)
-	}
-
-	serviceGetter := func(namespace, name string) (*corev1.Service, error) {
-		return serviceInformer.Lister().Services(namespace).Get(name)
-	}
-
-	throttlerParams := activator.ThrottlerParams{
-		BreakerParams: params,
-		Logger:        logger,
-		GetEndpoints:  endpointsCountGetter,
-		GetRevision:   revisionGetter,
-		GetSKS:        sksGetter,
-	}
-	throttler := activator.NewThrottler(throttlerParams)
-
-	handler := cache.ResourceEventHandlerFuncs{
-		AddFunc:    throttler.UpdateEndpoints,
-		UpdateFunc: controller.PassNew(throttler.UpdateEndpoints),
-		DeleteFunc: throttler.DeleteBreaker,
-	}
-
-	// Update/create the breaker in the throttler when the number of endpoints changes.
-	// Pass only the endpoints created by revisions.
-	// TODO(greghaynes) we have to allow unset and use the old RevisionUID filter for backwards compat.
-	// When we can assume our ServiceTypeKey label is present in all services we can filter all but
-	// networking.ServiceTypeKey == networking.ServiceTypePublic
-	epFilter := reconciler.ChainFilterFuncs(
-		reconciler.LabelExistsFilterFunc(serving.RevisionUID),
-		// We are only interested in the private services, since that is
-		// what is populated by the actual revision backends.
-		reconciler.LabelFilterFunc(networking.ServiceTypeKey, string(networking.ServiceTypePrivate), true),
-	)
-	endpointInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
-		FilterFunc: epFilter,
-		Handler:    handler,
-	})
-
-	activatorL3 := fmt.Sprintf("%s:%d", activator.K8sServiceName, activator.ServicePortHTTP1)
+	activatorL3 := fmt.Sprintf("%s:%d", activator.K8sServiceName, networking.ServiceHTTPPort)
 	zipkinEndpoint, err := zipkin.NewEndpoint("activator", activatorL3)
 	if err != nil {
 		logger.Error("Unable to create tracing endpoint")
@@ -254,12 +193,11 @@ func main() {
 	oct := tracing.NewOpenCensusTracer(
 		tracing.WithZipkinExporter(tracing.CreateZipkinReporter, zipkinEndpoint),
 	)
-	tracerUpdater := func(name string, value interface{}) {
-		if name == tracingconfig.ConfigName {
-			cfg := value.(*tracingconfig.Config)
-			oct.ApplyConfig(cfg)
-		}
-	}
+
+	tracerUpdater := configmap.TypeFilter(&tracingconfig.Config{})(func(name string, value interface{}) {
+		cfg := value.(*tracingconfig.Config)
+		oct.ApplyConfig(cfg)
+	})
 
 	// Set up our config store
 	configMapWatcher := configmap.NewInformedWatcher(kubeClient, system.Namespace())
@@ -282,50 +220,66 @@ func main() {
 
 	// Create activation handler chain
 	// Note: innermost handlers are specified first, ie. the last handler in the chain will be executed first
-	var ah http.Handler = &activatorhandler.ActivationHandler{
-		Transport:     activatorutil.AutoTransport,
-		Logger:        logger,
-		Reporter:      reporter,
-		Throttler:     throttler,
-		GetProbeCount: maxRetries,
-		GetRevision:   revisionGetter,
-		GetSKS:        sksGetter,
-		GetService:    serviceGetter,
-	}
+	var ah http.Handler = activatorhandler.New(
+		logger,
+		reporter,
+		throttler,
+		revisionInformer.Lister(),
+		serviceInformer.Lister(),
+		sksInformer.Lister(),
+	)
 	ah = activatorhandler.NewRequestEventHandler(reqChan, ah)
-	ah = tracing.HTTPSpanMiddleware("handle_request", ah)
+	ah = tracing.HTTPSpanMiddleware(ah)
 	ah = configStore.HTTPMiddleware(ah)
-	ah = &activatorhandler.HealthHandler{HealthCheck: statSink.Status, NextHandler: ah}
+	reqLogHandler, err := pkghttp.NewRequestLogHandler(ah, logging.NewSyncFileWriter(os.Stdout), "",
+		requestLogTemplateInputGetter(revisionInformer.Lister()))
+	if err != nil {
+		logger.Fatalw("Unable to create request log handler", zap.Error(err))
+	}
+	ah = reqLogHandler
 	ah = &activatorhandler.ProbeHandler{NextHandler: ah}
+	ah = &activatorhandler.HealthHandler{HealthCheck: statSink.Status, NextHandler: ah}
 
 	// Watch the logging config map and dynamically update logging levels.
 	configMapWatcher.Watch(logging.ConfigMapName(), logging.UpdateLevelFromConfigMap(logger, atomicLevel, component))
 	// Watch the observability config map and dynamically update metrics exporter.
 	configMapWatcher.Watch(metrics.ObservabilityConfigName, metrics.UpdateExporterFromConfigMap(component, logger))
+	// Watch the observability config map and dynamically update request logs.
+	configMapWatcher.Watch(metrics.ObservabilityConfigName, updateRequestLogFromConfigMap(logger, reqLogHandler))
 	if err = configMapWatcher.Start(stopCh); err != nil {
 		logger.Fatalw("Failed to start configuration manager", zap.Error(err))
 	}
 
-	http1Srv := h2c.NewServer(":8080", ah)
-	go func() {
-		if err := http1Srv.ListenAndServe(); err != nil {
-			logger.Errorw("Error running HTTP server", zap.Error(err))
-		}
-	}()
+	servers := map[string]*http.Server{
+		"http1": network.NewServer(fmt.Sprintf(":%d", networking.BackendHTTPPort), ah),
+		"h2c":   network.NewServer(fmt.Sprintf(":%d", networking.BackendHTTP2Port), ah),
+	}
 
-	h2cSrv := h2c.NewServer(":8081", ah)
-	go func() {
-		if err := h2cSrv.ListenAndServe(); err != nil {
-			logger.Errorw("Error running HTTP server", zap.Error(err))
-		}
-	}()
+	errCh := make(chan error, len(servers))
+	for name, server := range servers {
+		go func(name string, s *http.Server) {
+			// Don't forward ErrServerClosed as that indicates we're already shutting down.
+			if err := s.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+				errCh <- perrors.Wrapf(err, "%s server failed", name)
+			}
+		}(name, server)
+	}
 
-	<-stopCh
-	http1Srv.Shutdown(context.Background())
-	h2cSrv.Shutdown(context.Background())
+	// Exit as soon as we see a shutdown signal or one of the servers failed.
+	select {
+	case <-stopCh:
+	case err := <-errCh:
+		logger.Errorw("Failed to run HTTP server", zap.Error(err))
+	}
+
+	for _, server := range servers {
+		server.Shutdown(context.Background())
+	}
 }
 
 func flush(logger *zap.SugaredLogger) {
 	logger.Sync()
+	os.Stdout.Sync()
+	os.Stderr.Sync()
 	pkgmetrics.FlushExporter()
 }

@@ -21,6 +21,7 @@ import (
 	"fmt"
 
 	"github.com/knative/pkg/apis"
+	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 )
 
@@ -29,28 +30,36 @@ func (source *Route) ConvertUp(ctx context.Context, obj apis.Convertible) error 
 	switch sink := obj.(type) {
 	case *v1beta1.Route:
 		sink.ObjectMeta = source.ObjectMeta
-		source.Spec.ConvertUp(ctx, &sink.Spec)
-		source.Status.ConvertUp(ctx, &sink.Status)
-		return nil
+		source.Status.ConvertUp(apis.WithinStatus(ctx), &sink.Status)
+		return source.Spec.ConvertUp(apis.WithinSpec(ctx), &sink.Spec)
 	default:
 		return fmt.Errorf("unknown version, got: %T", sink)
 	}
 }
 
 // ConvertUp helps implement apis.Convertible
-func (source *RouteSpec) ConvertUp(ctx context.Context, sink *v1beta1.RouteSpec) {
+func (source *RouteSpec) ConvertUp(ctx context.Context, sink *v1beta1.RouteSpec) error {
 	sink.Traffic = make([]v1beta1.TrafficTarget, len(source.Traffic))
 	for i := range source.Traffic {
-		source.Traffic[i].ConvertUp(ctx, &sink.Traffic[i])
+		if err := source.Traffic[i].ConvertUp(ctx, &sink.Traffic[i]); err != nil {
+			return err
+		}
 	}
+	return nil
 }
 
 // ConvertUp helps implement apis.Convertible
-func (source *TrafficTarget) ConvertUp(ctx context.Context, sink *v1beta1.TrafficTarget) {
+func (source *TrafficTarget) ConvertUp(ctx context.Context, sink *v1beta1.TrafficTarget) error {
 	*sink = source.TrafficTarget
-	if source.DeprecatedName != "" {
+	switch {
+	case source.Tag != "" && source.DeprecatedName != "":
+		if apis.IsInSpec(ctx) {
+			return apis.ErrMultipleOneOf("name", "tag")
+		}
+	case source.DeprecatedName != "":
 		sink.Tag = source.DeprecatedName
 	}
+	return nil
 }
 
 // ConvertUp helps implement apis.Convertible
@@ -62,9 +71,13 @@ func (source *RouteStatus) ConvertUp(ctx context.Context, sink *v1beta1.RouteSta
 
 // ConvertUp helps implement apis.Convertible
 func (source *RouteStatusFields) ConvertUp(ctx context.Context, sink *v1beta1.RouteStatusFields) {
-	// TODO(mattmoor): Domain
-	// TODO(mattmoor): DomainInternal
-	// TODO(mattmoor): Address
+	if source.URL != nil {
+		sink.URL = source.URL.DeepCopy()
+	}
+
+	if source.Address != nil {
+		sink.Address = source.Address.Addressable.DeepCopy()
+	}
 
 	sink.Traffic = make([]v1beta1.TrafficTarget, len(source.Traffic))
 	for i := range source.Traffic {
@@ -107,9 +120,15 @@ func (sink *RouteStatus) ConvertDown(ctx context.Context, source v1beta1.RouteSt
 
 // ConvertDown helps implement apis.Convertible
 func (sink *RouteStatusFields) ConvertDown(ctx context.Context, source v1beta1.RouteStatusFields) {
-	// TODO(mattmoor): Domain
-	// TODO(mattmoor): DomainInternal
-	// TODO(mattmoor): Address
+	if source.URL != nil {
+		sink.URL = source.URL.DeepCopy()
+	}
+
+	if source.Address != nil {
+		sink.Address = &duckv1alpha1.Addressable{
+			Addressable: *source.Address,
+		}
+	}
 
 	sink.Traffic = make([]TrafficTarget, len(source.Traffic))
 	for i := range source.Traffic {

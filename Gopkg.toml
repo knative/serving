@@ -24,8 +24,8 @@ required = [
 
 [[override]]
   name = "github.com/knative/pkg"
-  # HEAD as of 2919-04-23
-  revision = "6916051a96ae4d87d0e0e557a3c3b887ee4a3cea"
+  # HEAD as of 2919-05-08
+  revision = "c3f131538a21eebb1ce00a33051f6f0573deb634"
 
 [[override]]
   name = "go.uber.org/zap"
@@ -40,6 +40,10 @@ required = [
   name = "github.com/google/go-containerregistry"
   # HEAD as of 2019-04-10
   revision = "ec69c4a8a1bff25fcbe096fcb32c9a6543fbdccf"
+
+[[constraint]]
+  name = "github.com/jetstack/cert-manager"
+  revision = "45fbfcd16cdd6a6a73c79f26d67ce72a2886c746"
 
 [[override]]
   name = "k8s.io/api"
@@ -87,3 +91,4 @@ required = [
 [[prune.project]]
   name = "github.com/knative/test-infra"
   non-go = false
+

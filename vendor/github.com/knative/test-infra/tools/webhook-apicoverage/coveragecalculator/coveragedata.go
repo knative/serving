@@ -18,10 +18,10 @@ package coveragecalculator
 
 // FieldCoverage represents coverage data for a field.
 type FieldCoverage struct {
-	Field string `json:"Field"`
-	Values map[string]bool `json:"Values"`
-	Coverage bool `json:"Covered"`
-	Ignored bool `json:"Ignored"`
+	Field    string          `json:"Field"`
+	Values   map[string]bool `json:"Values"`
+	Coverage bool            `json:"Covered"`
+	Ignored  bool            `json:"Ignored"`
 }
 
 // Merge operation merges the field coverage data when multiple nodes represent the same type. (e.g. ConnectedNodes traversal)
@@ -37,7 +37,7 @@ func (f *FieldCoverage) Merge(coverage bool, values map[string]bool) {
 }
 
 // GetValues returns Values as slice
-func (f *FieldCoverage) GetValues() ([]string) {
+func (f *FieldCoverage) GetValues() []string {
 	values := []string{}
 	for key := range f.Values {
 		values = append(values, key)
@@ -47,7 +47,7 @@ func (f *FieldCoverage) GetValues() ([]string) {
 
 // TypeCoverage encapsulates type information and field coverage.
 type TypeCoverage struct {
-	Package string `json:"Package"`
-	Type string `json:"Type"`
-	Fields map[string]*FieldCoverage `json:"Fields"`
+	Package string                    `json:"Package"`
+	Type    string                    `json:"Type"`
+	Fields  map[string]*FieldCoverage `json:"Fields"`
 }

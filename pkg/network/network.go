@@ -35,11 +35,17 @@ const (
 	// requests to probe the knative networking layer.  Requests
 	// with this header will not be passed to the user container or
 	// included in request metrics.
-	ProbeHeaderName = "k-network-probe"
+	ProbeHeaderName = "K-Network-Probe"
 
 	// ProxyHeaderName is the name of an internal header that activator
 	// uses to mark requests going through it.
-	ProxyHeaderName = "k-proxy-request"
+	ProxyHeaderName = "K-Proxy-Request"
+
+	// OriginalHostHeader is used to avoid Istio host based routing rules
+	// in Activator.
+	// The header contains the original Host value that can be rewritten
+	// at the Queue proxy level back to be a host header.
+	OriginalHostHeader = "K-Original-Host"
 
 	// ConfigName is the name of the configmap containing all
 	// customizations for networking features.
@@ -66,6 +72,10 @@ const (
 	//   User-Agent = "kube-probe/{major-version}.{minor-version}".
 	kubeProbeUAPrefix = "kube-probe/"
 
+	// Istio with mTLS rewrites probes, but their probes pass a different
+	// user-agent.  So we augment the probes with this header.
+	KubeletProbeHeaderName = "K-Kubelet-Probe"
+
 	// DefaultConnTimeout specifies a short default connection timeout
 	// to avoid hitting the issue fixed in
 	// https://github.com/kubernetes/kubernetes/pull/72534 but only
@@ -84,6 +94,14 @@ var (
 	// DefaultDomainTemplate is the default golang template to use when
 	// constructing the Knative Route's Domain(host)
 	DefaultDomainTemplate = "{{.Name}}.{{.Namespace}}.{{.Domain}}"
+
+	// AutoTLSKey is the name of the configuration entry
+	// that specifies enabling auto-TLS or not.
+	AutoTLSKey = "autoTLS"
+
+	// HTTPProtocolKey is the name of the configuration entry that
+	// specifies the HTTP endpoint behavior of Knative ingress.
+	HTTPProtocolKey = "httpProtocol"
 )
 
 // DomainTemplateValues are the available properties people can choose from
@@ -109,7 +127,29 @@ type Config struct {
 	// DomainTemplate is the golang text template to use to generate the
 	// Route's domain (host) for the Service.
 	DomainTemplate string
+
+	// AutoTLS specifies if auto-TLS is enabled or not.
+	AutoTLS bool
+
+	// HTTPProtocol specifics the behavior of HTTP endpoint of Knative
+	// ingress.
+	HTTPProtocol HTTPProtocol
 }
+
+// HTTPProtocol indicates a type of HTTP endpoint behavior
+// that Knative ingress could take.
+type HTTPProtocol string
+
+const (
+	// HTTPEnabled represents HTTP proocol is enabled in Knative ingress.
+	HTTPEnabled HTTPProtocol = "enabled"
+
+	// HTTPDisabled represents HTTP protocol is disabled in Knative ingress.
+	HTTPDisabled HTTPProtocol = "disabled"
+
+	// HTTPRedirected represents HTTP connection is redirected to HTTPS in Knative ingress.
+	HTTPRedirected HTTPProtocol = "redirected"
+)
 
 func validateAndNormalizeOutboundIPRanges(s string) (string, error) {
 	s = strings.TrimSpace(s)
@@ -169,6 +209,22 @@ func NewConfigFromConfigMap(configMap *corev1.ConfigMap) (*Config, error) {
 		nc.DomainTemplate = dt
 	}
 
+	nc.AutoTLS = strings.ToLower(configMap.Data[AutoTLSKey]) == "enabled"
+
+	switch strings.ToLower(configMap.Data[HTTPProtocolKey]) {
+	case string(HTTPEnabled):
+		nc.HTTPProtocol = HTTPEnabled
+	case "":
+		// If HTTPProtocol is not set in the config-network, we set the default value
+		// to HTTPEnabled.
+		nc.HTTPProtocol = HTTPEnabled
+	case string(HTTPDisabled):
+		nc.HTTPProtocol = HTTPDisabled
+	case string(HTTPRedirected):
+		nc.HTTPProtocol = HTTPRedirected
+	default:
+		return nil, fmt.Errorf("httpProtocol %s in config-network ConfigMap is not supported", configMap.Data[HTTPProtocolKey])
+	}
 	return nc, nil
 }
 
@@ -208,5 +264,32 @@ func checkTemplate(t *template.Template) error {
 
 // IsKubeletProbe returns true if the request is a kubernetes probe.
 func IsKubeletProbe(r *http.Request) bool {
-	return strings.HasPrefix(r.Header.Get("User-Agent"), kubeProbeUAPrefix)
+	return strings.HasPrefix(r.Header.Get("User-Agent"), kubeProbeUAPrefix) ||
+		r.Header.Get(KubeletProbeHeaderName) != ""
+}
+
+// RewriteHostIn removes the `Host` header from the inbound (server) request
+// and replaces it with our custom header.
+// This is done to avoid Istio Host based routing, see #3870.
+// Queue-Proxy will execute the reverse process.
+func RewriteHostIn(r *http.Request) {
+	h := r.Host
+	r.Host = ""
+	r.Header.Del("Host")
+	// Don't overwrite an existing OriginalHostHeader.
+	if r.Header.Get(OriginalHostHeader) == "" {
+		r.Header.Set(OriginalHostHeader, h)
+	}
+}
+
+// RewriteHostOut undoes the `RewriteHostIn` action.
+// RewriteHostOut checks if network.OriginalHostHeader was set and if it was,
+// then uses that as the r.Host (which takes priority over Request.Header["Host"]).
+// If the request did not have the OriginalHostHeader header set, the request is untouched.
+func RewriteHostOut(r *http.Request) {
+	if ohh := r.Header.Get(OriginalHostHeader); ohh != "" {
+		r.Host = ohh
+		r.Header.Del("Host")
+		r.Header.Del(OriginalHostHeader)
+	}
 }

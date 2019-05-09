@@ -28,6 +28,7 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
+	"github.com/davecgh/go-spew/spew"
 	pkgTest "github.com/knative/pkg/test"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	rnames "github.com/knative/serving/pkg/reconciler/revision/resources/names"
@@ -63,7 +64,7 @@ func TestDestroyPodInflight(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Error fetching Route %s: %v", names.Route, err)
 	}
-	domain := route.Status.Domain
+	domain := route.Status.URL.Host
 
 	err = test.WaitForConfigurationState(clients.ServingClient, names.Config, func(c *v1alpha1.Configuration) (bool, error) {
 		if c.Status.LatestCreatedRevisionName != names.Revision {
@@ -136,7 +137,7 @@ const (
 	// Give the pods plenty of time to disappear. It will take them at least 20 seconds to vanish
 	// because we have a hard-coded sleep of 20 seconds before initiating the shutdown process.
 	// This is still well below the 5 minutes it might take them to disappear max.
-	maxTimeToDelete = 90 * time.Second
+	maxTimeToDelete = 180 * time.Second
 )
 
 func TestDestroyPodTimely(t *testing.T) {
@@ -161,14 +162,24 @@ func TestDestroyPodTimely(t *testing.T) {
 	// Deleting the service will also delete all pods.
 	clients.ServingClient.Services.Delete(names.Service, nil)
 
-	// Wait until the pods have disappeared.
+	// Wait until the pod is shutdown. We don't wait for the pod itself to vanish but rather until all
+	// of the containers of that pod are no longer running. It can take an arbitrarily long time to
+	// actually remove the pod itself while we only care about containers being stopped.
 	deploymentName := rnames.Deployment(objects.Revision)
+	var podList *v1.PodList
 	pkgTest.WaitForPodListState(
 		clients.KubeClient,
 		func(p *v1.PodList) (bool, error) {
+			podList = p
 			for _, pod := range p.Items {
-				if strings.Contains(pod.Name, deploymentName) {
-					return false, nil
+				if !strings.Contains(pod.Name, deploymentName) {
+					continue
+				}
+				for _, status := range pod.Status.ContainerStatuses {
+					// There are still containers running, keep retrying.
+					if status.State.Running != nil {
+						return false, nil
+					}
 				}
 			}
 			return true, nil
@@ -177,6 +188,7 @@ func TestDestroyPodTimely(t *testing.T) {
 
 	timeToDelete := time.Since(start)
 	if timeToDelete > maxTimeToDelete {
+		t.Logf("Pod list: %s", spew.Sprint(podList))
 		t.Errorf("Time to delete pods = %v, want < %v", timeToDelete, maxTimeToDelete)
 	}
 }

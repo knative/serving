@@ -23,7 +23,7 @@ import (
 	net "github.com/knative/serving/pkg/apis/networking"
 	servingv1alpha1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	servingv1beta1 "github.com/knative/serving/pkg/apis/serving/v1beta1"
-	autoscalingv1 "k8s.io/api/autoscaling/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -85,12 +85,11 @@ type PodAutoscalerSpec struct {
 
 	// ScaleTargetRef defines the /scale-able resource that this PodAutoscaler
 	// is responsible for quickly right-sizing.
-	ScaleTargetRef autoscalingv1.CrossVersionObjectReference `json:"scaleTargetRef"`
+	ScaleTargetRef corev1.ObjectReference `json:"scaleTargetRef"`
 
-	// ServiceName holds the name of a core Kubernetes Service resource that
+	// DeprecatedServiceName holds the name of a core Kubernetes Service resource that
 	// load balances over the pods referenced by the ScaleTargetRef.
-	// TODO(vagababov): deprecate.
-	ServiceName string `json:"serviceName"`
+	DeprecatedServiceName string `json:"serviceName"`
 
 	// The application-layer protocol. Matches `ProtocolType` inferred from the revision spec.
 	ProtocolType net.ProtocolType

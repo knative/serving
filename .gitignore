@@ -4,6 +4,7 @@
 # Editor/IDE specific settings
 .idea
 .vscode/
+*.iml
 
 # Temporary output of build tools
 bazel-*

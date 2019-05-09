@@ -25,7 +25,7 @@ import (
 	"github.com/knative/serving/pkg/apis/networking"
 	nv1a1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving"
-	autoscalingv1 "k8s.io/api/autoscaling/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -47,7 +47,7 @@ func TestMakeSKS(t *testing.T) {
 		},
 		Spec: pav1a1.PodAutoscalerSpec{
 			ProtocolType: networking.ProtocolHTTP1,
-			ScaleTargetRef: autoscalingv1.CrossVersionObjectReference{
+			ScaleTargetRef: corev1.ObjectReference{
 				APIVersion: "apps/v1",
 				Kind:       "Deployment",
 				Name:       "blah",
@@ -81,7 +81,7 @@ func TestMakeSKS(t *testing.T) {
 		Spec: nv1a1.ServerlessServiceSpec{
 			ProtocolType: networking.ProtocolHTTP1,
 			Mode:         nv1a1.SKSOperationModeServe,
-			ObjectRef: autoscalingv1.CrossVersionObjectReference{
+			ObjectRef: corev1.ObjectReference{
 				APIVersion: "apps/v1",
 				Kind:       "Deployment",
 				Name:       "blah",

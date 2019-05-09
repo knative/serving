@@ -133,7 +133,7 @@ function wait_until_pods_running() {
         [[ ${status[0]} -lt 1 ]] && all_ready=0 && break
         [[ ${status[1]} -lt 1 ]] && all_ready=0 && break
         [[ ${status[0]} -ne ${status[1]} ]] && all_ready=0 && break
-      done <<< $(echo "${pods}" | grep -v Completed)
+      done <<< "$(echo "${pods}" | grep -v Completed)"
       if (( all_ready )); then
         echo -e "\nAll pods are up:\n${pods}"
         return 0
@@ -321,14 +321,6 @@ function report_go_test() {
 # Install the latest stable Knative/serving in the current cluster.
 function start_latest_knative_serving() {
   header "Starting Knative Serving"
-  subheader "Installing Istio"
-  echo "Running Istio CRD from ${KNATIVE_ISTIO_CRD_YAML}"
-  kubectl apply -f ${KNATIVE_ISTIO_CRD_YAML} || return 1
-  wait_until_batch_job_complete istio-system || return 1
-  echo "Installing Istio from ${KNATIVE_ISTIO_YAML}"
-  kubectl apply -f ${KNATIVE_ISTIO_YAML} || return 1
-  wait_until_pods_running istio-system || return 1
-  kubectl label namespace default istio-injection=enabled || return 1
   subheader "Installing Knative Serving"
   echo "Installing Serving from ${KNATIVE_SERVING_RELEASE}"
   kubectl apply -f ${KNATIVE_SERVING_RELEASE} || return 1

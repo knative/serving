@@ -17,41 +17,79 @@ limitations under the License.
 package resources
 
 import (
+	"context"
 	"errors"
 	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 
 	"github.com/knative/pkg/kmeta"
+	"github.com/knative/serving/pkg/apis/networking"
 	netv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
+	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	revisionresources "github.com/knative/serving/pkg/reconciler/revision/resources"
-	"github.com/knative/serving/pkg/reconciler/route/resources/names"
+	"github.com/knative/serving/pkg/reconciler/route/domains"
 )
 
 var errLoadBalancerNotFound = errors.New("failed to fetch loadbalancer domain/IP from ingress status")
 
+// SelectorFromRoute creates a label selector given a specific route.
+func SelectorFromRoute(route *v1alpha1.Route) labels.Selector {
+	return labels.SelectorFromSet(
+		labels.Set{
+			serving.RouteLabelKey: route.Name,
+		},
+	)
+}
+
+// MakeK8sPlaceholderService creates a placeholder Service to prevent naming collisions. It's owned by the
+// provided v1alpha1.Route. The purpose of this service is to provide a placeholder domain name for Istio routing.
+func MakeK8sPlaceholderService(ctx context.Context, route *v1alpha1.Route, targetName string) (*corev1.Service, error) {
+	name := domains.SubdomainName(route, targetName)
+	fullName, err := domains.DomainNameFromTemplate(ctx, route, name)
+	if err != nil {
+		return nil, err
+	}
+
+	service := makeK8sService(route, targetName)
+	service.Spec = corev1.ServiceSpec{
+		Type:         corev1.ServiceTypeExternalName,
+		ExternalName: fullName,
+	}
+
+	return service, nil
+}
+
 // MakeK8sService creates a Service that redirect to the loadbalancer specified
 // in ClusterIngress status. It's owned by the provided v1alpha1.Route.
 // The purpose of this service is to provide a domain name for Istio routing.
-func MakeK8sService(route *v1alpha1.Route, ingress *netv1alpha1.ClusterIngress) (*corev1.Service, error) {
+func MakeK8sService(route *v1alpha1.Route, targetName string, ingress *netv1alpha1.ClusterIngress) (*corev1.Service, error) {
 	svcSpec, err := makeServiceSpec(ingress)
 	if err != nil {
 		return nil, err
 	}
 
+	service := makeK8sService(route, targetName)
+	service.Spec = *svcSpec
+	return service, nil
+}
+
+func makeK8sService(route *v1alpha1.Route, targetName string) *corev1.Service {
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      names.K8sService(route),
+			Name:      domains.SubdomainName(route, targetName),
 			Namespace: route.Namespace,
 			OwnerReferences: []metav1.OwnerReference{
 				// This service is owned by the Route.
 				*kmeta.NewControllerRef(route),
 			},
+			Labels: map[string]string{
+				serving.RouteLabelKey: route.Name,
+			},
 		},
-		Spec: *svcSpec,
-	}, nil
+	}
 }
 
 func makeServiceSpec(ingress *netv1alpha1.ClusterIngress) (*corev1.ServiceSpec, error) {
@@ -88,8 +126,8 @@ func makeServiceSpec(ingress *netv1alpha1.ClusterIngress) (*corev1.ServiceSpec, 
 		return &corev1.ServiceSpec{
 			Type: corev1.ServiceTypeClusterIP,
 			Ports: []corev1.ServicePort{{
-				Name: revisionresources.ServicePortNameHTTP1,
-				Port: revisionresources.ServicePort,
+				Name: networking.ServicePortNameHTTP1,
+				Port: networking.ServiceHTTPPort,
 			}},
 		}, nil
 	case len(balancer.IP) != 0:

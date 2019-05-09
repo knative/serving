@@ -23,7 +23,6 @@ import (
 	"net/http"
 	"sync"
 	"testing"
-	"time"
 
 	pkgTest "github.com/knative/pkg/test"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
@@ -61,17 +60,11 @@ func TestActivatorOverload(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Unable to create resources: %v", err)
 	}
-	domain := resources.Route.Status.Domain
+	domain := resources.Route.Status.URL.Host
 
-	t.Log("Waiting for deployment to scale to zero.")
-	if err := pkgTest.WaitForDeploymentState(
-		clients.KubeClient,
-		rnames.Deployment(resources.Revision),
-		test.DeploymentScaledToZeroFunc,
-		"DeploymentScaledToZero",
-		test.ServingNamespace,
-		3*time.Minute); err != nil {
-		t.Fatalf("Failed waiting for deployment to scale to zero: %v", err)
+	deploymentName := rnames.Deployment(resources.Revision)
+	if err := WaitForScaleToZero(t, deploymentName, clients); err != nil {
+		t.Fatalf("Unable to observe the Deployment named %s scaling down: %v", deploymentName, err)
 	}
 
 	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, t.Logf, domain, test.ServingFlags.ResolvableDomain)

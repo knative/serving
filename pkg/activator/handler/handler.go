@@ -22,44 +22,65 @@ import (
 	"net/url"
 	"time"
 
+	"go.opencensus.io/plugin/ochttp"
+	"go.opencensus.io/trace"
 	"go.uber.org/zap"
 
 	"github.com/knative/pkg/logging/logkey"
 	"github.com/knative/serving/pkg/activator"
 	"github.com/knative/serving/pkg/activator/util"
+	"github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	netlisters "github.com/knative/serving/pkg/client/listers/networking/v1alpha1"
+	servinglisters "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
 	pkghttp "github.com/knative/serving/pkg/http"
 	"github.com/knative/serving/pkg/network"
 	"github.com/knative/serving/pkg/queue"
-	"github.com/knative/serving/pkg/reconciler/revision/resources"
 
-	"go.opencensus.io/plugin/ochttp"
-	"go.opencensus.io/trace"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/wait"
+	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
-// ActivationHandler will wait for an active endpoint for a revision
+// activationHandler will wait for an active endpoint for a revision
 // to be available before proxing the request
-type ActivationHandler struct {
-	Logger    *zap.SugaredLogger
-	Transport http.RoundTripper
-	Reporter  activator.StatsReporter
-	Throttler *activator.Throttler
+type activationHandler struct {
+	logger    *zap.SugaredLogger
+	transport http.RoundTripper
+	reporter  activator.StatsReporter
+	throttler *activator.Throttler
 
-	// GetProbeCount is the number of attempts we should
-	// make to network probe the queue-proxy after the revision becomes
-	// ready before forwarding the payload.  If zero, a network probe
-	// is not required.
-	GetProbeCount int
+	probeCount int
 
-	GetRevision activator.RevisionGetter
-	GetService  activator.ServiceGetter
-	GetSKS      activator.SKSGetter
+	revisionLister servinglisters.RevisionLister
+	serviceLister  corev1listers.ServiceLister
+	sksLister      netlisters.ServerlessServiceLister
 }
 
-func (a *ActivationHandler) probeEndpoint(logger *zap.SugaredLogger, r *http.Request, target *url.URL) (bool, int, int) {
+// This is the number of times we will perform network probes to
+// see if the Revision is accessible before forwarding the actual
+// request.
+const maxRetries = 18
+
+// New constructs a new http.Handler that deals with revision activation.
+func New(l *zap.SugaredLogger, r activator.StatsReporter, t *activator.Throttler,
+	rl servinglisters.RevisionLister, sl corev1listers.ServiceLister,
+	sksL netlisters.ServerlessServiceLister) http.Handler {
+
+	return &activationHandler{
+		logger:         l,
+		transport:      network.AutoTransport,
+		reporter:       r,
+		throttler:      t,
+		revisionLister: rl,
+		sksLister:      sksL,
+		serviceLister:  sl,
+		probeCount:     maxRetries,
+	}
+}
+
+func (a *activationHandler) probeEndpoint(logger *zap.SugaredLogger, r *http.Request, target *url.URL) (bool, int, int) {
 	var (
 		httpStatus int
 		attempts   int
@@ -68,11 +89,11 @@ func (a *ActivationHandler) probeEndpoint(logger *zap.SugaredLogger, r *http.Req
 	reqCtx, probeSpan := trace.StartSpan(r.Context(), "probe")
 	defer func() {
 		probeSpan.End()
-		a.Logger.Infof("Probing %s took %d attempts and %v time", target.String(), attempts, time.Since(st))
+		a.logger.Infof("Probing %s took %d attempts and %v time", target.String(), attempts, time.Since(st))
 	}()
 
 	transport := &ochttp.Transport{
-		Base: a.Transport,
+		Base: a.transport,
 	}
 
 	probeReq := &http.Request{
@@ -81,7 +102,6 @@ func (a *ActivationHandler) probeEndpoint(logger *zap.SugaredLogger, r *http.Req
 		Proto:      r.Proto,
 		ProtoMajor: r.ProtoMajor,
 		ProtoMinor: r.ProtoMinor,
-		Host:       r.Host,
 		Header: map[string][]string{
 			http.CanonicalHeaderKey(network.ProbeHeaderName): {queue.Name},
 		},
@@ -90,7 +110,7 @@ func (a *ActivationHandler) probeEndpoint(logger *zap.SugaredLogger, r *http.Req
 	settings := wait.Backoff{
 		Duration: 100 * time.Millisecond,
 		Factor:   1.3,
-		Steps:    a.GetProbeCount,
+		Steps:    a.probeCount,
 	}
 	err := wait.ExponentialBackoff(settings, func() (bool, error) {
 		attempts++
@@ -118,15 +138,15 @@ func (a *ActivationHandler) probeEndpoint(logger *zap.SugaredLogger, r *http.Req
 	return (err == nil) && httpStatus == http.StatusOK, httpStatus, attempts
 }
 
-func (a *ActivationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (a *activationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	namespace := pkghttp.LastHeaderValue(r.Header, activator.RevisionHeaderNamespace)
 	name := pkghttp.LastHeaderValue(r.Header, activator.RevisionHeaderName)
 	start := time.Now()
 	revID := activator.RevisionID{Namespace: namespace, Name: name}
 
-	logger := a.Logger.With(zap.String(logkey.Key, revID.String()))
+	logger := a.logger.With(zap.String(logkey.Key, revID.String()))
 
-	revision, err := a.GetRevision(revID)
+	revision, err := a.revisionLister.Revisions(namespace).Get(name)
 	if err != nil {
 		logger.Errorw("Error while getting revision", zap.Error(err))
 		sendError(err, w)
@@ -134,7 +154,7 @@ func (a *ActivationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// SKS name matches that of revision.
-	sks, err := a.GetSKS(revID.Namespace, revID.Name)
+	sks, err := a.sksLister.ServerlessServices(namespace).Get(name)
 	if err != nil {
 		logger.Errorw("Error while getting SKS", zap.Error(err))
 		sendError(err, w)
@@ -152,7 +172,7 @@ func (a *ActivationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		Host:   host,
 	}
 
-	err = a.Throttler.Try(revID, func() {
+	err = a.throttler.Try(revID, func() {
 		var (
 			httpStatus int
 			attempts   int
@@ -161,7 +181,7 @@ func (a *ActivationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		// If a GET probe interval has been configured, then probe
 		// the queue-proxy with our network probe header until it
 		// returns a 200 status code.
-		success := a.GetProbeCount == 0
+		success := false
 		if !success {
 			success, _, attempts = a.probeEndpoint(logger, r, target)
 		}
@@ -187,8 +207,8 @@ func (a *ActivationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			serviceName = revision.Labels[serving.ServiceLabelKey]
 		}
 
-		a.Reporter.ReportRequestCount(namespace, serviceName, configurationName, name, httpStatus, attempts, 1.0)
-		a.Reporter.ReportResponseTime(namespace, serviceName, configurationName, name, httpStatus, duration)
+		a.reporter.ReportRequestCount(namespace, serviceName, configurationName, name, httpStatus, attempts, 1.0)
+		a.reporter.ReportResponseTime(namespace, serviceName, configurationName, name, httpStatus, duration)
 	})
 	if err != nil {
 		if err == activator.ErrActivatorOverload {
@@ -200,11 +220,12 @@ func (a *ActivationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (a *ActivationHandler) proxyRequest(w http.ResponseWriter, r *http.Request, target *url.URL) int {
+func (a *activationHandler) proxyRequest(w http.ResponseWriter, r *http.Request, target *url.URL) int {
+	network.RewriteHostIn(r)
 	recorder := pkghttp.NewResponseRecorder(w, http.StatusOK)
 	proxy := httputil.NewSingleHostReverseProxy(target)
 	proxy.Transport = &ochttp.Transport{
-		Base: a.Transport,
+		Base: a.transport,
 	}
 	proxy.FlushInterval = -1
 
@@ -218,17 +239,17 @@ func (a *ActivationHandler) proxyRequest(w http.ResponseWriter, r *http.Request,
 
 // serviceHostName obtains the hostname of the underlying service and the correct
 // port to send requests to.
-func (a *ActivationHandler) serviceHostName(rev *v1alpha1.Revision, serviceName string) (string, error) {
-	svc, err := a.GetService(rev.Namespace, serviceName)
+func (a *activationHandler) serviceHostName(rev *v1alpha1.Revision, serviceName string) (string, error) {
+	svc, err := a.serviceLister.Services(rev.Namespace).Get(serviceName)
 	if err != nil {
 		return "", err
 	}
 
 	// Search for the appropriate port
-	port := int32(-1)
+	port := -1
 	for _, p := range svc.Spec.Ports {
-		if p.Name == resources.ServicePortName(rev) {
-			port = p.Port
+		if p.Name == networking.ServicePortName(rev.GetProtocol()) {
+			port = int(p.Port)
 			break
 		}
 	}

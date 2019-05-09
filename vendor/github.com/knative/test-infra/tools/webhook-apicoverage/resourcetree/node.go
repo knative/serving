@@ -29,19 +29,19 @@ type NodeInterface interface {
 	buildChildNodes(t reflect.Type)
 	updateCoverage(v reflect.Value)
 	buildCoverageData(coverageDataHelper coverageDataHelper)
-	getValues() (map[string]bool)
+	getValues() map[string]bool
 }
 
 // NodeData is the data stored in each node of the resource tree.
 type NodeData struct {
-	Field string // Represents the Name of the field e.g. field name inside the struct.
-	Tree *ResourceTree // Reference back to the resource tree. Required for cross-tree traversal(connected nodes traversal)
-	FieldType reflect.Type // Required as type information is not available during tree traversal.
-	NodePath string // Path in the resource tree reaching this node.
-	Parent NodeInterface // Link back to parent.
-	Children map[string]NodeInterface // Child nodes are keyed using field names(nodeData.field).
-	LeafNode bool // Storing this as an additional field because type-analysis determines the value, which gets used later in value-evaluation
-	Covered bool
+	Field     string                   // Represents the Name of the field e.g. field name inside the struct.
+	Tree      *ResourceTree            // Reference back to the resource tree. Required for cross-tree traversal(connected nodes traversal)
+	FieldType reflect.Type             // Required as type information is not available during tree traversal.
+	NodePath  string                   // Path in the resource tree reaching this node.
+	Parent    NodeInterface            // Link back to parent.
+	Children  map[string]NodeInterface // Child nodes are keyed using field names(nodeData.field).
+	LeafNode  bool                     // Storing this as an additional field because type-analysis determines the value, which gets used later in value-evaluation
+	Covered   bool
 }
 
 func (nd *NodeData) initialize(field string, parent NodeInterface, t reflect.Type, rt *ResourceTree) {

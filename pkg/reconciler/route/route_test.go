@@ -24,6 +24,15 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
+	"golang.org/x/sync/errgroup"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/intstr"
+	kubeinformers "k8s.io/client-go/informers"
+	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
+
 	"github.com/knative/pkg/apis"
 	duckv1beta1 "github.com/knative/pkg/apis/duck/v1beta1"
 	"github.com/knative/pkg/configmap"
@@ -40,14 +49,7 @@ import (
 	"github.com/knative/serving/pkg/network"
 	rclr "github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/route/config"
-	"golang.org/x/sync/errgroup"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/util/intstr"
-	kubeinformers "k8s.io/client-go/informers"
-	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
+	"github.com/knative/serving/pkg/reconciler/route/domains"
 
 	. "github.com/knative/pkg/reconciler/testing"
 )
@@ -95,7 +97,7 @@ func getTestRevisionWithCondition(name string, cond apis.Condition) *v1alpha1.Re
 			},
 		},
 		Status: v1alpha1.RevisionStatus{
-			ServiceName: fmt.Sprintf("%s-pub", name),
+			ServiceName: name,
 			Status: duckv1beta1.Status{
 				Conditions: duckv1beta1.Conditions{cond},
 			},
@@ -136,7 +138,7 @@ func getTestRevisionForConfig(config *v1alpha1.Configuration) *v1alpha1.Revision
 		},
 		Spec: *config.Spec.GetTemplate().Spec.DeepCopy(),
 		Status: v1alpha1.RevisionStatus{
-			ServiceName: "p-deadbeef-pub",
+			ServiceName: "p-deadbeef",
 		},
 	}
 	rev.Status.MarkResourcesAvailable()
@@ -210,6 +212,7 @@ func newTestSetup(t *testing.T, configs ...*corev1.ConfigMap) (
 		servingInformer.Serving().V1alpha1().Revisions(),
 		kubeInformer.Core().V1().Services(),
 		servingInformer.Networking().V1alpha1().ClusterIngresses(),
+		servingInformer.Networking().V1alpha1().Certificates(),
 	)
 
 	reconciler = controller.Reconciler.(*Reconciler)
@@ -240,6 +243,14 @@ func getRouteIngressFromClient(t *testing.T, servingClient *fakeclientset.Client
 	return &cis.Items[0]
 }
 
+func getCertificateFromClient(t *testing.T, servingClient *fakeclientset.Clientset, desired *netv1alpha1.Certificate) *netv1alpha1.Certificate {
+	created, err := servingClient.NetworkingV1alpha1().Certificates(desired.Namespace).Get(desired.Name, metav1.GetOptions{})
+	if err != nil {
+		t.Errorf("Certificates(%s).Get(%s) = %v", desired.Namespace, desired.Name, err)
+	}
+	return created
+}
+
 func addResourcesToInformers(
 	t *testing.T, servingClient *fakeclientset.Clientset,
 	servingInformer informers.SharedInformerFactory, route *v1alpha1.Route) {
@@ -264,7 +275,7 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 	h := NewHooks()
 	// Look for the events. Events are delivered asynchronously so we need to use
 	// hooks here. Each hook tests for a specific event.
-	h.OnCreate(&kubeClient.Fake, "events", ExpectNormalEventDelivery(t, `Created service "test-route"`))
+	h.OnCreate(&kubeClient.Fake, "events", ExpectNormalEventDelivery(t, `Created placeholder service "test-route"`))
 	h.OnCreate(&kubeClient.Fake, "events", ExpectNormalEventDelivery(t, "^Created ClusterIngress.*" /*ingress name is unset in test*/))
 
 	// An inactive revision
@@ -304,6 +315,7 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 	domain := strings.Join([]string{route.Name, route.Namespace, defaultDomainSuffix}, ".")
 	expectedSpec := netv1alpha1.IngressSpec{
 		Visibility: netv1alpha1.IngressVisibilityExternalIP,
+		TLS:        []netv1alpha1.ClusterIngressTLS{},
 		Rules: []netv1alpha1.ClusterIngressRule{{
 			Hosts: []string{
 				domain,
@@ -390,6 +402,7 @@ func TestCreateRouteWithMultipleTargets(t *testing.T) {
 	domain := strings.Join([]string{route.Name, route.Namespace, defaultDomainSuffix}, ".")
 	expectedSpec := netv1alpha1.IngressSpec{
 		Visibility: netv1alpha1.IngressVisibilityExternalIP,
+		TLS:        []netv1alpha1.ClusterIngressTLS{},
 		Rules: []netv1alpha1.ClusterIngressRule{{
 			Hosts: []string{
 				domain,
@@ -473,6 +486,7 @@ func TestCreateRouteWithOneTargetReserve(t *testing.T) {
 	domain := strings.Join([]string{route.Name, route.Namespace, defaultDomainSuffix}, ".")
 	expectedSpec := netv1alpha1.IngressSpec{
 		Visibility: netv1alpha1.IngressVisibilityExternalIP,
+		TLS:        []netv1alpha1.ClusterIngressTLS{},
 		Rules: []netv1alpha1.ClusterIngressRule{{
 			Hosts: []string{
 				domain,
@@ -580,6 +594,7 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 	domain := strings.Join([]string{route.Name, route.Namespace, defaultDomainSuffix}, ".")
 	expectedSpec := netv1alpha1.IngressSpec{
 		Visibility: netv1alpha1.IngressVisibilityExternalIP,
+		TLS:        []netv1alpha1.ClusterIngressTLS{},
 		Rules: []netv1alpha1.ClusterIngressRule{{
 			Hosts: []string{
 				domain,
@@ -590,14 +605,14 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 					Splits: []netv1alpha1.ClusterIngressBackendSplit{{
 						ClusterIngressBackend: netv1alpha1.ClusterIngressBackend{
 							ServiceNamespace: testNamespace,
-							ServiceName:      fmt.Sprintf("%s-pub", cfgrev.Name),
+							ServiceName:      cfgrev.Name,
 							ServicePort:      intstr.FromInt(80),
 						},
 						Percent: 50,
 					}, {
 						ClusterIngressBackend: netv1alpha1.ClusterIngressBackend{
 							ServiceNamespace: testNamespace,
-							ServiceName:      fmt.Sprintf("%s-pub", rev.Name),
+							ServiceName:      rev.Name,
 							ServicePort:      intstr.FromInt(80),
 						},
 						Percent: 50,
@@ -609,13 +624,16 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 				}},
 			},
 		}, {
-			Hosts: []string{"test-revision-1." + domain},
+			Hosts: []string{
+				"test-route-test-revision-1.test.test-domain.dev",
+				"test-revision-1." + domain,
+			},
 			HTTP: &netv1alpha1.HTTPClusterIngressRuleValue{
 				Paths: []netv1alpha1.HTTPClusterIngressPath{{
 					Splits: []netv1alpha1.ClusterIngressBackendSplit{{
 						ClusterIngressBackend: netv1alpha1.ClusterIngressBackend{
 							ServiceNamespace: testNamespace,
-							ServiceName:      "test-rev-pub",
+							ServiceName:      "test-rev",
 							ServicePort:      intstr.FromInt(80),
 						},
 						Percent: 100,
@@ -627,13 +645,16 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 				}},
 			},
 		}, {
-			Hosts: []string{"test-revision-2." + domain},
+			Hosts: []string{
+				"test-route-test-revision-2.test.test-domain.dev",
+				"test-revision-2." + domain,
+			},
 			HTTP: &netv1alpha1.HTTPClusterIngressRuleValue{
 				Paths: []netv1alpha1.HTTPClusterIngressPath{{
 					Splits: []netv1alpha1.ClusterIngressBackendSplit{{
 						ClusterIngressBackend: netv1alpha1.ClusterIngressBackend{
 							ServiceNamespace: testNamespace,
-							ServiceName:      "test-rev-pub",
+							ServiceName:      "test-rev",
 							ServicePort:      intstr.FromInt(80),
 						},
 						Percent: 100,
@@ -700,6 +721,7 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 	domain := strings.Join([]string{route.Name, route.Namespace, defaultDomainSuffix}, ".")
 	expectedSpec := netv1alpha1.IngressSpec{
 		Visibility: netv1alpha1.IngressVisibilityExternalIP,
+		TLS:        []netv1alpha1.ClusterIngressTLS{},
 		Rules: []netv1alpha1.ClusterIngressRule{{
 			Hosts: []string{
 				domain,
@@ -710,14 +732,14 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 					Splits: []netv1alpha1.ClusterIngressBackendSplit{{
 						ClusterIngressBackend: netv1alpha1.ClusterIngressBackend{
 							ServiceNamespace: testNamespace,
-							ServiceName:      fmt.Sprintf("%s-pub", rev.Name),
+							ServiceName:      rev.Name,
 							ServicePort:      intstr.FromInt(80),
 						},
 						Percent: 50,
 					}, {
 						ClusterIngressBackend: netv1alpha1.ClusterIngressBackend{
 							ServiceNamespace: testNamespace,
-							ServiceName:      fmt.Sprintf("%s-pub", cfgrev.Name),
+							ServiceName:      cfgrev.Name,
 							ServicePort:      intstr.FromInt(80),
 						},
 						Percent: 50,
@@ -729,13 +751,16 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 				}},
 			},
 		}, {
-			Hosts: []string{"bar." + domain},
+			Hosts: []string{
+				"test-route-bar.test.test-domain.dev",
+				"bar." + domain,
+			},
 			HTTP: &netv1alpha1.HTTPClusterIngressRuleValue{
 				Paths: []netv1alpha1.HTTPClusterIngressPath{{
 					Splits: []netv1alpha1.ClusterIngressBackendSplit{{
 						ClusterIngressBackend: netv1alpha1.ClusterIngressBackend{
 							ServiceNamespace: testNamespace,
-							ServiceName:      fmt.Sprintf("%s-pub", cfgrev.Name),
+							ServiceName:      cfgrev.Name,
 							ServicePort:      intstr.FromInt(80),
 						},
 						Percent: 100,
@@ -747,13 +772,15 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 				}},
 			},
 		}, {
-			Hosts: []string{"foo." + domain},
+			Hosts: []string{
+				"test-route-foo.test.test-domain.dev",
+				"foo." + domain},
 			HTTP: &netv1alpha1.HTTPClusterIngressRuleValue{
 				Paths: []netv1alpha1.HTTPClusterIngressPath{{
 					Splits: []netv1alpha1.ClusterIngressBackendSplit{{
 						ClusterIngressBackend: netv1alpha1.ClusterIngressBackend{
 							ServiceNamespace: testNamespace,
-							ServiceName:      fmt.Sprintf("%s-pub", rev.Name),
+							ServiceName:      rev.Name,
 							ServicePort:      intstr.FromInt(80),
 						},
 						Percent: 100,
@@ -853,8 +880,8 @@ func TestUpdateDomainConfigMap(t *testing.T) {
 
 			route, _ = routeClient.Get(route.Name, metav1.GetOptions{})
 			expectedDomain := fmt.Sprintf("%s.%s.%s", route.Name, route.Namespace, expectation.expectedDomainSuffix)
-			if route.Status.Domain != expectedDomain {
-				t.Errorf("Expected domain %q but saw %q", expectedDomain, route.Status.Domain)
+			if route.Status.URL.Host != expectedDomain {
+				t.Errorf("Expected domain %q but saw %q", expectedDomain, route.Status.URL.Host)
 			}
 		})
 	}
@@ -937,8 +964,8 @@ func TestGlobalResyncOnUpdateDomainConfigMap(t *testing.T) {
 				t.Logf("route updated: %q", rt.Name)
 
 				expectedDomain := fmt.Sprintf("%s.%s.%s", rt.Name, rt.Namespace, test.expectedDomainSuffix)
-				if rt.Status.Domain != expectedDomain {
-					t.Logf("Expected domain %q but saw %q", expectedDomain, rt.Status.Domain)
+				if rt.Status.URL.Host != expectedDomain {
+					t.Logf("Expected domain %q but saw %q", expectedDomain, rt.Status.URL.Host)
 					return HookIncomplete
 				}
 
@@ -985,7 +1012,7 @@ func TestRouteDomain(t *testing.T) {
 	}
 
 	context := context.Background()
-	cfg := ReconcilerTestConfig()
+	cfg := ReconcilerTestConfig(false)
 	context = config.ToContext(context, cfg)
 
 	tests := []struct {
@@ -1024,7 +1051,7 @@ func TestRouteDomain(t *testing.T) {
 	for _, test := range tests {
 		cfg.Network.DomainTemplate = test.Template
 
-		res, err := routeDomain(context, route)
+		res, err := domains.DomainNameFromTemplate(context, route, route.Name)
 
 		if test.Pass != (err == nil) {
 			t.Fatalf("TestRouteDomain %q test: supposed to fail but didn't",

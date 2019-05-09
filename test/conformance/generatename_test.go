@@ -81,7 +81,7 @@ func canServeRequests(t *testing.T, clients *test.Clients, route *v1alpha1.Route
 		clients.ServingClient,
 		route.Name,
 		func(r *v1alpha1.Route) (bool, error) {
-			domain = r.Status.Domain
+			domain = r.Status.URL.Host
 			return domain != "", nil
 		},
 		"RouteDomain",
@@ -145,7 +145,7 @@ func TestServiceGenerateName(t *testing.T) {
 // the system using metadata.generateName. It ensures that routes and configurations created this way both:
 // 1. Become ready
 // 2. Can serve requests.
-func TestRouteAndConfigurationGenerateName(t *testing.T) {
+func TestRouteAndConfigGenerateName(t *testing.T) {
 	t.Parallel()
 	clients := setup(t)
 

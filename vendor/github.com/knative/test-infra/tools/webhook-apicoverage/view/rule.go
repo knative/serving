@@ -22,6 +22,6 @@ import "github.com/knative/test-infra/tools/webhook-apicoverage/coveragecalculat
 // DisplayHelper methods can use these rules to define how to display results.
 type DisplayRules struct {
 	PackageNameRule func(packageName string) string
-	TypeNameRule func(typeName string) string
-	FieldRule func(coverage *coveragecalculator.FieldCoverage) string
+	TypeNameRule    func(typeName string) string
+	FieldRule       func(coverage *coveragecalculator.FieldCoverage) string
 }

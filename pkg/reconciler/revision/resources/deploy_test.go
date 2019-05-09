@@ -25,12 +25,14 @@ import (
 	"github.com/knative/pkg/ptr"
 	"github.com/knative/pkg/system"
 	_ "github.com/knative/pkg/system/testing"
+	"github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 	"github.com/knative/serving/pkg/autoscaler"
+	"github.com/knative/serving/pkg/deployment"
+	"github.com/knative/serving/pkg/metrics"
 	"github.com/knative/serving/pkg/network"
-	"github.com/knative/serving/pkg/reconciler/revision/config"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -68,7 +70,7 @@ var (
 	defaultQueueContainer = &corev1.Container{
 		Name:           QueueContainerName,
 		Resources:      queueResources,
-		Ports:          queuePorts,
+		Ports:          append(queueNonServingPorts, queueHTTPPort),
 		ReadinessProbe: queueReadinessProbe,
 		Env: []corev1.EnvVar{{
 			Name:  "SERVING_NAMESPACE",
@@ -83,11 +85,8 @@ var (
 			Name:  "SERVING_REVISION",
 			Value: "bar", // matches name
 		}, {
-			Name:  "SERVING_AUTOSCALER",
-			Value: "autoscaler", // no autoscaler configured.
-		}, {
-			Name:  "SERVING_AUTOSCALER_PORT",
-			Value: "8080",
+			Name:  "QUEUE_SERVING_PORT",
+			Value: "8012",
 		}, {
 			Name:  "CONTAINER_CONCURRENCY",
 			Value: "0",
@@ -283,6 +282,19 @@ func withHTTPReadinessProbe(port int) containerOption {
 	})
 }
 
+func withHTTPQPReadinessProbe(c *corev1.Container) {
+	withReadinessProbe(corev1.Handler{
+		HTTPGet: &corev1.HTTPGetAction{
+			Port: intstr.FromInt(networking.BackendHTTPPort),
+			Path: "/",
+			HTTPHeaders: []corev1.HTTPHeader{{
+				Name:  network.KubeletProbeHeaderName,
+				Value: "queue",
+			}},
+		},
+	})(c)
+}
+
 func withExecReadinessProbe(command []string) containerOption {
 	return withReadinessProbe(corev1.Handler{
 		Exec: &corev1.ExecAction{
@@ -320,12 +332,12 @@ func withAppendedVolumes(volumes ...corev1.Volume) podSpecOption {
 	}
 }
 
-func deployment(opts ...deploymentOption) *appsv1.Deployment {
-	deployment := defaultDeployment.DeepCopy()
+func makeDeployment(opts ...deploymentOption) *appsv1.Deployment {
+	deploy := defaultDeployment.DeepCopy()
 	for _, option := range opts {
-		option(deployment)
+		option(deploy)
 	}
-	return deployment
+	return deploy
 }
 
 func revision(opts ...revisionOption) *v1alpha1.Revision {
@@ -363,9 +375,9 @@ func TestMakePodSpec(t *testing.T) {
 		name string
 		rev  *v1alpha1.Revision
 		lc   *logging.Config
-		oc   *config.Observability
+		oc   *metrics.ObservabilityConfig
 		ac   *autoscaler.Config
-		cc   *config.Controller
+		cc   *deployment.Config
 		want *corev1.PodSpec
 	}{{
 		name: "user-defined user port, queue proxy have PORT env",
@@ -378,9 +390,9 @@ func TestMakePodSpec(t *testing.T) {
 			},
 		),
 		lc: &logging.Config{},
-		oc: &config.Observability{},
+		oc: &metrics.ObservabilityConfig{},
 		ac: &autoscaler.Config{},
-		cc: &config.Controller{},
+		cc: &deployment.Config{},
 		want: podSpec([]corev1.Container{
 			userContainer(
 				func(container *corev1.Container) {
@@ -416,9 +428,9 @@ func TestMakePodSpec(t *testing.T) {
 			},
 		),
 		lc: &logging.Config{},
-		oc: &config.Observability{},
+		oc: &metrics.ObservabilityConfig{},
 		ac: &autoscaler.Config{},
-		cc: &config.Controller{},
+		cc: &deployment.Config{},
 		want: podSpec([]corev1.Container{
 			userContainer(
 				func(container *corev1.Container) {
@@ -443,12 +455,12 @@ func TestMakePodSpec(t *testing.T) {
 			},
 		})),
 	}, {
-		name: "simple concurrency=single no owner",
+		name: "concurrency=1 no owner",
 		rev:  revision(withContainerConcurrency(1)),
 		lc:   &logging.Config{},
-		oc:   &config.Observability{},
+		oc:   &metrics.ObservabilityConfig{},
 		ac:   &autoscaler.Config{},
-		cc:   &config.Controller{},
+		cc:   &deployment.Config{},
 		want: podSpec([]corev1.Container{
 			userContainer(),
 			queueContainer(
@@ -456,7 +468,7 @@ func TestMakePodSpec(t *testing.T) {
 			),
 		}),
 	}, {
-		name: "simple concurrency=single no owner digest resolved",
+		name: "concurrency=1 no owner digest resolved",
 		rev: revision(
 			withContainerConcurrency(1),
 			func(revision *v1alpha1.Revision) {
@@ -466,9 +478,9 @@ func TestMakePodSpec(t *testing.T) {
 			},
 		),
 		lc: &logging.Config{},
-		oc: &config.Observability{},
+		oc: &metrics.ObservabilityConfig{},
 		ac: &autoscaler.Config{},
-		cc: &config.Controller{},
+		cc: &deployment.Config{},
 		want: podSpec([]corev1.Container{
 			userContainer(func(container *corev1.Container) {
 				container.Image = "busybox@sha256:deadbeef"
@@ -478,15 +490,15 @@ func TestMakePodSpec(t *testing.T) {
 			),
 		}),
 	}, {
-		name: "simple concurrency=single with owner",
+		name: "concurrency=1 with owner",
 		rev: revision(
 			withContainerConcurrency(1),
 			withOwnerReference("parent-config"),
 		),
 		lc: &logging.Config{},
-		oc: &config.Observability{},
+		oc: &metrics.ObservabilityConfig{},
 		ac: &autoscaler.Config{},
-		cc: &config.Controller{},
+		cc: &deployment.Config{},
 		want: podSpec([]corev1.Container{
 			userContainer(),
 			queueContainer(
@@ -495,26 +507,26 @@ func TestMakePodSpec(t *testing.T) {
 			),
 		}),
 	}, {
-		name: "simple concurrency=multi http readiness probe",
+		name: "with http readiness probe",
 		rev: revision(func(revision *v1alpha1.Revision) {
 			container(revision.Spec.GetContainer(),
 				withHTTPReadinessProbe(v1alpha1.DefaultUserPort),
 			)
 		}),
 		lc: &logging.Config{},
-		oc: &config.Observability{},
+		oc: &metrics.ObservabilityConfig{},
 		ac: &autoscaler.Config{},
-		cc: &config.Controller{},
+		cc: &deployment.Config{},
 		want: podSpec([]corev1.Container{
 			userContainer(
-				withHTTPReadinessProbe(v1alpha1.RequestQueuePort),
+				withHTTPQPReadinessProbe,
 			),
 			queueContainer(
 				withEnvVar("CONTAINER_CONCURRENCY", "0"),
 			),
 		}),
 	}, {
-		name: "concurrency=multi, readinessprobe=shell",
+		name: "with shell readiness probe",
 		rev: revision(func(revision *v1alpha1.Revision) {
 			container(revision.Spec.GetContainer(),
 				withExecReadinessProbe(
@@ -523,9 +535,9 @@ func TestMakePodSpec(t *testing.T) {
 			)
 		}),
 		lc: &logging.Config{},
-		oc: &config.Observability{},
+		oc: &metrics.ObservabilityConfig{},
 		ac: &autoscaler.Config{},
-		cc: &config.Controller{},
+		cc: &deployment.Config{},
 		want: podSpec([]corev1.Container{
 			userContainer(
 				withExecReadinessProbe(
@@ -537,10 +549,10 @@ func TestMakePodSpec(t *testing.T) {
 			),
 		}),
 	}, {
-		name: "concurrency=multi, readinessprobe=http",
+		name: "with http liveness probe",
 		rev: revision(func(revision *v1alpha1.Revision) {
 			container(revision.Spec.GetContainer(),
-				withReadinessProbe(corev1.Handler{
+				withLivenessProbe(corev1.Handler{
 					HTTPGet: &corev1.HTTPGetAction{
 						Path: "/",
 					},
@@ -548,19 +560,28 @@ func TestMakePodSpec(t *testing.T) {
 			)
 		}),
 		lc: &logging.Config{},
-		oc: &config.Observability{},
+		oc: &metrics.ObservabilityConfig{},
 		ac: &autoscaler.Config{},
-		cc: &config.Controller{},
+		cc: &deployment.Config{},
 		want: podSpec([]corev1.Container{
 			userContainer(
-				withHTTPReadinessProbe(v1alpha1.RequestQueuePort),
+				withLivenessProbe(corev1.Handler{
+					HTTPGet: &corev1.HTTPGetAction{
+						Path: "/",
+						Port: intstr.FromInt(networking.BackendHTTPPort),
+						HTTPHeaders: []corev1.HTTPHeader{{
+							Name:  network.KubeletProbeHeaderName,
+							Value: "queue",
+						}},
+					},
+				}),
 			),
 			queueContainer(
 				withEnvVar("CONTAINER_CONCURRENCY", "0"),
 			),
 		}),
 	}, {
-		name: "concurrency=multi, livenessprobe=tcp",
+		name: "with tcp liveness probe",
 		rev: revision(func(revision *v1alpha1.Revision) {
 			container(revision.Spec.GetContainer(),
 				withLivenessProbe(corev1.Handler{
@@ -569,9 +590,9 @@ func TestMakePodSpec(t *testing.T) {
 			)
 		}),
 		lc: &logging.Config{},
-		oc: &config.Observability{},
+		oc: &metrics.ObservabilityConfig{},
 		ac: &autoscaler.Config{},
-		cc: &config.Controller{},
+		cc: &deployment.Config{},
 		want: podSpec([]corev1.Container{
 			userContainer(
 				withLivenessProbe(corev1.Handler{
@@ -588,12 +609,12 @@ func TestMakePodSpec(t *testing.T) {
 		name: "with /var/log collection",
 		rev:  revision(withContainerConcurrency(1)),
 		lc:   &logging.Config{},
-		oc: &config.Observability{
+		oc: &metrics.ObservabilityConfig{
 			EnableVarLogCollection: true,
 			FluentdSidecarImage:    "indiana:jones",
 		},
 		ac: &autoscaler.Config{},
-		cc: &config.Controller{},
+		cc: &deployment.Config{},
 		want: podSpec(
 			[]corev1.Container{
 				userContainer(),
@@ -641,9 +662,9 @@ func TestMakePodSpec(t *testing.T) {
 			},
 		),
 		lc: &logging.Config{},
-		oc: &config.Observability{},
+		oc: &metrics.ObservabilityConfig{},
 		ac: &autoscaler.Config{},
-		cc: &config.Controller{},
+		cc: &deployment.Config{},
 		want: podSpec([]corev1.Container{
 			userContainer(
 				func(container *corev1.Container) {
@@ -715,49 +736,65 @@ func TestMakeDeployment(t *testing.T) {
 		rev  *v1alpha1.Revision
 		lc   *logging.Config
 		nc   *network.Config
-		oc   *config.Observability
+		oc   *metrics.ObservabilityConfig
 		ac   *autoscaler.Config
-		cc   *config.Controller
+		cc   *deployment.Config
 		want *appsv1.Deployment
 	}{{
-		name: "simple concurrency=single no owner",
+		name: "with concurrency=1",
 		rev: revision(
 			withoutLabels,
 			withContainerConcurrency(1),
 		),
 		lc:   &logging.Config{},
 		nc:   &network.Config{},
-		oc:   &config.Observability{},
+		oc:   &metrics.ObservabilityConfig{},
 		ac:   &autoscaler.Config{},
-		cc:   &config.Controller{},
-		want: deployment(),
+		cc:   &deployment.Config{},
+		want: makeDeployment(),
 	}, {
-		name: "simple concurrency=multi with owner",
+		name: "with owner",
 		rev: revision(
 			withoutLabels,
 			withOwnerReference("parent-config"),
 		),
 		lc:   &logging.Config{},
 		nc:   &network.Config{},
-		oc:   &config.Observability{},
+		oc:   &metrics.ObservabilityConfig{},
 		ac:   &autoscaler.Config{},
-		cc:   &config.Controller{},
-		want: deployment(),
+		cc:   &deployment.Config{},
+		want: makeDeployment(),
 	}, {
-		name: "simple concurrency=multi with outbound IP range configured",
+		name: "with outbound IP range configured",
 		rev:  revision(withoutLabels),
 		lc:   &logging.Config{},
 		nc: &network.Config{
 			IstioOutboundIPRanges: "*",
 		},
-		oc: &config.Observability{},
+		oc: &metrics.ObservabilityConfig{},
 		ac: &autoscaler.Config{},
-		cc: &config.Controller{},
-		want: deployment(func(deploy *appsv1.Deployment) {
-			deploy.Spec.Template.ObjectMeta.Annotations["traffic.sidecar.istio.io/includeOutboundIPRanges"] = "*"
+		cc: &deployment.Config{},
+		want: makeDeployment(func(deploy *appsv1.Deployment) {
+			deploy.Spec.Template.ObjectMeta.Annotations[IstioOutboundIPRangeAnnotation] = "*"
 		}),
 	}, {
-		name: "simple concurrency=multi with outbound IP range override",
+		name: "with sidecar annotation override",
+		rev: revision(withoutLabels, func(revision *v1alpha1.Revision) {
+			revision.ObjectMeta.Annotations = map[string]string{
+				sidecarIstioInjectAnnotation: "false",
+			}
+		}),
+		lc: &logging.Config{},
+		nc: &network.Config{},
+		oc: &metrics.ObservabilityConfig{},
+		ac: &autoscaler.Config{},
+		cc: &deployment.Config{},
+		want: makeDeployment(func(deploy *appsv1.Deployment) {
+			deploy.ObjectMeta.Annotations[sidecarIstioInjectAnnotation] = "false"
+			deploy.Spec.Template.ObjectMeta.Annotations[sidecarIstioInjectAnnotation] = "false"
+		}),
+	}, {
+		name: "with outbound IP range override",
 		rev: revision(
 			withoutLabels,
 			func(revision *v1alpha1.Revision) {
@@ -770,12 +807,12 @@ func TestMakeDeployment(t *testing.T) {
 		nc: &network.Config{
 			IstioOutboundIPRanges: "*",
 		},
-		oc: &config.Observability{},
+		oc: &metrics.ObservabilityConfig{},
 		ac: &autoscaler.Config{},
-		cc: &config.Controller{},
-		want: deployment(func(deploy *appsv1.Deployment) {
+		cc: &deployment.Config{},
+		want: makeDeployment(func(deploy *appsv1.Deployment) {
 			deploy.ObjectMeta.Annotations[IstioOutboundIPRangeAnnotation] = "10.4.0.0/14,10.7.240.0/20"
-			deploy.Spec.Template.ObjectMeta.Annotations["traffic.sidecar.istio.io/includeOutboundIPRanges"] = "10.4.0.0/14,10.7.240.0/20"
+			deploy.Spec.Template.ObjectMeta.Annotations[IstioOutboundIPRangeAnnotation] = "10.4.0.0/14,10.7.240.0/20"
 		}),
 	}}
 

@@ -17,6 +17,9 @@ limitations under the License.
 package testing
 
 import (
+	certmanager "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1alpha1"
+	certmanagerv1alpha1 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1alpha1"
+	certmanagerlisters "github.com/jetstack/cert-manager/pkg/client/listers/certmanager/v1alpha1"
 	cachingv1alpha1 "github.com/knative/caching/pkg/apis/caching/v1alpha1"
 	fakecachingclientset "github.com/knative/caching/pkg/client/clientset/versioned/fake"
 	cachinglisters "github.com/knative/caching/pkg/client/listers/caching/v1alpha1"
@@ -54,6 +57,7 @@ var clientSetSchemes = []func(*runtime.Scheme) error{
 	fakesharedclientset.AddToScheme,
 	fakeservingclientset.AddToScheme,
 	fakecachingclientset.AddToScheme,
+	certmanagerv1alpha1.AddToScheme,
 	autoscalingv1.AddToScheme,
 	buildAddToScheme,
 }
@@ -107,6 +111,11 @@ func (l *Listers) GetSharedObjects() []runtime.Object {
 	return l.sorter.ObjectsForSchemeFunc(fakesharedclientset.AddToScheme)
 }
 
+// GetCMCertificateObjects gets a list of Cert-Manager Certificate objects.
+func (l *Listers) GetCMCertificateObjects() []runtime.Object {
+	return l.sorter.ObjectsForSchemeFunc(certmanagerv1alpha1.AddToScheme)
+}
+
 func (l *Listers) GetServiceLister() servinglisters.ServiceLister {
 	return servinglisters.NewServiceLister(l.indexerFor(&v1alpha1.Service{}))
 }
@@ -141,6 +150,11 @@ func (l *Listers) GetClusterIngressLister() networkinglisters.ClusterIngressList
 	return networkinglisters.NewClusterIngressLister(l.indexerFor(&networking.ClusterIngress{}))
 }
 
+// GetCertificateLister get lister for Certificate resource.
+func (l *Listers) GetCertificateLister() networkinglisters.CertificateLister {
+	return networkinglisters.NewCertificateLister(l.indexerFor(&networking.Certificate{}))
+}
+
 func (l *Listers) GetVirtualServiceLister() istiolisters.VirtualServiceLister {
 	return istiolisters.NewVirtualServiceLister(l.indexerFor(&istiov1alpha3.VirtualService{}))
 }
@@ -148,6 +162,16 @@ func (l *Listers) GetVirtualServiceLister() istiolisters.VirtualServiceLister {
 // GetGatewayLister gets lister for Istio Gateway resource.
 func (l *Listers) GetGatewayLister() istiolisters.GatewayLister {
 	return istiolisters.NewGatewayLister(l.indexerFor(&istiov1alpha3.Gateway{}))
+}
+
+// GetKnCertificateLister gets lister for Knative Certificate resource.
+func (l *Listers) GetKnCertificateLister() networkinglisters.CertificateLister {
+	return networkinglisters.NewCertificateLister(l.indexerFor(&networking.Certificate{}))
+}
+
+// GetCMCertificateLister gets lister for Cert Manager Certificate resource.
+func (l *Listers) GetCMCertificateLister() certmanagerlisters.CertificateLister {
+	return certmanagerlisters.NewCertificateLister(l.indexerFor(&certmanager.Certificate{}))
 }
 
 func (l *Listers) GetImageLister() cachinglisters.ImageLister {
@@ -164,6 +188,10 @@ func (l *Listers) GetK8sServiceLister() corev1listers.ServiceLister {
 
 func (l *Listers) GetEndpointsLister() corev1listers.EndpointsLister {
 	return corev1listers.NewEndpointsLister(l.indexerFor(&corev1.Endpoints{}))
+}
+
+func (l *Listers) GetSecretLister() corev1listers.SecretLister {
+	return corev1listers.NewSecretLister(l.indexerFor(&corev1.Secret{}))
 }
 
 func (l *Listers) GetConfigMapLister() corev1listers.ConfigMapLister {

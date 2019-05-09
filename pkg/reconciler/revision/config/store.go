@@ -22,7 +22,9 @@ import (
 	"github.com/knative/pkg/configmap"
 	pkglogging "github.com/knative/pkg/logging"
 	"github.com/knative/serving/pkg/autoscaler"
+	deployment "github.com/knative/serving/pkg/deployment"
 	"github.com/knative/serving/pkg/logging"
+	"github.com/knative/serving/pkg/metrics"
 	"github.com/knative/serving/pkg/network"
 )
 
@@ -30,9 +32,9 @@ type cfgKey struct{}
 
 // +k8s:deepcopy-gen=false
 type Config struct {
-	Controller    *Controller
+	Deployment    *deployment.Config
 	Network       *network.Config
-	Observability *Observability
+	Observability *metrics.ObservabilityConfig
 	Logging       *pkglogging.Config
 	Autoscaler    *autoscaler.Config
 }
@@ -57,11 +59,11 @@ func NewStore(logger configmap.Logger, onAfterStore ...func(name string, value i
 			"revision",
 			logger,
 			configmap.Constructors{
-				ControllerConfigName:      NewControllerConfigFromConfigMap,
-				network.ConfigName:        network.NewConfigFromConfigMap,
-				ObservabilityConfigName:   NewObservabilityFromConfigMap,
-				autoscaler.ConfigName:     autoscaler.NewConfigFromConfigMap,
-				(logging.ConfigMapName()): logging.NewConfigFromConfigMap,
+				deployment.ConfigName:           deployment.NewConfigFromConfigMap,
+				network.ConfigName:              network.NewConfigFromConfigMap,
+				metrics.ObservabilityConfigName: metrics.NewObservabilityConfigFromConfigMap,
+				autoscaler.ConfigName:           autoscaler.NewConfigFromConfigMap,
+				(logging.ConfigMapName()):       logging.NewConfigFromConfigMap,
 			},
 			onAfterStore...,
 		),
@@ -76,9 +78,9 @@ func (s *Store) ToContext(ctx context.Context) context.Context {
 
 func (s *Store) Load() *Config {
 	return &Config{
-		Controller:    s.UntypedLoad(ControllerConfigName).(*Controller).DeepCopy(),
+		Deployment:    s.UntypedLoad(deployment.ConfigName).(*deployment.Config).DeepCopy(),
 		Network:       s.UntypedLoad(network.ConfigName).(*network.Config).DeepCopy(),
-		Observability: s.UntypedLoad(ObservabilityConfigName).(*Observability).DeepCopy(),
+		Observability: s.UntypedLoad(metrics.ObservabilityConfigName).(*metrics.ObservabilityConfig).DeepCopy(),
 		Logging:       s.UntypedLoad((logging.ConfigMapName())).(*pkglogging.Config).DeepCopy(),
 		Autoscaler:    s.UntypedLoad(autoscaler.ConfigName).(*autoscaler.Config).DeepCopy(),
 	}

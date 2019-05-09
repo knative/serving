@@ -23,6 +23,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"github.com/knative/pkg/apis"
 	duckv1beta1 "github.com/knative/pkg/apis/duck/v1beta1"
 	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 )
@@ -41,8 +42,9 @@ func TestRouteConversionBadType(t *testing.T) {
 
 func TestRouteConversion(t *testing.T) {
 	tests := []struct {
-		name string
-		in   *Route
+		name    string
+		in      *Route
+		wantErr bool
 	}{{
 		name: "config name",
 		in: &Route{
@@ -160,21 +162,30 @@ func TestRouteConversion(t *testing.T) {
 							RevisionName: "foo-00001",
 							Percent:      90,
 							Tag:          "current",
-							URL:          "http://current.foo.bar",
+							URL: &apis.URL{
+								Scheme: "http",
+								Host:   "current.foo.bar",
+							},
 						},
 					}, {
 						TrafficTarget: v1beta1.TrafficTarget{
 							RevisionName: "foo-00002",
 							Percent:      10,
 							Tag:          "candidate",
-							URL:          "http://candidate.foo.bar",
+							URL: &apis.URL{
+								Scheme: "http",
+								Host:   "candidate.foo.bar",
+							},
 						},
 					}, {
 						TrafficTarget: v1beta1.TrafficTarget{
 							RevisionName: "foo-00003",
 							Percent:      0,
 							Tag:          "latest",
-							URL:          "http://latest.foo.bar",
+							URL: &apis.URL{
+								Scheme: "http",
+								Host:   "latest.foo.bar",
+							},
 						},
 					}},
 					// TODO(mattmoor): Addressable
@@ -183,6 +194,38 @@ func TestRouteConversion(t *testing.T) {
 				},
 			},
 		},
+	}, {
+		name: "name and tag",
+		in: &Route{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:       "asdf",
+				Namespace:  "blah",
+				Generation: 3,
+			},
+			Spec: RouteSpec{
+				Traffic: []TrafficTarget{{
+					DeprecatedName: "candidate",
+					TrafficTarget: v1beta1.TrafficTarget{
+						RevisionName: "foo-00001",
+						Percent:      100,
+						Tag:          "current",
+					},
+				}},
+			},
+			Status: RouteStatus{
+				Status: duckv1beta1.Status{
+					ObservedGeneration: 3,
+					Conditions: duckv1beta1.Conditions{{
+						Type:   "Ready",
+						Status: "True",
+					}},
+				},
+				RouteStatusFields: RouteStatusFields{
+					Traffic: []TrafficTarget{},
+				},
+			},
+		},
+		wantErr: true,
 	}}
 
 	toDeprecated := func(in *Route) *Route {
@@ -202,7 +245,12 @@ func TestRouteConversion(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			beta := &v1beta1.Route{}
 			if err := test.in.ConvertUp(context.Background(), beta); err != nil {
-				t.Errorf("ConvertUp() = %v", err)
+				if !test.wantErr {
+					t.Errorf("ConvertUp() = %v", err)
+				}
+				return
+			} else if test.wantErr {
+				t.Errorf("ConvertUp() = %#v, wanted error", beta)
 			}
 			got := &Route{}
 			if err := got.ConvertDown(context.Background(), beta); err != nil {
@@ -216,6 +264,9 @@ func TestRouteConversion(t *testing.T) {
 		// A variant of the test that uses `name:`,
 		// but end up with what we have above anyways.
 		t.Run(test.name+" (deprecated)", func(t *testing.T) {
+			if test.wantErr {
+				t.Skip("skipping error rows")
+			}
 			start := toDeprecated(test.in)
 			beta := &v1beta1.Route{}
 			if err := start.ConvertUp(context.Background(), beta); err != nil {

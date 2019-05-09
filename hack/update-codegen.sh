@@ -49,14 +49,17 @@ ${GOPATH}/bin/deepcopy-gen \
   -i github.com/knative/serving/pkg/apis/config \
   -i github.com/knative/serving/pkg/apis/serving/v1beta1 \
   -i github.com/knative/serving/pkg/reconciler/clusteringress/config \
+  -i github.com/knative/serving/pkg/reconciler/certificate/config \
   -i github.com/knative/serving/pkg/reconciler/configuration/config \
   -i github.com/knative/serving/pkg/reconciler/revision/config \
   -i github.com/knative/serving/pkg/reconciler/route/config \
   -i github.com/knative/serving/pkg/tracing/config \
   -i github.com/knative/serving/pkg/activator/config \
   -i github.com/knative/serving/pkg/autoscaler \
+  -i github.com/knative/serving/pkg/deployment \
   -i github.com/knative/serving/pkg/gc \
   -i github.com/knative/serving/pkg/logging \
+  -i github.com/knative/serving/pkg/metrics \
   -i github.com/knative/serving/pkg/network
 
 # Make sure our dependencies are up-to-date

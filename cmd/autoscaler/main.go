@@ -73,18 +73,14 @@ func main() {
 
 	opt := reconciler.NewOptionsOrDie(cfg, logger, stopCh)
 
-	dynConfig := scalerConfig(logger)
-
 	// Watch the logging config map and dynamically update logging levels.
 	opt.ConfigMapWatcher.Watch(logging.ConfigMapName(), logging.UpdateLevelFromConfigMap(logger, atomicLevel, component))
 	// Watch the observability config map and dynamically update metrics exporter.
 	opt.ConfigMapWatcher.Watch(metrics.ObservabilityConfigName, metrics.UpdateExporterFromConfigMap(component, logger))
-	// Watch the autoscaler config map and dynamically update autoscaler config.
-	opt.ConfigMapWatcher.Watch(autoscaler.ConfigName, dynConfig.Update)
 
 	// Set up informer factories.
-	servingInformerFactory := informers.NewSharedInformerFactory(opt.ServingClientSet, time.Second*30)
-	kubeInformerFactory := kubeinformers.NewSharedInformerFactory(opt.KubeClientSet, time.Second*30)
+	servingInformerFactory := informers.NewSharedInformerFactory(opt.ServingClientSet, opt.ResyncPeriod)
+	kubeInformerFactory := kubeinformers.NewSharedInformerFactory(opt.KubeClientSet, opt.ResyncPeriod)
 
 	// Set up informers.
 	paInformer := servingInformerFactory.Autoscaling().V1alpha1().PodAutoscalers()
@@ -93,15 +89,14 @@ func main() {
 	serviceInformer := kubeInformerFactory.Core().V1().Services()
 	hpaInformer := kubeInformerFactory.Autoscaling().V1().HorizontalPodAutoscalers()
 
-	collector := autoscaler.NewMetricCollector(statsScraperFactoryFunc(endpointsInformer.Lister()), statsCh, logger)
+	collector := autoscaler.NewMetricCollector(statsScraperFactoryFunc(endpointsInformer.Lister()), logger)
 
 	// Set up scalers.
 	// uniScalerFactory depends endpointsInformer to be set.
-	multiScaler := autoscaler.NewMultiScaler(dynConfig, stopCh, uniScalerFactoryFunc(endpointsInformer), logger)
-	scaler := kpa.NewScaler(opt)
+	multiScaler := autoscaler.NewMultiScaler(stopCh, uniScalerFactoryFunc(endpointsInformer, collector), logger)
 
 	controllers := []*controller.Impl{
-		kpa.NewController(&opt, paInformer, sksInformer, serviceInformer, endpointsInformer, multiScaler, collector, scaler, dynConfig),
+		kpa.NewController(&opt, paInformer, sksInformer, serviceInformer, endpointsInformer, multiScaler, collector),
 		hpa.NewController(&opt, paInformer, sksInformer, hpaInformer),
 	}
 
@@ -140,7 +135,8 @@ func main() {
 			if !ok {
 				break
 			}
-			multiScaler.RecordStat(sm.Key, sm.Stat)
+			multiScaler.Poke(sm.Key, sm.Stat)
+			collector.Record(sm.Key, sm.Stat)
 		}
 	}()
 
@@ -171,29 +167,17 @@ func setupLogger() (*zap.SugaredLogger, zap.AtomicLevel) {
 	return logging.NewLoggerFromConfig(loggingConfig, component)
 }
 
-func scalerConfig(logger *zap.SugaredLogger) *autoscaler.DynamicConfig {
-	rawConfig, err := configmap.Load("/etc/config-autoscaler")
-	if err != nil {
-		logger.Fatalw("Error reading autoscaler configuration", zap.Error(err))
-	}
-	dynConfig, err := autoscaler.NewDynamicConfigFromMap(rawConfig, logger)
-	if err != nil {
-		logger.Fatalw("Error parsing autoscaler configuration", zap.Error(err))
-	}
-	return dynConfig
-}
-
-func uniScalerFactoryFunc(endpointsInformer corev1informers.EndpointsInformer) func(decider *autoscaler.Decider, dynamicConfig *autoscaler.DynamicConfig) (autoscaler.UniScaler, error) {
-	return func(decider *autoscaler.Decider, dynamicConfig *autoscaler.DynamicConfig) (autoscaler.UniScaler, error) {
-		for _, l := range []string{serving.KubernetesServiceLabelKey, serving.ConfigurationLabelKey} {
-			if v, ok := decider.Labels[l]; !ok || v == "" {
-				return nil, fmt.Errorf("label %q not found or empty in Decider: %v", l, decider)
-			}
+func uniScalerFactoryFunc(endpointsInformer corev1informers.EndpointsInformer, metricClient autoscaler.MetricClient) func(decider *autoscaler.Decider) (autoscaler.UniScaler, error) {
+	return func(decider *autoscaler.Decider) (autoscaler.UniScaler, error) {
+		if v, ok := decider.Labels[serving.ConfigurationLabelKey]; !ok || v == "" {
+			return nil, fmt.Errorf("label %q not found or empty in Decider %s", serving.ConfigurationLabelKey, decider.Name)
+		}
+		if decider.Spec.ServiceName == "" {
+			return nil, fmt.Errorf("%s decider has empty ServiceName", decider.Name)
 		}
 
 		serviceName := decider.Labels[serving.ServiceLabelKey] // This can be empty.
 		configName := decider.Labels[serving.ConfigurationLabelKey]
-		k8SSvcName := decider.Labels[serving.KubernetesServiceLabelKey]
 
 		// Create a stats reporter which tags statistics by PA namespace, configuration name, and PA name.
 		reporter, err := autoscaler.NewStatsReporter(decider.Namespace, serviceName, configName, decider.Name)
@@ -201,9 +185,7 @@ func uniScalerFactoryFunc(endpointsInformer corev1informers.EndpointsInformer) f
 			return nil, err
 		}
 
-		return autoscaler.New(dynamicConfig, decider.Namespace,
-			k8SSvcName, endpointsInformer,
-			decider.Spec, reporter)
+		return autoscaler.New(decider.Namespace, decider.Name, metricClient, endpointsInformer, decider.Spec, reporter)
 	}
 }
 

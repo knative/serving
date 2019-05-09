@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/knative/pkg/apis"
 	"github.com/knative/pkg/apis/duck"
 	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 	duckv1beta1 "github.com/knative/pkg/apis/duck/v1beta1"
@@ -30,11 +31,11 @@ import (
 	netv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1beta1"
+	"github.com/knative/serving/pkg/reconciler/route/domains"
 	routenames "github.com/knative/serving/pkg/reconciler/route/resources/names"
-	"github.com/knative/serving/pkg/reconciler/route/traffic"
 	"github.com/knative/serving/pkg/reconciler/serverlessservice/resources/names"
 	servicenames "github.com/knative/serving/pkg/reconciler/service/resources/names"
-	autoscalingv1 "k8s.io/api/autoscaling/v1"
+	"github.com/knative/serving/pkg/resources"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -108,6 +109,20 @@ var (
 func WithServiceDeletionTimestamp(r *v1alpha1.Service) {
 	t := metav1.NewTime(time.Unix(1e9, 0))
 	r.ObjectMeta.SetDeletionTimestamp(&t)
+}
+
+// WithEnv configures the Service to use the provided environment variables.
+func WithEnv(evs ...corev1.EnvVar) ServiceOption {
+	return func(s *v1alpha1.Service) {
+		s.Spec.Template.Spec.Containers[0].Env = evs
+	}
+}
+
+// WithEnvFrom configures the Service to use the provided environment variables.
+func WithEnvFrom(evs ...corev1.EnvFromSource) ServiceOption {
+	return func(s *v1alpha1.Service) {
+		s.Spec.Template.Spec.Containers[0].EnvFrom = evs
+	}
 }
 
 // WithInlineRollout configures the Service to be "run latest" via inline
@@ -212,6 +227,12 @@ func WithVolume(name, mountPath string, volumeSource corev1.VolumeSource) Servic
 			Name:         name,
 			VolumeSource: volumeSource,
 		}}
+	}
+}
+
+func WithServiceAnnotations(annotations map[string]string) ServiceOption {
+	return func(service *v1alpha1.Service) {
+		service.Annotations = resources.UnionMaps(service.Annotations, annotations)
 	}
 }
 
@@ -346,13 +367,23 @@ func WithReadyRoute(s *v1alpha1.Service) {
 // WithSvcStatusDomain propagates the domain name to the status of the Service.
 func WithSvcStatusDomain(s *v1alpha1.Service) {
 	n, ns := s.GetName(), s.GetNamespace()
-	s.Status.Domain = fmt.Sprintf("%s.%s.example.com", n, ns)
+	s.Status.URL = &apis.URL{
+		Scheme: "http",
+		Host:   fmt.Sprintf("%s.%s.example.com", n, ns),
+	}
+	s.Status.DeprecatedDomain = s.Status.URL.Host
 	s.Status.DeprecatedDomainInternal = fmt.Sprintf("%s.%s.svc.cluster.local", n, ns)
 }
 
 // WithSvcStatusAddress updates the service's status with the address.
 func WithSvcStatusAddress(s *v1alpha1.Service) {
 	s.Status.Address = &duckv1alpha1.Addressable{
+		Addressable: duckv1beta1.Addressable{
+			URL: &apis.URL{
+				Scheme: "http",
+				Host:   fmt.Sprintf("%s.%s.svc.cluster.local", s.Name, s.Namespace),
+			},
+		},
 		Hostname: fmt.Sprintf("%s.%s.svc.cluster.local", s.Name, s.Namespace),
 	}
 }
@@ -363,11 +394,9 @@ func WithSvcStatusTraffic(targets ...v1alpha1.TrafficTarget) ServiceOption {
 		// Automatically inject URL into TrafficTarget status
 		for _, tt := range targets {
 			if tt.DeprecatedName != "" {
-				tt.URL = traffic.TagURL(traffic.HTTPScheme,
-					tt.DeprecatedName, "example.com")
+				tt.URL = domains.URL(domains.HTTPScheme, tt.DeprecatedName+".example.com")
 			} else if tt.Tag != "" {
-				tt.URL = traffic.TagURL(traffic.HTTPScheme,
-					tt.Tag, "example.com")
+				tt.URL = domains.URL(domains.HTTPScheme, tt.Tag+".example.com")
 			}
 		}
 		r.Status.Traffic = targets
@@ -515,7 +544,19 @@ func MarkServiceNotOwned(r *v1alpha1.Route) {
 
 // WithDomain sets the .Status.Domain field to the prototypical domain.
 func WithDomain(r *v1alpha1.Route) {
-	r.Status.Domain = fmt.Sprintf("%s.%s.example.com", r.Name, r.Namespace)
+	r.Status.URL = &apis.URL{
+		Scheme: "http",
+		Host:   fmt.Sprintf("%s.%s.example.com", r.Name, r.Namespace),
+	}
+	r.Status.DeprecatedDomain = r.Status.URL.Host
+}
+
+func WithHTTPSDomain(r *v1alpha1.Route) {
+	r.Status.URL = &apis.URL{
+		Scheme: "https",
+		Host:   fmt.Sprintf("%s.%s.example.com", r.Name, r.Namespace),
+	}
+	r.Status.DeprecatedDomain = r.Status.URL.Host
 }
 
 // WithDomainInternal sets the .Status.DomainInternal field to the prototypical internal domain.
@@ -526,18 +567,32 @@ func WithDomainInternal(r *v1alpha1.Route) {
 // WithAddress sets the .Status.Address field to the prototypical internal hostname.
 func WithAddress(r *v1alpha1.Route) {
 	r.Status.Address = &duckv1alpha1.Addressable{
+		Addressable: duckv1beta1.Addressable{
+			URL: &apis.URL{
+				Scheme: "http",
+				Host:   fmt.Sprintf("%s.%s.svc.cluster.local", r.Name, r.Namespace),
+			},
+		},
 		Hostname: fmt.Sprintf("%s.%s.svc.cluster.local", r.Name, r.Namespace),
 	}
 }
 
 // WithAnotherDomain sets the .Status.Domain field to an atypical domain.
 func WithAnotherDomain(r *v1alpha1.Route) {
-	r.Status.Domain = fmt.Sprintf("%s.%s.another-example.com", r.Name, r.Namespace)
+	r.Status.URL = &apis.URL{
+		Scheme: "http",
+		Host:   fmt.Sprintf("%s.%s.another-example.com", r.Name, r.Namespace),
+	}
+	r.Status.DeprecatedDomain = r.Status.URL.Host
 }
 
 // WithLocalDomain sets the .Status.Domain field to use `svc.cluster.local` suffix.
 func WithLocalDomain(r *v1alpha1.Route) {
-	r.Status.Domain = fmt.Sprintf("%s.%s.svc.cluster.local", r.Name, r.Namespace)
+	r.Status.URL = &apis.URL{
+		Scheme: "http",
+		Host:   fmt.Sprintf("%s.%s.svc.cluster.local", r.Name, r.Namespace),
+	}
+	r.Status.DeprecatedDomain = r.Status.URL.Host
 }
 
 // WithInitRouteConditions initializes the Service's conditions.
@@ -548,6 +603,16 @@ func WithInitRouteConditions(rt *v1alpha1.Route) {
 // MarkTrafficAssigned calls the method of the same name on .Status
 func MarkTrafficAssigned(r *v1alpha1.Route) {
 	r.Status.MarkTrafficAssigned()
+}
+
+// MarkCertificateNotReady calls the method of the same name on .Status
+func MarkCertificateNotReady(r *v1alpha1.Route) {
+	r.Status.MarkCertificateNotReady(routenames.Certificate(r))
+}
+
+// MarkCertificateReady calls the method of the same name on .Status
+func MarkCertificateReady(r *v1alpha1.Route) {
+	r.Status.MarkCertificateReady(routenames.Certificate(r))
 }
 
 // MarkIngressReady propagates a Ready=True ClusterIngress status to the Route.
@@ -1027,6 +1092,13 @@ func WithMetricAnnotation(metric string) PodAutoscalerOption {
 // K8sServiceOption enables further configuration of the Kubernetes Service.
 type K8sServiceOption func(*corev1.Service)
 
+// OverrideServiceName changes the name of the Kubernetes Service.
+func OverrideServiceName(name string) K8sServiceOption {
+	return func(svc *corev1.Service) {
+		svc.Name = name
+	}
+}
+
 // MutateK8sService changes the service in a way that must be reconciled.
 func MutateK8sService(svc *corev1.Service) {
 	// An effective hammer ;-P
@@ -1086,6 +1158,16 @@ func WithFailingContainer(name string, exitCode int, message string) PodOption {
 	}
 }
 
+// ClusterIngressOption enables further configuration of the Cluster Ingress.
+type ClusterIngressOption func(*netv1alpha1.ClusterIngress)
+
+// WithHosts sets the Hosts of the ingress rule specified index
+func WithHosts(index int, hosts ...string) ClusterIngressOption {
+	return func(ingress *netv1alpha1.ClusterIngress) {
+		ingress.Spec.Rules[index].Hosts = hosts
+	}
+}
+
 // SKSOption is a callback type for decorate SKS objects.
 type SKSOption func(sks *netv1alpha1.ServerlessService)
 
@@ -1097,7 +1179,7 @@ func WithPubService(sks *netv1alpha1.ServerlessService) {
 // WithDeployRef annotates SKS with a deployment objectRef
 func WithDeployRef(name string) SKSOption {
 	return func(sks *netv1alpha1.ServerlessService) {
-		sks.Spec.ObjectRef = autoscalingv1.CrossVersionObjectReference{
+		sks.Spec.ObjectRef = corev1.ObjectReference{
 			APIVersion: "apps/v1",
 			Kind:       "Deployment",
 			Name:       name,
@@ -1138,7 +1220,7 @@ func SKS(ns, name string, so ...SKSOption) *netv1alpha1.ServerlessService {
 		Spec: netv1alpha1.ServerlessServiceSpec{
 			Mode:         netv1alpha1.SKSOperationModeServe,
 			ProtocolType: networking.ProtocolHTTP1,
-			ObjectRef: autoscalingv1.CrossVersionObjectReference{
+			ObjectRef: corev1.ObjectReference{
 				APIVersion: "apps/v1",
 				Kind:       "Deployment",
 				Name:       "foo-deployment",

@@ -18,17 +18,15 @@ package testing
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 
 	logtesting "github.com/knative/pkg/logging/testing"
-	autoscalingv1 "k8s.io/api/autoscaling/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	fakedynamicclientset "k8s.io/client-go/dynamic/fake"
 	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
-	"k8s.io/client-go/scale"
-	fakescaleclient "k8s.io/client-go/scale/fake"
 	ktesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/record"
 
@@ -50,35 +48,6 @@ const (
 // Ctor functions create a k8s controller with given params.
 type Ctor func(*Listers, reconciler.Options) controller.Reconciler
 
-// scaleClient returns a Scale fake K8s client, that returns the scale resource
-// defined by the underlying Deployment resource. That deployment resource must
-// exist in the passed in `f` clientset.
-func scaleClient(f *fakekubeclientset.Clientset) scale.ScalesGetter {
-	scaleClient := &fakescaleclient.FakeScaleClient{}
-	scaleClient.PrependReactor("get", "deployments", func(action ktesting.Action) (bool, runtime.Object, error) {
-		ga := action.(ktesting.GetAction)
-		d, err := f.AppsV1().Deployments(ga.GetNamespace()).Get(ga.GetName(), metav1.GetOptions{})
-		if err != nil {
-			return true, nil, err
-		}
-		replicas := int32(1)
-		if d.Spec.Replicas != nil {
-			replicas = *d.Spec.Replicas
-		}
-		return true, &autoscalingv1.Scale{
-			ObjectMeta: d.ObjectMeta,
-			Spec: autoscalingv1.ScaleSpec{
-				Replicas: replicas,
-			},
-			Status: autoscalingv1.ScaleStatus{
-				Replicas: d.Status.Replicas,
-				Selector: labels.FormatLabels(d.Spec.Selector.MatchLabels),
-			},
-		}, nil
-	})
-	return scaleClient
-}
-
 // MakeFactory creates a reconciler factory with fake clients and controller created by `ctor`.
 func MakeFactory(ctor Ctor) Factory {
 	return func(t *testing.T, r *TableRow) (controller.Reconciler, ActionRecorderList, EventList, *FakeStatsReporter) {
@@ -87,8 +56,17 @@ func MakeFactory(ctor Ctor) Factory {
 		kubeClient := fakekubeclientset.NewSimpleClientset(ls.GetKubeObjects()...)
 		sharedClient := fakesharedclientset.NewSimpleClientset(ls.GetSharedObjects()...)
 		client := fakeclientset.NewSimpleClientset(ls.GetServingObjects()...)
+		dynamicClient := fakedynamicclientset.NewSimpleDynamicClient(
+			NewScheme(), ToUnstructured(t, r.Objects)...)
 
-		dynamicClient := fakedynamicclientset.NewSimpleDynamicClient(NewScheme(), r.Objects...)
+		// The dynamic client's support for patching is BS.  Implement it
+		// here via PrependReactor (this can be overridden below by the
+		// provided reactors).
+		dynamicClient.PrependReactor("patch", "*",
+			func(action ktesting.Action) (bool, runtime.Object, error) {
+				return true, nil, nil
+			})
+
 		cachingClient := fakecachingclientset.NewSimpleClientset(ls.GetCachingObjects()...)
 		eventRecorder := record.NewFakeRecorder(maxEventBufferSize)
 		statsReporter := &FakeStatsReporter{}
@@ -103,7 +81,6 @@ func MakeFactory(ctor Ctor) Factory {
 			DynamicClientSet: dynamicClient,
 			CachingClientSet: cachingClient,
 			ServingClientSet: client,
-			ScaleClientSet:   scaleClient(kubeClient),
 			Recorder:         eventRecorder,
 			StatsReporter:    statsReporter,
 			Logger:           logtesting.TestLogger(t),
@@ -132,4 +109,38 @@ func MakeFactory(ctor Ctor) Factory {
 
 		return c, actionRecorderList, eventList, statsReporter
 	}
+}
+
+// ToUnstructured takes a list of k8s resources and converts them to
+// Unstructured objects.
+// We must pass objects as Unstructured to the dynamic client fake, or it
+// won't handle them properly.
+func ToUnstructured(t *testing.T, objs []runtime.Object) (us []runtime.Object) {
+	sch := NewScheme()
+	for _, obj := range objs {
+		obj = obj.DeepCopyObject() // Don't mess with the primary copy
+		// Determine and set the TypeMeta for this object based on our test scheme.
+		gvks, _, err := sch.ObjectKinds(obj)
+		if err != nil {
+			t.Fatalf("Unable to determine kind for type: %v", err)
+		}
+		apiv, k := gvks[0].ToAPIVersionAndKind()
+		ta, err := meta.TypeAccessor(obj)
+		if err != nil {
+			t.Fatalf("Unable to create type accessor: %v", err)
+		}
+		ta.SetAPIVersion(apiv)
+		ta.SetKind(k)
+
+		b, err := json.Marshal(obj)
+		if err != nil {
+			t.Fatalf("Unable to marshal: %v", err)
+		}
+		u := &unstructured.Unstructured{}
+		if err := json.Unmarshal(b, u); err != nil {
+			t.Fatalf("Unable to unmarshal: %v", err)
+		}
+		us = append(us, u)
+	}
+	return
 }

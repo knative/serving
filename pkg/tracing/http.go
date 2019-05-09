@@ -19,26 +19,10 @@ package tracing
 import (
 	"net/http"
 
-	"go.opencensus.io/trace"
+	"go.opencensus.io/plugin/ochttp"
 )
 
-type spanHandler struct {
-	opName string
-	next   http.Handler
-}
-
-// ServeHTTP is an HTTP handler which injects a tracing span using a TracerRefGetter
-func (h *spanHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	ctx, newSpan := trace.StartSpan(r.Context(), h.opName)
-	defer newSpan.End()
-	r = r.WithContext(ctx)
-	h.next.ServeHTTP(w, r)
-}
-
-// HTTPSpanMiddleware is a http.Handler middleware which creats a span and injects a ZipkinTracer in to the request context
-func HTTPSpanMiddleware(opName string, next http.Handler) http.Handler {
-	return &spanHandler{
-		opName: opName,
-		next:   next,
-	}
+// HTTPSpanMiddleware is a http.Handler middleware to create spans for the HTTP endpoint
+func HTTPSpanMiddleware(next http.Handler) http.Handler {
+	return &ochttp.Handler{Handler: next}
 }

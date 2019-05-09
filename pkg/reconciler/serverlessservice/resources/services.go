@@ -28,44 +28,17 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
-const (
-	servicePortNameHTTP1 = "http"
-	servicePortNameH2C   = "http2"
-
-	// ServicePort is the external port of the service
-	servicePort              = int32(80)
-	serviceHTTP2Port         = int32(81)
-	activatorTargetHTTP1Port = 8080
-	activatorTargetHTTP2Port = 8081
-
-	// RequestQueuePortName specifies the port name to use for http requests
-	// in queue-proxy container.
-	requestQueuePortName string = "queue-port"
-)
-
-func pubTargetPort(sks *v1alpha1.ServerlessService, hasBackends bool) intstr.IntOrString {
-	switch {
-	case sks.Spec.Mode == v1alpha1.SKSOperationModeServe && hasBackends:
-		return intstr.FromString(requestQueuePortName)
-	case sks.Spec.Mode == v1alpha1.SKSOperationModeProxy || !hasBackends:
-		if sks.Spec.ProtocolType == networking.ProtocolH2C {
-			return intstr.FromInt(activatorTargetHTTP2Port)
-		}
-		return intstr.FromInt(activatorTargetHTTP1Port)
-	}
-	panic("webhook validation failed")
-}
-
-func pubServicePort(sks *v1alpha1.ServerlessService) int32 {
+// targetPort chooses the target (pod) port for the public and private service.
+func targetPort(sks *v1alpha1.ServerlessService) intstr.IntOrString {
 	if sks.Spec.ProtocolType == networking.ProtocolH2C {
-		return serviceHTTP2Port
+		return intstr.FromInt(networking.BackendHTTP2Port)
 	}
-	return servicePort
+	return intstr.FromInt(networking.BackendHTTPPort)
 }
 
 // MakePublicService constructs a K8s Service that is not backed a selector
 // and will be manually reconciled by the SKS controller.
-func MakePublicService(sks *v1alpha1.ServerlessService, hasBackends bool) *corev1.Service {
+func MakePublicService(sks *v1alpha1.ServerlessService) *corev1.Service {
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      names.PublicService(sks.Name),
@@ -80,10 +53,10 @@ func MakePublicService(sks *v1alpha1.ServerlessService, hasBackends bool) *corev
 		},
 		Spec: corev1.ServiceSpec{
 			Ports: []corev1.ServicePort{{
-				Name:       servicePortName(sks),
+				Name:       networking.ServicePortName(sks.Spec.ProtocolType),
 				Protocol:   corev1.ProtocolTCP,
-				Port:       pubServicePort(sks),
-				TargetPort: pubTargetPort(sks, hasBackends),
+				Port:       int32(networking.ServicePort(sks.Spec.ProtocolType)),
+				TargetPort: targetPort(sks),
 			}},
 		},
 	}
@@ -130,21 +103,15 @@ func MakePrivateService(sks *v1alpha1.ServerlessService, selector map[string]str
 		},
 		Spec: corev1.ServiceSpec{
 			Ports: []corev1.ServicePort{{
-				Name:     servicePortName(sks),
+				Name:     networking.ServicePortName(sks.Spec.ProtocolType),
 				Protocol: corev1.ProtocolTCP,
 				// TODO(vagababov): make this work with matching port.
-				Port:       servicePort,
-				TargetPort: intstr.FromString(requestQueuePortName),
+				Port: networking.ServiceHTTPPort,
+				// This one is matching the public one, since this is the
+				// port queue-proxy listens on.
+				TargetPort: targetPort(sks),
 			}},
 			Selector: selector,
 		},
 	}
-}
-
-// servicePortName returns the well-known port name.
-func servicePortName(sks *v1alpha1.ServerlessService) string {
-	if sks.Spec.ProtocolType == "h2c" {
-		return servicePortNameH2C
-	}
-	return servicePortNameHTTP1
 }

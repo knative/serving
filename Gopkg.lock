@@ -38,21 +38,6 @@
   revision = "c06c82c832edca4eaf7b0241bd655560a1be0346"
 
 [[projects]]
-  digest = "1:94eff9ba92a0bf4938a2ec911c44b58b5c366a94f5f72b2b3c454629781c506f"
-  name = "fortio.org/fortio"
-  packages = [
-    "fhttp",
-    "fnet",
-    "log",
-    "periodic",
-    "stats",
-    "version",
-  ]
-  pruneopts = "NUT"
-  revision = "bf3f2d9ff07ed03ef16be56af20d58dc0300e60f"
-  version = "v1.3.0"
-
-[[projects]]
   digest = "1:042dd95511f495f6e7c0ad6a9398b8c5c77bf940efa6e568cbac9f818401f36a"
   name = "github.com/Azure/azure-sdk-for-go"
   packages = ["arm/containerregistry"]
@@ -382,6 +367,26 @@
   version = "v0.3.6"
 
 [[projects]]
+  digest = "1:8d0e02b1e093711c488f976d5d01b9539209726333ce6588f221fc08fb366f84"
+  name = "github.com/jetstack/cert-manager"
+  packages = [
+    "pkg/apis/certmanager",
+    "pkg/apis/certmanager/v1alpha1",
+    "pkg/client/clientset/versioned",
+    "pkg/client/clientset/versioned/fake",
+    "pkg/client/clientset/versioned/scheme",
+    "pkg/client/clientset/versioned/typed/certmanager/v1alpha1",
+    "pkg/client/clientset/versioned/typed/certmanager/v1alpha1/fake",
+    "pkg/client/informers/externalversions",
+    "pkg/client/informers/externalversions/certmanager",
+    "pkg/client/informers/externalversions/certmanager/v1alpha1",
+    "pkg/client/informers/externalversions/internalinterfaces",
+    "pkg/client/listers/certmanager/v1alpha1",
+  ]
+  pruneopts = "NUT"
+  revision = "45fbfcd16cdd6a6a73c79f26d67ce72a2886c746"
+
+[[projects]]
   digest = "1:1f2aebae7e7c856562355ec0198d8ca2fa222fb05e5b1b66632a1fce39631885"
   name = "github.com/jmespath/go-jmespath"
   packages = ["."]
@@ -434,7 +439,7 @@
   revision = "afa9ee174c6f2072b12dbb4b3bf64be8ec7bc30b"
 
 [[projects]]
-  digest = "1:3fefcc2a7e74ed1c69d0b4850a6319f2010f846ff93464a5ccef5547a7628b6e"
+  digest = "1:93b1eb2a46a4dc70ad8dbabd2b267a750a0a7318c46b2a24bc4438e519cb62fd"
   name = "github.com/knative/pkg"
   packages = [
     "apis",
@@ -491,11 +496,11 @@
     "websocket",
   ]
   pruneopts = "NUT"
-  revision = "6916051a96ae4d87d0e0e557a3c3b887ee4a3cea"
+  revision = "c3f131538a21eebb1ce00a33051f6f0573deb634"
 
 [[projects]]
   branch = "master"
-  digest = "1:6366bd359a44920aeb314c2da668930c289b1ea2b7172d0d5ddfe957f2e36ef9"
+  digest = "1:42be597901bc26c2d414093d43527444691f31dbe2b53565a2de5a0256afb2d0"
   name = "github.com/knative/test-infra"
   packages = [
     "scripts",
@@ -514,7 +519,7 @@
     "tools/webhook-apicoverage/webhook",
   ]
   pruneopts = "UT"
-  revision = "691caf51f2bb9ef86888772a8cc5d7952687b7c6"
+  revision = "bc30454936e210896ec6c91528c040e844b14b39"
 
 [[projects]]
   digest = "1:56dbf15e091bf7926cb33a57cb6bdfc658fc6d3498d2f76f10a97ce7856f1fde"
@@ -949,6 +954,20 @@
   version = "v2.2.1"
 
 [[projects]]
+  digest = "1:ebecaaec2e2f0ae0bdac3ce5697ae8a8e5bb2107ae00fd6acbd8c70b9d8698c2"
+  name = "istio.io/fortio"
+  packages = [
+    "fhttp",
+    "fnet",
+    "log",
+    "periodic",
+    "stats",
+  ]
+  pruneopts = "NUT"
+  revision = "abaacfd56859479cd712c45e70c8f1362be15e5b"
+  version = "v0.6.8"
+
+[[projects]]
   digest = "1:1d34342a53d8f8c625260d6c4c2e5c99442b1635bbf4208f426bd12aa210b870"
   name = "k8s.io/api"
   packages = [
@@ -1045,11 +1064,10 @@
   version = "kubernetes-1.12.6"
 
 [[projects]]
-  digest = "1:4a78a0b5d925cf97f85b20141ce596373a81c019200f730e9bf6feb4009c33e9"
+  digest = "1:54c31536653e43d472dc0a2e586380f032ad9f61a1ea0b8d40e7f8bb2621bb0e"
   name = "k8s.io/client-go"
   packages = [
     "discovery",
-    "discovery/cached",
     "discovery/fake",
     "dynamic",
     "dynamic/fake",
@@ -1198,16 +1216,6 @@
     "plugin/pkg/client/auth/oidc",
     "rest",
     "rest/watch",
-    "restmapper",
-    "scale",
-    "scale/fake",
-    "scale/scheme",
-    "scale/scheme/appsint",
-    "scale/scheme/appsv1beta1",
-    "scale/scheme/appsv1beta2",
-    "scale/scheme/autoscalingv1",
-    "scale/scheme/extensionsint",
-    "scale/scheme/extensionsv1beta1",
     "testing",
     "third_party/forked/golang/template",
     "tools/auth",
@@ -1327,6 +1335,12 @@
     "github.com/google/go-containerregistry/pkg/v1/remote",
     "github.com/google/go-containerregistry/pkg/v1/remote/transport",
     "github.com/gorilla/websocket",
+    "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1alpha1",
+    "github.com/jetstack/cert-manager/pkg/client/clientset/versioned",
+    "github.com/jetstack/cert-manager/pkg/client/clientset/versioned/fake",
+    "github.com/jetstack/cert-manager/pkg/client/informers/externalversions",
+    "github.com/jetstack/cert-manager/pkg/client/informers/externalversions/certmanager/v1alpha1",
+    "github.com/jetstack/cert-manager/pkg/client/listers/certmanager/v1alpha1",
     "github.com/knative/build/pkg/apis/build/v1alpha1",
     "github.com/knative/caching/pkg/apis/caching",
     "github.com/knative/caching/pkg/apis/caching/v1alpha1",
@@ -1418,6 +1432,7 @@
     "k8s.io/apimachinery/pkg/api/resource",
     "k8s.io/apimachinery/pkg/apis/meta/v1",
     "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured",
+    "k8s.io/apimachinery/pkg/fields",
     "k8s.io/apimachinery/pkg/labels",
     "k8s.io/apimachinery/pkg/runtime",
     "k8s.io/apimachinery/pkg/runtime/schema",
@@ -1431,7 +1446,6 @@
     "k8s.io/apimachinery/pkg/util/wait",
     "k8s.io/apimachinery/pkg/watch",
     "k8s.io/client-go/discovery",
-    "k8s.io/client-go/discovery/cached",
     "k8s.io/client-go/discovery/fake",
     "k8s.io/client-go/dynamic",
     "k8s.io/client-go/dynamic/fake",
@@ -1449,9 +1463,6 @@
     "k8s.io/client-go/plugin/pkg/client/auth/gcp",
     "k8s.io/client-go/plugin/pkg/client/auth/oidc",
     "k8s.io/client-go/rest",
-    "k8s.io/client-go/restmapper",
-    "k8s.io/client-go/scale",
-    "k8s.io/client-go/scale/fake",
     "k8s.io/client-go/testing",
     "k8s.io/client-go/tools/cache",
     "k8s.io/client-go/tools/clientcmd",

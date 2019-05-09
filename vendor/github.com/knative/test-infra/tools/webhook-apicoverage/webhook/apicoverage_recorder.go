@@ -31,7 +31,7 @@ import (
 	"github.com/knative/test-infra/tools/webhook-apicoverage/view"
 	"go.uber.org/zap"
 	"k8s.io/api/admission/v1beta1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
@@ -56,17 +56,18 @@ const (
 )
 
 type resourceChannelMsg struct {
-	resourceType schema.GroupVersionKind
+	resourceType     schema.GroupVersionKind
 	rawResourceValue []byte
 }
+
 // APICoverageRecorder type contains resource tree to record API coverage for resources.
 type APICoverageRecorder struct {
-	Logger *zap.SugaredLogger
-	ResourceForest resourcetree.ResourceForest
-	ResourceMap map[schema.GroupVersionKind]webhook.GenericCRD
-	NodeRules resourcetree.NodeRules
-	FieldRules resourcetree.FieldRules
-	DisplayRules view.DisplayRules
+	Logger          *zap.SugaredLogger
+	ResourceForest  resourcetree.ResourceForest
+	ResourceMap     map[schema.GroupVersionKind]webhook.GenericCRD
+	NodeRules       resourcetree.NodeRules
+	FieldRules      resourcetree.FieldRules
+	DisplayRules    view.DisplayRules
 	resourceChannel chan resourceChannelMsg
 }
 
@@ -82,7 +83,7 @@ func (a *APICoverageRecorder) Init() {
 // updateResourceCoverageTree updates the resource coverage tree.
 func (a *APICoverageRecorder) updateResourceCoverageTree() {
 	for {
-		channelMsg := <- a.resourceChannel
+		channelMsg := <-a.resourceChannel
 		if err := json.Unmarshal(channelMsg.rawResourceValue, a.ResourceMap[channelMsg.resourceType]); err != nil {
 			a.Logger.Errorf("Failed unmarshalling review.Request.Object.Raw for type: %s Error: %v", channelMsg.resourceType.Kind, err)
 			continue
@@ -97,7 +98,7 @@ func (a *APICoverageRecorder) updateResourceCoverageTree() {
 func (a *APICoverageRecorder) RecordResourceCoverage(w http.ResponseWriter, r *http.Request) {
 	var (
 		body []byte
-		err error
+		err  error
 	)
 
 	review := &v1beta1.AdmissionReview{}
@@ -113,7 +114,7 @@ func (a *APICoverageRecorder) RecordResourceCoverage(w http.ResponseWriter, r *h
 		return
 	}
 
-	gvk := schema.GroupVersionKind {
+	gvk := schema.GroupVersionKind{
 		Group:   review.Request.Kind.Group,
 		Version: review.Request.Kind.Version,
 		Kind:    review.Request.Kind.Kind,
@@ -126,7 +127,7 @@ func (a *APICoverageRecorder) RecordResourceCoverage(w http.ResponseWriter, r *h
 	}
 
 	a.resourceChannel <- resourceChannelMsg{
-		resourceType: gvk,
+		resourceType:     gvk,
 		rawResourceValue: review.Request.Object.Raw,
 	}
 	a.appendAndWriteAdmissionResponse(review, true, "Welcome Aboard", w)
@@ -178,7 +179,7 @@ func (a *APICoverageRecorder) GetResourceCoverage(w http.ResponseWriter, r *http
 func (a *APICoverageRecorder) GetTotalCoverage(w http.ResponseWriter, r *http.Request) {
 	var (
 		ignoredFields coveragecalculator.IgnoredFields
-		err error
+		err           error
 	)
 
 	ignoredFieldsFilePath := os.Getenv("KO_DATA_PATH") + "/ignoredfields.yaml"

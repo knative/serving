@@ -17,117 +17,88 @@ limitations under the License.
 package activator
 
 import (
-	"errors"
 	"testing"
+	"time"
+
+	"k8s.io/apimachinery/pkg/util/wait"
 
 	"go.uber.org/zap"
 
+	"github.com/knative/pkg/controller"
 	. "github.com/knative/pkg/logging/testing"
 	"github.com/knative/pkg/test/helpers"
+	"github.com/knative/serving/pkg/apis/networking"
 	nv1a1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
+	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1beta1"
+	servingfake "github.com/knative/serving/pkg/client/clientset/versioned/fake"
+	servinginformers "github.com/knative/serving/pkg/client/informers/externalversions"
+	netlisters "github.com/knative/serving/pkg/client/listers/networking/v1alpha1"
+	servinglisters "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
 	"github.com/knative/serving/pkg/queue"
 
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-)
-
-var (
-	revID   = RevisionID{"good-namespace", "good-name"}
-	errTest = errors.New("some error")
+	kubeinformers "k8s.io/client-go/informers"
+	corev1informers "k8s.io/client-go/informers/core/v1"
+	kubefake "k8s.io/client-go/kubernetes/fake"
 )
 
 const (
+	testNamespace         = "good-namespace"
+	testRevision          = "good-name"
 	defaultMaxConcurrency = 1000
 	initCapacity          = 0
 )
 
-func existingRevisionGetter(concurrency v1beta1.RevisionContainerConcurrencyType) func(RevisionID) (*v1alpha1.Revision, error) {
-	return func(RevisionID) (*v1alpha1.Revision, error) {
-		return &v1alpha1.Revision{
-			Spec: v1alpha1.RevisionSpec{
-				RevisionSpec: v1beta1.RevisionSpec{
-					ContainerConcurrency: concurrency,
-				},
-			},
-		}, nil
-	}
-}
-func erroringRevisionGetter(RevisionID) (*v1alpha1.Revision, error) {
-	return nil, errTest
-}
-
-func existingEndpointsGetter(count int) EndpointsCountGetter {
-	return func(*nv1a1.ServerlessService) (int, error) {
-		return count, nil
-	}
-}
-func erroringEndpointsCountGetter(*nv1a1.ServerlessService) (int, error) {
-	return initCapacity, errTest
-}
-
-func sksGetError(string, string) (*nv1a1.ServerlessService, error) {
-	return nil, errTest
-}
-
-func sksGetSuccess(namespace, name string) (*nv1a1.ServerlessService, error) {
-	return &nv1a1.ServerlessService{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: namespace,
-			Name:      name,
-		},
-		Status: nv1a1.ServerlessServiceStatus{
-			// Randomize the test.
-			PrivateServiceName: helpers.AppendRandomString(name),
-			ServiceName:        helpers.AppendRandomString(name),
-		},
-	}, nil
-}
+var (
+	revID = RevisionID{testNamespace, testRevision}
+)
 
 func TestThrottler_UpdateCapacity(t *testing.T) {
 	samples := []struct {
 		label          string
-		revisionGetter RevisionGetter
+		revisionLister servinglisters.RevisionLister
 		numEndpoints   int
 		maxConcurrency int
 		want           int
-		wantError      error
+		wantError      bool
 	}{{
 		label:          "all good",
-		revisionGetter: existingRevisionGetter(10),
+		revisionLister: revisionLister(testNamespace, testRevision, 10),
 		numEndpoints:   1,
 		maxConcurrency: defaultMaxConcurrency,
 		want:           10,
 	}, {
 		label:          "unlimited concurrency",
-		revisionGetter: existingRevisionGetter(0),
+		revisionLister: revisionLister(testNamespace, testRevision, 0),
 		numEndpoints:   1,
 		maxConcurrency: 100,
 		want:           100,
 	}, {
 		label:          "non-existing revision",
-		revisionGetter: erroringRevisionGetter,
+		revisionLister: revisionLister("bogus-namespace", testRevision, 10),
 		numEndpoints:   1,
 		maxConcurrency: defaultMaxConcurrency,
 		want:           0,
-		wantError:      errTest,
+		wantError:      true,
 	}, {
 		label:          "exceeds maxConcurrency",
-		revisionGetter: existingRevisionGetter(10),
+		revisionLister: revisionLister(testNamespace, testRevision, 10),
 		numEndpoints:   1,
 		maxConcurrency: 5,
 		want:           5,
 	}, {
 		label:          "no endpoints",
-		revisionGetter: existingRevisionGetter(1),
+		revisionLister: revisionLister(testNamespace, testRevision, 1),
 		numEndpoints:   0,
 		maxConcurrency: 5,
 		want:           0,
 	}, {
 		label:          "no endpoints, unlimited concurrency",
-		revisionGetter: existingRevisionGetter(0),
+		revisionLister: revisionLister(testNamespace, testRevision, 0),
 		numEndpoints:   0,
 		maxConcurrency: 5,
 		want:           0,
@@ -135,15 +106,22 @@ func TestThrottler_UpdateCapacity(t *testing.T) {
 	for _, s := range samples {
 		t.Run(s.label, func(t *testing.T) {
 			throttler := getThrottler(
-				s.maxConcurrency, s.revisionGetter, nil, /*getEndpoints*/
-				nil /*getSKS*/, TestLogger(t), initCapacity)
+				s.maxConcurrency,
+				s.revisionLister,
+				endpointsInformer(testNamespace, testRevision, 1),
+				nil, /*sksLister*/
+				TestLogger(t),
+				initCapacity)
+
 			err := throttler.UpdateCapacity(revID, s.numEndpoints)
-			if got, want := err, s.wantError; got != want {
-				t.Errorf("Update capacity error = %v, want: %v", got, want)
+			if err == nil && s.wantError {
+				t.Errorf("UpdateCapacity() did not return an error")
+			} else if err != nil && !s.wantError {
+				t.Errorf("UpdateCapacity() = %v, wanted no error", err)
 			}
 			if s.want > 0 {
 				if got := throttler.breakers[revID].Capacity(); got != s.want {
-					t.Errorf("Breaker Capacity = %d, want: %d", got, s.want)
+					t.Errorf("breakers[revID].Capacity() = %d, want %d", got, s.want)
 				}
 			}
 		})
@@ -153,57 +131,64 @@ func TestThrottler_UpdateCapacity(t *testing.T) {
 func TestThrottler_Try(t *testing.T) {
 	defer ClearAll()
 	samples := []struct {
-		label           string
-		addCapacity     bool
-		wantCalls       int
-		wantError       error
-		revisionGetter  RevisionGetter
-		endpointsGetter EndpointsCountGetter
-		sksGetter       SKSGetter
+		label             string
+		addCapacity       bool
+		revisionLister    servinglisters.RevisionLister
+		endpointsInformer corev1informers.EndpointsInformer
+		sksLister         netlisters.ServerlessServiceLister
+		wantCalls         int
+		wantError         bool
 	}{{
-		label:           "all good",
-		addCapacity:     true,
-		wantCalls:       1,
-		revisionGetter:  existingRevisionGetter(10),
-		endpointsGetter: existingEndpointsGetter(0),
-		sksGetter:       sksGetSuccess,
+		label:             "all good",
+		addCapacity:       true,
+		revisionLister:    revisionLister(testNamespace, testRevision, 10),
+		endpointsInformer: endpointsInformer(testNamespace, testRevision, 0),
+		sksLister:         sksLister(testNamespace, testRevision),
+		wantCalls:         1,
 	}, {
-		label:           "non-existing revision",
-		addCapacity:     true,
-		wantCalls:       0,
-		revisionGetter:  erroringRevisionGetter,
-		endpointsGetter: existingEndpointsGetter(0),
-		sksGetter:       sksGetSuccess,
-		wantError:       errTest,
+		label:             "non-existing revision",
+		addCapacity:       true,
+		revisionLister:    revisionLister("bogus-namespace", testRevision, 10),
+		endpointsInformer: endpointsInformer(testNamespace, testRevision, 0),
+		sksLister:         sksLister(testNamespace, testRevision),
+		wantCalls:         0,
+		wantError:         true,
 	}, {
-		label:           "error getting SKS",
-		wantCalls:       0,
-		revisionGetter:  existingRevisionGetter(10),
-		endpointsGetter: existingEndpointsGetter(1),
-		sksGetter:       sksGetError,
-		wantError:       errTest,
+		label:             "error getting SKS",
+		revisionLister:    revisionLister(testNamespace, testRevision, 10),
+		endpointsInformer: endpointsInformer(testNamespace, testRevision, 1),
+		sksLister:         sksLister("bogus-namespace", testRevision),
+		wantCalls:         0,
+		wantError:         true,
 	}, {
-		label:           "error getting endpoint",
-		wantCalls:       0,
-		wantError:       errTest,
-		revisionGetter:  existingRevisionGetter(10),
-		endpointsGetter: erroringEndpointsCountGetter,
-		sksGetter:       sksGetSuccess,
+		label:             "error getting endpoint",
+		revisionLister:    revisionLister(testNamespace, testRevision, 10),
+		endpointsInformer: endpointsInformer("bogus-namespace", testRevision, 0),
+		sksLister:         sksLister(testNamespace, testRevision),
+		wantCalls:         0,
+		wantError:         true,
 	}}
 	for _, s := range samples {
 		t.Run(s.label, func(t *testing.T) {
 			var called int
 			throttler := getThrottler(
-				defaultMaxConcurrency, s.revisionGetter, s.endpointsGetter,
-				s.sksGetter, TestLogger(t), initCapacity)
+				defaultMaxConcurrency,
+				s.revisionLister,
+				s.endpointsInformer,
+				s.sksLister,
+				TestLogger(t),
+				initCapacity)
+
 			if s.addCapacity {
 				throttler.UpdateCapacity(revID, 1)
 			}
 			err := throttler.Try(revID, func() {
 				called++
 			})
-			if got, want := err, s.wantError; got != want {
-				t.Errorf("Update capacity error = %v, want: %v", got, want)
+			if err == nil && s.wantError {
+				t.Errorf("UpdateCapacity() did not return an error")
+			} else if err != nil && !s.wantError {
+				t.Errorf("UpdateCapacity() = %v, wanted no error", err)
 			}
 			if got, want := called, s.wantCalls; got != want {
 				t.Errorf("Unexpected number of function runs in Try = %d, want: %d", got, want)
@@ -216,9 +201,13 @@ func TestThrottler_TryOverload(t *testing.T) {
 	maxConcurrency := 1
 	initialCapacity := 1
 	queueLength := 1
-	th := getThrottler(maxConcurrency, existingRevisionGetter(1),
-		existingEndpointsGetter(1), sksGetSuccess,
-		TestLogger(t), initialCapacity)
+	th := getThrottler(
+		maxConcurrency,
+		revisionLister(testNamespace, testRevision, 1),
+		endpointsInformer(testNamespace, testRevision, 1),
+		sksLister(testNamespace, testRevision),
+		TestLogger(t),
+		initialCapacity)
 
 	doneCh := make(chan struct{})
 	errCh := make(chan error)
@@ -255,111 +244,155 @@ func TestThrottler_TryOverload(t *testing.T) {
 	}
 }
 
-func TestUpdateEndpoints(t *testing.T) {
-	revisionConcurrency := 10
-
-	samples := []struct {
-		label          string
-		endpointsAfter int
-		wantCapacity   int
-		initCapacity   int
-	}{{
-		label:          "add single endpoint",
-		endpointsAfter: 1,
-		wantCapacity:   1 * revisionConcurrency,
-	}, {
-		label:          "add several endpoints",
-		endpointsAfter: 2,
-		wantCapacity:   2 * revisionConcurrency,
-	}, {
-		label:          "do nothing",
-		endpointsAfter: 1,
-		wantCapacity:   1 * revisionConcurrency,
-		initCapacity:   10,
-	}, {
-		label:          "reduce endpoints",
-		endpointsAfter: 0,
-		wantCapacity:   0,
-		initCapacity:   10,
-	}, {
-		label:          "exceed max concurrency",
-		endpointsAfter: 101 * revisionConcurrency,
-		wantCapacity:   defaultMaxConcurrency,
-	}}
-
-	for _, s := range samples {
-		t.Run(s.label, func(t *testing.T) {
-			throttler := getThrottler(
-				defaultMaxConcurrency, existingRevisionGetter(
-					v1beta1.RevisionContainerConcurrencyType(revisionConcurrency)),
-				existingEndpointsGetter(0), sksGetSuccess, TestLogger(t), s.initCapacity)
-			breaker := queue.NewBreaker(throttler.breakerParams)
-			throttler.breakers[revID] = breaker
-			endpointsAfter := corev1.Endpoints{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      helpers.AppendRandomString(revID.Name),
-					Namespace: revID.Namespace,
-				},
-				Subsets: endpointsSubset(s.endpointsAfter, 1),
-			}
-			throttler.UpdateEndpoints(&endpointsAfter)
-			if got := breaker.Capacity(); got != s.wantCapacity {
-				t.Errorf("Breaker capacity = %d, want: %d", got, s.wantCapacity)
-			}
-		})
-	}
-}
-func TestUpdateCapacityFail(t *testing.T) {
-	throttler := getThrottler(
-		defaultMaxConcurrency, erroringRevisionGetter, nil, nil,
-		TestLogger(t), int(1))
-	if got, want := throttler.UpdateCapacity(revID, 42), errTest; got != want {
-		t.Errorf("UpdateCapacity error = %v, want: %v", got, want)
-	}
-}
-
 func TestThrottler_Remove(t *testing.T) {
 	throttler := getThrottler(
-		defaultMaxConcurrency, existingRevisionGetter(10),
-		existingEndpointsGetter(0), sksGetSuccess,
-		TestLogger(t), initCapacity)
-	throttler.breakers[revID] = queue.NewBreaker(throttler.breakerParams)
+		defaultMaxConcurrency,
+		revisionLister(testNamespace, testRevision, 10),
+		endpointsInformer(testNamespace, testRevision, 0),
+		sksLister(testNamespace, testRevision),
+		TestLogger(t),
+		initCapacity)
 
+	throttler.breakers[revID] = queue.NewBreaker(throttler.breakerParams)
 	if got := len(throttler.breakers); got != 1 {
 		t.Errorf("Number of Breakers created = %d, want: 1", got)
 	}
-	throttler.Remove(revID)
 
+	throttler.Remove(revID)
 	if got := len(throttler.breakers); got != 0 {
 		t.Errorf("Number of Breakers created = %d, want: %d", got, 0)
 	}
 }
 
-func TestHelper_DeleteBreaker(t *testing.T) {
-	throttler := getThrottler(
-		int(20), existingRevisionGetter(10),
-		existingEndpointsGetter(0), sksGetSuccess,
-		TestLogger(t), initCapacity)
-	endpoints := &corev1.Endpoints{
+func TestHelper_ReactToEndpoints(t *testing.T) {
+	const updatePollInterval = 10 * time.Millisecond
+	const updatePollTimeout = 3 * time.Second
+
+	ep := &corev1.Endpoints{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      revID.Name + "-suffix",
-			Namespace: revID.Namespace,
+			Name:      testRevision + "-service",
+			Namespace: testNamespace,
+			Labels: map[string]string{
+				serving.RevisionUID:       "test",
+				networking.ServiceTypeKey: string(networking.ServiceTypePrivate),
+			},
 		},
+		Subsets: endpointsSubset(0, 1),
 	}
-	revID := RevisionID{Namespace: revID.Namespace, Name: revID.Name}
-	throttler.breakers[revID] = queue.NewBreaker(throttler.breakerParams)
-	if got := len(throttler.breakers); got != 1 {
-		t.Errorf("Breaker map size got %d, want: 1", got)
+
+	fake := kubefake.NewSimpleClientset()
+	informer := kubeinformers.NewSharedInformerFactory(fake, 0)
+	endpointsInformer := informer.Core().V1().Endpoints()
+
+	stopCh := make(chan struct{})
+	defer close(stopCh)
+	controller.StartInformers(stopCh, endpointsInformer.Informer())
+
+	throttler := getThrottler(
+		200,
+		revisionLister(testNamespace, testRevision, 10),
+		endpointsInformer,
+		sksLister(testNamespace, testRevision),
+		TestLogger(t),
+		initCapacity)
+
+	// Breaker is created with 0 ready addresses.
+	fake.CoreV1().Endpoints(ep.Namespace).Create(ep)
+	wait.PollImmediate(updatePollInterval, updatePollTimeout, func() (bool, error) {
+		return breakerCount(throttler) == 1, nil
+	})
+	if got := breakerCount(throttler); got != 1 {
+		t.Errorf("breakerCount() = %d, want 1", got)
 	}
-	throttler.DeleteBreaker(endpoints)
-	if len(throttler.breakers) != 0 {
-		t.Errorf("Breaker map is not empty, got: %v", throttler.breakers)
+	breaker := throttler.breakers[RevisionID{Name: testRevision, Namespace: testNamespace}]
+	if got := breaker.Capacity(); got != 0 {
+		t.Errorf("Capacity() = %d, want 0", got)
+	}
+
+	// Add 10 addresses, 10 * 10 = 100 = new capacity
+	newEp := ep.DeepCopy()
+	newEp.Subsets = endpointsSubset(10, 1)
+	fake.Core().Endpoints(ep.Namespace).Update(newEp)
+	wait.PollImmediate(updatePollInterval, updatePollTimeout, func() (bool, error) {
+		return breaker.Capacity() == 100, nil
+	})
+	if got := breaker.Capacity(); got != 100 {
+		t.Errorf("Capacity() = %d, want 100", got)
+	}
+
+	// Removing the endpoints causes the breaker to be removed.
+	fake.Core().Endpoints(ep.Namespace).Delete(ep.Name, &metav1.DeleteOptions{})
+	wait.PollImmediate(updatePollInterval, updatePollTimeout, func() (bool, error) {
+		return breakerCount(throttler) == 0, nil
+	})
+	if got := breakerCount(throttler); got != 0 {
+		t.Errorf("breakerCount() = %d, want 0", got)
 	}
 }
 
+func revisionLister(namespace, name string, concurrency v1beta1.RevisionContainerConcurrencyType) servinglisters.RevisionLister {
+	rev := &v1alpha1.Revision{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+		Spec: v1alpha1.RevisionSpec{
+			RevisionSpec: v1beta1.RevisionSpec{
+				ContainerConcurrency: concurrency,
+			},
+		},
+	}
+
+	fake := servingfake.NewSimpleClientset(rev)
+	informer := servinginformers.NewSharedInformerFactory(fake, 0)
+	revisions := informer.Serving().V1alpha1().Revisions()
+	revisions.Informer().GetIndexer().Add(rev)
+
+	return revisions.Lister()
+}
+
+func endpointsInformer(namespace, name string, count int) corev1informers.EndpointsInformer {
+	ep := &corev1.Endpoints{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+		Subsets: endpointsSubset(count, 1),
+	}
+
+	fake := kubefake.NewSimpleClientset(ep)
+	informer := kubeinformers.NewSharedInformerFactory(fake, 0)
+	endpoints := informer.Core().V1().Endpoints()
+	endpoints.Informer().GetIndexer().Add(ep)
+
+	return endpoints
+}
+
+func sksLister(namespace, name string) netlisters.ServerlessServiceLister {
+	sks := &nv1a1.ServerlessService{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: namespace,
+			Name:      name,
+		},
+		Status: nv1a1.ServerlessServiceStatus{
+			PrivateServiceName: name,
+			ServiceName:        helpers.AppendRandomString(name),
+		},
+	}
+
+	fake := servingfake.NewSimpleClientset(sks)
+	informer := servinginformers.NewSharedInformerFactory(fake, 0)
+	skss := informer.Networking().V1alpha1().ServerlessServices()
+	skss.Informer().GetIndexer().Add(sks)
+
+	return skss.Lister()
+}
+
 func getThrottler(
-	maxConcurrency int, revisionGetter RevisionGetter,
-	endpointsGetter EndpointsCountGetter, sksGetter SKSGetter,
+	maxConcurrency int,
+	revisionLister servinglisters.RevisionLister,
+	endpointsInformer corev1informers.EndpointsInformer,
+	sksLister netlisters.ServerlessServiceLister,
 	logger *zap.SugaredLogger,
 	initCapacity int) *Throttler {
 	params := queue.BreakerParams{
@@ -367,14 +400,13 @@ func getThrottler(
 		MaxConcurrency:  maxConcurrency,
 		InitialCapacity: initCapacity,
 	}
-	throttlerParams := ThrottlerParams{
-		BreakerParams: params,
-		Logger:        logger,
-		GetRevision:   revisionGetter,
-		GetEndpoints:  endpointsGetter,
-		GetSKS:        sksGetter,
-	}
-	return NewThrottler(throttlerParams)
+	return NewThrottler(params, endpointsInformer, sksLister, revisionLister, logger)
+}
+
+func breakerCount(t *Throttler) int {
+	t.breakersMux.Lock()
+	defer t.breakersMux.Unlock()
+	return len(t.breakers)
 }
 
 func endpointsSubset(hostsPerSubset, subsets int) []v1.EndpointSubset {

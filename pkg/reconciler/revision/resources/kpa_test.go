@@ -21,7 +21,6 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	autoscalingv1 "k8s.io/api/autoscaling/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -80,12 +79,11 @@ func TestMakeKPA(t *testing.T) {
 			},
 			Spec: kpa.PodAutoscalerSpec{
 				ContainerConcurrency: 1,
-				ScaleTargetRef: autoscalingv1.CrossVersionObjectReference{
+				ScaleTargetRef: corev1.ObjectReference{
 					APIVersion: "apps/v1",
 					Kind:       "Deployment",
 					Name:       "bar-deployment",
 				},
-				ServiceName:  "bar-service",
 				ProtocolType: networking.ProtocolHTTP1,
 			},
 		},
@@ -130,12 +128,11 @@ func TestMakeKPA(t *testing.T) {
 			},
 			Spec: kpa.PodAutoscalerSpec{
 				ContainerConcurrency: 0,
-				ScaleTargetRef: autoscalingv1.CrossVersionObjectReference{
+				ScaleTargetRef: corev1.ObjectReference{
 					APIVersion: "apps/v1",
 					Kind:       "Deployment",
 					Name:       "baz-deployment",
 				},
-				ServiceName:  "baz-service",
 				ProtocolType: networking.ProtocolH2C,
 			}},
 	}}

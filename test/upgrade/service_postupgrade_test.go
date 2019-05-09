@@ -44,7 +44,7 @@ func TestRunLatestServicePostUpgrade(t *testing.T) {
 	names.Config = serviceresourcenames.Configuration(svc)
 	names.Revision = svc.Status.LatestCreatedRevisionName
 
-	routeDomain := svc.Status.Domain
+	routeDomain := svc.Status.URL.Host
 
 	t.Log("Check that we can hit the old service and get the old response.")
 	assertServiceResourcesUpdated(t, clients, names, routeDomain, "1", "What a spaceport!")

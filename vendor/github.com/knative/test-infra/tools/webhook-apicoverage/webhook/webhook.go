@@ -83,7 +83,7 @@ type APICoverageWebhook struct {
 	KubeClient kubernetes.Interface
 }
 
-func (acw *APICoverageWebhook) generateServerConfig() (*tls.Config , error) {
+func (acw *APICoverageWebhook) generateServerConfig() (*tls.Config, error) {
 	serverKey, serverCert, caCert, err := webhook.CreateCerts(context.Background(), acw.ServiceName, acw.Namespace)
 	if err != nil {
 		return nil, fmt.Errorf("Error creating webhook certificates: %v", err)
@@ -97,7 +97,7 @@ func (acw *APICoverageWebhook) generateServerConfig() (*tls.Config , error) {
 	acw.CaCert = caCert
 	return &tls.Config{
 		Certificates: []tls.Certificate{cert},
-		ClientAuth: acw.ClientAuth,
+		ClientAuth:   acw.ClientAuth,
 	}, nil
 }
 
@@ -109,16 +109,16 @@ func (acw *APICoverageWebhook) getWebhookServer(handler http.Handler) (*http.Ser
 	}
 
 	return &http.Server{
-		Handler:	handler,
-		Addr: fmt.Sprintf(":%d", acw.Port),
+		Handler:   handler,
+		Addr:      fmt.Sprintf(":%d", acw.Port),
 		TLSConfig: tlsConfig,
-	},  nil
+	}, nil
 }
 
 func (acw *APICoverageWebhook) registerWebhook(rules []admissionregistrationv1beta1.RuleWithOperations, namespace string) error {
 	webhook := &admissionregistrationv1beta1.ValidatingWebhookConfiguration{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: acw.WebhookName,
+			Name:      acw.WebhookName,
 			Namespace: namespace,
 		},
 		Webhooks: []admissionregistrationv1beta1.Webhook{{
@@ -127,7 +127,7 @@ func (acw *APICoverageWebhook) registerWebhook(rules []admissionregistrationv1be
 			ClientConfig: admissionregistrationv1beta1.WebhookClientConfig{
 				Service: &admissionregistrationv1beta1.ServiceReference{
 					Namespace: namespace,
-					Name: acw.ServiceName,
+					Name:      acw.ServiceName,
 				},
 				CABundle: acw.CaCert,
 			},
@@ -151,7 +151,7 @@ func (acw *APICoverageWebhook) registerWebhook(rules []admissionregistrationv1be
 	return nil
 }
 
-func (acw *APICoverageWebhook) getValidationRules(resources map[schema.GroupVersionKind]webhook.GenericCRD) ([]admissionregistrationv1beta1.RuleWithOperations) {
+func (acw *APICoverageWebhook) getValidationRules(resources map[schema.GroupVersionKind]webhook.GenericCRD) []admissionregistrationv1beta1.RuleWithOperations {
 	var rules []admissionregistrationv1beta1.RuleWithOperations
 	for gvk := range resources {
 		plural := strings.ToLower(inflect.Pluralize(gvk.Kind))
@@ -232,15 +232,15 @@ func BuildWebhookConfiguration(componentCommonName string, webhookName string, n
 	}
 
 	return &APICoverageWebhook{
-		Logger: logger,
-		KubeClient: kubeClient,
-		FailurePolicy: admissionregistrationv1beta1.Fail,
-		ClientAuth: tls.NoClientCert,
+		Logger:            logger,
+		KubeClient:        kubeClient,
+		FailurePolicy:     admissionregistrationv1beta1.Fail,
+		ClientAuth:        tls.NoClientCert,
 		RegistrationDelay: time.Second * 2,
-		Port: 443,
-		Namespace: namespace,
-		DeploymentName: componentCommonName,
-		ServiceName: componentCommonName,
-		WebhookName: webhookName,
+		Port:              443,
+		Namespace:         namespace,
+		DeploymentName:    componentCommonName,
+		ServiceName:       componentCommonName,
+		WebhookName:       webhookName,
 	}
 }

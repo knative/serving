@@ -135,16 +135,40 @@ kubectl create clusterrolebinding cluster-admin-binding \
 ### Deploy Istio
 
 ```shell
-kubectl apply -f ./third_party/istio-1.1.2/istio-crds.yaml
-while [ $(kubectl get crd gateways.networking.istio.io -o jsonpath='{.status.conditions[?(@.type=="Established")].status}') != 'True' ]; do
+kubectl apply -f ./third_party/istio-1.1-latest/istio-crds.yaml
+while [[ $(kubectl get crd gateways.networking.istio.io -o jsonpath='{.status.conditions[?(@.type=="Established")].status}') != 'True' ]]; do
   echo "Waiting on Istio CRDs"; sleep 1
 done
-kubectl apply -f ./third_party/istio-1.1.2/istio.yaml
+kubectl apply -f ./third_party/istio-1.1-latest/istio.yaml
 ```
 
 Follow the
 [instructions](https://www.knative.dev/docs/serving/gke-assigning-static-ip-address/)
 if you need to set up static IP for Ingresses in the cluster.
+
+### Deploy cert-manager
+
+1. Deploy `cert-manager` CRDs
+
+   ```shell
+   kubectl apply -f ./third_party/cert-manager-0.6.1/cert-manager-crds.yaml
+   while [[ $(kubectl get crd certificates.certmanager.k8s.io -o jsonpath='{.status.conditions[?(@.type=="Established")].status}') != 'True' ]]; do
+     echo "Waiting on Cert-Manager CRDs"; sleep 1
+   done
+   ```
+
+1. Deploy `cert-manager`
+
+   **Note**: The auto TLS feature has not been landed in Knative. At this point,
+   you can skip this step.
+
+   If you want to use the feature of automatically provisioning TLS for Knative
+   services, you need to install the full cert-manager.
+
+   ```shell
+   # For kubernetes version 1.13 or above, --validate=false is not needed.
+   kubectl apply -f ./third_party/cert-manager-0.6.1/cert-manager.yaml --validate=false
+   ```
 
 ### Deploy Knative Serving
 
@@ -158,6 +182,22 @@ revisions. Alternatively, if you are developing on GKE, you can skip the editing
 and use the patching tool in `hack/dev-patch-config-gke.sh` after deploying
 knative.
 
+Edited `config-network.yaml` example:
+
+```yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: config-network
+  namespace: knative-serving
+  labels:
+    serving.knative.dev/release: devel
+
+data:
+  istio.sidecar.includeOutboundIPRanges: "172.30.0.0/16,172.20.0.0/16,10.10.10.0/24"
+  clusteringress.class: "istio.ingress.networking.knative.dev"
+```
+
 Next, run:
 
 ```shell
@@ -166,7 +206,12 @@ ko apply -f config/
 # Optional steps
 
 # Configure outbound network for GKE.
-PROJECT_ID="my-gcp-project-id" ./hack/dev-patch-config-gke.sh my-k8s-cluster-name
+export PROJECT_ID="my-gcp-project-id"
+# Set K8S_CLUSTER_ZONE if using a zonal cluster
+export K8S_CLUSTER_ZONE="my-cluster-zone"
+# Set K8S_CLUSTER_REGION if using a regional cluster
+export K8S_CLUSTER_REGION="my-cluster-region"
+./hack/dev-patch-config-gke.sh my-k8s-cluster-name
 
 # Run post-install job to setup nice XIP.IO domain name.  This only works
 # if your Kubernetes LoadBalancer has an IP address.
@@ -256,8 +301,9 @@ ko delete --ignore-not-found=true \
   -f config/monitoring/100-namespace.yaml \
   -f config/ \
   -f ./third_party/config/build/release.yaml \
-  -f ./third_party/istio-1.1.2/istio.yaml \
-  -f ./third_party/istio-1.1.2/istio-crds.yaml
+  -f ./third_party/istio-1.1-latest/istio.yaml \
+  -f ./third_party/istio-1.1-latest/istio-crds.yaml
+  -f ./third_party/cert-manager-0.6.1/cert-manager-crds.yaml
 ```
 
 ## Telemetry

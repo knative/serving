@@ -20,7 +20,6 @@ package performance
 
 import (
 	"fmt"
-	"net/http"
 	"strings"
 	"testing"
 	"time"
@@ -98,7 +97,7 @@ func scaleRevisionByLoad(t *testing.T, numClients int) []junit.TestCase {
 		t.Fatalf("Failed to create Service: %v", err)
 	}
 
-	domain := objs.Route.Status.Domain
+	domain := objs.Route.Status.URL.Host
 	endpoint, err := ingress.GetIngressEndpoint(clients.KubeClient.Kube)
 	if err != nil {
 		t.Fatalf("Cannot get service endpoint: %v", err)
@@ -156,6 +155,7 @@ func scaleRevisionByLoad(t *testing.T, numClients int) []junit.TestCase {
 		BaseQPS:        qpsPerClient * float64(numClients),
 		URL:            fmt.Sprintf("http://%s/?timeout=%d", *endpoint, processingTimeMillis),
 		LoadFactors:    []float64{1},
+		FileNamePrefix: strings.Replace(t.Name(), "/", "_", -1),
 	}
 
 	t.Logf("Starting test with %d clients at %s", numClients, time.Now())
@@ -168,14 +168,14 @@ func scaleRevisionByLoad(t *testing.T, numClients int) []junit.TestCase {
 	close(scaleCh)
 
 	// Save the json result for benchmarking
-	resp.SaveJSON(strings.Replace(t.Name(), "/", "_", -1))
+	resp.SaveJSON()
 
 	tc := make([]junit.TestCase, 0)
 
 	tc = append(tc, CreatePerfTestCase(float32(resp.Result[0].DurationHistogram.Count), "requestCount", t.Name()))
 	tc = append(tc, CreatePerfTestCase(float32(qpsPerClient*numClients), "requestedQPS", t.Name()))
 	tc = append(tc, CreatePerfTestCase(float32(resp.Result[0].ActualQPS), "actualQPS", t.Name()))
-	tc = append(tc, CreatePerfTestCase(float32(errorsPercentage(resp)), "errorsPercentage", t.Name()))
+	tc = append(tc, CreatePerfTestCase(float32(ErrorsPercentage(resp)), "errorsPercentage", t.Name()))
 
 	for ev := range scaleCh {
 		t.Logf("Scaled: %d -> %d in %v", ev.oldScale, ev.newScale, ev.timestamp.Sub(resp.Result[0].StartTime))
@@ -189,16 +189,4 @@ func scaleRevisionByLoad(t *testing.T, numClients int) []junit.TestCase {
 	}
 
 	return tc
-}
-
-func errorsPercentage(resp *loadgenerator.GeneratorResults) float64 {
-	var successes, errors int64
-	for retCode, count := range resp.Result[0].RetCodes {
-		if retCode == http.StatusOK {
-			successes = successes + count
-		} else {
-			errors = errors + count
-		}
-	}
-	return float64(errors*100) / float64(errors+successes)
 }
