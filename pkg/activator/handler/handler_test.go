@@ -3,7 +3,9 @@ Copyright 2018 The Knative Authors
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
+
     http://www.apache.org/licenses/LICENSE-2.0
+
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -39,6 +41,7 @@ import (
 	netlisters "github.com/knative/serving/pkg/client/listers/networking/v1alpha1"
 	servinglisters "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
 	"github.com/knative/serving/pkg/network"
+	"github.com/knative/serving/pkg/network/prober"
 	"github.com/knative/serving/pkg/queue"
 
 	corev1 "k8s.io/api/core/v1"
@@ -56,7 +59,7 @@ const (
 	testRevNameOther = "other-name"
 )
 
-func TestactivationHandler(t *testing.T) {
+func TestActivationHandler(t *testing.T) {
 	defer ClearAll()
 
 	tests := []struct {
@@ -69,7 +72,7 @@ func TestactivationHandler(t *testing.T) {
 		probeErr          error
 		probeCode         int
 		probeResp         []string
-		gpc               int
+		probeTimeout      time.Duration
 		endpointsInformer corev1informers.EndpointsInformer
 		sksLister         netlisters.ServerlessServiceLister
 		svcLister         corev1listers.ServiceLister
@@ -99,7 +102,7 @@ func TestactivationHandler(t *testing.T) {
 			Config:     "config-real-name",
 			StatusCode: http.StatusOK,
 		}},
-		gpc: 1,
+		probeTimeout: 100 * time.Millisecond,
 	}, {
 		label:             "slowly active endpoint",
 		namespace:         testNamespace,
@@ -126,7 +129,7 @@ func TestactivationHandler(t *testing.T) {
 			Config:     "config-real-name",
 			StatusCode: http.StatusOK,
 		}},
-		gpc: 2,
+		probeTimeout: 201 * time.Millisecond,
 	}, {
 		label:             "active endpoint with missing count header",
 		namespace:         testNamespace,
@@ -142,7 +145,7 @@ func TestactivationHandler(t *testing.T) {
 			Service:    "service-real-name",
 			Config:     "config-real-name",
 			StatusCode: http.StatusOK,
-			Attempts:   1,
+			Attempts:   2, // one probe call, one proxy call.
 			Value:      1,
 		}, {
 			Op:         "ReportResponseTime",
@@ -168,7 +171,7 @@ func TestactivationHandler(t *testing.T) {
 		probeErr:          errors.New("probe error"),
 		wantCode:          http.StatusInternalServerError,
 		endpointsInformer: endpointsInformer(endpoints(testNamespace, testRevName, 1000)),
-		gpc:               1,
+		probeTimeout:      1 * time.Millisecond,
 		reporterCalls: []reporterCall{{
 			Op:         "ReportRequestCount",
 			Namespace:  testNamespace,
@@ -176,7 +179,7 @@ func TestactivationHandler(t *testing.T) {
 			Service:    "service-real-name",
 			Config:     "config-real-name",
 			StatusCode: http.StatusInternalServerError,
-			Attempts:   1,
+			Attempts:   2, // On failed probe we'll always try twice.
 			Value:      1,
 		}, {
 			Op:         "ReportResponseTime",
@@ -193,7 +196,7 @@ func TestactivationHandler(t *testing.T) {
 		probeCode:         http.StatusServiceUnavailable,
 		wantCode:          http.StatusInternalServerError,
 		endpointsInformer: endpointsInformer(endpoints(testNamespace, testRevName, 1000)),
-		gpc:               1,
+		probeTimeout:      10 * time.Millisecond,
 		reporterCalls: []reporterCall{{
 			Op:         "ReportRequestCount",
 			Namespace:  testNamespace,
@@ -201,7 +204,7 @@ func TestactivationHandler(t *testing.T) {
 			Service:    "service-real-name",
 			Config:     "config-real-name",
 			StatusCode: http.StatusInternalServerError,
-			Attempts:   1,
+			Attempts:   2,
 			Value:      1,
 		}, {
 			Op:         "ReportResponseTime",
@@ -226,7 +229,7 @@ func TestactivationHandler(t *testing.T) {
 			Service:    "service-real-name",
 			Config:     "config-real-name",
 			StatusCode: http.StatusBadGateway,
-			Attempts:   1,
+			Attempts:   2, // probe + actual request.
 			Value:      1,
 		}, {
 			Op:         "ReportResponseTime",
@@ -235,31 +238,6 @@ func TestactivationHandler(t *testing.T) {
 			Service:    "service-real-name",
 			Config:     "config-real-name",
 			StatusCode: http.StatusBadGateway,
-		}},
-	}, {
-		label:             "invalid number of attempts",
-		namespace:         testNamespace,
-		name:              testRevName,
-		wantBody:          "everything good!",
-		wantCode:          http.StatusOK,
-		wantErr:           nil,
-		endpointsInformer: endpointsInformer(endpoints(testNamespace, testRevName, 1000)),
-		reporterCalls: []reporterCall{{
-			Op:         "ReportRequestCount",
-			Namespace:  testNamespace,
-			Revision:   testRevName,
-			Service:    "service-real-name",
-			Config:     "config-real-name",
-			StatusCode: http.StatusOK,
-			Attempts:   1,
-			Value:      1,
-		}, {
-			Op:         "ReportResponseTime",
-			Namespace:  testNamespace,
-			Revision:   testRevName,
-			Service:    "service-real-name",
-			Config:     "config-real-name",
-			StatusCode: http.StatusOK,
 		}},
 	}, {
 		label:             "broken get SKS",
@@ -304,6 +282,9 @@ func TestactivationHandler(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.label, func(t *testing.T) {
+			defer func() {
+				prober.TransportFactory = network.NewAutoTransport
+			}()
 			rt := network.RoundTripperFunc(func(r *http.Request) (*http.Response, error) {
 				if r.Header.Get(network.ProbeHeaderName) != "" {
 					if test.probeErr != nil {
@@ -357,16 +338,19 @@ func TestactivationHandler(t *testing.T) {
 				revisionLister(revision(testNamespace, testRevName)),
 				TestLogger(t))
 
-			handler := activationHandler{
-				transport:      rt,
-				logger:         TestLogger(t),
-				reporter:       reporter,
-				throttler:      throttler,
-				probeCount:     test.gpc,
-				revisionLister: revisionLister(revision(testNamespace, testRevName)),
-				serviceLister:  serviceLister(service(testNamespace, testRevName, "http")),
-				sksLister:      sksLister(sks(testNamespace, testRevName)),
+			handler := (New(TestLogger(t), reporter, throttler,
+				revisionLister(revision(testNamespace, testRevName)),
+				serviceLister(service(testNamespace, testRevName, "http")),
+				sksLister(sks(testNamespace, testRevName)),
+			)).(*activationHandler)
+			handler.probeTimeout = test.probeTimeout
+
+			// Setup transports.
+			handler.transport = rt
+			prober.TransportFactory = func() http.RoundTripper {
+				return rt
 			}
+
 			if test.sksLister != nil {
 				handler.sksLister = test.sksLister
 			}
@@ -397,7 +381,6 @@ func TestactivationHandler(t *testing.T) {
 			}
 		})
 	}
-
 }
 
 // Make sure we return http internal server error when the Breaker is overflowed

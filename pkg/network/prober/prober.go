@@ -33,13 +33,19 @@ import (
 // TransportFactory creates new transport.
 var TransportFactory = network.NewAutoTransport
 
+// ProbeOption is a way for caller to modify the HTTP request before it goes out.
+type ProbeOption func(r *http.Request) *http.Request
+
 // Do sends a single probe to given target, e.g. `http://revision.default.svc.cluster.local:81`.
 // headerValue is the value for the `k-network-probe` header.
 // Do returns whether the probe was successful or not, or there was an error probing.
-func Do(ctx context.Context, target, headerValue string) (bool, error) {
+func Do(ctx context.Context, target, headerValue string, pos ...ProbeOption) (bool, error) {
 	req, err := http.NewRequest(http.MethodGet, target, nil)
 	if err != nil {
 		return false, errors.Wrapf(err, "%s is not a valid URL", target)
+	}
+	for _, po := range pos {
+		req = po(req)
 	}
 
 	req.Header.Set(http.CanonicalHeaderKey(network.ProbeHeaderName), headerValue)
