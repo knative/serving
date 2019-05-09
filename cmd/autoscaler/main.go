@@ -35,8 +35,11 @@ import (
 	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/autoscaling/hpa"
 	"github.com/knative/serving/pkg/reconciler/autoscaling/kpa"
+	basecmd "github.com/kubernetes-incubator/custom-metrics-apiserver/pkg/cmd"
+	"github.com/spf13/pflag"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
+
 	kubeinformers "k8s.io/client-go/informers"
 	corev1informers "k8s.io/client-go/informers/core/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
@@ -55,7 +58,10 @@ var (
 )
 
 func main() {
-	flag.Parse()
+	// Initialize early to get access to flags and merge them with the autoscaler flags.
+	customMetricsAdapter := &basecmd.AdapterBase{}
+	customMetricsAdapter.Flags().AddGoFlagSet(flag.CommandLine)
+	pflag.Parse()
 
 	logger, atomicLevel := setupLogger()
 	defer flush(logger)
@@ -90,6 +96,7 @@ func main() {
 	hpaInformer := kubeInformerFactory.Autoscaling().V1().HorizontalPodAutoscalers()
 
 	collector := autoscaler.NewMetricCollector(statsScraperFactoryFunc(endpointsInformer.Lister()), logger)
+	customMetricsAdapter.WithCustomMetrics(autoscaler.NewMetricProvider(collector))
 
 	// Set up scalers.
 	// uniScalerFactory depends endpointsInformer to be set.
@@ -125,6 +132,10 @@ func main() {
 
 	// Run the controllers and the statserver in a group.
 	var eg errgroup.Group
+	eg.Go(func() error {
+		return customMetricsAdapter.Run(stopCh)
+	})
+
 	eg.Go(func() error {
 		return statsServer.ListenAndServe()
 	})
