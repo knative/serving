@@ -49,6 +49,7 @@ import (
 	"github.com/knative/serving/pkg/network"
 	rclr "github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/route/config"
+	"github.com/knative/serving/pkg/reconciler/route/domains"
 
 	. "github.com/knative/pkg/reconciler/testing"
 )
@@ -1050,7 +1051,7 @@ func TestRouteDomain(t *testing.T) {
 	for _, test := range tests {
 		cfg.Network.DomainTemplate = test.Template
 
-		res, err := routeDomain(context, route)
+		res, err := domains.DomainNameFromTemplate(context, route, route.Name)
 
 		if test.Pass != (err == nil) {
 			t.Fatalf("TestRouteDomain %q test: supposed to fail but didn't",
