@@ -44,7 +44,7 @@ func createPatch(cur, desired interface{}) ([]byte, error) {
 
 func validateCreatedServiceStatus(clients *Clients, names *ResourceNames) error {
 	return CheckServiceState(clients.ServingClient, names.Service, func(s *v1alpha1.Service) (bool, error) {
-		if s.Status.URL.Host == "" {
+		if s.Status.URL == nil || s.Status.URL.Host == "" {
 			return false, fmt.Errorf("url is not present in Service status: %v", s)
 		}
 		names.Domain = s.Status.URL.Host

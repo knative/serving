@@ -16,25 +16,33 @@ limitations under the License.
 
 package conformance
 
+import (
+	"strconv"
+)
+
+const mustEnvCustomPort = 8800
+
 //runtime_constract_types.go defines types that encapsulate run-time contract requirements as specified here: https://github.com/knative/serving/blob/master/docs/runtime-contract.md
 
-// ShouldEnvvars defines the environment variables that "SHOULD" be set.
-type ShouldEnvvars struct {
-	Service       string `json:"K_SERVICE"`
-	Configuration string `json:"K_CONFIGURATION"`
-	Revision      string `json:"K_REVISION"`
+// ShouldEnvVars defines environment variables that "SHOULD" be set.
+// To match these values with test service parameters,
+// map values must represent corresponding test.ResourceNames fields
+var ShouldEnvVars = map[string]string{
+	"K_SERVICE":       "Service",
+	"K_CONFIGURATION": "Config",
+	"K_REVISION":      "Revision",
 }
 
-// MustEnvvars defines environment variables that "MUST" be set.
-type MustEnvvars struct {
-	Port string `json:"PORT"`
+// MustEnvVars defines environment variables that "MUST" be set.
+var MustEnvVars = map[string]string{
+	"PORT": strconv.Itoa(mustEnvCustomPort),
 }
 
 // FilePathInfo data object returned by the environment test-image.
 type FilePathInfo struct {
-	FilePath    string `json:"FilePath"`
-	IsDirectory bool   `json:"IsDirectory"`
-	PermString  string `json:"PermString"`
+	FilePath    string
+	IsDirectory bool
+	PermString  string
 }
 
 // MustFilePathSpecs specifies the file-paths and expected permissions that MUST be set as specified in the runtime contract.
