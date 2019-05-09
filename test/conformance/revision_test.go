@@ -276,6 +276,7 @@ func TestRevisionReplicaUpdate(t *testing.T) {
 	t.Parallel()
 	clients := setup(t)
 
+	expectReplica := 2
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
 		Image:   helloworld,
@@ -299,17 +300,18 @@ func TestRevisionReplicaUpdate(t *testing.T) {
 	}
 	names.Revision = revisionName
 	t.Log("Adding the Service to use a different revision minScale")
-	err = updateRevisionWithMinScale(clients, names, 2)
+	err = updateRevisionWithMinScale(clients, names, expectReplica)
 	if err != nil {
-		t.Fatalf("Patch add for Revision %s with new minScale 1 failed: %v", names.Revision, err)
+		t.Fatalf("Patch update for Revision %s with new minScale %d failed: %v", names.Revision, expectReplica, err)
 	}
 
 	deploymentName := revisionresourcenames.Deployment(&v1alpha1.Revision{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: names.Revision,
 		}})
-	t.Logf("Waiting for deployment %q to be expected replica", deploymentName)
-	if err := test.WaitForDeploymentReplica(clients.KubeClient, svc.Namespace, deploymentName, 2, test.IsDeploymentExpectReplica, "DeploymentExpectReplica"); err != nil {
-		t.Fatalf("The Deployment %q still don't be modified to the expected replica", deploymentName)
+	t.Logf("Waiting for deployment %q to be expected replica %d", deploymentName, expectReplica)
+	if err := test.WaitForDeploymentReplica(clients.KubeClient, svc.Namespace, deploymentName, int32(expectReplica),
+		test.IsDeploymentHasReplicas, "DeploymentHasReplicas"); err != nil {
+		t.Fatalf("The Deployment %q still don't be updated to the expected replica %d", deploymentName, expectReplica)
 	}
 }

@@ -80,7 +80,7 @@ func TODO_ServiceTrafficToRevisionWithInClusterDNS(s *v1alpha1.Service) (bool, e
 	return true, nil
 }
 
-func IsDeploymentExpectReplica(d *v1.Deployment, expectReplica int32) (bool, error) {
+func IsDeploymentHasReplicas(d *v1.Deployment, expectReplica int32) (bool, error) {
 	if d.Spec.Replicas == nil {
 		return false, fmt.Errorf("expected deployment %s to have replica", d.Name)
 	}

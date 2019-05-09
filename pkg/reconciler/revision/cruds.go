@@ -20,6 +20,8 @@ import (
 	"context"
 	"fmt"
 
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"k8s.io/apimachinery/pkg/api/equality"
 
 	"github.com/knative/pkg/kmp"
@@ -125,36 +127,34 @@ func (c *Reconciler) checkAndUpdateKPA(ctx context.Context, rev *v1alpha1.Revisi
 	desiredKPA.Annotations = presources.UnionMaps(desiredKPA.Annotations, rawDesiredKPA.Annotations)
 	desiredKPA.Labels = presources.UnionMaps(desiredKPA.Labels, rawDesiredKPA.Labels)
 
-	haveUpdateContent := updateContent{
-		Annotations: have.Annotations,
-		Labels:      have.Labels,
-		Spec:        have.Spec,
+	haveUpdateContent := &kpav1alpha1.PodAutoscaler{
+		ObjectMeta: v1.ObjectMeta{
+			Annotations: have.Annotations,
+			Labels:      have.Labels,
+		},
+		Spec: have.Spec,
 	}
 
-	desiredUpdateContent := updateContent{
-		Annotations: desiredKPA.Annotations,
-		Labels:      desiredKPA.Labels,
-		Spec:        desiredKPA.Spec,
+	desiredUpdateContent := &kpav1alpha1.PodAutoscaler{
+		ObjectMeta: v1.ObjectMeta{
+			Annotations: desiredKPA.Annotations,
+			Labels:      desiredKPA.Labels,
+		},
+		Spec: desiredKPA.Spec,
 	}
 
 	diff, err := kmp.SafeDiff(desiredUpdateContent, haveUpdateContent)
 	if err != nil {
-		return nil, unchanged, fmt.Errorf("failed to diff kpa: %v", err)
+		return nil, unchanged, fmt.Errorf("Failed to diff KPA: %v", err)
 	}
-	if len(diff) == 0 {
+	if diff == "" {
 		return have, unchanged, nil
 	}
 
-	logger.Infof("Reconciling kpa diff (-desired, +observed): %v", diff)
+	logger.Infof("Reconciling KPA diff (-desired, +observed): %v", diff)
 	d, err := c.ServingClientSet.AutoscalingV1alpha1().PodAutoscalers(have.Namespace).Update(desiredKPA)
 	if err != nil {
 		return nil, unchanged, err
 	}
 	return d, wasChanged, err
-}
-
-type updateContent struct {
-	Annotations map[string]string
-	Labels      map[string]string
-	Spec        interface{}
 }
