@@ -67,8 +67,8 @@ func updateServiceWithTimeout(clients *test.Clients, names test.ResourceNames, r
 func updateRevisionWithMinScale(clients *test.Clients, names test.ResourceNames, minScale int) error {
 	patches := []jsonpatch.JsonPatchOperation{{
 		Operation: "replace",
-		Path:      "/metadata/annotations/autoscaling.knative.dev~1minScale",
-		Value:     strconv.Itoa(minScale),
+		Path:      "/metadata/annotations",
+		Value:     map[string]string{"autoscaling.knative.dev/minScale": strconv.Itoa(minScale)},
 	}}
 	patchBytes, err := json.Marshal(patches)
 	if err != nil {
@@ -298,10 +298,10 @@ func TestRevisionReplicaUpdate(t *testing.T) {
 		t.Fatalf("Service %s was not updated with the new revision: %v", names.Service, err)
 	}
 	names.Revision = revisionName
-	t.Log("Updating the Service to use a different revision timeout")
+	t.Log("Adding the Service to use a different revision minScale")
 	err = updateRevisionWithMinScale(clients, names, 2)
 	if err != nil {
-		t.Fatalf("Patch update for Revision %s with new minScale 2 failed: %v", names.Revision, err)
+		t.Fatalf("Patch add for Revision %s with new minScale 1 failed: %v", names.Revision, err)
 	}
 
 	t.Log("When the Service reports as Ready, everything should be ready")
@@ -319,6 +319,6 @@ func TestRevisionReplicaUpdate(t *testing.T) {
 		t.Fatal("Get Revision replicas failed", err)
 	}
 	if *cnt != 2 {
-		t.Fatal("Update Revision replicas by annotation failed")
+		t.Fatalf("Update Revision replicas by annotation failed: got replica: %d, expect replica: 2", *cnt)
 	}
 }
