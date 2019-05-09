@@ -147,7 +147,9 @@ Follow the
 if you need to set up static IP for Ingresses in the cluster.
 
 ### Deploy cert-manager
+
 1. Deploy `cert-manager` CRDs
+
    ```shell
    kubectl apply -f ./third_party/cert-manager-0.6.1/cert-manager-crds.yaml
    while [[ $(kubectl get crd certificates.certmanager.k8s.io -o jsonpath='{.status.conditions[?(@.type=="Established")].status}') != 'True' ]]; do
@@ -157,10 +159,12 @@ if you need to set up static IP for Ingresses in the cluster.
 
 1. Deploy `cert-manager`
 
-   **Note**: The auto TLS feature has not been landed in Knative. At this point, you can skip this step.
+   **Note**: The auto TLS feature has not been landed in Knative. At this point,
+   you can skip this step.
 
-   If you want to use the feature of automatically provisioning TLS for Knative services, you need to install
-   the full cert-manager.
+   If you want to use the feature of automatically provisioning TLS for Knative
+   services, you need to install the full cert-manager.
+
    ```shell
    # For kubernetes version 1.13 or above, --validate=false is not needed.
    kubectl apply -f ./third_party/cert-manager-0.6.1/cert-manager.yaml --validate=false
