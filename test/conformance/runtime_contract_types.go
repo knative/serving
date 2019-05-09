@@ -18,9 +18,9 @@ package conformance
 
 import (
 	"strconv"
-
-	"github.com/knative/serving/test"
 )
+
+const mustEnvCustomPort = 8800
 
 //runtime_constract_types.go defines types that encapsulate run-time contract requirements as specified here: https://github.com/knative/serving/blob/master/docs/runtime-contract.md
 
@@ -35,7 +35,7 @@ var ShouldEnvVars = map[string]string{
 
 // MustEnvVars defines environment variables that "MUST" be set.
 var MustEnvVars = map[string]string{
-	"PORT": strconv.Itoa(test.RuntimeImageServerPort),
+	"PORT": strconv.Itoa(mustEnvCustomPort),
 }
 
 // FilePathInfo data object returned by the environment test-image.

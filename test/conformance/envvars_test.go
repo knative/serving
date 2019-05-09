@@ -53,7 +53,7 @@ func TestMustEnvVars(t *testing.T) {
 	clients := setup(t)
 	_, ri, err := fetchRuntimeInfo(t, clients, &test.Options{
 		ContainerPorts: []corev1.ContainerPort{
-			{ContainerPort: int32(test.RuntimeImageServerPort)},
+			{ContainerPort: int32(mustEnvCustomPort)},
 		},
 	})
 	if err != nil {
