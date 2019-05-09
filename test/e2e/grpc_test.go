@@ -37,17 +37,18 @@ import (
 
 type grpcTest func(*testing.T, *test.ResourceObjects, *test.Clients, string, string)
 
-// getPort gets port from a URL
-func getPort(u string) (int, error) {
+// hasPort checks if a URL contains a port number
+func hasPort(u string) bool {
 	parts := strings.Split(u, ":")
-	return strconv.Atoi(parts[len(parts)-1])
+	_, err := strconv.Atoi(parts[len(parts)-1])
+	return err == nil
 }
 
 func dial(host, domain string) (*grpc.ClientConn, error) {
-	if _, err := getPort(host); err != nil {
+	if !hasPort(host) {
 		host = host + ":80"
 	}
-	if _, err := getPort(domain); err != nil {
+	if !hasPort(domain) {
 		domain = domain + ":80"
 	}
 

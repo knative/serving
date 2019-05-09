@@ -71,8 +71,7 @@ func validateWebSocketConnection(t *testing.T, clients *test.Clients, names test
 	var err error
 	gatewayIP := &pkgTest.Flags.IngressEndpoint
 	if pkgTest.Flags.IngressEndpoint == "" {
-		gatewayIP, err = ingress.GetIngressEndpoint(clients.KubeClient.Kube)
-		if err != nil {
+		if gatewayIP, err = ingress.GetIngressEndpoint(clients.KubeClient.Kube); err != nil {
 			return err
 		}
 	}
