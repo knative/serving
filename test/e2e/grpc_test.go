@@ -21,6 +21,8 @@ package e2e
 import (
 	"context"
 	"io"
+	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -35,13 +37,27 @@ import (
 
 type grpcTest func(*testing.T, *test.ResourceObjects, *test.Clients, string, string)
 
+// hasPort checks if a URL contains a port number
+func hasPort(u string) bool {
+	parts := strings.Split(u, ":")
+	_, err := strconv.Atoi(parts[len(parts)-1])
+	return err == nil
+}
+
 func dial(host, domain string) (*grpc.ClientConn, error) {
+	if !hasPort(host) {
+		host = host + ":80"
+	}
+	if !hasPort(domain) {
+		domain = domain + ":80"
+	}
+
 	if host != domain {
 		// The host to connect and the domain accepted differ.
 		// We need to do grpc.WithAuthority(...) here.
 		return grpc.Dial(
-			host+":80",
-			grpc.WithAuthority(domain+":80"),
+			host,
+			grpc.WithAuthority(domain),
 			grpc.WithInsecure(),
 			// Retrying DNS errors to avoid .xip.io issues.
 			grpc.WithDefaultCallOptions(grpc.FailFast(false)),
@@ -49,7 +65,7 @@ func dial(host, domain string) (*grpc.ClientConn, error) {
 	}
 	// This is a more preferred usage of the go-grpc client.
 	return grpc.Dial(
-		host+":80",
+		host,
 		grpc.WithInsecure(),
 		// Retrying DNS errors to avoid .xip.io issues.
 		grpc.WithDefaultCallOptions(grpc.FailFast(false)),
@@ -169,9 +185,12 @@ func testGRPC(t *testing.T, f grpcTest) {
 
 	host := &domain
 	if !test.ServingFlags.ResolvableDomain {
-		host, err = ingress.GetIngressEndpoint(clients.KubeClient.Kube)
-		if err != nil {
-			t.Fatalf("Could not get service endpoint: %v", err)
+		host = &pkgTest.Flags.IngressEndpoint
+		if pkgTest.Flags.IngressEndpoint == "" {
+			host, err = ingress.GetIngressEndpoint(clients.KubeClient.Kube)
+			if err != nil {
+				t.Fatalf("Could not get service endpoint: %v", err)
+			}
 		}
 	}
 

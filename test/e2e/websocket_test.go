@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+	pkgTest "github.com/knative/pkg/test"
 	ingress "github.com/knative/pkg/test/ingress"
 	rnames "github.com/knative/serving/pkg/reconciler/revision/resources/names"
 	"github.com/knative/serving/test"
@@ -67,9 +68,12 @@ func connect(t *testing.T, ingressIP string, domain string) (*websocket.Conn, er
 }
 
 func validateWebSocketConnection(t *testing.T, clients *test.Clients, names test.ResourceNames) error {
-	gatewayIP, err := ingress.GetIngressEndpoint(clients.KubeClient.Kube)
-	if err != nil {
-		return err
+	var err error
+	gatewayIP := &pkgTest.Flags.IngressEndpoint
+	if pkgTest.Flags.IngressEndpoint == "" {
+		if gatewayIP, err = ingress.GetIngressEndpoint(clients.KubeClient.Kube); err != nil {
+			return err
+		}
 	}
 
 	// Establish the websocket connection.
