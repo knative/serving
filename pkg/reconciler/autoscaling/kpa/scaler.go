@@ -65,11 +65,11 @@ type scaler struct {
 
 	// For async probes.
 	probeManager asyncProber
-	enqueueCB    func(*pav1alpha1.PodAutoscaler, time.Duration)
+	enqueueCB    func(interface{}, time.Duration)
 }
 
 // newScaler creates a scaler.
-func newScaler(opt *reconciler.Options, enqueueCB func(*pav1alpha1.PodAutoscaler, time.Duration)) *scaler {
+func newScaler(opt *reconciler.Options, enqueueCB func(interface{}, time.Duration)) *scaler {
 	ks := &scaler{
 		// Wrap it in a cache, so that we don't stamp out a new
 		// informer/lister each time.
@@ -82,10 +82,9 @@ func newScaler(opt *reconciler.Options, enqueueCB func(*pav1alpha1.PodAutoscaler
 		// Production setup uses the default probe implementation.
 		activatorProbe: activatorProbe,
 		probeManager: prober.New(func(arg interface{}, success bool, err error) {
-			pa := arg.(*pav1alpha1.PodAutoscaler)
-			opt.Logger.Infof("Async prober is done for key %s: success?: %v error: %v", pa, success, err)
+			opt.Logger.Infof("Async prober is done for %v: success?: %v error: %v", arg, success, err)
 			// Re-enqeue the PA in any case. If the probe timed out to retry again, if succeeded to scale to 0.
-			enqueueCB(pa, reenqeuePeriod)
+			enqueueCB(arg, reenqeuePeriod)
 		}),
 		enqueueCB: enqueueCB,
 	}

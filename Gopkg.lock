@@ -367,7 +367,7 @@
   version = "v0.3.6"
 
 [[projects]]
-  digest = "1:c6ef9d1125bf02aa8798c31798ebedd87c99646799ec063d8560d5321e739898"
+  digest = "1:8d0e02b1e093711c488f976d5d01b9539209726333ce6588f221fc08fb366f84"
   name = "github.com/jetstack/cert-manager"
   packages = [
     "pkg/apis/certmanager",
@@ -383,7 +383,7 @@
     "pkg/client/informers/externalversions/internalinterfaces",
     "pkg/client/listers/certmanager/v1alpha1",
   ]
-  pruneopts = "T"
+  pruneopts = "NUT"
   revision = "45fbfcd16cdd6a6a73c79f26d67ce72a2886c746"
 
 [[projects]]
@@ -439,7 +439,7 @@
   revision = "afa9ee174c6f2072b12dbb4b3bf64be8ec7bc30b"
 
 [[projects]]
-  digest = "1:abee4e916b6e44784c20dfc09f8421ae43f54865a9883181090c7469a114f1e2"
+  digest = "1:93b1eb2a46a4dc70ad8dbabd2b267a750a0a7318c46b2a24bc4438e519cb62fd"
   name = "github.com/knative/pkg"
   packages = [
     "apis",
@@ -496,7 +496,7 @@
     "websocket",
   ]
   pruneopts = "NUT"
-  revision = "868008d0f8ddc4ad8c211e78bb75da81ada14daf"
+  revision = "c3f131538a21eebb1ce00a33051f6f0573deb634"
 
 [[projects]]
   branch = "master"
