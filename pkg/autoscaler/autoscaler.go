@@ -87,7 +87,9 @@ func (a *Autoscaler) Update(deciderSpec DeciderSpec) error {
 }
 
 // Scale calculates the desired scale based on current statistics given the current time.
-func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (int32, bool) {
+// desiredPodCount is the calculated pod count the autoscaler would like to set.
+// validScale signifies whether the desiredPodCount should be applied or not.
+func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (desiredPodCount int32, validScale bool) {
 	logger := logging.FromContext(ctx)
 
 	spec := a.currentSpec()
@@ -141,7 +143,6 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (int32, bool) {
 		a.reporter.ReportPanic(0)
 	}
 
-	var desiredPodCount int32
 	if a.panicTime != nil {
 		logger.Debug("Operating in panic mode.")
 		// We do not scale down while in panic mode. Only increases will be applied.

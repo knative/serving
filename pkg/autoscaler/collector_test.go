@@ -182,8 +182,8 @@ func TestMetricCollectorRecord(t *testing.T) {
 
 	// After adding a stat the concurrencies are calculated correctly.
 	coll.Record(metricKey, stat)
-	if stable, panic, _ := coll.StableAndPanicConcurrency(metricKey); stable != panic && stable != want {
-		t.Errorf("StableAndPanicConcurrency() = %v, %v; want %v (for both)", stable, panic, want)
+	if stable, panic, err := coll.StableAndPanicConcurrency(metricKey); stable != panic && stable != want && err != nil {
+		t.Errorf("StableAndPanicConcurrency() = %v, %v, %v; want %v, %v, nil", stable, panic, err, want, want)
 	}
 }
 
