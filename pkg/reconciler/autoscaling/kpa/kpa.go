@@ -19,7 +19,6 @@ import (
 	"context"
 	"fmt"
 	"reflect"
-	"time"
 
 	perrors "github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -132,9 +131,7 @@ func NewController(
 		metrics:         metrics,
 	}
 	impl := controller.NewImpl(c, c.Logger, "KPA-Class Autoscaling", reconciler.MustNewStatsReporter("KPA-Class Autoscaling", c.Logger))
-	c.scaler = newScaler(opts, func(pa *pav1alpha1.PodAutoscaler, after time.Duration) {
-		impl.EnqueueAfter(pa, after)
-	})
+	c.scaler = newScaler(opts, impl.EnqueueAfter)
 
 	c.Logger.Info("Setting up KPA-Class event handlers")
 	// Handle PodAutoscalers missing the class annotation for backward compatibility.
