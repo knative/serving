@@ -19,6 +19,8 @@ package test
 import (
 	"fmt"
 
+	v1 "k8s.io/api/apps/v1"
+
 	corev1 "k8s.io/api/core/v1"
 
 	"github.com/knative/serving/pkg/apis/serving"
@@ -76,6 +78,13 @@ func TODO_ServiceTrafficToRevisionWithInClusterDNS(s *v1alpha1.Service) (bool, e
 	// TODO make a curl request from inside the cluster using
 	// s.Status.Address.Hostname to validate DNS is set correctly
 	return true, nil
+}
+
+func IsDeploymentExpectReplica(d *v1.Deployment, expectReplica int32) (bool, error) {
+	if d.Spec.Replicas == nil {
+		return false, fmt.Errorf("expected deployment %s to have replica", d.Name)
+	}
+	return *d.Spec.Replicas == expectReplica, nil
 }
 
 // IsRevisionReady will check the status conditions of the revision and return true if the revision is

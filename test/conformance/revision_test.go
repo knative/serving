@@ -304,21 +304,12 @@ func TestRevisionReplicaUpdate(t *testing.T) {
 		t.Fatalf("Patch add for Revision %s with new minScale 1 failed: %v", names.Revision, err)
 	}
 
-	t.Log("When the Service reports as Ready, everything should be ready")
-	if err := test.WaitForServiceState(clients.ServingClient, names.Service, test.IsServiceReady, "ServiceIsReady"); err != nil {
-		t.Fatalf("The Service %s was not marked as Ready to serve traffic to Revision %s: %v", names.Service, names.Revision, err)
-	}
-
-	t.Logf("Waiting for revision %q to be ready", names.Revision)
-	if err := test.WaitForRevisionState(clients.ServingClient, names.Revision, test.IsRevisionReady, "RevisionIsReady"); err != nil {
-		t.Fatalf("The Revision %q still can't serve traffic: %v", names.Revision, err)
-	}
-
-	cnt, err := getRevisionDesiredReplica(clients, names)
-	if err != nil {
-		t.Fatal("Get Revision replicas failed", err)
-	}
-	if *cnt != 2 {
-		t.Fatalf("Update Revision replicas by annotation failed: got replica: %d, expect replica: 2", *cnt)
+	deploymentName := revisionresourcenames.Deployment(&v1alpha1.Revision{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: names.Revision,
+		}})
+	t.Logf("Waiting for deployment %q to be expected replica", deploymentName)
+	if err := test.WaitForDeploymentReplica(clients.KubeClient, svc.Namespace, deploymentName, 2, test.IsDeploymentExpectReplica, "DeploymentExpectReplica"); err != nil {
+		t.Fatalf("The Deployment %q still don't be modified to the expected replica", deploymentName)
 	}
 }

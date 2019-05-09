@@ -143,6 +143,30 @@ func WaitForRevisionState(client *ServingClients, name string, inState func(r *v
 	return nil
 }
 
+// WaitForDeploymentReplica polls the status of the Revision called name
+// from client every `interval` until `inState` returns `true` indicating it
+// is done, returns an error or timeout. desc will be used to name the metric
+// that is emitted to track how long it took for name to get into the state checked by inState.
+func WaitForDeploymentReplica(client *pkgTest.KubeClient, namespace, name string, expectReplica int32, inState func(r *appsv1.Deployment, expectReplica int32) (bool, error), desc string) error {
+	span := logging.GetEmitableSpan(context.Background(), fmt.Sprintf("WaitForDeployment/%s/%s", name, desc))
+	defer span.End()
+
+	var lastState *appsv1.Deployment
+	waitErr := wait.PollImmediate(interval, timeout, func() (bool, error) {
+		var err error
+		lastState, err = client.Kube.AppsV1().Deployments(namespace).Get(name, metav1.GetOptions{})
+		if err != nil {
+			return true, err
+		}
+		return inState(lastState, expectReplica)
+	})
+
+	if waitErr != nil {
+		return errors.Wrapf(waitErr, "deployment %q is not in desired state, got: %+v", name, lastState)
+	}
+	return nil
+}
+
 // CheckRevisionState verifies the status of the Revision called name from client
 // is in a particular state by calling `inState` and expecting `true`.
 // This is the non-polling variety of WaitForRevisionState
