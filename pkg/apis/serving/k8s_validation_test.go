@@ -568,6 +568,28 @@ func TestContainerValidation(t *testing.T) {
 		},
 		want: apis.ErrInvalidValue(corev1.TerminationMessagePolicy("Not a Policy"), "terminationMessagePolicy"),
 	}, {
+		name: "empty env var name",
+		c: corev1.Container{
+			Image: "foo",
+			Env: []corev1.EnvVar{{
+				Value: "Foo",
+			}},
+		},
+		want: apis.ErrMissingField("env[0].name"),
+	}, {
+		name: "reserved env var name",
+		c: corev1.Container{
+			Image: "foo",
+			Env: []corev1.EnvVar{{
+				Name:  "PORT",
+				Value: "Foo",
+			}},
+		},
+		want: &apis.FieldError{
+			Message: `"PORT" is a reserved environment variable`,
+			Paths:   []string{"env[0].name"},
+		},
+	}, {
 		name: "disallowed envvarsource",
 		c: corev1.Container{
 			Image: "foo",

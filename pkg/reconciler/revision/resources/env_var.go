@@ -29,18 +29,14 @@ const (
 )
 
 func getKnativeEnvVar(rev *v1alpha1.Revision) []corev1.EnvVar {
-	return []corev1.EnvVar{
-		{
-			Name:  knativeRevisionEnvVariableKey,
-			Value: rev.Name,
-		},
-		{
-			Name:  knativeConfigurationEnvVariableKey,
-			Value: rev.Labels[serving.ConfigurationLabelKey],
-		},
-		{
-			Name:  knativeServiceEnvVariableKey,
-			Value: rev.Labels[serving.ServiceLabelKey],
-		},
-	}
+	return []corev1.EnvVar{{
+		Name:  knativeRevisionEnvVariableKey,
+		Value: rev.Name,
+	}, {
+		Name:  knativeConfigurationEnvVariableKey,
+		Value: rev.Labels[serving.ConfigurationLabelKey],
+	}, {
+		Name:  knativeServiceEnvVariableKey,
+		Value: rev.Labels[serving.ServiceLabelKey],
+	}}
 }
