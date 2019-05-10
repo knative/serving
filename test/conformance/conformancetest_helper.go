@@ -52,7 +52,7 @@ func runtimeInfo(t *testing.T, clients *test.Clients, names *test.ResourceNames,
 	if names.Image == "" {
 		names.Image = runtime
 	} else if names.Image != runtimeUnprivileged {
-		return nil, nil, fmt.Errorf("Invalid image provided: %s", names.Image)
+		return nil, nil, fmt.Errorf("invalid image provided: %s", names.Image)
 	}
 
 	defer test.TearDown(clients, *names)

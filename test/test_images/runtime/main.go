@@ -14,7 +14,6 @@ limitations under the License.
 package main
 
 import (
-	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -35,7 +34,7 @@ func main() {
 	handlers.InitHandlers(mux)
 
 	server := &http.Server{
-		Addr:    fmt.Sprintf(":%s", port),
+		Addr:    ":" + port,
 		Handler: mux,
 	}
 
