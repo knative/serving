@@ -83,13 +83,13 @@ func TestShouldRunAsUserContainerDefault(t *testing.T) {
 		t.Fatal("Missing user information from runtime info.")
 	}
 
-	if got, want := ri.Host.User.UID, unprivilegedUserId; got != want {
+	if got, want := ri.Host.User.UID, unprivilegedUserID; got != want {
 		t.Errorf("uid = %d, want: %d", got, want)
 	}
 
 	// We expect the effective userID to match the userID as we
 	// did not use setuid.
-	if got, want := ri.Host.User.EUID, unprivilegedUserId; got != want {
+	if got, want := ri.Host.User.EUID, unprivilegedUserID; got != want {
 		t.Errorf("euid = %d, want: %d", got, want)
 	}
 

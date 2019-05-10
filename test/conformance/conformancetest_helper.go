@@ -33,7 +33,7 @@ import (
 )
 
 // The 'runtime-unprivileged' test image uses uid 1000.
-const unprivilegedUserId = 1000
+const unprivilegedUserID = 1000
 
 // fetchRuntimeInfoUnprivileged creates a Service that uses the 'runtime-unprivileged' test image, and extracts the returned output into the
 // RuntimeInfo object.
