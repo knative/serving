@@ -28,17 +28,14 @@ import (
 
 func verifyModeString(resp string, expected string) error {
 	if len(resp) != len(expected) {
-		return fmt.Errorf("length of expected and response string don't match. Expected Response: %q Received Response: %q Expected length: %d Received length: %d",
-			expected, resp, len(expected), len(resp))
+		return fmt.Errorf("mode = %q (len:%d), want: %q (len:%d)", resp, len(resp), expected, len(expected))
 	}
 
 	for index := range expected {
-		if string(expected[index]) != "*" && expected[index] != resp[index] {
-			return fmt.Errorf("mode strings don't match at Index: %d. Expected: %q Received Response: %q",
-				index, expected, resp)
+		if expected[index] != '*' && expected[index] != resp[index] {
+			return fmt.Errorf("mode[%d] = %c, want: %c", index, expected[index], resp[index])
 		}
 	}
-
 	return nil
 }
 
@@ -68,7 +65,7 @@ func testFiles(t *testing.T, clients *test.Clients, paths map[string]types.FileI
 
 		if file.Mode != "" {
 			if err := verifyModeString(riFile.Mode, file.Mode); err != nil {
-				return fmt.Errorf("%s has invalid mode string: %v", path, err)
+				return fmt.Errorf("%s has invalid mode string %s: %v", path, riFile.Mode, err)
 			}
 		}
 	}

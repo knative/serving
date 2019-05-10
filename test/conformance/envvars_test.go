@@ -55,11 +55,11 @@ func TestMustEnvVars(t *testing.T) {
 	clients := setup(t)
 	portStr, ok := types.MustEnvVars["PORT"]
 	if !ok {
-		t.Fatalf("Missing PORT from set of MustEnvVars")
+		t.Fatal("Missing PORT from set of MustEnvVars")
 	}
 	port, err := strconv.Atoi(portStr)
 	if err != nil {
-		t.Fatalf("Invalid PORT value in MustEnvVars")
+		t.Fatal("Invalid PORT value in MustEnvVars")
 	}
 	_, ri, err := fetchRuntimeInfo(t, clients, &test.Options{
 		ContainerPorts: []corev1.ContainerPort{
