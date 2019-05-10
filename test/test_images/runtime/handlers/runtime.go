@@ -24,6 +24,17 @@ func runtimeHandler(w http.ResponseWriter, r *http.Request) {
 	log.Println("Retrieving Runtime Information")
 	w.Header().Set("Content-Type", "application/json")
 
+	filePaths := make([]string, len(types.MustFiles)+len(types.ShouldFiles))
+	i := 0
+	for key := range types.MustFiles {
+		filePaths[i] = key
+		i++
+	}
+	for key := range types.ShouldFiles {
+		filePaths[i] = key
+		i++
+	}
+
 	k := &types.RuntimeInfo{
 		Request: requestInfo(r),
 		Host: &types.HostInfo{EnvVars: env(),
