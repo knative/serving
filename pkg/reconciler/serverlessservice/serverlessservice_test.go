@@ -24,6 +24,7 @@ import (
 	"github.com/knative/pkg/controller"
 	logtesting "github.com/knative/pkg/logging/testing"
 	"github.com/knative/pkg/system"
+	"github.com/knative/serving/pkg/activator"
 	"github.com/knative/serving/pkg/apis/networking"
 	nv1a1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	fakeclientset "github.com/knative/serving/pkg/client/clientset/versioned/fake"
@@ -627,7 +628,7 @@ func activatorEndpoints(eo ...EndpointsOption) *corev1.Endpoints {
 	ep := &corev1.Endpoints{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: system.Namespace(),
-			Name:      activatorService,
+			Name:      activator.K8sServiceName,
 		},
 	}
 	for _, opt := range eo {
