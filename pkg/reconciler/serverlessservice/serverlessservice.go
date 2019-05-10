@@ -31,6 +31,7 @@ import (
 	"github.com/knative/pkg/controller"
 	"github.com/knative/pkg/logging"
 	"github.com/knative/pkg/system"
+	"github.com/knative/serving/pkg/activator"
 	pav1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/apis/networking"
 	netv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
@@ -55,7 +56,6 @@ import (
 const (
 	controllerAgentName = "serverlessservice-controller"
 	reconcilerName      = "ServerlessServices"
-	activatorService    = "activator-service"
 )
 
 // reconciler implements controller.Reconciler for Service resources.
@@ -127,7 +127,7 @@ func NewController(
 		// Accept only ActivatorService K8s service objects.
 		FilterFunc: rbase.ChainFilterFuncs(
 			rbase.NamespaceFilterFunc(system.Namespace()),
-			rbase.NameFilterFunc(activatorService)),
+			rbase.NameFilterFunc(activator.K8sServiceName)),
 		Handler: rbase.Handler(grCb),
 	})
 
@@ -267,7 +267,7 @@ func (r *reconciler) reconcilePublicEndpoints(ctx context.Context, sks *netv1alp
 		err                   error
 		foundServingEndpoints bool
 	)
-	activatorEps, err = r.endpointsLister.Endpoints(system.Namespace()).Get(activatorService)
+	activatorEps, err = r.endpointsLister.Endpoints(system.Namespace()).Get(activator.K8sServiceName)
 	if err != nil {
 		logger.Errorw("Error obtaining activator service endpoints", zap.Error(err))
 		return err

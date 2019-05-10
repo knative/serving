@@ -24,6 +24,7 @@ import (
 
 	ctrl "github.com/knative/pkg/controller"
 	logtesting "github.com/knative/pkg/logging/testing"
+	"github.com/knative/serving/pkg/activator"
 	fakeclientset "github.com/knative/serving/pkg/client/clientset/versioned/fake"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
 	preconciler "github.com/knative/serving/pkg/reconciler"
@@ -177,7 +178,7 @@ func TestGlobalResyncOnActivatorChange(t *testing.T) {
 			t.Logf("Registering expected hook update for endpoints %s", eps.Name)
 			return HookComplete
 		}
-		if eps.Name == activatorService {
+		if eps.Name == activator.K8sServiceName {
 			// Expected, but not the one we're waiting for.
 			t.Log("Registering activator endpoint update")
 		} else {
