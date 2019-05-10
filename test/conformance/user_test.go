@@ -26,15 +26,15 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
-const userID = 2020
+const securityContextUserID = 2020
 
 // TestMustRunAsUser verifies that a supplied runAsUser through securityContext takes
-// effect as delared by "MUST" in the runtime-contract.
+// effect as declared by "MUST" in the runtime-contract.
 func TestMustRunAsUser(t *testing.T) {
 	t.Parallel()
 	clients := setup(t)
 
-	runAsUser := int64(userID)
+	runAsUser := int64(securityContextUserID)
 	securityContext := &corev1.SecurityContext{
 		RunAsUser: &runAsUser,
 	}
@@ -52,13 +52,45 @@ func TestMustRunAsUser(t *testing.T) {
 		t.Fatal("Missing user information from runtime info.")
 	}
 
-	if got, want := ri.Host.User.UID, userID; got != want {
+	if got, want := ri.Host.User.UID, securityContextUserID; got != want {
 		t.Errorf("uid = %d, want: %d", got, want)
 	}
 
 	// We expect the effective userID to match the userID as we
 	// did not use setuid.
-	if got, want := ri.Host.User.EUID, userID; got != want {
+	if got, want := ri.Host.User.EUID, securityContextUserID; got != want {
 		t.Errorf("euid = %d, want: %d", got, want)
 	}
+}
+
+// TestShouldRunAsUserContainerDefault verifies that a container that sets runAsUser
+// in the Dockerfile is respected when executed in Knative as declared by "SHOULD"
+// in the runtime-contract.
+func TestShouldRunAsUserContainerDefault(t *testing.T) {
+	t.Parallel()
+	clients := setup(t)
+	_, ri, err := fetchRuntimeInfoUnprivileged(t, clients, &test.Options{})
+
+	if err != nil {
+		t.Fatalf("Error fetching runtime info: %v", err)
+	}
+
+	if ri.Host == nil {
+		t.Fatal("Missing host information from runtime info.")
+	}
+
+	if ri.Host.User == nil {
+		t.Fatal("Missing user information from runtime info.")
+	}
+
+	if got, want := ri.Host.User.UID, unprivilegedUserID; got != want {
+		t.Errorf("uid = %d, want: %d", got, want)
+	}
+
+	// We expect the effective userID to match the userID as we
+	// did not use setuid.
+	if got, want := ri.Host.User.EUID, unprivilegedUserID; got != want {
+		t.Errorf("euid = %d, want: %d", got, want)
+	}
+
 }

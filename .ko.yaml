@@ -1,0 +1,7 @@
+# Use the Jenkins base image as it is a public image that
+# reliably sets up and uses a non-root user (uid 1000).
+# https://github.com/jenkinsci/docker/blob/master/Dockerfile-slim#L15
+# Ideally we should use an unprivileged distroless user if
+# https://github.com/GoogleContainerTools/distroless/issues/235 is implemented.
+baseImageOverrides:
+        github.com/knative/serving/test/test_images/runtime-unprivileged: jenkins/jenkins:lts-slim
