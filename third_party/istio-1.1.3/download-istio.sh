@@ -28,6 +28,8 @@ helm template --namespace=istio-system \
   --set gateways.istio-ingressgateway.enabled=false \
   --set gateways.istio-egressgateway.enabled=false \
   --set gateways.istio-ilbgateway.enabled=false \
+  --set global.outboundTrafficPolicy.mode=ALLOW_ANY \
+  --set pilot.env.PILOT_ENABLE_FALLTHROUGH_ROUTE=1 \
   install/kubernetes/helm/istio \
   -f install/kubernetes/helm/istio/example-values/values-istio-gateways.yaml \
   | sed -e "s/custom-gateway/cluster-local-gateway/g" -e "s/customgateway/clusterlocalgateway/g" \
@@ -92,6 +94,9 @@ helm template --namespace=istio-system \
   --set gateways.istio-ingressgateway.sds.enabled=true \
   `# Set pilot trace sampling to 100%` \
   --set pilot.traceSampling=100 \
+  `# Enable egress traffic.` \
+  --set global.outboundTrafficPolicy.mode=ALLOW_ANY \
+  --set pilot.env.PILOT_ENABLE_FALLTHROUGH_ROUTE=1 \
   install/kubernetes/helm/istio \
   `# Removing trailing whitespaces to make automation happy` \
   | sed 's/[ \t]*$//' \

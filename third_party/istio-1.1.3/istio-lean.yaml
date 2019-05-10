@@ -747,6 +747,8 @@ spec:
                 fieldPath: metadata.namespace
           - name: GODEBUG
             value: "gctrace=1"
+          - name: PILOT_ENABLE_FALLTHROUGH_ROUTE
+            value: "1"
           - name: PILOT_PUSH_THROTTLE
             value: "100"
           - name: PILOT_TRACE_SAMPLING

@@ -51,7 +51,10 @@ func TestEgressTraffic(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create a service: %v", err)
 	}
-	response, err := sendRequest(t, clients, test.ServingFlags.ResolvableDomain, service.Route.Status.Domain)
+	if service.Route.Status.URL == nil {
+		t.Fatalf("Can't get internal request domain: service.Route.Status.URL is nil")
+	}
+	response, err := sendRequest(t, clients, test.ServingFlags.ResolvableDomain, service.Route.Status.URL.Host)
 	if err != nil {
 		t.Fatalf("Failed to send request to httpproxy: %v", err)
 	}
