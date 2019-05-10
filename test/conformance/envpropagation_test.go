@@ -28,27 +28,20 @@ import (
 	. "github.com/knative/serving/pkg/reconciler/testing"
 )
 
-const (
-	testKey   = "testKey"
-	testValue = "testValue"
-)
-
 // TestSecretsViaEnv verifies propagation of Secrets through environment variables.
 func TestSecretsViaEnv(t *testing.T) {
 	t.Parallel()
 	clients := setup(t)
 
-	secretName := "conformance-test-secret"
-
 	t.Run("env", func(t *testing.T) {
 		err := fetchEnvironmentAndVerify(t, clients, WithEnv(corev1.EnvVar{
-			Name: testKey,
+			Name: test.EnvKey,
 			ValueFrom: &corev1.EnvVarSource{
 				SecretKeyRef: &corev1.SecretKeySelector{
 					LocalObjectReference: corev1.LocalObjectReference{
-						Name: secretName,
+						Name: test.ConformanceSecret,
 					},
-					Key: testKey,
+					Key: test.EnvKey,
 				},
 			},
 		}))
@@ -61,7 +54,7 @@ func TestSecretsViaEnv(t *testing.T) {
 		err := fetchEnvironmentAndVerify(t, clients, WithEnvFrom(corev1.EnvFromSource{
 			SecretRef: &corev1.SecretEnvSource{
 				LocalObjectReference: corev1.LocalObjectReference{
-					Name: secretName,
+					Name: test.ConformanceSecret,
 				},
 			},
 		}))
@@ -76,17 +69,15 @@ func TestConfigsViaEnv(t *testing.T) {
 	t.Parallel()
 	clients := setup(t)
 
-	configMapName := "conformance-test-configmap"
-
 	t.Run("env", func(t *testing.T) {
 		err := fetchEnvironmentAndVerify(t, clients, WithEnv(corev1.EnvVar{
-			Name: testKey,
+			Name: test.EnvKey,
 			ValueFrom: &corev1.EnvVarSource{
 				ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
 					LocalObjectReference: corev1.LocalObjectReference{
-						Name: configMapName,
+						Name: test.ConformanceConfigMap,
 					},
-					Key: testKey,
+					Key: test.EnvKey,
 				},
 			},
 		}))
@@ -99,7 +90,7 @@ func TestConfigsViaEnv(t *testing.T) {
 		err := fetchEnvironmentAndVerify(t, clients, WithEnvFrom(corev1.EnvFromSource{
 			ConfigMapRef: &corev1.ConfigMapEnvSource{
 				LocalObjectReference: corev1.LocalObjectReference{
-					Name: configMapName,
+					Name: test.ConformanceConfigMap,
 				},
 			},
 		}))
@@ -115,12 +106,12 @@ func fetchEnvironmentAndVerify(t *testing.T, clients *test.Clients, opts ...Serv
 		return err
 	}
 
-	if value, ok := ri.Host.EnvVars[testKey]; ok {
-		if value != testValue {
-			return fmt.Errorf("environment value doesn't match. Expected: %s, Found: %s", testValue, value)
+	if value, ok := ri.Host.EnvVars[test.EnvKey]; ok {
+		if value != test.EnvValue {
+			return fmt.Errorf("environment value doesn't match. Expected: %s, Found: %s", test.EnvValue, value)
 		}
 	} else {
-		return fmt.Errorf("%s not found in environment variables", testKey)
+		return fmt.Errorf("%s not found in environment variables", test.EnvKey)
 	}
 	return nil
 }
