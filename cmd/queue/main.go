@@ -197,7 +197,7 @@ func handler(reqChan chan queue.ReqEvent, breaker *queue.Breaker, proxy *httputi
 
 		// Enforce queuing and concurrency limits.
 		if breaker != nil {
-			ok := breaker.Maybe(func() {
+			ok := breaker.Maybe(0 /* Infinite timeout */, func() {
 				proxy.ServeHTTP(w, r)
 			})
 			if !ok {

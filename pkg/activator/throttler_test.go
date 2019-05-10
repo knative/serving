@@ -255,7 +255,7 @@ func TestThrottlerTry(t *testing.T) {
 			if s.addCapacity {
 				throttler.UpdateCapacity(revID, 1)
 			}
-			err := throttler.Try(revID, func() {
+			err := throttler.Try(0, revID, func() {
 				called++
 			})
 			if err == nil && s.wantError {
@@ -289,7 +289,7 @@ func TestThrottlerTryOverload(t *testing.T) {
 	allowedRequests := initialCapacity + queueLength
 	for i := 0; i < allowedRequests+1; i++ {
 		go func() {
-			err := th.Try(revID, func() {
+			err := th.Try(0, revID, func() {
 				doneCh <- struct{}{} // Blocks forever
 			})
 			if err != nil {

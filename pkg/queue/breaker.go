@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"time"
 )
 
 var (
@@ -67,8 +68,10 @@ func NewBreaker(params BreakerParams) *Breaker {
 // Maybe conditionally executes thunk based on the Breaker concurrency
 // and queue parameters. If the concurrency limit and queue capacity are
 // already consumed, Maybe returns immediately without calling thunk. If
-// the thunk was executed, Maybe returns true, else false.
-func (b *Breaker) Maybe(thunk func()) bool {
+// the thunk was executed, Maybe returns true, else false. Timeout is the
+// time before this function returns false without calling thunk. A 0
+// timeout value is infinite timeout.
+func (b *Breaker) Maybe(timeout time.Duration, thunk func()) bool {
 	select {
 	default:
 		// Pending request queue is full.  Report failure.
@@ -76,7 +79,9 @@ func (b *Breaker) Maybe(thunk func()) bool {
 	case b.pendingRequests <- struct{}{}:
 		// Pending request has capacity.
 		// Wait for capacity in the active queue.
-		b.sem.acquire()
+		if !b.sem.acquire(timeout) {
+			return false
+		}
 		// Defer releasing capacity in the active and pending request queue.
 		defer func() {
 			// It's safe to ignore the error returned by release since we
@@ -130,8 +135,19 @@ type semaphore struct {
 }
 
 // acquire receives the token from the semaphore, potentially blocking.
-func (s *semaphore) acquire() {
-	<-s.queue
+func (s *semaphore) acquire(timeout time.Duration) bool {
+	tt := &time.Timer{}
+	if timeout != 0 {
+		tt = time.NewTimer(timeout)
+		defer tt.Stop()
+	}
+
+	select {
+	case <-s.queue:
+		return true
+	case <-tt.C:
+		return false
+	}
 }
 
 // release potentially puts the token back to the queue.

@@ -19,6 +19,7 @@ package activator
 import (
 	"errors"
 	"sync"
+	"time"
 
 	"go.uber.org/zap"
 
@@ -131,7 +132,9 @@ func (t *Throttler) UpdateCapacity(rev RevisionID, size int) error {
 // and executes the `function` on the Breaker.
 // It returns an error if either breaker doesn't have enough capacity,
 // or breaker's registration didn't succeed, e.g. getting endpoints or update capacity failed.
-func (t *Throttler) Try(rev RevisionID, function func()) error {
+// timeout is the time before this function returns ErrActivatorOverload. A 0 value for
+// timeout is infinite.
+func (t *Throttler) Try(timeout time.Duration, rev RevisionID, function func()) error {
 	breaker, existed := t.getOrCreateBreaker(rev)
 	activatorCount := minOneOrValue(t.numActivators)
 	if !existed {
@@ -140,7 +143,7 @@ func (t *Throttler) Try(rev RevisionID, function func()) error {
 			return err
 		}
 	}
-	if !breaker.Maybe(function) {
+	if !breaker.Maybe(timeout, function) {
 		return ErrActivatorOverload
 	}
 	return nil

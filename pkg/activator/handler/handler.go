@@ -55,6 +55,7 @@ type activationHandler struct {
 
 	probeTimeout          time.Duration
 	probeTransportFactory prober.TransportFactory
+	endpointTimeout       time.Duration
 
 	revisionLister servinglisters.RevisionLister
 	serviceLister  corev1listers.ServiceLister
@@ -85,6 +86,7 @@ func New(l *zap.SugaredLogger, r activator.StatsReporter, t *activator.Throttler
 				Base: network.NewAutoTransport(),
 			}
 		},
+		endpointTimeout: defaulTimeout,
 	}
 }
 
@@ -161,7 +163,7 @@ func (a *activationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	_, ttSpan := trace.StartSpan(r.Context(), "throttler_try")
 	ttStart := time.Now()
-	err = a.throttler.Try(revID, func() {
+	err = a.throttler.Try(a.endpointTimeout, revID, func() {
 		var (
 			httpStatus int
 		)
