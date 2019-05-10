@@ -135,8 +135,8 @@ func main() {
 			if !ok {
 				break
 			}
-			multiScaler.Poke(sm.Key, sm.Stat)
 			collector.Record(sm.Key, sm.Stat)
+			multiScaler.Poke(sm.Key, sm.Stat)
 		}
 	}()
 
