@@ -23,11 +23,11 @@ import (
 const (
 	// Name is the name of the component.
 	Name = "activator"
-	// K8sServiceName is the name of the activator Kubernetes service
+	// K8sServiceName is the name of the activator Kubernetes service.
 	K8sServiceName = "activator-service"
-	// RevisionHeaderName is the header key for revision name
+	// RevisionHeaderName is the header key for revision name.
 	RevisionHeaderName string = "knative-serving-revision"
-	// RevisionHeaderNamespace is the header key for revision's namespace
+	// RevisionHeaderNamespace is the header key for revision's namespace.
 	RevisionHeaderNamespace string = "knative-serving-namespace"
 )
 
@@ -37,6 +37,7 @@ type RevisionID struct {
 	Name      string
 }
 
+// String returns the namespaced name of the RevisionID.
 func (rev RevisionID) String() string {
 	return fmt.Sprintf("%s/%s", rev.Namespace, rev.Name)
 }
