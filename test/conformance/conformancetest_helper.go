@@ -22,23 +22,18 @@ package conformance
 
 import (
 	"encoding/json"
-	"fmt"
 	"testing"
 
 	pkgTest "github.com/knative/pkg/test"
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	serviceresourcenames "github.com/knative/serving/pkg/reconciler/service/resources/names"
 	"github.com/knative/serving/test"
 	"github.com/knative/serving/test/types"
-	"github.com/pkg/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	. "github.com/knative/serving/pkg/reconciler/testing"
 )
 
 // fetchRuntimeInfo creates a Service that uses the 'runtime' test image, and extracts the returned output into the
 // RuntimeInfo object.
-func fetchRuntimeInfo(t *testing.T, clients *test.Clients, options *test.Options) (*types.RuntimeInfo, error) {
+func fetchRuntimeInfo(t *testing.T, clients *test.Clients, options *test.Options, opts ...ServiceOption) (*test.ResourceNames, *types.RuntimeInfo, error) {
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
 		Image:   runtime,
@@ -47,9 +42,9 @@ func fetchRuntimeInfo(t *testing.T, clients *test.Clients, options *test.Options
 	defer test.TearDown(clients, names)
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 
-	objects, err := test.CreateRunLatestServiceReady(t, clients, &names, options)
+	objects, err := test.CreateRunLatestServiceReady(t, clients, &names, options, opts...)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	resp, err := pkgTest.WaitForEndpointState(
@@ -60,73 +55,13 @@ func fetchRuntimeInfo(t *testing.T, clients *test.Clients, options *test.Options
 		"RuntimeInfo",
 		test.ServingFlags.ResolvableDomain)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	var ri types.RuntimeInfo
 	err = json.Unmarshal(resp.Body, &ri)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return &ri, nil
-}
-
-// fetchEnvInfo creates the service using test_images/environment and fetches environment info defined inside the container dictated by urlPath.
-func fetchEnvInfo(t *testing.T, clients *test.Clients, urlPath string, opts ...ServiceOption) ([]byte, *test.ResourceNames, error) {
-	t.Log("Creating a new Service")
-	var names test.ResourceNames
-	names.Service = test.ObjectNameForTest(t)
-	names.Image = "environment"
-	svc, err := test.CreateLatestService(t, clients, names, &test.Options{}, opts...)
-	if err != nil {
-		return nil, nil, errors.New(fmt.Sprintf("Failed to create Service: %v", err))
-	}
-	names.Route = serviceresourcenames.Route(svc)
-	names.Config = serviceresourcenames.Configuration(svc)
-
-	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
-	defer test.TearDown(clients, names)
-
-	var revisionName string
-	t.Log("The Service will be updated with the name of the Revision once it is created")
-	err = test.WaitForServiceState(clients.ServingClient, names.Service, func(s *v1alpha1.Service) (bool, error) {
-		if s.Status.LatestCreatedRevisionName != names.Revision {
-			revisionName = s.Status.LatestCreatedRevisionName
-			return true, nil
-		}
-		return false, nil
-	}, "ServiceUpdatedWithRevision")
-	if err != nil {
-		return nil, nil, errors.New(fmt.Sprintf("Service %s was not updated with the new revision: %v", names.Service, err))
-	}
-	names.Revision = revisionName
-
-	t.Log("When the Service reports as Ready, everything should be ready.")
-	if err := test.WaitForServiceState(clients.ServingClient, names.Service, test.IsServiceReady, "ServiceIsReady"); err != nil {
-		return nil, nil, errors.New(fmt.Sprintf("The Service %s was not marked as Ready to serve traffic to Revision %s: %v", names.Service, names.Revision, err))
-	}
-
-	t.Log("When the Revision can have traffic routed to it, the Route is marked as Ready.")
-	if err := test.WaitForRouteState(clients.ServingClient, names.Route, test.IsRouteReady, "RouteIsReady"); err != nil {
-		return nil, nil, errors.New(fmt.Sprintf("The Route %s was not marked as Ready to serve traffic: %v", names.Route, err))
-	}
-
-	route, err := clients.ServingClient.Routes.Get(names.Route, metav1.GetOptions{})
-	if err != nil {
-		return nil, nil, errors.New(fmt.Sprintf("Error fetching Route %s: %v", names.Route, err))
-	}
-
-	url := route.Status.URL.Host + urlPath
-	resp, err := pkgTest.WaitForEndpointState(
-		clients.KubeClient,
-		t.Logf,
-		url,
-		test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
-		"EnvVarsServesText",
-		test.ServingFlags.ResolvableDomain)
-	if err != nil {
-		return nil, nil, errors.New(fmt.Sprintf("Failed before reaching desired state : %v", err))
-	}
-
-	return resp.Body, &names, nil
+	return &names, &ri, nil
 }

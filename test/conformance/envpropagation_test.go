@@ -19,7 +19,6 @@ limitations under the License.
 package conformance
 
 import (
-	"encoding/json"
 	"fmt"
 	"testing"
 
@@ -111,18 +110,12 @@ func TestConfigsViaEnv(t *testing.T) {
 }
 
 func fetchEnvironmentAndVerify(t *testing.T, clients *test.Clients, opts ...ServiceOption) error {
-	resp, _, err := fetchEnvInfo(t, clients, test.EnvImageEnvVarsPath, opts...)
+	_, ri, err := fetchRuntimeInfo(t, clients, &test.Options{}, opts...)
 	if err != nil {
 		return err
 	}
 
-	var envVars map[string]string
-	err = json.Unmarshal(resp, &envVars)
-	if err != nil {
-		return err
-	}
-
-	if value, ok := envVars[testKey]; ok {
+	if value, ok := ri.Host.EnvVars[testKey]; ok {
 		if value != testValue {
 			return fmt.Errorf("environment value doesn't match. Expected: %s, Found: %s", testValue, value)
 		}

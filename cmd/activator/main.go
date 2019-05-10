@@ -193,12 +193,11 @@ func main() {
 	oct := tracing.NewOpenCensusTracer(
 		tracing.WithZipkinExporter(tracing.CreateZipkinReporter, zipkinEndpoint),
 	)
-	tracerUpdater := func(name string, value interface{}) {
-		if name == tracingconfig.ConfigName {
-			cfg := value.(*tracingconfig.Config)
-			oct.ApplyConfig(cfg)
-		}
-	}
+
+	tracerUpdater := configmap.TypeFilter(&tracingconfig.Config{})(func(name string, value interface{}) {
+		cfg := value.(*tracingconfig.Config)
+		oct.ApplyConfig(cfg)
+	})
 
 	// Set up our config store
 	configMapWatcher := configmap.NewInformedWatcher(kubeClient, system.Namespace())

@@ -23,7 +23,6 @@ import (
 	"time"
 
 	"github.com/knative/pkg/logging"
-	"github.com/knative/pkg/logging/logkey"
 	kpa "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -59,9 +58,6 @@ type DeciderStatus struct {
 
 // UniScaler records statistics for a particular Decider and proposes the scale for the Decider's target based on those statistics.
 type UniScaler interface {
-	// Record records the given statistics.
-	Record(context.Context, Stat)
-
 	// Scale either proposes a number of replicas or skips proposing. The proposal is requested at the given time.
 	// The returned boolean is true if and only if a proposal was returned.
 	Scale(context.Context, time.Time) (int32, bool)
@@ -275,8 +271,8 @@ func (m *MultiScaler) tickScaler(ctx context.Context, scaler UniScaler, runner *
 	}
 }
 
-// RecordStat records some statistics for the given Decider.
-func (m *MultiScaler) RecordStat(key string, stat Stat) {
+// Poke checks if the autoscaler needs to be run immediately.
+func (m *MultiScaler) Poke(key string, stat Stat) {
 	m.scalersMutex.RLock()
 	defer m.scalersMutex.RUnlock()
 
@@ -285,10 +281,6 @@ func (m *MultiScaler) RecordStat(key string, stat Stat) {
 		return
 	}
 
-	logger := m.logger.With(zap.String(logkey.Key, key))
-	ctx := logging.WithLogger(context.Background(), logger)
-
-	scaler.scaler.Record(ctx, stat)
 	if scaler.getLatestScale() == 0 && stat.AverageConcurrentRequests != 0 {
 		scaler.pokeCh <- struct{}{}
 	}

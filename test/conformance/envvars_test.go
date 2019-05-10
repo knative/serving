@@ -19,34 +19,31 @@ limitations under the License.
 package conformance
 
 import (
-	"encoding/json"
-	"strconv"
+	"reflect"
 	"testing"
 
 	"github.com/knative/serving/test"
+	corev1 "k8s.io/api/core/v1"
 )
 
 // TestShouldEnvVars verifies environment variables that are declared as "SHOULD be set" in runtime-contract
 func TestShouldEnvVars(t *testing.T) {
 	t.Parallel()
 	clients := setup(t)
-	resp, names, err := fetchEnvInfo(t, clients, test.EnvImageEnvVarsPath)
+	names, ri, err := fetchRuntimeInfo(t, clients, &test.Options{})
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	var respValues ShouldEnvvars
-	if err := json.Unmarshal(resp, &respValues); err != nil {
-		t.Fatalf("Failed to unmarshall response : %v", err)
-	}
-
-	expectedValues := ShouldEnvvars{
-		Service:       names.Service,
-		Configuration: names.Config,
-		Revision:      names.Revision,
-	}
-	if respValues != expectedValues {
-		t.Fatalf("Received response failed to match execpted response. Received: %v Expected: %v", respValues, expectedValues)
+	r := reflect.ValueOf(names)
+	for k, v := range ShouldEnvVars {
+		value, exist := ri.Host.EnvVars[k]
+		if !exist {
+			t.Fatalf("Runtime contract env variable %q is not set", k)
+		}
+		field := reflect.Indirect(r).FieldByName(v)
+		if value != field.String() {
+			t.Fatalf("Runtime contract env variable %q value doesn't match with expected: got %q, want %q", k, value, field.String())
+		}
 	}
 }
 
@@ -54,23 +51,21 @@ func TestShouldEnvVars(t *testing.T) {
 func TestMustEnvVars(t *testing.T) {
 	t.Parallel()
 	clients := setup(t)
-	resp, _, err := fetchEnvInfo(t, clients, test.EnvImageEnvVarsPath)
+	_, ri, err := fetchRuntimeInfo(t, clients, &test.Options{
+		ContainerPorts: []corev1.ContainerPort{
+			{ContainerPort: int32(mustEnvCustomPort)},
+		},
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	var respValues MustEnvvars
-	if err := json.Unmarshal(resp, &respValues); err != nil {
-		t.Fatalf("Failed to unmarshall response : %v", err)
-	}
-
-	expectedValues := MustEnvvars{
-		// The port value needs to match the port exposed by the test-image.
-		// We currently control them by using a common constant, but any change needs synchronization between this check
-		// and the value used by the test-image.
-		Port: strconv.Itoa(test.EnvImageServerPort),
-	}
-	if respValues != expectedValues {
-		t.Fatalf("Received response failed to match execpted response. Received: %v Expected: %v", respValues, expectedValues)
+	for k, v := range MustEnvVars {
+		value, exist := ri.Host.EnvVars[k]
+		if !exist {
+			t.Fatalf("Runtime contract env variable %q is not set", k)
+		}
+		if v != value {
+			t.Fatalf("Runtime contract env variable %q value doesn't match with expected: got %q, want %q", k, value, v)
+		}
 	}
 }

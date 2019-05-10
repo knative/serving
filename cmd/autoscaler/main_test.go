@@ -127,5 +127,11 @@ func TestUniScalerFactoryFunc(t *testing.T) {
 func getTestUniScalerFactory() func(decider *autoscaler.Decider) (autoscaler.UniScaler, error) {
 	kubeClient := fakeK8s.NewSimpleClientset()
 	kubeInformer := kubeinformers.NewSharedInformerFactory(kubeClient, 0)
-	return uniScalerFactoryFunc(kubeInformer.Core().V1().Endpoints())
+	return uniScalerFactoryFunc(kubeInformer.Core().V1().Endpoints(), &testMetricClient{})
+}
+
+type testMetricClient struct{}
+
+func (t *testMetricClient) StableAndPanicConcurrency(key string) (float64, float64, error) {
+	return 1.0, 1.0, nil
 }

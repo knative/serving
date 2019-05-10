@@ -89,11 +89,11 @@ func main() {
 	serviceInformer := kubeInformerFactory.Core().V1().Services()
 	hpaInformer := kubeInformerFactory.Autoscaling().V1().HorizontalPodAutoscalers()
 
-	collector := autoscaler.NewMetricCollector(statsScraperFactoryFunc(endpointsInformer.Lister()), statsCh, logger)
+	collector := autoscaler.NewMetricCollector(statsScraperFactoryFunc(endpointsInformer.Lister()), logger)
 
 	// Set up scalers.
 	// uniScalerFactory depends endpointsInformer to be set.
-	multiScaler := autoscaler.NewMultiScaler(stopCh, uniScalerFactoryFunc(endpointsInformer), logger)
+	multiScaler := autoscaler.NewMultiScaler(stopCh, uniScalerFactoryFunc(endpointsInformer, collector), logger)
 
 	controllers := []*controller.Impl{
 		kpa.NewController(&opt, paInformer, sksInformer, serviceInformer, endpointsInformer, multiScaler, collector),
@@ -135,7 +135,8 @@ func main() {
 			if !ok {
 				break
 			}
-			multiScaler.RecordStat(sm.Key, sm.Stat)
+			multiScaler.Poke(sm.Key, sm.Stat)
+			collector.Record(sm.Key, sm.Stat)
 		}
 	}()
 
@@ -166,7 +167,7 @@ func setupLogger() (*zap.SugaredLogger, zap.AtomicLevel) {
 	return logging.NewLoggerFromConfig(loggingConfig, component)
 }
 
-func uniScalerFactoryFunc(endpointsInformer corev1informers.EndpointsInformer) func(decider *autoscaler.Decider) (autoscaler.UniScaler, error) {
+func uniScalerFactoryFunc(endpointsInformer corev1informers.EndpointsInformer, metricClient autoscaler.MetricClient) func(decider *autoscaler.Decider) (autoscaler.UniScaler, error) {
 	return func(decider *autoscaler.Decider) (autoscaler.UniScaler, error) {
 		if v, ok := decider.Labels[serving.ConfigurationLabelKey]; !ok || v == "" {
 			return nil, fmt.Errorf("label %q not found or empty in Decider %s", serving.ConfigurationLabelKey, decider.Name)
@@ -184,7 +185,7 @@ func uniScalerFactoryFunc(endpointsInformer corev1informers.EndpointsInformer) f
 			return nil, err
 		}
 
-		return autoscaler.New(decider.Namespace, endpointsInformer, decider.Spec, reporter)
+		return autoscaler.New(decider.Namespace, decider.Name, metricClient, endpointsInformer, decider.Spec, reporter)
 	}
 }
 

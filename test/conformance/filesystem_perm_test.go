@@ -19,7 +19,6 @@ limitations under the License.
 package conformance
 
 import (
-	"encoding/json"
 	"fmt"
 	"testing"
 
@@ -43,24 +42,32 @@ func verifyPermString(resp string, expected string) error {
 }
 
 func testFileSystemPermissions(t *testing.T, clients *test.Clients, paths map[string]FilePathInfo) error {
-	for key, value := range paths {
-		resp, _, err := fetchEnvInfo(t, clients,
-			fmt.Sprintf("%s?%s=%s", test.EnvImageFilePathInfoPath, test.EnvImageFilePathQueryParam, key))
-		if err != nil {
-			return err
-		}
+	_, ri, err := fetchRuntimeInfo(t, clients, &test.Options{})
+	if err != nil {
+		return err
+	}
 
-		var f FilePathInfo
-		if err := json.Unmarshal(resp, &f); err != nil {
-			return fmt.Errorf("Error unmarshalling response: %v", err)
+	for path, file := range paths {
+		found := false
+		for _, riFile := range ri.Host.Files {
+			if path != riFile.Name {
+				continue
+			}
+			found = true
+			if file.IsDirectory != *riFile.IsDir {
+				return fmt.Errorf("%s isDirectory = %t, want: %t", riFile.Name, *riFile.IsDir, file.IsDirectory)
+			}
+			index := len(riFile.Mode) - len(file.PermString)
+			if index < 0 {
+				index = 0
+			}
+			if err := verifyPermString(riFile.Mode[index:], file.PermString); err != nil {
+				return err
+			}
+			break
 		}
-
-		if f.IsDirectory != value.IsDirectory {
-			return fmt.Errorf("%s isDirectory = %t, want: %t", key, f.IsDirectory, value.IsDirectory)
-		}
-
-		if err := verifyPermString(f.PermString[1:], value.PermString); err != nil {
-			return err
+		if !found {
+			return fmt.Errorf("Runtime contract file %q doesn't exist", path)
 		}
 	}
 	return nil

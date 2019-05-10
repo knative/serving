@@ -3,7 +3,9 @@ Copyright 2018 The Knative Authors
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
+
     http://www.apache.org/licenses/LICENSE-2.0
+
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -16,7 +18,6 @@ package handler
 import (
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -36,6 +37,7 @@ import (
 	servinglisters "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
 	pkghttp "github.com/knative/serving/pkg/http"
 	"github.com/knative/serving/pkg/network"
+	"github.com/knative/serving/pkg/network/prober"
 	"github.com/knative/serving/pkg/queue"
 
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -51,23 +53,28 @@ type activationHandler struct {
 	reporter  activator.StatsReporter
 	throttler *activator.Throttler
 
-	probeCount int
+	probeTimeout time.Duration
 
 	revisionLister servinglisters.RevisionLister
 	serviceLister  corev1listers.ServiceLister
 	sksLister      netlisters.ServerlessServiceLister
 }
 
-// This is the number of times we will perform network probes to
-// see if the Revision is accessible before forwarding the actual
-// request.
-const maxRetries = 18
+// The default time we'll try to probe the revision for activation.
+const defaulTimeout = 2 * time.Minute
 
 // New constructs a new http.Handler that deals with revision activation.
 func New(l *zap.SugaredLogger, r activator.StatsReporter, t *activator.Throttler,
 	rl servinglisters.RevisionLister, sl corev1listers.ServiceLister,
 	sksL netlisters.ServerlessServiceLister) http.Handler {
 
+	// In activator we collect metrics, so we're wrapping
+	// the Roundtripper the prober would use inside annotating transport.
+	prober.TransportFactory = func() http.RoundTripper {
+		return &ochttp.Transport{
+			Base: network.NewAutoTransport(),
+		}
+	}
 	return &activationHandler{
 		logger:         l,
 		transport:      network.AutoTransport,
@@ -76,66 +83,45 @@ func New(l *zap.SugaredLogger, r activator.StatsReporter, t *activator.Throttler
 		revisionLister: rl,
 		sksLister:      sksL,
 		serviceLister:  sl,
-		probeCount:     maxRetries,
+		probeTimeout:   defaulTimeout,
 	}
 }
 
-func (a *activationHandler) probeEndpoint(logger *zap.SugaredLogger, r *http.Request, target *url.URL) (bool, int, int) {
+func withOrigProto(or *http.Request) prober.ProbeOption {
+	return func(r *http.Request) *http.Request {
+		r.Proto = or.Proto
+		r.ProtoMajor = or.ProtoMajor
+		r.ProtoMinor = or.ProtoMinor
+		return r
+	}
+}
+
+func (a *activationHandler) probeEndpoint(logger *zap.SugaredLogger, r *http.Request, target *url.URL) (bool, int) {
 	var (
-		httpStatus int
-		attempts   int
-		st         = time.Now()
+		attempts int
+		st       = time.Now()
 	)
+
 	reqCtx, probeSpan := trace.StartSpan(r.Context(), "probe")
 	defer func() {
 		probeSpan.End()
 		a.logger.Infof("Probing %s took %d attempts and %v time", target.String(), attempts, time.Since(st))
 	}()
 
-	transport := &ochttp.Transport{
-		Base: a.transport,
-	}
-
-	probeReq := &http.Request{
-		Method:     http.MethodGet,
-		URL:        target,
-		Proto:      r.Proto,
-		ProtoMajor: r.ProtoMajor,
-		ProtoMinor: r.ProtoMinor,
-		Header: map[string][]string{
-			http.CanonicalHeaderKey(network.ProbeHeaderName): {queue.Name},
-		},
-	}
-	probeReq = probeReq.WithContext(reqCtx)
-	settings := wait.Backoff{
-		Duration: 100 * time.Millisecond,
-		Factor:   1.3,
-		Steps:    a.probeCount,
-	}
-	err := wait.ExponentialBackoff(settings, func() (bool, error) {
+	err := wait.PollImmediate(100*time.Millisecond, a.probeTimeout, func() (bool, error) {
 		attempts++
-		probeResp, err := transport.RoundTrip(probeReq)
-
+		ret, err := prober.Do(reqCtx, target.String(), queue.Name, withOrigProto(r))
 		if err != nil {
 			logger.Warnw("Pod probe failed", zap.Error(err))
 			return false, nil
 		}
-		defer probeResp.Body.Close()
-		httpStatus = probeResp.StatusCode
-		if httpStatus != http.StatusOK {
-			logger.Warnf("Pod probe sent status: %d", httpStatus)
-			return false, nil
-		}
-		if body, err := ioutil.ReadAll(probeResp.Body); err != nil {
-			logger.Errorw("Pod probe returns an invalid response body", zap.Error(err))
-			return false, nil
-		} else if queue.Name != string(body) {
-			logger.Infof("Pod probe did not reach the target queue proxy. Reached: %s", body)
+		if !ret {
+			logger.Warn("Pod probe unsuccessful")
 			return false, nil
 		}
 		return true, nil
 	})
-	return (err == nil) && httpStatus == http.StatusOK, httpStatus, attempts
+	return (err == nil), attempts
 }
 
 func (a *activationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -175,17 +161,9 @@ func (a *activationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	err = a.throttler.Try(revID, func() {
 		var (
 			httpStatus int
-			attempts   int
 		)
 
-		// If a GET probe interval has been configured, then probe
-		// the queue-proxy with our network probe header until it
-		// returns a 200 status code.
-		success := false
-		if !success {
-			success, _, attempts = a.probeEndpoint(logger, r, target)
-		}
-
+		success, attempts := a.probeEndpoint(logger, r, target)
 		if success {
 			// Once we see a successful probe, send traffic.
 			attempts++
