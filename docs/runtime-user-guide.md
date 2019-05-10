@@ -5,7 +5,7 @@ container running in a Knative environment. This is separate from the expectatio
 environment itself. The expectations of the environment are detailed in the [runtime
 contract](https://github.com/knative/serving/blob/master/docs/runtime-contract.md).
 
-The target audience of this document are _developers_ and _language and tooling
+The target audience of this document is _developers_ and _language and tooling
 developers_ as defined below:
 
 - **Developers** write code which is packaged into a container which is run on
@@ -32,7 +32,7 @@ containers should have the following properties:
 ## Container Termination
 
 Knative containers should respond to `SIGTERM` signals to clean-up any resources
-necessary for a graceful shutdown.
+necessary for a graceful shutdown including open streams.
 
 ## Connection
 
@@ -104,7 +104,7 @@ Example (See
    - image: example-image:1.0
      readinessProbe:
        httpGet:
-         path: /health
+         path: /healthz
          periodSeconds: 10
          initialDelaySeconds: 0
 ...
