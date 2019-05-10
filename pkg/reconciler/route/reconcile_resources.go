@@ -138,7 +138,7 @@ func (c *Reconciler) deleteServices(namespace string, serviceNames sets.String) 
 }
 
 func (c *Reconciler) getServiceNameSet(route *v1alpha1.Route) (sets.String, error) {
-	currentServices, err := c.serviceLister.List(resources.SelectorFromRoute(route))
+	currentServices, err := c.serviceLister.Services(route.Namespace).List(resources.SelectorFromRoute(route))
 	if err != nil {
 		return nil, err
 	}
