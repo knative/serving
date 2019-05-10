@@ -22,6 +22,7 @@ package conformance
 
 import (
 	"encoding/json"
+	"fmt"
 	"testing"
 
 	pkgTest "github.com/knative/pkg/test"
@@ -31,18 +32,33 @@ import (
 	. "github.com/knative/serving/pkg/reconciler/testing"
 )
 
-// fetchRuntimeInfo creates a Service that uses the 'runtime' test image, and extracts the returned output into the
+// The 'runtime-unprivileged' test image uses uid 1000.
+const unprivilegedUserId = 1000
+
+// fetchRuntimeInfoUnprivileged creates a Service that uses the 'runtime-unprivileged' test image, and extracts the returned output into the
 // RuntimeInfo object.
+func fetchRuntimeInfoUnprivileged(t *testing.T, clients *test.Clients, options *test.Options, opts ...ServiceOption) (*test.ResourceNames, *types.RuntimeInfo, error) {
+	return runtimeInfo(t, clients, &test.ResourceNames{Image: runtimeUnprivileged}, options, opts...)
+}
+
+// fetchRuntimeInfo creates a Service that uses the 'runtime' test image, and extracts the returned output into the
+// RuntimeInfo object. The 'runtime' image uses uid 0.
 func fetchRuntimeInfo(t *testing.T, clients *test.Clients, options *test.Options, opts ...ServiceOption) (*test.ResourceNames, *types.RuntimeInfo, error) {
-	names := test.ResourceNames{
-		Service: test.ObjectNameForTest(t),
-		Image:   runtime,
+	return runtimeInfo(t, clients, &test.ResourceNames{}, options, opts...)
+}
+
+func runtimeInfo(t *testing.T, clients *test.Clients, names *test.ResourceNames, options *test.Options, opts ...ServiceOption) (*test.ResourceNames, *types.RuntimeInfo, error) {
+	names.Service = test.ObjectNameForTest(t)
+	if names.Image == "" {
+		names.Image = runtime
+	} else if names.Image != runtimeUnprivileged {
+		return nil, nil, fmt.Errorf("Invalid image provided: %s", names.Image)
 	}
 
-	defer test.TearDown(clients, names)
-	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
+	defer test.TearDown(clients, *names)
+	test.CleanupOnInterrupt(func() { test.TearDown(clients, *names) })
 
-	objects, err := test.CreateRunLatestServiceReady(t, clients, &names, options, opts...)
+	objects, err := test.CreateRunLatestServiceReady(t, clients, names, options, opts...)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -63,5 +79,5 @@ func fetchRuntimeInfo(t *testing.T, clients *test.Clients, options *test.Options
 	if err != nil {
 		return nil, nil, err
 	}
-	return &names, &ri, nil
+	return names, &ri, nil
 }
