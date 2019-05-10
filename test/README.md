@@ -103,13 +103,6 @@ These tests require:
    ko apply -f test/config
    ```
 
-1. The namespaces `serving-tests` and `serving-tests-alt`:
-
-   ```bash
-   kubectl create namespace serving-tests
-   kubectl create namespace serving-tests-alt
-   ```
-
 1. A docker repo containing [the test images](#test-images)
 
 ### Common Flags
