@@ -35,7 +35,7 @@ var ShouldEnvVars = map[string]string{
 	"K_REVISION":      "Revision",
 }
 
-// MustFilePathSpecs specifies the file-paths and expected permissions that MUST be set as specified in the runtime contract.
+// MustFiles specifies the file paths and expected permissions that MUST be set as specified in the runtime contract.
 // See https://golang.org/pkg/os/#FileMode for "Mode" string meaning. '*' indicates no specification.
 var MustFiles = map[string]FileInfo{
 	"/dev/fd": {
@@ -100,7 +100,7 @@ var MustFiles = map[string]FileInfo{
 	},
 }
 
-// ShouldFilePathSpecs specifies the file paths and expected permissions that SHOULD be set as specified in the runtime contract.
+// ShouldFiles specifies the file paths and expected permissions that SHOULD be set as specified in the runtime contract.
 // See https://golang.org/pkg/os/#FileMode for "Mode" string meaning. '*' indicates no specification.
 var ShouldFiles = map[string]FileInfo{
 	"/etc/resolv.conf": {
