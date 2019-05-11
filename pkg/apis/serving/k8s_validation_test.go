@@ -94,6 +94,39 @@ func TestPodSpecValidation(t *testing.T) {
 			Paths:   []string{"name"},
 		}).ViaFieldIndex("volumes", 1),
 	}, {
+		name: "with volume mount path collision",
+		ps: corev1.PodSpec{
+			Containers: []corev1.Container{{
+				Image: "helloworld",
+				VolumeMounts: []corev1.VolumeMount{{
+					MountPath: "/mount/path",
+					Name:      "the-foo",
+					ReadOnly:  true,
+				}, {
+					MountPath: "/mount/path",
+					Name:      "the-bar",
+					ReadOnly:  true,
+				}},
+			}},
+			Volumes: []corev1.Volume{{
+				Name: "the-foo",
+				VolumeSource: corev1.VolumeSource{
+					Secret: &corev1.SecretVolumeSource{
+						SecretName: "foo",
+					},
+				},
+			}, {
+				Name: "the-bar",
+				VolumeSource: corev1.VolumeSource{
+					Secret: &corev1.SecretVolumeSource{
+						SecretName: "bar",
+					},
+				},
+			}},
+		},
+		want: apis.ErrInvalidValue(`"/mount/path" must be unique`, "mountPath").
+			ViaFieldIndex("volumeMounts", 1).ViaFieldIndex("containers", 0),
+	}, {
 		name: "bad pod spec",
 		ps: corev1.PodSpec{
 			Containers: []corev1.Container{{

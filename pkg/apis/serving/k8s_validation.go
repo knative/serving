@@ -245,9 +245,9 @@ func validateVolumeMounts(mounts []corev1.VolumeMount, volumes sets.String) *api
 	var errs *apis.FieldError
 	// Check that volume mounts match names in "volumes", that "volumes" has 100%
 	// coverage, and the field restrictions.
-	seen := sets.NewString()
+	seenName := sets.NewString()
+	seenMountPath := sets.NewString()
 	for i, vm := range mounts {
-
 		errs = errs.Also(apis.CheckDisallowedFields(vm, *VolumeMountMask(&vm)).ViaIndex(i))
 		// This effectively checks that Name is non-empty because Volume name must be non-empty.
 		if !volumes.Has(vm.Name) {
@@ -256,7 +256,7 @@ func validateVolumeMounts(mounts []corev1.VolumeMount, volumes sets.String) *api
 				Paths:   []string{"name"},
 			}).ViaIndex(i))
 		}
-		seen.Insert(vm.Name)
+		seenName.Insert(vm.Name)
 
 		if vm.MountPath == "" {
 			errs = errs.Also(apis.ErrMissingField("mountPath").ViaIndex(i))
@@ -267,14 +267,19 @@ func validateVolumeMounts(mounts []corev1.VolumeMount, volumes sets.String) *api
 			}).ViaIndex(i))
 		} else if !filepath.IsAbs(vm.MountPath) {
 			errs = errs.Also(apis.ErrInvalidValue(vm.MountPath, "mountPath").ViaIndex(i))
+		} else if seenMountPath.Has(filepath.Clean(vm.MountPath)) {
+			errs = errs.Also(apis.ErrInvalidValue(
+				fmt.Sprintf("%q must be unique", vm.MountPath), "mountPath").ViaIndex(i))
 		}
+		seenMountPath.Insert(filepath.Clean(vm.MountPath))
+
 		if !vm.ReadOnly {
 			errs = errs.Also(apis.ErrMissingField("readOnly").ViaIndex(i))
 		}
 
 	}
 
-	if missing := volumes.Difference(seen); missing.Len() > 0 {
+	if missing := volumes.Difference(seenName); missing.Len() > 0 {
 		errs = errs.Also(&apis.FieldError{
 			Message: fmt.Sprintf("volumes not mounted: %v", missing.List()),
 			Paths:   []string{apis.CurrentField},
