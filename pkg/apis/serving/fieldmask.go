@@ -50,8 +50,31 @@ func VolumeSourceMask(in *corev1.VolumeSource) *corev1.VolumeSource {
 	// Allowed fields
 	out.Secret = in.Secret
 	out.ConfigMap = in.ConfigMap
+	out.Projected = in.Projected
 
 	// Too many disallowed fields to list
+
+	return out
+}
+
+// VolumeProjectionMask performs a _shallow_ copy of the Kubernetes VolumeProjection
+// object to a new Kubernetes VolumeProjection object bringing over only the fields allowed
+// in the Knative API. This does not validate the contents or the bounds of the provided fields.
+func VolumeProjectionMask(in *corev1.VolumeProjection) *corev1.VolumeProjection {
+	if in == nil {
+		return nil
+	}
+
+	out := new(corev1.VolumeProjection)
+
+	// Allowed fields
+	out.Secret = in.Secret
+	out.ConfigMap = in.ConfigMap
+
+	// Disallowed fields
+	// This list is unnecessary, but added here for clarity
+	out.DownwardAPI = nil
+	out.ServiceAccountToken = nil
 
 	return out
 }

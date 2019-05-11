@@ -148,13 +148,15 @@ spec:
       # is a singleton []corev1.Container; See the Container section below.
       containers: ...
 
-      # is a heavily restricted []core.v1.Volume; only the secret and configMap
-      # types are allowed.
+      # is a heavily restricted []core.v1.Volume; only the secret, configMap,
+      # and projected types are allowed.
       volumes:
       - name: foo
         secret: ...
       - name: bar
         configMap: ...
+      - name: baz
+        projected: ...
 
       # +optional max request concurrency per instance.
       # Defaults to `0` (system decides) when unspecified.
@@ -211,13 +213,15 @@ metadata:
 spec:
   containers: ... # See the Container section below
 
-  # is a heavily restricted []core.v1.Volume; only the secret and configMap
-  # types are allowed.
+  # is a heavily restricted []core.v1.Volume; only the secret, configMap
+  # and projected types are allowed.
   volumes:
   - name: foo
     secret: ...
   - name: bar
     configMap: ...
+  - name: baz
+    projected: ...
 
   # Name of the service account the code should run as.
   serviceAccountName: ...

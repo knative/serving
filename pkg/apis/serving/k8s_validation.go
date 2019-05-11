@@ -90,10 +90,59 @@ func validateVolume(volume corev1.Volume) *apis.FieldError {
 
 	vs := volume.VolumeSource
 	errs = errs.Also(apis.CheckDisallowedFields(vs, *VolumeSourceMask(&vs)))
-	if vs.Secret == nil && vs.ConfigMap == nil {
+	specified := []string{}
+	if vs.Secret != nil {
+		specified = append(specified, "secret")
+	}
+	if vs.ConfigMap != nil {
+		specified = append(specified, "configMap")
+	}
+	if vs.Projected != nil {
+		specified = append(specified, "projected")
+		for i, proj := range vs.Projected.Sources {
+			errs = errs.Also(validateProjectedVolumeSource(proj).ViaFieldIndex("projected", i))
+		}
+	}
+	if len(specified) == 0 {
+		errs = errs.Also(apis.ErrMissingOneOf("secret", "configMap", "projected"))
+	} else if len(specified) > 1 {
+		errs = errs.Also(apis.ErrMultipleOneOf(specified...))
+	}
+
+	return errs
+}
+
+func validateProjectedVolumeSource(vp corev1.VolumeProjection) *apis.FieldError {
+	errs := apis.CheckDisallowedFields(vp, *VolumeProjectionMask(&vp))
+	specified := []string{}
+	if vp.Secret != nil {
+		specified = append(specified, "secret")
+		errs = errs.Also(validateSecretProjection(vp.Secret).ViaField("secret"))
+	}
+	if vp.ConfigMap != nil {
+		specified = append(specified, "configMap")
+		errs = errs.Also(validateConfigMapProjection(vp.ConfigMap).ViaField("configMap"))
+	}
+	if len(specified) == 0 {
 		errs = errs.Also(apis.ErrMissingOneOf("secret", "configMap"))
+	} else if len(specified) > 1 {
+		errs = errs.Also(apis.ErrMultipleOneOf(specified...))
 	}
 	return errs
+}
+
+func validateConfigMapProjection(cmp *corev1.ConfigMapProjection) *apis.FieldError {
+	if cmp.Name == "" {
+		return apis.ErrMissingField("name")
+	}
+	return nil
+}
+
+func validateSecretProjection(sp *corev1.SecretProjection) *apis.FieldError {
+	if sp.Name == "" {
+		return apis.ErrMissingField("name")
+	}
+	return nil
 }
 
 func validateEnvValueFrom(source *corev1.EnvVarSource) *apis.FieldError {
