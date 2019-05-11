@@ -63,18 +63,25 @@ helm template --namespace=istio-system \
   > ../istio.yaml
 cat ../istio-knative-extras.yaml >> ../istio.yaml
 
-# A lighter template, with no sidecar injection.  We could probably remove
-# more from this template.
+# A lighter template, with just pilot/gateway.
+# Based on install/kubernetes/helm/istio/values-istio-minimal.yaml
 helm template --namespace=istio-system \
+  --set prometheus.enabled=false \
+  --set mixer.enabled=false \
+  --set mixer.policy.enabled=false \
+  --set mixer.telemetry.enabled=false \
+  `# Pilot doesn't need a sidecar.` \
+  --set pilot.sidecar=false \
+  `# Disable galley (and things requiring galley).` \
+  --set galley.enabled=false \
+  --set global.useMCP=false \
+  `# Disable security / policy.` \
+  --set security.enabled=false \
+  --set global.disablePolicyChecks=true \
+  `# Disable sidecar injection.` \
   --set sidecarInjectorWebhook.enabled=false \
   --set global.proxy.autoInject=disabled \
   --set global.omitSidecarInjectorConfigMap=true \
-  --set global.disablePolicyChecks=true \
-  --set prometheus.enabled=false \
-  `# Disable mixer prometheus adapter to remove istio default metrics.` \
-  --set mixer.adapters.prometheus.enabled=false \
-  `# Disable mixer policy check, since in our template we set no policy.` \
-  --set global.disablePolicyChecks=true \
   `# Set gateway pods to 1 to sidestep eventual consistency / readiness problems.` \
   --set gateways.istio-ingressgateway.autoscaleMin=1 \
   --set gateways.istio-ingressgateway.autoscaleMax=1 \
