@@ -33,6 +33,7 @@ import (
 	"github.com/knative/pkg/controller"
 	"github.com/knative/pkg/kmeta"
 	logtesting "github.com/knative/pkg/logging/testing"
+	"github.com/knative/pkg/ptr"
 	"github.com/knative/pkg/system"
 	_ "github.com/knative/pkg/system/testing"
 	"github.com/knative/serving/pkg/apis/autoscaling"
@@ -185,8 +186,7 @@ func TestReconcileAndScaleToZero(t *testing.T) {
 			sks(testNamespace, testRevision, WithDeployRef(deployName), WithProxyMode, WithSKSReady),
 			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector)),
 			deploy(testNamespace, testRevision, func(d *appsv1.Deployment) {
-				zero := int32(0)
-				d.Spec.Replicas = &zero
+				d.Spec.Replicas = ptr.Int32(0)
 			}),
 			// Should be present, but empty.
 			makeSKSPrivateEndpoints(0, testNamespace, testRevision),

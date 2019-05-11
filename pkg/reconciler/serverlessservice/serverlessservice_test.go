@@ -23,6 +23,7 @@ import (
 
 	"github.com/knative/pkg/controller"
 	logtesting "github.com/knative/pkg/logging/testing"
+	"github.com/knative/pkg/ptr"
 	"github.com/knative/pkg/system"
 	"github.com/knative/serving/pkg/activator"
 	"github.com/knative/serving/pkg/apis/networking"
@@ -72,16 +73,16 @@ func TestNewController(t *testing.T) {
 
 func TestReconcile(t *testing.T) {
 	table := TableTest{{
-		Name:                    "bad workqueue key, Part I",
-		Key:                     "too/many/parts",
+		Name: "bad workqueue key, Part I",
+		Key:  "too/many/parts",
 		SkipNamespaceValidation: true,
 	}, {
-		Name:                    "bad workqueue key, Part II",
-		Key:                     "too-few-parts",
+		Name: "bad workqueue key, Part II",
+		Key:  "too-few-parts",
 		SkipNamespaceValidation: true,
 	}, {
-		Name:                    "key not found",
-		Key:                     "foo/not-found",
+		Name: "key not found",
+		Key:  "foo/not-found",
 		SkipNamespaceValidation: true,
 	}, {
 		Name: "steady state",
@@ -565,7 +566,6 @@ func withHTTP2Protocol(sks *nv1a1.ServerlessService) {
 type deploymentOption func(*appsv1.Deployment)
 
 func deploy(namespace, name string, opts ...deploymentOption) *appsv1.Deployment {
-	one := int32(1)
 	d := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: namespace,
@@ -577,7 +577,7 @@ func deploy(namespace, name string, opts ...deploymentOption) *appsv1.Deployment
 					"label": "value",
 				},
 			},
-			Replicas: &one,
+			Replicas: ptr.Int32(1),
 		},
 	}
 
