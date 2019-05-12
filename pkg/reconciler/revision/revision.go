@@ -116,8 +116,19 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 	}
 	if reconcileErr != nil {
 		c.Recorder.Event(rev, corev1.EventTypeWarning, "InternalError", reconcileErr.Error())
+		return reconcileErr
 	}
-	return reconcileErr
+	// TODO(mattmoor): Remove this after 0.7 cuts.
+	// If the spec has changed, then assume we need an upgrade and issue a patch to trigger
+	// the webhook to upgrade via defaulting.  Status updates do not trigger this due to the
+	// use of the /status resource.
+	if !equality.Semantic.DeepEqual(original.Spec, rev.Spec) {
+		revisions := v1alpha1.SchemeGroupVersion.WithResource("revisions")
+		if err := c.MarkNeedsUpgrade(revisions, rev.Namespace, rev.Name); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (c *Reconciler) reconcileDigest(ctx context.Context, rev *v1alpha1.Revision) error {

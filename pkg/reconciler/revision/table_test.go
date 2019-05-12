@@ -196,6 +196,13 @@ func TestReconcile(t *testing.T) {
 			deploy("foo", "needs-upgrade"),
 			image("foo", "needs-upgrade"),
 		},
+		WantPatches: []clientgotesting.PatchActionImpl{{
+			ActionImpl: clientgotesting.ActionImpl{
+				Namespace: "foo",
+			},
+			Name:  "needs-upgrade",
+			Patch: []byte(reconciler.ForceUpgradePatch),
+		}},
 		Key: "foo/needs-upgrade",
 	}, {
 		Name: "update deployment containers",
