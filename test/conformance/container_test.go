@@ -98,6 +98,24 @@ func TestMustNotContainerConstraints(t *testing.T) {
 				},
 			}
 		},
+	}, {
+		name: "TestLivenessExecProbe",
+		options: func(s *v1alpha1.Service) {
+			s.Spec.ConfigurationSpec.GetTemplate().Spec.GetContainer().LivenessProbe = &corev1.Probe{
+				Handler: corev1.Handler{
+					Exec: &corev1.ExecAction{Command: []string{"echo"}},
+				},
+			}
+		},
+	}, {
+		name: "TestReadinessExecProbe",
+		options: func(s *v1alpha1.Service) {
+			s.Spec.ConfigurationSpec.GetTemplate().Spec.GetContainer().ReadinessProbe = &corev1.Probe{
+				Handler: corev1.Handler{
+					Exec: &corev1.ExecAction{Command: []string{"echo"}},
+				},
+			}
+		},
 	}}
 
 	for _, tc := range testCases {

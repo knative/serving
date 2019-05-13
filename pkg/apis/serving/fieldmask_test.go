@@ -247,7 +247,6 @@ func TestProbeMask(t *testing.T) {
 
 func TestHandlerMask(t *testing.T) {
 	want := &corev1.Handler{
-		Exec:      &corev1.ExecAction{},
 		HTTPGet:   &corev1.HTTPGetAction{},
 		TCPSocket: &corev1.TCPSocketAction{},
 	}
@@ -267,29 +266,6 @@ func TestHandlerMask(t *testing.T) {
 
 	if got = HandlerMask(nil); got != nil {
 		t.Errorf("HandlerMask(nil) = %v, want: nil", got)
-	}
-}
-
-func TestExecActionMask(t *testing.T) {
-	want := &corev1.ExecAction{
-		Command: []string{"foo", "bar"},
-	}
-	in := want
-
-	got := ExecActionMask(in)
-
-	if &want == &got {
-		t.Errorf("Input and output share addresses. Want different addresses")
-	}
-
-	if diff, err := kmp.SafeDiff(want, got); err != nil {
-		t.Errorf("Got error comparing output, err = %v", err)
-	} else if diff != "" {
-		t.Errorf("ExecActionMask (-want, +got): %s", diff)
-	}
-
-	if got = ExecActionMask(nil); got != nil {
-		t.Errorf("ExecActionMask(nil) = %v, want: nil", got)
 	}
 }
 

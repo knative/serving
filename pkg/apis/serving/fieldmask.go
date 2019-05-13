@@ -195,27 +195,11 @@ func HandlerMask(in *corev1.Handler) *corev1.Handler {
 	out := new(corev1.Handler)
 
 	// Allowed fields
-	out.Exec = in.Exec
 	out.HTTPGet = in.HTTPGet
 	out.TCPSocket = in.TCPSocket
 
 	return out
 
-}
-
-// ExecActionMask performs a _shallow_ copy of the Kubernetes ExecAction object to a new
-// Kubernetes ExecAction object bringing over only the fields allowed in the Knative API. This
-// does not validate the contents or the bounds of the provided fields.
-func ExecActionMask(in *corev1.ExecAction) *corev1.ExecAction {
-	if in == nil {
-		return nil
-	}
-	out := new(corev1.ExecAction)
-
-	// Allowed fields
-	out.Command = in.Command
-
-	return out
 }
 
 // HTTPGetActionMask performs a _shallow_ copy of the Kubernetes HTTPGetAction object to a new

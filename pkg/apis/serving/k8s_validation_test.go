@@ -683,6 +683,28 @@ func TestContainerValidation(t *testing.T) {
 		},
 		want: apis.ErrDisallowedFields("livenessProbe.tcpSocket.port"),
 	}, {
+		name: "disallow exec liveness probe type",
+		c: corev1.Container{
+			Image: "foo",
+			LivenessProbe: &corev1.Probe{
+				Handler: corev1.Handler{
+					Exec: &corev1.ExecAction{},
+				},
+			},
+		},
+		want: apis.ErrDisallowedFields("livenessProbe.exec"),
+	}, {
+		name: "disallow exec readiness probe type",
+		c: corev1.Container{
+			Image: "foo",
+			ReadinessProbe: &corev1.Probe{
+				Handler: corev1.Handler{
+					Exec: &corev1.ExecAction{},
+				},
+			},
+		},
+		want: apis.ErrDisallowedFields("readinessProbe.exec"),
+	}, {
 		name: "has numerous problems",
 		c: corev1.Container{
 			Name:      "foo",
