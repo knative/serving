@@ -130,11 +130,14 @@ func NewNoClient() (authn.Keychain, error) {
 	return New(nil, Options{})
 }
 
-type lazyProvider credentialprovider.LazyAuthConfiguration
+type lazyProvider struct {
+	provider credentialprovider.LazyAuthConfiguration
+	repo     string
+}
 
 // Authorization implements Authenticator.
 func (lp lazyProvider) Authorization() (string, error) {
-	authConfig := credentialprovider.LazyProvide(credentialprovider.LazyAuthConfiguration(lp))
+	authConfig := credentialprovider.LazyProvide(credentialprovider.LazyAuthConfiguration(lp.provider), lp.repo)
 	if authConfig.Auth != "" {
 		return "Basic " + authConfig.Auth, nil
 	}
@@ -161,5 +164,8 @@ func (kc *keychain) Resolve(reg name.Registry) (authn.Authenticator, error) {
 		return authn.Anonymous, nil
 	}
 	// TODO(mattmoor): How to support multiple credentials?
-	return lazyProvider(creds[0]), nil
+	return lazyProvider{
+		provider: creds[0],
+		repo:     reg.String(),
+	}, nil
 }
