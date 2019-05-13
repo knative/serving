@@ -26,7 +26,6 @@ import (
 	"github.com/knative/pkg/logging/logkey"
 	"github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/serving"
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	netlisters "github.com/knative/serving/pkg/client/listers/networking/v1alpha1"
 	servinglisters "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
 	"github.com/knative/serving/pkg/queue"
@@ -112,7 +111,7 @@ func (t *Throttler) UpdateCapacity(rev RevisionID, size int) error {
 		return err
 	}
 	breaker, _ := t.getOrCreateBreaker(rev)
-	return t.updateCapacity(revision, breaker, size)
+	return t.updateCapacity(breaker, int(revision.Spec.ContainerConcurrency), size)
 }
 
 // Try potentially registers a new breaker in our bookkeeping
@@ -134,9 +133,7 @@ func (t *Throttler) Try(rev RevisionID, function func()) error {
 }
 
 // This method updates Breaker's concurrency.
-func (t *Throttler) updateCapacity(revision *v1alpha1.Revision, breaker *queue.Breaker, size int) (err error) {
-	cc := int(revision.Spec.ContainerConcurrency)
-
+func (t *Throttler) updateCapacity(breaker *queue.Breaker, cc, size int) (err error) {
 	targetCapacity := cc * size
 	if size > 0 && (cc == 0 || targetCapacity > t.breakerParams.MaxConcurrency) {
 		// The concurrency is unlimited, thus hand out as many tokens as we can in this breaker.
@@ -182,10 +179,10 @@ func (t *Throttler) forceUpdateCapacity(rev RevisionID, breaker *queue.Breaker) 
 	if err != nil {
 		return err
 	}
-	return t.updateCapacity(revision, breaker, size)
+	return t.updateCapacity(breaker, int(revision.Spec.ContainerConcurrency), size)
 }
 
-// UpdateEndpoints is a handler function to be used by the Endpoints informer.
+// endpointsUpdated is a handler function to be used by the Endpoints informer.
 // It updates the endpoints in the Throttler if the number of hosts changed and
 // the revision already exists (we don't want to create/update throttlers for the endpoints
 // that do not belong to any revision).
@@ -200,7 +197,7 @@ func (t *Throttler) endpointsUpdated(newObj interface{}) {
 	}
 }
 
-// DeleteBreaker is a handler function to be used by the Endpoints informer.
+// endpointsDeleted is a handler function to be used by the Endpoints informer.
 // It removes the Breaker from the Throttler bookkeeping.
 func (t *Throttler) endpointsDeleted(obj interface{}) {
 	ep := obj.(*corev1.Endpoints)
