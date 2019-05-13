@@ -48,8 +48,8 @@ var (
 		VolumeMounts:             []corev1.VolumeMount{varLogVolumeMount},
 		Lifecycle:                userLifecycle,
 		TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
-		Stdin: false,
-		TTY:   false,
+		Stdin:                    false,
+		TTY:                      false,
 		Env: []corev1.EnvVar{{
 			Name:  "PORT",
 			Value: "8080",
@@ -153,7 +153,7 @@ var (
 	}
 
 	defaultPodSpec = &corev1.PodSpec{
-		Volumes: []corev1.Volume{varLogVolume},
+		Volumes:                       []corev1.Volume{varLogVolume},
 		TerminationGracePeriodSeconds: refInt64(45),
 	}
 
