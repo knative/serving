@@ -84,4 +84,8 @@ func (rs *RevisionSpec) SetDefaults(ctx context.Context) {
 	for i := range vms {
 		vms[i].ReadOnly = true
 	}
+
+	if rs.Deployer.Name == "" {
+		rs.Deployer.Name = "KnativeServing"
+	}
 }

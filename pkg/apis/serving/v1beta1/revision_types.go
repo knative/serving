@@ -22,6 +22,7 @@ import (
 	"github.com/knative/pkg/kmeta"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"encoding/json"
 )
 
 // +genclient
@@ -127,6 +128,12 @@ type RevisionSpec struct {
 	// be provided.
 	// +optional
 	TimeoutSeconds *int64 `json:"timeoutSeconds,omitempty"`
+
+	// The deployer to handle this revision, used to disable Knatives deploying
+	// of revisions and injection of sidecars, and allow a third party controller
+	// to do it instead.
+	// +optional
+	Deployer Deployer `json:"deployer,omitempty"`
 }
 
 const (
@@ -167,4 +174,18 @@ type RevisionList struct {
 	metav1.ListMeta `json:"metadata"`
 
 	Items []Revision `json:"items"`
+}
+
+// A deployer, to allow a third party controller to deploy revisions.
+type Deployer struct {
+
+	// The name of the deployer. If no deployer is specified, or if the deployer
+	// is KnativeServing, then KnativeServing will deploy it.
+	Name string `json:"name"`
+
+	// Deployer specific configuration, if needed. The structure is specific to
+	// the deployer specified, and it's up to the deployer to do any necessary
+	// validation, updating the status if validation fails.
+	// +optional
+	Config json.RawMessage `json:"config,omitempty"`
 }

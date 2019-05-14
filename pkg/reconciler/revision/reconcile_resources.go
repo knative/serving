@@ -43,34 +43,44 @@ const (
 )
 
 func (c *Reconciler) reconcileDeployment(ctx context.Context, rev *v1alpha1.Revision) error {
+
 	ns := rev.Namespace
 	deploymentName := resourcenames.Deployment(rev)
 	logger := logging.FromContext(ctx).With(zap.String(logkey.Deployment, deploymentName))
 
 	deployment, err := c.deploymentLister.Deployments(ns).Get(deploymentName)
-	if apierrs.IsNotFound(err) {
-		// Deployment does not exist. Create it.
-		rev.Status.MarkDeploying("Deploying")
-		deployment, err = c.createDeployment(ctx, rev)
-		if err != nil {
-			logger.Errorf("Error creating deployment %q: %v", deploymentName, err)
+
+	if rev.Spec.RevisionSpec.Deployer.Name == "KnativeServing" {
+		if apierrs.IsNotFound(err) {
+			// Deployment does not exist. Create it.
+			rev.Status.MarkDeploying("Deploying")
+			deployment, err = c.createDeployment(ctx, rev)
+			if err != nil {
+				logger.Errorf("Error creating deployment %q: %v", deploymentName, err)
+				return err
+			}
+			logger.Infof("Created deployment %q", deploymentName)
+		} else if err != nil {
+			logger.Errorf("Error reconciling deployment %q: %v", deploymentName, err)
 			return err
+		} else if !metav1.IsControlledBy(deployment, rev) {
+			// Surface an error in the revision's status, and return an error.
+			rev.Status.MarkResourceNotOwned("Deployment", deploymentName)
+			return fmt.Errorf("Revision: %q does not own Deployment: %q", rev.Name, deploymentName)
+		} else {
+			// The deployment exists, but make sure that it has the shape that we expect.
+			deployment, err = c.checkAndUpdateDeployment(ctx, rev, deployment)
+			if err != nil {
+				logger.Errorf("Error updating deployment %q: %v", deploymentName, err)
+				return err
+			}
 		}
-		logger.Infof("Created deployment %q", deploymentName)
-	} else if err != nil {
-		logger.Errorf("Error reconciling deployment %q: %v", deploymentName, err)
-		return err
-	} else if !metav1.IsControlledBy(deployment, rev) {
-		// Surface an error in the revision's status, and return an error.
-		rev.Status.MarkResourceNotOwned("Deployment", deploymentName)
-		return fmt.Errorf("Revision: %q does not own Deployment: %q", rev.Name, deploymentName)
 	} else {
-		// The deployment exists, but make sure that it has the shape that we expect.
-		deployment, err = c.checkAndUpdateDeployment(ctx, rev, deployment)
 		if err != nil {
-			logger.Errorf("Error updating deployment %q: %v", deploymentName, err)
-			return err
+			// There's an error (or it's not found), but we don't care because it's not ours to care about
+			return nil
 		}
+		// Otherwise, continue processing to update the status accordingly.
 	}
 
 	// If a container keeps crashing (no active pods in the deployment although we want some)
