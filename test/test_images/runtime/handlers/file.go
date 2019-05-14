@@ -15,6 +15,7 @@ package handlers
 
 import (
 	"os"
+	"strings"
 
 	"github.com/knative/serving/test/types"
 )
@@ -29,12 +30,15 @@ func fileInfo(paths ...string) map[string]types.FileInfo {
 		}
 		size := file.Size()
 		dir := file.IsDir()
-		mode := file.Mode()
 		source, _ := os.Readlink(path)
+
+		// If we apply the UNIX permissions mask via 'Perm' the leading
+		// character will always be "-" because all the mode bits are dropped.
+		perm := strings.TrimPrefix(file.Mode().Perm().String(), "-")
 
 		files[path] = types.FileInfo{
 			Size:       &size,
-			Mode:       mode.String(),
+			Perm:       perm,
 			ModTime:    file.ModTime(),
 			SourceFile: source,
 			IsDir:      &dir}

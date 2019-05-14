@@ -26,14 +26,14 @@ import (
 	"github.com/knative/serving/test/types"
 )
 
-func verifyModeString(resp string, expected string) error {
+func verifyPermissionsString(resp string, expected string) error {
 	if len(resp) != len(expected) {
-		return fmt.Errorf("mode = %q (len:%d), want: %q (len:%d)", resp, len(resp), expected, len(expected))
+		return fmt.Errorf("perm = %q (len:%d), want: %q (len:%d)", resp, len(resp), expected, len(expected))
 	}
 
 	for index := range expected {
 		if expected[index] != '*' && expected[index] != resp[index] {
-			return fmt.Errorf("mode[%d] = %c, want: %c", index, expected[index], resp[index])
+			return fmt.Errorf("perm[%d] = %c, want: %c", index, expected[index], resp[index])
 		}
 	}
 	return nil
@@ -63,9 +63,9 @@ func testFiles(t *testing.T, clients *test.Clients, paths map[string]types.FileI
 			return fmt.Errorf("%s.SourceFile = %s, want: %s", path, riFile.SourceFile, file.SourceFile)
 		}
 
-		if file.Mode != "" {
-			if err := verifyModeString(riFile.Mode, file.Mode); err != nil {
-				return fmt.Errorf("%s has invalid mode string %s: %v", path, riFile.Mode, err)
+		if file.Perm != "" {
+			if err := verifyPermissionsString(riFile.Perm, file.Perm); err != nil {
+				return fmt.Errorf("%s has invalid permissions string %s: %v", path, riFile.Perm, err)
 			}
 		}
 	}

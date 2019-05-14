@@ -92,11 +92,11 @@ var MustFiles = map[string]FileInfo{
 	},
 	"/tmp": {
 		IsDir: ptr.Bool(true),
-		Mode:  "dtrwxrwxrwx",
+		Perm:  "rwxrwxrwx",
 	},
 	"/var/log": {
 		IsDir: ptr.Bool(true),
-		Mode:  "drwxrwxrwx",
+		Perm:  "rwxrwxrwx",
 	},
 }
 
@@ -105,7 +105,7 @@ var MustFiles = map[string]FileInfo{
 var ShouldFiles = map[string]FileInfo{
 	"/etc/resolv.conf": {
 		IsDir: ptr.Bool(false),
-		Mode:  "*rw*r**r**",
+		Perm:  "rw*r**r**",
 	},
 	"/dev/console": { // This file SHOULD NOT exist.
 		Error: "stat /dev/console: no such file or directory",
@@ -168,9 +168,9 @@ type UserInfo struct {
 type FileInfo struct {
 	// Size is the length in bytes for regular files; system-dependent for others.
 	Size *int64 `json:"size,omitempty"`
-	// Mode is the file mode bits.
-	Mode string `json:"mode,omitempty"`
-	// ModTime is the file last modified time
+	// Perm are the unix permission bits.
+	Perm string `json:"mode,omitempty"`
+	// ModTime is the file last modified time.
 	ModTime time.Time `json:"modTime,omitempty"`
 	// SourceFile is populated if this file is a symlink. The SourceFile is the file where
 	// the symlink resolves.
