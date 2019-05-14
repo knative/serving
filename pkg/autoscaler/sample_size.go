@@ -25,7 +25,8 @@ const (
 	// marginOfErrorSquared is the square of margin of error. 5 is a usually used value
 	// for MOE.
 	marginOfErrorSquared = 5.0 * 5.0
-	populationVariance   = 100.0
+	// σ2 is the population variance.
+	σ2 = 100.0
 )
 
 // populationMeanSampleSize uses the following formula for the sample size n:
@@ -45,7 +46,7 @@ func populationMeanSampleSize(population int) int {
 	if population <= 3 {
 		return population
 	}
-	x := criticalValueSquared * populationVariance / marginOfErrorSquared
+	x := criticalValueSquared * σ2 / marginOfErrorSquared
 	populationf := float64(population)
 	return int(math.Ceil(populationf * x / (populationf + x - 1)))
 }
