@@ -69,36 +69,25 @@ func MakeHPA(pa *v1alpha1.PodAutoscaler) *autoscalingv2beta1.HorizontalPodAutosc
 			}
 		}
 	case autoscaling.Custom:
-		metric := autoscalingv2beta1.MetricSpec{
-			Type: autoscalingv2beta1.ResourceMetricSourceType,
-		}
-
-		if rawSourceType, ok := pa.Annotations[autoscaling.MetricSourceTypeAnnotationKey]; ok {
-			switch rawSourceType {
-			case string(autoscalingv2beta1.ObjectMetricSourceType):
-				metric.Type = autoscalingv2beta1.ObjectMetricSourceType
-			case string(autoscalingv2beta1.PodsMetricSourceType):
-				metric.Type = autoscalingv2beta1.PodsMetricSourceType
-				metricName, ok := pa.Annotations[autoscaling.MetricNameAnnotationKey]
-
-				if ok {
-					metric.Pods = &autoscalingv2beta1.PodsMetricSource{
-						MetricName: metricName,
-					}
-
-					if avgValue, ok := pa.Annotations[autoscaling.TargetAverageValueAnnotationKey]; ok {
-						metric.Pods.TargetAverageValue = resource.MustParse(avgValue)
-
-					}
-				}
-			case string(autoscalingv2beta1.ExternalMetricSourceType):
-				metric.Type = autoscalingv2beta1.ExternalMetricSourceType
-			case string(autoscalingv2beta1.ResourceMetricSourceType):
-				metric.Type = autoscalingv2beta1.ResourceMetricSourceType
+		if metricName, ok := pa.MetricName(); ok {
+			metric := autoscalingv2beta1.MetricSpec{
+				Type: autoscalingv2beta1.PodsMetricSourceType,
+				Pods: &autoscalingv2beta1.PodsMetricSource{
+					MetricName: metricName,
+				},
 			}
-		}
 
-		hpa.Spec.Metrics = []autoscalingv2beta1.MetricSpec{metric}
+			metric.Pods = &autoscalingv2beta1.PodsMetricSource{
+				MetricName: metricName,
+			}
+
+			if target, ok := pa.RawTarget(); ok {
+				metric.Pods.TargetAverageValue = resource.MustParse(target)
+			}
+
+			hpa.Spec.Metrics = []autoscalingv2beta1.MetricSpec{metric}
+		}
 	}
+
 	return hpa
 }

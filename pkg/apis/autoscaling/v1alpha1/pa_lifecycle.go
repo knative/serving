@@ -95,6 +95,18 @@ func (pa *PodAutoscaler) Target() (target int32, ok bool) {
 	return 0, false
 }
 
+// RawTarget returns the raw target annotation value or false if not present.
+func (pa *PodAutoscaler) RawTarget() (target string, ok bool) {
+	target, ok = pa.Annotations[autoscaling.TargetAnnotationKey]
+	return target, ok
+}
+
+// MetricName returns the metric name annotation value or false if not present.
+func (pa *PodAutoscaler) MetricName() (metricName string, ok bool) {
+	metricName, ok = pa.Annotations[autoscaling.MetricNameAnnotationKey]
+	return metricName, ok
+}
+
 // Window returns the window annotation value or false if not present.
 func (pa *PodAutoscaler) Window() (window time.Duration, ok bool) {
 	if s, ok := pa.Annotations[autoscaling.WindowAnnotationKey]; ok {
