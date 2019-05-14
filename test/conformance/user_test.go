@@ -21,6 +21,7 @@ package conformance
 import (
 	"testing"
 
+	"github.com/knative/pkg/ptr"
 	"github.com/knative/serving/test"
 
 	corev1 "k8s.io/api/core/v1"
@@ -69,7 +70,11 @@ func TestMustRunAsUser(t *testing.T) {
 func TestShouldRunAsUserContainerDefault(t *testing.T) {
 	t.Parallel()
 	clients := setup(t)
-	_, ri, err := fetchRuntimeInfoUnprivileged(t, clients, &test.Options{})
+	_, ri, err := fetchRuntimeInfoUnprivileged(t, clients, &test.Options{
+		SecurityContext: &corev1.SecurityContext{
+			RunAsUser: ptr.Int64(1000),
+		},
+	})
 
 	if err != nil {
 		t.Fatalf("Error fetching runtime info: %v", err)
