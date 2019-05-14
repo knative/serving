@@ -152,8 +152,7 @@ func (s *ServiceScraper) Scrape() (*StatMessage, error) {
 		go func() {
 			defer waitGroup.Done()
 
-			stat, err := s.sClient.Scrape(s.url)
-			if err != nil {
+			if stat, err := s.sClient.Scrape(s.url); err != nil {
 				statCh <- nil
 			} else {
 				statCh <- stat
