@@ -173,7 +173,7 @@ func (s *ServiceScraper) Scrape() (*StatMessage, error) {
 		}
 	}
 	if successCount == 0 {
-		return nil, fmt.Errorf("fail to get a successful scrape for %v tries", sampleSize)
+		return nil, fmt.Errorf("fail to get a successful scrape for %d tries", sampleSize)
 	}
 
 	avgConcurrency = avgConcurrency / successCount
