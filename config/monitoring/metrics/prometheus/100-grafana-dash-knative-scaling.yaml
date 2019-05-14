@@ -981,7 +981,7 @@ data:
                   "options":[  
 
                   ],
-                  "query":"label_values(autoscaler_observed_pods, namespace_name)",
+                  "query":"label_values(autoscaler_desired_pods, namespace_name)",
                   "refresh":1,
                   "regex":"",
                   "sort":1,
@@ -1007,7 +1007,7 @@ data:
                   "options":[  
 
                   ],
-                  "query":"label_values(autoscaler_observed_pods{namespace_name=\"$namespace\"}, configuration_name)",
+                  "query":"label_values(autoscaler_desired_pods{namespace_name=\"$namespace\"}, configuration_name)",
                   "refresh":1,
                   "regex":"",
                   "sort":1,
@@ -1033,7 +1033,7 @@ data:
                   "options":[  
 
                   ],
-                  "query":"label_values(autoscaler_observed_pods{namespace_name=\"$namespace\", configuration_name=\"$configuration\"}, revision_name)",
+                  "query":"label_values(autoscaler_desired_pods{namespace_name=\"$namespace\", configuration_name=\"$configuration\"}, revision_name)",
                   "refresh":1,
                   "regex":"",
                   "sort":2,
