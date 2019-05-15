@@ -623,7 +623,7 @@ func TestContainerValidation(t *testing.T) {
 			Paths:   []string{"env[0].name"},
 		},
 	}, {
-		name: "allow FieldRef",
+		name: "allow FieldRef metadata.name",
 		c: corev1.Container{
 			Image: "foo",
 			Env: []corev1.EnvVar{{
@@ -636,6 +636,62 @@ func TestContainerValidation(t *testing.T) {
 			}},
 		},
 		want: nil,
+	}, {
+		name: "allow FieldRef metadata.namespace",
+		c: corev1.Container{
+			Image: "foo",
+			Env: []corev1.EnvVar{{
+				Name: "Foo",
+				ValueFrom: &corev1.EnvVarSource{
+					FieldRef: &corev1.ObjectFieldSelector{
+						FieldPath: "metadata.namespace",
+					},
+				},
+			}},
+		},
+		want: nil,
+	}, {
+		name: "allow FieldRef spec.serviceAccountName",
+		c: corev1.Container{
+			Image: "foo",
+			Env: []corev1.EnvVar{{
+				Name: "Foo",
+				ValueFrom: &corev1.EnvVarSource{
+					FieldRef: &corev1.ObjectFieldSelector{
+						FieldPath: "spec.serviceAccountName",
+					},
+				},
+			}},
+		},
+		want: nil,
+	}, {
+		name: "disallow FieldRef status.podIP",
+		c: corev1.Container{
+			Image: "foo",
+			Env: []corev1.EnvVar{{
+				Name: "Foo",
+				ValueFrom: &corev1.EnvVarSource{
+					FieldRef: &corev1.ObjectFieldSelector{
+						FieldPath: "status.podIP",
+					},
+				},
+			}},
+		},
+		want: apis.ErrInvalidValue("status.podIP", "env[0].valueFrom.fieldRef.fieldPath"),
+	}, {
+		name: "disallow FieldRef status.hostIP",
+		c: corev1.Container{
+			Image: "foo",
+			Env: []corev1.EnvVar{{
+				Name: "Foo",
+				ValueFrom: &corev1.EnvVarSource{
+					FieldRef: &corev1.ObjectFieldSelector{
+						FieldPath: "status.hostIP",
+					},
+				},
+			}},
+		},
+		want: apis.ErrInvalidValue("status.hostIP", "env[0].valueFrom.fieldRef.fieldPath"),
 	}, {
 		name: "invalid liveness tcp probe (has port)",
 		c: corev1.Container{

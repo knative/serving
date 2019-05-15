@@ -115,6 +115,19 @@ func validateEnvVar(env corev1.EnvVar) *apis.FieldError {
 		})
 	}
 
+	if env.ValueFrom != nil && env.ValueFrom.FieldRef != nil {
+		switch env.ValueFrom.FieldRef.FieldPath {
+		// Allowed FieldPaths.
+		case "metadata.name", "metadata.namespace", "spec.serviceAccountName":
+			// ok
+		default:
+			errs = errs.Also(apis.ErrInvalidValue(
+				env.ValueFrom.FieldRef.FieldPath,
+				"valueFrom.fieldRef.fieldPath"),
+			)
+		}
+	}
+
 	return errs.Also(validateEnvValueFrom(env.ValueFrom).ViaField("valueFrom"))
 }
 
