@@ -105,7 +105,7 @@ func (a *activationHandler) probeEndpoint(logger *zap.SugaredLogger, r *http.Req
 	reqCtx, probeSpan := trace.StartSpan(r.Context(), "probe")
 	defer func() {
 		probeSpan.End()
-		a.logger.Infof("Probing %s took %d attempts and %v time", target.String(), attempts, time.Since(st))
+		a.logger.Debugf("Probing %s took %d attempts and %v time", target.String(), attempts, time.Since(st))
 	}()
 
 	err := wait.PollImmediate(100*time.Millisecond, a.probeTimeout, func() (bool, error) {
