@@ -60,7 +60,6 @@ failed=0
 go_test_e2e -timeout=30m \
   ./test/conformance \
   ./test/e2e \
-  ./test/e2e/build \
   "--resolvabledomain=$(use_resolvable_domain)" || failed=1
 
 # Run scale tests.

@@ -135,7 +135,10 @@ func (rs *RevisionSpec) Validate(ctx context.Context) *apis.FieldError {
 	default:
 		errs = errs.Also(apis.ErrMissingOneOf("container", "containers"))
 	}
-	errs = errs.Also(serving.ValidateNamespacedObjectReference(rs.DeprecatedBuildRef).ViaField("buildRef"))
+
+	if rs.DeprecatedBuildRef != nil {
+		errs = errs.Also(apis.ErrDisallowedFields("buildRef"))
+	}
 
 	if err := rs.DeprecatedConcurrencyModel.Validate(ctx).ViaField("concurrencyModel"); err != nil {
 		errs = errs.Also(err)

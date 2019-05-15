@@ -35,7 +35,6 @@ import (
 	"github.com/knative/serving/pkg/reconciler/configuration/resources"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	clientgotesting "k8s.io/client-go/testing"
@@ -208,46 +207,6 @@ func TestReconcile(t *testing.T) {
 		},
 		Key: "foo/validation-failure",
 	}, {
-		Name: "elide build when a matching one already exists",
-		Objects: []runtime.Object{
-			cfg("need-rev-and-build", "foo", 99998, WithBuild),
-			// An existing build is reused!
-			build("something-else-12345", cfg("something-else", "foo", 12345, WithBuild)),
-		},
-		WantCreates: []runtime.Object{
-			rev("need-rev-and-build", "foo", 99998, WithBuildRef("something-else-12345")),
-		},
-		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: cfg("need-rev-and-build", "foo", 99998, WithBuild, WithBuildWarning,
-				// The following properties are set when we first reconcile a Configuration
-				// that stamps out a Revision with an existing Build.
-				WithLatestCreated("need-rev-and-build-00001"), WithObservedGen),
-		}},
-		WantEvents: []string{
-			Eventf(corev1.EventTypeNormal, "Created", "Created Revision %q", "need-rev-and-build-00001"),
-		},
-		Key: "foo/need-rev-and-build",
-	}, {
-		Name: "create revision matching generation with build",
-		Objects: []runtime.Object{
-			cfg("need-rev-and-build", "foo", 99998, WithBuild),
-		},
-		WantCreates: []runtime.Object{
-			resources.MakeBuild(cfg("need-rev-and-build", "foo", 99998, WithBuild)),
-			rev("need-rev-and-build", "foo", 99998, WithBuildRef("need-rev-and-build-00001")),
-		},
-		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: cfg("need-rev-and-build", "foo", 99998, WithBuild, WithBuildWarning,
-				// The following properties are set when we first reconcile a Configuration
-				// that stamps our a Revision and a Build.
-				WithLatestCreated("need-rev-and-build-00001"), WithObservedGen),
-		}},
-		WantEvents: []string{
-			Eventf(corev1.EventTypeNormal, "Created", "Created Build %q", "need-rev-and-build-00001"),
-			Eventf(corev1.EventTypeNormal, "Created", "Created Revision %q", "need-rev-and-build-00001"),
-		},
-		Key: "foo/need-rev-and-build",
-	}, {
 		Name: "reconcile revision matching generation (ready: unknown)",
 		Objects: []runtime.Object{
 			cfg("matching-revision-not-done", "foo", 5432),
@@ -332,32 +291,6 @@ func TestReconcile(t *testing.T) {
 			Eventf(corev1.EventTypeWarning, "InternalError", `unrecognized condition status: Bad on revision "bad-condition"`),
 		},
 		Key: "foo/bad-condition",
-	}, {
-		Name: "failure creating build",
-		// We induce a failure creating a build
-		WantErr: true,
-		WithReactors: []clientgotesting.ReactionFunc{
-			InduceFailure("create", "builds"),
-		},
-		Objects: []runtime.Object{
-			cfg("create-build-failure", "foo", 99998, WithBuild),
-		},
-		WantCreates: []runtime.Object{
-			resources.MakeBuild(cfg("create-build-failure", "foo", 99998, WithBuild)),
-			// No Revision gets created.
-		},
-		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: cfg("create-build-failure", "foo", 99998, WithBuild, WithBuildWarning,
-				// When we fail to create a Build it should be surfaced in
-				// the Configuration status.
-				MarkRevisionCreationFailed(`Failed to create Build for Configuration "create-build-failure": inducing failure for create builds`)),
-		}},
-		WantEvents: []string{
-			Eventf(corev1.EventTypeWarning, "CreationFailed", "Failed to create Revision for Configuration %q: %v",
-				"create-build-failure", fmt.Sprintf("Failed to create Build for Configuration %q: %v", "create-build-failure", "inducing failure for create builds")),
-			Eventf(corev1.EventTypeWarning, "InternalError", `Failed to create Build for Configuration "create-build-failure": inducing failure for create builds`),
-		},
-		Key: "foo/create-build-failure",
 	}, {
 		Name: "failure creating revision",
 		// We induce a failure creating a revision
@@ -637,18 +570,12 @@ func cfg(name, namespace string, generation int64, co ...ConfigOption) *v1alpha1
 }
 
 func rev(name, namespace string, generation int64, ro ...RevisionOption) *v1alpha1.Revision {
-	r := resources.MakeRevision(cfg(name, namespace, generation), nil)
+	r := resources.MakeRevision(cfg(name, namespace, generation))
 	r.SetDefaults(v1beta1.WithUpgradeViaDefaulting(context.Background()))
 	for _, opt := range ro {
 		opt(r)
 	}
 	return r
-}
-
-func build(name string, cfg *v1alpha1.Configuration) *unstructured.Unstructured {
-	build := resources.MakeBuild(cfg)
-	build.SetName(name)
-	return build
 }
 
 type testConfigStore struct {

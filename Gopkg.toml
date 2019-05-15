@@ -18,11 +18,6 @@ required = [
   version = "v2.2.1"
 
 [[override]]
-  name = "github.com/knative/build"
-  # HEAD as of 2019-03-21
-  revision = "dd3ceb3323922b899a0a913f885fcf59943e7b59"
-
-[[override]]
   name = "github.com/knative/pkg"
   # HEAD as of 2919-05-28
   revision = "15b1aa79be0b927a9e62d1738b03ef3efb2745f3"
