@@ -135,7 +135,6 @@ func (s *ServiceScraper) Scrape() (*StatMessage, error) {
 
 	sampleSize := populationMeanSampleSize(readyPodsCount)
 	statCh := make(chan *Stat, sampleSize)
-	defer close(statCh)
 
 	var (
 		avgConcurrency        float64
@@ -151,25 +150,24 @@ func (s *ServiceScraper) Scrape() (*StatMessage, error) {
 	for i := 0; i < sampleSize; i++ {
 		go func() {
 			defer waitGroup.Done()
-
-			if stat, err := s.sClient.Scrape(s.url); err != nil {
-				statCh <- nil
-			} else {
+			if stat, err := s.sClient.Scrape(s.url); err == nil {
 				statCh <- stat
 			}
 		}()
 	}
 
 	waitGroup.Wait()
-	for i := 0; i < sampleSize; i++ {
-		stat := <-statCh
-		if stat != nil {
-			successCount++
-			avgConcurrency += stat.AverageConcurrentRequests
-			avgProxiedConcurrency += stat.AverageProxiedConcurrentRequests
-			reqCount += stat.RequestCount
-			proxiedReqCount += stat.ProxiedRequestCount
+	close(statCh)
+	for stat := range statCh {
+		// This SHOULD NOT happen. Just to be safe.
+		if stat == nil {
+			continue
 		}
+		successCount++
+		avgConcurrency += stat.AverageConcurrentRequests
+		avgProxiedConcurrency += stat.AverageProxiedConcurrentRequests
+		reqCount += stat.RequestCount
+		proxiedReqCount += stat.ProxiedRequestCount
 	}
 	if successCount == 0 {
 		return nil, fmt.Errorf("fail to get a successful scrape for %d tries", sampleSize)
