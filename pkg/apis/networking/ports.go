@@ -37,8 +37,12 @@ const (
 	RequestQueueAdminPort = 8022
 
 	// RequestQueueMetricsPort specifies the port number for metrics emitted
-	// by queue-proxy.
+	// by queue-proxy for autoscaler.
 	RequestQueueMetricsPort = 9090
+
+	// PublicQueueMetricsPort specifies the port number for metrics emitted
+	// by queue-proxy for end user.
+	PublicQueueMetricsPort = 9091
 
 	// ServicePortNameHTTP1 is the name of the external port of the service for HTTP/1.1
 	ServicePortNameHTTP1 = "http"

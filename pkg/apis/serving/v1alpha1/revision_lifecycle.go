@@ -45,8 +45,12 @@ const (
 	RequestQueueAdminPortName string = "queueadm-port"
 
 	// RequestQueueMetricsPortName specifies the port name to use for metrics
-	// emitted by queue-proxy.
+	// emitted by queue-proxy for autoscaler.
 	RequestQueueMetricsPortName = "queue-metrics"
+
+	// PublicQueueMetricsPortName specifies the port name to use for metrics
+	// emitted by queue-proxy for end user.
+	PublicQueueMetricsPortName = "queue-metrics-p"
 
 	// ServiceQueueMetricsPortName is the name of the port that serves metrics
 	// on the Kubernetes service.

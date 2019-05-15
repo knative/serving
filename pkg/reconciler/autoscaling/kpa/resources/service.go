@@ -53,6 +53,11 @@ func MakeMetricsService(pa *pav1alpha1.PodAutoscaler, selector map[string]string
 				Protocol:   corev1.ProtocolTCP,
 				Port:       networking.RequestQueueMetricsPort,
 				TargetPort: intstr.FromString(sv1a1.RequestQueueMetricsPortName),
+			}, {
+				Name:       v1alpha1.PublicQueueMetricsPortName,
+				Protocol:   corev1.ProtocolTCP,
+				Port:       networking.PublicQueueMetricsPort,
+				TargetPort: intstr.FromString(sv1a1.PublicQueueMetricsPortName),
 			}},
 			Selector: selector,
 		},

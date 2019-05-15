@@ -58,6 +58,9 @@ var (
 	}, {
 		Name:          v1alpha1.RequestQueueMetricsPortName,
 		ContainerPort: int32(networking.RequestQueueMetricsPort),
+	}, {
+		Name:          v1alpha1.PublicQueueMetricsPortName,
+		ContainerPort: int32(networking.PublicQueueMetricsPort),
 	}}
 
 	queueReadinessProbe = &corev1.Probe{

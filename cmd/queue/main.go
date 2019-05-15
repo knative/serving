@@ -61,10 +61,10 @@ const (
 	// in the mesh.
 	quitSleepDuration = 20 * time.Second
 
-	// commonMetricsPort is the port where common metrics, e.g. request metrics
-	// are exposed in Prometheus. This is different from the metrics used
-	// for autoscaling, which are exposed in 9090.
-	commonMetricsPort = 9091
+	// publicQueueMetricsPort is the port where user visible metrics,
+	// e.g. request metrics are exposed in Prometheus. This is different
+	// from the metrics used for autoscaling, which are exposed in 9090.
+	publicQueueMetricsPort = 9091
 
 	badProbeTemplate = "unexpected probe header value: %s"
 )
@@ -359,7 +359,7 @@ func pushRequestMetricHandler(currentHandler http.Handler) http.Handler {
 	ops := metrics.ExporterOptions{
 		Domain:         "knative.dev/serving",
 		Component:      "revision",
-		PrometheusPort: commonMetricsPort,
+		PrometheusPort: publicQueueMetricsPort,
 		ConfigMap: map[string]string{
 			metrics.BackendDestinationKey: backend,
 		},
