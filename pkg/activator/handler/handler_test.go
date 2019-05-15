@@ -279,56 +279,9 @@ func TestActivationHandler(t *testing.T) {
 		endpointsInformer: endpointsInformer(endpoints("bogus-namespace", testRevName, 1000)),
 		reporterCalls:     nil,
 	}}
-
 	for _, test := range tests {
 		t.Run(test.label, func(t *testing.T) {
-			defer func() {
-				prober.TransportFactory = network.NewAutoTransport
-			}()
-			rt := network.RoundTripperFunc(func(r *http.Request) (*http.Response, error) {
-				if r.Header.Get(network.ProbeHeaderName) != "" {
-					if test.probeErr != nil {
-						return nil, test.probeErr
-					}
-					fake := httptest.NewRecorder()
-					// Make sure the probe is attributed with correct header.
-					if r.Header.Get(network.ProbeHeaderName) != queue.Name {
-						fake.WriteHeader(http.StatusBadRequest)
-						fake.WriteString("probe sent to a wrong system")
-						return fake.Result(), nil
-					}
-					fake.WriteHeader(test.probeCode)
-					probeResp := queue.Name
-					if len(test.probeResp) > 0 {
-						probeResp = test.probeResp[0]
-						test.probeResp = test.probeResp[1:]
-					}
-					fake.WriteString(probeResp)
-					return fake.Result(), nil
-				}
-				// Actual request test handler.
-				if test.wantErr != nil {
-					return nil, test.wantErr
-				}
-
-				// Now verify that the request has the required rewritten host header.
-				if got, want := r.Host, ""; got != want {
-					t.Errorf("The r.Host has not been cleared out, was: %q", got)
-				}
-				if got, want := r.Header.Get("Host"), ""; got != want {
-					t.Errorf("The Host header has not been cleared out, was: %q", got)
-				}
-				if got, want := r.Header.Get(network.OriginalHostHeader), "test-host"; got != want {
-					t.Errorf("The %s header = %q, want: %q", network.OriginalHostHeader, got, want)
-				}
-
-				fake := httptest.NewRecorder()
-
-				fake.WriteHeader(http.StatusOK)
-				fake.WriteString(wantBody)
-				return fake.Result(), nil
-			})
-
+			rt := getRT(t, test.probeErr, test.probeCode, test.probeResp, test.wantErr, test.wantBody, "test-host", nil)
 			reporter := &fakeReporter{}
 			params := queue.BreakerParams{QueueDepth: 1000, MaxConcurrency: 1000, InitialCapacity: 0}
 			throttler := activator.NewThrottler(
@@ -350,6 +303,9 @@ func TestActivationHandler(t *testing.T) {
 			prober.TransportFactory = func() http.RoundTripper {
 				return rt
 			}
+			defer func() {
+				prober.TransportFactory = network.NewAutoTransport
+			}()
 
 			if test.sksLister != nil {
 				handler.sksLister = test.sksLister
@@ -384,7 +340,7 @@ func TestActivationHandler(t *testing.T) {
 }
 
 // Make sure we return http internal server error when the Breaker is overflowed
-func TestactivationHandler_Overflow(t *testing.T) {
+func TestActivationHandler_Overflow(t *testing.T) {
 	const (
 		wantedSuccess = 20
 		wantedFailure = 1
@@ -394,7 +350,12 @@ func TestactivationHandler_Overflow(t *testing.T) {
 	namespace := testNamespace
 	revName := testRevName
 
+	lockerCh := make(chan struct{})
+	rt := getRT(t, nil, 200, []string{}, nil, wantBody, "", lockerCh)
+
 	breakerParams := queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}
+	reporter := &fakeReporter{}
+
 	throttler := activator.NewThrottler(
 		breakerParams,
 		endpointsInformer(endpoints(namespace, revName, breakerParams.InitialCapacity)),
@@ -402,15 +363,28 @@ func TestactivationHandler_Overflow(t *testing.T) {
 		revisionLister(revision(namespace, revName)),
 		TestLogger(t))
 
-	lockerCh := make(chan struct{})
-	handler := getHandler(throttler, lockerCh, t)
-	sendRequests(requests, namespace, revName, respCh, handler)
+	handler := (New(TestLogger(t), reporter, throttler,
+		revisionLister(revision(namespace, revName)),
+		serviceLister(service(namespace, revName, "http")),
+		sksLister(sks(namespace, revName)),
+	)).(*activationHandler)
+
+	// Setup transports.
+	handler.transport = rt
+	prober.TransportFactory = func() http.RoundTripper {
+		return rt
+	}
+	defer func() {
+		prober.TransportFactory = network.NewAutoTransport
+	}()
+
+	sendRequests(requests, namespace, revName, respCh, *handler)
 
 	assertResponses(wantedSuccess, wantedFailure, requests, lockerCh, respCh, t)
 }
 
 // Make sure if one breaker is overflowed, the requests to other revisions are still served
-func TestactivationHandler_OverflowSeveralRevisions(t *testing.T) {
+func TestActivationHandler_OverflowSeveralRevisions(t *testing.T) {
 	const (
 		wantedSuccess   = 40
 		wantedFailure   = 2
@@ -422,29 +396,38 @@ func TestactivationHandler_OverflowSeveralRevisions(t *testing.T) {
 	revisions := []string{rev1, rev2}
 
 	breakerParams := queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}
+	reporter := &fakeReporter{}
 	epClient := endpointsInformer(endpoints(testNamespace, rev1, breakerParams.InitialCapacity), endpoints(testNamespace, rev2, breakerParams.InitialCapacity))
 	sksClient := sksLister(sks(testNamespace, rev1), sks(testNamespace, rev2))
 	revClient := revisionLister(revision(testNamespace, rev1), revision(testNamespace, rev2))
 	svcClient := serviceLister(service(testNamespace, rev1, "http"), service(testNamespace, rev2, "http"))
 
 	respCh := make(chan *httptest.ResponseRecorder, overallRequests)
-	throttler := activator.NewThrottler(breakerParams, epClient, sksClient, revClient, TestLogger(t))
-
 	lockerCh := make(chan struct{})
 
-	for _, revName := range revisions {
-		handler := getHandler(throttler, lockerCh, t)
-		handler.sksLister = sksClient
-		handler.revisionLister = revClient
-		handler.serviceLister = svcClient
+	throttler := activator.NewThrottler(breakerParams, epClient, sksClient, revClient, TestLogger(t))
 
+	rt := getRT(t, nil, 200, []string{}, nil, wantBody, "", lockerCh)
+	handler := (New(TestLogger(t), reporter, throttler,
+		revClient, svcClient, sksClient)).(*activationHandler)
+	handler.transport = rt
+
+	// Setup transports.
+	prober.TransportFactory = func() http.RoundTripper {
+		return rt
+	}
+	defer func() {
+		prober.TransportFactory = network.NewAutoTransport
+	}()
+
+	for _, revName := range revisions {
 		requestCount := overallRequests / len(revisions)
-		sendRequests(requestCount, testNamespace, revName, respCh, handler)
+		sendRequests(requestCount, testNamespace, revName, respCh, *handler)
 	}
 	assertResponses(wantedSuccess, wantedFailure, overallRequests, lockerCh, respCh, t)
 }
 
-func TestactivationHandler_ProxyHeader(t *testing.T) {
+func TestActivationHandler_ProxyHeader(t *testing.T) {
 	breakerParams := queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}
 	namespace, revName := testNamespace, testRevName
 
@@ -460,6 +443,15 @@ func TestactivationHandler_ProxyHeader(t *testing.T) {
 		sksLister(sks(namespace, revName)),
 		revisionLister(revision(namespace, revName)),
 		TestLogger(t))
+
+	probeRt := getRT(t, nil, 200, []string{}, nil, wantBody, "", nil)
+	// Setup transports.
+	prober.TransportFactory = func() http.RoundTripper {
+		return probeRt
+	}
+	defer func() {
+		prober.TransportFactory = network.NewAutoTransport
+	}()
 
 	handler := activationHandler{
 		transport:      rt,
@@ -505,27 +497,65 @@ func sendRequests(count int, namespace, revName string, respCh chan *httptest.Re
 // getHandler returns an already setup activationHandler. The roundtripper is controlled
 // via the given `lockerCh`.
 func getHandler(throttler *activator.Throttler, lockerCh chan struct{}, t *testing.T) activationHandler {
-	rt := network.RoundTripperFunc(func(r *http.Request) (*http.Response, error) {
-		// Allows only one request at a time until read from.
-		lockerCh <- struct{}{}
+	return activationHandler{}
+}
+
+// getRT returns a roundTripper. probeErr if set is an error response returned to probe requests. probeCode is the
+// response code of probe requests. probeResp if set is the body to respond with for probe requests.
+// err if set is an error response returned for forwarded requests. body is the response body of forwarded requests.
+// wantHost if set is the host header required in forwarded requests.
+// lockerCh controls when responses are sent
+func getRT(t *testing.T, probeErr error, probeCode int, probeResps []string, err error, body string, wantHost string, lockerCh chan struct{}) network.RoundTripperFunc {
+	return network.RoundTripperFunc(func(r *http.Request) (*http.Response, error) {
+		if r.Header.Get(network.ProbeHeaderName) != "" {
+			if probeErr != nil {
+				return nil, probeErr
+			}
+			fake := httptest.NewRecorder()
+			// Make sure the probe is attributed with correct header.
+			if r.Header.Get(network.ProbeHeaderName) != queue.Name {
+				fake.WriteHeader(http.StatusBadRequest)
+				fake.WriteString("probe sent to a wrong system")
+				return fake.Result(), nil
+			}
+			fake.WriteHeader(probeCode)
+			resp := queue.Name
+			if len(probeResps) > 0 {
+				resp = probeResps[0]
+				probeResps = probeResps[1:]
+			}
+			fake.WriteString(resp)
+			return fake.Result(), nil
+		}
+		// Actual request test handler.
+		if err != nil {
+			return nil, err
+		}
+
+		// Now verify that the request has the required rewritten host header.
+		if got, want := r.Host, ""; got != want {
+			t.Errorf("The r.Host has not been cleared out, was: %q", got)
+		}
+		if got, want := r.Header.Get("Host"), ""; got != want {
+			t.Errorf("The Host header has not been cleared out, was: %q", got)
+		}
+
+		if wantHost != "" {
+			if got, want := r.Header.Get(network.OriginalHostHeader), wantHost; got != want {
+				t.Errorf("The %s header = %q, want: %q", network.OriginalHostHeader, got, want)
+			}
+		}
+
+		if lockerCh != nil {
+			lockerCh <- struct{}{}
+		}
 
 		fake := httptest.NewRecorder()
-		fake.WriteHeader(http.StatusOK)
-		fake.WriteString(wantBody)
 
+		fake.WriteHeader(http.StatusOK)
+		fake.WriteString(body)
 		return fake.Result(), nil
 	})
-
-	handler := activationHandler{
-		transport:      rt,
-		logger:         TestLogger(t),
-		reporter:       &fakeReporter{},
-		throttler:      throttler,
-		revisionLister: revisionLister(revision(testNamespace, testRevName)),
-		serviceLister:  serviceLister(service(testNamespace, testRevName, "http")),
-		sksLister:      sksLister(sks(testNamespace, testRevName)),
-	}
-	return handler
 }
 
 func assertResponses(wantedSuccess, wantedFailure, overallRequests int, lockerCh chan struct{}, respCh chan *httptest.ResponseRecorder, t *testing.T) {
