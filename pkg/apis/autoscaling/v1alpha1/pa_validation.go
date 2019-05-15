@@ -107,7 +107,7 @@ func (pa *PodAutoscaler) validateMetric() *apis.FieldError {
 		return &apis.FieldError{
 			Message: fmt.Sprintf("Unsupported metric %q for PodAutoscaler class %q",
 				metric, pa.Class()),
-			Paths: []string{"annotations[autoscaling.knative.dev/metric]"},
+			Paths: []string{"metadata.annotations.autoscaling.knative.dev/metric"},
 		}
 	}
 	return nil

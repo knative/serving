@@ -77,7 +77,11 @@ func (pa *PodAutoscaler) ScaleBounds() (min, max int32) {
 // Metric returns the metric annotation value or "cpu" if not present.
 func (pa *PodAutoscaler) Metric() string {
 	if m, ok := pa.Annotations[autoscaling.MetricAnnotationKey]; ok {
-		return m
+		if m == autoscaling.CPU || m == autoscaling.Custom {
+			return m
+		} else {
+			return autoscaling.CPU // This branch should not execute if the PA passes validation.
+		}
 	}
 	return autoscaling.CPU
 }
@@ -95,16 +99,16 @@ func (pa *PodAutoscaler) Target() (target int32, ok bool) {
 	return 0, false
 }
 
-// RawTarget returns the raw target annotation value or false if not present.
+// RawTarget returns the raw target annotation value or false if not present. It's used in custom metric assignment.
 func (pa *PodAutoscaler) RawTarget() (target string, ok bool) {
 	target, ok = pa.Annotations[autoscaling.TargetAnnotationKey]
-	return target, ok
+	return
 }
 
 // MetricName returns the metric name annotation value or false if not present.
 func (pa *PodAutoscaler) MetricName() (metricName string, ok bool) {
 	metricName, ok = pa.Annotations[autoscaling.MetricNameAnnotationKey]
-	return metricName, ok
+	return
 }
 
 // Window returns the window annotation value or false if not present.

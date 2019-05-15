@@ -211,6 +211,107 @@ func TestPodAutoscalerValidation(t *testing.T) {
 		},
 		want: apis.ErrMissingField("spec"),
 	}, {
+		name: "valid CPU metric value for HPA",
+		r: &PodAutoscaler{
+			ObjectMeta: v1.ObjectMeta{
+				Name: "valid",
+				Annotations: map[string]string{
+					autoscaling.ClassAnnotationKey:  autoscaling.HPA,
+					autoscaling.MetricAnnotationKey: autoscaling.CPU,
+				},
+			},
+			Spec: PodAutoscalerSpec{
+				ScaleTargetRef: corev1.ObjectReference{
+					APIVersion: "apps/v1",
+					Kind:       "Deployment",
+					Name:       "bar",
+				},
+			},
+		},
+		want: nil,
+	}, {
+		name: "valid Custom metric value for HPA",
+		r: &PodAutoscaler{
+			ObjectMeta: v1.ObjectMeta{
+				Name: "valid",
+				Annotations: map[string]string{
+					autoscaling.ClassAnnotationKey:  autoscaling.HPA,
+					autoscaling.MetricAnnotationKey: autoscaling.Custom,
+				},
+			},
+			Spec: PodAutoscalerSpec{
+				ScaleTargetRef: corev1.ObjectReference{
+					APIVersion: "apps/v1",
+					Kind:       "Deployment",
+					Name:       "bar",
+				},
+			},
+		},
+		want: nil,
+	}, {
+		name: "invalid metric value for HPA",
+		r: &PodAutoscaler{
+			ObjectMeta: v1.ObjectMeta{
+				Name: "invalid",
+				Annotations: map[string]string{
+					autoscaling.ClassAnnotationKey:  autoscaling.HPA,
+					autoscaling.MetricAnnotationKey: "FOO",
+				},
+			},
+			Spec: PodAutoscalerSpec{
+				ScaleTargetRef: corev1.ObjectReference{
+					APIVersion: "apps/v1",
+					Kind:       "Deployment",
+					Name:       "bar",
+				},
+			},
+		},
+		want: (&apis.FieldError{
+			Message: fmt.Sprintf("Unsupported metric %q for PodAutoscaler class %q", "FOO", autoscaling.HPA),
+			Paths:   []string{autoscaling.MetricAnnotationKey},
+		}).ViaField("annotations").ViaField("metadata"),
+	}, {
+		name: "valid Concurrency metric value for KPA",
+		r: &PodAutoscaler{
+			ObjectMeta: v1.ObjectMeta{
+				Name: "valid",
+				Annotations: map[string]string{
+					autoscaling.ClassAnnotationKey:  autoscaling.KPA,
+					autoscaling.MetricAnnotationKey: autoscaling.Concurrency,
+				},
+			},
+			Spec: PodAutoscalerSpec{
+				ScaleTargetRef: corev1.ObjectReference{
+					APIVersion: "apps/v1",
+					Kind:       "Deployment",
+					Name:       "bar",
+				},
+			},
+		},
+		want: nil,
+	}, {
+		name: "invalid metric value for KPA",
+		r: &PodAutoscaler{
+			ObjectMeta: v1.ObjectMeta{
+				Name: "invalid",
+				Annotations: map[string]string{
+					autoscaling.ClassAnnotationKey:  autoscaling.KPA,
+					autoscaling.MetricAnnotationKey: "FOO",
+				},
+			},
+			Spec: PodAutoscalerSpec{
+				ScaleTargetRef: corev1.ObjectReference{
+					APIVersion: "apps/v1",
+					Kind:       "Deployment",
+					Name:       "bar",
+				},
+			},
+		},
+		want: (&apis.FieldError{
+			Message: fmt.Sprintf("Unsupported metric %q for PodAutoscaler class %q", "FOO", autoscaling.KPA),
+			Paths:   []string{autoscaling.MetricAnnotationKey},
+		}).ViaField("annotations").ViaField("metadata"),
+	}, {
 		name: "nested spec error",
 		r: &PodAutoscaler{
 			ObjectMeta: v1.ObjectMeta{

@@ -367,6 +367,78 @@ func TestIsReady(t *testing.T) {
 	}
 }
 
+func TestMetricAnnotation(t *testing.T) {
+	cases := []struct {
+		name       string
+		pa         *PodAutoscaler
+		wantMetric string
+	}{{
+		name:       "not present",
+		pa:         pa(map[string]string{}),
+		wantMetric: autoscaling.CPU,
+	}, {
+		name: "present",
+		pa: pa(map[string]string{
+			autoscaling.MetricAnnotationKey: "cpu",
+		}),
+		wantMetric: autoscaling.CPU,
+	}, {
+		name: "custom",
+		pa: pa(map[string]string{
+			autoscaling.MetricAnnotationKey: "custom",
+		}),
+		wantMetric: autoscaling.Custom,
+	}, {
+		name: "invalid",
+		pa: pa(map[string]string{
+			autoscaling.MetricAnnotationKey: "invalid",
+		}),
+		wantMetric: autoscaling.CPU,
+	}}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			gotMetric := tc.pa.Metric()
+			if gotMetric != tc.wantMetric {
+				t.Errorf("got metric: %v wanted: %v", gotMetric, tc.wantMetric)
+			}
+		})
+	}
+}
+
+func TestRawTargetAnnotation(t *testing.T) {
+	cases := []struct {
+		name       string
+		pa         *PodAutoscaler
+		wantTarget string
+		wantOk     bool
+	}{{
+		name:       "not present",
+		pa:         pa(map[string]string{}),
+		wantTarget: "",
+		wantOk:     false,
+	}, {
+		name: "present",
+		pa: pa(map[string]string{
+			autoscaling.TargetAnnotationKey: "90m",
+		}),
+		wantTarget: "90m",
+		wantOk:     true,
+	}}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			gotTarget, gotOk := tc.pa.RawTarget()
+			if gotTarget != tc.wantTarget {
+				t.Errorf("got metric: %v wanted: %v", gotTarget, tc.wantTarget)
+			}
+			if gotOk != tc.wantOk {
+				t.Errorf("got ok: %v wanted %v", gotOk, tc.wantOk)
+			}
+		})
+	}
+}
+
 func TestTargetAnnotation(t *testing.T) {
 	cases := []struct {
 		name       string
