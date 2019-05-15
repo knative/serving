@@ -42,6 +42,11 @@ function dump_extra_cluster_state() {
   done
 }
 
+function setup_test_cluster() {
+  GO111MODULE=on go get -u sigs.k8s.io/kind
+  kind create cluster --image gcr.io/chao-e2e-test-project/kind/base/kubernetes_base:v1.12.7
+}
+
 function knative_setup() {
   install_knative_serving
 }
@@ -49,22 +54,40 @@ function knative_setup() {
 # Script entry point.
 
 # Skip installing istio as an add-on
-initialize $@ --skip-istio-addon
+initialize $@ --run-tests --skip-istio-addon
+
+export KUBECONFIG="$(kind get kubeconfig-path --name="kind")"
+if [[ $(kubectl config current-context) == "kubernetes-admin@kind" ]]; then
+  echo "Running on KIND"
+else
+  echo "Error: not running on KIND"
+  exit 1
+fi
+
+echo "debugging stop here"
+exit 0
 
 # Run the tests
 header "Running tests"
 
 failed=0
 
+readonly ip_address=$(kubectl get node  --output 'jsonpath={.items[0].status.addresses[0].address}'):$(kubectl get svc istio-ingressgateway --namespace istio-system   --output 'jsonpath={.spec.ports[?(@.port==80)].nodePort}')
+
 # Run conformance and e2e tests.
 go_test_e2e -timeout=30m \
   ./test/conformance \
-  ./test/e2e \
-  ./test/e2e/build \
+  ./test/e2e \ # ./test/e2e/build \
+  --cluster "kind" \
+  --kubeconfig "${KUBECONFIG}" \
+  --ingressendpoint "${ip_address}" \
   "--resolvabledomain=$(use_resolvable_domain)" || failed=1
 
 # Run scale tests.
-go_test_e2e -timeout=10m ./test/scale || failed=1
+go_test_e2e -timeout=10m ./test/scale \
+  --cluster "kind" \
+  --kubeconfig "${KUBECONFIG}" \
+  --ingressendpoint "${ip_address}" || failed=1
 
 # Require that both set of tests succeeded.
 (( failed )) && fail_test
