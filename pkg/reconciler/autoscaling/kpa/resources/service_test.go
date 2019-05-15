@@ -80,6 +80,11 @@ func TestMakeService(t *testing.T) {
 				Protocol:   corev1.ProtocolTCP,
 				Port:       9090,
 				TargetPort: intstr.FromString("queue-metrics"),
+			}, {
+				Name:       "queue-metrics-p",
+				Protocol:   corev1.ProtocolTCP,
+				Port:       9091,
+				TargetPort: intstr.FromString("queue-metrics-p"),
 			}},
 			Selector: selector,
 		},
