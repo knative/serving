@@ -305,10 +305,10 @@ func EnvVarSourceMask(in *corev1.EnvVarSource) *corev1.EnvVarSource {
 	// Allowed fields
 	out.ConfigMapKeyRef = in.ConfigMapKeyRef
 	out.SecretKeyRef = in.SecretKeyRef
+	out.FieldRef = in.FieldRef
 
 	// Disallowed
 	// This list is unnecessary, but added here for clarity
-	out.FieldRef = nil
 	out.ResourceFieldRef = nil
 
 	return out

@@ -411,6 +411,7 @@ func TestEnvVarSourceMask(t *testing.T) {
 	want := &corev1.EnvVarSource{
 		ConfigMapKeyRef: &corev1.ConfigMapKeySelector{},
 		SecretKeyRef:    &corev1.SecretKeySelector{},
+		FieldRef:        &corev1.ObjectFieldSelector{},
 	}
 	in := &corev1.EnvVarSource{
 		ConfigMapKeyRef:  &corev1.ConfigMapKeySelector{},

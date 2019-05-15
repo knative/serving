@@ -623,19 +623,19 @@ func TestContainerValidation(t *testing.T) {
 			Paths:   []string{"env[0].name"},
 		},
 	}, {
-		name: "disallowed envvarsource",
+		name: "allow FieldRef",
 		c: corev1.Container{
 			Image: "foo",
 			Env: []corev1.EnvVar{{
 				Name: "Foo",
 				ValueFrom: &corev1.EnvVarSource{
 					FieldRef: &corev1.ObjectFieldSelector{
-						FieldPath: "/v1",
+						FieldPath: "metadata.name",
 					},
 				},
 			}},
 		},
-		want: apis.ErrDisallowedFields("env[0].valueFrom.fieldRef"),
+		want: nil,
 	}, {
 		name: "invalid liveness tcp probe (has port)",
 		c: corev1.Container{
