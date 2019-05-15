@@ -21,8 +21,15 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/knative/pkg/apis"
 	pkgTest "github.com/knative/pkg/test"
+	"github.com/knative/serving/pkg/apis/serving"
+	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/test"
+
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func checkResponse(t *testing.T, clients *test.Clients, names test.ResourceNames, expectedText string) error {
@@ -73,4 +80,64 @@ func TestMultipleNamespace(t *testing.T) {
 	if err := checkResponse(t, altClients, altResources, pizzaPlanetText2); err != nil {
 		t.Error(err)
 	}
+}
+
+// This test is to ensure we do not leak deletion of services in other namespaces when deleting a route.
+func TestConflictingRouteService(t *testing.T) {
+	t.Parallel()
+
+	names := test.ResourceNames{
+		Config:        test.AppendRandomString("conflicting-route-service"),
+		Route:         test.AppendRandomString("conflicting-route-service"),
+		TrafficTarget: "chips",
+		Image:         pizzaPlanet1,
+	}
+
+	// Create a service in a different namespace but have the same route name
+	svc := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      test.AppendRandomString("conflicting-route-service"),
+			Namespace: test.AlternativeServingNamespace,
+			Labels: map[string]string{
+				serving.RouteLabelKey: names.Route,
+			},
+		},
+		Spec: corev1.ServiceSpec{
+			Type:         corev1.ServiceTypeExternalName,
+			ExternalName: "some-internal-addr",
+		},
+	}
+
+	altClients := SetupAlternativeNamespace(t)
+	altClients.KubeClient.Kube.CoreV1().Services(test.AlternativeServingNamespace).Create(svc)
+	test.CleanupOnInterrupt(func() {
+		altClients.KubeClient.Kube.CoreV1().Services(test.AlternativeServingNamespace).Delete(svc.Name, &v1.DeleteOptions{})
+	})
+	defer altClients.KubeClient.Kube.CoreV1().Services(test.AlternativeServingNamespace).Delete(svc.Name, &v1.DeleteOptions{})
+
+	clients := Setup(t)
+	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
+	defer test.TearDown(clients, names)
+
+	if _, err := test.CreateConfiguration(t, clients, names, &test.Options{RevisionTimeoutSeconds: revisionTimeoutSeconds}); err != nil {
+		t.Errorf("Unexpected error creating configuration: %v", err)
+	}
+
+	if _, err := test.CreateRoute(t, clients, names); err != nil {
+		t.Errorf("Unexpected error creating route: %v", err)
+	}
+
+	test.WaitForConfigurationState(clients.ServingClient, names.Config, configurationIsReady, "waiting for configuration to be ready")
+
+	if readyErr := test.WaitForRouteState(clients.ServingClient, names.Route, routeIsReady, "waiting for route to be ready"); readyErr != nil {
+		t.Errorf("Route did not become ready.")
+	}
+}
+
+func configurationIsReady(c *v1alpha1.Configuration) (bool, error) {
+	return c.Status.GetCondition(apis.ConditionReady).IsTrue(), nil
+}
+
+func routeIsReady(c *v1alpha1.Route) (bool, error) {
+	return c.Status.GetCondition(apis.ConditionReady).IsTrue(), nil
 }
