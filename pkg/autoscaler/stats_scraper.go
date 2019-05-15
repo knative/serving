@@ -19,6 +19,7 @@ package autoscaler
 import (
 	"fmt"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/knative/serving/pkg/apis/networking"
@@ -53,6 +54,10 @@ type scrapeClient interface {
 	Scrape(url string) (*Stat, error)
 }
 
+// SampleSizeFunc is the function for getting a sample size for a given
+// population.
+type SampleSizeFunc func(int) int
+
 // cacheDisabledClient is a http client with cache disabled. It is shared by
 // every goruntime for a revision scraper.
 var cacheDisabledClient = &http.Client{
@@ -69,6 +74,7 @@ var cacheDisabledClient = &http.Client{
 // for details.
 type ServiceScraper struct {
 	sClient             scrapeClient
+	sampleSizeFunc      SampleSizeFunc
 	endpointsLister     corev1listers.EndpointsLister
 	url                 string
 	namespace           string
@@ -127,10 +133,51 @@ func (s *ServiceScraper) Scrape() (*StatMessage, error) {
 		return nil, nil
 	}
 
-	stat, err := s.sClient.Scrape(s.url)
-	if err != nil {
-		return nil, err
+	sampleSize := populationMeanSampleSize(readyPodsCount)
+	statCh := make(chan *Stat, sampleSize)
+
+	var (
+		avgConcurrency        float64
+		avgProxiedConcurrency float64
+		reqCount              int32
+		proxiedReqCount       int32
+		successCount          float64
+
+		waitGroup sync.WaitGroup
+	)
+
+	waitGroup.Add(sampleSize)
+	for i := 0; i < sampleSize; i++ {
+		go func() {
+			defer waitGroup.Done()
+			if stat, err := s.sClient.Scrape(s.url); err == nil {
+				statCh <- stat
+			}
+		}()
 	}
+
+	waitGroup.Wait()
+	close(statCh)
+	for stat := range statCh {
+		// This SHOULD NOT happen. Just to be safe.
+		if stat == nil {
+			continue
+		}
+		successCount++
+		avgConcurrency += stat.AverageConcurrentRequests
+		avgProxiedConcurrency += stat.AverageProxiedConcurrentRequests
+		reqCount += stat.RequestCount
+		proxiedReqCount += stat.ProxiedRequestCount
+	}
+	if successCount == 0 {
+		return nil, fmt.Errorf("fail to get a successful scrape for %d tries", sampleSize)
+	}
+
+	avgConcurrency = avgConcurrency / successCount
+	avgProxiedConcurrency = avgProxiedConcurrency / successCount
+	reqCount = int32(float64(reqCount) / successCount)
+	proxiedReqCount = int32(float64(proxiedReqCount) / successCount)
+	now := time.Now()
 
 	// Assumptions:
 	// 1. Traffic is routed to pods evenly.
@@ -142,12 +189,12 @@ func (s *ServiceScraper) Scrape() (*StatMessage, error) {
 	// scraperPodName so in autoscaler all stats are either from activator or
 	// scraper.
 	extrapolatedStat := Stat{
-		Time:                             stat.Time,
+		Time:                             &now,
 		PodName:                          scraperPodName,
-		AverageConcurrentRequests:        stat.AverageConcurrentRequests * float64(readyPodsCount),
-		AverageProxiedConcurrentRequests: stat.AverageProxiedConcurrentRequests * float64(readyPodsCount),
-		RequestCount:                     stat.RequestCount * int32(readyPodsCount),
-		ProxiedRequestCount:              stat.ProxiedRequestCount * int32(readyPodsCount),
+		AverageConcurrentRequests:        avgConcurrency * float64(readyPodsCount),
+		AverageProxiedConcurrentRequests: avgProxiedConcurrency * float64(readyPodsCount),
+		RequestCount:                     reqCount * int32(readyPodsCount),
+		ProxiedRequestCount:              proxiedReqCount * int32(readyPodsCount),
 	}
 
 	return &StatMessage{

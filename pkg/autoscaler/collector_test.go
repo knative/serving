@@ -137,7 +137,7 @@ func TestMetricCollectorScraper(t *testing.T) {
 
 	// stable concurrency should eventually be equal to the stat.
 	var got float64
-	wait.PollImmediate(10*time.Millisecond, 1*time.Second, func() (bool, error) {
+	wait.PollImmediate(10*time.Millisecond, 2*time.Second, func() (bool, error) {
 		got, _, _ = coll.StableAndPanicConcurrency(metricKey)
 		return got == want, nil
 	})

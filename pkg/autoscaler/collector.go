@@ -31,10 +31,9 @@ import (
 )
 
 const (
-	// scrapeTickInterval is the interval of time between scraping metrics across
-	// all pods of a revision.
-	// TODO(yanweiguo): tuning this value. To be based on pod population?
-	scrapeTickInterval = time.Second / 3
+	// scrapeTickInterval is the interval of time between triggring StatsScraper.Scrape()
+	// to get metrics across all pods of a revision.
+	scrapeTickInterval = time.Second
 
 	// bucketSize is the size of the buckets of stats we create.
 	bucketSize = 2 * time.Second

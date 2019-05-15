@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"time"
 
 	"github.com/pkg/errors"
 	dto "github.com/prometheus/client_model/go"
@@ -65,10 +64,7 @@ func extractData(body io.Reader) (*Stat, error) {
 		return nil, fmt.Errorf("reading text format failed: %v", err)
 	}
 
-	now := time.Now()
-	stat := Stat{
-		Time: &now,
-	}
+	stat := Stat{}
 
 	if pMetric := prometheusMetric(metricFamilies, "queue_average_concurrent_requests"); pMetric != nil {
 		stat.AverageConcurrentRequests = *pMetric.Gauge.Value
