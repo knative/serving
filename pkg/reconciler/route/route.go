@@ -281,7 +281,7 @@ func (c *Reconciler) reconcileDeletion(ctx context.Context, r *v1alpha1.Route) e
 		return err
 	}
 
-	// Update the Route to remove the Finalizer.configureTraffic
+	// Update the Route to remove the Finalizer.
 	logger.Info("Removing Finalizer")
 	r.Finalizers = r.Finalizers[1:]
 	_, err := c.ServingClientSet.ServingV1alpha1().Routes(r.Namespace).Update(r)
