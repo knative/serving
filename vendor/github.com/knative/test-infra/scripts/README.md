@@ -228,7 +228,7 @@ This is a helper script for Knative release scripts. To use it:
    environment variable `VALIDATION_TESTS` to the executable to run.
 
 1. Write logic for building the release in a function named `build_release()`.
-   Set the environment variable `YAMLS_TO_PUBLISH` to the list of yaml files created,
+   Set the environment variable `ARTIFACTS_TO_PUBLISH` to the list of files created,
    space separated. Use the following boolean (0 is false, 1 is true) and string
    environment variables for the logic:
 
@@ -267,7 +267,7 @@ source vendor/github.com/knative/test-infra/scripts/release.sh
 function build_release() {
   # config/ contains the manifests
   ko resolve ${KO_FLAGS} -f config/ > release.yaml
-  YAMLS_TO_PUBLISH="release.yaml"
+  ARTIFACTS_TO_PUBLISH="release.yaml"
 }
 
 main $@

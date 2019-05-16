@@ -259,7 +259,7 @@ function create_test_cluster_with_retries() {
       # Exit if test succeeded
       [[ "$(get_test_return_code)" == "0" ]] && return
       # If test failed not because of cluster creation stockout, return
-      [[ -z "$(grep -Eio 'does not have enough resources available to fulfill the request' ${cluster_creation_log})" ]] && return
+      [[ -z "$(grep -Eio 'does not have enough resources available to fulfill' ${cluster_creation_log})" ]] && return
     done
   done
 }
