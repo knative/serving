@@ -25,6 +25,7 @@ import (
 	pav1a1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/serving"
+	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 )
 
 func TestMakeService(t *testing.T) {
@@ -81,10 +82,10 @@ func TestMakeService(t *testing.T) {
 				Port:       9090,
 				TargetPort: intstr.FromString("queue-metrics"),
 			}, {
-				Name:       "queue-metrics-p",
+				Name:       v1alpha1.UserQueueMetricsPortName,
 				Protocol:   corev1.ProtocolTCP,
-				Port:       9091,
-				TargetPort: intstr.FromString("queue-metrics-p"),
+				Port:       networking.UserQueueMetricsPort,
+				TargetPort: intstr.FromString(v1alpha1.UserQueueMetricsPortName),
 			}},
 			Selector: selector,
 		},
