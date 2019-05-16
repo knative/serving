@@ -210,33 +210,39 @@ func (c *Reconciler) reconcile(ctx context.Context, r *v1alpha1.Route) error {
 
 	tls := []netv1alpha1.ClusterIngressTLS{}
 	if config.FromContext(ctx).Network.AutoTLS && !resources.IsClusterLocal(r) {
-		allDomains, err := domains.GetAllDomains(ctx, r, getTrafficNames(traffic.Targets))
+		allDomains, allTags, err := domains.GetAllDomainsAndTags(ctx, r, getTrafficNames(traffic.Targets))
 		if err != nil {
 			return err
 		}
-		desiredCert := resources.MakeCertificate(r, allDomains)
-		cert, err := c.reconcileCertificate(ctx, r, desiredCert)
-		if err != nil {
-			r.Status.MarkCertificateProvisionFailed(desiredCert.Name)
-			return err
-		}
+		desiredCerts := resources.MakeCertificates(logger, r, allDomains, allTags)
+		logger.Info("MakeCertificates returned %d certs", len(desiredCerts))
+		for _, desiredCert := range desiredCerts {
 
-		if cert.Status.IsReady() {
-			r.Status.MarkCertificateReady(cert.Name)
-			r.Status.URL.Scheme = "https"
-			// TODO: we should only mark https for the public visible targets when
-			// we are able to configure visibility per target.
-			setTargetsScheme(&r.Status, "https")
-		} else {
-			r.Status.MarkCertificateNotReady(cert.Name)
-			r.Status.URL = &apis.URL{
-				Scheme: "http",
-				Host:   host,
+			cert, err := c.reconcileCertificate(ctx, r, desiredCert)
+			if err != nil {
+				r.Status.MarkCertificateProvisionFailed(desiredCert.Name)
+				return err
 			}
-			setTargetsScheme(&r.Status, "http")
-		}
 
-		tls = append(tls, resources.MakeClusterIngressTLS(cert, allDomains))
+			if cert.Status.IsReady() {
+				r.Status.MarkCertificateReady(cert.Name)
+				r.Status.URL.Scheme = "https"
+				// TODO: we should only mark https for the public visible targets when
+				// we are able to configure visibility per target.
+				setTargetsScheme(&r.Status, "https")
+			} else {
+				r.Status.MarkCertificateNotReady(cert.Name)
+				r.Status.URL = &apis.URL{
+					Scheme: "http",
+					Host:   host,
+				}
+				setTargetsScheme(&r.Status, "http")
+			}
+
+			// TODO: do we want one ingress tls per cert
+			tls = append(tls, resources.MakeClusterIngressTLS(cert, cert.Spec.DNSNames))
+			logger.Info("Appending new tls for cer %s", desiredCert.Name)
+		}
 	}
 
 	logger.Info("Creating ClusterIngress.")
@@ -275,7 +281,7 @@ func (c *Reconciler) reconcileDeletion(ctx context.Context, r *v1alpha1.Route) e
 		return err
 	}
 
-	// Update the Route to remove the Finalizer.
+	// Update the Route to remove the Finalizer.configureTraffic
 	logger.Info("Removing Finalizer")
 	r.Finalizers = r.Finalizers[1:]
 	_, err := c.ServingClientSet.ServingV1alpha1().Routes(r.Namespace).Update(r)

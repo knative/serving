@@ -220,6 +220,7 @@ func TestGetAllDomains(t *testing.T) {
 			cfg.Network.DomainTemplate = tt.template
 			ctx = config.ToContext(ctx, cfg)
 
+			// TODO: probably need to rewrite this
 			got, err := GetAllDomains(ctx, route, []string{"target-1", "target-2"})
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetAllDomains() error = %v, wantErr %v", err, tt.wantErr)
