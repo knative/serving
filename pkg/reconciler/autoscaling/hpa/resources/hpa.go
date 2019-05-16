@@ -24,7 +24,6 @@ import (
 	"github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	autoscalingv2beta1 "k8s.io/api/autoscaling/v2beta1"
 	corev1 "k8s.io/api/core/v1"
-	resource "k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -58,15 +57,13 @@ func MakeHPA(pa *v1alpha1.PodAutoscaler) *autoscalingv2beta1.HorizontalPodAutosc
 	switch pa.Metric() {
 	case autoscaling.CPU:
 		if target, ok := pa.Target(); ok {
-			hpa.Spec.Metrics = []autoscalingv2beta1.MetricSpec{
-				{
-					Type: autoscalingv2beta1.ResourceMetricSourceType,
-					Resource: &autoscalingv2beta1.ResourceMetricSource{
-						Name:                     corev1.ResourceCPU,
-						TargetAverageUtilization: &target,
-					},
+			hpa.Spec.Metrics = []autoscalingv2beta1.MetricSpec{{
+				Type: autoscalingv2beta1.ResourceMetricSourceType,
+				Resource: &autoscalingv2beta1.ResourceMetricSource{
+					Name:                     corev1.ResourceCPU,
+					TargetAverageUtilization: &target,
 				},
-			}
+			}}
 		}
 	case autoscaling.Custom:
 		if metricName, ok := pa.MetricName(); ok {
@@ -77,12 +74,8 @@ func MakeHPA(pa *v1alpha1.PodAutoscaler) *autoscalingv2beta1.HorizontalPodAutosc
 				},
 			}
 
-			metric.Pods = &autoscalingv2beta1.PodsMetricSource{
-				MetricName: metricName,
-			}
-
-			if target, ok := pa.RawTarget(); ok {
-				metric.Pods.TargetAverageValue = resource.MustParse(target)
+			if q, ok := pa.TargetQuantity(); ok {
+				metric.Pods.TargetAverageValue = q
 			}
 
 			hpa.Spec.Metrics = []autoscalingv2beta1.MetricSpec{metric}

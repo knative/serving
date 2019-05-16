@@ -25,6 +25,7 @@ import (
 	apitest "github.com/knative/pkg/apis/testing"
 	"github.com/knative/serving/pkg/apis/autoscaling"
 	corev1 "k8s.io/api/core/v1"
+	resource "k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -406,31 +407,31 @@ func TestMetricAnnotation(t *testing.T) {
 	}
 }
 
-func TestRawTargetAnnotation(t *testing.T) {
+func TestTargetQuantityAnnotation(t *testing.T) {
 	cases := []struct {
 		name       string
 		pa         *PodAutoscaler
-		wantTarget string
+		wantTarget resource.Quantity
 		wantOk     bool
 	}{{
 		name:       "not present",
 		pa:         pa(map[string]string{}),
-		wantTarget: "",
+		wantTarget: resource.Quantity{},
 		wantOk:     false,
 	}, {
 		name: "present",
 		pa: pa(map[string]string{
 			autoscaling.TargetAnnotationKey: "90m",
 		}),
-		wantTarget: "90m",
+		wantTarget: resource.MustParse("90m"),
 		wantOk:     true,
 	}}
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			gotTarget, gotOk := tc.pa.RawTarget()
+			gotTarget, gotOk := tc.pa.TargetQuantity()
 			if gotTarget != tc.wantTarget {
-				t.Errorf("got metric: %v wanted: %v", gotTarget, tc.wantTarget)
+				t.Errorf("got target quantity: %v wanted: %v", gotTarget, tc.wantTarget)
 			}
 			if gotOk != tc.wantOk {
 				t.Errorf("got ok: %v wanted %v", gotOk, tc.wantOk)

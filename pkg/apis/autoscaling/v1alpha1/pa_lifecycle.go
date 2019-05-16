@@ -25,6 +25,7 @@ import (
 	duckv1beta1 "github.com/knative/pkg/apis/duck/v1beta1"
 	"github.com/knative/serving/pkg/apis/autoscaling"
 	corev1 "k8s.io/api/core/v1"
+	resource "k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
@@ -100,9 +101,13 @@ func (pa *PodAutoscaler) Target() (target int32, ok bool) {
 }
 
 // RawTarget returns the raw target annotation value or false if not present. It's used in custom metric assignment.
-func (pa *PodAutoscaler) RawTarget() (target string, ok bool) {
-	target, ok = pa.Annotations[autoscaling.TargetAnnotationKey]
-	return
+func (pa *PodAutoscaler) TargetQuantity() (quantity resource.Quantity, ok bool) {
+	if target, ok := pa.Annotations[autoscaling.TargetAnnotationKey]; ok {
+		if q, err := resource.ParseQuantity(target); err == nil {
+			return q, true
+		}
+	}
+	return resource.Quantity{}, false
 }
 
 // MetricName returns the metric name annotation value or false if not present.
