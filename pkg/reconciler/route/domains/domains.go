@@ -83,6 +83,6 @@ func DomainNameFromTemplate(ctx context.Context, r *v1alpha1.Route, name string)
 func URL(scheme, fqdn string) *apis.URL {
 	return &apis.URL{
 		Scheme: scheme,
-		Path:   fqdn,
+		Host:   fqdn,
 	}
 }

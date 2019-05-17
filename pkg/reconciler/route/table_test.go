@@ -1442,7 +1442,7 @@ func TestReconcile(t *testing.T) {
 							LatestRevision: ptr.Bool(true),
 							URL: &apis.URL{
 								Scheme: "http",
-								Path:   "same-revision-targets-gray.default.example.com",
+								Host:   "same-revision-targets-gray.default.example.com",
 							},
 						},
 					}, v1alpha1.TrafficTarget{
@@ -1454,7 +1454,7 @@ func TestReconcile(t *testing.T) {
 							LatestRevision: ptr.Bool(false),
 							URL: &apis.URL{
 								Scheme: "http",
-								Path:   "same-revision-targets-also-gray.default.example.com",
+								Host:   "same-revision-targets-also-gray.default.example.com",
 							},
 						},
 					})),
