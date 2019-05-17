@@ -18,6 +18,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"net/http"
@@ -28,8 +29,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
-	"go.uber.org/zap"
 
 	"github.com/knative/pkg/logging/logkey"
 	"github.com/knative/pkg/metrics"
@@ -45,7 +44,7 @@ import (
 	"github.com/knative/serving/pkg/queue"
 	"github.com/knative/serving/pkg/queue/health"
 	queuestats "github.com/knative/serving/pkg/queue/stats"
-
+	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/wait"
 )
 
@@ -92,6 +91,8 @@ var (
 
 	healthState      = &health.State{}
 	promStatReporter *queue.PrometheusStatsReporter // Prometheus stats reporter.
+
+	probe = flag.Bool("probe", false, "run readiness probe")
 )
 
 func initEnv() {
@@ -218,8 +219,57 @@ func createAdminHandlers() *http.ServeMux {
 	return mux
 }
 
+func probeQueueHealthPath(port string) error {
+	url := fmt.Sprintf("http://127.0.0.1:%s%s", port, queue.RequestQueueHealthPath)
+
+	httpClient := &http.Client{
+		Transport: &http.Transport{
+			// Do not use the cached connection
+			DisableKeepAlives: true,
+		},
+		Timeout: 500 * time.Millisecond,
+	}
+
+	var lastErr error
+
+	err := wait.PollImmediate(100*time.Millisecond, time.Second, func() (bool, error) {
+		var res *http.Response
+		res, lastErr = httpClient.Get(url)
+
+		if res == nil {
+			return false, nil
+		}
+
+		defer res.Body.Close()
+		return res.StatusCode == http.StatusOK, nil
+	})
+
+	if lastErr != nil {
+		return fmt.Errorf("failed to probe: %s", lastErr)
+	}
+
+	// An http.StatusOK was never returned during probing
+	if err != nil {
+		return errors.New("probe returned not ready")
+	}
+
+	return nil
+}
+
 func main() {
 	flag.Parse()
+
+	if *probe {
+		port := strconv.Itoa(networking.QueueAdminPort)
+
+		if err := probeQueueHealthPath(port); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+
+		os.Exit(0)
+	}
+
 	logger, _ = logging.NewLogger(os.Getenv("SERVING_LOGGING_CONFIG"), os.Getenv("SERVING_LOGGING_LEVEL"))
 	logger = logger.Named("queueproxy")
 	defer flush(logger)
