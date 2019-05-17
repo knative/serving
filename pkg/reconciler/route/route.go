@@ -166,6 +166,7 @@ func (c *Reconciler) reconcile(ctx context.Context, r *v1alpha1.Route) error {
 		return err
 	}
 
+	// TODO: why would Route.Status has a URL field?
 	r.Status.URL = &apis.URL{
 		Scheme: "http",
 		Host:   host,
@@ -178,6 +179,7 @@ func (c *Reconciler) reconcile(ctx context.Context, r *v1alpha1.Route) error {
 		// Traffic targets aren't ready, no need to configure child resources.
 		return err
 	}
+	logger.Info("Got traffic: ", traffic)
 
 	logger.Info("Updating targeted revisions.")
 	// In all cases we will add annotations to the referred targets.  This is so that when they become
@@ -210,11 +212,11 @@ func (c *Reconciler) reconcile(ctx context.Context, r *v1alpha1.Route) error {
 
 	tls := []netv1alpha1.ClusterIngressTLS{}
 	if config.FromContext(ctx).Network.AutoTLS && !resources.IsClusterLocal(r) {
-		allDomains, allTags, err := domains.GetAllDomainsAndTags(ctx, r, getTrafficNames(traffic.Targets))
+		allDomainTagMap, err := domains.GetAllDomainsAndTags(ctx, r, getTrafficNames(traffic.Targets))
 		if err != nil {
 			return err
 		}
-		desiredCerts := resources.MakeCertificates(logger, r, allDomains, allTags)
+		desiredCerts := resources.MakeCertificates(r, allDomainTagMap)
 		logger.Info("MakeCertificates returned %d certs", len(desiredCerts))
 		for _, desiredCert := range desiredCerts {
 
@@ -229,14 +231,14 @@ func (c *Reconciler) reconcile(ctx context.Context, r *v1alpha1.Route) error {
 				r.Status.URL.Scheme = "https"
 				// TODO: we should only mark https for the public visible targets when
 				// we are able to configure visibility per target.
-				setTargetsScheme(&r.Status, "https")
+				setTargetsScheme(logger, &r.Status, cert.Spec.DNSNames, "https")
 			} else {
 				r.Status.MarkCertificateNotReady(cert.Name)
 				r.Status.URL = &apis.URL{
 					Scheme: "http",
 					Host:   host,
 				}
-				setTargetsScheme(&r.Status, "http")
+				setTargetsScheme(logger, &r.Status, cert.Spec.DNSNames, "http")
 			}
 
 			// TODO: do we want one ingress tls per cert
@@ -392,11 +394,21 @@ func getTrafficNames(targets map[string]traffic.RevisionTargets) []string {
 	return names
 }
 
-func setTargetsScheme(rs *v1alpha1.RouteStatus, scheme string) {
+// sets the traffic url scheme to the scheme if the url matches a record from dnsNames
+func setTargetsScheme(logger *zap.SugaredLogger, rs *v1alpha1.RouteStatus, dnsNames []string, scheme string) {
 	for i := range rs.Traffic {
 		if rs.Traffic[i].URL == nil {
 			continue
 		}
-		rs.Traffic[i].URL.Scheme = scheme
+		for _, dnsName := range dnsNames {
+			logger.Infof("traffic target: %#v", rs.Traffic[i].URL)
+			if rs.Traffic[i].URL.Host == dnsName {
+				rs.Traffic[i].URL.Scheme = scheme
+				logger.Info("traffic url host ", rs.Traffic[i].URL.Host, " is set to ", scheme)
+				break
+			} else {
+				logger.Info("traffic url host ", rs.Traffic[i].URL.Host, " dnsname ", dnsName)
+			}
+		}
 	}
 }

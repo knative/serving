@@ -22,7 +22,6 @@ import (
 	"fmt"
 
 	"github.com/knative/pkg/apis"
-	"github.com/knative/pkg/logging"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/network"
 	"github.com/knative/serving/pkg/reconciler/route/config"
@@ -32,8 +31,8 @@ import (
 const HTTPScheme string = "http"
 
 // GetAllDomainsAndTags returns all of the domains and tags(including subdomains) associated with a Route
-func GetAllDomainsAndTags(ctx context.Context, r *v1alpha1.Route, names []string) ([]string, []string, error) {
-	logger := logging.FromContext(ctx)
+func GetAllDomainsAndTags(ctx context.Context, r *v1alpha1.Route, names []string) (map[string]string, error) {
+	domainTagMap := make(map[string]string)
 
 	// majorDomain, err := DomainNameFromTemplate(ctx, r, r.Name)
 	// if err != nil {
@@ -43,7 +42,6 @@ func GetAllDomainsAndTags(ctx context.Context, r *v1alpha1.Route, names []string
 	// TODO: is major domain tag-less?
 	// I assume sets has no order?
 	// allDomains := sets.NewString(majorDomain)
-	var allDomains, allTags []string
 	// allDomains = append(allDomains, majorDomain)
 	// allTags = append(allTags, "")
 	// logger.Info("major domain: ", majorDomain)
@@ -51,13 +49,11 @@ func GetAllDomainsAndTags(ctx context.Context, r *v1alpha1.Route, names []string
 	for _, name := range names {
 		subDomain, err := DomainNameFromTemplate(ctx, r, SubdomainName(r, name))
 		if err != nil {
-			return nil, nil, err
+			return nil, err
 		}
-		allDomains = append(allDomains, subDomain)
-		allTags = append(allTags, name)
-		logger.Info("tag: ", name, " subdomain: ", subDomain)
+		domainTagMap[subDomain] = name
 	}
-	return allDomains, allTags, nil
+	return domainTagMap, nil
 }
 
 // SubdomainName generates a name which represents the subdomain of a route

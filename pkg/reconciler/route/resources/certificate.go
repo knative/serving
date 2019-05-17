@@ -24,21 +24,25 @@ import (
 	networkingv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/reconciler/route/resources/names"
-	"go.uber.org/zap"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // MakeCertificates creates Certificate array for the Route to request TLS certificates.
 // Returns one certificate for each domain, that is, each tag and the major
-func MakeCertificates(logger *zap.SugaredLogger, route *v1alpha1.Route, dnsNames []string, tags []string) []*networkingv1alpha1.Certificate {
+func MakeCertificates(route *v1alpha1.Route, domainTagMap map[string]string) []*networkingv1alpha1.Certificate {
 	// TODO: why do we pass route here? we only need its namespace and uid?
 	// or should we factor the logic of getting the dnsnames and tags here instead of in reconcile func in route.go
 	// TODO: here it assumes dnsNames and tags have the same length, and is one to one mapping
 	// do need to do valid check?
 
 	var certs []*networkingv1alpha1.Certificate
-	logger.Info("dnsNames: ", dnsNames, " ", len(dnsNames))
-	for i, dnsName := range dnsNames {
+	// logger.Info("dnsNames: ", dnsNames, " ", len(dnsNames))
+	for dnsName, tag := range domainTagMap {
+		certName := names.Certificate(route)
+		if tag != "" {
+			certName = fmt.Sprintf("%s-%d", certName, adler32.Checksum([]byte(tag)))
+		}
+
 		certs = append(certs, &networkingv1alpha1.Certificate{
 			ObjectMeta: metav1.ObjectMeta{
 				// Name:            names.Certificate(route), // TODO: does this return the same name?
@@ -54,14 +58,16 @@ func MakeCertificates(logger *zap.SugaredLogger, route *v1alpha1.Route, dnsNames
 				// TODO: do we want to compute the checksum here or in the names.Certificate function
 				// should be fine to put in the names.Certificate func, looks like it's not used elsewhere
 				// TODO: only compute checksum if there's a tag
-				Name:            fmt.Sprintf("%s-%d", names.Certificate(route), adler32.Checksum([]byte(tags[i]))),
+
+				// TODO: how to add a label here to indicate this cert belongs to a particular route, domain
+				Name:            certName,
 				Namespace:       route.Namespace,
 				OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(route)},
 			},
 			Spec: networkingv1alpha1.CertificateSpec{
-				DNSNames: []string{dnsName},
-				// SecretName: names.Certificate(route),
-				SecretName: fmt.Sprintf("%s-%d", names.Certificate(route), adler32.Checksum([]byte(tags[i]))),
+				// should DNSNames continue to be an array? since it would always be a single element
+				DNSNames:   []string{dnsName},
+				SecretName: certName,
 			},
 		})
 	}
