@@ -26,6 +26,7 @@ import (
 
 	"github.com/knative/pkg/controller"
 	. "github.com/knative/pkg/logging/testing"
+	"github.com/knative/pkg/system"
 	"github.com/knative/pkg/test/helpers"
 	"github.com/knative/serving/pkg/apis/networking"
 	nv1a1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
@@ -38,6 +39,7 @@ import (
 	servinglisters "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
 	"github.com/knative/serving/pkg/queue"
 
+	_ "github.com/knative/pkg/system/testing"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -123,6 +125,77 @@ func TestThrottler_UpdateCapacity(t *testing.T) {
 				if got := throttler.breakers[revID].Capacity(); got != s.want {
 					t.Errorf("breakers[revID].Capacity() = %d, want %d", got, s.want)
 				}
+			}
+		})
+	}
+}
+
+func TestThrottler_ActivatorEndpoints(t *testing.T) {
+	const (
+		updatePollInterval = 10 * time.Millisecond
+		updatePollTimeout  = 3 * time.Second
+	)
+
+	scenarios := []struct {
+		name                string
+		activatorCount      int
+		revisionConcurrency int
+		wantCapacity        int
+	}{{
+		name:                "less activators, more cc",
+		activatorCount:      2,
+		revisionConcurrency: 10,
+		wantCapacity:        5, //revConcurrency / activatorCount
+	}, {
+		name:                "many activators, less cc",
+		activatorCount:      3,
+		revisionConcurrency: 2,
+		wantCapacity:        1,
+	}}
+
+	for _, s := range scenarios {
+		t.Run(s.name, func(t *testing.T) {
+			ep := &corev1.Endpoints{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      testRevision,
+					Namespace: testNamespace,
+				},
+				Subsets: endpointsSubset(1, 1),
+			}
+			activatorEp := &corev1.Endpoints{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      K8sServiceName,
+					Namespace: system.Namespace(),
+				},
+				Subsets: endpointsSubset(1, s.activatorCount),
+			}
+
+			fake := kubefake.NewSimpleClientset(ep)
+			informer := kubeinformers.NewSharedInformerFactory(fake, 0)
+			endpoints := informer.Core().V1().Endpoints()
+			endpoints.Informer().GetIndexer().Add(ep)
+
+			throttler := getThrottler(
+				defaultMaxConcurrency,
+				revisionLister(testNamespace, testRevision, v1beta1.RevisionContainerConcurrencyType(s.revisionConcurrency)),
+				endpoints,
+				sksLister(testNamespace, testRevision),
+				TestLogger(t),
+				initCapacity,
+			)
+			throttler.UpdateCapacity(revID, 1) // This sets the initial breaker
+
+			stopCh := make(chan struct{})
+			defer close(stopCh)
+			controller.StartInformers(stopCh, endpoints.Informer())
+			fake.CoreV1().Endpoints(activatorEp.Namespace).Create(activatorEp)
+
+			breaker := throttler.breakers[RevisionID{Name: testRevision, Namespace: testNamespace}]
+
+			if err := wait.PollImmediate(updatePollInterval, updatePollTimeout, func() (bool, error) {
+				return breaker.Capacity() == s.wantCapacity, nil
+			}); err != nil {
+				t.Errorf("Capacity() = %d, want %d", breaker.Capacity(), s.wantCapacity)
 			}
 		})
 	}

@@ -31,6 +31,7 @@ import (
 	"github.com/google/go-cmp/cmp/cmpopts"
 
 	. "github.com/knative/pkg/logging/testing"
+	_ "github.com/knative/pkg/system/testing"
 	"github.com/knative/serving/pkg/activator"
 	nv1a1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving"
