@@ -32,16 +32,21 @@ const (
 	// BackendHTTP2Port is the backend, i.e. `targetPort` that we setup for HTTP services.
 	BackendHTTP2Port = 8013
 
-	// RequestQueueAdminPort specifies the port number for
-	// health check and lifecyle hooks for queue-proxy.
-	RequestQueueAdminPort = 8022
+	// QueueAdminPort specifies the port number for
+	// health check and lifecycle hooks for queue-proxy.
+	QueueAdminPort = 8022
 
-	// RequestQueueMetricsPort specifies the port number for metrics emitted
-	// by queue-proxy.
-	RequestQueueMetricsPort = 9090
+	// AutoscalingQueueMetricsPort specifies the port number for metrics emitted
+	// by queue-proxy for autoscaler.
+	AutoscalingQueueMetricsPort = 9090
+
+	// UserQueueMetricsPort specifies the port number for metrics emitted
+	// by queue-proxy for end user.
+	UserQueueMetricsPort = 9091
 
 	// ServicePortNameHTTP1 is the name of the external port of the service for HTTP/1.1
 	ServicePortNameHTTP1 = "http"
+
 	// ServicePortNameH2C is the name of the external port of the service for HTTP/2
 	ServicePortNameH2C = "http2"
 )

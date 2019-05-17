@@ -53,17 +53,20 @@ var (
 	}
 	queueNonServingPorts = []corev1.ContainerPort{{
 		// Provides health checks and lifecycle hooks.
-		Name:          v1alpha1.RequestQueueAdminPortName,
-		ContainerPort: int32(networking.RequestQueueAdminPort),
+		Name:          v1alpha1.QueueAdminPortName,
+		ContainerPort: int32(networking.QueueAdminPort),
 	}, {
-		Name:          v1alpha1.RequestQueueMetricsPortName,
-		ContainerPort: int32(networking.RequestQueueMetricsPort),
+		Name:          v1alpha1.AutoscalingQueueMetricsPortName,
+		ContainerPort: int32(networking.AutoscalingQueueMetricsPort),
+	}, {
+		Name:          v1alpha1.UserQueueMetricsPortName,
+		ContainerPort: int32(networking.UserQueueMetricsPort),
 	}}
 
 	queueReadinessProbe = &corev1.Probe{
 		Handler: corev1.Handler{
 			HTTPGet: &corev1.HTTPGetAction{
-				Port: intstr.FromInt(networking.RequestQueueAdminPort),
+				Port: intstr.FromInt(networking.QueueAdminPort),
 				Path: queue.RequestQueueHealthPath,
 			},
 		},

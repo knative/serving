@@ -61,7 +61,7 @@ var (
 	userLifecycle = &corev1.Lifecycle{
 		PreStop: &corev1.Handler{
 			HTTPGet: &corev1.HTTPGetAction{
-				Port: intstr.FromInt(networking.RequestQueueAdminPort),
+				Port: intstr.FromInt(networking.QueueAdminPort),
 				Path: queue.RequestQueueDrainPath,
 			},
 		},

@@ -114,7 +114,7 @@ func newServiceScraperWithClient(
 	return &ServiceScraper{
 		sClient:             sClient,
 		endpointsLister:     endpointsLister,
-		url:                 fmt.Sprintf("http://%s.%s:%d/metrics", serviceName, metric.Namespace, networking.RequestQueueMetricsPort),
+		url:                 fmt.Sprintf("http://%s.%s:%d/metrics", serviceName, metric.Namespace, networking.AutoscalingQueueMetricsPort),
 		metricKey:           NewMetricKey(metric.Namespace, metric.Name),
 		namespace:           metric.Namespace,
 		scrapeTargetService: serviceName,

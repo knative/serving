@@ -40,13 +40,17 @@ const (
 	// use for connecting to the user container.
 	DefaultUserPort = 8080
 
-	// RequestQueueAdminPortName specifies the port name for
-	// health check and lifecyle hooks for queue-proxy.
-	RequestQueueAdminPortName string = "queueadm-port"
+	// QueueAdminPortName specifies the port name for
+	// health check and lifecycle hooks for queue-proxy.
+	QueueAdminPortName string = "queueadm-port"
 
-	// RequestQueueMetricsPortName specifies the port name to use for metrics
-	// emitted by queue-proxy.
-	RequestQueueMetricsPortName = "queue-metrics"
+	// AutoscalingQueueMetricsPortName specifies the port name to use for metrics
+	// emitted by queue-proxy for autoscaler.
+	AutoscalingQueueMetricsPortName = "queue-metrics"
+
+	// UserQueueMetricsPortName specifies the port name to use for metrics
+	// emitted by queue-proxy for end user.
+	UserQueueMetricsPortName = "user-metrics"
 
 	// ServiceQueueMetricsPortName is the name of the port that serves metrics
 	// on the Kubernetes service.
