@@ -87,19 +87,18 @@ func TestConflictingRouteService(t *testing.T) {
 	t.Parallel()
 
 	names := test.ResourceNames{
-		Config:        test.AppendRandomString("conflicting-route-service"),
-		Route:         test.AppendRandomString("conflicting-route-service"),
+		Service:       test.AppendRandomString("conflicting-route-service"),
 		TrafficTarget: "chips",
 		Image:         pizzaPlanet1,
 	}
 
-	// Create a service in a different namespace but have the same route name
+	// Create a service in a different namespace but route label points to a route in another namespace
 	svc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      test.AppendRandomString("conflicting-route-service"),
 			Namespace: test.AlternativeServingNamespace,
 			Labels: map[string]string{
-				serving.RouteLabelKey: names.Route,
+				serving.RouteLabelKey: names.Service,
 			},
 		},
 		Spec: corev1.ServiceSpec{
@@ -110,24 +109,16 @@ func TestConflictingRouteService(t *testing.T) {
 
 	altClients := SetupAlternativeNamespace(t)
 	altClients.KubeClient.Kube.CoreV1().Services(test.AlternativeServingNamespace).Create(svc)
-	test.CleanupOnInterrupt(func() {
+	cleanup := func() {
 		altClients.KubeClient.Kube.CoreV1().Services(test.AlternativeServingNamespace).Delete(svc.Name, &v1.DeleteOptions{})
-	})
-	defer altClients.KubeClient.Kube.CoreV1().Services(test.AlternativeServingNamespace).Delete(svc.Name, &v1.DeleteOptions{})
+	}
+	test.CleanupOnInterrupt(cleanup)
+	defer cleanup()
 
 	clients := Setup(t)
-	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
-	defer test.TearDown(clients, names)
-
-	if _, err := test.CreateConfiguration(t, clients, names, &test.Options{RevisionTimeoutSeconds: revisionTimeoutSeconds}); err != nil {
-		t.Errorf("Unexpected error creating configuration: %v", err)
+	if _, err := test.CreateRunLatestServiceReady(t, clients, &names, &test.Options{}); err != nil {
+		t.Errorf("Failed to create Service %v in namespace %v: %v", names.Service, test.ServingNamespace, err)
 	}
-
-	if _, err := test.CreateRoute(t, clients, names); err != nil {
-		t.Errorf("Unexpected error creating route: %v", err)
-	}
-
-	test.WaitForConfigurationState(clients.ServingClient, names.Config, configurationIsReady, "waiting for configuration to be ready")
 
 	if readyErr := test.WaitForRouteState(clients.ServingClient, names.Route, routeIsReady, "waiting for route to be ready"); readyErr != nil {
 		t.Errorf("Route did not become ready.")
