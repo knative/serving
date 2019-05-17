@@ -19,6 +19,7 @@ package kpa
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"strconv"
 	"sync"
 	"testing"
@@ -301,7 +302,7 @@ func TestReconcileAndScaleToZero(t *testing.T) {
 		fakeMetrics := newTestMetrics()
 		psFactory := presources.NewPodScalableInformerFactory(ctx)
 		scaler := newScaler(ctx, psFactory, func(interface{}, time.Duration) {})
-		scaler.activatorProbe = func(*asv1a1.PodAutoscaler) (bool, error) { return true, nil }
+		scaler.activatorProbe = func(*asv1a1.PodAutoscaler, http.RoundTripper) (bool, error) { return true, nil }
 		return &Reconciler{
 			Base:              rpkg.NewBase(ctx, controllerAgentName, newConfigWatcher()),
 			paLister:          listers.GetPodAutoscalerLister(),
