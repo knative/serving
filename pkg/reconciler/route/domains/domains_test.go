@@ -165,7 +165,7 @@ func TestURL(t *testing.T) {
 		domain: "current.svc.local.com",
 		Expected: apis.URL{
 			Scheme: "http",
-			Path:   "current.svc.local.com",
+			Host:   "current.svc.local.com",
 		},
 	}, {
 		name:   "default target",
@@ -173,7 +173,7 @@ func TestURL(t *testing.T) {
 		domain: "example.com",
 		Expected: apis.URL{
 			Scheme: "http",
-			Path:   "example.com",
+			Host:   "example.com",
 		},
 	}}
 
