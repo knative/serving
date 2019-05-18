@@ -42,6 +42,11 @@ const (
 	jsonExt  = ".json"
 )
 
+const (
+	AddHostHeader  = 0
+	EnableProfiler = 1
+)
+
 // GeneratorOptions provides knobs to run the perf test
 type GeneratorOptions struct {
 	// Duration is the total time to generate the load.
@@ -96,15 +101,10 @@ func (g *GeneratorOptions) addDefaults() {
 }
 
 // CreateRunnerOptions sets up the fortio client with the knobs needed to run the load test
-func (g *GeneratorOptions) CreateRunnerOptions(resolvableDomain bool) (*fhttp.HTTPRunnerOptions, error) {
+func (g *GeneratorOptions) CreateRunnerOptions(opts []int) (*fhttp.HTTPRunnerOptions, error) {
 	o := fhttp.NewHTTPOptions(g.URL)
 	o.NumConnections = g.NumConnections
 	o.HTTPReqTimeOut = g.RequestTimeout
-
-	// If the url does not contains a resolvable domain, we need to add the domain as a header
-	if !resolvableDomain {
-		o.AddAndValidateExtraHeader(fmt.Sprintf("Host: %s", g.Domain))
-	}
 
 	ro := fhttp.HTTPRunnerOptions{
 		RunnerOptions: periodic.RunnerOptions{
@@ -117,13 +117,17 @@ func (g *GeneratorOptions) CreateRunnerOptions(resolvableDomain bool) (*fhttp.HT
 		AllowInitialErrors: g.AllowInitialErrors,
 	}
 
-	if len(g.FileNamePrefix) != 0 {
-		dir := prow.GetLocalArtifactsDir()
-		if err := common.CreateDir(dir); err != nil {
-			return nil, err
+	for _, opt := range opts {
+		switch opt {
+		case AddHostHeader:
+			ro.AddAndValidateExtraHeader(fmt.Sprintf("Host: %s", g.Domain))
+		case EnableProfiler:
+			dir := prow.GetLocalArtifactsDir()
+			if err := common.CreateDir(dir); err != nil {
+				return nil, err
+			}
+			ro.Profiler = path.Join(dir, g.FileNamePrefix)
 		}
-
-		ro.Profiler = path.Join(dir, g.FileNamePrefix)
 	}
 
 	return &ro, nil
@@ -142,13 +146,13 @@ For LoadFactors=[1,2,4], baseQPS=q, duration=d
 	|___|q______|_______|___|____duration(time)
             1       2       3  <--- factors
 */
-func (g *GeneratorOptions) RunLoadTest(resolvableDomain bool) (*GeneratorResults, error) {
+func (g *GeneratorOptions) RunLoadTest(opts ...int) (*GeneratorResults, error) {
 	g.addDefaults()
 	res := make([]*fhttp.HTTPRunnerResults, len(g.LoadFactors))
 
 	for i, f := range g.LoadFactors {
 		g.BaseQPS = g.BaseQPS * f
-		ro, err := g.CreateRunnerOptions(resolvableDomain)
+		ro, err := g.CreateRunnerOptions(opts)
 		if err != nil {
 			return &GeneratorResults{Result: res}, err
 		}
