@@ -179,7 +179,7 @@ func (c *Reconciler) reconcile(ctx context.Context, r *v1alpha1.Route) error {
 		// Traffic targets aren't ready, no need to configure child resources.
 		return err
 	}
-	logger.Info("Got traffic: ", traffic)
+	logger.Infof("Got traffic: %#v", traffic)
 
 	logger.Info("Updating targeted revisions.")
 	// In all cases we will add annotations to the referred targets.  This is so that when they become
