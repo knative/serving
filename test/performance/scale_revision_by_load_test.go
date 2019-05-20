@@ -159,7 +159,7 @@ func scaleRevisionByLoad(t *testing.T, numClients int) []junit.TestCase {
 	}
 
 	t.Logf("Starting test with %d clients at %s", numClients, time.Now())
-	resp, err := opts.RunLoadTest(false)
+	resp, err := opts.RunLoadTest()
 	if err != nil {
 		t.Fatalf("Generating traffic via fortio failed: %v", err)
 	}

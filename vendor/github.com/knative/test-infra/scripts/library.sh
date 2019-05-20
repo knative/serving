@@ -36,6 +36,20 @@ readonly IS_PROW
 readonly REPO_ROOT_DIR="$(git rev-parse --show-toplevel)"
 readonly REPO_NAME="$(basename ${REPO_ROOT_DIR})"
 
+# Useful flags about the current OS
+IS_LINUX=0
+IS_OSX=0
+IS_WINDOWS=0
+case "${OSTYPE}" in
+  darwin*) IS_OSX=1 ;;
+  linux*) IS_LINUX=1 ;;
+  msys*) IS_WINDOWS=1 ;;
+  *) echo "** Internal error in library.sh, unknown OS '${OSTYPE}'" ; exit 1 ;;
+esac
+readonly IS_LINUX
+readonly IS_OSX
+readonly IS_WINDOWS
+
 # Set ARTIFACTS to an empty temp dir if unset
 if [[ -z "${ARTIFACTS:-}" ]]; then
   export ARTIFACTS="$(mktemp -d)"
@@ -56,7 +70,7 @@ function abort() {
 #             $2 - banner message.
 function make_banner() {
     local msg="$1$1$1$1 $2 $1$1$1$1"
-    local border="${msg//[-0-9A-Za-z _.,\/()]/$1}"
+    local border="${msg//[-0-9A-Za-z _.,\/()\']/$1}"
     echo -e "${border}\n${msg}\n${border}"
 }
 
@@ -445,14 +459,13 @@ function get_canonical_path() {
 # Return the base url we use to build the actual knative yaml sources.
 function get_knative_base_yaml_source() {
   local knative_base_yaml_source="https://storage.googleapis.com/knative-nightly/@/latest"
-  # Get the branch name from Prow's env var by default, see https://github.com/kubernetes/test-infra/blob/master/prow/jobs.md.
-  local branch_name="${PULL_BASE_REF}"
-  if (( ! IS_PROW )); then
-    # If the test job is not running on Prow, we get the branch name directly via git command.
-    branch_name="$(git rev-parse --abbrev-ref HEAD)"
-  fi
-  # If it's a release branch, we should have a different knative_base_yaml_source.
-  if [[ $branch_name =~ ^release-[0-9\.]+$ ]]; then
+  local branch_name=""
+  # Get the branch name from Prow's env var, see https://github.com/kubernetes/test-infra/blob/master/prow/jobs.md.
+  # Otherwise, try getting the current branch from git.
+  (( IS_PROW )) && branch_name="${PULL_BASE_REF:-}"
+  [[ -z "${branch_name}" ]] && branch_name="$(git rev-parse --abbrev-ref HEAD)"
+  # If it's a release branch, base URL should point to a specific version.
+  if [[ ${branch_name} =~ ^release-[0-9\.]+$ ]]; then
     # Get the latest tag name for the current branch, which is likely formatted as v0.5.0
     local tag_name="$(git describe --tags --abbrev=0)"
     knative_base_yaml_source="https://storage.googleapis.com/knative-releases/@/previous/${tag_name}"

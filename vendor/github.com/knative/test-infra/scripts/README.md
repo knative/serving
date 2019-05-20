@@ -108,10 +108,13 @@ This is a helper script for Knative E2E test scripts. To use it:
    if the default values don't fit your needs:
 
    - `E2E_CLUSTER_REGION`: Cluster region, defaults to `us-central1`.
-   - `E2E_CLUSTER_BACKUP_REGIONS`: Space-separated list of regions to retry test cluster creation in case of stockout. Defaults to `us-west1 us-east1`.
+   - `E2E_CLUSTER_BACKUP_REGIONS`: Space-separated list of regions to retry test
+     cluster creation in case of stockout. Defaults to `us-west1 us-east1`.
    - `E2E_CLUSTER_ZONE`: Cluster zone (e.g., `a`), defaults to none (i.e. use a regional
      cluster).
-   - `E2E_CLUSTER_BACKUP_ZONES`: Space-separated list of zones to retry test cluster creation in case of stockout. If defined, `E2E_CLUSTER_BACKUP_REGIONS` will be ignored thus it defaults to none.
+   - `E2E_CLUSTER_BACKUP_ZONES`: Space-separated list of zones to retry test cluster
+     creation in case of stockout. If defined, `E2E_CLUSTER_BACKUP_REGIONS` will be
+     ignored thus it defaults to none.
    - `E2E_CLUSTER_MACHINE`: Cluster node machine type, defaults to `n1-standard-4}`.
    - `E2E_MIN_CLUSTER_NODES`: Minimum number of nodes in the cluster when autoscaling,
      defaults to 1.
@@ -241,14 +244,20 @@ This is a helper script for Knative release scripts. To use it:
    - `RELEASE_GCS_BUCKET`: contains the GCS bucket name to store the manifests if
      `--release-gcs` was passed, otherwise the default value `knative-nightly/<repo>`
      will be used. It is empty if `--publish` was not passed.
+   - `BUILD_COMMIT_HASH`: the commit short hash for the current repo. If the current
+     git tree is dirty, it will have `-dirty` appended to it.
+   - `BUILD_YYYYMMDD`: current UTC date in `YYYYMMDD` format.
+   - `BUILD_TIMESTAMP`: human-readable UTC timestamp in `YYYY-MM-DD HH:MM:SS` format.
+   - `BUILD_TAG`: a tag in the form `v$BUILD_YYYYMMDD-$BUILD_COMMIT_HASH`.
    - `KO_DOCKER_REPO`: contains the GCR to store the images if `--release-gcr` was
      passed, otherwise the default value `gcr.io/knative-nightly` will be used. It
      is set to `ko.local` if `--publish` was not passed.
    - `SKIP_TESTS`: true if `--skip-tests` was passed. This is handled automatically.
    - `TAG_RELEASE`: true if `--tag-release` was passed. In this case, the environment
-     variable `TAG` will contain the release tag in the form `vYYYYMMDD-<commit_short_hash>`.
+     variable `TAG` will contain the release tag in the form `v$BUILD_TAG`.
    - `PUBLISH_RELEASE`: true if `--publish` was passed. In this case, the environment
-     variable `KO_FLAGS` will be updated with the `-L` option.
+     variable `KO_FLAGS` will be updated with the `-L` option and `TAG` will contain
+     the release tag in the form `v$RELEASE_VERSION`.
    - `PUBLISH_TO_GITHUB`: true if `--version`, `--branch` and `--publish-release`
      were passed.
 
