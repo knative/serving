@@ -98,6 +98,13 @@ func (c *Reconciler) reconcileDeployment(ctx context.Context, rev *v1alpha1.Revi
 		}
 	}
 
+	if hasDeploymentReplicaFailure(deployment) && !rev.Status.IsActivationRequired() {
+		rev.Status.MarkNoDeployment(fmt.Sprintf(
+			"The controller could not create a deployment named %s.", deployment.Name))
+		c.Recorder.Eventf(rev, corev1.EventTypeNormal, "NoDeployment",
+			"Revision %s not ready because replica is failed to be created", rev.Name)
+	}
+
 	// Now that we have a Deployment, determine whether there is any relevant
 	// status to surface in the Revision.
 	if hasDeploymentTimedOut(deployment) && !rev.Status.IsActivationRequired() {
@@ -194,6 +201,16 @@ func (c *Reconciler) reconcilePA(ctx context.Context, rev *v1alpha1.Revision) er
 		rev.Status.MarkContainerHealthy()
 	}
 	return nil
+}
+
+func hasDeploymentReplicaFailure(deployment *appsv1.Deployment) bool {
+	for _, cond := range deployment.Status.Conditions {
+		// with Type ReplicaFailure and Reason FailedCreate
+		if cond.Type == appsv1.DeploymentReplicaFailure && cond.Reason == "FailedCreate" {
+			return true
+		}
+	}
+	return false
 }
 
 func hasDeploymentTimedOut(deployment *appsv1.Deployment) bool {

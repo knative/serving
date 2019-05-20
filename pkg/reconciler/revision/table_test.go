@@ -411,6 +411,26 @@ func TestReconcile(t *testing.T) {
 		},
 		Key: "foo/deploy-timeout",
 	}, {
+			Name: "surface deployment replica failure",
+			// Test the propagation of replica failure from Deployment.
+			Objects: []runtime.Object{
+				rev("foo", "deploy-replica-failure",
+					withK8sServiceName("the-taxman"), WithLogURL, MarkActive),
+				kpa("foo", "deploy-replica-failure"),
+				replicaFailureDeploy(deploy("foo", "deploy-replica-failure")),
+				image("foo", "deploy-replica-failure"),
+			},
+			WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+				Object: rev("foo", "deploy-replica-failure",
+					WithLogURL, AllUnknownConditions,
+					MarkNoDeployment("The controller could not create a deployment named deploy-replica-failure-deployment.")),
+			}},
+			WantEvents: []string{
+				Eventf(corev1.EventTypeNormal, "NoDeployment", "Revision %s not ready because replica is failed to be created",
+					"deploy-replica-failure"),
+			},
+			Key: "foo/deploy-replica-failure",
+	}, {
 		Name: "surface ImagePullBackoff",
 		// Test the propagation of ImagePullBackoff from user container.
 		Objects: []runtime.Object{
@@ -543,6 +563,15 @@ func TestReconcile(t *testing.T) {
 			configStore:         &testConfigStore{config: ReconcilerTestConfig()},
 		}
 	}))
+}
+
+func replicaFailureDeploy(deploy *appsv1.Deployment) *appsv1.Deployment {
+	deploy.Status.Conditions = []appsv1.DeploymentCondition{{
+		Type:   appsv1.DeploymentReplicaFailure,
+		Status: corev1.ConditionTrue,
+		Reason: "FailedCreate",
+	}}
+	return deploy
 }
 
 func timeoutDeploy(deploy *appsv1.Deployment) *appsv1.Deployment {

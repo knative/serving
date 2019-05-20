@@ -160,6 +160,12 @@ func (rs *RevisionStatus) MarkProgressDeadlineExceeded(message string) {
 	revCondSet.Manage(rs).MarkFalse(RevisionConditionResourcesAvailable, "ProgressDeadlineExceeded", message)
 }
 
+// MarkNoDeployment changes the "ResourcesAvailable" condition to false to reflect that the
+// deployment has already been created, and replica is failed to be created
+func (rs *RevisionStatus) MarkNoDeployment(message string) {
+	revCondSet.Manage(rs).MarkFalse(RevisionConditionResourcesAvailable, "NoDeployment", message)
+}
+
 func (rs *RevisionStatus) MarkContainerHealthy() {
 	revCondSet.Manage(rs).MarkTrue(RevisionConditionContainerHealthy)
 }

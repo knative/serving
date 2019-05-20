@@ -139,6 +139,13 @@ func MarkContainerExiting(exitCode int32, message string) RevisionOption {
 	}
 }
 
+// MarkNoDeployment calls .Status.MarkNoDeployment on the Revision
+func MarkNoDeployment(message string) RevisionOption {
+	return func(r *v1alpha1.Revision) {
+		r.Status.MarkNoDeployment(message)
+	}
+}
+
 // MarkResourcesUnavailable calls .Status.MarkResourcesUnavailable on the Revision.
 func MarkResourcesUnavailable(reason, message string) RevisionOption {
 	return func(r *v1alpha1.Revision) {
