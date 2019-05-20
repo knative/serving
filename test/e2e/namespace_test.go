@@ -122,10 +122,6 @@ func TestConflictingRouteService(t *testing.T) {
 	if _, err := test.CreateRunLatestServiceReady(t, clients, &names, &test.Options{}); err != nil {
 		t.Errorf("Failed to create Service %v in namespace %v: %v", names.Service, test.ServingNamespace, err)
 	}
-
-	if readyErr := test.WaitForRouteState(clients.ServingClient, names.Route, routeIsReady, "waiting for route to be ready"); readyErr != nil {
-		t.Errorf("Route did not become ready.")
-	}
 }
 
 func configurationIsReady(c *v1alpha1.Configuration) (bool, error) {
