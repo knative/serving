@@ -310,6 +310,8 @@ func (c *Reconciler) reconcileDecider(ctx context.Context, pa *pav1alpha1.PodAut
 
 	// Ignore status when reconciling
 	desiredDecider.Status = decider.Status
+	resources.UpdateDecider(desiredDecider, config.FromContext(ctx).Autoscaler)
+
 	if !equality.Semantic.DeepEqual(desiredDecider, decider) {
 		decider, err = c.kpaDeciders.Update(ctx, desiredDecider)
 		if err != nil {

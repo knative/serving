@@ -80,6 +80,37 @@ func TestMakeDecider(t *testing.T) {
 	}
 }
 
+func TestUpdateDecider(t *testing.T) {
+	cases := []struct {
+		name   string
+		given  *autoscaler.Decider
+		want   *autoscaler.Decider
+		config *autoscaler.Config
+	}{{
+		name:  "different tick interval",
+		given: decider(),
+		want:  decider(withTickInterval(10 * time.Second)),
+		config: &autoscaler.Config{
+			TickInterval: 10 * time.Second,
+		},
+	}, {
+		name:  "same tick interval",
+		given: decider(),
+		want:  decider(),
+		config: &autoscaler.Config{
+			TickInterval: config.TickInterval,
+		},
+	}}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			UpdateDecider(tc.given, tc.config)
+			if diff := cmp.Diff(tc.want, tc.given); diff != "" {
+				t.Errorf("%q (-want, +got):\n%v", tc.name, diff)
+			}
+		})
+	}
+}
+
 func pa(options ...PodAutoscalerOption) *v1alpha1.PodAutoscaler {
 	p := &v1alpha1.PodAutoscaler{
 		ObjectMeta: metav1.ObjectMeta{
@@ -145,6 +176,13 @@ func withPanicThreshold(threshold float64) DeciderOption {
 		decider.Spec.PanicThreshold = threshold
 	}
 }
+
+func withTickInterval(interval time.Duration) DeciderOption {
+	return func(decider *autoscaler.Decider) {
+		decider.Spec.TickInterval = interval
+	}
+}
+
 func withTargetAnnotation(target string) DeciderOption {
 	return func(decider *autoscaler.Decider) {
 		decider.Annotations[autoscaling.TargetAnnotationKey] = target

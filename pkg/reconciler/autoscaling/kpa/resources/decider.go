@@ -64,3 +64,10 @@ func MakeDecider(ctx context.Context, pa *v1alpha1.PodAutoscaler, config *autosc
 		},
 	}
 }
+
+// UpdateDecider updades a Decider resource spec from a PodAutoscaler config
+func UpdateDecider(currentDecider *autoscaler.Decider, config *autoscaler.Config) {
+	if currentDecider.Spec.TickInterval != config.TickInterval {
+		currentDecider.Spec.TickInterval = config.TickInterval
+	}
+}
