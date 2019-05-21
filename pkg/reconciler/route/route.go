@@ -223,28 +223,23 @@ func (c *Reconciler) reconcile(ctx context.Context, r *v1alpha1.Route) error {
 				return err
 			}
 
+			dnsNames := sets.NewString(cert.Spec.DNSNames...)
 			if cert.Status.IsReady() {
 				r.Status.MarkCertificateReady(cert.Name)
-				for _, n := range cert.Spec.DNSNames {
-					// r.Status.URL is for the major domain, so only change if the cert is for
-					// the major domain
-					if n == host {
-						r.Status.URL.Scheme = "https"
-						break
-					}
+				// r.Status.URL is for the major domain, so only change if the cert is for
+				// the major domain
+				if dnsNames.Has(host) {
+					r.Status.URL.Scheme = "https"
 				}
 				// TODO: we should only mark https for the public visible targets when
 				// we are able to configure visibility per target.
 				setTargetsScheme(&r.Status, cert.Spec.DNSNames, "https")
 			} else {
 				r.Status.MarkCertificateNotReady(cert.Name)
-				for _, n := range cert.Spec.DNSNames {
-					if n == host {
-						r.Status.URL = &apis.URL{
-							Scheme: "http",
-							Host:   host,
-						}
-						break
+				if dnsNames.Has(host) {
+					r.Status.URL = &apis.URL{
+						Scheme: "http",
+						Host:   host,
 					}
 				}
 				setTargetsScheme(&r.Status, cert.Spec.DNSNames, "http")
