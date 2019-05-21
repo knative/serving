@@ -14,8 +14,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// TODO: do we need to modify/add new test here for reconcile in route.go?
-
 package route
 
 import (
