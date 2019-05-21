@@ -64,7 +64,6 @@ func TestReporter_Report(t *testing.T) {
 	expectSuccess(t, "ReportRequestedPodCount", func() error { return r.ReportRequestedPodCount(7) })
 	expectSuccess(t, "ReportActualPodCount", func() error { return r.ReportActualPodCount(5) })
 	expectSuccess(t, "ReportPanic", func() error { return r.ReportPanic(0) })
-	expectSuccess(t, "ReportObservedPodCount", func() error { return r.ReportObservedPodCount(1) })
 	expectSuccess(t, "ReportStableRequestConcurrency", func() error { return r.ReportStableRequestConcurrency(2) })
 	expectSuccess(t, "ReportPanicRequestConcurrency", func() error { return r.ReportPanicRequestConcurrency(3) })
 	expectSuccess(t, "ReportTargetRequestConcurrency", func() error { return r.ReportTargetRequestConcurrency(0.9) })

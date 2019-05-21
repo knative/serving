@@ -155,7 +155,6 @@ type StatsReporter interface {
 	ReportDesiredPodCount(v int64) error
 	ReportRequestedPodCount(v int64) error
 	ReportActualPodCount(v int64) error
-	ReportObservedPodCount(v float64) error
 	ReportStableRequestConcurrency(v float64) error
 	ReportPanicRequestConcurrency(v float64) error
 	ReportTargetRequestConcurrency(v float64) error
@@ -211,11 +210,6 @@ func (r *Reporter) ReportRequestedPodCount(v int64) error {
 // ReportActualPodCount captures value v for actual pod count measure.
 func (r *Reporter) ReportActualPodCount(v int64) error {
 	return r.report(actualPodCountM.M(v))
-}
-
-// ReportObservedPodCount captures value v for observed pod count measure.
-func (r *Reporter) ReportObservedPodCount(v float64) error {
-	return r.report(observedPodCountM.M(v))
 }
 
 // ReportStableRequestConcurrency captures value v for stable request concurrency measure.
