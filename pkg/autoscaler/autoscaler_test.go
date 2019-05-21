@@ -220,11 +220,6 @@ func (r *mockReporter) ReportActualPodCount(v int64) error {
 	return nil
 }
 
-// ReportObservedPodCount of a mockReporter does nothing and return nil for error.
-func (r *mockReporter) ReportObservedPodCount(v float64) error {
-	return nil
-}
-
 // ReportStableRequestConcurrency of a mockReporter does nothing and return nil for error.
 func (r *mockReporter) ReportStableRequestConcurrency(v float64) error {
 	return nil

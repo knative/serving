@@ -41,10 +41,6 @@ var (
 		"actual_pods",
 		"Number of pods that are allocated currently",
 		stats.UnitDimensionless)
-	observedPodCountM = stats.Float64(
-		"observed_pods",
-		"Number of pods that are observed currently",
-		stats.UnitDimensionless)
 	stableRequestConcurrencyM = stats.Float64(
 		"stable_request_concurrency",
 		"Average of requests count per observed pod in each stable window (default 60 seconds)",
@@ -114,12 +110,6 @@ func init() {
 			TagKeys:     []tag.Key{namespaceTagKey, serviceTagKey, configTagKey, revisionTagKey},
 		},
 		&view.View{
-			Description: "Number of pods that are observed currently",
-			Measure:     observedPodCountM,
-			Aggregation: view.LastValue(),
-			TagKeys:     []tag.Key{namespaceTagKey, serviceTagKey, configTagKey, revisionTagKey},
-		},
-		&view.View{
 			Description: "Average of requests count in each 60 second stable window",
 			Measure:     stableRequestConcurrencyM,
 			Aggregation: view.LastValue(),
@@ -155,7 +145,6 @@ type StatsReporter interface {
 	ReportDesiredPodCount(v int64) error
 	ReportRequestedPodCount(v int64) error
 	ReportActualPodCount(v int64) error
-	ReportObservedPodCount(v float64) error
 	ReportStableRequestConcurrency(v float64) error
 	ReportPanicRequestConcurrency(v float64) error
 	ReportTargetRequestConcurrency(v float64) error
@@ -211,11 +200,6 @@ func (r *Reporter) ReportRequestedPodCount(v int64) error {
 // ReportActualPodCount captures value v for actual pod count measure.
 func (r *Reporter) ReportActualPodCount(v int64) error {
 	return r.report(actualPodCountM.M(v))
-}
-
-// ReportObservedPodCount captures value v for observed pod count measure.
-func (r *Reporter) ReportObservedPodCount(v float64) error {
-	return r.report(observedPodCountM.M(v))
 }
 
 // ReportStableRequestConcurrency captures value v for stable request concurrency measure.
