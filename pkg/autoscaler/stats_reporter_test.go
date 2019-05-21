@@ -71,7 +71,6 @@ func TestReporter_Report(t *testing.T) {
 	assertData(t, "requested_pods", wantTags, 7)
 	assertData(t, "actual_pods", wantTags, 5)
 	assertData(t, "panic_mode", wantTags, 0)
-	assertData(t, "observed_pods", wantTags, 1)
 	assertData(t, "stable_request_concurrency", wantTags, 2)
 	assertData(t, "panic_request_concurrency", wantTags, 3)
 	assertData(t, "target_concurrency_per_pod", wantTags, 0.9)

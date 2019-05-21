@@ -41,10 +41,6 @@ var (
 		"actual_pods",
 		"Number of pods that are allocated currently",
 		stats.UnitDimensionless)
-	observedPodCountM = stats.Float64(
-		"observed_pods",
-		"Number of pods that are observed currently",
-		stats.UnitDimensionless)
 	stableRequestConcurrencyM = stats.Float64(
 		"stable_request_concurrency",
 		"Average of requests count per observed pod in each stable window (default 60 seconds)",
@@ -110,12 +106,6 @@ func init() {
 		&view.View{
 			Description: "Number of pods that are allocated currently",
 			Measure:     actualPodCountM,
-			Aggregation: view.LastValue(),
-			TagKeys:     []tag.Key{namespaceTagKey, serviceTagKey, configTagKey, revisionTagKey},
-		},
-		&view.View{
-			Description: "Number of pods that are observed currently",
-			Measure:     observedPodCountM,
 			Aggregation: view.LastValue(),
 			TagKeys:     []tag.Key{namespaceTagKey, serviceTagKey, configTagKey, revisionTagKey},
 		},
