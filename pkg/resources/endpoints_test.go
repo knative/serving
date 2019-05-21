@@ -155,6 +155,15 @@ func TestEndpointAddressCounter(t *testing.T) {
 			}
 		})
 	}
+
+	addressCounter.UpdateName("unknown")
+	got, err := addressCounter.ReadyCount()
+	if got != 0 {
+		t.Errorf("ReadyCount() should give count == 0 for unknown service name, was %d", got)
+	}
+	if err == nil {
+		t.Errorf("ReadyCount() should give an error for unknown service name, but got nil")
+	}
 }
 
 func endpoints(ipCount int) *corev1.Endpoints {

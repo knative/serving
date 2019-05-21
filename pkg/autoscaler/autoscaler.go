@@ -96,7 +96,7 @@ func (a *Autoscaler) Update(deciderSpec DeciderSpec) error {
 	defer a.counterMux.Unlock()
 
 	a.deciderSpec = deciderSpec
-	a.podCounter = resources.NewEndpointAddressCounter(a.endpointsLister, a.namespace, deciderSpec.ServiceName)
+	a.podCounter.UpdateName(deciderSpec.ServiceName)
 
 	return nil
 }
