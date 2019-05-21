@@ -187,7 +187,7 @@ func uniScalerFactoryFunc(endpointsInformer corev1informers.EndpointsInformer, m
 		}
 
 		podCounter := resources.NewEndpointAddressCounter(endpointsInformer.Lister(), decider.Namespace, decider.Name)
-		return autoscaler.New(decider.Namespace, decider.Name, metricClient, endpointsInformer, podCounter, decider.Spec, reporter)
+		return autoscaler.New(decider.Namespace, decider.Name, metricClient, podCounter, decider.Spec, reporter)
 	}
 }
 

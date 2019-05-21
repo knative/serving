@@ -27,8 +27,6 @@ import (
 	"github.com/knative/serving/pkg/resources"
 	"go.uber.org/zap"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	corev1informers "k8s.io/client-go/informers/core/v1"
-	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
 // Autoscaler stores current state of an instance of an autoscaler
@@ -36,7 +34,6 @@ type Autoscaler struct {
 	namespace       string
 	revision        string
 	metricClient    MetricClient
-	endpointsLister corev1listers.EndpointsLister
 	reporter        StatsReporter
 
 	// State in panic mode. Carries over multiple Scale calls. Guarded
@@ -59,13 +56,9 @@ func New(
 	namespace string,
 	revision string,
 	metricClient MetricClient,
-	endpointsInformer corev1informers.EndpointsInformer,
 	podCounter resources.ReadyPodCounter,
 	deciderSpec DeciderSpec,
 	reporter StatsReporter) (*Autoscaler, error) {
-	if endpointsInformer == nil {
-		return nil, errors.New("'endpointsEnformer' must not be nil")
-	}
 	if podCounter == nil {
 		return nil, errors.New("'podCounter' must not be nil")
 	}
@@ -80,7 +73,6 @@ func New(
 		namespace:       namespace,
 		revision:        revision,
 		metricClient:    metricClient,
-		endpointsLister: endpointsInformer.Lister(),
 		podCounter:      podCounter,
 		deciderSpec:     deciderSpec,
 		reporter:        reporter,
