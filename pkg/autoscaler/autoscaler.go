@@ -48,7 +48,7 @@ type Autoscaler struct {
 
 	// counterMux guards the ReadyPodCounter
 	counterMux sync.Mutex
-	podCounter resources.ReadyPodCounter
+	podCounter resources.UpdateableReadyPodCounter
 }
 
 // New creates a new instance of autoscaler
@@ -56,7 +56,7 @@ func New(
 	namespace string,
 	revision string,
 	metricClient MetricClient,
-	podCounter resources.ReadyPodCounter,
+	podCounter resources.UpdateableReadyPodCounter,
 	deciderSpec DeciderSpec,
 	reporter StatsReporter) (*Autoscaler, error) {
 	if podCounter == nil {

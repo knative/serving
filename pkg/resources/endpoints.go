@@ -29,11 +29,11 @@ func fetchReadyAddressCount(lister corev1listers.EndpointsLister, ns, name strin
 	if err != nil {
 		return 0, err
 	}
-	return ReadyAddressCount(endpoints), nil
+	return readyAddressCount(endpoints), nil
 }
 
-// ReadyAddressCount returns the total number of addresses ready for the given endpoint.
-func ReadyAddressCount(endpoints *corev1.Endpoints) int {
+// readyAddressCount returns the total number of addresses ready for the given endpoint.
+func readyAddressCount(endpoints *corev1.Endpoints) int {
 	var total int
 	for _, subset := range endpoints.Subsets {
 		total += len(subset.Addresses)
@@ -56,6 +56,10 @@ func ParentResourceFromService(name string) string {
 
 type ReadyPodCounter interface {
 	ReadyCount() (int, error)
+}
+
+type UpdateableReadyPodCounter interface {
+	ReadyPodCounter
 	UpdateName(string)
 }
 
@@ -73,10 +77,24 @@ func (eac *endpointAddressCounter) UpdateName(newName string) {
 	eac.name = newName
 }
 
-func NewEndpointAddressCounter(lister corev1listers.EndpointsLister, namespace, name string) ReadyPodCounter {
+func NewEndpointAddressCounter(lister corev1listers.EndpointsLister, namespace, name string) UpdateableReadyPodCounter {
 	return &endpointAddressCounter{
 		endpointsLister: lister,
 		namespace:       namespace,
 		name:            name,
+	}
+}
+
+type unscopedCounter struct {
+	endpoints *corev1.Endpoints
+}
+
+func (uc *unscopedCounter) ReadyCount() (int, error) {
+	return readyAddressCount(uc.endpoints), nil
+}
+
+func NewUnscopedEndpointsCounter(endpoints *corev1.Endpoints) ReadyPodCounter {
+	return &unscopedCounter{
+		endpoints: endpoints,
 	}
 }

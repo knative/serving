@@ -31,34 +31,6 @@ const (
 	testService   = "test-service"
 )
 
-func TestReadyAddressCount(t *testing.T) {
-	tests := []struct {
-		name      string
-		endpoints *corev1.Endpoints
-		want      int
-	}{{
-		name:      "no ready addresses",
-		endpoints: endpoints(0),
-		want:      0,
-	}, {
-		name:      "one ready address",
-		endpoints: endpoints(1),
-		want:      1,
-	}, {
-		name:      "ten ready addresses",
-		endpoints: endpoints(10),
-		want:      10,
-	}}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			if got := ReadyAddressCount(test.endpoints); got != test.want {
-				t.Errorf("ReadyAddressCount() = %d, want: %d", got, test.want)
-			}
-		})
-	}
-}
-
 func TestEndpointAddressCounter(t *testing.T) {
 	kubeClient := fakek8s.NewSimpleClientset()
 	endpointsClient := kubeinformers.NewSharedInformerFactory(kubeClient, 0).Core().V1().Endpoints()

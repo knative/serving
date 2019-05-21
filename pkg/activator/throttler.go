@@ -148,7 +148,7 @@ func (t *Throttler) Try(rev RevisionID, function func()) error {
 
 func (t *Throttler) activatorEndpointsUpdated(newObj interface{}) {
 	endpoints := newObj.(*corev1.Endpoints)
-	t.numActivators = resources.ReadyAddressCount(endpoints)
+	t.numActivators, _ = resources.NewUnscopedEndpointsCounter(endpoints).ReadyCount()
 	t.updateAllBreakerCapacity()
 }
 
@@ -235,7 +235,7 @@ func (t *Throttler) updateAllBreakerCapacity() {
 // This function must not be called in parallel to not induce a wrong order of events.
 func (t *Throttler) endpointsUpdated(newObj interface{}) {
 	endpoints := newObj.(*corev1.Endpoints)
-	addresses := resources.ReadyAddressCount(endpoints)
+	addresses, _ := resources.NewUnscopedEndpointsCounter(endpoints).ReadyCount()
 	revID := RevisionID{endpoints.Namespace, resources.ParentResourceFromService(endpoints.Name)}
 	if err := t.UpdateCapacity(revID, addresses); err != nil {
 		t.logger.With(zap.String(logkey.Key, revID.String())).Errorw("updating capacity failed", zap.Error(err))
