@@ -51,7 +51,7 @@ func TestNew_ErrorWhenGivenNilReadyPodCounter(t *testing.T) {
 func TestNew_ErrorWhenGivenNilStatsReporter(t *testing.T) {
 	var reporter StatsReporter
 
-	podCounter := resources.NewEndpointAddressCounter(kubeInformer.Core().V1().Endpoints().Lister(), testNamespace, testService)
+	podCounter := resources.NewScopedEndpointsCounter(kubeInformer.Core().V1().Endpoints().Lister(), testNamespace, testService)
 
 	_, err := New(testNamespace, testRevision, &testMetricClient{}, podCounter,
 		DeciderSpec{TargetConcurrency: 10, ServiceName: testService}, reporter)
@@ -252,7 +252,7 @@ func newTestAutoscaler(containerConcurrency int, metrics MetricClient) *Autoscal
 		ServiceName: testService,
 	}
 
-	podCounter := resources.NewEndpointAddressCounter(kubeInformer.Core().V1().Endpoints().Lister(), testNamespace, deciderSpec.ServiceName)
+	podCounter := resources.NewScopedEndpointsCounter(kubeInformer.Core().V1().Endpoints().Lister(), testNamespace, deciderSpec.ServiceName)
 	a, _ := New(testNamespace, testRevision, metrics, podCounter, deciderSpec, &mockReporter{})
 	return a
 }

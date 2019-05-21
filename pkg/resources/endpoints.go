@@ -45,22 +45,22 @@ type UpdateableReadyPodCounter interface {
 	UpdateName(string)
 }
 
-type endpointAddressCounter struct {
+type scopedEndpointCounter struct {
 	endpointsLister corev1listers.EndpointsLister
 	namespace       string
 	name            string
 }
 
-func (eac *endpointAddressCounter) ReadyCount() (int, error) {
+func (eac *scopedEndpointCounter) ReadyCount() (int, error) {
 	return fetchReadyAddressCount(eac.endpointsLister, eac.namespace, eac.name)
 }
 
-func (eac *endpointAddressCounter) UpdateName(newName string) {
+func (eac *scopedEndpointCounter) UpdateName(newName string) {
 	eac.name = newName
 }
 
-func NewEndpointAddressCounter(lister corev1listers.EndpointsLister, namespace, name string) UpdateableReadyPodCounter {
-	return &endpointAddressCounter{
+func NewScopedEndpointsCounter(lister corev1listers.EndpointsLister, namespace, name string) UpdateableReadyPodCounter {
+	return &scopedEndpointCounter{
 		endpointsLister: lister,
 		namespace:       namespace,
 		name:            name,

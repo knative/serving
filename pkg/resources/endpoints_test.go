@@ -39,7 +39,7 @@ func TestEndpointAddressCounter(t *testing.T) {
 		endpointsClient.Informer().GetIndexer().Add(ep)
 	}
 
-	addressCounter := NewEndpointAddressCounter(endpointsClient.Lister(), testNamespace, testService)
+	addressCounter := NewScopedEndpointsCounter(endpointsClient.Lister(), testNamespace, testService)
 
 	tests := []struct {
 		name      string
