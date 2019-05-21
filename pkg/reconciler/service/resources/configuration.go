@@ -37,6 +37,7 @@ func MakeConfiguration(service *v1alpha1.Service) (*v1alpha1.Configuration, erro
 			OwnerReferences: []metav1.OwnerReference{
 				*kmeta.NewControllerRef(service),
 			},
+			Annotations: service.GetAnnotations(),
 			Labels: resources.UnionMaps(service.GetLabels(), map[string]string{
 				serving.ServiceLabelKey: service.Name,
 			}),
