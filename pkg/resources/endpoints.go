@@ -23,8 +23,8 @@ import (
 	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
-// FetchReadyAddressCount fetches endpoints and returns the total number of addresses ready for them.
-func FetchReadyAddressCount(lister corev1listers.EndpointsLister, ns, name string) (int, error) {
+// fetchReadyAddressCount fetches endpoints and returns the total number of addresses ready for them.
+func fetchReadyAddressCount(lister corev1listers.EndpointsLister, ns, name string) (int, error) {
 	endpoints, err := lister.Endpoints(ns).Get(name)
 	if err != nil {
 		return 0, err
@@ -66,7 +66,7 @@ type endpointAddressCounter struct {
 }
 
 func (eac *endpointAddressCounter) ReadyCount() (int, error) {
-	return FetchReadyAddressCount(eac.endpointsLister, eac.namespace, eac.name)
+	return fetchReadyAddressCount(eac.endpointsLister, eac.namespace, eac.name)
 }
 
 func (eac *endpointAddressCounter) UpdateName(newName string) {

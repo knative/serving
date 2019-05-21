@@ -124,7 +124,8 @@ func newServiceScraperWithClient(
 // Scrape calls the destination service then sends it
 // to the given stats channel.
 func (s *ServiceScraper) Scrape() (*StatMessage, error) {
-	readyPodsCount, err := resources.FetchReadyAddressCount(s.endpointsLister, s.namespace, s.scrapeTargetService)
+	podCounter := resources.NewEndpointAddressCounter(s.endpointsLister, s.namespace, s.scrapeTargetService)
+	readyPodsCount, err := podCounter.ReadyCount()
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get endpoints")
 	}
