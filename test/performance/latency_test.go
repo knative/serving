@@ -89,7 +89,7 @@ func timeToServe(t *testing.T, img, query string, reqTimeout time.Duration) {
 		LoadFactors:    []float64{1},
 		FileNamePrefix: tName,
 	}
-	resp, err := opts.RunLoadTest()
+	resp, err := opts.RunLoadTest(loadgenerator.AddHostHeader)
 	if err != nil {
 		t.Fatalf("Generating traffic via fortio failed: %v", err)
 	}
