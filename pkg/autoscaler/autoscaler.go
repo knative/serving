@@ -48,6 +48,10 @@ type Autoscaler struct {
 	// specMux guards the current DeciderSpec.
 	specMux     sync.RWMutex
 	deciderSpec DeciderSpec
+
+	// counterMux guards the ReadyPodCounter
+	counterMux sync.Mutex
+	podCounter resources.ReadyPodCounter
 }
 
 // New creates a new instance of autoscaler
@@ -75,6 +79,7 @@ func New(
 		endpointsLister: endpointsInformer.Lister(),
 		deciderSpec:     deciderSpec,
 		reporter:        reporter,
+		podCounter:      resources.NewEndpointAddressCounter(endpointsInformer.Lister(), namespace, deciderSpec.ServiceName),
 	}, nil
 }
 
@@ -82,7 +87,13 @@ func New(
 func (a *Autoscaler) Update(deciderSpec DeciderSpec) error {
 	a.specMux.Lock()
 	defer a.specMux.Unlock()
+
+	a.counterMux.Lock()
+	defer a.counterMux.Unlock()
+
 	a.deciderSpec = deciderSpec
+	a.podCounter = resources.NewEndpointAddressCounter(a.endpointsLister, a.namespace, deciderSpec.ServiceName)
+
 	return nil
 }
 
@@ -94,8 +105,9 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (desiredPodCount 
 
 	spec := a.currentSpec()
 
-	podCounter := resources.NewEndpointAddressCounter(a.endpointsLister, a.namespace, spec.ServiceName)
-	originalReadyPodsCount, err := podCounter.ReadyCount()
+	a.counterMux.Lock()
+	defer a.counterMux.Unlock()
+	originalReadyPodsCount, err := a.podCounter.ReadyCount()
 	if err != nil {
 		// If the error is NotFound, then presume 0.
 		if !apierrors.IsNotFound(err) {
