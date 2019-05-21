@@ -60,10 +60,14 @@ func New(
 	revision string,
 	metricClient MetricClient,
 	endpointsInformer corev1informers.EndpointsInformer,
+	podCounter resources.ReadyPodCounter,
 	deciderSpec DeciderSpec,
 	reporter StatsReporter) (*Autoscaler, error) {
 	if endpointsInformer == nil {
 		return nil, errors.New("'endpointsEnformer' must not be nil")
+	}
+	if podCounter == nil {
+		return nil, errors.New("'podCounter' must not be nil")
 	}
 	if reporter == nil {
 		return nil, errors.New("stats reporter must not be nil")
@@ -77,9 +81,9 @@ func New(
 		revision:        revision,
 		metricClient:    metricClient,
 		endpointsLister: endpointsInformer.Lister(),
+		podCounter:      podCounter,
 		deciderSpec:     deciderSpec,
 		reporter:        reporter,
-		podCounter:      resources.NewEndpointAddressCounter(endpointsInformer.Lister(), namespace, deciderSpec.ServiceName),
 	}, nil
 }
 
