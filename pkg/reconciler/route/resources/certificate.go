@@ -27,17 +27,18 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// MakeCertificates creates Certificate array for the Route to request TLS certificates.
-// Returns one certificate for each domain, that is, each tag and the major
+// MakeCertificates creates an array of Certificate for the Route to request TLS certificates.
+// domainTagMap is an one-to-one mapping between domain and tag, for major domain (tag-less),
+// the value is an empty string
+// Returns one certificate for each domain
 func MakeCertificates(route *v1alpha1.Route, domainTagMap map[string]string) []*networkingv1alpha1.Certificate {
-	// TODO: why do we pass route here? we only need its namespace and uid?
-	// or should we factor the logic of getting the dnsnames and tags here instead of in reconcile func in route.go
-	// TODO: here it assumes dnsNames and tags have the same length, and is one to one mapping
-	// do need to do valid check?
-
 	var certs []*networkingv1alpha1.Certificate
-	// logger.Info("dnsNames: ", dnsNames, " ", len(dnsNames))
 	for dnsName, tag := range domainTagMap {
+		// k8s supports cert name only up to 63 chars and so is constructed as route-[UID]-[tag digest]
+		// where route-[UID] will take 42 characters and leaves 20 characters for tag digest (need to include `-`).
+		// We use https://golang.org/pkg/hash/adler32/#Checksum to compute the digest which returns a uint32.
+		// We represent the digest in unsigned integer format with maximum value of 4,294,967,295 which are 10 digits.
+		// The "-[tag digest]" is computed only if there's a tag
 		certName := names.Certificate(route)
 		if tag != "" {
 			certName = fmt.Sprintf("%s-%d", certName, adler32.Checksum([]byte(tag)))
@@ -45,27 +46,11 @@ func MakeCertificates(route *v1alpha1.Route, domainTagMap map[string]string) []*
 
 		certs = append(certs, &networkingv1alpha1.Certificate{
 			ObjectMeta: metav1.ObjectMeta{
-				// Name:            names.Certificate(route), // TODO: does this return the same name?
-				// TODO: fmt.Sprintf("%s-%s", names.Certificate(route), dnsName) this name is too long and kube support cert name
-				// only up to 63 chars, we may want to rewrite the name.Certificate function altogether?
-
-				// kube system supports cert name only up to 63 characters
-				// we decided to adapt the scheme route-[UID]-[tag digest]
-				// where route-UID will take 42 characters and leaves 20 characters for tag digest (need to count `-`)
-				// we use https://golang.org/pkg/hash/adler32/#Checksum to compute the digest which result a positive int of 4 bytes
-				// we represent the digest in integer format gives maximum value of 4,294,967,295 which is 10 digits
-
-				// TODO: do we want to compute the checksum here or in the names.Certificate function
-				// should be fine to put in the names.Certificate func, looks like it's not used elsewhere
-				// TODO: only compute checksum if there's a tag
-
-				// TODO: how to add a label here to indicate this cert belongs to a particular route, domain
 				Name:            certName,
 				Namespace:       route.Namespace,
 				OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(route)},
 			},
 			Spec: networkingv1alpha1.CertificateSpec{
-				// should DNSNames continue to be an array? since it would always be a single element
 				DNSNames:   []string{dnsName},
 				SecretName: certName,
 			},

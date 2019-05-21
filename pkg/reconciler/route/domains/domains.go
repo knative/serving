@@ -34,18 +34,6 @@ const HTTPScheme string = "http"
 func GetAllDomainsAndTags(ctx context.Context, r *v1alpha1.Route, names []string) (map[string]string, error) {
 	domainTagMap := make(map[string]string)
 
-	// majorDomain, err := DomainNameFromTemplate(ctx, r, r.Name)
-	// if err != nil {
-	// 	return nil, nil, err
-	// }
-
-	// TODO: is major domain tag-less?
-	// I assume sets has no order?
-	// allDomains := sets.NewString(majorDomain)
-	// allDomains = append(allDomains, majorDomain)
-	// allTags = append(allTags, "")
-	// logger.Info("major domain: ", majorDomain)
-	// logger.Info("dns names: ", names)
 	for _, name := range names {
 		subDomain, err := DomainNameFromTemplate(ctx, r, SubdomainName(r, name))
 		if err != nil {

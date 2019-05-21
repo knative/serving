@@ -34,11 +34,10 @@ var route = &v1alpha1.Route{
 	},
 }
 
-var dnsNames = []string{"v1.default.example.com", "v1-current.default.example.com"}
-
-var tags = []string{"", "current"}
-
-var dnsNameTagMap = map[string]string{}
+var dnsNameTagMap = map[string]string{
+	"v1.default.example.com":         "",
+	"v1-current.default.example.com": "current",
+}
 
 func TestMakeCertificates(t *testing.T) {
 	want := []*netv1alpha1.Certificate{
@@ -65,7 +64,7 @@ func TestMakeCertificates(t *testing.T) {
 			},
 		},
 	}
-	got := MakeCertificates(route, dnsNames, tags)
+	got := MakeCertificates(route, dnsNameTagMap)
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("MakeCertificate (-want, +got) = %v", diff)
 	}
