@@ -23,24 +23,6 @@ import (
 	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
-// fetchReadyAddressCount fetches endpoints and returns the total number of addresses ready for them.
-func fetchReadyAddressCount(lister corev1listers.EndpointsLister, ns, name string) (int, error) {
-	endpoints, err := lister.Endpoints(ns).Get(name)
-	if err != nil {
-		return 0, err
-	}
-	return readyAddressCount(endpoints), nil
-}
-
-// readyAddressCount returns the total number of addresses ready for the given endpoint.
-func readyAddressCount(endpoints *corev1.Endpoints) int {
-	var total int
-	for _, subset := range endpoints.Subsets {
-		total += len(subset.Addresses)
-	}
-	return total
-}
-
 // ParentResourceFromService returns the parent resource name from
 // endpoints or k8s service resource.
 // The function is based upon knowledge that all knative built services
@@ -97,4 +79,22 @@ func NewUnscopedEndpointsCounter(endpoints *corev1.Endpoints) ReadyPodCounter {
 	return &unscopedCounter{
 		endpoints: endpoints,
 	}
+}
+
+// fetchReadyAddressCount fetches endpoints and returns the total number of addresses ready for them.
+func fetchReadyAddressCount(lister corev1listers.EndpointsLister, ns, name string) (int, error) {
+	endpoints, err := lister.Endpoints(ns).Get(name)
+	if err != nil {
+		return 0, err
+	}
+	return readyAddressCount(endpoints), nil
+}
+
+// readyAddressCount returns the total number of addresses ready for the given endpoint.
+func readyAddressCount(endpoints *corev1.Endpoints) int {
+	var total int
+	for _, subset := range endpoints.Subsets {
+		total += len(subset.Addresses)
+	}
+	return total
 }
