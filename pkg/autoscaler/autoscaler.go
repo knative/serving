@@ -94,7 +94,8 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (desiredPodCount 
 
 	spec := a.currentSpec()
 
-	originalReadyPodsCount, err := resources.FetchReadyAddressCount(a.endpointsLister, a.namespace, spec.ServiceName)
+	podCounter := resources.NewEndpointAddressCounter(a.endpointsLister, a.namespace, spec.ServiceName)
+	originalReadyPodsCount, err := podCounter.ReadyCount()
 	if err != nil {
 		// If the error is NotFound, then presume 0.
 		if !apierrors.IsNotFound(err) {
