@@ -107,6 +107,56 @@ func TestReadyAddressCount(t *testing.T) {
 	}
 }
 
+func TestEndpointAddressCounter(t *testing.T) {
+	kubeClient := fakek8s.NewSimpleClientset()
+	endpointsClient := kubeinformers.NewSharedInformerFactory(kubeClient, 0).Core().V1().Endpoints()
+	createEndpoints := func(ep *corev1.Endpoints) {
+		kubeClient.CoreV1().Endpoints(testNamespace).Create(ep)
+		endpointsClient.Informer().GetIndexer().Add(ep)
+	}
+
+	addressCounter := NewEndpointAddressCounter(endpointsClient.Lister(), testNamespace, testService)
+
+	tests := []struct {
+		name      string
+		endpoints *corev1.Endpoints
+		want      int
+		wantErr   bool
+	}{{
+		name:      "no endpoints at all",
+		endpoints: nil,
+		want:      0,
+		wantErr:   true,
+	}, {
+		name:      "no ready addresses",
+		endpoints: endpoints(0),
+		want:      0,
+	}, {
+		name:      "one ready address",
+		endpoints: endpoints(1),
+		want:      1,
+	}, {
+		name:      "ten ready addresses",
+		endpoints: endpoints(10),
+		want:      10,
+	}}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if test.endpoints != nil {
+				createEndpoints(test.endpoints)
+			}
+			got, err := addressCounter.ReadyCount()
+			if got != test.want {
+				t.Errorf("ReadyCount() = %d, want: %d", got, test.want)
+			}
+			if got, want := (err != nil), test.wantErr; got != want {
+				t.Errorf("WantErr = %v, want: %v, err: %v", got, want, err)
+			}
+		})
+	}
+}
+
 func endpoints(ipCount int) *corev1.Endpoints {
 	ep := &corev1.Endpoints{
 		ObjectMeta: metav1.ObjectMeta{

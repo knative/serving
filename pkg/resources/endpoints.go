@@ -53,3 +53,25 @@ func ParentResourceFromService(name string) string {
 	}
 	return name[:li]
 }
+
+type ReadyPodCounter interface {
+	ReadyCount() (int, error)
+}
+
+type endpointAddressCounter struct {
+	endpointsLister corev1listers.EndpointsLister
+	namespace       string
+	name            string
+}
+
+func (eac endpointAddressCounter) ReadyCount() (int, error) {
+	return FetchReadyAddressCount(eac.endpointsLister, eac.namespace, eac.name)
+}
+
+func NewEndpointAddressCounter(lister corev1listers.EndpointsLister, namespace, name string) ReadyPodCounter {
+	return &endpointAddressCounter{
+		endpointsLister: lister,
+		namespace:       namespace,
+		name:            name,
+	}
+}
