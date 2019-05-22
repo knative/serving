@@ -66,7 +66,7 @@ func (uc *unscopedCounter) ReadyCount() (int, error) {
 	return readyAddressCount(uc.endpoints), nil
 }
 
-func NewUnscopedEndpointsCounter(endpoints *corev1.Endpoints) ReadyPodCounter {
+func NewFixedEndpointsListCounter(endpoints *corev1.Endpoints) ReadyPodCounter {
 	return &unscopedCounter{
 		endpoints: endpoints,
 	}
