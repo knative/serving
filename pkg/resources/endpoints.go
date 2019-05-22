@@ -36,6 +36,14 @@ func ParentResourceFromService(name string) string {
 	return name[:li]
 }
 
+// ReadyPodCounter provides a count of currently ready pods. This
+// information is used by UniScaler implementations to make scaling
+// decisions. The interface prevents the UniScaler from needing to
+// know how counts are performed.
+// The int return value represents the number of pods that are ready
+// to handle incoming requests.
+// The error value is returned if the ReadyPodCounter is unable to
+// calculate a value.
 type ReadyPodCounter interface {
 	ReadyCount() (int, error)
 }
@@ -50,6 +58,12 @@ func (eac *scopedEndpointCounter) ReadyCount() (int, error) {
 	return fetchReadyAddressCount(eac.endpointsLister, eac.namespace, eac.serviceName)
 }
 
+// NewScopedEndpointsCounter creates a ReadyPodCounter that uses
+// a count of endpoints for a namespace/serviceName as the value
+// of ready pods. The values returned by ReadyCount() will vary
+// over time.
+// lister is used to retrieve endpoints for counting with the
+// scope of namespace/serviceName.
 func NewScopedEndpointsCounter(lister corev1listers.EndpointsLister, namespace, serviceName string) ReadyPodCounter {
 	return &scopedEndpointCounter{
 		endpointsLister: lister,
@@ -66,6 +80,9 @@ func (uc *unscopedCounter) ReadyCount() (int, error) {
 	return readyAddressCount(uc.endpoints), nil
 }
 
+// NewFixedEndpointsListCounter creates a ReadyPodCounter that counts
+// the provided list of Endpoints. The value returned by ReadyCount()
+// should be stable, unless the endpoints parameter is modified elsewhere.
 func NewFixedEndpointsListCounter(endpoints *corev1.Endpoints) ReadyPodCounter {
 	return &unscopedCounter{
 		endpoints: endpoints,
