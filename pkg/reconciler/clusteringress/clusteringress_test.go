@@ -211,6 +211,7 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Created", "Created VirtualService %q", "reconciling-clusteringress"),
 			Eventf(corev1.EventTypeNormal, "Updated", "Updated Gateway %q/%q", system.Namespace(), "knative-ingress-gateway"),
+			Eventf(corev1.EventTypeNormal, "Updated", "Updated status for ClusterIngress %q", "reconciling-clusteringress"),
 		},
 		Key: "reconciling-clusteringress",
 	}, {
@@ -256,6 +257,7 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Created", "Created VirtualService %q", "reconciling-clusteringress"),
+			Eventf(corev1.EventTypeNormal, "Updated", "Updated status for ClusterIngress %q", "reconciling-clusteringress"),
 			Eventf(corev1.EventTypeWarning, "InternalError", `gateway.networking.istio.io "knative-ingress-gateway" not found`),
 		},
 		// Error should be returned when there is no preinstalled gateways.
@@ -344,6 +346,7 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 			Eventf(corev1.EventTypeNormal, "Created", "Created VirtualService %q", "reconciling-clusteringress"),
 			Eventf(corev1.EventTypeNormal, "Created", "Created Secret %s/%s", "istio-system", targetSecretName),
 			Eventf(corev1.EventTypeNormal, "Updated", "Updated Gateway %q/%q", system.Namespace(), "knative-ingress-gateway"),
+			Eventf(corev1.EventTypeNormal, "Updated", "Updated status for ClusterIngress %q", "reconciling-clusteringress"),
 		},
 		Key: "reconciling-clusteringress",
 	}, {
@@ -427,6 +430,7 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Created", "Created VirtualService %q", "reconciling-clusteringress"),
 			Eventf(corev1.EventTypeNormal, "Updated", "Updated Secret %s/%s", "istio-system", targetSecretName),
+			Eventf(corev1.EventTypeNormal, "Updated", "Updated status for ClusterIngress %q", "reconciling-clusteringress"),
 		},
 		Key: "reconciling-clusteringress",
 	}}
