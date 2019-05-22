@@ -73,7 +73,7 @@ func TestMakeQueueContainer(t *testing.T) {
 		want: &corev1.Container{
 			// These are effectively constant
 			Name:           QueueContainerName,
-			Resources:      queueResources,
+			Resources:      getResources(make(map[string]string)),
 			Ports:          append(queueNonServingPorts, queueHTTPPort),
 			ReadinessProbe: queueReadinessProbe,
 			// These changed based on the Revision and configs passed in.
@@ -111,7 +111,7 @@ func TestMakeQueueContainer(t *testing.T) {
 		want: &corev1.Container{
 			// These are effectively constant
 			Name:           QueueContainerName,
-			Resources:      queueResources,
+			Resources:      getResources(make(map[string]string)),
 			Ports:          append(queueNonServingPorts, queueHTTP2Port),
 			ReadinessProbe: queueReadinessProbe,
 			// These changed based on the Revision and configs passed in.
@@ -148,7 +148,89 @@ func TestMakeQueueContainer(t *testing.T) {
 		want: &corev1.Container{
 			// These are effectively constant
 			Name:           QueueContainerName,
-			Resources:      queueResources,
+			Resources:      getResources(make(map[string]string)),
+			Ports:          append(queueNonServingPorts, queueHTTPPort),
+			ReadinessProbe: queueReadinessProbe,
+			// These changed based on the Revision and configs passed in.
+			Image: "alpine",
+			Env: env(map[string]string{
+				"SERVING_SERVICE": "svc",
+			}),
+		}}, {
+		name: "resources in annotations ",
+		rev: &v1alpha1.Revision{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: "foo",
+				Name:      "bar",
+				UID:       "1234",
+				Labels: map[string]string{
+					serving.ServiceLabelKey: "svc",
+				},
+				Annotations: map[string]string{
+					queueContainerRequestCPUAnnotation:    "25m",
+					queueContainerRequestMemoryAnnotation: "100Mi",
+				},
+			},
+			Spec: v1alpha1.RevisionSpec{
+				RevisionSpec: v1beta1.RevisionSpec{
+					ContainerConcurrency: 1,
+					TimeoutSeconds:       ptr.Int64(45),
+				},
+			},
+		},
+		lc: &logging.Config{},
+		oc: &metrics.ObservabilityConfig{},
+		ac: &autoscaler.Config{},
+		cc: &deployment.Config{
+			QueueSidecarImage: "alpine",
+		},
+		want: &corev1.Container{
+			// These are effectively constant
+			Name: QueueContainerName,
+			Resources: getResources(map[string]string{
+				queueContainerRequestCPUAnnotation:    "25m",
+				queueContainerRequestMemoryAnnotation: "100Mi",
+			}),
+			Ports:          append(queueNonServingPorts, queueHTTPPort),
+			ReadinessProbe: queueReadinessProbe,
+			// These changed based on the Revision and configs passed in.
+			Image: "alpine",
+			Env: env(map[string]string{
+				"SERVING_SERVICE": "svc",
+			}),
+		}}, {
+		name: "Invalid data for resources in annotations ",
+		rev: &v1alpha1.Revision{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: "foo",
+				Name:      "bar",
+				UID:       "1234",
+				Labels: map[string]string{
+					serving.ServiceLabelKey: "svc",
+				},
+				Annotations: map[string]string{
+					queueContainerRequestMemoryAnnotation: "100Mx",
+				},
+			},
+			Spec: v1alpha1.RevisionSpec{
+				RevisionSpec: v1beta1.RevisionSpec{
+					ContainerConcurrency: 1,
+					TimeoutSeconds:       ptr.Int64(45),
+				},
+			},
+		},
+		lc: &logging.Config{},
+		oc: &metrics.ObservabilityConfig{},
+		ac: &autoscaler.Config{},
+		cc: &deployment.Config{
+			QueueSidecarImage: "alpine",
+		},
+		want: &corev1.Container{
+			// These are effectively constant
+			Name: QueueContainerName,
+			Resources: getResources(map[string]string{
+				queueContainerRequestCPUAnnotation: "25m",
+			}),
 			Ports:          append(queueNonServingPorts, queueHTTPPort),
 			ReadinessProbe: queueReadinessProbe,
 			// These changed based on the Revision and configs passed in.
@@ -185,7 +267,7 @@ func TestMakeQueueContainer(t *testing.T) {
 		want: &corev1.Container{
 			// These are effectively constant
 			Name:           QueueContainerName,
-			Resources:      queueResources,
+			Resources:      getResources(make(map[string]string)),
 			Ports:          append(queueNonServingPorts, queueHTTPPort),
 			ReadinessProbe: queueReadinessProbe,
 			// These changed based on the Revision and configs passed in.
@@ -223,7 +305,7 @@ func TestMakeQueueContainer(t *testing.T) {
 		want: &corev1.Container{
 			// These are effectively constant
 			Name:           QueueContainerName,
-			Resources:      queueResources,
+			Resources:      getResources(make(map[string]string)),
 			Ports:          append(queueNonServingPorts, queueHTTPPort),
 			ReadinessProbe: queueReadinessProbe,
 			// These changed based on the Revision and configs passed in.
@@ -257,7 +339,7 @@ func TestMakeQueueContainer(t *testing.T) {
 		want: &corev1.Container{
 			// These are effectively constant
 			Name:           QueueContainerName,
-			Resources:      queueResources,
+			Resources:      getResources(make(map[string]string)),
 			Ports:          append(queueNonServingPorts, queueHTTPPort),
 			ReadinessProbe: queueReadinessProbe,
 			// These changed based on the Revision and configs passed in.
@@ -287,7 +369,7 @@ func TestMakeQueueContainer(t *testing.T) {
 		want: &corev1.Container{
 			// These are effectively constant
 			Name:           QueueContainerName,
-			Resources:      queueResources,
+			Resources:      getResources(make(map[string]string)),
 			Ports:          append(queueNonServingPorts, queueHTTPPort),
 			ReadinessProbe: queueReadinessProbe,
 			// These changed based on the Revision and configs passed in.
@@ -320,7 +402,7 @@ func TestMakeQueueContainer(t *testing.T) {
 		want: &corev1.Container{
 			// These are effectively constant
 			Name:           QueueContainerName,
-			Resources:      queueResources,
+			Resources:      getResources(make(map[string]string)),
 			Ports:          append(queueNonServingPorts, queueHTTPPort),
 			ReadinessProbe: queueReadinessProbe,
 			// These changed based on the Revision and configs passed in.
