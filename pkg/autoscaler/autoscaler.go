@@ -31,10 +31,11 @@ import (
 
 // Autoscaler stores current state of an instance of an autoscaler
 type Autoscaler struct {
-	namespace       string
-	revision        string
-	metricClient    MetricClient
-	reporter        StatsReporter
+	namespace    string
+	revision     string
+	metricClient MetricClient
+	podCounter   resources.ReadyPodCounter
+	reporter     StatsReporter
 
 	// State in panic mode. Carries over multiple Scale calls. Guarded
 	// by the stateMux.
@@ -45,10 +46,6 @@ type Autoscaler struct {
 	// specMux guards the current DeciderSpec.
 	specMux     sync.RWMutex
 	deciderSpec DeciderSpec
-
-	// counterMux guards the ReadyPodCounter
-	counterMux sync.Mutex
-	podCounter resources.UpdateableReadyPodCounter
 }
 
 // New creates a new instance of autoscaler
@@ -56,7 +53,7 @@ func New(
 	namespace string,
 	revision string,
 	metricClient MetricClient,
-	podCounter resources.UpdateableReadyPodCounter,
+	podCounter resources.ReadyPodCounter,
 	deciderSpec DeciderSpec,
 	reporter StatsReporter) (*Autoscaler, error) {
 	if podCounter == nil {
@@ -70,12 +67,12 @@ func New(
 	reporter.ReportPanic(0)
 
 	return &Autoscaler{
-		namespace:       namespace,
-		revision:        revision,
-		metricClient:    metricClient,
-		podCounter:      podCounter,
-		deciderSpec:     deciderSpec,
-		reporter:        reporter,
+		namespace:    namespace,
+		revision:     revision,
+		metricClient: metricClient,
+		podCounter:   podCounter,
+		deciderSpec:  deciderSpec,
+		reporter:     reporter,
 	}, nil
 }
 
@@ -84,11 +81,7 @@ func (a *Autoscaler) Update(deciderSpec DeciderSpec) error {
 	a.specMux.Lock()
 	defer a.specMux.Unlock()
 
-	a.counterMux.Lock()
-	defer a.counterMux.Unlock()
-
 	a.deciderSpec = deciderSpec
-	a.podCounter.UpdateName(deciderSpec.ServiceName)
 
 	return nil
 }
@@ -101,8 +94,6 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (desiredPodCount 
 
 	spec := a.currentSpec()
 
-	a.counterMux.Lock()
-	defer a.counterMux.Unlock()
 	originalReadyPodsCount, err := a.podCounter.ReadyCount()
 	if err != nil {
 		// If the error is NotFound, then presume 0.
