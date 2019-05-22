@@ -16,7 +16,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package conformance
+package api
 
 import (
 	"testing"
@@ -94,7 +94,7 @@ func getRouteDomain(clients *test.Clients, names test.ResourceNames) (string, er
 
 func TestRouteCreation(t *testing.T) {
 	t.Parallel()
-	clients := setup(t)
+	clients := test.Setup(t)
 
 	var objects test.ResourceObjects
 	svcName := test.ObjectNameForTest(t)
@@ -102,7 +102,7 @@ func TestRouteCreation(t *testing.T) {
 		Config:        svcName,
 		Route:         svcName,
 		TrafficTarget: svcName,
-		Image:         pizzaPlanet1,
+		Image:         test.PizzaPlanet1,
 	}
 
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
@@ -133,23 +133,23 @@ func TestRouteCreation(t *testing.T) {
 	}
 
 	t.Logf("The Route domain is: %s", domain)
-	assertResourcesUpdatedWhenRevisionIsReady(t, clients, names, domain, "1", pizzaPlanetText1)
+	assertResourcesUpdatedWhenRevisionIsReady(t, clients, names, domain, "1", test.PizzaPlanetText1)
 
 	// We start a prober at background thread to test if Route is always healthy even during Route update.
 	prober := test.RunRouteProber(t, clients, domain)
 	defer test.AssertProberDefault(t, prober)
 
 	t.Log("Updating the Configuration to use a different image")
-	objects.Config, err = test.PatchConfigImage(clients, objects.Config, pkgTest.ImagePath(pizzaPlanet2))
+	objects.Config, err = test.PatchConfigImage(clients, objects.Config, pkgTest.ImagePath(test.PizzaPlanet2))
 	if err != nil {
-		t.Fatalf("Patch update for Configuration %s with new image %s failed: %v", names.Config, pizzaPlanet2, err)
+		t.Fatalf("Patch update for Configuration %s with new image %s failed: %v", names.Config, test.PizzaPlanet2, err)
 	}
 
 	t.Log("Since the Configuration was updated a new Revision will be created and the Configuration will be updated")
 	names.Revision, err = test.WaitForConfigLatestRevision(clients, names)
 	if err != nil {
-		t.Fatalf("Configuration %s was not updated with the Revision for image %s: %v", names.Config, pizzaPlanet2, err)
+		t.Fatalf("Configuration %s was not updated with the Revision for image %s: %v", names.Config, test.PizzaPlanet2, err)
 	}
 
-	assertResourcesUpdatedWhenRevisionIsReady(t, clients, names, domain, "2", pizzaPlanetText2)
+	assertResourcesUpdatedWhenRevisionIsReady(t, clients, names, domain, "2", test.PizzaPlanetText2)
 }

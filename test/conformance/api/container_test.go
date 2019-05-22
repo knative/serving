@@ -16,7 +16,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package conformance
+package api
 
 import (
 	"testing"
@@ -33,7 +33,7 @@ import (
 // defined by "MUST NOT" statements from the runtime contract results in a user facing error.
 func TestMustNotContainerConstraints(t *testing.T) {
 	t.Parallel()
-	clients := setup(t)
+	clients := test.Setup(t)
 
 	testCases := []struct {
 		name    string
@@ -106,7 +106,7 @@ func TestMustNotContainerConstraints(t *testing.T) {
 			t.Parallel()
 			names := test.ResourceNames{
 				Service: test.ObjectNameForTest(t),
-				Image:   pizzaPlanet1,
+				Image:   test.PizzaPlanet1,
 			}
 			if svc, err := test.CreateLatestService(t, clients, names, &test.Options{}, tc.options); err == nil {
 				t.Errorf("CreateLatestService = %v, want: error", spew.Sdump(svc))
@@ -119,7 +119,7 @@ func TestMustNotContainerConstraints(t *testing.T) {
 // defined by "SHOULD NOT" statements from the runtime contract results in a user facing error.
 func TestShouldNotContainerConstraints(t *testing.T) {
 	t.Parallel()
-	clients := setup(t)
+	clients := test.Setup(t)
 
 	testCases := []struct {
 		name    string
@@ -190,7 +190,7 @@ func TestShouldNotContainerConstraints(t *testing.T) {
 			t.Parallel()
 			names := test.ResourceNames{
 				Service: test.ObjectNameForTest(t),
-				Image:   pizzaPlanet1,
+				Image:   test.PizzaPlanet1,
 			}
 			if svc, err := test.CreateLatestService(t, clients, names, &test.Options{}, tc.options); err == nil {
 				t.Errorf("CreateLatestService = %v, want: error", spew.Sdump(svc))

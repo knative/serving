@@ -16,10 +16,9 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package conformance
+package api
 
 import (
-	"fmt"
 	"strconv"
 	"testing"
 
@@ -27,7 +26,6 @@ import (
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/knative/pkg/ptr"
 	pkgTest "github.com/knative/pkg/test"
-	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 	"github.com/knative/serving/test"
@@ -36,130 +34,6 @@ import (
 )
 
 const userPort = int32(8081)
-
-// Validates the state of Configuration, Revision, and Route objects for a runLatest Service. The checks in this method should be able to be performed at any point in a
-// runLatest Service's lifecycle so long as the service is in a "Ready" state.
-func validateRunLatestControlPlane(t *testing.T, clients *test.Clients, names test.ResourceNames, expectedGeneration string) error {
-	t.Log("Checking to ensure Revision is in desired state with generation: ", expectedGeneration)
-	err := test.CheckRevisionState(clients.ServingClient, names.Revision, func(r *v1alpha1.Revision) (bool, error) {
-		if ready, err := test.IsRevisionReady(r); !ready {
-			return false, fmt.Errorf("revision %s did not become ready to serve traffic: %v", names.Revision, err)
-		}
-		if r.Status.ImageDigest == "" {
-			return false, fmt.Errorf("imageDigest not present for revision %s", names.Revision)
-		}
-		if validDigest, err := validateImageDigest(names.Image, r.Status.ImageDigest); !validDigest {
-			return false, fmt.Errorf("imageDigest %s is not valid for imageName %s: %v", r.Status.ImageDigest, names.Image, err)
-		}
-		return true, nil
-	})
-	if err != nil {
-		return err
-	}
-	err = test.CheckRevisionState(clients.ServingClient, names.Revision, test.IsRevisionAtExpectedGeneration(expectedGeneration))
-	if err != nil {
-		return fmt.Errorf("revision %s did not have an expected annotation with generation %s: %v", names.Revision, expectedGeneration, err)
-	}
-
-	t.Log("Checking to ensure Configuration is in desired state.")
-	err = test.CheckConfigurationState(clients.ServingClient, names.Config, func(c *v1alpha1.Configuration) (bool, error) {
-		if c.Status.LatestCreatedRevisionName != names.Revision {
-			return false, fmt.Errorf("the Configuration %s was not updated indicating that the Revision %s was created: %v", names.Config, names.Revision, err)
-		}
-		if c.Status.LatestReadyRevisionName != names.Revision {
-			return false, fmt.Errorf("the Configuration %s was not updated indicating that the Revision %s was ready: %v", names.Config, names.Revision, err)
-		}
-		return true, nil
-	})
-	if err != nil {
-		return err
-	}
-
-	t.Log("Checking to ensure Route is in desired state with generation: ", expectedGeneration)
-	err = test.CheckRouteState(clients.ServingClient, names.Route, test.AllRouteTrafficAtRevision(names))
-	if err != nil {
-		return fmt.Errorf("the Route %s was not updated to route traffic to the Revision %s: %v", names.Route, names.Revision, err)
-	}
-
-	return nil
-}
-
-// Validates service health and vended content match for a runLatest Service. The checks in this method should be able to be performed at any point in a
-// runLatest Service's lifecycle so long as the service is in a "Ready" state.
-func validateRunLatestDataPlane(t *testing.T, clients *test.Clients, names test.ResourceNames, expectedText string) error {
-	t.Logf("Checking that the endpoint vends the expected text: %s", expectedText)
-	_, err := pkgTest.WaitForEndpointState(
-		clients.KubeClient,
-		t.Logf,
-		names.Domain,
-		test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.EventuallyMatchesBody(expectedText))),
-		"WaitForEndpointToServeText",
-		test.ServingFlags.ResolvableDomain)
-	if err != nil {
-		return fmt.Errorf("the endpoint for Route %s at domain %s didn't serve the expected text \"%s\": %v", names.Route, names.Domain, expectedText, err)
-	}
-
-	t.Log("TODO: The Service's Route is accessible from inside the cluster without external DNS")
-	err = test.CheckServiceState(clients.ServingClient, names.Service, test.TODO_ServiceTrafficToRevisionWithInClusterDNS)
-	if err != nil {
-		return fmt.Errorf("the Service %s was not able to route traffic to the Revision %s with in cluster DNS: %v", names.Service, names.Revision, err)
-	}
-
-	return nil
-
-}
-
-// Validates labels on Revision, Configuration, and Route objects when created by a Service
-// see spec here: https://github.com/knative/serving/blob/master/docs/spec/spec.md#revision
-func validateLabelsPropagation(t *testing.T, objects test.ResourceObjects, names test.ResourceNames) error {
-	t.Log("Validate Labels on Revision Object")
-	revision := objects.Revision
-
-	if revision.Labels["serving.knative.dev/configuration"] != names.Config {
-		return fmt.Errorf("expect Confguration name in Revision label %q but got %q ", names.Config, revision.Labels["serving.knative.dev/configuration"])
-	}
-	if revision.Labels["serving.knative.dev/service"] != names.Service {
-		return fmt.Errorf("expect Service name in Revision label %q but got %q ", names.Service, revision.Labels["serving.knative.dev/service"])
-	}
-
-	t.Log("Validate Labels on Configuration Object")
-	config := objects.Config
-	if config.Labels["serving.knative.dev/service"] != names.Service {
-		return fmt.Errorf("expect Service name in Configuration label %q but got %q ", names.Service, config.Labels["serving.knative.dev/service"])
-	}
-	if config.Labels["serving.knative.dev/route"] != names.Route {
-		return fmt.Errorf("expect Route name in Configuration label %q but got %q ", names.Route, config.Labels["serving.knative.dev/route"])
-	}
-
-	t.Log("Validate Labels on Route Object")
-	route := objects.Route
-	if route.Labels["serving.knative.dev/service"] != names.Service {
-		return fmt.Errorf("expect Service name in Route label %q but got %q ", names.Service, route.Labels["serving.knative.dev/service"])
-	}
-	return nil
-}
-
-func validateAnnotations(objs *test.ResourceObjects) error {
-	// This checks whether the annotations are set on the resources that
-	// expect them to have.
-	// List of issues listing annotations that we check: #1642.
-
-	anns := objs.Service.GetAnnotations()
-	for _, a := range []string{serving.CreatorAnnotation, serving.UpdaterAnnotation} {
-		if got := anns[a]; got == "" {
-			return fmt.Errorf("Expected %s annotation to be set, but was empty", a)
-		}
-	}
-	return nil
-}
-
-func validateReleaseServiceShape(objs *test.ResourceObjects) error {
-	// Traffic should be routed to the lastest created revision.
-	if got, want := objs.Service.Status.Traffic[0].RevisionName, objs.Config.Status.LatestReadyRevisionName; got != want {
-		return fmt.Errorf("Status.Traffic[0].RevisionsName = %s, want: %s", got, want)
-	}
-	return nil
-}
 
 // TestRunLatestService tests both Creation and Update paths of a runLatest service. The test performs a series of Update/Validate steps to ensure that
 // the service transitions as expected during each step.
@@ -171,11 +45,11 @@ func validateReleaseServiceShape(objs *test.ResourceObjects) error {
 // 3. Update UserPort
 func TestRunLatestService(t *testing.T) {
 	t.Parallel()
-	clients := setup(t)
+	clients := test.Setup(t)
 
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
-		Image:   pizzaPlanet1,
+		Image:   test.PizzaPlanet1,
 	}
 
 	// Clean up on test failure or interrupt
@@ -190,19 +64,19 @@ func TestRunLatestService(t *testing.T) {
 
 	// Validate State after Creation
 
-	if err = validateRunLatestControlPlane(t, clients, names, "1"); err != nil {
+	if err = test.ValidateRunLatestControlPlane(t, clients, names, "1"); err != nil {
 		t.Error(err)
 	}
 
-	if err = validateRunLatestDataPlane(t, clients, names, pizzaPlanetText1); err != nil {
+	if err = test.ValidateRunLatestDataPlane(t, clients, names, test.PizzaPlanetText1); err != nil {
 		t.Error(err)
 	}
 
-	if err = validateLabelsPropagation(t, *objects, names); err != nil {
+	if err = test.ValidateLabelsPropagation(t, *objects, names); err != nil {
 		t.Error(err)
 	}
 
-	if err := validateAnnotations(objects); err != nil {
+	if err := test.ValidateAnnotations(objects); err != nil {
 		t.Errorf("Service annotations are incorrect: %v", err)
 	}
 
@@ -212,7 +86,7 @@ func TestRunLatestService(t *testing.T) {
 
 	// Update Container Image
 	t.Log("Updating the Service to use a different image.")
-	names.Image = printport
+	names.Image = test.Printport
 	image2 := pkgTest.ImagePath(names.Image)
 	if _, err := test.PatchServiceImage(t, clients, objects.Service, image2); err != nil {
 		t.Fatalf("Patch update for Service %s with new image %s failed: %v", names.Service, image2, err)
@@ -230,10 +104,10 @@ func TestRunLatestService(t *testing.T) {
 	}
 
 	// Validate State after Image Update
-	if err = validateRunLatestControlPlane(t, clients, names, "2"); err != nil {
+	if err = test.ValidateRunLatestControlPlane(t, clients, names, "2"); err != nil {
 		t.Error(err)
 	}
-	if err = validateRunLatestDataPlane(t, clients, names, strconv.Itoa(v1alpha1.DefaultUserPort)); err != nil {
+	if err = test.ValidateRunLatestDataPlane(t, clients, names, strconv.Itoa(v1alpha1.DefaultUserPort)); err != nil {
 		t.Error(err)
 	}
 
@@ -278,10 +152,10 @@ func TestRunLatestService(t *testing.T) {
 	}
 
 	// Validate the Service shape.
-	if err = validateRunLatestControlPlane(t, clients, names, "4"); err != nil {
+	if err = test.ValidateRunLatestControlPlane(t, clients, names, "4"); err != nil {
 		t.Error(err)
 	}
-	if err = validateRunLatestDataPlane(t, clients, names, strconv.Itoa(v1alpha1.DefaultUserPort)); err != nil {
+	if err = test.ValidateRunLatestDataPlane(t, clients, names, strconv.Itoa(v1alpha1.DefaultUserPort)); err != nil {
 		t.Error(err)
 	}
 
@@ -306,11 +180,11 @@ func TestRunLatestService(t *testing.T) {
 	}
 
 	// Validate Service
-	if err = validateRunLatestControlPlane(t, clients, names, "5"); err != nil {
+	if err = test.ValidateRunLatestControlPlane(t, clients, names, "5"); err != nil {
 		t.Error(err)
 	}
 
-	if err = validateRunLatestDataPlane(t, clients, names, strconv.Itoa(int(userPort))); err != nil {
+	if err = test.ValidateRunLatestDataPlane(t, clients, names, strconv.Itoa(int(userPort))); err != nil {
 		t.Error(err)
 	}
 }
@@ -341,11 +215,11 @@ func waitForDesiredTrafficShape(t *testing.T, sName string, want map[string]v1al
 
 func TestRunLatestServiceBYOName(t *testing.T) {
 	t.Parallel()
-	clients := setup(t)
+	clients := test.Setup(t)
 
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
-		Image:   pizzaPlanet1,
+		Image:   test.PizzaPlanet1,
 	}
 
 	// Clean up on test failure or interrupt
@@ -367,19 +241,19 @@ func TestRunLatestServiceBYOName(t *testing.T) {
 
 	// Validate State after Creation
 
-	if err = validateRunLatestControlPlane(t, clients, names, "1"); err != nil {
+	if err = test.ValidateRunLatestControlPlane(t, clients, names, "1"); err != nil {
 		t.Error(err)
 	}
 
-	if err = validateRunLatestDataPlane(t, clients, names, pizzaPlanetText1); err != nil {
+	if err = test.ValidateRunLatestDataPlane(t, clients, names, test.PizzaPlanetText1); err != nil {
 		t.Error(err)
 	}
 
-	if err = validateLabelsPropagation(t, *objects, names); err != nil {
+	if err = test.ValidateLabelsPropagation(t, *objects, names); err != nil {
 		t.Error(err)
 	}
 
-	if err := validateAnnotations(objects); err != nil {
+	if err := test.ValidateAnnotations(objects); err != nil {
 		t.Errorf("Service annotations are incorrect: %v", err)
 	}
 
@@ -389,7 +263,7 @@ func TestRunLatestServiceBYOName(t *testing.T) {
 
 	// Update Container Image
 	t.Log("Updating the Service to use a different image.")
-	names.Image = printport
+	names.Image = test.Printport
 	image2 := pkgTest.ImagePath(names.Image)
 	if _, err := test.PatchServiceImage(t, clients, objects.Service, image2); err == nil {
 		t.Fatalf("Patch update for Service %s didn't fail.", names.Service)
@@ -406,21 +280,21 @@ func TestRunLatestServiceBYOName(t *testing.T) {
 func TestReleaseService(t *testing.T) {
 	t.Parallel()
 	// Create Initial Service
-	clients := setup(t)
-	releaseImagePath2 := pkgTest.ImagePath(pizzaPlanet2)
-	releaseImagePath3 := pkgTest.ImagePath(helloworld)
+	clients := test.Setup(t)
+	releaseImagePath2 := pkgTest.ImagePath(test.PizzaPlanet2)
+	releaseImagePath3 := pkgTest.ImagePath(test.Helloworld)
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
-		Image:   pizzaPlanet1,
+		Image:   test.PizzaPlanet1,
 	}
 	defer test.TearDown(clients, names)
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 
 	// Expected Text for different revisions.
 	const (
-		expectedFirstRev  = pizzaPlanetText1
-		expectedSecondRev = pizzaPlanetText2
-		expectedThirdRev  = helloWorldText
+		expectedFirstRev  = test.PizzaPlanetText1
+		expectedSecondRev = test.PizzaPlanetText2
+		expectedThirdRev  = test.HelloWorldText
 	)
 
 	// Setup initial Service
@@ -430,10 +304,10 @@ func TestReleaseService(t *testing.T) {
 	}
 
 	t.Log("Validating service shape.")
-	if err := validateReleaseServiceShape(objects); err != nil {
+	if err := test.ValidateReleaseServiceShape(objects); err != nil {
 		t.Fatalf("Release shape is incorrect: %v", err)
 	}
-	if err := validateAnnotations(objects); err != nil {
+	if err := test.ValidateAnnotations(objects); err != nil {
 		t.Errorf("Service annotations are incorrect: %v", err)
 	}
 	firstRevision := names.Revision
@@ -481,7 +355,7 @@ func TestReleaseService(t *testing.T) {
 	}
 
 	t.Log("Service traffic should go to the first revision and be available on two names traffic targets: 'current' and 'latest'")
-	if err := validateDomains(t, clients,
+	if err := test.ValidateDomains(t, clients,
 		names.Domain,
 		[]string{expectedFirstRev},
 		[]string{"latest", "current"},
@@ -515,7 +389,7 @@ func TestReleaseService(t *testing.T) {
 	}
 
 	t.Log("Since the Service is using release the Route will not be updated, but new revision will be available at 'latest'")
-	if err := validateDomains(t, clients,
+	if err := test.ValidateDomains(t, clients,
 		names.Domain,
 		[]string{expectedFirstRev},
 		[]string{"latest", "current"},
@@ -580,7 +454,7 @@ func TestReleaseService(t *testing.T) {
 	}
 
 	t.Log("Traffic should be split between the two revisions and available on three named traffic targets, 'current', 'candidate', and 'latest'")
-	if err := validateDomains(t, clients,
+	if err := test.ValidateDomains(t, clients,
 		names.Domain,
 		[]string{expectedFirstRev, expectedSecondRev},
 		[]string{"candidate", "latest", "current"},
@@ -612,7 +486,7 @@ func TestReleaseService(t *testing.T) {
 	}
 
 	t.Log("Traffic should remain between the two images, and the new revision should be available on the named traffic target 'latest'")
-	if err := validateDomains(t, clients,
+	if err := test.ValidateDomains(t, clients,
 		names.Domain,
 		[]string{expectedFirstRev, expectedSecondRev},
 		[]string{"latest", "candidate", "current"},
@@ -647,7 +521,7 @@ func TestReleaseService(t *testing.T) {
 	}
 
 	// Verify in the end it's still the case.
-	if err := validateAnnotations(objects); err != nil {
+	if err := test.ValidateAnnotations(objects); err != nil {
 		t.Errorf("Service annotations are incorrect: %v", err)
 	}
 
@@ -665,7 +539,7 @@ func TestReleaseService(t *testing.T) {
 		t.Fatal("Service never obtained expected shape")
 	}
 
-	if err := validateDomains(t, clients,
+	if err := test.ValidateDomains(t, clients,
 		names.Domain,
 		[]string{expectedFirstRev, expectedThirdRev},
 		[]string{"latest", "candidate", "current"},

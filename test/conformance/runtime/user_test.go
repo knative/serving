@@ -16,7 +16,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package conformance
+package runtime
 
 import (
 	"testing"
@@ -26,20 +26,23 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
-const securityContextUserID = 2020
+const (
+	securityContextUserID = 2020
+	unprivilegedUserID    = 1000
+)
 
 // TestMustRunAsUser verifies that a supplied runAsUser through securityContext takes
 // effect as declared by "MUST" in the runtime-contract.
 func TestMustRunAsUser(t *testing.T) {
 	t.Parallel()
-	clients := setup(t)
+	clients := test.Setup(t)
 
 	runAsUser := int64(securityContextUserID)
 	securityContext := &corev1.SecurityContext{
 		RunAsUser: &runAsUser,
 	}
 
-	_, ri, err := fetchRuntimeInfo(t, clients, &test.Options{SecurityContext: securityContext})
+	_, ri, err := test.FetchRuntimeInfo(t, clients, &test.Options{SecurityContext: securityContext})
 	if err != nil {
 		t.Fatalf("Error fetching runtime info: %v", err)
 	}
@@ -68,8 +71,8 @@ func TestMustRunAsUser(t *testing.T) {
 // in the runtime-contract.
 func TestShouldRunAsUserContainerDefault(t *testing.T) {
 	t.Parallel()
-	clients := setup(t)
-	_, ri, err := fetchRuntimeInfoUnprivileged(t, clients, &test.Options{})
+	clients := test.Setup(t)
+	_, ri, err := test.FetchRuntimeInfoUnprivileged(t, clients, &test.Options{})
 
 	if err != nil {
 		t.Fatalf("Error fetching runtime info: %v", err)

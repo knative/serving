@@ -16,7 +16,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package conformance
+package runtime
 
 import (
 	"testing"
@@ -27,9 +27,9 @@ import (
 // TestMustHaveCgroupConfigured verifies using the runtime test container that reading from the
 // stdin file descriptor results in EOF.
 func TestShouldHaveStdinEOF(t *testing.T) {
-	clients := setup(t)
+	clients := test.Setup(t)
 
-	_, ri, err := fetchRuntimeInfo(t, clients, &test.Options{})
+	_, ri, err := test.FetchRuntimeInfo(t, clients, &test.Options{})
 	if err != nil {
 		t.Fatalf("Error fetching runtime info: %v", err)
 	}

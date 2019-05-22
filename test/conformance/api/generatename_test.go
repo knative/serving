@@ -16,7 +16,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package conformance
+package api
 
 import (
 	"fmt"
@@ -95,11 +95,11 @@ func canServeRequests(t *testing.T, clients *test.Clients, route *v1alpha1.Route
 		clients.KubeClient,
 		t.Logf,
 		domain,
-		pkgTest.Retrying(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesBody(helloWorldText)), http.StatusNotFound),
+		pkgTest.Retrying(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesBody(test.HelloWorldText)), http.StatusNotFound),
 		"WaitForEndpointToServeText",
 		test.ServingFlags.ResolvableDomain)
 	if err != nil {
-		return fmt.Errorf("the endpoint for Route %s at domain %s didn't serve the expected text %q: %v", route.Name, domain, helloWorldText, err)
+		return fmt.Errorf("the endpoint for Route %s at domain %s didn't serve the expected text %q: %v", route.Name, domain, test.HelloWorldText, err)
 	}
 
 	return nil
@@ -110,11 +110,11 @@ func canServeRequests(t *testing.T, clients *test.Clients, route *v1alpha1.Route
 // and serve requests.
 func TestServiceGenerateName(t *testing.T) {
 	t.Parallel()
-	clients := setup(t)
+	clients := test.Setup(t)
 
 	generateName := generateNamePrefix(t)
 	names := test.ResourceNames{
-		Image: helloworld,
+		Image: test.Helloworld,
 	}
 
 	// Cleanup on test failure.
@@ -147,11 +147,11 @@ func TestServiceGenerateName(t *testing.T) {
 // 2. Can serve requests.
 func TestRouteAndConfigGenerateName(t *testing.T) {
 	t.Parallel()
-	clients := setup(t)
+	clients := test.Setup(t)
 
 	generateName := generateNamePrefix(t)
 	names := test.ResourceNames{
-		Image: helloworld,
+		Image: test.Helloworld,
 	}
 
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })

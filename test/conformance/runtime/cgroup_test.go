@@ -16,7 +16,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package conformance
+package runtime
 
 import (
 	"fmt"
@@ -43,7 +43,7 @@ func toMilliValue(value float64) string {
 // resource limits and requests as delared by "MUST" in the runtime-contract.
 func TestMustHaveCgroupConfigured(t *testing.T) {
 	t.Parallel()
-	clients := setup(t)
+	clients := test.Setup(t)
 
 	resources := corev1.ResourceRequirements{
 		Limits: corev1.ResourceList{
@@ -63,7 +63,7 @@ func TestMustHaveCgroupConfigured(t *testing.T) {
 		"/sys/fs/cgroup/cpu/cpu.cfs_quota_us":         cpuLimit * 1000 * 100, // 1000 millicore * 100
 		"/sys/fs/cgroup/cpu/cpu.shares":               cpuRequest * 1024}     // CPURequests * 1024
 
-	_, ri, err := fetchRuntimeInfo(t, clients, &test.Options{ContainerResources: resources})
+	_, ri, err := test.FetchRuntimeInfo(t, clients, &test.Options{ContainerResources: resources})
 	if err != nil {
 		t.Fatalf("Error fetching runtime info: %v", err)
 	}
@@ -90,8 +90,8 @@ func TestMustHaveCgroupConfigured(t *testing.T) {
 // container.
 func TestShouldHaveCgroupReadOnly(t *testing.T) {
 	t.Parallel()
-	clients := setup(t)
-	_, ri, err := fetchRuntimeInfo(t, clients, &test.Options{})
+	clients := test.Setup(t)
+	_, ri, err := test.FetchRuntimeInfo(t, clients, &test.Options{})
 	if err != nil {
 		t.Fatalf("Error fetching runtime info: %v", err)
 	}

@@ -16,7 +16,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package conformance
+package runtime
 
 import (
 	"reflect"
@@ -31,8 +31,8 @@ import (
 // TestShouldEnvVars verifies environment variables that are declared as "SHOULD be set" in runtime-contract
 func TestShouldEnvVars(t *testing.T) {
 	t.Parallel()
-	clients := setup(t)
-	names, ri, err := fetchRuntimeInfo(t, clients, &test.Options{})
+	clients := test.Setup(t)
+	names, ri, err := test.FetchRuntimeInfo(t, clients, &test.Options{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -52,7 +52,7 @@ func TestShouldEnvVars(t *testing.T) {
 // TestMustEnvVars verifies environment variables that are declared as "MUST be set" in runtime-contract
 func TestMustEnvVars(t *testing.T) {
 	t.Parallel()
-	clients := setup(t)
+	clients := test.Setup(t)
 	portStr, ok := types.MustEnvVars["PORT"]
 	if !ok {
 		t.Fatal("Missing PORT from set of MustEnvVars")
@@ -61,7 +61,7 @@ func TestMustEnvVars(t *testing.T) {
 	if err != nil {
 		t.Fatal("Invalid PORT value in MustEnvVars")
 	}
-	_, ri, err := fetchRuntimeInfo(t, clients, &test.Options{
+	_, ri, err := test.FetchRuntimeInfo(t, clients, &test.Options{
 		ContainerPorts: []corev1.ContainerPort{
 			{ContainerPort: int32(port)},
 		},

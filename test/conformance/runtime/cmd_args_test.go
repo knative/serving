@@ -16,7 +16,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package conformance
+package runtime
 
 import (
 	"fmt"
@@ -28,7 +28,7 @@ import (
 
 func TestCmdArgsService(t *testing.T) {
 	t.Parallel()
-	clients := setup(t)
+	clients := test.Setup(t)
 
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
@@ -68,7 +68,7 @@ httpd.serve_forever()`, text),
 		t.Fatalf("Failed to create initial Service %v: %v", names.Service, err)
 	}
 
-	if err = validateRunLatestDataPlane(t, clients, names, text); err != nil {
+	if err = test.ValidateRunLatestDataPlane(t, clients, names, text); err != nil {
 		t.Error(err)
 	}
 }

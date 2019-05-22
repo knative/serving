@@ -16,7 +16,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package conformance
+package api
 
 import (
 	"path/filepath"
@@ -33,7 +33,7 @@ import (
 // TestConfigMapVolume tests that we echo back the appropriate text from the ConfigMap volume.
 func TestConfigMapVolume(t *testing.T) {
 	t.Parallel()
-	clients := setup(t)
+	clients := test.Setup(t)
 
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
@@ -84,11 +84,11 @@ func TestConfigMapVolume(t *testing.T) {
 
 	// Validate State after Creation
 
-	if err = validateRunLatestControlPlane(t, clients, names, "1"); err != nil {
+	if err = test.ValidateRunLatestControlPlane(t, clients, names, "1"); err != nil {
 		t.Error(err)
 	}
 
-	if err = validateRunLatestDataPlane(t, clients, names, text); err != nil {
+	if err = test.ValidateRunLatestDataPlane(t, clients, names, text); err != nil {
 		t.Error(err)
 	}
 }
@@ -96,7 +96,7 @@ func TestConfigMapVolume(t *testing.T) {
 // TestSecretVolume tests that we echo back the appropriate text from the Secret volume.
 func TestSecretVolume(t *testing.T) {
 	t.Parallel()
-	clients := setup(t)
+	clients := test.Setup(t)
 
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
@@ -148,11 +148,11 @@ func TestSecretVolume(t *testing.T) {
 
 	// Validate State after Creation
 
-	if err = validateRunLatestControlPlane(t, clients, names, "1"); err != nil {
+	if err = test.ValidateRunLatestControlPlane(t, clients, names, "1"); err != nil {
 		t.Error(err)
 	}
 
-	if err = validateRunLatestDataPlane(t, clients, names, text); err != nil {
+	if err = test.ValidateRunLatestDataPlane(t, clients, names, text); err != nil {
 		t.Error(err)
 	}
 }

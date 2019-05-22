@@ -16,7 +16,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package conformance
+package api
 
 import (
 	"testing"
@@ -27,7 +27,7 @@ import (
 
 func TestWorkingDirService(t *testing.T) {
 	t.Parallel()
-	clients := setup(t)
+	clients := test.Setup(t)
 
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
@@ -50,7 +50,7 @@ func TestWorkingDirService(t *testing.T) {
 		t.Fatalf("Failed to create initial Service %v: %v", names.Service, err)
 	}
 
-	if err = validateRunLatestDataPlane(t, clients, names, wd); err != nil {
+	if err = test.ValidateRunLatestDataPlane(t, clients, names, wd); err != nil {
 		t.Error(err)
 	}
 }
