@@ -43,18 +43,18 @@ type ReadyPodCounter interface {
 type scopedEndpointCounter struct {
 	endpointsLister corev1listers.EndpointsLister
 	namespace       string
-	name            string
+	serviceName     string
 }
 
 func (eac *scopedEndpointCounter) ReadyCount() (int, error) {
-	return fetchReadyAddressCount(eac.endpointsLister, eac.namespace, eac.name)
+	return fetchReadyAddressCount(eac.endpointsLister, eac.namespace, eac.serviceName)
 }
 
-func NewScopedEndpointsCounter(lister corev1listers.EndpointsLister, namespace, name string) ReadyPodCounter {
+func NewScopedEndpointsCounter(lister corev1listers.EndpointsLister, namespace, serviceName string) ReadyPodCounter {
 	return &scopedEndpointCounter{
 		endpointsLister: lister,
 		namespace:       namespace,
-		name:            name,
+		serviceName:     serviceName,
 	}
 }
 
