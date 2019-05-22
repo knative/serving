@@ -29,16 +29,16 @@ const (
 	QueueContainerName = "queue-proxy"
 
 	// queueContainerRequestCPUAnnotation is the request.cpu of the queue proxy side car
-	queueContainerRequestCPUAnnotation = "sidecar.istio.io/queue-proxy/RequestCpu"
+	queueContainerRequestCPUAnnotation = "queue.sidecar.serving.knative.dev/RequestCpu"
 
 	// queueContainerLimitCPUAnnotation is the limit.cpu of the queue proxy side car
-	queueContainerLimitCPUAnnotation = "sidecar.istio.io/queue-proxy/LimitCpu"
+	queueContainerLimitCPUAnnotation = "queue.sidecar.serving.knative.dev/LimitCpu"
 
 	// queueContainerRequestMemoryAnnotation is the request.memory of the queue proxy side car
-	queueContainerRequestMemoryAnnotation = "sidecar.istio.io/queue-proxy/RequestMemory"
+	queueContainerRequestMemoryAnnotation = "queue.sidecar.serving.knative.dev/RequestMemory"
 
 	// queueContainerLimitMemoryAnnotation is the limit.memory of the queue proxy side car
-	queueContainerLimitMemoryAnnotation = "sidecar.istio.io/queue-proxy/LimitMemory"
+	queueContainerLimitMemoryAnnotation = "queue.sidecar.serving.knative.dev/LimitMemory"
 
 	sidecarIstioInjectAnnotation = "sidecar.istio.io/inject"
 	// IstioOutboundIPRangeAnnotation defines the outbound ip ranges istio allows.

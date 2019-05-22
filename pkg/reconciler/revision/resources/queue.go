@@ -78,8 +78,8 @@ var (
 	}
 )
 
-func setResources(rev *v1alpha1.Revision) corev1.ResourceRequirements {
-	annotations := rev.GetAnnotations()
+func getResources(annotations map[string]string) corev1.ResourceRequirements {
+
 	resources := corev1.ResourceRequirements{}
 	resourcesRequest := corev1.ResourceList{corev1.ResourceCPU: queueContainerCPU}
 	resourcesLimits := corev1.ResourceList{}
@@ -101,11 +101,11 @@ func setResources(rev *v1alpha1.Revision) corev1.ResourceRequirements {
 		resourcesLimits[corev1.ResourceMemory] = limitMemory
 	}
 
-	if len(resourcesRequest) == 0 {
+	if len(resourcesRequest) != 0 {
 		resources.Requests = resourcesRequest
 	}
 
-	if len(resourcesRequest) == 0 {
+	if len(resourcesRequest) != 0 {
 		resources.Limits = resourcesLimits
 	}
 
@@ -121,6 +121,7 @@ func getResourceFromAnnotations(m map[string]string, k string) (bool, resource.Q
 	if err != nil {
 		return false, resource.Quantity{}
 	}
+
 	return true, quantity
 }
 
@@ -157,7 +158,7 @@ func makeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, o
 	return &corev1.Container{
 		Name:           QueueContainerName,
 		Image:          deploymentConfig.QueueSidecarImage,
-		Resources:      setResources(rev),
+		Resources:      getResources(rev.GetAnnotations()),
 		Ports:          ports,
 		ReadinessProbe: queueReadinessProbe,
 		Env: []corev1.EnvVar{{
