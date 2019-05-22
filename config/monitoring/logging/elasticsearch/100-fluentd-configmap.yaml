@@ -89,7 +89,6 @@ data:
       @id elasticsearch
       @type elasticsearch
       @log_level info
-      include_tag_key true
       host elasticsearch-logging
       port 9200
       logstash_format true
