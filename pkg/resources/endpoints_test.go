@@ -31,7 +31,7 @@ const (
 	testService   = "test-service"
 )
 
-func TestEndpointAddressCounter(t *testing.T) {
+func TestScopedEndpointsCounter(t *testing.T) {
 	kubeClient := fakek8s.NewSimpleClientset()
 	endpointsClient := kubeinformers.NewSharedInformerFactory(kubeClient, 0).Core().V1().Endpoints()
 	createEndpoints := func(ep *corev1.Endpoints) {
@@ -78,6 +78,31 @@ func TestEndpointAddressCounter(t *testing.T) {
 				t.Errorf("WantErr = %v, want: %v, err: %v", got, want, err)
 			}
 		})
+	}
+}
+
+func TestFixedEndpointsCounter(t *testing.T) {
+	eps := &corev1.Endpoints{
+		Subsets: []corev1.EndpointSubset{
+			{
+				Addresses: []corev1.EndpointAddress{
+					{IP: "11.11.11.11"},
+					{IP: "22.22.22.22"},
+					{IP: "33.33.33.33"},
+				},
+			},
+		},
+	}
+
+	addressCounter := NewFixedEndpointsListCounter(eps)
+	expected := 3
+
+	got, err := addressCounter.ReadyCount()
+	if err != nil {
+		t.Errorf("ReadyCount() returned an unexpected error: %v", err)
+	}
+	if got != expected {
+		t.Errorf("ReadyCount() was given %v, was expected to count %d entries but instead counted %d", eps, expected, got)
 	}
 }
 
