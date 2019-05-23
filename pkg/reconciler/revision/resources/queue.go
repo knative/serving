@@ -19,6 +19,8 @@ package resources
 import (
 	"strconv"
 
+	"k8s.io/apimachinery/pkg/api/resource"
+
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"github.com/knative/pkg/logging"
@@ -37,12 +39,6 @@ import (
 const requestQueueHTTPPortName = "queue-port"
 
 var (
-	queueResources = corev1.ResourceRequirements{
-		Requests: corev1.ResourceList{
-			corev1.ResourceName("cpu"): queueContainerCPU,
-		},
-	}
-
 	queueHTTPPort = corev1.ContainerPort{
 		Name:          requestQueueHTTPPortName,
 		ContainerPort: int32(networking.BackendHTTPPort),
@@ -82,6 +78,53 @@ var (
 	}
 )
 
+func getResources(annotations map[string]string) corev1.ResourceRequirements {
+
+	resources := corev1.ResourceRequirements{}
+	resourcesRequest := corev1.ResourceList{corev1.ResourceCPU: queueContainerCPU}
+	resourcesLimits := corev1.ResourceList{}
+	ok := false
+	var requestCPU, limitCPU, requestMemory, limitMemory resource.Quantity
+	if ok, requestCPU = getResourceFromAnnotations(annotations, queueContainerRequestCPUAnnotation); ok {
+		resourcesRequest[corev1.ResourceCPU] = requestCPU
+	}
+
+	if ok, limitCPU = getResourceFromAnnotations(annotations, queueContainerLimitCPUAnnotation); ok {
+		resourcesLimits[corev1.ResourceCPU] = limitCPU
+	}
+
+	if ok, requestMemory = getResourceFromAnnotations(annotations, queueContainerRequestMemoryAnnotation); ok {
+		resourcesRequest[corev1.ResourceMemory] = requestMemory
+	}
+
+	if ok, limitMemory = getResourceFromAnnotations(annotations, queueContainerLimitMemoryAnnotation); ok {
+		resourcesLimits[corev1.ResourceMemory] = limitMemory
+	}
+
+	if len(resourcesRequest) != 0 {
+		resources.Requests = resourcesRequest
+	}
+
+	if len(resourcesRequest) != 0 {
+		resources.Limits = resourcesLimits
+	}
+
+	return resources
+}
+
+func getResourceFromAnnotations(m map[string]string, k string) (bool, resource.Quantity) {
+	v, ok := m[k]
+	if !ok {
+		return false, resource.Quantity{}
+	}
+	quantity, err := resource.ParseQuantity(v)
+	if err != nil {
+		return false, resource.Quantity{}
+	}
+
+	return true, quantity
+}
+
 // makeQueueContainer creates the container spec for the queue sidecar.
 func makeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, observabilityConfig *metrics.ObservabilityConfig,
 	autoscalerConfig *autoscaler.Config, deploymentConfig *deployment.Config) *corev1.Container {
@@ -115,7 +158,7 @@ func makeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, o
 	return &corev1.Container{
 		Name:           QueueContainerName,
 		Image:          deploymentConfig.QueueSidecarImage,
-		Resources:      queueResources,
+		Resources:      getResources(rev.GetAnnotations()),
 		Ports:          ports,
 		ReadinessProbe: queueReadinessProbe,
 		Env: []corev1.EnvVar{{
