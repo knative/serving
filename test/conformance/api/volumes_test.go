@@ -37,7 +37,7 @@ func TestConfigMapVolume(t *testing.T) {
 
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
-		Image:   "hellovolume",
+		Image:   hellovolume,
 	}
 
 	text := test.AppendRandomString("hello-volumes-")
@@ -84,11 +84,11 @@ func TestConfigMapVolume(t *testing.T) {
 
 	// Validate State after Creation
 
-	if err = test.ValidateRunLatestControlPlane(t, clients, names, "1"); err != nil {
+	if err = validateRunLatestControlPlane(t, clients, names, "1"); err != nil {
 		t.Error(err)
 	}
 
-	if err = test.ValidateRunLatestDataPlane(t, clients, names, text); err != nil {
+	if err = validateRunLatestDataPlane(t, clients, names, text); err != nil {
 		t.Error(err)
 	}
 }
@@ -100,7 +100,7 @@ func TestSecretVolume(t *testing.T) {
 
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
-		Image:   "hellovolume",
+		Image:   hellovolume,
 	}
 
 	text := test.ObjectNameForTest(t)
@@ -148,11 +148,11 @@ func TestSecretVolume(t *testing.T) {
 
 	// Validate State after Creation
 
-	if err = test.ValidateRunLatestControlPlane(t, clients, names, "1"); err != nil {
+	if err = validateRunLatestControlPlane(t, clients, names, "1"); err != nil {
 		t.Error(err)
 	}
 
-	if err = test.ValidateRunLatestDataPlane(t, clients, names, text); err != nil {
+	if err = validateRunLatestDataPlane(t, clients, names, text); err != nil {
 		t.Error(err)
 	}
 }

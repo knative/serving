@@ -49,7 +49,7 @@ func TestRunLatestService(t *testing.T) {
 
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
-		Image:   test.PizzaPlanet1,
+		Image:   pizzaPlanet1,
 	}
 
 	// Clean up on test failure or interrupt
@@ -64,19 +64,19 @@ func TestRunLatestService(t *testing.T) {
 
 	// Validate State after Creation
 
-	if err = test.ValidateRunLatestControlPlane(t, clients, names, "1"); err != nil {
+	if err = validateRunLatestControlPlane(t, clients, names, "1"); err != nil {
 		t.Error(err)
 	}
 
-	if err = test.ValidateRunLatestDataPlane(t, clients, names, test.PizzaPlanetText1); err != nil {
+	if err = validateRunLatestDataPlane(t, clients, names, pizzaPlanetText1); err != nil {
 		t.Error(err)
 	}
 
-	if err = test.ValidateLabelsPropagation(t, *objects, names); err != nil {
+	if err = validateLabelsPropagation(t, *objects, names); err != nil {
 		t.Error(err)
 	}
 
-	if err := test.ValidateAnnotations(objects); err != nil {
+	if err := validateAnnotations(objects); err != nil {
 		t.Errorf("Service annotations are incorrect: %v", err)
 	}
 
@@ -86,7 +86,7 @@ func TestRunLatestService(t *testing.T) {
 
 	// Update Container Image
 	t.Log("Updating the Service to use a different image.")
-	names.Image = test.Printport
+	names.Image = printport
 	image2 := pkgTest.ImagePath(names.Image)
 	if _, err := test.PatchServiceImage(t, clients, objects.Service, image2); err != nil {
 		t.Fatalf("Patch update for Service %s with new image %s failed: %v", names.Service, image2, err)
@@ -104,10 +104,10 @@ func TestRunLatestService(t *testing.T) {
 	}
 
 	// Validate State after Image Update
-	if err = test.ValidateRunLatestControlPlane(t, clients, names, "2"); err != nil {
+	if err = validateRunLatestControlPlane(t, clients, names, "2"); err != nil {
 		t.Error(err)
 	}
-	if err = test.ValidateRunLatestDataPlane(t, clients, names, strconv.Itoa(v1alpha1.DefaultUserPort)); err != nil {
+	if err = validateRunLatestDataPlane(t, clients, names, strconv.Itoa(v1alpha1.DefaultUserPort)); err != nil {
 		t.Error(err)
 	}
 
@@ -152,10 +152,10 @@ func TestRunLatestService(t *testing.T) {
 	}
 
 	// Validate the Service shape.
-	if err = test.ValidateRunLatestControlPlane(t, clients, names, "4"); err != nil {
+	if err = validateRunLatestControlPlane(t, clients, names, "4"); err != nil {
 		t.Error(err)
 	}
-	if err = test.ValidateRunLatestDataPlane(t, clients, names, strconv.Itoa(v1alpha1.DefaultUserPort)); err != nil {
+	if err = validateRunLatestDataPlane(t, clients, names, strconv.Itoa(v1alpha1.DefaultUserPort)); err != nil {
 		t.Error(err)
 	}
 
@@ -180,11 +180,11 @@ func TestRunLatestService(t *testing.T) {
 	}
 
 	// Validate Service
-	if err = test.ValidateRunLatestControlPlane(t, clients, names, "5"); err != nil {
+	if err = validateRunLatestControlPlane(t, clients, names, "5"); err != nil {
 		t.Error(err)
 	}
 
-	if err = test.ValidateRunLatestDataPlane(t, clients, names, strconv.Itoa(int(userPort))); err != nil {
+	if err = validateRunLatestDataPlane(t, clients, names, strconv.Itoa(int(userPort))); err != nil {
 		t.Error(err)
 	}
 }
@@ -219,7 +219,7 @@ func TestRunLatestServiceBYOName(t *testing.T) {
 
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
-		Image:   test.PizzaPlanet1,
+		Image:   pizzaPlanet1,
 	}
 
 	// Clean up on test failure or interrupt
@@ -241,19 +241,19 @@ func TestRunLatestServiceBYOName(t *testing.T) {
 
 	// Validate State after Creation
 
-	if err = test.ValidateRunLatestControlPlane(t, clients, names, "1"); err != nil {
+	if err = validateRunLatestControlPlane(t, clients, names, "1"); err != nil {
 		t.Error(err)
 	}
 
-	if err = test.ValidateRunLatestDataPlane(t, clients, names, test.PizzaPlanetText1); err != nil {
+	if err = validateRunLatestDataPlane(t, clients, names, pizzaPlanetText1); err != nil {
 		t.Error(err)
 	}
 
-	if err = test.ValidateLabelsPropagation(t, *objects, names); err != nil {
+	if err = validateLabelsPropagation(t, *objects, names); err != nil {
 		t.Error(err)
 	}
 
-	if err := test.ValidateAnnotations(objects); err != nil {
+	if err := validateAnnotations(objects); err != nil {
 		t.Errorf("Service annotations are incorrect: %v", err)
 	}
 
@@ -263,7 +263,7 @@ func TestRunLatestServiceBYOName(t *testing.T) {
 
 	// Update Container Image
 	t.Log("Updating the Service to use a different image.")
-	names.Image = test.Printport
+	names.Image = printport
 	image2 := pkgTest.ImagePath(names.Image)
 	if _, err := test.PatchServiceImage(t, clients, objects.Service, image2); err == nil {
 		t.Fatalf("Patch update for Service %s didn't fail.", names.Service)
@@ -281,20 +281,20 @@ func TestReleaseService(t *testing.T) {
 	t.Parallel()
 	// Create Initial Service
 	clients := test.Setup(t)
-	releaseImagePath2 := pkgTest.ImagePath(test.PizzaPlanet2)
-	releaseImagePath3 := pkgTest.ImagePath(test.Helloworld)
+	releaseImagePath2 := pkgTest.ImagePath(pizzaPlanet2)
+	releaseImagePath3 := pkgTest.ImagePath(helloworld)
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
-		Image:   test.PizzaPlanet1,
+		Image:   pizzaPlanet1,
 	}
 	defer test.TearDown(clients, names)
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 
 	// Expected Text for different revisions.
 	const (
-		expectedFirstRev  = test.PizzaPlanetText1
-		expectedSecondRev = test.PizzaPlanetText2
-		expectedThirdRev  = test.HelloWorldText
+		expectedFirstRev  = pizzaPlanetText1
+		expectedSecondRev = pizzaPlanetText2
+		expectedThirdRev  = helloWorldText
 	)
 
 	// Setup initial Service
@@ -304,10 +304,10 @@ func TestReleaseService(t *testing.T) {
 	}
 
 	t.Log("Validating service shape.")
-	if err := test.ValidateReleaseServiceShape(objects); err != nil {
+	if err := validateReleaseServiceShape(objects); err != nil {
 		t.Fatalf("Release shape is incorrect: %v", err)
 	}
-	if err := test.ValidateAnnotations(objects); err != nil {
+	if err := validateAnnotations(objects); err != nil {
 		t.Errorf("Service annotations are incorrect: %v", err)
 	}
 	firstRevision := names.Revision
@@ -355,7 +355,7 @@ func TestReleaseService(t *testing.T) {
 	}
 
 	t.Log("Service traffic should go to the first revision and be available on two names traffic targets: 'current' and 'latest'")
-	if err := test.ValidateDomains(t, clients,
+	if err := validateDomains(t, clients,
 		names.Domain,
 		[]string{expectedFirstRev},
 		[]string{"latest", "current"},
@@ -389,7 +389,7 @@ func TestReleaseService(t *testing.T) {
 	}
 
 	t.Log("Since the Service is using release the Route will not be updated, but new revision will be available at 'latest'")
-	if err := test.ValidateDomains(t, clients,
+	if err := validateDomains(t, clients,
 		names.Domain,
 		[]string{expectedFirstRev},
 		[]string{"latest", "current"},
@@ -454,7 +454,7 @@ func TestReleaseService(t *testing.T) {
 	}
 
 	t.Log("Traffic should be split between the two revisions and available on three named traffic targets, 'current', 'candidate', and 'latest'")
-	if err := test.ValidateDomains(t, clients,
+	if err := validateDomains(t, clients,
 		names.Domain,
 		[]string{expectedFirstRev, expectedSecondRev},
 		[]string{"candidate", "latest", "current"},
@@ -486,7 +486,7 @@ func TestReleaseService(t *testing.T) {
 	}
 
 	t.Log("Traffic should remain between the two images, and the new revision should be available on the named traffic target 'latest'")
-	if err := test.ValidateDomains(t, clients,
+	if err := validateDomains(t, clients,
 		names.Domain,
 		[]string{expectedFirstRev, expectedSecondRev},
 		[]string{"latest", "candidate", "current"},
@@ -521,7 +521,7 @@ func TestReleaseService(t *testing.T) {
 	}
 
 	// Verify in the end it's still the case.
-	if err := test.ValidateAnnotations(objects); err != nil {
+	if err := validateAnnotations(objects); err != nil {
 		t.Errorf("Service annotations are incorrect: %v", err)
 	}
 
@@ -539,7 +539,7 @@ func TestReleaseService(t *testing.T) {
 		t.Fatal("Service never obtained expected shape")
 	}
 
-	if err := test.ValidateDomains(t, clients,
+	if err := validateDomains(t, clients,
 		names.Domain,
 		[]string{expectedFirstRev, expectedThirdRev},
 		[]string{"latest", "candidate", "current"},

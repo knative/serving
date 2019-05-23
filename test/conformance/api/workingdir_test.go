@@ -31,7 +31,7 @@ func TestWorkingDirService(t *testing.T) {
 
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
-		Image:   "workingdir",
+		Image:   workingdir,
 	}
 
 	// Clean up on test failure or interrupt
@@ -50,7 +50,7 @@ func TestWorkingDirService(t *testing.T) {
 		t.Fatalf("Failed to create initial Service %v: %v", names.Service, err)
 	}
 
-	if err = test.ValidateRunLatestDataPlane(t, clients, names, wd); err != nil {
+	if err = validateRunLatestDataPlane(t, clients, names, wd); err != nil {
 		t.Error(err)
 	}
 }

@@ -40,7 +40,7 @@ func verifyPermissionsString(resp string, expected string) error {
 }
 
 func testFiles(t *testing.T, clients *test.Clients, paths map[string]types.FileInfo) error {
-	_, ri, err := test.FetchRuntimeInfo(t, clients, &test.Options{})
+	_, ri, err := fetchRuntimeInfo(t, clients, &test.Options{})
 	if err != nil {
 		return err
 	}

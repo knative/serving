@@ -35,9 +35,9 @@ import (
 
 const (
 
-	// This test uses the two test.Pizza planet test images for the blue and green deployment.
-	expectedBlue  = test.PizzaPlanetText1
-	expectedGreen = test.PizzaPlanetText2
+	// This test uses the two pizza planet test images for the blue and green deployment.
+	expectedBlue  = pizzaPlanetText1
+	expectedGreen = pizzaPlanetText2
 )
 
 // TestBlueGreenRoute verifies that a route configured with a 50/50 traffic split
@@ -49,13 +49,13 @@ func TestBlueGreenRoute(t *testing.T) {
 	clients := test.Setup(t)
 
 	var imagePaths []string
-	imagePaths = append(imagePaths, pkgTest.ImagePath(test.PizzaPlanet1))
-	imagePaths = append(imagePaths, pkgTest.ImagePath(test.PizzaPlanet2))
+	imagePaths = append(imagePaths, pkgTest.ImagePath(pizzaPlanet1))
+	imagePaths = append(imagePaths, pkgTest.ImagePath(pizzaPlanet2))
 
 	var names, blue, green test.ResourceNames
 	// Set Service and Image for names to create the initial service
 	names.Service = test.ObjectNameForTest(t)
-	names.Image = test.PizzaPlanet1
+	names.Image = pizzaPlanet1
 
 	// Set names for traffic targets to make them directly routable.
 	blue.TrafficTarget = "blue"
@@ -152,16 +152,16 @@ func TestBlueGreenRoute(t *testing.T) {
 	// Send concurrentRequests to blueDomain, greenDomain, and tealDomain.
 	g, _ := errgroup.WithContext(context.Background())
 	g.Go(func() error {
-		min := int(math.Floor(test.ConcurrentRequests * test.MinSplitPercentage))
-		return test.CheckDistribution(t, clients, tealDomain, test.ConcurrentRequests, min, []string{expectedBlue, expectedGreen})
+		min := int(math.Floor(concurrentRequests * minSplitPercentage))
+		return checkDistribution(t, clients, tealDomain, concurrentRequests, min, []string{expectedBlue, expectedGreen})
 	})
 	g.Go(func() error {
-		min := int(math.Floor(test.ConcurrentRequests * test.MinDirectPercentage))
-		return test.CheckDistribution(t, clients, blueDomain, test.ConcurrentRequests, min, []string{expectedBlue})
+		min := int(math.Floor(concurrentRequests * minDirectPercentage))
+		return checkDistribution(t, clients, blueDomain, concurrentRequests, min, []string{expectedBlue})
 	})
 	g.Go(func() error {
-		min := int(math.Floor(test.ConcurrentRequests * test.MinDirectPercentage))
-		return test.CheckDistribution(t, clients, greenDomain, test.ConcurrentRequests, min, []string{expectedGreen})
+		min := int(math.Floor(concurrentRequests * minDirectPercentage))
+		return checkDistribution(t, clients, greenDomain, concurrentRequests, min, []string{expectedGreen})
 	})
 	if err := g.Wait(); err != nil {
 		t.Fatalf("Error sending requests: %v", err)

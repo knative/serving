@@ -106,7 +106,7 @@ func TestMustNotContainerConstraints(t *testing.T) {
 			t.Parallel()
 			names := test.ResourceNames{
 				Service: test.ObjectNameForTest(t),
-				Image:   test.PizzaPlanet1,
+				Image:   pizzaPlanet1,
 			}
 			if svc, err := test.CreateLatestService(t, clients, names, &test.Options{}, tc.options); err == nil {
 				t.Errorf("CreateLatestService = %v, want: error", spew.Sdump(svc))
@@ -190,7 +190,7 @@ func TestShouldNotContainerConstraints(t *testing.T) {
 			t.Parallel()
 			names := test.ResourceNames{
 				Service: test.ObjectNameForTest(t),
-				Image:   test.PizzaPlanet1,
+				Image:   pizzaPlanet1,
 			}
 			if svc, err := test.CreateLatestService(t, clients, names, &test.Options{}, tc.options); err == nil {
 				t.Errorf("CreateLatestService = %v, want: error", spew.Sdump(svc))

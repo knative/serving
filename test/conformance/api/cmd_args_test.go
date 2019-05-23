@@ -16,7 +16,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package runtime
+package api
 
 import (
 	"fmt"
@@ -68,7 +68,7 @@ httpd.serve_forever()`, text),
 		t.Fatalf("Failed to create initial Service %v: %v", names.Service, err)
 	}
 
-	if err = test.ValidateRunLatestDataPlane(t, clients, names, text); err != nil {
+	if err = validateRunLatestDataPlane(t, clients, names, text); err != nil {
 		t.Error(err)
 	}
 }

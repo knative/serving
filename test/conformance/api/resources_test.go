@@ -47,7 +47,7 @@ func TestCustomResourcesLimits(t *testing.T) {
 
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
-		Image:   "bloatingcow",
+		Image:   bloatingcow,
 	}
 
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })

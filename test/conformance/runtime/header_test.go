@@ -34,7 +34,7 @@ func TestMustHaveHeadersSet(t *testing.T) {
 	t.Parallel()
 	clients := test.Setup(t)
 
-	_, ri, err := test.FetchRuntimeInfo(t, clients, &test.Options{})
+	_, ri, err := fetchRuntimeInfo(t, clients, &test.Options{})
 	if err != nil {
 		t.Fatalf("Error fetching runtime info: %v", err)
 	}
@@ -97,7 +97,7 @@ func TestShouldHaveHeadersSet(t *testing.T) {
 		// required for tracing so we do not validate them.
 	}
 
-	_, ri, err := test.FetchRuntimeInfo(t, clients, &test.Options{})
+	_, ri, err := fetchRuntimeInfo(t, clients, &test.Options{})
 	if err != nil {
 		t.Fatalf("Error fetching runtime info: %v", err)
 	}

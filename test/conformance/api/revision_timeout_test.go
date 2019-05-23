@@ -104,7 +104,7 @@ func TestRevisionTimeout(t *testing.T) {
 	var rev2s, rev5s test.ResourceNames
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
-		Image:   test.Timeout,
+		Image:   timeout,
 	}
 
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
