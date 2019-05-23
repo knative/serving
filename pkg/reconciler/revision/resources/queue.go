@@ -81,38 +81,36 @@ var (
 func getResources(annotations map[string]string) corev1.ResourceRequirements {
 
 	resources := corev1.ResourceRequirements{}
-	resourcesRequest := corev1.ResourceList{corev1.ResourceCPU: queueContainerCPU}
-	resourcesLimits := corev1.ResourceList{}
+	resourceRequests := corev1.ResourceList{corev1.ResourceCPU: queueContainerCPU}
+	resourceLimits := corev1.ResourceList{}
 	ok := false
 	var requestCPU, limitCPU, requestMemory, limitMemory resource.Quantity
-	if ok, requestCPU = getResourceFromAnnotations(annotations, queueContainerRequestCPUAnnotation); ok {
-		resourcesRequest[corev1.ResourceCPU] = requestCPU
+	if ok, requestCPU = resourceFromAnnotations(annotations, queueContainerRequestCPUAnnotation); ok {
+		resourceRequests[corev1.ResourceCPU] = requestCPU
 	}
 
-	if ok, limitCPU = getResourceFromAnnotations(annotations, queueContainerLimitCPUAnnotation); ok {
-		resourcesLimits[corev1.ResourceCPU] = limitCPU
+	if ok, limitCPU = resourceFromAnnotations(annotations, queueContainerLimitCPUAnnotation); ok {
+		resourceLimits[corev1.ResourceCPU] = limitCPU
 	}
 
-	if ok, requestMemory = getResourceFromAnnotations(annotations, queueContainerRequestMemoryAnnotation); ok {
-		resourcesRequest[corev1.ResourceMemory] = requestMemory
+	if ok, requestMemory = resourceFromAnnotations(annotations, queueContainerRequestMemoryAnnotation); ok {
+		resourceRequests[corev1.ResourceMemory] = requestMemory
 	}
 
-	if ok, limitMemory = getResourceFromAnnotations(annotations, queueContainerLimitMemoryAnnotation); ok {
-		resourcesLimits[corev1.ResourceMemory] = limitMemory
+	if ok, limitMemory = resourceFromAnnotations(annotations, queueContainerLimitMemoryAnnotation); ok {
+		resourceLimits[corev1.ResourceMemory] = limitMemory
 	}
 
-	if len(resourcesRequest) != 0 {
-		resources.Requests = resourcesRequest
-	}
+	resources.Requests = resourceRequests
 
-	if len(resourcesRequest) != 0 {
-		resources.Limits = resourcesLimits
+	if len(resourceLimits) != 0 {
+		resources.Limits = resourceLimits
 	}
 
 	return resources
 }
 
-func getResourceFromAnnotations(m map[string]string, k string) (bool, resource.Quantity) {
+func resourceFromAnnotations(m map[string]string, k string) (bool, resource.Quantity) {
 	v, ok := m[k]
 	if !ok {
 		return false, resource.Quantity{}
