@@ -174,11 +174,17 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 		// This is important because the copy we loaded from the informer's
 		// cache may be stale and we don't want to overwrite a prior update
 		// to status with this stale state.
-	} else if _, err = c.updateStatus(ci); err != nil {
-		logger.Warnw("Failed to update clusterIngress status", zap.Error(err))
-		c.Recorder.Eventf(ci, corev1.EventTypeWarning, "UpdateFailed",
-			"Failed to update status for ClusterIngress %q: %v", ci.Name, err)
-		return err
+	} else {
+		if _, err = c.updateStatus(ci); err != nil {
+			logger.Warnw("Failed to update ClusterIngress status", zap.Error(err))
+			c.Recorder.Eventf(ci, corev1.EventTypeWarning, "UpdateFailed",
+				"Failed to update status for ClusterIngress %q: %v", ci.Name, err)
+			return err
+		} else {
+			logger.Infof("Updated status for ClusterIngress %q", ci.Name)
+			c.Recorder.Eventf(ci, corev1.EventTypeNormal, "Updated",
+				"Updated status for ClusterIngress %q", ci.Name)
+		}
 	}
 	if reconcileErr != nil {
 		c.Recorder.Event(ci, corev1.EventTypeWarning, "InternalError", reconcileErr.Error())
