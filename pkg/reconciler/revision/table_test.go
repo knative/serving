@@ -551,6 +551,7 @@ func TestReconcile(t *testing.T) {
 	}))
 }
 
+<<<<<<< HEAD
 func TestReconcileWithVarLogEnabled(t *testing.T) {
 	table := TableTest{{
 		Name: "first revision reconciliation (with /var/log enabled)",
@@ -688,6 +689,8 @@ func TestReconcileWithVarLogEnabled(t *testing.T) {
 	}))
 }
 
+=======
+>>>>>>> Replace fluentd sidecar logic by init container logic
 func timeoutDeploy(deploy *appsv1.Deployment) *appsv1.Deployment {
 	deploy.Status.Conditions = []appsv1.DeploymentCondition{{
 		Type:   appsv1.DeploymentProgressing,
@@ -783,16 +786,6 @@ func image(namespace, name string, co ...configOption) *caching.Image {
 	}
 
 	return resources.MakeImageCache(rev(namespace, name))
-}
-
-func fluentdConfigMap(namespace, name string, co ...configOption) *corev1.ConfigMap {
-	config := ReconcilerTestConfig()
-	for _, opt := range co {
-		opt(config)
-	}
-
-	rev := rev(namespace, name)
-	return resources.MakeFluentdConfigMap(rev, config.Observability)
 }
 
 func kpa(namespace, name string, ko ...PodAutoscalerOption) *autoscalingv1alpha1.PodAutoscaler {

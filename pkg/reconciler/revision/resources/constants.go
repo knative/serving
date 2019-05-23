@@ -23,8 +23,8 @@ import (
 const (
 	// UserContainerName is the name of the user-container in the PodSpec
 	UserContainerName = "user-container"
-	// FluentdContainerName is the name of the fluentd sidecar when enabled
-	FluentdContainerName = "fluentd-proxy"
+	// InitContainerName is the name of the init container when enabled
+	InitContainerName = "init-container"
 	// QueueContainerName is the name of the queue proxy side car
 	QueueContainerName = "queue-proxy"
 
@@ -35,6 +35,9 @@ const (
 
 	// AppLabelKey is the label defining the application's name.
 	AppLabelKey = "app"
+
+	// InitContainerImage is the image used by the init container
+	InitContainerImage = "busybox"
 )
 
 var (
@@ -44,6 +47,5 @@ var (
 
 	// See https://github.com/knative/serving/pull/1124#issuecomment-397120430
 	// for how CPU and memory values were calculated.
-	fluentdContainerCPU = resource.MustParse("25m")
-	queueContainerCPU   = resource.MustParse("25m")
+	queueContainerCPU = resource.MustParse("25m")
 )
