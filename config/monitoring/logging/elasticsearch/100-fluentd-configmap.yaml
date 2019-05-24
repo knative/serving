@@ -41,13 +41,25 @@ data:
     <source>
       @id containers-var-log
       @type tail
+      # **/*/**/* allows path expansion to go through one symlink (the one created by the init container)
       path /var/lib/kubelet/pods/*/volumes/kubernetes.io~empty-dir/knative-internal/**/*/**/*
       path_key stream
       pos_file /var/log/containers-var-log.pos
       tag raw.kubernetes.*
-      format none
       message_key log
       read_from_head true
+      <parse>
+        @type multi_format
+        <pattern>
+          format json
+          time_key fluentd-time # fluentd-time is reserved for structured logs
+          time_format %Y-%m-%dT%H:%M:%S.%NZ
+        </pattern>
+        <pattern>
+          format none
+          message_key log
+        </pattern>
+      </parse>
     </source>
     # Combine multi line logs which form an exception stack trace into a single log entry
     <match raw.kubernetes.**>

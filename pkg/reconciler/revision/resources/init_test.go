@@ -114,4 +114,6 @@ func TestMakeInitContainer(t *testing.T) {
 	}
 }
 
-// TODO: add test for litterals?
+// TODO(bancel): add tests for literals?
+// TODO(bancel): right now the tests are using the constants defined in the implementation,
+// TODO(bancel): therefore changing the constants wouldn't break the tests and it should.
