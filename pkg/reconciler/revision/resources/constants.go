@@ -37,7 +37,7 @@ const (
 	AppLabelKey = "app"
 
 	// InitContainerImage is the image used by the init container
-	InitContainerImage = "busybox"
+	InitContainerImage = "busybox:1.30.1-musl"
 )
 
 var (
