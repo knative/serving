@@ -114,6 +114,18 @@ func TestMakeInitContainer(t *testing.T) {
 	}
 }
 
-// TODO(bancel): add tests for literals?
-// TODO(bancel): right now the tests are using the constants defined in the implementation,
-// TODO(bancel): therefore changing the constants wouldn't break the tests and it should.
+func TestInitArgs(t *testing.T) {
+	want := []string{
+		"/bin/sh",
+		"-c",
+		"ln -s ../knative-var-log \"/var/knative-internal/$(cat /etc/pod-info/namespace)_$(cat /etc/pod-info/podname)_user-container\"",
+	}
+	if len(want) != len(initArgs) {
+		t.Errorf("length mismatch. want: %d, got: %d", len(want), len(initArgs))
+	}
+	for i, _ := range initArgs {
+		if initArgs[i] != want[i] {
+			t.Errorf("argument mismatch at index %d. want: %s, got: %s", i, want[i], initArgs[i])
+		}
+	}
+}

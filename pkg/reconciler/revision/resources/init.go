@@ -17,6 +17,7 @@ limitations under the License.
 package resources
 
 import (
+	"fmt"
 	"path"
 
 	corev1 "k8s.io/api/core/v1"
@@ -27,9 +28,11 @@ const (
 	internalVolumeMountPath = "/var/knative-internal"
 
 	podInfoVolumeName      = "pod-info"
-	podInfoVolumeMountPath = "/var/pod-info"
+	podInfoVolumeMountPath = "/etc/pod-info"
 	podInfoPodName         = "podname"
 	podInfoNamespace       = "namespace"
+
+	cmdFmt = "ln -s ../%s \"%s/$(cat %s)_$(cat %s)_%s\""
 )
 
 var (
@@ -48,10 +51,13 @@ var (
 	initArgs = []string{
 		"/bin/sh",
 		"-c",
-		"ln -s ../" + varLogVolumeName + " " +
-			"\"" + internalVolumeMountPath + "/$(cat " + path.Join(podInfoVolumeMountPath, podInfoNamespace) + ")_" +
-			"$(cat " + path.Join(podInfoVolumeMountPath, podInfoPodName) + ")_" +
-			UserContainerName + "\"",
+		fmt.Sprintf(
+			"ln -s ../%s \"%s/$(cat %s)_$(cat %s)_%s\"",
+			varLogVolumeName,
+			internalVolumeMountPath,
+			path.Join(podInfoVolumeMountPath, podInfoNamespace),
+			path.Join(podInfoVolumeMountPath, podInfoPodName),
+			UserContainerName),
 	}
 )
 
