@@ -28,18 +28,6 @@ const (
 	// QueueContainerName is the name of the queue proxy side car
 	QueueContainerName = "queue-proxy"
 
-	// queueContainerRequestCPUAnnotation is the request.cpu of the queue proxy side car
-	queueContainerRequestCPUAnnotation = "queue.sidecar.serving.knative.dev/requestCpu"
-
-	// queueContainerLimitCPUAnnotation is the limit.cpu of the queue proxy side car
-	queueContainerLimitCPUAnnotation = "queue.sidecar.serving.knative.dev/limitCpu"
-
-	// queueContainerRequestMemoryAnnotation is the request.memory of the queue proxy side car
-	queueContainerRequestMemoryAnnotation = "queue.sidecar.serving.knative.dev/RequestMemory"
-
-	// queueContainerLimitMemoryAnnotation is the limit.memory of the queue proxy side car
-	queueContainerLimitMemoryAnnotation = "queue.sidecar.serving.knative.dev/LimitMemory"
-
 	sidecarIstioInjectAnnotation = "sidecar.istio.io/inject"
 	// IstioOutboundIPRangeAnnotation defines the outbound ip ranges istio allows.
 	// TODO(mattmoor): Make this private once we remove revision_test.go

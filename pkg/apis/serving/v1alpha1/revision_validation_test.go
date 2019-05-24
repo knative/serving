@@ -27,6 +27,7 @@ import (
 	"github.com/knative/pkg/ptr"
 	"github.com/knative/serving/pkg/apis/autoscaling"
 	net "github.com/knative/serving/pkg/apis/networking"
+	"github.com/knative/serving/pkg/apis/serving"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -299,6 +300,43 @@ func TestRevisionTemplateSpecValidation(t *testing.T) {
 			},
 		},
 		want: nil,
+	}, {
+		name: "queue cpu request more than cpu limit",
+		rts: &RevisionTemplateSpec{
+			ObjectMeta: metav1.ObjectMeta{
+				Annotations: map[string]string{
+					serving.QueueSideCarRequestCPUAnnotation: "50m",
+					serving.QueueSideCarLimitCPUAnnotation:   "25m",
+				},
+			},
+			Spec: RevisionSpec{
+				DeprecatedContainer: &corev1.Container{
+					Image: "helloworld",
+				},
+			},
+		},
+		want: &apis.FieldError{
+			Message: "queue.serving.knative.dev/limitCpu=25m is less than queue.serving.knative.dev/requestCpu=50m",
+			Paths:   []string{serving.QueueSideCarRequestCPUAnnotation, serving.QueueSideCarLimitCPUAnnotation},
+		},
+	}, {
+		name: "Invalid queue resource limit and request",
+		rts: &RevisionTemplateSpec{
+			ObjectMeta: metav1.ObjectMeta{
+				Annotations: map[string]string{
+					serving.QueueSideCarRequestCPUAnnotation: "50mx",
+				},
+			},
+			Spec: RevisionSpec{
+				DeprecatedContainer: &corev1.Container{
+					Image: "helloworld",
+				},
+			},
+		},
+		want: &apis.FieldError{
+			Message: "Invalid 50mx annotation value: quantities must match the regular expression '^([+-]?[0-9.]+)([eEinumkKMGTP]*[-+]?[0-9]*)$'",
+			Paths:   []string{serving.QueueSideCarRequestCPUAnnotation},
+		},
 	}}
 
 	for _, test := range tests {

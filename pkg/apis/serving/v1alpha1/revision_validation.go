@@ -26,6 +26,7 @@ import (
 	"github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/serving"
 	"k8s.io/apimachinery/pkg/api/equality"
+	"k8s.io/apimachinery/pkg/api/resource"
 )
 
 func (r *Revision) checkImmutableFields(ctx context.Context, original *Revision) *apis.FieldError {
@@ -80,6 +81,9 @@ func (rt *RevisionTemplateSpec) Validate(ctx context.Context) *apis.FieldError {
 				"metadata.name"))
 		}
 	}
+
+	// Validate the annotations of RevisionTemplate for sidecar resource request and limits
+	errs = errs.Also(validateAnnotations(rt.Annotations))
 
 	return errs
 }
@@ -147,6 +151,53 @@ func (rs *RevisionSpec) Validate(ctx context.Context) *apis.FieldError {
 		errs = errs.Also(validateTimeoutSeconds(*rs.TimeoutSeconds))
 	}
 	return errs
+}
+
+func validateAnnotations(annotations map[string]string) *apis.FieldError {
+
+	errs := validateResource(annotations, serving.QueueSideCarRequestCPUAnnotation, serving.QueueSideCarLimitCPUAnnotation)
+	errs = errs.Also(validateResource(annotations, serving.QueueSideCarRequestMemoryAnnotation, serving.QueueSideCarLimitMemoryAnnotation))
+	return errs
+}
+
+func validateResource(annotations map[string]string, requestAnnotationKey string, limitAnnotationKey string) *apis.FieldError {
+	if len(annotations) == 0 {
+		return nil
+	}
+
+	request, err := getQuantityFromAnnotations(annotations, requestAnnotationKey)
+	if err != nil {
+		return err
+	}
+	limit, err := getQuantityFromAnnotations(annotations, limitAnnotationKey)
+	if err != nil {
+		return err
+	}
+
+	if !limit.IsZero() && limit.Cmp(request) == -1 {
+		return &apis.FieldError{
+			Message: fmt.Sprintf("%s=%s is less than %s=%s", limitAnnotationKey, limit.String(), requestAnnotationKey, request.String()),
+			Paths:   []string{limitAnnotationKey, requestAnnotationKey},
+		}
+	}
+
+	return nil
+}
+
+func getQuantityFromAnnotations(m map[string]string, k string) (resource.Quantity, *apis.FieldError) {
+	v, ok := m[k]
+	if !ok {
+		return resource.Quantity{}, nil
+	}
+	quantity, err := resource.ParseQuantity(v)
+	if err != nil {
+		return quantity, &apis.FieldError{
+			Message: fmt.Sprintf("Invalid %s annotation value: %v", v, err),
+			Paths:   []string{k},
+		}
+	}
+
+	return quantity, nil
 }
 
 func validateTimeoutSeconds(timeoutSeconds int64) *apis.FieldError {

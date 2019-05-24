@@ -167,8 +167,8 @@ func TestMakeQueueContainer(t *testing.T) {
 					serving.ServiceLabelKey: "svc",
 				},
 				Annotations: map[string]string{
-					queueContainerRequestCPUAnnotation:    "25m",
-					queueContainerRequestMemoryAnnotation: "100Mi",
+					serving.QueueSideCarRequestCPUAnnotation:    "25m",
+					serving.QueueSideCarRequestMemoryAnnotation: "100Mi",
 				},
 			},
 			Spec: v1alpha1.RevisionSpec{
@@ -188,8 +188,8 @@ func TestMakeQueueContainer(t *testing.T) {
 			// These are effectively constant
 			Name: QueueContainerName,
 			Resources: getResources(map[string]string{
-				queueContainerRequestCPUAnnotation:    "25m",
-				queueContainerRequestMemoryAnnotation: "100Mi",
+				serving.QueueSideCarRequestCPUAnnotation:    "25m",
+				serving.QueueSideCarRequestMemoryAnnotation: "100Mi",
 			}),
 			Ports:          append(queueNonServingPorts, queueHTTPPort),
 			ReadinessProbe: queueReadinessProbe,
@@ -209,7 +209,7 @@ func TestMakeQueueContainer(t *testing.T) {
 					serving.ServiceLabelKey: "svc",
 				},
 				Annotations: map[string]string{
-					queueContainerRequestMemoryAnnotation: "100Mx",
+					serving.QueueSideCarRequestMemoryAnnotation: "100Mx",
 				},
 			},
 			Spec: v1alpha1.RevisionSpec{
@@ -229,7 +229,7 @@ func TestMakeQueueContainer(t *testing.T) {
 			// These are effectively constant
 			Name: QueueContainerName,
 			Resources: getResources(map[string]string{
-				queueContainerRequestCPUAnnotation: "25m",
+				serving.QueueSideCarRequestCPUAnnotation: "25m",
 			}),
 			Ports:          append(queueNonServingPorts, queueHTTPPort),
 			ReadinessProbe: queueReadinessProbe,

@@ -85,19 +85,19 @@ func getResources(annotations map[string]string) corev1.ResourceRequirements {
 	resourceLimits := corev1.ResourceList{}
 	ok := false
 	var requestCPU, limitCPU, requestMemory, limitMemory resource.Quantity
-	if ok, requestCPU = resourceFromAnnotations(annotations, queueContainerRequestCPUAnnotation); ok {
+	if ok, requestCPU = getAnnotationsQuantity(annotations, serving.QueueSideCarRequestCPUAnnotation); ok {
 		resourceRequests[corev1.ResourceCPU] = requestCPU
 	}
 
-	if ok, limitCPU = resourceFromAnnotations(annotations, queueContainerLimitCPUAnnotation); ok {
+	if ok, limitCPU = getAnnotationsQuantity(annotations, serving.QueueSideCarLimitCPUAnnotation); ok {
 		resourceLimits[corev1.ResourceCPU] = limitCPU
 	}
 
-	if ok, requestMemory = resourceFromAnnotations(annotations, queueContainerRequestMemoryAnnotation); ok {
+	if ok, requestMemory = getAnnotationsQuantity(annotations, serving.QueueSideCarRequestMemoryAnnotation); ok {
 		resourceRequests[corev1.ResourceMemory] = requestMemory
 	}
 
-	if ok, limitMemory = resourceFromAnnotations(annotations, queueContainerLimitMemoryAnnotation); ok {
+	if ok, limitMemory = getAnnotationsQuantity(annotations, serving.QueueSideCarLimitMemoryAnnotation); ok {
 		resourceLimits[corev1.ResourceMemory] = limitMemory
 	}
 
@@ -110,17 +110,12 @@ func getResources(annotations map[string]string) corev1.ResourceRequirements {
 	return resources
 }
 
-func resourceFromAnnotations(m map[string]string, k string) (bool, resource.Quantity) {
+func getAnnotationsQuantity(m map[string]string, k string) (bool, resource.Quantity) {
 	v, ok := m[k]
 	if !ok {
 		return false, resource.Quantity{}
 	}
-	quantity, err := resource.ParseQuantity(v)
-	if err != nil {
-		return false, resource.Quantity{}
-	}
-
-	return true, quantity
+	return true, resource.MustParse(v)
 }
 
 // makeQueueContainer creates the container spec for the queue sidecar.
