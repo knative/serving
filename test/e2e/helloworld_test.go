@@ -22,7 +22,9 @@ import (
 	"testing"
 
 	pkgTest "github.com/knative/pkg/test"
+	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/test"
+	"k8s.io/apimachinery/pkg/api/resource"
 )
 
 func TestHelloWorld(t *testing.T) {
@@ -38,7 +40,12 @@ func TestHelloWorld(t *testing.T) {
 	defer test.TearDown(clients, names)
 
 	t.Log("Creating a new Service")
-	resources, err := test.CreateRunLatestServiceReady(t, clients, &names, &test.Options{})
+	resources, err := test.CreateRunLatestServiceReady(t, clients, &names, &test.Options{
+		RevisionTemplateAnnotations: map[string]string{
+			serving.QueueSideCarRequestCPUAnnotation: "120m",
+			serving.QueueSideCarLimitCPUAnnotation:   "50m",
+		},
+	})
 	if err != nil {
 		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
 	}
@@ -68,5 +75,61 @@ func TestHelloWorld(t *testing.T) {
 		}
 	} else {
 		t.Fatalf("Failed to get Service name from Revision label")
+	}
+}
+
+func TestQueueSideCarResourceLimit(t *testing.T) {
+	t.Parallel()
+	clients := Setup(t)
+
+	names := test.ResourceNames{
+		Service: test.ObjectNameForTest(t),
+		Image:   "helloworld",
+	}
+
+	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
+	defer test.TearDown(clients, names)
+
+	t.Log("Creating a new Service")
+	resources, err := test.CreateRunLatestServiceReady(t, clients, &names, &test.Options{
+		RevisionTemplateAnnotations: map[string]string{
+			serving.QueueSideCarRequestCPUAnnotation: "12m",
+			serving.QueueSideCarLimitCPUAnnotation:   "50m",
+		},
+	})
+	if err != nil {
+		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
+	}
+	domain := resources.Route.Status.URL.Host
+
+	if _, err = pkgTest.WaitForEndpointState(
+		clients.KubeClient,
+		t.Logf,
+		domain,
+		test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesBody(helloWorldExpectedOutput))),
+		"HelloWorldServesText",
+		test.ServingFlags.ResolvableDomain); err != nil {
+		t.Fatalf("The endpoint for Route %s at domain %s didn't serve the expected text \"%s\": %v", names.Route, domain, helloWorldExpectedOutput, err)
+	}
+
+	revision := resources.Revision
+	if val, ok := revision.Labels["serving.knative.dev/configuration"]; ok {
+		if val != names.Config {
+			t.Fatalf("Expect confguration name in revision label %q but got %q ", names.Config, val)
+		}
+	} else {
+		t.Fatalf("Failed to get configuration name from Revision label")
+	}
+	if val, ok := revision.Labels["serving.knative.dev/service"]; ok {
+		if val != names.Service {
+			t.Fatalf("Expect Service name in revision label %q but got %q ", names.Service, val)
+		}
+	} else {
+		t.Fatalf("Failed to get Service name from Revision label")
+	}
+
+	container, _ := clients.KubeClient.Container("helloworld", "queue-proxy", "default")
+	if container.Resources.Limits.Cpu().Cmp(resource.MustParse("50m")) != 0 {
+		t.Fatalf("queue-proxy should have limit.cpu set to 50m")
 	}
 }

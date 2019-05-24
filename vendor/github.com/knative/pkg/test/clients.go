@@ -112,3 +112,26 @@ func (client *KubeClient) PodLogs(podName, containerName, namespace string) ([]b
 	}
 	return nil, fmt.Errorf("Could not find logs for %s/%s", podName, containerName)
 }
+
+// Container returns container for given Pod and Container in the namespace
+func (client *KubeClient) Container(podName, containerName, namespace string) (corev1.Container, error) {
+	pods := client.Kube.CoreV1().Pods(namespace)
+	podList, err := pods.List(metav1.ListOptions{})
+	if err != nil {
+		return corev1.Container{}, err
+	}
+	for _, pod := range podList.Items {
+		if strings.Contains(pod.Name, podName) {
+			result, err := pods.Get(pod.Name, metav1.GetOptions{})
+			if err != nil {
+				return corev1.Container{}, err
+			}
+			for _, container := range result.Spec.Containers {
+				if strings.Contains(container.Name, containerName) {
+					return container, nil
+				}
+			}
+		}
+	}
+	return corev1.Container{}, fmt.Errorf("Could not find container for %s/%s", podName, containerName)
+}

@@ -124,6 +124,12 @@ func ConfigurationSpec(imagePath string, options *Options) *v1alpha1.Configurati
 		spec.GetTemplate().Spec.GetContainer().Env = options.EnvVars
 	}
 
+	if len(options.RevisionTemplateAnnotations) != 0 {
+		spec.Template.ObjectMeta = metav1.ObjectMeta{
+			Annotations: options.RevisionTemplateAnnotations,
+		}
+	}
+
 	return spec
 }
 
