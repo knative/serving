@@ -38,7 +38,7 @@ data:
     # to actually change the configuration.
 
     # logging.enable-var-log-collection defaults to false.
-    # A fluentd sidecar will be set up to collect var log if
+    # The fluentd daemon set will be set up to collect /var/log if
     # this flag is true.
     logging.enable-var-log-collection: false
 
