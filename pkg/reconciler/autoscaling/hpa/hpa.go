@@ -29,27 +29,19 @@ import (
 	"github.com/knative/serving/pkg/apis/autoscaling"
 	pav1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	nv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
-	informers "github.com/knative/serving/pkg/client/informers/externalversions/autoscaling/v1alpha1"
-	ninformers "github.com/knative/serving/pkg/client/informers/externalversions/networking/v1alpha1"
 	listers "github.com/knative/serving/pkg/client/listers/autoscaling/v1alpha1"
 	nlisters "github.com/knative/serving/pkg/client/listers/networking/v1alpha1"
 	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/autoscaling/hpa/resources"
 	aresources "github.com/knative/serving/pkg/reconciler/autoscaling/resources"
 	"github.com/knative/serving/pkg/reconciler/autoscaling/resources/names"
-
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/runtime"
-	autoscalingv1informers "k8s.io/client-go/informers/autoscaling/v1"
 	autoscalingv1listers "k8s.io/client-go/listers/autoscaling/v1"
 	"k8s.io/client-go/tools/cache"
-)
-
-const (
-	controllerAgentName = "hpa-class-podautoscaler-controller"
 )
 
 // Reconciler implements the control loop for the HPA resources.
@@ -62,40 +54,6 @@ type Reconciler struct {
 }
 
 var _ controller.Reconciler = (*Reconciler)(nil)
-
-// NewController returns a new HPA reconcile controller.
-func NewController(
-	opts *reconciler.Options,
-	paInformer informers.PodAutoscalerInformer,
-	sksInformer ninformers.ServerlessServiceInformer,
-	hpaInformer autoscalingv1informers.HorizontalPodAutoscalerInformer,
-) *controller.Impl {
-	c := &Reconciler{
-		Base:      reconciler.NewBase(*opts, controllerAgentName),
-		paLister:  paInformer.Lister(),
-		hpaLister: hpaInformer.Lister(),
-		sksLister: sksInformer.Lister(),
-	}
-	impl := controller.NewImpl(c, c.Logger, "HPA-Class Autoscaling", reconciler.MustNewStatsReporter("HPA-Class Autoscaling", c.Logger))
-
-	c.Logger.Info("Setting up hpa-class event handlers")
-	onlyHpaClass := reconciler.AnnotationFilterFunc(autoscaling.ClassAnnotationKey, autoscaling.HPA, false)
-	paInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
-		FilterFunc: onlyHpaClass,
-		Handler:    reconciler.Handler(impl.Enqueue),
-	})
-
-	hpaInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
-		FilterFunc: onlyHpaClass,
-		Handler:    reconciler.Handler(impl.EnqueueControllerOf),
-	})
-
-	sksInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
-		FilterFunc: onlyHpaClass,
-		Handler:    reconciler.Handler(impl.EnqueueControllerOf),
-	})
-	return impl
-}
 
 // Reconcile is the entry point to the reconciliation control loop.
 func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
