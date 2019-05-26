@@ -23,13 +23,11 @@ import (
 	"sort"
 	"time"
 
-	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/controller"
 	"github.com/knative/pkg/logging"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1beta1"
-	servinginformers "github.com/knative/serving/pkg/client/informers/externalversions/serving/v1alpha1"
 	listers "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
 	"github.com/knative/serving/pkg/reconciler"
 	configns "github.com/knative/serving/pkg/reconciler/configuration/config"
@@ -46,13 +44,6 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
-const controllerAgentName = "configuration-controller"
-
-type configStore interface {
-	ToContext(ctx context.Context) context.Context
-	WatchConfigs(w configmap.Watcher)
-}
-
 // Reconciler implements controller.Reconciler for Configuration resources.
 type Reconciler struct {
 	*reconciler.Base
@@ -66,34 +57,6 @@ type Reconciler struct {
 
 // Check that our Reconciler implements controller.Reconciler
 var _ controller.Reconciler = (*Reconciler)(nil)
-
-// NewController creates a new Configuration controller
-func NewController(
-	opt reconciler.Options,
-	configurationInformer servinginformers.ConfigurationInformer,
-	revisionInformer servinginformers.RevisionInformer,
-) *controller.Impl {
-
-	c := &Reconciler{
-		Base:                reconciler.NewBase(opt, controllerAgentName),
-		configurationLister: configurationInformer.Lister(),
-		revisionLister:      revisionInformer.Lister(),
-	}
-	impl := controller.NewImpl(c, c.Logger, "Configurations", reconciler.MustNewStatsReporter("Configurations", c.Logger))
-
-	c.Logger.Info("Setting up event handlers")
-	configurationInformer.Informer().AddEventHandler(reconciler.Handler(impl.Enqueue))
-
-	revisionInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
-		FilterFunc: controller.Filter(v1alpha1.SchemeGroupVersion.WithKind("Configuration")),
-		Handler:    reconciler.Handler(impl.EnqueueControllerOf),
-	})
-
-	c.Logger.Info("Setting up ConfigMap receivers")
-	c.configStore = configns.NewStore(c.Logger.Named("config-store"))
-	c.configStore.WatchConfigs(opt.ConfigMapWatcher)
-	return impl
-}
 
 // Reconcile compares the actual state with the desired, and attempts to
 // converge the two. It then updates the Status block of the Configuration
