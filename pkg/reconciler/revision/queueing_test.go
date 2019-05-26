@@ -28,6 +28,8 @@ import (
 	"github.com/knative/pkg/apis/duck"
 	"github.com/knative/pkg/configmap"
 	ctrl "github.com/knative/pkg/controller"
+	"github.com/knative/pkg/logging"
+	"github.com/knative/pkg/metrics"
 	"github.com/knative/pkg/ptr"
 	"github.com/knative/pkg/system"
 	autoscalingv1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
@@ -38,8 +40,6 @@ import (
 	fakeclientset "github.com/knative/serving/pkg/client/clientset/versioned/fake"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
 	"github.com/knative/serving/pkg/deployment"
-	"github.com/knative/serving/pkg/logging"
-	"github.com/knative/serving/pkg/metrics"
 	"github.com/knative/serving/pkg/network"
 	"github.com/knative/serving/pkg/reconciler"
 
@@ -213,7 +213,7 @@ func newTestController(t *testing.T, stopCh <-chan struct{}) (
 			}}, {
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: system.Namespace(),
-				Name:      metrics.ObservabilityConfigName,
+				Name:      metrics.ConfigMapName(),
 			},
 			Data: map[string]string{
 				"logging.enable-var-log-collection":     "true",

@@ -27,9 +27,7 @@ import (
 )
 
 const (
-	ObservabilityConfigName = "config-observability"
-	metricsDomain           = "knative.dev/serving"
-	defaultLogURLTemplate   = "http://localhost:8001/api/v1/namespaces/knative-monitoring/services/kibana-logging/proxy/app/kibana#/discover?_a=(query:(match:(kubernetes.labels.knative-dev%2FrevisionUID:(query:'${REVISION_UID}',type:phrase))))"
+	defaultLogURLTemplate = "http://localhost:8001/api/v1/namespaces/knative-monitoring/services/kibana-logging/proxy/app/kibana#/discover?_a=(query:(match:(kubernetes.labels.knative-dev%2FrevisionUID:(query:'${REVISION_UID}',type:phrase))))"
 )
 
 // UpdateExporterFromConfigMap returns a helper func that can be used to update the exporter
@@ -37,7 +35,7 @@ const (
 func UpdateExporterFromConfigMap(component string, logger *zap.SugaredLogger) func(configMap *corev1.ConfigMap) {
 	return func(configMap *corev1.ConfigMap) {
 		metrics.UpdateExporter(metrics.ExporterOptions{
-			Domain:    metricsDomain,
+			Domain:    metrics.Domain(),
 			Component: component,
 			ConfigMap: configMap.Data,
 		}, logger)
