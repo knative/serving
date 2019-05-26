@@ -1,10 +1,11 @@
 /*
 Copyright 2018 The Knative Authors
+
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-	http://www.apache.org/licenses/LICENSE-2.0
+    https://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -20,10 +21,6 @@ import (
 	"fmt"
 	"reflect"
 
-	perrors "github.com/pkg/errors"
-	"go.uber.org/zap"
-
-	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/controller"
 	"github.com/knative/pkg/logging"
 	"github.com/knative/serving/pkg/apis/autoscaling"
@@ -31,8 +28,6 @@ import (
 	nv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/autoscaler"
-	informers "github.com/knative/serving/pkg/client/informers/externalversions/autoscaling/v1alpha1"
-	ninformers "github.com/knative/serving/pkg/client/informers/externalversions/networking/v1alpha1"
 	listers "github.com/knative/serving/pkg/client/listers/autoscaling/v1alpha1"
 	nlisters "github.com/knative/serving/pkg/client/listers/networking/v1alpha1"
 	"github.com/knative/serving/pkg/reconciler"
@@ -42,18 +37,16 @@ import (
 	aresources "github.com/knative/serving/pkg/reconciler/autoscaling/resources"
 	anames "github.com/knative/serving/pkg/reconciler/autoscaling/resources/names"
 	resourceutil "github.com/knative/serving/pkg/resources"
-
+	perrors "github.com/pkg/errors"
+	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/runtime"
-	corev1informers "k8s.io/client-go/informers/core/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 )
-
-const controllerAgentName = "kpa-class-podautoscaler-controller"
 
 // Deciders is an interface for notifying the presence or absence of KPAs.
 type Deciders interface {
@@ -88,12 +81,6 @@ type Metrics interface {
 	Update(ctx context.Context, metric *autoscaler.Metric) (*autoscaler.Metric, error)
 }
 
-// configStore is a minimized interface of the actual configStore.
-type configStore interface {
-	ToContext(ctx context.Context) context.Context
-	WatchConfigs(w configmap.Watcher)
-}
-
 // Reconciler tracks PAs and right sizes the ScaleTargetRef based on the
 // information from Deciders.
 type Reconciler struct {
@@ -110,66 +97,6 @@ type Reconciler struct {
 
 // Check that our Reconciler implements controller.Reconciler
 var _ controller.Reconciler = (*Reconciler)(nil)
-
-// NewController creates an autoscaling Controller.
-func NewController(
-	opts *reconciler.Options,
-	paInformer informers.PodAutoscalerInformer,
-	sksInformer ninformers.ServerlessServiceInformer,
-	serviceInformer corev1informers.ServiceInformer,
-	endpointsInformer corev1informers.EndpointsInformer,
-	kpaDeciders Deciders,
-	metrics Metrics,
-) *controller.Impl {
-	c := &Reconciler{
-		Base:            reconciler.NewBase(*opts, controllerAgentName),
-		paLister:        paInformer.Lister(),
-		sksLister:       sksInformer.Lister(),
-		serviceLister:   serviceInformer.Lister(),
-		endpointsLister: endpointsInformer.Lister(),
-		kpaDeciders:     kpaDeciders,
-		metrics:         metrics,
-	}
-	impl := controller.NewImpl(c, c.Logger, "KPA-Class Autoscaling", reconciler.MustNewStatsReporter("KPA-Class Autoscaling", c.Logger))
-	c.scaler = newScaler(opts, impl.EnqueueAfter)
-
-	c.Logger.Info("Setting up KPA-Class event handlers")
-	// Handle PodAutoscalers missing the class annotation for backward compatibility.
-	onlyKpaClass := reconciler.AnnotationFilterFunc(autoscaling.ClassAnnotationKey, autoscaling.KPA, true)
-	paHandler := cache.FilteringResourceEventHandler{
-		FilterFunc: onlyKpaClass,
-		Handler:    reconciler.Handler(impl.Enqueue),
-	}
-	paInformer.Informer().AddEventHandler(paHandler)
-
-	endpointsInformer.Informer().AddEventHandler(
-		reconciler.Handler(impl.EnqueueLabelOfNamespaceScopedResource("", autoscaling.KPALabelKey)))
-
-	// Watch all the services that we have created.
-	serviceInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
-		FilterFunc: onlyKpaClass,
-		Handler:    reconciler.Handler(impl.EnqueueControllerOf),
-	})
-	sksInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
-		FilterFunc: onlyKpaClass,
-		Handler:    reconciler.Handler(impl.EnqueueControllerOf),
-	})
-
-	// Have the Deciders enqueue the PAs whose decisions have changed.
-	kpaDeciders.Watch(impl.EnqueueKey)
-
-	c.Logger.Info("Setting up ConfigMap receivers")
-	configsToResync := []interface{}{
-		&autoscaler.Config{},
-	}
-	resync := configmap.TypeFilter(configsToResync...)(func(string, interface{}) {
-		controller.SendGlobalUpdates(paInformer.Informer(), paHandler)
-	})
-	c.configStore = config.NewStore(c.Logger.Named("config-store"), resync)
-	c.configStore.WatchConfigs(opts.ConfigMapWatcher)
-
-	return impl
-}
 
 // Reconcile right sizes PA ScaleTargetRefs based on the state of decisions in Deciders.
 func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
