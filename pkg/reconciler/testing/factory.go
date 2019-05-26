@@ -21,22 +21,26 @@ import (
 	"encoding/json"
 	"testing"
 
+	fakedynamicclient "github.com/knative/pkg/injection/clients/dynamicclient/fake"
+	fakekubeclient "github.com/knative/pkg/injection/clients/kubeclient/fake"
+	fakecachingclient "github.com/knative/serving/pkg/injection/clients/cachingclient/fake"
+	fakecertmanagerclient "github.com/knative/serving/pkg/injection/clients/certmanagerclient/fake"
+	fakeservingclient "github.com/knative/serving/pkg/injection/clients/servingclient/fake"
+	fakesharedclient "github.com/knative/serving/pkg/injection/clients/sharedclient/fake"
+
+	"github.com/knative/pkg/configmap"
+	"github.com/knative/pkg/controller"
+	"github.com/knative/pkg/logging"
 	logtesting "github.com/knative/pkg/logging/testing"
+
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
-	fakedynamicclientset "k8s.io/client-go/dynamic/fake"
-	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
 	ktesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/record"
 
-	fakecachingclientset "github.com/knative/caching/pkg/client/clientset/versioned/fake"
-	fakesharedclientset "github.com/knative/pkg/client/clientset/versioned/fake"
-	"github.com/knative/pkg/controller"
-	fakeclientset "github.com/knative/serving/pkg/client/clientset/versioned/fake"
-	"github.com/knative/serving/pkg/reconciler"
-
 	. "github.com/knative/pkg/reconciler/testing"
+	"github.com/knative/serving/pkg/reconciler"
 )
 
 const (
@@ -46,18 +50,24 @@ const (
 )
 
 // Ctor functions create a k8s controller with given params.
-type Ctor func(*Listers, reconciler.Options) controller.Reconciler
+type Ctor func(context.Context, *Listers, configmap.Watcher) controller.Reconciler
 
 // MakeFactory creates a reconciler factory with fake clients and controller created by `ctor`.
 func MakeFactory(ctor Ctor) Factory {
 	return func(t *testing.T, r *TableRow) (controller.Reconciler, ActionRecorderList, EventList, *FakeStatsReporter) {
 		ls := NewListers(r.Objects)
 
-		kubeClient := fakekubeclientset.NewSimpleClientset(ls.GetKubeObjects()...)
-		sharedClient := fakesharedclientset.NewSimpleClientset(ls.GetSharedObjects()...)
-		client := fakeclientset.NewSimpleClientset(ls.GetServingObjects()...)
-		dynamicClient := fakedynamicclientset.NewSimpleDynamicClient(
+		ctx := context.Background()
+		logger := logtesting.TestLogger(t)
+		ctx = logging.WithLogger(ctx, logger)
+
+		ctx, kubeClient := fakekubeclient.With(ctx, ls.GetKubeObjects()...)
+		ctx, sharedClient := fakesharedclient.With(ctx, ls.GetSharedObjects()...)
+		ctx, client := fakeservingclient.With(ctx, ls.GetServingObjects()...)
+		ctx, dynamicClient := fakedynamicclient.With(ctx,
 			NewScheme(), ToUnstructured(t, r.Objects)...)
+		ctx, cachingClient := fakecachingclient.With(ctx, ls.GetCachingObjects()...)
+		ctx, certManagerClient := fakecertmanagerclient.With(ctx, ls.GetCMCertificateObjects()...)
 
 		// The dynamic client's support for patching is BS.  Implement it
 		// here via PrependReactor (this can be overridden below by the
@@ -67,24 +77,16 @@ func MakeFactory(ctor Ctor) Factory {
 				return true, nil, nil
 			})
 
-		cachingClient := fakecachingclientset.NewSimpleClientset(ls.GetCachingObjects()...)
 		eventRecorder := record.NewFakeRecorder(maxEventBufferSize)
+		ctx = reconciler.WithEventRecorder(ctx, eventRecorder)
 		statsReporter := &FakeStatsReporter{}
+		ctx = reconciler.WithStatsReporter(ctx, statsReporter)
 
 		PrependGenerateNameReactor(&client.Fake)
 		PrependGenerateNameReactor(&dynamicClient.Fake)
 
 		// Set up our Controller from the fakes.
-		c := ctor(&ls, reconciler.Options{
-			KubeClientSet:    kubeClient,
-			SharedClientSet:  sharedClient,
-			DynamicClientSet: dynamicClient,
-			CachingClientSet: cachingClient,
-			ServingClientSet: client,
-			Recorder:         eventRecorder,
-			StatsReporter:    statsReporter,
-			Logger:           logtesting.TestLogger(t),
-		})
+		c := ctor(ctx, &ls, configmap.NewFixedWatcher())
 
 		for _, reactor := range r.WithReactors {
 			kubeClient.PrependReactor("*", "*", reactor)
@@ -92,6 +94,7 @@ func MakeFactory(ctor Ctor) Factory {
 			client.PrependReactor("*", "*", reactor)
 			dynamicClient.PrependReactor("*", "*", reactor)
 			cachingClient.PrependReactor("*", "*", reactor)
+			certManagerClient.PrependReactor("*", "*", reactor)
 		}
 
 		// Validate all Create operations through the serving client.
@@ -104,7 +107,7 @@ func MakeFactory(ctor Ctor) Factory {
 			return ValidateUpdates(context.Background(), action)
 		})
 
-		actionRecorderList := ActionRecorderList{sharedClient, dynamicClient, client, kubeClient, cachingClient}
+		actionRecorderList := ActionRecorderList{sharedClient, dynamicClient, client, kubeClient, cachingClient, certManagerClient}
 		eventList := EventList{Recorder: eventRecorder}
 
 		return c, actionRecorderList, eventList, statsReporter

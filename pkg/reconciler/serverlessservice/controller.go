@@ -1,5 +1,5 @@
 /*
-Copyright 2019 The Knative Authors
+Copyright 2019 The Knative Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -17,16 +17,23 @@ limitations under the License.
 package serverlessservice
 
 import (
+	"context"
+
+	"github.com/knative/pkg/injection"
+	"github.com/knative/pkg/injection/clients/dynamicclient"
+	endpointsinformer "github.com/knative/pkg/injection/informers/kubeinformers/corev1/endpoints"
+	serviceinformer "github.com/knative/pkg/injection/informers/kubeinformers/corev1/service"
+	sksinformer "github.com/knative/serving/pkg/injection/informers/servinginformers/serverlessservice"
+
 	"github.com/knative/pkg/apis/duck"
+	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/controller"
 	"github.com/knative/pkg/system"
 	"github.com/knative/serving/pkg/activator"
 	pav1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/apis/networking"
 	netv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
-	informers "github.com/knative/serving/pkg/client/informers/externalversions/networking/v1alpha1"
 	rbase "github.com/knative/serving/pkg/reconciler"
-	corev1informers "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -36,30 +43,36 @@ const (
 
 // podScalableTypedInformerFactory returns a duck.InformerFactory that returns
 // lister/informer pairs for PodScalable resources.
-func podScalableTypedInformerFactory(opt rbase.Options) duck.InformerFactory {
+func podScalableTypedInformerFactory(ctx context.Context) duck.InformerFactory {
 	return &duck.TypedInformerFactory{
-		Client:       opt.DynamicClientSet,
+		Client:       dynamicclient.Get(ctx),
 		Type:         &pav1alpha1.PodScalable{},
-		ResyncPeriod: opt.ResyncPeriod,
-		StopChannel:  opt.StopChannel,
+		ResyncPeriod: controller.GetResyncPeriod(ctx),
+		StopChannel:  ctx.Done(),
 	}
+}
+
+func init() {
+	injection.Default.RegisterController(NewController)
 }
 
 // NewController initializes the controller and is called by the generated code.
 // Registers eventhandlers to enqueue events.
 func NewController(
-	opt rbase.Options,
-	sksInformer informers.ServerlessServiceInformer,
-	serviceInformer corev1informers.ServiceInformer,
-	endpointsInformer corev1informers.EndpointsInformer,
+	ctx context.Context,
+	cmw configmap.Watcher,
 ) *controller.Impl {
+	serviceInformer := serviceinformer.Get(ctx)
+	endpointsInformer := endpointsinformer.Get(ctx)
+	sksInformer := sksinformer.Get(ctx)
+
 	c := &reconciler{
-		Base:            rbase.NewBase(opt, controllerAgentName),
+		Base:            rbase.NewBase(ctx, controllerAgentName, cmw),
 		endpointsLister: endpointsInformer.Lister(),
 		serviceLister:   serviceInformer.Lister(),
 		sksLister:       sksInformer.Lister(),
 		psInformerFactory: &duck.CachedInformerFactory{
-			Delegate: podScalableTypedInformerFactory(opt),
+			Delegate: podScalableTypedInformerFactory(ctx),
 		},
 	}
 	impl := controller.NewImpl(c, c.Logger, reconcilerName)

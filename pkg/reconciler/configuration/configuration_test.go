@@ -22,6 +22,10 @@ import (
 	"testing"
 	"time"
 
+	// Inject the fake informers we need.
+	_ "github.com/knative/serving/pkg/injection/informers/servinginformers/configuration/fake"
+	_ "github.com/knative/serving/pkg/injection/informers/servinginformers/revision/fake"
+
 	duckv1beta1 "github.com/knative/pkg/apis/duck/v1beta1"
 	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/controller"
@@ -459,9 +463,9 @@ func TestReconcile(t *testing.T) {
 	}}
 
 	defer logtesting.ClearAll()
-	table.Test(t, MakeFactory(func(listers *Listers, opt reconciler.Options) controller.Reconciler {
+	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
 		return &Reconciler{
-			Base:                reconciler.NewBase(opt, controllerAgentName),
+			Base:                reconciler.NewBase(ctx, controllerAgentName, cmw),
 			configurationLister: listers.GetConfigurationLister(),
 			revisionLister:      listers.GetRevisionLister(),
 			configStore: &testConfigStore{
@@ -597,9 +601,9 @@ func TestGCReconcile(t *testing.T) {
 	}}
 
 	defer logtesting.ClearAll()
-	table.Test(t, MakeFactory(func(listers *Listers, opt reconciler.Options) controller.Reconciler {
+	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
 		return &Reconciler{
-			Base:                reconciler.NewBase(opt, controllerAgentName),
+			Base:                reconciler.NewBase(ctx, controllerAgentName, cmw),
 			configurationLister: listers.GetConfigurationLister(),
 			revisionLister:      listers.GetRevisionLister(),
 			configStore: &testConfigStore{

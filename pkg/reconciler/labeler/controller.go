@@ -17,8 +17,15 @@ limitations under the License.
 package labeler
 
 import (
+	"context"
+
+	"github.com/knative/pkg/injection"
+	configurationinformer "github.com/knative/serving/pkg/injection/informers/servinginformers/configuration"
+	revisioninformer "github.com/knative/serving/pkg/injection/informers/servinginformers/revision"
+	routeinformer "github.com/knative/serving/pkg/injection/informers/servinginformers/route"
+
+	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/controller"
-	servinginformers "github.com/knative/serving/pkg/client/informers/externalversions/serving/v1alpha1"
 	"github.com/knative/serving/pkg/reconciler"
 )
 
@@ -26,17 +33,23 @@ const (
 	controllerAgentName = "labeler-controller"
 )
 
+func init() {
+	injection.Default.RegisterController(NewRouteToConfigurationController)
+}
+
 // NewRouteToConfigurationController wraps a new instance of the labeler that labels
 // Configurations with Routes in a controller.
 func NewRouteToConfigurationController(
-	opt reconciler.Options,
-	routeInformer servinginformers.RouteInformer,
-	configInformer servinginformers.ConfigurationInformer,
-	revisionInformer servinginformers.RevisionInformer,
+	ctx context.Context,
+	cmw configmap.Watcher,
 ) *controller.Impl {
 
+	routeInformer := routeinformer.Get(ctx)
+	configInformer := configurationinformer.Get(ctx)
+	revisionInformer := revisioninformer.Get(ctx)
+
 	c := &Reconciler{
-		Base:                reconciler.NewBase(opt, controllerAgentName),
+		Base:                reconciler.NewBase(ctx, controllerAgentName, cmw),
 		routeLister:         routeInformer.Lister(),
 		configurationLister: configInformer.Lister(),
 		revisionLister:      revisionInformer.Lister(),

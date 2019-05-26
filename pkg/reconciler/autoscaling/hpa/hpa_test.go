@@ -20,13 +20,19 @@ import (
 	"context"
 	"testing"
 
+	// Inject our fake informers
+	fakekubeclient "github.com/knative/pkg/injection/clients/kubeclient/fake"
+	_ "github.com/knative/pkg/injection/informers/kubeinformers/autoscalingv1/hpa/fake"
+	fakeservingclient "github.com/knative/serving/pkg/injection/clients/servingclient/fake"
+	fakekpainformer "github.com/knative/serving/pkg/injection/informers/servinginformers/kpa/fake"
+	_ "github.com/knative/serving/pkg/injection/informers/servinginformers/serverlessservice/fake"
+
+	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/controller"
 	logtesting "github.com/knative/pkg/logging/testing"
 	autoscalingv1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/apis/networking"
 	nv1a1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
-	fakeKna "github.com/knative/serving/pkg/client/clientset/versioned/fake"
-	informers "github.com/knative/serving/pkg/client/informers/externalversions"
 	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/autoscaling/hpa/resources"
 	aresources "github.com/knative/serving/pkg/reconciler/autoscaling/resources"
@@ -37,8 +43,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	kubeinformers "k8s.io/client-go/informers"
-	fakeK8s "k8s.io/client-go/kubernetes/fake"
 	ktesting "k8s.io/client-go/testing"
 
 	. "github.com/knative/pkg/reconciler/testing"
@@ -51,34 +55,19 @@ const (
 )
 
 func TestControllerCanReconcile(t *testing.T) {
-	kubeClient := fakeK8s.NewSimpleClientset()
-	servingClient := fakeKna.NewSimpleClientset()
-
-	opts := reconciler.Options{
-		KubeClientSet:    kubeClient,
-		ServingClientSet: servingClient,
-		Logger:           logtesting.TestLogger(t),
-	}
-
-	servingInformer := informers.NewSharedInformerFactory(servingClient, 0)
-	kubeInformer := kubeinformers.NewSharedInformerFactory(kubeClient, 0)
-
-	ctl := NewController(&opts,
-		servingInformer.Autoscaling().V1alpha1().PodAutoscalers(),
-		servingInformer.Networking().V1alpha1().ServerlessServices(),
-		kubeInformer.Autoscaling().V1().HorizontalPodAutoscalers(),
-	)
+	ctx, _ := SetupFakeContext(t)
+	ctl := NewController(ctx, configmap.NewFixedWatcher())
 
 	podAutoscaler := pa(testRevision, testNamespace, WithHPAClass)
-	servingClient.AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(podAutoscaler)
-	servingInformer.Autoscaling().V1alpha1().PodAutoscalers().Informer().GetIndexer().Add(podAutoscaler)
+	fakeservingclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(podAutoscaler)
+	fakekpainformer.Get(ctx).Informer().GetIndexer().Add(podAutoscaler)
 
 	err := ctl.Reconciler.Reconcile(context.Background(), testNamespace+"/"+testRevision)
 	if err != nil {
 		t.Errorf("Reconcile() = %v", err)
 	}
 
-	_, err = kubeClient.AutoscalingV1().HorizontalPodAutoscalers(testNamespace).Get(testRevision, metav1.GetOptions{})
+	_, err = fakekubeclient.Get(ctx).AutoscalingV1().HorizontalPodAutoscalers(testNamespace).Get(testRevision, metav1.GetOptions{})
 	if err != nil {
 		t.Errorf("error getting hpa: %v", err)
 	}
@@ -404,9 +393,9 @@ func TestReconcile(t *testing.T) {
 	}}
 
 	defer logtesting.ClearAll()
-	table.Test(t, MakeFactory(func(listers *Listers, opt reconciler.Options) controller.Reconciler {
+	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
 		return &Reconciler{
-			Base:      reconciler.NewBase(opt, controllerAgentName),
+			Base:      reconciler.NewBase(ctx, controllerAgentName, cmw),
 			paLister:  listers.GetPodAutoscalerLister(),
 			sksLister: listers.GetServerlessServiceLister(),
 			hpaLister: listers.GetHorizontalPodAutoscalerLister(),

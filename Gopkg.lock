@@ -447,7 +447,7 @@
   revision = "afa9ee174c6f2072b12dbb4b3bf64be8ec7bc30b"
 
 [[projects]]
-  digest = "1:b45267a59a1556334cd036b755d05659e452c6c56c93e72c986347220e8cdf26"
+  digest = "1:5766f198c6ba08344f65e2f614d65b2ac1b3ab67ce47e8f882a90517209c0d4e"
   name = "github.com/knative/pkg"
   packages = [
     "apis",
@@ -479,6 +479,26 @@
     "configmap",
     "configmap/testing",
     "controller",
+    "injection",
+    "injection/clients/dynamicclient",
+    "injection/clients/dynamicclient/fake",
+    "injection/clients/kubeclient",
+    "injection/clients/kubeclient/fake",
+    "injection/informers/kubeinformers/appsv1/deployment",
+    "injection/informers/kubeinformers/appsv1/deployment/fake",
+    "injection/informers/kubeinformers/autoscalingv1/hpa",
+    "injection/informers/kubeinformers/autoscalingv1/hpa/fake",
+    "injection/informers/kubeinformers/corev1/configmap",
+    "injection/informers/kubeinformers/corev1/configmap/fake",
+    "injection/informers/kubeinformers/corev1/endpoints",
+    "injection/informers/kubeinformers/corev1/endpoints/fake",
+    "injection/informers/kubeinformers/corev1/secret",
+    "injection/informers/kubeinformers/corev1/secret/fake",
+    "injection/informers/kubeinformers/corev1/service",
+    "injection/informers/kubeinformers/corev1/service/fake",
+    "injection/informers/kubeinformers/factory",
+    "injection/informers/kubeinformers/factory/fake",
+    "injection/sharedmain",
     "kmeta",
     "kmp",
     "logging",
@@ -504,7 +524,8 @@
     "websocket",
   ]
   pruneopts = "NUT"
-  revision = "985bff446d4e8da3ed9afaa2cefe9d91d03ae7e2"
+  revision = "14d9d2f202d0058c5ca5e7a7f1b385bd9231e2dc"
+  source = "github.com/mattmoor/pkg-1"
 
 [[projects]]
   branch = "master"
@@ -1372,6 +1393,24 @@
     "github.com/knative/pkg/configmap",
     "github.com/knative/pkg/configmap/testing",
     "github.com/knative/pkg/controller",
+    "github.com/knative/pkg/injection",
+    "github.com/knative/pkg/injection/clients/dynamicclient",
+    "github.com/knative/pkg/injection/clients/dynamicclient/fake",
+    "github.com/knative/pkg/injection/clients/kubeclient",
+    "github.com/knative/pkg/injection/clients/kubeclient/fake",
+    "github.com/knative/pkg/injection/informers/kubeinformers/appsv1/deployment",
+    "github.com/knative/pkg/injection/informers/kubeinformers/appsv1/deployment/fake",
+    "github.com/knative/pkg/injection/informers/kubeinformers/autoscalingv1/hpa",
+    "github.com/knative/pkg/injection/informers/kubeinformers/autoscalingv1/hpa/fake",
+    "github.com/knative/pkg/injection/informers/kubeinformers/corev1/configmap",
+    "github.com/knative/pkg/injection/informers/kubeinformers/corev1/configmap/fake",
+    "github.com/knative/pkg/injection/informers/kubeinformers/corev1/endpoints",
+    "github.com/knative/pkg/injection/informers/kubeinformers/corev1/endpoints/fake",
+    "github.com/knative/pkg/injection/informers/kubeinformers/corev1/secret",
+    "github.com/knative/pkg/injection/informers/kubeinformers/corev1/secret/fake",
+    "github.com/knative/pkg/injection/informers/kubeinformers/corev1/service",
+    "github.com/knative/pkg/injection/informers/kubeinformers/corev1/service/fake",
+    "github.com/knative/pkg/injection/sharedmain",
     "github.com/knative/pkg/kmeta",
     "github.com/knative/pkg/kmp",
     "github.com/knative/pkg/logging",
@@ -1458,8 +1497,6 @@
     "k8s.io/client-go/dynamic",
     "k8s.io/client-go/dynamic/fake",
     "k8s.io/client-go/informers",
-    "k8s.io/client-go/informers/apps/v1",
-    "k8s.io/client-go/informers/autoscaling/v1",
     "k8s.io/client-go/informers/core/v1",
     "k8s.io/client-go/kubernetes",
     "k8s.io/client-go/kubernetes/fake",

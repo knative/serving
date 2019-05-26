@@ -24,22 +24,25 @@ import (
 
 	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/controller"
+	"github.com/knative/pkg/injection"
+	"github.com/knative/pkg/injection/clients/kubeclient"
+	endpointsinformer "github.com/knative/pkg/injection/informers/kubeinformers/corev1/endpoints"
+	commonlogging "github.com/knative/pkg/logging"
 	pkgmetrics "github.com/knative/pkg/metrics"
 	"github.com/knative/pkg/signals"
+	"github.com/knative/pkg/system"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/autoscaler"
 	"github.com/knative/serving/pkg/autoscaler/statserver"
-	informers "github.com/knative/serving/pkg/client/informers/externalversions"
 	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/pkg/metrics"
-	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/autoscaling/hpa"
 	"github.com/knative/serving/pkg/reconciler/autoscaling/kpa"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
-	kubeinformers "k8s.io/client-go/informers"
 	corev1informers "k8s.io/client-go/informers/core/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 )
 
@@ -57,47 +60,59 @@ var (
 func main() {
 	flag.Parse()
 
-	logger, atomicLevel := setupLogger()
-	defer flush(logger)
-
 	// Set up signals so we handle the first shutdown signal gracefully.
-	stopCh := signals.SetupSignalHandler()
-	// statsCh is the main communication channel between the stats channel and multiscaler.
-	statsCh := make(chan *autoscaler.StatMessage, statsBufferLen)
-	defer close(statsCh)
+	ctx := signals.NewContext()
+
+	// Set up our logger.
+	loggingConfigMap, err := configmap.Load("/etc/config-logging")
+	if err != nil {
+		log.Fatal("Error loading logging configuration:", err)
+	}
+	loggingConfig, err := logging.NewConfigFromMap(loggingConfigMap)
+	if err != nil {
+		log.Fatal("Error parsing logging configuration:", err)
+	}
+	logger, atomicLevel := logging.NewLoggerFromConfig(loggingConfig, component)
+	defer flush(logger)
+	ctx = commonlogging.WithLogger(ctx, logger)
 
 	cfg, err := clientcmd.BuildConfigFromFlags(*masterURL, *kubeconfig)
 	if err != nil {
 		logger.Fatalw("Error building kubeconfig", zap.Error(err))
 	}
 
-	opt := reconciler.NewOptionsOrDie(cfg, logger, stopCh)
+	logger.Infof("Registering %d clients", len(injection.Default.GetClients()))
+	logger.Infof("Registering %d informer factories", len(injection.Default.GetInformerFactories()))
+	logger.Infof("Registering %d informers", len(injection.Default.GetInformers()))
+	logger.Infof("Registering %d controllers", len(injection.Default.GetControllers()))
 
+	// Adjust our client's rate limits based on the number of controller's we are running.
+	cfg.QPS = float32(len(injection.Default.GetControllers())) * rest.DefaultQPS
+	cfg.Burst = len(injection.Default.GetControllers()) * rest.DefaultBurst
+
+	ctx, informers := injection.Default.SetupInformers(ctx, cfg)
+
+	// statsCh is the main communication channel between the stats channel and multiscaler.
+	statsCh := make(chan *autoscaler.StatMessage, statsBufferLen)
+	defer close(statsCh)
+
+	cmw := configmap.NewInformedWatcher(kubeclient.Get(ctx), system.Namespace())
 	// Watch the logging config map and dynamically update logging levels.
-	opt.ConfigMapWatcher.Watch(logging.ConfigMapName(), logging.UpdateLevelFromConfigMap(logger, atomicLevel, component))
+	cmw.Watch(logging.ConfigMapName(), logging.UpdateLevelFromConfigMap(logger, atomicLevel, component))
 	// Watch the observability config map and dynamically update metrics exporter.
-	opt.ConfigMapWatcher.Watch(metrics.ObservabilityConfigName, metrics.UpdateExporterFromConfigMap(component, logger))
+	cmw.Watch(metrics.ObservabilityConfigName, metrics.UpdateExporterFromConfigMap(component, logger))
 
-	// Set up informer factories.
-	servingInformerFactory := informers.NewSharedInformerFactory(opt.ServingClientSet, opt.ResyncPeriod)
-	kubeInformerFactory := kubeinformers.NewSharedInformerFactory(opt.KubeClientSet, opt.ResyncPeriod)
-
-	// Set up informers.
-	paInformer := servingInformerFactory.Autoscaling().V1alpha1().PodAutoscalers()
-	sksInformer := servingInformerFactory.Networking().V1alpha1().ServerlessServices()
-	endpointsInformer := kubeInformerFactory.Core().V1().Endpoints()
-	serviceInformer := kubeInformerFactory.Core().V1().Services()
-	hpaInformer := kubeInformerFactory.Autoscaling().V1().HorizontalPodAutoscalers()
+	endpointsInformer := endpointsinformer.Get(ctx)
 
 	collector := autoscaler.NewMetricCollector(statsScraperFactoryFunc(endpointsInformer.Lister()), logger)
 
 	// Set up scalers.
 	// uniScalerFactory depends endpointsInformer to be set.
-	multiScaler := autoscaler.NewMultiScaler(stopCh, uniScalerFactoryFunc(endpointsInformer, collector), logger)
+	multiScaler := autoscaler.NewMultiScaler(ctx.Done(), uniScalerFactoryFunc(endpointsInformer, collector), logger)
 
 	controllers := []*controller.Impl{
-		kpa.NewController(&opt, paInformer, sksInformer, serviceInformer, endpointsInformer, multiScaler, collector),
-		hpa.NewController(&opt, paInformer, sksInformer, hpaInformer),
+		kpa.NewController(ctx, cmw, multiScaler, collector),
+		hpa.NewController(ctx, cmw),
 	}
 
 	// Set up a statserver.
@@ -105,23 +120,16 @@ func main() {
 	defer statsServer.Shutdown(time.Second * 5)
 
 	// Start watching the configs.
-	if err := opt.ConfigMapWatcher.Start(stopCh); err != nil {
+	if err := cmw.Start(ctx.Done()); err != nil {
 		logger.Fatalw("Failed to start watching configs", zap.Error(err))
 	}
 
 	// Start all of the informers and wait for them to sync.
-	if err := controller.StartInformers(
-		stopCh,
-		endpointsInformer.Informer(),
-		hpaInformer.Informer(),
-		paInformer.Informer(),
-		serviceInformer.Informer(),
-		sksInformer.Informer(),
-	); err != nil {
+	if err := controller.StartInformers(ctx.Done(), informers...); err != nil {
 		logger.Fatalw("Failed to start informers", err)
 	}
 
-	go controller.StartAll(stopCh, controllers...)
+	go controller.StartAll(ctx.Done(), controllers...)
 
 	// Run the controllers and the statserver in a group.
 	var eg errgroup.Group
@@ -151,7 +159,7 @@ func main() {
 
 	select {
 	case <-egCh:
-	case <-stopCh:
+	case <-ctx.Done():
 	}
 }
 

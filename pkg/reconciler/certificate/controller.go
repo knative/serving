@@ -19,11 +19,13 @@ package certificate
 import (
 	"context"
 
-	certmanagerclientset "github.com/jetstack/cert-manager/pkg/client/clientset/versioned"
-	certmanagerinformers "github.com/jetstack/cert-manager/pkg/client/informers/externalversions/certmanager/v1alpha1"
+	"github.com/knative/pkg/injection"
+	cmclient "github.com/knative/serving/pkg/injection/clients/certmanagerclient"
+	cmcertinformer "github.com/knative/serving/pkg/injection/informers/certmanagerinformers/certificate"
+	kcertinformer "github.com/knative/serving/pkg/injection/informers/servinginformers/certificate"
+
 	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/controller"
-	informers "github.com/knative/serving/pkg/client/informers/externalversions/networking/v1alpha1"
 	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/certificate/config"
 	"k8s.io/client-go/tools/cache"
@@ -38,19 +40,25 @@ type configStore interface {
 	WatchConfigs(w configmap.Watcher)
 }
 
+func init() {
+	injection.Default.RegisterController(NewController)
+}
+
 // NewController initializes the controller and is called by the generated code
 // Registers eventhandlers to enqueue events.
 func NewController(
-	opt reconciler.Options,
-	knCertificateInformer informers.CertificateInformer,
-	cmCertificateInformer certmanagerinformers.CertificateInformer,
-	certManagerClient certmanagerclientset.Interface,
+	ctx context.Context,
+	cmw configmap.Watcher,
 ) *controller.Impl {
+	knCertificateInformer := kcertinformer.Get(ctx)
+	cmCertificateInformer := cmcertinformer.Get(ctx)
+
 	c := &Reconciler{
-		Base:                reconciler.NewBase(opt, controllerAgentName),
+		Base:                reconciler.NewBase(ctx, controllerAgentName, cmw),
 		knCertificateLister: knCertificateInformer.Lister(),
 		cmCertificateLister: cmCertificateInformer.Lister(),
-		certManagerClient:   certManagerClient,
+		// TODO(mattmoor): Move this to the base.
+		certManagerClient: cmclient.Get(ctx),
 	}
 
 	impl := controller.NewImpl(c, c.Logger, "Certificate")
@@ -73,7 +81,7 @@ func NewController(
 		impl.GlobalResync(knCertificateInformer.Informer())
 	})
 	c.configStore = config.NewStore(c.Logger.Named("config-store"), resyncCertOnCertManagerconfigChange)
-	c.configStore.WatchConfigs(opt.ConfigMapWatcher)
+	c.configStore.WatchConfigs(cmw)
 
 	return impl
 }

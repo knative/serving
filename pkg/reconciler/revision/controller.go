@@ -20,23 +20,30 @@ import (
 	"context"
 	"net/http"
 
-	cachinginformers "github.com/knative/caching/pkg/client/informers/externalversions/caching/v1alpha1"
+	"github.com/knative/pkg/injection"
+	"github.com/knative/pkg/injection/clients/dynamicclient"
+	"github.com/knative/pkg/injection/clients/kubeclient"
+	deploymentinformer "github.com/knative/pkg/injection/informers/kubeinformers/appsv1/deployment"
+	configmapinformer "github.com/knative/pkg/injection/informers/kubeinformers/corev1/configmap"
+	endpointsinformer "github.com/knative/pkg/injection/informers/kubeinformers/corev1/endpoints"
+	serviceinformer "github.com/knative/pkg/injection/informers/kubeinformers/corev1/service"
+	imageinformer "github.com/knative/serving/pkg/injection/informers/cachinginformers/image"
+	kpainformer "github.com/knative/serving/pkg/injection/informers/servinginformers/kpa"
+	revisioninformer "github.com/knative/serving/pkg/injection/informers/servinginformers/revision"
+
 	"github.com/knative/pkg/apis/duck"
 	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/controller"
+	"github.com/knative/pkg/logging"
 	"github.com/knative/pkg/tracker"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	painformers "github.com/knative/serving/pkg/client/informers/externalversions/autoscaling/v1alpha1"
-	servinginformers "github.com/knative/serving/pkg/client/informers/externalversions/serving/v1alpha1"
 	"github.com/knative/serving/pkg/deployment"
 	"github.com/knative/serving/pkg/metrics"
 	"github.com/knative/serving/pkg/network"
 	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/revision/config"
-	appsv1informers "k8s.io/client-go/informers/apps/v1"
-	corev1informers "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -50,37 +57,44 @@ type configStore interface {
 	Load() *config.Config
 }
 
+func init() {
+	injection.Default.RegisterController(NewController)
+}
+
 // NewController initializes the controller and is called by the generated code
-// Registers eventhandlers to enqueue events.
+// Registers eventhandlers to enqueue events
 func NewController(
-	opt reconciler.Options,
-	revisionInformer servinginformers.RevisionInformer,
-	podAutoscalerInformer painformers.PodAutoscalerInformer,
-	imageInformer cachinginformers.ImageInformer,
-	deploymentInformer appsv1informers.DeploymentInformer,
-	serviceInformer corev1informers.ServiceInformer,
-	endpointsInformer corev1informers.EndpointsInformer,
-	configMapInformer corev1informers.ConfigMapInformer,
-	buildInformerFactory duck.InformerFactory,
+	ctx context.Context,
+	cmw configmap.Watcher,
 ) *controller.Impl {
 	transport := http.DefaultTransport
 	if rt, err := newResolverTransport(k8sCertPath); err != nil {
-		opt.Logger.Errorf("Failed to create resolver transport: %v", err)
+		logging.FromContext(ctx).Errorf("Failed to create resolver transport: %v", err)
 	} else {
 		transport = rt
 	}
 
+	deploymentInformer := deploymentinformer.Get(ctx)
+	serviceInformer := serviceinformer.Get(ctx)
+	endpointsInformer := endpointsinformer.Get(ctx)
+	configMapInformer := configmapinformer.Get(ctx)
+	imageInformer := imageinformer.Get(ctx)
+	revisionInformer := revisioninformer.Get(ctx)
+	kpaInformer := kpainformer.Get(ctx)
+
+	buildInformerFactory := KResourceTypedInformerFactory(ctx)
+
 	c := &Reconciler{
-		Base:                reconciler.NewBase(opt, controllerAgentName),
+		Base:                reconciler.NewBase(ctx, controllerAgentName, cmw),
 		revisionLister:      revisionInformer.Lister(),
-		podAutoscalerLister: podAutoscalerInformer.Lister(),
+		podAutoscalerLister: kpaInformer.Lister(),
 		imageLister:         imageInformer.Lister(),
 		deploymentLister:    deploymentInformer.Lister(),
 		serviceLister:       serviceInformer.Lister(),
 		endpointsLister:     endpointsInformer.Lister(),
 		configMapLister:     configMapInformer.Lister(),
 		resolver: &digestResolver{
-			client:    opt.KubeClientSet,
+			client:    kubeclient.Get(ctx),
 			transport: transport,
 		},
 	}
@@ -98,12 +112,12 @@ func NewController(
 		Handler:    controller.HandleAll(impl.EnqueueControllerOf),
 	})
 
-	podAutoscalerInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+	kpaInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: controller.Filter(v1alpha1.SchemeGroupVersion.WithKind("Revision")),
 		Handler:    controller.HandleAll(impl.EnqueueControllerOf),
 	})
 
-	c.tracker = tracker.New(impl.EnqueueKey, opt.GetTrackerLease())
+	c.tracker = tracker.New(impl.EnqueueKey, controller.GetTrackerLease(ctx))
 
 	// We don't watch for changes to Image because we don't incorporate any of its
 	// properties into our own status and should work completely in the absence of
@@ -129,17 +143,17 @@ func NewController(
 	})
 
 	c.configStore = config.NewStore(c.Logger.Named("config-store"), resync)
-	c.configStore.WatchConfigs(opt.ConfigMapWatcher)
+	c.configStore.WatchConfigs(c.ConfigMapWatcher)
 
 	return impl
 }
 
-func KResourceTypedInformerFactory(opt reconciler.Options) duck.InformerFactory {
+func KResourceTypedInformerFactory(ctx context.Context) duck.InformerFactory {
 	return &duck.TypedInformerFactory{
-		Client:       opt.DynamicClientSet,
+		Client:       dynamicclient.Get(ctx),
 		Type:         &duckv1alpha1.KResource{},
-		ResyncPeriod: opt.ResyncPeriod,
-		StopChannel:  opt.StopChannel,
+		ResyncPeriod: controller.GetResyncPeriod(ctx),
+		StopChannel:  ctx.Done(),
 	}
 }
 

@@ -17,17 +17,15 @@ limitations under the License.
 package revision
 
 import (
+	"context"
 	"testing"
 	"time"
 
 	"github.com/google/go-containerregistry/pkg/authn/k8schain"
 	"golang.org/x/sync/errgroup"
 
-	fakecachingclientset "github.com/knative/caching/pkg/client/clientset/versioned/fake"
-	cachinginformers "github.com/knative/caching/pkg/client/informers/externalversions"
-	"github.com/knative/pkg/apis/duck"
 	"github.com/knative/pkg/configmap"
-	ctrl "github.com/knative/pkg/controller"
+	"github.com/knative/pkg/controller"
 	"github.com/knative/pkg/ptr"
 	"github.com/knative/pkg/system"
 	autoscalingv1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
@@ -35,26 +33,19 @@ import (
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 	"github.com/knative/serving/pkg/autoscaler"
-	fakeclientset "github.com/knative/serving/pkg/client/clientset/versioned/fake"
-	informers "github.com/knative/serving/pkg/client/informers/externalversions"
 	"github.com/knative/serving/pkg/deployment"
+	fakeservingclient "github.com/knative/serving/pkg/injection/clients/servingclient/fake"
 	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/pkg/metrics"
 	"github.com/knative/serving/pkg/network"
-	"github.com/knative/serving/pkg/reconciler"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
-	fakedynamicclientset "k8s.io/client-go/dynamic/fake"
-	kubeinformers "k8s.io/client-go/informers"
-	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
-	"k8s.io/client-go/tools/record"
-
-	logtesting "github.com/knative/pkg/logging/testing"
 
 	. "github.com/knative/pkg/reconciler/testing"
+	. "github.com/knative/serving/pkg/reconciler/testing"
 )
 
 type nopResolver struct{}
@@ -144,58 +135,18 @@ func getTestDeploymentConfigMap() *corev1.ConfigMap {
 	}
 }
 
-func newTestController(t *testing.T, stopCh <-chan struct{}) (
-	kubeClient *fakekubeclientset.Clientset,
-	servingClient *fakeclientset.Clientset,
-	cachingClient *fakecachingclientset.Clientset,
-	dynamicClient *fakedynamicclientset.FakeDynamicClient,
-	controller *ctrl.Impl,
-	kubeInformer kubeinformers.SharedInformerFactory,
-	servingInformer informers.SharedInformerFactory,
-	cachingInformer cachinginformers.SharedInformerFactory,
-	configMapWatcher *configmap.ManualWatcher,
-	buildInformerFactory duck.InformerFactory) {
+func newTestController(t *testing.T) (
+	context.Context,
+	[]controller.Informer,
+	*controller.Impl,
+	*configmap.ManualWatcher) {
 
-	// Create fake clients
-	kubeClient = fakekubeclientset.NewSimpleClientset()
-	servingClient = fakeclientset.NewSimpleClientset()
-	cachingClient = fakecachingclientset.NewSimpleClientset()
-	dynamicClient = fakedynamicclientset.NewSimpleDynamicClient(runtime.NewScheme())
-
-	configMapWatcher = &configmap.ManualWatcher{Namespace: system.Namespace()}
-
-	opt := reconciler.Options{
-		KubeClientSet:    kubeClient,
-		ServingClientSet: servingClient,
-		DynamicClientSet: dynamicClient,
-		CachingClientSet: cachingClient,
-		ConfigMapWatcher: configMapWatcher,
-		Logger:           logtesting.TestLogger(t),
-		ResyncPeriod:     0,
-		StopChannel:      stopCh,
-		Recorder:         record.NewFakeRecorder(1000),
-	}
-	buildInformerFactory = KResourceTypedInformerFactory(opt)
-
-	// Create informer factories with fake clients. The second parameter sets the
-	// resync period to zero, disabling it.
-	kubeInformer = kubeinformers.NewSharedInformerFactory(kubeClient, opt.ResyncPeriod)
-	servingInformer = informers.NewSharedInformerFactory(servingClient, opt.ResyncPeriod)
-	cachingInformer = cachinginformers.NewSharedInformerFactory(cachingClient, opt.ResyncPeriod)
-
-	controller = NewController(
-		opt,
-		servingInformer.Serving().V1alpha1().Revisions(),
-		servingInformer.Autoscaling().V1alpha1().PodAutoscalers(),
-		cachingInformer.Caching().V1alpha1().Images(),
-		kubeInformer.Apps().V1().Deployments(),
-		kubeInformer.Core().V1().Services(),
-		kubeInformer.Core().V1().Endpoints(),
-		kubeInformer.Core().V1().ConfigMaps(),
-		buildInformerFactory,
-	)
+	ctx, informers := SetupFakeContext(t)
+	configMapWatcher := &configmap.ManualWatcher{Namespace: system.Namespace()}
+	controller := NewController(ctx, configMapWatcher)
 
 	controller.Reconciler.(*Reconciler).resolver = &nopResolver{}
+
 	configs := []*corev1.ConfigMap{
 		getTestDeploymentConfigMap(),
 		{
@@ -234,26 +185,27 @@ func newTestController(t *testing.T, stopCh <-chan struct{}) (
 				"tick-interval":                           "2s",
 			}},
 	}
-
 	for _, configMap := range configs {
 		configMapWatcher.OnChange(configMap)
 	}
 
-	return
+	return ctx, informers, controller, configMapWatcher
 }
 
 func TestNewRevisionCallsSyncHandler(t *testing.T) {
-	stopCh := make(chan struct{})
+	ctx, informers, ctrl, _ := newTestController(t)
+	ctx, cancel := context.WithCancel(ctx)
 	eg := errgroup.Group{}
 	defer func() {
-		close(stopCh)
+		cancel()
 		if err := eg.Wait(); err != nil {
 			t.Fatalf("Error running controller: %v", err)
 		}
 	}()
 
 	rev := testRevision()
-	_, servingClient, _, _, controller, kubeInformer, servingInformer, cachingInformer, configMapWatcher, _ := newTestController(t, stopCh)
+
+	servingClient := fakeservingclient.Get(ctx)
 
 	h := NewHooks()
 
@@ -264,17 +216,12 @@ func TestNewRevisionCallsSyncHandler(t *testing.T) {
 		return HookComplete
 	})
 
-	kubeInformer.Start(stopCh)
-	servingInformer.Start(stopCh)
-	cachingInformer.Start(stopCh)
-	configMapWatcher.Start(stopCh)
-
-	kubeInformer.WaitForCacheSync(stopCh)
-	servingInformer.WaitForCacheSync(stopCh)
-	cachingInformer.WaitForCacheSync(stopCh)
+	if err := controller.StartInformers(ctx.Done(), informers...); err != nil {
+		t.Fatalf("Error starting informers: %v", err)
+	}
 
 	eg.Go(func() error {
-		return controller.Run(2, stopCh)
+		return ctrl.Run(2, ctx.Done())
 	})
 
 	if _, err := servingClient.ServingV1alpha1().Revisions(rev.Namespace).Create(rev); err != nil {

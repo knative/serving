@@ -17,10 +17,17 @@ limitations under the License.
 package serverlessservice
 
 import (
+	"context"
 	"fmt"
 	"testing"
 	"time"
 
+	// Inject the fakes for informers this reconciler depends on.
+	_ "github.com/knative/pkg/injection/informers/kubeinformers/corev1/endpoints/fake"
+	_ "github.com/knative/pkg/injection/informers/kubeinformers/corev1/service/fake"
+	_ "github.com/knative/serving/pkg/injection/informers/servinginformers/serverlessservice/fake"
+
+	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/controller"
 	logtesting "github.com/knative/pkg/logging/testing"
 	"github.com/knative/pkg/ptr"
@@ -28,8 +35,6 @@ import (
 	"github.com/knative/serving/pkg/activator"
 	"github.com/knative/serving/pkg/apis/networking"
 	nv1a1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
-	fakeclientset "github.com/knative/serving/pkg/client/clientset/versioned/fake"
-	informers "github.com/knative/serving/pkg/client/informers/externalversions"
 	rpkg "github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/serverlessservice/resources"
 
@@ -38,8 +43,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	kubeinformers "k8s.io/client-go/informers"
-	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
 	clientgotesting "k8s.io/client-go/testing"
 
 	. "github.com/knative/pkg/reconciler/testing"
@@ -48,24 +51,8 @@ import (
 
 func TestNewController(t *testing.T) {
 	defer logtesting.ClearAll()
-
-	kubeClient := fakekubeclientset.NewSimpleClientset()
-	kubeInformer := kubeinformers.NewSharedInformerFactory(kubeClient, 0)
-
-	servingClient := fakeclientset.NewSimpleClientset()
-	servingInformer := informers.NewSharedInformerFactory(servingClient, 0)
-
-	sksInformer := servingInformer.Networking().V1alpha1().ServerlessServices()
-	endpointsInformer := kubeInformer.Core().V1().Endpoints()
-	servicesInformer := kubeInformer.Core().V1().Services()
-
-	opt := rpkg.Options{
-		KubeClientSet:    kubeClient,
-		ServingClientSet: servingClient,
-		Logger:           logtesting.TestLogger(t),
-	}
-	c := NewController(opt, sksInformer, servicesInformer, endpointsInformer)
-
+	ctx, _ := SetupFakeContext(t)
+	c := NewController(ctx, configmap.NewFixedWatcher())
 	if c == nil {
 		t.Fatal("Expected NewController to return a non-nil value")
 	}
@@ -533,13 +520,13 @@ func TestReconcile(t *testing.T) {
 		}}
 
 	defer logtesting.ClearAll()
-	table.Test(t, MakeFactory(func(listers *Listers, opt rpkg.Options) controller.Reconciler {
+	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
 		return &reconciler{
-			Base:              rpkg.NewBase(opt, controllerAgentName),
+			Base:              rpkg.NewBase(ctx, controllerAgentName, cmw),
 			sksLister:         listers.GetServerlessServiceLister(),
 			serviceLister:     listers.GetK8sServiceLister(),
 			endpointsLister:   listers.GetEndpointsLister(),
-			psInformerFactory: podScalableTypedInformerFactory(opt),
+			psInformerFactory: podScalableTypedInformerFactory(ctx),
 		}
 	}))
 }

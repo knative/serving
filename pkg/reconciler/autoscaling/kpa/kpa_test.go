@@ -24,6 +24,16 @@ import (
 	"testing"
 	"time"
 
+	// These are the fake informers we want setup.
+	fakedynamicclient "github.com/knative/pkg/injection/clients/dynamicclient/fake"
+	fakekubeclient "github.com/knative/pkg/injection/clients/kubeclient/fake"
+	fakeendpointsinformer "github.com/knative/pkg/injection/informers/kubeinformers/corev1/endpoints/fake"
+	fakeserviceinformer "github.com/knative/pkg/injection/informers/kubeinformers/corev1/service/fake"
+	fakeservingclient "github.com/knative/serving/pkg/injection/clients/servingclient/fake"
+	fakekpainformer "github.com/knative/serving/pkg/injection/informers/servinginformers/kpa/fake"
+	fakerevisioninformer "github.com/knative/serving/pkg/injection/informers/servinginformers/revision/fake"
+	fakesksinformer "github.com/knative/serving/pkg/injection/informers/servinginformers/serverlessservice/fake"
+
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	"github.com/google/go-cmp/cmp"
@@ -44,9 +54,6 @@ import (
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 	"github.com/knative/serving/pkg/autoscaler"
-	fakeKna "github.com/knative/serving/pkg/client/clientset/versioned/fake"
-	informers "github.com/knative/serving/pkg/client/informers/externalversions"
-	"github.com/knative/serving/pkg/reconciler"
 	rpkg "github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/autoscaling/config"
 	"github.com/knative/serving/pkg/reconciler/autoscaling/kpa/resources"
@@ -54,15 +61,12 @@ import (
 	revisionresources "github.com/knative/serving/pkg/reconciler/revision/resources"
 	presources "github.com/knative/serving/pkg/resources"
 	perrors "github.com/pkg/errors"
-	fakedynamic "k8s.io/client-go/dynamic/fake"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	kubeinformers "k8s.io/client-go/informers"
-	fakeK8s "k8s.io/client-go/kubernetes/fake"
 	clientgotesting "k8s.io/client-go/testing"
 
 	. "github.com/knative/pkg/reconciler/testing"
@@ -275,22 +279,20 @@ func TestReconcileAndScaleToZero(t *testing.T) {
 	}}
 
 	defer logtesting.ClearAll()
-	table.Test(t, MakeFactory(func(listers *Listers, opt rpkg.Options) controller.Reconciler {
+	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
 		fakeDeciders := newTestDeciders()
 		// Make sure we want to scale to 0.
 		decider := resources.MakeDecider(
-			context.Background(), kpa(testNamespace, testRevision), defaultConfig().Autoscaler, "not-important-here")
+			ctx, kpa(testNamespace, testRevision), defaultConfig().Autoscaler, "not-important-here")
 		decider.Status.DesiredScale = 0
 		decider.Generation = 42
-		fakeDeciders.Create(context.Background(), decider)
-
-		opt.ConfigMapWatcher = newConfigWatcher()
+		fakeDeciders.Create(ctx, decider)
 
 		fakeMetrics := newTestMetrics()
-		scaler := newScaler(&opt, func(interface{}, time.Duration) {})
+		scaler := newScaler(ctx, func(interface{}, time.Duration) {})
 		scaler.activatorProbe = func(*asv1a1.PodAutoscaler) (bool, error) { return true, nil }
 		return &Reconciler{
-			Base:            rpkg.NewBase(opt, controllerAgentName),
+			Base:            rpkg.NewBase(ctx, controllerAgentName, newConfigWatcher()),
 			paLister:        listers.GetPodAutoscalerLister(),
 			sksLister:       listers.GetServerlessServiceLister(),
 			serviceLister:   listers.GetK8sServiceLister(),
@@ -661,29 +663,27 @@ func TestReconcile(t *testing.T) {
 	}}
 
 	defer logtesting.ClearAll()
-	table.Test(t, MakeFactory(func(listers *Listers, opt rpkg.Options) controller.Reconciler {
+	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
 		fakeDeciders := newTestDeciders()
 		// TODO(vagababov): see if we can get rid of the static piece of configuration and
 		// constant namespace and revision names.
 		// Make sure we don't want to scale to 0.
 		decider := resources.MakeDecider(
-			context.Background(), kpa(testNamespace, testRevision), defaultConfig().Autoscaler, "trying-hard-to-care-in-this-test")
+			ctx, kpa(testNamespace, testRevision), defaultConfig().Autoscaler, "trying-hard-to-care-in-this-test")
 		decider.Status.DesiredScale = desiredScale
 		decider.Generation = 2112
-		fakeDeciders.Create(context.Background(), decider)
-
-		opt.ConfigMapWatcher = newConfigWatcher()
+		fakeDeciders.Create(ctx, decider)
 
 		fakeMetrics := newTestMetrics()
 		return &Reconciler{
-			Base:            rpkg.NewBase(opt, controllerAgentName),
+			Base:            rpkg.NewBase(ctx, controllerAgentName, newConfigWatcher()),
 			paLister:        listers.GetPodAutoscalerLister(),
 			sksLister:       listers.GetServerlessServiceLister(),
 			serviceLister:   listers.GetK8sServiceLister(),
 			endpointsLister: listers.GetEndpointsLister(),
 			kpaDeciders:     fakeDeciders,
 			metrics:         fakeMetrics,
-			scaler:          newScaler(&opt, func(interface{}, time.Duration) {}),
+			scaler:          newScaler(ctx, func(interface{}, time.Duration) {}),
 			configStore:     &testConfigStore{config: defaultConfig()},
 		}
 	}))
@@ -716,33 +716,12 @@ func deploy(namespace, name string, opts ...deploymentOption) *appsv1.Deployment
 
 func TestGlobalResyncOnUpdateAutoscalerConfigMap(t *testing.T) {
 	defer logtesting.ClearAll()
-
-	kubeClient := fakeK8s.NewSimpleClientset()
-	servingClient := fakeKna.NewSimpleClientset()
-	dynamicClient := fakedynamic.NewSimpleDynamicClient(runtime.NewScheme())
+	ctx, informers := SetupFakeContext(t)
 	watcher := &configmap.ManualWatcher{Namespace: system.Namespace()}
-
-	opts := reconciler.Options{
-		KubeClientSet:    kubeClient,
-		ServingClientSet: servingClient,
-		DynamicClientSet: dynamicClient,
-		Logger:           logtesting.TestLogger(t),
-		ConfigMapWatcher: watcher,
-	}
-
-	servingInformer := informers.NewSharedInformerFactory(servingClient, 0)
-	kubeInformer := kubeinformers.NewSharedInformerFactory(kubeClient, 0)
 
 	fakeDeciders := newTestDeciders()
 	fakeMetrics := newTestMetrics()
-	ctl := NewController(&opts,
-		servingInformer.Autoscaling().V1alpha1().PodAutoscalers(),
-		servingInformer.Networking().V1alpha1().ServerlessServices(),
-		kubeInformer.Core().V1().Services(),
-		kubeInformer.Core().V1().Endpoints(),
-		fakeDeciders,
-		fakeMetrics,
-	)
+	ctl := NewController(ctx, watcher, fakeDeciders, fakeMetrics)
 
 	// Load default config
 	watcher.OnChange(&corev1.ConfigMap{
@@ -753,32 +732,30 @@ func TestGlobalResyncOnUpdateAutoscalerConfigMap(t *testing.T) {
 		Data: defaultConfigMapData(),
 	})
 
-	stopCh := make(chan struct{})
+	ctx, cancel := context.WithCancel(ctx)
 	grp := errgroup.Group{}
 	defer func() {
-		close(stopCh)
+		cancel()
 		if err := grp.Wait(); err != nil {
 			t.Errorf("Wait() = %v", err)
 		}
 	}()
 
-	servingInformer.Start(stopCh)
-	kubeInformer.Start(stopCh)
-	if err := watcher.Start(stopCh); err != nil {
+	if err := controller.StartInformers(ctx.Done(), informers...); err != nil {
+		t.Fatalf("failed to start informers: %v", err)
+	}
+	if err := watcher.Start(ctx.Done()); err != nil {
 		t.Fatalf("failed to start configmap watcher: %v", err)
 	}
 
-	servingInformer.WaitForCacheSync(stopCh)
-	kubeInformer.WaitForCacheSync(stopCh)
-
-	grp.Go(func() error { return ctl.Run(1, stopCh) })
+	grp.Go(func() error { controller.StartAll(ctx.Done(), ctl); return nil })
 
 	rev := newTestRevision(testNamespace, testRevision)
-	newDeployment(t, dynamicClient, testRevision+"-deployment", 3)
+	newDeployment(t, fakedynamicclient.Get(ctx), testRevision+"-deployment", 3)
 
 	kpa := revisionresources.MakeKPA(rev)
-	servingClient.AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
-	servingInformer.Autoscaling().V1alpha1().PodAutoscalers().Informer().GetIndexer().Add(kpa)
+	fakeservingclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
+	fakekpainformer.Get(ctx).Informer().GetIndexer().Add(kpa)
 
 	// Wait for decider to be created.
 	if decider, err := pollDeciders(fakeDeciders, testNamespace, testRevision, nil); err != nil {
@@ -811,57 +788,36 @@ func TestGlobalResyncOnUpdateAutoscalerConfigMap(t *testing.T) {
 
 func TestControllerSynchronizesCreatesAndDeletes(t *testing.T) {
 	defer logtesting.ClearAll()
-
-	kubeClient := fakeK8s.NewSimpleClientset()
-	servingClient := fakeKna.NewSimpleClientset()
-	dynamicClient := fakedynamic.NewSimpleDynamicClient(runtime.NewScheme())
-
-	opts := reconciler.Options{
-		KubeClientSet:    kubeClient,
-		ServingClientSet: servingClient,
-		DynamicClientSet: dynamicClient,
-		Logger:           logtesting.TestLogger(t),
-		ConfigMapWatcher: newConfigWatcher(),
-	}
-
-	servingInformer := informers.NewSharedInformerFactory(servingClient, 0)
-	kubeInformer := kubeinformers.NewSharedInformerFactory(kubeClient, 0)
+	ctx, _ := SetupFakeContext(t)
 
 	fakeDeciders := newTestDeciders()
 	fakeMetrics := newTestMetrics()
-	ctl := NewController(&opts,
-		servingInformer.Autoscaling().V1alpha1().PodAutoscalers(),
-		servingInformer.Networking().V1alpha1().ServerlessServices(),
-		kubeInformer.Core().V1().Services(),
-		kubeInformer.Core().V1().Endpoints(),
-		fakeDeciders,
-		fakeMetrics,
-	)
+	ctl := NewController(ctx, newConfigWatcher(), fakeDeciders, fakeMetrics)
 
 	rev := newTestRevision(testNamespace, testRevision)
-	servingClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
-	servingInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
+	fakeservingclient.Get(ctx).ServingV1alpha1().Revisions(testNamespace).Create(rev)
+	fakerevisioninformer.Get(ctx).Informer().GetIndexer().Add(rev)
 
 	ep := makeSKSPrivateEndpoints(1, testNamespace, testRevision)
-	kubeClient.CoreV1().Endpoints(testNamespace).Create(ep)
-	kubeInformer.Core().V1().Endpoints().Informer().GetIndexer().Add(ep)
+	fakekubeclient.Get(ctx).CoreV1().Endpoints(testNamespace).Create(ep)
+	fakeendpointsinformer.Get(ctx).Informer().GetIndexer().Add(ep)
 
-	newDeployment(t, dynamicClient, testRevision+"-deployment", 3)
+	newDeployment(t, fakedynamicclient.Get(ctx), testRevision+"-deployment", 3)
 
 	kpa := revisionresources.MakeKPA(rev)
-	servingClient.AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
-	servingInformer.Autoscaling().V1alpha1().PodAutoscalers().Informer().GetIndexer().Add(kpa)
+	fakeservingclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
+	fakekpainformer.Get(ctx).Informer().GetIndexer().Add(kpa)
 
 	sks := sks(testNamespace, testRevision, WithDeployRef(kpa.Spec.ScaleTargetRef.Name),
 		WithSKSReady)
-	servingClient.NetworkingV1alpha1().ServerlessServices(testNamespace).Create(sks)
-	servingInformer.Networking().V1alpha1().ServerlessServices().Informer().GetIndexer().Add(sks)
+	fakeservingclient.Get(ctx).NetworkingV1alpha1().ServerlessServices(testNamespace).Create(sks)
+	fakesksinformer.Get(ctx).Informer().GetIndexer().Add(sks)
 
 	msvc := resources.MakeMetricsService(kpa, map[string]string{
 		serving.RevisionLabelKey: rev.Name,
 	})
-	kubeClient.CoreV1().Services(testNamespace).Create(msvc)
-	kubeInformer.Core().V1().Services().Informer().GetIndexer().Add(msvc)
+	fakekubeclient.Get(ctx).CoreV1().Services(testNamespace).Create(msvc)
+	fakeserviceinformer.Get(ctx).Informer().GetIndexer().Add(msvc)
 
 	// Wait for the Reconcile to complete.
 	if err := ctl.Reconciler.Reconcile(context.Background(), testNamespace+"/"+testRevision); err != nil {
@@ -872,7 +828,7 @@ func TestControllerSynchronizesCreatesAndDeletes(t *testing.T) {
 		t.Fatalf("Create called %d times instead of once", count)
 	}
 
-	newKPA, err := servingClient.AutoscalingV1alpha1().PodAutoscalers(kpa.Namespace).Get(
+	newKPA, err := fakeservingclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(kpa.Namespace).Get(
 		kpa.Name, metav1.GetOptions{})
 	if err != nil {
 		t.Errorf("Get() = %v", err)
@@ -881,10 +837,10 @@ func TestControllerSynchronizesCreatesAndDeletes(t *testing.T) {
 		t.Error("Status.IsReady() was false")
 	}
 
-	servingClient.ServingV1alpha1().Revisions(testNamespace).Delete(testRevision, nil)
-	servingInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Delete(rev)
-	servingClient.AutoscalingV1alpha1().PodAutoscalers(testNamespace).Delete(testRevision, nil)
-	servingInformer.Autoscaling().V1alpha1().PodAutoscalers().Informer().GetIndexer().Delete(kpa)
+	fakeservingclient.Get(ctx).ServingV1alpha1().Revisions(testNamespace).Delete(testRevision, nil)
+	fakerevisioninformer.Get(ctx).Informer().GetIndexer().Delete(rev)
+	fakeservingclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(testNamespace).Delete(testRevision, nil)
+	fakekpainformer.Get(ctx).Informer().GetIndexer().Delete(kpa)
 	if err := ctl.Reconciler.Reconcile(context.Background(), testNamespace+"/"+testRevision); err != nil {
 		t.Errorf("Reconcile() = %v", err)
 	}
@@ -906,58 +862,37 @@ func TestControllerSynchronizesCreatesAndDeletes(t *testing.T) {
 
 func TestUpdate(t *testing.T) {
 	defer logtesting.ClearAll()
-
-	kubeClient := fakeK8s.NewSimpleClientset()
-	servingClient := fakeKna.NewSimpleClientset()
-	dynamicClient := fakedynamic.NewSimpleDynamicClient(runtime.NewScheme())
-
-	opts := reconciler.Options{
-		KubeClientSet:    kubeClient,
-		ServingClientSet: servingClient,
-		DynamicClientSet: dynamicClient,
-		Logger:           logtesting.TestLogger(t),
-		ConfigMapWatcher: newConfigWatcher(),
-	}
-
-	servingInformer := informers.NewSharedInformerFactory(servingClient, 0)
-	kubeInformer := kubeinformers.NewSharedInformerFactory(kubeClient, 0)
+	ctx, _ := SetupFakeContext(t)
 
 	fakeDeciders := newTestDeciders()
 	fakeMetrics := newTestMetrics()
-	ctl := NewController(&opts,
-		servingInformer.Autoscaling().V1alpha1().PodAutoscalers(),
-		servingInformer.Networking().V1alpha1().ServerlessServices(),
-		kubeInformer.Core().V1().Services(),
-		kubeInformer.Core().V1().Endpoints(),
-		fakeDeciders,
-		fakeMetrics,
-	)
+	ctl := NewController(ctx, newConfigWatcher(), fakeDeciders, fakeMetrics)
 
 	rev := newTestRevision(testNamespace, testRevision)
-	servingClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
-	servingInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
+	fakeservingclient.Get(ctx).ServingV1alpha1().Revisions(testNamespace).Create(rev)
+	fakerevisioninformer.Get(ctx).Informer().GetIndexer().Add(rev)
 
-	newDeployment(t, dynamicClient, testRevision+"-deployment", 3)
+	newDeployment(t, fakedynamicclient.Get(ctx), testRevision+"-deployment", 3)
 
 	ep := makeSKSPrivateEndpoints(1, testNamespace, testRevision)
-	kubeClient.CoreV1().Endpoints(testNamespace).Create(ep)
-	kubeInformer.Core().V1().Endpoints().Informer().GetIndexer().Add(ep)
+	fakekubeclient.Get(ctx).CoreV1().Endpoints(testNamespace).Create(ep)
+	fakeendpointsinformer.Get(ctx).Informer().GetIndexer().Add(ep)
 
 	kpa := revisionresources.MakeKPA(rev)
 	kpa.SetDefaults(context.Background())
-	servingClient.AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
-	servingInformer.Autoscaling().V1alpha1().PodAutoscalers().Informer().GetIndexer().Add(kpa)
+	fakeservingclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
+	fakekpainformer.Get(ctx).Informer().GetIndexer().Add(kpa)
 
 	msvc := resources.MakeMetricsService(kpa, map[string]string{
 		serving.RevisionLabelKey: rev.Name,
 	})
-	kubeClient.CoreV1().Services(testNamespace).Create(msvc)
-	kubeInformer.Core().V1().Services().Informer().GetIndexer().Add(msvc)
+	fakekubeclient.Get(ctx).CoreV1().Services(testNamespace).Create(msvc)
+	fakeserviceinformer.Get(ctx).Informer().GetIndexer().Add(msvc)
 
 	sks := sks(testNamespace, testRevision, WithDeployRef(kpa.Spec.ScaleTargetRef.Name),
 		WithSKSReady)
-	servingClient.NetworkingV1alpha1().ServerlessServices(testNamespace).Create(sks)
-	servingInformer.Networking().V1alpha1().ServerlessServices().Informer().GetIndexer().Add(sks)
+	fakeservingclient.Get(ctx).NetworkingV1alpha1().ServerlessServices(testNamespace).Create(sks)
+	fakesksinformer.Get(ctx).Informer().GetIndexer().Add(sks)
 
 	decider := resources.MakeDecider(context.Background(), kpa, defaultConfig().Autoscaler, msvc.Name)
 
@@ -978,7 +913,7 @@ func TestUpdate(t *testing.T) {
 		t.Errorf("decider mismatch: diff(+got, -want): %s", cmp.Diff(got, want))
 	}
 
-	newKPA, err := servingClient.AutoscalingV1alpha1().PodAutoscalers(kpa.Namespace).Get(
+	newKPA, err := fakeservingclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(kpa.Namespace).Get(
 		kpa.Name, metav1.GetOptions{})
 	if err != nil {
 		t.Errorf("Get() = %v", err)
@@ -989,8 +924,8 @@ func TestUpdate(t *testing.T) {
 
 	// Update the KPA container concurrency.
 	kpa.Spec.ContainerConcurrency = 2
-	servingClient.AutoscalingV1alpha1().PodAutoscalers(testNamespace).Update(kpa)
-	servingInformer.Autoscaling().V1alpha1().PodAutoscalers().Informer().GetIndexer().Update(kpa)
+	fakeservingclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(testNamespace).Update(kpa)
+	fakekpainformer.Get(ctx).Informer().GetIndexer().Update(kpa)
 
 	if err := ctl.Reconciler.Reconcile(context.Background(), testNamespace+"/"+testRevision); err != nil {
 		t.Errorf("Reconcile() = %v", err)
@@ -1003,43 +938,22 @@ func TestUpdate(t *testing.T) {
 
 func TestNonKPAClass(t *testing.T) {
 	defer logtesting.ClearAll()
-
-	kubeClient := fakeK8s.NewSimpleClientset()
-	servingClient := fakeKna.NewSimpleClientset()
-	dynamicClient := fakedynamic.NewSimpleDynamicClient(runtime.NewScheme())
-
-	opts := reconciler.Options{
-		KubeClientSet:    kubeClient,
-		ServingClientSet: servingClient,
-		DynamicClientSet: dynamicClient,
-		Logger:           logtesting.TestLogger(t),
-		ConfigMapWatcher: newConfigWatcher(),
-	}
-
-	servingInformer := informers.NewSharedInformerFactory(servingClient, 0)
-	kubeInformer := kubeinformers.NewSharedInformerFactory(kubeClient, 0)
+	ctx, _ := SetupFakeContext(t)
 
 	fakeDeciders := newTestDeciders()
 	fakeMetrics := newTestMetrics()
-	ctl := NewController(&opts,
-		servingInformer.Autoscaling().V1alpha1().PodAutoscalers(),
-		servingInformer.Networking().V1alpha1().ServerlessServices(),
-		kubeInformer.Core().V1().Services(),
-		kubeInformer.Core().V1().Endpoints(),
-		fakeDeciders,
-		fakeMetrics,
-	)
+	ctl := NewController(ctx, newConfigWatcher(), fakeDeciders, fakeMetrics)
 
 	rev := newTestRevision(testNamespace, testRevision)
 	rev.Annotations = map[string]string{
 		autoscaling.ClassAnnotationKey: autoscaling.HPA, // non "kpa" class
 	}
 
-	servingClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
-	servingInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
+	fakeservingclient.Get(ctx).ServingV1alpha1().Revisions(testNamespace).Create(rev)
+	fakerevisioninformer.Get(ctx).Informer().GetIndexer().Add(rev)
 	kpa := revisionresources.MakeKPA(rev)
-	servingClient.AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
-	servingInformer.Autoscaling().V1alpha1().PodAutoscalers().Informer().GetIndexer().Add(kpa)
+	fakeservingclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
+	fakekpainformer.Get(ctx).Informer().GetIndexer().Add(kpa)
 
 	// Wait for the Reconcile to complete.
 	if err := ctl.Reconciler.Reconcile(context.Background(), testNamespace+"/"+testRevision); err != nil {
@@ -1057,47 +971,26 @@ func TestNonKPAClass(t *testing.T) {
 
 func TestNoEndpoints(t *testing.T) {
 	defer logtesting.ClearAll()
+	ctx, _ := SetupFakeContext(t)
 
-	kubeClient := fakeK8s.NewSimpleClientset()
-	servingClient := fakeKna.NewSimpleClientset()
-	dynamicClient := fakedynamic.NewSimpleDynamicClient(runtime.NewScheme())
-
-	opts := reconciler.Options{
-		KubeClientSet:    kubeClient,
-		ServingClientSet: servingClient,
-		DynamicClientSet: dynamicClient,
-		Logger:           logtesting.TestLogger(t),
-		ConfigMapWatcher: newConfigWatcher(),
-	}
-
-	servingInformer := informers.NewSharedInformerFactory(servingClient, 0)
-	kubeInformer := kubeinformers.NewSharedInformerFactory(kubeClient, 0)
-
-	ctl := NewController(&opts,
-		servingInformer.Autoscaling().V1alpha1().PodAutoscalers(),
-		servingInformer.Networking().V1alpha1().ServerlessServices(),
-		kubeInformer.Core().V1().Services(),
-		kubeInformer.Core().V1().Endpoints(),
-		newTestDeciders(),
-		newTestMetrics(),
-	)
+	ctl := NewController(ctx, newConfigWatcher(), newTestDeciders(), newTestMetrics())
 
 	rev := newTestRevision(testNamespace, testRevision)
-	servingClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
-	servingInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
+	fakeservingclient.Get(ctx).ServingV1alpha1().Revisions(testNamespace).Create(rev)
+	fakerevisioninformer.Get(ctx).Informer().GetIndexer().Add(rev)
 
 	kpa := revisionresources.MakeKPA(rev)
-	servingClient.AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
-	servingInformer.Autoscaling().V1alpha1().PodAutoscalers().Informer().GetIndexer().Add(kpa)
+	fakeservingclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
+	fakekpainformer.Get(ctx).Informer().GetIndexer().Add(kpa)
 
-	newDeployment(t, dynamicClient, testRevision+"-deployment", 3)
+	newDeployment(t, fakedynamicclient.Get(ctx), testRevision+"-deployment", 3)
 
 	// Wait for the Reconcile to complete.
 	if err := ctl.Reconciler.Reconcile(context.Background(), testNamespace+"/"+testRevision); err != nil {
 		t.Errorf("Reconcile() = %v", err)
 	}
 
-	newKPA, err := servingClient.AutoscalingV1alpha1().PodAutoscalers(kpa.Namespace).Get(
+	newKPA, err := fakeservingclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(kpa.Namespace).Get(
 		kpa.Name, metav1.GetOptions{})
 	if err != nil {
 		t.Errorf("Get() = %v", err)
@@ -1109,47 +1002,26 @@ func TestNoEndpoints(t *testing.T) {
 
 func TestEmptyEndpoints(t *testing.T) {
 	defer logtesting.ClearAll()
+	ctx, _ := SetupFakeContext(t)
 
-	kubeClient := fakeK8s.NewSimpleClientset()
-	servingClient := fakeKna.NewSimpleClientset()
-	dynamicClient := fakedynamic.NewSimpleDynamicClient(runtime.NewScheme())
-
-	opts := reconciler.Options{
-		KubeClientSet:    kubeClient,
-		ServingClientSet: servingClient,
-		DynamicClientSet: dynamicClient,
-		Logger:           logtesting.TestLogger(t),
-		ConfigMapWatcher: newConfigWatcher(),
-	}
-
-	servingInformer := informers.NewSharedInformerFactory(servingClient, 0)
-	kubeInformer := kubeinformers.NewSharedInformerFactory(kubeClient, 0)
-
-	ctl := NewController(&opts,
-		servingInformer.Autoscaling().V1alpha1().PodAutoscalers(),
-		servingInformer.Networking().V1alpha1().ServerlessServices(),
-		kubeInformer.Core().V1().Services(),
-		kubeInformer.Core().V1().Endpoints(),
-		newTestDeciders(),
-		newTestMetrics(),
-	)
+	ctl := NewController(ctx, newConfigWatcher(), newTestDeciders(), newTestMetrics())
 
 	rev := newTestRevision(testNamespace, testRevision)
-	servingClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
-	servingInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
+	fakeservingclient.Get(ctx).ServingV1alpha1().Revisions(testNamespace).Create(rev)
+	fakerevisioninformer.Get(ctx).Informer().GetIndexer().Add(rev)
 
-	newDeployment(t, dynamicClient, testRevision+"-deployment", 3)
+	newDeployment(t, fakedynamicclient.Get(ctx), testRevision+"-deployment", 3)
 
 	kpa := revisionresources.MakeKPA(rev)
-	servingClient.AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
-	servingInformer.Autoscaling().V1alpha1().PodAutoscalers().Informer().GetIndexer().Add(kpa)
+	fakeservingclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
+	fakekpainformer.Get(ctx).Informer().GetIndexer().Add(kpa)
 
 	// Wait for the Reconcile to complete.
 	if err := ctl.Reconciler.Reconcile(context.Background(), testNamespace+"/"+testRevision); err != nil {
 		t.Errorf("Reconcile() = %v", err)
 	}
 
-	newKPA, err := servingClient.AutoscalingV1alpha1().PodAutoscalers(kpa.Namespace).Get(
+	newKPA, err := fakeservingclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(kpa.Namespace).Get(
 		kpa.Name, metav1.GetOptions{})
 	if err != nil {
 		t.Errorf("Get() = %v", err)
@@ -1161,29 +1033,12 @@ func TestEmptyEndpoints(t *testing.T) {
 
 func TestControllerCreateError(t *testing.T) {
 	defer logtesting.ClearAll()
-
-	kubeClient := fakeK8s.NewSimpleClientset()
-	servingClient := fakeKna.NewSimpleClientset()
-	dynamicClient := fakedynamic.NewSimpleDynamicClient(runtime.NewScheme())
+	ctx, _ := SetupFakeContext(t)
 
 	key := testNamespace + "/" + testRevision
 	want := apierrors.NewBadRequest("asdf")
 
-	opts := reconciler.Options{
-		KubeClientSet:    kubeClient,
-		ServingClientSet: servingClient,
-		DynamicClientSet: dynamicClient,
-		Logger:           logtesting.TestLogger(t),
-		ConfigMapWatcher: newConfigWatcher(),
-	}
-
-	servingInformer := informers.NewSharedInformerFactory(servingClient, 0)
-	kubeInformer := kubeinformers.NewSharedInformerFactory(kubeClient, 0)
-	ctl := NewController(&opts,
-		servingInformer.Autoscaling().V1alpha1().PodAutoscalers(),
-		servingInformer.Networking().V1alpha1().ServerlessServices(),
-		kubeInformer.Core().V1().Services(),
-		kubeInformer.Core().V1().Endpoints(),
+	ctl := NewController(ctx, newConfigWatcher(),
 		&failingDeciders{
 			getErr:    apierrors.NewNotFound(asv1a1.Resource("Deciders"), key),
 			createErr: want,
@@ -1192,10 +1047,10 @@ func TestControllerCreateError(t *testing.T) {
 	)
 
 	kpa := revisionresources.MakeKPA(newTestRevision(testNamespace, testRevision))
-	servingClient.AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
-	servingInformer.Autoscaling().V1alpha1().PodAutoscalers().Informer().GetIndexer().Add(kpa)
+	fakeservingclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
+	fakekpainformer.Get(ctx).Informer().GetIndexer().Add(kpa)
 
-	newDeployment(t, dynamicClient, testRevision+"-deployment", 3)
+	newDeployment(t, fakedynamicclient.Get(ctx), testRevision+"-deployment", 3)
 
 	got := perrors.Cause(ctl.Reconciler.Reconcile(context.Background(), key))
 	if got != want {
@@ -1205,29 +1060,12 @@ func TestControllerCreateError(t *testing.T) {
 
 func TestControllerUpdateError(t *testing.T) {
 	defer logtesting.ClearAll()
-
-	kubeClient := fakeK8s.NewSimpleClientset()
-	servingClient := fakeKna.NewSimpleClientset()
-	dynamicClient := fakedynamic.NewSimpleDynamicClient(runtime.NewScheme())
+	ctx, _ := SetupFakeContext(t)
 
 	key := testNamespace + "/" + testRevision
 	want := apierrors.NewBadRequest("asdf")
 
-	opts := reconciler.Options{
-		KubeClientSet:    kubeClient,
-		ServingClientSet: servingClient,
-		DynamicClientSet: dynamicClient,
-		Logger:           logtesting.TestLogger(t),
-		ConfigMapWatcher: newConfigWatcher(),
-	}
-
-	servingInformer := informers.NewSharedInformerFactory(servingClient, 0)
-	kubeInformer := kubeinformers.NewSharedInformerFactory(kubeClient, 0)
-	ctl := NewController(&opts,
-		servingInformer.Autoscaling().V1alpha1().PodAutoscalers(),
-		servingInformer.Networking().V1alpha1().ServerlessServices(),
-		kubeInformer.Core().V1().Services(),
-		kubeInformer.Core().V1().Endpoints(),
+	ctl := NewController(ctx, newConfigWatcher(),
 		&failingDeciders{
 			getErr:    apierrors.NewNotFound(asv1a1.Resource("Deciders"), key),
 			createErr: want,
@@ -1236,10 +1074,10 @@ func TestControllerUpdateError(t *testing.T) {
 	)
 
 	kpa := revisionresources.MakeKPA(newTestRevision(testNamespace, testRevision))
-	servingClient.AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
-	servingInformer.Autoscaling().V1alpha1().PodAutoscalers().Informer().GetIndexer().Add(kpa)
+	fakeservingclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
+	fakekpainformer.Get(ctx).Informer().GetIndexer().Add(kpa)
 
-	newDeployment(t, dynamicClient, testRevision+"-deployment", 3)
+	newDeployment(t, fakedynamicclient.Get(ctx), testRevision+"-deployment", 3)
 
 	got := perrors.Cause(ctl.Reconciler.Reconcile(context.Background(), key))
 	if got != want {
@@ -1249,30 +1087,12 @@ func TestControllerUpdateError(t *testing.T) {
 
 func TestControllerGetError(t *testing.T) {
 	defer logtesting.ClearAll()
-
-	kubeClient := fakeK8s.NewSimpleClientset()
-	servingClient := fakeKna.NewSimpleClientset()
-	dynamicClient := fakedynamic.NewSimpleDynamicClient(runtime.NewScheme())
+	ctx, _ := SetupFakeContext(t)
 
 	key := testNamespace + "/" + testRevision
 	want := apierrors.NewBadRequest("asdf")
 
-	opts := reconciler.Options{
-		KubeClientSet:    kubeClient,
-		ServingClientSet: servingClient,
-		DynamicClientSet: dynamicClient,
-		Logger:           logtesting.TestLogger(t),
-		ConfigMapWatcher: newConfigWatcher(),
-	}
-
-	servingInformer := informers.NewSharedInformerFactory(servingClient, 0)
-	kubeInformer := kubeinformers.NewSharedInformerFactory(kubeClient, 0)
-
-	ctl := NewController(&opts,
-		servingInformer.Autoscaling().V1alpha1().PodAutoscalers(),
-		servingInformer.Networking().V1alpha1().ServerlessServices(),
-		kubeInformer.Core().V1().Services(),
-		kubeInformer.Core().V1().Endpoints(),
+	ctl := NewController(ctx, newConfigWatcher(),
 		&failingDeciders{
 			getErr: want,
 		},
@@ -1280,10 +1100,10 @@ func TestControllerGetError(t *testing.T) {
 	)
 
 	kpa := revisionresources.MakeKPA(newTestRevision(testNamespace, testRevision))
-	servingClient.AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
-	servingInformer.Autoscaling().V1alpha1().PodAutoscalers().Informer().GetIndexer().Add(kpa)
+	fakeservingclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
+	fakekpainformer.Get(ctx).Informer().GetIndexer().Add(kpa)
 
-	newDeployment(t, dynamicClient, testRevision+"-deployment", 3)
+	newDeployment(t, fakedynamicclient.Get(ctx), testRevision+"-deployment", 3)
 
 	got := perrors.Cause(ctl.Reconciler.Reconcile(context.Background(), key))
 	if got != want {
@@ -1293,37 +1113,16 @@ func TestControllerGetError(t *testing.T) {
 
 func TestScaleFailure(t *testing.T) {
 	defer logtesting.ClearAll()
+	ctx, _ := SetupFakeContext(t)
 
-	kubeClient := fakeK8s.NewSimpleClientset()
-	servingClient := fakeKna.NewSimpleClientset()
-	dynamicClient := fakedynamic.NewSimpleDynamicClient(runtime.NewScheme())
-
-	opts := reconciler.Options{
-		KubeClientSet:    kubeClient,
-		ServingClientSet: servingClient,
-		DynamicClientSet: dynamicClient,
-		Logger:           logtesting.TestLogger(t),
-		ConfigMapWatcher: newConfigWatcher(),
-	}
-
-	servingInformer := informers.NewSharedInformerFactory(servingClient, 0)
-	kubeInformer := kubeinformers.NewSharedInformerFactory(kubeClient, 0)
-
-	ctl := NewController(&opts,
-		servingInformer.Autoscaling().V1alpha1().PodAutoscalers(),
-		servingInformer.Networking().V1alpha1().ServerlessServices(),
-		kubeInformer.Core().V1().Services(),
-		kubeInformer.Core().V1().Endpoints(),
-		newTestDeciders(),
-		newTestMetrics(),
-	)
+	ctl := NewController(ctx, newConfigWatcher(), newTestDeciders(), newTestMetrics())
 
 	// Only put the KPA in the lister, which will prompt failures scaling it.
 	rev := newTestRevision(testNamespace, testRevision)
 	kpa := revisionresources.MakeKPA(rev)
-	servingInformer.Autoscaling().V1alpha1().PodAutoscalers().Informer().GetIndexer().Add(kpa)
+	fakekpainformer.Get(ctx).Informer().GetIndexer().Add(kpa)
 
-	newDeployment(t, dynamicClient, testRevision+"-deployment", 3)
+	newDeployment(t, fakedynamicclient.Get(ctx), testRevision+"-deployment", 3)
 
 	if err := ctl.Reconciler.Reconcile(context.Background(), testNamespace+"/"+testRevision); err == nil {
 		t.Error("Reconcile() = nil, wanted error")
@@ -1332,29 +1131,9 @@ func TestScaleFailure(t *testing.T) {
 
 func TestBadKey(t *testing.T) {
 	defer logtesting.ClearAll()
+	ctx, _ := SetupFakeContext(t)
 
-	kubeClient := fakeK8s.NewSimpleClientset()
-	servingClient := fakeKna.NewSimpleClientset()
-	dynamicClient := fakedynamic.NewSimpleDynamicClient(runtime.NewScheme())
-
-	opts := &reconciler.Options{
-		KubeClientSet:    kubeClient,
-		ServingClientSet: servingClient,
-		DynamicClientSet: dynamicClient,
-		Logger:           logtesting.TestLogger(t),
-		ConfigMapWatcher: newConfigWatcher(),
-	}
-
-	servingInformer := informers.NewSharedInformerFactory(servingClient, 0)
-	kubeInformer := kubeinformers.NewSharedInformerFactory(kubeClient, 0)
-	ctl := NewController(opts,
-		servingInformer.Autoscaling().V1alpha1().PodAutoscalers(),
-		servingInformer.Networking().V1alpha1().ServerlessServices(),
-		kubeInformer.Core().V1().Services(),
-		kubeInformer.Core().V1().Endpoints(),
-		newTestDeciders(),
-		newTestMetrics(),
-	)
+	ctl := NewController(ctx, newConfigWatcher(), newTestDeciders(), newTestMetrics())
 
 	err := ctl.Reconciler.Reconcile(context.Background(), "too/many/parts")
 	if err != nil {

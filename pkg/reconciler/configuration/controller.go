@@ -19,10 +19,13 @@ package configuration
 import (
 	"context"
 
+	"github.com/knative/pkg/injection"
+	configurationinformer "github.com/knative/serving/pkg/injection/informers/servinginformers/configuration"
+	revisioninformer "github.com/knative/serving/pkg/injection/informers/servinginformers/revision"
+
 	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/controller"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	servinginformers "github.com/knative/serving/pkg/client/informers/externalversions/serving/v1alpha1"
 	"github.com/knative/serving/pkg/reconciler"
 	configns "github.com/knative/serving/pkg/reconciler/configuration/config"
 	"k8s.io/client-go/tools/cache"
@@ -35,15 +38,21 @@ type configStore interface {
 	WatchConfigs(w configmap.Watcher)
 }
 
+func init() {
+	injection.Default.RegisterController(NewController)
+}
+
 // NewController creates a new Configuration controller
 func NewController(
-	opt reconciler.Options,
-	configurationInformer servinginformers.ConfigurationInformer,
-	revisionInformer servinginformers.RevisionInformer,
+	ctx context.Context,
+	cmw configmap.Watcher,
 ) *controller.Impl {
 
+	configurationInformer := configurationinformer.Get(ctx)
+	revisionInformer := revisioninformer.Get(ctx)
+
 	c := &Reconciler{
-		Base:                reconciler.NewBase(opt, controllerAgentName),
+		Base:                reconciler.NewBase(ctx, controllerAgentName, cmw),
 		configurationLister: configurationInformer.Lister(),
 		revisionLister:      revisionInformer.Lister(),
 	}
@@ -59,6 +68,6 @@ func NewController(
 
 	c.Logger.Info("Setting up ConfigMap receivers")
 	c.configStore = configns.NewStore(c.Logger.Named("config-store"))
-	c.configStore.WatchConfigs(opt.ConfigMapWatcher)
+	c.configStore.WatchConfigs(c.ConfigMapWatcher)
 	return impl
 }

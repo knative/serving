@@ -19,18 +19,23 @@ package route
 import (
 	"context"
 
+	"github.com/knative/pkg/injection"
+	serviceinformer "github.com/knative/pkg/injection/informers/kubeinformers/corev1/service"
+	certificateinformer "github.com/knative/serving/pkg/injection/informers/servinginformers/certificate"
+	clusteringressinformer "github.com/knative/serving/pkg/injection/informers/servinginformers/clusteringress"
+	configurationinformer "github.com/knative/serving/pkg/injection/informers/servinginformers/configuration"
+	revisioninformer "github.com/knative/serving/pkg/injection/informers/servinginformers/revision"
+	routeinformer "github.com/knative/serving/pkg/injection/informers/servinginformers/route"
+
 	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/controller"
 	"github.com/knative/pkg/system"
 	"github.com/knative/pkg/tracker"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	networkinginformers "github.com/knative/serving/pkg/client/informers/externalversions/networking/v1alpha1"
-	servinginformers "github.com/knative/serving/pkg/client/informers/externalversions/serving/v1alpha1"
 	"github.com/knative/serving/pkg/network"
 	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/route/config"
-	corev1informers "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -43,36 +48,36 @@ type configStore interface {
 	WatchConfigs(w configmap.Watcher)
 }
 
+func init() {
+	injection.Default.RegisterController(NewController)
+}
+
 // NewController initializes the controller and is called by the generated code
 // Registers eventhandlers to enqueue events
 func NewController(
-	opt reconciler.Options,
-	routeInformer servinginformers.RouteInformer,
-	configInformer servinginformers.ConfigurationInformer,
-	revisionInformer servinginformers.RevisionInformer,
-	serviceInformer corev1informers.ServiceInformer,
-	clusterIngressInformer networkinginformers.ClusterIngressInformer,
-	certificateInformer networkinginformers.CertificateInformer,
+	ctx context.Context,
+	cmw configmap.Watcher,
 ) *controller.Impl {
-	return NewControllerWithClock(opt, routeInformer, configInformer, revisionInformer,
-		serviceInformer, clusterIngressInformer, certificateInformer, system.RealClock{})
+	return NewControllerWithClock(ctx, cmw, system.RealClock{})
 }
 
 func NewControllerWithClock(
-	opt reconciler.Options,
-	routeInformer servinginformers.RouteInformer,
-	configInformer servinginformers.ConfigurationInformer,
-	revisionInformer servinginformers.RevisionInformer,
-	serviceInformer corev1informers.ServiceInformer,
-	clusterIngressInformer networkinginformers.ClusterIngressInformer,
-	certificateInformer networkinginformers.CertificateInformer,
+	ctx context.Context,
+	cmw configmap.Watcher,
 	clock system.Clock,
 ) *controller.Impl {
+
+	serviceInformer := serviceinformer.Get(ctx)
+	routeInformer := routeinformer.Get(ctx)
+	configInformer := configurationinformer.Get(ctx)
+	revisionInformer := revisioninformer.Get(ctx)
+	clusterIngressInformer := clusteringressinformer.Get(ctx)
+	certificateInformer := certificateinformer.Get(ctx)
 
 	// No need to lock domainConfigMutex yet since the informers that can modify
 	// domainConfig haven't started yet.
 	c := &Reconciler{
-		Base:                 reconciler.NewBase(opt, controllerAgentName),
+		Base:                 reconciler.NewBase(ctx, controllerAgentName, cmw),
 		routeLister:          routeInformer.Lister(),
 		configurationLister:  configInformer.Lister(),
 		revisionLister:       revisionInformer.Lister(),
@@ -95,7 +100,7 @@ func NewControllerWithClock(
 		impl.EnqueueLabelOfNamespaceScopedResource(
 			serving.RouteNamespaceLabelKey, serving.RouteLabelKey)))
 
-	c.tracker = tracker.New(impl.EnqueueKey, opt.GetTrackerLease())
+	c.tracker = tracker.New(impl.EnqueueKey, controller.GetTrackerLease(ctx))
 
 	configInformer.Informer().AddEventHandler(controller.HandleAll(
 		// Call the tracker's OnChanged method, but we've seen the objects
@@ -131,6 +136,6 @@ func NewControllerWithClock(
 		impl.GlobalResync(routeInformer.Informer())
 	})
 	c.configStore = config.NewStore(c.Logger.Named("config-store"), resync)
-	c.configStore.WatchConfigs(opt.ConfigMapWatcher)
+	c.configStore.WatchConfigs(cmw)
 	return impl
 }
