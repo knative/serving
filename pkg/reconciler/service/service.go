@@ -29,9 +29,9 @@ import (
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1beta1"
-	servinginformers "github.com/knative/serving/pkg/client/informers/externalversions/serving/v1alpha1"
 	listers "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
 	"github.com/knative/serving/pkg/reconciler"
+	cfgreconciler "github.com/knative/serving/pkg/reconciler/configuration"
 	"github.com/knative/serving/pkg/reconciler/service/resources"
 	resourcenames "github.com/knative/serving/pkg/reconciler/service/resources/names"
 	"go.uber.org/zap"
@@ -41,14 +41,11 @@ import (
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
-
-	cfgreconciler "github.com/knative/serving/pkg/reconciler/configuration"
 )
 
 const (
 	// ReconcilerName is the name of the reconciler
-	ReconcilerName      = "Services"
-	controllerAgentName = "service-controller"
+	ReconcilerName = "Services"
 )
 
 // Reconciler implements controller.Reconciler for Service resources.
@@ -64,41 +61,6 @@ type Reconciler struct {
 
 // Check that our Reconciler implements controller.Reconciler
 var _ controller.Reconciler = (*Reconciler)(nil)
-
-// NewController initializes the controller and is called by the generated code
-// Registers eventhandlers to enqueue events
-func NewController(
-	opt reconciler.Options,
-	serviceInformer servinginformers.ServiceInformer,
-	configurationInformer servinginformers.ConfigurationInformer,
-	revisionInformer servinginformers.RevisionInformer,
-	routeInformer servinginformers.RouteInformer,
-) *controller.Impl {
-
-	c := &Reconciler{
-		Base:                reconciler.NewBase(opt, controllerAgentName),
-		serviceLister:       serviceInformer.Lister(),
-		configurationLister: configurationInformer.Lister(),
-		revisionLister:      revisionInformer.Lister(),
-		routeLister:         routeInformer.Lister(),
-	}
-	impl := controller.NewImpl(c, c.Logger, ReconcilerName, reconciler.MustNewStatsReporter(ReconcilerName, c.Logger))
-
-	c.Logger.Info("Setting up event handlers")
-	serviceInformer.Informer().AddEventHandler(reconciler.Handler(impl.Enqueue))
-
-	configurationInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
-		FilterFunc: controller.Filter(v1alpha1.SchemeGroupVersion.WithKind("Service")),
-		Handler:    reconciler.Handler(impl.EnqueueControllerOf),
-	})
-
-	routeInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
-		FilterFunc: controller.Filter(v1alpha1.SchemeGroupVersion.WithKind("Service")),
-		Handler:    reconciler.Handler(impl.EnqueueControllerOf),
-	})
-
-	return impl
-}
 
 // Reconcile compares the actual state with the desired, and attempts to
 // converge the two. It then updates the Status block of the Service resource

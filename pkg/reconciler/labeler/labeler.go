@@ -21,17 +21,11 @@ import (
 
 	"github.com/knative/pkg/controller"
 	"github.com/knative/pkg/logging"
+	listers "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
+	"github.com/knative/serving/pkg/reconciler"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/tools/cache"
-
-	servinginformers "github.com/knative/serving/pkg/client/informers/externalversions/serving/v1alpha1"
-	listers "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
-	"github.com/knative/serving/pkg/reconciler"
-)
-
-const (
-	controllerAgentName = "labeler-controller"
 )
 
 // Reconciler implements controller.Reconciler for Route resources.
@@ -46,29 +40,6 @@ type Reconciler struct {
 
 // Check that our Reconciler implements controller.Reconciler
 var _ controller.Reconciler = (*Reconciler)(nil)
-
-// NewRouteToConfigurationController wraps a new instance of the labeler that labels
-// Configurations with Routes in a controller.
-func NewRouteToConfigurationController(
-	opt reconciler.Options,
-	routeInformer servinginformers.RouteInformer,
-	configInformer servinginformers.ConfigurationInformer,
-	revisionInformer servinginformers.RevisionInformer,
-) *controller.Impl {
-
-	c := &Reconciler{
-		Base:                reconciler.NewBase(opt, controllerAgentName),
-		routeLister:         routeInformer.Lister(),
-		configurationLister: configInformer.Lister(),
-		revisionLister:      revisionInformer.Lister(),
-	}
-	impl := controller.NewImpl(c, c.Logger, "Labels", reconciler.MustNewStatsReporter("Labels", c.Logger))
-
-	c.Logger.Info("Setting up event handlers")
-	routeInformer.Informer().AddEventHandler(reconciler.Handler(impl.Enqueue))
-
-	return impl
-}
 
 // Reconcile compares the actual state with the desired, and attempts to
 // converge the two. In this case, it attempts to label all Configurations
