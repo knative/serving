@@ -45,9 +45,6 @@ type configStore interface {
 
 // NewController initializes the controller and is called by the generated code
 // Registers eventhandlers to enqueue events
-// config - client configuration for talking to the apiserver
-// si - informer factory shared across all controllers for listening to events and indexing resource properties
-// reconcileKey - function for mapping queue keys to resource names
 func NewController(
 	opt reconciler.Options,
 	routeInformer servinginformers.RouteInformer,
