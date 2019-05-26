@@ -14,15 +14,17 @@ aliases:
   - vagababov
 
   autoscaling-approvers:
+  - greghaynes
   - josephburnett
   - markusthoemmes
   - mdemirhan
-  - greghaynes
+  - vagababov
   autoscaling-reviewers:
+  - greghaynes
   - josephburnett
   - markusthoemmes
   - mdemirhan
-  - greghaynes
+  - vagababov
 
   monitoring-approvers:
   - mdemirhan
