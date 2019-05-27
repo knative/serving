@@ -18,7 +18,6 @@ package main
 
 import (
 	"context"
-	"errors"
 	"flag"
 	"fmt"
 	"net/http"
@@ -44,6 +43,7 @@ import (
 	"github.com/knative/serving/pkg/queue"
 	"github.com/knative/serving/pkg/queue/health"
 	queuestats "github.com/knative/serving/pkg/queue/stats"
+	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/wait"
 )
@@ -219,8 +219,8 @@ func createAdminHandlers() *http.ServeMux {
 	return mux
 }
 
-func probeQueueHealthPath(port string) error {
-	url := fmt.Sprintf("http://127.0.0.1:%s%s", port, queue.RequestQueueHealthPath)
+func probeQueueHealthPath(port int) error {
+	url := fmt.Sprintf("http://127.0.0.1:%d%s", port, queue.RequestQueueHealthPath)
 
 	httpClient := &http.Client{
 		Transport: &http.Transport{
@@ -232,7 +232,7 @@ func probeQueueHealthPath(port string) error {
 
 	var lastErr error
 
-	err := wait.PollImmediate(100*time.Millisecond, time.Second, func() (bool, error) {
+	timeoutErr := wait.PollImmediate(100*time.Millisecond, time.Second, func() (bool, error) {
 		var res *http.Response
 		res, lastErr = httpClient.Get(url)
 
@@ -245,11 +245,11 @@ func probeQueueHealthPath(port string) error {
 	})
 
 	if lastErr != nil {
-		return fmt.Errorf("failed to probe: %s", lastErr)
+		return errors.Wrap(lastErr, "failed to probe")
 	}
 
 	// An http.StatusOK was never returned during probing
-	if err != nil {
+	if timeoutErr != nil {
 		return errors.New("probe returned not ready")
 	}
 
@@ -260,9 +260,7 @@ func main() {
 	flag.Parse()
 
 	if *probe {
-		port := strconv.Itoa(networking.QueueAdminPort)
-
-		if err := probeQueueHealthPath(port); err != nil {
+		if err := probeQueueHealthPath(networking.QueueAdminPort); err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}

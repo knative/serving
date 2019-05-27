@@ -24,6 +24,7 @@ import (
 	"net/url"
 	"os"
 	"path"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -156,7 +157,7 @@ func TestCreateVarLogLink(t *testing.T) {
 }
 
 func TestProbeQueueConnectionFailure(t *testing.T) {
-	port := "12345" // some random port (that's not listening)
+	port := 12345 // some random port (that's not listening)
 
 	if err := probeQueueHealthPath(port); err == nil {
 		t.Error("Expected error, got nil")
@@ -172,8 +173,14 @@ func TestProbeQueueNotReady(t *testing.T) {
 
 	defer ts.Close()
 
-	port := strings.TrimPrefix(ts.URL, "http://127.0.0.1:")
-	err := probeQueueHealthPath(port)
+	portStr := strings.TrimPrefix(ts.URL, "http://127.0.0.1:")
+
+	port, err := strconv.Atoi(portStr)
+	if err != nil {
+		t.Fatalf("failed to convert port(%s) to int", portStr)
+	}
+
+	err = probeQueueHealthPath(port)
 
 	if diff := cmp.Diff(err.Error(), "probe returned not ready"); diff != "" {
 		t.Errorf("Unexpected not ready message: %s", diff)
@@ -193,10 +200,15 @@ func TestProbeQueueReady(t *testing.T) {
 
 	defer ts.Close()
 
-	port := strings.TrimPrefix(ts.URL, "http://127.0.0.1:")
+	portStr := strings.TrimPrefix(ts.URL, "http://127.0.0.1:")
 
-	if err := probeQueueHealthPath(port); err != nil {
-		t.Errorf("probeQueueHealthPath(%s) = %s", port, err)
+	port, err := strconv.Atoi(portStr)
+	if err != nil {
+		t.Fatalf("failed to convert port(%s) to int", portStr)
+	}
+
+	if err = probeQueueHealthPath(port); err != nil {
+		t.Errorf("probeQueueHealthPath(%d) = %s", port, err)
 	}
 
 	if !queueProbed {
@@ -219,9 +231,14 @@ func TestProbeQueueDelayedReady(t *testing.T) {
 
 	defer ts.Close()
 
-	port := strings.TrimPrefix(ts.URL, "http://127.0.0.1:")
+	portStr := strings.TrimPrefix(ts.URL, "http://127.0.0.1:")
+
+	port, err := strconv.Atoi(portStr)
+	if err != nil {
+		t.Fatalf("failed to convert port(%s) to int", portStr)
+	}
 
 	if err := probeQueueHealthPath(port); err != nil {
-		t.Errorf("probeQueueHealthPath(%s) = %s", port, err)
+		t.Errorf("probeQueueHealthPath(%d) = %s", port, err)
 	}
 }
