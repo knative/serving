@@ -44,7 +44,7 @@ func NewRouteToConfigurationController(
 	impl := controller.NewImpl(c, c.Logger, "Labels", reconciler.MustNewStatsReporter("Labels", c.Logger))
 
 	c.Logger.Info("Setting up event handlers")
-	routeInformer.Informer().AddEventHandler(reconciler.Handler(impl.Enqueue))
+	routeInformer.Informer().AddEventHandler(controller.HandleAll(impl.Enqueue))
 
 	return impl
 }

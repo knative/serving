@@ -309,6 +309,14 @@
   revision = "e979a0b10eebe748549c702a25e997c556349da6"
 
 [[projects]]
+  digest = "1:ab3ec1fe3e39bac4b3ab63390767766622be35b7cab03f47f787f9ec60522a53"
+  name = "github.com/google/uuid"
+  packages = ["."]
+  pruneopts = "NUT"
+  revision = "0cd6bf5da1e1c83f8b45653022c74f71af0538a4"
+  version = "v1.1.1"
+
+[[projects]]
   digest = "1:fb9f5147a9d6fc69057d05b0739bcd79562c55db143c3bdacfe1c9c6129461f6"
   name = "github.com/googleapis/gax-go"
   packages = ["."]
@@ -439,7 +447,7 @@
   revision = "afa9ee174c6f2072b12dbb4b3bf64be8ec7bc30b"
 
 [[projects]]
-  digest = "1:3deadad98672ab69a77c388f6f932dcebe426e51cefcde758073ba0e9b677ee7"
+  digest = "1:fe3aa1009d44295c6a8056799ef2c06afc944a46de255114c2e06254dda3dc9e"
   name = "github.com/knative/pkg"
   packages = [
     "apis",
@@ -496,7 +504,7 @@
     "websocket",
   ]
   pruneopts = "NUT"
-  revision = "9e0db8f0a7f47def18cf65e0859066d5e0377304"
+  revision = "523d91657b7e7bdf7ec9291ee232e9f5097da791"
 
 [[projects]]
   branch = "master"

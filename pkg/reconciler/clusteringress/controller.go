@@ -65,17 +65,17 @@ func NewController(
 	myFilterFunc := reconciler.AnnotationFilterFunc(networking.IngressClassAnnotationKey, network.IstioIngressClassName, true)
 	ciHandler := cache.FilteringResourceEventHandler{
 		FilterFunc: myFilterFunc,
-		Handler:    reconciler.Handler(impl.Enqueue),
+		Handler:    controller.HandleAll(impl.Enqueue),
 	}
 	clusterIngressInformer.Informer().AddEventHandler(ciHandler)
 
 	virtualServiceInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: myFilterFunc,
-		Handler:    reconciler.Handler(impl.EnqueueLabelOfClusterScopedResource(networking.IngressLabelKey)),
+		Handler:    controller.HandleAll(impl.EnqueueLabelOfClusterScopedResource(networking.IngressLabelKey)),
 	})
 
 	c.tracker = tracker.New(impl.EnqueueKey, opt.GetTrackerLease())
-	secretInfomer.Informer().AddEventHandler(reconciler.Handler(
+	secretInfomer.Informer().AddEventHandler(controller.HandleAll(
 		controller.EnsureTypeMeta(
 			c.tracker.OnChanged,
 			corev1.SchemeGroupVersion.WithKind("Secret"),

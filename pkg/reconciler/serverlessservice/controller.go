@@ -67,16 +67,16 @@ func NewController(
 	c.Logger.Info("Setting up event handlers")
 
 	// Watch all the SKS objects.
-	sksInformer.Informer().AddEventHandler(rbase.Handler(impl.Enqueue))
+	sksInformer.Informer().AddEventHandler(controller.HandleAll(impl.Enqueue))
 
 	// Watch all the endpoints that we have attached our label to.
 	endpointsInformer.Informer().AddEventHandler(
-		rbase.Handler(impl.EnqueueLabelOfNamespaceScopedResource("" /*any namespace*/, networking.SKSLabelKey)))
+		controller.HandleAll(impl.EnqueueLabelOfNamespaceScopedResource("" /*any namespace*/, networking.SKSLabelKey)))
 
 	// Watch all the services that we have created.
 	serviceInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: controller.Filter(netv1alpha1.SchemeGroupVersion.WithKind("ServerlessService")),
-		Handler:    rbase.Handler(impl.EnqueueControllerOf),
+		Handler:    controller.HandleAll(impl.EnqueueControllerOf),
 	})
 
 	// Watch activator-service endpoints.
@@ -91,7 +91,7 @@ func NewController(
 		FilterFunc: rbase.ChainFilterFuncs(
 			rbase.NamespaceFilterFunc(system.Namespace()),
 			rbase.NameFilterFunc(activator.K8sServiceName)),
-		Handler: rbase.Handler(grCb),
+		Handler: controller.HandleAll(grCb),
 	})
 
 	return impl
