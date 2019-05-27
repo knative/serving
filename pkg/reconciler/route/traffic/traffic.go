@@ -18,8 +18,6 @@ package traffic
 
 import (
 	"context"
-	"fmt"
-
 	"k8s.io/apimachinery/pkg/api/errors"
 
 	net "github.com/knative/serving/pkg/apis/networking"
@@ -75,15 +73,6 @@ func BuildTrafficConfiguration(configLister listers.ConfigurationLister, revList
 	builder := newBuilder(configLister, revLister, u.Namespace, len(u.Spec.Traffic))
 	builder.applySpecTraffic(u.Spec.Traffic)
 	return builder.build()
-}
-
-// DeprecatedTagDomain returns the deprecated domain name of a traffic target given the traffic target name and the Route's base domain.
-// This function has been deprecated.
-func DeprecatedTagDomain(name, domain string) string {
-	if name == DefaultTarget {
-		return domain
-	}
-	return fmt.Sprintf("%s.%s", name, domain)
 }
 
 // GetRevisionTrafficTargets returns a list of TrafficTarget flattened to the RevisionName, and having ConfigurationName cleared out.

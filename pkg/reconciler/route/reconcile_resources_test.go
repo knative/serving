@@ -24,7 +24,6 @@ import (
 	"github.com/google/go-cmp/cmp"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/knative/pkg/apis"
 	"github.com/knative/pkg/kmeta"
 	"github.com/knative/pkg/system"
 	netv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
@@ -73,11 +72,15 @@ func TestReconcileClusterIngress_Update(t *testing.T) {
 	updated := getRouteIngressFromClient(t, servingClient, r)
 	servingInformer.Networking().V1alpha1().ClusterIngresses().Informer().GetIndexer().Add(updated)
 
-	r.Status.URL = &apis.URL{
-		Scheme: "http",
-		Host:   "bar.com",
-	}
-	ci2 := newTestClusterIngress(t, r)
+	ci2 := newTestClusterIngress(t, r, func(tc *traffic.Config) {
+		tc.Targets[traffic.DefaultTarget][0].TrafficTarget.Percent = 50
+		tc.Targets[traffic.DefaultTarget] = append(tc.Targets[traffic.DefaultTarget], traffic.RevisionTarget{
+			TrafficTarget: v1beta1.TrafficTarget{
+				Percent: 50,
+				RevisionName: "revision2",
+			},
+		})
+	})
 	if _, err := c.reconcileClusterIngress(TestContextWithLogger(t), r, ci2); err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
@@ -147,7 +150,7 @@ func TestReconcileTargetRevisions(t *testing.T) {
 	}
 }
 
-func newTestClusterIngress(t *testing.T, r *v1alpha1.Route) *netv1alpha1.ClusterIngress {
+func newTestClusterIngress(t *testing.T, r *v1alpha1.Route, trafficOpts ...func(tc *traffic.Config)) *netv1alpha1.ClusterIngress {
 	tc := &traffic.Config{Targets: map[string]traffic.RevisionTargets{
 		traffic.DefaultTarget: {{
 			TrafficTarget: v1beta1.TrafficTarget{
@@ -156,6 +159,11 @@ func newTestClusterIngress(t *testing.T, r *v1alpha1.Route) *netv1alpha1.Cluster
 			},
 			Active: true,
 		}}}}
+
+	for _, opt := range trafficOpts {
+		opt(tc)
+	}
+
 	tls := []netv1alpha1.ClusterIngressTLS{
 		{
 			Hosts:             []string{"test-route.test-ns.example.com"},
