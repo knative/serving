@@ -968,33 +968,6 @@ func TestRoundTripping(t *testing.T) {
 	}
 }
 
-func TestDeprecatedTagDomain(t *testing.T) {
-	tests := []struct {
-		TestName string
-		Name     string
-		Domain   string
-		Expected string
-	}{{
-		TestName: "subdomain",
-		Name:     "current",
-		Domain:   "svc.local.com",
-		Expected: "current.svc.local.com",
-	}, {
-		TestName: "default target",
-		Name:     DefaultTarget,
-		Domain:   "default.com",
-		Expected: "default.com",
-	}}
-
-	for _, tt := range tests {
-		t.Run(tt.TestName, func(t *testing.T) {
-			if got, want := DeprecatedTagDomain(tt.Name, tt.Domain), tt.Expected; got != want {
-				t.Errorf("DeprecatedTagDomain = %s, want: %s", got, want)
-			}
-		})
-	}
-}
-
 func testConfig(name string) *v1alpha1.Configuration {
 	return &v1alpha1.Configuration{
 		ObjectMeta: metav1.ObjectMeta{
