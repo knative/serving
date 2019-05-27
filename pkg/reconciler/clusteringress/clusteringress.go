@@ -24,7 +24,6 @@ import (
 
 	"github.com/knative/pkg/apis/istio/v1alpha3"
 	istiolisters "github.com/knative/pkg/client/listers/istio/v1alpha3"
-	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/controller"
 	"github.com/knative/pkg/logging"
 	"github.com/knative/pkg/system"
@@ -54,11 +53,6 @@ var (
 	clusterIngressResource  = v1alpha1.Resource("clusteringresses")
 	clusterIngressFinalizer = clusterIngressResource.String()
 )
-
-type configStore interface {
-	ToContext(ctx context.Context) context.Context
-	WatchConfigs(w configmap.Watcher)
-}
 
 // Reconciler implements controller.Reconciler for ClusterIngress resources.
 type Reconciler struct {

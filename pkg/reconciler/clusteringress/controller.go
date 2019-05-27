@@ -17,6 +17,8 @@ limitations under the License.
 package clusteringress
 
 import (
+	"context"
+
 	istioinformers "github.com/knative/pkg/client/informers/externalversions/istio/v1alpha3"
 	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/controller"
@@ -34,6 +36,11 @@ import (
 const (
 	controllerAgentName = "clusteringress-controller"
 )
+
+type configStore interface {
+	ToContext(ctx context.Context) context.Context
+	WatchConfigs(w configmap.Watcher)
+}
 
 // NewController initializes the controller and is called by the generated code
 // Registers eventhandlers to enqueue events.
