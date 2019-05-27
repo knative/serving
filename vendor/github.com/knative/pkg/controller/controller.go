@@ -134,7 +134,11 @@ type Impl struct {
 
 // NewImpl instantiates an instance of our controller that will feed work to the
 // provided Reconciler as it is enqueued.
-func NewImpl(r Reconciler, logger *zap.SugaredLogger, workQueueName string, reporter StatsReporter) *Impl {
+func NewImpl(r Reconciler, logger *zap.SugaredLogger, workQueueName string) *Impl {
+	return NewImplWithStats(r, logger, workQueueName, MustNewStatsReporter(workQueueName, logger))
+}
+
+func NewImplWithStats(r Reconciler, logger *zap.SugaredLogger, workQueueName string, reporter StatsReporter) *Impl {
 	return &Impl{
 		Reconciler: r,
 		WorkQueue: workqueue.NewNamedRateLimitingQueue(

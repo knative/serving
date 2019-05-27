@@ -47,7 +47,7 @@ func NewController(
 		configurationLister: configurationInformer.Lister(),
 		revisionLister:      revisionInformer.Lister(),
 	}
-	impl := controller.NewImpl(c, c.Logger, "Configurations", reconciler.MustNewStatsReporter("Configurations", c.Logger))
+	impl := controller.NewImpl(c, c.Logger, "Configurations")
 
 	c.Logger.Info("Setting up event handlers")
 	configurationInformer.Informer().AddEventHandler(controller.HandleAll(impl.Enqueue))

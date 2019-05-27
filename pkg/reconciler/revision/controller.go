@@ -84,7 +84,7 @@ func NewController(
 			transport: transport,
 		},
 	}
-	impl := controller.NewImpl(c, c.Logger, "Revisions", reconciler.MustNewStatsReporter("Revisions", c.Logger))
+	impl := controller.NewImpl(c, c.Logger, "Revisions")
 
 	// Set up an event handler for when the resource types of interest change
 	c.Logger.Info("Setting up event handlers")
