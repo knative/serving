@@ -21,6 +21,7 @@ import (
 
 	"github.com/knative/pkg/configmap"
 	pkglogging "github.com/knative/pkg/logging"
+	pkgmetrics "github.com/knative/pkg/metrics"
 	"github.com/knative/serving/pkg/autoscaler"
 	deployment "github.com/knative/serving/pkg/deployment"
 	"github.com/knative/serving/pkg/logging"
@@ -59,11 +60,11 @@ func NewStore(logger configmap.Logger, onAfterStore ...func(name string, value i
 			"revision",
 			logger,
 			configmap.Constructors{
-				deployment.ConfigName:           deployment.NewConfigFromConfigMap,
-				network.ConfigName:              network.NewConfigFromConfigMap,
-				metrics.ObservabilityConfigName: metrics.NewObservabilityConfigFromConfigMap,
-				autoscaler.ConfigName:           autoscaler.NewConfigFromConfigMap,
-				(logging.ConfigMapName()):       logging.NewConfigFromConfigMap,
+				deployment.ConfigName:      deployment.NewConfigFromConfigMap,
+				network.ConfigName:         network.NewConfigFromConfigMap,
+				pkgmetrics.ConfigMapName(): metrics.NewObservabilityConfigFromConfigMap,
+				autoscaler.ConfigName:      autoscaler.NewConfigFromConfigMap,
+				pkglogging.ConfigMapName(): logging.NewConfigFromConfigMap,
 			},
 			onAfterStore...,
 		),
@@ -80,8 +81,8 @@ func (s *Store) Load() *Config {
 	return &Config{
 		Deployment:    s.UntypedLoad(deployment.ConfigName).(*deployment.Config).DeepCopy(),
 		Network:       s.UntypedLoad(network.ConfigName).(*network.Config).DeepCopy(),
-		Observability: s.UntypedLoad(metrics.ObservabilityConfigName).(*metrics.ObservabilityConfig).DeepCopy(),
-		Logging:       s.UntypedLoad((logging.ConfigMapName())).(*pkglogging.Config).DeepCopy(),
+		Observability: s.UntypedLoad(pkgmetrics.ConfigMapName()).(*metrics.ObservabilityConfig).DeepCopy(),
+		Logging:       s.UntypedLoad((pkglogging.ConfigMapName())).(*pkglogging.Config).DeepCopy(),
 		Autoscaler:    s.UntypedLoad(autoscaler.ConfigName).(*autoscaler.Config).DeepCopy(),
 	}
 }
