@@ -24,6 +24,9 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"os"
+	"path"
+	"strconv"
+	"strings"
 	"time"
 
 	"go.uber.org/zap"
@@ -77,6 +80,10 @@ var (
 	servingService         string
 	userTargetAddress      string
 	userTargetPort         int
+	userContainerName      string
+	enableVarLogCollection bool
+	varLogVolumeName       string
+	internalVolumePath     string
 	reqChan                = make(chan queue.ReqEvent, requestCountingQueueLength)
 	logger                 *zap.SugaredLogger
 	breaker                *queue.Breaker
@@ -97,8 +104,19 @@ func initEnv() {
 	servingPodName = util.GetRequiredEnvOrFatal("SERVING_POD", logger)
 	servingRevision = util.GetRequiredEnvOrFatal("SERVING_REVISION", logger)
 	servingService = os.Getenv("SERVING_SERVICE") // KService is optional
-	userTargetPort = util.MustParseIntEnvOrFatal("USER_PORT", logger)
 	userTargetAddress = fmt.Sprintf("127.0.0.1:%d", userTargetPort)
+	userTargetPort = util.MustParseIntEnvOrFatal("USER_PORT", logger)
+	userContainerName = util.GetRequiredEnvOrFatal("USER_CONTAINER_NAME", logger)
+
+	enableVarLogCollection, _ = strconv.ParseBool(os.Getenv("ENABLE_VAR_LOG_COLLECTION")) // Optional, default is false
+	varLogVolumeName = os.Getenv("VAR_LOG_VOLUME_NAME")
+	if varLogVolumeName == "" && enableVarLogCollection {
+		logger.Fatal("VAR_LOG_VOLUME_NAME must be specified when ENABLE_VAR_LOG_COLLECTION is true")
+	}
+	internalVolumePath = os.Getenv("INTERNAL_VOLUME_PATH")
+	if internalVolumePath == "" && enableVarLogCollection {
+		logger.Fatal("INTERNAL_VOLUME_PATH must be specified when ENABLE_VAR_LOG_COLLECTION is true")
+	}
 
 	// TODO(mattmoor): Move this key to be in terms of the KPA.
 	servingRevisionKey = autoscaler.NewMetricKey(servingNamespace, servingRevision)
@@ -280,6 +298,14 @@ func main() {
 	go catchServerError(server.ListenAndServe)
 	go catchServerError(adminServer.ListenAndServe)
 
+	// Logic that isn't required to be executed before the critical path
+	// and should be started last to not impact start up latency
+	go func() {
+		if enableVarLogCollection {
+			createVarLogLink(servingNamespace, servingPodName, userContainerName, varLogVolumeName, internalVolumePath)
+		}
+	}()
+
 	// Blocks until we actually receive a TERM signal or one of the servers
 	// exit unexpectedly. We fold both signals together because we only want
 	// to act on the first of those to reach here.
@@ -305,6 +331,17 @@ func main() {
 		if err := adminServer.Shutdown(context.Background()); err != nil {
 			logger.Errorw("Failed to shutdown admin-server", zap.Error(err))
 		}
+	}
+}
+
+// createVarLogLink creates a symlink allowing the fluentd daemon set to capture the
+// logs from the user container /var/log. See fluentd config for more details.
+func createVarLogLink(servingNamespace, servingPodName, userContainerName, varLogVolumeName, internalVolumePath string) {
+	link := strings.Join([]string{servingNamespace, servingPodName, userContainerName}, "_")
+	target := path.Join("..", varLogVolumeName)
+	source := path.Join(internalVolumePath, link)
+	if err := os.Symlink(target, source); err != nil {
+		logger.Errorw("Failed to create /var/log symlink. Log collection will not work.", zap.Error(err))
 	}
 }
 

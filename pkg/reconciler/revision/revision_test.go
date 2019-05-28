@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -675,7 +676,7 @@ func TestGlobalResyncOnConfigMapUpdateDeployment(t *testing.T) {
 			}
 		},
 	}, {
-		name: "Disable /var/log Collection", // Should remove the init container from Deployment
+		name: "Disable /var/log Collection", // Should set ENABLE_VAR_LOG_COLLECTION to false
 		configMapToUpdate: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: system.Namespace(),
@@ -690,15 +691,29 @@ func TestGlobalResyncOnConfigMapUpdateDeployment(t *testing.T) {
 				deployment := obj.(*appsv1.Deployment)
 				t.Logf("Deployment updated: %v", deployment.Name)
 
-				expected := ""
-
 				for _, c := range deployment.Spec.Template.Spec.Containers {
-					if c.Name == resources.InitContainerName {
-						t.Logf("No update occurred; expected: %s got: %s", expected, c.Name)
+					if c.Name == resources.QueueContainerName {
+						for _, e := range c.Env {
+							if e.Name == "ENABLE_VAR_LOG_COLLECTION" {
+								flag, err := strconv.ParseBool(e.Value)
+								if err != nil {
+									t.Errorf("Invalid ENABLE_VAR_LOG_COLLECTION value: %q", e.Name)
+									return HookIncomplete
+								}
+								if flag {
+									t.Errorf("ENABLE_VAR_LOG_COLLECTION = %v, want: %v", flag, false)
+									return HookIncomplete
+								}
+								return HookComplete
+							}
+						}
+
+						t.Error("ENABLE_VAR_LOG_COLLECTION is not set")
 						return HookIncomplete
 					}
 				}
-				return HookComplete
+				t.Logf("The deployment spec doesn't contain the expected container %q", resources.QueueContainerName)
+				return HookIncomplete
 			}
 		},
 	}, {

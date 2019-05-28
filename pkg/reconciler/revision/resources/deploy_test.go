@@ -124,14 +124,19 @@ var (
 		}, {
 			Name:  "METRICS_DOMAIN",
 			Value: pkgmetrics.Domain(),
+		}, {
+			Name:  "USER_CONTAINER_NAME",
+			Value: "user-container",
+		}, {
+			Name:  "ENABLE_VAR_LOG_COLLECTION",
+			Value: "false",
+		}, {
+			Name:  "VAR_LOG_VOLUME_NAME",
+			Value: varLogVolumeName,
+		}, {
+			Name:  "INTERNAL_VOLUME_PATH",
+			Value: internalVolumePath,
 		}},
-	}
-
-	defaultInitContainer = &corev1.Container{
-		Name:         InitContainerName,
-		Image:        InitContainerImage,
-		Args:         initArgs,
-		VolumeMounts: initVolumeMounts,
 	}
 
 	defaultPodSpec = &corev1.PodSpec{
@@ -227,10 +232,6 @@ func queueContainer(opts ...containerOption) corev1.Container {
 	return container(defaultQueueContainer.DeepCopy(), opts...)
 }
 
-func initContainer(opts ...containerOption) corev1.Container {
-	return container(defaultInitContainer.DeepCopy(), opts...)
-}
-
 func withEnvVar(name, value string) containerOption {
 	return func(container *corev1.Container) {
 		for i, envVar := range container.Env {
@@ -295,9 +296,8 @@ func withPrependedVolumeMounts(volumeMounts ...corev1.VolumeMount) containerOpti
 	}
 }
 
-func podSpec(initContainers, containers []corev1.Container, opts ...podSpecOption) *corev1.PodSpec {
+func podSpec(containers []corev1.Container, opts ...podSpecOption) *corev1.PodSpec {
 	podSpec := defaultPodSpec.DeepCopy()
-	podSpec.InitContainers = initContainers
 	podSpec.Containers = containers
 
 	for _, option := range opts {
@@ -375,7 +375,6 @@ func TestMakePodSpec(t *testing.T) {
 		ac: &autoscaler.Config{},
 		cc: &deployment.Config{},
 		want: podSpec(
-			nil,
 			[]corev1.Container{
 				userContainer(
 					func(container *corev1.Container) {
@@ -415,7 +414,6 @@ func TestMakePodSpec(t *testing.T) {
 		ac: &autoscaler.Config{},
 		cc: &deployment.Config{},
 		want: podSpec(
-			nil,
 			[]corev1.Container{
 				userContainer(
 					func(container *corev1.Container) {
@@ -447,7 +445,6 @@ func TestMakePodSpec(t *testing.T) {
 		ac:   &autoscaler.Config{},
 		cc:   &deployment.Config{},
 		want: podSpec(
-			nil,
 			[]corev1.Container{
 				userContainer(),
 				queueContainer(
@@ -469,7 +466,6 @@ func TestMakePodSpec(t *testing.T) {
 		ac: &autoscaler.Config{},
 		cc: &deployment.Config{},
 		want: podSpec(
-			nil,
 			[]corev1.Container{
 				userContainer(func(container *corev1.Container) {
 					container.Image = "busybox@sha256:deadbeef"
@@ -489,7 +485,6 @@ func TestMakePodSpec(t *testing.T) {
 		ac: &autoscaler.Config{},
 		cc: &deployment.Config{},
 		want: podSpec(
-			nil,
 			[]corev1.Container{
 				userContainer(),
 				queueContainer(
@@ -509,7 +504,6 @@ func TestMakePodSpec(t *testing.T) {
 		ac: &autoscaler.Config{},
 		cc: &deployment.Config{},
 		want: podSpec(
-			nil,
 			[]corev1.Container{
 				userContainer(
 					withHTTPQPReadinessProbe,
@@ -532,7 +526,6 @@ func TestMakePodSpec(t *testing.T) {
 		ac: &autoscaler.Config{},
 		cc: &deployment.Config{},
 		want: podSpec(
-			nil,
 			[]corev1.Container{
 				userContainer(
 					withExecReadinessProbe(
@@ -559,7 +552,6 @@ func TestMakePodSpec(t *testing.T) {
 		ac: &autoscaler.Config{},
 		cc: &deployment.Config{},
 		want: podSpec(
-			nil,
 			[]corev1.Container{
 				userContainer(
 					withLivenessProbe(corev1.Handler{
@@ -591,7 +583,6 @@ func TestMakePodSpec(t *testing.T) {
 		ac: &autoscaler.Config{},
 		cc: &deployment.Config{},
 		want: podSpec(
-			nil,
 			[]corev1.Container{
 				userContainer(
 					withLivenessProbe(corev1.Handler{
@@ -615,16 +606,14 @@ func TestMakePodSpec(t *testing.T) {
 		cc: &deployment.Config{},
 		want: podSpec(
 			[]corev1.Container{
-				initContainer(),
-			},
-			[]corev1.Container{
 				userContainer(),
 				queueContainer(
 					withEnvVar("CONTAINER_CONCURRENCY", "1"),
+					withEnvVar("ENABLE_VAR_LOG_COLLECTION", "true"),
 				),
 			},
 			func(podSpec *corev1.PodSpec) {
-				podSpec.Volumes = append(podSpec.Volumes, *makeInitInternalVolume(), *makeInitPodInfoVolume())
+				podSpec.Volumes = append(podSpec.Volumes, internalVolume)
 			},
 		),
 	}, {
@@ -657,7 +646,6 @@ func TestMakePodSpec(t *testing.T) {
 		ac: &autoscaler.Config{},
 		cc: &deployment.Config{},
 		want: podSpec(
-			nil,
 			[]corev1.Container{
 				userContainer(
 					func(container *corev1.Container) {

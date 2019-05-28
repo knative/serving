@@ -23,8 +23,6 @@ import (
 const (
 	// UserContainerName is the name of the user-container in the PodSpec
 	UserContainerName = "user-container"
-	// InitContainerName is the name of the init container when enabled
-	InitContainerName = "init-container"
 	// QueueContainerName is the name of the queue proxy side car
 	QueueContainerName = "queue-proxy"
 
@@ -35,9 +33,6 @@ const (
 
 	// AppLabelKey is the label defining the application's name.
 	AppLabelKey = "app"
-
-	// InitContainerImage is the image used by the init container
-	InitContainerImage = "busybox:1.30.1-musl"
 )
 
 var (

@@ -248,6 +248,18 @@ func makeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, o
 		}, {
 			Name:  pkgmetrics.DomainEnv,
 			Value: pkgmetrics.Domain(),
+		}, {
+			Name:  "USER_CONTAINER_NAME",
+			Value: UserContainerName,
+		}, {
+			Name:  "ENABLE_VAR_LOG_COLLECTION",
+			Value: strconv.FormatBool(observabilityConfig.EnableVarLogCollection),
+		}, {
+			Name:  "VAR_LOG_VOLUME_NAME",
+			Value: varLogVolumeName,
+		}, {
+			Name:  "INTERNAL_VOLUME_PATH",
+			Value: internalVolumePath,
 		}},
 	}
 }
