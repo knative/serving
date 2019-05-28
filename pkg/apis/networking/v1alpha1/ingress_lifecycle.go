@@ -29,6 +29,7 @@ var ingressCondSet = apis.NewLivingConditionSet(
 	IngressConditionLoadBalancerReady,
 )
 
+// GetGroupVersionKind returns SchemeGroupVersion of an Ingress
 func (i *Ingress) GetGroupVersionKind() schema.GroupVersionKind {
 	return SchemeGroupVersion.WithKind("Ingress")
 }
@@ -38,14 +39,17 @@ func (i *Ingress) IsPublic() bool {
 	return i.Spec.Visibility == "" || i.Spec.Visibility == IngressVisibilityExternalIP
 }
 
+// GetCondition returns the current condition of a given condition type
 func (is *IngressStatus) GetCondition(t apis.ConditionType) *apis.Condition {
 	return ingressCondSet.Manage(is).GetCondition(t)
 }
 
+// InitializeConditions initializes conditions of an IngressStatus
 func (is *IngressStatus) InitializeConditions() {
 	ingressCondSet.Manage(is).InitializeConditions()
 }
 
+// MarkNetworkConfigured set IngressConditionNetworkConfigured in IngressStatus as true
 func (is *IngressStatus) MarkNetworkConfigured() {
 	ingressCondSet.Manage(is).MarkTrue(IngressConditionNetworkConfigured)
 }

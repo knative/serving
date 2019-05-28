@@ -25,10 +25,12 @@ import (
 	"github.com/knative/serving/pkg/apis/networking"
 )
 
+// SetDefaults populates default values in Ingress
 func (i *Ingress) SetDefaults(ctx context.Context) {
 	i.Spec.SetDefaults(apis.WithinSpec(ctx))
 }
 
+// SetDefaults populates default values in IngressSpec
 func (s *IngressSpec) SetDefaults(ctx context.Context) {
 	for i := range s.TLS {
 		s.TLS[i].SetDefaults(ctx)
@@ -41,6 +43,7 @@ func (s *IngressSpec) SetDefaults(ctx context.Context) {
 	}
 }
 
+// SetDefaults populates default values in IngressTLS
 func (t *IngressTLS) SetDefaults(ctx context.Context) {
 	// Default Secret key for ServerCertificate is `tls.crt`.
 	if t.ServerCertificate == "" {
@@ -52,16 +55,19 @@ func (t *IngressTLS) SetDefaults(ctx context.Context) {
 	}
 }
 
+// SetDefaults populates default values in IngressRule
 func (r *IngressRule) SetDefaults(ctx context.Context) {
 	r.HTTP.SetDefaults(ctx)
 }
 
+// SetDefaults populates default values in HTTPIngressRuleValue
 func (r *HTTPIngressRuleValue) SetDefaults(ctx context.Context) {
 	for i := range r.Paths {
 		r.Paths[i].SetDefaults(ctx)
 	}
 }
 
+// SetDefaults populates default values in HTTPIngressPath
 func (p *HTTPIngressPath) SetDefaults(ctx context.Context) {
 	// If only one split is specified, we default to 100.
 	if len(p.Splits) == 1 && p.Splits[0].Percent == 0 {
