@@ -81,7 +81,7 @@ func NewControllerWithClock(
 		certificateLister:    certificateInformer.Lister(),
 		clock:                clock,
 	}
-	impl := controller.NewImpl(c, c.Logger, "Routes", reconciler.MustNewStatsReporter("Routes", c.Logger))
+	impl := controller.NewImpl(c, c.Logger, "Routes")
 
 	c.Logger.Info("Setting up event handlers")
 	routeInformer.Informer().AddEventHandler(controller.HandleAll(impl.Enqueue))

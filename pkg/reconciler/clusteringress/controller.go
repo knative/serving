@@ -59,7 +59,7 @@ func NewController(
 		gatewayLister:        gatewayInformer.Lister(),
 		secretLister:         secretInfomer.Lister(),
 	}
-	impl := controller.NewImpl(c, c.Logger, "ClusterIngresses", reconciler.MustNewStatsReporter("ClusterIngress", c.Logger))
+	impl := controller.NewImpl(c, c.Logger, "ClusterIngresses")
 
 	c.Logger.Info("Setting up event handlers")
 	myFilterFunc := reconciler.AnnotationFilterFunc(networking.IngressClassAnnotationKey, network.IstioIngressClassName, true)

@@ -43,7 +43,7 @@ func NewController(
 		hpaLister: hpaInformer.Lister(),
 		sksLister: sksInformer.Lister(),
 	}
-	impl := controller.NewImpl(c, c.Logger, "HPA-Class Autoscaling", reconciler.MustNewStatsReporter("HPA-Class Autoscaling", c.Logger))
+	impl := controller.NewImpl(c, c.Logger, "HPA-Class Autoscaling")
 
 	c.Logger.Info("Setting up hpa-class event handlers")
 	onlyHpaClass := reconciler.AnnotationFilterFunc(autoscaling.ClassAnnotationKey, autoscaling.HPA, false)

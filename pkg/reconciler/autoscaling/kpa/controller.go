@@ -58,7 +58,7 @@ func NewController(
 		kpaDeciders:     kpaDeciders,
 		metrics:         metrics,
 	}
-	impl := controller.NewImpl(c, c.Logger, "KPA-Class Autoscaling", reconciler.MustNewStatsReporter("KPA-Class Autoscaling", c.Logger))
+	impl := controller.NewImpl(c, c.Logger, "KPA-Class Autoscaling")
 	c.scaler = newScaler(opts, impl.EnqueueAfter)
 
 	c.Logger.Info("Setting up KPA-Class event handlers")

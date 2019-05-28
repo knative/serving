@@ -62,7 +62,7 @@ func NewController(
 			Delegate: podScalableTypedInformerFactory(opt),
 		},
 	}
-	impl := controller.NewImpl(c, c.Logger, reconcilerName, rbase.MustNewStatsReporter(reconcilerName, c.Logger))
+	impl := controller.NewImpl(c, c.Logger, reconcilerName)
 
 	c.Logger.Info("Setting up event handlers")
 

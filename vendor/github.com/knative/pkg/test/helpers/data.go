@@ -20,12 +20,13 @@ import (
 	"math/rand"
 	"strings"
 	"time"
+	"unicode"
 )
 
 const (
 	letterBytes   = "abcdefghijklmnopqrstuvwxyz"
 	randSuffixLen = 8
-	sep           = "-"
+	sep           = '-'
 )
 
 func init() {
@@ -45,5 +46,32 @@ func AppendRandomString(prefix string) string {
 		suffix[i] = letterBytes[rand.Intn(len(letterBytes))]
 	}
 
-	return strings.Join([]string{prefix, string(suffix)}, sep)
+	return strings.Join([]string{prefix, string(suffix)}, string(sep))
+}
+
+// MakeK8sNamePrefix converts each chunk of non-alphanumeric character into a single dash
+// and also convert camelcase tokens into dash-delimited lowercase tokens.
+func MakeK8sNamePrefix(s string) string {
+	var sb strings.Builder
+	newToken := false
+	for _, c := range s {
+		if !(unicode.IsLetter(c) || unicode.IsNumber(c)) {
+			newToken = true
+			continue
+		}
+		if sb.Len() > 0 && (newToken || unicode.IsUpper(c)) {
+			sb.WriteRune(sep)
+		}
+		sb.WriteRune(unicode.ToLower(c))
+		newToken = false
+	}
+	return sb.String()
+}
+
+// GetBaseFuncName returns the baseFuncName parsed from the fullFuncName.
+// eg. test/e2e.TestMain will return TestMain.
+func GetBaseFuncName(fullFuncName string) string {
+	baseFuncName := fullFuncName[strings.LastIndex(fullFuncName, "/")+1:]
+	baseFuncName = baseFuncName[strings.LastIndex(baseFuncName, ".")+1:]
+	return baseFuncName
 }
