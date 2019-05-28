@@ -43,6 +43,7 @@ import (
 	"github.com/knative/pkg/logging"
 	logtesting "github.com/knative/pkg/logging/testing"
 	"github.com/knative/pkg/metrics"
+	_ "github.com/knative/pkg/metrics/testing"
 	"github.com/knative/pkg/system"
 	av1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving"

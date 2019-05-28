@@ -26,6 +26,8 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/knative/pkg/logging"
+	pkgmetrics "github.com/knative/pkg/metrics"
+	_ "github.com/knative/pkg/metrics/testing"
 	"github.com/knative/pkg/ptr"
 	"github.com/knative/pkg/system"
 	_ "github.com/knative/pkg/system/testing"
@@ -355,6 +357,7 @@ var defaultEnv = map[string]string{
 	"SERVING_REQUEST_METRICS_BACKEND": "",
 	"USER_PORT":                       strconv.Itoa(v1alpha1.DefaultUserPort),
 	"SYSTEM_NAMESPACE":                system.Namespace(),
+	"METRICS_DOMAIN":                  pkgmetrics.Domain(),
 	"QUEUE_SERVING_PORT":              "8012",
 }
 

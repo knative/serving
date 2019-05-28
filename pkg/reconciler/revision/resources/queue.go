@@ -22,6 +22,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"github.com/knative/pkg/logging"
+	pkgmetrics "github.com/knative/pkg/metrics"
 	"github.com/knative/pkg/system"
 	"github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/serving"
@@ -171,6 +172,9 @@ func makeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, o
 		}, {
 			Name:  system.NamespaceEnvKey,
 			Value: system.Namespace(),
+		}, {
+			Name:  pkgmetrics.DomainEnv,
+			Value: pkgmetrics.Domain(),
 		}},
 	}
 }
