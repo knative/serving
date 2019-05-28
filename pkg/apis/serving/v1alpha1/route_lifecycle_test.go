@@ -170,7 +170,7 @@ func TestTypicalRouteFlow(t *testing.T) {
 	r.PropagateClusterIngressStatus(netv1alpha1.IngressStatus{
 		Status: duckv1beta1.Status{
 			Conditions: duckv1beta1.Conditions{{
-				Type:   netv1alpha1.ClusterIngressConditionReady,
+				Type:   netv1alpha1.IngressConditionReady,
 				Status: corev1.ConditionTrue,
 			}},
 		},
@@ -260,7 +260,7 @@ func TestClusterIngressFailureRecovery(t *testing.T) {
 	r.PropagateClusterIngressStatus(netv1alpha1.IngressStatus{
 		Status: duckv1beta1.Status{
 			Conditions: duckv1beta1.Conditions{{
-				Type:   netv1alpha1.ClusterIngressConditionReady,
+				Type:   netv1alpha1.IngressConditionReady,
 				Status: corev1.ConditionUnknown,
 			}},
 		},
@@ -279,7 +279,7 @@ func TestClusterIngressFailureRecovery(t *testing.T) {
 	r.PropagateClusterIngressStatus(netv1alpha1.IngressStatus{
 		Status: duckv1beta1.Status{
 			Conditions: duckv1beta1.Conditions{{
-				Type:   netv1alpha1.ClusterIngressConditionReady,
+				Type:   netv1alpha1.IngressConditionReady,
 				Status: corev1.ConditionTrue,
 			}},
 		},
@@ -291,7 +291,7 @@ func TestClusterIngressFailureRecovery(t *testing.T) {
 	r.PropagateClusterIngressStatus(netv1alpha1.IngressStatus{
 		Status: duckv1beta1.Status{
 			Conditions: duckv1beta1.Conditions{{
-				Type:   netv1alpha1.ClusterIngressConditionReady,
+				Type:   netv1alpha1.IngressConditionReady,
 				Status: corev1.ConditionFalse,
 			}},
 		},
@@ -303,7 +303,7 @@ func TestClusterIngressFailureRecovery(t *testing.T) {
 	r.PropagateClusterIngressStatus(netv1alpha1.IngressStatus{
 		Status: duckv1beta1.Status{
 			Conditions: duckv1beta1.Conditions{{
-				Type:   netv1alpha1.ClusterIngressConditionReady,
+				Type:   netv1alpha1.IngressConditionReady,
 				Status: corev1.ConditionTrue,
 			}},
 		},
@@ -319,7 +319,7 @@ func TestRouteNotOwnedStuff(t *testing.T) {
 	r.PropagateClusterIngressStatus(netv1alpha1.IngressStatus{
 		Status: duckv1beta1.Status{
 			Conditions: duckv1beta1.Conditions{{
-				Type:   netv1alpha1.ClusterIngressConditionReady,
+				Type:   netv1alpha1.IngressConditionReady,
 				Status: corev1.ConditionUnknown,
 			}},
 		},

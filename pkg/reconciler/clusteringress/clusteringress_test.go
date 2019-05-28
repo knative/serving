@@ -77,17 +77,17 @@ var (
 )
 
 var (
-	ingressRules = []v1alpha1.ClusterIngressRule{{
+	ingressRules = []v1alpha1.IngressRule{{
 		Hosts: []string{
 			"domain.com",
 			"test-route.test-ns.svc.cluster.local",
 			"test-route.test-ns.svc",
 			"test-route.test-ns",
 		},
-		HTTP: &v1alpha1.HTTPClusterIngressRuleValue{
-			Paths: []v1alpha1.HTTPClusterIngressPath{{
-				Splits: []v1alpha1.ClusterIngressBackendSplit{{
-					ClusterIngressBackend: v1alpha1.ClusterIngressBackend{
+		HTTP: &v1alpha1.HTTPIngressRuleValue{
+			Paths: []v1alpha1.HTTPIngressPath{{
+				Splits: []v1alpha1.IngressBackendSplit{{
+					IngressBackend: v1alpha1.IngressBackend{
 						ServiceNamespace: "test-ns",
 						ServiceName:      "test-service",
 						ServicePort:      intstr.FromInt(80),
@@ -103,7 +103,7 @@ var (
 		},
 	}}
 
-	ingressTLS = []v1alpha1.ClusterIngressTLS{{
+	ingressTLS = []v1alpha1.IngressTLS{{
 		Hosts:             []string{"host-tls.example.com"},
 		SecretName:        "secret0",
 		SecretNamespace:   "istio-system",
@@ -192,15 +192,15 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 					},
 					Status: duckv1beta1.Status{
 						Conditions: duckv1beta1.Conditions{{
-							Type:     v1alpha1.ClusterIngressConditionLoadBalancerReady,
+							Type:     v1alpha1.IngressConditionLoadBalancerReady,
 							Status:   corev1.ConditionTrue,
 							Severity: apis.ConditionSeverityError,
 						}, {
-							Type:     v1alpha1.ClusterIngressConditionNetworkConfigured,
+							Type:     v1alpha1.IngressConditionNetworkConfigured,
 							Status:   corev1.ConditionTrue,
 							Severity: apis.ConditionSeverityError,
 						}, {
-							Type:     v1alpha1.ClusterIngressConditionReady,
+							Type:     v1alpha1.IngressConditionReady,
 							Status:   corev1.ConditionTrue,
 							Severity: apis.ConditionSeverityError,
 						}},
@@ -239,15 +239,15 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 					},
 					Status: duckv1beta1.Status{
 						Conditions: duckv1beta1.Conditions{{
-							Type:     v1alpha1.ClusterIngressConditionLoadBalancerReady,
+							Type:     v1alpha1.IngressConditionLoadBalancerReady,
 							Status:   corev1.ConditionTrue,
 							Severity: apis.ConditionSeverityError,
 						}, {
-							Type:     v1alpha1.ClusterIngressConditionNetworkConfigured,
+							Type:     v1alpha1.IngressConditionNetworkConfigured,
 							Status:   corev1.ConditionTrue,
 							Severity: apis.ConditionSeverityError,
 						}, {
-							Type:     v1alpha1.ClusterIngressConditionReady,
+							Type:     v1alpha1.IngressConditionReady,
 							Status:   corev1.ConditionTrue,
 							Severity: apis.ConditionSeverityError,
 						}},
@@ -326,15 +326,15 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 					},
 					Status: duckv1beta1.Status{
 						Conditions: duckv1beta1.Conditions{{
-							Type:     v1alpha1.ClusterIngressConditionLoadBalancerReady,
+							Type:     v1alpha1.IngressConditionLoadBalancerReady,
 							Status:   corev1.ConditionTrue,
 							Severity: apis.ConditionSeverityError,
 						}, {
-							Type:     v1alpha1.ClusterIngressConditionNetworkConfigured,
+							Type:     v1alpha1.IngressConditionNetworkConfigured,
 							Status:   corev1.ConditionTrue,
 							Severity: apis.ConditionSeverityError,
 						}, {
-							Type:     v1alpha1.ClusterIngressConditionReady,
+							Type:     v1alpha1.IngressConditionReady,
 							Status:   corev1.ConditionTrue,
 							Severity: apis.ConditionSeverityError,
 						}},
@@ -411,15 +411,15 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 					},
 					Status: duckv1beta1.Status{
 						Conditions: duckv1beta1.Conditions{{
-							Type:     v1alpha1.ClusterIngressConditionLoadBalancerReady,
+							Type:     v1alpha1.IngressConditionLoadBalancerReady,
 							Status:   corev1.ConditionTrue,
 							Severity: apis.ConditionSeverityError,
 						}, {
-							Type:     v1alpha1.ClusterIngressConditionNetworkConfigured,
+							Type:     v1alpha1.IngressConditionNetworkConfigured,
 							Status:   corev1.ConditionTrue,
 							Severity: apis.ConditionSeverityError,
 						}, {
-							Type:     v1alpha1.ClusterIngressConditionReady,
+							Type:     v1alpha1.IngressConditionReady,
 							Status:   corev1.ConditionTrue,
 							Severity: apis.ConditionSeverityError,
 						}},
@@ -518,8 +518,8 @@ func withCredentialName(tlsServer *v1alpha3.Server, credentialName string) *v1al
 	return tlsServer
 }
 
-func ingressTLSWithSecretNamespace(namespace string) []v1alpha1.ClusterIngressTLS {
-	result := []v1alpha1.ClusterIngressTLS{}
+func ingressTLSWithSecretNamespace(namespace string) []v1alpha1.IngressTLS {
+	result := []v1alpha1.IngressTLS{}
 	for _, tls := range ingressTLS {
 		tls.SecretNamespace = namespace
 		result = append(result, tls)
@@ -592,18 +592,18 @@ func ingress(name string, generation int64) *v1alpha1.ClusterIngress {
 	return ingressWithStatus(name, generation, v1alpha1.IngressStatus{})
 }
 
-func ingressWithFinalizers(name string, generation int64, tls []v1alpha1.ClusterIngressTLS, finalizers []string) *v1alpha1.ClusterIngress {
+func ingressWithFinalizers(name string, generation int64, tls []v1alpha1.IngressTLS, finalizers []string) *v1alpha1.ClusterIngress {
 	ingress := ingressWithTLS(name, generation, tls)
 	ingress.ObjectMeta.Finalizers = finalizers
 	t := metav1.NewTime(time.Unix(1e9, 0))
 	ingress.ObjectMeta.DeletionTimestamp = &t
 	return ingress
 }
-func ingressWithTLS(name string, generation int64, tls []v1alpha1.ClusterIngressTLS) *v1alpha1.ClusterIngress {
+func ingressWithTLS(name string, generation int64, tls []v1alpha1.IngressTLS) *v1alpha1.ClusterIngress {
 	return ingressWithTLSAndStatus(name, generation, tls, v1alpha1.IngressStatus{})
 }
 
-func ingressWithTLSAndStatus(name string, generation int64, tls []v1alpha1.ClusterIngressTLS, status v1alpha1.IngressStatus) *v1alpha1.ClusterIngress {
+func ingressWithTLSAndStatus(name string, generation int64, tls []v1alpha1.IngressTLS, status v1alpha1.IngressStatus) *v1alpha1.ClusterIngress {
 	ci := ingressWithStatus(name, generation, status)
 	ci.Spec.TLS = tls
 	return ci
@@ -724,13 +724,13 @@ func TestGlobalResyncOnUpdateGatewayConfigMap(t *testing.T) {
 			},
 			Status: duckv1beta1.Status{
 				Conditions: duckv1beta1.Conditions{{
-					Type:   v1alpha1.ClusterIngressConditionLoadBalancerReady,
+					Type:   v1alpha1.IngressConditionLoadBalancerReady,
 					Status: corev1.ConditionTrue,
 				}, {
-					Type:   v1alpha1.ClusterIngressConditionNetworkConfigured,
+					Type:   v1alpha1.IngressConditionNetworkConfigured,
 					Status: corev1.ConditionTrue,
 				}, {
-					Type:   v1alpha1.ClusterIngressConditionReady,
+					Type:   v1alpha1.IngressConditionReady,
 					Status: corev1.ConditionTrue,
 				}},
 			},
@@ -810,13 +810,13 @@ func TestGlobalResyncOnUpdateNetwork(t *testing.T) {
 			},
 			Status: duckv1beta1.Status{
 				Conditions: duckv1beta1.Conditions{{
-					Type:   v1alpha1.ClusterIngressConditionLoadBalancerReady,
+					Type:   v1alpha1.IngressConditionLoadBalancerReady,
 					Status: corev1.ConditionTrue,
 				}, {
-					Type:   v1alpha1.ClusterIngressConditionNetworkConfigured,
+					Type:   v1alpha1.IngressConditionNetworkConfigured,
 					Status: corev1.ConditionTrue,
 				}, {
-					Type:   v1alpha1.ClusterIngressConditionReady,
+					Type:   v1alpha1.IngressConditionReady,
 					Status: corev1.ConditionTrue,
 				}},
 			},

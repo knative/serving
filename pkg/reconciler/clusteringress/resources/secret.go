@@ -97,6 +97,6 @@ func SecretRef(namespace, name string) corev1.ObjectReference {
 }
 
 // Generates the k8s secret key with the given TLS.
-func secretKey(tls v1alpha1.ClusterIngressTLS) string {
+func secretKey(tls v1alpha1.IngressTLS) string {
 	return fmt.Sprintf("%s/%s", tls.SecretNamespace, tls.SecretName)
 }

@@ -85,18 +85,18 @@ func TestMakeVirtualServiceSpec_CorrectRoutes(t *testing.T) {
 			Name: "test-ingress",
 		},
 		Spec: v1alpha1.IngressSpec{
-			Rules: []v1alpha1.ClusterIngressRule{{
+			Rules: []v1alpha1.IngressRule{{
 				Hosts: []string{
 					"domain.com",
 					"test-route.test-ns.svc.cluster.local",
 					"test-route.test-ns.svc",
 					"test-route.test-ns",
 				},
-				HTTP: &v1alpha1.HTTPClusterIngressRuleValue{
-					Paths: []v1alpha1.HTTPClusterIngressPath{{
+				HTTP: &v1alpha1.HTTPIngressRuleValue{
+					Paths: []v1alpha1.HTTPIngressPath{{
 						Path: "^/pets/(.*?)?",
-						Splits: []v1alpha1.ClusterIngressBackendSplit{{
-							ClusterIngressBackend: v1alpha1.ClusterIngressBackend{
+						Splits: []v1alpha1.IngressBackendSplit{{
+							IngressBackend: v1alpha1.IngressBackend{
 								ServiceNamespace: "test-ns",
 								ServiceName:      "v2-service",
 								ServicePort:      intstr.FromInt(80),
@@ -120,11 +120,11 @@ func TestMakeVirtualServiceSpec_CorrectRoutes(t *testing.T) {
 				Hosts: []string{
 					"v1.domain.com",
 				},
-				HTTP: &v1alpha1.HTTPClusterIngressRuleValue{
-					Paths: []v1alpha1.HTTPClusterIngressPath{{
+				HTTP: &v1alpha1.HTTPIngressRuleValue{
+					Paths: []v1alpha1.HTTPIngressPath{{
 						Path: "^/pets/(.*?)?",
-						Splits: []v1alpha1.ClusterIngressBackendSplit{{
-							ClusterIngressBackend: v1alpha1.ClusterIngressBackend{
+						Splits: []v1alpha1.IngressBackendSplit{{
+							IngressBackend: v1alpha1.IngressBackend{
 								ServiceNamespace: "test-ns",
 								ServiceName:      "v1-service",
 								ServicePort:      intstr.FromInt(80),
@@ -227,9 +227,9 @@ func TestMakeVirtualServiceSpec_CorrectRoutes(t *testing.T) {
 
 // One active target.
 func TestMakeVirtualServiceRoute_Vanilla(t *testing.T) {
-	ingressPath := &v1alpha1.HTTPClusterIngressPath{
-		Splits: []v1alpha1.ClusterIngressBackendSplit{{
-			ClusterIngressBackend: v1alpha1.ClusterIngressBackend{
+	ingressPath := &v1alpha1.HTTPIngressPath{
+		Splits: []v1alpha1.IngressBackendSplit{{
+			IngressBackend: v1alpha1.IngressBackend{
 				ServiceNamespace: "test-ns",
 				ServiceName:      "revision-service",
 				ServicePort:      intstr.FromInt(80),
@@ -271,16 +271,16 @@ func TestMakeVirtualServiceRoute_Vanilla(t *testing.T) {
 
 // Two active targets.
 func TestMakeVirtualServiceRoute_TwoTargets(t *testing.T) {
-	ingressPath := &v1alpha1.HTTPClusterIngressPath{
-		Splits: []v1alpha1.ClusterIngressBackendSplit{{
-			ClusterIngressBackend: v1alpha1.ClusterIngressBackend{
+	ingressPath := &v1alpha1.HTTPIngressPath{
+		Splits: []v1alpha1.IngressBackendSplit{{
+			IngressBackend: v1alpha1.IngressBackend{
 				ServiceNamespace: "test-ns",
 				ServiceName:      "revision-service",
 				ServicePort:      intstr.FromInt(80),
 			},
 			Percent: 90,
 		}, {
-			ClusterIngressBackend: v1alpha1.ClusterIngressBackend{
+			IngressBackend: v1alpha1.IngressBackend{
 				ServiceNamespace: "test-ns",
 				ServiceName:      "new-revision-service",
 				ServicePort:      intstr.FromString("test-port"),
@@ -327,7 +327,7 @@ func TestMakeVirtualServiceRoute_TwoTargets(t *testing.T) {
 func TestGetHosts_Duplicate(t *testing.T) {
 	ci := &v1alpha1.ClusterIngress{
 		Spec: v1alpha1.IngressSpec{
-			Rules: []v1alpha1.ClusterIngressRule{{
+			Rules: []v1alpha1.IngressRule{{
 				Hosts: []string{
 					"test-route1",
 					"test-route2",

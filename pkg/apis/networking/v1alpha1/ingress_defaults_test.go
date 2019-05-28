@@ -1,5 +1,5 @@
 /*
-Copyright 2018 The Knative Authors
+Copyright 2019 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -28,34 +28,34 @@ import (
 	"github.com/knative/serving/pkg/apis/networking"
 )
 
-func TestClusterIngressDefaulting(t *testing.T) {
+func TestIngressDefaulting(t *testing.T) {
 	tests := []struct {
 		name string
-		in   *ClusterIngress
-		want *ClusterIngress
+		in   *Ingress
+		want *Ingress
 	}{{
 		name: "empty",
-		in:   &ClusterIngress{},
-		want: &ClusterIngress{
+		in:   &Ingress{},
+		want: &Ingress{
 			Spec: IngressSpec{
 				Visibility: IngressVisibilityExternalIP,
 			},
 		},
 	}, {
 		name: "has-visibility",
-		in: &ClusterIngress{
+		in: &Ingress{
 			Spec: IngressSpec{
 				Visibility: IngressVisibilityClusterLocal,
 			},
 		},
-		want: &ClusterIngress{
+		want: &Ingress{
 			Spec: IngressSpec{
 				Visibility: IngressVisibilityClusterLocal,
 			},
 		},
 	}, {
 		name: "tls-defaulting",
-		in: &ClusterIngress{
+		in: &Ingress{
 			Spec: IngressSpec{
 				TLS: []IngressTLS{{
 					SecretNamespace: "secret-space",
@@ -63,7 +63,7 @@ func TestClusterIngressDefaulting(t *testing.T) {
 				}},
 			},
 		},
-		want: &ClusterIngress{
+		want: &Ingress{
 			Spec: IngressSpec{
 				TLS: []IngressTLS{{
 					SecretNamespace: "secret-space",
@@ -77,7 +77,7 @@ func TestClusterIngressDefaulting(t *testing.T) {
 		},
 	}, {
 		name: "tls-not-defaulting",
-		in: &ClusterIngress{
+		in: &Ingress{
 			Spec: IngressSpec{
 				TLS: []IngressTLS{{
 					SecretNamespace:   "secret-space",
@@ -88,7 +88,7 @@ func TestClusterIngressDefaulting(t *testing.T) {
 				Visibility: IngressVisibilityExternalIP,
 			},
 		},
-		want: &ClusterIngress{
+		want: &Ingress{
 			Spec: IngressSpec{
 				TLS: []IngressTLS{{
 					SecretNamespace: "secret-space",
@@ -102,7 +102,7 @@ func TestClusterIngressDefaulting(t *testing.T) {
 		},
 	}, {
 		name: "split-timeout-retry-defaulting",
-		in: &ClusterIngress{
+		in: &Ingress{
 			Spec: IngressSpec{
 				Rules: []IngressRule{{
 					HTTP: &HTTPIngressRuleValue{
@@ -120,7 +120,7 @@ func TestClusterIngressDefaulting(t *testing.T) {
 				Visibility: IngressVisibilityExternalIP,
 			},
 		},
-		want: &ClusterIngress{
+		want: &Ingress{
 			Spec: IngressSpec{
 				Rules: []IngressRule{{
 					HTTP: &HTTPIngressRuleValue{
@@ -148,7 +148,7 @@ func TestClusterIngressDefaulting(t *testing.T) {
 		},
 	}, {
 		name: "split-timeout-retry-not-defaulting",
-		in: &ClusterIngress{
+		in: &Ingress{
 			Spec: IngressSpec{
 				Rules: []IngressRule{{
 					HTTP: &HTTPIngressRuleValue{
@@ -179,7 +179,7 @@ func TestClusterIngressDefaulting(t *testing.T) {
 				Visibility: IngressVisibilityExternalIP,
 			},
 		},
-		want: &ClusterIngress{
+		want: &Ingress{
 			Spec: IngressSpec{
 				Rules: []IngressRule{{
 					HTTP: &HTTPIngressRuleValue{
@@ -215,7 +215,7 @@ func TestClusterIngressDefaulting(t *testing.T) {
 		},
 	}, {
 		name: "perTryTimeout-in-retry-defaulting",
-		in: &ClusterIngress{
+		in: &Ingress{
 			Spec: IngressSpec{
 				Rules: []IngressRule{{
 					HTTP: &HTTPIngressRuleValue{
@@ -245,7 +245,7 @@ func TestClusterIngressDefaulting(t *testing.T) {
 				Visibility: IngressVisibilityExternalIP,
 			},
 		},
-		want: &ClusterIngress{
+		want: &Ingress{
 			Spec: IngressSpec{
 				Rules: []IngressRule{{
 					HTTP: &HTTPIngressRuleValue{

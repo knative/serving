@@ -36,6 +36,10 @@ func (c *FakeNetworkingV1alpha1) ClusterIngresses() v1alpha1.ClusterIngressInter
 	return &FakeClusterIngresses{c}
 }
 
+func (c *FakeNetworkingV1alpha1) Ingresses(namespace string) v1alpha1.IngressInterface {
+	return &FakeIngresses{c, namespace}
+}
+
 func (c *FakeNetworkingV1alpha1) ServerlessServices(namespace string) v1alpha1.ServerlessServiceInterface {
 	return &FakeServerlessServices{c, namespace}
 }

@@ -113,16 +113,16 @@ func TestMakeClusterIngressSpec_CorrectRules(t *testing.T) {
 		},
 	}
 
-	expected := []netv1alpha1.ClusterIngressRule{{
+	expected := []netv1alpha1.IngressRule{{
 		Hosts: []string{
 			"test-route.test-ns.example.com",
 			"domain.com",
 			"test-route.test-ns.svc.cluster.local",
 		},
-		HTTP: &netv1alpha1.HTTPClusterIngressRuleValue{
-			Paths: []netv1alpha1.HTTPClusterIngressPath{{
-				Splits: []netv1alpha1.ClusterIngressBackendSplit{{
-					ClusterIngressBackend: netv1alpha1.ClusterIngressBackend{
+		HTTP: &netv1alpha1.HTTPIngressRuleValue{
+			Paths: []netv1alpha1.HTTPIngressPath{{
+				Splits: []netv1alpha1.IngressBackendSplit{{
+					IngressBackend: netv1alpha1.IngressBackend{
 						ServiceNamespace: "test-ns",
 						ServiceName:      "gilberto",
 						ServicePort:      intstr.FromInt(80),
@@ -140,10 +140,10 @@ func TestMakeClusterIngressSpec_CorrectRules(t *testing.T) {
 			"test-route-v1.test-ns.example.com",
 			"v1.domain.com",
 		},
-		HTTP: &netv1alpha1.HTTPClusterIngressRuleValue{
-			Paths: []netv1alpha1.HTTPClusterIngressPath{{
-				Splits: []netv1alpha1.ClusterIngressBackendSplit{{
-					ClusterIngressBackend: netv1alpha1.ClusterIngressBackend{
+		HTTP: &netv1alpha1.HTTPIngressRuleValue{
+			Paths: []netv1alpha1.HTTPIngressPath{{
+				Splits: []netv1alpha1.IngressBackendSplit{{
+					IngressBackend: netv1alpha1.IngressBackend{
 						ServiceNamespace: "test-ns",
 						ServiceName:      "jobim",
 						ServicePort:      intstr.FromInt(80),
@@ -158,7 +158,7 @@ func TestMakeClusterIngressSpec_CorrectRules(t *testing.T) {
 		},
 	}}
 
-	ci, err := makeClusterIngressSpec(getContext(), r, nil, targets)
+	ci, err := makeIngressSpec(getContext(), r, nil, targets)
 	if err != nil {
 		t.Errorf("Unexpected error %v", err)
 	}
@@ -202,7 +202,7 @@ func TestMakeClusterIngressSpec_CorrectVisibility(t *testing.T) {
 	}}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			ci, err := makeClusterIngressSpec(getContext(), &c.route, nil, nil)
+			ci, err := makeIngressSpec(getContext(), &c.route, nil, nil)
 			if err != nil {
 				t.Errorf("Unexpected error %v", err)
 			}
@@ -320,16 +320,16 @@ func TestMakeClusterIngressRule_Vanilla(t *testing.T) {
 		Active:      true,
 	}}
 	domains := []string{"a.com", "b.org"}
-	rule := makeClusterIngressRule(domains, ns, targets)
-	expected := netv1alpha1.ClusterIngressRule{
+	rule := makeIngressRule(domains, ns, targets)
+	expected := netv1alpha1.IngressRule{
 		Hosts: []string{
 			"a.com",
 			"b.org",
 		},
-		HTTP: &netv1alpha1.HTTPClusterIngressRuleValue{
-			Paths: []netv1alpha1.HTTPClusterIngressPath{{
-				Splits: []netv1alpha1.ClusterIngressBackendSplit{{
-					ClusterIngressBackend: netv1alpha1.ClusterIngressBackend{
+		HTTP: &netv1alpha1.HTTPIngressRuleValue{
+			Paths: []netv1alpha1.HTTPIngressPath{{
+				Splits: []netv1alpha1.IngressBackendSplit{{
+					IngressBackend: netv1alpha1.IngressBackend{
 						ServiceNamespace: "test-ns",
 						ServiceName:      "chocolate",
 						ServicePort:      intstr.FromInt(80),
@@ -369,13 +369,13 @@ func TestMakeClusterIngressRule_ZeroPercentTarget(t *testing.T) {
 	}}
 	domains := []string{"test.org"}
 	ns := "test-ns"
-	rule := makeClusterIngressRule(domains, ns, targets)
-	expected := netv1alpha1.ClusterIngressRule{
+	rule := makeIngressRule(domains, ns, targets)
+	expected := netv1alpha1.IngressRule{
 		Hosts: []string{"test.org"},
-		HTTP: &netv1alpha1.HTTPClusterIngressRuleValue{
-			Paths: []netv1alpha1.HTTPClusterIngressPath{{
-				Splits: []netv1alpha1.ClusterIngressBackendSplit{{
-					ClusterIngressBackend: netv1alpha1.ClusterIngressBackend{
+		HTTP: &netv1alpha1.HTTPIngressRuleValue{
+			Paths: []netv1alpha1.HTTPIngressPath{{
+				Splits: []netv1alpha1.IngressBackendSplit{{
+					IngressBackend: netv1alpha1.IngressBackend{
 						ServiceNamespace: "test-ns",
 						ServiceName:      "active-target",
 						ServicePort:      intstr.FromInt(80),
@@ -415,20 +415,20 @@ func TestMakeClusterIngressRule_TwoTargets(t *testing.T) {
 		Active:      true,
 	}}
 	domains := []string{"test.org"}
-	rule := makeClusterIngressRule(domains, ns, targets)
-	expected := netv1alpha1.ClusterIngressRule{
+	rule := makeIngressRule(domains, ns, targets)
+	expected := netv1alpha1.IngressRule{
 		Hosts: []string{"test.org"},
-		HTTP: &netv1alpha1.HTTPClusterIngressRuleValue{
-			Paths: []netv1alpha1.HTTPClusterIngressPath{{
-				Splits: []netv1alpha1.ClusterIngressBackendSplit{{
-					ClusterIngressBackend: netv1alpha1.ClusterIngressBackend{
+		HTTP: &netv1alpha1.HTTPIngressRuleValue{
+			Paths: []netv1alpha1.HTTPIngressPath{{
+				Splits: []netv1alpha1.IngressBackendSplit{{
+					IngressBackend: netv1alpha1.IngressBackend{
 						ServiceNamespace: "test-ns",
 						ServiceName:      "nigh",
 						ServicePort:      intstr.FromInt(80),
 					},
 					Percent: 80,
 				}, {
-					ClusterIngressBackend: netv1alpha1.ClusterIngressBackend{
+					IngressBackend: netv1alpha1.IngressBackend{
 						ServiceNamespace: "test-ns",
 						ServiceName:      "death",
 						ServicePort:      intstr.FromInt(80),
@@ -460,16 +460,16 @@ func TestMakeClusterIngressRule_InactiveTarget(t *testing.T) {
 		Active:      false,
 	}}
 	domains := []string{"a.com", "b.org"}
-	rule := makeClusterIngressRule(domains, ns, targets)
-	expected := netv1alpha1.ClusterIngressRule{
+	rule := makeIngressRule(domains, ns, targets)
+	expected := netv1alpha1.IngressRule{
 		Hosts: []string{
 			"a.com",
 			"b.org",
 		},
-		HTTP: &netv1alpha1.HTTPClusterIngressRuleValue{
-			Paths: []netv1alpha1.HTTPClusterIngressPath{{
-				Splits: []netv1alpha1.ClusterIngressBackendSplit{{
-					ClusterIngressBackend: netv1alpha1.ClusterIngressBackend{
+		HTTP: &netv1alpha1.HTTPIngressRuleValue{
+			Paths: []netv1alpha1.HTTPIngressPath{{
+				Splits: []netv1alpha1.IngressBackendSplit{{
+					IngressBackend: netv1alpha1.IngressBackend{
 						ServiceNamespace: ns,
 						ServiceName:      targets[0].ServiceName,
 						ServicePort:      intstr.FromInt(80),
@@ -508,23 +508,23 @@ func TestMakeClusterIngressRule_TwoInactiveTargets(t *testing.T) {
 		Active:      false,
 	}}
 	domains := []string{"a.com", "b.org"}
-	rule := makeClusterIngressRule(domains, ns, targets)
-	expected := netv1alpha1.ClusterIngressRule{
+	rule := makeIngressRule(domains, ns, targets)
+	expected := netv1alpha1.IngressRule{
 		Hosts: []string{
 			"a.com",
 			"b.org",
 		},
-		HTTP: &netv1alpha1.HTTPClusterIngressRuleValue{
-			Paths: []netv1alpha1.HTTPClusterIngressPath{{
-				Splits: []netv1alpha1.ClusterIngressBackendSplit{{
-					ClusterIngressBackend: netv1alpha1.ClusterIngressBackend{
+		HTTP: &netv1alpha1.HTTPIngressRuleValue{
+			Paths: []netv1alpha1.HTTPIngressPath{{
+				Splits: []netv1alpha1.IngressBackendSplit{{
+					IngressBackend: netv1alpha1.IngressBackend{
 						ServiceNamespace: ns,
 						ServiceName:      targets[0].ServiceName,
 						ServicePort:      intstr.FromInt(80),
 					},
 					Percent: 80,
 				}, {
-					ClusterIngressBackend: netv1alpha1.ClusterIngressBackend{
+					IngressBackend: netv1alpha1.IngressBackend{
 						ServiceNamespace: ns,
 						ServiceName:      targets[1].ServiceName,
 						ServicePort:      intstr.FromInt(80),
@@ -562,13 +562,13 @@ func TestMakeClusterIngressRule_ZeroPercentTargetInactive(t *testing.T) {
 		Active: false,
 	}}
 	domains := []string{"test.org"}
-	rule := makeClusterIngressRule(domains, ns, targets)
-	expected := netv1alpha1.ClusterIngressRule{
+	rule := makeIngressRule(domains, ns, targets)
+	expected := netv1alpha1.IngressRule{
 		Hosts: []string{"test.org"},
-		HTTP: &netv1alpha1.HTTPClusterIngressRuleValue{
-			Paths: []netv1alpha1.HTTPClusterIngressPath{{
-				Splits: []netv1alpha1.ClusterIngressBackendSplit{{
-					ClusterIngressBackend: netv1alpha1.ClusterIngressBackend{
+		HTTP: &netv1alpha1.HTTPIngressRuleValue{
+			Paths: []netv1alpha1.HTTPIngressPath{{
+				Splits: []netv1alpha1.IngressBackendSplit{{
+					IngressBackend: netv1alpha1.IngressBackend{
 						ServiceNamespace: "test-ns",
 						ServiceName:      "apathy-sets-in",
 						ServicePort:      intstr.FromInt(80),
@@ -605,7 +605,7 @@ func TestMakeClusterIngress_WithTLS(t *testing.T) {
 			},
 		},
 	}
-	tls := []netv1alpha1.ClusterIngressTLS{
+	tls := []netv1alpha1.IngressTLS{
 		{
 			Hosts:             []string{"*.default.domain.com"},
 			PrivateKey:        "tls.key",
@@ -625,7 +625,7 @@ func TestMakeClusterIngress_WithTLS(t *testing.T) {
 			},
 		},
 		Spec: netv1alpha1.IngressSpec{
-			Rules:      []netv1alpha1.ClusterIngressRule{},
+			Rules:      []netv1alpha1.IngressRule{},
 			TLS:        tls,
 			Visibility: netv1alpha1.IngressVisibilityExternalIP,
 		},
@@ -651,15 +651,15 @@ func TestMakeClusterIngressTLS(t *testing.T) {
 			SecretName: "route-1234",
 		},
 	}
-	want := netv1alpha1.ClusterIngressTLS{
+	want := netv1alpha1.IngressTLS{
 		Hosts:           []string{"test.default.example.com", "v1.test.default.example.com"},
 		SecretName:      "route-1234",
 		SecretNamespace: system.Namespace(),
 	}
 	hostNames := []string{"test.default.example.com", "v1.test.default.example.com"}
-	got := MakeClusterIngressTLS(cert, hostNames)
+	got := MakeIngressTLS(cert, hostNames)
 	if diff := cmp.Diff(want, got); diff != "" {
-		t.Errorf("Unexpected ClusterIngressTLS (-want, +got): %v", diff)
+		t.Errorf("Unexpected IngressTLS (-want, +got): %v", diff)
 	}
 }
 
