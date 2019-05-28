@@ -248,6 +248,12 @@ func withEnvVar(name, value string) containerOption {
 	}
 }
 
+func withInternalVolumeMount() containerOption {
+	return func(container *corev1.Container) {
+		container.VolumeMounts = append(container.VolumeMounts, internalVolumeMount)
+	}
+}
+
 func withReadinessProbe(handler corev1.Handler) containerOption {
 	return func(container *corev1.Container) {
 		container.ReadinessProbe = &corev1.Probe{Handler: handler}
@@ -610,6 +616,7 @@ func TestMakePodSpec(t *testing.T) {
 				queueContainer(
 					withEnvVar("CONTAINER_CONCURRENCY", "1"),
 					withEnvVar("ENABLE_VAR_LOG_COLLECTION", "true"),
+					withInternalVolumeMount(),
 				),
 			},
 			func(podSpec *corev1.PodSpec) {

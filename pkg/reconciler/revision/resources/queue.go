@@ -186,12 +186,18 @@ func makeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, o
 		ports = append(ports, queueHTTPPort)
 	}
 
+	var volumeMounts []corev1.VolumeMount
+	if observabilityConfig.EnableVarLogCollection {
+		volumeMounts = append(volumeMounts, internalVolumeMount)
+	}
+
 	return &corev1.Container{
 		Name:           QueueContainerName,
 		Image:          deploymentConfig.QueueSidecarImage,
 		Resources:      createQueueResources(rev.GetAnnotations(), rev.Spec.GetContainer()),
 		Ports:          ports,
 		ReadinessProbe: queueReadinessProbe,
+		VolumeMounts:   volumeMounts,
 		Env: []corev1.EnvVar{{
 			Name:  "SERVING_NAMESPACE",
 			Value: rev.Namespace,
