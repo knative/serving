@@ -200,3 +200,8 @@ func (l *Listers) GetSecretLister() corev1listers.SecretLister {
 func (l *Listers) GetConfigMapLister() corev1listers.ConfigMapLister {
 	return corev1listers.NewConfigMapLister(l.IndexerFor(&corev1.ConfigMap{}))
 }
+
+// GetNamespaceLister gets lister for Namespace resource.
+func (l *Listers) GetNamespaceLister() corev1listers.NamespaceLister {
+	return corev1listers.NewNamespaceLister(l.IndexerFor(&corev1.Namespace{}))
+}

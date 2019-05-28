@@ -19,6 +19,7 @@ package route
 import (
 	"context"
 	"encoding/json"
+	"strings"
 
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
@@ -31,6 +32,7 @@ import (
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 
+	kubelabels "k8s.io/apimachinery/pkg/labels"
 	"knative.dev/pkg/apis"
 	duckv1alpha1 "knative.dev/pkg/apis/duck/v1alpha1"
 	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
@@ -312,16 +314,35 @@ func (c *Reconciler) tls(ctx context.Context, host string, r *v1alpha1.Route, tr
 		}
 	}
 
+	routeDomain := config.FromContext(ctx).Domain.LookupDomainForLabels(r.Labels)
+	labelSelector := kubelabels.SelectorFromSet(
+		kubelabels.Set{
+			networking.WildcardCertDomainLabelKey: routeDomain,
+		},
+	)
+
+	allWildcardCerts, err := c.certificateLister.Certificates(r.Namespace).List(labelSelector)
+	if err != nil {
+		return nil, err
+	}
+
 	desiredCerts := resources.MakeCertificates(r, tagToDomainMap, certClass(ctx, r))
 	for _, desiredCert := range desiredCerts {
+		dnsNames := sets.NewString(desiredCert.Spec.DNSNames...)
+		// Look for a matching wildcard cert before provisioning a new one. This saves the
+		// the time required to provision a new cert and reduces the chances of hitting the
+		// Let's Encrypt API rate limits.
+		cert := findMatchingWildcardCert(ctx, desiredCert.Spec.DNSNames, allWildcardCerts)
 
-		cert, err := networkaccessor.ReconcileCertificate(ctx, r, desiredCert, c)
-		if err != nil {
-			r.Status.MarkCertificateProvisionFailed(desiredCert.Name)
-			return nil, err
+		if cert == nil {
+			cert, err = networkaccessor.ReconcileCertificate(ctx, r, desiredCert, c)
+			if err != nil {
+				r.Status.MarkCertificateProvisionFailed(desiredCert.Name)
+				return nil, err
+			}
+			dnsNames = sets.NewString(cert.Spec.DNSNames...)
 		}
 
-		dnsNames := sets.NewString(cert.Spec.DNSNames...)
 		if cert.Status.IsReady() {
 			r.Status.MarkCertificateReady(cert.Name)
 			// r.Status.URL is for the major domain, so only change if the cert is for
@@ -331,7 +352,7 @@ func (c *Reconciler) tls(ctx context.Context, host string, r *v1alpha1.Route, tr
 			}
 			// TODO: we should only mark https for the public visible targets when
 			// we are able to configure visibility per target.
-			setTargetsScheme(&r.Status, cert.Spec.DNSNames, "https")
+			setTargetsScheme(&r.Status, dnsNames.List(), "https")
 		} else {
 			r.Status.MarkCertificateNotReady(cert.Name)
 			if dnsNames.Has(host) {
@@ -340,9 +361,9 @@ func (c *Reconciler) tls(ctx context.Context, host string, r *v1alpha1.Route, tr
 					Host:   host,
 				}
 			}
-			setTargetsScheme(&r.Status, cert.Spec.DNSNames, "http")
+			setTargetsScheme(&r.Status, dnsNames.List(), "http")
 		}
-		tls = append(tls, resources.MakeIngressTLS(cert, cert.Spec.DNSNames))
+		tls = append(tls, resources.MakeIngressTLS(cert, dnsNames.List()))
 	}
 	return tls, nil
 }
@@ -574,4 +595,35 @@ func setTargetsScheme(rs *v1alpha1.RouteStatus, dnsNames []string, scheme string
 			}
 		}
 	}
+}
+
+func findMatchingWildcardCert(ctx context.Context, domains []string, certs []*netv1alpha1.Certificate) *netv1alpha1.Certificate {
+	for _, cert := range certs {
+		if wildcardCertMatches(ctx, domains, cert) {
+			return cert
+		}
+	}
+	return nil
+}
+
+func wildcardCertMatches(ctx context.Context, domains []string, cert *netv1alpha1.Certificate) bool {
+	dnsNames := sets.NewString()
+	logger := logging.FromContext(ctx)
+
+	for _, dns := range cert.Spec.DNSNames {
+		dnsParts := strings.SplitAfterN(dns, ".", 2)
+		if len(dnsParts) < 2 {
+			logger.Infof("got non-FQDN DNSName %s in certificate %s", dns, cert.Name)
+			continue
+		}
+		dnsNames.Insert(dnsParts[1])
+	}
+	for _, domain := range domains {
+		domainParts := strings.SplitAfterN(domain, ".", 2)
+		if len(domainParts) < 2 || !dnsNames.Has(domainParts[1]) {
+			return false
+		}
+	}
+
+	return true
 }
