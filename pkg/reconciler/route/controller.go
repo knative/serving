@@ -84,20 +84,20 @@ func NewControllerWithClock(
 	impl := controller.NewImpl(c, c.Logger, "Routes", reconciler.MustNewStatsReporter("Routes", c.Logger))
 
 	c.Logger.Info("Setting up event handlers")
-	routeInformer.Informer().AddEventHandler(reconciler.Handler(impl.Enqueue))
+	routeInformer.Informer().AddEventHandler(controller.HandleAll(impl.Enqueue))
 
 	serviceInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: controller.Filter(v1alpha1.SchemeGroupVersion.WithKind("Route")),
-		Handler:    reconciler.Handler(impl.EnqueueControllerOf),
+		Handler:    controller.HandleAll(impl.EnqueueControllerOf),
 	})
 
-	clusterIngressInformer.Informer().AddEventHandler(reconciler.Handler(
+	clusterIngressInformer.Informer().AddEventHandler(controller.HandleAll(
 		impl.EnqueueLabelOfNamespaceScopedResource(
 			serving.RouteNamespaceLabelKey, serving.RouteLabelKey)))
 
 	c.tracker = tracker.New(impl.EnqueueKey, opt.GetTrackerLease())
 
-	configInformer.Informer().AddEventHandler(reconciler.Handler(
+	configInformer.Informer().AddEventHandler(controller.HandleAll(
 		// Call the tracker's OnChanged method, but we've seen the objects
 		// coming through this path missing TypeMeta, so ensure it is properly
 		// populated.
@@ -107,7 +107,7 @@ func NewControllerWithClock(
 		),
 	))
 
-	revisionInformer.Informer().AddEventHandler(reconciler.Handler(
+	revisionInformer.Informer().AddEventHandler(controller.HandleAll(
 		// Call the tracker's OnChanged method, but we've seen the objects
 		// coming through this path missing TypeMeta, so ensure it is properly
 		// populated.
@@ -119,7 +119,7 @@ func NewControllerWithClock(
 
 	certificateInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: controller.Filter(v1alpha1.SchemeGroupVersion.WithKind("Route")),
-		Handler:    reconciler.Handler(impl.EnqueueControllerOf),
+		Handler:    controller.HandleAll(impl.EnqueueControllerOf),
 	})
 
 	c.Logger.Info("Setting up ConfigMap receivers")

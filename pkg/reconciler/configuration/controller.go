@@ -50,11 +50,11 @@ func NewController(
 	impl := controller.NewImpl(c, c.Logger, "Configurations", reconciler.MustNewStatsReporter("Configurations", c.Logger))
 
 	c.Logger.Info("Setting up event handlers")
-	configurationInformer.Informer().AddEventHandler(reconciler.Handler(impl.Enqueue))
+	configurationInformer.Informer().AddEventHandler(controller.HandleAll(impl.Enqueue))
 
 	revisionInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: controller.Filter(v1alpha1.SchemeGroupVersion.WithKind("Configuration")),
-		Handler:    reconciler.Handler(impl.EnqueueControllerOf),
+		Handler:    controller.HandleAll(impl.EnqueueControllerOf),
 	})
 
 	c.Logger.Info("Setting up ConfigMap receivers")
