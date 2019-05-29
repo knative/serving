@@ -61,7 +61,7 @@ func TestReconcile(t *testing.T) {
 			Service("run-latest", "foo", WithInlineRollout),
 		},
 		Key: "foo/run-latest",
-		WantCreates: []metav1.Object{
+		WantCreates: []runtime.Object{
 			config("run-latest", "foo", WithInlineRollout),
 			route("run-latest", "foo", WithInlineRollout),
 		},
@@ -81,7 +81,7 @@ func TestReconcile(t *testing.T) {
 			Service("run-latest", "foo", WithRunLatestRollout),
 		},
 		Key: "foo/run-latest",
-		WantCreates: []metav1.Object{
+		WantCreates: []runtime.Object{
 			config("run-latest", "foo", WithRunLatestRollout),
 			route("run-latest", "foo", WithRunLatestRollout),
 		},
@@ -101,7 +101,7 @@ func TestReconcile(t *testing.T) {
 			Service("pinned", "foo", WithPinnedRollout("pinned-0001")),
 		},
 		Key: "foo/pinned",
-		WantCreates: []metav1.Object{
+		WantCreates: []runtime.Object{
 			config("pinned", "foo", WithPinnedRollout("pinned-0001")),
 			route("pinned", "foo", WithPinnedRollout("pinned-0001")),
 		},
@@ -123,7 +123,7 @@ func TestReconcile(t *testing.T) {
 			Service("pinned2", "foo", WithReleaseRollout("pinned2-0001")),
 		},
 		Key: "foo/pinned2",
-		WantCreates: []metav1.Object{
+		WantCreates: []runtime.Object{
 			config("pinned2", "foo", WithReleaseRollout("pinned2-0001")),
 			route("pinned2", "foo", WithReleaseRollout("pinned2-0001")),
 		},
@@ -203,7 +203,7 @@ func TestReconcile(t *testing.T) {
 			Service("release", "foo", WithReleaseRollout(v1alpha1.ReleaseLatestRevisionKeyword)),
 		},
 		Key: "foo/release",
-		WantCreates: []metav1.Object{
+		WantCreates: []runtime.Object{
 			config("release", "foo", WithReleaseRollout("release-00001")),
 			route("release", "foo", WithReleaseRollout(v1alpha1.ReleaseLatestRevisionKeyword)),
 		},
@@ -223,7 +223,7 @@ func TestReconcile(t *testing.T) {
 			Service("release", "foo", WithReleaseRollout("release-00001", "release-00002")),
 		},
 		Key: "foo/release",
-		WantCreates: []metav1.Object{
+		WantCreates: []runtime.Object{
 			config("release", "foo", WithReleaseRollout("release-00001", "release-00002")),
 			route("release", "foo", WithReleaseRollout("release-00001", "release-00002")),
 		},
@@ -605,7 +605,7 @@ func TestReconcile(t *testing.T) {
 				"release-with-percent-00001", "release-with-percent-00002")),
 		},
 		Key: "foo/release-with-percent",
-		WantCreates: []metav1.Object{
+		WantCreates: []runtime.Object{
 			config("release-with-percent", "foo", WithReleaseRolloutAndPercentage(10, "release-with-percent-00001", "release-with-percent-00002")),
 			route("release-with-percent", "foo", WithReleaseRolloutAndPercentage(10, "release-with-percent-00001", "release-with-percent-00002")),
 		},
@@ -758,7 +758,7 @@ func TestReconcile(t *testing.T) {
 			Service("create-route-failure", "foo", WithRunLatestRollout),
 		},
 		Key: "foo/create-route-failure",
-		WantCreates: []metav1.Object{
+		WantCreates: []runtime.Object{
 			config("create-route-failure", "foo", WithRunLatestRollout),
 			route("create-route-failure", "foo", WithRunLatestRollout),
 		},
@@ -784,7 +784,7 @@ func TestReconcile(t *testing.T) {
 			Service("create-config-failure", "foo", WithRunLatestRollout),
 		},
 		Key: "foo/create-config-failure",
-		WantCreates: []metav1.Object{
+		WantCreates: []runtime.Object{
 			config("create-config-failure", "foo", WithRunLatestRollout),
 			// We don't get to creating the Route.
 		},
@@ -851,7 +851,7 @@ func TestReconcile(t *testing.T) {
 			Service("run-latest", "foo", WithRunLatestRollout),
 		},
 		Key: "foo/run-latest",
-		WantCreates: []metav1.Object{
+		WantCreates: []runtime.Object{
 			config("run-latest", "foo", WithRunLatestRollout),
 			route("run-latest", "foo", WithRunLatestRollout),
 		},

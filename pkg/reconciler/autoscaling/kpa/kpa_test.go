@@ -355,7 +355,7 @@ func TestReconcile(t *testing.T) {
 			expectedDeploy,
 			makeSKSPrivateEndpoints(1, testNamespace, testRevision),
 		},
-		WantCreates: []metav1.Object{
+		WantCreates: []runtime.Object{
 			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector)),
 		},
 	}, {
@@ -372,7 +372,7 @@ func TestReconcile(t *testing.T) {
 			expectedDeploy,
 			makeSKSPrivateEndpoints(1, testNamespace, testRevision),
 		},
-		WantCreates: []metav1.Object{
+		WantCreates: []runtime.Object{
 			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector)),
 		},
 		WantEvents: []string{
@@ -582,7 +582,7 @@ func TestReconcile(t *testing.T) {
 			// SKS does not exist, so we're just creating and have no status.
 			Object: kpa(testNamespace, testRevision, markActivating),
 		}},
-		WantCreates: []metav1.Object{
+		WantCreates: []runtime.Object{
 			sks(testNamespace, testRevision, WithDeployRef(deployName)),
 		},
 	}, {
@@ -615,7 +615,7 @@ func TestReconcile(t *testing.T) {
 			InduceFailure("create", "serverlessservices"),
 		},
 		WantErr: true,
-		WantCreates: []metav1.Object{
+		WantCreates: []runtime.Object{
 			sks(testNamespace, testRevision, WithDeployRef(deployName)),
 		},
 		WantEvents: []string{

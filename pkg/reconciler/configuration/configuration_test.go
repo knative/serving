@@ -75,7 +75,7 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			cfg("no-revisions-yet", "foo", 1234),
 		},
-		WantCreates: []metav1.Object{
+		WantCreates: []runtime.Object{
 			rev("no-revisions-yet", "foo", 1234),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
@@ -95,7 +95,7 @@ func TestReconcile(t *testing.T) {
 				cfg.Spec.GetTemplate().Name = "byo-name-create-foo"
 			}),
 		},
-		WantCreates: []metav1.Object{
+		WantCreates: []runtime.Object{
 			rev("byo-name-create", "foo", 1234, func(rev *v1alpha1.Revision) {
 				rev.Name = "byo-name-create-foo"
 				rev.GenerateName = ""
@@ -192,7 +192,7 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			cfg("validation-failure", "foo", 1234, WithConfigContainerConcurrency(-1)),
 		},
-		WantCreates: []metav1.Object{
+		WantCreates: []runtime.Object{
 			rev("validation-failure", "foo", 1234, WithRevContainerConcurrency(-1)),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
@@ -214,7 +214,7 @@ func TestReconcile(t *testing.T) {
 			// An existing build is reused!
 			build("something-else-12345", cfg("something-else", "foo", 12345, WithBuild)),
 		},
-		WantCreates: []metav1.Object{
+		WantCreates: []runtime.Object{
 			rev("need-rev-and-build", "foo", 99998, WithBuildRef("something-else-12345")),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
@@ -232,7 +232,7 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			cfg("need-rev-and-build", "foo", 99998, WithBuild),
 		},
-		WantCreates: []metav1.Object{
+		WantCreates: []runtime.Object{
 			resources.MakeBuild(cfg("need-rev-and-build", "foo", 99998, WithBuild)),
 			rev("need-rev-and-build", "foo", 99998, WithBuildRef("need-rev-and-build-00001")),
 		},
@@ -342,7 +342,7 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			cfg("create-build-failure", "foo", 99998, WithBuild),
 		},
-		WantCreates: []metav1.Object{
+		WantCreates: []runtime.Object{
 			resources.MakeBuild(cfg("create-build-failure", "foo", 99998, WithBuild)),
 			// No Revision gets created.
 		},
@@ -368,7 +368,7 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			cfg("create-revision-failure", "foo", 99998),
 		},
-		WantCreates: []metav1.Object{
+		WantCreates: []runtime.Object{
 			rev("create-revision-failure", "foo", 99998),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
@@ -393,7 +393,7 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			cfg("update-config-failure", "foo", 1234),
 		},
-		WantCreates: []metav1.Object{
+		WantCreates: []runtime.Object{
 			rev("update-config-failure", "foo", 1234),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{

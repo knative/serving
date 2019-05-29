@@ -102,7 +102,7 @@ func TestReconcile(t *testing.T) {
 			deploy(testNamespace, testRevision),
 		},
 		Key: key(testRevision, testNamespace),
-		WantCreates: []metav1.Object{
+		WantCreates: []runtime.Object{
 			sks(testNamespace, testRevision, WithDeployRef(deployName)),
 			hpa(testRevision, testNamespace, pa(testRevision, testNamespace,
 				WithHPAClass, WithMetricAnnotation("cpu"))),
@@ -208,7 +208,7 @@ func TestReconcile(t *testing.T) {
 			InduceFailure("create", "serverlessservices"),
 		},
 		WantErr: true,
-		WantCreates: []metav1.Object{
+		WantCreates: []runtime.Object{
 			sks(testNamespace, testRevision, WithDeployRef(deployName)),
 		},
 		WantEvents: []string{
@@ -387,7 +387,7 @@ func TestReconcile(t *testing.T) {
 			deploy(testNamespace, testRevision),
 		},
 		Key: key(testRevision, testNamespace),
-		WantCreates: []metav1.Object{
+		WantCreates: []runtime.Object{
 			hpa(testRevision, testNamespace, pa(testRevision, testNamespace, WithHPAClass, WithMetricAnnotation("cpu"))),
 		},
 		WithReactors: []ktesting.ReactionFunc{

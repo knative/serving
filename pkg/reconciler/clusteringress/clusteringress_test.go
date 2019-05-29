@@ -167,7 +167,7 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 			gateway("knative-ingress-gateway", system.Namespace(), []v1alpha3.Server{irrelevantServer}),
 			originSecret("istio-system", "secret0"),
 		},
-		WantCreates: []metav1.Object{
+		WantCreates: []runtime.Object{
 			// The creation of gateways are triggered when setting up the test.
 			gateway("knative-ingress-gateway", system.Namespace(), []v1alpha3.Server{irrelevantServer}),
 
@@ -221,7 +221,7 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 			ingressWithTLS("reconciling-clusteringress", 1234, ingressTLS),
 			originSecret("istio-system", "secret0"),
 		},
-		WantCreates: []metav1.Object{
+		WantCreates: []runtime.Object{
 			resources.MakeVirtualService(ingress("reconciling-clusteringress", 1234),
 				[]string{"knative-ingress-gateway"}),
 		},
@@ -270,7 +270,7 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 			ingressWithFinalizers("reconciling-clusteringress", 1234, ingressTLS, []string{clusterIngressFinalizer}),
 			gateway("knative-ingress-gateway", system.Namespace(), []v1alpha3.Server{irrelevantServer, ingressTLSServer}),
 		},
-		WantCreates: []metav1.Object{
+		WantCreates: []runtime.Object{
 			// The creation of gateways are triggered when setting up the test.
 			gateway("knative-ingress-gateway", system.Namespace(), []v1alpha3.Server{irrelevantServer, ingressTLSServer}),
 		},
@@ -295,7 +295,7 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 			// from the namespace (`istio-system`) of Istio gateway service.
 			originSecret("knative-serving", "secret0"),
 		},
-		WantCreates: []metav1.Object{
+		WantCreates: []runtime.Object{
 			// The creation of gateways are triggered when setting up the test.
 			gateway("knative-ingress-gateway", system.Namespace(), []v1alpha3.Server{irrelevantServer}),
 
@@ -374,7 +374,7 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 				},
 			},
 		},
-		WantCreates: []metav1.Object{
+		WantCreates: []runtime.Object{
 			// The creation of gateways are triggered when setting up the test.
 			gateway("knative-ingress-gateway", system.Namespace(), []v1alpha3.Server{*withCredentialName(ingressTLSServer.DeepCopy(), targetSecretName), irrelevantServer}),
 
