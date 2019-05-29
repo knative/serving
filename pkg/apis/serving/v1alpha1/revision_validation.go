@@ -19,6 +19,7 @@ package v1alpha1
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/knative/pkg/apis"
@@ -26,7 +27,6 @@ import (
 	"github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/serving"
 	"k8s.io/apimachinery/pkg/api/equality"
-	"k8s.io/apimachinery/pkg/api/resource"
 )
 
 func (r *Revision) checkImmutableFields(ctx context.Context, original *Revision) *apis.FieldError {
@@ -155,49 +155,34 @@ func (rs *RevisionSpec) Validate(ctx context.Context) *apis.FieldError {
 
 func validateAnnotations(annotations map[string]string) *apis.FieldError {
 
-	errs := validateResource(annotations, serving.QueueSideCarRequestCPUAnnotation, serving.QueueSideCarLimitCPUAnnotation)
-	errs = errs.Also(validateResource(annotations, serving.QueueSideCarRequestMemoryAnnotation, serving.QueueSideCarLimitMemoryAnnotation))
-	return errs
+	return validatePercentageAnnotationKey(annotations, serving.QueueSideCarResourcePercentageAnnotation)
 }
 
-func validateResource(annotations map[string]string, requestAnnotationKey string, limitAnnotationKey string) *apis.FieldError {
+func validatePercentageAnnotationKey(annotations map[string]string, resourcePercentageAnnotationKey string) *apis.FieldError {
 	if len(annotations) == 0 {
 		return nil
 	}
 
-	request, err := getQuantityFromAnnotations(annotations, requestAnnotationKey)
-	if err != nil {
-		return err
+	v, ok := annotations[resourcePercentageAnnotationKey]
+	if !ok {
+		return nil
 	}
-	limit, err := getQuantityFromAnnotations(annotations, limitAnnotationKey)
+	value, err := strconv.ParseFloat(v, 32)
 	if err != nil {
-		return err
+		return &apis.FieldError{
+			Message: fmt.Sprintf("Invalid value %s for annotation %s: %v", v, resourcePercentageAnnotationKey, err),
+			Paths:   []string{resourcePercentageAnnotationKey},
+		}
 	}
 
-	if !limit.IsZero() && limit.Cmp(request) == -1 {
+	if value <= 0 || value > 1 {
 		return &apis.FieldError{
-			Message: fmt.Sprintf("%s=%s is less than %s=%s", limitAnnotationKey, limit.String(), requestAnnotationKey, request.String()),
-			Paths:   []string{limitAnnotationKey, requestAnnotationKey},
+			Message: fmt.Sprintf("%s=%v should be in the range (0,1)", resourcePercentageAnnotationKey, value),
+			Paths:   []string{resourcePercentageAnnotationKey},
 		}
 	}
 
 	return nil
-}
-
-func getQuantityFromAnnotations(m map[string]string, k string) (resource.Quantity, *apis.FieldError) {
-	v, ok := m[k]
-	if !ok {
-		return resource.Quantity{}, nil
-	}
-	quantity, err := resource.ParseQuantity(v)
-	if err != nil {
-		return quantity, &apis.FieldError{
-			Message: fmt.Sprintf("Invalid %s annotation value: %v", v, err),
-			Paths:   []string{k},
-		}
-	}
-
-	return quantity, nil
 }
 
 func validateTimeoutSeconds(timeoutSeconds int64) *apis.FieldError {

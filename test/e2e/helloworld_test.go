@@ -41,10 +41,7 @@ func TestHelloWorld(t *testing.T) {
 
 	t.Log("Creating a new Service")
 	resources, err := test.CreateRunLatestServiceReady(t, clients, &names, &test.Options{
-		RevisionTemplateAnnotations: map[string]string{
-			serving.QueueSideCarRequestCPUAnnotation: "120m",
-			serving.QueueSideCarLimitCPUAnnotation:   "50m",
-		},
+		RevisionTemplateAnnotations: map[string]string{},
 	})
 	if err != nil {
 		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
@@ -93,8 +90,7 @@ func TestQueueSideCarResourceLimit(t *testing.T) {
 	t.Log("Creating a new Service")
 	resources, err := test.CreateRunLatestServiceReady(t, clients, &names, &test.Options{
 		RevisionTemplateAnnotations: map[string]string{
-			serving.QueueSideCarRequestCPUAnnotation: "12m",
-			serving.QueueSideCarLimitCPUAnnotation:   "50m",
+			serving.QueueSideCarResourcePercentageAnnotation: "0.2",
 		},
 	})
 	if err != nil {

@@ -17,6 +17,7 @@ limitations under the License.
 package resources
 
 import (
+	"fmt"
 	"strconv"
 
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -78,27 +79,33 @@ var (
 	}
 )
 
-func getResources(annotations map[string]string) corev1.ResourceRequirements {
+func getResources(annotations map[string]string, userContainer *corev1.Container) corev1.ResourceRequirements {
 
 	resources := corev1.ResourceRequirements{}
 	resourceRequests := corev1.ResourceList{corev1.ResourceCPU: queueContainerCPU}
 	resourceLimits := corev1.ResourceList{}
 	ok := false
 	var requestCPU, limitCPU, requestMemory, limitMemory resource.Quantity
-	if ok, requestCPU = getAnnotationsQuantity(annotations, serving.QueueSideCarRequestCPUAnnotation); ok {
-		resourceRequests[corev1.ResourceCPU] = requestCPU
-	}
+	var resourcePercentage float32
+	resourceRequests[corev1.ResourceCPU] = requestCPU
+	if ok, resourcePercentage = getResourcePercentageFromAnnotations(annotations, serving.QueueSideCarResourcePercentageAnnotation); ok {
 
-	if ok, limitCPU = getAnnotationsQuantity(annotations, serving.QueueSideCarLimitCPUAnnotation); ok {
-		resourceLimits[corev1.ResourceCPU] = limitCPU
-	}
+		if ok, requestCPU = getUserContainerResourceRequirements(userContainer.Resources.Requests.Cpu(), resourcePercentage, queueContainerRequestCPU); ok {
+			resourceRequests[corev1.ResourceCPU] = requestCPU
+		}
 
-	if ok, requestMemory = getAnnotationsQuantity(annotations, serving.QueueSideCarRequestMemoryAnnotation); ok {
-		resourceRequests[corev1.ResourceMemory] = requestMemory
-	}
+		if ok, limitCPU = getUserContainerResourceRequirements(userContainer.Resources.Limits.Cpu(), resourcePercentage, queueContainerLimitCPU); ok {
+			resourceLimits[corev1.ResourceCPU] = limitCPU
+		}
 
-	if ok, limitMemory = getAnnotationsQuantity(annotations, serving.QueueSideCarLimitMemoryAnnotation); ok {
-		resourceLimits[corev1.ResourceMemory] = limitMemory
+		if ok, requestMemory = getUserContainerResourceRequirements(userContainer.Resources.Requests.Memory(), resourcePercentage, queueContainerRequestMemory); ok {
+			resourceRequests[corev1.ResourceMemory] = requestMemory
+		}
+
+		if ok, limitMemory = getUserContainerResourceRequirements(userContainer.Resources.Limits.Memory(), resourcePercentage, queueContainerLimitMemory); ok {
+			resourceLimits[corev1.ResourceMemory] = limitMemory
+		}
+
 	}
 
 	resources.Requests = resourceRequests
@@ -110,12 +117,31 @@ func getResources(annotations map[string]string) corev1.ResourceRequirements {
 	return resources
 }
 
-func getAnnotationsQuantity(m map[string]string, k string) (bool, resource.Quantity) {
+func getUserContainerResourceRequirements(resourceQuantity *resource.Quantity, percentage float32, boundary ResourceBoundary) (bool, resource.Quantity) {
+	if !resourceQuantity.IsZero() {
+		newValue := int64(float64(resourceQuantity.Value()) * float64(percentage))
+		newquantity := *resource.NewQuantity(newValue, resource.BinarySI)
+		if newquantity.Cmp(boundary.min) == -1 {
+			newquantity = boundary.min
+		} else if newquantity.Cmp(boundary.max) == 1 {
+			newquantity = boundary.max
+		}
+		fmt.Printf("%v", newquantity)
+		return true, newquantity
+	}
+	return false, resource.Quantity{}
+}
+
+func getResourcePercentageFromAnnotations(m map[string]string, k string) (bool, float32) {
 	v, ok := m[k]
 	if !ok {
-		return false, resource.Quantity{}
+		return false, 0
 	}
-	return true, resource.MustParse(v)
+	value, err := strconv.ParseFloat(v, 32)
+	if err != nil {
+		return false, 0
+	}
+	return true, float32(value)
 }
 
 // makeQueueContainer creates the container spec for the queue sidecar.
@@ -147,11 +173,11 @@ func makeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, o
 	} else {
 		ports = append(ports, queueHTTPPort)
 	}
-
+	fmt.Printf("%v", rev.Spec.GetContainer().Resources.Limits.Memory())
 	return &corev1.Container{
 		Name:           QueueContainerName,
 		Image:          deploymentConfig.QueueSidecarImage,
-		Resources:      getResources(rev.GetAnnotations()),
+		Resources:      getResources(rev.GetAnnotations(), rev.Spec.GetContainer()),
 		Ports:          ports,
 		ReadinessProbe: queueReadinessProbe,
 		Env: []corev1.EnvVar{{

@@ -73,7 +73,7 @@ func TestMakeQueueContainer(t *testing.T) {
 		want: &corev1.Container{
 			// These are effectively constant
 			Name:           QueueContainerName,
-			Resources:      getResources(make(map[string]string)),
+			Resources:      getResources(make(map[string]string), &corev1.Container{}),
 			Ports:          append(queueNonServingPorts, queueHTTPPort),
 			ReadinessProbe: queueReadinessProbe,
 			// These changed based on the Revision and configs passed in.
@@ -111,7 +111,7 @@ func TestMakeQueueContainer(t *testing.T) {
 		want: &corev1.Container{
 			// These are effectively constant
 			Name:           QueueContainerName,
-			Resources:      getResources(make(map[string]string)),
+			Resources:      getResources(make(map[string]string), &corev1.Container{}),
 			Ports:          append(queueNonServingPorts, queueHTTP2Port),
 			ReadinessProbe: queueReadinessProbe,
 			// These changed based on the Revision and configs passed in.
@@ -148,7 +148,7 @@ func TestMakeQueueContainer(t *testing.T) {
 		want: &corev1.Container{
 			// These are effectively constant
 			Name:           QueueContainerName,
-			Resources:      getResources(make(map[string]string)),
+			Resources:      getResources(make(map[string]string), &corev1.Container{}),
 			Ports:          append(queueNonServingPorts, queueHTTPPort),
 			ReadinessProbe: queueReadinessProbe,
 			// These changed based on the Revision and configs passed in.
@@ -157,7 +157,7 @@ func TestMakeQueueContainer(t *testing.T) {
 				"SERVING_SERVICE": "svc",
 			}),
 		}}, {
-		name: "resources in annotations ",
+		name: "resources percentage set in annotations",
 		rev: &v1alpha1.Revision{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: "foo",
@@ -167,14 +167,25 @@ func TestMakeQueueContainer(t *testing.T) {
 					serving.ServiceLabelKey: "svc",
 				},
 				Annotations: map[string]string{
-					serving.QueueSideCarRequestCPUAnnotation:    "25m",
-					serving.QueueSideCarRequestMemoryAnnotation: "100Mi",
+					serving.QueueSideCarResourcePercentageAnnotation: "0.2",
 				},
 			},
 			Spec: v1alpha1.RevisionSpec{
 				RevisionSpec: v1beta1.RevisionSpec{
 					ContainerConcurrency: 1,
 					TimeoutSeconds:       ptr.Int64(45),
+					PodSpec: v1beta1.PodSpec{
+						Containers: []corev1.Container{{
+							Resources: corev1.ResourceRequirements{
+								Limits: corev1.ResourceList{
+									corev1.ResourceName("memory"): resource.MustParse("250M"),
+								},
+								Requests: corev1.ResourceList{
+									corev1.ResourceName("cpu"): resource.MustParse("250m"),
+								},
+							},
+						}},
+					},
 				},
 			},
 		},
@@ -188,9 +199,18 @@ func TestMakeQueueContainer(t *testing.T) {
 			// These are effectively constant
 			Name: QueueContainerName,
 			Resources: getResources(map[string]string{
-				serving.QueueSideCarRequestCPUAnnotation:    "25m",
-				serving.QueueSideCarRequestMemoryAnnotation: "100Mi",
-			}),
+				serving.QueueSideCarResourcePercentageAnnotation: "0.2"},
+				&corev1.Container{
+					Resources: corev1.ResourceRequirements{
+						Limits: corev1.ResourceList{
+							corev1.ResourceName("memory"): resource.MustParse("250M"),
+						},
+						Requests: corev1.ResourceList{
+							corev1.ResourceName("cpu"): resource.MustParse("250m"),
+						},
+					},
+				},
+			),
 			Ports:          append(queueNonServingPorts, queueHTTPPort),
 			ReadinessProbe: queueReadinessProbe,
 			// These changed based on the Revision and configs passed in.
@@ -199,7 +219,7 @@ func TestMakeQueueContainer(t *testing.T) {
 				"SERVING_SERVICE": "svc",
 			}),
 		}}, {
-		name: "Invalid data for resources in annotations ",
+		name: "resources percentage from annotations less than min",
 		rev: &v1alpha1.Revision{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: "foo",
@@ -209,13 +229,25 @@ func TestMakeQueueContainer(t *testing.T) {
 					serving.ServiceLabelKey: "svc",
 				},
 				Annotations: map[string]string{
-					serving.QueueSideCarRequestMemoryAnnotation: "100Mx",
+					serving.QueueSideCarResourcePercentageAnnotation: "0.2",
 				},
 			},
 			Spec: v1alpha1.RevisionSpec{
 				RevisionSpec: v1beta1.RevisionSpec{
 					ContainerConcurrency: 1,
 					TimeoutSeconds:       ptr.Int64(45),
+					PodSpec: v1beta1.PodSpec{
+						Containers: []corev1.Container{{
+							Resources: corev1.ResourceRequirements{
+								Limits: corev1.ResourceList{
+									corev1.ResourceName("memory"): resource.MustParse("250M"),
+								},
+								Requests: corev1.ResourceList{
+									corev1.ResourceName("cpu"): resource.MustParse("25m"),
+								},
+							},
+						}},
+					},
 				},
 			},
 		},
@@ -228,9 +260,14 @@ func TestMakeQueueContainer(t *testing.T) {
 		want: &corev1.Container{
 			// These are effectively constant
 			Name: QueueContainerName,
-			Resources: getResources(map[string]string{
-				serving.QueueSideCarRequestCPUAnnotation: "25m",
-			}),
+			Resources: corev1.ResourceRequirements{
+				Limits: corev1.ResourceList{
+					corev1.ResourceName("memory"): resource.MustParse("50000000"),
+				},
+				Requests: corev1.ResourceList{
+					corev1.ResourceName("cpu"): resource.MustParse("25m"),
+				},
+			},
 			Ports:          append(queueNonServingPorts, queueHTTPPort),
 			ReadinessProbe: queueReadinessProbe,
 			// These changed based on the Revision and configs passed in.
@@ -267,7 +304,7 @@ func TestMakeQueueContainer(t *testing.T) {
 		want: &corev1.Container{
 			// These are effectively constant
 			Name:           QueueContainerName,
-			Resources:      getResources(make(map[string]string)),
+			Resources:      getResources(make(map[string]string), &corev1.Container{}),
 			Ports:          append(queueNonServingPorts, queueHTTPPort),
 			ReadinessProbe: queueReadinessProbe,
 			// These changed based on the Revision and configs passed in.
@@ -305,7 +342,7 @@ func TestMakeQueueContainer(t *testing.T) {
 		want: &corev1.Container{
 			// These are effectively constant
 			Name:           QueueContainerName,
-			Resources:      getResources(make(map[string]string)),
+			Resources:      getResources(make(map[string]string), &corev1.Container{}),
 			Ports:          append(queueNonServingPorts, queueHTTPPort),
 			ReadinessProbe: queueReadinessProbe,
 			// These changed based on the Revision and configs passed in.
@@ -339,7 +376,7 @@ func TestMakeQueueContainer(t *testing.T) {
 		want: &corev1.Container{
 			// These are effectively constant
 			Name:           QueueContainerName,
-			Resources:      getResources(make(map[string]string)),
+			Resources:      getResources(make(map[string]string), &corev1.Container{}),
 			Ports:          append(queueNonServingPorts, queueHTTPPort),
 			ReadinessProbe: queueReadinessProbe,
 			// These changed based on the Revision and configs passed in.
@@ -369,7 +406,7 @@ func TestMakeQueueContainer(t *testing.T) {
 		want: &corev1.Container{
 			// These are effectively constant
 			Name:           QueueContainerName,
-			Resources:      getResources(make(map[string]string)),
+			Resources:      getResources(make(map[string]string), &corev1.Container{}),
 			Ports:          append(queueNonServingPorts, queueHTTPPort),
 			ReadinessProbe: queueReadinessProbe,
 			// These changed based on the Revision and configs passed in.
@@ -402,7 +439,7 @@ func TestMakeQueueContainer(t *testing.T) {
 		want: &corev1.Container{
 			// These are effectively constant
 			Name:           QueueContainerName,
-			Resources:      getResources(make(map[string]string)),
+			Resources:      getResources(make(map[string]string), &corev1.Container{}),
 			Ports:          append(queueNonServingPorts, queueHTTPPort),
 			ReadinessProbe: queueReadinessProbe,
 			// These changed based on the Revision and configs passed in.
@@ -419,6 +456,87 @@ func TestMakeQueueContainer(t *testing.T) {
 			sortEnv(got.Env)
 			if diff := cmp.Diff(test.want, got, cmpopts.IgnoreUnexported(resource.Quantity{})); diff != "" {
 				t.Errorf("makeQueueContainer (-want, +got) = %v", diff)
+			}
+		})
+	}
+}
+
+func TestMakeQueueContainer1(t *testing.T) {
+	tests := []struct {
+		name string
+		rev  *v1alpha1.Revision
+		lc   *logging.Config
+		oc   *metrics.ObservabilityConfig
+		ac   *autoscaler.Config
+		cc   *deployment.Config
+		want *corev1.Container
+	}{{
+		name: "resources in annotations ",
+		rev: &v1alpha1.Revision{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: "foo",
+				Name:      "bar",
+				UID:       "1234",
+				Labels: map[string]string{
+					serving.ServiceLabelKey: "svc",
+				},
+				Annotations: map[string]string{
+					serving.QueueSideCarResourcePercentageAnnotation: "0.2",
+				},
+			},
+			Spec: v1alpha1.RevisionSpec{
+				RevisionSpec: v1beta1.RevisionSpec{
+					ContainerConcurrency: 1,
+					TimeoutSeconds:       ptr.Int64(45),
+					PodSpec: v1beta1.PodSpec{
+						Containers: []corev1.Container{{
+							Name: "bar",
+							Resources: corev1.ResourceRequirements{
+								Limits: corev1.ResourceList{
+									corev1.ResourceName("memory"): resource.MustParse("2Gi"),
+								},
+								Requests: corev1.ResourceList{
+									corev1.ResourceName("cpu"): resource.MustParse("25m"),
+								},
+							},
+						}},
+					},
+				},
+			},
+		},
+		lc: &logging.Config{},
+		oc: &metrics.ObservabilityConfig{},
+		ac: &autoscaler.Config{},
+		cc: &deployment.Config{
+			QueueSidecarImage: "alpine",
+		},
+		want: &corev1.Container{
+			// These are effectively constant
+			Name: QueueContainerName,
+			Resources: corev1.ResourceRequirements{
+				Limits: corev1.ResourceList{
+					corev1.ResourceName("memory"): *resource.NewQuantity(429496736, resource.BinarySI),
+				},
+				Requests: corev1.ResourceList{
+					corev1.ResourceName("cpu"): resource.MustParse("25m"),
+				},
+			},
+			Ports:          append(queueNonServingPorts, queueHTTPPort),
+			ReadinessProbe: queueReadinessProbe,
+			// These changed based on the Revision and configs passed in.
+			Image: "alpine",
+			Env: env(map[string]string{
+				"SERVING_SERVICE": "svc",
+			}),
+		}},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			got := makeQueueContainer(test.rev, test.lc, test.oc, test.ac, test.cc)
+			sortEnv(got.Env)
+			if diff := cmp.Diff(test.want, got, cmpopts.IgnoreUnexported(resource.Quantity{})); diff != "" {
+				t.Errorf("makeQueueContainer1 (-want, +got) = %v", diff)
 			}
 		})
 	}

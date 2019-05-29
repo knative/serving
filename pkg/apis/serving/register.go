@@ -70,15 +70,6 @@ const (
 
 	queueName = "queue.sidecar."
 
-	// QueueSideCarRequestCPUAnnotation is the request.cpu of the queue proxy side car
-	QueueSideCarRequestCPUAnnotation = queueName + GroupName + "/requestCPU"
-
-	// QueueSideCarLimitCPUAnnotation is the limit.cpu of the queue proxy side car
-	QueueSideCarLimitCPUAnnotation = queueName + GroupName + "/limitCPU"
-
-	// QueueSideCarRequestMemoryAnnotation is the request.memory of the queue proxy side car
-	QueueSideCarRequestMemoryAnnotation = queueName + GroupName + "/requestMemory"
-
-	// QueueSideCarLimitMemoryAnnotation is the limit.memory of the queue proxy side car
-	QueueSideCarLimitMemoryAnnotation = queueName + GroupName + "/limitMemory"
+	// QueueSideCarResourcePercentageAnnotation is the percentage of user container resources to be used for queue-proxy
+	QueueSideCarResourcePercentageAnnotation = queueName + GroupName + "/resourcePercentage"
 )

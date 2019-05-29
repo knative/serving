@@ -1,0 +1,34 @@
+/*
+Copyright 2018 The Knative Authors
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+package resources
+
+import (
+	"k8s.io/apimachinery/pkg/api/resource"
+)
+
+// ResourceBoundary is the minimum and maximum resource allowed for a type of
+type ResourceBoundary struct {
+	min resource.Quantity
+	max resource.Quantity
+}
+
+var (
+	queueContainerRequestCPU    = ResourceBoundary{min: resource.MustParse("25m"), max: resource.MustParse("100m")}
+	queueContainerLimitCPU      = ResourceBoundary{min: resource.MustParse("40m"), max: resource.MustParse("500m")}
+	queueContainerRequestMemory = ResourceBoundary{min: resource.MustParse("50Mi"), max: resource.MustParse("200Mi")}
+	queueContainerLimitMemory   = ResourceBoundary{min: resource.MustParse("200Mi"), max: resource.MustParse("500Mi")}
+)

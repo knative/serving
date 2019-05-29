@@ -301,12 +301,11 @@ func TestRevisionTemplateSpecValidation(t *testing.T) {
 		},
 		want: nil,
 	}, {
-		name: "queue cpu request more than cpu limit",
+		name: "Queue sidecar resource percentage annotation more than 1",
 		rts: &RevisionTemplateSpec{
 			ObjectMeta: metav1.ObjectMeta{
 				Annotations: map[string]string{
-					serving.QueueSideCarRequestCPUAnnotation: "50m",
-					serving.QueueSideCarLimitCPUAnnotation:   "25m",
+					serving.QueueSideCarResourcePercentageAnnotation: "3",
 				},
 			},
 			Spec: RevisionSpec{
@@ -316,15 +315,15 @@ func TestRevisionTemplateSpecValidation(t *testing.T) {
 			},
 		},
 		want: &apis.FieldError{
-			Message: "queue.serving.knative.dev/limitCpu=25m is less than queue.serving.knative.dev/requestCpu=50m",
-			Paths:   []string{serving.QueueSideCarRequestCPUAnnotation, serving.QueueSideCarLimitCPUAnnotation},
+			Message: "queue.serving.knative.dev/resourcePercentage=3 should be in the range (0,1)",
+			Paths:   []string{serving.QueueSideCarResourcePercentageAnnotation},
 		},
 	}, {
-		name: "Invalid queue resource limit and request",
+		name: "Invalid queue sidecar resource percentage annotation",
 		rts: &RevisionTemplateSpec{
 			ObjectMeta: metav1.ObjectMeta{
 				Annotations: map[string]string{
-					serving.QueueSideCarRequestCPUAnnotation: "50mx",
+					serving.QueueSideCarResourcePercentageAnnotation: "50mx",
 				},
 			},
 			Spec: RevisionSpec{
@@ -334,8 +333,8 @@ func TestRevisionTemplateSpecValidation(t *testing.T) {
 			},
 		},
 		want: &apis.FieldError{
-			Message: "Invalid 50mx annotation value: quantities must match the regular expression '^([+-]?[0-9.]+)([eEinumkKMGTP]*[-+]?[0-9]*)$'",
-			Paths:   []string{serving.QueueSideCarRequestCPUAnnotation},
+			Message: "Invalid value 50mx for annotation queue.sidecar.serving.knative.dev/resourcePercentage: strconv.ParseFloat: parsing \"50mx\": invalid syntax",
+			Paths:   []string{serving.QueueSideCarResourcePercentageAnnotation},
 		},
 	}}
 
