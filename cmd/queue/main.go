@@ -63,6 +63,10 @@ const (
 	// in the mesh.
 	quitSleepDuration = 20 * time.Second
 
+	// Set equal to the queue-proxy's ExecProbe timeout to take
+	// advantage of the full window
+	queueProbeTimeout = 10 * time.Second
+
 	badProbeTemplate = "unexpected probe header value: %s"
 )
 
@@ -227,12 +231,12 @@ func probeQueueHealthPath(port int) error {
 			// Do not use the cached connection
 			DisableKeepAlives: true,
 		},
-		Timeout: 500 * time.Millisecond,
+		Timeout: queueProbeTimeout,
 	}
 
 	var lastErr error
 
-	timeoutErr := wait.PollImmediate(100*time.Millisecond, time.Second, func() (bool, error) {
+	timeoutErr := wait.PollImmediate(25*time.Millisecond, queueProbeTimeout, func() (bool, error) {
 		var res *http.Response
 		res, lastErr = httpClient.Get(url)
 
@@ -261,6 +265,7 @@ func main() {
 
 	if *probe {
 		if err := probeQueueHealthPath(networking.QueueAdminPort); err != nil {
+			// used instead of the logger to produce a concise event message
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
