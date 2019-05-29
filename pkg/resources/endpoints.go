@@ -80,10 +80,10 @@ func (uc *unscopedCounter) ReadyCount() (int, error) {
 	return readyAddressCount(uc.endpoints), nil
 }
 
-// NewFixedEndpointsListCounter creates a ReadyPodCounter that counts
+// NewFixedEndpointsCounter creates a ReadyPodCounter that counts
 // the provided list of Endpoints. The value returned by ReadyCount()
 // should be stable, unless the endpoints parameter is modified elsewhere.
-func NewFixedEndpointsListCounter(endpoints *corev1.Endpoints) ReadyPodCounter {
+func NewFixedEndpointsCounter(endpoints *corev1.Endpoints) ReadyPodCounter {
 	return &unscopedCounter{
 		endpoints: endpoints,
 	}

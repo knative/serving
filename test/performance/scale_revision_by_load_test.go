@@ -129,8 +129,8 @@ func scaleRevisionByLoad(t *testing.T, numClients int) []junit.TestCase {
 		UpdateFunc: func(oldObj, newObj interface{}) {
 			newEndpoints := newObj.(*corev1.Endpoints)
 			if strings.Contains(newEndpoints.GetName(), names.Service) {
-				newNumAddresses, _ := resources.NewFixedEndpointsListCounter(newEndpoints).ReadyCount()
-				oldNumAddresses, _ := resources.NewFixedEndpointsListCounter(oldObj.(*corev1.Endpoints)).ReadyCount()
+				newNumAddresses, _ := resources.NewFixedEndpointsCounter(newEndpoints).ReadyCount()
+				oldNumAddresses, _ := resources.NewFixedEndpointsCounter(oldObj.(*corev1.Endpoints)).ReadyCount()
 				if newNumAddresses != oldNumAddresses {
 					event := &scaleEvent{
 						oldScale:  oldNumAddresses,

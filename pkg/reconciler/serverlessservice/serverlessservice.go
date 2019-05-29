@@ -295,7 +295,7 @@ func (r *reconciler) reconcilePublicEndpoints(ctx context.Context, sks *netv1alp
 			return err
 		}
 		logger.Debugf("Private endpoints: %s", spew.Sprint(srcEps))
-		if r, _ := presources.NewFixedEndpointsListCounter(srcEps).ReadyCount(); r == 0 {
+		if r, _ := presources.NewFixedEndpointsCounter(srcEps).ReadyCount(); r == 0 {
 			logger.Infof("%s is in mode Serve but has no endpoints, using Activator endpoints for now", psn)
 			srcEps = activatorEps
 		} else {

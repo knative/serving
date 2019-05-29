@@ -94,7 +94,7 @@ func TestFixedEndpointsCounter(t *testing.T) {
 		},
 	}
 
-	addressCounter := NewFixedEndpointsListCounter(eps)
+	addressCounter := NewFixedEndpointsCounter(eps)
 	expected := 3
 
 	got, err := addressCounter.ReadyCount()
