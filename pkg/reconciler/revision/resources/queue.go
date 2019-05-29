@@ -18,6 +18,7 @@ package resources
 
 import (
 	"fmt"
+	"math"
 	"strconv"
 
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -87,7 +88,7 @@ func getResources(annotations map[string]string, userContainer *corev1.Container
 	ok := false
 	var requestCPU, limitCPU, requestMemory, limitMemory resource.Quantity
 	var resourcePercentage float32
-	resourceRequests[corev1.ResourceCPU] = requestCPU
+
 	if ok, resourcePercentage = getResourcePercentageFromAnnotations(annotations, serving.QueueSideCarResourcePercentageAnnotation); ok {
 
 		if ok, requestCPU = getUserContainerResourceRequirements(userContainer.Resources.Requests.Cpu(), resourcePercentage, queueContainerRequestCPU); ok {
@@ -119,14 +120,26 @@ func getResources(annotations map[string]string, userContainer *corev1.Container
 
 func getUserContainerResourceRequirements(resourceQuantity *resource.Quantity, percentage float32, boundary ResourceBoundary) (bool, resource.Quantity) {
 	if !resourceQuantity.IsZero() {
-		newValue := int64(float64(resourceQuantity.Value()) * float64(percentage))
-		newquantity := *resource.NewQuantity(newValue, resource.BinarySI)
+		absoluteValue := resourceQuantity.Value()
+		absoluteMilliValue := absoluteValue
+		if absoluteValue < (math.MaxInt64 / 1000) {
+			absoluteMilliValue = resourceQuantity.MilliValue()
+		}
+
+		fmt.Printf("Actual  %v\n", resourceQuantity)
+		fmt.Printf("Actual value %v\n", resourceQuantity.Value())
+		fmt.Printf("Actual milli value %v\n", resourceQuantity.MilliValue())
+
+		newValue := int64(float64(absoluteMilliValue) * float64(percentage))
+		fmt.Printf("Percentage Value %v\n", newValue)
+
+		newquantity := *resource.NewMilliQuantity(newValue, resource.BinarySI)
 		if newquantity.Cmp(boundary.min) == -1 {
 			newquantity = boundary.min
 		} else if newquantity.Cmp(boundary.max) == 1 {
 			newquantity = boundary.max
 		}
-		fmt.Printf("%v", newquantity)
+		fmt.Printf("%v\n", newquantity)
 		return true, newquantity
 	}
 	return false, resource.Quantity{}
@@ -173,7 +186,7 @@ func makeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, o
 	} else {
 		ports = append(ports, queueHTTPPort)
 	}
-	fmt.Printf("%v", rev.Spec.GetContainer().Resources.Limits.Memory())
+
 	return &corev1.Container{
 		Name:           QueueContainerName,
 		Image:          deploymentConfig.QueueSidecarImage,
