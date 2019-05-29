@@ -104,8 +104,8 @@ func initEnv() {
 	servingPodName = util.GetRequiredEnvOrFatal("SERVING_POD", logger)
 	servingRevision = util.GetRequiredEnvOrFatal("SERVING_REVISION", logger)
 	servingService = os.Getenv("SERVING_SERVICE") // KService is optional
-	userTargetAddress = fmt.Sprintf("127.0.0.1:%d", userTargetPort)
 	userTargetPort = util.MustParseIntEnvOrFatal("USER_PORT", logger)
+	userTargetAddress = fmt.Sprintf("127.0.0.1:%d", userTargetPort)
 	userContainerName = util.GetRequiredEnvOrFatal("USER_CONTAINER_NAME", logger)
 
 	enableVarLogCollection, _ = strconv.ParseBool(os.Getenv("ENABLE_VAR_LOG_COLLECTION")) // Optional, default is false
