@@ -116,9 +116,9 @@ can easily [clean your cluster up](#clean-up) and try again.
 Your user must be a cluster admin to perform the setup needed for Knative.
 
 The value you use depends on
-[your cluster setup](https://www.knative.dev/docs/install/): when using
-Minikube or Kubernetes on Docker Desktop, the user is your local user;
-when using GKE, the user is your GCP user.
+[your cluster setup](https://www.knative.dev/docs/install/): when using Minikube
+or Kubernetes on Docker Desktop, the user is your local user; when using GKE,
+the user is your GCP user.
 
 ```shell
 # For GCP
@@ -134,11 +134,13 @@ kubectl create clusterrolebinding cluster-admin-binding \
 
 ### Resource allocation for Kubernetes
 
-Please allocate sufficient resources for Kubernetes, especially when you run a Kubernetes cluster on your local machine.
-We recommend allocating at least 6 CPUs and 8G memory assuming a single node Kubernetes installation, and allocating
-at least 4 CPUs and 8G memory for each node assuming a 3-node Kubernetes installation. Please go back
-to [your cluster setup](https://www.knative.dev/docs/install/) to reconfigure your Kubernetes cluster in your designated
-environment, if necessary.
+Please allocate sufficient resources for Kubernetes, especially when you run a
+Kubernetes cluster on your local machine. We recommend allocating at least 6
+CPUs and 8G memory assuming a single node Kubernetes installation, and
+allocating at least 4 CPUs and 8G memory for each node assuming a 3-node
+Kubernetes installation. Please go back to
+[your cluster setup](https://www.knative.dev/docs/install/) to reconfigure your
+Kubernetes cluster in your designated environment, if necessary.
 
 ### Deploy Istio
 
@@ -206,8 +208,8 @@ data:
   clusteringress.class: "istio.ingress.networking.knative.dev"
 ```
 
-You should keep the default value for "istio.sidecar.includeOutboundIPRanges", when you use Minikube or
-Docker Desktop as the Kubernetes environment.
+You should keep the default value for "istio.sidecar.includeOutboundIPRanges",
+when you use Minikube or Docker Desktop as the Kubernetes environment.
 
 Next, run:
 
