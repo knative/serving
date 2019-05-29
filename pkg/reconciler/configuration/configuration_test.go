@@ -123,7 +123,7 @@ func TestReconcile(t *testing.T) {
 				// The following properties are set when we first reconcile a
 				// Configuration and a Revision is created.
 				WithLatestCreated("byo-name-exists-foo"), WithObservedGen),
-			rev("byo-name-exists", "foo", 1234, func(rev *v1alpha1.Revision) {
+			rev("byo-name-exists", "foo", 1234, WithCreationTimestamp(now), func(rev *v1alpha1.Revision) {
 				rev.Name = "byo-name-exists-foo"
 				rev.GenerateName = ""
 			}),
@@ -136,7 +136,7 @@ func TestReconcile(t *testing.T) {
 			cfg("byo-name-git-revert", "foo", 1234, func(cfg *v1alpha1.Configuration) {
 				cfg.Spec.GetTemplate().Name = "byo-name-git-revert-foo"
 			}),
-			rev("byo-name-git-revert", "foo", 1200, func(rev *v1alpha1.Revision) {
+			rev("byo-name-git-revert", "foo", 1200, WithCreationTimestamp(now), func(rev *v1alpha1.Revision) {
 				rev.Name = "byo-name-git-revert-foo"
 				rev.GenerateName = ""
 			}),
@@ -619,14 +619,39 @@ func TestIsRevisionStale(t *testing.T) {
 		},
 		want: false,
 	}, {
-		name: "stale revision that was never pinned",
+		name: "stale revision that was never pinned w/ Ready status",
 		rev: &v1alpha1.Revision{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:              "myrev",
 				CreationTimestamp: metav1.NewTime(staleTime),
 			},
+			Status: v1alpha1.RevisionStatus{
+				Status: duckv1beta1.Status{
+					Conditions: duckv1beta1.Conditions{{
+						Type:   v1alpha1.RevisionConditionReady,
+						Status: "True",
+					}},
+				},
+			},
 		},
 		want: false,
+	}, {
+		name: "stale revision that was never pinned w/o Ready status",
+		rev: &v1alpha1.Revision{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:              "myrev",
+				CreationTimestamp: metav1.NewTime(staleTime),
+			},
+			Status: v1alpha1.RevisionStatus{
+				Status: duckv1beta1.Status{
+					Conditions: duckv1beta1.Conditions{{
+						Type:   v1alpha1.RevisionConditionReady,
+						Status: "Unknown",
+					}},
+				},
+			},
+		},
+		want: true,
 	}, {
 		name: "stale revision that was previously pinned",
 		rev: &v1alpha1.Revision{
