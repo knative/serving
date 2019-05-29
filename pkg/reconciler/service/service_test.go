@@ -17,6 +17,7 @@ limitations under the License.
 package service
 
 import (
+	"context"
 	"fmt"
 	"testing"
 
@@ -745,7 +746,7 @@ func TestReconcile(t *testing.T) {
 				}),
 		}},
 		WantEvents: []string{
-			Eventf(corev1.EventTypeWarning, "InternalError", "Failed to parse image reference: spec.revisionTemplate.spec.container.image\nimage: \"#\", error: could not parse reference"),
+			Eventf(corev1.EventTypeWarning, "InternalError", "Failed to parse image reference: spec.template.spec.containers[0].image\nimage: \"#\", error: could not parse reference"),
 		},
 	}, {
 		Name: "runLatest - route creation failure",
@@ -1125,6 +1126,7 @@ func TestNew(t *testing.T) {
 
 func config(name, namespace string, so ServiceOption, co ...ConfigOption) *v1alpha1.Configuration {
 	s := Service(name, namespace, so)
+	s.SetDefaults(v1beta1.WithUpgradeViaDefaulting(context.Background()))
 	cfg, err := resources.MakeConfiguration(s)
 	if err != nil {
 		panic(fmt.Sprintf("MakeConfiguration() = %v", err))
@@ -1137,6 +1139,7 @@ func config(name, namespace string, so ServiceOption, co ...ConfigOption) *v1alp
 
 func route(name, namespace string, so ServiceOption, ro ...RouteOption) *v1alpha1.Route {
 	s := Service(name, namespace, so)
+	s.SetDefaults(v1beta1.WithUpgradeViaDefaulting(context.Background()))
 	route, err := resources.MakeRoute(s)
 	if err != nil {
 		panic(fmt.Sprintf("MakeRoute() = %v", err))

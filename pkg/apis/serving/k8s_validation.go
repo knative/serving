@@ -189,7 +189,9 @@ func ValidateContainer(container corev1.Container, volumes sets.String) *apis.Fi
 	// EnvFrom
 	errs = errs.Also(validateEnvFrom(container.EnvFrom).ViaField("envFrom"))
 	// Image
-	if _, err := name.ParseReference(container.Image, name.WeakValidation); err != nil {
+	if container.Image == "" {
+		errs = errs.Also(apis.ErrMissingField("image"))
+	} else if _, err := name.ParseReference(container.Image, name.WeakValidation); err != nil {
 		fe := &apis.FieldError{
 			Message: "Failed to parse image reference",
 			Paths:   []string{"image"},

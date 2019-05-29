@@ -638,6 +638,7 @@ func cfg(name, namespace string, generation int64, co ...ConfigOption) *v1alpha1
 
 func rev(name, namespace string, generation int64, ro ...RevisionOption) *v1alpha1.Revision {
 	r := resources.MakeRevision(cfg(name, namespace, generation), nil)
+	r.SetDefaults(v1beta1.WithUpgradeViaDefaulting(context.Background()))
 	for _, opt := range ro {
 		opt(r)
 	}
