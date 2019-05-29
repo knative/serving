@@ -103,7 +103,7 @@ func main() {
 
 	// Build all of our controllers, with the clients constructed above.
 	// Add new controllers to this array.
-	controllers := []*controller.Impl{
+	controllers := [...]*controller.Impl{
 		configuration.NewController(
 			opt,
 			configurationInformer,
@@ -149,9 +149,12 @@ func main() {
 			endpointsInformer,
 		),
 	}
-	if len(controllers) != numControllers {
-		logger.Fatalf("Number of controllers and QPS settings mismatch: %d != %d", len(controllers), numControllers)
-	}
+	// This line asserts at compile time that the length of controllers is equal to numControllers.
+	// It is based on https://go101.org/article/tips.html#assert-at-compile-time, which notes that
+	// var _ [N-M]int
+	// asserts at compile time that N >= M, which we can use to establish equality of N and M:
+	// (N >= M) && (M >= N) => (N == M)
+	var _ [numControllers - len(controllers)][len(controllers) - numControllers]int
 
 	// Watch the logging config map and dynamically update logging levels.
 	opt.ConfigMapWatcher.Watch(logging.ConfigMapName(), logging.UpdateLevelFromConfigMap(logger, atomicLevel, component))
@@ -184,7 +187,7 @@ func main() {
 
 	// Start all of the controllers.
 	logger.Info("Starting controllers.")
-	controller.StartAll(stopCh, controllers...)
+	controller.StartAll(stopCh, controllers[:]...)
 }
 
 func flush(logger *zap.SugaredLogger) {
