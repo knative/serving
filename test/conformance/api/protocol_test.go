@@ -41,7 +41,7 @@ func (pt *protocolsTest) setup(t *testing.T) {
 	pt.clients = test.Setup(t)
 	pt.names = test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
-		Image:   protocols,
+		Image:   test.Protocols,
 	}
 
 	test.CleanupOnInterrupt(func() { pt.teardown() })

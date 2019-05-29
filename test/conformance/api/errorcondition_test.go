@@ -47,7 +47,7 @@ func TestContainerErrorMsg(t *testing.T) {
 
 	names := test.ResourceNames{
 		Config: test.ObjectNameForTest(t),
-		Image:  invalidhelloworld,
+		Image:  test.InvalidHelloWorld,
 	}
 	// Specify an invalid image path
 	// A valid DockerRepo is still needed, otherwise will get UNAUTHORIZED instead of container missing error
@@ -152,7 +152,7 @@ func TestContainerExitingMsg(t *testing.T) {
 
 			names := test.ResourceNames{
 				Config: test.ObjectNameForTest(t),
-				Image:  failing,
+				Image:  test.Failing,
 			}
 
 			defer test.TearDown(clients, names)

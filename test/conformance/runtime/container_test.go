@@ -16,7 +16,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package api
+package runtime
 
 import (
 	"testing"
@@ -106,7 +106,7 @@ func TestMustNotContainerConstraints(t *testing.T) {
 			t.Parallel()
 			names := test.ResourceNames{
 				Service: test.ObjectNameForTest(t),
-				Image:   pizzaPlanet1,
+				Image:   test.Runtime,
 			}
 			if svc, err := test.CreateLatestService(t, clients, names, &test.Options{}, tc.options); err == nil {
 				t.Errorf("CreateLatestService = %v, want: error", spew.Sdump(svc))
@@ -190,7 +190,7 @@ func TestShouldNotContainerConstraints(t *testing.T) {
 			t.Parallel()
 			names := test.ResourceNames{
 				Service: test.ObjectNameForTest(t),
-				Image:   pizzaPlanet1,
+				Image:   test.Runtime,
 			}
 			if svc, err := test.CreateLatestService(t, clients, names, &test.Options{}, tc.options); err == nil {
 				t.Errorf("CreateLatestService = %v, want: error", spew.Sdump(svc))

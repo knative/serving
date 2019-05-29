@@ -34,37 +34,6 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-// Constants for test images located in test/test_images.
-const (
-	// Test image names
-	workingdir          = "workingdir"
-	hellovolume         = "hellovolume"
-	bloatingcow         = "bloatingcow"
-	failing             = "failing"
-	helloworld          = "helloworld"
-	httpproxy           = "httpproxy"
-	invalidhelloworld   = "invalidhelloworld"
-	pizzaPlanet1        = "pizzaplanetv1"
-	pizzaPlanet2        = "pizzaplanetv2"
-	printport           = "printport"
-	protocols           = "protocols"
-	singleThreadedImage = "singlethreaded"
-	timeout             = "timeout"
-
-	// Constants for test image output.
-	pizzaPlanetText1 = "What a spaceport!"
-	pizzaPlanetText2 = "Re-energize yourself with a slice of pepperoni!"
-	helloWorldText   = "Hello World! How about some tasty noodles?"
-
-	concurrentRequests = 50
-	// We expect to see 100% of requests succeed for traffic sent directly to revisions.
-	// This might be a bad assumption.
-	minDirectPercentage = 1
-	// We expect to see at least 25% of either response since we're routing 50/50.
-	// This might be a bad assumption.
-	minSplitPercentage = 0.25
-)
-
 func waitForExpectedResponse(t *testing.T, clients *test.Clients, domain, expectedResponse string) error {
 	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, t.Logf, domain, test.ServingFlags.ResolvableDomain)
 	if err != nil {
@@ -110,18 +79,18 @@ func validateDomains(
 	}
 
 	g.Go(func() error {
-		minBasePercentage := minSplitPercentage
+		minBasePercentage := test.MinSplitPercentage
 		if len(baseExpected) == 1 {
-			minBasePercentage = minDirectPercentage
+			minBasePercentage = test.MinDirectPercentage
 		}
-		min := int(math.Floor(concurrentRequests * minBasePercentage))
-		return checkDistribution(t, clients, baseDomain, concurrentRequests, min, baseExpected)
+		min := int(math.Floor(test.ConcurrentRequests * minBasePercentage))
+		return checkDistribution(t, clients, baseDomain, test.ConcurrentRequests, min, baseExpected)
 	})
 	for i, subdomain := range subdomains {
 		i, subdomain := i, subdomain
 		g.Go(func() error {
-			min := int(math.Floor(concurrentRequests * minDirectPercentage))
-			return checkDistribution(t, clients, subdomain, concurrentRequests, min, []string{targetsExpected[i]})
+			min := int(math.Floor(test.ConcurrentRequests * test.MinDirectPercentage))
+			return checkDistribution(t, clients, subdomain, test.ConcurrentRequests, min, []string{targetsExpected[i]})
 		})
 	}
 	if err := g.Wait(); err != nil {

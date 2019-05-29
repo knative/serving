@@ -25,6 +25,39 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 )
 
+// Constants for test images located in test/test_images.
+const (
+	// Test image names
+	BloatingCow         = "bloatingcow"
+	Failing             = "failing"
+	HelloVolume         = "hellovolume"
+	HelloWorld          = "helloworld"
+	HTTPProxy           = "httpproxy"
+	InvalidHelloWorld   = "invalidhelloworld"
+	PizzaPlanet1        = "pizzaplanetv1"
+	PizzaPlanet2        = "pizzaplanetv2"
+	PrintPort           = "printport"
+	Protocols           = "protocols"
+	Runtime             = "runtime"
+	RuntimeUnprivileged = "runtime-unprivileged"
+	SingleThreadedImage = "singlethreaded"
+	Timeout             = "timeout"
+	WorkingDir          = "workingdir"
+
+	// Constants for test image output.
+	PizzaPlanetText1 = "What a spaceport!"
+	PizzaPlanetText2 = "Re-energize yourself with a slice of pepperoni!"
+	HelloWorldText   = "Hello World! How about some tasty noodles?"
+
+	ConcurrentRequests = 50
+	// We expect to see 100% of requests succeed for traffic sent directly to revisions.
+	// This might be a bad assumption.
+	MinDirectPercentage = 1
+	// We expect to see at least 25% of either response since we're routing 50/50.
+	// This might be a bad assumption.
+	MinSplitPercentage = 0.25
+)
+
 // Setup creates client to run Knative Service requests
 func Setup(t *testing.T) *Clients {
 	t.Helper()

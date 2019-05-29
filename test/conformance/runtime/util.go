@@ -28,15 +28,10 @@ import (
 	"github.com/knative/serving/test/types"
 )
 
-const (
-	runtime             = "runtime"
-	runtimeUnprivileged = "runtime-unprivileged"
-)
-
 // fetchRuntimeInfoUnprivileged creates a Service that uses the 'runtime-unprivileged' test image, and extracts the returned output into the
 // RuntimeInfo object.
 func fetchRuntimeInfoUnprivileged(t *testing.T, clients *test.Clients, options *test.Options, opts ...reconciler.ServiceOption) (*test.ResourceNames, *types.RuntimeInfo, error) {
-	return runtimeInfo(t, clients, &test.ResourceNames{Image: runtimeUnprivileged}, options, opts...)
+	return runtimeInfo(t, clients, &test.ResourceNames{Image: test.RuntimeUnprivileged}, options, opts...)
 }
 
 // fetchRuntimeInfo creates a Service that uses the 'runtime' test image, and extracts the returned output into the
@@ -48,8 +43,8 @@ func fetchRuntimeInfo(t *testing.T, clients *test.Clients, options *test.Options
 func runtimeInfo(t *testing.T, clients *test.Clients, names *test.ResourceNames, options *test.Options, opts ...reconciler.ServiceOption) (*test.ResourceNames, *types.RuntimeInfo, error) {
 	names.Service = test.ObjectNameForTest(t)
 	if names.Image == "" {
-		names.Image = runtime
-	} else if names.Image != runtimeUnprivileged {
+		names.Image = test.Runtime
+	} else if names.Image != test.RuntimeUnprivileged {
 		return nil, nil, fmt.Errorf("invalid image provided: %s", names.Image)
 	}
 

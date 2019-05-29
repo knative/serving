@@ -49,7 +49,7 @@ func TestRunLatestService(t *testing.T) {
 
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
-		Image:   pizzaPlanet1,
+		Image:   test.PizzaPlanet1,
 	}
 
 	// Clean up on test failure or interrupt
@@ -68,7 +68,7 @@ func TestRunLatestService(t *testing.T) {
 		t.Error(err)
 	}
 
-	if err = validateRunLatestDataPlane(t, clients, names, pizzaPlanetText1); err != nil {
+	if err = validateRunLatestDataPlane(t, clients, names, test.PizzaPlanetText1); err != nil {
 		t.Error(err)
 	}
 
@@ -86,7 +86,7 @@ func TestRunLatestService(t *testing.T) {
 
 	// Update Container Image
 	t.Log("Updating the Service to use a different image.")
-	names.Image = printport
+	names.Image = test.PrintPort
 	image2 := pkgTest.ImagePath(names.Image)
 	if _, err := test.PatchServiceImage(t, clients, objects.Service, image2); err != nil {
 		t.Fatalf("Patch update for Service %s with new image %s failed: %v", names.Service, image2, err)
@@ -219,7 +219,7 @@ func TestRunLatestServiceBYOName(t *testing.T) {
 
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
-		Image:   pizzaPlanet1,
+		Image:   test.PizzaPlanet1,
 	}
 
 	// Clean up on test failure or interrupt
@@ -245,7 +245,7 @@ func TestRunLatestServiceBYOName(t *testing.T) {
 		t.Error(err)
 	}
 
-	if err = validateRunLatestDataPlane(t, clients, names, pizzaPlanetText1); err != nil {
+	if err = validateRunLatestDataPlane(t, clients, names, test.PizzaPlanetText1); err != nil {
 		t.Error(err)
 	}
 
@@ -263,7 +263,7 @@ func TestRunLatestServiceBYOName(t *testing.T) {
 
 	// Update Container Image
 	t.Log("Updating the Service to use a different image.")
-	names.Image = printport
+	names.Image = test.PrintPort
 	image2 := pkgTest.ImagePath(names.Image)
 	if _, err := test.PatchServiceImage(t, clients, objects.Service, image2); err == nil {
 		t.Fatalf("Patch update for Service %s didn't fail.", names.Service)
@@ -281,20 +281,20 @@ func TestReleaseService(t *testing.T) {
 	t.Parallel()
 	// Create Initial Service
 	clients := test.Setup(t)
-	releaseImagePath2 := pkgTest.ImagePath(pizzaPlanet2)
-	releaseImagePath3 := pkgTest.ImagePath(helloworld)
+	releaseImagePath2 := pkgTest.ImagePath(test.PizzaPlanet2)
+	releaseImagePath3 := pkgTest.ImagePath(test.HelloWorld)
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
-		Image:   pizzaPlanet1,
+		Image:   test.PizzaPlanet1,
 	}
 	defer test.TearDown(clients, names)
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 
 	// Expected Text for different revisions.
 	const (
-		expectedFirstRev  = pizzaPlanetText1
-		expectedSecondRev = pizzaPlanetText2
-		expectedThirdRev  = helloWorldText
+		expectedFirstRev  = test.PizzaPlanetText1
+		expectedSecondRev = test.PizzaPlanetText2
+		expectedThirdRev  = test.HelloWorldText
 	)
 
 	// Setup initial Service

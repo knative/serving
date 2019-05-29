@@ -39,7 +39,7 @@ func TestSingleConcurrency(t *testing.T) {
 
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
-		Image:   singleThreadedImage,
+		Image:   test.SingleThreadedImage,
 	}
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 	defer test.TearDown(clients, names)

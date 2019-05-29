@@ -31,7 +31,7 @@ func TestWorkingDirService(t *testing.T) {
 
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
-		Image:   workingdir,
+		Image:   test.WorkingDir,
 	}
 
 	// Clean up on test failure or interrupt

@@ -37,7 +37,7 @@ func TestConfigMapVolume(t *testing.T) {
 
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
-		Image:   hellovolume,
+		Image:   test.HelloVolume,
 	}
 
 	text := test.AppendRandomString("hello-volumes-")
@@ -100,7 +100,7 @@ func TestSecretVolume(t *testing.T) {
 
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
-		Image:   hellovolume,
+		Image:   test.HelloVolume,
 	}
 
 	text := test.ObjectNameForTest(t)
