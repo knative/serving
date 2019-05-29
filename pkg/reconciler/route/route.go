@@ -149,13 +149,7 @@ func (c *Reconciler) reconcile(ctx context.Context, r *v1alpha1.Route) error {
 	r.Status.InitializeConditions()
 
 	if err := r.ConvertUp(ctx, &v1beta1.Route{}); err != nil {
-		// There are no conditions that would trigger this, but if they were we'd have a
-		// block like this here (as the other controllers).
-		// if ce, ok := err.(*v1alpha1.CannotConvertError); ok {
-		// 	r.Status.MarkResourceNotConvertible(ce)
-		// } else {
 		return err
-		// }
 	}
 
 	logger.Infof("Reconciling route: %#v", r)
