@@ -125,7 +125,17 @@ func TestQueueSideCarResourceLimit(t *testing.T) {
 	}
 
 	container, _ := clients.KubeClient.Container("helloworld", "queue-proxy", "default")
-	if container.Resources.Limits.Cpu().Cmp(resource.MustParse("50m")) != 0 {
-		t.Fatalf("queue-proxy should have limit.cpu set to 50m")
+
+	if container.Resources.Limits.Cpu().Cmp(resource.MustParse("400m")) != 0 {
+		t.Fatalf("queue-proxy should have limit.cpu set to 400m got %v", container.Resources.Limits.Cpu())
+	}
+	if container.Resources.Limits.Memory().Cmp(resource.MustParse("429496736")) != 0 {
+		t.Fatalf("queue-proxy should have limit.memory set to 429496736 got %v", container.Resources.Limits.Memory())
+	}
+	if container.Resources.Requests.Cpu().Cmp(resource.MustParse("25m")) != 0 {
+		t.Fatalf("queue-proxy should have request.cpu set to 25m got %v", container.Resources.Requests.Cpu())
+	}
+	if container.Resources.Requests.Memory().Cmp(resource.MustParse("50Mi")) != 0 {
+		t.Fatalf("queue-proxy should have request.memory set to 50Mi got %v", container.Resources.Requests.Memory())
 	}
 }
