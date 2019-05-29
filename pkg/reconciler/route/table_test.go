@@ -122,7 +122,7 @@ func TestReconcile(t *testing.T) {
 				WithGeneration(1), WithLatestCreated("config-00001"), WithLatestReady("config-00001")),
 			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001"), WithServiceName("mcd")),
 		},
-		WantCreates: []metav1.Object{
+		WantCreates: []runtime.Object{
 			simpleClusterIngress(
 				route("default", "becomes-ready", WithConfigTarget("config"), WithDomain,
 					WithRouteUID("12-34")),
@@ -178,7 +178,7 @@ func TestReconcile(t *testing.T) {
 				WithGeneration(1), WithLatestCreated("config-00001"), WithLatestReady("config-00001")),
 			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001"), WithServiceName("bk")),
 		},
-		WantCreates: []metav1.Object{
+		WantCreates: []runtime.Object{
 			ingressWithClass(
 				route("default", "becomes-ready", WithConfigTarget("config"), WithDomain, WithRouteUID("12-34")),
 				&traffic.Config{
@@ -236,7 +236,7 @@ func TestReconcile(t *testing.T) {
 				WithGeneration(1), WithLatestCreated("config-00001"), WithLatestReady("config-00001")),
 			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001"), WithServiceName("tb")),
 		},
-		WantCreates: []metav1.Object{
+		WantCreates: []runtime.Object{
 			simpleClusterIngress(
 				route("default", "becomes-ready", WithConfigTarget("config"),
 					WithLocalDomain, WithRouteUID("65-23"),
@@ -310,7 +310,7 @@ func TestReconcile(t *testing.T) {
 				},
 			),
 		},
-		WantCreates: []metav1.Object{
+		WantCreates: []runtime.Object{
 			simplePlaceholderK8sService(getContext(), route("default", "becomes-ready", WithConfigTarget("config")), ""),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{
@@ -364,7 +364,7 @@ func TestReconcile(t *testing.T) {
 				},
 			),
 		},
-		WantCreates: []metav1.Object{
+		WantCreates: []runtime.Object{
 			simplePlaceholderK8sService(getContext(), route("default", "create-svc-failure", WithConfigTarget("config")), ""),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
@@ -401,7 +401,7 @@ func TestReconcile(t *testing.T) {
 		WithReactors: []clientgotesting.ReactionFunc{
 			InduceFailure("create", "clusteringresses"),
 		},
-		WantCreates: []metav1.Object{
+		WantCreates: []runtime.Object{
 			//This is the Create we see for the cluter ingress, but we induce a failure.
 			simpleClusterIngress(
 				route("default", "ingress-create-failure", WithConfigTarget("config"),
@@ -1204,7 +1204,7 @@ func TestReconcile(t *testing.T) {
 			rev("default", "blue", 1, MarkRevisionReady, WithRevName("blue-00001"), WithServiceName("blue-ridge")),
 			rev("default", "green", 1, MarkRevisionReady, WithRevName("green-00001"), WithServiceName("green-lake")),
 		},
-		WantCreates: []metav1.Object{
+		WantCreates: []runtime.Object{
 			simpleClusterIngress(
 				route("default", "named-traffic-split", WithDomain, WithSpecTraffic(
 					v1alpha1.TrafficTarget{
@@ -1313,7 +1313,7 @@ func TestReconcile(t *testing.T) {
 				WithGeneration(1), WithLatestCreated("gray-00001"), WithLatestReady("gray-00001")),
 			rev("default", "gray", 1, MarkRevisionReady, WithRevName("gray-00001"), WithServiceName("shades")),
 		},
-		WantCreates: []metav1.Object{
+		WantCreates: []runtime.Object{
 			simpleClusterIngress(
 				route("default", "same-revision-targets", WithDomain, WithSpecTraffic(
 					v1alpha1.TrafficTarget{
@@ -1912,7 +1912,7 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 				WithGeneration(1), WithLatestCreated("config-00001"), WithLatestReady("config-00001")),
 			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001"), WithServiceName("mcd")),
 		},
-		WantCreates: []metav1.Object{
+		WantCreates: []runtime.Object{
 			resources.MakeCertificate(route("default", "becomes-ready", WithConfigTarget("config"), WithDomain, WithRouteUID("12-34")),
 				[]string{"becomes-ready.default.example.com"}),
 			ingressWithTLS(
@@ -1989,7 +1989,7 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 				Status: readyCertStatus(),
 			},
 		},
-		WantCreates: []metav1.Object{
+		WantCreates: []runtime.Object{
 			ingressWithTLS(
 				route("default", "becomes-ready", WithConfigTarget("config"), WithDomain,
 					WithRouteUID("12-34")),

@@ -74,7 +74,7 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			rev("foo", "first-reconcile"),
 		},
-		WantCreates: []metav1.Object{
+		WantCreates: []runtime.Object{
 			// The first reconciliation of a Revision creates the following resources.
 			kpa("foo", "first-reconcile"),
 			deploy("foo", "first-reconcile"),
@@ -98,7 +98,7 @@ func TestReconcile(t *testing.T) {
 			rev("foo", "update-status-failure"),
 			kpa("foo", "update-status-failure"),
 		},
-		WantCreates: []metav1.Object{
+		WantCreates: []runtime.Object{
 			// We still see the following creates before the failure is induced.
 			deploy("foo", "update-status-failure"),
 			image("foo", "update-status-failure"),
@@ -124,7 +124,7 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			rev("foo", "create-kpa-failure"),
 		},
-		WantCreates: []metav1.Object{
+		WantCreates: []runtime.Object{
 			// We still see the following creates before the failure is induced.
 			kpa("foo", "create-kpa-failure"),
 			deploy("foo", "create-kpa-failure"),
@@ -152,7 +152,7 @@ func TestReconcile(t *testing.T) {
 			rev("foo", "create-user-deploy-failure"),
 			kpa("foo", "create-user-deploy-failure"),
 		},
-		WantCreates: []metav1.Object{
+		WantCreates: []runtime.Object{
 			// We still see the following creates before the failure is induced.
 			deploy("foo", "create-user-deploy-failure"),
 		},
@@ -482,7 +482,7 @@ func TestReconcile(t *testing.T) {
 			rev("foo", "done-build", WithBuildRef("the-build"), WithInitRevConditions),
 			build("foo", "the-build", WithSucceededTrue),
 		},
-		WantCreates: []metav1.Object{
+		WantCreates: []runtime.Object{
 			// The first reconciliation of a Revision creates the following resources.
 			kpa("foo", "done-build"),
 			deploy("foo", "done-build"),
@@ -650,7 +650,7 @@ func TestReconcileWithVarLogEnabled(t *testing.T) {
 		Objects: []runtime.Object{
 			rev("foo", "first-reconcile-var-log"),
 		},
-		WantCreates: []metav1.Object{
+		WantCreates: []runtime.Object{
 			// The first reconciliation of a Revision creates the following resources.
 			kpa("foo", "first-reconcile-var-log"),
 			deploy("foo", "first-reconcile-var-log", EnableVarLog),
@@ -673,7 +673,7 @@ func TestReconcileWithVarLogEnabled(t *testing.T) {
 		Objects: []runtime.Object{
 			rev("foo", "create-configmap-failure"),
 		},
-		WantCreates: []metav1.Object{
+		WantCreates: []runtime.Object{
 			deploy("foo", "create-configmap-failure", EnableVarLog),
 			fluentdConfigMap("foo", "create-configmap-failure", EnableVarLog),
 			image("foo", "create-configmap-failure", EnableVarLog),
