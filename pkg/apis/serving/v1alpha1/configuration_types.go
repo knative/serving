@@ -21,6 +21,7 @@ import (
 	duckv1beta1 "github.com/knative/pkg/apis/duck/v1beta1"
 	"github.com/knative/pkg/kmeta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
 // +genclient
@@ -75,7 +76,7 @@ type ConfigurationSpec struct {
 	// Build optionally holds the specification for the build to
 	// perform to produce the Revision's container image.
 	// +optional
-	DeprecatedBuild *RawExtension `json:"build,omitempty"`
+	DeprecatedBuild *runtime.RawExtension `json:"build,omitempty"`
 
 	// DeprecatedRevisionTemplate holds the latest specification for the Revision to
 	// be stamped out. If a Build specification is provided, then the

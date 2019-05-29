@@ -39,6 +39,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 )
 
@@ -679,7 +680,7 @@ func WithConfigDeletionTimestamp(r *v1alpha1.Configuration) {
 
 // WithBuild adds a Build to the provided Configuration.
 func WithBuild(cfg *v1alpha1.Configuration) {
-	cfg.Spec.DeprecatedBuild = &v1alpha1.RawExtension{
+	cfg.Spec.DeprecatedBuild = &runtime.RawExtension{
 		Object: &unstructured.Unstructured{
 			Object: map[string]interface{}{
 				"apiVersion": "testing.build.knative.dev/v1alpha1",

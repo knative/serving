@@ -433,73 +433,6 @@ func TestReconcile(t *testing.T) {
 		}},
 		Key: "foo/pod-error",
 	}, {
-		Name: "build missing",
-		// Test a Reconcile of a Revision with a Build that is not found.
-		// We seed the world with a freshly created Revision that has a BuildName.
-		// We then verify that a Reconcile does effectively nothing but initialize
-		// the conditions of this Revision.  It is notable that unlike the tests
-		// above, this will include a BuildSucceeded condition.
-		Objects: []runtime.Object{
-			rev("foo", "missing-build", WithBuildRef("the-build")),
-		},
-		WantErr: true,
-		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: rev("foo", "missing-build", WithBuildRef("the-build"),
-				// When we first reconcile a revision with a Build (that's missing)
-				// we should see the following status changes.
-				WithLogURL, WithInitRevConditions, WithBuildRefWarning),
-		}},
-		WantEvents: []string{
-			Eventf(corev1.EventTypeWarning, "InternalError", `builds.testing.build.knative.dev "the-build" not found`),
-		},
-		Key: "foo/missing-build",
-	}, {
-		Name: "build running",
-		// Test a Reconcile of a Revision with a Build that is not done.
-		// We seed the world with a freshly created Revision that has a BuildName.
-		// We then verify that a Reconcile does effectively nothing but initialize
-		// the conditions of this Revision.  It is notable that unlike the tests
-		// above, this will include a BuildSucceeded condition.
-		Objects: []runtime.Object{
-			rev("foo", "running-build", WithBuildRef("the-build")),
-			build("foo", "the-build", WithSucceededUnknown("", "")),
-		},
-		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: rev("foo", "running-build", WithBuildRef("the-build"),
-				// When we first reconcile a revision with a Build (not done)
-				// we should see the following status changes.
-				WithLogURL, WithInitRevConditions, WithOngoingBuild, WithBuildRefWarning),
-		}},
-		Key: "foo/running-build",
-	}, {
-		Name: "build newly done",
-		// Test a Reconcile of a Revision with a Build that is just done.
-		// We seed the world with a freshly created Revision that has a BuildName,
-		// and a Build that has a `Succeeded: True` status. We then verify that a
-		// Reconcile toggles the BuildSucceeded status and then acts similarly to
-		// the first reconcile of a BYO-Container Revision.
-		Objects: []runtime.Object{
-			rev("foo", "done-build", WithBuildRef("the-build"), WithInitRevConditions),
-			build("foo", "the-build", WithSucceededTrue),
-		},
-		WantCreates: []runtime.Object{
-			// The first reconciliation of a Revision creates the following resources.
-			kpa("foo", "done-build"),
-			deploy("foo", "done-build"),
-			image("foo", "done-build"),
-		},
-		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: rev("foo", "done-build", WithBuildRef("the-build"), WithInitRevConditions,
-				// When we reconcile a Revision after the Build completes, we should
-				// see the following updates to its status.
-				WithLogURL, WithSuccessfulBuild, WithBuildRefWarning,
-				MarkDeploying("Deploying"), MarkActivating("Deploying", "")),
-		}},
-		WantEvents: []string{
-			Eventf(corev1.EventTypeNormal, "BuildSucceeded", ""),
-		},
-		Key: "foo/done-build",
-	}, {
 		Name: "stable revision reconciliation (with build)",
 		// Test a simple stable reconciliation of an Active Revision with a done Build.
 		// We feed in a Revision and the resources it controls in a steady
@@ -517,28 +450,6 @@ func TestReconcile(t *testing.T) {
 		},
 		// No changes are made to any objects.
 		Key: "foo/stable-reconcile-with-build",
-	}, {
-		Name: "build newly failed",
-		// Test a Reconcile of a Revision with a Build that has just failed.
-		// We seed the world with a freshly created Revision that has a BuildName,
-		// and a Build that has just failed. We then verify that a Reconcile toggles
-		// the BuildSucceeded status and stops.
-		Objects: []runtime.Object{
-			rev("foo", "failed-build", WithBuildRef("the-build"), WithLogURL, WithInitRevConditions),
-			build("foo", "the-build",
-				WithSucceededFalse("SomeReason", "This is why the build failed.")),
-		},
-		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: rev("foo", "failed-build",
-				WithBuildRef("the-build"), WithLogURL, WithInitRevConditions, WithBuildRefWarning,
-				// When we reconcile a Revision whose build has failed, we sill see that
-				// failure reflected in the Revision status as follows:
-				WithFailedBuild("SomeReason", "This is why the build failed.")),
-		}},
-		WantEvents: []string{
-			Eventf(corev1.EventTypeWarning, "BuildFailed", "This is why the build failed."),
-		},
-		Key: "foo/failed-build",
 	}, {
 		Name: "build failed stable",
 		// Test a Reconcile of a Revision with a Build that has previously failed.
