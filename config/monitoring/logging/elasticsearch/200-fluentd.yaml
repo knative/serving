@@ -138,7 +138,7 @@ spec:
         - name: varlibdockercontainers
           mountPath: /var/lib/docker/containers
           readOnly: true
-        - name: varlibkubeletpodsvolumes
+        - name: varlibkubeletpods
           mountPath: /var/lib/kubelet/pods
           readOnly: true
         - name: libsystemddir
@@ -162,7 +162,7 @@ spec:
         hostPath:
           path: /var/lib/docker/containers
       # It is needed because user-container's /var/log is located in /var/lib/kubelet/pods/*/volumes/
-      - name: varlibkubeletpodsvolumes
+      - name: varlibkubeletpods
         hostPath:
           path: /var/lib/kubelet/pods
       # It is needed to copy systemd library to decompress journals
