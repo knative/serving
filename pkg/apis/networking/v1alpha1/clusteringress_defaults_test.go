@@ -289,7 +289,7 @@ func TestClusterIngressDefaulting(t *testing.T) {
 			},
 		},
 	}, {
-		name: "with context",
+		name: "custom max-revision-timeout-seconds",
 		in: &ClusterIngress{
 			Spec: IngressSpec{
 				Rules: []ClusterIngressRule{{
@@ -337,14 +337,9 @@ func TestClusterIngressDefaulting(t *testing.T) {
 		wc: func(ctx context.Context) context.Context {
 			s := config.NewStore(logtesting.TestLogger(t))
 			s.OnConfigChanged(&corev1.ConfigMap{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: config.DefaultsConfigName,
-				},
-				Data: map[string]string{
-					"max-revision-timeout-seconds": "2000",
-				},
+				ObjectMeta: metav1.ObjectMeta{Name: config.DefaultsConfigName},
+				Data:       map[string]string{"max-revision-timeout-seconds": "2000"},
 			})
-
 			return s.ToContext(ctx)
 		},
 	}}
