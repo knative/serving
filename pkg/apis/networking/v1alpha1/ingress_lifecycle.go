@@ -63,11 +63,22 @@ func (is *IngressStatus) MarkResourceNotOwned(kind, name string) {
 
 // MarkLoadBalancerReady marks the Ingress with IngressConditionLoadBalancerReady,
 // and also populate the address of the load balancer.
-func (is *IngressStatus) MarkLoadBalancerReady(lbs []LoadBalancerIngressStatus) {
+func (is *IngressStatus) MarkLoadBalancerReady(lbs []LoadBalancerIngressStatus, publicLbs []LoadBalancerIngressStatus, privateLbs []LoadBalancerIngressStatus) {
 	is.LoadBalancer = &LoadBalancerStatus{
 		Ingress: []LoadBalancerIngressStatus{},
 	}
 	is.LoadBalancer.Ingress = append(is.LoadBalancer.Ingress, lbs...)
+
+	is.PublicLoadBalancer = &LoadBalancerStatus{
+		Ingress: []LoadBalancerIngressStatus{},
+	}
+	is.PublicLoadBalancer.Ingress = append(is.PublicLoadBalancer.Ingress, publicLbs...)
+
+	is.PrivateLoadBalancer = &LoadBalancerStatus{
+		Ingress: []LoadBalancerIngressStatus{},
+	}
+	is.PrivateLoadBalancer.Ingress = append(is.PrivateLoadBalancer.Ingress, privateLbs...)
+
 	ingressCondSet.Manage(is).MarkTrue(IngressConditionLoadBalancerReady)
 }
 

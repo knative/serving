@@ -17,6 +17,7 @@ package traffic
 
 import (
 	"context"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"os"
 	"testing"
 	"time"
@@ -958,7 +959,7 @@ func TestRoundTripping(t *testing.T) {
 	if tc, err := BuildTrafficConfiguration(configLister, revLister, route); err != nil {
 		t.Errorf("Unexpected error %v", err)
 	} else {
-		targets, err := tc.GetRevisionTrafficTargets(getContext(), route)
+		targets, err := tc.GetRevisionTrafficTargets(getContext(), route, sets.String{})
 		if err != nil {
 			t.Errorf("Unexpected error %v", err)
 		}

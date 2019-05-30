@@ -17,6 +17,7 @@ package domains
 
 import (
 	"context"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"testing"
 	"time"
 
@@ -93,17 +94,15 @@ func TestDomainNameFromTemplate(t *testing.T) {
 		wantErr:  true,
 	}}
 
-	route := &v1alpha1.Route{
-		ObjectMeta: metav1.ObjectMeta{
-			SelfLink:  "/apis/serving/v1alpha1/namespaces/test/Routes/myapp",
-			Name:      "myroute",
-			Namespace: "default",
-			Labels: map[string]string{
-				"route": "myapp",
-			},
-			Annotations: map[string]string{
-				"sub": "mysub",
-			},
+	meta := metav1.ObjectMeta{
+		SelfLink:  "/apis/serving/v1alpha1/namespaces/test/Routes/myapp",
+		Name:      "myroute",
+		Namespace: "default",
+		Labels: map[string]string{
+			"route": "myapp",
+		},
+		Annotations: map[string]string{
+			"sub": "mysub",
 		},
 	}
 
@@ -114,7 +113,7 @@ func TestDomainNameFromTemplate(t *testing.T) {
 			cfg.Network.DomainTemplate = tt.template
 			ctx = config.ToContext(ctx, cfg)
 
-			got, err := DomainNameFromTemplate(ctx, route, tt.args.name)
+			got, err := DomainNameFromTemplate(ctx, meta, tt.args.name)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("DomainNameFromTemplate() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -225,7 +224,7 @@ func TestGetAllDomainsAndTags(t *testing.T) {
 			ctx = config.ToContext(ctx, cfg)
 
 			// here, a tag-less major domain will have empty string as the input
-			got, err := GetAllDomainsAndTags(ctx, route, []string{"", "target-1", "target-2"})
+			got, err := GetAllDomainsAndTags(ctx, route, []string{"", "target-1", "target-2"}, sets.String{})
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetAllDomains() error = %v, wantErr %v", err, tt.wantErr)
 				return

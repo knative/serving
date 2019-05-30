@@ -174,7 +174,12 @@ func (c *Reconciler) reconcile(ctx context.Context, ci *v1alpha1.ClusterIngress)
 	// here we simply mark the ingress as ready if the VirtualService
 	// is successfully synced.
 	ci.Status.MarkNetworkConfigured()
-	ci.Status.MarkLoadBalancerReady(getLBStatus(gatewayServiceURLFromContext(ctx, ci)))
+
+	lbs := getLBStatus(gatewayServiceURLFromContext(ctx, ci))
+	publicLbs := getLBStatus(publicGatewayServiceURLFromContext(ctx))
+	privateLbs := getLBStatus(privateGatewayServiceURLFromContext(ctx))
+
+	ci.Status.MarkLoadBalancerReady(lbs, publicLbs, privateLbs)
 	ci.Status.ObservedGeneration = ci.Generation
 
 	if enablesAutoTLS(ctx) {
@@ -239,13 +244,30 @@ func getLBStatus(gatewayServiceURL string) []v1alpha1.LoadBalancerIngressStatus 
 // that the given ClusterIngress is exposed to, or empty string if
 // none.
 func gatewayServiceURLFromContext(ctx context.Context, ci *v1alpha1.ClusterIngress) string {
+	if ci.IsPublic() {
+		return publicGatewayServiceURLFromContext(ctx)
+	}
+	if !ci.IsPublic() {
+		return privateGatewayServiceURLFromContext(ctx)
+	}
+	return ""
+}
+
+func publicGatewayServiceURLFromContext(ctx context.Context) string {
 	cfg := config.FromContext(ctx).Istio
-	if len(cfg.IngressGateways) > 0 && ci.IsPublic() {
+	if len(cfg.IngressGateways) > 0 {
 		return cfg.IngressGateways[0].ServiceURL
 	}
-	if len(cfg.LocalGateways) > 0 && !ci.IsPublic() {
+
+	return ""
+}
+
+func privateGatewayServiceURLFromContext(ctx context.Context) string {
+	cfg := config.FromContext(ctx).Istio
+	if len(cfg.LocalGateways) > 0 {
 		return cfg.LocalGateways[0].ServiceURL
 	}
+
 	return ""
 }
 

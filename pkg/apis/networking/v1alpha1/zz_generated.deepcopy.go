@@ -470,6 +470,16 @@ func (in *IngressStatus) DeepCopyInto(out *IngressStatus) {
 		*out = new(LoadBalancerStatus)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.PublicLoadBalancer != nil {
+		in, out := &in.PublicLoadBalancer, &out.PublicLoadBalancer
+		*out = new(LoadBalancerStatus)
+		(*in).DeepCopyInto(*out)
+	}
+	if in.PrivateLoadBalancer != nil {
+		in, out := &in.PrivateLoadBalancer, &out.PrivateLoadBalancer
+		*out = new(LoadBalancerStatus)
+		(*in).DeepCopyInto(*out)
+	}
 	return
 }
 

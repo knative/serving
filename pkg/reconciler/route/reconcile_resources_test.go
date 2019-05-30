@@ -18,6 +18,7 @@ package route
 
 import (
 	"context"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"testing"
 	"time"
 
@@ -178,7 +179,7 @@ func newTestClusterIngress(t *testing.T, r *v1alpha1.Route, trafficOpts ...func(
 			ServerCertificate: "tls.crt",
 		},
 	}
-	ingress, err := resources.MakeClusterIngress(getContext(), r, tc, tls, "foo-ingress")
+	ingress, err := resources.MakeClusterIngress(getContext(), r, tc, tls, sets.NewString(), "foo-ingress")
 	if err != nil {
 		t.Errorf("Unexpected error %v", err)
 	}

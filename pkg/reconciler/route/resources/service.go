@@ -20,10 +20,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
-
+	"github.com/knative/serving/pkg/reconciler/route/config"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/knative/pkg/kmeta"
 	"github.com/knative/serving/pkg/apis/networking"
@@ -34,6 +35,16 @@ import (
 )
 
 var errLoadBalancerNotFound = errors.New("failed to fetch loadbalancer domain/IP from ingress status")
+
+func GetNames(services []*corev1.Service) sets.String {
+	names := sets.NewString()
+
+	for i := range services {
+		names.Insert(services[i].Name)
+	}
+
+	return names
+}
 
 // SelectorFromRoute creates a label selector given a specific route.
 func SelectorFromRoute(route *v1alpha1.Route) labels.Selector {
@@ -51,7 +62,7 @@ func MakeK8sPlaceholderService(ctx context.Context, route *v1alpha1.Route, targe
 	if err != nil {
 		return nil, err
 	}
-	fullName, err := domains.DomainNameFromTemplate(ctx, route, hostname)
+	fullName, err := domains.DomainNameFromTemplate(ctx, route.ObjectMeta, hostname)
 	if err != nil {
 		return nil, err
 	}
@@ -72,8 +83,8 @@ func MakeK8sPlaceholderService(ctx context.Context, route *v1alpha1.Route, targe
 // MakeK8sService creates a Service that redirect to the loadbalancer specified
 // in ClusterIngress status. It's owned by the provided v1alpha1.Route.
 // The purpose of this service is to provide a domain name for Istio routing.
-func MakeK8sService(ctx context.Context, route *v1alpha1.Route, targetName string, ingress *netv1alpha1.ClusterIngress) (*corev1.Service, error) {
-	svcSpec, err := makeServiceSpec(ingress)
+func MakeK8sService(ctx context.Context, route *v1alpha1.Route, targetName string, ingress *netv1alpha1.ClusterIngress, isPrivate bool) (*corev1.Service, error) {
+	svcSpec, err := makeServiceSpec(ingress, isPrivate)
 	if err != nil {
 		return nil, err
 	}
@@ -91,6 +102,15 @@ func makeK8sService(ctx context.Context, route *v1alpha1.Route, targetName strin
 	if err != nil {
 		return nil, err
 	}
+
+	svcLabels := map[string]string{
+		serving.RouteLabelKey: route.Name,
+	}
+
+	if visibility, ok := route.Labels[config.VisibilityLabelKey]; ok {
+		svcLabels[config.VisibilityLabelKey] = visibility
+	}
+
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      hostname,
@@ -99,23 +119,30 @@ func makeK8sService(ctx context.Context, route *v1alpha1.Route, targetName strin
 				// This service is owned by the Route.
 				*kmeta.NewControllerRef(route),
 			},
-			Labels: map[string]string{
-				serving.RouteLabelKey: route.Name,
-			},
+			Labels: svcLabels,
 		},
 	}, nil
 }
 
-func makeServiceSpec(ingress *netv1alpha1.ClusterIngress) (*corev1.ServiceSpec, error) {
+func makeServiceSpec(ingress *netv1alpha1.ClusterIngress, isPrivate bool) (*corev1.ServiceSpec, error) {
 	ingressStatus := ingress.Status
-	if ingressStatus.LoadBalancer == nil || len(ingressStatus.LoadBalancer.Ingress) == 0 {
+
+	var lbStatus *netv1alpha1.LoadBalancerStatus
+
+	if isPrivate {
+		lbStatus = ingressStatus.PrivateLoadBalancer
+	} else {
+		lbStatus = ingressStatus.PublicLoadBalancer
+	}
+
+	if lbStatus == nil || len(lbStatus.Ingress) == 0 {
 		return nil, errLoadBalancerNotFound
 	}
-	if len(ingressStatus.LoadBalancer.Ingress) > 1 {
+	if len(lbStatus.Ingress) > 1 {
 		// Return error as we only support one LoadBalancer currently.
 		return nil, fmt.Errorf("more than one ingress are specified in status(LoadBalancer) of ClusterIngress %s", ingress.Name)
 	}
-	balancer := ingressStatus.LoadBalancer.Ingress[0]
+	balancer := lbStatus.Ingress[0]
 
 	// Here we decide LoadBalancer information in the order of
 	// DomainInternal > Domain > LoadBalancedIP to prioritize cluster-local,
@@ -150,4 +177,20 @@ func makeServiceSpec(ingress *netv1alpha1.ClusterIngress) (*corev1.ServiceSpec, 
 		// We'll also need ports info to make it take effect.
 	}
 	return nil, errLoadBalancerNotFound
+}
+
+func GetDesiredServiceNames(ctx context.Context, route *v1alpha1.Route) (sets.String, error) {
+	traffic := route.Spec.Traffic
+
+	names := sets.String{}
+
+	for _, t := range traffic {
+		serviceName, err := domains.HostnameFromTemplate(ctx, route.Name, t.Tag)
+		if err != nil{
+			return sets.String{}, err
+		}
+		names.Insert(serviceName)
+	}
+
+	return names, nil
 }

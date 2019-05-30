@@ -195,6 +195,16 @@ func TestReconcile(t *testing.T) {
 							{DomainInternal: network.GetServiceHostname("test-ingressgateway", "istio-system")},
 						},
 					},
+					PublicLoadBalancer: &v1alpha1.LoadBalancerStatus{
+						Ingress: []v1alpha1.LoadBalancerIngressStatus{
+							{DomainInternal: network.GetServiceHostname("test-ingressgateway", "istio-system")},
+						},
+					},
+					PrivateLoadBalancer: &v1alpha1.LoadBalancerStatus{
+						Ingress: []v1alpha1.LoadBalancerIngressStatus{
+							{MeshOnly: true},
+						},
+					},
 					Status: duckv1beta1.Status{
 						Conditions: duckv1beta1.Conditions{{
 							Type:     v1alpha1.IngressConditionLoadBalancerReady,
@@ -273,6 +283,16 @@ func TestReconcile(t *testing.T) {
 							{DomainInternal: network.GetServiceHostname("test-ingressgateway", "istio-system")},
 						},
 					},
+					PublicLoadBalancer: &v1alpha1.LoadBalancerStatus{
+						Ingress: []v1alpha1.LoadBalancerIngressStatus{
+							{DomainInternal: network.GetServiceHostname("test-ingressgateway", "istio-system")},
+						},
+					},
+					PrivateLoadBalancer: &v1alpha1.LoadBalancerStatus{
+						Ingress: []v1alpha1.LoadBalancerIngressStatus{
+							{MeshOnly: true},
+						},
+					},
 					Status: duckv1beta1.Status{
 						Conditions: duckv1beta1.Conditions{{
 							Type:     v1alpha1.IngressConditionLoadBalancerReady,
@@ -348,6 +368,16 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 							{DomainInternal: network.GetServiceHostname("istio-ingressgateway", "istio-system")},
 						},
 					},
+					PublicLoadBalancer: &v1alpha1.LoadBalancerStatus{
+						Ingress: []v1alpha1.LoadBalancerIngressStatus{
+							{DomainInternal: network.GetServiceHostname("istio-ingressgateway", "istio-system")},
+						},
+					},
+					PrivateLoadBalancer: &v1alpha1.LoadBalancerStatus{
+						Ingress: []v1alpha1.LoadBalancerIngressStatus{
+							{MeshOnly: true},
+						},
+					},
 					Status: duckv1beta1.Status{
 						Conditions: duckv1beta1.Conditions{{
 							Type:     v1alpha1.IngressConditionLoadBalancerReady,
@@ -395,6 +425,16 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 					LoadBalancer: &v1alpha1.LoadBalancerStatus{
 						Ingress: []v1alpha1.LoadBalancerIngressStatus{
 							{DomainInternal: network.GetServiceHostname("istio-ingressgateway", "istio-system")},
+						},
+					},
+					PublicLoadBalancer: &v1alpha1.LoadBalancerStatus{
+						Ingress: []v1alpha1.LoadBalancerIngressStatus{
+							{DomainInternal: network.GetServiceHostname("istio-ingressgateway", "istio-system")},
+						},
+					},
+					PrivateLoadBalancer: &v1alpha1.LoadBalancerStatus{
+						Ingress: []v1alpha1.LoadBalancerIngressStatus{
+							{MeshOnly: true},
 						},
 					},
 					Status: duckv1beta1.Status{
@@ -486,6 +526,16 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 							{DomainInternal: network.GetServiceHostname("istio-ingressgateway", "istio-system")},
 						},
 					},
+					PublicLoadBalancer: &v1alpha1.LoadBalancerStatus{
+						Ingress: []v1alpha1.LoadBalancerIngressStatus{
+							{DomainInternal: network.GetServiceHostname("istio-ingressgateway", "istio-system")},
+						},
+					},
+					PrivateLoadBalancer: &v1alpha1.LoadBalancerStatus{
+						Ingress: []v1alpha1.LoadBalancerIngressStatus{
+							{MeshOnly: true},
+						},
+					},
 					Status: duckv1beta1.Status{
 						Conditions: duckv1beta1.Conditions{{
 							Type:     v1alpha1.IngressConditionLoadBalancerReady,
@@ -570,6 +620,16 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 					LoadBalancer: &v1alpha1.LoadBalancerStatus{
 						Ingress: []v1alpha1.LoadBalancerIngressStatus{
 							{DomainInternal: network.GetServiceHostname("istio-ingressgateway", "istio-system")},
+						},
+					},
+					PublicLoadBalancer: &v1alpha1.LoadBalancerStatus{
+						Ingress: []v1alpha1.LoadBalancerIngressStatus{
+							{DomainInternal: network.GetServiceHostname("istio-ingressgateway", "istio-system")},
+						},
+					},
+					PrivateLoadBalancer: &v1alpha1.LoadBalancerStatus{
+						Ingress: []v1alpha1.LoadBalancerIngressStatus{
+							{MeshOnly: true},
 						},
 					},
 					Status: duckv1beta1.Status{
