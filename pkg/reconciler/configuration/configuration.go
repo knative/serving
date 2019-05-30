@@ -345,10 +345,9 @@ func isRevisionStale(ctx context.Context, rev *v1alpha1.Revision, config *v1alph
 	if err != nil {
 		if err.(v1alpha1.LastPinnedParseError).Type != v1alpha1.AnnotationParseErrorTypeMissing {
 			logger.Errorf("Failed to determine revision last pinned: %v", err)
-		}
-		// Revision was never pinned and its RevisionConditionReady is not true after staleRevisionCreateDelay.
-		// It usually happens when ksvc was deployed with wrong configuration.
-		if err.(v1alpha1.LastPinnedParseError).Type == v1alpha1.AnnotationParseErrorTypeMissing {
+		} else {
+			// Revision was never pinned and its RevisionConditionReady is not true after staleRevisionCreateDelay.
+			// It usually happens when ksvc was deployed with wrong configuration.
 			rc := rev.Status.GetCondition(v1beta1.RevisionConditionReady)
 			if rc == nil || rc.Status != corev1.ConditionTrue {
 				return true
