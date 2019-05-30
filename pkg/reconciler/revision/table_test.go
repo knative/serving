@@ -31,6 +31,7 @@ import (
 	"github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 	"github.com/knative/serving/pkg/autoscaler"
 	"github.com/knative/serving/pkg/metrics"
 	"github.com/knative/serving/pkg/network"
@@ -180,6 +181,22 @@ func TestReconcile(t *testing.T) {
 		},
 		// No changes are made to any objects.
 		Key: "foo/stable-reconcile",
+	}, {
+		Name: "stable revision reconciliation (needs upgrade)",
+		// Test a simple reconciliation of a steady state in a pre-beta form,
+		// which should result in us patching the revision with an annotation
+		// to force a webhook upgrade.
+		Objects: []runtime.Object{
+			rev("foo", "needs-upgrade", WithLogURL, AllUnknownConditions, func(rev *v1alpha1.Revision) {
+				// Start the revision in the old form.
+				rev.Spec.DeprecatedContainer = &rev.Spec.Containers[0]
+				rev.Spec.Containers = nil
+			}),
+			kpa("foo", "needs-upgrade"),
+			deploy("foo", "needs-upgrade"),
+			image("foo", "needs-upgrade"),
+		},
+		Key: "foo/needs-upgrade",
 	}, {
 		Name: "update deployment containers",
 		// Test that we update a deployment with new containers when they disagree
@@ -739,11 +756,16 @@ func rev(namespace, name string, ro ...RevisionOption) *v1alpha1.Revision {
 			UID:       "test-uid",
 		},
 		Spec: v1alpha1.RevisionSpec{
-			DeprecatedContainer: &corev1.Container{
-				Image: "busybox",
+			RevisionSpec: v1beta1.RevisionSpec{
+				PodSpec: v1beta1.PodSpec{
+					Containers: []corev1.Container{{
+						Image: "busybox",
+					}},
+				},
 			},
 		},
 	}
+	r.SetDefaults(context.Background())
 
 	for _, opt := range ro {
 		opt(r)
