@@ -352,12 +352,6 @@ func WithInitSvcConditions(s *v1alpha1.Service) {
 	s.Status.InitializeConditions()
 }
 
-// WithManualStatus configures the Service to have the appropriate
-// status for a "manual" rollout type.
-func WithManualStatus(s *v1alpha1.Service) {
-	s.Status.SetManualStatus()
-}
-
 // WithReadyRoute reflects the Route's readiness in the Service resource.
 func WithReadyRoute(s *v1alpha1.Service) {
 	s.Status.PropagateRouteStatus(&v1alpha1.RouteStatus{

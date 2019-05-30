@@ -156,29 +156,6 @@ func (ss *ServiceStatus) PropagateRouteStatus(rs *RouteStatus) {
 	}
 }
 
-// SetManualStatus updates the service conditions to unknown as the underlying Route
-// can have TrafficTargets to Configurations not owned by the service. We do not want to falsely
-// report Ready.
-func (ss *ServiceStatus) SetManualStatus() {
-	const (
-		reason  = "Manual"
-		message = "Service is set to Manual, and is not managing underlying resources."
-	)
-
-	// Clear our fields by creating a new status and copying over only the fields and conditions we want
-	newStatus := &ServiceStatus{}
-	newStatus.InitializeConditions()
-	serviceCondSet.Manage(newStatus).MarkUnknown(ServiceConditionConfigurationsReady, reason, message)
-	serviceCondSet.Manage(newStatus).MarkUnknown(ServiceConditionRoutesReady, reason, message)
-
-	newStatus.Address = ss.Address
-	newStatus.URL = ss.URL
-	newStatus.DeprecatedDomain = ss.DeprecatedDomain
-	newStatus.DeprecatedDomainInternal = ss.DeprecatedDomainInternal
-
-	*ss = *newStatus
-}
-
 func (ss *ServiceStatus) duck() *duckv1beta1.Status {
 	return &ss.Status
 }

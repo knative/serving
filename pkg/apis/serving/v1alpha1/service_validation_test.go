@@ -196,7 +196,7 @@ func TestServiceValidation(t *testing.T) {
 				DeprecatedManual: &ManualType{},
 			},
 		},
-		want: nil,
+		want: apis.ErrDisallowedFields("spec.manual"),
 	}, {
 		name: "invalid multiple types",
 		s: &Service{
@@ -242,7 +242,7 @@ func TestServiceValidation(t *testing.T) {
 		},
 		want: &apis.FieldError{
 			Message: "expected exactly one, got neither",
-			Paths: []string{"spec.manual", "spec.pinned", "spec.release",
+			Paths: []string{"spec.pinned", "spec.release",
 				"spec.template", "spec.runLatest"},
 		},
 	}, {

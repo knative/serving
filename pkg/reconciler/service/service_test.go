@@ -624,20 +624,6 @@ func TestReconcile(t *testing.T) {
 			Eventf(corev1.EventTypeNormal, "Updated", "Updated Service %q", "release-with-percent"),
 		},
 	}, {
-		Name: "manual- no creates",
-		Objects: []runtime.Object{
-			Service("manual", "foo", WithManualRollout),
-		},
-		Key: "foo/manual",
-		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: Service("manual", "foo", WithManualRollout,
-				// The first reconciliation will initialize the status conditions.
-				WithManualStatus, WithManualWarning),
-		}},
-		WantEvents: []string{
-			Eventf(corev1.EventTypeNormal, "Updated", "Updated Service %q", "manual"),
-		},
-	}, {
 		Name: "runLatest - no updates",
 		Objects: []runtime.Object{
 			Service("no-updates", "foo", WithRunLatestRollout, WithInitSvcConditions),

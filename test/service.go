@@ -162,8 +162,6 @@ func PatchServiceImage(t *testing.T, clients *Clients, svc *v1alpha1.Service, im
 		newSvc.Spec.DeprecatedRelease.Configuration.GetTemplate().Spec.GetContainer().Image = imagePath
 	} else if svc.Spec.DeprecatedPinned != nil {
 		newSvc.Spec.DeprecatedPinned.Configuration.GetTemplate().Spec.GetContainer().Image = imagePath
-	} else if svc.Spec.DeprecatedManual != nil {
-		return nil, fmt.Errorf("UpdateImageService(%v): manual is not supported", svc)
 	} else {
 		newSvc.Spec.ConfigurationSpec.GetTemplate().Spec.GetContainer().Image = imagePath
 	}
