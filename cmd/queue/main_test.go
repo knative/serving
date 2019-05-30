@@ -219,7 +219,6 @@ func TestProbeQueueReady(t *testing.T) {
 func TestProbeQueueDelayedReady(t *testing.T) {
 	count := 0
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// we expect roughly 10 probes per second
 		if count < 9 {
 			w.WriteHeader(http.StatusBadRequest)
 			count++
