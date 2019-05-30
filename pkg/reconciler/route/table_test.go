@@ -1297,14 +1297,14 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			route("default", "same-revision-targets", WithSpecTraffic(
 				v1alpha1.TrafficTarget{
-					DeprecatedName: "gray",
 					TrafficTarget: v1beta1.TrafficTarget{
+						Tag:               "gray",
 						ConfigurationName: "gray",
 						Percent:           50,
 					},
 				}, v1alpha1.TrafficTarget{
-					DeprecatedName: "also-gray",
 					TrafficTarget: v1beta1.TrafficTarget{
+						Tag:          "also-gray",
 						RevisionName: "gray-00001",
 						Percent:      50,
 					},
@@ -1317,14 +1317,14 @@ func TestReconcile(t *testing.T) {
 			simpleClusterIngress(
 				route("default", "same-revision-targets", WithDomain, WithSpecTraffic(
 					v1alpha1.TrafficTarget{
-						DeprecatedName: "gray",
 						TrafficTarget: v1beta1.TrafficTarget{
+							Tag:               "gray",
 							ConfigurationName: "gray",
 							Percent:           50,
 						},
 					}, v1alpha1.TrafficTarget{
-						DeprecatedName: "also-gray",
 						TrafficTarget: v1beta1.TrafficTarget{
+							Tag:          "also-gray",
 							RevisionName: "gray-00001",
 							Percent:      50,
 						},
@@ -1365,14 +1365,14 @@ func TestReconcile(t *testing.T) {
 				getContext(),
 				route("default", "same-revision-targets", WithSpecTraffic(
 					v1alpha1.TrafficTarget{
-						DeprecatedName: "gray",
 						TrafficTarget: v1beta1.TrafficTarget{
+							Tag:               "gray",
 							ConfigurationName: "gray",
 							Percent:           50,
 						},
 					}, v1alpha1.TrafficTarget{
-						DeprecatedName: "also-gray",
 						TrafficTarget: v1beta1.TrafficTarget{
+							Tag:          "also-gray",
 							RevisionName: "gray-00001",
 							Percent:      50,
 						},
@@ -1383,14 +1383,14 @@ func TestReconcile(t *testing.T) {
 				getContext(),
 				route("default", "same-revision-targets", WithSpecTraffic(
 					v1alpha1.TrafficTarget{
-						DeprecatedName: "gray",
 						TrafficTarget: v1beta1.TrafficTarget{
+							Tag:               "gray",
 							ConfigurationName: "gray",
 							Percent:           50,
 						},
 					}, v1alpha1.TrafficTarget{
-						DeprecatedName: "also-gray",
 						TrafficTarget: v1beta1.TrafficTarget{
+							Tag:          "also-gray",
 							RevisionName: "gray-00001",
 							Percent:      50,
 						},
@@ -1401,14 +1401,14 @@ func TestReconcile(t *testing.T) {
 				getContext(),
 				route("default", "same-revision-targets", WithSpecTraffic(
 					v1alpha1.TrafficTarget{
-						DeprecatedName: "gray",
 						TrafficTarget: v1beta1.TrafficTarget{
+							Tag:               "gray",
 							ConfigurationName: "gray",
 							Percent:           50,
 						},
 					}, v1alpha1.TrafficTarget{
-						DeprecatedName: "also-gray",
 						TrafficTarget: v1beta1.TrafficTarget{
+							Tag:          "also-gray",
 							RevisionName: "gray-00001",
 							Percent:      50,
 						},
@@ -1419,14 +1419,14 @@ func TestReconcile(t *testing.T) {
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: route("default", "same-revision-targets",
 				WithSpecTraffic(v1alpha1.TrafficTarget{
-					DeprecatedName: "gray",
 					TrafficTarget: v1beta1.TrafficTarget{
+						Tag:               "gray",
 						ConfigurationName: "gray",
 						Percent:           50,
 					},
 				}, v1alpha1.TrafficTarget{
-					DeprecatedName: "also-gray",
 					TrafficTarget: v1beta1.TrafficTarget{
+						Tag:          "also-gray",
 						RevisionName: "gray-00001",
 						Percent:      50,
 					},
@@ -2078,6 +2078,7 @@ func route(namespace, name string, ro ...RouteOption) *v1alpha1.Route {
 	for _, opt := range ro {
 		opt(r)
 	}
+	r.SetDefaults(context.Background())
 	return r
 }
 

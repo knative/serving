@@ -44,10 +44,12 @@ import (
 )
 
 var revisionSpec = v1alpha1.RevisionSpec{
-	DeprecatedContainer: &corev1.Container{
-		Image: "busybox",
-	},
 	RevisionSpec: v1beta1.RevisionSpec{
+		PodSpec: v1beta1.PodSpec{
+			Containers: []corev1.Container{{
+				Image: "busybox",
+			}},
+		},
 		TimeoutSeconds: ptr.Int64(60),
 	},
 }
@@ -203,7 +205,7 @@ func TestReconcile(t *testing.T) {
 			Eventf(corev1.EventTypeWarning, "CreationFailed", "Failed to create Revision for Configuration %q: %v",
 				"validation-failure", "expected 0 <= -1 <= 1000: spec.containerConcurrency"),
 			Eventf(corev1.EventTypeWarning, "UpdateFailed", "Failed to update status for Configuration %q: %v",
-				"validation-failure", "expected 0 <= -1 <= 1000: spec.revisionTemplate.spec.containerConcurrency"),
+				"validation-failure", "expected 0 <= -1 <= 1000: spec.template.spec.containerConcurrency"),
 		},
 		Key: "foo/validation-failure",
 	}, {
@@ -556,8 +558,7 @@ func cfg(name, namespace string, generation int64, co ...ConfigOption) *v1alpha1
 			Generation: generation,
 		},
 		Spec: v1alpha1.ConfigurationSpec{
-			DeprecatedGeneration: generation,
-			DeprecatedRevisionTemplate: &v1alpha1.RevisionTemplateSpec{
+			Template: &v1alpha1.RevisionTemplateSpec{
 				Spec: *revisionSpec.DeepCopy(),
 			},
 		},

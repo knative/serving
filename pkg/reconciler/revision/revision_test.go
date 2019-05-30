@@ -69,6 +69,7 @@ import (
 	"k8s.io/client-go/tools/record"
 
 	. "github.com/knative/pkg/reconciler/testing"
+	. "github.com/knative/serving/pkg/reconciler/testing"
 )
 
 func testConfiguration() *v1alpha1.Configuration {
@@ -126,7 +127,7 @@ func newTestControllerWithConfig(t *testing.T, deploymentConfig *deployment.Conf
 	kubeClient = fakekubeclientset.NewSimpleClientset()
 	servingClient = fakeclientset.NewSimpleClientset()
 	cachingClient = fakecachingclientset.NewSimpleClientset()
-	dynamicClient = fakedynamic.NewSimpleDynamicClient(runtime.NewScheme())
+	dynamicClient = fakedynamic.NewSimpleDynamicClient(NewScheme())
 
 	configMapWatcher = &configmap.ManualWatcher{Namespace: system.Namespace()}
 
