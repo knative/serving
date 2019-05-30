@@ -78,6 +78,13 @@ func (ss *ServiceStatus) MarkRouteNotOwned(name string) {
 		fmt.Sprintf("There is an existing Route %q that we do not own.", name))
 }
 
+// MarkConfigurationNotReconciled notes that the Configuration controller has not yet
+// caught up to the desired changes we have specified.
+func (ss *ServiceStatus) MarkConfigurationNotReconciled() {
+	serviceCondSet.Manage(ss).MarkUnknown(ServiceConditionConfigurationsReady,
+		"OutOfDate", "The Configuration is still working to reflect the latest desired specification.")
+}
+
 // PropagateConfigurationStatus takes the Configuration status and applies its values
 // to the Service status.
 func (ss *ServiceStatus) PropagateConfigurationStatus(cs *ConfigurationStatus) {
@@ -122,6 +129,13 @@ const (
 // See: #2430, for details.
 func (ss *ServiceStatus) MarkRouteNotYetReady() {
 	serviceCondSet.Manage(ss).MarkUnknown(ServiceConditionRoutesReady, trafficNotMigratedReason, trafficNotMigratedMessage)
+}
+
+// MarkRouteNotReconciled notes that the Route controller has not yet
+// caught up to the desired changes we have specified.
+func (ss *ServiceStatus) MarkRouteNotReconciled() {
+	serviceCondSet.Manage(ss).MarkUnknown(ServiceConditionRoutesReady,
+		"OutOfDate", "The Route is still working to reflect the latest desired specification.")
 }
 
 // PropagateRouteStatus propagates route's status to the service's status.

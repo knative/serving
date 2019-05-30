@@ -143,8 +143,8 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			Service("pinned3", "foo", WithReleaseRollout("pinned3-00001"),
 				WithInitSvcConditions),
-			config("pinned3", "foo", WithReleaseRollout("pinned3-00001"), WithGeneration(1),
-				WithObservedGen,
+			config("pinned3", "foo", WithReleaseRollout("pinned3-00001"),
+				WithGeneration(1), WithObservedGen,
 				WithLatestCreated("pinned3-00001"),
 				WithLatestReady("pinned3-00001")),
 			route("pinned3", "foo", WithReleaseRollout("pinned3-00001"),
@@ -415,7 +415,8 @@ func TestReconcile(t *testing.T) {
 						RevisionName: "release-ready-lr-00001",
 					},
 				}}...), MarkTrafficAssigned, MarkIngressReady),
-			config("release-ready-lr", "foo", WithReleaseRollout("release-ready-lr"), WithGeneration(1),
+			config("release-ready-lr", "foo", WithReleaseRollout("release-ready-lr"),
+				WithGeneration(1), WithObservedGen,
 				// These turn a Configuration to Ready=true
 				WithLatestCreated("release-ready-lr-00001"),
 				WithLatestReady("release-ready-lr-00001")),
@@ -481,7 +482,8 @@ func TestReconcile(t *testing.T) {
 						RevisionName: "release-ready-lr-00002",
 					},
 				}}...), MarkTrafficAssigned, MarkIngressReady),
-			config("release-ready-lr", "foo", WithReleaseRollout("release-ready-lr"), WithGeneration(2),
+			config("release-ready-lr", "foo", WithReleaseRollout("release-ready-lr"),
+				WithGeneration(2), WithObservedGen,
 				// These turn a Configuration to Ready=true
 				WithLatestCreated("release-ready-lr-00002"),
 				WithLatestReady("release-ready-lr-00002")),
@@ -556,7 +558,8 @@ func TestReconcile(t *testing.T) {
 						Percent:      0,
 					},
 				}), MarkTrafficAssigned, MarkIngressReady),
-			config("release-ready", "foo", WithRunLatestRollout, WithGeneration(2),
+			config("release-ready", "foo", WithRunLatestRollout,
+				WithGeneration(2), WithObservedGen,
 				// These turn a Configuration to Ready=true
 				WithLatestCreated("release-ready-00002"), WithLatestReady("release-ready-00002")),
 		},
@@ -881,7 +884,8 @@ func TestReconcile(t *testing.T) {
 						Percent:      100,
 					},
 				}), MarkTrafficAssigned, MarkIngressReady),
-			config("all-ready", "foo", WithRunLatestRollout, WithGeneration(1),
+			config("all-ready", "foo", WithRunLatestRollout,
+				WithGeneration(1), WithObservedGen,
 				// These turn a Configuration to Ready=true
 				WithLatestCreated("all-ready-00001"), WithLatestReady("all-ready-00001")),
 		},
@@ -905,6 +909,42 @@ func TestReconcile(t *testing.T) {
 			"foo/all-ready": 1,
 		},
 	}, {
+		Name: "runLatest - configuration lagging",
+		// When both route and config are ready, the service should become ready.
+		Objects: []runtime.Object{
+			Service("all-ready", "foo", WithRunLatestRollout, WithInitSvcConditions,
+				WithReadyConfig("all-ready-00001")),
+			route("all-ready", "foo", WithRunLatestRollout, RouteReady,
+				WithDomain, WithDomainInternal, WithAddress, WithInitRouteConditions,
+				WithStatusTraffic(v1alpha1.TrafficTarget{
+					TrafficTarget: v1beta1.TrafficTarget{
+						RevisionName: "all-ready-00001",
+						Percent:      100,
+					},
+				}), MarkTrafficAssigned, MarkIngressReady),
+			config("all-ready", "foo", WithRunLatestRollout,
+				WithGeneration(1), WithObservedGen, WithGeneration(2),
+				// These turn a Configuration to Ready=true
+				WithLatestCreated("all-ready-00001"), WithLatestReady("all-ready-00001")),
+		},
+		Key: "foo/all-ready",
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: Service("all-ready", "foo", WithRunLatestRollout,
+				WithReadyConfig("all-ready-00001"),
+				// The delta induced by route object.
+				WithReadyRoute, WithSvcStatusDomain, WithSvcStatusAddress,
+				MarkConfigurationNotReconciled,
+				WithSvcStatusTraffic(v1alpha1.TrafficTarget{
+					TrafficTarget: v1beta1.TrafficTarget{
+						RevisionName: "all-ready-00001",
+						Percent:      100,
+					},
+				})),
+		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "Updated", "Updated Service %q", "all-ready"),
+		},
+	}, {
 		Name: "runLatest - route ready previous version and config ready, service not ready",
 		// When both route and config are ready, but the route points to the previous revision
 		// the service should not be ready.
@@ -918,7 +958,8 @@ func TestReconcile(t *testing.T) {
 						Percent:      100,
 					},
 				}), MarkTrafficAssigned, MarkIngressReady),
-			config("config-only-ready", "foo", WithRunLatestRollout, WithGeneration(2 /*will generate revision -00002*/),
+			config("config-only-ready", "foo", WithRunLatestRollout,
+				WithGeneration(2 /*will generate revision -00002*/), WithObservedGen,
 				// These turn a Configuration to Ready=true
 				WithLatestCreated("config-only-ready-00002"), WithLatestReady("config-only-ready-00002")),
 		},
@@ -952,10 +993,9 @@ func TestReconcile(t *testing.T) {
 						Percent:      100,
 					},
 				}), MarkTrafficAssigned, MarkIngressReady),
-			config("config-fails", "foo", WithRunLatestRollout,
-				WithGeneration(2),
-				WithLatestReady("config-fails-00001"),
-				WithLatestCreated("config-fails-00002"), MarkLatestCreatedFailed("blah")),
+			config("config-fails", "foo", WithRunLatestRollout, WithGeneration(2),
+				WithLatestReady("config-fails-00001"), WithLatestCreated("config-fails-00002"),
+				MarkLatestCreatedFailed("blah"), WithObservedGen),
 		},
 		Key: "foo/config-fails",
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
@@ -979,7 +1019,7 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			Service("config-fails", "foo", WithRunLatestRollout, WithInitSvcConditions),
 			route("config-fails", "foo", WithRunLatestRollout, RouteReady),
-			config("config-fails", "foo", WithRunLatestRollout, WithGeneration(1),
+			config("config-fails", "foo", WithRunLatestRollout, WithGeneration(1), WithObservedGen,
 				WithLatestCreated("config-fails-00001"), MarkLatestCreatedFailed("blah")),
 		},
 		Key: "foo/config-fails",
@@ -998,7 +1038,7 @@ func TestReconcile(t *testing.T) {
 			Service("route-fails", "foo", WithRunLatestRollout, WithInitSvcConditions),
 			route("route-fails", "foo", WithRunLatestRollout,
 				RouteFailed("Propagate me, please", "")),
-			config("route-fails", "foo", WithRunLatestRollout, WithGeneration(1),
+			config("route-fails", "foo", WithRunLatestRollout, WithGeneration(1), WithObservedGen,
 				// These turn a Configuration to Ready=true
 				WithLatestCreated("route-fails-00001"), WithLatestReady("route-fails-00001")),
 		},
@@ -1063,7 +1103,7 @@ func TestReconcile(t *testing.T) {
 						Percent:      100,
 					},
 				}), MarkTrafficAssigned, MarkIngressReady),
-			config("new-owner", "foo", WithRunLatestRollout, WithGeneration(1),
+			config("new-owner", "foo", WithRunLatestRollout, WithGeneration(1), WithObservedGen,
 				// These turn a Configuration to Ready=true
 				WithLatestCreated("new-owner-00001"), WithLatestReady("new-owner-00001")),
 		},

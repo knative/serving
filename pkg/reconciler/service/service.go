@@ -177,8 +177,14 @@ func (c *Reconciler) reconcile(ctx context.Context, service *v1alpha1.Service) e
 		return err
 	}
 
-	// Update our Status based on the state of our underlying Configuration.
-	service.Status.PropagateConfigurationStatus(&config.Status)
+	if config.Generation != config.Status.ObservedGeneration {
+		// The Configuration hasn't yet reconciled our latest changes to
+		// its desired state, so its conditions are outdated.
+		service.Status.MarkConfigurationNotReconciled()
+	} else {
+		// Update our Status based on the state of our underlying Configuration.
+		service.Status.PropagateConfigurationStatus(&config.Status)
+	}
 
 	// When the Configuration names a Revision, check that the named Revision is owned
 	// by our Configuration and matches its generation before reprogramming the Route,
@@ -212,9 +218,15 @@ func (c *Reconciler) reconcile(ctx context.Context, service *v1alpha1.Service) e
 		return err
 	}
 
-	// Update our Status based on the state of our underlying Route.
 	ss := &service.Status
-	ss.PropagateRouteStatus(&route.Status)
+	if route.Generation != route.Status.ObservedGeneration {
+		// The Route hasn't yet reconciled our latest changes to
+		// its desired state, so its conditions are outdated.
+		ss.MarkRouteNotReconciled()
+	} else {
+		// Update our Status based on the state of our underlying Route.
+		ss.PropagateRouteStatus(&route.Status)
+	}
 
 	// `manual` is not reconciled.
 	rc := service.Status.GetCondition(v1alpha1.ServiceConditionRoutesReady)

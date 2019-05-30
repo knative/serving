@@ -259,6 +259,11 @@ func WithRevisionTimeoutSeconds(revisionTimeoutSeconds int64) ServiceOption {
 	}
 }
 
+// MarkConfigurationNotReconciled calls the function of the same name on the Service's status.
+func MarkConfigurationNotReconciled(service *v1alpha1.Service) {
+	service.Status.MarkConfigurationNotReconciled()
+}
+
 // MarkConfigurationNotOwned calls the function of the same name on the Service's status.
 func MarkConfigurationNotOwned(service *v1alpha1.Service) {
 	service.Status.MarkConfigurationNotOwned(servicenames.Configuration(service))
