@@ -457,6 +457,24 @@ func TestReconcile(t *testing.T) {
 		}},
 		Key: "foo/pod-error",
 	}, {
+		Name: "surface pod schedule errors",
+		// Test the propagation of the scheduling errors of Pod into the revision.
+		// This initializes the world to unschedule pod. It then verifies
+		// that Reconcile propagates this into the status of the Revision.
+		Objects: []runtime.Object{
+			rev("foo", "pod-schedule-error",
+				withK8sServiceName("a-pod-schedule-error"), WithLogURL, AllUnknownConditions, MarkActive),
+			kpa("foo", "pod-schedule-error"), // PA can't be ready, since no traffic.
+			pod("foo", "pod-schedule-error", WithUnschedulableContainer("Insufficient energy", "Unschedulable")),
+			deploy("foo", "pod-schedule-error"),
+			image("foo", "pod-schedule-error"),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: rev("foo", "pod-schedule-error",
+				WithLogURL, AllUnknownConditions, MarkResourcesUnavailable("Insufficient energy", "Unschedulable")),
+		}},
+		Key: "foo/pod-schedule-error",
+	}, {
 		Name: "ready steady state",
 		// Test the transition that Reconcile makes when Endpoints become ready on the
 		// SKS owned services, which is signalled by KPA having servince name.

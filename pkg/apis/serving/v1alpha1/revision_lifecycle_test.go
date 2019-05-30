@@ -374,6 +374,25 @@ func TestRevisionNotOwnedStuff(t *testing.T) {
 	}
 }
 
+func TestRevisionResourcesUnavailable(t *testing.T) {
+	r := &RevisionStatus{}
+	r.InitializeConditions()
+	apitest.CheckConditionOngoing(r.duck(), RevisionConditionResourcesAvailable, t)
+	apitest.CheckConditionOngoing(r.duck(), RevisionConditionContainerHealthy, t)
+	apitest.CheckConditionOngoing(r.duck(), RevisionConditionReady, t)
+
+	const wantReason, wantMessage = "unschedulable", "insufficient energy"
+	r.MarkResourcesUnavailable(wantReason, wantMessage)
+	apitest.CheckConditionFailed(r.duck(), RevisionConditionResourcesAvailable, t)
+	apitest.CheckConditionFailed(r.duck(), RevisionConditionReady, t)
+	if got := r.GetCondition(RevisionConditionResourcesAvailable); got == nil || got.Reason != wantReason {
+		t.Errorf("RevisionConditionResourcesAvailable = %v, want %v", got, wantReason)
+	}
+	if got := r.GetCondition(RevisionConditionResourcesAvailable); got == nil || got.Message != wantMessage {
+		t.Errorf("RevisionConditionResourcesAvailable = %v, want %v", got, wantMessage)
+	}
+}
+
 func TestRevisionGetGroupVersionKind(t *testing.T) {
 	r := &Revision{}
 	want := schema.GroupVersionKind{
