@@ -715,8 +715,6 @@ func WithConfigContainerConcurrency(cc v1beta1.RevisionContainerConcurrencyType)
 func WithGeneration(gen int64) ConfigOption {
 	return func(cfg *v1alpha1.Configuration) {
 		cfg.Generation = gen
-		//TODO(dprotaso) remove this for 0.4 release
-		cfg.Spec.DeprecatedGeneration = gen
 	}
 }
 
