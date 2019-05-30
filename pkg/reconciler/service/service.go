@@ -91,27 +91,9 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 	// Don't modify the informers copy
 	service := original.DeepCopy()
 
-	var reconcileErr error
-
-	if service.Spec.DeprecatedManual != nil {
-		// We do not know the status when in manual mode. The Route can be
-		// updated with Configurations not known to the Service which would
-		// make attempts to display status potentially incorrect
-		service.Status.SetManualStatus()
-
-		if err := service.ConvertUp(ctx, &v1beta1.Service{}); err != nil {
-			if ce, ok := err.(*v1alpha1.CannotConvertError); ok {
-				service.Status.MarkResourceNotConvertible(ce)
-			} else {
-				return err
-			}
-		}
-	} else {
-		// Reconcile this copy of the service and then write back any status
-		// updates regardless of whether the reconciliation errored out.
-		reconcileErr = c.reconcile(ctx, service)
-	}
-
+	// Reconcile this copy of the service and then write back any status
+	// updates regardless of whether the reconciliation errored out.
+	reconcileErr := c.reconcile(ctx, service)
 	if equality.Semantic.DeepEqual(original.Status, service.Status) {
 		// If we didn't change anything then don't call updateStatus.
 		// This is important because the copy we loaded from the informer's
@@ -146,6 +128,7 @@ func (c *Reconciler) reconcile(ctx context.Context, service *v1alpha1.Service) e
 	if err := service.ConvertUp(ctx, &v1beta1.Service{}); err != nil {
 		if ce, ok := err.(*v1alpha1.CannotConvertError); ok {
 			service.Status.MarkResourceNotConvertible(ce)
+			return nil
 		} else {
 			return err
 		}
