@@ -52,7 +52,8 @@ func TestDefaultsConfiguration(t *testing.T) {
 		name:    "defaults configuration",
 		wantErr: false,
 		wantDefaults: &Defaults{
-			RevisionTimeoutSeconds: DefaultRevisionTimeoutSeconds,
+			RevisionTimeoutSeconds:    DefaultRevisionTimeoutSeconds,
+			MaxRevisionTimeoutSeconds: DefaultMaxRevisionTimeoutSeconds,
 		},
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
@@ -65,8 +66,9 @@ func TestDefaultsConfiguration(t *testing.T) {
 		name:    "specified values",
 		wantErr: false,
 		wantDefaults: &Defaults{
-			RevisionTimeoutSeconds: 123,
-			RevisionCPURequest:     &oneTwoThree,
+			RevisionTimeoutSeconds:    123,
+			MaxRevisionTimeoutSeconds: 456,
+			RevisionCPURequest:        &oneTwoThree,
 		},
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
@@ -74,8 +76,9 @@ func TestDefaultsConfiguration(t *testing.T) {
 				Name:      DefaultsConfigName,
 			},
 			Data: map[string]string{
-				"revision-timeout-seconds": "123",
-				"revision-cpu-request":     "123m",
+				"revision-timeout-seconds":     "123",
+				"max-revision-timeout-seconds": "456",
+				"revision-cpu-request":         "123m",
 			},
 		},
 	}, {
@@ -92,6 +95,19 @@ func TestDefaultsConfiguration(t *testing.T) {
 			},
 		},
 	}, {
+		name:         "bad max revision timeout",
+		wantErr:      true,
+		wantDefaults: (*Defaults)(nil),
+		config: &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: system.Namespace(),
+				Name:      DefaultsConfigName,
+			},
+			Data: map[string]string{
+				"max-revision-timeout-seconds": "asdf",
+			},
+		},
+	}, {
 		name:         "bad resource",
 		wantErr:      true,
 		wantDefaults: (*Defaults)(nil),
@@ -102,6 +118,20 @@ func TestDefaultsConfiguration(t *testing.T) {
 			},
 			Data: map[string]string{
 				"revision-cpu-request": "bad",
+			},
+		},
+	}, {
+		name:         "revision timeout bigger than max timeout",
+		wantErr:      true,
+		wantDefaults: (*Defaults)(nil),
+		config: &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: system.Namespace(),
+				Name:      DefaultsConfigName,
+			},
+			Data: map[string]string{
+				"revision-timeout-seconds":     "456",
+				"max-revision-timeout-seconds": "123",
 			},
 		},
 	}}

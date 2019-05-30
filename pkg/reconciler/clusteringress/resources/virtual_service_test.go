@@ -18,6 +18,7 @@ package resources
 
 import (
 	"testing"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
 	istiov1alpha1 "github.com/knative/pkg/apis/istio/common/v1alpha1"
@@ -25,11 +26,16 @@ import (
 	"github.com/knative/pkg/kmeta"
 	"github.com/knative/pkg/system"
 	_ "github.com/knative/pkg/system/testing"
+	apiconfig "github.com/knative/serving/pkg/apis/config"
 	"github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+)
+
+var (
+	defaultMaxRevisionTimeout = time.Duration(apiconfig.DefaultMaxRevisionTimeoutSeconds) * time.Second
 )
 
 func TestMakeVirtualServiceSpec_CorrectMetadata(t *testing.T) {
@@ -109,9 +115,9 @@ func TestMakeVirtualServiceSpec_CorrectRoutes(t *testing.T) {
 						AppendHeaders: map[string]string{
 							"foo": "bar",
 						},
-						Timeout: &metav1.Duration{Duration: networking.DefaultTimeout},
+						Timeout: &metav1.Duration{Duration: defaultMaxRevisionTimeout},
 						Retries: &v1alpha1.HTTPRetry{
-							PerTryTimeout: &metav1.Duration{Duration: networking.DefaultTimeout},
+							PerTryTimeout: &metav1.Duration{Duration: defaultMaxRevisionTimeout},
 							Attempts:      networking.DefaultRetryCount,
 						},
 					}},
@@ -134,9 +140,9 @@ func TestMakeVirtualServiceSpec_CorrectRoutes(t *testing.T) {
 						AppendHeaders: map[string]string{
 							"foo": "baz",
 						},
-						Timeout: &metav1.Duration{Duration: networking.DefaultTimeout},
+						Timeout: &metav1.Duration{Duration: defaultMaxRevisionTimeout},
 						Retries: &v1alpha1.HTTPRetry{
-							PerTryTimeout: &metav1.Duration{Duration: networking.DefaultTimeout},
+							PerTryTimeout: &metav1.Duration{Duration: defaultMaxRevisionTimeout},
 							Attempts:      networking.DefaultRetryCount,
 						},
 					}},
@@ -183,10 +189,10 @@ func TestMakeVirtualServiceSpec_CorrectRoutes(t *testing.T) {
 		DeprecatedAppendHeaders: map[string]string{
 			"foo": "bar",
 		},
-		Timeout: networking.DefaultTimeout.String(),
+		Timeout: defaultMaxRevisionTimeout.String(),
 		Retries: &v1alpha3.HTTPRetry{
 			Attempts:      networking.DefaultRetryCount,
-			PerTryTimeout: networking.DefaultTimeout.String(),
+			PerTryTimeout: defaultMaxRevisionTimeout.String(),
 		},
 		WebsocketUpgrade: true,
 	}, {
@@ -211,10 +217,10 @@ func TestMakeVirtualServiceSpec_CorrectRoutes(t *testing.T) {
 		DeprecatedAppendHeaders: map[string]string{
 			"foo": "baz",
 		},
-		Timeout: networking.DefaultTimeout.String(),
+		Timeout: defaultMaxRevisionTimeout.String(),
 		Retries: &v1alpha3.HTTPRetry{
 			Attempts:      networking.DefaultRetryCount,
-			PerTryTimeout: networking.DefaultTimeout.String(),
+			PerTryTimeout: defaultMaxRevisionTimeout.String(),
 		},
 		WebsocketUpgrade: true,
 	}}
@@ -236,9 +242,9 @@ func TestMakeVirtualServiceRoute_Vanilla(t *testing.T) {
 			},
 			Percent: 100,
 		}},
-		Timeout: &metav1.Duration{Duration: networking.DefaultTimeout},
+		Timeout: &metav1.Duration{Duration: defaultMaxRevisionTimeout},
 		Retries: &v1alpha1.HTTPRetry{
-			PerTryTimeout: &metav1.Duration{Duration: networking.DefaultTimeout},
+			PerTryTimeout: &metav1.Duration{Duration: defaultMaxRevisionTimeout},
 			Attempts:      networking.DefaultRetryCount,
 		},
 	}
@@ -257,10 +263,10 @@ func TestMakeVirtualServiceRoute_Vanilla(t *testing.T) {
 			},
 			Weight: 100,
 		}},
-		Timeout: networking.DefaultTimeout.String(),
+		Timeout: defaultMaxRevisionTimeout.String(),
 		Retries: &v1alpha3.HTTPRetry{
 			Attempts:      networking.DefaultRetryCount,
-			PerTryTimeout: networking.DefaultTimeout.String(),
+			PerTryTimeout: defaultMaxRevisionTimeout.String(),
 		},
 		WebsocketUpgrade: true,
 	}
@@ -287,9 +293,9 @@ func TestMakeVirtualServiceRoute_TwoTargets(t *testing.T) {
 			},
 			Percent: 10,
 		}},
-		Timeout: &metav1.Duration{Duration: networking.DefaultTimeout},
+		Timeout: &metav1.Duration{Duration: defaultMaxRevisionTimeout},
 		Retries: &v1alpha1.HTTPRetry{
-			PerTryTimeout: &metav1.Duration{Duration: networking.DefaultTimeout},
+			PerTryTimeout: &metav1.Duration{Duration: defaultMaxRevisionTimeout},
 			Attempts:      networking.DefaultRetryCount,
 		},
 	}
@@ -312,10 +318,10 @@ func TestMakeVirtualServiceRoute_TwoTargets(t *testing.T) {
 			},
 			Weight: 10,
 		}},
-		Timeout: networking.DefaultTimeout.String(),
+		Timeout: defaultMaxRevisionTimeout.String(),
 		Retries: &v1alpha3.HTTPRetry{
 			Attempts:      networking.DefaultRetryCount,
-			PerTryTimeout: networking.DefaultTimeout.String(),
+			PerTryTimeout: defaultMaxRevisionTimeout.String(),
 		},
 		WebsocketUpgrade: true,
 	}

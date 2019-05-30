@@ -21,14 +21,15 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/knative/serving/pkg/apis/config"
+
 	"github.com/google/go-cmp/cmp"
 	"github.com/knative/pkg/apis"
+	logtesting "github.com/knative/pkg/logging/testing"
 	"github.com/knative/pkg/ptr"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	"github.com/knative/serving/pkg/apis/networking"
 )
 
 func TestRevisionValidation(t *testing.T) {
@@ -128,6 +129,7 @@ func TestRevisionSpecValidation(t *testing.T) {
 	tests := []struct {
 		name string
 		rs   *RevisionSpec
+		wc   func(context.Context) context.Context
 		want *apis.FieldError
 	}{{
 		name: "valid",
@@ -235,8 +237,31 @@ func TestRevisionSpecValidation(t *testing.T) {
 			TimeoutSeconds: ptr.Int64(6000),
 		},
 		want: apis.ErrOutOfBoundsValue(
-			6000, 0, networking.DefaultTimeout.Seconds(),
+			6000, 0, config.DefaultMaxRevisionTimeoutSeconds,
 			"timeoutSeconds"),
+	}, {
+		name: "exceed custom max timeout",
+		rs: &RevisionSpec{
+			PodSpec: PodSpec{
+				Containers: []corev1.Container{{
+					Image: "helloworld",
+				}},
+			},
+			TimeoutSeconds: ptr.Int64(100),
+		},
+		wc: func(ctx context.Context) context.Context {
+			s := config.NewStore(logtesting.TestLogger(t))
+			s.OnConfigChanged(&corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: config.DefaultsConfigName,
+				},
+				Data: map[string]string{
+					"revision-timeout-seconds":     "25",
+					"max-revision-timeout-seconds": "50"},
+			})
+			return s.ToContext(ctx)
+		},
+		want: apis.ErrOutOfBoundsValue(100, 0, 50, "timeoutSeconds"),
 	}, {
 		name: "negative timeout",
 		rs: &RevisionSpec{
@@ -248,13 +273,17 @@ func TestRevisionSpecValidation(t *testing.T) {
 			TimeoutSeconds: ptr.Int64(-30),
 		},
 		want: apis.ErrOutOfBoundsValue(
-			-30, 0, networking.DefaultTimeout.Seconds(),
+			-30, 0, config.DefaultMaxRevisionTimeoutSeconds,
 			"timeoutSeconds"),
 	}}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got := test.rs.Validate(context.Background())
+			ctx := context.Background()
+			if test.wc != nil {
+				ctx = test.wc(ctx)
+			}
+			got := test.rs.Validate(ctx)
 			if !cmp.Equal(test.want.Error(), got.Error()) {
 				t.Errorf("Validate (-want, +got) = %v",
 					cmp.Diff(test.want.Error(), got.Error()))
@@ -268,6 +297,7 @@ func TestImmutableFields(t *testing.T) {
 		name string
 		new  *Revision
 		old  *Revision
+		wc   func(context.Context) context.Context
 		want *apis.FieldError
 	}{{
 		name: "good (no change)",
@@ -294,6 +324,50 @@ func TestImmutableFields(t *testing.T) {
 					}},
 				},
 			},
+		},
+		want: nil,
+	}, {
+		// Test the case where max-revision-timeout is changed to a value
+		// that is less than an existing revision's timeout value.
+		// Existing revision should keep operating normally.
+		name: "good (max revision timeout change)",
+		new: &Revision{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid",
+			},
+			Spec: RevisionSpec{
+				PodSpec: PodSpec{
+					Containers: []corev1.Container{{
+						Image: "helloworld",
+					}},
+				},
+				TimeoutSeconds: ptr.Int64(100),
+			},
+		},
+		old: &Revision{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid",
+			},
+			Spec: RevisionSpec{
+				PodSpec: PodSpec{
+					Containers: []corev1.Container{{
+						Image: "helloworld",
+					}},
+				},
+				TimeoutSeconds: ptr.Int64(100),
+			},
+		},
+		wc: func(ctx context.Context) context.Context {
+			s := config.NewStore(logtesting.TestLogger(t))
+			s.OnConfigChanged(&corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: config.DefaultsConfigName,
+				},
+				Data: map[string]string{
+					"revision-timeout-seconds":     "25",
+					"max-revision-timeout-seconds": "50"},
+			})
+			return s.ToContext(ctx)
 		},
 		want: nil,
 	}, {
@@ -487,6 +561,9 @@ func TestImmutableFields(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			ctx := apis.WithinUpdate(context.Background(), test.old)
+			if test.wc != nil {
+				ctx = test.wc(ctx)
+			}
 			got := test.new.Validate(ctx)
 			if !cmp.Equal(test.want.Error(), got.Error()) {
 				t.Errorf("Validate (-want, +got) = %v",
