@@ -102,15 +102,6 @@ func ConfigurationHasCreatedRevision(c *v1alpha1.Configuration) (bool, error) {
 	return c.Status.LatestCreatedRevisionName != "", nil
 }
 
-// IsRevisionBuildFailed will check the status conditions of the revision and
-// return true if the revision's build failed.
-func IsRevisionBuildFailed(r *v1alpha1.Revision) (bool, error) {
-	if cond := r.Status.GetCondition(v1alpha1.RevisionConditionBuildSucceeded); cond != nil {
-		return cond.Status == corev1.ConditionFalse, nil
-	}
-	return false, nil
-}
-
 // IsConfigRevisionCreationFailed will check the status conditions of the
 // configuration and return true if the configuration's revision failed to
 // create.

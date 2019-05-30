@@ -26,7 +26,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
-	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 	net "github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
@@ -1092,12 +1091,6 @@ func getTestReadyConfig(name string) (*v1alpha1.Configuration, *v1alpha1.Revisio
 	rev1.Status.MarkResourcesAvailable()
 	rev1.Status.MarkContainerHealthy()
 	rev1.Status.MarkActive()
-	rev1.Status.PropagateBuildStatus(duckv1alpha1.Status{
-		Conditions: []duckv1alpha1.Condition{{
-			Type:   duckv1alpha1.ConditionSucceeded,
-			Status: corev1.ConditionTrue,
-		}},
-	})
 
 	// rev1 will use http1, rev2 will use h2c
 	config.Spec.GetTemplate().Spec.GetContainer().Ports = []corev1.ContainerPort{{
@@ -1108,12 +1101,6 @@ func getTestReadyConfig(name string) (*v1alpha1.Configuration, *v1alpha1.Revisio
 	rev2.Status.MarkResourcesAvailable()
 	rev2.Status.MarkContainerHealthy()
 	rev2.Status.MarkActive()
-	rev2.Status.PropagateBuildStatus(duckv1alpha1.Status{
-		Conditions: []duckv1alpha1.Condition{{
-			Type:   duckv1alpha1.ConditionSucceeded,
-			Status: corev1.ConditionTrue,
-		}},
-	})
 	config.Status.SetLatestReadyRevisionName(rev2.Name)
 	config.Status.SetLatestCreatedRevisionName(rev2.Name)
 	return config, rev1, rev2

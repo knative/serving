@@ -19,6 +19,7 @@ package resources
 import (
 	"fmt"
 	"hash/adler32"
+	"sort"
 
 	"github.com/knative/pkg/kmeta"
 	networkingv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
@@ -32,8 +33,16 @@ import (
 // the value is an empty string
 // Returns one certificate for each domain
 func MakeCertificates(route *v1alpha1.Route, domainTagMap map[string]string) []*networkingv1alpha1.Certificate {
+	order := make(sort.StringSlice, 0, len(domainTagMap))
+	for dnsName := range domainTagMap {
+		order = append(order, dnsName)
+	}
+	order.Sort()
+
 	var certs []*networkingv1alpha1.Certificate
-	for dnsName, tag := range domainTagMap {
+	for _, dnsName := range order {
+		tag := domainTagMap[dnsName]
+
 		// k8s supports cert name only up to 63 chars and so is constructed as route-[UID]-[tag digest]
 		// where route-[UID] will take 42 characters and leaves 20 characters for tag digest (need to include `-`).
 		// We use https://golang.org/pkg/hash/adler32/#Checksum to compute the digest which returns a uint32.

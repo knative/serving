@@ -85,7 +85,6 @@ func main() {
 	kubeInformerFactory := kubeinformers.NewSharedInformerFactory(opt.KubeClientSet, opt.ResyncPeriod)
 	servingInformerFactory := informers.NewSharedInformerFactory(opt.ServingClientSet, opt.ResyncPeriod)
 	cachingInformerFactory := cachinginformers.NewSharedInformerFactory(opt.CachingClientSet, opt.ResyncPeriod)
-	buildInformerFactory := revision.KResourceTypedInformerFactory(opt)
 
 	serviceInformer := servingInformerFactory.Serving().V1alpha1().Services()
 	routeInformer := servingInformerFactory.Serving().V1alpha1().Routes()
@@ -118,7 +117,6 @@ func main() {
 			coreServiceInformer,
 			endpointsInformer,
 			configMapInformer,
-			buildInformerFactory,
 		),
 		route.NewController(
 			opt,

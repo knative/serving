@@ -21,11 +21,8 @@ import (
 	"net/http"
 
 	cachinginformers "github.com/knative/caching/pkg/client/informers/externalversions/caching/v1alpha1"
-	"github.com/knative/pkg/apis/duck"
-	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/controller"
-	"github.com/knative/pkg/tracker"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	painformers "github.com/knative/serving/pkg/client/informers/externalversions/autoscaling/v1alpha1"
@@ -61,7 +58,6 @@ func NewController(
 	serviceInformer corev1informers.ServiceInformer,
 	endpointsInformer corev1informers.EndpointsInformer,
 	configMapInformer corev1informers.ConfigMapInformer,
-	buildInformerFactory duck.InformerFactory,
 ) *controller.Impl {
 	transport := http.DefaultTransport
 	if rt, err := newResolverTransport(k8sCertPath); err != nil {
@@ -103,8 +99,6 @@ func NewController(
 		Handler:    controller.HandleAll(impl.EnqueueControllerOf),
 	})
 
-	c.tracker = tracker.New(impl.EnqueueKey, opt.GetTrackerLease())
-
 	// We don't watch for changes to Image because we don't incorporate any of its
 	// properties into our own status and should work completely in the absence of
 	// a functioning Image controller.
@@ -113,8 +107,6 @@ func NewController(
 		FilterFunc: controller.Filter(v1alpha1.SchemeGroupVersion.WithKind("Revision")),
 		Handler:    controller.HandleAll(impl.EnqueueControllerOf),
 	})
-
-	c.buildInformerFactory = newDuckInformerFactory(c.tracker, buildInformerFactory)
 
 	configsToResync := []interface{}{
 		&network.Config{},
@@ -132,22 +124,4 @@ func NewController(
 	c.configStore.WatchConfigs(opt.ConfigMapWatcher)
 
 	return impl
-}
-
-func KResourceTypedInformerFactory(opt reconciler.Options) duck.InformerFactory {
-	return &duck.TypedInformerFactory{
-		Client:       opt.DynamicClientSet,
-		Type:         &duckv1alpha1.KResource{},
-		ResyncPeriod: opt.ResyncPeriod,
-		StopChannel:  opt.StopChannel,
-	}
-}
-
-func newDuckInformerFactory(t tracker.Interface, delegate duck.InformerFactory) duck.InformerFactory {
-	return &duck.CachedInformerFactory{
-		Delegate: &duck.EnqueueInformerFactory{
-			Delegate:     delegate,
-			EventHandler: controller.HandleAll(t.OnChanged),
-		},
-	}
 }

@@ -161,9 +161,6 @@ const (
 	// RevisionConditionReady is set when the revision is starting to materialize
 	// runtime resources, and becomes true when those resources are ready.
 	RevisionConditionReady = apis.ConditionReady
-	// RevisionConditionBuildSucceeded is set when the revision has an associated build
-	// and is marked True if/once the Build has completed successfully.
-	RevisionConditionBuildSucceeded apis.ConditionType = "BuildSucceeded"
 	// RevisionConditionResourcesAvailable is set when underlying
 	// Kubernetes resources have been provisioned.
 	RevisionConditionResourcesAvailable apis.ConditionType = "ResourcesAvailable"

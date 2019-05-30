@@ -23,11 +23,8 @@ import (
 
 	"github.com/google/go-containerregistry/pkg/authn/k8schain"
 	cachinglisters "github.com/knative/caching/pkg/client/listers/caching/v1alpha1"
-	"github.com/knative/pkg/apis/duck"
-	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 	"github.com/knative/pkg/controller"
 	commonlogging "github.com/knative/pkg/logging"
-	"github.com/knative/pkg/tracker"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 	kpalisters "github.com/knative/serving/pkg/client/listers/autoscaling/v1alpha1"
@@ -38,7 +35,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/util/sets"
 	appsv1listers "k8s.io/client-go/listers/apps/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
@@ -69,9 +65,6 @@ type Reconciler struct {
 	endpointsLister     corev1listers.EndpointsLister
 	configMapLister     corev1listers.ConfigMapLister
 
-	buildInformerFactory duck.InformerFactory
-
-	tracker     tracker.Interface
 	resolver    resolver
 	configStore configStore
 }
@@ -127,55 +120,6 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 	return reconcileErr
 }
 
-func (c *Reconciler) reconcileBuild(ctx context.Context, rev *v1alpha1.Revision) error {
-	buildRef := rev.DeprecatedBuildRef()
-	if buildRef == nil {
-		rev.Status.PropagateBuildStatus(duckv1alpha1.Status{
-			Conditions: []duckv1alpha1.Condition{{
-				Type:   duckv1alpha1.ConditionSucceeded,
-				Status: corev1.ConditionTrue,
-				Reason: "NoBuild",
-			}},
-		})
-		return nil
-	}
-
-	logger := commonlogging.FromContext(ctx)
-
-	if err := c.tracker.Track(*buildRef, rev); err != nil {
-		logger.Errorf("Error tracking build '%+v' for Revision %q: %+v", buildRef, rev.Name, err)
-		return err
-	}
-
-	gvr, _ := meta.UnsafeGuessKindToResource(buildRef.GroupVersionKind())
-	_, lister, err := c.buildInformerFactory.Get(gvr)
-	if err != nil {
-		logger.Errorf("Error getting a lister for a builds resource '%+v': %+v", gvr, err)
-		return err
-	}
-
-	buildObj, err := lister.ByNamespace(rev.Namespace).Get(buildRef.Name)
-	if err != nil {
-		logger.Errorf("Error fetching Build %q for Revision %q: %v", buildRef.Name, rev.Name, err)
-		return err
-	}
-	build := buildObj.(*duckv1alpha1.KResource)
-
-	before := rev.Status.GetCondition(v1alpha1.RevisionConditionBuildSucceeded)
-	rev.Status.PropagateBuildStatus(build.Status)
-	after := rev.Status.GetCondition(v1alpha1.RevisionConditionBuildSucceeded)
-	if before.Status != after.Status {
-		// Create events when the Build result is in.
-		if after.Status == corev1.ConditionTrue {
-			c.Recorder.Event(rev, corev1.EventTypeNormal, "BuildSucceeded", after.Message)
-		} else if after.Status == corev1.ConditionFalse {
-			c.Recorder.Event(rev, corev1.EventTypeWarning, "BuildFailed", after.Message)
-		}
-	}
-
-	return nil
-}
-
 func (c *Reconciler) reconcileDigest(ctx context.Context, rev *v1alpha1.Revision) error {
 	// The image digest has already been resolved.
 	if rev.Status.ImageDigest != "" {
@@ -222,45 +166,37 @@ func (c *Reconciler) reconcile(ctx context.Context, rev *v1alpha1.Revision) erro
 	if err := rev.ConvertUp(ctx, &v1beta1.Revision{}); err != nil {
 		if ce, ok := err.(*v1alpha1.CannotConvertError); ok {
 			rev.Status.MarkResourceNotConvertible(ce)
+			return nil
 		} else {
 			return err
 		}
 	}
 
-	if err := c.reconcileBuild(ctx, rev); err != nil {
-		return err
-	}
+	phases := []struct {
+		name string
+		f    func(context.Context, *v1alpha1.Revision) error
+	}{{
+		name: "image digest",
+		f:    c.reconcileDigest,
+	}, {
+		name: "user deployment",
+		f:    c.reconcileDeployment,
+	}, {
+		name: "image cache",
+		f:    c.reconcileImageCache,
+	}, {
+		// Ensures our namespace has the configuration for the fluentd sidecar.
+		name: "fluentd configmap",
+		f:    c.reconcileFluentdConfigMap,
+	}, {
+		name: "KPA",
+		f:    c.reconcileKPA,
+	}}
 
-	bc := rev.Status.GetCondition(v1alpha1.RevisionConditionBuildSucceeded)
-	if bc == nil || bc.Status == corev1.ConditionTrue {
-		// There is no build, or the build completed successfully.
-
-		phases := []struct {
-			name string
-			f    func(context.Context, *v1alpha1.Revision) error
-		}{{
-			name: "image digest",
-			f:    c.reconcileDigest,
-		}, {
-			name: "user deployment",
-			f:    c.reconcileDeployment,
-		}, {
-			name: "image cache",
-			f:    c.reconcileImageCache,
-		}, {
-			// Ensures our namespace has the configuration for the fluentd sidecar.
-			name: "fluentd configmap",
-			f:    c.reconcileFluentdConfigMap,
-		}, {
-			name: "KPA",
-			f:    c.reconcileKPA,
-		}}
-
-		for _, phase := range phases {
-			if err := phase.f(ctx, rev); err != nil {
-				logger.Errorw("Failed to reconcile", zap.String("phase", phase.name), zap.Error(err))
-				return err
-			}
+	for _, phase := range phases {
+		if err := phase.f(ctx, rev); err != nil {
+			logger.Errorw("Failed to reconcile", zap.String("phase", phase.name), zap.Error(err))
+			return err
 		}
 	}
 

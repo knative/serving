@@ -841,52 +841,6 @@ func WithCreationTimestamp(t time.Time) RevisionOption {
 	}
 }
 
-// WithNoBuild updates the status conditions to propagate a Build status as-if
-// no DeprecatedBuildRef was specified.
-func WithNoBuild(r *v1alpha1.Revision) {
-	r.Status.PropagateBuildStatus(duckv1alpha1.Status{
-		Conditions: duckv1alpha1.Conditions{{
-			Type:   duckv1alpha1.ConditionSucceeded,
-			Status: corev1.ConditionTrue,
-			Reason: "NoBuild",
-		}},
-	})
-}
-
-// WithOngoingBuild propagates the status of an in-progress Build to the Revision's status.
-func WithOngoingBuild(r *v1alpha1.Revision) {
-	r.Status.PropagateBuildStatus(duckv1alpha1.Status{
-		Conditions: duckv1alpha1.Conditions{{
-			Type:   duckv1alpha1.ConditionSucceeded,
-			Status: corev1.ConditionUnknown,
-		}},
-	})
-}
-
-// WithSuccessfulBuild propagates the status of a successful Build to the Revision's status.
-func WithSuccessfulBuild(r *v1alpha1.Revision) {
-	r.Status.PropagateBuildStatus(duckv1alpha1.Status{
-		Conditions: duckv1alpha1.Conditions{{
-			Type:   duckv1alpha1.ConditionSucceeded,
-			Status: corev1.ConditionTrue,
-		}},
-	})
-}
-
-// WithFailedBuild propagates the status of a failed Build to the Revision's status.
-func WithFailedBuild(reason, message string) RevisionOption {
-	return func(r *v1alpha1.Revision) {
-		r.Status.PropagateBuildStatus(duckv1alpha1.Status{
-			Conditions: duckv1alpha1.Conditions{{
-				Type:    duckv1alpha1.ConditionSucceeded,
-				Status:  corev1.ConditionFalse,
-				Reason:  reason,
-				Message: message,
-			}},
-		})
-	}
-}
-
 // WithLastPinned updates the "last pinned" annotation to the provided timestamp.
 func WithLastPinned(t time.Time) RevisionOption {
 	return func(rev *v1alpha1.Revision) {
@@ -954,7 +908,6 @@ func MarkContainerExiting(exitCode int32, message string) RevisionOption {
 // MarkRevisionReady calls the necessary helpers to make the Revision Ready=True.
 func MarkRevisionReady(r *v1alpha1.Revision) {
 	WithInitRevConditions(r)
-	WithNoBuild(r)
 	MarkActive(r)
 	r.Status.MarkResourcesAvailable()
 	r.Status.MarkContainerHealthy()
