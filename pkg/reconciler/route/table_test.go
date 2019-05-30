@@ -1913,8 +1913,8 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001"), WithServiceName("mcd")),
 		},
 		WantCreates: []runtime.Object{
-			resources.MakeCertificate(route("default", "becomes-ready", WithConfigTarget("config"), WithDomain, WithRouteUID("12-34")),
-				[]string{"becomes-ready.default.example.com"}),
+			resources.MakeCertificates(route("default", "becomes-ready", WithConfigTarget("config"), WithDomain, WithRouteUID("12-34")),
+				map[string]string{"becomes-ready.default.example.com": ""})[0],
 			ingressWithTLS(
 				route("default", "becomes-ready", WithConfigTarget("config"), WithDomain,
 					WithRouteUID("12-34")),
@@ -2020,8 +2020,8 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 			),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: certificateWithStatus(resources.MakeCertificate(route("default", "becomes-ready", WithConfigTarget("config"), WithDomain, WithRouteUID("12-34")),
-				[]string{"becomes-ready.default.example.com"}), readyCertStatus()),
+			Object: certificateWithStatus(resources.MakeCertificates(route("default", "becomes-ready", WithConfigTarget("config"), WithDomain, WithRouteUID("12-34")),
+				map[string]string{"becomes-ready.default.example.com": ""})[0], readyCertStatus()),
 		}},
 		WantPatches: []clientgotesting.PatchActionImpl{
 			patchFinalizers("default", "becomes-ready"),
