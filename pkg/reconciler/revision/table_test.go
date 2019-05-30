@@ -25,6 +25,7 @@ import (
 	"github.com/knative/pkg/controller"
 	"github.com/knative/pkg/logging"
 	logtesting "github.com/knative/pkg/logging/testing"
+	. "github.com/knative/pkg/reconciler/testing"
 	autoscalingv1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
@@ -35,14 +36,12 @@ import (
 	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/revision/config"
 	"github.com/knative/serving/pkg/reconciler/revision/resources"
+	. "github.com/knative/serving/pkg/reconciler/testing"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgotesting "k8s.io/client-go/testing"
-
-	. "github.com/knative/pkg/reconciler/testing"
-	. "github.com/knative/serving/pkg/reconciler/testing"
 )
 
 // This is heavily based on the way the OpenShift Ingress controller tests its reconciliation method.
@@ -432,6 +431,23 @@ func TestReconcile(t *testing.T) {
 				"deploy-timeout"),
 		},
 		Key: "foo/deploy-timeout",
+	}, {
+		Name: "surface ImagePullBackoff",
+		// Test the propagation of ImagePullBackoff from user container.
+		Objects: []runtime.Object{
+			rev("foo", "pull-backoff",
+				withK8sServiceName("the-taxman"), WithLogURL, MarkActivating("Deploying", "")),
+			kpa("foo", "pull-backoff"), // KPA can't be ready since deployment times out.
+			pod("foo", "pull-backoff", WithWaitingContainer("user-container", "ImagePullBackoff", "can't pull it")),
+			timeoutDeploy(deploy("foo", "pull-backoff")),
+			image("foo", "pull-backoff"),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: rev("foo", "pull-backoff",
+				WithLogURL, AllUnknownConditions,
+				MarkResourcesUnavailable("ImagePullBackoff", "can't pull it")),
+		}},
+		Key: "foo/pull-backoff",
 	}, {
 		Name: "surface pod errors",
 		// Test the propagation of the termination state of a Pod into the revision.

@@ -1011,7 +1011,7 @@ func WithFailingContainer(name string, exitCode int, message string) PodOption {
 	}
 }
 
-// WithUnschedulableContainer sets the .Status.Conditionss on the pod to
+// WithUnschedulableContainer sets the .Status.Conditions on the pod to
 // include `PodScheduled` status to `False` with the given message and reason.
 func WithUnschedulableContainer(reason, message string) PodOption {
 	return func(pod *corev1.Pod) {
@@ -1020,6 +1020,22 @@ func WithUnschedulableContainer(reason, message string) PodOption {
 			Reason:  reason,
 			Message: message,
 			Status:  corev1.ConditionFalse,
+		}}
+	}
+}
+
+// WithWaitingContainer sets the .Status.ContainerStatuses on the pod to
+// include a container named accordingly to wait with the given state.
+func WithWaitingContainer(name, reason, message string) PodOption {
+	return func(pod *corev1.Pod) {
+		pod.Status.ContainerStatuses = []corev1.ContainerStatus{{
+			Name: name,
+			State: corev1.ContainerState{
+				Waiting: &corev1.ContainerStateWaiting{
+					Reason:  reason,
+					Message: message,
+				},
+			},
 		}}
 	}
 }
