@@ -25,7 +25,6 @@ import (
 
 	fakecachingclientset "github.com/knative/caching/pkg/client/clientset/versioned/fake"
 	cachinginformers "github.com/knative/caching/pkg/client/informers/externalversions"
-	"github.com/knative/pkg/apis/duck"
 	"github.com/knative/pkg/configmap"
 	ctrl "github.com/knative/pkg/controller"
 	"github.com/knative/pkg/logging"
@@ -155,8 +154,7 @@ func newTestController(t *testing.T, stopCh <-chan struct{}) (
 	kubeInformer kubeinformers.SharedInformerFactory,
 	servingInformer informers.SharedInformerFactory,
 	cachingInformer cachinginformers.SharedInformerFactory,
-	configMapWatcher *configmap.ManualWatcher,
-	buildInformerFactory duck.InformerFactory) {
+	configMapWatcher *configmap.ManualWatcher) {
 
 	// Create fake clients
 	kubeClient = fakekubeclientset.NewSimpleClientset()
@@ -177,7 +175,6 @@ func newTestController(t *testing.T, stopCh <-chan struct{}) (
 		StopChannel:      stopCh,
 		Recorder:         record.NewFakeRecorder(1000),
 	}
-	buildInformerFactory = KResourceTypedInformerFactory(opt)
 
 	// Create informer factories with fake clients. The second parameter sets the
 	// resync period to zero, disabling it.
@@ -194,7 +191,6 @@ func newTestController(t *testing.T, stopCh <-chan struct{}) (
 		kubeInformer.Core().V1().Services(),
 		kubeInformer.Core().V1().Endpoints(),
 		kubeInformer.Core().V1().ConfigMaps(),
-		buildInformerFactory,
 	)
 
 	controller.Reconciler.(*Reconciler).resolver = &nopResolver{}
@@ -255,7 +251,7 @@ func TestNewRevisionCallsSyncHandler(t *testing.T) {
 	}()
 
 	rev := testRevision()
-	_, servingClient, _, _, controller, kubeInformer, servingInformer, cachingInformer, configMapWatcher, _ := newTestController(t, stopCh)
+	_, servingClient, _, _, controller, kubeInformer, servingInformer, cachingInformer, configMapWatcher := newTestController(t, stopCh)
 
 	h := NewHooks()
 

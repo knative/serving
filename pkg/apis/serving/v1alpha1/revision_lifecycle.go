@@ -60,7 +60,6 @@ const (
 var revCondSet = apis.NewLivingConditionSet(
 	RevisionConditionResourcesAvailable,
 	RevisionConditionContainerHealthy,
-	RevisionConditionBuildSucceeded,
 )
 
 var buildCondSet = duckv1alpha1.NewBatchConditionSet()
@@ -134,21 +133,6 @@ func (rs *RevisionStatus) GetCondition(t apis.ConditionType) *apis.Condition {
 
 func (rs *RevisionStatus) InitializeConditions() {
 	revCondSet.Manage(rs).InitializeConditions()
-}
-
-func (rs *RevisionStatus) PropagateBuildStatus(bs duckv1alpha1.Status) {
-	bc := buildCondSet.Manage(&bs).GetCondition(duckv1alpha1.ConditionSucceeded)
-	if bc == nil {
-		return
-	}
-	switch {
-	case bc.Status == corev1.ConditionUnknown:
-		revCondSet.Manage(rs).MarkUnknown(RevisionConditionBuildSucceeded, "Building", bc.Message)
-	case bc.Status == corev1.ConditionTrue:
-		revCondSet.Manage(rs).MarkTrue(RevisionConditionBuildSucceeded)
-	case bc.Status == corev1.ConditionFalse:
-		revCondSet.Manage(rs).MarkFalse(RevisionConditionBuildSucceeded, bc.Reason, bc.Message)
-	}
 }
 
 // MarkResourceNotConvertible adds a Warning-severity condition to the resource noting that

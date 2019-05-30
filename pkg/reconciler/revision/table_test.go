@@ -135,7 +135,7 @@ func TestReconcile(t *testing.T) {
 			Object: rev("foo", "create-kpa-failure",
 				// Despite failure, the following status properties are set.
 				WithLogURL, WithInitRevConditions,
-				WithNoBuild, MarkDeploying("Deploying")),
+				MarkDeploying("Deploying")),
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "InternalError", "inducing failure for create podautoscalers"),
@@ -161,7 +161,7 @@ func TestReconcile(t *testing.T) {
 			Object: rev("foo", "create-user-deploy-failure",
 				// Despite failure, the following status properties are set.
 				WithLogURL, WithInitRevConditions,
-				WithNoBuild, MarkDeploying("Deploying")),
+				MarkDeploying("Deploying")),
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "InternalError", "inducing failure for create deployments"),
@@ -450,38 +450,6 @@ func TestReconcile(t *testing.T) {
 		}},
 		Key: "foo/pod-error",
 	}, {
-		Name: "stable revision reconciliation (with build)",
-		// Test a simple stable reconciliation of an Active Revision with a done Build.
-		// We feed in a Revision and the resources it controls in a steady
-		// state (immediately post-build completion), and verify that no changes
-		// are necessary.
-		Objects: []runtime.Object{
-			rev("foo", "stable-reconcile-with-build",
-				WithBuildRef("the-build"), WithLogURL,
-				WithInitRevConditions, WithSuccessfulBuild, WithBuildRefWarning,
-				MarkDeploying("Deploying"), MarkActivating("Deploying", "")),
-			kpa("foo", "stable-reconcile-with-build"),
-			build("foo", "the-build", WithSucceededTrue),
-			deploy("foo", "stable-reconcile-with-build"),
-			image("foo", "stable-reconcile-with-build"),
-		},
-		// No changes are made to any objects.
-		Key: "foo/stable-reconcile-with-build",
-	}, {
-		Name: "build failed stable",
-		// Test a Reconcile of a Revision with a Build that has previously failed.
-		// We seed the world with a Revision that has a BuildName, and a Build that
-		// has failed, which has been previously reconcile. We then verify that a
-		// Reconcile has nothing to change.
-		Objects: []runtime.Object{
-			rev("foo", "failed-build-stable", WithBuildRef("the-build"), WithInitRevConditions,
-				WithLogURL, WithFailedBuild("SomeReason", "This is why the build failed."),
-				WithBuildRefWarning),
-			build("foo", "the-build",
-				WithSucceededFalse("SomeReason", "This is why the build failed.")),
-		},
-		Key: "foo/failed-build-stable",
-	}, {
 		Name: "ready steady state",
 		// Test the transition that Reconcile makes when Endpoints become ready on the
 		// SKS owned services, which is signalled by KPA having servince name.
@@ -548,8 +516,6 @@ func TestReconcile(t *testing.T) {
 
 	defer logtesting.ClearAll()
 	table.Test(t, MakeFactory(func(listers *Listers, opt reconciler.Options) controller.Reconciler {
-		t := &NullTracker{}
-		buildInformerFactory := KResourceTypedInformerFactory(opt)
 		return &Reconciler{
 			Base:                reconciler.NewBase(opt, controllerAgentName),
 			revisionLister:      listers.GetRevisionLister(),
@@ -560,10 +526,7 @@ func TestReconcile(t *testing.T) {
 			endpointsLister:     listers.GetEndpointsLister(),
 			configMapLister:     listers.GetConfigMapLister(),
 			resolver:            &nopResolver{},
-			tracker:             t,
 			configStore:         &testConfigStore{config: ReconcilerTestConfig()},
-
-			buildInformerFactory: newDuckInformerFactory(t, buildInformerFactory),
 		}
 	}))
 }
@@ -612,7 +575,7 @@ func TestReconcileWithVarLogEnabled(t *testing.T) {
 				// the fluentd configmap, we should still see the following reflected
 				// in our status.
 				WithLogURL, WithInitRevConditions,
-				WithNoBuild, MarkDeploying("Deploying")),
+				MarkDeploying("Deploying")),
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "InternalError", "inducing failure for create configmaps"),
@@ -700,7 +663,6 @@ func TestReconcileWithVarLogEnabled(t *testing.T) {
 			endpointsLister:     listers.GetEndpointsLister(),
 			configMapLister:     listers.GetConfigMapLister(),
 			resolver:            &nopResolver{},
-			tracker:             &NullTracker{},
 			configStore:         &testConfigStore{config: config},
 		}
 	}))
@@ -782,7 +744,6 @@ func withK8sServiceName(sn string) RevisionOption {
 // TODO(mattmoor): Come up with a better name for this.
 func AllUnknownConditions(r *v1alpha1.Revision) {
 	WithInitRevConditions(r)
-	WithNoBuild(r)
 	MarkDeploying("")(r)
 	MarkActivating("Deploying", "")(r)
 }

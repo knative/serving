@@ -43,17 +43,6 @@ func TestMakeCertificates(t *testing.T) {
 	want := []*netv1alpha1.Certificate{
 		&netv1alpha1.Certificate{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:            "route-12345",
-				Namespace:       "default",
-				OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(route)},
-			},
-			Spec: netv1alpha1.CertificateSpec{
-				DNSNames:   []string{"v1.default.example.com"},
-				SecretName: "route-12345",
-			},
-		},
-		&netv1alpha1.Certificate{
-			ObjectMeta: metav1.ObjectMeta{
 				Name:            "route-12345-200999684",
 				Namespace:       "default",
 				OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(route)},
@@ -61,6 +50,17 @@ func TestMakeCertificates(t *testing.T) {
 			Spec: netv1alpha1.CertificateSpec{
 				DNSNames:   []string{"v1-current.default.example.com"},
 				SecretName: "route-12345-200999684",
+			},
+		},
+		&netv1alpha1.Certificate{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:            "route-12345",
+				Namespace:       "default",
+				OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(route)},
+			},
+			Spec: netv1alpha1.CertificateSpec{
+				DNSNames:   []string{"v1.default.example.com"},
+				SecretName: "route-12345",
 			},
 		},
 	}
