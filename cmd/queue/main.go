@@ -236,6 +236,9 @@ func probeQueueHealthPath(port int) error {
 
 	var lastErr error
 
+	// The 25 millisecond retry interval is an unscientific compromise between wanting to get
+	// started as early as possible while still wanting to give the container some breathing
+	// room to get up and running.
 	timeoutErr := wait.PollImmediate(25*time.Millisecond, queueProbeTimeout, func() (bool, error) {
 		var res *http.Response
 		res, lastErr = httpClient.Get(url)
