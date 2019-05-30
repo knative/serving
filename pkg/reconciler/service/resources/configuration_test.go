@@ -17,14 +17,23 @@ limitations under the License.
 package resources
 
 import (
+	"context"
 	"testing"
 
 	"github.com/knative/serving/pkg/apis/serving"
+	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 )
+
+func makeConfiguration(service *v1alpha1.Service) (*v1alpha1.Configuration, error) {
+	// We do this prior to reconciliation, so test with it enabled.
+	service.SetDefaults(v1beta1.WithUpgradeViaDefaulting(context.Background()))
+	return MakeConfiguration(service)
+}
 
 func TestRunLatest(t *testing.T) {
 	s := createServiceWithRunLatest()
-	c, _ := MakeConfiguration(s)
+	c, _ := makeConfiguration(s)
 	if got, want := c.Name, testServiceName; got != want {
 		t.Errorf("expected %q for service name got %q", want, got)
 	}
@@ -49,7 +58,7 @@ func TestRunLatest(t *testing.T) {
 
 func TestPinned(t *testing.T) {
 	s := createServiceWithPinned()
-	c, _ := MakeConfiguration(s)
+	c, _ := makeConfiguration(s)
 	if got, want := c.Name, testServiceName; got != want {
 		t.Errorf("expected %q for service name got %q", want, got)
 	}
@@ -74,7 +83,7 @@ func TestPinned(t *testing.T) {
 
 func TestRelease(t *testing.T) {
 	s := createServiceWithRelease(1, 0)
-	c, _ := MakeConfiguration(s)
+	c, _ := makeConfiguration(s)
 	if got, want := c.Name, testServiceName; got != want {
 		t.Errorf("expected %q for service name got %q", want, got)
 	}
@@ -97,17 +106,9 @@ func TestRelease(t *testing.T) {
 	}
 }
 
-func TestManual(t *testing.T) {
-	s := createServiceWithManual()
-	c, err := MakeConfiguration(s)
-	if err == nil {
-		t.Errorf("MakeConfiguration(%v) = %v, wanted error", s, c)
-	}
-}
-
 func TestInlineConfigurationSpec(t *testing.T) {
 	s := createServiceInline()
-	c, _ := MakeConfiguration(s)
+	c, _ := makeConfiguration(s)
 	if got, want := c.Name, testServiceName; got != want {
 		t.Errorf("expected %q for service name got %q", want, got)
 	}

@@ -17,8 +17,6 @@ limitations under the License.
 package resources
 
 import (
-	"errors"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/knative/pkg/kmeta"
@@ -30,7 +28,7 @@ import (
 
 // MakeConfiguration creates a Configuration from a Service object.
 func MakeConfiguration(service *v1alpha1.Service) (*v1alpha1.Configuration, error) {
-	c := &v1alpha1.Configuration{
+	return &v1alpha1.Configuration{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      names.Configuration(service),
 			Namespace: service.Namespace,
@@ -41,19 +39,6 @@ func MakeConfiguration(service *v1alpha1.Service) (*v1alpha1.Configuration, erro
 				serving.ServiceLabelKey: service.Name,
 			}),
 		},
-	}
-
-	if service.Spec.DeprecatedRunLatest != nil {
-		c.Spec = service.Spec.DeprecatedRunLatest.Configuration
-	} else if service.Spec.DeprecatedPinned != nil {
-		c.Spec = service.Spec.DeprecatedPinned.Configuration
-	} else if service.Spec.DeprecatedRelease != nil {
-		c.Spec = service.Spec.DeprecatedRelease.Configuration
-	} else if service.Spec.DeprecatedManual != nil {
-		// DeprecatedManual does not have a configuration and should not reach this path.
-		return nil, errors.New("malformed Service: MakeConfiguration requires one of runLatest, pinned, or release must be present")
-	} else {
-		c.Spec = service.Spec.ConfigurationSpec
-	}
-	return c, nil
+		Spec: service.Spec.ConfigurationSpec,
+	}, nil
 }
