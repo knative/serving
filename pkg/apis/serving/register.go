@@ -68,8 +68,6 @@ const (
 	// last updated the resource.
 	UpdaterAnnotation = GroupName + "/lastModifier"
 
-	queueName = "queue.sidecar."
-
 	// QueueSideCarResourcePercentageAnnotation is the percentage of user container resources to be used for queue-proxy
-	QueueSideCarResourcePercentageAnnotation = queueName + GroupName + "/resourcePercentage"
+	QueueSideCarResourcePercentageAnnotation = "queue.sidecar." + GroupName + "/resourcePercentage"
 )

@@ -17,7 +17,6 @@ limitations under the License.
 package resources
 
 import (
-	"fmt"
 	"math"
 	"strconv"
 
@@ -119,30 +118,35 @@ func getResources(annotations map[string]string, userContainer *corev1.Container
 }
 
 func getUserContainerResourceRequirements(resourceQuantity *resource.Quantity, percentage float32, boundary ResourceBoundary) (bool, resource.Quantity) {
-	if !resourceQuantity.IsZero() {
-		absoluteValue := resourceQuantity.Value()
-		absoluteMilliValue := absoluteValue
-		if absoluteValue < (math.MaxInt64 / 1000) {
-			absoluteMilliValue = resourceQuantity.MilliValue()
-		}
-
-		fmt.Printf("Actual  %v\n", resourceQuantity)
-		fmt.Printf("Actual value %v\n", resourceQuantity.Value())
-		fmt.Printf("Actual milli value %v\n", resourceQuantity.MilliValue())
-
-		newValue := int64(float64(absoluteMilliValue) * float64(percentage))
-		fmt.Printf("Percentage Value %v\n", newValue)
-
-		newquantity := *resource.NewMilliQuantity(newValue, resource.BinarySI)
-		if newquantity.Cmp(boundary.min) == -1 {
-			newquantity = boundary.min
-		} else if newquantity.Cmp(boundary.max) == 1 {
-			newquantity = boundary.max
-		}
-		fmt.Printf("%v\n", newquantity)
-		return true, newquantity
+	if resourceQuantity.IsZero() {
+		return false, resource.Quantity{}
 	}
-	return false, resource.Quantity{}
+
+	// Incase the resourceQuantity MilliValue overflow in we use MaxInt64
+	// https://github.com/kubernetes/apimachinery/blob/master/pkg/api/resource/quantity.go
+	scaledValue := resourceQuantity.Value()
+	var scaledMilliValue int64 = math.MaxInt64 - 1
+	if scaledValue < (math.MaxInt64 / 1000) {
+		scaledMilliValue = resourceQuantity.MilliValue()
+	}
+
+	// float64(math.MaxInt64) > math.MaxInt64, to avoid overflow
+	percentageValue := float64(scaledMilliValue) * float64(percentage)
+	var newValue int64
+	if percentageValue >= math.MaxInt64 {
+		newValue = math.MaxInt64
+	} else {
+		newValue = int64(percentageValue)
+	}
+
+	newquantity := *resource.NewMilliQuantity(newValue, resource.BinarySI)
+	if newquantity.Cmp(boundary.min) == -1 {
+		newquantity = boundary.min
+	} else if newquantity.Cmp(boundary.max) == 1 {
+		newquantity = boundary.max
+	}
+	return true, newquantity
+
 }
 
 func getResourcePercentageFromAnnotations(m map[string]string, k string) (bool, float32) {

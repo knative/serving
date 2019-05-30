@@ -82,7 +82,6 @@ func (rt *RevisionTemplateSpec) Validate(ctx context.Context) *apis.FieldError {
 		}
 	}
 
-	// Validate the annotations of RevisionTemplate for sidecar resource request and limits
 	errs = errs.Also(validateAnnotations(rt.Annotations))
 
 	return errs
@@ -154,7 +153,6 @@ func (rs *RevisionSpec) Validate(ctx context.Context) *apis.FieldError {
 }
 
 func validateAnnotations(annotations map[string]string) *apis.FieldError {
-
 	return validatePercentageAnnotationKey(annotations, serving.QueueSideCarResourcePercentageAnnotation)
 }
 

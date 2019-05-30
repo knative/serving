@@ -61,7 +61,7 @@ func TestHelloWorld(t *testing.T) {
 	revision := resources.Revision
 	if val, ok := revision.Labels["serving.knative.dev/configuration"]; ok {
 		if val != names.Config {
-			t.Fatalf("Expect confguration name in revision label %q but got %q ", names.Config, val)
+			t.Fatalf("Expect configuration name in revision label %q but got %q ", names.Config, val)
 		}
 	} else {
 		t.Fatalf("Failed to get configuration name from Revision label")
@@ -111,7 +111,7 @@ func TestQueueSideCarResourceLimit(t *testing.T) {
 	revision := resources.Revision
 	if val, ok := revision.Labels["serving.knative.dev/configuration"]; ok {
 		if val != names.Config {
-			t.Fatalf("Expect confguration name in revision label %q but got %q ", names.Config, val)
+			t.Fatalf("Expect configuration name in revision label %q but got %q ", names.Config, val)
 		}
 	} else {
 		t.Fatalf("Failed to get configuration name from Revision label")

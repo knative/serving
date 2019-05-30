@@ -462,6 +462,59 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 			Env: env(map[string]string{
 				"SERVING_SERVICE": "svc",
 			}),
+		}}, {
+		name: "resources percentage in annotations bigger than than math.MaxInt64",
+		rev: &v1alpha1.Revision{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: "foo",
+				Name:      "bar",
+				UID:       "1234",
+				Labels: map[string]string{
+					serving.ServiceLabelKey: "svc",
+				},
+				Annotations: map[string]string{
+					serving.QueueSideCarResourcePercentageAnnotation: "1",
+				},
+			},
+			Spec: v1alpha1.RevisionSpec{
+				RevisionSpec: v1beta1.RevisionSpec{
+					ContainerConcurrency: 1,
+					TimeoutSeconds:       ptr.Int64(45),
+					PodSpec: v1beta1.PodSpec{
+						Containers: []corev1.Container{{
+							Name: "bar",
+							Resources: corev1.ResourceRequirements{
+								Requests: corev1.ResourceList{
+									corev1.ResourceName("memory"): resource.MustParse("900000Pi"),
+								},
+							},
+						}},
+					},
+				},
+			},
+		},
+		lc: &logging.Config{},
+		oc: &metrics.ObservabilityConfig{},
+		ac: &autoscaler.Config{},
+		cc: &deployment.Config{
+			QueueSidecarImage: "alpine",
+		},
+		want: &corev1.Container{
+			// These are effectively constant
+			Name: QueueContainerName,
+			Resources: corev1.ResourceRequirements{
+				Requests: corev1.ResourceList{
+					corev1.ResourceName("cpu"):    resource.MustParse("25m"),
+					corev1.ResourceName("memory"): resource.MustParse("200Mi"),
+				},
+			},
+			Ports:          append(queueNonServingPorts, queueHTTPPort),
+			ReadinessProbe: queueReadinessProbe,
+			// These changed based on the Revision and configs passed in.
+			Image: "alpine",
+			Env: env(map[string]string{
+				"SERVING_SERVICE": "svc",
+			}),
 		}},
 	}
 
@@ -470,7 +523,7 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 			got := makeQueueContainer(test.rev, test.lc, test.oc, test.ac, test.cc)
 			sortEnv(got.Env)
 			if diff := cmp.Diff(test.want, got, cmpopts.IgnoreUnexported(resource.Quantity{})); diff != "" {
-				t.Errorf("makeQueueContainer1 (-want, +got) = %v", diff)
+				t.Errorf("makeQueueContainerWithPercentageAnnotation (-want, +got) = %v", diff)
 			}
 			if test.want.Resources.Limits.Memory().Cmp(*got.Resources.Limits.Memory()) != 0 {
 				t.Errorf("Expected Resources.Limits.Memory %v got %v ", test.want.Resources.Limits.Memory(), got.Resources.Limits.Memory())
