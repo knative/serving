@@ -44,7 +44,13 @@ data:
 
     # max-revision-timeout-seconds contains the maximum number of
     # seconds that can be used for revision-timeout-seconds.
-    # If omitted, the system default is used.
+    # This value must be greater than or equal to revision-timeout-seconds.
+    # If omitted, the system default is used (600 seconds).
+    # If this value is provided but revision-timeout-seconds is omitted,
+    # then this value must be at least 300, which is the system default
+    # for revision-timeout-seconds.
+    # To set this to less than 300, revision-timeout-seconds must also
+    # be set to a value less than or equal to this value.
     max-revision-timeout-seconds: "600"  # 10 minutes
 
     # revision-cpu-request contains the cpu allocation to assign
