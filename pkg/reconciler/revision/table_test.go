@@ -22,7 +22,6 @@ import (
 	"testing"
 
 	caching "github.com/knative/caching/pkg/apis/caching/v1alpha1"
-	"github.com/knative/pkg/apis/duck"
 	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/controller"
 	"github.com/knative/pkg/logging"
@@ -41,9 +40,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	clientgotesting "k8s.io/client-go/testing"
 
 	. "github.com/knative/pkg/reconciler/testing"
@@ -695,26 +692,6 @@ func changeContainers(deploy *appsv1.Deployment) *appsv1.Deployment {
 		podSpec.Containers[i].Image = "asdf"
 	}
 	return deploy
-}
-
-// Build is a special case of resource creation because it isn't owned by
-// the Revision, just tracked.
-func build(namespace, name string, bo ...BuildOption) *unstructured.Unstructured {
-	b := &unstructured.Unstructured{}
-	b.SetGroupVersionKind(schema.GroupVersionKind{
-		Group:   "testing.build.knative.dev",
-		Version: "v1alpha1",
-		Kind:    "Build",
-	})
-	b.SetName(name)
-	b.SetNamespace(namespace)
-	u := &unstructured.Unstructured{}
-	duck.FromUnstructured(b, u) // prevent panic in b.DeepCopy()
-
-	for _, opt := range bo {
-		opt(u)
-	}
-	return u
 }
 
 func rev(namespace, name string, ro ...RevisionOption) *v1alpha1.Revision {
