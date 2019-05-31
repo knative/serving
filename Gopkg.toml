@@ -81,14 +81,6 @@ required = [
   name = "k8s.io/metrics"
   version = "kubernetes-1.12.6"
 
-[[override]]
-  name = "k8s.io/kube-openapi"
-  revision = "0cf8f7e6ed1d2e3d47d02e3b6e559369af24d803" # from k8s.io/apiserver Godeps
-
-[[override]]
-  name = "github.com/evanphx/json-patch"
-  revision = "5858425f75500d40c52783dce87d085a483ce135" # from k8s.io/apiserver Godeps
-
 [prune]
   go-tests = true
   unused-packages = true
