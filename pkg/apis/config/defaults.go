@@ -59,7 +59,7 @@ func NewDefaultsConfigFromMap(data map[string]string) (*Defaults, error) {
 	}
 
 	if nc.RevisionTimeoutSeconds > nc.MaxRevisionTimeoutSeconds {
-		return nil, errors.New("RevisionTimeoutSeconds cannot be greater than MaxRevisionTimeoutSeconds")
+		return nil, errors.New("revision-timeout-seconds cannot be greater than max-revision-timeout-seconds")
 	}
 
 	// Process resource quantity fields
@@ -97,7 +97,7 @@ func NewDefaultsConfigFromConfigMap(config *corev1.ConfigMap) (*Defaults, error)
 }
 
 const (
-	// DefaultRevisionTimeoutSeconds will be set if RevisionTimeoutSeconds not specified.
+	// DefaultRevisionTimeoutSeconds will be set if timeoutSeconds not specified.
 	DefaultRevisionTimeoutSeconds = 5 * 60
 	// DefaultMaxRevisionTimeoutSeconds will be set if MaxRevisionTimeoutSeconds is not specified.
 	DefaultMaxRevisionTimeoutSeconds = 10 * 60
