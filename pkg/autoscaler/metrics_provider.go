@@ -28,7 +28,7 @@ import (
 // MetricProvider is a provider to back a custom-metrics API implementation.
 type MetricProvider struct{}
 
-var _ provider.CustomMetricsProvider = &MetricProvider{}
+var _ provider.CustomMetricsProvider = (*MetricProvider)(nil)
 
 // NewMetricProvider creates a new MetricProvider.
 func NewMetricProvider() *MetricProvider {
