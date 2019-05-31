@@ -81,28 +81,31 @@ func TestScopedEndpointsCounter(t *testing.T) {
 	}
 }
 
-func TestFixedEndpointsCounter(t *testing.T) {
-	eps := &corev1.Endpoints{
-		Subsets: []corev1.EndpointSubset{
-			{
-				Addresses: []corev1.EndpointAddress{
-					{IP: "11.11.11.11"},
-					{IP: "22.22.22.22"},
-					{IP: "33.33.33.33"},
-				},
-			},
-		},
-	}
+func TestReadyAddressCount(t *testing.T) {
+	tests := []struct {
+		name      string
+		endpoints *corev1.Endpoints
+		want      int
+	}{{
+		name:      "no ready addresses",
+		endpoints: endpoints(0),
+		want:      0,
+	}, {
+		name:      "one ready address",
+		endpoints: endpoints(1),
+		want:      1,
+	}, {
+		name:      "ten ready addresses",
+		endpoints: endpoints(10),
+		want:      10,
+	}}
 
-	addressCounter := NewFixedEndpointsCounter(eps)
-	expected := 3
-
-	got, err := addressCounter.ReadyCount()
-	if err != nil {
-		t.Errorf("ReadyCount() returned an unexpected error: %v", err)
-	}
-	if got != expected {
-		t.Errorf("ReadyCount() was given %v, was expected to count %d entries but instead counted %d", eps, expected, got)
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got := ReadyAddressCount(test.endpoints); got != test.want {
+				t.Errorf("ReadyAddressCount() = %d, want: %d", got, test.want)
+			}
+		})
 	}
 }
 

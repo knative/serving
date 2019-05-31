@@ -36,6 +36,15 @@ func ParentResourceFromService(name string) string {
 	return name[:li]
 }
 
+// ReadyAddressCount returns the total number of addresses ready for the given endpoint.
+func ReadyAddressCount(endpoints *corev1.Endpoints) int {
+	var total int
+	for _, subset := range endpoints.Subsets {
+		total += len(subset.Addresses)
+	}
+	return total
+}
+
 // ReadyPodCounter provides a count of currently ready pods. This
 // information is used by UniScaler implementations to make scaling
 // decisions. The interface prevents the UniScaler from needing to
@@ -55,7 +64,11 @@ type scopedEndpointCounter struct {
 }
 
 func (eac *scopedEndpointCounter) ReadyCount() (int, error) {
-	return fetchReadyAddressCount(eac.endpointsLister, eac.namespace, eac.serviceName)
+	endpoints, err := eac.endpointsLister.Endpoints(eac.namespace).Get(eac.serviceName)
+	if err != nil {
+		return 0, err
+	}
+	return ReadyAddressCount(endpoints), nil
 }
 
 // NewScopedEndpointsCounter creates a ReadyPodCounter that uses
@@ -70,39 +83,4 @@ func NewScopedEndpointsCounter(lister corev1listers.EndpointsLister, namespace, 
 		namespace:       namespace,
 		serviceName:     serviceName,
 	}
-}
-
-type unscopedCounter struct {
-	endpoints *corev1.Endpoints
-}
-
-func (uc *unscopedCounter) ReadyCount() (int, error) {
-	return readyAddressCount(uc.endpoints), nil
-}
-
-// NewFixedEndpointsCounter creates a ReadyPodCounter that counts
-// the provided list of Endpoints. The value returned by ReadyCount()
-// should be stable, unless the endpoints parameter is modified elsewhere.
-func NewFixedEndpointsCounter(endpoints *corev1.Endpoints) ReadyPodCounter {
-	return &unscopedCounter{
-		endpoints: endpoints,
-	}
-}
-
-// fetchReadyAddressCount fetches endpoints and returns the total number of addresses ready for them.
-func fetchReadyAddressCount(lister corev1listers.EndpointsLister, ns, name string) (int, error) {
-	endpoints, err := lister.Endpoints(ns).Get(name)
-	if err != nil {
-		return 0, err
-	}
-	return readyAddressCount(endpoints), nil
-}
-
-// readyAddressCount returns the total number of addresses ready for the given endpoint.
-func readyAddressCount(endpoints *corev1.Endpoints) int {
-	var total int
-	for _, subset := range endpoints.Subsets {
-		total += len(subset.Addresses)
-	}
-	return total
 }
