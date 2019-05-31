@@ -47,7 +47,7 @@ func TestRunLatestServicePostUpgrade(t *testing.T) {
 	routeDomain := svc.Status.URL.Host
 
 	t.Log("Check that we can hit the old service and get the old response.")
-	assertServiceResourcesUpdated(t, clients, names, routeDomain, "1", "What a spaceport!")
+	assertServiceResourcesUpdated(t, clients, names, routeDomain, "What a spaceport!")
 
 	t.Log("Updating the Service to use a different image")
 	newImage := ptest.ImagePath(image2)
@@ -66,5 +66,5 @@ func TestRunLatestServicePostUpgrade(t *testing.T) {
 	if err := test.WaitForServiceState(clients.ServingClient, names.Service, test.IsServiceReady, "ServiceIsReady"); err != nil {
 		t.Fatalf("The Service %s was not marked as Ready to serve traffic to Revision %s: %v", names.Service, names.Revision, err)
 	}
-	assertServiceResourcesUpdated(t, clients, names, routeDomain, "2", "Re-energize yourself with a slice of pepperoni!")
+	assertServiceResourcesUpdated(t, clients, names, routeDomain, "Re-energize yourself with a slice of pepperoni!")
 }

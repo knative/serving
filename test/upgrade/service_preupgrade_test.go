@@ -59,5 +59,5 @@ func TestRunLatestServicePreUpgrade(t *testing.T) {
 	if err := test.WaitForServiceState(clients.ServingClient, names.Service, test.IsServiceReady, "ServiceIsReady"); err != nil {
 		t.Fatalf("The Service %s was not marked as Ready to serve traffic to Revision %s: %v", names.Service, names.Revision, err)
 	}
-	assertServiceResourcesUpdated(t, clients, names, routeDomain, "1", "What a spaceport!")
+	assertServiceResourcesUpdated(t, clients, names, routeDomain, "What a spaceport!")
 }
