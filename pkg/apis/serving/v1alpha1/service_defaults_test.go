@@ -88,8 +88,9 @@ func TestServiceDefaulting(t *testing.T) {
 									TimeoutSeconds: ptr.Int64(config.DefaultRevisionTimeoutSeconds),
 								},
 								DeprecatedContainer: &corev1.Container{
-									Name:      config.DefaultUserContainerName,
-									Resources: defaultResources,
+									Name:           config.DefaultUserContainerName,
+									Resources:      defaultResources,
+									ReadinessProbe: defaultProbe,
 								},
 							},
 						},
@@ -124,9 +125,10 @@ func TestServiceDefaulting(t *testing.T) {
 								TimeoutSeconds: ptr.Int64(config.DefaultRevisionTimeoutSeconds),
 								PodSpec: corev1.PodSpec{
 									Containers: []corev1.Container{{
-										Name:      config.DefaultUserContainerName,
-										Image:     "busybox",
-										Resources: defaultResources,
+										Name:           config.DefaultUserContainerName,
+										Image:          "busybox",
+										Resources:      defaultResources,
+										ReadinessProbe: defaultProbe,
 									}},
 								},
 							},
@@ -173,8 +175,9 @@ func TestServiceDefaulting(t *testing.T) {
 									TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
 								},
 								DeprecatedContainer: &corev1.Container{
-									Name:      config.DefaultUserContainerName,
-									Resources: defaultResources,
+									Name:           config.DefaultUserContainerName,
+									Resources:      defaultResources,
+									ReadinessProbe: defaultProbe,
 								},
 							},
 						},
@@ -207,8 +210,9 @@ func TestServiceDefaulting(t *testing.T) {
 									TimeoutSeconds: ptr.Int64(config.DefaultRevisionTimeoutSeconds),
 								},
 								DeprecatedContainer: &corev1.Container{
-									Name:      config.DefaultUserContainerName,
-									Resources: defaultResources,
+									Name:           config.DefaultUserContainerName,
+									Resources:      defaultResources,
+									ReadinessProbe: defaultProbe,
 								},
 							},
 						},
@@ -244,9 +248,10 @@ func TestServiceDefaulting(t *testing.T) {
 								TimeoutSeconds: ptr.Int64(config.DefaultRevisionTimeoutSeconds),
 								PodSpec: corev1.PodSpec{
 									Containers: []corev1.Container{{
-										Name:      config.DefaultUserContainerName,
-										Image:     "busybox",
-										Resources: defaultResources,
+										Name:           config.DefaultUserContainerName,
+										Image:          "busybox",
+										Resources:      defaultResources,
+										ReadinessProbe: defaultProbe,
 									}},
 								},
 							},
@@ -294,8 +299,9 @@ func TestServiceDefaulting(t *testing.T) {
 									TimeoutSeconds:       ptr.Int64(99),
 								},
 								DeprecatedContainer: &corev1.Container{
-									Name:      config.DefaultUserContainerName,
-									Resources: defaultResources,
+									Name:           config.DefaultUserContainerName,
+									Resources:      defaultResources,
+									ReadinessProbe: defaultProbe,
 								},
 							},
 						},
@@ -332,8 +338,9 @@ func TestServiceDefaulting(t *testing.T) {
 									TimeoutSeconds: ptr.Int64(config.DefaultRevisionTimeoutSeconds),
 								},
 								DeprecatedContainer: &corev1.Container{
-									Name:      config.DefaultUserContainerName,
-									Resources: defaultResources,
+									Name:           config.DefaultUserContainerName,
+									Resources:      defaultResources,
+									ReadinessProbe: defaultProbe,
 								},
 							},
 						},
@@ -368,8 +375,9 @@ func TestServiceDefaulting(t *testing.T) {
 								TimeoutSeconds: ptr.Int64(config.DefaultRevisionTimeoutSeconds),
 								PodSpec: corev1.PodSpec{
 									Containers: []corev1.Container{{
-										Name:      config.DefaultUserContainerName,
-										Resources: defaultResources,
+										Name:           config.DefaultUserContainerName,
+										Resources:      defaultResources,
+										ReadinessProbe: defaultProbe,
 									}},
 								},
 							},
@@ -428,8 +436,9 @@ func TestServiceDefaulting(t *testing.T) {
 								TimeoutSeconds: ptr.Int64(config.DefaultRevisionTimeoutSeconds),
 								PodSpec: corev1.PodSpec{
 									Containers: []corev1.Container{{
-										Name:      config.DefaultUserContainerName,
-										Resources: defaultResources,
+										Name:           config.DefaultUserContainerName,
+										Resources:      defaultResources,
+										ReadinessProbe: defaultProbe,
 									}},
 								},
 							},
@@ -486,8 +495,9 @@ func TestServiceDefaulting(t *testing.T) {
 								TimeoutSeconds: ptr.Int64(config.DefaultRevisionTimeoutSeconds),
 								PodSpec: corev1.PodSpec{
 									Containers: []corev1.Container{{
-										Name:      config.DefaultUserContainerName,
-										Resources: defaultResources,
+										Name:           config.DefaultUserContainerName,
+										Resources:      defaultResources,
+										ReadinessProbe: defaultProbe,
 									}},
 								},
 							},
@@ -542,8 +552,9 @@ func TestServiceDefaulting(t *testing.T) {
 									TimeoutSeconds:       ptr.Int64(99),
 								},
 								DeprecatedContainer: &corev1.Container{
-									Name:      config.DefaultUserContainerName,
-									Resources: defaultResources,
+									Name:           config.DefaultUserContainerName,
+									Resources:      defaultResources,
+									ReadinessProbe: defaultProbe,
 								},
 							},
 						},
@@ -580,9 +591,10 @@ func TestServiceDefaulting(t *testing.T) {
 								TimeoutSeconds: ptr.Int64(config.DefaultRevisionTimeoutSeconds),
 								PodSpec: corev1.PodSpec{
 									Containers: []corev1.Container{{
-										Name:      config.DefaultUserContainerName,
-										Image:     "blah",
-										Resources: defaultResources,
+										Name:           config.DefaultUserContainerName,
+										Image:          "blah",
+										Resources:      defaultResources,
+										ReadinessProbe: defaultProbe,
 									}},
 								},
 							},
@@ -618,8 +630,9 @@ func TestServiceDefaulting(t *testing.T) {
 								TimeoutSeconds: ptr.Int64(config.DefaultRevisionTimeoutSeconds),
 							},
 							DeprecatedContainer: &corev1.Container{
-								Name:      config.DefaultUserContainerName,
-								Resources: defaultResources,
+								Name:           config.DefaultUserContainerName,
+								Resources:      defaultResources,
+								ReadinessProbe: defaultProbe,
 							},
 						},
 					},
@@ -666,9 +679,10 @@ func TestServiceDefaulting(t *testing.T) {
 								TimeoutSeconds: ptr.Int64(config.DefaultRevisionTimeoutSeconds),
 								PodSpec: corev1.PodSpec{
 									Containers: []corev1.Container{{
-										Name:      config.DefaultUserContainerName,
-										Image:     "blah",
-										Resources: defaultResources,
+										Name:           config.DefaultUserContainerName,
+										Image:          "blah",
+										Resources:      defaultResources,
+										ReadinessProbe: defaultProbe,
 									}},
 								},
 							},
@@ -720,9 +734,10 @@ func TestServiceDefaulting(t *testing.T) {
 								TimeoutSeconds: ptr.Int64(config.DefaultRevisionTimeoutSeconds),
 								PodSpec: corev1.PodSpec{
 									Containers: []corev1.Container{{
-										Name:      config.DefaultUserContainerName,
-										Image:     "blah",
-										Resources: defaultResources,
+										Name:           config.DefaultUserContainerName,
+										Image:          "blah",
+										Resources:      defaultResources,
+										ReadinessProbe: defaultProbe,
 									}},
 								},
 							},

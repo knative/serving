@@ -83,6 +83,12 @@ func (rs *RevisionSpec) SetDefaults(ctx context.Context) {
 			container.Resources.Limits[corev1.ResourceMemory] = *rsrc
 		}
 	}
+	if container.ReadinessProbe == nil {
+		container.ReadinessProbe = &corev1.Probe{}
+	}
+	if container.ReadinessProbe.TCPSocket == nil && container.ReadinessProbe.HTTPGet == nil {
+		container.ReadinessProbe.TCPSocket = &corev1.TCPSocketAction{Host: "127.0.0.1"}
+	}
 
 	vms := container.VolumeMounts
 	for i := range vms {
