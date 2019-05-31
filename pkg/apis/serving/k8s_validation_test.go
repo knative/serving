@@ -499,6 +499,10 @@ func TestContainerValidation(t *testing.T) {
 		c: corev1.Container{
 			Image: "foo",
 			ReadinessProbe: &corev1.Probe{
+				PeriodSeconds:    1,
+				TimeoutSeconds:   1,
+				SuccessThreshold: 1,
+				FailureThreshold: 3,
 				Handler: corev1.Handler{
 					HTTPGet: &corev1.HTTPGetAction{
 						Path: "/",
@@ -513,10 +517,56 @@ func TestContainerValidation(t *testing.T) {
 		},
 		want: nil,
 	}, {
+		name: "valid with exec probes ",
+		c: corev1.Container{
+			Image: "foo",
+			ReadinessProbe: &corev1.Probe{
+				PeriodSeconds:    1,
+				TimeoutSeconds:   1,
+				SuccessThreshold: 1,
+				FailureThreshold: 3,
+				Handler: corev1.Handler{
+					HTTPGet: &corev1.HTTPGetAction{
+						Path: "/",
+					},
+				},
+			},
+			LivenessProbe: &corev1.Probe{
+				Handler: corev1.Handler{
+					Exec: &corev1.ExecAction{},
+				},
+			},
+		},
+		want: nil,
+	}, {
+		name: "invalid with no probes ",
+		c: corev1.Container{
+			Image: "foo",
+			ReadinessProbe: &corev1.Probe{
+				PeriodSeconds:    1,
+				TimeoutSeconds:   1,
+				SuccessThreshold: 1,
+				FailureThreshold: 3,
+				Handler: corev1.Handler{
+					HTTPGet: &corev1.HTTPGetAction{
+						Path: "/",
+					},
+				},
+			},
+			LivenessProbe: &corev1.Probe{
+				Handler: corev1.Handler{},
+			},
+		},
+		want: apis.ErrMissingField(""),
+	}, {
 		name: "invalid readiness http probe (has port)",
 		c: corev1.Container{
 			Image: "foo",
 			ReadinessProbe: &corev1.Probe{
+				PeriodSeconds:    1,
+				TimeoutSeconds:   1,
+				SuccessThreshold: 1,
+				FailureThreshold: 3,
 				Handler: corev1.Handler{
 					HTTPGet: &corev1.HTTPGetAction{
 						Path: "/",
@@ -526,6 +576,56 @@ func TestContainerValidation(t *testing.T) {
 			},
 		},
 		want: apis.ErrDisallowedFields("readinessProbe.httpGet.port"),
+	}, {
+		name: "invalid readiness probe (has failureThreshold while using special probe)",
+		c: corev1.Container{
+			Image: "foo",
+			ReadinessProbe: &corev1.Probe{
+				PeriodSeconds:    0,
+				FailureThreshold: 2,
+				SuccessThreshold: 1,
+				Handler: corev1.Handler{
+					HTTPGet: &corev1.HTTPGetAction{
+						Path: "/",
+					},
+				},
+			},
+		},
+		want: apis.ErrDisallowedFields("readinessProbe.failureThreshold"),
+	}, {
+		name: "invalid readiness probe (has timeoutSeconds while using special probe)",
+		c: corev1.Container{
+			Image: "foo",
+			ReadinessProbe: &corev1.Probe{
+				PeriodSeconds:    0,
+				TimeoutSeconds:   2,
+				SuccessThreshold: 1,
+				Handler: corev1.Handler{
+					HTTPGet: &corev1.HTTPGetAction{
+						Path: "/",
+					},
+				},
+			},
+		},
+		want: apis.ErrDisallowedFields("readinessProbe.timeoutSeconds"),
+	}, {
+		name: "out of bounds probe values",
+		c: corev1.Container{
+			Image: "foo",
+			ReadinessProbe: &corev1.Probe{
+				PeriodSeconds:    -1,
+				TimeoutSeconds:   0,
+				SuccessThreshold: 0,
+				FailureThreshold: 0,
+				Handler: corev1.Handler{
+					HTTPGet: &corev1.HTTPGetAction{},
+				},
+			},
+		},
+		want: apis.ErrOutOfBoundsValue(-1, 0, math.MaxInt32, "readinessProbe.periodSeconds").Also(
+			apis.ErrOutOfBoundsValue(0, 1, math.MaxInt32, "readinessProbe.timeoutSeconds")).Also(
+			apis.ErrOutOfBoundsValue(0, 1, math.MaxInt32, "readinessProbe.successThreshold")).Also(
+			apis.ErrOutOfBoundsValue(0, 1, math.MaxInt32, "readinessProbe.failureThreshold")),
 	}, {
 		name: "disallowed security context field",
 		c: corev1.Container{

@@ -283,7 +283,7 @@ func ValidateContainer(container corev1.Container, volumes sets.String) *apis.Fi
 	// Ports
 	errs = errs.Also(validateContainerPorts(container.Ports).ViaField("ports"))
 	// Readiness Probes
-	errs = errs.Also(validateProbe(container.ReadinessProbe).ViaField("readinessProbe"))
+	errs = errs.Also(validateReadinessProbe(container.ReadinessProbe).ViaField("readinessProbe"))
 	// Resources
 	errs = errs.Also(validateResources(&container.Resources).ViaField("resources"))
 	// SecurityContext
@@ -421,6 +421,43 @@ func validateContainerPorts(ports []corev1.ContainerPort) *apis.FieldError {
 	return errs
 }
 
+func validateReadinessProbe(p *corev1.Probe) *apis.FieldError {
+	if p == nil {
+		return nil
+	}
+
+	errs := validateProbe(p)
+
+	if p.PeriodSeconds < 0 {
+		errs = errs.Also(apis.ErrOutOfBoundsValue(p.PeriodSeconds, 0, math.MaxInt32, "periodSeconds"))
+	}
+
+	if p.SuccessThreshold < 1 {
+		errs = errs.Also(apis.ErrOutOfBoundsValue(p.SuccessThreshold, 1, math.MaxInt32, "successThreshold"))
+	}
+
+	// PeriodSeconds == 0 indicates Knative's special probe with aggressive retries
+	if p.PeriodSeconds == 0 {
+		if p.FailureThreshold != 0 {
+			errs = errs.Also(apis.ErrDisallowedFields("failureThreshold"))
+		}
+
+		if p.TimeoutSeconds != 0 {
+			errs = errs.Also(apis.ErrDisallowedFields("timeoutSeconds"))
+		}
+	} else {
+		if p.TimeoutSeconds < 1 {
+			errs = errs.Also(apis.ErrOutOfBoundsValue(p.TimeoutSeconds, 1, math.MaxInt32, "timeoutSeconds"))
+		}
+
+		if p.FailureThreshold < 1 {
+			errs = errs.Also(apis.ErrOutOfBoundsValue(p.FailureThreshold, 1, math.MaxInt32, "failureThreshold"))
+		}
+	}
+
+	return errs
+}
+
 func validateProbe(p *corev1.Probe) *apis.FieldError {
 	if p == nil {
 		return nil
@@ -435,6 +472,10 @@ func validateProbe(p *corev1.Probe) *apis.FieldError {
 		errs = errs.Also(apis.CheckDisallowedFields(*h.HTTPGet, *HTTPGetActionMask(h.HTTPGet))).ViaField("httpGet")
 	case h.TCPSocket != nil:
 		errs = errs.Also(apis.CheckDisallowedFields(*h.TCPSocket, *TCPSocketActionMask(h.TCPSocket))).ViaField("tcpSocket")
+	case h.Exec != nil:
+		errs = errs.Also(apis.CheckDisallowedFields(*h.Exec, *ExecActionMask(h.Exec))).ViaField("exec")
+	default:
+		errs = errs.Also(apis.ErrMissingField())
 	}
 	return errs
 }

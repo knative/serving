@@ -17,6 +17,7 @@ limitations under the License.
 package resources
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -69,10 +70,18 @@ var (
 	}
 
 	defaultQueueContainer = &corev1.Container{
-		Name:            QueueContainerName,
-		Resources:       createQueueResources(make(map[string]string), &corev1.Container{}),
-		Ports:           append(queueNonServingPorts, queueHTTPPort),
-		ReadinessProbe:  queueReadinessProbe,
+		Name:      QueueContainerName,
+		Resources: createQueueResources(make(map[string]string), &corev1.Container{}),
+		Ports:     append(queueNonServingPorts, queueHTTPPort),
+		ReadinessProbe: &corev1.Probe{
+			Handler: corev1.Handler{
+				Exec: &corev1.ExecAction{
+					Command: []string{"/ko-app/queue", "-probe", "0"},
+				},
+			},
+			PeriodSeconds:  1,
+			TimeoutSeconds: 10,
+		},
 		SecurityContext: queueSecurityContext,
 		Env: []corev1.EnvVar{{
 			Name:  "SERVING_NAMESPACE",
@@ -251,6 +260,16 @@ func withEnvVar(name, value string) containerOption {
 	}
 }
 
+func withEmptyProbeArgs(container *corev1.Container) {
+	container.Args = append(container.Args, []string{"--readiness-probe", "null"}...)
+}
+
+func withArgs(args []string) containerOption {
+	return func(container *corev1.Container) {
+		container.Args = append(container.Args, args...)
+	}
+}
+
 func withInternalVolumeMount() containerOption {
 	return func(container *corev1.Container) {
 		container.VolumeMounts = append(container.VolumeMounts, internalVolumeMount)
@@ -394,6 +413,7 @@ func TestMakePodSpec(t *testing.T) {
 				queueContainer(
 					withEnvVar("CONTAINER_CONCURRENCY", "1"),
 					withEnvVar("USER_PORT", "8888"),
+					withEmptyProbeArgs,
 				),
 			}),
 	}, {
@@ -437,6 +457,7 @@ func TestMakePodSpec(t *testing.T) {
 				queueContainer(
 					withEnvVar("CONTAINER_CONCURRENCY", "1"),
 					withEnvVar("USER_PORT", "8888"),
+					withEmptyProbeArgs,
 				),
 			}, withAppendedVolumes(corev1.Volume{
 				Name: "asdf",
@@ -458,6 +479,7 @@ func TestMakePodSpec(t *testing.T) {
 				userContainer(),
 				queueContainer(
 					withEnvVar("CONTAINER_CONCURRENCY", "1"),
+					withEmptyProbeArgs,
 				),
 			}),
 	}, {
@@ -481,6 +503,7 @@ func TestMakePodSpec(t *testing.T) {
 				}),
 				queueContainer(
 					withEnvVar("CONTAINER_CONCURRENCY", "1"),
+					withEmptyProbeArgs,
 				),
 			}),
 	}, {
@@ -499,6 +522,7 @@ func TestMakePodSpec(t *testing.T) {
 				queueContainer(
 					withEnvVar("SERVING_CONFIGURATION", "parent-config"),
 					withEnvVar("CONTAINER_CONCURRENCY", "1"),
+					withEmptyProbeArgs,
 				),
 			}),
 	}, {
@@ -514,11 +538,34 @@ func TestMakePodSpec(t *testing.T) {
 		cc: &deployment.Config{},
 		want: podSpec(
 			[]corev1.Container{
-				userContainer(
-					withHTTPQPReadinessProbe,
-				),
+				userContainer(),
 				queueContainer(
 					withEnvVar("CONTAINER_CONCURRENCY", "0"),
+					withArgs([]string{"--readiness-probe", fmt.Sprintf(`{"httpGet":{"path":"/","port":%d,"host":"127.0.0.1","scheme":"HTTP","httpHeaders":[{"name":"K-Kubelet-Probe","value":"queue"}]}}`, v1alpha1.DefaultUserPort)}),
+				),
+			}),
+	}, {
+		name: "with tcp readiness probe",
+		rev: revision(func(revision *v1alpha1.Revision) {
+			container(revision.Spec.GetContainer(),
+				withReadinessProbe(corev1.Handler{
+					TCPSocket: &corev1.TCPSocketAction{
+						Host: "127.0.0.1",
+						Port: intstr.FromInt(12345),
+					},
+				}),
+			)
+		}),
+		lc: &logging.Config{},
+		oc: &metrics.ObservabilityConfig{},
+		ac: &autoscaler.Config{},
+		cc: &deployment.Config{},
+		want: podSpec(
+			[]corev1.Container{
+				userContainer(),
+				queueContainer(
+					withEnvVar("CONTAINER_CONCURRENCY", "0"),
+					withArgs([]string{"--readiness-probe", fmt.Sprintf(`{"tcpSocket":{"port":%d,"host":"127.0.0.1"}}`, v1alpha1.DefaultUserPort)}),
 				),
 			}),
 	}, {
@@ -543,6 +590,7 @@ func TestMakePodSpec(t *testing.T) {
 				),
 				queueContainer(
 					withEnvVar("CONTAINER_CONCURRENCY", "0"),
+					withArgs([]string{"--readiness-probe", `{"tcpSocket":{"port":8080,"host":"127.0.0.1"},"successThreshold":1}`}),
 				),
 			}),
 	}, {
@@ -576,6 +624,7 @@ func TestMakePodSpec(t *testing.T) {
 				),
 				queueContainer(
 					withEnvVar("CONTAINER_CONCURRENCY", "0"),
+					withEmptyProbeArgs,
 				),
 			}),
 	}, {
@@ -602,6 +651,7 @@ func TestMakePodSpec(t *testing.T) {
 				),
 				queueContainer(
 					withEnvVar("CONTAINER_CONCURRENCY", "0"),
+					withEmptyProbeArgs,
 				),
 			}),
 	}, {
@@ -620,6 +670,7 @@ func TestMakePodSpec(t *testing.T) {
 					withEnvVar("CONTAINER_CONCURRENCY", "1"),
 					withEnvVar("ENABLE_VAR_LOG_COLLECTION", "true"),
 					withInternalVolumeMount(),
+					withEmptyProbeArgs,
 				),
 			},
 			func(podSpec *corev1.PodSpec) {
@@ -686,6 +737,7 @@ func TestMakePodSpec(t *testing.T) {
 				queueContainer(
 					withEnvVar("CONTAINER_CONCURRENCY", "1"),
 					withEnvVar("SERVING_SERVICE", ""),
+					withEmptyProbeArgs,
 				),
 			}),
 	}}
@@ -695,7 +747,6 @@ func TestMakePodSpec(t *testing.T) {
 			quantityComparer := cmp.Comparer(func(x, y resource.Quantity) bool {
 				return x.Cmp(y) == 0
 			})
-
 			got := makePodSpec(test.rev, test.lc, test.oc, test.ac, test.cc)
 			if diff := cmp.Diff(test.want, got, quantityComparer); diff != "" {
 				t.Errorf("makePodSpec (-want, +got) = %v", diff)
@@ -712,7 +763,6 @@ func TestMakePodSpec(t *testing.T) {
 				*test.rev.Spec.DeprecatedContainer,
 			}
 			test.rev.Spec.DeprecatedContainer = nil
-
 			got := makePodSpec(test.rev, test.lc, test.oc, test.ac, test.cc)
 			if diff := cmp.Diff(test.want, got, quantityComparer); diff != "" {
 				t.Errorf("makePodSpec (-want, +got) = %v", diff)
