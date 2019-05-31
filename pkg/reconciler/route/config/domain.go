@@ -39,6 +39,9 @@ const (
 	// DefaultDomain holds the domain that Route's live under by default
 	// when no label selector-based options apply.
 	DefaultDomain = "example.com"
+	// SubDomainLabelKey is the label to provide custom subdomain for
+	// hostname
+	SubDomainLabelKey = "serving.knative.dev/subDomain"
 )
 
 // LabelSelector represents map of {key,value} pairs. A single {key,value} in the
@@ -119,4 +122,14 @@ func (c *Domain) LookupDomainForLabels(labels map[string]string) string {
 	}
 
 	return domain
+}
+
+// LookupSubDomainForLabels returns a subdomain given a set of labels.
+// This can be nil if label is not provided
+func (c *Domain) LookupSubDomainForLabels(labels map[string]string) string {
+
+	if subDomain, ok := labels[SubDomainLabelKey]; ok {
+		return subDomain
+	}
+	return ""
 }

@@ -112,6 +112,7 @@ type DomainTemplateValues struct {
 	Name      string
 	Namespace string
 	Domain    string
+	SubDomain string
 }
 
 // Config contains the networking configuration defined in the
@@ -240,6 +241,7 @@ func checkTemplate(t *template.Template) error {
 		Name:      "foo",
 		Namespace: "bar",
 		Domain:    "baz.com",
+		SubDomain: "sub",
 	}
 	buf := bytes.Buffer{}
 	if err := t.Execute(&buf, data); err != nil {

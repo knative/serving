@@ -490,6 +490,94 @@ func TestConfiguration(t *testing.T) {
 	}
 }
 
+// TODO move this to TestConfiguration
+func TestSubDomain(t *testing.T) {
+	subdomainTemplate := "{{if eq (len .SubDomain) 0}}{{.Name}}.{{.Namespace}}.{{.Domain}}{{ else }}{{.Name}}.{{.SubDomain}}.{{.Domain}}{{ end }}"
+	networkConfigTests := []struct {
+		name       string
+		wantErr    bool
+		wantConfig *Config
+		config     *corev1.ConfigMap
+		data       DomainTemplateValues
+	}{{
+		name:    "network configuration with subdomain in template",
+		wantErr: false,
+		wantConfig: &Config{
+			IstioOutboundIPRanges:      "*",
+			DefaultClusterIngressClass: "foo-ingress",
+			DomainTemplate:             subdomainTemplate,
+			HTTPProtocol:               HTTPEnabled,
+		},
+		config: &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: system.Namespace(),
+				Name:      ConfigName,
+			},
+			Data: map[string]string{
+				IstioOutboundIPRangesKey:      "*",
+				DefaultClusterIngressClassKey: "foo-ingress",
+				DomainTemplateKey:             subdomainTemplate,
+			},
+		},
+		data: DomainTemplateValues{
+			Name:      "foo",
+			Namespace: "bar",
+			SubDomain: "sub1",
+			Domain:    "baz.com"},
+	},
+		{
+			name:    "network configuration without subdomain in template",
+			wantErr: false,
+			wantConfig: &Config{
+				IstioOutboundIPRanges:      "*",
+				DefaultClusterIngressClass: "foo-ingress",
+				DomainTemplate:             subdomainTemplate,
+				HTTPProtocol:               HTTPEnabled,
+			},
+			config: &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: system.Namespace(),
+					Name:      ConfigName,
+				},
+				Data: map[string]string{
+					IstioOutboundIPRangesKey:      "*",
+					DefaultClusterIngressClassKey: "foo-ingress",
+					DomainTemplateKey:             subdomainTemplate,
+				},
+			},
+			data: DomainTemplateValues{
+				Name:      "foo",
+				Namespace: "bar",
+				Domain:    "baz.com"},
+		}}
+
+	for _, tt := range networkConfigTests {
+		t.Run(tt.name, func(t *testing.T) {
+			actualConfig, err := NewConfigFromConfigMap(tt.config)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("Test: %q; NewConfigFromConfigMap() error = %v, WantErr %v",
+					tt.name, err, tt.wantErr)
+			}
+			if tt.wantErr {
+				return
+			}
+
+			want := mustExecute(t, tt.wantConfig.GetDomainTemplate(), tt.data)
+			got := mustExecute(t, actualConfig.GetDomainTemplate(), tt.data)
+			if got != want {
+				t.Errorf("DomainTemplate(data) = %s, wanted %s", got, want)
+			}
+
+			ignoreDT := cmpopts.IgnoreFields(Config{}, "DomainTemplate")
+
+			if diff := cmp.Diff(actualConfig, tt.wantConfig, ignoreDT); diff != "" {
+				t.Fatalf("want %v, but got %v",
+					tt.wantConfig, actualConfig)
+			}
+		})
+	}
+}
+
 func mustExecute(t *testing.T, tmpl *template.Template, data interface{}) string {
 	t.Helper()
 	buf := bytes.Buffer{}
