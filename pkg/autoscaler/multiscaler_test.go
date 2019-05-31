@@ -24,6 +24,8 @@ import (
 	"testing"
 	"time"
 
+	"k8s.io/apimachinery/pkg/util/wait"
+
 	. "github.com/knative/pkg/logging/testing"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -125,6 +127,50 @@ func TestMultiScalerScaling(t *testing.T) {
 	// Verify that we stop seeing "ticks"
 	if err := verifyNoTick(errCh); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestMultiScalerTickUpdate(t *testing.T) {
+	ctx := context.Background()
+	ms, stopCh, statCh, uniScaler := createMultiScaler(t)
+	defer close(stopCh)
+	defer close(statCh)
+
+	decider := newDecider()
+	decider.Spec.TickInterval = 10 * time.Second
+	uniScaler.setScaleResult(1, true)
+
+	// Before it exists, we should get a NotFound.
+	m, err := ms.Get(ctx, decider.Namespace, decider.Name)
+	if !apierrors.IsNotFound(err) {
+		t.Errorf("Get() = (%v, %v), want not found error", m, err)
+	}
+
+	_, err = ms.Create(ctx, decider)
+	if err != nil {
+		t.Errorf("Create() = %v", err)
+	}
+	time.Sleep(50 * time.Millisecond)
+
+	// Expected count to be 0 as the tick interval is 10s and no autoscaling calculation should be triggered
+	if count := uniScaler.getScaleCount(); count != 0 {
+		t.Fatalf("Expected count to be 0 but got %d", count)
+	}
+
+	decider.Spec.TickInterval = time.Millisecond
+
+	if _, err = ms.Update(ctx, decider); err != nil {
+		t.Errorf("Update() = %v", err)
+	}
+
+	if err := wait.PollImmediate(time.Millisecond, 5*time.Millisecond, func() (bool, error) {
+		// Expected count to be greater than 1 as the tick interval is updated to be 1ms
+		if uniScaler.getScaleCount() >= 1 {
+			return true, nil
+		}
+		return false, nil
+	}); err != nil {
+		t.Fatalf("Expected at least 1 tick but got %d", uniScaler.scaleCount)
 	}
 }
 
@@ -301,10 +347,11 @@ func createMultiScaler(t *testing.T) (*MultiScaler, chan<- struct{}, chan *StatM
 }
 
 type fakeUniScaler struct {
-	mutex    sync.Mutex
-	replicas int32
-	scaled   bool
-	lastStat Stat
+	mutex      sync.Mutex
+	replicas   int32
+	scaled     bool
+	lastStat   Stat
+	scaleCount int
 }
 
 func (u *fakeUniScaler) fakeUniScalerFactory(*Decider) (UniScaler, error) {
@@ -314,8 +361,14 @@ func (u *fakeUniScaler) fakeUniScalerFactory(*Decider) (UniScaler, error) {
 func (u *fakeUniScaler) Scale(context.Context, time.Time) (int32, bool) {
 	u.mutex.Lock()
 	defer u.mutex.Unlock()
-
+	u.scaleCount++
 	return u.replicas, u.scaled
+}
+
+func (u *fakeUniScaler) getScaleCount() int {
+	u.mutex.Lock()
+	defer u.mutex.Unlock()
+	return u.scaleCount
 }
 
 func (u *fakeUniScaler) setScaleResult(replicas int32, scaled bool) {
