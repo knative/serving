@@ -41,7 +41,7 @@ var dnsNameTagMap = map[string]string{
 
 func TestMakeCertificates(t *testing.T) {
 	want := []*netv1alpha1.Certificate{
-		&netv1alpha1.Certificate{
+		{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:            "route-12345-200999684",
 				Namespace:       "default",
@@ -52,7 +52,7 @@ func TestMakeCertificates(t *testing.T) {
 				SecretName: "route-12345-200999684",
 			},
 		},
-		&netv1alpha1.Certificate{
+		{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:            "route-12345",
 				Namespace:       "default",
