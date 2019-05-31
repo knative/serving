@@ -65,7 +65,7 @@ const (
 
 	// Set equal to the queue-proxy's ExecProbe timeout to take
 	// advantage of the full window
-	queueProbeTimeout = 10 * time.Second
+	probeTimeout = 10 * time.Second
 
 	badProbeTemplate = "unexpected probe header value: %s"
 )
@@ -150,7 +150,7 @@ func knativeProxyHeader(r *http.Request) string {
 
 func probeUserContainer() bool {
 	var err error
-	wait.PollImmediate(50*time.Millisecond, 10*time.Second, func() (bool, error) {
+	wait.PollImmediate(50*time.Millisecond, probeTimeout, func() (bool, error) {
 		logger.Debug("TCP probing the user-container.")
 		err = health.TCPProbe(userTargetAddress, 100*time.Millisecond)
 		return err == nil, nil
@@ -231,7 +231,7 @@ func probeQueueHealthPath(port int) error {
 			// Do not use the cached connection
 			DisableKeepAlives: true,
 		},
-		Timeout: queueProbeTimeout,
+		Timeout: probeTimeout,
 	}
 
 	var lastErr error
@@ -239,7 +239,7 @@ func probeQueueHealthPath(port int) error {
 	// The 25 millisecond retry interval is an unscientific compromise between wanting to get
 	// started as early as possible while still wanting to give the container some breathing
 	// room to get up and running.
-	timeoutErr := wait.PollImmediate(25*time.Millisecond, queueProbeTimeout, func() (bool, error) {
+	timeoutErr := wait.PollImmediate(25*time.Millisecond, probeTimeout, func() (bool, error) {
 		var res *http.Response
 		res, lastErr = httpClient.Get(url)
 
