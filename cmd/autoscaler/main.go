@@ -96,7 +96,7 @@ func main() {
 	hpaInformer := kubeInformerFactory.Autoscaling().V1().HorizontalPodAutoscalers()
 
 	collector := autoscaler.NewMetricCollector(statsScraperFactoryFunc(endpointsInformer.Lister()), logger)
-	customMetricsAdapter.WithCustomMetrics(autoscaler.NewMetricProvider(collector))
+	customMetricsAdapter.WithCustomMetrics(autoscaler.NewMetricProvider())
 
 	// Set up scalers.
 	// uniScalerFactory depends endpointsInformer to be set.
