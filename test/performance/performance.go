@@ -28,6 +28,7 @@ import (
 	"github.com/knative/pkg/test/logging"
 	"github.com/knative/pkg/test/zipkin"
 	"github.com/knative/serving/test"
+	"github.com/knative/test-infra/shared/common"
 	"github.com/knative/test-infra/shared/junit"
 	"github.com/knative/test-infra/shared/loadgenerator"
 	"github.com/knative/test-infra/shared/prometheus"
@@ -82,7 +83,7 @@ func Setup(t *testing.T, monitoring ...int) (*Client, error) {
 
 			// Create file to store traces
 			dir := prow.GetLocalArtifactsDir()
-			if err := createDir(dir); nil != err {
+			if err := common.CreateDir(dir); nil != err {
 				t.Log("Cannot create the artifacts dir. Will not log tracing.")
 			} else {
 				name := path.Join(dir, t.Name()+traceSuffix)
@@ -160,14 +161,4 @@ func AddTrace(logf logging.FormatLogger, tName string, traceID string) {
 	if _, err := traceFile.WriteString(fmt.Sprintf("%s,\n", trace)); err != nil {
 		logf("Cannot write to trace file: %v", err)
 	}
-}
-
-// createDir creates dir if does not exist.
-func createDir(dirPath string) error {
-	if _, err := os.Stat(dirPath); os.IsNotExist(err) {
-		if err = os.MkdirAll(dirPath, 0777); err != nil {
-			return fmt.Errorf("Failed to create directory: %v", err)
-		}
-	}
-	return nil
 }
