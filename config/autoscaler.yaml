@@ -52,6 +52,10 @@ spec:
           containerPort: 8080
         - name: metrics
           containerPort: 9090
+        - name: custom-metrics
+          containerPort: 8443
+        args:
+        - "--secure-port=8443"
         volumeMounts:
         - name: config-autoscaler
           mountPath: /etc/config-autoscaler

@@ -68,6 +68,19 @@ required = [
   # Needed because this includes a fix to support Stackdriver built-in metrics
   revision = "c06c82c832edca4eaf7b0241bd655560a1be0346"
 
+# Added for the custom-metrics-apiserver specifically
+[[override]]
+  name = "github.com/kubernetes-incubator/custom-metrics-apiserver"
+  revision = "b7016fc85e1c960758aef23e1d456a66997d1e26"
+
+[[override]]
+  name = "k8s.io/apiserver"
+  version = "kubernetes-1.12.6"
+
+[[override]]
+  name = "k8s.io/metrics"
+  version = "kubernetes-1.12.6"
+
 [prune]
   go-tests = true
   unused-packages = true
@@ -87,3 +100,6 @@ required = [
   name = "github.com/knative/test-infra"
   non-go = false
 
+[[prune.project]]
+  name = "bitbucket.org/ww/goautoneg"
+  non-go = false
