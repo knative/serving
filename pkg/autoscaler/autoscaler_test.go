@@ -19,6 +19,7 @@ package autoscaler
 import (
 	"errors"
 	"fmt"
+	"github.com/knative/serving/pkg/resources"
 	"testing"
 	"time"
 
@@ -26,7 +27,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubeinformers "k8s.io/client-go/informers"
-	corev1informers "k8s.io/client-go/informers/core/v1"
 	fakeK8s "k8s.io/client-go/kubernetes/fake"
 )
 
@@ -41,19 +41,19 @@ var (
 	kubeInformer = kubeinformers.NewSharedInformerFactory(kubeClient, 0)
 )
 
-func TestNew_ErrorWhenGivenNilInterface(t *testing.T) {
-	var endpointsInformer corev1informers.EndpointsInformer
-
-	_, err := New(testNamespace, testRevision, &testMetricClient{}, endpointsInformer, DeciderSpec{TargetConcurrency: 10, ServiceName: testService}, &mockReporter{})
+func TestNew_ErrorWhenGivenNilReadyPodCounter(t *testing.T) {
+	_, err := New(testNamespace, testRevision, &testMetricClient{}, nil, DeciderSpec{TargetConcurrency: 10, ServiceName: testService}, &mockReporter{})
 	if err == nil {
-		t.Error("Expected error when EndpointsInformer interface is nil, but got none.")
+		t.Error("Expected error when ReadyPodCounter interface is nil, but got none.")
 	}
 }
 
 func TestNew_ErrorWhenGivenNilStatsReporter(t *testing.T) {
 	var reporter StatsReporter
 
-	_, err := New(testNamespace, testRevision, &testMetricClient{}, kubeInformer.Core().V1().Endpoints(),
+	podCounter := resources.NewScopedEndpointsCounter(kubeInformer.Core().V1().Endpoints().Lister(), testNamespace, testService)
+
+	_, err := New(testNamespace, testRevision, &testMetricClient{}, podCounter,
 		DeciderSpec{TargetConcurrency: 10, ServiceName: testService}, reporter)
 	if err == nil {
 		t.Error("Expected error when EndpointsInformer interface is nil, but got none.")
@@ -252,7 +252,8 @@ func newTestAutoscaler(containerConcurrency int, metrics MetricClient) *Autoscal
 		ServiceName: testService,
 	}
 
-	a, _ := New(testNamespace, testRevision, metrics, kubeInformer.Core().V1().Endpoints(), deciderSpec, &mockReporter{})
+	podCounter := resources.NewScopedEndpointsCounter(kubeInformer.Core().V1().Endpoints().Lister(), testNamespace, deciderSpec.ServiceName)
+	a, _ := New(testNamespace, testRevision, metrics, podCounter, deciderSpec, &mockReporter{})
 	return a
 }
 
