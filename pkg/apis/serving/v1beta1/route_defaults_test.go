@@ -47,6 +47,23 @@ func TestRouteDefaulting(t *testing.T) {
 		},
 		wc: WithDefaultConfigurationName,
 	}, {
+		name: "only one trrafic target defaulting",
+		in: &Route{
+			Spec: RouteSpec{
+				Traffic: []TrafficTarget{{
+					LatestRevision: ptr.Bool(true),
+				}},
+			},
+		},
+		want: &Route{
+			Spec: RouteSpec{
+				Traffic: []TrafficTarget{{
+					Percent:        100,
+					LatestRevision: ptr.Bool(true),
+				}},
+			},
+		},
+	}, {
 		name: "latest revision defaulting",
 		in: &Route{
 			Spec: RouteSpec{

@@ -40,6 +40,11 @@ func (rs *RouteSpec) SetDefaults(ctx context.Context) {
 	for idx := range rs.Traffic {
 		rs.Traffic[idx].SetDefaults(ctx)
 	}
+
+	// If only one trrafic target is specified, we default to 100.
+	if len(rs.Traffic) == 1 && rs.Traffic[0].Percent == 0 {
+		rs.Traffic[0].Percent = 100
+	}
 }
 
 // SetDefaults implements apis.Defaultable
