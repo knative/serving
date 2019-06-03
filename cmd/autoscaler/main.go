@@ -19,9 +19,10 @@ package main
 import (
 	"flag"
 	"fmt"
-	"github.com/knative/serving/pkg/resources"
 	"log"
 	"time"
+
+	"github.com/knative/serving/pkg/resources"
 
 	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/controller"
