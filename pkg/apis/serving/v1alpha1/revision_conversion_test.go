@@ -57,7 +57,7 @@ func TestRevisionConversion(t *testing.T) {
 			},
 			Spec: RevisionSpec{
 				RevisionSpec: v1beta1.RevisionSpec{
-					PodSpec: v1beta1.PodSpec{
+					PodSpec: corev1.PodSpec{
 						ServiceAccountName: "robocop",
 						Containers: []corev1.Container{{
 							Image: "busybox",
@@ -108,7 +108,7 @@ func TestRevisionConversion(t *testing.T) {
 					Name:       "foo",
 				},
 				RevisionSpec: v1beta1.RevisionSpec{
-					PodSpec: v1beta1.PodSpec{
+					PodSpec: corev1.PodSpec{
 						ServiceAccountName: "robocop",
 						Containers: []corev1.Container{{
 							Image: "busybox",
@@ -219,7 +219,7 @@ func TestRevisionConversionError(t *testing.T) {
 			},
 			Spec: RevisionSpec{
 				RevisionSpec: v1beta1.RevisionSpec{
-					PodSpec: v1beta1.PodSpec{
+					PodSpec: corev1.PodSpec{
 						ServiceAccountName: "robocop",
 						Containers: []corev1.Container{{
 							Image: "busybox",
@@ -254,7 +254,7 @@ func TestRevisionConversionError(t *testing.T) {
 			},
 			Spec: RevisionSpec{
 				RevisionSpec: v1beta1.RevisionSpec{
-					PodSpec: v1beta1.PodSpec{
+					PodSpec: corev1.PodSpec{
 						ServiceAccountName: "robocop",
 						Containers:         []corev1.Container{},
 					},

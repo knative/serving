@@ -53,7 +53,7 @@ func TestConfigurationSpecValidation(t *testing.T) {
 			DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 				Spec: RevisionSpec{
 					RevisionSpec: v1beta1.RevisionSpec{
-						PodSpec: v1beta1.PodSpec{
+						PodSpec: corev1.PodSpec{
 							Containers: []corev1.Container{{
 								Image: "hellworld",
 							}},
@@ -120,7 +120,7 @@ func TestConfigurationSpecValidation(t *testing.T) {
 			Template: &RevisionTemplateSpec{
 				Spec: RevisionSpec{
 					RevisionSpec: v1beta1.RevisionSpec{
-						PodSpec: v1beta1.PodSpec{
+						PodSpec: corev1.PodSpec{
 							Containers: []corev1.Container{{
 								Image: "hellworld",
 							}},
