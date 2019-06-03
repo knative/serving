@@ -21,7 +21,6 @@ import (
 	"time"
 
 	"github.com/knative/pkg/apis"
-	"github.com/knative/pkg/apis/duck"
 	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 	duckv1beta1 "github.com/knative/pkg/apis/duck/v1beta1"
 	"github.com/knative/pkg/ptr"
@@ -38,54 +37,8 @@ import (
 	"github.com/knative/serving/pkg/resources"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 )
-
-// BuildOption enables further configuration of a Build.
-type BuildOption func(*unstructured.Unstructured)
-
-// WithSucceededTrue updates the status of the provided unstructured Build object with the
-// expected success condition.
-func WithSucceededTrue(orig *unstructured.Unstructured) {
-	cp := orig.DeepCopy()
-	cp.Object["status"] = map[string]interface{}{"conditions": duckv1alpha1.Conditions{{
-		Type:   duckv1alpha1.ConditionSucceeded,
-		Status: corev1.ConditionTrue,
-	}}}
-	duck.FromUnstructured(cp, orig) // prevent panic in b.DeepCopy()
-}
-
-// WithSucceededUnknown updates the status of the provided unstructured Build object with the
-// expected in-flight condition.
-func WithSucceededUnknown(reason, message string) BuildOption {
-	return func(orig *unstructured.Unstructured) {
-		cp := orig.DeepCopy()
-		cp.Object["status"] = map[string]interface{}{"conditions": duckv1alpha1.Conditions{{
-			Type:    duckv1alpha1.ConditionSucceeded,
-			Status:  corev1.ConditionUnknown,
-			Reason:  reason,
-			Message: message,
-		}}}
-		duck.FromUnstructured(cp, orig) // prevent panic in b.DeepCopy()
-	}
-}
-
-// WithSucceededFalse updates the status of the provided unstructured Build object with the
-// expected failure condition.
-func WithSucceededFalse(reason, message string) BuildOption {
-	return func(orig *unstructured.Unstructured) {
-		cp := orig.DeepCopy()
-		cp.Object["status"] = map[string]interface{}{"conditions": duckv1alpha1.Conditions{{
-			Type:    duckv1alpha1.ConditionSucceeded,
-			Status:  corev1.ConditionFalse,
-			Reason:  reason,
-			Message: message,
-		}}}
-		duck.FromUnstructured(cp, orig) // prevent panic in b.DeepCopy()
-	}
-}
 
 // ServiceOption enables further configuration of a Service.
 type ServiceOption func(*v1alpha1.Service)
@@ -340,13 +293,6 @@ func WithReleaseRollout(names ...string) ServiceOption {
 	}
 }
 
-// WithManualRollout configures the Service to use a "manual" rollout.
-func WithManualRollout(s *v1alpha1.Service) {
-	s.Spec = v1alpha1.ServiceSpec{
-		DeprecatedManual: &v1alpha1.ManualType{},
-	}
-}
-
 // WithInitSvcConditions initializes the Service's conditions.
 func WithInitSvcConditions(s *v1alpha1.Service) {
 	s.Status.InitializeConditions()
@@ -371,8 +317,6 @@ func WithSvcStatusDomain(s *v1alpha1.Service) {
 		Scheme: "http",
 		Host:   fmt.Sprintf("%s.%s.example.com", n, ns),
 	}
-	s.Status.DeprecatedDomain = s.Status.URL.Host
-	s.Status.DeprecatedDomainInternal = fmt.Sprintf("%s.%s.svc.cluster.local", n, ns)
 }
 
 // WithSvcStatusAddress updates the service's status with the address.
@@ -384,7 +328,6 @@ func WithSvcStatusAddress(s *v1alpha1.Service) {
 				Host:   fmt.Sprintf("%s.%s.svc.cluster.local", s.Name, s.Namespace),
 			},
 		},
-		Hostname: fmt.Sprintf("%s.%s.svc.cluster.local", s.Name, s.Namespace),
 	}
 }
 
@@ -393,11 +336,7 @@ func WithSvcStatusTraffic(targets ...v1alpha1.TrafficTarget) ServiceOption {
 	return func(r *v1alpha1.Service) {
 		// Automatically inject URL into TrafficTarget status
 		for _, tt := range targets {
-			if tt.DeprecatedName != "" {
-				tt.URL = domains.URL(domains.HTTPScheme, tt.DeprecatedName+".example.com")
-			} else if tt.Tag != "" {
-				tt.URL = domains.URL(domains.HTTPScheme, tt.Tag+".example.com")
-			}
+			tt.URL = domains.URL(domains.HTTPScheme, tt.Tag+".example.com")
 		}
 		r.Status.Traffic = targets
 	}
@@ -542,13 +481,12 @@ func MarkServiceNotOwned(r *v1alpha1.Route) {
 	r.Status.MarkServiceNotOwned(routenames.K8sService(r))
 }
 
-// WithDomain sets the .Status.Domain field to the prototypical domain.
-func WithDomain(r *v1alpha1.Route) {
+// WithURL sets the .Status.Domain field to the prototypical domain.
+func WithURL(r *v1alpha1.Route) {
 	r.Status.URL = &apis.URL{
 		Scheme: "http",
 		Host:   fmt.Sprintf("%s.%s.example.com", r.Name, r.Namespace),
 	}
-	r.Status.DeprecatedDomain = r.Status.URL.Host
 }
 
 func WithHTTPSDomain(r *v1alpha1.Route) {
@@ -556,12 +494,6 @@ func WithHTTPSDomain(r *v1alpha1.Route) {
 		Scheme: "https",
 		Host:   fmt.Sprintf("%s.%s.example.com", r.Name, r.Namespace),
 	}
-	r.Status.DeprecatedDomain = r.Status.URL.Host
-}
-
-// WithDomainInternal sets the .Status.DomainInternal field to the prototypical internal domain.
-func WithDomainInternal(r *v1alpha1.Route) {
-	r.Status.DeprecatedDomainInternal = fmt.Sprintf("%s.%s.svc.cluster.local", r.Name, r.Namespace)
 }
 
 // WithAddress sets the .Status.Address field to the prototypical internal hostname.
@@ -573,7 +505,6 @@ func WithAddress(r *v1alpha1.Route) {
 				Host:   fmt.Sprintf("%s.%s.svc.cluster.local", r.Name, r.Namespace),
 			},
 		},
-		Hostname: fmt.Sprintf("%s.%s.svc.cluster.local", r.Name, r.Namespace),
 	}
 }
 
@@ -583,7 +514,6 @@ func WithAnotherDomain(r *v1alpha1.Route) {
 		Scheme: "http",
 		Host:   fmt.Sprintf("%s.%s.another-example.com", r.Name, r.Namespace),
 	}
-	r.Status.DeprecatedDomain = r.Status.URL.Host
 }
 
 // WithLocalDomain sets the .Status.Domain field to use `svc.cluster.local` suffix.
@@ -592,7 +522,6 @@ func WithLocalDomain(r *v1alpha1.Route) {
 		Scheme: "http",
 		Host:   fmt.Sprintf("%s.%s.svc.cluster.local", r.Name, r.Namespace),
 	}
-	r.Status.DeprecatedDomain = r.Status.URL.Host
 }
 
 // WithInitRouteConditions initializes the Service's conditions.
@@ -675,28 +604,6 @@ type ConfigOption func(*v1alpha1.Configuration)
 func WithConfigDeletionTimestamp(r *v1alpha1.Configuration) {
 	t := metav1.NewTime(time.Unix(1e9, 0))
 	r.ObjectMeta.SetDeletionTimestamp(&t)
-}
-
-// WithBuild adds a Build to the provided Configuration.
-func WithBuild(cfg *v1alpha1.Configuration) {
-	cfg.Spec.DeprecatedBuild = &runtime.RawExtension{
-		Object: &unstructured.Unstructured{
-			Object: map[string]interface{}{
-				"apiVersion": "testing.build.knative.dev/v1alpha1",
-				"kind":       "Build",
-				"spec": map[string]interface{}{
-					"steps": []interface{}{
-						map[string]interface{}{
-							"image": "foo",
-						},
-						map[string]interface{}{
-							"image": "bar",
-						},
-					},
-				},
-			},
-		},
-	}
 }
 
 // WithConfigOwnersRemoved clears the owner references of this Configuration.
@@ -789,18 +696,6 @@ func WithInitRevConditions(r *v1alpha1.Revision) {
 func WithRevName(name string) RevisionOption {
 	return func(rev *v1alpha1.Revision) {
 		rev.Name = name
-	}
-}
-
-// WithBuildRef sets the .Spec.DeprecatedBuildRef on the Revision to match what we'd get
-// using WithBuild(name).
-func WithBuildRef(name string) RevisionOption {
-	return func(rev *v1alpha1.Revision) {
-		rev.Spec.DeprecatedBuildRef = &corev1.ObjectReference{
-			APIVersion: "testing.build.knative.dev/v1alpha1",
-			Kind:       "Build",
-			Name:       name,
-		}
 	}
 }
 

@@ -169,7 +169,7 @@ func TestReconcile(t *testing.T) {
 				WithLatestCreated("pinned3-00001"),
 				WithLatestReady("pinned3-00001")),
 			route("pinned3", "foo", WithReleaseRollout("pinned3-00001"),
-				WithDomain, WithDomainInternal, WithAddress, WithInitRouteConditions,
+				WithURL, WithAddress, WithInitRouteConditions,
 				WithStatusTraffic(v1alpha1.TrafficTarget{
 					DeprecatedName: v1alpha1.CurrentTrafficTarget,
 					TrafficTarget: v1beta1.TrafficTarget{
@@ -288,7 +288,7 @@ func TestReconcile(t *testing.T) {
 				WithCreatedAndReady("release-nr-00002", "release-nr-00002")),
 			// NB: route points to the previous revision.
 			route("release-nr", "foo", WithReleaseRollout("release-nr-00002"), RouteReady,
-				WithDomain, WithDomainInternal, WithAddress, WithInitRouteConditions,
+				WithURL, WithAddress, WithInitRouteConditions,
 				WithStatusTraffic(v1alpha1.TrafficTarget{
 					TrafficTarget: v1beta1.TrafficTarget{
 						RevisionName: "release-nr-00001",
@@ -327,7 +327,7 @@ func TestReconcile(t *testing.T) {
 				WithCreatedAndReady("release-nr-00003", "release-nr-00003")),
 			// NB: route points to the previous revision.
 			route("release-nr", "foo", WithReleaseRollout("release-nr-00002", "release-nr-00003"),
-				RouteReady, WithDomain, WithDomainInternal, WithAddress, WithInitRouteConditions,
+				RouteReady, WithURL, WithAddress, WithInitRouteConditions,
 				WithStatusTraffic(v1alpha1.TrafficTarget{
 					TrafficTarget: v1beta1.TrafficTarget{
 						RevisionName: "release-nr-00001",
@@ -369,7 +369,7 @@ func TestReconcile(t *testing.T) {
 				WithCreatedAndReady("release-nr-ts-00003", "release-nr-ts-00003")),
 			route("release-nr-ts", "foo",
 				WithReleaseRolloutAndPercentage(42, "release-nr-ts-00002", "release-nr-ts-00003"),
-				RouteReady, WithDomain, WithDomainInternal, WithAddress, WithInitRouteConditions,
+				RouteReady, WithURL, WithAddress, WithInitRouteConditions,
 				WithStatusTraffic(v1alpha1.TrafficTarget{
 					TrafficTarget: v1beta1.TrafficTarget{
 						RevisionName: "release-nr-ts-00001",
@@ -421,7 +421,7 @@ func TestReconcile(t *testing.T) {
 				WithCreatedAndReady("release-nr-ts2-00003", "release-nr-ts2-00003")),
 			route("release-nr-ts2", "foo",
 				WithReleaseRolloutAndPercentage(58, "release-nr-ts2-00002", "release-nr-ts2-00003"),
-				RouteReady, WithDomain, WithDomainInternal, WithAddress, WithInitRouteConditions,
+				RouteReady, WithURL, WithAddress, WithInitRouteConditions,
 				// NB: here the revisions match, but percentages, don't.
 				WithStatusTraffic(v1alpha1.TrafficTarget{
 					TrafficTarget: v1beta1.TrafficTarget{
@@ -470,7 +470,7 @@ func TestReconcile(t *testing.T) {
 				WithReleaseRollout(v1alpha1.ReleaseLatestRevisionKeyword), WithInitSvcConditions),
 			route("release-ready-lr", "foo",
 				WithReleaseRollout(v1alpha1.ReleaseLatestRevisionKeyword),
-				RouteReady, WithDomain, WithDomainInternal, WithAddress, WithInitRouteConditions,
+				RouteReady, WithURL, WithAddress, WithInitRouteConditions,
 				WithStatusTraffic([]v1alpha1.TrafficTarget{{
 					DeprecatedName: v1alpha1.CurrentTrafficTarget,
 					TrafficTarget: v1beta1.TrafficTarget{
@@ -537,7 +537,7 @@ func TestReconcile(t *testing.T) {
 			route("release-ready-lr", "foo",
 				WithReleaseRolloutAndPercentage(
 					42, "release-ready-lr-00001", v1alpha1.ReleaseLatestRevisionKeyword),
-				RouteReady, WithDomain, WithDomainInternal, WithAddress, WithInitRouteConditions,
+				RouteReady, WithURL, WithAddress, WithInitRouteConditions,
 				WithStatusTraffic([]v1alpha1.TrafficTarget{{
 					DeprecatedName: v1alpha1.CurrentTrafficTarget,
 					TrafficTarget: v1beta1.TrafficTarget{
@@ -619,7 +619,7 @@ func TestReconcile(t *testing.T) {
 			route("release-ready", "foo",
 				WithReleaseRolloutAndPercentage(58, /*candidate traffic percentage*/
 					"release-ready-00001", "release-ready-00002"),
-				RouteReady, WithDomain, WithDomainInternal, WithAddress, WithInitRouteConditions,
+				RouteReady, WithURL, WithAddress, WithInitRouteConditions,
 				WithStatusTraffic(v1alpha1.TrafficTarget{
 					DeprecatedName: v1alpha1.CurrentTrafficTarget,
 					TrafficTarget: v1beta1.TrafficTarget{
@@ -742,8 +742,8 @@ func TestReconcile(t *testing.T) {
 			Service("update-route-and-config", "foo", WithRunLatestRollout, WithInitSvcConditions),
 			// Mutate the Config/Route to have a different body than we want.
 			config("update-route-and-config", "foo", WithRunLatestRollout,
-				// WithBuild is just an unexpected mutation of the config spec vs. the service spec.
-				WithBuild),
+				// This is just an unexpected mutation of the config spec vs. the service spec.
+				WithConfigContainerConcurrency(5)),
 			route("update-route-and-config", "foo", WithRunLatestRollout, MutateRoute),
 		},
 		Key: "foo/update-route-and-config",
@@ -953,8 +953,8 @@ func TestReconcile(t *testing.T) {
 			route("update-config-failure", "foo", WithRunLatestRollout),
 			// Mutate the Config to have an unexpected body to trigger an update.
 			config("update-config-failure", "foo", WithRunLatestRollout,
-				// WithBuild is just an unexpected mutation of the config spec vs. the service spec.
-				WithBuild),
+				// This is just an unexpected mutation of the config spec vs. the service spec.
+				WithConfigContainerConcurrency(5)),
 		},
 		Key: "foo/update-config-failure",
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
@@ -996,7 +996,7 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			Service("all-ready", "foo", WithRunLatestRollout, WithInitSvcConditions),
 			route("all-ready", "foo", WithRunLatestRollout, RouteReady,
-				WithDomain, WithDomainInternal, WithAddress, WithInitRouteConditions,
+				WithURL, WithAddress, WithInitRouteConditions,
 				WithStatusTraffic(v1alpha1.TrafficTarget{
 					TrafficTarget: v1beta1.TrafficTarget{
 						RevisionName: "all-ready-00001",
@@ -1041,7 +1041,7 @@ func TestReconcile(t *testing.T) {
 			Service("all-ready", "foo", WithRunLatestRollout, WithInitSvcConditions,
 				WithReadyConfig("all-ready-00001")),
 			route("all-ready", "foo", WithRunLatestRollout, RouteReady,
-				WithDomain, WithDomainInternal, WithAddress, WithInitRouteConditions,
+				WithURL, WithAddress, WithInitRouteConditions,
 				WithStatusTraffic(v1alpha1.TrafficTarget{
 					TrafficTarget: v1beta1.TrafficTarget{
 						RevisionName: "all-ready-00001",
@@ -1084,7 +1084,7 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			Service("config-only-ready", "foo", WithRunLatestRollout, WithInitSvcConditions),
 			route("config-only-ready", "foo", WithRunLatestRollout, RouteReady,
-				WithDomain, WithDomainInternal, WithAddress, WithInitRouteConditions,
+				WithURL, WithAddress, WithInitRouteConditions,
 				WithStatusTraffic(v1alpha1.TrafficTarget{
 					TrafficTarget: v1beta1.TrafficTarget{
 						RevisionName: "config-only-ready-00001",
@@ -1126,7 +1126,7 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			Service("config-fails", "foo", WithRunLatestRollout, WithInitSvcConditions),
 			route("config-fails", "foo", WithRunLatestRollout, RouteReady,
-				WithDomain, WithDomainInternal, WithAddress, WithInitRouteConditions,
+				WithURL, WithAddress, WithInitRouteConditions,
 				WithStatusTraffic(v1alpha1.TrafficTarget{
 					TrafficTarget: v1beta1.TrafficTarget{
 						RevisionName: "config-fails-00001",
@@ -1257,7 +1257,7 @@ func TestReconcile(t *testing.T) {
 				MarkConfigurationNotOwned, MarkRouteNotOwned),
 			// The service owns these, which should result in a happy result.
 			route("new-owner", "foo", WithRunLatestRollout, RouteReady,
-				WithDomain, WithDomainInternal, WithAddress, WithInitRouteConditions,
+				WithURL, WithAddress, WithInitRouteConditions,
 				WithStatusTraffic(v1alpha1.TrafficTarget{
 					TrafficTarget: v1beta1.TrafficTarget{
 						RevisionName: "new-owner-00001",

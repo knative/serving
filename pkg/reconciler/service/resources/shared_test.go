@@ -115,8 +115,3 @@ func createServiceWithRelease(numRevision int, rolloutPercent int) *v1alpha1.Ser
 		WithReleaseRolloutAndPercentageConfigSpec(rolloutPercent, createConfiguration(testContainerNameRelease), revisions...),
 		WithServiceLabel(testLabelKey, testLabelValueRelease))
 }
-
-func createServiceWithManual() *v1alpha1.Service {
-	return Service(testServiceName, testServiceNamespace, WithManualRollout,
-		WithServiceLabel(testLabelKey, testLabelValueManual))
-}

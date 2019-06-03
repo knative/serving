@@ -176,7 +176,8 @@ func (c *Reconciler) reconcile(ctx context.Context, r *v1alpha1.Route) error {
 		Scheme: "http",
 		Host:   host,
 	}
-	r.Status.DeprecatedDomain = host
+	// TODO(mattmoor): Remove completely after 0.7 cuts.
+	r.Status.DeprecatedDomain = ""
 
 	// Configure traffic based on the RouteSpec.
 	traffic, err := c.configureTraffic(ctx, r)
@@ -192,7 +193,9 @@ func (c *Reconciler) reconcile(ctx context.Context, r *v1alpha1.Route) error {
 		return err
 	}
 
-	r.Status.DeprecatedDomainInternal = resourcenames.K8sServiceFullname(r)
+	// TODO(mattmoor): Remove completely after 0.7 cuts.
+	r.Status.DeprecatedDomainInternal = ""
+
 	r.Status.Address = &duckv1alpha1.Addressable{
 		Addressable: duckv1beta1.Addressable{
 			URL: &apis.URL{
@@ -200,7 +203,8 @@ func (c *Reconciler) reconcile(ctx context.Context, r *v1alpha1.Route) error {
 				Host:   resourcenames.K8sServiceFullname(r),
 			},
 		},
-		Hostname: resourcenames.K8sServiceFullname(r),
+		// TODO(mattmoor): Remove completely after 0.7 cuts.
+		Hostname: "",
 	}
 
 	// Add the finalizer before creating the ClusterIngress so that we can be sure it gets cleaned up.

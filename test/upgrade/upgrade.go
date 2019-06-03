@@ -71,6 +71,6 @@ func waitForServiceDomain(clients *test.Clients, names test.ResourceNames) (stri
 			return true, nil
 		}
 		return false, nil
-	}, "ServiceUpdatedWithDomain")
+	}, "ServiceUpdatedWithURL")
 	return routeDomain, err
 }

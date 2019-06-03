@@ -380,20 +380,20 @@ func TestBuildTrafficConfiguration_Canary(t *testing.T) {
 // Splitting traffic between latest revision and a fixed revision which is also latest.
 func TestBuildTrafficConfiguration_Consolidated(t *testing.T) {
 	tts := []v1alpha1.TrafficTarget{{
-		DeprecatedName: "one",
 		TrafficTarget: v1beta1.TrafficTarget{
+			Tag:          "one",
 			RevisionName: goodOldRev.Name,
 			Percent:      49,
 		},
 	}, {
-		DeprecatedName: "two",
 		TrafficTarget: v1beta1.TrafficTarget{
+			Tag:          "two",
 			RevisionName: goodNewRev.Name,
 			Percent:      50,
 		},
 	}, {
-		DeprecatedName: "also-two",
 		TrafficTarget: v1beta1.TrafficTarget{
+			Tag:               "also-two",
 			ConfigurationName: goodConfig.Name,
 			Percent:           1,
 		},
@@ -632,13 +632,13 @@ func TestBuildTrafficConfiguration_Preliminary(t *testing.T) {
 			Percent:      100,
 		},
 	}, {
-		DeprecatedName: "beta",
 		TrafficTarget: v1beta1.TrafficTarget{
+			Tag:          "beta",
 			RevisionName: goodNewRev.Name,
 		},
 	}, {
-		DeprecatedName: "alpha",
 		TrafficTarget: v1beta1.TrafficTarget{
+			Tag:               "alpha",
 			ConfigurationName: niceConfig.Name,
 		},
 	}}
@@ -739,13 +739,13 @@ func TestBuildTrafficConfiguration_MissingConfig(t *testing.T) {
 			Percent:      100,
 		},
 	}, {
-		DeprecatedName: "beta",
 		TrafficTarget: v1beta1.TrafficTarget{
+			Tag:          "beta",
 			RevisionName: goodNewRev.Name,
 		},
 	}, {
-		DeprecatedName: "alpha",
 		TrafficTarget: v1beta1.TrafficTarget{
+			Tag:               "alpha",
 			ConfigurationName: missingConfig.Name,
 		},
 	}}
@@ -926,13 +926,13 @@ func TestRoundTripping(t *testing.T) {
 			Percent:      100,
 		},
 	}, {
-		DeprecatedName: "beta",
 		TrafficTarget: v1beta1.TrafficTarget{
+			Tag:          "beta",
 			RevisionName: goodNewRev.Name,
 		},
 	}, {
-		DeprecatedName: "alpha",
 		TrafficTarget: v1beta1.TrafficTarget{
+			Tag:               "alpha",
 			ConfigurationName: niceConfig.Name,
 		},
 	}}
@@ -942,14 +942,12 @@ func TestRoundTripping(t *testing.T) {
 			Percent:      100,
 		},
 	}, {
-		DeprecatedName: "beta",
 		TrafficTarget: v1beta1.TrafficTarget{
 			Tag:          "beta",
 			RevisionName: goodNewRev.Name,
 			URL:          domains.URL(domains.HTTPScheme, "test-route-beta.test.example.com"),
 		},
 	}, {
-		DeprecatedName: "alpha",
 		TrafficTarget: v1beta1.TrafficTarget{
 			Tag:          "alpha",
 			RevisionName: niceNewRev.Name,
@@ -1004,12 +1002,14 @@ func testConfig(name string) *v1alpha1.Configuration {
 			Namespace: testNamespace,
 		},
 		Spec: v1alpha1.ConfigurationSpec{
-			// This is a workaround for generation initialization.
-			DeprecatedGeneration: 1,
-			DeprecatedRevisionTemplate: &v1alpha1.RevisionTemplateSpec{
+			Template: &v1alpha1.RevisionTemplateSpec{
 				Spec: v1alpha1.RevisionSpec{
-					DeprecatedContainer: &corev1.Container{
-						Image: "test-image",
+					RevisionSpec: v1beta1.RevisionSpec{
+						PodSpec: v1beta1.PodSpec{
+							Containers: []corev1.Container{{
+								Image: "test-image",
+							}},
+						},
 					},
 				},
 			},
