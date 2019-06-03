@@ -22,7 +22,7 @@ import (
 	informers "github.com/knative/serving/pkg/client/informers/externalversions/autoscaling/v1alpha1"
 	ninformers "github.com/knative/serving/pkg/client/informers/externalversions/networking/v1alpha1"
 	"github.com/knative/serving/pkg/reconciler"
-	autoscalingv1informers "k8s.io/client-go/informers/autoscaling/v1"
+	autoscalinginformers "k8s.io/client-go/informers/autoscaling/v2beta1"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -35,7 +35,7 @@ func NewController(
 	opts *reconciler.Options,
 	paInformer informers.PodAutoscalerInformer,
 	sksInformer ninformers.ServerlessServiceInformer,
-	hpaInformer autoscalingv1informers.HorizontalPodAutoscalerInformer,
+	hpaInformer autoscalinginformers.HorizontalPodAutoscalerInformer,
 ) *controller.Impl {
 	c := &Reconciler{
 		Base:      reconciler.NewBase(*opts, controllerAgentName),
