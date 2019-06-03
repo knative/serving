@@ -58,7 +58,8 @@ failed=0
 
 # Run conformance and e2e tests.
 go_test_e2e -timeout=30m \
-  ./test/conformance \
+  ./test/conformance/api \
+  ./test/conformance/runtime \
   ./test/e2e \
   "--resolvabledomain=$(use_resolvable_domain)" || failed=1
 

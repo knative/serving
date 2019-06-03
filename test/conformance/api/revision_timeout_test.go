@@ -16,7 +16,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package conformance
+package api
 
 import (
 	"encoding/json"
@@ -99,12 +99,12 @@ func sendRequest(t *testing.T, clients *test.Clients, domain string, initialSlee
 
 func TestRevisionTimeout(t *testing.T) {
 	t.Parallel()
-	clients := setup(t)
+	clients := test.Setup(t)
 
 	var rev2s, rev5s test.ResourceNames
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
-		Image:   timeout,
+		Image:   test.Timeout,
 	}
 
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })

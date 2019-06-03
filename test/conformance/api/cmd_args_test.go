@@ -16,41 +16,59 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package conformance
+package api
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/test"
 )
 
-func TestWorkingDirService(t *testing.T) {
+func TestCmdArgsService(t *testing.T) {
 	t.Parallel()
-	clients := setup(t)
+	clients := test.Setup(t)
 
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
-		Image:   "workingdir",
+		Image:   "python:3",
 	}
 
 	// Clean up on test failure or interrupt
 	defer test.TearDown(clients, names)
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 
-	const wd = "/foo/bar/baz"
+	const text = "THIS IS THE CMD AND ARGS TEST"
 
 	// Setup initial Service
 	_, err := test.CreateRunLatestServiceReady(t, clients, &names, &test.Options{},
 		func(svc *v1alpha1.Service) {
 			c := &svc.Spec.Template.Spec.Containers[0]
-			c.WorkingDir = wd
+			c.Image = names.Image
+			c.Command = []string{"python"}
+			c.Args = []string{"-c", fmt.Sprintf(`
+import http.server
+import socketserver
+from http import HTTPStatus
+
+
+class Handler(http.server.SimpleHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(HTTPStatus.OK)
+        self.end_headers()
+        self.wfile.write(b'%s')
+
+
+httpd = socketserver.TCPServer(('', 8080), Handler)
+httpd.serve_forever()`, text),
+			}
 		})
 	if err != nil {
 		t.Fatalf("Failed to create initial Service %v: %v", names.Service, err)
 	}
 
-	if err = validateRunLatestDataPlane(t, clients, names, wd); err != nil {
+	if err = validateRunLatestDataPlane(t, clients, names, text); err != nil {
 		t.Error(err)
 	}
 }

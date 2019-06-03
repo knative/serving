@@ -16,7 +16,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package conformance
+package runtime
 
 import (
 	"net"
@@ -32,7 +32,7 @@ import (
 // contract are present from the point of view of the user container.
 func TestMustHaveHeadersSet(t *testing.T) {
 	t.Parallel()
-	clients := setup(t)
+	clients := test.Setup(t)
 
 	_, ri, err := fetchRuntimeInfo(t, clients, &test.Options{})
 	if err != nil {
@@ -74,7 +74,7 @@ func (c *checkIPList) String() string {
 // contract are present from the point of view of the user container.
 func TestShouldHaveHeadersSet(t *testing.T) {
 	t.Parallel()
-	clients := setup(t)
+	clients := test.Setup(t)
 
 	expectedHeaders := map[string]interface {
 		MatchString(string) bool

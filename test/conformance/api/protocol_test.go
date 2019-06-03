@@ -16,7 +16,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package conformance
+package api
 
 import (
 	"encoding/json"
@@ -38,10 +38,10 @@ type protocolsTest struct {
 func (pt *protocolsTest) setup(t *testing.T) {
 	pt.t = t
 
-	pt.clients = setup(t)
+	pt.clients = test.Setup(t)
 	pt.names = test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
-		Image:   protocols,
+		Image:   test.Protocols,
 	}
 
 	test.CleanupOnInterrupt(func() { pt.teardown() })

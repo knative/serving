@@ -16,7 +16,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package conformance
+package api
 
 import (
 	"fmt"
@@ -43,11 +43,11 @@ func TestContainerErrorMsg(t *testing.T) {
 	if strings.HasSuffix(strings.Split(ptest.Flags.DockerRepo, "/")[0], ".local") {
 		t.Skip("Skipping for local docker repo")
 	}
-	clients := setup(t)
+	clients := test.Setup(t)
 
 	names := test.ResourceNames{
 		Config: test.ObjectNameForTest(t),
-		Image:  invalidhelloworld,
+		Image:  test.InvalidHelloWorld,
 	}
 	// Specify an invalid image path
 	// A valid DockerRepo is still needed, otherwise will get UNAUTHORIZED instead of container missing error
@@ -148,11 +148,11 @@ func TestContainerExitingMsg(t *testing.T) {
 		tt := tt
 		t.Run(tt.Name, func(t *testing.T) {
 			t.Parallel()
-			clients := setup(t)
+			clients := test.Setup(t)
 
 			names := test.ResourceNames{
 				Config: test.ObjectNameForTest(t),
-				Image:  failing,
+				Image:  test.Failing,
 			}
 
 			defer test.TearDown(clients, names)

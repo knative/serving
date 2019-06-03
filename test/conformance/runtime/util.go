@@ -1,7 +1,5 @@
-// +build e2e
-
 /*
-Copyright 2018 The Knative Authors
+Copyright 2019 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -16,9 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-//runtime_conformance_helper.go contains helper methods used by conformance tests that verify runtime-contract.
-
-package conformance
+package runtime
 
 import (
 	"encoding/json"
@@ -26,32 +22,29 @@ import (
 	"testing"
 
 	pkgTest "github.com/knative/pkg/test"
+	reconciler "github.com/knative/serving/pkg/reconciler/testing"
+
 	"github.com/knative/serving/test"
 	"github.com/knative/serving/test/types"
-
-	. "github.com/knative/serving/pkg/reconciler/testing"
 )
-
-// The 'runtime-unprivileged' test image uses uid 1000.
-const unprivilegedUserID = 1000
 
 // fetchRuntimeInfoUnprivileged creates a Service that uses the 'runtime-unprivileged' test image, and extracts the returned output into the
 // RuntimeInfo object.
-func fetchRuntimeInfoUnprivileged(t *testing.T, clients *test.Clients, options *test.Options, opts ...ServiceOption) (*test.ResourceNames, *types.RuntimeInfo, error) {
-	return runtimeInfo(t, clients, &test.ResourceNames{Image: runtimeUnprivileged}, options, opts...)
+func fetchRuntimeInfoUnprivileged(t *testing.T, clients *test.Clients, options *test.Options, opts ...reconciler.ServiceOption) (*test.ResourceNames, *types.RuntimeInfo, error) {
+	return runtimeInfo(t, clients, &test.ResourceNames{Image: test.RuntimeUnprivileged}, options, opts...)
 }
 
 // fetchRuntimeInfo creates a Service that uses the 'runtime' test image, and extracts the returned output into the
 // RuntimeInfo object. The 'runtime' image uses uid 0.
-func fetchRuntimeInfo(t *testing.T, clients *test.Clients, options *test.Options, opts ...ServiceOption) (*test.ResourceNames, *types.RuntimeInfo, error) {
+func fetchRuntimeInfo(t *testing.T, clients *test.Clients, options *test.Options, opts ...reconciler.ServiceOption) (*test.ResourceNames, *types.RuntimeInfo, error) {
 	return runtimeInfo(t, clients, &test.ResourceNames{}, options, opts...)
 }
 
-func runtimeInfo(t *testing.T, clients *test.Clients, names *test.ResourceNames, options *test.Options, opts ...ServiceOption) (*test.ResourceNames, *types.RuntimeInfo, error) {
+func runtimeInfo(t *testing.T, clients *test.Clients, names *test.ResourceNames, options *test.Options, opts ...reconciler.ServiceOption) (*test.ResourceNames, *types.RuntimeInfo, error) {
 	names.Service = test.ObjectNameForTest(t)
 	if names.Image == "" {
-		names.Image = runtime
-	} else if names.Image != runtimeUnprivileged {
+		names.Image = test.Runtime
+	} else if names.Image != test.RuntimeUnprivileged {
 		return nil, nil, fmt.Errorf("invalid image provided: %s", names.Image)
 	}
 
@@ -76,8 +69,5 @@ func runtimeInfo(t *testing.T, clients *test.Clients, names *test.ResourceNames,
 
 	var ri types.RuntimeInfo
 	err = json.Unmarshal(resp.Body, &ri)
-	if err != nil {
-		return nil, nil, err
-	}
-	return names, &ri, nil
+	return names, &ri, err
 }

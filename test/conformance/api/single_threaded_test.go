@@ -16,7 +16,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package conformance
+package api
 
 import (
 	"context"
@@ -35,11 +35,11 @@ import (
 
 func TestSingleConcurrency(t *testing.T) {
 	t.Parallel()
-	clients := setup(t)
+	clients := test.Setup(t)
 
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
-		Image:   singleThreadedImage,
+		Image:   test.SingleThreadedImage,
 	}
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 	defer test.TearDown(clients, names)

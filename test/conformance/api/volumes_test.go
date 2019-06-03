@@ -16,7 +16,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package conformance
+package api
 
 import (
 	"path/filepath"
@@ -33,11 +33,11 @@ import (
 // TestConfigMapVolume tests that we echo back the appropriate text from the ConfigMap volume.
 func TestConfigMapVolume(t *testing.T) {
 	t.Parallel()
-	clients := setup(t)
+	clients := test.Setup(t)
 
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
-		Image:   "hellovolume",
+		Image:   test.HelloVolume,
 	}
 
 	text := test.AppendRandomString("hello-volumes-")
@@ -96,11 +96,11 @@ func TestConfigMapVolume(t *testing.T) {
 // TestSecretVolume tests that we echo back the appropriate text from the Secret volume.
 func TestSecretVolume(t *testing.T) {
 	t.Parallel()
-	clients := setup(t)
+	clients := test.Setup(t)
 
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
-		Image:   "hellovolume",
+		Image:   test.HelloVolume,
 	}
 
 	text := test.ObjectNameForTest(t)

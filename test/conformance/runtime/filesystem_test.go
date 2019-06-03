@@ -16,7 +16,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package conformance
+package runtime
 
 import (
 	"fmt"
@@ -76,7 +76,7 @@ func testFiles(t *testing.T, clients *test.Clients, paths map[string]types.FileI
 // and type as applicable.
 func TestMustHaveFiles(t *testing.T) {
 	t.Parallel()
-	clients := setup(t)
+	clients := test.Setup(t)
 	if err := testFiles(t, clients, types.MustFiles); err != nil {
 		t.Error(err)
 	}
@@ -86,7 +86,7 @@ func TestMustHaveFiles(t *testing.T) {
 // permissions and type as applicable.
 func TestShouldHaveFiles(t *testing.T) {
 	t.Parallel()
-	clients := setup(t)
+	clients := test.Setup(t)
 	if err := testFiles(t, clients, types.ShouldFiles); err != nil {
 		t.Error(err)
 	}

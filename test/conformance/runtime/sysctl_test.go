@@ -16,7 +16,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package conformance
+package runtime
 
 import (
 	"testing"
@@ -30,7 +30,7 @@ import (
 // is read-only.
 func TestShouldHaveSysctlReadOnly(t *testing.T) {
 	t.Parallel()
-	clients := setup(t)
+	clients := test.Setup(t)
 	_, ri, err := fetchRuntimeInfo(t, clients, &test.Options{})
 	if err != nil {
 		t.Fatalf("Error fetching runtime info: %v", err)

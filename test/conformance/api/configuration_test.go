@@ -16,7 +16,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package conformance
+package api
 
 import (
 	"reflect"
@@ -29,11 +29,11 @@ import (
 
 func TestUpdateConfigurationMetadata(t *testing.T) {
 	t.Parallel()
-	clients := setup(t)
+	clients := test.Setup(t)
 
 	names := test.ResourceNames{
 		Config: test.ObjectNameForTest(t),
-		Image:  pizzaPlanet1,
+		Image:  test.PizzaPlanet1,
 	}
 
 	defer test.TearDown(clients, names)

@@ -16,7 +16,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package conformance
+package runtime
 
 import (
 	"fmt"
@@ -31,7 +31,7 @@ import (
 // TestSecretsViaEnv verifies propagation of Secrets through environment variables.
 func TestSecretsViaEnv(t *testing.T) {
 	t.Parallel()
-	clients := setup(t)
+	clients := test.Setup(t)
 
 	t.Run("env", func(t *testing.T) {
 		err := fetchEnvironmentAndVerify(t, clients, WithEnv(corev1.EnvVar{
@@ -67,7 +67,7 @@ func TestSecretsViaEnv(t *testing.T) {
 // TestConfigsViaEnv verifies propagation of configs through environment variables.
 func TestConfigsViaEnv(t *testing.T) {
 	t.Parallel()
-	clients := setup(t)
+	clients := test.Setup(t)
 
 	t.Run("env", func(t *testing.T) {
 		err := fetchEnvironmentAndVerify(t, clients, WithEnv(corev1.EnvVar{
