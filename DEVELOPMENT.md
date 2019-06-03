@@ -315,7 +315,7 @@ ko delete --ignore-not-found=true \
   -f config/ \
   -f ./third_party/config/build/release.yaml \
   -f ./third_party/istio-1.1-latest/istio.yaml \
-  -f ./third_party/istio-1.1-latest/istio-crds.yaml
+  -f ./third_party/istio-1.1-latest/istio-crds.yaml \
   -f ./third_party/cert-manager-0.6.1/cert-manager-crds.yaml
 ```
 
