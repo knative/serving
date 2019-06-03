@@ -21,10 +21,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/knative/pkg/apis"
 	pkgTest "github.com/knative/pkg/test"
 	"github.com/knative/serving/pkg/apis/serving"
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/test"
 
 	corev1 "k8s.io/api/core/v1"
@@ -122,12 +120,4 @@ func TestConflictingRouteService(t *testing.T) {
 	if _, err := test.CreateRunLatestServiceReady(t, clients, &names, &test.Options{}); err != nil {
 		t.Errorf("Failed to create Service %v in namespace %v: %v", names.Service, test.ServingNamespace, err)
 	}
-}
-
-func configurationIsReady(c *v1alpha1.Configuration) (bool, error) {
-	return c.Status.GetCondition(apis.ConditionReady).IsTrue(), nil
-}
-
-func routeIsReady(c *v1alpha1.Route) (bool, error) {
-	return c.Status.GetCondition(apis.ConditionReady).IsTrue(), nil
 }
