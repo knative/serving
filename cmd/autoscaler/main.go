@@ -19,7 +19,6 @@ package main
 import (
 	"flag"
 	"fmt"
-	"github.com/knative/serving/pkg/resources"
 	"log"
 	"time"
 
@@ -36,6 +35,7 @@ import (
 	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/autoscaling/hpa"
 	"github.com/knative/serving/pkg/reconciler/autoscaling/kpa"
+	"github.com/knative/serving/pkg/resources"
 	basecmd "github.com/kubernetes-incubator/custom-metrics-apiserver/pkg/cmd"
 	"github.com/spf13/pflag"
 	"go.uber.org/zap"
@@ -94,7 +94,7 @@ func main() {
 	sksInformer := servingInformerFactory.Networking().V1alpha1().ServerlessServices()
 	endpointsInformer := kubeInformerFactory.Core().V1().Endpoints()
 	serviceInformer := kubeInformerFactory.Core().V1().Services()
-	hpaInformer := kubeInformerFactory.Autoscaling().V1().HorizontalPodAutoscalers()
+	hpaInformer := kubeInformerFactory.Autoscaling().V2beta1().HorizontalPodAutoscalers()
 
 	collector := autoscaler.NewMetricCollector(statsScraperFactoryFunc(endpointsInformer.Lister()), logger)
 	customMetricsAdapter.WithCustomMetrics(autoscaler.NewMetricProvider())

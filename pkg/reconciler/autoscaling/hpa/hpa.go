@@ -40,7 +40,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/runtime"
-	autoscalingv1listers "k8s.io/client-go/listers/autoscaling/v1"
+	autoscalingv2beta1listers "k8s.io/client-go/listers/autoscaling/v2beta1"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -50,7 +50,7 @@ type Reconciler struct {
 
 	paLister  listers.PodAutoscalerLister
 	sksLister nlisters.ServerlessServiceLister
-	hpaLister autoscalingv1listers.HorizontalPodAutoscalerLister
+	hpaLister autoscalingv2beta1listers.HorizontalPodAutoscalerLister
 }
 
 var _ controller.Reconciler = (*Reconciler)(nil)
@@ -124,7 +124,7 @@ func (c *Reconciler) reconcile(ctx context.Context, key string, pa *pav1alpha1.P
 	hpa, err := c.hpaLister.HorizontalPodAutoscalers(pa.Namespace).Get(desiredHpa.Name)
 	if errors.IsNotFound(err) {
 		logger.Infof("Creating HPA %q", desiredHpa.Name)
-		if hpa, err = c.KubeClientSet.AutoscalingV1().HorizontalPodAutoscalers(pa.Namespace).Create(desiredHpa); err != nil {
+		if hpa, err = c.KubeClientSet.AutoscalingV2beta1().HorizontalPodAutoscalers(pa.Namespace).Create(desiredHpa); err != nil {
 			logger.Errorf("Error creating HPA %q: %v", desiredHpa.Name, err)
 			pa.Status.MarkResourceFailedCreation("HorizontalPodAutoscaler", desiredHpa.Name)
 			return err
@@ -139,7 +139,7 @@ func (c *Reconciler) reconcile(ctx context.Context, key string, pa *pav1alpha1.P
 	}
 	if !equality.Semantic.DeepEqual(desiredHpa.Spec, hpa.Spec) {
 		logger.Infof("Updating HPA %q", desiredHpa.Name)
-		if _, err := c.KubeClientSet.AutoscalingV1().HorizontalPodAutoscalers(pa.Namespace).Update(desiredHpa); err != nil {
+		if _, err := c.KubeClientSet.AutoscalingV2beta1().HorizontalPodAutoscalers(pa.Namespace).Update(desiredHpa); err != nil {
 			logger.Errorf("Error updating HPA %q: %v", desiredHpa.Name, err)
 			return err
 		}
@@ -203,7 +203,7 @@ func (c *Reconciler) deleteHPA(ctx context.Context, key string) error {
 	if err != nil {
 		return err
 	}
-	err = c.KubeClientSet.AutoscalingV1().HorizontalPodAutoscalers(namespace).Delete(name, nil)
+	err = c.KubeClientSet.AutoscalingV2beta1().HorizontalPodAutoscalers(namespace).Delete(name, nil)
 	if errors.IsNotFound(err) {
 		// This is fine.
 		return nil
