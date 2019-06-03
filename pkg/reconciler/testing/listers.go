@@ -141,6 +141,7 @@ func (l *Listers) GetPodAutoscalerLister() kpalisters.PodAutoscalerLister {
 	return kpalisters.NewPodAutoscalerLister(l.indexerFor(&kpa.PodAutoscaler{}))
 }
 
+// GetHorizontalPodAutoscalerLister gets lister for HorizontalPodAutoscaler resources.
 func (l *Listers) GetHorizontalPodAutoscalerLister() autoscalingv2beta1listers.HorizontalPodAutoscalerLister {
 	return autoscalingv2beta1listers.NewHorizontalPodAutoscalerLister(l.indexerFor(&autoscalingv2beta1.HorizontalPodAutoscaler{}))
 }
