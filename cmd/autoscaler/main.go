@@ -204,7 +204,8 @@ func uniScalerFactoryFunc(endpointsInformer corev1informers.EndpointsInformer, m
 
 func statsScraperFactoryFunc(endpointsLister corev1listers.EndpointsLister) func(metric *autoscaler.Metric) (autoscaler.StatsScraper, error) {
 	return func(metric *autoscaler.Metric) (autoscaler.StatsScraper, error) {
-		return autoscaler.NewServiceScraper(metric, endpointsLister)
+		podCounter := resources.NewScopedEndpointsCounter(endpointsLister, metric.Namespace, metric.Name)
+		return autoscaler.NewServiceScraper(metric, podCounter)
 	}
 }
 
