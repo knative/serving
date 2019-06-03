@@ -27,7 +27,6 @@ import (
 	"github.com/knative/serving/pkg/reconciler/autoscaling/kpa/resources/names"
 	"github.com/knative/serving/pkg/resources"
 	"github.com/pkg/errors"
-	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
 const (
@@ -75,7 +74,7 @@ var cacheDisabledClient = &http.Client{
 type ServiceScraper struct {
 	sClient             scrapeClient
 	sampleSizeFunc      SampleSizeFunc
-	endpointsLister     corev1listers.EndpointsLister
+	counter             resources.ReadyPodCounter
 	url                 string
 	namespace           string
 	scrapeTargetService string
@@ -84,23 +83,23 @@ type ServiceScraper struct {
 
 // NewServiceScraper creates a new StatsScraper for the Revision which
 // the given Metric is responsible for.
-func NewServiceScraper(metric *Metric, endpointsLister corev1listers.EndpointsLister) (*ServiceScraper, error) {
+func NewServiceScraper(metric *Metric, counter resources.ReadyPodCounter) (*ServiceScraper, error) {
 	sClient, err := newHTTPScrapeClient(cacheDisabledClient)
 	if err != nil {
 		return nil, err
 	}
-	return newServiceScraperWithClient(metric, endpointsLister, sClient)
+	return newServiceScraperWithClient(metric, counter, sClient)
 }
 
 func newServiceScraperWithClient(
 	metric *Metric,
-	endpointsLister corev1listers.EndpointsLister,
+	counter resources.ReadyPodCounter,
 	sClient scrapeClient) (*ServiceScraper, error) {
 	if metric == nil {
 		return nil, errors.New("metric must not be nil")
 	}
-	if endpointsLister == nil {
-		return nil, errors.New("endpoints lister must not be nil")
+	if counter == nil {
+		return nil, errors.New("counter must not be nil")
 	}
 	if sClient == nil {
 		return nil, errors.New("scrape client must not be nil")
@@ -113,7 +112,7 @@ func newServiceScraperWithClient(
 	serviceName := names.MetricsServiceName(revName)
 	return &ServiceScraper{
 		sClient:             sClient,
-		endpointsLister:     endpointsLister,
+		counter:             counter,
 		url:                 fmt.Sprintf("http://%s.%s:%d/metrics", serviceName, metric.Namespace, networking.AutoscalingQueueMetricsPort),
 		metricKey:           NewMetricKey(metric.Namespace, metric.Name),
 		namespace:           metric.Namespace,
@@ -124,8 +123,7 @@ func newServiceScraperWithClient(
 // Scrape calls the destination service then sends it
 // to the given stats channel.
 func (s *ServiceScraper) Scrape() (*StatMessage, error) {
-	podCounter := resources.NewScopedEndpointsCounter(s.endpointsLister, s.namespace, s.scrapeTargetService)
-	readyPodsCount, err := podCounter.ReadyCount()
+	readyPodsCount, err := s.counter.ReadyCount()
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get endpoints")
 	}
