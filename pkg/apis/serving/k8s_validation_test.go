@@ -670,19 +670,6 @@ func TestContainerValidation(t *testing.T) {
 			apis.ErrDisallowedFields("tty")).Also(
 			apis.ErrDisallowedFields("volumeDevices")),
 	}, {
-		name: "invalid liveness tcp probe (has port)",
-		c: corev1.Container{
-			Image: "foo",
-			LivenessProbe: &corev1.Probe{
-				Handler: corev1.Handler{
-					TCPSocket: &corev1.TCPSocketAction{
-						Port: intstr.FromString("http"),
-					},
-				},
-			},
-		},
-		want: apis.ErrDisallowedFields("livenessProbe.tcpSocket.port"),
-	}, {
 		name: "has numerous problems",
 		c: corev1.Container{
 			Name:      "foo",
