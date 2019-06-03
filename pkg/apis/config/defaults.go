@@ -17,9 +17,8 @@ limitations under the License.
 package config
 
 import (
+	"fmt"
 	"strconv"
-
-	"github.com/pkg/errors"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -59,7 +58,7 @@ func NewDefaultsConfigFromMap(data map[string]string) (*Defaults, error) {
 	}
 
 	if nc.RevisionTimeoutSeconds > nc.MaxRevisionTimeoutSeconds {
-		return nil, errors.New("revision-timeout-seconds cannot be greater than max-revision-timeout-seconds")
+		return nil, fmt.Errorf("revision-timeout-seconds (%d) cannot be greater than max-revision-timeout-seconds (%d)", nc.RevisionTimeoutSeconds, nc.MaxRevisionTimeoutSeconds)
 	}
 
 	// Process resource quantity fields
