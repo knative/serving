@@ -20,15 +20,15 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 )
 
-// ResourceBoundary is the minimum and maximum resource allowed for a type of
-type ResourceBoundary struct {
+// resourceBoundary is the minimum and maximum resource allowed for a type of
+type resourceBoundary struct {
 	min resource.Quantity
 	max resource.Quantity
 }
 
 var (
-	queueContainerRequestCPU    = ResourceBoundary{min: resource.MustParse("25m"), max: resource.MustParse("100m")}
-	queueContainerLimitCPU      = ResourceBoundary{min: resource.MustParse("40m"), max: resource.MustParse("500m")}
-	queueContainerRequestMemory = ResourceBoundary{min: resource.MustParse("50Mi"), max: resource.MustParse("200Mi")}
-	queueContainerLimitMemory   = ResourceBoundary{min: resource.MustParse("200Mi"), max: resource.MustParse("500Mi")}
+	queueContainerRequestCPU    = resourceBoundary{min: resource.MustParse("25m"), max: resource.MustParse("100m")}
+	queueContainerLimitCPU      = resourceBoundary{min: resource.MustParse("40m"), max: resource.MustParse("500m")}
+	queueContainerRequestMemory = resourceBoundary{min: resource.MustParse("50Mi"), max: resource.MustParse("200Mi")}
+	queueContainerLimitMemory   = resourceBoundary{min: resource.MustParse("200Mi"), max: resource.MustParse("500Mi")}
 )

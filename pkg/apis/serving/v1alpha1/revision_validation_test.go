@@ -301,11 +301,11 @@ func TestRevisionTemplateSpecValidation(t *testing.T) {
 		},
 		want: nil,
 	}, {
-		name: "Queue sidecar resource percentage annotation more than 1",
+		name: "Queue sidecar resource percentage annotation more than 100",
 		rts: &RevisionTemplateSpec{
 			ObjectMeta: metav1.ObjectMeta{
 				Annotations: map[string]string{
-					serving.QueueSideCarResourcePercentageAnnotation: "3",
+					serving.QueueSideCarResourcePercentageAnnotation: "200",
 				},
 			},
 			Spec: RevisionSpec{
@@ -315,7 +315,7 @@ func TestRevisionTemplateSpecValidation(t *testing.T) {
 			},
 		},
 		want: &apis.FieldError{
-			Message: "queue.serving.knative.dev/resourcePercentage=3 should be in the range (0,1)",
+			Message: "queue.sidecar.serving.knative.dev/resourcePercentage=200 should be in the range [1,100]",
 			Paths:   []string{serving.QueueSideCarResourcePercentageAnnotation},
 		},
 	}, {

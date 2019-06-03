@@ -79,7 +79,7 @@ var (
 	}
 )
 
-func getResources(annotations map[string]string, userContainer *corev1.Container) corev1.ResourceRequirements {
+func getQueueResources(annotations map[string]string, userContainer *corev1.Container) corev1.ResourceRequirements {
 
 	resources := corev1.ResourceRequirements{}
 	resourceRequests := corev1.ResourceList{corev1.ResourceCPU: queueContainerCPU}
@@ -117,7 +117,7 @@ func getResources(annotations map[string]string, userContainer *corev1.Container
 	return resources
 }
 
-func getUserContainerResourceRequirements(resourceQuantity *resource.Quantity, percentage float32, boundary ResourceBoundary) (bool, resource.Quantity) {
+func getUserContainerResourceRequirements(resourceQuantity *resource.Quantity, percentage float32, boundary resourceBoundary) (bool, resource.Quantity) {
 	if resourceQuantity.IsZero() {
 		return false, resource.Quantity{}
 	}
@@ -194,7 +194,7 @@ func makeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, o
 	return &corev1.Container{
 		Name:           QueueContainerName,
 		Image:          deploymentConfig.QueueSidecarImage,
-		Resources:      getResources(rev.GetAnnotations(), rev.Spec.GetContainer()),
+		Resources:      getQueueResources(rev.GetAnnotations(), rev.Spec.GetContainer()),
 		Ports:          ports,
 		ReadinessProbe: queueReadinessProbe,
 		Env: []corev1.EnvVar{{

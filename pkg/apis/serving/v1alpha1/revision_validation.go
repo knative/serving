@@ -173,9 +173,9 @@ func validatePercentageAnnotationKey(annotations map[string]string, resourcePerc
 		}
 	}
 
-	if value <= 0 || value > 1 {
+	if value <= float64(0) || value > float64(100) {
 		return &apis.FieldError{
-			Message: fmt.Sprintf("%s=%v should be in the range (0,1)", resourcePercentageAnnotationKey, value),
+			Message: fmt.Sprintf("%s=%v should be in the range [1,100]", resourcePercentageAnnotationKey, value),
 			Paths:   []string{resourcePercentageAnnotationKey},
 		}
 	}
