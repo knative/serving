@@ -73,7 +73,7 @@ func TestMakeQueueContainer(t *testing.T) {
 		want: &corev1.Container{
 			// These are effectively constant
 			Name:           QueueContainerName,
-			Resources:      getResources(make(map[string]string), &corev1.Container{}),
+			Resources:      createQueueResources(make(map[string]string), &corev1.Container{}),
 			Ports:          append(queueNonServingPorts, queueHTTPPort),
 			ReadinessProbe: queueReadinessProbe,
 			// These changed based on the Revision and configs passed in.
@@ -111,7 +111,7 @@ func TestMakeQueueContainer(t *testing.T) {
 		want: &corev1.Container{
 			// These are effectively constant
 			Name:           QueueContainerName,
-			Resources:      getResources(make(map[string]string), &corev1.Container{}),
+			Resources:      createQueueResources(make(map[string]string), &corev1.Container{}),
 			Ports:          append(queueNonServingPorts, queueHTTP2Port),
 			ReadinessProbe: queueReadinessProbe,
 			// These changed based on the Revision and configs passed in.
@@ -148,7 +148,7 @@ func TestMakeQueueContainer(t *testing.T) {
 		want: &corev1.Container{
 			// These are effectively constant
 			Name:           QueueContainerName,
-			Resources:      getResources(make(map[string]string), &corev1.Container{}),
+			Resources:      createQueueResources(make(map[string]string), &corev1.Container{}),
 			Ports:          append(queueNonServingPorts, queueHTTPPort),
 			ReadinessProbe: queueReadinessProbe,
 			// These changed based on the Revision and configs passed in.
@@ -185,7 +185,7 @@ func TestMakeQueueContainer(t *testing.T) {
 		want: &corev1.Container{
 			// These are effectively constant
 			Name:           QueueContainerName,
-			Resources:      getResources(make(map[string]string), &corev1.Container{}),
+			Resources:      createQueueResources(make(map[string]string), &corev1.Container{}),
 			Ports:          append(queueNonServingPorts, queueHTTPPort),
 			ReadinessProbe: queueReadinessProbe,
 			// These changed based on the Revision and configs passed in.
@@ -223,7 +223,7 @@ func TestMakeQueueContainer(t *testing.T) {
 		want: &corev1.Container{
 			// These are effectively constant
 			Name:           QueueContainerName,
-			Resources:      getResources(make(map[string]string), &corev1.Container{}),
+			Resources:      createQueueResources(make(map[string]string), &corev1.Container{}),
 			Ports:          append(queueNonServingPorts, queueHTTPPort),
 			ReadinessProbe: queueReadinessProbe,
 			// These changed based on the Revision and configs passed in.
@@ -257,7 +257,7 @@ func TestMakeQueueContainer(t *testing.T) {
 		want: &corev1.Container{
 			// These are effectively constant
 			Name:           QueueContainerName,
-			Resources:      getResources(make(map[string]string), &corev1.Container{}),
+			Resources:      createQueueResources(make(map[string]string), &corev1.Container{}),
 			Ports:          append(queueNonServingPorts, queueHTTPPort),
 			ReadinessProbe: queueReadinessProbe,
 			// These changed based on the Revision and configs passed in.
@@ -287,7 +287,7 @@ func TestMakeQueueContainer(t *testing.T) {
 		want: &corev1.Container{
 			// These are effectively constant
 			Name:           QueueContainerName,
-			Resources:      getResources(make(map[string]string), &corev1.Container{}),
+			Resources:      createQueueResources(make(map[string]string), &corev1.Container{}),
 			Ports:          append(queueNonServingPorts, queueHTTPPort),
 			ReadinessProbe: queueReadinessProbe,
 			// These changed based on the Revision and configs passed in.
@@ -320,7 +320,7 @@ func TestMakeQueueContainer(t *testing.T) {
 		want: &corev1.Container{
 			// These are effectively constant
 			Name:           QueueContainerName,
-			Resources:      getResources(make(map[string]string), &corev1.Container{}),
+			Resources:      createQueueResources(make(map[string]string), &corev1.Container{}),
 			Ports:          append(queueNonServingPorts, queueHTTPPort),
 			ReadinessProbe: queueReadinessProbe,
 			// These changed based on the Revision and configs passed in.
@@ -362,7 +362,7 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 					serving.ServiceLabelKey: "svc",
 				},
 				Annotations: map[string]string{
-					serving.QueueSideCarResourcePercentageAnnotation: "0.2",
+					serving.QueueSideCarResourcePercentageAnnotation: "20",
 				},
 			},
 			Spec: v1alpha1.RevisionSpec{

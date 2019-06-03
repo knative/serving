@@ -89,19 +89,19 @@ func createQueueResources(annotations map[string]string, userContainer *corev1.C
 
 	if ok, resourcePercentage = createResourcePercentageFromAnnotations(annotations, serving.QueueSideCarResourcePercentageAnnotation); ok {
 
-		if ok, requestCPU = createUserContainerResourceRequirements(userContainer.Resources.Requests.Cpu(), resourcePercentage, queueContainerRequestCPU); ok {
+		if ok, requestCPU = computeResourceRequirements(userContainer.Resources.Requests.Cpu(), resourcePercentage, queueContainerRequestCPU); ok {
 			resourceRequests[corev1.ResourceCPU] = requestCPU
 		}
 
-		if ok, limitCPU = createUserContainerResourceRequirements(userContainer.Resources.Limits.Cpu(), resourcePercentage, queueContainerLimitCPU); ok {
+		if ok, limitCPU = computeResourceRequirements(userContainer.Resources.Limits.Cpu(), resourcePercentage, queueContainerLimitCPU); ok {
 			resourceLimits[corev1.ResourceCPU] = limitCPU
 		}
 
-		if ok, requestMemory = createUserContainerResourceRequirements(userContainer.Resources.Requests.Memory(), resourcePercentage, queueContainerRequestMemory); ok {
+		if ok, requestMemory = computeResourceRequirements(userContainer.Resources.Requests.Memory(), resourcePercentage, queueContainerRequestMemory); ok {
 			resourceRequests[corev1.ResourceMemory] = requestMemory
 		}
 
-		if ok, limitMemory = createUserContainerResourceRequirements(userContainer.Resources.Limits.Memory(), resourcePercentage, queueContainerLimitMemory); ok {
+		if ok, limitMemory = computeResourceRequirements(userContainer.Resources.Limits.Memory(), resourcePercentage, queueContainerLimitMemory); ok {
 			resourceLimits[corev1.ResourceMemory] = limitMemory
 		}
 
@@ -116,7 +116,7 @@ func createQueueResources(annotations map[string]string, userContainer *corev1.C
 	return resources
 }
 
-func createUserContainerResourceRequirements(resourceQuantity *resource.Quantity, percentage float32, boundary resourceBoundary) (bool, resource.Quantity) {
+func computeResourceRequirements(resourceQuantity *resource.Quantity, percentage float32, boundary resourceBoundary) (bool, resource.Quantity) {
 	if resourceQuantity.IsZero() {
 		return false, resource.Quantity{}
 	}
