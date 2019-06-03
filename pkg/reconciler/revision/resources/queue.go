@@ -79,8 +79,7 @@ var (
 	}
 )
 
-func getQueueResources(annotations map[string]string, userContainer *corev1.Container) corev1.ResourceRequirements {
-
+func createQueueResources(annotations map[string]string, userContainer *corev1.Container) corev1.ResourceRequirements {
 	resources := corev1.ResourceRequirements{}
 	resourceRequests := corev1.ResourceList{corev1.ResourceCPU: queueContainerCPU}
 	resourceLimits := corev1.ResourceList{}
@@ -88,21 +87,21 @@ func getQueueResources(annotations map[string]string, userContainer *corev1.Cont
 	var requestCPU, limitCPU, requestMemory, limitMemory resource.Quantity
 	var resourcePercentage float32
 
-	if ok, resourcePercentage = getResourcePercentageFromAnnotations(annotations, serving.QueueSideCarResourcePercentageAnnotation); ok {
+	if ok, resourcePercentage = createResourcePercentageFromAnnotations(annotations, serving.QueueSideCarResourcePercentageAnnotation); ok {
 
-		if ok, requestCPU = getUserContainerResourceRequirements(userContainer.Resources.Requests.Cpu(), resourcePercentage, queueContainerRequestCPU); ok {
+		if ok, requestCPU = createUserContainerResourceRequirements(userContainer.Resources.Requests.Cpu(), resourcePercentage, queueContainerRequestCPU); ok {
 			resourceRequests[corev1.ResourceCPU] = requestCPU
 		}
 
-		if ok, limitCPU = getUserContainerResourceRequirements(userContainer.Resources.Limits.Cpu(), resourcePercentage, queueContainerLimitCPU); ok {
+		if ok, limitCPU = createUserContainerResourceRequirements(userContainer.Resources.Limits.Cpu(), resourcePercentage, queueContainerLimitCPU); ok {
 			resourceLimits[corev1.ResourceCPU] = limitCPU
 		}
 
-		if ok, requestMemory = getUserContainerResourceRequirements(userContainer.Resources.Requests.Memory(), resourcePercentage, queueContainerRequestMemory); ok {
+		if ok, requestMemory = createUserContainerResourceRequirements(userContainer.Resources.Requests.Memory(), resourcePercentage, queueContainerRequestMemory); ok {
 			resourceRequests[corev1.ResourceMemory] = requestMemory
 		}
 
-		if ok, limitMemory = getUserContainerResourceRequirements(userContainer.Resources.Limits.Memory(), resourcePercentage, queueContainerLimitMemory); ok {
+		if ok, limitMemory = createUserContainerResourceRequirements(userContainer.Resources.Limits.Memory(), resourcePercentage, queueContainerLimitMemory); ok {
 			resourceLimits[corev1.ResourceMemory] = limitMemory
 		}
 
@@ -117,7 +116,7 @@ func getQueueResources(annotations map[string]string, userContainer *corev1.Cont
 	return resources
 }
 
-func getUserContainerResourceRequirements(resourceQuantity *resource.Quantity, percentage float32, boundary resourceBoundary) (bool, resource.Quantity) {
+func createUserContainerResourceRequirements(resourceQuantity *resource.Quantity, percentage float32, boundary resourceBoundary) (bool, resource.Quantity) {
 	if resourceQuantity.IsZero() {
 		return false, resource.Quantity{}
 	}
@@ -125,7 +124,7 @@ func getUserContainerResourceRequirements(resourceQuantity *resource.Quantity, p
 	// Incase the resourceQuantity MilliValue overflow in we use MaxInt64
 	// https://github.com/kubernetes/apimachinery/blob/master/pkg/api/resource/quantity.go
 	scaledValue := resourceQuantity.Value()
-	var scaledMilliValue int64 = math.MaxInt64 - 1
+	scaledMilliValue := int64(math.MaxInt64 - 1)
 	if scaledValue < (math.MaxInt64 / 1000) {
 		scaledMilliValue = resourceQuantity.MilliValue()
 	}
@@ -149,7 +148,7 @@ func getUserContainerResourceRequirements(resourceQuantity *resource.Quantity, p
 
 }
 
-func getResourcePercentageFromAnnotations(m map[string]string, k string) (bool, float32) {
+func createResourcePercentageFromAnnotations(m map[string]string, k string) (bool, float32) {
 	v, ok := m[k]
 	if !ok {
 		return false, 0
@@ -158,7 +157,7 @@ func getResourcePercentageFromAnnotations(m map[string]string, k string) (bool, 
 	if err != nil {
 		return false, 0
 	}
-	return true, float32(value)
+	return true, float32(value / 100)
 }
 
 // makeQueueContainer creates the container spec for the queue sidecar.
@@ -194,7 +193,7 @@ func makeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, o
 	return &corev1.Container{
 		Name:           QueueContainerName,
 		Image:          deploymentConfig.QueueSidecarImage,
-		Resources:      getQueueResources(rev.GetAnnotations(), rev.Spec.GetContainer()),
+		Resources:      createQueueResources(rev.GetAnnotations(), rev.Spec.GetContainer()),
 		Ports:          ports,
 		ReadinessProbe: queueReadinessProbe,
 		Env: []corev1.EnvVar{{

@@ -315,7 +315,7 @@ func TestRevisionTemplateSpecValidation(t *testing.T) {
 			},
 		},
 		want: &apis.FieldError{
-			Message: "queue.sidecar.serving.knative.dev/resourcePercentage=200 should be in the range [1,100]",
+			Message: "expected 0.1 <= 200 <= 100",
 			Paths:   []string{serving.QueueSideCarResourcePercentageAnnotation},
 		},
 	}, {

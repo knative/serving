@@ -174,10 +174,7 @@ func validatePercentageAnnotationKey(annotations map[string]string, resourcePerc
 	}
 
 	if value <= float64(0) || value > float64(100) {
-		return &apis.FieldError{
-			Message: fmt.Sprintf("%s=%v should be in the range [1,100]", resourcePercentageAnnotationKey, value),
-			Paths:   []string{resourcePercentageAnnotationKey},
-		}
+		return apis.ErrOutOfBoundsValue(value, 0.1, 100.0, resourcePercentageAnnotationKey)
 	}
 
 	return nil
