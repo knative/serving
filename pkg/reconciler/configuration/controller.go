@@ -40,12 +40,14 @@ func NewController(
 	opt reconciler.Options,
 	configurationInformer servinginformers.ConfigurationInformer,
 	revisionInformer servinginformers.RevisionInformer,
+	routeInformer servinginformers.RouteInformer,
 ) *controller.Impl {
 
 	c := &Reconciler{
 		Base:                reconciler.NewBase(opt, controllerAgentName),
 		configurationLister: configurationInformer.Lister(),
 		revisionLister:      revisionInformer.Lister(),
+		routeLister:         routeInformer.Lister(),
 	}
 	impl := controller.NewImpl(c, c.Logger, "Configurations")
 

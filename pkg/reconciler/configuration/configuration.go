@@ -48,6 +48,7 @@ type Reconciler struct {
 	// listers index properties about resources
 	configurationLister listers.ConfigurationLister
 	revisionLister      listers.RevisionLister
+	routeLister         listers.RouteLister
 
 	configStore configStore
 }
@@ -310,13 +311,19 @@ func (c *Reconciler) gcRevisions(ctx context.Context, config *v1alpha1.Configura
 		return nil
 	}
 
+	route, err := c.routeLister.Routes(config.Namespace).Get(config.Name)
+	if err != nil && !errors.IsNotFound(err) {
+		// Go ahead GC process if route not found.
+		return err
+	}
+
 	// Sort by creation timestamp descending
 	sort.Slice(revs, func(i, j int) bool {
 		return revs[j].CreationTimestamp.Before(&revs[i].CreationTimestamp)
 	})
 
 	for _, rev := range revs[gcSkipOffset:] {
-		if isRevisionStale(ctx, rev, config) {
+		if isRevisionStale(ctx, rev, config, route) {
 			err := c.ServingClientSet.ServingV1alpha1().Revisions(rev.Namespace).Delete(rev.Name, &metav1.DeleteOptions{})
 			if err != nil {
 				logger.Errorf("Failed to delete stale revision: %v", err)
@@ -327,7 +334,7 @@ func (c *Reconciler) gcRevisions(ctx context.Context, config *v1alpha1.Configura
 	return nil
 }
 
-func isRevisionStale(ctx context.Context, rev *v1alpha1.Revision, config *v1alpha1.Configuration) bool {
+func isRevisionStale(ctx context.Context, rev *v1alpha1.Revision, config *v1alpha1.Configuration, route *v1alpha1.Route) bool {
 	cfg := configns.FromContext(ctx).RevisionGC
 	logger := logging.FromContext(ctx)
 
@@ -339,6 +346,14 @@ func isRevisionStale(ctx context.Context, rev *v1alpha1.Revision, config *v1alph
 	if rev.ObjectMeta.CreationTimestamp.Add(cfg.StaleRevisionCreateDelay).After(curTime) {
 		// Revision was created sooner than staleRevisionCreateDelay. Ignore it.
 		return false
+	}
+
+	if route != nil {
+		for _, v := range route.Status.Traffic {
+			if v.RevisionName == rev.Name {
+				return false
+			}
+		}
 	}
 
 	lastPin, err := rev.GetLastPinned()

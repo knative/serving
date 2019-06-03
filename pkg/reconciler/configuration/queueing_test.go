@@ -135,6 +135,7 @@ func newTestController(t *testing.T, stopCh chan struct{}) (
 		},
 		servingInformer.Serving().V1alpha1().Configurations(),
 		servingInformer.Serving().V1alpha1().Revisions(),
+		servingInformer.Serving().V1alpha1().Routes(),
 	)
 
 	return

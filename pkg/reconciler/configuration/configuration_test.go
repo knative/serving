@@ -399,6 +399,7 @@ func TestReconcile(t *testing.T) {
 			Base:                reconciler.NewBase(opt, controllerAgentName),
 			configurationLister: listers.GetConfigurationLister(),
 			revisionLister:      listers.GetRevisionLister(),
+			routeLister:         listers.GetRouteLister(),
 			configStore: &testConfigStore{
 				config: ReconcilerTestConfig(),
 			},
@@ -537,6 +538,7 @@ func TestGCReconcile(t *testing.T) {
 			Base:                reconciler.NewBase(opt, controllerAgentName),
 			configurationLister: listers.GetConfigurationLister(),
 			revisionLister:      listers.GetRevisionLister(),
+			routeLister:         listers.GetRouteLister(),
 			configStore: &testConfigStore{
 				config: &config.Config{
 					RevisionGC: &gc.Config{
@@ -608,6 +610,7 @@ func TestIsRevisionStale(t *testing.T) {
 		name      string
 		rev       *v1alpha1.Revision
 		latestRev string
+		targetRev string
 		want      bool
 	}{{
 		name: "fresh revision that was never pinned",
@@ -652,6 +655,19 @@ func TestIsRevisionStale(t *testing.T) {
 			},
 		},
 		want: true,
+	}, {
+		name: "stale revision that was still used by route",
+		rev: &v1alpha1.Revision{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:              "myrev",
+				CreationTimestamp: metav1.NewTime(staleTime),
+				Annotations: map[string]string{
+					"serving.knative.dev/lastPinned": fmt.Sprintf("%d", staleTime.Unix()),
+				},
+			},
+		},
+		targetRev: "myrev",
+		want:      false,
 	}, {
 		name: "stale revision that was previously pinned",
 		rev: &v1alpha1.Revision{
@@ -712,7 +728,18 @@ func TestIsRevisionStale(t *testing.T) {
 				},
 			}
 
-			got := isRevisionStale(ctx, test.rev, cfg)
+			route := &v1alpha1.Route{
+				Status: v1alpha1.RouteStatus{
+					RouteStatusFields: v1alpha1.RouteStatusFields{
+						Traffic: []v1alpha1.TrafficTarget{{
+							TrafficTarget: v1beta1.TrafficTarget{
+								RevisionName: test.targetRev,
+							}}},
+					},
+				},
+			}
+
+			got := isRevisionStale(ctx, test.rev, cfg, route)
 
 			if got != test.want {
 				t.Errorf("IsRevisionStale want %v got %v", test.want, got)

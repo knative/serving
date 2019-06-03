@@ -107,6 +107,7 @@ func main() {
 			opt,
 			configurationInformer,
 			revisionInformer,
+			routeInformer,
 		),
 		revision.NewController(
 			opt,
