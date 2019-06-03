@@ -181,6 +181,12 @@ func (rs *RevisionStatus) MarkResourcesAvailable() {
 	revCondSet.Manage(rs).MarkTrue(RevisionConditionResourcesAvailable)
 }
 
+// MarkResourcesUnavailable changes "ResourcesAvailable" condition to false to reflect that the
+// resources of the given kind and name cannot be created.
+func (rs *RevisionStatus) MarkResourcesUnavailable(reason, message string) {
+	revCondSet.Manage(rs).MarkFalse(RevisionConditionResourcesAvailable, reason, message)
+}
+
 func (rs *RevisionStatus) MarkActive() {
 	revCondSet.Manage(rs).MarkTrue(RevisionConditionActive)
 }

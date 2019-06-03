@@ -798,6 +798,13 @@ func MarkContainerExiting(exitCode int32, message string) RevisionOption {
 	}
 }
 
+// MarkResourcesUnavailable calls .Status.MarkResourcesUnavailable on the Revision.
+func MarkResourcesUnavailable(reason, message string) RevisionOption {
+	return func(r *v1alpha1.Revision) {
+		r.Status.MarkResourcesUnavailable(reason, message)
+	}
+}
+
 // MarkRevisionReady calls the necessary helpers to make the Revision Ready=True.
 func MarkRevisionReady(r *v1alpha1.Revision) {
 	WithInitRevConditions(r)
@@ -1000,6 +1007,19 @@ func WithFailingContainer(name string, exitCode int, message string) PodOption {
 					Message:  message,
 				},
 			},
+		}}
+	}
+}
+
+// WithUnschedulableContainer sets the .Status.Conditionss on the pod to
+// include `PodScheduled` status to `False` with the given message and reason.
+func WithUnschedulableContainer(reason, message string) PodOption {
+	return func(pod *corev1.Pod) {
+		pod.Status.Conditions = []corev1.PodCondition{{
+			Type:    corev1.PodScheduled,
+			Reason:  reason,
+			Message: message,
+			Status:  corev1.ConditionFalse,
 		}}
 	}
 }
