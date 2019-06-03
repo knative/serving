@@ -2091,7 +2091,7 @@ func cfg(namespace, name string, co ...ConfigOption) *v1alpha1.Configuration {
 			Template: &v1alpha1.RevisionTemplateSpec{
 				Spec: v1alpha1.RevisionSpec{
 					RevisionSpec: v1beta1.RevisionSpec{
-						PodSpec: v1beta1.PodSpec{
+						PodSpec: corev1.PodSpec{
 							Containers: []corev1.Container{{
 								Image: "busybox",
 							}},

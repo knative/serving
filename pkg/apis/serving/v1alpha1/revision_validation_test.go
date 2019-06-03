@@ -103,7 +103,7 @@ func TestRevisionSpecValidation(t *testing.T) {
 		name: "missing container",
 		rs: &RevisionSpec{
 			RevisionSpec: v1beta1.RevisionSpec{
-				PodSpec: v1beta1.PodSpec{
+				PodSpec: corev1.PodSpec{
 					Volumes: []corev1.Volume{{
 						Name: "the-name",
 						VolumeSource: corev1.VolumeSource{
@@ -128,7 +128,7 @@ func TestRevisionSpecValidation(t *testing.T) {
 				}},
 			},
 			RevisionSpec: v1beta1.RevisionSpec{
-				PodSpec: v1beta1.PodSpec{
+				PodSpec: corev1.PodSpec{
 					Volumes: []corev1.Volume{{
 						Name: "the-name",
 						VolumeSource: corev1.VolumeSource{
@@ -153,7 +153,7 @@ func TestRevisionSpecValidation(t *testing.T) {
 				}},
 			},
 			RevisionSpec: v1beta1.RevisionSpec{
-				PodSpec: v1beta1.PodSpec{
+				PodSpec: corev1.PodSpec{
 					Volumes: []corev1.Volume{{
 						Name: "the-name",
 						VolumeSource: corev1.VolumeSource{

@@ -93,7 +93,7 @@ func testRevision() *v1alpha1.Revision {
 		},
 		Spec: v1alpha1.RevisionSpec{
 			RevisionSpec: v1beta1.RevisionSpec{
-				PodSpec: v1beta1.PodSpec{
+				PodSpec: corev1.PodSpec{
 					// corev1.Container has a lot of setting.  We try to pass many
 					// of them here to verify that we pass through the settings to
 					// derived objects.

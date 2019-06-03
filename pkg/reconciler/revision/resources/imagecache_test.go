@@ -95,7 +95,7 @@ func TestMakeImageCache(t *testing.T) {
 			Spec: v1alpha1.RevisionSpec{
 				RevisionSpec: v1beta1.RevisionSpec{
 					ContainerConcurrency: 1,
-					PodSpec: v1beta1.PodSpec{
+					PodSpec: corev1.PodSpec{
 						ServiceAccountName: "privilegeless",
 					},
 				},

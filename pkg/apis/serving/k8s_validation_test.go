@@ -140,7 +140,7 @@ func TestPodSpecValidation(t *testing.T) {
 		ps: corev1.PodSpec{
 			Containers: []corev1.Container{},
 		},
-		want: apis.ErrMissingField(apis.CurrentField),
+		want: apis.ErrMissingField("containers"),
 	}, {
 		name: "missing container",
 		ps: corev1.PodSpec{

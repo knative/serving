@@ -721,7 +721,7 @@ func rev(namespace, name string, ro ...RevisionOption) *v1alpha1.Revision {
 		},
 		Spec: v1alpha1.RevisionSpec{
 			RevisionSpec: v1beta1.RevisionSpec{
-				PodSpec: v1beta1.PodSpec{
+				PodSpec: corev1.PodSpec{
 					Containers: []corev1.Container{{
 						Image: "busybox",
 					}},

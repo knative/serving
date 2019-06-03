@@ -93,7 +93,7 @@ func TestMakeQueueContainer(t *testing.T) {
 				RevisionSpec: v1beta1.RevisionSpec{
 					ContainerConcurrency: 1,
 					TimeoutSeconds:       ptr.Int64(45),
-					PodSpec: v1beta1.PodSpec{
+					PodSpec: corev1.PodSpec{
 						Containers: []corev1.Container{{
 							Ports: []corev1.ContainerPort{{
 								ContainerPort: 1955,
