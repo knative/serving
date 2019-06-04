@@ -322,8 +322,6 @@ func (r *reconciler) reconcilePrivateService(ctx context.Context, sks *netv1alph
 		return fmt.Errorf("SKS: %s does not own Service: %s", sks.Name, svc.Name)
 	} else {
 		tmpl := resources.MakePrivateService(sks, selector)
-		tmpl.Name = svc.Name
-		tmpl.GenerateName = ""
 		want := svc.DeepCopy()
 		// Our controller manages only part of spec, so set the fields we own.
 		want.Spec.Ports = tmpl.Spec.Ports
