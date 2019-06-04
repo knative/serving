@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"reflect"
 	"strconv"
-	"time"
 
 	"github.com/knative/pkg/controller"
 	"github.com/knative/pkg/logging"
@@ -215,15 +214,15 @@ func (c *Reconciler) reconcile(ctx context.Context, pa *pav1alpha1.PodAutoscaler
 		return perrors.Wrap(err, "error reporting metrics")
 	}
 
-	timeout := config.FromContext(ctx).Autoscaler.ActivatingTimeout
 	if pa.Status.IsActivating() {
+		timeout := config.FromContext(ctx).Autoscaler.ActivatingTimeout
 		logger.Infof("enqueue delay for check activating timeout after %v.", timeout)
 		c.scaler.enqueueCB(pa, timeout)
 	}
 
 	// computeActiveCondition decides if we need to change the SKS mode,
 	// and returns true if the status has changed.
-	if changed := computeActiveCondition(pa, want, got, timeout); changed {
+	if changed := computeActiveCondition(pa, want, got); changed {
 		_, err := c.reconcileSKS(ctx, pa)
 		if err != nil {
 			return perrors.Wrap(err, "error re-reconciling SKS")
@@ -381,7 +380,7 @@ func reportMetrics(pa *pav1alpha1.PodAutoscaler, want int32, got int) error {
 
 // computeActiveCondition updates the status of PA, depending on scales desired and present.
 // computeActiveCondition returns true if it thinks SKS needs an update.
-func computeActiveCondition(pa *pav1alpha1.PodAutoscaler, want int32, got int, timeout time.Duration) (ret bool) {
+func computeActiveCondition(pa *pav1alpha1.PodAutoscaler, want int32, got int) (ret bool) {
 	minReady := activeThreshold(pa)
 
 	switch {
