@@ -236,5 +236,7 @@ func TestScaleFromZero5(t *testing.T) {
 }
 
 func TestScaleFromZero50(t *testing.T) {
+	// Skipping as this is very flaky. https://github.com/knative/serving/issues/4253
+	t.Skip()
 	testScaleFromZero(t, 50 /* parallelism */, 5 /* runs */)
 }
