@@ -22,6 +22,7 @@ import (
 	"github.com/knative/pkg/logging"
 	"github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/autoscaler"
+	"github.com/knative/serving/pkg/reconciler/autoscaling/resources"
 )
 
 // MakeDecider constructs a Decider resource from a PodAutoscaler taking
@@ -51,7 +52,7 @@ func MakeDecider(ctx context.Context, pa *v1alpha1.PodAutoscaler, config *autosc
 	}
 	panicThreshold := target * panicThresholdPercentage / 100.0
 	// TODO: remove MetricSpec when the custom metrics adapter implements Metric.
-	metricSpec := MakeMetric(ctx, pa, config).Spec
+	metricSpec := resources.MakeMetric(ctx, pa, config).Spec
 	return &autoscaler.Decider{
 		ObjectMeta: *pa.ObjectMeta.DeepCopy(),
 		Spec: autoscaler.DeciderSpec{

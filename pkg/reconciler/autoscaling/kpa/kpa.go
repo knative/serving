@@ -329,7 +329,7 @@ func (c *Reconciler) reconcileMetricsService(ctx context.Context, pa *pav1alpha1
 }
 
 func (c *Reconciler) reconcileMetric(ctx context.Context, pa *pav1alpha1.PodAutoscaler) error {
-	desiredMetric := resources.MakeMetric(ctx, pa, config.FromContext(ctx).Autoscaler)
+	desiredMetric := aresources.MakeMetric(ctx, pa, config.FromContext(ctx).Autoscaler)
 	metric, err := c.metrics.Get(ctx, desiredMetric.Namespace, desiredMetric.Name)
 	if errors.IsNotFound(err) {
 		metric, err = c.metrics.Create(ctx, desiredMetric)

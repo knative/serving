@@ -106,3 +106,36 @@ func metric(options ...MetricOption) *autoscaler.Metric {
 	}
 	return m
 }
+
+func pa(options ...PodAutoscalerOption) *v1alpha1.PodAutoscaler {
+	p := &v1alpha1.PodAutoscaler{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "test-namespace",
+			Name:      "test-name",
+			Annotations: map[string]string{
+				autoscaling.ClassAnnotationKey: autoscaling.KPA,
+			},
+		},
+		Spec: v1alpha1.PodAutoscalerSpec{
+			ContainerConcurrency: 0,
+		},
+		Status: v1alpha1.PodAutoscalerStatus{},
+	}
+	for _, fn := range options {
+		fn(p)
+	}
+	return p
+}
+
+var config = &autoscaler.Config{
+	EnableScaleToZero:                    true,
+	ContainerConcurrencyTargetPercentage: 1.0,
+	ContainerConcurrencyTargetDefault:    100.0,
+	MaxScaleUpRate:                       10.0,
+	StableWindow:                         60 * time.Second,
+	PanicThresholdPercentage:             200,
+	PanicWindow:                          6 * time.Second,
+	PanicWindowPercentage:                10,
+	TickInterval:                         2 * time.Second,
+	ScaleToZeroGracePeriod:               30 * time.Second,
+}
