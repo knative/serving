@@ -20,14 +20,18 @@ import (
 	"context"
 	"testing"
 
+	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/controller"
 	logtesting "github.com/knative/pkg/logging/testing"
+	"github.com/knative/pkg/system"
 	autoscalingv1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/apis/networking"
 	nv1a1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
+	"github.com/knative/serving/pkg/autoscaler"
 	fakeKna "github.com/knative/serving/pkg/client/clientset/versioned/fake"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
 	"github.com/knative/serving/pkg/reconciler"
+	"github.com/knative/serving/pkg/reconciler/autoscaling/config"
 	"github.com/knative/serving/pkg/reconciler/autoscaling/hpa/resources"
 	aresources "github.com/knative/serving/pkg/reconciler/autoscaling/resources"
 
@@ -58,6 +62,13 @@ func TestControllerCanReconcile(t *testing.T) {
 		KubeClientSet:    kubeClient,
 		ServingClientSet: servingClient,
 		Logger:           logtesting.TestLogger(t),
+		ConfigMapWatcher: configmap.NewStaticWatcher(&corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: system.Namespace(),
+				Name:      autoscaler.ConfigName,
+			},
+			Data: map[string]string{},
+		}),
 	}
 
 	servingInformer := informers.NewSharedInformerFactory(servingClient, 0)
@@ -406,10 +417,11 @@ func TestReconcile(t *testing.T) {
 	defer logtesting.ClearAll()
 	table.Test(t, MakeFactory(func(listers *Listers, opt reconciler.Options) controller.Reconciler {
 		return &Reconciler{
-			Base:      reconciler.NewBase(opt, controllerAgentName),
-			paLister:  listers.GetPodAutoscalerLister(),
-			sksLister: listers.GetServerlessServiceLister(),
-			hpaLister: listers.GetHorizontalPodAutoscalerLister(),
+			Base:        reconciler.NewBase(opt, controllerAgentName),
+			paLister:    listers.GetPodAutoscalerLister(),
+			sksLister:   listers.GetServerlessServiceLister(),
+			hpaLister:   listers.GetHorizontalPodAutoscalerLister(),
+			configStore: &testConfigStore{config: defaultConfig()},
 		}
 	}))
 }
@@ -486,3 +498,22 @@ func deploy(namespace, name string, opts ...deploymentOption) *appsv1.Deployment
 	}
 	return s
 }
+
+func defaultConfig() *config.Config {
+	autoscalerConfig, _ := autoscaler.NewConfigFromMap(nil)
+	return &config.Config{
+		Autoscaler: autoscalerConfig,
+	}
+}
+
+type testConfigStore struct {
+	config *config.Config
+}
+
+func (t *testConfigStore) ToContext(ctx context.Context) context.Context {
+	return config.ToContext(ctx, t.config)
+}
+
+func (t *testConfigStore) WatchConfigs(w configmap.Watcher) {}
+
+var _ configStore = (*testConfigStore)(nil)
