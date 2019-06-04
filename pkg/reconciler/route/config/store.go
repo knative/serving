@@ -18,6 +18,7 @@ package config
 
 import (
 	"context"
+	"time"
 
 	"github.com/knative/pkg/configmap"
 	"github.com/knative/serving/pkg/gc"
@@ -58,14 +59,14 @@ type Store struct {
 // after the ConfigMap has been processed and stored.
 //
 // See also: configmap.NewUntypedStore().
-func NewStore(logger configmap.Logger, onAfterStore ...func(name string, value interface{})) *Store {
+func NewStore(logger configmap.Logger, minRevisionTimeout time.Duration, onAfterStore ...func(name string, value interface{})) *Store {
 	store := &Store{
 		UntypedStore: configmap.NewUntypedStore(
 			"route",
 			logger,
 			configmap.Constructors{
 				DomainConfigName:   NewDomainFromConfigMap,
-				gc.ConfigName:      gc.NewConfigFromConfigMap,
+				gc.ConfigName:      gc.NewConfigFromConfigMapFunc(logger, minRevisionTimeout),
 				network.ConfigName: network.NewConfigFromConfigMap,
 			},
 			onAfterStore...,

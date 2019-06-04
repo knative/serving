@@ -19,6 +19,7 @@ package config
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
 	logtesting "github.com/knative/pkg/logging/testing"
@@ -30,7 +31,7 @@ import (
 
 func TestStoreLoadWithContext(t *testing.T) {
 	defer logtesting.ClearAll()
-	store := NewStore(logtesting.TestLogger(t))
+	store := NewStore(logtesting.TestLogger(t), 10*time.Hour)
 
 	domainConfig := ConfigMapFromTestFile(t, DomainConfigName)
 	gcConfig := ConfigMapFromTestFile(t, gc.ConfigName)
@@ -50,16 +51,32 @@ func TestStoreLoadWithContext(t *testing.T) {
 	})
 
 	t.Run("gc", func(t *testing.T) {
-		expected, _ := gc.NewConfigFromConfigMap(gcConfig)
+		expected, err := gc.NewConfigFromConfigMapFunc(logtesting.TestLogger(t), 10*time.Hour)(gcConfig)
+		if err != nil {
+			t.Errorf("Parsing configmap: %v", err)
+		}
 		if diff := cmp.Diff(expected, config.GC); diff != "" {
 			t.Errorf("Unexpected controller config (-want, +got): %v", diff)
+		}
+	})
+
+	t.Run("gc invalid timeout", func(t *testing.T) {
+		gcConfig.Data["stale-revision-timeout"] = "1h"
+		expected, err := gc.NewConfigFromConfigMapFunc(logtesting.TestLogger(t), 10*time.Hour)(gcConfig)
+
+		if err != nil {
+			t.Errorf("Got error parsing gc config with invalid timeout: %v", err)
+		}
+
+		if expected.StaleRevisionTimeout != 15*time.Hour {
+			t.Errorf("Expected revision timeout of %v, got %v", 15*time.Hour, expected.StaleRevisionTimeout)
 		}
 	})
 }
 
 func TestStoreImmutableConfig(t *testing.T) {
 	defer logtesting.ClearAll()
-	store := NewStore(logtesting.TestLogger(t))
+	store := NewStore(logtesting.TestLogger(t), 10*time.Hour)
 	store.OnConfigChanged(ConfigMapFromTestFile(t, DomainConfigName))
 	store.OnConfigChanged(ConfigMapFromTestFile(t, network.ConfigName))
 	store.OnConfigChanged(ConfigMapFromTestFile(t, gc.ConfigName))
