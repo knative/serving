@@ -27,6 +27,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+const (
+	ConditionTimeout corev1.ConditionStatus = "Timeout"
+)
+
 // Conditions is the interface for a Resource that implements the getter and
 // setter for accessing a Condition collection.
 // +k8s:deepcopy-gen=true
@@ -70,6 +74,9 @@ type ConditionManager interface {
 
 	// MarkFalse sets the status of t and the happy condition to False.
 	MarkFalse(t ConditionType, reason, messageFormat string, messageA ...interface{})
+
+	// MarkTimeout sets the status of t and the happy condition to Timeout.
+	MarkTimeout(t ConditionType, reason, messageFormat string, messageA ...interface{})
 
 	// InitializeConditions updates all Conditions in the ConditionSet to Unknown
 	// if not set.
@@ -289,6 +296,26 @@ func (r conditionsImpl) MarkFalse(t ConditionType, reason, messageFormat string,
 		r.SetCondition(Condition{
 			Type:     t,
 			Status:   corev1.ConditionFalse,
+			Reason:   reason,
+			Message:  fmt.Sprintf(messageFormat, messageA...),
+			Severity: r.severity(t),
+		})
+	}
+}
+
+// MarkTimeout sets the status of t and the happy condition to timeout.
+func (r conditionsImpl) MarkTimeout(t ConditionType, reason, messageFormat string, messageA ...interface{}) {
+	types := []ConditionType{t}
+	for _, cond := range r.dependents {
+		if cond == t {
+			types = append(types, r.happy)
+		}
+	}
+
+	for _, t := range types {
+		r.SetCondition(Condition{
+			Type:     t,
+			Status:   ConditionTimeout,
 			Reason:   reason,
 			Message:  fmt.Sprintf(messageFormat, messageA...),
 			Severity: r.severity(t),

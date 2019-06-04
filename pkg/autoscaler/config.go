@@ -51,6 +51,7 @@ type Config struct {
 	TickInterval time.Duration
 
 	ScaleToZeroGracePeriod time.Duration
+	ActivatingTimeout      time.Duration
 }
 
 // TargetConcurrency calculates the target concurrency for a given container-concurrency
@@ -142,6 +143,10 @@ func NewConfigFromMap(data map[string]string) (*Config, error) {
 		key:          "tick-interval",
 		field:        &lc.TickInterval,
 		defaultValue: 2 * time.Second,
+	}, {
+		key:          "activating-timeout",
+		field:        &lc.ActivatingTimeout,
+		defaultValue: 2 * time.Minute,
 	}} {
 		if raw, ok := data[dur.key]; !ok {
 			*dur.field = dur.defaultValue

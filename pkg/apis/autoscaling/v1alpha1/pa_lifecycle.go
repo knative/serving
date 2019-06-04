@@ -165,6 +165,11 @@ func (pas *PodAutoscalerStatus) MarkInactive(reason, message string) {
 	podCondSet.Manage(pas.duck()).MarkFalse(PodAutoscalerConditionActive, reason, message)
 }
 
+// MarkActivatingTime marks the PA as activating timeout.
+func (pas *PodAutoscalerStatus) MarkActivatingTimeout(reason, message string) {
+	podCondSet.Manage(pas.duck()).MarkTimeout(PodAutoscalerConditionActive, reason, message)
+}
+
 // MarkResourceNotOwned changes the "Active" condition to false to reflect that the
 // resource of the given kind and name has already been created, and we do not own it.
 func (pas *PodAutoscalerStatus) MarkResourceNotOwned(kind, name string) {
@@ -189,6 +194,12 @@ func (pas *PodAutoscalerStatus) CanScaleToZero(gracePeriod time.Duration) bool {
 // for at least the specified idle period.
 func (pas *PodAutoscalerStatus) CanMarkInactive(idlePeriod time.Duration) bool {
 	return pas.inStatusFor(corev1.ConditionTrue, idlePeriod)
+}
+
+// IsActivatingTimeout checks whether the pod autoscaler has been in activating
+// for at least the specified timeout period.
+func (pas *PodAutoscalerStatus) IsActivatingTimeout(activatingTimeout time.Duration) bool {
+	return pas.inStatusFor(corev1.ConditionUnknown, activatingTimeout)
 }
 
 // inStatusFor returns true if the PodAutoscalerStatus's Active condition has stayed in

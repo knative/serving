@@ -163,8 +163,13 @@ func scaleResourceArgs(pa *pav1alpha1.PodAutoscaler) (*schema.GroupVersionResour
 }
 
 func (ks *scaler) handleScaleToZero(pa *pav1alpha1.PodAutoscaler, desiredScale int32, config *autoscaler.Config) (int32, bool) {
-	if desiredScale != 0 {
+	if desiredScale > 0 {
 		return desiredScale, true
+	}
+
+	if desiredScale < 0 && !pa.Status.IsActivating() {
+		ks.logger.Info("Metrics are not yet being collected.")
+		return desiredScale, false
 	}
 
 	// We should only scale to zero when three of the following conditions are true:
@@ -179,6 +184,11 @@ func (ks *scaler) handleScaleToZero(pa *pav1alpha1.PodAutoscaler, desiredScale i
 	if pa.Status.IsActivating() { // Active=Unknown
 		// Don't scale-to-zero during activation
 		if min, _ := pa.ScaleBounds(); min == 0 {
+			if pa.Status.IsActivatingTimeout(config.ActivatingTimeout) {
+				ks.logger.Infof("activating timeout after %v", config.ActivatingTimeout)
+				return 0, true
+			}
+			ks.logger.Info("activating, don't scale to zero")
 			return scaleUnknown, false
 		}
 	} else if pa.Status.IsReady() { // Active=True
@@ -188,7 +198,7 @@ func (ks *scaler) handleScaleToZero(pa *pav1alpha1.PodAutoscaler, desiredScale i
 		if pa.Status.CanMarkInactive(config.StableWindow) {
 			// We do not need to enqueue PA here, since this will
 			// make SKS reconcile and when it's done, PA will be reconciled again.
-			return desiredScale, false
+			return 0, false
 		}
 		// Otherwise, scale down to 1 until the idle period elapses and re-enqueue
 		// the PA for reconciliation at that time.
@@ -253,11 +263,6 @@ func (ks *scaler) applyScale(ctx context.Context, pa *pav1alpha1.PodAutoscaler, 
 // Scale attempts to scale the given PA's target reference to the desired scale.
 func (ks *scaler) Scale(ctx context.Context, pa *pav1alpha1.PodAutoscaler, desiredScale int32) (int32, error) {
 	logger := logging.FromContext(ctx)
-
-	if desiredScale < 0 {
-		logger.Debug("Metrics are not yet being collected.")
-		return desiredScale, nil
-	}
 
 	desiredScale, shouldApplyScale := ks.handleScaleToZero(pa, desiredScale, config.FromContext(ctx).Autoscaler)
 	if !shouldApplyScale {
