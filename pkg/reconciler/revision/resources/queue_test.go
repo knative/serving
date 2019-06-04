@@ -465,6 +465,59 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 				"SERVING_SERVICE": "svc",
 			}),
 		}}, {
+		name: "Invalid resources percentage in annotations",
+		rev: &v1alpha1.Revision{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: "foo",
+				Name:      "bar",
+				UID:       "1234",
+				Labels: map[string]string{
+					serving.ServiceLabelKey: "svc",
+				},
+				Annotations: map[string]string{
+					serving.QueueSideCarResourcePercentageAnnotation: "foo",
+				},
+			},
+			Spec: v1alpha1.RevisionSpec{
+				RevisionSpec: v1beta1.RevisionSpec{
+					ContainerConcurrency: 1,
+					TimeoutSeconds:       ptr.Int64(45),
+					PodSpec: corev1.PodSpec{
+						Containers: []corev1.Container{{
+							Name: "bar",
+							Resources: corev1.ResourceRequirements{
+								Requests: corev1.ResourceList{
+									corev1.ResourceName("cpu"):    resource.MustParse("50m"),
+									corev1.ResourceName("memory"): resource.MustParse("128Mi"),
+								},
+							},
+						}},
+					},
+				},
+			},
+		},
+		lc: &logging.Config{},
+		oc: &metrics.ObservabilityConfig{},
+		ac: &autoscaler.Config{},
+		cc: &deployment.Config{
+			QueueSidecarImage: "alpine",
+		},
+		want: &corev1.Container{
+			// These are effectively constant
+			Name: QueueContainerName,
+			Resources: corev1.ResourceRequirements{
+				Requests: corev1.ResourceList{
+					corev1.ResourceName("cpu"): resource.MustParse("25m"),
+				},
+			},
+			Ports:          append(queueNonServingPorts, queueHTTPPort),
+			ReadinessProbe: queueReadinessProbe,
+			// These changed based on the Revision and configs passed in.
+			Image: "alpine",
+			Env: env(map[string]string{
+				"SERVING_SERVICE": "svc",
+			}),
+		}}, {
 		name: "resources percentage in annotations bigger than than math.MaxInt64",
 		rev: &v1alpha1.Revision{
 			ObjectMeta: metav1.ObjectMeta{
@@ -475,7 +528,7 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 					serving.ServiceLabelKey: "svc",
 				},
 				Annotations: map[string]string{
-					serving.QueueSideCarResourcePercentageAnnotation: "1",
+					serving.QueueSideCarResourcePercentageAnnotation: "100",
 				},
 			},
 			Spec: v1alpha1.RevisionSpec{
