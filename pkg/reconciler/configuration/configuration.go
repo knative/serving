@@ -311,10 +311,17 @@ func (c *Reconciler) gcRevisions(ctx context.Context, config *v1alpha1.Configura
 		return nil
 	}
 
-	route, err := c.routeLister.Routes(config.Namespace).Get(config.Name)
-	if err != nil && !errors.IsNotFound(err) {
-		// Go ahead GC process if route not found.
-		return err
+	var route *v1alpha1.Route
+
+	routeName, ok := config.GetLabels()[serving.RouteLabelKey]
+	if !ok {
+		logger.Warnf("%s does not have %q label", config.Name, serving.RouteLabelKey)
+	} else {
+		route, err = c.routeLister.Routes(config.Namespace).Get(routeName)
+		if err != nil && !errors.IsNotFound(err) {
+			// Go ahead GC process if route not found.
+			return err
+		}
 	}
 
 	// Sort by creation timestamp descending
