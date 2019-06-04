@@ -46,14 +46,6 @@ func (sss *ServerlessServiceStatus) MarkEndpointsReady() {
 	serverlessServiceCondSet.Manage(sss).MarkTrue(ServerlessServiceConditionEndspointsPopulated)
 }
 
-// MarkDuplicateServices marks SKS as failed due to the fact that it owns
-// more than one private service.
-func (sss *ServerlessServiceStatus) MarkDuplicateServices() {
-	serverlessServiceCondSet.Manage(sss).MarkFalse(
-		ServerlessServiceConditionEndspointsPopulated, "DuplicatePrivateService",
-		"SKS owns more than one private service")
-}
-
 // MarkEndpointsNotOwned marks that we don't own K8s service.
 func (sss *ServerlessServiceStatus) MarkEndpointsNotOwned(kind, name string) {
 	serverlessServiceCondSet.Manage(sss).MarkFalse(

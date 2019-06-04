@@ -37,6 +37,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	kubeinformers "k8s.io/client-go/informers"
 	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
@@ -120,6 +121,34 @@ func TestReconcile(t *testing.T) {
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Updated", `Successfully updated ServerlessService "steady/to-proxy"`),
 		},
+	}, {
+		Name: "many-private-services",
+		Key:  "many/privates",
+		Objects: []runtime.Object{
+			SKS("many", "privates", markHappy, WithPubService, WithPrivateService("privates-elegance-required"),
+				WithDeployRef("bar")),
+			deploy("many", "bar"),
+			svcpub("many", "privates"),
+			svcpriv("many", "privates", svcWithName("privates-elegance-required")),
+			svcpriv("many", "privates", svcWithName("privates-brutality-is-here")),
+			svcpriv("many", "privates", svcWithName("privates-uncharacteristically-pretty"),
+				WithK8sSvcOwnersRemoved), // unowned, should remain.
+			endpointspub("many", "privates", WithSubsets),
+			endpointspriv("many", "privates", WithSubsets, epsWithName("privates-elegance-required")),
+			activatorEndpoints(WithSubsets),
+		},
+		WantDeletes: []clientgotesting.DeleteActionImpl{{
+			ActionImpl: clientgotesting.ActionImpl{
+				Namespace: "many",
+				Verb:      "delete",
+				Resource: schema.GroupVersionResource{
+					Group:    "core",
+					Version:  "v1",
+					Resource: "services",
+				},
+			},
+			Name: "privates-brutality-is-here",
+		}},
 	}, {
 		Name: "user changes public svc",
 		Key:  "public/svc-change",
@@ -255,7 +284,7 @@ func TestReconcile(t *testing.T) {
 		Name: "OnCreate-no-eps",
 		Key:  "on/cneps",
 		Objects: []runtime.Object{
-			SKS("on", "cneps", WithDeployRef("blah")),
+			SKS("on", "cneps", WithDeployRef("blah"), WithPrivateService("cneps-incorrect")),
 			deploy("on", "blah"),
 			endpointspriv("on", "cneps", epsWithName("cneps-00001")),
 			activatorEndpoints(WithSubsets),

@@ -216,20 +216,17 @@ func (r *reconciler) reconcilePublicEndpoints(ctx context.Context, sks *netv1alp
 	//
 	switch sks.Spec.Mode {
 	case netv1alpha1.SKSOperationModeServe:
-		// Service and Endpoints have the same name.
-		svc, err := r.privateService(sks)
+		// We should have successfully reconciled the private service if we're here
+		// which means that we'd have the name assigned in Status.
+		psn := sks.Status.PrivateServiceName
+		srcEps, err = r.endpointsLister.Endpoints(sks.Namespace).Get(sks.Status.PrivateServiceName)
 		if err != nil {
-			logger.Errorw("Error obtaining private service for SKS: "+sks.Name, zap.Error(err))
-			return err
-		}
-		srcEps, err = r.endpointsLister.Endpoints(sks.Namespace).Get(svc.Name)
-		if err != nil {
-			logger.Errorw(fmt.Sprintf("Error obtaining private service endpoints: %s", svc.Name), zap.Error(err))
+			logger.Errorw(fmt.Sprintf("Error obtaining private service endpoints: %s", psn), zap.Error(err))
 			return err
 		}
 		logger.Debugf("Private endpoints: %s", spew.Sprint(srcEps))
 		if r := presources.ReadyAddressCount(srcEps); r == 0 {
-			logger.Infof("%s is in mode Serve but has no endpoints, using Activator endpoints for now", svc.Name)
+			logger.Infof("%s is in mode Serve but has no endpoints, using Activator endpoints for now", psn)
 			srcEps = activatorEps
 		} else {
 			foundServingEndpoints = true
@@ -291,8 +288,21 @@ func (r *reconciler) privateService(sks *netv1alpha1.ServerlessService) (*corev1
 	case 1:
 		return svcs[0], nil
 	default:
-		return nil, fmt.Errorf("SKS %s owns %d private service, must be 1", sks.Name, l)
+		// We encountered more than one. Keep the one that is in the SKS status and delete the others.
+		var ret *corev1.Service
+		for _, s := range svcs {
+			if s.Name == sks.Status.PrivateServiceName {
+				ret = s
+				continue
+			}
+			// If we don't control it, don't delete it.
+			if metav1.IsControlledBy(s, sks) {
+				r.KubeClientSet.CoreV1().Services(sks.Namespace).Delete(s.Name, &metav1.DeleteOptions{})
+			}
+		}
+		return ret, nil
 	}
+	return nil, apierrs.NewNotFound(corev1.Resource("Services"), sks.Name)
 }
 
 func (r *reconciler) reconcilePrivateService(ctx context.Context, sks *netv1alpha1.ServerlessService) error {
