@@ -18,13 +18,9 @@ package resources
 
 import (
 	"testing"
-	"time"
 
-	"github.com/knative/serving/pkg/apis/autoscaling"
 	"github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
-	"github.com/knative/serving/pkg/autoscaler"
 	. "github.com/knative/serving/pkg/reconciler/testing"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func TestResolveTargetConcurrency(t *testing.T) {
@@ -39,7 +35,7 @@ func TestResolveTargetConcurrency(t *testing.T) {
 	}, {
 		name: "with container concurrency 1",
 		pa:   pa(WithContainerConcurrency(1)),
-		want: 1.5,
+		want: 1,
 	}, {
 		name: "with target annotation 1",
 		pa:   pa(WithTargetAnnotation("1")),
@@ -51,7 +47,7 @@ func TestResolveTargetConcurrency(t *testing.T) {
 	}, {
 		name: "with target annotation greater than container concurrency (ignore annotation for safety)",
 		pa:   pa(WithContainerConcurrency(1), WithTargetAnnotation("10")),
-		want: 1.5,
+		want: 1,
 	}}
 
 	for _, tc := range cases {
@@ -61,37 +57,4 @@ func TestResolveTargetConcurrency(t *testing.T) {
 			}
 		})
 	}
-}
-
-func pa(options ...PodAutoscalerOption) *v1alpha1.PodAutoscaler {
-	p := &v1alpha1.PodAutoscaler{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: "test-namespace",
-			Name:      "test-name",
-			Annotations: map[string]string{
-				autoscaling.ClassAnnotationKey: autoscaling.KPA,
-			},
-		},
-		Spec: v1alpha1.PodAutoscalerSpec{
-			ContainerConcurrency: 0,
-		},
-		Status: v1alpha1.PodAutoscalerStatus{},
-	}
-	for _, fn := range options {
-		fn(p)
-	}
-	return p
-}
-
-var config = &autoscaler.Config{
-	EnableScaleToZero:                    true,
-	ContainerConcurrencyTargetPercentage: 1.5,
-	ContainerConcurrencyTargetDefault:    100.0,
-	MaxScaleUpRate:                       10.0,
-	StableWindow:                         60 * time.Second,
-	PanicThresholdPercentage:             200,
-	PanicWindow:                          6 * time.Second,
-	PanicWindowPercentage:                10,
-	TickInterval:                         2 * time.Second,
-	ScaleToZeroGracePeriod:               30 * time.Second,
 }
