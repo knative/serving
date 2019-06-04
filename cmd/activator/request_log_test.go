@@ -105,7 +105,7 @@ func TestUpdateRequestLogFromConfigMap(t *testing.T) {
 			}
 			handler.ServeHTTP(resp, req)
 
-			got := string(buf.Bytes())
+			got := buf.String()
 			if got != test.want {
 				t.Errorf("got '%v', want '%v'", got, test.want)
 			}
