@@ -130,7 +130,7 @@ func TestReconcile(t *testing.T) {
 			pa(testRevision, testNamespace, WithHPAClass),
 			deploy(testNamespace, testRevision),
 			sks(testNamespace, testRevision, WithDeployRef(deployName), WithPubService,
-				WithPrivateService),
+				WithPrivateService(testRevision+"-rand")),
 		},
 		WantStatusUpdates: []ktesting.UpdateActionImpl{{
 			Object: pa(testRevision, testNamespace, WithHPAClass, WithTraffic,
@@ -177,7 +177,7 @@ func TestReconcile(t *testing.T) {
 			pa(testRevision, testNamespace, WithHPAClass, WithTraffic),
 			deploy(testNamespace, testRevision),
 			sks(testNamespace, testRevision, WithDeployRef(deployName+"-hairy"),
-				WithPubService, WithPrivateService),
+				WithPubService, WithPrivateService(testRevision+"-rand")),
 		},
 		WantStatusUpdates: []ktesting.UpdateActionImpl{{
 			Object: pa(testRevision, testNamespace, WithHPAClass,
@@ -186,7 +186,7 @@ func TestReconcile(t *testing.T) {
 		}},
 		Key: key(testRevision, testNamespace),
 		WantUpdates: []ktesting.UpdateActionImpl{{
-			Object: sks(testNamespace, testRevision, WithDeployRef(deployName), WithPubService, WithPrivateService),
+			Object: sks(testNamespace, testRevision, WithDeployRef(deployName), WithPubService, WithPrivateService(testRevision+"-rand")),
 		}},
 	}, {
 		Name: "reconcile sks - update fails",

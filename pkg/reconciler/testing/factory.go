@@ -71,7 +71,17 @@ func MakeFactory(ctor Ctor) Factory {
 		eventRecorder := record.NewFakeRecorder(maxEventBufferSize)
 		statsReporter := &FakeStatsReporter{}
 
+		// This is needed for the tests that use generated names and
+		// the object cannot be created beforehand.
+		kubeClient.PrependReactor("create", "*",
+			func(action ktesting.Action) (bool, runtime.Object, error) {
+				ca := action.(ktesting.CreateAction)
+				ls.IndexerFor(ca.GetObject()).Add(ca.GetObject())
+				return false, nil, nil
+			},
+		)
 		PrependGenerateNameReactor(&client.Fake)
+		PrependGenerateNameReactor(&kubeClient.Fake)
 		PrependGenerateNameReactor(&dynamicClient.Fake)
 
 		// Set up our Controller from the fakes.
