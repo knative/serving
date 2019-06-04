@@ -69,4 +69,7 @@ func TestSSTypicalFlow(t *testing.T) {
 
 	r.MarkEndpointsNotOwned("service", "jukebox")
 	apitest.CheckConditionFailed(r.duck(), ServerlessServiceConditionReady, t)
+
+	r.MarkDuplicateServices()
+	apitest.CheckConditionFailed(r.duck(), ServerlessServiceConditionReady, t)
 }
