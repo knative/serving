@@ -393,9 +393,6 @@ func computeActiveCondition(pa *pav1alpha1.PodAutoscaler, want int32, got int, t
 		ret = pa.Status.IsInactive() // If we were inactive and became activating.
 		pa.Status.MarkActivating(
 			"Queued", "Requests to the target are being buffered as resources are provisioned.")
-		if pa.Status.IsActivatingTimeout(timeout) {
-			pa.Status.MarkActivatingTimeout("Timeout", "The target is timeout for activating.")
-		}
 
 	case got >= minReady:
 		// SKS should already be active.

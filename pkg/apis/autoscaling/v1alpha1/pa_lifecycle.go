@@ -165,11 +165,6 @@ func (pas *PodAutoscalerStatus) MarkInactive(reason, message string) {
 	podCondSet.Manage(pas.duck()).MarkFalse(PodAutoscalerConditionActive, reason, message)
 }
 
-// MarkActivatingTime marks the PA as activating timeout.
-func (pas *PodAutoscalerStatus) MarkActivatingTimeout(reason, message string) {
-	podCondSet.Manage(pas.duck()).MarkTimeout(PodAutoscalerConditionActive, reason, message)
-}
-
 // MarkResourceNotOwned changes the "Active" condition to false to reflect that the
 // resource of the given kind and name has already been created, and we do not own it.
 func (pas *PodAutoscalerStatus) MarkResourceNotOwned(kind, name string) {
