@@ -67,21 +67,6 @@ type Deciders interface {
 	Update(ctx context.Context, decider *autoscaler.Decider) (*autoscaler.Decider, error)
 }
 
-// Metrics is an interface for notifying the presence or absence of metric collection.
-type Metrics interface {
-	// Get accesses the Metric resource for this key, returning any errors.
-	Get(ctx context.Context, namespace, name string) (*autoscaler.Metric, error)
-
-	// Create adds a Metric resource for a given key, returning any errors.
-	Create(ctx context.Context, metric *autoscaler.Metric) (*autoscaler.Metric, error)
-
-	// Delete removes the Metric resource for a given key, returning any errors.
-	Delete(ctx context.Context, namespace, name string) error
-
-	// Update update the Metric resource, return the new Metric or any errors.
-	Update(ctx context.Context, metric *autoscaler.Metric) (*autoscaler.Metric, error)
-}
-
 // Reconciler tracks PAs and right sizes the ScaleTargetRef based on the
 // information from Deciders.
 type Reconciler struct {
@@ -91,7 +76,7 @@ type Reconciler struct {
 	sksLister       nlisters.ServerlessServiceLister
 	endpointsLister corev1listers.EndpointsLister
 	kpaDeciders     Deciders
-	metrics         Metrics
+	metrics         aresources.Metrics
 	scaler          *scaler
 	configStore     configStore
 }
