@@ -67,4 +67,8 @@ const (
 	// UpdaterAnnotation is the annotation key to describe the user that
 	// last updated the resource.
 	UpdaterAnnotation = GroupName + "/lastModifier"
+
+	// QueueSideCarResourcePercentageAnnotation is the percentage of user container resources to be used for queue-proxy
+	// It has to be in [0.1,100]
+	QueueSideCarResourcePercentageAnnotation = "queue.sidecar." + GroupName + "/resourcePercentage"
 )
