@@ -31,13 +31,15 @@ const (
 	testService   = "test-service"
 )
 
-func TestFetchReadyAddressCount(t *testing.T) {
+func TestScopedEndpointsCounter(t *testing.T) {
 	kubeClient := fakek8s.NewSimpleClientset()
 	endpointsClient := kubeinformers.NewSharedInformerFactory(kubeClient, 0).Core().V1().Endpoints()
 	createEndpoints := func(ep *corev1.Endpoints) {
 		kubeClient.CoreV1().Endpoints(testNamespace).Create(ep)
 		endpointsClient.Informer().GetIndexer().Add(ep)
 	}
+
+	addressCounter := NewScopedEndpointsCounter(endpointsClient.Lister(), testNamespace, testService)
 
 	tests := []struct {
 		name      string
@@ -68,9 +70,9 @@ func TestFetchReadyAddressCount(t *testing.T) {
 			if test.endpoints != nil {
 				createEndpoints(test.endpoints)
 			}
-			got, err := FetchReadyAddressCount(endpointsClient.Lister(), testNamespace, testService)
+			got, err := addressCounter.ReadyCount()
 			if got != test.want {
-				t.Errorf("ReadyAddressCount() = %d, want: %d", got, test.want)
+				t.Errorf("ReadyCount() = %d, want: %d", got, test.want)
 			}
 			if got, want := (err != nil), test.wantErr; got != want {
 				t.Errorf("WantErr = %v, want: %v, err: %v", got, want, err)

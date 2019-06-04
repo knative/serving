@@ -24,8 +24,8 @@ import (
 	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 
-	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
 	"github.com/knative/pkg/apis"
 	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 )
@@ -53,7 +53,7 @@ func TestConfigurationSpecValidation(t *testing.T) {
 			DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 				Spec: RevisionSpec{
 					RevisionSpec: v1beta1.RevisionSpec{
-						PodSpec: v1beta1.PodSpec{
+						PodSpec: corev1.PodSpec{
 							Containers: []corev1.Container{{
 								Image: "hellworld",
 							}},
@@ -77,15 +77,9 @@ func TestConfigurationSpecValidation(t *testing.T) {
 		},
 		want: apis.ErrDisallowedFields("revisionTemplate.spec.container.name"),
 	}, {
-		name: "build is a BuildSpec",
+		name: "build is not allowed",
 		c: &ConfigurationSpec{
-			DeprecatedBuild: &RawExtension{
-				BuildSpec: &buildv1alpha1.BuildSpec{
-					Steps: []corev1.Container{{
-						Image: "foo",
-					}},
-				},
-			},
+			DeprecatedBuild: &runtime.RawExtension{},
 			DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 				Spec: RevisionSpec{
 					DeprecatedContainer: &corev1.Container{
@@ -94,78 +88,11 @@ func TestConfigurationSpecValidation(t *testing.T) {
 				},
 			},
 		},
-		want: nil,
-	}, {
-		name: "build is an Object",
-		c: &ConfigurationSpec{
-			DeprecatedBuild: &RawExtension{
-				Object: &buildv1alpha1.Build{
-					TypeMeta: metav1.TypeMeta{
-						APIVersion: "build.knative.dev/v1alpha1",
-						Kind:       "Build",
-					},
-					Spec: buildv1alpha1.BuildSpec{
-						Steps: []corev1.Container{{
-							Image: "foo",
-						}},
-					},
-				},
-			},
-			DeprecatedRevisionTemplate: &RevisionTemplateSpec{
-				Spec: RevisionSpec{
-					DeprecatedContainer: &corev1.Container{
-						Image: "hellworld",
-					},
-				},
-			},
-		},
-		want: nil,
-	}, {
-		name: "build is missing TypeMeta",
-		c: &ConfigurationSpec{
-			DeprecatedBuild: &RawExtension{
-				Object: &buildv1alpha1.Build{
-					Spec: buildv1alpha1.BuildSpec{
-						Steps: []corev1.Container{{
-							Image: "foo",
-						}},
-					},
-				},
-			},
-			DeprecatedRevisionTemplate: &RevisionTemplateSpec{
-				Spec: RevisionSpec{
-					DeprecatedContainer: &corev1.Container{
-						Image: "hellworld",
-					},
-				},
-			},
-		},
-		want: apis.ErrInvalidValue("Object 'Kind' is missing in '{\"metadata\":{\"creationTimestamp\":null},\"spec\":{\"steps\":[{\"name\":\"\",\"image\":\"foo\",\"resources\":{}}],\"Status\":\"\"},\"status\":{\"stepsCompleted\":null}}'", "build"),
-	}, {
-		name: "build is not an object",
-		c: &ConfigurationSpec{
-			DeprecatedBuild: &RawExtension{
-				Raw: []byte(`"foo"`),
-			},
-			DeprecatedRevisionTemplate: &RevisionTemplateSpec{
-				Spec: RevisionSpec{
-					DeprecatedContainer: &corev1.Container{
-						Image: "hellworld",
-					},
-				},
-			},
-		},
-		want: apis.ErrInvalidValue("json: cannot unmarshal string into Go value of type map[string]interface {}", "build"),
+		want: apis.ErrDisallowedFields("build"),
 	}, {
 		name: "no revision template",
 		c: &ConfigurationSpec{
-			DeprecatedBuild: &RawExtension{
-				BuildSpec: &buildv1alpha1.BuildSpec{
-					Steps: []corev1.Container{{
-						Image: "foo",
-					}},
-				},
-			},
+			DeprecatedBuild: &runtime.RawExtension{},
 		},
 		want: apis.ErrMissingOneOf("revisionTemplate", "template"),
 	}, {
@@ -193,7 +120,7 @@ func TestConfigurationSpecValidation(t *testing.T) {
 			Template: &RevisionTemplateSpec{
 				Spec: RevisionSpec{
 					RevisionSpec: v1beta1.RevisionSpec{
-						PodSpec: v1beta1.PodSpec{
+						PodSpec: corev1.PodSpec{
 							Containers: []corev1.Container{{
 								Image: "hellworld",
 							}},

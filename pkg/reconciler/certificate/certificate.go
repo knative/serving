@@ -23,13 +23,10 @@ import (
 
 	cmv1alpha1 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1alpha1"
 	certmanagerclientset "github.com/jetstack/cert-manager/pkg/client/clientset/versioned"
-	certmanagerinformers "github.com/jetstack/cert-manager/pkg/client/informers/externalversions/certmanager/v1alpha1"
 	certmanagerlisters "github.com/jetstack/cert-manager/pkg/client/listers/certmanager/v1alpha1"
-	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/controller"
 	"github.com/knative/pkg/logging"
 	"github.com/knative/serving/pkg/apis/networking/v1alpha1"
-	informers "github.com/knative/serving/pkg/client/informers/externalversions/networking/v1alpha1"
 	listers "github.com/knative/serving/pkg/client/listers/networking/v1alpha1"
 	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/certificate/config"
@@ -43,15 +40,9 @@ import (
 )
 
 const (
-	controllerAgentName  = "certificate-controller"
 	noCMConditionReason  = "NoCertManagerCertCondition"
 	noCMConditionMessage = "The ready condition of Cert Manager Certifiate does not exist."
 )
-
-type configStore interface {
-	ToContext(ctx context.Context) context.Context
-	WatchConfigs(w configmap.Watcher)
-}
 
 // Reconciler implements controller.Reconciler for Certificate resources.
 type Reconciler struct {
@@ -63,46 +54,6 @@ type Reconciler struct {
 	certManagerClient   certmanagerclientset.Interface
 
 	configStore configStore
-}
-
-// NewController initializes the controller and is called by the generated code
-// Registers eventhandlers to enqueue events.
-func NewController(
-	opt reconciler.Options,
-	knCertificateInformer informers.CertificateInformer,
-	cmCertificateInformer certmanagerinformers.CertificateInformer,
-	certManagerClient certmanagerclientset.Interface,
-) *controller.Impl {
-	c := &Reconciler{
-		Base:                reconciler.NewBase(opt, controllerAgentName),
-		knCertificateLister: knCertificateInformer.Lister(),
-		cmCertificateLister: cmCertificateInformer.Lister(),
-		certManagerClient:   certManagerClient,
-	}
-
-	impl := controller.NewImpl(c, c.Logger, "Certificate", reconciler.MustNewStatsReporter("Certificate", c.Logger))
-
-	c.Logger.Info("Setting up event handlers")
-	knCertificateInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    impl.Enqueue,
-		UpdateFunc: controller.PassNew(impl.Enqueue),
-		DeleteFunc: impl.Enqueue,
-	})
-
-	cmCertificateInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    impl.EnqueueControllerOf,
-		UpdateFunc: controller.PassNew(impl.EnqueueControllerOf),
-		DeleteFunc: impl.EnqueueControllerOf,
-	})
-
-	c.Logger.Info("Setting up ConfigMap receivers")
-	resyncCertOnCertManagerconfigChange := configmap.TypeFilter(&config.CertManagerConfig{})(func(string, interface{}) {
-		impl.GlobalResync(knCertificateInformer.Informer())
-	})
-	c.configStore = config.NewStore(c.Logger.Named("config-store"), resyncCertOnCertManagerconfigChange)
-	c.configStore.WatchConfigs(opt.ConfigMapWatcher)
-
-	return impl
 }
 
 // Check that our Reconciler implements controller.Reconciler

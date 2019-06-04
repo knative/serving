@@ -18,14 +18,9 @@ required = [
   version = "v2.2.1"
 
 [[override]]
-  name = "github.com/knative/build"
-  # HEAD as of 2019-03-21
-  revision = "dd3ceb3323922b899a0a913f885fcf59943e7b59"
-
-[[override]]
   name = "github.com/knative/pkg"
-  # HEAD as of 2919-05-11
-  revision = "9e0db8f0a7f47def18cf65e0859066d5e0377304"
+  # HEAD as of 2919-05-28
+  revision = "15b1aa79be0b927a9e62d1738b03ef3efb2745f3"
 
 [[override]]
   name = "go.uber.org/zap"
@@ -73,6 +68,19 @@ required = [
   # Needed because this includes a fix to support Stackdriver built-in metrics
   revision = "c06c82c832edca4eaf7b0241bd655560a1be0346"
 
+# Added for the custom-metrics-apiserver specifically
+[[override]]
+  name = "github.com/kubernetes-incubator/custom-metrics-apiserver"
+  revision = "b7016fc85e1c960758aef23e1d456a66997d1e26"
+
+[[override]]
+  name = "k8s.io/apiserver"
+  version = "kubernetes-1.12.6"
+
+[[override]]
+  name = "k8s.io/metrics"
+  version = "kubernetes-1.12.6"
+
 [prune]
   go-tests = true
   unused-packages = true
@@ -92,3 +100,6 @@ required = [
   name = "github.com/knative/test-infra"
   non-go = false
 
+[[prune.project]]
+  name = "bitbucket.org/ww/goautoneg"
+  non-go = false

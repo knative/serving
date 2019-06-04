@@ -16,11 +16,6 @@ limitations under the License.
 
 package revision
 
-/* TODO tests:
-- When a Revision is updated TODO
-- When a Revision is deleted TODO
-*/
-
 import (
 	"context"
 	"errors"
@@ -36,11 +31,13 @@ import (
 	fakecachingclientset "github.com/knative/caching/pkg/client/clientset/versioned/fake"
 	cachinginformers "github.com/knative/caching/pkg/client/informers/externalversions"
 	"github.com/knative/pkg/apis"
-	"github.com/knative/pkg/apis/duck"
 	"github.com/knative/pkg/configmap"
 	ctrl "github.com/knative/pkg/controller"
 	"github.com/knative/pkg/kmeta"
+	"github.com/knative/pkg/logging"
 	logtesting "github.com/knative/pkg/logging/testing"
+	"github.com/knative/pkg/metrics"
+	_ "github.com/knative/pkg/metrics/testing"
 	"github.com/knative/pkg/system"
 	av1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving"
@@ -49,8 +46,6 @@ import (
 	fakeclientset "github.com/knative/serving/pkg/client/clientset/versioned/fake"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
 	"github.com/knative/serving/pkg/deployment"
-	"github.com/knative/serving/pkg/logging"
-	"github.com/knative/serving/pkg/metrics"
 	"github.com/knative/serving/pkg/network"
 	rclr "github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/revision/resources"
@@ -68,6 +63,7 @@ import (
 	"k8s.io/client-go/tools/record"
 
 	. "github.com/knative/pkg/reconciler/testing"
+	. "github.com/knative/serving/pkg/reconciler/testing"
 )
 
 func testConfiguration() *v1alpha1.Configuration {
@@ -118,14 +114,13 @@ func newTestControllerWithConfig(t *testing.T, deploymentConfig *deployment.Conf
 	kubeInformer kubeinformers.SharedInformerFactory,
 	servingInformer informers.SharedInformerFactory,
 	cachingInformer cachinginformers.SharedInformerFactory,
-	configMapWatcher *configmap.ManualWatcher,
-	buildInformerFactory duck.InformerFactory) {
+	configMapWatcher *configmap.ManualWatcher) {
 
 	// Create fake clients
 	kubeClient = fakekubeclientset.NewSimpleClientset()
 	servingClient = fakeclientset.NewSimpleClientset()
 	cachingClient = fakecachingclientset.NewSimpleClientset()
-	dynamicClient = fakedynamic.NewSimpleDynamicClient(runtime.NewScheme())
+	dynamicClient = fakedynamic.NewSimpleDynamicClient(NewScheme())
 
 	configMapWatcher = &configmap.ManualWatcher{Namespace: system.Namespace()}
 
@@ -145,7 +140,6 @@ func newTestControllerWithConfig(t *testing.T, deploymentConfig *deployment.Conf
 	kubeInformer = kubeinformers.NewSharedInformerFactory(kubeClient, opt.ResyncPeriod)
 	servingInformer = informers.NewSharedInformerFactory(servingClient, opt.ResyncPeriod)
 	cachingInformer = cachinginformers.NewSharedInformerFactory(cachingClient, opt.ResyncPeriod)
-	buildInformerFactory = KResourceTypedInformerFactory(opt)
 
 	controller = NewController(
 		opt,
@@ -156,7 +150,6 @@ func newTestControllerWithConfig(t *testing.T, deploymentConfig *deployment.Conf
 		kubeInformer.Core().V1().Services(),
 		kubeInformer.Core().V1().Endpoints(),
 		kubeInformer.Core().V1().ConfigMaps(),
-		buildInformerFactory,
 	)
 
 	controller.Reconciler.(*Reconciler).resolver = &nopResolver{}
@@ -178,7 +171,7 @@ func newTestControllerWithConfig(t *testing.T, deploymentConfig *deployment.Conf
 	}, {
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: system.Namespace(),
-			Name:      metrics.ObservabilityConfigName,
+			Name:      metrics.ConfigMapName(),
 		},
 		Data: map[string]string{
 			"logging.enable-var-log-collection":     "true",
@@ -325,7 +318,7 @@ func (r *errorResolver) Resolve(_ string, _ k8schain.Options, _ sets.String) (st
 }
 
 func TestResolutionFailed(t *testing.T) {
-	kubeClient, servingClient, cachingClient, _, controller, kubeInformer, servingInformer, cachingInformer, _, _ := newTestController(t, nil)
+	kubeClient, servingClient, cachingClient, _, controller, kubeInformer, servingInformer, cachingInformer, _ := newTestController(t, nil)
 
 	// Unconditionally return this error during resolution.
 	errorMessage := "I am the expected error message, hear me ROAR!"
@@ -363,11 +356,11 @@ func TestResolutionFailed(t *testing.T) {
 // TODO(mattmoor): add coverage of a Reconcile fixing a stale logging URL
 func TestUpdateRevWithWithUpdatedLoggingURL(t *testing.T) {
 	deploymentConfig := getTestDeploymentConfig()
-	kubeClient, servingClient, cachingClient, _, controller, kubeInformer, servingInformer, cachingInformer, watcher, _ := newTestControllerWithConfig(t, deploymentConfig, &corev1.ConfigMap{
+	kubeClient, servingClient, cachingClient, _, controller, kubeInformer, servingInformer, cachingInformer, watcher := newTestControllerWithConfig(t, deploymentConfig, &corev1.ConfigMap{
 
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: system.Namespace(),
-			Name:      metrics.ObservabilityConfigName,
+			Name:      metrics.ConfigMapName(),
 		},
 		Data: map[string]string{
 			"logging.enable-var-log-collection":     "true",
@@ -386,7 +379,7 @@ func TestUpdateRevWithWithUpdatedLoggingURL(t *testing.T) {
 	watcher.OnChange(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: system.Namespace(),
-			Name:      metrics.ObservabilityConfigName,
+			Name:      metrics.ConfigMapName(),
 		},
 		Data: map[string]string{
 			"logging.enable-var-log-collection":     "true",
@@ -410,7 +403,7 @@ func TestUpdateRevWithWithUpdatedLoggingURL(t *testing.T) {
 
 // TODO(mattmoor): Remove when we have coverage of EnqueueEndpointsRevision
 func TestMarkRevReadyUponEndpointBecomesReady(t *testing.T) {
-	kubeClient, servingClient, cachingClient, _, controller, kubeInformer, servingInformer, cachingInformer, _, _ := newTestController(t, nil)
+	kubeClient, servingClient, cachingClient, _, controller, kubeInformer, servingInformer, cachingInformer, _ := newTestController(t, nil)
 	rev := testRevision()
 
 	fakeRecorder := controller.Reconciler.(*Reconciler).Base.Recorder.(*record.FakeRecorder)
@@ -474,7 +467,7 @@ func TestMarkRevReadyUponEndpointBecomesReady(t *testing.T) {
 }
 
 func TestNoQueueSidecarImageUpdateFail(t *testing.T) {
-	kubeClient, servingClient, cachingClient, _, controller, kubeInformer, servingInformer, cachingInformer, watcher, _ := newTestController(t, nil)
+	kubeClient, servingClient, cachingClient, _, controller, kubeInformer, servingInformer, cachingInformer, watcher := newTestController(t, nil)
 
 	rev := testRevision()
 	config := testConfiguration()
@@ -540,7 +533,7 @@ func TestIstioOutboundIPRangesInjection(t *testing.T) {
 
 func getPodAnnotationsForConfig(t *testing.T, configMapValue string, configAnnotationOverride string) map[string]string {
 	controllerConfig := getTestDeploymentConfig()
-	kubeClient, servingClient, cachingClient, _, controller, kubeInformer, servingInformer, cachingInformer, watcher, _ := newTestControllerWithConfig(t, controllerConfig)
+	kubeClient, servingClient, cachingClient, _, controller, kubeInformer, servingInformer, cachingInformer, watcher := newTestControllerWithConfig(t, controllerConfig)
 
 	// Resolve image references to this "digest"
 	digest := "foo@sha256:deadbeef"
@@ -589,7 +582,7 @@ func TestGlobalResyncOnConfigMapUpdateRevision(t *testing.T) {
 		configMapToUpdate: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: system.Namespace(),
-				Name:      metrics.ObservabilityConfigName,
+				Name:      metrics.ConfigMapName(),
 			},
 			Data: map[string]string{
 				"logging.enable-var-log-collection":     "true",
@@ -618,7 +611,7 @@ func TestGlobalResyncOnConfigMapUpdateRevision(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			controllerConfig := getTestDeploymentConfig()
-			_, servingClient, _, _, controller, kubeInformer, servingInformer, cachingInformer, watcher, _ := newTestControllerWithConfig(t, controllerConfig)
+			_, servingClient, _, _, controller, kubeInformer, servingInformer, cachingInformer, watcher := newTestControllerWithConfig(t, controllerConfig)
 
 			stopCh := make(chan struct{})
 			grp := errgroup.Group{}
@@ -700,7 +693,7 @@ func TestGlobalResyncOnConfigMapUpdateDeployment(t *testing.T) {
 		configMapToUpdate: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: system.Namespace(),
-				Name:      metrics.ObservabilityConfigName,
+				Name:      metrics.ConfigMapName(),
 			},
 			Data: map[string]string{
 				"logging.enable-var-log-collection": "false",
@@ -727,7 +720,7 @@ func TestGlobalResyncOnConfigMapUpdateDeployment(t *testing.T) {
 		configMapToUpdate: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: system.Namespace(),
-				Name:      metrics.ObservabilityConfigName,
+				Name:      metrics.ConfigMapName(),
 			},
 			Data: map[string]string{
 				"logging.enable-var-log-collection":     "true",
@@ -791,7 +784,7 @@ func TestGlobalResyncOnConfigMapUpdateDeployment(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			controllerConfig := getTestDeploymentConfig()
-			kubeClient, servingClient, _, _, controller, kubeInformer, servingInformer, cachingInformer, watcher, _ := newTestControllerWithConfig(t, controllerConfig)
+			kubeClient, servingClient, _, _, controller, kubeInformer, servingInformer, cachingInformer, watcher := newTestControllerWithConfig(t, controllerConfig)
 
 			stopCh := make(chan struct{})
 			grp := errgroup.Group{}

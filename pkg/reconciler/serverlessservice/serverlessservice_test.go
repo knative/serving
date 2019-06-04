@@ -1,17 +1,17 @@
 /*
-   Copyright 2019 The Knative Authors
+Copyright 2019 The Knative Authors
 
-   Licensed under the Apache License, Version 2.0 (the "License");
-   you may not use this file except in compliance with the License.
-   You may obtain a copy of the License at
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
+    https://www.apache.org/licenses/LICENSE-2.0
 
-   Unless required by applicable law or agreed to in writing, software
-   distributed under the License is distributed on an "AS IS" BASIS,
-   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-   See the License for the specific language governing permissions and
-   limitations under the License.
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
 */
 
 package serverlessservice
@@ -176,7 +176,7 @@ func TestReconcile(t *testing.T) {
 			endpointspriv("on", "cde", WithSubsets),
 			activatorEndpoints(WithSubsets),
 		},
-		WantCreates: []metav1.Object{
+		WantCreates: []runtime.Object{
 			svcpriv("on", "cde"),
 			svcpub("on", "cde"),
 			endpointspub("on", "cde", WithSubsets),
@@ -224,7 +224,7 @@ func TestReconcile(t *testing.T) {
 		WithReactors: []clientgotesting.ReactionFunc{
 			InduceFailure("create", "services"),
 		},
-		WantCreates: []metav1.Object{
+		WantCreates: []runtime.Object{
 			svcpub("svc", "fail2"),
 		},
 		WantEvents: []string{
@@ -244,7 +244,7 @@ func TestReconcile(t *testing.T) {
 		WithReactors: []clientgotesting.ReactionFunc{
 			InduceFailure("create", "endpoints"),
 		},
-		WantCreates: []metav1.Object{
+		WantCreates: []runtime.Object{
 			svcpub("eps", "fail3"),
 			endpointspub("eps", "fail3", WithSubsets),
 		},
@@ -260,7 +260,7 @@ func TestReconcile(t *testing.T) {
 			endpointspriv("on", "cneps"),
 			activatorEndpoints(WithSubsets),
 		},
-		WantCreates: []metav1.Object{
+		WantCreates: []runtime.Object{
 			svcpriv("on", "cneps"),
 			svcpub("on", "cneps"),
 			endpointspub("on", "cneps", WithSubsets),
@@ -282,7 +282,7 @@ func TestReconcile(t *testing.T) {
 			endpointspub("on", "cnaeps", WithSubsets),
 			activatorEndpoints(),
 		},
-		WantCreates: []metav1.Object{
+		WantCreates: []runtime.Object{
 			svcpriv("on", "cnaeps"),
 			svcpub("on", "cnaeps"),
 		},
@@ -302,7 +302,7 @@ func TestReconcile(t *testing.T) {
 			endpointspriv("on", "cnaeps", WithSubsets), // This should be ignored.
 			activatorEndpoints(),
 		},
-		WantCreates: []metav1.Object{
+		WantCreates: []runtime.Object{
 			svcpriv("on", "cnaeps"),
 			svcpub("on", "cnaeps", withTargetPortNum(8012)),
 			endpointspub("on", "cnaeps"),
@@ -327,7 +327,7 @@ func TestReconcile(t *testing.T) {
 		WithReactors: []clientgotesting.ReactionFunc{
 			InduceFailure("create", "services"),
 		},
-		WantCreates: []metav1.Object{
+		WantCreates: []runtime.Object{
 			svcpriv("svc", "fail"),
 		},
 		WantEvents: []string{

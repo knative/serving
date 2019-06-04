@@ -104,7 +104,7 @@ func TestRevisionSpecValidation(t *testing.T) {
 		name: "missing container",
 		rs: &RevisionSpec{
 			RevisionSpec: v1beta1.RevisionSpec{
-				PodSpec: v1beta1.PodSpec{
+				PodSpec: corev1.PodSpec{
 					Volumes: []corev1.Volume{{
 						Name: "the-name",
 						VolumeSource: corev1.VolumeSource{
@@ -129,7 +129,7 @@ func TestRevisionSpecValidation(t *testing.T) {
 				}},
 			},
 			RevisionSpec: v1beta1.RevisionSpec{
-				PodSpec: v1beta1.PodSpec{
+				PodSpec: corev1.PodSpec{
 					Volumes: []corev1.Volume{{
 						Name: "the-name",
 						VolumeSource: corev1.VolumeSource{
@@ -154,7 +154,7 @@ func TestRevisionSpecValidation(t *testing.T) {
 				}},
 			},
 			RevisionSpec: v1beta1.RevisionSpec{
-				PodSpec: v1beta1.PodSpec{
+				PodSpec: corev1.PodSpec{
 					Volumes: []corev1.Volume{{
 						Name: "the-name",
 						VolumeSource: corev1.VolumeSource{
@@ -176,15 +176,14 @@ func TestRevisionSpecValidation(t *testing.T) {
 			Paths:   []string{"name"},
 		}).ViaFieldIndex("volumes", 1),
 	}, {
-		name: "has bad build ref",
+		name: "has build ref (disallowed)",
 		rs: &RevisionSpec{
 			DeprecatedContainer: &corev1.Container{
 				Image: "helloworld",
 			},
 			DeprecatedBuildRef: &corev1.ObjectReference{},
 		},
-		want: apis.ErrMissingField("buildRef.apiVersion",
-			"buildRef.kind", "buildRef.name"),
+		want: apis.ErrDisallowedFields("buildRef"),
 	}, {
 		name: "bad concurrency model",
 		rs: &RevisionSpec{

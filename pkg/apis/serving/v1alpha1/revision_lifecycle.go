@@ -60,7 +60,6 @@ const (
 var revCondSet = apis.NewLivingConditionSet(
 	RevisionConditionResourcesAvailable,
 	RevisionConditionContainerHealthy,
-	RevisionConditionBuildSucceeded,
 )
 
 var buildCondSet = duckv1alpha1.NewBatchConditionSet()
@@ -136,21 +135,6 @@ func (rs *RevisionStatus) InitializeConditions() {
 	revCondSet.Manage(rs).InitializeConditions()
 }
 
-func (rs *RevisionStatus) PropagateBuildStatus(bs duckv1alpha1.Status) {
-	bc := buildCondSet.Manage(&bs).GetCondition(duckv1alpha1.ConditionSucceeded)
-	if bc == nil {
-		return
-	}
-	switch {
-	case bc.Status == corev1.ConditionUnknown:
-		revCondSet.Manage(rs).MarkUnknown(RevisionConditionBuildSucceeded, "Building", bc.Message)
-	case bc.Status == corev1.ConditionTrue:
-		revCondSet.Manage(rs).MarkTrue(RevisionConditionBuildSucceeded)
-	case bc.Status == corev1.ConditionFalse:
-		revCondSet.Manage(rs).MarkFalse(RevisionConditionBuildSucceeded, bc.Reason, bc.Message)
-	}
-}
-
 // MarkResourceNotConvertible adds a Warning-severity condition to the resource noting that
 // it cannot be converted to a higher version.
 func (rs *RevisionStatus) MarkResourceNotConvertible(err *CannotConvertError) {
@@ -195,6 +179,12 @@ func (rs *RevisionStatus) MarkContainerExiting(exitCode int32, message string) {
 
 func (rs *RevisionStatus) MarkResourcesAvailable() {
 	revCondSet.Manage(rs).MarkTrue(RevisionConditionResourcesAvailable)
+}
+
+// MarkResourcesUnavailable changes "ResourcesAvailable" condition to false to reflect that the
+// resources of the given kind and name cannot be created.
+func (rs *RevisionStatus) MarkResourcesUnavailable(reason, message string) {
+	revCondSet.Manage(rs).MarkFalse(RevisionConditionResourcesAvailable, reason, message)
 }
 
 func (rs *RevisionStatus) MarkActive() {

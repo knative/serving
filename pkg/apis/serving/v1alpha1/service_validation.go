@@ -61,8 +61,6 @@ func (ss *ServiceSpec) getConfigurationSpec() (string, *ConfigurationSpec) {
 		return "runLatest", &ss.DeprecatedRunLatest.Configuration
 	case ss.DeprecatedRelease != nil:
 		return "release", &ss.DeprecatedRelease.Configuration
-	case ss.DeprecatedManual != nil:
-		return "", nil
 	case ss.DeprecatedPinned != nil:
 		return "pinned", &ss.DeprecatedPinned.Configuration
 	default:
@@ -93,7 +91,7 @@ func (ss *ServiceSpec) Validate(ctx context.Context) *apis.FieldError {
 	}
 	if ss.DeprecatedManual != nil {
 		set = append(set, "manual")
-		errs = errs.Also(ss.DeprecatedManual.Validate(ctx).ViaField("manual"))
+		errs = errs.Also(apis.ErrDisallowedFields("manual"))
 	}
 	if ss.DeprecatedPinned != nil {
 		set = append(set, "pinned")
@@ -123,8 +121,7 @@ func (ss *ServiceSpec) Validate(ctx context.Context) *apis.FieldError {
 	if len(set) > 1 {
 		errs = errs.Also(apis.ErrMultipleOneOf(set...))
 	} else if len(set) == 0 {
-		errs = errs.Also(apis.ErrMissingOneOf("runLatest", "release", "manual",
-			"pinned", "template"))
+		errs = errs.Also(apis.ErrMissingOneOf("runLatest", "release", "pinned", "template"))
 	}
 	return errs
 }
@@ -141,11 +138,6 @@ func (pt *PinnedType) Validate(ctx context.Context) *apis.FieldError {
 // Validate validates the fields belonging to RunLatestType
 func (rlt *RunLatestType) Validate(ctx context.Context) *apis.FieldError {
 	return rlt.Configuration.Validate(ctx).ViaField("configuration")
-}
-
-// Validate validates the fields belonging to ManualType
-func (m *ManualType) Validate(ctx context.Context) *apis.FieldError {
-	return nil
 }
 
 // Validate validates the fields belonging to ReleaseType

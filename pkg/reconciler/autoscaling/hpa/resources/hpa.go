@@ -21,17 +21,18 @@ import (
 
 	"github.com/knative/pkg/kmeta"
 	"github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
-	autoscalingv1 "k8s.io/api/autoscaling/v1"
+	autoscalingv2beta1 "k8s.io/api/autoscaling/v2beta1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // MakeHPA creates an HPA resource from a PA resource.
-func MakeHPA(pa *v1alpha1.PodAutoscaler) *autoscalingv1.HorizontalPodAutoscaler {
+func MakeHPA(pa *v1alpha1.PodAutoscaler) *autoscalingv2beta1.HorizontalPodAutoscaler {
 	min, max := pa.ScaleBounds()
 	if max == 0 {
 		max = math.MaxInt32 // default to no limit
 	}
-	hpa := &autoscalingv1.HorizontalPodAutoscaler{
+	hpa := &autoscalingv2beta1.HorizontalPodAutoscaler{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            pa.Name,
 			Namespace:       pa.Namespace,
@@ -39,8 +40,8 @@ func MakeHPA(pa *v1alpha1.PodAutoscaler) *autoscalingv1.HorizontalPodAutoscaler 
 			Annotations:     pa.Annotations,
 			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(pa)},
 		},
-		Spec: autoscalingv1.HorizontalPodAutoscalerSpec{
-			ScaleTargetRef: autoscalingv1.CrossVersionObjectReference{
+		Spec: autoscalingv2beta1.HorizontalPodAutoscalerSpec{
+			ScaleTargetRef: autoscalingv2beta1.CrossVersionObjectReference{
 				APIVersion: pa.Spec.ScaleTargetRef.APIVersion,
 				Kind:       pa.Spec.ScaleTargetRef.Kind,
 				Name:       pa.Spec.ScaleTargetRef.Name,
@@ -52,7 +53,13 @@ func MakeHPA(pa *v1alpha1.PodAutoscaler) *autoscalingv1.HorizontalPodAutoscaler 
 		hpa.Spec.MinReplicas = &min
 	}
 	if target, ok := pa.Target(); ok {
-		hpa.Spec.TargetCPUUtilizationPercentage = &target
+		hpa.Spec.Metrics = []autoscalingv2beta1.MetricSpec{{
+			Type: autoscalingv2beta1.ResourceMetricSourceType,
+			Resource: &autoscalingv2beta1.ResourceMetricSource{
+				Name:                     corev1.ResourceCPU,
+				TargetAverageUtilization: &target,
+			},
+		}}
 	}
 	return hpa
 }

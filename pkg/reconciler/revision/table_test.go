@@ -22,7 +22,6 @@ import (
 	"testing"
 
 	caching "github.com/knative/caching/pkg/apis/caching/v1alpha1"
-	"github.com/knative/pkg/apis/duck"
 	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/controller"
 	"github.com/knative/pkg/logging"
@@ -31,6 +30,7 @@ import (
 	"github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 	"github.com/knative/serving/pkg/autoscaler"
 	"github.com/knative/serving/pkg/metrics"
 	"github.com/knative/serving/pkg/network"
@@ -40,9 +40,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	clientgotesting "k8s.io/client-go/testing"
 
 	. "github.com/knative/pkg/reconciler/testing"
@@ -74,7 +72,7 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			rev("foo", "first-reconcile"),
 		},
-		WantCreates: []metav1.Object{
+		WantCreates: []runtime.Object{
 			// The first reconciliation of a Revision creates the following resources.
 			kpa("foo", "first-reconcile"),
 			deploy("foo", "first-reconcile"),
@@ -98,7 +96,7 @@ func TestReconcile(t *testing.T) {
 			rev("foo", "update-status-failure"),
 			kpa("foo", "update-status-failure"),
 		},
-		WantCreates: []metav1.Object{
+		WantCreates: []runtime.Object{
 			// We still see the following creates before the failure is induced.
 			deploy("foo", "update-status-failure"),
 			image("foo", "update-status-failure"),
@@ -124,7 +122,7 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			rev("foo", "create-kpa-failure"),
 		},
-		WantCreates: []metav1.Object{
+		WantCreates: []runtime.Object{
 			// We still see the following creates before the failure is induced.
 			kpa("foo", "create-kpa-failure"),
 			deploy("foo", "create-kpa-failure"),
@@ -134,7 +132,7 @@ func TestReconcile(t *testing.T) {
 			Object: rev("foo", "create-kpa-failure",
 				// Despite failure, the following status properties are set.
 				WithLogURL, WithInitRevConditions,
-				WithNoBuild, MarkDeploying("Deploying")),
+				MarkDeploying("Deploying")),
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "InternalError", "inducing failure for create podautoscalers"),
@@ -152,7 +150,7 @@ func TestReconcile(t *testing.T) {
 			rev("foo", "create-user-deploy-failure"),
 			kpa("foo", "create-user-deploy-failure"),
 		},
-		WantCreates: []metav1.Object{
+		WantCreates: []runtime.Object{
 			// We still see the following creates before the failure is induced.
 			deploy("foo", "create-user-deploy-failure"),
 		},
@@ -160,7 +158,7 @@ func TestReconcile(t *testing.T) {
 			Object: rev("foo", "create-user-deploy-failure",
 				// Despite failure, the following status properties are set.
 				WithLogURL, WithInitRevConditions,
-				WithNoBuild, MarkDeploying("Deploying")),
+				MarkDeploying("Deploying")),
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "InternalError", "inducing failure for create deployments"),
@@ -180,6 +178,29 @@ func TestReconcile(t *testing.T) {
 		},
 		// No changes are made to any objects.
 		Key: "foo/stable-reconcile",
+	}, {
+		Name: "stable revision reconciliation (needs upgrade)",
+		// Test a simple reconciliation of a steady state in a pre-beta form,
+		// which should result in us patching the revision with an annotation
+		// to force a webhook upgrade.
+		Objects: []runtime.Object{
+			rev("foo", "needs-upgrade", WithLogURL, AllUnknownConditions, func(rev *v1alpha1.Revision) {
+				// Start the revision in the old form.
+				rev.Spec.DeprecatedContainer = &rev.Spec.Containers[0]
+				rev.Spec.Containers = nil
+			}),
+			kpa("foo", "needs-upgrade"),
+			deploy("foo", "needs-upgrade"),
+			image("foo", "needs-upgrade"),
+		},
+		WantPatches: []clientgotesting.PatchActionImpl{{
+			ActionImpl: clientgotesting.ActionImpl{
+				Namespace: "foo",
+			},
+			Name:  "needs-upgrade",
+			Patch: []byte(reconciler.ForceUpgradePatch),
+		}},
+		Key: "foo/needs-upgrade",
 	}, {
 		Name: "update deployment containers",
 		// Test that we update a deployment with new containers when they disagree
@@ -433,126 +454,23 @@ func TestReconcile(t *testing.T) {
 		}},
 		Key: "foo/pod-error",
 	}, {
-		Name: "build missing",
-		// Test a Reconcile of a Revision with a Build that is not found.
-		// We seed the world with a freshly created Revision that has a BuildName.
-		// We then verify that a Reconcile does effectively nothing but initialize
-		// the conditions of this Revision.  It is notable that unlike the tests
-		// above, this will include a BuildSucceeded condition.
+		Name: "surface pod schedule errors",
+		// Test the propagation of the scheduling errors of Pod into the revision.
+		// This initializes the world to unschedule pod. It then verifies
+		// that Reconcile propagates this into the status of the Revision.
 		Objects: []runtime.Object{
-			rev("foo", "missing-build", WithBuildRef("the-build")),
-		},
-		WantErr: true,
-		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: rev("foo", "missing-build", WithBuildRef("the-build"),
-				// When we first reconcile a revision with a Build (that's missing)
-				// we should see the following status changes.
-				WithLogURL, WithInitRevConditions, WithBuildRefWarning),
-		}},
-		WantEvents: []string{
-			Eventf(corev1.EventTypeWarning, "InternalError", `builds.testing.build.knative.dev "the-build" not found`),
-		},
-		Key: "foo/missing-build",
-	}, {
-		Name: "build running",
-		// Test a Reconcile of a Revision with a Build that is not done.
-		// We seed the world with a freshly created Revision that has a BuildName.
-		// We then verify that a Reconcile does effectively nothing but initialize
-		// the conditions of this Revision.  It is notable that unlike the tests
-		// above, this will include a BuildSucceeded condition.
-		Objects: []runtime.Object{
-			rev("foo", "running-build", WithBuildRef("the-build")),
-			build("foo", "the-build", WithSucceededUnknown("", "")),
+			rev("foo", "pod-schedule-error",
+				withK8sServiceName("a-pod-schedule-error"), WithLogURL, AllUnknownConditions, MarkActive),
+			kpa("foo", "pod-schedule-error"), // PA can't be ready, since no traffic.
+			pod("foo", "pod-schedule-error", WithUnschedulableContainer("Insufficient energy", "Unschedulable")),
+			deploy("foo", "pod-schedule-error"),
+			image("foo", "pod-schedule-error"),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: rev("foo", "running-build", WithBuildRef("the-build"),
-				// When we first reconcile a revision with a Build (not done)
-				// we should see the following status changes.
-				WithLogURL, WithInitRevConditions, WithOngoingBuild, WithBuildRefWarning),
+			Object: rev("foo", "pod-schedule-error",
+				WithLogURL, AllUnknownConditions, MarkResourcesUnavailable("Insufficient energy", "Unschedulable")),
 		}},
-		Key: "foo/running-build",
-	}, {
-		Name: "build newly done",
-		// Test a Reconcile of a Revision with a Build that is just done.
-		// We seed the world with a freshly created Revision that has a BuildName,
-		// and a Build that has a `Succeeded: True` status. We then verify that a
-		// Reconcile toggles the BuildSucceeded status and then acts similarly to
-		// the first reconcile of a BYO-Container Revision.
-		Objects: []runtime.Object{
-			rev("foo", "done-build", WithBuildRef("the-build"), WithInitRevConditions),
-			build("foo", "the-build", WithSucceededTrue),
-		},
-		WantCreates: []metav1.Object{
-			// The first reconciliation of a Revision creates the following resources.
-			kpa("foo", "done-build"),
-			deploy("foo", "done-build"),
-			image("foo", "done-build"),
-		},
-		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: rev("foo", "done-build", WithBuildRef("the-build"), WithInitRevConditions,
-				// When we reconcile a Revision after the Build completes, we should
-				// see the following updates to its status.
-				WithLogURL, WithSuccessfulBuild, WithBuildRefWarning,
-				MarkDeploying("Deploying"), MarkActivating("Deploying", "")),
-		}},
-		WantEvents: []string{
-			Eventf(corev1.EventTypeNormal, "BuildSucceeded", ""),
-		},
-		Key: "foo/done-build",
-	}, {
-		Name: "stable revision reconciliation (with build)",
-		// Test a simple stable reconciliation of an Active Revision with a done Build.
-		// We feed in a Revision and the resources it controls in a steady
-		// state (immediately post-build completion), and verify that no changes
-		// are necessary.
-		Objects: []runtime.Object{
-			rev("foo", "stable-reconcile-with-build",
-				WithBuildRef("the-build"), WithLogURL,
-				WithInitRevConditions, WithSuccessfulBuild, WithBuildRefWarning,
-				MarkDeploying("Deploying"), MarkActivating("Deploying", "")),
-			kpa("foo", "stable-reconcile-with-build"),
-			build("foo", "the-build", WithSucceededTrue),
-			deploy("foo", "stable-reconcile-with-build"),
-			image("foo", "stable-reconcile-with-build"),
-		},
-		// No changes are made to any objects.
-		Key: "foo/stable-reconcile-with-build",
-	}, {
-		Name: "build newly failed",
-		// Test a Reconcile of a Revision with a Build that has just failed.
-		// We seed the world with a freshly created Revision that has a BuildName,
-		// and a Build that has just failed. We then verify that a Reconcile toggles
-		// the BuildSucceeded status and stops.
-		Objects: []runtime.Object{
-			rev("foo", "failed-build", WithBuildRef("the-build"), WithLogURL, WithInitRevConditions),
-			build("foo", "the-build",
-				WithSucceededFalse("SomeReason", "This is why the build failed.")),
-		},
-		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: rev("foo", "failed-build",
-				WithBuildRef("the-build"), WithLogURL, WithInitRevConditions, WithBuildRefWarning,
-				// When we reconcile a Revision whose build has failed, we sill see that
-				// failure reflected in the Revision status as follows:
-				WithFailedBuild("SomeReason", "This is why the build failed.")),
-		}},
-		WantEvents: []string{
-			Eventf(corev1.EventTypeWarning, "BuildFailed", "This is why the build failed."),
-		},
-		Key: "foo/failed-build",
-	}, {
-		Name: "build failed stable",
-		// Test a Reconcile of a Revision with a Build that has previously failed.
-		// We seed the world with a Revision that has a BuildName, and a Build that
-		// has failed, which has been previously reconcile. We then verify that a
-		// Reconcile has nothing to change.
-		Objects: []runtime.Object{
-			rev("foo", "failed-build-stable", WithBuildRef("the-build"), WithInitRevConditions,
-				WithLogURL, WithFailedBuild("SomeReason", "This is why the build failed."),
-				WithBuildRefWarning),
-			build("foo", "the-build",
-				WithSucceededFalse("SomeReason", "This is why the build failed.")),
-		},
-		Key: "foo/failed-build-stable",
+		Key: "foo/pod-schedule-error",
 	}, {
 		Name: "ready steady state",
 		// Test the transition that Reconcile makes when Endpoints become ready on the
@@ -620,8 +538,6 @@ func TestReconcile(t *testing.T) {
 
 	defer logtesting.ClearAll()
 	table.Test(t, MakeFactory(func(listers *Listers, opt reconciler.Options) controller.Reconciler {
-		t := &NullTracker{}
-		buildInformerFactory := KResourceTypedInformerFactory(opt)
 		return &Reconciler{
 			Base:                reconciler.NewBase(opt, controllerAgentName),
 			revisionLister:      listers.GetRevisionLister(),
@@ -632,10 +548,7 @@ func TestReconcile(t *testing.T) {
 			endpointsLister:     listers.GetEndpointsLister(),
 			configMapLister:     listers.GetConfigMapLister(),
 			resolver:            &nopResolver{},
-			tracker:             t,
 			configStore:         &testConfigStore{config: ReconcilerTestConfig()},
-
-			buildInformerFactory: newDuckInformerFactory(t, buildInformerFactory),
 		}
 	}))
 }
@@ -650,7 +563,7 @@ func TestReconcileWithVarLogEnabled(t *testing.T) {
 		Objects: []runtime.Object{
 			rev("foo", "first-reconcile-var-log"),
 		},
-		WantCreates: []metav1.Object{
+		WantCreates: []runtime.Object{
 			// The first reconciliation of a Revision creates the following resources.
 			kpa("foo", "first-reconcile-var-log"),
 			deploy("foo", "first-reconcile-var-log", EnableVarLog),
@@ -673,7 +586,7 @@ func TestReconcileWithVarLogEnabled(t *testing.T) {
 		Objects: []runtime.Object{
 			rev("foo", "create-configmap-failure"),
 		},
-		WantCreates: []metav1.Object{
+		WantCreates: []runtime.Object{
 			deploy("foo", "create-configmap-failure", EnableVarLog),
 			fluentdConfigMap("foo", "create-configmap-failure", EnableVarLog),
 			image("foo", "create-configmap-failure", EnableVarLog),
@@ -684,7 +597,7 @@ func TestReconcileWithVarLogEnabled(t *testing.T) {
 				// the fluentd configmap, we should still see the following reflected
 				// in our status.
 				WithLogURL, WithInitRevConditions,
-				WithNoBuild, MarkDeploying("Deploying")),
+				MarkDeploying("Deploying")),
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "InternalError", "inducing failure for create configmaps"),
@@ -772,7 +685,6 @@ func TestReconcileWithVarLogEnabled(t *testing.T) {
 			endpointsLister:     listers.GetEndpointsLister(),
 			configMapLister:     listers.GetConfigMapLister(),
 			resolver:            &nopResolver{},
-			tracker:             &NullTracker{},
 			configStore:         &testConfigStore{config: config},
 		}
 	}))
@@ -800,26 +712,6 @@ func changeContainers(deploy *appsv1.Deployment) *appsv1.Deployment {
 	return deploy
 }
 
-// Build is a special case of resource creation because it isn't owned by
-// the Revision, just tracked.
-func build(namespace, name string, bo ...BuildOption) *unstructured.Unstructured {
-	b := &unstructured.Unstructured{}
-	b.SetGroupVersionKind(schema.GroupVersionKind{
-		Group:   "testing.build.knative.dev",
-		Version: "v1alpha1",
-		Kind:    "Build",
-	})
-	b.SetName(name)
-	b.SetNamespace(namespace)
-	u := &unstructured.Unstructured{}
-	duck.FromUnstructured(b, u) // prevent panic in b.DeepCopy()
-
-	for _, opt := range bo {
-		opt(u)
-	}
-	return u
-}
-
 func rev(namespace, name string, ro ...RevisionOption) *v1alpha1.Revision {
 	r := &v1alpha1.Revision{
 		ObjectMeta: metav1.ObjectMeta{
@@ -828,11 +720,16 @@ func rev(namespace, name string, ro ...RevisionOption) *v1alpha1.Revision {
 			UID:       "test-uid",
 		},
 		Spec: v1alpha1.RevisionSpec{
-			DeprecatedContainer: &corev1.Container{
-				Image: "busybox",
+			RevisionSpec: v1beta1.RevisionSpec{
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Image: "busybox",
+					}},
+				},
 			},
 		},
 	}
+	r.SetDefaults(context.Background())
 
 	for _, opt := range ro {
 		opt(r)
@@ -849,7 +746,6 @@ func withK8sServiceName(sn string) RevisionOption {
 // TODO(mattmoor): Come up with a better name for this.
 func AllUnknownConditions(r *v1alpha1.Revision) {
 	WithInitRevConditions(r)
-	WithNoBuild(r)
 	MarkDeploying("")(r)
 	MarkActivating("Deploying", "")(r)
 }

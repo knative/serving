@@ -23,6 +23,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 
 	duckv1beta1 "github.com/knative/pkg/apis/duck/v1beta1"
 	"github.com/knative/pkg/ptr"
@@ -58,7 +59,7 @@ func TestConfigurationConversion(t *testing.T) {
 				Template: &RevisionTemplateSpec{
 					Spec: RevisionSpec{
 						RevisionSpec: v1beta1.RevisionSpec{
-							PodSpec: v1beta1.PodSpec{
+							PodSpec: corev1.PodSpec{
 								ServiceAccountName: "robocop",
 								Containers: []corev1.Container{{
 									Image: "busybox",
@@ -107,13 +108,13 @@ func TestConfigurationConversion(t *testing.T) {
 				Generation: 1,
 			},
 			Spec: ConfigurationSpec{
-				DeprecatedBuild: &RawExtension{
+				DeprecatedBuild: &runtime.RawExtension{
 					Object: &Revision{},
 				},
 				Template: &RevisionTemplateSpec{
 					Spec: RevisionSpec{
 						RevisionSpec: v1beta1.RevisionSpec{
-							PodSpec: v1beta1.PodSpec{
+							PodSpec: corev1.PodSpec{
 								Containers: []corev1.Container{{
 									Image: "busybox",
 								}},

@@ -107,7 +107,7 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			knCert("knCert", "foo"),
 		},
-		WantCreates: []metav1.Object{
+		WantCreates: []runtime.Object{
 			resources.MakeCertManagerCertificate(certmanagerConfig(), knCert("knCert", "foo")),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{

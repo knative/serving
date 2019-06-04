@@ -52,6 +52,10 @@ spec:
           containerPort: 8080
         - name: metrics
           containerPort: 9090
+        - name: custom-metrics
+          containerPort: 8443
+        args:
+        - "--secure-port=8443"
         volumeMounts:
         - name: config-autoscaler
           mountPath: /etc/config-autoscaler
@@ -66,6 +70,10 @@ spec:
               fieldPath: metadata.namespace
         - name: CONFIG_LOGGING_NAME
           value: config-logging
+        - name: CONFIG_OBSERVABILITY_NAME
+          value: config-observability
+        - name: METRICS_DOMAIN
+          value: knative.dev/serving
       volumes:
         - name: config-autoscaler
           configMap:

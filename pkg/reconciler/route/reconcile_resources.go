@@ -104,8 +104,6 @@ func (c *Reconciler) reconcileClusterIngress(
 	} else if err != nil {
 		return nil, err
 	} else {
-		// TODO(#642): Remove this (needed to avoid continuous updates)
-		desired.Spec.DeprecatedGeneration = clusterIngress.Spec.DeprecatedGeneration
 		// It is notable that one reason for differences here may be defaulting.
 		// When that is the case, the Update will end up being a nop because the
 		// webhook will bring them into alignment and no new reconciliation will occur.

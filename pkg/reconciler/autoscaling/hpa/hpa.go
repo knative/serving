@@ -29,27 +29,19 @@ import (
 	"github.com/knative/serving/pkg/apis/autoscaling"
 	pav1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	nv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
-	informers "github.com/knative/serving/pkg/client/informers/externalversions/autoscaling/v1alpha1"
-	ninformers "github.com/knative/serving/pkg/client/informers/externalversions/networking/v1alpha1"
 	listers "github.com/knative/serving/pkg/client/listers/autoscaling/v1alpha1"
 	nlisters "github.com/knative/serving/pkg/client/listers/networking/v1alpha1"
 	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/autoscaling/hpa/resources"
 	aresources "github.com/knative/serving/pkg/reconciler/autoscaling/resources"
 	"github.com/knative/serving/pkg/reconciler/autoscaling/resources/names"
-
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/runtime"
-	autoscalingv1informers "k8s.io/client-go/informers/autoscaling/v1"
-	autoscalingv1listers "k8s.io/client-go/listers/autoscaling/v1"
+	autoscalingv2beta1listers "k8s.io/client-go/listers/autoscaling/v2beta1"
 	"k8s.io/client-go/tools/cache"
-)
-
-const (
-	controllerAgentName = "hpa-class-podautoscaler-controller"
 )
 
 // Reconciler implements the control loop for the HPA resources.
@@ -58,44 +50,10 @@ type Reconciler struct {
 
 	paLister  listers.PodAutoscalerLister
 	sksLister nlisters.ServerlessServiceLister
-	hpaLister autoscalingv1listers.HorizontalPodAutoscalerLister
+	hpaLister autoscalingv2beta1listers.HorizontalPodAutoscalerLister
 }
 
 var _ controller.Reconciler = (*Reconciler)(nil)
-
-// NewController returns a new HPA reconcile controller.
-func NewController(
-	opts *reconciler.Options,
-	paInformer informers.PodAutoscalerInformer,
-	sksInformer ninformers.ServerlessServiceInformer,
-	hpaInformer autoscalingv1informers.HorizontalPodAutoscalerInformer,
-) *controller.Impl {
-	c := &Reconciler{
-		Base:      reconciler.NewBase(*opts, controllerAgentName),
-		paLister:  paInformer.Lister(),
-		hpaLister: hpaInformer.Lister(),
-		sksLister: sksInformer.Lister(),
-	}
-	impl := controller.NewImpl(c, c.Logger, "HPA-Class Autoscaling", reconciler.MustNewStatsReporter("HPA-Class Autoscaling", c.Logger))
-
-	c.Logger.Info("Setting up hpa-class event handlers")
-	onlyHpaClass := reconciler.AnnotationFilterFunc(autoscaling.ClassAnnotationKey, autoscaling.HPA, false)
-	paInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
-		FilterFunc: onlyHpaClass,
-		Handler:    reconciler.Handler(impl.Enqueue),
-	})
-
-	hpaInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
-		FilterFunc: onlyHpaClass,
-		Handler:    reconciler.Handler(impl.EnqueueControllerOf),
-	})
-
-	sksInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
-		FilterFunc: onlyHpaClass,
-		Handler:    reconciler.Handler(impl.EnqueueControllerOf),
-	})
-	return impl
-}
 
 // Reconcile is the entry point to the reconciliation control loop.
 func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
@@ -166,7 +124,7 @@ func (c *Reconciler) reconcile(ctx context.Context, key string, pa *pav1alpha1.P
 	hpa, err := c.hpaLister.HorizontalPodAutoscalers(pa.Namespace).Get(desiredHpa.Name)
 	if errors.IsNotFound(err) {
 		logger.Infof("Creating HPA %q", desiredHpa.Name)
-		if hpa, err = c.KubeClientSet.AutoscalingV1().HorizontalPodAutoscalers(pa.Namespace).Create(desiredHpa); err != nil {
+		if hpa, err = c.KubeClientSet.AutoscalingV2beta1().HorizontalPodAutoscalers(pa.Namespace).Create(desiredHpa); err != nil {
 			logger.Errorf("Error creating HPA %q: %v", desiredHpa.Name, err)
 			pa.Status.MarkResourceFailedCreation("HorizontalPodAutoscaler", desiredHpa.Name)
 			return err
@@ -181,7 +139,7 @@ func (c *Reconciler) reconcile(ctx context.Context, key string, pa *pav1alpha1.P
 	}
 	if !equality.Semantic.DeepEqual(desiredHpa.Spec, hpa.Spec) {
 		logger.Infof("Updating HPA %q", desiredHpa.Name)
-		if _, err := c.KubeClientSet.AutoscalingV1().HorizontalPodAutoscalers(pa.Namespace).Update(desiredHpa); err != nil {
+		if _, err := c.KubeClientSet.AutoscalingV2beta1().HorizontalPodAutoscalers(pa.Namespace).Update(desiredHpa); err != nil {
 			logger.Errorf("Error updating HPA %q: %v", desiredHpa.Name, err)
 			return err
 		}
@@ -245,7 +203,7 @@ func (c *Reconciler) deleteHPA(ctx context.Context, key string) error {
 	if err != nil {
 		return err
 	}
-	err = c.KubeClientSet.AutoscalingV1().HorizontalPodAutoscalers(namespace).Delete(name, nil)
+	err = c.KubeClientSet.AutoscalingV2beta1().HorizontalPodAutoscalers(namespace).Delete(name, nil)
 	if errors.IsNotFound(err) {
 		// This is fine.
 		return nil

@@ -32,7 +32,7 @@ func TestServiceValidation(t *testing.T) {
 	goodConfigSpec := ConfigurationSpec{
 		Template: RevisionTemplateSpec{
 			Spec: RevisionSpec{
-				PodSpec: PodSpec{
+				PodSpec: corev1.PodSpec{
 					Containers: []corev1.Container{{
 						Image: "busybox",
 					}},
@@ -136,7 +136,7 @@ func TestServiceValidation(t *testing.T) {
 				ConfigurationSpec: ConfigurationSpec{
 					Template: RevisionTemplateSpec{
 						Spec: RevisionSpec{
-							PodSpec: PodSpec{
+							PodSpec: corev1.PodSpec{
 								Containers: []corev1.Container{{
 									Image: "busybox",
 								}},
@@ -188,7 +188,7 @@ func TestImmutableServiceFields(t *testing.T) {
 				ConfigurationSpec: ConfigurationSpec{
 					Template: RevisionTemplateSpec{
 						Spec: RevisionSpec{
-							PodSpec: PodSpec{
+							PodSpec: corev1.PodSpec{
 								Containers: []corev1.Container{{
 									Image: "helloworld:foo",
 								}},
@@ -212,7 +212,7 @@ func TestImmutableServiceFields(t *testing.T) {
 				ConfigurationSpec: ConfigurationSpec{
 					Template: RevisionTemplateSpec{
 						Spec: RevisionSpec{
-							PodSpec: PodSpec{
+							PodSpec: corev1.PodSpec{
 								Containers: []corev1.Container{{
 									Image: "helloworld:bar",
 								}},
@@ -242,7 +242,7 @@ func TestImmutableServiceFields(t *testing.T) {
 							Name: "byo-name-foo",
 						},
 						Spec: RevisionSpec{
-							PodSpec: PodSpec{
+							PodSpec: corev1.PodSpec{
 								Containers: []corev1.Container{{
 									Image: "helloworld:foo",
 								}},
@@ -269,7 +269,7 @@ func TestImmutableServiceFields(t *testing.T) {
 							Name: "byo-name-bar",
 						},
 						Spec: RevisionSpec{
-							PodSpec: PodSpec{
+							PodSpec: corev1.PodSpec{
 								Containers: []corev1.Container{{
 									Image: "helloworld:bar",
 								}},
@@ -299,7 +299,7 @@ func TestImmutableServiceFields(t *testing.T) {
 							Name: "byo-name-foo",
 						},
 						Spec: RevisionSpec{
-							PodSpec: PodSpec{
+							PodSpec: corev1.PodSpec{
 								Containers: []corev1.Container{{
 									Image: "helloworld:foo",
 								}},
@@ -326,7 +326,7 @@ func TestImmutableServiceFields(t *testing.T) {
 							Name: "byo-name-bar",
 						},
 						Spec: RevisionSpec{
-							PodSpec: PodSpec{
+							PodSpec: corev1.PodSpec{
 								Containers: []corev1.Container{{
 									Image: "helloworld:bar",
 								}},
@@ -356,7 +356,7 @@ func TestImmutableServiceFields(t *testing.T) {
 							Name: "byo-name-foo",
 						},
 						Spec: RevisionSpec{
-							PodSpec: PodSpec{
+							PodSpec: corev1.PodSpec{
 								Containers: []corev1.Container{{
 									Image: "helloworld:foo",
 								}},
@@ -383,7 +383,7 @@ func TestImmutableServiceFields(t *testing.T) {
 							Name: "byo-name-foo",
 						},
 						Spec: RevisionSpec{
-							PodSpec: PodSpec{
+							PodSpec: corev1.PodSpec{
 								Containers: []corev1.Container{{
 									Image: "helloworld:bar",
 								}},

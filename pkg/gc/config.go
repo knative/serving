@@ -17,6 +17,7 @@ limitations under the License.
 package gc
 
 import (
+	"errors"
 	"strconv"
 	"time"
 
@@ -72,6 +73,8 @@ func NewConfigFromConfigMap(configMap *corev1.ConfigMap) (*Config, error) {
 		c.StaleRevisionMinimumGenerations = 1
 	} else if val, err := strconv.ParseInt(raw, 10, 64); err != nil {
 		return nil, err
+	} else if val < 0 {
+		return nil, errors.New("stale-revision-minimum-generations must be zero or greater")
 	} else {
 		c.StaleRevisionMinimumGenerations = val
 	}

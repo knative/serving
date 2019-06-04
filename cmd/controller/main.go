@@ -30,11 +30,11 @@ import (
 	cachinginformers "github.com/knative/caching/pkg/client/informers/externalversions"
 	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/controller"
+	"github.com/knative/pkg/logging"
+	"github.com/knative/pkg/metrics"
 	pkgmetrics "github.com/knative/pkg/metrics"
 	"github.com/knative/pkg/signals"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
-	"github.com/knative/serving/pkg/logging"
-	"github.com/knative/serving/pkg/metrics"
 	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/configuration"
 	"github.com/knative/serving/pkg/reconciler/labeler"
@@ -85,7 +85,6 @@ func main() {
 	kubeInformerFactory := kubeinformers.NewSharedInformerFactory(opt.KubeClientSet, opt.ResyncPeriod)
 	servingInformerFactory := informers.NewSharedInformerFactory(opt.ServingClientSet, opt.ResyncPeriod)
 	cachingInformerFactory := cachinginformers.NewSharedInformerFactory(opt.CachingClientSet, opt.ResyncPeriod)
-	buildInformerFactory := revision.KResourceTypedInformerFactory(opt)
 
 	serviceInformer := servingInformerFactory.Serving().V1alpha1().Services()
 	routeInformer := servingInformerFactory.Serving().V1alpha1().Routes()
@@ -103,7 +102,7 @@ func main() {
 
 	// Build all of our controllers, with the clients constructed above.
 	// Add new controllers to this array.
-	controllers := []*controller.Impl{
+	controllers := [...]*controller.Impl{
 		configuration.NewController(
 			opt,
 			configurationInformer,
@@ -118,7 +117,6 @@ func main() {
 			coreServiceInformer,
 			endpointsInformer,
 			configMapInformer,
-			buildInformerFactory,
 		),
 		route.NewController(
 			opt,
@@ -149,14 +147,17 @@ func main() {
 			endpointsInformer,
 		),
 	}
-	if len(controllers) != numControllers {
-		logger.Fatalf("Number of controllers and QPS settings mismatch: %d != %d", len(controllers), numControllers)
-	}
+	// This line asserts at compile time that the length of controllers is equal to numControllers.
+	// It is based on https://go101.org/article/tips.html#assert-at-compile-time, which notes that
+	// var _ [N-M]int
+	// asserts at compile time that N >= M, which we can use to establish equality of N and M:
+	// (N >= M) && (M >= N) => (N == M)
+	var _ [numControllers - len(controllers)][len(controllers) - numControllers]int
 
 	// Watch the logging config map and dynamically update logging levels.
 	opt.ConfigMapWatcher.Watch(logging.ConfigMapName(), logging.UpdateLevelFromConfigMap(logger, atomicLevel, component))
 	// Watch the observability config map and dynamically update metrics exporter.
-	opt.ConfigMapWatcher.Watch(metrics.ObservabilityConfigName, metrics.UpdateExporterFromConfigMap(component, logger))
+	opt.ConfigMapWatcher.Watch(metrics.ConfigMapName(), metrics.UpdateExporterFromConfigMap(component, logger))
 	if err := opt.ConfigMapWatcher.Start(stopCh); err != nil {
 		logger.Fatalw("failed to start configuration manager", zap.Error(err))
 	}
@@ -184,7 +185,7 @@ func main() {
 
 	// Start all of the controllers.
 	logger.Info("Starting controllers.")
-	controller.StartAll(stopCh, controllers...)
+	controller.StartAll(stopCh, controllers[:]...)
 }
 
 func flush(logger *zap.SugaredLogger) {

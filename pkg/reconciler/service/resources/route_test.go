@@ -17,6 +17,7 @@ limitations under the License.
 package resources
 
 import (
+	"context"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -27,10 +28,16 @@ import (
 	"github.com/knative/serving/pkg/reconciler/service/resources/names"
 )
 
+func makeRoute(service *v1alpha1.Service) (*v1alpha1.Route, error) {
+	// We do this prior to reconciliation, so test with it enabled.
+	service.SetDefaults(v1beta1.WithUpgradeViaDefaulting(context.Background()))
+	return MakeRoute(service)
+}
+
 func TestRouteRunLatest(t *testing.T) {
 	s := createServiceWithRunLatest()
 	testConfigName := names.Configuration(s)
-	r, err := MakeRoute(s)
+	r, err := makeRoute(s)
 	if err != nil {
 		t.Errorf("UnExpected error: %v", err)
 	}
@@ -47,6 +54,7 @@ func TestRouteRunLatest(t *testing.T) {
 		TrafficTarget: v1beta1.TrafficTarget{
 			Percent:           100,
 			ConfigurationName: testConfigName,
+			LatestRevision:    ptr.Bool(true),
 		},
 	}}
 	if got, want := r.Spec.Traffic, wantT; !cmp.Equal(got, want) {
@@ -72,7 +80,7 @@ func TestRouteRunLatest(t *testing.T) {
 
 func TestRoutePinned(t *testing.T) {
 	s := createServiceWithPinned()
-	r, err := MakeRoute(s)
+	r, err := makeRoute(s)
 	if err != nil {
 		t.Errorf("Expected nil for err got %q", err)
 	}
@@ -87,8 +95,9 @@ func TestRoutePinned(t *testing.T) {
 	}
 	wantT := []v1alpha1.TrafficTarget{{
 		TrafficTarget: v1beta1.TrafficTarget{
-			Percent:      100,
-			RevisionName: testRevisionName,
+			Percent:        100,
+			RevisionName:   testRevisionName,
+			LatestRevision: ptr.Bool(false),
 		},
 	}}
 	if got, want := r.Spec.Traffic, wantT; !cmp.Equal(got, want) {
@@ -109,7 +118,7 @@ func TestRouteReleaseSingleRevision(t *testing.T) {
 	const numRevisions = 1
 	s := createServiceWithRelease(numRevisions, 0 /*no rollout*/)
 	testConfigName := names.Configuration(s)
-	r, err := MakeRoute(s)
+	r, err := makeRoute(s)
 	if err != nil {
 		t.Errorf("Expected nil for err got %q", err)
 	}
@@ -121,14 +130,16 @@ func TestRouteReleaseSingleRevision(t *testing.T) {
 	}
 	wantT := []v1alpha1.TrafficTarget{{
 		TrafficTarget: v1beta1.TrafficTarget{
-			Tag:          v1alpha1.CurrentTrafficTarget,
-			Percent:      100,
-			RevisionName: testRevisionName,
+			Tag:            v1alpha1.CurrentTrafficTarget,
+			Percent:        100,
+			RevisionName:   testRevisionName,
+			LatestRevision: ptr.Bool(false),
 		},
 	}, {
 		TrafficTarget: v1beta1.TrafficTarget{
 			Tag:               v1alpha1.LatestTrafficTarget,
 			ConfigurationName: testConfigName,
+			LatestRevision:    ptr.Bool(true),
 		},
 	}}
 	if got, want := r.Spec.Traffic, wantT; !cmp.Equal(got, want) {
@@ -152,7 +163,7 @@ func TestRouteLatestRevisionSplit(t *testing.T) {
 	s := createServiceWithRelease(2 /*num revisions*/, rolloutPercent)
 	s.Spec.DeprecatedRelease.Revisions = []string{v1alpha1.ReleaseLatestRevisionKeyword, "juicy-revision"}
 	testConfigName := names.Configuration(s)
-	r, err := MakeRoute(s)
+	r, err := makeRoute(s)
 	if err != nil {
 		t.Errorf("Expected nil for err got %q", err)
 	}
@@ -167,17 +178,20 @@ func TestRouteLatestRevisionSplit(t *testing.T) {
 			Tag:               v1alpha1.CurrentTrafficTarget,
 			Percent:           currentPercent,
 			ConfigurationName: testConfigName,
+			LatestRevision:    ptr.Bool(true),
 		},
 	}, {
 		TrafficTarget: v1beta1.TrafficTarget{
-			Tag:          v1alpha1.CandidateTrafficTarget,
-			Percent:      rolloutPercent,
-			RevisionName: "juicy-revision",
+			Tag:            v1alpha1.CandidateTrafficTarget,
+			Percent:        rolloutPercent,
+			RevisionName:   "juicy-revision",
+			LatestRevision: ptr.Bool(false),
 		},
 	}, {
 		TrafficTarget: v1beta1.TrafficTarget{
 			Tag:               v1alpha1.LatestTrafficTarget,
 			ConfigurationName: testConfigName,
+			LatestRevision:    ptr.Bool(true),
 		},
 	}}
 	if got, want := r.Spec.Traffic, wantT; !cmp.Equal(got, want) {
@@ -201,7 +215,7 @@ func TestRouteLatestRevisionSplitCandidate(t *testing.T) {
 	s := createServiceWithRelease(2 /*num revisions*/, rolloutPercent)
 	s.Spec.DeprecatedRelease.Revisions = []string{"squishy-revision", v1alpha1.ReleaseLatestRevisionKeyword}
 	testConfigName := names.Configuration(s)
-	r, err := MakeRoute(s)
+	r, err := makeRoute(s)
 	if err != nil {
 		t.Errorf("Expected nil for err got %q", err)
 	}
@@ -213,20 +227,23 @@ func TestRouteLatestRevisionSplitCandidate(t *testing.T) {
 	}
 	wantT := []v1alpha1.TrafficTarget{{
 		TrafficTarget: v1beta1.TrafficTarget{
-			Tag:          v1alpha1.CurrentTrafficTarget,
-			Percent:      currentPercent,
-			RevisionName: "squishy-revision",
+			Tag:            v1alpha1.CurrentTrafficTarget,
+			Percent:        currentPercent,
+			RevisionName:   "squishy-revision",
+			LatestRevision: ptr.Bool(false),
 		},
 	}, {
 		TrafficTarget: v1beta1.TrafficTarget{
 			Tag:               v1alpha1.CandidateTrafficTarget,
 			Percent:           rolloutPercent,
 			ConfigurationName: testConfigName,
+			LatestRevision:    ptr.Bool(true),
 		},
 	}, {
 		TrafficTarget: v1beta1.TrafficTarget{
 			Tag:               v1alpha1.LatestTrafficTarget,
 			ConfigurationName: testConfigName,
+			LatestRevision:    ptr.Bool(true),
 		},
 	}}
 	if got, want := r.Spec.Traffic, wantT; !cmp.Equal(got, want) {
@@ -246,7 +263,7 @@ func TestRouteLatestRevisionNoSplit(t *testing.T) {
 	s := createServiceWithRelease(1 /*num revisions*/, 0 /*unused*/)
 	s.Spec.DeprecatedRelease.Revisions = []string{v1alpha1.ReleaseLatestRevisionKeyword}
 	testConfigName := names.Configuration(s)
-	r, err := MakeRoute(s)
+	r, err := makeRoute(s)
 
 	if err != nil {
 		t.Errorf("Expected nil for err got %q", err)
@@ -263,11 +280,13 @@ func TestRouteLatestRevisionNoSplit(t *testing.T) {
 			Tag:               v1alpha1.CurrentTrafficTarget,
 			Percent:           100,
 			ConfigurationName: testConfigName,
+			LatestRevision:    ptr.Bool(true),
 		},
 	}, {
 		TrafficTarget: v1beta1.TrafficTarget{
 			Tag:               v1alpha1.LatestTrafficTarget,
 			ConfigurationName: testConfigName,
+			LatestRevision:    ptr.Bool(true),
 		},
 	}}
 	if got, want := r.Spec.Traffic, wantT; !cmp.Equal(got, want) {
@@ -291,7 +310,7 @@ func TestRouteReleaseTwoRevisions(t *testing.T) {
 	)
 	s := createServiceWithRelease(numRevisions, 100-currentPercent)
 	testConfigName := names.Configuration(s)
-	r, err := MakeRoute(s)
+	r, err := makeRoute(s)
 	if err != nil {
 		t.Errorf("Expected nil for err got %q", err)
 	}
@@ -304,20 +323,23 @@ func TestRouteReleaseTwoRevisions(t *testing.T) {
 	// Should have 3 named traffic targets (current, candidate, latest)
 	wantT := []v1alpha1.TrafficTarget{{
 		TrafficTarget: v1beta1.TrafficTarget{
-			Tag:          v1alpha1.CurrentTrafficTarget,
-			Percent:      currentPercent,
-			RevisionName: testRevisionName,
+			Tag:            v1alpha1.CurrentTrafficTarget,
+			Percent:        currentPercent,
+			RevisionName:   testRevisionName,
+			LatestRevision: ptr.Bool(false),
 		},
 	}, {
 		TrafficTarget: v1beta1.TrafficTarget{
-			Tag:          v1alpha1.CandidateTrafficTarget,
-			Percent:      100 - currentPercent,
-			RevisionName: testCandidateRevisionName,
+			Tag:            v1alpha1.CandidateTrafficTarget,
+			Percent:        100 - currentPercent,
+			RevisionName:   testCandidateRevisionName,
+			LatestRevision: ptr.Bool(false),
 		},
 	}, {
 		TrafficTarget: v1beta1.TrafficTarget{
 			Tag:               v1alpha1.LatestTrafficTarget,
 			ConfigurationName: testConfigName,
+			LatestRevision:    ptr.Bool(true),
 		},
 	}}
 	if got, want := r.Spec.Traffic, wantT; !cmp.Equal(got, want) {
@@ -333,23 +355,10 @@ func TestRouteReleaseTwoRevisions(t *testing.T) {
 	}
 }
 
-// MakeRoute is not called with a ManualType service, but if it is
-// called it should produce a route with no traffic targets
-func TestRouteManual(t *testing.T) {
-	s := createServiceWithManual()
-	r, err := MakeRoute(s)
-	if r != nil {
-		t.Errorf("Expected nil for r got %q", err)
-	}
-	if err == nil {
-		t.Error("Expected err got nil")
-	}
-}
-
 func TestInlineRouteSpec(t *testing.T) {
 	s := createServiceInline()
 	testConfigName := names.Configuration(s)
-	r, err := MakeRoute(s)
+	r, err := makeRoute(s)
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}

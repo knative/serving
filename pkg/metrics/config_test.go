@@ -20,6 +20,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/knative/pkg/metrics"
 	"github.com/knative/pkg/system"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -29,7 +30,7 @@ import (
 )
 
 func TestOurObservability(t *testing.T) {
-	cm, example := ConfigMapsFromTestFile(t, ObservabilityConfigName)
+	cm, example := ConfigMapsFromTestFile(t, metrics.ConfigMapName())
 
 	if _, err := NewObservabilityConfigFromConfigMap(cm); err != nil {
 		t.Errorf("NewObservabilityFromConfigMap(actual) = %v", err)
@@ -60,7 +61,7 @@ func TestObservabilityConfiguration(t *testing.T) {
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: system.Namespace(),
-				Name:      ObservabilityConfigName,
+				Name:      metrics.ConfigMapName(),
 			},
 			Data: map[string]string{
 				"logging.enable-var-log-collection":           "true",
@@ -84,7 +85,7 @@ func TestObservabilityConfiguration(t *testing.T) {
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: system.Namespace(),
-				Name:      ObservabilityConfigName,
+				Name:      metrics.ConfigMapName(),
 			},
 		},
 	}, {
@@ -94,7 +95,7 @@ func TestObservabilityConfiguration(t *testing.T) {
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: system.Namespace(),
-				Name:      ObservabilityConfigName,
+				Name:      metrics.ConfigMapName(),
 			},
 			Data: map[string]string{
 				"logging.enable-var-log-collection": "true",
@@ -107,7 +108,7 @@ func TestObservabilityConfiguration(t *testing.T) {
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: system.Namespace(),
-				Name:      ObservabilityConfigName,
+				Name:      metrics.ConfigMapName(),
 			},
 			Data: map[string]string{
 				"logging.request-log-template": `{{ something }}`,

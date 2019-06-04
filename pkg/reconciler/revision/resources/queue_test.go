@@ -26,6 +26,8 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/knative/pkg/logging"
+	pkgmetrics "github.com/knative/pkg/metrics"
+	_ "github.com/knative/pkg/metrics/testing"
 	"github.com/knative/pkg/ptr"
 	"github.com/knative/pkg/system"
 	_ "github.com/knative/pkg/system/testing"
@@ -91,7 +93,7 @@ func TestMakeQueueContainer(t *testing.T) {
 				RevisionSpec: v1beta1.RevisionSpec{
 					ContainerConcurrency: 1,
 					TimeoutSeconds:       ptr.Int64(45),
-					PodSpec: v1beta1.PodSpec{
+					PodSpec: corev1.PodSpec{
 						Containers: []corev1.Container{{
 							Ports: []corev1.ContainerPort{{
 								ContainerPort: 1955,
@@ -554,6 +556,7 @@ var defaultEnv = map[string]string{
 	"SERVING_REQUEST_METRICS_BACKEND": "",
 	"USER_PORT":                       strconv.Itoa(v1alpha1.DefaultUserPort),
 	"SYSTEM_NAMESPACE":                system.Namespace(),
+	"METRICS_DOMAIN":                  pkgmetrics.Domain(),
 	"QUEUE_SERVING_PORT":              "8012",
 }
 

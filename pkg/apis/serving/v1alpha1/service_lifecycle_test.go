@@ -426,47 +426,6 @@ func TestConfigurationUnknownPropagation(t *testing.T) {
 	apitesting.CheckConditionSucceeded(svc.duck(), ServiceConditionRoutesReady, t)
 }
 
-func TestSetManualStatus(t *testing.T) {
-	svc := &ServiceStatus{}
-	svc.InitializeConditions()
-	apitesting.CheckConditionOngoing(svc.duck(), ServiceConditionReady, t)
-	apitesting.CheckConditionOngoing(svc.duck(), ServiceConditionConfigurationsReady, t)
-	apitesting.CheckConditionOngoing(svc.duck(), ServiceConditionRoutesReady, t)
-
-	// Status should remain unknown
-	svc.SetManualStatus()
-	apitesting.CheckConditionOngoing(svc.duck(), ServiceConditionReady, t)
-	apitesting.CheckConditionOngoing(svc.duck(), ServiceConditionConfigurationsReady, t)
-	apitesting.CheckConditionOngoing(svc.duck(), ServiceConditionRoutesReady, t)
-
-	// Going back from manual will result in propagation to reoccur, and should make us ready
-	svc.PropagateConfigurationStatus(&ConfigurationStatus{
-		Status: duckv1beta1.Status{
-			Conditions: duckv1beta1.Conditions{{
-				Type:   ConfigurationConditionReady,
-				Status: corev1.ConditionTrue,
-			}},
-		},
-	})
-	svc.PropagateRouteStatus(&RouteStatus{
-		Status: duckv1beta1.Status{
-			Conditions: duckv1beta1.Conditions{{
-				Type:   RouteConditionReady,
-				Status: corev1.ConditionTrue,
-			}},
-		},
-	})
-	apitesting.CheckConditionSucceeded(svc.duck(), ServiceConditionReady, t)
-	apitesting.CheckConditionSucceeded(svc.duck(), ServiceConditionConfigurationsReady, t)
-	apitesting.CheckConditionSucceeded(svc.duck(), ServiceConditionRoutesReady, t)
-
-	// Going back to unknown should make us unknown again
-	svc.SetManualStatus()
-	apitesting.CheckConditionOngoing(svc.duck(), ServiceConditionReady, t)
-	apitesting.CheckConditionOngoing(svc.duck(), ServiceConditionConfigurationsReady, t)
-	apitesting.CheckConditionOngoing(svc.duck(), ServiceConditionRoutesReady, t)
-}
-
 func TestConfigurationStatusPropagation(t *testing.T) {
 	svc := &Service{}
 

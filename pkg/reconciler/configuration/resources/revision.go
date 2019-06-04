@@ -22,11 +22,10 @@ import (
 	"github.com/knative/pkg/kmeta"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	corev1 "k8s.io/api/core/v1"
 )
 
-// MakeRevision creates a revision object from configuration and build reference.
-func MakeRevision(config *v1alpha1.Configuration, buildRef *corev1.ObjectReference) *v1alpha1.Revision {
+// MakeRevision creates a revision object from configuration.
+func MakeRevision(config *v1alpha1.Configuration) *v1alpha1.Revision {
 	// Start from the ObjectMeta/Spec inlined in the Configuration resources.
 	rev := &v1alpha1.Revision{
 		ObjectMeta: config.Spec.GetTemplate().ObjectMeta,
@@ -47,9 +46,6 @@ func MakeRevision(config *v1alpha1.Configuration, buildRef *corev1.ObjectReferen
 
 	// Populate OwnerReferences so that deletes cascade.
 	rev.OwnerReferences = append(rev.OwnerReferences, *kmeta.NewControllerRef(config))
-
-	// Fill in buildRef if build is involved
-	rev.Spec.DeprecatedBuildRef = buildRef
 
 	return rev
 }

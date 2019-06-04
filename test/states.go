@@ -56,11 +56,11 @@ func TODO_RouteTrafficToRevisionWithInClusterDNS(r *v1alpha1.Route) (bool, error
 	if r.Status.Address == nil {
 		return false, fmt.Errorf("expected route %s to implement Addressable, missing .status.address", r.Name)
 	}
-	if r.Status.Address.Hostname == "" {
+	if r.Status.Address.URL == nil {
 		return false, fmt.Errorf("expected route %s to have in cluster dns status set", r.Name)
 	}
 	// TODO make a curl request from inside the cluster using
-	// r.Status.Address.Hostname to validate DNS is set correctly
+	// r.Status.Address.URL to validate DNS is set correctly
 	return true, nil
 }
 
@@ -70,11 +70,11 @@ func TODO_ServiceTrafficToRevisionWithInClusterDNS(s *v1alpha1.Service) (bool, e
 	if s.Status.Address == nil {
 		return false, fmt.Errorf("expected service %s to implement Addressable, missing .status.address", s.Name)
 	}
-	if s.Status.Address.Hostname == "" {
+	if s.Status.Address.URL == nil {
 		return false, fmt.Errorf("expected service %s to have in cluster dns status set", s.Name)
 	}
 	// TODO make a curl request from inside the cluster using
-	// s.Status.Address.Hostname to validate DNS is set correctly
+	// s.Status.Address.URL to validate DNS is set correctly
 	return true, nil
 }
 
@@ -100,15 +100,6 @@ func IsRouteReady(r *v1alpha1.Route) (bool, error) {
 // ConfigurationHasCreatedRevision returns whether the Configuration has created a Revision.
 func ConfigurationHasCreatedRevision(c *v1alpha1.Configuration) (bool, error) {
 	return c.Status.LatestCreatedRevisionName != "", nil
-}
-
-// IsRevisionBuildFailed will check the status conditions of the revision and
-// return true if the revision's build failed.
-func IsRevisionBuildFailed(r *v1alpha1.Revision) (bool, error) {
-	if cond := r.Status.GetCondition(v1alpha1.RevisionConditionBuildSucceeded); cond != nil {
-		return cond.Status == corev1.ConditionFalse, nil
-	}
-	return false, nil
 }
 
 // IsConfigRevisionCreationFailed will check the status conditions of the

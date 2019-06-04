@@ -101,7 +101,7 @@ func ConfigurationSpec(imagePath string, options *Options) *v1alpha1.Configurati
 		Template: &v1alpha1.RevisionTemplateSpec{
 			Spec: v1alpha1.RevisionSpec{
 				RevisionSpec: v1beta1.RevisionSpec{
-					PodSpec: v1beta1.PodSpec{
+					PodSpec: corev1.PodSpec{
 						Containers: []corev1.Container{{
 							Image:           imagePath,
 							Resources:       options.ContainerResources,
@@ -190,31 +190,6 @@ func Configuration(names ResourceNames, options *Options, fopt ...v1alpha1testin
 	}
 
 	return config
-}
-
-// ConfigurationWithBuild returns a Configuration object in the `namespace`
-// with the name `names.Config` that uses the provided Build spec `build`
-// and image specified by `names.Image`.
-func ConfigurationWithBuild(names ResourceNames, build *v1alpha1.RawExtension) *v1alpha1.Configuration {
-	return &v1alpha1.Configuration{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: names.Config,
-		},
-		Spec: v1alpha1.ConfigurationSpec{
-			DeprecatedBuild: build,
-			Template: &v1alpha1.RevisionTemplateSpec{
-				Spec: v1alpha1.RevisionSpec{
-					RevisionSpec: v1beta1.RevisionSpec{
-						PodSpec: v1beta1.PodSpec{
-							Containers: []corev1.Container{{
-								Image: ptest.ImagePath(names.Image),
-							}},
-						},
-					},
-				},
-			},
-		},
-	}
 }
 
 // LatestService returns a Service object in namespace with the name names.Service

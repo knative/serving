@@ -16,7 +16,6 @@ limitations under the License.
 package resources
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/knative/pkg/kmeta"
@@ -35,21 +34,37 @@ var route = &v1alpha1.Route{
 	},
 }
 
-var dnsNames = []string{"v1.default.example.com", "subroute.v1.default.example.com"}
+var dnsNameTagMap = map[string]string{
+	"v1.default.example.com":         "",
+	"v1-current.default.example.com": "current",
+}
 
-func TestMakeCertificate(t *testing.T) {
-	want := &netv1alpha1.Certificate{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:            fmt.Sprintf("%s-%s", route.Name, route.UID),
-			Namespace:       "default",
-			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(route)},
+func TestMakeCertificates(t *testing.T) {
+	want := []*netv1alpha1.Certificate{
+		{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:            "route-12345-200999684",
+				Namespace:       "default",
+				OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(route)},
+			},
+			Spec: netv1alpha1.CertificateSpec{
+				DNSNames:   []string{"v1-current.default.example.com"},
+				SecretName: "route-12345-200999684",
+			},
 		},
-		Spec: netv1alpha1.CertificateSpec{
-			DNSNames:   dnsNames,
-			SecretName: fmt.Sprintf("%s-%s", route.Name, route.UID),
+		{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:            "route-12345",
+				Namespace:       "default",
+				OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(route)},
+			},
+			Spec: netv1alpha1.CertificateSpec{
+				DNSNames:   []string{"v1.default.example.com"},
+				SecretName: "route-12345",
+			},
 		},
 	}
-	got := MakeCertificate(route, dnsNames)
+	got := MakeCertificates(route, dnsNameTagMap)
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("MakeCertificate (-want, +got) = %v", diff)
 	}
