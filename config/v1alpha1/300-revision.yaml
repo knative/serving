@@ -39,9 +39,9 @@ spec:
   subresources:
     status: {}
   additionalPrinterColumns:
-  - name: Service Name
+  - name: Configuration Name
     type: string
-    JSONPath: .status.serviceName
+    JSONPath: ".metadata.labels['serving\\.knative\\.dev/configuration']"
   - name: Generation
     type: string # int in string form :(
     JSONPath: ".metadata.labels['serving\\.knative\\.dev/configurationGeneration']"
