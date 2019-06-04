@@ -333,7 +333,7 @@ func TestRevisionTemplateSpecValidation(t *testing.T) {
 		},
 		want: &apis.FieldError{
 			Message: "invalid value: 50mx",
-			Paths:   []string{serving.QueueSideCarResourcePercentageAnnotation},
+			Paths:   []string{fmt.Sprintf("[%s]", serving.QueueSideCarResourcePercentageAnnotation)},
 		},
 	}}
 
