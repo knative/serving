@@ -371,7 +371,7 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 				RevisionSpec: v1beta1.RevisionSpec{
 					ContainerConcurrency: 1,
 					TimeoutSeconds:       ptr.Int64(45),
-					PodSpec: v1beta1.PodSpec{
+					PodSpec: corev1.PodSpec{
 						Containers: []corev1.Container{{
 							Name: "bar",
 							Resources: corev1.ResourceRequirements{
@@ -428,7 +428,7 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 				RevisionSpec: v1beta1.RevisionSpec{
 					ContainerConcurrency: 1,
 					TimeoutSeconds:       ptr.Int64(45),
-					PodSpec: v1beta1.PodSpec{
+					PodSpec: corev1.PodSpec{
 						Containers: []corev1.Container{{
 							Name: "bar",
 							Resources: corev1.ResourceRequirements{
@@ -482,7 +482,7 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 				RevisionSpec: v1beta1.RevisionSpec{
 					ContainerConcurrency: 1,
 					TimeoutSeconds:       ptr.Int64(45),
-					PodSpec: v1beta1.PodSpec{
+					PodSpec: corev1.PodSpec{
 						Containers: []corev1.Container{{
 							Name: "bar",
 							Resources: corev1.ResourceRequirements{

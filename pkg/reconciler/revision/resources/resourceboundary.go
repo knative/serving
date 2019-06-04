@@ -32,3 +32,12 @@ var (
 	queueContainerRequestMemory = resourceBoundary{min: resource.MustParse("50Mi"), max: resource.MustParse("200Mi")}
 	queueContainerLimitMemory   = resourceBoundary{min: resource.MustParse("200Mi"), max: resource.MustParse("500Mi")}
 )
+
+func (boundary *resourceBoundary) applyBoundary(resource resource.Quantity) resource.Quantity {
+	if resource.Cmp(boundary.min) == -1 {
+		resource = boundary.min
+	} else if resource.Cmp(boundary.max) == 1 {
+		resource = boundary.max
+	}
+	return resource
+}

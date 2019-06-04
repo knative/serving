@@ -170,13 +170,10 @@ func validatePercentageAnnotationKey(annotations map[string]string, resourcePerc
 	}
 	value, err := strconv.ParseFloat(v, 32)
 	if err != nil {
-		return &apis.FieldError{
-			Message: fmt.Sprintf("Invalid value %s for annotation %s: %v", v, resourcePercentageAnnotationKey, err),
-			Paths:   []string{resourcePercentageAnnotationKey},
-		}
+		return apis.ErrInvalidValue(v, resourcePercentageAnnotationKey)
 	}
 
-	if value <= float64(0) || value > float64(100) {
+	if value <= float64(0.1) || value > float64(100) {
 		return apis.ErrOutOfBoundsValue(value, 0.1, 100.0, resourcePercentageAnnotationKey)
 	}
 

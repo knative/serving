@@ -332,7 +332,7 @@ func TestRevisionTemplateSpecValidation(t *testing.T) {
 			},
 		},
 		want: &apis.FieldError{
-			Message: "Invalid value 50mx for annotation queue.sidecar.serving.knative.dev/resourcePercentage: strconv.ParseFloat: parsing \"50mx\": invalid syntax",
+			Message: "invalid value: 50mx",
 			Paths:   []string{serving.QueueSideCarResourcePercentageAnnotation},
 		},
 	}}

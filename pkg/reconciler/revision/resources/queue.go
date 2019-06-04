@@ -140,13 +140,8 @@ func computeResourceRequirements(resourceQuantity *resource.Quantity, percentage
 	}
 
 	newquantity := *resource.NewMilliQuantity(newValue, resource.BinarySI)
-	if newquantity.Cmp(boundary.min) == -1 {
-		newquantity = boundary.min
-	} else if newquantity.Cmp(boundary.max) == 1 {
-		newquantity = boundary.max
-	}
+	newquantity = boundary.applyBoundary(newquantity)
 	return true, newquantity
-
 }
 
 func createResourcePercentageFromAnnotations(m map[string]string, k string) (bool, float32) {
