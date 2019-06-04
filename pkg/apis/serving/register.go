@@ -45,10 +45,6 @@ const (
 	// its unique identifier
 	RevisionUID = GroupName + "/revisionUID"
 
-	// AutoscalerLabelKey is the label key attached to a autoscaler pod indicating by
-	// which Autoscaler deployment it is created.
-	AutoscalerLabelKey = GroupName + "/autoscaler"
-
 	// ServiceLabelKey is the label key attached to a Route and Configuration indicating by
 	// which Service they are created.
 	ServiceLabelKey = GroupName + "/service"
@@ -56,10 +52,6 @@ const (
 	// ConfigurationGenerationLabelKey is the label key attached to a Revision indicating the
 	// metadata generation of the Configuration that created this revision
 	ConfigurationGenerationLabelKey = GroupName + "/configurationGeneration"
-
-	// BuildHashLabelKey is the label key attached to a Build indicating the
-	// hash of the spec from which they were created.
-	BuildHashLabelKey = GroupName + "/buildHash"
 
 	// CreatorAnnotation is the annotation key to describe the user that
 	// created the resource.
