@@ -19,7 +19,6 @@ package resources
 import (
 	"context"
 
-	"github.com/knative/pkg/logging"
 	"github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/autoscaler"
 	"github.com/knative/serving/pkg/reconciler/autoscaling/resources"
@@ -47,27 +46,14 @@ type Deciders interface {
 // into account the PA's ContainerConcurrency and the relevant
 // autoscaling annotation.
 func MakeDecider(ctx context.Context, pa *v1alpha1.PodAutoscaler, config *autoscaler.Config, svc string) *autoscaler.Decider {
-	logger := logging.FromContext(ctx)
-
-	target := config.TargetConcurrency(pa.Spec.ContainerConcurrency)
-	if mt, ok := pa.Target(); ok {
-		annotationTarget := float64(mt)
-		if annotationTarget > target {
-			// If the annotation target would cause the autoscaler to maintain
-			// more requests per pod than the container can handle, we ignore
-			// the annotation and use a containerConcurrency based target instead.
-			logger.Warnf("Ignoring target of %v because it would underprovision the Revision.", annotationTarget)
-		} else {
-			logger.Debugf("Using target of %v", annotationTarget)
-			target = annotationTarget
-		}
-	}
 	// Look for a panic threshold percentage annotation.
 	panicThresholdPercentage, ok := pa.PanicThresholdPercentage()
 	if !ok {
 		// Fall back on cluster config.
 		panicThresholdPercentage = config.PanicThresholdPercentage
 	}
+
+	target := resources.ResolveTargetConcurrency(pa, config)
 	panicThreshold := target * panicThresholdPercentage / 100.0
 	// TODO: remove MetricSpec when the custom metrics adapter implements Metric.
 	metricSpec := resources.MakeMetric(ctx, pa, config).Spec
