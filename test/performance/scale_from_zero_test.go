@@ -40,11 +40,10 @@ import (
 )
 
 const (
-	serviceName                      = "perftest-scalefromzero"
-	ScaleFromZeroAvgTestGridProperty = "perf_ScaleFromZero_Average"
-	helloWorldExpectedOutput         = "Hello World!"
-	helloWorldImage                  = "helloworld"
-	waitToServe                      = 10 * time.Minute
+	serviceName              = "perftest-scalefromzero"
+	helloWorldExpectedOutput = "Hello World!"
+	helloWorldImage          = "helloworld"
+	waitToServe              = 10 * time.Minute
 )
 
 type stats struct {

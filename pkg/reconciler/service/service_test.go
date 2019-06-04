@@ -1388,9 +1388,3 @@ func RouteFailed(reason, message string) RouteOption {
 		}
 	}
 }
-
-// WithManualWarning adds a Warning condition for the Manual
-func WithManualWarning(c *v1alpha1.Service) {
-	c.Status.MarkResourceNotConvertible(v1alpha1.ConvertErrorf("manual",
-		"manual mode cannot be migrated forward.").(*v1alpha1.CannotConvertError))
-}

@@ -720,9 +720,3 @@ func TestIsRevisionStale(t *testing.T) {
 		})
 	}
 }
-
-// WithBuildWarning adds a Warning condition for the Build
-func WithBuildWarning(c *v1alpha1.Configuration) {
-	c.Status.MarkResourceNotConvertible(v1alpha1.ConvertErrorf("build",
-		"build cannot be migrated forward.").(*v1alpha1.CannotConvertError))
-}

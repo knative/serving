@@ -18,7 +18,6 @@ package revision
 
 import (
 	"context"
-	"strconv"
 	"testing"
 
 	caching "github.com/knative/caching/pkg/apis/caching/v1alpha1"
@@ -28,7 +27,6 @@ import (
 	logtesting "github.com/knative/pkg/logging/testing"
 	autoscalingv1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/apis/networking"
-	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 	"github.com/knative/serving/pkg/autoscaler"
@@ -855,30 +853,4 @@ func ReconcilerTestConfig() *config.Config {
 // this forces the type to be a 'configOption'
 var EnableVarLog configOption = func(cfg *config.Config) {
 	cfg.Observability.EnableVarLogCollection = true
-}
-
-// WithBuildRefWarning adds a Warning condition for the BuildRef
-func WithBuildRefWarning(r *v1alpha1.Revision) {
-	r.Status.MarkResourceNotConvertible(v1alpha1.ConvertErrorf("buildRef",
-		`buildRef cannot be migrated forward, got: &v1.ObjectReference{Kind:"Build", Namespace:"", Name:"the-build", UID:"", APIVersion:"testing.build.knative.dev/v1alpha1", ResourceVersion:"", FieldPath:""}`).(*v1alpha1.CannotConvertError))
-}
-
-// WithConfigurationGenerationLabel sets the label on the revision
-func WithConfigurationGenerationLabel(generation int) RevisionOption {
-	return func(r *v1alpha1.Revision) {
-		if r.Labels == nil {
-			r.Labels = make(map[string]string)
-		}
-		r.Labels[serving.ConfigurationGenerationLabelKey] = strconv.Itoa(generation)
-	}
-}
-
-// WithConfigurationGenerationLabel sets the label on the revision
-func WithConfigurationGenerationAnnotation(generation int) RevisionOption {
-	return func(r *v1alpha1.Revision) {
-		if r.Annotations == nil {
-			r.Annotations = make(map[string]string)
-		}
-		r.Annotations[serving.ConfigurationGenerationLabelKey] = strconv.Itoa(generation)
-	}
 }

@@ -47,10 +47,6 @@ func isDeploymentScaledUp() func(d *appsv1.Deployment) (bool, error) {
 	}
 }
 
-func tearDown(ctx *testContext) {
-	test.TearDown(ctx.clients, ctx.names)
-}
-
 func generateTraffic(ctx *testContext, concurrency int, duration time.Duration, stopChan chan struct{}) error {
 	var (
 		totalRequests      int32

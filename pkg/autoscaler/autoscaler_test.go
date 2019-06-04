@@ -19,9 +19,10 @@ package autoscaler
 import (
 	"errors"
 	"fmt"
-	"github.com/knative/serving/pkg/resources"
 	"testing"
 	"time"
+
+	"github.com/knative/serving/pkg/resources"
 
 	. "github.com/knative/pkg/logging/testing"
 	corev1 "k8s.io/api/core/v1"
@@ -31,9 +32,8 @@ import (
 )
 
 const (
-	stableWindow     = 60 * time.Second
-	panicWindow      = 6 * time.Second
-	activatorPodName = "activator"
+	stableWindow = 60 * time.Second
+	panicWindow  = 6 * time.Second
 )
 
 var (
