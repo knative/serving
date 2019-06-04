@@ -36,8 +36,7 @@ import (
 )
 
 const (
-	threadsPerController = 2
-	component            = "controller-certificate-cert-manager"
+	component = "controller-certificate-cert-manager"
 )
 
 var (

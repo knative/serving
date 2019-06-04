@@ -41,13 +41,6 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
-type changed bool
-
-const (
-	wasChanged changed = true
-	unchanged  changed = false
-)
-
 type resolver interface {
 	Resolve(string, k8schain.Options, sets.String) (string, error)
 }

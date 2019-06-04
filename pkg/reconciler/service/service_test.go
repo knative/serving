@@ -1228,7 +1228,7 @@ func TestReconcile(t *testing.T) {
 				WithInitSvcConditions, MarkConfigurationNotOwned),
 		}},
 		WantEvents: []string{
-			Eventf(corev1.EventTypeWarning, "InternalError", `Service: "run-latest" does not own Configuration: "run-latest"`),
+			Eventf(corev1.EventTypeWarning, "InternalError", `service: "run-latest" does not own configuration: "run-latest"`),
 		},
 	}, {
 		Name:    "runLatest - not owned route exists",
@@ -1245,7 +1245,7 @@ func TestReconcile(t *testing.T) {
 				WithInitSvcConditions, MarkRouteNotOwned),
 		}},
 		WantEvents: []string{
-			Eventf(corev1.EventTypeWarning, "InternalError", `Service: "run-latest" does not own Route: "run-latest"`),
+			Eventf(corev1.EventTypeWarning, "InternalError", `service: "run-latest" does not own route: "run-latest"`),
 		},
 	}, {
 		Name: "runLatest - correct not owned by adding owner refs",
@@ -1387,10 +1387,4 @@ func RouteFailed(reason, message string) RouteOption {
 			},
 		}
 	}
-}
-
-// WithManualWarning adds a Warning condition for the Manual
-func WithManualWarning(c *v1alpha1.Service) {
-	c.Status.MarkResourceNotConvertible(v1alpha1.ConvertErrorf("manual",
-		"manual mode cannot be migrated forward.").(*v1alpha1.CannotConvertError))
 }

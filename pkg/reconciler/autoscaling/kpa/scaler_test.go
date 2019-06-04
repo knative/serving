@@ -491,13 +491,6 @@ func kpaMarkInactive(pa *pav1alpha1.PodAutoscaler, ltt time.Time) {
 	pa.Status.Conditions[0].LastTransitionTime = apis.VolatileTime{Inner: metav1.NewTime(ltt)}
 }
 
-func kpaMarkActivating(pa *pav1alpha1.PodAutoscaler, ltt time.Time) {
-	pa.Status.MarkActivating("", "")
-
-	// This works because the conditions are sorted alphabetically
-	pa.Status.Conditions[0].LastTransitionTime = apis.VolatileTime{Inner: metav1.NewTime(ltt)}
-}
-
 func checkReplicas(t *testing.T, dynamicClient *fakedynamic.FakeDynamicClient, deployment *v1.Deployment, expectedScale int32) {
 	t.Helper()
 
@@ -519,17 +512,6 @@ func checkReplicas(t *testing.T, dynamicClient *fakedynamic.FakeDynamicClient, d
 
 	if !found {
 		t.Errorf("Did not see scale update for %v", deployment.Name)
-	}
-}
-
-func checkNoScaling(t *testing.T, dynamicClient *fakedynamic.FakeDynamicClient) {
-	t.Helper()
-
-	for _, action := range dynamicClient.Actions() {
-		switch action.GetVerb() {
-		case "update":
-			t.Errorf("Unexpected update: %v", action)
-		}
 	}
 }
 

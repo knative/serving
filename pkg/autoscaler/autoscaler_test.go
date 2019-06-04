@@ -32,9 +32,8 @@ import (
 )
 
 const (
-	stableWindow     = 60 * time.Second
-	panicWindow      = 6 * time.Second
-	activatorPodName = "activator"
+	stableWindow = 60 * time.Second
+	panicWindow  = 6 * time.Second
 )
 
 var (

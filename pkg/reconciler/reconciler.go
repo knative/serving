@@ -70,9 +70,6 @@ type Options struct {
 	StopChannel  <-chan struct{}
 }
 
-// This is mutable for testing.
-var resetPeriod = 30 * time.Second
-
 func NewOptionsOrDie(cfg *rest.Config, logger *zap.SugaredLogger, stopCh <-chan struct{}) Options {
 	kubeClient := kubernetes.NewForConfigOrDie(cfg)
 	sharedClient := sharedclientset.NewForConfigOrDie(cfg)

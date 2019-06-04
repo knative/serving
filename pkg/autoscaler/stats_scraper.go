@@ -73,7 +73,6 @@ var cacheDisabledClient = &http.Client{
 // for details.
 type ServiceScraper struct {
 	sClient             scrapeClient
-	sampleSizeFunc      SampleSizeFunc
 	counter             resources.ReadyPodCounter
 	url                 string
 	namespace           string

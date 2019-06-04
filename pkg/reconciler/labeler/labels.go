@@ -79,7 +79,7 @@ func (c *Reconciler) setLabelForGivenConfigurations(
 			continue
 		}
 		if routeName != route.Name {
-			return fmt.Errorf("Configuration %q is already in use by %q, and cannot be used by %q",
+			return fmt.Errorf("configuration %q is already in use by %q, and cannot be used by %q",
 				config.Name, routeName, route.Name)
 		}
 	}

@@ -81,9 +81,13 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 	original, err := c.paLister.PodAutoscalers(namespace).Get(name)
 	if errors.IsNotFound(err) {
 		logger.Debug("PA no longer exists")
-		err = c.kpaDeciders.Delete(ctx, namespace, name)
-		err = c.metrics.Delete(ctx, namespace, name)
-		return err
+		if err := c.kpaDeciders.Delete(ctx, namespace, name); err != nil {
+			return err
+		}
+		if err := c.metrics.Delete(ctx, namespace, name); err != nil {
+			return err
+		}
+		return nil
 	} else if err != nil {
 		return err
 	}
@@ -310,8 +314,7 @@ func (c *Reconciler) reconcileMetric(ctx context.Context, pa *pav1alpha1.PodAuto
 	// Ignore status when reconciling
 	desiredMetric.Status = metric.Status
 	if !equality.Semantic.DeepEqual(desiredMetric, metric) {
-		metric, err = c.metrics.Update(ctx, desiredMetric)
-		if err != nil {
+		if _, err = c.metrics.Update(ctx, desiredMetric); err != nil {
 			return perrors.Wrap(err, "error updating metric")
 		}
 	}

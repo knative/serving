@@ -567,12 +567,6 @@ func sendRequests(count int, namespace, revName string, respCh chan *httptest.Re
 	}
 }
 
-// getHandler returns an already setup activationHandler. The roundtripper is controlled
-// via the given `lockerCh`.
-func getHandler(throttler *activator.Throttler, lockerCh chan struct{}, t *testing.T) activationHandler {
-	return activationHandler{}
-}
-
 // getRT returns a roundTripper. probeErr if set is an error response returned to probe requests. probeCode is the
 // response code of probe requests. probeResp if set is the body to respond with for probe requests.
 // err if set is an error response returned for forwarded requests. body is the response body of forwarded requests.

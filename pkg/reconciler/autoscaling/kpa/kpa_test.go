@@ -32,7 +32,6 @@ import (
 
 	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/controller"
-	"github.com/knative/pkg/kmeta"
 	logtesting "github.com/knative/pkg/logging/testing"
 	"github.com/knative/pkg/ptr"
 	"github.com/knative/pkg/system"
@@ -42,7 +41,6 @@ import (
 	nv1a1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 	"github.com/knative/serving/pkg/autoscaler"
 	fakeKna "github.com/knative/serving/pkg/client/clientset/versioned/fake"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
@@ -142,12 +140,6 @@ func markActive(pa *asv1a1.PodAutoscaler) {
 	pa.Status.MarkActive()
 }
 
-func sksWithOwnership(pa *asv1a1.PodAutoscaler) SKSOption {
-	return func(sks *nv1a1.ServerlessService) {
-		sks.ObjectMeta.OwnerReferences = []metav1.OwnerReference{*kmeta.NewControllerRef(pa)}
-	}
-}
-
 func kpa(ns, n string, opts ...PodAutoscalerOption) *asv1a1.PodAutoscaler {
 	rev := newTestRevision(ns, n)
 	kpa := revisionresources.MakeKPA(rev)
@@ -157,12 +149,6 @@ func kpa(ns, n string, opts ...PodAutoscalerOption) *asv1a1.PodAutoscaler {
 		opt(kpa)
 	}
 	return kpa
-}
-
-func withConcurrency(n int) PodAutoscalerOption {
-	return func(pa *asv1a1.PodAutoscaler) {
-		pa.Spec.ContainerConcurrency = v1beta1.RevisionContainerConcurrencyType(n)
-	}
 }
 
 func markResourceNotOwned(rType, name string) PodAutoscalerOption {
