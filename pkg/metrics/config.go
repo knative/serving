@@ -34,11 +34,14 @@ const (
 // when a config map is updated
 func UpdateExporterFromConfigMap(component string, logger *zap.SugaredLogger) func(configMap *corev1.ConfigMap) {
 	return func(configMap *corev1.ConfigMap) {
-		metrics.UpdateExporter(metrics.ExporterOptions{
+		err := metrics.UpdateExporter(metrics.ExporterOptions{
 			Domain:    metrics.Domain(),
 			Component: component,
 			ConfigMap: configMap.Data,
 		}, logger)
+		if err != nil {
+			logger.Errorw("Error updating metrics exporter", zap.Error(err))
+		}
 	}
 }
 

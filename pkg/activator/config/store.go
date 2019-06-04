@@ -83,7 +83,7 @@ func (mw *storeMiddleware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	mw.next.ServeHTTP(w, r.WithContext(ctx))
 }
 
-// HTTPMiddleware is a middlewhere which stores the current config store in the request context
+// HTTPMiddleware is a middleware which stores the current config store in the request context
 func (s *Store) HTTPMiddleware(next http.Handler) http.Handler {
 	return &storeMiddleware{
 		store: s,
