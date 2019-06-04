@@ -509,7 +509,7 @@ func TestReconcile(t *testing.T) {
 				MarkResourceNotOwned("PodAutoscaler", "missing-owners")),
 		}},
 		WantEvents: []string{
-			Eventf(corev1.EventTypeWarning, "InternalError", `Revision: "missing-owners" does not own PodAutoscaler: "missing-owners"`),
+			Eventf(corev1.EventTypeWarning, "InternalError", `revision: "missing-owners" does not own PodAutoscaler: "missing-owners"`),
 		},
 		Key: "foo/missing-owners",
 	}, {
@@ -529,7 +529,7 @@ func TestReconcile(t *testing.T) {
 				MarkResourceNotOwned("Deployment", "missing-owners-deployment")),
 		}},
 		WantEvents: []string{
-			Eventf(corev1.EventTypeWarning, "InternalError", `Revision: "missing-owners" does not own Deployment: "missing-owners-deployment"`),
+			Eventf(corev1.EventTypeWarning, "InternalError", `revision: "missing-owners" does not own Deployment: "missing-owners-deployment"`),
 		},
 		Key: "foo/missing-owners",
 	}}
