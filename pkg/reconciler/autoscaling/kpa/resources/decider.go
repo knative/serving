@@ -25,6 +25,24 @@ import (
 	"github.com/knative/serving/pkg/reconciler/autoscaling/resources"
 )
 
+// Deciders is an interface for notifying the presence or absence of KPAs.
+type Deciders interface {
+	// Get accesses the Decider resource for this key, returning any errors.
+	Get(ctx context.Context, namespace, name string) (*autoscaler.Decider, error)
+
+	// Create adds a Decider resource for a given key, returning any errors.
+	Create(ctx context.Context, decider *autoscaler.Decider) (*autoscaler.Decider, error)
+
+	// Delete removes the Decider resource for a given key, returning any errors.
+	Delete(ctx context.Context, namespace, name string) error
+
+	// Watch registers a function to call when Decider change.
+	Watch(watcher func(string))
+
+	// Update update the Decider resource, return the new Decider or any errors.
+	Update(ctx context.Context, decider *autoscaler.Decider) (*autoscaler.Decider, error)
+}
+
 // MakeDecider constructs a Decider resource from a PodAutoscaler taking
 // into account the PA's ContainerConcurrency and the relevant
 // autoscaling annotation.
