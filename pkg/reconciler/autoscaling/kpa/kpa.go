@@ -49,39 +49,6 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
-// Deciders is an interface for notifying the presence or absence of KPAs.
-type Deciders interface {
-	// Get accesses the Decider resource for this key, returning any errors.
-	Get(ctx context.Context, namespace, name string) (*autoscaler.Decider, error)
-
-	// Create adds a Decider resource for a given key, returning any errors.
-	Create(ctx context.Context, decider *autoscaler.Decider) (*autoscaler.Decider, error)
-
-	// Delete removes the Decider resource for a given key, returning any errors.
-	Delete(ctx context.Context, namespace, name string) error
-
-	// Watch registers a function to call when Decider change.
-	Watch(watcher func(string))
-
-	// Update update the Decider resource, return the new Decider or any errors.
-	Update(ctx context.Context, decider *autoscaler.Decider) (*autoscaler.Decider, error)
-}
-
-// Metrics is an interface for notifying the presence or absence of metric collection.
-type Metrics interface {
-	// Get accesses the Metric resource for this key, returning any errors.
-	Get(ctx context.Context, namespace, name string) (*autoscaler.Metric, error)
-
-	// Create adds a Metric resource for a given key, returning any errors.
-	Create(ctx context.Context, metric *autoscaler.Metric) (*autoscaler.Metric, error)
-
-	// Delete removes the Metric resource for a given key, returning any errors.
-	Delete(ctx context.Context, namespace, name string) error
-
-	// Update update the Metric resource, return the new Metric or any errors.
-	Update(ctx context.Context, metric *autoscaler.Metric) (*autoscaler.Metric, error)
-}
-
 // Reconciler tracks PAs and right sizes the ScaleTargetRef based on the
 // information from Deciders.
 type Reconciler struct {
@@ -90,8 +57,8 @@ type Reconciler struct {
 	serviceLister   corev1listers.ServiceLister
 	sksLister       nlisters.ServerlessServiceLister
 	endpointsLister corev1listers.EndpointsLister
-	kpaDeciders     Deciders
-	metrics         Metrics
+	kpaDeciders     resources.Deciders
+	metrics         aresources.Metrics
 	scaler          *scaler
 	configStore     configStore
 }
@@ -329,7 +296,7 @@ func (c *Reconciler) reconcileMetricsService(ctx context.Context, pa *pav1alpha1
 }
 
 func (c *Reconciler) reconcileMetric(ctx context.Context, pa *pav1alpha1.PodAutoscaler) error {
-	desiredMetric := resources.MakeMetric(ctx, pa, config.FromContext(ctx).Autoscaler)
+	desiredMetric := aresources.MakeMetric(ctx, pa, config.FromContext(ctx).Autoscaler)
 	metric, err := c.metrics.Get(ctx, desiredMetric.Namespace, desiredMetric.Name)
 	if errors.IsNotFound(err) {
 		metric, err = c.metrics.Create(ctx, desiredMetric)
