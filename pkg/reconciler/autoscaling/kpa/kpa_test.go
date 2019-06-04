@@ -480,7 +480,7 @@ func TestReconcile(t *testing.T) {
 		WantErr: true,
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "InternalError",
-				`error checking endpoints test-revision-priv: endpoints "test-revision-priv" not found`),
+				`error checking endpoints test-revision-rand: endpoints "test-revision-rand" not found`),
 		},
 	}, {
 		Name: "pa activates",
@@ -508,7 +508,7 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			kpa(testNamespace, testRevision, WithTraffic,
 				WithPAStatusService(testRevision)),
-			sks(testNamespace, testRevision, WithDeployRef(deployName), WithPubService, WithPrivateService),
+			sks(testNamespace, testRevision, WithDeployRef(deployName), WithPubService, WithPrivateService(testRevision+"-rand")),
 			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector)),
 			expectedDeploy,
 			makeSKSPrivateEndpoints(1, testNamespace, testRevision),
@@ -1512,7 +1512,7 @@ func newTestRevision(namespace string, name string) *v1alpha1.Revision {
 }
 
 func makeSKSPrivateEndpoints(num int, ns, n string) *corev1.Endpoints {
-	s := sks(testNamespace, testRevision, WithPrivateService)
+	s := sks(testNamespace, testRevision, WithPrivateService(n+"-rand"))
 	eps := &corev1.Endpoints{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: s.Namespace,
