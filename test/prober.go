@@ -25,6 +25,7 @@ import (
 	"testing"
 
 	pkgTest "github.com/knative/pkg/test"
+	"github.com/knative/pkg/test/logging"
 	"github.com/knative/pkg/test/spoof"
 	"golang.org/x/sync/errgroup"
 )
@@ -44,7 +45,7 @@ type Prober interface {
 
 type prober struct {
 	// These shouldn't change after creation
-	t             *testing.T
+	logf          logging.FormatLogger
 	domain        string
 	minimumProbes int64
 
@@ -109,8 +110,8 @@ func (p *prober) handleResponse(response *spoof.Response) (bool, error) {
 
 	p.requests++
 	if response.StatusCode != http.StatusOK {
-		p.t.Logf("%q status = %d, want: %d", p.domain, response.StatusCode, http.StatusOK)
-		p.t.Logf("response: %s", response)
+		p.logf("%q status = %d, want: %d", p.domain, response.StatusCode, http.StatusOK)
+		p.logf("response: %s", response)
 		p.failures++
 	}
 	if p.requests == p.minimumProbes {
@@ -136,7 +137,7 @@ type ProberManager interface {
 
 type manager struct {
 	// Should not change after creation
-	t         *testing.T
+	logf      logging.FormatLogger
 	clients   *Clients
 	minProbes int64
 
@@ -155,9 +156,9 @@ func (m *manager) Spawn(domain string) Prober {
 		return p
 	}
 
-	m.t.Logf("Starting Route prober for route domain %s.", domain)
+	m.logf("Starting Route prober for route domain %s.", domain)
 	p := &prober{
-		t:             m.t,
+		logf:          m.logf,
 		domain:        domain,
 		minimumProbes: m.minProbes,
 		errCh:         make(chan error, 1),
@@ -165,10 +166,10 @@ func (m *manager) Spawn(domain string) Prober {
 	}
 	m.probes[domain] = p
 	go func() {
-		client, err := pkgTest.NewSpoofingClient(m.clients.KubeClient, m.t.Logf, domain,
+		client, err := pkgTest.NewSpoofingClient(m.clients.KubeClient, m.logf, domain,
 			ServingFlags.ResolvableDomain)
 		if err != nil {
-			m.t.Logf("NewSpoofingClient() = %v", err)
+			m.logf("NewSpoofingClient() = %v", err)
 			p.errCh <- err
 			return
 		}
@@ -177,7 +178,7 @@ func (m *manager) Spawn(domain string) Prober {
 		client.RequestTimeout = 0
 		req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://%s", domain), nil)
 		if err != nil {
-			m.t.Logf("NewRequest() = %v", err)
+			m.logf("NewRequest() = %v", err)
 			p.errCh <- err
 			return
 		}
@@ -188,7 +189,7 @@ func (m *manager) Spawn(domain string) Prober {
 		if err != nil {
 			// SLO violations are not reflected as errors. They are
 			// captured and calculated internally.
-			m.t.Logf("Poll() = %v", err)
+			m.logf("Poll() = %v", err)
 			p.errCh <- err
 			return
 		}
@@ -201,7 +202,7 @@ func (m *manager) Stop() error {
 	m.m.Lock()
 	defer m.m.Unlock()
 
-	m.t.Log("Stopping all probers")
+	m.logf("Stopping all probers")
 
 	errgrp := &errgroup.Group{}
 	for _, prober := range m.probes {
@@ -233,9 +234,9 @@ func (m *manager) Foreach(f func(domain string, p Prober)) {
 }
 
 // NewProberManager creates a new manager for probes.
-func NewProberManager(t *testing.T, clients *Clients, minProbes int64) ProberManager {
+func NewProberManager(logf logging.FormatLogger, clients *Clients, minProbes int64) ProberManager {
 	return &manager{
-		t:         t,
+		logf:      logf,
 		clients:   clients,
 		minProbes: minProbes,
 		probes:    make(map[string]Prober),
@@ -243,9 +244,9 @@ func NewProberManager(t *testing.T, clients *Clients, minProbes int64) ProberMan
 }
 
 // RunRouteProber starts a single Prober of the given domain.
-func RunRouteProber(t *testing.T, clients *Clients, domain string) Prober {
+func RunRouteProber(logf logging.FormatLogger, clients *Clients, domain string) Prober {
 	// Default to 10 probes
-	pm := NewProberManager(t, clients, 10)
+	pm := NewProberManager(logf, clients, 10)
 	pm.Spawn(domain)
 	return pm
 }
