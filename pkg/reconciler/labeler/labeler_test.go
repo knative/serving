@@ -17,21 +17,25 @@ limitations under the License.
 package labeler
 
 import (
+	"context"
 	"fmt"
 	"testing"
 
+	// Inject the fake informers that this controller needs.
+	_ "github.com/knative/serving/pkg/client/injection/informers/serving/v1alpha1/configuration/fake"
+	_ "github.com/knative/serving/pkg/client/injection/informers/serving/v1alpha1/revision/fake"
+	_ "github.com/knative/serving/pkg/client/injection/informers/serving/v1alpha1/route/fake"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
 	clientgotesting "k8s.io/client-go/testing"
 
+	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/controller"
 	"github.com/knative/pkg/kmeta"
 	logtesting "github.com/knative/pkg/logging/testing"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1beta1"
-	fakeclientset "github.com/knative/serving/pkg/client/clientset/versioned/fake"
-	informers "github.com/knative/serving/pkg/client/informers/externalversions"
 	"github.com/knative/serving/pkg/reconciler"
 
 	. "github.com/knative/pkg/reconciler/testing"
@@ -134,9 +138,9 @@ func TestReconcile(t *testing.T) {
 	}}
 
 	defer logtesting.ClearAll()
-	table.Test(t, MakeFactory(func(listers *Listers, opt reconciler.Options) controller.Reconciler {
+	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
 		return &Reconciler{
-			Base:                reconciler.NewBase(opt, controllerAgentName),
+			Base:                reconciler.NewBase(ctx, controllerAgentName, cmw),
 			routeLister:         listers.GetRouteLister(),
 			configurationLister: listers.GetConfigurationLister(),
 			revisionLister:      listers.GetRevisionLister(),
@@ -224,19 +228,9 @@ func patchAddLabel(namespace, name, key, value, version string) clientgotesting.
 
 func TestNew(t *testing.T) {
 	defer logtesting.ClearAll()
-	kubeClient := fakekubeclientset.NewSimpleClientset()
-	servingClient := fakeclientset.NewSimpleClientset()
-	servingInformer := informers.NewSharedInformerFactory(servingClient, 0)
+	ctx, _ := SetupFakeContext(t)
 
-	routeInformer := servingInformer.Serving().V1alpha1().Routes()
-	configurationInformer := servingInformer.Serving().V1alpha1().Configurations()
-	revisionInformer := servingInformer.Serving().V1alpha1().Revisions()
-
-	c := NewRouteToConfigurationController(reconciler.Options{
-		KubeClientSet:    kubeClient,
-		ServingClientSet: servingClient,
-		Logger:           logtesting.TestLogger(t),
-	}, routeInformer, configurationInformer, revisionInformer)
+	c := NewRouteToConfigurationController(ctx, configmap.NewFixedWatcher())
 
 	if c == nil {
 		t.Fatal("Expected NewController to return a non-nil value")

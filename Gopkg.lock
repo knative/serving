@@ -106,12 +106,12 @@
   revision = "de5bf2ad457846296e2031421a34e2568e304e35"
 
 [[projects]]
-  digest = "1:998e4640c25e00ccb7b2569bf94562283937b8afb3485c0e1a0a05a15330240d"
+  digest = "1:f4aaa07a6c33f2b354726d0571acbc8ca118837c75709f6353203ae1a3f8eeab"
   name = "github.com/Sirupsen/logrus"
   packages = ["."]
   pruneopts = "NUT"
-  revision = "8bdbc7bcc01dcbb8ec23dc8a28e332258d25251f"
-  version = "v1.4.1"
+  revision = "839c75faf7f98a33d445d181f3018b5c3409a45e"
+  version = "v1.4.2"
 
 [[projects]]
   digest = "1:de17997fdba5b694eb3528204adba0f089ebd2ceef54a346ad2313e6ca138df5"
@@ -325,11 +325,12 @@
   version = "v0.19.0"
 
 [[projects]]
-  digest = "1:5915a91a5943a55e0c1cf1df04f6c22c6a942cd2792efe38c844f97b89aa40d8"
+  digest = "1:8f80caf2fa31f78a035f33981c9685013033073b53f344f579e60fa69f0c6670"
   name = "github.com/go-openapi/spec"
   packages = ["."]
   pruneopts = "NUT"
-  revision = "1de3e0542de65ad8d75452a595886fdd0befb363"
+  revision = "53d776530bf78a11b03a7b52dd8a083086b045e5"
+  version = "v0.19.0"
 
 [[projects]]
   digest = "1:076ebf43e6e70f18ef9d079a685ede59a0f4dc9247256c209cf57407f959cef9"
@@ -578,13 +579,19 @@
     "pkg/client/informers/externalversions/caching",
     "pkg/client/informers/externalversions/caching/v1alpha1",
     "pkg/client/informers/externalversions/internalinterfaces",
+    "pkg/client/injection/client",
+    "pkg/client/injection/client/fake",
+    "pkg/client/injection/informers/caching/factory",
+    "pkg/client/injection/informers/caching/factory/fake",
+    "pkg/client/injection/informers/caching/v1alpha1/image",
+    "pkg/client/injection/informers/caching/v1alpha1/image/fake",
     "pkg/client/listers/caching/v1alpha1",
   ]
   pruneopts = "T"
   revision = "b6c8f4851e3fb13987782cf8014316141e42fbd3"
 
 [[projects]]
-  digest = "1:419bb4fd941c981d35f6bac31bb35f6735aacfcff4dd3ce381319362a582e99f"
+  digest = "1:1e922ce4df30a162ca548f7b01256c4da474c0eef668f4ee1b382beab493eda9"
   name = "github.com/knative/pkg"
   packages = [
     "apis",
@@ -611,6 +618,14 @@
     "client/informers/externalversions/internalinterfaces",
     "client/informers/externalversions/istio",
     "client/informers/externalversions/istio/v1alpha3",
+    "client/injection/client",
+    "client/injection/client/fake",
+    "client/injection/informers/istio/factory",
+    "client/injection/informers/istio/factory/fake",
+    "client/injection/informers/istio/v1alpha3/gateway",
+    "client/injection/informers/istio/v1alpha3/gateway/fake",
+    "client/injection/informers/istio/v1alpha3/virtualservice",
+    "client/injection/informers/istio/v1alpha3/virtualservice/fake",
     "client/listers/authentication/v1alpha1",
     "client/listers/istio/v1alpha3",
     "codegen/cmd/injection-gen",
@@ -620,6 +635,25 @@
     "configmap/testing",
     "controller",
     "injection",
+    "injection/clients/dynamicclient",
+    "injection/clients/dynamicclient/fake",
+    "injection/clients/kubeclient",
+    "injection/clients/kubeclient/fake",
+    "injection/informers/kubeinformers/appsv1/deployment",
+    "injection/informers/kubeinformers/appsv1/deployment/fake",
+    "injection/informers/kubeinformers/autoscalingv2beta1/hpa",
+    "injection/informers/kubeinformers/autoscalingv2beta1/hpa/fake",
+    "injection/informers/kubeinformers/corev1/configmap",
+    "injection/informers/kubeinformers/corev1/configmap/fake",
+    "injection/informers/kubeinformers/corev1/endpoints",
+    "injection/informers/kubeinformers/corev1/endpoints/fake",
+    "injection/informers/kubeinformers/corev1/secret",
+    "injection/informers/kubeinformers/corev1/secret/fake",
+    "injection/informers/kubeinformers/corev1/service",
+    "injection/informers/kubeinformers/corev1/service/fake",
+    "injection/informers/kubeinformers/factory",
+    "injection/informers/kubeinformers/factory/fake",
+    "injection/sharedmain",
     "kmeta",
     "kmp",
     "logging",
@@ -646,7 +680,7 @@
     "websocket",
   ]
   pruneopts = "T"
-  revision = "586a88ecb85244c06d6ce95fbce000d8053e01d6"
+  revision = "463df98531b3b7a9055d062012851c3d0f5583a1"
 
 [[projects]]
   branch = "master"
@@ -1673,8 +1707,10 @@
     "github.com/knative/caching/pkg/apis/caching/v1alpha1",
     "github.com/knative/caching/pkg/client/clientset/versioned",
     "github.com/knative/caching/pkg/client/clientset/versioned/fake",
-    "github.com/knative/caching/pkg/client/informers/externalversions",
-    "github.com/knative/caching/pkg/client/informers/externalversions/caching/v1alpha1",
+    "github.com/knative/caching/pkg/client/injection/client",
+    "github.com/knative/caching/pkg/client/injection/client/fake",
+    "github.com/knative/caching/pkg/client/injection/informers/caching/v1alpha1/image",
+    "github.com/knative/caching/pkg/client/injection/informers/caching/v1alpha1/image/fake",
     "github.com/knative/caching/pkg/client/listers/caching/v1alpha1",
     "github.com/knative/pkg/apis",
     "github.com/knative/pkg/apis/duck",
@@ -1685,14 +1721,35 @@
     "github.com/knative/pkg/apis/testing",
     "github.com/knative/pkg/client/clientset/versioned",
     "github.com/knative/pkg/client/clientset/versioned/fake",
-    "github.com/knative/pkg/client/informers/externalversions",
-    "github.com/knative/pkg/client/informers/externalversions/istio/v1alpha3",
+    "github.com/knative/pkg/client/injection/client",
+    "github.com/knative/pkg/client/injection/client/fake",
+    "github.com/knative/pkg/client/injection/informers/istio/v1alpha3/gateway",
+    "github.com/knative/pkg/client/injection/informers/istio/v1alpha3/gateway/fake",
+    "github.com/knative/pkg/client/injection/informers/istio/v1alpha3/virtualservice",
+    "github.com/knative/pkg/client/injection/informers/istio/v1alpha3/virtualservice/fake",
     "github.com/knative/pkg/client/listers/istio/v1alpha3",
     "github.com/knative/pkg/codegen/cmd/injection-gen",
     "github.com/knative/pkg/configmap",
     "github.com/knative/pkg/configmap/testing",
     "github.com/knative/pkg/controller",
     "github.com/knative/pkg/injection",
+    "github.com/knative/pkg/injection/clients/dynamicclient",
+    "github.com/knative/pkg/injection/clients/dynamicclient/fake",
+    "github.com/knative/pkg/injection/clients/kubeclient",
+    "github.com/knative/pkg/injection/clients/kubeclient/fake",
+    "github.com/knative/pkg/injection/informers/kubeinformers/appsv1/deployment",
+    "github.com/knative/pkg/injection/informers/kubeinformers/appsv1/deployment/fake",
+    "github.com/knative/pkg/injection/informers/kubeinformers/autoscalingv2beta1/hpa",
+    "github.com/knative/pkg/injection/informers/kubeinformers/autoscalingv2beta1/hpa/fake",
+    "github.com/knative/pkg/injection/informers/kubeinformers/corev1/configmap",
+    "github.com/knative/pkg/injection/informers/kubeinformers/corev1/configmap/fake",
+    "github.com/knative/pkg/injection/informers/kubeinformers/corev1/endpoints",
+    "github.com/knative/pkg/injection/informers/kubeinformers/corev1/endpoints/fake",
+    "github.com/knative/pkg/injection/informers/kubeinformers/corev1/secret",
+    "github.com/knative/pkg/injection/informers/kubeinformers/corev1/secret/fake",
+    "github.com/knative/pkg/injection/informers/kubeinformers/corev1/service",
+    "github.com/knative/pkg/injection/informers/kubeinformers/corev1/service/fake",
+    "github.com/knative/pkg/injection/sharedmain",
     "github.com/knative/pkg/kmeta",
     "github.com/knative/pkg/kmp",
     "github.com/knative/pkg/logging",
@@ -1784,8 +1841,6 @@
     "k8s.io/client-go/dynamic",
     "k8s.io/client-go/dynamic/fake",
     "k8s.io/client-go/informers",
-    "k8s.io/client-go/informers/apps/v1",
-    "k8s.io/client-go/informers/autoscaling/v2beta1",
     "k8s.io/client-go/informers/core/v1",
     "k8s.io/client-go/kubernetes",
     "k8s.io/client-go/kubernetes/fake",

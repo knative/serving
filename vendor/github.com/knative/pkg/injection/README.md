@@ -3,7 +3,7 @@
 This library supports the production of controller processes with minimal
 boilerplate outside of the reconciler implementation.
 
-## Registering Controllers
+## Building Controllers
 
 To adopt this model of controller construction, implementations should start
 with the following controller constructor:
@@ -14,7 +14,6 @@ import (
 
 	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/controller"
-	"github.com/knative/pkg/injection"
 	"github.com/knative/pkg/logging"
 )
 
@@ -31,11 +30,6 @@ func NewController(ctx context.Context, cmw configmap.Watcher) *controller.Impl 
 	// TODO(you): Set up event handlers.
 
 	return impl
-}
-
-// Register our controller process.
-func init() {
-	injection.Default.RegisterController(NewController)
 }
 ```
 
@@ -152,26 +146,27 @@ func TestFoo(t *testing.T) {
 
 ## Starting controllers
 
-By registering our controller with `injection.Default` via `init()` above we
-enable our shared main method to bootstrap the entire container process. All we
-do is link the controller packages containing the `init()` registering them and
-this transitively links in all of the things it needs. Then our shared main
-method sets it all up and runs our controllers.
+All we do is import the controller packages and pass their constructors along
+with a component name to our shared main. Then our shared main method sets it
+all up and runs our controllers.
 
 ```go
 package main
 
 import (
 	// The set of controllers this process will run.
-	_ "github.com/knative/foo/pkg/reconciler/bar"
-	_ "github.com/knative/baz/pkg/reconciler/blah"
+	"github.com/knative/foo/pkg/reconciler/bar"
+	"github.com/knative/baz/pkg/reconciler/blah"
 
 	// This defines the shared main for injected controllers.
 	"github.com/knative/pkg/injection/sharedmain"
 )
 
 func main() {
-	sharedmain.Main()
+	sharedmain.Main("component-name",
+       bar.NewController,
+       blah.NewController,
+    )
 }
 
 ```

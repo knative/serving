@@ -19,15 +19,16 @@ package hpa
 import (
 	"context"
 
+	hpainformer "github.com/knative/pkg/injection/informers/kubeinformers/autoscalingv2beta1/hpa"
+	kpainformer "github.com/knative/serving/pkg/client/injection/informers/autoscaling/v1alpha1/podautoscaler"
+	sksinformer "github.com/knative/serving/pkg/client/injection/informers/networking/v1alpha1/serverlessservice"
+
 	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/controller"
 	"github.com/knative/serving/pkg/apis/autoscaling"
 	"github.com/knative/serving/pkg/autoscaler"
-	informers "github.com/knative/serving/pkg/client/informers/externalversions/autoscaling/v1alpha1"
-	ninformers "github.com/knative/serving/pkg/client/informers/externalversions/networking/v1alpha1"
 	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/autoscaling/config"
-	autoscalingv2beta1informers "k8s.io/client-go/informers/autoscaling/v2beta1"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -43,13 +44,16 @@ type configStore interface {
 
 // NewController returns a new HPA reconcile controller.
 func NewController(
-	opts *reconciler.Options,
-	paInformer informers.PodAutoscalerInformer,
-	sksInformer ninformers.ServerlessServiceInformer,
-	hpaInformer autoscalingv2beta1informers.HorizontalPodAutoscalerInformer,
+	ctx context.Context,
+	cmw configmap.Watcher,
 ) *controller.Impl {
+
+	paInformer := kpainformer.Get(ctx)
+	sksInformer := sksinformer.Get(ctx)
+	hpaInformer := hpainformer.Get(ctx)
+
 	c := &Reconciler{
-		Base:      reconciler.NewBase(*opts, controllerAgentName),
+		Base:      reconciler.NewBase(ctx, controllerAgentName, cmw),
 		paLister:  paInformer.Lister(),
 		hpaLister: hpaInformer.Lister(),
 		sksLister: sksInformer.Lister(),
@@ -82,7 +86,7 @@ func NewController(
 		controller.SendGlobalUpdates(paInformer.Informer(), paHandler)
 	})
 	c.configStore = config.NewStore(c.Logger.Named("config-store"), resync)
-	c.configStore.WatchConfigs(opts.ConfigMapWatcher)
+	c.configStore.WatchConfigs(cmw)
 
 	return impl
 }

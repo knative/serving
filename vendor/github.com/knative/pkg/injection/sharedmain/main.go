@@ -38,17 +38,12 @@ import (
 	"go.uber.org/zap"
 )
 
-func Main() {
-	// The default component name is "controller"
-	MainWithComponent("controller")
-}
-
-func MainWithComponent(component string) {
+func Main(component string, ctors ...injection.ControllerConstructor) {
 	// Set up signals so we handle the first shutdown signal gracefully.
-	MainWithContext(signals.NewContext(), component)
+	MainWithContext(signals.NewContext(), component, ctors...)
 }
 
-func MainWithContext(ctx context.Context, component string) {
+func MainWithContext(ctx context.Context, component string, ctors ...injection.ControllerConstructor) {
 	var (
 		masterURL  = flag.String("master", "", "The address of the Kubernetes API server. Overrides any value in kubeconfig. Only required if out-of-cluster.")
 		kubeconfig = flag.String("kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
@@ -59,10 +54,10 @@ func MainWithContext(ctx context.Context, component string) {
 	if err != nil {
 		log.Fatal("Error building kubeconfig", err)
 	}
-	MainWithConfig(ctx, component, cfg)
+	MainWithConfig(ctx, component, cfg, ctors...)
 }
 
-func MainWithConfig(ctx context.Context, component string, cfg *rest.Config) {
+func MainWithConfig(ctx context.Context, component string, cfg *rest.Config, ctors ...injection.ControllerConstructor) {
 	// Set up our logger.
 	loggingConfigMap, err := configmap.Load("/etc/config-logging")
 	if err != nil {
@@ -79,11 +74,11 @@ func MainWithConfig(ctx context.Context, component string, cfg *rest.Config) {
 	logger.Infof("Registering %d clients", len(injection.Default.GetClients()))
 	logger.Infof("Registering %d informer factories", len(injection.Default.GetInformerFactories()))
 	logger.Infof("Registering %d informers", len(injection.Default.GetInformers()))
-	logger.Infof("Registering %d controllers", len(injection.Default.GetControllers()))
+	logger.Infof("Registering %d controllers", len(ctors))
 
 	// Adjust our client's rate limits based on the number of controller's we are running.
-	cfg.QPS = float32(len(injection.Default.GetControllers())) * rest.DefaultQPS
-	cfg.Burst = len(injection.Default.GetControllers()) * rest.DefaultBurst
+	cfg.QPS = float32(len(ctors)) * rest.DefaultQPS
+	cfg.Burst = len(ctors) * rest.DefaultBurst
 
 	ctx, informers := injection.Default.SetupInformers(ctx, cfg)
 
@@ -91,8 +86,8 @@ func MainWithConfig(ctx context.Context, component string, cfg *rest.Config) {
 	cmw := configmap.NewInformedWatcher(kubeclient.Get(ctx), system.Namespace())
 
 	// Based on the reconcilers we have linked, build up the set of controllers to run.
-	controllers := make([]*controller.Impl, 0, len(injection.Default.GetControllers()))
-	for _, cf := range injection.Default.GetControllers() {
+	controllers := make([]*controller.Impl, 0, len(ctors))
+	for _, cf := range ctors {
 		controllers = append(controllers, cf(ctx, cmw))
 	}
 

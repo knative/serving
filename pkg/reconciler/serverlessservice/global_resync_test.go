@@ -17,67 +17,27 @@ limitations under the License.
 package serverlessservice
 
 import (
+	"context"
 	"testing"
 	"time"
 
 	"golang.org/x/sync/errgroup"
 
-	ctrl "github.com/knative/pkg/controller"
+	fakedynamicclient "github.com/knative/pkg/injection/clients/dynamicclient/fake"
+	fakekubeclient "github.com/knative/pkg/injection/clients/kubeclient/fake"
+	fakeservingclient "github.com/knative/serving/pkg/client/injection/client/fake"
+
+	"github.com/knative/pkg/configmap"
+	"github.com/knative/pkg/controller"
 	logtesting "github.com/knative/pkg/logging/testing"
 	"github.com/knative/serving/pkg/activator"
-	fakeclientset "github.com/knative/serving/pkg/client/clientset/versioned/fake"
-	informers "github.com/knative/serving/pkg/client/informers/externalversions"
-	preconciler "github.com/knative/serving/pkg/reconciler"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	fakedynamic "k8s.io/client-go/dynamic/fake"
-	kubeinformers "k8s.io/client-go/informers"
-	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
-	"k8s.io/client-go/tools/record"
 
 	. "github.com/knative/pkg/reconciler/testing"
 	. "github.com/knative/serving/pkg/reconciler/testing"
 )
-
-// objs are used to seed dynamic client only currently.
-func newTestController(t *testing.T, stopCh <-chan struct{}, objs []runtime.Object) (
-	kubeClient *fakekubeclientset.Clientset,
-	servingClient *fakeclientset.Clientset,
-	controller *ctrl.Impl,
-	kubeInformer kubeinformers.SharedInformerFactory,
-	servingInformer informers.SharedInformerFactory) {
-	// Create fake clients.
-	kubeClient = fakekubeclientset.NewSimpleClientset()
-	servingClient = fakeclientset.NewSimpleClientset()
-	dynamicClient := fakedynamic.NewSimpleDynamicClient(
-		runtime.NewScheme(), ToUnstructured(t, objs)...)
-
-	opt := preconciler.Options{
-		KubeClientSet:    kubeClient,
-		ServingClientSet: servingClient,
-		DynamicClientSet: dynamicClient,
-
-		Logger:       logtesting.TestLogger(t),
-		ResyncPeriod: 0,
-		StopChannel:  stopCh,
-		Recorder:     record.NewFakeRecorder(1000),
-	}
-
-	// Create informer factories with fake clients. The second parameter sets the
-	// resync period to zero, disabling it.
-	kubeInformer = kubeinformers.NewSharedInformerFactory(kubeClient, opt.ResyncPeriod)
-	servingInformer = informers.NewSharedInformerFactory(servingClient, opt.ResyncPeriod)
-
-	controller = NewController(
-		opt,
-		servingInformer.Networking().V1alpha1().ServerlessServices(),
-		kubeInformer.Core().V1().Services(),
-		kubeInformer.Core().V1().Endpoints(),
-	)
-
-	return
-}
 
 func TestGlobalResyncOnActivatorChange(t *testing.T) {
 	const (
@@ -87,20 +47,23 @@ func TestGlobalResyncOnActivatorChange(t *testing.T) {
 		sks2 = "test-sks-2"
 	)
 	defer logtesting.ClearAll()
-	stopCh := make(chan struct{})
-	kubeClnt, servClnt, controller, kubeInformer, servingInformer := newTestController(t, stopCh,
-		[]runtime.Object{
-			deploy(ns1, sks1),
-			deploy(ns2, sks2),
-		},
+	ctx, informers := SetupFakeContext(t)
+	// Replace the fake dynamic client with one containing our objects.
+	ctx, _ = fakedynamicclient.With(ctx, runtime.NewScheme(),
+		ToUnstructured(t, []runtime.Object{deploy(ns1, sks1), deploy(ns2, sks2)})...,
 	)
+	ctrl := NewController(ctx, configmap.NewFixedWatcher())
+
+	ctx, cancel := context.WithCancel(ctx)
 	grp := errgroup.Group{}
 	defer func() {
-		close(stopCh)
+		cancel()
 		if err := grp.Wait(); err != nil {
 			t.Fatalf("Error waiting for contoller to terminate: %v", err)
 		}
 	}()
+
+	kubeClnt := fakekubeclient.Get(ctx)
 
 	// Create activator endpoints.
 	aEps := activatorEndpoints(WithSubsets)
@@ -119,16 +82,12 @@ func TestGlobalResyncOnActivatorChange(t *testing.T) {
 		t.Fatalf("Error creating private endpoints: %v", err)
 	}
 
-	if err := ctrl.StartInformers(
-		stopCh,
-		servingInformer.Networking().V1alpha1().ServerlessServices().Informer(),
-		kubeInformer.Core().V1().Endpoints().Informer(),
-		kubeInformer.Core().V1().Services().Informer()); err != nil {
+	if err := controller.StartInformers(ctx.Done(), informers...); err != nil {
 		t.Fatalf("Error starting informers: %v", err)
 	}
 
 	grp.Go(func() error {
-		return controller.Run(1, stopCh)
+		return ctrl.Run(1, ctx.Done())
 	})
 
 	numServices, numEndpoints := 0, 0
@@ -157,10 +116,10 @@ func TestGlobalResyncOnActivatorChange(t *testing.T) {
 	// Active, should not visibly reconcile.
 	sksObj2 := SKS(ns2, sks2, WithPrivateService(sks2+"-resync"), WithPubService, WithDeployRef(sks2), markHappy)
 
-	if _, err := servClnt.NetworkingV1alpha1().ServerlessServices(ns1).Create(sksObj1); err != nil {
+	if _, err := fakeservingclient.Get(ctx).NetworkingV1alpha1().ServerlessServices(ns1).Create(sksObj1); err != nil {
 		t.Fatalf("Error creating SKS1: %v", err)
 	}
-	if _, err := servClnt.NetworkingV1alpha1().ServerlessServices(ns2).Create(sksObj2); err != nil {
+	if _, err := fakeservingclient.Get(ctx).NetworkingV1alpha1().ServerlessServices(ns2).Create(sksObj2); err != nil {
 		t.Fatalf("Error creating SKS2: %v", err)
 	}
 	if err := hooks.WaitForHooks(3 * time.Second); err != nil {

@@ -21,20 +21,19 @@ import (
 	"testing"
 	"time"
 
+	fakecertmanagerclient "github.com/knative/serving/pkg/client/certmanager/injection/client/fake"
+	_ "github.com/knative/serving/pkg/client/certmanager/injection/informers/certmanager/v1alpha1/certificate/fake"
+	_ "github.com/knative/serving/pkg/client/injection/informers/networking/v1alpha1/certificate/fake"
+
 	certmanagerv1alpha1 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1alpha1"
 	"github.com/knative/pkg/apis"
 	duckv1beta1 "github.com/knative/pkg/apis/duck/v1beta1"
-	fakesharedclientset "github.com/knative/pkg/client/clientset/versioned/fake"
 	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/controller"
 	. "github.com/knative/pkg/logging/testing"
 	. "github.com/knative/pkg/reconciler/testing"
 	"github.com/knative/pkg/system"
 	"github.com/knative/serving/pkg/apis/networking/v1alpha1"
-	fakecmclient "github.com/knative/serving/pkg/client/certmanager/clientset/versioned/fake"
-	certmanagerinformers "github.com/knative/serving/pkg/client/certmanager/informers/externalversions"
-	fakeclientset "github.com/knative/serving/pkg/client/clientset/versioned/fake"
-	informers "github.com/knative/serving/pkg/client/informers/externalversions"
 	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/certificate/config"
 	"github.com/knative/serving/pkg/reconciler/certificate/resources"
@@ -42,7 +41,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
 	clientgotesting "k8s.io/client-go/testing"
 )
 
@@ -56,10 +54,9 @@ var (
 	}
 )
 
-var certManagerClient *fakecmclient.Clientset
-
 func TestNewController(t *testing.T) {
 	defer ClearAll()
+	ctx, _ := SetupFakeContext(t)
 
 	configMapWatcher := configmap.NewStaticWatcher(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
@@ -71,24 +68,7 @@ func TestNewController(t *testing.T) {
 		},
 	})
 
-	kubeClient := fakekubeclientset.NewSimpleClientset()
-	sharedClient := fakesharedclientset.NewSimpleClientset()
-
-	servingClient := fakeclientset.NewSimpleClientset()
-	servingInformer := informers.NewSharedInformerFactory(servingClient, 0)
-	knCertInformer := servingInformer.Networking().V1alpha1().Certificates()
-	certManagerClient := fakecmclient.NewSimpleClientset()
-	certManagerInformer := certmanagerinformers.NewSharedInformerFactory(certManagerClient, 0)
-	cmCertInforer := certManagerInformer.Certmanager().V1alpha1().Certificates()
-
-	c := NewController(reconciler.Options{
-		KubeClientSet:    kubeClient,
-		SharedClientSet:  sharedClient,
-		ServingClientSet: servingClient,
-		ConfigMapWatcher: configMapWatcher,
-		Logger:           TestLogger(t),
-	}, knCertInformer, cmCertInforer, certManagerClient)
-
+	c := NewController(ctx, configMapWatcher)
 	if c == nil {
 		t.Fatal("Expected NewController to return a non-nil value")
 	}
@@ -223,13 +203,12 @@ func TestReconcile(t *testing.T) {
 	}}
 
 	defer ClearAll()
-	table.Test(t, makeFactory(func(listers *Listers, opt reconciler.Options) controller.Reconciler {
-		certManagerClient = fakecmclient.NewSimpleClientset(listers.GetCMCertificateObjects()...)
+	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
 		return &Reconciler{
-			Base:                reconciler.NewBase(opt, controllerAgentName),
+			Base:                reconciler.NewBase(ctx, controllerAgentName, cmw),
 			knCertificateLister: listers.GetKnCertificateLister(),
 			cmCertificateLister: listers.GetCMCertificateLister(),
-			certManagerClient:   certManagerClient,
+			certManagerClient:   fakecertmanagerclient.Get(ctx),
 			configStore: &testConfigStore{
 				config: &config.Config{
 					CertManager: certmanagerConfig(),
@@ -262,17 +241,6 @@ func certmanagerConfig() *config.CertManagerConfig {
 			Kind: "ClusterIssuer",
 			Name: "Letsencrypt-issuer",
 		},
-	}
-}
-
-func makeFactory(c func(*Listers, reconciler.Options) controller.Reconciler) Factory {
-	return func(t *testing.T, r *TableRow) (controller.Reconciler, ActionRecorderList, EventList, *FakeStatsReporter) {
-		factory := MakeFactory(c)
-		c, actionRecorderList, eventList, statsReporter := factory(t, r)
-		// We need add certManagerClient into the actionRecorderList so that
-		// any actions of certManagerClient could be recorded and tested.
-		actionRecorderList = append(actionRecorderList, certManagerClient)
-		return c, actionRecorderList, eventList, statsReporter
 	}
 }
 
