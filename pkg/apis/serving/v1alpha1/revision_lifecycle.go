@@ -233,13 +233,6 @@ func (e LastPinnedParseError) Error() string {
 	return fmt.Sprintf("%v lastPinned value: %q", e.Type, e.Value)
 }
 
-// +k8s:deepcopy-gen=false
-type configurationGenerationParseError AnnotationParseError
-
-func (e configurationGenerationParseError) Error() string {
-	return fmt.Sprintf("%v configurationGeneration value: %q", e.Type, e.Value)
-}
-
 func RevisionLastPinnedString(t time.Time) string {
 	return fmt.Sprintf("%d", t.Unix())
 }
