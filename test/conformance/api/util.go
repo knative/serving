@@ -303,7 +303,7 @@ func validateAnnotations(objs *test.ResourceObjects) error {
 	anns := objs.Service.GetAnnotations()
 	for _, a := range []string{serving.CreatorAnnotation, serving.UpdaterAnnotation} {
 		if got := anns[a]; got == "" {
-			return fmt.Errorf("Expected %s annotation to be set, but was empty", a)
+			return fmt.Errorf("expected %s annotation to be set, but was empty", a)
 		}
 	}
 	return nil

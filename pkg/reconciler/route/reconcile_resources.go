@@ -323,7 +323,7 @@ func (c *Reconciler) reconcileCertificate(ctx context.Context, r *v1alpha1.Route
 	} else if !metav1.IsControlledBy(cert, r) {
 		// Surface an error in the route's status, and return an error.
 		r.Status.MarkCertificateNotOwned(cert.Name)
-		return nil, fmt.Errorf("Route: %s does not own Certificate: %s", r.Name, cert.Name)
+		return nil, fmt.Errorf("route: %s does not own certificate: %s", r.Name, cert.Name)
 	} else {
 		if !equality.Semantic.DeepEqual(cert.Spec, desiredCert.Spec) {
 			// Don't modify the informers copy
