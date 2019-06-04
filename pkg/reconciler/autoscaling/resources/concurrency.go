@@ -17,30 +17,28 @@ limitations under the License.
 package resources
 
 import (
+	"math"
+
 	"github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/autoscaler"
 )
 
 // ResolveTargetConcurrency takes concurrency knobs from multiple locations and resolves them
 // to the final value to be used by the autoscaler.
-func ResolveTargetConcurrency(pa *v1alpha1.PodAutoscaler, config *autoscaler.Config) (target float64) {
+func ResolveTargetConcurrency(pa *v1alpha1.PodAutoscaler, config *autoscaler.Config) float64 {
+	target := float64(pa.Spec.ContainerConcurrency) * config.ContainerConcurrencyTargetPercentage
+
 	// If containerConcurrency is 0 we'll always target the default.
 	if pa.Spec.ContainerConcurrency == 0 {
 		target = config.ContainerConcurrencyTargetDefault
-	} else {
-		// For a non-zero containerConcurrency we calculate the actual concurrency using the config.
-		target = float64(pa.Spec.ContainerConcurrency) * config.ContainerConcurrencyTargetPercentage
 	}
 
 	// Use the target provided via annotation, if applicable.
-	if mt, ok := pa.Target(); ok {
-		annotationTarget := float64(mt)
-		// If the annotation target would cause the autoscaler to maintain
-		// more requests per pod than the container can handle, we ignore
-		// the annotation and use a containerConcurrency based target instead.
-		if annotationTarget <= target {
-			target = annotationTarget
-		}
+	if annotationTarget, ok := pa.Target(); ok {
+		// We pick the smaller value between the calculated target and the annotationTarget
+		// to make sure the autoscaler does not aim for a higher concurrency than the application
+		// can handle per containerConcurrency.
+		target = math.Min(target, float64(annotationTarget))
 	}
 
 	return target
