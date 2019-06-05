@@ -269,7 +269,7 @@ func TestClusterIngressFailureRecovery(t *testing.T) {
 	apitesting.CheckConditionOngoing(r.duck(), RouteConditionIngressReady, t)
 	apitesting.CheckConditionOngoing(r.duck(), RouteConditionReady, t)
 
-	// Empty IngressStatus keeps things as-is.
+	// Empty IngressStatus marks ingress "NotConfigured"
 	r.PropagateClusterIngressStatus(netv1alpha1.IngressStatus{})
 	apitesting.CheckConditionOngoing(r.duck(), RouteConditionAllTrafficAssigned, t)
 	apitesting.CheckConditionOngoing(r.duck(), RouteConditionIngressReady, t)
@@ -377,4 +377,12 @@ func TestRouteNotOwnCertificate(t *testing.T) {
 	r.MarkCertificateNotOwned("cert")
 
 	apitesting.CheckConditionFailed(r.duck(), RouteConditionCertificateProvisioned, t)
+}
+
+func TestIngressNotConfigured(t *testing.T) {
+	r := &RouteStatus{}
+	r.InitializeConditions()
+	r.MarkIngressNotConfigured()
+
+	apitesting.CheckConditionOngoing(r.duck(), RouteConditionIngressReady, t)
 }
