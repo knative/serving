@@ -19,7 +19,6 @@ package revision
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"go.uber.org/zap"
 
@@ -36,10 +35,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-)
-
-const (
-	serviceTimeoutDuration = 5 * time.Minute
 )
 
 func (c *Reconciler) reconcileDeployment(ctx context.Context, rev *v1alpha1.Revision) error {
@@ -63,7 +58,7 @@ func (c *Reconciler) reconcileDeployment(ctx context.Context, rev *v1alpha1.Revi
 	} else if !metav1.IsControlledBy(deployment, rev) {
 		// Surface an error in the revision's status, and return an error.
 		rev.Status.MarkResourceNotOwned("Deployment", deploymentName)
-		return fmt.Errorf("Revision: %q does not own Deployment: %q", rev.Name, deploymentName)
+		return fmt.Errorf("revision: %q does not own Deployment: %q", rev.Name, deploymentName)
 	} else {
 		// The deployment exists, but make sure that it has the shape that we expect.
 		deployment, err = c.checkAndUpdateDeployment(ctx, rev, deployment)
@@ -81,6 +76,15 @@ func (c *Reconciler) reconcileDeployment(ctx context.Context, rev *v1alpha1.Revi
 		} else if len(pods.Items) > 0 {
 			// Arbitrarily grab the very first pod, as they all should be crashing
 			pod := pods.Items[0]
+
+			// Update the revision status if pod cannot be scheduled(possibly resource constraints)
+			// If pod cannot be scheduled then we expect the container status to be empty.
+			for _, cond := range pod.Status.Conditions {
+				if cond.Type == corev1.PodScheduled && cond.Status == corev1.ConditionFalse {
+					rev.Status.MarkResourcesUnavailable(cond.Reason, cond.Message)
+					break
+				}
+			}
 
 			for _, status := range pod.Status.ContainerStatuses {
 				if status.Name == resources.UserContainerName {
@@ -148,7 +152,7 @@ func (c *Reconciler) reconcileKPA(ctx context.Context, rev *v1alpha1.Revision) e
 	} else if !metav1.IsControlledBy(kpa, rev) {
 		// Surface an error in the revision's status, and return an error.
 		rev.Status.MarkResourceNotOwned("PodAutoscaler", kpaName)
-		return fmt.Errorf("Revision: %q does not own PodAutoscaler: %q", rev.Name, kpaName)
+		return fmt.Errorf("revision: %q does not own PodAutoscaler: %q", rev.Name, kpaName)
 	}
 
 	// Perhaps tha KPA spec changed underneath ourselves?

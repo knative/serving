@@ -114,10 +114,7 @@ func decider(options ...DeciderOption) *autoscaler.Decider {
 			TickInterval:      config.TickInterval,
 			TargetConcurrency: float64(100),
 			PanicThreshold:    float64(200),
-			MetricSpec: autoscaler.MetricSpec{
-				StableWindow: config.StableWindow,
-				PanicWindow:  config.PanicWindow,
-			},
+			StableWindow:      config.StableWindow,
 		},
 	}
 	for _, fn := range options {

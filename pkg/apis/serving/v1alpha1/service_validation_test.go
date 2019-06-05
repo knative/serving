@@ -50,7 +50,7 @@ func TestServiceValidation(t *testing.T) {
 						DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 							Spec: RevisionSpec{
 								RevisionSpec: v1beta1.RevisionSpec{
-									PodSpec: v1beta1.PodSpec{
+									PodSpec: corev1.PodSpec{
 										Containers: []corev1.Container{{
 											Image: "hellworld",
 										}},
@@ -77,7 +77,7 @@ func TestServiceValidation(t *testing.T) {
 						DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 							Spec: RevisionSpec{
 								RevisionSpec: v1beta1.RevisionSpec{
-									PodSpec: v1beta1.PodSpec{
+									PodSpec: corev1.PodSpec{
 										Containers: []corev1.Container{{
 											Image: "hellworld",
 										}},
@@ -127,7 +127,7 @@ func TestServiceValidation(t *testing.T) {
 						DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 							Spec: RevisionSpec{
 								RevisionSpec: v1beta1.RevisionSpec{
-									PodSpec: v1beta1.PodSpec{
+									PodSpec: corev1.PodSpec{
 										Containers: []corev1.Container{{
 											Image: "hellworld",
 										}},
@@ -196,7 +196,7 @@ func TestServiceValidation(t *testing.T) {
 				DeprecatedManual: &ManualType{},
 			},
 		},
-		want: nil,
+		want: apis.ErrDisallowedFields("spec.manual"),
 	}, {
 		name: "invalid multiple types",
 		s: &Service{
@@ -242,7 +242,7 @@ func TestServiceValidation(t *testing.T) {
 		},
 		want: &apis.FieldError{
 			Message: "expected exactly one, got neither",
-			Paths: []string{"spec.manual", "spec.pinned", "spec.release",
+			Paths: []string{"spec.pinned", "spec.release",
 				"spec.template", "spec.runLatest"},
 		},
 	}, {
@@ -578,7 +578,7 @@ func TestServiceValidation(t *testing.T) {
 					Template: &RevisionTemplateSpec{
 						Spec: RevisionSpec{
 							RevisionSpec: v1beta1.RevisionSpec{
-								PodSpec: v1beta1.PodSpec{
+								PodSpec: corev1.PodSpec{
 									Containers: []corev1.Container{{
 										Image: "helloworld",
 									}},
@@ -610,7 +610,7 @@ func TestServiceValidation(t *testing.T) {
 						Spec: RevisionSpec{
 							DeprecatedConcurrencyModel: "Multi",
 							RevisionSpec: v1beta1.RevisionSpec{
-								PodSpec: v1beta1.PodSpec{
+								PodSpec: corev1.PodSpec{
 									Containers: []corev1.Container{{
 										Image: "helloworld",
 									}},
@@ -641,7 +641,7 @@ func TestServiceValidation(t *testing.T) {
 					Template: &RevisionTemplateSpec{
 						Spec: RevisionSpec{
 							RevisionSpec: v1beta1.RevisionSpec{
-								PodSpec: v1beta1.PodSpec{
+								PodSpec: corev1.PodSpec{
 									Containers: []corev1.Container{{
 										Image: "helloworld",
 									}},
@@ -674,7 +674,7 @@ func TestServiceValidation(t *testing.T) {
 					Template: &RevisionTemplateSpec{
 						Spec: RevisionSpec{
 							RevisionSpec: v1beta1.RevisionSpec{
-								PodSpec: v1beta1.PodSpec{
+								PodSpec: corev1.PodSpec{
 									Containers: []corev1.Container{{
 										Image: "hellworld",
 									}},
@@ -991,7 +991,7 @@ func TestImmutableServiceFields(t *testing.T) {
 						},
 						Spec: RevisionSpec{
 							RevisionSpec: v1beta1.RevisionSpec{
-								PodSpec: v1beta1.PodSpec{
+								PodSpec: corev1.PodSpec{
 									Containers: []corev1.Container{{
 										Image: "helloworld:bar",
 									}},

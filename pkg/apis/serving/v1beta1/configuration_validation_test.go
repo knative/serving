@@ -41,7 +41,7 @@ func TestConfigurationValidation(t *testing.T) {
 			Spec: ConfigurationSpec{
 				Template: RevisionTemplateSpec{
 					Spec: RevisionSpec{
-						PodSpec: PodSpec{
+						PodSpec: corev1.PodSpec{
 							Containers: []corev1.Container{{
 								Image: "busybox",
 							}},
@@ -60,7 +60,7 @@ func TestConfigurationValidation(t *testing.T) {
 			Spec: ConfigurationSpec{
 				Template: RevisionTemplateSpec{
 					Spec: RevisionSpec{
-						PodSpec: PodSpec{
+						PodSpec: corev1.PodSpec{
 							Containers: []corev1.Container{{
 								Image: "busybox",
 							}},
@@ -85,7 +85,7 @@ func TestConfigurationValidation(t *testing.T) {
 						Name: "byo-name-foo",
 					},
 					Spec: RevisionSpec{
-						PodSpec: PodSpec{
+						PodSpec: corev1.PodSpec{
 							Containers: []corev1.Container{{
 								Image: "hellworld",
 							}},
@@ -107,7 +107,7 @@ func TestConfigurationValidation(t *testing.T) {
 						Name: "byo-name-foo",
 					},
 					Spec: RevisionSpec{
-						PodSpec: PodSpec{
+						PodSpec: corev1.PodSpec{
 							Containers: []corev1.Container{{
 								Image: "hellworld",
 							}},
@@ -129,7 +129,7 @@ func TestConfigurationValidation(t *testing.T) {
 						Name: "foo",
 					},
 					Spec: RevisionSpec{
-						PodSpec: PodSpec{
+						PodSpec: corev1.PodSpec{
 							Containers: []corev1.Container{{
 								Image: "hellworld",
 							}},
@@ -170,7 +170,7 @@ func TestImmutableConfigurationFields(t *testing.T) {
 			Spec: ConfigurationSpec{
 				Template: RevisionTemplateSpec{
 					Spec: RevisionSpec{
-						PodSpec: PodSpec{
+						PodSpec: corev1.PodSpec{
 							Containers: []corev1.Container{{
 								Image: "helloworld:foo",
 							}},
@@ -186,7 +186,7 @@ func TestImmutableConfigurationFields(t *testing.T) {
 			Spec: ConfigurationSpec{
 				Template: RevisionTemplateSpec{
 					Spec: RevisionSpec{
-						PodSpec: PodSpec{
+						PodSpec: corev1.PodSpec{
 							Containers: []corev1.Container{{
 								Image: "helloworld:bar",
 							}},
@@ -208,7 +208,7 @@ func TestImmutableConfigurationFields(t *testing.T) {
 						Name: "byo-name-foo",
 					},
 					Spec: RevisionSpec{
-						PodSpec: PodSpec{
+						PodSpec: corev1.PodSpec{
 							Containers: []corev1.Container{{
 								Image: "helloworld:foo",
 							}},
@@ -227,7 +227,7 @@ func TestImmutableConfigurationFields(t *testing.T) {
 						Name: "byo-name-bar",
 					},
 					Spec: RevisionSpec{
-						PodSpec: PodSpec{
+						PodSpec: corev1.PodSpec{
 							Containers: []corev1.Container{{
 								Image: "helloworld:bar",
 							}},
@@ -249,7 +249,7 @@ func TestImmutableConfigurationFields(t *testing.T) {
 						Name: "byo-name-foo",
 					},
 					Spec: RevisionSpec{
-						PodSpec: PodSpec{
+						PodSpec: corev1.PodSpec{
 							Containers: []corev1.Container{{
 								Image: "helloworld:foo",
 							}},
@@ -268,7 +268,7 @@ func TestImmutableConfigurationFields(t *testing.T) {
 						Name: "byo-name-foo",
 					},
 					Spec: RevisionSpec{
-						PodSpec: PodSpec{
+						PodSpec: corev1.PodSpec{
 							Containers: []corev1.Container{{
 								Image: "helloworld:foo",
 							}},
@@ -290,7 +290,7 @@ func TestImmutableConfigurationFields(t *testing.T) {
 						Name: "byo-name-foo",
 					},
 					Spec: RevisionSpec{
-						PodSpec: PodSpec{
+						PodSpec: corev1.PodSpec{
 							Containers: []corev1.Container{{
 								Image: "helloworld:foo",
 							}},
@@ -309,7 +309,7 @@ func TestImmutableConfigurationFields(t *testing.T) {
 						Name: "byo-name-foo",
 					},
 					Spec: RevisionSpec{
-						PodSpec: PodSpec{
+						PodSpec: corev1.PodSpec{
 							Containers: []corev1.Container{{
 								Image: "helloworld:bar",
 							}},

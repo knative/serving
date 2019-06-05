@@ -61,7 +61,7 @@ func (oct *OpenCensusTracer) Finish() error {
 	err := oct.acquireGlobal()
 	defer octMutex.Unlock()
 	if err != nil {
-		return errors.New("Finish called on OpenTracer which is not the global OpenCensusTracer.")
+		return errors.New("finish called on OpenTracer which is not the global OpenCensusTracer")
 	}
 
 	for _, configOpt := range oct.configOptions {
@@ -78,7 +78,7 @@ func (oct *OpenCensusTracer) acquireGlobal() error {
 	if globalOct == nil {
 		globalOct = oct
 	} else if globalOct != oct {
-		return errors.New("A OpenCensusTracer already exists and only one can be run at a time.")
+		return errors.New("an OpenCensusTracer already exists and only one can be run at a time")
 	}
 
 	return nil

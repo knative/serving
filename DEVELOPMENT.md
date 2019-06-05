@@ -169,9 +169,6 @@ if you need to set up static IP for Ingresses in the cluster.
 
 1. Deploy `cert-manager`
 
-   **Note**: The auto TLS feature has not been landed in Knative. At this point,
-   you can skip this step.
-
    If you want to use the feature of automatically provisioning TLS for Knative
    services, you need to install the full cert-manager.
 

@@ -206,7 +206,8 @@ func (t *Throttler) forceUpdateCapacity(rev RevisionID, breaker *queue.Breaker, 
 	// We have to read the private service endpoints in activator
 	// in order to count the serving pod count, since the public one
 	// may point at ourselves.
-	size, err := resources.FetchReadyAddressCount(t.endpointsLister, sks.Namespace, sks.Status.PrivateServiceName)
+	podCounter := resources.NewScopedEndpointsCounter(t.endpointsLister, sks.Namespace, sks.Status.PrivateServiceName)
+	size, err := podCounter.ReadyCount()
 	if err != nil {
 		return err
 	}

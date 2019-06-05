@@ -23,24 +23,6 @@ import (
 	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
-// FetchReadyAddressCount fetches endpoints and returns the total number of addresses ready for them.
-func FetchReadyAddressCount(lister corev1listers.EndpointsLister, ns, name string) (int, error) {
-	endpoints, err := lister.Endpoints(ns).Get(name)
-	if err != nil {
-		return 0, err
-	}
-	return ReadyAddressCount(endpoints), nil
-}
-
-// ReadyAddressCount returns the total number of addresses ready for the given endpoint.
-func ReadyAddressCount(endpoints *corev1.Endpoints) int {
-	var total int
-	for _, subset := range endpoints.Subsets {
-		total += len(subset.Addresses)
-	}
-	return total
-}
-
 // ParentResourceFromService returns the parent resource name from
 // endpoints or k8s service resource.
 // The function is based upon knowledge that all knative built services
@@ -52,4 +34,53 @@ func ParentResourceFromService(name string) string {
 		return name
 	}
 	return name[:li]
+}
+
+// ReadyAddressCount returns the total number of addresses ready for the given endpoint.
+func ReadyAddressCount(endpoints *corev1.Endpoints) int {
+	var total int
+	for _, subset := range endpoints.Subsets {
+		total += len(subset.Addresses)
+	}
+	return total
+}
+
+// ReadyPodCounter provides a count of currently ready pods. This
+// information is used by UniScaler implementations to make scaling
+// decisions. The interface prevents the UniScaler from needing to
+// know how counts are performed.
+// The int return value represents the number of pods that are ready
+// to handle incoming requests.
+// The error value is returned if the ReadyPodCounter is unable to
+// calculate a value.
+type ReadyPodCounter interface {
+	ReadyCount() (int, error)
+}
+
+type scopedEndpointCounter struct {
+	endpointsLister corev1listers.EndpointsLister
+	namespace       string
+	serviceName     string
+}
+
+func (eac *scopedEndpointCounter) ReadyCount() (int, error) {
+	endpoints, err := eac.endpointsLister.Endpoints(eac.namespace).Get(eac.serviceName)
+	if err != nil {
+		return 0, err
+	}
+	return ReadyAddressCount(endpoints), nil
+}
+
+// NewScopedEndpointsCounter creates a ReadyPodCounter that uses
+// a count of endpoints for a namespace/serviceName as the value
+// of ready pods. The values returned by ReadyCount() will vary
+// over time.
+// lister is used to retrieve endpoints for counting with the
+// scope of namespace/serviceName.
+func NewScopedEndpointsCounter(lister corev1listers.EndpointsLister, namespace, serviceName string) ReadyPodCounter {
+	return &scopedEndpointCounter{
+		endpointsLister: lister,
+		namespace:       namespace,
+		serviceName:     serviceName,
+	}
 }

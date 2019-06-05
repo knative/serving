@@ -20,9 +20,7 @@ import (
 	"context"
 
 	"k8s.io/apimachinery/pkg/api/equality"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
-	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
 	"github.com/knative/pkg/apis"
 	"github.com/knative/serving/pkg/apis/serving"
 )
@@ -52,14 +50,9 @@ func (cs *ConfigurationSpec) Validate(ctx context.Context) *apis.FieldError {
 
 	errs := apis.CheckDeprecated(ctx, cs)
 
-	if cs.DeprecatedBuild == nil {
-		// No build was specified.
-	} else if err := cs.DeprecatedBuild.As(&buildv1alpha1.BuildSpec{}); err == nil {
-		// It is a BuildSpec, this is the legacy path.
-	} else if err = cs.DeprecatedBuild.As(&unstructured.Unstructured{}); err == nil {
-		// It is an unstructured.Unstructured.
-	} else {
-		errs = errs.Also(apis.ErrInvalidValue(err, "build"))
+	// Build support is now disabled.
+	if cs.DeprecatedBuild != nil {
+		errs = errs.Also(apis.ErrDisallowedFields("build"))
 	}
 
 	var templateField string

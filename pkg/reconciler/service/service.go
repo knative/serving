@@ -91,27 +91,9 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 	// Don't modify the informers copy
 	service := original.DeepCopy()
 
-	var reconcileErr error
-
-	if service.Spec.DeprecatedManual != nil {
-		// We do not know the status when in manual mode. The Route can be
-		// updated with Configurations not known to the Service which would
-		// make attempts to display status potentially incorrect
-		service.Status.SetManualStatus()
-
-		if err := service.ConvertUp(ctx, &v1beta1.Service{}); err != nil {
-			if ce, ok := err.(*v1alpha1.CannotConvertError); ok {
-				service.Status.MarkResourceNotConvertible(ce)
-			} else {
-				return err
-			}
-		}
-	} else {
-		// Reconcile this copy of the service and then write back any status
-		// updates regardless of whether the reconciliation errored out.
-		reconcileErr = c.reconcile(ctx, service)
-	}
-
+	// Reconcile this copy of the service and then write back any status
+	// updates regardless of whether the reconciliation errored out.
+	reconcileErr := c.reconcile(ctx, service)
 	if equality.Semantic.DeepEqual(original.Status, service.Status) {
 		// If we didn't change anything then don't call updateStatus.
 		// This is important because the copy we loaded from the informer's
@@ -129,8 +111,19 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 	}
 	if reconcileErr != nil {
 		c.Recorder.Event(service, corev1.EventTypeWarning, "InternalError", reconcileErr.Error())
+		return reconcileErr
 	}
-	return reconcileErr
+	// TODO(mattmoor): Remove this after 0.7 cuts.
+	// If the spec has changed, then assume we need an upgrade and issue a patch to trigger
+	// the webhook to upgrade via defaulting.  Status updates do not trigger this due to the
+	// use of the /status resource.
+	if !equality.Semantic.DeepEqual(original.Spec, service.Spec) {
+		services := v1alpha1.SchemeGroupVersion.WithResource("services")
+		if err := c.MarkNeedsUpgrade(services, service.Namespace, service.Name); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (c *Reconciler) reconcile(ctx context.Context, service *v1alpha1.Service) error {
@@ -146,6 +139,7 @@ func (c *Reconciler) reconcile(ctx context.Context, service *v1alpha1.Service) e
 	if err := service.ConvertUp(ctx, &v1beta1.Service{}); err != nil {
 		if ce, ok := err.(*v1alpha1.CannotConvertError); ok {
 			service.Status.MarkResourceNotConvertible(ce)
+			return nil
 		} else {
 			return err
 		}
@@ -169,7 +163,7 @@ func (c *Reconciler) reconcile(ctx context.Context, service *v1alpha1.Service) e
 	} else if !metav1.IsControlledBy(config, service) {
 		// Surface an error in the service's status,and return an error.
 		service.Status.MarkConfigurationNotOwned(configName)
-		return fmt.Errorf("Service: %q does not own Configuration: %q", service.Name, configName)
+		return fmt.Errorf("service: %q does not own configuration: %q", service.Name, configName)
 	} else if config, err = c.reconcileConfiguration(ctx, service, config); err != nil {
 		logger.Errorw(
 			fmt.Sprintf("Failed to reconcile Service: %q failed to reconcile Configuration: %q",
@@ -177,8 +171,14 @@ func (c *Reconciler) reconcile(ctx context.Context, service *v1alpha1.Service) e
 		return err
 	}
 
-	// Update our Status based on the state of our underlying Configuration.
-	service.Status.PropagateConfigurationStatus(&config.Status)
+	if config.Generation != config.Status.ObservedGeneration {
+		// The Configuration hasn't yet reconciled our latest changes to
+		// its desired state, so its conditions are outdated.
+		service.Status.MarkConfigurationNotReconciled()
+	} else {
+		// Update our Status based on the state of our underlying Configuration.
+		service.Status.PropagateConfigurationStatus(&config.Status)
+	}
 
 	// When the Configuration names a Revision, check that the named Revision is owned
 	// by our Configuration and matches its generation before reprogramming the Route,
@@ -206,15 +206,21 @@ func (c *Reconciler) reconcile(ctx context.Context, service *v1alpha1.Service) e
 	} else if !metav1.IsControlledBy(route, service) {
 		// Surface an error in the service's status, and return an error.
 		service.Status.MarkRouteNotOwned(routeName)
-		return fmt.Errorf("Service: %q does not own Route: %q", service.Name, routeName)
+		return fmt.Errorf("service: %q does not own route: %q", service.Name, routeName)
 	} else if route, err = c.reconcileRoute(ctx, service, route); err != nil {
 		logger.Errorf("Failed to reconcile Service: %q failed to reconcile Route: %q", service.Name, routeName)
 		return err
 	}
 
-	// Update our Status based on the state of our underlying Route.
 	ss := &service.Status
-	ss.PropagateRouteStatus(&route.Status)
+	if route.Generation != route.Status.ObservedGeneration {
+		// The Route hasn't yet reconciled our latest changes to
+		// its desired state, so its conditions are outdated.
+		ss.MarkRouteNotReconciled()
+	} else {
+		// Update our Status based on the state of our underlying Route.
+		ss.PropagateRouteStatus(&route.Status)
+	}
 
 	// `manual` is not reconciled.
 	rc := service.Status.GetCondition(v1alpha1.ServiceConditionRoutesReady)
@@ -309,9 +315,6 @@ func (c *Reconciler) reconcileConfiguration(ctx context.Context, service *v1alph
 	// config[serving.RouteLabelKey].
 	ignoreRouteLabelChange(desiredConfig, config)
 
-	// TODO(#642): Remove this (needed to avoid continuous updates)
-	desiredConfig.Spec.DeprecatedGeneration = config.Spec.DeprecatedGeneration
-
 	if configSemanticEquals(desiredConfig, config) {
 		// No differences to reconcile.
 		return config, nil
@@ -355,9 +358,6 @@ func (c *Reconciler) reconcileRoute(ctx context.Context, service *v1alpha1.Servi
 		// that would make `MakeRoute` fail as well.
 		return nil, err
 	}
-
-	// TODO(#642): Remove this (needed to avoid continuous updates).
-	desiredRoute.Spec.DeprecatedGeneration = route.Spec.DeprecatedGeneration
 
 	if routeSemanticEquals(desiredRoute, route) {
 		// No differences to reconcile.

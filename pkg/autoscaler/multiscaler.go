@@ -44,9 +44,8 @@ type DeciderSpec struct {
 	MaxScaleUpRate    float64
 	TargetConcurrency float64
 	PanicThreshold    float64
-	// TODO: remove MetricSpec when the custom metrics adapter implements Metric.
-	MetricSpec MetricSpec
-
+	// StableWindow is needed to determine when to exit panicmode.
+	StableWindow time.Duration
 	// The name of the k8s service for pod information.
 	ServiceName string
 }
@@ -171,8 +170,12 @@ func (m *MultiScaler) Update(ctx context.Context, decider *Decider) (*Decider, e
 	if scaler, exists := m.scalers[key]; exists {
 		scaler.mux.Lock()
 		defer scaler.mux.Unlock()
+		oldDeciderSpec := scaler.decider.Spec
 		scaler.decider = *decider
 		scaler.scaler.Update(decider.Spec)
+		if oldDeciderSpec.TickInterval != decider.Spec.TickInterval {
+			m.updateRunner(ctx, scaler)
+		}
 		return decider, nil
 	}
 	// This GroupResource is a lie, but unfortunately this interface requires one.
@@ -213,6 +216,31 @@ func (m *MultiScaler) Inform(event string) bool {
 	}
 	return false
 }
+func (m *MultiScaler) updateRunner(ctx context.Context, runner *scalerRunner) {
+	runner.stopCh <- struct{}{}
+	m.runScalerTicker(ctx, runner)
+}
+
+func (m *MultiScaler) runScalerTicker(ctx context.Context, runner *scalerRunner) {
+	metricKey := NewMetricKey(runner.decider.Namespace, runner.decider.Name)
+	ticker := time.NewTicker(runner.decider.Spec.TickInterval)
+	go func() {
+		for {
+			select {
+			case <-m.scalersStopCh:
+				ticker.Stop()
+				return
+			case <-runner.stopCh:
+				ticker.Stop()
+				return
+			case <-ticker.C:
+				m.tickScaler(ctx, runner.scaler, runner, metricKey)
+			case <-runner.pokeCh:
+				m.tickScaler(ctx, runner.scaler, runner, metricKey)
+			}
+		}
+	}()
+}
 
 func (m *MultiScaler) createScaler(ctx context.Context, decider *Decider) (*scalerRunner, error) {
 	scaler, err := m.uniScalerFactory(decider)
@@ -228,27 +256,8 @@ func (m *MultiScaler) createScaler(ctx context.Context, decider *Decider) (*scal
 		pokeCh:  make(chan struct{}),
 	}
 	runner.decider.Status.DesiredScale = -1
-	metricKey := NewMetricKey(decider.Namespace, decider.Name)
 
-	// TODO(#3977): Make sure this is reconciled if the tick interval changes.
-	ticker := time.NewTicker(decider.Spec.TickInterval)
-	go func() {
-		for {
-			select {
-			case <-m.scalersStopCh:
-				ticker.Stop()
-				return
-			case <-stopCh:
-				ticker.Stop()
-				return
-			case <-ticker.C:
-				m.tickScaler(ctx, scaler, runner, metricKey)
-			case <-runner.pokeCh:
-				m.tickScaler(ctx, scaler, runner, metricKey)
-			}
-		}
-	}()
-
+	m.runScalerTicker(ctx, runner)
 	return runner, nil
 }
 

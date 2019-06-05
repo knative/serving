@@ -21,7 +21,6 @@ import (
 	"time"
 
 	"github.com/knative/pkg/apis"
-	"github.com/knative/pkg/apis/duck"
 	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 	duckv1beta1 "github.com/knative/pkg/apis/duck/v1beta1"
 	"github.com/knative/pkg/ptr"
@@ -33,58 +32,12 @@ import (
 	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 	"github.com/knative/serving/pkg/reconciler/route/domains"
 	routenames "github.com/knative/serving/pkg/reconciler/route/resources/names"
-	"github.com/knative/serving/pkg/reconciler/serverlessservice/resources/names"
 	servicenames "github.com/knative/serving/pkg/reconciler/service/resources/names"
 	"github.com/knative/serving/pkg/resources"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
 )
-
-// BuildOption enables further configuration of a Build.
-type BuildOption func(*unstructured.Unstructured)
-
-// WithSucceededTrue updates the status of the provided unstructured Build object with the
-// expected success condition.
-func WithSucceededTrue(orig *unstructured.Unstructured) {
-	cp := orig.DeepCopy()
-	cp.Object["status"] = map[string]interface{}{"conditions": duckv1alpha1.Conditions{{
-		Type:   duckv1alpha1.ConditionSucceeded,
-		Status: corev1.ConditionTrue,
-	}}}
-	duck.FromUnstructured(cp, orig) // prevent panic in b.DeepCopy()
-}
-
-// WithSucceededUnknown updates the status of the provided unstructured Build object with the
-// expected in-flight condition.
-func WithSucceededUnknown(reason, message string) BuildOption {
-	return func(orig *unstructured.Unstructured) {
-		cp := orig.DeepCopy()
-		cp.Object["status"] = map[string]interface{}{"conditions": duckv1alpha1.Conditions{{
-			Type:    duckv1alpha1.ConditionSucceeded,
-			Status:  corev1.ConditionUnknown,
-			Reason:  reason,
-			Message: message,
-		}}}
-		duck.FromUnstructured(cp, orig) // prevent panic in b.DeepCopy()
-	}
-}
-
-// WithSucceededFalse updates the status of the provided unstructured Build object with the
-// expected failure condition.
-func WithSucceededFalse(reason, message string) BuildOption {
-	return func(orig *unstructured.Unstructured) {
-		cp := orig.DeepCopy()
-		cp.Object["status"] = map[string]interface{}{"conditions": duckv1alpha1.Conditions{{
-			Type:    duckv1alpha1.ConditionSucceeded,
-			Status:  corev1.ConditionFalse,
-			Reason:  reason,
-			Message: message,
-		}}}
-		duck.FromUnstructured(cp, orig) // prevent panic in b.DeepCopy()
-	}
-}
 
 // ServiceOption enables further configuration of a Service.
 type ServiceOption func(*v1alpha1.Service)
@@ -133,7 +86,7 @@ func WithInlineRollout(s *v1alpha1.Service) {
 			Template: &v1alpha1.RevisionTemplateSpec{
 				Spec: v1alpha1.RevisionSpec{
 					RevisionSpec: v1beta1.RevisionSpec{
-						PodSpec: v1beta1.PodSpec{
+						PodSpec: corev1.PodSpec{
 							Containers: []corev1.Container{{
 								Image: "busybox",
 							}},
@@ -258,6 +211,11 @@ func WithRevisionTimeoutSeconds(revisionTimeoutSeconds int64) ServiceOption {
 	}
 }
 
+// MarkConfigurationNotReconciled calls the function of the same name on the Service's status.
+func MarkConfigurationNotReconciled(service *v1alpha1.Service) {
+	service.Status.MarkConfigurationNotReconciled()
+}
+
 // MarkConfigurationNotOwned calls the function of the same name on the Service's status.
 func MarkConfigurationNotOwned(service *v1alpha1.Service) {
 	service.Status.MarkConfigurationNotOwned(servicenames.Configuration(service))
@@ -334,22 +292,9 @@ func WithReleaseRollout(names ...string) ServiceOption {
 	}
 }
 
-// WithManualRollout configures the Service to use a "manual" rollout.
-func WithManualRollout(s *v1alpha1.Service) {
-	s.Spec = v1alpha1.ServiceSpec{
-		DeprecatedManual: &v1alpha1.ManualType{},
-	}
-}
-
 // WithInitSvcConditions initializes the Service's conditions.
 func WithInitSvcConditions(s *v1alpha1.Service) {
 	s.Status.InitializeConditions()
-}
-
-// WithManualStatus configures the Service to have the appropriate
-// status for a "manual" rollout type.
-func WithManualStatus(s *v1alpha1.Service) {
-	s.Status.SetManualStatus()
 }
 
 // WithReadyRoute reflects the Route's readiness in the Service resource.
@@ -371,8 +316,6 @@ func WithSvcStatusDomain(s *v1alpha1.Service) {
 		Scheme: "http",
 		Host:   fmt.Sprintf("%s.%s.example.com", n, ns),
 	}
-	s.Status.DeprecatedDomain = s.Status.URL.Host
-	s.Status.DeprecatedDomainInternal = fmt.Sprintf("%s.%s.svc.cluster.local", n, ns)
 }
 
 // WithSvcStatusAddress updates the service's status with the address.
@@ -384,7 +327,6 @@ func WithSvcStatusAddress(s *v1alpha1.Service) {
 				Host:   fmt.Sprintf("%s.%s.svc.cluster.local", s.Name, s.Namespace),
 			},
 		},
-		Hostname: fmt.Sprintf("%s.%s.svc.cluster.local", s.Name, s.Namespace),
 	}
 }
 
@@ -393,11 +335,7 @@ func WithSvcStatusTraffic(targets ...v1alpha1.TrafficTarget) ServiceOption {
 	return func(r *v1alpha1.Service) {
 		// Automatically inject URL into TrafficTarget status
 		for _, tt := range targets {
-			if tt.DeprecatedName != "" {
-				tt.URL = domains.URL(domains.HTTPScheme, tt.DeprecatedName+".example.com")
-			} else if tt.Tag != "" {
-				tt.URL = domains.URL(domains.HTTPScheme, tt.Tag+".example.com")
-			}
+			tt.URL = domains.URL(domains.HTTPScheme, tt.Tag+".example.com")
 		}
 		r.Status.Traffic = targets
 	}
@@ -542,13 +480,12 @@ func MarkServiceNotOwned(r *v1alpha1.Route) {
 	r.Status.MarkServiceNotOwned(routenames.K8sService(r))
 }
 
-// WithDomain sets the .Status.Domain field to the prototypical domain.
-func WithDomain(r *v1alpha1.Route) {
+// WithURL sets the .Status.Domain field to the prototypical domain.
+func WithURL(r *v1alpha1.Route) {
 	r.Status.URL = &apis.URL{
 		Scheme: "http",
 		Host:   fmt.Sprintf("%s.%s.example.com", r.Name, r.Namespace),
 	}
-	r.Status.DeprecatedDomain = r.Status.URL.Host
 }
 
 func WithHTTPSDomain(r *v1alpha1.Route) {
@@ -556,12 +493,6 @@ func WithHTTPSDomain(r *v1alpha1.Route) {
 		Scheme: "https",
 		Host:   fmt.Sprintf("%s.%s.example.com", r.Name, r.Namespace),
 	}
-	r.Status.DeprecatedDomain = r.Status.URL.Host
-}
-
-// WithDomainInternal sets the .Status.DomainInternal field to the prototypical internal domain.
-func WithDomainInternal(r *v1alpha1.Route) {
-	r.Status.DeprecatedDomainInternal = fmt.Sprintf("%s.%s.svc.cluster.local", r.Name, r.Namespace)
 }
 
 // WithAddress sets the .Status.Address field to the prototypical internal hostname.
@@ -573,7 +504,6 @@ func WithAddress(r *v1alpha1.Route) {
 				Host:   fmt.Sprintf("%s.%s.svc.cluster.local", r.Name, r.Namespace),
 			},
 		},
-		Hostname: fmt.Sprintf("%s.%s.svc.cluster.local", r.Name, r.Namespace),
 	}
 }
 
@@ -583,7 +513,6 @@ func WithAnotherDomain(r *v1alpha1.Route) {
 		Scheme: "http",
 		Host:   fmt.Sprintf("%s.%s.another-example.com", r.Name, r.Namespace),
 	}
-	r.Status.DeprecatedDomain = r.Status.URL.Host
 }
 
 // WithLocalDomain sets the .Status.Domain field to use `svc.cluster.local` suffix.
@@ -592,7 +521,6 @@ func WithLocalDomain(r *v1alpha1.Route) {
 		Scheme: "http",
 		Host:   fmt.Sprintf("%s.%s.svc.cluster.local", r.Name, r.Namespace),
 	}
-	r.Status.DeprecatedDomain = r.Status.URL.Host
 }
 
 // WithInitRouteConditions initializes the Service's conditions.
@@ -677,28 +605,6 @@ func WithConfigDeletionTimestamp(r *v1alpha1.Configuration) {
 	r.ObjectMeta.SetDeletionTimestamp(&t)
 }
 
-// WithBuild adds a Build to the provided Configuration.
-func WithBuild(cfg *v1alpha1.Configuration) {
-	cfg.Spec.DeprecatedBuild = &v1alpha1.RawExtension{
-		Object: &unstructured.Unstructured{
-			Object: map[string]interface{}{
-				"apiVersion": "testing.build.knative.dev/v1alpha1",
-				"kind":       "Build",
-				"spec": map[string]interface{}{
-					"steps": []interface{}{
-						map[string]interface{}{
-							"image": "foo",
-						},
-						map[string]interface{}{
-							"image": "bar",
-						},
-					},
-				},
-			},
-		},
-	}
-}
-
 // WithConfigOwnersRemoved clears the owner references of this Configuration.
 func WithConfigOwnersRemoved(cfg *v1alpha1.Configuration) {
 	cfg.OwnerReferences = nil
@@ -715,8 +621,6 @@ func WithConfigContainerConcurrency(cc v1beta1.RevisionContainerConcurrencyType)
 func WithGeneration(gen int64) ConfigOption {
 	return func(cfg *v1alpha1.Configuration) {
 		cfg.Generation = gen
-		//TODO(dprotaso) remove this for 0.4 release
-		cfg.Spec.DeprecatedGeneration = gen
 	}
 }
 
@@ -794,18 +698,6 @@ func WithRevName(name string) RevisionOption {
 	}
 }
 
-// WithBuildRef sets the .Spec.DeprecatedBuildRef on the Revision to match what we'd get
-// using WithBuild(name).
-func WithBuildRef(name string) RevisionOption {
-	return func(rev *v1alpha1.Revision) {
-		rev.Spec.DeprecatedBuildRef = &corev1.ObjectReference{
-			APIVersion: "testing.build.knative.dev/v1alpha1",
-			Kind:       "Build",
-			Name:       name,
-		}
-	}
-}
-
 // WithServiceName propagates the given service name to the revision status.
 func WithServiceName(sn string) RevisionOption {
 	return func(rev *v1alpha1.Revision) {
@@ -838,52 +730,6 @@ func WithLogURL(r *v1alpha1.Revision) {
 func WithCreationTimestamp(t time.Time) RevisionOption {
 	return func(rev *v1alpha1.Revision) {
 		rev.ObjectMeta.CreationTimestamp = metav1.Time{Time: t}
-	}
-}
-
-// WithNoBuild updates the status conditions to propagate a Build status as-if
-// no DeprecatedBuildRef was specified.
-func WithNoBuild(r *v1alpha1.Revision) {
-	r.Status.PropagateBuildStatus(duckv1alpha1.Status{
-		Conditions: duckv1alpha1.Conditions{{
-			Type:   duckv1alpha1.ConditionSucceeded,
-			Status: corev1.ConditionTrue,
-			Reason: "NoBuild",
-		}},
-	})
-}
-
-// WithOngoingBuild propagates the status of an in-progress Build to the Revision's status.
-func WithOngoingBuild(r *v1alpha1.Revision) {
-	r.Status.PropagateBuildStatus(duckv1alpha1.Status{
-		Conditions: duckv1alpha1.Conditions{{
-			Type:   duckv1alpha1.ConditionSucceeded,
-			Status: corev1.ConditionUnknown,
-		}},
-	})
-}
-
-// WithSuccessfulBuild propagates the status of a successful Build to the Revision's status.
-func WithSuccessfulBuild(r *v1alpha1.Revision) {
-	r.Status.PropagateBuildStatus(duckv1alpha1.Status{
-		Conditions: duckv1alpha1.Conditions{{
-			Type:   duckv1alpha1.ConditionSucceeded,
-			Status: corev1.ConditionTrue,
-		}},
-	})
-}
-
-// WithFailedBuild propagates the status of a failed Build to the Revision's status.
-func WithFailedBuild(reason, message string) RevisionOption {
-	return func(r *v1alpha1.Revision) {
-		r.Status.PropagateBuildStatus(duckv1alpha1.Status{
-			Conditions: duckv1alpha1.Conditions{{
-				Type:    duckv1alpha1.ConditionSucceeded,
-				Status:  corev1.ConditionFalse,
-				Reason:  reason,
-				Message: message,
-			}},
-		})
 	}
 }
 
@@ -951,10 +797,16 @@ func MarkContainerExiting(exitCode int32, message string) RevisionOption {
 	}
 }
 
+// MarkResourcesUnavailable calls .Status.MarkResourcesUnavailable on the Revision.
+func MarkResourcesUnavailable(reason, message string) RevisionOption {
+	return func(r *v1alpha1.Revision) {
+		r.Status.MarkResourcesUnavailable(reason, message)
+	}
+}
+
 // MarkRevisionReady calls the necessary helpers to make the Revision Ready=True.
 func MarkRevisionReady(r *v1alpha1.Revision) {
 	WithInitRevConditions(r)
-	WithNoBuild(r)
 	MarkActive(r)
 	r.Status.MarkResourcesAvailable()
 	r.Status.MarkContainerHealthy()
@@ -1158,6 +1010,19 @@ func WithFailingContainer(name string, exitCode int, message string) PodOption {
 	}
 }
 
+// WithUnschedulableContainer sets the .Status.Conditionss on the pod to
+// include `PodScheduled` status to `False` with the given message and reason.
+func WithUnschedulableContainer(reason, message string) PodOption {
+	return func(pod *corev1.Pod) {
+		pod.Status.Conditions = []corev1.PodCondition{{
+			Type:    corev1.PodScheduled,
+			Reason:  reason,
+			Message: message,
+			Status:  corev1.ConditionFalse,
+		}}
+	}
+}
+
 // ClusterIngressOption enables further configuration of the Cluster Ingress.
 type ClusterIngressOption func(*netv1alpha1.ClusterIngress)
 
@@ -1173,7 +1038,7 @@ type SKSOption func(sks *netv1alpha1.ServerlessService)
 
 // WithPubService annotates SKS status with the given service name.
 func WithPubService(sks *netv1alpha1.ServerlessService) {
-	sks.Status.ServiceName = names.PublicService(sks.Name)
+	sks.Status.ServiceName = sks.Name
 }
 
 // WithDeployRef annotates SKS with a deployment objectRef
@@ -1189,14 +1054,16 @@ func WithDeployRef(name string) SKSOption {
 
 // WithSKSReady marks SKS as ready.
 func WithSKSReady(sks *netv1alpha1.ServerlessService) {
-	WithPrivateService(sks)
+	WithPrivateService(sks.Name + "-rand")(sks)
 	WithPubService(sks)
 	sks.Status.MarkEndpointsReady()
 }
 
 // WithPrivateService annotates SKS status with the private service name.
-func WithPrivateService(sks *netv1alpha1.ServerlessService) {
-	sks.Status.PrivateServiceName = names.PrivateService(sks.Name)
+func WithPrivateService(n string) SKSOption {
+	return func(sks *netv1alpha1.ServerlessService) {
+		sks.Status.PrivateServiceName = n
+	}
 }
 
 // WithSKSOwnersRemoved clears the owner references of this SKS resource.

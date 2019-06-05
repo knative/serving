@@ -29,6 +29,9 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	openzipkin "github.com/openzipkin/zipkin-go"
+	zipkinreporter "github.com/openzipkin/zipkin-go/reporter"
+	reporterrecorder "github.com/openzipkin/zipkin-go/reporter/recorder"
 
 	. "github.com/knative/pkg/logging/testing"
 	_ "github.com/knative/pkg/system/testing"
@@ -44,6 +47,8 @@ import (
 	"github.com/knative/serving/pkg/network"
 	"github.com/knative/serving/pkg/network/prober"
 	"github.com/knative/serving/pkg/queue"
+	"github.com/knative/serving/pkg/tracing"
+	tracingconfig "github.com/knative/serving/pkg/tracing/config"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -283,6 +288,7 @@ func TestActivationHandler(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.label, func(t *testing.T) {
 			rt := getRT(t, test.probeErr, test.probeCode, test.probeResp, test.wantErr, test.wantBody, "test-host", nil)
+
 			reporter := &fakeReporter{}
 			params := queue.BreakerParams{QueueDepth: 1000, MaxConcurrency: 1000, InitialCapacity: 0}
 			throttler := activator.NewThrottler(
@@ -480,25 +486,85 @@ func TestActivationHandler_ProxyHeader(t *testing.T) {
 	}
 }
 
+func TestActivationHandler_TraceSpans(t *testing.T) {
+	// Setup transport
+	rt := getRT(t, nil, 200, []string{}, nil, "hello", "", nil)
+	prober.TransportFactory = func() http.RoundTripper {
+		return rt
+	}
+	defer func() {
+		prober.TransportFactory = network.NewAutoTransport
+	}()
+
+	// Create tracer with reporter recorder
+	reporter := reporterrecorder.NewReporter()
+	defer reporter.Close()
+	endpoint, _ := openzipkin.NewEndpoint("test", "localhost:1234")
+	oct := tracing.NewOpenCensusTracer(tracing.WithZipkinExporter(func(cfg *tracingconfig.Config) (zipkinreporter.Reporter, error) {
+		return reporter, nil
+	}, endpoint))
+	defer oct.Finish()
+
+	cfg := tracingconfig.Config{
+		Enable: true,
+		Debug:  true,
+	}
+	if err := oct.ApplyConfig(&cfg); err != nil {
+		t.Errorf("Failed to apply tracer config: %v", err)
+	}
+
+	namespace := testNamespace
+	revName := testRevName
+
+	breakerParams := queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}
+	throttler := activator.NewThrottler(
+		breakerParams,
+		endpointsInformer(endpoints(namespace, revName, breakerParams.InitialCapacity)),
+		sksLister(sks(namespace, revName)),
+		revisionLister(revision(namespace, revName)),
+		TestLogger(t))
+
+	handler := activationHandler{
+		transport:      rt,
+		logger:         TestLogger(t),
+		reporter:       &fakeReporter{},
+		throttler:      throttler,
+		revisionLister: revisionLister(revision(testNamespace, testRevName)),
+		serviceLister:  serviceLister(service(testNamespace, testRevName, "http")),
+		sksLister:      sksLister(sks(testNamespace, testRevName)),
+	}
+
+	_ = sendRequest(namespace, revName, handler)
+
+	gotSpans := reporter.Flush()
+	if len(gotSpans) != 4 {
+		t.Errorf("Got %d spans, expected %d", len(gotSpans), 4)
+	}
+
+	for i, spanName := range []string{"throttler_try", "probe", "/", "proxy"} {
+		if gotSpans[i].Name != spanName {
+			t.Errorf("Got span %d named %q, expected %q", i, gotSpans[i].Name, spanName)
+		}
+	}
+}
+
+func sendRequest(namespace, revName string, handler activationHandler) *httptest.ResponseRecorder {
+	resp := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
+	req.Header.Set(activator.RevisionHeaderNamespace, namespace)
+	req.Header.Set(activator.RevisionHeaderName, revName)
+	handler.ServeHTTP(resp, req)
+	return resp
+}
+
 // sendRequests sends `count` concurrent requests via the given handler and writes
 // the recorded responses to the `respCh`.
 func sendRequests(count int, namespace, revName string, respCh chan *httptest.ResponseRecorder, handler activationHandler) {
 	for i := 0; i < count; i++ {
 		go func() {
-			resp := httptest.NewRecorder()
-			req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
-			req.Header.Set(activator.RevisionHeaderNamespace, namespace)
-			req.Header.Set(activator.RevisionHeaderName, revName)
-			handler.ServeHTTP(resp, req)
-			respCh <- resp
+			respCh <- sendRequest(namespace, revName, handler)
 		}()
 	}
-}
-
-// getHandler returns an already setup activationHandler. The roundtripper is controlled
-// via the given `lockerCh`.
-func getHandler(throttler *activator.Throttler, lockerCh chan struct{}, t *testing.T) activationHandler {
-	return activationHandler{}
 }
 
 // getRT returns a roundTripper. probeErr if set is an error response returned to probe requests. probeCode is the

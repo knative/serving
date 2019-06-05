@@ -55,7 +55,6 @@ import (
 	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/clusteringress/config"
 	"github.com/knative/serving/pkg/reconciler/clusteringress/resources"
-	presources "github.com/knative/serving/pkg/resources"
 
 	. "github.com/knative/pkg/reconciler/testing"
 	. "github.com/knative/serving/pkg/reconciler/testing"
@@ -538,11 +537,6 @@ func patchAddFinalizerAction(ingressName, finalizer string) clientgotesting.Patc
 	return action
 }
 
-func addAnnotations(ing *v1alpha1.ClusterIngress, annos map[string]string) *v1alpha1.ClusterIngress {
-	ing.ObjectMeta.Annotations = presources.UnionMaps(annos, ing.ObjectMeta.Annotations)
-	return ing
-}
-
 type testConfigStore struct {
 	config *config.Config
 }
@@ -554,23 +548,6 @@ func (t *testConfigStore) ToContext(ctx context.Context) context.Context {
 func (t *testConfigStore) WatchConfigs(w configmap.Watcher) {}
 
 var _ configStore = (*testConfigStore)(nil)
-
-func ReconcilerTestConfig() *config.Config {
-	return &config.Config{
-		Istio: &config.Istio{
-			IngressGateways: []config.Gateway{{
-				GatewayName: "knative-test-gateway",
-				ServiceURL:  network.GetServiceHostname("test-ingressgateway", "istio-system"),
-			}, {
-				GatewayName: "knative-ingress-gateway",
-				ServiceURL:  network.GetServiceHostname("istio-ingressgateway", "istio-system"),
-			}},
-		},
-		Network: &network.Config{
-			AutoTLS: false,
-		},
-	}
-}
 
 func ingressWithStatus(name string, generation int64, status v1alpha1.IngressStatus) *v1alpha1.ClusterIngress {
 	return &v1alpha1.ClusterIngress{

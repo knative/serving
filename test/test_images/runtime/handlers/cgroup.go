@@ -58,7 +58,7 @@ func cgroups(paths ...string) []*types.Cgroup {
 		// Try to write to the Cgroup. We expect this to fail as a cheap
 		// method for read-only validation
 		newValue := []byte{'9'}
-		err = ioutil.WriteFile(path, newValue, 420)
+		err = ioutil.WriteFile(path, newValue, 0644)
 		if err != nil {
 			cgroups = append(cgroups, &types.Cgroup{Name: path, Value: &ic, ReadOnly: &yes})
 		} else {

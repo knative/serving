@@ -29,6 +29,7 @@ import (
 	"github.com/knative/serving/pkg/apis/autoscaling"
 	"github.com/knative/serving/pkg/apis/config"
 	net "github.com/knative/serving/pkg/apis/networking"
+	"github.com/knative/serving/pkg/apis/serving"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -105,7 +106,7 @@ func TestRevisionSpecValidation(t *testing.T) {
 		name: "missing container",
 		rs: &RevisionSpec{
 			RevisionSpec: v1beta1.RevisionSpec{
-				PodSpec: v1beta1.PodSpec{
+				PodSpec: corev1.PodSpec{
 					Volumes: []corev1.Volume{{
 						Name: "the-name",
 						VolumeSource: corev1.VolumeSource{
@@ -130,7 +131,7 @@ func TestRevisionSpecValidation(t *testing.T) {
 				}},
 			},
 			RevisionSpec: v1beta1.RevisionSpec{
-				PodSpec: v1beta1.PodSpec{
+				PodSpec: corev1.PodSpec{
 					Volumes: []corev1.Volume{{
 						Name: "the-name",
 						VolumeSource: corev1.VolumeSource{
@@ -155,7 +156,7 @@ func TestRevisionSpecValidation(t *testing.T) {
 				}},
 			},
 			RevisionSpec: v1beta1.RevisionSpec{
-				PodSpec: v1beta1.PodSpec{
+				PodSpec: corev1.PodSpec{
 					Volumes: []corev1.Volume{{
 						Name: "the-name",
 						VolumeSource: corev1.VolumeSource{
@@ -177,15 +178,14 @@ func TestRevisionSpecValidation(t *testing.T) {
 			Paths:   []string{"name"},
 		}).ViaFieldIndex("volumes", 1),
 	}, {
-		name: "has bad build ref",
+		name: "has build ref (disallowed)",
 		rs: &RevisionSpec{
 			DeprecatedContainer: &corev1.Container{
 				Image: "helloworld",
 			},
 			DeprecatedBuildRef: &corev1.ObjectReference{},
 		},
-		want: apis.ErrMissingField("buildRef.apiVersion",
-			"buildRef.kind", "buildRef.name"),
+		want: apis.ErrDisallowedFields("buildRef"),
 	}, {
 		name: "bad concurrency model",
 		rs: &RevisionSpec{
@@ -324,6 +324,42 @@ func TestRevisionTemplateSpecValidation(t *testing.T) {
 			},
 		},
 		want: nil,
+	}, {
+		name: "Queue sidecar resource percentage annotation more than 100",
+		rts: &RevisionTemplateSpec{
+			ObjectMeta: metav1.ObjectMeta{
+				Annotations: map[string]string{
+					serving.QueueSideCarResourcePercentageAnnotation: "200",
+				},
+			},
+			Spec: RevisionSpec{
+				DeprecatedContainer: &corev1.Container{
+					Image: "helloworld",
+				},
+			},
+		},
+		want: &apis.FieldError{
+			Message: "expected 0.1 <= 200 <= 100",
+			Paths:   []string{serving.QueueSideCarResourcePercentageAnnotation},
+		},
+	}, {
+		name: "Invalid queue sidecar resource percentage annotation",
+		rts: &RevisionTemplateSpec{
+			ObjectMeta: metav1.ObjectMeta{
+				Annotations: map[string]string{
+					serving.QueueSideCarResourcePercentageAnnotation: "50mx",
+				},
+			},
+			Spec: RevisionSpec{
+				DeprecatedContainer: &corev1.Container{
+					Image: "helloworld",
+				},
+			},
+		},
+		want: &apis.FieldError{
+			Message: "invalid value: 50mx",
+			Paths:   []string{fmt.Sprintf("[%s]", serving.QueueSideCarResourcePercentageAnnotation)},
+		},
 	}}
 
 	for _, test := range tests {

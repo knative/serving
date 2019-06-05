@@ -154,9 +154,11 @@ func validateEnvFrom(envFromList []corev1.EnvFromSource) *apis.FieldError {
 }
 
 func ValidatePodSpec(ps corev1.PodSpec) *apis.FieldError {
-	if equality.Semantic.DeepEqual(ps, corev1.PodSpec{}) {
-		return apis.ErrMissingField(apis.CurrentField)
-	}
+	// This is inlined, and so it makes for a less meaningful
+	// error message.
+	// if equality.Semantic.DeepEqual(ps, corev1.PodSpec{}) {
+	// 	return apis.ErrMissingField(apis.CurrentField)
+	// }
 
 	errs := apis.CheckDisallowedFields(ps, *PodSpecMask(&ps))
 

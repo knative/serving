@@ -21,6 +21,9 @@ import (
 
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
@@ -36,6 +39,14 @@ import (
 	"github.com/knative/pkg/system"
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
 	servingScheme "github.com/knative/serving/pkg/client/clientset/versioned/scheme"
+)
+
+const (
+	ForceUpgradePatch = `[{
+  "op":"add",
+  "path":"/metadata/annotations/serving.knative.dev~1forceUpgrade",
+  "value":"true"
+}]`
 )
 
 // Options defines the common reconciler options.
@@ -58,9 +69,6 @@ type Options struct {
 	ResyncPeriod time.Duration
 	StopChannel  <-chan struct{}
 }
-
-// This is mutable for testing.
-var resetPeriod = 30 * time.Second
 
 func NewOptionsOrDie(cfg *rest.Config, logger *zap.SugaredLogger, stopCh <-chan struct{}) Options {
 	kubeClient := kubernetes.NewForConfigOrDie(cfg)
@@ -175,6 +183,13 @@ func NewBase(opt Options, controllerAgentName string) *Base {
 	}
 
 	return base
+}
+
+func (b *Base) MarkNeedsUpgrade(gvr schema.GroupVersionResource, namespace, name string) error {
+	// Add the annotation serving.knative.dev/forceUpgrade=true to trigger webhook-based defaulting.
+	_, err := b.DynamicClientSet.Resource(gvr).Namespace(namespace).Patch(name, types.JSONPatchType,
+		[]byte(ForceUpgradePatch), metav1.UpdateOptions{})
+	return err
 }
 
 func init() {

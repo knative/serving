@@ -186,16 +186,20 @@ func TestURL(t *testing.T) {
 	}
 }
 
-func TestGetAllDomains(t *testing.T) {
+func TestGetAllDomainsAndTags(t *testing.T) {
 	tests := []struct {
 		name     string
 		template string
-		want     []string
+		want     map[string]string
 		wantErr  bool
 	}{{
 		name:     "happy case",
 		template: "{{.Name}}.{{.Namespace}}.{{.Domain}}",
-		want:     []string{"myroute-target-1.default.example.com", "myroute-target-2.default.example.com", "myroute.default.example.com"},
+		want: map[string]string{
+			"myroute-target-1.default.example.com": "target-1",
+			"myroute-target-2.default.example.com": "target-2",
+			"myroute.default.example.com":          "",
+		},
 	}, {
 		name:     "bad template",
 		template: "{{.NNName}}.{{.Namespace}}.{{.Domain}}",
@@ -220,7 +224,8 @@ func TestGetAllDomains(t *testing.T) {
 			cfg.Network.DomainTemplate = tt.template
 			ctx = config.ToContext(ctx, cfg)
 
-			got, err := GetAllDomains(ctx, route, []string{"target-1", "target-2"})
+			// here, a tag-less major domain will have empty string as the input
+			got, err := GetAllDomainsAndTags(ctx, route, []string{"", "target-1", "target-2"})
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetAllDomains() error = %v, wantErr %v", err, tt.wantErr)
 				return
