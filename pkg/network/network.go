@@ -109,10 +109,10 @@ var (
 // We could add more over time - e.g. RevisionName if we thought that
 // might be of interest to people.
 type DomainTemplateValues struct {
-	Name      string
-	Namespace string
-	Domain    string
-	SubDomain string
+	Name        string
+	Namespace   string
+	Domain      string
+	Annotations map[string]string
 }
 
 // Config contains the networking configuration defined in the
@@ -238,10 +238,10 @@ func checkTemplate(t *template.Template) error {
 	// To a test run of applying the template, and see if the
 	// result is a valid URL.
 	data := DomainTemplateValues{
-		Name:      "foo",
-		Namespace: "bar",
-		Domain:    "baz.com",
-		SubDomain: "sub",
+		Name:        "foo",
+		Namespace:   "bar",
+		Domain:      "baz.com",
+		Annotations: nil,
 	}
 	buf := bytes.Buffer{}
 	if err := t.Execute(&buf, data); err != nil {

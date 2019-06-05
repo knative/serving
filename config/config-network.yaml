@@ -98,8 +98,9 @@ data:
     # entirely from the template. When choosing a new value be thoughtful
     # of the potential for conflicts - for example, when users choose to use
     # characters such as `-` in their service, or namespace, names.
-    # SubDomains can be passed via label "serving.knative.dev/subDomain", if set will be used else will fall back to namespace 
-    domainTemplate: "{{if eq (len .SubDomain) 0}}{{.Name}}.{{.Namespace}}.{{.Domain}}{{ else }}{{.Name}}.{{.SubDomain}}.{{.Domain}}{{ end }}"
+    # {{.Annotations}} can be used for any customization in the go template if needed. 
+    # Make sure you don't have dns-name conflict if you use it.
+    domainTemplate: "{{.Name}}.{{.Namespace}}.{{.Domain}}"
 
     # Controls whether TLS certificates are automatically provisioned and
     # installed in the Knative ingress to terminate external TLS connection.

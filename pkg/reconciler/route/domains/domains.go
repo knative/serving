@@ -57,15 +57,15 @@ func SubdomainName(r *v1alpha1.Route, suffix string) string {
 func DomainNameFromTemplate(ctx context.Context, r *v1alpha1.Route, name string) (string, error) {
 	domainConfig := config.FromContext(ctx).Domain
 	domain := domainConfig.LookupDomainForLabels(r.ObjectMeta.Labels)
-	subDomain := domainConfig.LookupSubDomainForLabels(r.ObjectMeta.Labels)
+	annotations := r.ObjectMeta.Annotations
 	// These are the available properties they can choose from.
 	// We could add more over time - e.g. RevisionName if we thought that
 	// might be of interest to people.
 	data := network.DomainTemplateValues{
-		Name:      name,
-		Namespace: r.Namespace,
-		Domain:    domain,
-		SubDomain: subDomain,
+		Name:        name,
+		Namespace:   r.Namespace,
+		Domain:      domain,
+		Annotations: annotations,
 	}
 
 	networkConfig := config.FromContext(ctx).Network
