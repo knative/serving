@@ -21,13 +21,28 @@ package upgrade
 import (
 	"io/ioutil"
 	"log"
+	"os"
+	"syscall"
 	"testing"
 
 	"github.com/knative/serving/test"
 	"github.com/knative/serving/test/e2e"
 )
 
+const pipe = "/tmp/prober-signal"
+
 func TestProbe(t *testing.T) {
+	// We run the prober as a golang test because it fits in nicely with
+	// the rest of our integration tests, and AssertProberDefault needs
+	// a *testing.T. Unfortunately, "go test" intercepts signals, so we
+	// can't coordinate with the test by just sending e.g. SIGCONT, so we
+	// create a named pipe and wait for the upgrade script to write to it
+	// to signal that we should stop probing.
+	if err := syscall.Mkfifo(pipe, 0666); err != nil {
+		t.Fatalf("failed to create pipe: %v", err)
+	}
+	defer os.Remove(pipe)
+
 	clients := e2e.Setup(t)
 	names := test.ResourceNames{
 		Service: "upgrade-probe",

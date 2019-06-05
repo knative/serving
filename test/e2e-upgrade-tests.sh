@@ -76,13 +76,6 @@ go_test_e2e -tags=preupgrade -timeout=${TIMEOUT} ./test/upgrade \
 
 header "Starting prober test"
 
-# This is kind of gross. First attempt was to just send a signal to the go test,
-# but "go test" intercepts the signal and always exits with a non-zero code.
-#
-# The prober is blocking on /tmp/prober-signal to know when it should exit.
-mkfifo /tmp/prober-signal
-trap 'rm /tmp/prober-signal' EXIT
-
 go_test_e2e -tags=probe -timeout=${TIMEOUT} ./test/upgrade \
   --resolvabledomain=$(use_resolvable_domain) &
 PROBER_PID=$!
@@ -94,7 +87,10 @@ header "Running postupgrade tests"
 go_test_e2e -tags=postupgrade -timeout=${TIMEOUT} ./test/upgrade \
   --resolvabledomain=$(use_resolvable_domain) || fail_test
 
-# This will cause the prober to exit and fail if the SLO was violated.
+# The prober is blocking on /tmp/prober-signal to know when it should exit.
+#
+# This is kind of gross. First attempt was to just send a signal to the go test,
+# but "go test" intercepts the signal and always exits with a non-zero code.
 echo "done" >> /tmp/prober-signal
 
 header "Waiting for prober test"
