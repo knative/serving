@@ -22,6 +22,8 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/knative/pkg/logging"
+	pkgmetrics "github.com/knative/pkg/metrics"
+	_ "github.com/knative/pkg/metrics/testing"
 	"github.com/knative/pkg/ptr"
 	"github.com/knative/pkg/system"
 	_ "github.com/knative/pkg/system/testing"
@@ -67,7 +69,7 @@ var (
 
 	defaultQueueContainer = &corev1.Container{
 		Name:           QueueContainerName,
-		Resources:      queueResources,
+		Resources:      createQueueResources(make(map[string]string), &corev1.Container{}),
 		Ports:          append(queueNonServingPorts, queueHTTPPort),
 		ReadinessProbe: queueReadinessProbe,
 		Env: []corev1.EnvVar{{
@@ -119,6 +121,9 @@ var (
 		}, {
 			Name:  "SYSTEM_NAMESPACE",
 			Value: system.Namespace(),
+		}, {
+			Name:  "METRICS_DOMAIN",
+			Value: pkgmetrics.Domain(),
 		}},
 	}
 

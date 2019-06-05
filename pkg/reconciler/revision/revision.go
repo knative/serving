@@ -18,65 +18,31 @@ package revision
 
 import (
 	"context"
-	"net/http"
 	"reflect"
 	"strings"
 
+	"github.com/google/go-containerregistry/pkg/authn/k8schain"
+	cachinglisters "github.com/knative/caching/pkg/client/listers/caching/v1alpha1"
+	"github.com/knative/pkg/controller"
+	commonlogging "github.com/knative/pkg/logging"
+	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/knative/serving/pkg/apis/serving/v1beta1"
+	kpalisters "github.com/knative/serving/pkg/client/listers/autoscaling/v1alpha1"
+	listers "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
+	"github.com/knative/serving/pkg/reconciler"
+	"github.com/knative/serving/pkg/reconciler/revision/config"
+	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/util/sets"
-	appsv1informers "k8s.io/client-go/informers/apps/v1"
-	corev1informers "k8s.io/client-go/informers/core/v1"
 	appsv1listers "k8s.io/client-go/listers/apps/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
-
-	"github.com/google/go-containerregistry/pkg/authn/k8schain"
-	cachinginformers "github.com/knative/caching/pkg/client/informers/externalversions/caching/v1alpha1"
-	cachinglisters "github.com/knative/caching/pkg/client/listers/caching/v1alpha1"
-	"github.com/knative/pkg/apis/duck"
-	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
-	"github.com/knative/pkg/configmap"
-	"github.com/knative/pkg/controller"
-	commonlogging "github.com/knative/pkg/logging"
-	"github.com/knative/pkg/tracker"
-	"github.com/knative/serving/pkg/apis/serving"
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	"github.com/knative/serving/pkg/apis/serving/v1beta1"
-	painformers "github.com/knative/serving/pkg/client/informers/externalversions/autoscaling/v1alpha1"
-	servinginformers "github.com/knative/serving/pkg/client/informers/externalversions/serving/v1alpha1"
-	kpalisters "github.com/knative/serving/pkg/client/listers/autoscaling/v1alpha1"
-	listers "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
-	"github.com/knative/serving/pkg/deployment"
-	"github.com/knative/serving/pkg/metrics"
-	"github.com/knative/serving/pkg/network"
-	"github.com/knative/serving/pkg/reconciler"
-	"github.com/knative/serving/pkg/reconciler/revision/config"
-
-	"go.uber.org/zap"
-)
-
-const (
-	controllerAgentName = "revision-controller"
-)
-
-type changed bool
-
-const (
-	wasChanged changed = true
-	unchanged  changed = false
 )
 
 type resolver interface {
 	Resolve(string, k8schain.Options, sets.String) (string, error)
-}
-
-type configStore interface {
-	ToContext(ctx context.Context) context.Context
-	WatchConfigs(w configmap.Watcher)
-	Load() *config.Config
 }
 
 // Reconciler implements controller.Reconciler for Revision resources.
@@ -92,120 +58,12 @@ type Reconciler struct {
 	endpointsLister     corev1listers.EndpointsLister
 	configMapLister     corev1listers.ConfigMapLister
 
-	buildInformerFactory duck.InformerFactory
-
-	tracker     tracker.Interface
 	resolver    resolver
 	configStore configStore
 }
 
 // Check that our Reconciler implements controller.Reconciler
 var _ controller.Reconciler = (*Reconciler)(nil)
-
-// NewController initializes the controller and is called by the generated code
-// Registers eventhandlers to enqueue events
-// config - client configuration for talking to the apiserver
-// si - informer factory shared across all controllers for listening to events and indexing resource properties
-// queue - message queue for handling new events.  unique to this controller.
-func NewController(
-	opt reconciler.Options,
-	revisionInformer servinginformers.RevisionInformer,
-	podAutoscalerInformer painformers.PodAutoscalerInformer,
-	imageInformer cachinginformers.ImageInformer,
-	deploymentInformer appsv1informers.DeploymentInformer,
-	serviceInformer corev1informers.ServiceInformer,
-	endpointsInformer corev1informers.EndpointsInformer,
-	configMapInformer corev1informers.ConfigMapInformer,
-	buildInformerFactory duck.InformerFactory,
-) *controller.Impl {
-	transport := http.DefaultTransport
-	if rt, err := newResolverTransport(k8sCertPath); err != nil {
-		opt.Logger.Errorf("Failed to create resolver transport: %v", err)
-	} else {
-		transport = rt
-	}
-
-	c := &Reconciler{
-		Base:                reconciler.NewBase(opt, controllerAgentName),
-		revisionLister:      revisionInformer.Lister(),
-		podAutoscalerLister: podAutoscalerInformer.Lister(),
-		imageLister:         imageInformer.Lister(),
-		deploymentLister:    deploymentInformer.Lister(),
-		serviceLister:       serviceInformer.Lister(),
-		endpointsLister:     endpointsInformer.Lister(),
-		configMapLister:     configMapInformer.Lister(),
-		resolver: &digestResolver{
-			client:    opt.KubeClientSet,
-			transport: transport,
-		},
-	}
-	impl := controller.NewImpl(c, c.Logger, "Revisions", reconciler.MustNewStatsReporter("Revisions", c.Logger))
-
-	// Set up an event handler for when the resource types of interest change
-	c.Logger.Info("Setting up event handlers")
-	revisionInformer.Informer().AddEventHandler(reconciler.Handler(impl.Enqueue))
-
-	endpointsInformer.Informer().AddEventHandler(reconciler.Handler(
-		impl.EnqueueLabelOfNamespaceScopedResource("", serving.RevisionLabelKey)))
-
-	deploymentInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
-		FilterFunc: controller.Filter(v1alpha1.SchemeGroupVersion.WithKind("Revision")),
-		Handler:    reconciler.Handler(impl.EnqueueControllerOf),
-	})
-
-	podAutoscalerInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
-		FilterFunc: controller.Filter(v1alpha1.SchemeGroupVersion.WithKind("Revision")),
-		Handler:    reconciler.Handler(impl.EnqueueControllerOf),
-	})
-
-	c.tracker = tracker.New(impl.EnqueueKey, opt.GetTrackerLease())
-
-	// We don't watch for changes to Image because we don't incorporate any of its
-	// properties into our own status and should work completely in the absence of
-	// a functioning Image controller.
-
-	configMapInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
-		FilterFunc: controller.Filter(v1alpha1.SchemeGroupVersion.WithKind("Revision")),
-		Handler:    reconciler.Handler(impl.EnqueueControllerOf),
-	})
-
-	c.buildInformerFactory = newDuckInformerFactory(c.tracker, buildInformerFactory)
-
-	configsToResync := []interface{}{
-		&network.Config{},
-		&metrics.ObservabilityConfig{},
-		&deployment.Config{},
-	}
-
-	resync := configmap.TypeFilter(configsToResync...)(func(string, interface{}) {
-		// Triggers syncs on all revisions when configuration
-		// changes
-		impl.GlobalResync(revisionInformer.Informer())
-	})
-
-	c.configStore = config.NewStore(c.Logger.Named("config-store"), resync)
-	c.configStore.WatchConfigs(opt.ConfigMapWatcher)
-
-	return impl
-}
-
-func KResourceTypedInformerFactory(opt reconciler.Options) duck.InformerFactory {
-	return &duck.TypedInformerFactory{
-		Client:       opt.DynamicClientSet,
-		Type:         &duckv1alpha1.KResource{},
-		ResyncPeriod: opt.ResyncPeriod,
-		StopChannel:  opt.StopChannel,
-	}
-}
-
-func newDuckInformerFactory(t tracker.Interface, delegate duck.InformerFactory) duck.InformerFactory {
-	return &duck.CachedInformerFactory{
-		Delegate: &duck.EnqueueInformerFactory{
-			Delegate:     delegate,
-			EventHandler: reconciler.Handler(t.OnChanged),
-		},
-	}
-}
 
 // Reconcile compares the actual state with the desired, and attempts to
 // converge the two. It then updates the Status block of the Revision resource
@@ -251,56 +109,18 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 	}
 	if reconcileErr != nil {
 		c.Recorder.Event(rev, corev1.EventTypeWarning, "InternalError", reconcileErr.Error())
+		return reconcileErr
 	}
-	return reconcileErr
-}
-
-func (c *Reconciler) reconcileBuild(ctx context.Context, rev *v1alpha1.Revision) error {
-	buildRef := rev.DeprecatedBuildRef()
-	if buildRef == nil {
-		rev.Status.PropagateBuildStatus(duckv1alpha1.Status{
-			Conditions: []duckv1alpha1.Condition{{
-				Type:   duckv1alpha1.ConditionSucceeded,
-				Status: corev1.ConditionTrue,
-				Reason: "NoBuild",
-			}},
-		})
-		return nil
-	}
-
-	logger := commonlogging.FromContext(ctx)
-
-	if err := c.tracker.Track(*buildRef, rev); err != nil {
-		logger.Errorf("Error tracking build '%+v' for Revision %q: %+v", buildRef, rev.Name, err)
-		return err
-	}
-
-	gvr, _ := meta.UnsafeGuessKindToResource(buildRef.GroupVersionKind())
-	_, lister, err := c.buildInformerFactory.Get(gvr)
-	if err != nil {
-		logger.Errorf("Error getting a lister for a builds resource '%+v': %+v", gvr, err)
-		return err
-	}
-
-	buildObj, err := lister.ByNamespace(rev.Namespace).Get(buildRef.Name)
-	if err != nil {
-		logger.Errorf("Error fetching Build %q for Revision %q: %v", buildRef.Name, rev.Name, err)
-		return err
-	}
-	build := buildObj.(*duckv1alpha1.KResource)
-
-	before := rev.Status.GetCondition(v1alpha1.RevisionConditionBuildSucceeded)
-	rev.Status.PropagateBuildStatus(build.Status)
-	after := rev.Status.GetCondition(v1alpha1.RevisionConditionBuildSucceeded)
-	if before.Status != after.Status {
-		// Create events when the Build result is in.
-		if after.Status == corev1.ConditionTrue {
-			c.Recorder.Event(rev, corev1.EventTypeNormal, "BuildSucceeded", after.Message)
-		} else if after.Status == corev1.ConditionFalse {
-			c.Recorder.Event(rev, corev1.EventTypeWarning, "BuildFailed", after.Message)
+	// TODO(mattmoor): Remove this after 0.7 cuts.
+	// If the spec has changed, then assume we need an upgrade and issue a patch to trigger
+	// the webhook to upgrade via defaulting.  Status updates do not trigger this due to the
+	// use of the /status resource.
+	if !equality.Semantic.DeepEqual(original.Spec, rev.Spec) {
+		revisions := v1alpha1.SchemeGroupVersion.WithResource("revisions")
+		if err := c.MarkNeedsUpgrade(revisions, rev.Namespace, rev.Name); err != nil {
+			return err
 		}
 	}
-
 	return nil
 }
 
@@ -342,7 +162,7 @@ func (c *Reconciler) reconcile(ctx context.Context, rev *v1alpha1.Revision) erro
 	// and may not have had all of the assumed defaults specified.  This won't result
 	// in this getting written back to the API Server, but lets downstream logic make
 	// assumptions about defaulting.
-	rev.SetDefaults(ctx)
+	rev.SetDefaults(v1beta1.WithUpgradeViaDefaulting(ctx))
 
 	rev.Status.InitializeConditions()
 	c.updateRevisionLoggingURL(ctx, rev)
@@ -350,45 +170,37 @@ func (c *Reconciler) reconcile(ctx context.Context, rev *v1alpha1.Revision) erro
 	if err := rev.ConvertUp(ctx, &v1beta1.Revision{}); err != nil {
 		if ce, ok := err.(*v1alpha1.CannotConvertError); ok {
 			rev.Status.MarkResourceNotConvertible(ce)
+			return nil
 		} else {
 			return err
 		}
 	}
 
-	if err := c.reconcileBuild(ctx, rev); err != nil {
-		return err
-	}
+	phases := []struct {
+		name string
+		f    func(context.Context, *v1alpha1.Revision) error
+	}{{
+		name: "image digest",
+		f:    c.reconcileDigest,
+	}, {
+		name: "user deployment",
+		f:    c.reconcileDeployment,
+	}, {
+		name: "image cache",
+		f:    c.reconcileImageCache,
+	}, {
+		// Ensures our namespace has the configuration for the fluentd sidecar.
+		name: "fluentd configmap",
+		f:    c.reconcileFluentdConfigMap,
+	}, {
+		name: "KPA",
+		f:    c.reconcileKPA,
+	}}
 
-	bc := rev.Status.GetCondition(v1alpha1.RevisionConditionBuildSucceeded)
-	if bc == nil || bc.Status == corev1.ConditionTrue {
-		// There is no build, or the build completed successfully.
-
-		phases := []struct {
-			name string
-			f    func(context.Context, *v1alpha1.Revision) error
-		}{{
-			name: "image digest",
-			f:    c.reconcileDigest,
-		}, {
-			name: "user deployment",
-			f:    c.reconcileDeployment,
-		}, {
-			name: "image cache",
-			f:    c.reconcileImageCache,
-		}, {
-			// Ensures our namespace has the configuration for the fluentd sidecar.
-			name: "fluentd configmap",
-			f:    c.reconcileFluentdConfigMap,
-		}, {
-			name: "KPA",
-			f:    c.reconcileKPA,
-		}}
-
-		for _, phase := range phases {
-			if err := phase.f(ctx, rev); err != nil {
-				logger.Errorw("Failed to reconcile", zap.String("phase", phase.name), zap.Error(err))
-				return err
-			}
+	for _, phase := range phases {
+		if err := phase.f(ctx, rev); err != nil {
+			logger.Errorw("Failed to reconcile", zap.String("phase", phase.name), zap.Error(err))
+			return err
 		}
 	}
 

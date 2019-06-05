@@ -19,6 +19,7 @@ package kpa
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"sync"
 	"testing"
 	"time"
@@ -31,7 +32,6 @@ import (
 
 	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/controller"
-	"github.com/knative/pkg/kmeta"
 	logtesting "github.com/knative/pkg/logging/testing"
 	"github.com/knative/pkg/ptr"
 	"github.com/knative/pkg/system"
@@ -41,7 +41,6 @@ import (
 	nv1a1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 	"github.com/knative/serving/pkg/autoscaler"
 	fakeKna "github.com/knative/serving/pkg/client/clientset/versioned/fake"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
@@ -51,6 +50,7 @@ import (
 	"github.com/knative/serving/pkg/reconciler/autoscaling/kpa/resources"
 	aresources "github.com/knative/serving/pkg/reconciler/autoscaling/resources"
 	revisionresources "github.com/knative/serving/pkg/reconciler/revision/resources"
+	presources "github.com/knative/serving/pkg/resources"
 	perrors "github.com/pkg/errors"
 	fakedynamic "k8s.io/client-go/dynamic/fake"
 
@@ -140,12 +140,6 @@ func markActive(pa *asv1a1.PodAutoscaler) {
 	pa.Status.MarkActive()
 }
 
-func sksWithOwnership(pa *asv1a1.PodAutoscaler) SKSOption {
-	return func(sks *nv1a1.ServerlessService) {
-		sks.ObjectMeta.OwnerReferences = []metav1.OwnerReference{*kmeta.NewControllerRef(pa)}
-	}
-}
-
 func kpa(ns, n string, opts ...PodAutoscalerOption) *asv1a1.PodAutoscaler {
 	rev := newTestRevision(ns, n)
 	kpa := revisionresources.MakeKPA(rev)
@@ -155,12 +149,6 @@ func kpa(ns, n string, opts ...PodAutoscalerOption) *asv1a1.PodAutoscaler {
 		opt(kpa)
 	}
 	return kpa
-}
-
-func withConcurrency(n int) PodAutoscalerOption {
-	return func(pa *asv1a1.PodAutoscaler) {
-		pa.Spec.ContainerConcurrency = v1beta1.RevisionContainerConcurrencyType(n)
-	}
 }
 
 func markResourceNotOwned(rType, name string) PodAutoscalerOption {
@@ -353,7 +341,7 @@ func TestReconcile(t *testing.T) {
 			expectedDeploy,
 			makeSKSPrivateEndpoints(1, testNamespace, testRevision),
 		},
-		WantCreates: []metav1.Object{
+		WantCreates: []runtime.Object{
 			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector)),
 		},
 	}, {
@@ -370,7 +358,7 @@ func TestReconcile(t *testing.T) {
 			expectedDeploy,
 			makeSKSPrivateEndpoints(1, testNamespace, testRevision),
 		},
-		WantCreates: []metav1.Object{
+		WantCreates: []runtime.Object{
 			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector)),
 		},
 		WantEvents: []string{
@@ -542,6 +530,32 @@ func TestReconcile(t *testing.T) {
 			Object: kpa(testNamespace, testRevision, markActive, WithPAStatusService(testRevision)),
 		}},
 	}, {
+		Name: "kpa does not become ready without minScale endpoints",
+		Key:  key,
+		Objects: []runtime.Object{
+			kpa(testNamespace, testRevision, withMinScale(2)),
+			sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSReady),
+			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector)),
+			expectedDeploy,
+			makeSKSPrivateEndpoints(1, testNamespace, testRevision),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: kpa(testNamespace, testRevision, markActivating, withMinScale(2), WithPAStatusService(testRevision)),
+		}},
+	}, {
+		Name: "kpa becomes ready with minScale endpoints",
+		Key:  key,
+		Objects: []runtime.Object{
+			kpa(testNamespace, testRevision, markActivating, withMinScale(2), WithPAStatusService(testRevision)),
+			sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSReady),
+			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector)),
+			expectedDeploy,
+			makeSKSPrivateEndpoints(2, testNamespace, testRevision),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: kpa(testNamespace, testRevision, markActive, withMinScale(2), WithPAStatusService(testRevision)),
+		}},
+	}, {
 		Name: "sks does not exist",
 		Key:  key,
 		Objects: []runtime.Object{
@@ -554,7 +568,7 @@ func TestReconcile(t *testing.T) {
 			// SKS does not exist, so we're just creating and have no status.
 			Object: kpa(testNamespace, testRevision, markActivating),
 		}},
-		WantCreates: []metav1.Object{
+		WantCreates: []runtime.Object{
 			sks(testNamespace, testRevision, WithDeployRef(deployName)),
 		},
 	}, {
@@ -587,7 +601,7 @@ func TestReconcile(t *testing.T) {
 			InduceFailure("create", "serverlessservices"),
 		},
 		WantErr: true,
-		WantCreates: []metav1.Object{
+		WantCreates: []runtime.Object{
 			sks(testNamespace, testRevision, WithDeployRef(deployName)),
 		},
 		WantEvents: []string{
@@ -1512,10 +1526,23 @@ func makeSKSPrivateEndpoints(num int, ns, n string) *corev1.Endpoints {
 }
 
 func addEndpoint(ep *corev1.Endpoints) *corev1.Endpoints {
-	ep.Subsets = []corev1.EndpointSubset{{
-		Addresses: []corev1.EndpointAddress{{IP: "127.0.0.1"}},
-	}}
+	if ep.Subsets == nil {
+		ep.Subsets = []corev1.EndpointSubset{{
+			Addresses: []corev1.EndpointAddress{},
+		}}
+	}
+
+	ep.Subsets[0].Addresses = append(ep.Subsets[0].Addresses, corev1.EndpointAddress{IP: "127.0.0.1"})
 	return ep
+}
+
+func withMinScale(minScale int) PodAutoscalerOption {
+	return func(pa *asv1a1.PodAutoscaler) {
+		pa.Annotations = presources.UnionMaps(
+			pa.Annotations,
+			map[string]string{autoscaling.MinScaleAnnotationKey: strconv.Itoa(minScale)},
+		)
+	}
 }
 
 type testConfigStore struct {

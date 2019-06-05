@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -28,6 +29,8 @@ import (
 	"github.com/knative/pkg/changeset"
 	"github.com/knative/pkg/logging/logkey"
 )
+
+const ConfigMapNameEnv = "CONFIG_LOGGING_NAME"
 
 // NewLogger creates a logger with the supplied configuration.
 // In addition to the logger, it returns AtomicLevel that can
@@ -184,4 +187,13 @@ func UpdateLevelFromConfigMap(logger *zap.SugaredLogger, atomicLevel zap.AtomicL
 			}
 		}
 	}
+}
+
+// ConfigMapName gets the name of the logging ConfigMap
+func ConfigMapName() string {
+	cm := os.Getenv(ConfigMapNameEnv)
+	if cm == "" {
+		return "config-logging"
+	}
+	return cm
 }

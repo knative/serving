@@ -24,19 +24,23 @@ import (
 
 	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/controller"
+	"github.com/knative/pkg/logging"
+	"github.com/knative/pkg/metrics"
 	pkgmetrics "github.com/knative/pkg/metrics"
 	"github.com/knative/pkg/signals"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/autoscaler"
 	"github.com/knative/serving/pkg/autoscaler/statserver"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
-	"github.com/knative/serving/pkg/logging"
-	"github.com/knative/serving/pkg/metrics"
 	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/autoscaling/hpa"
 	"github.com/knative/serving/pkg/reconciler/autoscaling/kpa"
+	"github.com/knative/serving/pkg/resources"
+	basecmd "github.com/kubernetes-incubator/custom-metrics-apiserver/pkg/cmd"
+	"github.com/spf13/pflag"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
+
 	kubeinformers "k8s.io/client-go/informers"
 	corev1informers "k8s.io/client-go/informers/core/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
@@ -55,7 +59,10 @@ var (
 )
 
 func main() {
-	flag.Parse()
+	// Initialize early to get access to flags and merge them with the autoscaler flags.
+	customMetricsAdapter := &basecmd.AdapterBase{}
+	customMetricsAdapter.Flags().AddGoFlagSet(flag.CommandLine)
+	pflag.Parse()
 
 	logger, atomicLevel := setupLogger()
 	defer flush(logger)
@@ -76,7 +83,7 @@ func main() {
 	// Watch the logging config map and dynamically update logging levels.
 	opt.ConfigMapWatcher.Watch(logging.ConfigMapName(), logging.UpdateLevelFromConfigMap(logger, atomicLevel, component))
 	// Watch the observability config map and dynamically update metrics exporter.
-	opt.ConfigMapWatcher.Watch(metrics.ObservabilityConfigName, metrics.UpdateExporterFromConfigMap(component, logger))
+	opt.ConfigMapWatcher.Watch(metrics.ConfigMapName(), metrics.UpdateExporterFromConfigMap(component, logger))
 
 	// Set up informer factories.
 	servingInformerFactory := informers.NewSharedInformerFactory(opt.ServingClientSet, opt.ResyncPeriod)
@@ -87,9 +94,10 @@ func main() {
 	sksInformer := servingInformerFactory.Networking().V1alpha1().ServerlessServices()
 	endpointsInformer := kubeInformerFactory.Core().V1().Endpoints()
 	serviceInformer := kubeInformerFactory.Core().V1().Services()
-	hpaInformer := kubeInformerFactory.Autoscaling().V1().HorizontalPodAutoscalers()
+	hpaInformer := kubeInformerFactory.Autoscaling().V2beta1().HorizontalPodAutoscalers()
 
 	collector := autoscaler.NewMetricCollector(statsScraperFactoryFunc(endpointsInformer.Lister()), logger)
+	customMetricsAdapter.WithCustomMetrics(autoscaler.NewMetricProvider())
 
 	// Set up scalers.
 	// uniScalerFactory depends endpointsInformer to be set.
@@ -125,6 +133,10 @@ func main() {
 
 	// Run the controllers and the statserver in a group.
 	var eg errgroup.Group
+	eg.Go(func() error {
+		return customMetricsAdapter.Run(stopCh)
+	})
+
 	eg.Go(func() error {
 		return statsServer.ListenAndServe()
 	})
@@ -185,13 +197,15 @@ func uniScalerFactoryFunc(endpointsInformer corev1informers.EndpointsInformer, m
 			return nil, err
 		}
 
-		return autoscaler.New(decider.Namespace, decider.Name, metricClient, endpointsInformer, decider.Spec, reporter)
+		podCounter := resources.NewScopedEndpointsCounter(endpointsInformer.Lister(), decider.Namespace, decider.Name)
+		return autoscaler.New(decider.Namespace, decider.Name, metricClient, podCounter, decider.Spec, reporter)
 	}
 }
 
 func statsScraperFactoryFunc(endpointsLister corev1listers.EndpointsLister) func(metric *autoscaler.Metric) (autoscaler.StatsScraper, error) {
 	return func(metric *autoscaler.Metric) (autoscaler.StatsScraper, error) {
-		return autoscaler.NewServiceScraper(metric, endpointsLister)
+		podCounter := resources.NewScopedEndpointsCounter(endpointsLister, metric.Namespace, metric.Name)
+		return autoscaler.NewServiceScraper(metric, podCounter)
 	}
 }
 

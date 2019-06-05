@@ -22,7 +22,26 @@ import (
 	"github.com/knative/pkg/logging"
 	"github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/autoscaler"
+	"github.com/knative/serving/pkg/reconciler/autoscaling/resources"
 )
+
+// Deciders is an interface for notifying the presence or absence of KPAs.
+type Deciders interface {
+	// Get accesses the Decider resource for this key, returning any errors.
+	Get(ctx context.Context, namespace, name string) (*autoscaler.Decider, error)
+
+	// Create adds a Decider resource for a given key, returning any errors.
+	Create(ctx context.Context, decider *autoscaler.Decider) (*autoscaler.Decider, error)
+
+	// Delete removes the Decider resource for a given key, returning any errors.
+	Delete(ctx context.Context, namespace, name string) error
+
+	// Watch registers a function to call when Decider change.
+	Watch(watcher func(string))
+
+	// Update update the Decider resource, return the new Decider or any errors.
+	Update(ctx context.Context, decider *autoscaler.Decider) (*autoscaler.Decider, error)
+}
 
 // MakeDecider constructs a Decider resource from a PodAutoscaler taking
 // into account the PA's ContainerConcurrency and the relevant
@@ -51,7 +70,7 @@ func MakeDecider(ctx context.Context, pa *v1alpha1.PodAutoscaler, config *autosc
 	}
 	panicThreshold := target * panicThresholdPercentage / 100.0
 	// TODO: remove MetricSpec when the custom metrics adapter implements Metric.
-	metricSpec := MakeMetric(ctx, pa, config).Spec
+	metricSpec := resources.MakeMetric(ctx, pa, config).Spec
 	return &autoscaler.Decider{
 		ObjectMeta: *pa.ObjectMeta.DeepCopy(),
 		Spec: autoscaler.DeciderSpec{

@@ -25,27 +25,23 @@ import (
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/network"
 	"github.com/knative/serving/pkg/reconciler/route/config"
-	"k8s.io/apimachinery/pkg/util/sets"
 )
 
 // HTTPScheme is the string representation of http.
 const HTTPScheme string = "http"
 
-// GetAllDomains returns all of the domains (including subdomains) associated with a Route
-func GetAllDomains(ctx context.Context, r *v1alpha1.Route, names []string) ([]string, error) {
-	majorDomain, err := DomainNameFromTemplate(ctx, r, r.Name)
-	if err != nil {
-		return nil, err
-	}
-	allDomains := sets.NewString(majorDomain)
+// GetAllDomainsAndTags returns all of the domains and tags(including subdomains) associated with a Route
+func GetAllDomainsAndTags(ctx context.Context, r *v1alpha1.Route, names []string) (map[string]string, error) {
+	domainTagMap := make(map[string]string)
+
 	for _, name := range names {
 		subDomain, err := DomainNameFromTemplate(ctx, r, SubdomainName(r, name))
 		if err != nil {
 			return nil, err
 		}
-		allDomains.Insert(subDomain)
+		domainTagMap[subDomain] = name
 	}
-	return allDomains.List(), nil
+	return domainTagMap, nil
 }
 
 // SubdomainName generates a name which represents the subdomain of a route

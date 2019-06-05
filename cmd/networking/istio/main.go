@@ -27,16 +27,15 @@ import (
 	sharedinformers "github.com/knative/pkg/client/informers/externalversions"
 	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/controller"
+	"github.com/knative/pkg/logging"
 	"github.com/knative/pkg/signals"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
-	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/clusteringress"
 )
 
 const (
-	threadsPerController = 2
-	component            = "controller-clusteringress-istio"
+	component = "controller-clusteringress-istio"
 )
 
 var (

@@ -29,7 +29,6 @@ import (
 	"github.com/knative/pkg/kmeta"
 	_ "github.com/knative/pkg/system/testing" // Setup system.Namespace()
 	"k8s.io/apimachinery/pkg/api/resource"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgotesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
@@ -54,7 +53,7 @@ type TableRow struct {
 	WantErr bool
 
 	// WantCreates holds the ordered list of Create calls we expect during reconciliation.
-	WantCreates []metav1.Object
+	WantCreates []runtime.Object
 
 	// WantUpdates holds the ordered list of Update calls we expect during reconciliation.
 	WantUpdates []clientgotesting.UpdateActionImpl

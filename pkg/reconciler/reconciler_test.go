@@ -43,7 +43,6 @@ func TestNewOptions(t *testing.T) {
 	cfg := &rest.Config{}
 	NewOptionsOrDie(cfg, nil, stopCh)
 
-	resetPeriod = 100 * time.Millisecond
 	time.Sleep(300 * time.Millisecond)
 
 	// TODO(mattmoor): There is no definitive way to know if the restmapper is reset...

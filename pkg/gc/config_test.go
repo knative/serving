@@ -77,6 +77,15 @@ func TestOurConfig(t *testing.T) {
 			},
 		},
 	}, {
+		name: "Invalid negative minimum generation",
+		fail: true,
+		want: Config{},
+		data: &corev1.ConfigMap{
+			Data: map[string]string{
+				"stale-revision-minimum-generations": "-1",
+			},
+		},
+	}, {
 		name: "Invalid minimum generation",
 		fail: true,
 		want: Config{},

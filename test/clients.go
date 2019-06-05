@@ -22,7 +22,6 @@ import (
 	"github.com/knative/pkg/test"
 	"github.com/knative/serving/pkg/client/clientset/versioned"
 	servingtyped "github.com/knative/serving/pkg/client/clientset/versioned/typed/serving/v1alpha1"
-	testbuildtyped "github.com/knative/serving/test/client/clientset/versioned/typed/testing/v1alpha1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/dynamic"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/oidc"
@@ -34,13 +33,7 @@ import (
 type Clients struct {
 	KubeClient    *test.KubeClient
 	ServingClient *ServingClients
-	BuildClient   *BuildClient
 	Dynamic       dynamic.Interface
-}
-
-// BuildClient holds instances of interfaces for making requests to build client.
-type BuildClient struct {
-	TestBuilds testbuildtyped.BuildInterface
 }
 
 // ServingClients holds instances of interfaces for making requests to knative serving clients
@@ -70,11 +63,6 @@ func NewClients(configPath string, clusterName string, namespace string) (*Clien
 		return nil, err
 	}
 
-	clients.BuildClient, err = newBuildClient(cfg, namespace)
-	if err != nil {
-		return nil, err
-	}
-
 	clients.ServingClient, err = newServingClients(cfg, namespace)
 	if err != nil {
 		return nil, err
@@ -86,19 +74,6 @@ func NewClients(configPath string, clusterName string, namespace string) (*Clien
 	}
 
 	return clients, nil
-}
-
-// NewBuildclient instantiates and returns several clientsets required for making request to the
-// build client specified by the combination of clusterName and configPath. Clients can make requests within namespace.
-func newBuildClient(cfg *rest.Config, namespace string) (*BuildClient, error) {
-	tcs, err := testbuildtyped.NewForConfig(cfg)
-	if err != nil {
-		return nil, err
-	}
-
-	return &BuildClient{
-		TestBuilds: tcs.Builds(namespace),
-	}, nil
 }
 
 // NewServingClients instantiates and returns the serving clientset required to make requests to the

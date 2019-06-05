@@ -25,9 +25,10 @@ import (
 
 	fakecachingclientset "github.com/knative/caching/pkg/client/clientset/versioned/fake"
 	cachinginformers "github.com/knative/caching/pkg/client/informers/externalversions"
-	"github.com/knative/pkg/apis/duck"
 	"github.com/knative/pkg/configmap"
 	ctrl "github.com/knative/pkg/controller"
+	"github.com/knative/pkg/logging"
+	"github.com/knative/pkg/metrics"
 	"github.com/knative/pkg/ptr"
 	"github.com/knative/pkg/system"
 	autoscalingv1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
@@ -38,8 +39,6 @@ import (
 	fakeclientset "github.com/knative/serving/pkg/client/clientset/versioned/fake"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
 	"github.com/knative/serving/pkg/deployment"
-	"github.com/knative/serving/pkg/logging"
-	"github.com/knative/serving/pkg/metrics"
 	"github.com/knative/serving/pkg/network"
 	"github.com/knative/serving/pkg/reconciler"
 
@@ -55,6 +54,7 @@ import (
 	logtesting "github.com/knative/pkg/logging/testing"
 
 	. "github.com/knative/pkg/reconciler/testing"
+	. "github.com/knative/serving/pkg/reconciler/testing"
 )
 
 type nopResolver struct{}
@@ -92,33 +92,34 @@ func testRevision() *v1alpha1.Revision {
 			UID: "test-rev-uid",
 		},
 		Spec: v1alpha1.RevisionSpec{
-			// corev1.Container has a lot of setting.  We try to pass many
-			// of them here to verify that we pass through the settings to
-			// derived objects.
-			DeprecatedContainer: &corev1.Container{
-				Image:      "gcr.io/repo/image",
-				Command:    []string{"echo"},
-				Args:       []string{"hello", "world"},
-				WorkingDir: "/tmp",
-				Env: []corev1.EnvVar{{
-					Name:  "EDITOR",
-					Value: "emacs",
-				}},
-				LivenessProbe: &corev1.Probe{
-					TimeoutSeconds: 42,
-				},
-				ReadinessProbe: &corev1.Probe{
-					Handler: corev1.Handler{
-						HTTPGet: &corev1.HTTPGetAction{
-							Path: "health",
-						},
-					},
-					TimeoutSeconds: 43,
-				},
-				TerminationMessagePath: "/dev/null",
-			},
-			DeprecatedConcurrencyModel: v1alpha1.RevisionRequestConcurrencyModelMulti,
 			RevisionSpec: v1beta1.RevisionSpec{
+				PodSpec: corev1.PodSpec{
+					// corev1.Container has a lot of setting.  We try to pass many
+					// of them here to verify that we pass through the settings to
+					// derived objects.
+					Containers: []corev1.Container{{
+						Image:      "gcr.io/repo/image",
+						Command:    []string{"echo"},
+						Args:       []string{"hello", "world"},
+						WorkingDir: "/tmp",
+						Env: []corev1.EnvVar{{
+							Name:  "EDITOR",
+							Value: "emacs",
+						}},
+						LivenessProbe: &corev1.Probe{
+							TimeoutSeconds: 42,
+						},
+						ReadinessProbe: &corev1.Probe{
+							Handler: corev1.Handler{
+								HTTPGet: &corev1.HTTPGetAction{
+									Path: "health",
+								},
+							},
+							TimeoutSeconds: 43,
+						},
+						TerminationMessagePath: "/dev/null",
+					}},
+				},
 				TimeoutSeconds: ptr.Int64(60),
 			},
 		},
@@ -153,14 +154,13 @@ func newTestController(t *testing.T, stopCh <-chan struct{}) (
 	kubeInformer kubeinformers.SharedInformerFactory,
 	servingInformer informers.SharedInformerFactory,
 	cachingInformer cachinginformers.SharedInformerFactory,
-	configMapWatcher *configmap.ManualWatcher,
-	buildInformerFactory duck.InformerFactory) {
+	configMapWatcher *configmap.ManualWatcher) {
 
 	// Create fake clients
 	kubeClient = fakekubeclientset.NewSimpleClientset()
 	servingClient = fakeclientset.NewSimpleClientset()
 	cachingClient = fakecachingclientset.NewSimpleClientset()
-	dynamicClient = fakedynamicclientset.NewSimpleDynamicClient(runtime.NewScheme())
+	dynamicClient = fakedynamicclientset.NewSimpleDynamicClient(NewScheme())
 
 	configMapWatcher = &configmap.ManualWatcher{Namespace: system.Namespace()}
 
@@ -175,7 +175,6 @@ func newTestController(t *testing.T, stopCh <-chan struct{}) (
 		StopChannel:      stopCh,
 		Recorder:         record.NewFakeRecorder(1000),
 	}
-	buildInformerFactory = KResourceTypedInformerFactory(opt)
 
 	// Create informer factories with fake clients. The second parameter sets the
 	// resync period to zero, disabling it.
@@ -192,7 +191,6 @@ func newTestController(t *testing.T, stopCh <-chan struct{}) (
 		kubeInformer.Core().V1().Services(),
 		kubeInformer.Core().V1().Endpoints(),
 		kubeInformer.Core().V1().ConfigMaps(),
-		buildInformerFactory,
 	)
 
 	controller.Reconciler.(*Reconciler).resolver = &nopResolver{}
@@ -213,7 +211,7 @@ func newTestController(t *testing.T, stopCh <-chan struct{}) (
 			}}, {
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: system.Namespace(),
-				Name:      metrics.ObservabilityConfigName,
+				Name:      metrics.ConfigMapName(),
 			},
 			Data: map[string]string{
 				"logging.enable-var-log-collection":     "true",
@@ -253,7 +251,7 @@ func TestNewRevisionCallsSyncHandler(t *testing.T) {
 	}()
 
 	rev := testRevision()
-	_, servingClient, _, _, controller, kubeInformer, servingInformer, cachingInformer, configMapWatcher, _ := newTestController(t, stopCh)
+	_, servingClient, _, _, controller, kubeInformer, servingInformer, cachingInformer, configMapWatcher := newTestController(t, stopCh)
 
 	h := NewHooks()
 

@@ -32,7 +32,7 @@ import (
 	aresources "github.com/knative/serving/pkg/reconciler/autoscaling/resources"
 
 	appsv1 "k8s.io/api/apps/v1"
-	autoscalingv1 "k8s.io/api/autoscaling/v1"
+	autoscalingv2beta1 "k8s.io/api/autoscaling/v2beta1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -66,7 +66,7 @@ func TestControllerCanReconcile(t *testing.T) {
 	ctl := NewController(&opts,
 		servingInformer.Autoscaling().V1alpha1().PodAutoscalers(),
 		servingInformer.Networking().V1alpha1().ServerlessServices(),
-		kubeInformer.Autoscaling().V1().HorizontalPodAutoscalers(),
+		kubeInformer.Autoscaling().V2beta1().HorizontalPodAutoscalers(),
 	)
 
 	podAutoscaler := pa(testRevision, testNamespace, WithHPAClass)
@@ -78,7 +78,7 @@ func TestControllerCanReconcile(t *testing.T) {
 		t.Errorf("Reconcile() = %v", err)
 	}
 
-	_, err = kubeClient.AutoscalingV1().HorizontalPodAutoscalers(testNamespace).Get(testRevision, metav1.GetOptions{})
+	_, err = kubeClient.AutoscalingV2beta1().HorizontalPodAutoscalers(testNamespace).Get(testRevision, metav1.GetOptions{})
 	if err != nil {
 		t.Errorf("error getting hpa: %v", err)
 	}
@@ -102,7 +102,7 @@ func TestReconcile(t *testing.T) {
 			deploy(testNamespace, testRevision),
 		},
 		Key: key(testRevision, testNamespace),
-		WantCreates: []metav1.Object{
+		WantCreates: []runtime.Object{
 			sks(testNamespace, testRevision, WithDeployRef(deployName)),
 			hpa(testRevision, testNamespace, pa(testRevision, testNamespace,
 				WithHPAClass, WithMetricAnnotation("cpu"))),
@@ -208,7 +208,7 @@ func TestReconcile(t *testing.T) {
 			InduceFailure("create", "serverlessservices"),
 		},
 		WantErr: true,
-		WantCreates: []metav1.Object{
+		WantCreates: []runtime.Object{
 			sks(testNamespace, testRevision, WithDeployRef(deployName)),
 		},
 		WantEvents: []string{
@@ -387,7 +387,7 @@ func TestReconcile(t *testing.T) {
 			deploy(testNamespace, testRevision),
 		},
 		Key: key(testRevision, testNamespace),
-		WantCreates: []metav1.Object{
+		WantCreates: []runtime.Object{
 			hpa(testRevision, testNamespace, pa(testRevision, testNamespace, WithHPAClass, WithMetricAnnotation("cpu"))),
 		},
 		WithReactors: []ktesting.ReactionFunc{
@@ -448,46 +448,18 @@ func pa(name, namespace string, options ...PodAutoscalerOption) *autoscalingv1al
 	return pa
 }
 
-type hpaOption func(*autoscalingv1.HorizontalPodAutoscaler)
+type hpaOption func(*autoscalingv2beta1.HorizontalPodAutoscaler)
 
-func withHPAOwnersRemoved(hpa *autoscalingv1.HorizontalPodAutoscaler) {
+func withHPAOwnersRemoved(hpa *autoscalingv2beta1.HorizontalPodAutoscaler) {
 	hpa.OwnerReferences = nil
 }
 
-func hpa(name, namespace string, pa *autoscalingv1alpha1.PodAutoscaler, options ...hpaOption) *autoscalingv1.HorizontalPodAutoscaler {
+func hpa(name, namespace string, pa *autoscalingv1alpha1.PodAutoscaler, options ...hpaOption) *autoscalingv2beta1.HorizontalPodAutoscaler {
 	h := resources.MakeHPA(pa)
 	for _, o := range options {
 		o(h)
 	}
 	return h
-}
-
-type scaleOpt func(*autoscalingv1.Scale)
-
-func scaleResource(namespace, name string, opts ...scaleOpt) *autoscalingv1.Scale {
-	s := &autoscalingv1.Scale{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
-		},
-		Spec: autoscalingv1.ScaleSpec{
-			Replicas: 1,
-		},
-		Status: autoscalingv1.ScaleStatus{
-			Replicas: 42,
-			Selector: "a=b",
-		},
-	}
-	for _, opt := range opts {
-		opt(s)
-	}
-	return s
-}
-
-func withLabelSelector(selector string) scaleOpt {
-	return func(s *autoscalingv1.Scale) {
-		s.Status.Selector = selector
-	}
 }
 
 type deploymentOption func(*appsv1.Deployment)

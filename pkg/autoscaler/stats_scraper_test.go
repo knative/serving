@@ -22,9 +22,10 @@ import (
 	"time"
 
 	"github.com/knative/serving/pkg/apis/serving"
+	"github.com/knative/serving/pkg/resources"
+
 	"github.com/pkg/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
 const (
@@ -70,38 +71,41 @@ func TestNewServiceScraperWithClient_ErrorCases(t *testing.T) {
 	invalidMetric.Labels = map[string]string{}
 	client := newTestScrapeClient(testStats, []error{nil})
 	lister := kubeInformer.Core().V1().Endpoints().Lister()
+	counter := resources.NewScopedEndpointsCounter(lister, testNamespace, testService)
+
 	testCases := []struct {
 		name        string
 		metric      *Metric
 		client      scrapeClient
-		lister      corev1listers.EndpointsLister
+		counter     resources.ReadyPodCounter
 		expectedErr string
 	}{{
 		name:        "Empty Decider",
 		client:      client,
-		lister:      lister,
+		counter:     counter,
 		expectedErr: "metric must not be nil",
 	}, {
 		name:        "Missing revision label in Decider",
 		metric:      invalidMetric,
 		client:      client,
-		lister:      lister,
+		counter:     counter,
 		expectedErr: "no Revision label found for Metric test-revision",
 	}, {
 		name:        "Empty scrape client",
 		metric:      metric,
-		lister:      lister,
+		counter:     counter,
 		expectedErr: "scrape client must not be nil",
 	}, {
 		name:        "Empty lister",
 		metric:      metric,
 		client:      client,
-		expectedErr: "endpoints lister must not be nil",
+		counter:     nil,
+		expectedErr: "counter must not be nil",
 	}}
 
 	for _, test := range testCases {
 		t.Run(test.name, func(t *testing.T) {
-			if _, err := newServiceScraperWithClient(test.metric, test.lister, test.client); err != nil {
+			if _, err := newServiceScraperWithClient(test.metric, test.counter, test.client); err != nil {
 				got := err.Error()
 				want := test.expectedErr
 				if got != want {
@@ -221,7 +225,8 @@ func TestScrape_DoNotScrapeIfNoPodsFound(t *testing.T) {
 
 func serviceScraperForTest(sClient scrapeClient) (*ServiceScraper, error) {
 	metric := getTestMetric()
-	return newServiceScraperWithClient(metric, kubeInformer.Core().V1().Endpoints().Lister(), sClient)
+	counter := resources.NewScopedEndpointsCounter(kubeInformer.Core().V1().Endpoints().Lister(), testNamespace, testService)
+	return newServiceScraperWithClient(metric, counter, sClient)
 }
 
 func getTestMetric() *Metric {

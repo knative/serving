@@ -352,7 +352,7 @@ func pushRequestMetricHandler(currentHandler http.Handler) http.Handler {
 	// TODO(yanweiguo): add the ability to emit metrics with names not combined
 	// to component.
 	ops := metrics.ExporterOptions{
-		Domain:         "knative.dev/serving",
+		Domain:         metrics.Domain(),
 		Component:      "revision",
 		PrometheusPort: networking.UserQueueMetricsPort,
 		ConfigMap: map[string]string{
