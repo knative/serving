@@ -187,7 +187,7 @@ func TestReconcile(t *testing.T) {
 		Name: "OnCreate-deployment-does-not-exist",
 		Key:  "on/cde",
 		Objects: []runtime.Object{
-			SKS("on", "cde", WithDeployRef("blah")),
+			SKS("on", "cde", WithDeployRef("blah"), markNoEndpoints),
 			deploy("on", "blah-another"),
 			endpointspriv("on", "cde", WithSubsets),
 		},
@@ -222,7 +222,7 @@ func TestReconcile(t *testing.T) {
 		Key:     "update-eps/failA",
 		WantErr: true,
 		Objects: []runtime.Object{
-			SKS("update-eps", "failA", WithPubService, WithPrivateService("failA-abba"), WithDeployRef("blah")),
+			SKS("update-eps", "failA", WithPubService, WithPrivateService("failA-abba"), WithDeployRef("blah"), markNoEndpoints),
 			deploy("update-eps", "blah"),
 			svcpub("update-eps", "failA"),
 			svcpriv("update-eps", "failA", svcWithName("failA-abba")),
@@ -253,6 +253,9 @@ func TestReconcile(t *testing.T) {
 		WithReactors: []clientgotesting.ReactionFunc{
 			InduceFailure("create", "services"),
 		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: SKS("svc", "fail2", WithPrivateService("fail2-badbeef"), WithDeployRef("blah"), markTransitioning("CreatingPublicService")),
+		}},
 		WantCreates: []runtime.Object{
 			svcpub("svc", "fail2"),
 		},
@@ -273,6 +276,10 @@ func TestReconcile(t *testing.T) {
 		WithReactors: []clientgotesting.ReactionFunc{
 			InduceFailure("create", "endpoints"),
 		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: SKS("eps", "fail3", WithPubService, WithPrivateService("fail3-abbad"), WithDeployRef("blah"),
+				markTransitioning("CreatingPublicEndpoints")),
+		}},
 		WantCreates: []runtime.Object{
 			svcpub("eps", "fail3"),
 			endpointspub("eps", "fail3", WithSubsets),
@@ -344,7 +351,7 @@ func TestReconcile(t *testing.T) {
 			Eventf(corev1.EventTypeNormal, "Updated", `Successfully updated ServerlessService "on/cnaeps"`),
 		},
 	}, {
-		Name:    "svc-fail-priv",
+		Name:    "create-svc-fail-priv",
 		Key:     "svc/fail",
 		WantErr: true,
 		Objects: []runtime.Object{
@@ -356,6 +363,9 @@ func TestReconcile(t *testing.T) {
 		WithReactors: []clientgotesting.ReactionFunc{
 			InduceFailure("create", "services"),
 		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: SKS("svc", "fail", WithDeployRef("blah"), markTransitioning("CreatingPrivateService")),
+		}},
 		WantCreates: []runtime.Object{
 			svcpriv("svc", "fail"),
 		},
@@ -388,12 +398,12 @@ func TestReconcile(t *testing.T) {
 			Eventf(corev1.EventTypeWarning, "UpdateFailed", "Failed to update status: inducing failure for update serverlessservices"),
 		},
 	}, {
-		Name:    "ronin-priv-service/fail5",
+		Name:    "ronin-priv-service",
 		Key:     "ronin-priv-service/fail5",
 		WantErr: true,
 		Objects: []runtime.Object{
 			SKS("ronin-priv-service", "fail5", WithPubService, WithPrivateService("fail5-fender"),
-				WithDeployRef("blah")),
+				WithDeployRef("blah"), markHappy),
 			deploy("ronin-priv-service", "blah"),
 			svcpub("ronin-priv-service", "fail5"),
 			svcpriv("ronin-priv-service", "fail5", WithK8sSvcOwnersRemoved, svcWithName("fail5-fender")),
@@ -401,11 +411,15 @@ func TestReconcile(t *testing.T) {
 			endpointspriv("ronin-priv-service", "fail5", WithSubsets, epsWithName("fail5-fender")),
 			activatorEndpoints(WithSubsets),
 		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: SKS("ronin-priv-service", "fail5", WithPubService, WithPrivateService("fail5-fender"),
+				WithDeployRef("blah"), markUnowned("Service", "fail5-fender")),
+		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "UpdateFailed", `InternalError: SKS: fail5 does not own Service: fail5-fender`),
 		},
 	}, {
-		Name:    "ronin-pub-service/fail6",
+		Name:    "ronin-pub-service",
 		Key:     "ronin-pub-service/fail6",
 		WantErr: true,
 		Objects: []runtime.Object{
@@ -418,11 +432,15 @@ func TestReconcile(t *testing.T) {
 			endpointspriv("ronin-pub-service", "fail6", WithSubsets, epsWithName("fail6-gibson")),
 			activatorEndpoints(WithSubsets),
 		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: SKS("ronin-pub-service", "fail6", WithPubService, WithPrivateService("fail6-gibson"),
+				WithDeployRef("blah"), markUnowned("Service", "fail6")),
+		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "UpdateFailed", `InternalError: SKS: fail6 does not own Service: fail6`),
 		},
 	}, {
-		Name:    "ronin-pub-eps/fail7",
+		Name:    "ronin-pub-eps",
 		Key:     "ronin-pub-eps/fail7",
 		WantErr: true,
 		Objects: []runtime.Object{
@@ -435,11 +453,15 @@ func TestReconcile(t *testing.T) {
 			endpointspriv("ronin-pub-eps", "fail7", WithSubsets, epsWithName("fail7-schecter")),
 			activatorEndpoints(WithSubsets),
 		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: SKS("ronin-pub-eps", "fail7", WithPubService, WithPrivateService("fail7-schecter"),
+				WithDeployRef("blah"), markUnowned("Endpoints", "fail7")),
+		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "UpdateFailed", `InternalError: SKS: fail7 does not own Endpoints: fail7`),
 		},
 	}, {
-		Name:    "update-svc-fail-priv",
+		Name:    "update-priv-svc-fail",
 		Key:     "update-svc/fail9",
 		WantErr: true,
 		Objects: []runtime.Object{
@@ -455,6 +477,10 @@ func TestReconcile(t *testing.T) {
 		WithReactors: []clientgotesting.ReactionFunc{
 			InduceFailure("update", "services"),
 		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: SKS("update-svc", "fail9", WithPubService, WithPrivateService("fail9-yamaha"),
+				WithDeployRef("blah"), markTransitioning("UpdatingPrivateService")),
+		}},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: svcpriv("update-svc", "fail9", svcWithName("fail9-yamaha")),
 		}},
@@ -463,11 +489,11 @@ func TestReconcile(t *testing.T) {
 		},
 	},
 		{
-			Name:    "update-svc-fail-pub",
+			Name:    "update-pub-svc-fail",
 			Key:     "update-svc/fail8",
 			WantErr: true,
 			Objects: []runtime.Object{
-				SKS("update-svc", "fail8", WithPubService, WithDeployRef("blah")),
+				SKS("update-svc", "fail8", WithPubService, WithDeployRef("blah"), markHappy, WithPrivateService("fail8-ibanez")),
 				deploy("update-svc", "blah"),
 				svcpub("update-svc", "fail8", withTimeSelector),
 				svcpriv("update-svc", "fail8", svcWithName("fail8-ibanez")),
@@ -585,6 +611,18 @@ func withOtherSubsets(ep *corev1.Endpoints) {
 
 func markHappy(sks *nv1a1.ServerlessService) {
 	sks.Status.MarkEndpointsReady()
+}
+
+func markUnowned(k, n string) SKSOption {
+	return func(sks *nv1a1.ServerlessService) {
+		sks.Status.MarkEndpointsNotOwned(k, n)
+	}
+}
+
+func markTransitioning(s string) SKSOption {
+	return func(sks *nv1a1.ServerlessService) {
+		sks.Status.MarkEndpointsNotReady(s)
+	}
 }
 
 func markNoEndpoints(sks *nv1a1.ServerlessService) {

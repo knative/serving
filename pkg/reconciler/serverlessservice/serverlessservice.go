@@ -93,16 +93,18 @@ func (r *reconciler) Reconcile(ctx context.Context, key string) error {
 	// Don't modify the informers copy.
 	sks := original.DeepCopy()
 	reconcileErr := r.reconcile(ctx, sks)
-	if reconcileErr != nil {
-		r.Recorder.Eventf(sks, corev1.EventTypeWarning, "UpdateFailed", "InternalError: %v", reconcileErr.Error())
-		return reconcileErr
-	}
-	if !equality.Semantic.DeepEqual(sks.Status, original.Status) {
-		// Only update status if it changed.
-		if _, err = r.updateStatus(sks); err != nil {
+	stEq := equality.Semantic.DeepEqual(sks.Status, original.Status)
+	if !stEq {
+		if _, err := r.updateStatus(sks); err != nil {
 			r.Recorder.Eventf(sks, corev1.EventTypeWarning, "UpdateFailed", "Failed to update status: %v", err)
 			return err
 		}
+	}
+
+	if reconcileErr != nil {
+		r.Recorder.Eventf(sks, corev1.EventTypeWarning, "UpdateFailed", "InternalError: %v", reconcileErr.Error())
+		return reconcileErr
+	} else if !stEq {
 		r.Recorder.Eventf(sks, corev1.EventTypeNormal, "Updated", "Successfully updated ServerlessService %q", key)
 	}
 	return nil
