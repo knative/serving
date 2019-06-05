@@ -1802,20 +1802,18 @@ func TestReconcile(t *testing.T) {
 			simpleK8sService(route("default", "my-route", WithConfigTarget("config"))),
 			simpleK8sService(route("default", "my-route"), OverrideServiceName("old-service-name")),
 		},
-		WantDeletes: []clientgotesting.DeleteActionImpl{
-			{
-				ActionImpl: clientgotesting.ActionImpl{
-					Namespace: "default",
-					Verb:      "delete",
-					Resource: schema.GroupVersionResource{
-						Group:    "core",
-						Version:  "v1",
-						Resource: "services",
-					},
+		WantDeletes: []clientgotesting.DeleteActionImpl{{
+			ActionImpl: clientgotesting.ActionImpl{
+				Namespace: "default",
+				Verb:      "delete",
+				Resource: schema.GroupVersionResource{
+					Group:    "core",
+					Version:  "v1",
+					Resource: "services",
 				},
-				Name: "old-service-name",
 			},
-		},
+			Name: "old-service-name",
+		}},
 		Key: "default/my-route",
 	}, {
 		Name:    "deletes service fails",
@@ -1859,20 +1857,18 @@ func TestReconcile(t *testing.T) {
 			simpleK8sService(route("default", "my-route", WithConfigTarget("config"))),
 			simpleK8sService(route("default", "my-route"), OverrideServiceName("old-service-name")),
 		},
-		WantDeletes: []clientgotesting.DeleteActionImpl{
-			{
-				ActionImpl: clientgotesting.ActionImpl{
-					Namespace: "default",
-					Verb:      "delete",
-					Resource: schema.GroupVersionResource{
-						Group:    "core",
-						Version:  "v1",
-						Resource: "services",
-					},
+		WantDeletes: []clientgotesting.DeleteActionImpl{{
+			ActionImpl: clientgotesting.ActionImpl{
+				Namespace: "default",
+				Verb:      "delete",
+				Resource: schema.GroupVersionResource{
+					Group:    "core",
+					Version:  "v1",
+					Resource: "services",
 				},
-				Name: "old-service-name",
 			},
-		},
+			Name: "old-service-name",
+		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "InternalError", "inducing failure for delete services"),
 		},
