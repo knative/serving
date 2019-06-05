@@ -23,7 +23,6 @@ import (
 
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/resources"
-
 	"github.com/pkg/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -199,8 +198,8 @@ func TestScrape_ReportErrorIfAllFail(t *testing.T) {
 	endpoints(2)
 
 	_, err = scraper.Scrape()
-	if err == nil {
-		t.Errorf("Expected error from scraper.Scrape(), got nil")
+	if errors.Cause(err) != errTest {
+		t.Errorf("scraper.Scrape() = %v, want %v", err, errTest)
 	}
 }
 
