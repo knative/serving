@@ -19,6 +19,7 @@ package v1alpha1
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/knative/pkg/apis"
@@ -81,6 +82,8 @@ func (rt *RevisionTemplateSpec) Validate(ctx context.Context) *apis.FieldError {
 		}
 	}
 
+	errs = errs.Also(validateAnnotations(rt.Annotations))
+
 	return errs
 }
 
@@ -135,7 +138,10 @@ func (rs *RevisionSpec) Validate(ctx context.Context) *apis.FieldError {
 	default:
 		errs = errs.Also(apis.ErrMissingOneOf("container", "containers"))
 	}
-	errs = errs.Also(serving.ValidateNamespacedObjectReference(rs.DeprecatedBuildRef).ViaField("buildRef"))
+
+	if rs.DeprecatedBuildRef != nil {
+		errs = errs.Also(apis.ErrDisallowedFields("buildRef"))
+	}
 
 	if err := rs.DeprecatedConcurrencyModel.Validate(ctx).ViaField("concurrencyModel"); err != nil {
 		errs = errs.Also(err)
@@ -147,6 +153,31 @@ func (rs *RevisionSpec) Validate(ctx context.Context) *apis.FieldError {
 		errs = errs.Also(validateTimeoutSeconds(*rs.TimeoutSeconds))
 	}
 	return errs
+}
+
+func validateAnnotations(annotations map[string]string) *apis.FieldError {
+	return validatePercentageAnnotationKey(annotations, serving.QueueSideCarResourcePercentageAnnotation)
+}
+
+func validatePercentageAnnotationKey(annotations map[string]string, resourcePercentageAnnotationKey string) *apis.FieldError {
+	if len(annotations) == 0 {
+		return nil
+	}
+
+	v, ok := annotations[resourcePercentageAnnotationKey]
+	if !ok {
+		return nil
+	}
+	value, err := strconv.ParseFloat(v, 32)
+	if err != nil {
+		return apis.ErrInvalidValue(v, apis.CurrentField).ViaKey(resourcePercentageAnnotationKey)
+	}
+
+	if value <= float64(0.1) || value > float64(100) {
+		return apis.ErrOutOfBoundsValue(value, 0.1, 100.0, resourcePercentageAnnotationKey)
+	}
+
+	return nil
 }
 
 func validateTimeoutSeconds(timeoutSeconds int64) *apis.FieldError {

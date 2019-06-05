@@ -475,8 +475,8 @@ func TestMakePrivateService(t *testing.T) {
 		},
 		want: &corev1.Service{
 			ObjectMeta: metav1.ObjectMeta{
-				Namespace: "melon",
-				Name:      "collie-priv",
+				Namespace:    "melon",
+				GenerateName: "collie-",
 				Labels: map[string]string{
 					// Those should be propagated.
 					serving.RevisionLabelKey:  "collie",
@@ -531,8 +531,8 @@ func TestMakePrivateService(t *testing.T) {
 		},
 		want: &corev1.Service{
 			ObjectMeta: metav1.ObjectMeta{
-				Namespace: "siamese",
-				Name:      "dream-priv",
+				Namespace:    "siamese",
+				GenerateName: "dream-",
 				Labels: map[string]string{
 					// Those should be propagated.
 					serving.RevisionLabelKey:  "dream",

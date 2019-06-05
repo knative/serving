@@ -40,6 +40,7 @@ import (
 	"github.com/knative/serving/pkg/apis/networking"
 	netv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 	networkinglisters "github.com/knative/serving/pkg/client/listers/networking/v1alpha1"
 	listers "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
 	"github.com/knative/serving/pkg/reconciler"
@@ -122,8 +123,19 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 	}
 	if reconcileErr != nil {
 		c.Recorder.Event(route, corev1.EventTypeWarning, "InternalError", reconcileErr.Error())
+		return reconcileErr
 	}
-	return reconcileErr
+	// TODO(mattmoor): Remove this after 0.7 cuts.
+	// If the spec has changed, then assume we need an upgrade and issue a patch to trigger
+	// the webhook to upgrade via defaulting.  Status updates do not trigger this due to the
+	// use of the /status resource.
+	if !equality.Semantic.DeepEqual(original.Spec, route.Spec) {
+		routes := v1alpha1.SchemeGroupVersion.WithResource("routes")
+		if err := c.MarkNeedsUpgrade(routes, route.Namespace, route.Name); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func ingressClassForRoute(ctx context.Context, r *v1alpha1.Route) string {
@@ -144,18 +156,12 @@ func (c *Reconciler) reconcile(ctx context.Context, r *v1alpha1.Route) error {
 	// and may not have had all of the assumed defaults specified.  This won't result
 	// in this getting written back to the API Server, but lets downstream logic make
 	// assumptions about defaulting.
-	r.SetDefaults(ctx)
+	r.SetDefaults(v1beta1.WithUpgradeViaDefaulting(ctx))
 	r.Status.InitializeConditions()
 
-	// There are no conditions that would trigger this, but if they were we'd have a
-	// block like this here (as the other controllers).
-	// if err := r.ConvertUp(ctx, &v1beta1.Route{}); err != nil {
-	// 	if ce, ok := err.(*v1alpha1.CannotConvertError); ok {
-	// 		r.Status.MarkResourceNotConvertible(ce)
-	// 	} else {
-	// 		return err
-	// 	}
-	// }
+	if err := r.ConvertUp(ctx, &v1beta1.Route{}); err != nil {
+		return err
+	}
 
 	logger.Infof("Reconciling route: %#v", r)
 
@@ -170,7 +176,8 @@ func (c *Reconciler) reconcile(ctx context.Context, r *v1alpha1.Route) error {
 		Scheme: "http",
 		Host:   host,
 	}
-	r.Status.DeprecatedDomain = host
+	// TODO(mattmoor): Remove completely after 0.7 cuts.
+	r.Status.DeprecatedDomain = ""
 
 	// Configure traffic based on the RouteSpec.
 	traffic, err := c.configureTraffic(ctx, r)
@@ -186,7 +193,9 @@ func (c *Reconciler) reconcile(ctx context.Context, r *v1alpha1.Route) error {
 		return err
 	}
 
-	r.Status.DeprecatedDomainInternal = resourcenames.K8sServiceFullname(r)
+	// TODO(mattmoor): Remove completely after 0.7 cuts.
+	r.Status.DeprecatedDomainInternal = ""
+
 	r.Status.Address = &duckv1alpha1.Addressable{
 		Addressable: duckv1beta1.Addressable{
 			URL: &apis.URL{
@@ -194,7 +203,8 @@ func (c *Reconciler) reconcile(ctx context.Context, r *v1alpha1.Route) error {
 				Host:   resourcenames.K8sServiceFullname(r),
 			},
 		},
-		Hostname: resourcenames.K8sServiceFullname(r),
+		// TODO(mattmoor): Remove completely after 0.7 cuts.
+		Hostname: "",
 	}
 
 	// Add the finalizer before creating the ClusterIngress so that we can be sure it gets cleaned up.
@@ -210,33 +220,42 @@ func (c *Reconciler) reconcile(ctx context.Context, r *v1alpha1.Route) error {
 
 	tls := []netv1alpha1.IngressTLS{}
 	if config.FromContext(ctx).Network.AutoTLS && !resources.IsClusterLocal(r) {
-		allDomains, err := domains.GetAllDomains(ctx, r, getTrafficNames(traffic.Targets))
+		allDomainTagMap, err := domains.GetAllDomainsAndTags(ctx, r, getTrafficNames(traffic.Targets))
 		if err != nil {
 			return err
 		}
-		desiredCert := resources.MakeCertificate(r, allDomains)
-		cert, err := c.reconcileCertificate(ctx, r, desiredCert)
-		if err != nil {
-			r.Status.MarkCertificateProvisionFailed(desiredCert.Name)
-			return err
-		}
+		desiredCerts := resources.MakeCertificates(r, allDomainTagMap)
+		for _, desiredCert := range desiredCerts {
 
-		if cert.Status.IsReady() {
-			r.Status.MarkCertificateReady(cert.Name)
-			r.Status.URL.Scheme = "https"
-			// TODO: we should only mark https for the public visible targets when
-			// we are able to configure visibility per target.
-			setTargetsScheme(&r.Status, "https")
-		} else {
-			r.Status.MarkCertificateNotReady(cert.Name)
-			r.Status.URL = &apis.URL{
-				Scheme: "http",
-				Host:   host,
+			cert, err := c.reconcileCertificate(ctx, r, desiredCert)
+			if err != nil {
+				r.Status.MarkCertificateProvisionFailed(desiredCert.Name)
+				return err
 			}
-			setTargetsScheme(&r.Status, "http")
-		}
 
-		tls = append(tls, resources.MakeIngressTLS(cert, allDomains))
+			dnsNames := sets.NewString(cert.Spec.DNSNames...)
+			if cert.Status.IsReady() {
+				r.Status.MarkCertificateReady(cert.Name)
+				// r.Status.URL is for the major domain, so only change if the cert is for
+				// the major domain
+				if dnsNames.Has(host) {
+					r.Status.URL.Scheme = "https"
+				}
+				// TODO: we should only mark https for the public visible targets when
+				// we are able to configure visibility per target.
+				setTargetsScheme(&r.Status, cert.Spec.DNSNames, "https")
+			} else {
+				r.Status.MarkCertificateNotReady(cert.Name)
+				if dnsNames.Has(host) {
+					r.Status.URL = &apis.URL{
+						Scheme: "http",
+						Host:   host,
+					}
+				}
+				setTargetsScheme(&r.Status, cert.Spec.DNSNames, "http")
+			}
+			tls = append(tls, resources.MakeIngressTLS(cert, cert.Spec.DNSNames))
+		}
 	}
 
 	logger.Info("Creating ClusterIngress.")
@@ -386,11 +405,19 @@ func getTrafficNames(targets map[string]traffic.RevisionTargets) []string {
 	return names
 }
 
-func setTargetsScheme(rs *v1alpha1.RouteStatus, scheme string) {
+// Sets the traffic URL scheme to scheme if the URL matches the dnsNames.
+// dnsNames are DNS names under a certificate for a particular domain, and so only change
+// the corresponding traffic under the route, rather than all traffic
+func setTargetsScheme(rs *v1alpha1.RouteStatus, dnsNames []string, scheme string) {
 	for i := range rs.Traffic {
 		if rs.Traffic[i].URL == nil {
 			continue
 		}
-		rs.Traffic[i].URL.Scheme = scheme
+		for _, dnsName := range dnsNames {
+			if rs.Traffic[i].URL.Host == dnsName {
+				rs.Traffic[i].URL.Scheme = scheme
+				break
+			}
+		}
 	}
 }

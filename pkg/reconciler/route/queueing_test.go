@@ -37,20 +37,14 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	fakedynamicclientset "k8s.io/client-go/dynamic/fake"
 	kubeinformers "k8s.io/client-go/informers"
 	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/tools/record"
 
 	. "github.com/knative/pkg/reconciler/testing"
+	. "github.com/knative/serving/pkg/reconciler/testing"
 )
-
-/* TODO tests:
-- syncHandler returns error (in processNextWorkItem)
-- invalid key in workqueue (in processNextWorkItem)
-- object cannot be converted to key (in enqueueConfiguration)
-- invalid key given to syncHandler
-- resource doesn't exist in lister (from syncHandler)
-*/
 
 func TestNewRouteCallsSyncHandler(t *testing.T) {
 	defer logtesting.ClearAll()
@@ -92,6 +86,7 @@ func TestNewRouteCallsSyncHandler(t *testing.T) {
 	})
 	sharedClient := fakesharedclientset.NewSimpleClientset()
 	servingClient := fakeclientset.NewSimpleClientset()
+	dynamicClient := fakedynamicclientset.NewSimpleDynamicClient(NewScheme())
 
 	// Create informer factories with fake clients. The second parameter sets the
 	// resync period to zero, disabling it.
@@ -101,6 +96,7 @@ func TestNewRouteCallsSyncHandler(t *testing.T) {
 	controller := NewController(
 		reconciler.Options{
 			KubeClientSet:    kubeClient,
+			DynamicClientSet: dynamicClient,
 			SharedClientSet:  sharedClient,
 			ServingClientSet: servingClient,
 			ConfigMapWatcher: configMapWatcher,

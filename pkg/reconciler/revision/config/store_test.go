@@ -23,7 +23,9 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	pkglogging "github.com/knative/pkg/logging"
 	logtesting "github.com/knative/pkg/logging/testing"
+	pkgmetrics "github.com/knative/pkg/metrics"
 	"github.com/knative/serving/pkg/autoscaler"
 	deployment "github.com/knative/serving/pkg/deployment"
 	"github.com/knative/serving/pkg/logging"
@@ -39,8 +41,8 @@ func TestStoreLoadWithContext(t *testing.T) {
 
 	deploymentConfig := ConfigMapFromTestFile(t, deployment.ConfigName, deployment.QueueSidecarImageKey)
 	networkConfig := ConfigMapFromTestFile(t, network.ConfigName)
-	observabilityConfig := ConfigMapFromTestFile(t, metrics.ObservabilityConfigName)
-	loggingConfig := ConfigMapFromTestFile(t, logging.ConfigMapName())
+	observabilityConfig := ConfigMapFromTestFile(t, pkgmetrics.ConfigMapName())
+	loggingConfig := ConfigMapFromTestFile(t, pkglogging.ConfigMapName())
 	autoscalerConfig := ConfigMapFromTestFile(t, autoscaler.ConfigName)
 
 	store.OnConfigChanged(deploymentConfig)
@@ -95,8 +97,8 @@ func TestStoreImmutableConfig(t *testing.T) {
 
 	store.OnConfigChanged(ConfigMapFromTestFile(t, deployment.ConfigName, deployment.QueueSidecarImageKey))
 	store.OnConfigChanged(ConfigMapFromTestFile(t, network.ConfigName))
-	store.OnConfigChanged(ConfigMapFromTestFile(t, metrics.ObservabilityConfigName))
-	store.OnConfigChanged(ConfigMapFromTestFile(t, logging.ConfigMapName()))
+	store.OnConfigChanged(ConfigMapFromTestFile(t, pkgmetrics.ConfigMapName()))
+	store.OnConfigChanged(ConfigMapFromTestFile(t, pkglogging.ConfigMapName()))
 	store.OnConfigChanged(ConfigMapFromTestFile(t, autoscaler.ConfigName))
 
 	config := store.Load()

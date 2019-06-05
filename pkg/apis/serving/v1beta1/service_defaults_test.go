@@ -40,7 +40,7 @@ func TestServiceDefaulting(t *testing.T) {
 				ConfigurationSpec: ConfigurationSpec{
 					Template: RevisionTemplateSpec{
 						Spec: RevisionSpec{
-							PodSpec: PodSpec{
+							PodSpec: corev1.PodSpec{
 								Containers: []corev1.Container{{
 									Resources: defaultResources,
 								}},
@@ -64,7 +64,7 @@ func TestServiceDefaulting(t *testing.T) {
 				ConfigurationSpec: ConfigurationSpec{
 					Template: RevisionTemplateSpec{
 						Spec: RevisionSpec{
-							PodSpec: PodSpec{
+							PodSpec: corev1.PodSpec{
 								Containers: []corev1.Container{{
 									Image: "busybox",
 								}},
@@ -79,7 +79,7 @@ func TestServiceDefaulting(t *testing.T) {
 				ConfigurationSpec: ConfigurationSpec{
 					Template: RevisionTemplateSpec{
 						Spec: RevisionSpec{
-							PodSpec: PodSpec{
+							PodSpec: corev1.PodSpec{
 								Containers: []corev1.Container{{
 									Image:     "busybox",
 									Resources: defaultResources,
@@ -104,7 +104,7 @@ func TestServiceDefaulting(t *testing.T) {
 				ConfigurationSpec: ConfigurationSpec{
 					Template: RevisionTemplateSpec{
 						Spec: RevisionSpec{
-							PodSpec: PodSpec{
+							PodSpec: corev1.PodSpec{
 								Containers: []corev1.Container{{
 									Image: "busybox",
 								}},
@@ -120,7 +120,7 @@ func TestServiceDefaulting(t *testing.T) {
 				ConfigurationSpec: ConfigurationSpec{
 					Template: RevisionTemplateSpec{
 						Spec: RevisionSpec{
-							PodSpec: PodSpec{
+							PodSpec: corev1.PodSpec{
 								Containers: []corev1.Container{{
 									Image:     "busybox",
 									Resources: defaultResources,
@@ -145,7 +145,7 @@ func TestServiceDefaulting(t *testing.T) {
 				ConfigurationSpec: ConfigurationSpec{
 					Template: RevisionTemplateSpec{
 						Spec: RevisionSpec{
-							PodSpec: PodSpec{
+							PodSpec: corev1.PodSpec{
 								Containers: []corev1.Container{{
 									Image: "busybox",
 								}},
@@ -173,7 +173,7 @@ func TestServiceDefaulting(t *testing.T) {
 				ConfigurationSpec: ConfigurationSpec{
 					Template: RevisionTemplateSpec{
 						Spec: RevisionSpec{
-							PodSpec: PodSpec{
+							PodSpec: corev1.PodSpec{
 								Containers: []corev1.Container{{
 									Image:     "busybox",
 									Resources: defaultResources,

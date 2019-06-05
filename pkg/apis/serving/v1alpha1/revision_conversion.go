@@ -55,7 +55,7 @@ func (source *RevisionSpec) ConvertUp(ctx context.Context, sink *v1beta1.Revisio
 	case source.DeprecatedContainer != nil && len(source.Containers) > 0:
 		return apis.ErrMultipleOneOf("container", "containers")
 	case source.DeprecatedContainer != nil:
-		sink.PodSpec = v1beta1.PodSpec{
+		sink.PodSpec = corev1.PodSpec{
 			ServiceAccountName: source.ServiceAccountName,
 			Containers:         []corev1.Container{*source.DeprecatedContainer},
 			Volumes:            source.Volumes,

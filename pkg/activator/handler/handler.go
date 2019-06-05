@@ -158,10 +158,15 @@ func (a *activationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		Host:   host,
 	}
 
+	_, ttSpan := trace.StartSpan(r.Context(), "throttler_try")
+	ttStart := time.Now()
 	err = a.throttler.Try(revID, func() {
 		var (
 			httpStatus int
 		)
+
+		ttSpan.End()
+		a.logger.Debugf("Waiting for throttler took %v time", time.Since(ttStart))
 
 		success, attempts := a.probeEndpoint(logger, r, target)
 		if success {
@@ -189,6 +194,12 @@ func (a *activationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		a.reporter.ReportResponseTime(namespace, serviceName, configurationName, name, httpStatus, duration)
 	})
 	if err != nil {
+		// Set error on our capacity waiting span and end it
+		ttSpan.Annotate([]trace.Attribute{
+			trace.StringAttribute("activator.throttler.error", err.Error()),
+		}, "ThrottlerTry")
+		ttSpan.End()
+
 		if err == activator.ErrActivatorOverload {
 			http.Error(w, activator.ErrActivatorOverload.Error(), http.StatusServiceUnavailable)
 		} else {

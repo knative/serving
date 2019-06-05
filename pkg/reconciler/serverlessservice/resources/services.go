@@ -20,7 +20,6 @@ import (
 	"github.com/knative/pkg/kmeta"
 	"github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/networking/v1alpha1"
-	"github.com/knative/serving/pkg/reconciler/serverlessservice/resources/names"
 	"github.com/knative/serving/pkg/resources"
 
 	corev1 "k8s.io/api/core/v1"
@@ -41,7 +40,7 @@ func targetPort(sks *v1alpha1.ServerlessService) intstr.IntOrString {
 func MakePublicService(sks *v1alpha1.ServerlessService) *corev1.Service {
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      names.PublicService(sks.Name),
+			Name:      sks.Name,
 			Namespace: sks.Namespace,
 			Labels: resources.UnionMaps(sks.GetLabels(), map[string]string{
 				// Add our own special key.
@@ -67,7 +66,7 @@ func MakePublicService(sks *v1alpha1.ServerlessService) *corev1.Service {
 func MakePublicEndpoints(sks *v1alpha1.ServerlessService, src *corev1.Endpoints) *corev1.Endpoints {
 	return &corev1.Endpoints{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      names.PublicService(sks.Name), // Name of Endpoints must match that of Service.
+			Name:      sks.Name, // Name of Endpoints must match that of Service.
 			Namespace: sks.Namespace,
 			Labels: resources.UnionMaps(sks.GetLabels(), map[string]string{
 				// Add our own special key.
@@ -91,8 +90,8 @@ func MakePublicEndpoints(sks *v1alpha1.ServerlessService, src *corev1.Endpoints)
 func MakePrivateService(sks *v1alpha1.ServerlessService, selector map[string]string) *corev1.Service {
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      names.PrivateService(sks.Name),
-			Namespace: sks.Namespace,
+			GenerateName: sks.Name + "-",
+			Namespace:    sks.Namespace,
 			Labels: resources.UnionMaps(sks.GetLabels(), map[string]string{
 				// Add our own special key.
 				networking.SKSLabelKey:    sks.Name,

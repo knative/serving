@@ -32,14 +32,11 @@ import (
 	"github.com/knative/serving/pkg/reconciler"
 	configns "github.com/knative/serving/pkg/reconciler/configuration/config"
 	"github.com/knative/serving/pkg/reconciler/configuration/resources"
-	errutil "github.com/pkg/errors"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/tools/cache"
 )
@@ -101,8 +98,19 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 	}
 	if reconcileErr != nil {
 		c.Recorder.Event(config, corev1.EventTypeWarning, "InternalError", reconcileErr.Error())
+		return reconcileErr
 	}
-	return reconcileErr
+	// TODO(mattmoor): Remove this after 0.7 cuts.
+	// If the spec has changed, then assume we need an upgrade and issue a patch to trigger
+	// the webhook to upgrade via defaulting.  Status updates do not trigger this due to the
+	// use of the /status resource.
+	if !equality.Semantic.DeepEqual(original.Spec, config.Spec) {
+		configurations := v1alpha1.SchemeGroupVersion.WithResource("configurations")
+		if err := c.MarkNeedsUpgrade(configurations, config.Namespace, config.Name); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (c *Reconciler) reconcile(ctx context.Context, config *v1alpha1.Configuration) error {
@@ -115,7 +123,7 @@ func (c *Reconciler) reconcile(ctx context.Context, config *v1alpha1.Configurati
 	// and may not have had all of the assumed defaults specified.  This won't result
 	// in this getting written back to the API Server, but lets downstream logic make
 	// assumptions about defaulting.
-	config.SetDefaults(ctx)
+	config.SetDefaults(v1beta1.WithUpgradeViaDefaulting(ctx))
 	config.Status.InitializeConditions()
 
 	if err := config.ConvertUp(ctx, &v1beta1.Configuration{}); err != nil {
@@ -260,42 +268,7 @@ func (c *Reconciler) latestCreatedRevision(config *v1alpha1.Configuration) (*v1a
 func (c *Reconciler) createRevision(ctx context.Context, config *v1alpha1.Configuration) (*v1alpha1.Revision, error) {
 	logger := logging.FromContext(ctx)
 
-	var buildRef *corev1.ObjectReference
-	if config.Spec.DeprecatedBuild != nil {
-		// TODO(mattmoor): Determine whether we reuse the previous build.
-		build := resources.MakeBuild(config)
-		gvr, _ := meta.UnsafeGuessKindToResource(build.GroupVersionKind())
-
-		// First, see if a build with this spec already exists.
-		buildHash := build.GetLabels()[serving.BuildHashLabelKey]
-		ul, err := c.DynamicClientSet.Resource(gvr).Namespace(build.GetNamespace()).List(metav1.ListOptions{
-			LabelSelector: fmt.Sprintf("%s=%s", serving.BuildHashLabelKey, buildHash),
-		})
-		if err != nil {
-			return nil, errutil.Wrapf(err, "Failed to list GroupVersionResource %+v", gvr)
-		}
-
-		var result *unstructured.Unstructured
-		if len(ul.Items) != 0 {
-			// If one exists, then have the Revision reference it.
-			result = &ul.Items[0]
-		} else {
-			// Otherwise, create a build and reference that.
-			result, err = c.DynamicClientSet.Resource(gvr).Namespace(build.GetNamespace()).Create(build, metav1.CreateOptions{})
-			if err != nil {
-				return nil, errutil.Wrapf(err, "Failed to create Build for Configuration %q", config.GetName())
-			}
-			logger.Infof("Created Build: %+v", result)
-			c.Recorder.Eventf(config, corev1.EventTypeNormal, "Created", "Created Build %q", result.GetName())
-		}
-		buildRef = &corev1.ObjectReference{
-			APIVersion: result.GetAPIVersion(),
-			Kind:       result.GetKind(),
-			Name:       result.GetName(),
-		}
-	}
-
-	rev := resources.MakeRevision(config, buildRef)
+	rev := resources.MakeRevision(config)
 	created, err := c.ServingClientSet.ServingV1alpha1().Revisions(config.Namespace).Create(rev)
 	if err != nil {
 		return nil, err
@@ -372,6 +345,13 @@ func isRevisionStale(ctx context.Context, rev *v1alpha1.Revision, config *v1alph
 	if err != nil {
 		if err.(v1alpha1.LastPinnedParseError).Type != v1alpha1.AnnotationParseErrorTypeMissing {
 			logger.Errorf("Failed to determine revision last pinned: %v", err)
+		} else {
+			// Revision was never pinned and its RevisionConditionReady is not true after staleRevisionCreateDelay.
+			// It usually happens when ksvc was deployed with wrong configuration.
+			rc := rev.Status.GetCondition(v1beta1.RevisionConditionReady)
+			if rc == nil || rc.Status != corev1.ConditionTrue {
+				return true
+			}
 		}
 		return false
 	}

@@ -61,7 +61,7 @@ const (
 )
 
 func getTestRouteWithTrafficTargets(traffic []v1alpha1.TrafficTarget) *v1alpha1.Route {
-	return &v1alpha1.Route{
+	route := &v1alpha1.Route{
 		ObjectMeta: metav1.ObjectMeta{
 			SelfLink:  "/apis/serving/v1alpha1/namespaces/test/Routes/test-route",
 			Name:      "test-route",
@@ -74,6 +74,8 @@ func getTestRouteWithTrafficTargets(traffic []v1alpha1.TrafficTarget) *v1alpha1.
 			Traffic: traffic,
 		},
 	}
+	route.SetDefaults(context.Background())
+	return route
 }
 
 func getTestRevision(name string) *v1alpha1.Revision {
@@ -565,20 +567,20 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 				Percent:      5,
 			},
 		}, {
-			DeprecatedName: "test-revision-1",
 			TrafficTarget: v1beta1.TrafficTarget{
+				Tag:          "test-revision-1",
 				RevisionName: "test-rev",
 				Percent:      10,
 			},
 		}, {
-			DeprecatedName: "test-revision-1",
 			TrafficTarget: v1beta1.TrafficTarget{
+				Tag:          "test-revision-1",
 				RevisionName: "test-rev",
 				Percent:      10,
 			},
 		}, {
-			DeprecatedName: "test-revision-2",
 			TrafficTarget: v1beta1.TrafficTarget{
+				Tag:          "test-revision-2",
 				RevisionName: "test-rev",
 				Percent:      15,
 			},
@@ -697,14 +699,14 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 	// targets
 	route := getTestRouteWithTrafficTargets(
 		[]v1alpha1.TrafficTarget{{
-			DeprecatedName: "foo",
 			TrafficTarget: v1beta1.TrafficTarget{
+				Tag:          "foo",
 				RevisionName: "test-rev",
 				Percent:      50,
 			},
 		}, {
-			DeprecatedName: "bar",
 			TrafficTarget: v1beta1.TrafficTarget{
+				Tag:               "bar",
 				ConfigurationName: "test-config",
 				Percent:           50,
 			},

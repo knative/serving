@@ -96,7 +96,7 @@ func TestRequestLogHandler(t *testing.T) {
 				req := httptest.NewRequest(http.MethodPost, test.url, bytes.NewBufferString(test.body))
 				handler.ServeHTTP(resp, req)
 
-				got := string(buf.Bytes())
+				got := buf.String()
 				if got != test.want {
 					t.Errorf("got '%v', want '%v'", got, test.want)
 				}
@@ -124,7 +124,7 @@ func TestPanickingHandler(t *testing.T) {
 			t.Error("want ServeHTTP to panic, got nothing.")
 		}
 
-		got := string(buf.Bytes())
+		got := buf.String()
 		if want := "http://example.com\n"; got != want {
 			t.Errorf("got '%v', want '%v'", got, want)
 		}
@@ -147,7 +147,7 @@ func TestFailedTemplateExecution(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "http://example.com", bytes.NewBufferString("test"))
 	handler.ServeHTTP(resp, req)
 
-	got := string(buf.Bytes())
+	got := buf.String()
 	if want := "Invalid request log template: "; !strings.HasPrefix(got, want) {
 		t.Errorf("got: '%v', want: '%v'", got, want)
 	}
@@ -215,7 +215,7 @@ func TestSetTemplate(t *testing.T) {
 				resp := httptest.NewRecorder()
 				req := httptest.NewRequest(http.MethodPost, url, bytes.NewBufferString(body))
 				handler.ServeHTTP(resp, req)
-				got := string(buf.Bytes())
+				got := buf.String()
 				if got != test.want {
 					t.Errorf("got '%v', want '%v'", got, test.want)
 				}

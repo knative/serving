@@ -17,6 +17,7 @@ limitations under the License.
 package configuration
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -35,66 +36,60 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	fakedynamicclientset "k8s.io/client-go/dynamic/fake"
 	kubeinformers "k8s.io/client-go/informers"
 	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/tools/record"
 
 	. "github.com/knative/pkg/reconciler/testing"
+	. "github.com/knative/serving/pkg/reconciler/testing"
 )
-
-/* TODO tests:
-- syncHandler returns error (in processNextWorkItem)
-- invalid key in workqueue (in processNextWorkItem)
-- object cannot be converted to key (in enqueueConfiguration)
-- invalid key given to syncHandler
-- resource doesn't exist in lister (from syncHandler)
-*/
 
 const (
 	testNamespace = "test"
 )
 
 func getTestConfiguration() *v1alpha1.Configuration {
-	return &v1alpha1.Configuration{
+	cfg := &v1alpha1.Configuration{
 		ObjectMeta: metav1.ObjectMeta{
 			SelfLink:  "/apis/serving/v1alpha1/namespaces/test/configurations/test-config",
 			Name:      "test-config",
 			Namespace: testNamespace,
 		},
 		Spec: v1alpha1.ConfigurationSpec{
-			// TODO(grantr): This is a workaround for generation initialization
-			DeprecatedGeneration: 1,
-			DeprecatedRevisionTemplate: &v1alpha1.RevisionTemplateSpec{
+			Template: &v1alpha1.RevisionTemplateSpec{
 				Spec: v1alpha1.RevisionSpec{
 					RevisionSpec: v1beta1.RevisionSpec{
-						PodSpec: v1beta1.PodSpec{
+						PodSpec: corev1.PodSpec{
 							ServiceAccountName: "test-account",
+							// corev1.Container has a lot of setting.  We try to pass many
+							// of them here to verify that we pass through the settings to
+							// the derived Revisions.
+							Containers: []corev1.Container{{
+								Image:      "gcr.io/repo/image",
+								Command:    []string{"echo"},
+								Args:       []string{"hello", "world"},
+								WorkingDir: "/tmp",
+								Env: []corev1.EnvVar{{
+									Name:  "EDITOR",
+									Value: "emacs",
+								}},
+								LivenessProbe: &corev1.Probe{
+									TimeoutSeconds: 42,
+								},
+								ReadinessProbe: &corev1.Probe{
+									TimeoutSeconds: 43,
+								},
+								TerminationMessagePath: "/dev/null",
+							}},
 						},
-					},
-					// corev1.Container has a lot of setting.  We try to pass many
-					// of them here to verify that we pass through the settings to
-					// the derived Revisions.
-					DeprecatedContainer: &corev1.Container{
-						Image:      "gcr.io/repo/image",
-						Command:    []string{"echo"},
-						Args:       []string{"hello", "world"},
-						WorkingDir: "/tmp",
-						Env: []corev1.EnvVar{{
-							Name:  "EDITOR",
-							Value: "emacs",
-						}},
-						LivenessProbe: &corev1.Probe{
-							TimeoutSeconds: 42,
-						},
-						ReadinessProbe: &corev1.Probe{
-							TimeoutSeconds: 43,
-						},
-						TerminationMessagePath: "/dev/null",
 					},
 				},
 			},
 		},
 	}
+	cfg.SetDefaults(context.Background())
+	return cfg
 }
 
 func newTestController(t *testing.T, stopCh chan struct{}) (
@@ -120,6 +115,7 @@ func newTestController(t *testing.T, stopCh chan struct{}) (
 	// with watches not firing in client-go 1.9. When we update to client-go 1.10
 	// this can probably be removed.
 	servingClient = fakeclientset.NewSimpleClientset()
+	dynamicClient := fakedynamicclientset.NewSimpleDynamicClient(NewScheme())
 
 	// Create informer factories with fake clients. The second parameter sets the
 	// resync period to zero, disabling it.
@@ -131,6 +127,7 @@ func newTestController(t *testing.T, stopCh chan struct{}) (
 			KubeClientSet:    kubeClient,
 			SharedClientSet:  sharedClient,
 			ServingClientSet: servingClient,
+			DynamicClientSet: dynamicClient,
 			ConfigMapWatcher: configMapWatcher,
 			Logger:           logtesting.TestLogger(t),
 			StopChannel:      stopCh,

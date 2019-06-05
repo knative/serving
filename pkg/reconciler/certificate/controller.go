@@ -53,7 +53,7 @@ func NewController(
 		certManagerClient:   certManagerClient,
 	}
 
-	impl := controller.NewImpl(c, c.Logger, "Certificate", reconciler.MustNewStatsReporter("Certificate", c.Logger))
+	impl := controller.NewImpl(c, c.Logger, "Certificate")
 
 	c.Logger.Info("Setting up event handlers")
 	knCertificateInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{

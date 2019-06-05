@@ -162,7 +162,7 @@ func TestServiceToServiceCall(t *testing.T) {
 		t.Fatalf("Route is missing .Status.Address: %#v", resources.Route.Status)
 	}
 	// Check that the target Route's Domain matches its cluster local address.
-	if want, got := resources.Route.Status.Address.Hostname, resources.Route.Status.URL.Host; got != want {
+	if want, got := resources.Route.Status.Address.URL, resources.Route.Status.URL; got.String() != want.String() {
 		t.Errorf("Route.Status.URL.Host = %v, want %v", got, want)
 	}
 	t.Logf("helloworld internal domain is %s.", resources.Route.Status.URL.Host)

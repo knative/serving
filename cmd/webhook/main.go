@@ -26,6 +26,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/knative/pkg/configmap"
+	"github.com/knative/pkg/logging"
 	"github.com/knative/pkg/logging/logkey"
 	"github.com/knative/pkg/signals"
 	"github.com/knative/pkg/system"
@@ -35,7 +36,7 @@ import (
 	apiconfig "github.com/knative/serving/pkg/apis/config"
 	net "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	"github.com/knative/serving/pkg/logging"
+	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes"
 )
@@ -119,8 +120,7 @@ func main() {
 
 		// Decorate contexts with the current state of the config.
 		WithContext: func(ctx context.Context) context.Context {
-			// TODO(mattmoor): Once we cut 0.6, we should pass v1beta1.UpgradeViaDefaulting here.
-			return store.ToContext(ctx)
+			return v1beta1.WithUpgradeViaDefaulting(store.ToContext(ctx))
 		},
 	}
 	if err = controller.Run(stopCh); err != nil {

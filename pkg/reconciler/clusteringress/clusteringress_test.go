@@ -54,7 +54,6 @@ import (
 	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/clusteringress/config"
 	"github.com/knative/serving/pkg/reconciler/clusteringress/resources"
-	presources "github.com/knative/serving/pkg/resources"
 
 	. "github.com/knative/pkg/reconciler/testing"
 	. "github.com/knative/serving/pkg/reconciler/testing"
@@ -167,7 +166,7 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 			gateway("knative-ingress-gateway", system.Namespace(), []v1alpha3.Server{irrelevantServer}),
 			originSecret("istio-system", "secret0"),
 		},
-		WantCreates: []metav1.Object{
+		WantCreates: []runtime.Object{
 			// The creation of gateways are triggered when setting up the test.
 			gateway("knative-ingress-gateway", system.Namespace(), []v1alpha3.Server{irrelevantServer}),
 
@@ -221,7 +220,7 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 			ingressWithTLS("reconciling-clusteringress", 1234, ingressTLS),
 			originSecret("istio-system", "secret0"),
 		},
-		WantCreates: []metav1.Object{
+		WantCreates: []runtime.Object{
 			resources.MakeVirtualService(ingress("reconciling-clusteringress", 1234),
 				[]string{"knative-ingress-gateway"}),
 		},
@@ -270,7 +269,7 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 			ingressWithFinalizers("reconciling-clusteringress", 1234, ingressTLS, []string{clusterIngressFinalizer}),
 			gateway("knative-ingress-gateway", system.Namespace(), []v1alpha3.Server{irrelevantServer, ingressTLSServer}),
 		},
-		WantCreates: []metav1.Object{
+		WantCreates: []runtime.Object{
 			// The creation of gateways are triggered when setting up the test.
 			gateway("knative-ingress-gateway", system.Namespace(), []v1alpha3.Server{irrelevantServer, ingressTLSServer}),
 		},
@@ -295,7 +294,7 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 			// from the namespace (`istio-system`) of Istio gateway service.
 			originSecret("knative-serving", "secret0"),
 		},
-		WantCreates: []metav1.Object{
+		WantCreates: []runtime.Object{
 			// The creation of gateways are triggered when setting up the test.
 			gateway("knative-ingress-gateway", system.Namespace(), []v1alpha3.Server{irrelevantServer}),
 
@@ -374,7 +373,7 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 				},
 			},
 		},
-		WantCreates: []metav1.Object{
+		WantCreates: []runtime.Object{
 			// The creation of gateways are triggered when setting up the test.
 			gateway("knative-ingress-gateway", system.Namespace(), []v1alpha3.Server{*withCredentialName(ingressTLSServer.DeepCopy(), targetSecretName), irrelevantServer}),
 
@@ -536,11 +535,6 @@ func patchAddFinalizerAction(ingressName, finalizer string) clientgotesting.Patc
 	return action
 }
 
-func addAnnotations(ing *v1alpha1.ClusterIngress, annos map[string]string) *v1alpha1.ClusterIngress {
-	ing.ObjectMeta.Annotations = presources.UnionMaps(annos, ing.ObjectMeta.Annotations)
-	return ing
-}
-
 type testConfigStore struct {
 	config *config.Config
 }
@@ -552,23 +546,6 @@ func (t *testConfigStore) ToContext(ctx context.Context) context.Context {
 func (t *testConfigStore) WatchConfigs(w configmap.Watcher) {}
 
 var _ configStore = (*testConfigStore)(nil)
-
-func ReconcilerTestConfig() *config.Config {
-	return &config.Config{
-		Istio: &config.Istio{
-			IngressGateways: []config.Gateway{{
-				GatewayName: "knative-test-gateway",
-				ServiceURL:  network.GetServiceHostname("test-ingressgateway", "istio-system"),
-			}, {
-				GatewayName: "knative-ingress-gateway",
-				ServiceURL:  network.GetServiceHostname("istio-ingressgateway", "istio-system"),
-			}},
-		},
-		Network: &network.Config{
-			AutoTLS: false,
-		},
-	}
-}
 
 func ingressWithStatus(name string, generation int64, status v1alpha1.IngressStatus) *v1alpha1.ClusterIngress {
 	return &v1alpha1.ClusterIngress{

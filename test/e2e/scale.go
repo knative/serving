@@ -59,7 +59,7 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 		globalSLO = 0.995
 		minProbes = 20
 	)
-	pm := test.NewProberManager(t, clients, minProbes)
+	pm := test.NewProberManager(t.Logf, clients, minProbes)
 
 	timeoutCh := time.After(duration)
 
@@ -128,7 +128,7 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 				}
 				domain = s.Status.URL.Host
 				return test.IsServiceReady(s)
-			}, "ServiceUpdatedWithDomain")
+			}, "ServiceUpdatedWithURL")
 			if err != nil {
 				t.Errorf("WaitForServiceState(w/ Domain) = %v", err)
 				return errors.Wrap(err, "WaitForServiceState(w/ Domain) failed")

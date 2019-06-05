@@ -51,7 +51,7 @@ func TestRevisionDefaulting(t *testing.T) {
 		want: &Revision{
 			Spec: RevisionSpec{
 				TimeoutSeconds: ptr.Int64(config.DefaultRevisionTimeoutSeconds),
-				PodSpec: PodSpec{
+				PodSpec: corev1.PodSpec{
 					Containers: []corev1.Container{{
 						Resources: defaultResources,
 					}},
@@ -78,7 +78,7 @@ func TestRevisionDefaulting(t *testing.T) {
 			Spec: RevisionSpec{
 				ContainerConcurrency: 0,
 				TimeoutSeconds:       ptr.Int64(123),
-				PodSpec: PodSpec{
+				PodSpec: corev1.PodSpec{
 					Containers: []corev1.Container{{
 						Resources: defaultResources,
 					}},
@@ -89,7 +89,7 @@ func TestRevisionDefaulting(t *testing.T) {
 		name: "readonly volumes",
 		in: &Revision{
 			Spec: RevisionSpec{
-				PodSpec: PodSpec{
+				PodSpec: corev1.PodSpec{
 					Containers: []corev1.Container{{
 						Image: "foo",
 						VolumeMounts: []corev1.VolumeMount{{
@@ -103,7 +103,7 @@ func TestRevisionDefaulting(t *testing.T) {
 		},
 		want: &Revision{
 			Spec: RevisionSpec{
-				PodSpec: PodSpec{
+				PodSpec: corev1.PodSpec{
 					Containers: []corev1.Container{{
 						Image: "foo",
 						VolumeMounts: []corev1.VolumeMount{{
@@ -129,7 +129,7 @@ func TestRevisionDefaulting(t *testing.T) {
 			Spec: RevisionSpec{
 				ContainerConcurrency: 1,
 				TimeoutSeconds:       ptr.Int64(99),
-				PodSpec: PodSpec{
+				PodSpec: corev1.PodSpec{
 					Containers: []corev1.Container{{
 						Resources: defaultResources,
 					}},
@@ -144,7 +144,7 @@ func TestRevisionDefaulting(t *testing.T) {
 		want: &Revision{
 			Spec: RevisionSpec{
 				TimeoutSeconds: ptr.Int64(config.DefaultRevisionTimeoutSeconds),
-				PodSpec: PodSpec{
+				PodSpec: corev1.PodSpec{
 					Containers: []corev1.Container{{
 						Resources: defaultResources,
 					}},

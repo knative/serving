@@ -172,7 +172,7 @@ func (ks *scaler) handleScaleToZero(pa *pav1alpha1.PodAutoscaler, desiredScale i
 	//   b) The PA has been active for at least the stable window, after which it gets marked inactive
 	//   c) The PA has been inactive for at least the grace period
 
-	if config.EnableScaleToZero == false {
+	if !config.EnableScaleToZero {
 		return 1, true
 	}
 

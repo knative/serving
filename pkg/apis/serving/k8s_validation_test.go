@@ -140,7 +140,7 @@ func TestPodSpecValidation(t *testing.T) {
 		ps: corev1.PodSpec{
 			Containers: []corev1.Container{},
 		},
-		want: apis.ErrMissingField(apis.CurrentField),
+		want: apis.ErrMissingField("containers"),
 	}, {
 		name: "missing container",
 		ps: corev1.PodSpec{
@@ -670,31 +670,13 @@ func TestContainerValidation(t *testing.T) {
 			apis.ErrDisallowedFields("tty")).Also(
 			apis.ErrDisallowedFields("volumeDevices")),
 	}, {
-		name: "invalid liveness tcp probe (has port)",
-		c: corev1.Container{
-			Image: "foo",
-			LivenessProbe: &corev1.Probe{
-				Handler: corev1.Handler{
-					TCPSocket: &corev1.TCPSocketAction{
-						Port: intstr.FromString("http"),
-					},
-				},
-			},
-		},
-		want: apis.ErrDisallowedFields("livenessProbe.tcpSocket.port"),
-	}, {
 		name: "has numerous problems",
 		c: corev1.Container{
 			Name:      "foo",
 			Lifecycle: &corev1.Lifecycle{},
 		},
 		want: apis.ErrDisallowedFields("name", "lifecycle").Also(
-			&apis.FieldError{
-				Message: "Failed to parse image reference",
-				Paths:   []string{"image"},
-				Details: "image: \"\", error: could not parse reference",
-			},
-		),
+			apis.ErrMissingField("image")),
 	}}
 
 	for _, test := range tests {

@@ -17,6 +17,7 @@ limitations under the License.
 package service
 
 import (
+	"context"
 	"fmt"
 	"testing"
 
@@ -61,7 +62,7 @@ func TestReconcile(t *testing.T) {
 			Service("run-latest", "foo", WithInlineRollout),
 		},
 		Key: "foo/run-latest",
-		WantCreates: []metav1.Object{
+		WantCreates: []runtime.Object{
 			config("run-latest", "foo", WithInlineRollout),
 			route("run-latest", "foo", WithInlineRollout),
 		},
@@ -81,7 +82,7 @@ func TestReconcile(t *testing.T) {
 			Service("run-latest", "foo", WithRunLatestRollout),
 		},
 		Key: "foo/run-latest",
-		WantCreates: []metav1.Object{
+		WantCreates: []runtime.Object{
 			config("run-latest", "foo", WithRunLatestRollout),
 			route("run-latest", "foo", WithRunLatestRollout),
 		},
@@ -89,6 +90,13 @@ func TestReconcile(t *testing.T) {
 			Object: Service("run-latest", "foo", WithRunLatestRollout,
 				// The first reconciliation will initialize the status conditions.
 				WithInitSvcConditions),
+		}},
+		WantPatches: []clientgotesting.PatchActionImpl{{
+			ActionImpl: clientgotesting.ActionImpl{
+				Namespace: "foo",
+			},
+			Name:  "run-latest",
+			Patch: []byte(reconciler.ForceUpgradePatch),
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Created", "Created Configuration %q", "run-latest"),
@@ -101,7 +109,7 @@ func TestReconcile(t *testing.T) {
 			Service("pinned", "foo", WithPinnedRollout("pinned-0001")),
 		},
 		Key: "foo/pinned",
-		WantCreates: []metav1.Object{
+		WantCreates: []runtime.Object{
 			config("pinned", "foo", WithPinnedRollout("pinned-0001")),
 			route("pinned", "foo", WithPinnedRollout("pinned-0001")),
 		},
@@ -109,6 +117,13 @@ func TestReconcile(t *testing.T) {
 			Object: Service("pinned", "foo", WithPinnedRollout("pinned-0001"),
 				// The first reconciliation will initialize the status conditions.
 				WithInitSvcConditions),
+		}},
+		WantPatches: []clientgotesting.PatchActionImpl{{
+			ActionImpl: clientgotesting.ActionImpl{
+				Namespace: "foo",
+			},
+			Name:  "pinned",
+			Patch: []byte(reconciler.ForceUpgradePatch),
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Created", "Created Configuration %q", "pinned"),
@@ -123,7 +138,7 @@ func TestReconcile(t *testing.T) {
 			Service("pinned2", "foo", WithReleaseRollout("pinned2-0001")),
 		},
 		Key: "foo/pinned2",
-		WantCreates: []metav1.Object{
+		WantCreates: []runtime.Object{
 			config("pinned2", "foo", WithReleaseRollout("pinned2-0001")),
 			route("pinned2", "foo", WithReleaseRollout("pinned2-0001")),
 		},
@@ -131,6 +146,13 @@ func TestReconcile(t *testing.T) {
 			Object: Service("pinned2", "foo", WithReleaseRollout("pinned2-0001"),
 				// The first reconciliation will initialize the status conditions.
 				WithInitSvcConditions),
+		}},
+		WantPatches: []clientgotesting.PatchActionImpl{{
+			ActionImpl: clientgotesting.ActionImpl{
+				Namespace: "foo",
+			},
+			Name:  "pinned2",
+			Patch: []byte(reconciler.ForceUpgradePatch),
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Created", "Created Configuration %q", "pinned2"),
@@ -142,21 +164,19 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			Service("pinned3", "foo", WithReleaseRollout("pinned3-00001"),
 				WithInitSvcConditions),
-			config("pinned3", "foo", WithReleaseRollout("pinned3-00001"), WithGeneration(1),
-				WithObservedGen,
+			config("pinned3", "foo", WithReleaseRollout("pinned3-00001"),
+				WithGeneration(1), WithObservedGen,
 				WithLatestCreated("pinned3-00001"),
 				WithLatestReady("pinned3-00001")),
 			route("pinned3", "foo", WithReleaseRollout("pinned3-00001"),
-				WithDomain, WithDomainInternal, WithAddress, WithInitRouteConditions,
+				WithURL, WithAddress, WithInitRouteConditions,
 				WithStatusTraffic(v1alpha1.TrafficTarget{
-					DeprecatedName: v1alpha1.CurrentTrafficTarget,
 					TrafficTarget: v1beta1.TrafficTarget{
 						Tag:          v1alpha1.CurrentTrafficTarget,
 						RevisionName: "pinned3-00001",
 						Percent:      100,
 					},
 				}, v1alpha1.TrafficTarget{
-					DeprecatedName: v1alpha1.LatestTrafficTarget,
 					TrafficTarget: v1beta1.TrafficTarget{
 						Tag:          v1alpha1.LatestTrafficTarget,
 						RevisionName: "pinned3-00001",
@@ -176,20 +196,25 @@ func TestReconcile(t *testing.T) {
 				// The delta induced by route object.
 				WithReadyRoute, WithSvcStatusDomain, WithSvcStatusAddress,
 				WithSvcStatusTraffic(v1alpha1.TrafficTarget{
-					DeprecatedName: v1alpha1.CurrentTrafficTarget,
 					TrafficTarget: v1beta1.TrafficTarget{
 						Tag:          v1alpha1.CurrentTrafficTarget,
 						RevisionName: "pinned3-00001",
 						Percent:      100,
 					},
 				}, v1alpha1.TrafficTarget{
-					DeprecatedName: v1alpha1.LatestTrafficTarget,
 					TrafficTarget: v1beta1.TrafficTarget{
 						Tag:          v1alpha1.LatestTrafficTarget,
 						RevisionName: "pinned3-00001",
 						Percent:      0,
 					},
 				})),
+		}},
+		WantPatches: []clientgotesting.PatchActionImpl{{
+			ActionImpl: clientgotesting.ActionImpl{
+				Namespace: "foo",
+			},
+			Name:  "pinned3",
+			Patch: []byte(reconciler.ForceUpgradePatch),
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Updated", "Updated Service %q", "pinned3"),
@@ -203,7 +228,7 @@ func TestReconcile(t *testing.T) {
 			Service("release", "foo", WithReleaseRollout(v1alpha1.ReleaseLatestRevisionKeyword)),
 		},
 		Key: "foo/release",
-		WantCreates: []metav1.Object{
+		WantCreates: []runtime.Object{
 			config("release", "foo", WithReleaseRollout("release-00001")),
 			route("release", "foo", WithReleaseRollout(v1alpha1.ReleaseLatestRevisionKeyword)),
 		},
@@ -211,6 +236,13 @@ func TestReconcile(t *testing.T) {
 			Object: Service("release", "foo", WithReleaseRollout(v1alpha1.ReleaseLatestRevisionKeyword),
 				// The first reconciliation will initialize the status conditions.
 				WithInitSvcConditions),
+		}},
+		WantPatches: []clientgotesting.PatchActionImpl{{
+			ActionImpl: clientgotesting.ActionImpl{
+				Namespace: "foo",
+			},
+			Name:  "release",
+			Patch: []byte(reconciler.ForceUpgradePatch),
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Created", "Created Configuration %q", "release"),
@@ -223,7 +255,7 @@ func TestReconcile(t *testing.T) {
 			Service("release", "foo", WithReleaseRollout("release-00001", "release-00002")),
 		},
 		Key: "foo/release",
-		WantCreates: []metav1.Object{
+		WantCreates: []runtime.Object{
 			config("release", "foo", WithReleaseRollout("release-00001", "release-00002")),
 			route("release", "foo", WithReleaseRollout("release-00001", "release-00002")),
 		},
@@ -231,6 +263,13 @@ func TestReconcile(t *testing.T) {
 			Object: Service("release", "foo", WithReleaseRollout("release-00001", "release-00002"),
 				// The first reconciliation will initialize the status conditions.
 				WithInitSvcConditions),
+		}},
+		WantPatches: []clientgotesting.PatchActionImpl{{
+			ActionImpl: clientgotesting.ActionImpl{
+				Namespace: "foo",
+			},
+			Name:  "release",
+			Patch: []byte(reconciler.ForceUpgradePatch),
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Created", "Created Configuration %q", "release"),
@@ -245,7 +284,7 @@ func TestReconcile(t *testing.T) {
 				WithCreatedAndReady("release-nr-00002", "release-nr-00002")),
 			// NB: route points to the previous revision.
 			route("release-nr", "foo", WithReleaseRollout("release-nr-00002"), RouteReady,
-				WithDomain, WithDomainInternal, WithAddress, WithInitRouteConditions,
+				WithURL, WithAddress, WithInitRouteConditions,
 				WithStatusTraffic(v1alpha1.TrafficTarget{
 					TrafficTarget: v1beta1.TrafficTarget{
 						RevisionName: "release-nr-00001",
@@ -266,6 +305,13 @@ func TestReconcile(t *testing.T) {
 					},
 				})),
 		}},
+		WantPatches: []clientgotesting.PatchActionImpl{{
+			ActionImpl: clientgotesting.ActionImpl{
+				Namespace: "foo",
+			},
+			Name:  "release-nr",
+			Patch: []byte(reconciler.ForceUpgradePatch),
+		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Updated", "Updated Service %q", "release-nr"),
 		},
@@ -277,7 +323,7 @@ func TestReconcile(t *testing.T) {
 				WithCreatedAndReady("release-nr-00003", "release-nr-00003")),
 			// NB: route points to the previous revision.
 			route("release-nr", "foo", WithReleaseRollout("release-nr-00002", "release-nr-00003"),
-				RouteReady, WithDomain, WithDomainInternal, WithAddress, WithInitRouteConditions,
+				RouteReady, WithURL, WithAddress, WithInitRouteConditions,
 				WithStatusTraffic(v1alpha1.TrafficTarget{
 					TrafficTarget: v1beta1.TrafficTarget{
 						RevisionName: "release-nr-00001",
@@ -298,6 +344,13 @@ func TestReconcile(t *testing.T) {
 					},
 				})),
 		}},
+		WantPatches: []clientgotesting.PatchActionImpl{{
+			ActionImpl: clientgotesting.ActionImpl{
+				Namespace: "foo",
+			},
+			Name:  "release-nr",
+			Patch: []byte(reconciler.ForceUpgradePatch),
+		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Updated", "Updated Service %q", "release-nr"),
 		},
@@ -312,7 +365,7 @@ func TestReconcile(t *testing.T) {
 				WithCreatedAndReady("release-nr-ts-00003", "release-nr-ts-00003")),
 			route("release-nr-ts", "foo",
 				WithReleaseRolloutAndPercentage(42, "release-nr-ts-00002", "release-nr-ts-00003"),
-				RouteReady, WithDomain, WithDomainInternal, WithAddress, WithInitRouteConditions,
+				RouteReady, WithURL, WithAddress, WithInitRouteConditions,
 				WithStatusTraffic(v1alpha1.TrafficTarget{
 					TrafficTarget: v1beta1.TrafficTarget{
 						RevisionName: "release-nr-ts-00001",
@@ -343,6 +396,13 @@ func TestReconcile(t *testing.T) {
 					},
 				})),
 		}},
+		WantPatches: []clientgotesting.PatchActionImpl{{
+			ActionImpl: clientgotesting.ActionImpl{
+				Namespace: "foo",
+			},
+			Name:  "release-nr-ts",
+			Patch: []byte(reconciler.ForceUpgradePatch),
+		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Updated", "Updated Service %q", "release-nr-ts"),
 		},
@@ -357,7 +417,7 @@ func TestReconcile(t *testing.T) {
 				WithCreatedAndReady("release-nr-ts2-00003", "release-nr-ts2-00003")),
 			route("release-nr-ts2", "foo",
 				WithReleaseRolloutAndPercentage(58, "release-nr-ts2-00002", "release-nr-ts2-00003"),
-				RouteReady, WithDomain, WithDomainInternal, WithAddress, WithInitRouteConditions,
+				RouteReady, WithURL, WithAddress, WithInitRouteConditions,
 				// NB: here the revisions match, but percentages, don't.
 				WithStatusTraffic(v1alpha1.TrafficTarget{
 					TrafficTarget: v1beta1.TrafficTarget{
@@ -389,6 +449,13 @@ func TestReconcile(t *testing.T) {
 					},
 				})),
 		}},
+		WantPatches: []clientgotesting.PatchActionImpl{{
+			ActionImpl: clientgotesting.ActionImpl{
+				Namespace: "foo",
+			},
+			Name:  "release-nr-ts2",
+			Patch: []byte(reconciler.ForceUpgradePatch),
+		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Updated", "Updated Service %q", "release-nr-ts2"),
 		},
@@ -399,22 +466,21 @@ func TestReconcile(t *testing.T) {
 				WithReleaseRollout(v1alpha1.ReleaseLatestRevisionKeyword), WithInitSvcConditions),
 			route("release-ready-lr", "foo",
 				WithReleaseRollout(v1alpha1.ReleaseLatestRevisionKeyword),
-				RouteReady, WithDomain, WithDomainInternal, WithAddress, WithInitRouteConditions,
+				RouteReady, WithURL, WithAddress, WithInitRouteConditions,
 				WithStatusTraffic([]v1alpha1.TrafficTarget{{
-					DeprecatedName: v1alpha1.CurrentTrafficTarget,
 					TrafficTarget: v1beta1.TrafficTarget{
 						Tag:          v1alpha1.CurrentTrafficTarget,
 						RevisionName: "release-ready-lr-00001",
 						Percent:      100,
 					},
 				}, {
-					DeprecatedName: v1alpha1.LatestTrafficTarget,
 					TrafficTarget: v1beta1.TrafficTarget{
 						Tag:          v1alpha1.LatestTrafficTarget,
 						RevisionName: "release-ready-lr-00001",
 					},
 				}}...), MarkTrafficAssigned, MarkIngressReady),
-			config("release-ready-lr", "foo", WithReleaseRollout("release-ready-lr"), WithGeneration(1),
+			config("release-ready-lr", "foo", WithReleaseRollout("release-ready-lr"),
+				WithGeneration(1), WithObservedGen,
 				// These turn a Configuration to Ready=true
 				WithLatestCreated("release-ready-lr-00001"),
 				WithLatestReady("release-ready-lr-00001")),
@@ -428,20 +494,25 @@ func TestReconcile(t *testing.T) {
 				// The delta induced by route object.
 				WithReadyRoute, WithSvcStatusDomain, WithSvcStatusAddress,
 				WithSvcStatusTraffic([]v1alpha1.TrafficTarget{{
-					DeprecatedName: v1alpha1.CurrentTrafficTarget,
 					TrafficTarget: v1beta1.TrafficTarget{
 						Tag:          v1alpha1.CurrentTrafficTarget,
 						RevisionName: "release-ready-lr-00001",
 						Percent:      100,
 					},
 				}, {
-					DeprecatedName: v1alpha1.LatestTrafficTarget,
 					TrafficTarget: v1beta1.TrafficTarget{
 						Tag:          v1alpha1.LatestTrafficTarget,
 						RevisionName: "release-ready-lr-00001",
 					},
 				}}...),
 			),
+		}},
+		WantPatches: []clientgotesting.PatchActionImpl{{
+			ActionImpl: clientgotesting.ActionImpl{
+				Namespace: "foo",
+			},
+			Name:  "release-ready-lr",
+			Patch: []byte(reconciler.ForceUpgradePatch),
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Updated", "Updated Service %q", "release-ready-lr"),
@@ -458,29 +529,27 @@ func TestReconcile(t *testing.T) {
 			route("release-ready-lr", "foo",
 				WithReleaseRolloutAndPercentage(
 					42, "release-ready-lr-00001", v1alpha1.ReleaseLatestRevisionKeyword),
-				RouteReady, WithDomain, WithDomainInternal, WithAddress, WithInitRouteConditions,
+				RouteReady, WithURL, WithAddress, WithInitRouteConditions,
 				WithStatusTraffic([]v1alpha1.TrafficTarget{{
-					DeprecatedName: v1alpha1.CurrentTrafficTarget,
 					TrafficTarget: v1beta1.TrafficTarget{
 						Tag:          v1alpha1.CurrentTrafficTarget,
 						RevisionName: "release-ready-lr-00001",
 						Percent:      58,
 					},
 				}, {
-					DeprecatedName: v1alpha1.CandidateTrafficTarget,
 					TrafficTarget: v1beta1.TrafficTarget{
 						Tag:          v1alpha1.CandidateTrafficTarget,
 						RevisionName: "release-ready-lr-00002",
 						Percent:      42,
 					},
 				}, {
-					DeprecatedName: v1alpha1.LatestTrafficTarget,
 					TrafficTarget: v1beta1.TrafficTarget{
 						Tag:          v1alpha1.LatestTrafficTarget,
 						RevisionName: "release-ready-lr-00002",
 					},
 				}}...), MarkTrafficAssigned, MarkIngressReady),
-			config("release-ready-lr", "foo", WithReleaseRollout("release-ready-lr"), WithGeneration(2),
+			config("release-ready-lr", "foo", WithReleaseRollout("release-ready-lr"),
+				WithGeneration(2), WithObservedGen,
 				// These turn a Configuration to Ready=true
 				WithLatestCreated("release-ready-lr-00002"),
 				WithLatestReady("release-ready-lr-00002")),
@@ -495,27 +564,31 @@ func TestReconcile(t *testing.T) {
 				// The delta induced by route object.
 				WithReadyRoute, WithSvcStatusDomain, WithSvcStatusAddress,
 				WithSvcStatusTraffic([]v1alpha1.TrafficTarget{{
-					DeprecatedName: v1alpha1.CurrentTrafficTarget,
 					TrafficTarget: v1beta1.TrafficTarget{
 						Tag:          v1alpha1.CurrentTrafficTarget,
 						RevisionName: "release-ready-lr-00001",
 						Percent:      58,
 					},
 				}, {
-					DeprecatedName: v1alpha1.CandidateTrafficTarget,
 					TrafficTarget: v1beta1.TrafficTarget{
 						Tag:          v1alpha1.CandidateTrafficTarget,
 						RevisionName: "release-ready-lr-00002",
 						Percent:      42,
 					},
 				}, {
-					DeprecatedName: v1alpha1.LatestTrafficTarget,
 					TrafficTarget: v1beta1.TrafficTarget{
 						Tag:          v1alpha1.LatestTrafficTarget,
 						RevisionName: "release-ready-lr-00002",
 					},
 				}}...),
 			),
+		}},
+		WantPatches: []clientgotesting.PatchActionImpl{{
+			ActionImpl: clientgotesting.ActionImpl{
+				Namespace: "foo",
+			},
+			Name:  "release-ready-lr",
+			Patch: []byte(reconciler.ForceUpgradePatch),
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Updated", "Updated Service %q", "release-ready-lr"),
@@ -532,30 +605,28 @@ func TestReconcile(t *testing.T) {
 			route("release-ready", "foo",
 				WithReleaseRolloutAndPercentage(58, /*candidate traffic percentage*/
 					"release-ready-00001", "release-ready-00002"),
-				RouteReady, WithDomain, WithDomainInternal, WithAddress, WithInitRouteConditions,
+				RouteReady, WithURL, WithAddress, WithInitRouteConditions,
 				WithStatusTraffic(v1alpha1.TrafficTarget{
-					DeprecatedName: v1alpha1.CurrentTrafficTarget,
 					TrafficTarget: v1beta1.TrafficTarget{
 						Tag:          v1alpha1.CurrentTrafficTarget,
 						RevisionName: "release-ready-00001",
 						Percent:      42,
 					},
 				}, v1alpha1.TrafficTarget{
-					DeprecatedName: v1alpha1.CandidateTrafficTarget,
 					TrafficTarget: v1beta1.TrafficTarget{
 						Tag:          v1alpha1.CandidateTrafficTarget,
 						RevisionName: "release-ready-00002",
 						Percent:      58,
 					},
 				}, v1alpha1.TrafficTarget{
-					DeprecatedName: v1alpha1.LatestTrafficTarget,
 					TrafficTarget: v1beta1.TrafficTarget{
 						Tag:          v1alpha1.LatestTrafficTarget,
 						RevisionName: "release-ready-00002",
 						Percent:      0,
 					},
 				}), MarkTrafficAssigned, MarkIngressReady),
-			config("release-ready", "foo", WithRunLatestRollout, WithGeneration(2),
+			config("release-ready", "foo", WithRunLatestRollout,
+				WithGeneration(2), WithObservedGen,
 				// These turn a Configuration to Ready=true
 				WithLatestCreated("release-ready-00002"), WithLatestReady("release-ready-00002")),
 		},
@@ -569,21 +640,18 @@ func TestReconcile(t *testing.T) {
 				// The delta induced by route object.
 				WithReadyRoute, WithSvcStatusDomain, WithSvcStatusAddress,
 				WithSvcStatusTraffic(v1alpha1.TrafficTarget{
-					DeprecatedName: v1alpha1.CurrentTrafficTarget,
 					TrafficTarget: v1beta1.TrafficTarget{
 						Tag:          v1alpha1.CurrentTrafficTarget,
 						RevisionName: "release-ready-00001",
 						Percent:      42,
 					},
 				}, v1alpha1.TrafficTarget{
-					DeprecatedName: v1alpha1.CandidateTrafficTarget,
 					TrafficTarget: v1beta1.TrafficTarget{
 						Tag:          v1alpha1.CandidateTrafficTarget,
 						RevisionName: "release-ready-00002",
 						Percent:      58,
 					},
 				}, v1alpha1.TrafficTarget{
-					DeprecatedName: v1alpha1.LatestTrafficTarget,
 					TrafficTarget: v1beta1.TrafficTarget{
 						Tag:          v1alpha1.LatestTrafficTarget,
 						RevisionName: "release-ready-00002",
@@ -591,6 +659,13 @@ func TestReconcile(t *testing.T) {
 					},
 				}),
 			),
+		}},
+		WantPatches: []clientgotesting.PatchActionImpl{{
+			ActionImpl: clientgotesting.ActionImpl{
+				Namespace: "foo",
+			},
+			Name:  "release-ready",
+			Patch: []byte(reconciler.ForceUpgradePatch),
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Updated", "Updated Service %q", "release-ready"),
@@ -605,7 +680,7 @@ func TestReconcile(t *testing.T) {
 				"release-with-percent-00001", "release-with-percent-00002")),
 		},
 		Key: "foo/release-with-percent",
-		WantCreates: []metav1.Object{
+		WantCreates: []runtime.Object{
 			config("release-with-percent", "foo", WithReleaseRolloutAndPercentage(10, "release-with-percent-00001", "release-with-percent-00002")),
 			route("release-with-percent", "foo", WithReleaseRolloutAndPercentage(10, "release-with-percent-00001", "release-with-percent-00002")),
 		},
@@ -614,24 +689,17 @@ func TestReconcile(t *testing.T) {
 				// The first reconciliation will initialize the status conditions.
 				WithInitSvcConditions),
 		}},
+		WantPatches: []clientgotesting.PatchActionImpl{{
+			ActionImpl: clientgotesting.ActionImpl{
+				Namespace: "foo",
+			},
+			Name:  "release-with-percent",
+			Patch: []byte(reconciler.ForceUpgradePatch),
+		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Created", "Created Configuration %q", "release-with-percent"),
 			Eventf(corev1.EventTypeNormal, "Created", "Created Route %q", "release-with-percent"),
 			Eventf(corev1.EventTypeNormal, "Updated", "Updated Service %q", "release-with-percent"),
-		},
-	}, {
-		Name: "manual- no creates",
-		Objects: []runtime.Object{
-			Service("manual", "foo", WithManualRollout),
-		},
-		Key: "foo/manual",
-		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: Service("manual", "foo", WithManualRollout,
-				// The first reconciliation will initialize the status conditions.
-				WithManualStatus, WithManualWarning),
-		}},
-		WantEvents: []string{
-			Eventf(corev1.EventTypeNormal, "Updated", "Updated Service %q", "manual"),
 		},
 	}, {
 		Name: "runLatest - no updates",
@@ -640,6 +708,13 @@ func TestReconcile(t *testing.T) {
 			route("no-updates", "foo", WithRunLatestRollout),
 			config("no-updates", "foo", WithRunLatestRollout),
 		},
+		WantPatches: []clientgotesting.PatchActionImpl{{
+			ActionImpl: clientgotesting.ActionImpl{
+				Namespace: "foo",
+			},
+			Name:  "no-updates",
+			Patch: []byte(reconciler.ForceUpgradePatch),
+		}},
 		Key: "foo/no-updates",
 	}, {
 		Name: "runLatest - update route and service",
@@ -647,8 +722,8 @@ func TestReconcile(t *testing.T) {
 			Service("update-route-and-config", "foo", WithRunLatestRollout, WithInitSvcConditions),
 			// Mutate the Config/Route to have a different body than we want.
 			config("update-route-and-config", "foo", WithRunLatestRollout,
-				// WithBuild is just an unexpected mutation of the config spec vs. the service spec.
-				WithBuild),
+				// This is just an unexpected mutation of the config spec vs. the service spec.
+				WithConfigContainerConcurrency(5)),
 			route("update-route-and-config", "foo", WithRunLatestRollout, MutateRoute),
 		},
 		Key: "foo/update-route-and-config",
@@ -656,6 +731,13 @@ func TestReconcile(t *testing.T) {
 			Object: config("update-route-and-config", "foo", WithRunLatestRollout),
 		}, {
 			Object: route("update-route-and-config", "foo", WithRunLatestRollout),
+		}},
+		WantPatches: []clientgotesting.PatchActionImpl{{
+			ActionImpl: clientgotesting.ActionImpl{
+				Namespace: "foo",
+			},
+			Name:  "update-route-and-config",
+			Patch: []byte(reconciler.ForceUpgradePatch),
 		}},
 	}, {
 		Name: "runLatest - update route and service (bad existing Revision)",
@@ -690,6 +772,13 @@ func TestReconcile(t *testing.T) {
 				svc.Status.MarkRevisionNameTaken("update-route-and-config-blah")
 			}),
 		}},
+		WantPatches: []clientgotesting.PatchActionImpl{{
+			ActionImpl: clientgotesting.ActionImpl{
+				Namespace: "foo",
+			},
+			Name:  "update-route-and-config",
+			Patch: []byte(reconciler.ForceUpgradePatch),
+		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Updated", "Updated Service %q", "update-route-and-config"),
 		},
@@ -707,6 +796,13 @@ func TestReconcile(t *testing.T) {
 		}, {
 			Object: route("update-route-and-config-labels", "foo", WithRunLatestRollout, WithRouteLabel("new-label", "new-value")),
 		}},
+		WantPatches: []clientgotesting.PatchActionImpl{{
+			ActionImpl: clientgotesting.ActionImpl{
+				Namespace: "foo",
+			},
+			Name:  "update-route-and-config-labels",
+			Patch: []byte(reconciler.ForceUpgradePatch),
+		}},
 	}, {
 		Name: "runLatest - update route config labels ignoring serving.knative.dev/route",
 		Objects: []runtime.Object{
@@ -723,6 +819,13 @@ func TestReconcile(t *testing.T) {
 				WithConfigLabel("serving.knative.dev/route", "update-child-labels-ignore-route-label")),
 		}, {
 			Object: route("update-child-labels-ignore-route-label", "foo", WithRunLatestRollout, WithRouteLabel("new-label", "new-value")),
+		}},
+		WantPatches: []clientgotesting.PatchActionImpl{{
+			ActionImpl: clientgotesting.ActionImpl{
+				Namespace: "foo",
+			},
+			Name:  "update-child-labels-ignore-route-label",
+			Patch: []byte(reconciler.ForceUpgradePatch),
 		}},
 	}, {
 		Name: "runLatest - bad config update",
@@ -745,7 +848,7 @@ func TestReconcile(t *testing.T) {
 				}),
 		}},
 		WantEvents: []string{
-			Eventf(corev1.EventTypeWarning, "InternalError", "Failed to parse image reference: spec.revisionTemplate.spec.container.image\nimage: \"#\", error: could not parse reference"),
+			Eventf(corev1.EventTypeWarning, "InternalError", "Failed to parse image reference: spec.template.spec.containers[0].image\nimage: \"#\", error: could not parse reference"),
 		},
 	}, {
 		Name: "runLatest - route creation failure",
@@ -758,7 +861,7 @@ func TestReconcile(t *testing.T) {
 			Service("create-route-failure", "foo", WithRunLatestRollout),
 		},
 		Key: "foo/create-route-failure",
-		WantCreates: []metav1.Object{
+		WantCreates: []runtime.Object{
 			config("create-route-failure", "foo", WithRunLatestRollout),
 			route("create-route-failure", "foo", WithRunLatestRollout),
 		},
@@ -784,7 +887,7 @@ func TestReconcile(t *testing.T) {
 			Service("create-config-failure", "foo", WithRunLatestRollout),
 		},
 		Key: "foo/create-config-failure",
-		WantCreates: []metav1.Object{
+		WantCreates: []runtime.Object{
 			config("create-config-failure", "foo", WithRunLatestRollout),
 			// We don't get to creating the Route.
 		},
@@ -830,8 +933,8 @@ func TestReconcile(t *testing.T) {
 			route("update-config-failure", "foo", WithRunLatestRollout),
 			// Mutate the Config to have an unexpected body to trigger an update.
 			config("update-config-failure", "foo", WithRunLatestRollout,
-				// WithBuild is just an unexpected mutation of the config spec vs. the service spec.
-				WithBuild),
+				// This is just an unexpected mutation of the config spec vs. the service spec.
+				WithConfigContainerConcurrency(5)),
 		},
 		Key: "foo/update-config-failure",
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
@@ -851,7 +954,7 @@ func TestReconcile(t *testing.T) {
 			Service("run-latest", "foo", WithRunLatestRollout),
 		},
 		Key: "foo/run-latest",
-		WantCreates: []metav1.Object{
+		WantCreates: []runtime.Object{
 			config("run-latest", "foo", WithRunLatestRollout),
 			route("run-latest", "foo", WithRunLatestRollout),
 		},
@@ -873,14 +976,15 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			Service("all-ready", "foo", WithRunLatestRollout, WithInitSvcConditions),
 			route("all-ready", "foo", WithRunLatestRollout, RouteReady,
-				WithDomain, WithDomainInternal, WithAddress, WithInitRouteConditions,
+				WithURL, WithAddress, WithInitRouteConditions,
 				WithStatusTraffic(v1alpha1.TrafficTarget{
 					TrafficTarget: v1beta1.TrafficTarget{
 						RevisionName: "all-ready-00001",
 						Percent:      100,
 					},
 				}), MarkTrafficAssigned, MarkIngressReady),
-			config("all-ready", "foo", WithRunLatestRollout, WithGeneration(1),
+			config("all-ready", "foo", WithRunLatestRollout,
+				WithGeneration(1), WithObservedGen,
 				// These turn a Configuration to Ready=true
 				WithLatestCreated("all-ready-00001"), WithLatestReady("all-ready-00001")),
 		},
@@ -897,11 +1001,61 @@ func TestReconcile(t *testing.T) {
 					},
 				})),
 		}},
+		WantPatches: []clientgotesting.PatchActionImpl{{
+			ActionImpl: clientgotesting.ActionImpl{
+				Namespace: "foo",
+			},
+			Name:  "all-ready",
+			Patch: []byte(reconciler.ForceUpgradePatch),
+		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Updated", "Updated Service %q", "all-ready"),
 		},
 		WantServiceReadyStats: map[string]int{
 			"foo/all-ready": 1,
+		},
+	}, {
+		Name: "runLatest - configuration lagging",
+		// When both route and config are ready, the service should become ready.
+		Objects: []runtime.Object{
+			Service("all-ready", "foo", WithRunLatestRollout, WithInitSvcConditions,
+				WithReadyConfig("all-ready-00001")),
+			route("all-ready", "foo", WithRunLatestRollout, RouteReady,
+				WithURL, WithAddress, WithInitRouteConditions,
+				WithStatusTraffic(v1alpha1.TrafficTarget{
+					TrafficTarget: v1beta1.TrafficTarget{
+						RevisionName: "all-ready-00001",
+						Percent:      100,
+					},
+				}), MarkTrafficAssigned, MarkIngressReady),
+			config("all-ready", "foo", WithRunLatestRollout,
+				WithGeneration(1), WithObservedGen, WithGeneration(2),
+				// These turn a Configuration to Ready=true
+				WithLatestCreated("all-ready-00001"), WithLatestReady("all-ready-00001")),
+		},
+		Key: "foo/all-ready",
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: Service("all-ready", "foo", WithRunLatestRollout,
+				WithReadyConfig("all-ready-00001"),
+				// The delta induced by route object.
+				WithReadyRoute, WithSvcStatusDomain, WithSvcStatusAddress,
+				MarkConfigurationNotReconciled,
+				WithSvcStatusTraffic(v1alpha1.TrafficTarget{
+					TrafficTarget: v1beta1.TrafficTarget{
+						RevisionName: "all-ready-00001",
+						Percent:      100,
+					},
+				})),
+		}},
+		WantPatches: []clientgotesting.PatchActionImpl{{
+			ActionImpl: clientgotesting.ActionImpl{
+				Namespace: "foo",
+			},
+			Name:  "all-ready",
+			Patch: []byte(reconciler.ForceUpgradePatch),
+		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "Updated", "Updated Service %q", "all-ready"),
 		},
 	}, {
 		Name: "runLatest - route ready previous version and config ready, service not ready",
@@ -910,14 +1064,15 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			Service("config-only-ready", "foo", WithRunLatestRollout, WithInitSvcConditions),
 			route("config-only-ready", "foo", WithRunLatestRollout, RouteReady,
-				WithDomain, WithDomainInternal, WithAddress, WithInitRouteConditions,
+				WithURL, WithAddress, WithInitRouteConditions,
 				WithStatusTraffic(v1alpha1.TrafficTarget{
 					TrafficTarget: v1beta1.TrafficTarget{
 						RevisionName: "config-only-ready-00001",
 						Percent:      100,
 					},
 				}), MarkTrafficAssigned, MarkIngressReady),
-			config("config-only-ready", "foo", WithRunLatestRollout, WithGeneration(2 /*will generate revision -00002*/),
+			config("config-only-ready", "foo", WithRunLatestRollout,
+				WithGeneration(2 /*will generate revision -00002*/), WithObservedGen,
 				// These turn a Configuration to Ready=true
 				WithLatestCreated("config-only-ready-00002"), WithLatestReady("config-only-ready-00002")),
 		},
@@ -933,6 +1088,13 @@ func TestReconcile(t *testing.T) {
 					},
 				})),
 		}},
+		WantPatches: []clientgotesting.PatchActionImpl{{
+			ActionImpl: clientgotesting.ActionImpl{
+				Namespace: "foo",
+			},
+			Name:  "config-only-ready",
+			Patch: []byte(reconciler.ForceUpgradePatch),
+		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Updated", "Updated Service %q", "config-only-ready"),
 		},
@@ -944,17 +1106,16 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			Service("config-fails", "foo", WithRunLatestRollout, WithInitSvcConditions),
 			route("config-fails", "foo", WithRunLatestRollout, RouteReady,
-				WithDomain, WithDomainInternal, WithAddress, WithInitRouteConditions,
+				WithURL, WithAddress, WithInitRouteConditions,
 				WithStatusTraffic(v1alpha1.TrafficTarget{
 					TrafficTarget: v1beta1.TrafficTarget{
 						RevisionName: "config-fails-00001",
 						Percent:      100,
 					},
 				}), MarkTrafficAssigned, MarkIngressReady),
-			config("config-fails", "foo", WithRunLatestRollout,
-				WithGeneration(2),
-				WithLatestReady("config-fails-00001"),
-				WithLatestCreated("config-fails-00002"), MarkLatestCreatedFailed("blah")),
+			config("config-fails", "foo", WithRunLatestRollout, WithGeneration(2),
+				WithLatestReady("config-fails-00001"), WithLatestCreated("config-fails-00002"),
+				MarkLatestCreatedFailed("blah"), WithObservedGen),
 		},
 		Key: "foo/config-fails",
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
@@ -969,6 +1130,13 @@ func TestReconcile(t *testing.T) {
 				WithFailedConfig("config-fails-00002", "RevisionFailed", "blah"),
 				WithServiceLatestReadyRevision("config-fails-00001")),
 		}},
+		WantPatches: []clientgotesting.PatchActionImpl{{
+			ActionImpl: clientgotesting.ActionImpl{
+				Namespace: "foo",
+			},
+			Name:  "config-fails",
+			Patch: []byte(reconciler.ForceUpgradePatch),
+		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Updated", "Updated Service %q", "config-fails"),
 		},
@@ -978,7 +1146,7 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			Service("config-fails", "foo", WithRunLatestRollout, WithInitSvcConditions),
 			route("config-fails", "foo", WithRunLatestRollout, RouteReady),
-			config("config-fails", "foo", WithRunLatestRollout, WithGeneration(1),
+			config("config-fails", "foo", WithRunLatestRollout, WithGeneration(1), WithObservedGen,
 				WithLatestCreated("config-fails-00001"), MarkLatestCreatedFailed("blah")),
 		},
 		Key: "foo/config-fails",
@@ -986,6 +1154,13 @@ func TestReconcile(t *testing.T) {
 			Object: Service("config-fails", "foo", WithRunLatestRollout, WithInitSvcConditions,
 				WithServiceStatusRouteNotReady, WithFailedConfig(
 					"config-fails-00001", "RevisionFailed", "blah")),
+		}},
+		WantPatches: []clientgotesting.PatchActionImpl{{
+			ActionImpl: clientgotesting.ActionImpl{
+				Namespace: "foo",
+			},
+			Name:  "config-fails",
+			Patch: []byte(reconciler.ForceUpgradePatch),
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Updated", "Updated Service %q", "config-fails"),
@@ -997,7 +1172,7 @@ func TestReconcile(t *testing.T) {
 			Service("route-fails", "foo", WithRunLatestRollout, WithInitSvcConditions),
 			route("route-fails", "foo", WithRunLatestRollout,
 				RouteFailed("Propagate me, please", "")),
-			config("route-fails", "foo", WithRunLatestRollout, WithGeneration(1),
+			config("route-fails", "foo", WithRunLatestRollout, WithGeneration(1), WithObservedGen,
 				// These turn a Configuration to Ready=true
 				WithLatestCreated("route-fails-00001"), WithLatestReady("route-fails-00001")),
 		},
@@ -1008,6 +1183,13 @@ func TestReconcile(t *testing.T) {
 				// we expect the following changed to our status conditions.
 				WithReadyConfig("route-fails-00001"),
 				WithFailedRoute("Propagate me, please", "")),
+		}},
+		WantPatches: []clientgotesting.PatchActionImpl{{
+			ActionImpl: clientgotesting.ActionImpl{
+				Namespace: "foo",
+			},
+			Name:  "route-fails",
+			Patch: []byte(reconciler.ForceUpgradePatch),
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Updated", "Updated Service %q", "route-fails"),
@@ -1026,7 +1208,7 @@ func TestReconcile(t *testing.T) {
 				WithInitSvcConditions, MarkConfigurationNotOwned),
 		}},
 		WantEvents: []string{
-			Eventf(corev1.EventTypeWarning, "InternalError", `Service: "run-latest" does not own Configuration: "run-latest"`),
+			Eventf(corev1.EventTypeWarning, "InternalError", `service: "run-latest" does not own configuration: "run-latest"`),
 		},
 	}, {
 		Name:    "runLatest - not owned route exists",
@@ -1043,7 +1225,7 @@ func TestReconcile(t *testing.T) {
 				WithInitSvcConditions, MarkRouteNotOwned),
 		}},
 		WantEvents: []string{
-			Eventf(corev1.EventTypeWarning, "InternalError", `Service: "run-latest" does not own Route: "run-latest"`),
+			Eventf(corev1.EventTypeWarning, "InternalError", `service: "run-latest" does not own route: "run-latest"`),
 		},
 	}, {
 		Name: "runLatest - correct not owned by adding owner refs",
@@ -1055,14 +1237,14 @@ func TestReconcile(t *testing.T) {
 				MarkConfigurationNotOwned, MarkRouteNotOwned),
 			// The service owns these, which should result in a happy result.
 			route("new-owner", "foo", WithRunLatestRollout, RouteReady,
-				WithDomain, WithDomainInternal, WithAddress, WithInitRouteConditions,
+				WithURL, WithAddress, WithInitRouteConditions,
 				WithStatusTraffic(v1alpha1.TrafficTarget{
 					TrafficTarget: v1beta1.TrafficTarget{
 						RevisionName: "new-owner-00001",
 						Percent:      100,
 					},
 				}), MarkTrafficAssigned, MarkIngressReady),
-			config("new-owner", "foo", WithRunLatestRollout, WithGeneration(1),
+			config("new-owner", "foo", WithRunLatestRollout, WithGeneration(1), WithObservedGen,
 				// These turn a Configuration to Ready=true
 				WithLatestCreated("new-owner-00001"), WithLatestReady("new-owner-00001")),
 		},
@@ -1078,6 +1260,13 @@ func TestReconcile(t *testing.T) {
 						Percent:      100,
 					},
 				})),
+		}},
+		WantPatches: []clientgotesting.PatchActionImpl{{
+			ActionImpl: clientgotesting.ActionImpl{
+				Namespace: "foo",
+			},
+			Name:  "new-owner",
+			Patch: []byte(reconciler.ForceUpgradePatch),
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Updated", "Updated Service %q", "new-owner"),
@@ -1125,6 +1314,7 @@ func TestNew(t *testing.T) {
 
 func config(name, namespace string, so ServiceOption, co ...ConfigOption) *v1alpha1.Configuration {
 	s := Service(name, namespace, so)
+	s.SetDefaults(v1beta1.WithUpgradeViaDefaulting(context.Background()))
 	cfg, err := resources.MakeConfiguration(s)
 	if err != nil {
 		panic(fmt.Sprintf("MakeConfiguration() = %v", err))
@@ -1137,6 +1327,7 @@ func config(name, namespace string, so ServiceOption, co ...ConfigOption) *v1alp
 
 func route(name, namespace string, so ServiceOption, ro ...RouteOption) *v1alpha1.Route {
 	s := Service(name, namespace, so)
+	s.SetDefaults(v1beta1.WithUpgradeViaDefaulting(context.Background()))
 	route, err := resources.MakeRoute(s)
 	if err != nil {
 		panic(fmt.Sprintf("MakeRoute() = %v", err))
@@ -1176,10 +1367,4 @@ func RouteFailed(reason, message string) RouteOption {
 			},
 		}
 	}
-}
-
-// WithManualWarning adds a Warning condition for the Manual
-func WithManualWarning(c *v1alpha1.Service) {
-	c.Status.MarkResourceNotConvertible(v1alpha1.ConvertErrorf("manual",
-		"manual mode cannot be migrated forward.").(*v1alpha1.CannotConvertError))
 }

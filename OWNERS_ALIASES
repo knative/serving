@@ -37,18 +37,19 @@ aliases:
 
   productivity-approvers:
   - adrcunha
-  - dushyanthsc
-  - ericklawitter
-  - jessiezcc
+  - chaodaiG
   - srinivashegde86
-  - steuhs
   productivity-reviewers:
   - adrcunha
+  - chaodaiG
+  - coryrc
   - dushyanthsc
-  - ericklawitter
-  - jessiezcc
+  - ericKlawitter
+  - Fredy-Z
+  - nbarthwal
   - srinivashegde86
   - steuhs
+  - yt3liu
 
   networking-approvers:
   - markusthoemmes

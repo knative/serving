@@ -27,8 +27,9 @@ import (
 
 	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/controller"
+	pkglogging "github.com/knative/pkg/logging"
 	"github.com/knative/pkg/logging/logkey"
-	pkgmetrics "github.com/knative/pkg/metrics"
+	"github.com/knative/pkg/metrics"
 	"github.com/knative/pkg/signals"
 	"github.com/knative/pkg/system"
 	"github.com/knative/pkg/version"
@@ -44,7 +45,6 @@ import (
 	"github.com/knative/serving/pkg/goversion"
 	pkghttp "github.com/knative/serving/pkg/http"
 	"github.com/knative/serving/pkg/logging"
-	"github.com/knative/serving/pkg/metrics"
 	"github.com/knative/serving/pkg/network"
 	"github.com/knative/serving/pkg/queue"
 	"github.com/knative/serving/pkg/tracing"
@@ -241,11 +241,11 @@ func main() {
 	ah = &activatorhandler.HealthHandler{HealthCheck: statSink.Status, NextHandler: ah}
 
 	// Watch the logging config map and dynamically update logging levels.
-	configMapWatcher.Watch(logging.ConfigMapName(), logging.UpdateLevelFromConfigMap(logger, atomicLevel, component))
+	configMapWatcher.Watch(pkglogging.ConfigMapName(), pkglogging.UpdateLevelFromConfigMap(logger, atomicLevel, component))
 	// Watch the observability config map and dynamically update metrics exporter.
-	configMapWatcher.Watch(metrics.ObservabilityConfigName, metrics.UpdateExporterFromConfigMap(component, logger))
+	configMapWatcher.Watch(metrics.ConfigMapName(), metrics.UpdateExporterFromConfigMap(component, logger))
 	// Watch the observability config map and dynamically update request logs.
-	configMapWatcher.Watch(metrics.ObservabilityConfigName, updateRequestLogFromConfigMap(logger, reqLogHandler))
+	configMapWatcher.Watch(metrics.ConfigMapName(), updateRequestLogFromConfigMap(logger, reqLogHandler))
 	if err = configMapWatcher.Start(stopCh); err != nil {
 		logger.Fatalw("Failed to start configuration manager", zap.Error(err))
 	}
@@ -281,5 +281,5 @@ func flush(logger *zap.SugaredLogger) {
 	logger.Sync()
 	os.Stdout.Sync()
 	os.Stderr.Sync()
-	pkgmetrics.FlushExporter()
+	metrics.FlushExporter()
 }

@@ -17,11 +17,8 @@ limitations under the License.
 package v1beta1
 
 import (
-	"github.com/knative/pkg/apis"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
-
-var revCondSet = apis.NewLivingConditionSet()
 
 // GetGroupVersionKind returns the GroupVersionKind.
 func (r *Revision) GetGroupVersionKind() schema.GroupVersionKind {

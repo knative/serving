@@ -27,6 +27,8 @@ import (
 	ninformers "github.com/knative/serving/pkg/client/informers/externalversions/networking/v1alpha1"
 	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/autoscaling/config"
+	"github.com/knative/serving/pkg/reconciler/autoscaling/kpa/resources"
+	aresources "github.com/knative/serving/pkg/reconciler/autoscaling/resources"
 	corev1informers "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/tools/cache"
 )
@@ -46,8 +48,8 @@ func NewController(
 	sksInformer ninformers.ServerlessServiceInformer,
 	serviceInformer corev1informers.ServiceInformer,
 	endpointsInformer corev1informers.EndpointsInformer,
-	kpaDeciders Deciders,
-	metrics Metrics,
+	kpaDeciders resources.Deciders,
+	metrics aresources.Metrics,
 ) *controller.Impl {
 	c := &Reconciler{
 		Base:            reconciler.NewBase(*opts, controllerAgentName),
@@ -58,7 +60,7 @@ func NewController(
 		kpaDeciders:     kpaDeciders,
 		metrics:         metrics,
 	}
-	impl := controller.NewImpl(c, c.Logger, "KPA-Class Autoscaling", reconciler.MustNewStatsReporter("KPA-Class Autoscaling", c.Logger))
+	impl := controller.NewImpl(c, c.Logger, "KPA-Class Autoscaling")
 	c.scaler = newScaler(opts, impl.EnqueueAfter)
 
 	c.Logger.Info("Setting up KPA-Class event handlers")
@@ -66,21 +68,21 @@ func NewController(
 	onlyKpaClass := reconciler.AnnotationFilterFunc(autoscaling.ClassAnnotationKey, autoscaling.KPA, true)
 	paHandler := cache.FilteringResourceEventHandler{
 		FilterFunc: onlyKpaClass,
-		Handler:    reconciler.Handler(impl.Enqueue),
+		Handler:    controller.HandleAll(impl.Enqueue),
 	}
 	paInformer.Informer().AddEventHandler(paHandler)
 
 	endpointsInformer.Informer().AddEventHandler(
-		reconciler.Handler(impl.EnqueueLabelOfNamespaceScopedResource("", autoscaling.KPALabelKey)))
+		controller.HandleAll(impl.EnqueueLabelOfNamespaceScopedResource("", autoscaling.KPALabelKey)))
 
 	// Watch all the services that we have created.
 	serviceInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: onlyKpaClass,
-		Handler:    reconciler.Handler(impl.EnqueueControllerOf),
+		Handler:    controller.HandleAll(impl.EnqueueControllerOf),
 	})
 	sksInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: onlyKpaClass,
-		Handler:    reconciler.Handler(impl.EnqueueControllerOf),
+		Handler:    controller.HandleAll(impl.EnqueueControllerOf),
 	})
 
 	// Have the Deciders enqueue the PAs whose decisions have changed.

@@ -45,19 +45,19 @@ func NewController(
 		revisionLister:      revisionInformer.Lister(),
 		routeLister:         routeInformer.Lister(),
 	}
-	impl := controller.NewImpl(c, c.Logger, ReconcilerName, reconciler.MustNewStatsReporter(ReconcilerName, c.Logger))
+	impl := controller.NewImpl(c, c.Logger, ReconcilerName)
 
 	c.Logger.Info("Setting up event handlers")
-	serviceInformer.Informer().AddEventHandler(reconciler.Handler(impl.Enqueue))
+	serviceInformer.Informer().AddEventHandler(controller.HandleAll(impl.Enqueue))
 
 	configurationInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: controller.Filter(v1alpha1.SchemeGroupVersion.WithKind("Service")),
-		Handler:    reconciler.Handler(impl.EnqueueControllerOf),
+		Handler:    controller.HandleAll(impl.EnqueueControllerOf),
 	})
 
 	routeInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: controller.Filter(v1alpha1.SchemeGroupVersion.WithKind("Service")),
-		Handler:    reconciler.Handler(impl.EnqueueControllerOf),
+		Handler:    controller.HandleAll(impl.EnqueueControllerOf),
 	})
 
 	return impl

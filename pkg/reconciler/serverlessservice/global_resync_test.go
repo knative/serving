@@ -37,7 +37,6 @@ import (
 	"k8s.io/client-go/tools/record"
 
 	. "github.com/knative/pkg/reconciler/testing"
-	"github.com/knative/serving/pkg/reconciler/serverlessservice/resources/names"
 	. "github.com/knative/serving/pkg/reconciler/testing"
 )
 
@@ -154,9 +153,9 @@ func TestGlobalResyncOnActivatorChange(t *testing.T) {
 	})
 
 	// Inactive, will reconcile.
-	sksObj1 := SKS(ns1, sks1, WithPrivateService, WithPubService, WithDeployRef(sks1), WithProxyMode)
+	sksObj1 := SKS(ns1, sks1, WithPrivateService(sks1+"-global"), WithPubService, WithDeployRef(sks1), WithProxyMode)
 	// Active, should not visibly reconcile.
-	sksObj2 := SKS(ns2, sks2, WithPrivateService, WithPubService, WithDeployRef(sks2), markHappy)
+	sksObj2 := SKS(ns2, sks2, WithPrivateService(sks2+"-resync"), WithPubService, WithDeployRef(sks2), markHappy)
 
 	if _, err := servClnt.NetworkingV1alpha1().ServerlessServices(ns1).Create(sksObj1); err != nil {
 		t.Fatalf("Error creating SKS1: %v", err)
@@ -174,7 +173,7 @@ func TestGlobalResyncOnActivatorChange(t *testing.T) {
 	hooks = NewHooks()
 	hooks.OnUpdate(&kubeClnt.Fake, "endpoints", func(obj runtime.Object) HookResult {
 		eps := obj.(*corev1.Endpoints)
-		if eps.Name == names.PublicService(sks1) {
+		if eps.Name == sks1 {
 			t.Logf("Registering expected hook update for endpoints %s", eps.Name)
 			return HookComplete
 		}
