@@ -136,7 +136,7 @@ func TestRouteCreation(t *testing.T) {
 	assertResourcesUpdatedWhenRevisionIsReady(t, clients, names, domain, "1", test.PizzaPlanetText1)
 
 	// We start a prober at background thread to test if Route is always healthy even during Route update.
-	prober := test.RunRouteProber(t, clients, domain)
+	prober := test.RunRouteProber(t.Logf, clients, domain)
 	defer test.AssertProberDefault(t, prober)
 
 	t.Log("Updating the Configuration to use a different image")
