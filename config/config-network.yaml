@@ -98,8 +98,8 @@ data:
     # entirely from the template. When choosing a new value be thoughtful
     # of the potential for conflicts - for example, when users choose to use
     # characters such as `-` in their service, or namespace, names.
-    # {{.Annotations}} can be used for any customization in the go template if needed. 
-    # Make sure you don't have dns-name conflict if you use it.
+    # {{.Annotations}} can be used for any customization in the go template if needed.
+    # We strongly recommend keeping namespace part of the template to avoid domain name clashes
     domainTemplate: "{{.Name}}.{{.Namespace}}.{{.Domain}}"
 
     # Controls whether TLS certificates are automatically provisioned and

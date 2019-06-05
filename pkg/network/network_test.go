@@ -492,7 +492,7 @@ func TestConfiguration(t *testing.T) {
 
 // TODO move this to TestConfiguration
 func TestSubDomain(t *testing.T) {
-	subdomainTemplate := "{{if eq (len .SubDomain) 0}}{{.Name}}.{{.Namespace}}.{{.Domain}}{{ else }}{{.Name}}.{{.SubDomain}}.{{.Domain}}{{ end }}"
+	subdomainTemplate := `{{if eq (index .Annotations "sub") ""}}{{.Name}}.{{.Namespace}}.{{.Domain}}{{else}}{{.Name}}.{{ index .Annotations "sub"}}.{{.Domain}}{{end}}`
 	networkConfigTests := []struct {
 		name       string
 		wantErr    bool
@@ -500,7 +500,7 @@ func TestSubDomain(t *testing.T) {
 		config     *corev1.ConfigMap
 		data       DomainTemplateValues
 	}{{
-		name:    "network configuration with subdomain in template",
+		name:    "network configuration with annotations in template",
 		wantErr: false,
 		wantConfig: &Config{
 			IstioOutboundIPRanges:      "*",
@@ -522,11 +522,38 @@ func TestSubDomain(t *testing.T) {
 		data: DomainTemplateValues{
 			Name:      "foo",
 			Namespace: "bar",
-			SubDomain: "sub1",
-			Domain:    "baz.com"},
+			Annotations: map[string]string{
+				"sub": "sub1"},
+			Domain: "baz.com"},
+	}, {
+		name:    "network configuration using annotations in template with missing key",
+		wantErr: false,
+		wantConfig: &Config{
+			IstioOutboundIPRanges:      "*",
+			DefaultClusterIngressClass: "foo-ingress",
+			DomainTemplate:             subdomainTemplate,
+			HTTPProtocol:               HTTPEnabled,
+		},
+		config: &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: system.Namespace(),
+				Name:      ConfigName,
+			},
+			Data: map[string]string{
+				IstioOutboundIPRangesKey:      "*",
+				DefaultClusterIngressClassKey: "foo-ingress",
+				DomainTemplateKey:             subdomainTemplate,
+			},
+		},
+		data: DomainTemplateValues{
+			Name:      "foo",
+			Namespace: "bar",
+			Annotations: map[string]string{
+				"subfoo": "sub1"},
+			Domain: "baz.com"},
 	},
 		{
-			name:    "network configuration without subdomain in template",
+			name:    "network configuration without annotations in template",
 			wantErr: false,
 			wantConfig: &Config{
 				IstioOutboundIPRanges:      "*",
