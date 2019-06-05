@@ -17,9 +17,7 @@ limitations under the License.
 package resources
 
 import (
-	"math"
-	"strconv"
-
+	"fmt"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -37,6 +35,9 @@ import (
 	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/queue"
 	"knative.dev/serving/pkg/queue/readiness"
+	tracingconfig "knative.dev/serving/pkg/tracing/config"
+	"math"
+	"strconv"
 )
 
 const (
@@ -192,7 +193,7 @@ func makeQueueProbe(in *corev1.Probe) *corev1.Probe {
 }
 
 // makeQueueContainer creates the container spec for the queue sidecar.
-func makeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, observabilityConfig *metrics.ObservabilityConfig,
+func makeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, tracingConfig *tracingconfig.Config, observabilityConfig *metrics.ObservabilityConfig,
 	autoscalerConfig *autoscaler.Config, deploymentConfig *deployment.Config) *corev1.Container {
 	configName := ""
 	if owner := metav1.GetControllerOf(rev); owner != nil && owner.Kind == "Configuration" {
@@ -289,6 +290,18 @@ func makeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, o
 			Name:  "SERVING_REQUEST_METRICS_BACKEND",
 			Value: observabilityConfig.RequestMetricsBackend,
 		}, {
+			Name:  "TRACING_CONFIG_ENABLE",
+			Value: strconv.FormatBool(tracingConfig.Enable),
+		}, {
+			Name:  "TRACING_CONFIG_ZIPKIN_ENDPOINT",
+			Value: tracingConfig.ZipkinEndpoint,
+		}, {
+			Name:  "TRACING_CONFIG_DEBUG",
+			Value: strconv.FormatBool(tracingConfig.Debug),
+		}, {
+			Name:  "TRACING_CONFIG_SAMPLE_RATE",
+			Value: fmt.Sprintf("%f", tracingConfig.SampleRate),
+		}, {
 			Name:  "USER_PORT",
 			Value: strconv.Itoa(int(userPort)),
 		}, {
@@ -315,7 +328,6 @@ func makeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, o
 		}},
 	}
 }
-
 func applyReadinessProbeDefaults(p *corev1.Probe, port int32) {
 	switch {
 	case p == nil:

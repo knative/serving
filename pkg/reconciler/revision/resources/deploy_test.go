@@ -17,8 +17,6 @@ limitations under the License.
 package resources
 
 import (
-	"testing"
-
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	appsv1 "k8s.io/api/apps/v1"
@@ -40,6 +38,8 @@ import (
 	"knative.dev/serving/pkg/deployment"
 	"knative.dev/serving/pkg/metrics"
 	"knative.dev/serving/pkg/network"
+	tracingconfig "knative.dev/serving/pkg/tracing/config"
+	"testing"
 )
 
 var (
@@ -125,6 +125,18 @@ var (
 		}, {
 			Name:  "SERVING_REQUEST_METRICS_BACKEND",
 			Value: "",
+		}, {
+			Name:  "TRACING_CONFIG_ENABLE",
+			Value: "false",
+		}, {
+			Name:  "TRACING_CONFIG_ZIPKIN_ENDPOINT",
+			Value: "",
+		}, {
+			Name:  "TRACING_CONFIG_DEBUG",
+			Value: "false",
+		}, {
+			Name:  "TRACING_CONFIG_SAMPLE_RATE",
+			Value: "0.000000",
 		}, {
 			Name:  "USER_PORT",
 			Value: "8080",
@@ -379,6 +391,7 @@ func TestMakePodSpec(t *testing.T) {
 		name string
 		rev  *v1alpha1.Revision
 		lc   *logging.Config
+		tc   *tracingconfig.Config
 		oc   *metrics.ObservabilityConfig
 		ac   *autoscaler.Config
 		cc   *deployment.Config
@@ -394,6 +407,7 @@ func TestMakePodSpec(t *testing.T) {
 			},
 		),
 		lc: &logging.Config{},
+		tc: &tracingconfig.Config{},
 		oc: &metrics.ObservabilityConfig{},
 		ac: &autoscaler.Config{},
 		cc: &deployment.Config{},
@@ -434,6 +448,7 @@ func TestMakePodSpec(t *testing.T) {
 			},
 		),
 		lc: &logging.Config{},
+		tc: &tracingconfig.Config{},
 		oc: &metrics.ObservabilityConfig{},
 		ac: &autoscaler.Config{},
 		cc: &deployment.Config{},
@@ -466,6 +481,7 @@ func TestMakePodSpec(t *testing.T) {
 		name: "concurrency=1 no owner",
 		rev:  revision(withContainerConcurrency(1)),
 		lc:   &logging.Config{},
+		tc:   &tracingconfig.Config{},
 		oc:   &metrics.ObservabilityConfig{},
 		ac:   &autoscaler.Config{},
 		cc:   &deployment.Config{},
@@ -488,6 +504,7 @@ func TestMakePodSpec(t *testing.T) {
 			},
 		),
 		lc: &logging.Config{},
+		tc: &tracingconfig.Config{},
 		oc: &metrics.ObservabilityConfig{},
 		ac: &autoscaler.Config{},
 		cc: &deployment.Config{},
@@ -508,6 +525,7 @@ func TestMakePodSpec(t *testing.T) {
 			withOwnerReference("parent-config"),
 		),
 		lc: &logging.Config{},
+		tc: &tracingconfig.Config{},
 		oc: &metrics.ObservabilityConfig{},
 		ac: &autoscaler.Config{},
 		cc: &deployment.Config{},
@@ -528,6 +546,7 @@ func TestMakePodSpec(t *testing.T) {
 			)
 		}),
 		lc: &logging.Config{},
+		tc: &tracingconfig.Config{},
 		oc: &metrics.ObservabilityConfig{},
 		ac: &autoscaler.Config{},
 		cc: &deployment.Config{},
@@ -552,6 +571,7 @@ func TestMakePodSpec(t *testing.T) {
 			)
 		}),
 		lc: &logging.Config{},
+		tc: &tracingconfig.Config{},
 		oc: &metrics.ObservabilityConfig{},
 		ac: &autoscaler.Config{},
 		cc: &deployment.Config{},
@@ -571,6 +591,7 @@ func TestMakePodSpec(t *testing.T) {
 			)
 		}),
 		lc: &logging.Config{},
+		tc: &tracingconfig.Config{},
 		oc: &metrics.ObservabilityConfig{},
 		ac: &autoscaler.Config{},
 		cc: &deployment.Config{},
@@ -595,6 +616,7 @@ func TestMakePodSpec(t *testing.T) {
 			)
 		}),
 		lc: &logging.Config{},
+		tc: &tracingconfig.Config{},
 		oc: &metrics.ObservabilityConfig{},
 		ac: &autoscaler.Config{},
 		cc: &deployment.Config{},
@@ -627,6 +649,7 @@ func TestMakePodSpec(t *testing.T) {
 			)
 		}),
 		lc: &logging.Config{},
+		tc: &tracingconfig.Config{},
 		oc: &metrics.ObservabilityConfig{},
 		ac: &autoscaler.Config{},
 		cc: &deployment.Config{},
@@ -648,6 +671,7 @@ func TestMakePodSpec(t *testing.T) {
 		name: "with /var/log collection",
 		rev:  revision(withContainerConcurrency(1)),
 		lc:   &logging.Config{},
+		tc:   &tracingconfig.Config{},
 		oc: &metrics.ObservabilityConfig{
 			EnableVarLogCollection: true,
 		},
@@ -693,6 +717,7 @@ func TestMakePodSpec(t *testing.T) {
 			},
 		),
 		lc: &logging.Config{},
+		tc: &tracingconfig.Config{},
 		oc: &metrics.ObservabilityConfig{},
 		ac: &autoscaler.Config{},
 		cc: &deployment.Config{},
@@ -737,7 +762,7 @@ func TestMakePodSpec(t *testing.T) {
 			quantityComparer := cmp.Comparer(func(x, y resource.Quantity) bool {
 				return x.Cmp(y) == 0
 			})
-			got := makePodSpec(test.rev, test.lc, test.oc, test.ac, test.cc)
+			got := makePodSpec(test.rev, test.lc, test.tc, test.oc, test.ac, test.cc)
 			if diff := cmp.Diff(test.want, got, quantityComparer); diff != "" {
 				t.Errorf("makePodSpec (-want, +got) = %v", diff)
 			}
@@ -753,7 +778,8 @@ func TestMakePodSpec(t *testing.T) {
 				*test.rev.Spec.DeprecatedContainer,
 			}
 			test.rev.Spec.DeprecatedContainer = nil
-			got := makePodSpec(test.rev, test.lc, test.oc, test.ac, test.cc)
+
+			got := makePodSpec(test.rev, test.lc, test.tc, test.oc, test.ac, test.cc)
 			if diff := cmp.Diff(test.want, got, quantityComparer); diff != "" {
 				t.Errorf("makePodSpec (-want, +got) = %v", diff)
 			}
@@ -766,6 +792,7 @@ func TestMakeDeployment(t *testing.T) {
 		name string
 		rev  *v1alpha1.Revision
 		lc   *logging.Config
+		tc   *tracingconfig.Config
 		nc   *network.Config
 		oc   *metrics.ObservabilityConfig
 		ac   *autoscaler.Config
@@ -778,6 +805,7 @@ func TestMakeDeployment(t *testing.T) {
 			withContainerConcurrency(1),
 		),
 		lc:   &logging.Config{},
+		tc:   &tracingconfig.Config{},
 		nc:   &network.Config{},
 		oc:   &metrics.ObservabilityConfig{},
 		ac:   &autoscaler.Config{},
@@ -790,6 +818,7 @@ func TestMakeDeployment(t *testing.T) {
 			withOwnerReference("parent-config"),
 		),
 		lc:   &logging.Config{},
+		tc:   &tracingconfig.Config{},
 		nc:   &network.Config{},
 		oc:   &metrics.ObservabilityConfig{},
 		ac:   &autoscaler.Config{},
@@ -799,6 +828,7 @@ func TestMakeDeployment(t *testing.T) {
 		name: "with outbound IP range configured",
 		rev:  revision(withoutLabels),
 		lc:   &logging.Config{},
+		tc:   &tracingconfig.Config{},
 		nc: &network.Config{
 			IstioOutboundIPRanges: "*",
 		},
@@ -816,6 +846,7 @@ func TestMakeDeployment(t *testing.T) {
 			}
 		}),
 		lc: &logging.Config{},
+		tc: &tracingconfig.Config{},
 		nc: &network.Config{},
 		oc: &metrics.ObservabilityConfig{},
 		ac: &autoscaler.Config{},
@@ -835,6 +866,7 @@ func TestMakeDeployment(t *testing.T) {
 			},
 		),
 		lc: &logging.Config{},
+		tc: &tracingconfig.Config{},
 		nc: &network.Config{
 			IstioOutboundIPRanges: "*",
 		},
@@ -850,8 +882,8 @@ func TestMakeDeployment(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			// Tested above so that we can rely on it here for brevity.
-			test.want.Spec.Template.Spec = *makePodSpec(test.rev, test.lc, test.oc, test.ac, test.cc)
-			got := MakeDeployment(test.rev, test.lc, test.nc, test.oc, test.ac, test.cc)
+			test.want.Spec.Template.Spec = *makePodSpec(test.rev, test.lc, test.tc, test.oc, test.ac, test.cc)
+			got := MakeDeployment(test.rev, test.lc, test.tc, test.nc, test.oc, test.ac, test.cc)
 			if diff := cmp.Diff(test.want, got, cmpopts.IgnoreUnexported(resource.Quantity{})); diff != "" {
 				t.Errorf("MakeDeployment (-want, +got) = %v", diff)
 			}

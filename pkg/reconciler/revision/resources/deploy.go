@@ -17,8 +17,6 @@ limitations under the License.
 package resources
 
 import (
-	"strconv"
-
 	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/ptr"
@@ -32,6 +30,8 @@ import (
 	"knative.dev/serving/pkg/queue"
 	"knative.dev/serving/pkg/reconciler/revision/resources/names"
 	"knative.dev/serving/pkg/resources"
+	tracingconfig "knative.dev/serving/pkg/tracing/config"
+	"strconv"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -107,7 +107,7 @@ func rewriteUserProbe(p *corev1.Probe, userPort int) {
 	}
 }
 
-func makePodSpec(rev *v1alpha1.Revision, loggingConfig *logging.Config, observabilityConfig *metrics.ObservabilityConfig, autoscalerConfig *autoscaler.Config, deploymentConfig *deployment.Config) *corev1.PodSpec {
+func makePodSpec(rev *v1alpha1.Revision, loggingConfig *logging.Config, tracingConfig *tracingconfig.Config, observabilityConfig *metrics.ObservabilityConfig, autoscalerConfig *autoscaler.Config, deploymentConfig *deployment.Config) *corev1.PodSpec {
 	userContainer := rev.Spec.GetContainer().DeepCopy()
 	// Adding or removing an overwritten corev1.Container field here? Don't forget to
 	// update the fieldmasks / validations in pkg/apis/serving
@@ -148,7 +148,7 @@ func makePodSpec(rev *v1alpha1.Revision, loggingConfig *logging.Config, observab
 	podSpec := &corev1.PodSpec{
 		Containers: []corev1.Container{
 			*userContainer,
-			*makeQueueContainer(rev, loggingConfig, observabilityConfig, autoscalerConfig, deploymentConfig),
+			*makeQueueContainer(rev, loggingConfig, tracingConfig, observabilityConfig, autoscalerConfig, deploymentConfig),
 		},
 		Volumes:                       append([]corev1.Volume{varLogVolume}, rev.Spec.Volumes...),
 		ServiceAccountName:            rev.Spec.ServiceAccountName,
@@ -191,7 +191,7 @@ func buildUserPortEnv(userPort string) corev1.EnvVar {
 
 // MakeDeployment constructs a K8s Deployment resource from a revision.
 func MakeDeployment(rev *v1alpha1.Revision,
-	loggingConfig *logging.Config, networkConfig *network.Config, observabilityConfig *metrics.ObservabilityConfig,
+	loggingConfig *logging.Config, tracingConfig *tracingconfig.Config, networkConfig *network.Config, observabilityConfig *metrics.ObservabilityConfig,
 	autoscalerConfig *autoscaler.Config, deploymentConfig *deployment.Config) *appsv1.Deployment {
 
 	podTemplateAnnotations := resources.FilterMap(rev.GetAnnotations(), func(k string) bool {
@@ -241,7 +241,7 @@ func MakeDeployment(rev *v1alpha1.Revision,
 					Labels:      makeLabels(rev),
 					Annotations: podTemplateAnnotations,
 				},
-				Spec: *makePodSpec(rev, loggingConfig, observabilityConfig, autoscalerConfig, deploymentConfig),
+				Spec: *makePodSpec(rev, loggingConfig, tracingConfig, observabilityConfig, autoscalerConfig, deploymentConfig),
 			},
 		},
 	}

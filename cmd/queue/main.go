@@ -30,8 +30,11 @@ import (
 	"time"
 
 	"github.com/kelseyhightower/envconfig"
+	zipkin "github.com/openzipkin/zipkin-go"
 	"github.com/pkg/errors"
+	"go.opencensus.io/plugin/ochttp"
 	"go.opencensus.io/stats"
+	"go.opencensus.io/trace"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"knative.dev/pkg/logging/logkey"
@@ -48,6 +51,8 @@ import (
 	"knative.dev/serving/pkg/queue/health"
 	"knative.dev/serving/pkg/queue/readiness"
 	queuestats "knative.dev/serving/pkg/queue/stats"
+	"knative.dev/serving/pkg/tracing"
+	tracingconfig "knative.dev/serving/pkg/tracing/config"
 )
 
 const (
@@ -137,6 +142,10 @@ type config struct {
 	ServingRequestMetricsBackend string `split_words:"true" required:"true"`
 	ServingRequestLogTemplate    string `split_words:"true" required:"true"`
 	ServingReadinessProbe        string `split_words:"true" required:"true"`
+	TracingConfigEnable          string `split_words:"true" required:"true" default:"false"`
+	TracingConfigZipkinEndpoint  string `split_words:"true" required:"true"`
+	TracingConfigDebug           string `split_words:"true" required:"true" default:"false"`
+	TracingConfigSampleRate      string `split_words:"true" required:"true" default:"0"`
 }
 
 func initConfig(env config) {
@@ -176,10 +185,14 @@ func knativeProxyHeader(r *http.Request) string {
 // Make handler a closure for testing.
 func handler(reqChan chan queue.ReqEvent, breaker *queue.Breaker, handler http.Handler, prober func() bool) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
+		reqCtx, probeSpan := trace.StartSpan(r.Context(), "probe")
 		ph := knativeProbeHeader(r)
 		switch {
 		case ph != "":
 			if ph != queue.Name {
+				probeSpan.Annotate([]trace.Attribute{
+					trace.StringAttribute("queueproxy.probe.error", fmt.Sprintf(badProbeTemplate, ph))}, "error")
+				probeSpan.End()
 				http.Error(w, fmt.Sprintf(badProbeTemplate, ph), http.StatusBadRequest)
 				return
 			}
@@ -188,19 +201,28 @@ func handler(reqChan chan queue.ReqEvent, breaker *queue.Breaker, handler http.H
 					// Respond with the name of the component handling the request.
 					w.Write([]byte(queue.Name))
 				} else {
+					probeSpan.Annotate([]trace.Attribute{
+						trace.StringAttribute("queueproxy.probe.error", "container not ready")}, "error")
+					probeSpan.End()
 					http.Error(w, "container not ready", http.StatusServiceUnavailable)
 				}
+
 			} else {
+				probeSpan.Annotate([]trace.Attribute{
+					trace.StringAttribute("queueproxy.probe.error", "no probe")}, "error")
+				probeSpan.End()
 				http.Error(w, "no probe", http.StatusInternalServerError)
 			}
 
 			return
 		case network.IsKubeletProbe(r):
 			// Do not count health checks for concurrency metrics
-			handler.ServeHTTP(w, r)
+			handler.ServeHTTP(w, r.WithContext(reqCtx))
 			return
 		}
-
+		probeSpan.End()
+		reqCtx, proxySpan := trace.StartSpan(r.Context(), "proxy")
+		defer proxySpan.End()
 		// Metrics for autoscaling.
 		in, out := queue.ReqIn, queue.ReqOut
 		if activator.Name == knativeProxyHeader(r) {
@@ -215,12 +237,12 @@ func handler(reqChan chan queue.ReqEvent, breaker *queue.Breaker, handler http.H
 		// Enforce queuing and concurrency limits.
 		if breaker != nil {
 			if !breaker.Maybe(r.Context(), func() {
-				handler.ServeHTTP(w, r)
+				handler.ServeHTTP(w, r.WithContext(reqCtx))
 			}) {
 				http.Error(w, "overload", http.StatusServiceUnavailable)
 			}
 		} else {
-			handler.ServeHTTP(w, r)
+			handler.ServeHTTP(w, r.WithContext(reqCtx))
 		}
 	}
 }
@@ -307,8 +329,43 @@ func main() {
 		logger.Fatalw("Failed to parse localhost URL", zap.Error(err))
 	}
 
+	queueProxyL3 := fmt.Sprintf("%s:%d", env.ServingPod, networking.ServiceHTTPPort)
+	zipkinEndpoint, err := zipkin.NewEndpoint(env.ServingPod, queueProxyL3)
+
+	if err != nil {
+		logger.Fatalw("Unable to create tracing endpoint", zap.Error(err))
+		return
+	}
+
+	oct := tracing.NewOpenCensusTracer(
+		tracing.WithZipkinExporter(tracing.CreateZipkinReporter, zipkinEndpoint),
+	)
+
+	enableVal, err := strconv.ParseBool(env.TracingConfigEnable)
+	if err != nil {
+		logger.Infow("Error parsing tracing enable var", zap.Error(err))
+	}
+	debugVal, err := strconv.ParseBool(env.TracingConfigDebug)
+	if err != nil {
+		logger.Infow("Error parsing tracing debug var", zap.Error(err))
+	}
+	sampleVal, err := strconv.ParseFloat(env.TracingConfigSampleRate, 64)
+	if err != nil {
+		logger.Infow("Error parsing tracing sample var", zap.Error(err))
+	}
+
+	cfg := tracingconfig.Config{
+		Enable:         enableVal,
+		Debug:          debugVal,
+		ZipkinEndpoint: env.TracingConfigZipkinEndpoint,
+		SampleRate:     sampleVal,
+	}
+	oct.ApplyConfig(&cfg)
+
 	httpProxy = httputil.NewSingleHostReverseProxy(target)
-	httpProxy.Transport = network.AutoTransport
+	httpProxy.Transport = &ochttp.Transport{
+		Base: network.AutoTransport,
+	}
 	httpProxy.FlushInterval = -1
 
 	activatorutil.SetupHeaderPruning(httpProxy)
@@ -368,17 +425,16 @@ func main() {
 	// Create queue handler chain
 	// Note: innermost handlers are specified first, ie. the last handler in the chain will be executed first
 	var composedHandler http.Handler = httpProxy
-	if metricsSupported {
-		composedHandler = pushRequestMetricHandler(httpProxy, appRequestCountM, appResponseTimeInMsecM, env)
-	}
 	composedHandler = http.HandlerFunc(handler(reqChan, breaker, composedHandler, rp.ProbeContainer))
 	composedHandler = queue.ForwardedShimHandler(composedHandler)
 	composedHandler = queue.TimeToFirstByteTimeoutHandler(composedHandler,
 		time.Duration(env.RevisionTimeoutSeconds)*time.Second, "request timeout")
 	composedHandler = pushRequestLogHandler(composedHandler, env)
+
 	if metricsSupported {
 		composedHandler = pushRequestMetricHandler(composedHandler, requestCountM, responseTimeInMsecM, env)
 	}
+	composedHandler = tracing.HTTPSpanMiddleware(composedHandler)
 	qSP := strconv.Itoa(env.QueueServingPort)
 	logger.Info("Queue-proxy will listen on port ", qSP)
 	server := network.NewServer(":"+qSP, composedHandler)

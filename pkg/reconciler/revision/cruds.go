@@ -18,7 +18,6 @@ package revision
 
 import (
 	"context"
-
 	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	caching "knative.dev/caching/pkg/apis/caching/v1alpha1"
@@ -37,6 +36,7 @@ func (c *Reconciler) createDeployment(ctx context.Context, rev *v1alpha1.Revisio
 	deployment := resources.MakeDeployment(
 		rev,
 		cfgs.Logging,
+		cfgs.Tracing,
 		cfgs.Network,
 		cfgs.Observability,
 		cfgs.Autoscaler,
@@ -53,6 +53,7 @@ func (c *Reconciler) checkAndUpdateDeployment(ctx context.Context, rev *v1alpha1
 	deployment := resources.MakeDeployment(
 		rev,
 		cfgs.Logging,
+		cfgs.Tracing,
 		cfgs.Network,
 		cfgs.Observability,
 		cfgs.Autoscaler,
