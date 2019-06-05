@@ -182,7 +182,7 @@ func validatePercentageAnnotationKey(annotations map[string]string, resourcePerc
 	return nil
 }
 
-func validateTimeoutSeconds(timeoutSeconds int64) *apis.FieldError {
+func validateTimeoutSeconds(ctx context.Context, timeoutSeconds int64) *apis.FieldError {
 	if timeoutSeconds != 0 {
 		cfg := config.FromContextOrDefaults(ctx)
 		if timeoutSeconds > cfg.Defaults.MaxRevisionTimeoutSeconds || timeoutSeconds < 0 {

@@ -242,7 +242,7 @@ func TestRevisionSpecValidation(t *testing.T) {
 	}, {
 		name: "exceed custom max timeout",
 		rs: &RevisionSpec{
-			PodSpec: PodSpec{
+			PodSpec: corev1.PodSpec{
 				Containers: []corev1.Container{{
 					Image: "helloworld",
 				}},
@@ -336,7 +336,7 @@ func TestImmutableFields(t *testing.T) {
 				Name: "valid",
 			},
 			Spec: RevisionSpec{
-				PodSpec: PodSpec{
+				PodSpec: corev1.PodSpec{
 					Containers: []corev1.Container{{
 						Image: "helloworld",
 					}},
@@ -349,7 +349,7 @@ func TestImmutableFields(t *testing.T) {
 				Name: "valid",
 			},
 			Spec: RevisionSpec{
-				PodSpec: PodSpec{
+				PodSpec: corev1.PodSpec{
 					Containers: []corev1.Container{{
 						Image: "helloworld",
 					}},
