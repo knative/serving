@@ -46,17 +46,19 @@ type Deciders interface {
 // into account the PA's ContainerConcurrency and the relevant
 // autoscaling annotation.
 func MakeDecider(ctx context.Context, pa *v1alpha1.PodAutoscaler, config *autoscaler.Config, svc string) *autoscaler.Decider {
-	// Look for a panic threshold percentage annotation.
 	panicThresholdPercentage, ok := pa.PanicThresholdPercentage()
 	if !ok {
-		// Fall back on cluster config.
 		panicThresholdPercentage = config.PanicThresholdPercentage
+	}
+
+	stableWindow, ok := pa.Window()
+	if !ok {
+		stableWindow = config.StableWindow
 	}
 
 	target := resources.ResolveTargetConcurrency(pa, config)
 	panicThreshold := target * panicThresholdPercentage / 100.0
-	// TODO: remove MetricSpec when the custom metrics adapter implements Metric.
-	metricSpec := resources.MakeMetric(ctx, pa, config).Spec
+
 	return &autoscaler.Decider{
 		ObjectMeta: *pa.ObjectMeta.DeepCopy(),
 		Spec: autoscaler.DeciderSpec{
@@ -64,7 +66,7 @@ func MakeDecider(ctx context.Context, pa *v1alpha1.PodAutoscaler, config *autosc
 			MaxScaleUpRate:    config.MaxScaleUpRate,
 			TargetConcurrency: target,
 			PanicThreshold:    panicThreshold,
-			MetricSpec:        metricSpec,
+			StableWindow:      stableWindow,
 			ServiceName:       svc,
 		},
 	}

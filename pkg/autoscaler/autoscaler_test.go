@@ -33,7 +33,6 @@ import (
 
 const (
 	stableWindow = 60 * time.Second
-	panicWindow  = 6 * time.Second
 )
 
 var (
@@ -197,7 +196,7 @@ func TestAutoscaler_UpdateTarget(t *testing.T) {
 		TargetConcurrency: 1.0,
 		PanicThreshold:    2.0,
 		MaxScaleUpRate:    10.0,
-		MetricSpec:        a.deciderSpec.MetricSpec,
+		StableWindow:      stableWindow,
 		ServiceName:       testService,
 	})
 	a.expectScale(t, time.Now(), 100, true)
@@ -245,11 +244,8 @@ func newTestAutoscaler(containerConcurrency int, metrics MetricClient) *Autoscal
 		TargetConcurrency: float64(containerConcurrency),
 		PanicThreshold:    2 * float64(containerConcurrency),
 		MaxScaleUpRate:    10.0,
-		MetricSpec: MetricSpec{
-			StableWindow: stableWindow,
-			PanicWindow:  panicWindow,
-		},
-		ServiceName: testService,
+		StableWindow:      stableWindow,
+		ServiceName:       testService,
 	}
 
 	podCounter := resources.NewScopedEndpointsCounter(kubeInformer.Core().V1().Endpoints().Lister(), testNamespace, deciderSpec.ServiceName)
