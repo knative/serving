@@ -15,12 +15,66 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: webhook
+  name: serving-webhook
   namespace: knative-serving
   labels:
     serving.knative.dev/release: devel
 spec:
   replicas: 1
+  selector:
+    matchLabels:
+      app: serving-webhook
+      role: serving-webhook
+  template:
+    metadata:
+      annotations:
+        sidecar.istio.io/inject: "false"
+      labels:
+        app: serving-webhook
+        role: serving-webhook
+        serving.knative.dev/release: devel
+    spec:
+      serviceAccountName: controller
+      containers:
+      - name: serving-webhook
+        # This is the Go import path for the binary that is containerized
+        # and substituted here.
+        image: github.com/knative/serving/cmd/webhook
+        resources:
+          # Request 2x what we saw running e2e
+          requests:
+            cpu: 20m
+            memory: 20Mi
+          # Limit to 10x the request (20x the observed peak during e2e)
+          limits:
+            cpu: 200m
+            memory: 200Mi
+        volumeMounts:
+        - name: config-logging
+          mountPath: /etc/config-logging
+        env:
+        - name: SYSTEM_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: CONFIG_LOGGING_NAME
+          value: config-logging
+      volumes:
+        - name: config-logging
+          configMap:
+            name: config-logging
+
+## TODO: for 0.8.0 we remove this old 'webhook' Deployment
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: webhook
+  namespace: knative-serving
+  labels:
+    serving.knative.dev/release: devel
+spec:
+  replicas: 0
   selector:
     matchLabels:
       app: webhook

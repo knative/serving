@@ -21,10 +21,6 @@ import (
 	"flag"
 	"log"
 
-	"k8s.io/client-go/tools/clientcmd"
-
-	"go.uber.org/zap"
-
 	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/logging"
 	"github.com/knative/pkg/logging/logkey"
@@ -37,8 +33,10 @@ import (
 	net "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1beta1"
+	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/clientcmd"
 )
 
 const (
@@ -99,7 +97,7 @@ func main() {
 		DeploymentName: "webhook",
 		Namespace:      system.Namespace(),
 		Port:           8443,
-		SecretName:     "webhook-certs",
+		SecretName:     "serving-webhook-certs",
 		WebhookName:    "webhook.serving.knative.dev",
 	}
 	controller := webhook.AdmissionController{
