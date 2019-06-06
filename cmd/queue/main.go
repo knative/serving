@@ -129,7 +129,10 @@ func initEnv() {
 
 func reportStats(statChan chan *autoscaler.Stat) {
 	for {
-		s := <-statChan
+		s, ok := <-statChan
+		if !ok {
+			break
+		}
 		if err := promStatReporter.Report(s); err != nil {
 			logger.Errorw("Error while sending stat", zap.Error(err))
 		}
