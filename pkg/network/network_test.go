@@ -490,24 +490,18 @@ func TestConfiguration(t *testing.T) {
 	}
 }
 
-// TODO move this to TestConfiguration
-func TestSubDomain(t *testing.T) {
+func TestAnnotationsInDomainTemplate(t *testing.T) {
 	subdomainTemplate := `{{if eq (index .Annotations "sub") ""}}{{.Name}}.{{.Namespace}}.{{.Domain}}{{else}}{{.Name}}.{{ index .Annotations "sub"}}.{{.Domain}}{{end}}`
 	networkConfigTests := []struct {
-		name       string
-		wantErr    bool
-		wantConfig *Config
-		config     *corev1.ConfigMap
-		data       DomainTemplateValues
+		name               string
+		wantErr            bool
+		wantDomainTemplate string
+		config             *corev1.ConfigMap
+		data               DomainTemplateValues
 	}{{
-		name:    "network configuration with annotations in template",
-		wantErr: false,
-		wantConfig: &Config{
-			IstioOutboundIPRanges:      "*",
-			DefaultClusterIngressClass: "foo-ingress",
-			DomainTemplate:             subdomainTemplate,
-			HTTPProtocol:               HTTPEnabled,
-		},
+		name:               "network configuration with annotations in template",
+		wantErr:            false,
+		wantDomainTemplate: "foo.sub1.baz.com",
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: system.Namespace(),
@@ -526,14 +520,9 @@ func TestSubDomain(t *testing.T) {
 				"sub": "sub1"},
 			Domain: "baz.com"},
 	}, {
-		name:    "network configuration using annotations in template with missing key",
-		wantErr: false,
-		wantConfig: &Config{
-			IstioOutboundIPRanges:      "*",
-			DefaultClusterIngressClass: "foo-ingress",
-			DomainTemplate:             subdomainTemplate,
-			HTTPProtocol:               HTTPEnabled,
-		},
+		name:               "network configuration using annotations in template with missing key",
+		wantErr:            false,
+		wantDomainTemplate: "foo.bar.baz.com",
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: system.Namespace(),
@@ -553,14 +542,9 @@ func TestSubDomain(t *testing.T) {
 			Domain: "baz.com"},
 	},
 		{
-			name:    "network configuration without annotations in template",
-			wantErr: false,
-			wantConfig: &Config{
-				IstioOutboundIPRanges:      "*",
-				DefaultClusterIngressClass: "foo-ingress",
-				DomainTemplate:             subdomainTemplate,
-				HTTPProtocol:               HTTPEnabled,
-			},
+			name:               "network configuration without annotations in template",
+			wantErr:            false,
+			wantDomainTemplate: "foo.bar.baz.com",
 			config: &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: system.Namespace(),
@@ -589,17 +573,9 @@ func TestSubDomain(t *testing.T) {
 				return
 			}
 
-			want := mustExecute(t, tt.wantConfig.GetDomainTemplate(), tt.data)
 			got := mustExecute(t, actualConfig.GetDomainTemplate(), tt.data)
-			if got != want {
-				t.Errorf("DomainTemplate(data) = %s, wanted %s", got, want)
-			}
-
-			ignoreDT := cmpopts.IgnoreFields(Config{}, "DomainTemplate")
-
-			if diff := cmp.Diff(actualConfig, tt.wantConfig, ignoreDT); diff != "" {
-				t.Fatalf("want %v, but got %v",
-					tt.wantConfig, actualConfig)
+			if got != tt.wantDomainTemplate {
+				t.Errorf("DomainTemplate(data) = %s, wanted %s", got, tt.wantDomainTemplate)
 			}
 		})
 	}

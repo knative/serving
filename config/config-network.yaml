@@ -100,6 +100,8 @@ data:
     # characters such as `-` in their service, or namespace, names.
     # {{.Annotations}} can be used for any customization in the go template if needed.
     # We strongly recommend keeping namespace part of the template to avoid domain name clashes
+    # Example '{{if eq (index .Annotations "sub") ""}}{{.Name}}.{{.Namespace}}.{{.Domain}}{{else}}{{.Name}}.{{ index .Annotations "sub"}}.{{.Domain}}{{end}}'
+    # and you have an annotation {"sub":"foo"}, then the generated template would be {Name}.foo.{Domain}
     domainTemplate: "{{.Name}}.{{.Namespace}}.{{.Domain}}"
 
     # Controls whether TLS certificates are automatically provisioned and
