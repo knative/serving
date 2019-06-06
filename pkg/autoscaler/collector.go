@@ -56,6 +56,7 @@ type Metric struct {
 type MetricSpec struct {
 	StableWindow time.Duration
 	PanicWindow  time.Duration
+	ScrapeTarget string
 }
 
 // MetricStatus reflects the status of metric collection for this specific entity.
