@@ -532,21 +532,11 @@
   version = "v0.3.6"
 
 [[projects]]
-  digest = "1:8d0e02b1e093711c488f976d5d01b9539209726333ce6588f221fc08fb366f84"
+  digest = "1:2a40bae32c6caa0b7ccc5458450be1d003b459e42094e850d3c28b56abe40346"
   name = "github.com/jetstack/cert-manager"
   packages = [
     "pkg/apis/certmanager",
     "pkg/apis/certmanager/v1alpha1",
-    "pkg/client/clientset/versioned",
-    "pkg/client/clientset/versioned/fake",
-    "pkg/client/clientset/versioned/scheme",
-    "pkg/client/clientset/versioned/typed/certmanager/v1alpha1",
-    "pkg/client/clientset/versioned/typed/certmanager/v1alpha1/fake",
-    "pkg/client/informers/externalversions",
-    "pkg/client/informers/externalversions/certmanager",
-    "pkg/client/informers/externalversions/certmanager/v1alpha1",
-    "pkg/client/informers/externalversions/internalinterfaces",
-    "pkg/client/listers/certmanager/v1alpha1",
   ]
   pruneopts = "NUT"
   revision = "45fbfcd16cdd6a6a73c79f26d67ce72a2886c746"
@@ -574,7 +564,7 @@
   revision = "f2b4162afba35581b6d4a50d3b8f34e33c144682"
 
 [[projects]]
-  digest = "1:34baec0d305f6b4079e8cf7018a4ae606d6e1d31e7b1017ee4fb4bcd2426b7e7"
+  digest = "1:d9db296c99530865074caabd07b5a375bc4870b4d00a753910c236c595df7a33"
   name = "github.com/knative/caching"
   packages = [
     "pkg/apis/caching",
@@ -591,10 +581,10 @@
     "pkg/client/listers/caching/v1alpha1",
   ]
   pruneopts = "T"
-  revision = "afa9ee174c6f2072b12dbb4b3bf64be8ec7bc30b"
+  revision = "b6c8f4851e3fb13987782cf8014316141e42fbd3"
 
 [[projects]]
-  digest = "1:fcdb229831692715fb4a2b686e8d9757cd30290b1f2df380b2ddb23f6344a278"
+  digest = "1:6a405899228cd065e8730e163e7fbb4faaee51af4035120ec054795873380d50"
   name = "github.com/knative/pkg"
   packages = [
     "apis",
@@ -623,9 +613,13 @@
     "client/informers/externalversions/istio/v1alpha3",
     "client/listers/authentication/v1alpha1",
     "client/listers/istio/v1alpha3",
+    "codegen/cmd/injection-gen",
+    "codegen/cmd/injection-gen/args",
+    "codegen/cmd/injection-gen/generators",
     "configmap",
     "configmap/testing",
     "controller",
+    "injection",
     "kmeta",
     "kmp",
     "logging",
@@ -651,8 +645,8 @@
     "webhook",
     "websocket",
   ]
-  pruneopts = "NUT"
-  revision = "67d95db07608ccc232772a7e6f4b182dd4707683"
+  pruneopts = "T"
+  revision = "4d86f3ad6f48dffa0846c76711ca6c3697def63c"
 
 [[projects]]
   branch = "master"
@@ -1675,11 +1669,6 @@
     "github.com/google/go-containerregistry/pkg/v1/remote/transport",
     "github.com/gorilla/websocket",
     "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1alpha1",
-    "github.com/jetstack/cert-manager/pkg/client/clientset/versioned",
-    "github.com/jetstack/cert-manager/pkg/client/clientset/versioned/fake",
-    "github.com/jetstack/cert-manager/pkg/client/informers/externalversions",
-    "github.com/jetstack/cert-manager/pkg/client/informers/externalversions/certmanager/v1alpha1",
-    "github.com/jetstack/cert-manager/pkg/client/listers/certmanager/v1alpha1",
     "github.com/knative/caching/pkg/apis/caching",
     "github.com/knative/caching/pkg/apis/caching/v1alpha1",
     "github.com/knative/caching/pkg/client/clientset/versioned",
@@ -1699,9 +1688,11 @@
     "github.com/knative/pkg/client/informers/externalversions",
     "github.com/knative/pkg/client/informers/externalversions/istio/v1alpha3",
     "github.com/knative/pkg/client/listers/istio/v1alpha3",
+    "github.com/knative/pkg/codegen/cmd/injection-gen",
     "github.com/knative/pkg/configmap",
     "github.com/knative/pkg/configmap/testing",
     "github.com/knative/pkg/controller",
+    "github.com/knative/pkg/injection",
     "github.com/knative/pkg/kmeta",
     "github.com/knative/pkg/kmp",
     "github.com/knative/pkg/logging",

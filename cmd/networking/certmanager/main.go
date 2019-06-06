@@ -24,8 +24,8 @@ import (
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/tools/clientcmd"
 
-	certmanagerclientset "github.com/jetstack/cert-manager/pkg/client/clientset/versioned"
-	certmanagerinformers "github.com/jetstack/cert-manager/pkg/client/informers/externalversions"
+	certmanagerclientset "github.com/knative/serving/pkg/client/certmanager/clientset/versioned"
+	certmanagerinformers "github.com/knative/serving/pkg/client/certmanager/informers/externalversions"
 	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/controller"
 	"github.com/knative/pkg/logging"
