@@ -486,6 +486,50 @@ func TestServiceSubresourceUpdate(t *testing.T) {
 		subresource: "status",
 		want:        nil,
 	}, {
+		name: "status update with invalid status",
+		service: &Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid",
+			},
+			Spec: ServiceSpec{
+				ConfigurationSpec: ConfigurationSpec{
+					Template: RevisionTemplateSpec{
+						Spec: RevisionSpec{
+							PodSpec: corev1.PodSpec{
+								Containers: []corev1.Container{{
+									Image: "helloworld:foo",
+								}},
+							},
+							TimeoutSeconds: ptr.Int64(config.DefaultMaxRevisionTimeoutSeconds + 1),
+						},
+					},
+				},
+				RouteSpec: RouteSpec{
+					Traffic: []TrafficTarget{{
+						LatestRevision: ptr.Bool(true),
+						Percent:        100,
+					}},
+				},
+			},
+			Status: ServiceStatus{
+				RouteStatusFields: RouteStatusFields{
+					Traffic: []TrafficTarget{{
+						Tag:          "bar",
+						RevisionName: "foo",
+						Percent:      50, URL: &apis.URL{
+							Scheme: "http",
+							Host:   "foo.bar.com",
+						},
+					}},
+				},
+			},
+		},
+		subresource: "status",
+		want: &apis.FieldError{
+			Message: "Traffic targets sum to 50, want 100",
+			Paths:   []string{"status.traffic"},
+		},
+	}, {
 		name: "non-status sub resource update with valid revision template",
 		service: &Service{
 			ObjectMeta: metav1.ObjectMeta{
@@ -550,6 +594,7 @@ func TestServiceSubresourceUpdate(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			ctx := context.Background()
+			ctx = apis.WithinUpdate(ctx, test.service)
 			ctx = apis.WithinSubResourceUpdate(ctx, test.service, test.subresource)
 			got := test.service.Validate(ctx)
 			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {

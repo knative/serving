@@ -33,8 +33,9 @@ func (c *Configuration) Validate(ctx context.Context) (errs *apis.FieldError) {
 		errs = errs.Also(serving.ValidateObjectMetadata(c.GetObjectMeta()).ViaField("metadata"))
 		ctx = apis.WithinParent(ctx, c.ObjectMeta)
 		errs = errs.Also(c.Spec.Validate(apis.WithinSpec(ctx)).ViaField("spec"))
-		errs = errs.Also(c.Status.Validate(apis.WithinStatus(ctx)).ViaField("status"))
 	}
+
+	errs = errs.Also(c.Status.Validate(apis.WithinStatus(ctx)).ViaField("status"))
 
 	if apis.IsInUpdate(ctx) {
 		original := apis.GetBaseline(ctx).(*Configuration)
