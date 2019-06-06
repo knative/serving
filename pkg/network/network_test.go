@@ -491,7 +491,6 @@ func TestConfiguration(t *testing.T) {
 }
 
 func TestAnnotationsInDomainTemplate(t *testing.T) {
-	subdomainTemplate := `{{if eq (index .Annotations "sub") ""}}{{.Name}}.{{.Namespace}}.{{.Domain}}{{else}}{{.Name}}.{{ index .Annotations "sub"}}.{{.Domain}}{{end}}`
 	networkConfigTests := []struct {
 		name               string
 		wantErr            bool
@@ -510,7 +509,7 @@ func TestAnnotationsInDomainTemplate(t *testing.T) {
 			Data: map[string]string{
 				IstioOutboundIPRangesKey:      "*",
 				DefaultClusterIngressClassKey: "foo-ingress",
-				DomainTemplateKey:             subdomainTemplate,
+				DomainTemplateKey:             `{{.Name}}.{{ index .Annotations "sub"}}.{{.Domain}}`,
 			},
 		},
 		data: DomainTemplateValues{
@@ -520,7 +519,7 @@ func TestAnnotationsInDomainTemplate(t *testing.T) {
 				"sub": "sub1"},
 			Domain: "baz.com"},
 	}, {
-		name:               "network configuration using annotations in template with missing key",
+		name:               "network configuration without annotations in template",
 		wantErr:            false,
 		wantDomainTemplate: "foo.bar.baz.com",
 		config: &corev1.ConfigMap{
@@ -531,36 +530,14 @@ func TestAnnotationsInDomainTemplate(t *testing.T) {
 			Data: map[string]string{
 				IstioOutboundIPRangesKey:      "*",
 				DefaultClusterIngressClassKey: "foo-ingress",
-				DomainTemplateKey:             subdomainTemplate,
+				DomainTemplateKey:             `{{.Name}}.{{.Namespace}}.{{.Domain}}`,
 			},
 		},
 		data: DomainTemplateValues{
 			Name:      "foo",
 			Namespace: "bar",
-			Annotations: map[string]string{
-				"subfoo": "sub1"},
-			Domain: "baz.com"},
-	},
-		{
-			name:               "network configuration without annotations in template",
-			wantErr:            false,
-			wantDomainTemplate: "foo.bar.baz.com",
-			config: &corev1.ConfigMap{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: system.Namespace(),
-					Name:      ConfigName,
-				},
-				Data: map[string]string{
-					IstioOutboundIPRangesKey:      "*",
-					DefaultClusterIngressClassKey: "foo-ingress",
-					DomainTemplateKey:             subdomainTemplate,
-				},
-			},
-			data: DomainTemplateValues{
-				Name:      "foo",
-				Namespace: "bar",
-				Domain:    "baz.com"},
-		}}
+			Domain:    "baz.com"},
+	}}
 
 	for _, tt := range networkConfigTests {
 		t.Run(tt.name, func(t *testing.T) {

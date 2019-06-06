@@ -82,7 +82,7 @@ func TestDomainNameFromTemplate(t *testing.T) {
 		want:     "test-name",
 	}, {
 		name:     "Annotations",
-		template: `{{if eq (index .Annotations "sub") ""}}{{.Name}}.{{.Namespace}}.{{.Domain}}{{else}}{{.Name}}.{{ index .Annotations "sub"}}.{{.Domain}}{{end}}`,
+		template: `{{.Name}}.{{ index .Annotations "sub"}}.{{.Domain}}`,
 		args:     args{name: "test-name"},
 		want:     "test-name.mysub.example.com",
 	}, {

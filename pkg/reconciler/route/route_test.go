@@ -1047,7 +1047,7 @@ func TestRouteDomain(t *testing.T) {
 		Expected: "myapp",
 	}, {
 		Name:     "Annotations",
-		Template: `{{if eq (index .Annotations "sub") ""}}{{.Name}}.{{.Namespace}}.{{.Domain}}{{else}}{{.Name}}.{{ index .Annotations "sub"}}.{{.Domain}}{{end}}`,
+		Template: `{{.Name}}.{{ index .Annotations "sub"}}.{{.Domain}}`,
 		Pass:     true,
 		Expected: "myapp.mysub.example.com",
 	}, {
