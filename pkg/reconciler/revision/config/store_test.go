@@ -105,7 +105,6 @@ func TestStoreImmutableConfig(t *testing.T) {
 
 	config.Deployment.QueueSidecarImage = "mutated"
 	config.Network.IstioOutboundIPRanges = "mutated"
-	config.Observability.FluentdSidecarImage = "mutated"
 	config.Logging.LoggingConfig = "mutated"
 	config.Autoscaler.MaxScaleUpRate = rand.Float64()
 
@@ -116,9 +115,6 @@ func TestStoreImmutableConfig(t *testing.T) {
 	}
 	if newConfig.Network.IstioOutboundIPRanges == "mutated" {
 		t.Error("Network config is not immutable")
-	}
-	if newConfig.Observability.FluentdSidecarImage == "mutated" {
-		t.Error("Observability config is not immutable")
 	}
 	if newConfig.Logging.LoggingConfig == "mutated" {
 		t.Error("Logging config is not immutable")

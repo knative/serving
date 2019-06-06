@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -174,9 +175,7 @@ func newTestControllerWithConfig(t *testing.T, deploymentConfig *deployment.Conf
 			Name:      metrics.ConfigMapName(),
 		},
 		Data: map[string]string{
-			"logging.enable-var-log-collection":     "true",
-			"logging.fluentd-sidecar-image":         testFluentdImage,
-			"logging.fluentd-sidecar-output-config": testFluentdSidecarOutputConfig,
+			"logging.enable-var-log-collection": "true",
 		},
 	}, {
 		ObjectMeta: metav1.ObjectMeta{
@@ -292,12 +291,6 @@ func addResourcesToInformers(t *testing.T,
 		kubeInformer.Apps().V1().Deployments().Informer().GetIndexer().Add(deployment)
 	}
 
-	// Add fluentd configmap if any
-	fluentdConfigMap, err := kubeClient.CoreV1().ConfigMaps(rev.Namespace).Get(resourcenames.FluentdConfigMap(rev), metav1.GetOptions{})
-	if err == nil {
-		kubeInformer.Core().V1().ConfigMaps().Informer().GetIndexer().Add(fluentdConfigMap)
-	}
-
 	return rev, deployment, kpa
 }
 
@@ -363,10 +356,8 @@ func TestUpdateRevWithWithUpdatedLoggingURL(t *testing.T) {
 			Name:      metrics.ConfigMapName(),
 		},
 		Data: map[string]string{
-			"logging.enable-var-log-collection":     "true",
-			"logging.fluentd-sidecar-image":         testFluentdImage,
-			"logging.fluentd-sidecar-output-config": testFluentdSidecarOutputConfig,
-			"logging.revision-url-template":         "http://old-logging.test.com?filter=${REVISION_UID}",
+			"logging.enable-var-log-collection": "true",
+			"logging.revision-url-template":     "http://old-logging.test.com?filter=${REVISION_UID}",
 		},
 	}, getTestDeploymentConfigMap(),
 	)
@@ -382,10 +373,8 @@ func TestUpdateRevWithWithUpdatedLoggingURL(t *testing.T) {
 			Name:      metrics.ConfigMapName(),
 		},
 		Data: map[string]string{
-			"logging.enable-var-log-collection":     "true",
-			"logging.fluentd-sidecar-image":         testFluentdImage,
-			"logging.fluentd-sidecar-output-config": testFluentdSidecarOutputConfig,
-			"logging.revision-url-template":         "http://new-logging.test.com?filter=${REVISION_UID}",
+			"logging.enable-var-log-collection": "true",
+			"logging.revision-url-template":     "http://new-logging.test.com?filter=${REVISION_UID}",
 		},
 	})
 	updateRevision(t, kubeClient, kubeInformer, servingClient, servingInformer, cachingClient, cachingInformer, controller, rev)
@@ -585,10 +574,8 @@ func TestGlobalResyncOnConfigMapUpdateRevision(t *testing.T) {
 				Name:      metrics.ConfigMapName(),
 			},
 			Data: map[string]string{
-				"logging.enable-var-log-collection":     "true",
-				"logging.fluentd-sidecar-image":         testFluentdImage,
-				"logging.fluentd-sidecar-output-config": testFluentdSidecarOutputConfig,
-				"logging.revision-url-template":         "http://log-here.test.com?filter=${REVISION_UID}",
+				"logging.enable-var-log-collection": "true",
+				"logging.revision-url-template":     "http://log-here.test.com?filter=${REVISION_UID}",
 			},
 		},
 		callback: func(t *testing.T) func(runtime.Object) HookResult {
@@ -689,7 +676,7 @@ func TestGlobalResyncOnConfigMapUpdateDeployment(t *testing.T) {
 			}
 		},
 	}, {
-		name: "Disable Fluentd", // Should remove fluentd from Deployment
+		name: "Disable /var/log Collection", // Should set ENABLE_VAR_LOG_COLLECTION to false
 		configMapToUpdate: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: system.Namespace(),
@@ -704,46 +691,28 @@ func TestGlobalResyncOnConfigMapUpdateDeployment(t *testing.T) {
 				deployment := obj.(*appsv1.Deployment)
 				t.Logf("Deployment updated: %v", deployment.Name)
 
-				expected := ""
-
 				for _, c := range deployment.Spec.Template.Spec.Containers {
-					if c.Name == resources.FluentdContainerName {
-						t.Logf("No update occurred; expected: %s got: %s", expected, c.Image)
+					if c.Name == resources.QueueContainerName {
+						for _, e := range c.Env {
+							if e.Name == "ENABLE_VAR_LOG_COLLECTION" {
+								flag, err := strconv.ParseBool(e.Value)
+								if err != nil {
+									t.Errorf("Invalid ENABLE_VAR_LOG_COLLECTION value: %q", e.Name)
+									return HookIncomplete
+								}
+								if flag {
+									t.Errorf("ENABLE_VAR_LOG_COLLECTION = %v, want: %v", flag, false)
+									return HookIncomplete
+								}
+								return HookComplete
+							}
+						}
+
+						t.Error("ENABLE_VAR_LOG_COLLECTION is not set")
 						return HookIncomplete
 					}
 				}
-				return HookComplete
-			}
-		},
-	}, {
-		name: "Update Fluentd Image", // Should Fluentd to Deployment
-		configMapToUpdate: &corev1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: system.Namespace(),
-				Name:      metrics.ConfigMapName(),
-			},
-			Data: map[string]string{
-				"logging.enable-var-log-collection":     "true",
-				"logging.fluentd-sidecar-image":         "newFluentdImage",
-				"logging.fluentd-sidecar-output-config": testFluentdSidecarOutputConfig,
-			},
-		},
-		callback: func(t *testing.T) func(runtime.Object) HookResult {
-			return func(obj runtime.Object) HookResult {
-				deployment := obj.(*appsv1.Deployment)
-				t.Logf("Deployment updated: %v", deployment.Name)
-
-				expected := "newFluentdImage"
-				var got string
-				for _, c := range deployment.Spec.Template.Spec.Containers {
-					if c.Name == resources.FluentdContainerName {
-						got = c.Image
-						if got == expected {
-							return HookComplete
-						}
-					}
-				}
-				t.Logf("No update occurred; expected: %s got: %s", expected, got)
+				t.Logf("The deployment spec doesn't contain the expected container %q", resources.QueueContainerName)
 				return HookIncomplete
 			}
 		},

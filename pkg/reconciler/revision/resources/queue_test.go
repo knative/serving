@@ -611,6 +611,10 @@ var defaultEnv = map[string]string{
 	"SYSTEM_NAMESPACE":                system.Namespace(),
 	"METRICS_DOMAIN":                  pkgmetrics.Domain(),
 	"QUEUE_SERVING_PORT":              "8012",
+	"USER_CONTAINER_NAME":             "user-container",
+	"ENABLE_VAR_LOG_COLLECTION":       "false",
+	"VAR_LOG_VOLUME_NAME":             varLogVolumeName,
+	"INTERNAL_VOLUME_PATH":            internalVolumePath,
 }
 
 func env(overrides map[string]string) []corev1.EnvVar {

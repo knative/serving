@@ -39,7 +39,12 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
-const varLogVolumeName = "varlog"
+const (
+	varLogVolumeName   = "knative-var-log"
+	varLogVolumePath   = "/var/log"
+	internalVolumeName = "knative-internal"
+	internalVolumePath = "/var/knative-internal"
+)
 
 var (
 	varLogVolume = corev1.Volume{
@@ -51,7 +56,19 @@ var (
 
 	varLogVolumeMount = corev1.VolumeMount{
 		Name:      varLogVolumeName,
-		MountPath: "/var/log",
+		MountPath: varLogVolumePath,
+	}
+
+	internalVolume = corev1.Volume{
+		Name: internalVolumeName,
+		VolumeSource: corev1.VolumeSource{
+			EmptyDir: &corev1.EmptyDirVolumeSource{},
+		},
+	}
+
+	internalVolumeMount = corev1.VolumeMount{
+		Name:      internalVolumeName,
+		MountPath: internalVolumePath,
 	}
 
 	// This PreStop hook is actually calling an endpoint on the queue-proxy
@@ -132,10 +149,9 @@ func makePodSpec(rev *v1alpha1.Revision, loggingConfig *logging.Config, observab
 		TerminationGracePeriodSeconds: rev.Spec.TimeoutSeconds,
 	}
 
-	// Add Fluentd sidecar and its config map volume if var log collection is enabled.
+	// Add the Knative internal volume only if /var/log collection is enabled
 	if observabilityConfig.EnableVarLogCollection {
-		podSpec.Containers = append(podSpec.Containers, *makeFluentdContainer(rev, observabilityConfig))
-		podSpec.Volumes = append(podSpec.Volumes, *makeFluentdConfigMapVolume(rev))
+		podSpec.Volumes = append(podSpec.Volumes, internalVolume)
 	}
 
 	return podSpec
