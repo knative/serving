@@ -56,6 +56,9 @@ type Metric struct {
 type MetricSpec struct {
 	StableWindow time.Duration
 	PanicWindow  time.Duration
+
+	// ScrapeTarget is the K8s service that is publishes the metric
+	// endpoint.
 	ScrapeTarget string
 }
 
