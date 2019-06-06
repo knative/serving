@@ -17,83 +17,33 @@ helm template --namespace=istio-system \
   | sed 's/[ \t]*$//' \
   > ../istio-crds.yaml
 
-# Create a custom cluster local gateway, based on the Istio custom-gateway template.
-helm template --namespace=istio-system \
-  --set gateways.custom-gateway.autoscaleMin=1 \
-  --set gateways.custom-gateway.autoscaleMax=1 \
-  --set gateways.custom-gateway.cpu.targetAverageUtilization=60 \
-  --set gateways.custom-gateway.labels.app='cluster-local-gateway' \
-  --set gateways.custom-gateway.labels.istio='cluster-local-gateway' \
-  --set gateways.custom-gateway.type='ClusterIP' \
-  --set gateways.istio-ingressgateway.enabled=false \
-  --set gateways.istio-egressgateway.enabled=false \
-  --set gateways.istio-ilbgateway.enabled=false \
-  install/kubernetes/helm/istio \
-  -f install/kubernetes/helm/istio/example-values/values-istio-gateways.yaml \
-  | sed -e "s/custom-gateway/cluster-local-gateway/g" -e "s/customgateway/clusterlocalgateway/g" \
-  `# Removing trailing whitespaces to make automation happy` \
-  | sed "s/[[:space:]]*$//" \
-  > ../istio-knative-extras.yaml
-
 # A template with sidecar injection enabled.
-helm template --namespace=istio-system \
-  --set sidecarInjectorWebhook.enabled=true \
-  --set sidecarInjectorWebhook.enableNamespacesByDefault=true \
-  --set global.proxy.autoInject=disabled \
-  --set global.disablePolicyChecks=true \
-  --set prometheus.enabled=false \
-  `# Disable mixer prometheus adapter to remove istio default metrics.` \
-  --set mixer.adapters.prometheus.enabled=false \
-  `# Disable mixer policy check, since in our template we set no policy.` \
-  --set global.disablePolicyChecks=true \
-  `# Set gateway pods to 1 to sidestep eventual consistency / readiness problems.` \
-  --set gateways.istio-ingressgateway.autoscaleMin=1 \
-  --set gateways.istio-ingressgateway.autoscaleMax=1 \
+helm template --namespace=istio-system install/kubernetes/helm/istio --values ../values.yaml \
+  `# Increase Istio control plane resources usage.` \
   --set gateways.istio-ingressgateway.resources.requests.cpu=500m \
   --set gateways.istio-ingressgateway.resources.requests.memory=256Mi \
-  `# Enable SDS in the gateway to allow dynamically configuring TLS of gateway.` \
   --set gateways.istio-ingressgateway.sds.enabled=true \
-  `# More pilot replicas for better scale` \
   --set pilot.autoscaleMin=2 \
-  `# Set pilot trace sampling to 100%` \
-  --set pilot.traceSampling=100 \
-  install/kubernetes/helm/istio \
   `# Removing trailing whitespaces to make automation happy` \
   | sed 's/[ \t]*$//' \
   > ../istio.yaml
-cat ../istio-knative-extras.yaml >> ../istio.yaml
 
 # A lighter template, with just pilot/gateway.
 # Based on install/kubernetes/helm/istio/values-istio-minimal.yaml
-helm template --namespace=istio-system \
-  --set prometheus.enabled=false \
+helm template --namespace=istio-system install/kubernetes/helm/istio --values ../values.yaml \
+  `# Disable everything other than pilot and gateways` \
   --set mixer.enabled=false \
   --set mixer.policy.enabled=false \
   --set mixer.telemetry.enabled=false \
-  `# Pilot doesn't need a sidecar.` \
   --set pilot.sidecar=false \
-  `# Disable galley (and things requiring galley).` \
   --set galley.enabled=false \
   --set global.useMCP=false \
-  `# Disable security / policy.` \
   --set security.enabled=false \
-  --set global.disablePolicyChecks=true \
-  `# Disable sidecar injection.` \
   --set sidecarInjectorWebhook.enabled=false \
-  --set global.proxy.autoInject=disabled \
   --set global.omitSidecarInjectorConfigMap=true \
-  `# Set gateway pods to 1 to sidestep eventual consistency / readiness problems.` \
-  --set gateways.istio-ingressgateway.autoscaleMin=1 \
-  --set gateways.istio-ingressgateway.autoscaleMax=1 \
-  `# Enable SDS in the gateway to allow dynamically configuring TLS of gateway.` \
-  --set gateways.istio-ingressgateway.sds.enabled=true \
-  `# Set pilot trace sampling to 100%` \
-  --set pilot.traceSampling=100 \
-  install/kubernetes/helm/istio \
   `# Removing trailing whitespaces to make automation happy` \
   | sed 's/[ \t]*$//' \
   > ../istio-lean.yaml
-cat ../istio-knative-extras.yaml >> ../istio-lean.yaml
 )
 
 # Clean up.
