@@ -24,8 +24,6 @@ At a high level, we want to do this:
 1. Create some resources.
 1. Install knative at HEAD.
 1. Test those resources, verify that we didn’t break anything.
-1. Install the previous release (downgrade).
-1. Test those resources (again), verify that we didn’t break anything.
 
 To achieve that, we just have three separate build tags:
 
@@ -49,3 +47,11 @@ Create a RunLatest Service pointing to `image1`, ensure it responds correctly.
 
 Ensure the Service still responds correctly after upgrading. Update it to point
 to `image2`, ensure it responds correctly.
+
+### Probe test
+
+In order to verify that we don't have data-plane unavailability during our
+control-plane outages (when we're upgrading the knative/serving installation),
+we run a prober test that continually sends requests to a service during the
+entire upgrade process. When the upgrade completes, we make sure that none of
+those requests failed.

@@ -37,7 +37,7 @@ const (
 )
 
 // Shamelessly cribbed from conformance/service_test.
-func assertServiceResourcesUpdated(t *testing.T, clients *test.Clients, names test.ResourceNames, routeDomain, expectedGeneration, expectedText string) {
+func assertServiceResourcesUpdated(t *testing.T, clients *test.Clients, names test.ResourceNames, routeDomain, expectedText string) {
 	// TODO(#1178): Remove "Wait" from all checks below this point.
 	_, err := pkgTest.WaitForEndpointState(
 		clients.KubeClient,
