@@ -39,14 +39,14 @@ func TestProbe(t *testing.T) {
 	// create a named pipe and wait for the upgrade script to write to it
 	// to signal that we should stop probing.
 	if err := syscall.Mkfifo(pipe, 0666); err != nil {
-		t.Fatalf("failed to create pipe: %v", err)
+		t.Fatalf("Failed to create pipe: %v", err)
 	}
 	defer os.Remove(pipe)
 
 	clients := e2e.Setup(t)
 	names := test.ResourceNames{
 		Service: "upgrade-probe",
-		Image:   image1,
+		Image:   test.PizzaPlanet1,
 	}
 	defer test.TearDown(clients, names)
 
@@ -57,7 +57,7 @@ func TestProbe(t *testing.T) {
 	domain := objects.Service.Status.URL.Host
 
 	// This polls until we get a 200 with the right body.
-	assertServiceResourcesUpdated(t, clients, names, domain, "What a spaceport!")
+	assertServiceResourcesUpdated(t, clients, names, domain, test.PizzaPlanetText1)
 
 	// Use log.Printf instead of t.Logf because we want to see failures
 	// inline with other logs instead of buffered until the end.
@@ -66,5 +66,5 @@ func TestProbe(t *testing.T) {
 
 	// e2e-upgrade-test.sh will close this pipe to signal the upgrade is
 	// over, at which point we will finish the test and check the prober.
-	_, _ = ioutil.ReadFile("/tmp/prober-signal")
+	_, _ = ioutil.ReadFile(pipe)
 }
