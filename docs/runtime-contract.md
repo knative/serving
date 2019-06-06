@@ -181,39 +181,27 @@ for purposes of scaling CPU and removing idle containers.
 
 #### Protocols and Ports
 
-The container MUST accept HTTP/1.1 requests from the environment. The
-environment
-[SHOULD offer an HTTP/2.0 upgrade option](https://http2.github.io/http2-spec/#discover-http)
-(`Upgrade: h2c` on either the initial request or an `OPTIONS` request) on the
-same port as HTTP/1.1. The developer MAY specify this port at deployment; if the
-developer does not specify a port, the platform provider MUST provide a default.
-Only one inbound `containerPort` SHALL be specified in the
+The developer MAY specify a container port value at deployment; if the developer does not specify a port, the platform provider
+[MUST](https://github.com/knative/serving/blob/master/test/conformance/service_test.go) provide a default.
+Only one inbound `containerPort` [SHALL](https://github.com/knative/serving/blob/master/test/conformance/container_test.go) be specified in the
 [`core.v1.Container`](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.10/#containerport-v1-core)
-specification. The `hostPort` parameter SHOULD NOT be set by the developer or
-the platform provider, as it can interfere with ingress autoscaling. Regardless
-of its source, the selected port will be made available in the `PORT`
-environment variable.
+specification. The `hostPort` parameter [SHOULD NOT](https://github.com/knative/serving/blob/master/test/conformance/container_test.go)
+be set by the developer or the platform provider, as it can interfere with ingress autoscaling. Regardless
+of its source, the selected port [MUST](https://github.com/knative/serving/blob/master/test/conformance/envvars_test.go) be made
+available in the `PORT` environment variable.
 
-The platform provider SHOULD configure the platform to perform HTTPS termination
-and protocol transformation e.g. between QUIC or HTTP/2 and HTTP/1.1. Developers
-should not need to implement multiple transports between the platform and their
-code. Unless overridden by setting the
-[`name`](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.10/#containerport-v1-core)
-field on the inbound port, the platform will perform automatic detection as
-described above. If the
-[`core.v1.Container.ports[0].name`](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.10/#containerport-v1-core)
-is set to one of the following values, HTTP negotiation will be disabled and the
-following protocol will be used:
+Unless overridden by setting the [`name`](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.10/#containerport-v1-core)
+field on the inbound port, the platform [MUST](https://github.com/knative/serving/blob/master/test/conformance/protocol_test.go) default to sending HTTP/1.1 requests.
+
+If the [`core.v1.Container.ports[0].name`](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.10/#containerport-v1-core)
+is set to one of the following values, the following protocol [MUST](https://github.com/knative/serving/blob/master/test/conformance/protocol_test.go) be used:
 
 - `http1`: HTTP/1.1 transport and will not attempt to upgrade to h2c..
 - `h2c`: HTTP/2 transport, as described in
   [section 3.4 of the HTTP2 spec (Starting HTTP/2 with Prior Knowledge)](https://http2.github.io/http2-spec/#known-http)
 
-Developers SHOULD prefer to use automatic content negotiation where available,
-and MUST NOT set the `name` field to arbitrary values, as additional transports
-may be defined in the future. Developers MUST assume all traffic is
-intermediated by an L7 proxy. Developers MUST NOT assume a direct network
-connection between their server process and client processes.
+The `name` field of the port [MUST NOT](https://github.com/knative/serving/blob/master/test/conformance/container_test.go) be set to arbitrary values, as additional transports
+may be defined in the future.
 
 #### Headers
 
