@@ -22,6 +22,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/knative/pkg/ptr"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	. "github.com/knative/serving/pkg/reconciler/testing"
 	"github.com/knative/serving/test"
@@ -72,11 +73,21 @@ func TestConfigMapVolume(t *testing.T) {
 			LocalObjectReference: corev1.LocalObjectReference{
 				Name: configMap.Name,
 			},
+			Optional: ptr.Bool(false),
+		},
+	})
+
+	withBadVolume := WithVolume("blah", "/does/not/matter", corev1.VolumeSource{
+		ConfigMap: &corev1.ConfigMapVolumeSource{
+			LocalObjectReference: corev1.LocalObjectReference{
+				Name: "does-not-exist",
+			},
+			Optional: ptr.Bool(true),
 		},
 	})
 
 	// Setup initial Service
-	if _, err := test.CreateRunLatestServiceReady(t, clients, &names, &test.Options{}, withVolume); err != nil {
+	if _, err := test.CreateRunLatestServiceReady(t, clients, &names, &test.Options{}, withVolume, withBadVolume); err != nil {
 		t.Fatalf("Failed to create initial Service %v: %v", names.Service, err)
 	}
 
@@ -134,6 +145,14 @@ func TestProjectedConfigMapVolume(t *testing.T) {
 					LocalObjectReference: corev1.LocalObjectReference{
 						Name: configMap.Name,
 					},
+					Optional: ptr.Bool(false),
+				},
+			}, {
+				ConfigMap: &corev1.ConfigMapProjection{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: "does-not-matter",
+					},
+					Optional: ptr.Bool(true),
 				},
 			}},
 		},
@@ -194,11 +213,19 @@ func TestSecretVolume(t *testing.T) {
 	withVolume := WithVolume("asdf", filepath.Dir(test.HelloVolumePath), corev1.VolumeSource{
 		Secret: &corev1.SecretVolumeSource{
 			SecretName: secret.Name,
+			Optional:   ptr.Bool(false),
+		},
+	})
+
+	withBadVolume := WithVolume("blah", "/does/not/matter", corev1.VolumeSource{
+		Secret: &corev1.SecretVolumeSource{
+			SecretName: "does-not-exist",
+			Optional:   ptr.Bool(true),
 		},
 	})
 
 	// Setup initial Service
-	if _, err := test.CreateRunLatestServiceReady(t, clients, &names, &test.Options{}, withVolume); err != nil {
+	if _, err := test.CreateRunLatestServiceReady(t, clients, &names, &test.Options{}, withVolume, withBadVolume); err != nil {
 		t.Fatalf("Failed to create initial Service %v: %v", names.Service, err)
 	}
 
@@ -256,6 +283,7 @@ func TestProjectedSecretVolume(t *testing.T) {
 					LocalObjectReference: corev1.LocalObjectReference{
 						Name: secret.Name,
 					},
+					Optional: ptr.Bool(false),
 				},
 			}},
 		},
@@ -342,12 +370,22 @@ func TestProjectedComplex(t *testing.T) {
 					LocalObjectReference: corev1.LocalObjectReference{
 						Name: configMap.Name,
 					},
+					Items: []corev1.KeyToPath{{
+						Key:  "other",
+						Path: "another",
+					}},
+					Optional: ptr.Bool(false),
 				},
 			}, {
 				Secret: &corev1.SecretProjection{
 					LocalObjectReference: corev1.LocalObjectReference{
 						Name: secret.Name,
 					},
+					Items: []corev1.KeyToPath{{
+						Key:  filepath.Base(test.HelloVolumePath),
+						Path: filepath.Base(test.HelloVolumePath),
+					}},
+					Optional: ptr.Bool(false),
 				},
 			}},
 		},
@@ -371,7 +409,7 @@ func TestProjectedComplex(t *testing.T) {
 
 	// Verify that we get multiple files mounted in, in this case from the
 	// second source, which was partially shadowed in our check above.
-	names.Domain = names.Domain + "/other"
+	names.Domain = names.Domain + "/another"
 	if err = validateRunLatestDataPlane(t, clients, names, text2); err != nil {
 		t.Error(err)
 	}

@@ -750,6 +750,10 @@ func TestVolumeValidation(t *testing.T) {
 							LocalObjectReference: corev1.LocalObjectReference{
 								Name: "foo",
 							},
+							Items: []corev1.KeyToPath{{
+								Key:  "foo",
+								Path: "bar/baz",
+							}},
 						},
 					}},
 				},
@@ -772,6 +776,10 @@ func TestVolumeValidation(t *testing.T) {
 							LocalObjectReference: corev1.LocalObjectReference{
 								Name: "bar",
 							},
+							Items: []corev1.KeyToPath{{
+								Key:  "foo",
+								Path: "bar/baz",
+							}},
 						},
 					}},
 				},

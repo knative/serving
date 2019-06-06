@@ -79,6 +79,60 @@ func VolumeProjectionMask(in *corev1.VolumeProjection) *corev1.VolumeProjection 
 	return out
 }
 
+// ConfigMapProjectionMask performs a _shallow_ copy of the Kubernetes ConfigMapProjection
+// object to a new Kubernetes ConfigMapProjection object bringing over only the fields allowed
+// in the Knative API. This does not validate the contents or the bounds of the provided fields.
+func ConfigMapProjectionMask(in *corev1.ConfigMapProjection) *corev1.ConfigMapProjection {
+	if in == nil {
+		return nil
+	}
+
+	out := new(corev1.ConfigMapProjection)
+
+	// Allowed fields
+	out.LocalObjectReference = in.LocalObjectReference
+	out.Items = in.Items
+	out.Optional = in.Optional
+
+	return out
+}
+
+// SecretProjectionMask performs a _shallow_ copy of the Kubernetes SecretProjection
+// object to a new Kubernetes SecretProjection object bringing over only the fields allowed
+// in the Knative API. This does not validate the contents or the bounds of the provided fields.
+func SecretProjectionMask(in *corev1.SecretProjection) *corev1.SecretProjection {
+	if in == nil {
+		return nil
+	}
+
+	out := new(corev1.SecretProjection)
+
+	// Allowed fields
+	out.LocalObjectReference = in.LocalObjectReference
+	out.Items = in.Items
+	out.Optional = in.Optional
+
+	return out
+}
+
+// KeyToPathMask performs a _shallow_ copy of the Kubernetes KeyToPath
+// object to a new Kubernetes KeyToPath object bringing over only the fields allowed
+// in the Knative API. This does not validate the contents or the bounds of the provided fields.
+func KeyToPathMask(in *corev1.KeyToPath) *corev1.KeyToPath {
+	if in == nil {
+		return nil
+	}
+
+	out := new(corev1.KeyToPath)
+
+	// Allowed fields
+	out.Key = in.Key
+	out.Path = in.Path
+	out.Mode = in.Mode
+
+	return out
+}
+
 // PodSpecMask performs a _shallow_ copy of the Kubernetes PodSpec object to a new
 // Kubernetes PodSpec object bringing over only the fields allowed in the Knative API. This
 // does not validate the contents or the bounds of the provided fields.

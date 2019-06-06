@@ -132,17 +132,29 @@ func validateProjectedVolumeSource(vp corev1.VolumeProjection) *apis.FieldError 
 }
 
 func validateConfigMapProjection(cmp *corev1.ConfigMapProjection) *apis.FieldError {
+	errs := apis.CheckDisallowedFields(*cmp, *ConfigMapProjectionMask(cmp))
+	errs = errs.Also(apis.CheckDisallowedFields(
+		cmp.LocalObjectReference, *LocalObjectReferenceMask(&cmp.LocalObjectReference)))
 	if cmp.Name == "" {
-		return apis.ErrMissingField("name")
+		errs = errs.Also(apis.ErrMissingField("name"))
 	}
-	return nil
+	for i, item := range cmp.Items {
+		errs = errs.Also(apis.CheckDisallowedFields(item, *KeyToPathMask(&item)).ViaIndex(i))
+	}
+	return errs
 }
 
 func validateSecretProjection(sp *corev1.SecretProjection) *apis.FieldError {
+	errs := apis.CheckDisallowedFields(*sp, *SecretProjectionMask(sp))
+	errs = errs.Also(apis.CheckDisallowedFields(
+		sp.LocalObjectReference, *LocalObjectReferenceMask(&sp.LocalObjectReference)))
 	if sp.Name == "" {
-		return apis.ErrMissingField("name")
+		errs = errs.Also(apis.ErrMissingField("name"))
 	}
-	return nil
+	for i, item := range sp.Items {
+		errs = errs.Also(apis.CheckDisallowedFields(item, *KeyToPathMask(&item)).ViaIndex(i))
+	}
+	return errs
 }
 
 func validateEnvValueFrom(source *corev1.EnvVarSource) *apis.FieldError {
