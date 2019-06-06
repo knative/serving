@@ -22,8 +22,8 @@ import (
 	"time"
 
 	certmanagerv1alpha1 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1alpha1"
-	fakecmclient "github.com/jetstack/cert-manager/pkg/client/clientset/versioned/fake"
-	certmanagerinformers "github.com/jetstack/cert-manager/pkg/client/informers/externalversions"
+	fakecmclient "github.com/knative/serving/pkg/client/certmanager/clientset/versioned/fake"
+	certmanagerinformers "github.com/knative/serving/pkg/client/certmanager/informers/externalversions"
 	"github.com/knative/pkg/apis"
 	duckv1beta1 "github.com/knative/pkg/apis/duck/v1beta1"
 	fakesharedclientset "github.com/knative/pkg/client/clientset/versioned/fake"

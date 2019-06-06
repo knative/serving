@@ -18,7 +18,6 @@ package revision
 
 import (
 	"context"
-	"strconv"
 	"testing"
 
 	caching "github.com/knative/caching/pkg/apis/caching/v1alpha1"
@@ -28,7 +27,6 @@ import (
 	logtesting "github.com/knative/pkg/logging/testing"
 	autoscalingv1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/apis/networking"
-	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 	"github.com/knative/serving/pkg/autoscaler"
@@ -511,7 +509,7 @@ func TestReconcile(t *testing.T) {
 				MarkResourceNotOwned("PodAutoscaler", "missing-owners")),
 		}},
 		WantEvents: []string{
-			Eventf(corev1.EventTypeWarning, "InternalError", `Revision: "missing-owners" does not own PodAutoscaler: "missing-owners"`),
+			Eventf(corev1.EventTypeWarning, "InternalError", `revision: "missing-owners" does not own PodAutoscaler: "missing-owners"`),
 		},
 		Key: "foo/missing-owners",
 	}, {
@@ -531,7 +529,7 @@ func TestReconcile(t *testing.T) {
 				MarkResourceNotOwned("Deployment", "missing-owners-deployment")),
 		}},
 		WantEvents: []string{
-			Eventf(corev1.EventTypeWarning, "InternalError", `Revision: "missing-owners" does not own Deployment: "missing-owners-deployment"`),
+			Eventf(corev1.EventTypeWarning, "InternalError", `revision: "missing-owners" does not own Deployment: "missing-owners-deployment"`),
 		},
 		Key: "foo/missing-owners",
 	}}
@@ -549,143 +547,6 @@ func TestReconcile(t *testing.T) {
 			configMapLister:     listers.GetConfigMapLister(),
 			resolver:            &nopResolver{},
 			configStore:         &testConfigStore{config: ReconcilerTestConfig()},
-		}
-	}))
-}
-
-func TestReconcileWithVarLogEnabled(t *testing.T) {
-	table := TableTest{{
-		Name: "first revision reconciliation (with /var/log enabled)",
-		// Test a successful reconciliation flow with /var/log enabled.
-		// We feed in a well formed Revision where none of its sub-resources exist,
-		// and we exect it to create them and initialize the Revision's status.
-		// This is similar to "first-reconcile", but should also create a fluentd configmap.
-		Objects: []runtime.Object{
-			rev("foo", "first-reconcile-var-log"),
-		},
-		WantCreates: []runtime.Object{
-			// The first reconciliation of a Revision creates the following resources.
-			kpa("foo", "first-reconcile-var-log"),
-			deploy("foo", "first-reconcile-var-log", EnableVarLog),
-			fluentdConfigMap("foo", "first-reconcile-var-log", EnableVarLog),
-			image("foo", "first-reconcile-var-log", EnableVarLog),
-		},
-		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: rev("foo", "first-reconcile-var-log",
-				// After the first reconciliation of a Revision the status looks like this.
-				WithLogURL, AllUnknownConditions, MarkDeploying("Deploying")),
-		}},
-		Key: "foo/first-reconcile-var-log",
-	}, {
-		Name: "failure creating fluentd configmap",
-		// Induce a failure creating the fluentd configmap.
-		WantErr: true,
-		WithReactors: []clientgotesting.ReactionFunc{
-			InduceFailure("create", "configmaps"),
-		},
-		Objects: []runtime.Object{
-			rev("foo", "create-configmap-failure"),
-		},
-		WantCreates: []runtime.Object{
-			deploy("foo", "create-configmap-failure", EnableVarLog),
-			fluentdConfigMap("foo", "create-configmap-failure", EnableVarLog),
-			image("foo", "create-configmap-failure", EnableVarLog),
-		},
-		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: rev("foo", "create-configmap-failure",
-				// When our first reconciliation is interrupted by a failure creating
-				// the fluentd configmap, we should still see the following reflected
-				// in our status.
-				WithLogURL, WithInitRevConditions,
-				MarkDeploying("Deploying")),
-		}},
-		WantEvents: []string{
-			Eventf(corev1.EventTypeWarning, "InternalError", "inducing failure for create configmaps"),
-		},
-		Key: "foo/create-configmap-failure",
-	}, {
-		Name: "steady state after initial creation",
-		// Verify that after creating the things from an initial reconcile that we're stable.
-		Objects: []runtime.Object{
-			rev("foo", "steady-state",
-				WithLogURL, AllUnknownConditions),
-			kpa("foo", "steady-state"),
-			deploy("foo", "steady-state", EnableVarLog),
-			fluentdConfigMap("foo", "steady-state", EnableVarLog),
-			image("foo", "steady-state", EnableVarLog),
-		},
-		Key: "foo/steady-state",
-	}, {
-		Name: "update a bad fluentd configmap",
-		// Verify that after creating the things from an initial reconcile that we're stable.
-		Objects: []runtime.Object{
-			rev("foo", "update-fluentd-config",
-				WithLogURL, AllUnknownConditions),
-			kpa("foo", "update-fluentd-config"),
-			deploy("foo", "update-fluentd-config", EnableVarLog),
-			&corev1.ConfigMap{
-				// Use the ObjectMeta, but discard the rest.
-				ObjectMeta: fluentdConfigMap("foo", "update-fluentd-config",
-					EnableVarLog).ObjectMeta,
-				Data: map[string]string{
-					"bad key": "bad value",
-				},
-			},
-			image("foo", "update-fluentd-config", EnableVarLog),
-		},
-		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			// We should see a single update to the configmap we expect.
-			Object: fluentdConfigMap("foo", "update-fluentd-config", EnableVarLog),
-		}},
-		Key: "foo/update-fluentd-config",
-	}, {
-		Name: "failure updating fluentd configmap",
-		// Induce a failure trying to update the fluentd configmap
-		WantErr: true,
-		WithReactors: []clientgotesting.ReactionFunc{
-			InduceFailure("update", "configmaps"),
-		},
-		Objects: []runtime.Object{
-			rev("foo", "update-configmap-failure",
-				withK8sServiceName("more-failures"), WithLogURL, AllUnknownConditions),
-			deploy("foo", "update-configmap-failure", EnableVarLog),
-			&corev1.ConfigMap{
-				// Use the ObjectMeta, but discard the rest.
-				ObjectMeta: fluentdConfigMap("foo", "update-configmap-failure",
-					EnableVarLog).ObjectMeta,
-				Data: map[string]string{
-					"bad key": "bad value",
-				},
-			},
-			image("foo", "update-configmap-failure", EnableVarLog),
-		},
-		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			// We should see a single update to the configmap we expect.
-			Object: fluentdConfigMap("foo", "update-configmap-failure", EnableVarLog),
-		}},
-		WantEvents: []string{
-			Eventf(corev1.EventTypeWarning, "InternalError", "inducing failure for update configmaps"),
-		},
-		Key: "foo/update-configmap-failure",
-	}}
-
-	config := ReconcilerTestConfig()
-	EnableVarLog(config)
-
-	defer logtesting.ClearAll()
-
-	table.Test(t, MakeFactory(func(listers *Listers, opt reconciler.Options) controller.Reconciler {
-		return &Reconciler{
-			Base:                reconciler.NewBase(opt, controllerAgentName),
-			revisionLister:      listers.GetRevisionLister(),
-			podAutoscalerLister: listers.GetPodAutoscalerLister(),
-			imageLister:         listers.GetImageLister(),
-			deploymentLister:    listers.GetDeploymentLister(),
-			serviceLister:       listers.GetK8sServiceLister(),
-			endpointsLister:     listers.GetEndpointsLister(),
-			configMapLister:     listers.GetConfigMapLister(),
-			resolver:            &nopResolver{},
-			configStore:         &testConfigStore{config: config},
 		}
 	}))
 }
@@ -787,16 +648,6 @@ func image(namespace, name string, co ...configOption) *caching.Image {
 	return resources.MakeImageCache(rev(namespace, name))
 }
 
-func fluentdConfigMap(namespace, name string, co ...configOption) *corev1.ConfigMap {
-	config := ReconcilerTestConfig()
-	for _, opt := range co {
-		opt(config)
-	}
-
-	rev := rev(namespace, name)
-	return resources.MakeFluentdConfigMap(rev, config.Observability)
-}
-
 func kpa(namespace, name string, ko ...PodAutoscalerOption) *autoscalingv1alpha1.PodAutoscaler {
 	rev := rev(namespace, name)
 	k := resources.MakeKPA(rev)
@@ -855,30 +706,4 @@ func ReconcilerTestConfig() *config.Config {
 // this forces the type to be a 'configOption'
 var EnableVarLog configOption = func(cfg *config.Config) {
 	cfg.Observability.EnableVarLogCollection = true
-}
-
-// WithBuildRefWarning adds a Warning condition for the BuildRef
-func WithBuildRefWarning(r *v1alpha1.Revision) {
-	r.Status.MarkResourceNotConvertible(v1alpha1.ConvertErrorf("buildRef",
-		`buildRef cannot be migrated forward, got: &v1.ObjectReference{Kind:"Build", Namespace:"", Name:"the-build", UID:"", APIVersion:"testing.build.knative.dev/v1alpha1", ResourceVersion:"", FieldPath:""}`).(*v1alpha1.CannotConvertError))
-}
-
-// WithConfigurationGenerationLabel sets the label on the revision
-func WithConfigurationGenerationLabel(generation int) RevisionOption {
-	return func(r *v1alpha1.Revision) {
-		if r.Labels == nil {
-			r.Labels = make(map[string]string)
-		}
-		r.Labels[serving.ConfigurationGenerationLabelKey] = strconv.Itoa(generation)
-	}
-}
-
-// WithConfigurationGenerationLabel sets the label on the revision
-func WithConfigurationGenerationAnnotation(generation int) RevisionOption {
-	return func(r *v1alpha1.Revision) {
-		if r.Annotations == nil {
-			r.Annotations = make(map[string]string)
-		}
-		r.Annotations[serving.ConfigurationGenerationLabelKey] = strconv.Itoa(generation)
-	}
 }

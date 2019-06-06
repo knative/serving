@@ -17,7 +17,6 @@ limitations under the License.
 package metrics
 
 import (
-	"fmt"
 	"strings"
 	"text/template"
 
@@ -44,19 +43,9 @@ func UpdateExporterFromConfigMap(component string, logger *zap.SugaredLogger) fu
 
 // ObservabilityConfig contains the configuration defined in the observability ConfigMap.
 type ObservabilityConfig struct {
-	// EnableVarLogCollection dedicates whether to set up a fluentd sidecar to
-	// collect logs under /var/log/.
+	// EnableVarLogCollection specifies whether the logs under /var/log/ should be available
+	// for collection on the host node by the fluentd daemon set.
 	EnableVarLogCollection bool
-
-	// TODO(#818): Use the fluentd daemon set to collect /var/log.
-	// FluentdSidecarImage is the name of the image used for the fluentd sidecar
-	// injected into the revision pod. It is used only when enableVarLogCollection
-	// is true.
-	FluentdSidecarImage string
-
-	// FluentdSidecarOutputConfig is the config for fluentd sidecar to specify
-	// logging output destination.
-	FluentdSidecarOutputConfig string
 
 	// LoggingURLTemplate is a string containing the logging url template where
 	// the variable REVISION_UID will be replaced with the created revision's UID.
@@ -70,22 +59,13 @@ type ObservabilityConfig struct {
 	RequestMetricsBackend string
 }
 
-// NewObservabilityConfigFromConfigMap creates a Observability from the supplied ConfigMap
+// NewObservabilityConfigFromConfigMap creates a ObservabilityConfig from the supplied ConfigMap
 func NewObservabilityConfigFromConfigMap(configMap *corev1.ConfigMap) (*ObservabilityConfig, error) {
 	oc := &ObservabilityConfig{}
 	if evlc, ok := configMap.Data["logging.enable-var-log-collection"]; ok {
 		oc.EnableVarLogCollection = strings.ToLower(evlc) == "true"
 	}
-	if fsi, ok := configMap.Data["logging.fluentd-sidecar-image"]; ok {
-		oc.FluentdSidecarImage = fsi
-	} else if oc.EnableVarLogCollection {
-		return nil, fmt.Errorf("received bad Observability ConfigMap, want %q when %q is true",
-			"logging.fluentd-sidecar-image", "logging.enable-var-log-collection")
-	}
 
-	if fsoc, ok := configMap.Data["logging.fluentd-sidecar-output-config"]; ok {
-		oc.FluentdSidecarOutputConfig = fsoc
-	}
 	if rut, ok := configMap.Data["logging.revision-url-template"]; ok {
 		oc.LoggingURLTemplate = rut
 	} else {

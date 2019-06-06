@@ -138,6 +138,9 @@ spec:
         - name: varlibdockercontainers
           mountPath: /var/lib/docker/containers
           readOnly: true
+        - name: varlibkubeletpods
+          mountPath: /var/lib/kubelet/pods
+          readOnly: true
         - name: libsystemddir
           mountPath: /host/lib
           readOnly: true
@@ -150,7 +153,7 @@ spec:
       - name: varlogcontainers
         hostPath:
           path: /var/log/containers
-      # It is needed because files under /var/log/contianers link to /var/log/pods
+      # It is needed because files under /var/log/containers link to /var/log/pods
       - name: varlogpods
         hostPath:
           path: /var/log/pods
@@ -158,6 +161,10 @@ spec:
       - name: varlibdockercontainers
         hostPath:
           path: /var/lib/docker/containers
+      # It is needed because user-container's /var/log is located in /var/lib/kubelet/pods/*/volumes/
+      - name: varlibkubeletpods
+        hostPath:
+          path: /var/lib/kubelet/pods
       # It is needed to copy systemd library to decompress journals
       - name: libsystemddir
         hostPath:

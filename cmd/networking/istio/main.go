@@ -35,8 +35,7 @@ import (
 )
 
 const (
-	threadsPerController = 2
-	component            = "controller-clusteringress-istio"
+	component = "controller-clusteringress-istio"
 )
 
 var (

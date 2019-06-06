@@ -22,7 +22,6 @@ import (
 	"time"
 
 	"github.com/knative/pkg/apis"
-	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 	duckv1beta1 "github.com/knative/pkg/apis/duck/v1beta1"
 	net "github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/serving"
@@ -61,8 +60,6 @@ var revCondSet = apis.NewLivingConditionSet(
 	RevisionConditionResourcesAvailable,
 	RevisionConditionContainerHealthy,
 )
-
-var buildCondSet = duckv1alpha1.NewBatchConditionSet()
 
 func (r *Revision) GetGroupVersionKind() schema.GroupVersionKind {
 	return SchemeGroupVersion.WithKind("Revision")
@@ -234,13 +231,6 @@ type LastPinnedParseError AnnotationParseError
 
 func (e LastPinnedParseError) Error() string {
 	return fmt.Sprintf("%v lastPinned value: %q", e.Type, e.Value)
-}
-
-// +k8s:deepcopy-gen=false
-type configurationGenerationParseError AnnotationParseError
-
-func (e configurationGenerationParseError) Error() string {
-	return fmt.Sprintf("%v configurationGeneration value: %q", e.Type, e.Value)
 }
 
 func RevisionLastPinnedString(t time.Time) string {

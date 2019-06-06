@@ -129,8 +129,13 @@ func TestNewConfigNoEntry(t *testing.T) {
 	if got := c.LoggingConfig; got == "" {
 		t.Error("LoggingConfig = empty, want not empty")
 	}
-	if got, want := len(c.LoggingLevel), len(components); got != want {
+	if got, want := len(c.LoggingLevel), 0; got != want {
 		t.Errorf("len(LoggingLevel) = %d, want %d", got, want)
+	}
+	for _, component := range []string{"controller", "queueproxy", "webhook", "activator", "autoscaler"} {
+		if got, want := c.LoggingLevel[component], zap.InfoLevel; got != want {
+			t.Errorf("LoggingLevel[%s] = %q, want %q", component, got, want)
+		}
 	}
 }
 

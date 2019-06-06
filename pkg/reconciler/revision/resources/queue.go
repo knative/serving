@@ -17,7 +17,10 @@ limitations under the License.
 package resources
 
 import (
+	"math"
 	"strconv"
+
+	"k8s.io/apimachinery/pkg/api/resource"
 
 	"k8s.io/apimachinery/pkg/util/intstr"
 
@@ -38,12 +41,6 @@ import (
 const requestQueueHTTPPortName = "queue-port"
 
 var (
-	queueResources = corev1.ResourceRequirements{
-		Requests: corev1.ResourceList{
-			corev1.ResourceName("cpu"): queueContainerCPU,
-		},
-	}
-
 	queueHTTPPort = corev1.ContainerPort{
 		Name:          requestQueueHTTPPortName,
 		ContainerPort: int32(networking.BackendHTTPPort),
@@ -83,6 +80,82 @@ var (
 	}
 )
 
+func createQueueResources(annotations map[string]string, userContainer *corev1.Container) corev1.ResourceRequirements {
+	resources := corev1.ResourceRequirements{}
+	resourceRequests := corev1.ResourceList{corev1.ResourceCPU: queueContainerCPU}
+	resourceLimits := corev1.ResourceList{}
+	ok := false
+	var requestCPU, limitCPU, requestMemory, limitMemory resource.Quantity
+	var resourcePercentage float32
+
+	if ok, resourcePercentage = createResourcePercentageFromAnnotations(annotations, serving.QueueSideCarResourcePercentageAnnotation); ok {
+
+		if ok, requestCPU = computeResourceRequirements(userContainer.Resources.Requests.Cpu(), resourcePercentage, queueContainerRequestCPU); ok {
+			resourceRequests[corev1.ResourceCPU] = requestCPU
+		}
+
+		if ok, limitCPU = computeResourceRequirements(userContainer.Resources.Limits.Cpu(), resourcePercentage, queueContainerLimitCPU); ok {
+			resourceLimits[corev1.ResourceCPU] = limitCPU
+		}
+
+		if ok, requestMemory = computeResourceRequirements(userContainer.Resources.Requests.Memory(), resourcePercentage, queueContainerRequestMemory); ok {
+			resourceRequests[corev1.ResourceMemory] = requestMemory
+		}
+
+		if ok, limitMemory = computeResourceRequirements(userContainer.Resources.Limits.Memory(), resourcePercentage, queueContainerLimitMemory); ok {
+			resourceLimits[corev1.ResourceMemory] = limitMemory
+		}
+
+	}
+
+	resources.Requests = resourceRequests
+
+	if len(resourceLimits) != 0 {
+		resources.Limits = resourceLimits
+	}
+
+	return resources
+}
+
+func computeResourceRequirements(resourceQuantity *resource.Quantity, percentage float32, boundary resourceBoundary) (bool, resource.Quantity) {
+	if resourceQuantity.IsZero() {
+		return false, resource.Quantity{}
+	}
+
+	// Incase the resourceQuantity MilliValue overflow in we use MaxInt64
+	// https://github.com/kubernetes/apimachinery/blob/master/pkg/api/resource/quantity.go
+	scaledValue := resourceQuantity.Value()
+	scaledMilliValue := int64(math.MaxInt64 - 1)
+	if scaledValue < (math.MaxInt64 / 1000) {
+		scaledMilliValue = resourceQuantity.MilliValue()
+	}
+
+	// float64(math.MaxInt64) > math.MaxInt64, to avoid overflow
+	percentageValue := float64(scaledMilliValue) * float64(percentage)
+	var newValue int64
+	if percentageValue >= math.MaxInt64 {
+		newValue = math.MaxInt64
+	} else {
+		newValue = int64(percentageValue)
+	}
+
+	newquantity := *resource.NewMilliQuantity(newValue, resource.BinarySI)
+	newquantity = boundary.applyBoundary(newquantity)
+	return true, newquantity
+}
+
+func createResourcePercentageFromAnnotations(m map[string]string, k string) (bool, float32) {
+	v, ok := m[k]
+	if !ok {
+		return false, 0
+	}
+	value, err := strconv.ParseFloat(v, 32)
+	if err != nil {
+		return false, 0
+	}
+	return true, float32(value / 100)
+}
+
 // makeQueueContainer creates the container spec for the queue sidecar.
 func makeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, observabilityConfig *metrics.ObservabilityConfig,
 	autoscalerConfig *autoscaler.Config, deploymentConfig *deployment.Config) *corev1.Container {
@@ -113,12 +186,18 @@ func makeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, o
 		ports = append(ports, queueHTTPPort)
 	}
 
+	var volumeMounts []corev1.VolumeMount
+	if observabilityConfig.EnableVarLogCollection {
+		volumeMounts = append(volumeMounts, internalVolumeMount)
+	}
+
 	return &corev1.Container{
 		Name:           QueueContainerName,
 		Image:          deploymentConfig.QueueSidecarImage,
-		Resources:      queueResources,
+		Resources:      createQueueResources(rev.GetAnnotations(), rev.Spec.GetContainer()),
 		Ports:          ports,
 		ReadinessProbe: queueReadinessProbe,
+		VolumeMounts:   volumeMounts,
 		Env: []corev1.EnvVar{{
 			Name:  "SERVING_NAMESPACE",
 			Value: rev.Namespace,
@@ -175,6 +254,18 @@ func makeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, o
 		}, {
 			Name:  pkgmetrics.DomainEnv,
 			Value: pkgmetrics.Domain(),
+		}, {
+			Name:  "USER_CONTAINER_NAME",
+			Value: UserContainerName,
+		}, {
+			Name:  "ENABLE_VAR_LOG_COLLECTION",
+			Value: strconv.FormatBool(observabilityConfig.EnableVarLogCollection),
+		}, {
+			Name:  "VAR_LOG_VOLUME_NAME",
+			Value: varLogVolumeName,
+		}, {
+			Name:  "INTERNAL_VOLUME_PATH",
+			Value: internalVolumePath,
 		}},
 	}
 }

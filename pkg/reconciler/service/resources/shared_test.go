@@ -42,7 +42,6 @@ const (
 	testLabelValuePinned       = "test-label-value-pinned"
 	testLabelValueRunLatest    = "test-label-value-run-latest"
 	testLabelValueRelease      = "test-label-value-release"
-	testLabelValueManual       = "test-label-value-manual"
 	testAnnotationKey          = "test-annotation-key"
 	testAnnotationValue        = "test-annotation-value"
 )

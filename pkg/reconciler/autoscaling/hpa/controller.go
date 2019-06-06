@@ -17,11 +17,16 @@ limitations under the License.
 package hpa
 
 import (
+	"context"
+
+	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/controller"
 	"github.com/knative/serving/pkg/apis/autoscaling"
+	"github.com/knative/serving/pkg/autoscaler"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions/autoscaling/v1alpha1"
 	ninformers "github.com/knative/serving/pkg/client/informers/externalversions/networking/v1alpha1"
 	"github.com/knative/serving/pkg/reconciler"
+	"github.com/knative/serving/pkg/reconciler/autoscaling/config"
 	autoscalingv2beta1informers "k8s.io/client-go/informers/autoscaling/v2beta1"
 	"k8s.io/client-go/tools/cache"
 )
@@ -29,6 +34,12 @@ import (
 const (
 	controllerAgentName = "hpa-class-podautoscaler-controller"
 )
+
+// configStore is a minimized interface of the actual configStore.
+type configStore interface {
+	ToContext(ctx context.Context) context.Context
+	WatchConfigs(w configmap.Watcher)
+}
 
 // NewController returns a new HPA reconcile controller.
 func NewController(
@@ -47,10 +58,11 @@ func NewController(
 
 	c.Logger.Info("Setting up hpa-class event handlers")
 	onlyHpaClass := reconciler.AnnotationFilterFunc(autoscaling.ClassAnnotationKey, autoscaling.HPA, false)
-	paInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+	paHandler := cache.FilteringResourceEventHandler{
 		FilterFunc: onlyHpaClass,
 		Handler:    controller.HandleAll(impl.Enqueue),
-	})
+	}
+	paInformer.Informer().AddEventHandler(paHandler)
 
 	hpaInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: onlyHpaClass,
@@ -61,5 +73,16 @@ func NewController(
 		FilterFunc: onlyHpaClass,
 		Handler:    controller.HandleAll(impl.EnqueueControllerOf),
 	})
+
+	c.Logger.Info("Setting up ConfigMap receivers")
+	configsToResync := []interface{}{
+		&autoscaler.Config{},
+	}
+	resync := configmap.TypeFilter(configsToResync...)(func(string, interface{}) {
+		controller.SendGlobalUpdates(paInformer.Informer(), paHandler)
+	})
+	c.configStore = config.NewStore(c.Logger.Named("config-store"), resync)
+	c.configStore.WatchConfigs(opts.ConfigMapWatcher)
+
 	return impl
 }

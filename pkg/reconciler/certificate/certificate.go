@@ -22,8 +22,8 @@ import (
 	"reflect"
 
 	cmv1alpha1 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1alpha1"
-	certmanagerclientset "github.com/jetstack/cert-manager/pkg/client/clientset/versioned"
-	certmanagerlisters "github.com/jetstack/cert-manager/pkg/client/listers/certmanager/v1alpha1"
+	certmanagerclientset "github.com/knative/serving/pkg/client/certmanager/clientset/versioned"
+	certmanagerlisters "github.com/knative/serving/pkg/client/certmanager/listers/certmanager/v1alpha1"
 	"github.com/knative/pkg/controller"
 	"github.com/knative/pkg/logging"
 	"github.com/knative/serving/pkg/apis/networking/v1alpha1"
@@ -151,7 +151,7 @@ func (c *Reconciler) reconcileCMCertificate(ctx context.Context, knCert *v1alpha
 		return nil, err
 	} else if !metav1.IsControlledBy(desired, knCert) {
 		knCert.Status.MarkResourceNotOwned("CertManagerCertificate", desired.Name)
-		return nil, fmt.Errorf("Knative Certificate %s in namespace %s does not own CertManager Certificate: %s", knCert.Name, knCert.Namespace, desired.Name)
+		return nil, fmt.Errorf("knative Certificate %s in namespace %s does not own CertManager Certificate: %s", knCert.Name, knCert.Namespace, desired.Name)
 	} else if !equality.Semantic.DeepEqual(cmCert.Spec, desired.Spec) {
 		copy := cmCert.DeepCopy()
 		copy.Spec = desired.Spec

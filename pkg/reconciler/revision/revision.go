@@ -41,13 +41,6 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
-type changed bool
-
-const (
-	wasChanged changed = true
-	unchanged  changed = false
-)
-
 type resolver interface {
 	Resolve(string, k8schain.Options, sets.String) (string, error)
 }
@@ -195,10 +188,6 @@ func (c *Reconciler) reconcile(ctx context.Context, rev *v1alpha1.Revision) erro
 	}, {
 		name: "image cache",
 		f:    c.reconcileImageCache,
-	}, {
-		// Ensures our namespace has the configuration for the fluentd sidecar.
-		name: "fluentd configmap",
-		f:    c.reconcileFluentdConfigMap,
 	}, {
 		name: "KPA",
 		f:    c.reconcileKPA,

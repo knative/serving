@@ -44,9 +44,8 @@ type DeciderSpec struct {
 	MaxScaleUpRate    float64
 	TargetConcurrency float64
 	PanicThreshold    float64
-	// TODO: remove MetricSpec when the custom metrics adapter implements Metric.
-	MetricSpec MetricSpec
-
+	// StableWindow is needed to determine when to exit panicmode.
+	StableWindow time.Duration
 	// The name of the k8s service for pod information.
 	ServiceName string
 }

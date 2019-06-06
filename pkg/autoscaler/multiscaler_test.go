@@ -36,10 +36,6 @@ const (
 	tickTimeout  = 50 * time.Millisecond
 )
 
-var testStatMessage = StatMessage{
-	Key: testKPAKey,
-}
-
 // watchFunc generates a function to assert the changes happening in the multiscaler.
 func watchFunc(ctx context.Context, ms *MultiScaler, decider *Decider, desiredScale int, errCh chan error) func(key string) {
 	metricKey := fmt.Sprintf("%s/%s", decider.Namespace, decider.Name)
@@ -384,14 +380,6 @@ func (u *fakeUniScaler) Record(ctx context.Context, stat Stat) {
 	defer u.mutex.Unlock()
 
 	u.lastStat = stat
-}
-
-func (u *fakeUniScaler) checkLastStat(t *testing.T, stat Stat) {
-	t.Helper()
-
-	if u.lastStat != stat {
-		t.Fatalf("Last statistic recorded was %#v instead of expected statistic %#v", u.lastStat, stat)
-	}
 }
 
 func (u *fakeUniScaler) Update(DeciderSpec) error {

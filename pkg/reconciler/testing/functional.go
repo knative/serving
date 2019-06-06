@@ -32,7 +32,6 @@ import (
 	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 	"github.com/knative/serving/pkg/reconciler/route/domains"
 	routenames "github.com/knative/serving/pkg/reconciler/route/resources/names"
-	"github.com/knative/serving/pkg/reconciler/serverlessservice/resources/names"
 	servicenames "github.com/knative/serving/pkg/reconciler/service/resources/names"
 	"github.com/knative/serving/pkg/resources"
 	corev1 "k8s.io/api/core/v1"
@@ -1039,7 +1038,7 @@ type SKSOption func(sks *netv1alpha1.ServerlessService)
 
 // WithPubService annotates SKS status with the given service name.
 func WithPubService(sks *netv1alpha1.ServerlessService) {
-	sks.Status.ServiceName = names.PublicService(sks.Name)
+	sks.Status.ServiceName = sks.Name
 }
 
 // WithDeployRef annotates SKS with a deployment objectRef
@@ -1055,14 +1054,16 @@ func WithDeployRef(name string) SKSOption {
 
 // WithSKSReady marks SKS as ready.
 func WithSKSReady(sks *netv1alpha1.ServerlessService) {
-	WithPrivateService(sks)
+	WithPrivateService(sks.Name + "-rand")(sks)
 	WithPubService(sks)
 	sks.Status.MarkEndpointsReady()
 }
 
 // WithPrivateService annotates SKS status with the private service name.
-func WithPrivateService(sks *netv1alpha1.ServerlessService) {
-	sks.Status.PrivateServiceName = names.PrivateService(sks.Name)
+func WithPrivateService(n string) SKSOption {
+	return func(sks *netv1alpha1.ServerlessService) {
+		sks.Status.PrivateServiceName = n
+	}
 }
 
 // WithSKSOwnersRemoved clears the owner references of this SKS resource.

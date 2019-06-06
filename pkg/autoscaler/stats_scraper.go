@@ -19,8 +19,9 @@ package autoscaler
 import (
 	"fmt"
 	"net/http"
-	"sync"
 	"time"
+
+	"golang.org/x/sync/errgroup"
 
 	"github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/serving"
@@ -72,13 +73,11 @@ var cacheDisabledClient = &http.Client{
 // https://kubernetes.io/docs/concepts/services-networking/network-policies/
 // for details.
 type ServiceScraper struct {
-	sClient             scrapeClient
-	sampleSizeFunc      SampleSizeFunc
-	counter             resources.ReadyPodCounter
-	url                 string
-	namespace           string
-	scrapeTargetService string
-	metricKey           string
+	sClient   scrapeClient
+	counter   resources.ReadyPodCounter
+	url       string
+	namespace string
+	metricKey string
 }
 
 // NewServiceScraper creates a new StatsScraper for the Revision which
@@ -111,12 +110,11 @@ func newServiceScraperWithClient(
 
 	serviceName := names.MetricsServiceName(revName)
 	return &ServiceScraper{
-		sClient:             sClient,
-		counter:             counter,
-		url:                 fmt.Sprintf("http://%s.%s:%d/metrics", serviceName, metric.Namespace, networking.AutoscalingQueueMetricsPort),
-		metricKey:           NewMetricKey(metric.Namespace, metric.Name),
-		namespace:           metric.Namespace,
-		scrapeTargetService: serviceName,
+		sClient:   sClient,
+		counter:   counter,
+		url:       fmt.Sprintf("http://%s.%s:%d/metrics", serviceName, metric.Namespace, networking.AutoscalingQueueMetricsPort),
+		metricKey: NewMetricKey(metric.Namespace, metric.Name),
+		namespace: metric.Namespace,
 	}, nil
 }
 
@@ -135,41 +133,38 @@ func (s *ServiceScraper) Scrape() (*StatMessage, error) {
 	sampleSize := populationMeanSampleSize(readyPodsCount)
 	statCh := make(chan *Stat, sampleSize)
 
+	grp := errgroup.Group{}
+	for i := 0; i < sampleSize; i++ {
+		grp.Go(func() error {
+			stat, err := s.sClient.Scrape(s.url)
+			if err != nil {
+				return err
+			}
+			statCh <- stat
+			return nil
+		})
+	}
+
+	// Return the inner error if all of the scrape calls failed.
+	if err := grp.Wait(); err != nil && len(statCh) == 0 {
+		return nil, errors.Wrapf(err, "fail to get a successful scrape for %d tries", sampleSize)
+	}
+	close(statCh)
+
 	var (
 		avgConcurrency        float64
 		avgProxiedConcurrency float64
 		reqCount              int32
 		proxiedReqCount       int32
 		successCount          float64
-
-		waitGroup sync.WaitGroup
 	)
 
-	waitGroup.Add(sampleSize)
-	for i := 0; i < sampleSize; i++ {
-		go func() {
-			defer waitGroup.Done()
-			if stat, err := s.sClient.Scrape(s.url); err == nil {
-				statCh <- stat
-			}
-		}()
-	}
-
-	waitGroup.Wait()
-	close(statCh)
 	for stat := range statCh {
-		// This SHOULD NOT happen. Just to be safe.
-		if stat == nil {
-			continue
-		}
 		successCount++
 		avgConcurrency += stat.AverageConcurrentRequests
 		avgProxiedConcurrency += stat.AverageProxiedConcurrentRequests
 		reqCount += stat.RequestCount
 		proxiedReqCount += stat.ProxiedRequestCount
-	}
-	if successCount == 0 {
-		return nil, fmt.Errorf("fail to get a successful scrape for %d tries", sampleSize)
 	}
 
 	avgConcurrency = avgConcurrency / successCount

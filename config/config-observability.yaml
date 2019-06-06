@@ -38,60 +38,9 @@ data:
     # to actually change the configuration.
 
     # logging.enable-var-log-collection defaults to false.
-    # A fluentd sidecar will be set up to collect var log if
+    # The fluentd daemon set will be set up to collect /var/log if
     # this flag is true.
     logging.enable-var-log-collection: false
-
-    # logging.fluentd-sidecar-image provides the fluentd sidecar image
-    # to inject as a sidecar to collect logs from /var/log.
-    # Must be presented if logging.enable-var-log-collection is true.
-    logging.fluentd-sidecar-image: k8s.gcr.io/fluentd-elasticsearch:v2.0.4
-
-    # logging.fluentd-sidecar-output-config provides the configuration
-    # for the fluentd sidecar, which will be placed into a configmap and
-    # mounted into the fluentd sidecar image.
-    logging.fluentd-sidecar-output-config: |
-      # Parse json log before sending to Elastic Search
-      <filter **>
-        @type parser
-        key_name log
-        <parse>
-          @type multi_format
-          <pattern>
-            format json
-            time_key fluentd-time # fluentd-time is reserved for structured logs
-            time_format %Y-%m-%dT%H:%M:%S.%NZ
-          </pattern>
-          <pattern>
-            format none
-            message_key log
-          </pattern>
-        </parse>
-      </filter>
-      # Send to Elastic Search
-      <match **>
-        @id elasticsearch
-        @type elasticsearch
-        @log_level info
-        include_tag_key true
-        # Elasticsearch service is in monitoring namespace.
-        host elasticsearch-logging.knative-monitoring
-        port 9200
-        logstash_format true
-        <buffer>
-          @type file
-          path /var/log/fluentd-buffers/kubernetes.system.buffer
-          flush_mode interval
-          retry_type exponential_backoff
-          flush_thread_count 2
-          flush_interval 5s
-          retry_forever
-          retry_max_interval 30
-          chunk_limit_size 2M
-          queue_limit_length 8
-          overflow_action block
-        </buffer>
-      </match>
 
     # logging.revision-url-template provides a template to use for producing the
     # logging URL that is injected into the status of each Revision.

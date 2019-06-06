@@ -19,7 +19,7 @@ package testing
 import (
 	certmanager "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1alpha1"
 	certmanagerv1alpha1 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1alpha1"
-	certmanagerlisters "github.com/jetstack/cert-manager/pkg/client/listers/certmanager/v1alpha1"
+	certmanagerlisters "github.com/knative/serving/pkg/client/certmanager/listers/certmanager/v1alpha1"
 	cachingv1alpha1 "github.com/knative/caching/pkg/apis/caching/v1alpha1"
 	fakecachingclientset "github.com/knative/caching/pkg/client/clientset/versioned/fake"
 	cachinglisters "github.com/knative/caching/pkg/client/listers/caching/v1alpha1"
@@ -87,7 +87,8 @@ func NewListers(objs []runtime.Object) Listers {
 	return ls
 }
 
-func (l *Listers) indexerFor(obj runtime.Object) cache.Indexer {
+// IndexerFor returns the indexer for the given object.
+func (l *Listers) IndexerFor(obj runtime.Object) cache.Indexer {
 	return l.sorter.IndexerForObjectType(obj)
 }
 
@@ -117,84 +118,84 @@ func (l *Listers) GetCMCertificateObjects() []runtime.Object {
 }
 
 func (l *Listers) GetServiceLister() servinglisters.ServiceLister {
-	return servinglisters.NewServiceLister(l.indexerFor(&v1alpha1.Service{}))
+	return servinglisters.NewServiceLister(l.IndexerFor(&v1alpha1.Service{}))
 }
 
 func (l *Listers) GetRouteLister() servinglisters.RouteLister {
-	return servinglisters.NewRouteLister(l.indexerFor(&v1alpha1.Route{}))
+	return servinglisters.NewRouteLister(l.IndexerFor(&v1alpha1.Route{}))
 }
 
 // GetServerlessServiceLister returns a lister for the ServerlessService objects.
 func (l *Listers) GetServerlessServiceLister() networkinglisters.ServerlessServiceLister {
-	return networkinglisters.NewServerlessServiceLister(l.indexerFor(&networking.ServerlessService{}))
+	return networkinglisters.NewServerlessServiceLister(l.IndexerFor(&networking.ServerlessService{}))
 }
 
 func (l *Listers) GetConfigurationLister() servinglisters.ConfigurationLister {
-	return servinglisters.NewConfigurationLister(l.indexerFor(&v1alpha1.Configuration{}))
+	return servinglisters.NewConfigurationLister(l.IndexerFor(&v1alpha1.Configuration{}))
 }
 
 func (l *Listers) GetRevisionLister() servinglisters.RevisionLister {
-	return servinglisters.NewRevisionLister(l.indexerFor(&v1alpha1.Revision{}))
+	return servinglisters.NewRevisionLister(l.IndexerFor(&v1alpha1.Revision{}))
 }
 
 func (l *Listers) GetPodAutoscalerLister() kpalisters.PodAutoscalerLister {
-	return kpalisters.NewPodAutoscalerLister(l.indexerFor(&kpa.PodAutoscaler{}))
+	return kpalisters.NewPodAutoscalerLister(l.IndexerFor(&kpa.PodAutoscaler{}))
 }
 
 // GetHorizontalPodAutoscalerLister gets lister for HorizontalPodAutoscaler resources.
 func (l *Listers) GetHorizontalPodAutoscalerLister() autoscalingv2beta1listers.HorizontalPodAutoscalerLister {
-	return autoscalingv2beta1listers.NewHorizontalPodAutoscalerLister(l.indexerFor(&autoscalingv2beta1.HorizontalPodAutoscaler{}))
+	return autoscalingv2beta1listers.NewHorizontalPodAutoscalerLister(l.IndexerFor(&autoscalingv2beta1.HorizontalPodAutoscaler{}))
 }
 
 // GetClusterIngressLister get lister for ClusterIngress resource.
 func (l *Listers) GetClusterIngressLister() networkinglisters.ClusterIngressLister {
-	return networkinglisters.NewClusterIngressLister(l.indexerFor(&networking.ClusterIngress{}))
+	return networkinglisters.NewClusterIngressLister(l.IndexerFor(&networking.ClusterIngress{}))
 }
 
 // GetCertificateLister get lister for Certificate resource.
 func (l *Listers) GetCertificateLister() networkinglisters.CertificateLister {
-	return networkinglisters.NewCertificateLister(l.indexerFor(&networking.Certificate{}))
+	return networkinglisters.NewCertificateLister(l.IndexerFor(&networking.Certificate{}))
 }
 
 func (l *Listers) GetVirtualServiceLister() istiolisters.VirtualServiceLister {
-	return istiolisters.NewVirtualServiceLister(l.indexerFor(&istiov1alpha3.VirtualService{}))
+	return istiolisters.NewVirtualServiceLister(l.IndexerFor(&istiov1alpha3.VirtualService{}))
 }
 
 // GetGatewayLister gets lister for Istio Gateway resource.
 func (l *Listers) GetGatewayLister() istiolisters.GatewayLister {
-	return istiolisters.NewGatewayLister(l.indexerFor(&istiov1alpha3.Gateway{}))
+	return istiolisters.NewGatewayLister(l.IndexerFor(&istiov1alpha3.Gateway{}))
 }
 
 // GetKnCertificateLister gets lister for Knative Certificate resource.
 func (l *Listers) GetKnCertificateLister() networkinglisters.CertificateLister {
-	return networkinglisters.NewCertificateLister(l.indexerFor(&networking.Certificate{}))
+	return networkinglisters.NewCertificateLister(l.IndexerFor(&networking.Certificate{}))
 }
 
 // GetCMCertificateLister gets lister for Cert Manager Certificate resource.
 func (l *Listers) GetCMCertificateLister() certmanagerlisters.CertificateLister {
-	return certmanagerlisters.NewCertificateLister(l.indexerFor(&certmanager.Certificate{}))
+	return certmanagerlisters.NewCertificateLister(l.IndexerFor(&certmanager.Certificate{}))
 }
 
 func (l *Listers) GetImageLister() cachinglisters.ImageLister {
-	return cachinglisters.NewImageLister(l.indexerFor(&cachingv1alpha1.Image{}))
+	return cachinglisters.NewImageLister(l.IndexerFor(&cachingv1alpha1.Image{}))
 }
 
 func (l *Listers) GetDeploymentLister() appsv1listers.DeploymentLister {
-	return appsv1listers.NewDeploymentLister(l.indexerFor(&appsv1.Deployment{}))
+	return appsv1listers.NewDeploymentLister(l.IndexerFor(&appsv1.Deployment{}))
 }
 
 func (l *Listers) GetK8sServiceLister() corev1listers.ServiceLister {
-	return corev1listers.NewServiceLister(l.indexerFor(&corev1.Service{}))
+	return corev1listers.NewServiceLister(l.IndexerFor(&corev1.Service{}))
 }
 
 func (l *Listers) GetEndpointsLister() corev1listers.EndpointsLister {
-	return corev1listers.NewEndpointsLister(l.indexerFor(&corev1.Endpoints{}))
+	return corev1listers.NewEndpointsLister(l.IndexerFor(&corev1.Endpoints{}))
 }
 
 func (l *Listers) GetSecretLister() corev1listers.SecretLister {
-	return corev1listers.NewSecretLister(l.indexerFor(&corev1.Secret{}))
+	return corev1listers.NewSecretLister(l.IndexerFor(&corev1.Secret{}))
 }
 
 func (l *Listers) GetConfigMapLister() corev1listers.ConfigMapLister {
-	return corev1listers.NewConfigMapLister(l.indexerFor(&corev1.ConfigMap{}))
+	return corev1listers.NewConfigMapLister(l.IndexerFor(&corev1.ConfigMap{}))
 }

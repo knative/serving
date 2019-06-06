@@ -38,7 +38,7 @@ func NewConfigFromMap(configMap map[string]string) (*Config, error) {
 	nc := &Config{}
 	qsideCarImage, ok := configMap[QueueSidecarImageKey]
 	if !ok {
-		return nil, errors.New("Queue sidecar image is missing")
+		return nil, errors.New("queue sidecar image is missing")
 	}
 	nc.QueueSidecarImage = qsideCarImage
 
