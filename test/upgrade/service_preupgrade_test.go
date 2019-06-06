@@ -22,9 +22,11 @@ import (
 	"testing"
 
 	_ "github.com/knative/pkg/system/testing"
+	revisionresourcenames "github.com/knative/serving/pkg/reconciler/revision/resources/names"
 	serviceresourcenames "github.com/knative/serving/pkg/reconciler/service/resources/names"
 	"github.com/knative/serving/test"
 	"github.com/knative/serving/test/e2e"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func TestRunLatestServicePreUpgrade(t *testing.T) {
@@ -60,4 +62,12 @@ func TestRunLatestServicePreUpgrade(t *testing.T) {
 		t.Fatalf("The Service %s was not marked as Ready to serve traffic to Revision %s: %v", names.Service, names.Revision, err)
 	}
 	assertServiceResourcesUpdated(t, clients, names, routeDomain, "1", "What a spaceport!")
+
+	rev, err := clients.ServingClient.Revisions.Get(names.Revision, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Couldn't get Revision %s: %v", names.Revision, err)
+	}
+	if err := e2e.WaitForScaleToZero(t, revisionresourcenames.Deployment(rev), clients); err != nil {
+		t.Fatalf("Could not scale to zero: %v", err)
+	}
 }
