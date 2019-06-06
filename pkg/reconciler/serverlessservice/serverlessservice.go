@@ -95,17 +95,15 @@ func (r *reconciler) Reconcile(ctx context.Context, key string) error {
 	reconcileErr := r.reconcile(ctx, sks)
 	if reconcileErr != nil {
 		r.Recorder.Eventf(sks, corev1.EventTypeWarning, "UpdateFailed", "InternalError: %v", reconcileErr.Error())
-		return reconcileErr
 	}
 	if !equality.Semantic.DeepEqual(sks.Status, original.Status) {
-		// Only update status if it changed.
-		if _, err = r.updateStatus(sks); err != nil {
+		if _, err := r.updateStatus(sks); err != nil {
 			r.Recorder.Eventf(sks, corev1.EventTypeWarning, "UpdateFailed", "Failed to update status: %v", err)
 			return err
 		}
 		r.Recorder.Eventf(sks, corev1.EventTypeNormal, "Updated", "Successfully updated ServerlessService %q", key)
 	}
-	return nil
+	return reconcileErr
 }
 
 func (r *reconciler) reconcile(ctx context.Context, sks *netv1alpha1.ServerlessService) error {
