@@ -20,9 +20,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/google/go-cmp/cmp"
 	"github.com/knative/pkg/apis"
-	"github.com/knative/pkg/kmp"
 	"github.com/knative/serving/pkg/apis/autoscaling"
 	"github.com/knative/serving/pkg/apis/serving"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -79,28 +77,4 @@ func (pa *PodAutoscaler) validateMetric() *apis.FieldError {
 		}
 	}
 	return nil
-}
-
-func compareSpec(original *PodAutoscaler, current *PodAutoscaler) (string, error) {
-	// TODO(vagababov): remove after 0.6. This is temporary plug for backwards compatibility.
-	opt := cmp.FilterPath(
-		func(p cmp.Path) bool {
-			return p.String() == "ProtocolType"
-		},
-		cmp.Ignore(),
-	)
-
-	return kmp.ShortDiff(original.Spec, current.Spec, opt)
-}
-
-func classAnnotationChanged(original *PodAutoscaler, current *PodAutoscaler) (string, string, bool) {
-	oldClass, ok := original.Annotations[autoscaling.ClassAnnotationKey]
-	if !ok {
-		return "", "", false
-	}
-	newClass, ok := current.Annotations[autoscaling.ClassAnnotationKey]
-	if ok && oldClass == newClass {
-		return "", "", false
-	}
-	return oldClass, newClass, true
 }
