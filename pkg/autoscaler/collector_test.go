@@ -41,11 +41,12 @@ var (
 		Spec: MetricSpec{
 			StableWindow: 60 * time.Second,
 			PanicWindow:  6 * time.Second,
+			ScrapeTarget: "original-target",
 		},
 	}
 )
 
-func TestMetricCollectorCrud(t *testing.T) {
+func TestMetricCollectorCRUD(t *testing.T) {
 	defer ClearAll()
 
 	logger := TestLogger(t)
@@ -55,6 +56,7 @@ func TestMetricCollectorCrud(t *testing.T) {
 		s: (func() (*StatMessage, error) {
 			return nil, nil
 		}),
+		url: "just-right",
 	}
 	factory := scraperFactory(scraper, nil)
 
@@ -97,13 +99,19 @@ func TestMetricCollectorCrud(t *testing.T) {
 		if !cmp.Equal(defaultMetric, got) {
 			t.Errorf("Get() didn't return the same metric: %v", cmp.Diff(defaultMetric, got))
 		}
+		key := NewMetricKey(defaultMetric.Namespace, defaultMetric.Name)
 
+		defaultMetric.Spec.ScrapeTarget = "new-target"
 		got, err = coll.Update(ctx, defaultMetric)
 		if err != nil {
 			t.Errorf("Update() = %v, want no error", err)
 		}
 		if !cmp.Equal(defaultMetric, got) {
 			t.Errorf("Update() didn't return the same metric: %v", cmp.Diff(defaultMetric, got))
+		}
+		newURL := (coll.collections[key]).scraper.(*testScraper).url
+		if got, want := newURL, "http://new-target.test-namespace:9090/metrics"; got != want {
+			t.Errorf("Updated scraper URL = %s, want: %s, diff: %s", got, want, cmp.Diff(got, want))
 		}
 
 		if err := coll.Delete(ctx, defaultNamespace, defaultName); err != nil {
