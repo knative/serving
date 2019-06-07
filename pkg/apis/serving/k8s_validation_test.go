@@ -130,11 +130,12 @@ func TestPodSpecValidation(t *testing.T) {
 		name: "bad pod spec",
 		ps: corev1.PodSpec{
 			Containers: []corev1.Container{{
-				Name:  "steve",
-				Image: "helloworld",
+				Name:      "steve",
+				Image:     "helloworld",
+				Lifecycle: &corev1.Lifecycle{},
 			}},
 		},
-		want: apis.ErrDisallowedFields("containers[0].name"),
+		want: apis.ErrDisallowedFields("containers[0].lifecycle"),
 	}, {
 		name: "missing all",
 		ps: corev1.PodSpec{
@@ -211,12 +212,13 @@ func TestContainerValidation(t *testing.T) {
 			Details: "image: \"foo:bar:baz\", error: could not parse reference",
 		},
 	}, {
-		name: "has a name",
+		name: "has a lifecycle",
 		c: corev1.Container{
-			Name:  "foo",
-			Image: "foo",
+			Name:      "foo",
+			Image:     "foo",
+			Lifecycle: &corev1.Lifecycle{},
 		},
-		want: apis.ErrDisallowedFields("name"),
+		want: apis.ErrDisallowedFields("lifecycle"),
 	}, {
 		name: "has resources",
 		c: corev1.Container{
@@ -664,7 +666,6 @@ func TestContainerValidation(t *testing.T) {
 			}},
 		},
 		want: apis.ErrDisallowedFields("lifecycle").Also(
-			apis.ErrDisallowedFields("name")).Also(
 			apis.ErrDisallowedFields("stdin")).Also(
 			apis.ErrDisallowedFields("stdinOnce")).Also(
 			apis.ErrDisallowedFields("tty")).Also(
@@ -672,10 +673,9 @@ func TestContainerValidation(t *testing.T) {
 	}, {
 		name: "has numerous problems",
 		c: corev1.Container{
-			Name:      "foo",
 			Lifecycle: &corev1.Lifecycle{},
 		},
-		want: apis.ErrDisallowedFields("name", "lifecycle").Also(
+		want: apis.ErrDisallowedFields("lifecycle").Also(
 			apis.ErrMissingField("image")),
 	}}
 

@@ -114,6 +114,7 @@ func ContainerMask(in *corev1.Container) *corev1.Container {
 	out := new(corev1.Container)
 
 	// Allowed fields
+	out.Name = in.Name
 	out.Args = in.Args
 	out.Command = in.Command
 	out.Env = in.Env
@@ -133,7 +134,6 @@ func ContainerMask(in *corev1.Container) *corev1.Container {
 	// Disallowed fields
 	// This list is unnecessary, but added here for clarity
 	out.Lifecycle = nil
-	out.Name = ""
 	out.Stdin = false
 	out.StdinOnce = false
 	out.TTY = false
