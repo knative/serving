@@ -31,14 +31,23 @@ func TestNamer(t *testing.T) {
 		f       func(*v1alpha1.ClusterIngress) string
 		want    string
 	}{{
-		name: "VirtualService",
+		name: "IngressVirtualService",
 		ingress: &v1alpha1.ClusterIngress{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "foo",
 			},
 		},
-		f:    VirtualService,
+		f:    IngressVirtualService,
 		want: "foo",
+	}, {
+		name: "MeshVirtualService",
+		ingress: &v1alpha1.ClusterIngress{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "foo",
+			},
+		},
+		f:    MeshVirtualService,
+		want: "foo-mesh",
 	}}
 
 	for _, test := range tests {
