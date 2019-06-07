@@ -38,36 +38,81 @@ var (
 	defaultMaxRevisionTimeout = time.Duration(apiconfig.DefaultMaxRevisionTimeoutSeconds) * time.Second
 )
 
-func TestMakeVirtualServiceSpec_CorrectMetadata(t *testing.T) {
-	ci := &v1alpha1.ClusterIngress{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "test-ingress",
+func TestMakeVirtualServices_CorrectMetadata(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		gateways []string
+		ci       *v1alpha1.ClusterIngress
+		expected []metav1.ObjectMeta
+	}{{
+		name:     "mesh and ingress",
+		gateways: []string{"gateway"},
+		ci: &v1alpha1.ClusterIngress{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "test-ingress",
+				Labels: map[string]string{
+					serving.RouteLabelKey:          "test-route",
+					serving.RouteNamespaceLabelKey: "test-ns",
+				},
+			},
+			Spec: v1alpha1.IngressSpec{},
+		},
+		expected: []metav1.ObjectMeta{{
+			Name:      "test-ingress-mesh",
+			Namespace: system.Namespace(),
 			Labels: map[string]string{
+				networking.IngressLabelKey:     "test-ingress",
 				serving.RouteLabelKey:          "test-route",
 				serving.RouteNamespaceLabelKey: "test-ns",
 			},
+		}, {
+			Name:      "test-ingress",
+			Namespace: system.Namespace(),
+			Labels: map[string]string{
+				networking.IngressLabelKey:     "test-ingress",
+				serving.RouteLabelKey:          "test-route",
+				serving.RouteNamespaceLabelKey: "test-ns",
+			},
+		}},
+	}, {
+		name:     "mesh only",
+		gateways: nil,
+		ci: &v1alpha1.ClusterIngress{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "test-ingress",
+				Labels: map[string]string{
+					serving.RouteLabelKey:          "test-route",
+					serving.RouteNamespaceLabelKey: "test-ns",
+				},
+			},
+			Spec: v1alpha1.IngressSpec{},
 		},
-		Spec: v1alpha1.IngressSpec{},
-	}
-	expected := metav1.ObjectMeta{
-		Name:      "test-ingress",
-		Namespace: system.Namespace(),
-		Labels: map[string]string{
-			networking.IngressLabelKey:     "test-ingress",
-			serving.RouteLabelKey:          "test-route",
-			serving.RouteNamespaceLabelKey: "test-ns",
-		},
-		OwnerReferences: []metav1.OwnerReference{
-			*kmeta.NewControllerRef(ci),
-		},
-	}
-	meta := MakeVirtualService(ci, []string{}).ObjectMeta
-	if diff := cmp.Diff(expected, meta); diff != "" {
-		t.Errorf("Unexpected metadata (-want +got): %v", diff)
+		expected: []metav1.ObjectMeta{{
+			Name:      "test-ingress-mesh",
+			Namespace: system.Namespace(),
+			Labels: map[string]string{
+				networking.IngressLabelKey:     "test-ingress",
+				serving.RouteLabelKey:          "test-route",
+				serving.RouteNamespaceLabelKey: "test-ns",
+			},
+		}},
+	}} {
+		t.Run(tc.name, func(t *testing.T) {
+			vss := MakeVirtualServices(tc.ci, tc.gateways)
+			if len(vss) != len(tc.expected) {
+				t.Errorf("Expected %d VirtualService, saw %d", len(tc.expected), len(vss))
+			}
+			for i := range tc.expected {
+				tc.expected[i].OwnerReferences = []metav1.OwnerReference{*kmeta.NewControllerRef(tc.ci)}
+				if diff := cmp.Diff(tc.expected[i], vss[i].ObjectMeta); diff != "" {
+					t.Errorf("Unexpected metadata (-want +got): %v", diff)
+				}
+			}
+		})
 	}
 }
 
-func TestMakeVirtualServiceSpec_CorrectGateways(t *testing.T) {
+func TestMakeMeshVirtualServiceSpec_CorrectGateways(t *testing.T) {
 	ci := &v1alpha1.ClusterIngress{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "test-ingress",
@@ -78,14 +123,145 @@ func TestMakeVirtualServiceSpec_CorrectGateways(t *testing.T) {
 		},
 		Spec: v1alpha1.IngressSpec{},
 	}
-	expected := []string{"gateway-one", "gateway-two", "mesh"}
-	gateways := MakeVirtualService(ci, []string{"gateway-one", "gateway-two"}).Spec.Gateways
+	expected := []string{"mesh"}
+	gateways := MakeMeshVirtualService(ci).Spec.Gateways
 	if diff := cmp.Diff(expected, gateways); diff != "" {
 		t.Errorf("Unexpected gateways (-want +got): %v", diff)
 	}
 }
 
-func TestMakeVirtualServiceSpec_CorrectRoutes(t *testing.T) {
+func TestMakeMeshVirtualServiceSpec_CorrectRoutes(t *testing.T) {
+	ci := &v1alpha1.ClusterIngress{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "test-ingress",
+		},
+		Spec: v1alpha1.IngressSpec{
+			Rules: []v1alpha1.ClusterIngressRule{{
+				Hosts: []string{
+					"test-route.test-ns.svc.cluster.local",
+					"test-route.test-ns.svc",
+					"test-route.test-ns",
+				},
+				HTTP: &v1alpha1.HTTPClusterIngressRuleValue{
+					Paths: []v1alpha1.HTTPClusterIngressPath{{
+						Path: "^/pets/(.*?)?",
+						Splits: []v1alpha1.ClusterIngressBackendSplit{{
+							ClusterIngressBackend: v1alpha1.ClusterIngressBackend{
+								ServiceNamespace: "test-ns",
+								ServiceName:      "v2-service",
+								ServicePort:      intstr.FromInt(80),
+							},
+							Percent: 100,
+							AppendHeaders: map[string]string{
+								"ugh": "blah",
+							},
+						}},
+						AppendHeaders: map[string]string{
+							"foo": "bar",
+						},
+						Timeout: &metav1.Duration{Duration: defaultMaxRevisionTimeout},
+						Retries: &v1alpha1.HTTPRetry{
+							PerTryTimeout: &metav1.Duration{Duration: defaultMaxRevisionTimeout},
+							Attempts:      networking.DefaultRetryCount,
+						},
+					}},
+				},
+			}, {
+				Hosts: []string{
+					"v1.domain.com",
+				},
+				HTTP: &v1alpha1.HTTPClusterIngressRuleValue{
+					Paths: []v1alpha1.HTTPClusterIngressPath{{
+						Path: "^/pets/(.*?)?",
+						Splits: []v1alpha1.ClusterIngressBackendSplit{{
+							ClusterIngressBackend: v1alpha1.ClusterIngressBackend{
+								ServiceNamespace: "test-ns",
+								ServiceName:      "v1-service",
+								ServicePort:      intstr.FromInt(80),
+							},
+							Percent: 100,
+						}},
+						AppendHeaders: map[string]string{
+							"foo": "baz",
+						},
+						Timeout: &metav1.Duration{Duration: defaultMaxRevisionTimeout},
+						Retries: &v1alpha1.HTTPRetry{
+							PerTryTimeout: &metav1.Duration{Duration: defaultMaxRevisionTimeout},
+							Attempts:      networking.DefaultRetryCount,
+						},
+					}},
+				},
+			}},
+		},
+	}
+	expected := []v1alpha3.HTTPRoute{{
+		Match: []v1alpha3.HTTPMatchRequest{{
+			URI:       &istiov1alpha1.StringMatch{Regex: "^/pets/(.*?)?"},
+			Authority: &istiov1alpha1.StringMatch{Regex: `^test-route\.test-ns(?::\d{1,5})?$`},
+		}, {
+			URI:       &istiov1alpha1.StringMatch{Regex: "^/pets/(.*?)?"},
+			Authority: &istiov1alpha1.StringMatch{Regex: `^test-route\.test-ns\.svc(?::\d{1,5})?$`},
+		}, {
+			URI:       &istiov1alpha1.StringMatch{Regex: "^/pets/(.*?)?"},
+			Authority: &istiov1alpha1.StringMatch{Regex: `^test-route\.test-ns\.svc\.cluster\.local(?::\d{1,5})?$`},
+		}},
+		Route: []v1alpha3.HTTPRouteDestination{{
+			Destination: v1alpha3.Destination{
+				Host: "v2-service.test-ns.svc.cluster.local",
+				Port: v1alpha3.PortSelector{Number: 80},
+			},
+			Weight: 100,
+			// Headers: &v1alpha3.Headers{
+			// 	Request: &v1alpha3.HeaderOperations{
+			// 		Add: map[string]string{
+			// 			"ugh": "blah",
+			// 		},
+			// 	},
+			// },
+		}},
+		// Headers: &v1alpha3.Headers{
+		// 	Request: &v1alpha3.HeaderOperations{
+		// 		Add: map[string]string{
+		// 			"foo": "bar",
+		// 		},
+		// 	},
+		// },
+		DeprecatedAppendHeaders: map[string]string{
+			"foo": "bar",
+		},
+		Timeout: defaultMaxRevisionTimeout.String(),
+		Retries: &v1alpha3.HTTPRetry{
+			Attempts:      networking.DefaultRetryCount,
+			PerTryTimeout: defaultMaxRevisionTimeout.String(),
+		},
+		WebsocketUpgrade: true,
+	}}
+
+	routes := MakeMeshVirtualService(ci).Spec.HTTP
+	if diff := cmp.Diff(expected, routes); diff != "" {
+		t.Errorf("Unexpected routes (-want +got): %v", diff)
+	}
+}
+
+func TestMakeIngressVirtualServiceSpec_CorrectGateways(t *testing.T) {
+	ci := &v1alpha1.ClusterIngress{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "test-ingress",
+			Labels: map[string]string{
+				serving.RouteLabelKey:          "test-route",
+				serving.RouteNamespaceLabelKey: "test-ns",
+			},
+		},
+		Spec: v1alpha1.IngressSpec{},
+	}
+	expected := []string{"gateway-one", "gateway-two"}
+	gateways := MakeIngressVirtualService(ci, []string{"gateway-one", "gateway-two"}).Spec.Gateways
+	if diff := cmp.Diff(expected, gateways); diff != "" {
+		t.Errorf("Unexpected gateways (-want +got): %v", diff)
+	}
+}
+
+func TestMakeIngressVirtualServiceSpec_CorrectRoutes(t *testing.T) {
 	ci := &v1alpha1.ClusterIngress{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "test-ingress",
@@ -225,14 +401,14 @@ func TestMakeVirtualServiceSpec_CorrectRoutes(t *testing.T) {
 		WebsocketUpgrade: true,
 	}}
 
-	routes := MakeVirtualService(ci, []string{}).Spec.HTTP
+	routes := MakeIngressVirtualService(ci, []string{"gateway"}).Spec.HTTP
 	if diff := cmp.Diff(expected, routes); diff != "" {
 		t.Errorf("Unexpected routes (-want +got): %v", diff)
 	}
 }
 
 // One active target.
-func TestMakeVirtualServiceRoute_Vanilla(t *testing.T) {
+func TestMakeIngressVirtualServiceRoute_Vanilla(t *testing.T) {
 	ingressPath := &v1alpha1.HTTPClusterIngressPath{
 		Splits: []v1alpha1.ClusterIngressBackendSplit{{
 			ClusterIngressBackend: v1alpha1.ClusterIngressBackend{
@@ -276,7 +452,7 @@ func TestMakeVirtualServiceRoute_Vanilla(t *testing.T) {
 }
 
 // Two active targets.
-func TestMakeVirtualServiceRoute_TwoTargets(t *testing.T) {
+func TestMakeIngressVirtualServiceRoute_TwoTargets(t *testing.T) {
 	ingressPath := &v1alpha1.HTTPClusterIngressPath{
 		Splits: []v1alpha1.ClusterIngressBackendSplit{{
 			ClusterIngressBackend: v1alpha1.ClusterIngressBackend{
