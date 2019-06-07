@@ -2116,9 +2116,14 @@ func simplePlaceholderK8sService(ctx context.Context, r *v1alpha1.Route, targetN
 }
 
 func simpleK8sService(r *v1alpha1.Route, so ...K8sServiceOption) *corev1.Service {
+	cs := &testConfigStore{
+		config: ReconcilerTestConfig(false),
+	}
+	ctx := cs.ToContext(context.Background())
+
 	// omit the error here, as we are sure the loadbalancer info is porvided.
 	// return the service instance only, so that the result can be used in TableRow.
-	svc, _ := resources.MakeK8sService(r, "", &netv1alpha1.ClusterIngress{Status: readyIngressStatus()})
+	svc, _ := resources.MakeK8sService(ctx, r, "", &netv1alpha1.ClusterIngress{Status: readyIngressStatus()})
 
 	for _, opt := range so {
 		opt(svc)
@@ -2259,6 +2264,7 @@ func ReconcilerTestConfig(enableAutoTLS bool) *config.Config {
 			DefaultClusterIngressClass: TestIngressClass,
 			AutoTLS:                    enableAutoTLS,
 			DomainTemplate:             network.DefaultDomainTemplate,
+			TagTemplate:                network.DefaultTagTemplate,
 		},
 		GC: &gc.Config{
 			StaleRevisionLastpinnedDebounce: time.Duration(1 * time.Minute),
