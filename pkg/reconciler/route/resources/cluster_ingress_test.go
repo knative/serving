@@ -137,7 +137,7 @@ func TestMakeClusterIngressSpec_CorrectRules(t *testing.T) {
 		},
 	}, {
 		Hosts: []string{
-			"test-route-v1.test-ns.example.com",
+			"v1-test-route.test-ns.example.com",
 			"v1.domain.com",
 		},
 		HTTP: &netv1alpha1.HTTPClusterIngressRuleValue{
@@ -295,7 +295,7 @@ func TestGetRouteDomains_NamedTarget(t *testing.T) {
 		},
 	}
 	expected := []string{
-		"test-route-v1.test-ns.example.com",
+		"v1-test-route.test-ns.example.com",
 		"v1.domain.com",
 	}
 	domains, err := routeDomains(getContext(), name, r)

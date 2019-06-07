@@ -945,13 +945,13 @@ func TestRoundTripping(t *testing.T) {
 		TrafficTarget: v1beta1.TrafficTarget{
 			Tag:          "beta",
 			RevisionName: goodNewRev.Name,
-			URL:          domains.URL(domains.HTTPScheme, "test-route-beta.test.example.com"),
+			URL:          domains.URL(domains.HTTPScheme, "beta-test-route.test.example.com"),
 		},
 	}, {
 		TrafficTarget: v1beta1.TrafficTarget{
 			Tag:          "alpha",
 			RevisionName: niceNewRev.Name,
-			URL:          domains.URL(domains.HTTPScheme, "test-route-alpha.test.example.com"),
+			URL:          domains.URL(domains.HTTPScheme, "alpha-test-route.test.example.com"),
 		},
 	}}
 	route := testRouteWithTrafficTargets(tts)

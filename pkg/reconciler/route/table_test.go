@@ -1441,7 +1441,7 @@ func TestReconcile(t *testing.T) {
 							LatestRevision: ptr.Bool(true),
 							URL: &apis.URL{
 								Scheme: "http",
-								Host:   "same-revision-targets-gray.default.example.com",
+								Host:   "gray-same-revision-targets.default.example.com",
 							},
 						},
 					}, v1alpha1.TrafficTarget{
@@ -1452,15 +1452,15 @@ func TestReconcile(t *testing.T) {
 							LatestRevision: ptr.Bool(false),
 							URL: &apis.URL{
 								Scheme: "http",
-								Host:   "same-revision-targets-also-gray.default.example.com",
+								Host:   "also-gray-same-revision-targets.default.example.com",
 							},
 						},
 					})),
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Created", "Created placeholder service %q", "same-revision-targets"),
-			Eventf(corev1.EventTypeNormal, "Created", "Created placeholder service %q", "same-revision-targets-also-gray"),
-			Eventf(corev1.EventTypeNormal, "Created", "Created placeholder service %q", "same-revision-targets-gray"),
+			Eventf(corev1.EventTypeNormal, "Created", "Created placeholder service %q", "also-gray-same-revision-targets"),
+			Eventf(corev1.EventTypeNormal, "Created", "Created placeholder service %q", "gray-same-revision-targets"),
 			Eventf(corev1.EventTypeNormal, "Created", "Created ClusterIngress %q", "route-1-2"),
 		},
 		Key:                     "default/same-revision-targets",
