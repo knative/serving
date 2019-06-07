@@ -257,8 +257,9 @@ func TestServiceValidation(t *testing.T) {
 						DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 							Spec: RevisionSpec{
 								DeprecatedContainer: &corev1.Container{
-									Name:  "foo",
-									Image: "hellworld",
+									Name:      "foo",
+									Image:     "hellworld",
+									Lifecycle: &corev1.Lifecycle{},
 								},
 							},
 						},
@@ -266,7 +267,7 @@ func TestServiceValidation(t *testing.T) {
 				},
 			},
 		},
-		want: apis.ErrDisallowedFields("spec.runLatest.configuration.revisionTemplate.spec.container.name"),
+		want: apis.ErrDisallowedFields("spec.runLatest.configuration.revisionTemplate.spec.container.lifecycle"),
 	}, {
 		name: "invalid pinned",
 		s: &Service{
@@ -280,8 +281,9 @@ func TestServiceValidation(t *testing.T) {
 						DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 							Spec: RevisionSpec{
 								DeprecatedContainer: &corev1.Container{
-									Name:  "foo",
-									Image: "hellworld",
+									Name:      "foo",
+									Image:     "hellworld",
+									Lifecycle: &corev1.Lifecycle{},
 								},
 							},
 						},
@@ -289,7 +291,7 @@ func TestServiceValidation(t *testing.T) {
 				},
 			},
 		},
-		want: apis.ErrDisallowedFields("spec.pinned.configuration.revisionTemplate.spec.container.name"),
+		want: apis.ErrDisallowedFields("spec.pinned.configuration.revisionTemplate.spec.container.lifecycle"),
 	}, {
 		name: "invalid release -- too few revisions; nil",
 		s: &Service{
@@ -737,14 +739,15 @@ func TestRunLatestTypeValidation(t *testing.T) {
 				DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 					Spec: RevisionSpec{
 						DeprecatedContainer: &corev1.Container{
-							Name:  "stuart",
-							Image: "hellworld",
+							Name:      "stuart",
+							Image:     "hellworld",
+							Lifecycle: &corev1.Lifecycle{},
 						},
 					},
 				},
 			},
 		},
-		want: apis.ErrDisallowedFields("configuration.revisionTemplate.spec.container.name"),
+		want: apis.ErrDisallowedFields("configuration.revisionTemplate.spec.container.lifecycle"),
 	}}
 
 	for _, test := range tests {
@@ -799,14 +802,15 @@ func TestPinnedTypeValidation(t *testing.T) {
 				DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 					Spec: RevisionSpec{
 						DeprecatedContainer: &corev1.Container{
-							Name:  "stuart",
-							Image: "hellworld",
+							Name:      "stuart",
+							Image:     "hellworld",
+							Lifecycle: &corev1.Lifecycle{},
 						},
 					},
 				},
 			},
 		},
-		want: apis.ErrDisallowedFields("configuration.revisionTemplate.spec.container.name"),
+		want: apis.ErrDisallowedFields("configuration.revisionTemplate.spec.container.lifecycle"),
 	}}
 
 	for _, test := range tests {

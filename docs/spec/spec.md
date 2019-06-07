@@ -377,6 +377,7 @@ otherwise noted.
 
 ```yaml
 container: # v1.Container
+  name: ... # Optional
   args: [...] # Optional
   command: [...] # Optional
   env: ... # Optional

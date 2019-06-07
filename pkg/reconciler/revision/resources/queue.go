@@ -256,7 +256,7 @@ func makeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, o
 			Value: pkgmetrics.Domain(),
 		}, {
 			Name:  "USER_CONTAINER_NAME",
-			Value: UserContainerName,
+			Value: rev.Spec.GetContainer().Name,
 		}, {
 			Name:  "ENABLE_VAR_LOG_COLLECTION",
 			Value: strconv.FormatBool(observabilityConfig.EnableVarLogCollection),

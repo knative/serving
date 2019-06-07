@@ -46,6 +46,7 @@ func TestRevisionDefaulting(t *testing.T) {
 					TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
 				},
 				DeprecatedContainer: &corev1.Container{
+					Name:      config.DefaultUserContainerName,
 					Resources: defaultResources,
 				},
 			},
@@ -64,6 +65,7 @@ func TestRevisionDefaulting(t *testing.T) {
 					TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
 				},
 				DeprecatedContainer: &corev1.Container{
+					Name:      config.DefaultUserContainerName,
 					Resources: defaultResources,
 				},
 			},
@@ -94,6 +96,7 @@ func TestRevisionDefaulting(t *testing.T) {
 					TimeoutSeconds:       ptr.Int64(123),
 				},
 				DeprecatedContainer: &corev1.Container{
+					Name:      config.DefaultUserContainerName,
 					Resources: defaultResources,
 				},
 			},
@@ -117,6 +120,7 @@ func TestRevisionDefaulting(t *testing.T) {
 		want: &Revision{
 			Spec: RevisionSpec{
 				DeprecatedContainer: &corev1.Container{
+					Name:  config.DefaultUserContainerName,
 					Image: "foo",
 					VolumeMounts: []corev1.VolumeMount{{
 						Name:     "bar",
@@ -152,6 +156,7 @@ func TestRevisionDefaulting(t *testing.T) {
 				RevisionSpec: v1beta1.RevisionSpec{
 					PodSpec: corev1.PodSpec{
 						Containers: []corev1.Container{{
+							Name:  config.DefaultUserContainerName,
 							Image: "foo",
 							VolumeMounts: []corev1.VolumeMount{{
 								Name:     "bar",
@@ -195,6 +200,7 @@ func TestRevisionDefaulting(t *testing.T) {
 					TimeoutSeconds:       ptr.Int64(99),
 					PodSpec: corev1.PodSpec{
 						Containers: []corev1.Container{{
+							Name:      config.DefaultUserContainerName,
 							Image:     "foo",
 							Resources: defaultResources,
 						}},
@@ -220,6 +226,7 @@ func TestRevisionDefaulting(t *testing.T) {
 					TimeoutSeconds:       ptr.Int64(99),
 				},
 				DeprecatedContainer: &corev1.Container{
+					Name:      config.DefaultUserContainerName,
 					Resources: defaultResources,
 				},
 			},
@@ -241,6 +248,7 @@ func TestRevisionDefaulting(t *testing.T) {
 					TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
 				},
 				DeprecatedContainer: &corev1.Container{
+					Name:      config.DefaultUserContainerName,
 					Resources: defaultResources,
 				},
 			},
@@ -264,6 +272,7 @@ func TestRevisionDefaulting(t *testing.T) {
 					TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
 				},
 				DeprecatedContainer: &corev1.Container{
+					Name:      config.DefaultUserContainerName,
 					Resources: defaultResources,
 				},
 			},

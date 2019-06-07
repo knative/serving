@@ -110,8 +110,7 @@ func rewriteUserProbe(p *corev1.Probe, userPort int) {
 func makePodSpec(rev *v1alpha1.Revision, loggingConfig *logging.Config, observabilityConfig *metrics.ObservabilityConfig, autoscalerConfig *autoscaler.Config, deploymentConfig *deployment.Config) *corev1.PodSpec {
 	userContainer := rev.Spec.GetContainer().DeepCopy()
 	// Adding or removing an overwritten corev1.Container field here? Don't forget to
-	// update the validations in pkg/webhook.validateContainer.
-	userContainer.Name = UserContainerName
+	// update the fieldmasks / validations in pkg/apis/serving
 
 	userContainer.VolumeMounts = append(userContainer.VolumeMounts, varLogVolumeMount)
 	userContainer.Lifecycle = userLifecycle

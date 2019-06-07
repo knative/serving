@@ -43,8 +43,9 @@ import (
 )
 
 var (
+	containerName        = "my-container-name"
 	defaultUserContainer = &corev1.Container{
-		Name:                     UserContainerName,
+		Name:                     containerName,
 		Image:                    "busybox",
 		Ports:                    buildContainerPorts(v1alpha1.DefaultUserPort),
 		VolumeMounts:             []corev1.VolumeMount{varLogVolumeMount},
@@ -126,7 +127,7 @@ var (
 			Value: pkgmetrics.Domain(),
 		}, {
 			Name:  "USER_CONTAINER_NAME",
-			Value: "user-container",
+			Value: containerName,
 		}, {
 			Name:  "ENABLE_VAR_LOG_COLLECTION",
 			Value: "false",
@@ -199,6 +200,7 @@ var (
 		},
 		Spec: v1alpha1.RevisionSpec{
 			DeprecatedContainer: &corev1.Container{
+				Name:  containerName,
 				Image: "busybox",
 			},
 			RevisionSpec: v1beta1.RevisionSpec{
