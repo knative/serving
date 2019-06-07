@@ -171,15 +171,16 @@ func WithVolume(name, mountPath string, volumeSource corev1.VolumeSource) Servic
 			rt = &svc.Spec.ConfigurationSpec.Template.Spec
 		}
 
-		rt.GetContainer().VolumeMounts = []corev1.VolumeMount{{
-			Name:      name,
-			MountPath: mountPath,
-		}}
+		rt.GetContainer().VolumeMounts = append(rt.GetContainer().VolumeMounts,
+			corev1.VolumeMount{
+				Name:      name,
+				MountPath: mountPath,
+			})
 
-		rt.Volumes = []corev1.Volume{{
+		rt.Volumes = append(rt.Volumes, corev1.Volume{
 			Name:         name,
 			VolumeSource: volumeSource,
-		}}
+		})
 	}
 }
 
