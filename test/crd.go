@@ -207,7 +207,10 @@ func LatestServiceLegacy(names ResourceNames, options *Options, fopt ...v1alpha1
 	a := append([]v1alpha1testing.ServiceOption{
 		v1alpha1testing.WithRunLatestConfigSpec(*LegacyConfigurationSpec(ptest.ImagePath(names.Image), options)),
 	}, fopt...)
-	return v1alpha1testing.ServiceWithoutNamespace(names.Service, a...)
+	svc := v1alpha1testing.ServiceWithoutNamespace(names.Service, a...)
+	// Clear the name, which is put there by defaulting.
+	svc.Spec.DeprecatedRunLatest.Configuration.GetTemplate().Spec.GetContainer().Name = ""
+	return svc
 }
 
 // AppendRandomString will generate a random string that begins with prefix. This is useful

@@ -137,6 +137,48 @@ func CreateRunLatestServiceReady(t *testing.T, clients *Clients, names *Resource
 	return resources, err
 }
 
+// CreateRunLatestServiceLegacyReady creates a new Service in state 'Ready'. This function expects Service and Image name passed in through 'names'.
+// Names is updated with the Route and Configuration created by the Service and ResourceObjects is returned with the Service, Route, and Configuration objects.
+// Returns error if the service does not come up correctly.
+func CreateRunLatestServiceLegacyReady(t *testing.T, clients *Clients, names *ResourceNames, options *Options, fopt ...rtesting.ServiceOption) (*ResourceObjects, error) {
+	if names.Image == "" {
+		return nil, fmt.Errorf("expected non-empty Image name; got Image=%v", names.Image)
+	}
+
+	t.Logf("Creating a new Service %s.", names.Service)
+	svc, err := CreateLatestServiceLegacy(t, clients, *names, options, fopt...)
+	if err != nil {
+		return nil, err
+	}
+
+	// Populate Route and Configuration Objects with name
+	names.Route = serviceresourcenames.Route(svc)
+	names.Config = serviceresourcenames.Configuration(svc)
+
+	// If the Service name was not specified, populate it
+	if names.Service == "" {
+		names.Service = svc.Name
+	}
+
+	t.Logf("Waiting for Service %q to transition to Ready.", names.Service)
+	if err := WaitForServiceState(clients.ServingClient, names.Service, IsServiceReady, "ServiceIsReady"); err != nil {
+		return nil, err
+	}
+
+	t.Log("Checking to ensure Service Status is populated for Ready service", names.Service)
+	err = validateCreatedServiceStatus(clients, names)
+	if err != nil {
+		return nil, err
+	}
+
+	t.Log("Getting latest objects Created by Service", names.Service)
+	resources, err := GetResourceObjects(clients, *names)
+	if err == nil {
+		t.Log("Successfully created Service", names.Service)
+	}
+	return resources, err
+}
+
 // CreateLatestService creates a service in namespace with the name names.Service and names.Image
 func CreateLatestService(t *testing.T, clients *Clients, names ResourceNames, options *Options, fopt ...rtesting.ServiceOption) (*v1alpha1.Service, error) {
 	service := LatestService(names, options, fopt...)

@@ -50,7 +50,7 @@ func TestProbe(t *testing.T) {
 	}
 	defer test.TearDown(clients, names)
 
-	objects, err := test.CreateRunLatestServiceReady(t, clients, &names, &test.Options{})
+	objects, err := test.CreateRunLatestServiceLegacyReady(t, clients, &names, &test.Options{})
 	if err != nil {
 		t.Fatalf("Failed to create Service: %v", err)
 	}
