@@ -95,6 +95,7 @@ func TestMakeQueueContainer(t *testing.T) {
 					TimeoutSeconds:       ptr.Int64(45),
 					PodSpec: corev1.PodSpec{
 						Containers: []corev1.Container{{
+							Name: containerName,
 							Ports: []corev1.ContainerPort{{
 								ContainerPort: 1955,
 								Name:          string(networking.ProtocolH2C),
@@ -335,6 +336,14 @@ func TestMakeQueueContainer(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			if len(test.rev.Spec.PodSpec.Containers) == 0 {
+				test.rev.Spec.PodSpec = corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Name: containerName,
+					}},
+				}
+			}
+
 			got := makeQueueContainer(test.rev, test.lc, test.oc, test.ac, test.cc)
 			sortEnv(got.Env)
 			if diff := cmp.Diff(test.want, got, cmpopts.IgnoreUnexported(resource.Quantity{})); diff != "" {
@@ -373,7 +382,7 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 					TimeoutSeconds:       ptr.Int64(45),
 					PodSpec: corev1.PodSpec{
 						Containers: []corev1.Container{{
-							Name: "bar",
+							Name: containerName,
 							Resources: corev1.ResourceRequirements{
 								Limits: corev1.ResourceList{
 									corev1.ResourceName("memory"): resource.MustParse("2Gi"),
@@ -430,7 +439,7 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 					TimeoutSeconds:       ptr.Int64(45),
 					PodSpec: corev1.PodSpec{
 						Containers: []corev1.Container{{
-							Name: "bar",
+							Name: containerName,
 							Resources: corev1.ResourceRequirements{
 								Requests: corev1.ResourceList{
 									corev1.ResourceName("cpu"):    resource.MustParse("50m"),
@@ -484,7 +493,7 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 					TimeoutSeconds:       ptr.Int64(45),
 					PodSpec: corev1.PodSpec{
 						Containers: []corev1.Container{{
-							Name: "bar",
+							Name: containerName,
 							Resources: corev1.ResourceRequirements{
 								Requests: corev1.ResourceList{
 									corev1.ResourceName("cpu"):    resource.MustParse("50m"),
@@ -537,7 +546,7 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 					TimeoutSeconds:       ptr.Int64(45),
 					PodSpec: corev1.PodSpec{
 						Containers: []corev1.Container{{
-							Name: "bar",
+							Name: containerName,
 							Resources: corev1.ResourceRequirements{
 								Requests: corev1.ResourceList{
 									corev1.ResourceName("memory"): resource.MustParse("900000Pi"),
@@ -611,7 +620,7 @@ var defaultEnv = map[string]string{
 	"SYSTEM_NAMESPACE":                system.Namespace(),
 	"METRICS_DOMAIN":                  pkgmetrics.Domain(),
 	"QUEUE_SERVING_PORT":              "8012",
-	"USER_CONTAINER_NAME":             "user-container",
+	"USER_CONTAINER_NAME":             containerName,
 	"ENABLE_VAR_LOG_COLLECTION":       "false",
 	"VAR_LOG_VOLUME_NAME":             varLogVolumeName,
 	"INTERNAL_VOLUME_PATH":            internalVolumePath,
@@ -628,20 +637,17 @@ func env(overrides map[string]string) []corev1.EnvVar {
 		})
 	}
 
-	env = append(env, []corev1.EnvVar{
-		{
-			Name: "SERVING_POD",
-			ValueFrom: &corev1.EnvVarSource{
-				FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
-			},
+	env = append(env, []corev1.EnvVar{{
+		Name: "SERVING_POD",
+		ValueFrom: &corev1.EnvVarSource{
+			FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 		},
-		{
-			Name: "SERVING_POD_IP",
-			ValueFrom: &corev1.EnvVarSource{
-				FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
-			},
+	}, {
+		Name: "SERVING_POD_IP",
+		ValueFrom: &corev1.EnvVarSource{
+			FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
 		},
-	}...)
+	}}...)
 
 	sortEnv(env)
 	return env

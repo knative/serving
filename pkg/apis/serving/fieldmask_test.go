@@ -130,6 +130,7 @@ func TestPodSpecMask(t *testing.T) {
 
 func TestContainerMask(t *testing.T) {
 	want := &corev1.Container{
+		Name:                     "foo",
 		Args:                     []string{"hello"},
 		Command:                  []string{"world"},
 		Env:                      []corev1.EnvVar{{}},

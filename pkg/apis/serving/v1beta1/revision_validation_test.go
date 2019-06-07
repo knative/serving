@@ -200,12 +200,13 @@ func TestRevisionSpecValidation(t *testing.T) {
 		rs: &RevisionSpec{
 			PodSpec: corev1.PodSpec{
 				Containers: []corev1.Container{{
-					Name:  "steve",
-					Image: "helloworld",
+					Name:      "steve",
+					Image:     "helloworld",
+					Lifecycle: &corev1.Lifecycle{},
 				}},
 			},
 		},
-		want: apis.ErrDisallowedFields("containers[0].name"),
+		want: apis.ErrDisallowedFields("containers[0].lifecycle"),
 	}, {
 		name: "missing container",
 		rs: &RevisionSpec{

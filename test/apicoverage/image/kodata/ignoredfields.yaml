@@ -110,3 +110,12 @@
     - DNSConfig
     - ReadinessGates
     - RuntimeClassName
+- package: pkg/apis
+  type: URL
+  fields:
+    - RawPath
+    - RawQuery
+    - Opaque
+    - Path
+    - Fragment
+    - User

@@ -130,7 +130,7 @@ func NewControllerWithClock(
 	resync := configmap.TypeFilter(configsToResync...)(func(string, interface{}) {
 		impl.GlobalResync(routeInformer.Informer())
 	})
-	c.configStore = config.NewStore(c.Logger.Named("config-store"), resync)
+	c.configStore = config.NewStore(c.Logger.Named("config-store"), opt.ResyncPeriod, resync)
 	c.configStore.WatchConfigs(opt.ConfigMapWatcher)
 	return impl
 }

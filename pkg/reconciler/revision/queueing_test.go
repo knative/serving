@@ -17,6 +17,7 @@ limitations under the License.
 package revision
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -70,7 +71,7 @@ const (
 )
 
 func testRevision() *v1alpha1.Revision {
-	return &v1alpha1.Revision{
+	rev := &v1alpha1.Revision{
 		ObjectMeta: metav1.ObjectMeta{
 			SelfLink:  "/apis/serving/v1alpha1/namespaces/test/revisions/test-rev",
 			Name:      "test-rev",
@@ -118,6 +119,8 @@ func testRevision() *v1alpha1.Revision {
 			},
 		},
 	}
+	rev.SetDefaults(context.Background())
+	return rev
 }
 
 func getTestDeploymentConfig() *deployment.Config {

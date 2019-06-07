@@ -27,6 +27,7 @@ import (
 )
 
 func (s *Service) SetDefaults(ctx context.Context) {
+	ctx = apis.WithinParent(ctx, s.ObjectMeta)
 	s.Spec.SetDefaults(apis.WithinSpec(ctx))
 
 	if ui := apis.GetUserInfo(ctx); ui != nil {

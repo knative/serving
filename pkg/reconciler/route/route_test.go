@@ -1010,6 +1010,9 @@ func TestRouteDomain(t *testing.T) {
 			Labels: map[string]string{
 				"route": "myapp",
 			},
+			Annotations: map[string]string{
+				"sub": "mysub",
+			},
 		},
 	}
 
@@ -1042,6 +1045,11 @@ func TestRouteDomain(t *testing.T) {
 		Template: "{{.Name}}",
 		Pass:     true,
 		Expected: "myapp",
+	}, {
+		Name:     "Annotations",
+		Template: `{{.Name}}.{{ index .Annotations "sub"}}.{{.Domain}}`,
+		Pass:     true,
+		Expected: "myapp.mysub.example.com",
 	}, {
 		// This cannot get through our validation, but verify we handle errors.
 		Name:     "BadVarName",

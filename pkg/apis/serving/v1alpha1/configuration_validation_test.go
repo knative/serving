@@ -72,13 +72,14 @@ func TestConfigurationSpecValidation(t *testing.T) {
 			DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 				Spec: RevisionSpec{
 					DeprecatedContainer: &corev1.Container{
-						Name:  "stuart",
-						Image: "hellworld",
+						Name:      "stuart",
+						Image:     "hellworld",
+						Lifecycle: &corev1.Lifecycle{},
 					},
 				},
 			},
 		},
-		want: apis.ErrDisallowedFields("revisionTemplate.spec.container.name"),
+		want: apis.ErrDisallowedFields("revisionTemplate.spec.container.lifecycle"),
 	}, {
 		name: "build is not allowed",
 		c: &ConfigurationSpec{
@@ -191,14 +192,15 @@ func TestConfigurationValidation(t *testing.T) {
 				DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 					Spec: RevisionSpec{
 						DeprecatedContainer: &corev1.Container{
-							Name:  "stuart",
-							Image: "hellworld",
+							Name:      "stuart",
+							Image:     "hellworld",
+							Lifecycle: &corev1.Lifecycle{},
 						},
 					},
 				},
 			},
 		},
-		want: apis.ErrDisallowedFields("spec.revisionTemplate.spec.container.name"),
+		want: apis.ErrDisallowedFields("spec.revisionTemplate.spec.container.lifecycle"),
 	}, {
 		name: "propagate revision failures (template)",
 		c: &Configuration{

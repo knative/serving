@@ -154,7 +154,7 @@ func (c *Reconciler) reconcile(ctx context.Context, pa *pav1alpha1.PodAutoscaler
 		return perrors.Wrap(err, "error reconciling decider")
 	}
 
-	if err := c.reconcileMetric(ctx, pa); err != nil {
+	if err := c.reconcileMetric(ctx, pa, metricSvc); err != nil {
 		return perrors.Wrap(err, "error reconciling metric")
 	}
 
@@ -272,7 +272,7 @@ func (c *Reconciler) reconcileMetricsService(ctx context.Context, pa *pav1alpha1
 	if errors.IsNotFound(err) {
 		logger.Infof("K8s service %s/%s does not exist; creating.", pa.Namespace, sn)
 		svc = resources.MakeMetricsService(pa, selector)
-		_, err := c.KubeClientSet.CoreV1().Services(pa.Namespace).Create(svc)
+		svc, err = c.KubeClientSet.CoreV1().Services(pa.Namespace).Create(svc)
 		if err != nil {
 			return "", perrors.Wrapf(err, "error creating K8s Service %s/%s", pa.Namespace, sn)
 		}
@@ -299,8 +299,8 @@ func (c *Reconciler) reconcileMetricsService(ctx context.Context, pa *pav1alpha1
 	return sn, nil
 }
 
-func (c *Reconciler) reconcileMetric(ctx context.Context, pa *pav1alpha1.PodAutoscaler) error {
-	desiredMetric := aresources.MakeMetric(ctx, pa, config.FromContext(ctx).Autoscaler)
+func (c *Reconciler) reconcileMetric(ctx context.Context, pa *pav1alpha1.PodAutoscaler, metricSN string) error {
+	desiredMetric := aresources.MakeMetric(ctx, pa, metricSN, config.FromContext(ctx).Autoscaler)
 	metric, err := c.metrics.Get(ctx, desiredMetric.Namespace, desiredMetric.Name)
 	if errors.IsNotFound(err) {
 		metric, err = c.metrics.Create(ctx, desiredMetric)
