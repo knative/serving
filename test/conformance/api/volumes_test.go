@@ -77,7 +77,7 @@ func TestConfigMapVolume(t *testing.T) {
 		},
 	})
 
-	withBadVolume := WithVolume("blah", "/does/not/matter", corev1.VolumeSource{
+	withOptionalBadVolume := WithVolume("blah", "/does/not/matter", corev1.VolumeSource{
 		ConfigMap: &corev1.ConfigMapVolumeSource{
 			LocalObjectReference: corev1.LocalObjectReference{
 				Name: "does-not-exist",
@@ -87,7 +87,7 @@ func TestConfigMapVolume(t *testing.T) {
 	})
 
 	// Setup initial Service
-	if _, err := test.CreateRunLatestServiceReady(t, clients, &names, &test.Options{}, withVolume, withBadVolume); err != nil {
+	if _, err := test.CreateRunLatestServiceReady(t, clients, &names, &test.Options{}, withVolume, withOptionalBadVolume); err != nil {
 		t.Fatalf("Failed to create initial Service %v: %v", names.Service, err)
 	}
 
@@ -217,7 +217,7 @@ func TestSecretVolume(t *testing.T) {
 		},
 	})
 
-	withBadVolume := WithVolume("blah", "/does/not/matter", corev1.VolumeSource{
+	withOptionalBadVolume := WithVolume("blah", "/does/not/matter", corev1.VolumeSource{
 		Secret: &corev1.SecretVolumeSource{
 			SecretName: "does-not-exist",
 			Optional:   ptr.Bool(true),
@@ -225,7 +225,7 @@ func TestSecretVolume(t *testing.T) {
 	})
 
 	// Setup initial Service
-	if _, err := test.CreateRunLatestServiceReady(t, clients, &names, &test.Options{}, withVolume, withBadVolume); err != nil {
+	if _, err := test.CreateRunLatestServiceReady(t, clients, &names, &test.Options{}, withVolume, withOptionalBadVolume); err != nil {
 		t.Fatalf("Failed to create initial Service %v: %v", names.Service, err)
 	}
 
