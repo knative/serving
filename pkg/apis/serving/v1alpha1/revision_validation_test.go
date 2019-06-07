@@ -24,8 +24,10 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/knative/pkg/apis"
+	logtesting "github.com/knative/pkg/logging/testing"
 	"github.com/knative/pkg/ptr"
 	"github.com/knative/serving/pkg/apis/autoscaling"
+	"github.com/knative/serving/pkg/apis/config"
 	net "github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/serving"
 	corev1 "k8s.io/api/core/v1"
@@ -214,8 +216,31 @@ func TestRevisionSpecValidation(t *testing.T) {
 			},
 		},
 		want: apis.ErrOutOfBoundsValue(6000, 0,
-			net.DefaultTimeout.Seconds(),
+			config.DefaultMaxRevisionTimeoutSeconds,
 			"timeoutSeconds"),
+	}, {
+		name: "exceed custom max timeout",
+		rs: &RevisionSpec{
+			DeprecatedContainer: &corev1.Container{
+				Image: "helloworld",
+			},
+			RevisionSpec: v1beta1.RevisionSpec{
+				TimeoutSeconds: ptr.Int64(100),
+			},
+		},
+		wc: func(ctx context.Context) context.Context {
+			s := config.NewStore(logtesting.TestLogger(t))
+			s.OnConfigChanged(&corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: config.DefaultsConfigName,
+				},
+				Data: map[string]string{
+					"revision-timeout-seconds":     "25",
+					"max-revision-timeout-seconds": "50"},
+			})
+			return s.ToContext(ctx)
+		},
+		want: apis.ErrOutOfBoundsValue(100, 0, 50, "timeoutSeconds"),
 	}, {
 		name: "provided zero timeout (ok)",
 		rs: &RevisionSpec{
@@ -238,7 +263,7 @@ func TestRevisionSpecValidation(t *testing.T) {
 			},
 		},
 		want: apis.ErrOutOfBoundsValue(-30, 0,
-			net.DefaultTimeout.Seconds(),
+			config.DefaultMaxRevisionTimeoutSeconds,
 			"timeoutSeconds"),
 	}}
 
@@ -447,6 +472,7 @@ func TestImmutableFields(t *testing.T) {
 		name string
 		new  *Revision
 		old  *Revision
+		wc   func(context.Context) context.Context
 		want *apis.FieldError
 	}{{
 		name: "good (no change)",
@@ -469,6 +495,50 @@ func TestImmutableFields(t *testing.T) {
 					Image: "helloworld",
 				},
 			},
+		},
+		want: nil,
+	}, {
+		// Test the case where max-revision-timeout is changed to a value
+		// that is less than an existing revision's timeout value.
+		// Existing revision should keep operating normally.
+		name: "good (max revision timeout change)",
+		new: &Revision{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "foo",
+			},
+			Spec: RevisionSpec{
+				DeprecatedContainer: &corev1.Container{
+					Image: "helloworld",
+				},
+				RevisionSpec: v1beta1.RevisionSpec{
+					TimeoutSeconds: ptr.Int64(100),
+				},
+			},
+		},
+		old: &Revision{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "foo",
+			},
+			Spec: RevisionSpec{
+				DeprecatedContainer: &corev1.Container{
+					Image: "helloworld",
+				},
+				RevisionSpec: v1beta1.RevisionSpec{
+					TimeoutSeconds: ptr.Int64(100),
+				},
+			},
+		},
+		wc: func(ctx context.Context) context.Context {
+			s := config.NewStore(logtesting.TestLogger(t))
+			s.OnConfigChanged(&corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: config.DefaultsConfigName,
+				},
+				Data: map[string]string{
+					"revision-timeout-seconds":     "25",
+					"max-revision-timeout-seconds": "50"},
+			})
+			return s.ToContext(ctx)
 		},
 		want: nil,
 	}, {
@@ -651,6 +721,9 @@ func TestImmutableFields(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			ctx := context.Background()
 			ctx = apis.WithinUpdate(ctx, test.old)
+			if test.wc != nil {
+				ctx = test.wc(ctx)
+			}
 			got := test.new.Validate(ctx)
 			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
 				t.Errorf("Validate (-want, +got) = %v", diff)

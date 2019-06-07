@@ -1,12 +1,12 @@
 # Knative Dependency Injection
 
-This library supports the production of controller processes with
-minimal boilerplate outside of the reconciler implementation.
+This library supports the production of controller processes with minimal
+boilerplate outside of the reconciler implementation.
 
 ## Registering Controllers
 
-To adopt this model of controller construction, implementations
-should start with the following controller constructor:
+To adopt this model of controller construction, implementations should start
+with the following controller constructor:
 
 ```go
 import (
@@ -46,7 +46,7 @@ queue work, and pass the "listers" fed by the informers' caches to the nested
 "Reconciler" for accessing objects.
 
 Our controller constructor is passed a `context.Context` onto which we inject
-any informers we access.  The accessors for these informers are in little stub
+any informers we access. The accessors for these informers are in little stub
 libraries, which we have hand rolled for Kubernetes (more on how to generate
 these below).
 
@@ -81,16 +81,16 @@ func NewController(ctx context.Context, cmw configmap.Watcher) *controller.Impl 
 
 ```
 
-> How it works: by importing the accessor for a client or informer we link
-> it and trigger the `init()` method for its package to run at startup.
-> Each of these libraries registers themselves similar to our `init()` and
-> controller processes can leverage this to setup and inject all of the
-> registered things onto a context to pass to your `NewController()`.
+> How it works: by importing the accessor for a client or informer we link it
+> and trigger the `init()` method for its package to run at startup. Each of
+> these libraries registers themselves similar to our `init()` and controller
+> processes can leverage this to setup and inject all of the registered things
+> onto a context to pass to your `NewController()`.
 
 ## Testing Controllers
 
-Similar to `injection.Default`, we also have `injection.Fake`.  While linking
-the normal accessors sets up the former, linking their fakes set up the latter.
+Similar to `injection.Default`, we also have `injection.Fake`. While linking the
+normal accessors sets up the former, linking their fakes set up the latter.
 
 ```
 import (
@@ -153,10 +153,10 @@ func TestFoo(t *testing.T) {
 ## Starting controllers
 
 By registering our controller with `injection.Default` via `init()` above we
-enable our shared main method to bootstrap the entire container process.  All
-we do is link the controller packages containing the `init()` registering them
-and this transitively links in all of the things it needs.  Then our shared
-main method sets it all up and runs our controllers.
+enable our shared main method to bootstrap the entire container process. All we
+do is link the controller packages containing the `init()` registering them and
+this transitively links in all of the things it needs. Then our shared main
+method sets it all up and runs our controllers.
 
 ```go
 package main
@@ -176,12 +176,11 @@ func main() {
 
 ```
 
-
 ## Generating Injection Stubs.
 
 To make generating stubs simple, we have harnessed the Kubernetes
-code-generation tooling to produce `injection-gen`.  Similar to how
-you might ordinarily run the other `foo-gen` processed:
+code-generation tooling to produce `injection-gen`. Similar to how you might
+ordinarily run the other `foo-gen` processed:
 
 ```shell
 CODEGEN_PKG=${CODEGEN_PKG:-$(cd ${REPO_ROOT}; ls -d -1 ./vendor/k8s.io/code-generator 2>/dev/null || echo ../code-generator)}
@@ -192,7 +191,8 @@ ${CODEGEN_PKG}/generate-groups.sh "deepcopy,client,informer,lister" \
   --go-header-file ${REPO_ROOT}/hack/boilerplate/boilerplate.go.txt
 ```
 
-To run `injection-gen` you run the following (replacing the import path and api group):
+To run `injection-gen` you run the following (replacing the import path and api
+group):
 
 ```shell
 
@@ -205,7 +205,8 @@ ${KNATIVE_CODEGEN_PKG}/hack/generate-knative.sh "injection" \
 
 ```
 
-To ensure the appropriate tooling is vendored, add the following to `Gopkg.toml`:
+To ensure the appropriate tooling is vendored, add the following to
+`Gopkg.toml`:
 
 ```toml
 required = [

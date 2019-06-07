@@ -46,6 +46,7 @@ import (
 	logtesting "github.com/knative/pkg/logging/testing"
 	"github.com/knative/pkg/system"
 	_ "github.com/knative/pkg/system/testing"
+	apiconfig "github.com/knative/serving/pkg/apis/config"
 	"github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving"
@@ -75,6 +76,7 @@ var (
 		"gateway.knative-ingress-gateway": newDomainInternal,
 		"gateway.knative-test-gateway":    originDomainInternal,
 	}
+	defaultMaxRevisionTimeout = time.Duration(apiconfig.DefaultMaxRevisionTimeoutSeconds) * time.Second
 )
 
 var (
@@ -95,9 +97,9 @@ var (
 					},
 					Percent: 100,
 				}},
-				Timeout: &metav1.Duration{Duration: networking.DefaultTimeout},
+				Timeout: &metav1.Duration{Duration: defaultMaxRevisionTimeout},
 				Retries: &v1alpha1.HTTPRetry{
-					PerTryTimeout: &metav1.Duration{Duration: networking.DefaultTimeout},
+					PerTryTimeout: &metav1.Duration{Duration: defaultMaxRevisionTimeout},
 					Attempts:      networking.DefaultRetryCount,
 				}},
 			},
