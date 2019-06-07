@@ -33,7 +33,3 @@ func KPA(rev *v1alpha1.Revision) string {
 	// to simplify the transition to the KPA.
 	return rev.Name
 }
-
-func FluentdConfigMap(rev *v1alpha1.Revision) string {
-	return rev.Name + "-fluentd"
-}

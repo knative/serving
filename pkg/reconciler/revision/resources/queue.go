@@ -186,12 +186,18 @@ func makeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, o
 		ports = append(ports, queueHTTPPort)
 	}
 
+	var volumeMounts []corev1.VolumeMount
+	if observabilityConfig.EnableVarLogCollection {
+		volumeMounts = append(volumeMounts, internalVolumeMount)
+	}
+
 	return &corev1.Container{
 		Name:           QueueContainerName,
 		Image:          deploymentConfig.QueueSidecarImage,
 		Resources:      createQueueResources(rev.GetAnnotations(), rev.Spec.GetContainer()),
 		Ports:          ports,
 		ReadinessProbe: queueReadinessProbe,
+		VolumeMounts:   volumeMounts,
 		Env: []corev1.EnvVar{{
 			Name:  "SERVING_NAMESPACE",
 			Value: rev.Namespace,
@@ -248,6 +254,18 @@ func makeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, o
 		}, {
 			Name:  pkgmetrics.DomainEnv,
 			Value: pkgmetrics.Domain(),
+		}, {
+			Name:  "USER_CONTAINER_NAME",
+			Value: UserContainerName,
+		}, {
+			Name:  "ENABLE_VAR_LOG_COLLECTION",
+			Value: strconv.FormatBool(observabilityConfig.EnableVarLogCollection),
+		}, {
+			Name:  "VAR_LOG_VOLUME_NAME",
+			Value: varLogVolumeName,
+		}, {
+			Name:  "INTERNAL_VOLUME_PATH",
+			Value: internalVolumePath,
 		}},
 	}
 }

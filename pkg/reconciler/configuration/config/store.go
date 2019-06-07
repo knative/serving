@@ -18,6 +18,7 @@ package config
 
 import (
 	"context"
+	"time"
 
 	"github.com/knative/pkg/configmap"
 	"github.com/knative/serving/pkg/gc"
@@ -53,13 +54,13 @@ func (s *Store) Load() *Config {
 	}
 }
 
-func NewStore(logger configmap.Logger) *Store {
+func NewStore(logger configmap.Logger, minRevisionTimeout time.Duration) *Store {
 	return &Store{
 		UntypedStore: configmap.NewUntypedStore(
 			"configuration",
 			logger,
 			configmap.Constructors{
-				gc.ConfigName: gc.NewConfigFromConfigMap,
+				gc.ConfigName: gc.NewConfigFromConfigMapFunc(logger, minRevisionTimeout),
 			},
 		),
 	}

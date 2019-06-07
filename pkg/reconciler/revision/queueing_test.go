@@ -64,15 +64,9 @@ func (r *nopResolver) Resolve(_ string, _ k8schain.Options, _ sets.String) (stri
 }
 
 const (
-	testAutoscalerImage            = "autoscalerImage"
-	testFluentdImage               = "fluentdImage"
-	testFluentdSidecarOutputConfig = `
-<match **>
-  @type elasticsearch
-</match>
-`
-	testNamespace  = "test"
-	testQueueImage = "queueImage"
+	testAutoscalerImage = "autoscalerImage"
+	testNamespace       = "test"
+	testQueueImage      = "queueImage"
 )
 
 func testRevision() *v1alpha1.Revision {
@@ -214,9 +208,7 @@ func newTestController(t *testing.T, stopCh <-chan struct{}) (
 				Name:      metrics.ConfigMapName(),
 			},
 			Data: map[string]string{
-				"logging.enable-var-log-collection":     "true",
-				"logging.fluentd-sidecar-image":         testFluentdImage,
-				"logging.fluentd-sidecar-output-config": testFluentdSidecarOutputConfig,
+				"logging.enable-var-log-collection": "true",
 			}}, {
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: system.Namespace(),

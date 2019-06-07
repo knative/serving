@@ -19,10 +19,10 @@ package certificate
 import (
 	"context"
 
-	certmanagerclientset "github.com/jetstack/cert-manager/pkg/client/clientset/versioned"
-	certmanagerinformers "github.com/jetstack/cert-manager/pkg/client/informers/externalversions/certmanager/v1alpha1"
 	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/controller"
+	certmanagerclientset "github.com/knative/serving/pkg/client/certmanager/clientset/versioned"
+	certmanagerinformers "github.com/knative/serving/pkg/client/certmanager/informers/externalversions/certmanager/v1alpha1"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions/networking/v1alpha1"
 	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/certificate/config"

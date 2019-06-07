@@ -40,7 +40,8 @@ type Metrics interface {
 }
 
 // MakeMetric constructs a Metric resource from a PodAutoscaler
-func MakeMetric(ctx context.Context, pa *v1alpha1.PodAutoscaler, config *autoscaler.Config) *autoscaler.Metric {
+func MakeMetric(ctx context.Context, pa *v1alpha1.PodAutoscaler, metricSvc string,
+	config *autoscaler.Config) *autoscaler.Metric {
 	stableWindow, ok := pa.Window()
 	if !ok {
 		stableWindow = config.StableWindow
@@ -57,6 +58,7 @@ func MakeMetric(ctx context.Context, pa *v1alpha1.PodAutoscaler, config *autosca
 		Spec: autoscaler.MetricSpec{
 			StableWindow: stableWindow,
 			PanicWindow:  panicWindow,
+			ScrapeTarget: metricSvc,
 		},
 	}
 }

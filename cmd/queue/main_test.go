@@ -17,10 +17,13 @@ package main
 
 import (
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"net/http/httputil"
 	"net/url"
+	"os"
+	"path"
 	"strings"
 	"testing"
 	"time"
@@ -129,5 +132,25 @@ func TestProberHandler(t *testing.T) {
 	if got, want := strings.TrimSpace(writer.Body.String()), queue.Name; got != want {
 		// \r\n might be inserted, etc.
 		t.Errorf("Good probe body = %q, want: %q, diff: %s", got, want, cmp.Diff(got, want))
+	}
+}
+
+func TestCreateVarLogLink(t *testing.T) {
+	dir, err := ioutil.TempDir("", "TestCreateVarLogLink")
+	if err != nil {
+		t.Errorf("Failed to created temporary directory: %v", err)
+	}
+	defer os.RemoveAll(dir)
+
+	createVarLogLink("default", "service-7f97f9465b-5kkm5", "user-container", "knative-var-log", dir)
+
+	source := path.Join(dir, "default_service-7f97f9465b-5kkm5_user-container")
+	want := "../knative-var-log"
+	got, err := os.Readlink(source)
+	if err != nil {
+		t.Errorf("Failed to read symlink: %v", err)
+	}
+	if got != want {
+		t.Errorf("Incorrect symlink = %q, want %q, diff: %s", got, want, cmp.Diff(got, want))
 	}
 }
