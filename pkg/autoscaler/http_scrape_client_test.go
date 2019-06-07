@@ -19,13 +19,14 @@ package autoscaler
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"testing"
 )
 
 const (
-	testURL = "http://test-revision-metrics.test-namespace:9090/metrics"
+	testURL = "http://test-revision-zhudex.test-namespace:9090/metrics"
 
 	// TODO: Use Prometheus lib to generate the following text instead of using text format directly.
 	testAverageConcurrencyContext = `# HELP queue_average_concurrent_requests Number of requests currently being handled by this pod
@@ -107,12 +108,12 @@ func TestHTTPScrapeClient_Scrape_ErrorCases(t *testing.T) {
 	}{{
 		name:         "Non 200 return code",
 		responseCode: http.StatusForbidden,
-		expectedErr:  `GET request for URL "http://test-revision-metrics.test-namespace:9090/metrics" returned HTTP status 403`,
+		expectedErr:  fmt.Sprintf(`GET request for URL "%s" returned HTTP status 403`, testURL),
 	}, {
 		name:         "Error got when sending request",
 		responseCode: http.StatusOK,
 		responseErr:  errors.New("upstream closed"),
-		expectedErr:  "Get http://test-revision-metrics.test-namespace:9090/metrics: upstream closed",
+		expectedErr:  fmt.Sprintf("Get %s: upstream closed", testURL),
 	}, {
 		name:            "Bad response context format",
 		responseCode:    http.StatusOK,

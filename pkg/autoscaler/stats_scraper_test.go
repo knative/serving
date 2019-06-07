@@ -17,10 +17,12 @@ limitations under the License.
 package autoscaler
 
 import (
+	"fmt"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/resources"
 	"github.com/pkg/errors"
@@ -53,7 +55,7 @@ var (
 func TestNewServiceScraperWithClient_HappyCase(t *testing.T) {
 	client := newTestScrapeClient(testStats, []error{nil})
 	if scraper, err := serviceScraperForTest(client); err != nil {
-		t.Fatalf("newServiceScraperWithClient=%v, want no error", err)
+		t.Fatalf("serviceScraperForTest=%v, want no error", err)
 	} else {
 		if scraper.url != testURL {
 			t.Errorf("scraper.url=%v, want %v", scraper.url, testURL)
@@ -65,8 +67,8 @@ func TestNewServiceScraperWithClient_HappyCase(t *testing.T) {
 }
 
 func TestNewServiceScraperWithClient_ErrorCases(t *testing.T) {
-	metric := getTestMetric()
-	invalidMetric := getTestMetric()
+	metric := testMetric()
+	invalidMetric := testMetric()
 	invalidMetric.Labels = map[string]string{}
 	client := newTestScrapeClient(testStats, []error{nil})
 	lister := kubeInformer.Core().V1().Endpoints().Lister()
@@ -117,11 +119,11 @@ func TestNewServiceScraperWithClient_ErrorCases(t *testing.T) {
 	}
 }
 
-func TestScrape_ReportStatWhenAllCallsSucceed(t *testing.T) {
+func TestScrapeReportStatWhenAllCallsSucceed(t *testing.T) {
 	client := newTestScrapeClient(testStats, []error{nil})
 	scraper, err := serviceScraperForTest(client)
 	if err != nil {
-		t.Fatalf("newServiceScraperWithClient=%v, want no error", err)
+		t.Fatalf("serviceScraperForTest=%v, want no error", err)
 	}
 
 	// Make an Endpoints with 3 pods.
@@ -163,12 +165,12 @@ func TestScrape_ReportStatWhenAllCallsSucceed(t *testing.T) {
 	}
 }
 
-func TestScrape_ReportStatWhenAtLeastOneCallSucceeds(t *testing.T) {
+func TestScrapeReportStatWhenAtLeastOneCallSucceeds(t *testing.T) {
 	errTest := errors.New("test")
 	client := newTestScrapeClient(testStats, []error{nil, errTest, errTest})
 	scraper, err := serviceScraperForTest(client)
 	if err != nil {
-		t.Fatalf("newServiceScraperWithClient=%v, want no error", err)
+		t.Fatalf("serviceScraperForTest=%v, want no error", err)
 	}
 
 	// Make an Endpoints with 3 pods.
@@ -186,12 +188,12 @@ func TestScrape_ReportStatWhenAtLeastOneCallSucceeds(t *testing.T) {
 	}
 }
 
-func TestScrape_ReportErrorIfAllFail(t *testing.T) {
+func TestScrapeReportErrorIfAllFail(t *testing.T) {
 	errTest := errors.New("test")
 	client := newTestScrapeClient(testStats, []error{errTest, errTest})
 	scraper, err := serviceScraperForTest(client)
 	if err != nil {
-		t.Fatalf("newServiceScraperWithClient=%v, want no error", err)
+		t.Fatalf("serviceScraperForTest=%v, want no error", err)
 	}
 
 	// Make an Endpoints with 2 pods.
@@ -203,11 +205,26 @@ func TestScrape_ReportErrorIfAllFail(t *testing.T) {
 	}
 }
 
-func TestScrape_DoNotScrapeIfNoPodsFound(t *testing.T) {
+func TestUpdateTarget(t *testing.T) {
 	client := newTestScrapeClient(testStats, nil)
 	scraper, err := serviceScraperForTest(client)
 	if err != nil {
-		t.Fatalf("newServiceScraperWithClient=%v, want no error", err)
+		t.Fatalf("serviceScraperForTest=%v, want no error", err)
+	}
+	if got, want := scraper.target(), fmt.Sprintf("http://%s-zhudex.%s:9090/metrics", testRevision, testNamespace); got != want {
+		t.Errorf("Initial target = %s, want: %s, diff: %s", got, want, cmp.Diff(got, want))
+	}
+	scraper.UpdateTarget("last-words", "said-again")
+	if got, want := scraper.target(), "http://last-words.said-again:9090/metrics"; got != want {
+		t.Errorf("Initial target = %s, want: %s, diff: %s", got, want, cmp.Diff(got, want))
+	}
+}
+
+func TestScrapeDoNotScrapeIfNoPodsFound(t *testing.T) {
+	client := newTestScrapeClient(testStats, nil)
+	scraper, err := serviceScraperForTest(client)
+	if err != nil {
+		t.Fatalf("serviceScraperForTest=%v, want no error", err)
 	}
 
 	// Make an Endpoints with 0 pods.
@@ -223,12 +240,12 @@ func TestScrape_DoNotScrapeIfNoPodsFound(t *testing.T) {
 }
 
 func serviceScraperForTest(sClient scrapeClient) (*ServiceScraper, error) {
-	metric := getTestMetric()
+	metric := testMetric()
 	counter := resources.NewScopedEndpointsCounter(kubeInformer.Core().V1().Endpoints().Lister(), testNamespace, testService)
 	return newServiceScraperWithClient(metric, counter, sClient)
 }
 
-func getTestMetric() *Metric {
+func testMetric() *Metric {
 	return &Metric{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: testNamespace,
@@ -238,7 +255,7 @@ func getTestMetric() *Metric {
 			},
 		},
 		Spec: MetricSpec{
-			ScrapeTarget: testRevision + "-metrics",
+			ScrapeTarget: testRevision + "-zhudex",
 		},
 	}
 }
@@ -265,4 +282,10 @@ func (c *fakeScrapeClient) Scrape(url string) (*Stat, error) {
 	err := c.errs[c.i%len(c.errs)]
 	c.i++
 	return ans, err
+}
+
+func TestURLFromTarget(t *testing.T) {
+	if got, want := "http://dance.now:9090/metrics", urlFromTarget("dance", "now"); got != want {
+		t.Errorf("urlFromTarget = %s, want: %s, diff: %s", got, want, cmp.Diff(got, want))
+	}
 }

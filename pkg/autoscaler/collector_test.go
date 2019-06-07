@@ -51,9 +51,11 @@ func TestMetricCollectorCrud(t *testing.T) {
 	logger := TestLogger(t)
 	ctx := context.Background()
 
-	scraper := testScraper(func() (*StatMessage, error) {
-		return nil, nil
-	})
+	scraper := &testScraper{
+		s: (func() (*StatMessage, error) {
+			return nil, nil
+		}),
+	}
 	factory := scraperFactory(scraper, nil)
 
 	t.Run("error on mismatch", func(t *testing.T) {
@@ -127,9 +129,11 @@ func TestMetricCollectorScraper(t *testing.T) {
 			AverageConcurrentRequests: 10.0,
 		},
 	}
-	scraper := testScraper(func() (*StatMessage, error) {
-		return stat, nil
-	})
+	scraper := &testScraper{
+		s: func() (*StatMessage, error) {
+			return stat, nil
+		},
+	}
 	factory := scraperFactory(scraper, nil)
 
 	coll := NewMetricCollector(factory, logger)
@@ -167,9 +171,11 @@ func TestMetricCollectorRecord(t *testing.T) {
 		AverageConcurrentRequests:        want + 10,
 		AverageProxiedConcurrentRequests: 10, // this should be subtracted from the above.
 	}
-	scraper := testScraper(func() (*StatMessage, error) {
-		return nil, nil
-	})
+	scraper := &testScraper{
+		s: func() (*StatMessage, error) {
+			return nil, nil
+		},
+	}
 	factory := scraperFactory(scraper, nil)
 
 	coll := NewMetricCollector(factory, logger)
@@ -193,8 +199,15 @@ func scraperFactory(scraper StatsScraper, err error) StatsScraperFactory {
 	}
 }
 
-type testScraper func() (*StatMessage, error)
+type testScraper struct {
+	s   func() (*StatMessage, error)
+	url string
+}
 
-func (s testScraper) Scrape() (*StatMessage, error) {
-	return s()
+func (s *testScraper) Scrape() (*StatMessage, error) {
+	return s.s()
+}
+
+func (s *testScraper) UpdateTarget(sv, ns string) {
+	s.url = urlFromTarget(sv, ns)
 }
