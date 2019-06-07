@@ -58,7 +58,7 @@ func NewController(
 	})
 
 	c.Logger.Info("Setting up ConfigMap receivers")
-	c.configStore = configns.NewStore(c.Logger.Named("config-store"))
+	c.configStore = configns.NewStore(c.Logger.Named("config-store"), opt.ResyncPeriod)
 	c.configStore.WatchConfigs(opt.ConfigMapWatcher)
 	return impl
 }
