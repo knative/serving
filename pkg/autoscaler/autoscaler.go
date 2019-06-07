@@ -82,7 +82,6 @@ func (a *Autoscaler) Update(deciderSpec DeciderSpec) error {
 	defer a.specMux.Unlock()
 
 	a.deciderSpec = deciderSpec
-
 	return nil
 }
 
@@ -93,14 +92,11 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (desiredPodCount 
 	logger := logging.FromContext(ctx)
 
 	spec := a.currentSpec()
-
 	originalReadyPodsCount, err := a.podCounter.ReadyCount()
-	if err != nil {
-		// If the error is NotFound, then presume 0.
-		if !apierrors.IsNotFound(err) {
-			logger.Errorw("Failed to get Endpoints via K8S Lister", zap.Error(err))
-			return 0, false
-		}
+	// If the error is NotFound, then presume 0.
+	if err != nil && !apierrors.IsNotFound(err) {
+		logger.Errorw("Failed to get Endpoints via K8S Lister", zap.Error(err))
+		return 0, false
 	}
 	// Use 1 if there are zero current pods.
 	readyPodsCount := math.Max(1, float64(originalReadyPodsCount))
@@ -116,8 +112,9 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (desiredPodCount 
 		return 0, false
 	}
 
-	desiredStablePodCount := int32(math.Min(math.Ceil(observedStableConcurrency/spec.TargetConcurrency), spec.MaxScaleUpRate*readyPodsCount))
-	desiredPanicPodCount := int32(math.Min(math.Ceil(observedPanicConcurrency/spec.TargetConcurrency), spec.MaxScaleUpRate*readyPodsCount))
+	maxScaleUp := spec.MaxScaleUpRate * readyPodsCount
+	desiredStablePodCount := int32(math.Min(math.Ceil(observedStableConcurrency/spec.TargetConcurrency), maxScaleUp))
+	desiredPanicPodCount := int32(math.Min(math.Ceil(observedPanicConcurrency/spec.TargetConcurrency), maxScaleUp))
 
 	a.reporter.ReportStableRequestConcurrency(observedStableConcurrency)
 	a.reporter.ReportPanicRequestConcurrency(observedPanicConcurrency)
