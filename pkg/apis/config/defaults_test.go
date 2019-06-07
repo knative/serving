@@ -109,6 +109,7 @@ func TestDefaultsConfiguration(t *testing.T) {
 				Name:      DefaultsConfigName,
 			},
 			Data: map[string]string{
+				// This is an intentional typo.
 				"container-name-template": "{{.NAme}}",
 			},
 		},
@@ -165,9 +166,7 @@ func TestTemplating(t *testing.T) {
 					Name:      DefaultsConfigName,
 				},
 				Data: map[string]string{
-					"revision-timeout-seconds": "123",
-					"revision-cpu-request":     "123m",
-					"container-name-template":  test.template,
+					"container-name-template": test.template,
 				},
 			})
 			if err != nil {

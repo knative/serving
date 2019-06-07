@@ -38,7 +38,7 @@ const (
 	// DefaultRevisionTimeoutSeconds will be set if timeoutSeconds not specified.
 	DefaultRevisionTimeoutSeconds = 5 * 60
 
-	// DefaultContainerName is the default name we give to the container
+	// DefaultUserContainerName is the default name we give to the container
 	// specified by the user, if `name:` is omitted.
 	DefaultUserContainerName = "user-container"
 )
@@ -107,7 +107,7 @@ func NewDefaultsConfigFromMap(data map[string]string) (*Defaults, error) {
 		}
 		// Check that the template properly applies to ObjectMeta.
 		if err := tmpl.Execute(ioutil.Discard, metav1.ObjectMeta{}); err != nil {
-			return nil, fmt.Errorf("Error executing template: %v", err)
+			return nil, fmt.Errorf("error executing template: %v", err)
 		}
 		nc.UserContainerNameTemplate = tmpl
 	}
@@ -132,10 +132,11 @@ type Defaults struct {
 	RevisionMemoryLimit   *resource.Quantity
 }
 
+// UserContainerName returns the name of the user container based on the context.
 func (d *Defaults) UserContainerName(ctx context.Context) string {
 	buf := &bytes.Buffer{}
 	if err := d.UserContainerNameTemplate.Execute(buf, apis.ParentMeta(ctx)); err != nil {
 		return ""
 	}
-	return string(buf.Bytes())
+	return buf.String()
 }
