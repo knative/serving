@@ -25,8 +25,8 @@ import (
 	logging "github.com/knative/pkg/logging"
 	fake "github.com/knative/serving/pkg/client/certmanager/clientset/versioned/fake"
 	client "github.com/knative/serving/pkg/client/certmanager/injection/client"
-	"github.com/kubernetes/client-go/rest"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/rest"
 )
 
 func init() {

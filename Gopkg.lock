@@ -696,14 +696,6 @@
   revision = "b7016fc85e1c960758aef23e1d456a66997d1e26"
 
 [[projects]]
-  digest = "1:30fc702d9e94b16bfb9e6c569cd9ab734e18176a6055a8eb747f63a6dad2e26d"
-  name = "github.com/kubernetes/client-go"
-  packages = ["rest"]
-  pruneopts = "NUT"
-  revision = "6ee68ca5fd8355d024d02f9db0b3b667e8357a0f"
-  version = "v11.0.0"
-
-[[projects]]
   branch = "master"
   digest = "1:df495c9184b4e6cbb9d55652236dbcbe72c65a1c8b6469da50722628cea474e7"
   name = "github.com/mailru/easyjson"
@@ -1738,7 +1730,6 @@
     "github.com/knative/test-infra/tools/webhook-apicoverage/webhook",
     "github.com/kubernetes-incubator/custom-metrics-apiserver/pkg/cmd",
     "github.com/kubernetes-incubator/custom-metrics-apiserver/pkg/provider",
-    "github.com/kubernetes/client-go/rest",
     "github.com/mattbaird/jsonpatch",
     "github.com/openzipkin/zipkin-go",
     "github.com/openzipkin/zipkin-go/model",
