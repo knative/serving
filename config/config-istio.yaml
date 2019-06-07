@@ -53,3 +53,7 @@ data:
     # is outside of the service mesh in that case, a cluster-local  service
     # will need to be exposed to a cluster-local gateway to be accessible.
     local-gateway.cluster-local-gateway: "cluster-local-gateway.istio-system.svc.cluster.local"
+
+    # To use only Istio service mesh and no cluster-local-gateway, replace
+    # all local-gateway.* entries the following entry.
+    local-gateway.mesh: "mesh"
