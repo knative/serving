@@ -46,6 +46,10 @@ var (
 		"/var/log",
 	)
 
+	reservedContainerNames = sets.NewString(
+		"queue-proxy",
+	)
+
 	reservedEnvVars = sets.NewString(
 		"PORT",
 		"K_SERVICE",
@@ -185,6 +189,13 @@ func ValidateContainer(container corev1.Container, volumes sets.String) *apis.Fi
 	}
 
 	errs := apis.CheckDisallowedFields(container, *ContainerMask(&container))
+
+	if reservedContainerNames.Has(container.Name) {
+		errs = errs.Also(&apis.FieldError{
+			Message: fmt.Sprintf("%q is a reserved container name", container.Name),
+			Paths:   []string{"name"},
+		})
+	}
 
 	// Env
 	errs = errs.Also(validateEnv(container.Env).ViaField("env"))

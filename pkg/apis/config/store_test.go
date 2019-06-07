@@ -19,6 +19,7 @@ package config
 import (
 	"context"
 	"testing"
+	"text/template"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -28,7 +29,10 @@ import (
 	. "github.com/knative/pkg/configmap/testing"
 )
 
-var ignoreResourceQuantity = cmpopts.IgnoreUnexported(resource.Quantity{})
+var ignoreStuff = cmp.Options{
+	cmpopts.IgnoreUnexported(resource.Quantity{}),
+	cmpopts.IgnoreTypes(template.Template{}),
+}
 
 func TestStoreLoadWithContext(t *testing.T) {
 	defer logtesting.ClearAll()
@@ -42,7 +46,7 @@ func TestStoreLoadWithContext(t *testing.T) {
 
 	t.Run("defaults", func(t *testing.T) {
 		expected, _ := NewDefaultsConfigFromConfigMap(defaultsConfig)
-		if diff := cmp.Diff(expected, config.Defaults, ignoreResourceQuantity); diff != "" {
+		if diff := cmp.Diff(expected, config.Defaults, ignoreStuff...); diff != "" {
 			t.Errorf("Unexpected defaults config (-want, +got): %v", diff)
 		}
 	})
@@ -56,7 +60,7 @@ func TestStoreLoadWithContextOrDefaults(t *testing.T) {
 
 	t.Run("defaults", func(t *testing.T) {
 		expected, _ := NewDefaultsConfigFromConfigMap(defaultsConfig)
-		if diff := cmp.Diff(expected, config.Defaults, ignoreResourceQuantity); diff != "" {
+		if diff := cmp.Diff(expected, config.Defaults, ignoreStuff...); diff != "" {
 			t.Errorf("Unexpected defaults config (-want, +got): %v", diff)
 		}
 	})

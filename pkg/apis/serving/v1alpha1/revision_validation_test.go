@@ -197,11 +197,12 @@ func TestRevisionSpecValidation(t *testing.T) {
 		name: "bad container spec",
 		rs: &RevisionSpec{
 			DeprecatedContainer: &corev1.Container{
-				Name:  "steve",
-				Image: "helloworld",
+				Name:      "steve",
+				Image:     "helloworld",
+				Lifecycle: &corev1.Lifecycle{},
 			},
 		},
-		want: apis.ErrDisallowedFields("container.name"),
+		want: apis.ErrDisallowedFields("container.lifecycle"),
 	}, {
 		name: "exceed max timeout",
 		rs: &RevisionSpec{
@@ -279,12 +280,13 @@ func TestRevisionTemplateSpecValidation(t *testing.T) {
 		rts: &RevisionTemplateSpec{
 			Spec: RevisionSpec{
 				DeprecatedContainer: &corev1.Container{
-					Name:  "kevin",
-					Image: "helloworld",
+					Name:      "kevin",
+					Image:     "helloworld",
+					Lifecycle: &corev1.Lifecycle{},
 				},
 			},
 		},
-		want: apis.ErrDisallowedFields("spec.container.name"),
+		want: apis.ErrDisallowedFields("spec.container.lifecycle"),
 	}, {
 		name: "has revision template name",
 		rts: &RevisionTemplateSpec{
@@ -385,12 +387,13 @@ func TestRevisionValidation(t *testing.T) {
 			},
 			Spec: RevisionSpec{
 				DeprecatedContainer: &corev1.Container{
-					Name:  "kevin",
-					Image: "helloworld",
+					Name:      "kevin",
+					Image:     "helloworld",
+					Lifecycle: &corev1.Lifecycle{},
 				},
 			},
 		},
-		want: apis.ErrDisallowedFields("spec.container.name"),
+		want: apis.ErrDisallowedFields("spec.container.lifecycle"),
 	}, {
 		name: "invalid name - dots and too long",
 		r: &Revision{

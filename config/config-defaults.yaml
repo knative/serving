@@ -61,3 +61,10 @@ data:
     # revisions to by default.  If omitted, no value is specified
     # and the system default is used.
     revision-memory-limit: "200M"  # 200 megabytes of memory
+
+    # container-name-template contains a template for the default
+    # container name, if none is specified.  This field supports
+    # Go templating and is supplied with the ObjectMeta of the
+    # enclosing Service or Configuration, so values such as
+    # {{.Name}} are also valid.
+    container-name-template: "user-container"

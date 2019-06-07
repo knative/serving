@@ -21,8 +21,6 @@ import (
 )
 
 const (
-	// UserContainerName is the name of the user-container in the PodSpec
-	UserContainerName = "user-container"
 	// QueueContainerName is the name of the queue proxy side car
 	QueueContainerName = "queue-proxy"
 

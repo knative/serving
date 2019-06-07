@@ -17,9 +17,12 @@ limitations under the License.
 package config
 
 import (
+	"context"
 	"testing"
+	"text/template"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/knative/pkg/apis"
 	"github.com/knative/pkg/system"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -43,6 +46,7 @@ func TestDefaultsConfigurationFromFile(t *testing.T) {
 
 func TestDefaultsConfiguration(t *testing.T) {
 	oneTwoThree := resource.MustParse("123m")
+
 	configTests := []struct {
 		name         string
 		wantErr      bool
@@ -52,7 +56,8 @@ func TestDefaultsConfiguration(t *testing.T) {
 		name:    "defaults configuration",
 		wantErr: false,
 		wantDefaults: &Defaults{
-			RevisionTimeoutSeconds: DefaultRevisionTimeoutSeconds,
+			RevisionTimeoutSeconds:    DefaultRevisionTimeoutSeconds,
+			UserContainerNameTemplate: defaultUserContainerNameTemplate,
 		},
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
@@ -67,6 +72,8 @@ func TestDefaultsConfiguration(t *testing.T) {
 		wantDefaults: &Defaults{
 			RevisionTimeoutSeconds: 123,
 			RevisionCPURequest:     &oneTwoThree,
+			// Not checked, just wants non-nil.
+			UserContainerNameTemplate: &template.Template{},
 		},
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
@@ -76,6 +83,7 @@ func TestDefaultsConfiguration(t *testing.T) {
 			Data: map[string]string{
 				"revision-timeout-seconds": "123",
 				"revision-cpu-request":     "123m",
+				"container-name-template":  "{{.Name}}",
 			},
 		},
 	}, {
@@ -89,6 +97,19 @@ func TestDefaultsConfiguration(t *testing.T) {
 			},
 			Data: map[string]string{
 				"revision-timeout-seconds": "asdf",
+			},
+		},
+	}, {
+		name:         "bad name template",
+		wantErr:      true,
+		wantDefaults: (*Defaults)(nil),
+		config: &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: system.Namespace(),
+				Name:      DefaultsConfigName,
+			},
+			Data: map[string]string{
+				"container-name-template": "{{.NAme}}",
 			},
 		},
 	}, {
@@ -107,14 +128,61 @@ func TestDefaultsConfiguration(t *testing.T) {
 	}}
 
 	for _, tt := range configTests {
-		actualDefaults, err := NewDefaultsConfigFromConfigMap(tt.config)
+		t.Run(tt.name, func(t *testing.T) {
+			actualDefaults, err := NewDefaultsConfigFromConfigMap(tt.config)
 
-		if (err != nil) != tt.wantErr {
-			t.Fatalf("Test: %q; NewDefaultsConfigFromConfigMap() error = %v, WantErr %v", tt.name, err, tt.wantErr)
-		}
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("Test: %q; NewDefaultsConfigFromConfigMap() error = %v, WantErr %v", tt.name, err, tt.wantErr)
+			}
 
-		if diff := cmp.Diff(actualDefaults, tt.wantDefaults, ignoreResourceQuantity); diff != "" {
-			t.Fatalf("Test: %q; want %v, but got %v", tt.name, tt.wantDefaults, actualDefaults)
-		}
+			if diff := cmp.Diff(actualDefaults, tt.wantDefaults, ignoreStuff); diff != "" {
+				t.Fatalf("Test: %q; want %v, but got %v", tt.name, tt.wantDefaults, actualDefaults)
+			}
+		})
+	}
+}
+
+func TestTemplating(t *testing.T) {
+	tests := []struct {
+		name     string
+		template string
+		want     string
+	}{{
+		name:     "groot",
+		template: "{{.Name}}",
+		want:     "i-am-groot",
+	}, {
+		name:     "complex",
+		template: "{{.Namespace}}-of-the-galaxy",
+		want:     "guardians-of-the-galaxy",
+	}}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			def, err := NewDefaultsConfigFromConfigMap(&corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: system.Namespace(),
+					Name:      DefaultsConfigName,
+				},
+				Data: map[string]string{
+					"revision-timeout-seconds": "123",
+					"revision-cpu-request":     "123m",
+					"container-name-template":  test.template,
+				},
+			})
+			if err != nil {
+				t.Errorf("Error parsing defaults: %v", err)
+			}
+
+			ctx := apis.WithinParent(context.Background(), metav1.ObjectMeta{
+				Name:      "i-am-groot",
+				Namespace: "guardians",
+			})
+
+			got := def.UserContainerName(ctx)
+			if test.want != got {
+				t.Errorf("UserContainerName() = %v, wanted %v", got, test.want)
+			}
+		})
 	}
 }

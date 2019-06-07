@@ -17,15 +17,35 @@ limitations under the License.
 package config
 
 import (
+	"bytes"
+	"context"
+	"fmt"
+	"io/ioutil"
 	"strconv"
+	"text/template"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/knative/pkg/apis"
 )
 
 const (
 	// DefaultsConfigName is the name of config map for the defaults.
 	DefaultsConfigName = "config-defaults"
+
+	// DefaultRevisionTimeoutSeconds will be set if timeoutSeconds not specified.
+	DefaultRevisionTimeoutSeconds = 5 * 60
+
+	// DefaultContainerName is the default name we give to the container
+	// specified by the user, if `name:` is omitted.
+	DefaultUserContainerName = "user-container"
+)
+
+var (
+	defaultUserContainerNameTemplate = template.Must(
+		template.New("user-container").Parse(DefaultUserContainerName))
 )
 
 // NewDefaultsConfigFromMap creates a Defaults from the supplied Map
@@ -78,6 +98,20 @@ func NewDefaultsConfigFromMap(data map[string]string) (*Defaults, error) {
 		}
 	}
 
+	if raw, ok := data["container-name-template"]; !ok {
+		nc.UserContainerNameTemplate = defaultUserContainerNameTemplate
+	} else {
+		tmpl, err := template.New("user-container").Parse(raw)
+		if err != nil {
+			return nil, err
+		}
+		// Check that the template properly applies to ObjectMeta.
+		if err := tmpl.Execute(ioutil.Discard, metav1.ObjectMeta{}); err != nil {
+			return nil, fmt.Errorf("Error executing template: %v", err)
+		}
+		nc.UserContainerNameTemplate = tmpl
+	}
+
 	return nc, nil
 }
 
@@ -86,17 +120,22 @@ func NewDefaultsConfigFromConfigMap(config *corev1.ConfigMap) (*Defaults, error)
 	return NewDefaultsConfigFromMap(config.Data)
 }
 
-const (
-	// DefaultRevisionTimeoutSeconds will be set if timeoutSeconds not specified.
-	DefaultRevisionTimeoutSeconds = 5 * 60
-)
-
 // Defaults includes the default values to be populated by the webhook.
 type Defaults struct {
 	RevisionTimeoutSeconds int64
+
+	UserContainerNameTemplate *template.Template
 
 	RevisionCPURequest    *resource.Quantity
 	RevisionCPULimit      *resource.Quantity
 	RevisionMemoryRequest *resource.Quantity
 	RevisionMemoryLimit   *resource.Quantity
+}
+
+func (d *Defaults) UserContainerName(ctx context.Context) string {
+	buf := &bytes.Buffer{}
+	if err := d.UserContainerNameTemplate.Execute(buf, apis.ParentMeta(ctx)); err != nil {
+		return ""
+	}
+	return string(buf.Bytes())
 }
