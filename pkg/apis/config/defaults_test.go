@@ -19,7 +19,6 @@ package config
 import (
 	"context"
 	"testing"
-	"text/template"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/knative/pkg/apis"
@@ -57,7 +56,7 @@ func TestDefaultsConfiguration(t *testing.T) {
 		wantErr: false,
 		wantDefaults: &Defaults{
 			RevisionTimeoutSeconds:    DefaultRevisionTimeoutSeconds,
-			UserContainerNameTemplate: defaultUserContainerNameTemplate,
+			UserContainerNameTemplate: DefaultUserContainerName,
 		},
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
@@ -70,10 +69,9 @@ func TestDefaultsConfiguration(t *testing.T) {
 		name:    "specified values",
 		wantErr: false,
 		wantDefaults: &Defaults{
-			RevisionTimeoutSeconds: 123,
-			RevisionCPURequest:     &oneTwoThree,
-			// Not checked, just wants non-nil.
-			UserContainerNameTemplate: &template.Template{},
+			RevisionTimeoutSeconds:    123,
+			RevisionCPURequest:        &oneTwoThree,
+			UserContainerNameTemplate: "{{.Name}}",
 		},
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{

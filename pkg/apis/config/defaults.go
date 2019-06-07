@@ -43,11 +43,6 @@ const (
 	DefaultUserContainerName = "user-container"
 )
 
-var (
-	defaultUserContainerNameTemplate = template.Must(
-		template.New("user-container").Parse(DefaultUserContainerName))
-)
-
 // NewDefaultsConfigFromMap creates a Defaults from the supplied Map
 func NewDefaultsConfigFromMap(data map[string]string) (*Defaults, error) {
 	nc := &Defaults{}
@@ -99,7 +94,7 @@ func NewDefaultsConfigFromMap(data map[string]string) (*Defaults, error) {
 	}
 
 	if raw, ok := data["container-name-template"]; !ok {
-		nc.UserContainerNameTemplate = defaultUserContainerNameTemplate
+		nc.UserContainerNameTemplate = DefaultUserContainerName
 	} else {
 		tmpl, err := template.New("user-container").Parse(raw)
 		if err != nil {
@@ -109,7 +104,9 @@ func NewDefaultsConfigFromMap(data map[string]string) (*Defaults, error) {
 		if err := tmpl.Execute(ioutil.Discard, metav1.ObjectMeta{}); err != nil {
 			return nil, fmt.Errorf("error executing template: %v", err)
 		}
-		nc.UserContainerNameTemplate = tmpl
+		// We store the raw template because we run deepcopy-gen on the
+		// config and that doesn't copy nicely.
+		nc.UserContainerNameTemplate = raw
 	}
 
 	return nc, nil
@@ -124,7 +121,7 @@ func NewDefaultsConfigFromConfigMap(config *corev1.ConfigMap) (*Defaults, error)
 type Defaults struct {
 	RevisionTimeoutSeconds int64
 
-	UserContainerNameTemplate *template.Template
+	UserContainerNameTemplate string
 
 	RevisionCPURequest    *resource.Quantity
 	RevisionCPULimit      *resource.Quantity
@@ -134,8 +131,10 @@ type Defaults struct {
 
 // UserContainerName returns the name of the user container based on the context.
 func (d *Defaults) UserContainerName(ctx context.Context) string {
+	tmpl := template.Must(
+		template.New("user-container").Parse(d.UserContainerNameTemplate))
 	buf := &bytes.Buffer{}
-	if err := d.UserContainerNameTemplate.Execute(buf, apis.ParentMeta(ctx)); err != nil {
+	if err := tmpl.Execute(buf, apis.ParentMeta(ctx)); err != nil {
 		return ""
 	}
 	return buf.String()

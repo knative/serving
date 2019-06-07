@@ -19,7 +19,6 @@ package config
 import (
 	"context"
 	"testing"
-	"text/template"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -31,7 +30,6 @@ import (
 
 var ignoreStuff = cmp.Options{
 	cmpopts.IgnoreUnexported(resource.Quantity{}),
-	cmpopts.IgnoreTypes(template.Template{}),
 }
 
 func TestStoreLoadWithContext(t *testing.T) {
