@@ -33,28 +33,34 @@ func TestMakeMetric(t *testing.T) {
 	cases := []struct {
 		name string
 		pa   *v1alpha1.PodAutoscaler
+		msn  string
 		want *autoscaler.Metric
 	}{{
 		name: "defaults",
 		pa:   pa(),
-		want: metric(),
+		msn:  "ik",
+		want: metric(withScarapeTarget("ik")),
 	}, {
 		name: "with longer stable window, no panic window percentage, defaults to 10%",
 		pa:   pa(WithWindowAnnotation("10m")),
+		msn:  "wil",
 		want: metric(
+			withScarapeTarget("wil"),
 			withStableWindow(10*time.Minute), withPanicWindow(time.Minute),
 			withWindowAnnotation("10m")),
 	}, {
 		name: "with longer panic window percentage",
 		pa:   pa(WithPanicWindowPercentageAnnotation("50")),
+		msn:  "dansen",
 		want: metric(
+			withScarapeTarget("dansen"),
 			withStableWindow(time.Minute), withPanicWindow(30*time.Second),
 			withPanicWindowPercentageAnnotation("50")),
 	}}
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			if diff := cmp.Diff(tc.want, MakeMetric(context.Background(), tc.pa, config)); diff != "" {
+			if diff := cmp.Diff(tc.want, MakeMetric(context.Background(), tc.pa, tc.msn, config)); diff != "" {
 				t.Errorf("%q (-want, +got):\n%v", tc.name, diff)
 			}
 		})
@@ -84,6 +90,12 @@ func withWindowAnnotation(window string) MetricOption {
 func withPanicWindowPercentageAnnotation(percentage string) MetricOption {
 	return func(metric *autoscaler.Metric) {
 		metric.Annotations[autoscaling.PanicWindowPercentageAnnotationKey] = percentage
+	}
+}
+
+func withScarapeTarget(s string) MetricOption {
+	return func(metric *autoscaler.Metric) {
+		metric.Spec.ScrapeTarget = s
 	}
 }
 
