@@ -203,9 +203,10 @@ func assertScaleDown(ctx *testContext) {
 func TestAutoscaleUpDownUp(t *testing.T) {
 	t.Parallel()
 	ctx := setup(t)
-	stopChan := DiagnoseMeEvery(t, 15*time.Second, ctx.clients)
-	defer close(stopChan)
 	defer test.TearDown(ctx.clients, ctx.names)
+
+	sc := startDiagnosis(t, ctx.clients, 15*time.Second)
+	defer sc.stop()
 
 	assertScaleUp(ctx)
 	assertScaleDown(ctx)
