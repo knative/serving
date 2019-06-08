@@ -17,10 +17,17 @@ limitations under the License.
 package serverlessservice
 
 import (
+	"context"
 	"fmt"
 	"testing"
 	"time"
 
+	// Inject the fakes for informers this reconciler depends on.
+	_ "github.com/knative/pkg/injection/informers/kubeinformers/corev1/endpoints/fake"
+	_ "github.com/knative/pkg/injection/informers/kubeinformers/corev1/service/fake"
+	_ "github.com/knative/serving/pkg/client/injection/informers/networking/v1alpha1/serverlessservice/fake"
+
+	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/controller"
 	logtesting "github.com/knative/pkg/logging/testing"
 	"github.com/knative/pkg/ptr"
@@ -28,8 +35,6 @@ import (
 	"github.com/knative/serving/pkg/activator"
 	"github.com/knative/serving/pkg/apis/networking"
 	nv1a1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
-	fakeclientset "github.com/knative/serving/pkg/client/clientset/versioned/fake"
-	informers "github.com/knative/serving/pkg/client/informers/externalversions"
 	rpkg "github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/serverlessservice/resources"
 
@@ -39,8 +44,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	kubeinformers "k8s.io/client-go/informers"
-	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
 	clientgotesting "k8s.io/client-go/testing"
 
 	. "github.com/knative/pkg/reconciler/testing"
@@ -49,24 +52,8 @@ import (
 
 func TestNewController(t *testing.T) {
 	defer logtesting.ClearAll()
-
-	kubeClient := fakekubeclientset.NewSimpleClientset()
-	kubeInformer := kubeinformers.NewSharedInformerFactory(kubeClient, 0)
-
-	servingClient := fakeclientset.NewSimpleClientset()
-	servingInformer := informers.NewSharedInformerFactory(servingClient, 0)
-
-	sksInformer := servingInformer.Networking().V1alpha1().ServerlessServices()
-	endpointsInformer := kubeInformer.Core().V1().Endpoints()
-	servicesInformer := kubeInformer.Core().V1().Services()
-
-	opt := rpkg.Options{
-		KubeClientSet:    kubeClient,
-		ServingClientSet: servingClient,
-		Logger:           logtesting.TestLogger(t),
-	}
-	c := NewController(opt, sksInformer, servicesInformer, endpointsInformer)
-
+	ctx, _ := SetupFakeContext(t)
+	c := NewController(ctx, configmap.NewFixedWatcher())
 	if c == nil {
 		t.Fatal("Expected NewController to return a non-nil value")
 	}
@@ -187,7 +174,7 @@ func TestReconcile(t *testing.T) {
 		Name: "OnCreate-deployment-does-not-exist",
 		Key:  "on/cde",
 		Objects: []runtime.Object{
-			SKS("on", "cde", WithDeployRef("blah")),
+			SKS("on", "cde", WithDeployRef("blah"), markNoEndpoints),
 			deploy("on", "blah-another"),
 			endpointspriv("on", "cde", WithSubsets),
 		},
@@ -222,7 +209,7 @@ func TestReconcile(t *testing.T) {
 		Key:     "update-eps/failA",
 		WantErr: true,
 		Objects: []runtime.Object{
-			SKS("update-eps", "failA", WithPubService, WithPrivateService("failA-abba"), WithDeployRef("blah")),
+			SKS("update-eps", "failA", WithPubService, WithPrivateService("failA-abba"), WithDeployRef("blah"), markNoEndpoints),
 			deploy("update-eps", "blah"),
 			svcpub("update-eps", "failA"),
 			svcpriv("update-eps", "failA", svcWithName("failA-abba")),
@@ -253,11 +240,15 @@ func TestReconcile(t *testing.T) {
 		WithReactors: []clientgotesting.ReactionFunc{
 			InduceFailure("create", "services"),
 		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: SKS("svc", "fail2", WithPrivateService("fail2-badbeef"), WithDeployRef("blah"), markTransitioning("CreatingPublicService")),
+		}},
 		WantCreates: []runtime.Object{
 			svcpub("svc", "fail2"),
 		},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "UpdateFailed", "InternalError: inducing failure for create services"),
+			Eventf(corev1.EventTypeNormal, "Updated", `Successfully updated ServerlessService "svc/fail2"`),
 		},
 	}, {
 		Name:    "eps-create-fail-pub",
@@ -273,12 +264,17 @@ func TestReconcile(t *testing.T) {
 		WithReactors: []clientgotesting.ReactionFunc{
 			InduceFailure("create", "endpoints"),
 		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: SKS("eps", "fail3", WithPubService, WithPrivateService("fail3-abbad"), WithDeployRef("blah"),
+				markTransitioning("CreatingPublicEndpoints")),
+		}},
 		WantCreates: []runtime.Object{
 			svcpub("eps", "fail3"),
 			endpointspub("eps", "fail3", WithSubsets),
 		},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "UpdateFailed", "InternalError: inducing failure for create endpoints"),
+			Eventf(corev1.EventTypeNormal, "Updated", `Successfully updated ServerlessService "eps/fail3"`),
 		},
 	}, {
 		Name: "OnCreate-no-eps",
@@ -344,7 +340,7 @@ func TestReconcile(t *testing.T) {
 			Eventf(corev1.EventTypeNormal, "Updated", `Successfully updated ServerlessService "on/cnaeps"`),
 		},
 	}, {
-		Name:    "svc-fail-priv",
+		Name:    "create-svc-fail-priv",
 		Key:     "svc/fail",
 		WantErr: true,
 		Objects: []runtime.Object{
@@ -356,11 +352,15 @@ func TestReconcile(t *testing.T) {
 		WithReactors: []clientgotesting.ReactionFunc{
 			InduceFailure("create", "services"),
 		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: SKS("svc", "fail", WithDeployRef("blah"), markTransitioning("CreatingPrivateService")),
+		}},
 		WantCreates: []runtime.Object{
 			svcpriv("svc", "fail"),
 		},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "UpdateFailed", "InternalError: inducing failure for create services"),
+			Eventf(corev1.EventTypeNormal, "Updated", `Successfully updated ServerlessService "svc/fail"`),
 		},
 	}, {
 		Name:    "update-sks-fail",
@@ -388,12 +388,12 @@ func TestReconcile(t *testing.T) {
 			Eventf(corev1.EventTypeWarning, "UpdateFailed", "Failed to update status: inducing failure for update serverlessservices"),
 		},
 	}, {
-		Name:    "ronin-priv-service/fail5",
+		Name:    "ronin-priv-service",
 		Key:     "ronin-priv-service/fail5",
 		WantErr: true,
 		Objects: []runtime.Object{
 			SKS("ronin-priv-service", "fail5", WithPubService, WithPrivateService("fail5-fender"),
-				WithDeployRef("blah")),
+				WithDeployRef("blah"), markHappy),
 			deploy("ronin-priv-service", "blah"),
 			svcpub("ronin-priv-service", "fail5"),
 			svcpriv("ronin-priv-service", "fail5", WithK8sSvcOwnersRemoved, svcWithName("fail5-fender")),
@@ -401,11 +401,16 @@ func TestReconcile(t *testing.T) {
 			endpointspriv("ronin-priv-service", "fail5", WithSubsets, epsWithName("fail5-fender")),
 			activatorEndpoints(WithSubsets),
 		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: SKS("ronin-priv-service", "fail5", WithPubService, WithPrivateService("fail5-fender"),
+				WithDeployRef("blah"), markUnowned("Service", "fail5-fender")),
+		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "UpdateFailed", `InternalError: SKS: fail5 does not own Service: fail5-fender`),
+			Eventf(corev1.EventTypeNormal, "Updated", `Successfully updated ServerlessService "ronin-priv-service/fail5"`),
 		},
 	}, {
-		Name:    "ronin-pub-service/fail6",
+		Name:    "ronin-pub-service",
 		Key:     "ronin-pub-service/fail6",
 		WantErr: true,
 		Objects: []runtime.Object{
@@ -418,11 +423,16 @@ func TestReconcile(t *testing.T) {
 			endpointspriv("ronin-pub-service", "fail6", WithSubsets, epsWithName("fail6-gibson")),
 			activatorEndpoints(WithSubsets),
 		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: SKS("ronin-pub-service", "fail6", WithPubService, WithPrivateService("fail6-gibson"),
+				WithDeployRef("blah"), markUnowned("Service", "fail6")),
+		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "UpdateFailed", `InternalError: SKS: fail6 does not own Service: fail6`),
+			Eventf(corev1.EventTypeNormal, "Updated", `Successfully updated ServerlessService "ronin-pub-service/fail6"`),
 		},
 	}, {
-		Name:    "ronin-pub-eps/fail7",
+		Name:    "ronin-pub-eps",
 		Key:     "ronin-pub-eps/fail7",
 		WantErr: true,
 		Objects: []runtime.Object{
@@ -435,11 +445,16 @@ func TestReconcile(t *testing.T) {
 			endpointspriv("ronin-pub-eps", "fail7", WithSubsets, epsWithName("fail7-schecter")),
 			activatorEndpoints(WithSubsets),
 		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: SKS("ronin-pub-eps", "fail7", WithPubService, WithPrivateService("fail7-schecter"),
+				WithDeployRef("blah"), markUnowned("Endpoints", "fail7")),
+		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "UpdateFailed", `InternalError: SKS: fail7 does not own Endpoints: fail7`),
+			Eventf(corev1.EventTypeNormal, "Updated", `Successfully updated ServerlessService "ronin-pub-eps/fail7"`),
 		},
 	}, {
-		Name:    "update-svc-fail-priv",
+		Name:    "update-priv-svc-fail",
 		Key:     "update-svc/fail9",
 		WantErr: true,
 		Objects: []runtime.Object{
@@ -455,19 +470,24 @@ func TestReconcile(t *testing.T) {
 		WithReactors: []clientgotesting.ReactionFunc{
 			InduceFailure("update", "services"),
 		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: SKS("update-svc", "fail9", WithPubService, WithPrivateService("fail9-yamaha"),
+				WithDeployRef("blah"), markTransitioning("UpdatingPrivateService")),
+		}},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: svcpriv("update-svc", "fail9", svcWithName("fail9-yamaha")),
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "UpdateFailed", "InternalError: inducing failure for update services"),
+			Eventf(corev1.EventTypeNormal, "Updated", `Successfully updated ServerlessService "update-svc/fail9"`),
 		},
 	},
 		{
-			Name:    "update-svc-fail-pub",
+			Name:    "update-pub-svc-fail",
 			Key:     "update-svc/fail8",
 			WantErr: true,
 			Objects: []runtime.Object{
-				SKS("update-svc", "fail8", WithPubService, WithDeployRef("blah")),
+				SKS("update-svc", "fail8", WithPubService, WithDeployRef("blah"), markHappy, WithPrivateService("fail8-ibanez")),
 				deploy("update-svc", "blah"),
 				svcpub("update-svc", "fail8", withTimeSelector),
 				svcpriv("update-svc", "fail8", svcWithName("fail8-ibanez")),
@@ -565,13 +585,13 @@ func TestReconcile(t *testing.T) {
 		}}
 
 	defer logtesting.ClearAll()
-	table.Test(t, MakeFactory(func(listers *Listers, opt rpkg.Options) controller.Reconciler {
+	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
 		return &reconciler{
-			Base:              rpkg.NewBase(opt, controllerAgentName),
+			Base:              rpkg.NewBase(ctx, controllerAgentName, cmw),
 			sksLister:         listers.GetServerlessServiceLister(),
 			serviceLister:     listers.GetK8sServiceLister(),
 			endpointsLister:   listers.GetEndpointsLister(),
-			psInformerFactory: podScalableTypedInformerFactory(opt),
+			psInformerFactory: podScalableTypedInformerFactory(ctx),
 		}
 	}))
 }
@@ -585,6 +605,18 @@ func withOtherSubsets(ep *corev1.Endpoints) {
 
 func markHappy(sks *nv1a1.ServerlessService) {
 	sks.Status.MarkEndpointsReady()
+}
+
+func markUnowned(k, n string) SKSOption {
+	return func(sks *nv1a1.ServerlessService) {
+		sks.Status.MarkEndpointsNotOwned(k, n)
+	}
+}
+
+func markTransitioning(s string) SKSOption {
+	return func(sks *nv1a1.ServerlessService) {
+		sks.Status.MarkEndpointsNotReady(s)
+	}
 }
 
 func markNoEndpoints(sks *nv1a1.ServerlessService) {

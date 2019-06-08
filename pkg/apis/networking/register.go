@@ -16,10 +16,6 @@ limitations under the License.
 
 package networking
 
-import (
-	"time"
-)
-
 const (
 	// GroupName is the name for the networking API group.
 	GroupName = "networking.internal.knative.dev"
@@ -78,9 +74,6 @@ const (
 
 // Pseudo-constants
 var (
-	// DefaultTimeout will be set if timeout not specified.
-	DefaultTimeout = 10 * time.Minute
-
 	// DefaultRetryCount will be set if Attempts not specified.
 	DefaultRetryCount = 3
 )

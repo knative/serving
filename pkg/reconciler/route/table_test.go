@@ -1441,7 +1441,7 @@ func TestReconcile(t *testing.T) {
 							LatestRevision: ptr.Bool(true),
 							URL: &apis.URL{
 								Scheme: "http",
-								Host:   "same-revision-targets-gray.default.example.com",
+								Host:   "gray-same-revision-targets.default.example.com",
 							},
 						},
 					}, v1alpha1.TrafficTarget{
@@ -1452,15 +1452,15 @@ func TestReconcile(t *testing.T) {
 							LatestRevision: ptr.Bool(false),
 							URL: &apis.URL{
 								Scheme: "http",
-								Host:   "same-revision-targets-also-gray.default.example.com",
+								Host:   "also-gray-same-revision-targets.default.example.com",
 							},
 						},
 					})),
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Created", "Created placeholder service %q", "same-revision-targets"),
-			Eventf(corev1.EventTypeNormal, "Created", "Created placeholder service %q", "same-revision-targets-also-gray"),
-			Eventf(corev1.EventTypeNormal, "Created", "Created placeholder service %q", "same-revision-targets-gray"),
+			Eventf(corev1.EventTypeNormal, "Created", "Created placeholder service %q", "also-gray-same-revision-targets"),
+			Eventf(corev1.EventTypeNormal, "Created", "Created placeholder service %q", "gray-same-revision-targets"),
 			Eventf(corev1.EventTypeNormal, "Created", "Created ClusterIngress %q", "route-1-2"),
 		},
 		Key:                     "default/same-revision-targets",
@@ -1880,9 +1880,9 @@ func TestReconcile(t *testing.T) {
 	// TODO(mattmoor): Multiple inactive Revisions
 
 	defer logtesting.ClearAll()
-	table.Test(t, MakeFactory(func(listers *Listers, opt reconciler.Options) controller.Reconciler {
+	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
 		return &Reconciler{
-			Base:                 reconciler.NewBase(opt, controllerAgentName),
+			Base:                 reconciler.NewBase(ctx, controllerAgentName, cmw),
 			routeLister:          listers.GetRouteLister(),
 			configurationLister:  listers.GetConfigurationLister(),
 			revisionLister:       listers.GetRevisionLister(),
@@ -2044,9 +2044,9 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 		SkipNamespaceValidation: true,
 	}}
 	defer logtesting.ClearAll()
-	table.Test(t, MakeFactory(func(listers *Listers, opt reconciler.Options) controller.Reconciler {
+	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
 		return &Reconciler{
-			Base:                 reconciler.NewBase(opt, controllerAgentName),
+			Base:                 reconciler.NewBase(ctx, controllerAgentName, cmw),
 			routeLister:          listers.GetRouteLister(),
 			configurationLister:  listers.GetConfigurationLister(),
 			revisionLister:       listers.GetRevisionLister(),
@@ -2116,9 +2116,14 @@ func simplePlaceholderK8sService(ctx context.Context, r *v1alpha1.Route, targetN
 }
 
 func simpleK8sService(r *v1alpha1.Route, so ...K8sServiceOption) *corev1.Service {
+	cs := &testConfigStore{
+		config: ReconcilerTestConfig(false),
+	}
+	ctx := cs.ToContext(context.Background())
+
 	// omit the error here, as we are sure the loadbalancer info is porvided.
 	// return the service instance only, so that the result can be used in TableRow.
-	svc, _ := resources.MakeK8sService(r, "", &netv1alpha1.ClusterIngress{Status: readyIngressStatus()})
+	svc, _ := resources.MakeK8sService(ctx, r, "", &netv1alpha1.ClusterIngress{Status: readyIngressStatus()})
 
 	for _, opt := range so {
 		opt(svc)
@@ -2259,6 +2264,7 @@ func ReconcilerTestConfig(enableAutoTLS bool) *config.Config {
 			DefaultClusterIngressClass: TestIngressClass,
 			AutoTLS:                    enableAutoTLS,
 			DomainTemplate:             network.DefaultDomainTemplate,
+			TagTemplate:                network.DefaultTagTemplate,
 		},
 		GC: &gc.Config{
 			StaleRevisionLastpinnedDebounce: time.Duration(1 * time.Minute),

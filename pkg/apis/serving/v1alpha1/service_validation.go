@@ -29,10 +29,16 @@ import (
 )
 
 // Validate validates the fields belonging to Service
-func (s *Service) Validate(ctx context.Context) *apis.FieldError {
-	errs := serving.ValidateObjectMetadata(s.GetObjectMeta()).ViaField("metadata")
-	ctx = apis.WithinParent(ctx, s.ObjectMeta)
-	errs = errs.Also(s.Spec.Validate(apis.WithinSpec(ctx)).ViaField("spec"))
+func (s *Service) Validate(ctx context.Context) (errs *apis.FieldError) {
+	// If we are in a status sub resource update, the metadata and spec cannot change.
+	// So, to avoid rejecting controller status updates due to validations that may
+	// have changed (i.e. due to config-defaults changes), we elide the metadata and
+	// spec validation.
+	if !apis.IsInStatusUpdate(ctx) {
+		errs = errs.Also(serving.ValidateObjectMetadata(s.GetObjectMeta()).ViaField("metadata"))
+		ctx = apis.WithinParent(ctx, s.ObjectMeta)
+		errs = errs.Also(s.Spec.Validate(apis.WithinSpec(ctx)).ViaField("spec"))
+	}
 
 	if apis.IsInUpdate(ctx) {
 		original := apis.GetBaseline(ctx).(*Service)
@@ -47,8 +53,7 @@ func (s *Service) Validate(ctx context.Context) *apis.FieldError {
 			}
 			err := currentConfig.GetTemplate().VerifyNameChange(ctx,
 				originalConfig.GetTemplate())
-			errs = errs.Also(err.ViaField(
-				"spec", field, "configuration", templateField))
+			errs = errs.Also(err.ViaField("spec", field, "configuration", templateField))
 		}
 	}
 

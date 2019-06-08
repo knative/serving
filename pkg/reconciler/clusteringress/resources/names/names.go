@@ -20,7 +20,16 @@ import (
 	"github.com/knative/serving/pkg/apis/networking/v1alpha1"
 )
 
-// VirtualService returns the name of the VirtualService child resource for given ClusterIngress.
-func VirtualService(i *v1alpha1.ClusterIngress) string {
+// IngressVirtualService returns the name of the VirtualService child
+// resource for given ClusterIngress that programs traffic for Ingress
+// Gateways.
+func IngressVirtualService(i *v1alpha1.ClusterIngress) string {
 	return i.Name
+}
+
+// MeshVirtualService returns the name of the VirtualService child
+// resource for given ClusterIngress that programs traffic for Service
+// Mesh.
+func MeshVirtualService(i *v1alpha1.ClusterIngress) string {
+	return i.Name + "-mesh"
 }

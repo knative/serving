@@ -42,6 +42,12 @@ data:
     # none is specified.
     revision-timeout-seconds: "300"  # 5 minutes
 
+    # max-revision-timeout-seconds contains the maximum number of
+    # seconds that can be used for revision-timeout-seconds.
+    # This value must be greater than or equal to revision-timeout-seconds.
+    # If omitted, the system default is used (600 seconds).
+    max-revision-timeout-seconds: "600"  # 10 minutes
+
     # revision-cpu-request contains the cpu allocation to assign
     # to revisions by default.  If omitted, no value is specified
     # and the system default is used.
@@ -61,3 +67,10 @@ data:
     # revisions to by default.  If omitted, no value is specified
     # and the system default is used.
     revision-memory-limit: "200M"  # 200 megabytes of memory
+
+    # container-name-template contains a template for the default
+    # container name, if none is specified.  This field supports
+    # Go templating and is supplied with the ObjectMeta of the
+    # enclosing Service or Configuration, so values such as
+    # {{.Name}} are also valid.
+    container-name-template: "user-container"

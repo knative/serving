@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"net"
 	"net/http"
 	"net/url"
@@ -68,6 +69,11 @@ const (
 	// Knative service's DNS name.
 	DomainTemplateKey = "domainTemplate"
 
+	// TagTemplateKey is the name of the configuration entry that
+	// specifies the golang template string to use to construct the
+	// hostname for a Route's tag.
+	TagTemplateKey = "tagTemplate"
+
 	// Since K8s 1.8, prober requests have
 	//   User-Agent = "kube-probe/{major-version}.{minor-version}".
 	kubeProbeUAPrefix = "kube-probe/"
@@ -95,6 +101,10 @@ var (
 	// constructing the Knative Route's Domain(host)
 	DefaultDomainTemplate = "{{.Name}}.{{.Namespace}}.{{.Domain}}"
 
+	// DefaultTagTemplate is the default golang template to use when
+	// constructing the Knative Route's tag names.
+	DefaultTagTemplate = "{{.Tag}}-{{.Name}}"
+
 	// AutoTLSKey is the name of the configuration entry
 	// that specifies enabling auto-TLS or not.
 	AutoTLSKey = "autoTLS"
@@ -109,9 +119,17 @@ var (
 // We could add more over time - e.g. RevisionName if we thought that
 // might be of interest to people.
 type DomainTemplateValues struct {
-	Name      string
-	Namespace string
-	Domain    string
+	Name        string
+	Namespace   string
+	Domain      string
+	Annotations map[string]string
+}
+
+// TagTemplateValues are the available properties people can choose from
+// in their Route's "TagTemplate" golang template sting.
+type TagTemplateValues struct {
+	Name string
+	Tag  string
 }
 
 // Config contains the networking configuration defined in the
@@ -127,6 +145,10 @@ type Config struct {
 	// DomainTemplate is the golang text template to use to generate the
 	// Route's domain (host) for the Service.
 	DomainTemplate string
+
+	// TagTemplate is the golang text template to use to generate the
+	// Route's tag hostnames.
+	TagTemplate string
 
 	// AutoTLS specifies if auto-TLS is enabled or not.
 	AutoTLS bool
@@ -202,11 +224,26 @@ func NewConfigFromConfigMap(configMap *corev1.ConfigMap) (*Config, error) {
 		if err != nil {
 			return nil, err
 		}
-		if err := checkTemplate(t); err != nil {
+		if err := checkDomainTemplate(t); err != nil {
 			return nil, err
 		}
 
 		nc.DomainTemplate = dt
+	}
+
+	// Blank TagTemplate makes no sense so use our default
+	if tt, ok := configMap.Data[TagTemplateKey]; !ok {
+		nc.TagTemplate = DefaultTagTemplate
+	} else {
+		t, err := template.New("tag-template").Parse(tt)
+		if err != nil {
+			return nil, err
+		}
+		if err := checkTagTemplate(t); err != nil {
+			return nil, err
+		}
+
+		nc.TagTemplate = tt
 	}
 
 	nc.AutoTLS = strings.ToLower(configMap.Data[AutoTLSKey]) == "enabled"
@@ -233,13 +270,14 @@ func (c *Config) GetDomainTemplate() *template.Template {
 		c.DomainTemplate))
 }
 
-func checkTemplate(t *template.Template) error {
+func checkDomainTemplate(t *template.Template) error {
 	// To a test run of applying the template, and see if the
 	// result is a valid URL.
 	data := DomainTemplateValues{
-		Name:      "foo",
-		Namespace: "bar",
-		Domain:    "baz.com",
+		Name:        "foo",
+		Namespace:   "bar",
+		Domain:      "baz.com",
+		Annotations: nil,
 	}
 	buf := bytes.Buffer{}
 	if err := t.Execute(&buf, data); err != nil {
@@ -260,6 +298,21 @@ func checkTemplate(t *template.Template) error {
 	}
 
 	return nil
+}
+
+func (c *Config) GetTagTemplate() *template.Template {
+	return template.Must(template.New("tag-template").Parse(
+		c.TagTemplate))
+}
+
+func checkTagTemplate(t *template.Template) error {
+	// To a test run of applying the template, and see if we
+	// produce a result without error.
+	data := TagTemplateValues{
+		Name: "foo",
+		Tag:  "v2",
+	}
+	return t.Execute(ioutil.Discard, data)
 }
 
 // IsKubeletProbe returns true if the request is a kubernetes probe.

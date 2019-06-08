@@ -18,6 +18,7 @@ package generators
 
 import (
 	"io"
+
 	clientgentypes "k8s.io/code-generator/cmd/client-gen/types"
 	"k8s.io/gengo/generator"
 	"k8s.io/gengo/namer"

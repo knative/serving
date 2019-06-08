@@ -21,16 +21,16 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/knative/serving/pkg/apis/config"
+
 	"github.com/knative/pkg/apis"
 	"github.com/knative/pkg/kmp"
-	"github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/serving"
 )
 
 // Validate ensures Revision is properly configured.
 func (r *Revision) Validate(ctx context.Context) *apis.FieldError {
 	errs := serving.ValidateObjectMetadata(r.GetObjectMeta()).ViaField("metadata")
-	errs = errs.Also(r.Spec.Validate(apis.WithinSpec(ctx)).ViaField("spec"))
 	errs = errs.Also(r.Status.Validate(apis.WithinStatus(ctx)).ViaField("status"))
 
 	if apis.IsInUpdate(ctx) {
@@ -48,6 +48,8 @@ func (r *Revision) Validate(ctx context.Context) *apis.FieldError {
 				Details: diff,
 			}
 		}
+	} else {
+		errs = errs.Also(r.Spec.Validate(apis.WithinSpec(ctx)).ViaField("spec"))
 	}
 
 	return errs
@@ -113,10 +115,10 @@ func (rs *RevisionSpec) Validate(ctx context.Context) *apis.FieldError {
 
 	if rs.TimeoutSeconds != nil {
 		ts := *rs.TimeoutSeconds
-		max := int64(networking.DefaultTimeout.Seconds())
-		if ts < 0 || ts > max {
+		cfg := config.FromContextOrDefaults(ctx)
+		if ts < 0 || ts > cfg.Defaults.MaxRevisionTimeoutSeconds {
 			err = err.Also(apis.ErrOutOfBoundsValue(
-				ts, 0, max, "timeoutSeconds"))
+				ts, 0, cfg.Defaults.MaxRevisionTimeoutSeconds, "timeoutSeconds"))
 		}
 	}
 

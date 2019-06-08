@@ -17,9 +17,16 @@ limitations under the License.
 package service
 
 import (
+	"context"
+
+	configurationinformer "github.com/knative/serving/pkg/client/injection/informers/serving/v1alpha1/configuration"
+	revisioninformer "github.com/knative/serving/pkg/client/injection/informers/serving/v1alpha1/revision"
+	routeinformer "github.com/knative/serving/pkg/client/injection/informers/serving/v1alpha1/route"
+	kserviceinformer "github.com/knative/serving/pkg/client/injection/informers/serving/v1alpha1/service"
+
+	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/controller"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	servinginformers "github.com/knative/serving/pkg/client/informers/externalversions/serving/v1alpha1"
 	"github.com/knative/serving/pkg/reconciler"
 	"k8s.io/client-go/tools/cache"
 )
@@ -31,15 +38,16 @@ const (
 // NewController initializes the controller and is called by the generated code
 // Registers eventhandlers to enqueue events
 func NewController(
-	opt reconciler.Options,
-	serviceInformer servinginformers.ServiceInformer,
-	configurationInformer servinginformers.ConfigurationInformer,
-	revisionInformer servinginformers.RevisionInformer,
-	routeInformer servinginformers.RouteInformer,
+	ctx context.Context,
+	cmw configmap.Watcher,
 ) *controller.Impl {
+	serviceInformer := kserviceinformer.Get(ctx)
+	routeInformer := routeinformer.Get(ctx)
+	configurationInformer := configurationinformer.Get(ctx)
+	revisionInformer := revisioninformer.Get(ctx)
 
 	c := &Reconciler{
-		Base:                reconciler.NewBase(opt, controllerAgentName),
+		Base:                reconciler.NewBase(ctx, controllerAgentName, cmw),
 		serviceLister:       serviceInformer.Lister(),
 		configurationLister: configurationInformer.Lister(),
 		revisionLister:      revisionInformer.Lister(),

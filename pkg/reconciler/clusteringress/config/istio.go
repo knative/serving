@@ -36,12 +36,20 @@ const (
 
 	// LocalGatewayKeyPrefix is the prefix of all keys to configure Istio gateways for public & private ClusterIngresses.
 	LocalGatewayKeyPrefix = "local-gateway."
+
+	// MeshGatewayName is the name of the special 'mesh' Istio Gateway.
+	MeshGatewayName = "mesh"
 )
 
 var (
 	defaultGateway = Gateway{
 		GatewayName: "knative-ingress-gateway",
 		ServiceURL: fmt.Sprintf("istio-ingressgateway.istio-system.svc.%s",
+			network.GetClusterDomainName()),
+	}
+	defaultLocalGateway = Gateway{
+		GatewayName: "cluster-local-gateway",
+		ServiceURL: fmt.Sprintf("cluster-local-gateway.istio-system.svc.%s",
 			network.GetClusterDomainName()),
 	}
 )
@@ -97,6 +105,10 @@ func NewIstioFromConfigMap(configMap *corev1.ConfigMap) (*Istio, error) {
 		gateways = append(gateways, defaultGateway)
 	}
 	localGateways, err := parseGateways(configMap, LocalGatewayKeyPrefix)
+	if len(localGateways) == 0 {
+		localGateways = append(localGateways, defaultLocalGateway)
+	}
+	localGateways = removeMeshGateway(localGateways)
 	if err != nil {
 		return nil, err
 	}
@@ -104,4 +116,14 @@ func NewIstioFromConfigMap(configMap *corev1.ConfigMap) (*Istio, error) {
 		IngressGateways: gateways,
 		LocalGateways:   localGateways,
 	}, nil
+}
+
+func removeMeshGateway(gateways []Gateway) []Gateway {
+	gws := []Gateway{}
+	for _, g := range gateways {
+		if g.GatewayName != "mesh" {
+			gws = append(gws, g)
+		}
+	}
+	return gws
 }

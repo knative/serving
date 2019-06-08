@@ -237,6 +237,9 @@ func getTestMetric() *Metric {
 				serving.RevisionLabelKey: testRevision,
 			},
 		},
+		Spec: MetricSpec{
+			ScrapeTarget: testRevision + "-metrics",
+		},
 	}
 }
 

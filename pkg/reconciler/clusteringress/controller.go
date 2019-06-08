@@ -19,17 +19,19 @@ package clusteringress
 import (
 	"context"
 
-	istioinformers "github.com/knative/pkg/client/informers/externalversions/istio/v1alpha3"
+	gatewayinformer "github.com/knative/pkg/client/injection/informers/istio/v1alpha3/gateway"
+	virtualserviceinformer "github.com/knative/pkg/client/injection/informers/istio/v1alpha3/virtualservice"
+	clusteringressinformer "github.com/knative/serving/pkg/client/injection/informers/networking/v1alpha1/clusteringress"
+
 	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/controller"
+	secretinformer "github.com/knative/pkg/injection/informers/kubeinformers/corev1/secret"
 	"github.com/knative/pkg/tracker"
 	"github.com/knative/serving/pkg/apis/networking"
-	informers "github.com/knative/serving/pkg/client/informers/externalversions/networking/v1alpha1"
 	"github.com/knative/serving/pkg/network"
 	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/clusteringress/config"
 	corev1 "k8s.io/api/core/v1"
-	corev1informers "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -45,19 +47,21 @@ type configStore interface {
 // NewController initializes the controller and is called by the generated code
 // Registers eventhandlers to enqueue events.
 func NewController(
-	opt reconciler.Options,
-	clusterIngressInformer informers.ClusterIngressInformer,
-	virtualServiceInformer istioinformers.VirtualServiceInformer,
-	gatewayInformer istioinformers.GatewayInformer,
-	secretInfomer corev1informers.SecretInformer,
+	ctx context.Context,
+	cmw configmap.Watcher,
 ) *controller.Impl {
 
+	clusterIngressInformer := clusteringressinformer.Get(ctx)
+	virtualServiceInformer := virtualserviceinformer.Get(ctx)
+	gatewayInformer := gatewayinformer.Get(ctx)
+	secretInformer := secretinformer.Get(ctx)
+
 	c := &Reconciler{
-		Base:                 reconciler.NewBase(opt, controllerAgentName),
+		Base:                 reconciler.NewBase(ctx, controllerAgentName, cmw),
 		clusterIngressLister: clusterIngressInformer.Lister(),
 		virtualServiceLister: virtualServiceInformer.Lister(),
 		gatewayLister:        gatewayInformer.Lister(),
-		secretLister:         secretInfomer.Lister(),
+		secretLister:         secretInformer.Lister(),
 	}
 	impl := controller.NewImpl(c, c.Logger, "ClusterIngresses")
 
@@ -74,8 +78,9 @@ func NewController(
 		Handler:    controller.HandleAll(impl.EnqueueLabelOfClusterScopedResource(networking.IngressLabelKey)),
 	})
 
-	c.tracker = tracker.New(impl.EnqueueKey, opt.GetTrackerLease())
-	secretInfomer.Informer().AddEventHandler(controller.HandleAll(
+	c.tracker = tracker.New(impl.EnqueueKey, controller.GetTrackerLease(ctx))
+
+	secretInformer.Informer().AddEventHandler(controller.HandleAll(
 		controller.EnsureTypeMeta(
 			c.tracker.OnChanged,
 			corev1.SchemeGroupVersion.WithKind("Secret"),
@@ -91,6 +96,6 @@ func NewController(
 		controller.SendGlobalUpdates(clusterIngressInformer.Informer(), ciHandler)
 	})
 	c.configStore = config.NewStore(c.Logger.Named("config-store"), resyncIngressesOnConfigChange)
-	c.configStore.WatchConfigs(opt.ConfigMapWatcher)
+	c.configStore.WatchConfigs(cmw)
 	return impl
 }

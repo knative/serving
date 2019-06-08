@@ -25,7 +25,6 @@ import (
 
 	"github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/serving"
-	"github.com/knative/serving/pkg/reconciler/autoscaling/kpa/resources/names"
 	"github.com/knative/serving/pkg/resources"
 	"github.com/pkg/errors"
 )
@@ -108,11 +107,10 @@ func newServiceScraperWithClient(
 		return nil, fmt.Errorf("no Revision label found for Metric %s", metric.Name)
 	}
 
-	serviceName := names.MetricsServiceName(revName)
 	return &ServiceScraper{
 		sClient:   sClient,
 		counter:   counter,
-		url:       fmt.Sprintf("http://%s.%s:%d/metrics", serviceName, metric.Namespace, networking.AutoscalingQueueMetricsPort),
+		url:       fmt.Sprintf("http://%s.%s:%d/metrics", metric.Spec.ScrapeTarget, metric.Namespace, networking.AutoscalingQueueMetricsPort),
 		metricKey: NewMetricKey(metric.Namespace, metric.Name),
 		namespace: metric.Namespace,
 	}, nil

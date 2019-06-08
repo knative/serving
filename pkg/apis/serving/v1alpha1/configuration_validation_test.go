@@ -21,12 +21,15 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/knative/pkg/ptr"
+
 	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
 	"github.com/knative/pkg/apis"
+	"github.com/knative/serving/pkg/apis/config"
 	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 )
 
@@ -69,13 +72,14 @@ func TestConfigurationSpecValidation(t *testing.T) {
 			DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 				Spec: RevisionSpec{
 					DeprecatedContainer: &corev1.Container{
-						Name:  "stuart",
-						Image: "hellworld",
+						Name:      "stuart",
+						Image:     "hellworld",
+						Lifecycle: &corev1.Lifecycle{},
 					},
 				},
 			},
 		},
-		want: apis.ErrDisallowedFields("revisionTemplate.spec.container.name"),
+		want: apis.ErrDisallowedFields("revisionTemplate.spec.container.lifecycle"),
 	}, {
 		name: "build is not allowed",
 		c: &ConfigurationSpec{
@@ -188,14 +192,15 @@ func TestConfigurationValidation(t *testing.T) {
 				DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 					Spec: RevisionSpec{
 						DeprecatedContainer: &corev1.Container{
-							Name:  "stuart",
-							Image: "hellworld",
+							Name:      "stuart",
+							Image:     "hellworld",
+							Lifecycle: &corev1.Lifecycle{},
 						},
 					},
 				},
 			},
 		},
-		want: apis.ErrDisallowedFields("spec.revisionTemplate.spec.container.name"),
+		want: apis.ErrDisallowedFields("spec.revisionTemplate.spec.container.lifecycle"),
 	}, {
 		name: "propagate revision failures (template)",
 		c: &Configuration{
@@ -475,6 +480,112 @@ func TestImmutableConfigurationFields(t *testing.T) {
 			ctx := context.Background()
 			ctx = apis.WithinUpdate(ctx, test.old)
 			got := test.new.Validate(ctx)
+			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
+				t.Errorf("Validate (-want, +got) = %v", diff)
+			}
+		})
+	}
+}
+
+func TestConfigurationSubresourceUpdate(t *testing.T) {
+	tests := []struct {
+		name        string
+		config      *Configuration
+		subresource string
+		want        *apis.FieldError
+	}{{
+		name: "status update with valid revision template",
+		config: &Configuration{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid",
+			},
+			Spec: ConfigurationSpec{
+				DeprecatedRevisionTemplate: &RevisionTemplateSpec{
+					Spec: RevisionSpec{
+						DeprecatedContainer: &corev1.Container{
+							Image: "helloworld",
+						},
+						RevisionSpec: v1beta1.RevisionSpec{
+							TimeoutSeconds: ptr.Int64(config.DefaultMaxRevisionTimeoutSeconds - 1),
+						},
+					},
+				},
+			},
+		},
+		subresource: "status",
+		want:        nil,
+	}, {
+		name: "status update with invalid revision template",
+		config: &Configuration{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid",
+			},
+			Spec: ConfigurationSpec{
+				DeprecatedRevisionTemplate: &RevisionTemplateSpec{
+					Spec: RevisionSpec{
+						DeprecatedContainer: &corev1.Container{
+							Image: "helloworld",
+						},
+						RevisionSpec: v1beta1.RevisionSpec{
+							TimeoutSeconds: ptr.Int64(config.DefaultMaxRevisionTimeoutSeconds + 1),
+						},
+					},
+				},
+			},
+		},
+		subresource: "status",
+		want:        nil,
+	}, {
+		name: "non-status sub resource update with valid revision template",
+		config: &Configuration{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid",
+			},
+			Spec: ConfigurationSpec{
+				DeprecatedRevisionTemplate: &RevisionTemplateSpec{
+					Spec: RevisionSpec{
+						DeprecatedContainer: &corev1.Container{
+							Image: "helloworld",
+						},
+						RevisionSpec: v1beta1.RevisionSpec{
+							TimeoutSeconds: ptr.Int64(config.DefaultMaxRevisionTimeoutSeconds - 1),
+						},
+					},
+				},
+			},
+		},
+		subresource: "foo",
+		want:        nil,
+	}, {
+		name: "non-status sub resource update with invalid revision template",
+		config: &Configuration{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid",
+			},
+			Spec: ConfigurationSpec{
+				DeprecatedRevisionTemplate: &RevisionTemplateSpec{
+					Spec: RevisionSpec{
+						DeprecatedContainer: &corev1.Container{
+							Image: "helloworld",
+						},
+						RevisionSpec: v1beta1.RevisionSpec{
+							TimeoutSeconds: ptr.Int64(config.DefaultMaxRevisionTimeoutSeconds + 1),
+						},
+					},
+				},
+			},
+		},
+		subresource: "foo",
+		want: apis.ErrOutOfBoundsValue(config.DefaultMaxRevisionTimeoutSeconds+1, 0,
+			config.DefaultMaxRevisionTimeoutSeconds,
+			"spec.revisionTemplate.spec.timeoutSeconds"),
+	}}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			ctx := context.Background()
+			ctx = apis.WithinSubResourceUpdate(ctx, test.config, test.subresource)
+			got := test.config.Validate(ctx)
 			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
 				t.Errorf("Validate (-want, +got) = %v", diff)
 			}

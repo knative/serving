@@ -22,12 +22,23 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"path/filepath"
+	"strings"
 
 	"github.com/knative/serving/test"
 )
 
 func handler(w http.ResponseWriter, r *http.Request) {
-	content, err := ioutil.ReadFile(test.HelloVolumePath)
+	base := filepath.Dir(test.HelloVolumePath)
+	p := filepath.Join(base, r.URL.Path)
+	if p == base {
+		p = test.HelloVolumePath
+	}
+	if !strings.HasPrefix(p, base) {
+		http.Error(w, "there is no escape", http.StatusBadRequest)
+		return
+	}
+	content, err := ioutil.ReadFile(p)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

@@ -130,11 +130,12 @@ func TestPodSpecValidation(t *testing.T) {
 		name: "bad pod spec",
 		ps: corev1.PodSpec{
 			Containers: []corev1.Container{{
-				Name:  "steve",
-				Image: "helloworld",
+				Name:      "steve",
+				Image:     "helloworld",
+				Lifecycle: &corev1.Lifecycle{},
 			}},
 		},
-		want: apis.ErrDisallowedFields("containers[0].name"),
+		want: apis.ErrDisallowedFields("containers[0].lifecycle"),
 	}, {
 		name: "missing all",
 		ps: corev1.PodSpec{
@@ -211,12 +212,13 @@ func TestContainerValidation(t *testing.T) {
 			Details: "image: \"foo:bar:baz\", error: could not parse reference",
 		},
 	}, {
-		name: "has a name",
+		name: "has a lifecycle",
 		c: corev1.Container{
-			Name:  "foo",
-			Image: "foo",
+			Name:      "foo",
+			Image:     "foo",
+			Lifecycle: &corev1.Lifecycle{},
 		},
-		want: apis.ErrDisallowedFields("name"),
+		want: apis.ErrDisallowedFields("lifecycle"),
 	}, {
 		name: "has resources",
 		c: corev1.Container{
@@ -664,7 +666,6 @@ func TestContainerValidation(t *testing.T) {
 			}},
 		},
 		want: apis.ErrDisallowedFields("lifecycle").Also(
-			apis.ErrDisallowedFields("name")).Also(
 			apis.ErrDisallowedFields("stdin")).Also(
 			apis.ErrDisallowedFields("stdinOnce")).Also(
 			apis.ErrDisallowedFields("tty")).Also(
@@ -672,10 +673,9 @@ func TestContainerValidation(t *testing.T) {
 	}, {
 		name: "has numerous problems",
 		c: corev1.Container{
-			Name:      "foo",
 			Lifecycle: &corev1.Lifecycle{},
 		},
-		want: apis.ErrDisallowedFields("name", "lifecycle").Also(
+		want: apis.ErrDisallowedFields("lifecycle").Also(
 			apis.ErrMissingField("image")),
 	}}
 
@@ -699,7 +699,7 @@ func TestVolumeValidation(t *testing.T) {
 		v: corev1.Volume{
 			Name: "foo",
 		},
-		want: apis.ErrMissingOneOf("secret", "configMap"),
+		want: apis.ErrMissingOneOf("secret", "configMap", "projected"),
 	}, {
 		name: "secret volume",
 		v: corev1.Volume{
@@ -728,13 +728,113 @@ func TestVolumeValidation(t *testing.T) {
 				EmptyDir: &corev1.EmptyDirVolumeSource{},
 			},
 		},
-		want: apis.ErrMissingOneOf("secret", "configMap").Also(apis.ErrDisallowedFields("emptyDir")),
+		want: apis.ErrMissingOneOf("secret", "configMap", "projected").Also(
+			apis.ErrDisallowedFields("emptyDir")),
 	}, {
 		name: "no volume source",
 		v: corev1.Volume{
 			Name: "foo",
 		},
-		want: apis.ErrMissingOneOf("secret", "configMap"),
+		want: apis.ErrMissingOneOf("secret", "configMap", "projected"),
+	}, {
+		name: "multiple volume source",
+		v: corev1.Volume{
+			Name: "foo",
+			VolumeSource: corev1.VolumeSource{
+				ConfigMap: &corev1.ConfigMapVolumeSource{
+					LocalObjectReference: corev1.LocalObjectReference{Name: "foo"},
+				},
+				Projected: &corev1.ProjectedVolumeSource{
+					Sources: []corev1.VolumeProjection{{
+						Secret: &corev1.SecretProjection{
+							LocalObjectReference: corev1.LocalObjectReference{
+								Name: "foo",
+							},
+							Items: []corev1.KeyToPath{{
+								Key:  "foo",
+								Path: "bar/baz",
+							}},
+						},
+					}},
+				},
+			},
+		},
+		want: apis.ErrMultipleOneOf("configMap", "projected"),
+	}, {
+		name: "multiple project volume single source",
+		v: corev1.Volume{
+			Name: "foo",
+			VolumeSource: corev1.VolumeSource{
+				Projected: &corev1.ProjectedVolumeSource{
+					Sources: []corev1.VolumeProjection{{
+						Secret: &corev1.SecretProjection{
+							LocalObjectReference: corev1.LocalObjectReference{
+								Name: "foo",
+							},
+						},
+						ConfigMap: &corev1.ConfigMapProjection{
+							LocalObjectReference: corev1.LocalObjectReference{
+								Name: "bar",
+							},
+							Items: []corev1.KeyToPath{{
+								Key:  "foo",
+								Path: "bar/baz",
+							}},
+						},
+					}},
+				},
+			},
+		},
+		want: apis.ErrMultipleOneOf("projected[0].configMap", "projected[0].secret"),
+	}, {
+		name: "multiple project volume one-per-source",
+		v: corev1.Volume{
+			Name: "foo",
+			VolumeSource: corev1.VolumeSource{
+				Projected: &corev1.ProjectedVolumeSource{
+					Sources: []corev1.VolumeProjection{{
+						Secret: &corev1.SecretProjection{
+							LocalObjectReference: corev1.LocalObjectReference{
+								Name: "foo",
+							},
+						},
+					}, {
+						ConfigMap: &corev1.ConfigMapProjection{
+							LocalObjectReference: corev1.LocalObjectReference{
+								Name: "bar",
+							},
+						},
+					}},
+				},
+			},
+		},
+		want: nil,
+	}, {
+		name: "multiple project volume one-per-source (no names)",
+		v: corev1.Volume{
+			Name: "foo",
+			VolumeSource: corev1.VolumeSource{
+				Projected: &corev1.ProjectedVolumeSource{
+					Sources: []corev1.VolumeProjection{{
+						Secret: &corev1.SecretProjection{},
+					}, {
+						ConfigMap: &corev1.ConfigMapProjection{},
+					}},
+				},
+			},
+		},
+		want: apis.ErrMissingField("projected[0].secret.name", "projected[1].configMap.name"),
+	}, {
+		name: "no project volume source",
+		v: corev1.Volume{
+			Name: "foo",
+			VolumeSource: corev1.VolumeSource{
+				Projected: &corev1.ProjectedVolumeSource{
+					Sources: []corev1.VolumeProjection{{}},
+				},
+			},
+		},
+		want: apis.ErrMissingOneOf("projected[0].configMap", "projected[0].secret"),
 	}, {
 		name: "no name",
 		v: corev1.Volume{

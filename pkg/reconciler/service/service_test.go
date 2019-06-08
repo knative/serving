@@ -21,21 +21,24 @@ import (
 	"fmt"
 	"testing"
 
+	// Install our fake informers
+	_ "github.com/knative/serving/pkg/client/injection/informers/serving/v1alpha1/configuration/fake"
+	_ "github.com/knative/serving/pkg/client/injection/informers/serving/v1alpha1/revision/fake"
+	_ "github.com/knative/serving/pkg/client/injection/informers/serving/v1alpha1/route/fake"
+	_ "github.com/knative/serving/pkg/client/injection/informers/serving/v1alpha1/service/fake"
+
 	duckv1beta1 "github.com/knative/pkg/apis/duck/v1beta1"
-	fakesharedclientset "github.com/knative/pkg/client/clientset/versioned/fake"
+	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/controller"
 	logtesting "github.com/knative/pkg/logging/testing"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1beta1"
-	fakeclientset "github.com/knative/serving/pkg/client/clientset/versioned/fake"
-	informers "github.com/knative/serving/pkg/client/informers/externalversions"
 	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/service/resources"
 	. "github.com/knative/serving/pkg/reconciler/testing"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
 	clientgotesting "k8s.io/client-go/testing"
 
 	. "github.com/knative/pkg/reconciler/testing"
@@ -1277,9 +1280,9 @@ func TestReconcile(t *testing.T) {
 	}}
 
 	defer logtesting.ClearAll()
-	table.Test(t, MakeFactory(func(listers *Listers, opt reconciler.Options) controller.Reconciler {
+	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
 		return &Reconciler{
-			Base:                reconciler.NewBase(opt, controllerAgentName),
+			Base:                reconciler.NewBase(ctx, controllerAgentName, cmw),
 			serviceLister:       listers.GetServiceLister(),
 			configurationLister: listers.GetConfigurationLister(),
 			revisionLister:      listers.GetRevisionLister(),
@@ -1290,22 +1293,9 @@ func TestReconcile(t *testing.T) {
 
 func TestNew(t *testing.T) {
 	defer logtesting.ClearAll()
-	kubeClient := fakekubeclientset.NewSimpleClientset()
-	sharedClient := fakesharedclientset.NewSimpleClientset()
-	servingClient := fakeclientset.NewSimpleClientset()
-	servingInformer := informers.NewSharedInformerFactory(servingClient, 0)
+	ctx, _ := SetupFakeContext(t)
 
-	serviceInformer := servingInformer.Serving().V1alpha1().Services()
-	routeInformer := servingInformer.Serving().V1alpha1().Routes()
-	configurationInformer := servingInformer.Serving().V1alpha1().Configurations()
-	revisionInformer := servingInformer.Serving().V1alpha1().Revisions()
-
-	c := NewController(reconciler.Options{
-		KubeClientSet:    kubeClient,
-		SharedClientSet:  sharedClient,
-		ServingClientSet: servingClient,
-		Logger:           logtesting.TestLogger(t),
-	}, serviceInformer, configurationInformer, revisionInformer, routeInformer)
+	c := NewController(ctx, configmap.NewFixedWatcher())
 
 	if c == nil {
 		t.Fatal("Expected NewController to return a non-nil value")
