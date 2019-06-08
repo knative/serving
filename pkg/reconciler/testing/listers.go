@@ -17,7 +17,6 @@ limitations under the License.
 package testing
 
 import (
-	certmanager "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1alpha1"
 	certmanagerv1alpha1 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1alpha1"
 	cachingv1alpha1 "github.com/knative/caching/pkg/apis/caching/v1alpha1"
 	fakecachingclientset "github.com/knative/caching/pkg/client/clientset/versioned/fake"
@@ -173,7 +172,7 @@ func (l *Listers) GetKnCertificateLister() networkinglisters.CertificateLister {
 
 // GetCMCertificateLister gets lister for Cert Manager Certificate resource.
 func (l *Listers) GetCMCertificateLister() certmanagerlisters.CertificateLister {
-	return certmanagerlisters.NewCertificateLister(l.IndexerFor(&certmanager.Certificate{}))
+	return certmanagerlisters.NewCertificateLister(l.IndexerFor(&certmanagerv1alpha1.Certificate{}))
 }
 
 func (l *Listers) GetImageLister() cachinglisters.ImageLister {

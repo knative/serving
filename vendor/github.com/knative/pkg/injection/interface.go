@@ -22,6 +22,7 @@ import (
 
 	"k8s.io/client-go/rest"
 
+	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/controller"
 )
 
@@ -54,16 +55,10 @@ type Interface interface {
 	// along with a list of the .Informer() for each of the injected informers,
 	// which is suitable for passing to controller.StartInformers().
 	// This does not setup or start any controllers.
-	// TODO(mattmoor): Consider setting up and starting controllers?
 	SetupInformers(context.Context, *rest.Config) (context.Context, []controller.Informer)
-
-	// RegisterController registers a new injector callback for associating
-	// a new controller with a context.
-	RegisterController(ControllerInjector)
-
-	// GetControllers fetches all of the registered controller injectors.
-	GetControllers() []ControllerInjector
 }
+
+type ControllerConstructor func(context.Context, configmap.Watcher) *controller.Impl
 
 var (
 	// Check that impl implements Interface
@@ -83,8 +78,7 @@ var (
 type impl struct {
 	m sync.RWMutex
 
-	clients     []ClientInjector
-	factories   []InformerFactoryInjector
-	informers   []InformerInjector
-	controllers []ControllerInjector
+	clients   []ClientInjector
+	factories []InformerFactoryInjector
+	informers []InformerInjector
 }

@@ -1880,9 +1880,9 @@ func TestReconcile(t *testing.T) {
 	// TODO(mattmoor): Multiple inactive Revisions
 
 	defer logtesting.ClearAll()
-	table.Test(t, MakeFactory(func(listers *Listers, opt reconciler.Options) controller.Reconciler {
+	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
 		return &Reconciler{
-			Base:                 reconciler.NewBase(opt, controllerAgentName),
+			Base:                 reconciler.NewBase(ctx, controllerAgentName, cmw),
 			routeLister:          listers.GetRouteLister(),
 			configurationLister:  listers.GetConfigurationLister(),
 			revisionLister:       listers.GetRevisionLister(),
@@ -2044,9 +2044,9 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 		SkipNamespaceValidation: true,
 	}}
 	defer logtesting.ClearAll()
-	table.Test(t, MakeFactory(func(listers *Listers, opt reconciler.Options) controller.Reconciler {
+	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
 		return &Reconciler{
-			Base:                 reconciler.NewBase(opt, controllerAgentName),
+			Base:                 reconciler.NewBase(ctx, controllerAgentName, cmw),
 			routeLister:          listers.GetRouteLister(),
 			configurationLister:  listers.GetConfigurationLister(),
 			revisionLister:       listers.GetRevisionLister(),

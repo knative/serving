@@ -23,6 +23,8 @@ import (
 
 	"github.com/knative/pkg/apis"
 	"github.com/knative/pkg/apis/duck"
+	"github.com/knative/pkg/controller"
+	"github.com/knative/pkg/injection/clients/dynamicclient"
 	"github.com/knative/pkg/logging"
 	"github.com/knative/serving/pkg/activator"
 	pav1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
@@ -30,7 +32,6 @@ import (
 	"github.com/knative/serving/pkg/autoscaler"
 	"github.com/knative/serving/pkg/network"
 	"github.com/knative/serving/pkg/network/prober"
-	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/autoscaling/config"
 	"go.uber.org/zap"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -69,20 +70,21 @@ type scaler struct {
 }
 
 // newScaler creates a scaler.
-func newScaler(opt *reconciler.Options, enqueueCB func(interface{}, time.Duration)) *scaler {
+func newScaler(ctx context.Context, enqueueCB func(interface{}, time.Duration)) *scaler {
+	logger := logging.FromContext(ctx)
 	ks := &scaler{
 		// Wrap it in a cache, so that we don't stamp out a new
 		// informer/lister each time.
 		psInformerFactory: &duck.CachedInformerFactory{
-			Delegate: podScalableTypedInformerFactory(opt),
+			Delegate: podScalableTypedInformerFactory(ctx),
 		},
-		dynamicClient: opt.DynamicClientSet,
-		logger:        opt.Logger,
+		dynamicClient: dynamicclient.Get(ctx),
+		logger:        logger,
 
 		// Production setup uses the default probe implementation.
 		activatorProbe: activatorProbe,
 		probeManager: prober.New(func(arg interface{}, success bool, err error) {
-			opt.Logger.Infof("Async prober is done for %v: success?: %v error: %v", arg, success, err)
+			logger.Infof("Async prober is done for %v: success?: %v error: %v", arg, success, err)
 			// Re-enqeue the PA in any case. If the probe timed out to retry again, if succeeded to scale to 0.
 			enqueueCB(arg, reenqeuePeriod)
 		}),
@@ -110,12 +112,12 @@ func activatorProbe(pa *pav1alpha1.PodAutoscaler) (bool, error) {
 
 // podScalableTypedInformerFactory returns a duck.InformerFactory that returns
 // lister/informer pairs for PodScalable resources.
-func podScalableTypedInformerFactory(opt *reconciler.Options) duck.InformerFactory {
+func podScalableTypedInformerFactory(ctx context.Context) duck.InformerFactory {
 	return &duck.TypedInformerFactory{
-		Client:       opt.DynamicClientSet,
+		Client:       dynamicclient.Get(ctx),
 		Type:         &pav1alpha1.PodScalable{},
-		ResyncPeriod: opt.ResyncPeriod,
-		StopChannel:  opt.StopChannel,
+		ResyncPeriod: controller.GetResyncPeriod(ctx),
+		StopChannel:  ctx.Done(),
 	}
 }
 

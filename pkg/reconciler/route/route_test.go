@@ -23,19 +23,20 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/go-cmp/cmp"
-	"golang.org/x/sync/errgroup"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/util/intstr"
-	kubeinformers "k8s.io/client-go/informers"
-	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
+	// Inject the informers this controller depends on.
+	_ "github.com/knative/pkg/injection/informers/kubeinformers/corev1/service/fake"
+	fakeservingclient "github.com/knative/serving/pkg/client/injection/client/fake"
+	_ "github.com/knative/serving/pkg/client/injection/informers/networking/v1alpha1/certificate/fake"
+	fakeciinformer "github.com/knative/serving/pkg/client/injection/informers/networking/v1alpha1/clusteringress/fake"
+	fakecfginformer "github.com/knative/serving/pkg/client/injection/informers/serving/v1alpha1/configuration/fake"
+	fakerevisioninformer "github.com/knative/serving/pkg/client/injection/informers/serving/v1alpha1/revision/fake"
+	fakerouteinformer "github.com/knative/serving/pkg/client/injection/informers/serving/v1alpha1/route/fake"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/knative/pkg/apis"
 	duckv1beta1 "github.com/knative/pkg/apis/duck/v1beta1"
 	"github.com/knative/pkg/configmap"
+	"github.com/knative/pkg/controller"
 	ctrl "github.com/knative/pkg/controller"
 	logtesting "github.com/knative/pkg/logging/testing"
 	"github.com/knative/pkg/system"
@@ -43,13 +44,17 @@ import (
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1beta1"
-	fakeclientset "github.com/knative/serving/pkg/client/clientset/versioned/fake"
-	informers "github.com/knative/serving/pkg/client/informers/externalversions"
 	"github.com/knative/serving/pkg/gc"
 	"github.com/knative/serving/pkg/network"
-	rclr "github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/route/config"
 	"github.com/knative/serving/pkg/reconciler/route/domains"
+	"golang.org/x/sync/errgroup"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/client-go/tools/record"
 
 	. "github.com/knative/pkg/reconciler/testing"
 )
@@ -149,28 +154,27 @@ func getTestRevisionForConfig(config *v1alpha1.Configuration) *v1alpha1.Revision
 }
 
 func newTestReconciler(t *testing.T, configs ...*corev1.ConfigMap) (
-	kubeClient *fakekubeclientset.Clientset,
-	servingClient *fakeclientset.Clientset,
+	ctx context.Context,
+	informers []controller.Informer,
 	reconciler *Reconciler,
-	kubeInformer kubeinformers.SharedInformerFactory,
-	servingInformer informers.SharedInformerFactory,
 	configMapWatcher *configmap.ManualWatcher) {
-	kubeClient, servingClient, _, reconciler, kubeInformer, servingInformer, configMapWatcher = newTestSetup(t)
+	ctx, informers, _, reconciler, configMapWatcher = newTestSetup(t)
 	return
 }
 
 func newTestSetup(t *testing.T, configs ...*corev1.ConfigMap) (
-	kubeClient *fakekubeclientset.Clientset,
-	servingClient *fakeclientset.Clientset,
+	ctx context.Context,
+	informers []controller.Informer,
 	controller *ctrl.Impl,
 	reconciler *Reconciler,
-	kubeInformer kubeinformers.SharedInformerFactory,
-	servingInformer informers.SharedInformerFactory,
 	configMapWatcher *configmap.ManualWatcher) {
 
-	// Create fake clients
-	kubeClient = fakekubeclientset.NewSimpleClientset()
-	cms := []*corev1.ConfigMap{{
+	ctx, informers = SetupFakeContext(t)
+	configMapWatcher = &configmap.ManualWatcher{Namespace: system.Namespace()}
+	controller = NewController(ctx, configMapWatcher)
+	reconciler = controller.Reconciler.(*Reconciler)
+
+	cms := append([]*corev1.ConfigMap{{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      config.DomainConfigName,
 			Namespace: system.Namespace(),
@@ -191,33 +195,7 @@ func newTestSetup(t *testing.T, configs ...*corev1.ConfigMap) (
 			Namespace: system.Namespace(),
 		},
 		Data: map[string]string{},
-	}}
-	cms = append(cms, configs...)
-
-	configMapWatcher = &configmap.ManualWatcher{Namespace: system.Namespace()}
-	servingClient = fakeclientset.NewSimpleClientset()
-
-	// Create informer factories with fake clients. The second parameter sets the
-	// resync period to zero, disabling it.
-	kubeInformer = kubeinformers.NewSharedInformerFactory(kubeClient, 0)
-	servingInformer = informers.NewSharedInformerFactory(servingClient, 0)
-
-	controller = NewController(
-		rclr.Options{
-			KubeClientSet:    kubeClient,
-			ServingClientSet: servingClient,
-			ConfigMapWatcher: configMapWatcher,
-			Logger:           logtesting.TestLogger(t),
-		},
-		servingInformer.Serving().V1alpha1().Routes(),
-		servingInformer.Serving().V1alpha1().Configurations(),
-		servingInformer.Serving().V1alpha1().Revisions(),
-		kubeInformer.Core().V1().Services(),
-		servingInformer.Networking().V1alpha1().ClusterIngresses(),
-		servingInformer.Networking().V1alpha1().Certificates(),
-	)
-
-	reconciler = controller.Reconciler.(*Reconciler)
+	}}, configs...)
 
 	for _, cfg := range cms {
 		configMapWatcher.OnChange(cfg)
@@ -226,14 +204,14 @@ func newTestSetup(t *testing.T, configs ...*corev1.ConfigMap) (
 	return
 }
 
-func getRouteIngressFromClient(t *testing.T, servingClient *fakeclientset.Clientset, route *v1alpha1.Route) *netv1alpha1.ClusterIngress {
+func getRouteIngressFromClient(t *testing.T, ctx context.Context, route *v1alpha1.Route) *netv1alpha1.ClusterIngress {
 	opts := metav1.ListOptions{
 		LabelSelector: labels.Set(map[string]string{
 			serving.RouteLabelKey:          route.Name,
 			serving.RouteNamespaceLabelKey: route.Namespace,
 		}).AsSelector().String(),
 	}
-	cis, err := servingClient.NetworkingV1alpha1().ClusterIngresses().List(opts)
+	cis, err := fakeservingclient.Get(ctx).NetworkingV1alpha1().ClusterIngresses().List(opts)
 	if err != nil {
 		t.Errorf("ClusterIngress.Get(%v) = %v", opts, err)
 	}
@@ -245,47 +223,41 @@ func getRouteIngressFromClient(t *testing.T, servingClient *fakeclientset.Client
 	return &cis.Items[0]
 }
 
-func getCertificateFromClient(t *testing.T, servingClient *fakeclientset.Clientset, desired *netv1alpha1.Certificate) *netv1alpha1.Certificate {
-	created, err := servingClient.NetworkingV1alpha1().Certificates(desired.Namespace).Get(desired.Name, metav1.GetOptions{})
+func getCertificateFromClient(t *testing.T, ctx context.Context, desired *netv1alpha1.Certificate) *netv1alpha1.Certificate {
+	created, err := fakeservingclient.Get(ctx).NetworkingV1alpha1().Certificates(desired.Namespace).Get(desired.Name, metav1.GetOptions{})
 	if err != nil {
 		t.Errorf("Certificates(%s).Get(%s) = %v", desired.Namespace, desired.Name, err)
 	}
 	return created
 }
 
-func addResourcesToInformers(
-	t *testing.T, servingClient *fakeclientset.Clientset,
-	servingInformer informers.SharedInformerFactory, route *v1alpha1.Route) {
+func addResourcesToInformers(t *testing.T, ctx context.Context, route *v1alpha1.Route) {
 	t.Helper()
 
 	ns := route.Namespace
 
-	route, err := servingClient.ServingV1alpha1().Routes(ns).Get(route.Name, metav1.GetOptions{})
+	route, err := fakeservingclient.Get(ctx).ServingV1alpha1().Routes(ns).Get(route.Name, metav1.GetOptions{})
 	if err != nil {
 		t.Errorf("Route.Get(%v) = %v", route.Name, err)
 	}
-	servingInformer.Serving().V1alpha1().Routes().Informer().GetIndexer().Add(route)
+	fakerouteinformer.Get(ctx).Informer().GetIndexer().Add(route)
 
-	ci := getRouteIngressFromClient(t, servingClient, route)
-	servingInformer.Networking().V1alpha1().ClusterIngresses().Informer().GetIndexer().Add(ci)
+	ci := getRouteIngressFromClient(t, ctx, route)
+	fakeciinformer.Get(ctx).Informer().GetIndexer().Add(ci)
 }
 
 // Test the only revision in the route is in Reserve (inactive) serving status.
 func TestCreateRouteForOneReserveRevision(t *testing.T) {
-	kubeClient, servingClient, controller, _, servingInformer, _ := newTestReconciler(t)
+	ctx, _, reconciler, _ := newTestReconciler(t)
 
-	h := NewHooks()
-	// Look for the events. Events are delivered asynchronously so we need to use
-	// hooks here. Each hook tests for a specific event.
-	h.OnCreate(&kubeClient.Fake, "events", ExpectNormalEventDelivery(t, `Created placeholder service "test-route"`))
-	h.OnCreate(&kubeClient.Fake, "events", ExpectNormalEventDelivery(t, "^Created ClusterIngress.*" /*ingress name is unset in test*/))
+	fakeRecorder := reconciler.Base.Recorder.(*record.FakeRecorder)
 
 	// An inactive revision
 	rev := getTestRevision("test-rev")
 	rev.Status.MarkInactive("NoTraffic", "no message")
 
-	servingClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
-	servingInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
+	fakeservingclient.Get(ctx).ServingV1alpha1().Revisions(testNamespace).Create(rev)
+	fakerevisioninformer.Get(ctx).Informer().GetIndexer().Add(rev)
 
 	// A route targeting the revision
 	route := getTestRouteWithTrafficTargets(
@@ -297,13 +269,13 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 			},
 		}},
 	)
-	servingClient.ServingV1alpha1().Routes(testNamespace).Create(route)
+	fakeservingclient.Get(ctx).ServingV1alpha1().Routes(testNamespace).Create(route)
 	// Since Reconcile looks in the lister, we need to add it to the informer
-	servingInformer.Serving().V1alpha1().Routes().Informer().GetIndexer().Add(route)
+	fakerouteinformer.Get(ctx).Informer().GetIndexer().Add(route)
 
-	controller.Reconcile(context.Background(), KeyOrDie(route))
+	reconciler.Reconcile(context.Background(), KeyOrDie(route))
 
-	ci := getRouteIngressFromClient(t, servingClient, route)
+	ci := getRouteIngressFromClient(t, ctx, route)
 
 	// Check labels
 	expectedLabels := map[string]string{
@@ -353,32 +325,49 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 			}},
 		},
 	}
-	servingInformer.Networking().V1alpha1().ClusterIngresses().Informer().GetIndexer().Update(ci)
-	controller.Reconcile(context.Background(), KeyOrDie(route))
+	fakeciinformer.Get(ctx).Informer().GetIndexer().Update(ci)
+	reconciler.Reconcile(context.Background(), KeyOrDie(route))
 
-	if err := h.WaitForHooks(time.Second * 3); err != nil {
-		t.Error(err)
+	// Look for the events. Events are delivered asynchronously so we need to use
+	// hooks here. Each hook tests for a specific event.
+	select {
+	case got := <-fakeRecorder.Events:
+		const want = `Normal Created Created placeholder service "test-route"`
+		if got != want {
+			t.Errorf("<-Events = %s, wanted %s", got, want)
+		}
+	case <-time.After(3 * time.Second):
+		t.Error("timed out waiting for expected events.")
+	}
+	select {
+	case got := <-fakeRecorder.Events:
+		const wantPrefix = `Normal Created Created ClusterIngress`
+		if !strings.HasPrefix(got, wantPrefix) {
+			t.Errorf("<-Events = %s, wanted prefix %s", got, wantPrefix)
+		}
+	case <-time.After(3 * time.Second):
+		t.Error("timed out waiting for expected events.")
 	}
 }
 
 func TestCreateRouteWithMultipleTargets(t *testing.T) {
-	_, servingClient, controller, _, servingInformer, _ := newTestReconciler(t)
+	ctx, _, reconciler, _ := newTestReconciler(t)
 	// A standalone revision
 	rev := getTestRevision("test-rev")
-	servingClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
-	servingInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
+	fakeservingclient.Get(ctx).ServingV1alpha1().Revisions(testNamespace).Create(rev)
+	fakerevisioninformer.Get(ctx).Informer().GetIndexer().Add(rev)
 
 	// A configuration and associated revision. Normally the revision would be
-	// created by the configuration controller.
+	// created by the configuration reconciler.
 	config := getTestConfiguration()
 	cfgrev := getTestRevisionForConfig(config)
 	config.Status.SetLatestCreatedRevisionName(cfgrev.Name)
 	config.Status.SetLatestReadyRevisionName(cfgrev.Name)
-	servingClient.ServingV1alpha1().Configurations(testNamespace).Create(config)
+	fakeservingclient.Get(ctx).ServingV1alpha1().Configurations(testNamespace).Create(config)
 	// Since Reconcile looks in the lister, we need to add it to the informer
-	servingInformer.Serving().V1alpha1().Configurations().Informer().GetIndexer().Add(config)
-	servingClient.ServingV1alpha1().Revisions(testNamespace).Create(cfgrev)
-	servingInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Add(cfgrev)
+	fakecfginformer.Get(ctx).Informer().GetIndexer().Add(config)
+	fakeservingclient.Get(ctx).ServingV1alpha1().Revisions(testNamespace).Create(cfgrev)
+	fakerevisioninformer.Get(ctx).Informer().GetIndexer().Add(cfgrev)
 
 	// A route targeting both the config and standalone revision.
 	route := getTestRouteWithTrafficTargets(
@@ -394,13 +383,13 @@ func TestCreateRouteWithMultipleTargets(t *testing.T) {
 			},
 		}},
 	)
-	servingClient.ServingV1alpha1().Routes(testNamespace).Create(route)
+	fakeservingclient.Get(ctx).ServingV1alpha1().Routes(testNamespace).Create(route)
 	// Since Reconcile looks in the lister, we need to add it to the informer.
-	servingInformer.Serving().V1alpha1().Routes().Informer().GetIndexer().Add(route)
+	fakerouteinformer.Get(ctx).Informer().GetIndexer().Add(route)
 
-	controller.Reconcile(context.Background(), KeyOrDie(route))
+	reconciler.Reconcile(context.Background(), KeyOrDie(route))
 
-	ci := getRouteIngressFromClient(t, servingClient, route)
+	ci := getRouteIngressFromClient(t, ctx, route)
 	domain := strings.Join([]string{route.Name, route.Namespace, defaultDomainSuffix}, ".")
 	expectedSpec := netv1alpha1.IngressSpec{
 		Visibility: netv1alpha1.IngressVisibilityExternalIP,
@@ -443,25 +432,25 @@ func TestCreateRouteWithMultipleTargets(t *testing.T) {
 
 // Test one out of multiple target revisions is in Reserve serving state.
 func TestCreateRouteWithOneTargetReserve(t *testing.T) {
-	_, servingClient, controller, _, servingInformer, _ := newTestReconciler(t)
+	ctx, _, reconciler, _ := newTestReconciler(t)
 	// A standalone inactive revision
 	rev := getTestRevision("test-rev")
 	rev.Status.MarkInactive("NoTraffic", "no message")
 
-	servingClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
-	servingInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
+	fakeservingclient.Get(ctx).ServingV1alpha1().Revisions(testNamespace).Create(rev)
+	fakerevisioninformer.Get(ctx).Informer().GetIndexer().Add(rev)
 
 	// A configuration and associated revision. Normally the revision would be
-	// created by the configuration controller.
+	// created by the configuration reconciler.
 	config := getTestConfiguration()
 	cfgrev := getTestRevisionForConfig(config)
 	config.Status.SetLatestCreatedRevisionName(cfgrev.Name)
 	config.Status.SetLatestReadyRevisionName(cfgrev.Name)
-	servingClient.ServingV1alpha1().Configurations(testNamespace).Create(config)
+	fakeservingclient.Get(ctx).ServingV1alpha1().Configurations(testNamespace).Create(config)
 	// Since Reconcile looks in the lister, we need to add it to the informer
-	servingInformer.Serving().V1alpha1().Configurations().Informer().GetIndexer().Add(config)
-	servingClient.ServingV1alpha1().Revisions(testNamespace).Create(cfgrev)
-	servingInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Add(cfgrev)
+	fakecfginformer.Get(ctx).Informer().GetIndexer().Add(config)
+	fakeservingclient.Get(ctx).ServingV1alpha1().Revisions(testNamespace).Create(cfgrev)
+	fakerevisioninformer.Get(ctx).Informer().GetIndexer().Add(cfgrev)
 
 	// A route targeting both the config and standalone revision
 	route := getTestRouteWithTrafficTargets(
@@ -478,13 +467,13 @@ func TestCreateRouteWithOneTargetReserve(t *testing.T) {
 			},
 		}},
 	)
-	servingClient.ServingV1alpha1().Routes(testNamespace).Create(route)
+	fakeservingclient.Get(ctx).ServingV1alpha1().Routes(testNamespace).Create(route)
 	// Since Reconcile looks in the lister, we need to add it to the informer
-	servingInformer.Serving().V1alpha1().Routes().Informer().GetIndexer().Add(route)
+	fakerouteinformer.Get(ctx).Informer().GetIndexer().Add(route)
 
-	controller.Reconcile(context.Background(), KeyOrDie(route))
+	reconciler.Reconcile(context.Background(), KeyOrDie(route))
 
-	ci := getRouteIngressFromClient(t, servingClient, route)
+	ci := getRouteIngressFromClient(t, ctx, route)
 	domain := strings.Join([]string{route.Name, route.Namespace, defaultDomainSuffix}, ".")
 	expectedSpec := netv1alpha1.IngressSpec{
 		Visibility: netv1alpha1.IngressVisibilityExternalIP,
@@ -525,24 +514,24 @@ func TestCreateRouteWithOneTargetReserve(t *testing.T) {
 }
 
 func TestCreateRouteWithDuplicateTargets(t *testing.T) {
-	_, servingClient, controller, _, servingInformer, _ := newTestReconciler(t)
+	ctx, _, reconciler, _ := newTestReconciler(t)
 
 	// A standalone revision
 	rev := getTestRevision("test-rev")
-	servingClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
-	servingInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
+	fakeservingclient.Get(ctx).ServingV1alpha1().Revisions(testNamespace).Create(rev)
+	fakerevisioninformer.Get(ctx).Informer().GetIndexer().Add(rev)
 
 	// A configuration and associated revision. Normally the revision would be
-	// created by the configuration controller.
+	// created by the configuration reconciler.
 	config := getTestConfiguration()
 	cfgrev := getTestRevisionForConfig(config)
 	config.Status.SetLatestCreatedRevisionName(cfgrev.Name)
 	config.Status.SetLatestReadyRevisionName(cfgrev.Name)
-	servingClient.ServingV1alpha1().Configurations(testNamespace).Create(config)
+	fakeservingclient.Get(ctx).ServingV1alpha1().Configurations(testNamespace).Create(config)
 	// Since Reconcile looks in the lister, we need to add it to the informer
-	servingInformer.Serving().V1alpha1().Configurations().Informer().GetIndexer().Add(config)
-	servingClient.ServingV1alpha1().Revisions(testNamespace).Create(cfgrev)
-	servingInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Add(cfgrev)
+	fakecfginformer.Get(ctx).Informer().GetIndexer().Add(config)
+	fakeservingclient.Get(ctx).ServingV1alpha1().Revisions(testNamespace).Create(cfgrev)
+	fakerevisioninformer.Get(ctx).Informer().GetIndexer().Add(cfgrev)
 
 	// A route with duplicate targets. These will be deduped.
 	route := getTestRouteWithTrafficTargets(
@@ -586,13 +575,13 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 			},
 		}},
 	)
-	servingClient.ServingV1alpha1().Routes(testNamespace).Create(route)
+	fakeservingclient.Get(ctx).ServingV1alpha1().Routes(testNamespace).Create(route)
 	// Since Reconcile looks in the lister, we need to add it to the informer
-	servingInformer.Serving().V1alpha1().Routes().Informer().GetIndexer().Add(route)
+	fakerouteinformer.Get(ctx).Informer().GetIndexer().Add(route)
 
-	controller.Reconcile(context.Background(), KeyOrDie(route))
+	reconciler.Reconcile(context.Background(), KeyOrDie(route))
 
-	ci := getRouteIngressFromClient(t, servingClient, route)
+	ci := getRouteIngressFromClient(t, ctx, route)
 	domain := strings.Join([]string{route.Name, route.Namespace, defaultDomainSuffix}, ".")
 	expectedSpec := netv1alpha1.IngressSpec{
 		Visibility: netv1alpha1.IngressVisibilityExternalIP,
@@ -677,23 +666,23 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 }
 
 func TestCreateRouteWithNamedTargets(t *testing.T) {
-	_, servingClient, controller, _, servingInformer, _ := newTestReconciler(t)
+	ctx, _, reconciler, _ := newTestReconciler(t)
 	// A standalone revision
 	rev := getTestRevision("test-rev")
-	servingClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
-	servingInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
+	fakeservingclient.Get(ctx).ServingV1alpha1().Revisions(testNamespace).Create(rev)
+	fakerevisioninformer.Get(ctx).Informer().GetIndexer().Add(rev)
 
 	// A configuration and associated revision. Normally the revision would be
-	// created by the configuration controller.
+	// created by the configuration reconciler.
 	config := getTestConfiguration()
 	cfgrev := getTestRevisionForConfig(config)
 	config.Status.SetLatestCreatedRevisionName(cfgrev.Name)
 	config.Status.SetLatestReadyRevisionName(cfgrev.Name)
-	servingClient.ServingV1alpha1().Configurations(testNamespace).Create(config)
+	fakeservingclient.Get(ctx).ServingV1alpha1().Configurations(testNamespace).Create(config)
 	// Since Reconcile looks in the lister, we need to add it to the informer
-	servingInformer.Serving().V1alpha1().Configurations().Informer().GetIndexer().Add(config)
-	servingClient.ServingV1alpha1().Revisions(testNamespace).Create(cfgrev)
-	servingInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Add(cfgrev)
+	fakecfginformer.Get(ctx).Informer().GetIndexer().Add(config)
+	fakeservingclient.Get(ctx).ServingV1alpha1().Revisions(testNamespace).Create(cfgrev)
+	fakerevisioninformer.Get(ctx).Informer().GetIndexer().Add(cfgrev)
 
 	// A route targeting both the config and standalone revision with named
 	// targets
@@ -713,13 +702,13 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 		}},
 	)
 
-	servingClient.ServingV1alpha1().Routes(testNamespace).Create(route)
+	fakeservingclient.Get(ctx).ServingV1alpha1().Routes(testNamespace).Create(route)
 	// Since Reconcile looks in the lister, we need to add it to the informer
-	servingInformer.Serving().V1alpha1().Routes().Informer().GetIndexer().Add(route)
+	fakerouteinformer.Get(ctx).Informer().GetIndexer().Add(route)
 
-	controller.Reconcile(context.Background(), KeyOrDie(route))
+	reconciler.Reconcile(context.Background(), KeyOrDie(route))
 
-	ci := getRouteIngressFromClient(t, servingClient, route)
+	ci := getRouteIngressFromClient(t, ctx, route)
 	domain := strings.Join([]string{route.Name, route.Namespace, defaultDomainSuffix}, ".")
 	expectedSpec := netv1alpha1.IngressSpec{
 		Visibility: netv1alpha1.IngressVisibilityExternalIP,
@@ -803,15 +792,15 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 }
 
 func TestUpdateDomainConfigMap(t *testing.T) {
-	_, servingClient, controller, _, servingInformer, watcher := newTestReconciler(t)
+	ctx, _, reconciler, watcher := newTestReconciler(t)
 	route := getTestRouteWithTrafficTargets([]v1alpha1.TrafficTarget{})
-	routeClient := servingClient.ServingV1alpha1().Routes(route.Namespace)
+	routeClient := fakeservingclient.Get(ctx).ServingV1alpha1().Routes(route.Namespace)
 
 	// Create a route.
-	servingInformer.Serving().V1alpha1().Routes().Informer().GetIndexer().Add(route)
+	fakerouteinformer.Get(ctx).Informer().GetIndexer().Add(route)
 	routeClient.Create(route)
-	controller.Reconcile(context.Background(), KeyOrDie(route))
-	addResourcesToInformers(t, servingClient, servingInformer, route)
+	reconciler.Reconcile(context.Background(), KeyOrDie(route))
+	addResourcesToInformers(t, ctx, route)
 
 	route.ObjectMeta.Labels = map[string]string{"app": "prod"}
 
@@ -875,10 +864,10 @@ func TestUpdateDomainConfigMap(t *testing.T) {
 	for _, expectation := range expectations {
 		t.Run(expectation.expectedDomainSuffix, func(t *testing.T) {
 			expectation.apply()
-			servingInformer.Serving().V1alpha1().Routes().Informer().GetIndexer().Add(route)
+			fakerouteinformer.Get(ctx).Informer().GetIndexer().Add(route)
 			routeClient.Update(route)
-			controller.Reconcile(context.Background(), KeyOrDie(route))
-			addResourcesToInformers(t, servingClient, servingInformer, route)
+			reconciler.Reconcile(context.Background(), KeyOrDie(route))
+			addResourcesToInformers(t, ctx, route)
 
 			route, _ = routeClient.Get(route.Name, metav1.GetOptions{})
 			expectedDomain := fmt.Sprintf("%s.%s.%s", route.Name, route.Namespace, expectation.expectedDomainSuffix)
@@ -948,16 +937,18 @@ func TestGlobalResyncOnUpdateDomainConfigMap(t *testing.T) {
 	for _, test := range tests {
 		test := test
 		t.Run(test.expectedDomainSuffix, func(t *testing.T) {
-			_, servingClient, controller, _, kubeInformer, servingInformer, watcher := newTestSetup(t)
+			ctx, informers, ctrl, _, watcher := newTestSetup(t)
 
-			stopCh := make(chan struct{})
+			ctx, cancel := context.WithCancel(ctx)
 			grp := errgroup.Group{}
 			defer func() {
-				close(stopCh)
+				cancel()
 				if err := grp.Wait(); err != nil {
 					t.Errorf("Wait() = %v", err)
 				}
 			}()
+
+			servingClient := fakeservingclient.Get(ctx)
 			h := NewHooks()
 
 			// Check for ClusterIngress created as a signal that syncHandler ran
@@ -974,17 +965,15 @@ func TestGlobalResyncOnUpdateDomainConfigMap(t *testing.T) {
 				return HookComplete
 			})
 
-			servingInformer.Start(stopCh)
-			kubeInformer.Start(stopCh)
+			if err := controller.StartInformers(ctx.Done(), informers...); err != nil {
+				t.Fatalf("failed to start cluster ingress manager: %v", err)
+			}
 
-			servingInformer.WaitForCacheSync(stopCh)
-			kubeInformer.WaitForCacheSync(stopCh)
-
-			if err := watcher.Start(stopCh); err != nil {
+			if err := watcher.Start(ctx.Done()); err != nil {
 				t.Fatalf("failed to start configuration manager: %v", err)
 			}
 
-			grp.Go(func() error { return controller.Run(1, stopCh) })
+			grp.Go(func() error { return ctrl.Run(1, ctx.Done()) })
 
 			// Create a route.
 			route := getTestRouteWithTrafficTargets([]v1alpha1.TrafficTarget{})
