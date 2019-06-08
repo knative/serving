@@ -103,7 +103,7 @@ var (
 
 	// DefaultTagTemplate is the default golang template to use when
 	// constructing the Knative Route's tag names.
-	DefaultTagTemplate = "{{.Name}}-{{.Tag}}"
+	DefaultTagTemplate = "{{.Tag}}-{{.Name}}"
 
 	// AutoTLSKey is the name of the configuration entry
 	// that specifies enabling auto-TLS or not.
