@@ -38,6 +38,9 @@ const (
 	// DefaultRevisionTimeoutSeconds will be set if timeoutSeconds not specified.
 	DefaultRevisionTimeoutSeconds = 5 * 60
 
+	// DefaultMaxRevisionTimeoutSeconds will be set if MaxRevisionTimeoutSeconds is not specified.
+	DefaultMaxRevisionTimeoutSeconds = 10 * 60
+
 	// DefaultUserContainerName is the default name we give to the container
 	// specified by the user, if `name:` is omitted.
 	DefaultUserContainerName = "user-container"
@@ -57,6 +60,10 @@ func NewDefaultsConfigFromMap(data map[string]string) (*Defaults, error) {
 		key:          "revision-timeout-seconds",
 		field:        &nc.RevisionTimeoutSeconds,
 		defaultValue: DefaultRevisionTimeoutSeconds,
+	}, {
+		key:          "max-revision-timeout-seconds",
+		field:        &nc.MaxRevisionTimeoutSeconds,
+		defaultValue: DefaultMaxRevisionTimeoutSeconds,
 	}} {
 		if raw, ok := data[i64.key]; !ok {
 			*i64.field = i64.defaultValue
@@ -65,6 +72,10 @@ func NewDefaultsConfigFromMap(data map[string]string) (*Defaults, error) {
 		} else {
 			*i64.field = val
 		}
+	}
+
+	if nc.RevisionTimeoutSeconds > nc.MaxRevisionTimeoutSeconds {
+		return nil, fmt.Errorf("revision-timeout-seconds (%d) cannot be greater than max-revision-timeout-seconds (%d)", nc.RevisionTimeoutSeconds, nc.MaxRevisionTimeoutSeconds)
 	}
 
 	// Process resource quantity fields
@@ -120,6 +131,9 @@ func NewDefaultsConfigFromConfigMap(config *corev1.ConfigMap) (*Defaults, error)
 // Defaults includes the default values to be populated by the webhook.
 type Defaults struct {
 	RevisionTimeoutSeconds int64
+	// This is the timeout set for cluster ingress.
+	// RevisionTimeoutSeconds must be less than this value.
+	MaxRevisionTimeoutSeconds int64
 
 	UserContainerNameTemplate string
 

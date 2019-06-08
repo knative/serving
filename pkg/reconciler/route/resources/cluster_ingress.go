@@ -108,7 +108,11 @@ func makeIngressSpec(ctx context.Context, r *servingv1alpha1.Route, tls []v1alph
 }
 
 func routeDomains(ctx context.Context, targetName string, r *servingv1alpha1.Route) ([]string, error) {
-	fullName, err := domains.DomainNameFromTemplate(ctx, r, domains.SubdomainName(r, targetName))
+	hostname, err := domains.HostnameFromTemplate(ctx, r.Name, targetName)
+	if err != nil {
+		return nil, err
+	}
+	fullName, err := domains.DomainNameFromTemplate(ctx, r, hostname)
 	if err != nil {
 		return nil, err
 	}

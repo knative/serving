@@ -29,6 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 
 	"github.com/knative/pkg/kmeta"
@@ -451,4 +452,23 @@ func GetResyncPeriod(ctx context.Context) time.Duration {
 // GetTrackerLease fetches the tracker lease from the controller context.
 func GetTrackerLease(ctx context.Context) time.Duration {
 	return 3 * GetResyncPeriod(ctx)
+}
+
+// erKey is used to associate record.EventRecorders with contexts.
+type erKey struct{}
+
+// WithEventRecorder attaches the given record.EventRecorder to the provided context
+// in the returned context.
+func WithEventRecorder(ctx context.Context, er record.EventRecorder) context.Context {
+	return context.WithValue(ctx, erKey{}, er)
+}
+
+// GetEventRecorder attempts to look up the record.EventRecorder on a given context.
+// It may return null if none is found.
+func GetEventRecorder(ctx context.Context) record.EventRecorder {
+	untyped := ctx.Value(erKey{})
+	if untyped == nil {
+		return nil
+	}
+	return untyped.(record.EventRecorder)
 }

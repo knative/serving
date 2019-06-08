@@ -101,8 +101,12 @@ func (t *Config) GetRevisionTrafficTargets(ctx context.Context, r *v1alpha1.Rout
 			},
 		}
 		if tt.Tag != "" {
+			hostname, err := domains.HostnameFromTemplate(ctx, r.Name, tt.Tag)
+			if err != nil {
+				return nil, err
+			}
 			// http is currently the only supported scheme
-			fullDomain, err := domains.DomainNameFromTemplate(ctx, r, domains.SubdomainName(r, tt.Tag))
+			fullDomain, err := domains.DomainNameFromTemplate(ctx, r, hostname)
 			if err != nil {
 				return nil, err
 			}

@@ -126,41 +126,6 @@ func TestDomainNameFromTemplate(t *testing.T) {
 	}
 }
 
-func TestSubdomainName(t *testing.T) {
-	route := &v1alpha1.Route{
-		ObjectMeta: metav1.ObjectMeta{
-			SelfLink:  "/apis/serving/v1alpha1/namespaces/test/Routes/myapp",
-			Name:      "myroute",
-			Namespace: "default",
-			Labels: map[string]string{
-				"route": "myapp",
-			},
-		},
-	}
-
-	tests := []struct {
-		name   string
-		suffix string
-		want   string
-	}{
-		{
-			name:   "has suffix",
-			suffix: "mysuffix",
-			want:   "myroute-mysuffix",
-		}, {
-			name: "no suffix",
-			want: "myroute",
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := SubdomainName(route, tt.suffix); got != tt.want {
-				t.Errorf("BuildName() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
 func TestURL(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -196,22 +161,48 @@ func TestURL(t *testing.T) {
 
 func TestGetAllDomainsAndTags(t *testing.T) {
 	tests := []struct {
-		name     string
-		template string
-		want     map[string]string
-		wantErr  bool
+		name           string
+		domainTemplate string
+		tagTemplate    string
+		want           map[string]string
+		wantErr        bool
 	}{{
-		name:     "happy case",
-		template: "{{.Name}}.{{.Namespace}}.{{.Domain}}",
+		name:           "happy case",
+		domainTemplate: "{{.Name}}.{{.Namespace}}.{{.Domain}}",
+		tagTemplate:    "{{.Name}}-{{.Tag}}",
 		want: map[string]string{
 			"myroute-target-1.default.example.com": "target-1",
 			"myroute-target-2.default.example.com": "target-2",
 			"myroute.default.example.com":          "",
 		},
 	}, {
-		name:     "bad template",
-		template: "{{.NNName}}.{{.Namespace}}.{{.Domain}}",
-		wantErr:  true,
+		name:           "another happy case",
+		domainTemplate: "{{.Name}}.{{.Namespace}}.{{.Domain}}",
+		tagTemplate:    "{{.Tag}}-{{.Name}}",
+		want: map[string]string{
+			"target-1-myroute.default.example.com": "target-1",
+			"target-2-myroute.default.example.com": "target-2",
+			"myroute.default.example.com":          "",
+		},
+	}, {
+		name:           "or appengine style",
+		domainTemplate: "{{.Name}}.{{.Namespace}}.{{.Domain}}",
+		tagTemplate:    "{{.Tag}}-dot-{{.Name}}",
+		want: map[string]string{
+			"target-1-dot-myroute.default.example.com": "target-1",
+			"target-2-dot-myroute.default.example.com": "target-2",
+			"myroute.default.example.com":              "",
+		},
+	}, {
+		name:           "bad template",
+		domainTemplate: "{{.NNName}}.{{.Namespace}}.{{.Domain}}",
+		tagTemplate:    "{{.Name}}-{{.Tag}}",
+		wantErr:        true,
+	}, {
+		name:           "bad template",
+		domainTemplate: "{{.Name}}.{{.Namespace}}.{{.Domain}}",
+		tagTemplate:    "{{.NNName}}-{{.Tag}}",
+		wantErr:        true,
 	}}
 
 	route := &v1alpha1.Route{
@@ -229,7 +220,8 @@ func TestGetAllDomainsAndTags(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx := context.Background()
 			cfg := testConfig()
-			cfg.Network.DomainTemplate = tt.template
+			cfg.Network.DomainTemplate = tt.domainTemplate
+			cfg.Network.TagTemplate = tt.tagTemplate
 			ctx = config.ToContext(ctx, cfg)
 
 			// here, a tag-less major domain will have empty string as the input

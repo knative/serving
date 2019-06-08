@@ -18,11 +18,17 @@ package v1alpha1
 
 import (
 	"context"
+	"time"
 
 	"github.com/knative/pkg/apis"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"github.com/knative/serving/pkg/apis/config"
 	"github.com/knative/serving/pkg/apis/networking"
+)
+
+var (
+	defaultMaxRevisionTimeout = time.Duration(config.DefaultMaxRevisionTimeoutSeconds) * time.Second
 )
 
 // SetDefaults populates default values in Ingress
@@ -74,17 +80,20 @@ func (p *HTTPIngressPath) SetDefaults(ctx context.Context) {
 		p.Splits[0].Percent = 100
 	}
 
+	cfg := config.FromContextOrDefaults(ctx)
+	maxTimeout := time.Duration(cfg.Defaults.MaxRevisionTimeoutSeconds) * time.Second
+
 	if p.Timeout == nil {
-		p.Timeout = &metav1.Duration{Duration: networking.DefaultTimeout}
+		p.Timeout = &metav1.Duration{Duration: maxTimeout}
 	}
 
 	if p.Retries == nil {
 		p.Retries = &HTTPRetry{
-			PerTryTimeout: &metav1.Duration{Duration: networking.DefaultTimeout},
+			PerTryTimeout: &metav1.Duration{Duration: maxTimeout},
 			Attempts:      networking.DefaultRetryCount,
 		}
 	}
 	if p.Retries.PerTryTimeout == nil {
-		p.Retries.PerTryTimeout = &metav1.Duration{Duration: networking.DefaultTimeout}
+		p.Retries.PerTryTimeout = &metav1.Duration{Duration: maxTimeout}
 	}
 }

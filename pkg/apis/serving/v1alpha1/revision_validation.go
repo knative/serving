@@ -22,9 +22,10 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/knative/serving/pkg/apis/config"
+
 	"github.com/knative/pkg/apis"
 	"github.com/knative/pkg/kmp"
-	"github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/serving"
 	"k8s.io/apimachinery/pkg/api/equality"
 )
@@ -49,10 +50,11 @@ func (r *Revision) checkImmutableFields(ctx context.Context, original *Revision)
 // Validate ensures Revision is properly configured.
 func (r *Revision) Validate(ctx context.Context) *apis.FieldError {
 	errs := serving.ValidateObjectMetadata(r.GetObjectMeta()).ViaField("metadata")
-	errs = errs.Also(r.Spec.Validate(apis.WithinSpec(ctx)).ViaField("spec"))
 	if apis.IsInUpdate(ctx) {
 		old := apis.GetBaseline(ctx).(*Revision)
 		errs = errs.Also(r.checkImmutableFields(ctx, old))
+	} else {
+		errs = errs.Also(r.Spec.Validate(apis.WithinSpec(ctx)).ViaField("spec"))
 	}
 	return errs
 }
@@ -150,7 +152,7 @@ func (rs *RevisionSpec) Validate(ctx context.Context) *apis.FieldError {
 	}
 
 	if rs.TimeoutSeconds != nil {
-		errs = errs.Also(validateTimeoutSeconds(*rs.TimeoutSeconds))
+		errs = errs.Also(validateTimeoutSeconds(ctx, *rs.TimeoutSeconds))
 	}
 	return errs
 }
@@ -180,11 +182,12 @@ func validatePercentageAnnotationKey(annotations map[string]string, resourcePerc
 	return nil
 }
 
-func validateTimeoutSeconds(timeoutSeconds int64) *apis.FieldError {
+func validateTimeoutSeconds(ctx context.Context, timeoutSeconds int64) *apis.FieldError {
 	if timeoutSeconds != 0 {
-		if timeoutSeconds > int64(networking.DefaultTimeout.Seconds()) || timeoutSeconds < 0 {
+		cfg := config.FromContextOrDefaults(ctx)
+		if timeoutSeconds > cfg.Defaults.MaxRevisionTimeoutSeconds || timeoutSeconds < 0 {
 			return apis.ErrOutOfBoundsValue(timeoutSeconds, 0,
-				networking.DefaultTimeout.Seconds(),
+				cfg.Defaults.MaxRevisionTimeoutSeconds,
 				"timeoutSeconds")
 		}
 	}

@@ -135,9 +135,9 @@ func TestIngressDefaulting(t *testing.T) {
 								Percent: 100,
 							}},
 							// Timeout and Retries are filled in.
-							Timeout: &metav1.Duration{Duration: networking.DefaultTimeout},
+							Timeout: &metav1.Duration{Duration: defaultMaxRevisionTimeout},
 							Retries: &HTTPRetry{
-								PerTryTimeout: &metav1.Duration{Duration: networking.DefaultTimeout},
+								PerTryTimeout: &metav1.Duration{Duration: defaultMaxRevisionTimeout},
 								Attempts:      networking.DefaultRetryCount,
 							},
 						}},
@@ -271,7 +271,7 @@ func TestIngressDefaulting(t *testing.T) {
 							Timeout: &metav1.Duration{Duration: 10 * time.Second},
 							Retries: &HTTPRetry{
 								// PerTryTimeout is filled in.
-								PerTryTimeout: &metav1.Duration{Duration: networking.DefaultTimeout},
+								PerTryTimeout: &metav1.Duration{Duration: defaultMaxRevisionTimeout},
 								Attempts:      2,
 							},
 						}},
