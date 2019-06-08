@@ -48,7 +48,7 @@ var ci = v1alpha1.ClusterIngress{
 		Name: "ingress",
 	},
 	Spec: v1alpha1.IngressSpec{
-		TLS: []v1alpha1.ClusterIngressTLS{{
+		TLS: []v1alpha1.IngressTLS{{
 			Hosts:           []string{"example.com"},
 			SecretName:      "secret0",
 			SecretNamespace: "knative-serving",
@@ -82,7 +82,7 @@ func TestGetSecrets(t *testing.T) {
 		secret: &corev1.Secret{},
 		ci: &v1alpha1.ClusterIngress{
 			Spec: v1alpha1.IngressSpec{
-				TLS: []v1alpha1.ClusterIngressTLS{{
+				TLS: []v1alpha1.IngressTLS{{
 					Hosts:           []string{"example.com"},
 					SecretName:      "no-exist-secret",
 					SecretNamespace: "no-exist-namespace",

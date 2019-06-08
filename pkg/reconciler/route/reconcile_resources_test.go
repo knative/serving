@@ -161,7 +161,7 @@ func newTestClusterIngress(t *testing.T, r *v1alpha1.Route) *netv1alpha1.Cluster
 			},
 			Active: true,
 		}}}}
-	tls := []netv1alpha1.ClusterIngressTLS{
+	tls := []netv1alpha1.IngressTLS{
 		{
 			Hosts:             []string{"test-route.test-ns.example.com"},
 			PrivateKey:        "tls.key",
