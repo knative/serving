@@ -19,6 +19,7 @@ package autoscaler
 import (
 	"fmt"
 	"net/http"
+	"sync"
 	"time"
 
 	"golang.org/x/sync/errgroup"
@@ -44,6 +45,9 @@ const (
 type StatsScraper interface {
 	// Scrape scrapes the Revision queue metric endpoint.
 	Scrape() (*StatMessage, error)
+
+	// UpdateTarget updates the target URL to scrape, usign K8s service name and namespace.
+	UpdateTarget(target, ns string)
 }
 
 // scrapeClient defines the interface for collecting Revision metrics for a given
@@ -74,9 +78,11 @@ var cacheDisabledClient = &http.Client{
 type ServiceScraper struct {
 	sClient   scrapeClient
 	counter   resources.ReadyPodCounter
-	url       string
 	namespace string
 	metricKey string
+
+	urlMu sync.RWMutex
+	url   string
 }
 
 // NewServiceScraper creates a new StatsScraper for the Revision which
@@ -110,10 +116,30 @@ func newServiceScraperWithClient(
 	return &ServiceScraper{
 		sClient:   sClient,
 		counter:   counter,
-		url:       fmt.Sprintf("http://%s.%s:%d/metrics", metric.Spec.ScrapeTarget, metric.Namespace, networking.AutoscalingQueueMetricsPort),
+		url:       urlFromTarget(metric.Spec.ScrapeTarget, metric.ObjectMeta.Namespace),
 		metricKey: NewMetricKey(metric.Namespace, metric.Name),
 		namespace: metric.Namespace,
 	}, nil
+}
+
+func urlFromTarget(t, ns string) string {
+	return fmt.Sprintf(
+		"http://%s.%s:%d/metrics",
+		t, ns, networking.AutoscalingQueueMetricsPort)
+}
+
+func (s *ServiceScraper) target() string {
+	s.urlMu.RLock()
+	defer s.urlMu.RUnlock()
+	return s.url
+}
+
+// UpdateTarget implements StatsScraper interface.
+func (s *ServiceScraper) UpdateTarget(target, ns string) {
+	url := urlFromTarget(target, ns)
+	s.urlMu.Lock()
+	defer s.urlMu.Unlock()
+	s.url = url
 }
 
 // Scrape calls the destination service then sends it
@@ -131,10 +157,11 @@ func (s *ServiceScraper) Scrape() (*StatMessage, error) {
 	sampleSize := populationMeanSampleSize(readyPodsCount)
 	statCh := make(chan *Stat, sampleSize)
 
+	url := s.target()
 	grp := errgroup.Group{}
 	for i := 0; i < sampleSize; i++ {
 		grp.Go(func() error {
-			stat, err := s.sClient.Scrape(s.url)
+			stat, err := s.sClient.Scrape(url)
 			if err != nil {
 				return err
 			}
