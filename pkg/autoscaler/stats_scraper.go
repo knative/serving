@@ -22,12 +22,14 @@ import (
 	"sync"
 	"time"
 
+	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
+
+	corev1listers "k8s.io/client-go/listers/core/v1"
 
 	"github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/resources"
-	"github.com/pkg/errors"
 )
 
 const (
@@ -65,7 +67,7 @@ type SampleSizeFunc func(int) int
 // every goruntime for a revision scraper.
 var cacheDisabledClient = &http.Client{
 	Transport: &http.Transport{
-		// Do not use the cached connection
+		// Do not use the cached connections.
 		DisableKeepAlives: true,
 	},
 	Timeout: httpClientTimeout,
@@ -78,6 +80,7 @@ var cacheDisabledClient = &http.Client{
 type ServiceScraper struct {
 	sClient   scrapeClient
 	counter   resources.ReadyPodCounter
+	epLister  corev1listers.EndpointsLister
 	namespace string
 	metricKey string
 
@@ -87,23 +90,20 @@ type ServiceScraper struct {
 
 // NewServiceScraper creates a new StatsScraper for the Revision which
 // the given Metric is responsible for.
-func NewServiceScraper(metric *Metric, counter resources.ReadyPodCounter) (*ServiceScraper, error) {
+func NewServiceScraper(metric *Metric, epLister corev1listers.EndpointsLister) (*ServiceScraper, error) {
 	sClient, err := newHTTPScrapeClient(cacheDisabledClient)
 	if err != nil {
 		return nil, err
 	}
-	return newServiceScraperWithClient(metric, counter, sClient)
+	return newServiceScraperWithClient(metric, sClient, epLister)
 }
 
 func newServiceScraperWithClient(
 	metric *Metric,
-	counter resources.ReadyPodCounter,
-	sClient scrapeClient) (*ServiceScraper, error) {
+	sClient scrapeClient,
+	epLister corev1listers.EndpointsLister) (*ServiceScraper, error) {
 	if metric == nil {
 		return nil, errors.New("metric must not be nil")
-	}
-	if counter == nil {
-		return nil, errors.New("counter must not be nil")
 	}
 	if sClient == nil {
 		return nil, errors.New("scrape client must not be nil")
@@ -115,7 +115,8 @@ func newServiceScraperWithClient(
 
 	return &ServiceScraper{
 		sClient:   sClient,
-		counter:   counter,
+		epLister:  epLister,
+		counter:   resources.NewScopedEndpointsCounter(epLister, metric.Namespace, metric.Name),
 		url:       urlFromTarget(metric.Spec.ScrapeTarget, metric.ObjectMeta.Namespace),
 		metricKey: NewMetricKey(metric.Namespace, metric.Name),
 		namespace: metric.Namespace,
@@ -137,9 +138,11 @@ func (s *ServiceScraper) target() string {
 // UpdateTarget implements StatsScraper interface.
 func (s *ServiceScraper) UpdateTarget(target, ns string) {
 	url := urlFromTarget(target, ns)
+	counter := resources.NewScopedEndpointsCounter(s.epLister, ns, target)
 	s.urlMu.Lock()
 	defer s.urlMu.Unlock()
 	s.url = url
+	s.counter = counter
 }
 
 // Scrape calls the destination service then sends it
