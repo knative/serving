@@ -31,9 +31,7 @@ import (
 	fakeK8s "k8s.io/client-go/kubernetes/fake"
 )
 
-const (
-	stableWindow = 60 * time.Second
-)
+const stableWindow = 60 * time.Second
 
 var (
 	kubeClient   = fakeK8s.NewSimpleClientset()

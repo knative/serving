@@ -108,6 +108,9 @@ func newServiceScraperWithClient(
 	if sClient == nil {
 		return nil, errors.New("scrape client must not be nil")
 	}
+	if epLister == nil {
+		return nil, errors.New("epLister must not be nil")
+	}
 	revName := metric.Labels[serving.RevisionLabelKey]
 	if revName == "" {
 		return nil, fmt.Errorf("no Revision label found for Metric %s", metric.Name)
@@ -116,7 +119,7 @@ func newServiceScraperWithClient(
 	return &ServiceScraper{
 		sClient:   sClient,
 		epLister:  epLister,
-		counter:   resources.NewScopedEndpointsCounter(epLister, metric.Namespace, metric.Name),
+		counter:   resources.NewScopedEndpointsCounter(epLister, metric.Namespace, metric.Spec.ScrapeTarget),
 		url:       urlFromTarget(metric.Spec.ScrapeTarget, metric.ObjectMeta.Namespace),
 		metricKey: NewMetricKey(metric.Namespace, metric.Name),
 		namespace: metric.Namespace,

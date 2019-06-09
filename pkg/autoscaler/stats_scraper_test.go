@@ -24,9 +24,10 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/knative/serving/pkg/apis/serving"
-	"github.com/knative/serving/pkg/resources"
 	"github.com/pkg/errors"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
 const (
@@ -37,22 +38,20 @@ const (
 )
 
 var (
-	testStats = []*Stat{
-		{
-			AverageConcurrentRequests:        3.0,
-			AverageProxiedConcurrentRequests: 2.0,
-			RequestCount:                     5,
-			ProxiedRequestCount:              4,
-		}, {
-			AverageConcurrentRequests:        5.0,
-			AverageProxiedConcurrentRequests: 4.0,
-			RequestCount:                     7,
-			ProxiedRequestCount:              6,
-		},
-	}
+	testStats = []*Stat{{
+		AverageConcurrentRequests:        3.0,
+		AverageProxiedConcurrentRequests: 2.0,
+		RequestCount:                     5,
+		ProxiedRequestCount:              4,
+	}, {
+		AverageConcurrentRequests:        5.0,
+		AverageProxiedConcurrentRequests: 4.0,
+		RequestCount:                     7,
+		ProxiedRequestCount:              6,
+	}}
 )
 
-func TestNewServiceScraperWithClient_HappyCase(t *testing.T) {
+func TestNewServiceScraperWithClientHappyCase(t *testing.T) {
 	client := newTestScrapeClient(testStats, []error{nil})
 	if scraper, err := serviceScraperForTest(client); err != nil {
 		t.Fatalf("serviceScraperForTest=%v, want no error", err)
@@ -66,57 +65,74 @@ func TestNewServiceScraperWithClient_HappyCase(t *testing.T) {
 	}
 }
 
-func TestNewServiceScraperWithClient_ErrorCases(t *testing.T) {
+func TestNewServiceScraperWithClientErrorCases(t *testing.T) {
 	metric := testMetric()
 	invalidMetric := testMetric()
 	invalidMetric.Labels = map[string]string{}
 	client := newTestScrapeClient(testStats, []error{nil})
 	lister := kubeInformer.Core().V1().Endpoints().Lister()
-	counter := resources.NewScopedEndpointsCounter(lister, testNamespace, testService)
 
 	testCases := []struct {
 		name        string
 		metric      *Metric
 		client      scrapeClient
-		counter     resources.ReadyPodCounter
+		lister      corev1listers.EndpointsLister
 		expectedErr string
 	}{{
 		name:        "Empty Decider",
 		client:      client,
-		counter:     counter,
 		expectedErr: "metric must not be nil",
+		lister:      lister,
 	}, {
 		name:        "Missing revision label in Decider",
 		metric:      invalidMetric,
 		client:      client,
-		counter:     counter,
+		lister:      lister,
 		expectedErr: "no Revision label found for Metric test-revision",
 	}, {
 		name:        "Empty scrape client",
 		metric:      metric,
-		counter:     counter,
+		lister:      lister,
 		expectedErr: "scrape client must not be nil",
 	}, {
 		name:        "Empty lister",
-		metric:      metric,
 		client:      client,
-		counter:     nil,
-		expectedErr: "counter must not be nil",
+		metric:      metric,
+		expectedErr: "epLister must not be nil",
 	}}
 
 	for _, test := range testCases {
 		t.Run(test.name, func(t *testing.T) {
-			if _, err := newServiceScraperWithClient(test.metric, test.counter, test.client); err != nil {
-				got := err.Error()
-				want := test.expectedErr
-				if got != want {
-					t.Errorf("Got error message: %v. Want: %v", got, want)
+			if _, err := newServiceScraperWithClient(test.metric, test.client, test.lister); err != nil {
+				if got, want := err.Error(), test.expectedErr; got != want {
+					t.Errorf("Error message: %s. want: %s", got, want)
 				}
-			} else {
-				t.Errorf("Expected error from CreateNewServiceScraper, got nil")
+				return
 			}
+			t.Errorf("Expected error from CreateNewServiceScraper, got nil")
 		})
 	}
+}
+
+func metricEndpoints(count int) {
+	epAddresses := make([]corev1.EndpointAddress, count)
+	for i := 0; i < count; i++ {
+		ip := fmt.Sprintf("127.0.0.%v", i+1)
+		epAddresses[i] = corev1.EndpointAddress{IP: ip}
+	}
+
+	m := testMetric()
+	ep := &corev1.Endpoints{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: testNamespace,
+			Name:      m.Spec.ScrapeTarget,
+		},
+		Subsets: []corev1.EndpointSubset{{
+			Addresses: epAddresses,
+		}},
+	}
+	kubeClient.CoreV1().Endpoints(testNamespace).Create(ep)
+	kubeInformer.Core().V1().Endpoints().Informer().GetIndexer().Add(ep)
 }
 
 func TestScrapeReportStatWhenAllCallsSucceed(t *testing.T) {
@@ -127,7 +143,7 @@ func TestScrapeReportStatWhenAllCallsSucceed(t *testing.T) {
 	}
 
 	// Make an Endpoints with 3 pods.
-	endpoints(3)
+	metricEndpoints(3)
 
 	// Scrape will set a timestamp bigger than this.
 	now := time.Now()
@@ -174,7 +190,7 @@ func TestScrapeReportStatWhenAtLeastOneCallSucceeds(t *testing.T) {
 	}
 
 	// Make an Endpoints with 3 pods.
-	endpoints(3)
+	metricEndpoints(3)
 
 	got, err := scraper.Scrape()
 	if err != nil {
@@ -197,7 +213,7 @@ func TestScrapeReportErrorIfAllFail(t *testing.T) {
 	}
 
 	// Make an Endpoints with 2 pods.
-	endpoints(2)
+	metricEndpoints(2)
 
 	_, err = scraper.Scrape()
 	if errors.Cause(err) != errTest {
@@ -228,7 +244,7 @@ func TestScrapeDoNotScrapeIfNoPodsFound(t *testing.T) {
 	}
 
 	// Make an Endpoints with 0 pods.
-	endpoints(0)
+	metricEndpoints(0)
 
 	stat, err := scraper.Scrape()
 	if err != nil {
@@ -241,8 +257,7 @@ func TestScrapeDoNotScrapeIfNoPodsFound(t *testing.T) {
 
 func serviceScraperForTest(sClient scrapeClient) (*ServiceScraper, error) {
 	metric := testMetric()
-	counter := resources.NewScopedEndpointsCounter(kubeInformer.Core().V1().Endpoints().Lister(), testNamespace, testService)
-	return newServiceScraperWithClient(metric, counter, sClient)
+	return newServiceScraperWithClient(metric, sClient, kubeInformer.Core().V1().Endpoints().Lister())
 }
 
 func testMetric() *Metric {
