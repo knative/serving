@@ -289,16 +289,16 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 	domain := strings.Join([]string{route.Name, route.Namespace, defaultDomainSuffix}, ".")
 	expectedSpec := netv1alpha1.IngressSpec{
 		Visibility: netv1alpha1.IngressVisibilityExternalIP,
-		TLS:        []netv1alpha1.ClusterIngressTLS{},
-		Rules: []netv1alpha1.ClusterIngressRule{{
+		TLS:        []netv1alpha1.IngressTLS{},
+		Rules: []netv1alpha1.IngressRule{{
 			Hosts: []string{
 				domain,
 				"test-route.test.svc.cluster.local",
 			},
-			HTTP: &netv1alpha1.HTTPClusterIngressRuleValue{
-				Paths: []netv1alpha1.HTTPClusterIngressPath{{
-					Splits: []netv1alpha1.ClusterIngressBackendSplit{{
-						ClusterIngressBackend: netv1alpha1.ClusterIngressBackend{
+			HTTP: &netv1alpha1.HTTPIngressRuleValue{
+				Paths: []netv1alpha1.HTTPIngressPath{{
+					Splits: []netv1alpha1.IngressBackendSplit{{
+						IngressBackend: netv1alpha1.IngressBackend{
 							ServiceNamespace: testNamespace,
 							ServiceName:      rev.Status.ServiceName,
 							ServicePort:      intstr.FromInt(80),
@@ -393,23 +393,23 @@ func TestCreateRouteWithMultipleTargets(t *testing.T) {
 	domain := strings.Join([]string{route.Name, route.Namespace, defaultDomainSuffix}, ".")
 	expectedSpec := netv1alpha1.IngressSpec{
 		Visibility: netv1alpha1.IngressVisibilityExternalIP,
-		TLS:        []netv1alpha1.ClusterIngressTLS{},
-		Rules: []netv1alpha1.ClusterIngressRule{{
+		TLS:        []netv1alpha1.IngressTLS{},
+		Rules: []netv1alpha1.IngressRule{{
 			Hosts: []string{
 				domain,
 				"test-route.test.svc.cluster.local",
 			},
-			HTTP: &netv1alpha1.HTTPClusterIngressRuleValue{
-				Paths: []netv1alpha1.HTTPClusterIngressPath{{
-					Splits: []netv1alpha1.ClusterIngressBackendSplit{{
-						ClusterIngressBackend: netv1alpha1.ClusterIngressBackend{
+			HTTP: &netv1alpha1.HTTPIngressRuleValue{
+				Paths: []netv1alpha1.HTTPIngressPath{{
+					Splits: []netv1alpha1.IngressBackendSplit{{
+						IngressBackend: netv1alpha1.IngressBackend{
 							ServiceNamespace: testNamespace,
 							ServiceName:      cfgrev.Status.ServiceName,
 							ServicePort:      intstr.FromInt(80),
 						},
 						Percent: 90,
 					}, {
-						ClusterIngressBackend: netv1alpha1.ClusterIngressBackend{
+						IngressBackend: netv1alpha1.IngressBackend{
 							ServiceNamespace: testNamespace,
 							ServiceName:      rev.Status.ServiceName,
 							ServicePort:      intstr.FromInt(80),
@@ -477,23 +477,23 @@ func TestCreateRouteWithOneTargetReserve(t *testing.T) {
 	domain := strings.Join([]string{route.Name, route.Namespace, defaultDomainSuffix}, ".")
 	expectedSpec := netv1alpha1.IngressSpec{
 		Visibility: netv1alpha1.IngressVisibilityExternalIP,
-		TLS:        []netv1alpha1.ClusterIngressTLS{},
-		Rules: []netv1alpha1.ClusterIngressRule{{
+		TLS:        []netv1alpha1.IngressTLS{},
+		Rules: []netv1alpha1.IngressRule{{
 			Hosts: []string{
 				domain,
 				"test-route.test.svc.cluster.local",
 			},
-			HTTP: &netv1alpha1.HTTPClusterIngressRuleValue{
-				Paths: []netv1alpha1.HTTPClusterIngressPath{{
-					Splits: []netv1alpha1.ClusterIngressBackendSplit{{
-						ClusterIngressBackend: netv1alpha1.ClusterIngressBackend{
+			HTTP: &netv1alpha1.HTTPIngressRuleValue{
+				Paths: []netv1alpha1.HTTPIngressPath{{
+					Splits: []netv1alpha1.IngressBackendSplit{{
+						IngressBackend: netv1alpha1.IngressBackend{
 							ServiceNamespace: testNamespace,
 							ServiceName:      cfgrev.Status.ServiceName,
 							ServicePort:      intstr.FromInt(80),
 						},
 						Percent: 90,
 					}, {
-						ClusterIngressBackend: netv1alpha1.ClusterIngressBackend{
+						IngressBackend: netv1alpha1.IngressBackend{
 							ServiceNamespace: testNamespace,
 							ServiceName:      rev.Status.ServiceName,
 							ServicePort:      intstr.FromInt(80),
@@ -585,23 +585,23 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 	domain := strings.Join([]string{route.Name, route.Namespace, defaultDomainSuffix}, ".")
 	expectedSpec := netv1alpha1.IngressSpec{
 		Visibility: netv1alpha1.IngressVisibilityExternalIP,
-		TLS:        []netv1alpha1.ClusterIngressTLS{},
-		Rules: []netv1alpha1.ClusterIngressRule{{
+		TLS:        []netv1alpha1.IngressTLS{},
+		Rules: []netv1alpha1.IngressRule{{
 			Hosts: []string{
 				domain,
 				"test-route.test.svc.cluster.local",
 			},
-			HTTP: &netv1alpha1.HTTPClusterIngressRuleValue{
-				Paths: []netv1alpha1.HTTPClusterIngressPath{{
-					Splits: []netv1alpha1.ClusterIngressBackendSplit{{
-						ClusterIngressBackend: netv1alpha1.ClusterIngressBackend{
+			HTTP: &netv1alpha1.HTTPIngressRuleValue{
+				Paths: []netv1alpha1.HTTPIngressPath{{
+					Splits: []netv1alpha1.IngressBackendSplit{{
+						IngressBackend: netv1alpha1.IngressBackend{
 							ServiceNamespace: testNamespace,
 							ServiceName:      cfgrev.Name,
 							ServicePort:      intstr.FromInt(80),
 						},
 						Percent: 50,
 					}, {
-						ClusterIngressBackend: netv1alpha1.ClusterIngressBackend{
+						IngressBackend: netv1alpha1.IngressBackend{
 							ServiceNamespace: testNamespace,
 							ServiceName:      rev.Name,
 							ServicePort:      intstr.FromInt(80),
@@ -619,10 +619,10 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 				"test-revision-1-test-route.test.test-domain.dev",
 				"test-revision-1." + domain,
 			},
-			HTTP: &netv1alpha1.HTTPClusterIngressRuleValue{
-				Paths: []netv1alpha1.HTTPClusterIngressPath{{
-					Splits: []netv1alpha1.ClusterIngressBackendSplit{{
-						ClusterIngressBackend: netv1alpha1.ClusterIngressBackend{
+			HTTP: &netv1alpha1.HTTPIngressRuleValue{
+				Paths: []netv1alpha1.HTTPIngressPath{{
+					Splits: []netv1alpha1.IngressBackendSplit{{
+						IngressBackend: netv1alpha1.IngressBackend{
 							ServiceNamespace: testNamespace,
 							ServiceName:      "test-rev",
 							ServicePort:      intstr.FromInt(80),
@@ -640,10 +640,10 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 				"test-revision-2-test-route.test.test-domain.dev",
 				"test-revision-2." + domain,
 			},
-			HTTP: &netv1alpha1.HTTPClusterIngressRuleValue{
-				Paths: []netv1alpha1.HTTPClusterIngressPath{{
-					Splits: []netv1alpha1.ClusterIngressBackendSplit{{
-						ClusterIngressBackend: netv1alpha1.ClusterIngressBackend{
+			HTTP: &netv1alpha1.HTTPIngressRuleValue{
+				Paths: []netv1alpha1.HTTPIngressPath{{
+					Splits: []netv1alpha1.IngressBackendSplit{{
+						IngressBackend: netv1alpha1.IngressBackend{
 							ServiceNamespace: testNamespace,
 							ServiceName:      "test-rev",
 							ServicePort:      intstr.FromInt(80),
@@ -712,23 +712,23 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 	domain := strings.Join([]string{route.Name, route.Namespace, defaultDomainSuffix}, ".")
 	expectedSpec := netv1alpha1.IngressSpec{
 		Visibility: netv1alpha1.IngressVisibilityExternalIP,
-		TLS:        []netv1alpha1.ClusterIngressTLS{},
-		Rules: []netv1alpha1.ClusterIngressRule{{
+		TLS:        []netv1alpha1.IngressTLS{},
+		Rules: []netv1alpha1.IngressRule{{
 			Hosts: []string{
 				domain,
 				"test-route.test.svc.cluster.local",
 			},
-			HTTP: &netv1alpha1.HTTPClusterIngressRuleValue{
-				Paths: []netv1alpha1.HTTPClusterIngressPath{{
-					Splits: []netv1alpha1.ClusterIngressBackendSplit{{
-						ClusterIngressBackend: netv1alpha1.ClusterIngressBackend{
+			HTTP: &netv1alpha1.HTTPIngressRuleValue{
+				Paths: []netv1alpha1.HTTPIngressPath{{
+					Splits: []netv1alpha1.IngressBackendSplit{{
+						IngressBackend: netv1alpha1.IngressBackend{
 							ServiceNamespace: testNamespace,
 							ServiceName:      rev.Name,
 							ServicePort:      intstr.FromInt(80),
 						},
 						Percent: 50,
 					}, {
-						ClusterIngressBackend: netv1alpha1.ClusterIngressBackend{
+						IngressBackend: netv1alpha1.IngressBackend{
 							ServiceNamespace: testNamespace,
 							ServiceName:      cfgrev.Name,
 							ServicePort:      intstr.FromInt(80),
@@ -746,10 +746,10 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 				"bar-test-route.test.test-domain.dev",
 				"bar." + domain,
 			},
-			HTTP: &netv1alpha1.HTTPClusterIngressRuleValue{
-				Paths: []netv1alpha1.HTTPClusterIngressPath{{
-					Splits: []netv1alpha1.ClusterIngressBackendSplit{{
-						ClusterIngressBackend: netv1alpha1.ClusterIngressBackend{
+			HTTP: &netv1alpha1.HTTPIngressRuleValue{
+				Paths: []netv1alpha1.HTTPIngressPath{{
+					Splits: []netv1alpha1.IngressBackendSplit{{
+						IngressBackend: netv1alpha1.IngressBackend{
 							ServiceNamespace: testNamespace,
 							ServiceName:      cfgrev.Name,
 							ServicePort:      intstr.FromInt(80),
@@ -766,10 +766,10 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 			Hosts: []string{
 				"foo-test-route.test.test-domain.dev",
 				"foo." + domain},
-			HTTP: &netv1alpha1.HTTPClusterIngressRuleValue{
-				Paths: []netv1alpha1.HTTPClusterIngressPath{{
-					Splits: []netv1alpha1.ClusterIngressBackendSplit{{
-						ClusterIngressBackend: netv1alpha1.ClusterIngressBackend{
+			HTTP: &netv1alpha1.HTTPIngressRuleValue{
+				Paths: []netv1alpha1.HTTPIngressPath{{
+					Splits: []netv1alpha1.IngressBackendSplit{{
+						IngressBackend: netv1alpha1.IngressBackend{
 							ServiceNamespace: testNamespace,
 							ServiceName:      rev.Name,
 							ServicePort:      intstr.FromInt(80),

@@ -218,7 +218,7 @@ func (c *Reconciler) reconcile(ctx context.Context, r *v1alpha1.Route) error {
 		return err
 	}
 
-	tls := []netv1alpha1.ClusterIngressTLS{}
+	tls := []netv1alpha1.IngressTLS{}
 	if config.FromContext(ctx).Network.AutoTLS && !resources.IsClusterLocal(r) {
 		allDomainTagMap, err := domains.GetAllDomainsAndTags(ctx, r, getTrafficNames(traffic.Targets))
 		if err != nil {
@@ -254,8 +254,7 @@ func (c *Reconciler) reconcile(ctx context.Context, r *v1alpha1.Route) error {
 				}
 				setTargetsScheme(&r.Status, cert.Spec.DNSNames, "http")
 			}
-
-			tls = append(tls, resources.MakeClusterIngressTLS(cert, cert.Spec.DNSNames))
+			tls = append(tls, resources.MakeIngressTLS(cert, cert.Spec.DNSNames))
 		}
 	}
 

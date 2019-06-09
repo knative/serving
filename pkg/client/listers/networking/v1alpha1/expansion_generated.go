@@ -30,6 +30,14 @@ type CertificateNamespaceListerExpansion interface{}
 // ClusterIngressLister.
 type ClusterIngressListerExpansion interface{}
 
+// IngressListerExpansion allows custom methods to be added to
+// IngressLister.
+type IngressListerExpansion interface{}
+
+// IngressNamespaceListerExpansion allows custom methods to be added to
+// IngressNamespaceLister.
+type IngressNamespaceListerExpansion interface{}
+
 // ServerlessServiceListerExpansion allows custom methods to be added to
 // ServerlessServiceLister.
 type ServerlessServiceListerExpansion interface{}

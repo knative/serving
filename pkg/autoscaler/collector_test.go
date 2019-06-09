@@ -41,19 +41,23 @@ var (
 		Spec: MetricSpec{
 			StableWindow: 60 * time.Second,
 			PanicWindow:  6 * time.Second,
+			ScrapeTarget: "original-target",
 		},
 	}
 )
 
-func TestMetricCollectorCrud(t *testing.T) {
+func TestMetricCollectorCRUD(t *testing.T) {
 	defer ClearAll()
 
 	logger := TestLogger(t)
 	ctx := context.Background()
 
-	scraper := testScraper(func() (*StatMessage, error) {
-		return nil, nil
-	})
+	scraper := &testScraper{
+		s: (func() (*StatMessage, error) {
+			return nil, nil
+		}),
+		url: "just-right",
+	}
 	factory := scraperFactory(scraper, nil)
 
 	t.Run("error on mismatch", func(t *testing.T) {
@@ -95,13 +99,19 @@ func TestMetricCollectorCrud(t *testing.T) {
 		if !cmp.Equal(defaultMetric, got) {
 			t.Errorf("Get() didn't return the same metric: %v", cmp.Diff(defaultMetric, got))
 		}
+		key := NewMetricKey(defaultMetric.Namespace, defaultMetric.Name)
 
+		defaultMetric.Spec.ScrapeTarget = "new-target"
 		got, err = coll.Update(ctx, defaultMetric)
 		if err != nil {
 			t.Errorf("Update() = %v, want no error", err)
 		}
 		if !cmp.Equal(defaultMetric, got) {
 			t.Errorf("Update() didn't return the same metric: %v", cmp.Diff(defaultMetric, got))
+		}
+		newURL := (coll.collections[key]).scraper.(*testScraper).url
+		if got, want := newURL, "http://new-target.test-namespace:9090/metrics"; got != want {
+			t.Errorf("Updated scraper URL = %s, want: %s, diff: %s", got, want, cmp.Diff(got, want))
 		}
 
 		if err := coll.Delete(ctx, defaultNamespace, defaultName); err != nil {
@@ -127,9 +137,11 @@ func TestMetricCollectorScraper(t *testing.T) {
 			AverageConcurrentRequests: 10.0,
 		},
 	}
-	scraper := testScraper(func() (*StatMessage, error) {
-		return stat, nil
-	})
+	scraper := &testScraper{
+		s: func() (*StatMessage, error) {
+			return stat, nil
+		},
+	}
 	factory := scraperFactory(scraper, nil)
 
 	coll := NewMetricCollector(factory, logger)
@@ -167,9 +179,11 @@ func TestMetricCollectorRecord(t *testing.T) {
 		AverageConcurrentRequests:        want + 10,
 		AverageProxiedConcurrentRequests: 10, // this should be subtracted from the above.
 	}
-	scraper := testScraper(func() (*StatMessage, error) {
-		return nil, nil
-	})
+	scraper := &testScraper{
+		s: func() (*StatMessage, error) {
+			return nil, nil
+		},
+	}
 	factory := scraperFactory(scraper, nil)
 
 	coll := NewMetricCollector(factory, logger)
@@ -193,8 +207,15 @@ func scraperFactory(scraper StatsScraper, err error) StatsScraperFactory {
 	}
 }
 
-type testScraper func() (*StatMessage, error)
+type testScraper struct {
+	s   func() (*StatMessage, error)
+	url string
+}
 
-func (s testScraper) Scrape() (*StatMessage, error) {
-	return s()
+func (s *testScraper) Scrape() (*StatMessage, error) {
+	return s.s()
+}
+
+func (s *testScraper) UpdateTarget(sv, ns string) {
+	s.url = urlFromTarget(sv, ns)
 }

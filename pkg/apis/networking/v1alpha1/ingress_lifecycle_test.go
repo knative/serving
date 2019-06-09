@@ -1,5 +1,5 @@
 /*
-Copyright 2018 The Knative Authors
+Copyright 2019 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -21,9 +21,10 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/knative/pkg/apis/duck"
 	duckv1beta1 "github.com/knative/pkg/apis/duck/v1alpha1"
+	apitest "github.com/knative/pkg/apis/testing"
 )
 
-func TestClusterIngressDuckTypes(t *testing.T) {
+func TestIngressDuckTypes(t *testing.T) {
 	tests := []struct {
 		name string
 		t    duck.Implementable
@@ -34,26 +35,26 @@ func TestClusterIngressDuckTypes(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			err := duck.VerifyType(&ClusterIngress{}, test.t)
+			err := duck.VerifyType(&Ingress{}, test.t)
 			if err != nil {
-				t.Errorf("VerifyType(ClusterIngress, %T) = %v", test.t, err)
+				t.Errorf("VerifyType(Ingress, %T) = %v", test.t, err)
 			}
 		})
 	}
 }
 
-func TestCIGetGroupVersionKind(t *testing.T) {
-	ci := ClusterIngress{}
-	expected := SchemeGroupVersion.WithKind("ClusterIngress")
+func TestIngressGetGroupVersionKind(t *testing.T) {
+	ci := Ingress{}
+	expected := SchemeGroupVersion.WithKind("Ingress")
 	if diff := cmp.Diff(expected, ci.GetGroupVersionKind()); diff != "" {
 		t.Errorf("Unexpected diff (-want, +got) = %v", diff)
 	}
 }
 
-func TestIsPublic(t *testing.T) {
-	ci := ClusterIngress{}
+func TestIngressIsPublic(t *testing.T) {
+	ci := Ingress{}
 	if !ci.IsPublic() {
-		t.Error("Expected default ClusterIngress to be public, for backward compatibility")
+		t.Error("Expected default Ingress to be public, for backward compatibility")
 	}
 	if !ci.IsPublic() {
 		t.Errorf("Expected IsPublic()==true, saw %v", ci.IsPublic())
@@ -66,5 +67,28 @@ func TestIsPublic(t *testing.T) {
 	if ci.IsPublic() {
 		t.Errorf("Expected IsPublic()==false, saw %v", ci.IsPublic())
 	}
+}
 
+func TestIngressTypicalFlow(t *testing.T) {
+	r := &IngressStatus{}
+	r.InitializeConditions()
+
+	apitest.CheckConditionOngoing(r.duck(), IngressConditionReady, t)
+
+	// Then network is configured.
+	r.MarkNetworkConfigured()
+	apitest.CheckConditionSucceeded(r.duck(), IngressConditionNetworkConfigured, t)
+	apitest.CheckConditionOngoing(r.duck(), IngressConditionReady, t)
+
+	// Then ingress has address.
+	r.MarkLoadBalancerReady([]LoadBalancerIngressStatus{{DomainInternal: "gateway.default.svc"}})
+	apitest.CheckConditionSucceeded(r.duck(), IngressConditionLoadBalancerReady, t)
+	apitest.CheckConditionSucceeded(r.duck(), IngressConditionReady, t)
+	if !r.IsReady() {
+		t.Fatal("IsReady()=false, wanted true")
+	}
+
+	// Mark not owned.
+	r.MarkResourceNotOwned("i own", "you")
+	apitest.CheckConditionFailed(r.duck(), IngressConditionReady, t)
 }

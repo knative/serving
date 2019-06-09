@@ -29,6 +29,7 @@ type NetworkingV1alpha1Interface interface {
 	RESTClient() rest.Interface
 	CertificatesGetter
 	ClusterIngressesGetter
+	IngressesGetter
 	ServerlessServicesGetter
 }
 
@@ -43,6 +44,10 @@ func (c *NetworkingV1alpha1Client) Certificates(namespace string) CertificateInt
 
 func (c *NetworkingV1alpha1Client) ClusterIngresses() ClusterIngressInterface {
 	return newClusterIngresses(c)
+}
+
+func (c *NetworkingV1alpha1Client) Ingresses(namespace string) IngressInterface {
+	return newIngresses(c, namespace)
 }
 
 func (c *NetworkingV1alpha1Client) ServerlessServices(namespace string) ServerlessServiceInterface {

@@ -217,6 +217,7 @@ type collection struct {
 	metricMutex sync.RWMutex
 	metric      *Metric
 
+	scraper StatsScraper
 	buckets *aggregation.TimedFloat64Buckets
 
 	grp    sync.WaitGroup
@@ -228,6 +229,7 @@ func newCollection(metric *Metric, scraper StatsScraper, logger *zap.SugaredLogg
 	c := &collection{
 		metric:  metric,
 		buckets: aggregation.NewTimedFloat64Buckets(bucketSize),
+		scraper: scraper,
 
 		stopCh: make(chan struct{}),
 	}
@@ -263,6 +265,7 @@ func (c *collection) updateMetric(metric *Metric) {
 	defer c.metricMutex.Unlock()
 
 	c.metric = metric
+	c.scraper.UpdateTarget(metric.Spec.ScrapeTarget, metric.ObjectMeta.Namespace)
 }
 
 // currentMetric safely returns the current metric stored in the collection.
