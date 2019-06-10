@@ -271,10 +271,12 @@ func assertAutoscaleUpToNumPods(ctx *testContext, curPods, targetPods int32, dur
 
 func TestAutoscaleUpDownUp(t *testing.T) {
 	t.Parallel()
+
 	ctx := setup(t)
-	stopChan := DiagnoseMeEvery(t, 15*time.Second, ctx.clients)
-	defer close(stopChan)
 	defer test.TearDown(ctx.clients, ctx.names)
+
+	sc := startDiagnosis(t, ctx.clients, 15*time.Second)
+	defer sc.stop()
 
 	assertScaleUp(ctx)
 	assertScaleDown(ctx)
@@ -284,8 +286,6 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 func TestAutoscaleUpCountPods(t *testing.T) {
 	t.Parallel()
 	ctx := setup(t)
-	stopChan := DiagnoseMeEvery(t, 15*time.Second, ctx.clients)
-	defer close(stopChan)
 	defer test.TearDown(ctx.clients, ctx.names)
 
 	ctx.t.Log("The autoscaler spins up additional replicas when traffic increases.")
