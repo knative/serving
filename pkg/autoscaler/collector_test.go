@@ -58,6 +58,12 @@ func TestMetricCollectorCRUD(t *testing.T) {
 		}),
 		url: "just-right",
 	}
+	scraper2 := &testScraper{
+		s: (func() (*StatMessage, error) {
+			return nil, nil
+		}),
+		url: "slightly-off",
+	}
 	factory := scraperFactory(scraper, nil)
 
 	t.Run("error on mismatch", func(t *testing.T) {
@@ -102,6 +108,7 @@ func TestMetricCollectorCRUD(t *testing.T) {
 		key := NewMetricKey(defaultMetric.Namespace, defaultMetric.Name)
 
 		defaultMetric.Spec.ScrapeTarget = "new-target"
+		coll.statsScraperFactory = scraperFactory(scraper2, nil)
 		got, err = coll.Update(ctx, defaultMetric)
 		if err != nil {
 			t.Errorf("Update() = %v, want no error", err)
@@ -110,7 +117,7 @@ func TestMetricCollectorCRUD(t *testing.T) {
 			t.Errorf("Update() didn't return the same metric: %v", cmp.Diff(defaultMetric, got))
 		}
 		newURL := (coll.collections[key]).scraper.(*testScraper).url
-		if got, want := newURL, "http://new-target.test-namespace:9090/metrics"; got != want {
+		if got, want := newURL, "slightly-off"; got != want {
 			t.Errorf("Updated scraper URL = %s, want: %s, diff: %s", got, want, cmp.Diff(got, want))
 		}
 
