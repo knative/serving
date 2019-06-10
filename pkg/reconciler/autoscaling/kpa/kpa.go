@@ -268,25 +268,20 @@ func (c *Reconciler) metricService(pa *pav1alpha1.PodAutoscaler) (*corev1.Servic
 	if err != nil {
 		return nil, err
 	}
-	switch l := len(svcs); l {
-	case 0:
-		return nil, errors.NewNotFound(corev1.Resource("Services"), pa.Name)
-	case 1:
-		return svcs[0], nil
-	default:
-		// We encountered more than one. Keep the one that is in the status and delete the others.
-		var ret *corev1.Service
-		for _, s := range svcs {
-			if metav1.IsControlledBy(s, pa) {
-				// If we had a metrics, service but lost control of it... well, we'll create a new one.
-				if s.Name == pa.Status.MetricsServiceName {
-					ret = s
-					continue
-				}
-				// If we don't control it, don't delete it.
-				c.KubeClientSet.CoreV1().Services(pa.Namespace).Delete(s.Name, &metav1.DeleteOptions{})
-			}
+	var ret *corev1.Service
+	for _, s := range svcs {
+		// Found a match.
+		// TODO(vagababov): determine if this is better to be in the ownership check.
+		if s.Name == pa.Status.MetricsServiceName {
+			ret = s
+			continue
 		}
+		if metav1.IsControlledBy(s, pa) {
+			// If we don't control it, don't delete it.
+			c.KubeClientSet.CoreV1().Services(pa.Namespace).Delete(s.Name, &metav1.DeleteOptions{})
+		}
+	}
+	if ret != nil {
 		return ret, nil
 	}
 	return nil, errors.NewNotFound(corev1.Resource("Services"), pa.Name)
@@ -303,7 +298,6 @@ func (c *Reconciler) reconcileMetricsService(ctx context.Context, pa *pav1alpha1
 	logger.Debugf("PA's %s selector: %v", pa.Name, selector)
 
 	svc, err := c.metricService(pa)
-	fmt.Printf("#### %+v => %v\n", svc, err)
 	if errors.IsNotFound(err) {
 		logger.Infof("Metrics K8s service for KPA %s/%s does not exist; creating.", pa.Namespace, pa.Name)
 		svc = resources.MakeMetricsService(pa, selector)
@@ -313,7 +307,6 @@ func (c *Reconciler) reconcileMetricsService(ctx context.Context, pa *pav1alpha1
 		}
 		logger.Info("Created K8s service:", svc.Name)
 	} else if err != nil {
-		// Shouldn't really happen, since metricService filters out the services we don't own.
 		return "", perrors.Wrap(err, "error getting metrics K8s service")
 	} else if !metav1.IsControlledBy(svc, pa) {
 		pa.Status.MarkResourceNotOwned("Service", svc.Name)

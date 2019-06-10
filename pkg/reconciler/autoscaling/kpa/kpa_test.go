@@ -349,6 +349,37 @@ func TestReconcile(t *testing.T) {
 			makeSKSPrivateEndpoints(1, testNamespace, testRevision),
 		},
 	}, {
+		Name: "metric-service-mistmatch",
+		Key:  key,
+		Objects: []runtime.Object{
+			kpa(testNamespace, testRevision, markActive, withMSvcStatus("a350-900ULR"),
+				WithPAStatusService(testRevision)),
+			sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSReady),
+			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector),
+				withMSvcName("b777-200LR")),
+			expectedDeploy,
+			makeSKSPrivateEndpoints(1, testNamespace, testRevision),
+		},
+		WantDeletes: []clientgotesting.DeleteActionImpl{{
+			ActionImpl: clientgotesting.ActionImpl{
+				Namespace: testNamespace,
+				Verb:      "delete",
+				Resource: schema.GroupVersionResource{
+					Group:    "core",
+					Version:  "v1",
+					Resource: "services",
+				},
+			},
+			Name: "b777-200LR",
+		}},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: kpa(testNamespace, testRevision, markActive,
+				WithPAStatusService(testRevision), withMSvcStatus(testRevision+"-00001")),
+		}},
+		WantCreates: []runtime.Object{
+			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector)),
+		},
+	}, {
 		Name: "delete redundant metrics svc",
 		Key:  key,
 		Objects: []runtime.Object{
