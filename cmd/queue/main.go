@@ -199,6 +199,17 @@ func probeUserContainer() bool {
 	return err == nil
 }
 
+func tcpProberFactory(address string, timeout time.Duration) func() bool {
+	return func() bool {
+		var err error
+		wait.PollImmediate(50*time.Millisecond, timeout, func() (bool, error) {
+			err = health.TCPProbe(address, 100*time.Millisecond)
+			return err == nil, nil
+		})
+		return err == nil
+	}
+}
+
 // Make handler a closure for testing.
 func handler(reqChan chan queue.ReqEvent, breaker *queue.Breaker, handler http.Handler) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
