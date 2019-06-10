@@ -303,12 +303,13 @@ func (c *Reconciler) reconcileMetricsService(ctx context.Context, pa *pav1alpha1
 	logger.Debugf("PA's %s selector: %v", pa.Name, selector)
 
 	svc, err := c.metricService(pa)
+	fmt.Printf("#### %+v => %v\n", svc, err)
 	if errors.IsNotFound(err) {
 		logger.Infof("Metrics K8s service for KPA %s/%s does not exist; creating.", pa.Namespace, pa.Name)
 		svc = resources.MakeMetricsService(pa, selector)
 		svc, err = c.KubeClientSet.CoreV1().Services(pa.Namespace).Create(svc)
 		if err != nil {
-			return "", perrors.Wrapf(err, "error creating K8s metric Service for %s/%s", pa.Namespace, pa.Name)
+			return "", perrors.Wrapf(err, "error creating metrics K8s service for %s/%s", pa.Namespace, pa.Name)
 		}
 		logger.Info("Created K8s service:", svc.Name)
 	} else if err != nil {
@@ -330,6 +331,7 @@ func (c *Reconciler) reconcileMetricsService(ctx context.Context, pa *pav1alpha1
 			}
 		}
 	}
+	pa.Status.MetricsServiceName = svc.Name
 	logger.Debug("Done reconciling metrics K8s service: ", svc.Name)
 	return svc.Name, nil
 }
