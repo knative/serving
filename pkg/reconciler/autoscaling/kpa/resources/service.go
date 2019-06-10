@@ -23,7 +23,6 @@ import (
 	"github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	sv1a1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	"github.com/knative/serving/pkg/reconciler/autoscaling/kpa/resources/names"
 	"github.com/knative/serving/pkg/resources"
 
 	corev1 "k8s.io/api/core/v1"
@@ -31,17 +30,15 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
-const kpaLabelKey = autoscaling.GroupName + "/kpa"
-
 // MakeMetricsService constructs a service that can be scraped for metrics.
 func MakeMetricsService(pa *pav1alpha1.PodAutoscaler, selector map[string]string) *corev1.Service {
-
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      names.MetricsServiceName(pa.Name),
-			Namespace: pa.Namespace,
+			//		Name:      names.MetricsServiceName(pa.Name),
+			GenerateName: pa.Name + "-",
+			Namespace:    pa.Namespace,
 			Labels: resources.UnionMaps(pa.GetLabels(), map[string]string{
-				kpaLabelKey:               pa.Name,
+				autoscaling.KPALabelKey:   pa.Name,
 				networking.ServiceTypeKey: string(networking.ServiceTypeMetrics),
 			}),
 			Annotations:     resources.CopyMap(pa.GetAnnotations()),

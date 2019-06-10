@@ -54,8 +54,8 @@ func TestMakeService(t *testing.T) {
 	selector := map[string]string{"cant": "stop"}
 	want := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: "here",
-			Name:      "with-you-metrics",
+			Namespace:    "here",
+			GenerateName: "with-you-",
 			Labels: map[string]string{
 				// Those should be propagated.
 				serving.RevisionLabelKey:  "with-you",
