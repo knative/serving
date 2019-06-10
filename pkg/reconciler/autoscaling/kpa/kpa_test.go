@@ -34,6 +34,7 @@ import (
 	fakesksinformer "github.com/knative/serving/pkg/client/injection/informers/networking/v1alpha1/serverlessservice/fake"
 	fakerevisioninformer "github.com/knative/serving/pkg/client/injection/informers/serving/v1alpha1/revision/fake"
 
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	"github.com/google/go-cmp/cmp"
@@ -348,6 +349,36 @@ func TestReconcile(t *testing.T) {
 			makeSKSPrivateEndpoints(1, testNamespace, testRevision),
 		},
 	}, {
+		Name: "delete redundant metrics svc",
+		Key:  key,
+		Objects: []runtime.Object{
+			kpa(testNamespace, testRevision, markActive, withMSvcStatus("a380-800"),
+				WithPAStatusService(testRevision)),
+			sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSReady),
+			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector),
+				withMSvcName("a380-800")),
+			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector),
+				withMSvcName("a380-900")),
+			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector),
+				withMSvcName("il96-300"), func(s *corev1.Service) {
+					s.OwnerReferences = nil // This won't be removed, since we don't own it.
+				}),
+			expectedDeploy,
+			makeSKSPrivateEndpoints(1, testNamespace, testRevision),
+		},
+		WantDeletes: []clientgotesting.DeleteActionImpl{{
+			ActionImpl: clientgotesting.ActionImpl{
+				Namespace: testNamespace,
+				Verb:      "delete",
+				Resource: schema.GroupVersionResource{
+					Group:    "core",
+					Version:  "v1",
+					Resource: "services",
+				},
+			},
+			Name: "a380-900",
+		}},
+	}, {
 		Name: "make metrics service",
 		Key:  key,
 		Objects: []runtime.Object{
@@ -473,22 +504,22 @@ func TestReconcile(t *testing.T) {
 		WantErr: true,
 		Objects: []runtime.Object{
 			kpa(testNamespace, testRevision, markActive,
-				WithPAStatusService(testRevision), withMSvcStatus("superb-one")),
+				WithPAStatusService(testRevision), withMSvcStatus("b737max-800")),
 			sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSReady),
 			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector), func(s *corev1.Service) {
 				s.OwnerReferences = nil
-			}, withMSvcName("superb-one")),
+			}, withMSvcName("b737max-800")),
 			expectedDeploy,
 			makeSKSPrivateEndpoints(1, testNamespace, testRevision),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: kpa(testNamespace, testRevision, markActive, WithPAStatusService(testRevision),
-				withMSvcStatus("superb-one"),
+				withMSvcStatus("b737max-800"),
 				// We expect this change in status:
-				markResourceNotOwned("Service", "superb-one")),
+				markResourceNotOwned("Service", "b737max-800")),
 		}},
 		WantEvents: []string{
-			Eventf(corev1.EventTypeWarning, "InternalError", "error reconciling metrics service: KPA: test-revision does not own Service: superb-one"),
+			Eventf(corev1.EventTypeWarning, "InternalError", "error reconciling metrics service: KPA: test-revision does not own Service: b737max-800"),
 		},
 	}, {
 		Name: "can't read endpoints",
