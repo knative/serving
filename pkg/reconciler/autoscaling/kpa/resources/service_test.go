@@ -22,6 +22,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"github.com/knative/pkg/ptr"
+	"github.com/knative/serving/pkg/apis/autoscaling"
 	pav1a1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/serving"
@@ -60,7 +61,7 @@ func TestMakeService(t *testing.T) {
 				// Those should be propagated.
 				serving.RevisionLabelKey:  "with-you",
 				serving.RevisionUID:       "2009",
-				kpaLabelKey:               "with-you",
+				autoscaling.KPALabelKey:   "with-you",
 				networking.ServiceTypeKey: string(networking.ServiceTypeMetrics),
 			},
 			Annotations: map[string]string{
