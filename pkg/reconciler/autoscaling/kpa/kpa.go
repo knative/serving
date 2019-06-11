@@ -276,8 +276,9 @@ func (c *Reconciler) metricService(pa *pav1alpha1.PodAutoscaler) (*corev1.Servic
 			ret = s
 			continue
 		}
+		// If it's not the metrics service recorded in status,
+		// but we control it then it is a duplicate and should be deleted.
 		if metav1.IsControlledBy(s, pa) {
-			// If we don't control it, don't delete it.
 			c.KubeClientSet.CoreV1().Services(pa.Namespace).Delete(s.Name, &metav1.DeleteOptions{})
 		}
 	}
