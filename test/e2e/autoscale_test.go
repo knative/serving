@@ -63,7 +63,7 @@ func generateTraffic(ctx *testContext, concurrency int, duration time.Duration, 
 	}
 	for i := 0; i < concurrency; i++ {
 		group.Go(func() error {
-			req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://%s", ctx.domain), nil)
+			req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://%s?sleep=100", ctx.domain), nil)
 			if err != nil {
 				return fmt.Errorf("error creating HTTP request: %v", err)
 			}
@@ -222,7 +222,7 @@ func assertAutoscaleUpToNumPods(ctx *testContext, curPods, targetPods int32, dur
 	stopChan := make(chan struct{})
 	var grp errgroup.Group
 	grp.Go(func() error {
-		return generateTraffic(ctx, int(targetPods*containerConcurrency), duration, stopChan)
+		return generateTraffic(ctx, int(targetPods*containerConcurrency), duration + 2*time.Second, stopChan)
 	})
 	grp.Go(func() error {
 		// Short-circuit traffic generation once we exit from the check logic.
