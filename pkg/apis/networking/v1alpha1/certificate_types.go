@@ -104,7 +104,7 @@ type CertificateStatus struct {
 // to fulfill.
 type HTTP01Challenge struct {
 	// URL is the URL that the HTTP01 challenge is expected to serve on.
-	apis.URL `json:"url,omitempty"`
+	URL *apis.URL `json:"url,omitempty"`
 
 	// ServiceName is the name of the service to serve HTTP01 challenge requests.
 	ServiceName string `json:"serviceName,omitempty"`
