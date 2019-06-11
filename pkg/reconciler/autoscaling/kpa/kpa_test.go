@@ -34,6 +34,7 @@ import (
 	fakesksinformer "github.com/knative/serving/pkg/client/injection/informers/networking/v1alpha1/serverlessservice/fake"
 	fakerevisioninformer "github.com/knative/serving/pkg/client/injection/informers/serving/v1alpha1/revision/fake"
 
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	"github.com/google/go-cmp/cmp"
@@ -108,6 +109,13 @@ func newConfigWatcher() configmap.Watcher {
 
 // TODO(#3591): Convert KPA tests to table tests.
 
+func withMSvcName(sn string) K8sServiceOption {
+	return func(svc *corev1.Service) {
+		svc.Name = sn
+		svc.GenerateName = ""
+	}
+}
+
 func metricsSvc(ns, n string, opts ...K8sServiceOption) *corev1.Service {
 	pa := kpa(ns, n)
 	svc := resources.MakeMetricsService(pa, map[string]string{})
@@ -142,6 +150,12 @@ func markActivating(pa *asv1a1.PodAutoscaler) {
 
 func markActive(pa *asv1a1.PodAutoscaler) {
 	pa.Status.MarkActive()
+}
+
+func withMSvcStatus(s string) PodAutoscalerOption {
+	return func(pa *asv1a1.PodAutoscaler) {
+		pa.Status.MetricsServiceName = s
+	}
 }
 
 func kpa(ns, n string, opts ...PodAutoscalerOption) *asv1a1.PodAutoscaler {
@@ -326,13 +340,75 @@ func TestReconcile(t *testing.T) {
 		Name: "steady state",
 		Key:  key,
 		Objects: []runtime.Object{
-			kpa(testNamespace, testRevision, markActive,
+			kpa(testNamespace, testRevision, markActive, withMSvcStatus("a330-200"),
 				WithPAStatusService(testRevision)),
 			sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSReady),
-			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector)),
+			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector),
+				withMSvcName("a330-200")),
 			expectedDeploy,
 			makeSKSPrivateEndpoints(1, testNamespace, testRevision),
 		},
+	}, {
+		Name: "metric-service-mistmatch",
+		Key:  key,
+		Objects: []runtime.Object{
+			kpa(testNamespace, testRevision, markActive, withMSvcStatus("a350-900ULR"),
+				WithPAStatusService(testRevision)),
+			sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSReady),
+			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector),
+				withMSvcName("b777-200LR")),
+			expectedDeploy,
+			makeSKSPrivateEndpoints(1, testNamespace, testRevision),
+		},
+		WantDeletes: []clientgotesting.DeleteActionImpl{{
+			ActionImpl: clientgotesting.ActionImpl{
+				Namespace: testNamespace,
+				Verb:      "delete",
+				Resource: schema.GroupVersionResource{
+					Group:    "core",
+					Version:  "v1",
+					Resource: "services",
+				},
+			},
+			Name: "b777-200LR",
+		}},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: kpa(testNamespace, testRevision, markActive,
+				WithPAStatusService(testRevision), withMSvcStatus(testRevision+"-00001")),
+		}},
+		WantCreates: []runtime.Object{
+			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector)),
+		},
+	}, {
+		Name: "delete redundant metrics svc",
+		Key:  key,
+		Objects: []runtime.Object{
+			kpa(testNamespace, testRevision, markActive, withMSvcStatus("a380-800"),
+				WithPAStatusService(testRevision)),
+			sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSReady),
+			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector),
+				withMSvcName("a380-800")),
+			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector),
+				withMSvcName("a380-900")),
+			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector),
+				withMSvcName("il96-300"), func(s *corev1.Service) {
+					s.OwnerReferences = nil // This won't be removed, since we don't own it.
+				}),
+			expectedDeploy,
+			makeSKSPrivateEndpoints(1, testNamespace, testRevision),
+		},
+		WantDeletes: []clientgotesting.DeleteActionImpl{{
+			ActionImpl: clientgotesting.ActionImpl{
+				Namespace: testNamespace,
+				Verb:      "delete",
+				Resource: schema.GroupVersionResource{
+					Group:    "core",
+					Version:  "v1",
+					Resource: "services",
+				},
+			},
+			Name: "a380-900",
+		}},
 	}, {
 		Name: "make metrics service",
 		Key:  key,
@@ -343,6 +419,10 @@ func TestReconcile(t *testing.T) {
 			expectedDeploy,
 			makeSKSPrivateEndpoints(1, testNamespace, testRevision),
 		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: kpa(testNamespace, testRevision, markActive,
+				WithPAStatusService(testRevision), withMSvcStatus(testRevision+"-00001")),
+		}},
 		WantCreates: []runtime.Object{
 			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector)),
 		},
@@ -365,7 +445,7 @@ func TestReconcile(t *testing.T) {
 		},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "InternalError",
-				`error reconciling metrics service: error creating K8s Service test-namespace/test-revision-metrics: inducing failure for create services`),
+				`error reconciling metrics service: error creating metrics K8s service for test-namespace/test-revision: inducing failure for create services`),
 		},
 	}, {
 		Name: "scale up deployment",
@@ -415,15 +495,16 @@ func TestReconcile(t *testing.T) {
 		Name: "update metrics service",
 		Key:  key,
 		Objects: []runtime.Object{
-			kpa(testNamespace, testRevision, markActive,
+			kpa(testNamespace, testRevision, markActive, withMSvcStatus("a321neo"),
 				WithPAStatusService(testRevision)),
 			sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSReady),
 			expectedDeploy,
 			makeSKSPrivateEndpoints(1, testNamespace, testRevision),
-			metricsSvc(testNamespace, testRevision),
+			metricsSvc(testNamespace, testRevision, withMSvcName("a321neo")),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector)),
+			Object: metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector),
+				withMSvcName("a321neo")),
 		}},
 	}, {
 		Name: "update metrics service fails",
@@ -433,19 +514,20 @@ func TestReconcile(t *testing.T) {
 		},
 		WantErr: true,
 		Objects: []runtime.Object{
-			kpa(testNamespace, testRevision, markActive,
+			kpa(testNamespace, testRevision, markActive, withMSvcStatus("b767-300er"),
 				WithPAStatusService(testRevision)),
 			sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSReady),
 			expectedDeploy,
 			makeSKSPrivateEndpoints(1, testNamespace, testRevision),
-			metricsSvc(testNamespace, testRevision),
+			metricsSvc(testNamespace, testRevision, withMSvcName("b767-300er")),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector)),
+			Object: metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector),
+				withMSvcName("b767-300er")),
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "InternalError",
-				`error reconciling metrics service: error updating K8s Service test-revision-metrics: inducing failure for update services`),
+				`error reconciling metrics service: error updating K8s Service b767-300er: inducing failure for update services`),
 		},
 	}, {
 		Name:    "metrics service isn't owned",
@@ -453,21 +535,22 @@ func TestReconcile(t *testing.T) {
 		WantErr: true,
 		Objects: []runtime.Object{
 			kpa(testNamespace, testRevision, markActive,
-				WithPAStatusService(testRevision)),
+				WithPAStatusService(testRevision), withMSvcStatus("b737max-800")),
 			sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSReady),
 			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector), func(s *corev1.Service) {
 				s.OwnerReferences = nil
-			}),
+			}, withMSvcName("b737max-800")),
 			expectedDeploy,
 			makeSKSPrivateEndpoints(1, testNamespace, testRevision),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: kpa(testNamespace, testRevision, markActive, WithPAStatusService(testRevision),
+				withMSvcStatus("b737max-800"),
 				// We expect this change in status:
-				markResourceNotOwned("Service", testRevision+"-metrics")),
+				markResourceNotOwned("Service", "b737max-800")),
 		}},
 		WantEvents: []string{
-			Eventf(corev1.EventTypeWarning, "InternalError", "error reconciling metrics service: KPA: test-revision does not own Service: test-revision-metrics"),
+			Eventf(corev1.EventTypeWarning, "InternalError", "error reconciling metrics service: KPA: test-revision does not own Service: b737max-800"),
 		},
 	}, {
 		Name: "can't read endpoints",
