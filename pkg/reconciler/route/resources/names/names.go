@@ -19,26 +19,26 @@ package names
 import (
 	"fmt"
 
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/knative/pkg/kmeta"
 	"github.com/knative/serving/pkg/network"
 )
 
-func K8sService(route *v1alpha1.Route) string {
-	return route.Name
+func K8sService(route kmeta.Accessor) string {
+	return route.GetName()
 }
 
-func K8sServiceFullname(route *v1alpha1.Route) string {
-	return network.GetServiceHostname(K8sService(route), route.Namespace)
+func K8sServiceFullname(route kmeta.Accessor) string {
+	return network.GetServiceHostname(K8sService(route), route.GetNamespace())
 }
 
 // ClusterIngress returns the name for the ClusterIngress
 // child resource for the given Route.
-func ClusterIngress(route *v1alpha1.Route) string {
-	return fmt.Sprintf("route-%s", route.UID)
+func ClusterIngress(route kmeta.Accessor) string {
+	return fmt.Sprintf("route-%s", route.GetUID())
 }
 
 // Certificate returns the name for the Certificate
 // child resource for the given Route.
-func Certificate(route *v1alpha1.Route) string {
-	return fmt.Sprintf("route-%s", route.UID)
+func Certificate(route kmeta.Accessor) string {
+	return fmt.Sprintf("route-%s", route.GetUID())
 }
