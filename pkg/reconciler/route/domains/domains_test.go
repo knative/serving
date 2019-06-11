@@ -81,6 +81,11 @@ func TestDomainNameFromTemplate(t *testing.T) {
 		args:     args{name: "test-name"},
 		want:     "test-name",
 	}, {
+		name:     "Annotations",
+		template: `{{.Name}}.{{ index .Annotations "sub"}}.{{.Domain}}`,
+		args:     args{name: "test-name"},
+		want:     "test-name.mysub.example.com",
+	}, {
 		// This cannot get through our validation, but verify we handle errors.
 		name:     "BadVarName",
 		template: "{{.Name}}.{{.NNNamespace}}.{{.Domain}}",
@@ -95,6 +100,9 @@ func TestDomainNameFromTemplate(t *testing.T) {
 			Namespace: "default",
 			Labels: map[string]string{
 				"route": "myapp",
+			},
+			Annotations: map[string]string{
+				"sub": "mysub",
 			},
 		},
 	}
@@ -113,41 +121,6 @@ func TestDomainNameFromTemplate(t *testing.T) {
 			}
 			if got != tt.want {
 				t.Errorf("DomainNameFromTemplate() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
-func TestSubdomainName(t *testing.T) {
-	route := &v1alpha1.Route{
-		ObjectMeta: metav1.ObjectMeta{
-			SelfLink:  "/apis/serving/v1alpha1/namespaces/test/Routes/myapp",
-			Name:      "myroute",
-			Namespace: "default",
-			Labels: map[string]string{
-				"route": "myapp",
-			},
-		},
-	}
-
-	tests := []struct {
-		name   string
-		suffix string
-		want   string
-	}{
-		{
-			name:   "has suffix",
-			suffix: "mysuffix",
-			want:   "myroute-mysuffix",
-		}, {
-			name: "no suffix",
-			want: "myroute",
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := SubdomainName(route, tt.suffix); got != tt.want {
-				t.Errorf("BuildName() = %v, want %v", got, tt.want)
 			}
 		})
 	}
@@ -186,20 +159,50 @@ func TestURL(t *testing.T) {
 	}
 }
 
-func TestGetAllDomains(t *testing.T) {
+func TestGetAllDomainsAndTags(t *testing.T) {
 	tests := []struct {
-		name     string
-		template string
-		want     []string
-		wantErr  bool
+		name           string
+		domainTemplate string
+		tagTemplate    string
+		want           map[string]string
+		wantErr        bool
 	}{{
-		name:     "happy case",
-		template: "{{.Name}}.{{.Namespace}}.{{.Domain}}",
-		want:     []string{"myroute-target-1.default.example.com", "myroute-target-2.default.example.com", "myroute.default.example.com"},
+		name:           "happy case",
+		domainTemplate: "{{.Name}}.{{.Namespace}}.{{.Domain}}",
+		tagTemplate:    "{{.Name}}-{{.Tag}}",
+		want: map[string]string{
+			"myroute-target-1.default.example.com": "target-1",
+			"myroute-target-2.default.example.com": "target-2",
+			"myroute.default.example.com":          "",
+		},
 	}, {
-		name:     "bad template",
-		template: "{{.NNName}}.{{.Namespace}}.{{.Domain}}",
-		wantErr:  true,
+		name:           "another happy case",
+		domainTemplate: "{{.Name}}.{{.Namespace}}.{{.Domain}}",
+		tagTemplate:    "{{.Tag}}-{{.Name}}",
+		want: map[string]string{
+			"target-1-myroute.default.example.com": "target-1",
+			"target-2-myroute.default.example.com": "target-2",
+			"myroute.default.example.com":          "",
+		},
+	}, {
+		name:           "or appengine style",
+		domainTemplate: "{{.Name}}.{{.Namespace}}.{{.Domain}}",
+		tagTemplate:    "{{.Tag}}-dot-{{.Name}}",
+		want: map[string]string{
+			"target-1-dot-myroute.default.example.com": "target-1",
+			"target-2-dot-myroute.default.example.com": "target-2",
+			"myroute.default.example.com":              "",
+		},
+	}, {
+		name:           "bad template",
+		domainTemplate: "{{.NNName}}.{{.Namespace}}.{{.Domain}}",
+		tagTemplate:    "{{.Name}}-{{.Tag}}",
+		wantErr:        true,
+	}, {
+		name:           "bad template",
+		domainTemplate: "{{.Name}}.{{.Namespace}}.{{.Domain}}",
+		tagTemplate:    "{{.NNName}}-{{.Tag}}",
+		wantErr:        true,
 	}}
 
 	route := &v1alpha1.Route{
@@ -217,10 +220,12 @@ func TestGetAllDomains(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx := context.Background()
 			cfg := testConfig()
-			cfg.Network.DomainTemplate = tt.template
+			cfg.Network.DomainTemplate = tt.domainTemplate
+			cfg.Network.TagTemplate = tt.tagTemplate
 			ctx = config.ToContext(ctx, cfg)
 
-			got, err := GetAllDomains(ctx, route, []string{"target-1", "target-2"})
+			// here, a tag-less major domain will have empty string as the input
+			got, err := GetAllDomainsAndTags(ctx, route, []string{"", "target-1", "target-2"})
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetAllDomains() error = %v, wantErr %v", err, tt.wantErr)
 				return

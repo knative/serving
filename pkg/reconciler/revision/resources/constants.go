@@ -21,10 +21,6 @@ import (
 )
 
 const (
-	// UserContainerName is the name of the user-container in the PodSpec
-	UserContainerName = "user-container"
-	// FluentdContainerName is the name of the fluentd sidecar when enabled
-	FluentdContainerName = "fluentd-proxy"
 	// QueueContainerName is the name of the queue proxy side car
 	QueueContainerName = "queue-proxy"
 
@@ -44,6 +40,5 @@ var (
 
 	// See https://github.com/knative/serving/pull/1124#issuecomment-397120430
 	// for how CPU and memory values were calculated.
-	fluentdContainerCPU = resource.MustParse("25m")
-	queueContainerCPU   = resource.MustParse("25m")
+	queueContainerCPU = resource.MustParse("25m")
 )

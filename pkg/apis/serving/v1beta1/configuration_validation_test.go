@@ -20,6 +20,9 @@ import (
 	"context"
 	"testing"
 
+	"github.com/knative/pkg/ptr"
+	"github.com/knative/serving/pkg/apis/config"
+
 	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -41,7 +44,7 @@ func TestConfigurationValidation(t *testing.T) {
 			Spec: ConfigurationSpec{
 				Template: RevisionTemplateSpec{
 					Spec: RevisionSpec{
-						PodSpec: PodSpec{
+						PodSpec: corev1.PodSpec{
 							Containers: []corev1.Container{{
 								Image: "busybox",
 							}},
@@ -60,7 +63,7 @@ func TestConfigurationValidation(t *testing.T) {
 			Spec: ConfigurationSpec{
 				Template: RevisionTemplateSpec{
 					Spec: RevisionSpec{
-						PodSpec: PodSpec{
+						PodSpec: corev1.PodSpec{
 							Containers: []corev1.Container{{
 								Image: "busybox",
 							}},
@@ -85,7 +88,7 @@ func TestConfigurationValidation(t *testing.T) {
 						Name: "byo-name-foo",
 					},
 					Spec: RevisionSpec{
-						PodSpec: PodSpec{
+						PodSpec: corev1.PodSpec{
 							Containers: []corev1.Container{{
 								Image: "hellworld",
 							}},
@@ -107,7 +110,7 @@ func TestConfigurationValidation(t *testing.T) {
 						Name: "byo-name-foo",
 					},
 					Spec: RevisionSpec{
-						PodSpec: PodSpec{
+						PodSpec: corev1.PodSpec{
 							Containers: []corev1.Container{{
 								Image: "hellworld",
 							}},
@@ -129,7 +132,7 @@ func TestConfigurationValidation(t *testing.T) {
 						Name: "foo",
 					},
 					Spec: RevisionSpec{
-						PodSpec: PodSpec{
+						PodSpec: corev1.PodSpec{
 							Containers: []corev1.Container{{
 								Image: "hellworld",
 							}},
@@ -170,7 +173,7 @@ func TestImmutableConfigurationFields(t *testing.T) {
 			Spec: ConfigurationSpec{
 				Template: RevisionTemplateSpec{
 					Spec: RevisionSpec{
-						PodSpec: PodSpec{
+						PodSpec: corev1.PodSpec{
 							Containers: []corev1.Container{{
 								Image: "helloworld:foo",
 							}},
@@ -186,7 +189,7 @@ func TestImmutableConfigurationFields(t *testing.T) {
 			Spec: ConfigurationSpec{
 				Template: RevisionTemplateSpec{
 					Spec: RevisionSpec{
-						PodSpec: PodSpec{
+						PodSpec: corev1.PodSpec{
 							Containers: []corev1.Container{{
 								Image: "helloworld:bar",
 							}},
@@ -208,7 +211,7 @@ func TestImmutableConfigurationFields(t *testing.T) {
 						Name: "byo-name-foo",
 					},
 					Spec: RevisionSpec{
-						PodSpec: PodSpec{
+						PodSpec: corev1.PodSpec{
 							Containers: []corev1.Container{{
 								Image: "helloworld:foo",
 							}},
@@ -227,7 +230,7 @@ func TestImmutableConfigurationFields(t *testing.T) {
 						Name: "byo-name-bar",
 					},
 					Spec: RevisionSpec{
-						PodSpec: PodSpec{
+						PodSpec: corev1.PodSpec{
 							Containers: []corev1.Container{{
 								Image: "helloworld:bar",
 							}},
@@ -249,7 +252,7 @@ func TestImmutableConfigurationFields(t *testing.T) {
 						Name: "byo-name-foo",
 					},
 					Spec: RevisionSpec{
-						PodSpec: PodSpec{
+						PodSpec: corev1.PodSpec{
 							Containers: []corev1.Container{{
 								Image: "helloworld:foo",
 							}},
@@ -268,7 +271,7 @@ func TestImmutableConfigurationFields(t *testing.T) {
 						Name: "byo-name-foo",
 					},
 					Spec: RevisionSpec{
-						PodSpec: PodSpec{
+						PodSpec: corev1.PodSpec{
 							Containers: []corev1.Container{{
 								Image: "helloworld:foo",
 							}},
@@ -290,7 +293,7 @@ func TestImmutableConfigurationFields(t *testing.T) {
 						Name: "byo-name-foo",
 					},
 					Spec: RevisionSpec{
-						PodSpec: PodSpec{
+						PodSpec: corev1.PodSpec{
 							Containers: []corev1.Container{{
 								Image: "helloworld:foo",
 							}},
@@ -309,7 +312,7 @@ func TestImmutableConfigurationFields(t *testing.T) {
 						Name: "byo-name-foo",
 					},
 					Spec: RevisionSpec{
-						PodSpec: PodSpec{
+						PodSpec: corev1.PodSpec{
 							Containers: []corev1.Container{{
 								Image: "helloworld:bar",
 							}},
@@ -333,6 +336,112 @@ func TestImmutableConfigurationFields(t *testing.T) {
 			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
 				t.Errorf("Validate (-want, +got) = %v\nwant: %v\ngot: %v",
 					diff, test.want, got)
+			}
+		})
+	}
+}
+
+func TestConfigurationSubresourceUpdate(t *testing.T) {
+	tests := []struct {
+		name        string
+		config      *Configuration
+		subresource string
+		want        *apis.FieldError
+	}{{
+		name: "status update with valid revision template",
+		config: &Configuration{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid",
+			},
+			Spec: ConfigurationSpec{
+				Template: RevisionTemplateSpec{
+					Spec: RevisionSpec{
+						PodSpec: corev1.PodSpec{
+							Containers: []corev1.Container{{
+								Image: "busybox",
+							}},
+						},
+						TimeoutSeconds: ptr.Int64(config.DefaultMaxRevisionTimeoutSeconds - 1),
+					},
+				},
+			},
+		},
+		subresource: "status",
+		want:        nil,
+	}, {
+		name: "status update with invalid revision template",
+		config: &Configuration{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid",
+			},
+			Spec: ConfigurationSpec{
+				Template: RevisionTemplateSpec{
+					Spec: RevisionSpec{
+						PodSpec: corev1.PodSpec{
+							Containers: []corev1.Container{{
+								Image: "busybox",
+							}},
+						},
+						TimeoutSeconds: ptr.Int64(config.DefaultMaxRevisionTimeoutSeconds + 1),
+					},
+				},
+			},
+		},
+		subresource: "status",
+		want:        nil,
+	}, {
+		name: "non-status sub resource update with valid revision template",
+		config: &Configuration{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid",
+			},
+			Spec: ConfigurationSpec{
+				Template: RevisionTemplateSpec{
+					Spec: RevisionSpec{
+						PodSpec: corev1.PodSpec{
+							Containers: []corev1.Container{{
+								Image: "busybox",
+							}},
+						},
+						TimeoutSeconds: ptr.Int64(config.DefaultMaxRevisionTimeoutSeconds - 1),
+					},
+				},
+			},
+		},
+		subresource: "foo",
+		want:        nil,
+	}, {
+		name: "non-status sub resource update with invalid revision template",
+		config: &Configuration{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid",
+			},
+			Spec: ConfigurationSpec{
+				Template: RevisionTemplateSpec{
+					Spec: RevisionSpec{
+						PodSpec: corev1.PodSpec{
+							Containers: []corev1.Container{{
+								Image: "busybox",
+							}},
+						},
+						TimeoutSeconds: ptr.Int64(config.DefaultMaxRevisionTimeoutSeconds + 1),
+					},
+				},
+			},
+		},
+		subresource: "foo",
+		want: apis.ErrOutOfBoundsValue(config.DefaultMaxRevisionTimeoutSeconds+1, 0,
+			config.DefaultMaxRevisionTimeoutSeconds,
+			"spec.template.spec.timeoutSeconds"),
+	}}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			ctx := context.Background()
+			ctx = apis.WithinSubResourceUpdate(ctx, test.config, test.subresource)
+			got := test.config.Validate(ctx)
+			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
+				t.Errorf("Validate (-want, +got) = %v", diff)
 			}
 		})
 	}

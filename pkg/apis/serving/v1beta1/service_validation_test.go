@@ -20,6 +20,8 @@ import (
 	"context"
 	"testing"
 
+	"github.com/knative/serving/pkg/apis/config"
+
 	"github.com/google/go-cmp/cmp"
 	"github.com/knative/pkg/ptr"
 	corev1 "k8s.io/api/core/v1"
@@ -32,7 +34,7 @@ func TestServiceValidation(t *testing.T) {
 	goodConfigSpec := ConfigurationSpec{
 		Template: RevisionTemplateSpec{
 			Spec: RevisionSpec{
-				PodSpec: PodSpec{
+				PodSpec: corev1.PodSpec{
 					Containers: []corev1.Container{{
 						Image: "busybox",
 					}},
@@ -136,7 +138,7 @@ func TestServiceValidation(t *testing.T) {
 				ConfigurationSpec: ConfigurationSpec{
 					Template: RevisionTemplateSpec{
 						Spec: RevisionSpec{
-							PodSpec: PodSpec{
+							PodSpec: corev1.PodSpec{
 								Containers: []corev1.Container{{
 									Image: "busybox",
 								}},
@@ -188,7 +190,7 @@ func TestImmutableServiceFields(t *testing.T) {
 				ConfigurationSpec: ConfigurationSpec{
 					Template: RevisionTemplateSpec{
 						Spec: RevisionSpec{
-							PodSpec: PodSpec{
+							PodSpec: corev1.PodSpec{
 								Containers: []corev1.Container{{
 									Image: "helloworld:foo",
 								}},
@@ -212,7 +214,7 @@ func TestImmutableServiceFields(t *testing.T) {
 				ConfigurationSpec: ConfigurationSpec{
 					Template: RevisionTemplateSpec{
 						Spec: RevisionSpec{
-							PodSpec: PodSpec{
+							PodSpec: corev1.PodSpec{
 								Containers: []corev1.Container{{
 									Image: "helloworld:bar",
 								}},
@@ -242,7 +244,7 @@ func TestImmutableServiceFields(t *testing.T) {
 							Name: "byo-name-foo",
 						},
 						Spec: RevisionSpec{
-							PodSpec: PodSpec{
+							PodSpec: corev1.PodSpec{
 								Containers: []corev1.Container{{
 									Image: "helloworld:foo",
 								}},
@@ -269,7 +271,7 @@ func TestImmutableServiceFields(t *testing.T) {
 							Name: "byo-name-bar",
 						},
 						Spec: RevisionSpec{
-							PodSpec: PodSpec{
+							PodSpec: corev1.PodSpec{
 								Containers: []corev1.Container{{
 									Image: "helloworld:bar",
 								}},
@@ -299,7 +301,7 @@ func TestImmutableServiceFields(t *testing.T) {
 							Name: "byo-name-foo",
 						},
 						Spec: RevisionSpec{
-							PodSpec: PodSpec{
+							PodSpec: corev1.PodSpec{
 								Containers: []corev1.Container{{
 									Image: "helloworld:foo",
 								}},
@@ -326,7 +328,7 @@ func TestImmutableServiceFields(t *testing.T) {
 							Name: "byo-name-bar",
 						},
 						Spec: RevisionSpec{
-							PodSpec: PodSpec{
+							PodSpec: corev1.PodSpec{
 								Containers: []corev1.Container{{
 									Image: "helloworld:bar",
 								}},
@@ -356,7 +358,7 @@ func TestImmutableServiceFields(t *testing.T) {
 							Name: "byo-name-foo",
 						},
 						Spec: RevisionSpec{
-							PodSpec: PodSpec{
+							PodSpec: corev1.PodSpec{
 								Containers: []corev1.Container{{
 									Image: "helloworld:foo",
 								}},
@@ -383,7 +385,7 @@ func TestImmutableServiceFields(t *testing.T) {
 							Name: "byo-name-foo",
 						},
 						Spec: RevisionSpec{
-							PodSpec: PodSpec{
+							PodSpec: corev1.PodSpec{
 								Containers: []corev1.Container{{
 									Image: "helloworld:bar",
 								}},
@@ -414,6 +416,189 @@ func TestImmutableServiceFields(t *testing.T) {
 			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
 				t.Errorf("Validate (-want, +got) = %v\nwant: %v\ngot: %v",
 					diff, test.want, got)
+			}
+		})
+	}
+}
+
+func TestServiceSubresourceUpdate(t *testing.T) {
+	tests := []struct {
+		name        string
+		service     *Service
+		subresource string
+		want        *apis.FieldError
+	}{{
+		name: "status update with valid revision template",
+		service: &Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid",
+			},
+			Spec: ServiceSpec{
+				ConfigurationSpec: ConfigurationSpec{
+					Template: RevisionTemplateSpec{
+						Spec: RevisionSpec{
+							PodSpec: corev1.PodSpec{
+								Containers: []corev1.Container{{
+									Image: "helloworld:foo",
+								}},
+							},
+							TimeoutSeconds: ptr.Int64(config.DefaultMaxRevisionTimeoutSeconds - 1),
+						},
+					},
+				},
+				RouteSpec: RouteSpec{
+					Traffic: []TrafficTarget{{
+						LatestRevision: ptr.Bool(true),
+						Percent:        100,
+					}},
+				},
+			},
+		},
+		subresource: "status",
+		want:        nil,
+	}, {
+		name: "status update with invalid revision template",
+		service: &Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid",
+			},
+			Spec: ServiceSpec{
+				ConfigurationSpec: ConfigurationSpec{
+					Template: RevisionTemplateSpec{
+						Spec: RevisionSpec{
+							PodSpec: corev1.PodSpec{
+								Containers: []corev1.Container{{
+									Image: "helloworld:foo",
+								}},
+							},
+							TimeoutSeconds: ptr.Int64(config.DefaultMaxRevisionTimeoutSeconds + 1),
+						},
+					},
+				},
+				RouteSpec: RouteSpec{
+					Traffic: []TrafficTarget{{
+						LatestRevision: ptr.Bool(true),
+						Percent:        100,
+					}},
+				},
+			},
+		},
+		subresource: "status",
+		want:        nil,
+	}, {
+		name: "status update with invalid status",
+		service: &Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid",
+			},
+			Spec: ServiceSpec{
+				ConfigurationSpec: ConfigurationSpec{
+					Template: RevisionTemplateSpec{
+						Spec: RevisionSpec{
+							PodSpec: corev1.PodSpec{
+								Containers: []corev1.Container{{
+									Image: "helloworld:foo",
+								}},
+							},
+							TimeoutSeconds: ptr.Int64(config.DefaultMaxRevisionTimeoutSeconds + 1),
+						},
+					},
+				},
+				RouteSpec: RouteSpec{
+					Traffic: []TrafficTarget{{
+						LatestRevision: ptr.Bool(true),
+						Percent:        100,
+					}},
+				},
+			},
+			Status: ServiceStatus{
+				RouteStatusFields: RouteStatusFields{
+					Traffic: []TrafficTarget{{
+						Tag:          "bar",
+						RevisionName: "foo",
+						Percent:      50, URL: &apis.URL{
+							Scheme: "http",
+							Host:   "foo.bar.com",
+						},
+					}},
+				},
+			},
+		},
+		subresource: "status",
+		want: &apis.FieldError{
+			Message: "Traffic targets sum to 50, want 100",
+			Paths:   []string{"status.traffic"},
+		},
+	}, {
+		name: "non-status sub resource update with valid revision template",
+		service: &Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid",
+			},
+			Spec: ServiceSpec{
+				ConfigurationSpec: ConfigurationSpec{
+					Template: RevisionTemplateSpec{
+						Spec: RevisionSpec{
+							PodSpec: corev1.PodSpec{
+								Containers: []corev1.Container{{
+									Image: "helloworld:foo",
+								}},
+							},
+							TimeoutSeconds: ptr.Int64(config.DefaultMaxRevisionTimeoutSeconds - 1),
+						},
+					},
+				},
+				RouteSpec: RouteSpec{
+					Traffic: []TrafficTarget{{
+						LatestRevision: ptr.Bool(true),
+						Percent:        100,
+					}},
+				},
+			},
+		},
+		subresource: "foo",
+		want:        nil,
+	}, {
+		name: "non-status sub resource update with invalid revision template",
+		service: &Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid",
+			},
+			Spec: ServiceSpec{
+				ConfigurationSpec: ConfigurationSpec{
+					Template: RevisionTemplateSpec{
+						Spec: RevisionSpec{
+							PodSpec: corev1.PodSpec{
+								Containers: []corev1.Container{{
+									Image: "helloworld:foo",
+								}},
+							},
+							TimeoutSeconds: ptr.Int64(config.DefaultMaxRevisionTimeoutSeconds + 1),
+						},
+					},
+				},
+				RouteSpec: RouteSpec{
+					Traffic: []TrafficTarget{{
+						LatestRevision: ptr.Bool(true),
+						Percent:        100,
+					}},
+				},
+			},
+		},
+		subresource: "foo",
+		want: apis.ErrOutOfBoundsValue(config.DefaultMaxRevisionTimeoutSeconds+1, 0,
+			config.DefaultMaxRevisionTimeoutSeconds,
+			"spec.template.spec.timeoutSeconds"),
+	}}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			ctx := context.Background()
+			ctx = apis.WithinUpdate(ctx, test.service)
+			ctx = apis.WithinSubResourceUpdate(ctx, test.service, test.subresource)
+			got := test.service.Validate(ctx)
+			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
+				t.Errorf("Validate (-want, +got) = %v", diff)
 			}
 		})
 	}

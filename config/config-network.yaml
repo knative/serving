@@ -98,8 +98,17 @@ data:
     # entirely from the template. When choosing a new value be thoughtful
     # of the potential for conflicts - for example, when users choose to use
     # characters such as `-` in their service, or namespace, names.
-    #
+    # {{.Annotations}} can be used for any customization in the go template if needed.
+    # We strongly recommend keeping namespace part of the template to avoid domain name clashes
+    # Example '{{.Name}}-{{.Namespace}}.{{ index .Annotations "sub"}}.{{.Domain}}'
+    # and you have an annotation {"sub":"foo"}, then the generated template would be {Name}-{Namespace}.foo.{Domain}
     domainTemplate: "{{.Name}}.{{.Namespace}}.{{.Domain}}"
+
+    # tagTemplate specifies the golang text template string to use
+    # when constructing the DNS name for "tags" within the traffic blocks
+    # of Routes and Configuration.  This is used in conjunction with the
+    # domainTemplate above to determine the full URL for the tag.
+    tagTemplate: "{{.Name}}-{{.Tag}}"
 
     # Controls whether TLS certificates are automatically provisioned and
     # installed in the Knative ingress to terminate external TLS connection.

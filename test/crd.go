@@ -101,7 +101,7 @@ func ConfigurationSpec(imagePath string, options *Options) *v1alpha1.Configurati
 		Template: &v1alpha1.RevisionTemplateSpec{
 			Spec: v1alpha1.RevisionSpec{
 				RevisionSpec: v1beta1.RevisionSpec{
-					PodSpec: v1beta1.PodSpec{
+					PodSpec: corev1.PodSpec{
 						Containers: []corev1.Container{{
 							Image:           imagePath,
 							Resources:       options.ContainerResources,
@@ -122,6 +122,12 @@ func ConfigurationSpec(imagePath string, options *Options) *v1alpha1.Configurati
 
 	if options.EnvVars != nil {
 		spec.GetTemplate().Spec.GetContainer().Env = options.EnvVars
+	}
+
+	if len(options.RevisionTemplateAnnotations) != 0 {
+		spec.Template.ObjectMeta = metav1.ObjectMeta{
+			Annotations: options.RevisionTemplateAnnotations,
+		}
 	}
 
 	return spec
@@ -186,31 +192,6 @@ func Configuration(names ResourceNames, options *Options, fopt ...v1alpha1testin
 	return config
 }
 
-// ConfigurationWithBuild returns a Configuration object in the `namespace`
-// with the name `names.Config` that uses the provided Build spec `build`
-// and image specified by `names.Image`.
-func ConfigurationWithBuild(names ResourceNames, build *v1alpha1.RawExtension) *v1alpha1.Configuration {
-	return &v1alpha1.Configuration{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: names.Config,
-		},
-		Spec: v1alpha1.ConfigurationSpec{
-			DeprecatedBuild: build,
-			Template: &v1alpha1.RevisionTemplateSpec{
-				Spec: v1alpha1.RevisionSpec{
-					RevisionSpec: v1beta1.RevisionSpec{
-						PodSpec: v1beta1.PodSpec{
-							Containers: []corev1.Container{{
-								Image: ptest.ImagePath(names.Image),
-							}},
-						},
-					},
-				},
-			},
-		},
-	}
-}
-
 // LatestService returns a Service object in namespace with the name names.Service
 // that uses the image specified by names.Image.
 func LatestService(names ResourceNames, options *Options, fopt ...v1alpha1testing.ServiceOption) *v1alpha1.Service {
@@ -226,7 +207,10 @@ func LatestServiceLegacy(names ResourceNames, options *Options, fopt ...v1alpha1
 	a := append([]v1alpha1testing.ServiceOption{
 		v1alpha1testing.WithRunLatestConfigSpec(*LegacyConfigurationSpec(ptest.ImagePath(names.Image), options)),
 	}, fopt...)
-	return v1alpha1testing.ServiceWithoutNamespace(names.Service, a...)
+	svc := v1alpha1testing.ServiceWithoutNamespace(names.Service, a...)
+	// Clear the name, which is put there by defaulting.
+	svc.Spec.DeprecatedRunLatest.Configuration.GetTemplate().Spec.GetContainer().Name = ""
+	return svc
 }
 
 // AppendRandomString will generate a random string that begins with prefix. This is useful

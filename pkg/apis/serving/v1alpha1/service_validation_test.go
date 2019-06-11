@@ -21,6 +21,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/knative/serving/pkg/apis/config"
+
 	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -50,7 +52,7 @@ func TestServiceValidation(t *testing.T) {
 						DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 							Spec: RevisionSpec{
 								RevisionSpec: v1beta1.RevisionSpec{
-									PodSpec: v1beta1.PodSpec{
+									PodSpec: corev1.PodSpec{
 										Containers: []corev1.Container{{
 											Image: "hellworld",
 										}},
@@ -77,7 +79,7 @@ func TestServiceValidation(t *testing.T) {
 						DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 							Spec: RevisionSpec{
 								RevisionSpec: v1beta1.RevisionSpec{
-									PodSpec: v1beta1.PodSpec{
+									PodSpec: corev1.PodSpec{
 										Containers: []corev1.Container{{
 											Image: "hellworld",
 										}},
@@ -127,7 +129,7 @@ func TestServiceValidation(t *testing.T) {
 						DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 							Spec: RevisionSpec{
 								RevisionSpec: v1beta1.RevisionSpec{
-									PodSpec: v1beta1.PodSpec{
+									PodSpec: corev1.PodSpec{
 										Containers: []corev1.Container{{
 											Image: "hellworld",
 										}},
@@ -196,7 +198,7 @@ func TestServiceValidation(t *testing.T) {
 				DeprecatedManual: &ManualType{},
 			},
 		},
-		want: nil,
+		want: apis.ErrDisallowedFields("spec.manual"),
 	}, {
 		name: "invalid multiple types",
 		s: &Service{
@@ -242,7 +244,7 @@ func TestServiceValidation(t *testing.T) {
 		},
 		want: &apis.FieldError{
 			Message: "expected exactly one, got neither",
-			Paths: []string{"spec.manual", "spec.pinned", "spec.release",
+			Paths: []string{"spec.pinned", "spec.release",
 				"spec.template", "spec.runLatest"},
 		},
 	}, {
@@ -257,8 +259,9 @@ func TestServiceValidation(t *testing.T) {
 						DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 							Spec: RevisionSpec{
 								DeprecatedContainer: &corev1.Container{
-									Name:  "foo",
-									Image: "hellworld",
+									Name:      "foo",
+									Image:     "hellworld",
+									Lifecycle: &corev1.Lifecycle{},
 								},
 							},
 						},
@@ -266,7 +269,7 @@ func TestServiceValidation(t *testing.T) {
 				},
 			},
 		},
-		want: apis.ErrDisallowedFields("spec.runLatest.configuration.revisionTemplate.spec.container.name"),
+		want: apis.ErrDisallowedFields("spec.runLatest.configuration.revisionTemplate.spec.container.lifecycle"),
 	}, {
 		name: "invalid pinned",
 		s: &Service{
@@ -280,8 +283,9 @@ func TestServiceValidation(t *testing.T) {
 						DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 							Spec: RevisionSpec{
 								DeprecatedContainer: &corev1.Container{
-									Name:  "foo",
-									Image: "hellworld",
+									Name:      "foo",
+									Image:     "hellworld",
+									Lifecycle: &corev1.Lifecycle{},
 								},
 							},
 						},
@@ -289,7 +293,7 @@ func TestServiceValidation(t *testing.T) {
 				},
 			},
 		},
-		want: apis.ErrDisallowedFields("spec.pinned.configuration.revisionTemplate.spec.container.name"),
+		want: apis.ErrDisallowedFields("spec.pinned.configuration.revisionTemplate.spec.container.lifecycle"),
 	}, {
 		name: "invalid release -- too few revisions; nil",
 		s: &Service{
@@ -578,7 +582,7 @@ func TestServiceValidation(t *testing.T) {
 					Template: &RevisionTemplateSpec{
 						Spec: RevisionSpec{
 							RevisionSpec: v1beta1.RevisionSpec{
-								PodSpec: v1beta1.PodSpec{
+								PodSpec: corev1.PodSpec{
 									Containers: []corev1.Container{{
 										Image: "helloworld",
 									}},
@@ -610,7 +614,7 @@ func TestServiceValidation(t *testing.T) {
 						Spec: RevisionSpec{
 							DeprecatedConcurrencyModel: "Multi",
 							RevisionSpec: v1beta1.RevisionSpec{
-								PodSpec: v1beta1.PodSpec{
+								PodSpec: corev1.PodSpec{
 									Containers: []corev1.Container{{
 										Image: "helloworld",
 									}},
@@ -641,7 +645,7 @@ func TestServiceValidation(t *testing.T) {
 					Template: &RevisionTemplateSpec{
 						Spec: RevisionSpec{
 							RevisionSpec: v1beta1.RevisionSpec{
-								PodSpec: v1beta1.PodSpec{
+								PodSpec: corev1.PodSpec{
 									Containers: []corev1.Container{{
 										Image: "helloworld",
 									}},
@@ -674,7 +678,7 @@ func TestServiceValidation(t *testing.T) {
 					Template: &RevisionTemplateSpec{
 						Spec: RevisionSpec{
 							RevisionSpec: v1beta1.RevisionSpec{
-								PodSpec: v1beta1.PodSpec{
+								PodSpec: corev1.PodSpec{
 									Containers: []corev1.Container{{
 										Image: "hellworld",
 									}},
@@ -737,14 +741,15 @@ func TestRunLatestTypeValidation(t *testing.T) {
 				DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 					Spec: RevisionSpec{
 						DeprecatedContainer: &corev1.Container{
-							Name:  "stuart",
-							Image: "hellworld",
+							Name:      "stuart",
+							Image:     "hellworld",
+							Lifecycle: &corev1.Lifecycle{},
 						},
 					},
 				},
 			},
 		},
-		want: apis.ErrDisallowedFields("configuration.revisionTemplate.spec.container.name"),
+		want: apis.ErrDisallowedFields("configuration.revisionTemplate.spec.container.lifecycle"),
 	}}
 
 	for _, test := range tests {
@@ -799,14 +804,15 @@ func TestPinnedTypeValidation(t *testing.T) {
 				DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 					Spec: RevisionSpec{
 						DeprecatedContainer: &corev1.Container{
-							Name:  "stuart",
-							Image: "hellworld",
+							Name:      "stuart",
+							Image:     "hellworld",
+							Lifecycle: &corev1.Lifecycle{},
 						},
 					},
 				},
 			},
 		},
-		want: apis.ErrDisallowedFields("configuration.revisionTemplate.spec.container.name"),
+		want: apis.ErrDisallowedFields("configuration.revisionTemplate.spec.container.lifecycle"),
 	}}
 
 	for _, test := range tests {
@@ -991,7 +997,7 @@ func TestImmutableServiceFields(t *testing.T) {
 						},
 						Spec: RevisionSpec{
 							RevisionSpec: v1beta1.RevisionSpec{
-								PodSpec: v1beta1.PodSpec{
+								PodSpec: corev1.PodSpec{
 									Containers: []corev1.Container{{
 										Image: "helloworld:bar",
 									}},
@@ -1093,6 +1099,128 @@ func TestImmutableServiceFields(t *testing.T) {
 			ctx := context.Background()
 			ctx = apis.WithinUpdate(ctx, test.old)
 			got := test.new.Validate(ctx)
+			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
+				t.Errorf("Validate (-want, +got) = %v", diff)
+			}
+		})
+	}
+}
+
+func TestServiceSubresourceUpdate(t *testing.T) {
+	tests := []struct {
+		name        string
+		service     *Service
+		subresource string
+		want        *apis.FieldError
+	}{{
+		name: "status update with valid revision template",
+		service: &Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid",
+			},
+			Spec: ServiceSpec{
+				DeprecatedRunLatest: &RunLatestType{
+					Configuration: ConfigurationSpec{
+						DeprecatedRevisionTemplate: &RevisionTemplateSpec{
+							Spec: RevisionSpec{
+								DeprecatedContainer: &corev1.Container{
+									Image: "helloworld",
+								},
+								RevisionSpec: v1beta1.RevisionSpec{
+									TimeoutSeconds: ptr.Int64(config.DefaultMaxRevisionTimeoutSeconds - 1),
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		subresource: "status",
+		want:        nil,
+	}, {
+		name: "status update with invalid revision template",
+		service: &Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid",
+			},
+			Spec: ServiceSpec{
+				DeprecatedRunLatest: &RunLatestType{
+					Configuration: ConfigurationSpec{
+						DeprecatedRevisionTemplate: &RevisionTemplateSpec{
+							Spec: RevisionSpec{
+								DeprecatedContainer: &corev1.Container{
+									Image: "helloworld",
+								},
+								RevisionSpec: v1beta1.RevisionSpec{
+									TimeoutSeconds: ptr.Int64(config.DefaultMaxRevisionTimeoutSeconds + 1),
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		subresource: "status",
+		want:        nil,
+	}, {
+		name: "non-status sub resource update with valid revision template",
+		service: &Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid",
+			},
+			Spec: ServiceSpec{
+				DeprecatedRunLatest: &RunLatestType{
+					Configuration: ConfigurationSpec{
+						DeprecatedRevisionTemplate: &RevisionTemplateSpec{
+							Spec: RevisionSpec{
+								DeprecatedContainer: &corev1.Container{
+									Image: "helloworld",
+								},
+								RevisionSpec: v1beta1.RevisionSpec{
+									TimeoutSeconds: ptr.Int64(config.DefaultMaxRevisionTimeoutSeconds - 1),
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		subresource: "foo",
+		want:        nil,
+	}, {
+		name: "non-status sub resource update with invalid revision template",
+		service: &Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid",
+			},
+			Spec: ServiceSpec{
+				DeprecatedRunLatest: &RunLatestType{
+					Configuration: ConfigurationSpec{
+						DeprecatedRevisionTemplate: &RevisionTemplateSpec{
+							Spec: RevisionSpec{
+								DeprecatedContainer: &corev1.Container{
+									Image: "helloworld",
+								},
+								RevisionSpec: v1beta1.RevisionSpec{
+									TimeoutSeconds: ptr.Int64(config.DefaultMaxRevisionTimeoutSeconds + 1),
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		subresource: "foo",
+		want: apis.ErrOutOfBoundsValue(config.DefaultMaxRevisionTimeoutSeconds+1, 0,
+			config.DefaultMaxRevisionTimeoutSeconds,
+			"spec.runLatest.configuration.revisionTemplate.spec.timeoutSeconds"),
+	}}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			ctx := context.Background()
+			ctx = apis.WithinSubResourceUpdate(ctx, test.service, test.subresource)
+			got := test.service.Validate(ctx)
 			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
 				t.Errorf("Validate (-want, +got) = %v", diff)
 			}

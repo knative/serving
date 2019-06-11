@@ -47,10 +47,6 @@ func isDeploymentScaledUp() func(d *appsv1.Deployment) (bool, error) {
 	}
 }
 
-func tearDown(ctx *testContext) {
-	test.TearDown(ctx.clients, ctx.names)
-}
-
 func generateTraffic(ctx *testContext, concurrency int, duration time.Duration, stopChan chan struct{}) error {
 	var (
 		totalRequests      int32
@@ -207,9 +203,10 @@ func assertScaleDown(ctx *testContext) {
 func TestAutoscaleUpDownUp(t *testing.T) {
 	t.Parallel()
 	ctx := setup(t)
-	stopChan := DiagnoseMeEvery(t, 15*time.Second, ctx.clients)
-	defer close(stopChan)
 	defer test.TearDown(ctx.clients, ctx.names)
+
+	sc := startDiagnosis(t, ctx.clients, 15*time.Second)
+	defer sc.stop()
 
 	assertScaleUp(ctx)
 	assertScaleDown(ctx)
@@ -217,7 +214,7 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 }
 
 func assertNumberOfPods(ctx *testContext, numReplicasMin int32, numReplicasMax int32) error {
-	deployment, err := ctx.clients.KubeClient.Kube.Apps().Deployments(test.ServingNamespace).Get(ctx.deploymentName, metav1.GetOptions{})
+	deployment, err := ctx.clients.KubeClient.Kube.AppsV1().Deployments(test.ServingNamespace).Get(ctx.deploymentName, metav1.GetOptions{})
 	if err != nil {
 		return errors.Wrapf(err, "Failed to get deployment %q", deployment)
 	}

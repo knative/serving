@@ -29,10 +29,16 @@ import (
 )
 
 // Validate validates the fields belonging to Service
-func (s *Service) Validate(ctx context.Context) *apis.FieldError {
-	errs := serving.ValidateObjectMetadata(s.GetObjectMeta()).ViaField("metadata")
-	ctx = apis.WithinParent(ctx, s.ObjectMeta)
-	errs = errs.Also(s.Spec.Validate(apis.WithinSpec(ctx)).ViaField("spec"))
+func (s *Service) Validate(ctx context.Context) (errs *apis.FieldError) {
+	// If we are in a status sub resource update, the metadata and spec cannot change.
+	// So, to avoid rejecting controller status updates due to validations that may
+	// have changed (i.e. due to config-defaults changes), we elide the metadata and
+	// spec validation.
+	if !apis.IsInStatusUpdate(ctx) {
+		errs = errs.Also(serving.ValidateObjectMetadata(s.GetObjectMeta()).ViaField("metadata"))
+		ctx = apis.WithinParent(ctx, s.ObjectMeta)
+		errs = errs.Also(s.Spec.Validate(apis.WithinSpec(ctx)).ViaField("spec"))
+	}
 
 	if apis.IsInUpdate(ctx) {
 		original := apis.GetBaseline(ctx).(*Service)
@@ -47,8 +53,7 @@ func (s *Service) Validate(ctx context.Context) *apis.FieldError {
 			}
 			err := currentConfig.GetTemplate().VerifyNameChange(ctx,
 				originalConfig.GetTemplate())
-			errs = errs.Also(err.ViaField(
-				"spec", field, "configuration", templateField))
+			errs = errs.Also(err.ViaField("spec", field, "configuration", templateField))
 		}
 	}
 
@@ -61,8 +66,6 @@ func (ss *ServiceSpec) getConfigurationSpec() (string, *ConfigurationSpec) {
 		return "runLatest", &ss.DeprecatedRunLatest.Configuration
 	case ss.DeprecatedRelease != nil:
 		return "release", &ss.DeprecatedRelease.Configuration
-	case ss.DeprecatedManual != nil:
-		return "", nil
 	case ss.DeprecatedPinned != nil:
 		return "pinned", &ss.DeprecatedPinned.Configuration
 	default:
@@ -93,7 +96,7 @@ func (ss *ServiceSpec) Validate(ctx context.Context) *apis.FieldError {
 	}
 	if ss.DeprecatedManual != nil {
 		set = append(set, "manual")
-		errs = errs.Also(ss.DeprecatedManual.Validate(ctx).ViaField("manual"))
+		errs = errs.Also(apis.ErrDisallowedFields("manual"))
 	}
 	if ss.DeprecatedPinned != nil {
 		set = append(set, "pinned")
@@ -123,8 +126,7 @@ func (ss *ServiceSpec) Validate(ctx context.Context) *apis.FieldError {
 	if len(set) > 1 {
 		errs = errs.Also(apis.ErrMultipleOneOf(set...))
 	} else if len(set) == 0 {
-		errs = errs.Also(apis.ErrMissingOneOf("runLatest", "release", "manual",
-			"pinned", "template"))
+		errs = errs.Also(apis.ErrMissingOneOf("runLatest", "release", "pinned", "template"))
 	}
 	return errs
 }
@@ -141,11 +143,6 @@ func (pt *PinnedType) Validate(ctx context.Context) *apis.FieldError {
 // Validate validates the fields belonging to RunLatestType
 func (rlt *RunLatestType) Validate(ctx context.Context) *apis.FieldError {
 	return rlt.Configuration.Validate(ctx).ViaField("configuration")
-}
-
-// Validate validates the fields belonging to ManualType
-func (m *ManualType) Validate(ctx context.Context) *apis.FieldError {
-	return nil
 }
 
 // Validate validates the fields belonging to ReleaseType

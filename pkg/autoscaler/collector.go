@@ -56,6 +56,10 @@ type Metric struct {
 type MetricSpec struct {
 	StableWindow time.Duration
 	PanicWindow  time.Duration
+
+	// ScrapeTarget is the K8s service that is publishes the metric
+	// endpoint.
+	ScrapeTarget string
 }
 
 // MetricStatus reflects the status of metric collection for this specific entity.
@@ -167,6 +171,11 @@ func (c *MetricCollector) Update(ctx context.Context, metric *Metric) (*Metric, 
 
 	key := NewMetricKey(metric.Namespace, metric.Name)
 	if collection, exists := c.collections[key]; exists {
+		scraper, err := c.statsScraperFactory(metric)
+		if err != nil {
+			return nil, err
+		}
+		collection.updateScraper(scraper)
 		collection.updateMetric(metric)
 		return metric.DeepCopy(), nil
 	}
@@ -213,10 +222,24 @@ type collection struct {
 	metricMutex sync.RWMutex
 	metric      *Metric
 
-	buckets *aggregation.TimedFloat64Buckets
+	scraperMutex sync.RWMutex
+	scraper      StatsScraper
+	buckets      *aggregation.TimedFloat64Buckets
 
 	grp    sync.WaitGroup
 	stopCh chan struct{}
+}
+
+func (c *collection) updateScraper(ss StatsScraper) {
+	c.scraperMutex.Lock()
+	defer c.scraperMutex.Unlock()
+	c.scraper = ss
+}
+
+func (c *collection) getScraper() StatsScraper {
+	c.scraperMutex.RLock()
+	defer c.scraperMutex.RUnlock()
+	return c.scraper
 }
 
 // newCollection creates a new collection.
@@ -224,6 +247,7 @@ func newCollection(metric *Metric, scraper StatsScraper, logger *zap.SugaredLogg
 	c := &collection{
 		metric:  metric,
 		buckets: aggregation.NewTimedFloat64Buckets(bucketSize),
+		scraper: scraper,
 
 		stopCh: make(chan struct{}),
 	}
@@ -239,7 +263,7 @@ func newCollection(metric *Metric, scraper StatsScraper, logger *zap.SugaredLogg
 				scrapeTicker.Stop()
 				return
 			case <-scrapeTicker.C:
-				message, err := scraper.Scrape()
+				message, err := c.getScraper().Scrape()
 				if err != nil {
 					logger.Errorw("Failed to scrape metrics", zap.Error(err))
 				}

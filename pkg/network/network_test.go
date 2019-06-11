@@ -59,6 +59,7 @@ func TestConfiguration(t *testing.T) {
 			IstioOutboundIPRanges:      "*",
 			DefaultClusterIngressClass: "istio.ingress.networking.knative.dev",
 			DomainTemplate:             DefaultDomainTemplate,
+			TagTemplate:                DefaultTagTemplate,
 			HTTPProtocol:               HTTPEnabled,
 		},
 		config: &corev1.ConfigMap{
@@ -85,6 +86,7 @@ func TestConfiguration(t *testing.T) {
 		wantConfig: &Config{
 			DefaultClusterIngressClass: "istio.ingress.networking.knative.dev",
 			DomainTemplate:             DefaultDomainTemplate,
+			TagTemplate:                DefaultTagTemplate,
 			HTTPProtocol:               HTTPEnabled,
 		},
 		config: &corev1.ConfigMap{
@@ -162,6 +164,7 @@ func TestConfiguration(t *testing.T) {
 		wantConfig: &Config{
 			DefaultClusterIngressClass: "istio.ingress.networking.knative.dev",
 			DomainTemplate:             DefaultDomainTemplate,
+			TagTemplate:                DefaultTagTemplate,
 			HTTPProtocol:               HTTPEnabled,
 		},
 		config: &corev1.ConfigMap{
@@ -179,6 +182,7 @@ func TestConfiguration(t *testing.T) {
 		wantConfig: &Config{
 			DefaultClusterIngressClass: "istio.ingress.networking.knative.dev",
 			DomainTemplate:             DefaultDomainTemplate,
+			TagTemplate:                DefaultTagTemplate,
 			HTTPProtocol:               HTTPEnabled,
 		},
 		config: &corev1.ConfigMap{
@@ -196,6 +200,7 @@ func TestConfiguration(t *testing.T) {
 		wantConfig: &Config{
 			DefaultClusterIngressClass: "istio.ingress.networking.knative.dev",
 			DomainTemplate:             DefaultDomainTemplate,
+			TagTemplate:                DefaultTagTemplate,
 			HTTPProtocol:               HTTPEnabled,
 		},
 		config: &corev1.ConfigMap{
@@ -214,6 +219,7 @@ func TestConfiguration(t *testing.T) {
 			IstioOutboundIPRanges:      "10.10.10.0/24",
 			DefaultClusterIngressClass: "istio.ingress.networking.knative.dev",
 			DomainTemplate:             DefaultDomainTemplate,
+			TagTemplate:                DefaultTagTemplate,
 			HTTPProtocol:               HTTPEnabled,
 		},
 		config: &corev1.ConfigMap{
@@ -232,6 +238,7 @@ func TestConfiguration(t *testing.T) {
 			IstioOutboundIPRanges:      "10.10.10.0/24,10.240.10.0/14,192.192.10.0/16",
 			DefaultClusterIngressClass: "istio.ingress.networking.knative.dev",
 			DomainTemplate:             DefaultDomainTemplate,
+			TagTemplate:                DefaultTagTemplate,
 			HTTPProtocol:               HTTPEnabled,
 		},
 		config: &corev1.ConfigMap{
@@ -250,6 +257,7 @@ func TestConfiguration(t *testing.T) {
 			IstioOutboundIPRanges:      "*",
 			DefaultClusterIngressClass: "istio.ingress.networking.knative.dev",
 			DomainTemplate:             DefaultDomainTemplate,
+			TagTemplate:                DefaultTagTemplate,
 			HTTPProtocol:               HTTPEnabled,
 		},
 		config: &corev1.ConfigMap{
@@ -268,6 +276,7 @@ func TestConfiguration(t *testing.T) {
 			IstioOutboundIPRanges:      "*",
 			DefaultClusterIngressClass: "foo-ingress",
 			DomainTemplate:             DefaultDomainTemplate,
+			TagTemplate:                DefaultTagTemplate,
 			HTTPProtocol:               HTTPEnabled,
 		},
 		config: &corev1.ConfigMap{
@@ -287,6 +296,7 @@ func TestConfiguration(t *testing.T) {
 			IstioOutboundIPRanges:      "*",
 			DefaultClusterIngressClass: "foo-ingress",
 			DomainTemplate:             nonDefaultDomainTemplate,
+			TagTemplate:                DefaultTagTemplate,
 			HTTPProtocol:               HTTPEnabled,
 		},
 		config: &corev1.ConfigMap{
@@ -381,6 +391,7 @@ func TestConfiguration(t *testing.T) {
 			IstioOutboundIPRanges:      "*",
 			DefaultClusterIngressClass: "istio.ingress.networking.knative.dev",
 			DomainTemplate:             DefaultDomainTemplate,
+			TagTemplate:                DefaultTagTemplate,
 			AutoTLS:                    true,
 			HTTPProtocol:               HTTPEnabled,
 		},
@@ -401,6 +412,7 @@ func TestConfiguration(t *testing.T) {
 			IstioOutboundIPRanges:      "*",
 			DefaultClusterIngressClass: "istio.ingress.networking.knative.dev",
 			DomainTemplate:             DefaultDomainTemplate,
+			TagTemplate:                DefaultTagTemplate,
 			AutoTLS:                    false,
 			HTTPProtocol:               HTTPEnabled,
 		},
@@ -421,6 +433,7 @@ func TestConfiguration(t *testing.T) {
 			IstioOutboundIPRanges:      "*",
 			DefaultClusterIngressClass: "istio.ingress.networking.knative.dev",
 			DomainTemplate:             DefaultDomainTemplate,
+			TagTemplate:                DefaultTagTemplate,
 			AutoTLS:                    true,
 			HTTPProtocol:               HTTPDisabled,
 		},
@@ -442,6 +455,7 @@ func TestConfiguration(t *testing.T) {
 			IstioOutboundIPRanges:      "*",
 			DefaultClusterIngressClass: "istio.ingress.networking.knative.dev",
 			DomainTemplate:             DefaultDomainTemplate,
+			TagTemplate:                DefaultTagTemplate,
 			AutoTLS:                    true,
 			HTTPProtocol:               HTTPRedirected,
 		},
@@ -485,6 +499,74 @@ func TestConfiguration(t *testing.T) {
 			if diff := cmp.Diff(actualConfig, tt.wantConfig, ignoreDT); diff != "" {
 				t.Fatalf("want %v, but got %v",
 					tt.wantConfig, actualConfig)
+			}
+		})
+	}
+}
+
+func TestAnnotationsInDomainTemplate(t *testing.T) {
+	networkConfigTests := []struct {
+		name               string
+		wantErr            bool
+		wantDomainTemplate string
+		config             *corev1.ConfigMap
+		data               DomainTemplateValues
+	}{{
+		name:               "network configuration with annotations in template",
+		wantErr:            false,
+		wantDomainTemplate: "foo.sub1.baz.com",
+		config: &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: system.Namespace(),
+				Name:      ConfigName,
+			},
+			Data: map[string]string{
+				IstioOutboundIPRangesKey:      "*",
+				DefaultClusterIngressClassKey: "foo-ingress",
+				DomainTemplateKey:             `{{.Name}}.{{ index .Annotations "sub"}}.{{.Domain}}`,
+			},
+		},
+		data: DomainTemplateValues{
+			Name:      "foo",
+			Namespace: "bar",
+			Annotations: map[string]string{
+				"sub": "sub1"},
+			Domain: "baz.com"},
+	}, {
+		name:               "network configuration without annotations in template",
+		wantErr:            false,
+		wantDomainTemplate: "foo.bar.baz.com",
+		config: &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: system.Namespace(),
+				Name:      ConfigName,
+			},
+			Data: map[string]string{
+				IstioOutboundIPRangesKey:      "*",
+				DefaultClusterIngressClassKey: "foo-ingress",
+				DomainTemplateKey:             `{{.Name}}.{{.Namespace}}.{{.Domain}}`,
+			},
+		},
+		data: DomainTemplateValues{
+			Name:      "foo",
+			Namespace: "bar",
+			Domain:    "baz.com"},
+	}}
+
+	for _, tt := range networkConfigTests {
+		t.Run(tt.name, func(t *testing.T) {
+			actualConfig, err := NewConfigFromConfigMap(tt.config)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("Test: %q; NewConfigFromConfigMap() error = %v, WantErr %v",
+					tt.name, err, tt.wantErr)
+			}
+			if tt.wantErr {
+				return
+			}
+
+			got := mustExecute(t, actualConfig.GetDomainTemplate(), tt.data)
+			if got != tt.wantDomainTemplate {
+				t.Errorf("DomainTemplate(data) = %s, wanted %s", got, tt.wantDomainTemplate)
 			}
 		})
 	}

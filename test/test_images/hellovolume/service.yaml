@@ -26,12 +26,15 @@ spec:
         image: github.com/knative/serving/test/test_images/hellovolume
         volumeMounts:
         - name: foo
-          mountPath: /hello/world
-          subPath: world
+          mountPath: /hello/
       volumes:
       - name: foo
-        secret:
-          secretName: bar
+        projected:
+          sources:
+          - secret:
+              name: bar
+          - configMap:
+              name: baz
 ---
 apiVersion: v1
 kind: Secret
@@ -39,3 +42,10 @@ metadata:
   name: bar
 stringData:
   world: Not the droids you are looking for.
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: baz
+data:
+  universe: The droids you are looking for.

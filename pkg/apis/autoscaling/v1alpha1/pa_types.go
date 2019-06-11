@@ -50,7 +50,7 @@ type PodAutoscaler struct {
 
 // Verify that PodAutoscaler adheres to the appropriate interfaces.
 var (
-	// Check that PodAutoscaler can be validated, can be defaulted, and has immutable fields.
+	// Check that PodAutoscaler can be validated and can be defaulted.
 	_ apis.Validatable = (*PodAutoscaler)(nil)
 	_ apis.Defaultable = (*PodAutoscaler)(nil)
 

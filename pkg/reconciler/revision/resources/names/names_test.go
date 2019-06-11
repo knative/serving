@@ -21,6 +21,7 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"github.com/knative/pkg/kmeta"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 )
 
@@ -28,7 +29,7 @@ func TestNamer(t *testing.T) {
 	tests := []struct {
 		name string
 		rev  *v1alpha1.Revision
-		f    func(*v1alpha1.Revision) string
+		f    func(kmeta.Accessor) string
 		want string
 	}{{
 		name: "Deployment",
@@ -57,15 +58,6 @@ func TestNamer(t *testing.T) {
 		},
 		f:    KPA,
 		want: "baz",
-	}, {
-		name: "FluentdConfigMap",
-		rev: &v1alpha1.Revision{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "bazinga",
-			},
-		},
-		f:    FluentdConfigMap,
-		want: "bazinga-fluentd",
 	}}
 
 	for _, test := range tests {

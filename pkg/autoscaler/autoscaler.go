@@ -27,17 +27,15 @@ import (
 	"github.com/knative/serving/pkg/resources"
 	"go.uber.org/zap"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	corev1informers "k8s.io/client-go/informers/core/v1"
-	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
 // Autoscaler stores current state of an instance of an autoscaler
 type Autoscaler struct {
-	namespace       string
-	revision        string
-	metricClient    MetricClient
-	endpointsLister corev1listers.EndpointsLister
-	reporter        StatsReporter
+	namespace    string
+	revision     string
+	metricClient MetricClient
+	podCounter   resources.ReadyPodCounter
+	reporter     StatsReporter
 
 	// State in panic mode. Carries over multiple Scale calls. Guarded
 	// by the stateMux.
@@ -55,11 +53,11 @@ func New(
 	namespace string,
 	revision string,
 	metricClient MetricClient,
-	endpointsInformer corev1informers.EndpointsInformer,
+	podCounter resources.ReadyPodCounter,
 	deciderSpec DeciderSpec,
 	reporter StatsReporter) (*Autoscaler, error) {
-	if endpointsInformer == nil {
-		return nil, errors.New("'endpointsEnformer' must not be nil")
+	if podCounter == nil {
+		return nil, errors.New("'podCounter' must not be nil")
 	}
 	if reporter == nil {
 		return nil, errors.New("stats reporter must not be nil")
@@ -69,12 +67,12 @@ func New(
 	reporter.ReportPanic(0)
 
 	return &Autoscaler{
-		namespace:       namespace,
-		revision:        revision,
-		metricClient:    metricClient,
-		endpointsLister: endpointsInformer.Lister(),
-		deciderSpec:     deciderSpec,
-		reporter:        reporter,
+		namespace:    namespace,
+		revision:     revision,
+		metricClient: metricClient,
+		podCounter:   podCounter,
+		deciderSpec:  deciderSpec,
+		reporter:     reporter,
 	}, nil
 }
 
@@ -82,6 +80,7 @@ func New(
 func (a *Autoscaler) Update(deciderSpec DeciderSpec) error {
 	a.specMux.Lock()
 	defer a.specMux.Unlock()
+
 	a.deciderSpec = deciderSpec
 	return nil
 }
@@ -93,14 +92,11 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (desiredPodCount 
 	logger := logging.FromContext(ctx)
 
 	spec := a.currentSpec()
-
-	originalReadyPodsCount, err := resources.FetchReadyAddressCount(a.endpointsLister, a.namespace, spec.ServiceName)
-	if err != nil {
-		// If the error is NotFound, then presume 0.
-		if !apierrors.IsNotFound(err) {
-			logger.Errorw("Failed to get Endpoints via K8S Lister", zap.Error(err))
-			return 0, false
-		}
+	originalReadyPodsCount, err := a.podCounter.ReadyCount()
+	// If the error is NotFound, then presume 0.
+	if err != nil && !apierrors.IsNotFound(err) {
+		logger.Errorw("Failed to get Endpoints via K8S Lister", zap.Error(err))
+		return 0, false
 	}
 	// Use 1 if there are zero current pods.
 	readyPodsCount := math.Max(1, float64(originalReadyPodsCount))
@@ -116,8 +112,9 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (desiredPodCount 
 		return 0, false
 	}
 
-	desiredStablePodCount := int32(math.Min(math.Ceil(observedStableConcurrency/spec.TargetConcurrency), spec.MaxScaleUpRate*readyPodsCount))
-	desiredPanicPodCount := int32(math.Min(math.Ceil(observedPanicConcurrency/spec.TargetConcurrency), spec.MaxScaleUpRate*readyPodsCount))
+	maxScaleUp := spec.MaxScaleUpRate * readyPodsCount
+	desiredStablePodCount := int32(math.Min(math.Ceil(observedStableConcurrency/spec.TargetConcurrency), maxScaleUp))
+	desiredPanicPodCount := int32(math.Min(math.Ceil(observedPanicConcurrency/spec.TargetConcurrency), maxScaleUp))
 
 	a.reporter.ReportStableRequestConcurrency(observedStableConcurrency)
 	a.reporter.ReportPanicRequestConcurrency(observedPanicConcurrency)
@@ -135,7 +132,7 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (desiredPodCount 
 		logger.Info("PANICKING")
 		a.panicTime = &now
 		a.reporter.ReportPanic(1)
-	} else if a.panicTime != nil && !isOverPanicThreshold && a.panicTime.Add(spec.MetricSpec.StableWindow).Before(now) {
+	} else if a.panicTime != nil && !isOverPanicThreshold && a.panicTime.Add(spec.StableWindow).Before(now) {
 		// Stop panicking after the surge has made its way into the stable metric.
 		logger.Info("Un-panicking.")
 		a.panicTime = nil

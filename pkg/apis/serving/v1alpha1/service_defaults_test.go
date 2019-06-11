@@ -88,6 +88,7 @@ func TestServiceDefaulting(t *testing.T) {
 									TimeoutSeconds: ptr.Int64(config.DefaultRevisionTimeoutSeconds),
 								},
 								DeprecatedContainer: &corev1.Container{
+									Name:      config.DefaultUserContainerName,
 									Resources: defaultResources,
 								},
 							},
@@ -121,8 +122,9 @@ func TestServiceDefaulting(t *testing.T) {
 						Spec: RevisionSpec{
 							RevisionSpec: v1beta1.RevisionSpec{
 								TimeoutSeconds: ptr.Int64(config.DefaultRevisionTimeoutSeconds),
-								PodSpec: v1beta1.PodSpec{
+								PodSpec: corev1.PodSpec{
 									Containers: []corev1.Container{{
+										Name:      config.DefaultUserContainerName,
 										Image:     "busybox",
 										Resources: defaultResources,
 									}},
@@ -171,6 +173,7 @@ func TestServiceDefaulting(t *testing.T) {
 									TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
 								},
 								DeprecatedContainer: &corev1.Container{
+									Name:      config.DefaultUserContainerName,
 									Resources: defaultResources,
 								},
 							},
@@ -204,6 +207,7 @@ func TestServiceDefaulting(t *testing.T) {
 									TimeoutSeconds: ptr.Int64(config.DefaultRevisionTimeoutSeconds),
 								},
 								DeprecatedContainer: &corev1.Container{
+									Name:      config.DefaultUserContainerName,
 									Resources: defaultResources,
 								},
 							},
@@ -238,8 +242,9 @@ func TestServiceDefaulting(t *testing.T) {
 						Spec: RevisionSpec{
 							RevisionSpec: v1beta1.RevisionSpec{
 								TimeoutSeconds: ptr.Int64(config.DefaultRevisionTimeoutSeconds),
-								PodSpec: v1beta1.PodSpec{
+								PodSpec: corev1.PodSpec{
 									Containers: []corev1.Container{{
+										Name:      config.DefaultUserContainerName,
 										Image:     "busybox",
 										Resources: defaultResources,
 									}},
@@ -289,6 +294,7 @@ func TestServiceDefaulting(t *testing.T) {
 									TimeoutSeconds:       ptr.Int64(99),
 								},
 								DeprecatedContainer: &corev1.Container{
+									Name:      config.DefaultUserContainerName,
 									Resources: defaultResources,
 								},
 							},
@@ -326,6 +332,7 @@ func TestServiceDefaulting(t *testing.T) {
 									TimeoutSeconds: ptr.Int64(config.DefaultRevisionTimeoutSeconds),
 								},
 								DeprecatedContainer: &corev1.Container{
+									Name:      config.DefaultUserContainerName,
 									Resources: defaultResources,
 								},
 							},
@@ -359,8 +366,9 @@ func TestServiceDefaulting(t *testing.T) {
 						Spec: RevisionSpec{
 							RevisionSpec: v1beta1.RevisionSpec{
 								TimeoutSeconds: ptr.Int64(config.DefaultRevisionTimeoutSeconds),
-								PodSpec: v1beta1.PodSpec{
+								PodSpec: corev1.PodSpec{
 									Containers: []corev1.Container{{
+										Name:      config.DefaultUserContainerName,
 										Resources: defaultResources,
 									}},
 								},
@@ -418,8 +426,9 @@ func TestServiceDefaulting(t *testing.T) {
 						Spec: RevisionSpec{
 							RevisionSpec: v1beta1.RevisionSpec{
 								TimeoutSeconds: ptr.Int64(config.DefaultRevisionTimeoutSeconds),
-								PodSpec: v1beta1.PodSpec{
+								PodSpec: corev1.PodSpec{
 									Containers: []corev1.Container{{
+										Name:      config.DefaultUserContainerName,
 										Resources: defaultResources,
 									}},
 								},
@@ -475,8 +484,9 @@ func TestServiceDefaulting(t *testing.T) {
 						Spec: RevisionSpec{
 							RevisionSpec: v1beta1.RevisionSpec{
 								TimeoutSeconds: ptr.Int64(config.DefaultRevisionTimeoutSeconds),
-								PodSpec: v1beta1.PodSpec{
+								PodSpec: corev1.PodSpec{
 									Containers: []corev1.Container{{
+										Name:      config.DefaultUserContainerName,
 										Resources: defaultResources,
 									}},
 								},
@@ -532,6 +542,7 @@ func TestServiceDefaulting(t *testing.T) {
 									TimeoutSeconds:       ptr.Int64(99),
 								},
 								DeprecatedContainer: &corev1.Container{
+									Name:      config.DefaultUserContainerName,
 									Resources: defaultResources,
 								},
 							},
@@ -548,7 +559,7 @@ func TestServiceDefaulting(t *testing.T) {
 					DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 						Spec: RevisionSpec{
 							RevisionSpec: v1beta1.RevisionSpec{
-								PodSpec: v1beta1.PodSpec{
+								PodSpec: corev1.PodSpec{
 									Containers: []corev1.Container{{
 										Image: "blah",
 									}},
@@ -567,8 +578,9 @@ func TestServiceDefaulting(t *testing.T) {
 						Spec: RevisionSpec{
 							RevisionSpec: v1beta1.RevisionSpec{
 								TimeoutSeconds: ptr.Int64(config.DefaultRevisionTimeoutSeconds),
-								PodSpec: v1beta1.PodSpec{
+								PodSpec: corev1.PodSpec{
 									Containers: []corev1.Container{{
+										Name:      config.DefaultUserContainerName,
 										Image:     "blah",
 										Resources: defaultResources,
 									}},
@@ -606,6 +618,7 @@ func TestServiceDefaulting(t *testing.T) {
 								TimeoutSeconds: ptr.Int64(config.DefaultRevisionTimeoutSeconds),
 							},
 							DeprecatedContainer: &corev1.Container{
+								Name:      config.DefaultUserContainerName,
 								Resources: defaultResources,
 							},
 						},
@@ -629,7 +642,7 @@ func TestServiceDefaulting(t *testing.T) {
 					DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 						Spec: RevisionSpec{
 							RevisionSpec: v1beta1.RevisionSpec{
-								PodSpec: v1beta1.PodSpec{
+								PodSpec: corev1.PodSpec{
 									Containers: []corev1.Container{{
 										Image: "blah",
 									}},
@@ -651,8 +664,9 @@ func TestServiceDefaulting(t *testing.T) {
 						Spec: RevisionSpec{
 							RevisionSpec: v1beta1.RevisionSpec{
 								TimeoutSeconds: ptr.Int64(config.DefaultRevisionTimeoutSeconds),
-								PodSpec: v1beta1.PodSpec{
+								PodSpec: corev1.PodSpec{
 									Containers: []corev1.Container{{
+										Name:      config.DefaultUserContainerName,
 										Image:     "blah",
 										Resources: defaultResources,
 									}},
@@ -679,7 +693,7 @@ func TestServiceDefaulting(t *testing.T) {
 					DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 						Spec: RevisionSpec{
 							RevisionSpec: v1beta1.RevisionSpec{
-								PodSpec: v1beta1.PodSpec{
+								PodSpec: corev1.PodSpec{
 									Containers: []corev1.Container{{
 										Image: "blah",
 									}},
@@ -704,8 +718,9 @@ func TestServiceDefaulting(t *testing.T) {
 						Spec: RevisionSpec{
 							RevisionSpec: v1beta1.RevisionSpec{
 								TimeoutSeconds: ptr.Int64(config.DefaultRevisionTimeoutSeconds),
-								PodSpec: v1beta1.PodSpec{
+								PodSpec: corev1.PodSpec{
 									Containers: []corev1.Container{{
+										Name:      config.DefaultUserContainerName,
 										Image:     "blah",
 										Resources: defaultResources,
 									}},

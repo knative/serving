@@ -39,8 +39,9 @@ func TestConfigurationDefaulting(t *testing.T) {
 			Spec: ConfigurationSpec{
 				Template: RevisionTemplateSpec{
 					Spec: RevisionSpec{
-						PodSpec: PodSpec{
+						PodSpec: corev1.PodSpec{
 							Containers: []corev1.Container{{
+								Name:      config.DefaultUserContainerName,
 								Resources: defaultResources,
 							}},
 						},
@@ -55,7 +56,7 @@ func TestConfigurationDefaulting(t *testing.T) {
 			Spec: ConfigurationSpec{
 				Template: RevisionTemplateSpec{
 					Spec: RevisionSpec{
-						PodSpec: PodSpec{
+						PodSpec: corev1.PodSpec{
 							Containers: []corev1.Container{{
 								Image: "busybox",
 							}},
@@ -68,8 +69,9 @@ func TestConfigurationDefaulting(t *testing.T) {
 			Spec: ConfigurationSpec{
 				Template: RevisionTemplateSpec{
 					Spec: RevisionSpec{
-						PodSpec: PodSpec{
+						PodSpec: corev1.PodSpec{
 							Containers: []corev1.Container{{
+								Name:      config.DefaultUserContainerName,
 								Image:     "busybox",
 								Resources: defaultResources,
 							}},
@@ -85,7 +87,7 @@ func TestConfigurationDefaulting(t *testing.T) {
 			Spec: ConfigurationSpec{
 				Template: RevisionTemplateSpec{
 					Spec: RevisionSpec{
-						PodSpec: PodSpec{
+						PodSpec: corev1.PodSpec{
 							Containers: []corev1.Container{{
 								Image: "busybox",
 							}},
@@ -99,8 +101,9 @@ func TestConfigurationDefaulting(t *testing.T) {
 			Spec: ConfigurationSpec{
 				Template: RevisionTemplateSpec{
 					Spec: RevisionSpec{
-						PodSpec: PodSpec{
+						PodSpec: corev1.PodSpec{
 							Containers: []corev1.Container{{
+								Name:      config.DefaultUserContainerName,
 								Image:     "busybox",
 								Resources: defaultResources,
 							}},

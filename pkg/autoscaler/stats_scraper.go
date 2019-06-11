@@ -22,12 +22,12 @@ import (
 	"sync"
 	"time"
 
+	"golang.org/x/sync/errgroup"
+
 	"github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/serving"
-	"github.com/knative/serving/pkg/reconciler/autoscaling/kpa/resources/names"
 	"github.com/knative/serving/pkg/resources"
 	"github.com/pkg/errors"
-	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
 const (
@@ -45,6 +45,9 @@ const (
 type StatsScraper interface {
 	// Scrape scrapes the Revision queue metric endpoint.
 	Scrape() (*StatMessage, error)
+
+	// UpdateTarget updates the target URL to scrape, usign K8s service name and namespace.
+	UpdateTarget(target, ns string)
 }
 
 // scrapeClient defines the interface for collecting Revision metrics for a given
@@ -73,34 +76,34 @@ var cacheDisabledClient = &http.Client{
 // https://kubernetes.io/docs/concepts/services-networking/network-policies/
 // for details.
 type ServiceScraper struct {
-	sClient             scrapeClient
-	sampleSizeFunc      SampleSizeFunc
-	endpointsLister     corev1listers.EndpointsLister
-	url                 string
-	namespace           string
-	scrapeTargetService string
-	metricKey           string
+	sClient   scrapeClient
+	counter   resources.ReadyPodCounter
+	namespace string
+	metricKey string
+
+	urlMu sync.RWMutex
+	url   string
 }
 
 // NewServiceScraper creates a new StatsScraper for the Revision which
 // the given Metric is responsible for.
-func NewServiceScraper(metric *Metric, endpointsLister corev1listers.EndpointsLister) (*ServiceScraper, error) {
+func NewServiceScraper(metric *Metric, counter resources.ReadyPodCounter) (*ServiceScraper, error) {
 	sClient, err := newHTTPScrapeClient(cacheDisabledClient)
 	if err != nil {
 		return nil, err
 	}
-	return newServiceScraperWithClient(metric, endpointsLister, sClient)
+	return newServiceScraperWithClient(metric, counter, sClient)
 }
 
 func newServiceScraperWithClient(
 	metric *Metric,
-	endpointsLister corev1listers.EndpointsLister,
+	counter resources.ReadyPodCounter,
 	sClient scrapeClient) (*ServiceScraper, error) {
 	if metric == nil {
 		return nil, errors.New("metric must not be nil")
 	}
-	if endpointsLister == nil {
-		return nil, errors.New("endpoints lister must not be nil")
+	if counter == nil {
+		return nil, errors.New("counter must not be nil")
 	}
 	if sClient == nil {
 		return nil, errors.New("scrape client must not be nil")
@@ -110,21 +113,39 @@ func newServiceScraperWithClient(
 		return nil, fmt.Errorf("no Revision label found for Metric %s", metric.Name)
 	}
 
-	serviceName := names.MetricsServiceName(revName)
 	return &ServiceScraper{
-		sClient:             sClient,
-		endpointsLister:     endpointsLister,
-		url:                 fmt.Sprintf("http://%s.%s:%d/metrics", serviceName, metric.Namespace, networking.AutoscalingQueueMetricsPort),
-		metricKey:           NewMetricKey(metric.Namespace, metric.Name),
-		namespace:           metric.Namespace,
-		scrapeTargetService: serviceName,
+		sClient:   sClient,
+		counter:   counter,
+		url:       urlFromTarget(metric.Spec.ScrapeTarget, metric.ObjectMeta.Namespace),
+		metricKey: NewMetricKey(metric.Namespace, metric.Name),
+		namespace: metric.Namespace,
 	}, nil
+}
+
+func urlFromTarget(t, ns string) string {
+	return fmt.Sprintf(
+		"http://%s.%s:%d/metrics",
+		t, ns, networking.AutoscalingQueueMetricsPort)
+}
+
+func (s *ServiceScraper) target() string {
+	s.urlMu.RLock()
+	defer s.urlMu.RUnlock()
+	return s.url
+}
+
+// UpdateTarget implements StatsScraper interface.
+func (s *ServiceScraper) UpdateTarget(target, ns string) {
+	url := urlFromTarget(target, ns)
+	s.urlMu.Lock()
+	defer s.urlMu.Unlock()
+	s.url = url
 }
 
 // Scrape calls the destination service then sends it
 // to the given stats channel.
 func (s *ServiceScraper) Scrape() (*StatMessage, error) {
-	readyPodsCount, err := resources.FetchReadyAddressCount(s.endpointsLister, s.namespace, s.scrapeTargetService)
+	readyPodsCount, err := s.counter.ReadyCount()
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get endpoints")
 	}
@@ -136,41 +157,39 @@ func (s *ServiceScraper) Scrape() (*StatMessage, error) {
 	sampleSize := populationMeanSampleSize(readyPodsCount)
 	statCh := make(chan *Stat, sampleSize)
 
+	url := s.target()
+	grp := errgroup.Group{}
+	for i := 0; i < sampleSize; i++ {
+		grp.Go(func() error {
+			stat, err := s.sClient.Scrape(url)
+			if err != nil {
+				return err
+			}
+			statCh <- stat
+			return nil
+		})
+	}
+
+	// Return the inner error if all of the scrape calls failed.
+	if err := grp.Wait(); err != nil && len(statCh) == 0 {
+		return nil, errors.Wrapf(err, "fail to get a successful scrape for %d tries", sampleSize)
+	}
+	close(statCh)
+
 	var (
 		avgConcurrency        float64
 		avgProxiedConcurrency float64
 		reqCount              int32
 		proxiedReqCount       int32
 		successCount          float64
-
-		waitGroup sync.WaitGroup
 	)
 
-	waitGroup.Add(sampleSize)
-	for i := 0; i < sampleSize; i++ {
-		go func() {
-			defer waitGroup.Done()
-			if stat, err := s.sClient.Scrape(s.url); err == nil {
-				statCh <- stat
-			}
-		}()
-	}
-
-	waitGroup.Wait()
-	close(statCh)
 	for stat := range statCh {
-		// This SHOULD NOT happen. Just to be safe.
-		if stat == nil {
-			continue
-		}
 		successCount++
 		avgConcurrency += stat.AverageConcurrentRequests
 		avgProxiedConcurrency += stat.AverageProxiedConcurrentRequests
 		reqCount += stat.RequestCount
 		proxiedReqCount += stat.ProxiedRequestCount
-	}
-	if successCount == 0 {
-		return nil, fmt.Errorf("fail to get a successful scrape for %d tries", sampleSize)
 	}
 
 	avgConcurrency = avgConcurrency / successCount

@@ -25,19 +25,19 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 
 	pkgTest "github.com/knative/pkg/test"
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/test"
 )
 
 const (
-	image1 = "pizzaplanetv1"
-	image2 = "pizzaplanetv2"
-
-	serviceName = "pizzaplanet-upgrade-service"
+	// These service names need to be stable, since we use them across
+	// multiple "go test" invocations.
+	serviceName            = "pizzaplanet-upgrade-service"
+	scaleToZeroServiceName = "scale-to-zero-upgrade-service"
 )
 
 // Shamelessly cribbed from conformance/service_test.
-func assertServiceResourcesUpdated(t *testing.T, clients *test.Clients, names test.ResourceNames, routeDomain, expectedGeneration, expectedText string) {
+func assertServiceResourcesUpdated(t *testing.T, clients *test.Clients, names test.ResourceNames, routeDomain, expectedText string) {
+	t.Helper()
 	// TODO(#1178): Remove "Wait" from all checks below this point.
 	_, err := pkgTest.WaitForEndpointState(
 		clients.KubeClient,
@@ -49,28 +49,4 @@ func assertServiceResourcesUpdated(t *testing.T, clients *test.Clients, names te
 	if err != nil {
 		t.Fatalf("The endpoint for Route %s at domain %s didn't serve the expected text \"%s\": %v", names.Route, routeDomain, expectedText, err)
 	}
-}
-
-func waitForServiceLatestCreatedRevision(clients *test.Clients, names test.ResourceNames) (string, error) {
-	var revisionName string
-	err := test.WaitForServiceState(clients.ServingClient, names.Service, func(s *v1alpha1.Service) (bool, error) {
-		if s.Status.LatestCreatedRevisionName != names.Revision {
-			revisionName = s.Status.LatestCreatedRevisionName
-			return true, nil
-		}
-		return false, nil
-	}, "ServiceUpdatedWithRevision")
-	return revisionName, err
-}
-
-func waitForServiceDomain(clients *test.Clients, names test.ResourceNames) (string, error) {
-	var routeDomain string
-	err := test.WaitForServiceState(clients.ServingClient, names.Service, func(s *v1alpha1.Service) (bool, error) {
-		if s.Status.DeprecatedDomain != "" {
-			routeDomain = s.Status.DeprecatedDomain
-			return true, nil
-		}
-		return false, nil
-	}, "ServiceUpdatedWithDomain")
-	return routeDomain, err
 }

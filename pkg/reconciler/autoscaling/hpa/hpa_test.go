@@ -20,25 +20,31 @@ import (
 	"context"
 	"testing"
 
+	// Inject our fake informers
+	fakekubeclient "github.com/knative/pkg/injection/clients/kubeclient/fake"
+	_ "github.com/knative/pkg/injection/informers/kubeinformers/autoscalingv2beta1/hpa/fake"
+	fakeservingclient "github.com/knative/serving/pkg/client/injection/client/fake"
+	fakekpainformer "github.com/knative/serving/pkg/client/injection/informers/autoscaling/v1alpha1/podautoscaler/fake"
+	_ "github.com/knative/serving/pkg/client/injection/informers/networking/v1alpha1/serverlessservice/fake"
+
+	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/controller"
 	logtesting "github.com/knative/pkg/logging/testing"
+	"github.com/knative/pkg/system"
 	autoscalingv1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/apis/networking"
 	nv1a1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
-	fakeKna "github.com/knative/serving/pkg/client/clientset/versioned/fake"
-	informers "github.com/knative/serving/pkg/client/informers/externalversions"
+	"github.com/knative/serving/pkg/autoscaler"
 	"github.com/knative/serving/pkg/reconciler"
+	"github.com/knative/serving/pkg/reconciler/autoscaling/config"
 	"github.com/knative/serving/pkg/reconciler/autoscaling/hpa/resources"
 	aresources "github.com/knative/serving/pkg/reconciler/autoscaling/resources"
-
 	appsv1 "k8s.io/api/apps/v1"
-	autoscalingv1 "k8s.io/api/autoscaling/v1"
+	autoscalingv2beta1 "k8s.io/api/autoscaling/v2beta1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	kubeinformers "k8s.io/client-go/informers"
-	fakeK8s "k8s.io/client-go/kubernetes/fake"
 	ktesting "k8s.io/client-go/testing"
 
 	. "github.com/knative/pkg/reconciler/testing"
@@ -51,34 +57,25 @@ const (
 )
 
 func TestControllerCanReconcile(t *testing.T) {
-	kubeClient := fakeK8s.NewSimpleClientset()
-	servingClient := fakeKna.NewSimpleClientset()
-
-	opts := reconciler.Options{
-		KubeClientSet:    kubeClient,
-		ServingClientSet: servingClient,
-		Logger:           logtesting.TestLogger(t),
-	}
-
-	servingInformer := informers.NewSharedInformerFactory(servingClient, 0)
-	kubeInformer := kubeinformers.NewSharedInformerFactory(kubeClient, 0)
-
-	ctl := NewController(&opts,
-		servingInformer.Autoscaling().V1alpha1().PodAutoscalers(),
-		servingInformer.Networking().V1alpha1().ServerlessServices(),
-		kubeInformer.Autoscaling().V1().HorizontalPodAutoscalers(),
-	)
+	ctx, _ := SetupFakeContext(t)
+	ctl := NewController(ctx, configmap.NewStaticWatcher(&corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: system.Namespace(),
+			Name:      autoscaler.ConfigName,
+		},
+		Data: map[string]string{},
+	}))
 
 	podAutoscaler := pa(testRevision, testNamespace, WithHPAClass)
-	servingClient.AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(podAutoscaler)
-	servingInformer.Autoscaling().V1alpha1().PodAutoscalers().Informer().GetIndexer().Add(podAutoscaler)
+	fakeservingclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(podAutoscaler)
+	fakekpainformer.Get(ctx).Informer().GetIndexer().Add(podAutoscaler)
 
 	err := ctl.Reconciler.Reconcile(context.Background(), testNamespace+"/"+testRevision)
 	if err != nil {
 		t.Errorf("Reconcile() = %v", err)
 	}
 
-	_, err = kubeClient.AutoscalingV1().HorizontalPodAutoscalers(testNamespace).Get(testRevision, metav1.GetOptions{})
+	_, err = fakekubeclient.Get(ctx).AutoscalingV2beta1().HorizontalPodAutoscalers(testNamespace).Get(testRevision, metav1.GetOptions{})
 	if err != nil {
 		t.Errorf("error getting hpa: %v", err)
 	}
@@ -102,7 +99,7 @@ func TestReconcile(t *testing.T) {
 			deploy(testNamespace, testRevision),
 		},
 		Key: key(testRevision, testNamespace),
-		WantCreates: []metav1.Object{
+		WantCreates: []runtime.Object{
 			sks(testNamespace, testRevision, WithDeployRef(deployName)),
 			hpa(testRevision, testNamespace, pa(testRevision, testNamespace,
 				WithHPAClass, WithMetricAnnotation("cpu"))),
@@ -119,7 +116,7 @@ func TestReconcile(t *testing.T) {
 			pa(testRevision, testNamespace, WithHPAClass),
 			deploy(testNamespace, testRevision),
 			sks(testNamespace, testRevision, WithDeployRef(deployName), WithPubService,
-				WithPrivateService),
+				WithPrivateService(testRevision+"-rand")),
 		},
 		WantStatusUpdates: []ktesting.UpdateActionImpl{{
 			Object: pa(testRevision, testNamespace, WithHPAClass, WithTraffic,
@@ -166,7 +163,7 @@ func TestReconcile(t *testing.T) {
 			pa(testRevision, testNamespace, WithHPAClass, WithTraffic),
 			deploy(testNamespace, testRevision),
 			sks(testNamespace, testRevision, WithDeployRef(deployName+"-hairy"),
-				WithPubService, WithPrivateService),
+				WithPubService, WithPrivateService(testRevision+"-rand")),
 		},
 		WantStatusUpdates: []ktesting.UpdateActionImpl{{
 			Object: pa(testRevision, testNamespace, WithHPAClass,
@@ -175,7 +172,7 @@ func TestReconcile(t *testing.T) {
 		}},
 		Key: key(testRevision, testNamespace),
 		WantUpdates: []ktesting.UpdateActionImpl{{
-			Object: sks(testNamespace, testRevision, WithDeployRef(deployName), WithPubService, WithPrivateService),
+			Object: sks(testNamespace, testRevision, WithDeployRef(deployName), WithPubService, WithPrivateService(testRevision+"-rand")),
 		}},
 	}, {
 		Name: "reconcile sks - update fails",
@@ -208,7 +205,7 @@ func TestReconcile(t *testing.T) {
 			InduceFailure("create", "serverlessservices"),
 		},
 		WantErr: true,
-		WantCreates: []metav1.Object{
+		WantCreates: []runtime.Object{
 			sks(testNamespace, testRevision, WithDeployRef(deployName)),
 		},
 		WantEvents: []string{
@@ -387,7 +384,7 @@ func TestReconcile(t *testing.T) {
 			deploy(testNamespace, testRevision),
 		},
 		Key: key(testRevision, testNamespace),
-		WantCreates: []metav1.Object{
+		WantCreates: []runtime.Object{
 			hpa(testRevision, testNamespace, pa(testRevision, testNamespace, WithHPAClass, WithMetricAnnotation("cpu"))),
 		},
 		WithReactors: []ktesting.ReactionFunc{
@@ -404,12 +401,13 @@ func TestReconcile(t *testing.T) {
 	}}
 
 	defer logtesting.ClearAll()
-	table.Test(t, MakeFactory(func(listers *Listers, opt reconciler.Options) controller.Reconciler {
+	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
 		return &Reconciler{
-			Base:      reconciler.NewBase(opt, controllerAgentName),
-			paLister:  listers.GetPodAutoscalerLister(),
-			sksLister: listers.GetServerlessServiceLister(),
-			hpaLister: listers.GetHorizontalPodAutoscalerLister(),
+			Base:        reconciler.NewBase(ctx, controllerAgentName, cmw),
+			paLister:    listers.GetPodAutoscalerLister(),
+			sksLister:   listers.GetServerlessServiceLister(),
+			hpaLister:   listers.GetHorizontalPodAutoscalerLister(),
+			configStore: &testConfigStore{config: defaultConfig()},
 		}
 	}))
 }
@@ -448,46 +446,18 @@ func pa(name, namespace string, options ...PodAutoscalerOption) *autoscalingv1al
 	return pa
 }
 
-type hpaOption func(*autoscalingv1.HorizontalPodAutoscaler)
+type hpaOption func(*autoscalingv2beta1.HorizontalPodAutoscaler)
 
-func withHPAOwnersRemoved(hpa *autoscalingv1.HorizontalPodAutoscaler) {
+func withHPAOwnersRemoved(hpa *autoscalingv2beta1.HorizontalPodAutoscaler) {
 	hpa.OwnerReferences = nil
 }
 
-func hpa(name, namespace string, pa *autoscalingv1alpha1.PodAutoscaler, options ...hpaOption) *autoscalingv1.HorizontalPodAutoscaler {
+func hpa(name, namespace string, pa *autoscalingv1alpha1.PodAutoscaler, options ...hpaOption) *autoscalingv2beta1.HorizontalPodAutoscaler {
 	h := resources.MakeHPA(pa)
 	for _, o := range options {
 		o(h)
 	}
 	return h
-}
-
-type scaleOpt func(*autoscalingv1.Scale)
-
-func scaleResource(namespace, name string, opts ...scaleOpt) *autoscalingv1.Scale {
-	s := &autoscalingv1.Scale{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
-		},
-		Spec: autoscalingv1.ScaleSpec{
-			Replicas: 1,
-		},
-		Status: autoscalingv1.ScaleStatus{
-			Replicas: 42,
-			Selector: "a=b",
-		},
-	}
-	for _, opt := range opts {
-		opt(s)
-	}
-	return s
-}
-
-func withLabelSelector(selector string) scaleOpt {
-	return func(s *autoscalingv1.Scale) {
-		s.Status.Selector = selector
-	}
 }
 
 type deploymentOption func(*appsv1.Deployment)
@@ -514,3 +484,22 @@ func deploy(namespace, name string, opts ...deploymentOption) *appsv1.Deployment
 	}
 	return s
 }
+
+func defaultConfig() *config.Config {
+	autoscalerConfig, _ := autoscaler.NewConfigFromMap(nil)
+	return &config.Config{
+		Autoscaler: autoscalerConfig,
+	}
+}
+
+type testConfigStore struct {
+	config *config.Config
+}
+
+func (t *testConfigStore) ToContext(ctx context.Context) context.Context {
+	return config.ToContext(ctx, t.config)
+}
+
+func (t *testConfigStore) WatchConfigs(w configmap.Watcher) {}
+
+var _ configStore = (*testConfigStore)(nil)

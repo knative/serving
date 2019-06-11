@@ -17,97 +17,13 @@ limitations under the License.
 package main
 
 import (
-	"flag"
-	"log"
-
-	"go.uber.org/zap"
-	kubeinformers "k8s.io/client-go/informers"
-	"k8s.io/client-go/tools/clientcmd"
-
-	sharedinformers "github.com/knative/pkg/client/informers/externalversions"
-	"github.com/knative/pkg/configmap"
-	"github.com/knative/pkg/controller"
-	"github.com/knative/pkg/signals"
-	informers "github.com/knative/serving/pkg/client/informers/externalversions"
-	"github.com/knative/serving/pkg/logging"
-	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/clusteringress"
-)
 
-const (
-	threadsPerController = 2
-	component            = "controller-clusteringress-istio"
-)
-
-var (
-	masterURL  = flag.String("master", "", "The address of the Kubernetes API server. Overrides any value in kubeconfig. Only required if out-of-cluster.")
-	kubeconfig = flag.String("kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
+	// This defines the shared main for injected controllers.
+	"github.com/knative/pkg/injection/sharedmain"
 )
 
 func main() {
-	flag.Parse()
-
-	// Set up our logger.
-	loggingConfigMap, err := configmap.Load("/etc/config-logging")
-	if err != nil {
-		log.Fatal("Error loading logging configuration:", err)
-	}
-	loggingConfig, err := logging.NewConfigFromMap(loggingConfigMap)
-	if err != nil {
-		log.Fatal("Error parsing logging configuration:", err)
-	}
-	logger, atomicLevel := logging.NewLoggerFromConfig(loggingConfig, component)
-	defer logger.Sync()
-
-	// Set up signals so we handle the first shutdown signal gracefully.
-	stopCh := signals.SetupSignalHandler()
-
-	cfg, err := clientcmd.BuildConfigFromFlags(*masterURL, *kubeconfig)
-	if err != nil {
-		logger.Fatalw("Error building kubeconfig", zap.Error(err))
-	}
-
-	opt := reconciler.NewOptionsOrDie(cfg, logger, stopCh)
-
-	kubeInformerFactory := kubeinformers.NewSharedInformerFactory(opt.KubeClientSet, opt.ResyncPeriod)
-	servingInformerFactory := informers.NewSharedInformerFactory(opt.ServingClientSet, opt.ResyncPeriod)
-	sharedInformerFactory := sharedinformers.NewSharedInformerFactory(opt.SharedClientSet, opt.ResyncPeriod)
-
-	clusterIngressInformer := servingInformerFactory.Networking().V1alpha1().ClusterIngresses()
-	virtualServiceInformer := sharedInformerFactory.Networking().V1alpha3().VirtualServices()
-	gatewayInformer := sharedInformerFactory.Networking().V1alpha3().Gateways()
-	secretInformer := kubeInformerFactory.Core().V1().Secrets()
-	configMapInformer := kubeInformerFactory.Core().V1().ConfigMaps()
-
-	// Build our controller
-	ciController := clusteringress.NewController(
-		opt,
-		clusterIngressInformer,
-		virtualServiceInformer,
-		gatewayInformer,
-		secretInformer,
-	)
-
-	// Watch the logging config map and dynamically update logging levels.
-	opt.ConfigMapWatcher.Watch(logging.ConfigMapName(), logging.UpdateLevelFromConfigMap(logger, atomicLevel, component))
-	if err := opt.ConfigMapWatcher.Start(stopCh); err != nil {
-		logger.Fatalw("failed to start configuration manager", zap.Error(err))
-	}
-
-	// Wait for the caches to be synced before starting controllers.
-	logger.Info("Waiting for informer caches to sync")
-	if err := controller.StartInformers(
-		stopCh,
-		clusterIngressInformer.Informer(),
-		virtualServiceInformer.Informer(),
-		secretInformer.Informer(),
-		gatewayInformer.Informer(),
-		configMapInformer.Informer(),
-	); err != nil {
-		logger.Fatalw("Failed to start informers", zap.Error(err))
-	}
-
-	// Start all of the controllers.
-	logger.Info("Starting controllers.")
-	controller.StartAll(stopCh, ciController)
+	sharedmain.Main("controller-certificate-cert-manager",
+		clusteringress.NewController)
 }

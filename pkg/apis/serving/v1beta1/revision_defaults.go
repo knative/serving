@@ -52,6 +52,10 @@ func (rs *RevisionSpec) SetDefaults(ctx context.Context) {
 		rs.PodSpec.Containers = []corev1.Container{container}
 	}()
 
+	if container.Name == "" {
+		container.Name = cfg.Defaults.UserContainerName(ctx)
+	}
+
 	if container.Resources.Requests == nil {
 		container.Resources.Requests = corev1.ResourceList{}
 	}

@@ -58,7 +58,7 @@ func TestServiceConversion(t *testing.T) {
 					Template: &RevisionTemplateSpec{
 						Spec: RevisionSpec{
 							RevisionSpec: v1beta1.RevisionSpec{
-								PodSpec: v1beta1.PodSpec{
+								PodSpec: corev1.PodSpec{
 									ServiceAccountName: "robocop",
 									Containers: []corev1.Container{{
 										Image: "busybox",
@@ -180,7 +180,7 @@ func TestServiceConversionFromDeprecated(t *testing.T) {
 						DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 							Spec: RevisionSpec{
 								RevisionSpec: v1beta1.RevisionSpec{
-									PodSpec: v1beta1.PodSpec{
+									PodSpec: corev1.PodSpec{
 										ServiceAccountName: "robocop",
 										Volumes: []corev1.Volume{{
 											Name: "the-name",
@@ -220,7 +220,7 @@ func TestServiceConversionFromDeprecated(t *testing.T) {
 					Template: &RevisionTemplateSpec{
 						Spec: RevisionSpec{
 							RevisionSpec: v1beta1.RevisionSpec{
-								PodSpec: v1beta1.PodSpec{
+								PodSpec: corev1.PodSpec{
 									ServiceAccountName: "robocop",
 									Containers: []corev1.Container{{
 										Image: "busybox",
@@ -271,7 +271,7 @@ func TestServiceConversionFromDeprecated(t *testing.T) {
 						DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 							Spec: RevisionSpec{
 								RevisionSpec: v1beta1.RevisionSpec{
-									PodSpec: v1beta1.PodSpec{
+									PodSpec: corev1.PodSpec{
 										ServiceAccountName: "robocop",
 										Volumes: []corev1.Volume{{
 											Name: "the-name",
@@ -311,7 +311,7 @@ func TestServiceConversionFromDeprecated(t *testing.T) {
 					Template: &RevisionTemplateSpec{
 						Spec: RevisionSpec{
 							RevisionSpec: v1beta1.RevisionSpec{
-								PodSpec: v1beta1.PodSpec{
+								PodSpec: corev1.PodSpec{
 									ServiceAccountName: "robocop",
 									Containers: []corev1.Container{{
 										Image: "busybox",
@@ -370,7 +370,7 @@ func TestServiceConversionFromDeprecated(t *testing.T) {
 						DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 							Spec: RevisionSpec{
 								RevisionSpec: v1beta1.RevisionSpec{
-									PodSpec: v1beta1.PodSpec{
+									PodSpec: corev1.PodSpec{
 										ServiceAccountName: "robocop",
 										Volumes: []corev1.Volume{{
 											Name: "the-name",
@@ -410,7 +410,7 @@ func TestServiceConversionFromDeprecated(t *testing.T) {
 					Template: &RevisionTemplateSpec{
 						Spec: RevisionSpec{
 							RevisionSpec: v1beta1.RevisionSpec{
-								PodSpec: v1beta1.PodSpec{
+								PodSpec: corev1.PodSpec{
 									ServiceAccountName: "robocop",
 									Containers: []corev1.Container{{
 										Image: "busybox",
@@ -475,7 +475,7 @@ func TestServiceConversionFromDeprecated(t *testing.T) {
 						DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 							Spec: RevisionSpec{
 								RevisionSpec: v1beta1.RevisionSpec{
-									PodSpec: v1beta1.PodSpec{
+									PodSpec: corev1.PodSpec{
 										ServiceAccountName: "robocop",
 										Volumes: []corev1.Volume{{
 											Name: "the-name",
@@ -515,7 +515,7 @@ func TestServiceConversionFromDeprecated(t *testing.T) {
 					Template: &RevisionTemplateSpec{
 						Spec: RevisionSpec{
 							RevisionSpec: v1beta1.RevisionSpec{
-								PodSpec: v1beta1.PodSpec{
+								PodSpec: corev1.PodSpec{
 									ServiceAccountName: "robocop",
 									Containers: []corev1.Container{{
 										Image: "busybox",
@@ -579,7 +579,7 @@ func TestServiceConversionFromDeprecated(t *testing.T) {
 						DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 							Spec: RevisionSpec{
 								RevisionSpec: v1beta1.RevisionSpec{
-									PodSpec: v1beta1.PodSpec{
+									PodSpec: corev1.PodSpec{
 										ServiceAccountName: "robocop",
 										Volumes: []corev1.Volume{{
 											Name: "the-name",
@@ -619,7 +619,7 @@ func TestServiceConversionFromDeprecated(t *testing.T) {
 					Template: &RevisionTemplateSpec{
 						Spec: RevisionSpec{
 							RevisionSpec: v1beta1.RevisionSpec{
-								PodSpec: v1beta1.PodSpec{
+								PodSpec: corev1.PodSpec{
 									ServiceAccountName: "robocop",
 									Containers: []corev1.Container{{
 										Image: "busybox",

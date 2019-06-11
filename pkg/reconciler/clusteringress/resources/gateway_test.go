@@ -94,7 +94,7 @@ var clusterIngress = v1alpha1.ClusterIngress{
 		Name: "clusteringress",
 	},
 	Spec: v1alpha1.IngressSpec{
-		TLS: []v1alpha1.ClusterIngressTLS{{
+		TLS: []v1alpha1.IngressTLS{{
 			Hosts:             []string{"host1.example.com"},
 			SecretName:        "secret0",
 			SecretNamespace:   system.Namespace(),

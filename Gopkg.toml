@@ -8,6 +8,7 @@ required = [
   "k8s.io/code-generator/cmd/client-gen",
   "k8s.io/code-generator/cmd/lister-gen",
   "k8s.io/code-generator/cmd/informer-gen",
+  "github.com/knative/pkg/codegen/cmd/injection-gen",
   "github.com/knative/caching/pkg/apis/caching",
   "github.com/knative/test-infra/scripts",
   "github.com/knative/test-infra/tools/dep-collector",
@@ -18,14 +19,9 @@ required = [
   version = "v2.2.1"
 
 [[override]]
-  name = "github.com/knative/build"
-  # HEAD as of 2019-03-21
-  revision = "dd3ceb3323922b899a0a913f885fcf59943e7b59"
-
-[[override]]
   name = "github.com/knative/pkg"
-  # HEAD as of 2919-05-11
-  revision = "9e0db8f0a7f47def18cf65e0859066d5e0377304"
+  # HEAD as of 2919-06-07
+  revision = "463df98531b3b7a9055d062012851c3d0f5583a1"
 
 [[override]]
   name = "go.uber.org/zap"
@@ -33,8 +29,8 @@ required = [
 
 [[constraint]]
   name = "github.com/knative/caching"
-  # HEAD as of 2019-04-09
-  revision = "afa9ee174c6f2072b12dbb4b3bf64be8ec7bc30b"
+  # HEAD as of 2019-06-05
+  revision = "b6c8f4851e3fb13987782cf8014316141e42fbd3"
 
 [[constraint]]
   name = "github.com/google/go-containerregistry"
@@ -73,6 +69,19 @@ required = [
   # Needed because this includes a fix to support Stackdriver built-in metrics
   revision = "c06c82c832edca4eaf7b0241bd655560a1be0346"
 
+# Added for the custom-metrics-apiserver specifically
+[[override]]
+  name = "github.com/kubernetes-incubator/custom-metrics-apiserver"
+  revision = "b7016fc85e1c960758aef23e1d456a66997d1e26"
+
+[[override]]
+  name = "k8s.io/apiserver"
+  version = "kubernetes-1.12.6"
+
+[[override]]
+  name = "k8s.io/metrics"
+  version = "kubernetes-1.12.6"
+
 [prune]
   go-tests = true
   unused-packages = true
@@ -92,3 +101,11 @@ required = [
   name = "github.com/knative/test-infra"
   non-go = false
 
+[[prune.project]]
+  name = "bitbucket.org/ww/goautoneg"
+  non-go = false
+
+ [[prune.project]]
+  name = "github.com/knative/pkg"
+  unused-packages = false
+  non-go = false

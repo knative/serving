@@ -24,21 +24,19 @@ import (
 
 	"github.com/knative/pkg/tracker"
 
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/knative/pkg/apis/istio/v1alpha3"
-	istioinformers "github.com/knative/pkg/client/informers/externalversions/istio/v1alpha3"
 	istiolisters "github.com/knative/pkg/client/listers/istio/v1alpha3"
-	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/controller"
 	"github.com/knative/pkg/logging"
 	"github.com/knative/pkg/system"
 	"github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/networking/v1alpha1"
-	informers "github.com/knative/serving/pkg/client/informers/externalversions/networking/v1alpha1"
+	"github.com/knative/serving/pkg/apis/serving"
 	listers "github.com/knative/serving/pkg/client/listers/networking/v1alpha1"
-	"github.com/knative/serving/pkg/network"
 	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/clusteringress/config"
 	"github.com/knative/serving/pkg/reconciler/clusteringress/resources"
@@ -47,13 +45,9 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	corev1informers "k8s.io/client-go/informers/core/v1"
+
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
-)
-
-const (
-	controllerAgentName = "clusteringress-controller"
 )
 
 // clusterIngressFinalizer is the name that we put into the resource finalizer list, e.g.
@@ -64,11 +58,6 @@ var (
 	clusterIngressResource  = v1alpha1.Resource("clusteringresses")
 	clusterIngressFinalizer = clusterIngressResource.String()
 )
-
-type configStore interface {
-	ToContext(ctx context.Context) context.Context
-	WatchConfigs(w configmap.Watcher)
-}
 
 // Reconciler implements controller.Reconciler for ClusterIngress resources.
 type Reconciler struct {
@@ -86,59 +75,6 @@ type Reconciler struct {
 
 // Check that our Reconciler implements controller.Reconciler
 var _ controller.Reconciler = (*Reconciler)(nil)
-
-// NewController initializes the controller and is called by the generated code
-// Registers eventhandlers to enqueue events.
-func NewController(
-	opt reconciler.Options,
-	clusterIngressInformer informers.ClusterIngressInformer,
-	virtualServiceInformer istioinformers.VirtualServiceInformer,
-	gatewayInformer istioinformers.GatewayInformer,
-	secretInfomer corev1informers.SecretInformer,
-) *controller.Impl {
-
-	c := &Reconciler{
-		Base:                 reconciler.NewBase(opt, controllerAgentName),
-		clusterIngressLister: clusterIngressInformer.Lister(),
-		virtualServiceLister: virtualServiceInformer.Lister(),
-		gatewayLister:        gatewayInformer.Lister(),
-		secretLister:         secretInfomer.Lister(),
-	}
-	impl := controller.NewImpl(c, c.Logger, "ClusterIngresses", reconciler.MustNewStatsReporter("ClusterIngress", c.Logger))
-
-	c.Logger.Info("Setting up event handlers")
-	myFilterFunc := reconciler.AnnotationFilterFunc(networking.IngressClassAnnotationKey, network.IstioIngressClassName, true)
-	ciHandler := cache.FilteringResourceEventHandler{
-		FilterFunc: myFilterFunc,
-		Handler:    reconciler.Handler(impl.Enqueue),
-	}
-	clusterIngressInformer.Informer().AddEventHandler(ciHandler)
-
-	virtualServiceInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
-		FilterFunc: myFilterFunc,
-		Handler:    reconciler.Handler(impl.EnqueueLabelOfClusterScopedResource(networking.IngressLabelKey)),
-	})
-
-	c.tracker = tracker.New(impl.EnqueueKey, opt.GetTrackerLease())
-	secretInfomer.Informer().AddEventHandler(reconciler.Handler(
-		controller.EnsureTypeMeta(
-			c.tracker.OnChanged,
-			corev1.SchemeGroupVersion.WithKind("Secret"),
-		),
-	))
-
-	c.Logger.Info("Setting up ConfigMap receivers")
-	configsToResync := []interface{}{
-		&config.Istio{},
-		&network.Config{},
-	}
-	resyncIngressesOnConfigChange := configmap.TypeFilter(configsToResync...)(func(string, interface{}) {
-		controller.SendGlobalUpdates(clusterIngressInformer.Informer(), ciHandler)
-	})
-	c.configStore = config.NewStore(c.Logger.Named("config-store"), resyncIngressesOnConfigChange)
-	c.configStore.WatchConfigs(opt.ConfigMapWatcher)
-	return impl
-}
 
 // Reconcile compares the actual state with the desired, and attempts to
 // converge the two. It then updates the Status block of the ClusterIngress resource
@@ -174,11 +110,17 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 		// This is important because the copy we loaded from the informer's
 		// cache may be stale and we don't want to overwrite a prior update
 		// to status with this stale state.
-	} else if _, err = c.updateStatus(ci); err != nil {
-		logger.Warnw("Failed to update clusterIngress status", zap.Error(err))
-		c.Recorder.Eventf(ci, corev1.EventTypeWarning, "UpdateFailed",
-			"Failed to update status for ClusterIngress %q: %v", ci.Name, err)
-		return err
+	} else {
+		if _, err = c.updateStatus(ci); err != nil {
+			logger.Warnw("Failed to update ClusterIngress status", zap.Error(err))
+			c.Recorder.Eventf(ci, corev1.EventTypeWarning, "UpdateFailed",
+				"Failed to update status for ClusterIngress %q: %v", ci.Name, err)
+			return err
+		} else {
+			logger.Infof("Updated status for ClusterIngress %q", ci.Name)
+			c.Recorder.Eventf(ci, corev1.EventTypeNormal, "Updated",
+				"Updated status for ClusterIngress %q", ci.Name)
+		}
 	}
 	if reconcileErr != nil {
 		c.Recorder.Event(ci, corev1.EventTypeWarning, "InternalError", reconcileErr.Error())
@@ -216,17 +158,18 @@ func (c *Reconciler) reconcile(ctx context.Context, ci *v1alpha1.ClusterIngress)
 	ci.SetDefaults(ctx)
 
 	ci.Status.InitializeConditions()
-	gatewayNames := gatewayNamesFromContext(ctx, ci)
-	vs := resources.MakeVirtualService(ci, gatewayNames)
-
 	logger.Infof("Reconciling clusterIngress: %#v", ci)
-	logger.Info("Creating/Updating VirtualService")
-	if err := c.reconcileVirtualService(ctx, ci, vs); err != nil {
+
+	gatewayNames := gatewayNamesFromContext(ctx, ci)
+	vses := resources.MakeVirtualServices(ci, gatewayNames)
+
+	// First, create the VirtualServices.
+	logger.Infof("Creating/Updating VirtualServices")
+	if err := c.reconcileVirtualServices(ctx, ci, vses); err != nil {
 		// TODO(lichuqiang): should we explicitly mark the ingress as unready
 		// when error reconciling VirtualService?
 		return err
 	}
-
 	// As underlying network programming (VirtualService now) is stateless,
 	// here we simply mark the ingress as ready if the VirtualService
 	// is successfully synced.
@@ -331,6 +274,35 @@ func dedup(strs []string) []string {
 		}
 	}
 	return unique
+}
+
+func (c *Reconciler) reconcileVirtualServices(ctx context.Context, ci *v1alpha1.ClusterIngress,
+	desired []*v1alpha3.VirtualService) error {
+	logger := logging.FromContext(ctx)
+	// First, create all needed VirtualServices.
+	kept := sets.NewString()
+	for _, d := range desired {
+		if err := c.reconcileVirtualService(ctx, ci, d); err != nil {
+			return err
+		}
+		kept.Insert(d.Name)
+	}
+	// Now, remove the extra ones.
+	vses, err := c.virtualServiceLister.VirtualServices(resources.VirtualServiceNamespace(ci)).List(
+		labels.Set(map[string]string{
+			serving.RouteLabelKey:          ci.Labels[serving.RouteLabelKey],
+			serving.RouteNamespaceLabelKey: ci.Labels[serving.RouteNamespaceLabelKey]}).AsSelector())
+	for _, vs := range vses {
+		n, ns := vs.Name, vs.Namespace
+		if kept.Has(n) {
+			continue
+		}
+		if err = c.SharedClientSet.NetworkingV1alpha3().VirtualServices(ns).Delete(n, &metav1.DeleteOptions{}); err != nil {
+			logger.Errorw("Failed to delete VirtualService", zap.Error(err))
+			return err
+		}
+	}
+	return nil
 }
 
 func (c *Reconciler) reconcileVirtualService(ctx context.Context, ci *v1alpha1.ClusterIngress,

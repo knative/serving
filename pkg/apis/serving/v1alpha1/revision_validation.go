@@ -19,11 +19,13 @@ package v1alpha1
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
+
+	"github.com/knative/serving/pkg/apis/config"
 
 	"github.com/knative/pkg/apis"
 	"github.com/knative/pkg/kmp"
-	"github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/serving"
 	"k8s.io/apimachinery/pkg/api/equality"
 )
@@ -48,10 +50,11 @@ func (r *Revision) checkImmutableFields(ctx context.Context, original *Revision)
 // Validate ensures Revision is properly configured.
 func (r *Revision) Validate(ctx context.Context) *apis.FieldError {
 	errs := serving.ValidateObjectMetadata(r.GetObjectMeta()).ViaField("metadata")
-	errs = errs.Also(r.Spec.Validate(apis.WithinSpec(ctx)).ViaField("spec"))
 	if apis.IsInUpdate(ctx) {
 		old := apis.GetBaseline(ctx).(*Revision)
 		errs = errs.Also(r.checkImmutableFields(ctx, old))
+	} else {
+		errs = errs.Also(r.Spec.Validate(apis.WithinSpec(ctx)).ViaField("spec"))
 	}
 	return errs
 }
@@ -80,6 +83,8 @@ func (rt *RevisionTemplateSpec) Validate(ctx context.Context) *apis.FieldError {
 				"metadata.name"))
 		}
 	}
+
+	errs = errs.Also(validateAnnotations(rt.Annotations))
 
 	return errs
 }
@@ -135,7 +140,10 @@ func (rs *RevisionSpec) Validate(ctx context.Context) *apis.FieldError {
 	default:
 		errs = errs.Also(apis.ErrMissingOneOf("container", "containers"))
 	}
-	errs = errs.Also(serving.ValidateNamespacedObjectReference(rs.DeprecatedBuildRef).ViaField("buildRef"))
+
+	if rs.DeprecatedBuildRef != nil {
+		errs = errs.Also(apis.ErrDisallowedFields("buildRef"))
+	}
 
 	if err := rs.DeprecatedConcurrencyModel.Validate(ctx).ViaField("concurrencyModel"); err != nil {
 		errs = errs.Also(err)
@@ -144,16 +152,42 @@ func (rs *RevisionSpec) Validate(ctx context.Context) *apis.FieldError {
 	}
 
 	if rs.TimeoutSeconds != nil {
-		errs = errs.Also(validateTimeoutSeconds(*rs.TimeoutSeconds))
+		errs = errs.Also(validateTimeoutSeconds(ctx, *rs.TimeoutSeconds))
 	}
 	return errs
 }
 
-func validateTimeoutSeconds(timeoutSeconds int64) *apis.FieldError {
+func validateAnnotations(annotations map[string]string) *apis.FieldError {
+	return validatePercentageAnnotationKey(annotations, serving.QueueSideCarResourcePercentageAnnotation)
+}
+
+func validatePercentageAnnotationKey(annotations map[string]string, resourcePercentageAnnotationKey string) *apis.FieldError {
+	if len(annotations) == 0 {
+		return nil
+	}
+
+	v, ok := annotations[resourcePercentageAnnotationKey]
+	if !ok {
+		return nil
+	}
+	value, err := strconv.ParseFloat(v, 32)
+	if err != nil {
+		return apis.ErrInvalidValue(v, apis.CurrentField).ViaKey(resourcePercentageAnnotationKey)
+	}
+
+	if value <= float64(0.1) || value > float64(100) {
+		return apis.ErrOutOfBoundsValue(value, 0.1, 100.0, resourcePercentageAnnotationKey)
+	}
+
+	return nil
+}
+
+func validateTimeoutSeconds(ctx context.Context, timeoutSeconds int64) *apis.FieldError {
 	if timeoutSeconds != 0 {
-		if timeoutSeconds > int64(networking.DefaultTimeout.Seconds()) || timeoutSeconds < 0 {
+		cfg := config.FromContextOrDefaults(ctx)
+		if timeoutSeconds > cfg.Defaults.MaxRevisionTimeoutSeconds || timeoutSeconds < 0 {
 			return apis.ErrOutOfBoundsValue(timeoutSeconds, 0,
-				networking.DefaultTimeout.Seconds(),
+				cfg.Defaults.MaxRevisionTimeoutSeconds,
 				"timeoutSeconds")
 		}
 	}

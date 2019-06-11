@@ -93,7 +93,6 @@ func (t *Config) GetRevisionTrafficTargets(ctx context.Context, r *v1alpha1.Rout
 		// We cannot `DeepCopy` here, since tt.TrafficTarget might contain both
 		// configuration and revision.
 		results[i] = v1alpha1.TrafficTarget{
-			DeprecatedName: tt.Tag,
 			TrafficTarget: v1beta1.TrafficTarget{
 				Tag:            tt.Tag,
 				RevisionName:   tt.RevisionName,
@@ -102,8 +101,12 @@ func (t *Config) GetRevisionTrafficTargets(ctx context.Context, r *v1alpha1.Rout
 			},
 		}
 		if tt.Tag != "" {
+			hostname, err := domains.HostnameFromTemplate(ctx, r.Name, tt.Tag)
+			if err != nil {
+				return nil, err
+			}
 			// http is currently the only supported scheme
-			fullDomain, err := domains.DomainNameFromTemplate(ctx, r, domains.SubdomainName(r, tt.Tag))
+			fullDomain, err := domains.DomainNameFromTemplate(ctx, r, hostname)
 			if err != nil {
 				return nil, err
 			}
@@ -223,9 +226,6 @@ func (t *configBuilder) addConfigurationTarget(tt *v1alpha1.TrafficTarget) error
 		return err
 	}
 	ntt := tt.TrafficTarget.DeepCopy()
-	if ntt.Tag == "" {
-		ntt.Tag = tt.DeprecatedName
-	}
 	target := RevisionTarget{
 		TrafficTarget: *ntt,
 		Active:        !rev.Status.IsActivationRequired(),
@@ -246,9 +246,6 @@ func (t *configBuilder) addRevisionTarget(tt *v1alpha1.TrafficTarget) error {
 		return errUnreadyRevision(rev)
 	}
 	ntt := tt.TrafficTarget.DeepCopy()
-	if ntt.Tag == "" {
-		ntt.Tag = tt.DeprecatedName
-	}
 	target := RevisionTarget{
 		TrafficTarget: *ntt,
 		Active:        !rev.Status.IsActivationRequired(),

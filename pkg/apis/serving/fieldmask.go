@@ -50,8 +50,85 @@ func VolumeSourceMask(in *corev1.VolumeSource) *corev1.VolumeSource {
 	// Allowed fields
 	out.Secret = in.Secret
 	out.ConfigMap = in.ConfigMap
+	out.Projected = in.Projected
 
 	// Too many disallowed fields to list
+
+	return out
+}
+
+// VolumeProjectionMask performs a _shallow_ copy of the Kubernetes VolumeProjection
+// object to a new Kubernetes VolumeProjection object bringing over only the fields allowed
+// in the Knative API. This does not validate the contents or the bounds of the provided fields.
+func VolumeProjectionMask(in *corev1.VolumeProjection) *corev1.VolumeProjection {
+	if in == nil {
+		return nil
+	}
+
+	out := new(corev1.VolumeProjection)
+
+	// Allowed fields
+	out.Secret = in.Secret
+	out.ConfigMap = in.ConfigMap
+
+	// Disallowed fields
+	// This list is unnecessary, but added here for clarity
+	out.DownwardAPI = nil
+	out.ServiceAccountToken = nil
+
+	return out
+}
+
+// ConfigMapProjectionMask performs a _shallow_ copy of the Kubernetes ConfigMapProjection
+// object to a new Kubernetes ConfigMapProjection object bringing over only the fields allowed
+// in the Knative API. This does not validate the contents or the bounds of the provided fields.
+func ConfigMapProjectionMask(in *corev1.ConfigMapProjection) *corev1.ConfigMapProjection {
+	if in == nil {
+		return nil
+	}
+
+	out := new(corev1.ConfigMapProjection)
+
+	// Allowed fields
+	out.LocalObjectReference = in.LocalObjectReference
+	out.Items = in.Items
+	out.Optional = in.Optional
+
+	return out
+}
+
+// SecretProjectionMask performs a _shallow_ copy of the Kubernetes SecretProjection
+// object to a new Kubernetes SecretProjection object bringing over only the fields allowed
+// in the Knative API. This does not validate the contents or the bounds of the provided fields.
+func SecretProjectionMask(in *corev1.SecretProjection) *corev1.SecretProjection {
+	if in == nil {
+		return nil
+	}
+
+	out := new(corev1.SecretProjection)
+
+	// Allowed fields
+	out.LocalObjectReference = in.LocalObjectReference
+	out.Items = in.Items
+	out.Optional = in.Optional
+
+	return out
+}
+
+// KeyToPathMask performs a _shallow_ copy of the Kubernetes KeyToPath
+// object to a new Kubernetes KeyToPath object bringing over only the fields allowed
+// in the Knative API. This does not validate the contents or the bounds of the provided fields.
+func KeyToPathMask(in *corev1.KeyToPath) *corev1.KeyToPath {
+	if in == nil {
+		return nil
+	}
+
+	out := new(corev1.KeyToPath)
+
+	// Allowed fields
+	out.Key = in.Key
+	out.Path = in.Path
+	out.Mode = in.Mode
 
 	return out
 }
@@ -114,6 +191,7 @@ func ContainerMask(in *corev1.Container) *corev1.Container {
 	out := new(corev1.Container)
 
 	// Allowed fields
+	out.Name = in.Name
 	out.Args = in.Args
 	out.Command = in.Command
 	out.Env = in.Env
@@ -133,7 +211,6 @@ func ContainerMask(in *corev1.Container) *corev1.Container {
 	// Disallowed fields
 	// This list is unnecessary, but added here for clarity
 	out.Lifecycle = nil
-	out.Name = ""
 	out.Stdin = false
 	out.StdinOnce = false
 	out.TTY = false

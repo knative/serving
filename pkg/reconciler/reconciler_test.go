@@ -17,53 +17,36 @@ limitations under the License.
 package reconciler
 
 import (
+	"context"
 	"testing"
-	"time"
 
-	fakesharedclientset "github.com/knative/pkg/client/clientset/versioned/fake"
+	_ "github.com/knative/caching/pkg/client/injection/client/fake"
+	_ "github.com/knative/pkg/client/injection/client/fake"
+	_ "github.com/knative/pkg/injection/clients/dynamicclient/fake"
+	_ "github.com/knative/pkg/injection/clients/kubeclient/fake"
+	_ "github.com/knative/serving/pkg/client/injection/client/fake"
+
+	"github.com/knative/pkg/configmap"
+	"github.com/knative/pkg/injection"
 	logtesting "github.com/knative/pkg/logging/testing"
 	_ "github.com/knative/pkg/system/testing"
-	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/rest"
-
-	fakeclientset "github.com/knative/serving/pkg/client/clientset/versioned/fake"
 )
 
 var reconcilerName = "test-reconciler"
 
-func TestNewOptions(t *testing.T) {
-	defer func() {
-		if r := recover(); r != nil {
-			t.Errorf("Didn't expect to Die! %v", r)
-		}
-	}()
-	stopCh := make(chan struct{})
-	defer close(stopCh)
-
-	cfg := &rest.Config{}
-	NewOptionsOrDie(cfg, nil, stopCh)
-
-	resetPeriod = 100 * time.Millisecond
-	time.Sleep(300 * time.Millisecond)
-
-	// TODO(mattmoor): There is no definitive way to know if the restmapper is reset...
-}
-
 func TestNew(t *testing.T) {
 	defer logtesting.ClearAll()
-	kubeClient := fakekubeclientset.NewSimpleClientset()
-	sharedClient := fakesharedclientset.NewSimpleClientset()
-	servingClient := fakeclientset.NewSimpleClientset()
-	sc := make(chan struct{})
-	defer close(sc)
 
-	r := NewBase(Options{
-		KubeClientSet:    kubeClient,
-		SharedClientSet:  sharedClient,
-		ServingClientSet: servingClient,
-		Logger:           logtesting.TestLogger(t),
-		StopChannel:      sc,
-	}, reconcilerName)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	cfg := &rest.Config{}
+	ctx, _ = injection.Fake.SetupInformers(ctx, cfg)
+
+	cmw := configmap.NewFixedWatcher()
+
+	r := NewBase(ctx, reconcilerName, cmw)
 
 	if r == nil {
 		t.Fatal("Expected NewBase to return a non-nil value")

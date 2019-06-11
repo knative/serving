@@ -22,4 +22,6 @@ type CertificateExpansion interface{}
 
 type ClusterIngressExpansion interface{}
 
+type IngressExpansion interface{}
+
 type ServerlessServiceExpansion interface{}

@@ -22,6 +22,8 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/knative/pkg/logging"
+	pkgmetrics "github.com/knative/pkg/metrics"
+	_ "github.com/knative/pkg/metrics/testing"
 	"github.com/knative/pkg/ptr"
 	"github.com/knative/pkg/system"
 	_ "github.com/knative/pkg/system/testing"
@@ -41,8 +43,9 @@ import (
 )
 
 var (
+	containerName        = "my-container-name"
 	defaultUserContainer = &corev1.Container{
-		Name:                     UserContainerName,
+		Name:                     containerName,
 		Image:                    "busybox",
 		Ports:                    buildContainerPorts(v1alpha1.DefaultUserPort),
 		VolumeMounts:             []corev1.VolumeMount{varLogVolumeMount},
@@ -67,7 +70,7 @@ var (
 
 	defaultQueueContainer = &corev1.Container{
 		Name:           QueueContainerName,
-		Resources:      queueResources,
+		Resources:      createQueueResources(make(map[string]string), &corev1.Container{}),
 		Ports:          append(queueNonServingPorts, queueHTTPPort),
 		ReadinessProbe: queueReadinessProbe,
 		Env: []corev1.EnvVar{{
@@ -119,37 +122,22 @@ var (
 		}, {
 			Name:  "SYSTEM_NAMESPACE",
 			Value: system.Namespace(),
+		}, {
+			Name:  "METRICS_DOMAIN",
+			Value: pkgmetrics.Domain(),
+		}, {
+			Name:  "USER_CONTAINER_NAME",
+			Value: containerName,
+		}, {
+			Name:  "ENABLE_VAR_LOG_COLLECTION",
+			Value: "false",
+		}, {
+			Name:  "VAR_LOG_VOLUME_NAME",
+			Value: varLogVolumeName,
+		}, {
+			Name:  "INTERNAL_VOLUME_PATH",
+			Value: internalVolumePath,
 		}},
-	}
-
-	defaultFluentdContainer = &corev1.Container{
-		Name:      FluentdContainerName,
-		Image:     "indiana:jones",
-		Resources: fluentdResources,
-		Env: []corev1.EnvVar{{
-			Name:  "FLUENTD_ARGS",
-			Value: "--no-supervisor -q",
-		}, {
-			Name:  "SERVING_CONTAINER_NAME",
-			Value: UserContainerName,
-		}, {
-			Name: "SERVING_CONFIGURATION",
-			// No owner reference
-		}, {
-			Name:  "SERVING_REVISION",
-			Value: "bar",
-		}, {
-			Name:  "SERVING_NAMESPACE",
-			Value: "foo",
-		}, {
-			Name: "SERVING_POD_NAME",
-			ValueFrom: &corev1.EnvVarSource{
-				FieldRef: &corev1.ObjectFieldSelector{
-					FieldPath: "metadata.name",
-				},
-			},
-		}},
-		VolumeMounts: fluentdVolumeMounts,
 	}
 
 	defaultPodSpec = &corev1.PodSpec{
@@ -212,6 +200,7 @@ var (
 		},
 		Spec: v1alpha1.RevisionSpec{
 			DeprecatedContainer: &corev1.Container{
+				Name:  containerName,
 				Image: "busybox",
 			},
 			RevisionSpec: v1beta1.RevisionSpec{
@@ -245,10 +234,6 @@ func queueContainer(opts ...containerOption) corev1.Container {
 	return container(defaultQueueContainer.DeepCopy(), opts...)
 }
 
-func fluentdContainer(opts ...containerOption) corev1.Container {
-	return container(defaultFluentdContainer.DeepCopy(), opts...)
-}
-
 func withEnvVar(name, value string) containerOption {
 	return func(container *corev1.Container) {
 		for i, envVar := range container.Env {
@@ -262,6 +247,12 @@ func withEnvVar(name, value string) containerOption {
 			Name:  name,
 			Value: value,
 		})
+	}
+}
+
+func withInternalVolumeMount() containerOption {
+	return func(container *corev1.Container) {
+		container.VolumeMounts = append(container.VolumeMounts, internalVolumeMount)
 	}
 }
 
@@ -391,18 +382,19 @@ func TestMakePodSpec(t *testing.T) {
 		oc: &metrics.ObservabilityConfig{},
 		ac: &autoscaler.Config{},
 		cc: &deployment.Config{},
-		want: podSpec([]corev1.Container{
-			userContainer(
-				func(container *corev1.Container) {
-					container.Ports[0].ContainerPort = 8888
-				},
-				withEnvVar("PORT", "8888"),
-			),
-			queueContainer(
-				withEnvVar("CONTAINER_CONCURRENCY", "1"),
-				withEnvVar("USER_PORT", "8888"),
-			),
-		}),
+		want: podSpec(
+			[]corev1.Container{
+				userContainer(
+					func(container *corev1.Container) {
+						container.Ports[0].ContainerPort = 8888
+					},
+					withEnvVar("PORT", "8888"),
+				),
+				queueContainer(
+					withEnvVar("CONTAINER_CONCURRENCY", "1"),
+					withEnvVar("USER_PORT", "8888"),
+				),
+			}),
 	}, {
 		name: "volumes passed through",
 		rev: revision(
@@ -429,29 +421,30 @@ func TestMakePodSpec(t *testing.T) {
 		oc: &metrics.ObservabilityConfig{},
 		ac: &autoscaler.Config{},
 		cc: &deployment.Config{},
-		want: podSpec([]corev1.Container{
-			userContainer(
-				func(container *corev1.Container) {
-					container.Ports[0].ContainerPort = 8888
+		want: podSpec(
+			[]corev1.Container{
+				userContainer(
+					func(container *corev1.Container) {
+						container.Ports[0].ContainerPort = 8888
+					},
+					withEnvVar("PORT", "8888"),
+					withPrependedVolumeMounts(corev1.VolumeMount{
+						Name:      "asdf",
+						MountPath: "/asdf",
+					}),
+				),
+				queueContainer(
+					withEnvVar("CONTAINER_CONCURRENCY", "1"),
+					withEnvVar("USER_PORT", "8888"),
+				),
+			}, withAppendedVolumes(corev1.Volume{
+				Name: "asdf",
+				VolumeSource: corev1.VolumeSource{
+					Secret: &corev1.SecretVolumeSource{
+						SecretName: "asdf",
+					},
 				},
-				withEnvVar("PORT", "8888"),
-				withPrependedVolumeMounts(corev1.VolumeMount{
-					Name:      "asdf",
-					MountPath: "/asdf",
-				}),
-			),
-			queueContainer(
-				withEnvVar("CONTAINER_CONCURRENCY", "1"),
-				withEnvVar("USER_PORT", "8888"),
-			),
-		}, withAppendedVolumes(corev1.Volume{
-			Name: "asdf",
-			VolumeSource: corev1.VolumeSource{
-				Secret: &corev1.SecretVolumeSource{
-					SecretName: "asdf",
-				},
-			},
-		})),
+			})),
 	}, {
 		name: "concurrency=1 no owner",
 		rev:  revision(withContainerConcurrency(1)),
@@ -459,12 +452,13 @@ func TestMakePodSpec(t *testing.T) {
 		oc:   &metrics.ObservabilityConfig{},
 		ac:   &autoscaler.Config{},
 		cc:   &deployment.Config{},
-		want: podSpec([]corev1.Container{
-			userContainer(),
-			queueContainer(
-				withEnvVar("CONTAINER_CONCURRENCY", "1"),
-			),
-		}),
+		want: podSpec(
+			[]corev1.Container{
+				userContainer(),
+				queueContainer(
+					withEnvVar("CONTAINER_CONCURRENCY", "1"),
+				),
+			}),
 	}, {
 		name: "concurrency=1 no owner digest resolved",
 		rev: revision(
@@ -479,14 +473,15 @@ func TestMakePodSpec(t *testing.T) {
 		oc: &metrics.ObservabilityConfig{},
 		ac: &autoscaler.Config{},
 		cc: &deployment.Config{},
-		want: podSpec([]corev1.Container{
-			userContainer(func(container *corev1.Container) {
-				container.Image = "busybox@sha256:deadbeef"
+		want: podSpec(
+			[]corev1.Container{
+				userContainer(func(container *corev1.Container) {
+					container.Image = "busybox@sha256:deadbeef"
+				}),
+				queueContainer(
+					withEnvVar("CONTAINER_CONCURRENCY", "1"),
+				),
 			}),
-			queueContainer(
-				withEnvVar("CONTAINER_CONCURRENCY", "1"),
-			),
-		}),
 	}, {
 		name: "concurrency=1 with owner",
 		rev: revision(
@@ -497,13 +492,14 @@ func TestMakePodSpec(t *testing.T) {
 		oc: &metrics.ObservabilityConfig{},
 		ac: &autoscaler.Config{},
 		cc: &deployment.Config{},
-		want: podSpec([]corev1.Container{
-			userContainer(),
-			queueContainer(
-				withEnvVar("SERVING_CONFIGURATION", "parent-config"),
-				withEnvVar("CONTAINER_CONCURRENCY", "1"),
-			),
-		}),
+		want: podSpec(
+			[]corev1.Container{
+				userContainer(),
+				queueContainer(
+					withEnvVar("SERVING_CONFIGURATION", "parent-config"),
+					withEnvVar("CONTAINER_CONCURRENCY", "1"),
+				),
+			}),
 	}, {
 		name: "with http readiness probe",
 		rev: revision(func(revision *v1alpha1.Revision) {
@@ -515,14 +511,15 @@ func TestMakePodSpec(t *testing.T) {
 		oc: &metrics.ObservabilityConfig{},
 		ac: &autoscaler.Config{},
 		cc: &deployment.Config{},
-		want: podSpec([]corev1.Container{
-			userContainer(
-				withHTTPQPReadinessProbe,
-			),
-			queueContainer(
-				withEnvVar("CONTAINER_CONCURRENCY", "0"),
-			),
-		}),
+		want: podSpec(
+			[]corev1.Container{
+				userContainer(
+					withHTTPQPReadinessProbe,
+				),
+				queueContainer(
+					withEnvVar("CONTAINER_CONCURRENCY", "0"),
+				),
+			}),
 	}, {
 		name: "with shell readiness probe",
 		rev: revision(func(revision *v1alpha1.Revision) {
@@ -536,16 +533,17 @@ func TestMakePodSpec(t *testing.T) {
 		oc: &metrics.ObservabilityConfig{},
 		ac: &autoscaler.Config{},
 		cc: &deployment.Config{},
-		want: podSpec([]corev1.Container{
-			userContainer(
-				withExecReadinessProbe(
-					[]string{"echo", "hello"},
+		want: podSpec(
+			[]corev1.Container{
+				userContainer(
+					withExecReadinessProbe(
+						[]string{"echo", "hello"},
+					),
 				),
-			),
-			queueContainer(
-				withEnvVar("CONTAINER_CONCURRENCY", "0"),
-			),
-		}),
+				queueContainer(
+					withEnvVar("CONTAINER_CONCURRENCY", "0"),
+				),
+			}),
 	}, {
 		name: "with http liveness probe",
 		rev: revision(func(revision *v1alpha1.Revision) {
@@ -561,23 +559,24 @@ func TestMakePodSpec(t *testing.T) {
 		oc: &metrics.ObservabilityConfig{},
 		ac: &autoscaler.Config{},
 		cc: &deployment.Config{},
-		want: podSpec([]corev1.Container{
-			userContainer(
-				withLivenessProbe(corev1.Handler{
-					HTTPGet: &corev1.HTTPGetAction{
-						Path: "/",
-						Port: intstr.FromInt(networking.BackendHTTPPort),
-						HTTPHeaders: []corev1.HTTPHeader{{
-							Name:  network.KubeletProbeHeaderName,
-							Value: "queue",
-						}},
-					},
-				}),
-			),
-			queueContainer(
-				withEnvVar("CONTAINER_CONCURRENCY", "0"),
-			),
-		}),
+		want: podSpec(
+			[]corev1.Container{
+				userContainer(
+					withLivenessProbe(corev1.Handler{
+						HTTPGet: &corev1.HTTPGetAction{
+							Path: "/",
+							Port: intstr.FromInt(networking.BackendHTTPPort),
+							HTTPHeaders: []corev1.HTTPHeader{{
+								Name:  network.KubeletProbeHeaderName,
+								Value: "queue",
+							}},
+						},
+					}),
+				),
+				queueContainer(
+					withEnvVar("CONTAINER_CONCURRENCY", "0"),
+				),
+			}),
 	}, {
 		name: "with tcp liveness probe",
 		rev: revision(func(revision *v1alpha1.Revision) {
@@ -591,25 +590,25 @@ func TestMakePodSpec(t *testing.T) {
 		oc: &metrics.ObservabilityConfig{},
 		ac: &autoscaler.Config{},
 		cc: &deployment.Config{},
-		want: podSpec([]corev1.Container{
-			userContainer(
-				withLivenessProbe(corev1.Handler{
-					TCPSocket: &corev1.TCPSocketAction{
-						Port: intstr.FromInt(v1alpha1.DefaultUserPort),
-					},
-				}),
-			),
-			queueContainer(
-				withEnvVar("CONTAINER_CONCURRENCY", "0"),
-			),
-		}),
+		want: podSpec(
+			[]corev1.Container{
+				userContainer(
+					withLivenessProbe(corev1.Handler{
+						TCPSocket: &corev1.TCPSocketAction{
+							Port: intstr.FromInt(v1alpha1.DefaultUserPort),
+						},
+					}),
+				),
+				queueContainer(
+					withEnvVar("CONTAINER_CONCURRENCY", "0"),
+				),
+			}),
 	}, {
 		name: "with /var/log collection",
 		rev:  revision(withContainerConcurrency(1)),
 		lc:   &logging.Config{},
 		oc: &metrics.ObservabilityConfig{
 			EnableVarLogCollection: true,
-			FluentdSidecarImage:    "indiana:jones",
 		},
 		ac: &autoscaler.Config{},
 		cc: &deployment.Config{},
@@ -618,20 +617,12 @@ func TestMakePodSpec(t *testing.T) {
 				userContainer(),
 				queueContainer(
 					withEnvVar("CONTAINER_CONCURRENCY", "1"),
+					withEnvVar("ENABLE_VAR_LOG_COLLECTION", "true"),
+					withInternalVolumeMount(),
 				),
-				fluentdContainer(),
 			},
 			func(podSpec *corev1.PodSpec) {
-				podSpec.Volumes = append(podSpec.Volumes, corev1.Volume{
-					Name: fluentdConfigMapVolumeName,
-					VolumeSource: corev1.VolumeSource{
-						ConfigMap: &corev1.ConfigMapVolumeSource{
-							LocalObjectReference: corev1.LocalObjectReference{
-								Name: "bar-fluentd",
-							},
-						},
-					},
-				})
+				podSpec.Volumes = append(podSpec.Volumes, internalVolume)
 			},
 		),
 	}, {
@@ -663,38 +654,39 @@ func TestMakePodSpec(t *testing.T) {
 		oc: &metrics.ObservabilityConfig{},
 		ac: &autoscaler.Config{},
 		cc: &deployment.Config{},
-		want: podSpec([]corev1.Container{
-			userContainer(
-				func(container *corev1.Container) {
-					container.Command = []string{"/bin/bash"}
-					container.Args = []string{"-c", "echo Hello world"}
-					container.Env = append([]corev1.EnvVar{{
-						Name:  "FOO",
-						Value: "bar",
-					}, {
-						Name:  "BAZ",
-						Value: "blah",
-					}}, container.Env...)
-					container.Resources = corev1.ResourceRequirements{
-						Requests: corev1.ResourceList{
-							corev1.ResourceMemory: resource.MustParse("666Mi"),
-							corev1.ResourceCPU:    resource.MustParse("666m"),
-						},
-						Limits: corev1.ResourceList{
-							corev1.ResourceMemory: resource.MustParse("888Mi"),
-							corev1.ResourceCPU:    resource.MustParse("888m"),
-						},
-					}
-					container.TerminationMessagePolicy = corev1.TerminationMessageReadFile
-				},
-				withEnvVar("K_CONFIGURATION", ""),
-				withEnvVar("K_SERVICE", ""),
-			),
-			queueContainer(
-				withEnvVar("CONTAINER_CONCURRENCY", "1"),
-				withEnvVar("SERVING_SERVICE", ""),
-			),
-		}),
+		want: podSpec(
+			[]corev1.Container{
+				userContainer(
+					func(container *corev1.Container) {
+						container.Command = []string{"/bin/bash"}
+						container.Args = []string{"-c", "echo Hello world"}
+						container.Env = append([]corev1.EnvVar{{
+							Name:  "FOO",
+							Value: "bar",
+						}, {
+							Name:  "BAZ",
+							Value: "blah",
+						}}, container.Env...)
+						container.Resources = corev1.ResourceRequirements{
+							Requests: corev1.ResourceList{
+								corev1.ResourceMemory: resource.MustParse("666Mi"),
+								corev1.ResourceCPU:    resource.MustParse("666m"),
+							},
+							Limits: corev1.ResourceList{
+								corev1.ResourceMemory: resource.MustParse("888Mi"),
+								corev1.ResourceCPU:    resource.MustParse("888m"),
+							},
+						}
+						container.TerminationMessagePolicy = corev1.TerminationMessageReadFile
+					},
+					withEnvVar("K_CONFIGURATION", ""),
+					withEnvVar("K_SERVICE", ""),
+				),
+				queueContainer(
+					withEnvVar("CONTAINER_CONCURRENCY", "1"),
+					withEnvVar("SERVING_SERVICE", ""),
+				),
+			}),
 	}}
 
 	for _, test := range tests {

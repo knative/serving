@@ -17,79 +17,47 @@ limitations under the License.
 package reconciler
 
 import (
+	"context"
 	"time"
 
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
-	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/record"
+
+	cachingclient "github.com/knative/caching/pkg/client/injection/client"
+	sharedclient "github.com/knative/pkg/client/injection/client"
+	"github.com/knative/pkg/injection/clients/dynamicclient"
+	"github.com/knative/pkg/injection/clients/kubeclient"
+	servingclient "github.com/knative/serving/pkg/client/injection/client"
 
 	cachingclientset "github.com/knative/caching/pkg/client/clientset/versioned"
 	sharedclientset "github.com/knative/pkg/client/clientset/versioned"
 	"github.com/knative/pkg/configmap"
+	"github.com/knative/pkg/controller"
+	"github.com/knative/pkg/logging"
 	"github.com/knative/pkg/logging/logkey"
-	"github.com/knative/pkg/system"
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
 	servingScheme "github.com/knative/serving/pkg/client/clientset/versioned/scheme"
 )
 
-// Options defines the common reconciler options.
-// We define this to reduce the boilerplate argument list when
-// creating our controllers.
-type Options struct {
-	KubeClientSet    kubernetes.Interface
-	SharedClientSet  sharedclientset.Interface
-	DynamicClientSet dynamic.Interface
-
-	ServingClientSet clientset.Interface
-	CachingClientSet cachingclientset.Interface
-
-	Recorder      record.EventRecorder
-	StatsReporter StatsReporter
-
-	ConfigMapWatcher configmap.Watcher
-	Logger           *zap.SugaredLogger
-
-	ResyncPeriod time.Duration
-	StopChannel  <-chan struct{}
-}
+const (
+	ForceUpgradePatch = `[{
+  "op":"add",
+  "path":"/metadata/annotations/serving.knative.dev~1forceUpgrade",
+  "value":"true"
+}]`
+)
 
 // This is mutable for testing.
 var resetPeriod = 30 * time.Second
-
-func NewOptionsOrDie(cfg *rest.Config, logger *zap.SugaredLogger, stopCh <-chan struct{}) Options {
-	kubeClient := kubernetes.NewForConfigOrDie(cfg)
-	sharedClient := sharedclientset.NewForConfigOrDie(cfg)
-	servingClient := clientset.NewForConfigOrDie(cfg)
-	dynamicClient := dynamic.NewForConfigOrDie(cfg)
-	cachingClient := cachingclientset.NewForConfigOrDie(cfg)
-	configMapWatcher := configmap.NewInformedWatcher(kubeClient, system.Namespace())
-
-	return Options{
-		KubeClientSet:    kubeClient,
-		SharedClientSet:  sharedClient,
-		DynamicClientSet: dynamicClient,
-		ServingClientSet: servingClient,
-		CachingClientSet: cachingClient,
-		ConfigMapWatcher: configMapWatcher,
-		Logger:           logger,
-		ResyncPeriod:     10 * time.Hour, // Based on controller-runtime default.
-		StopChannel:      stopCh,
-	}
-}
-
-// GetTrackerLease returns a multiple of the resync period to use as the
-// duration for tracker leases. This attempts to ensure that resyncs happen to
-// refresh leases frequently enough that we don't miss updates to tracked
-// objects.
-func (o Options) GetTrackerLease() time.Duration {
-	return o.ResyncPeriod * 3
-}
 
 // Base implements the core controller logic, given a Reconciler.
 type Base struct {
@@ -128,11 +96,15 @@ type Base struct {
 
 // NewBase instantiates a new instance of Base implementing
 // the common & boilerplate code between our reconcilers.
-func NewBase(opt Options, controllerAgentName string) *Base {
+func NewBase(ctx context.Context, controllerAgentName string, cmw configmap.Watcher) *Base {
 	// Enrich the logs with controller name
-	logger := opt.Logger.Named(controllerAgentName).With(zap.String(logkey.ControllerType, controllerAgentName))
+	logger := logging.FromContext(ctx).
+		Named(controllerAgentName).
+		With(zap.String(logkey.ControllerType, controllerAgentName))
 
-	recorder := opt.Recorder
+	kubeClient := kubeclient.Get(ctx)
+
+	recorder := controller.GetEventRecorder(ctx)
 	if recorder == nil {
 		// Create event broadcaster
 		logger.Debug("Creating event broadcaster")
@@ -140,19 +112,19 @@ func NewBase(opt Options, controllerAgentName string) *Base {
 		watches := []watch.Interface{
 			eventBroadcaster.StartLogging(logger.Named("event-broadcaster").Infof),
 			eventBroadcaster.StartRecordingToSink(
-				&typedcorev1.EventSinkImpl{Interface: opt.KubeClientSet.CoreV1().Events("")}),
+				&typedcorev1.EventSinkImpl{Interface: kubeClient.CoreV1().Events("")}),
 		}
 		recorder = eventBroadcaster.NewRecorder(
 			scheme.Scheme, corev1.EventSource{Component: controllerAgentName})
 		go func() {
-			<-opt.StopChannel
+			<-ctx.Done()
 			for _, w := range watches {
 				w.Stop()
 			}
 		}()
 	}
 
-	statsReporter := opt.StatsReporter
+	statsReporter := GetStatsReporter(ctx)
 	if statsReporter == nil {
 		logger.Debug("Creating stats reporter")
 		var err error
@@ -163,18 +135,25 @@ func NewBase(opt Options, controllerAgentName string) *Base {
 	}
 
 	base := &Base{
-		KubeClientSet:    opt.KubeClientSet,
-		SharedClientSet:  opt.SharedClientSet,
-		ServingClientSet: opt.ServingClientSet,
-		DynamicClientSet: opt.DynamicClientSet,
-		CachingClientSet: opt.CachingClientSet,
-		ConfigMapWatcher: opt.ConfigMapWatcher,
+		KubeClientSet:    kubeClient,
+		SharedClientSet:  sharedclient.Get(ctx),
+		DynamicClientSet: dynamicclient.Get(ctx),
+		ServingClientSet: servingclient.Get(ctx),
+		CachingClientSet: cachingclient.Get(ctx),
+		ConfigMapWatcher: cmw,
 		Recorder:         recorder,
 		StatsReporter:    statsReporter,
 		Logger:           logger,
 	}
 
 	return base
+}
+
+func (b *Base) MarkNeedsUpgrade(gvr schema.GroupVersionResource, namespace, name string) error {
+	// Add the annotation serving.knative.dev/forceUpgrade=true to trigger webhook-based defaulting.
+	_, err := b.DynamicClientSet.Resource(gvr).Namespace(namespace).Patch(name, types.JSONPatchType,
+		[]byte(ForceUpgradePatch), metav1.UpdateOptions{})
+	return err
 }
 
 func init() {

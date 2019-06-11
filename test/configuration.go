@@ -30,13 +30,14 @@ import (
 
 // Options are test setup parameters.
 type Options struct {
-	EnvVars                []corev1.EnvVar
-	ContainerPorts         []corev1.ContainerPort
-	ContainerConcurrency   int
-	RevisionTimeoutSeconds int64
-	ContainerResources     corev1.ResourceRequirements
-	ReadinessProbe         *corev1.Probe
-	SecurityContext        *corev1.SecurityContext
+	EnvVars                     []corev1.EnvVar
+	ContainerPorts              []corev1.ContainerPort
+	ContainerConcurrency        int
+	RevisionTimeoutSeconds      int64
+	ContainerResources          corev1.ResourceRequirements
+	ReadinessProbe              *corev1.Probe
+	SecurityContext             *corev1.SecurityContext
+	RevisionTemplateAnnotations map[string]string
 }
 
 // CreateConfiguration create a configuration resource in namespace with the name names.Config

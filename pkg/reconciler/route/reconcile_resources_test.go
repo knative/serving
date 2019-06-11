@@ -30,6 +30,8 @@ import (
 	netv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1beta1"
+	fakecertinformer "github.com/knative/serving/pkg/client/injection/informers/networking/v1alpha1/certificate/fake"
+	fakeciinformer "github.com/knative/serving/pkg/client/injection/informers/networking/v1alpha1/clusteringress/fake"
 	"github.com/knative/serving/pkg/gc"
 	"github.com/knative/serving/pkg/reconciler/route/config"
 	"github.com/knative/serving/pkg/reconciler/route/resources"
@@ -39,7 +41,8 @@ import (
 )
 
 func TestReconcileClusterIngress_Insert(t *testing.T) {
-	_, servingClient, c, _, _, _ := newTestReconciler(t)
+	ctx, _, reconciler, _ := newTestReconciler(t)
+
 	r := &v1alpha1.Route{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-route",
@@ -47,17 +50,18 @@ func TestReconcileClusterIngress_Insert(t *testing.T) {
 		},
 	}
 	ci := newTestClusterIngress(t, r)
-	if _, err := c.reconcileClusterIngress(TestContextWithLogger(t), r, ci); err != nil {
+	if _, err := reconciler.reconcileClusterIngress(TestContextWithLogger(t), r, ci); err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
-	created := getRouteIngressFromClient(t, servingClient, r)
+	created := getRouteIngressFromClient(t, ctx, r)
 	if diff := cmp.Diff(ci, created); diff != "" {
 		t.Errorf("Unexpected diff (-want +got): %v", diff)
 	}
 }
 
 func TestReconcileClusterIngress_Update(t *testing.T) {
-	_, servingClient, c, _, servingInformer, _ := newTestReconciler(t)
+	ctx, _, reconciler, _ := newTestReconciler(t)
+
 	r := &v1alpha1.Route{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-route",
@@ -66,23 +70,23 @@ func TestReconcileClusterIngress_Update(t *testing.T) {
 	}
 
 	ci := newTestClusterIngress(t, r)
-	if _, err := c.reconcileClusterIngress(TestContextWithLogger(t), r, ci); err != nil {
+	if _, err := reconciler.reconcileClusterIngress(TestContextWithLogger(t), r, ci); err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
 
-	updated := getRouteIngressFromClient(t, servingClient, r)
-	servingInformer.Networking().V1alpha1().ClusterIngresses().Informer().GetIndexer().Add(updated)
+	updated := getRouteIngressFromClient(t, ctx, r)
+	fakeciinformer.Get(ctx).Informer().GetIndexer().Add(updated)
 
 	r.Status.URL = &apis.URL{
 		Scheme: "http",
 		Host:   "bar.com",
 	}
 	ci2 := newTestClusterIngress(t, r)
-	if _, err := c.reconcileClusterIngress(TestContextWithLogger(t), r, ci2); err != nil {
+	if _, err := reconciler.reconcileClusterIngress(TestContextWithLogger(t), r, ci2); err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
 
-	updated = getRouteIngressFromClient(t, servingClient, r)
+	updated = getRouteIngressFromClient(t, ctx, r)
 	if diff := cmp.Diff(ci2, updated); diff != "" {
 		t.Errorf("Unexpected diff (-want +got): %v", diff)
 	}
@@ -92,7 +96,8 @@ func TestReconcileClusterIngress_Update(t *testing.T) {
 }
 
 func TestReconcileTargetRevisions(t *testing.T) {
-	_, _, c, _, _, _ := newTestReconciler(t)
+	_, _, reconciler, _ := newTestReconciler(t)
+
 	r := &v1alpha1.Route{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-route",
@@ -137,7 +142,7 @@ func TestReconcileTargetRevisions(t *testing.T) {
 					StaleRevisionLastpinnedDebounce: time.Duration(1 * time.Minute),
 				},
 			})
-			err := c.reconcileTargetRevisions(ctx, &tc.tc, r)
+			err := reconciler.reconcileTargetRevisions(ctx, &tc.tc, r)
 			if err != tc.expectErr {
 				t.Fatalf("Expected err %v got %v", tc.expectErr, err)
 			}
@@ -156,7 +161,7 @@ func newTestClusterIngress(t *testing.T, r *v1alpha1.Route) *netv1alpha1.Cluster
 			},
 			Active: true,
 		}}}}
-	tls := []netv1alpha1.ClusterIngressTLS{
+	tls := []netv1alpha1.IngressTLS{
 		{
 			Hosts:             []string{"test-route.test-ns.example.com"},
 			PrivateKey:        "tls.key",
@@ -173,7 +178,8 @@ func newTestClusterIngress(t *testing.T, r *v1alpha1.Route) *netv1alpha1.Cluster
 }
 
 func TestReconcileCertificates_Insert(t *testing.T) {
-	_, servingClient, c, _, _, _ := newTestReconciler(t)
+	ctx, _, reconciler, _ := newTestReconciler(t)
+
 	r := &v1alpha1.Route{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-route",
@@ -181,17 +187,18 @@ func TestReconcileCertificates_Insert(t *testing.T) {
 		},
 	}
 	certificate := newCerts([]string{"*.default.example.com"}, r)
-	if _, err := c.reconcileCertificate(TestContextWithLogger(t), r, certificate); err != nil {
+	if _, err := reconciler.reconcileCertificate(TestContextWithLogger(t), r, certificate); err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
-	created := getCertificateFromClient(t, servingClient, certificate)
+	created := getCertificateFromClient(t, ctx, certificate)
 	if diff := cmp.Diff(certificate, created); diff != "" {
 		t.Errorf("Unexpected diff (-want +got): %v", diff)
 	}
 }
 
 func TestReconcileCertificate_Update(t *testing.T) {
-	_, servingClient, c, _, servingInformer, _ := newTestReconciler(t)
+	ctx, _, reconciler, _ := newTestReconciler(t)
+
 	r := &v1alpha1.Route{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-route",
@@ -199,19 +206,19 @@ func TestReconcileCertificate_Update(t *testing.T) {
 		},
 	}
 	certificate := newCerts([]string{"old.example.com"}, r)
-	if _, err := c.reconcileCertificate(TestContextWithLogger(t), r, certificate); err != nil {
+	if _, err := reconciler.reconcileCertificate(TestContextWithLogger(t), r, certificate); err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
 
-	storedCert := getCertificateFromClient(t, servingClient, certificate)
-	servingInformer.Networking().V1alpha1().Certificates().Informer().GetIndexer().Add(storedCert)
+	storedCert := getCertificateFromClient(t, ctx, certificate)
+	fakecertinformer.Get(ctx).Informer().GetIndexer().Add(storedCert)
 
 	newCertificate := newCerts([]string{"new.example.com"}, r)
-	if _, err := c.reconcileCertificate(TestContextWithLogger(t), r, newCertificate); err != nil {
+	if _, err := reconciler.reconcileCertificate(TestContextWithLogger(t), r, newCertificate); err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
 
-	updated := getCertificateFromClient(t, servingClient, newCertificate)
+	updated := getCertificateFromClient(t, ctx, newCertificate)
 	if diff := cmp.Diff(newCertificate, updated); diff != "" {
 		t.Errorf("Unexpected diff (-want +got): %v", diff)
 	}

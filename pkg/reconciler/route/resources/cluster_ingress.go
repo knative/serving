@@ -41,9 +41,9 @@ func IsClusterLocal(r *servingv1alpha1.Route) bool {
 	return r.Status.URL != nil && strings.HasSuffix(r.Status.URL.Host, network.GetClusterDomainName())
 }
 
-// MakeClusterIngressTLS creates ClusterIngressTLS to configure the ingress TLS.
-func MakeClusterIngressTLS(cert *v1alpha1.Certificate, hostNames []string) v1alpha1.ClusterIngressTLS {
-	return v1alpha1.ClusterIngressTLS{
+// MakeIngressTLS creates IngressTLS to configure the ingress TLS.
+func MakeIngressTLS(cert *v1alpha1.Certificate, hostNames []string) v1alpha1.IngressTLS {
+	return v1alpha1.IngressTLS{
 		Hosts:           hostNames,
 		SecretName:      cert.Spec.SecretName,
 		SecretNamespace: cert.Namespace,
@@ -52,8 +52,8 @@ func MakeClusterIngressTLS(cert *v1alpha1.Certificate, hostNames []string) v1alp
 
 // MakeClusterIngress creates ClusterIngress to set up routing rules. Such ClusterIngress specifies
 // which Hosts that it applies to, as well as the routing rules.
-func MakeClusterIngress(ctx context.Context, r *servingv1alpha1.Route, tc *traffic.Config, tls []v1alpha1.ClusterIngressTLS, ingressClass string) (*v1alpha1.ClusterIngress, error) {
-	spec, err := makeClusterIngressSpec(ctx, r, tls, tc.Targets)
+func MakeClusterIngress(ctx context.Context, r *servingv1alpha1.Route, tc *traffic.Config, tls []v1alpha1.IngressTLS, ingressClass string) (*v1alpha1.ClusterIngress, error) {
+	spec, err := makeIngressSpec(ctx, r, tls, tc.Targets)
 	if err != nil {
 		return nil, err
 	}
@@ -74,7 +74,7 @@ func MakeClusterIngress(ctx context.Context, r *servingv1alpha1.Route, tc *traff
 	}, nil
 }
 
-func makeClusterIngressSpec(ctx context.Context, r *servingv1alpha1.Route, tls []v1alpha1.ClusterIngressTLS, targets map[string]traffic.RevisionTargets) (v1alpha1.IngressSpec, error) {
+func makeIngressSpec(ctx context.Context, r *servingv1alpha1.Route, tls []v1alpha1.IngressTLS, targets map[string]traffic.RevisionTargets) (v1alpha1.IngressSpec, error) {
 	// Domain should have been specified in route status
 	// before calling this func.
 	names := make([]string, 0, len(targets))
@@ -85,13 +85,13 @@ func makeClusterIngressSpec(ctx context.Context, r *servingv1alpha1.Route, tls [
 	sort.Strings(names)
 
 	// The routes are matching rule based on domain name to traffic split targets.
-	rules := make([]v1alpha1.ClusterIngressRule, 0, len(names))
+	rules := make([]v1alpha1.IngressRule, 0, len(names))
 	for _, name := range names {
 		domains, err := routeDomains(ctx, name, r)
 		if err != nil {
 			return v1alpha1.IngressSpec{}, err
 		}
-		rules = append(rules, *makeClusterIngressRule(
+		rules = append(rules, *makeIngressRule(
 			domains, r.Namespace, targets[name]))
 	}
 
@@ -108,7 +108,11 @@ func makeClusterIngressSpec(ctx context.Context, r *servingv1alpha1.Route, tls [
 }
 
 func routeDomains(ctx context.Context, targetName string, r *servingv1alpha1.Route) ([]string, error) {
-	fullName, err := domains.DomainNameFromTemplate(ctx, r, domains.SubdomainName(r, targetName))
+	hostname, err := domains.HostnameFromTemplate(ctx, r.Name, targetName)
+	if err != nil {
+		return nil, err
+	}
+	fullName, err := domains.DomainNameFromTemplate(ctx, r, hostname)
 	if err != nil {
 		return nil, err
 	}
@@ -136,16 +140,16 @@ func routeDomains(ctx context.Context, targetName string, r *servingv1alpha1.Rou
 	return ruleDomains, nil
 }
 
-func makeClusterIngressRule(domains []string, ns string, targets traffic.RevisionTargets) *v1alpha1.ClusterIngressRule {
+func makeIngressRule(domains []string, ns string, targets traffic.RevisionTargets) *v1alpha1.IngressRule {
 	// Optimistically allocate |targets| elements.
-	splits := make([]v1alpha1.ClusterIngressBackendSplit, 0, len(targets))
+	splits := make([]v1alpha1.IngressBackendSplit, 0, len(targets))
 	for _, t := range targets {
 		if t.Percent == 0 {
 			continue
 		}
 
-		splits = append(splits, v1alpha1.ClusterIngressBackendSplit{
-			ClusterIngressBackend: v1alpha1.ClusterIngressBackend{
+		splits = append(splits, v1alpha1.IngressBackendSplit{
+			IngressBackend: v1alpha1.IngressBackend{
 				ServiceNamespace: ns,
 				ServiceName:      t.ServiceName,
 				// Port on the public service must match port on the activator.
@@ -161,10 +165,10 @@ func makeClusterIngressRule(domains []string, ns string, targets traffic.Revisio
 		})
 	}
 
-	return &v1alpha1.ClusterIngressRule{
+	return &v1alpha1.IngressRule{
 		Hosts: domains,
-		HTTP: &v1alpha1.HTTPClusterIngressRuleValue{
-			Paths: []v1alpha1.HTTPClusterIngressPath{{
+		HTTP: &v1alpha1.HTTPIngressRuleValue{
+			Paths: []v1alpha1.HTTPIngressPath{{
 				Splits: splits,
 				// TODO(lichuqiang): #2201, plumbing to config timeout and retries.
 				AppendHeaders: map[string]string{

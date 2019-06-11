@@ -15,10 +15,11 @@
 # limitations under the License.
 
 # Temporarily increasing the cluster size for serving tests to rule out
-# resource / eviction as causes of flakiness.  These env vars are consumed
-# in the test-infra/scripts/e2e-tests.sh.
-E2E_MIN_CLUSTER_NODES=4
-E2E_MAX_CLUSTER_NODES=4
+# resource/eviction as causes of flakiness. These env vars are consumed
+# in the test-infra/scripts/e2e-tests.sh. Use the existing value, if provided
+# with the job config.
+E2E_MIN_CLUSTER_NODES=${E2E_MIN_CLUSTER_NODES:-4}
+E2E_MAX_CLUSTER_NODES=${E2E_MAX_CLUSTER_NODES:-4}
 
 # This script provides helper methods to perform cluster actions.
 source $(dirname $0)/../vendor/github.com/knative/test-infra/scripts/e2e-tests.sh
@@ -55,10 +56,6 @@ INSTALL_RELEASE_YAML=""
 INSTALL_MONITORING_YAML=""
 
 INSTALL_MONITORING=0
-
-# Build is used by some tests and so is also included here.
-readonly INSTALL_BUILD_DIR="./third_party/config/build/"
-readonly INSTALL_PIPELINE_DIR="./third_party/config/pipeline/"
 
 # List of custom YAMLs to install, if specified (space-separated).
 INSTALL_CUSTOM_YAMLS=""
@@ -159,8 +156,8 @@ function install_knative_serving_standard() {
      ISTIO_VERSION=1.1-latest
   fi
   if [[ -z "$ISTIO_MESH" ]]; then
-    # Defaults to using mesh.
-    ISTIO_MESH=1
+    # Defaults to not using sidecar.
+    ISTIO_MESH=0
   fi
   INSTALL_ISTIO_CRD_YAML="$(istio_crds_yaml $ISTIO_VERSION)"
   INSTALL_ISTIO_YAML="$(istio_yaml $ISTIO_VERSION $ISTIO_MESH)"
@@ -176,8 +173,6 @@ function install_knative_serving_standard() {
   echo "Istio YAML: ${INSTALL_ISTIO_YAML}"
   echo "Cert Manager YAML: ${INSTALL_CERT_MANAGER_YAML}"
   echo "Knative YAML: ${INSTALL_RELEASE_YAML}"
-  echo "Knative Build YAML: ${INSTALL_BUILD_DIR}"
-  echo "Knative Build Pipeline YAML: ${INSTALL_PIPELINE_DIR}"
 
   echo ">> Bringing up Istio"
   echo ">> Running Istio CRD installer"
@@ -189,11 +184,6 @@ function install_knative_serving_standard() {
 
   echo ">> Installing Cert-Manager"
   kubectl apply -f "${INSTALL_CERT_MANAGER_YAML}" --validate=false || return 1
-
-  echo ">> Installing Build"
-  # TODO: should this use a released copy of Build?
-  kubectl apply -f "${INSTALL_BUILD_DIR}" || return 1
-  kubectl apply -f "${INSTALL_PIPELINE_DIR}" || return 1
 
   echo ">> Bringing up Serving"
   kubectl apply -f "${INSTALL_RELEASE_YAML}" || return 1
@@ -262,17 +252,12 @@ function knative_teardown() {
     echo "Istio YAML: ${INSTALL_ISTIO_YAML}"
     echo "Cert-Manager CRD YAML: ${INSTALL_CERT_MANAGER_CRD_YAML}"
     echo "Knative YAML: ${INSTALL_RELEASE_YAML}"
-    echo "Knative Build YAML: ${INSTALL_BUILD_DIR}"
-    echo "Knative Build Pipeline YAML: ${INSTALL_PIPELINE_DIR}"
     echo ">> Bringing down Serving"
     ko delete --ignore-not-found=true -f "${INSTALL_RELEASE_YAML}" || return 1
     if [[ -n "${INSTALL_MONITORING_YAML}" ]]; then
       echo ">> Bringing down monitoring"
       ko delete --ignore-not-found=true -f "${INSTALL_MONITORING_YAML}" || return 1
     fi
-    echo ">> Bringing down Build"
-    ko delete --ignore-not-found=true -f "${INSTALL_BUILD_DIR}" || return 1
-    ko delete --ignore-not-found=true -f "${INSTALL_PIPELINE_DIR}" || return 1
     echo ">> Bringing down Istio"
     kubectl delete --ignore-not-found=true -f "${INSTALL_ISTIO_YAML}" || return 1
     kubectl delete --ignore-not-found=true clusterrolebinding cluster-admin-binding

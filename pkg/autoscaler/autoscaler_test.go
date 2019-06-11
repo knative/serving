@@ -22,18 +22,17 @@ import (
 	"testing"
 	"time"
 
+	"github.com/knative/serving/pkg/resources"
+
 	. "github.com/knative/pkg/logging/testing"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubeinformers "k8s.io/client-go/informers"
-	corev1informers "k8s.io/client-go/informers/core/v1"
 	fakeK8s "k8s.io/client-go/kubernetes/fake"
 )
 
 const (
-	stableWindow     = 60 * time.Second
-	panicWindow      = 6 * time.Second
-	activatorPodName = "activator"
+	stableWindow = 60 * time.Second
 )
 
 var (
@@ -41,19 +40,19 @@ var (
 	kubeInformer = kubeinformers.NewSharedInformerFactory(kubeClient, 0)
 )
 
-func TestNew_ErrorWhenGivenNilInterface(t *testing.T) {
-	var endpointsInformer corev1informers.EndpointsInformer
-
-	_, err := New(testNamespace, testRevision, &testMetricClient{}, endpointsInformer, DeciderSpec{TargetConcurrency: 10, ServiceName: testService}, &mockReporter{})
+func TestNew_ErrorWhenGivenNilReadyPodCounter(t *testing.T) {
+	_, err := New(testNamespace, testRevision, &testMetricClient{}, nil, DeciderSpec{TargetConcurrency: 10, ServiceName: testService}, &mockReporter{})
 	if err == nil {
-		t.Error("Expected error when EndpointsInformer interface is nil, but got none.")
+		t.Error("Expected error when ReadyPodCounter interface is nil, but got none.")
 	}
 }
 
 func TestNew_ErrorWhenGivenNilStatsReporter(t *testing.T) {
 	var reporter StatsReporter
 
-	_, err := New(testNamespace, testRevision, &testMetricClient{}, kubeInformer.Core().V1().Endpoints(),
+	podCounter := resources.NewScopedEndpointsCounter(kubeInformer.Core().V1().Endpoints().Lister(), testNamespace, testService)
+
+	_, err := New(testNamespace, testRevision, &testMetricClient{}, podCounter,
 		DeciderSpec{TargetConcurrency: 10, ServiceName: testService}, reporter)
 	if err == nil {
 		t.Error("Expected error when EndpointsInformer interface is nil, but got none.")
@@ -197,7 +196,7 @@ func TestAutoscaler_UpdateTarget(t *testing.T) {
 		TargetConcurrency: 1.0,
 		PanicThreshold:    2.0,
 		MaxScaleUpRate:    10.0,
-		MetricSpec:        a.deciderSpec.MetricSpec,
+		StableWindow:      stableWindow,
 		ServiceName:       testService,
 	})
 	a.expectScale(t, time.Now(), 100, true)
@@ -245,14 +244,12 @@ func newTestAutoscaler(containerConcurrency int, metrics MetricClient) *Autoscal
 		TargetConcurrency: float64(containerConcurrency),
 		PanicThreshold:    2 * float64(containerConcurrency),
 		MaxScaleUpRate:    10.0,
-		MetricSpec: MetricSpec{
-			StableWindow: stableWindow,
-			PanicWindow:  panicWindow,
-		},
-		ServiceName: testService,
+		StableWindow:      stableWindow,
+		ServiceName:       testService,
 	}
 
-	a, _ := New(testNamespace, testRevision, metrics, kubeInformer.Core().V1().Endpoints(), deciderSpec, &mockReporter{})
+	podCounter := resources.NewScopedEndpointsCounter(kubeInformer.Core().V1().Endpoints().Lister(), testNamespace, deciderSpec.ServiceName)
+	a, _ := New(testNamespace, testRevision, metrics, podCounter, deciderSpec, &mockReporter{})
 	return a
 }
 

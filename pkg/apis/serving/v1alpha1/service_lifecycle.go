@@ -78,6 +78,13 @@ func (ss *ServiceStatus) MarkRouteNotOwned(name string) {
 		fmt.Sprintf("There is an existing Route %q that we do not own.", name))
 }
 
+// MarkConfigurationNotReconciled notes that the Configuration controller has not yet
+// caught up to the desired changes we have specified.
+func (ss *ServiceStatus) MarkConfigurationNotReconciled() {
+	serviceCondSet.Manage(ss).MarkUnknown(ServiceConditionConfigurationsReady,
+		"OutOfDate", "The Configuration is still working to reflect the latest desired specification.")
+}
+
 // PropagateConfigurationStatus takes the Configuration status and applies its values
 // to the Service status.
 func (ss *ServiceStatus) PropagateConfigurationStatus(cs *ConfigurationStatus) {
@@ -124,6 +131,13 @@ func (ss *ServiceStatus) MarkRouteNotYetReady() {
 	serviceCondSet.Manage(ss).MarkUnknown(ServiceConditionRoutesReady, trafficNotMigratedReason, trafficNotMigratedMessage)
 }
 
+// MarkRouteNotReconciled notes that the Route controller has not yet
+// caught up to the desired changes we have specified.
+func (ss *ServiceStatus) MarkRouteNotReconciled() {
+	serviceCondSet.Manage(ss).MarkUnknown(ServiceConditionRoutesReady,
+		"OutOfDate", "The Route is still working to reflect the latest desired specification.")
+}
+
 // PropagateRouteStatus propagates route's status to the service's status.
 func (ss *ServiceStatus) PropagateRouteStatus(rs *RouteStatus) {
 	ss.RouteStatusFields = rs.RouteStatusFields
@@ -140,29 +154,6 @@ func (ss *ServiceStatus) PropagateRouteStatus(rs *RouteStatus) {
 	case rc.Status == corev1.ConditionFalse:
 		serviceCondSet.Manage(ss).MarkFalse(ServiceConditionRoutesReady, rc.Reason, rc.Message)
 	}
-}
-
-// SetManualStatus updates the service conditions to unknown as the underlying Route
-// can have TrafficTargets to Configurations not owned by the service. We do not want to falsely
-// report Ready.
-func (ss *ServiceStatus) SetManualStatus() {
-	const (
-		reason  = "Manual"
-		message = "Service is set to Manual, and is not managing underlying resources."
-	)
-
-	// Clear our fields by creating a new status and copying over only the fields and conditions we want
-	newStatus := &ServiceStatus{}
-	newStatus.InitializeConditions()
-	serviceCondSet.Manage(newStatus).MarkUnknown(ServiceConditionConfigurationsReady, reason, message)
-	serviceCondSet.Manage(newStatus).MarkUnknown(ServiceConditionRoutesReady, reason, message)
-
-	newStatus.Address = ss.Address
-	newStatus.URL = ss.URL
-	newStatus.DeprecatedDomain = ss.DeprecatedDomain
-	newStatus.DeprecatedDomainInternal = ss.DeprecatedDomainInternal
-
-	*ss = *newStatus
 }
 
 func (ss *ServiceStatus) duck() *duckv1beta1.Status {

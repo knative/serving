@@ -26,7 +26,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
-	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 	net "github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
@@ -381,20 +380,20 @@ func TestBuildTrafficConfiguration_Canary(t *testing.T) {
 // Splitting traffic between latest revision and a fixed revision which is also latest.
 func TestBuildTrafficConfiguration_Consolidated(t *testing.T) {
 	tts := []v1alpha1.TrafficTarget{{
-		DeprecatedName: "one",
 		TrafficTarget: v1beta1.TrafficTarget{
+			Tag:          "one",
 			RevisionName: goodOldRev.Name,
 			Percent:      49,
 		},
 	}, {
-		DeprecatedName: "two",
 		TrafficTarget: v1beta1.TrafficTarget{
+			Tag:          "two",
 			RevisionName: goodNewRev.Name,
 			Percent:      50,
 		},
 	}, {
-		DeprecatedName: "also-two",
 		TrafficTarget: v1beta1.TrafficTarget{
+			Tag:               "also-two",
 			ConfigurationName: goodConfig.Name,
 			Percent:           1,
 		},
@@ -633,13 +632,13 @@ func TestBuildTrafficConfiguration_Preliminary(t *testing.T) {
 			Percent:      100,
 		},
 	}, {
-		DeprecatedName: "beta",
 		TrafficTarget: v1beta1.TrafficTarget{
+			Tag:          "beta",
 			RevisionName: goodNewRev.Name,
 		},
 	}, {
-		DeprecatedName: "alpha",
 		TrafficTarget: v1beta1.TrafficTarget{
+			Tag:               "alpha",
 			ConfigurationName: niceConfig.Name,
 		},
 	}}
@@ -740,13 +739,13 @@ func TestBuildTrafficConfiguration_MissingConfig(t *testing.T) {
 			Percent:      100,
 		},
 	}, {
-		DeprecatedName: "beta",
 		TrafficTarget: v1beta1.TrafficTarget{
+			Tag:          "beta",
 			RevisionName: goodNewRev.Name,
 		},
 	}, {
-		DeprecatedName: "alpha",
 		TrafficTarget: v1beta1.TrafficTarget{
+			Tag:               "alpha",
 			ConfigurationName: missingConfig.Name,
 		},
 	}}
@@ -927,13 +926,13 @@ func TestRoundTripping(t *testing.T) {
 			Percent:      100,
 		},
 	}, {
-		DeprecatedName: "beta",
 		TrafficTarget: v1beta1.TrafficTarget{
+			Tag:          "beta",
 			RevisionName: goodNewRev.Name,
 		},
 	}, {
-		DeprecatedName: "alpha",
 		TrafficTarget: v1beta1.TrafficTarget{
+			Tag:               "alpha",
 			ConfigurationName: niceConfig.Name,
 		},
 	}}
@@ -943,18 +942,16 @@ func TestRoundTripping(t *testing.T) {
 			Percent:      100,
 		},
 	}, {
-		DeprecatedName: "beta",
 		TrafficTarget: v1beta1.TrafficTarget{
 			Tag:          "beta",
 			RevisionName: goodNewRev.Name,
-			URL:          domains.URL(domains.HTTPScheme, "test-route-beta.test.example.com"),
+			URL:          domains.URL(domains.HTTPScheme, "beta-test-route.test.example.com"),
 		},
 	}, {
-		DeprecatedName: "alpha",
 		TrafficTarget: v1beta1.TrafficTarget{
 			Tag:          "alpha",
 			RevisionName: niceNewRev.Name,
-			URL:          domains.URL(domains.HTTPScheme, "test-route-alpha.test.example.com"),
+			URL:          domains.URL(domains.HTTPScheme, "alpha-test-route.test.example.com"),
 		},
 	}}
 	route := testRouteWithTrafficTargets(tts)
@@ -1005,12 +1002,14 @@ func testConfig(name string) *v1alpha1.Configuration {
 			Namespace: testNamespace,
 		},
 		Spec: v1alpha1.ConfigurationSpec{
-			// This is a workaround for generation initialization.
-			DeprecatedGeneration: 1,
-			DeprecatedRevisionTemplate: &v1alpha1.RevisionTemplateSpec{
+			Template: &v1alpha1.RevisionTemplateSpec{
 				Spec: v1alpha1.RevisionSpec{
-					DeprecatedContainer: &corev1.Container{
-						Image: "test-image",
+					RevisionSpec: v1beta1.RevisionSpec{
+						PodSpec: corev1.PodSpec{
+							Containers: []corev1.Container{{
+								Image: "test-image",
+							}},
+						},
 					},
 				},
 			},
@@ -1092,12 +1091,6 @@ func getTestReadyConfig(name string) (*v1alpha1.Configuration, *v1alpha1.Revisio
 	rev1.Status.MarkResourcesAvailable()
 	rev1.Status.MarkContainerHealthy()
 	rev1.Status.MarkActive()
-	rev1.Status.PropagateBuildStatus(duckv1alpha1.Status{
-		Conditions: []duckv1alpha1.Condition{{
-			Type:   duckv1alpha1.ConditionSucceeded,
-			Status: corev1.ConditionTrue,
-		}},
-	})
 
 	// rev1 will use http1, rev2 will use h2c
 	config.Spec.GetTemplate().Spec.GetContainer().Ports = []corev1.ContainerPort{{
@@ -1108,12 +1101,6 @@ func getTestReadyConfig(name string) (*v1alpha1.Configuration, *v1alpha1.Revisio
 	rev2.Status.MarkResourcesAvailable()
 	rev2.Status.MarkContainerHealthy()
 	rev2.Status.MarkActive()
-	rev2.Status.PropagateBuildStatus(duckv1alpha1.Status{
-		Conditions: []duckv1alpha1.Condition{{
-			Type:   duckv1alpha1.ConditionSucceeded,
-			Status: corev1.ConditionTrue,
-		}},
-	})
 	config.Status.SetLatestReadyRevisionName(rev2.Name)
 	config.Status.SetLatestCreatedRevisionName(rev2.Name)
 	return config, rev1, rev2
@@ -1143,6 +1130,7 @@ func testNetworkConfig() *config.Config {
 		Network: &network.Config{
 			DefaultClusterIngressClass: "test-ingress-class",
 			DomainTemplate:             network.DefaultDomainTemplate,
+			TagTemplate:                network.DefaultTagTemplate,
 		},
 		GC: &gc.Config{
 			StaleRevisionLastpinnedDebounce: time.Duration(1 * time.Minute),

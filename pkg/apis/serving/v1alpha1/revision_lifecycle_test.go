@@ -23,7 +23,6 @@ import (
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/knative/pkg/apis"
 	"github.com/knative/pkg/apis/duck"
-	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 	duckv1beta1 "github.com/knative/pkg/apis/duck/v1beta1"
 	apitest "github.com/knative/pkg/apis/testing"
 	net "github.com/knative/serving/pkg/apis/networking"
@@ -146,7 +145,7 @@ func TestIsReady(t *testing.T) {
 		status: RevisionStatus{
 			Status: duckv1beta1.Status{
 				Conditions: duckv1beta1.Conditions{{
-					Type:   RevisionConditionBuildSucceeded,
+					Type:   RevisionConditionResourcesAvailable,
 					Status: corev1.ConditionTrue,
 				}},
 			},
@@ -200,7 +199,7 @@ func TestIsReady(t *testing.T) {
 		status: RevisionStatus{
 			Status: duckv1beta1.Status{
 				Conditions: duckv1beta1.Conditions{{
-					Type:   RevisionConditionBuildSucceeded,
+					Type:   RevisionConditionResourcesAvailable,
 					Status: corev1.ConditionTrue,
 				}, {
 					Type:   RevisionConditionReady,
@@ -214,7 +213,7 @@ func TestIsReady(t *testing.T) {
 		status: RevisionStatus{
 			Status: duckv1beta1.Status{
 				Conditions: duckv1beta1.Conditions{{
-					Type:   RevisionConditionBuildSucceeded,
+					Type:   RevisionConditionResourcesAvailable,
 					Status: corev1.ConditionTrue,
 				}, {
 					Type:   RevisionConditionReady,
@@ -241,170 +240,18 @@ func TestGetSetCondition(t *testing.T) {
 	}
 
 	rc := &apis.Condition{
-		Type:     RevisionConditionBuildSucceeded,
+		Type:     RevisionConditionResourcesAvailable,
 		Status:   corev1.ConditionTrue,
 		Severity: apis.ConditionSeverityError,
 	}
 
-	rs.PropagateBuildStatus(duckv1alpha1.Status{
-		Conditions: []duckv1alpha1.Condition{{
-			Type:   duckv1alpha1.ConditionSucceeded,
-			Status: corev1.ConditionTrue,
-		}},
-	})
+	rs.MarkResourcesAvailable()
 
-	if diff := cmp.Diff(rc, rs.GetCondition(RevisionConditionBuildSucceeded), cmpopts.IgnoreFields(apis.Condition{}, "LastTransitionTime")); diff != "" {
+	if diff := cmp.Diff(rc, rs.GetCondition(RevisionConditionResourcesAvailable), cmpopts.IgnoreFields(apis.Condition{}, "LastTransitionTime")); diff != "" {
 		t.Errorf("GetCondition refs diff (-want +got): %v", diff)
 	}
 	if a := rs.GetCondition(RevisionConditionReady); a != nil {
 		t.Errorf("GetCondition expected nil got: %v", a)
-	}
-}
-
-func TestTypicalFlowWithBuild(t *testing.T) {
-	r := &RevisionStatus{}
-	r.InitializeConditions()
-	apitest.CheckConditionOngoing(r.duck(), RevisionConditionBuildSucceeded, t)
-	apitest.CheckConditionOngoing(r.duck(), RevisionConditionResourcesAvailable, t)
-	apitest.CheckConditionOngoing(r.duck(), RevisionConditionContainerHealthy, t)
-	apitest.CheckConditionOngoing(r.duck(), RevisionConditionReady, t)
-
-	r.MarkResourceNotConvertible(ConvertErrorf("buildRef", "something something not allowed.").(*CannotConvertError))
-	apitest.CheckConditionOngoing(r.duck(), RevisionConditionReady, t)
-	apitest.CheckConditionFailed(r.duck(), ConditionTypeConvertible, t)
-
-	// Empty BuildStatus keeps things as-is.
-	r.PropagateBuildStatus(duckv1alpha1.Status{})
-	apitest.CheckConditionOngoing(r.duck(), RevisionConditionBuildSucceeded, t)
-	apitest.CheckConditionOngoing(r.duck(), RevisionConditionResourcesAvailable, t)
-	apitest.CheckConditionOngoing(r.duck(), RevisionConditionContainerHealthy, t)
-	apitest.CheckConditionOngoing(r.duck(), RevisionConditionReady, t)
-
-	r.PropagateBuildStatus(duckv1alpha1.Status{
-		Conditions: []duckv1alpha1.Condition{{
-			Type:   duckv1alpha1.ConditionSucceeded,
-			Status: corev1.ConditionUnknown,
-		}},
-	})
-	const want = "Building"
-	apitest.CheckConditionOngoing(r.duck(), RevisionConditionBuildSucceeded, t)
-	apitest.CheckConditionOngoing(r.duck(), RevisionConditionResourcesAvailable, t)
-	apitest.CheckConditionOngoing(r.duck(), RevisionConditionContainerHealthy, t)
-	if got := r.GetCondition(RevisionConditionBuildSucceeded); got == nil || got.Reason != want {
-		t.Errorf("PropagateBuildStatus(Unknown) = %v, wanted %v", got, want)
-	}
-	if got := r.GetCondition(RevisionConditionReady); got == nil || got.Reason != want {
-		t.Errorf("PropagateBuildStatus(Unknown) = %v, wanted %v", got, want)
-	}
-
-	r.PropagateBuildStatus(duckv1alpha1.Status{
-		Conditions: []duckv1alpha1.Condition{{
-			Type:   duckv1alpha1.ConditionSucceeded,
-			Status: corev1.ConditionTrue,
-		}},
-	})
-	apitest.CheckConditionSucceeded(r.duck(), RevisionConditionBuildSucceeded, t)
-	apitest.CheckConditionOngoing(r.duck(), RevisionConditionResourcesAvailable, t)
-	apitest.CheckConditionOngoing(r.duck(), RevisionConditionContainerHealthy, t)
-	apitest.CheckConditionOngoing(r.duck(), RevisionConditionReady, t)
-
-	// All of these conditions should get this status.
-	const want2 = "TheReason"
-	r.MarkDeploying(want2)
-	apitest.CheckConditionSucceeded(r.duck(), RevisionConditionBuildSucceeded, t)
-	apitest.CheckConditionOngoing(r.duck(), RevisionConditionResourcesAvailable, t)
-	apitest.CheckConditionOngoing(r.duck(), RevisionConditionContainerHealthy, t)
-	apitest.CheckConditionOngoing(r.duck(), RevisionConditionReady, t)
-	if got := r.GetCondition(RevisionConditionResourcesAvailable); got == nil || got.Reason != want2 {
-		t.Errorf("MarkDeploying = %v, want2ed %v", got, want2)
-	}
-	if got := r.GetCondition(RevisionConditionContainerHealthy); got == nil || got.Reason != want2 {
-		t.Errorf("MarkDeploying = %v, want2ed %v", got, want2)
-	}
-	if got := r.GetCondition(RevisionConditionReady); got == nil || got.Reason != want2 {
-		t.Errorf("MarkDeploying = %v, want2ed %v", got, want2)
-	}
-
-	r.MarkActive()
-	apitest.CheckConditionSucceeded(r.duck(), RevisionConditionBuildSucceeded, t)
-	apitest.CheckConditionSucceeded(r.duck(), RevisionConditionActive, t)
-	apitest.CheckConditionOngoing(r.duck(), RevisionConditionResourcesAvailable, t)
-	apitest.CheckConditionOngoing(r.duck(), RevisionConditionContainerHealthy, t)
-	apitest.CheckConditionOngoing(r.duck(), RevisionConditionReady, t)
-
-	if r.IsReady() {
-		t.Error("IsReady() = true, want false")
-	}
-
-	r.MarkContainerHealthy()
-	apitest.CheckConditionSucceeded(r.duck(), RevisionConditionBuildSucceeded, t)
-	apitest.CheckConditionSucceeded(r.duck(), RevisionConditionActive, t)
-	apitest.CheckConditionSucceeded(r.duck(), RevisionConditionContainerHealthy, t)
-	apitest.CheckConditionOngoing(r.duck(), RevisionConditionReady, t)
-	apitest.CheckConditionOngoing(r.duck(), RevisionConditionResourcesAvailable, t)
-	apitest.CheckConditionOngoing(r.duck(), RevisionConditionReady, t)
-
-	if r.IsReady() {
-		t.Error("IsReady() = true, want false")
-	}
-
-	r.MarkResourcesAvailable()
-	apitest.CheckConditionSucceeded(r.duck(), RevisionConditionBuildSucceeded, t)
-	apitest.CheckConditionSucceeded(r.duck(), RevisionConditionActive, t)
-	apitest.CheckConditionSucceeded(r.duck(), RevisionConditionResourcesAvailable, t)
-	apitest.CheckConditionSucceeded(r.duck(), RevisionConditionContainerHealthy, t)
-	apitest.CheckConditionSucceeded(r.duck(), RevisionConditionReady, t)
-
-	if !r.IsReady() {
-		t.Error("IsReady() = false, want true")
-	}
-}
-
-func TestTypicalFlowWithBuildFailure(t *testing.T) {
-	r := &RevisionStatus{}
-	r.InitializeConditions()
-	apitest.CheckConditionOngoing(r.duck(), RevisionConditionBuildSucceeded, t)
-	apitest.CheckConditionOngoing(r.duck(), RevisionConditionResourcesAvailable, t)
-	apitest.CheckConditionOngoing(r.duck(), RevisionConditionContainerHealthy, t)
-	apitest.CheckConditionOngoing(r.duck(), RevisionConditionReady, t)
-
-	r.PropagateBuildStatus(duckv1alpha1.Status{
-		Conditions: []duckv1alpha1.Condition{{
-			Type:   duckv1alpha1.ConditionSucceeded,
-			Status: corev1.ConditionUnknown,
-		}},
-	})
-	apitest.CheckConditionOngoing(r.duck(), RevisionConditionBuildSucceeded, t)
-	apitest.CheckConditionOngoing(r.duck(), RevisionConditionResourcesAvailable, t)
-	apitest.CheckConditionOngoing(r.duck(), RevisionConditionContainerHealthy, t)
-	apitest.CheckConditionOngoing(r.duck(), RevisionConditionReady, t)
-
-	const wantReason, wantMessage = "this is the reason", "and this the message"
-	r.PropagateBuildStatus(duckv1alpha1.Status{
-		Conditions: []duckv1alpha1.Condition{{
-			Type:    duckv1alpha1.ConditionSucceeded,
-			Status:  corev1.ConditionFalse,
-			Reason:  wantReason,
-			Message: wantMessage,
-		}},
-	})
-	apitest.CheckConditionFailed(r.duck(), RevisionConditionBuildSucceeded, t)
-	apitest.CheckConditionFailed(r.duck(), RevisionConditionReady, t)
-	apitest.CheckConditionOngoing(r.duck(), RevisionConditionResourcesAvailable, t)
-	apitest.CheckConditionOngoing(r.duck(), RevisionConditionContainerHealthy, t)
-	if got := r.GetCondition(RevisionConditionBuildSucceeded); got == nil {
-		t.Errorf("MarkBuildFailed = nil, wanted %v", wantReason)
-	} else if got.Reason != wantReason {
-		t.Errorf("MarkBuildFailed = %v, wanted %v", got.Reason, wantReason)
-	} else if got.Message != wantMessage {
-		t.Errorf("MarkBuildFailed = %v, wanted %v", got.Reason, wantMessage)
-	}
-	if got := r.GetCondition(RevisionConditionReady); got == nil {
-		t.Errorf("MarkBuildFailed = nil, wanted %v", wantReason)
-	} else if got.Reason != wantReason {
-		t.Errorf("MarkBuildFailed = %v, wanted %v", got.Reason, wantReason)
-	} else if got.Message != wantMessage {
-		t.Errorf("MarkBuildFailed = %v, wanted %v", got.Reason, wantMessage)
 	}
 }
 
@@ -475,14 +322,6 @@ func TestTypicalFlowWithSuspendResume(t *testing.T) {
 	r.MarkActive()
 	r.MarkContainerHealthy()
 	r.MarkResourcesAvailable()
-	r.PropagateBuildStatus(duckv1alpha1.Status{
-		Conditions: []duckv1alpha1.Condition{{
-			Type:   duckv1alpha1.ConditionSucceeded,
-			Status: corev1.ConditionTrue,
-			Reason: "NoBuild",
-		}},
-	})
-	apitest.CheckConditionSucceeded(r.duck(), RevisionConditionBuildSucceeded, t)
 	apitest.CheckConditionSucceeded(r.duck(), RevisionConditionResourcesAvailable, t)
 	apitest.CheckConditionSucceeded(r.duck(), RevisionConditionContainerHealthy, t)
 	apitest.CheckConditionSucceeded(r.duck(), RevisionConditionReady, t)
@@ -511,7 +350,6 @@ func TestTypicalFlowWithSuspendResume(t *testing.T) {
 
 	// From the activating state, simulate the transition back to readiness.
 	r.MarkActive()
-	apitest.CheckConditionSucceeded(r.duck(), RevisionConditionBuildSucceeded, t)
 	apitest.CheckConditionSucceeded(r.duck(), RevisionConditionResourcesAvailable, t)
 	apitest.CheckConditionSucceeded(r.duck(), RevisionConditionContainerHealthy, t)
 	apitest.CheckConditionSucceeded(r.duck(), RevisionConditionReady, t)
@@ -520,7 +358,6 @@ func TestTypicalFlowWithSuspendResume(t *testing.T) {
 func TestRevisionNotOwnedStuff(t *testing.T) {
 	r := &RevisionStatus{}
 	r.InitializeConditions()
-	apitest.CheckConditionOngoing(r.duck(), RevisionConditionBuildSucceeded, t)
 	apitest.CheckConditionOngoing(r.duck(), RevisionConditionResourcesAvailable, t)
 	apitest.CheckConditionOngoing(r.duck(), RevisionConditionContainerHealthy, t)
 	apitest.CheckConditionOngoing(r.duck(), RevisionConditionReady, t)
@@ -534,6 +371,25 @@ func TestRevisionNotOwnedStuff(t *testing.T) {
 	}
 	if got := r.GetCondition(RevisionConditionReady); got == nil || got.Reason != want {
 		t.Errorf("MarkResourceNotOwned = %v, want %v", got, want)
+	}
+}
+
+func TestRevisionResourcesUnavailable(t *testing.T) {
+	r := &RevisionStatus{}
+	r.InitializeConditions()
+	apitest.CheckConditionOngoing(r.duck(), RevisionConditionResourcesAvailable, t)
+	apitest.CheckConditionOngoing(r.duck(), RevisionConditionContainerHealthy, t)
+	apitest.CheckConditionOngoing(r.duck(), RevisionConditionReady, t)
+
+	const wantReason, wantMessage = "unschedulable", "insufficient energy"
+	r.MarkResourcesUnavailable(wantReason, wantMessage)
+	apitest.CheckConditionFailed(r.duck(), RevisionConditionResourcesAvailable, t)
+	apitest.CheckConditionFailed(r.duck(), RevisionConditionReady, t)
+	if got := r.GetCondition(RevisionConditionResourcesAvailable); got == nil || got.Reason != wantReason {
+		t.Errorf("RevisionConditionResourcesAvailable = %v, want %v", got, wantReason)
+	}
+	if got := r.GetCondition(RevisionConditionResourcesAvailable); got == nil || got.Message != wantMessage {
+		t.Errorf("RevisionConditionResourcesAvailable = %v, want %v", got, wantMessage)
 	}
 }
 

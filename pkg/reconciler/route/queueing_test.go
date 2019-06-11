@@ -17,43 +17,33 @@ limitations under the License.
 package route
 
 import (
+	"context"
 	"testing"
 	"time"
 
-	fakesharedclientset "github.com/knative/pkg/client/clientset/versioned/fake"
 	"github.com/knative/pkg/configmap"
+	"github.com/knative/pkg/controller"
 	logtesting "github.com/knative/pkg/logging/testing"
 	"github.com/knative/pkg/system"
 	netv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1beta1"
-	fakeclientset "github.com/knative/serving/pkg/client/clientset/versioned/fake"
-	informers "github.com/knative/serving/pkg/client/informers/externalversions"
+	fakeservingclient "github.com/knative/serving/pkg/client/injection/client/fake"
 	"github.com/knative/serving/pkg/gc"
 	"github.com/knative/serving/pkg/network"
-	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/route/config"
 	"golang.org/x/sync/errgroup"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	kubeinformers "k8s.io/client-go/informers"
-	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
-	"k8s.io/client-go/tools/record"
 
 	. "github.com/knative/pkg/reconciler/testing"
 )
 
-/* TODO tests:
-- syncHandler returns error (in processNextWorkItem)
-- invalid key in workqueue (in processNextWorkItem)
-- object cannot be converted to key (in enqueueConfiguration)
-- invalid key given to syncHandler
-- resource doesn't exist in lister (from syncHandler)
-*/
-
 func TestNewRouteCallsSyncHandler(t *testing.T) {
 	defer logtesting.ClearAll()
+	ctx, informers := SetupFakeContext(t)
+
 	// A standalone revision
 	rev := getTestRevision("test-rev")
 	// A route targeting the revision
@@ -67,7 +57,6 @@ func TestNewRouteCallsSyncHandler(t *testing.T) {
 	)
 
 	// Create fake clients
-	kubeClient := fakekubeclientset.NewSimpleClientset()
 	configMapWatcher := configmap.NewStaticWatcher(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      config.DomainConfigName,
@@ -90,30 +79,10 @@ func TestNewRouteCallsSyncHandler(t *testing.T) {
 		},
 		Data: map[string]string{},
 	})
-	sharedClient := fakesharedclientset.NewSimpleClientset()
-	servingClient := fakeclientset.NewSimpleClientset()
 
-	// Create informer factories with fake clients. The second parameter sets the
-	// resync period to zero, disabling it.
-	kubeInformer := kubeinformers.NewSharedInformerFactory(kubeClient, 0)
-	servingInformer := informers.NewSharedInformerFactory(servingClient, 0)
+	ctrl := NewController(ctx, configMapWatcher)
 
-	controller := NewController(
-		reconciler.Options{
-			KubeClientSet:    kubeClient,
-			SharedClientSet:  sharedClient,
-			ServingClientSet: servingClient,
-			ConfigMapWatcher: configMapWatcher,
-			Logger:           logtesting.TestLogger(t),
-			Recorder:         record.NewFakeRecorder(1000),
-		},
-		servingInformer.Serving().V1alpha1().Routes(),
-		servingInformer.Serving().V1alpha1().Configurations(),
-		servingInformer.Serving().V1alpha1().Revisions(),
-		kubeInformer.Core().V1().Services(),
-		servingInformer.Networking().V1alpha1().ClusterIngresses(),
-		servingInformer.Networking().V1alpha1().Certificates(),
-	)
+	servingClient := fakeservingclient.Get(ctx)
 
 	h := NewHooks()
 
@@ -125,25 +94,22 @@ func TestNewRouteCallsSyncHandler(t *testing.T) {
 		return HookComplete
 	})
 
-	stopCh := make(chan struct{})
+	ctx, cancel := context.WithCancel(ctx)
 	eg := errgroup.Group{}
 	defer func() {
-		close(stopCh)
+		cancel()
 		if err := eg.Wait(); err != nil {
 			t.Fatalf("Error running controller: %v", err)
 		}
 	}()
 
-	kubeInformer.Start(stopCh)
-	servingInformer.Start(stopCh)
-	configMapWatcher.Start(stopCh)
-
-	kubeInformer.WaitForCacheSync(stopCh)
-	servingInformer.WaitForCacheSync(stopCh)
+	if err := controller.StartInformers(ctx.Done(), informers...); err != nil {
+		t.Fatalf("failed to start cluster ingress manager: %v", err)
+	}
 
 	// Run the controller.
 	eg.Go(func() error {
-		return controller.Run(2, stopCh)
+		return ctrl.Run(2, ctx.Done())
 	})
 
 	if _, err := servingClient.ServingV1alpha1().Revisions(rev.Namespace).Create(rev); err != nil {

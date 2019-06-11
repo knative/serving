@@ -22,7 +22,12 @@ import (
 	"testing"
 
 	pkgTest "github.com/knative/pkg/test"
+	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/test"
+
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func checkResponse(t *testing.T, clients *test.Clients, names test.ResourceNames, expectedText string) error {
@@ -72,5 +77,47 @@ func TestMultipleNamespace(t *testing.T) {
 
 	if err := checkResponse(t, altClients, altResources, pizzaPlanetText2); err != nil {
 		t.Error(err)
+	}
+}
+
+// This test is to ensure we do not leak deletion of services in other namespaces when deleting a route.
+func TestConflictingRouteService(t *testing.T) {
+	t.Parallel()
+
+	names := test.ResourceNames{
+		Service:       test.AppendRandomString("conflicting-route-service"),
+		TrafficTarget: "chips",
+		Image:         pizzaPlanet1,
+	}
+
+	// Create a service in a different namespace but route label points to a route in another namespace
+	svc := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      test.AppendRandomString("conflicting-route-service"),
+			Namespace: test.AlternativeServingNamespace,
+			Labels: map[string]string{
+				serving.RouteLabelKey: names.Service,
+			},
+		},
+		Spec: corev1.ServiceSpec{
+			Type:         corev1.ServiceTypeExternalName,
+			ExternalName: "some-internal-addr",
+		},
+	}
+
+	altClients := SetupAlternativeNamespace(t)
+	altClients.KubeClient.Kube.CoreV1().Services(test.AlternativeServingNamespace).Create(svc)
+	cleanup := func() {
+		altClients.KubeClient.Kube.CoreV1().Services(test.AlternativeServingNamespace).Delete(svc.Name, &v1.DeleteOptions{})
+	}
+	test.CleanupOnInterrupt(cleanup)
+	defer cleanup()
+
+	clients := Setup(t)
+
+	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
+	defer test.TearDown(clients, names)
+	if _, err := test.CreateRunLatestServiceReady(t, clients, &names, &test.Options{}); err != nil {
+		t.Errorf("Failed to create Service %v in namespace %v: %v", names.Service, test.ServingNamespace, err)
 	}
 }

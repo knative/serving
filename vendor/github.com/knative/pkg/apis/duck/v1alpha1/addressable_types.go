@@ -76,8 +76,24 @@ func (t *AddressableType) Populate() {
 	t.Status = AddressStatus{
 		&Addressable{
 			// Populate ALL fields
+			Addressable: v1beta1.Addressable{
+				URL: &apis.URL{
+					Scheme: "http",
+					Host:   "foo.bar.svc.cluster.local",
+				},
+			},
 			Hostname: "this is not empty",
 		},
+	}
+}
+
+func (a Addressable) GetURL() apis.URL {
+	if a.URL != nil {
+		return *a.URL
+	}
+	return apis.URL{
+		Scheme: "http",
+		Host:   a.Hostname,
 	}
 }
 

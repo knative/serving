@@ -21,7 +21,6 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/knative/pkg/apis/duck"
 	duckv1beta1 "github.com/knative/pkg/apis/duck/v1alpha1"
-	apitest "github.com/knative/pkg/apis/testing"
 )
 
 func TestClusterIngressDuckTypes(t *testing.T) {
@@ -67,28 +66,5 @@ func TestIsPublic(t *testing.T) {
 	if ci.IsPublic() {
 		t.Errorf("Expected IsPublic()==false, saw %v", ci.IsPublic())
 	}
-}
 
-func TestCITypicalFlow(t *testing.T) {
-	r := &IngressStatus{}
-	r.InitializeConditions()
-
-	apitest.CheckConditionOngoing(r.duck(), ClusterIngressConditionReady, t)
-
-	// Then network is configured.
-	r.MarkNetworkConfigured()
-	apitest.CheckConditionSucceeded(r.duck(), ClusterIngressConditionNetworkConfigured, t)
-	apitest.CheckConditionOngoing(r.duck(), ClusterIngressConditionReady, t)
-
-	// Then ingress has address.
-	r.MarkLoadBalancerReady([]LoadBalancerIngressStatus{{DomainInternal: "gateway.default.svc"}})
-	apitest.CheckConditionSucceeded(r.duck(), ClusterIngressConditionLoadBalancerReady, t)
-	apitest.CheckConditionSucceeded(r.duck(), ClusterIngressConditionReady, t)
-	if !r.IsReady() {
-		t.Fatal("IsReady()=false, wanted true")
-	}
-
-	// Mark not owned.
-	r.MarkResourceNotOwned("i own", "you")
-	apitest.CheckConditionFailed(r.duck(), ClusterIngressConditionReady, t)
 }

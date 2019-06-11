@@ -96,7 +96,7 @@ func MakeServers(ci *v1alpha1.ClusterIngress, gatewayServiceNamespace string, or
 		if tls.SecretNamespace != gatewayServiceNamespace {
 			originSecret, ok := originSecrets[secretKey(tls)]
 			if !ok {
-				return nil, fmt.Errorf("Unable to get the original secret %s/%s", tls.SecretNamespace, tls.SecretName)
+				return nil, fmt.Errorf("unable to get the original secret %s/%s", tls.SecretNamespace, tls.SecretName)
 			}
 			credentialName = targetSecret(originSecret, ci)
 		}
@@ -151,11 +151,11 @@ func GatewayServiceNamespace(ingressGateways []config.Gateway, gatewayName strin
 		// serviceName.namespace.svc.cluster.local.
 		parts := strings.SplitN(gw.ServiceURL, ".", 3)
 		if len(parts) != 3 {
-			return "", fmt.Errorf("Unexpected service URL form: %s", gw.ServiceURL)
+			return "", fmt.Errorf("unexpected service URL form: %s", gw.ServiceURL)
 		}
 		return parts[1], nil
 	}
-	return "", fmt.Errorf("No Gateway configuration is found for gateway %s", gatewayName)
+	return "", fmt.Errorf("no Gateway configuration is found for gateway %s", gatewayName)
 }
 
 // getAllGatewaySvcNamespaces gets all of the namespaces of Istio gateway services from context.

@@ -21,6 +21,7 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"github.com/knative/pkg/kmeta"
 	"github.com/knative/serving/pkg/apis/networking/v1alpha1"
 )
 
@@ -28,17 +29,26 @@ func TestNamer(t *testing.T) {
 	tests := []struct {
 		name    string
 		ingress *v1alpha1.ClusterIngress
-		f       func(*v1alpha1.ClusterIngress) string
+		f       func(kmeta.Accessor) string
 		want    string
 	}{{
-		name: "VirtualService",
+		name: "IngressVirtualService",
 		ingress: &v1alpha1.ClusterIngress{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "foo",
 			},
 		},
-		f:    VirtualService,
+		f:    IngressVirtualService,
 		want: "foo",
+	}, {
+		name: "MeshVirtualService",
+		ingress: &v1alpha1.ClusterIngress{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "foo",
+			},
+		},
+		f:    MeshVirtualService,
+		want: "foo-mesh",
 	}}
 
 	for _, test := range tests {
