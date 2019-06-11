@@ -18,9 +18,18 @@ package v1beta1
 
 import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
+
+	"github.com/knative/pkg/apis"
 )
+
+var routeCondSet = apis.NewLivingConditionSet()
 
 // GetGroupVersionKind returns the GroupVersionKind.
 func (r *Route) GetGroupVersionKind() schema.GroupVersionKind {
 	return SchemeGroupVersion.WithKind("Route")
+}
+
+// IsReady returns if the route is ready to serve the requested configuration.
+func (rs *RouteStatus) IsReady() bool {
+	return routeCondSet.Manage(rs).IsHappy()
 }
