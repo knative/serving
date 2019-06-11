@@ -16,12 +16,12 @@ limitations under the License.
 
 package names
 
-import "github.com/knative/serving/pkg/apis/serving/v1alpha1"
+import "github.com/knative/pkg/kmeta"
 
-func Configuration(service *v1alpha1.Service) string {
-	return service.Name
+func Configuration(service kmeta.Accessor) string {
+	return service.GetName()
 }
 
-func Route(service *v1alpha1.Service) string {
-	return service.Name
+func Route(service kmeta.Accessor) string {
+	return service.GetName()
 }
