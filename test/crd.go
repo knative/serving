@@ -21,7 +21,6 @@ package test
 import (
 	"strings"
 	"testing"
-	"unicode"
 
 	"github.com/knative/pkg/ptr"
 	ptest "github.com/knative/pkg/test"
@@ -219,33 +218,18 @@ func LatestServiceLegacy(names ResourceNames, options *Options, fopt ...v1alpha1
 // called for the first time.
 var AppendRandomString = helpers.AppendRandomString
 
+// MakeK8sNamePrefix will convert each chunk of non-alphanumeric character into a single dash
+// and also convert camelcase tokens into dash-delimited lowercase tokens.
+var MakeK8sNamePrefix = helpers.MakeK8sNamePrefix
+
 // ObjectNameForTest generates a random object name based on the test name.
 func ObjectNameForTest(t *testing.T) string {
-	return AppendRandomString(makeK8sNamePrefix(strings.TrimPrefix(t.Name(), testNamePrefix)))
+	return AppendRandomString(MakeK8sNamePrefix(strings.TrimPrefix(t.Name(), testNamePrefix)))
 }
 
 // SubServiceNameForTest generates a random service name based on the test name and
 // the given subservice name.
 func SubServiceNameForTest(t *testing.T, subsvc string) string {
 	fullPrefix := strings.TrimPrefix(t.Name(), testNamePrefix) + "-" + subsvc
-	return AppendRandomString(makeK8sNamePrefix(fullPrefix))
-}
-
-// makeK8sNamePrefix converts each chunk of non-alphanumeric character into a single dash
-// and also convert camelcase tokens into dash-delimited lowercase tokens.
-func makeK8sNamePrefix(s string) string {
-	var sb strings.Builder
-	newToken := false
-	for _, c := range s {
-		if !(unicode.IsLetter(c) || unicode.IsNumber(c)) {
-			newToken = true
-			continue
-		}
-		if sb.Len() > 0 && (newToken || unicode.IsUpper(c)) {
-			sb.WriteRune('-')
-		}
-		sb.WriteRune(unicode.ToLower(c))
-		newToken = false
-	}
-	return sb.String()
+	return AppendRandomString(MakeK8sNamePrefix(fullPrefix))
 }
