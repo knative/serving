@@ -282,10 +282,10 @@ func (c *Reconciler) metricService(pa *pav1alpha1.PodAutoscaler) (*corev1.Servic
 			c.KubeClientSet.CoreV1().Services(pa.Namespace).Delete(s.Name, &metav1.DeleteOptions{})
 		}
 	}
-	if ret != nil {
-		return ret, nil
+	if ret == nil {
+		return nil, errors.NewNotFound(corev1.Resource("Services"), pa.Name)
 	}
-	return nil, errors.NewNotFound(corev1.Resource("Services"), pa.Name)
+	return ret, nil
 }
 
 func (c *Reconciler) reconcileMetricsService(ctx context.Context, pa *pav1alpha1.PodAutoscaler) (string, error) {

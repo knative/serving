@@ -34,7 +34,6 @@ import (
 func MakeMetricsService(pa *pav1alpha1.PodAutoscaler, selector map[string]string) *corev1.Service {
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			//		Name:      names.MetricsServiceName(pa.Name),
 			GenerateName: pa.Name + "-",
 			Namespace:    pa.Namespace,
 			Labels: resources.UnionMaps(pa.GetLabels(), map[string]string{
