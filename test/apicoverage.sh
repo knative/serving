@@ -44,7 +44,7 @@ ko apply -f $APICOVERAGE_IMAGE/apicoverage-webhook.yaml || fail_test "Failed set
 
 header "Running tests"
 # Run conformance tests and e2e tests
-go_test_e2e -timeout=30m ./test/conformance ./test/e2e || fail_test "Failed in executing Tests"
+go_test_e2e -timeout=30m ./test/conformance/api ./test/conformance/runtime ./test/e2e || fail_test "Failed in executing Tests"
 
 header "Retrieving API Coverage values"
 go run $APICOVERAGE_TOOL/main.go || fail_test "Failed retrieving API coverage values"
