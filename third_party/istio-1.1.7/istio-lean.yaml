@@ -983,7 +983,7 @@ spec:
           resources:
             requests:
               cpu: 500m
-              memory: 2048Mi
+              memory: 128Mi
 
           volumeMounts:
           - name: config-volume
