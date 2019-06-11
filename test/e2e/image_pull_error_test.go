@@ -31,7 +31,6 @@ import (
 func TestImagePullError(t *testing.T) {
 	clients := Setup(t)
 	const (
-		errorReason   = "RevisionFailed"
 		backoffMsg    = "Back-off pulling image"
 		backoffReason = "ImagePullBackOff"
 		daemonMsg     = "Error response from daemon: manifest for"
@@ -83,7 +82,7 @@ func TestImagePullError(t *testing.T) {
 	}
 
 	t.Log("When the images are not pulled, the revision should have error status.")
-	err = test.WaitForRevisionState(clients.ServingClient, revisionName, func(r *v1alpha1.Revision) (bool, error) {
+	err = test.CheckRevisionState(clients.ServingClient, revisionName, func(r *v1alpha1.Revision) (bool, error) {
 		cond := r.Status.GetCondition(v1alpha1.RevisionConditionReady)
 		if cond != nil {
 			if (cond.Reason == backoffReason && strings.Contains(cond.Message, backoffMsg)) ||
@@ -94,7 +93,7 @@ func TestImagePullError(t *testing.T) {
 				revisionName, cond.Reason, cond.Message)
 		}
 		return false, nil
-	}, errorReason)
+	})
 
 	if err != nil {
 		t.Fatalf("Failed to validate revision state: %s", err)
