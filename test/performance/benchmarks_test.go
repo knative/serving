@@ -45,7 +45,7 @@ func filename(name string) string {
 	return replacer.Replace(name)
 }
 
-func runTest(t *testing.T, img string, baseQps float64, loadFactors []float64) {
+func runTest(t *testing.T, img string, baseQPS float64, loadFactors []float64) {
 	t.Helper()
 	tName := t.Name()
 	perfClients, err := Setup(t)
@@ -91,7 +91,7 @@ func runTest(t *testing.T, img string, baseQps float64, loadFactors []float64) {
 		Domain:         domain,
 		URL:            fmt.Sprintf("http://%s", *endpoint),
 		RequestTimeout: reqTimeout,
-		BaseQPS:        baseQps,
+		BaseQPS:        baseQPS,
 		LoadFactors:    loadFactors,
 		FileNamePrefix: filename(tName),
 	}
