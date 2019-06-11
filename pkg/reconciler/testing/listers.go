@@ -36,20 +36,13 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	autoscalingv2beta1 "k8s.io/api/autoscaling/v2beta1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
 	appsv1listers "k8s.io/client-go/listers/apps/v1"
 	autoscalingv2beta1listers "k8s.io/client-go/listers/autoscaling/v2beta1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 )
-
-var buildAddToScheme = func(scheme *runtime.Scheme) error {
-	scheme.AddKnownTypeWithName(schema.GroupVersionKind{Group: "build.knative.dev", Version: "v1alpha1", Kind: "Build"}, &unstructured.Unstructured{})
-	return nil
-}
 
 var clientSetSchemes = []func(*runtime.Scheme) error{
 	fakekubeclientset.AddToScheme,
@@ -58,7 +51,6 @@ var clientSetSchemes = []func(*runtime.Scheme) error{
 	fakecachingclientset.AddToScheme,
 	certmanagerv1alpha1.AddToScheme,
 	autoscalingv2beta1.AddToScheme,
-	buildAddToScheme,
 }
 
 type Listers struct {
@@ -101,10 +93,6 @@ func (l *Listers) GetCachingObjects() []runtime.Object {
 
 func (l *Listers) GetServingObjects() []runtime.Object {
 	return l.sorter.ObjectsForSchemeFunc(fakeservingclientset.AddToScheme)
-}
-
-func (l *Listers) GetBuildObjects() []runtime.Object {
-	return l.sorter.ObjectsForSchemeFunc(buildAddToScheme)
 }
 
 func (l *Listers) GetSharedObjects() []runtime.Object {
