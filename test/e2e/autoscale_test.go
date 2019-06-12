@@ -216,7 +216,8 @@ func assertAutoscaleUpToNumPods(ctx *testContext, curPods, targetPods int32, dur
 	// 2) Not Quick (sustaining) mode: succeeds when the number of pods gets scaled to targetPods and
 	//    sustains there for the `duration`.
 
-	minPods := curPods
+	// Relax the bounds to reduce the flakiness caused by sampling in the autoscaling algorithm.
+	minPods := curPods - 1
 	maxPods := targetPods + 1
 
 	stopChan := make(chan struct{})
@@ -246,17 +247,18 @@ func assertAutoscaleUpToNumPods(ctx *testContext, curPods, targetPods int32, dur
 					if got >= targetPods && got <= maxPods {
 						return nil
 					}
-				} else if minPods < targetPods {
-					minPods = int32(math.Min(float64(got), float64(targetPods)))
+				}
+				if minPods < targetPods - 1 {
+					minPods = int32(math.Min(float64(got), float64(targetPods))) - 1
 				}
 			case <-done:
 				got, err := numberOfPods(ctx)
 				if err != nil {
 					return err
 				}
-				mes := fmt.Sprintf("got %d replicas, expected between [%d, %d] replicas for deployment %s", got, targetPods, maxPods, ctx.deploymentName)
+				mes := fmt.Sprintf("got %d replicas, expected between [%d, %d] replicas for deployment %s", got, targetPods - 1, maxPods, ctx.deploymentName)
 				ctx.t.Log(mes)
-				if got < targetPods || got > maxPods {
+				if got < targetPods - 1 || got > maxPods {
 					return errors.New(mes)
 				}
 				return nil
