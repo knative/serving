@@ -204,7 +204,6 @@ function create_test_cluster() {
   (( ! IS_BOSKOS )) && extra_flags+=(--down)
   create_test_cluster_with_retries "${CLUSTER_CREATION_ARGS[@]}" \
     --up \
-    --extract "${E2E_CLUSTER_VERSION}" \
     --gcp-node-image "${SERVING_GKE_IMAGE}" \
     --test-cmd "${E2E_SCRIPT}" \
     --test-cmd-args "${test_cmd_args}" \
@@ -246,15 +245,21 @@ function create_test_cluster_with_retries() {
       E2E_CLUSTER_ZONE=${e2e_cluster_zone}
       [[ "${E2E_CLUSTER_ZONE}" == "${zone_not_provided}" ]] && E2E_CLUSTER_ZONE=""
 
-      local geoflag="--gcp-region=${E2E_CLUSTER_REGION}"
-      [[ -n "${E2E_CLUSTER_ZONE}" ]] && geoflag="--gcp-zone=${E2E_CLUSTER_REGION}-${E2E_CLUSTER_ZONE}"
+      local cluster_creation_zone="${E2E_CLUSTER_REGION}"
+      [[ -n "${E2E_CLUSTER_ZONE}" ]] && cluster_creation_zone="${E2E_CLUSTER_REGION}-${E2E_CLUSTER_ZONE}"
+      # Convert cluster version to a full GKE version if we're not using latest
+      if [[ "${E2E_CLUSTER_VERSION}" =~ ^[0-9](\.[0-9]+)?$ ]]; then
+        E2E_CLUSTER_VERSION="v$(gcloud container get-server-config --zone=${cluster_creation_zone} --format="value(validMasterVersions)" 2> /dev/null \
+          | tr ';' '\n' | grep -E ^${E2E_CLUSTER_VERSION} | cut -f1 -d- | sort | tail -1)"
+        [[ "${E2E_CLUSTER_VERSION}" == "v" ]] && fail_test "Unsupported cluster version provided"
+      fi
 
-      header "Creating test cluster in $E2E_CLUSTER_REGION $E2E_CLUSTER_ZONE"
+      header "Creating test cluster ${E2E_CLUSTER_VERSION} in ${cluster_creation_zone}"
       # Don't fail test for kubetest, as it might incorrectly report test failure
       # if teardown fails (for details, see success() below)
       set +o errexit
       { run_go_tool k8s.io/test-infra/kubetest \
-        kubetest "$@" ${geoflag}; } 2>&1 | tee ${cluster_creation_log}
+        kubetest --extract ${E2E_CLUSTER_VERSION} "$@" --gcp-region=${cluster_creation_zone}; } 2>&1 | tee ${cluster_creation_log}
 
       # Exit if test succeeded
       [[ "$(get_test_return_code)" == "0" ]] && return 0
@@ -422,7 +427,7 @@ function initialize() {
     echo "\$PROJECT_ID is set to '${PROJECT_ID}', using it to run the tests"
     GCP_PROJECT="${PROJECT_ID}"
   fi
-  if (( ! IS_PROW )) && [[ -z "${GCP_PROJECT}" ]]; then
+  if (( ! IS_PROW )) && (( ! RUN_TESTS )) && [[ -z "${GCP_PROJECT}" ]]; then
     abort "set \$PROJECT_ID or use --gcp-project to select the GCP project where the tests are run"
   fi
 

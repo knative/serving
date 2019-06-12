@@ -341,6 +341,14 @@
   version = "v0.19.0"
 
 [[projects]]
+  digest = "1:13e9a236e56e18fecb73f5b2f2eb7f60060a1a9bc27e5a7328ab22e275ecb63e"
+  name = "github.com/go-sql-driver/mysql"
+  packages = ["."]
+  pruneopts = "NUT"
+  revision = "72cd26f257d44c1114970e19afddcd812016007e"
+  version = "v1.4.1"
+
+[[projects]]
   digest = "1:acaf854c7e302a7e13a665d00e6579fb72ead2ecd4932286deeac94ad3070fe7"
   name = "github.com/gobuffalo/envy"
   packages = ["."]
@@ -693,6 +701,8 @@
     "shared/gcs",
     "shared/junit",
     "shared/loadgenerator",
+    "shared/mysql",
+    "shared/performance",
     "shared/prometheus",
     "shared/prow",
     "shared/testgrid",
@@ -1092,10 +1102,11 @@
   revision = "511bab8e55decfbe784cd2d1868fa5cda62dc6c1"
 
 [[projects]]
-  digest = "1:b400989fa9ecf8f825e9092d41c9779444afeda5d5ce7f5c9d4a9ca9d05c949c"
+  digest = "1:54070c274265e10e368fef83bfac7737c81a8868c9e3ab3a5cdca89adba96d7a"
   name = "google.golang.org/appengine"
   packages = [
     ".",
+    "cloudsql",
     "internal",
     "internal/app_identity",
     "internal/base",
@@ -1778,6 +1789,7 @@
     "github.com/knative/test-infra/shared/common",
     "github.com/knative/test-infra/shared/junit",
     "github.com/knative/test-infra/shared/loadgenerator",
+    "github.com/knative/test-infra/shared/performance",
     "github.com/knative/test-infra/shared/prometheus",
     "github.com/knative/test-infra/shared/prow",
     "github.com/knative/test-infra/shared/testgrid",
