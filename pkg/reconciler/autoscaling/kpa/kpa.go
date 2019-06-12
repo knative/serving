@@ -270,9 +270,10 @@ func (c *Reconciler) metricService(pa *pav1alpha1.PodAutoscaler) (*corev1.Servic
 	}
 	var ret *corev1.Service
 	for _, s := range svcs {
-		// Found a match.
 		// TODO(vagababov): determine if this is better to be in the ownership check.
-		if s.Name == pa.Status.MetricsServiceName {
+		// TODO(vagababov): remove the second check after 0.7 is cut.
+		// Found a match or we had nothing set up, then pick any of them, to reduce churn.
+		if s.Name == pa.Status.MetricsServiceName || pa.Status.MetricsServiceName == "" {
 			ret = s
 			continue
 		}
