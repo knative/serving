@@ -162,6 +162,16 @@ func TestScaler(t *testing.T) {
 			k.Status.MarkActivating("", "")
 		},
 	}, {
+		label:         "scale down to minScale before grace period",
+		startReplicas: 10,
+		scaleTo:       0,
+		minScale:      2,
+		wantReplicas:  2,
+		wantScaling:   true,
+		kpaMutation: func(k *pav1alpha1.PodAutoscaler) {
+			kpaMarkInactive(k, time.Now().Add(-gracePeriod+time.Second))
+		},
+	}, {
 		label:         "scale down to minScale after grace period",
 		startReplicas: 10,
 		scaleTo:       0,
