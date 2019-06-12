@@ -19,6 +19,7 @@ package kpa
 import (
 	"context"
 
+	"github.com/knative/pkg/apis/duck"
 	endpointsinformer "github.com/knative/pkg/injection/informers/kubeinformers/corev1/endpoints"
 	serviceinformer "github.com/knative/pkg/injection/informers/kubeinformers/corev1/service"
 	kpainformer "github.com/knative/serving/pkg/client/injection/informers/autoscaling/v1alpha1/podautoscaler"
@@ -50,6 +51,7 @@ func NewController(
 	cmw configmap.Watcher,
 	kpaDeciders resources.Deciders,
 	metrics aresources.Metrics,
+	psInformerFactory duck.InformerFactory,
 ) *controller.Impl {
 
 	paInformer := kpainformer.Get(ctx)
@@ -58,16 +60,17 @@ func NewController(
 	endpointsInformer := endpointsinformer.Get(ctx)
 
 	c := &Reconciler{
-		Base:            reconciler.NewBase(ctx, controllerAgentName, cmw),
-		paLister:        paInformer.Lister(),
-		sksLister:       sksInformer.Lister(),
-		serviceLister:   serviceInformer.Lister(),
-		endpointsLister: endpointsInformer.Lister(),
-		kpaDeciders:     kpaDeciders,
-		metrics:         metrics,
+		Base:              reconciler.NewBase(ctx, controllerAgentName, cmw),
+		paLister:          paInformer.Lister(),
+		sksLister:         sksInformer.Lister(),
+		serviceLister:     serviceInformer.Lister(),
+		endpointsLister:   endpointsInformer.Lister(),
+		kpaDeciders:       kpaDeciders,
+		metrics:           metrics,
+		psInformerFactory: psInformerFactory,
 	}
 	impl := controller.NewImpl(c, c.Logger, "KPA-Class Autoscaling")
-	c.scaler = newScaler(ctx, impl.EnqueueAfter)
+	c.scaler = newScaler(ctx, psInformerFactory, impl.EnqueueAfter)
 
 	c.Logger.Info("Setting up KPA-Class event handlers")
 	// Handle PodAutoscalers missing the class annotation for backward compatibility.

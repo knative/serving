@@ -73,6 +73,8 @@ import (
 	. "github.com/knative/serving/pkg/testing"
 )
 
+// TODO(#3591): Convert KPA tests to table tests.
+
 const (
 	gracePeriod              = 60 * time.Second
 	stableWindow             = 5 * time.Minute
@@ -107,8 +109,6 @@ func newConfigWatcher() configmap.Watcher {
 		Data: defaultConfigMapData(),
 	})
 }
-
-// TODO(#3591): Convert KPA tests to table tests.
 
 func withMSvcName(sn string) K8sServiceOption {
 	return func(svc *corev1.Service) {
@@ -298,18 +298,20 @@ func TestReconcileAndScaleToZero(t *testing.T) {
 		fakeDeciders.Create(ctx, decider)
 
 		fakeMetrics := newTestMetrics()
-		scaler := newScaler(ctx, func(interface{}, time.Duration) {})
+		psFactory := presources.NewPodScalableInformerFactory(ctx)
+		scaler := newScaler(ctx, psFactory, func(interface{}, time.Duration) {})
 		scaler.activatorProbe = func(*asv1a1.PodAutoscaler) (bool, error) { return true, nil }
 		return &Reconciler{
-			Base:            rpkg.NewBase(ctx, controllerAgentName, newConfigWatcher()),
-			paLister:        listers.GetPodAutoscalerLister(),
-			sksLister:       listers.GetServerlessServiceLister(),
-			serviceLister:   listers.GetK8sServiceLister(),
-			endpointsLister: listers.GetEndpointsLister(),
-			kpaDeciders:     fakeDeciders,
-			metrics:         fakeMetrics,
-			scaler:          scaler,
-			configStore:     &testConfigStore{config: defaultConfig()},
+			Base:              rpkg.NewBase(ctx, controllerAgentName, newConfigWatcher()),
+			paLister:          listers.GetPodAutoscalerLister(),
+			sksLister:         listers.GetServerlessServiceLister(),
+			serviceLister:     listers.GetK8sServiceLister(),
+			endpointsLister:   listers.GetEndpointsLister(),
+			kpaDeciders:       fakeDeciders,
+			metrics:           fakeMetrics,
+			scaler:            scaler,
+			configStore:       &testConfigStore{config: defaultConfig()},
+			psInformerFactory: psFactory,
 		}
 	}))
 }
@@ -767,17 +769,19 @@ func TestReconcile(t *testing.T) {
 		decider.Generation = 2112
 		fakeDeciders.Create(ctx, decider)
 
+		psFactory := presources.NewPodScalableInformerFactory(ctx)
 		fakeMetrics := newTestMetrics()
 		return &Reconciler{
-			Base:            rpkg.NewBase(ctx, controllerAgentName, newConfigWatcher()),
-			paLister:        listers.GetPodAutoscalerLister(),
-			sksLister:       listers.GetServerlessServiceLister(),
-			serviceLister:   listers.GetK8sServiceLister(),
-			endpointsLister: listers.GetEndpointsLister(),
-			kpaDeciders:     fakeDeciders,
-			metrics:         fakeMetrics,
-			scaler:          newScaler(ctx, func(interface{}, time.Duration) {}),
-			configStore:     &testConfigStore{config: defaultConfig()},
+			Base:              rpkg.NewBase(ctx, controllerAgentName, newConfigWatcher()),
+			paLister:          listers.GetPodAutoscalerLister(),
+			sksLister:         listers.GetServerlessServiceLister(),
+			serviceLister:     listers.GetK8sServiceLister(),
+			endpointsLister:   listers.GetEndpointsLister(),
+			kpaDeciders:       fakeDeciders,
+			metrics:           fakeMetrics,
+			scaler:            newScaler(ctx, psFactory, func(interface{}, time.Duration) {}),
+			configStore:       &testConfigStore{config: defaultConfig()},
+			psInformerFactory: psFactory,
 		}
 	}))
 }
@@ -814,7 +818,7 @@ func TestGlobalResyncOnUpdateAutoscalerConfigMap(t *testing.T) {
 
 	fakeDeciders := newTestDeciders()
 	fakeMetrics := newTestMetrics()
-	ctl := NewController(ctx, watcher, fakeDeciders, fakeMetrics)
+	ctl := NewController(ctx, watcher, fakeDeciders, fakeMetrics, presources.NewPodScalableInformerFactory(ctx))
 
 	// Load default config
 	watcher.OnChange(&corev1.ConfigMap{
@@ -885,7 +889,7 @@ func TestControllerSynchronizesCreatesAndDeletes(t *testing.T) {
 
 	fakeDeciders := newTestDeciders()
 	fakeMetrics := newTestMetrics()
-	ctl := NewController(ctx, newConfigWatcher(), fakeDeciders, fakeMetrics)
+	ctl := NewController(ctx, newConfigWatcher(), fakeDeciders, fakeMetrics, presources.NewPodScalableInformerFactory(ctx))
 
 	rev := newTestRevision(testNamespace, testRevision)
 	fakeservingclient.Get(ctx).ServingV1alpha1().Revisions(testNamespace).Create(rev)
@@ -959,7 +963,7 @@ func TestUpdate(t *testing.T) {
 
 	fakeDeciders := newTestDeciders()
 	fakeMetrics := newTestMetrics()
-	ctl := NewController(ctx, newConfigWatcher(), fakeDeciders, fakeMetrics)
+	ctl := NewController(ctx, newConfigWatcher(), fakeDeciders, fakeMetrics, presources.NewPodScalableInformerFactory(ctx))
 
 	rev := newTestRevision(testNamespace, testRevision)
 	fakeservingclient.Get(ctx).ServingV1alpha1().Revisions(testNamespace).Create(rev)
@@ -1035,7 +1039,7 @@ func TestNonKPAClass(t *testing.T) {
 
 	fakeDeciders := newTestDeciders()
 	fakeMetrics := newTestMetrics()
-	ctl := NewController(ctx, newConfigWatcher(), fakeDeciders, fakeMetrics)
+	ctl := NewController(ctx, newConfigWatcher(), fakeDeciders, fakeMetrics, presources.NewPodScalableInformerFactory(ctx))
 
 	rev := newTestRevision(testNamespace, testRevision)
 	rev.Annotations = map[string]string{
@@ -1066,7 +1070,7 @@ func TestNoEndpoints(t *testing.T) {
 	defer logtesting.ClearAll()
 	ctx, _ := SetupFakeContext(t)
 
-	ctl := NewController(ctx, newConfigWatcher(), newTestDeciders(), newTestMetrics())
+	ctl := NewController(ctx, newConfigWatcher(), newTestDeciders(), newTestMetrics(), presources.NewPodScalableInformerFactory(ctx))
 
 	rev := newTestRevision(testNamespace, testRevision)
 	fakeservingclient.Get(ctx).ServingV1alpha1().Revisions(testNamespace).Create(rev)
@@ -1097,7 +1101,7 @@ func TestEmptyEndpoints(t *testing.T) {
 	defer logtesting.ClearAll()
 	ctx, _ := SetupFakeContext(t)
 
-	ctl := NewController(ctx, newConfigWatcher(), newTestDeciders(), newTestMetrics())
+	ctl := NewController(ctx, newConfigWatcher(), newTestDeciders(), newTestMetrics(), presources.NewPodScalableInformerFactory(ctx))
 
 	rev := newTestRevision(testNamespace, testRevision)
 	fakeservingclient.Get(ctx).ServingV1alpha1().Revisions(testNamespace).Create(rev)
@@ -1137,6 +1141,7 @@ func TestControllerCreateError(t *testing.T) {
 			createErr: want,
 		},
 		newTestMetrics(),
+		presources.NewPodScalableInformerFactory(ctx),
 	)
 
 	kpa := revisionresources.MakeKPA(newTestRevision(testNamespace, testRevision))
@@ -1164,6 +1169,7 @@ func TestControllerUpdateError(t *testing.T) {
 			createErr: want,
 		},
 		newTestMetrics(),
+		presources.NewPodScalableInformerFactory(ctx),
 	)
 
 	kpa := revisionresources.MakeKPA(newTestRevision(testNamespace, testRevision))
@@ -1190,6 +1196,7 @@ func TestControllerGetError(t *testing.T) {
 			getErr: want,
 		},
 		newTestMetrics(),
+		presources.NewPodScalableInformerFactory(ctx),
 	)
 
 	kpa := revisionresources.MakeKPA(newTestRevision(testNamespace, testRevision))
@@ -1208,7 +1215,7 @@ func TestScaleFailure(t *testing.T) {
 	defer logtesting.ClearAll()
 	ctx, _ := SetupFakeContext(t)
 
-	ctl := NewController(ctx, newConfigWatcher(), newTestDeciders(), newTestMetrics())
+	ctl := NewController(ctx, newConfigWatcher(), newTestDeciders(), newTestMetrics(), presources.NewPodScalableInformerFactory(ctx))
 
 	// Only put the KPA in the lister, which will prompt failures scaling it.
 	rev := newTestRevision(testNamespace, testRevision)
@@ -1226,7 +1233,7 @@ func TestBadKey(t *testing.T) {
 	defer logtesting.ClearAll()
 	ctx, _ := SetupFakeContext(t)
 
-	ctl := NewController(ctx, newConfigWatcher(), newTestDeciders(), newTestMetrics())
+	ctl := NewController(ctx, newConfigWatcher(), newTestDeciders(), newTestMetrics(), presources.NewPodScalableInformerFactory(ctx))
 
 	err := ctl.Reconciler.Reconcile(context.Background(), "too/many/parts")
 	if err != nil {

@@ -25,6 +25,7 @@ import (
 	perrors "github.com/pkg/errors"
 	"go.uber.org/zap"
 
+	"github.com/knative/pkg/apis/duck"
 	"github.com/knative/pkg/controller"
 	"github.com/knative/pkg/logging"
 	"github.com/knative/serving/pkg/apis/autoscaling"
@@ -56,14 +57,15 @@ import (
 // information from Deciders.
 type Reconciler struct {
 	*reconciler.Base
-	paLister        listers.PodAutoscalerLister
-	serviceLister   corev1listers.ServiceLister
-	sksLister       nlisters.ServerlessServiceLister
-	endpointsLister corev1listers.EndpointsLister
-	kpaDeciders     resources.Deciders
-	metrics         aresources.Metrics
-	scaler          *scaler
-	configStore     configStore
+	paLister          listers.PodAutoscalerLister
+	serviceLister     corev1listers.ServiceLister
+	sksLister         nlisters.ServerlessServiceLister
+	endpointsLister   corev1listers.EndpointsLister
+	kpaDeciders       resources.Deciders
+	metrics           aresources.Metrics
+	scaler            *scaler
+	configStore       configStore
+	psInformerFactory duck.InformerFactory
 }
 
 // Check that our Reconciler implements controller.Reconciler
@@ -292,7 +294,7 @@ func (c *Reconciler) metricService(pa *pav1alpha1.PodAutoscaler) (*corev1.Servic
 func (c *Reconciler) reconcileMetricsService(ctx context.Context, pa *pav1alpha1.PodAutoscaler) (string, error) {
 	logger := logging.FromContext(ctx)
 
-	scale, err := c.scaler.GetScaleResource(pa)
+	scale, err := resourceutil.GetScaleResource(pa.Namespace, pa.Spec.ScaleTargetRef, c.psInformerFactory)
 	if err != nil {
 		return "", perrors.Wrap(err, "error retrieving scale")
 	}

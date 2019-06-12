@@ -37,6 +37,7 @@ import (
 	nv1a1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	rpkg "github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/serverlessservice/resources"
+	presources "github.com/knative/serving/pkg/resources"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -181,7 +182,7 @@ func TestReconcile(t *testing.T) {
 		},
 		WantErr: true,
 		WantEvents: []string{
-			Eventf(corev1.EventTypeWarning, "UpdateFailed", `InternalError: error retrieving deployment selector spec: deployments.apps "blah" not found`),
+			Eventf(corev1.EventTypeWarning, "UpdateFailed", `InternalError: error retrieving deployment selector spec: error fetching Pod Scalable on/blah: deployments.apps "blah" not found`),
 		},
 	}, {
 		Name: "OnCreate-deployment-exists",
@@ -592,7 +593,7 @@ func TestReconcile(t *testing.T) {
 			sksLister:         listers.GetServerlessServiceLister(),
 			serviceLister:     listers.GetK8sServiceLister(),
 			endpointsLister:   listers.GetEndpointsLister(),
-			psInformerFactory: podScalableTypedInformerFactory(ctx),
+			psInformerFactory: presources.NewPodScalableInformerFactory(ctx),
 		}
 	}))
 }
