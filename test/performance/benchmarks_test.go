@@ -33,16 +33,15 @@ import (
 )
 
 const (
-	reqTimeout    = 30 * time.Second
-	app = "helloworld"
+	reqTimeout = 30 * time.Second
+	app        = "helloworld"
 )
 
 var loads = [...]int32{1, 100}
 
 func filename(name string) string {
 	// Replace characters in `name` with characters for a file name.
-	replacer := strings.NewReplacer("/", "_")
-	return replacer.Replace(name)
+	return strings.ReplaceAll(name, "/", "_")
 }
 
 func runTest(t *testing.T, img string, baseQPS float64, loadFactors []float64) {
