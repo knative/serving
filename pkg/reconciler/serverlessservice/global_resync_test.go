@@ -36,7 +36,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 
 	. "github.com/knative/pkg/reconciler/testing"
-	. "github.com/knative/serving/pkg/reconciler/testing"
+	. "github.com/knative/serving/pkg/reconciler/testing/v1alpha1"
+	. "github.com/knative/serving/pkg/testing"
 )
 
 func TestGlobalResyncOnActivatorChange(t *testing.T) {
@@ -50,7 +51,7 @@ func TestGlobalResyncOnActivatorChange(t *testing.T) {
 	ctx, informers := SetupFakeContext(t)
 	// Replace the fake dynamic client with one containing our objects.
 	ctx, _ = fakedynamicclient.With(ctx, runtime.NewScheme(),
-		ToUnstructured(t, []runtime.Object{deploy(ns1, sks1), deploy(ns2, sks2)})...,
+		ToUnstructured(t, NewScheme(), []runtime.Object{deploy(ns1, sks1), deploy(ns2, sks2)})...,
 	)
 	ctrl := NewController(ctx, configmap.NewStaticWatcher())
 

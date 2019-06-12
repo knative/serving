@@ -1,5 +1,5 @@
 /*
-Copyright 2018 The Knative Authors
+Copyright 2019 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package testing
+package v1alpha1
 
 import (
 	certmanagerv1alpha1 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1alpha1"
@@ -57,15 +57,6 @@ type Listers struct {
 	sorter testing.ObjectSorter
 }
 
-func NewScheme() *runtime.Scheme {
-	scheme := runtime.NewScheme()
-
-	for _, addTo := range clientSetSchemes {
-		addTo(scheme)
-	}
-	return scheme
-}
-
 func NewListers(objs []runtime.Object) Listers {
 	scheme := NewScheme()
 
@@ -76,6 +67,19 @@ func NewListers(objs []runtime.Object) Listers {
 	ls.sorter.AddObjects(objs...)
 
 	return ls
+}
+
+func NewScheme() *runtime.Scheme {
+	scheme := runtime.NewScheme()
+
+	for _, addTo := range clientSetSchemes {
+		addTo(scheme)
+	}
+	return scheme
+}
+
+func (*Listers) NewScheme() *runtime.Scheme {
+	return NewScheme()
 }
 
 // IndexerFor returns the indexer for the given object.

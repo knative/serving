@@ -31,7 +31,8 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 
 	"github.com/knative/serving/pkg/pool"
-	. "github.com/knative/serving/pkg/reconciler/testing"
+
+	. "github.com/knative/serving/pkg/testing/v1alpha1"
 )
 
 // Latencies is an interface for providing mechanisms for recording timings

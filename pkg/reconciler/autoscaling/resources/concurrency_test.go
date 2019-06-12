@@ -20,7 +20,8 @@ import (
 	"testing"
 
 	"github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
-	. "github.com/knative/serving/pkg/reconciler/testing"
+
+	. "github.com/knative/serving/pkg/testing"
 )
 
 func TestResolveTargetConcurrency(t *testing.T) {

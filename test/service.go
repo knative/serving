@@ -30,7 +30,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
-	rtesting "github.com/knative/serving/pkg/reconciler/testing"
+	rtesting "github.com/knative/serving/pkg/testing/v1alpha1"
 )
 
 // TODO(dangerd): Move function to duck.CreateBytePatch

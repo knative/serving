@@ -44,7 +44,8 @@ import (
 	clientgotesting "k8s.io/client-go/testing"
 
 	. "github.com/knative/pkg/reconciler/testing"
-	. "github.com/knative/serving/pkg/reconciler/testing"
+	. "github.com/knative/serving/pkg/reconciler/testing/v1alpha1"
+	. "github.com/knative/serving/pkg/testing/v1alpha1"
 )
 
 var revisionSpec = v1alpha1.RevisionSpec{

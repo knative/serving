@@ -60,7 +60,7 @@ import (
 	presources "github.com/knative/serving/pkg/resources"
 
 	. "github.com/knative/pkg/reconciler/testing"
-	. "github.com/knative/serving/pkg/reconciler/testing"
+	. "github.com/knative/serving/pkg/reconciler/testing/v1alpha1"
 )
 
 const (
