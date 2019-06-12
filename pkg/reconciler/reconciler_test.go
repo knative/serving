@@ -44,7 +44,7 @@ func TestNew(t *testing.T) {
 	cfg := &rest.Config{}
 	ctx, _ = injection.Fake.SetupInformers(ctx, cfg)
 
-	cmw := configmap.NewFixedWatcher()
+	cmw := configmap.NewStaticWatcher()
 
 	r := NewBase(ctx, reconcilerName, cmw)
 

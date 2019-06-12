@@ -96,7 +96,7 @@ func MakeFactory(ctor Ctor) Factory {
 		PrependGenerateNameReactor(&dynamicClient.Fake)
 
 		// Set up our Controller from the fakes.
-		c := ctor(ctx, &ls, configmap.NewFixedWatcher())
+		c := ctor(ctx, &ls, configmap.NewStaticWatcher())
 
 		for _, reactor := range r.WithReactors {
 			kubeClient.PrependReactor("*", "*", reactor)

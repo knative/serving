@@ -52,7 +52,7 @@ func TestGlobalResyncOnActivatorChange(t *testing.T) {
 	ctx, _ = fakedynamicclient.With(ctx, runtime.NewScheme(),
 		ToUnstructured(t, []runtime.Object{deploy(ns1, sks1), deploy(ns2, sks2)})...,
 	)
-	ctrl := NewController(ctx, configmap.NewFixedWatcher())
+	ctrl := NewController(ctx, configmap.NewStaticWatcher())
 
 	ctx, cancel := context.WithCancel(ctx)
 	grp := errgroup.Group{}
