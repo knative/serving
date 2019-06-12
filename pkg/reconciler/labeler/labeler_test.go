@@ -39,7 +39,7 @@ import (
 	"github.com/knative/serving/pkg/reconciler"
 
 	. "github.com/knative/pkg/reconciler/testing"
-	. "github.com/knative/serving/pkg/reconciler/testing"
+	. "github.com/knative/serving/pkg/reconciler/testing/v1alpha1"
 )
 
 // This is heavily based on the way the OpenShift Ingress controller tests its reconciliation method.

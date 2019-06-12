@@ -25,8 +25,9 @@ import (
 	"github.com/knative/serving/pkg/apis/autoscaling"
 	"github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/autoscaler"
-	. "github.com/knative/serving/pkg/reconciler/testing"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	. "github.com/knative/serving/pkg/testing"
 )
 
 func TestMakeDecider(t *testing.T) {

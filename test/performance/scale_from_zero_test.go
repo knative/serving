@@ -32,7 +32,7 @@ import (
 	"github.com/knative/pkg/test/zipkin"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/reconciler/revision/resources/names"
-	ktest "github.com/knative/serving/pkg/reconciler/testing"
+	ktest "github.com/knative/serving/pkg/testing/v1alpha1"
 	"github.com/knative/serving/test"
 	"github.com/knative/serving/test/e2e"
 	"github.com/knative/test-infra/shared/junit"

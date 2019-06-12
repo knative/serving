@@ -1,5 +1,5 @@
 /*
-Copyright 2018 The Knative Authors.
+Copyright 2019 The Knative Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package testing
+package v1alpha1
 
 import (
 	"context"
@@ -65,7 +65,7 @@ func MakeFactory(ctor Ctor) Factory {
 		ctx, sharedClient := fakesharedclient.With(ctx, ls.GetSharedObjects()...)
 		ctx, client := fakeservingclient.With(ctx, ls.GetServingObjects()...)
 		ctx, dynamicClient := fakedynamicclient.With(ctx,
-			NewScheme(), ToUnstructured(t, r.Objects)...)
+			ls.NewScheme(), ToUnstructured(t, ls.NewScheme(), r.Objects)...)
 		ctx, cachingClient := fakecachingclient.With(ctx, ls.GetCachingObjects()...)
 		ctx, certManagerClient := fakecertmanagerclient.With(ctx, ls.GetCMCertificateObjects()...)
 
@@ -128,8 +128,7 @@ func MakeFactory(ctor Ctor) Factory {
 // Unstructured objects.
 // We must pass objects as Unstructured to the dynamic client fake, or it
 // won't handle them properly.
-func ToUnstructured(t *testing.T, objs []runtime.Object) (us []runtime.Object) {
-	sch := NewScheme()
+func ToUnstructured(t *testing.T, sch *runtime.Scheme, objs []runtime.Object) (us []runtime.Object) {
 	for _, obj := range objs {
 		obj = obj.DeepCopyObject() // Don't mess with the primary copy
 		// Determine and set the TypeMeta for this object based on our test scheme.

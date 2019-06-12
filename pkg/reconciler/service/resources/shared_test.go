@@ -26,7 +26,8 @@ import (
 
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1beta1"
-	. "github.com/knative/serving/pkg/reconciler/testing"
+
+	. "github.com/knative/serving/pkg/testing/v1alpha1"
 )
 
 const (

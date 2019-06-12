@@ -56,7 +56,7 @@ import (
 	clientgotesting "k8s.io/client-go/testing"
 
 	. "github.com/knative/pkg/reconciler/testing"
-	. "github.com/knative/serving/pkg/reconciler/testing"
+	. "github.com/knative/serving/pkg/testing"
 )
 
 const (

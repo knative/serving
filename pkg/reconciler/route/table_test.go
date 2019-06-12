@@ -46,9 +46,11 @@ import (
 	"github.com/knative/serving/pkg/reconciler/route/config"
 	"github.com/knative/serving/pkg/reconciler/route/resources"
 	"github.com/knative/serving/pkg/reconciler/route/traffic"
-	. "github.com/knative/serving/pkg/reconciler/testing"
 
 	. "github.com/knative/pkg/reconciler/testing"
+	. "github.com/knative/serving/pkg/reconciler/testing/v1alpha1"
+	. "github.com/knative/serving/pkg/testing"
+	. "github.com/knative/serving/pkg/testing/v1alpha1"
 )
 
 const TestIngressClass = "ingress-class-foo"

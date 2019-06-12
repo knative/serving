@@ -24,11 +24,12 @@ import (
 
 	"github.com/knative/pkg/ptr"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	. "github.com/knative/serving/pkg/reconciler/testing"
 	"github.com/knative/serving/test"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	. "github.com/knative/serving/pkg/testing/v1alpha1"
 )
 
 // TestConfigMapVolume tests that we echo back the appropriate text from the ConfigMap volume.

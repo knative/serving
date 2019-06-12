@@ -31,7 +31,8 @@ import (
 
 	"github.com/knative/serving/pkg/reconciler/revision/resources/names"
 	routeconfig "github.com/knative/serving/pkg/reconciler/route/config"
-	. "github.com/knative/serving/pkg/reconciler/testing"
+
+	. "github.com/knative/serving/pkg/testing/v1alpha1"
 )
 
 const (
