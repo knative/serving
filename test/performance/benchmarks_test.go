@@ -37,7 +37,7 @@ const (
 	app        = "helloworld"
 )
 
-var loads = [...]int32{1, 100}
+var loads = [...]int32{1, 100, 1000}
 
 func filename(name string) string {
 	// Replace characters in `name` with characters for a file name.
