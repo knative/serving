@@ -29,7 +29,6 @@ spec:
     metadata:
       annotations:
         sidecar.istio.io/inject: "false"
-        cluster-autoscaler.kubernetes.io/safe-to-evict: "false"
       labels:
         app: networking-istio
     spec:
