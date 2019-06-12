@@ -223,7 +223,7 @@ func assertAutoscaleUpToNumPods(ctx *testContext, curPods, targetPods int32, dur
 	stopChan := make(chan struct{})
 	var grp errgroup.Group
 	grp.Go(func() error {
-		return generateTraffic(ctx, int(targetPods*containerConcurrency), duration + 2*time.Second, stopChan)
+		return generateTraffic(ctx, int(targetPods*containerConcurrency), duration, stopChan)
 	})
 	grp.Go(func() error {
 		// Short-circuit traffic generation once we exit from the check logic.
@@ -234,6 +234,8 @@ func assertAutoscaleUpToNumPods(ctx *testContext, curPods, targetPods int32, dur
 		for {
 			select {
 			case <-timer:
+				// Each 2 second, check that the number of pods is at least `minPods`. `minPods` is increasing
+				// to verify that the number of pods doesn't go down while we are scaling up.
 				got, err := numberOfPods(ctx)
 				if err != nil {
 					return err
@@ -244,14 +246,19 @@ func assertAutoscaleUpToNumPods(ctx *testContext, curPods, targetPods int32, dur
 					return errors.New(mes)
 				}
 				if quick {
+					// A quick test succeeds when the number of pods scales up to `targetPods`
+					// (and, for sanity check, no more than `maxPods`).
 					if got >= targetPods && got <= maxPods {
 						return nil
 					}
 				}
 				if minPods < targetPods - 1 {
+					// Increase `minPods`, but leave room to reduce flakiness.
 					minPods = int32(math.Min(float64(got), float64(targetPods))) - 1
 				}
 			case <-done:
+				// The test duration is over. Do a last check to verify that the number of pods is at `targetPods`
+				// (with a little room for de-flakiness).
 				got, err := numberOfPods(ctx)
 				if err != nil {
 					return err
