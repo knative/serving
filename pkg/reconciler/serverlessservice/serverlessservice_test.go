@@ -53,7 +53,7 @@ import (
 func TestNewController(t *testing.T) {
 	defer logtesting.ClearAll()
 	ctx, _ := SetupFakeContext(t)
-	c := NewController(ctx, configmap.NewFixedWatcher())
+	c := NewController(ctx, configmap.NewStaticWatcher())
 	if c == nil {
 		t.Fatal("Expected NewController to return a non-nil value")
 	}
