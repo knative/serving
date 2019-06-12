@@ -718,8 +718,3 @@ func ReconcilerTestConfig() *config.Config {
 		Autoscaler: &autoscaler.Config{},
 	}
 }
-
-// this forces the type to be a 'configOption'
-var EnableVarLog configOption = func(cfg *config.Config) {
-	cfg.Observability.EnableVarLogCollection = true
-}
