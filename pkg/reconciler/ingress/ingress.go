@@ -295,15 +295,9 @@ func (c *Reconciler) reconcileVirtualServices(ctx context.Context, ingress *v1al
 			serving.RouteNamespaceLabelKey: ingress.Labels[serving.RouteNamespaceLabelKey]}).AsSelector())
 	for _, vs := range vses {
 		n, ns := vs.Name, vs.Namespace
-
-		logger.Infof("XXXXXXXXXXXXXXXXXXXXXX %s ", vs.Name)
-
 		if kept.Has(n) {
 			continue
 		}
-
-		logger.Infof("XXXXXXXXXXXXXXXXXXXXXX 222 %s ", vs.Name)
-
 		if err = c.SharedClientSet.NetworkingV1alpha3().VirtualServices(ns).Delete(n, &metav1.DeleteOptions{}); err != nil {
 			logger.Errorw("Failed to delete VirtualService", zap.Error(err))
 			return err
