@@ -28,6 +28,7 @@ spec:
     metadata:
       annotations:
         sidecar.istio.io/inject: "true"
+        cluster-autoscaler.kubernetes.io/safe-to-evict: "false"
       labels:
         app: activator
         role: activator
