@@ -14,14 +14,14 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package clusteringress
+package ingress
 
 import (
 	"context"
 
 	gatewayinformer "github.com/knative/pkg/client/injection/informers/istio/v1alpha3/gateway"
 	virtualserviceinformer "github.com/knative/pkg/client/injection/informers/istio/v1alpha3/virtualservice"
-	clusteringressinformer "github.com/knative/serving/pkg/client/injection/informers/networking/v1alpha1/clusteringress"
+	ingressinformer "github.com/knative/serving/pkg/client/injection/informers/networking/v1alpha1/ingress"
 
 	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/controller"
@@ -30,13 +30,13 @@ import (
 	"github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/network"
 	"github.com/knative/serving/pkg/reconciler"
-	"github.com/knative/serving/pkg/reconciler/clusteringress/config"
+	"github.com/knative/serving/pkg/reconciler/ingress/config"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/tools/cache"
 )
 
 const (
-	controllerAgentName = "clusteringress-controller"
+	controllerAgentName = "ingress-controller"
 )
 
 type configStore interface {
@@ -51,19 +51,19 @@ func NewController(
 	cmw configmap.Watcher,
 ) *controller.Impl {
 
-	clusterIngressInformer := clusteringressinformer.Get(ctx)
+	ingressInformer := ingressinformer.Get(ctx)
 	virtualServiceInformer := virtualserviceinformer.Get(ctx)
 	gatewayInformer := gatewayinformer.Get(ctx)
 	secretInformer := secretinformer.Get(ctx)
 
 	c := &Reconciler{
 		Base:                 reconciler.NewBase(ctx, controllerAgentName, cmw),
-		clusterIngressLister: clusterIngressInformer.Lister(),
+		ingressLister:        ingressInformer.Lister(),
 		virtualServiceLister: virtualServiceInformer.Lister(),
 		gatewayLister:        gatewayInformer.Lister(),
 		secretLister:         secretInformer.Lister(),
 	}
-	impl := controller.NewImpl(c, c.Logger, "ClusterIngresses")
+	impl := controller.NewImpl(c, c.Logger, "Ingresses")
 
 	c.Logger.Info("Setting up event handlers")
 	myFilterFunc := reconciler.AnnotationFilterFunc(networking.IngressClassAnnotationKey, network.IstioIngressClassName, true)
@@ -71,11 +71,12 @@ func NewController(
 		FilterFunc: myFilterFunc,
 		Handler:    controller.HandleAll(impl.Enqueue),
 	}
-	clusterIngressInformer.Informer().AddEventHandler(ciHandler)
+	ingressInformer.Informer().AddEventHandler(ciHandler)
 
 	virtualServiceInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: myFilterFunc,
-		Handler:    controller.HandleAll(impl.EnqueueLabelOfClusterScopedResource(networking.ClusterIngressLabelKey)),
+		Handler: controller.HandleAll(impl.EnqueueLabelOfNamespaceScopedResource(networking.IngressNamespaceLabelKey,
+			networking.IngressLabelKey)),
 	})
 
 	c.tracker = tracker.New(impl.EnqueueKey, controller.GetTrackerLease(ctx))
@@ -93,7 +94,7 @@ func NewController(
 		&network.Config{},
 	}
 	resyncIngressesOnConfigChange := configmap.TypeFilter(configsToResync...)(func(string, interface{}) {
-		controller.SendGlobalUpdates(clusterIngressInformer.Informer(), ciHandler)
+		controller.SendGlobalUpdates(ingressInformer.Informer(), ciHandler)
 	})
 	c.configStore = config.NewStore(c.Logger.Named("config-store"), resyncIngressesOnConfigChange)
 	c.configStore.WatchConfigs(cmw)

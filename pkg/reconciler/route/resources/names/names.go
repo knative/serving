@@ -37,6 +37,15 @@ func ClusterIngress(route *v1alpha1.Route) string {
 	return fmt.Sprintf("route-%s", route.UID)
 }
 
+// Ingress returns the name for the Ingress
+// child resource for the given Route.
+// This is just a wrapper that returns route's name.
+// This is single place to change if our naming scheme
+// needs to be changed.
+func Ingress(route *v1alpha1.Route) string {
+	return route.Name
+}
+
 // Certificate returns the name for the Certificate
 // child resource for the given Route.
 func Certificate(route *v1alpha1.Route) string {

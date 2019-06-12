@@ -62,6 +62,7 @@ ${GOPATH}/bin/deepcopy-gen \
   -i github.com/knative/serving/pkg/apis/config \
   -i github.com/knative/serving/pkg/apis/serving/v1beta1 \
   -i github.com/knative/serving/pkg/reconciler/clusteringress/config \
+  -i github.com/knative/serving/pkg/reconciler/ingress/config \
   -i github.com/knative/serving/pkg/reconciler/certificate/config \
   -i github.com/knative/serving/pkg/reconciler/configuration/config \
   -i github.com/knative/serving/pkg/reconciler/revision/config \

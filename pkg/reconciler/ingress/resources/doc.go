@@ -14,16 +14,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package main
-
-import (
-	"github.com/knative/serving/pkg/reconciler/ingress"
-
-	// This defines the shared main for injected controllers.
-	"github.com/knative/pkg/injection/sharedmain"
-)
-
-func main() {
-	sharedmain.Main("controller-certificate-cert-manager",
-		ingress.NewController)
-}
+// Package resources holds simple functions for synthesizing child resources from
+// a Ingress resource and any relevant Ingress controller configuration.
+package resources

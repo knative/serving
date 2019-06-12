@@ -71,6 +71,7 @@ type Reconciler struct {
 	revisionLister       listers.RevisionLister
 	serviceLister        corev1listers.ServiceLister
 	clusterIngressLister networkinglisters.ClusterIngressLister
+	ingressLister        networkinglisters.IngressLister
 	certificateLister    networkinglisters.CertificateLister
 	configStore          configStore
 	tracker              tracker.Interface
@@ -258,19 +259,19 @@ func (c *Reconciler) reconcile(ctx context.Context, r *v1alpha1.Route) error {
 		}
 	}
 
-	logger.Info("Creating ClusterIngress.")
-	desired, err := resources.MakeClusterIngress(ctx, r, traffic, tls, ingressClassForRoute(ctx, r))
+	logger.Info("Creating Ingress.")
+	desired, err := resources.MakeIngress(ctx, r, traffic, tls, ingressClassForRoute(ctx, r))
 	if err != nil {
 		return err
 	}
-	clusterIngress, err := c.reconcileClusterIngress(ctx, r, desired)
+	ingress, err := c.reconcileIngress(ctx, r, desired)
 	if err != nil {
 		return err
 	}
-	r.Status.PropagateClusterIngressStatus(clusterIngress.Status)
+	r.Status.PropagateIngressStatus(ingress.Status)
 
-	logger.Info("Updating placeholder k8s services with clusterIngress information")
-	if err := c.updatePlaceholderServices(ctx, r, services, clusterIngress); err != nil {
+	logger.Info("Updating placeholder k8s services with ingress information")
+	if err := c.updatePlaceholderServices(ctx, r, services, ingress); err != nil {
 		return err
 	}
 
@@ -288,9 +289,9 @@ func (c *Reconciler) reconcileDeletion(ctx context.Context, r *v1alpha1.Route) e
 		return nil
 	}
 
-	// Delete the ClusterIngress resources for this Route.
-	logger.Info("Cleaning up ClusterIngress")
-	if err := c.deleteClusterIngressesForRoute(r); err != nil {
+	// Delete the Ingress resources for this Route.
+	logger.Info("Cleaning up Ingress")
+	if err := c.deleteIngressesForRoute(r); err != nil {
 		return err
 	}
 

@@ -1,0 +1,483 @@
+/*
+Copyright 2019 The Knative Authors
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+package ingress
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"reflect"
+
+	"github.com/knative/pkg/tracker"
+
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/sets"
+
+	"github.com/knative/pkg/apis/istio/v1alpha3"
+	istiolisters "github.com/knative/pkg/client/listers/istio/v1alpha3"
+	"github.com/knative/pkg/controller"
+	"github.com/knative/pkg/logging"
+	"github.com/knative/pkg/system"
+	"github.com/knative/serving/pkg/apis/networking"
+	"github.com/knative/serving/pkg/apis/networking/v1alpha1"
+	"github.com/knative/serving/pkg/apis/serving"
+	listers "github.com/knative/serving/pkg/client/listers/networking/v1alpha1"
+	"github.com/knative/serving/pkg/reconciler"
+	"github.com/knative/serving/pkg/reconciler/ingress/config"
+	"github.com/knative/serving/pkg/reconciler/ingress/resources"
+	"go.uber.org/zap"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
+	apierrs "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	corev1listers "k8s.io/client-go/listers/core/v1"
+	"k8s.io/client-go/tools/cache"
+)
+
+// ingressFinalizer is the name that we put into the resource finalizer list, e.g.
+//  metadata:
+//    finalizers:
+//    - ingresses.networking.internal.knative.dev
+var (
+	ingressResource  = v1alpha1.Resource("ingresses")
+	ingressFinalizer = ingressResource.String()
+)
+
+// Reconciler implements controller.Reconciler for Ingress resources.
+type Reconciler struct {
+	*reconciler.Base
+
+	// listers index properties about resources
+	ingressLister        listers.IngressLister
+	virtualServiceLister istiolisters.VirtualServiceLister
+	gatewayLister        istiolisters.GatewayLister
+	secretLister         corev1listers.SecretLister
+	configStore          configStore
+
+	tracker tracker.Interface
+}
+
+// Check that our Reconciler implements controller.Reconciler
+var _ controller.Reconciler = (*Reconciler)(nil)
+
+// Reconcile compares the actual state with the desired, and attempts to
+// converge the two. It then updates the Status block of the Ingress resource
+// with the current status of the resource.
+func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
+
+	// Convert the namespace/name string into a distinct namespace and name
+	namespace, name, err := cache.SplitMetaNamespaceKey(key)
+	if err != nil {
+		c.Logger.Errorf("invalid resource key: %s", key)
+		return nil
+	}
+	logger := logging.FromContext(ctx)
+
+	ctx = c.configStore.ToContext(ctx)
+
+	// Get the Ingress resource with this name.
+	original, err := c.ingressLister.Ingresses(namespace).Get(name)
+	if apierrs.IsNotFound(err) {
+		// The resource may no longer exist, in which case we stop processing.
+		logger.Errorf("ingress %q in work queue no longer exists", key)
+		return nil
+	} else if err != nil {
+		return err
+	}
+	// Don't modify the informers copy
+	ingress := original.DeepCopy()
+
+	// Reconcile this copy of the Ingress and then write back any status
+	// updates regardless of whether the reconciliation errored out.
+	reconcileErr := c.reconcile(ctx, ingress)
+	if equality.Semantic.DeepEqual(original.Status, ingress.Status) {
+		// If we didn't change anything then don't call updateStatus.
+		// This is important because the copy we loaded from the informer's
+		// cache may be stale and we don't want to overwrite a prior update
+		// to status with this stale state.
+	} else {
+		if _, err = c.updateStatus(ingress); err != nil {
+			logger.Warnw("Failed to update Ingress status", zap.Error(err))
+			c.Recorder.Eventf(ingress, corev1.EventTypeWarning, "UpdateFailed",
+				"Failed to update status for Ingress %q: %v", ingress.Name, err)
+			return err
+		} else {
+			logger.Infof("Updated status for Ingress %q", ingress.Name)
+			c.Recorder.Eventf(ingress, corev1.EventTypeNormal, "Updated",
+				"Updated status for Ingress %q", ingress.Name)
+		}
+	}
+	if reconcileErr != nil {
+		c.Recorder.Event(ingress, corev1.EventTypeWarning, "InternalError", reconcileErr.Error())
+	}
+	return reconcileErr
+}
+
+// Update the Status of the Ingress.  Caller is responsible for checking
+// for semantic differences before calling.
+func (c *Reconciler) updateStatus(desired *v1alpha1.Ingress) (*v1alpha1.Ingress, error) {
+	ingress, err := c.ingressLister.Ingresses(desired.Namespace).Get(desired.Name)
+	if err != nil {
+		return nil, err
+	}
+	// If there's nothing to update, just return.
+	if reflect.DeepEqual(ingress.Status, desired.Status) {
+		return ingress, nil
+	}
+	// Don't modify the informers copy
+	existing := ingress.DeepCopy()
+	existing.Status = desired.Status
+	return c.ServingClientSet.NetworkingV1alpha1().Ingresses(desired.Namespace).UpdateStatus(existing)
+}
+
+func (c *Reconciler) reconcile(ctx context.Context, ingress *v1alpha1.Ingress) error {
+	logger := logging.FromContext(ctx)
+	if ingress.GetDeletionTimestamp() != nil {
+		return c.reconcileDeletion(ctx, ingress)
+	}
+
+	// We may be reading a version of the object that was stored at an older version
+	// and may not have had all of the assumed defaults specified.  This won't result
+	// in this getting written back to the API Server, but lets downstream logic make
+	// assumptions about defaulting.
+	ingress.SetDefaults(ctx)
+
+	ingress.Status.InitializeConditions()
+	logger.Infof("Reconciling ingress: %#v", ingress)
+
+	gatewayNames := gatewayNamesFromContext(ctx, ingress)
+	vses := resources.MakeVirtualServices(ingress, gatewayNames)
+
+	// First, create the VirtualServices.
+	logger.Infof("Creating/Updating VirtualServices")
+	if err := c.reconcileVirtualServices(ctx, ingress, vses); err != nil {
+		// TODO(lichuqiang): should we explicitly mark the ingress as unready
+		// when error reconciling VirtualService?
+		return err
+	}
+	// As underlying network programming (VirtualService now) is stateless,
+	// here we simply mark the ingress as ready if the VirtualService
+	// is successfully synced.
+	ingress.Status.MarkNetworkConfigured()
+	ingress.Status.MarkLoadBalancerReady(getLBStatus(gatewayServiceURLFromContext(ctx, ingress)))
+	ingress.Status.ObservedGeneration = ingress.Generation
+
+	if enablesAutoTLS(ctx) {
+		if !ingress.IsPublic() {
+			logger.Infof("Ingress %s is not public. So no need to configure TLS.", ingress.Name)
+			return nil
+		}
+
+		// Add the finalizer before adding `Servers` into Gateway so that we can be sure
+		// the `Servers` get cleaned up from Gateway.
+		if err := c.ensureFinalizer(ingress); err != nil {
+			return err
+		}
+
+		originSecrets, err := resources.GetSecrets(ingress, c.secretLister)
+		if err != nil {
+			return err
+		}
+		targetSecrets := resources.MakeSecrets(ctx, originSecrets, ingress)
+		if err := c.reconcileCertSecrets(ctx, ingress, targetSecrets); err != nil {
+			return err
+		}
+
+		for _, gatewayName := range gatewayNames {
+			ns, err := resources.GatewayServiceNamespace(config.FromContext(ctx).Istio.IngressGateways, gatewayName)
+			if err != nil {
+				return err
+			}
+			desired, err := resources.MakeServers(ingress, ns, originSecrets)
+			if err != nil {
+				return err
+			}
+			if err := c.reconcileGateway(ctx, ingress, gatewayName, desired); err != nil {
+				return err
+			}
+		}
+	}
+
+	// TODO(zhiminx): Mark Route status to indicate that Gateway is configured.
+	logger.Info("Ingress successfully synced")
+	return nil
+}
+
+func enablesAutoTLS(ctx context.Context) bool {
+	return config.FromContext(ctx).Network.AutoTLS
+}
+
+func getLBStatus(gatewayServiceURL string) []v1alpha1.LoadBalancerIngressStatus {
+	// The Ingress isn't load-balanced by any particular
+	// Service, but through a Service mesh.
+	if gatewayServiceURL == "" {
+		return []v1alpha1.LoadBalancerIngressStatus{
+			{MeshOnly: true},
+		}
+	}
+	return []v1alpha1.LoadBalancerIngressStatus{
+		{DomainInternal: gatewayServiceURL},
+	}
+}
+
+// gatewayServiceURLFromContext return an address of a load-balancer
+// that the given Ingress is exposed to, or empty string if
+// none.
+func gatewayServiceURLFromContext(ctx context.Context, ingress *v1alpha1.Ingress) string {
+	cfg := config.FromContext(ctx).Istio
+	if len(cfg.IngressGateways) > 0 && ingress.IsPublic() {
+		return cfg.IngressGateways[0].ServiceURL
+	}
+	if len(cfg.LocalGateways) > 0 && !ingress.IsPublic() {
+		return cfg.LocalGateways[0].ServiceURL
+	}
+	return ""
+}
+
+func gatewayNamesFromContext(ctx context.Context, ingress *v1alpha1.Ingress) []string {
+	gateways := []string{}
+	if ingress.IsPublic() {
+		for _, gw := range config.FromContext(ctx).Istio.IngressGateways {
+			gateways = append(gateways, gw.GatewayName)
+		}
+	} else {
+		for _, gw := range config.FromContext(ctx).Istio.LocalGateways {
+			gateways = append(gateways, gw.GatewayName)
+		}
+	}
+	return dedup(gateways)
+}
+
+func dedup(strs []string) []string {
+	existed := sets.NewString()
+	unique := []string{}
+	// We can't just do `sets.NewString(str)`, since we need to preserve the order.
+	for _, s := range strs {
+		if !existed.Has(s) {
+			existed.Insert(s)
+			unique = append(unique, s)
+		}
+	}
+	return unique
+}
+
+func (c *Reconciler) reconcileVirtualServices(ctx context.Context, ingress *v1alpha1.Ingress,
+	desired []*v1alpha3.VirtualService) error {
+	logger := logging.FromContext(ctx)
+	// First, create all needed VirtualServices.
+	kept := sets.NewString()
+	for _, d := range desired {
+		if err := c.reconcileVirtualService(ctx, ingress, d); err != nil {
+			return err
+		}
+		kept.Insert(d.Name)
+	}
+	// Now, remove the extra ones.
+	vses, err := c.virtualServiceLister.VirtualServices(resources.VirtualServiceNamespace(ingress)).List(
+		labels.Set(map[string]string{
+			serving.RouteLabelKey:          ingress.Labels[serving.RouteLabelKey],
+			serving.RouteNamespaceLabelKey: ingress.Labels[serving.RouteNamespaceLabelKey]}).AsSelector())
+	for _, vs := range vses {
+		n, ns := vs.Name, vs.Namespace
+
+		logger.Infof("XXXXXXXXXXXXXXXXXXXXXX %s ", vs.Name)
+
+		if kept.Has(n) {
+			continue
+		}
+
+		logger.Infof("XXXXXXXXXXXXXXXXXXXXXX 222 %s ", vs.Name)
+
+		if err = c.SharedClientSet.NetworkingV1alpha3().VirtualServices(ns).Delete(n, &metav1.DeleteOptions{}); err != nil {
+			logger.Errorw("Failed to delete VirtualService", zap.Error(err))
+			return err
+		}
+	}
+	return nil
+}
+
+func (c *Reconciler) reconcileVirtualService(ctx context.Context, ingress *v1alpha1.Ingress,
+	desired *v1alpha3.VirtualService) error {
+	logger := logging.FromContext(ctx)
+	ns := desired.Namespace
+	name := desired.Name
+
+	vs, err := c.virtualServiceLister.VirtualServices(ns).Get(name)
+	if apierrs.IsNotFound(err) {
+		_, err = c.SharedClientSet.NetworkingV1alpha3().VirtualServices(ns).Create(desired)
+		if err != nil {
+			logger.Errorw("Failed to create VirtualService", zap.Error(err))
+			c.Recorder.Eventf(ingress, corev1.EventTypeWarning, "CreationFailed",
+				"Failed to create VirtualService %q/%q: %v", ns, name, err)
+			return err
+		}
+		c.Recorder.Eventf(ingress, corev1.EventTypeNormal, "Created",
+			"Created VirtualService %q", desired.Name)
+	} else if err != nil {
+		return err
+	} else if !metav1.IsControlledBy(vs, ingress) {
+		// Surface an error in the Ingress's status, and return an error.
+		ingress.Status.MarkResourceNotOwned("VirtualService", name)
+		return fmt.Errorf("Ingress: %q does not own VirtualService: %q", ingress.Name, name)
+	} else if !equality.Semantic.DeepEqual(vs.Spec, desired.Spec) {
+		// Don't modify the informers copy
+		existing := vs.DeepCopy()
+		existing.Spec = desired.Spec
+		_, err = c.SharedClientSet.NetworkingV1alpha3().VirtualServices(ns).Update(existing)
+		if err != nil {
+			logger.Errorw("Failed to update VirtualService", zap.Error(err))
+			return err
+		}
+		c.Recorder.Eventf(ingress, corev1.EventTypeNormal, "Updated",
+			"Updated status for VirtualService %q/%q", ns, name)
+	}
+
+	return nil
+}
+
+func (c *Reconciler) ensureFinalizer(ingress *v1alpha1.Ingress) error {
+	finalizers := sets.NewString(ingress.Finalizers...)
+	if finalizers.Has(ingressFinalizer) {
+		return nil
+	}
+
+	mergePatch := map[string]interface{}{
+		"metadata": map[string]interface{}{
+			"finalizers":      append(ingress.Finalizers, ingressFinalizer),
+			"resourceVersion": ingress.ResourceVersion,
+		},
+	}
+
+	patch, err := json.Marshal(mergePatch)
+	if err != nil {
+		return err
+	}
+
+	_, err = c.ServingClientSet.NetworkingV1alpha1().Ingresses(ingress.Namespace).Patch(ingress.Name, types.MergePatchType, patch)
+	return err
+}
+
+func (c *Reconciler) reconcileDeletion(ctx context.Context, ingress *v1alpha1.Ingress) error {
+	logger := logging.FromContext(ctx)
+
+	// If our Finalizer is first, delete the `Servers` from Gateway for this Ingress,
+	// and remove the finalizer.
+	if len(ingress.Finalizers) == 0 || ingress.Finalizers[0] != ingressFinalizer {
+		return nil
+	}
+
+	gatewayNames := gatewayNamesFromContext(ctx, ingress)
+	logger.Infof("Cleaning up Gateway Servers for Ingress %s", ingress.Name)
+	// No desired Servers means deleting all of the existing Servers associated with the CI.
+	for _, gatewayName := range gatewayNames {
+		if err := c.reconcileGateway(ctx, ingress, gatewayName, []v1alpha3.Server{}); err != nil {
+			return err
+		}
+	}
+
+	// Update the Ingress to remove the Finalizer.
+	logger.Info("Removing Finalizer")
+	ingress.Finalizers = ingress.Finalizers[1:]
+	_, err := c.ServingClientSet.NetworkingV1alpha1().Ingresses(ingress.Namespace).Update(ingress)
+	return err
+}
+
+func (c *Reconciler) reconcileGateway(ctx context.Context, ingress *v1alpha1.Ingress, gatewayName string, desired []v1alpha3.Server) error {
+	// TODO(zhiminx): Need to handle the scenario when deleting Ingress. In this scenario,
+	// the Gateway servers of the Ingress need also be removed from Gateway.
+	logger := logging.FromContext(ctx)
+	gateway, err := c.gatewayLister.Gateways(system.Namespace()).Get(gatewayName)
+	if err != nil {
+		// Not like VirtualService, A default gateway needs to be existed.
+		// It should be installed when installing Knative.
+		logger.Errorw("Failed to get Gateway.", zap.Error(err))
+		return err
+	}
+
+	existing := resources.GetServers(gateway, ingress)
+	existingHTTPServer := resources.GetHTTPServer(gateway)
+	if existingHTTPServer != nil {
+		existing = append(existing, *existingHTTPServer)
+	}
+
+	desiredHTTPServer := resources.MakeHTTPServer(config.FromContext(ctx).Network.HTTPProtocol)
+	if desiredHTTPServer != nil {
+		desired = append(desired, *desiredHTTPServer)
+	}
+
+	if equality.Semantic.DeepEqual(existing, desired) {
+		return nil
+	}
+
+	copy := gateway.DeepCopy()
+	copy = resources.UpdateGateway(copy, desired, existing)
+	if _, err := c.SharedClientSet.NetworkingV1alpha3().Gateways(copy.Namespace).Update(copy); err != nil {
+		logger.Errorw("Failed to update Gateway", zap.Error(err))
+		return err
+	}
+	c.Recorder.Eventf(ingress, corev1.EventTypeNormal, "Updated",
+		"Updated Gateway %q/%q", gateway.Namespace, gateway.Name)
+	return nil
+}
+
+func (c *Reconciler) reconcileCertSecrets(ctx context.Context, ingress *v1alpha1.Ingress, desiredSecrets []*corev1.Secret) error {
+	for _, certSecret := range desiredSecrets {
+		if err := c.reconcileCertSecret(ctx, ingress, certSecret); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (c *Reconciler) reconcileCertSecret(ctx context.Context, ingress *v1alpha1.Ingress, desired *corev1.Secret) error {
+	// We track the origin and desired secrets so that desired secrets could be synced accordingly when the origin TLS certificate
+	// secret is refreshed.
+	c.tracker.Track(resources.SecretRef(desired.Namespace, desired.Name), ingress)
+	c.tracker.Track(resources.SecretRef(desired.Labels[networking.OriginSecretNamespaceLabelKey], desired.Labels[networking.OriginSecretNameLabelKey]), ingress)
+
+	logger := logging.FromContext(ctx)
+	existing, err := c.secretLister.Secrets(desired.Namespace).Get(desired.Name)
+	if apierrs.IsNotFound(err) {
+		_, err = c.KubeClientSet.CoreV1().Secrets(desired.Namespace).Create(desired)
+		if err != nil {
+			logger.Errorw("Failed to create Certificate Secret", zap.Error(err))
+			c.Recorder.Eventf(ingress, corev1.EventTypeWarning, "CreationFailed",
+				"Failed to create Secret %s/%s: %v", desired.Namespace, desired.Name, err)
+			return err
+		}
+		c.Recorder.Eventf(ingress, corev1.EventTypeNormal, "Created",
+			"Created Secret %s/%s", desired.Namespace, desired.Name)
+	} else if err != nil {
+		return err
+	} else if !equality.Semantic.DeepEqual(existing.Data, desired.Data) {
+		// Don't modify the informers copy
+		copy := existing.DeepCopy()
+		copy.Data = desired.Data
+		_, err = c.KubeClientSet.CoreV1().Secrets(copy.Namespace).Update(copy)
+		if err != nil {
+			logger.Errorw("Failed to update target secret", zap.Error(err))
+			c.Recorder.Eventf(ingress, corev1.EventTypeWarning, "UpdateFailed",
+				"Failed to update Secret %s/%s: %v", desired.Namespace, desired.Name, err)
+			return err
+		}
+		c.Recorder.Eventf(ingress, corev1.EventTypeNormal, "Updated",
+			"Updated Secret %s/%s", copy.Namespace, copy.Name)
+	}
+	return nil
+}

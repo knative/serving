@@ -14,16 +14,10 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package main
+/*
 
-import (
-	"github.com/knative/serving/pkg/reconciler/ingress"
+Package ingress implements a kubernetes controller which tracks Ingress resource
+and reconcile VirtualService as its child resource.
 
-	// This defines the shared main for injected controllers.
-	"github.com/knative/pkg/injection/sharedmain"
-)
-
-func main() {
-	sharedmain.Main("controller-certificate-cert-manager",
-		ingress.NewController)
-}
+*/
+package ingress

@@ -28,6 +28,7 @@ import (
 	fakeservingclient "github.com/knative/serving/pkg/client/injection/client/fake"
 	_ "github.com/knative/serving/pkg/client/injection/informers/networking/v1alpha1/certificate/fake"
 	fakeciinformer "github.com/knative/serving/pkg/client/injection/informers/networking/v1alpha1/clusteringress/fake"
+
 	fakecfginformer "github.com/knative/serving/pkg/client/injection/informers/serving/v1alpha1/configuration/fake"
 	fakerevisioninformer "github.com/knative/serving/pkg/client/injection/informers/serving/v1alpha1/revision/fake"
 	fakerouteinformer "github.com/knative/serving/pkg/client/injection/informers/serving/v1alpha1/route/fake"
@@ -204,20 +205,20 @@ func newTestSetup(t *testing.T, configs ...*corev1.ConfigMap) (
 	return
 }
 
-func getRouteIngressFromClient(t *testing.T, ctx context.Context, route *v1alpha1.Route) *netv1alpha1.ClusterIngress {
+func getRouteIngressFromClient(t *testing.T, ctx context.Context, route *v1alpha1.Route) *netv1alpha1.Ingress {
 	opts := metav1.ListOptions{
 		LabelSelector: labels.Set(map[string]string{
 			serving.RouteLabelKey:          route.Name,
 			serving.RouteNamespaceLabelKey: route.Namespace,
 		}).AsSelector().String(),
 	}
-	cis, err := fakeservingclient.Get(ctx).NetworkingV1alpha1().ClusterIngresses().List(opts)
+	cis, err := fakeservingclient.Get(ctx).NetworkingV1alpha1().Ingresses(route.Namespace).List(opts)
 	if err != nil {
-		t.Errorf("ClusterIngress.Get(%v) = %v", opts, err)
+		t.Errorf("Ingress.Get(%v) = %v", opts, err)
 	}
 
 	if len(cis.Items) != 1 {
-		t.Errorf("ClusterIngress.Get(%v), expect 1 instance, but got %d", opts, len(cis.Items))
+		t.Errorf("Ingress.Get(%v), expect 1 instance, but got %d", opts, len(cis.Items))
 	}
 
 	return &cis.Items[0]
@@ -341,7 +342,7 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 	}
 	select {
 	case got := <-fakeRecorder.Events:
-		const wantPrefix = `Normal Created Created ClusterIngress`
+		const wantPrefix = `Normal Created Created Ingress`
 		if !strings.HasPrefix(got, wantPrefix) {
 			t.Errorf("<-Events = %s, wanted prefix %s", got, wantPrefix)
 		}
@@ -951,7 +952,7 @@ func TestGlobalResyncOnUpdateDomainConfigMap(t *testing.T) {
 			servingClient := fakeservingclient.Get(ctx)
 			h := NewHooks()
 
-			// Check for ClusterIngress created as a signal that syncHandler ran
+			// Check for Ingress created as a signal that syncHandler ran
 			h.OnUpdate(&servingClient.Fake, "routes", func(obj runtime.Object) HookResult {
 				rt := obj.(*v1alpha1.Route)
 				t.Logf("route updated: %q", rt.Name)
@@ -966,7 +967,7 @@ func TestGlobalResyncOnUpdateDomainConfigMap(t *testing.T) {
 			})
 
 			if err := controller.StartInformers(ctx.Done(), informers...); err != nil {
-				t.Fatalf("failed to start cluster ingress manager: %v", err)
+				t.Fatalf("failed to start ingress manager: %v", err)
 			}
 
 			if err := watcher.Start(ctx.Done()); err != nil {

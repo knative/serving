@@ -18,6 +18,7 @@ package route
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -31,7 +32,7 @@ import (
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 	fakecertinformer "github.com/knative/serving/pkg/client/injection/informers/networking/v1alpha1/certificate/fake"
-	fakeciinformer "github.com/knative/serving/pkg/client/injection/informers/networking/v1alpha1/clusteringress/fake"
+	fakeciinformer "github.com/knative/serving/pkg/client/injection/informers/networking/v1alpha1/ingress/fake"
 	"github.com/knative/serving/pkg/gc"
 	"github.com/knative/serving/pkg/reconciler/route/config"
 	"github.com/knative/serving/pkg/reconciler/route/resources"
@@ -40,7 +41,7 @@ import (
 	. "github.com/knative/pkg/logging/testing"
 )
 
-func TestReconcileClusterIngress_Insert(t *testing.T) {
+func TestReconcileIngress_Insert(t *testing.T) {
 	ctx, _, reconciler, _ := newTestReconciler(t)
 
 	r := &v1alpha1.Route{
@@ -49,8 +50,8 @@ func TestReconcileClusterIngress_Insert(t *testing.T) {
 			Namespace: "test-ns",
 		},
 	}
-	ci := newTestClusterIngress(t, r)
-	if _, err := reconciler.reconcileClusterIngress(TestContextWithLogger(t), r, ci); err != nil {
+	ci := newTestIngress(t, r)
+	if _, err := reconciler.reconcileIngress(TestContextWithLogger(t), r, ci); err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
 	created := getRouteIngressFromClient(t, ctx, r)
@@ -59,7 +60,7 @@ func TestReconcileClusterIngress_Insert(t *testing.T) {
 	}
 }
 
-func TestReconcileClusterIngress_Update(t *testing.T) {
+func TestReconcileIngress_Update(t *testing.T) {
 	ctx, _, reconciler, _ := newTestReconciler(t)
 
 	r := &v1alpha1.Route{
@@ -69,8 +70,8 @@ func TestReconcileClusterIngress_Update(t *testing.T) {
 		},
 	}
 
-	ci := newTestClusterIngress(t, r)
-	if _, err := reconciler.reconcileClusterIngress(TestContextWithLogger(t), r, ci); err != nil {
+	ci := newTestIngress(t, r)
+	if _, err := reconciler.reconcileIngress(TestContextWithLogger(t), r, ci); err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
 
@@ -81,8 +82,8 @@ func TestReconcileClusterIngress_Update(t *testing.T) {
 		Scheme: "http",
 		Host:   "bar.com",
 	}
-	ci2 := newTestClusterIngress(t, r)
-	if _, err := reconciler.reconcileClusterIngress(TestContextWithLogger(t), r, ci2); err != nil {
+	ci2 := newTestIngress(t, r)
+	if _, err := reconciler.reconcileIngress(TestContextWithLogger(t), r, ci2); err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
 
@@ -152,7 +153,7 @@ func TestReconcileTargetRevisions(t *testing.T) {
 	}
 }
 
-func newTestClusterIngress(t *testing.T, r *v1alpha1.Route) *netv1alpha1.ClusterIngress {
+func newTestIngress(t *testing.T, r *v1alpha1.Route) *netv1alpha1.Ingress {
 	tc := &traffic.Config{Targets: map[string]traffic.RevisionTargets{
 		traffic.DefaultTarget: {{
 			TrafficTarget: v1beta1.TrafficTarget{
@@ -170,9 +171,13 @@ func newTestClusterIngress(t *testing.T, r *v1alpha1.Route) *netv1alpha1.Cluster
 			ServerCertificate: "tls.crt",
 		},
 	}
-	ingress, err := resources.MakeClusterIngress(getContext(), r, tc, tls, "foo-ingress")
+	ingress, err := resources.MakeIngress(getContext(), r, tc, tls, "foo-ingress")
 	if err != nil {
 		t.Errorf("Unexpected error %v", err)
+	}
+
+	if strings.Compare(ingress.Namespace, r.Namespace) != 0 {
+		t.Errorf("Expected Ingress namespace '%s', but actual namespace is '%s'", r.Namespace, ingress.Namespace)
 	}
 	return ingress
 }

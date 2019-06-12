@@ -50,18 +50,17 @@ func MakeIngressTLS(cert *v1alpha1.Certificate, hostNames []string) v1alpha1.Ing
 	}
 }
 
-// MakeClusterIngress creates ClusterIngress to set up routing rules. Such ClusterIngress specifies
+// MakeIngress creates Ingress to set up routing rules. Such Ingress specifies
 // which Hosts that it applies to, as well as the routing rules.
-func MakeClusterIngress(ctx context.Context, r *servingv1alpha1.Route, tc *traffic.Config, tls []v1alpha1.IngressTLS, ingressClass string) (*v1alpha1.ClusterIngress, error) {
+func MakeIngress(ctx context.Context, r *servingv1alpha1.Route, tc *traffic.Config, tls []v1alpha1.IngressTLS, ingressClass string) (*v1alpha1.Ingress, error) {
 	spec, err := makeIngressSpec(ctx, r, tls, tc.Targets)
 	if err != nil {
 		return nil, err
 	}
-	return &v1alpha1.ClusterIngress{
+	return &v1alpha1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
-			// As ClusterIngress resource is cluster-scoped,
-			// here we use GenerateName to avoid conflict.
-			Name: names.ClusterIngress(r),
+			Name:      names.Ingress(r),
+			Namespace: r.Namespace,
 			Labels: map[string]string{
 				serving.RouteLabelKey:          r.Name,
 				serving.RouteNamespaceLabelKey: r.Namespace,

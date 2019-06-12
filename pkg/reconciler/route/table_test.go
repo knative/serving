@@ -123,7 +123,7 @@ func TestReconcile(t *testing.T) {
 			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001"), WithServiceName("mcd")),
 		},
 		WantCreates: []runtime.Object{
-			simpleClusterIngress(
+			simpleIngress(
 				route("default", "becomes-ready", WithConfigTarget("config"), WithURL,
 					WithRouteUID("12-34")),
 				&traffic.Config{
@@ -164,7 +164,7 @@ func TestReconcile(t *testing.T) {
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Created", "Created placeholder service %q", "becomes-ready"),
-			Eventf(corev1.EventTypeNormal, "Created", "Created ClusterIngress %q", "route-12-34"),
+			Eventf(corev1.EventTypeNormal, "Created", "Created Ingress %q", "becomes-ready"),
 		},
 		Key: "default/becomes-ready",
 		// TODO(lichuqiang): config namespace validation in resource scope.
@@ -221,7 +221,7 @@ func TestReconcile(t *testing.T) {
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Created", "Created placeholder service %q", "becomes-ready"),
-			Eventf(corev1.EventTypeNormal, "Created", "Created ClusterIngress %q", "route-12-34"),
+			Eventf(corev1.EventTypeNormal, "Created", "Created Ingress %q", "becomes-ready"),
 		},
 		Key: "default/becomes-ready",
 		// TODO(lichuqiang): config namespace validation in resource scope.
@@ -237,7 +237,7 @@ func TestReconcile(t *testing.T) {
 			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001"), WithServiceName("tb")),
 		},
 		WantCreates: []runtime.Object{
-			simpleClusterIngress(
+			simpleIngress(
 				route("default", "becomes-ready", WithConfigTarget("config"),
 					WithLocalDomain, WithRouteUID("65-23"),
 					WithRouteLabel("serving.knative.dev/visibility", "cluster-local")),
@@ -282,7 +282,7 @@ func TestReconcile(t *testing.T) {
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Created", "Created placeholder service %q", "becomes-ready"),
-			Eventf(corev1.EventTypeNormal, "Created", "Created ClusterIngress %q", "route-65-23"),
+			Eventf(corev1.EventTypeNormal, "Created", "Created Ingress %q", "becomes-ready"),
 		},
 		Key: "default/becomes-ready",
 		// TODO(lichuqiang): config namespace validation in resource scope.
@@ -389,21 +389,21 @@ func TestReconcile(t *testing.T) {
 		},
 		Key: "default/create-svc-failure",
 	}, {
-		Name: "failure creating cluster ingress",
+		Name: "failure creating ingress",
 		Objects: []runtime.Object{
 			route("default", "ingress-create-failure", WithConfigTarget("config"), WithRouteFinalizer),
 			cfg("default", "config",
 				WithGeneration(1), WithLatestCreated("config-00001"), WithLatestReady("config-00001")),
 			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001"), WithServiceName("astrid")),
 		},
-		// We induce a failure creating the ClusterIngress.
+		// We induce a failure creating the Ingress.
 		WantErr: true,
 		WithReactors: []clientgotesting.ReactionFunc{
-			InduceFailure("create", "clusteringresses"),
+			InduceFailure("create", "ingresses"),
 		},
 		WantCreates: []runtime.Object{
 			//This is the Create we see for the cluter ingress, but we induce a failure.
-			simpleClusterIngress(
+			simpleIngress(
 				route("default", "ingress-create-failure", WithConfigTarget("config"),
 					WithURL),
 				&traffic.Config{
@@ -430,8 +430,7 @@ func TestReconcile(t *testing.T) {
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: route("default", "ingress-create-failure", WithConfigTarget("config"),
 				WithRouteFinalizer,
-				// Populated by reconciliation when we fail to create
-				// the cluster ingress.
+				// Populated by reconciliation when we fail to create the ingress.
 				WithURL, WithAddress, WithInitRouteConditions,
 				MarkTrafficAssigned, WithStatusTraffic(v1alpha1.TrafficTarget{
 					TrafficTarget: v1beta1.TrafficTarget{
@@ -443,9 +442,9 @@ func TestReconcile(t *testing.T) {
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Created", "Created placeholder service %q", "ingress-create-failure"),
-			Eventf(corev1.EventTypeWarning, "CreationFailed", "Failed to create ClusterIngress for route %s/%s: %v",
-				"default", "ingress-create-failure", "inducing failure for create clusteringresses"),
-			Eventf(corev1.EventTypeWarning, "InternalError", "inducing failure for create clusteringresses"),
+			Eventf(corev1.EventTypeWarning, "CreationFailed", "Failed to create Ingress for route %s/%s: %v",
+				"default", "ingress-create-failure", "inducing failure for create ingresses"),
+			Eventf(corev1.EventTypeWarning, "InternalError", "inducing failure for create ingresses"),
 		},
 		Key:                     "default/ingress-create-failure",
 		SkipNamespaceValidation: true,
@@ -720,11 +719,11 @@ func TestReconcile(t *testing.T) {
 		Key:                     "default/new-latest-ready",
 		SkipNamespaceValidation: true,
 	}, {
-		Name: "failure updating cluster ingress",
-		// Starting from the new latest ready, induce a failure updating the cluster ingress.
+		Name: "failure updating ingress",
+		// Starting from the new latest ready, induce a failure updating the ingress.
 		WantErr: true,
 		WithReactors: []clientgotesting.ReactionFunc{
-			InduceFailure("update", "clusteringresses"),
+			InduceFailure("update", "ingresses"),
 		},
 		Objects: []runtime.Object{
 			route("default", "update-ci-failure", WithConfigTarget("config"),
@@ -793,7 +792,7 @@ func TestReconcile(t *testing.T) {
 					})),
 		}},
 		WantEvents: []string{
-			Eventf(corev1.EventTypeWarning, "InternalError", "inducing failure for update clusteringresses"),
+			Eventf(corev1.EventTypeWarning, "InternalError", "inducing failure for update ingresses"),
 		},
 		Key:                     "default/update-ci-failure",
 		SkipNamespaceValidation: true,
@@ -974,7 +973,7 @@ func TestReconcile(t *testing.T) {
 		}},
 		Key: "default/external-name",
 	}, {
-		Name: "reconcile cluster ingress mutation",
+		Name: "reconcile ingress mutation",
 		Objects: []runtime.Object{
 			route("default", "ingress-mutation", WithConfigTarget("config"), WithRouteFinalizer,
 				WithURL, WithAddress, WithInitRouteConditions,
@@ -1205,7 +1204,7 @@ func TestReconcile(t *testing.T) {
 			rev("default", "green", 1, MarkRevisionReady, WithRevName("green-00001"), WithServiceName("green-lake")),
 		},
 		WantCreates: []runtime.Object{
-			simpleClusterIngress(
+			simpleIngress(
 				route("default", "named-traffic-split", WithURL, WithSpecTraffic(
 					v1alpha1.TrafficTarget{
 						TrafficTarget: v1beta1.TrafficTarget{
@@ -1288,7 +1287,7 @@ func TestReconcile(t *testing.T) {
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Created", "Created placeholder service %q", "named-traffic-split"),
-			Eventf(corev1.EventTypeNormal, "Created", "Created ClusterIngress %q", "route-34-78"),
+			Eventf(corev1.EventTypeNormal, "Created", "Created Ingress %q", "named-traffic-split"),
 		},
 		Key:                     "default/named-traffic-split",
 		SkipNamespaceValidation: true,
@@ -1314,7 +1313,7 @@ func TestReconcile(t *testing.T) {
 			rev("default", "gray", 1, MarkRevisionReady, WithRevName("gray-00001"), WithServiceName("shades")),
 		},
 		WantCreates: []runtime.Object{
-			simpleClusterIngress(
+			simpleIngress(
 				route("default", "same-revision-targets", WithURL, WithSpecTraffic(
 					v1alpha1.TrafficTarget{
 						TrafficTarget: v1beta1.TrafficTarget{
@@ -1461,7 +1460,7 @@ func TestReconcile(t *testing.T) {
 			Eventf(corev1.EventTypeNormal, "Created", "Created placeholder service %q", "same-revision-targets"),
 			Eventf(corev1.EventTypeNormal, "Created", "Created placeholder service %q", "also-gray-same-revision-targets"),
 			Eventf(corev1.EventTypeNormal, "Created", "Created placeholder service %q", "gray-same-revision-targets"),
-			Eventf(corev1.EventTypeNormal, "Created", "Created ClusterIngress %q", "route-1-2"),
+			Eventf(corev1.EventTypeNormal, "Created", "Created Ingress %q", "same-revision-targets"),
 		},
 		Key:                     "default/same-revision-targets",
 		SkipNamespaceValidation: true,
@@ -1659,7 +1658,7 @@ func TestReconcile(t *testing.T) {
 		},
 		Key: "default/stale-lastpinned",
 	}, {
-		Name: "check that we can find the cluster ingress with old naming",
+		Name: "check that we can find the ingress with old naming",
 		Objects: []runtime.Object{
 			route("default", "old-naming", WithConfigTarget("config"), WithRouteFinalizer,
 				WithURL, WithAddress, WithInitRouteConditions,
@@ -1888,6 +1887,7 @@ func TestReconcile(t *testing.T) {
 			revisionLister:       listers.GetRevisionLister(),
 			serviceLister:        listers.GetK8sServiceLister(),
 			clusterIngressLister: listers.GetClusterIngressLister(),
+			ingressLister:        listers.GetIngressLister(),
 			tracker:              &NullTracker{},
 			configStore: &testConfigStore{
 				config: ReconcilerTestConfig(false),
@@ -1957,7 +1957,7 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Created", "Created placeholder service %q", "becomes-ready"),
 			Eventf(corev1.EventTypeNormal, "Created", "Created Certificate %q/%q", "default", "route-12-34"),
-			Eventf(corev1.EventTypeNormal, "Created", "Created ClusterIngress %q", "route-12-34"),
+			Eventf(corev1.EventTypeNormal, "Created", "Created Ingress %q", "becomes-ready"),
 		},
 		Key:                     "default/becomes-ready",
 		SkipNamespaceValidation: true,
@@ -2038,7 +2038,7 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Created", "Created placeholder service %q", "becomes-ready"),
 			Eventf(corev1.EventTypeNormal, "Updated", "Updated Spec for Certificate %s/%s", "default", "route-12-34"),
-			Eventf(corev1.EventTypeNormal, "Created", "Created ClusterIngress %q", "route-12-34"),
+			Eventf(corev1.EventTypeNormal, "Created", "Created Ingress %q", "becomes-ready"),
 		},
 		Key:                     "default/becomes-ready",
 		SkipNamespaceValidation: true,
@@ -2046,14 +2046,14 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 	defer logtesting.ClearAll()
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
 		return &Reconciler{
-			Base:                 reconciler.NewBase(ctx, controllerAgentName, cmw),
-			routeLister:          listers.GetRouteLister(),
-			configurationLister:  listers.GetConfigurationLister(),
-			revisionLister:       listers.GetRevisionLister(),
-			serviceLister:        listers.GetK8sServiceLister(),
-			clusterIngressLister: listers.GetClusterIngressLister(),
-			certificateLister:    listers.GetCertificateLister(),
-			tracker:              &NullTracker{},
+			Base:                reconciler.NewBase(ctx, controllerAgentName, cmw),
+			routeLister:         listers.GetRouteLister(),
+			configurationLister: listers.GetConfigurationLister(),
+			revisionLister:      listers.GetRevisionLister(),
+			serviceLister:       listers.GetK8sServiceLister(),
+			ingressLister:       listers.GetIngressLister(),
+			certificateLister:   listers.GetCertificateLister(),
+			tracker:             &NullTracker{},
 			configStore: &testConfigStore{
 				config: ReconcilerTestConfig(true),
 			},
@@ -2123,7 +2123,7 @@ func simpleK8sService(r *v1alpha1.Route, so ...K8sServiceOption) *corev1.Service
 
 	// omit the error here, as we are sure the loadbalancer info is porvided.
 	// return the service instance only, so that the result can be used in TableRow.
-	svc, _ := resources.MakeK8sService(ctx, r, "", &netv1alpha1.ClusterIngress{Status: readyIngressStatus()})
+	svc, _ := resources.MakeK8sService(ctx, r, "", &netv1alpha1.Ingress{Status: readyIngressStatus()})
 
 	for _, opt := range so {
 		opt(svc)
@@ -2132,12 +2132,12 @@ func simpleK8sService(r *v1alpha1.Route, so ...K8sServiceOption) *corev1.Service
 	return svc
 }
 
-func simpleClusterIngress(r *v1alpha1.Route, tc *traffic.Config, io ...ClusterIngressOption) *netv1alpha1.ClusterIngress {
+func simpleIngress(r *v1alpha1.Route, tc *traffic.Config, io ...IngressOption) *netv1alpha1.Ingress {
 	return ingressWithClass(r, tc, TestIngressClass, io...)
 }
 
-func ingressWithClass(r *v1alpha1.Route, tc *traffic.Config, class string, io ...ClusterIngressOption) *netv1alpha1.ClusterIngress {
-	ingress, _ := resources.MakeClusterIngress(getContext(), r, tc, nil, class)
+func ingressWithClass(r *v1alpha1.Route, tc *traffic.Config, class string, io ...IngressOption) *netv1alpha1.Ingress {
+	ingress, _ := resources.MakeIngress(getContext(), r, tc, nil, class)
 
 	for _, opt := range io {
 		opt(ingress)
@@ -2146,8 +2146,8 @@ func ingressWithClass(r *v1alpha1.Route, tc *traffic.Config, class string, io ..
 	return ingress
 }
 
-func ingressWithTLS(r *v1alpha1.Route, tc *traffic.Config, tls []netv1alpha1.IngressTLS, io ...ClusterIngressOption) *netv1alpha1.ClusterIngress {
-	ingress, _ := resources.MakeClusterIngress(getContext(), r, tc, tls, TestIngressClass)
+func ingressWithTLS(r *v1alpha1.Route, tc *traffic.Config, tls []netv1alpha1.IngressTLS, io ...IngressOption) *netv1alpha1.Ingress {
+	ingress, _ := resources.MakeIngress(getContext(), r, tc, tls, TestIngressClass)
 
 	for _, opt := range io {
 		opt(ingress)
@@ -2156,7 +2156,7 @@ func ingressWithTLS(r *v1alpha1.Route, tc *traffic.Config, tls []netv1alpha1.Ing
 	return ingress
 }
 
-func simpleReadyIngress(r *v1alpha1.Route, tc *traffic.Config, io ...ClusterIngressOption) *netv1alpha1.ClusterIngress {
+func simpleReadyIngress(r *v1alpha1.Route, tc *traffic.Config, io ...IngressOption) *netv1alpha1.Ingress {
 	ingress := ingressWithStatus(r, tc, readyIngressStatus())
 
 	for _, opt := range io {
@@ -2177,20 +2177,20 @@ func readyIngressStatus() netv1alpha1.IngressStatus {
 	return status
 }
 
-func ingressWithStatus(r *v1alpha1.Route, tc *traffic.Config, status netv1alpha1.IngressStatus) *netv1alpha1.ClusterIngress {
-	ci := simpleClusterIngress(r, tc)
+func ingressWithStatus(r *v1alpha1.Route, tc *traffic.Config, status netv1alpha1.IngressStatus) *netv1alpha1.Ingress {
+	ci := simpleIngress(r, tc)
 	ci.Name = r.Name
 	ci.Status = status
 
 	return ci
 }
 
-func changeIngressName(ci *netv1alpha1.ClusterIngress) *netv1alpha1.ClusterIngress {
+func changeIngressName(ci *netv1alpha1.Ingress) *netv1alpha1.Ingress {
 	ci.Name = "not-what-we-thought"
 	return ci
 }
 
-func mutateIngress(ci *netv1alpha1.ClusterIngress) *netv1alpha1.ClusterIngress {
+func mutateIngress(ci *netv1alpha1.Ingress) *netv1alpha1.Ingress {
 	// Thor's Hammer
 	ci.Spec = netv1alpha1.IngressSpec{}
 	return ci

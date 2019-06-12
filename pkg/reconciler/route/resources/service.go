@@ -69,9 +69,9 @@ func MakeK8sPlaceholderService(ctx context.Context, route *v1alpha1.Route, targe
 }
 
 // MakeK8sService creates a Service that redirect to the loadbalancer specified
-// in ClusterIngress status. It's owned by the provided v1alpha1.Route.
+// in Ingress status. It's owned by the provided v1alpha1.Route.
 // The purpose of this service is to provide a domain name for Istio routing.
-func MakeK8sService(ctx context.Context, route *v1alpha1.Route, targetName string, ingress *netv1alpha1.ClusterIngress) (*corev1.Service, error) {
+func MakeK8sService(ctx context.Context, route *v1alpha1.Route, targetName string, ingress *netv1alpha1.Ingress) (*corev1.Service, error) {
 	svcSpec, err := makeServiceSpec(ingress)
 	if err != nil {
 		return nil, err
@@ -105,14 +105,14 @@ func makeK8sService(ctx context.Context, route *v1alpha1.Route, targetName strin
 	}, nil
 }
 
-func makeServiceSpec(ingress *netv1alpha1.ClusterIngress) (*corev1.ServiceSpec, error) {
+func makeServiceSpec(ingress *netv1alpha1.Ingress) (*corev1.ServiceSpec, error) {
 	ingressStatus := ingress.Status
 	if ingressStatus.LoadBalancer == nil || len(ingressStatus.LoadBalancer.Ingress) == 0 {
 		return nil, errLoadBalancerNotFound
 	}
 	if len(ingressStatus.LoadBalancer.Ingress) > 1 {
 		// Return error as we only support one LoadBalancer currently.
-		return nil, fmt.Errorf("more than one ingress are specified in status(LoadBalancer) of ClusterIngress %s", ingress.Name)
+		return nil, fmt.Errorf("more than one ingress are specified in status(LoadBalancer) of Ingress %s", ingress.Name)
 	}
 	balancer := ingressStatus.LoadBalancer.Ingress[0]
 
@@ -131,7 +131,7 @@ func makeServiceSpec(ingress *netv1alpha1.ClusterIngress) (*corev1.ServiceSpec, 
 			ExternalName: balancer.Domain,
 		}, nil
 	case balancer.MeshOnly:
-		// The ClusterIngress is loadbalanced through a Service mesh.
+		// The Ingress is loadbalanced through a Service mesh.
 		// We won't have a specific LB endpoint to route traffic to,
 		// but we still need to create a ClusterIP service to make
 		// sure the domain name is available for access within the

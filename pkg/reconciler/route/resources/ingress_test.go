@@ -38,7 +38,7 @@ import (
 
 const ns = "test-ns"
 
-func TestMakeClusterIngress_CorrectMetadata(t *testing.T) {
+func TestMakeIngress_CorrectMetadata(t *testing.T) {
 	targets := map[string]traffic.RevisionTargets{}
 	ingressClass := "foo-ingress"
 	r := &v1alpha1.Route{
@@ -57,7 +57,8 @@ func TestMakeClusterIngress_CorrectMetadata(t *testing.T) {
 		},
 	}
 	expected := metav1.ObjectMeta{
-		Name: "route-1234-5678",
+		Name:      "test-route",
+		Namespace: "test-ns",
 		Labels: map[string]string{
 			serving.RouteLabelKey:          "test-route",
 			serving.RouteNamespaceLabelKey: "test-ns",
@@ -66,7 +67,7 @@ func TestMakeClusterIngress_CorrectMetadata(t *testing.T) {
 			networking.IngressClassAnnotationKey: ingressClass,
 		},
 	}
-	ci, err := MakeClusterIngress(getContext(), r, &traffic.Config{Targets: targets}, nil, ingressClass)
+	ci, err := MakeIngress(getContext(), r, &traffic.Config{Targets: targets}, nil, ingressClass)
 	if err != nil {
 		t.Errorf("Unexpected error %v", err)
 	}
@@ -76,7 +77,7 @@ func TestMakeClusterIngress_CorrectMetadata(t *testing.T) {
 	}
 }
 
-func TestMakeClusterIngressSpec_CorrectRules(t *testing.T) {
+func TestMakeIngressSpec_CorrectRules(t *testing.T) {
 	targets := map[string]traffic.RevisionTargets{
 		traffic.DefaultTarget: {{
 			TrafficTarget: v1beta1.TrafficTarget{
@@ -168,7 +169,7 @@ func TestMakeClusterIngressSpec_CorrectRules(t *testing.T) {
 	}
 }
 
-func TestMakeClusterIngressSpec_CorrectVisibility(t *testing.T) {
+func TestMakeIngressSpec_CorrectVisibility(t *testing.T) {
 	cases := []struct {
 		name              string
 		route             v1alpha1.Route
@@ -309,7 +310,7 @@ func TestGetRouteDomains_NamedTarget(t *testing.T) {
 }
 
 // One active target.
-func TestMakeClusterIngressRule_Vanilla(t *testing.T) {
+func TestMakeIngressRule_Vanilla(t *testing.T) {
 	targets := []traffic.RevisionTarget{{
 		TrafficTarget: v1beta1.TrafficTarget{
 			ConfigurationName: "config",
@@ -350,7 +351,7 @@ func TestMakeClusterIngressRule_Vanilla(t *testing.T) {
 }
 
 // One active target and a target of zero percent.
-func TestMakeClusterIngressRule_ZeroPercentTarget(t *testing.T) {
+func TestMakeIngressRule_ZeroPercentTarget(t *testing.T) {
 	targets := []traffic.RevisionTarget{{
 		TrafficTarget: v1beta1.TrafficTarget{
 			ConfigurationName: "config",
@@ -396,7 +397,7 @@ func TestMakeClusterIngressRule_ZeroPercentTarget(t *testing.T) {
 }
 
 // Two active targets.
-func TestMakeClusterIngressRule_TwoTargets(t *testing.T) {
+func TestMakeIngressRule_TwoTargets(t *testing.T) {
 	targets := []traffic.RevisionTarget{{
 		TrafficTarget: v1beta1.TrafficTarget{
 			ConfigurationName: "config",
@@ -449,7 +450,7 @@ func TestMakeClusterIngressRule_TwoTargets(t *testing.T) {
 }
 
 // Inactive target.
-func TestMakeClusterIngressRule_InactiveTarget(t *testing.T) {
+func TestMakeIngressRule_InactiveTarget(t *testing.T) {
 	targets := []traffic.RevisionTarget{{
 		TrafficTarget: v1beta1.TrafficTarget{
 			ConfigurationName: "config",
@@ -489,7 +490,7 @@ func TestMakeClusterIngressRule_InactiveTarget(t *testing.T) {
 }
 
 // Two inactive targets.
-func TestMakeClusterIngressRule_TwoInactiveTargets(t *testing.T) {
+func TestMakeIngressRule_TwoInactiveTargets(t *testing.T) {
 	targets := []traffic.RevisionTarget{{
 		TrafficTarget: v1beta1.TrafficTarget{
 			ConfigurationName: "config",
@@ -543,7 +544,7 @@ func TestMakeClusterIngressRule_TwoInactiveTargets(t *testing.T) {
 	}
 }
 
-func TestMakeClusterIngressRule_ZeroPercentTargetInactive(t *testing.T) {
+func TestMakeIngressRule_ZeroPercentTargetInactive(t *testing.T) {
 	targets := []traffic.RevisionTarget{{
 		TrafficTarget: v1beta1.TrafficTarget{
 			ConfigurationName: "config",
@@ -588,7 +589,7 @@ func TestMakeClusterIngressRule_ZeroPercentTargetInactive(t *testing.T) {
 	}
 }
 
-func TestMakeClusterIngress_WithTLS(t *testing.T) {
+func TestMakeIngress_WithTLS(t *testing.T) {
 	targets := map[string]traffic.RevisionTargets{}
 	ingressClass := "foo-ingress"
 	r := &v1alpha1.Route{
@@ -613,9 +614,10 @@ func TestMakeClusterIngress_WithTLS(t *testing.T) {
 			ServerCertificate: "tls.crt",
 		},
 	}
-	expected := &netv1alpha1.ClusterIngress{
+	expected := &netv1alpha1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "route-1234-5678",
+			Name:      "test-route",
+			Namespace: "test-ns",
 			Annotations: map[string]string{
 				networking.IngressClassAnnotationKey: ingressClass,
 			},
@@ -630,7 +632,7 @@ func TestMakeClusterIngress_WithTLS(t *testing.T) {
 			Visibility: netv1alpha1.IngressVisibilityExternalIP,
 		},
 	}
-	got, err := MakeClusterIngress(getContext(), r, &traffic.Config{Targets: targets}, tls, ingressClass)
+	got, err := MakeIngress(getContext(), r, &traffic.Config{Targets: targets}, tls, ingressClass)
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
@@ -640,7 +642,7 @@ func TestMakeClusterIngress_WithTLS(t *testing.T) {
 	}
 }
 
-func TestMakeClusterIngressTLS(t *testing.T) {
+func TestMakeIngressTLS(t *testing.T) {
 	cert := &netv1alpha1.Certificate{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "route-1234",

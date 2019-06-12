@@ -544,9 +544,9 @@ func MarkCertificateReady(r *v1alpha1.Route) {
 	r.Status.MarkCertificateReady(routenames.Certificate(r))
 }
 
-// MarkIngressReady propagates a Ready=True ClusterIngress status to the Route.
+// MarkIngressReady propagates a Ready=True Ingress status to the Route.
 func MarkIngressReady(r *v1alpha1.Route) {
-	r.Status.PropagateClusterIngressStatus(netv1alpha1.IngressStatus{
+	r.Status.PropagateIngressStatus(netv1alpha1.IngressStatus{
 		Status: duckv1beta1.Status{
 			Conditions: duckv1beta1.Conditions{{
 				Type:   "Ready",
@@ -1024,12 +1024,12 @@ func WithUnschedulableContainer(reason, message string) PodOption {
 	}
 }
 
-// ClusterIngressOption enables further configuration of the Cluster Ingress.
-type ClusterIngressOption func(*netv1alpha1.ClusterIngress)
+// IngressOption enables further configuration of the Cluster Ingress.
+type IngressOption func(*netv1alpha1.Ingress)
 
 // WithHosts sets the Hosts of the ingress rule specified index
-func WithHosts(index int, hosts ...string) ClusterIngressOption {
-	return func(ingress *netv1alpha1.ClusterIngress) {
+func WithHosts(index int, hosts ...string) IngressOption {
+	return func(ingress *netv1alpha1.Ingress) {
 		ingress.Spec.Rules[index].Hosts = hosts
 	}
 }

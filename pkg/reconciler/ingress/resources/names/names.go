@@ -14,16 +14,22 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package main
+package names
 
 import (
-	"github.com/knative/serving/pkg/reconciler/ingress"
-
-	// This defines the shared main for injected controllers.
-	"github.com/knative/pkg/injection/sharedmain"
+	"github.com/knative/serving/pkg/apis/networking/v1alpha1"
 )
 
-func main() {
-	sharedmain.Main("controller-certificate-cert-manager",
-		ingress.NewController)
+// IngressVirtualService returns the name of the VirtualService child
+// resource for given Ingress that programs traffic for Ingress
+// Gateways.
+func IngressVirtualService(i *v1alpha1.Ingress) string {
+	return i.Name
+}
+
+// MeshVirtualService returns the name of the VirtualService child
+// resource for given Ingress that programs traffic for Service
+// Mesh.
+func MeshVirtualService(i *v1alpha1.Ingress) string {
+	return i.Name + "-mesh"
 }
