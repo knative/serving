@@ -188,9 +188,11 @@ func TestReconcileAndScaleToZero(t *testing.T) {
 		Objects: []runtime.Object{
 			kpa(testNamespace, testRevision,
 				WithNoTraffic("NoTraffic", "The target is not receiving traffic."),
-				markOld, WithPAStatusService(testRevision)),
+				markOld, WithPAStatusService(testRevision),
+				withMSvcStatus("rocking-in-the-free-world")),
 			sks(testNamespace, testRevision, WithDeployRef(deployName), WithProxyMode, WithSKSReady),
-			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector)),
+			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector),
+				withMSvcName("rocking-in-the-free-world")),
 			deploy(testNamespace, testRevision, func(d *appsv1.Deployment) {
 				d.Spec.Replicas = ptr.Int32(0)
 			}),
@@ -203,9 +205,11 @@ func TestReconcileAndScaleToZero(t *testing.T) {
 		Objects: []runtime.Object{
 			kpa(testNamespace, testRevision,
 				WithNoTraffic("NoTraffic", "The target is not receiving traffic."),
-				markOld, WithPAStatusService(testRevision)),
+				markOld, WithPAStatusService(testRevision),
+				withMSvcStatus("out-of-the-blue")),
 			sks(testNamespace, testRevision, WithDeployRef(deployName), WithProxyMode, WithSKSReady),
-			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector)),
+			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector),
+				withMSvcName("out-of-the-blue")),
 			deploy(testNamespace, testRevision),
 			// Should be present, but empty.
 			makeSKSPrivateEndpoints(0, testNamespace, testRevision),
@@ -222,16 +226,18 @@ func TestReconcileAndScaleToZero(t *testing.T) {
 		Key:  key,
 		Objects: []runtime.Object{
 			kpa(testNamespace, testRevision, markActive, markOld,
-				WithPAStatusService(testRevision)),
+				WithPAStatusService(testRevision),
+				withMSvcStatus("and-into-the-black")),
 			sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSReady),
-			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector)),
+			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector),
+				withMSvcName("and-into-the-black")),
 			deploy(testNamespace, testRevision),
 			makeSKSPrivateEndpoints(1, testNamespace, testRevision),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: kpa(testNamespace, testRevision,
 				WithNoTraffic("NoTraffic", "The target is not receiving traffic."),
-				WithPAStatusService(testRevision)),
+				WithPAStatusService(testRevision), withMSvcStatus("and-into-the-black")),
 		}},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: sks(testNamespace, testRevision, WithSKSReady,
@@ -242,9 +248,10 @@ func TestReconcileAndScaleToZero(t *testing.T) {
 		Key:  key,
 		Objects: []runtime.Object{
 			kpa(testNamespace, testRevision, markActive, markOld,
-				WithPAStatusService(testRevision)),
+				WithPAStatusService(testRevision), withMSvcStatus("you-ask-for-this")),
 			sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSReady),
-			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector)),
+			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector),
+				withMSvcName("you-ask-for-this")),
 			deploy(testNamespace, testRevision),
 			makeSKSPrivateEndpoints(1, testNamespace, testRevision),
 		},
@@ -259,7 +266,7 @@ func TestReconcileAndScaleToZero(t *testing.T) {
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: kpa(testNamespace, testRevision,
 				WithNoTraffic("NoTraffic", "The target is not receiving traffic."),
-				WithPAStatusService(testRevision)),
+				WithPAStatusService(testRevision), withMSvcStatus("you-ask-for-this")),
 		}},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: sks(testNamespace, testRevision, WithSKSReady,
@@ -270,9 +277,10 @@ func TestReconcileAndScaleToZero(t *testing.T) {
 		Key:  key,
 		Objects: []runtime.Object{
 			kpa(testNamespace, testRevision, markActive,
-				WithPAStatusService(testRevision)),
+				WithPAStatusService(testRevision), withMSvcStatus("but-we-give-you-that")),
 			sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSReady),
-			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector)),
+			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector),
+				withMSvcName("but-we-give-you-that")),
 			deploy(testNamespace, testRevision),
 			makeSKSPrivateEndpoints(1, testNamespace, testRevision),
 		},
@@ -379,6 +387,21 @@ func TestReconcile(t *testing.T) {
 		WantCreates: []runtime.Object{
 			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector)),
 		},
+	}, {
+		Name: "metric-service-exists-not-on-status",
+		Key:  key,
+		Objects: []runtime.Object{
+			kpa(testNamespace, testRevision, markActive, WithPAStatusService(testRevision)),
+			sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSReady),
+			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector),
+				withMSvcName("erj-e190")),
+			expectedDeploy,
+			makeSKSPrivateEndpoints(1, testNamespace, testRevision),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: kpa(testNamespace, testRevision, markActive,
+				WithPAStatusService(testRevision), withMSvcStatus("erj-e190")),
+		}},
 	}, {
 		Name: "delete redundant metrics svc",
 		Key:  key,
