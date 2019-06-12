@@ -64,7 +64,7 @@ type Reconciler struct {
 	kpaDeciders       resources.Deciders
 	metrics           aresources.Metrics
 	scaler            *scaler
-	configStore       configStore
+	configStore       reconciler.ConfigStore
 	psInformerFactory duck.InformerFactory
 }
 

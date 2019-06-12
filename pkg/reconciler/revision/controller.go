@@ -46,12 +46,6 @@ const (
 	controllerAgentName = "revision-controller"
 )
 
-type configStore interface {
-	ToContext(ctx context.Context) context.Context
-	WatchConfigs(w configmap.Watcher)
-	Load() *config.Config
-}
-
 // NewController initializes the controller and is called by the generated code
 // Registers eventhandlers to enqueue events
 func NewController(
@@ -127,8 +121,9 @@ func NewController(
 		impl.GlobalResync(revisionInformer.Informer())
 	})
 
-	c.configStore = config.NewStore(c.Logger.Named("config-store"), resync)
-	c.configStore.WatchConfigs(c.ConfigMapWatcher)
+	configStore := config.NewStore(c.Logger.Named("config-store"), resync)
+	configStore.WatchConfigs(c.ConfigMapWatcher)
+	c.configStore = configStore
 
 	return impl
 }

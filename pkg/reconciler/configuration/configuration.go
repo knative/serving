@@ -49,7 +49,7 @@ type Reconciler struct {
 	configurationLister listers.ConfigurationLister
 	revisionLister      listers.RevisionLister
 
-	configStore configStore
+	configStore reconciler.ConfigStore
 }
 
 // Check that our Reconciler implements controller.Reconciler
