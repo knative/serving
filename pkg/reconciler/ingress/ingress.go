@@ -117,11 +117,10 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 			c.Recorder.Eventf(ingress, corev1.EventTypeWarning, "UpdateFailed",
 				"Failed to update status for Ingress %q: %v", ingress.Name, err)
 			return err
-		} else {
-			logger.Infof("Updated status for Ingress %q", ingress.Name)
-			c.Recorder.Eventf(ingress, corev1.EventTypeNormal, "Updated",
-				"Updated status for Ingress %q", ingress.Name)
 		}
+		logger.Infof("Updated status for Ingress %q", ingress.Name)
+		c.Recorder.Eventf(ingress, corev1.EventTypeNormal, "Updated",
+			"Updated status for Ingress %q", ingress.Name)
 	}
 	if reconcileErr != nil {
 		c.Recorder.Event(ingress, corev1.EventTypeWarning, "InternalError", reconcileErr.Error())
