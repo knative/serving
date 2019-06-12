@@ -257,11 +257,18 @@ function create_test_cluster_with_retries() {
         kubetest "$@" ${geoflag}; } 2>&1 | tee ${cluster_creation_log}
 
       # Exit if test succeeded
-      [[ "$(get_test_return_code)" == "0" ]] && return
-      # If test failed not because of cluster creation stockout, return
-      [[ -z "$(grep -Eio 'does not have enough resources available to fulfill' ${cluster_creation_log})" ]] && return
+      [[ "$(get_test_return_code)" == "0" ]] && return 0
+      # Retry if cluster creation failed because of:
+      # - stockout (https://github.com/knative/test-infra/issues/592)
+      # - latest GKE not available in this region/zone yet (https://github.com/knative/test-infra/issues/694)
+      [[ -z "$(grep -Fo 'does not have enough resources available to fulfill' ${cluster_creation_log})" \
+          && -z "$(grep -Fo 'ResponseError: code=400, message=No valid versions with the prefix' ${cluster_creation_log})" \
+          && -z "$(grep -Po 'ResponseError: code=400, message=Master version "[0-9a-z\-\.]+" is unsupported' ${cluster_creation_log})" ]] \
+          && return 1
     done
   done
+  echo "No more region/zones to try, quitting"
+  return 1
 }
 
 # Setup the test cluster for running the tests.
@@ -273,7 +280,7 @@ function setup_test_cluster() {
   header "Setting up test cluster"
 
   # Set the actual project the test cluster resides in
-  # It will be a project assigned by Boskos if test is running on Prow, 
+  # It will be a project assigned by Boskos if test is running on Prow,
   # otherwise will be ${GCP_PROJECT} set up by user.
   readonly export E2E_PROJECT_ID="$(gcloud config get-value project)"
 
@@ -283,6 +290,9 @@ function setup_test_cluster() {
   local k8s_user=$(gcloud config get-value core/account)
   local k8s_cluster=$(kubectl config current-context)
 
+  is_protected_cluster ${k8s_cluster} && \
+    abort "kubeconfig context set to ${k8s_cluster}, which is forbidden"
+
   # If cluster admin role isn't set, this is a brand new cluster
   # Setup the admin role and also KO_DOCKER_REPO
   if [[ -z "$(kubectl get clusterrolebinding cluster-admin-binding 2> /dev/null)" ]]; then
@@ -290,6 +300,10 @@ function setup_test_cluster() {
     kubectl config set-context ${k8s_cluster} --namespace=default
     export KO_DOCKER_REPO=gcr.io/${E2E_PROJECT_ID}/${E2E_BASE_NAME}-e2e-img
   fi
+
+  # Safety checks
+  is_protected_gcr ${KO_DOCKER_REPO} && \
+    abort "\$KO_DOCKER_REPO set to ${KO_DOCKER_REPO}, which is forbidden"
 
   echo "- Project is ${E2E_PROJECT_ID}"
   echo "- Cluster is ${k8s_cluster}"
@@ -305,6 +319,8 @@ function setup_test_cluster() {
   set +o pipefail
 
   if (( ! SKIP_KNATIVE_SETUP )) && function_exists knative_setup; then
+    # Wait for Istio installation to complete, if necessary, before calling knative_setup.
+    (( ! SKIP_ISTIO_ADDON )) && (wait_until_batch_job_complete istio-system || return 1)
     knative_setup || fail_test "Knative setup failed"
   fi
   if function_exists test_setup; then
@@ -411,10 +427,6 @@ function initialize() {
   fi
 
   (( IS_PROW )) && [[ -z "${GCP_PROJECT}" ]] && IS_BOSKOS=1
-
-  # Safety checks
-  is_protected_gcr ${KO_DOCKER_REPO} && \
-    abort "\$KO_DOCKER_REPO set to ${KO_DOCKER_REPO}, which is forbidden"
 
   (( SKIP_ISTIO_ADDON )) || GKE_ADDONS="--addons=Istio"
 

@@ -30,6 +30,7 @@ sed -n '11,41p' vendor/bitbucket.org/ww/goautoneg/README.txt > vendor/bitbucket.
 
 rm -rf $(find vendor/ -name 'OWNERS')
 rm -rf $(find vendor/ -name '*_test.go')
+rm -fr vendor/github.com/knative/test-infra/devstats
 
 update_licenses third_party/VENDOR-LICENSE "./cmd/*"
 remove_broken_symlinks ./vendor
