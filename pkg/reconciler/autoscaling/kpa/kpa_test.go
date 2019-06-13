@@ -306,12 +306,12 @@ func TestReconcileAndScaleToZero(t *testing.T) {
 		return &Reconciler{
 			Base: &areconciler.Base{
 				Base:              rpkg.NewBase(ctx, controllerAgentName, newConfigWatcher()),
-				PaLister:          listers.GetPodAutoscalerLister(),
-				SksLister:         listers.GetServerlessServiceLister(),
+				PALister:          listers.GetPodAutoscalerLister(),
+				SKSLister:         listers.GetServerlessServiceLister(),
 				ServiceLister:     listers.GetK8sServiceLister(),
 				Metrics:           fakeMetrics,
 				ConfigStore:       &testConfigStore{config: defaultConfig()},
-				PsInformerFactory: psFactory,
+				PSInformerFactory: psFactory,
 			},
 			endpointsLister: listers.GetEndpointsLister(),
 			deciders:        fakeDeciders,
@@ -778,12 +778,12 @@ func TestReconcile(t *testing.T) {
 		return &Reconciler{
 			Base: &areconciler.Base{
 				Base:              rpkg.NewBase(ctx, controllerAgentName, newConfigWatcher()),
-				PaLister:          listers.GetPodAutoscalerLister(),
-				SksLister:         listers.GetServerlessServiceLister(),
+				PALister:          listers.GetPodAutoscalerLister(),
+				SKSLister:         listers.GetServerlessServiceLister(),
 				ServiceLister:     listers.GetK8sServiceLister(),
 				Metrics:           fakeMetrics,
 				ConfigStore:       &testConfigStore{config: defaultConfig()},
-				PsInformerFactory: psFactory,
+				PSInformerFactory: psFactory,
 			},
 			endpointsLister: listers.GetEndpointsLister(),
 			deciders:        fakeDeciders,

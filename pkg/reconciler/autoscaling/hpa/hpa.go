@@ -57,7 +57,7 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 	ctx = c.ConfigStore.ToContext(ctx)
 	logger.Debug("Reconcile hpa-class PodAutoscaler")
 
-	original, err := c.PaLister.PodAutoscalers(namespace).Get(name)
+	original, err := c.PALister.PodAutoscalers(namespace).Get(name)
 	if errors.IsNotFound(err) {
 		logger.Debug("PA no longer exists")
 		return c.deleteHPA(ctx, key)

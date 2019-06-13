@@ -67,7 +67,7 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 
 	logger.Debug("Reconcile kpa-class PodAutoscaler")
 
-	original, err := c.PaLister.PodAutoscalers(namespace).Get(name)
+	original, err := c.PALister.PodAutoscalers(namespace).Get(name)
 	if errors.IsNotFound(err) {
 		logger.Debug("PA no longer exists")
 		if err := c.deciders.Delete(ctx, namespace, name); err != nil {

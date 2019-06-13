@@ -407,8 +407,8 @@ func TestReconcile(t *testing.T) {
 		return &Reconciler{
 			Base: &areconciler.Base{
 				Base:        reconciler.NewBase(ctx, controllerAgentName, cmw),
-				PaLister:    listers.GetPodAutoscalerLister(),
-				SksLister:   listers.GetServerlessServiceLister(),
+				PALister:    listers.GetPodAutoscalerLister(),
+				SKSLister:   listers.GetServerlessServiceLister(),
 				ConfigStore: &testConfigStore{config: defaultConfig()},
 			},
 			hpaLister: listers.GetHorizontalPodAutoscalerLister(),

@@ -49,12 +49,12 @@ import (
 // Base implements the core controller logic for autoscaling, given a Reconciler.
 type Base struct {
 	*reconciler.Base
-	PaLister          listers.PodAutoscalerLister
+	PALister          listers.PodAutoscalerLister
 	ServiceLister     corev1listers.ServiceLister
-	SksLister         nlisters.ServerlessServiceLister
+	SKSLister         nlisters.ServerlessServiceLister
 	Metrics           aresources.Metrics
 	ConfigStore       reconciler.ConfigStore
-	PsInformerFactory duck.InformerFactory
+	PSInformerFactory duck.InformerFactory
 }
 
 // ReconcileSKS reconciles a ServerlessService based on the given PodAutoscaler.
@@ -66,7 +66,7 @@ func (c *Base) ReconcileSKS(ctx context.Context, pa *pav1alpha1.PodAutoscaler) (
 		mode = nv1alpha1.SKSOperationModeProxy
 	}
 	sksName := anames.SKS(pa.Name)
-	sks, err := c.SksLister.ServerlessServices(pa.Namespace).Get(sksName)
+	sks, err := c.SKSLister.ServerlessServices(pa.Namespace).Get(sksName)
 	if errors.IsNotFound(err) {
 		logger.Infof("SKS %s/%s does not exist; creating.", pa.Namespace, sksName)
 		sks = aresources.MakeSKS(pa, mode)
@@ -128,7 +128,7 @@ func (c *Base) metricService(pa *pav1alpha1.PodAutoscaler) (*corev1.Service, err
 func (c *Base) ReconcileMetricsService(ctx context.Context, pa *pav1alpha1.PodAutoscaler) (string, error) {
 	logger := logging.FromContext(ctx)
 
-	scale, err := resourceutil.GetScaleResource(pa.Namespace, pa.Spec.ScaleTargetRef, c.PsInformerFactory)
+	scale, err := resourceutil.GetScaleResource(pa.Namespace, pa.Spec.ScaleTargetRef, c.PSInformerFactory)
 	if err != nil {
 		return "", perrors.Wrap(err, "error retrieving scale")
 	}
@@ -193,7 +193,7 @@ func (c *Base) ReconcileMetric(ctx context.Context, pa *pav1alpha1.PodAutoscaler
 
 // UpdateStatus updates the status of the given PodAutoscaler.
 func (c *Base) UpdateStatus(desired *pav1alpha1.PodAutoscaler) (*pav1alpha1.PodAutoscaler, error) {
-	pa, err := c.PaLister.PodAutoscalers(desired.Namespace).Get(desired.Name)
+	pa, err := c.PALister.PodAutoscalers(desired.Namespace).Get(desired.Name)
 	if err != nil {
 		return nil, err
 	}
