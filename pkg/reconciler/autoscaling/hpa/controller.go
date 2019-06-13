@@ -36,12 +36,6 @@ const (
 	controllerAgentName = "hpa-class-podautoscaler-controller"
 )
 
-// configStore is a minimized interface of the actual configStore.
-type configStore interface {
-	ToContext(ctx context.Context) context.Context
-	WatchConfigs(w configmap.Watcher)
-}
-
 // NewController returns a new HPA reconcile controller.
 func NewController(
 	ctx context.Context,
@@ -85,8 +79,9 @@ func NewController(
 	resync := configmap.TypeFilter(configsToResync...)(func(string, interface{}) {
 		controller.SendGlobalUpdates(paInformer.Informer(), paHandler)
 	})
-	c.configStore = config.NewStore(c.Logger.Named("config-store"), resync)
-	c.configStore.WatchConfigs(cmw)
+	configStore := config.NewStore(c.Logger.Named("config-store"), resync)
+	configStore.WatchConfigs(cmw)
+	c.configStore = configStore
 
 	return impl
 }

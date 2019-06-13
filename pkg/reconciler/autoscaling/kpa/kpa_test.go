@@ -33,6 +33,7 @@ import (
 	fakekpainformer "github.com/knative/serving/pkg/client/injection/informers/autoscaling/v1alpha1/podautoscaler/fake"
 	fakesksinformer "github.com/knative/serving/pkg/client/injection/informers/networking/v1alpha1/serverlessservice/fake"
 	fakerevisioninformer "github.com/knative/serving/pkg/client/injection/informers/serving/v1alpha1/revision/fake"
+	"github.com/knative/serving/pkg/reconciler"
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -1446,6 +1447,4 @@ func (t *testConfigStore) ToContext(ctx context.Context) context.Context {
 	return config.ToContext(ctx, t.config)
 }
 
-func (t *testConfigStore) WatchConfigs(w configmap.Watcher) {}
-
-var _ configStore = (*testConfigStore)(nil)
+var _ reconciler.ConfigStore = (*testConfigStore)(nil)

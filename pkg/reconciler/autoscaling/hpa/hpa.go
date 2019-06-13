@@ -51,7 +51,7 @@ type Reconciler struct {
 	paLister    listers.PodAutoscalerLister
 	sksLister   nlisters.ServerlessServiceLister
 	hpaLister   autoscalingv2beta1listers.HorizontalPodAutoscalerLister
-	configStore configStore
+	configStore reconciler.ConfigStore
 }
 
 var _ controller.Reconciler = (*Reconciler)(nil)

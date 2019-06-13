@@ -2248,9 +2248,7 @@ func (t *testConfigStore) ToContext(ctx context.Context) context.Context {
 	return config.ToContext(ctx, t.config)
 }
 
-func (t *testConfigStore) WatchConfigs(w configmap.Watcher) {}
-
-var _ configStore = (*testConfigStore)(nil)
+var _ reconciler.ConfigStore = (*testConfigStore)(nil)
 
 func ReconcilerTestConfig(enableAutoTLS bool) *config.Config {
 	return &config.Config{
