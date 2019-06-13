@@ -30,6 +30,7 @@ import (
 	"github.com/knative/serving/pkg/apis/autoscaling"
 	"github.com/knative/serving/pkg/autoscaler"
 	"github.com/knative/serving/pkg/reconciler"
+	areconciler "github.com/knative/serving/pkg/reconciler/autoscaling"
 	"github.com/knative/serving/pkg/reconciler/autoscaling/config"
 	"github.com/knative/serving/pkg/reconciler/autoscaling/kpa/resources"
 	aresources "github.com/knative/serving/pkg/reconciler/autoscaling/resources"
@@ -43,7 +44,7 @@ const controllerAgentName = "kpa-class-podautoscaler-controller"
 func NewController(
 	ctx context.Context,
 	cmw configmap.Watcher,
-	kpaDeciders resources.Deciders,
+	deciders resources.Deciders,
 	metrics aresources.Metrics,
 	psInformerFactory duck.InformerFactory,
 ) *controller.Impl {
@@ -54,14 +55,16 @@ func NewController(
 	endpointsInformer := endpointsinformer.Get(ctx)
 
 	c := &Reconciler{
-		Base:              reconciler.NewBase(ctx, controllerAgentName, cmw),
-		paLister:          paInformer.Lister(),
-		sksLister:         sksInformer.Lister(),
-		serviceLister:     serviceInformer.Lister(),
-		endpointsLister:   endpointsInformer.Lister(),
-		kpaDeciders:       kpaDeciders,
-		metrics:           metrics,
-		psInformerFactory: psInformerFactory,
+		Base: &areconciler.Base{
+			Base:              reconciler.NewBase(ctx, controllerAgentName, cmw),
+			PaLister:          paInformer.Lister(),
+			SksLister:         sksInformer.Lister(),
+			ServiceLister:     serviceInformer.Lister(),
+			Metrics:           metrics,
+			PsInformerFactory: psInformerFactory,
+		},
+		endpointsLister: endpointsInformer.Lister(),
+		deciders:        deciders,
 	}
 	impl := controller.NewImpl(c, c.Logger, "KPA-Class Autoscaling")
 	c.scaler = newScaler(ctx, psInformerFactory, impl.EnqueueAfter)
@@ -89,7 +92,7 @@ func NewController(
 	})
 
 	// Have the Deciders enqueue the PAs whose decisions have changed.
-	kpaDeciders.Watch(impl.EnqueueKey)
+	deciders.Watch(impl.EnqueueKey)
 
 	c.Logger.Info("Setting up ConfigMap receivers")
 	configsToResync := []interface{}{
@@ -100,7 +103,7 @@ func NewController(
 	})
 	configStore := config.NewStore(c.Logger.Named("config-store"), resync)
 	configStore.WatchConfigs(cmw)
-	c.configStore = configStore
+	c.ConfigStore = configStore
 
 	return impl
 }

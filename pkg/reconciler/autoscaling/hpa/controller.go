@@ -28,6 +28,7 @@ import (
 	"github.com/knative/serving/pkg/apis/autoscaling"
 	"github.com/knative/serving/pkg/autoscaler"
 	"github.com/knative/serving/pkg/reconciler"
+	areconciler "github.com/knative/serving/pkg/reconciler/autoscaling"
 	"github.com/knative/serving/pkg/reconciler/autoscaling/config"
 	"k8s.io/client-go/tools/cache"
 )
@@ -47,10 +48,12 @@ func NewController(
 	hpaInformer := hpainformer.Get(ctx)
 
 	c := &Reconciler{
-		Base:      reconciler.NewBase(ctx, controllerAgentName, cmw),
-		paLister:  paInformer.Lister(),
+		Base: &areconciler.Base{
+			Base:      reconciler.NewBase(ctx, controllerAgentName, cmw),
+			PaLister:  paInformer.Lister(),
+			SksLister: sksInformer.Lister(),
+		},
 		hpaLister: hpaInformer.Lister(),
-		sksLister: sksInformer.Lister(),
 	}
 	impl := controller.NewImpl(c, c.Logger, "HPA-Class Autoscaling")
 
@@ -81,7 +84,7 @@ func NewController(
 	})
 	configStore := config.NewStore(c.Logger.Named("config-store"), resync)
 	configStore.WatchConfigs(cmw)
-	c.configStore = configStore
+	c.ConfigStore = configStore
 
 	return impl
 }

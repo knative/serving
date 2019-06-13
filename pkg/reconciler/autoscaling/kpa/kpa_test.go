@@ -55,6 +55,7 @@ import (
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/autoscaler"
 	rpkg "github.com/knative/serving/pkg/reconciler"
+	areconciler "github.com/knative/serving/pkg/reconciler/autoscaling"
 	"github.com/knative/serving/pkg/reconciler/autoscaling/config"
 	"github.com/knative/serving/pkg/reconciler/autoscaling/kpa/resources"
 	aresources "github.com/knative/serving/pkg/reconciler/autoscaling/resources"
@@ -303,16 +304,18 @@ func TestReconcileAndScaleToZero(t *testing.T) {
 		scaler := newScaler(ctx, psFactory, func(interface{}, time.Duration) {})
 		scaler.activatorProbe = func(*asv1a1.PodAutoscaler) (bool, error) { return true, nil }
 		return &Reconciler{
-			Base:              rpkg.NewBase(ctx, controllerAgentName, newConfigWatcher()),
-			paLister:          listers.GetPodAutoscalerLister(),
-			sksLister:         listers.GetServerlessServiceLister(),
-			serviceLister:     listers.GetK8sServiceLister(),
-			endpointsLister:   listers.GetEndpointsLister(),
-			kpaDeciders:       fakeDeciders,
-			metrics:           fakeMetrics,
-			scaler:            scaler,
-			configStore:       &testConfigStore{config: defaultConfig()},
-			psInformerFactory: psFactory,
+			Base: &areconciler.Base{
+				Base:              rpkg.NewBase(ctx, controllerAgentName, newConfigWatcher()),
+				PaLister:          listers.GetPodAutoscalerLister(),
+				SksLister:         listers.GetServerlessServiceLister(),
+				ServiceLister:     listers.GetK8sServiceLister(),
+				Metrics:           fakeMetrics,
+				ConfigStore:       &testConfigStore{config: defaultConfig()},
+				PsInformerFactory: psFactory,
+			},
+			endpointsLister: listers.GetEndpointsLister(),
+			deciders:        fakeDeciders,
+			scaler:          scaler,
 		}
 	}))
 }
@@ -577,7 +580,7 @@ func TestReconcile(t *testing.T) {
 				markResourceNotOwned("Service", "b737max-800")),
 		}},
 		WantEvents: []string{
-			Eventf(corev1.EventTypeWarning, "InternalError", "error reconciling metrics service: KPA: test-revision does not own Service: b737max-800"),
+			Eventf(corev1.EventTypeWarning, "InternalError", "error reconciling metrics service: PA: test-revision does not own Service: b737max-800"),
 		},
 	}, {
 		Name: "can't read endpoints",
@@ -754,7 +757,7 @@ func TestReconcile(t *testing.T) {
 			Object: kpa(testNamespace, testRevision, markResourceNotOwned("ServerlessService", testRevision)),
 		}},
 		WantEvents: []string{
-			Eventf(corev1.EventTypeWarning, "InternalError", "error reconciling SKS: KPA: test-revision does not own SKS: test-revision"),
+			Eventf(corev1.EventTypeWarning, "InternalError", "error reconciling SKS: PA: test-revision does not own SKS: test-revision"),
 		},
 	}}
 
@@ -773,16 +776,18 @@ func TestReconcile(t *testing.T) {
 		psFactory := presources.NewPodScalableInformerFactory(ctx)
 		fakeMetrics := newTestMetrics()
 		return &Reconciler{
-			Base:              rpkg.NewBase(ctx, controllerAgentName, newConfigWatcher()),
-			paLister:          listers.GetPodAutoscalerLister(),
-			sksLister:         listers.GetServerlessServiceLister(),
-			serviceLister:     listers.GetK8sServiceLister(),
-			endpointsLister:   listers.GetEndpointsLister(),
-			kpaDeciders:       fakeDeciders,
-			metrics:           fakeMetrics,
-			scaler:            newScaler(ctx, psFactory, func(interface{}, time.Duration) {}),
-			configStore:       &testConfigStore{config: defaultConfig()},
-			psInformerFactory: psFactory,
+			Base: &areconciler.Base{
+				Base:              rpkg.NewBase(ctx, controllerAgentName, newConfigWatcher()),
+				PaLister:          listers.GetPodAutoscalerLister(),
+				SksLister:         listers.GetServerlessServiceLister(),
+				ServiceLister:     listers.GetK8sServiceLister(),
+				Metrics:           fakeMetrics,
+				ConfigStore:       &testConfigStore{config: defaultConfig()},
+				PsInformerFactory: psFactory,
+			},
+			endpointsLister: listers.GetEndpointsLister(),
+			deciders:        fakeDeciders,
+			scaler:          newScaler(ctx, psFactory, func(interface{}, time.Duration) {}),
 		}
 	}))
 }
