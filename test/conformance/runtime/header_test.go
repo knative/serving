@@ -54,26 +54,16 @@ func TestMustHaveHeadersSet(t *testing.T) {
 		t.Error("Header host was not present on request")
 	}
 
-	// TODO(#3112): Validate Forwarded header once it is enabled.
-}
-
-type checkIPList struct {
-	expected string
-}
-
-// MatchString returns true if the passed string is a list of IPv4 or IPv6 Addresses. Otherwise returns false.
-func (*checkIPList) MatchString(s string) bool {
-	for _, ip := range strings.Split(s, ",") {
-		if net.ParseIP(strings.TrimSpace(ip)) == nil {
-			return false
-		}
+	expectedHeaders := map[string]stringMatcher{
+		// We expect the forwarded header to be key-value pairs separated by commas and semi-colons, where
+		// the allowed keys are `for`, `by`, `proto` and `host` and values are loosely validated by shape.
+		// See https://tools.ietf.org/html/rfc7239#section-4 for the full syntax rules.
+		"forwarded": regexp.MustCompile(`((^|\s*[,;]\s*)((for|by)=("[^"]+"|[0-9.:]+)|proto=https?|host=[^",;]+))+$`),
 	}
-	return true
-}
 
-// String returns the expected string from the object.
-func (c *checkIPList) String() string {
-	return c.expected
+	headers := ri.Request.Headers
+
+	matchHeaders(t, headers, expectedHeaders)
 }
 
 // TestMustHaveHeadersSet verified that all headers declared as "SHOULD" in the runtime
@@ -85,10 +75,7 @@ func TestShouldHaveHeadersSet(t *testing.T) {
 	userHeaders := make(http.Header)
 	userHeaders.Add(userHeaderKey, userHeaderValue)
 
-	expectedHeaders := map[string]interface {
-		MatchString(string) bool
-		String() string
-	}{
+	expectedHeaders := map[string]stringMatcher{
 		// We expect user headers to be passed through exactly as-is.
 		userHeaderKey: regexp.MustCompile("^" + userHeaderValue + "$"),
 		// We expect the protocol to be http for our test image.
@@ -115,6 +102,34 @@ func TestShouldHaveHeadersSet(t *testing.T) {
 
 	headers := ri.Request.Headers
 
+	matchHeaders(t, headers, expectedHeaders)
+}
+
+type checkIPList struct {
+	expected string
+}
+
+// MatchString returns true if the passed string is a list of IPv4 or IPv6 Addresses. Otherwise returns false.
+func (*checkIPList) MatchString(s string) bool {
+	for _, ip := range strings.Split(s, ",") {
+		if net.ParseIP(strings.TrimSpace(ip)) == nil {
+			return false
+		}
+	}
+	return true
+}
+
+// String returns the expected string from the object.
+func (c *checkIPList) String() string {
+	return c.expected
+}
+
+type stringMatcher interface {
+	MatchString(string) bool
+	String() string
+}
+
+func matchHeaders(t *testing.T, headers http.Header, expectedHeaders map[string]stringMatcher) {
 	for header, match := range expectedHeaders {
 		hvl, ok := headers[http.CanonicalHeaderKey(header)]
 		if !ok {
