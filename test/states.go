@@ -19,6 +19,7 @@ package test
 import (
 	"fmt"
 
+	"github.com/davecgh/go-spew/spew"
 	corev1 "k8s.io/api/core/v1"
 
 	"github.com/knative/serving/pkg/apis/serving"
@@ -36,11 +37,11 @@ func AllRouteTrafficAtRevision(names ResourceNames) func(r *v1alpha1.Route) (boo
 		for _, tt := range r.Status.Traffic {
 			if tt.Percent == 100 {
 				if tt.RevisionName != names.Revision {
-					return true, fmt.Errorf("expected traffic revision name to be %s but actually is %s", names.Revision, tt.RevisionName)
+					return true, fmt.Errorf("expected traffic revision name to be %s but actually is %s: %s", names.Revision, tt.RevisionName, spew.Sprint(r))
 				}
 
 				if tt.Tag != names.TrafficTarget {
-					return true, fmt.Errorf("expected traffic target name to be %s but actually is %s", names.TrafficTarget, tt.Tag)
+					return true, fmt.Errorf("expected traffic target name to be %s but actually is %s: %s", names.TrafficTarget, tt.Tag, spew.Sprint(r))
 				}
 
 				return true, nil
