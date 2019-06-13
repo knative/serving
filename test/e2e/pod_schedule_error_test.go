@@ -34,7 +34,7 @@ func TestPodScheduleError(t *testing.T) {
 	clients := Setup(t)
 	const (
 		errorReason    = "RevisionFailed"
-		errorMsg       = "nodes are available"
+		errorMsg       = "Insufficient cpu"
 		revisionReason = "Unschedulable"
 	)
 	names := test.ResourceNames{
@@ -47,11 +47,11 @@ func TestPodScheduleError(t *testing.T) {
 
 	t.Logf("Creating a new Service %s", names.Image)
 	resources := corev1.ResourceRequirements{
-		Limits: corev1.ResourceList{
-			corev1.ResourceCPU: resource.MustParse("50000"),
-		},
 		Requests: corev1.ResourceList{
-			corev1.ResourceMemory: resource.MustParse("350Mi"),
+			corev1.ResourceCPU: resource.MustParse("50000m"),
+		},
+		Limits: corev1.ResourceList{
+			corev1.ResourceCPU: resource.MustParse("50000m"),
 		},
 	}
 	var (
