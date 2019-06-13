@@ -42,6 +42,7 @@ import (
 	"github.com/spf13/pflag"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
+
 	corev1informers "k8s.io/client-go/informers/core/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/rest"
@@ -117,7 +118,7 @@ func main() {
 	multiScaler := autoscaler.NewMultiScaler(ctx.Done(), uniScalerFactoryFunc(endpointsInformer, collector), logger)
 
 	controllers := []*controller.Impl{
-		kpa.NewController(ctx, cmw, multiScaler, collector),
+		kpa.NewController(ctx, cmw, multiScaler, collector, resources.NewPodScalableInformerFactory(ctx)),
 		hpa.NewController(ctx, cmw),
 	}
 
