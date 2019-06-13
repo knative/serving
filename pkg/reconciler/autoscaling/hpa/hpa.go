@@ -19,7 +19,6 @@ package hpa
 import (
 	"context"
 	"fmt"
-	"reflect"
 
 	perrors "github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -28,13 +27,8 @@ import (
 	"github.com/knative/pkg/logging"
 	"github.com/knative/serving/pkg/apis/autoscaling"
 	pav1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
-	nv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
-	listers "github.com/knative/serving/pkg/client/listers/autoscaling/v1alpha1"
-	nlisters "github.com/knative/serving/pkg/client/listers/networking/v1alpha1"
-	"github.com/knative/serving/pkg/reconciler"
+	areconciler "github.com/knative/serving/pkg/reconciler/autoscaling"
 	"github.com/knative/serving/pkg/reconciler/autoscaling/hpa/resources"
-	aresources "github.com/knative/serving/pkg/reconciler/autoscaling/resources"
-	"github.com/knative/serving/pkg/reconciler/autoscaling/resources/names"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -46,12 +40,8 @@ import (
 
 // Reconciler implements the control loop for the HPA resources.
 type Reconciler struct {
-	*reconciler.Base
-
-	paLister    listers.PodAutoscalerLister
-	sksLister   nlisters.ServerlessServiceLister
-	hpaLister   autoscalingv2beta1listers.HorizontalPodAutoscalerLister
-	configStore reconciler.ConfigStore
+	*areconciler.Base
+	hpaLister autoscalingv2beta1listers.HorizontalPodAutoscalerLister
 }
 
 var _ controller.Reconciler = (*Reconciler)(nil)
@@ -64,10 +54,10 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 		return nil
 	}
 	logger := logging.FromContext(ctx)
-	ctx = c.configStore.ToContext(ctx)
+	ctx = c.ConfigStore.ToContext(ctx)
 	logger.Debug("Reconcile hpa-class PodAutoscaler")
 
-	original, err := c.paLister.PodAutoscalers(namespace).Get(name)
+	original, err := c.PALister.PodAutoscalers(namespace).Get(name)
 	if errors.IsNotFound(err) {
 		logger.Debug("PA no longer exists")
 		return c.deleteHPA(ctx, key)
@@ -90,7 +80,7 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 		// This is important because the copy we loaded from the informer's
 		// cache may be stale and we don't want to overwrite a prior update
 		// to status with this stale state.
-	} else if _, err = c.updateStatus(pa); err != nil {
+	} else if _, err = c.UpdateStatus(pa); err != nil {
 		logger.Warnw("Failed to update pa status", zap.Error(err))
 		c.Recorder.Eventf(pa, corev1.EventTypeWarning, "UpdateFailed",
 			"Failed to update status for PA %q: %v", pa.Name, err)
@@ -147,7 +137,7 @@ func (c *Reconciler) reconcile(ctx context.Context, key string, pa *pav1alpha1.P
 		}
 	}
 
-	sks, err := c.reconcileSKS(ctx, pa)
+	sks, err := c.ReconcileSKS(ctx, pa)
 	if err != nil {
 		return perrors.Wrap(err, "error reconciling SKS")
 	}
@@ -161,41 +151,6 @@ func (c *Reconciler) reconcile(ctx context.Context, key string, pa *pav1alpha1.P
 
 	pa.Status.ObservedGeneration = pa.Generation
 	return nil
-}
-
-func (c *Reconciler) reconcileSKS(ctx context.Context, pa *pav1alpha1.PodAutoscaler) (*nv1alpha1.ServerlessService, error) {
-	logger := logging.FromContext(ctx)
-
-	sksName := names.SKS(pa.Name)
-	sks, err := c.sksLister.ServerlessServices(pa.Namespace).Get(sksName)
-	if errors.IsNotFound(err) {
-		logger.Infof("SKS %s/%s does not exist; creating.", pa.Namespace, sksName)
-		// HPA doesn't scale to zero now, so the mode is always `Serve`.
-		sks = aresources.MakeSKS(pa, nv1alpha1.SKSOperationModeServe)
-		_, err = c.ServingClientSet.NetworkingV1alpha1().ServerlessServices(sks.Namespace).Create(sks)
-		if err != nil {
-			return nil, perrors.Wrapf(err, "error creating SKS %s", sksName)
-		}
-		logger.Info("Created SKS:", sksName)
-	} else if err != nil {
-		return nil, perrors.Wrapf(err, "error getting SKS: %s", sksName)
-	} else if !metav1.IsControlledBy(sks, pa) {
-		pa.Status.MarkResourceNotOwned("ServerlessService", sksName)
-		return nil, fmt.Errorf("HPA: %q does not own SKS: %q", pa.Name, sksName)
-	}
-	tmpl := aresources.MakeSKS(pa, nv1alpha1.SKSOperationModeServe)
-	if !equality.Semantic.DeepEqual(tmpl.Spec, sks.Spec) {
-		want := sks.DeepCopy()
-		want.Spec = tmpl.Spec
-		logger.Info("SKS changed; reconciling:", sksName)
-		// Just deploy the template, since the spec change will change
-		// the service and the SKS status will change as a consequence.
-		if sks, err = c.ServingClientSet.NetworkingV1alpha1().ServerlessServices(sks.Namespace).Update(want); err != nil {
-			return nil, perrors.Wrapf(err, "error updating SKS %s", sksName)
-		}
-	}
-	logger.Debug("Done reconciling SKS:", sksName)
-	return sks, nil
 }
 
 func (c *Reconciler) deleteHPA(ctx context.Context, key string) error {
@@ -215,19 +170,4 @@ func (c *Reconciler) deleteHPA(ctx context.Context, key string) error {
 	}
 	logger.Infof("Deleted HPA %q", name)
 	return nil
-}
-
-func (c *Reconciler) updateStatus(desired *pav1alpha1.PodAutoscaler) (*pav1alpha1.PodAutoscaler, error) {
-	pa, err := c.paLister.PodAutoscalers(desired.Namespace).Get(desired.Name)
-	if err != nil {
-		return nil, err
-	}
-	// Check if there is anything to update.
-	if !reflect.DeepEqual(pa.Status, desired.Status) {
-		// Don't modify the informers copy
-		existing := pa.DeepCopy()
-		existing.Status = desired.Status
-		return c.ServingClientSet.AutoscalingV1alpha1().PodAutoscalers(pa.Namespace).UpdateStatus(existing)
-	}
-	return pa, nil
 }
