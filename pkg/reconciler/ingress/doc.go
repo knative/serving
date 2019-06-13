@@ -16,8 +16,8 @@ limitations under the License.
 
 /*
 
-Package clusteringress implements a kubernetes controller which tracks ClusterIngress resource
+Package ingress implements a kubernetes controller which tracks Ingress resource
 and reconcile VirtualService as its child resource.
 
 */
-package clusteringress
+package ingress

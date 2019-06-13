@@ -25,7 +25,7 @@ import (
 	"github.com/knative/pkg/apis/istio/v1alpha3"
 	"github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/network"
-	"github.com/knative/serving/pkg/reconciler/clusteringress/config"
+	"github.com/knative/serving/pkg/reconciler/ingress/config"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -44,11 +44,11 @@ var placeholderServer = v1alpha3.Server{
 	},
 }
 
-// GetServers gets the `Servers` from `Gateway` that belongs to the given ClusterIngress.
-func GetServers(gateway *v1alpha3.Gateway, ci *v1alpha1.ClusterIngress) []v1alpha3.Server {
+// GetServers gets the `Servers` from `Gateway` that belongs to the given Ingress.
+func GetServers(gateway *v1alpha3.Gateway, ci *v1alpha1.Ingress) []v1alpha3.Server {
 	servers := []v1alpha3.Server{}
 	for i := range gateway.Spec.Servers {
-		if belongsToClusterIngress(&gateway.Spec.Servers[i], ci) {
+		if belongsToIngress(&gateway.Spec.Servers[i], ci) {
 			servers = append(servers, gateway.Spec.Servers[i])
 		}
 	}
@@ -65,8 +65,8 @@ func GetHTTPServer(gateway *v1alpha3.Gateway) *v1alpha3.Server {
 	return nil
 }
 
-func belongsToClusterIngress(server *v1alpha3.Server, ci *v1alpha1.ClusterIngress) bool {
-	// The format of the portName should be "<clusteringress-name>:<number>".
+func belongsToIngress(server *v1alpha3.Server, ci *v1alpha1.Ingress) bool {
+	// The format of the portName should be "<ingress-name>:<number>".
 	// For example, route-test:0.
 	portNameSplits := strings.Split(server.Port.Name, ":")
 	if len(portNameSplits) != 2 {
@@ -84,10 +84,10 @@ func SortServers(servers []v1alpha3.Server) []v1alpha3.Server {
 }
 
 // MakeServers creates the expected Gateway `Servers` based on the given
-// ClusterIngress.
-func MakeServers(ci *v1alpha1.ClusterIngress, gatewayServiceNamespace string, originSecrets map[string]*corev1.Secret) ([]v1alpha3.Server, error) {
+// Ingress.
+func MakeServers(ci *v1alpha1.Ingress, gatewayServiceNamespace string, originSecrets map[string]*corev1.Secret) ([]v1alpha3.Server, error) {
 	servers := []v1alpha3.Server{}
-	// TODO(zhiminx): for the hosts that does not included in the ClusterIngressTLS but listed in the ClusterIngressRule,
+	// TODO(zhiminx): for the hosts that does not included in the IngressTLS but listed in the IngressRule,
 	// do we consider them as hosts for HTTP?
 	for i, tls := range ci.Spec.TLS {
 		credentialName := tls.SecretName

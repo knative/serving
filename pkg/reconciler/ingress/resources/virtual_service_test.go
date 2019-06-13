@@ -42,14 +42,15 @@ func TestMakeVirtualServices_CorrectMetadata(t *testing.T) {
 	for _, tc := range []struct {
 		name     string
 		gateways []string
-		ci       *v1alpha1.ClusterIngress
+		ci       *v1alpha1.Ingress
 		expected []metav1.ObjectMeta
 	}{{
 		name:     "mesh and ingress",
 		gateways: []string{"gateway"},
-		ci: &v1alpha1.ClusterIngress{
+		ci: &v1alpha1.Ingress{
 			ObjectMeta: metav1.ObjectMeta{
-				Name: "test-ingress",
+				Name:      "test-ingress",
+				Namespace: "test-ns",
 				Labels: map[string]string{
 					serving.RouteLabelKey:          "test-route",
 					serving.RouteNamespaceLabelKey: "test-ns",
@@ -61,25 +62,28 @@ func TestMakeVirtualServices_CorrectMetadata(t *testing.T) {
 			Name:      "test-ingress-mesh",
 			Namespace: system.Namespace(),
 			Labels: map[string]string{
-				networking.IngressLabelKey:     "test-ingress",
-				serving.RouteLabelKey:          "test-route",
-				serving.RouteNamespaceLabelKey: "test-ns",
+				networking.IngressLabelKey:          "test-ingress",
+				networking.IngressNamespaceLabelKey: "test-ns",
+				serving.RouteLabelKey:               "test-route",
+				serving.RouteNamespaceLabelKey:      "test-ns",
 			},
 		}, {
 			Name:      "test-ingress",
 			Namespace: system.Namespace(),
 			Labels: map[string]string{
-				networking.IngressLabelKey:     "test-ingress",
-				serving.RouteLabelKey:          "test-route",
-				serving.RouteNamespaceLabelKey: "test-ns",
+				networking.IngressLabelKey:          "test-ingress",
+				networking.IngressNamespaceLabelKey: "test-ns",
+				serving.RouteLabelKey:               "test-route",
+				serving.RouteNamespaceLabelKey:      "test-ns",
 			},
 		}},
 	}, {
 		name:     "mesh only",
 		gateways: nil,
-		ci: &v1alpha1.ClusterIngress{
+		ci: &v1alpha1.Ingress{
 			ObjectMeta: metav1.ObjectMeta{
-				Name: "test-ingress",
+				Name:      "test-ingress",
+				Namespace: "test-ns",
 				Labels: map[string]string{
 					serving.RouteLabelKey:          "test-route",
 					serving.RouteNamespaceLabelKey: "test-ns",
@@ -91,9 +95,10 @@ func TestMakeVirtualServices_CorrectMetadata(t *testing.T) {
 			Name:      "test-ingress-mesh",
 			Namespace: system.Namespace(),
 			Labels: map[string]string{
-				networking.IngressLabelKey:     "test-ingress",
-				serving.RouteLabelKey:          "test-route",
-				serving.RouteNamespaceLabelKey: "test-ns",
+				networking.IngressLabelKey:          "test-ingress",
+				networking.IngressNamespaceLabelKey: "test-ns",
+				serving.RouteLabelKey:               "test-route",
+				serving.RouteNamespaceLabelKey:      "test-ns",
 			},
 		}},
 	}} {
@@ -113,7 +118,7 @@ func TestMakeVirtualServices_CorrectMetadata(t *testing.T) {
 }
 
 func TestMakeMeshVirtualServiceSpec_CorrectGateways(t *testing.T) {
-	ci := &v1alpha1.ClusterIngress{
+	ci := &v1alpha1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "test-ingress",
 			Labels: map[string]string{
@@ -131,7 +136,7 @@ func TestMakeMeshVirtualServiceSpec_CorrectGateways(t *testing.T) {
 }
 
 func TestMakeMeshVirtualServiceSpec_CorrectRoutes(t *testing.T) {
-	ci := &v1alpha1.ClusterIngress{
+	ci := &v1alpha1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "test-ingress",
 		},
@@ -244,7 +249,7 @@ func TestMakeMeshVirtualServiceSpec_CorrectRoutes(t *testing.T) {
 }
 
 func TestMakeIngressVirtualServiceSpec_CorrectGateways(t *testing.T) {
-	ci := &v1alpha1.ClusterIngress{
+	ci := &v1alpha1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "test-ingress",
 			Labels: map[string]string{
@@ -262,7 +267,7 @@ func TestMakeIngressVirtualServiceSpec_CorrectGateways(t *testing.T) {
 }
 
 func TestMakeIngressVirtualServiceSpec_CorrectRoutes(t *testing.T) {
-	ci := &v1alpha1.ClusterIngress{
+	ci := &v1alpha1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "test-ingress",
 		},
@@ -508,7 +513,7 @@ func TestMakeVirtualServiceRoute_TwoTargets(t *testing.T) {
 }
 
 func TestGetHosts_Duplicate(t *testing.T) {
-	ci := &v1alpha1.ClusterIngress{
+	ci := &v1alpha1.Ingress{
 		Spec: v1alpha1.IngressSpec{
 			Rules: []v1alpha1.IngressRule{{
 				Hosts: []string{

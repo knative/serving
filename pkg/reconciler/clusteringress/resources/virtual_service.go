@@ -60,7 +60,7 @@ func MakeIngressVirtualService(ci *v1alpha1.ClusterIngress, gateways []string) *
 	if vs.Labels == nil {
 		vs.Labels = make(map[string]string)
 	}
-	vs.Labels[networking.IngressLabelKey] = ci.Name
+	vs.Labels[networking.ClusterIngressLabelKey] = ci.Name
 
 	ingressLabels := ci.Labels
 	vs.Labels[serving.RouteLabelKey] = ingressLabels[serving.RouteLabelKey]
@@ -85,7 +85,7 @@ func MakeMeshVirtualService(ci *v1alpha1.ClusterIngress) *v1alpha3.VirtualServic
 		resources.FilterMap(ci.Labels, func(k string) bool {
 			return k != serving.RouteLabelKey && k != serving.RouteNamespaceLabelKey
 		}),
-		map[string]string{networking.IngressLabelKey: ci.Name})
+		map[string]string{networking.ClusterIngressLabelKey: ci.Name})
 	return vs
 }
 

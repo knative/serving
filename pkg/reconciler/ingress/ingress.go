@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package clusteringress
+package ingress
 
 import (
 	"context"
@@ -38,8 +38,8 @@ import (
 	"github.com/knative/serving/pkg/apis/serving"
 	listers "github.com/knative/serving/pkg/client/listers/networking/v1alpha1"
 	"github.com/knative/serving/pkg/reconciler"
-	"github.com/knative/serving/pkg/reconciler/clusteringress/config"
-	"github.com/knative/serving/pkg/reconciler/clusteringress/resources"
+	"github.com/knative/serving/pkg/reconciler/ingress/config"
+	"github.com/knative/serving/pkg/reconciler/ingress/resources"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -50,21 +50,21 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
-// clusterIngressFinalizer is the name that we put into the resource finalizer list, e.g.
+// ingressFinalizer is the name that we put into the resource finalizer list, e.g.
 //  metadata:
 //    finalizers:
-//    - clusteringresses.networking.internal.knative.dev
+//    - ingresses.networking.internal.knative.dev
 var (
-	clusterIngressResource  = v1alpha1.Resource("clusteringresses")
-	clusterIngressFinalizer = clusterIngressResource.String()
+	ingressResource  = v1alpha1.Resource("ingresses")
+	ingressFinalizer = ingressResource.String()
 )
 
-// Reconciler implements controller.Reconciler for ClusterIngress resources.
+// Reconciler implements controller.Reconciler for Ingress resources.
 type Reconciler struct {
 	*reconciler.Base
 
 	// listers index properties about resources
-	clusterIngressLister listers.ClusterIngressLister
+	ingressLister        listers.IngressLister
 	virtualServiceLister istiolisters.VirtualServiceLister
 	gatewayLister        istiolisters.GatewayLister
 	secretLister         corev1listers.SecretLister
@@ -77,11 +77,11 @@ type Reconciler struct {
 var _ controller.Reconciler = (*Reconciler)(nil)
 
 // Reconcile compares the actual state with the desired, and attempts to
-// converge the two. It then updates the Status block of the ClusterIngress resource
+// converge the two. It then updates the Status block of the Ingress resource
 // with the current status of the resource.
 func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 	// Convert the namespace/name string into a distinct namespace and name
-	_, name, err := cache.SplitMetaNamespaceKey(key)
+	namespace, name, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
 		c.Logger.Errorf("invalid resource key: %s", key)
 		return nil
@@ -90,11 +90,11 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 
 	ctx = c.configStore.ToContext(ctx)
 
-	// Get the ClusterIngress resource with this name.
-	original, err := c.clusterIngressLister.Get(name)
+	// Get the Ingress resource with this name.
+	original, err := c.ingressLister.Ingresses(namespace).Get(name)
 	if apierrs.IsNotFound(err) {
 		// The resource may no longer exist, in which case we stop processing.
-		logger.Errorf("clusteringress %q in work queue no longer exists", key)
+		logger.Errorf("ingress %q in work queue no longer exists", key)
 		return nil
 	} else if err != nil {
 		return err
@@ -102,7 +102,7 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 	// Don't modify the informers copy
 	ci := original.DeepCopy()
 
-	// Reconcile this copy of the ClusterIngress and then write back any status
+	// Reconcile this copy of the Ingress and then write back any status
 	// updates regardless of whether the reconciliation errored out.
 	reconcileErr := c.reconcile(ctx, ci)
 	if equality.Semantic.DeepEqual(original.Status, ci.Status) {
@@ -112,14 +112,14 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 		// to status with this stale state.
 	} else {
 		if _, err = c.updateStatus(ci); err != nil {
-			logger.Warnw("Failed to update ClusterIngress status", zap.Error(err))
+			logger.Warnw("Failed to update Ingress status", zap.Error(err))
 			c.Recorder.Eventf(ci, corev1.EventTypeWarning, "UpdateFailed",
-				"Failed to update status for ClusterIngress %q: %v", ci.Name, err)
+				"Failed to update status for Ingress %q: %v", ci.Name, err)
 			return err
 		} else {
-			logger.Infof("Updated status for ClusterIngress %q", ci.Name)
+			logger.Infof("Updated status for Ingress %q", ci.Name)
 			c.Recorder.Eventf(ci, corev1.EventTypeNormal, "Updated",
-				"Updated status for ClusterIngress %q", ci.Name)
+				"Updated status for Ingress %q", ci.Name)
 		}
 	}
 	if reconcileErr != nil {
@@ -128,10 +128,10 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 	return reconcileErr
 }
 
-// Update the Status of the ClusterIngress.  Caller is responsible for checking
+// Update the Status of the Ingress.  Caller is responsible for checking
 // for semantic differences before calling.
-func (c *Reconciler) updateStatus(desired *v1alpha1.ClusterIngress) (*v1alpha1.ClusterIngress, error) {
-	ci, err := c.clusterIngressLister.Get(desired.Name)
+func (c *Reconciler) updateStatus(desired *v1alpha1.Ingress) (*v1alpha1.Ingress, error) {
+	ci, err := c.ingressLister.Ingresses(desired.Namespace).Get(desired.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -142,10 +142,10 @@ func (c *Reconciler) updateStatus(desired *v1alpha1.ClusterIngress) (*v1alpha1.C
 	// Don't modify the informers copy
 	existing := ci.DeepCopy()
 	existing.Status = desired.Status
-	return c.ServingClientSet.NetworkingV1alpha1().ClusterIngresses().UpdateStatus(existing)
+	return c.ServingClientSet.NetworkingV1alpha1().Ingresses(desired.Namespace).UpdateStatus(existing)
 }
 
-func (c *Reconciler) reconcile(ctx context.Context, ci *v1alpha1.ClusterIngress) error {
+func (c *Reconciler) reconcile(ctx context.Context, ci *v1alpha1.Ingress) error {
 	logger := logging.FromContext(ctx)
 	if ci.GetDeletionTimestamp() != nil {
 		return c.reconcileDeletion(ctx, ci)
@@ -158,7 +158,7 @@ func (c *Reconciler) reconcile(ctx context.Context, ci *v1alpha1.ClusterIngress)
 	ci.SetDefaults(ctx)
 
 	ci.Status.InitializeConditions()
-	logger.Infof("Reconciling clusterIngress: %#v", ci)
+	logger.Infof("Reconciling ingress: %#v", ci)
 
 	gatewayNames := gatewayNamesFromContext(ctx, ci)
 	vses := resources.MakeVirtualServices(ci, gatewayNames)
@@ -179,7 +179,7 @@ func (c *Reconciler) reconcile(ctx context.Context, ci *v1alpha1.ClusterIngress)
 
 	if enablesAutoTLS(ctx) {
 		if !ci.IsPublic() {
-			logger.Infof("ClusterIngress %s is not public. So no need to configure TLS.", ci.Name)
+			logger.Infof("Ingress %s is not public. So no need to configure TLS.", ci.Name)
 			return nil
 		}
 
@@ -214,7 +214,7 @@ func (c *Reconciler) reconcile(ctx context.Context, ci *v1alpha1.ClusterIngress)
 	}
 
 	// TODO(zhiminx): Mark Route status to indicate that Gateway is configured.
-	logger.Info("ClusterIngress successfully synced")
+	logger.Info("Ingress successfully synced")
 	return nil
 }
 
@@ -223,7 +223,7 @@ func enablesAutoTLS(ctx context.Context) bool {
 }
 
 func getLBStatus(gatewayServiceURL string) []v1alpha1.LoadBalancerIngressStatus {
-	// The ClusterIngress isn't load-balanced by any particular
+	// The Ingress isn't load-balanced by any particular
 	// Service, but through a Service mesh.
 	if gatewayServiceURL == "" {
 		return []v1alpha1.LoadBalancerIngressStatus{
@@ -236,9 +236,9 @@ func getLBStatus(gatewayServiceURL string) []v1alpha1.LoadBalancerIngressStatus 
 }
 
 // gatewayServiceURLFromContext return an address of a load-balancer
-// that the given ClusterIngress is exposed to, or empty string if
+// that the given Ingress is exposed to, or empty string if
 // none.
-func gatewayServiceURLFromContext(ctx context.Context, ci *v1alpha1.ClusterIngress) string {
+func gatewayServiceURLFromContext(ctx context.Context, ci *v1alpha1.Ingress) string {
 	cfg := config.FromContext(ctx).Istio
 	if len(cfg.IngressGateways) > 0 && ci.IsPublic() {
 		return cfg.IngressGateways[0].ServiceURL
@@ -249,7 +249,7 @@ func gatewayServiceURLFromContext(ctx context.Context, ci *v1alpha1.ClusterIngre
 	return ""
 }
 
-func gatewayNamesFromContext(ctx context.Context, ci *v1alpha1.ClusterIngress) []string {
+func gatewayNamesFromContext(ctx context.Context, ci *v1alpha1.Ingress) []string {
 	gateways := []string{}
 	if ci.IsPublic() {
 		for _, gw := range config.FromContext(ctx).Istio.IngressGateways {
@@ -276,7 +276,7 @@ func dedup(strs []string) []string {
 	return unique
 }
 
-func (c *Reconciler) reconcileVirtualServices(ctx context.Context, ci *v1alpha1.ClusterIngress,
+func (c *Reconciler) reconcileVirtualServices(ctx context.Context, ci *v1alpha1.Ingress,
 	desired []*v1alpha3.VirtualService) error {
 	logger := logging.FromContext(ctx)
 	// First, create all needed VirtualServices.
@@ -309,7 +309,7 @@ func (c *Reconciler) reconcileVirtualServices(ctx context.Context, ci *v1alpha1.
 	return nil
 }
 
-func (c *Reconciler) reconcileVirtualService(ctx context.Context, ci *v1alpha1.ClusterIngress,
+func (c *Reconciler) reconcileVirtualService(ctx context.Context, ci *v1alpha1.Ingress,
 	desired *v1alpha3.VirtualService) error {
 	logger := logging.FromContext(ctx)
 	ns := desired.Namespace
@@ -329,9 +329,9 @@ func (c *Reconciler) reconcileVirtualService(ctx context.Context, ci *v1alpha1.C
 	} else if err != nil {
 		return err
 	} else if !metav1.IsControlledBy(vs, ci) {
-		// Surface an error in the ClusterIngress's status, and return an error.
+		// Surface an error in the Ingress's status, and return an error.
 		ci.Status.MarkResourceNotOwned("VirtualService", name)
-		return fmt.Errorf("ClusterIngress: %q does not own VirtualService: %q", ci.Name, name)
+		return fmt.Errorf("Ingress: %q does not own VirtualService: %q", ci.Name, name)
 	} else if !equality.Semantic.DeepEqual(vs.Spec, desired.Spec) {
 		// Don't modify the informers copy
 		existing := vs.DeepCopy()
@@ -348,15 +348,15 @@ func (c *Reconciler) reconcileVirtualService(ctx context.Context, ci *v1alpha1.C
 	return nil
 }
 
-func (c *Reconciler) ensureFinalizer(ci *v1alpha1.ClusterIngress) error {
+func (c *Reconciler) ensureFinalizer(ci *v1alpha1.Ingress) error {
 	finalizers := sets.NewString(ci.Finalizers...)
-	if finalizers.Has(clusterIngressFinalizer) {
+	if finalizers.Has(ingressFinalizer) {
 		return nil
 	}
 
 	mergePatch := map[string]interface{}{
 		"metadata": map[string]interface{}{
-			"finalizers":      append(ci.Finalizers, clusterIngressFinalizer),
+			"finalizers":      append(ci.Finalizers, ingressFinalizer),
 			"resourceVersion": ci.ResourceVersion,
 		},
 	}
@@ -366,21 +366,21 @@ func (c *Reconciler) ensureFinalizer(ci *v1alpha1.ClusterIngress) error {
 		return err
 	}
 
-	_, err = c.ServingClientSet.NetworkingV1alpha1().ClusterIngresses().Patch(ci.Name, types.MergePatchType, patch)
+	_, err = c.ServingClientSet.NetworkingV1alpha1().Ingresses(ci.Namespace).Patch(ci.Name, types.MergePatchType, patch)
 	return err
 }
 
-func (c *Reconciler) reconcileDeletion(ctx context.Context, ci *v1alpha1.ClusterIngress) error {
+func (c *Reconciler) reconcileDeletion(ctx context.Context, ci *v1alpha1.Ingress) error {
 	logger := logging.FromContext(ctx)
 
-	// If our Finalizer is first, delete the `Servers` from Gateway for this ClusterIngress,
+	// If our Finalizer is first, delete the `Servers` from Gateway for this Ingress,
 	// and remove the finalizer.
-	if len(ci.Finalizers) == 0 || ci.Finalizers[0] != clusterIngressFinalizer {
+	if len(ci.Finalizers) == 0 || ci.Finalizers[0] != ingressFinalizer {
 		return nil
 	}
 
 	gatewayNames := gatewayNamesFromContext(ctx, ci)
-	logger.Infof("Cleaning up Gateway Servers for ClusterIngress %s", ci.Name)
+	logger.Infof("Cleaning up Gateway Servers for Ingress %s", ci.Name)
 	// No desired Servers means deleting all of the existing Servers associated with the CI.
 	for _, gatewayName := range gatewayNames {
 		if err := c.reconcileGateway(ctx, ci, gatewayName, []v1alpha3.Server{}); err != nil {
@@ -388,16 +388,16 @@ func (c *Reconciler) reconcileDeletion(ctx context.Context, ci *v1alpha1.Cluster
 		}
 	}
 
-	// Update the ClusterIngress to remove the Finalizer.
+	// Update the Ingress to remove the Finalizer.
 	logger.Info("Removing Finalizer")
 	ci.Finalizers = ci.Finalizers[1:]
-	_, err := c.ServingClientSet.NetworkingV1alpha1().ClusterIngresses().Update(ci)
+	_, err := c.ServingClientSet.NetworkingV1alpha1().Ingresses(ci.Namespace).Update(ci)
 	return err
 }
 
-func (c *Reconciler) reconcileGateway(ctx context.Context, ci *v1alpha1.ClusterIngress, gatewayName string, desired []v1alpha3.Server) error {
-	// TODO(zhiminx): Need to handle the scenario when deleting ClusterIngress. In this scenario,
-	// the Gateway servers of the ClusterIngress need also be removed from Gateway.
+func (c *Reconciler) reconcileGateway(ctx context.Context, ci *v1alpha1.Ingress, gatewayName string, desired []v1alpha3.Server) error {
+	// TODO(zhiminx): Need to handle the scenario when deleting Ingress. In this scenario,
+	// the Gateway servers of the Ingress need also be removed from Gateway.
 	logger := logging.FromContext(ctx)
 	gateway, err := c.gatewayLister.Gateways(system.Namespace()).Get(gatewayName)
 	if err != nil {
@@ -433,7 +433,7 @@ func (c *Reconciler) reconcileGateway(ctx context.Context, ci *v1alpha1.ClusterI
 	return nil
 }
 
-func (c *Reconciler) reconcileCertSecrets(ctx context.Context, ci *v1alpha1.ClusterIngress, desiredSecrets []*corev1.Secret) error {
+func (c *Reconciler) reconcileCertSecrets(ctx context.Context, ci *v1alpha1.Ingress, desiredSecrets []*corev1.Secret) error {
 	for _, certSecret := range desiredSecrets {
 		if err := c.reconcileCertSecret(ctx, ci, certSecret); err != nil {
 			return err
@@ -442,7 +442,7 @@ func (c *Reconciler) reconcileCertSecrets(ctx context.Context, ci *v1alpha1.Clus
 	return nil
 }
 
-func (c *Reconciler) reconcileCertSecret(ctx context.Context, ci *v1alpha1.ClusterIngress, desired *corev1.Secret) error {
+func (c *Reconciler) reconcileCertSecret(ctx context.Context, ci *v1alpha1.Ingress, desired *corev1.Secret) error {
 	// We track the origin and desired secrets so that desired secrets could be synced accordingly when the origin TLS certificate
 	// secret is refreshed.
 	c.tracker.Track(resources.SecretRef(desired.Namespace, desired.Name), ci)

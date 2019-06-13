@@ -26,7 +26,7 @@ import (
 	. "github.com/knative/pkg/logging/testing"
 	"github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/networking/v1alpha1"
-	"github.com/knative/serving/pkg/reconciler/clusteringress/config"
+	"github.com/knative/serving/pkg/reconciler/ingress/config"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubeinformers "k8s.io/client-go/informers"
@@ -43,7 +43,7 @@ var testSecret = corev1.Secret{
 	},
 }
 
-var ci = v1alpha1.ClusterIngress{
+var ci = v1alpha1.Ingress{
 	ObjectMeta: metav1.ObjectMeta{
 		Name: "ingress",
 	},
@@ -67,7 +67,7 @@ func TestGetSecrets(t *testing.T) {
 	cases := []struct {
 		name     string
 		secret   *corev1.Secret
-		ci       *v1alpha1.ClusterIngress
+		ci       *v1alpha1.Ingress
 		expected map[string]*corev1.Secret
 		wantErr  bool
 	}{{
@@ -80,7 +80,7 @@ func TestGetSecrets(t *testing.T) {
 	}, {
 		name:   "Fail to get secrets",
 		secret: &corev1.Secret{},
-		ci: &v1alpha1.ClusterIngress{
+		ci: &v1alpha1.Ingress{
 			Spec: v1alpha1.IngressSpec{
 				TLS: []v1alpha1.IngressTLS{{
 					Hosts:           []string{"example.com"},

@@ -33,19 +33,19 @@ import (
 	"github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/network"
-	"github.com/knative/serving/pkg/reconciler/clusteringress/resources/names"
+	"github.com/knative/serving/pkg/reconciler/ingress/resources/names"
 	"github.com/knative/serving/pkg/resources"
 )
 
 // VirtualServiceNamespace gives the namespace of the child
-// VirtualServices for a given ClusterIngress.
-func VirtualServiceNamespace(_ *v1alpha1.ClusterIngress) string {
+// VirtualServices for a given Ingress.
+func VirtualServiceNamespace(_ *v1alpha1.Ingress) string {
 	return system.Namespace()
 }
 
 // MakeIngressVirtualService creates Istio VirtualService as network
 // programming for Istio Gateways other than 'mesh'.
-func MakeIngressVirtualService(ci *v1alpha1.ClusterIngress, gateways []string) *v1alpha3.VirtualService {
+func MakeIngressVirtualService(ci *v1alpha1.Ingress, gateways []string) *v1alpha3.VirtualService {
 	vs := &v1alpha3.VirtualService{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            names.IngressVirtualService(ci),
@@ -56,10 +56,11 @@ func MakeIngressVirtualService(ci *v1alpha1.ClusterIngress, gateways []string) *
 		Spec: *makeVirtualServiceSpec(ci, gateways, expandedHosts(getHosts(ci))),
 	}
 
-	// Populate the ClusterIngress labels.
+	// Populate the Ingress labels.
 	if vs.Labels == nil {
 		vs.Labels = make(map[string]string)
 	}
+	vs.Labels[networking.IngressNamespaceLabelKey] = ci.Namespace
 	vs.Labels[networking.IngressLabelKey] = ci.Name
 
 	ingressLabels := ci.Labels
@@ -70,7 +71,7 @@ func MakeIngressVirtualService(ci *v1alpha1.ClusterIngress, gateways []string) *
 
 // MakeMeshVirtualService creates Istio VirtualService as network
 // programming for Istio network mesh.
-func MakeMeshVirtualService(ci *v1alpha1.ClusterIngress) *v1alpha3.VirtualService {
+func MakeMeshVirtualService(ci *v1alpha1.Ingress) *v1alpha3.VirtualService {
 	vs := &v1alpha3.VirtualService{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            names.MeshVirtualService(ci),
@@ -80,12 +81,13 @@ func MakeMeshVirtualService(ci *v1alpha1.ClusterIngress) *v1alpha3.VirtualServic
 		},
 		Spec: *makeVirtualServiceSpec(ci, []string{"mesh"}, retainLocals(getHosts(ci))),
 	}
-	// Populate the ClusterIngress labels.
+	// Populate the Ingress labels.
 	vs.Labels = resources.UnionMaps(
 		resources.FilterMap(ci.Labels, func(k string) bool {
 			return k != serving.RouteLabelKey && k != serving.RouteNamespaceLabelKey
 		}),
-		map[string]string{networking.IngressLabelKey: ci.Name})
+		map[string]string{networking.IngressLabelKey: ci.Name,
+			networking.IngressNamespaceLabelKey: ci.Namespace})
 	return vs
 }
 
@@ -93,7 +95,7 @@ func MakeMeshVirtualService(ci *v1alpha1.ClusterIngress) *v1alpha3.VirtualServic
 //
 // These VirtualService specifies which Gateways and Hosts that it applies to,
 // as well as the routing rules.
-func MakeVirtualServices(ci *v1alpha1.ClusterIngress, gateways []string) []*v1alpha3.VirtualService {
+func MakeVirtualServices(ci *v1alpha1.Ingress, gateways []string) []*v1alpha3.VirtualService {
 	vss := []*v1alpha3.VirtualService{MakeMeshVirtualService(ci)}
 	if len(gateways) > 0 {
 		vss = append(vss, MakeIngressVirtualService(ci, gateways))
@@ -101,7 +103,7 @@ func MakeVirtualServices(ci *v1alpha1.ClusterIngress, gateways []string) []*v1al
 	return vss
 }
 
-func makeVirtualServiceSpec(ci *v1alpha1.ClusterIngress, gateways []string, hosts []string) *v1alpha3.VirtualServiceSpec {
+func makeVirtualServiceSpec(ci *v1alpha1.Ingress, gateways []string, hosts []string) *v1alpha3.VirtualServiceSpec {
 	spec := v1alpha3.VirtualServiceSpec{
 		Gateways: gateways,
 		Hosts:    hosts,
@@ -242,7 +244,7 @@ func hostRegExp(host string) string {
 	return fmt.Sprintf("^%s%s$", regexp.QuoteMeta(host), portMatch)
 }
 
-func getHosts(ci *v1alpha1.ClusterIngress) []string {
+func getHosts(ci *v1alpha1.Ingress) []string {
 	hosts := make([]string, 0, len(ci.Spec.Rules))
 	for _, rule := range ci.Spec.Rules {
 		hosts = append(hosts, rule.Hosts...)

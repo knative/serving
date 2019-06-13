@@ -25,7 +25,7 @@ import (
 	"github.com/knative/pkg/system"
 	"github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/network"
-	"github.com/knative/serving/pkg/reconciler/clusteringress/config"
+	"github.com/knative/serving/pkg/reconciler/ingress/config"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -49,7 +49,7 @@ var gateway = v1alpha3.Gateway{
 		Servers: []v1alpha3.Server{{
 			Hosts: []string{"host1.example.com"},
 			Port: v1alpha3.Port{
-				Name:     "clusteringress:0",
+				Name:     "ingress:0",
 				Number:   443,
 				Protocol: v1alpha3.ProtocolHTTPS,
 			},
@@ -61,7 +61,7 @@ var gateway = v1alpha3.Gateway{
 		}, {
 			Hosts: []string{"host2.example.com"},
 			Port: v1alpha3.Port{
-				Name:     "non-clusteringress:0",
+				Name:     "non-ingress:0",
 				Number:   443,
 				Protocol: v1alpha3.ProtocolHTTPS,
 			},
@@ -89,9 +89,9 @@ var gatewayWithPlaceholderServer = v1alpha3.Gateway{
 	},
 }
 
-var clusterIngress = v1alpha1.ClusterIngress{
+var ingress = v1alpha1.Ingress{
 	ObjectMeta: metav1.ObjectMeta{
-		Name: "clusteringress",
+		Name: "ingress",
 	},
 	Spec: v1alpha1.IngressSpec{
 		TLS: []v1alpha1.IngressTLS{{
@@ -105,11 +105,11 @@ var clusterIngress = v1alpha1.ClusterIngress{
 }
 
 func TestGetServers(t *testing.T) {
-	servers := GetServers(&gateway, &clusterIngress)
+	servers := GetServers(&gateway, &ingress)
 	expected := []v1alpha3.Server{{
 		Hosts: []string{"host1.example.com"},
 		Port: v1alpha3.Port{
-			Name:     "clusteringress:0",
+			Name:     "ingress:0",
 			Number:   443,
 			Protocol: v1alpha3.ProtocolHTTPS,
 		},
@@ -145,21 +145,21 @@ func TestGetHTTPServer(t *testing.T) {
 func TestMakeServers(t *testing.T) {
 	cases := []struct {
 		name                    string
-		ci                      *v1alpha1.ClusterIngress
+		ci                      *v1alpha1.Ingress
 		gatewayServiceNamespace string
 		originSecrets           map[string]*corev1.Secret
 		expected                []v1alpha3.Server
 		wantErr                 bool
 	}{{
 		name: "secret namespace is the different from the gateway service namespace",
-		ci:   &clusterIngress,
+		ci:   &ingress,
 		// gateway service namespace is "istio-system", while the secret namespace is system.Namespace()("knative-testing").
 		gatewayServiceNamespace: "istio-system",
 		originSecrets:           originSecrets,
 		expected: []v1alpha3.Server{{
 			Hosts: []string{"host1.example.com"},
 			Port: v1alpha3.Port{
-				Name:     "clusteringress:0",
+				Name:     "ingress:0",
 				Number:   443,
 				Protocol: v1alpha3.ProtocolHTTPS,
 			},
@@ -167,19 +167,19 @@ func TestMakeServers(t *testing.T) {
 				Mode:              v1alpha3.TLSModeSimple,
 				ServerCertificate: "tls.crt",
 				PrivateKey:        "tls.key",
-				CredentialName:    targetSecret(&secret, &clusterIngress),
+				CredentialName:    targetSecret(&secret, &ingress),
 			},
 		}},
 	}, {
 		name: "secret namespace is the same as the gateway service namespace",
-		ci:   &clusterIngress,
+		ci:   &ingress,
 		// gateway service namespace and the secret namespace are both in system.Namespace().
 		gatewayServiceNamespace: system.Namespace(),
 		originSecrets:           originSecrets,
 		expected: []v1alpha3.Server{{
 			Hosts: []string{"host1.example.com"},
 			Port: v1alpha3.Port{
-				Name:     "clusteringress:0",
+				Name:     "ingress:0",
 				Number:   443,
 				Protocol: v1alpha3.ProtocolHTTPS,
 			},
@@ -192,7 +192,7 @@ func TestMakeServers(t *testing.T) {
 		}},
 	}, {
 		name:                    "error to make servers because of incorrect originSecrets",
-		ci:                      &clusterIngress,
+		ci:                      &ingress,
 		gatewayServiceNamespace: "istio-system",
 		originSecrets:           map[string]*corev1.Secret{},
 		wantErr:                 true,
@@ -306,7 +306,7 @@ func TestUpdateGateway(t *testing.T) {
 		existingServers: []v1alpha3.Server{{
 			Hosts: []string{"host1.example.com"},
 			Port: v1alpha3.Port{
-				Name:     "clusteringress:0",
+				Name:     "ingress:0",
 				Number:   443,
 				Protocol: v1alpha3.ProtocolHTTPS,
 			},
@@ -319,7 +319,7 @@ func TestUpdateGateway(t *testing.T) {
 		newServers: []v1alpha3.Server{{
 			Hosts: []string{"host-new.example.com"},
 			Port: v1alpha3.Port{
-				Name:     "clusteringress:0",
+				Name:     "ingress:0",
 				Number:   443,
 				Protocol: v1alpha3.ProtocolHTTPS,
 			},
@@ -336,7 +336,7 @@ func TestUpdateGateway(t *testing.T) {
 					// The host name was updated to the one in "newServers".
 					Hosts: []string{"host-new.example.com"},
 					Port: v1alpha3.Port{
-						Name:     "clusteringress:0",
+						Name:     "ingress:0",
 						Number:   443,
 						Protocol: v1alpha3.ProtocolHTTPS,
 					},
@@ -348,7 +348,7 @@ func TestUpdateGateway(t *testing.T) {
 				}, {
 					Hosts: []string{"host2.example.com"},
 					Port: v1alpha3.Port{
-						Name:     "non-clusteringress:0",
+						Name:     "non-ingress:0",
 						Number:   443,
 						Protocol: v1alpha3.ProtocolHTTPS,
 					},
@@ -365,7 +365,7 @@ func TestUpdateGateway(t *testing.T) {
 		existingServers: []v1alpha3.Server{{
 			Hosts: []string{"host1.example.com"},
 			Port: v1alpha3.Port{
-				Name:     "clusteringress:0",
+				Name:     "ingress:0",
 				Number:   443,
 				Protocol: v1alpha3.ProtocolHTTPS,
 			},
@@ -383,7 +383,7 @@ func TestUpdateGateway(t *testing.T) {
 				Servers: []v1alpha3.Server{{
 					Hosts: []string{"host2.example.com"},
 					Port: v1alpha3.Port{
-						Name:     "non-clusteringress:0",
+						Name:     "non-ingress:0",
 						Number:   443,
 						Protocol: v1alpha3.ProtocolHTTPS,
 					},
@@ -402,7 +402,7 @@ func TestUpdateGateway(t *testing.T) {
 		existingServers: []v1alpha3.Server{{
 			Hosts: []string{"host1.example.com"},
 			Port: v1alpha3.Port{
-				Name:     "clusteringress:0",
+				Name:     "ingress:0",
 				Number:   443,
 				Protocol: v1alpha3.ProtocolHTTPS,
 			},
@@ -414,7 +414,7 @@ func TestUpdateGateway(t *testing.T) {
 		}, {
 			Hosts: []string{"host2.example.com"},
 			Port: v1alpha3.Port{
-				Name:     "non-clusteringress:0",
+				Name:     "non-ingress:0",
 				Number:   443,
 				Protocol: v1alpha3.ProtocolHTTPS,
 			},
@@ -433,7 +433,7 @@ func TestUpdateGateway(t *testing.T) {
 		newServers: []v1alpha3.Server{{
 			Hosts: []string{"host1.example.com"},
 			Port: v1alpha3.Port{
-				Name:     "clusteringress:0",
+				Name:     "ingress:0",
 				Number:   443,
 				Protocol: v1alpha3.ProtocolHTTPS,
 			},
@@ -450,7 +450,7 @@ func TestUpdateGateway(t *testing.T) {
 				Servers: []v1alpha3.Server{{
 					Hosts: []string{"host1.example.com"},
 					Port: v1alpha3.Port{
-						Name:     "clusteringress:0",
+						Name:     "ingress:0",
 						Number:   443,
 						Protocol: v1alpha3.ProtocolHTTPS,
 					},
