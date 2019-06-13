@@ -38,9 +38,7 @@ var (
 	}
 	defaultProbe = &corev1.Probe{
 		Handler: corev1.Handler{
-			TCPSocket: &corev1.TCPSocketAction{
-				Host: "127.0.0.1",
-			},
+			TCPSocket: &corev1.TCPSocketAction{},
 		},
 	}
 	ignoreUnexportedResources = cmpopts.IgnoreUnexported(resource.Quantity{})

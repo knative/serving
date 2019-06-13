@@ -87,7 +87,7 @@ func (rs *RevisionSpec) SetDefaults(ctx context.Context) {
 		container.ReadinessProbe = &corev1.Probe{}
 	}
 	if container.ReadinessProbe.TCPSocket == nil && container.ReadinessProbe.HTTPGet == nil {
-		container.ReadinessProbe.TCPSocket = &corev1.TCPSocketAction{Host: "127.0.0.1"}
+		container.ReadinessProbe.TCPSocket = &corev1.TCPSocketAction{}
 	}
 
 	vms := container.VolumeMounts
