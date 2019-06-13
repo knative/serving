@@ -21,6 +21,7 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"github.com/knative/pkg/kmeta"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 )
 
@@ -28,7 +29,7 @@ func TestNamer(t *testing.T) {
 	tests := []struct {
 		name  string
 		route *v1alpha1.Route
-		f     func(*v1alpha1.Route) string
+		f     func(kmeta.Accessor) string
 		want  string
 	}{{
 		name: "K8sService",

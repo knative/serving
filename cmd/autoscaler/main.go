@@ -173,18 +173,6 @@ func main() {
 	}
 }
 
-func setupLogger() (*zap.SugaredLogger, zap.AtomicLevel) {
-	loggingConfigMap, err := configmap.Load("/etc/config-logging")
-	if err != nil {
-		log.Fatal("Error loading logging configuration:", err)
-	}
-	loggingConfig, err := logging.NewConfigFromMap(loggingConfigMap)
-	if err != nil {
-		log.Fatal("Error parsing logging configuration:", err)
-	}
-	return logging.NewLoggerFromConfig(loggingConfig, component)
-}
-
 func uniScalerFactoryFunc(endpointsInformer corev1informers.EndpointsInformer, metricClient autoscaler.MetricClient) func(decider *autoscaler.Decider) (autoscaler.UniScaler, error) {
 	return func(decider *autoscaler.Decider) (autoscaler.UniScaler, error) {
 		if v, ok := decider.Labels[serving.ConfigurationLabelKey]; !ok || v == "" {

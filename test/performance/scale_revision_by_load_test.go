@@ -20,6 +20,7 @@ package performance
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -27,8 +28,8 @@ import (
 	"github.com/knative/pkg/controller"
 	pkgTest "github.com/knative/pkg/test"
 	ingress "github.com/knative/pkg/test/ingress"
-	testingv1alpha1 "github.com/knative/serving/pkg/reconciler/testing"
 	"github.com/knative/serving/pkg/resources"
+	testingv1alpha1 "github.com/knative/serving/pkg/testing/v1alpha1"
 	"github.com/knative/serving/test"
 	"github.com/knative/test-infra/shared/junit"
 	"github.com/knative/test-infra/shared/loadgenerator"
@@ -91,7 +92,7 @@ func scaleRevisionByLoad(t *testing.T, numClients int) []junit.TestCase {
 				corev1.ResourceMemory: resource.MustParse("20Mi"),
 			},
 		}},
-		testingv1alpha1.WithConfigAnnotations(map[string]string{"autoscaling.knative.dev/target": fmt.Sprintf("%d", targetConcurrency)}),
+		testingv1alpha1.WithConfigAnnotations(map[string]string{"autoscaling.knative.dev/target": strconv.Itoa(targetConcurrency)}),
 	)
 	if err != nil {
 		t.Fatalf("Failed to create Service: %v", err)

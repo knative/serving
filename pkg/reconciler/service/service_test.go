@@ -35,13 +35,14 @@ import (
 	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/service/resources"
-	. "github.com/knative/serving/pkg/reconciler/testing"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgotesting "k8s.io/client-go/testing"
 
 	. "github.com/knative/pkg/reconciler/testing"
+	. "github.com/knative/serving/pkg/reconciler/testing/v1alpha1"
+	. "github.com/knative/serving/pkg/testing/v1alpha1"
 )
 
 // This is heavily based on the way the OpenShift Ingress controller tests its reconciliation method.
@@ -1295,7 +1296,7 @@ func TestNew(t *testing.T) {
 	defer logtesting.ClearAll()
 	ctx, _ := SetupFakeContext(t)
 
-	c := NewController(ctx, configmap.NewFixedWatcher())
+	c := NewController(ctx, configmap.NewStaticWatcher())
 
 	if c == nil {
 		t.Fatal("Expected NewController to return a non-nil value")

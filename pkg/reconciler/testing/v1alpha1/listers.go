@@ -1,5 +1,5 @@
 /*
-Copyright 2018 The Knative Authors
+Copyright 2019 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package testing
+package v1alpha1
 
 import (
 	certmanagerv1alpha1 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1alpha1"
@@ -36,20 +36,13 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	autoscalingv2beta1 "k8s.io/api/autoscaling/v2beta1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
 	appsv1listers "k8s.io/client-go/listers/apps/v1"
 	autoscalingv2beta1listers "k8s.io/client-go/listers/autoscaling/v2beta1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 )
-
-var buildAddToScheme = func(scheme *runtime.Scheme) error {
-	scheme.AddKnownTypeWithName(schema.GroupVersionKind{Group: "build.knative.dev", Version: "v1alpha1", Kind: "Build"}, &unstructured.Unstructured{})
-	return nil
-}
 
 var clientSetSchemes = []func(*runtime.Scheme) error{
 	fakekubeclientset.AddToScheme,
@@ -58,20 +51,10 @@ var clientSetSchemes = []func(*runtime.Scheme) error{
 	fakecachingclientset.AddToScheme,
 	certmanagerv1alpha1.AddToScheme,
 	autoscalingv2beta1.AddToScheme,
-	buildAddToScheme,
 }
 
 type Listers struct {
 	sorter testing.ObjectSorter
-}
-
-func NewScheme() *runtime.Scheme {
-	scheme := runtime.NewScheme()
-
-	for _, addTo := range clientSetSchemes {
-		addTo(scheme)
-	}
-	return scheme
 }
 
 func NewListers(objs []runtime.Object) Listers {
@@ -84,6 +67,19 @@ func NewListers(objs []runtime.Object) Listers {
 	ls.sorter.AddObjects(objs...)
 
 	return ls
+}
+
+func NewScheme() *runtime.Scheme {
+	scheme := runtime.NewScheme()
+
+	for _, addTo := range clientSetSchemes {
+		addTo(scheme)
+	}
+	return scheme
+}
+
+func (*Listers) NewScheme() *runtime.Scheme {
+	return NewScheme()
 }
 
 // IndexerFor returns the indexer for the given object.
@@ -101,10 +97,6 @@ func (l *Listers) GetCachingObjects() []runtime.Object {
 
 func (l *Listers) GetServingObjects() []runtime.Object {
 	return l.sorter.ObjectsForSchemeFunc(fakeservingclientset.AddToScheme)
-}
-
-func (l *Listers) GetBuildObjects() []runtime.Object {
-	return l.sorter.ObjectsForSchemeFunc(buildAddToScheme)
 }
 
 func (l *Listers) GetSharedObjects() []runtime.Object {

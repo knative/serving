@@ -18,6 +18,7 @@ package e2e
 
 import (
 	"fmt"
+	"math"
 	"testing"
 	"time"
 
@@ -30,7 +31,8 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 
 	"github.com/knative/serving/pkg/pool"
-	. "github.com/knative/serving/pkg/reconciler/testing"
+
+	. "github.com/knative/serving/pkg/testing/v1alpha1"
 )
 
 // Latencies is an interface for providing mechanisms for recording timings
@@ -62,6 +64,7 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 	pm := test.NewProberManager(t.Logf, clients, minProbes)
 
 	timeoutCh := time.After(duration)
+	width := int(math.Ceil(math.Log10(float64(scale))))
 
 	t.Log("Creating new Services")
 	wg := pool.NewWithCapacity(50 /* maximum in-flight creates */, scale /* capacity */)
@@ -71,7 +74,7 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 
 		wg.Go(func() error {
 			names := test.ResourceNames{
-				Service: test.SubServiceNameForTest(t, fmt.Sprintf("%d", i)),
+				Service: test.SubServiceNameForTest(t, fmt.Sprintf("%0[1]*[2]d", width, i)),
 				Image:   "helloworld",
 			}
 

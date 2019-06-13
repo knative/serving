@@ -25,7 +25,7 @@ import (
 	"github.com/knative/pkg/test/spoof"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 
-	rtesting "github.com/knative/serving/pkg/reconciler/testing"
+	rtesting "github.com/knative/serving/pkg/testing/v1alpha1"
 )
 
 // CreateRoute creates a route in the given namespace using the route name in names

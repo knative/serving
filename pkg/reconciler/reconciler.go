@@ -18,7 +18,6 @@ package reconciler
 
 import (
 	"context"
-	"time"
 
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
@@ -55,9 +54,6 @@ const (
   "value":"true"
 }]`
 )
-
-// This is mutable for testing.
-var resetPeriod = 30 * time.Second
 
 // Base implements the core controller logic, given a Reconciler.
 type Base struct {

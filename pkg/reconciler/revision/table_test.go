@@ -42,7 +42,9 @@ import (
 	clientgotesting "k8s.io/client-go/testing"
 
 	. "github.com/knative/pkg/reconciler/testing"
-	. "github.com/knative/serving/pkg/reconciler/testing"
+	. "github.com/knative/serving/pkg/reconciler/testing/v1alpha1"
+	. "github.com/knative/serving/pkg/testing"
+	. "github.com/knative/serving/pkg/testing/v1alpha1"
 )
 
 // This is heavily based on the way the OpenShift Ingress controller tests its reconciliation method.
@@ -433,6 +435,23 @@ func TestReconcile(t *testing.T) {
 		},
 		Key: "foo/deploy-timeout",
 	}, {
+		Name: "surface ImagePullBackoff",
+		// Test the propagation of ImagePullBackoff from user container.
+		Objects: []runtime.Object{
+			rev("foo", "pull-backoff",
+				withK8sServiceName("the-taxman"), WithLogURL, MarkActivating("Deploying", "")),
+			kpa("foo", "pull-backoff"), // KPA can't be ready since deployment times out.
+			pod("foo", "pull-backoff", WithWaitingContainer("user-container", "ImagePullBackoff", "can't pull it")),
+			timeoutDeploy(deploy("foo", "pull-backoff")),
+			image("foo", "pull-backoff"),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: rev("foo", "pull-backoff",
+				WithLogURL, AllUnknownConditions,
+				MarkResourcesUnavailable("ImagePullBackoff", "can't pull it")),
+		}},
+		Key: "foo/pull-backoff",
+	}, {
 		Name: "surface pod errors",
 		// Test the propagation of the termination state of a Pod into the revision.
 		// This initializes the world to the stable state after its first reconcile,
@@ -701,9 +720,4 @@ func ReconcilerTestConfig() *config.Config {
 		Logging:    &logging.Config{},
 		Autoscaler: &autoscaler.Config{},
 	}
-}
-
-// this forces the type to be a 'configOption'
-var EnableVarLog configOption = func(cfg *config.Config) {
-	cfg.Observability.EnableVarLogCollection = true
 }

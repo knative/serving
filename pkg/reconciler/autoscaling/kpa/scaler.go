@@ -179,10 +179,7 @@ func (ks *scaler) handleScaleToZero(pa *pav1alpha1.PodAutoscaler, desiredScale i
 	}
 
 	if pa.Status.IsActivating() { // Active=Unknown
-		// Don't scale-to-zero during activation
-		if min, _ := pa.ScaleBounds(); min == 0 {
-			return scaleUnknown, false
-		}
+		return scaleUnknown, false
 	} else if pa.Status.IsReady() { // Active=True
 		// Don't scale-to-zero if the PA is active
 
@@ -261,15 +258,15 @@ func (ks *scaler) Scale(ctx context.Context, pa *pav1alpha1.PodAutoscaler, desir
 		return desiredScale, nil
 	}
 
-	desiredScale, shouldApplyScale := ks.handleScaleToZero(pa, desiredScale, config.FromContext(ctx).Autoscaler)
-	if !shouldApplyScale {
-		return desiredScale, nil
-	}
-
 	min, max := pa.ScaleBounds()
 	if newScale := applyBounds(min, max, desiredScale); newScale != desiredScale {
 		logger.Debugf("Adjusting desiredScale to meet the min and max bounds before applying: %d -> %d", desiredScale, newScale)
 		desiredScale = newScale
+	}
+
+	desiredScale, shouldApplyScale := ks.handleScaleToZero(pa, desiredScale, config.FromContext(ctx).Autoscaler)
+	if !shouldApplyScale {
+		return desiredScale, nil
 	}
 
 	ps, err := ks.GetScaleResource(pa)

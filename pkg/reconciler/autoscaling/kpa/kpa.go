@@ -22,10 +22,14 @@ import (
 	"reflect"
 	"strconv"
 
+	perrors "github.com/pkg/errors"
+	"go.uber.org/zap"
+
 	"github.com/knative/pkg/controller"
 	"github.com/knative/pkg/logging"
 	"github.com/knative/serving/pkg/apis/autoscaling"
 	pav1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
+	"github.com/knative/serving/pkg/apis/networking"
 	nv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/autoscaler"
@@ -34,16 +38,15 @@ import (
 	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/autoscaling/config"
 	"github.com/knative/serving/pkg/reconciler/autoscaling/kpa/resources"
-	"github.com/knative/serving/pkg/reconciler/autoscaling/kpa/resources/names"
 	aresources "github.com/knative/serving/pkg/reconciler/autoscaling/resources"
 	anames "github.com/knative/serving/pkg/reconciler/autoscaling/resources/names"
 	resourceutil "github.com/knative/serving/pkg/resources"
-	perrors "github.com/pkg/errors"
-	"go.uber.org/zap"
+
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
@@ -257,6 +260,35 @@ func (c *Reconciler) reconcileSKS(ctx context.Context, pa *pav1alpha1.PodAutosca
 	return sks, nil
 }
 
+func (c *Reconciler) metricService(pa *pav1alpha1.PodAutoscaler) (*corev1.Service, error) {
+	svcs, err := c.serviceLister.Services(pa.Namespace).List(labels.SelectorFromSet(map[string]string{
+		autoscaling.KPALabelKey:   pa.Name,
+		networking.ServiceTypeKey: string(networking.ServiceTypeMetrics),
+	}))
+	if err != nil {
+		return nil, err
+	}
+	var ret *corev1.Service
+	for _, s := range svcs {
+		// TODO(vagababov): determine if this is better to be in the ownership check.
+		// TODO(vagababov): remove the second check after 0.7 is cut.
+		// Found a match or we had nothing set up, then pick any of them, to reduce churn.
+		if s.Name == pa.Status.MetricsServiceName || pa.Status.MetricsServiceName == "" {
+			ret = s
+			continue
+		}
+		// If it's not the metrics service recorded in status,
+		// but we control it then it is a duplicate and should be deleted.
+		if metav1.IsControlledBy(s, pa) {
+			c.KubeClientSet.CoreV1().Services(pa.Namespace).Delete(s.Name, &metav1.DeleteOptions{})
+		}
+	}
+	if ret == nil {
+		return nil, errors.NewNotFound(corev1.Resource("Services"), pa.Name)
+	}
+	return ret, nil
+}
+
 func (c *Reconciler) reconcileMetricsService(ctx context.Context, pa *pav1alpha1.PodAutoscaler) (string, error) {
 	logger := logging.FromContext(ctx)
 
@@ -267,21 +299,20 @@ func (c *Reconciler) reconcileMetricsService(ctx context.Context, pa *pav1alpha1
 	selector := scale.Spec.Selector.MatchLabels
 	logger.Debugf("PA's %s selector: %v", pa.Name, selector)
 
-	sn := names.MetricsServiceName(pa.Name)
-	svc, err := c.serviceLister.Services(pa.Namespace).Get(sn)
+	svc, err := c.metricService(pa)
 	if errors.IsNotFound(err) {
-		logger.Infof("K8s service %s/%s does not exist; creating.", pa.Namespace, sn)
+		logger.Infof("Metrics K8s service for KPA %s/%s does not exist; creating.", pa.Namespace, pa.Name)
 		svc = resources.MakeMetricsService(pa, selector)
 		svc, err = c.KubeClientSet.CoreV1().Services(pa.Namespace).Create(svc)
 		if err != nil {
-			return "", perrors.Wrapf(err, "error creating K8s Service %s/%s", pa.Namespace, sn)
+			return "", perrors.Wrapf(err, "error creating metrics K8s service for %s/%s", pa.Namespace, pa.Name)
 		}
-		logger.Info("Created K8s service:", sn)
+		logger.Info("Created K8s service:", svc.Name)
 	} else if err != nil {
-		return "", perrors.Wrapf(err, "error getting K8s Service %s", sn)
+		return "", perrors.Wrap(err, "error getting metrics K8s service")
 	} else if !metav1.IsControlledBy(svc, pa) {
-		pa.Status.MarkResourceNotOwned("Service", sn)
-		return "", fmt.Errorf("KPA: %s does not own Service: %s", pa.Name, sn)
+		pa.Status.MarkResourceNotOwned("Service", svc.Name)
+		return "", fmt.Errorf("KPA: %s does not own Service: %s", pa.Name, svc.Name)
 	} else {
 		tmpl := resources.MakeMetricsService(pa, selector)
 		want := svc.DeepCopy()
@@ -289,14 +320,15 @@ func (c *Reconciler) reconcileMetricsService(ctx context.Context, pa *pav1alpha1
 		want.Spec.Selector = tmpl.Spec.Selector
 
 		if !equality.Semantic.DeepEqual(want.Spec, svc.Spec) {
-			logger.Info("Metrics K8s Service changed; reconciling:", sn)
+			logger.Info("Metrics K8s Service changed; reconciling:", svc.Name)
 			if _, err = c.KubeClientSet.CoreV1().Services(pa.Namespace).Update(want); err != nil {
-				return "", perrors.Wrapf(err, "error updating K8s Service %s", sn)
+				return "", perrors.Wrapf(err, "error updating K8s Service %s", svc.Name)
 			}
 		}
 	}
-	logger.Debug("Done reconciling metrics K8s service", sn)
-	return sn, nil
+	pa.Status.MetricsServiceName = svc.Name
+	logger.Debug("Done reconciling metrics K8s service: ", svc.Name)
+	return svc.Name, nil
 }
 
 func (c *Reconciler) reconcileMetric(ctx context.Context, pa *pav1alpha1.PodAutoscaler, metricSN string) error {

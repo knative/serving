@@ -47,13 +47,14 @@ import (
 	clientgotesting "k8s.io/client-go/testing"
 
 	. "github.com/knative/pkg/reconciler/testing"
-	. "github.com/knative/serving/pkg/reconciler/testing"
+	. "github.com/knative/serving/pkg/reconciler/testing/v1alpha1"
+	. "github.com/knative/serving/pkg/testing"
 )
 
 func TestNewController(t *testing.T) {
 	defer logtesting.ClearAll()
 	ctx, _ := SetupFakeContext(t)
-	c := NewController(ctx, configmap.NewFixedWatcher())
+	c := NewController(ctx, configmap.NewStaticWatcher())
 	if c == nil {
 		t.Fatal("Expected NewController to return a non-nil value")
 	}

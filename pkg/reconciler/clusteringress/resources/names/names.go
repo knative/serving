@@ -17,19 +17,19 @@ limitations under the License.
 package names
 
 import (
-	"github.com/knative/serving/pkg/apis/networking/v1alpha1"
+	"github.com/knative/pkg/kmeta"
 )
 
 // IngressVirtualService returns the name of the VirtualService child
 // resource for given ClusterIngress that programs traffic for Ingress
 // Gateways.
-func IngressVirtualService(i *v1alpha1.ClusterIngress) string {
-	return i.Name
+func IngressVirtualService(i kmeta.Accessor) string {
+	return i.GetName()
 }
 
 // MeshVirtualService returns the name of the VirtualService child
 // resource for given ClusterIngress that programs traffic for Service
 // Mesh.
-func MeshVirtualService(i *v1alpha1.ClusterIngress) string {
-	return i.Name + "-mesh"
+func MeshVirtualService(i kmeta.Accessor) string {
+	return i.GetName() + "-mesh"
 }

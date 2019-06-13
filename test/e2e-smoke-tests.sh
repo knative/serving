@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# Copyright 2018 The Knative Authors
+# Copyright 2019 The Knative Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -27,33 +27,26 @@
 
 source $(dirname $0)/e2e-common.sh
 
-# Helper functions.
-
 function knative_setup() {
-  install_knative_serving
+  # Build serving, create $SERVING_YAML
+  build_knative_from_source
+  start_knative_serving "${SERVING_YAML}"
 }
 
 # Script entry point.
 
-# Skip installing istio as an add-on
-initialize $@ --skip-istio-addon
+initialize $@
 
-# Run the tests
-header "Running tests"
+# Ensure Knative Serving can be uninstalled/reinstalled cleanly
+subheader "Uninstalling Knative Serving"
+kubectl delete --ignore-not-found=true -f ${SERVING_YAML} || fail_test
+wait_until_object_does_not_exist namespaces knative-serving || fail_test
 
-failed=0
+subheader "Reinstalling Knative Serving"
+start_knative_serving "${SERVING_YAML}" || fail_test
 
-# Run conformance and e2e tests.
-go_test_e2e -timeout=30m \
-  ./test/conformance/api \
-  ./test/conformance/runtime \
-  ./test/e2e \
-  "--resolvabledomain=$(use_resolvable_domain)" || failed=1
-
-# Run scale tests.
-go_test_e2e -timeout=10m ./test/scale || failed=1
-
-# Require that both set of tests succeeded.
-(( failed )) && fail_test
+# Run smoke test
+subheader "Running smoke test"
+go_test_e2e ./test/e2e -run HelloWorld || fail_test
 
 success
