@@ -24,7 +24,6 @@ import (
 	istiov1alpha1 "github.com/knative/pkg/apis/istio/common/v1alpha1"
 	"github.com/knative/pkg/apis/istio/v1alpha3"
 	"github.com/knative/pkg/kmeta"
-	"github.com/knative/pkg/system"
 	_ "github.com/knative/pkg/system/testing"
 	apiconfig "github.com/knative/serving/pkg/apis/config"
 	"github.com/knative/serving/pkg/apis/networking"
@@ -38,18 +37,19 @@ var (
 	defaultMaxRevisionTimeout = time.Duration(apiconfig.DefaultMaxRevisionTimeoutSeconds) * time.Second
 )
 
-func TestMakeVirtualServices_CorrectMetadata(t *testing.T) {
+func TestMakeVirtualServicesForIngress_CorrectMetadata(t *testing.T) {
 	for _, tc := range []struct {
 		name     string
 		gateways []string
-		ci       *v1alpha1.ClusterIngress
+		ingress  *v1alpha1.Ingress
 		expected []metav1.ObjectMeta
 	}{{
 		name:     "mesh and ingress",
 		gateways: []string{"gateway"},
-		ci: &v1alpha1.ClusterIngress{
+		ingress: &v1alpha1.Ingress{
 			ObjectMeta: metav1.ObjectMeta{
-				Name: "test-ingress",
+				Name:      "test-ingress",
+				Namespace: "test-ns",
 				Labels: map[string]string{
 					serving.RouteLabelKey:          "test-route",
 					serving.RouteNamespaceLabelKey: "test-ns",
@@ -59,27 +59,30 @@ func TestMakeVirtualServices_CorrectMetadata(t *testing.T) {
 		},
 		expected: []metav1.ObjectMeta{{
 			Name:      "test-ingress-mesh",
-			Namespace: system.Namespace(),
+			Namespace: "test-ns",
 			Labels: map[string]string{
-				networking.ClusterIngressLabelKey: "test-ingress",
-				serving.RouteLabelKey:             "test-route",
-				serving.RouteNamespaceLabelKey:    "test-ns",
+				networking.IngressLabelKey:          "test-ingress",
+				networking.IngressNamespaceLabelKey: "test-ns",
+				serving.RouteLabelKey:               "test-route",
+				serving.RouteNamespaceLabelKey:      "test-ns",
 			},
 		}, {
 			Name:      "test-ingress",
-			Namespace: system.Namespace(),
+			Namespace: "test-ns",
 			Labels: map[string]string{
-				networking.ClusterIngressLabelKey: "test-ingress",
-				serving.RouteLabelKey:             "test-route",
-				serving.RouteNamespaceLabelKey:    "test-ns",
+				networking.IngressLabelKey:          "test-ingress",
+				networking.IngressNamespaceLabelKey: "test-ns",
+				serving.RouteLabelKey:               "test-route",
+				serving.RouteNamespaceLabelKey:      "test-ns",
 			},
 		}},
 	}, {
 		name:     "mesh only",
 		gateways: nil,
-		ci: &v1alpha1.ClusterIngress{
+		ingress: &v1alpha1.Ingress{
 			ObjectMeta: metav1.ObjectMeta{
-				Name: "test-ingress",
+				Name:      "test-ingress",
+				Namespace: "test-ns",
 				Labels: map[string]string{
 					serving.RouteLabelKey:          "test-route",
 					serving.RouteNamespaceLabelKey: "test-ns",
@@ -89,21 +92,22 @@ func TestMakeVirtualServices_CorrectMetadata(t *testing.T) {
 		},
 		expected: []metav1.ObjectMeta{{
 			Name:      "test-ingress-mesh",
-			Namespace: system.Namespace(),
+			Namespace: "test-ns",
 			Labels: map[string]string{
-				networking.ClusterIngressLabelKey: "test-ingress",
-				serving.RouteLabelKey:             "test-route",
-				serving.RouteNamespaceLabelKey:    "test-ns",
+				networking.IngressLabelKey:          "test-ingress",
+				networking.IngressNamespaceLabelKey: "test-ns",
+				serving.RouteLabelKey:               "test-route",
+				serving.RouteNamespaceLabelKey:      "test-ns",
 			},
 		}},
 	}} {
 		t.Run(tc.name, func(t *testing.T) {
-			vss := MakeVirtualServicesForClusterIngress(tc.ci, tc.gateways)
+			vss := MakeVirtualServicesForIngress(tc.ingress, tc.gateways)
 			if len(vss) != len(tc.expected) {
 				t.Errorf("Expected %d VirtualService, saw %d", len(tc.expected), len(vss))
 			}
 			for i := range tc.expected {
-				tc.expected[i].OwnerReferences = []metav1.OwnerReference{*kmeta.NewControllerRef(tc.ci)}
+				tc.expected[i].OwnerReferences = []metav1.OwnerReference{*kmeta.NewControllerRef(tc.ingress)}
 				if diff := cmp.Diff(tc.expected[i], vss[i].ObjectMeta); diff != "" {
 					t.Errorf("Unexpected metadata (-want +got): %v", diff)
 				}
