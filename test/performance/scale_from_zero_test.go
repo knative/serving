@@ -35,6 +35,7 @@ import (
 	ktest "github.com/knative/serving/pkg/testing/v1alpha1"
 	"github.com/knative/serving/test"
 	"github.com/knative/serving/test/e2e"
+	v1a1test "github.com/knative/serving/test/v1alpha1"
 	"github.com/knative/test-infra/shared/junit"
 	"github.com/knative/test-infra/shared/testgrid"
 )
@@ -52,7 +53,7 @@ type stats struct {
 	max time.Duration
 }
 
-func runScaleFromZero(idx int, t *testing.T, clients *test.Clients, ro *test.ResourceObjects) (time.Duration, error) {
+func runScaleFromZero(idx int, t *testing.T, clients *test.Clients, ro *v1a1test.ResourceObjects) (time.Duration, error) {
 	t.Helper()
 	deploymentName := names.Deployment(ro.Revision)
 
@@ -113,7 +114,7 @@ func parallelScaleFromZero(t *testing.T, count int) ([]time.Duration, error) {
 	defer cleanupNames()
 	test.CleanupOnInterrupt(cleanupNames)
 
-	objs := make([]*test.ResourceObjects, count)
+	objs := make([]*v1a1test.ResourceObjects, count)
 	begin := time.Now()
 	defer func() {
 		t.Logf("Total time for test: %v", time.Since(begin))
@@ -137,8 +138,8 @@ func parallelScaleFromZero(t *testing.T, count int) ([]time.Duration, error) {
 		ndx := i
 		g.Go(func() error {
 			var err error
-			if objs[ndx], err = test.CreateRunLatestServiceReady(
-				t, pc.E2EClients, testNames[ndx], &test.Options{}, sos...); err != nil {
+			if objs[ndx], err = v1a1test.CreateRunLatestServiceReady(
+				t, pc.E2EClients, testNames[ndx], &v1a1test.Options{}, sos...); err != nil {
 				return fmt.Errorf("%02d: failed to create Ready service: %v", ndx, err)
 			}
 			return nil
