@@ -112,7 +112,7 @@ func TestMakeVirtualServices_CorrectMetadata(t *testing.T) {
 	}
 }
 
-func TestMakeMeshVirtualServiceSpec_CorrectGateways(t *testing.T) {
+func TestMakeMeshVirtualServiceSpecForClusterIngress_CorrectGateways(t *testing.T) {
 	ci := &v1alpha1.ClusterIngress{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "test-ingress",
@@ -125,6 +125,25 @@ func TestMakeMeshVirtualServiceSpec_CorrectGateways(t *testing.T) {
 	}
 	expected := []string{"mesh"}
 	gateways := MakeMeshVirtualServiceForClusterIngress(ci).Spec.Gateways
+	if diff := cmp.Diff(expected, gateways); diff != "" {
+		t.Errorf("Unexpected gateways (-want +got): %v", diff)
+	}
+}
+
+func TestMakeMeshVirtualServiceSpecForIngress_CorrectGateways(t *testing.T) {
+	ingress := &v1alpha1.Ingress{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-ingress",
+			Namespace: "test-ns",
+			Labels: map[string]string{
+				serving.RouteLabelKey:          "test-route",
+				serving.RouteNamespaceLabelKey: "test-ns",
+			},
+		},
+		Spec: v1alpha1.IngressSpec{},
+	}
+	expected := []string{"mesh"}
+	gateways := MakeMeshVirtualServiceForIngress(ingress).Spec.Gateways
 	if diff := cmp.Diff(expected, gateways); diff != "" {
 		t.Errorf("Unexpected gateways (-want +got): %v", diff)
 	}
@@ -243,7 +262,7 @@ func TestMakeMeshVirtualServiceSpec_CorrectRoutes(t *testing.T) {
 	}
 }
 
-func TestMakeIngressVirtualServiceSpec_CorrectGateways(t *testing.T) {
+func TestMakeVirtualServiceSpecForClusterIngress_CorrectGateways(t *testing.T) {
 	ci := &v1alpha1.ClusterIngress{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "test-ingress",
@@ -256,6 +275,25 @@ func TestMakeIngressVirtualServiceSpec_CorrectGateways(t *testing.T) {
 	}
 	expected := []string{"gateway-one", "gateway-two"}
 	gateways := MakeVirtualServiceForClusterIngress(ci, []string{"gateway-one", "gateway-two"}).Spec.Gateways
+	if diff := cmp.Diff(expected, gateways); diff != "" {
+		t.Errorf("Unexpected gateways (-want +got): %v", diff)
+	}
+}
+
+func TestMakeVirtualServiceSpecForIngress_CorrectGateways(t *testing.T) {
+	ingress := &v1alpha1.Ingress{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-ingress",
+			Namespace: "test-ns",
+			Labels: map[string]string{
+				serving.RouteLabelKey:          "test-route",
+				serving.RouteNamespaceLabelKey: "test-ns",
+			},
+		},
+		Spec: v1alpha1.IngressSpec{},
+	}
+	expected := []string{"gateway-one", "gateway-two"}
+	gateways := MakeVirtualServiceForIngress(ingress, []string{"gateway-one", "gateway-two"}).Spec.Gateways
 	if diff := cmp.Diff(expected, gateways); diff != "" {
 		t.Errorf("Unexpected gateways (-want +got): %v", diff)
 	}
