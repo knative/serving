@@ -38,6 +38,7 @@ func MakeConfiguration(service *v1alpha1.Service) (*v1alpha1.Configuration, erro
 			Labels: resources.UnionMaps(service.GetLabels(), map[string]string{
 				serving.ServiceLabelKey: service.Name,
 			}),
+			Annotations: service.GetAnnotations(),
 		},
 		Spec: service.Spec.ConfigurationSpec,
 	}, nil
