@@ -102,9 +102,9 @@ func makeVirtualService(name string, namespace string, obj kmeta.OwnerRefable, s
 	return vs
 }
 
-// MakeMeshVirtualServiceForCusterIngress creates Istio VirtualService as network
+// MakeMeshVirtualServiceForClusterIngress creates Istio VirtualService as network
 // programming for Istio network mesh.
-func MakeMeshVirtualServiceForCusterIngress(ci *v1alpha1.ClusterIngress) *v1alpha3.VirtualService {
+func MakeMeshVirtualServiceForClusterIngress(ci *v1alpha1.ClusterIngress) *v1alpha3.VirtualService {
 	vs := makeMeshVirtualService(names.MeshVirtualService(ci), ClusterIngressVirtualServiceNamespace(ci), ci, &ci.Spec)
 	// Populate the ClusterIngress labels.
 	vs.Labels = resources.UnionMaps(
@@ -148,7 +148,7 @@ func makeMeshVirtualService(name string, namespace string, obj kmeta.OwnerRefabl
 // These VirtualService specifies which Gateways and Hosts that it applies to,
 // as well as the routing rules.
 func MakeVirtualServicesForClusterIngress(ci *v1alpha1.ClusterIngress, gateways []string) []*v1alpha3.VirtualService {
-	vss := []*v1alpha3.VirtualService{MakeMeshVirtualServiceForCusterIngress(ci)}
+	vss := []*v1alpha3.VirtualService{MakeMeshVirtualServiceForClusterIngress(ci)}
 	if len(gateways) > 0 {
 		vss = append(vss, MakeVirtualServiceForClusterIngress(ci, gateways))
 	}

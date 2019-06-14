@@ -183,7 +183,7 @@ func TestReconcile(t *testing.T) {
 			ingress("no-virtualservice-yet", 1234),
 		},
 		WantCreates: []runtime.Object{
-			resources.MakeMeshVirtualServiceForCusterIngress(ingress("no-virtualservice-yet", 1234)),
+			resources.MakeMeshVirtualServiceForClusterIngress(ingress("no-virtualservice-yet", 1234)),
 			resources.MakeVirtualServiceForClusterIngress(ingress("no-virtualservice-yet", 1234),
 				[]string{"knative-test-gateway", "knative-ingress-gateway"}),
 		},
@@ -256,7 +256,7 @@ func TestReconcile(t *testing.T) {
 				[]string{"knative-test-gateway", "knative-ingress-gateway"}),
 		}},
 		WantCreates: []runtime.Object{
-			resources.MakeMeshVirtualServiceForCusterIngress(ingress("reconcile-virtualservice", 1234)),
+			resources.MakeMeshVirtualServiceForClusterIngress(ingress("reconcile-virtualservice", 1234)),
 		},
 		WantDeletes: []clientgotesting.DeleteActionImpl{{
 			ActionImpl: clientgotesting.ActionImpl{
@@ -328,7 +328,7 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 			// The creation of gateways are triggered when setting up the test.
 			gateway("knative-ingress-gateway", system.Namespace(), []v1alpha3.Server{irrelevantServer}),
 
-			resources.MakeMeshVirtualServiceForCusterIngress(ingress("reconciling-clusteringress", 1234)),
+			resources.MakeMeshVirtualServiceForClusterIngress(ingress("reconciling-clusteringress", 1234)),
 			resources.MakeVirtualServiceForClusterIngress(ingress("reconciling-clusteringress", 1234),
 				[]string{"knative-ingress-gateway"}),
 		},
@@ -381,7 +381,7 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 			originSecret("istio-system", "secret0"),
 		},
 		WantCreates: []runtime.Object{
-			resources.MakeMeshVirtualServiceForCusterIngress(ingress("reconciling-clusteringress", 1234)),
+			resources.MakeMeshVirtualServiceForClusterIngress(ingress("reconciling-clusteringress", 1234)),
 			resources.MakeVirtualServiceForClusterIngress(ingress("reconciling-clusteringress", 1234),
 				[]string{"knative-ingress-gateway"}),
 		},
@@ -460,7 +460,7 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 			// The creation of gateways are triggered when setting up the test.
 			gateway("knative-ingress-gateway", system.Namespace(), []v1alpha3.Server{irrelevantServer}),
 
-			resources.MakeMeshVirtualServiceForCusterIngress(ingress("reconciling-clusteringress", 1234)),
+			resources.MakeMeshVirtualServiceForClusterIngress(ingress("reconciling-clusteringress", 1234)),
 			resources.MakeVirtualServiceForClusterIngress(ingress("reconciling-clusteringress", 1234),
 				[]string{"knative-ingress-gateway"}),
 
@@ -540,7 +540,7 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 		WantCreates: []runtime.Object{
 			// The creation of gateways are triggered when setting up the test.
 			gateway("knative-ingress-gateway", system.Namespace(), []v1alpha3.Server{*withCredentialName(ingressTLSServer.DeepCopy(), targetSecretName), irrelevantServer}),
-			resources.MakeMeshVirtualServiceForCusterIngress(ingress("reconciling-clusteringress", 1234)),
+			resources.MakeMeshVirtualServiceForClusterIngress(ingress("reconciling-clusteringress", 1234)),
 			resources.MakeVirtualServiceForClusterIngress(ingress("reconciling-clusteringress", 1234),
 				[]string{"knative-ingress-gateway"}),
 		},
