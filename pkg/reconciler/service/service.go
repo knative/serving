@@ -346,7 +346,8 @@ func (c *Reconciler) createRoute(service *v1alpha1.Service) (*v1alpha1.Route, er
 
 func routeSemanticEquals(desiredRoute, route *v1alpha1.Route) bool {
 	return equality.Semantic.DeepEqual(desiredRoute.Spec, route.Spec) &&
-		equality.Semantic.DeepEqual(desiredRoute.ObjectMeta.Labels, route.ObjectMeta.Labels)
+		equality.Semantic.DeepEqual(desiredRoute.ObjectMeta.Labels, route.ObjectMeta.Labels) &&
+		equality.Semantic.DeepEqual(desiredRoute.ObjectMeta.Annotations, route.ObjectMeta.Annotations)
 }
 
 func (c *Reconciler) reconcileRoute(ctx context.Context, service *v1alpha1.Service, route *v1alpha1.Route) (*v1alpha1.Route, error) {
@@ -371,8 +372,9 @@ func (c *Reconciler) reconcileRoute(ctx context.Context, service *v1alpha1.Servi
 
 	// Don't modify the informers copy.
 	existing := route.DeepCopy()
-	// Preserve the rest of the object (e.g. ObjectMeta except for labels).
+	// Preserve the rest of the object (e.g. ObjectMeta except for labels and annotations).
 	existing.Spec = desiredRoute.Spec
 	existing.ObjectMeta.Labels = desiredRoute.ObjectMeta.Labels
+	existing.ObjectMeta.Annotations = desiredRoute.ObjectMeta.Annotations
 	return c.ServingClientSet.ServingV1alpha1().Routes(service.Namespace).Update(existing)
 }
