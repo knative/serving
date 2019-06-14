@@ -96,7 +96,9 @@ func NewController(
 	resyncIngressesOnConfigChange := configmap.TypeFilter(configsToResync...)(func(string, interface{}) {
 		controller.SendGlobalUpdates(ingressInformer.Informer(), ciHandler)
 	})
-	c.configStore = config.NewStore(c.Logger.Named("config-store"), "ingress", resyncIngressesOnConfigChange)
-	c.configStore.WatchConfigs(cmw)
+	configStore := config.NewStore(c.Logger.Named("config-store"), "ingress", resyncIngressesOnConfigChange)
+	configStore.WatchConfigs(cmw)
+	c.configStore = configStore
+
 	return impl
 }

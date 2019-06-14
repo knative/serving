@@ -25,6 +25,7 @@ import (
 
 	"github.com/knative/serving/test"
 	"github.com/knative/serving/test/types"
+	v1a1test "github.com/knative/serving/test/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -32,7 +33,7 @@ import (
 func TestShouldEnvVars(t *testing.T) {
 	t.Parallel()
 	clients := test.Setup(t)
-	names, ri, err := fetchRuntimeInfo(t, clients, &test.Options{})
+	names, ri, err := fetchRuntimeInfo(t, clients, &v1a1test.Options{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -61,7 +62,7 @@ func TestMustEnvVars(t *testing.T) {
 	if err != nil {
 		t.Fatal("Invalid PORT value in MustEnvVars")
 	}
-	_, ri, err := fetchRuntimeInfo(t, clients, &test.Options{
+	_, ri, err := fetchRuntimeInfo(t, clients, &v1a1test.Options{
 		ContainerPorts: []corev1.ContainerPort{
 			{ContainerPort: int32(port)},
 		},

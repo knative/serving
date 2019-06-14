@@ -19,23 +19,17 @@ package e2e
 
 import (
 	"fmt"
-	"strings"
 	"testing"
 
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	serviceresourcenames "github.com/knative/serving/pkg/reconciler/service/resources/names"
 	v1alpha1testing "github.com/knative/serving/pkg/testing/v1alpha1"
 	"github.com/knative/serving/test"
+	v1a1test "github.com/knative/serving/test/v1alpha1"
 )
 
 func TestImagePullError(t *testing.T) {
 	clients := Setup(t)
-	const (
-		backoffMsg    = "Back-off pulling image"
-		backoffReason = "ImagePullBackOff"
-		daemonMsg     = "Error response from daemon: manifest for"
-		daemonReason  = "ErrImagePull"
-	)
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
 		// TODO: Replace this when sha256 is broken.
@@ -56,12 +50,11 @@ func TestImagePullError(t *testing.T) {
 
 	names.Config = serviceresourcenames.Configuration(svc)
 
-	err = test.WaitForServiceState(clients.ServingClient, names.Service, func(r *v1alpha1.Service) (bool, error) {
+	err = v1a1test.WaitForServiceState(clients.ServingAlphaClient, names.Service, func(r *v1alpha1.Service) (bool, error) {
 		cond := r.Status.GetCondition(v1alpha1.ConfigurationConditionReady)
 		if cond != nil && !cond.IsUnknown() {
 			if cond.IsFalse() {
-				if strings.Contains(cond.Message, backoffMsg) ||
-					strings.Contains(cond.Message, daemonMsg) {
+				if cond.Reason == "RevisionFailed" {
 					return true, nil
 				}
 			}
@@ -82,11 +75,10 @@ func TestImagePullError(t *testing.T) {
 	}
 
 	t.Log("When the images are not pulled, the revision should have error status.")
-	err = test.CheckRevisionState(clients.ServingClient, revisionName, func(r *v1alpha1.Revision) (bool, error) {
+	err = v1a1test.CheckRevisionState(clients.ServingAlphaClient, revisionName, func(r *v1alpha1.Revision) (bool, error) {
 		cond := r.Status.GetCondition(v1alpha1.RevisionConditionReady)
 		if cond != nil {
-			if (cond.Reason == backoffReason && strings.Contains(cond.Message, backoffMsg)) ||
-				(cond.Reason == daemonReason && strings.Contains(cond.Message, daemonMsg)) {
+			if cond.Reason == "ImagePullBackOff" || cond.Reason == "ErrImagePull" {
 				return true, nil
 			}
 			return true, fmt.Errorf("the revision %s was not marked with expected error condition, but with (Reason=%q, Message=%q)",
@@ -103,8 +95,8 @@ func TestImagePullError(t *testing.T) {
 // Wrote our own thing so that we can pass in an image by digest.
 // knative/pkg/test.ImagePath currently assumes there's a tag, which fails to parse.
 func createLatestService(t *testing.T, clients *test.Clients, names test.ResourceNames) (*v1alpha1.Service, error) {
-	opt := v1alpha1testing.WithInlineConfigSpec(*test.ConfigurationSpec(names.Image, &test.Options{}))
+	opt := v1alpha1testing.WithInlineConfigSpec(*v1a1test.ConfigurationSpec(names.Image, &v1a1test.Options{}))
 	service := v1alpha1testing.ServiceWithoutNamespace(names.Service, opt)
-	test.LogResourceObject(t, test.ResourceObjects{Service: service})
-	return clients.ServingClient.Services.Create(service)
+	v1a1test.LogResourceObject(t, v1a1test.ResourceObjects{Service: service})
+	return clients.ServingAlphaClient.Services.Create(service)
 }

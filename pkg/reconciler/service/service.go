@@ -287,7 +287,8 @@ func (c *Reconciler) createConfiguration(service *v1alpha1.Service) (*v1alpha1.C
 
 func configSemanticEquals(desiredConfig, config *v1alpha1.Configuration) bool {
 	return equality.Semantic.DeepEqual(desiredConfig.Spec, config.Spec) &&
-		equality.Semantic.DeepEqual(desiredConfig.ObjectMeta.Labels, config.ObjectMeta.Labels)
+		equality.Semantic.DeepEqual(desiredConfig.ObjectMeta.Labels, config.ObjectMeta.Labels) &&
+		equality.Semantic.DeepEqual(desiredConfig.ObjectMeta.Annotations, config.ObjectMeta.Annotations)
 }
 
 // ignoreRouteLabelChange sets desiredConfig[serving.RouteLabelKey] to
@@ -330,6 +331,7 @@ func (c *Reconciler) reconcileConfiguration(ctx context.Context, service *v1alph
 	// Preserve the rest of the object (e.g. ObjectMeta except for labels).
 	existing.Spec = desiredConfig.Spec
 	existing.ObjectMeta.Labels = desiredConfig.ObjectMeta.Labels
+	existing.ObjectMeta.Annotations = desiredConfig.ObjectMeta.Annotations
 	return c.ServingClientSet.ServingV1alpha1().Configurations(service.Namespace).Update(existing)
 }
 
@@ -346,7 +348,8 @@ func (c *Reconciler) createRoute(service *v1alpha1.Service) (*v1alpha1.Route, er
 
 func routeSemanticEquals(desiredRoute, route *v1alpha1.Route) bool {
 	return equality.Semantic.DeepEqual(desiredRoute.Spec, route.Spec) &&
-		equality.Semantic.DeepEqual(desiredRoute.ObjectMeta.Labels, route.ObjectMeta.Labels)
+		equality.Semantic.DeepEqual(desiredRoute.ObjectMeta.Labels, route.ObjectMeta.Labels) &&
+		equality.Semantic.DeepEqual(desiredRoute.ObjectMeta.Annotations, route.ObjectMeta.Annotations)
 }
 
 func (c *Reconciler) reconcileRoute(ctx context.Context, service *v1alpha1.Service, route *v1alpha1.Route) (*v1alpha1.Route, error) {
@@ -371,8 +374,9 @@ func (c *Reconciler) reconcileRoute(ctx context.Context, service *v1alpha1.Servi
 
 	// Don't modify the informers copy.
 	existing := route.DeepCopy()
-	// Preserve the rest of the object (e.g. ObjectMeta except for labels).
+	// Preserve the rest of the object (e.g. ObjectMeta except for labels and annotations).
 	existing.Spec = desiredRoute.Spec
 	existing.ObjectMeta.Labels = desiredRoute.ObjectMeta.Labels
+	existing.ObjectMeta.Annotations = desiredRoute.ObjectMeta.Annotations
 	return c.ServingClientSet.ServingV1alpha1().Routes(service.Namespace).Update(existing)
 }

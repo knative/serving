@@ -30,6 +30,7 @@ import (
 	pkgTest "github.com/knative/pkg/test"
 	resourcenames "github.com/knative/serving/pkg/reconciler/revision/resources/names"
 	"github.com/knative/serving/test"
+	v1a1test "github.com/knative/serving/test/v1alpha1"
 	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
 	appsv1 "k8s.io/api/apps/v1"
@@ -122,7 +123,7 @@ func setup(t *testing.T) *testContext {
 		Image:   "autoscale",
 	}
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
-	resources, err := test.CreateRunLatestServiceReady(t, clients, &names, &test.Options{
+	resources, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, &v1a1test.Options{
 		ContainerConcurrency: 10,
 	})
 	if err != nil {
@@ -136,7 +137,7 @@ func setup(t *testing.T) *testContext {
 		domain,
 		// Istio doesn't expose a status for us here: https://github.com/istio/istio/issues/6082
 		// TODO(tcnghia): Remove this when https://github.com/istio/istio/issues/882 is fixed.
-		test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.EventuallyMatchesBody(autoscaleExpectedOutput))),
+		v1a1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.EventuallyMatchesBody(autoscaleExpectedOutput))),
 		"CheckingEndpointAfterUpdating",
 		test.ServingFlags.ResolvableDomain); err != nil {
 		t.Fatalf("The endpoint for Route %s at domain %s didn't serve the expected text \"%v\": %v",
@@ -193,7 +194,7 @@ func assertScaleDown(ctx *testContext) {
 	}
 
 	ctx.t.Log("The Revision should remain ready after scaling to zero.")
-	if err := test.CheckRevisionState(ctx.clients.ServingClient, ctx.names.Revision, test.IsRevisionReady); err != nil {
+	if err := v1a1test.CheckRevisionState(ctx.clients.ServingAlphaClient, ctx.names.Revision, v1a1test.IsRevisionReady); err != nil {
 		ctx.t.Fatalf("The Revision %s did not stay Ready after scaling down to zero: %v", ctx.names.Revision, err)
 	}
 

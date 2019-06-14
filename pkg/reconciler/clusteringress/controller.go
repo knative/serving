@@ -39,11 +39,6 @@ const (
 	controllerAgentName = "clusteringress-controller"
 )
 
-type configStore interface {
-	ToContext(ctx context.Context) context.Context
-	WatchConfigs(w configmap.Watcher)
-}
-
 // NewController initializes the controller and is called by the generated code
 // Registers eventhandlers to enqueue events.
 func NewController(
@@ -95,7 +90,9 @@ func NewController(
 	resyncIngressesOnConfigChange := configmap.TypeFilter(configsToResync...)(func(string, interface{}) {
 		controller.SendGlobalUpdates(clusterIngressInformer.Informer(), ciHandler)
 	})
-	c.configStore = config.NewStore(c.Logger.Named("config-store"), "clusteringress", resyncIngressesOnConfigChange)
-	c.configStore.WatchConfigs(cmw)
+	configStore := config.NewStore(c.Logger.Named("config-store"), "clusteringress", resyncIngressesOnConfigChange)
+	configStore.WatchConfigs(cmw)
+	c.configStore = configStore
+
 	return impl
 }

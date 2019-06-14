@@ -28,6 +28,7 @@ import (
 	"github.com/knative/serving/pkg/apis/autoscaling"
 	"github.com/knative/serving/pkg/autoscaler"
 	"github.com/knative/serving/pkg/reconciler"
+	areconciler "github.com/knative/serving/pkg/reconciler/autoscaling"
 	"github.com/knative/serving/pkg/reconciler/autoscaling/config"
 	"k8s.io/client-go/tools/cache"
 )
@@ -35,12 +36,6 @@ import (
 const (
 	controllerAgentName = "hpa-class-podautoscaler-controller"
 )
-
-// configStore is a minimized interface of the actual configStore.
-type configStore interface {
-	ToContext(ctx context.Context) context.Context
-	WatchConfigs(w configmap.Watcher)
-}
 
 // NewController returns a new HPA reconcile controller.
 func NewController(
@@ -53,10 +48,12 @@ func NewController(
 	hpaInformer := hpainformer.Get(ctx)
 
 	c := &Reconciler{
-		Base:      reconciler.NewBase(ctx, controllerAgentName, cmw),
-		paLister:  paInformer.Lister(),
+		Base: &areconciler.Base{
+			Base:      reconciler.NewBase(ctx, controllerAgentName, cmw),
+			PALister:  paInformer.Lister(),
+			SKSLister: sksInformer.Lister(),
+		},
 		hpaLister: hpaInformer.Lister(),
-		sksLister: sksInformer.Lister(),
 	}
 	impl := controller.NewImpl(c, c.Logger, "HPA-Class Autoscaling")
 
@@ -85,8 +82,9 @@ func NewController(
 	resync := configmap.TypeFilter(configsToResync...)(func(string, interface{}) {
 		controller.SendGlobalUpdates(paInformer.Informer(), paHandler)
 	})
-	c.configStore = config.NewStore(c.Logger.Named("config-store"), resync)
-	c.configStore.WatchConfigs(cmw)
+	configStore := config.NewStore(c.Logger.Named("config-store"), resync)
+	configStore.WatchConfigs(cmw)
+	c.ConfigStore = configStore
 
 	return impl
 }

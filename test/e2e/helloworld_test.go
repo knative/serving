@@ -26,6 +26,7 @@ import (
 	pkgTest "github.com/knative/pkg/test"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/test"
+	v1a1test "github.com/knative/serving/test/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -44,7 +45,7 @@ func TestHelloWorld(t *testing.T) {
 	defer test.TearDown(clients, names)
 
 	t.Log("Creating a new Service")
-	resources, err := test.CreateRunLatestServiceReady(t, clients, &names, &test.Options{
+	resources, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, &v1a1test.Options{
 		RevisionTemplateAnnotations: map[string]string{},
 	})
 	if err != nil {
@@ -56,7 +57,7 @@ func TestHelloWorld(t *testing.T) {
 		clients.KubeClient,
 		t.Logf,
 		domain,
-		test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesBody(helloWorldExpectedOutput))),
+		v1a1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesBody(helloWorldExpectedOutput))),
 		"HelloWorldServesText",
 		test.ServingFlags.ResolvableDomain); err != nil {
 		t.Fatalf("The endpoint for Route %s at domain %s didn't serve the expected text \"%s\": %v", names.Route, domain, helloWorldExpectedOutput, err)
@@ -92,7 +93,7 @@ func TestQueueSideCarResourceLimit(t *testing.T) {
 	defer test.TearDown(clients, names)
 
 	t.Log("Creating a new Service")
-	resources, err := test.CreateRunLatestServiceReady(t, clients, &names, &test.Options{
+	resources, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, &v1a1test.Options{
 		RevisionTemplateAnnotations: map[string]string{
 			serving.QueueSideCarResourcePercentageAnnotation: "0.2",
 		},
@@ -116,7 +117,7 @@ func TestQueueSideCarResourceLimit(t *testing.T) {
 		clients.KubeClient,
 		t.Logf,
 		domain,
-		test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesBody(helloWorldExpectedOutput))),
+		v1a1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesBody(helloWorldExpectedOutput))),
 		"HelloWorldServesText",
 		test.ServingFlags.ResolvableDomain); err != nil {
 		t.Fatalf("The endpoint for Route %s at domain %s didn't serve the expected text \"%s\": %v", names.Route, domain, helloWorldExpectedOutput, err)

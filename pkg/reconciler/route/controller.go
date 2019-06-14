@@ -42,11 +42,6 @@ const (
 	controllerAgentName = "route-controller"
 )
 
-type configStore interface {
-	ToContext(ctx context.Context) context.Context
-	WatchConfigs(w configmap.Watcher)
-}
-
 // NewController initializes the controller and is called by the generated code
 // Registers eventhandlers to enqueue events
 func NewController(
@@ -130,8 +125,9 @@ func NewControllerWithClock(
 	resync := configmap.TypeFilter(configsToResync...)(func(string, interface{}) {
 		impl.GlobalResync(routeInformer.Informer())
 	})
-	c.configStore = config.NewStore(c.Logger.Named("config-store"),
-		controller.GetResyncPeriod(ctx), resync)
-	c.configStore.WatchConfigs(cmw)
+	configStore := config.NewStore(c.Logger.Named("config-store"), controller.GetResyncPeriod(ctx), resync)
+	configStore.WatchConfigs(cmw)
+	c.configStore = configStore
+
 	return impl
 }

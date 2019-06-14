@@ -1,7 +1,7 @@
 // +build performance
 
 /*
-Copyright 2018 The Knative Authors
+Copyright 2019 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -16,17 +16,16 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// latency_test.go brings up a helloworld app and gets the latency metric
-
 package performance
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
 	pkgTest "github.com/knative/pkg/test"
-	ingress "github.com/knative/pkg/test/ingress"
+	"github.com/knative/pkg/test/ingress"
 	"github.com/knative/serving/test"
 	v1a1test "github.com/knative/serving/test/v1alpha1"
 	"github.com/knative/test-infra/shared/junit"
@@ -35,13 +34,18 @@ import (
 )
 
 const (
-	sleepTime = 1 * time.Minute
-	// sleepReqTimeout should be > sleepTime. Else, the request will time out before receiving the response
-	sleepReqTimeout = 2 * time.Minute
-	hwReqtimeout    = 30 * time.Second
+	reqTimeout = 30 * time.Second
+	app        = "helloworld"
 )
 
-func timeToServe(t *testing.T, img, query string, reqTimeout time.Duration) {
+var loads = [...]int32{1, 100, 1000}
+
+func filename(name string) string {
+	// Replace characters in `name` with characters for a file name.
+	return strings.ReplaceAll(name, "/", "_")
+}
+
+func runTest(t *testing.T, img string, baseQPS float64, loadFactors []float64) {
 	t.Helper()
 	tName := t.Name()
 	perfClients, err := Setup(t)
@@ -85,10 +89,11 @@ func timeToServe(t *testing.T, img, query string, reqTimeout time.Duration) {
 		NumThreads:     1,
 		NumConnections: 5,
 		Domain:         domain,
-		URL:            fmt.Sprintf("http://%s/?%s", *endpoint, query),
+		URL:            fmt.Sprintf("http://%s", *endpoint),
 		RequestTimeout: reqTimeout,
-		LoadFactors:    []float64{1},
-		FileNamePrefix: tName,
+		BaseQPS:        baseQPS,
+		LoadFactors:    loadFactors,
+		FileNamePrefix: filename(tName),
 	}
 	resp, err := opts.RunLoadTest(loadgenerator.AddHostHeader)
 	if err != nil {
@@ -114,19 +119,34 @@ func timeToServe(t *testing.T, img, query string, reqTimeout time.Duration) {
 		tc = append(tc, CreatePerfTestCase(val, name, tName))
 	}
 
-	if err = testgrid.CreateXMLOutput(tc, tName); err != nil {
+	if err = testgrid.CreateXMLOutput(tc, filename(tName)); err != nil {
 		t.Fatalf("Cannot create output xml: %v", err)
 	}
 }
 
-// Performs perf test on the hello world app
-func TestTimeToServeLatency(t *testing.T) {
-	timeToServe(t, "helloworld", "", hwReqtimeout)
+// TestBenchmarkSteadyTraffic generates steady traffic at different volumes.
+func TestBenchmarkSteadyTraffic(t *testing.T) {
+	for _, load := range loads {
+		t.Run(fmt.Sprintf("N_is_%d", load), func(t *testing.T) {
+			runTest(t, app, float64(load), []float64{1})
+		})
+	}
 }
 
-// Performs perf testing on a long running app.
-// It uses the timeout app that sleeps for the specified amount of time.
-func TestTimeToServeLatencyLongRunning(t *testing.T) {
-	q := fmt.Sprintf("timeout=%d", sleepTime/time.Millisecond)
-	timeToServe(t, "timeout", q, sleepReqTimeout)
+// TestBenchmarkBurstZeroToN generates a burst from 0 to N concurrent requests, for different values of N.
+func TestBenchmarkBurstZeroToN(t *testing.T) {
+	for _, load := range loads {
+		t.Run(fmt.Sprintf("N_is_%d", load), func(t *testing.T) {
+			runTest(t, app, float64(load), []float64{0, 1})
+		})
+	}
+}
+
+// TestBenchmarkBurstNto2N generates a burst from N to 2N concurrent requests, for different values of N.
+func TestBenchmarkBurstNto2N(t *testing.T) {
+	for _, load := range loads {
+		t.Run(fmt.Sprintf("N_is_%d", load), func(t *testing.T) {
+			runTest(t, app, float64(load), []float64{1, 2})
+		})
+	}
 }
