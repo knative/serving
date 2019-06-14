@@ -755,6 +755,34 @@ func TestReconcile(t *testing.T) {
 			Patch: []byte(reconciler.ForceUpgradePatch),
 		}},
 	}, {
+		Name: "runLatest - delete annotations",
+		Objects: []runtime.Object{
+			Service("update-annos", "foo", WithRunLatestRollout, WithInitSvcConditions),
+			config("update-annos", "foo", WithRunLatestRollout,
+				func(s *v1alpha1.Configuration) {
+					s.Annotations = presources.UnionMaps(s.Annotations,
+						map[string]string{"new-key": "new-value"})
+				}),
+			route("update-annos", "foo", WithRunLatestRollout,
+				func(s *v1alpha1.Route) {
+					s.Annotations = presources.UnionMaps(s.Annotations,
+						map[string]string{"new-key": "new-value"})
+				}),
+		},
+		Key: "foo/update-annos",
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: config("update-annos", "foo", WithRunLatestRollout),
+		}, {
+			Object: route("update-annos", "foo", WithRunLatestRollout),
+		}},
+		WantPatches: []clientgotesting.PatchActionImpl{{
+			ActionImpl: clientgotesting.ActionImpl{
+				Namespace: "foo",
+			},
+			Name:  "update-annos",
+			Patch: []byte(reconciler.ForceUpgradePatch),
+		}},
+	}, {
 		Name: "runLatest - update route and service",
 		Objects: []runtime.Object{
 			Service("update-route-and-config", "foo", WithRunLatestRollout, WithInitSvcConditions),
