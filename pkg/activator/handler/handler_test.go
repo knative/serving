@@ -765,7 +765,7 @@ func revisionLister(revs ...*v1alpha1.Revision) servinglisters.RevisionLister {
 	revisions := informer.Serving().V1alpha1().Revisions()
 
 	for _, rev := range revs {
-		fake.Serving().Revisions(rev.Namespace).Create(rev)
+		fake.ServingV1alpha1().Revisions(rev.Namespace).Create(rev)
 		revisions.Informer().GetIndexer().Add(rev)
 	}
 
