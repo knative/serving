@@ -86,10 +86,11 @@ func main() {
 	paInformer := servingInformerFactory.Autoscaling().V1alpha1().PodAutoscalers()
 	sksInformer := servingInformerFactory.Networking().V1alpha1().ServerlessServices()
 	endpointsInformer := kubeInformerFactory.Core().V1().Endpoints()
+	podInformer := kubeInformerFactory.Core().V1().Pods()
 	serviceInformer := kubeInformerFactory.Core().V1().Services()
 	hpaInformer := kubeInformerFactory.Autoscaling().V1().HorizontalPodAutoscalers()
 
-	collector := autoscaler.NewMetricCollector(statsScraperFactoryFunc(endpointsInformer.Lister()), logger)
+	collector := autoscaler.NewMetricCollector(statsScraperFactoryFunc(endpointsInformer.Lister(), podInformer.Lister()), logger)
 
 	// Set up scalers.
 	// uniScalerFactory depends endpointsInformer to be set.
@@ -117,6 +118,7 @@ func main() {
 		paInformer.Informer(),
 		serviceInformer.Informer(),
 		sksInformer.Informer(),
+		podInformer.Informer(),
 	); err != nil {
 		logger.Fatalw("Failed to start informers", err)
 	}
@@ -189,8 +191,11 @@ func uniScalerFactoryFunc(endpointsInformer corev1informers.EndpointsInformer, m
 	}
 }
 
-func statsScraperFactoryFunc(endpointsLister corev1listers.EndpointsLister) func(metric *autoscaler.Metric) (autoscaler.StatsScraper, error) {
+func statsScraperFactoryFunc(endpointsLister corev1listers.EndpointsLister, podLister corev1listers.PodLister) func(metric *autoscaler.Metric) (autoscaler.StatsScraper, error) {
 	return func(metric *autoscaler.Metric) (autoscaler.StatsScraper, error) {
+		if metric.Annotations["metric-scrape"] == "envoy" {
+			return autoscaler.NewEnvoyScraper(metric, podLister)
+		}
 		return autoscaler.NewServiceScraper(metric, endpointsLister)
 	}
 }

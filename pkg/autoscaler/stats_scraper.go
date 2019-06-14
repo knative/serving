@@ -155,3 +155,30 @@ func (s *ServiceScraper) Scrape() (*StatMessage, error) {
 		Key:  s.metricKey,
 	}, nil
 }
+
+type EnvoyScraper struct {
+	sClient   scrapeClient
+	metricKey string
+}
+
+func NewEnvoyScraper(metric *Metric, podLister corev1listers.PodLister) (*EnvoyScraper, error) {
+	sClient, err := newEnvoyScrapeClient(cacheDisabledClient, metric, podLister)
+	if err != nil {
+		return nil, err
+	}
+	return &EnvoyScraper{
+		sClient:   sClient,
+		metricKey: NewMetricKey(metric.Namespace, metric.Name),
+	}, nil
+}
+
+func (e *EnvoyScraper) Scrape() (*StatMessage, error) {
+	stat, err := e.sClient.Scrape("")
+	if err != nil {
+		return nil, err
+	}
+	return &StatMessage{
+		Stat: *stat,
+		Key:  e.metricKey,
+	}, nil
+}
