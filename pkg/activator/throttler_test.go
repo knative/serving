@@ -59,7 +59,7 @@ var (
 	revID = RevisionID{testNamespace, testRevision}
 )
 
-func TestThrottler_UpdateCapacity(t *testing.T) {
+func TestThrottlerUpdateCapacity(t *testing.T) {
 	samples := []struct {
 		label          string
 		revisionLister servinglisters.RevisionLister
@@ -130,7 +130,7 @@ func TestThrottler_UpdateCapacity(t *testing.T) {
 	}
 }
 
-func TestThrottler_ActivatorEndpoints(t *testing.T) {
+func TestThrottlerActivatorEndpoints(t *testing.T) {
 	const (
 		updatePollInterval = 10 * time.Millisecond
 		updatePollTimeout  = 3 * time.Second
@@ -201,7 +201,7 @@ func TestThrottler_ActivatorEndpoints(t *testing.T) {
 	}
 }
 
-func TestThrottler_Try(t *testing.T) {
+func TestThrottlerTry(t *testing.T) {
 	defer ClearAll()
 	samples := []struct {
 		label             string
@@ -270,7 +270,7 @@ func TestThrottler_Try(t *testing.T) {
 	}
 }
 
-func TestThrottler_TryOverload(t *testing.T) {
+func TestThrottlerTryOverload(t *testing.T) {
 	maxConcurrency := 1
 	initialCapacity := 1
 	queueLength := 1
@@ -317,7 +317,7 @@ func TestThrottler_TryOverload(t *testing.T) {
 	}
 }
 
-func TestThrottler_Remove(t *testing.T) {
+func TestThrottlerRemove(t *testing.T) {
 	throttler := getThrottler(
 		defaultMaxConcurrency,
 		revisionLister(testNamespace, testRevision, 10),
