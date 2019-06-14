@@ -189,6 +189,70 @@ func TestRunLatestService(t *testing.T) {
 	}
 }
 
+func TestAnnotationPropagation(t *testing.T) {
+	t.Parallel()
+	clients := test.Setup(t)
+
+	names := test.ResourceNames{
+		Service: test.ObjectNameForTest(t),
+		Image:   test.PizzaPlanet1,
+	}
+
+	// Clean up on test failure or interrupt
+	defer test.TearDown(clients, names)
+	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
+
+	// Setup initial Service
+	objects, err := test.CreateRunLatestServiceReady(t, clients, &names, &test.Options{})
+	if err != nil {
+		t.Fatalf("Failed to create initial Service %v: %v", names.Service, err)
+	}
+
+	// Validate State after Creation
+
+	if err = validateRunLatestControlPlane(t, clients, names, "1"); err != nil {
+		t.Error(err)
+	}
+
+	if err := validateAnnotations(objects); err != nil {
+		t.Errorf("Annotations are incorrect: %v", err)
+	}
+
+	desiredSvc := objects.Service.DeepCopy()
+	desiredSvc.Annotations["juicy"] = "jamba"
+	if objects.Service, err = test.PatchService(t, clients, objects.Service, desiredSvc); err != nil {
+		t.Fatalf("Service %s was not updated with new annotation: %v", names.Service, err)
+	}
+	// Updating metadata does not trigger revision or generation
+	// change, so let's generate a change that we can watch.
+	t.Log("Updating the Service to use a different image.")
+	names.Image = test.PrintPort
+	image2 := pkgTest.ImagePath(names.Image)
+	if _, err := test.PatchServiceImage(t, clients, objects.Service, image2); err != nil {
+		t.Fatalf("Patch update for Service %s with new image %s failed: %v", names.Service, image2, err)
+	}
+
+	t.Log("Service should reflect new revision created and ready in status.")
+	names.Revision, err = test.WaitForServiceLatestRevision(clients, names)
+	if err != nil {
+		t.Fatalf("New image not reflected in Service: %v", err)
+	}
+
+	t.Log("Waiting for Service to transition to Ready.")
+	if err := test.WaitForServiceState(clients.ServingClient, names.Service, test.IsServiceReady, "ServiceIsReady"); err != nil {
+		t.Fatalf("Error waiting for the service to become ready for the latest revision: %v", err)
+	}
+	objects, err = test.GetResourceObjects(clients, names)
+	if err != nil {
+		t.Errorf("Error getting objects: %v", err)
+	}
+
+	// Now we can validate the annotations.
+	if err := validateAnnotations(objects, "juicy"); err != nil {
+		t.Errorf("Annotations are incorrect: %v", err)
+	}
+}
+
 func waitForDesiredTrafficShape(t *testing.T, sName string, want map[string]v1alpha1.TrafficTarget, clients *test.Clients) error {
 	return test.WaitForServiceState(
 		clients.ServingClient, sName, func(s *v1alpha1.Service) (bool, error) {
