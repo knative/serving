@@ -42,7 +42,7 @@ INSTALL_CUSTOM_YAMLS=""
 function parse_flags() {
   case "$1" in
     --istio-version)
-      [[ $2 =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || abort "version format must be '[0-9].[0-9].[0-9]'"
+      [[ $2 =~ ^[0-9]+\.[0-9]+(\.[0-9]+|\-latest)$ ]] || abort "version format must be '[0-9].[0-9].[0-9]' or '[0-9].[0-9]-latest"
       readonly ISTIO_VERSION=$2
       return 2
       ;;
