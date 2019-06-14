@@ -37,7 +37,7 @@ import (
 
 const userPort = int32(8081)
 
-// TestService tests both Creation and Update paths of a runLatest service. The test performs a series of Update/Validate steps to ensure that
+// TestService tests both Creation and Update paths for a service. The test performs a series of Update/Validate steps to ensure that
 // the service transitions as expected during each step.
 // Currently the test performs the following updates:
 // 1. Update Container Image
@@ -272,14 +272,14 @@ func TestServiceBYOName(t *testing.T) {
 	}
 }
 
-// TestReleaseService creates a Service with a variety of "release"-like traffic shapes.
+// TestServiceWithTrafficSplit creates a Service with a variety of "release"-like traffic shapes.
 // Currently tests for the following combinations:
 // 1. One Revision Specified, current == latest
 // 2. One Revision Specified, current != latest
 // 3. Two Revisions Specified, 50% rollout,  candidate == latest
 // 4. Two Revisions Specified, 50% rollout, candidate != latest
 // 5. Two Revisions Specified, 50% rollout, candidate != latest, candidate is configurationName.
-func TestReleaseService(t *testing.T) {
+func TestServiceWithTrafficSplit(t *testing.T) {
 	t.Parallel()
 	// Create Initial Service
 	clients := test.Setup(t)
