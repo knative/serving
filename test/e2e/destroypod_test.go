@@ -57,17 +57,17 @@ func TestDestroyPodInflight(t *testing.T) {
 	defer test.TearDown(clients, names)
 
 	t.Log("When the Revision can have traffic routed to it, the Route is marked as Ready")
-	if err := v1a1test.WaitForRouteState(clients.ServingClient, names.Route, v1a1test.IsRouteReady, "RouteIsReady"); err != nil {
+	if err := v1a1test.WaitForRouteState(clients.ServingAlphaClient, names.Route, v1a1test.IsRouteReady, "RouteIsReady"); err != nil {
 		t.Fatalf("The Route %s was not marked as Ready to serve traffic: %v", names.Route, err)
 	}
 
-	route, err := clients.ServingClient.Routes.Get(names.Route, metav1.GetOptions{})
+	route, err := clients.ServingAlphaClient.Routes.Get(names.Route, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Error fetching Route %s: %v", names.Route, err)
 	}
 	domain := route.Status.URL.Host
 
-	err = v1a1test.WaitForConfigurationState(clients.ServingClient, names.Config, func(c *v1alpha1.Configuration) (bool, error) {
+	err = v1a1test.WaitForConfigurationState(clients.ServingAlphaClient, names.Config, func(c *v1alpha1.Configuration) (bool, error) {
 		if c.Status.LatestCreatedRevisionName != names.Revision {
 			names.Revision = c.Status.LatestCreatedRevisionName
 			return true, nil
@@ -126,7 +126,7 @@ func TestDestroyPodInflight(t *testing.T) {
 		time.Sleep(timeoutRequestDuration / 2)
 
 		t.Log("Destroying the configuration (also destroys the pods)")
-		return clients.ServingClient.Configs.Delete(names.Config, nil)
+		return clients.ServingAlphaClient.Configs.Delete(names.Config, nil)
 	})
 
 	if err := g.Wait(); err != nil {
@@ -161,7 +161,7 @@ func TestDestroyPodTimely(t *testing.T) {
 	start := time.Now()
 
 	// Deleting the service will also delete all pods.
-	clients.ServingClient.Services.Delete(names.Service, nil)
+	clients.ServingAlphaClient.Services.Delete(names.Service, nil)
 
 	// Wait until the pod is shutdown. We don't wait for the pod itself to vanish but rather until all
 	// of the containers of that pod are no longer running. It can take an arbitrarily long time to

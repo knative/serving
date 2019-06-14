@@ -43,7 +43,7 @@ import (
 func createLatestService(t *testing.T, clients *test.Clients, names test.ResourceNames, revisionTimeoutSeconds int64) (*v1alpha1.Service, error) {
 	service := v1a1test.LatestService(names, &v1a1test.Options{}, WithRevisionTimeoutSeconds(revisionTimeoutSeconds))
 	v1a1test.LogResourceObject(t, v1a1test.ResourceObjects{Service: service})
-	svc, err := clients.ServingClient.Services.Create(service)
+	svc, err := clients.ServingAlphaClient.Services.Create(service)
 	return svc, err
 }
 
@@ -57,7 +57,7 @@ func updateServiceWithTimeout(clients *test.Clients, names test.ResourceNames, r
 	if err != nil {
 		return err
 	}
-	_, err = clients.ServingClient.Services.Patch(names.Service, types.JSONPatchType, patchBytes, "")
+	_, err = clients.ServingAlphaClient.Services.Patch(names.Service, types.JSONPatchType, patchBytes, "")
 	if err != nil {
 		return err
 	}
@@ -128,7 +128,7 @@ func TestRevisionTimeout(t *testing.T) {
 	rev2s.Revision = revisionName
 
 	t.Log("When the Service reports as Ready, everything should be ready")
-	if err := v1a1test.WaitForServiceState(clients.ServingClient, names.Service, v1a1test.IsServiceReady, "ServiceIsReady"); err != nil {
+	if err := v1a1test.WaitForServiceState(clients.ServingAlphaClient, names.Service, v1a1test.IsServiceReady, "ServiceIsReady"); err != nil {
 		t.Fatalf("The Service %s was not marked as Ready to serve traffic to Revision %s: %v", names.Service, names.Revision, err)
 	}
 
@@ -148,11 +148,11 @@ func TestRevisionTimeout(t *testing.T) {
 	}
 
 	t.Logf("Waiting for revision %q to be ready", rev2s.Revision)
-	if err := v1a1test.WaitForRevisionState(clients.ServingClient, rev2s.Revision, v1a1test.IsRevisionReady, "RevisionIsReady"); err != nil {
+	if err := v1a1test.WaitForRevisionState(clients.ServingAlphaClient, rev2s.Revision, v1a1test.IsRevisionReady, "RevisionIsReady"); err != nil {
 		t.Fatalf("The Revision %q still can't serve traffic: %v", rev2s.Revision, err)
 	}
 	t.Logf("Waiting for revision %q to be ready", rev5s.Revision)
-	if err := v1a1test.WaitForRevisionState(clients.ServingClient, rev5s.Revision, v1a1test.IsRevisionReady, "RevisionIsReady"); err != nil {
+	if err := v1a1test.WaitForRevisionState(clients.ServingAlphaClient, rev5s.Revision, v1a1test.IsRevisionReady, "RevisionIsReady"); err != nil {
 		t.Fatalf("The Revision %q still can't serve traffic: %v", rev5s.Revision, err)
 	}
 
@@ -180,11 +180,11 @@ func TestRevisionTimeout(t *testing.T) {
 	}
 
 	t.Log("Wait for the service domains to be ready")
-	if err := v1a1test.WaitForServiceState(clients.ServingClient, names.Service, v1a1test.IsServiceReady, "ServiceIsReady"); err != nil {
+	if err := v1a1test.WaitForServiceState(clients.ServingAlphaClient, names.Service, v1a1test.IsServiceReady, "ServiceIsReady"); err != nil {
 		t.Fatalf("The Service %s was not marked as Ready to serve traffic: %v", names.Service, err)
 	}
 
-	service, err := clients.ServingClient.Services.Get(names.Service, metav1.GetOptions{})
+	service, err := clients.ServingAlphaClient.Services.Get(names.Service, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Error fetching Service %s: %v", names.Service, err)
 	}

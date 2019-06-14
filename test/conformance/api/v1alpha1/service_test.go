@@ -100,7 +100,7 @@ func TestRunLatestService(t *testing.T) {
 	}
 
 	t.Log("Waiting for Service to transition to Ready.")
-	if err := v1a1test.WaitForServiceState(clients.ServingClient, names.Service, v1a1test.IsServiceReady, "ServiceIsReady"); err != nil {
+	if err := v1a1test.WaitForServiceState(clients.ServingAlphaClient, names.Service, v1a1test.IsServiceReady, "ServiceIsReady"); err != nil {
 		t.Fatalf("Error waiting for the service to become ready for the latest revision: %v", err)
 	}
 
@@ -148,7 +148,7 @@ func TestRunLatestService(t *testing.T) {
 	}
 
 	t.Log("Waiting for Service to transition to Ready.")
-	if err := v1a1test.WaitForServiceState(clients.ServingClient, names.Service, v1a1test.IsServiceReady, "ServiceIsReady"); err != nil {
+	if err := v1a1test.WaitForServiceState(clients.ServingAlphaClient, names.Service, v1a1test.IsServiceReady, "ServiceIsReady"); err != nil {
 		t.Fatalf("Error waiting for the service to become ready for the latest revision: %v", err)
 	}
 
@@ -176,7 +176,7 @@ func TestRunLatestService(t *testing.T) {
 	}
 
 	t.Log("Waiting for Service to transition to Ready.")
-	if err := v1a1test.WaitForServiceState(clients.ServingClient, names.Service, v1a1test.IsServiceReady, "ServiceIsReady"); err != nil {
+	if err := v1a1test.WaitForServiceState(clients.ServingAlphaClient, names.Service, v1a1test.IsServiceReady, "ServiceIsReady"); err != nil {
 		t.Fatalf("Error waiting for the service to become ready for the latest revision: %v", err)
 	}
 
@@ -192,7 +192,7 @@ func TestRunLatestService(t *testing.T) {
 
 func waitForDesiredTrafficShape(t *testing.T, sName string, want map[string]v1alpha1.TrafficTarget, clients *test.Clients) error {
 	return v1a1test.WaitForServiceState(
-		clients.ServingClient, sName, func(s *v1alpha1.Service) (bool, error) {
+		clients.ServingAlphaClient, sName, func(s *v1alpha1.Service) (bool, error) {
 			// IsServiceReady never returns an error.
 			if ok, _ := v1a1test.IsServiceReady(s); !ok {
 				return false, nil

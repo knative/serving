@@ -63,7 +63,7 @@ type Options struct {
 func CreateConfiguration(t *testing.T, clients *test.Clients, names test.ResourceNames, options *Options, fopt ...rtesting.ConfigOption) (*v1alpha1.Configuration, error) {
 	config := Configuration(names, options, fopt...)
 	LogResourceObject(t, ResourceObjects{Config: config})
-	return clients.ServingClient.Configs.Create(config)
+	return clients.ServingAlphaClient.Configs.Create(config)
 }
 
 // PatchConfigImage patches the existing config passed in with a new imagePath. Returns the latest Configuration object
@@ -74,7 +74,7 @@ func PatchConfigImage(clients *test.Clients, cfg *v1alpha1.Configuration, imageP
 	if err != nil {
 		return nil, err
 	}
-	return clients.ServingClient.Configs.Patch(cfg.ObjectMeta.Name, types.JSONPatchType, patchBytes, "")
+	return clients.ServingAlphaClient.Configs.Patch(cfg.ObjectMeta.Name, types.JSONPatchType, patchBytes, "")
 }
 
 // WaitForConfigLatestRevision takes a revision in through names and compares it to the current state of LatestCreatedRevisionName in Configuration.
@@ -82,7 +82,7 @@ func PatchConfigImage(clients *test.Clients, cfg *v1alpha1.Configuration, imageP
 // before returning the name of the revision.
 func WaitForConfigLatestRevision(clients *test.Clients, names test.ResourceNames) (string, error) {
 	var revisionName string
-	err := WaitForConfigurationState(clients.ServingClient, names.Config, func(c *v1alpha1.Configuration) (bool, error) {
+	err := WaitForConfigurationState(clients.ServingAlphaClient, names.Config, func(c *v1alpha1.Configuration) (bool, error) {
 		if c.Status.LatestCreatedRevisionName != names.Revision {
 			revisionName = c.Status.LatestCreatedRevisionName
 			return true, nil
@@ -92,7 +92,7 @@ func WaitForConfigLatestRevision(clients *test.Clients, names test.ResourceNames
 	if err != nil {
 		return "", err
 	}
-	err = WaitForConfigurationState(clients.ServingClient, names.Config, func(c *v1alpha1.Configuration) (bool, error) {
+	err = WaitForConfigurationState(clients.ServingAlphaClient, names.Config, func(c *v1alpha1.Configuration) (bool, error) {
 		return (c.Status.LatestReadyRevisionName == revisionName), nil
 	}, "ConfigurationReadyWithRevision")
 
@@ -209,7 +209,7 @@ func Configuration(names test.ResourceNames, options *Options, fopt ...v1alpha1t
 // from client every interval until inState returns `true` indicating it
 // is done, returns an error or timeout. desc will be used to name the metric
 // that is emitted to track how long it took for name to get into the state checked by inState.
-func WaitForConfigurationState(client *test.ServingClients, name string, inState func(c *v1alpha1.Configuration) (bool, error), desc string) error {
+func WaitForConfigurationState(client *test.ServingAlphaClients, name string, inState func(c *v1alpha1.Configuration) (bool, error), desc string) error {
 	span := logging.GetEmitableSpan(context.Background(), fmt.Sprintf("WaitForConfigurationState/%s/%s", name, desc))
 	defer span.End()
 
@@ -232,7 +232,7 @@ func WaitForConfigurationState(client *test.ServingClients, name string, inState
 // CheckConfigurationState verifies the status of the Configuration called name from client
 // is in a particular state by calling `inState` and expecting `true`.
 // This is the non-polling variety of WaitForConfigurationState
-func CheckConfigurationState(client *test.ServingClients, name string, inState func(r *v1alpha1.Configuration) (bool, error)) error {
+func CheckConfigurationState(client *test.ServingAlphaClients, name string, inState func(r *v1alpha1.Configuration) (bool, error)) error {
 	c, err := client.Configs.Get(name, metav1.GetOptions{})
 	if err != nil {
 		return err

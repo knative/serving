@@ -65,7 +65,7 @@ func TestPodScheduleError(t *testing.T) {
 
 	names.Config = serviceresourcenames.Configuration(svc)
 
-	err = v1a1test.WaitForServiceState(clients.ServingClient, names.Service, func(r *v1alpha1.Service) (bool, error) {
+	err = v1a1test.WaitForServiceState(clients.ServingAlphaClient, names.Service, func(r *v1alpha1.Service) (bool, error) {
 		cond := r.Status.GetCondition(v1alpha1.ConfigurationConditionReady)
 		if cond != nil && !cond.IsUnknown() {
 			if strings.Contains(cond.Message, errorMsg) && cond.IsFalse() {
@@ -88,7 +88,7 @@ func TestPodScheduleError(t *testing.T) {
 	}
 
 	t.Log("When the containers are not scheduled, the revision should have error status.")
-	err = v1a1test.WaitForRevisionState(clients.ServingClient, revisionName, func(r *v1alpha1.Revision) (bool, error) {
+	err = v1a1test.WaitForRevisionState(clients.ServingAlphaClient, revisionName, func(r *v1alpha1.Revision) (bool, error) {
 		cond := r.Status.GetCondition(v1alpha1.RevisionConditionReady)
 		if cond != nil {
 			if cond.Reason == revisionReason && strings.Contains(cond.Message, errorMsg) {
@@ -107,7 +107,7 @@ func TestPodScheduleError(t *testing.T) {
 
 // Get revision name from configuration.
 func revisionFromConfiguration(clients *test.Clients, configName string) (string, error) {
-	config, err := clients.ServingClient.Configs.Get(configName, metav1.GetOptions{})
+	config, err := clients.ServingAlphaClient.Configs.Get(configName, metav1.GetOptions{})
 	if err != nil {
 		return "", err
 	}

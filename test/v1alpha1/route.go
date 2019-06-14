@@ -67,7 +67,7 @@ func Route(names test.ResourceNames, fopt ...v1alpha1testing.RouteOption) *v1alp
 func CreateRoute(t *testing.T, clients *test.Clients, names test.ResourceNames, fopt ...rtesting.RouteOption) (*v1alpha1.Route, error) {
 	route := Route(names, fopt...)
 	LogResourceObject(t, ResourceObjects{Route: route})
-	return clients.ServingClient.Routes.Create(route)
+	return clients.ServingAlphaClient.Routes.Create(route)
 }
 
 // RetryingRouteInconsistency retries common requests seen when creating a new route
@@ -87,7 +87,7 @@ func RetryingRouteInconsistency(innerCheck spoof.ResponseChecker) spoof.Response
 // interval until inState returns `true` indicating it is done, returns an
 // error or timeout. desc will be used to name the metric that is emitted to
 // track how long it took for name to get into the state checked by inState.
-func WaitForRouteState(client *test.ServingClients, name string, inState func(r *v1alpha1.Route) (bool, error), desc string) error {
+func WaitForRouteState(client *test.ServingAlphaClients, name string, inState func(r *v1alpha1.Route) (bool, error), desc string) error {
 	span := logging.GetEmitableSpan(context.Background(), fmt.Sprintf("WaitForRouteState/%s/%s", name, desc))
 	defer span.End()
 
@@ -110,7 +110,7 @@ func WaitForRouteState(client *test.ServingClients, name string, inState func(r 
 // CheckRouteState verifies the status of the Route called name from client
 // is in a particular state by calling `inState` and expecting `true`.
 // This is the non-polling variety of WaitForRouteState
-func CheckRouteState(client *test.ServingClients, name string, inState func(r *v1alpha1.Route) (bool, error)) error {
+func CheckRouteState(client *test.ServingAlphaClients, name string, inState func(r *v1alpha1.Route) (bool, error)) error {
 	r, err := client.Routes.Get(name, metav1.GetOptions{})
 	if err != nil {
 		return err

@@ -54,18 +54,18 @@ func TestMinScale(t *testing.T) {
 	defer test.TearDown(clients, names)
 
 	// Wait for the Config have a LatestCreatedRevisionName
-	if err := v1a1test.WaitForConfigurationState(clients.ServingClient, names.Config, v1a1test.ConfigurationHasCreatedRevision, "ConfigurationHasCreatedRevision"); err != nil {
+	if err := v1a1test.WaitForConfigurationState(clients.ServingAlphaClient, names.Config, v1a1test.ConfigurationHasCreatedRevision, "ConfigurationHasCreatedRevision"); err != nil {
 		t.Fatalf("The Configuration %q does not have a LatestCreatedRevisionName: %v", names.Config, err)
 	}
 
-	config, err := clients.ServingClient.Configs.Get(names.Config, metav1.GetOptions{})
+	config, err := clients.ServingAlphaClient.Configs.Get(names.Config, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Failed to get Configuration after it was seen to be live: %v", err)
 	}
 
 	revName := config.Status.LatestCreatedRevisionName
 
-	if err = v1a1test.WaitForRevisionState(clients.ServingClient, revName, v1a1test.IsRevisionReady, "RevisionIsReady"); err != nil {
+	if err = v1a1test.WaitForRevisionState(clients.ServingAlphaClient, revName, v1a1test.IsRevisionReady, "RevisionIsReady"); err != nil {
 		t.Fatal("Revision did not become ready.")
 	}
 

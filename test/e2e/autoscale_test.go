@@ -194,7 +194,7 @@ func assertScaleDown(ctx *testContext) {
 	}
 
 	ctx.t.Log("The Revision should remain ready after scaling to zero.")
-	if err := v1a1test.CheckRevisionState(ctx.clients.ServingClient, ctx.names.Revision, v1a1test.IsRevisionReady); err != nil {
+	if err := v1a1test.CheckRevisionState(ctx.clients.ServingAlphaClient, ctx.names.Revision, v1a1test.IsRevisionReady); err != nil {
 		ctx.t.Fatalf("The Revision %s did not stay Ready after scaling down to zero: %v", ctx.names.Revision, err)
 	}
 

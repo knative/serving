@@ -33,7 +33,7 @@ import (
 // from client every `interval` until `inState` returns `true` indicating it
 // is done, returns an error or timeout. desc will be used to name the metric
 // that is emitted to track how long it took for name to get into the state checked by inState.
-func WaitForRevisionState(client *test.ServingClients, name string, inState func(r *v1alpha1.Revision) (bool, error), desc string) error {
+func WaitForRevisionState(client *test.ServingAlphaClients, name string, inState func(r *v1alpha1.Revision) (bool, error), desc string) error {
 	span := logging.GetEmitableSpan(context.Background(), fmt.Sprintf("WaitForRevision/%s/%s", name, desc))
 	defer span.End()
 
@@ -56,7 +56,7 @@ func WaitForRevisionState(client *test.ServingClients, name string, inState func
 // CheckRevisionState verifies the status of the Revision called name from client
 // is in a particular state by calling `inState` and expecting `true`.
 // This is the non-polling variety of WaitForRevisionState
-func CheckRevisionState(client *test.ServingClients, name string, inState func(r *v1alpha1.Revision) (bool, error)) error {
+func CheckRevisionState(client *test.ServingAlphaClients, name string, inState func(r *v1alpha1.Revision) (bool, error)) error {
 	r, err := client.Revisions.Get(name, metav1.GetOptions{})
 	if err != nil {
 		return err

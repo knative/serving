@@ -29,7 +29,7 @@ import (
 
 func assertResourcesUpdatedWhenRevisionIsReady(t *testing.T, clients *test.Clients, names test.ResourceNames, domain string, expectedGeneration, expectedText string) {
 	t.Log("When the Route reports as Ready, everything should be ready.")
-	if err := v1a1test.WaitForRouteState(clients.ServingClient, names.Route, v1a1test.IsRouteReady, "RouteIsReady"); err != nil {
+	if err := v1a1test.WaitForRouteState(clients.ServingAlphaClient, names.Route, v1a1test.IsRouteReady, "RouteIsReady"); err != nil {
 		t.Fatalf("The Route %s was not marked as Ready to serve traffic to Revision %s: %v", names.Route, names.Revision, err)
 	}
 
@@ -49,24 +49,24 @@ func assertResourcesUpdatedWhenRevisionIsReady(t *testing.T, clients *test.Clien
 
 	// We want to verify that the endpoint works as soon as Ready: True, but there are a bunch of other pieces of state that we validate for conformance.
 	t.Log("The Revision will be marked as Ready when it can serve traffic")
-	err = v1a1test.CheckRevisionState(clients.ServingClient, names.Revision, v1a1test.IsRevisionReady)
+	err = v1a1test.CheckRevisionState(clients.ServingAlphaClient, names.Revision, v1a1test.IsRevisionReady)
 	if err != nil {
 		t.Fatalf("Revision %s did not become ready to serve traffic: %v", names.Revision, err)
 	}
 	t.Log("The Revision will be annotated with the generation")
-	err = v1a1test.CheckRevisionState(clients.ServingClient, names.Revision, v1a1test.IsRevisionAtExpectedGeneration(expectedGeneration))
+	err = v1a1test.CheckRevisionState(clients.ServingAlphaClient, names.Revision, v1a1test.IsRevisionAtExpectedGeneration(expectedGeneration))
 	if err != nil {
 		t.Fatalf("Revision %s did not have an expected annotation with generation %s: %v", names.Revision, expectedGeneration, err)
 	}
 	t.Log("Updates the Configuration that the Revision is ready")
-	err = v1a1test.CheckConfigurationState(clients.ServingClient, names.Config, func(c *v1alpha1.Configuration) (bool, error) {
+	err = v1a1test.CheckConfigurationState(clients.ServingAlphaClient, names.Config, func(c *v1alpha1.Configuration) (bool, error) {
 		return c.Status.LatestReadyRevisionName == names.Revision, nil
 	})
 	if err != nil {
 		t.Fatalf("The Configuration %s was not updated indicating that the Revision %s was ready: %v", names.Config, names.Revision, err)
 	}
 	t.Log("Updates the Route to route traffic to the Revision")
-	err = v1a1test.CheckRouteState(clients.ServingClient, names.Route, v1a1test.AllRouteTrafficAtRevision(names))
+	err = v1a1test.CheckRouteState(clients.ServingAlphaClient, names.Route, v1a1test.AllRouteTrafficAtRevision(names))
 	if err != nil {
 		t.Fatalf("The Route %s was not updated to route traffic to the Revision %s: %v", names.Route, names.Revision, err)
 	}
@@ -76,7 +76,7 @@ func getRouteDomain(clients *test.Clients, names test.ResourceNames) (string, er
 	var domain string
 
 	err := v1a1test.WaitForRouteState(
-		clients.ServingClient,
+		clients.ServingAlphaClient,
 		names.Route,
 		func(r *v1alpha1.Route) (bool, error) {
 			domain = r.Status.URL.Host

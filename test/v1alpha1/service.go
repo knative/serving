@@ -49,7 +49,7 @@ func createPatch(cur, desired interface{}) ([]byte, error) {
 }
 
 func validateCreatedServiceStatus(clients *test.Clients, names *test.ResourceNames) error {
-	return CheckServiceState(clients.ServingClient, names.Service, func(s *v1alpha1.Service) (bool, error) {
+	return CheckServiceState(clients.ServingAlphaClient, names.Service, func(s *v1alpha1.Service) (bool, error) {
 		if s.Status.URL == nil || s.Status.URL.Host == "" {
 			return false, fmt.Errorf("url is not present in Service status: %v", s)
 		}
@@ -73,22 +73,22 @@ func validateCreatedServiceStatus(clients *test.Clients, names *test.ResourceNam
 
 // GetResourceObjects obtains the services resources from the k8s API server.
 func GetResourceObjects(clients *test.Clients, names test.ResourceNames) (*ResourceObjects, error) {
-	routeObject, err := clients.ServingClient.Routes.Get(names.Route, metav1.GetOptions{})
+	routeObject, err := clients.ServingAlphaClient.Routes.Get(names.Route, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}
 
-	serviceObject, err := clients.ServingClient.Services.Get(names.Service, metav1.GetOptions{})
+	serviceObject, err := clients.ServingAlphaClient.Services.Get(names.Service, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}
 
-	configObject, err := clients.ServingClient.Configs.Get(names.Config, metav1.GetOptions{})
+	configObject, err := clients.ServingAlphaClient.Configs.Get(names.Config, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}
 
-	revisionObject, err := clients.ServingClient.Revisions.Get(names.Revision, metav1.GetOptions{})
+	revisionObject, err := clients.ServingAlphaClient.Revisions.Get(names.Revision, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -125,7 +125,7 @@ func CreateRunLatestServiceReady(t *testing.T, clients *test.Clients, names *tes
 	}
 
 	t.Logf("Waiting for Service %q to transition to Ready.", names.Service)
-	if err := WaitForServiceState(clients.ServingClient, names.Service, IsServiceReady, "ServiceIsReady"); err != nil {
+	if err := WaitForServiceState(clients.ServingAlphaClient, names.Service, IsServiceReady, "ServiceIsReady"); err != nil {
 		return nil, err
 	}
 
@@ -167,7 +167,7 @@ func CreateRunLatestServiceLegacyReady(t *testing.T, clients *test.Clients, name
 	}
 
 	t.Logf("Waiting for Service %q to transition to Ready.", names.Service)
-	if err := WaitForServiceState(clients.ServingClient, names.Service, IsServiceReady, "ServiceIsReady"); err != nil {
+	if err := WaitForServiceState(clients.ServingAlphaClient, names.Service, IsServiceReady, "ServiceIsReady"); err != nil {
 		return nil, err
 	}
 
@@ -189,7 +189,7 @@ func CreateRunLatestServiceLegacyReady(t *testing.T, clients *test.Clients, name
 func CreateLatestService(t *testing.T, clients *test.Clients, names test.ResourceNames, options *Options, fopt ...rtesting.ServiceOption) (*v1alpha1.Service, error) {
 	service := LatestService(names, options, fopt...)
 	LogResourceObject(t, ResourceObjects{Service: service})
-	svc, err := clients.ServingClient.Services.Create(service)
+	svc, err := clients.ServingAlphaClient.Services.Create(service)
 	return svc, err
 }
 
@@ -197,7 +197,7 @@ func CreateLatestService(t *testing.T, clients *test.Clients, names test.Resourc
 func CreateLatestServiceLegacy(t *testing.T, clients *test.Clients, names test.ResourceNames, options *Options, fopt ...rtesting.ServiceOption) (*v1alpha1.Service, error) {
 	service := LatestServiceLegacy(names, options, fopt...)
 	LogResourceObject(t, ResourceObjects{Service: service})
-	svc, err := clients.ServingClient.Services.Create(service)
+	svc, err := clients.ServingAlphaClient.Services.Create(service)
 	return svc, err
 }
 
@@ -218,7 +218,7 @@ func PatchServiceImage(t *testing.T, clients *test.Clients, svc *v1alpha1.Servic
 	if err != nil {
 		return nil, err
 	}
-	return clients.ServingClient.Services.Patch(svc.ObjectMeta.Name, types.JSONPatchType, patchBytes, "")
+	return clients.ServingAlphaClient.Services.Patch(svc.ObjectMeta.Name, types.JSONPatchType, patchBytes, "")
 }
 
 // PatchService creates and applies a patch from the diff between curSvc and desiredSvc. Returns the latest service object.
@@ -228,7 +228,7 @@ func PatchService(t *testing.T, clients *test.Clients, curSvc *v1alpha1.Service,
 	if err != nil {
 		return nil, err
 	}
-	return clients.ServingClient.Services.Patch(curSvc.ObjectMeta.Name, types.JSONPatchType, patchBytes, "")
+	return clients.ServingAlphaClient.Services.Patch(curSvc.ObjectMeta.Name, types.JSONPatchType, patchBytes, "")
 }
 
 // UpdateServiceRouteSpec updates a service to use the route name in names.
@@ -242,7 +242,7 @@ func UpdateServiceRouteSpec(t *testing.T, clients *test.Clients, names test.Reso
 	if err != nil {
 		return nil, err
 	}
-	return clients.ServingClient.Services.Patch(names.Service, types.JSONPatchType, patchBytes, "")
+	return clients.ServingAlphaClient.Services.Patch(names.Service, types.JSONPatchType, patchBytes, "")
 }
 
 // PatchServiceTemplateMetadata patches an existing service by adding metadata to the service's RevisionTemplateSpec.
@@ -254,7 +254,7 @@ func PatchServiceTemplateMetadata(t *testing.T, clients *test.Clients, svc *v1al
 	if err != nil {
 		return nil, err
 	}
-	return clients.ServingClient.Services.Patch(svc.ObjectMeta.Name, types.JSONPatchType, patchBytes, "")
+	return clients.ServingAlphaClient.Services.Patch(svc.ObjectMeta.Name, types.JSONPatchType, patchBytes, "")
 }
 
 // WaitForServiceLatestRevision takes a revision in through names and compares it to the current state of LatestCreatedRevisionName in Service.
@@ -262,7 +262,7 @@ func PatchServiceTemplateMetadata(t *testing.T, clients *test.Clients, svc *v1al
 // before returning the name of the revision.
 func WaitForServiceLatestRevision(clients *test.Clients, names test.ResourceNames) (string, error) {
 	var revisionName string
-	err := WaitForServiceState(clients.ServingClient, names.Service, func(s *v1alpha1.Service) (bool, error) {
+	err := WaitForServiceState(clients.ServingAlphaClient, names.Service, func(s *v1alpha1.Service) (bool, error) {
 		if s.Status.LatestCreatedRevisionName != names.Revision {
 			revisionName = s.Status.LatestCreatedRevisionName
 			return true, nil
@@ -272,7 +272,7 @@ func WaitForServiceLatestRevision(clients *test.Clients, names test.ResourceName
 	if err != nil {
 		return "", err
 	}
-	err = WaitForServiceState(clients.ServingClient, names.Service, func(s *v1alpha1.Service) (bool, error) {
+	err = WaitForServiceState(clients.ServingAlphaClient, names.Service, func(s *v1alpha1.Service) (bool, error) {
 		return (s.Status.LatestReadyRevisionName == revisionName), nil
 	}, "ServiceReadyWithRevision")
 
@@ -304,7 +304,7 @@ func LatestServiceLegacy(names test.ResourceNames, options *Options, fopt ...rte
 // from client every `interval` until `inState` returns `true` indicating it
 // is done, returns an error or timeout. desc will be used to name the metric
 // that is emitted to track how long it took for name to get into the state checked by inState.
-func WaitForServiceState(client *test.ServingClients, name string, inState func(s *v1alpha1.Service) (bool, error), desc string) error {
+func WaitForServiceState(client *test.ServingAlphaClients, name string, inState func(s *v1alpha1.Service) (bool, error), desc string) error {
 	span := logging.GetEmitableSpan(context.Background(), fmt.Sprintf("WaitForServiceState/%s/%s", name, desc))
 	defer span.End()
 
@@ -327,7 +327,7 @@ func WaitForServiceState(client *test.ServingClients, name string, inState func(
 // CheckServiceState verifies the status of the Service called name from client
 // is in a particular state by calling `inState` and expecting `true`.
 // This is the non-polling variety of WaitForServiceState.
-func CheckServiceState(client *test.ServingClients, name string, inState func(s *v1alpha1.Service) (bool, error)) error {
+func CheckServiceState(client *test.ServingAlphaClients, name string, inState func(s *v1alpha1.Service) (bool, error)) error {
 	s, err := client.Services.Get(name, metav1.GetOptions{})
 	if err != nil {
 		return err

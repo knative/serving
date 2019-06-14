@@ -57,7 +57,7 @@ func TestImagePullError(t *testing.T) {
 
 	names.Config = serviceresourcenames.Configuration(svc)
 
-	err = v1a1test.WaitForServiceState(clients.ServingClient, names.Service, func(r *v1alpha1.Service) (bool, error) {
+	err = v1a1test.WaitForServiceState(clients.ServingAlphaClient, names.Service, func(r *v1alpha1.Service) (bool, error) {
 		cond := r.Status.GetCondition(v1alpha1.ConfigurationConditionReady)
 		if cond != nil && !cond.IsUnknown() {
 			if cond.IsFalse() {
@@ -83,7 +83,7 @@ func TestImagePullError(t *testing.T) {
 	}
 
 	t.Log("When the images are not pulled, the revision should have error status.")
-	err = v1a1test.CheckRevisionState(clients.ServingClient, revisionName, func(r *v1alpha1.Revision) (bool, error) {
+	err = v1a1test.CheckRevisionState(clients.ServingAlphaClient, revisionName, func(r *v1alpha1.Revision) (bool, error) {
 		cond := r.Status.GetCondition(v1alpha1.RevisionConditionReady)
 		if cond != nil {
 			if (cond.Reason == backoffReason && strings.Contains(cond.Message, backoffMsg)) ||
@@ -107,5 +107,5 @@ func createLatestService(t *testing.T, clients *test.Clients, names test.Resourc
 	opt := v1alpha1testing.WithInlineConfigSpec(*v1a1test.ConfigurationSpec(names.Image, &v1a1test.Options{}))
 	service := v1alpha1testing.ServiceWithoutNamespace(names.Service, opt)
 	v1a1test.LogResourceObject(t, v1a1test.ResourceObjects{Service: service})
-	return clients.ServingClient.Services.Create(service)
+	return clients.ServingAlphaClient.Services.Create(service)
 }

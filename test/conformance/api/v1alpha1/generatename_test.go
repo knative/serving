@@ -79,7 +79,7 @@ func canServeRequests(t *testing.T, clients *test.Clients, route *v1alpha1.Route
 	t.Logf("Route %s has a domain set in its status", route.Name)
 	var domain string
 	err := v1a1test.WaitForRouteState(
-		clients.ServingClient,
+		clients.ServingAlphaClient,
 		route.Name,
 		func(r *v1alpha1.Route) (bool, error) {
 			domain = r.Status.URL.Host
@@ -187,7 +187,7 @@ func TestRouteAndConfigGenerateName(t *testing.T) {
 	names.Route = route.Name
 
 	t.Log("When the route is created, it will become ready")
-	if err := v1a1test.WaitForRouteState(clients.ServingClient, names.Route, v1a1test.IsRouteReady, "RouteIsReady"); err != nil {
+	if err := v1a1test.WaitForRouteState(clients.ServingAlphaClient, names.Route, v1a1test.IsRouteReady, "RouteIsReady"); err != nil {
 		t.Fatalf("Error waiting for the route %s to become ready: %v", names.Route, err)
 	}
 
