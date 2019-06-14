@@ -98,6 +98,15 @@ func WithServiceAnnotation(k, v string) ServiceOption {
 	}
 }
 
+// WithServiceAnnotationRemoved adds the given annotation to the service.
+func WithServiceAnnotationRemoved(k string) ServiceOption {
+	return func(svc *v1beta1.Service) {
+		svc.Annotations = presources.FilterMap(svc.Annotations, func(s string) bool {
+			return k == s
+		})
+	}
+}
+
 // WithServiceImage sets the container image to be the provided string.
 func WithServiceImage(img string) ServiceOption {
 	return func(svc *v1beta1.Service) {
