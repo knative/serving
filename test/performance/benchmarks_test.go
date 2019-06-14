@@ -42,7 +42,7 @@ var loads = [...]int32{1, 100, 1000}
 
 func filename(name string) string {
 	// Replace characters in `name` with characters for a file name.
-	return strings.ReplaceAll(name, "/", "_")
+	return strings.ReplaceAll(name, "/", "-")
 }
 
 func runTest(t *testing.T, img string, baseQPS float64, loadFactors []float64) {
@@ -127,7 +127,7 @@ func runTest(t *testing.T, img string, baseQPS float64, loadFactors []float64) {
 // TestBenchmarkSteadyTraffic generates steady traffic at different volumes.
 func TestBenchmarkSteadyTraffic(t *testing.T) {
 	for _, load := range loads {
-		t.Run(fmt.Sprintf("N_is_%d", load), func(t *testing.T) {
+		t.Run(fmt.Sprintf("N%d", load), func(t *testing.T) {
 			runTest(t, app, float64(load), []float64{1})
 		})
 	}
@@ -136,7 +136,7 @@ func TestBenchmarkSteadyTraffic(t *testing.T) {
 // TestBenchmarkBurstZeroToN generates a burst from 0 to N concurrent requests, for different values of N.
 func TestBenchmarkBurstZeroToN(t *testing.T) {
 	for _, load := range loads {
-		t.Run(fmt.Sprintf("N_is_%d", load), func(t *testing.T) {
+		t.Run(fmt.Sprintf("N%d", load), func(t *testing.T) {
 			runTest(t, app, float64(load), []float64{0, 1})
 		})
 	}
@@ -145,7 +145,7 @@ func TestBenchmarkBurstZeroToN(t *testing.T) {
 // TestBenchmarkBurstNto2N generates a burst from N to 2N concurrent requests, for different values of N.
 func TestBenchmarkBurstNto2N(t *testing.T) {
 	for _, load := range loads {
-		t.Run(fmt.Sprintf("N_is_%d", load), func(t *testing.T) {
+		t.Run(fmt.Sprintf("N%d", load), func(t *testing.T) {
 			runTest(t, app, float64(load), []float64{1, 2})
 		})
 	}
