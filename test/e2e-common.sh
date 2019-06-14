@@ -225,7 +225,6 @@ function knative_teardown() {
     fi
     echo ">> Bringing down Istio"
     kubectl delete --ignore-not-found=true -f "${INSTALL_ISTIO_YAML}" || return 1
-    kubectl delete --ignore-not-found=true clusterrolebinding cluster-admin-binding
     echo ">> Bringing down Cert-Manager"
     kubectl delete --ignore-not-found=true -f "${INSTALL_CERT_MANAGER_YAML}" || return 1
   fi
@@ -264,7 +263,7 @@ function dump_extra_cluster_state() {
   echo ">>> Revisions:"
   kubectl get revisions -o yaml --all-namespaces
 
-  for app in controller webhook autoscaler activator; do
+  for app in controller webhook autoscaler activator networking-certmanager networking-istio; do
     dump_app_logs ${app} knative-serving
   done
 }

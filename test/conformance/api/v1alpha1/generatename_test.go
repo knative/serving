@@ -16,7 +16,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package api
+package v1alpha1
 
 import (
 	"fmt"
@@ -28,6 +28,7 @@ import (
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	rtesting "github.com/knative/serving/pkg/testing/v1alpha1"
 	"github.com/knative/serving/test"
+	v1a1test "github.com/knative/serving/test/v1alpha1"
 )
 
 func setServiceGenerateName(generateName string) rtesting.ServiceOption {
@@ -77,8 +78,8 @@ func validateName(generateName, name string) error {
 func canServeRequests(t *testing.T, clients *test.Clients, route *v1alpha1.Route) error {
 	t.Logf("Route %s has a domain set in its status", route.Name)
 	var domain string
-	err := test.WaitForRouteState(
-		clients.ServingClient,
+	err := v1a1test.WaitForRouteState(
+		clients.ServingAlphaClient,
 		route.Name,
 		func(r *v1alpha1.Route) (bool, error) {
 			domain = r.Status.URL.Host
@@ -123,7 +124,7 @@ func TestServiceGenerateName(t *testing.T) {
 
 	// Create the service using the generate name field. If the serivce does not become ready this will fail.
 	t.Logf("Creating new service with generateName %s", generateName)
-	resources, err := test.CreateRunLatestServiceReady(t, clients, &names, &test.Options{}, setServiceGenerateName(generateName))
+	resources, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, &v1a1test.Options{}, setServiceGenerateName(generateName))
 	if err != nil {
 		t.Fatalf("Failed to create service with generateName %s: %v", generateName, err)
 	}
@@ -158,7 +159,7 @@ func TestRouteAndConfigGenerateName(t *testing.T) {
 	defer func() { test.TearDown(clients, names) }()
 
 	t.Logf("Creating new configuration with generateName %s", generateName)
-	config, err := test.CreateConfiguration(t, clients, names, &test.Options{}, setConfigurationGenerateName(generateName))
+	config, err := v1a1test.CreateConfiguration(t, clients, names, &v1a1test.Options{}, setConfigurationGenerateName(generateName))
 	if err != nil {
 		t.Fatalf("Failed to create configuration with generateName %s: %v", generateName, err)
 	}
@@ -166,7 +167,7 @@ func TestRouteAndConfigGenerateName(t *testing.T) {
 
 	// Ensure the associated revision is created. This also checks that the configuration becomes ready.
 	t.Log("The configuration will be updated with the name of the associated Revision once it is created.")
-	names.Revision, err = test.WaitForConfigLatestRevision(clients, names)
+	names.Revision, err = v1a1test.WaitForConfigLatestRevision(clients, names)
 	if err != nil {
 		t.Fatalf("Configuration %s was not updated with the new revision: %v", names.Config, err)
 	}
@@ -179,14 +180,14 @@ func TestRouteAndConfigGenerateName(t *testing.T) {
 
 	// Create a route that maps to the revision created by the configuration above
 	t.Logf("Create new Route with generateName %s", generateName)
-	route, err := test.CreateRoute(t, clients, names, setRouteGenerateName(generateName))
+	route, err := v1a1test.CreateRoute(t, clients, names, setRouteGenerateName(generateName))
 	if err != nil {
 		t.Fatalf("Failed to create route with generateName %s: %v", generateName, err)
 	}
 	names.Route = route.Name
 
 	t.Log("When the route is created, it will become ready")
-	if err := test.WaitForRouteState(clients.ServingClient, names.Route, test.IsRouteReady, "RouteIsReady"); err != nil {
+	if err := v1a1test.WaitForRouteState(clients.ServingAlphaClient, names.Route, v1a1test.IsRouteReady, "RouteIsReady"); err != nil {
 		t.Fatalf("Error waiting for the route %s to become ready: %v", names.Route, err)
 	}
 

@@ -36,6 +36,7 @@ import (
 	nv1a1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/autoscaler"
 	"github.com/knative/serving/pkg/reconciler"
+	areconciler "github.com/knative/serving/pkg/reconciler/autoscaling"
 	"github.com/knative/serving/pkg/reconciler/autoscaling/config"
 	"github.com/knative/serving/pkg/reconciler/autoscaling/hpa/resources"
 	aresources "github.com/knative/serving/pkg/reconciler/autoscaling/resources"
@@ -226,7 +227,7 @@ func TestReconcile(t *testing.T) {
 			Object: pa(testRevision, testNamespace, WithHPAClass, MarkResourceNotOwnedByPA("ServerlessService", testRevision)),
 		}},
 		WantEvents: []string{
-			Eventf(corev1.EventTypeWarning, "InternalError", `error reconciling SKS: HPA: "test-revision" does not own SKS: "test-revision"`),
+			Eventf(corev1.EventTypeWarning, "InternalError", `error reconciling SKS: PA: test-revision does not own SKS: test-revision`),
 		},
 	}, {
 		Name: "pa is disowned",
@@ -404,11 +405,13 @@ func TestReconcile(t *testing.T) {
 	defer logtesting.ClearAll()
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
 		return &Reconciler{
-			Base:        reconciler.NewBase(ctx, controllerAgentName, cmw),
-			paLister:    listers.GetPodAutoscalerLister(),
-			sksLister:   listers.GetServerlessServiceLister(),
-			hpaLister:   listers.GetHorizontalPodAutoscalerLister(),
-			configStore: &testConfigStore{config: defaultConfig()},
+			Base: &areconciler.Base{
+				Base:        reconciler.NewBase(ctx, controllerAgentName, cmw),
+				PALister:    listers.GetPodAutoscalerLister(),
+				SKSLister:   listers.GetServerlessServiceLister(),
+				ConfigStore: &testConfigStore{config: defaultConfig()},
+			},
+			hpaLister: listers.GetHorizontalPodAutoscalerLister(),
 		}
 	}))
 }
@@ -501,6 +504,4 @@ func (t *testConfigStore) ToContext(ctx context.Context) context.Context {
 	return config.ToContext(ctx, t.config)
 }
 
-func (t *testConfigStore) WatchConfigs(w configmap.Watcher) {}
-
-var _ configStore = (*testConfigStore)(nil)
+var _ reconciler.ConfigStore = (*testConfigStore)(nil)

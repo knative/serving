@@ -23,13 +23,11 @@ import (
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/google/go-cmp/cmp"
-	"github.com/knative/pkg/apis"
 	"github.com/knative/pkg/apis/duck"
 	"github.com/knative/pkg/controller"
 	"github.com/knative/pkg/logging"
 	"github.com/knative/pkg/system"
 	"github.com/knative/serving/pkg/activator"
-	pav1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/apis/networking"
 	netv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	listers "github.com/knative/serving/pkg/client/listers/networking/v1alpha1"
@@ -44,7 +42,6 @@ import (
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 )
@@ -351,39 +348,9 @@ func (r *reconciler) reconcilePrivateService(ctx context.Context, sks *netv1alph
 }
 
 func (r *reconciler) getSelector(sks *netv1alpha1.ServerlessService) (map[string]string, error) {
-	scale, err := r.getScaleResource(sks)
+	scale, err := presources.GetScaleResource(sks.Namespace, sks.Spec.ObjectRef, r.psInformerFactory)
 	if err != nil {
 		return nil, err
 	}
 	return scale.Spec.Selector.MatchLabels, nil
-}
-
-// getScaleResource returns the current scale resource for the SKS.
-func (r *reconciler) getScaleResource(sks *netv1alpha1.ServerlessService) (*pav1alpha1.PodScalable, error) {
-	gvr, name, err := scaleResourceArgs(sks)
-	if err != nil {
-		r.Logger.Errorf("Error getting the scale arguments", err)
-		return nil, err
-	}
-	_, lister, err := r.psInformerFactory.Get(*gvr)
-	if err != nil {
-		r.Logger.Errorf("Error getting a lister for a pod scalable resource '%+v': %+v", gvr, err)
-		return nil, err
-	}
-	psObj, err := lister.ByNamespace(sks.Namespace).Get(name)
-	if err != nil {
-		r.Logger.Errorf("Error fetching Pod Scalable %q for SKS %q: %v", name, sks.Name, err)
-		return nil, err
-	}
-	return psObj.(*pav1alpha1.PodScalable), nil
-}
-
-// scaleResourceArgs returns GroupVersionResource and the resource name, from the SKS resource.
-func scaleResourceArgs(sks *netv1alpha1.ServerlessService) (*schema.GroupVersionResource, string, error) {
-	gv, err := schema.ParseGroupVersion(sks.Spec.ObjectRef.APIVersion)
-	if err != nil {
-		return nil, "", err
-	}
-	resource := apis.KindToResource(gv.WithKind(sks.Spec.ObjectRef.Kind))
-	return &resource, sks.Spec.ObjectRef.Name, nil
 }

@@ -24,6 +24,7 @@ import (
 	"testing"
 
 	"github.com/knative/serving/test"
+	v1a1test "github.com/knative/serving/test/v1alpha1"
 	"k8s.io/apimachinery/pkg/api/resource"
 
 	corev1 "k8s.io/api/core/v1"
@@ -63,7 +64,7 @@ func TestMustHaveCgroupConfigured(t *testing.T) {
 		"/sys/fs/cgroup/cpu/cpu.cfs_quota_us":         cpuLimit * 1000 * 100, // 1000 millicore * 100
 		"/sys/fs/cgroup/cpu/cpu.shares":               cpuRequest * 1024}     // CPURequests * 1024
 
-	_, ri, err := fetchRuntimeInfo(t, clients, &test.Options{ContainerResources: resources})
+	_, ri, err := fetchRuntimeInfo(t, clients, &v1a1test.Options{ContainerResources: resources})
 	if err != nil {
 		t.Fatalf("Error fetching runtime info: %v", err)
 	}
@@ -91,7 +92,7 @@ func TestMustHaveCgroupConfigured(t *testing.T) {
 func TestShouldHaveCgroupReadOnly(t *testing.T) {
 	t.Parallel()
 	clients := test.Setup(t)
-	_, ri, err := fetchRuntimeInfo(t, clients, &test.Options{})
+	_, ri, err := fetchRuntimeInfo(t, clients, &v1a1test.Options{})
 	if err != nil {
 		t.Fatalf("Error fetching runtime info: %v", err)
 	}

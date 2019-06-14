@@ -16,7 +16,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package api
+package v1alpha1
 
 import (
 	"fmt"
@@ -27,6 +27,7 @@ import (
 	ptest "github.com/knative/pkg/test"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/test"
+	v1a1test "github.com/knative/serving/test/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -52,7 +53,7 @@ func TestContainerErrorMsg(t *testing.T) {
 	// Specify an invalid image path
 	// A valid DockerRepo is still needed, otherwise will get UNAUTHORIZED instead of container missing error
 	t.Logf("Creating a new Configuration %s", names.Image)
-	if _, err := test.CreateConfiguration(t, clients, names, &test.Options{}); err != nil {
+	if _, err := v1a1test.CreateConfiguration(t, clients, names, &v1a1test.Options{}); err != nil {
 		t.Fatalf("Failed to create configuration %s", names.Config)
 	}
 	defer test.TearDown(clients, names)
@@ -62,7 +63,7 @@ func TestContainerErrorMsg(t *testing.T) {
 	t.Log("When the imagepath is invalid, the Configuration should have error status.")
 
 	// Checking for "Container image not present in repository" scenario defined in error condition spec
-	err := test.WaitForConfigurationState(clients.ServingClient, names.Config, func(r *v1alpha1.Configuration) (bool, error) {
+	err := v1a1test.WaitForConfigurationState(clients.ServingAlphaClient, names.Config, func(r *v1alpha1.Configuration) (bool, error) {
 		cond := r.Status.GetCondition(v1alpha1.ConfigurationConditionReady)
 		if cond != nil && !cond.IsUnknown() {
 			if strings.Contains(cond.Message, manifestUnknown) && cond.IsFalse() {
@@ -85,7 +86,7 @@ func TestContainerErrorMsg(t *testing.T) {
 	}
 
 	t.Log("When the imagepath is invalid, the revision should have error status.")
-	err = test.WaitForRevisionState(clients.ServingClient, revisionName, func(r *v1alpha1.Revision) (bool, error) {
+	err = v1a1test.WaitForRevisionState(clients.ServingAlphaClient, revisionName, func(r *v1alpha1.Revision) (bool, error) {
 		cond := r.Status.GetCondition(v1alpha1.RevisionConditionReady)
 		if cond != nil {
 			if cond.Reason == containerMissing && strings.Contains(cond.Message, manifestUnknown) {
@@ -160,13 +161,13 @@ func TestContainerExitingMsg(t *testing.T) {
 
 			t.Logf("Creating a new Configuration %s", names.Image)
 
-			if _, err := test.CreateConfiguration(t, clients, names, &test.Options{ReadinessProbe: tt.ReadinessProbe}); err != nil {
+			if _, err := v1a1test.CreateConfiguration(t, clients, names, &v1a1test.Options{ReadinessProbe: tt.ReadinessProbe}); err != nil {
 				t.Fatalf("Failed to create configuration %s: %v", names.Config, err)
 			}
 
 			t.Log("When the containers keep crashing, the Configuration should have error status.")
 
-			err := test.WaitForConfigurationState(clients.ServingClient, names.Config, func(r *v1alpha1.Configuration) (bool, error) {
+			err := v1a1test.WaitForConfigurationState(clients.ServingAlphaClient, names.Config, func(r *v1alpha1.Configuration) (bool, error) {
 				cond := r.Status.GetCondition(v1alpha1.ConfigurationConditionReady)
 				if cond != nil && !cond.IsUnknown() {
 					if strings.Contains(cond.Message, errorLog) && cond.IsFalse() {
@@ -189,7 +190,7 @@ func TestContainerExitingMsg(t *testing.T) {
 			}
 
 			t.Log("When the containers keep crashing, the revision should have error status.")
-			err = test.WaitForRevisionState(clients.ServingClient, revisionName, func(r *v1alpha1.Revision) (bool, error) {
+			err = v1a1test.WaitForRevisionState(clients.ServingAlphaClient, revisionName, func(r *v1alpha1.Revision) (bool, error) {
 				cond := r.Status.GetCondition(v1alpha1.RevisionConditionReady)
 				if cond != nil {
 					if cond.Reason == exitCodeReason && strings.Contains(cond.Message, errorLog) {
@@ -215,7 +216,7 @@ func TestContainerExitingMsg(t *testing.T) {
 
 // Get revision name from configuration.
 func getRevisionFromConfiguration(clients *test.Clients, configName string) (string, error) {
-	config, err := clients.ServingClient.Configs.Get(configName, metav1.GetOptions{})
+	config, err := clients.ServingAlphaClient.Configs.Get(configName, metav1.GetOptions{})
 	if err != nil {
 		return "", err
 	}
@@ -227,7 +228,7 @@ func getRevisionFromConfiguration(clients *test.Clients, configName string) (str
 
 // Get LogURL from revision.
 func getLogURLFromRevision(clients *test.Clients, revisionName string) (string, error) {
-	revision, err := clients.ServingClient.Revisions.Get(revisionName, metav1.GetOptions{})
+	revision, err := clients.ServingAlphaClient.Revisions.Get(revisionName, metav1.GetOptions{})
 	if err != nil {
 		return "", err
 	}

@@ -19,6 +19,7 @@ package kpa
 import (
 	"context"
 
+	"github.com/knative/pkg/apis/duck"
 	endpointsinformer "github.com/knative/pkg/injection/informers/kubeinformers/corev1/endpoints"
 	serviceinformer "github.com/knative/pkg/injection/informers/kubeinformers/corev1/service"
 	kpainformer "github.com/knative/serving/pkg/client/injection/informers/autoscaling/v1alpha1/podautoscaler"
@@ -29,6 +30,7 @@ import (
 	"github.com/knative/serving/pkg/apis/autoscaling"
 	"github.com/knative/serving/pkg/autoscaler"
 	"github.com/knative/serving/pkg/reconciler"
+	areconciler "github.com/knative/serving/pkg/reconciler/autoscaling"
 	"github.com/knative/serving/pkg/reconciler/autoscaling/config"
 	"github.com/knative/serving/pkg/reconciler/autoscaling/kpa/resources"
 	aresources "github.com/knative/serving/pkg/reconciler/autoscaling/resources"
@@ -37,19 +39,14 @@ import (
 
 const controllerAgentName = "kpa-class-podautoscaler-controller"
 
-// configStore is a minimized interface of the actual configStore.
-type configStore interface {
-	ToContext(ctx context.Context) context.Context
-	WatchConfigs(w configmap.Watcher)
-}
-
 // NewController returns a new HPA reconcile controller.
 // TODO(mattmoor): Fix the signature to adhere to the injection type.
 func NewController(
 	ctx context.Context,
 	cmw configmap.Watcher,
-	kpaDeciders resources.Deciders,
+	deciders resources.Deciders,
 	metrics aresources.Metrics,
+	psInformerFactory duck.InformerFactory,
 ) *controller.Impl {
 
 	paInformer := kpainformer.Get(ctx)
@@ -58,16 +55,19 @@ func NewController(
 	endpointsInformer := endpointsinformer.Get(ctx)
 
 	c := &Reconciler{
-		Base:            reconciler.NewBase(ctx, controllerAgentName, cmw),
-		paLister:        paInformer.Lister(),
-		sksLister:       sksInformer.Lister(),
-		serviceLister:   serviceInformer.Lister(),
+		Base: &areconciler.Base{
+			Base:              reconciler.NewBase(ctx, controllerAgentName, cmw),
+			PALister:          paInformer.Lister(),
+			SKSLister:         sksInformer.Lister(),
+			ServiceLister:     serviceInformer.Lister(),
+			Metrics:           metrics,
+			PSInformerFactory: psInformerFactory,
+		},
 		endpointsLister: endpointsInformer.Lister(),
-		kpaDeciders:     kpaDeciders,
-		metrics:         metrics,
+		deciders:        deciders,
 	}
 	impl := controller.NewImpl(c, c.Logger, "KPA-Class Autoscaling")
-	c.scaler = newScaler(ctx, impl.EnqueueAfter)
+	c.scaler = newScaler(ctx, psInformerFactory, impl.EnqueueAfter)
 
 	c.Logger.Info("Setting up KPA-Class event handlers")
 	// Handle PodAutoscalers missing the class annotation for backward compatibility.
@@ -92,7 +92,7 @@ func NewController(
 	})
 
 	// Have the Deciders enqueue the PAs whose decisions have changed.
-	kpaDeciders.Watch(impl.EnqueueKey)
+	deciders.Watch(impl.EnqueueKey)
 
 	c.Logger.Info("Setting up ConfigMap receivers")
 	configsToResync := []interface{}{
@@ -101,8 +101,9 @@ func NewController(
 	resync := configmap.TypeFilter(configsToResync...)(func(string, interface{}) {
 		controller.SendGlobalUpdates(paInformer.Informer(), paHandler)
 	})
-	c.configStore = config.NewStore(c.Logger.Named("config-store"), resync)
-	c.configStore.WatchConfigs(cmw)
+	configStore := config.NewStore(c.Logger.Named("config-store"), resync)
+	configStore.WatchConfigs(cmw)
+	c.ConfigStore = configStore
 
 	return impl
 }

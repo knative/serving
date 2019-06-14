@@ -38,8 +38,8 @@ func CleanupOnInterrupt(cleanup func()) {
 
 // TearDown will delete created names using clients.
 func TearDown(clients *Clients, names ResourceNames) {
-	if clients != nil && clients.ServingClient != nil {
-		clients.ServingClient.Delete(
+	if clients != nil && clients.ServingAlphaClient != nil {
+		clients.ServingAlphaClient.Delete(
 			[]string{names.Route},
 			[]string{names.Config},
 			[]string{names.Service},

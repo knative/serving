@@ -25,6 +25,7 @@ import (
 	revisionresourcenames "github.com/knative/serving/pkg/reconciler/revision/resources/names"
 	"github.com/knative/serving/test"
 	"github.com/knative/serving/test/e2e"
+	v1a1test "github.com/knative/serving/test/v1alpha1"
 )
 
 func TestRunLatestServicePreUpgrade(t *testing.T) {
@@ -35,7 +36,7 @@ func TestRunLatestServicePreUpgrade(t *testing.T) {
 	names.Service = serviceName
 	names.Image = test.PizzaPlanet1
 
-	resources, err := test.CreateRunLatestServiceLegacyReady(t, clients, &names, &test.Options{})
+	resources, err := v1a1test.CreateRunLatestServiceLegacyReady(t, clients, &names, &v1a1test.Options{})
 	if err != nil {
 		t.Fatalf("Failed to create Service: %v", err)
 	}
@@ -51,7 +52,7 @@ func TestRunLatestServicePreUpgradeAndScaleToZero(t *testing.T) {
 	names.Service = scaleToZeroServiceName
 	names.Image = test.PizzaPlanet1
 
-	resources, err := test.CreateRunLatestServiceLegacyReady(t, clients, &names, &test.Options{})
+	resources, err := v1a1test.CreateRunLatestServiceLegacyReady(t, clients, &names, &v1a1test.Options{})
 	if err != nil {
 		t.Fatalf("Failed to create Service: %v", err)
 	}

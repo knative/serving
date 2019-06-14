@@ -26,6 +26,7 @@ import (
 	pkgTest "github.com/knative/pkg/test"
 	"github.com/knative/pkg/test/spoof"
 	"github.com/knative/serving/test"
+	v1a1test "github.com/knative/serving/test/v1alpha1"
 
 	corev1 "k8s.io/api/core/v1"
 
@@ -84,7 +85,7 @@ func testProxyToHelloworld(t *testing.T, clients *test.Clients, helloworldDomain
 
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 	defer test.TearDown(clients, names)
-	resources, err := test.CreateRunLatestServiceReady(t, clients, &names, &test.Options{
+	resources, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, &v1a1test.Options{
 		EnvVars: envVars,
 	})
 	if err != nil {
@@ -151,7 +152,7 @@ func TestServiceToServiceCall(t *testing.T) {
 
 	withInternalVisibility := WithServiceLabel(
 		routeconfig.VisibilityLabelKey, routeconfig.VisibilityClusterLocal)
-	resources, err := test.CreateRunLatestServiceReady(t, clients, &names, &test.Options{}, withInternalVisibility)
+	resources, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, &v1a1test.Options{}, withInternalVisibility)
 	if err != nil {
 		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
 	}
@@ -196,7 +197,7 @@ func TestServiceToServiceCallFromZero(t *testing.T) {
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, helloWorldNames) })
 	defer test.TearDown(clients, helloWorldNames)
 
-	helloWorld, err := test.CreateRunLatestServiceReady(t, clients, &helloWorldNames, &test.Options{}, withInternalVisibility)
+	helloWorld, err := v1a1test.CreateRunLatestServiceReady(t, clients, &helloWorldNames, &v1a1test.Options{}, withInternalVisibility)
 	if err != nil {
 		t.Fatalf("Failed to create a service: %v", err)
 	}

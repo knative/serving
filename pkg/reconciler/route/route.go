@@ -72,7 +72,7 @@ type Reconciler struct {
 	serviceLister        corev1listers.ServiceLister
 	clusterIngressLister networkinglisters.ClusterIngressLister
 	certificateLister    networkinglisters.CertificateLister
-	configStore          configStore
+	configStore          reconciler.ConfigStore
 	tracker              tracker.Interface
 
 	clock system.Clock
