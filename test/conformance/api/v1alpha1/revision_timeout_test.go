@@ -16,7 +16,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package api
+package v1alpha1
 
 import (
 	"encoding/json"
@@ -30,6 +30,7 @@ import (
 	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 	serviceresourcenames "github.com/knative/serving/pkg/reconciler/service/resources/names"
 	"github.com/knative/serving/test"
+	v1a1test "github.com/knative/serving/test/v1alpha1"
 	"github.com/mattbaird/jsonpatch"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -40,9 +41,9 @@ import (
 // createLatestService creates a service in namespace with the name names.Service
 // that uses the image specified by names.Image
 func createLatestService(t *testing.T, clients *test.Clients, names test.ResourceNames, revisionTimeoutSeconds int64) (*v1alpha1.Service, error) {
-	service := test.LatestService(names, &test.Options{}, WithRevisionTimeoutSeconds(revisionTimeoutSeconds))
-	test.LogResourceObject(t, test.ResourceObjects{Service: service})
-	svc, err := clients.ServingClient.Services.Create(service)
+	service := v1a1test.LatestService(names, &v1a1test.Options{}, WithRevisionTimeoutSeconds(revisionTimeoutSeconds))
+	v1a1test.LogResourceObject(t, v1a1test.ResourceObjects{Service: service})
+	svc, err := clients.ServingAlphaClient.Services.Create(service)
 	return svc, err
 }
 
@@ -56,7 +57,7 @@ func updateServiceWithTimeout(clients *test.Clients, names test.ResourceNames, r
 	if err != nil {
 		return err
 	}
-	_, err = clients.ServingClient.Services.Patch(names.Service, types.JSONPatchType, patchBytes, "")
+	_, err = clients.ServingAlphaClient.Services.Patch(names.Service, types.JSONPatchType, patchBytes, "")
 	if err != nil {
 		return err
 	}
@@ -120,14 +121,14 @@ func TestRevisionTimeout(t *testing.T) {
 	names.Config = serviceresourcenames.Configuration(svc)
 
 	t.Log("The Service will be updated with the name of the Revision once it is created")
-	revisionName, err := test.WaitForServiceLatestRevision(clients, names)
+	revisionName, err := v1a1test.WaitForServiceLatestRevision(clients, names)
 	if err != nil {
 		t.Fatalf("Service %s was not updated with the new revision: %v", names.Service, err)
 	}
 	rev2s.Revision = revisionName
 
 	t.Log("When the Service reports as Ready, everything should be ready")
-	if err := test.WaitForServiceState(clients.ServingClient, names.Service, test.IsServiceReady, "ServiceIsReady"); err != nil {
+	if err := v1a1test.WaitForServiceState(clients.ServingAlphaClient, names.Service, v1a1test.IsServiceReady, "ServiceIsReady"); err != nil {
 		t.Fatalf("The Service %s was not marked as Ready to serve traffic to Revision %s: %v", names.Service, names.Revision, err)
 	}
 
@@ -141,17 +142,17 @@ func TestRevisionTimeout(t *testing.T) {
 	names.Revision = rev2s.Revision
 
 	t.Log("Since the Service was updated a new Revision will be created and the Service will be updated")
-	rev5s.Revision, err = test.WaitForServiceLatestRevision(clients, names)
+	rev5s.Revision, err = v1a1test.WaitForServiceLatestRevision(clients, names)
 	if err != nil {
 		t.Fatalf("Service %s was not updated with the Revision with timeout 5s: %v", names.Service, err)
 	}
 
 	t.Logf("Waiting for revision %q to be ready", rev2s.Revision)
-	if err := test.WaitForRevisionState(clients.ServingClient, rev2s.Revision, test.IsRevisionReady, "RevisionIsReady"); err != nil {
+	if err := v1a1test.WaitForRevisionState(clients.ServingAlphaClient, rev2s.Revision, v1a1test.IsRevisionReady, "RevisionIsReady"); err != nil {
 		t.Fatalf("The Revision %q still can't serve traffic: %v", rev2s.Revision, err)
 	}
 	t.Logf("Waiting for revision %q to be ready", rev5s.Revision)
-	if err := test.WaitForRevisionState(clients.ServingClient, rev5s.Revision, test.IsRevisionReady, "RevisionIsReady"); err != nil {
+	if err := v1a1test.WaitForRevisionState(clients.ServingAlphaClient, rev5s.Revision, v1a1test.IsRevisionReady, "RevisionIsReady"); err != nil {
 		t.Fatalf("The Revision %q still can't serve traffic: %v", rev5s.Revision, err)
 	}
 
@@ -160,7 +161,7 @@ func TestRevisionTimeout(t *testing.T) {
 	rev5s.TrafficTarget = "rev5s"
 
 	t.Log("Updating RouteSpec")
-	if _, err := test.UpdateServiceRouteSpec(t, clients, names, v1alpha1.RouteSpec{
+	if _, err := v1a1test.UpdateServiceRouteSpec(t, clients, names, v1alpha1.RouteSpec{
 		Traffic: []v1alpha1.TrafficTarget{{
 			TrafficTarget: v1beta1.TrafficTarget{
 				Tag:          rev2s.TrafficTarget,
@@ -179,11 +180,11 @@ func TestRevisionTimeout(t *testing.T) {
 	}
 
 	t.Log("Wait for the service domains to be ready")
-	if err := test.WaitForServiceState(clients.ServingClient, names.Service, test.IsServiceReady, "ServiceIsReady"); err != nil {
+	if err := v1a1test.WaitForServiceState(clients.ServingAlphaClient, names.Service, v1a1test.IsServiceReady, "ServiceIsReady"); err != nil {
 		t.Fatalf("The Service %s was not marked as Ready to serve traffic: %v", names.Service, err)
 	}
 
-	service, err := clients.ServingClient.Services.Get(names.Service, metav1.GetOptions{})
+	service, err := clients.ServingAlphaClient.Services.Get(names.Service, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Error fetching Service %s: %v", names.Service, err)
 	}
@@ -210,7 +211,7 @@ func TestRevisionTimeout(t *testing.T) {
 		clients.KubeClient,
 		t.Logf,
 		rev5sDomain,
-		test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
+		v1a1test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
 		"WaitForSuccessfulResponse",
 		test.ServingFlags.ResolvableDomain); err != nil {
 		t.Fatalf("Error probing domain %s: %v", rev5sDomain, err)

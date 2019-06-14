@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	"testing"
 
+	v1a1test "github.com/knative/serving/test/v1alpha1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -46,7 +47,7 @@ func TestV1beta1Translation(t *testing.T) {
 	t.Log("Creating a new Service")
 	// Create a legacy RunLatest service.  This should perform conversion during the webhook
 	// and return back a converted service resource.
-	service, err := test.CreateLatestServiceLegacy(t, clients, names, &test.Options{})
+	service, err := v1a1test.CreateLatestServiceLegacy(t, clients, names, &v1a1test.Options{})
 	if err != nil {
 		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
 	}
@@ -85,7 +86,7 @@ func TestV1beta1Rejection(t *testing.T) {
 
 	t.Log("Creating a new Service")
 	// Create a legacy RunLatest service, but give it the TypeMeta of v1beta1.
-	service := test.LatestServiceLegacy(names, &test.Options{})
+	service := v1a1test.LatestServiceLegacy(names, &v1a1test.Options{})
 	service.APIVersion = v1beta1.SchemeGroupVersion.String()
 	service.Kind = "Service"
 

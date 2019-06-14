@@ -16,7 +16,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package api
+package v1alpha1
 
 import (
 	"testing"
@@ -24,11 +24,12 @@ import (
 	pkgTest "github.com/knative/pkg/test"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/test"
+	v1a1test "github.com/knative/serving/test/v1alpha1"
 )
 
 func assertResourcesUpdatedWhenRevisionIsReady(t *testing.T, clients *test.Clients, names test.ResourceNames, domain string, expectedGeneration, expectedText string) {
 	t.Log("When the Route reports as Ready, everything should be ready.")
-	if err := test.WaitForRouteState(clients.ServingClient, names.Route, test.IsRouteReady, "RouteIsReady"); err != nil {
+	if err := v1a1test.WaitForRouteState(clients.ServingAlphaClient, names.Route, v1a1test.IsRouteReady, "RouteIsReady"); err != nil {
 		t.Fatalf("The Route %s was not marked as Ready to serve traffic to Revision %s: %v", names.Route, names.Revision, err)
 	}
 
@@ -39,7 +40,7 @@ func assertResourcesUpdatedWhenRevisionIsReady(t *testing.T, clients *test.Clien
 		clients.KubeClient,
 		t.Logf,
 		domain,
-		test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.EventuallyMatchesBody(expectedText))),
+		v1a1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.EventuallyMatchesBody(expectedText))),
 		"WaitForEndpointToServeText",
 		test.ServingFlags.ResolvableDomain)
 	if err != nil {
@@ -48,24 +49,24 @@ func assertResourcesUpdatedWhenRevisionIsReady(t *testing.T, clients *test.Clien
 
 	// We want to verify that the endpoint works as soon as Ready: True, but there are a bunch of other pieces of state that we validate for conformance.
 	t.Log("The Revision will be marked as Ready when it can serve traffic")
-	err = test.CheckRevisionState(clients.ServingClient, names.Revision, test.IsRevisionReady)
+	err = v1a1test.CheckRevisionState(clients.ServingAlphaClient, names.Revision, v1a1test.IsRevisionReady)
 	if err != nil {
 		t.Fatalf("Revision %s did not become ready to serve traffic: %v", names.Revision, err)
 	}
 	t.Log("The Revision will be annotated with the generation")
-	err = test.CheckRevisionState(clients.ServingClient, names.Revision, test.IsRevisionAtExpectedGeneration(expectedGeneration))
+	err = v1a1test.CheckRevisionState(clients.ServingAlphaClient, names.Revision, v1a1test.IsRevisionAtExpectedGeneration(expectedGeneration))
 	if err != nil {
 		t.Fatalf("Revision %s did not have an expected annotation with generation %s: %v", names.Revision, expectedGeneration, err)
 	}
 	t.Log("Updates the Configuration that the Revision is ready")
-	err = test.CheckConfigurationState(clients.ServingClient, names.Config, func(c *v1alpha1.Configuration) (bool, error) {
+	err = v1a1test.CheckConfigurationState(clients.ServingAlphaClient, names.Config, func(c *v1alpha1.Configuration) (bool, error) {
 		return c.Status.LatestReadyRevisionName == names.Revision, nil
 	})
 	if err != nil {
 		t.Fatalf("The Configuration %s was not updated indicating that the Revision %s was ready: %v", names.Config, names.Revision, err)
 	}
 	t.Log("Updates the Route to route traffic to the Revision")
-	err = test.CheckRouteState(clients.ServingClient, names.Route, test.AllRouteTrafficAtRevision(names))
+	err = v1a1test.CheckRouteState(clients.ServingAlphaClient, names.Route, v1a1test.AllRouteTrafficAtRevision(names))
 	if err != nil {
 		t.Fatalf("The Route %s was not updated to route traffic to the Revision %s: %v", names.Route, names.Revision, err)
 	}
@@ -74,8 +75,8 @@ func assertResourcesUpdatedWhenRevisionIsReady(t *testing.T, clients *test.Clien
 func getRouteDomain(clients *test.Clients, names test.ResourceNames) (string, error) {
 	var domain string
 
-	err := test.WaitForRouteState(
-		clients.ServingClient,
+	err := v1a1test.WaitForRouteState(
+		clients.ServingAlphaClient,
 		names.Route,
 		func(r *v1alpha1.Route) (bool, error) {
 			domain = r.Status.URL.Host
@@ -91,7 +92,7 @@ func TestRouteCreation(t *testing.T) {
 	t.Parallel()
 	clients := test.Setup(t)
 
-	var objects test.ResourceObjects
+	var objects v1a1test.ResourceObjects
 	svcName := test.ObjectNameForTest(t)
 	names := test.ResourceNames{
 		Config:        svcName,
@@ -104,20 +105,20 @@ func TestRouteCreation(t *testing.T) {
 	defer test.TearDown(clients, names)
 
 	t.Log("Creating a new Route and Configuration")
-	config, err := test.CreateConfiguration(t, clients, names, &test.Options{})
+	config, err := v1a1test.CreateConfiguration(t, clients, names, &v1a1test.Options{})
 	if err != nil {
 		t.Fatalf("Failed to create Configuration: %v", err)
 	}
 	objects.Config = config
 
-	route, err := test.CreateRoute(t, clients, names)
+	route, err := v1a1test.CreateRoute(t, clients, names)
 	if err != nil {
 		t.Fatalf("Failed to create Route: %v", err)
 	}
 	objects.Route = route
 
 	t.Log("The Configuration will be updated with the name of the Revision")
-	names.Revision, err = test.WaitForConfigLatestRevision(clients, names)
+	names.Revision, err = v1a1test.WaitForConfigLatestRevision(clients, names)
 	if err != nil {
 		t.Fatalf("Configuration %s was not updated with the new revision: %v", names.Config, err)
 	}
@@ -135,13 +136,13 @@ func TestRouteCreation(t *testing.T) {
 	defer test.AssertProberDefault(t, prober)
 
 	t.Log("Updating the Configuration to use a different image")
-	objects.Config, err = test.PatchConfigImage(clients, objects.Config, pkgTest.ImagePath(test.PizzaPlanet2))
+	objects.Config, err = v1a1test.PatchConfigImage(clients, objects.Config, pkgTest.ImagePath(test.PizzaPlanet2))
 	if err != nil {
 		t.Fatalf("Patch update for Configuration %s with new image %s failed: %v", names.Config, test.PizzaPlanet2, err)
 	}
 
 	t.Log("Since the Configuration was updated a new Revision will be created and the Configuration will be updated")
-	names.Revision, err = test.WaitForConfigLatestRevision(clients, names)
+	names.Revision, err = v1a1test.WaitForConfigLatestRevision(clients, names)
 	if err != nil {
 		t.Fatalf("Configuration %s was not updated with the Revision for image %s: %v", names.Config, test.PizzaPlanet2, err)
 	}

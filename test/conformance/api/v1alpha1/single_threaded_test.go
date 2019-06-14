@@ -16,7 +16,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package api
+package v1alpha1
 
 import (
 	"context"
@@ -31,6 +31,7 @@ import (
 	_ "github.com/knative/pkg/system/testing"
 	pkgTest "github.com/knative/pkg/test"
 	"github.com/knative/serving/test"
+	v1a1test "github.com/knative/serving/test/v1alpha1"
 )
 
 func TestSingleConcurrency(t *testing.T) {
@@ -44,7 +45,7 @@ func TestSingleConcurrency(t *testing.T) {
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 	defer test.TearDown(clients, names)
 
-	objects, err := test.CreateRunLatestServiceReady(t, clients, &names, &test.Options{
+	objects, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, &v1a1test.Options{
 		ContainerConcurrency: 1,
 	})
 	if err != nil {
@@ -59,7 +60,7 @@ func TestSingleConcurrency(t *testing.T) {
 		clients.KubeClient,
 		t.Logf,
 		domain,
-		test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
+		v1a1test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
 		"WaitForSuccessfulResponse",
 		test.ServingFlags.ResolvableDomain); err != nil {
 		t.Fatalf("Error probing domain %s: %v", domain, err)

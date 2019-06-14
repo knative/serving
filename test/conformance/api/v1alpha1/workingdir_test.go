@@ -16,13 +16,14 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package api
+package v1alpha1
 
 import (
 	"testing"
 
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/test"
+	v1a1test "github.com/knative/serving/test/v1alpha1"
 )
 
 func TestWorkingDirService(t *testing.T) {
@@ -41,7 +42,7 @@ func TestWorkingDirService(t *testing.T) {
 	const wd = "/foo/bar/baz"
 
 	// Setup initial Service
-	_, err := test.CreateRunLatestServiceReady(t, clients, &names, &test.Options{},
+	_, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, &v1a1test.Options{},
 		func(svc *v1alpha1.Service) {
 			c := &svc.Spec.Template.Spec.Containers[0]
 			c.WorkingDir = wd

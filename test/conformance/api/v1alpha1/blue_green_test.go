@@ -16,7 +16,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package api
+package v1alpha1
 
 import (
 	"context"
@@ -26,6 +26,7 @@ import (
 	_ "github.com/knative/pkg/system/testing"
 	pkgTest "github.com/knative/pkg/test"
 	"github.com/knative/serving/test"
+	v1a1test "github.com/knative/serving/test/v1alpha1"
 	"golang.org/x/sync/errgroup"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -66,7 +67,7 @@ func TestBlueGreenRoute(t *testing.T) {
 
 	// Setup Initial Service
 	t.Log("Creating a new Service in runLatest")
-	objects, err := test.CreateRunLatestServiceReady(t, clients, &names, &test.Options{})
+	objects, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, &v1a1test.Options{})
 	if err != nil {
 		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
 	}
@@ -75,20 +76,20 @@ func TestBlueGreenRoute(t *testing.T) {
 	blue.Revision = names.Revision
 
 	t.Log("Updating the Service to use a different image")
-	svc, err := test.PatchServiceImage(t, clients, objects.Service, imagePaths[1])
+	svc, err := v1a1test.PatchServiceImage(t, clients, objects.Service, imagePaths[1])
 	if err != nil {
 		t.Fatalf("Patch update for Service %s with new image %s failed: %v", names.Service, imagePaths[1], err)
 	}
 	objects.Service = svc
 
 	t.Log("Since the Service was updated a new Revision will be created and the Service will be updated")
-	green.Revision, err = test.WaitForServiceLatestRevision(clients, names)
+	green.Revision, err = v1a1test.WaitForServiceLatestRevision(clients, names)
 	if err != nil {
 		t.Fatalf("Service %s was not updated with the Revision for image %s: %v", names.Service, imagePaths[1], err)
 	}
 
 	t.Log("Updating RouteSpec")
-	if _, err := test.UpdateServiceRouteSpec(t, clients, names, v1alpha1.RouteSpec{
+	if _, err := v1a1test.UpdateServiceRouteSpec(t, clients, names, v1alpha1.RouteSpec{
 		Traffic: []v1alpha1.TrafficTarget{{
 			TrafficTarget: v1beta1.TrafficTarget{
 				Tag:          blue.TrafficTarget,
@@ -107,11 +108,11 @@ func TestBlueGreenRoute(t *testing.T) {
 	}
 
 	t.Log("Wait for the service domains to be ready")
-	if err := test.WaitForServiceState(clients.ServingClient, names.Service, test.IsServiceReady, "ServiceIsReady"); err != nil {
+	if err := v1a1test.WaitForServiceState(clients.ServingAlphaClient, names.Service, v1a1test.IsServiceReady, "ServiceIsReady"); err != nil {
 		t.Fatalf("The Service %s was not marked as Ready to serve traffic: %v", names.Service, err)
 	}
 
-	service, err := clients.ServingClient.Services.Get(names.Service, metav1.GetOptions{})
+	service, err := clients.ServingAlphaClient.Services.Get(names.Service, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Error fetching Service %s: %v", names.Service, err)
 	}
@@ -143,7 +144,7 @@ func TestBlueGreenRoute(t *testing.T) {
 		clients.KubeClient,
 		t.Logf,
 		greenDomain,
-		test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
+		v1a1test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
 		"WaitForSuccessfulResponse",
 		test.ServingFlags.ResolvableDomain); err != nil {
 		t.Fatalf("Error probing domain %s: %v", greenDomain, err)

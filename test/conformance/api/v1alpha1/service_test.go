@@ -16,7 +16,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package api
+package v1alpha1
 
 import (
 	"strconv"
@@ -29,6 +29,7 @@ import (
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 	"github.com/knative/serving/test"
+	v1a1test "github.com/knative/serving/test/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -57,7 +58,7 @@ func TestRunLatestService(t *testing.T) {
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 
 	// Setup initial Service
-	objects, err := test.CreateRunLatestServiceReady(t, clients, &names, &test.Options{})
+	objects, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, &v1a1test.Options{})
 	if err != nil {
 		t.Fatalf("Failed to create initial Service %v: %v", names.Service, err)
 	}
@@ -88,18 +89,18 @@ func TestRunLatestService(t *testing.T) {
 	t.Log("Updating the Service to use a different image.")
 	names.Image = test.PrintPort
 	image2 := pkgTest.ImagePath(names.Image)
-	if _, err := test.PatchServiceImage(t, clients, objects.Service, image2); err != nil {
+	if _, err := v1a1test.PatchServiceImage(t, clients, objects.Service, image2); err != nil {
 		t.Fatalf("Patch update for Service %s with new image %s failed: %v", names.Service, image2, err)
 	}
 
 	t.Log("Service should reflect new revision created and ready in status.")
-	names.Revision, err = test.WaitForServiceLatestRevision(clients, names)
+	names.Revision, err = v1a1test.WaitForServiceLatestRevision(clients, names)
 	if err != nil {
 		t.Fatalf("New image not reflected in Service: %v", err)
 	}
 
 	t.Log("Waiting for Service to transition to Ready.")
-	if err := test.WaitForServiceState(clients.ServingClient, names.Service, test.IsServiceReady, "ServiceIsReady"); err != nil {
+	if err := v1a1test.WaitForServiceState(clients.ServingAlphaClient, names.Service, v1a1test.IsServiceReady, "ServiceIsReady"); err != nil {
 		t.Fatalf("Error waiting for the service to become ready for the latest revision: %v", err)
 	}
 
@@ -119,12 +120,12 @@ func TestRunLatestService(t *testing.T) {
 			"labelY": "def",
 		},
 	}
-	if objects.Service, err = test.PatchServiceTemplateMetadata(t, clients, objects.Service, metadata); err != nil {
+	if objects.Service, err = v1a1test.PatchServiceTemplateMetadata(t, clients, objects.Service, metadata); err != nil {
 		t.Fatalf("Service %s was not updated with labels in its RevisionTemplateSpec: %v", names.Service, err)
 	}
 
 	t.Log("Waiting for the new revision to appear as LatestRevision.")
-	if names.Revision, err = test.WaitForServiceLatestRevision(clients, names); err != nil {
+	if names.Revision, err = v1a1test.WaitForServiceLatestRevision(clients, names); err != nil {
 		t.Fatalf("The Service %s was not updated with new revision %s after updating labels in its RevisionTemplateSpec: %v", names.Service, names.Revision, err)
 	}
 
@@ -136,18 +137,18 @@ func TestRunLatestService(t *testing.T) {
 			"annotationB": "456",
 		},
 	}
-	if objects.Service, err = test.PatchServiceTemplateMetadata(t, clients, objects.Service, metadata); err != nil {
+	if objects.Service, err = v1a1test.PatchServiceTemplateMetadata(t, clients, objects.Service, metadata); err != nil {
 		t.Fatalf("Service %s was not updated with annotation in its RevisionTemplateSpec: %v", names.Service, err)
 	}
 
 	t.Log("Waiting for the new revision to appear as LatestRevision.")
-	names.Revision, err = test.WaitForServiceLatestRevision(clients, names)
+	names.Revision, err = v1a1test.WaitForServiceLatestRevision(clients, names)
 	if err != nil {
 		t.Fatalf("The new revision has not become ready in Service: %v", err)
 	}
 
 	t.Log("Waiting for Service to transition to Ready.")
-	if err := test.WaitForServiceState(clients.ServingClient, names.Service, test.IsServiceReady, "ServiceIsReady"); err != nil {
+	if err := v1a1test.WaitForServiceState(clients.ServingAlphaClient, names.Service, v1a1test.IsServiceReady, "ServiceIsReady"); err != nil {
 		t.Fatalf("Error waiting for the service to become ready for the latest revision: %v", err)
 	}
 
@@ -165,17 +166,17 @@ func TestRunLatestService(t *testing.T) {
 	desiredSvc.Spec.ConfigurationSpec.GetTemplate().Spec.GetContainer().Ports = []corev1.ContainerPort{{
 		ContainerPort: userPort,
 	}}
-	if objects.Service, err = test.PatchService(t, clients, objects.Service, desiredSvc); err != nil {
+	if objects.Service, err = v1a1test.PatchService(t, clients, objects.Service, desiredSvc); err != nil {
 		t.Fatalf("Service %s was not updated with a new port for the user container: %v", names.Service, err)
 	}
 
 	t.Log("Waiting for the new revision to appear as LatestRevision.")
-	if names.Revision, err = test.WaitForServiceLatestRevision(clients, names); err != nil {
+	if names.Revision, err = v1a1test.WaitForServiceLatestRevision(clients, names); err != nil {
 		t.Fatalf("The new revision has not become ready in Service: %v", err)
 	}
 
 	t.Log("Waiting for Service to transition to Ready.")
-	if err := test.WaitForServiceState(clients.ServingClient, names.Service, test.IsServiceReady, "ServiceIsReady"); err != nil {
+	if err := v1a1test.WaitForServiceState(clients.ServingAlphaClient, names.Service, v1a1test.IsServiceReady, "ServiceIsReady"); err != nil {
 		t.Fatalf("Error waiting for the service to become ready for the latest revision: %v", err)
 	}
 
@@ -190,10 +191,10 @@ func TestRunLatestService(t *testing.T) {
 }
 
 func waitForDesiredTrafficShape(t *testing.T, sName string, want map[string]v1alpha1.TrafficTarget, clients *test.Clients) error {
-	return test.WaitForServiceState(
-		clients.ServingClient, sName, func(s *v1alpha1.Service) (bool, error) {
+	return v1a1test.WaitForServiceState(
+		clients.ServingAlphaClient, sName, func(s *v1alpha1.Service) (bool, error) {
 			// IsServiceReady never returns an error.
-			if ok, _ := test.IsServiceReady(s); !ok {
+			if ok, _ := v1a1test.IsServiceReady(s); !ok {
 				return false, nil
 			}
 			// Match the traffic shape.
@@ -229,7 +230,7 @@ func TestRunLatestServiceBYOName(t *testing.T) {
 	revName := names.Service + "-byoname"
 
 	// Setup initial Service
-	objects, err := test.CreateRunLatestServiceReady(t, clients, &names, &test.Options{}, func(svc *v1alpha1.Service) {
+	objects, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, &v1a1test.Options{}, func(svc *v1alpha1.Service) {
 		svc.Spec.ConfigurationSpec.GetTemplate().Name = revName
 	})
 	if err != nil {
@@ -265,7 +266,7 @@ func TestRunLatestServiceBYOName(t *testing.T) {
 	t.Log("Updating the Service to use a different image.")
 	names.Image = test.PrintPort
 	image2 := pkgTest.ImagePath(names.Image)
-	if _, err := test.PatchServiceImage(t, clients, objects.Service, image2); err == nil {
+	if _, err := v1a1test.PatchServiceImage(t, clients, objects.Service, image2); err == nil {
 		t.Fatalf("Patch update for Service %s didn't fail.", names.Service)
 	}
 }
@@ -298,7 +299,7 @@ func TestReleaseService(t *testing.T) {
 	)
 
 	// Setup initial Service
-	objects, err := test.CreateRunLatestServiceReady(t, clients, &names, &test.Options{})
+	objects, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, &v1a1test.Options{})
 	if err != nil {
 		t.Fatalf("Failed to create initial Service %v: %v", names.Service, err)
 	}
@@ -314,7 +315,7 @@ func TestReleaseService(t *testing.T) {
 
 	// 1. One Revision Specified, current == latest.
 	t.Log("1. Updating Service to ReleaseType using lastCreatedRevision")
-	objects.Service, err = test.UpdateServiceRouteSpec(t, clients, names, v1alpha1.RouteSpec{
+	objects.Service, err = v1a1test.UpdateServiceRouteSpec(t, clients, names, v1alpha1.RouteSpec{
 		Traffic: []v1alpha1.TrafficTarget{{
 			TrafficTarget: v1beta1.TrafficTarget{
 				Tag:          "current",
@@ -365,12 +366,12 @@ func TestReleaseService(t *testing.T) {
 
 	// 2. One Revision Specified, current != latest.
 	t.Log("2. Updating the Service Spec with a new image")
-	if objects.Service, err = test.PatchServiceImage(t, clients, objects.Service, releaseImagePath2); err != nil {
+	if objects.Service, err = v1a1test.PatchServiceImage(t, clients, objects.Service, releaseImagePath2); err != nil {
 		t.Fatalf("Patch update for Service %s with new image %s failed: %v", names.Service, releaseImagePath2, err)
 	}
 
 	t.Log("Since the Service was updated a new Revision will be created")
-	if names.Revision, err = test.WaitForServiceLatestRevision(clients, names); err != nil {
+	if names.Revision, err = v1a1test.WaitForServiceLatestRevision(clients, names); err != nil {
 		t.Fatalf("The Service %s was not updated with new revision %s: %v", names.Service, names.Revision, err)
 	}
 	secondRevision := names.Revision
@@ -399,7 +400,7 @@ func TestReleaseService(t *testing.T) {
 
 	// 3. Two Revisions Specified, 50% rollout, candidate == latest.
 	t.Log("3. Updating Service to split traffic between two revisions using Release mode")
-	objects.Service, err = test.UpdateServiceRouteSpec(t, clients, names, v1alpha1.RouteSpec{
+	objects.Service, err = v1a1test.UpdateServiceRouteSpec(t, clients, names, v1alpha1.RouteSpec{
 		Traffic: []v1alpha1.TrafficTarget{{
 			TrafficTarget: v1beta1.TrafficTarget{
 				Tag:          "current",
@@ -464,11 +465,11 @@ func TestReleaseService(t *testing.T) {
 
 	// 4. Two Revisions Specified, 50% rollout, candidate != latest.
 	t.Log("4. Updating the Service Spec with a new image")
-	if objects.Service, err = test.PatchServiceImage(t, clients, objects.Service, releaseImagePath3); err != nil {
+	if objects.Service, err = v1a1test.PatchServiceImage(t, clients, objects.Service, releaseImagePath3); err != nil {
 		t.Fatalf("Patch update for Service %s with new image %s failed: %v", names.Service, releaseImagePath3, err)
 	}
 	t.Log("Since the Service was updated a new Revision will be created")
-	if names.Revision, err = test.WaitForServiceLatestRevision(clients, names); err != nil {
+	if names.Revision, err = v1a1test.WaitForServiceLatestRevision(clients, names); err != nil {
 		t.Fatalf("The Service %s was not updated with new revision %s: %v", names.Service, names.Revision, err)
 	}
 	thirdRevision := names.Revision
@@ -497,7 +498,7 @@ func TestReleaseService(t *testing.T) {
 	// Now update the service to use `@latest` as candidate.
 	t.Log("5. Updating Service to split traffic between two `current` and `@latest`")
 
-	objects.Service, err = test.UpdateServiceRouteSpec(t, clients, names, v1alpha1.RouteSpec{
+	objects.Service, err = v1a1test.UpdateServiceRouteSpec(t, clients, names, v1alpha1.RouteSpec{
 		Traffic: []v1alpha1.TrafficTarget{{
 			TrafficTarget: v1beta1.TrafficTarget{
 				Tag:          "current",
