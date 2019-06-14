@@ -71,4 +71,6 @@ spec:
         resources:
           limits:
             memory: 1000Mi
+          requests:
+            memory: 256Mi
 ---
