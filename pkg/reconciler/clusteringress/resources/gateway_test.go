@@ -105,7 +105,7 @@ var clusterIngress = v1alpha1.ClusterIngress{
 }
 
 func TestGetServers(t *testing.T) {
-	servers := GetServers(&gateway, &clusterIngress)
+	servers := GetServers(&gateway, clusterIngress.Name)
 	expected := []v1alpha3.Server{{
 		Hosts: []string{"host1.example.com"},
 		Port: v1alpha3.Port{
@@ -167,7 +167,7 @@ func TestMakeServers(t *testing.T) {
 				Mode:              v1alpha3.TLSModeSimple,
 				ServerCertificate: "tls.crt",
 				PrivateKey:        "tls.key",
-				CredentialName:    targetSecret(&secret, &clusterIngress),
+				CredentialName:    TargetSecret(&secret, clusterIngress.Name),
 			},
 		}},
 	}, {
@@ -199,7 +199,7 @@ func TestMakeServers(t *testing.T) {
 	}}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			servers, err := MakeServers(c.ci, c.gatewayServiceNamespace, c.originSecrets)
+			servers, err := MakeServers(&c.ci.Spec, c.ci.Name, c.gatewayServiceNamespace, c.originSecrets)
 			if (err != nil) != c.wantErr {
 				t.Fatalf("Test: %s; MakeServers error = %v, WantErr %v", c.name, err, c.wantErr)
 			}

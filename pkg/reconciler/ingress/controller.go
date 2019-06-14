@@ -30,7 +30,7 @@ import (
 	"github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/network"
 	"github.com/knative/serving/pkg/reconciler"
-	"github.com/knative/serving/pkg/reconciler/ingress/config"
+	"github.com/knative/serving/pkg/reconciler/clusteringress/config"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/tools/cache"
 )
@@ -96,7 +96,7 @@ func NewController(
 	resyncIngressesOnConfigChange := configmap.TypeFilter(configsToResync...)(func(string, interface{}) {
 		controller.SendGlobalUpdates(ingressInformer.Informer(), ciHandler)
 	})
-	c.configStore = config.NewStore(c.Logger.Named("config-store"), resyncIngressesOnConfigChange)
+	c.configStore = config.NewStore(c.Logger.Named("config-store"), "ingress", resyncIngressesOnConfigChange)
 	c.configStore.WatchConfigs(cmw)
 	return impl
 }

@@ -57,10 +57,10 @@ type Store struct {
 // after the ConfigMap has been processed and stored.
 //
 // See also: configmap.NewUntypedStore().
-func NewStore(logger configmap.Logger, onAfterStore ...func(name string, value interface{})) *Store {
-	store := &Store{
+func NewStore(logger configmap.Logger, name string, onAfterStore ...func(name string, value interface{})) *Store {
+	return &Store{
 		UntypedStore: configmap.NewUntypedStore(
-			"clusteringress",
+			name,
 			logger,
 			configmap.Constructors{
 				IstioConfigName:    NewIstioFromConfigMap,
@@ -69,8 +69,6 @@ func NewStore(logger configmap.Logger, onAfterStore ...func(name string, value i
 			onAfterStore...,
 		),
 	}
-
-	return store
 }
 
 // ToContext adds Store contents to given context.

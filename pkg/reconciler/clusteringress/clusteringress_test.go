@@ -183,8 +183,8 @@ func TestReconcile(t *testing.T) {
 			ingress("no-virtualservice-yet", 1234),
 		},
 		WantCreates: []runtime.Object{
-			resources.MakeMeshVirtualService(ingress("no-virtualservice-yet", 1234)),
-			resources.MakeIngressVirtualService(ingress("no-virtualservice-yet", 1234),
+			resources.MakeMeshVirtualServiceForCusterIngress(ingress("no-virtualservice-yet", 1234)),
+			resources.MakeVirtualServiceForClusterIngress(ingress("no-virtualservice-yet", 1234),
 				[]string{"knative-test-gateway", "knative-ingress-gateway"}),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
@@ -252,11 +252,11 @@ func TestReconcile(t *testing.T) {
 			},
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: resources.MakeIngressVirtualService(ingress("reconcile-virtualservice", 1234),
+			Object: resources.MakeVirtualServiceForClusterIngress(ingress("reconcile-virtualservice", 1234),
 				[]string{"knative-test-gateway", "knative-ingress-gateway"}),
 		}},
 		WantCreates: []runtime.Object{
-			resources.MakeMeshVirtualService(ingress("reconcile-virtualservice", 1234)),
+			resources.MakeMeshVirtualServiceForCusterIngress(ingress("reconcile-virtualservice", 1234)),
 		},
 		WantDeletes: []clientgotesting.DeleteActionImpl{{
 			ActionImpl: clientgotesting.ActionImpl{
@@ -328,8 +328,8 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 			// The creation of gateways are triggered when setting up the test.
 			gateway("knative-ingress-gateway", system.Namespace(), []v1alpha3.Server{irrelevantServer}),
 
-			resources.MakeMeshVirtualService(ingress("reconciling-clusteringress", 1234)),
-			resources.MakeIngressVirtualService(ingress("reconciling-clusteringress", 1234),
+			resources.MakeMeshVirtualServiceForCusterIngress(ingress("reconciling-clusteringress", 1234)),
+			resources.MakeVirtualServiceForClusterIngress(ingress("reconciling-clusteringress", 1234),
 				[]string{"knative-ingress-gateway"}),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
@@ -381,8 +381,8 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 			originSecret("istio-system", "secret0"),
 		},
 		WantCreates: []runtime.Object{
-			resources.MakeMeshVirtualService(ingress("reconciling-clusteringress", 1234)),
-			resources.MakeIngressVirtualService(ingress("reconciling-clusteringress", 1234),
+			resources.MakeMeshVirtualServiceForCusterIngress(ingress("reconciling-clusteringress", 1234)),
+			resources.MakeVirtualServiceForClusterIngress(ingress("reconciling-clusteringress", 1234),
 				[]string{"knative-ingress-gateway"}),
 		},
 		WantPatches: []clientgotesting.PatchActionImpl{
@@ -460,8 +460,8 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 			// The creation of gateways are triggered when setting up the test.
 			gateway("knative-ingress-gateway", system.Namespace(), []v1alpha3.Server{irrelevantServer}),
 
-			resources.MakeMeshVirtualService(ingress("reconciling-clusteringress", 1234)),
-			resources.MakeIngressVirtualService(ingress("reconciling-clusteringress", 1234),
+			resources.MakeMeshVirtualServiceForCusterIngress(ingress("reconciling-clusteringress", 1234)),
+			resources.MakeVirtualServiceForClusterIngress(ingress("reconciling-clusteringress", 1234),
 				[]string{"knative-ingress-gateway"}),
 
 			// The secret copy under istio-system.
@@ -540,8 +540,8 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 		WantCreates: []runtime.Object{
 			// The creation of gateways are triggered when setting up the test.
 			gateway("knative-ingress-gateway", system.Namespace(), []v1alpha3.Server{*withCredentialName(ingressTLSServer.DeepCopy(), targetSecretName), irrelevantServer}),
-			resources.MakeMeshVirtualService(ingress("reconciling-clusteringress", 1234)),
-			resources.MakeIngressVirtualService(ingress("reconciling-clusteringress", 1234),
+			resources.MakeMeshVirtualServiceForCusterIngress(ingress("reconciling-clusteringress", 1234)),
+			resources.MakeVirtualServiceForClusterIngress(ingress("reconciling-clusteringress", 1234),
 				[]string{"knative-ingress-gateway"}),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{

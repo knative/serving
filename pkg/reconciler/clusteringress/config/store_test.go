@@ -29,7 +29,7 @@ import (
 
 func TestStoreLoadWithContext(t *testing.T) {
 	defer logtesting.ClearAll()
-	store := NewStore(logtesting.TestLogger(t))
+	store := NewStore(logtesting.TestLogger(t), "clusteringress")
 
 	istioConfig := ConfigMapFromTestFile(t, IstioConfigName)
 	networkConfig := ConfigMapFromTestFile(t, network.ConfigName)
@@ -50,7 +50,7 @@ func TestStoreLoadWithContext(t *testing.T) {
 
 func TestStoreImmutableConfig(t *testing.T) {
 	defer logtesting.ClearAll()
-	store := NewStore(logtesting.TestLogger(t))
+	store := NewStore(logtesting.TestLogger(t), "clusteringress")
 
 	store.OnConfigChanged(ConfigMapFromTestFile(t, IstioConfigName))
 	store.OnConfigChanged(ConfigMapFromTestFile(t, network.ConfigName))

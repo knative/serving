@@ -94,7 +94,8 @@ func TestGetSecrets(t *testing.T) {
 	for _, c := range cases {
 		createSecret(c.secret)
 		t.Run(c.name, func(t *testing.T) {
-			secrets, err := GetSecrets(c.ci, secretClient.Lister())
+			secrets, err := GetSecretsForClusterIngress(c.ci, secretClient.Lister())
+
 			if (err != nil) != c.wantErr {
 				t.Fatalf("Test: %s; GetSecrets error = %v, WantErr %v", c.name, err, c.wantErr)
 			}

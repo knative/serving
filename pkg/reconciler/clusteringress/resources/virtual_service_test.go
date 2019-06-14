@@ -98,7 +98,7 @@ func TestMakeVirtualServices_CorrectMetadata(t *testing.T) {
 		}},
 	}} {
 		t.Run(tc.name, func(t *testing.T) {
-			vss := MakeVirtualServices(tc.ci, tc.gateways)
+			vss := MakeVirtualServicesForClusterIngress(tc.ci, tc.gateways)
 			if len(vss) != len(tc.expected) {
 				t.Errorf("Expected %d VirtualService, saw %d", len(tc.expected), len(vss))
 			}
@@ -124,7 +124,7 @@ func TestMakeMeshVirtualServiceSpec_CorrectGateways(t *testing.T) {
 		Spec: v1alpha1.IngressSpec{},
 	}
 	expected := []string{"mesh"}
-	gateways := MakeMeshVirtualService(ci).Spec.Gateways
+	gateways := MakeMeshVirtualServiceForCusterIngress(ci).Spec.Gateways
 	if diff := cmp.Diff(expected, gateways); diff != "" {
 		t.Errorf("Unexpected gateways (-want +got): %v", diff)
 	}
@@ -237,7 +237,7 @@ func TestMakeMeshVirtualServiceSpec_CorrectRoutes(t *testing.T) {
 		WebsocketUpgrade: true,
 	}}
 
-	routes := MakeMeshVirtualService(ci).Spec.HTTP
+	routes := MakeMeshVirtualServiceForCusterIngress(ci).Spec.HTTP
 	if diff := cmp.Diff(expected, routes); diff != "" {
 		t.Errorf("Unexpected routes (-want +got): %v", diff)
 	}
@@ -255,7 +255,7 @@ func TestMakeIngressVirtualServiceSpec_CorrectGateways(t *testing.T) {
 		Spec: v1alpha1.IngressSpec{},
 	}
 	expected := []string{"gateway-one", "gateway-two"}
-	gateways := MakeIngressVirtualService(ci, []string{"gateway-one", "gateway-two"}).Spec.Gateways
+	gateways := MakeVirtualServiceForClusterIngress(ci, []string{"gateway-one", "gateway-two"}).Spec.Gateways
 	if diff := cmp.Diff(expected, gateways); diff != "" {
 		t.Errorf("Unexpected gateways (-want +got): %v", diff)
 	}
@@ -401,7 +401,7 @@ func TestMakeIngressVirtualServiceSpec_CorrectRoutes(t *testing.T) {
 		WebsocketUpgrade: true,
 	}}
 
-	routes := MakeIngressVirtualService(ci, []string{"gateway"}).Spec.HTTP
+	routes := MakeVirtualServiceForClusterIngress(ci, []string{"gateway"}).Spec.HTTP
 	if diff := cmp.Diff(expected, routes); diff != "" {
 		t.Errorf("Unexpected routes (-want +got): %v", diff)
 	}
@@ -523,7 +523,7 @@ func TestGetHosts_Duplicate(t *testing.T) {
 			}},
 		},
 	}
-	hosts := getHosts(ci)
+	hosts := getHosts(&ci.Spec)
 	expected := []string{
 		"test-route1",
 		"test-route2",

@@ -45,10 +45,10 @@ var placeholderServer = v1alpha3.Server{
 }
 
 // GetServers gets the `Servers` from `Gateway` that belongs to the given ClusterIngress.
-func GetServers(gateway *v1alpha3.Gateway, ci *v1alpha1.ClusterIngress) []v1alpha3.Server {
+func GetServers(gateway *v1alpha3.Gateway, name string) []v1alpha3.Server {
 	servers := []v1alpha3.Server{}
 	for i := range gateway.Spec.Servers {
-		if belongsToClusterIngress(&gateway.Spec.Servers[i], ci) {
+		if belongsToClusterIngress(&gateway.Spec.Servers[i], name) {
 			servers = append(servers, gateway.Spec.Servers[i])
 		}
 	}
@@ -65,14 +65,14 @@ func GetHTTPServer(gateway *v1alpha3.Gateway) *v1alpha3.Server {
 	return nil
 }
 
-func belongsToClusterIngress(server *v1alpha3.Server, ci *v1alpha1.ClusterIngress) bool {
+func belongsToClusterIngress(server *v1alpha3.Server, name string) bool {
 	// The format of the portName should be "<clusteringress-name>:<number>".
 	// For example, route-test:0.
 	portNameSplits := strings.Split(server.Port.Name, ":")
 	if len(portNameSplits) != 2 {
 		return false
 	}
-	return portNameSplits[0] == ci.Name
+	return portNameSplits[0] == name
 }
 
 // SortServers sorts `Server` according to its port name.
@@ -85,25 +85,25 @@ func SortServers(servers []v1alpha3.Server) []v1alpha3.Server {
 
 // MakeServers creates the expected Gateway `Servers` based on the given
 // ClusterIngress.
-func MakeServers(ci *v1alpha1.ClusterIngress, gatewayServiceNamespace string, originSecrets map[string]*corev1.Secret) ([]v1alpha3.Server, error) {
+func MakeServers(spec *v1alpha1.IngressSpec, name string, gatewayServiceNamespace string, originSecrets map[string]*corev1.Secret) ([]v1alpha3.Server, error) {
 	servers := []v1alpha3.Server{}
 	// TODO(zhiminx): for the hosts that does not included in the ClusterIngressTLS but listed in the ClusterIngressRule,
 	// do we consider them as hosts for HTTP?
-	for i, tls := range ci.Spec.TLS {
+	for i, tls := range spec.TLS {
 		credentialName := tls.SecretName
 		// If the origin secret is not in the target namespace, then it should have been
 		// copied into the target namespace. So we use the name of the copy.
 		if tls.SecretNamespace != gatewayServiceNamespace {
-			originSecret, ok := originSecrets[secretKey(tls)]
+			originSecret, ok := originSecrets[SecretKey(tls)]
 			if !ok {
 				return nil, fmt.Errorf("unable to get the original secret %s/%s", tls.SecretNamespace, tls.SecretName)
 			}
-			credentialName = targetSecret(originSecret, ci)
+			credentialName = TargetSecret(originSecret, name)
 		}
 		servers = append(servers, v1alpha3.Server{
 			Hosts: tls.Hosts,
 			Port: v1alpha3.Port{
-				Name:     fmt.Sprintf("%s:%d", ci.Name, i),
+				Name:     fmt.Sprintf("%s:%d", name, i),
 				Number:   443,
 				Protocol: v1alpha3.ProtocolHTTPS,
 			},

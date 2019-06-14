@@ -38,8 +38,8 @@ import (
 	"github.com/knative/serving/pkg/apis/serving"
 	listers "github.com/knative/serving/pkg/client/listers/networking/v1alpha1"
 	"github.com/knative/serving/pkg/reconciler"
-	"github.com/knative/serving/pkg/reconciler/ingress/config"
-	"github.com/knative/serving/pkg/reconciler/ingress/resources"
+	"github.com/knative/serving/pkg/reconciler/clusteringress/config"
+	"github.com/knative/serving/pkg/reconciler/clusteringress/resources"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -160,7 +160,7 @@ func (c *Reconciler) reconcile(ctx context.Context, ci *v1alpha1.Ingress) error 
 	logger.Infof("Reconciling ingress: %#v", ci)
 
 	gatewayNames := gatewayNamesFromContext(ctx, ci)
-	vses := resources.MakeVirtualServices(ci, gatewayNames)
+	vses := resources.MakeVirtualServicesForIngress(ci, gatewayNames)
 
 	// First, create the VirtualServices.
 	logger.Infof("Creating/Updating VirtualServices")
@@ -188,7 +188,7 @@ func (c *Reconciler) reconcile(ctx context.Context, ci *v1alpha1.Ingress) error 
 			return err
 		}
 
-		originSecrets, err := resources.GetSecrets(ci, c.secretLister)
+		originSecrets, err := resources.GetSecretsForIngress(ci, c.secretLister)
 		if err != nil {
 			return err
 		}
@@ -202,7 +202,8 @@ func (c *Reconciler) reconcile(ctx context.Context, ci *v1alpha1.Ingress) error 
 			if err != nil {
 				return err
 			}
-			desired, err := resources.MakeServers(ci, ns, originSecrets)
+			desired, err := resources.MakeServers(&ci.Spec, ci.Name, ns, originSecrets)
+
 			if err != nil {
 				return err
 			}
@@ -287,7 +288,7 @@ func (c *Reconciler) reconcileVirtualServices(ctx context.Context, ci *v1alpha1.
 		kept.Insert(d.Name)
 	}
 	// Now, remove the extra ones.
-	vses, err := c.virtualServiceLister.VirtualServices(resources.VirtualServiceNamespace(ci)).List(
+	vses, err := c.virtualServiceLister.VirtualServices(resources.IngressVirtualServiceNamespace(ci)).List(
 		labels.Set(map[string]string{
 			serving.RouteLabelKey:          ci.Labels[serving.RouteLabelKey],
 			serving.RouteNamespaceLabelKey: ci.Labels[serving.RouteNamespaceLabelKey]}).AsSelector())
@@ -406,7 +407,7 @@ func (c *Reconciler) reconcileGateway(ctx context.Context, ci *v1alpha1.Ingress,
 		return err
 	}
 
-	existing := resources.GetServers(gateway, ci)
+	existing := resources.GetServers(gateway, ci.Name)
 	existingHTTPServer := resources.GetHTTPServer(gateway)
 	if existingHTTPServer != nil {
 		existing = append(existing, *existingHTTPServer)

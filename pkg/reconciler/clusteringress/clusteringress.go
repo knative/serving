@@ -161,7 +161,7 @@ func (c *Reconciler) reconcile(ctx context.Context, ci *v1alpha1.ClusterIngress)
 	logger.Infof("Reconciling clusterIngress: %#v", ci)
 
 	gatewayNames := gatewayNamesFromContext(ctx, ci)
-	vses := resources.MakeVirtualServices(ci, gatewayNames)
+	vses := resources.MakeVirtualServicesForClusterIngress(ci, gatewayNames)
 
 	// First, create the VirtualServices.
 	logger.Infof("Creating/Updating VirtualServices")
@@ -189,7 +189,7 @@ func (c *Reconciler) reconcile(ctx context.Context, ci *v1alpha1.ClusterIngress)
 			return err
 		}
 
-		originSecrets, err := resources.GetSecrets(ci, c.secretLister)
+		originSecrets, err := resources.GetSecretsForClusterIngress(ci, c.secretLister)
 		if err != nil {
 			return err
 		}
@@ -203,7 +203,7 @@ func (c *Reconciler) reconcile(ctx context.Context, ci *v1alpha1.ClusterIngress)
 			if err != nil {
 				return err
 			}
-			desired, err := resources.MakeServers(ci, ns, originSecrets)
+			desired, err := resources.MakeServers(&ci.Spec, ci.Name, ns, originSecrets)
 			if err != nil {
 				return err
 			}
@@ -288,7 +288,7 @@ func (c *Reconciler) reconcileVirtualServices(ctx context.Context, ci *v1alpha1.
 		kept.Insert(d.Name)
 	}
 	// Now, remove the extra ones.
-	vses, err := c.virtualServiceLister.VirtualServices(resources.VirtualServiceNamespace(ci)).List(
+	vses, err := c.virtualServiceLister.VirtualServices(resources.ClusterIngressVirtualServiceNamespace(ci)).List(
 		labels.Set(map[string]string{
 			serving.RouteLabelKey:          ci.Labels[serving.RouteLabelKey],
 			serving.RouteNamespaceLabelKey: ci.Labels[serving.RouteNamespaceLabelKey]}).AsSelector())
@@ -407,7 +407,7 @@ func (c *Reconciler) reconcileGateway(ctx context.Context, ci *v1alpha1.ClusterI
 		return err
 	}
 
-	existing := resources.GetServers(gateway, ci)
+	existing := resources.GetServers(gateway, ci.Name)
 	existingHTTPServer := resources.GetHTTPServer(gateway)
 	if existingHTTPServer != nil {
 		existing = append(existing, *existingHTTPServer)
