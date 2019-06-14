@@ -21,7 +21,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/google/go-cmp/cmp"
+	"github.com/knative/pkg/kmp"
 	"github.com/knative/serving/pkg/apis/autoscaling"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/kubernetes-incubator/custom-metrics-apiserver/pkg/provider"
@@ -102,7 +102,9 @@ func TestListAllMetrics(t *testing.T) {
 	provider := NewMetricProvider(staticConcurrency(10.0))
 	got := provider.ListAllMetrics()[0]
 
-	if !cmp.Equal(got, concurrencyMetricInfo) {
+	if equal, err := kmp.SafeEqual(got, concurrencyMetricInfo); err != nil {
+		t.Errorf("Got error comparing output, err = %v", err)
+	} else if !equal {
 		t.Errorf("ListAllMetrics() = %v, want %v", got, concurrencyMetricInfo)
 	}
 }

@@ -29,7 +29,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/metrics/pkg/apis/custom_metrics"
+	cmetrics "k8s.io/metrics/pkg/apis/custom_metrics"
 )
 
 var (
@@ -58,7 +58,7 @@ func NewMetricProvider(metricClient MetricClient) *MetricProvider {
 }
 
 // GetMetricByName implements the interface.
-func (p *MetricProvider) GetMetricByName(name types.NamespacedName, info provider.CustomMetricInfo) (*custom_metrics.MetricValue, error) {
+func (p *MetricProvider) GetMetricByName(name types.NamespacedName, info provider.CustomMetricInfo) (*cmetrics.MetricValue, error) {
 	if !cmp.Equal(info, concurrencyMetricInfo) {
 		return nil, errMetricNotSupported
 	}
@@ -69,8 +69,8 @@ func (p *MetricProvider) GetMetricByName(name types.NamespacedName, info provide
 	}
 	value := *resource.NewQuantity(int64(math.Ceil(concurrency)), resource.DecimalSI)
 
-	return &custom_metrics.MetricValue{
-		Metric: custom_metrics.MetricIdentifier{
+	return &cmetrics.MetricValue{
+		Metric: cmetrics.MetricIdentifier{
 			Name: info.Metric,
 		},
 		Timestamp: metav1.Time{Time: time.Now()},
@@ -79,7 +79,7 @@ func (p *MetricProvider) GetMetricByName(name types.NamespacedName, info provide
 }
 
 // GetMetricBySelector implements the interface.
-func (p *MetricProvider) GetMetricBySelector(namespace string, selector labels.Selector, info provider.CustomMetricInfo) (*custom_metrics.MetricValueList, error) {
+func (p *MetricProvider) GetMetricBySelector(namespace string, selector labels.Selector, info provider.CustomMetricInfo) (*cmetrics.MetricValueList, error) {
 	return nil, errNotImplemented
 }
 
