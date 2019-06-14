@@ -1927,13 +1927,11 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 						}},
 					},
 				},
-				[]netv1alpha1.IngressTLS{
-					{
-						Hosts:           []string{"becomes-ready.default.example.com"},
-						SecretName:      "route-12-34",
-						SecretNamespace: "default",
-					},
-				},
+				[]netv1alpha1.IngressTLS{{
+					Hosts:           []string{"becomes-ready.default.example.com"},
+					SecretName:      "route-12-34",
+					SecretNamespace: "default",
+				}},
 			),
 			simpleK8sService(
 				route("default", "becomes-ready", WithConfigTarget("config"), WithRouteUID("12-34")),

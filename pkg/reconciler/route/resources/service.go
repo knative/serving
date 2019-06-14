@@ -61,8 +61,9 @@ func MakeK8sPlaceholderService(ctx context.Context, route *v1alpha1.Route, targe
 		return nil, err
 	}
 	service.Spec = corev1.ServiceSpec{
-		Type:         corev1.ServiceTypeExternalName,
-		ExternalName: fullName,
+		Type:            corev1.ServiceTypeExternalName,
+		ExternalName:    fullName,
+		SessionAffinity: corev1.ServiceAffinityNone,
 	}
 
 	return service, nil
@@ -122,8 +123,9 @@ func makeServiceSpec(ingress *netv1alpha1.ClusterIngress) (*corev1.ServiceSpec, 
 	switch {
 	case len(balancer.DomainInternal) != 0:
 		return &corev1.ServiceSpec{
-			Type:         corev1.ServiceTypeExternalName,
-			ExternalName: balancer.DomainInternal,
+			Type:            corev1.ServiceTypeExternalName,
+			ExternalName:    balancer.DomainInternal,
+			SessionAffinity: corev1.ServiceAffinityNone,
 		}, nil
 	case len(balancer.Domain) != 0:
 		return &corev1.ServiceSpec{
