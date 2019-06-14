@@ -26,6 +26,7 @@ import (
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	serviceresourcenames "github.com/knative/serving/pkg/reconciler/service/resources/names"
 	"github.com/knative/serving/test"
+	v1a1test "github.com/knative/serving/test/v1alpha1"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -78,7 +79,7 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 				Image:   "helloworld",
 			}
 
-			options := &test.Options{
+			options := &v1a1test.Options{
 				// Give each request 10 seconds to respond.
 				// This is mostly to work around #2897
 				RevisionTimeoutSeconds: 10,
@@ -96,7 +97,7 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 			// Record the overall completion time regardless of success/failure.
 			defer latencies.Add("time-to-done", start)
 
-			svc, err := test.CreateLatestService(t, clients, names, options,
+			svc, err := v1a1test.CreateLatestService(t, clients, names, options,
 				WithResourceRequirements(corev1.ResourceRequirements{
 					Limits: corev1.ResourceList{
 						corev1.ResourceCPU:    resource.MustParse("10m"),
@@ -125,12 +126,12 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 
 			t.Logf("Wait for %s to become ready.", names.Service)
 			var domain string
-			err = test.WaitForServiceState(clients.ServingClient, names.Service, func(s *v1alpha1.Service) (bool, error) {
+			err = v1a1test.WaitForServiceState(clients.ServingClient, names.Service, func(s *v1alpha1.Service) (bool, error) {
 				if s.Status.URL == nil {
 					return false, nil
 				}
 				domain = s.Status.URL.Host
-				return test.IsServiceReady(s)
+				return v1a1test.IsServiceReady(s)
 			}, "ServiceUpdatedWithURL")
 			if err != nil {
 				t.Errorf("WaitForServiceState(w/ Domain) = %v", err)
@@ -143,7 +144,7 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 				clients.KubeClient,
 				t.Logf,
 				domain,
-				test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesBody(helloWorldExpectedOutput))),
+				v1a1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesBody(helloWorldExpectedOutput))),
 				"WaitForEndpointToServeText",
 				test.ServingFlags.ResolvableDomain)
 			if err != nil {

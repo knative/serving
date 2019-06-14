@@ -30,6 +30,7 @@ import (
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/test"
+	v1a1test "github.com/knative/serving/test/v1alpha1"
 	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
 )
@@ -43,7 +44,7 @@ func waitForExpectedResponse(t *testing.T, clients *test.Clients, domain, expect
 	if err != nil {
 		return err
 	}
-	_, err = client.Poll(req, test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.EventuallyMatchesBody(expectedResponse))))
+	_, err = client.Poll(req, v1a1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.EventuallyMatchesBody(expectedResponse))))
 	return err
 }
 
@@ -201,7 +202,7 @@ func validateRunLatestDataPlane(t *testing.T, clients *test.Clients, names test.
 		clients.KubeClient,
 		t.Logf,
 		names.Domain,
-		test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.EventuallyMatchesBody(expectedText))),
+		v1a1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.EventuallyMatchesBody(expectedText))),
 		"WaitForEndpointToServeText",
 		test.ServingFlags.ResolvableDomain)
 	if err != nil {
@@ -216,8 +217,8 @@ func validateRunLatestDataPlane(t *testing.T, clients *test.Clients, names test.
 // runLatest Service's lifecycle so long as the service is in a "Ready" state.
 func validateRunLatestControlPlane(t *testing.T, clients *test.Clients, names test.ResourceNames, expectedGeneration string) error {
 	t.Log("Checking to ensure Revision is in desired state with generation: ", expectedGeneration)
-	err := test.CheckRevisionState(clients.ServingClient, names.Revision, func(r *v1alpha1.Revision) (bool, error) {
-		if ready, err := test.IsRevisionReady(r); !ready {
+	err := v1a1test.CheckRevisionState(clients.ServingClient, names.Revision, func(r *v1alpha1.Revision) (bool, error) {
+		if ready, err := v1a1test.IsRevisionReady(r); !ready {
 			return false, fmt.Errorf("revision %s did not become ready to serve traffic: %v", names.Revision, err)
 		}
 		if r.Status.ImageDigest == "" {
@@ -231,13 +232,13 @@ func validateRunLatestControlPlane(t *testing.T, clients *test.Clients, names te
 	if err != nil {
 		return err
 	}
-	err = test.CheckRevisionState(clients.ServingClient, names.Revision, test.IsRevisionAtExpectedGeneration(expectedGeneration))
+	err = v1a1test.CheckRevisionState(clients.ServingClient, names.Revision, v1a1test.IsRevisionAtExpectedGeneration(expectedGeneration))
 	if err != nil {
 		return fmt.Errorf("revision %s did not have an expected annotation with generation %s: %v", names.Revision, expectedGeneration, err)
 	}
 
 	t.Log("Checking to ensure Configuration is in desired state.")
-	err = test.CheckConfigurationState(clients.ServingClient, names.Config, func(c *v1alpha1.Configuration) (bool, error) {
+	err = v1a1test.CheckConfigurationState(clients.ServingClient, names.Config, func(c *v1alpha1.Configuration) (bool, error) {
 		if c.Status.LatestCreatedRevisionName != names.Revision {
 			return false, fmt.Errorf("the Configuration %s was not updated indicating that the Revision %s was created: %v", names.Config, names.Revision, err)
 		}
@@ -251,7 +252,7 @@ func validateRunLatestControlPlane(t *testing.T, clients *test.Clients, names te
 	}
 
 	t.Log("Checking to ensure Route is in desired state with generation: ", expectedGeneration)
-	err = test.CheckRouteState(clients.ServingClient, names.Route, test.AllRouteTrafficAtRevision(names))
+	err = v1a1test.CheckRouteState(clients.ServingClient, names.Route, v1a1test.AllRouteTrafficAtRevision(names))
 	if err != nil {
 		return fmt.Errorf("the Route %s was not updated to route traffic to the Revision %s: %v", names.Route, names.Revision, err)
 	}
@@ -261,7 +262,7 @@ func validateRunLatestControlPlane(t *testing.T, clients *test.Clients, names te
 
 // Validates labels on Revision, Configuration, and Route objects when created by a Service
 // see spec here: https://github.com/knative/serving/blob/master/docs/spec/spec.md#revision
-func validateLabelsPropagation(t *testing.T, objects test.ResourceObjects, names test.ResourceNames) error {
+func validateLabelsPropagation(t *testing.T, objects v1a1test.ResourceObjects, names test.ResourceNames) error {
 	t.Log("Validate Labels on Revision Object")
 	revision := objects.Revision
 
@@ -289,7 +290,7 @@ func validateLabelsPropagation(t *testing.T, objects test.ResourceObjects, names
 	return nil
 }
 
-func validateAnnotations(objs *test.ResourceObjects) error {
+func validateAnnotations(objs *v1a1test.ResourceObjects) error {
 	// This checks whether the annotations are set on the resources that
 	// expect them to have.
 	// List of issues listing annotations that we check: #1642.
@@ -303,7 +304,7 @@ func validateAnnotations(objs *test.ResourceObjects) error {
 	return nil
 }
 
-func validateReleaseServiceShape(objs *test.ResourceObjects) error {
+func validateReleaseServiceShape(objs *v1a1test.ResourceObjects) error {
 	// Traffic should be routed to the lastest created revision.
 	if got, want := objs.Service.Status.Traffic[0].RevisionName, objs.Config.Status.LatestReadyRevisionName; got != want {
 		return fmt.Errorf("Status.Traffic[0].RevisionsName = %s, want: %s", got, want)

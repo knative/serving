@@ -22,6 +22,7 @@ import (
 	"testing"
 
 	"github.com/knative/serving/test"
+	v1a1test "github.com/knative/serving/test/v1alpha1"
 )
 
 // TestMustHaveCgroupConfigured verifies using the runtime test container that reading from the
@@ -29,7 +30,7 @@ import (
 func TestShouldHaveStdinEOF(t *testing.T) {
 	clients := test.Setup(t)
 
-	_, ri, err := fetchRuntimeInfo(t, clients, &test.Options{})
+	_, ri, err := fetchRuntimeInfo(t, clients, &v1a1test.Options{})
 	if err != nil {
 		t.Fatalf("Error fetching runtime info: %v", err)
 	}

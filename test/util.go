@@ -16,9 +16,7 @@ package test
 import (
 	"context"
 	"net/http"
-	"testing"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/knative/pkg/signals"
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
@@ -28,11 +26,6 @@ import (
 const HelloVolumePath = "/hello/world"
 
 // util.go provides shared utilities methods across knative serving test
-
-// LogResourceObject logs the resource object with the resource name and value
-func LogResourceObject(t *testing.T, value ResourceObjects) {
-	t.Logf("resource %s", spew.Sprint(value))
-}
 
 // ListenAndServeGracefully calls into ListenAndServeGracefullyWithPattern
 // by passing handler to handle requests for "/"

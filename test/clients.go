@@ -21,7 +21,7 @@ package test
 import (
 	"github.com/knative/pkg/test"
 	"github.com/knative/serving/pkg/client/clientset/versioned"
-	servingtyped "github.com/knative/serving/pkg/client/clientset/versioned/typed/serving/v1alpha1"
+	servingv1alpha1 "github.com/knative/serving/pkg/client/clientset/versioned/typed/serving/v1alpha1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/dynamic"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/oidc"
@@ -38,10 +38,10 @@ type Clients struct {
 
 // ServingClients holds instances of interfaces for making requests to knative serving clients
 type ServingClients struct {
-	Routes    servingtyped.RouteInterface
-	Configs   servingtyped.ConfigurationInterface
-	Revisions servingtyped.RevisionInterface
-	Services  servingtyped.ServiceInterface
+	Routes    servingv1alpha1.RouteInterface
+	Configs   servingv1alpha1.ConfigurationInterface
+	Revisions servingv1alpha1.RevisionInterface
+	Services  servingv1alpha1.ServiceInterface
 }
 
 // NewClients instantiates and returns several clientsets required for making request to the

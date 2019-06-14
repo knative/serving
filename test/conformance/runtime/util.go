@@ -23,6 +23,7 @@ import (
 
 	pkgTest "github.com/knative/pkg/test"
 	reconciler "github.com/knative/serving/pkg/testing/v1alpha1"
+	v1a1test "github.com/knative/serving/test/v1alpha1"
 
 	"github.com/knative/serving/test"
 	"github.com/knative/serving/test/types"
@@ -30,17 +31,17 @@ import (
 
 // fetchRuntimeInfoUnprivileged creates a Service that uses the 'runtime-unprivileged' test image, and extracts the returned output into the
 // RuntimeInfo object.
-func fetchRuntimeInfoUnprivileged(t *testing.T, clients *test.Clients, options *test.Options, opts ...reconciler.ServiceOption) (*test.ResourceNames, *types.RuntimeInfo, error) {
+func fetchRuntimeInfoUnprivileged(t *testing.T, clients *test.Clients, options *v1a1test.Options, opts ...reconciler.ServiceOption) (*test.ResourceNames, *types.RuntimeInfo, error) {
 	return runtimeInfo(t, clients, &test.ResourceNames{Image: test.RuntimeUnprivileged}, options, opts...)
 }
 
 // fetchRuntimeInfo creates a Service that uses the 'runtime' test image, and extracts the returned output into the
 // RuntimeInfo object. The 'runtime' image uses uid 0.
-func fetchRuntimeInfo(t *testing.T, clients *test.Clients, options *test.Options, opts ...reconciler.ServiceOption) (*test.ResourceNames, *types.RuntimeInfo, error) {
+func fetchRuntimeInfo(t *testing.T, clients *test.Clients, options *v1a1test.Options, opts ...reconciler.ServiceOption) (*test.ResourceNames, *types.RuntimeInfo, error) {
 	return runtimeInfo(t, clients, &test.ResourceNames{}, options, opts...)
 }
 
-func runtimeInfo(t *testing.T, clients *test.Clients, names *test.ResourceNames, options *test.Options, opts ...reconciler.ServiceOption) (*test.ResourceNames, *types.RuntimeInfo, error) {
+func runtimeInfo(t *testing.T, clients *test.Clients, names *test.ResourceNames, options *v1a1test.Options, opts ...reconciler.ServiceOption) (*test.ResourceNames, *types.RuntimeInfo, error) {
 	names.Service = test.ObjectNameForTest(t)
 	if names.Image == "" {
 		names.Image = test.Runtime
@@ -51,7 +52,7 @@ func runtimeInfo(t *testing.T, clients *test.Clients, names *test.ResourceNames,
 	defer test.TearDown(clients, *names)
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, *names) })
 
-	objects, err := test.CreateRunLatestServiceReady(t, clients, names, options, opts...)
+	objects, err := v1a1test.CreateRunLatestServiceReady(t, clients, names, options, opts...)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -60,7 +61,7 @@ func runtimeInfo(t *testing.T, clients *test.Clients, names *test.ResourceNames,
 		clients.KubeClient,
 		t.Logf,
 		objects.Service.Status.URL.Host,
-		test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
+		v1a1test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
 		"RuntimeInfo",
 		test.ServingFlags.ResolvableDomain)
 	if err != nil {

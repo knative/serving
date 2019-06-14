@@ -25,6 +25,7 @@ import (
 	"github.com/knative/serving/pkg/apis/autoscaling"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/test"
+	v1a1test "github.com/knative/serving/test/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -38,7 +39,7 @@ func TestMinScale(t *testing.T) {
 		Image:  "helloworld",
 	}
 
-	if _, err := test.CreateConfiguration(t, clients, names, &test.Options{}, func(cfg *v1alpha1.Configuration) {
+	if _, err := v1a1test.CreateConfiguration(t, clients, names, &v1a1test.Options{}, func(cfg *v1alpha1.Configuration) {
 		if cfg.Spec.Template.Annotations == nil {
 			cfg.Spec.Template.Annotations = make(map[string]string)
 		}
@@ -53,7 +54,7 @@ func TestMinScale(t *testing.T) {
 	defer test.TearDown(clients, names)
 
 	// Wait for the Config have a LatestCreatedRevisionName
-	if err := test.WaitForConfigurationState(clients.ServingClient, names.Config, test.ConfigurationHasCreatedRevision, "ConfigurationHasCreatedRevision"); err != nil {
+	if err := v1a1test.WaitForConfigurationState(clients.ServingClient, names.Config, v1a1test.ConfigurationHasCreatedRevision, "ConfigurationHasCreatedRevision"); err != nil {
 		t.Fatalf("The Configuration %q does not have a LatestCreatedRevisionName: %v", names.Config, err)
 	}
 
@@ -64,7 +65,7 @@ func TestMinScale(t *testing.T) {
 
 	revName := config.Status.LatestCreatedRevisionName
 
-	if err = test.WaitForRevisionState(clients.ServingClient, revName, test.IsRevisionReady, "RevisionIsReady"); err != nil {
+	if err = v1a1test.WaitForRevisionState(clients.ServingClient, revName, v1a1test.IsRevisionReady, "RevisionIsReady"); err != nil {
 		t.Fatal("Revision did not become ready.")
 	}
 

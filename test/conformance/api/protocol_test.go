@@ -26,6 +26,7 @@ import (
 	pkgTest "github.com/knative/pkg/test"
 	"github.com/knative/pkg/test/spoof"
 	"github.com/knative/serving/test"
+	v1a1test "github.com/knative/serving/test/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -69,7 +70,7 @@ func (pt *protocolsTest) makeRequest(domain string) *spoof.Response {
 
 	resp, err := pkgTest.WaitForEndpointState(
 		pt.clients.KubeClient, pt.t.Logf, domain,
-		test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
+		v1a1test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
 		pt.t.Name(), test.ServingFlags.ResolvableDomain,
 	)
 	if err != nil {
@@ -81,10 +82,10 @@ func (pt *protocolsTest) makeRequest(domain string) *spoof.Response {
 	return resp
 }
 
-func (pt *protocolsTest) createService(options *test.Options) string {
+func (pt *protocolsTest) createService(options *v1a1test.Options) string {
 	pt.t.Logf("Creating service %q with options: %#v", pt.names.Service, options)
 
-	objects, err := test.CreateRunLatestServiceReady(pt.t, pt.clients, &pt.names, options)
+	objects, err := v1a1test.CreateRunLatestServiceReady(pt.t, pt.clients, &pt.names, options)
 	if err != nil {
 		pt.t.Fatalf("Failed to create service %v", err)
 	}
@@ -101,8 +102,8 @@ func (p *protocol) String() string {
 	return fmt.Sprintf("HTTP/%d.%d", p.Major, p.Minor)
 }
 
-func portOption(portname string) *test.Options {
-	options := &test.Options{}
+func portOption(portname string) *v1a1test.Options {
+	options := &v1a1test.Options{}
 
 	if portname != "" {
 		options.ContainerPorts = []corev1.ContainerPort{{Name: portname, ContainerPort: 8080}}

@@ -24,6 +24,7 @@ import (
 	pkgTest "github.com/knative/pkg/test"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/test"
+	v1a1test "github.com/knative/serving/test/v1alpha1"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -35,7 +36,7 @@ func checkResponse(t *testing.T, clients *test.Clients, names test.ResourceNames
 		clients.KubeClient,
 		t.Logf,
 		names.Domain,
-		test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.EventuallyMatchesBody(expectedText))),
+		v1a1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.EventuallyMatchesBody(expectedText))),
 		"WaitForEndpointToServeText",
 		test.ServingFlags.ResolvableDomain)
 	if err != nil {
@@ -58,7 +59,7 @@ func TestMultipleNamespace(t *testing.T) {
 		Image:   pizzaPlanet1,
 	}
 	defer test.TearDown(defaultClients, defaultResources)
-	if _, err := test.CreateRunLatestServiceReady(t, defaultClients, &defaultResources, &test.Options{}); err != nil {
+	if _, err := v1a1test.CreateRunLatestServiceReady(t, defaultClients, &defaultResources, &v1a1test.Options{}); err != nil {
 		t.Fatalf("Failed to create Service %v in namespace %v: %v", defaultResources.Service, test.ServingNamespace, err)
 	}
 
@@ -67,7 +68,7 @@ func TestMultipleNamespace(t *testing.T) {
 		Image:   pizzaPlanet2,
 	}
 	defer test.TearDown(altClients, altResources)
-	if _, err := test.CreateRunLatestServiceReady(t, altClients, &altResources, &test.Options{}); err != nil {
+	if _, err := v1a1test.CreateRunLatestServiceReady(t, altClients, &altResources, &v1a1test.Options{}); err != nil {
 		t.Fatalf("Failed to create Service %v in namespace %v: %v", altResources.Service, test.AlternativeServingNamespace, err)
 	}
 
@@ -117,7 +118,7 @@ func TestConflictingRouteService(t *testing.T) {
 
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 	defer test.TearDown(clients, names)
-	if _, err := test.CreateRunLatestServiceReady(t, clients, &names, &test.Options{}); err != nil {
+	if _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, &v1a1test.Options{}); err != nil {
 		t.Errorf("Failed to create Service %v in namespace %v: %v", names.Service, test.ServingNamespace, err)
 	}
 }
