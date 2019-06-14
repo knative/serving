@@ -287,7 +287,8 @@ func (c *Reconciler) createConfiguration(service *v1alpha1.Service) (*v1alpha1.C
 
 func configSemanticEquals(desiredConfig, config *v1alpha1.Configuration) bool {
 	return equality.Semantic.DeepEqual(desiredConfig.Spec, config.Spec) &&
-		equality.Semantic.DeepEqual(desiredConfig.ObjectMeta.Labels, config.ObjectMeta.Labels)
+		equality.Semantic.DeepEqual(desiredConfig.ObjectMeta.Labels, config.ObjectMeta.Labels) &&
+		equality.Semantic.DeepEqual(desiredConfig.ObjectMeta.Annotations, config.ObjectMeta.Annotations)
 }
 
 // ignoreRouteLabelChange sets desiredConfig[serving.RouteLabelKey] to
@@ -330,6 +331,7 @@ func (c *Reconciler) reconcileConfiguration(ctx context.Context, service *v1alph
 	// Preserve the rest of the object (e.g. ObjectMeta except for labels).
 	existing.Spec = desiredConfig.Spec
 	existing.ObjectMeta.Labels = desiredConfig.ObjectMeta.Labels
+	existing.ObjectMeta.Annotations = desiredConfig.ObjectMeta.Annotations
 	return c.ServingClientSet.ServingV1alpha1().Configurations(service.Namespace).Update(existing)
 }
 

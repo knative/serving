@@ -735,6 +735,12 @@ func TestReconcile(t *testing.T) {
 		},
 		Key: "foo/update-annos",
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: config("update-annos", "foo", WithRunLatestRollout,
+				func(s *v1alpha1.Configuration) {
+					s.Annotations = presources.UnionMaps(s.Annotations,
+						map[string]string{"new-key": "new-value"})
+				}),
+		}, {
 			Object: route("update-annos", "foo", WithRunLatestRollout,
 				func(s *v1alpha1.Route) {
 					s.Annotations = presources.UnionMaps(s.Annotations,
