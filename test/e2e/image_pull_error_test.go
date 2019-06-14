@@ -19,7 +19,6 @@ package e2e
 
 import (
 	"fmt"
-	"strings"
 	"testing"
 
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
@@ -31,12 +30,6 @@ import (
 
 func TestImagePullError(t *testing.T) {
 	clients := Setup(t)
-	const (
-		backoffMsg    = "Back-off pulling image"
-		backoffReason = "ImagePullBackOff"
-		daemonMsg     = "Error response from daemon: manifest for"
-		daemonReason  = "ErrImagePull"
-	)
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
 		// TODO: Replace this when sha256 is broken.
@@ -61,8 +54,7 @@ func TestImagePullError(t *testing.T) {
 		cond := r.Status.GetCondition(v1alpha1.ConfigurationConditionReady)
 		if cond != nil && !cond.IsUnknown() {
 			if cond.IsFalse() {
-				if strings.Contains(cond.Message, backoffMsg) ||
-					strings.Contains(cond.Message, daemonMsg) {
+				if cond.Reason == "RevisionFailed" {
 					return true, nil
 				}
 			}
@@ -86,8 +78,7 @@ func TestImagePullError(t *testing.T) {
 	err = v1a1test.CheckRevisionState(clients.ServingAlphaClient, revisionName, func(r *v1alpha1.Revision) (bool, error) {
 		cond := r.Status.GetCondition(v1alpha1.RevisionConditionReady)
 		if cond != nil {
-			if (cond.Reason == backoffReason && strings.Contains(cond.Message, backoffMsg)) ||
-				(cond.Reason == daemonReason && strings.Contains(cond.Message, daemonMsg)) {
+			if cond.Reason == "ImagePullBackOff" || cond.Reason == "ErrImagePull" {
 				return true, nil
 			}
 			return true, fmt.Errorf("the revision %s was not marked with expected error condition, but with (Reason=%q, Message=%q)",
