@@ -14,36 +14,40 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package kubeclient
+package factory
 
 import (
 	"context"
 
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
-
-	"github.com/knative/pkg/injection"
 	"github.com/knative/pkg/logging"
+
+	informers "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions"
+
+	"github.com/knative/pkg/controller"
+	"github.com/knative/pkg/injection"
+	"github.com/knative/pkg/injection/clients/apiextclient"
 )
 
 func init() {
-	injection.Default.RegisterClient(withClient)
+	injection.Default.RegisterInformerFactory(withInformerFactory)
 }
 
 // Key is used as the key for associating information
 // with a context.Context.
 type Key struct{}
 
-func withClient(ctx context.Context, cfg *rest.Config) context.Context {
-	return context.WithValue(ctx, Key{}, kubernetes.NewForConfigOrDie(cfg))
+func withInformerFactory(ctx context.Context) context.Context {
+	axc := apiextclient.Get(ctx)
+	return context.WithValue(ctx, Key{},
+		informers.NewSharedInformerFactory(axc, controller.GetResyncPeriod(ctx)))
 }
 
-// Get extracts the Kubernetes client from the context.
-func Get(ctx context.Context) kubernetes.Interface {
+// Get extracts the Kubernetes Api Extensions InformerFactory from the context.
+func Get(ctx context.Context) informers.SharedInformerFactory {
 	untyped := ctx.Value(Key{})
 	if untyped == nil {
 		logging.FromContext(ctx).Panicf(
-			"Unable to fetch %T from context.", (kubernetes.Interface)(nil))
+			"Unable to fetch %T from context.", (informers.SharedInformerFactory)(nil))
 	}
-	return untyped.(kubernetes.Interface)
+	return untyped.(informers.SharedInformerFactory)
 }

@@ -14,13 +14,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+readonly ROOT_DIR=$(dirname $0)/..
+source ${ROOT_DIR}/vendor/github.com/knative/test-infra/scripts/library.sh
+
 set -o errexit
 set -o nounset
 set -o pipefail
 
-source $(dirname $0)/../vendor/github.com/knative/test-infra/scripts/library.sh
-
-cd ${REPO_ROOT_DIR}
+cd ${ROOT_DIR}
 
 # Ensure we have everything we need under vendor/
 dep ensure
@@ -30,7 +31,7 @@ sed -n '11,41p' vendor/bitbucket.org/ww/goautoneg/README.txt > vendor/bitbucket.
 
 rm -rf $(find vendor/ -name 'OWNERS')
 rm -rf $(find vendor/ -name '*_test.go')
-rm -fr vendor/github.com/knative/test-infra/devstats
+rm -rf vendor/github.com/knative/test-infra/devstats
 
 update_licenses third_party/VENDOR-LICENSE "./cmd/*"
 remove_broken_symlinks ./vendor

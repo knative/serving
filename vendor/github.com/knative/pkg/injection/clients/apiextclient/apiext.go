@@ -14,40 +14,36 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package fake
+package apiextclient
 
 import (
 	"context"
 
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/kubernetes/fake"
+	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/client-go/rest"
 
 	"github.com/knative/pkg/injection"
-	"github.com/knative/pkg/injection/clients/kubeclient"
 	"github.com/knative/pkg/logging"
 )
 
 func init() {
-	injection.Fake.RegisterClient(withClient)
+	injection.Default.RegisterClient(withClient)
 }
+
+// Key is used as the key for associating information
+// with a context.Context.
+type Key struct{}
 
 func withClient(ctx context.Context, cfg *rest.Config) context.Context {
-	ctx, _ = With(ctx)
-	return ctx
+	return context.WithValue(ctx, Key{}, clientset.NewForConfigOrDie(cfg))
 }
 
-func With(ctx context.Context, objects ...runtime.Object) (context.Context, *fake.Clientset) {
-	cs := fake.NewSimpleClientset(objects...)
-	return context.WithValue(ctx, kubeclient.Key{}, cs), cs
-}
-
-// Get extracts the Kubernetes client from the context.
-func Get(ctx context.Context) *fake.Clientset {
-	untyped := ctx.Value(kubeclient.Key{})
+// Get extracts the Kubernetes Api Extensions client from the context.
+func Get(ctx context.Context) clientset.Interface {
+	untyped := ctx.Value(Key{})
 	if untyped == nil {
 		logging.FromContext(ctx).Panicf(
-			"Unable to fetch %T from context.", (*fake.Clientset)(nil))
+			"Unable to fetch %T from context.", (clientset.Interface)(nil))
 	}
-	return untyped.(*fake.Clientset)
+	return untyped.(clientset.Interface)
 }
