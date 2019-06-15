@@ -14,36 +14,39 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package kubeclient
+package crd
 
 import (
 	"context"
 
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
+	apiextv1beta1 "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions/apiextensions/v1beta1"
 
+	"github.com/knative/pkg/controller"
 	"github.com/knative/pkg/injection"
+	"github.com/knative/pkg/injection/informers/apiextinformers/factory"
 	"github.com/knative/pkg/logging"
 )
 
 func init() {
-	injection.Default.RegisterClient(withClient)
+	injection.Default.RegisterInformer(withInformer)
 }
 
 // Key is used as the key for associating information
 // with a context.Context.
 type Key struct{}
 
-func withClient(ctx context.Context, cfg *rest.Config) context.Context {
-	return context.WithValue(ctx, Key{}, kubernetes.NewForConfigOrDie(cfg))
+func withInformer(ctx context.Context) (context.Context, controller.Informer) {
+	f := factory.Get(ctx)
+	inf := f.Apiextensions().V1beta1().CustomResourceDefinitions()
+	return context.WithValue(ctx, Key{}, inf), inf.Informer()
 }
 
-// Get extracts the Kubernetes client from the context.
-func Get(ctx context.Context) kubernetes.Interface {
+// Get extracts the Kubernetes Deployment informer from the context.
+func Get(ctx context.Context) apiextv1beta1.CustomResourceDefinitionInformer {
 	untyped := ctx.Value(Key{})
 	if untyped == nil {
 		logging.FromContext(ctx).Panicf(
-			"Unable to fetch %T from context.", (kubernetes.Interface)(nil))
+			"Unable to fetch %T from context.", (apiextv1beta1.CustomResourceDefinitionInformer)(nil))
 	}
-	return untyped.(kubernetes.Interface)
+	return untyped.(apiextv1beta1.CustomResourceDefinitionInformer)
 }

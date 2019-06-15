@@ -14,39 +14,27 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package factory
+package fake
 
 import (
 	"context"
 
-	"k8s.io/client-go/informers"
+	informers "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions"
 
 	"github.com/knative/pkg/controller"
 	"github.com/knative/pkg/injection"
-	"github.com/knative/pkg/injection/clients/kubeclient"
-	"github.com/knative/pkg/logging"
+	"github.com/knative/pkg/injection/clients/apiextclient/fake"
+	"github.com/knative/pkg/injection/informers/apiextinformers/factory"
 )
 
-func init() {
-	injection.Default.RegisterInformerFactory(withInformerFactory)
-}
+var Get = factory.Get
 
-// Key is used as the key for associating information
-// with a context.Context.
-type Key struct{}
+func init() {
+	injection.Fake.RegisterInformerFactory(withInformerFactory)
+}
 
 func withInformerFactory(ctx context.Context) context.Context {
-	kc := kubeclient.Get(ctx)
-	return context.WithValue(ctx, Key{},
+	kc := fake.Get(ctx)
+	return context.WithValue(ctx, factory.Key{},
 		informers.NewSharedInformerFactory(kc, controller.GetResyncPeriod(ctx)))
-}
-
-// Get extracts the Kubernetes InformerFactory from the context.
-func Get(ctx context.Context) informers.SharedInformerFactory {
-	untyped := ctx.Value(Key{})
-	if untyped == nil {
-		logging.FromContext(ctx).Panicf(
-			"Unable to fetch %T from context.", (informers.SharedInformerFactory)(nil))
-	}
-	return untyped.(informers.SharedInformerFactory)
 }

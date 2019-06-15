@@ -19,12 +19,12 @@ package fake
 import (
 	"context"
 
+	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/fake"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/rest"
 
 	"github.com/knative/pkg/injection"
-	"github.com/knative/pkg/injection/clients/kubeclient"
+	"github.com/knative/pkg/injection/clients/apiextclient"
 	"github.com/knative/pkg/logging"
 )
 
@@ -39,12 +39,12 @@ func withClient(ctx context.Context, cfg *rest.Config) context.Context {
 
 func With(ctx context.Context, objects ...runtime.Object) (context.Context, *fake.Clientset) {
 	cs := fake.NewSimpleClientset(objects...)
-	return context.WithValue(ctx, kubeclient.Key{}, cs), cs
+	return context.WithValue(ctx, apiextclient.Key{}, cs), cs
 }
 
-// Get extracts the Kubernetes client from the context.
+// Get extracts the Kubernetes Api Extensions client from the context.
 func Get(ctx context.Context) *fake.Clientset {
-	untyped := ctx.Value(kubeclient.Key{})
+	untyped := ctx.Value(apiextclient.Key{})
 	if untyped == nil {
 		logging.FromContext(ctx).Panicf(
 			"Unable to fetch %T from context.", (*fake.Clientset)(nil))

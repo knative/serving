@@ -14,36 +14,39 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package kubeclient
+package job
 
 import (
 	"context"
 
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
+	batchv1 "k8s.io/client-go/informers/batch/v1"
 
+	"github.com/knative/pkg/controller"
 	"github.com/knative/pkg/injection"
+	"github.com/knative/pkg/injection/informers/kubeinformers/factory"
 	"github.com/knative/pkg/logging"
 )
 
 func init() {
-	injection.Default.RegisterClient(withClient)
+	injection.Default.RegisterInformer(withInformer)
 }
 
 // Key is used as the key for associating information
 // with a context.Context.
 type Key struct{}
 
-func withClient(ctx context.Context, cfg *rest.Config) context.Context {
-	return context.WithValue(ctx, Key{}, kubernetes.NewForConfigOrDie(cfg))
+func withInformer(ctx context.Context) (context.Context, controller.Informer) {
+	f := factory.Get(ctx)
+	inf := f.Batch().V1().Jobs()
+	return context.WithValue(ctx, Key{}, inf), inf.Informer()
 }
 
-// Get extracts the Kubernetes client from the context.
-func Get(ctx context.Context) kubernetes.Interface {
+// Get extracts the Kubernetes Job informer from the context.
+func Get(ctx context.Context) batchv1.JobInformer {
 	untyped := ctx.Value(Key{})
 	if untyped == nil {
 		logging.FromContext(ctx).Panicf(
-			"Unable to fetch %T from context.", (kubernetes.Interface)(nil))
+			"Unable to fetch %T from context.", (batchv1.JobInformer)(nil))
 	}
-	return untyped.(kubernetes.Interface)
+	return untyped.(batchv1.JobInformer)
 }

@@ -14,39 +14,25 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package secret
+package fake
 
 import (
 	"context"
 
-	corev1 "k8s.io/client-go/informers/core/v1"
-
 	"github.com/knative/pkg/controller"
 	"github.com/knative/pkg/injection"
-	"github.com/knative/pkg/injection/informers/kubeinformers/factory"
-	"github.com/knative/pkg/logging"
+	"github.com/knative/pkg/injection/informers/kubeinformers/batchv1/job"
+	"github.com/knative/pkg/injection/informers/kubeinformers/factory/fake"
 )
 
-func init() {
-	injection.Default.RegisterInformer(withInformer)
-}
+var Get = job.Get
 
-// Key is used as the key for associating information
-// with a context.Context.
-type Key struct{}
+func init() {
+	injection.Fake.RegisterInformer(withInformer)
+}
 
 func withInformer(ctx context.Context) (context.Context, controller.Informer) {
-	f := factory.Get(ctx)
-	inf := f.Core().V1().Secrets()
-	return context.WithValue(ctx, Key{}, inf), inf.Informer()
-}
-
-// Get extracts the Kubernetes Secret informer from the context.
-func Get(ctx context.Context) corev1.SecretInformer {
-	untyped := ctx.Value(Key{})
-	if untyped == nil {
-		logging.FromContext(ctx).Panicf(
-			"Unable to fetch %T from context.", (corev1.SecretInformer)(nil))
-	}
-	return untyped.(corev1.SecretInformer)
+	f := fake.Get(ctx)
+	inf := f.Batch().V1().Jobs()
+	return context.WithValue(ctx, job.Key{}, inf), inf.Informer()
 }
