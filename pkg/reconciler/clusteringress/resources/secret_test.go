@@ -56,7 +56,20 @@ var ci = v1alpha1.ClusterIngress{
 	},
 }
 
-func TestGetSecrets(t *testing.T) {
+var ingress = v1alpha1.Ingress{
+	ObjectMeta: metav1.ObjectMeta{
+		Name: "ingress",
+	},
+	Spec: v1alpha1.IngressSpec{
+		TLS: []v1alpha1.IngressTLS{{
+			Hosts:           []string{"example.com"},
+			SecretName:      "secret0",
+			SecretNamespace: "knative-serving",
+		}},
+	},
+}
+
+func TestGetSecretsForClusterIngress(t *testing.T) {
 	kubeClient := fakek8s.NewSimpleClientset()
 	secretClient := kubeinformers.NewSharedInformerFactory(kubeClient, 0).Core().V1().Secrets()
 	createSecret := func(secret *corev1.Secret) {
@@ -95,6 +108,56 @@ func TestGetSecrets(t *testing.T) {
 		createSecret(c.secret)
 		t.Run(c.name, func(t *testing.T) {
 			secrets, err := GetSecretsForClusterIngress(c.ci, secretClient.Lister())
+
+			if (err != nil) != c.wantErr {
+				t.Fatalf("Test: %s; GetSecrets error = %v, WantErr %v", c.name, err, c.wantErr)
+			}
+			if diff := cmp.Diff(c.expected, secrets); diff != "" {
+				t.Errorf("Unexpected secrets (-want, +got): %v", diff)
+			}
+		})
+	}
+}
+
+func TestGetSecretsForIngress(t *testing.T) {
+	kubeClient := fakek8s.NewSimpleClientset()
+	secretClient := kubeinformers.NewSharedInformerFactory(kubeClient, 0).Core().V1().Secrets()
+	createSecret := func(secret *corev1.Secret) {
+		kubeClient.CoreV1().Secrets(secret.Namespace).Create(secret)
+		secretClient.Informer().GetIndexer().Add(secret)
+	}
+
+	cases := []struct {
+		name     string
+		secret   *corev1.Secret
+		ingress  *v1alpha1.Ingress
+		expected map[string]*corev1.Secret
+		wantErr  bool
+	}{{
+		name:    "Get secrets successfully.",
+		secret:  &testSecret,
+		ingress: &ingress,
+		expected: map[string]*corev1.Secret{
+			"knative-serving/secret0": &testSecret,
+		},
+	}, {
+		name:   "Fail to get secrets",
+		secret: &corev1.Secret{},
+		ingress: &v1alpha1.Ingress{
+			Spec: v1alpha1.IngressSpec{
+				TLS: []v1alpha1.IngressTLS{{
+					Hosts:           []string{"example.com"},
+					SecretName:      "no-exist-secret",
+					SecretNamespace: "no-exist-namespace",
+				}},
+			},
+		},
+		wantErr: true,
+	}}
+	for _, c := range cases {
+		createSecret(c.secret)
+		t.Run(c.name, func(t *testing.T) {
+			secrets, err := GetSecretsForIngress(c.ingress, secretClient.Lister())
 
 			if (err != nil) != c.wantErr {
 				t.Fatalf("Test: %s; GetSecrets error = %v, WantErr %v", c.name, err, c.wantErr)
