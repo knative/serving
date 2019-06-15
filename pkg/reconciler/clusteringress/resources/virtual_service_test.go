@@ -24,6 +24,7 @@ import (
 	istiov1alpha1 "github.com/knative/pkg/apis/istio/common/v1alpha1"
 	"github.com/knative/pkg/apis/istio/v1alpha3"
 	"github.com/knative/pkg/kmeta"
+	"github.com/knative/pkg/system"
 	_ "github.com/knative/pkg/system/testing"
 	apiconfig "github.com/knative/serving/pkg/apis/config"
 	"github.com/knative/serving/pkg/apis/networking"
@@ -108,6 +109,80 @@ func TestMakeVirtualServicesForIngress_CorrectMetadata(t *testing.T) {
 			}
 			for i := range tc.expected {
 				tc.expected[i].OwnerReferences = []metav1.OwnerReference{*kmeta.NewControllerRef(tc.ingress)}
+				if diff := cmp.Diff(tc.expected[i], vss[i].ObjectMeta); diff != "" {
+					t.Errorf("Unexpected metadata (-want +got): %v", diff)
+				}
+			}
+		})
+	}
+}
+
+func TestMakeVirtualServicesForClusterIngress_CorrectMetadata(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		gateways []string
+		ci       *v1alpha1.ClusterIngress
+		expected []metav1.ObjectMeta
+	}{{
+		name:     "mesh and ingress",
+		gateways: []string{"gateway"},
+		ci: &v1alpha1.ClusterIngress{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "test-ingress",
+				Labels: map[string]string{
+					serving.RouteLabelKey:          "test-route",
+					serving.RouteNamespaceLabelKey: "test-ns",
+				},
+			},
+			Spec: v1alpha1.IngressSpec{},
+		},
+		expected: []metav1.ObjectMeta{{
+			Name:      "test-ingress-mesh",
+			Namespace: system.Namespace(),
+			Labels: map[string]string{
+				networking.ClusterIngressLabelKey: "test-ingress",
+				serving.RouteLabelKey:             "test-route",
+				serving.RouteNamespaceLabelKey:    "test-ns",
+			},
+		}, {
+			Name:      "test-ingress",
+			Namespace: system.Namespace(),
+			Labels: map[string]string{
+				networking.ClusterIngressLabelKey: "test-ingress",
+				serving.RouteLabelKey:             "test-route",
+				serving.RouteNamespaceLabelKey:    "test-ns",
+			},
+		}},
+	}, {
+		name:     "mesh only",
+		gateways: nil,
+		ci: &v1alpha1.ClusterIngress{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "test-ingress",
+				Labels: map[string]string{
+					serving.RouteLabelKey:          "test-route",
+					serving.RouteNamespaceLabelKey: "test-ns",
+				},
+			},
+			Spec: v1alpha1.IngressSpec{},
+		},
+		expected: []metav1.ObjectMeta{{
+			Name:      "test-ingress-mesh",
+			Namespace: system.Namespace(),
+			Labels: map[string]string{
+				networking.ClusterIngressLabelKey: "test-ingress",
+				serving.RouteLabelKey:             "test-route",
+				serving.RouteNamespaceLabelKey:    "test-ns",
+			},
+		}},
+	}} {
+		t.Run(tc.name, func(t *testing.T) {
+			vss := MakeVirtualServicesForClusterIngress(tc.ci, tc.gateways)
+			if len(vss) != len(tc.expected) {
+				t.Errorf("Expected %d VirtualService, saw %d", len(tc.expected), len(vss))
+			}
+			for i := range tc.expected {
+				tc.expected[i].OwnerReferences = []metav1.OwnerReference{*kmeta.NewControllerRef(tc.ci)}
 				if diff := cmp.Diff(tc.expected[i], vss[i].ObjectMeta); diff != "" {
 					t.Errorf("Unexpected metadata (-want +got): %v", diff)
 				}
