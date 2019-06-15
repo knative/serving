@@ -548,3 +548,108 @@ func TestReleaseService(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestAnnotationPropagation(t *testing.T) {
+	t.Parallel()
+	clients := test.Setup(t)
+
+	names := test.ResourceNames{
+		Service: test.ObjectNameForTest(t),
+		Image:   test.PizzaPlanet1,
+	}
+
+	// Clean up on test failure or interrupt
+	defer test.TearDown(clients, names)
+	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
+
+	// Setup initial Service
+	objects, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, &v1a1test.Options{})
+	if err != nil {
+		t.Fatalf("Failed to create initial Service %v: %v", names.Service, err)
+	}
+
+	// Validate State after Creation
+
+	if err = validateRunLatestControlPlane(t, clients, names, "1"); err != nil {
+		t.Error(err)
+	}
+
+	if err := validateAnnotations(objects); err != nil {
+		t.Errorf("Annotations are incorrect: %v", err)
+	}
+
+	desiredSvc := objects.Service.DeepCopy()
+	desiredSvc.Annotations["juicy"] = "jamba"
+	if objects.Service, err = v1a1test.PatchService(t, clients, objects.Service, desiredSvc); err != nil {
+		t.Fatalf("Service %s was not updated with new annotation: %v", names.Service, err)
+	}
+	// Updating metadata does not trigger revision or generation
+	// change, so let's generate a change that we can watch.
+	t.Log("Updating the Service to use a different image.")
+	names.Image = test.PrintPort
+	image2 := pkgTest.ImagePath(names.Image)
+	if _, err := v1a1test.PatchServiceImage(t, clients, objects.Service, image2); err != nil {
+		t.Fatalf("Patch update for Service %s with new image %s failed: %v", names.Service, image2, err)
+	}
+
+	t.Log("Service should reflect new revision created and ready in status.")
+	names.Revision, err = v1a1test.WaitForServiceLatestRevision(clients, names)
+	if err != nil {
+		t.Fatalf("New image not reflected in Service: %v", err)
+	}
+
+	t.Log("Waiting for Service to transition to Ready.")
+	if err := v1a1test.WaitForServiceState(clients.ServingAlphaClient, names.Service, v1a1test.IsServiceReady, "ServiceIsReady"); err != nil {
+		t.Fatalf("Error waiting for the service to become ready for the latest revision: %v", err)
+	}
+	objects, err = v1a1test.GetResourceObjects(clients, names)
+	if err != nil {
+		t.Errorf("Error getting objects: %v", err)
+	}
+
+	// Now we can validate the annotations.
+	if err := validateAnnotations(objects, "juicy"); err != nil {
+		t.Errorf("Annotations are incorrect: %v", err)
+	}
+
+	// Test annotation deletion.
+	desiredSvc = objects.Service.DeepCopy()
+	delete(desiredSvc.Annotations, "juicy")
+	if objects.Service, err = v1a1test.PatchService(t, clients, objects.Service, desiredSvc); err != nil {
+		t.Fatalf("Service %s was not updated with deleted annotation: %v", names.Service, err)
+	}
+	// Updating metadata does not trigger revision or generation
+	// change, so let's generate a change that we can watch.
+	t.Log("Updating the Service to use a different image.")
+	names.Image = test.HelloWorld
+	image3 := pkgTest.ImagePath(test.HelloWorld)
+	if _, err := v1a1test.PatchServiceImage(t, clients, objects.Service, image3); err != nil {
+		t.Fatalf("Patch update for Service %s with new image %s failed: %v", names.Service, image3, err)
+	}
+
+	t.Log("Service should reflect new revision created and ready in status.")
+	names.Revision, err = v1a1test.WaitForServiceLatestRevision(clients, names)
+	if err != nil {
+		t.Fatalf("New image not reflected in Service: %v", err)
+	}
+
+	t.Log("Waiting for Service to transition to Ready.")
+	if err := v1a1test.WaitForServiceState(clients.ServingAlphaClient, names.Service, v1a1test.IsServiceReady, "ServiceIsReady"); err != nil {
+		t.Fatalf("Error waiting for the service to become ready for the latest revision: %v", err)
+	}
+	objects, err = v1a1test.GetResourceObjects(clients, names)
+	if err != nil {
+		t.Errorf("Error getting objects: %v", err)
+	}
+
+	// Now we can validate the annotations.
+	if err := validateAnnotations(objects); err != nil {
+		t.Errorf("Annotations are incorrect: %v", err)
+	}
+	if _, ok := objects.Config.Annotations["juicy"]; ok {
+		t.Error("Config still has `juicy` annotation")
+	}
+	if _, ok := objects.Route.Annotations["juicy"]; ok {
+		t.Error("Route still has `juicy` annotation")
+	}
+}

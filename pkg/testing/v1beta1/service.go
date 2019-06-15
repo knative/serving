@@ -19,10 +19,12 @@ package v1beta1
 import (
 	"context"
 
-	"github.com/knative/pkg/ptr"
-	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/knative/pkg/ptr"
+	"github.com/knative/serving/pkg/apis/serving/v1beta1"
+	presources "github.com/knative/serving/pkg/resources"
 )
 
 // ServiceOption enables further configuration of a Service.
@@ -84,6 +86,24 @@ func WithNamedPort(name string) ServiceOption {
 func WithResourceRequirements(resourceRequirements corev1.ResourceRequirements) ServiceOption {
 	return func(svc *v1beta1.Service) {
 		svc.Spec.Template.Spec.Containers[0].Resources = resourceRequirements
+	}
+}
+
+// WithServiceAnnotation adds the given annotation to the service.
+func WithServiceAnnotation(k, v string) ServiceOption {
+	return func(svc *v1beta1.Service) {
+		svc.Annotations = presources.UnionMaps(svc.Annotations, map[string]string{
+			k: v,
+		})
+	}
+}
+
+// WithServiceAnnotationRemoved adds the given annotation to the service.
+func WithServiceAnnotationRemoved(k string) ServiceOption {
+	return func(svc *v1beta1.Service) {
+		svc.Annotations = presources.FilterMap(svc.Annotations, func(s string) bool {
+			return k == s
+		})
 	}
 }
 
