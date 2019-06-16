@@ -55,6 +55,9 @@ func TestMakeKPA(t *testing.T) {
 					ContainerConcurrency: 1,
 				},
 			},
+			Status: v1alpha1.RevisionStatus{
+				DeploymentName: "dive-bar",
+			},
 		},
 		want: &kpa.PodAutoscaler{
 			ObjectMeta: metav1.ObjectMeta{
@@ -82,7 +85,7 @@ func TestMakeKPA(t *testing.T) {
 				ScaleTargetRef: corev1.ObjectReference{
 					APIVersion: "apps/v1",
 					Kind:       "Deployment",
-					Name:       "bar-deployment",
+					Name:       "dive-bar",
 				},
 				ProtocolType: networking.ProtocolHTTP1,
 			},
@@ -105,6 +108,9 @@ func TestMakeKPA(t *testing.T) {
 						HostPort: int32(443),
 					}},
 				},
+			},
+			Status: v1alpha1.RevisionStatus{
+				DeploymentName: "dive-baz",
 			},
 		},
 		want: &kpa.PodAutoscaler{
@@ -131,7 +137,7 @@ func TestMakeKPA(t *testing.T) {
 				ScaleTargetRef: corev1.ObjectReference{
 					APIVersion: "apps/v1",
 					Kind:       "Deployment",
-					Name:       "baz-deployment",
+					Name:       "dive-baz",
 				},
 				ProtocolType: networking.ProtocolH2C,
 			}},

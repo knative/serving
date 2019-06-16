@@ -46,7 +46,7 @@ func MakeKPA(rev *v1alpha1.Revision) *kpa.PodAutoscaler {
 			ScaleTargetRef: corev1.ObjectReference{
 				APIVersion: "apps/v1",
 				Kind:       "Deployment",
-				Name:       names.Deployment(rev),
+				Name:       rev.Status.DeploymentName,
 			},
 			ProtocolType: rev.GetProtocol(),
 		},

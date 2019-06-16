@@ -39,7 +39,7 @@ func TestNamer(t *testing.T) {
 			},
 		},
 		f:    Deployment,
-		want: "foo-deployment",
+		want: "foo",
 	}, {
 		name: "ImageCache",
 		rev: &v1alpha1.Revision{

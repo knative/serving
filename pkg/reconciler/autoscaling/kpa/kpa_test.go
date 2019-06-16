@@ -182,7 +182,7 @@ func TestReconcileAndScaleToZero(t *testing.T) {
 	// This test suite uses special decider that will
 	// force KPA to scale to 0.
 	const key = testNamespace + "/" + testRevision
-	const deployName = testRevision + "-deployment"
+	const deployName = testRevision
 	usualSelector := map[string]string{"a": "b"}
 
 	table := TableTest{{
@@ -322,7 +322,7 @@ func TestReconcileAndScaleToZero(t *testing.T) {
 
 func TestReconcile(t *testing.T) {
 	const key = testNamespace + "/" + testRevision
-	const deployName = testRevision + "-deployment"
+	const deployName = testRevision
 	usualSelector := map[string]string{"a": "b"}
 
 	// Set up the deployment with the appropriate scale so that we don't
@@ -797,7 +797,7 @@ type deploymentOption func(*appsv1.Deployment)
 func deploy(namespace, name string, opts ...deploymentOption) *appsv1.Deployment {
 	s := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      name + "-deployment",
+			Name:      name,
 			Namespace: namespace,
 		},
 		Spec: appsv1.DeploymentSpec{
@@ -854,7 +854,7 @@ func TestGlobalResyncOnUpdateAutoscalerConfigMap(t *testing.T) {
 	grp.Go(func() error { controller.StartAll(ctx.Done(), ctl); return nil })
 
 	rev := newTestRevision(testNamespace, testRevision)
-	newDeployment(t, fakedynamicclient.Get(ctx), testRevision+"-deployment", 3)
+	newDeployment(t, fakedynamicclient.Get(ctx), testRevision, 3)
 
 	kpa := revisionresources.MakeKPA(rev)
 	fakeservingclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
@@ -905,7 +905,7 @@ func TestControllerSynchronizesCreatesAndDeletes(t *testing.T) {
 	fakekubeclient.Get(ctx).CoreV1().Endpoints(testNamespace).Create(ep)
 	fakeendpointsinformer.Get(ctx).Informer().GetIndexer().Add(ep)
 
-	newDeployment(t, fakedynamicclient.Get(ctx), testRevision+"-deployment", 3)
+	newDeployment(t, fakedynamicclient.Get(ctx), testRevision, 3)
 
 	kpa := revisionresources.MakeKPA(rev)
 	fakeservingclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
@@ -975,7 +975,7 @@ func TestUpdate(t *testing.T) {
 	fakeservingclient.Get(ctx).ServingV1alpha1().Revisions(testNamespace).Create(rev)
 	fakerevisioninformer.Get(ctx).Informer().GetIndexer().Add(rev)
 
-	newDeployment(t, fakedynamicclient.Get(ctx), testRevision+"-deployment", 3)
+	newDeployment(t, fakedynamicclient.Get(ctx), testRevision, 3)
 
 	ep := makeSKSPrivateEndpoints(1, testNamespace, testRevision)
 	fakekubeclient.Get(ctx).CoreV1().Endpoints(testNamespace).Create(ep)
@@ -1086,7 +1086,7 @@ func TestNoEndpoints(t *testing.T) {
 	fakeservingclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
 	fakekpainformer.Get(ctx).Informer().GetIndexer().Add(kpa)
 
-	newDeployment(t, fakedynamicclient.Get(ctx), testRevision+"-deployment", 3)
+	newDeployment(t, fakedynamicclient.Get(ctx), testRevision, 3)
 
 	// Wait for the Reconcile to complete.
 	if err := ctl.Reconciler.Reconcile(context.Background(), testNamespace+"/"+testRevision); err != nil {
@@ -1113,7 +1113,7 @@ func TestEmptyEndpoints(t *testing.T) {
 	fakeservingclient.Get(ctx).ServingV1alpha1().Revisions(testNamespace).Create(rev)
 	fakerevisioninformer.Get(ctx).Informer().GetIndexer().Add(rev)
 
-	newDeployment(t, fakedynamicclient.Get(ctx), testRevision+"-deployment", 3)
+	newDeployment(t, fakedynamicclient.Get(ctx), testRevision, 3)
 
 	kpa := revisionresources.MakeKPA(rev)
 	fakeservingclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
@@ -1154,7 +1154,7 @@ func TestControllerCreateError(t *testing.T) {
 	fakeservingclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
 	fakekpainformer.Get(ctx).Informer().GetIndexer().Add(kpa)
 
-	newDeployment(t, fakedynamicclient.Get(ctx), testRevision+"-deployment", 3)
+	newDeployment(t, fakedynamicclient.Get(ctx), testRevision, 3)
 
 	got := perrors.Cause(ctl.Reconciler.Reconcile(context.Background(), key))
 	if got != want {
@@ -1182,7 +1182,7 @@ func TestControllerUpdateError(t *testing.T) {
 	fakeservingclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
 	fakekpainformer.Get(ctx).Informer().GetIndexer().Add(kpa)
 
-	newDeployment(t, fakedynamicclient.Get(ctx), testRevision+"-deployment", 3)
+	newDeployment(t, fakedynamicclient.Get(ctx), testRevision, 3)
 
 	got := perrors.Cause(ctl.Reconciler.Reconcile(context.Background(), key))
 	if got != want {
@@ -1209,7 +1209,7 @@ func TestControllerGetError(t *testing.T) {
 	fakeservingclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
 	fakekpainformer.Get(ctx).Informer().GetIndexer().Add(kpa)
 
-	newDeployment(t, fakedynamicclient.Get(ctx), testRevision+"-deployment", 3)
+	newDeployment(t, fakedynamicclient.Get(ctx), testRevision, 3)
 
 	got := perrors.Cause(ctl.Reconciler.Reconcile(context.Background(), key))
 	if got != want {
@@ -1228,7 +1228,7 @@ func TestScaleFailure(t *testing.T) {
 	kpa := revisionresources.MakeKPA(rev)
 	fakekpainformer.Get(ctx).Informer().GetIndexer().Add(kpa)
 
-	newDeployment(t, fakedynamicclient.Get(ctx), testRevision+"-deployment", 3)
+	newDeployment(t, fakedynamicclient.Get(ctx), testRevision, 3)
 
 	if err := ctl.Reconciler.Reconcile(context.Background(), testNamespace+"/"+testRevision); err == nil {
 		t.Error("Reconcile() = nil, wanted error")
@@ -1406,6 +1406,9 @@ func newTestRevision(namespace string, name string) *v1alpha1.Revision {
 				WorkingDir: "/tmp",
 			},
 			DeprecatedConcurrencyModel: v1alpha1.RevisionRequestConcurrencyModelSingle,
+		},
+		Status: v1alpha1.RevisionStatus{
+			DeploymentName: name,
 		},
 	}
 }

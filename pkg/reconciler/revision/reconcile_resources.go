@@ -20,25 +20,46 @@ import (
 	"context"
 	"fmt"
 
+	"go.uber.org/zap"
+
 	"github.com/knative/pkg/logging"
 	"github.com/knative/pkg/logging/logkey"
 	kpav1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
+	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/reconciler/revision/resources"
 	resourcenames "github.com/knative/serving/pkg/reconciler/revision/resources/names"
-	"go.uber.org/zap"
+
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 )
+
+func (c *Reconciler) resolveDeployment(rev *v1alpha1.Revision) (*appsv1.Deployment, error) {
+	deployments, err := c.deploymentLister.Deployments(rev.Namespace).List(
+		labels.SelectorFromSet(map[string]string{
+			serving.RevisionLabelKey: rev.Name,
+			serving.RevisionUID:      string(rev.UID),
+		}),
+	)
+	if err != nil {
+		return nil, err
+	}
+	if len(deployments) == 0 {
+		return nil, apierrs.NewNotFound(corev1.Resource("Deployments"), rev.Name)
+	}
+	return deployments[0], nil
+}
 
 func (c *Reconciler) reconcileDeployment(ctx context.Context, rev *v1alpha1.Revision) error {
 	ns := rev.Namespace
 	deploymentName := resourcenames.Deployment(rev)
 	logger := logging.FromContext(ctx).With(zap.String(logkey.Deployment, deploymentName))
 
-	deployment, err := c.deploymentLister.Deployments(ns).Get(deploymentName)
+	deployment, err := c.resolveDeployment(rev)
 	if apierrs.IsNotFound(err) {
 		// Deployment does not exist. Create it.
 		rev.Status.MarkDeploying("Deploying")
@@ -53,9 +74,11 @@ func (c *Reconciler) reconcileDeployment(ctx context.Context, rev *v1alpha1.Revi
 		return err
 	} else if !metav1.IsControlledBy(deployment, rev) {
 		// Surface an error in the revision's status, and return an error.
-		rev.Status.MarkResourceNotOwned("Deployment", deploymentName)
-		return fmt.Errorf("revision: %q does not own Deployment: %q", rev.Name, deploymentName)
+		rev.Status.MarkResourceNotOwned("Deployment", deployment.Name)
+		return fmt.Errorf("revision: %q does not own Deployment: %q", rev.Name, deployment.Name)
 	} else {
+		// TODO(vagababov): remove in 0.8
+		deploymentName = deployment.Name
 		// The deployment exists, but make sure that it has the shape that we expect.
 		deployment, err = c.checkAndUpdateDeployment(ctx, rev, deployment)
 		if err != nil {
@@ -63,6 +86,8 @@ func (c *Reconciler) reconcileDeployment(ctx context.Context, rev *v1alpha1.Revi
 			return err
 		}
 	}
+
+	rev.Status.DeploymentName = deploymentName
 
 	// If a container keeps crashing (no active pods in the deployment although we want some)
 	if *deployment.Spec.Replicas > 0 && deployment.Status.AvailableReplicas == 0 {

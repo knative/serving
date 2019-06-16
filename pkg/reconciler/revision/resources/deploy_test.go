@@ -148,7 +148,7 @@ var (
 	defaultDeployment = &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: "foo",
-			Name:      "bar-deployment",
+			Name:      "bar",
 			Labels: map[string]string{
 				serving.RevisionLabelKey: "bar",
 				serving.RevisionUID:      "1234",

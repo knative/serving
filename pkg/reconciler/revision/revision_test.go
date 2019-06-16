@@ -498,7 +498,7 @@ func getPodAnnotationsForConfig(t *testing.T, configMapValue string, configAnnot
 
 	createRevision(t, ctx, controller, rev)
 
-	expectedDeploymentName := fmt.Sprintf("%s-deployment", rev.Name)
+	expectedDeploymentName := rev.Status.DeploymentName
 	deployment, err := fakekubeclient.Get(ctx).AppsV1().Deployments(testNamespace).Get(expectedDeploymentName, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Couldn't get serving deployment: %v", err)

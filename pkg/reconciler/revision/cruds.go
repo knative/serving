@@ -58,6 +58,8 @@ func (c *Reconciler) checkAndUpdateDeployment(ctx context.Context, rev *v1alpha1
 		cfgs.Autoscaler,
 		cfgs.Deployment,
 	)
+	// TODO(vagababov): remove this in 0.8.
+	deployment.Name = have.Name
 
 	// Preserve the current scale of the Deployment.
 	deployment.Spec.Replicas = have.Spec.Replicas

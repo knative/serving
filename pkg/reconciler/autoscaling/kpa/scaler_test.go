@@ -399,12 +399,14 @@ func newRevision(t *testing.T, servingClient clientset.Interface, minScale, maxS
 		Spec: v1alpha1.RevisionSpec{
 			DeprecatedConcurrencyModel: "Multi",
 		},
+		Status: v1alpha1.RevisionStatus{
+			DeploymentName: testRevision,
+		},
 	}
 	rev, err := servingClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
 	if err != nil {
 		t.Fatal("Failed to create revision.", err)
 	}
-
 	return rev
 }
 
