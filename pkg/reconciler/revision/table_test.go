@@ -18,8 +18,10 @@ package revision
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
+	"github.com/davecgh/go-spew/spew"
 	caching "github.com/knative/caching/pkg/apis/caching/v1alpha1"
 	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/controller"
@@ -84,6 +86,26 @@ func TestReconcile(t *testing.T) {
 				WithLogURL, allUnknownConditions, MarkDeploying("Deploying"), withDeployment),
 		}},
 		Key: "foo/first-reconcile",
+	}, {
+		// TODO(vagababov): remove this test in 0.8.
+		Name: "revision reconciliation own old dep",
+		Objects: []runtime.Object{
+			rev("foo", "take-deployment"),
+			updateName(deploy("foo", "take-deployment"), "take-deployment-deployment"),
+		},
+		WantCreates: []runtime.Object{
+			// The first reconciliation of a Revision creates the following resources.
+			kpa("foo", "take-deployment", func(pa *asv1a1.PodAutoscaler) {
+				pa.Spec.ScaleTargetRef.Name = "take-deployment-deployment"
+			}),
+			image("foo", "take-deployment"),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: rev("foo", "take-deployment", func(pa *v1alpha1.Revision) {
+				pa.Status.DeploymentName = "take-deployment-deployment"
+			}, WithLogURL, allUnknownConditions),
+		}},
+		Key: "foo/take-deployment",
 	}, {
 		Name: "failure updating revision status",
 		// This starts from the first reconciliation case above and induces a failure
@@ -647,6 +669,10 @@ func kpaWithDeployment(pa *asv1a1.PodAutoscaler) {
 
 type configOption func(*config.Config)
 
+func updateName(d *appsv1.Deployment, n string) *appsv1.Deployment {
+	d.Name = n
+	return d
+}
 func deploy(namespace, name string, opts ...interface{}) *appsv1.Deployment {
 	cfg := ReconcilerTestConfig()
 
@@ -667,10 +693,11 @@ func deploy(namespace, name string, opts ...interface{}) *appsv1.Deployment {
 	// Do this here instead of in `rev` itself to ensure that we populate defaults
 	// before calling MakeDeployment within Reconcile.
 	rev.SetDefaults(context.Background())
-	return resources.MakeDeployment(rev, cfg.Logging, cfg.Network,
+	d := resources.MakeDeployment(rev, cfg.Logging, cfg.Network,
 		cfg.Observability, cfg.Autoscaler, cfg.Deployment,
 	)
-
+	fmt.Printf("### %s\n", spew.Sdump(d))
+	return d
 }
 
 func image(namespace, name string, co ...configOption) *caching.Image {
