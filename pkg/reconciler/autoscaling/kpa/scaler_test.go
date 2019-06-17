@@ -45,7 +45,6 @@ import (
 	"github.com/knative/serving/pkg/network/prober"
 	"github.com/knative/serving/pkg/reconciler/autoscaling/config"
 	revisionresources "github.com/knative/serving/pkg/reconciler/revision/resources"
-	"github.com/knative/serving/pkg/reconciler/revision/resources/names"
 	presources "github.com/knative/serving/pkg/resources"
 	v1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -237,7 +236,7 @@ func TestScaler(t *testing.T) {
 			dynamicClient := fakedynamicclient.Get(ctx)
 
 			revision := newRevision(t, fakeservingclient.Get(ctx), test.minScale, test.maxScale)
-			deployment := newDeployment(t, dynamicClient, names.Deployment(revision), test.startReplicas)
+			deployment := newDeployment(t, dynamicClient, revision.Name, test.startReplicas)
 			cbCount := 0
 			revisionScaler := newScaler(ctx, presources.NewPodScalableInformerFactory(ctx), func(interface{}, time.Duration) {
 				cbCount++
@@ -343,7 +342,7 @@ func TestDisableScaleToZero(t *testing.T) {
 				})
 
 			revision := newRevision(t, fakeservingclient.Get(ctx), test.minScale, test.maxScale)
-			deployment := newDeployment(t, dynamicClient, names.Deployment(revision), test.startReplicas)
+			deployment := newDeployment(t, dynamicClient, revision.Name, test.startReplicas)
 			revisionScaler := &scaler{
 				dynamicClient:     fakedynamicclient.Get(ctx),
 				logger:            logging.FromContext(ctx),

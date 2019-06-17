@@ -56,7 +56,7 @@ func (c *Reconciler) resolveDeployment(rev *v1alpha1.Revision) (*appsv1.Deployme
 
 func (c *Reconciler) reconcileDeployment(ctx context.Context, rev *v1alpha1.Revision) error {
 	ns := rev.Namespace
-	deploymentName := resourcenames.Deployment(rev)
+	deploymentName := rev.Name
 	logger := logging.FromContext(ctx).With(zap.String(logkey.Deployment, deploymentName))
 
 	deployment, err := c.resolveDeployment(rev)

@@ -22,7 +22,7 @@ import (
 
 // Deployment returns the name for the deployment.
 func Deployment(rev kmeta.Accessor) string {
-	return rev.GetName()
+	return rev.GetName() + "-deployment"
 }
 
 // ImageCache returns the name for the image cache.

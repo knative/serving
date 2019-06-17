@@ -30,7 +30,6 @@ import (
 	"github.com/knative/serving/pkg/metrics"
 	"github.com/knative/serving/pkg/network"
 	"github.com/knative/serving/pkg/queue"
-	"github.com/knative/serving/pkg/reconciler/revision/resources/names"
 	"github.com/knative/serving/pkg/resources"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -214,7 +213,7 @@ func MakeDeployment(rev *v1alpha1.Revision,
 
 	return &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      names.Deployment(rev),
+			Name:      rev.Name,
 			Namespace: rev.Namespace,
 			Labels:    makeLabels(rev),
 			Annotations: resources.FilterMap(rev.GetAnnotations(), func(k string) bool {

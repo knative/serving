@@ -230,7 +230,7 @@ func addResourcesToInformers(t *testing.T, ctx context.Context, rev *v1alpha1.Re
 		fakeimageinformer.Get(ctx).Informer().GetIndexer().Add(image)
 	}
 
-	deploymentName := resourcenames.Deployment(rev)
+	deploymentName := rev.Name
 	deployment, err := fakekubeclient.Get(ctx).AppsV1().Deployments(ns).Get(deploymentName, metav1.GetOptions{})
 	if apierrs.IsNotFound(err) && haveBuild {
 		// If we're doing a Build this won't exist yet.

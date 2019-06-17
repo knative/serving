@@ -59,7 +59,14 @@ func TestRunLatestServicePreUpgradeAndScaleToZero(t *testing.T) {
 	domain := resources.Service.Status.URL.Host
 	assertServiceResourcesUpdated(t, clients, names, domain, test.PizzaPlanetText1)
 
-	if err := e2e.WaitForScaleToZero(t, revisionresourcenames.Deployment(resources.Revision), clients); err != nil {
-		t.Fatalf("Could not scale to zero: %v", err)
+	// TODO(vagababov): remove this in 0.8
+	if resources.Revision.Status.DeploymentName == "" {
+		if err := e2e.WaitForScaleToZero(t, revisionresourcenames.Deployment(resources.Revision), clients); err != nil {
+			t.Fatalf("Could not scale to zero: %v", err)
+		}
+	} else {
+		if err := e2e.WaitForScaleToZero(t, resources.Revision.Status.DeploymentName, clients); err != nil {
+			t.Fatalf("Could not scale to zero: %v", err)
+		}
 	}
 }
