@@ -166,7 +166,7 @@ func TestMultiScalerTickUpdate(t *testing.T) {
 		}
 		return false, nil
 	}); err != nil {
-		t.Fatalf("Expected at least 1 tick but got %d", uniScaler.scaleCount)
+		t.Fatalf("Expected at least 1 tick but got %d", uniScaler.getScaleCount())
 	}
 }
 
@@ -327,7 +327,7 @@ func TestMultiScalerUpdate(t *testing.T) {
 		t.Errorf("Get() = %v", err)
 	}
 	if got, want := m.Spec.TargetConcurrency, 10.0; got != want {
-		t.Errorf("Got target concurrency %v. Wanted %v", got, want)
+		t.Errorf("GoRt target concurrency %v. Wanted %v", got, want)
 	}
 }
 
@@ -343,7 +343,7 @@ func createMultiScaler(t *testing.T) (*MultiScaler, chan<- struct{}, chan *StatM
 }
 
 type fakeUniScaler struct {
-	mutex      sync.Mutex
+	mutex      sync.RWMutex
 	replicas   int32
 	scaled     bool
 	lastStat   Stat
@@ -362,8 +362,8 @@ func (u *fakeUniScaler) Scale(context.Context, time.Time) (int32, bool) {
 }
 
 func (u *fakeUniScaler) getScaleCount() int {
-	u.mutex.Lock()
-	defer u.mutex.Unlock()
+	u.mutex.RLock()
+	defer u.mutex.RUnlock()
 	return u.scaleCount
 }
 
