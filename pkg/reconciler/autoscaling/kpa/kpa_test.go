@@ -1235,18 +1235,6 @@ func TestScaleFailure(t *testing.T) {
 	}
 }
 
-func TestBadKey(t *testing.T) {
-	defer logtesting.ClearAll()
-	ctx, _ := SetupFakeContext(t)
-
-	ctl := NewController(ctx, newConfigWatcher(), newTestDeciders(), newTestMetrics(), presources.NewPodScalableInformerFactory(ctx))
-
-	err := ctl.Reconciler.Reconcile(context.Background(), "too/many/parts")
-	if err != nil {
-		t.Errorf("Reconcile() = %v", err)
-	}
-}
-
 func pollDeciders(deciders *testDeciders, namespace, name string, cond func(*autoscaler.Decider) bool) (decider *autoscaler.Decider, err error) {
 	wait.PollImmediate(10*time.Millisecond, 3*time.Second, func() (bool, error) {
 		decider, err = deciders.Get(context.Background(), namespace, name)
