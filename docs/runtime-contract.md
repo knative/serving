@@ -138,8 +138,10 @@ As specified by OCI.
 
 ### Operations
 
-[The OCI interface](https://github.com/opencontainers/runtime-spec/blob/v1.0.0-rc3/runtime.md#operations)
-SHOULD NOT be exposed within the container. The operator or platform provider
+It is expected that containers do not have direct access to the
+[OCI interface](https://github.com/opencontainers/runtime-spec/blob/v1.0.0-rc3/runtime.md#operations)
+as providing accesss allows containers to circumvent runtime restrictions that
+are enforced by the Knative control plane. The operator or platform provider
 MAY have the ability to directly interact with the OCI interface, but that is
 beyond the scope of this specification.
 
