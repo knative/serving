@@ -20,15 +20,13 @@ import (
 	"context"
 	"fmt"
 
-	"go.uber.org/zap"
-
 	"github.com/knative/pkg/logging"
 	"github.com/knative/pkg/logging/logkey"
 	kpav1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/reconciler/revision/resources"
 	resourcenames "github.com/knative/serving/pkg/reconciler/revision/resources/names"
-
+	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
@@ -89,6 +87,9 @@ func (c *Reconciler) reconcileDeployment(ctx context.Context, rev *v1alpha1.Revi
 					if t := status.LastTerminationState.Terminated; t != nil {
 						logger.Infof("%s marking exiting with: %d/%s", rev.Name, t.ExitCode, t.Message)
 						rev.Status.MarkContainerExiting(t.ExitCode, t.Message)
+					} else if w := status.State.Waiting; w != nil && hasDeploymentTimedOut(deployment) {
+						logger.Infof("%s marking resources unavailable with: %s: %s", rev.Name, w.Reason, w.Message)
+						rev.Status.MarkResourcesUnavailable(w.Reason, w.Message)
 					}
 					break
 				}

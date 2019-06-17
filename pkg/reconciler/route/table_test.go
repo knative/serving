@@ -46,9 +46,11 @@ import (
 	"github.com/knative/serving/pkg/reconciler/route/config"
 	"github.com/knative/serving/pkg/reconciler/route/resources"
 	"github.com/knative/serving/pkg/reconciler/route/traffic"
-	. "github.com/knative/serving/pkg/reconciler/testing"
 
 	. "github.com/knative/pkg/reconciler/testing"
+	. "github.com/knative/serving/pkg/reconciler/testing/v1alpha1"
+	. "github.com/knative/serving/pkg/testing"
+	. "github.com/knative/serving/pkg/testing/v1alpha1"
 )
 
 const TestIngressClass = "ingress-class-foo"
@@ -1925,13 +1927,11 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 						}},
 					},
 				},
-				[]netv1alpha1.IngressTLS{
-					{
-						Hosts:           []string{"becomes-ready.default.example.com"},
-						SecretName:      "route-12-34",
-						SecretNamespace: "default",
-					},
-				},
+				[]netv1alpha1.IngressTLS{{
+					Hosts:           []string{"becomes-ready.default.example.com"},
+					SecretName:      "route-12-34",
+					SecretNamespace: "default",
+				}},
 			),
 			simpleK8sService(
 				route("default", "becomes-ready", WithConfigTarget("config"), WithRouteUID("12-34")),
@@ -2246,9 +2246,7 @@ func (t *testConfigStore) ToContext(ctx context.Context) context.Context {
 	return config.ToContext(ctx, t.config)
 }
 
-func (t *testConfigStore) WatchConfigs(w configmap.Watcher) {}
-
-var _ configStore = (*testConfigStore)(nil)
+var _ reconciler.ConfigStore = (*testConfigStore)(nil)
 
 func ReconcilerTestConfig(enableAutoTLS bool) *config.Config {
 	return &config.Config{

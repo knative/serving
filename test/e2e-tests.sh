@@ -29,19 +29,6 @@ source $(dirname $0)/e2e-common.sh
 
 # Helper functions.
 
-function dump_extra_cluster_state() {
-  echo ">>> Routes:"
-  kubectl get routes -o yaml --all-namespaces
-  echo ">>> Configurations:"
-  kubectl get configurations -o yaml --all-namespaces
-  echo ">>> Revisions:"
-  kubectl get revisions -o yaml --all-namespaces
-
-  for app in controller webhook autoscaler activator; do
-    dump_app_logs ${app} knative-serving
-  done
-}
-
 function knative_setup() {
   install_knative_serving
 }
@@ -58,10 +45,14 @@ failed=0
 
 # Run conformance and e2e tests.
 go_test_e2e -timeout=30m \
-  ./test/conformance/api \
+  ./test/conformance/api/v1alpha1 \
+  ./test/conformance/api/v1beta1 \
   ./test/conformance/runtime \
   ./test/e2e \
   "--resolvabledomain=$(use_resolvable_domain)" || failed=1
+
+# Dump cluster state after e2e tests to prevent logs being truncated.
+(( failed )) && dump_cluster_state
 
 # Run scale tests.
 go_test_e2e -timeout=10m ./test/scale || failed=1

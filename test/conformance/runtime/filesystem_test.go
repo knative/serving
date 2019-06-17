@@ -24,6 +24,7 @@ import (
 
 	"github.com/knative/serving/test"
 	"github.com/knative/serving/test/types"
+	v1a1test "github.com/knative/serving/test/v1alpha1"
 )
 
 func verifyPermissionsString(resp string, expected string) error {
@@ -40,7 +41,7 @@ func verifyPermissionsString(resp string, expected string) error {
 }
 
 func testFiles(t *testing.T, clients *test.Clients, paths map[string]types.FileInfo) error {
-	_, ri, err := fetchRuntimeInfo(t, clients, &test.Options{})
+	_, ri, err := fetchRuntimeInfo(t, clients, &v1a1test.Options{})
 	if err != nil {
 		return err
 	}

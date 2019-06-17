@@ -5,7 +5,6 @@ Knative Serving.
 
 - `boilerplate/add-boilerplate.sh` Adds license boilerplate to _txt_ or _go_
   files in a directory, recursively.
-- `deploy.sh` Deploys Knative Serving to an [environment](environments.md).
 - `dev-patch-config-gke.sh` Patches the network configuration of a dev
   deployment in GKE.
 - `diagnose-me.sh` Performs several diagnostic checks on the running Kubernetes

@@ -46,6 +46,7 @@ import (
 	"github.com/knative/serving/pkg/reconciler/autoscaling/config"
 	revisionresources "github.com/knative/serving/pkg/reconciler/revision/resources"
 	"github.com/knative/serving/pkg/reconciler/revision/resources/names"
+	presources "github.com/knative/serving/pkg/resources"
 	v1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -56,7 +57,7 @@ import (
 	clientgotesting "k8s.io/client-go/testing"
 
 	. "github.com/knative/pkg/reconciler/testing"
-	. "github.com/knative/serving/pkg/reconciler/testing"
+	. "github.com/knative/serving/pkg/testing"
 )
 
 const (
@@ -162,6 +163,16 @@ func TestScaler(t *testing.T) {
 			k.Status.MarkActivating("", "")
 		},
 	}, {
+		label:         "scale down to minScale before grace period",
+		startReplicas: 10,
+		scaleTo:       0,
+		minScale:      2,
+		wantReplicas:  2,
+		wantScaling:   true,
+		kpaMutation: func(k *pav1alpha1.PodAutoscaler) {
+			kpaMarkInactive(k, time.Now().Add(-gracePeriod+time.Second))
+		},
+	}, {
 		label:         "scale down to minScale after grace period",
 		startReplicas: 10,
 		scaleTo:       0,
@@ -228,7 +239,7 @@ func TestScaler(t *testing.T) {
 			revision := newRevision(t, fakeservingclient.Get(ctx), test.minScale, test.maxScale)
 			deployment := newDeployment(t, dynamicClient, names.Deployment(revision), test.startReplicas)
 			cbCount := 0
-			revisionScaler := newScaler(ctx, func(interface{}, time.Duration) {
+			revisionScaler := newScaler(ctx, presources.NewPodScalableInformerFactory(ctx), func(interface{}, time.Duration) {
 				cbCount++
 			})
 			if test.proberfunc != nil {
@@ -334,9 +345,9 @@ func TestDisableScaleToZero(t *testing.T) {
 			revision := newRevision(t, fakeservingclient.Get(ctx), test.minScale, test.maxScale)
 			deployment := newDeployment(t, dynamicClient, names.Deployment(revision), test.startReplicas)
 			revisionScaler := &scaler{
-				psInformerFactory: podScalableTypedInformerFactory(ctx),
 				dynamicClient:     fakedynamicclient.Get(ctx),
 				logger:            logging.FromContext(ctx),
+				psInformerFactory: presources.NewPodScalableInformerFactory(ctx),
 			}
 			pa := newKPA(t, fakeservingclient.Get(ctx), revision)
 
@@ -358,28 +369,6 @@ func TestDisableScaleToZero(t *testing.T) {
 				checkReplicas(t, dynamicClient, deployment, test.wantReplicas)
 			}
 		})
-	}
-}
-
-func TestGetScaleResource(t *testing.T) {
-	defer logtesting.ClearAll()
-	ctx, _ := SetupFakeContext(t)
-
-	revision := newRevision(t, fakeservingclient.Get(ctx), 1, 10)
-	// This setups reactor as well.
-	newDeployment(t, fakedynamicclient.Get(ctx), names.Deployment(revision), 5)
-	revisionScaler := newScaler(ctx, func(interface{}, time.Duration) {})
-
-	pa := newKPA(t, fakeservingclient.Get(ctx), revision)
-	scale, err := revisionScaler.GetScaleResource(pa)
-	if err != nil {
-		t.Fatalf("GetScale got error = %v", err)
-	}
-	if got, want := scale.Status.Replicas, int32(5); got != want {
-		t.Errorf("GetScale.Status.Replicas = %d, want: %d", got, want)
-	}
-	if got, want := scale.Spec.Selector.MatchLabels[serving.RevisionUID], "1982"; got != want {
-		t.Errorf("GetScale.Status.Selector = %q, want = %q", got, want)
 	}
 }
 

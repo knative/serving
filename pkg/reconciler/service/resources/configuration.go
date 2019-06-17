@@ -36,8 +36,10 @@ func MakeConfiguration(service *v1alpha1.Service) (*v1alpha1.Configuration, erro
 				*kmeta.NewControllerRef(service),
 			},
 			Labels: resources.UnionMaps(service.GetLabels(), map[string]string{
+				serving.RouteLabelKey:   names.Route(service),
 				serving.ServiceLabelKey: service.Name,
 			}),
+			Annotations: service.GetAnnotations(),
 		},
 		Spec: service.Spec.ConfigurationSpec,
 	}, nil

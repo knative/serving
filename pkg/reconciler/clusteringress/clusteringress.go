@@ -68,7 +68,7 @@ type Reconciler struct {
 	virtualServiceLister istiolisters.VirtualServiceLister
 	gatewayLister        istiolisters.GatewayLister
 	secretLister         corev1listers.SecretLister
-	configStore          configStore
+	configStore          reconciler.ConfigStore
 
 	tracker tracker.Interface
 }
@@ -292,6 +292,10 @@ func (c *Reconciler) reconcileVirtualServices(ctx context.Context, ci *v1alpha1.
 		labels.Set(map[string]string{
 			serving.RouteLabelKey:          ci.Labels[serving.RouteLabelKey],
 			serving.RouteNamespaceLabelKey: ci.Labels[serving.RouteNamespaceLabelKey]}).AsSelector())
+	if err != nil {
+		logger.Errorw("Failed to get VirtualServices", zap.Error(err))
+		return err
+	}
 	for _, vs := range vses {
 		n, ns := vs.Name, vs.Namespace
 		if kept.Has(n) {

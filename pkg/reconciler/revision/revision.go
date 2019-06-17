@@ -59,7 +59,7 @@ type Reconciler struct {
 	configMapLister     corev1listers.ConfigMapLister
 
 	resolver    resolver
-	configStore configStore
+	configStore reconciler.ConfigStore
 }
 
 // Check that our Reconciler implements controller.Reconciler
@@ -171,9 +171,8 @@ func (c *Reconciler) reconcile(ctx context.Context, rev *v1alpha1.Revision) erro
 		if ce, ok := err.(*v1alpha1.CannotConvertError); ok {
 			rev.Status.MarkResourceNotConvertible(ce)
 			return nil
-		} else {
-			return err
 		}
+		return err
 	}
 
 	phases := []struct {

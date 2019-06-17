@@ -25,6 +25,7 @@ import (
 
 	"github.com/knative/pkg/injection"
 	"github.com/knative/pkg/injection/clients/kubeclient"
+	"github.com/knative/pkg/logging"
 )
 
 func init() {
@@ -45,7 +46,8 @@ func With(ctx context.Context, objects ...runtime.Object) (context.Context, *fak
 func Get(ctx context.Context) *fake.Clientset {
 	untyped := ctx.Value(kubeclient.Key{})
 	if untyped == nil {
-		return nil
+		logging.FromContext(ctx).Panicf(
+			"Unable to fetch %T from context.", (*fake.Clientset)(nil))
 	}
 	return untyped.(*fake.Clientset)
 }

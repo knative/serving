@@ -36,6 +36,7 @@ helm template --namespace=istio-system install/kubernetes/helm/istio --values ..
   --set mixer.policy.enabled=false \
   --set mixer.telemetry.enabled=false \
   --set pilot.sidecar=false \
+  --set pilot.resources.requests.memory=128Mi \
   --set galley.enabled=false \
   --set global.useMCP=false \
   --set security.enabled=false \

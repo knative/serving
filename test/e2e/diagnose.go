@@ -64,7 +64,7 @@ func diagnoseMe(t *testing.T, clients *test.Clients) {
 }
 
 func checkCurrentPodCount(t *testing.T, clients *test.Clients) {
-	revs, err := clients.ServingClient.Revisions.List(metav1.ListOptions{})
+	revs, err := clients.ServingAlphaClient.Revisions.List(metav1.ListOptions{})
 	if err != nil {
 		t.Logf("%v: could not check current pod count: %v", time.Now(), err)
 		return

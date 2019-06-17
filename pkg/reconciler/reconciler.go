@@ -18,7 +18,6 @@ package reconciler
 
 import (
 	"context"
-	"time"
 
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
@@ -56,8 +55,10 @@ const (
 }]`
 )
 
-// This is mutable for testing.
-var resetPeriod = 30 * time.Second
+// ConfigStore is a minimal interface to the config stores used by our controllers.
+type ConfigStore interface {
+	ToContext(ctx context.Context) context.Context
+}
 
 // Base implements the core controller logic, given a Reconciler.
 type Base struct {

@@ -20,6 +20,7 @@ package performance
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -27,9 +28,10 @@ import (
 	"github.com/knative/pkg/controller"
 	pkgTest "github.com/knative/pkg/test"
 	ingress "github.com/knative/pkg/test/ingress"
-	testingv1alpha1 "github.com/knative/serving/pkg/reconciler/testing"
 	"github.com/knative/serving/pkg/resources"
+	testingv1alpha1 "github.com/knative/serving/pkg/testing/v1alpha1"
 	"github.com/knative/serving/test"
+	v1a1test "github.com/knative/serving/test/v1alpha1"
 	"github.com/knative/test-infra/shared/junit"
 	"github.com/knative/test-infra/shared/loadgenerator"
 	"github.com/knative/test-infra/shared/testgrid"
@@ -84,14 +86,14 @@ func scaleRevisionByLoad(t *testing.T, numClients int) []junit.TestCase {
 	test.CleanupOnInterrupt(func() { TearDown(perfClients, names, t.Logf) })
 
 	t.Log("Creating a new Service")
-	objs, err := test.CreateRunLatestServiceReady(t, clients, &names, &test.Options{
+	objs, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, &v1a1test.Options{
 		ContainerResources: corev1.ResourceRequirements{
 			Requests: corev1.ResourceList{
 				corev1.ResourceCPU:    resource.MustParse("50m"),
 				corev1.ResourceMemory: resource.MustParse("20Mi"),
 			},
 		}},
-		testingv1alpha1.WithConfigAnnotations(map[string]string{"autoscaling.knative.dev/target": fmt.Sprintf("%d", targetConcurrency)}),
+		testingv1alpha1.WithConfigAnnotations(map[string]string{"autoscaling.knative.dev/target": strconv.Itoa(targetConcurrency)}),
 	)
 	if err != nil {
 		t.Fatalf("Failed to create Service: %v", err)
@@ -110,7 +112,7 @@ func scaleRevisionByLoad(t *testing.T, numClients int) []junit.TestCase {
 		clients.KubeClient,
 		t.Logf,
 		domain+"/?timeout=10", // To generate any kind of a valid response.
-		test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
+		v1a1test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
 		"WaitForEndpointToServeText",
 		test.ServingFlags.ResolvableDomain)
 	if err != nil {

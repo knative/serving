@@ -18,9 +18,23 @@ package v1beta1
 
 import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
+
+	"github.com/knative/pkg/apis"
 )
+
+const (
+	// DefaultUserPort is the system default port value exposed on the user-container.
+	DefaultUserPort = 8080
+)
+
+var revisionCondSet = apis.NewLivingConditionSet()
 
 // GetGroupVersionKind returns the GroupVersionKind.
 func (r *Revision) GetGroupVersionKind() schema.GroupVersionKind {
 	return SchemeGroupVersion.WithKind("Revision")
+}
+
+// IsReady returns if the revision is ready to serve the requested configuration.
+func (rs *RevisionStatus) IsReady() bool {
+	return revisionCondSet.Manage(rs).IsHappy()
 }

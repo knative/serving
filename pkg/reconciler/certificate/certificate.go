@@ -53,7 +53,7 @@ type Reconciler struct {
 	cmCertificateLister certmanagerlisters.CertificateLister
 	certManagerClient   certmanagerclientset.Interface
 
-	configStore configStore
+	configStore reconciler.ConfigStore
 }
 
 // Check that our Reconciler implements controller.Reconciler
