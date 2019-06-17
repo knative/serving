@@ -18,6 +18,7 @@ package main
 import (
 	"fmt"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"net/http/httputil"
@@ -30,6 +31,8 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"github.com/knative/serving/pkg/activator"
 	"github.com/knative/serving/pkg/network"
@@ -246,5 +249,464 @@ func TestProbeQueueDelayedReady(t *testing.T) {
 
 	if err := probeQueueHealthPath(port, time.Second); err != nil {
 		t.Errorf("probeQueueHealthPath(%d) = %s", port, err)
+	}
+}
+
+func TestTCPFailure(t *testing.T) {
+	pb := probe{
+		corev1.Probe{
+			PeriodSeconds:    1,
+			TimeoutSeconds:   10,
+			SuccessThreshold: 1,
+			FailureThreshold: 1,
+			Handler: corev1.Handler{
+				TCPSocket: &corev1.TCPSocketAction{
+					Host: "127.0.0.1",
+					Port: intstr.FromInt(12345),
+				},
+			},
+		},
+		0,
+	}
+
+	if pb.ProbeContainer() {
+		t.Error("Reported success when no server was available for connection")
+	}
+}
+
+func TestTCPSuccess(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer ts.Close()
+
+	port := strings.TrimPrefix(ts.URL, "http://127.0.0.1:")
+
+	pb := probe{
+		corev1.Probe{
+			PeriodSeconds:    1,
+			TimeoutSeconds:   10,
+			SuccessThreshold: 1,
+			FailureThreshold: 1,
+			Handler: corev1.Handler{
+				TCPSocket: &corev1.TCPSocketAction{
+					Host: "127.0.0.1",
+					Port: intstr.FromString(port),
+				},
+			},
+		},
+		0,
+	}
+
+	if !pb.ProbeContainer() {
+		t.Error("Probe report failure. Expected success.")
+	}
+}
+
+func TestHTTPFailureToConnect(t *testing.T) {
+	pb := probe{
+		corev1.Probe{
+			PeriodSeconds:    1,
+			TimeoutSeconds:   10,
+			SuccessThreshold: 1,
+			FailureThreshold: 1,
+			Handler: corev1.Handler{
+				HTTPGet: &corev1.HTTPGetAction{
+					Host: "127.0.0.1",
+					Port: intstr.FromInt(12345),
+				},
+			},
+		},
+		0,
+	}
+
+	if pb.ProbeContainer() {
+		t.Error("Reported success when no server was available for connection")
+	}
+}
+
+func TestHTTPBadResponse(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusBadRequest)
+	}))
+	defer ts.Close()
+
+	port := strings.TrimPrefix(ts.URL, "http://127.0.0.1:")
+
+	pb := probe{
+		corev1.Probe{
+			PeriodSeconds:    1,
+			TimeoutSeconds:   10,
+			SuccessThreshold: 1,
+			FailureThreshold: 1,
+			Handler: corev1.Handler{
+				HTTPGet: &corev1.HTTPGetAction{
+					Host: "127.0.0.1",
+					Port: intstr.FromString(port),
+				},
+			},
+		},
+		0,
+	}
+
+	if pb.ProbeContainer() {
+		t.Error("Reported success when server replied with Bad Request")
+	}
+}
+
+func TestHTTPSuccess(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer ts.Close()
+
+	port := strings.TrimPrefix(ts.URL, "http://127.0.0.1:")
+
+	pb := probe{
+		corev1.Probe{
+			PeriodSeconds:    1,
+			TimeoutSeconds:   10,
+			SuccessThreshold: 1,
+			FailureThreshold: 1,
+			Handler: corev1.Handler{
+				HTTPGet: &corev1.HTTPGetAction{
+					Host: "127.0.0.1",
+					Port: intstr.FromString(port),
+				},
+			},
+		},
+		0,
+	}
+
+	if !pb.ProbeContainer() {
+		t.Error("Probe failed. Expected success.")
+	}
+}
+
+func TestHTTPTimeout(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		time.Sleep(5 * time.Second)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer ts.Close()
+
+	port := strings.TrimPrefix(ts.URL, "http://127.0.0.1:")
+
+	pb := probe{
+		corev1.Probe{
+			PeriodSeconds:    1,
+			TimeoutSeconds:   4,
+			SuccessThreshold: 1,
+			FailureThreshold: 1,
+			Handler: corev1.Handler{
+				HTTPGet: &corev1.HTTPGetAction{
+					Host: "127.0.0.1",
+					Port: intstr.FromString(port),
+				},
+			},
+		},
+		0,
+	}
+
+	if pb.ProbeContainer() {
+		t.Error("Probe succeeded. Expected failure due to timeout.")
+	}
+}
+
+func TestKNHTTPSuccessWithRetry(t *testing.T) {
+	attempted := false
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !attempted {
+			w.WriteHeader(http.StatusBadRequest)
+			attempted = true
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer ts.Close()
+
+	port := strings.TrimPrefix(ts.URL, "http://127.0.0.1:")
+
+	pb := probe{
+		corev1.Probe{
+			PeriodSeconds:    0,
+			TimeoutSeconds:   0,
+			SuccessThreshold: 1,
+			FailureThreshold: 0,
+			Handler: corev1.Handler{
+				HTTPGet: &corev1.HTTPGetAction{
+					Host: "127.0.0.1",
+					Port: intstr.FromString(port),
+				},
+			},
+		},
+		0,
+	}
+
+	if !pb.ProbeContainer() {
+		t.Error("Probe failed. Expected success after retry.")
+	}
+}
+
+func TestKNHTTPSuccessWithThreshold(t *testing.T) {
+	var count int32 = 0
+	var threshold int32 = 3
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		count++
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer ts.Close()
+
+	port := strings.TrimPrefix(ts.URL, "http://127.0.0.1:")
+
+	pb := probe{
+		corev1.Probe{
+			PeriodSeconds:    0,
+			TimeoutSeconds:   0,
+			SuccessThreshold: threshold,
+			FailureThreshold: 0,
+			Handler: corev1.Handler{
+				HTTPGet: &corev1.HTTPGetAction{
+					Host: "127.0.0.1",
+					Port: intstr.FromString(port),
+				},
+			},
+		},
+		0,
+	}
+
+	if !pb.ProbeContainer() {
+		t.Error("Expected success after second attempt.")
+	}
+
+	if count != threshold {
+		t.Errorf("Expected %d requests before reporting success", threshold)
+	}
+}
+
+func TestKNHTTPSuccessWithThresholdAndFailure(t *testing.T) {
+	var count int32 = 0
+	var threshold int32 = 3
+	var requestFailure int32 = 2
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		count++
+
+		if count == requestFailure {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer ts.Close()
+
+	port := strings.TrimPrefix(ts.URL, "http://127.0.0.1:")
+
+	pb := probe{
+		corev1.Probe{
+			PeriodSeconds:    0,
+			TimeoutSeconds:   0,
+			SuccessThreshold: threshold,
+			FailureThreshold: 0,
+			Handler: corev1.Handler{
+				HTTPGet: &corev1.HTTPGetAction{
+					Host: "127.0.0.1",
+					Port: intstr.FromString(port),
+				},
+			},
+		},
+		0,
+	}
+
+	if !pb.ProbeContainer() {
+		t.Error("Expected success.")
+	}
+
+	if count != threshold+requestFailure {
+		t.Errorf("Wanted %d requests before reporting success, got=%d", threshold+requestFailure, count)
+	}
+}
+
+func TestKNHTTPTimeoutFailure(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		time.Sleep(200 * time.Millisecond)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer ts.Close()
+
+	port := strings.TrimPrefix(ts.URL, "http://127.0.0.1:")
+
+	pb := probe{
+		corev1.Probe{
+			PeriodSeconds:    0,
+			TimeoutSeconds:   0,
+			SuccessThreshold: 1,
+			FailureThreshold: 0,
+			Handler: corev1.Handler{
+				HTTPGet: &corev1.HTTPGetAction{
+					Host: "127.0.0.1",
+					Port: intstr.FromString(port),
+				},
+			},
+		},
+		0,
+	}
+
+	if pb.ProbeContainer() {
+		t.Error("Probe succeeded. Expected failure due to timeout.")
+	}
+}
+
+func TestKNativeTCPProbeSuccess(t *testing.T) {
+	pb := probe{
+		corev1.Probe{
+			PeriodSeconds:    0,
+			TimeoutSeconds:   0,
+			SuccessThreshold: 1,
+			FailureThreshold: 0,
+			Handler: corev1.Handler{
+				TCPSocket: &corev1.TCPSocketAction{
+					Host: "127.0.0.1",
+					Port: intstr.FromInt(12345),
+				},
+			},
+		},
+		0,
+	}
+
+	listener, err := net.Listen("tcp", ":12345")
+	if err != nil {
+		t.Fatal("Error setting up tcp listener.")
+	}
+	defer listener.Close()
+
+	if !pb.ProbeContainer() {
+		t.Error("Got probe error. Wanted success.")
+	}
+}
+
+func TestKNativeTCPProbeFailure(t *testing.T) {
+	pb := probe{
+		corev1.Probe{
+			PeriodSeconds:    0,
+			TimeoutSeconds:   0,
+			SuccessThreshold: 1,
+			FailureThreshold: 0,
+			Handler: corev1.Handler{
+				TCPSocket: &corev1.TCPSocketAction{
+					Host: "127.0.0.1",
+					Port: intstr.FromInt(12345),
+				},
+			},
+		},
+		0,
+	}
+
+	if pb.ProbeContainer() {
+		t.Error("Got probe success. Wanted failure.")
+	}
+}
+
+func TestKNativeTCPProbeSuccessWithThreshold(t *testing.T) {
+	pb := probe{
+		corev1.Probe{
+			PeriodSeconds:    0,
+			TimeoutSeconds:   0,
+			SuccessThreshold: 3,
+			FailureThreshold: 0,
+			Handler: corev1.Handler{
+				TCPSocket: &corev1.TCPSocketAction{
+					Host: "127.0.0.1",
+					Port: intstr.FromInt(12345),
+				},
+			},
+		},
+		0,
+	}
+
+	listener, err := net.Listen("tcp", ":12345")
+	if err != nil {
+		t.Fatal("Error setting up tcp listener.")
+	}
+	defer listener.Close()
+
+	if !pb.ProbeContainer() {
+		t.Error("Got probe error. Wanted success.")
+	}
+
+	if pb.Count() != 3 {
+		t.Errorf("Expected count to be 3, go %d", pb.Count())
+	}
+}
+
+func TestKNativeTCPProbeSuccessThresholdIncludesFailure(t *testing.T) {
+	pb := probe{
+		corev1.Probe{
+			PeriodSeconds:    0,
+			TimeoutSeconds:   0,
+			SuccessThreshold: 3,
+			FailureThreshold: 0,
+			Handler: corev1.Handler{
+				TCPSocket: &corev1.TCPSocketAction{
+					Host: "127.0.0.1",
+					Port: intstr.FromInt(12345),
+				},
+			},
+		},
+		0,
+	}
+
+	connCount := 0
+
+	listener, err := net.Listen("tcp", ":12345")
+	if err != nil {
+		t.Fatal("Error setting up tcp listener.")
+	}
+
+	errChan := make(chan error, 1)
+	go func(errChan chan error) {
+		if !pb.ProbeContainer() {
+			errChan <- fmt.Errorf("Got probe error. wanted success")
+			return
+		}
+		errChan <- nil
+	}(errChan)
+
+	_, err = listener.Accept()
+	if err != nil {
+		t.Fatalf("Failed to accept TCP conn: %s", err.Error())
+	}
+	connCount++
+
+	// Close server and sleep to give probe time to fail a few times
+	listener.Close()
+	time.Sleep(500 * time.Millisecond)
+
+	listener2, err := net.Listen("tcp", ":12345")
+	if err != nil {
+		t.Fatal("Error setting up tcp listener.")
+	}
+
+	for {
+		if connCount < 4 {
+			_, err = listener2.Accept()
+			if err != nil {
+				t.Fatalf("Failed to accept TCP conn: %s", err.Error())
+			}
+			connCount++
+		} else {
+			listener2.Close()
+			break
+		}
+	}
+
+	if probeErr := <-errChan; probeErr != nil {
+		t.Errorf("probe container error: %s", probeErr.Error())
+	}
+	if pb.Count() != 3 {
+		t.Errorf("Expected count to be 3, go %d", pb.Count())
 	}
 }

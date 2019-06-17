@@ -49,6 +49,7 @@ import (
 	"knative.dev/pkg/metrics"
 	"knative.dev/pkg/signals"
 
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 )
 
@@ -112,7 +113,7 @@ var (
 	healthState      = &health.State{}
 	promStatReporter *queue.PrometheusStatsReporter // Prometheus stats reporter.
 
-	probe = flag.Bool("probe", false, "run readiness probe")
+	readinessProbe = flag.Bool("probe", false, "run readiness probe")
 
 	// Metric counters.
 	requestCountM = stats.Int64(
@@ -199,17 +200,6 @@ func probeUserContainer() bool {
 	return err == nil
 }
 
-func tcpProberFactory(address string, timeout time.Duration) func() bool {
-	return func() bool {
-		var err error
-		wait.PollImmediate(50*time.Millisecond, timeout, func() (bool, error) {
-			err = health.TCPProbe(address, 100*time.Millisecond)
-			return err == nil, nil
-		})
-		return err == nil
-	}
-}
-
 // Make handler a closure for testing.
 func handler(reqChan chan queue.ReqEvent, breaker *queue.Breaker, handler http.Handler) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -258,7 +248,7 @@ func handler(reqChan chan queue.ReqEvent, breaker *queue.Breaker, handler http.H
 }
 
 // Sets up /health and /wait-for-drain endpoints.
-func createAdminHandlers() *http.ServeMux {
+func createAdminHandlers(probeUserContainer func() bool) *http.ServeMux {
 	mux := http.NewServeMux()
 	mux.HandleFunc(requestQueueHealthPath, healthState.HealthHandler(probeUserContainer))
 	mux.HandleFunc(queue.RequestQueueDrainPath, healthState.DrainHandler())
@@ -304,10 +294,114 @@ func probeQueueHealthPath(port int, timeout time.Duration) error {
 	return nil
 }
 
+type probe struct {
+	corev1.Probe
+	count int32
+}
+
+func (p *probe) ProbeContainer() bool {
+	if p.PeriodSeconds != 0 {
+		return p.standardProbe()
+	}
+	var probeFunc func() (bool, error)
+
+	if p.HTTPGet != nil {
+		probeFunc = p.knativeHTTPProbe
+	} else if p.TCPSocket != nil {
+		probeFunc = p.knativeTCPProbe
+	} else {
+		// using Fprintf for a concise error message in the event log
+		fmt.Fprintf(os.Stderr, "unimplemented probe type.")
+		return false
+	}
+	var err error
+	err = wait.PollImmediate(50*time.Millisecond, 10*time.Second, probeFunc)
+
+	if err == nil {
+		logger.Info("User-container successfully probed.")
+	} else {
+		logger.Errorw("User-container could not be probed successfully.", zap.Error(err))
+	}
+
+	return err == nil
+}
+
+func (p *probe) knativeTCPProbe() (bool, error) {
+	tcpErr := health.TCPProbe(fmt.Sprintf("%s:%d", p.TCPSocket.Host, p.TCPSocket.Port.IntValue()), 100*time.Millisecond)
+
+	if tcpErr != nil {
+		p.count = 0
+		return false, nil
+	}
+
+	p.count++
+	return p.Count() >= p.SuccessThreshold, nil
+}
+
+func (p *probe) knativeHTTPProbe() (bool, error) {
+	url := fmt.Sprintf("http://%s:%d", p.HTTPGet.Host, p.HTTPGet.Port.IntValue())
+	httpClient := &http.Client{
+		Transport: &http.Transport{
+			DisableKeepAlives: true,
+		},
+		Timeout: 100 * time.Millisecond,
+	}
+
+	var res *http.Response
+	res, _ = httpClient.Get(url)
+
+	if res == nil {
+		p.count = 0
+		return false, nil
+	}
+
+	if res.StatusCode < 200 || res.StatusCode >= 400 {
+		p.count = 0
+		return false, nil
+	}
+
+	p.count++
+
+	return p.count >= p.SuccessThreshold, nil
+}
+
+func (p *probe) Count() int32 {
+	return p.count
+}
+
+func (p *probe) standardProbe() bool {
+	if p.TCPSocket != nil {
+		address := fmt.Sprintf("%s:%d", p.TCPSocket.Host, p.TCPSocket.Port.IntValue())
+		err := health.TCPProbe(address, time.Duration(p.TimeoutSeconds)*time.Second)
+		return err == nil
+	} else if p.HTTPGet != nil {
+		url := fmt.Sprintf("http://%s:%d", p.HTTPGet.Host, p.HTTPGet.Port.IntValue())
+		httpClient := &http.Client{
+			Transport: &http.Transport{
+				DisableKeepAlives: true,
+			},
+			Timeout: time.Duration(p.TimeoutSeconds) * time.Second,
+		}
+
+		var res *http.Response
+		res, _ = httpClient.Get(url)
+
+		if res == nil {
+			return false
+		}
+
+		return res.StatusCode >= 200 && res.StatusCode < 400
+	}
+
+	// using Fprintf for a concise error message in the event log
+	fmt.Fprintf(os.Stderr, "unimplemented probe type.")
+	return false
+}
+
 func main() {
 	flag.Parse()
 
-	if *probe {
+	if *readinessProbe {
 		if err := probeQueueHealthPath(networking.QueueAdminPort, probeTimeout); err != nil {
 			// used instead of the logger to produce a concise event message
 			fmt.Fprintln(os.Stderr, err)
@@ -364,9 +458,19 @@ func main() {
 		StatChan:   statChan,
 	}, time.Now())
 
+	pb := probe{
+		corev1.Probe{
+			PeriodSeconds:    0,
+			TimeoutSeconds:   0,
+			SuccessThreshold: 0,
+			FailureThreshold: 0,
+		},
+		0,
+	}
+
 	adminServer := &http.Server{
 		Addr:    fmt.Sprintf(":%d", networking.QueueAdminPort),
-		Handler: createAdminHandlers(),
+		Handler: createAdminHandlers(pb.ProbeContainer),
 	}
 
 	metricsSupported := false
