@@ -29,6 +29,15 @@ import (
 // Note: IPv6 addresses are *not* supported.
 func ForwardedShimHandler(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Forwarded: by=<identifier>;for=<identifier>;host=<host>;proto=<http|https>
+		fwd := strings.TrimSpace(r.Header.Get(http.CanonicalHeaderKey("forwarded")))
+
+		// Don't add a shim if the header is already present
+		if fwd != "" {
+			h.ServeHTTP(w, r)
+			return
+		}
+
 		// X-Forwarded-For: <client>, <proxy1>, <proxy2>
 		xff := strings.TrimSpace(r.Header.Get(http.CanonicalHeaderKey("x-forwarded-for")))
 		// X-Forwarded-Proto: <protocol>
@@ -36,45 +45,39 @@ func ForwardedShimHandler(h http.Handler) http.Handler {
 		// X-Forwarded-Host: <host>
 		xfh := strings.TrimSpace(r.Header.Get(http.CanonicalHeaderKey("x-forwarded-host")))
 
-		// Forwarded: by=<identifier>;for=<identifier>;host=<host>;proto=<http|https>
-		fwd := strings.TrimSpace(r.Header.Get(http.CanonicalHeaderKey("forwarded")))
+		// The forwarded header is a list of forwarded elements
+		elements := []string{}
 
-		// Add a shim if the header is not already present
-		if fwd == "" {
-			// The forwarded header is a list of forwarded elements
-			elements := []string{}
+		// The x-forwarded-header consists of multiple nodes
+		nodes := strings.Split(xff, ",")
 
-			// The x-forwarded-header consists of multiple nodes
-			nodes := strings.Split(xff, ",")
+		// The first element has a 'for', 'proto' and 'host' pair, as available
+		pairs := []string{}
 
-			// The first element has a 'for', 'proto' and 'host' pair, as available
-			pairs := []string{}
+		if len(nodes) > 0 && nodes[0] != "" {
+			pairs = append(pairs, "for="+strings.TrimSpace(nodes[0]))
+		}
+		if xfh != "" {
+			pairs = append(pairs, "host="+xfh)
+		}
+		if xfp != "" {
+			pairs = append(pairs, "proto="+xfp)
+		}
 
-			if len(nodes) > 0 && nodes[0] != "" {
-				pairs = append(pairs, "for="+strings.TrimSpace(nodes[0]))
-			}
-			if xfh != "" {
-				pairs = append(pairs, "host="+xfh)
-			}
-			if xfp != "" {
-				pairs = append(pairs, "proto="+xfp)
-			}
+		// The pairs are joined with a semi-colon (;) into a single element
+		elements = append(elements, strings.Join(pairs, ";"))
 
-			// The pairs are joined with a semi-colon (;) into a single element
-			elements = append(elements, strings.Join(pairs, ";"))
+		// Each subsequent x-forwarded-for node gets its own pair element
+		for _, node := range nodes[1:] {
+			elements = append(elements, "for="+strings.TrimSpace(node))
+		}
 
-			// Each subsequent x-forwarded-for node gets its own pair element
-			for _, node := range nodes[1:] {
-				elements = append(elements, "for="+strings.TrimSpace(node))
-			}
+		// The elements are joined with a comma (,) to form the header
+		fwd = strings.Join(elements, ", ")
 
-			// The elements are joined with a comma (,) to form the header
-			fwd = strings.Join(elements, ", ")
-
-			// Only add the forwarded header if we were able to construct one
-			if fwd != "" {
-				r.Header.Set(http.CanonicalHeaderKey("forwarded"), fwd)
-			}
+		// Only add the forwarded header if we were able to construct one
+		if fwd != "" {
+			r.Header.Set(http.CanonicalHeaderKey("forwarded"), fwd)
 		}
 
 		h.ServeHTTP(w, r)
