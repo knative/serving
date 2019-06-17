@@ -24,7 +24,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/knative/serving/test"
-	v1a1test "github.com/knative/serving/test/v1alpha1"
 )
 
 // TestShouldHaveSysctlReadOnly verifies that the /proc/sys filesystem mounted within the container
@@ -32,7 +31,7 @@ import (
 func TestShouldHaveSysctlReadOnly(t *testing.T) {
 	t.Parallel()
 	clients := test.Setup(t)
-	_, ri, err := fetchRuntimeInfo(t, clients, &v1a1test.Options{})
+	_, ri, err := fetchRuntimeInfo(t, clients)
 	if err != nil {
 		t.Fatalf("Error fetching runtime info: %v", err)
 	}

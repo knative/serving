@@ -23,7 +23,6 @@ import (
 	"testing"
 
 	"github.com/knative/serving/test"
-	v1a1test "github.com/knative/serving/test/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 
 	. "github.com/knative/serving/pkg/testing/v1alpha1"
@@ -102,7 +101,7 @@ func TestConfigsViaEnv(t *testing.T) {
 }
 
 func fetchEnvironmentAndVerify(t *testing.T, clients *test.Clients, opts ...ServiceOption) error {
-	_, ri, err := fetchRuntimeInfo(t, clients, &v1a1test.Options{}, opts...)
+	_, ri, err := fetchRuntimeInfo(t, clients, opts...)
 	if err != nil {
 		return err
 	}
