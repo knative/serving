@@ -28,7 +28,6 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
-	_ "github.com/knative/pkg/system/testing"
 	pkgTest "github.com/knative/pkg/test"
 	"github.com/knative/serving/test"
 	v1b1test "github.com/knative/serving/test/v1beta1"
