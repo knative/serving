@@ -65,27 +65,26 @@ func extractData(body io.Reader) (*Stat, error) {
 	}
 
 	stat := Stat{}
-
-	var pMetric *dto.Metric
-	if pMetric = prometheusMetric(metricFamilies, "queue_average_concurrent_requests"); pMetric == nil {
-		return nil, errors.New("could not find value for queue_average_concurrent_requests in response")
+	for m, pv := range map[string]*float64{
+		"queue_average_concurrent_requests":         &stat.AverageConcurrentRequests,
+		"queue_average_proxied_concurrent_requests": &stat.AverageProxiedConcurrentRequests,
+	} {
+		pm := prometheusMetric(metricFamilies, m)
+		if pm == nil {
+			return nil, fmt.Errorf("could not find value for %s in response", m)
+		}
+		*pv = *pm.Gauge.Value
 	}
-	stat.AverageConcurrentRequests = *pMetric.Gauge.Value
-
-	if pMetric = prometheusMetric(metricFamilies, "queue_average_proxied_concurrent_requests"); pMetric == nil {
-		return nil, errors.New("could not find value for queue_average_proxied_concurrent_requests in response")
+	for m, pv := range map[string]*int32{
+		"queue_operations_per_second":         &stat.RequestCount,
+		"queue_proxied_operations_per_second": &stat.ProxiedRequestCount,
+	} {
+		pm := prometheusMetric(metricFamilies, m)
+		if pm == nil {
+			return nil, fmt.Errorf("could not find value for %s in response", m)
+		}
+		*pv = int32(*pm.Gauge.Value)
 	}
-	stat.AverageProxiedConcurrentRequests = *pMetric.Gauge.Value
-
-	if pMetric = prometheusMetric(metricFamilies, "queue_operations_per_second"); pMetric == nil {
-		return nil, errors.New("could not find value for queue_operations_per_second in response")
-	}
-	stat.RequestCount = int32(*pMetric.Gauge.Value)
-
-	if pMetric = prometheusMetric(metricFamilies, "queue_proxied_operations_per_second"); pMetric == nil {
-		return nil, errors.New("could not find value for queue_proxied_operations_per_second in response")
-	}
-	stat.ProxiedRequestCount = int32(*pMetric.Gauge.Value)
 	return &stat, nil
 }
 
