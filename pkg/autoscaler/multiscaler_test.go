@@ -327,7 +327,7 @@ func TestMultiScalerUpdate(t *testing.T) {
 		t.Errorf("Get() = %v", err)
 	}
 	if got, want := m.Spec.TargetConcurrency, 10.0; got != want {
-		t.Errorf("GoRt target concurrency %v. Wanted %v", got, want)
+		t.Errorf("Got target concurrency %v. Wanted %v", got, want)
 	}
 }
 
