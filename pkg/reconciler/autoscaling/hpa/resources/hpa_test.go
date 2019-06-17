@@ -66,8 +66,9 @@ func TestMakeHPA(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			if diff := cmp.Diff(tc.want, MakeHPA(tc.pa)); diff != "" {
-				t.Errorf("%q (-want, +got):\n%v", tc.name, diff)
+			got := MakeHPA(tc.pa)
+			if !cmp.Equal(tc.want, got) {
+				t.Errorf("MakeHPA() = (-want, +got):\n%v", cmp.Diff(tc.want, got))
 			}
 		})
 	}
@@ -84,7 +85,6 @@ func pa(options ...PodAutoscalerOption) *v1alpha1.PodAutoscaler {
 			},
 		},
 		Spec: v1alpha1.PodAutoscalerSpec{
-			ContainerConcurrency: 0,
 			ScaleTargetRef: corev1.ObjectReference{
 				APIVersion: "apps",
 				Kind:       "Deployment",
