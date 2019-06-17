@@ -69,7 +69,7 @@ func (rs *RouteStatus) MarkServiceNotOwned(name string) {
 
 func (rs *RouteStatus) MarkIngressNotConfigured() {
 	routeCondSet.Manage(rs).MarkUnknown(RouteConditionIngressReady,
-		"IngressNotConfigured", "Failed to configure route ingress.")
+		"IngressNotConfigured", "Ingress has not yet been reconciled.")
 }
 
 func (rs *RouteStatus) MarkTrafficAssigned() {
