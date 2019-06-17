@@ -69,7 +69,7 @@ func TestMinScale(t *testing.T) {
 		t.Fatal("Revision did not become ready.")
 	}
 
-	deployment, err := clients.KubeClient.Kube.ExtensionsV1beta1().Deployments(test.ServingNamespace).Get(revName+"-deployment", metav1.GetOptions{})
+	deployment, err := clients.KubeClient.Kube.ExtensionsV1beta1().Deployments(test.ServingNamespace).Get(revName, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Failed to get Deployment for Revision %s, err: %v", revName, err)
 	}

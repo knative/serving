@@ -84,7 +84,7 @@ func TestControllerCanReconcile(t *testing.T) {
 }
 
 func TestReconcile(t *testing.T) {
-	const deployName = testRevision + "-deployment"
+	const deployName = testRevision
 	table := TableTest{{
 		Name: "no op",
 		Objects: []runtime.Object{
@@ -439,7 +439,7 @@ func pa(name, namespace string, options ...PodAutoscalerOption) *autoscalingv1al
 			ScaleTargetRef: corev1.ObjectReference{
 				APIVersion: "apps/v1",
 				Kind:       "Deployment",
-				Name:       name + "-deployment",
+				Name:       name,
 			},
 			ProtocolType: networking.ProtocolHTTP1,
 		},
@@ -469,7 +469,7 @@ type deploymentOption func(*appsv1.Deployment)
 func deploy(namespace, name string, opts ...deploymentOption) *appsv1.Deployment {
 	s := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      name + "-deployment",
+			Name:      name,
 			Namespace: namespace,
 		},
 		Spec: appsv1.DeploymentSpec{
