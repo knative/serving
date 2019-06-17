@@ -28,7 +28,6 @@ import (
 
 	pkgTest "github.com/knative/pkg/test"
 	ingress "github.com/knative/pkg/test/ingress"
-	resourcenames "github.com/knative/serving/pkg/reconciler/revision/resources/names"
 	"github.com/knative/serving/test"
 	ping "github.com/knative/serving/test/test_images/grpc-ping/proto"
 	v1a1test "github.com/knative/serving/test/v1alpha1"
@@ -208,20 +207,18 @@ func TestGRPCStreamingPing(t *testing.T) {
 
 func TestGRPCUnaryPingFromZero(t *testing.T) {
 	testGRPC(t, func(t *testing.T, resources *v1a1test.ResourceObjects, clients *test.Clients, host, domain string) {
-		if err := WaitForScaleToZero(t, resourcenames.Deployment(resources.Revision), clients); err != nil {
+		if err := WaitForScaleToZero(t, resources.Revision.Name, clients); err != nil {
 			t.Fatalf("Could not scale to zero: %v", err)
 		}
-
 		unaryTest(t, resources, clients, host, domain)
 	})
 }
 
 func TestGRPCStreamingPingFromZero(t *testing.T) {
 	testGRPC(t, func(t *testing.T, resources *v1a1test.ResourceObjects, clients *test.Clients, host, domain string) {
-		if err := WaitForScaleToZero(t, resourcenames.Deployment(resources.Revision), clients); err != nil {
+		if err := WaitForScaleToZero(t, resources.Revision.Name, clients); err != nil {
 			t.Fatalf("Could not scale to zero: %v", err)
 		}
-
 		streamTest(t, resources, clients, host, domain)
 	})
 }

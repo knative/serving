@@ -26,7 +26,6 @@ import (
 	"github.com/gorilla/websocket"
 	pkgTest "github.com/knative/pkg/test"
 	ingress "github.com/knative/pkg/test/ingress"
-	rnames "github.com/knative/serving/pkg/reconciler/revision/resources/names"
 	"github.com/knative/serving/test"
 	v1a1test "github.com/knative/serving/test/v1alpha1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -134,7 +133,6 @@ func TestWebSocket(t *testing.T) {
 // (5) verifies that we receive back the same message.
 func TestWebSocketFromZero(t *testing.T) {
 	clients := Setup(t)
-
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
 		Image:   wsServerTestImageName,
@@ -149,8 +147,7 @@ func TestWebSocketFromZero(t *testing.T) {
 		t.Fatalf("Failed to create WebSocket server: %v", err)
 	}
 
-	deploymentName := rnames.Deployment(resources.Revision)
-
+	deploymentName := resources.Revision.Name
 	if err := WaitForScaleToZero(t, deploymentName, clients); err != nil {
 		t.Fatalf("Could not scale to zero: %v", err)
 	}

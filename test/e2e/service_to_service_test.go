@@ -30,7 +30,6 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 
-	"github.com/knative/serving/pkg/reconciler/revision/resources/names"
 	routeconfig "github.com/knative/serving/pkg/reconciler/route/config"
 
 	. "github.com/knative/serving/pkg/testing/v1alpha1"
@@ -203,7 +202,7 @@ func TestServiceToServiceCallFromZero(t *testing.T) {
 	}
 
 	// Wait for service to be scaled to zero
-	deploymentName := names.Deployment(helloWorld.Revision)
+	deploymentName := helloWorld.Revision.Name
 	if err := WaitForScaleToZero(t, deploymentName, clients); err != nil {
 		t.Fatalf("Could not scale to zero: %v", err)
 	}
