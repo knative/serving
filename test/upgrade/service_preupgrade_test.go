@@ -27,6 +27,9 @@ import (
 	"github.com/knative/serving/test"
 	"github.com/knative/serving/test/e2e"
 	v1a1test "github.com/knative/serving/test/v1alpha1"
+
+	corev1 "k8s.io/api/core/v1"
+	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
 )
 
@@ -62,7 +65,7 @@ func TestRunLatestServicePreUpgradeAndScaleToZero(t *testing.T) {
 	assertServiceResourcesUpdated(t, clients, names, domain, test.PizzaPlanetText1)
 
 	// TODO(vagababov): remove this in 0.8
-	dName := revoleDeploymentName(clients, resources.Revision)
+	dName := resoleDeploymentName(clients, resources.Revision)
 	if err := e2e.WaitForScaleToZero(t, dName, clients); err != nil {
 		t.Fatalf("Could not scale to zero: %v", err)
 	}
