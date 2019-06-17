@@ -17,17 +17,37 @@ limitations under the License.
 package names
 
 import (
+	"crypto/md5"
+	"fmt"
+
 	"github.com/knative/pkg/kmeta"
 )
 
+const (
+	// K8s restriction for the resource name.
+	longest = 63
+	md5Len  = 32
+	head    = longest - md5Len
+)
+
+func maybeShortenName(n string) string {
+	if len(n) > longest {
+		n = fmt.Sprintf("%s%x", n[:head], md5.Sum([]byte(n)))
+	}
+	return n
+}
+
+// Deployment returns the precomputed name for the revision deployment
 func Deployment(rev kmeta.Accessor) string {
-	return rev.GetName() + "-deployment"
+	return maybeShortenName(rev.GetName() + "-deployment")
 }
 
+// ImageCache returns the precomputed name for the image cache.
 func ImageCache(rev kmeta.Accessor) string {
-	return rev.GetName() + "-cache"
+	return maybeShortenName(rev.GetName() + "-cache")
 }
 
+// KPA returns the PA name for the revision.
 func KPA(rev kmeta.Accessor) string {
 	// We want the KPA's "key" to match the revision,
 	// to simplify the transition to the KPA.
