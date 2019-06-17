@@ -129,9 +129,8 @@ func (c *Reconciler) reconcile(ctx context.Context, config *v1alpha1.Configurati
 	if err := config.ConvertUp(ctx, &v1beta1.Configuration{}); err != nil {
 		if ce, ok := err.(*v1alpha1.CannotConvertError); ok {
 			config.Status.MarkResourceNotConvertible(ce)
-		} else {
-			return err
 		}
+		return err
 	}
 
 	// First, fetch the revision that should exist for the current generation.
