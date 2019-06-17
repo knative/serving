@@ -65,7 +65,7 @@ func TestRunLatestServicePreUpgradeAndScaleToZero(t *testing.T) {
 	assertServiceResourcesUpdated(t, clients, names, domain, test.PizzaPlanetText1)
 
 	// TODO(vagababov): remove this in 0.8
-	dName := resoleDeploymentName(clients, resources.Revision)
+	dName := resolveDeploymentName(clients, resources.Revision)
 	if err := e2e.WaitForScaleToZero(t, dName, clients); err != nil {
 		t.Fatalf("Could not scale to zero: %v", err)
 	}
