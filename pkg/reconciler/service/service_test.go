@@ -35,6 +35,8 @@ import (
 	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/service/resources"
+	presources "github.com/knative/serving/pkg/resources"
+
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -720,6 +722,66 @@ func TestReconcile(t *testing.T) {
 			Patch: []byte(reconciler.ForceUpgradePatch),
 		}},
 		Key: "foo/no-updates",
+	}, {
+		Name: "runLatest - update annotations",
+		Objects: []runtime.Object{
+			Service("update-annos", "foo", WithRunLatestRollout, WithInitSvcConditions,
+				func(s *v1alpha1.Service) {
+					s.Annotations = presources.UnionMaps(s.Annotations,
+						map[string]string{"new-key": "new-value"})
+				}),
+			config("update-annos", "foo", WithRunLatestRollout),
+			route("update-annos", "foo", WithRunLatestRollout),
+		},
+		Key: "foo/update-annos",
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: config("update-annos", "foo", WithRunLatestRollout,
+				func(s *v1alpha1.Configuration) {
+					s.Annotations = presources.UnionMaps(s.Annotations,
+						map[string]string{"new-key": "new-value"})
+				}),
+		}, {
+			Object: route("update-annos", "foo", WithRunLatestRollout,
+				func(s *v1alpha1.Route) {
+					s.Annotations = presources.UnionMaps(s.Annotations,
+						map[string]string{"new-key": "new-value"})
+				}),
+		}},
+		WantPatches: []clientgotesting.PatchActionImpl{{
+			ActionImpl: clientgotesting.ActionImpl{
+				Namespace: "foo",
+			},
+			Name:  "update-annos",
+			Patch: []byte(reconciler.ForceUpgradePatch),
+		}},
+	}, {
+		Name: "runLatest - delete annotations",
+		Objects: []runtime.Object{
+			Service("update-annos", "foo", WithRunLatestRollout, WithInitSvcConditions),
+			config("update-annos", "foo", WithRunLatestRollout,
+				func(s *v1alpha1.Configuration) {
+					s.Annotations = presources.UnionMaps(s.Annotations,
+						map[string]string{"new-key": "new-value"})
+				}),
+			route("update-annos", "foo", WithRunLatestRollout,
+				func(s *v1alpha1.Route) {
+					s.Annotations = presources.UnionMaps(s.Annotations,
+						map[string]string{"new-key": "new-value"})
+				}),
+		},
+		Key: "foo/update-annos",
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: config("update-annos", "foo", WithRunLatestRollout),
+		}, {
+			Object: route("update-annos", "foo", WithRunLatestRollout),
+		}},
+		WantPatches: []clientgotesting.PatchActionImpl{{
+			ActionImpl: clientgotesting.ActionImpl{
+				Namespace: "foo",
+			},
+			Name:  "update-annos",
+			Patch: []byte(reconciler.ForceUpgradePatch),
+		}},
 	}, {
 		Name: "runLatest - update route and service",
 		Objects: []runtime.Object{

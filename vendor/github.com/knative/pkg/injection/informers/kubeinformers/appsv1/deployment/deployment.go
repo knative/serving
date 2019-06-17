@@ -24,6 +24,7 @@ import (
 	"github.com/knative/pkg/controller"
 	"github.com/knative/pkg/injection"
 	"github.com/knative/pkg/injection/informers/kubeinformers/factory"
+	"github.com/knative/pkg/logging"
 )
 
 func init() {
@@ -44,7 +45,8 @@ func withInformer(ctx context.Context) (context.Context, controller.Informer) {
 func Get(ctx context.Context) appsv1.DeploymentInformer {
 	untyped := ctx.Value(Key{})
 	if untyped == nil {
-		return nil
+		logging.FromContext(ctx).Panicf(
+			"Unable to fetch %T from context.", (appsv1.DeploymentInformer)(nil))
 	}
 	return untyped.(appsv1.DeploymentInformer)
 }

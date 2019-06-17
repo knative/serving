@@ -128,8 +128,9 @@ func TestNewMakeK8SService(t *testing.T) {
 			},
 			expectedMeta: expectedMeta,
 			expectedSpec: corev1.ServiceSpec{
-				Type:         corev1.ServiceTypeExternalName,
-				ExternalName: "istio-ingressgateway.istio-system.svc.cluster.local",
+				Type:            corev1.ServiceTypeExternalName,
+				ExternalName:    "istio-ingressgateway.istio-system.svc.cluster.local",
+				SessionAffinity: corev1.ServiceAffinityNone,
 			},
 		},
 		"ingress-with-only-mesh": {
@@ -181,25 +182,27 @@ func TestNewMakeK8SService(t *testing.T) {
 	}
 
 	for name, scenario := range scenarios {
-		cfg := testConfig()
-		ctx := config.ToContext(context.Background(), cfg)
-		service, err := MakeK8sService(ctx, scenario.route, scenario.targetName, scenario.ingress)
-		// Validate
-		if scenario.shouldFail && err == nil {
-			t.Errorf("Test %q failed: returned success but expected error", name)
-		}
-		if !scenario.shouldFail {
-			if err != nil {
-				t.Errorf("Test %q failed: returned error: %v", name, err)
+		t.Run(name, func(t *testing.T) {
+			cfg := testConfig()
+			ctx := config.ToContext(context.Background(), cfg)
+			service, err := MakeK8sService(ctx, scenario.route, scenario.targetName, scenario.ingress)
+			// Validate
+			if scenario.shouldFail && err == nil {
+				t.Errorf("Test %q failed: returned success but expected error", name)
 			}
+			if !scenario.shouldFail {
+				if err != nil {
+					t.Errorf("Test %q failed: returned error: %v", name, err)
+				}
 
-			if !cmp.Equal(scenario.expectedMeta, service.ObjectMeta) {
-				t.Errorf("Unexpected Metadata (-want +got): %s", cmp.Diff(scenario.expectedMeta, service.ObjectMeta))
+				if !cmp.Equal(scenario.expectedMeta, service.ObjectMeta) {
+					t.Errorf("Unexpected Metadata (-want +got): %s", cmp.Diff(scenario.expectedMeta, service.ObjectMeta))
+				}
+				if !cmp.Equal(scenario.expectedSpec, service.Spec) {
+					t.Errorf("Unexpected ServiceSpec (-want +got): %s", cmp.Diff(scenario.expectedSpec, service.Spec))
+				}
 			}
-			if !cmp.Equal(scenario.expectedSpec, service.Spec) {
-				t.Errorf("Unexpected ServiceSpec (-want +got): %s", cmp.Diff(scenario.expectedSpec, service.Spec))
-			}
-		}
+		})
 	}
 }
 
@@ -225,8 +228,9 @@ func TestMakePlaceholderK8sService(t *testing.T) {
 		},
 	}
 	expectedSpec := corev1.ServiceSpec{
-		Type:         corev1.ServiceTypeExternalName,
-		ExternalName: "foo-test-route.test-ns.example.com",
+		Type:            corev1.ServiceTypeExternalName,
+		ExternalName:    "foo-test-route.test-ns.example.com",
+		SessionAffinity: corev1.ServiceAffinityNone,
 	}
 
 	if err != nil {

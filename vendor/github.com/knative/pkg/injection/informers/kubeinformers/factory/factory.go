@@ -24,6 +24,7 @@ import (
 	"github.com/knative/pkg/controller"
 	"github.com/knative/pkg/injection"
 	"github.com/knative/pkg/injection/clients/kubeclient"
+	"github.com/knative/pkg/logging"
 )
 
 func init() {
@@ -44,7 +45,8 @@ func withInformerFactory(ctx context.Context) context.Context {
 func Get(ctx context.Context) informers.SharedInformerFactory {
 	untyped := ctx.Value(Key{})
 	if untyped == nil {
-		return nil
+		logging.FromContext(ctx).Panicf(
+			"Unable to fetch %T from context.", (informers.SharedInformerFactory)(nil))
 	}
 	return untyped.(informers.SharedInformerFactory)
 }

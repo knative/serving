@@ -68,7 +68,7 @@ type Reconciler struct {
 	virtualServiceLister istiolisters.VirtualServiceLister
 	gatewayLister        istiolisters.GatewayLister
 	secretLister         corev1listers.SecretLister
-	configStore          configStore
+	configStore          reconciler.ConfigStore
 
 	tracker tracker.Interface
 }

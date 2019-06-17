@@ -26,7 +26,6 @@ import (
 	"github.com/knative/pkg/controller"
 	"github.com/knative/pkg/kmp"
 	"github.com/knative/pkg/logging"
-	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 	listers "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
@@ -287,20 +286,8 @@ func (c *Reconciler) createConfiguration(service *v1alpha1.Service) (*v1alpha1.C
 
 func configSemanticEquals(desiredConfig, config *v1alpha1.Configuration) bool {
 	return equality.Semantic.DeepEqual(desiredConfig.Spec, config.Spec) &&
-		equality.Semantic.DeepEqual(desiredConfig.ObjectMeta.Labels, config.ObjectMeta.Labels)
-}
-
-// ignoreRouteLabelChange sets desiredConfig[serving.RouteLabelKey] to
-// same as config[serving.RouteLabelKey], so that we do nothing about
-// the configuration label serving.RouteLabelKey in our
-// reconciliation.
-func ignoreRouteLabelChange(desiredConfig, config *v1alpha1.Configuration) {
-	routeLabel, existed := config.ObjectMeta.Labels[serving.RouteLabelKey]
-	if !existed {
-		delete(desiredConfig.ObjectMeta.Labels, serving.RouteLabelKey)
-	} else {
-		desiredConfig.ObjectMeta.Labels[serving.RouteLabelKey] = routeLabel
-	}
+		equality.Semantic.DeepEqual(desiredConfig.ObjectMeta.Labels, config.ObjectMeta.Labels) &&
+		equality.Semantic.DeepEqual(desiredConfig.ObjectMeta.Annotations, config.ObjectMeta.Annotations)
 }
 
 func (c *Reconciler) reconcileConfiguration(ctx context.Context, service *v1alpha1.Service, config *v1alpha1.Configuration) (*v1alpha1.Configuration, error) {
@@ -309,11 +296,6 @@ func (c *Reconciler) reconcileConfiguration(ctx context.Context, service *v1alph
 	if err != nil {
 		return nil, err
 	}
-	// Route label is automatically set by another reconciler.  We
-	// want to ignore that label in our reconciliation here by setting
-	// desiredConfig[serving.RouteLabelKey] to the same as
-	// config[serving.RouteLabelKey].
-	ignoreRouteLabelChange(desiredConfig, config)
 
 	if configSemanticEquals(desiredConfig, config) {
 		// No differences to reconcile.
@@ -330,6 +312,7 @@ func (c *Reconciler) reconcileConfiguration(ctx context.Context, service *v1alph
 	// Preserve the rest of the object (e.g. ObjectMeta except for labels).
 	existing.Spec = desiredConfig.Spec
 	existing.ObjectMeta.Labels = desiredConfig.ObjectMeta.Labels
+	existing.ObjectMeta.Annotations = desiredConfig.ObjectMeta.Annotations
 	return c.ServingClientSet.ServingV1alpha1().Configurations(service.Namespace).Update(existing)
 }
 
@@ -346,7 +329,8 @@ func (c *Reconciler) createRoute(service *v1alpha1.Service) (*v1alpha1.Route, er
 
 func routeSemanticEquals(desiredRoute, route *v1alpha1.Route) bool {
 	return equality.Semantic.DeepEqual(desiredRoute.Spec, route.Spec) &&
-		equality.Semantic.DeepEqual(desiredRoute.ObjectMeta.Labels, route.ObjectMeta.Labels)
+		equality.Semantic.DeepEqual(desiredRoute.ObjectMeta.Labels, route.ObjectMeta.Labels) &&
+		equality.Semantic.DeepEqual(desiredRoute.ObjectMeta.Annotations, route.ObjectMeta.Annotations)
 }
 
 func (c *Reconciler) reconcileRoute(ctx context.Context, service *v1alpha1.Service, route *v1alpha1.Route) (*v1alpha1.Route, error) {
@@ -371,8 +355,9 @@ func (c *Reconciler) reconcileRoute(ctx context.Context, service *v1alpha1.Servi
 
 	// Don't modify the informers copy.
 	existing := route.DeepCopy()
-	// Preserve the rest of the object (e.g. ObjectMeta except for labels).
+	// Preserve the rest of the object (e.g. ObjectMeta except for labels and annotations).
 	existing.Spec = desiredRoute.Spec
 	existing.ObjectMeta.Labels = desiredRoute.ObjectMeta.Labels
+	existing.ObjectMeta.Annotations = desiredRoute.ObjectMeta.Annotations
 	return c.ServingClientSet.ServingV1alpha1().Routes(service.Namespace).Update(existing)
 }

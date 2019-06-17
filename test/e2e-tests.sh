@@ -45,10 +45,14 @@ failed=0
 
 # Run conformance and e2e tests.
 go_test_e2e -timeout=30m \
-  ./test/conformance/api \
+  ./test/conformance/api/v1alpha1 \
+  ./test/conformance/api/v1beta1 \
   ./test/conformance/runtime \
   ./test/e2e \
   "--resolvabledomain=$(use_resolvable_domain)" || failed=1
+
+# Dump cluster state after e2e tests to prevent logs being truncated.
+(( failed )) && dump_cluster_state
 
 # Run scale tests.
 go_test_e2e -timeout=10m ./test/scale || failed=1

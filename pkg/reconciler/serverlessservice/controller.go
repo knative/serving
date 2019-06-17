@@ -19,37 +19,24 @@ package serverlessservice
 import (
 	"context"
 
-	"github.com/knative/pkg/injection/clients/dynamicclient"
 	endpointsinformer "github.com/knative/pkg/injection/informers/kubeinformers/corev1/endpoints"
 	serviceinformer "github.com/knative/pkg/injection/informers/kubeinformers/corev1/service"
 	sksinformer "github.com/knative/serving/pkg/client/injection/informers/networking/v1alpha1/serverlessservice"
 
-	"github.com/knative/pkg/apis/duck"
 	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/controller"
 	"github.com/knative/pkg/system"
 	"github.com/knative/serving/pkg/activator"
-	pav1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/apis/networking"
 	netv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	rbase "github.com/knative/serving/pkg/reconciler"
+	presources "github.com/knative/serving/pkg/resources"
 	"k8s.io/client-go/tools/cache"
 )
 
 const (
 	controllerAgentName = "serverlessservice-controller"
 )
-
-// podScalableTypedInformerFactory returns a duck.InformerFactory that returns
-// lister/informer pairs for PodScalable resources.
-func podScalableTypedInformerFactory(ctx context.Context) duck.InformerFactory {
-	return &duck.TypedInformerFactory{
-		Client:       dynamicclient.Get(ctx),
-		Type:         &pav1alpha1.PodScalable{},
-		ResyncPeriod: controller.GetResyncPeriod(ctx),
-		StopChannel:  ctx.Done(),
-	}
-}
 
 // NewController initializes the controller and is called by the generated code.
 // Registers eventhandlers to enqueue events.
@@ -62,13 +49,11 @@ func NewController(
 	sksInformer := sksinformer.Get(ctx)
 
 	c := &reconciler{
-		Base:            rbase.NewBase(ctx, controllerAgentName, cmw),
-		endpointsLister: endpointsInformer.Lister(),
-		serviceLister:   serviceInformer.Lister(),
-		sksLister:       sksInformer.Lister(),
-		psInformerFactory: &duck.CachedInformerFactory{
-			Delegate: podScalableTypedInformerFactory(ctx),
-		},
+		Base:              rbase.NewBase(ctx, controllerAgentName, cmw),
+		endpointsLister:   endpointsInformer.Lister(),
+		serviceLister:     serviceInformer.Lister(),
+		sksLister:         sksInformer.Lister(),
+		psInformerFactory: presources.NewPodScalableInformerFactory(ctx),
 	}
 	impl := controller.NewImpl(c, c.Logger, reconcilerName)
 

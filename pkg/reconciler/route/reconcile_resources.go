@@ -208,29 +208,34 @@ func (c *Reconciler) updatePlaceholderServices(ctx context.Context, route *v1alp
 	logger := logging.FromContext(ctx)
 	ns := route.Namespace
 
+	eg, _ := errgroup.WithContext(ctx)
 	for _, service := range services {
-		desiredService, err := resources.MakeK8sService(ctx, route, service.Name, ingress)
-		if err != nil {
-			// Loadbalancer not ready, no need to update.
-			logger.Warnf("Failed to update k8s service: %v", err)
-			return nil
-		}
-
-		// Make sure that the service has the proper specification.
-		if !equality.Semantic.DeepEqual(service.Spec, desiredService.Spec) {
-			// Don't modify the informers copy
-			existing := service.DeepCopy()
-			existing.Spec = desiredService.Spec
-			_, err = c.KubeClientSet.CoreV1().Services(ns).Update(existing)
+		service := service
+		eg.Go(func() error {
+			desiredService, err := resources.MakeK8sService(ctx, route, service.Name, ingress)
 			if err != nil {
-				return err
+				// Loadbalancer not ready, no need to update.
+				logger.Warnf("Failed to update k8s service: %v", err)
+				return nil
 			}
-		}
+
+			// Make sure that the service has the proper specification.
+			if !equality.Semantic.DeepEqual(service.Spec, desiredService.Spec) {
+				// Don't modify the informers copy
+				existing := service.DeepCopy()
+				existing.Spec = desiredService.Spec
+				_, err = c.KubeClientSet.CoreV1().Services(ns).Update(existing)
+				if err != nil {
+					return err
+				}
+			}
+			return nil
+		})
 	}
 
 	// TODO(mattmoor): This is where we'd look at the state of the Service and
 	// reflect any necessary state into the Route.
-	return nil
+	return eg.Wait()
 }
 
 // Update the Status of the route.  Caller is responsible for checking

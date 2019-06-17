@@ -32,11 +32,6 @@ import (
 
 const controllerAgentName = "configuration-controller"
 
-type configStore interface {
-	ToContext(ctx context.Context) context.Context
-	WatchConfigs(w configmap.Watcher)
-}
-
 // NewController creates a new Configuration controller
 func NewController(
 	ctx context.Context,
@@ -62,7 +57,9 @@ func NewController(
 	})
 
 	c.Logger.Info("Setting up ConfigMap receivers")
-	c.configStore = configns.NewStore(c.Logger.Named("config-store"), controller.GetResyncPeriod(ctx))
-	c.configStore.WatchConfigs(c.ConfigMapWatcher)
+	configStore := configns.NewStore(c.Logger.Named("config-store"), controller.GetResyncPeriod(ctx))
+	configStore.WatchConfigs(c.ConfigMapWatcher)
+	c.configStore = configStore
+
 	return impl
 }

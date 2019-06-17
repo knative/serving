@@ -25,6 +25,7 @@ import (
 
 	"github.com/knative/pkg/injection"
 	"github.com/knative/pkg/injection/clients/dynamicclient"
+	"github.com/knative/pkg/logging"
 )
 
 func init() {
@@ -45,7 +46,8 @@ func With(ctx context.Context, scheme *runtime.Scheme, objects ...runtime.Object
 func Get(ctx context.Context) *fake.FakeDynamicClient {
 	untyped := ctx.Value(dynamicclient.Key{})
 	if untyped == nil {
-		return nil
+		logging.FromContext(ctx).Panicf(
+			"Unable to fetch %T from context.", (*fake.FakeDynamicClient)(nil))
 	}
 	return untyped.(*fake.FakeDynamicClient)
 }
