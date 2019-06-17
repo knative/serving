@@ -18,10 +18,8 @@ package revision
 
 import (
 	"context"
-	"fmt"
 	"testing"
 
-	"github.com/davecgh/go-spew/spew"
 	caching "github.com/knative/caching/pkg/apis/caching/v1alpha1"
 	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/controller"
