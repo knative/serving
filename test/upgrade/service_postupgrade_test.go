@@ -21,7 +21,6 @@ package upgrade
 import (
 	"testing"
 
-	_ "github.com/knative/pkg/system/testing"
 	ptest "github.com/knative/pkg/test"
 	serviceresourcenames "github.com/knative/serving/pkg/reconciler/service/resources/names"
 	"github.com/knative/serving/test"
