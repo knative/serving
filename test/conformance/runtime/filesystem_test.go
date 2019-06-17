@@ -57,7 +57,7 @@ func testFiles(t *testing.T, clients *test.Clients, paths map[string]types.FileI
 
 		if file.IsDir != nil {
 			if riFile.IsDir == nil {
-				return fmt.Errorf("%s.IsDir = %t, want: %t", path, nil, *file.IsDir)
+				return fmt.Errorf("%s.IsDir = nil, want: %t", path, *file.IsDir)
 			} else if *file.IsDir != *riFile.IsDir {
 				return fmt.Errorf("%s.IsDir = %t, want: %t", path, *riFile.IsDir, *file.IsDir)
 			}
