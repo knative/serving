@@ -191,9 +191,6 @@ type RevisionStatus struct {
 	// may be empty if the image comes from a registry listed to skip resolution.
 	// +optional
 	ImageDigest string `json:"imageDigest,omitempty"`
-
-	// DeploymentName is the name of the deployment that this revision owns.
-	DeploymentName string `json:"deploymentName,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

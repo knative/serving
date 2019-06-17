@@ -106,8 +106,8 @@ func (c *Reconciler) createImageCache(ctx context.Context, rev *v1alpha1.Revisio
 	return c.CachingClientSet.CachingV1alpha1().Images(image.Namespace).Create(image)
 }
 
-func (c *Reconciler) createKPA(ctx context.Context, rev *v1alpha1.Revision) (*kpav1alpha1.PodAutoscaler, error) {
-	kpa := resources.MakeKPA(rev)
+func (c *Reconciler) createKPA(ctx context.Context, rev *v1alpha1.Revision, depName string) (*kpav1alpha1.PodAutoscaler, error) {
+	kpa := resources.MakeKPA(rev, depName)
 
 	return c.ServingClientSet.AutoscalingV1alpha1().PodAutoscalers(kpa.Namespace).Create(kpa)
 }

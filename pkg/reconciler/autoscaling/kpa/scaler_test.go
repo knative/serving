@@ -371,8 +371,8 @@ func TestDisableScaleToZero(t *testing.T) {
 	}
 }
 
-func newKPA(t *testing.T, servingClient clientset.Interface, revision *v1alpha1.Revision) *pav1alpha1.PodAutoscaler {
-	pa := revisionresources.MakeKPA(revision)
+func newKPA(t *testing.T, servingClient clientset.Interface, rev *v1alpha1.Revision) *pav1alpha1.PodAutoscaler {
+	pa := revisionresources.MakeKPA(rev, rev.Name)
 	pa.Status.InitializeConditions()
 	_, err := servingClient.AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(pa)
 	if err != nil {
@@ -397,9 +397,6 @@ func newRevision(t *testing.T, servingClient clientset.Interface, minScale, maxS
 		},
 		Spec: v1alpha1.RevisionSpec{
 			DeprecatedConcurrencyModel: "Multi",
-		},
-		Status: v1alpha1.RevisionStatus{
-			DeploymentName: testRevision,
 		},
 	}
 	rev, err := servingClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)

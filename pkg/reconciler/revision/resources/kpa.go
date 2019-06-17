@@ -29,7 +29,7 @@ import (
 )
 
 // MakeKPA makes a Knative Pod Autoscaler resource from a revision.
-func MakeKPA(rev *v1alpha1.Revision) *kpa.PodAutoscaler {
+func MakeKPA(rev *v1alpha1.Revision, depName string) *kpa.PodAutoscaler {
 	return &kpa.PodAutoscaler{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      names.KPA(rev),
@@ -46,7 +46,7 @@ func MakeKPA(rev *v1alpha1.Revision) *kpa.PodAutoscaler {
 			ScaleTargetRef: corev1.ObjectReference{
 				APIVersion: "apps/v1",
 				Kind:       "Deployment",
-				Name:       rev.Status.DeploymentName,
+				Name:       depName,
 			},
 			ProtocolType: rev.GetProtocol(),
 		},

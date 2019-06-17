@@ -87,8 +87,6 @@ func (c *Reconciler) reconcileDeployment(ctx context.Context, rev *v1alpha1.Revi
 		}
 	}
 
-	rev.Status.DeploymentName = deploymentName
-
 	// If a container keeps crashing (no active pods in the deployment although we want some)
 	if *deployment.Spec.Replicas > 0 && deployment.Status.AvailableReplicas == 0 {
 		pods, err := c.KubeClientSet.CoreV1().Pods(ns).List(metav1.ListOptions{LabelSelector: metav1.FormatLabelSelector(deployment.Spec.Selector)})
@@ -161,10 +159,21 @@ func (c *Reconciler) reconcileKPA(ctx context.Context, rev *v1alpha1.Revision) e
 	logger := logging.FromContext(ctx)
 	logger.Info("Reconciling KPA:", kpaName)
 
+	// TODO(vagababov): this part can be removed in 0.8
+	deployment, err := c.resolveDeployment(rev)
+	deploymentName := rev.Name
+	// We arrived here iff deployment reconciliation succeeded.
+	// Hence the not found errors are due to the cache propagation and
+	// this means that this is a new deployment, hence the name is equal to
+	// the revision name.
+	if deployment != nil {
+		deploymentName = deployment.Name
+	}
+
 	kpa, err := c.podAutoscalerLister.PodAutoscalers(ns).Get(kpaName)
 	if apierrs.IsNotFound(err) {
 		// KPA does not exist. Create it.
-		kpa, err = c.createKPA(ctx, rev)
+		kpa, err = c.createKPA(ctx, rev, deploymentName)
 		if err != nil {
 			logger.Errorf("Error creating KPA %s: %v", kpaName, err)
 			return err
@@ -182,7 +191,7 @@ func (c *Reconciler) reconcileKPA(ctx context.Context, rev *v1alpha1.Revision) e
 	// Perhaps tha KPA spec changed underneath ourselves?
 	// TODO(vagababov): required for #1997. Should be removed in 0.7,
 	// to fix the protocol type when it's unset.
-	tmpl := resources.MakeKPA(rev)
+	tmpl := resources.MakeKPA(rev, deploymentName)
 	if !equality.Semantic.DeepEqual(tmpl.Spec, kpa.Spec) {
 		logger.Infof("KPA %s needs reconciliation", kpa.Name)
 

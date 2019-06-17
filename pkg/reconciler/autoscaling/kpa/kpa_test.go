@@ -163,7 +163,7 @@ func withMSvcStatus(s string) PodAutoscalerOption {
 
 func kpa(ns, n string, opts ...PodAutoscalerOption) *asv1a1.PodAutoscaler {
 	rev := newTestRevision(ns, n)
-	kpa := revisionresources.MakeKPA(rev)
+	kpa := revisionresources.MakeKPA(rev, rev.Name)
 	kpa.Annotations["autoscaling.knative.dev/class"] = "kpa.autoscaling.knative.dev"
 	kpa.Annotations["autoscaling.knative.dev/metric"] = "concurrency"
 	for _, opt := range opts {
@@ -856,7 +856,7 @@ func TestGlobalResyncOnUpdateAutoscalerConfigMap(t *testing.T) {
 	rev := newTestRevision(testNamespace, testRevision)
 	newDeployment(t, fakedynamicclient.Get(ctx), testRevision, 3)
 
-	kpa := revisionresources.MakeKPA(rev)
+	kpa := revisionresources.MakeKPA(rev, rev.Name)
 	fakeservingclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
 	fakekpainformer.Get(ctx).Informer().GetIndexer().Add(kpa)
 
@@ -907,7 +907,7 @@ func TestControllerSynchronizesCreatesAndDeletes(t *testing.T) {
 
 	newDeployment(t, fakedynamicclient.Get(ctx), testRevision, 3)
 
-	kpa := revisionresources.MakeKPA(rev)
+	kpa := revisionresources.MakeKPA(rev, rev.Name)
 	fakeservingclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
 	fakekpainformer.Get(ctx).Informer().GetIndexer().Add(kpa)
 
@@ -981,7 +981,7 @@ func TestUpdate(t *testing.T) {
 	fakekubeclient.Get(ctx).CoreV1().Endpoints(testNamespace).Create(ep)
 	fakeendpointsinformer.Get(ctx).Informer().GetIndexer().Add(ep)
 
-	kpa := revisionresources.MakeKPA(rev)
+	kpa := revisionresources.MakeKPA(rev, rev.Name)
 	kpa.SetDefaults(context.Background())
 	fakeservingclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
 	fakekpainformer.Get(ctx).Informer().GetIndexer().Add(kpa)
@@ -1054,7 +1054,7 @@ func TestNonKPAClass(t *testing.T) {
 
 	fakeservingclient.Get(ctx).ServingV1alpha1().Revisions(testNamespace).Create(rev)
 	fakerevisioninformer.Get(ctx).Informer().GetIndexer().Add(rev)
-	kpa := revisionresources.MakeKPA(rev)
+	kpa := revisionresources.MakeKPA(rev, rev.Name)
 	fakeservingclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
 	fakekpainformer.Get(ctx).Informer().GetIndexer().Add(kpa)
 
@@ -1082,7 +1082,7 @@ func TestNoEndpoints(t *testing.T) {
 	fakeservingclient.Get(ctx).ServingV1alpha1().Revisions(testNamespace).Create(rev)
 	fakerevisioninformer.Get(ctx).Informer().GetIndexer().Add(rev)
 
-	kpa := revisionresources.MakeKPA(rev)
+	kpa := revisionresources.MakeKPA(rev, rev.Name)
 	fakeservingclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
 	fakekpainformer.Get(ctx).Informer().GetIndexer().Add(kpa)
 
@@ -1115,7 +1115,7 @@ func TestEmptyEndpoints(t *testing.T) {
 
 	newDeployment(t, fakedynamicclient.Get(ctx), testRevision, 3)
 
-	kpa := revisionresources.MakeKPA(rev)
+	kpa := revisionresources.MakeKPA(rev, rev.Name)
 	fakeservingclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
 	fakekpainformer.Get(ctx).Informer().GetIndexer().Add(kpa)
 
@@ -1150,7 +1150,7 @@ func TestControllerCreateError(t *testing.T) {
 		presources.NewPodScalableInformerFactory(ctx),
 	)
 
-	kpa := revisionresources.MakeKPA(newTestRevision(testNamespace, testRevision))
+	kpa := revisionresources.MakeKPA(newTestRevision(testNamespace, testRevision), testRevision)
 	fakeservingclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
 	fakekpainformer.Get(ctx).Informer().GetIndexer().Add(kpa)
 
@@ -1178,7 +1178,7 @@ func TestControllerUpdateError(t *testing.T) {
 		presources.NewPodScalableInformerFactory(ctx),
 	)
 
-	kpa := revisionresources.MakeKPA(newTestRevision(testNamespace, testRevision))
+	kpa := revisionresources.MakeKPA(newTestRevision(testNamespace, testRevision), testRevision)
 	fakeservingclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
 	fakekpainformer.Get(ctx).Informer().GetIndexer().Add(kpa)
 
@@ -1205,7 +1205,7 @@ func TestControllerGetError(t *testing.T) {
 		presources.NewPodScalableInformerFactory(ctx),
 	)
 
-	kpa := revisionresources.MakeKPA(newTestRevision(testNamespace, testRevision))
+	kpa := revisionresources.MakeKPA(newTestRevision(testNamespace, testRevision), testRevision)
 	fakeservingclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
 	fakekpainformer.Get(ctx).Informer().GetIndexer().Add(kpa)
 
@@ -1225,7 +1225,7 @@ func TestScaleFailure(t *testing.T) {
 
 	// Only put the KPA in the lister, which will prompt failures scaling it.
 	rev := newTestRevision(testNamespace, testRevision)
-	kpa := revisionresources.MakeKPA(rev)
+	kpa := revisionresources.MakeKPA(rev, rev.Name)
 	fakekpainformer.Get(ctx).Informer().GetIndexer().Add(kpa)
 
 	newDeployment(t, fakedynamicclient.Get(ctx), testRevision, 3)
@@ -1406,9 +1406,6 @@ func newTestRevision(namespace string, name string) *v1alpha1.Revision {
 				WorkingDir: "/tmp",
 			},
 			DeprecatedConcurrencyModel: v1alpha1.RevisionRequestConcurrencyModelSingle,
-		},
-		Status: v1alpha1.RevisionStatus{
-			DeploymentName: name,
 		},
 	}
 }

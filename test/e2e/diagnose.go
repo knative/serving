@@ -69,7 +69,7 @@ func checkCurrentPodCount(t *testing.T, clients *test.Clients) {
 		return
 	}
 	for _, r := range revs.Items {
-		deploymentName := r.Status.DeploymentName
+		deploymentName := r.Name
 		dep, err := clients.KubeClient.Kube.AppsV1().Deployments(test.ServingNamespace).Get(deploymentName, metav1.GetOptions{})
 		if err != nil {
 			t.Logf("Could not get deployment %s", deploymentName)

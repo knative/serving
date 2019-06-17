@@ -55,9 +55,6 @@ func TestMakeKPA(t *testing.T) {
 					ContainerConcurrency: 1,
 				},
 			},
-			Status: v1alpha1.RevisionStatus{
-				DeploymentName: "dive-bar",
-			},
 		},
 		want: &kpa.PodAutoscaler{
 			ObjectMeta: metav1.ObjectMeta{
@@ -109,9 +106,6 @@ func TestMakeKPA(t *testing.T) {
 					}},
 				},
 			},
-			Status: v1alpha1.RevisionStatus{
-				DeploymentName: "dive-baz",
-			},
 		},
 		want: &kpa.PodAutoscaler{
 			ObjectMeta: metav1.ObjectMeta{
@@ -145,7 +139,7 @@ func TestMakeKPA(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got := MakeKPA(test.rev)
+			got := MakeKPA(test.rev, "dive-"+test.rev.Name)
 			if diff := cmp.Diff(test.want, got, cmpopts.IgnoreUnexported(resource.Quantity{})); diff != "" {
 				t.Errorf("MakeK8sService (-want, +got) = %v", diff)
 			}

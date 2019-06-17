@@ -100,7 +100,7 @@ func testReadyEndpoints(revName string) *corev1.Endpoints {
 }
 
 func testReadyKPA(rev *v1alpha1.Revision) *av1alpha1.PodAutoscaler {
-	kpa := resources.MakeKPA(rev)
+	kpa := resources.MakeKPA(rev, rev.Name)
 	kpa.Status.InitializeConditions()
 	kpa.Status.MarkActive()
 	kpa.Status.ServiceName = serviceName(rev.Name)
@@ -498,8 +498,7 @@ func getPodAnnotationsForConfig(t *testing.T, configMapValue string, configAnnot
 
 	createRevision(t, ctx, controller, rev)
 
-	expectedDeploymentName := rev.Status.DeploymentName
-	deployment, err := fakekubeclient.Get(ctx).AppsV1().Deployments(testNamespace).Get(expectedDeploymentName, metav1.GetOptions{})
+	deployment, err := fakekubeclient.Get(ctx).AppsV1().Deployments(testNamespace).Get(rev.Name, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Couldn't get serving deployment: %v", err)
 	}
