@@ -22,10 +22,12 @@ import (
 	"testing"
 
 	_ "github.com/knative/pkg/system/testing"
-	revisionresourcenames "github.com/knative/serving/pkg/reconciler/revision/resources/names"
+	"github.com/knative/serving/pkg/apis/serving"
+	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/test"
 	"github.com/knative/serving/test/e2e"
 	v1a1test "github.com/knative/serving/test/v1alpha1"
+	"k8s.io/apimachinery/pkg/labels"
 )
 
 func TestRunLatestServicePreUpgrade(t *testing.T) {
@@ -60,13 +62,25 @@ func TestRunLatestServicePreUpgradeAndScaleToZero(t *testing.T) {
 	assertServiceResourcesUpdated(t, clients, names, domain, test.PizzaPlanetText1)
 
 	// TODO(vagababov): remove this in 0.8
-	if resources.Revision.Status.DeploymentName == "" {
-		if err := e2e.WaitForScaleToZero(t, revisionresourcenames.Deployment(resources.Revision), clients); err != nil {
-			t.Fatalf("Could not scale to zero: %v", err)
-		}
-	} else {
-		if err := e2e.WaitForScaleToZero(t, resources.Revision.Status.DeploymentName, clients); err != nil {
-			t.Fatalf("Could not scale to zero: %v", err)
-		}
+	dName := revoleDeploymentName(clients, resources.Revision)
+	if err := e2e.WaitForScaleToZero(t, dName, clients); err != nil {
+		t.Fatalf("Could not scale to zero: %v", err)
 	}
+}
+
+func resolveDeploymentName(clients *test.Clients, rev *v1alpha1.Revision) (string, error) {
+	d := clients.KubeClient.Kube.AppsV1().Deployments(rev.Namespace)
+	deployments, err := d.List(
+		labels.SelectorFromSet(map[string]string{
+			serving.RevisionLabelKey: rev.Name,
+			serving.RevisionUID:      string(rev.UID),
+		}),
+	)
+	if err != nil {
+		return "", err
+	}
+	if len(deployments) == 0 {
+		return "", apierrs.NewNotFound(corev1.Resource("Deployments"), rev.Name)
+	}
+	return deployments[0].Name, nil
 }
