@@ -28,7 +28,6 @@ import (
 
 	_ "github.com/knative/pkg/system/testing"
 	pkgTest "github.com/knative/pkg/test"
-	resourcenames "github.com/knative/serving/pkg/reconciler/revision/resources/names"
 	"github.com/knative/serving/test"
 	v1a1test "github.com/knative/serving/test/v1alpha1"
 	"github.com/pkg/errors"
@@ -148,7 +147,7 @@ func setup(t *testing.T) *testContext {
 		t:              t,
 		clients:        clients,
 		names:          names,
-		deploymentName: resourcenames.Deployment(resources.Revision),
+		deploymentName: resources.Revision.Name,
 		domain:         domain,
 	}
 }
