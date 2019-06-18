@@ -44,7 +44,7 @@ func init() {
 	ns := os.Getenv(system.NamespaceEnvKey)
 	if ns != "" {
 		// If SYSTEM_NAMESPACE is set, then start the stream.
-		stream = &kubelogs{Namespace: ns}
+		stream = &kubelogs{namespace: ns}
 	} else {
 		// Otherwise set up a null stream.
 		stream = &null{}

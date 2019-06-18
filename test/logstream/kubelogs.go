@@ -34,7 +34,7 @@ import (
 )
 
 type kubelogs struct {
-	Namespace string
+	namespace string
 
 	once sync.Once
 	m    sync.RWMutex
@@ -47,15 +47,17 @@ var _ streamer = (*kubelogs)(nil)
 
 // Init implements streamer
 func (k *kubelogs) Init() {
+	k.keys = make(map[string]logger)
+
 	kc, err := test.NewKubeClient(test.Flags.Kubeconfig, test.Flags.Cluster)
 	if err != nil {
-		log.Fatalf("error loading client config: %v", err)
+		log.Fatalf("Error loading client config: %v", err)
 	}
 
 	// List the pods in the given namespace.
-	pl, err := kc.Kube.CoreV1().Pods(k.Namespace).List(metav1.ListOptions{})
+	pl, err := kc.Kube.CoreV1().Pods(k.namespace).List(metav1.ListOptions{})
 	if err != nil {
-		log.Fatalf("error listing pods: %v", err)
+		log.Fatalf("Error listing pods: %v", err)
 	}
 	for _, pod := range pl.Items {
 		// Grab data from all containers in the pods.  We need this in case
@@ -71,10 +73,10 @@ func (k *kubelogs) Init() {
 					SinceSeconds: ptr.Int64(1),
 				}
 
-				req := kc.Kube.CoreV1().Pods(k.Namespace).GetLogs(pod.Name, options)
+				req := kc.Kube.CoreV1().Pods(k.namespace).GetLogs(pod.Name, options)
 				stream, err := req.Stream()
 				if err != nil {
-					log.Fatalf("error streaming pod logs: %v", err)
+					log.Fatalf("Error streaming pod logs: %v", err)
 				}
 				defer stream.Close()
 
@@ -124,21 +126,17 @@ func (k *kubelogs) handleLine(l string) {
 func (k *kubelogs) Start(t *testing.T) Canceler {
 	k.once.Do(k.Init)
 
+	name := servingtest.ObjectPrefixForTest(t)
+
+	// Register a key
 	k.m.Lock()
 	defer k.m.Unlock()
-
-	name := servingtest.ObjectPrefixForTest(t)
-	// Register a key
-	if k.keys == nil {
-		k.keys = make(map[string]logger)
-	}
 	k.keys[name] = t.Logf
 
 	// Return a function that unregisters that key.
 	return func() {
 		k.m.Lock()
 		defer k.m.Unlock()
-
 		delete(k.keys, name)
 	}
 }
