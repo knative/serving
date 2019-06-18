@@ -27,22 +27,29 @@ import (
 	"testing"
 	"time"
 
+	"github.com/pkg/errors"
+	"golang.org/x/sync/errgroup"
+
 	pkgTest "github.com/knative/pkg/test"
 	"github.com/knative/serving/pkg/apis/autoscaling"
 	resourcenames "github.com/knative/serving/pkg/reconciler/revision/resources/names"
+	. "github.com/knative/serving/pkg/testing/v1alpha1"
 	rtesting "github.com/knative/serving/pkg/testing/v1alpha1"
 	"github.com/knative/serving/test"
 	v1a1test "github.com/knative/serving/test/v1alpha1"
-	"github.com/pkg/errors"
-	"golang.org/x/sync/errgroup"
+
 	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
 	autoscaleExpectedOutput = "399989"
-	containerConcurrency    = 1
+	// Concurrency must be high enough to avoid the problems with sampling
+	// but not high enough to generate scheduling problems.
+	containerConcurrency = 6
 )
 
 func isDeploymentScaledUp() func(d *appsv1.Deployment) (bool, error) {
@@ -131,7 +138,15 @@ func setup(t *testing.T, class string, metric string) *testContext {
 	}, rtesting.WithConfigAnnotations(map[string]string{
 		autoscaling.ClassAnnotationKey:  class,
 		autoscaling.MetricAnnotationKey: metric,
-	}))
+	}), WithResourceRequirements(corev1.ResourceRequirements{
+		Limits: corev1.ResourceList{
+			corev1.ResourceMemory: resource.MustParse("512Mi"),
+		},
+		Requests: corev1.ResourceList{
+			corev1.ResourceMemory: resource.MustParse("300Mi"),
+		},
+	}),
+	)
 	if err != nil {
 		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
 	}
