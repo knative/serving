@@ -18,27 +18,11 @@ package performance
 
 import (
 	"fmt"
-	"log"
-	"os"
-	"strings"
 
 	"github.com/knative/test-infra/shared/junit"
-	"github.com/knative/test-infra/shared/mysql"
 )
 
 const (
-	presubmit  = "presubmit"
-	dbName     = "knative_performance"
-	dbInstance = "knative-tests:us-central1:knative-monitoring"
-	insertStmt = `
-	INSERT INTO METRICS (
-		RunId, JobType, TestName, MetricName, MetricValue
-		) VALUES (?, ?, ?, ?, ?)`
-
-	// Path to secrets for username and password
-	userSecret = "/secrets/cloudsql/monitoringdb/username"
-	passSecret = "/secrets/cloudsql/monitoringdb/password"
-
 	// Property name used by testgrid
 	perfLatency = "perf_latency"
 )
@@ -51,61 +35,5 @@ func CreatePerfTestCase(metricValue float32, metricName, testName string) junit.
 		Name:       fmt.Sprintf("%s/%s", testName, metricName),
 		Properties: junit.TestProperties{Properties: tp}}
 
-	db, err := ConfigureDB()
-	if err == nil {
-		if err = db.StoreMetrics(testName, metricName, metricValue); err != nil {
-			log.Printf("Cannot store metrics %s for %s due to: %v", metricName, testName, err)
-		}
-	} else {
-		log.Printf("Cannot configure db: %v", err)
-	}
 	return tc
-}
-
-type DBConfig struct {
-	*mysql.DBConfig
-}
-
-// Configure the db instance to store metrics information.
-// This will be later used to show the trending metrics on our grafana dashboard.
-func ConfigureDB() (*DBConfig, error) {
-	config, err := mysql.ConfigureDB(userSecret, passSecret, dbName, dbInstance)
-	return &DBConfig{config}, err
-}
-
-func (c *DBConfig) StoreMetrics(tName, metricName string, metricValue float32) error {
-	// Get values of env vars set up by Prow. Ignore storage for local runs
-	runId := os.Getenv("BUILD_ID")
-	jobType := os.Getenv("JOB_TYPE")
-	if len(runId) == 0 || len(jobType) == 0 {
-		log.Printf("Build id or job type not set. Not storing metric %s", metricName)
-		return nil
-	}
-
-	if strings.ToLower(jobType) == presubmit {
-		log.Printf("Ignoring metric %s storage as this is a pre-submit job", metricName)
-		return nil
-	}
-
-	// Store the metrics if the perf tests are run by prow(ci/cd) and if its periodic runs
-	db, err := c.Connect()
-	if err != nil {
-		return err
-	}
-	defer db.Close()
-
-	// Execute the insert statement to add metric information
-	res, err := db.Exec(insertStmt, runId, jobType, tName, metricName, metricValue)
-	if err != nil {
-		return err
-	}
-	rows, err := res.RowsAffected()
-	if err != nil {
-		return err
-	}
-	if rows != 1 {
-		return fmt.Errorf("expected to affect 1 row, affected %d", rows)
-	}
-
-	return nil
 }

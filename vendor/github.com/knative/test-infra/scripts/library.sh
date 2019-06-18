@@ -36,7 +36,8 @@ fi
 # Useful environment variables
 [[ -n "${PROW_JOB_ID:-}" ]] && IS_PROW=1 || IS_PROW=0
 readonly IS_PROW
-readonly REPO_ROOT_DIR="$(git rev-parse --show-toplevel)"
+[[ -z "${REPO_ROOT_DIR:-}" ]] && REPO_ROOT_DIR="$(git rev-parse --show-toplevel)"
+readonly REPO_ROOT_DIR
 readonly REPO_NAME="$(basename ${REPO_ROOT_DIR})"
 
 # Useful flags about the current OS
@@ -337,6 +338,12 @@ function start_knative_serving() {
   echo "Installing the rest of serving components from $1"
   kubectl apply -f "$1"
   wait_until_pods_running knative-serving || return 1
+}
+
+# Install the stable release Knative/serving in the current cluster.
+# Parameters: $1 - Knative Serving version number, e.g. 0.6.0.
+function start_release_knative_serving() {
+  start_knative_serving "https://storage.googleapis.com/knative-releases/serving/previous/v$1/serving.yaml"
 }
 
 # Install the latest stable Knative Serving in the current cluster.
