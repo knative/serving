@@ -85,6 +85,8 @@ const (
 	requestQueueHealthPath = "/health"
 
 	healthURLTemplate = "http://127.0.0.1:%d" + requestQueueHealthPath
+	// defaultProbeTimeout is the default duration for TCP/HTTP probe timeout.
+	defaultProbeTimeout = 100 * time.Millisecond
 )
 
 var (
@@ -186,8 +188,12 @@ func knativeProxyHeader(r *http.Request) string {
 func probeUserContainer() bool {
 	var err error
 	wait.PollImmediate(50*time.Millisecond, probeTimeout, func() (bool, error) {
+		config := health.TCPProbeConfigOptions{
+			Address:       userTargetAddress,
+			SocketTimeout: defaultProbeTimeout,
+		}
 		logger.Debug("TCP probing the user-container.")
-		err = health.TCPProbe(userTargetAddress, 100*time.Millisecond)
+		err = health.TCPProbe(config)
 		return err == nil, nil
 	})
 
@@ -318,7 +324,7 @@ func (p *probe) ProbeContainer() bool {
 		return false
 	}
 
-	err := wait.PollImmediate(50*time.Millisecond, p.Timeout(), probeFunc)
+	err := wait.PollImmediate(50*time.Millisecond, p.timeout(), probeFunc)
 
 	if err == nil {
 		p.logger.Info("User-container successfully probed.")
@@ -329,7 +335,7 @@ func (p *probe) ProbeContainer() bool {
 	return err == nil
 }
 
-func (p *probe) Timeout() time.Duration {
+func (p *probe) timeout() time.Duration {
 	if p.isStandardProbe() {
 		return time.Duration(p.TimeoutSeconds) * time.Second
 	}
@@ -340,18 +346,22 @@ func (p *probe) Timeout() time.Duration {
 // tcpProbeFunc returns default TCP probe condition func if conditions are met otherwise custom
 // TCP probe function
 func (p *probe) tcpProbeFunc() func() (bool, error) {
-	address := fmt.Sprintf("%s:%d", p.TCPSocket.Host, p.TCPSocket.Port.IntValue())
+	config := health.TCPProbeConfigOptions{
+		Address:       fmt.Sprintf("%s:%d", p.TCPSocket.Host, p.TCPSocket.Port.IntValue()),
+		SocketTimeout: p.timeout(),
+	}
 	if p.isStandardProbe() {
 		// condition function returns error if TCP probe fails
 		return func() (bool, error) {
-			err := health.TCPProbe(address, p.Timeout())
+			err := health.TCPProbe(config)
 			return err == nil, err
 		}
 	}
 	// condition function which returns true if the probe count is greater than success threshold
 	// and false if TCP probe fails
 	return func() (bool, error) {
-		if tcpErr := health.TCPProbe(address, 100*time.Millisecond); tcpErr != nil {
+		config.SocketTimeout = defaultProbeTimeout
+		if tcpErr := health.TCPProbe(config); tcpErr != nil {
 			p.count = 0
 			return false, nil
 		}
@@ -363,18 +373,23 @@ func (p *probe) tcpProbeFunc() func() (bool, error) {
 // httpProbeFunc returns default HTTP probe condition func if conditions are met otherwise custom
 // HTTP probe function
 func (p *probe) httpProbeFunc() func() (bool, error) {
-	url := fmt.Sprintf("http://%s:%d", p.HTTPGet.Host, p.HTTPGet.Port.IntValue())
+	httpProbeConfig := health.HTTPProbeConfigOptions{
+		Headers: p.HTTPGet.HTTPHeaders,
+		URL:     fmt.Sprintf("http://%s:%d", p.HTTPGet.Host, p.HTTPGet.Port.IntValue()),
+		Timeout: p.timeout(),
+	}
 	if p.isStandardProbe() {
 		// condition function returns error if HTTP probe fails
 		return func() (bool, error) {
-			err := health.HTTPProbe(url, p.HTTPGet.HTTPHeaders, p.Timeout())
+			err := health.HTTPProbe(httpProbeConfig)
 			return err == nil, err
 		}
 	}
 	// condition function which returns true if the probe count is greater than success threshold
 	// and false if HTTP probe fails
 	return func() (bool, error) {
-		if err := health.HTTPProbe(url, p.HTTPGet.HTTPHeaders, 100*time.Millisecond); err != nil {
+		httpProbeConfig.Timeout = defaultProbeTimeout
+		if err := health.HTTPProbe(httpProbeConfig); err != nil {
 			p.count = 0
 			return false, nil
 		}

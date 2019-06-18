@@ -32,16 +32,18 @@ func TestTCPProbe(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer server.Close()
-	serverAddr := server.Listener.Addr().String()
-
+	config := TCPProbeConfigOptions{
+		Address:       server.Listener.Addr().String(),
+		SocketTimeout: time.Second,
+	}
 	// Connecting to the server should work
-	if err := TCPProbe(serverAddr, 1*time.Second); err != nil {
+	if err := TCPProbe(config); err != nil {
 		t.Errorf("Expected probe to succeed but it failed with %v", err)
 	}
 
 	// Close the server so probing fails afterwards
 	server.Close()
-	if err := TCPProbe(serverAddr, 1*time.Second); err == nil {
+	if err := TCPProbe(config); err == nil {
 		t.Error("Expected probe to fail but it didn't")
 	}
 }
@@ -62,10 +64,13 @@ func TestHTTPProbeSuccess(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer server.Close()
-	serverAddr := server.URL
-
+	config := HTTPProbeConfigOptions{
+		Headers: []corev1.HTTPHeader{expectedHeader},
+		Timeout: time.Second,
+		URL:     server.URL,
+	}
 	// Connecting to the server should work
-	if err := HTTPProbe(serverAddr, []corev1.HTTPHeader{expectedHeader}, 1*time.Second); err != nil {
+	if err := HTTPProbe(config); err != nil {
 		t.Errorf("Expected probe to succeed but it failed with %v", err)
 	}
 	if d := cmp.Diff(gotHeader, expectedHeader); d != "" {
@@ -73,7 +78,7 @@ func TestHTTPProbeSuccess(t *testing.T) {
 	}
 	// Close the server so probing fails afterwards
 	server.Close()
-	if err := HTTPProbe(serverAddr, []corev1.HTTPHeader{expectedHeader}, 1*time.Second); err == nil {
+	if err := HTTPProbe(config); err == nil {
 		t.Error("Expected probe to fail but it didn't")
 	}
 }
@@ -84,21 +89,34 @@ func TestHTTPProbeTimeoutFailure(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer server.Close()
-	serverAddr := server.URL
-
-	if err := HTTPProbe(serverAddr, nil, 1*time.Second); err == nil {
+	config := HTTPProbeConfigOptions{
+		Timeout: time.Second,
+		URL:     server.URL,
+	}
+	if err := HTTPProbe(config); err == nil {
 		t.Error("Expected probe to fail but it successded")
 	}
 }
 
-func TestHTTPProbeResponseFailure(t *testing.T) {
+func TestHTTPProbeResponseStatusCodeFailure(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusServiceUnavailable)
 	}))
 	defer server.Close()
-	serverAddr := server.URL
+	config := HTTPProbeConfigOptions{
+		Timeout: time.Second,
+		URL:     server.URL,
+	}
+	if err := HTTPProbe(config); err == nil {
+		t.Error("Expected probe to fail but it successded")
+	}
+}
 
-	if err := HTTPProbe(serverAddr, nil, 1*time.Second); err == nil {
+func TestHTTPProbeResponseErrorFailure(t *testing.T) {
+	config := HTTPProbeConfigOptions{
+		URL: "http://localhost:0",
+	}
+	if err := HTTPProbe(config); err == nil {
 		t.Error("Expected probe to fail but it successded")
 	}
 }

@@ -25,11 +25,24 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
+// HTTPProbeConfigOptions holds the HTTP probe config options
+type HTTPProbeConfigOptions struct {
+	Headers []corev1.HTTPHeader
+	Timeout time.Duration
+	URL     string
+}
+
+// TCPProbeConfigOptions holds the TCP probe config options
+type TCPProbeConfigOptions struct {
+	SocketTimeout time.Duration
+	Address       string
+}
+
 // TCPProbe checks that a TCP socket to the address can be opened.
 // Did not reuse k8s.io/kubernetes/pkg/probe/tcp to not create a dependency
 // on klog.
-func TCPProbe(addr string, socketTimeout time.Duration) error {
-	conn, err := net.DialTimeout("tcp", addr, socketTimeout)
+func TCPProbe(config TCPProbeConfigOptions) error {
+	conn, err := net.DialTimeout("tcp", config.Address, config.SocketTimeout)
 	if err != nil {
 		return err
 	}
@@ -40,29 +53,26 @@ func TCPProbe(addr string, socketTimeout time.Duration) error {
 // HTTPProbe checks that HTTP connection can be established to the address.
 // Did not reuse k8s.io/kubernetes/pkg/probe/tcp to not create a dependency
 // on klog.
-func HTTPProbe(url string, headers []corev1.HTTPHeader, timeout time.Duration) error {
+func HTTPProbe(config HTTPProbeConfigOptions) error {
 	httpClient := &http.Client{
 		Transport: &http.Transport{
 			DisableKeepAlives: true,
 		},
-		Timeout: timeout,
+		Timeout: config.Timeout,
 	}
-	req, err := http.NewRequest("GET", url, nil)
+	req, err := http.NewRequest("GET", config.URL, nil)
 	if err != nil {
 		return fmt.Errorf("Error constructing request %s", err.Error())
 	}
-	for _, header := range headers {
+	for _, header := range config.Headers {
 		req.Header.Add(header.Name, header.Value)
 	}
 	var res *http.Response
 	res, _ = httpClient.Do(req)
+	// TODO: (@josh & @shash): no need to check for error . res== nil ll take care
 	if res == nil {
-		if err != nil {
-			return fmt.Errorf("httpGet probe failed. err = (%s)", err.Error())
-		}
 		return fmt.Errorf("httpGet probe response was nil")
 	}
-
 	if res.StatusCode < 200 || res.StatusCode >= 400 {
 		return fmt.Errorf("httpGet probe response status code is %d", res.StatusCode)
 	}
