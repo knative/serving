@@ -168,6 +168,13 @@ func WithLowerScaleBound(i int) PodAutoscalerOption {
 	return withAnnotationValue(autoscaling.MinScaleAnnotationKey, strconv.Itoa(i))
 }
 
+// WithMSvcStatus sets the name of the metrics service.
+func WithMSvcStatus(s string) PodAutoscalerOption {
+	return func(pa *autoscalingv1alpha1.PodAutoscaler) {
+		pa.Status.MetricsServiceName = s
+	}
+}
+
 // K8sServiceOption enables further configuration of the Kubernetes Service.
 type K8sServiceOption func(*corev1.Service)
 
@@ -175,6 +182,15 @@ type K8sServiceOption func(*corev1.Service)
 func OverrideServiceName(name string) K8sServiceOption {
 	return func(svc *corev1.Service) {
 		svc.Name = name
+	}
+}
+
+func SvcWithAnnotationValue(key, value string) K8sServiceOption {
+	return func(svc *corev1.Service) {
+		if svc.Annotations == nil {
+			svc.Annotations = make(map[string]string)
+		}
+		svc.Annotations[key] = value
 	}
 }
 
@@ -201,6 +217,13 @@ func WithExternalName(name string) K8sServiceOption {
 // WithK8sSvcOwnersRemoved clears the owner references of this Service.
 func WithK8sSvcOwnersRemoved(svc *corev1.Service) {
 	svc.OwnerReferences = nil
+}
+
+// WithSvcSelector sets the selector of the service.
+func WithSvcSelector(sel map[string]string) K8sServiceOption {
+	return func(s *corev1.Service) {
+		s.Spec.Selector = sel
+	}
 }
 
 // EndpointsOption enables further configuration of the Kubernetes Endpoints.
