@@ -31,16 +31,16 @@ import (
 // GetSecretsForClusterIngress gets the all of the secrets referenced by the given ClusterIngress, and
 // returns a map whose key is the a secret namespace/name key and value is pointer of the secret.
 func GetSecretsForClusterIngress(ci *v1alpha1.ClusterIngress, secretLister corev1listers.SecretLister) (map[string]*corev1.Secret, error) {
-	return getSecrets(&ci.Spec, ci.GetName(), secretLister)
+	return getSecrets(&ci.Spec, secretLister)
 }
 
 // GetSecretsForIngress gets the all of the secrets referenced by the given Ingress, and
 // returns a map whose key is the a secret namespace/name key and value is pointer of the secret.
 func GetSecretsForIngress(i *v1alpha1.Ingress, secretLister corev1listers.SecretLister) (map[string]*corev1.Secret, error) {
-	return getSecrets(&i.Spec, i.GetName(), secretLister)
+	return getSecrets(&i.Spec, secretLister)
 }
 
-func getSecrets(spec *v1alpha1.IngressSpec, name string, secretLister corev1listers.SecretLister) (map[string]*corev1.Secret, error) {
+func getSecrets(spec *v1alpha1.IngressSpec, secretLister corev1listers.SecretLister) (map[string]*corev1.Secret, error) {
 	secrets := map[string]*corev1.Secret{}
 	for _, tls := range spec.TLS {
 		ref := SecretKey(tls)
