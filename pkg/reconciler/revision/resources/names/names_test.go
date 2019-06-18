@@ -40,7 +40,7 @@ func TestNamer(t *testing.T) {
 			},
 		},
 		f:    Deployment,
-		want: "fffffffffffffffffffffffffffffffd79284ec10a12ef1b3cc73b212018b89",
+		want: "ffffffffffffffffffff105d7597f637e83cc711605ac3ea4957-deployment",
 	}, {
 		name: "Deployment long enough",
 		rev: &v1alpha1.Revision{
@@ -76,7 +76,7 @@ func TestNamer(t *testing.T) {
 			},
 		},
 		f:    ImageCache,
-		want: "uuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuf57130621e0118c593bdee629d7976fa",
+		want: "uuuuuuuuuuuuuuuuuuuuuuuuuca47ad1ce8479df271ec0d23653ce256-cache",
 	}, {
 		name: "ImageCache",
 		rev: &v1alpha1.Revision{
