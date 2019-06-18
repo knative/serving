@@ -19,11 +19,13 @@ package logstream
 import (
 	"bufio"
 	"encoding/json"
+	"fmt"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 
+	"golang.org/x/sync/errgroup"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -38,14 +40,14 @@ type kubelogs struct {
 	once sync.Once
 	m    sync.RWMutex
 	keys map[string]logger
+	err  error
 }
 
 type logger func(string, ...interface{})
 
 var _ streamer = (*kubelogs)(nil)
 
-// Init implements streamer
-func (k *kubelogs) Init(t *testing.T) {
+func (k *kubelogs) init(t *testing.T) {
 	k.keys = make(map[string]logger)
 
 	kc, err := test.NewKubeClient(test.Flags.Kubeconfig, test.Flags.Cluster)
@@ -58,12 +60,16 @@ func (k *kubelogs) Init(t *testing.T) {
 	if err != nil {
 		t.Errorf("Error listing pods: %v", err)
 	}
+
+	eg := errgroup.Group{}
 	for _, pod := range pl.Items {
 		// Grab data from all containers in the pods.  We need this in case
 		// an envoy sidecar is injected for mesh installs.  This should be
 		// equivalent to --all-containers.
 		for _, container := range pod.Spec.Containers {
-			go func(pod corev1.Pod, container corev1.Container) {
+			// Required for capture below.
+			pod, container := pod, container
+			eg.Go(func() error {
 				options := &corev1.PodLogOptions{
 					Container: container.Name,
 					// Follow directs the api server to continuously stream logs back.
@@ -75,17 +81,27 @@ func (k *kubelogs) Init(t *testing.T) {
 				req := kc.Kube.CoreV1().Pods(k.namespace).GetLogs(pod.Name, options)
 				stream, err := req.Stream()
 				if err != nil {
-					t.Errorf("Error streaming pod logs: %v", err)
+					return err
 				}
 				defer stream.Close()
-
 				// Read this container's stream.
 				for scanner := bufio.NewScanner(stream); scanner.Scan(); {
 					k.handleLine(scanner.Text())
 				}
-			}(pod, container)
+				return fmt.Errorf("logstream completed prematurely for: %s/%s", pod.Name, container.Name)
+			})
 		}
 	}
+
+	// Monitor the error group in the background and surface an error on the kubelogs
+	// in case anything had an active stream open.
+	go func() {
+		if err := eg.Wait(); err != nil {
+			k.m.Lock()
+			defer k.m.Unlock()
+			k.err = err
+		}
+	}()
 }
 
 func (k *kubelogs) handleLine(l string) {
@@ -123,7 +139,7 @@ func (k *kubelogs) handleLine(l string) {
 
 // Start implements streamer
 func (k *kubelogs) Start(t *testing.T) Canceler {
-	k.once.Do(func() { k.Init(t) })
+	k.once.Do(func() { k.init(t) })
 
 	name := servingtest.ObjectPrefixForTest(t)
 
@@ -137,5 +153,9 @@ func (k *kubelogs) Start(t *testing.T) Canceler {
 		k.m.Lock()
 		defer k.m.Unlock()
 		delete(k.keys, name)
+
+		if k.err != nil {
+			t.Errorf("error during logstream: %v", k.err)
+		}
 	}
 }
