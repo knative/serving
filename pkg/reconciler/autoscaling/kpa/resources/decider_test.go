@@ -156,14 +156,14 @@ func withPanicThresholdPercentageAnnotation(percentage string) DeciderOption {
 }
 
 var config = &autoscaler.Config{
-	EnableScaleToZero:                    true,
-	ContainerConcurrencyTargetPercentage: 1.0,
-	ContainerConcurrencyTargetDefault:    100.0,
-	MaxScaleUpRate:                       10.0,
-	StableWindow:                         60 * time.Second,
-	PanicThresholdPercentage:             200,
-	PanicWindow:                          6 * time.Second,
-	PanicWindowPercentage:                10,
-	TickInterval:                         2 * time.Second,
-	ScaleToZeroGracePeriod:               30 * time.Second,
+	EnableScaleToZero:                  true,
+	ContainerConcurrencyTargetFraction: 1.0,
+	ContainerConcurrencyTargetDefault:  100.0,
+	MaxScaleUpRate:                     10.0,
+	StableWindow:                       60 * time.Second,
+	PanicThresholdPercentage:           200,
+	PanicWindow:                        6 * time.Second,
+	PanicWindowPercentage:              10,
+	TickInterval:                       2 * time.Second,
+	ScaleToZeroGracePeriod:             30 * time.Second,
 }

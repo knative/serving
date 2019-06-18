@@ -26,7 +26,7 @@ import (
 // ResolveTargetConcurrency takes concurrency knobs from multiple locations and resolves them
 // to the final value to be used by the autoscaler.
 func ResolveTargetConcurrency(pa *v1alpha1.PodAutoscaler, config *autoscaler.Config) float64 {
-	target := float64(pa.Spec.ContainerConcurrency) * config.ContainerConcurrencyTargetPercentage
+	target := float64(pa.Spec.ContainerConcurrency) * config.ContainerConcurrencyTargetFraction
 
 	// If containerConcurrency is 0 we'll always target the default.
 	if pa.Spec.ContainerConcurrency == 0 {
