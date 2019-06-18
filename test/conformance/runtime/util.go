@@ -31,17 +31,33 @@ import (
 
 // fetchRuntimeInfoUnprivileged creates a Service that uses the 'runtime-unprivileged' test image, and extracts the returned output into the
 // RuntimeInfo object.
-func fetchRuntimeInfoUnprivileged(t *testing.T, clients *test.Clients, opts ...ServiceOption) (*test.ResourceNames, *types.RuntimeInfo, error) {
-	return runtimeInfo(t, clients, &test.ResourceNames{Image: test.RuntimeUnprivileged}, opts...)
+func fetchRuntimeInfoUnprivileged(
+	t *testing.T,
+	clients *test.Clients,
+	reqOpts []pkgTest.RequestOption,
+	opts ...ServiceOption) (*test.ResourceNames, *types.RuntimeInfo, error) {
+
+	return runtimeInfo(t, clients, &test.ResourceNames{Image: test.RuntimeUnprivileged}, reqOpts, opts...)
 }
 
 // fetchRuntimeInfo creates a Service that uses the 'runtime' test image, and extracts the returned output into the
 // RuntimeInfo object. The 'runtime' image uses uid 0.
-func fetchRuntimeInfo(t *testing.T, clients *test.Clients, opts ...ServiceOption) (*test.ResourceNames, *types.RuntimeInfo, error) {
-	return runtimeInfo(t, clients, &test.ResourceNames{}, opts...)
+func fetchRuntimeInfo(
+	t *testing.T,
+	clients *test.Clients,
+	reqOpts []pkgTest.RequestOption,
+	opts ...ServiceOption) (*test.ResourceNames, *types.RuntimeInfo, error) {
+
+	return runtimeInfo(t, clients, &test.ResourceNames{}, reqOpts, opts...)
 }
 
-func runtimeInfo(t *testing.T, clients *test.Clients, names *test.ResourceNames, opts ...ServiceOption) (*test.ResourceNames, *types.RuntimeInfo, error) {
+func runtimeInfo(
+	t *testing.T,
+	clients *test.Clients,
+	names *test.ResourceNames,
+	reqOpts []pkgTest.RequestOption,
+	opts ...ServiceOption) (*test.ResourceNames, *types.RuntimeInfo, error) {
+
 	names.Service = test.ObjectNameForTest(t)
 	if names.Image == "" {
 		names.Image = test.Runtime
@@ -63,7 +79,8 @@ func runtimeInfo(t *testing.T, clients *test.Clients, names *test.ResourceNames,
 		objects.Service.Status.URL.Host,
 		v1a1test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
 		"RuntimeInfo",
-		test.ServingFlags.ResolvableDomain)
+		test.ServingFlags.ResolvableDomain,
+		reqOpts...)
 	if err != nil {
 		return nil, nil, err
 	}

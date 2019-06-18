@@ -31,7 +31,7 @@ import (
 func TestShouldHaveSysctlReadOnly(t *testing.T) {
 	t.Parallel()
 	clients := test.Setup(t)
-	_, ri, err := fetchRuntimeInfo(t, clients)
+	_, ri, err := fetchRuntimeInfo(t,clients, nil)
 	if err != nil {
 		t.Fatalf("Error fetching runtime info: %v", err)
 	}
