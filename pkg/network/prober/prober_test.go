@@ -70,7 +70,7 @@ func TestDoServing(t *testing.T) {
 	}}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got, err := Do(context.Background(), ts.URL, test.headerValue)
+			got, err := Do(context.Background(), network.NewAutoTransport(), ts.URL, test.headerValue)
 			if want := test.want; got != want {
 				t.Errorf("Got = %v, want: %v", got, want)
 			}
@@ -82,7 +82,7 @@ func TestDoServing(t *testing.T) {
 }
 
 func TestBlackHole(t *testing.T) {
-	got, err := Do(context.Background(), "http://gone.fishing.svc.custer.local:8080", systemName)
+	got, err := Do(context.Background(), network.NewAutoTransport(), "http://gone.fishing.svc.custer.local:8080", systemName)
 	if want := false; got != want {
 		t.Errorf("Got = %v, want: %v", got, want)
 	}
@@ -92,7 +92,7 @@ func TestBlackHole(t *testing.T) {
 }
 
 func TestBadURL(t *testing.T) {
-	_, err := Do(context.Background(), ":foo", systemName)
+	_, err := Do(context.Background(), network.NewAutoTransport(), ":foo", systemName)
 	if err == nil {
 		t.Error("Do did not return an error")
 	}
@@ -149,7 +149,7 @@ func TestDoAsync(t *testing.T) {
 	}}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			m := New(test.cb)
+			m := New(test.cb, network.NewAutoTransport)
 			m.Offer(context.Background(), ts.URL, test.headerValue, test.name, 50*time.Millisecond, 2*time.Second)
 			<-wch
 		})
@@ -186,7 +186,7 @@ func TestDoAsyncRepeat(t *testing.T) {
 		}
 		wch <- arg
 	}
-	m := New(cb)
+	m := New(cb, network.NewAutoTransport)
 	m.Offer(context.Background(), ts.URL, systemName, 42, 50*time.Millisecond, 3*time.Second)
 	<-wch
 	if got, want := c.calls, 3; got != want {
@@ -209,7 +209,7 @@ func TestDoAsyncTimeout(t *testing.T) {
 		}
 		wch <- arg
 	}
-	m := New(cb)
+	m := New(cb, network.NewAutoTransport)
 	m.Offer(context.Background(), ts.URL, systemName, 2009, 10*time.Millisecond, 200*time.Millisecond)
 	<-wch
 }
@@ -224,7 +224,7 @@ func TestAsyncMultiple(t *testing.T) {
 		<-wch
 		wch <- 2006
 	}
-	m := New(cb)
+	m := New(cb, network.NewAutoTransport)
 	if !m.Offer(context.Background(), ts.URL, systemName, 1984, 100*time.Millisecond, 1*time.Second) {
 		t.Error("First call to offer returned false")
 	}

@@ -53,7 +53,8 @@ type activationHandler struct {
 	reporter  activator.StatsReporter
 	throttler *activator.Throttler
 
-	probeTimeout time.Duration
+	probeTimeout          time.Duration
+	probeTransportFactory prober.TransportFactory
 
 	revisionLister servinglisters.RevisionLister
 	serviceLister  corev1listers.ServiceLister
@@ -68,13 +69,6 @@ func New(l *zap.SugaredLogger, r activator.StatsReporter, t *activator.Throttler
 	rl servinglisters.RevisionLister, sl corev1listers.ServiceLister,
 	sksL netlisters.ServerlessServiceLister) http.Handler {
 
-	// In activator we collect metrics, so we're wrapping
-	// the Roundtripper the prober would use inside annotating transport.
-	prober.TransportFactory = func() http.RoundTripper {
-		return &ochttp.Transport{
-			Base: network.NewAutoTransport(),
-		}
-	}
 	return &activationHandler{
 		logger:         l,
 		transport:      network.AutoTransport,
@@ -84,6 +78,13 @@ func New(l *zap.SugaredLogger, r activator.StatsReporter, t *activator.Throttler
 		sksLister:      sksL,
 		serviceLister:  sl,
 		probeTimeout:   defaulTimeout,
+		// In activator we collect metrics, so we're wrapping
+		// the Roundtripper the prober would use inside annotating transport.
+		probeTransportFactory: func() http.RoundTripper {
+			return &ochttp.Transport{
+				Base: network.NewAutoTransport(),
+			}
+		},
 	}
 }
 
@@ -110,7 +111,7 @@ func (a *activationHandler) probeEndpoint(logger *zap.SugaredLogger, r *http.Req
 
 	err := wait.PollImmediate(100*time.Millisecond, a.probeTimeout, func() (bool, error) {
 		attempts++
-		ret, err := prober.Do(reqCtx, target.String(), queue.Name, withOrigProto(r))
+		ret, err := prober.Do(reqCtx, a.probeTransportFactory(), target.String(), queue.Name, withOrigProto(r))
 		if err != nil {
 			logger.Warnw("Pod probe failed", zap.Error(err))
 			return false, nil
