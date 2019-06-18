@@ -40,7 +40,7 @@ import (
 
 const (
 	autoscaleExpectedOutput = "399989"
-	containerConcurrency = 1
+	containerConcurrency    = 1
 )
 
 func isDeploymentScaledUp() func(d *appsv1.Deployment) (bool, error) {
@@ -252,7 +252,7 @@ func assertAutoscaleUpToNumPods(ctx *testContext, curPods, targetPods int32, dur
 						return nil
 					}
 				}
-				if minPods < targetPods - 1 {
+				if minPods < targetPods-1 {
 					// Increase `minPods`, but leave room to reduce flakiness.
 					minPods = int32(math.Min(float64(got), float64(targetPods))) - 1
 				}
@@ -263,9 +263,9 @@ func assertAutoscaleUpToNumPods(ctx *testContext, curPods, targetPods int32, dur
 				if err != nil {
 					return err
 				}
-				mes := fmt.Sprintf("got %d replicas, expected between [%d, %d] replicas for deployment %s", got, targetPods - 1, maxPods, ctx.deploymentName)
+				mes := fmt.Sprintf("got %d replicas, expected between [%d, %d] replicas for deployment %s", got, targetPods-1, maxPods, ctx.deploymentName)
 				ctx.t.Log(mes)
-				if got < targetPods - 1 || got > maxPods {
+				if got < targetPods-1 || got > maxPods {
 					return errors.New(mes)
 				}
 				return nil
