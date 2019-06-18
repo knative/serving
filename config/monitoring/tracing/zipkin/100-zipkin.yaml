@@ -73,4 +73,3 @@ spec:
             memory: 1000Mi
           requests:
             memory: 256Mi
----
