@@ -37,8 +37,8 @@ type Config struct {
 	EnableScaleToZero bool
 
 	// Target concurrency knobs for different container concurrency configurations.
-	ContainerConcurrencyTargetPercentage float64
-	ContainerConcurrencyTargetDefault    float64
+	ContainerConcurrencyTargetFraction float64
+	ContainerConcurrencyTargetDefault  float64
 
 	// General autoscaler algorithm configuration.
 	MaxScaleUpRate           float64
@@ -56,7 +56,7 @@ type Config struct {
 func NewConfigFromMap(data map[string]string) (*Config, error) {
 	lc := &Config{}
 
-	// Process bool fields
+	// Process bool fields.
 	for _, b := range []struct {
 		key          string
 		field        *bool
@@ -85,8 +85,8 @@ func NewConfigFromMap(data map[string]string) (*Config, error) {
 		defaultValue: 10.0,
 	}, {
 		key:   "container-concurrency-target-percentage",
-		field: &lc.ContainerConcurrencyTargetPercentage,
-		// TODO(#1956): tune target usage based on empirical data.
+		field: &lc.ContainerConcurrencyTargetFraction,
+		// TODO(#1956): Tune target usage based on empirical data.
 		// TODO(#2016): Revert to 0.7 once incorrect reporting is solved
 		defaultValue: 1.0,
 	}, {
@@ -109,6 +109,18 @@ func NewConfigFromMap(data map[string]string) (*Config, error) {
 		} else {
 			*f64.field = val
 		}
+	}
+
+	if lc.ContainerConcurrencyTargetFraction <= 0 || lc.ContainerConcurrencyTargetFraction > 100 {
+		return nil, fmt.Errorf("container-concurrency-target-percentage = %f is outside of valid range of (0, 100]", lc.ContainerConcurrencyTargetFraction)
+	}
+
+	// Adjust % ⇒ fractions: for legacy reasons we allow values
+	// (0, 1] interval, so minimal percentage must be greater than 1.0.
+	// Internally we want to have fractions, since otherwise we'll have
+	// to perform division on each computation.
+	if lc.ContainerConcurrencyTargetFraction > 1.0 {
+		lc.ContainerConcurrencyTargetFraction /= 100.0
 	}
 
 	// Process Duration fields
