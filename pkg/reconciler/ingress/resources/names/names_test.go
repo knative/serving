@@ -39,7 +39,7 @@ func TestNamer(t *testing.T) {
 			},
 		},
 		f:    IngressVirtualService,
-		want: "foo-virtualservice",
+		want: "foo",
 	}, {
 		name: "IngressMeshVirtualService",
 		ingress: &v1alpha1.ClusterIngress{
@@ -48,7 +48,7 @@ func TestNamer(t *testing.T) {
 			},
 		},
 		f:    IngressMeshVirtualService,
-		want: "foo-virtualservice-mesh",
+		want: "foo-mesh",
 	}, {
 		name: "ClusterIngressVirtualService",
 		ingress: &v1alpha1.ClusterIngress{
