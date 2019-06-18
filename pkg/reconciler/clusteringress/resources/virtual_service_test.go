@@ -59,7 +59,7 @@ func TestMakeVirtualServicesForIngress_CorrectMetadata(t *testing.T) {
 			Spec: v1alpha1.IngressSpec{},
 		},
 		expected: []metav1.ObjectMeta{{
-			Name:      "test-ingress-mesh",
+			Name:      "test-ingress-virtualservice-mesh",
 			Namespace: "test-ns",
 			Labels: map[string]string{
 				networking.IngressLabelKey:          "test-ingress",
@@ -68,7 +68,7 @@ func TestMakeVirtualServicesForIngress_CorrectMetadata(t *testing.T) {
 				serving.RouteNamespaceLabelKey:      "test-ns",
 			},
 		}, {
-			Name:      "test-ingress",
+			Name:      "test-ingress-virtualservice",
 			Namespace: "test-ns",
 			Labels: map[string]string{
 				networking.IngressLabelKey:          "test-ingress",
@@ -92,7 +92,7 @@ func TestMakeVirtualServicesForIngress_CorrectMetadata(t *testing.T) {
 			Spec: v1alpha1.IngressSpec{},
 		},
 		expected: []metav1.ObjectMeta{{
-			Name:      "test-ingress-mesh",
+			Name:      "test-ingress-virtualservice-mesh",
 			Namespace: "test-ns",
 			Labels: map[string]string{
 				networking.IngressLabelKey:          "test-ingress",

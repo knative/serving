@@ -39,15 +39,33 @@ func TestNamer(t *testing.T) {
 			},
 		},
 		f:    IngressVirtualService,
-		want: "foo",
+		want: "foo-virtualservice",
 	}, {
-		name: "MeshVirtualService",
+		name: "IngressMeshVirtualService",
 		ingress: &v1alpha1.ClusterIngress{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "foo",
 			},
 		},
-		f:    MeshVirtualService,
+		f:    IngressMeshVirtualService,
+		want: "foo-virtualservice-mesh",
+	}, {
+		name: "ClusterIngressVirtualService",
+		ingress: &v1alpha1.ClusterIngress{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "foo",
+			},
+		},
+		f:    ClusterIngressVirtualService,
+		want: "foo",
+	}, {
+		name: "ClusterIngressMeshVirtualService",
+		ingress: &v1alpha1.ClusterIngress{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "foo",
+			},
+		},
+		f:    ClusterIngressMeshVirtualService,
 		want: "foo-mesh",
 	}}
 

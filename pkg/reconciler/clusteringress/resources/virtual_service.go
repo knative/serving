@@ -71,7 +71,7 @@ func MakeVirtualServiceForIngress(i *v1alpha1.Ingress, gateways []string) *v1alp
 // MakeVirtualServiceForClusterIngress creates Istio VirtualService as network
 // programming for Istio Gateways other than 'mesh'.
 func MakeVirtualServiceForClusterIngress(ci *v1alpha1.ClusterIngress, gateways []string) *v1alpha3.VirtualService {
-	vs := makeVirtualService(names.IngressVirtualService(ci), ClusterIngressVirtualServiceNamespace(ci), ci, &ci.Spec, gateways)
+	vs := makeVirtualService(names.ClusterIngressVirtualService(ci), ClusterIngressVirtualServiceNamespace(ci), ci, &ci.Spec, gateways)
 
 	// Populate the ClusterIngress labels.
 	if vs.Labels == nil {
@@ -105,7 +105,7 @@ func makeVirtualService(name string, namespace string, obj kmeta.OwnerRefable, s
 // MakeMeshVirtualServiceForClusterIngress creates Istio VirtualService as network
 // programming for Istio network mesh.
 func MakeMeshVirtualServiceForClusterIngress(ci *v1alpha1.ClusterIngress) *v1alpha3.VirtualService {
-	vs := makeMeshVirtualService(names.MeshVirtualService(ci), ClusterIngressVirtualServiceNamespace(ci), ci, &ci.Spec)
+	vs := makeMeshVirtualService(names.ClusterIngressMeshVirtualService(ci), ClusterIngressVirtualServiceNamespace(ci), ci, &ci.Spec)
 	// Populate the ClusterIngress labels.
 	vs.Labels = resources.UnionMaps(
 		resources.FilterMap(ci.Labels, func(k string) bool {
@@ -118,7 +118,7 @@ func MakeMeshVirtualServiceForClusterIngress(ci *v1alpha1.ClusterIngress) *v1alp
 // MakeMeshVirtualServiceForIngress creates Istio VirtualService as network
 // programming for Istio network mesh.
 func MakeMeshVirtualServiceForIngress(i *v1alpha1.Ingress) *v1alpha3.VirtualService {
-	vs := makeMeshVirtualService(names.MeshVirtualService(i), IngressVirtualServiceNamespace(i), i, &i.Spec)
+	vs := makeMeshVirtualService(names.IngressMeshVirtualService(i), IngressVirtualServiceNamespace(i), i, &i.Spec)
 	// Populate the ClusterIngress labels.
 	vs.Labels = resources.UnionMaps(
 		resources.FilterMap(i.Labels, func(k string) bool {

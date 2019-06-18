@@ -18,18 +18,31 @@ package names
 
 import (
 	"github.com/knative/pkg/kmeta"
+	"github.com/knative/serving/pkg/resources"
 )
 
-// IngressVirtualService returns the name of the VirtualService child
+// ClusterIngressVirtualService returns the name of the VirtualService child
 // resource for given ClusterIngress that programs traffic for Ingress
 // Gateways.
-func IngressVirtualService(i kmeta.Accessor) string {
+func ClusterIngressVirtualService(i kmeta.Accessor) string {
 	return i.GetName()
 }
 
-// MeshVirtualService returns the name of the VirtualService child
+// ClusterIngressMeshVirtualService returns the name of the VirtualService child
 // resource for given ClusterIngress that programs traffic for Service
 // Mesh.
-func MeshVirtualService(i kmeta.Accessor) string {
+func ClusterIngressMeshVirtualService(i kmeta.Accessor) string {
 	return i.GetName() + "-mesh"
+}
+
+// IngressVirtualService returns the name of the VirtualService child
+// resource for given Ingress that programs traffic for Ingress Gateways.
+func IngressVirtualService(i kmeta.Accessor) string {
+	return resources.ChildName(i.GetName(), "-virtualservice")
+}
+
+// IngressMeshVirtualService returns the name of the VirtualService child
+// resource for given Ingress that programs traffic for Service Mesh.
+func IngressMeshVirtualService(i kmeta.Accessor) string {
+	return resources.ChildName(i.GetName(), "-virtualservice-mesh")
 }
