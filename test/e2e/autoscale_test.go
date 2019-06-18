@@ -33,7 +33,6 @@ import (
 	pkgTest "github.com/knative/pkg/test"
 	"github.com/knative/serving/pkg/apis/autoscaling"
 	resourcenames "github.com/knative/serving/pkg/reconciler/revision/resources/names"
-	. "github.com/knative/serving/pkg/testing/v1alpha1"
 	rtesting "github.com/knative/serving/pkg/testing/v1alpha1"
 	"github.com/knative/serving/test"
 	v1a1test "github.com/knative/serving/test/v1alpha1"
@@ -138,7 +137,7 @@ func setup(t *testing.T, class string, metric string) *testContext {
 	}, rtesting.WithConfigAnnotations(map[string]string{
 		autoscaling.ClassAnnotationKey:  class,
 		autoscaling.MetricAnnotationKey: metric,
-	}), WithResourceRequirements(corev1.ResourceRequirements{
+	}), rtesting.WithResourceRequirements(corev1.ResourceRequirements{
 		Limits: corev1.ResourceList{
 			corev1.ResourceMemory: resource.MustParse("512Mi"),
 		},
