@@ -49,7 +49,7 @@ func (pa *PodAutoscaler) Metric() string {
 	if m, ok := pa.Annotations[autoscaling.MetricAnnotationKey]; ok {
 		return m
 	}
-	// TODO: defaulting here is awkward and is already taken care off by defaulting logic.
+	// TODO: defaulting here is awkward and is already taken care of by defaulting logic.
 	return defaultMetric(pa.Class())
 }
 
