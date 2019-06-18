@@ -40,12 +40,12 @@ func TCPProbe(addr string, socketTimeout time.Duration) error {
 // HTTPProbe checks that HTTP connection can be established to the address.
 // Did not reuse k8s.io/kubernetes/pkg/probe/tcp to not create a dependency
 // on klog.
-func HTTPProbe(url string, headers []corev1.HTTPHeader) error {
+func HTTPProbe(url string, headers []corev1.HTTPHeader, timeout time.Duration) error {
 	httpClient := &http.Client{
 		Transport: &http.Transport{
 			DisableKeepAlives: true,
 		},
-		Timeout: 100 * time.Millisecond,
+		Timeout: timeout,
 	}
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
@@ -57,11 +57,14 @@ func HTTPProbe(url string, headers []corev1.HTTPHeader) error {
 	var res *http.Response
 	res, _ = httpClient.Do(req)
 	if res == nil {
-		return fmt.Errorf("Response is nil")
+		if err != nil {
+			return fmt.Errorf("httpGet probe failed. err = (%s)", err.Error())
+		}
+		return fmt.Errorf("httpGet probe response was nil")
 	}
 
 	if res.StatusCode < 200 || res.StatusCode >= 400 {
-		return fmt.Errorf("Response status code is %d", res.StatusCode)
+		return fmt.Errorf("httpGet probe response status code is %d", res.StatusCode)
 	}
 	return nil
 }

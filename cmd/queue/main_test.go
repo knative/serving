@@ -408,6 +408,60 @@ func TestHTTPTimeout(t *testing.T) {
 	}
 }
 
+func TestHTTPSuccessWithDelay(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		time.Sleep(200 * time.Millisecond)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer ts.Close()
+
+	port := strings.TrimPrefix(ts.URL, "http://127.0.0.1:")
+
+	pb := newProbe(corev1.Probe{
+		PeriodSeconds:    1,
+		TimeoutSeconds:   4,
+		SuccessThreshold: 1,
+		FailureThreshold: 1,
+		Handler: corev1.Handler{
+			HTTPGet: &corev1.HTTPGetAction{
+				Host: "127.0.0.1",
+				Port: intstr.FromString(port),
+			},
+		},
+	}, t)
+
+	if !pb.ProbeContainer() {
+		t.Error("Probe failed. Wanted success.")
+	}
+}
+
+func TestHTTPSuccessWithLongDelay(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		time.Sleep(12 * time.Second)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer ts.Close()
+
+	port := strings.TrimPrefix(ts.URL, "http://127.0.0.1:")
+
+	pb := newProbe(corev1.Probe{
+		PeriodSeconds:    1,
+		TimeoutSeconds:   14,
+		SuccessThreshold: 1,
+		FailureThreshold: 1,
+		Handler: corev1.Handler{
+			HTTPGet: &corev1.HTTPGetAction{
+				Host: "127.0.0.1",
+				Port: intstr.FromString(port),
+			},
+		},
+	}, t)
+
+	if !pb.ProbeContainer() {
+		t.Error("Probe failed. Wanted success.")
+	}
+}
+
 func TestKNHTTPSuccessWithRetry(t *testing.T) {
 	attempted := false
 
@@ -573,7 +627,7 @@ func TestKNativeTCPProbeSuccess(t *testing.T) {
 	}
 }
 
-func TestKNativeUnImplementedProbe(t *testing.T) {
+func TestKNativeUnimplementedProbe(t *testing.T) {
 	pb := newProbe(corev1.Probe{
 		PeriodSeconds:    0,
 		TimeoutSeconds:   0,
@@ -703,7 +757,7 @@ func freePort(t *testing.T) int {
 	if err != nil {
 		t.Fatalf("Error setting up tcp listener: %s", err.Error())
 	}
-	defer listener.Close()
+	listener.Close()
 	return listener.Addr().(*net.TCPAddr).Port
 }
 
