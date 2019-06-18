@@ -139,7 +139,7 @@ func TestServerDoesNotLeakGoroutines(t *testing.T) {
 	server.Shutdown(time.Second)
 }
 
-func newStatMessage(revKey string, podName string, averageConcurrentRequests float64, requestCount int32) *autoscaler.StatMessage {
+func newStatMessage(revKey string, podName string, averageConcurrentRequests float64, requestCount float64) *autoscaler.StatMessage {
 	return &autoscaler.StatMessage{
 		Key: revKey,
 		Stat: autoscaler.Stat{
