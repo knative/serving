@@ -64,39 +64,6 @@ func (c *Reconciler) reconcileDeployment(ctx context.Context, rev *v1alpha1.Revi
 		}
 	}
 
-	// If a container keeps crashing (no active pods in the deployment although we want some)
-	if *deployment.Spec.Replicas > 0 && deployment.Status.AvailableReplicas == 0 {
-		pods, err := c.KubeClientSet.CoreV1().Pods(ns).List(metav1.ListOptions{LabelSelector: metav1.FormatLabelSelector(deployment.Spec.Selector)})
-		if err != nil {
-			logger.Errorf("Error getting pods: %v", err)
-		} else if len(pods.Items) > 0 {
-			// Arbitrarily grab the very first pod, as they all should be crashing
-			pod := pods.Items[0]
-
-			// Update the revision status if pod cannot be scheduled(possibly resource constraints)
-			// If pod cannot be scheduled then we expect the container status to be empty.
-			for _, cond := range pod.Status.Conditions {
-				if cond.Type == corev1.PodScheduled && cond.Status == corev1.ConditionFalse {
-					rev.Status.MarkResourcesUnavailable(cond.Reason, cond.Message)
-					break
-				}
-			}
-
-			for _, status := range pod.Status.ContainerStatuses {
-				if status.Name == rev.Spec.GetContainer().Name {
-					if t := status.LastTerminationState.Terminated; t != nil {
-						logger.Infof("%s marking exiting with: %d/%s", rev.Name, t.ExitCode, t.Message)
-						rev.Status.MarkContainerExiting(t.ExitCode, t.Message)
-					} else if w := status.State.Waiting; w != nil && hasDeploymentTimedOut(deployment) {
-						logger.Infof("%s marking resources unavailable with: %s: %s", rev.Name, w.Reason, w.Message)
-						rev.Status.MarkResourcesUnavailable(w.Reason, w.Message)
-					}
-					break
-				}
-			}
-		}
-	}
-
 	// Now that we have a Deployment, determine whether there is any relevant
 	// status to surface in the Revision.
 	if hasDeploymentTimedOut(deployment) && !rev.Status.IsActivationRequired() {
@@ -175,7 +142,7 @@ func (c *Reconciler) reconcileKPA(ctx context.Context, rev *v1alpha1.Revision) e
 	rev.Status.ServiceName = kpa.Status.ServiceName
 
 	// Reflect the KPA status in our own.
-	cond := kpa.Status.GetCondition(kpav1alpha1.PodAutoscalerConditionReady)
+	cond := kpa.Status.GetCondition(kpav1alpha1.PodAutoscalerConditionActive)
 	switch {
 	case cond == nil:
 		rev.Status.MarkActivating("Deploying", "")
@@ -186,11 +153,26 @@ func (c *Reconciler) reconcileKPA(ctx context.Context, rev *v1alpha1.Revision) e
 		rev.Status.MarkInactive(cond.Reason, cond.Message)
 	case cond.Status == corev1.ConditionTrue:
 		rev.Status.MarkActive()
+	}
 
-		// Precondition for PA being active is SKS being active and
+	cond = kpa.Status.GetCondition(kpav1alpha1.PodAutoscalerConditionContainersHealthy)
+	switch {
+	case cond.Status == corev1.ConditionTrue:
+		rev.Status.MarkContainerHealthy()
+	case cond.Status == corev1.ConditionFalse:
+		rev.Status.MarkContainerUnhealthy(cond.Reason, cond.Message)
+	}
+
+	cond = kpa.Status.GetCondition(kpav1alpha1.PodAutoscalerConditionPodsHealthy)
+	if cond.Status == corev1.ConditionFalse {
+		rev.Status.MarkResourcesUnavailable(cond.Reason, cond.Message)
+	}
+
+	if kpa.Status.IsReady() {
+		// Precondition for PA being ready is SKS being active and
 		// that entices that |service.endpoints| > 0.
 		rev.Status.MarkResourcesAvailable()
-		rev.Status.MarkContainerHealthy()
 	}
+
 	return nil
 }

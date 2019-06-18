@@ -127,11 +127,6 @@ func MarkProgressDeadlineExceeded(r *v1alpha1.Revision) {
 	r.Status.MarkProgressDeadlineExceeded("Unable to create pods for more than 120 seconds.")
 }
 
-// MarkServiceTimeout calls .Status.MarkServiceTimeout on the Revision.
-func MarkServiceTimeout(r *v1alpha1.Revision) {
-	r.Status.MarkServiceTimeout()
-}
-
 // MarkContainerMissing calls .Status.MarkContainerMissing on the Revision.
 func MarkContainerMissing(rev *v1alpha1.Revision) {
 	rev.Status.MarkContainerMissing("It's the end of the world as we know it")

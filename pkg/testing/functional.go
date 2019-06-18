@@ -83,6 +83,20 @@ func WithNoTraffic(reason, message string) PodAutoscalerOption {
 	}
 }
 
+// WithHealthyContainers updates the PA to have ContainersHealthy condition true.
+func WithHealthyContainers() PodAutoscalerOption {
+	return func(pa *autoscalingv1alpha1.PodAutoscaler) {
+		pa.Status.MarkContainersHealthy()
+	}
+}
+
+// WithHealthyPods updates the PA to have PodsHealthy condition true.
+func WithHealthyPods() PodAutoscalerOption {
+	return func(pa *autoscalingv1alpha1.PodAutoscaler) {
+		pa.Status.MarkPodsHealthy()
+	}
+}
+
 // WithPADeletionTimestamp will set the DeletionTimestamp on the PodAutoscaler.
 func WithPADeletionTimestamp(r *autoscalingv1alpha1.PodAutoscaler) {
 	t := metav1.NewTime(time.Unix(1e9, 0))

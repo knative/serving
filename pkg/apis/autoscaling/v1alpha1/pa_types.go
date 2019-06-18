@@ -99,8 +99,12 @@ const (
 	// PodAutoscalerConditionReady is set when the revision is starting to materialize
 	// runtime resources, and becomes true when those resources are ready.
 	PodAutoscalerConditionReady = apis.ConditionReady
-	// PodAutoscalerConditionActive is set when the PodAutoscaler's ScaleTargetRef is receiving traffic.
+	// PodAutoscalerConditionActive becomes true when the PodAutoscaler's ScaleTargetRef can receive traffic.
 	PodAutoscalerConditionActive apis.ConditionType = "Active"
+	// PodAutoscalerConditionContainersHealthy becomes true when the containers are up and running.
+	PodAutoscalerConditionContainersHealthy apis.ConditionType = "ContainersHealthy"
+	// PodAutoscalerConditionPodsHealthy becomes true when the pods are up and running.
+	PodAutoscalerConditionPodsHealthy apis.ConditionType = "PodsHealthy"
 )
 
 // PodAutoscalerStatus communicates the observed state of the PodAutoscaler (from the controller).

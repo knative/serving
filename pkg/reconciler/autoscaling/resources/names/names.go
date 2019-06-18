@@ -21,3 +21,8 @@ package names
 func SKS(paName string) string {
 	return paName
 }
+
+// Deployment returns the name of the Deployment resource scaled by this PA.
+func Deployment(paName string) string {
+	return paName + "-deployment"
+}

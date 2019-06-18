@@ -38,9 +38,11 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
+
 )
 
 // Reconciler tracks PAs and right sizes the ScaleTargetRef based on the
@@ -123,6 +125,9 @@ func (c *Reconciler) reconcile(ctx context.Context, pa *pav1alpha1.PodAutoscaler
 	pa.SetDefaults(ctx)
 
 	pa.Status.InitializeConditions()
+	if pa.Status.GetCondition(pav1alpha1.PodAutoscalerConditionActive) == nil {
+		pa.Status.MarkActivating("Initializing", "")
+	}
 	logger.Debug("PA exists")
 
 	metricSvc, err := c.ReconcileMetricsService(ctx, pa)
@@ -182,6 +187,12 @@ func (c *Reconciler) reconcile(ctx context.Context, pa *pav1alpha1.PodAutoscaler
 			return perrors.Wrap(err, "error re-reconciling SKS")
 		}
 	}
+
+	err = c.updateContainerHealth(ctx, pa)
+	if err != nil {
+		return perrors.Wrap(err, "error checking container health")
+	}
+
 	return nil
 }
 
@@ -207,6 +218,56 @@ func (c *Reconciler) reconcileDecider(ctx context.Context, pa *pav1alpha1.PodAut
 	}
 
 	return decider, nil
+}
+
+func (c *Reconciler) updateContainerHealth(ctx context.Context, pa *pav1alpha1.PodAutoscaler) error {
+	logger := logging.FromContext(ctx)
+
+	if pa.Status.IsActive() {
+		pa.Status.MarkContainersHealthy()
+		pa.Status.MarkPodsHealthy()
+		return nil
+	}
+	ps, err := resourceutil.GetScaleResource(pa.Namespace, pa.Spec.ScaleTargetRef, c.PSInformerFactory)
+	if err != nil {
+		logger.Errorf("Error getting deployment: %v", err)
+		return err
+	}
+	// If a container keeps crashing (no active pods in the deployment although we want some)
+	if ps.Spec.Replicas != nil && *ps.Spec.Replicas > 0 && ps.Status.Replicas == 0 {
+		pods, err := c.KubeClientSet.CoreV1().Pods(pa.Namespace).List(metav1.ListOptions{LabelSelector: metav1.FormatLabelSelector(ps.Spec.Selector)})
+		if err != nil {
+			logger.Errorf("Error getting pods: %v", err)
+			return err
+		} else if len(pods.Items) > 0 {
+			// Arbitrarily grab the very first pod, as they all should be crashing if one does.
+			pod := pods.Items[0]
+
+			// If pod cannot be scheduled then we expect the container status to be empty.
+			for _, cond := range pod.Status.Conditions {
+				if cond.Type == corev1.PodScheduled && cond.Status == corev1.ConditionFalse {
+					pa.Status.MarkPodUnscheduled(cond.Reason, cond.Message)
+					break
+				}
+			}
+
+			for _, status := range pod.Status.ContainerStatuses {
+				// Only check user container.
+				if len(ps.Spec.Template.Spec.Containers) > 0 && status.Name == ps.Spec.Template.Spec.Containers[0].Name {
+					if t := status.LastTerminationState.Terminated; t != nil {
+						logger.Infof("%s marking %s exiting with: %d/%s", pa.Name, status.Name, t.ExitCode, t.Message)
+						pa.Status.MarkContainerExiting(t.ExitCode, t.Message)
+					} else if w := status.State.Waiting; w != nil {
+						logger.Infof("%s marking %s is waiting with: %s: %s", pa.Name, w.Reason, w.Message)
+						pa.Status.MarkContainerWaiting(w.Reason, w.Message)
+					}
+					break
+				}
+			}
+		}
+	}
+
+	return nil
 }
 
 func reportMetrics(pa *pav1alpha1.PodAutoscaler, want int32, got int) error {
@@ -249,7 +310,10 @@ func computeActiveCondition(pa *pav1alpha1.PodAutoscaler, want int32, got int) (
 		pa.Status.MarkActive()
 
 	case want == scaleUnknown:
-		// We don't know what scale we want, so don't touch PA at all.
+		// Add condition Active if we don't have it. Otherwise don't touch it because it is unknown.
+		if pa.Status.GetCondition(pav1alpha1.PodAutoscalerConditionActive) == nil {
+			pa.Status.MarkActivating("Deploying", "")
+		}
 	}
 
 	pa.Status.ObservedGeneration = pa.Generation

@@ -29,7 +29,8 @@ import (
 )
 
 var podCondSet = apis.NewLivingConditionSet(
-	PodAutoscalerConditionActive,
+	PodAutoscalerConditionContainersHealthy,
+	PodAutoscalerConditionPodsHealthy,
 )
 
 func (pa *PodAutoscaler) GetGroupVersionKind() schema.GroupVersionKind {
@@ -127,6 +128,12 @@ func (pas *PodAutoscalerStatus) IsReady() bool {
 	return podCondSet.Manage(pas.duck()).IsHappy()
 }
 
+// HasFailed returns true if the Ready condition is false.
+func (pas *PodAutoscalerStatus) HasFailed() bool {
+	cond := pas.GetCondition(PodAutoscalerConditionReady)
+	return cond != nil && cond.Status == corev1.ConditionFalse
+}
+
 // IsActivating returns true if the pod autoscaler is Activating if it is neither
 // Active nor Inactive
 func (pas *PodAutoscalerStatus) IsActivating() bool {
@@ -138,6 +145,12 @@ func (pas *PodAutoscalerStatus) IsActivating() bool {
 func (pas *PodAutoscalerStatus) IsInactive() bool {
 	cond := pas.GetCondition(PodAutoscalerConditionActive)
 	return cond != nil && cond.Status == corev1.ConditionFalse
+}
+
+// IsActive returns true if the pod autoscaler is Active.
+func (pas *PodAutoscalerStatus) IsActive() bool {
+	cond := pas.GetCondition(PodAutoscalerConditionActive)
+	return cond != nil && cond.Status == corev1.ConditionTrue
 }
 
 // GetCondition gets the condition `t`.
@@ -177,6 +190,33 @@ func (pas *PodAutoscalerStatus) MarkResourceNotOwned(kind, name string) {
 func (pas *PodAutoscalerStatus) MarkResourceFailedCreation(kind, name string) {
 	pas.MarkInactive("FailedCreate",
 		fmt.Sprintf("Failed to create %s %q.", kind, name))
+}
+
+// MarkContainerExiting changes the "ContainersHealthy" condition to false and records the exit code.
+func (pas *PodAutoscalerStatus) MarkContainerExiting(exitCode int32, message string) {
+	exitCodeString := fmt.Sprintf("ExitCode%d", exitCode)
+	message = fmt.Sprintf("Container failed with: %s", message)
+	podCondSet.Manage(pas).MarkFalse(PodAutoscalerConditionContainersHealthy, exitCodeString, message)
+}
+
+// MarkContainerWaiting changes the "ContainersHealthy" condition to false and records the exit code.
+func (pas *PodAutoscalerStatus) MarkContainerWaiting(reason, message string) {
+	podCondSet.Manage(pas).MarkFalse(PodAutoscalerConditionContainersHealthy, reason, message)
+}
+
+// MarkContainersHealthy changes the "ContainersHealthy" condition to true.
+func (pas *PodAutoscalerStatus) MarkContainersHealthy() {
+	podCondSet.Manage(pas).MarkTrue(PodAutoscalerConditionContainersHealthy)
+}
+
+// MarkPodUnscheduled changes the "PodsHealthy" condition to false and records reason and message.
+func (pas *PodAutoscalerStatus) MarkPodUnscheduled(reason, message string) {
+	podCondSet.Manage(pas).MarkFalse(PodAutoscalerConditionPodsHealthy, reason, message)
+}
+
+// MarkPodsHealthy changes the "PodsHealthy" condition to true.
+func (pas *PodAutoscalerStatus) MarkPodsHealthy() {
+	podCondSet.Manage(pas).MarkTrue(PodAutoscalerConditionPodsHealthy)
 }
 
 // CanScaleToZero checks whether the pod autoscaler has been in an inactive state

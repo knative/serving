@@ -118,24 +118,28 @@ func applyBounds(min, max, x int32) int32 {
 }
 
 func (ks *scaler) handleScaleToZero(pa *pav1alpha1.PodAutoscaler, desiredScale int32, config *autoscaler.Config) (int32, bool) {
+	// Check preconditions:
+	// (1) we want to scale to 0 (desiredScale is 0)
+	// (2) enable-scale-to-zero from configmap is true
+	// (3) PA's Ready condition is not false.
 	if desiredScale != 0 {
 		return desiredScale, true
 	}
-
-	// We should only scale to zero when three of the following conditions are true:
-	//   a) enable-scale-to-zero from configmap is true
-	//   b) The PA has been active for at least the stable window, after which it gets marked inactive
-	//   c) The PA has been inactive for at least the grace period
-
 	if !config.EnableScaleToZero {
 		return 1, true
 	}
+	if pa.Status.HasFailed() {
+		return desiredScale, true
+	}
 
-	if pa.Status.IsActivating() { // Active=Unknown
+	// When the preconditions are met, we scale to 0 based on the Active condition:
+	// (1) The PA has been active for at least the stable window, after which it gets marked inactive
+	// (2) The PA has been inactive for at least the grace period
+
+	if pa.Status.IsActivating() {
+		// Don't scale-to-zero during activation
 		return scaleUnknown, false
-	} else if pa.Status.IsReady() { // Active=True
-		// Don't scale-to-zero if the PA is active
-
+	} else if pa.Status.IsActive() {
 		// Do not scale to 0, but return desiredScale of 0 to mark PA inactive.
 		if pa.Status.CanMarkInactive(config.StableWindow) {
 			// We do not need to enqueue PA here, since this will
@@ -208,7 +212,12 @@ func (ks *scaler) Scale(ctx context.Context, pa *pav1alpha1.PodAutoscaler, desir
 
 	if desiredScale < 0 {
 		logger.Debug("Metrics are not yet being collected.")
-		return desiredScale, nil
+		if pa.Status.HasFailed() {
+			// Want to scale to 0 when the PA has failed.
+			desiredScale = 0
+		} else {
+			return desiredScale, nil
+		}
 	}
 
 	min, max := pa.ScaleBounds()
