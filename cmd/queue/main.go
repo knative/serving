@@ -296,106 +296,87 @@ func probeQueueHealthPath(port int, timeout time.Duration) error {
 
 type probe struct {
 	corev1.Probe
-	count int32
+	count  int32
+	logger *zap.SugaredLogger
+}
+
+// isStandardProbe function checks if default probe should be used or custom
+func (p *probe) isStandardProbe() bool {
+	return p.PeriodSeconds != 0
 }
 
 func (p *probe) ProbeContainer() bool {
-	if p.PeriodSeconds != 0 {
-		return p.standardProbe()
-	}
 	var probeFunc func() (bool, error)
 
 	if p.HTTPGet != nil {
-		probeFunc = p.knativeHTTPProbe
+		probeFunc = p.knativeHTTPProbeFunc()
 	} else if p.TCPSocket != nil {
-		probeFunc = p.knativeTCPProbe
+		probeFunc = p.knativeTCPProbeFunc()
 	} else {
 		// using Fprintf for a concise error message in the event log
 		fmt.Fprintf(os.Stderr, "unimplemented probe type.")
 		return false
 	}
-	var err error
-	err = wait.PollImmediate(50*time.Millisecond, 10*time.Second, probeFunc)
+	err := wait.PollImmediate(50*time.Millisecond, 10*time.Second, probeFunc)
 
 	if err == nil {
-		logger.Info("User-container successfully probed.")
+		p.logger.Info("User-container successfully probed.")
 	} else {
-		logger.Errorw("User-container could not be probed successfully.", zap.Error(err))
+		p.logger.Errorw("User-container could not be probed successfully.", zap.Error(err))
 	}
 
 	return err == nil
 }
 
-func (p *probe) knativeTCPProbe() (bool, error) {
-	tcpErr := health.TCPProbe(fmt.Sprintf("%s:%d", p.TCPSocket.Host, p.TCPSocket.Port.IntValue()), 100*time.Millisecond)
-
-	if tcpErr != nil {
-		p.count = 0
-		return false, nil
+// knativeTCPProbe returns default TCP probe condition func if conditions are met otherwise custom
+// TCP probe function
+func (p *probe) knativeTCPProbeFunc() func() (bool, error) {
+	address := fmt.Sprintf("%s:%d", p.TCPSocket.Host, p.TCPSocket.Port.IntValue())
+	if p.isStandardProbe() {
+		// condition function returns error if TCP probe fails
+		return func() (bool, error) {
+			err := health.TCPProbe(address, time.Duration(p.TimeoutSeconds)*time.Second)
+			return err == nil, err
+		}
 	}
-
-	p.count++
-	return p.Count() >= p.SuccessThreshold, nil
+	// condition function which returns true if the probe count is greater than success threshold
+	// and false if TCP probe fails
+	return func() (bool, error) {
+		if tcpErr := health.TCPProbe(address, 100*time.Millisecond); tcpErr != nil {
+			p.count = 0
+			return false, nil
+		}
+		p.count++
+		return p.Count() >= p.SuccessThreshold, nil
+	}
 }
 
-func (p *probe) knativeHTTPProbe() (bool, error) {
+// knativeHTTPProbe returns default HTTP probe condition func if conditions are met otherwise custom
+// HTTP probe function
+func (p *probe) knativeHTTPProbeFunc() func() (bool, error) {
 	url := fmt.Sprintf("http://%s:%d", p.HTTPGet.Host, p.HTTPGet.Port.IntValue())
-	httpClient := &http.Client{
-		Transport: &http.Transport{
-			DisableKeepAlives: true,
-		},
-		Timeout: 100 * time.Millisecond,
+	if p.isStandardProbe() {
+		// condition function returns error if HTTP probe fails
+		return func() (bool, error) {
+			err := health.HTTPProbe(url, p.HTTPGet.HTTPHeaders)
+			return err == nil, err
+		}
 	}
-
-	var res *http.Response
-	res, _ = httpClient.Get(url)
-
-	if res == nil {
-		p.count = 0
-		return false, nil
+	// condition function which returns true if the probe count is greater than success threshold
+	// and false if HTTP probe fails
+	return func() (bool, error) {
+		if err := health.HTTPProbe(url, p.HTTPGet.HTTPHeaders); err != nil {
+			p.count = 0
+			return false, nil
+		}
+		p.count++
+		return p.Count() >= p.SuccessThreshold, nil
 	}
-
-	if res.StatusCode < 200 || res.StatusCode >= 400 {
-		p.count = 0
-		return false, nil
-	}
-
-	p.count++
-
-	return p.count >= p.SuccessThreshold, nil
 }
 
+// Count function fetches current probe count
 func (p *probe) Count() int32 {
 	return p.count
-}
-
-func (p *probe) standardProbe() bool {
-	if p.TCPSocket != nil {
-		address := fmt.Sprintf("%s:%d", p.TCPSocket.Host, p.TCPSocket.Port.IntValue())
-		err := health.TCPProbe(address, time.Duration(p.TimeoutSeconds)*time.Second)
-		return err == nil
-	} else if p.HTTPGet != nil {
-		url := fmt.Sprintf("http://%s:%d", p.HTTPGet.Host, p.HTTPGet.Port.IntValue())
-		httpClient := &http.Client{
-			Transport: &http.Transport{
-				DisableKeepAlives: true,
-			},
-			Timeout: time.Duration(p.TimeoutSeconds) * time.Second,
-		}
-
-		var res *http.Response
-		res, _ = httpClient.Get(url)
-
-		if res == nil {
-			return false
-		}
-
-		return res.StatusCode >= 200 && res.StatusCode < 400
-	}
-
-	// using Fprintf for a concise error message in the event log
-	fmt.Fprintf(os.Stderr, "unimplemented probe type.")
-	return false
 }
 
 func main() {
@@ -459,13 +440,16 @@ func main() {
 	}, time.Now())
 
 	pb := probe{
-		corev1.Probe{
+		Probe: corev1.Probe{
 			PeriodSeconds:    0,
 			TimeoutSeconds:   0,
 			SuccessThreshold: 0,
 			FailureThreshold: 0,
 		},
-		0,
+		logger: logger.With(
+			zap.String(logkey.Key, "readinessProbe"),
+		),
+		count: 0,
 	}
 
 	adminServer := &http.Server{

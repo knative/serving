@@ -21,6 +21,10 @@ import (
 	"net/http/httptest"
 	"testing"
 	"time"
+
+	"github.com/google/go-cmp/cmp"
+
+	corev1 "k8s.io/api/core/v1"
 )
 
 func TestTCPProbe(t *testing.T) {
@@ -39,5 +43,49 @@ func TestTCPProbe(t *testing.T) {
 	server.Close()
 	if err := TCPProbe(serverAddr, 1*time.Second); err == nil {
 		t.Error("Expected probe to fail but it didn't")
+	}
+}
+
+func TestHTTPProbeSuccess(t *testing.T) {
+	var gotHeader corev1.HTTPHeader
+	expectedHeader := corev1.HTTPHeader{
+		Name:  "Testkey",
+		Value: "Testval",
+	}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		for headerKey, headerValue := range r.Header {
+			// Flitering for expectedHeader.TestKey to avoid other HTTP probe headers
+			if expectedHeader.Name == headerKey {
+				gotHeader = corev1.HTTPHeader{Name: headerKey, Value: headerValue[0]}
+			}
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+	serverAddr := server.URL
+
+	// Connecting to the server should work
+	if err := HTTPProbe(serverAddr, []corev1.HTTPHeader{expectedHeader}); err != nil {
+		t.Errorf("Expected probe to succeed but it failed with %v", err)
+	}
+	if d := cmp.Diff(gotHeader, expectedHeader); d != "" {
+		t.Errorf("Expected probe headers to match but got %s", d)
+	}
+	// Close the server so probing fails afterwards
+	server.Close()
+	if err := HTTPProbe(serverAddr, []corev1.HTTPHeader{expectedHeader}); err == nil {
+		t.Error("Expected probe to fail but it didn't")
+	}
+}
+
+func TestHTTPProbeFailure(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusServiceUnavailable)
+	}))
+	defer server.Close()
+	serverAddr := server.URL
+
+	if err := HTTPProbe(serverAddr, nil); err == nil {
+		t.Error("Expected probe to fail but it successded")
 	}
 }
