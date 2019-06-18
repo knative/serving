@@ -36,6 +36,7 @@ import (
 
 var errLoadBalancerNotFound = errors.New("failed to fetch loadbalancer domain/IP from ingress status")
 
+// GetNames returns a set of service names.
 func GetNames(services []*corev1.Service) sets.String {
 	names := sets.NewString()
 
@@ -179,6 +180,7 @@ func makeServiceSpec(ingress *netv1alpha1.ClusterIngress, isPrivate bool) (*core
 	return nil, errLoadBalancerNotFound
 }
 
+// GetDesiredServiceNames returns a list of service names that we expect to create
 func GetDesiredServiceNames(ctx context.Context, route *v1alpha1.Route) (sets.String, error) {
 	traffic := route.Spec.Traffic
 

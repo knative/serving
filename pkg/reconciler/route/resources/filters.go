@@ -21,8 +21,10 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
+// Filter is used for applying a function to a service
 type Filter func(service *corev1.Service) bool
 
+// FilterService applies a filter to the list of services and return the services that are accepted
 func FilterService(services []*corev1.Service, acceptFilter Filter) []*corev1.Service {
 	var filteredServices []*corev1.Service
 
@@ -37,6 +39,8 @@ func FilterService(services []*corev1.Service, acceptFilter Filter) []*corev1.Se
 }
 
 // Filter functions
+
+// IsClusterLocalService returns whether a service is cluster local.
 func IsClusterLocalService(svc *corev1.Service) bool {
 	if visibility, ok := svc.GetLabels()[config.VisibilityLabelKey]; ok {
 		return config.VisibilityClusterLocal == visibility

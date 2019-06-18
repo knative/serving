@@ -21,10 +21,12 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+// IsObjectLocalVisibility returns whether an ObjectMeta is of cluster-local visibility
 func IsObjectLocalVisibility(meta v1.ObjectMeta) bool {
 	return meta.Labels != nil && meta.Labels[config.VisibilityLabelKey] != ""
 }
 
+// SetVisibility sets the visibility on an ObjectMeta
 func SetVisibility(meta *v1.ObjectMeta, isClusterLocal bool) {
 	if isClusterLocal {
 		SetLabel(meta, config.VisibilityLabelKey, config.VisibilityClusterLocal)
@@ -33,6 +35,7 @@ func SetVisibility(meta *v1.ObjectMeta, isClusterLocal bool) {
 	}
 }
 
+// SetLabel sets/update the label of the an ObjectMeta
 func SetLabel(meta *v1.ObjectMeta, key string, value string) {
 	if meta.Labels == nil {
 		meta.Labels = make(map[string]string)
@@ -41,6 +44,7 @@ func SetLabel(meta *v1.ObjectMeta, key string, value string) {
 	meta.Labels[key] = value
 }
 
+// DeleteLabel removes a label from the ObjectMeta
 func DeleteLabel(meta *v1.ObjectMeta, key string) {
 	if meta.Labels != nil {
 		delete(meta.Labels, key)
