@@ -17,6 +17,7 @@ limitations under the License.
 package resources
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -135,4 +136,31 @@ func TestCopy(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestChildName(t *testing.T) {
+	tests := []struct {
+		parent string
+		suffix string
+		want   string
+	}{{
+		parent: "asdf",
+		suffix: "-deployment",
+		want:   "asdf-deployment",
+	}, {
+		parent: strings.Repeat("f", 63),
+		suffix: "-deployment",
+		want:   "ffffffffffffffffffff105d7597f637e83cc711605ac3ea4957-deployment",
+	}, {
+		parent: strings.Repeat("f", 63),
+		suffix: "-deploy",
+		want:   "ffffffffffffffffffffffff105d7597f637e83cc711605ac3ea4957-deploy",
+	}}
+
+	for _, test := range tests {
+		if got, want := ChildName(test.parent, test.suffix), test.want; got != want {
+			t.Errorf("%s-%s: got: %63s want: %63s\ndiff:%s", test.parent, test.suffix, got, want, cmp.Diff(got, want))
+		}
+	}
+
 }
