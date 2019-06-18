@@ -84,10 +84,10 @@ type Stat struct {
 	AverageProxiedConcurrentRequests float64
 
 	// Number of requests received since last Stat (approximately QPS).
-	RequestCount int32
+	RequestCount float64
 
 	// Part of RequestCount, for requests going through a proxy.
-	ProxiedRequestCount int32
+	ProxiedRequestCount float64
 }
 
 // StatMessage wraps a Stat with identifying information so it can be routed
