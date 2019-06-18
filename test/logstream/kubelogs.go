@@ -19,7 +19,6 @@ package logstream
 import (
 	"bufio"
 	"encoding/json"
-	"log"
 	"strings"
 	"sync"
 	"testing"
@@ -46,18 +45,18 @@ type logger func(string, ...interface{})
 var _ streamer = (*kubelogs)(nil)
 
 // Init implements streamer
-func (k *kubelogs) Init() {
+func (k *kubelogs) Init(t *testing.T) {
 	k.keys = make(map[string]logger)
 
 	kc, err := test.NewKubeClient(test.Flags.Kubeconfig, test.Flags.Cluster)
 	if err != nil {
-		log.Fatalf("Error loading client config: %v", err)
+		t.Errorf("Error loading client config: %v", err)
 	}
 
 	// List the pods in the given namespace.
 	pl, err := kc.Kube.CoreV1().Pods(k.namespace).List(metav1.ListOptions{})
 	if err != nil {
-		log.Fatalf("Error listing pods: %v", err)
+		t.Errorf("Error listing pods: %v", err)
 	}
 	for _, pod := range pl.Items {
 		// Grab data from all containers in the pods.  We need this in case
@@ -76,7 +75,7 @@ func (k *kubelogs) Init() {
 				req := kc.Kube.CoreV1().Pods(k.namespace).GetLogs(pod.Name, options)
 				stream, err := req.Stream()
 				if err != nil {
-					log.Fatalf("Error streaming pod logs: %v", err)
+					t.Errorf("Error streaming pod logs: %v", err)
 				}
 				defer stream.Close()
 
@@ -124,7 +123,7 @@ func (k *kubelogs) handleLine(l string) {
 
 // Start implements streamer
 func (k *kubelogs) Start(t *testing.T) Canceler {
-	k.once.Do(k.Init)
+	k.once.Do(func() { k.Init(t) })
 
 	name := servingtest.ObjectPrefixForTest(t)
 
