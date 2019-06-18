@@ -338,6 +338,9 @@ func TestAutoscaleSustaining(t *testing.T) {
 	// as long as the traffic sustains, despite whether it is switching modes between
 	// normal and panic.
 	t.Parallel()
+	cancel := logstream.Start(t)
+	defer cancel()
+
 	ctx := setup(t, autoscaling.KPA, autoscaling.Concurrency)
 	defer test.TearDown(ctx.clients, ctx.names)
 
