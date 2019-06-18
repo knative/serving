@@ -35,7 +35,7 @@ func TestMustHaveHeadersSet(t *testing.T) {
 	t.Parallel()
 	clients := test.Setup(t)
 
-	_, ri, err := fetchRuntimeInfo(t, clients, nil)
+	_, ri, err := fetchRuntimeInfo(t, clients)
 	if err != nil {
 		t.Fatalf("Error fetching runtime info: %v", err)
 	}
@@ -86,7 +86,7 @@ func TestShouldHaveHeadersSet(t *testing.T) {
 		MatchString(string) bool
 		String() string
 	}{
-		// We expect user headers to be passed through excatly as-is.
+		// We expect user headers to be passed through exactly as-is.
 		userHeaderKey: regexp.MustCompile("^" + userHeaderValue + "$"),
 		// We expect the protocol to be http for our test image.
 		"x-forwarded-proto": regexp.MustCompile("https?"),
@@ -105,7 +105,7 @@ func TestShouldHaveHeadersSet(t *testing.T) {
 		// required for tracing so we do not validate them.
 	}
 
-	_, ri, err := fetchRuntimeInfo(t, clients, []pkgTest.RequestOption{pkgTest.WithHeader(userHeaders)})
+	_, ri, err := fetchRuntimeInfo(t, clients, pkgTest.WithHeader(userHeaders))
 	if err != nil {
 		t.Fatalf("Error fetching runtime info: %v", err)
 	}

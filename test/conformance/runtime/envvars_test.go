@@ -33,7 +33,7 @@ import (
 func TestShouldEnvVars(t *testing.T) {
 	t.Parallel()
 	clients := test.Setup(t)
-	names, ri, err := fetchRuntimeInfo(t,clients, nil)
+	names, ri, err := fetchRuntimeInfo(t, clients)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -62,7 +62,7 @@ func TestMustEnvVars(t *testing.T) {
 	if err != nil {
 		t.Fatal("Invalid PORT value in MustEnvVars")
 	}
-	_, ri, err := fetchRuntimeInfo(t,clients, nil, WithNumberedPort(int32(port)))
+	_, ri, err := fetchRuntimeInfo(t, clients, WithNumberedPort(int32(port)))
 	if err != nil {
 		t.Fatal(err)
 	}

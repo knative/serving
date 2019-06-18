@@ -43,7 +43,7 @@ func TestMustRunAsUser(t *testing.T) {
 		RunAsUser: &runAsUser,
 	}
 
-	_, ri, err := fetchRuntimeInfo(t, clients, nil, WithSecurityContext(securityContext))
+	_, ri, err := fetchRuntimeInfo(t, clients, WithSecurityContext(securityContext))
 	if err != nil {
 		t.Fatalf("Error fetching runtime info: %v", err)
 	}
@@ -73,7 +73,7 @@ func TestMustRunAsUser(t *testing.T) {
 func TestShouldRunAsUserContainerDefault(t *testing.T) {
 	t.Parallel()
 	clients := test.Setup(t)
-	_, ri, err := fetchRuntimeInfoUnprivileged(t, clients, nil)
+	_, ri, err := fetchRuntimeInfoUnprivileged(t, clients)
 
 	if err != nil {
 		t.Fatalf("Error fetching runtime info: %v", err)

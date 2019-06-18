@@ -34,10 +34,9 @@ import (
 func fetchRuntimeInfoUnprivileged(
 	t *testing.T,
 	clients *test.Clients,
-	reqOpts []pkgTest.RequestOption,
-	opts ...ServiceOption) (*test.ResourceNames, *types.RuntimeInfo, error) {
+	opts ...interface{}) (*test.ResourceNames, *types.RuntimeInfo, error) {
 
-	return runtimeInfo(t, clients, &test.ResourceNames{Image: test.RuntimeUnprivileged}, reqOpts, opts...)
+	return runtimeInfo(t, clients, &test.ResourceNames{Image: test.RuntimeUnprivileged}, opts...)
 }
 
 // fetchRuntimeInfo creates a Service that uses the 'runtime' test image, and extracts the returned output into the
@@ -45,18 +44,16 @@ func fetchRuntimeInfoUnprivileged(
 func fetchRuntimeInfo(
 	t *testing.T,
 	clients *test.Clients,
-	reqOpts []pkgTest.RequestOption,
-	opts ...ServiceOption) (*test.ResourceNames, *types.RuntimeInfo, error) {
+	opts ...interface{}) (*test.ResourceNames, *types.RuntimeInfo, error) {
 
-	return runtimeInfo(t, clients, &test.ResourceNames{}, reqOpts, opts...)
+	return runtimeInfo(t, clients, &test.ResourceNames{}, opts...)
 }
 
 func runtimeInfo(
 	t *testing.T,
 	clients *test.Clients,
 	names *test.ResourceNames,
-	reqOpts []pkgTest.RequestOption,
-	opts ...ServiceOption) (*test.ResourceNames, *types.RuntimeInfo, error) {
+	opts ...interface{}) (*test.ResourceNames, *types.RuntimeInfo, error) {
 
 	names.Service = test.ObjectNameForTest(t)
 	if names.Image == "" {
@@ -68,7 +65,9 @@ func runtimeInfo(
 	defer test.TearDown(clients, *names)
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, *names) })
 
-	objects, err := v1a1test.CreateRunLatestServiceReady(t, clients, names, &v1a1test.Options{}, opts...)
+	serviceOpts, reqOpts := splitOpts(opts...)
+
+	objects, err := v1a1test.CreateRunLatestServiceReady(t, clients, names, &v1a1test.Options{}, serviceOpts...)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -88,4 +87,18 @@ func runtimeInfo(
 	var ri types.RuntimeInfo
 	err = json.Unmarshal(resp.Body, &ri)
 	return names, &ri, err
+}
+
+func splitOpts(opts ...interface{}) ([]ServiceOption, []pkgTest.RequestOption) {
+	serviceOpts := []ServiceOption{}
+	reqOpts := []pkgTest.RequestOption{}
+	for _, opt := range opts {
+		switch opt.(type) {
+		case ServiceOption:
+			serviceOpts = append(serviceOpts, opt.(ServiceOption))
+		case pkgTest.RequestOption:
+			reqOpts = append(reqOpts, opt.(pkgTest.RequestOption))
+		}
+	}
+	return serviceOpts, reqOpts
 }

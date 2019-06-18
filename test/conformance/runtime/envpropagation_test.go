@@ -100,8 +100,8 @@ func TestConfigsViaEnv(t *testing.T) {
 	})
 }
 
-func fetchEnvironmentAndVerify(t *testing.T, clients *test.Clients, opts ...ServiceOption) error {
-	_, ri, err := fetchRuntimeInfo(t,clients, nil, opts...)
+func fetchEnvironmentAndVerify(t *testing.T, clients *test.Clients, opts ...interface{}) error {
+	_, ri, err := fetchRuntimeInfo(t, clients, opts...)
 	if err != nil {
 		return err
 	}
