@@ -23,6 +23,7 @@ import (
 	"k8s.io/client-go/rest"
 
 	"github.com/knative/pkg/injection"
+	"github.com/knative/pkg/logging"
 )
 
 func init() {
@@ -41,7 +42,8 @@ func withClient(ctx context.Context, cfg *rest.Config) context.Context {
 func Get(ctx context.Context) dynamic.Interface {
 	untyped := ctx.Value(Key{})
 	if untyped == nil {
-		return nil
+		logging.FromContext(ctx).Panicf(
+			"Unable to fetch %T from context.", (dynamic.Interface)(nil))
 	}
 	return untyped.(dynamic.Interface)
 }

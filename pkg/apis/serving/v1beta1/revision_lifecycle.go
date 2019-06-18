@@ -22,6 +22,11 @@ import (
 	"github.com/knative/pkg/apis"
 )
 
+const (
+	// DefaultUserPort is the system default port value exposed on the user-container.
+	DefaultUserPort = 8080
+)
+
 var revisionCondSet = apis.NewLivingConditionSet()
 
 // GetGroupVersionKind returns the GroupVersionKind.

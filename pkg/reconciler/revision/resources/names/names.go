@@ -18,16 +18,20 @@ package names
 
 import (
 	"github.com/knative/pkg/kmeta"
+	"github.com/knative/serving/pkg/resources"
 )
 
+// Deployment returns the precomputed name for the revision deployment
 func Deployment(rev kmeta.Accessor) string {
-	return rev.GetName() + "-deployment"
+	return resources.ChildName(rev.GetName(), "-deployment")
 }
 
+// ImageCache returns the precomputed name for the image cache.
 func ImageCache(rev kmeta.Accessor) string {
-	return rev.GetName() + "-cache"
+	return resources.ChildName(rev.GetName(), "-cache")
 }
 
+// KPA returns the PA name for the revision.
 func KPA(rev kmeta.Accessor) string {
 	// We want the KPA's "key" to match the revision,
 	// to simplify the transition to the KPA.

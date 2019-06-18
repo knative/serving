@@ -347,7 +347,7 @@ func TestActivationHandler(t *testing.T) {
 }
 
 // Make sure we return http internal server error when the Breaker is overflowed
-func TestActivationHandler_Overflow(t *testing.T) {
+func TestActivationHandlerOverflow(t *testing.T) {
 	const (
 		wantedSuccess = 20
 		wantedFailure = 1
@@ -391,7 +391,7 @@ func TestActivationHandler_Overflow(t *testing.T) {
 }
 
 // Make sure if one breaker is overflowed, the requests to other revisions are still served
-func TestActivationHandler_OverflowSeveralRevisions(t *testing.T) {
+func TestActivationHandlerOverflowSeveralRevisions(t *testing.T) {
 	const (
 		wantedSuccess   = 40
 		wantedFailure   = 2
@@ -434,7 +434,7 @@ func TestActivationHandler_OverflowSeveralRevisions(t *testing.T) {
 	assertResponses(wantedSuccess, wantedFailure, overallRequests, lockerCh, respCh, t)
 }
 
-func TestActivationHandler_ProxyHeader(t *testing.T) {
+func TestActivationHandlerProxyHeader(t *testing.T) {
 	breakerParams := queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}
 	namespace, revName := testNamespace, testRevName
 
@@ -486,7 +486,7 @@ func TestActivationHandler_ProxyHeader(t *testing.T) {
 	}
 }
 
-func TestActivationHandler_TraceSpans(t *testing.T) {
+func TestActivationHandlerTraceSpans(t *testing.T) {
 	// Setup transport
 	rt := getRT(t, nil, 200, []string{}, nil, "hello", "", nil)
 	prober.TransportFactory = func() http.RoundTripper {
@@ -765,7 +765,7 @@ func revisionLister(revs ...*v1alpha1.Revision) servinglisters.RevisionLister {
 	revisions := informer.Serving().V1alpha1().Revisions()
 
 	for _, rev := range revs {
-		fake.Serving().Revisions(rev.Namespace).Create(rev)
+		fake.ServingV1alpha1().Revisions(rev.Namespace).Create(rev)
 		revisions.Informer().GetIndexer().Add(rev)
 	}
 

@@ -106,7 +106,7 @@ func TestReportRequestCount_EmptyServiceName(t *testing.T) {
 	checkSumData(t, "request_count", wantTags, 10)
 }
 
-func TestReportResponseTime_EmptyServiceName(t *testing.T) {
+func TestReportResponseTimeEmptyServiceName(t *testing.T) {
 	r, _ := NewStatsReporter()
 	defer unregister()
 

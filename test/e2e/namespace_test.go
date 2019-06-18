@@ -58,6 +58,7 @@ func TestMultipleNamespace(t *testing.T) {
 		Service: serviceName,
 		Image:   pizzaPlanet1,
 	}
+	test.CleanupOnInterrupt(func() { test.TearDown(defaultClients, defaultResources) })
 	defer test.TearDown(defaultClients, defaultResources)
 	if _, err := v1a1test.CreateRunLatestServiceReady(t, defaultClients, &defaultResources, &v1a1test.Options{}); err != nil {
 		t.Fatalf("Failed to create Service %v in namespace %v: %v", defaultResources.Service, test.ServingNamespace, err)
@@ -67,6 +68,7 @@ func TestMultipleNamespace(t *testing.T) {
 		Service: serviceName,
 		Image:   pizzaPlanet2,
 	}
+	test.CleanupOnInterrupt(func() { test.TearDown(altClients, altResources) })
 	defer test.TearDown(altClients, altResources)
 	if _, err := v1a1test.CreateRunLatestServiceReady(t, altClients, &altResources, &v1a1test.Options{}); err != nil {
 		t.Fatalf("Failed to create Service %v in namespace %v: %v", altResources.Service, test.AlternativeServingNamespace, err)

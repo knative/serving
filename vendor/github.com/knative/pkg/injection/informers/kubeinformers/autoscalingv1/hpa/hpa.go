@@ -24,6 +24,7 @@ import (
 	"github.com/knative/pkg/controller"
 	"github.com/knative/pkg/injection"
 	"github.com/knative/pkg/injection/informers/kubeinformers/factory"
+	"github.com/knative/pkg/logging"
 )
 
 func init() {
@@ -44,7 +45,8 @@ func withInformer(ctx context.Context) (context.Context, controller.Informer) {
 func Get(ctx context.Context) autoscalingv1.HorizontalPodAutoscalerInformer {
 	untyped := ctx.Value(Key{})
 	if untyped == nil {
-		return nil
+		logging.FromContext(ctx).Panicf(
+			"Unable to fetch %T from context.", (autoscalingv1.HorizontalPodAutoscalerInformer)(nil))
 	}
 	return untyped.(autoscalingv1.HorizontalPodAutoscalerInformer)
 }

@@ -17,6 +17,7 @@ limitations under the License.
 package names
 
 import (
+	"strings"
 	"testing"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -32,6 +33,24 @@ func TestNamer(t *testing.T) {
 		f    func(kmeta.Accessor) string
 		want string
 	}{{
+		name: "Deployment too long",
+		rev: &v1alpha1.Revision{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: strings.Repeat("f", 63),
+			},
+		},
+		f:    Deployment,
+		want: "ffffffffffffffffffff105d7597f637e83cc711605ac3ea4957-deployment",
+	}, {
+		name: "Deployment long enough",
+		rev: &v1alpha1.Revision{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: strings.Repeat("f", 52),
+			},
+		},
+		f:    Deployment,
+		want: strings.Repeat("f", 52) + "-deployment",
+	}, {
 		name: "Deployment",
 		rev: &v1alpha1.Revision{
 			ObjectMeta: metav1.ObjectMeta{
@@ -40,6 +59,24 @@ func TestNamer(t *testing.T) {
 		},
 		f:    Deployment,
 		want: "foo-deployment",
+	}, {
+		name: "ImageCache, barely fits",
+		rev: &v1alpha1.Revision{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: strings.Repeat("u", 57),
+			},
+		},
+		f:    ImageCache,
+		want: strings.Repeat("u", 57) + "-cache",
+	}, {
+		name: "ImageCache, already too long",
+		rev: &v1alpha1.Revision{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: strings.Repeat("u", 63),
+			},
+		},
+		f:    ImageCache,
+		want: "uuuuuuuuuuuuuuuuuuuuuuuuuca47ad1ce8479df271ec0d23653ce256-cache",
 	}, {
 		name: "ImageCache",
 		rev: &v1alpha1.Revision{

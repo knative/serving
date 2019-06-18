@@ -26,7 +26,6 @@ import (
 	"github.com/knative/pkg/controller"
 	"github.com/knative/pkg/kmp"
 	"github.com/knative/pkg/logging"
-	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 	listers "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
@@ -140,9 +139,8 @@ func (c *Reconciler) reconcile(ctx context.Context, service *v1alpha1.Service) e
 		if ce, ok := err.(*v1alpha1.CannotConvertError); ok {
 			service.Status.MarkResourceNotConvertible(ce)
 			return nil
-		} else {
-			return err
 		}
+		return err
 	}
 
 	configName := resourcenames.Configuration(service)
@@ -291,30 +289,12 @@ func configSemanticEquals(desiredConfig, config *v1alpha1.Configuration) bool {
 		equality.Semantic.DeepEqual(desiredConfig.ObjectMeta.Annotations, config.ObjectMeta.Annotations)
 }
 
-// ignoreRouteLabelChange sets desiredConfig[serving.RouteLabelKey] to
-// same as config[serving.RouteLabelKey], so that we do nothing about
-// the configuration label serving.RouteLabelKey in our
-// reconciliation.
-func ignoreRouteLabelChange(desiredConfig, config *v1alpha1.Configuration) {
-	routeLabel, existed := config.ObjectMeta.Labels[serving.RouteLabelKey]
-	if !existed {
-		delete(desiredConfig.ObjectMeta.Labels, serving.RouteLabelKey)
-	} else {
-		desiredConfig.ObjectMeta.Labels[serving.RouteLabelKey] = routeLabel
-	}
-}
-
 func (c *Reconciler) reconcileConfiguration(ctx context.Context, service *v1alpha1.Service, config *v1alpha1.Configuration) (*v1alpha1.Configuration, error) {
 	logger := logging.FromContext(ctx)
 	desiredConfig, err := resources.MakeConfiguration(service)
 	if err != nil {
 		return nil, err
 	}
-	// Route label is automatically set by another reconciler.  We
-	// want to ignore that label in our reconciliation here by setting
-	// desiredConfig[serving.RouteLabelKey] to the same as
-	// config[serving.RouteLabelKey].
-	ignoreRouteLabelChange(desiredConfig, config)
 
 	if configSemanticEquals(desiredConfig, config) {
 		// No differences to reconcile.

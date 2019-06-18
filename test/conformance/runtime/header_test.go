@@ -26,7 +26,6 @@ import (
 	"testing"
 
 	"github.com/knative/serving/test"
-	v1a1test "github.com/knative/serving/test/v1alpha1"
 )
 
 // TestMustHaveHeadersSet verified that all headers declared as "MUST" in the runtime
@@ -35,7 +34,7 @@ func TestMustHaveHeadersSet(t *testing.T) {
 	t.Parallel()
 	clients := test.Setup(t)
 
-	_, ri, err := fetchRuntimeInfo(t, clients, &v1a1test.Options{})
+	_, ri, err := fetchRuntimeInfo(t, clients)
 	if err != nil {
 		t.Fatalf("Error fetching runtime info: %v", err)
 	}
@@ -98,7 +97,7 @@ func TestShouldHaveHeadersSet(t *testing.T) {
 		// required for tracing so we do not validate them.
 	}
 
-	_, ri, err := fetchRuntimeInfo(t, clients, &v1a1test.Options{})
+	_, ri, err := fetchRuntimeInfo(t, clients)
 	if err != nil {
 		t.Fatalf("Error fetching runtime info: %v", err)
 	}

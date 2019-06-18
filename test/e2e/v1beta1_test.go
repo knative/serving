@@ -27,7 +27,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
-	"github.com/knative/pkg/apis/duck"
 	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 	"github.com/knative/serving/test"
 )
@@ -52,18 +51,10 @@ func TestV1beta1Translation(t *testing.T) {
 		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
 	}
 
-	// Access the service over the v1beta1 endpoint using the dynamic client.
-	gvr := v1beta1.SchemeGroupVersion.WithResource("services")
-	svc, err := clients.Dynamic.Resource(gvr).Namespace(service.Namespace).
-		Get(service.Name, metav1.GetOptions{})
+	// Access the service over the v1beta1 endpoint.
+	v1b1, err := clients.ServingBetaClient.Services.Get(service.Name, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Failed to get v1beta1.Service: %v: %v", names.Service, err)
-	}
-
-	// Translate it into a v1beta1 Service resource.
-	v1b1 := &v1beta1.Service{}
-	if err := duck.FromUnstructured(svc, v1b1); err != nil {
-		t.Fatalf("Failed to parse unstructured as v1beta1.Service: %v: %v", names.Service, err)
 	}
 
 	// Check that the PodSpecs match
