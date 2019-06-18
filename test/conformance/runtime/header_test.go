@@ -29,6 +29,11 @@ import (
 	"github.com/knative/serving/test"
 )
 
+const (
+	userHeaderKey   = "this-was-user-set"
+	userHeaderValue = "a value"
+)
+
 // TestMustHaveHeadersSet verified that all headers declared as "MUST" in the runtime
 // contract are present from the point of view of the user container.
 func TestMustHaveHeadersSet(t *testing.T) {
@@ -77,8 +82,6 @@ func TestShouldHaveHeadersSet(t *testing.T) {
 	t.Parallel()
 	clients := test.Setup(t)
 
-	userHeaderKey := "this-was-user-set"
-	userHeaderValue := "a value"
 	userHeaders := make(http.Header)
 	userHeaders.Add(userHeaderKey, userHeaderValue)
 
