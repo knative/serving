@@ -17,6 +17,7 @@ limitations under the License.
 package testing
 
 import (
+	"strconv"
 	"time"
 
 	"github.com/knative/serving/pkg/apis/autoscaling"
@@ -155,6 +156,16 @@ func WithPanicWindowPercentageAnnotation(percentage string) PodAutoscalerOption 
 // WithMetricAnnotation adds a metric annotation to the PA.
 func WithMetricAnnotation(metric string) PodAutoscalerOption {
 	return withAnnotationValue(autoscaling.MetricAnnotationKey, metric)
+}
+
+// WithUpperScaleBound sets maxScale to the given number.
+func WithUpperScaleBound(i int) PodAutoscalerOption {
+	return withAnnotationValue(autoscaling.MaxScaleAnnotationKey, strconv.Itoa(i))
+}
+
+// WithLowerScaleBound sets minScale to the given number.
+func WithLowerScaleBound(i int) PodAutoscalerOption {
+	return withAnnotationValue(autoscaling.MinScaleAnnotationKey, strconv.Itoa(i))
 }
 
 // K8sServiceOption enables further configuration of the Kubernetes Service.
