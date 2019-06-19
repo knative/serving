@@ -66,21 +66,30 @@ func CreateRouteAndConfig(t *testing.T, clients *test.Clients, image string, opt
 	return names, err
 }
 
+// autoscalerCM returns the current autoscaler config map deployed to the
+// test cluster.
+func autoscalerCM(clients *test.Clients) (*autoscaler.Config, error) {
+	// Assume an empty map (and therefore return defaults) if getting the config map fails.
+	cmData := map[string]string{}
+	autoscalerCM, err := clients.KubeClient.Kube.CoreV1().ConfigMaps("knative-serving").Get(
+		autoscaler.ConfigName,
+		metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+	cmData = autoscalerCM.Data
+	return autoscaler.NewConfigFromMap(cmData)
+}
+
 // WaitForScaleToZero will wait for the specified deployment to scale to 0 replicas.
 // Will wait up to 6 times the configured ScaleToZeroGracePeriod before failing.
 func WaitForScaleToZero(t *testing.T, deploymentName string, clients *test.Clients) error {
 	t.Helper()
 	t.Logf("Waiting for %q to scale to zero", deploymentName)
 
-	// Assume an empty map (and therefore return defaults) if getting the config map fails.
-	cmData := make(map[string]string)
-	if autoscalerCM, err := clients.KubeClient.Kube.CoreV1().ConfigMaps("knative-serving").Get(autoscaler.ConfigName, metav1.GetOptions{}); err == nil {
-		cmData = autoscalerCM.Data
-	}
-
-	config, err := autoscaler.NewConfigFromMap(cmData)
+	cfg, err := autoscalerCM(clients)
 	if err != nil {
-		return perrors.Wrap(err, "failed to parse configmap")
+		return perrors.Wrap(err, "failed to get autoscaler configmap")
 	}
 
 	return pkgTest.WaitForDeploymentState(
@@ -89,6 +98,6 @@ func WaitForScaleToZero(t *testing.T, deploymentName string, clients *test.Clien
 		test.DeploymentScaledToZeroFunc,
 		"DeploymentIsScaledDown",
 		test.ServingNamespace,
-		config.ScaleToZeroGracePeriod*6,
+		cfg.ScaleToZeroGracePeriod*6,
 	)
 }
