@@ -240,8 +240,8 @@ func assertAutoscaleUpToNumPods(ctx *testContext, curPods, targetPods int32, dur
 
 	// Relax the bounds to reduce the flakiness caused by sampling in the autoscaling algorithm.
 	// Also adjust the values by the target utilization values.
-	minPods := int(math.Floor(curPods/targetUtilization)) - 1
-	maxPods := int(math.Ceil(targetPods/targetUtilization)) + 1
+	minPods := int32(math.Floor(float64(curPods)/targetUtilization)) - 1
+	maxPods := int32(math.Ceil(float64(targetPods)/targetUtilization)) + 1
 
 	stopChan := make(chan struct{})
 	var grp errgroup.Group
