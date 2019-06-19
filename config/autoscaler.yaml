@@ -57,6 +57,7 @@ spec:
           containerPort: 8443
         args:
         - "--secure-port=8443"
+        - "--cert-dir=/tmp"
         volumeMounts:
         - name: config-autoscaler
           mountPath: /etc/config-autoscaler
