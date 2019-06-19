@@ -54,7 +54,7 @@ func validateDomains(
 	var subdomains []string
 	split := strings.Split(baseDomain, ".")
 	for _, target := range trafficTargets {
-		subdomains = append(subdomains, fmt.Sprintf("%s-%s.%s", split[0], target, strings.Join(split[1:], ".")))
+		subdomains = append(subdomains, fmt.Sprintf("%s-%s.%s", target, split[0], strings.Join(split[1:], ".")))
 	}
 
 	g, _ := errgroup.WithContext(context.Background())
