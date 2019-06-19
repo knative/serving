@@ -50,6 +50,8 @@ const (
 	// Concurrency must be high enough to avoid the problems with sampling
 	// but not high enough to generate scheduling problems.
 	containerConcurrency = 6
+	// Must match the const/config-map.
+	targetUtilization = 0.7
 )
 
 func isDeploymentScaledUp() func(d *appsv1.Deployment) (bool, error) {
@@ -237,8 +239,9 @@ func assertAutoscaleUpToNumPods(ctx *testContext, curPods, targetPods int32, dur
 	//    sustains there for the `duration`.
 
 	// Relax the bounds to reduce the flakiness caused by sampling in the autoscaling algorithm.
-	minPods := curPods - 1
-	maxPods := targetPods + 1
+	// Also adjust the values by the target utilization values.
+	minPods := int(math.Floor(curPods/targetUtilization)) - 1
+	maxPods := int(math.Ceil(targetPods/targetUtilization)) + 1
 
 	stopChan := make(chan struct{})
 	var grp errgroup.Group
