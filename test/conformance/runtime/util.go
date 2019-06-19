@@ -103,7 +103,7 @@ func splitOpts(opts ...interface{}) ([]ServiceOption, []pkgTest.RequestOption, e
 		case pkgTest.RequestOption:
 			reqOpts = append(reqOpts, opt.(pkgTest.RequestOption))
 		default:
-			return nil, nil, fmt.Errorf("invalid option type: %v", t)
+			return nil, nil, fmt.Errorf("invalid option type: %T", t)
 		}
 
 	}
