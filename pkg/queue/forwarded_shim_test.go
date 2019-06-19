@@ -31,30 +31,30 @@ func TestForwardedShimHandler(t *testing.T) {
 		want string
 	}{{
 		name: "multiple xff",
-		xff:  "n1, n2",
+		xff:  "127.0.0.1, ::1",
 		xfh:  "h",
 		xfp:  "p",
-		want: "for=n1;host=h;proto=p, for=n2",
+		want: "for=127.0.0.1;host=h;proto=p, for=\"[::1]\"",
 	}, {
 		name: "single xff",
-		xff:  "n1",
+		xff:  "127.0.0.1",
 		xfh:  "h",
 		xfp:  "p",
-		want: "for=n1;host=h;proto=p",
+		want: "for=127.0.0.1;host=h;proto=p",
 	}, {
 		name: "multiple xff, no xfh, no xfp",
-		xff:  "n1, n2",
-		want: "for=n1, for=n2",
+		xff:  "127.0.0.1, ::1",
+		want: "for=127.0.0.1, for=\"[::1]\"",
 	}, {
 		name: "multiple xff, no xfh",
-		xff:  "n1, n2",
+		xff:  "127.0.0.1, ::1",
 		xfp:  "p",
-		want: "for=n1;proto=p, for=n2",
+		want: "for=127.0.0.1;proto=p, for=\"[::1]\"",
 	}, {
 		name: "multiple xff, no xfp",
-		xff:  "n1, n2",
+		xff:  "127.0.0.1, ::1",
 		xfh:  "h",
-		want: "for=n1;host=h, for=n2",
+		want: "for=127.0.0.1;host=h, for=\"[::1]\"",
 	}, {
 		name: "only xfh",
 		xfh:  "h",
@@ -70,7 +70,7 @@ func TestForwardedShimHandler(t *testing.T) {
 		want: "host=h;proto=p",
 	}, {
 		name: "existing fwd",
-		xff:  "n1, n2",
+		xff:  "127.0.0.1, ::1",
 		xfh:  "h",
 		xfp:  "p",
 		fwd:  "for=a, for=b",

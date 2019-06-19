@@ -17,16 +17,16 @@ limitations under the License.
 package queue
 
 import (
+	"fmt"
 	"net/http"
 	"strings"
 )
 
-// ForwardedShimHandler attempts to shim a `forwarded` http header from the information
+// ForwardedShimHandler attempts to shim a `forwarded` HTTP header from the information
 // available in the `x-forwarded-*` headers. When available, each node in the `x-forwarded-for`
 // header is combined with the `x-forwarded-proto` and `x-forwarded-host` fields to construct
 // a `forwarded` header. The `x-forwarded-by` header is ignored entirely, since it cannot be
 // reliably combined with `x-forwarded-for`. No-op if a `forwarded` header is already present.
-// Note: IPv6 addresses are *not* supported.
 func ForwardedShimHandler(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Forwarded: by=<identifier>;for=<identifier>;host=<host>;proto=<http|https>
@@ -50,6 +50,20 @@ func ForwardedShimHandler(h http.Handler) http.Handler {
 
 		// The x-forwarded-header consists of multiple nodes
 		nodes := strings.Split(xff, ",")
+
+		// Sanitize nodes
+		// * remove extra whitespace
+		// * convert IPv6 address to "[ipv6 addr]" format
+		for i, node := range nodes {
+			node = strings.TrimSpace(node)
+
+			// For simplicity, and address is IPv6 if there's a ':'
+			if strings.Contains(node, ":") {
+				node = fmt.Sprintf("\"[%s]\"", node)
+			}
+
+			nodes[i] = node
+		}
 
 		// The first element has a 'for', 'proto' and 'host' pair, as available
 		pairs := []string{}
