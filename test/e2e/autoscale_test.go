@@ -35,6 +35,7 @@ import (
 	resourcenames "github.com/knative/serving/pkg/reconciler/revision/resources/names"
 	rtesting "github.com/knative/serving/pkg/testing/v1alpha1"
 	"github.com/knative/serving/test"
+	"github.com/knative/serving/test/logstream"
 	v1a1test "github.com/knative/serving/test/v1alpha1"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -299,6 +300,8 @@ func assertAutoscaleUpToNumPods(ctx *testContext, curPods, targetPods int32, dur
 
 func TestAutoscaleUpDownUp(t *testing.T) {
 	t.Parallel()
+	cancel := logstream.Start(t)
+	defer cancel()
 
 	ctx := setup(t, autoscaling.KPA, autoscaling.Concurrency)
 	defer test.TearDown(ctx.clients, ctx.names)
@@ -323,6 +326,8 @@ func TestAutoscaleUpCountPods(t *testing.T) {
 		name, class := name, class
 		t.Run(name, func(tt *testing.T) {
 			tt.Parallel()
+			cancel := logstream.Start(t)
+			defer cancel()
 
 			ctx := setup(tt, class, autoscaling.Concurrency)
 			defer test.TearDown(ctx.clients, ctx.names)
@@ -347,6 +352,9 @@ func TestAutoscaleSustaining(t *testing.T) {
 	// as long as the traffic sustains, despite whether it is switching modes between
 	// normal and panic.
 	t.Parallel()
+	cancel := logstream.Start(t)
+	defer cancel()
+
 	ctx := setup(t, autoscaling.KPA, autoscaling.Concurrency)
 	defer test.TearDown(ctx.clients, ctx.names)
 

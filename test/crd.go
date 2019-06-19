@@ -50,9 +50,14 @@ var AppendRandomString = helpers.AppendRandomString
 // and also convert camelcase tokens into dash-delimited lowercase tokens.
 var MakeK8sNamePrefix = helpers.MakeK8sNamePrefix
 
+// ObjectPrefixForTest returns the name prefix for this test's random names.
+func ObjectPrefixForTest(t *testing.T) string {
+	return MakeK8sNamePrefix(strings.TrimPrefix(t.Name(), testNamePrefix))
+}
+
 // ObjectNameForTest generates a random object name based on the test name.
 func ObjectNameForTest(t *testing.T) string {
-	return AppendRandomString(MakeK8sNamePrefix(strings.TrimPrefix(t.Name(), testNamePrefix)))
+	return AppendRandomString(ObjectPrefixForTest(t))
 }
 
 // SubServiceNameForTest generates a random service name based on the test name and
