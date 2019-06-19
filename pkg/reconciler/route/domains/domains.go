@@ -23,6 +23,7 @@ import (
 	"github.com/knative/serving/pkg/reconciler/route/resources/labels"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"strings"
 
 	"github.com/knative/pkg/apis"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
@@ -108,4 +109,9 @@ func URL(scheme, fqdn string) *apis.URL {
 		Scheme: scheme,
 		Host:   fqdn,
 	}
+}
+
+// IsClusterLocal checks if a domain is publicly visible or only visible with cluster.
+func IsClusterLocal(domain string) bool {
+	return strings.HasSuffix(domain, network.GetClusterDomainName())
 }

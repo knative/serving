@@ -19,29 +19,21 @@ package resources
 import (
 	"context"
 	"github.com/knative/serving/pkg/reconciler/route/resources/labels"
-	"k8s.io/apimachinery/pkg/util/sets"
-	"sort"
-	"strings"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/apimachinery/pkg/util/sets"
+	"sort"
 
 	"github.com/knative/serving/pkg/activator"
 	"github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving"
 	servingv1alpha1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	"github.com/knative/serving/pkg/network"
 	"github.com/knative/serving/pkg/reconciler/route/domains"
 	"github.com/knative/serving/pkg/reconciler/route/resources/names"
 	"github.com/knative/serving/pkg/reconciler/route/traffic"
 	"github.com/knative/serving/pkg/resources"
 )
-
-// IsClusterLocal checks if a Route is publicly visible or only visible with cluster.
-func IsClusterLocal(r *servingv1alpha1.Route) bool {
-	return r.Status.URL != nil && strings.HasSuffix(r.Status.URL.Host, network.GetClusterDomainName())
-}
 
 // MakeIngressTLS creates IngressTLS to configure the ingress TLS.
 func MakeIngressTLS(cert *v1alpha1.Certificate, hostNames []string) v1alpha1.IngressTLS {

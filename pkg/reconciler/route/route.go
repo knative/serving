@@ -266,12 +266,19 @@ func (c *Reconciler) reconcile(ctx context.Context, r *v1alpha1.Route) error {
 	clusterLocalServiceNames = resources.GetNames(clusterLocalServices)
 
 	tls := []netv1alpha1.IngressTLS{}
-	if config.FromContext(ctx).Network.AutoTLS && !resources.IsClusterLocal(r) {
-		allDomainTagMap, err := domains.GetAllDomainsAndTags(ctx, r, getTrafficNames(traffic.Targets), clusterLocalServiceNames)
+	if config.FromContext(ctx).Network.AutoTLS{
+		tagToDomainMap, err := domains.GetAllDomainsAndTags(ctx, r, getTrafficNames(traffic.Targets), clusterLocalServiceNames)
 		if err != nil {
 			return err
 		}
-		desiredCerts := resources.MakeCertificates(r, allDomainTagMap)
+
+		for tag, domain := range tagToDomainMap {
+			if domains.IsClusterLocal(domain) {
+				delete(tagToDomainMap, tag)
+			}
+		}
+
+		desiredCerts := resources.MakeCertificates(r, tagToDomainMap)
 		for _, desiredCert := range desiredCerts {
 
 			cert, err := c.reconcileCertificate(ctx, r, desiredCert)
