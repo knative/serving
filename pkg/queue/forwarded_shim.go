@@ -29,12 +29,13 @@ import (
 // reliably combined with `x-forwarded-for`. No-op if a `forwarded` header is already present.
 func ForwardedShimHandler(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		defer h.ServeHTTP(w, r)
+
 		// Forwarded: by=<identifier>;for=<identifier>;host=<host>;proto=<http|https>
 		fwd := strings.TrimSpace(r.Header.Get(http.CanonicalHeaderKey("forwarded")))
 
 		// Don't add a shim if the header is already present
 		if fwd != "" {
-			h.ServeHTTP(w, r)
 			return
 		}
 
@@ -44,6 +45,11 @@ func ForwardedShimHandler(h http.Handler) http.Handler {
 		xfp := strings.TrimSpace(r.Header.Get(http.CanonicalHeaderKey("x-forwarded-proto")))
 		// X-Forwarded-Host: <host>
 		xfh := strings.TrimSpace(r.Header.Get(http.CanonicalHeaderKey("x-forwarded-host")))
+
+		// Nothing to do if we don't have any x-fowarded-* headers
+		if xff == "" && xfp == "" && xfh == "" {
+			return
+		}
 
 		// The forwarded header is a list of forwarded elements
 		elements := []string{}
@@ -89,11 +95,7 @@ func ForwardedShimHandler(h http.Handler) http.Handler {
 		// The elements are joined with a comma (,) to form the header
 		fwd = strings.Join(elements, ", ")
 
-		// Only add the forwarded header if we were able to construct one
-		if fwd != "" {
-			r.Header.Set(http.CanonicalHeaderKey("forwarded"), fwd)
-		}
-
-		h.ServeHTTP(w, r)
+		// Add forwarded header
+		r.Header.Set(http.CanonicalHeaderKey("forwarded"), fwd)
 	})
 }
