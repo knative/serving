@@ -17,6 +17,7 @@ limitations under the License.
 package health
 
 import (
+	"crypto/tls"
 	"fmt"
 	"net"
 	"net/http"
@@ -27,9 +28,8 @@ import (
 
 // HTTPProbeConfigOptions holds the HTTP probe config options
 type HTTPProbeConfigOptions struct {
-	Headers []corev1.HTTPHeader
 	Timeout time.Duration
-	URL     string
+	*corev1.HTTPGetAction
 }
 
 // TCPProbeConfigOptions holds the TCP probe config options
@@ -57,22 +57,29 @@ func HTTPProbe(config HTTPProbeConfigOptions) error {
 	httpClient := &http.Client{
 		Transport: &http.Transport{
 			DisableKeepAlives: true,
+			TLSClientConfig: &tls.Config{
+				InsecureSkipVerify: true,
+			},
 		},
 		Timeout: config.Timeout,
 	}
-	req, err := http.NewRequest("GET", config.URL, nil)
+	url := fmt.Sprintf("%s://%s:%d%s", config.Scheme, config.Host, config.Port.IntValue(), config.Path)
+	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return fmt.Errorf("Error constructing request %s", err.Error())
 	}
-	for _, header := range config.Headers {
+	for _, header := range config.HTTPHeaders {
 		req.Header.Add(header.Name, header.Value)
 	}
 	var res *http.Response
-	res, _ = httpClient.Do(req)
-	// TODO: (@josh & @shash): no need to check for error . res== nil ll take care
+	res, err = httpClient.Do(req)
+	if err != nil {
+		return err
+	}
 	if res == nil {
 		return fmt.Errorf("httpGet probe response was nil")
 	}
+	// response status code between 200-399 indicates success
 	if res.StatusCode < 200 || res.StatusCode >= 400 {
 		return fmt.Errorf("httpGet probe response status code is %d", res.StatusCode)
 	}

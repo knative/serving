@@ -19,12 +19,13 @@ package health
 import (
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"testing"
 	"time"
 
 	"github.com/google/go-cmp/cmp"
-
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 func TestTCPProbe(t *testing.T) {
@@ -54,6 +55,8 @@ func TestHTTPProbeSuccess(t *testing.T) {
 		Name:  "Testkey",
 		Value: "Testval",
 	}
+	var gotPath string
+	expectedPath := "/health"
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		for headerKey, headerValue := range r.Header {
 			// Flitering for expectedHeader.TestKey to avoid other HTTP probe headers
@@ -61,13 +64,18 @@ func TestHTTPProbeSuccess(t *testing.T) {
 				gotHeader = corev1.HTTPHeader{Name: headerKey, Value: headerValue[0]}
 			}
 		}
+
+		gotPath = r.URL.Path
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer server.Close()
+	httpGetAction := newHTTPGetAction(t, server.URL)
+	httpGetAction.Path = expectedPath
+	httpGetAction.HTTPHeaders = []corev1.HTTPHeader{expectedHeader}
+
 	config := HTTPProbeConfigOptions{
-		Headers: []corev1.HTTPHeader{expectedHeader},
-		Timeout: time.Second,
-		URL:     server.URL,
+		Timeout:       time.Second,
+		HTTPGetAction: httpGetAction,
 	}
 	// Connecting to the server should work
 	if err := HTTPProbe(config); err != nil {
@@ -76,6 +84,31 @@ func TestHTTPProbeSuccess(t *testing.T) {
 	if d := cmp.Diff(gotHeader, expectedHeader); d != "" {
 		t.Errorf("Expected probe headers to match but got %s", d)
 	}
+	if !cmp.Equal(gotPath, expectedPath) {
+		t.Errorf("Expected %s path to match but got %s", expectedPath, gotPath)
+	}
+	// Close the server so probing fails afterwards
+	server.Close()
+	if err := HTTPProbe(config); err == nil {
+		t.Error("Expected probe to fail but it didn't")
+	}
+}
+
+func TestHTTPsSchemeProbeSuccess(t *testing.T) {
+	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	config := HTTPProbeConfigOptions{
+		Timeout:       time.Second,
+		HTTPGetAction: newHTTPGetAction(t, server.URL),
+	}
+	// Connecting to the server should work
+	if err := HTTPProbe(config); err != nil {
+		t.Errorf("Expected probe to succeed but it failed with %v", err)
+	}
+
 	// Close the server so probing fails afterwards
 	server.Close()
 	if err := HTTPProbe(config); err == nil {
@@ -89,9 +122,10 @@ func TestHTTPProbeTimeoutFailure(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer server.Close()
+
 	config := HTTPProbeConfigOptions{
-		Timeout: time.Second,
-		URL:     server.URL,
+		Timeout:       time.Second,
+		HTTPGetAction: newHTTPGetAction(t, server.URL),
 	}
 	if err := HTTPProbe(config); err == nil {
 		t.Error("Expected probe to fail but it successded")
@@ -103,9 +137,10 @@ func TestHTTPProbeResponseStatusCodeFailure(t *testing.T) {
 		w.WriteHeader(http.StatusServiceUnavailable)
 	}))
 	defer server.Close()
+
 	config := HTTPProbeConfigOptions{
-		Timeout: time.Second,
-		URL:     server.URL,
+		Timeout:       time.Second,
+		HTTPGetAction: newHTTPGetAction(t, server.URL),
 	}
 	if err := HTTPProbe(config); err == nil {
 		t.Error("Expected probe to fail but it successded")
@@ -114,9 +149,33 @@ func TestHTTPProbeResponseStatusCodeFailure(t *testing.T) {
 
 func TestHTTPProbeResponseErrorFailure(t *testing.T) {
 	config := HTTPProbeConfigOptions{
-		URL: "http://localhost:0",
+		HTTPGetAction: newHTTPGetAction(t, "http://localhost:0"),
 	}
 	if err := HTTPProbe(config); err == nil {
 		t.Error("Expected probe to fail but it successded")
+	}
+}
+
+func newHTTPGetAction(t *testing.T, serverURL string) *corev1.HTTPGetAction {
+	urlParsed, err := url.Parse(serverURL)
+	if err != nil {
+		t.Fatalf("Error parsing URL")
+	}
+	port := intstr.FromString(urlParsed.Port())
+
+	var uriScheme corev1.URIScheme
+	switch urlParsed.Scheme {
+	case "http":
+		uriScheme = corev1.URISchemeHTTP
+	case "https":
+		uriScheme = corev1.URISchemeHTTPS
+	default:
+		t.Fatalf("Unsupported scheme %s", urlParsed.Scheme)
+	}
+
+	return &corev1.HTTPGetAction{
+		Host:   urlParsed.Hostname(),
+		Port:   port,
+		Scheme: uriScheme,
 	}
 }

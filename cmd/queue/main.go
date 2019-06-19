@@ -18,6 +18,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"net/http"
@@ -87,6 +88,7 @@ const (
 	healthURLTemplate = "http://127.0.0.1:%d" + requestQueueHealthPath
 	// defaultProbeTimeout is the default duration for TCP/HTTP probe timeout.
 	defaultProbeTimeout = 100 * time.Millisecond
+	pollTimeout         = 10 * time.Second
 )
 
 var (
@@ -301,7 +303,7 @@ func probeQueueHealthPath(port int, timeout time.Duration) error {
 }
 
 type probe struct {
-	corev1.Probe
+	*corev1.Probe
 	count  int32
 	logger *zap.SugaredLogger
 }
@@ -312,90 +314,76 @@ func (p *probe) isStandardProbe() bool {
 }
 
 func (p *probe) ProbeContainer() bool {
-	var probeFunc func() (bool, error)
+	var err error
 
 	if p.HTTPGet != nil {
-		probeFunc = p.httpProbeFunc()
+		err = p.httpProbe()
 	} else if p.TCPSocket != nil {
-		probeFunc = p.tcpProbeFunc()
+		err = p.tcpProbe()
 	} else {
 		// using Fprintf for a concise error message in the event log
 		fmt.Fprintf(os.Stderr, "unimplemented probe type.")
 		return false
 	}
 
-	err := wait.PollImmediate(50*time.Millisecond, p.timeout(), probeFunc)
-
-	if err == nil {
-		p.logger.Info("User-container successfully probed.")
-	} else {
+	if err != nil {
 		p.logger.Errorw("User-container could not be probed successfully.", zap.Error(err))
+		return false
 	}
 
-	return err == nil
+	p.logger.Info("User-container successfully probed.")
+	return true
 }
 
 func (p *probe) timeout() time.Duration {
 	if p.isStandardProbe() {
 		return time.Duration(p.TimeoutSeconds) * time.Second
 	}
-
-	return 10 * time.Second
+	return defaultProbeTimeout
 }
 
-// tcpProbeFunc returns default TCP probe condition func if conditions are met otherwise custom
-// TCP probe function
-func (p *probe) tcpProbeFunc() func() (bool, error) {
+// tcpProbe function executes TCP probe once if its standard probe
+// otherwise TCP probe polls condition function which returns true
+// if the probe count is greater than success threshold and false if TCP probe fails
+func (p *probe) tcpProbe() error {
 	config := health.TCPProbeConfigOptions{
 		Address:       fmt.Sprintf("%s:%d", p.TCPSocket.Host, p.TCPSocket.Port.IntValue()),
 		SocketTimeout: p.timeout(),
 	}
 	if p.isStandardProbe() {
-		// condition function returns error if TCP probe fails
-		return func() (bool, error) {
-			err := health.TCPProbe(config)
-			return err == nil, err
-		}
+		return health.TCPProbe(config)
 	}
-	// condition function which returns true if the probe count is greater than success threshold
-	// and false if TCP probe fails
-	return func() (bool, error) {
-		config.SocketTimeout = defaultProbeTimeout
+
+	return wait.PollImmediate(50*time.Millisecond, pollTimeout, func() (bool, error) {
 		if tcpErr := health.TCPProbe(config); tcpErr != nil {
 			p.count = 0
 			return false, nil
 		}
 		p.count++
 		return p.Count() >= p.SuccessThreshold, nil
-	}
+	})
 }
 
-// httpProbeFunc returns default HTTP probe condition func if conditions are met otherwise custom
-// HTTP probe function
-func (p *probe) httpProbeFunc() func() (bool, error) {
+// httpProbe function executes HTTP probe once if its standard probe
+// otherwise HTTP probe polls condition function which returns true
+// if the probe count is greater than success threshold and false if HTTP probe fails
+func (p *probe) httpProbe() error {
 	httpProbeConfig := health.HTTPProbeConfigOptions{
-		Headers: p.HTTPGet.HTTPHeaders,
-		URL:     fmt.Sprintf("http://%s:%d", p.HTTPGet.Host, p.HTTPGet.Port.IntValue()),
-		Timeout: p.timeout(),
+		HTTPGetAction: p.HTTPGet,
+		Timeout:       p.timeout(),
 	}
 	if p.isStandardProbe() {
-		// condition function returns error if HTTP probe fails
-		return func() (bool, error) {
-			err := health.HTTPProbe(httpProbeConfig)
-			return err == nil, err
-		}
+		return health.HTTPProbe(httpProbeConfig)
 	}
-	// condition function which returns true if the probe count is greater than success threshold
-	// and false if HTTP probe fails
-	return func() (bool, error) {
-		httpProbeConfig.Timeout = defaultProbeTimeout
+
+	return wait.PollImmediate(50*time.Millisecond, pollTimeout, func() (bool, error) {
 		if err := health.HTTPProbe(httpProbeConfig); err != nil {
 			p.count = 0
 			return false, nil
 		}
 		p.count++
 		return p.Count() >= p.SuccessThreshold, nil
-	}
+	})
 }
 
 // Count function fetches current probe count
@@ -404,6 +392,7 @@ func (p *probe) Count() int32 {
 }
 
 func main() {
+	ucProbe := flag.String("readinessProbe", "", "JSON readiness probe configuration for user container")
 	flag.Parse()
 
 	if *readinessProbe {
@@ -463,17 +452,9 @@ func main() {
 		StatChan:   statChan,
 	}, time.Now())
 
-	pb := probe{
-		Probe: corev1.Probe{
-			PeriodSeconds:    0,
-			TimeoutSeconds:   0,
-			SuccessThreshold: 0,
-			FailureThreshold: 0,
-		},
-		logger: logger.With(
-			zap.String(logkey.Key, "readinessProbe"),
-		),
-		count: 0,
+	pb, err := parseProbe(*ucProbe)
+	if err != nil {
+		logger.Fatalf("Queue container failed to parse readiness probe %#v", err)
 	}
 
 	adminServer := &http.Server{
@@ -558,6 +539,21 @@ func main() {
 			logger.Errorw("Failed to shutdown admin-server", zap.Error(err))
 		}
 	}
+}
+
+func parseProbe(ucProbe string) (*probe, error) {
+	p := &corev1.Probe{}
+	err := json.Unmarshal([]byte(ucProbe), p)
+	if err != nil {
+		return nil, err
+	}
+	return &probe{
+		Probe: p,
+		logger: logger.With(
+			zap.String(logkey.Key, "readinessProbe"),
+		),
+		count: 0,
+	}, nil
 }
 
 // createVarLogLink creates a symlink allowing the fluentd daemon set to capture the

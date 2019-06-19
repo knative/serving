@@ -16,6 +16,7 @@ limitations under the License.
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -253,7 +254,7 @@ func TestProbeQueueDelayedReady(t *testing.T) {
 }
 
 func TestTCPFailure(t *testing.T) {
-	pb := newProbe(corev1.Probe{
+	pb := newProbe(&corev1.Probe{
 		PeriodSeconds:    1,
 		TimeoutSeconds:   1,
 		SuccessThreshold: 1,
@@ -272,7 +273,7 @@ func TestTCPFailure(t *testing.T) {
 }
 
 func TestUnimplementedProbe(t *testing.T) {
-	pb := newProbe(corev1.Probe{
+	pb := newProbe(&corev1.Probe{
 		PeriodSeconds:    1,
 		TimeoutSeconds:   1,
 		SuccessThreshold: 1,
@@ -292,7 +293,7 @@ func TestTCPSuccess(t *testing.T) {
 
 	port := strings.TrimPrefix(ts.URL, "http://127.0.0.1:")
 
-	pb := newProbe(corev1.Probe{
+	pb := newProbe(&corev1.Probe{
 		PeriodSeconds:    1,
 		TimeoutSeconds:   2,
 		SuccessThreshold: 1,
@@ -310,16 +311,57 @@ func TestTCPSuccess(t *testing.T) {
 	}
 }
 
+func TestParseProbeSuccess(t *testing.T) {
+	logger = logtesting.TestLogger(t)
+	expectedProbe := &corev1.Probe{
+		PeriodSeconds:    1,
+		TimeoutSeconds:   2,
+		SuccessThreshold: 1,
+		FailureThreshold: 1,
+		Handler: corev1.Handler{
+			TCPSocket: &corev1.TCPSocketAction{
+				Host: "127.0.0.1",
+				Port: intstr.FromString("8080"),
+			},
+		},
+	}
+	probeBytes, err := json.Marshal(expectedProbe)
+	if err != nil {
+		t.Fatalf("Failed to parse probe %#v", err)
+	}
+	gotProbe, err := parseProbe(string(probeBytes))
+	if err != nil {
+		t.Fatalf("Failed parseProbe %#v", err)
+	}
+	if d := cmp.Diff(gotProbe.Probe, expectedProbe); d != "" {
+		t.Errorf("probe diff %s", d)
+	}
+}
+
+func TestParseProbeFailure(t *testing.T) {
+	logger = logtesting.TestLogger(t)
+
+	probeBytes, err := json.Marshal("wrongProbeObject")
+	if err != nil {
+		t.Fatalf("Failed to parse probe %#v", err)
+	}
+	_, err = parseProbe(string(probeBytes))
+	if err == nil {
+		t.Fatal("Expected parseProbe() to fail")
+	}
+}
+
 func TestHTTPFailureToConnect(t *testing.T) {
-	pb := newProbe(corev1.Probe{
+	pb := newProbe(&corev1.Probe{
 		PeriodSeconds:    1,
 		TimeoutSeconds:   2,
 		SuccessThreshold: 1,
 		FailureThreshold: 1,
 		Handler: corev1.Handler{
 			HTTPGet: &corev1.HTTPGetAction{
-				Host: "127.0.0.1",
-				Port: intstr.FromInt(12345),
+				Host:   "127.0.0.1",
+				Port:   intstr.FromInt(12345),
+				Scheme: corev1.URISchemeHTTP,
 			},
 		},
 	}, t)
@@ -337,15 +379,16 @@ func TestHTTPBadResponse(t *testing.T) {
 
 	port := strings.TrimPrefix(ts.URL, "http://127.0.0.1:")
 
-	pb := newProbe(corev1.Probe{
+	pb := newProbe(&corev1.Probe{
 		PeriodSeconds:    1,
 		TimeoutSeconds:   5,
 		SuccessThreshold: 1,
 		FailureThreshold: 1,
 		Handler: corev1.Handler{
 			HTTPGet: &corev1.HTTPGetAction{
-				Host: "127.0.0.1",
-				Port: intstr.FromString(port),
+				Host:   "127.0.0.1",
+				Port:   intstr.FromString(port),
+				Scheme: corev1.URISchemeHTTP,
 			},
 		},
 	}, t)
@@ -363,15 +406,16 @@ func TestHTTPSuccess(t *testing.T) {
 
 	port := strings.TrimPrefix(ts.URL, "http://127.0.0.1:")
 
-	pb := newProbe(corev1.Probe{
+	pb := newProbe(&corev1.Probe{
 		PeriodSeconds:    1,
 		TimeoutSeconds:   5,
 		SuccessThreshold: 1,
 		FailureThreshold: 1,
 		Handler: corev1.Handler{
 			HTTPGet: &corev1.HTTPGetAction{
-				Host: "127.0.0.1",
-				Port: intstr.FromString(port),
+				Host:   "127.0.0.1",
+				Port:   intstr.FromString(port),
+				Scheme: corev1.URISchemeHTTP,
 			},
 		},
 	}, t)
@@ -390,7 +434,7 @@ func TestHTTPTimeout(t *testing.T) {
 
 	port := strings.TrimPrefix(ts.URL, "http://127.0.0.1:")
 
-	pb := newProbe(corev1.Probe{
+	pb := newProbe(&corev1.Probe{
 		PeriodSeconds:    1,
 		TimeoutSeconds:   2,
 		SuccessThreshold: 1,
@@ -417,42 +461,16 @@ func TestHTTPSuccessWithDelay(t *testing.T) {
 
 	port := strings.TrimPrefix(ts.URL, "http://127.0.0.1:")
 
-	pb := newProbe(corev1.Probe{
+	pb := newProbe(&corev1.Probe{
 		PeriodSeconds:    1,
 		TimeoutSeconds:   2,
 		SuccessThreshold: 1,
 		FailureThreshold: 1,
 		Handler: corev1.Handler{
 			HTTPGet: &corev1.HTTPGetAction{
-				Host: "127.0.0.1",
-				Port: intstr.FromString(port),
-			},
-		},
-	}, t)
-
-	if !pb.ProbeContainer() {
-		t.Error("Probe failed. Wanted success.")
-	}
-}
-
-func TestHTTPSuccessWithLongDelay(t *testing.T) {
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		time.Sleep(1 * time.Second)
-		w.WriteHeader(http.StatusOK)
-	}))
-	defer ts.Close()
-
-	port := strings.TrimPrefix(ts.URL, "http://127.0.0.1:")
-
-	pb := newProbe(corev1.Probe{
-		PeriodSeconds:    1,
-		TimeoutSeconds:   2,
-		SuccessThreshold: 1,
-		FailureThreshold: 1,
-		Handler: corev1.Handler{
-			HTTPGet: &corev1.HTTPGetAction{
-				Host: "127.0.0.1",
-				Port: intstr.FromString(port),
+				Host:   "127.0.0.1",
+				Port:   intstr.FromString(port),
+				Scheme: corev1.URISchemeHTTP,
 			},
 		},
 	}, t)
@@ -477,15 +495,16 @@ func TestKNHTTPSuccessWithRetry(t *testing.T) {
 
 	port := strings.TrimPrefix(ts.URL, "http://127.0.0.1:")
 
-	pb := newProbe(corev1.Probe{
+	pb := newProbe(&corev1.Probe{
 		PeriodSeconds:    0,
 		TimeoutSeconds:   0,
 		SuccessThreshold: 1,
 		FailureThreshold: 0,
 		Handler: corev1.Handler{
 			HTTPGet: &corev1.HTTPGetAction{
-				Host: "127.0.0.1",
-				Port: intstr.FromString(port),
+				Host:   "127.0.0.1",
+				Port:   intstr.FromString(port),
+				Scheme: corev1.URISchemeHTTP,
 			},
 		},
 	}, t)
@@ -507,15 +526,16 @@ func TestKNHTTPSuccessWithThreshold(t *testing.T) {
 
 	port := strings.TrimPrefix(ts.URL, "http://127.0.0.1:")
 
-	pb := newProbe(corev1.Probe{
+	pb := newProbe(&corev1.Probe{
 		PeriodSeconds:    0,
 		TimeoutSeconds:   0,
 		SuccessThreshold: threshold,
 		FailureThreshold: 0,
 		Handler: corev1.Handler{
 			HTTPGet: &corev1.HTTPGetAction{
-				Host: "127.0.0.1",
-				Port: intstr.FromString(port),
+				Host:   "127.0.0.1",
+				Port:   intstr.FromString(port),
+				Scheme: corev1.URISchemeHTTP,
 			},
 		},
 	}, t)
@@ -548,7 +568,7 @@ func TestKNHTTPSuccessWithThresholdAndFailure(t *testing.T) {
 
 	port := strings.TrimPrefix(ts.URL, "http://127.0.0.1:")
 
-	pb := newProbe(corev1.Probe{
+	pb := newProbe(&corev1.Probe{
 		PeriodSeconds:    0,
 		TimeoutSeconds:   0,
 		SuccessThreshold: threshold,
@@ -561,6 +581,7 @@ func TestKNHTTPSuccessWithThresholdAndFailure(t *testing.T) {
 					Name:  "Test-key",
 					Value: "Test-value",
 				}},
+				Scheme: corev1.URISchemeHTTP,
 			},
 		},
 	}, t)
@@ -583,15 +604,16 @@ func TestKNHTTPTimeoutFailure(t *testing.T) {
 
 	port := strings.TrimPrefix(ts.URL, "http://127.0.0.1:")
 
-	pb := newProbe(corev1.Probe{
+	pb := newProbe(&corev1.Probe{
 		PeriodSeconds:    0,
 		TimeoutSeconds:   0,
 		SuccessThreshold: 1,
 		FailureThreshold: 0,
 		Handler: corev1.Handler{
 			HTTPGet: &corev1.HTTPGetAction{
-				Host: "127.0.0.1",
-				Port: intstr.FromString(port),
+				Host:   "127.0.0.1",
+				Port:   intstr.FromString(port),
+				Scheme: corev1.URISchemeHTTP,
 			},
 		},
 	}, t)
@@ -603,7 +625,7 @@ func TestKNHTTPTimeoutFailure(t *testing.T) {
 
 func TestKNativeTCPProbeSuccess(t *testing.T) {
 	port := freePort(t)
-	pb := newProbe(corev1.Probe{
+	pb := newProbe(&corev1.Probe{
 		PeriodSeconds:    0,
 		TimeoutSeconds:   0,
 		SuccessThreshold: 1,
@@ -628,7 +650,7 @@ func TestKNativeTCPProbeSuccess(t *testing.T) {
 }
 
 func TestKNativeUnimplementedProbe(t *testing.T) {
-	pb := newProbe(corev1.Probe{
+	pb := newProbe(&corev1.Probe{
 		PeriodSeconds:    0,
 		TimeoutSeconds:   0,
 		SuccessThreshold: 1,
@@ -641,7 +663,7 @@ func TestKNativeUnimplementedProbe(t *testing.T) {
 	}
 }
 func TestKNativeTCPProbeFailure(t *testing.T) {
-	pb := newProbe(corev1.Probe{
+	pb := newProbe(&corev1.Probe{
 		PeriodSeconds:    0,
 		TimeoutSeconds:   0,
 		SuccessThreshold: 1,
@@ -661,7 +683,7 @@ func TestKNativeTCPProbeFailure(t *testing.T) {
 
 func TestKNativeTCPProbeSuccessWithThreshold(t *testing.T) {
 	port := freePort(t)
-	pb := newProbe(corev1.Probe{
+	pb := newProbe(&corev1.Probe{
 		PeriodSeconds:    0,
 		TimeoutSeconds:   0,
 		SuccessThreshold: 3,
@@ -692,7 +714,7 @@ func TestKNativeTCPProbeSuccessWithThreshold(t *testing.T) {
 func TestKNativeTCPProbeSuccessThresholdIncludesFailure(t *testing.T) {
 	var successThreshold int32 = 3
 	port := freePort(t)
-	pb := newProbe(corev1.Probe{
+	pb := newProbe(&corev1.Probe{
 		PeriodSeconds:    0,
 		TimeoutSeconds:   0,
 		SuccessThreshold: successThreshold,
@@ -761,7 +783,7 @@ func freePort(t *testing.T) int {
 	return listener.Addr().(*net.TCPAddr).Port
 }
 
-func newProbe(pb corev1.Probe, t *testing.T) probe {
+func newProbe(pb *corev1.Probe, t *testing.T) probe {
 	return probe{
 		Probe:  pb,
 		count:  0,
