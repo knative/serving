@@ -25,7 +25,7 @@ import (
 	serviceresourcenames "github.com/knative/serving/pkg/reconciler/service/resources/names"
 	v1alpha1testing "github.com/knative/serving/pkg/testing/v1alpha1"
 	"github.com/knative/serving/test"
-	"github.com/knative/serving/test/logstream"
+	"github.com/knative/pkg/test/logstream"
 	v1a1test "github.com/knative/serving/test/v1alpha1"
 )
 
