@@ -161,7 +161,7 @@ func main() {
 
 	statsServer.Shutdown(5 * time.Second)
 	if err := eg.Wait(); err != nil {
-		logger.Errorw("Group error.", zap.Error(err))
+		logger.Errorw("Error while shutting down", zap.Error(err))
 	}
 }
 
