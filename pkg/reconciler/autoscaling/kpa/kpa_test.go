@@ -30,12 +30,12 @@ import (
 	fakekubeclient "github.com/knative/pkg/injection/clients/kubeclient/fake"
 	fakeendpointsinformer "github.com/knative/pkg/injection/informers/kubeinformers/corev1/endpoints/fake"
 	fakeserviceinformer "github.com/knative/pkg/injection/informers/kubeinformers/corev1/service/fake"
+	"github.com/knative/pkg/ptr"
 	fakeservingclient "github.com/knative/serving/pkg/client/injection/client/fake"
 	fakekpainformer "github.com/knative/serving/pkg/client/injection/informers/autoscaling/v1alpha1/podautoscaler/fake"
 	fakesksinformer "github.com/knative/serving/pkg/client/injection/informers/networking/v1alpha1/serverlessservice/fake"
 	fakerevisioninformer "github.com/knative/serving/pkg/client/injection/informers/serving/v1alpha1/revision/fake"
 	"github.com/knative/serving/pkg/reconciler"
-	"github.com/knative/pkg/ptr"
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
