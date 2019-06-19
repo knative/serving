@@ -107,15 +107,16 @@ Once the test is done, each test can define which metrics they want to be
 captured and shown on testgrid. For each metric, create a
 [testgrid testcase](https://github.com/knative/test-infra/blob/master/shared/testgrid/testgrid.go)
 by using the
-[CreatePerfTestCase() method](https://github.com/knative/serving/blob/master/test/performance/performance.go).
+[CreatePerfTestCase() method](https://github.com/knative/test-infra/blob/master/shared/performance/performance.go).
 
 For eg.
 
 ```go
+import perf "github.com/knative/test-infra/shared/performance"
 testName := "TestPerformanceLatency"
 var tc []testgrid.TestCase
 for name, val := range metrics {
-  tc = append(tc, CreatePerfTestCase(val, name), testName))
+  tc = append(tc, perf.CreatePerfTestCase(val, name, testName))
 }
 ```
 

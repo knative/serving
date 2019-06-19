@@ -28,6 +28,7 @@ import (
 	"time"
 
 	"github.com/knative/test-infra/shared/junit"
+	perf "github.com/knative/test-infra/shared/performance"
 	"github.com/knative/test-infra/shared/testgrid"
 
 	"github.com/knative/serving/test/e2e"
@@ -128,10 +129,10 @@ func (l *latencies) Results(t *testing.T) []junit.TestCase {
 	tc := make([]junit.TestCase, 0, 3*len(order))
 	for _, key := range order {
 		tc = append(tc,
-			CreatePerfTestCase(l.Min(key), fmt.Sprintf("%s.min", key), t.Name()),
-			CreatePerfTestCase(l.Max(key), fmt.Sprintf("%s.max", key), t.Name()),
-			CreatePerfTestCase(l.Avg(key), fmt.Sprintf("%s.avg", key), t.Name()),
-			CreatePerfTestCase(float32(l.Num(key)), fmt.Sprintf("%s.num", key), t.Name()))
+			perf.CreatePerfTestCase(l.Min(key), fmt.Sprintf("%s.min", key), t.Name()),
+			perf.CreatePerfTestCase(l.Max(key), fmt.Sprintf("%s.max", key), t.Name()),
+			perf.CreatePerfTestCase(l.Avg(key), fmt.Sprintf("%s.avg", key), t.Name()),
+			perf.CreatePerfTestCase(float32(l.Num(key)), fmt.Sprintf("%s.num", key), t.Name()))
 	}
 	return tc
 }

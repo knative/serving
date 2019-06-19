@@ -110,7 +110,7 @@ func GetResourceCoverage(webhookIP string, resourceName string) (string, error) 
 	if err != nil {
 		return "", fmt.Errorf("encountered error making resource coverage request: %v", err)
 	} else if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("invalid HTTP Status recieved for resource coverage request. Status: %d", resp.StatusCode)
+		return "", fmt.Errorf("invalid HTTP Status received for resource coverage request. Status: %d", resp.StatusCode)
 	}
 
 	var body []byte
@@ -150,7 +150,7 @@ func GetTotalCoverage(webhookIP string) (*coveragecalculator.CoverageValues, err
 	if err != nil {
 		return nil, fmt.Errorf("encountered error making total coverage request: %v", err)
 	} else if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("invalid HTTP Status recieved for total coverage request. Status: %d", resp.StatusCode)
+		return nil, fmt.Errorf("invalid HTTP Status received for total coverage request. Status: %d", resp.StatusCode)
 	}
 
 	var body []byte

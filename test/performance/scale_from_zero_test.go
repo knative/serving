@@ -37,6 +37,7 @@ import (
 	"github.com/knative/serving/test/e2e"
 	v1a1test "github.com/knative/serving/test/v1alpha1"
 	"github.com/knative/test-infra/shared/junit"
+	perf "github.com/knative/test-infra/shared/performance"
 	"github.com/knative/test-infra/shared/testgrid"
 )
 
@@ -221,9 +222,9 @@ func testScaleFromZero(t *testing.T, count, numRuns int) {
 	stats := getMultiRunStats(runStats)
 
 	if err := testgrid.CreateXMLOutput([]junit.TestCase{
-		CreatePerfTestCase(float32(stats.avg.Seconds()), "Average", tName),
-		CreatePerfTestCase(float32(stats.min.Seconds()), "Min", tName),
-		CreatePerfTestCase(float32(stats.max.Seconds()), "Max", tName)}, tName); err != nil {
+		perf.CreatePerfTestCase(float32(stats.avg.Seconds()), "Average", tName),
+		perf.CreatePerfTestCase(float32(stats.min.Seconds()), "Min", tName),
+		perf.CreatePerfTestCase(float32(stats.max.Seconds()), "Max", tName)}, tName); err != nil {
 		t.Fatalf("Error creating testgrid output: %v", err)
 	}
 }
