@@ -169,7 +169,8 @@ func MakeVirtualServicesForIngress(ci *v1alpha1.Ingress, gateways []string) []*v
 
 func makeVirtualServiceSpec(ingressSpec *v1alpha1.IngressSpec, gateways []string, hosts []string) *v1alpha3.VirtualServiceSpec {
 	spec := v1alpha3.VirtualServiceSpec{
-		Gateways: gateways,
+		// add system namespace to gateway as gateway may not be in the same namespace as version service
+		Gateways: addSystemNamespaceTo(gateways),
 		Hosts:    hosts,
 	}
 	for _, rule := range ingressSpec.Rules {
@@ -181,6 +182,14 @@ func makeVirtualServiceSpec(ingressSpec *v1alpha1.IngressSpec, gateways []string
 		}
 	}
 	return &spec
+}
+
+func addSystemNamespaceTo(gateways []string) []string {
+	namespacedGateways := make([]string, len(gateways))
+	for i, gateway := range gateways {
+		namespacedGateways[i] = system.Namespace() + "/" + gateway
+	}
+	return namespacedGateways
 }
 
 func makePortSelector(ios intstr.IntOrString) v1alpha3.PortSelector {

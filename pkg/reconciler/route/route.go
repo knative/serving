@@ -71,6 +71,7 @@ type Reconciler struct {
 	revisionLister       listers.RevisionLister
 	serviceLister        corev1listers.ServiceLister
 	clusterIngressLister networkinglisters.ClusterIngressLister
+	ingressLister        networkinglisters.IngressLister
 	certificateLister    networkinglisters.CertificateLister
 	configStore          reconciler.ConfigStore
 	tracker              tracker.Interface
@@ -258,25 +259,63 @@ func (c *Reconciler) reconcile(ctx context.Context, r *v1alpha1.Route) error {
 		}
 	}
 
-	logger.Info("Creating ClusterIngress.")
-	desired, err := resources.MakeClusterIngress(ctx, r, traffic, tls, ingressClassForRoute(ctx, r))
+	if _, err := c.syncClusterIngress(ctx, r, traffic, tls, services); err != nil {
+		return err
+	}
+
+	ingress, err := c.syncIngress(ctx, r, traffic, tls, services)
 	if err != nil {
 		return err
 	}
-	clusterIngress, err := c.reconcileClusterIngress(ctx, r, desired)
-	if err != nil {
-		return err
-	}
-	r.Status.PropagateClusterIngressStatus(clusterIngress.Status)
+
+	// Both ingress'es status should be in-sync
+	r.Status.PropagateIngressStatus(ingress.Status)
 
 	logger.Info("Updating placeholder k8s services with clusterIngress information")
-	if err := c.updatePlaceholderServices(ctx, r, services, clusterIngress); err != nil {
+	if err := c.updatePlaceholderServices(ctx, r, services, ingress); err != nil {
 		return err
 	}
 
 	r.Status.ObservedGeneration = r.Generation
 	logger.Info("Route successfully synced")
 	return nil
+}
+
+func (c *Reconciler) syncClusterIngress(ctx context.Context, r *v1alpha1.Route, traffic *traffic.Config,
+	tls []netv1alpha1.IngressTLS, services []*corev1.Service) (*netv1alpha1.ClusterIngress, error) {
+	logger := logging.FromContext(ctx)
+
+	logger.Info("Creating ClusterIngress.")
+	desired, err := resources.MakeClusterIngress(ctx, r, traffic, tls, ingressClassForRoute(ctx, r))
+	if err != nil {
+		return nil, err
+	}
+
+	// shouldCreateNew is set to false..  Only reconcile existing clsuteringress
+	clusterIngress, err := c.reconcileClusterIngress(ctx, r, desired, false)
+	if err != nil {
+		return nil, err
+	}
+
+	return clusterIngress, nil
+}
+
+func (c *Reconciler) syncIngress(ctx context.Context, r *v1alpha1.Route, traffic *traffic.Config,
+	tls []netv1alpha1.IngressTLS, services []*corev1.Service) (*netv1alpha1.Ingress, error) {
+	logger := logging.FromContext(ctx)
+
+	logger.Info("Creating Ingress.")
+	desired, err := resources.MakeIngress(ctx, r, traffic, tls, ingressClassForRoute(ctx, r))
+	if err != nil {
+		return nil, err
+	}
+
+	ingress, err := c.reconcileIngress(ctx, r, desired)
+	if err != nil {
+		return nil, err
+	}
+
+	return ingress, nil
 }
 
 func (c *Reconciler) reconcileDeletion(ctx context.Context, r *v1alpha1.Route) error {
@@ -288,9 +327,9 @@ func (c *Reconciler) reconcileDeletion(ctx context.Context, r *v1alpha1.Route) e
 		return nil
 	}
 
-	// Delete the ClusterIngress resources for this Route.
-	logger.Info("Cleaning up ClusterIngress")
-	if err := c.deleteClusterIngressesForRoute(r); err != nil {
+	// Delete the ClusterIngress and Ingress resources for this Route.
+	logger.Info("Cleaning up ClusterIngress and Ingress")
+	if err := c.deleteIngressesForRoute(r); err != nil {
 		return err
 	}
 

@@ -202,7 +202,7 @@ func TestMakeMeshVirtualServiceSpecForClusterIngress_CorrectGateways(t *testing.
 		},
 		Spec: v1alpha1.IngressSpec{},
 	}
-	expected := []string{"mesh"}
+	expected := []string{system.Namespace() + "/mesh"}
 	gateways := MakeMeshVirtualServiceForClusterIngress(ci).Spec.Gateways
 	if diff := cmp.Diff(expected, gateways); diff != "" {
 		t.Errorf("Unexpected gateways (-want +got): %v", diff)
@@ -221,7 +221,7 @@ func TestMakeMeshVirtualServiceSpecForIngress_CorrectGateways(t *testing.T) {
 		},
 		Spec: v1alpha1.IngressSpec{},
 	}
-	expected := []string{"mesh"}
+	expected := []string{system.Namespace() + "/mesh"}
 	gateways := MakeMeshVirtualServiceForIngress(ingress).Spec.Gateways
 	if diff := cmp.Diff(expected, gateways); diff != "" {
 		t.Errorf("Unexpected gateways (-want +got): %v", diff)
@@ -352,7 +352,7 @@ func TestMakeVirtualServiceSpecForClusterIngress_CorrectGateways(t *testing.T) {
 		},
 		Spec: v1alpha1.IngressSpec{},
 	}
-	expected := []string{"gateway-one", "gateway-two"}
+	expected := []string{system.Namespace() + "/gateway-one", system.Namespace() + "/gateway-two"}
 	gateways := MakeVirtualServiceForClusterIngress(ci, []string{"gateway-one", "gateway-two"}).Spec.Gateways
 	if diff := cmp.Diff(expected, gateways); diff != "" {
 		t.Errorf("Unexpected gateways (-want +got): %v", diff)
@@ -371,7 +371,7 @@ func TestMakeVirtualServiceSpecForIngress_CorrectGateways(t *testing.T) {
 		},
 		Spec: v1alpha1.IngressSpec{},
 	}
-	expected := []string{"gateway-one", "gateway-two"}
+	expected := []string{system.Namespace() + "/gateway-one", system.Namespace() + "/gateway-two"}
 	gateways := MakeVirtualServiceForIngress(ingress, []string{"gateway-one", "gateway-two"}).Spec.Gateways
 	if diff := cmp.Diff(expected, gateways); diff != "" {
 		t.Errorf("Unexpected gateways (-want +got): %v", diff)

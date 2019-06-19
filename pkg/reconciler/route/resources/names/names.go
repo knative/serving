@@ -21,6 +21,7 @@ import (
 
 	"github.com/knative/pkg/kmeta"
 	"github.com/knative/serving/pkg/network"
+	"github.com/knative/serving/pkg/resources"
 )
 
 func K8sService(route kmeta.Accessor) string {
@@ -35,6 +36,12 @@ func K8sServiceFullname(route kmeta.Accessor) string {
 // child resource for the given Route.
 func ClusterIngress(route kmeta.Accessor) string {
 	return fmt.Sprintf("route-%s", route.GetUID())
+}
+
+// Ingress returns the name for the Ingress
+// child resource for the given Route.
+func Ingress(route kmeta.Accessor) string {
+	return resources.ChildName(route.GetName(), "")
 }
 
 // Certificate returns the name for the Certificate

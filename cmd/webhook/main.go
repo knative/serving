@@ -117,6 +117,7 @@ func main() {
 			kpa.SchemeGroupVersion.WithKind("PodAutoscaler"):      &kpa.PodAutoscaler{},
 			net.SchemeGroupVersion.WithKind("Certificate"):        &net.Certificate{},
 			net.SchemeGroupVersion.WithKind("ClusterIngress"):     &net.ClusterIngress{},
+			net.SchemeGroupVersion.WithKind("Ingress"):            &net.Ingress{},
 			net.SchemeGroupVersion.WithKind("ServerlessService"):  &net.ServerlessService{},
 		},
 		Logger:                logger,

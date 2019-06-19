@@ -86,10 +86,10 @@ func TestNewRouteCallsSyncHandler(t *testing.T) {
 
 	h := NewHooks()
 
-	// Check for ClusterIngress created as a signal that syncHandler ran
-	h.OnCreate(&servingClient.Fake, "clusteringresses", func(obj runtime.Object) HookResult {
-		ci := obj.(*netv1alpha1.ClusterIngress)
-		t.Logf("ingress created: %q", ci.Name)
+	// Check for Ingress created as a signal that syncHandler ran
+	h.OnCreate(&servingClient.Fake, "ingresses", func(obj runtime.Object) HookResult {
+		ingress := obj.(*netv1alpha1.Ingress)
+		t.Logf("ingress created: %q", ingress.Name)
 
 		return HookComplete
 	})

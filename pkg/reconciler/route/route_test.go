@@ -28,6 +28,7 @@ import (
 	fakeservingclient "github.com/knative/serving/pkg/client/injection/client/fake"
 	_ "github.com/knative/serving/pkg/client/injection/informers/networking/v1alpha1/certificate/fake"
 	fakeciinformer "github.com/knative/serving/pkg/client/injection/informers/networking/v1alpha1/clusteringress/fake"
+	fakeingressinformer "github.com/knative/serving/pkg/client/injection/informers/networking/v1alpha1/ingress/fake"
 	fakecfginformer "github.com/knative/serving/pkg/client/injection/informers/serving/v1alpha1/configuration/fake"
 	fakerevisioninformer "github.com/knative/serving/pkg/client/injection/informers/serving/v1alpha1/revision/fake"
 	fakerouteinformer "github.com/knative/serving/pkg/client/injection/informers/serving/v1alpha1/route/fake"
@@ -204,7 +205,7 @@ func newTestSetup(t *testing.T, configs ...*corev1.ConfigMap) (
 	return
 }
 
-func getRouteIngressFromClient(t *testing.T, ctx context.Context, route *v1alpha1.Route) *netv1alpha1.ClusterIngress {
+func getRouteClusterIngressFromClient(t *testing.T, ctx context.Context, route *v1alpha1.Route) *netv1alpha1.ClusterIngress {
 	opts := metav1.ListOptions{
 		LabelSelector: labels.Set(map[string]string{
 			serving.RouteLabelKey:          route.Name,
@@ -216,11 +217,35 @@ func getRouteIngressFromClient(t *testing.T, ctx context.Context, route *v1alpha
 		t.Errorf("ClusterIngress.Get(%v) = %v", opts, err)
 	}
 
+	// It is possible that CI is not created when route.reconcileClusterIngress() shouldCreateNew flag is false
+	if len(cis.Items) == 0 {
+		return nil
+	}
+
 	if len(cis.Items) != 1 {
 		t.Errorf("ClusterIngress.Get(%v), expect 1 instance, but got %d", opts, len(cis.Items))
 	}
 
 	return &cis.Items[0]
+}
+
+func getRouteIngressFromClient(t *testing.T, ctx context.Context, route *v1alpha1.Route) *netv1alpha1.Ingress {
+	opts := metav1.ListOptions{
+		LabelSelector: labels.Set(map[string]string{
+			serving.RouteLabelKey:          route.Name,
+			serving.RouteNamespaceLabelKey: route.Namespace,
+		}).AsSelector().String(),
+	}
+	ingresses, err := fakeservingclient.Get(ctx).NetworkingV1alpha1().Ingresses(route.Namespace).List(opts)
+	if err != nil {
+		t.Errorf("Ingress.Get(%v) = %v", opts, err)
+	}
+
+	if len(ingresses.Items) != 1 {
+		t.Errorf("Ingress.Get(%v), expect 1 instance, but got %d", opts, len(ingresses.Items))
+	}
+
+	return &ingresses.Items[0]
 }
 
 func getCertificateFromClient(t *testing.T, ctx context.Context, desired *netv1alpha1.Certificate) *netv1alpha1.Certificate {
@@ -242,8 +267,12 @@ func addResourcesToInformers(t *testing.T, ctx context.Context, route *v1alpha1.
 	}
 	fakerouteinformer.Get(ctx).Informer().GetIndexer().Add(route)
 
-	ci := getRouteIngressFromClient(t, ctx, route)
-	fakeciinformer.Get(ctx).Informer().GetIndexer().Add(ci)
+	if ci := getRouteClusterIngressFromClient(t, ctx, route); ci != nil {
+		fakeciinformer.Get(ctx).Informer().GetIndexer().Add(ci)
+	}
+
+	ingress := getRouteIngressFromClient(t, ctx, route)
+	fakeingressinformer.Get(ctx).Informer().GetIndexer().Add(ingress)
 }
 
 // Test the only revision in the route is in Reserve (inactive) serving status.
@@ -275,14 +304,14 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 
 	reconciler.Reconcile(context.Background(), KeyOrDie(route))
 
-	ci := getRouteIngressFromClient(t, ctx, route)
+	ingress := getRouteIngressFromClient(t, ctx, route)
 
 	// Check labels
 	expectedLabels := map[string]string{
 		serving.RouteLabelKey:          route.Name,
 		serving.RouteNamespaceLabelKey: route.Namespace,
 	}
-	if diff := cmp.Diff(expectedLabels, ci.Labels); diff != "" {
+	if diff := cmp.Diff(expectedLabels, ingress.Labels); diff != "" {
 		t.Errorf("Unexpected label diff (-want +got): %v", diff)
 	}
 
@@ -313,19 +342,19 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 			},
 		}},
 	}
-	if diff := cmp.Diff(expectedSpec, ci.Spec); diff != "" {
+	if diff := cmp.Diff(expectedSpec, ingress.Spec); diff != "" {
 		t.Errorf("Unexpected rule spec diff (-want +got): %s", diff)
 	}
 
 	// Update ingress loadbalancer to trigger placeholder service creation.
-	ci.Status = netv1alpha1.IngressStatus{
+	ingress.Status = netv1alpha1.IngressStatus{
 		LoadBalancer: &netv1alpha1.LoadBalancerStatus{
 			Ingress: []netv1alpha1.LoadBalancerIngressStatus{{
 				DomainInternal: "test-domain",
 			}},
 		},
 	}
-	fakeciinformer.Get(ctx).Informer().GetIndexer().Update(ci)
+	fakeciinformer.Get(ctx).Informer().GetIndexer().Update(ingress)
 	reconciler.Reconcile(context.Background(), KeyOrDie(route))
 
 	// Look for the events. Events are delivered asynchronously so we need to use
@@ -341,7 +370,7 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 	}
 	select {
 	case got := <-fakeRecorder.Events:
-		const wantPrefix = `Normal Created Created ClusterIngress`
+		const wantPrefix = `Normal Created Created Ingress`
 		if !strings.HasPrefix(got, wantPrefix) {
 			t.Errorf("<-Events = %s, wanted prefix %s", got, wantPrefix)
 		}
@@ -389,7 +418,7 @@ func TestCreateRouteWithMultipleTargets(t *testing.T) {
 
 	reconciler.Reconcile(context.Background(), KeyOrDie(route))
 
-	ci := getRouteIngressFromClient(t, ctx, route)
+	ingress := getRouteIngressFromClient(t, ctx, route)
 	domain := strings.Join([]string{route.Name, route.Namespace, defaultDomainSuffix}, ".")
 	expectedSpec := netv1alpha1.IngressSpec{
 		Visibility: netv1alpha1.IngressVisibilityExternalIP,
@@ -425,7 +454,7 @@ func TestCreateRouteWithMultipleTargets(t *testing.T) {
 		}},
 	}
 
-	if diff := cmp.Diff(expectedSpec, ci.Spec); diff != "" {
+	if diff := cmp.Diff(expectedSpec, ingress.Spec); diff != "" {
 		t.Errorf("Unexpected rule spec diff (-want +got): %v", diff)
 	}
 }
@@ -473,7 +502,7 @@ func TestCreateRouteWithOneTargetReserve(t *testing.T) {
 
 	reconciler.Reconcile(context.Background(), KeyOrDie(route))
 
-	ci := getRouteIngressFromClient(t, ctx, route)
+	ingress := getRouteIngressFromClient(t, ctx, route)
 	domain := strings.Join([]string{route.Name, route.Namespace, defaultDomainSuffix}, ".")
 	expectedSpec := netv1alpha1.IngressSpec{
 		Visibility: netv1alpha1.IngressVisibilityExternalIP,
@@ -508,7 +537,7 @@ func TestCreateRouteWithOneTargetReserve(t *testing.T) {
 			},
 		}},
 	}
-	if diff := cmp.Diff(expectedSpec, ci.Spec); diff != "" {
+	if diff := cmp.Diff(expectedSpec, ingress.Spec); diff != "" {
 		t.Errorf("Unexpected rule spec diff (-want +got): %v", diff)
 	}
 }
@@ -581,7 +610,7 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 
 	reconciler.Reconcile(context.Background(), KeyOrDie(route))
 
-	ci := getRouteIngressFromClient(t, ctx, route)
+	ingress := getRouteIngressFromClient(t, ctx, route)
 	domain := strings.Join([]string{route.Name, route.Namespace, defaultDomainSuffix}, ".")
 	expectedSpec := netv1alpha1.IngressSpec{
 		Visibility: netv1alpha1.IngressVisibilityExternalIP,
@@ -659,8 +688,8 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 		}},
 	}
 
-	if diff := cmp.Diff(expectedSpec, ci.Spec); diff != "" {
-		fmt.Printf("%+v\n", ci.Spec)
+	if diff := cmp.Diff(expectedSpec, ingress.Spec); diff != "" {
+		fmt.Printf("%+v\n", ingress.Spec)
 		t.Errorf("Unexpected rule spec diff (-want +got): %v", diff)
 	}
 }
@@ -708,7 +737,7 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 
 	reconciler.Reconcile(context.Background(), KeyOrDie(route))
 
-	ci := getRouteIngressFromClient(t, ctx, route)
+	ingress := getRouteIngressFromClient(t, ctx, route)
 	domain := strings.Join([]string{route.Name, route.Namespace, defaultDomainSuffix}, ".")
 	expectedSpec := netv1alpha1.IngressSpec{
 		Visibility: netv1alpha1.IngressVisibilityExternalIP,
@@ -785,8 +814,8 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 		}},
 	}
 
-	if diff := cmp.Diff(expectedSpec, ci.Spec); diff != "" {
-		fmt.Printf("%+v\n", ci.Spec)
+	if diff := cmp.Diff(expectedSpec, ingress.Spec); diff != "" {
+		fmt.Printf("%+v\n", ingress.Spec)
 		t.Errorf("Unexpected rule spec diff (-want +got): %v", diff)
 	}
 }

@@ -50,10 +50,10 @@ func TestReconcileClusterIngress_Insert(t *testing.T) {
 		},
 	}
 	ci := newTestClusterIngress(t, r)
-	if _, err := reconciler.reconcileClusterIngress(TestContextWithLogger(t), r, ci); err != nil {
+	if _, err := reconciler.reconcileClusterIngress(TestContextWithLogger(t), r, ci, true); err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
-	created := getRouteIngressFromClient(t, ctx, r)
+	created := getRouteClusterIngressFromClient(t, ctx, r)
 	if diff := cmp.Diff(ci, created); diff != "" {
 		t.Errorf("Unexpected diff (-want +got): %v", diff)
 	}
@@ -70,11 +70,11 @@ func TestReconcileClusterIngress_Update(t *testing.T) {
 	}
 
 	ci := newTestClusterIngress(t, r)
-	if _, err := reconciler.reconcileClusterIngress(TestContextWithLogger(t), r, ci); err != nil {
+	if _, err := reconciler.reconcileClusterIngress(TestContextWithLogger(t), r, ci, true); err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
 
-	updated := getRouteIngressFromClient(t, ctx, r)
+	updated := getRouteClusterIngressFromClient(t, ctx, r)
 	fakeciinformer.Get(ctx).Informer().GetIndexer().Add(updated)
 
 	r.Status.URL = &apis.URL{
@@ -82,11 +82,11 @@ func TestReconcileClusterIngress_Update(t *testing.T) {
 		Host:   "bar.com",
 	}
 	ci2 := newTestClusterIngress(t, r)
-	if _, err := reconciler.reconcileClusterIngress(TestContextWithLogger(t), r, ci2); err != nil {
+	if _, err := reconciler.reconcileClusterIngress(TestContextWithLogger(t), r, ci2, true); err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
 
-	updated = getRouteIngressFromClient(t, ctx, r)
+	updated = getRouteClusterIngressFromClient(t, ctx, r)
 	if diff := cmp.Diff(ci2, updated); diff != "" {
 		t.Errorf("Unexpected diff (-want +got): %v", diff)
 	}

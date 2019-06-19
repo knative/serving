@@ -74,6 +74,29 @@ func MakeClusterIngress(ctx context.Context, r *servingv1alpha1.Route, tc *traff
 	}, nil
 }
 
+// MakeIngress creates ClusterIngress to set up routing rules. Such ClusterIngress specifies
+// which Hosts that it applies to, as well as the routing rules.
+func MakeIngress(ctx context.Context, r *servingv1alpha1.Route, tc *traffic.Config, tls []v1alpha1.IngressTLS, ingressClass string) (*v1alpha1.Ingress, error) {
+	spec, err := makeIngressSpec(ctx, r, tls, tc.Targets)
+	if err != nil {
+		return nil, err
+	}
+	return &v1alpha1.Ingress{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      names.Ingress(r),
+			Namespace: r.Namespace,
+			Labels: map[string]string{
+				serving.RouteLabelKey:          r.Name,
+				serving.RouteNamespaceLabelKey: r.Namespace,
+			},
+			Annotations: resources.UnionMaps(map[string]string{
+				networking.IngressClassAnnotationKey: ingressClass,
+			}, r.ObjectMeta.Annotations),
+		},
+		Spec: spec,
+	}, nil
+}
+
 func makeIngressSpec(ctx context.Context, r *servingv1alpha1.Route, tls []v1alpha1.IngressTLS, targets map[string]traffic.RevisionTargets) (v1alpha1.IngressSpec, error) {
 	// Domain should have been specified in route status
 	// before calling this func.

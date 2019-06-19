@@ -72,8 +72,8 @@ func MakeK8sPlaceholderService(ctx context.Context, route *v1alpha1.Route, targe
 // MakeK8sService creates a Service that redirect to the loadbalancer specified
 // in ClusterIngress status. It's owned by the provided v1alpha1.Route.
 // The purpose of this service is to provide a domain name for Istio routing.
-func MakeK8sService(ctx context.Context, route *v1alpha1.Route, targetName string, ingress *netv1alpha1.ClusterIngress) (*corev1.Service, error) {
-	svcSpec, err := makeServiceSpec(ingress)
+func MakeK8sService(ctx context.Context, route *v1alpha1.Route, targetName string, ingressAccessor netv1alpha1.IngressAccessor) (*corev1.Service, error) {
+	svcSpec, err := makeServiceSpec(ingressAccessor)
 	if err != nil {
 		return nil, err
 	}
@@ -106,16 +106,16 @@ func makeK8sService(ctx context.Context, route *v1alpha1.Route, targetName strin
 	}, nil
 }
 
-func makeServiceSpec(ingress *netv1alpha1.ClusterIngress) (*corev1.ServiceSpec, error) {
-	ingressStatus := ingress.Status
-	if ingressStatus.LoadBalancer == nil || len(ingressStatus.LoadBalancer.Ingress) == 0 {
+func makeServiceSpec(ingressAccessor netv1alpha1.IngressAccessor) (*corev1.ServiceSpec, error) {
+	//ingressStatus := ingress.Status
+	if ingressAccessor.GetStatus().LoadBalancer == nil || len(ingressAccessor.GetStatus().LoadBalancer.Ingress) == 0 {
 		return nil, errLoadBalancerNotFound
 	}
-	if len(ingressStatus.LoadBalancer.Ingress) > 1 {
+	if len(ingressAccessor.GetStatus().LoadBalancer.Ingress) > 1 {
 		// Return error as we only support one LoadBalancer currently.
-		return nil, fmt.Errorf("more than one ingress are specified in status(LoadBalancer) of ClusterIngress %s", ingress.Name)
+		return nil, fmt.Errorf("more than one ingress are specified in status(LoadBalancer) of ClusterIngress %s", ingressAccessor.GetName())
 	}
-	balancer := ingressStatus.LoadBalancer.Ingress[0]
+	balancer := ingressAccessor.GetStatus().LoadBalancer.Ingress[0]
 
 	// Here we decide LoadBalancer information in the order of
 	// DomainInternal > Domain > LoadBalancedIP to prioritize cluster-local,
