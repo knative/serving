@@ -52,13 +52,13 @@ func ForwardedShimHandler(h http.Handler) http.Handler {
 		nodes := strings.Split(xff, ",")
 
 		// Sanitize nodes
-		// * remove extra whitespace
-		// * convert IPv6 address to "[ipv6 addr]" format
 		for i, node := range nodes {
+			// Remove extra whitespace
 			node = strings.TrimSpace(node)
 
-			// For simplicity, and address is IPv6 if there's a ':'
+			// For simplicity, an address is IPv6 it contains a colon (:)
 			if strings.Contains(node, ":") {
+				// Convert IPv6 address to "[ipv6 addr]" format
 				node = fmt.Sprintf("\"[%s]\"", node)
 			}
 
@@ -68,8 +68,8 @@ func ForwardedShimHandler(h http.Handler) http.Handler {
 		// The first element has a 'for', 'proto' and 'host' pair, as available
 		pairs := []string{}
 
-		if len(nodes) > 0 && nodes[0] != "" {
-			pairs = append(pairs, "for="+strings.TrimSpace(nodes[0]))
+		if xff != "" {
+			pairs = append(pairs, "for="+nodes[0])
 		}
 		if xfh != "" {
 			pairs = append(pairs, "host="+xfh)
@@ -83,7 +83,7 @@ func ForwardedShimHandler(h http.Handler) http.Handler {
 
 		// Each subsequent x-forwarded-for node gets its own pair element
 		for _, node := range nodes[1:] {
-			elements = append(elements, "for="+strings.TrimSpace(node))
+			elements = append(elements, "for="+node)
 		}
 
 		// The elements are joined with a comma (,) to form the header
