@@ -64,9 +64,6 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 		if err := c.Metrics.Delete(ctx, namespace, name); err != nil {
 			return err
 		}
-		if err := c.deleteHPA(ctx, key); err != nil {
-			return err
-		}
 		return nil
 	} else if err != nil {
 		return err
@@ -169,24 +166,5 @@ func (c *Reconciler) reconcile(ctx context.Context, key string, pa *pav1alpha1.P
 	}
 
 	pa.Status.ObservedGeneration = pa.Generation
-	return nil
-}
-
-func (c *Reconciler) deleteHPA(ctx context.Context, key string) error {
-	logger := logging.FromContext(ctx)
-
-	namespace, name, err := cache.SplitMetaNamespaceKey(key)
-	if err != nil {
-		return err
-	}
-	err = c.KubeClientSet.AutoscalingV2beta1().HorizontalPodAutoscalers(namespace).Delete(name, nil)
-	if errors.IsNotFound(err) {
-		// This is fine.
-		return nil
-	} else if err != nil {
-		logger.Errorf("Error deleting HPA %q: %v", name, err)
-		return err
-	}
-	logger.Infof("Deleted HPA %q", name)
 	return nil
 }
