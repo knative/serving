@@ -418,7 +418,7 @@
   revision = "6f77996f0c42f7b84e5a2b252227263f93432e9b"
 
 [[projects]]
-  digest = "1:e8023d1263ea9bd67f5a5c2db39f6b51a4301c54d13b7327988d9dde2a7ced15"
+  digest = "1:e6a5cc6c2115a1996413ba1152ff103e685196664d5feddaabf934381b4ca73a"
   name = "github.com/google/go-containerregistry"
   packages = [
     "pkg/authn",
@@ -433,7 +433,7 @@
     "pkg/v1/v1util",
   ]
   pruneopts = "NUT"
-  revision = "ec69c4a8a1bff25fcbe096fcb32c9a6543fbdccf"
+  revision = "876b8855d23c32bdb30f1929de2977ed3d1653ff"
 
 [[projects]]
   branch = "master"
@@ -685,7 +685,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:0fc98263eb8e0bd0d2d745acfd0f600c38aaeb59990b712c7e3d8c9f09e9df2a"
+  digest = "1:822bafd9f5b24af2b0d7a1f9f6bde9b873183d968548f918b4ede45833aec995"
   name = "github.com/knative/test-infra"
   packages = [
     "scripts",
@@ -693,6 +693,7 @@
     "shared/gcs",
     "shared/junit",
     "shared/loadgenerator",
+    "shared/performance",
     "shared/prometheus",
     "shared/prow",
     "shared/testgrid",
@@ -704,7 +705,7 @@
     "tools/webhook-apicoverage/webhook",
   ]
   pruneopts = "UT"
-  revision = "4320fcd2e3472fb66665bc2033b2560af3bf15f1"
+  revision = "6c3132259e7b5062a719b393536c216397110e01"
 
 [[projects]]
   digest = "1:58999a98719fddbac6303cb17e8d85b945f60b72f48e3a2df6b950b97fa926f1"
@@ -1778,6 +1779,7 @@
     "github.com/knative/test-infra/shared/common",
     "github.com/knative/test-infra/shared/junit",
     "github.com/knative/test-infra/shared/loadgenerator",
+    "github.com/knative/test-infra/shared/performance",
     "github.com/knative/test-infra/shared/prometheus",
     "github.com/knative/test-infra/shared/prow",
     "github.com/knative/test-infra/shared/testgrid",

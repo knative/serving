@@ -19,6 +19,7 @@ package kpa
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"time"
 
 	"github.com/knative/pkg/apis/duck"
@@ -58,9 +59,10 @@ type scaler struct {
 	psInformerFactory duck.InformerFactory
 	dynamicClient     dynamic.Interface
 	logger            *zap.SugaredLogger
+	transportFactory  prober.TransportFactory
 
 	// For sync probes.
-	activatorProbe func(pa *pav1alpha1.PodAutoscaler) (bool, error)
+	activatorProbe func(pa *pav1alpha1.PodAutoscaler, transport http.RoundTripper) (bool, error)
 
 	// For async probes.
 	probeManager asyncProber
@@ -76,6 +78,9 @@ func newScaler(ctx context.Context, psInformerFactory duck.InformerFactory, enqu
 		psInformerFactory: psInformerFactory,
 		dynamicClient:     dynamicclient.Get(ctx),
 		logger:            logger,
+		transportFactory: func() http.RoundTripper {
+			return network.NewAutoTransport()
+		},
 
 		// Production setup uses the default probe implementation.
 		activatorProbe: activatorProbe,
@@ -83,7 +88,7 @@ func newScaler(ctx context.Context, psInformerFactory duck.InformerFactory, enqu
 			logger.Infof("Async prober is done for %v: success?: %v error: %v", arg, success, err)
 			// Re-enqeue the PA in any case. If the probe timed out to retry again, if succeeded to scale to 0.
 			enqueueCB(arg, reenqeuePeriod)
-		}),
+		}, network.NewAutoTransport),
 		enqueueCB: enqueueCB,
 	}
 	return ks
@@ -98,12 +103,12 @@ func paToProbeTarget(pa *pav1alpha1.PodAutoscaler) string {
 
 // activatorProbe returns true if via probe it determines that the
 // PA is backed by the Activator.
-func activatorProbe(pa *pav1alpha1.PodAutoscaler) (bool, error) {
+func activatorProbe(pa *pav1alpha1.PodAutoscaler, transport http.RoundTripper) (bool, error) {
 	// No service name -- no probe.
 	if pa.Status.ServiceName == "" {
 		return false, nil
 	}
-	return prober.Do(context.Background(), paToProbeTarget(pa), activator.Name)
+	return prober.Do(context.Background(), transport, paToProbeTarget(pa), activator.Name)
 }
 
 // pre: 0 <= min <= max && 0 <= x
@@ -147,7 +152,7 @@ func (ks *scaler) handleScaleToZero(pa *pav1alpha1.PodAutoscaler, desiredScale i
 		ks.enqueueCB(pa, config.StableWindow)
 		desiredScale = 1
 	} else { // Active=False
-		r, err := ks.activatorProbe(pa)
+		r, err := ks.activatorProbe(pa, ks.transportFactory())
 		ks.logger.Infof("%s probing activator = %v, err = %v", pa.Name, r, err)
 		if r {
 			// Make sure we've been inactive for enough time.

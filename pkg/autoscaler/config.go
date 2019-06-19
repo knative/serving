@@ -114,7 +114,11 @@ func NewConfigFromMap(data map[string]string) (*Config, error) {
 		return nil, fmt.Errorf("container-concurrency-target-percentage = %f is outside of valid range of (0, 100]", lc.ContainerConcurrencyTargetFraction)
 	}
 
+<<<<<<< HEAD
 	// Adjust % ⇒ fractions: for legacy reasons we allow values in the
+=======
+	// Adjust % ⇒ fractions: for legacy reasons we allow values
+>>>>>>> master
 	// (0, 1] interval, so minimal percentage must be greater than 1.0.
 	// Internally we want to have fractions, since otherwise we'll have
 	// to perform division on each computation.

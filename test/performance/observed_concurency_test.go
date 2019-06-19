@@ -36,6 +36,7 @@ import (
 	"github.com/knative/serving/test"
 	v1a1test "github.com/knative/serving/test/v1alpha1"
 	"github.com/knative/test-infra/shared/junit"
+	perf "github.com/knative/test-infra/shared/performance"
 	"github.com/knative/test-infra/shared/testgrid"
 	"golang.org/x/sync/errgroup"
 )
@@ -235,10 +236,10 @@ func testConcurrencyN(t *testing.T, concurrency int) []junit.TestCase {
 			t.Logf("Never scaled to %d", i)
 		} else {
 			t.Logf("Took %v to scale to %d", toConcurrency, i)
-			tc = append(tc, CreatePerfTestCase(float32(toConcurrency/time.Millisecond), fmt.Sprintf("to%d(ms)", i), t.Name()))
+			tc = append(tc, perf.CreatePerfTestCase(float32(toConcurrency/time.Millisecond), fmt.Sprintf("to%d(ms)", i), t.Name()))
 		}
 	}
-	tc = append(tc, CreatePerfTestCase(float32(failedRequests), "failed requests", t.Name()))
+	tc = append(tc, perf.CreatePerfTestCase(float32(failedRequests), "failed requests", t.Name()))
 
 	return tc
 }
