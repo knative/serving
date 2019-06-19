@@ -188,7 +188,7 @@ func (c *Reconciler) reconcile(ctx context.Context, pa *pav1alpha1.PodAutoscaler
 		}
 	}
 
-	err = c.updateContainerHealth(ctx, pa)
+	err = c.updateHealthConditions(ctx, pa)
 	if err != nil {
 		return perrors.Wrap(err, "error checking container health")
 	}
@@ -220,7 +220,7 @@ func (c *Reconciler) reconcileDecider(ctx context.Context, pa *pav1alpha1.PodAut
 	return decider, nil
 }
 
-func (c *Reconciler) updateContainerHealth(ctx context.Context, pa *pav1alpha1.PodAutoscaler) error {
+func (c *Reconciler) updateHealthConditions(ctx context.Context, pa *pav1alpha1.PodAutoscaler) error {
 	logger := logging.FromContext(ctx)
 
 	if pa.Status.IsActive() {

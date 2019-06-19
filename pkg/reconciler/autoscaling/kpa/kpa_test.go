@@ -203,7 +203,7 @@ func TestReconcileAndScaleToZero(t *testing.T) {
 			// Should be present, but empty.
 			makeSKSPrivateEndpoints(0, testNamespace, testRevision),
 		},
-		}, {
+	}, {
 		Name: "steady not serving (scale to zero)",
 		Key:  key,
 		Objects: []runtime.Object{
@@ -226,74 +226,74 @@ func TestReconcileAndScaleToZero(t *testing.T) {
 			Name:  deployName,
 			Patch: []byte(`[{"op":"add","path":"/spec/replicas","value":0}]`),
 		}},
-		}, {
-			Name: "from serving to proxy",
-			Key:  key,
-			Objects: []runtime.Object{
-				kpa(testNamespace, testRevision, markActive, markOld,
-					WithHealthyContainers(), WithHealthyPods(),
-					WithPAStatusService(testRevision),
-					withMSvcStatus("and-into-the-black")),
-				sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSReady),
-				metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector),
-					withMSvcName("and-into-the-black")),
-				deploy(testNamespace, testRevision),
-				makeSKSPrivateEndpoints(1, testNamespace, testRevision),
-			},
-			WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-				Object: kpa(testNamespace, testRevision,
-					WithNoTraffic("NoTraffic", "The target is not receiving traffic."),
-					WithHealthyContainers(), WithHealthyPods(),
-					WithPAStatusService(testRevision), withMSvcStatus("and-into-the-black")),
-			}},
-			WantUpdates: []clientgotesting.UpdateActionImpl{{
-				Object: sks(testNamespace, testRevision, WithSKSReady,
-					WithDeployRef(deployName), WithProxyMode),
-			}},
-		}, {
-			Name: "from serving to proxy, sks update fail :-(",
-			Key:  key,
-			Objects: []runtime.Object{
-				kpa(testNamespace, testRevision, markActive, markOld,
-					WithHealthyContainers(), WithHealthyPods(),
-					WithPAStatusService(testRevision), withMSvcStatus("you-ask-for-this")),
-				sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSReady),
-				metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector),
-					withMSvcName("you-ask-for-this")),
-				deploy(testNamespace, testRevision),
-				makeSKSPrivateEndpoints(1, testNamespace, testRevision),
-			},
-			WantErr: true,
-			WithReactors: []clientgotesting.ReactionFunc{
-				InduceFailure("update", "serverlessservices"),
-			},
-			WantEvents: []string{
-				Eventf(corev1.EventTypeWarning, "InternalError",
-					"error re-reconciling SKS: error updating SKS test-revision: inducing failure for update serverlessservices"),
-			},
-			WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-				Object: kpa(testNamespace, testRevision,
-					WithNoTraffic("NoTraffic", "The target is not receiving traffic."),
-					WithHealthyContainers(), WithHealthyPods(),
-					WithPAStatusService(testRevision), withMSvcStatus("you-ask-for-this")),
-			}},
-			WantUpdates: []clientgotesting.UpdateActionImpl{{
-				Object: sks(testNamespace, testRevision, WithSKSReady,
-					WithDeployRef(deployName), WithProxyMode),
-			}},
-		}, {
-			Name: "scaling to 0, but not stable for long enough, so no-op",
-			Key:  key,
-			Objects: []runtime.Object{
-				kpa(testNamespace, testRevision, markActive,
-					WithHealthyContainers(), WithHealthyPods(),
-					WithPAStatusService(testRevision), withMSvcStatus("but-we-give-you-that")),
-				sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSReady),
-				metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector),
-					withMSvcName("but-we-give-you-that")),
-				deploy(testNamespace, testRevision),
-				makeSKSPrivateEndpoints(1, testNamespace, testRevision),
-			},
+	}, {
+		Name: "from serving to proxy",
+		Key:  key,
+		Objects: []runtime.Object{
+			kpa(testNamespace, testRevision, markActive, markOld,
+				WithHealthyContainers(), WithHealthyPods(),
+				WithPAStatusService(testRevision),
+				withMSvcStatus("and-into-the-black")),
+			sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSReady),
+			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector),
+				withMSvcName("and-into-the-black")),
+			deploy(testNamespace, testRevision),
+			makeSKSPrivateEndpoints(1, testNamespace, testRevision),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: kpa(testNamespace, testRevision,
+				WithNoTraffic("NoTraffic", "The target is not receiving traffic."),
+				WithHealthyContainers(), WithHealthyPods(),
+				WithPAStatusService(testRevision), withMSvcStatus("and-into-the-black")),
+		}},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: sks(testNamespace, testRevision, WithSKSReady,
+				WithDeployRef(deployName), WithProxyMode),
+		}},
+	}, {
+		Name: "from serving to proxy, sks update fail :-(",
+		Key:  key,
+		Objects: []runtime.Object{
+			kpa(testNamespace, testRevision, markActive, markOld,
+				WithHealthyContainers(), WithHealthyPods(),
+				WithPAStatusService(testRevision), withMSvcStatus("you-ask-for-this")),
+			sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSReady),
+			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector),
+				withMSvcName("you-ask-for-this")),
+			deploy(testNamespace, testRevision),
+			makeSKSPrivateEndpoints(1, testNamespace, testRevision),
+		},
+		WantErr: true,
+		WithReactors: []clientgotesting.ReactionFunc{
+			InduceFailure("update", "serverlessservices"),
+		},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeWarning, "InternalError",
+				"error re-reconciling SKS: error updating SKS test-revision: inducing failure for update serverlessservices"),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: kpa(testNamespace, testRevision,
+				WithNoTraffic("NoTraffic", "The target is not receiving traffic."),
+				WithHealthyContainers(), WithHealthyPods(),
+				WithPAStatusService(testRevision), withMSvcStatus("you-ask-for-this")),
+		}},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: sks(testNamespace, testRevision, WithSKSReady,
+				WithDeployRef(deployName), WithProxyMode),
+		}},
+	}, {
+		Name: "scaling to 0, but not stable for long enough, so no-op",
+		Key:  key,
+		Objects: []runtime.Object{
+			kpa(testNamespace, testRevision, markActive,
+				WithHealthyContainers(), WithHealthyPods(),
+				WithPAStatusService(testRevision), withMSvcStatus("but-we-give-you-that")),
+			sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSReady),
+			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector),
+				withMSvcName("but-we-give-you-that")),
+			deploy(testNamespace, testRevision),
+			makeSKSPrivateEndpoints(1, testNamespace, testRevision),
+		},
 	}}
 
 	defer logtesting.ClearAll()
@@ -613,7 +613,7 @@ func TestReconcile(t *testing.T) {
 		Key:  key,
 		Objects: []runtime.Object{
 			kpa(testNamespace, testRevision, WithNoTraffic("NoTraffic", "The target is not receiving traffic."),
-				WithPAStatusService(testRevision), WithHealthyContainers(), WithHealthyPods(),),
+				WithPAStatusService(testRevision), WithHealthyContainers(), WithHealthyPods(), ),
 			// SKS is ready here, since its endpoints are populated with Activator endpoints.
 			sks(testNamespace, testRevision, WithProxyMode, WithDeployRef(deployName), WithSKSReady),
 			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector)),

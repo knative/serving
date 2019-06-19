@@ -90,10 +90,31 @@ func WithHealthyContainers() PodAutoscalerOption {
 	}
 }
 
+// WithContainerExiting updates the PA to have ContainersHealthy condition false with the exit code and message.
+func WithContainerExiting(exitCode int32, message string) PodAutoscalerOption {
+	return func(pa *autoscalingv1alpha1.PodAutoscaler) {
+		pa.Status.MarkContainerExiting(exitCode, message)
+	}
+}
+
+// WithImagePullBackoff updates the PA to have ContainersHealthy condition false.
+func WithImagePullBackoff(reason, message string) PodAutoscalerOption {
+	return func(pa *autoscalingv1alpha1.PodAutoscaler) {
+		pa.Status.MarkContainerWaiting(reason, message)
+	}
+}
+
 // WithHealthyPods updates the PA to have PodsHealthy condition true.
 func WithHealthyPods() PodAutoscalerOption {
 	return func(pa *autoscalingv1alpha1.PodAutoscaler) {
 		pa.Status.MarkPodsHealthy()
+	}
+}
+
+// WithPodUnscheduled updates the PA to have PodsHealthy condition false.
+func WithPodUnscheduled(reason, message string) PodAutoscalerOption {
+	return func(pa *autoscalingv1alpha1.PodAutoscaler) {
+		pa.Status.MarkPodUnscheduled(reason, message)
 	}
 }
 

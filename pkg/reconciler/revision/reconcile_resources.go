@@ -156,15 +156,17 @@ func (c *Reconciler) reconcileKPA(ctx context.Context, rev *v1alpha1.Revision) e
 	}
 
 	cond = kpa.Status.GetCondition(kpav1alpha1.PodAutoscalerConditionContainersHealthy)
-	switch {
-	case cond.Status == corev1.ConditionTrue:
-		rev.Status.MarkContainerHealthy()
-	case cond.Status == corev1.ConditionFalse:
-		rev.Status.MarkContainerUnhealthy(cond.Reason, cond.Message)
+	if cond != nil {
+		switch {
+		case cond.Status == corev1.ConditionTrue:
+			rev.Status.MarkContainerHealthy()
+		case cond.Status == corev1.ConditionFalse:
+			rev.Status.MarkContainerUnhealthy(cond.Reason, cond.Message)
+		}
 	}
 
 	cond = kpa.Status.GetCondition(kpav1alpha1.PodAutoscalerConditionPodsHealthy)
-	if cond.Status == corev1.ConditionFalse {
+	if cond != nil && cond.Status == corev1.ConditionFalse {
 		rev.Status.MarkResourcesUnavailable(cond.Reason, cond.Message)
 	}
 

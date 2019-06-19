@@ -132,10 +132,10 @@ func MarkContainerMissing(rev *v1alpha1.Revision) {
 	rev.Status.MarkContainerMissing("It's the end of the world as we know it")
 }
 
-// MarkContainerExiting calls .Status.MarkContainerExiting on the Revision.
-func MarkContainerExiting(exitCode int32, message string) RevisionOption {
+// MarkContainerUnhealthy calls .Status.MarkContainerUnhealthy on the Revision.
+func MarkContainerUnhealthy(reason, message string) RevisionOption {
 	return func(r *v1alpha1.Revision) {
-		r.Status.MarkContainerExiting(exitCode, message)
+		r.Status.MarkContainerUnhealthy(reason, message)
 	}
 }
 

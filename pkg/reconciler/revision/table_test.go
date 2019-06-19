@@ -281,7 +281,8 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			rev("foo", "kpa-ready",
 				withK8sServiceName("old-stuff"), WithLogURL, AllUnknownConditions),
-			kpa("foo", "kpa-ready", WithTraffic, WithPAStatusService("new-stuff")),
+			kpa("foo", "kpa-ready", WithTraffic, WithPAStatusService("new-stuff"),
+				WithHealthyPods(), WithHealthyContainers()),
 			deploy("foo", "kpa-ready"),
 			image("foo", "kpa-ready"),
 		},
@@ -369,7 +370,7 @@ func TestReconcile(t *testing.T) {
 			rev("foo", "fix-mutated-kpa",
 				withK8sServiceName("ill-follow-the-sun"), WithLogURL, MarkRevisionReady),
 			kpa("foo", "fix-mutated-kpa", WithProtocolType(networking.ProtocolH2C),
-				WithTraffic, WithPAStatusService("fix-mutated-kpa")),
+				WithTraffic, WithPAStatusService("fix-mutated-kpa"), WithHealthyPods(), WithHealthyContainers()),
 			deploy("foo", "fix-mutated-kpa"),
 			image("foo", "fix-mutated-kpa"),
 		},
@@ -382,7 +383,7 @@ func TestReconcile(t *testing.T) {
 		}},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: kpa("foo", "fix-mutated-kpa", WithTraffic,
-				WithPAStatusService("fix-mutated-kpa")),
+				WithPAStatusService("fix-mutated-kpa"), WithHealthyPods(), WithHealthyContainers()),
 		}},
 		Key: "foo/fix-mutated-kpa",
 	}, {
@@ -440,15 +441,14 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			rev("foo", "pull-backoff",
 				withK8sServiceName("the-taxman"), WithLogURL, MarkActivating("Deploying", "")),
-			kpa("foo", "pull-backoff"), // KPA can't be ready since deployment times out.
-			pod("foo", "pull-backoff", WithWaitingContainer("user-container", "ImagePullBackoff", "can't pull it")),
+			kpa("foo", "pull-backoff", WithImagePullBackoff("ImagePullBackoff", "can't pull it")),
 			timeoutDeploy(deploy("foo", "pull-backoff")),
 			image("foo", "pull-backoff"),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: rev("foo", "pull-backoff",
 				WithLogURL, AllUnknownConditions,
-				MarkResourcesUnavailable("ImagePullBackoff", "can't pull it")),
+				MarkContainerUnhealthy("ImagePullBackoff", "can't pull it")),
 		}},
 		Key: "foo/pull-backoff",
 	}, {
@@ -460,14 +460,14 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			rev("foo", "pod-error",
 				withK8sServiceName("a-pod-error"), WithLogURL, AllUnknownConditions, MarkActive),
-			kpa("foo", "pod-error"), // PA can't be ready, since no traffic.
+			kpa("foo", "pod-error", WithContainerExiting(5, "I failed man!")),
 			pod("foo", "pod-error", WithFailingContainer("user-container", 5, "I failed man!")),
 			deploy("foo", "pod-error"),
 			image("foo", "pod-error"),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: rev("foo", "pod-error",
-				WithLogURL, AllUnknownConditions, MarkContainerExiting(5, "I failed man!")),
+				WithLogURL, AllUnknownConditions, MarkContainerUnhealthy("ExitCode5", "Container failed with: I failed man!")),
 		}},
 		Key: "foo/pod-error",
 	}, {
@@ -478,8 +478,7 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			rev("foo", "pod-schedule-error",
 				withK8sServiceName("a-pod-schedule-error"), WithLogURL, AllUnknownConditions, MarkActive),
-			kpa("foo", "pod-schedule-error"), // PA can't be ready, since no traffic.
-			pod("foo", "pod-schedule-error", WithUnschedulableContainer("Insufficient energy", "Unschedulable")),
+			kpa("foo", "pod-schedule-error", WithPodUnscheduled("Insufficient energy", "Unschedulable")),
 			deploy("foo", "pod-schedule-error"),
 			image("foo", "pod-schedule-error"),
 		},
@@ -497,7 +496,8 @@ func TestReconcile(t *testing.T) {
 		// This signal should make our Reconcile mark the Revision as Ready.
 		Objects: []runtime.Object{
 			rev("foo", "steady-ready", withK8sServiceName("very-steady"), WithLogURL),
-			kpa("foo", "steady-ready", WithTraffic, WithPAStatusService("steadier-even")),
+			kpa("foo", "steady-ready", WithTraffic, WithPAStatusService("steadier-even"),
+				WithHealthyPods(), WithHealthyContainers()),
 			deploy("foo", "steady-ready"),
 			image("foo", "steady-ready"),
 		},

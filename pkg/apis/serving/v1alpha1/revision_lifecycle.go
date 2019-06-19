@@ -208,8 +208,6 @@ func RevisionContainerMissingMessage(image string, message string) string {
 const (
 	AnnotationParseErrorTypeMissing = "Missing"
 	AnnotationParseErrorTypeInvalid = "Invalid"
-	LabelParserErrorTypeMissing     = "Missing"
-	LabelParserErrorTypeInvalid     = "Invalid"
 )
 
 // +k8s:deepcopy-gen=false
