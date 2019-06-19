@@ -51,7 +51,6 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	ktesting "k8s.io/client-go/testing"
 
 	. "github.com/knative/pkg/reconciler/testing"
@@ -294,63 +293,6 @@ func TestReconcile(t *testing.T) {
 			deploy(testNamespace, testRevision),
 		},
 		Key: key(testRevision, testNamespace),
-	}, {
-		Name: "delete hpa when pa does not exist",
-		Objects: []runtime.Object{
-			hpa(testRevision, testNamespace, pa(testRevision, testNamespace, WithHPAClass, WithMetricAnnotation("cpu"))),
-			deploy(testNamespace, testRevision),
-		},
-		Key: key(testRevision, testNamespace),
-		WantDeletes: []ktesting.DeleteActionImpl{{
-			ActionImpl: ktesting.ActionImpl{
-				Namespace: testNamespace,
-				Verb:      "delete",
-				Resource: schema.GroupVersionResource{
-					Group:    "autoscaling",
-					Version:  "v1",
-					Resource: "horizontalpodautoscalers",
-				},
-			},
-			Name: testRevision,
-		}},
-	}, {
-		Name:    "attempt to delete non-existent hpa when pa does not exist",
-		Objects: []runtime.Object{},
-		Key:     key(testRevision, testNamespace),
-		WantDeletes: []ktesting.DeleteActionImpl{{
-			ActionImpl: ktesting.ActionImpl{
-				Namespace: testNamespace,
-				Verb:      "delete",
-				Resource: schema.GroupVersionResource{
-					Group:    "autoscaling",
-					Version:  "v1",
-					Resource: "horizontalpodautoscalers",
-				},
-			},
-			Name: testRevision,
-		}},
-	}, {
-		Name: "failure to delete hpa",
-		Objects: []runtime.Object{
-			hpa(testRevision, testNamespace, pa(testRevision, testNamespace, WithHPAClass, WithMetricAnnotation("cpu"))),
-		},
-		Key: key(testRevision, testNamespace),
-		WantDeletes: []ktesting.DeleteActionImpl{{
-			ActionImpl: ktesting.ActionImpl{
-				Namespace: testNamespace,
-				Verb:      "delete",
-				Resource: schema.GroupVersionResource{
-					Group:    "autoscaling",
-					Version:  "v1",
-					Resource: "horizontalpodautoscalers",
-				},
-			},
-			Name: testRevision,
-		}},
-		WithReactors: []ktesting.ReactionFunc{
-			InduceFailure("delete", "horizontalpodautoscalers"),
-		},
-		WantErr: true,
 	}, {
 		Name: "update pa fails",
 		Objects: []runtime.Object{
