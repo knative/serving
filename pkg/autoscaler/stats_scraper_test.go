@@ -145,22 +145,22 @@ func TestScrapeReportStatWhenAllCallsSucceed(t *testing.T) {
 	if got.Stat.PodName != scraperPodName {
 		t.Errorf("StatMessage.Stat.PodName=%v, want %v", got.Stat.PodName, scraperPodName)
 	}
-	// (3.0 + 5.0 + 3.0) / 3.0 * 3
+	// (3.0 + 5.0 + 3.0) / 3.0 * 3 = 11
 	if got.Stat.AverageConcurrentRequests != 11.0 {
 		t.Errorf("StatMessage.Stat.AverageConcurrentRequests=%v, want %v",
 			got.Stat.AverageConcurrentRequests, 11.0)
 	}
-	// int32((5 + 7 + 5) / 3.0) * 3 = 15
-	if got.Stat.RequestCount != 15 {
+	// ((5 + 7 + 5) / 3.0) * 3 = 17
+	if got.Stat.RequestCount != 17 {
 		t.Errorf("StatMessage.Stat.RequestCount=%v, want %v", got.Stat.RequestCount, 15)
 	}
-	// (2.0 + 4.0 + 2.0) / 3.0 * 3
+	// (2.0 + 4.0 + 2.0) / 3.0 * 3 = 8
 	if got.Stat.AverageProxiedConcurrentRequests != 8.0 {
 		t.Errorf("StatMessage.Stat.AverageProxiedConcurrentRequests=%v, want %v",
 			got.Stat.AverageProxiedConcurrentRequests, 8.0)
 	}
-	// int32((4 + 6 + 4) / 3.0) * 3 = 12
-	if got.Stat.ProxiedRequestCount != 12 {
+	// ((4 + 6 + 4) / 3.0) * 3 = 14
+	if got.Stat.ProxiedRequestCount != 14 {
 		t.Errorf("StatMessage.Stat.ProxiedCount=%v, want %v", got.Stat.ProxiedRequestCount, 12)
 	}
 }

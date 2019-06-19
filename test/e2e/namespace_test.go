@@ -24,6 +24,7 @@ import (
 	pkgTest "github.com/knative/pkg/test"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/test"
+	"github.com/knative/serving/test/logstream"
 	v1a1test "github.com/knative/serving/test/v1alpha1"
 
 	corev1 "k8s.io/api/core/v1"
@@ -48,6 +49,8 @@ func checkResponse(t *testing.T, clients *test.Clients, names test.ResourceNames
 
 func TestMultipleNamespace(t *testing.T) {
 	t.Parallel()
+	cancel := logstream.Start(t)
+	defer cancel()
 
 	defaultClients := Setup(t) // This one uses the default namespace `test.ServingNamespace`
 	altClients := SetupAlternativeNamespace(t)
@@ -86,6 +89,8 @@ func TestMultipleNamespace(t *testing.T) {
 // This test is to ensure we do not leak deletion of services in other namespaces when deleting a route.
 func TestConflictingRouteService(t *testing.T) {
 	t.Parallel()
+	cancel := logstream.Start(t)
+	defer cancel()
 
 	names := test.ResourceNames{
 		Service:       test.AppendRandomString("conflicting-route-service"),

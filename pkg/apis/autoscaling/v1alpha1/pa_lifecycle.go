@@ -45,6 +45,15 @@ func (pa *PodAutoscaler) Class() string {
 	return autoscaling.KPA
 }
 
+// Metric returns the contents of the metric annotation or a default.
+func (pa *PodAutoscaler) Metric() string {
+	if m, ok := pa.Annotations[autoscaling.MetricAnnotationKey]; ok {
+		return m
+	}
+	// TODO: defaulting here is awkward and is already taken care of by defaulting logic.
+	return defaultMetric(pa.Class())
+}
+
 func (pa *PodAutoscaler) annotationInt32(key string) int32 {
 	if s, ok := pa.Annotations[key]; ok {
 		// no error check: relying on validation

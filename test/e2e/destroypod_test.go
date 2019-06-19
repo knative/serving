@@ -33,6 +33,7 @@ import (
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	rnames "github.com/knative/serving/pkg/reconciler/revision/resources/names"
 	"github.com/knative/serving/test"
+	"github.com/knative/serving/test/logstream"
 	v1a1test "github.com/knative/serving/test/v1alpha1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -46,6 +47,9 @@ const (
 
 func TestDestroyPodInflight(t *testing.T) {
 	t.Parallel()
+	cancel := logstream.Start(t)
+	defer cancel()
+
 	clients := Setup(t)
 
 	t.Log("Creating a new Route and Configuration")
@@ -143,6 +147,9 @@ const (
 
 func TestDestroyPodTimely(t *testing.T) {
 	t.Parallel()
+	cancel := logstream.Start(t)
+	defer cancel()
+
 	clients := Setup(t)
 
 	names := test.ResourceNames{

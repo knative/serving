@@ -21,7 +21,7 @@ import (
 	"io/ioutil"
 	"strings"
 
-	"gopkg.in/yaml.v2"
+	yaml "gopkg.in/yaml.v2"
 )
 
 // IgnoredFields encapsulates fields to be ignored in a package for API coverage calculation.

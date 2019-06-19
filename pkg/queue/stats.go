@@ -68,8 +68,8 @@ func NewStats(podName string, channels Channels, startedAt time.Time) *Stats {
 
 	go func() {
 		var (
-			requestCount       int32
-			proxiedCount       int32
+			requestCount       float64
+			proxiedCount       float64
 			concurrency        int32
 			proxiedConcurrency int32
 		)

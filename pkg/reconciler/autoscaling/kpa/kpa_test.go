@@ -19,7 +19,7 @@ package kpa
 import (
 	"context"
 	"fmt"
-	"github.com/knative/pkg/ptr"
+	"net/http"
 	"strconv"
 	"sync"
 	"testing"
@@ -35,6 +35,7 @@ import (
 	fakesksinformer "github.com/knative/serving/pkg/client/injection/informers/networking/v1alpha1/serverlessservice/fake"
 	fakerevisioninformer "github.com/knative/serving/pkg/client/injection/informers/serving/v1alpha1/revision/fake"
 	"github.com/knative/serving/pkg/reconciler"
+	"github.com/knative/pkg/ptr"
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -309,7 +310,7 @@ func TestReconcileAndScaleToZero(t *testing.T) {
 		fakeMetrics := newTestMetrics()
 		psFactory := presources.NewPodScalableInformerFactory(ctx)
 		scaler := newScaler(ctx, psFactory, func(interface{}, time.Duration) {})
-		scaler.activatorProbe = func(*asv1a1.PodAutoscaler) (bool, error) { return true, nil }
+		scaler.activatorProbe = func(*asv1a1.PodAutoscaler, http.RoundTripper) (bool, error) { return true, nil }
 		return &Reconciler{
 			Base: &areconciler.Base{
 				Base:              rpkg.NewBase(ctx, controllerAgentName, newConfigWatcher()),

@@ -68,22 +68,14 @@ func extractData(body io.Reader) (*Stat, error) {
 	for m, pv := range map[string]*float64{
 		"queue_average_concurrent_requests":         &stat.AverageConcurrentRequests,
 		"queue_average_proxied_concurrent_requests": &stat.AverageProxiedConcurrentRequests,
+		"queue_operations_per_second":               &stat.RequestCount,
+		"queue_proxied_operations_per_second":       &stat.ProxiedRequestCount,
 	} {
 		pm := prometheusMetric(metricFamilies, m)
 		if pm == nil {
 			return nil, fmt.Errorf("could not find value for %s in response", m)
 		}
 		*pv = *pm.Gauge.Value
-	}
-	for m, pv := range map[string]*int32{
-		"queue_operations_per_second":         &stat.RequestCount,
-		"queue_proxied_operations_per_second": &stat.ProxiedRequestCount,
-	} {
-		pm := prometheusMetric(metricFamilies, m)
-		if pm == nil {
-			return nil, fmt.Errorf("could not find value for %s in response", m)
-		}
-		*pv = int32(*pm.Gauge.Value)
 	}
 	return &stat, nil
 }

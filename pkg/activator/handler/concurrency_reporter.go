@@ -59,7 +59,7 @@ func (cr *ConcurrencyReporter) report(key string, concurrency, requestCount int3
 	stat := autoscaler.Stat{
 		PodName:                   cr.podName,
 		AverageConcurrentRequests: float64(concurrency),
-		RequestCount:              requestCount,
+		RequestCount:              float64(requestCount),
 	}
 
 	// Send the stat to another goroutine to transmit

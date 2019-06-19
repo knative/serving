@@ -54,7 +54,7 @@ need to have a running environment that meets
 to specify the build tag `e2e`.
 
 ```bash
-go test -v -tags=e2e -count=1 ./test/conformance
+go test -v -tags=e2e -count=1 ./test/conformance/...
 go test -v -tags=e2e -count=1 ./test/e2e
 ```
 
@@ -122,7 +122,7 @@ against, i.e. override
 [your environment variables](../DEVELOPMENT.md#setup-your-environment):
 
 ```bash
-go test -v -tags=e2e -count=1 ./test/conformance --kubeconfig ~/special/kubeconfig --cluster myspecialcluster --dockerrepo myspecialdockerrepo
+go test -v -tags=e2e -count=1 ./test/conformance/... --kubeconfig ~/special/kubeconfig --cluster myspecialcluster --dockerrepo myspecialdockerrepo
 go test -v -tags=e2e -count=1 ./test/e2e --kubeconfig ~/special/kubeconfig --cluster myspecialcluster --dockerrepo myspecialdockerrepo
 ```
 
@@ -178,7 +178,7 @@ used by your tests should be pulled. This will default to the value of your
 if not specified.
 
 ```bash
-go test -v -tags=e2e -count=1 ./test/conformance --dockerrepo gcr.myhappyproject
+go test -v -tags=e2e -count=1 ./test/conformance/... --dockerrepo gcr.myhappyproject
 go test -v -tags=e2e -count=1 ./test/e2e --dockerrepo gcr.myhappyproject
 ```
 
@@ -190,7 +190,7 @@ registry to support the `Always` pull policy for `latest` tags, you can have the
 tests use a specific tag:
 
 ```bash
-go test -v -tags=e2e -count=1 ./test/conformance --tag any-old-tag
+go test -v -tags=e2e -count=1 ./test/conformance/... --tag any-old-tag
 go test -v -tags=e2e -count=1 ./test/e2e --tag any-old-tag
 ```
 
@@ -208,7 +208,7 @@ example, you'd want to run tests against the default `ingressgateway` (port
 number 31380) running on the minikube node:
 
 ```
-go test -v -tags=e2e -count=1 ./test/conformance --ingressendpoint "$(minikube ip):31380"
+go test -v -tags=e2e -count=1 ./test/conformance/... --ingressendpoint "$(minikube ip):31380"
 go test -v -tags=e2e -count=1 ./test/e2e --ingressendpoint "$(minikube ip):31380"
 ```
 

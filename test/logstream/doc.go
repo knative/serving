@@ -14,14 +14,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package test
-
-import (
-	"os"
-
-	"github.com/knative/pkg/system"
-)
-
-func init() {
-	os.Setenv(system.NamespaceEnvKey, "knative-serving")
-}
+// Package logstream lets end-to-end tests incorporate controller logs
+// into the error output of tests.  It is enabled by setting the
+// SYSTEM_NAMESPACE environment variable, which tells this package
+// what namespace to stream logs from.
+package logstream

@@ -14,14 +14,17 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package test
+package logstream
 
 import (
-	"os"
-
-	"github.com/knative/pkg/system"
+	"testing"
 )
 
-func init() {
-	os.Setenv(system.NamespaceEnvKey, "knative-serving")
+type null struct{}
+
+var _ streamer = (*null)(nil)
+
+// Start implements streamer
+func (*null) Start(t *testing.T) Canceler {
+	return func() {}
 }

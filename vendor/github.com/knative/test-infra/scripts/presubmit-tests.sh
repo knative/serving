@@ -85,6 +85,24 @@ function results_banner() {
   header "$1 tests ${result}"
 }
 
+# Create a JUnit XML for a failure.
+# Parameters: $1 - check name as an identifier (e.g., PresubmitBuildTest)
+#             $2 - failure message (can contain newlines)
+function create_junit_xml() {
+  local xml="$(mktemp ${ARTIFACTS}/junit_XXXXXXXX.xml)"
+  # Transform newlines into HTML code.
+  local msg="$(echo -n "$2" | sed 's/$/\&#xA;/g' | tr -d '\n')"
+  cat << EOF > "${xml}"
+<testsuites>
+	<testsuite tests="1" failures="1" time="0.000" name="">
+		<testcase classname="" name="$1" time="0.0">
+			<failure message="Failed" type="">${msg}</failure>
+		</testcase>
+	</testsuite>
+</testsuites>
+EOF
+}
+
 # Run build tests. If there's no `build_tests` function, run the default
 # build test runner.
 function run_build_tests() {
@@ -148,7 +166,15 @@ function default_build_test_runner() {
   [[ -z "${go_pkg_dirs}" ]] && return ${failed}
   # Ensure all the code builds
   subheader "Checking that go code builds"
-  go build -v ./... || failed=1
+  local report=$(mktemp)
+  go build -v ./... 2>&1 | tee ${report}
+  local build_failed=( ${PIPESTATUS[@]} )
+  if [[ ${build_failed[0]} -ne 0 ]]; then
+    failed=1
+    # Consider an error message everything that's not a package name.
+    local errors="$(grep -v '^github.com/' "${report}" | sort | uniq)"
+    create_junit_xml PresubmitBuildTest "${errors}"
+  fi
   # Get all build tags in go code (ignore /vendor)
   local tags="$(grep -r '// +build' . \
       | grep -v '^./vendor/' | cut -f3 -d' ' | sort | uniq | tr '\n' ' ')"

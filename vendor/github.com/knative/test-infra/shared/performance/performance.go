@@ -14,14 +14,26 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package test
+package performance
 
 import (
-	"os"
+	"fmt"
 
-	"github.com/knative/pkg/system"
+	"github.com/knative/test-infra/shared/junit"
 )
 
-func init() {
-	os.Setenv(system.NamespaceEnvKey, "knative-serving")
+const (
+	// Property name used by testgrid
+	perfLatency = "perf_latency"
+)
+
+// CreatePerfTestCase creates a perf test case with the provided name and value
+func CreatePerfTestCase(metricValue float32, metricName, testName string) junit.TestCase {
+	tp := []junit.TestProperty{{Name: perfLatency, Value: fmt.Sprintf("%f", metricValue)}}
+	tc := junit.TestCase{
+		ClassName:  testName,
+		Name:       fmt.Sprintf("%s/%s", testName, metricName),
+		Properties: junit.TestProperties{Properties: tp}}
+
+	return tc
 }
