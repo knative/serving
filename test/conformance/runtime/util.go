@@ -55,6 +55,7 @@ func runtimeInfo(
 	names *test.ResourceNames,
 	opts ...interface{}) (*test.ResourceNames, *types.RuntimeInfo, error) {
 
+	t.Helper()
 	names.Service = test.ObjectNameForTest(t)
 	if names.Image == "" {
 		names.Image = test.Runtime
@@ -65,7 +66,10 @@ func runtimeInfo(
 	defer test.TearDown(clients, *names)
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, *names) })
 
-	serviceOpts, reqOpts := splitOpts(opts...)
+	serviceOpts, reqOpts, err := splitOpts(opts...)
+	if err != nil {
+		return nil, nil, err
+	}
 
 	objects, err := v1a1test.CreateRunLatestServiceReady(t, clients, names, &v1a1test.Options{}, serviceOpts...)
 	if err != nil {
@@ -89,16 +93,19 @@ func runtimeInfo(
 	return names, &ri, err
 }
 
-func splitOpts(opts ...interface{}) ([]ServiceOption, []pkgTest.RequestOption) {
+func splitOpts(opts ...interface{}) ([]ServiceOption, []pkgTest.RequestOption, error) {
 	serviceOpts := []ServiceOption{}
 	reqOpts := []pkgTest.RequestOption{}
 	for _, opt := range opts {
-		switch opt.(type) {
+		switch t := opt.(type) {
 		case ServiceOption:
 			serviceOpts = append(serviceOpts, opt.(ServiceOption))
 		case pkgTest.RequestOption:
 			reqOpts = append(reqOpts, opt.(pkgTest.RequestOption))
+		default:
+			return nil, nil, fmt.Errorf("invalid option type: %v", t)
 		}
+
 	}
-	return serviceOpts, reqOpts
+	return serviceOpts, reqOpts, nil
 }
