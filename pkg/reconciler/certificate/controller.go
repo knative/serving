@@ -27,7 +27,6 @@ import (
 	"github.com/knative/pkg/controller"
 	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/certificate/config"
-	"k8s.io/client-go/tools/cache"
 )
 
 const (
@@ -54,17 +53,8 @@ func NewController(
 	impl := controller.NewImpl(c, c.Logger, "Certificate")
 
 	c.Logger.Info("Setting up event handlers")
-	knCertificateInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    impl.Enqueue,
-		UpdateFunc: controller.PassNew(impl.Enqueue),
-		DeleteFunc: impl.Enqueue,
-	})
-
-	cmCertificateInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    impl.EnqueueControllerOf,
-		UpdateFunc: controller.PassNew(impl.EnqueueControllerOf),
-		DeleteFunc: impl.EnqueueControllerOf,
-	})
+	knCertificateInformer.Informer().AddEventHandler(controller.HandleAll(impl.Enqueue))
+	cmCertificateInformer.Informer().AddEventHandler(controller.HandleAll(impl.EnqueueControllerOf))
 
 	c.Logger.Info("Setting up ConfigMap receivers")
 	resyncCertOnCertManagerconfigChange := configmap.TypeFilter(&config.CertManagerConfig{})(func(string, interface{}) {
