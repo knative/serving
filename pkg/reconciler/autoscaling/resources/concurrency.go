@@ -38,7 +38,7 @@ func ResolveTargetConcurrency(pa *v1alpha1.PodAutoscaler, config *autoscaler.Con
 		// We pick the smaller value between the calculated target and the annotationTarget
 		// to make sure the autoscaler does not aim for a higher concurrency than the application
 		// can handle per containerConcurrency.
-		target = math.Min(target, float64(annotationTarget))
+		target = math.Min(target, annotationTarget)
 	}
 
 	return target
