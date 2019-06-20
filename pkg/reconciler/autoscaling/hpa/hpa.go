@@ -110,6 +110,9 @@ func (c *Reconciler) reconcile(ctx context.Context, key string, pa *pav1alpha1.P
 	pa.SetDefaults(ctx)
 
 	pa.Status.InitializeConditions()
+	if pa.Status.GetCondition(pav1alpha1.PodAutoscalerConditionActive) == nil {
+		pa.Status.MarkActivating("Initializing", "")
+	}
 	logger.Debug("PA exists")
 
 	// HPA-class PAs don't yet support scale-to-zero
@@ -163,6 +166,7 @@ func (c *Reconciler) reconcile(ctx context.Context, key string, pa *pav1alpha1.P
 		pa.Status.MarkInactive("ServicesNotReady", "SKS Services are not ready yet")
 	} else {
 		pa.Status.MarkActive()
+		pa.Status.MarkBootstrapSuccessful()
 	}
 
 	pa.Status.ObservedGeneration = pa.Generation
