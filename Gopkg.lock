@@ -46,6 +46,21 @@
   revision = "c06c82c832edca4eaf7b0241bd655560a1be0346"
 
 [[projects]]
+  digest = "1:689c8d24888f03cab536bfa11076e914c58e4d033d2b70f7abef304aa3583c09"
+  name = "fortio.org/fortio"
+  packages = [
+    "fhttp",
+    "fnet",
+    "log",
+    "periodic",
+    "stats",
+    "version",
+  ]
+  pruneopts = "NUT"
+  revision = "fd8f4a7177e9ea509f27105ae4e55e6c68ece6f7"
+  version = "v1.3.1"
+
+[[projects]]
   digest = "1:042dd95511f495f6e7c0ad6a9398b8c5c77bf940efa6e568cbac9f818401f36a"
   name = "github.com/Azure/azure-sdk-for-go"
   packages = ["arm/containerregistry"]
@@ -592,7 +607,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:b11b259c6c1be84c1b65a0ef5cc1376f905b0c78e711a52855c36af14222d1de"
+  digest = "1:74011ee8ad886225d91925bcaa1e3b692d183713e9fff3411f31920fd37b395d"
   name = "github.com/knative/pkg"
   packages = [
     "apis",
@@ -681,11 +696,11 @@
     "websocket",
   ]
   pruneopts = "T"
-  revision = "0851b95f902d3706fb842fe3160fb697bf5a60e1"
+  revision = "d90a9bc97dde7b1acc9f0b5b38916cb0914b1538"
 
 [[projects]]
   branch = "master"
-  digest = "1:822bafd9f5b24af2b0d7a1f9f6bde9b873183d968548f918b4ede45833aec995"
+  digest = "1:4fe43bb6142f2447477c26dea9c5886d50e715201204f846037e5e00dcdeed71"
   name = "github.com/knative/test-infra"
   packages = [
     "scripts",
@@ -705,7 +720,7 @@
     "tools/webhook-apicoverage/webhook",
   ]
   pruneopts = "UT"
-  revision = "6c3132259e7b5062a719b393536c216397110e01"
+  revision = "9868fb96ea899dcd31404391f84be872fe975228"
 
 [[projects]]
   digest = "1:58999a98719fddbac6303cb17e8d85b945f60b72f48e3a2df6b950b97fa926f1"
@@ -1193,20 +1208,6 @@
   pruneopts = "NUT"
   revision = "5420a8b6744d3b0345ab293f6fcba19c978f1183"
   version = "v2.2.1"
-
-[[projects]]
-  digest = "1:ebecaaec2e2f0ae0bdac3ce5697ae8a8e5bb2107ae00fd6acbd8c70b9d8698c2"
-  name = "istio.io/fortio"
-  packages = [
-    "fhttp",
-    "fnet",
-    "log",
-    "periodic",
-    "stats",
-  ]
-  pruneopts = "NUT"
-  revision = "abaacfd56859479cd712c45e70c8f1362be15e5b"
-  version = "v0.6.8"
 
 [[projects]]
   digest = "1:1d34342a53d8f8c625260d6c4c2e5c99442b1635bbf4208f426bd12aa210b870"
