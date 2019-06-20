@@ -28,19 +28,9 @@ import (
 	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
-// GetSecretsForClusterIngress gets the all of the secrets referenced by the given ClusterIngress, and
+// GetSecrets gets the all of the secrets referenced by the given Ingress, and
 // returns a map whose key is the a secret namespace/name key and value is pointer of the secret.
-func GetSecretsForClusterIngress(ci *v1alpha1.ClusterIngress, secretLister corev1listers.SecretLister) (map[string]*corev1.Secret, error) {
-	return getSecrets(&ci.Spec, secretLister)
-}
-
-// GetSecretsForIngress gets the all of the secrets referenced by the given Ingress, and
-// returns a map whose key is the a secret namespace/name key and value is pointer of the secret.
-func GetSecretsForIngress(i *v1alpha1.Ingress, secretLister corev1listers.SecretLister) (map[string]*corev1.Secret, error) {
-	return getSecrets(&i.Spec, secretLister)
-}
-
-func getSecrets(spec *v1alpha1.IngressSpec, secretLister corev1listers.SecretLister) (map[string]*corev1.Secret, error) {
+func GetSecrets(spec *v1alpha1.IngressSpec, secretLister corev1listers.SecretLister) (map[string]*corev1.Secret, error) {
 	secrets := map[string]*corev1.Secret{}
 	for _, tls := range spec.TLS {
 		ref := SecretKey(tls)

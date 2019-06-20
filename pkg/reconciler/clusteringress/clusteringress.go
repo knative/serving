@@ -189,7 +189,7 @@ func (c *Reconciler) reconcile(ctx context.Context, ci *v1alpha1.ClusterIngress)
 			return err
 		}
 
-		originSecrets, err := resources.GetSecretsForClusterIngress(ci, c.secretLister)
+		originSecrets, err := resources.GetSecrets(&ci.Spec, c.secretLister)
 		if err != nil {
 			return err
 		}

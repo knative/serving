@@ -107,7 +107,7 @@ func TestGetSecretsForClusterIngress(t *testing.T) {
 	for _, c := range cases {
 		createSecret(c.secret)
 		t.Run(c.name, func(t *testing.T) {
-			secrets, err := GetSecretsForClusterIngress(c.ci, secretClient.Lister())
+			secrets, err := GetSecrets(&c.ci.Spec, secretClient.Lister())
 
 			if (err != nil) != c.wantErr {
 				t.Fatalf("Test: %s; GetSecrets error = %v, WantErr %v", c.name, err, c.wantErr)
@@ -157,7 +157,7 @@ func TestGetSecretsForIngress(t *testing.T) {
 	for _, c := range cases {
 		createSecret(c.secret)
 		t.Run(c.name, func(t *testing.T) {
-			secrets, err := GetSecretsForIngress(c.ingress, secretClient.Lister())
+			secrets, err := GetSecrets(&c.ingress.Spec, secretClient.Lister())
 
 			if (err != nil) != c.wantErr {
 				t.Fatalf("Test: %s; GetSecrets error = %v, WantErr %v", c.name, err, c.wantErr)
