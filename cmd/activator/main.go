@@ -178,7 +178,7 @@ func main() {
 		endpointInformer.Informer(),
 		serviceInformer.Informer(),
 		sksInformer.Informer()); err != nil {
-		logger.Fatalw("Failed to start informers", err)
+		logger.Fatalw("Failed to start informers", zap.Error(err))
 	}
 
 	params := queue.BreakerParams{QueueDepth: breakerQueueDepth, MaxConcurrency: breakerMaxConcurrency, InitialCapacity: 0}
@@ -187,7 +187,7 @@ func main() {
 	activatorL3 := fmt.Sprintf("%s:%d", activator.K8sServiceName, networking.ServiceHTTPPort)
 	zipkinEndpoint, err := zipkin.NewEndpoint("activator", activatorL3)
 	if err != nil {
-		logger.Error("Unable to create tracing endpoint")
+		logger.Errorw("Unable to create tracing endpoint", zap.Error(err))
 		return
 	}
 	oct := tracing.NewOpenCensusTracer(
@@ -196,7 +196,10 @@ func main() {
 
 	tracerUpdater := configmap.TypeFilter(&tracingconfig.Config{})(func(name string, value interface{}) {
 		cfg := value.(*tracingconfig.Config)
-		oct.ApplyConfig(cfg)
+		if err := oct.ApplyConfig(cfg); err != nil {
+			logger.Errorw("Unable to apply open census tracer config", zap.Error(err))
+			return
+		}
 	})
 
 	// Set up our config store
