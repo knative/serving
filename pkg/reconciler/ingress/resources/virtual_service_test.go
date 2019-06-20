@@ -103,7 +103,7 @@ func TestMakeVirtualServicesForIngress_CorrectMetadata(t *testing.T) {
 		}},
 	}} {
 		t.Run(tc.name, func(t *testing.T) {
-			vss := MakeVirtualServicesForIngress(tc.ingress, tc.gateways)
+			vss := MakeVirtualServices(tc.ingress, tc.gateways)
 			if len(vss) != len(tc.expected) {
 				t.Errorf("Expected %d VirtualService, saw %d", len(tc.expected), len(vss))
 			}
@@ -177,7 +177,7 @@ func TestMakeVirtualServicesForClusterIngress_CorrectMetadata(t *testing.T) {
 		}},
 	}} {
 		t.Run(tc.name, func(t *testing.T) {
-			vss := MakeVirtualServicesForClusterIngress(tc.ci, tc.gateways)
+			vss := MakeVirtualServices(tc.ci, tc.gateways)
 			if len(vss) != len(tc.expected) {
 				t.Errorf("Expected %d VirtualService, saw %d", len(tc.expected), len(vss))
 			}
@@ -203,7 +203,7 @@ func TestMakeMeshVirtualServiceSpecForClusterIngress_CorrectGateways(t *testing.
 		Spec: v1alpha1.IngressSpec{},
 	}
 	expected := []string{system.Namespace() + "/mesh"}
-	gateways := MakeMeshVirtualServiceForClusterIngress(ci).Spec.Gateways
+	gateways := MakeMeshVirtualService(ci).Spec.Gateways
 	if diff := cmp.Diff(expected, gateways); diff != "" {
 		t.Errorf("Unexpected gateways (-want +got): %v", diff)
 	}
@@ -222,7 +222,7 @@ func TestMakeMeshVirtualServiceSpecForIngress_CorrectGateways(t *testing.T) {
 		Spec: v1alpha1.IngressSpec{},
 	}
 	expected := []string{system.Namespace() + "/mesh"}
-	gateways := MakeMeshVirtualServiceForIngress(ingress).Spec.Gateways
+	gateways := MakeMeshVirtualService(ingress).Spec.Gateways
 	if diff := cmp.Diff(expected, gateways); diff != "" {
 		t.Errorf("Unexpected gateways (-want +got): %v", diff)
 	}
@@ -335,7 +335,7 @@ func TestMakeMeshVirtualServiceSpec_CorrectRoutes(t *testing.T) {
 		WebsocketUpgrade: true,
 	}}
 
-	routes := MakeMeshVirtualServiceForClusterIngress(ci).Spec.HTTP
+	routes := MakeMeshVirtualService(ci).Spec.HTTP
 	if diff := cmp.Diff(expected, routes); diff != "" {
 		t.Errorf("Unexpected routes (-want +got): %v", diff)
 	}
@@ -353,7 +353,7 @@ func TestMakeVirtualServiceSpecForClusterIngress_CorrectGateways(t *testing.T) {
 		Spec: v1alpha1.IngressSpec{},
 	}
 	expected := []string{system.Namespace() + "/gateway-one", system.Namespace() + "/gateway-two"}
-	gateways := MakeVirtualServiceForClusterIngress(ci, []string{"gateway-one", "gateway-two"}).Spec.Gateways
+	gateways := MakeVirtualService(ci, []string{"gateway-one", "gateway-two"}).Spec.Gateways
 	if diff := cmp.Diff(expected, gateways); diff != "" {
 		t.Errorf("Unexpected gateways (-want +got): %v", diff)
 	}
@@ -372,7 +372,7 @@ func TestMakeVirtualServiceSpecForIngress_CorrectGateways(t *testing.T) {
 		Spec: v1alpha1.IngressSpec{},
 	}
 	expected := []string{system.Namespace() + "/gateway-one", system.Namespace() + "/gateway-two"}
-	gateways := MakeVirtualServiceForIngress(ingress, []string{"gateway-one", "gateway-two"}).Spec.Gateways
+	gateways := MakeVirtualService(ingress, []string{"gateway-one", "gateway-two"}).Spec.Gateways
 	if diff := cmp.Diff(expected, gateways); diff != "" {
 		t.Errorf("Unexpected gateways (-want +got): %v", diff)
 	}
@@ -518,7 +518,7 @@ func TestMakeIngressVirtualServiceSpec_CorrectRoutes(t *testing.T) {
 		WebsocketUpgrade: true,
 	}}
 
-	routes := MakeVirtualServiceForClusterIngress(ci, []string{"gateway"}).Spec.HTTP
+	routes := MakeVirtualService(ci, []string{"gateway"}).Spec.HTTP
 	if diff := cmp.Diff(expected, routes); diff != "" {
 		t.Errorf("Unexpected routes (-want +got): %v", diff)
 	}

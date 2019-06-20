@@ -51,23 +51,6 @@ type Ingress struct {
 	Status IngressStatus `json:"status,omitempty"`
 }
 
-// IngressAccessor interfaces that exposes members of an Ingress
-type IngressAccessor interface {
-	kmeta.Accessor
-	GetStatus() *IngressStatus
-	GetSpec() *IngressSpec
-}
-
-// GetStatus returns Status of an Ingress
-func (ingress *Ingress) GetStatus() *IngressStatus {
-	return &ingress.Status
-}
-
-// GetSpec returns Spec of an Ingress
-func (ingress *Ingress) GetSpec() *IngressSpec {
-	return &ingress.Spec
-}
-
 // Verify that Ingress adheres to the appropriate interfaces.
 var (
 	// Check that Ingress may be validated and defaulted.

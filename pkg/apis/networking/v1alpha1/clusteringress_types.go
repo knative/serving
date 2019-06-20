@@ -73,13 +73,3 @@ type ClusterIngressList struct {
 	// Items is the list of ClusterIngress objects.
 	Items []ClusterIngress `json:"items"`
 }
-
-// GetStatus returns Status of a ClusterIngress
-func (ci *ClusterIngress) GetStatus() *IngressStatus {
-	return &ci.Status
-}
-
-// GetSpec returns Spec of a ClusterIngress
-func (ci *ClusterIngress) GetSpec() *IngressSpec {
-	return &ci.Spec
-}

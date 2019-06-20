@@ -160,7 +160,7 @@ func (c *Reconciler) reconcile(ctx context.Context, ci *v1alpha1.Ingress) error 
 	logger.Infof("Reconciling ingress: %#v", ci)
 
 	gatewayNames := gatewayNamesFromContext(ctx, ci)
-	vses := resources.MakeVirtualServicesForIngress(ci, gatewayNames)
+	vses := resources.MakeVirtualServices(ci, gatewayNames)
 
 	// First, create the VirtualServices.
 	logger.Infof("Creating/Updating VirtualServices")
@@ -288,7 +288,7 @@ func (c *Reconciler) reconcileVirtualServices(ctx context.Context, ci *v1alpha1.
 		kept.Insert(d.Name)
 	}
 	// Now, remove the extra ones.
-	vses, err := c.virtualServiceLister.VirtualServices(resources.IngressVirtualServiceNamespace(ci)).List(
+	vses, err := c.virtualServiceLister.VirtualServices(resources.VirtualServiceNamespace(ci)).List(
 		labels.Set(map[string]string{
 			serving.RouteLabelKey:          ci.Labels[serving.RouteLabelKey],
 			serving.RouteNamespaceLabelKey: ci.Labels[serving.RouteNamespaceLabelKey]}).AsSelector())

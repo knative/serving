@@ -106,16 +106,16 @@ func makeK8sService(ctx context.Context, route *v1alpha1.Route, targetName strin
 	}, nil
 }
 
-func makeServiceSpec(ingressAccessor netv1alpha1.IngressAccessor) (*corev1.ServiceSpec, error) {
+func makeServiceSpec(ia netv1alpha1.IngressAccessor) (*corev1.ServiceSpec, error) {
 	//ingressStatus := ingress.Status
-	if ingressAccessor.GetStatus().LoadBalancer == nil || len(ingressAccessor.GetStatus().LoadBalancer.Ingress) == 0 {
+	if ia.GetStatus().LoadBalancer == nil || len(ia.GetStatus().LoadBalancer.Ingress) == 0 {
 		return nil, errLoadBalancerNotFound
 	}
-	if len(ingressAccessor.GetStatus().LoadBalancer.Ingress) > 1 {
+	if len(ia.GetStatus().LoadBalancer.Ingress) > 1 {
 		// Return error as we only support one LoadBalancer currently.
-		return nil, fmt.Errorf("more than one ingress are specified in status(LoadBalancer) of ClusterIngress %s", ingressAccessor.GetName())
+		return nil, fmt.Errorf("more than one ingress are specified in status(LoadBalancer) of Ingress %s", ia.GetObjectMeta().GetName())
 	}
-	balancer := ingressAccessor.GetStatus().LoadBalancer.Ingress[0]
+	balancer := ia.GetStatus().LoadBalancer.Ingress[0]
 
 	// Here we decide LoadBalancer information in the order of
 	// DomainInternal > Domain > LoadBalancedIP to prioritize cluster-local,

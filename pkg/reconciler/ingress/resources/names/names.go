@@ -17,32 +17,31 @@ limitations under the License.
 package names
 
 import (
-	"github.com/knative/pkg/kmeta"
+	"github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/resources"
 )
 
-// ClusterIngressVirtualService returns the name of the VirtualService child
-// resource for given ClusterIngress that programs traffic for Ingress
-// Gateways.
-func ClusterIngressVirtualService(i kmeta.Accessor) string {
-	return i.GetName()
-}
-
-// ClusterIngressMeshVirtualService returns the name of the VirtualService child
-// resource for given ClusterIngress that programs traffic for Service
-// Mesh.
-func ClusterIngressMeshVirtualService(i kmeta.Accessor) string {
-	return i.GetName() + "-mesh"
+// IngressMeshVirtualService returns the name of the VirtualService child
+// resource for given Ingress that programs traffic for Service Mesh.
+func IngressMeshVirtualService(i v1alpha1.IngressAccessor) string {
+	var name string
+	if len(i.GetObjectMeta().GetNamespace()) == 0 {
+		name = i.GetObjectMeta().GetName() + "-mesh"
+	} else {
+		name = resources.ChildName(i.GetObjectMeta().GetName(), "-mesh")
+	}
+	return name
 }
 
 // IngressVirtualService returns the name of the VirtualService child
 // resource for given Ingress that programs traffic for Ingress Gateways.
-func IngressVirtualService(i kmeta.Accessor) string {
-	return resources.ChildName(i.GetName(), "")
-}
+func IngressVirtualService(i v1alpha1.IngressAccessor) string {
+	var name string
+	if len(i.GetObjectMeta().GetNamespace()) == 0 {
+		name = i.GetObjectMeta().GetName()
+	} else {
+		name = resources.ChildName(i.GetObjectMeta().GetName(), "")
+	}
+	return name
 
-// IngressMeshVirtualService returns the name of the VirtualService child
-// resource for given Ingress that programs traffic for Service Mesh.
-func IngressMeshVirtualService(i kmeta.Accessor) string {
-	return resources.ChildName(i.GetName(), "-mesh")
 }
