@@ -63,6 +63,17 @@ func TestNamer(t *testing.T) {
 		f:    ClusterIngress,
 		want: "route-1234-5678-910",
 	}, {
+		name: "IngressPrefix",
+		route: &v1alpha1.Route{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "route-1234-5678-910",
+				Namespace: "default",
+				UID:       "1234-5678-910",
+			},
+		},
+		f:    Ingress,
+		want: "route-1234-5678-910",
+	}, {
 		name: "Certificate",
 		route: &v1alpha1.Route{
 			ObjectMeta: metav1.ObjectMeta{
