@@ -101,10 +101,9 @@ const (
 	PodAutoscalerConditionReady = apis.ConditionReady
 	// PodAutoscalerConditionActive becomes true when the PodAutoscaler's ScaleTargetRef can receive traffic.
 	PodAutoscalerConditionActive apis.ConditionType = "Active"
-	// PodAutoscalerConditionContainersHealthy becomes true when the containers are up and running.
-	PodAutoscalerConditionContainersHealthy apis.ConditionType = "ContainersHealthy"
-	// PodAutoscalerConditionPodsHealthy becomes true when the pods are up and running.
-	PodAutoscalerConditionPodsHealthy apis.ConditionType = "PodsHealthy"
+	// PodAutoscalerConditionBootstrap is false when there is some failure preventing the pods from booting up.
+	// It becomes true when a pod boots successfully.
+	PodAutoscalerConditionBootstrap apis.ConditionType = "Bootstrap"
 )
 
 // PodAutoscalerStatus communicates the observed state of the PodAutoscaler (from the controller).

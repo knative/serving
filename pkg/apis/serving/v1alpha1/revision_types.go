@@ -166,7 +166,7 @@ const (
 	RevisionConditionResourcesAvailable apis.ConditionType = "ResourcesAvailable"
 	// RevisionConditionContainerHealthy is set when the revision readiness check completes.
 	RevisionConditionContainerHealthy apis.ConditionType = "ContainerHealthy"
-	// RevisionConditionActive is set when the revision is receiving traffic.
+	// RevisionConditionActive is set when the revision can receive traffic.
 	RevisionConditionActive apis.ConditionType = "Active"
 )
 

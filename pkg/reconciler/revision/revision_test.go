@@ -103,8 +103,7 @@ func testReadyKPA(rev *v1alpha1.Revision) *av1alpha1.PodAutoscaler {
 	kpa := resources.MakeKPA(rev)
 	kpa.Status.InitializeConditions()
 	kpa.Status.MarkActive()
-	kpa.Status.MarkPodsHealthy()
-	kpa.Status.MarkContainersHealthy()
+	kpa.Status.MarkBootstrapSuccessful()
 	kpa.Status.ServiceName = serviceName(rev.Name)
 	return kpa
 }

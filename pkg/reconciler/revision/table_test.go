@@ -281,8 +281,7 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			rev("foo", "kpa-ready",
 				withK8sServiceName("old-stuff"), WithLogURL, AllUnknownConditions),
-			kpa("foo", "kpa-ready", WithTraffic, WithPAStatusService("new-stuff"),
-				WithHealthyPods(), WithHealthyContainers()),
+			kpa("foo", "kpa-ready", WithTraffic, WithPAStatusService("new-stuff"), WithSuccessfulBootstrap()),
 			deploy("foo", "kpa-ready"),
 			image("foo", "kpa-ready"),
 		},
@@ -370,7 +369,7 @@ func TestReconcile(t *testing.T) {
 			rev("foo", "fix-mutated-kpa",
 				withK8sServiceName("ill-follow-the-sun"), WithLogURL, MarkRevisionReady),
 			kpa("foo", "fix-mutated-kpa", WithProtocolType(networking.ProtocolH2C),
-				WithTraffic, WithPAStatusService("fix-mutated-kpa"), WithHealthyPods(), WithHealthyContainers()),
+				WithTraffic, WithPAStatusService("fix-mutated-kpa"), WithSuccessfulBootstrap()),
 			deploy("foo", "fix-mutated-kpa"),
 			image("foo", "fix-mutated-kpa"),
 		},
@@ -383,7 +382,7 @@ func TestReconcile(t *testing.T) {
 		}},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: kpa("foo", "fix-mutated-kpa", WithTraffic,
-				WithPAStatusService("fix-mutated-kpa"), WithHealthyPods(), WithHealthyContainers()),
+				WithPAStatusService("fix-mutated-kpa"), WithSuccessfulBootstrap()),
 		}},
 		Key: "foo/fix-mutated-kpa",
 	}, {
@@ -484,7 +483,7 @@ func TestReconcile(t *testing.T) {
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: rev("foo", "pod-schedule-error",
-				WithLogURL, AllUnknownConditions, MarkResourcesUnavailable("Insufficient energy", "Unschedulable")),
+				WithLogURL, AllUnknownConditions, MarkContainerUnhealthy("Insufficient energy", "Unschedulable")),
 		}},
 		Key: "foo/pod-schedule-error",
 	}, {
@@ -496,8 +495,7 @@ func TestReconcile(t *testing.T) {
 		// This signal should make our Reconcile mark the Revision as Ready.
 		Objects: []runtime.Object{
 			rev("foo", "steady-ready", withK8sServiceName("very-steady"), WithLogURL),
-			kpa("foo", "steady-ready", WithTraffic, WithPAStatusService("steadier-even"),
-				WithHealthyPods(), WithHealthyContainers()),
+			kpa("foo", "steady-ready", WithTraffic, WithPAStatusService("steadier-even"), WithSuccessfulBootstrap()),
 			deploy("foo", "steady-ready"),
 			image("foo", "steady-ready"),
 		},

@@ -29,8 +29,7 @@ import (
 )
 
 var podCondSet = apis.NewLivingConditionSet(
-	PodAutoscalerConditionContainersHealthy,
-	PodAutoscalerConditionPodsHealthy,
+	PodAutoscalerConditionBootstrap,
 )
 
 func (pa *PodAutoscaler) GetGroupVersionKind() schema.GroupVersionKind {
@@ -201,31 +200,26 @@ func (pas *PodAutoscalerStatus) MarkResourceFailedCreation(kind, name string) {
 		fmt.Sprintf("Failed to create %s %q.", kind, name))
 }
 
-// MarkContainerExiting changes the "ContainersHealthy" condition to false and records the exit code.
+// MarkContainerExiting changes the "Bootstrap" condition to false and records the exit code.
 func (pas *PodAutoscalerStatus) MarkContainerExiting(exitCode int32, message string) {
 	exitCodeString := fmt.Sprintf("ExitCode%d", exitCode)
 	message = fmt.Sprintf("Container failed with: %s", message)
-	podCondSet.Manage(pas).MarkFalse(PodAutoscalerConditionContainersHealthy, exitCodeString, message)
+	podCondSet.Manage(pas).MarkFalse(PodAutoscalerConditionBootstrap, exitCodeString, message)
 }
 
-// MarkContainerWaiting changes the "ContainersHealthy" condition to false and records the exit code.
-func (pas *PodAutoscalerStatus) MarkContainerWaiting(reason, message string) {
-	podCondSet.Manage(pas).MarkFalse(PodAutoscalerConditionContainersHealthy, reason, message)
+// MarkImagePullBackoff changes the "Bootstrap" condition to false.
+func (pas *PodAutoscalerStatus) MarkImagePullBackoff(reason, message string) {
+	podCondSet.Manage(pas).MarkFalse(PodAutoscalerConditionBootstrap, reason, message)
 }
 
-// MarkContainersHealthy changes the "ContainersHealthy" condition to true.
-func (pas *PodAutoscalerStatus) MarkContainersHealthy() {
-	podCondSet.Manage(pas).MarkTrue(PodAutoscalerConditionContainersHealthy)
-}
-
-// MarkPodUnscheduled changes the "PodsHealthy" condition to false and records reason and message.
+// MarkPodUnscheduled changes the "Bootstrap" condition to false and records reason and message.
 func (pas *PodAutoscalerStatus) MarkPodUnscheduled(reason, message string) {
-	podCondSet.Manage(pas).MarkFalse(PodAutoscalerConditionPodsHealthy, reason, message)
+	podCondSet.Manage(pas).MarkFalse(PodAutoscalerConditionBootstrap, reason, message)
 }
 
-// MarkPodsHealthy changes the "PodsHealthy" condition to true.
-func (pas *PodAutoscalerStatus) MarkPodsHealthy() {
-	podCondSet.Manage(pas).MarkTrue(PodAutoscalerConditionPodsHealthy)
+// MarkBootstrapSuccessful changes the "Bootstrap" condition to true.
+func (pas *PodAutoscalerStatus) MarkBootstrapSuccessful() {
+	podCondSet.Manage(pas).MarkTrue(PodAutoscalerConditionBootstrap)
 }
 
 // CanScaleToZero checks whether the pod autoscaler has been in an inactive state

@@ -188,7 +188,7 @@ func (c *Reconciler) reconcile(ctx context.Context, pa *pav1alpha1.PodAutoscaler
 		}
 	}
 
-	err = c.updateHealthConditions(ctx, pa)
+	err = c.computeBootstrapConditions(ctx, pa)
 	if err != nil {
 		return perrors.Wrap(err, "error checking container health")
 	}
@@ -220,12 +220,12 @@ func (c *Reconciler) reconcileDecider(ctx context.Context, pa *pav1alpha1.PodAut
 	return decider, nil
 }
 
-func (c *Reconciler) updateHealthConditions(ctx context.Context, pa *pav1alpha1.PodAutoscaler) error {
+func (c *Reconciler) computeBootstrapConditions(ctx context.Context, pa *pav1alpha1.PodAutoscaler) error {
 	logger := logging.FromContext(ctx)
 
+	// The PodAutoscaler is active, meaning that it has no bootstrap problem.
 	if pa.Status.IsActive() {
-		pa.Status.MarkContainersHealthy()
-		pa.Status.MarkPodsHealthy()
+		pa.Status.MarkBootstrapSuccessful()
 		return nil
 	}
 	ps, err := resourceutil.GetScaleResource(pa.Namespace, pa.Spec.ScaleTargetRef, c.PSInformerFactory)
@@ -233,7 +233,7 @@ func (c *Reconciler) updateHealthConditions(ctx context.Context, pa *pav1alpha1.
 		logger.Errorf("Error getting deployment: %v", err)
 		return err
 	}
-	// If a container keeps crashing (no active pods in the deployment although we want some)
+	// If the PodScalable does not go up from 0, it may be stuck in a bootstrap terminal problem.
 	if ps.Spec.Replicas != nil && *ps.Spec.Replicas > 0 && ps.Status.Replicas == 0 {
 		pods, err := c.KubeClientSet.CoreV1().Pods(pa.Namespace).List(metav1.ListOptions{LabelSelector: metav1.FormatLabelSelector(ps.Spec.Selector)})
 		if err != nil {
@@ -257,9 +257,9 @@ func (c *Reconciler) updateHealthConditions(ctx context.Context, pa *pav1alpha1.
 					if t := status.LastTerminationState.Terminated; t != nil {
 						logger.Infof("%s marking %s exiting with: %d/%s", pa.Name, status.Name, t.ExitCode, t.Message)
 						pa.Status.MarkContainerExiting(t.ExitCode, t.Message)
-					} else if w := status.State.Waiting; w != nil {
+					} else if w := status.State.Waiting; w != nil && w.Reason == "ImagePullBackoff" {
 						logger.Infof("%s marking %s is waiting with: %s: %s", pa.Name, w.Reason, w.Message)
-						pa.Status.MarkContainerWaiting(w.Reason, w.Message)
+						pa.Status.MarkImagePullBackoff(w.Reason, w.Message)
 					}
 					break
 				}

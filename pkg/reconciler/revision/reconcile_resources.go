@@ -155,25 +155,15 @@ func (c *Reconciler) reconcileKPA(ctx context.Context, rev *v1alpha1.Revision) e
 		rev.Status.MarkActive()
 	}
 
-	cond = kpa.Status.GetCondition(kpav1alpha1.PodAutoscalerConditionContainersHealthy)
+	cond = kpa.Status.GetCondition(kpav1alpha1.PodAutoscalerConditionReady)
 	if cond != nil {
 		switch {
 		case cond.Status == corev1.ConditionTrue:
 			rev.Status.MarkContainerHealthy()
+			rev.Status.MarkResourcesAvailable()
 		case cond.Status == corev1.ConditionFalse:
 			rev.Status.MarkContainerUnhealthy(cond.Reason, cond.Message)
 		}
-	}
-
-	cond = kpa.Status.GetCondition(kpav1alpha1.PodAutoscalerConditionPodsHealthy)
-	if cond != nil && cond.Status == corev1.ConditionFalse {
-		rev.Status.MarkResourcesUnavailable(cond.Reason, cond.Message)
-	}
-
-	if kpa.Status.IsReady() {
-		// Precondition for PA being ready is SKS being active and
-		// that entices that |service.endpoints| > 0.
-		rev.Status.MarkResourcesAvailable()
 	}
 
 	return nil

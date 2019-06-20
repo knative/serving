@@ -84,10 +84,10 @@ func WithNoTraffic(reason, message string) PodAutoscalerOption {
 	}
 }
 
-// WithHealthyContainers updates the PA to have ContainersHealthy condition true.
-func WithHealthyContainers() PodAutoscalerOption {
+// WithSuccessfulBootstrap updates the PA to have ContainersHealthy condition true.
+func WithSuccessfulBootstrap() PodAutoscalerOption {
 	return func(pa *autoscalingv1alpha1.PodAutoscaler) {
-		pa.Status.MarkContainersHealthy()
+		pa.Status.MarkBootstrapSuccessful()
 	}
 }
 
@@ -101,14 +101,7 @@ func WithContainerExiting(exitCode int32, message string) PodAutoscalerOption {
 // WithImagePullBackoff updates the PA to have ContainersHealthy condition false.
 func WithImagePullBackoff(reason, message string) PodAutoscalerOption {
 	return func(pa *autoscalingv1alpha1.PodAutoscaler) {
-		pa.Status.MarkContainerWaiting(reason, message)
-	}
-}
-
-// WithHealthyPods updates the PA to have PodsHealthy condition true.
-func WithHealthyPods() PodAutoscalerOption {
-	return func(pa *autoscalingv1alpha1.PodAutoscaler) {
-		pa.Status.MarkPodsHealthy()
+		pa.Status.MarkImagePullBackoff(reason, message)
 	}
 }
 
