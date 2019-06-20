@@ -75,6 +75,8 @@ func TestForwardedShimHandler(t *testing.T) {
 		xfp:  "p",
 		fwd:  "for=a, for=b",
 		want: "for=a, for=b",
+	}, {
+		name: "no xf* headers",
 	}}
 
 	for _, test := range tests {
