@@ -89,6 +89,7 @@ const (
 	// defaultProbeTimeout is the default duration for TCP/HTTP probe timeout.
 	defaultProbeTimeout = 100 * time.Millisecond
 	pollTimeout         = 10 * time.Second
+	retryInterval       = 50 * time.Millisecond
 )
 
 var (
@@ -354,7 +355,7 @@ func (p *probe) tcpProbe() error {
 		return health.TCPProbe(config)
 	}
 
-	return wait.PollImmediate(50*time.Millisecond, pollTimeout, func() (bool, error) {
+	return wait.PollImmediate(retryInterval, pollTimeout, func() (bool, error) {
 		if tcpErr := health.TCPProbe(config); tcpErr != nil {
 			p.count = 0
 			return false, nil
@@ -376,7 +377,7 @@ func (p *probe) httpProbe() error {
 		return health.HTTPProbe(httpProbeConfig)
 	}
 
-	return wait.PollImmediate(50*time.Millisecond, pollTimeout, func() (bool, error) {
+	return wait.PollImmediate(retryInterval, pollTimeout, func() (bool, error) {
 		if err := health.HTTPProbe(httpProbeConfig); err != nil {
 			p.count = 0
 			return false, nil
@@ -392,7 +393,7 @@ func (p *probe) Count() int32 {
 }
 
 func main() {
-	ucProbe := flag.String("readinessProbe", "", "JSON readiness probe configuration for user container")
+	ucProbe := flag.String("readiness-probe", "", "JSON readiness probe configuration for user container")
 	flag.Parse()
 
 	if *readinessProbe {

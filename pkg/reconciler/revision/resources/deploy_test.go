@@ -251,6 +251,12 @@ func withEnvVar(name, value string) containerOption {
 	}
 }
 
+func withArgs(args []string) containerOption {
+	return func(container *corev1.Container) {
+		container.Args = append(container.Args, args...)
+	}
+}
+
 func withInternalVolumeMount() containerOption {
 	return func(container *corev1.Container) {
 		container.VolumeMounts = append(container.VolumeMounts, internalVolumeMount)
@@ -394,6 +400,7 @@ func TestMakePodSpec(t *testing.T) {
 				queueContainer(
 					withEnvVar("CONTAINER_CONCURRENCY", "1"),
 					withEnvVar("USER_PORT", "8888"),
+					withArgs([]string{"--readiness-probe", "null"}),
 				),
 			}),
 	}, {
@@ -437,6 +444,7 @@ func TestMakePodSpec(t *testing.T) {
 				queueContainer(
 					withEnvVar("CONTAINER_CONCURRENCY", "1"),
 					withEnvVar("USER_PORT", "8888"),
+					withArgs([]string{"--readiness-probe", "null"}),
 				),
 			}, withAppendedVolumes(corev1.Volume{
 				Name: "asdf",
@@ -458,6 +466,7 @@ func TestMakePodSpec(t *testing.T) {
 				userContainer(),
 				queueContainer(
 					withEnvVar("CONTAINER_CONCURRENCY", "1"),
+					withArgs([]string{"--readiness-probe", "null"}),
 				),
 			}),
 	}, {
@@ -481,6 +490,7 @@ func TestMakePodSpec(t *testing.T) {
 				}),
 				queueContainer(
 					withEnvVar("CONTAINER_CONCURRENCY", "1"),
+					withArgs([]string{"--readiness-probe", "null"}),
 				),
 			}),
 	}, {
@@ -499,6 +509,7 @@ func TestMakePodSpec(t *testing.T) {
 				queueContainer(
 					withEnvVar("SERVING_CONFIGURATION", "parent-config"),
 					withEnvVar("CONTAINER_CONCURRENCY", "1"),
+					withArgs([]string{"--readiness-probe", "null"}),
 				),
 			}),
 	}, {
@@ -519,6 +530,7 @@ func TestMakePodSpec(t *testing.T) {
 				),
 				queueContainer(
 					withEnvVar("CONTAINER_CONCURRENCY", "0"),
+					withArgs([]string{"--readiness-probe", `{"httpGet":{"path":"/","port":8080}}`}),
 				),
 			}),
 	}, {
@@ -543,6 +555,7 @@ func TestMakePodSpec(t *testing.T) {
 				),
 				queueContainer(
 					withEnvVar("CONTAINER_CONCURRENCY", "0"),
+					withArgs([]string{"--readiness-probe", `{"exec":{"command":["echo","hello"]}}`}),
 				),
 			}),
 	}, {
@@ -576,6 +589,7 @@ func TestMakePodSpec(t *testing.T) {
 				),
 				queueContainer(
 					withEnvVar("CONTAINER_CONCURRENCY", "0"),
+					withArgs([]string{"--readiness-probe", "null"}),
 				),
 			}),
 	}, {
@@ -602,6 +616,7 @@ func TestMakePodSpec(t *testing.T) {
 				),
 				queueContainer(
 					withEnvVar("CONTAINER_CONCURRENCY", "0"),
+					withArgs([]string{"--readiness-probe", "null"}),
 				),
 			}),
 	}, {
@@ -620,6 +635,7 @@ func TestMakePodSpec(t *testing.T) {
 					withEnvVar("CONTAINER_CONCURRENCY", "1"),
 					withEnvVar("ENABLE_VAR_LOG_COLLECTION", "true"),
 					withInternalVolumeMount(),
+					withArgs([]string{"--readiness-probe", "null"}),
 				),
 			},
 			func(podSpec *corev1.PodSpec) {
@@ -686,6 +702,7 @@ func TestMakePodSpec(t *testing.T) {
 				queueContainer(
 					withEnvVar("CONTAINER_CONCURRENCY", "1"),
 					withEnvVar("SERVING_SERVICE", ""),
+					withArgs([]string{"--readiness-probe", "null"}),
 				),
 			}),
 	}}
@@ -695,7 +712,6 @@ func TestMakePodSpec(t *testing.T) {
 			quantityComparer := cmp.Comparer(func(x, y resource.Quantity) bool {
 				return x.Cmp(y) == 0
 			})
-
 			got := makePodSpec(test.rev, test.lc, test.oc, test.ac, test.cc)
 			if diff := cmp.Diff(test.want, got, quantityComparer); diff != "" {
 				t.Errorf("makePodSpec (-want, +got) = %v", diff)
@@ -712,7 +728,6 @@ func TestMakePodSpec(t *testing.T) {
 				*test.rev.Spec.DeprecatedContainer,
 			}
 			test.rev.Spec.DeprecatedContainer = nil
-
 			got := makePodSpec(test.rev, test.lc, test.oc, test.ac, test.cc)
 			if diff := cmp.Diff(test.want, got, quantityComparer); diff != "" {
 				t.Errorf("makePodSpec (-want, +got) = %v", diff)

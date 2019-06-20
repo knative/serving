@@ -17,6 +17,7 @@ limitations under the License.
 package resources
 
 import (
+	"encoding/json"
 	"sort"
 	"strconv"
 	"testing"
@@ -354,6 +355,7 @@ func TestMakeQueueContainer(t *testing.T) {
 
 			got := makeQueueContainer(test.rev, test.lc, test.oc, test.ac, test.cc)
 			sortEnv(got.Env)
+			test.want.Args = probeArgs(test.want.Args, test.rev.Spec.GetContainer().ReadinessProbe)
 			if diff := cmp.Diff(test.want, got, cmpopts.IgnoreUnexported(resource.Quantity{})); diff != "" {
 				t.Errorf("makeQueueContainer (-want, +got) = %v", diff)
 			}
@@ -598,6 +600,7 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			got := makeQueueContainer(test.rev, test.lc, test.oc, test.ac, test.cc)
 			sortEnv(got.Env)
+			test.want.Args = probeArgs(test.want.Args, test.rev.Spec.GetContainer().ReadinessProbe)
 			if diff := cmp.Diff(test.want, got, cmpopts.IgnoreUnexported(resource.Quantity{})); diff != "" {
 				t.Errorf("makeQueueContainerWithPercentageAnnotation (-want, +got) = %v", diff)
 			}
@@ -614,6 +617,62 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 				t.Errorf("Expected Resources.Limits.Cpu %v got %v ", test.want.Resources.Limits.Cpu(), got.Resources.Limits.Cpu())
 			}
 		})
+	}
+}
+
+func TestProbeGeneration(t *testing.T) {
+	expectedProbe := &corev1.Probe{
+		Handler: corev1.Handler{
+			HTTPGet: &corev1.HTTPGetAction{
+				Path: "/",
+			},
+		},
+		PeriodSeconds:  1,
+		TimeoutSeconds: 10,
+	}
+	probeBytes, err := json.Marshal(expectedProbe)
+	if err != nil {
+		t.Fatalf("Failed to marshall readiness probe %#v", err)
+	}
+	rev := &v1alpha1.Revision{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "foo",
+			Name:      "bar",
+			UID:       "1234",
+		},
+		Spec: v1alpha1.RevisionSpec{
+			RevisionSpec: v1beta1.RevisionSpec{
+				ContainerConcurrency: 1,
+				TimeoutSeconds:       ptr.Int64(45),
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Name:           containerName,
+						ReadinessProbe: expectedProbe,
+					}},
+				},
+			},
+		},
+	}
+	lc := &logging.Config{}
+	oc := &metrics.ObservabilityConfig{}
+	ac := &autoscaler.Config{}
+	cc := &deployment.Config{}
+	want := &corev1.Container{
+		// These are effectively constant
+		Name:           QueueContainerName,
+		Resources:      createQueueResources(make(map[string]string), &corev1.Container{}),
+		Ports:          append(queueNonServingPorts, queueHTTPPort),
+		ReadinessProbe: queueReadinessProbe,
+		// These changed based on the Revision and configs passed in.
+		Env:             env(map[string]string{}),
+		SecurityContext: queueSecurityContext,
+		Args:            []string{"--readiness-probe", string(probeBytes)},
+	}
+
+	got := makeQueueContainer(rev, lc, oc, ac, cc)
+	sortEnv(got.Env)
+	if diff := cmp.Diff(want, got, cmpopts.IgnoreUnexported(resource.Quantity{})); diff != "" {
+		t.Errorf("makeQueueContainerWithPercentageAnnotation (-want, +got) = %v", diff)
 	}
 }
 
@@ -636,6 +695,18 @@ var defaultEnv = map[string]string{
 	"ENABLE_VAR_LOG_COLLECTION":       "false",
 	"VAR_LOG_VOLUME_NAME":             varLogVolumeName,
 	"INTERNAL_VOLUME_PATH":            internalVolumePath,
+}
+
+func probeArgs(containerArgs []string, probe *corev1.Probe) []string {
+	probeArgs := []string{"--readiness-probe", "null"}
+	if probe != nil {
+		probeBytes, err := json.Marshal(probe)
+		if err != nil {
+			return append(containerArgs, probeArgs...)
+		}
+		return append(containerArgs, []string{"--readiness-probe", string(probeBytes)}...)
+	}
+	return append(containerArgs, probeArgs...)
 }
 
 func env(overrides map[string]string) []corev1.EnvVar {

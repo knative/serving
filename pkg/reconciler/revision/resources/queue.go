@@ -17,6 +17,7 @@ limitations under the License.
 package resources
 
 import (
+	"encoding/json"
 	"math"
 	"strconv"
 
@@ -191,6 +192,11 @@ func makeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, o
 		volumeMounts = append(volumeMounts, internalVolumeMount)
 	}
 
+	probeJSON, err := json.Marshal(rev.Spec.GetContainer().ReadinessProbe)
+	if err != nil {
+		probeJSON = []byte{}
+	}
+
 	return &corev1.Container{
 		Name:            QueueContainerName,
 		Image:           deploymentConfig.QueueSidecarImage,
@@ -198,6 +204,7 @@ func makeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, o
 		Ports:           ports,
 		ReadinessProbe:  queueReadinessProbe,
 		VolumeMounts:    volumeMounts,
+		Args:            []string{"--readiness-probe", string(probeJSON)},
 		SecurityContext: queueSecurityContext,
 		Env: []corev1.EnvVar{{
 			Name:  "SERVING_NAMESPACE",
