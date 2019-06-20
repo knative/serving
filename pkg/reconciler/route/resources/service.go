@@ -107,7 +107,6 @@ func makeK8sService(ctx context.Context, route *v1alpha1.Route, targetName strin
 }
 
 func makeServiceSpec(ia netv1alpha1.IngressAccessor) (*corev1.ServiceSpec, error) {
-	//ingressStatus := ingress.Status
 	if ia.GetStatus().LoadBalancer == nil || len(ia.GetStatus().LoadBalancer.Ingress) == 0 {
 		return nil, errLoadBalancerNotFound
 	}
