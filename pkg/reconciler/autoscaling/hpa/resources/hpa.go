@@ -66,7 +66,7 @@ func MakeHPA(pa *v1alpha1.PodAutoscaler, config *autoscaler.Config) *autoscaling
 				Type: autoscalingv2beta1.ResourceMetricSourceType,
 				Resource: &autoscalingv2beta1.ResourceMetricSource{
 					Name:                     corev1.ResourceCPU,
-					TargetAverageUtilization: ptr.Int32(int32(target)),
+					TargetAverageUtilization: ptr.Int32(int32(math.Ceil(target))),
 				},
 			}}
 		}
