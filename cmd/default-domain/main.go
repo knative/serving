@@ -31,7 +31,7 @@ import (
 
 	"github.com/knative/pkg/logging"
 	"github.com/knative/pkg/system"
-	cicfg "github.com/knative/serving/pkg/reconciler/clusteringress/config"
+	cicfg "github.com/knative/serving/pkg/reconciler/ingress/config"
 	routecfg "github.com/knative/serving/pkg/reconciler/route/config"
 	corev1 "k8s.io/api/core/v1"
 )
