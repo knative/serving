@@ -1,5 +1,5 @@
 /*
-Copyright 2018 The Knative Authors
+Copyright 2019 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package clusteringress
+package ingress
 
 import (
 	"context"
@@ -229,9 +229,9 @@ func TestReconcile(t *testing.T) {
 					Name:      "reconcile-virtualservice",
 					Namespace: system.Namespace(),
 					Labels: map[string]string{
-						networking.ClusterIngressLabelKey: "reconcile-virtualservice",
-						serving.RouteLabelKey:             "test-route",
-						serving.RouteNamespaceLabelKey:    "test-ns",
+						networking.IngressLabelKey:     "reconcile-virtualservice",
+						serving.RouteLabelKey:          "test-route",
+						serving.RouteNamespaceLabelKey: "test-ns",
 					},
 					OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(ingress("reconcile-virtualservice", 1234))},
 				},
@@ -242,7 +242,7 @@ func TestReconcile(t *testing.T) {
 					Name:      "reconcile-virtualservice-extra",
 					Namespace: system.Namespace(),
 					Labels: map[string]string{
-						networking.ClusterIngressLabelKey:     "reconcile-virtualservice",
+						networking.IngressLabelKey:     "reconcile-virtualservice",
 						serving.RouteLabelKey:          "test-route",
 						serving.RouteNamespaceLabelKey: "test-ns",
 					},
