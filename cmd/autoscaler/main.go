@@ -125,7 +125,6 @@ func main() {
 
 	// Set up a statserver.
 	statsServer := statserver.New(statsServerAddr, statsCh, logger)
-	defer statsServer.Shutdown(time.Second * 5)
 
 	// Start watching the configs.
 	if err := cmw.Start(ctx.Done()); err != nil {
@@ -146,28 +145,19 @@ func main() {
 		}
 	}()
 
-	// Run the controllers and the statserver in a group.
-	var eg errgroup.Group
+	eg, egCtx := errgroup.WithContext(ctx)
 	eg.Go(func() error {
 		return customMetricsAdapter.Run(ctx.Done())
 	})
+	eg.Go(statsServer.ListenAndServe)
 
-	eg.Go(func() error {
-		return statsServer.ListenAndServe()
-	})
+	// This will block until either a signal arrives or one of the grouped functions
+	// returns an error.
+	<-egCtx.Done()
 
-	egCh := make(chan struct{})
-
-	go func() {
-		defer close(egCh)
-		if err := eg.Wait(); err != nil {
-			logger.Errorw("Group error.", zap.Error(err))
-		}
-	}()
-
-	select {
-	case <-egCh:
-	case <-ctx.Done():
+	statsServer.Shutdown(5 * time.Second)
+	if err := eg.Wait(); err != nil {
+		logger.Errorw("Error while shutting down", zap.Error(err))
 	}
 }
 

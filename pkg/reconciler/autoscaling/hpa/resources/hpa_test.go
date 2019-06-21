@@ -73,6 +73,19 @@ func TestMakeHPA(t *testing.T) {
 				},
 			})),
 	}, {
+		name: "with an actual fractional target",
+		pa:   pa(WithTargetAnnotation("1982.4"), WithMetricAnnotation(autoscaling.CPU)),
+		want: hpa(
+			withAnnotationValue(autoscaling.MetricAnnotationKey, autoscaling.CPU),
+			withAnnotationValue(autoscaling.TargetAnnotationKey, "1982.4"),
+			withMetric(autoscalingv2beta1.MetricSpec{
+				Type: autoscalingv2beta1.ResourceMetricSourceType,
+				Resource: &autoscalingv2beta1.ResourceMetricSource{
+					Name:                     corev1.ResourceCPU,
+					TargetAverageUtilization: ptr.Int32(1983),
+				},
+			})),
+	}, {
 		name: "with metric=concurrency",
 		pa:   pa(WithMetricAnnotation(autoscaling.Concurrency)),
 		want: hpa(

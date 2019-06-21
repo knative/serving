@@ -24,7 +24,7 @@ import (
 	pkgTest "github.com/knative/pkg/test"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/test"
-	"github.com/knative/serving/test/logstream"
+	"github.com/knative/pkg/test/logstream"
 	v1a1test "github.com/knative/serving/test/v1alpha1"
 
 	corev1 "k8s.io/api/core/v1"
