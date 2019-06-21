@@ -146,7 +146,7 @@ function resolve_k8s_version() {
       --format='value(validMasterVersions)' \
       --zone=$2)"
   [[ -z "${versions}" ]] && return 1
-  local gke_versions=($(echo -n "${versions//;/ /}"))
+  local gke_versions=($(echo -n "${versions//;/ }"))
   echo "Available GKE versions in $2 are [${versions//;/, }]"
   if [[ "${target_version}" == "gke-latest" ]]; then
     # Get first (latest) version, excluding the "-gke.#" suffix
