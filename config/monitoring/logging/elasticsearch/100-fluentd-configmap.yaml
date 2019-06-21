@@ -101,7 +101,7 @@ data:
       @id elasticsearch
       @type elasticsearch
       @log_level info
-      host elasticsearch-logging
+      host elasticsearch-logging.knative-monitoring
       port 9200
       logstash_format true
       <buffer>
