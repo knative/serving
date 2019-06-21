@@ -156,7 +156,7 @@ func TestReconcile(t *testing.T) {
 				WithRouteUID("12-34"),
 				// Populated by reconciliation when all traffic has been assigned.
 				WithURL, WithAddress, WithInitRouteConditions,
-				MarkTrafficAssigned, WithStatusTraffic(v1alpha1.TrafficTarget{
+				MarkTrafficAssigned, MarkIngressNotConfigured, WithStatusTraffic(v1alpha1.TrafficTarget{
 					TrafficTarget: v1beta1.TrafficTarget{
 						RevisionName:   "config-00001",
 						Percent:        100,
@@ -213,7 +213,7 @@ func TestReconcile(t *testing.T) {
 				WithRouteUID("12-34"), WithIngressClass("custom-ingress-class"),
 				// Populated by reconciliation when all traffic has been assigned.
 				WithURL, WithAddress, WithInitRouteConditions,
-				MarkTrafficAssigned, WithStatusTraffic(v1alpha1.TrafficTarget{
+				MarkTrafficAssigned, MarkIngressNotConfigured, WithStatusTraffic(v1alpha1.TrafficTarget{
 					TrafficTarget: v1beta1.TrafficTarget{
 						RevisionName:   "config-00001",
 						Percent:        100,
@@ -274,7 +274,7 @@ func TestReconcile(t *testing.T) {
 				// Populated by reconciliation when all traffic has been assigned.
 				WithLocalDomain, WithAddress, WithInitRouteConditions,
 				WithRouteLabel("serving.knative.dev/visibility", "cluster-local"),
-				MarkTrafficAssigned, WithStatusTraffic(v1alpha1.TrafficTarget{
+				MarkTrafficAssigned, MarkIngressNotConfigured, WithStatusTraffic(v1alpha1.TrafficTarget{
 					TrafficTarget: v1beta1.TrafficTarget{
 						RevisionName:   "config-00001",
 						Percent:        100,
@@ -1273,7 +1273,7 @@ func TestReconcile(t *testing.T) {
 					},
 				}), WithRouteUID("34-78"),
 				WithURL, WithAddress, WithInitRouteConditions,
-				MarkTrafficAssigned, WithStatusTraffic(
+				MarkTrafficAssigned, MarkIngressNotConfigured, WithStatusTraffic(
 					v1alpha1.TrafficTarget{
 						TrafficTarget: v1beta1.TrafficTarget{
 							RevisionName:   "blue-00001",
@@ -1434,7 +1434,7 @@ func TestReconcile(t *testing.T) {
 					},
 				}), WithRouteUID("1-2"), WithRouteFinalizer,
 				WithURL, WithAddress, WithInitRouteConditions,
-				MarkTrafficAssigned, WithStatusTraffic(
+				MarkTrafficAssigned, MarkIngressNotConfigured, WithStatusTraffic(
 					v1alpha1.TrafficTarget{
 						TrafficTarget: v1beta1.TrafficTarget{
 							Tag:            "gray",
@@ -1946,7 +1946,7 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 				WithRouteUID("12-34"),
 				// Populated by reconciliation when all traffic has been assigned.
 				WithURL, WithAddress, WithInitRouteConditions,
-				MarkTrafficAssigned, WithStatusTraffic(v1alpha1.TrafficTarget{
+				MarkTrafficAssigned, MarkIngressNotConfigured, WithStatusTraffic(v1alpha1.TrafficTarget{
 					TrafficTarget: v1beta1.TrafficTarget{
 						RevisionName:   "config-00001",
 						Percent:        100,
@@ -2025,7 +2025,7 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 				WithRouteUID("12-34"),
 				// Populated by reconciliation when all traffic has been assigned.
 				WithAddress, WithInitRouteConditions,
-				MarkTrafficAssigned, WithStatusTraffic(v1alpha1.TrafficTarget{
+				MarkTrafficAssigned, MarkIngressNotConfigured, WithStatusTraffic(v1alpha1.TrafficTarget{
 					TrafficTarget: v1beta1.TrafficTarget{
 						RevisionName:   "config-00001",
 						Percent:        100,
