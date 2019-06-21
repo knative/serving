@@ -50,7 +50,8 @@ type PodScalableSpec struct {
 // PodScalableStatus is the observed state of a PodScalable (or at
 // least our shared portion).
 type PodScalableStatus struct {
-	Replicas int32 `json:"replicas,omitempty"`
+	Replicas      int32 `json:"replicas,omitempty"`
+	ReadyReplicas int32 `json:"readyReplicas,omitempty"`
 }
 
 var _ duck.Populatable = (*PodScalable)(nil)
@@ -92,7 +93,8 @@ func (t *PodScalable) Populate() {
 		},
 	}
 	t.Status = PodScalableStatus{
-		Replicas: 42,
+		Replicas:      42,
+		ReadyReplicas: 41,
 	}
 }
 

@@ -190,7 +190,7 @@ func (c *Reconciler) reconcile(ctx context.Context, pa *pav1alpha1.PodAutoscaler
 
 	err = c.computeBootstrapConditions(ctx, pa)
 	if err != nil {
-		return perrors.Wrap(err, "error checking container health")
+		return perrors.Wrap(err, "error checking bootstrap conditions")
 	}
 
 	return nil
@@ -234,7 +234,7 @@ func (c *Reconciler) computeBootstrapConditions(ctx context.Context, pa *pav1alp
 		return err
 	}
 	// If the PodScalable does not go up from 0, it may be stuck in a bootstrap terminal problem.
-	if ps.Spec.Replicas != nil && *ps.Spec.Replicas > 0 && ps.Status.Replicas == 0 {
+	if ps.Spec.Replicas != nil && *ps.Spec.Replicas > 0 && ps.Status.ReadyReplicas == 0 {
 		pods, err := c.KubeClientSet.CoreV1().Pods(pa.Namespace).List(metav1.ListOptions{LabelSelector: metav1.FormatLabelSelector(ps.Spec.Selector)})
 		if err != nil {
 			logger.Errorf("Error getting pods: %v", err)
