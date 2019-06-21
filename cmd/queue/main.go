@@ -276,6 +276,7 @@ func main() {
 	// Create queue handler chain
 	// Note: innermost handlers are specified first, ie. the last handler in the chain will be executed first
 	var composedHandler http.Handler = http.HandlerFunc(handler(reqChan, breaker, httpProxy))
+	composedHandler = queue.ForwardedShimHandler(composedHandler)
 	composedHandler = queue.TimeToFirstByteTimeoutHandler(composedHandler,
 		time.Duration(revisionTimeoutSeconds)*time.Second, "request timeout")
 	composedHandler = pushRequestLogHandler(composedHandler)

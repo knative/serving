@@ -19,6 +19,8 @@ package statserver_test
 import (
 	"bytes"
 	"encoding/gob"
+	"fmt"
+	"net/http"
 	"net/url"
 	"runtime"
 	"testing"
@@ -45,7 +47,29 @@ func TestServerLifecycle(t *testing.T) {
 	server.Shutdown(time.Second)
 
 	if err := eg.Wait(); err != nil {
-		t.Fatal("ListenAndServe failed.", err)
+		t.Error("ListenAndServe failed.", err)
+	}
+}
+
+func TestProbe(t *testing.T) {
+	statsCh := make(chan *autoscaler.StatMessage)
+	server := stats.NewTestServer(statsCh)
+
+	defer server.Shutdown(0)
+	go server.ListenAndServe()
+	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("%s/healthz", server.ListenAddr()), nil)
+	if err != nil {
+		t.Fatal("Error creating request:", err)
+	}
+	req.Header.Set("User-Agent", "kube-probe/1.15.i.wish")
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal("Error roundtripping:", err)
+	}
+	defer resp.Body.Close()
+	if got, want := resp.StatusCode, http.StatusOK; got != want {
+		t.Errorf("StatusCode: %v, want: %v", got, want)
 	}
 }
 
