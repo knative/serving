@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/knative/serving/pkg/network/prober"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -239,13 +240,27 @@ func TestScaler(t *testing.T) {
 			revisionScaler := newScaler(ctx, presources.NewPodScalableInformerFactory(ctx), func(interface{}, time.Duration) {
 				cbCount++
 			})
+
+			var doOver func(ctx context.Context, target, headerValue string, pos ...prober.ProbeOption) (b bool, e error)
 			if test.proberfunc != nil {
-				revisionScaler.activatorProbe = test.proberfunc
+				doOver = func(ctx context.Context, target, headerValue string, pos ...prober.ProbeOption) (b bool, e error){
+					return test.proberfunc(nil, nil)
+				}
 			} else {
-				revisionScaler.activatorProbe = func(*pav1alpha1.PodAutoscaler, http.RoundTripper) (bool, error) { return true, nil }
+				doOver = func(ctx context.Context, target, headerValue string, pos ...prober.ProbeOption) (bool, error){
+					return true, nil
+				}
 			}
-			cp := &countingProber{}
-			revisionScaler.probeManager = cp
+
+			cp := &countingProber{
+				prober: &fakeProber{
+					Prober: prober.New(func(arg interface{}, success bool, err error) {
+						
+					}, network.NewAutoTransport),
+					DoOver: doOver,
+				},
+			}
+			revisionScaler.prober = cp
 
 			// We test like this because the dynamic client's fake doesn't properly handle
 			// patch modes prior to 1.13 (where vaikas added JSON Patch support).
@@ -273,7 +288,7 @@ func TestScaler(t *testing.T) {
 			if err == nil && desiredScale != test.wantReplicas {
 				t.Errorf("desiredScale = %d, wanted %d", desiredScale, test.wantReplicas)
 			}
-			if got, want := cp.count, test.wantAsyncProbeCount; got != want {
+			if got, want := cp.asyncCount, test.wantAsyncProbeCount; got != want {
 				t.Errorf("Async probe invoked = %d time, want: %d", got, want)
 			}
 			if got, want := cbCount, test.wantCBCount; got != want {
@@ -372,6 +387,7 @@ func TestDisableScaleToZero(t *testing.T) {
 func newKPA(t *testing.T, servingClient clientset.Interface, revision *v1alpha1.Revision) *pav1alpha1.PodAutoscaler {
 	pa := revisionresources.MakeKPA(revision)
 	pa.Status.InitializeConditions()
+	pa.Status.ServiceName = "FooBar"
 	_, err := servingClient.AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(pa)
 	if err != nil {
 		t.Fatal("Failed to create PA.", err)
@@ -532,9 +548,12 @@ func TestActivatorProbe(t *testing.T) {
 		wantErr: true,
 	}}
 
+	ctx, _ := SetupFakeContext(t)
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			res, err := activatorProbe(pa, test.rt)
+			scaler := newScaler(ctx, presources.NewPodScalableInformerFactory(ctx), func(interface{}, time.Duration) {})
+			scaler.prober = prober.New(nil, func() http.RoundTripper { return test.rt })
+			res, err := scaler.activatorProbe(pa)
 			if got, want := res, test.wantRes; got != want {
 				t.Errorf("Result = %v, want: %v", got, want)
 			}
@@ -545,11 +564,34 @@ func TestActivatorProbe(t *testing.T) {
 	}
 }
 
+type fakeProber struct {
+	Prober prober.Prober
+	DoOver func(ctx context.Context, target, headerValue string, pos ...prober.ProbeOption) (bool, error)
+}
+
+func (c *fakeProber) Do(ctx context.Context, target, headerValue string, pos ...prober.ProbeOption) (bool, error) {
+	if c.DoOver != nil {
+		return c.DoOver(ctx, target, headerValue, pos...)
+	}
+	return c.Prober.Do(ctx, target, headerValue, pos...)
+}
+
+func (c *fakeProber) Offer(ctx context.Context, target, headerValue string, arg interface{}, period, timeout time.Duration) bool {
+	return c.Prober.Offer(ctx, target, headerValue, arg, period, timeout)
+}
+
 type countingProber struct {
-	count int
+	prober prober.Prober
+	syncCount int
+	asyncCount int
+}
+
+func (c *countingProber) Do(ctx context.Context, target, headerValue string, pos ...prober.ProbeOption) (bool, error) {
+	c.syncCount++
+	return c.prober.Do(ctx, target, headerValue, pos...)
 }
 
 func (c *countingProber) Offer(ctx context.Context, target, headerValue string, arg interface{}, period, timeout time.Duration) bool {
-	c.count++
-	return true
+	c.asyncCount++
+	return c.prober.Offer(ctx, target, headerValue, arg, period, timeout)
 }

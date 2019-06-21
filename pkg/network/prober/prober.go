@@ -30,37 +30,16 @@ import (
 	"github.com/knative/serving/pkg/network"
 )
 
+type Prober interface {
+	Do(ctx context.Context, target, headerValue string, pos ...ProbeOption) (bool, error)
+	Offer(ctx context.Context, target, headerValue string, arg interface{}, period, timeout time.Duration) bool
+}
+
 // TransportFactory is a function which returns an HTTP transport.
 type TransportFactory func() http.RoundTripper
 
 // ProbeOption is a way for caller to modify the HTTP request before it goes out.
 type ProbeOption func(r *http.Request) *http.Request
-
-// Do sends a single probe to given target, e.g. `http://revision.default.svc.cluster.local:81`.
-// headerValue is the value for the `k-network-probe` header.
-// Do returns whether the probe was successful or not, or there was an error probing.
-func Do(ctx context.Context, transport http.RoundTripper, target, headerValue string, pos ...ProbeOption) (bool, error) {
-	req, err := http.NewRequest(http.MethodGet, target, nil)
-	if err != nil {
-		return false, errors.Wrapf(err, "%s is not a valid URL", target)
-	}
-	for _, po := range pos {
-		req = po(req)
-	}
-
-	req.Header.Set(network.ProbeHeaderName, headerValue)
-	req = req.WithContext(ctx)
-	resp, err := transport.RoundTrip(req)
-	if err != nil {
-		return false, errors.Wrapf(err, "error roundtripping %s", target)
-	}
-	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return false, errors.Wrap(err, "error reading body")
-	}
-	return resp.StatusCode == http.StatusOK && string(body) == headerValue, nil
-}
 
 // Done is a callback that is executed when the async probe has finished.
 // `arg` is given by the caller at the offering time, while `success` and `err`
@@ -72,27 +51,55 @@ type Done func(arg interface{}, success bool, err error)
 // Manager manages async probes and makes sure we run concurrently only a single
 // probe for the same key.
 type Manager struct {
-	cb Done
-	// NB: it is paramount to use factory here, since we need a fresh roundtripper
-	// for every request. The way K8s Services work is that they won't terminate
-	// the TCP connection while the backend is still alive, and we won't scale it
-	// to zero, until we receive an activator response. Without mesh the connection
-	// is never severed and we continue probing the pod.
-	transportFactory TransportFactory
+	DoneCallback               Done
+	RoundTripper http.RoundTripper
 
 	// mu guards keys.
 	mu   sync.Mutex
 	keys sets.String
 }
 
+type option func(*Manager)
+
 // New creates a new Manager, that will invoke the given callback when
 // async probing is finished.
-func New(cb Done, transportFactory TransportFactory) *Manager {
+func New(roundTripper http.RoundTripper, opts option) *Manager {
 	return &Manager{
 		keys:             sets.NewString(),
-		cb:               cb,
-		transportFactory: transportFactory,
+		RoundTripper: roundTripper,
 	}
+}
+
+func WithCallback(done Done) option {
+	return func(m *Manager) {
+		m.DoneCallback = done
+	}
+}
+
+// Do sends a single probe to given target, e.g. `http://revision.default.svc.cluster.local:81`.
+// headerValue is the value for the `k-network-probe` header.
+// Do returns whether the probe was successful or not, or there was an error probing.
+func (m *Manager) Do(ctx context.Context, target, headerValue string, pos ...ProbeOption) (bool, error) {
+	req, err := http.NewRequest(http.MethodGet, target, nil)
+	if err != nil {
+		return false, errors.Wrapf(err, "%s is not a valid URL", target)
+	}
+	for _, po := range pos {
+		req = po(req)
+	}
+
+	req.Header.Set(network.ProbeHeaderName, headerValue)
+	req = req.WithContext(ctx)
+	resp, err := m.RoundTripper.RoundTrip(req)
+	if err != nil {
+		return false, errors.Wrapf(err, "error roundtripping %s", target)
+	}
+	defer resp.Body.Close()
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return false, errors.Wrap(err, "error reading body")
+	}
+	return resp.StatusCode == http.StatusOK && string(body) == headerValue, nil
 }
 
 // Offer executes asynchronous probe using `target` as the key.
@@ -108,12 +115,12 @@ func (m *Manager) Offer(ctx context.Context, target, headerValue string, arg int
 		return false
 	}
 	m.keys.Insert(target)
-	m.doAsync(ctx, m.transportFactory, target, headerValue, arg, period, timeout)
+	m.doAsync(ctx, target, headerValue, arg, period, timeout)
 	return true
 }
 
 // doAsync starts a go routine that probes the target with given period.
-func (m *Manager) doAsync(ctx context.Context, transportFactory TransportFactory, target, headerValue string, arg interface{}, period, timeout time.Duration) {
+func (m *Manager) doAsync(ctx context.Context, target, headerValue string, arg interface{}, period, timeout time.Duration) {
 	go func() {
 		defer func() {
 			m.mu.Lock()
@@ -125,9 +132,12 @@ func (m *Manager) doAsync(ctx context.Context, transportFactory TransportFactory
 			err    error
 		)
 		err = wait.PollImmediate(period, timeout, func() (bool, error) {
-			result, err = Do(ctx, transportFactory(), target, headerValue)
+			result, err = m.Do(ctx, target, headerValue)
 			return result, err
 		})
-		m.cb(arg, result, err)
+
+		if m.cb != nil {
+			m.cb(arg, result, err)
+		}
 	}()
 }

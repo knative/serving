@@ -19,7 +19,6 @@ package kpa
 import (
 	"context"
 	"fmt"
-	"net/http"
 	"time"
 
 	"github.com/knative/pkg/apis/duck"
@@ -59,14 +58,9 @@ type scaler struct {
 	psInformerFactory duck.InformerFactory
 	dynamicClient     dynamic.Interface
 	logger            *zap.SugaredLogger
-	transportFactory  prober.TransportFactory
 
-	// For sync probes.
-	activatorProbe func(pa *pav1alpha1.PodAutoscaler, transport http.RoundTripper) (bool, error)
-
-	// For async probes.
-	probeManager asyncProber
-	enqueueCB    func(interface{}, time.Duration)
+	prober    prober.Prober
+	enqueueCB func(interface{}, time.Duration)
 }
 
 // newScaler creates a scaler.
@@ -78,17 +72,14 @@ func newScaler(ctx context.Context, psInformerFactory duck.InformerFactory, enqu
 		psInformerFactory: psInformerFactory,
 		dynamicClient:     dynamicclient.Get(ctx),
 		logger:            logger,
-		transportFactory: func() http.RoundTripper {
-			return network.NewAutoTransport()
-		},
 
 		// Production setup uses the default probe implementation.
-		activatorProbe: activatorProbe,
-		probeManager: prober.New(func(arg interface{}, success bool, err error) {
+		prober: prober.New(/*func(arg interface{}, success bool, err error) {
 			logger.Infof("Async prober is done for %v: success?: %v error: %v", arg, success, err)
 			// Re-enqeue the PA in any case. If the probe timed out to retry again, if succeeded to scale to 0.
 			enqueueCB(arg, reenqeuePeriod)
-		}, network.NewAutoTransport),
+		}, */network.NewAutoTransport())
+		.WithCallback(),
 		enqueueCB: enqueueCB,
 	}
 	return ks
@@ -103,12 +94,12 @@ func paToProbeTarget(pa *pav1alpha1.PodAutoscaler) string {
 
 // activatorProbe returns true if via probe it determines that the
 // PA is backed by the Activator.
-func activatorProbe(pa *pav1alpha1.PodAutoscaler, transport http.RoundTripper) (bool, error) {
+func (ks *scaler) activatorProbe(pa *pav1alpha1.PodAutoscaler) (bool, error) {
 	// No service name -- no probe.
 	if pa.Status.ServiceName == "" {
 		return false, nil
 	}
-	return prober.Do(context.Background(), transport, paToProbeTarget(pa), activator.Name)
+	return ks.prober.Do(context.Background(), paToProbeTarget(pa), activator.Name)
 }
 
 // pre: 0 <= min <= max && 0 <= x
@@ -152,7 +143,7 @@ func (ks *scaler) handleScaleToZero(pa *pav1alpha1.PodAutoscaler, desiredScale i
 		ks.enqueueCB(pa, config.StableWindow)
 		desiredScale = 1
 	} else { // Active=False
-		r, err := ks.activatorProbe(pa, ks.transportFactory())
+		r, err := ks.activatorProbe(pa)
 		ks.logger.Infof("%s probing activator = %v, err = %v", pa.Name, r, err)
 		if r {
 			// Make sure we've been inactive for enough time.
@@ -167,7 +158,7 @@ func (ks *scaler) handleScaleToZero(pa *pav1alpha1.PodAutoscaler, desiredScale i
 
 		// Otherwise (any prober failure) start the async probe.
 		ks.logger.Infof("%s is not yet backed by activator, cannot scale to zero", pa.Name)
-		if !ks.probeManager.Offer(context.Background(), paToProbeTarget(pa), activator.Name, pa, probePeriod, probeTimeout) {
+		if !ks.prober.Offer(context.Background(), paToProbeTarget(pa), activator.Name, pa, probePeriod, probeTimeout) {
 			ks.logger.Infof("Probe for %s is already in flight", pa.Name)
 		}
 		return desiredScale, false

@@ -12,11 +12,13 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-package handler
+package handler_test
 
 import (
 	"errors"
 	"fmt"
+	"github.com/knative/serving/pkg/activator/handler"
+	"github.com/knative/serving/pkg/network/prober"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
@@ -313,24 +315,27 @@ func TestActivationHandler(t *testing.T) {
 				revisionLister(revision(testNamespace, testRevName)),
 				TestLogger(t))
 
-			handler := (New(TestLogger(t), reporter, throttler,
-				revisionLister(revision(testNamespace, testRevName)),
-				serviceLister(service(testNamespace, testRevName, "http")),
-				sksLister(sks(testNamespace, testRevName)),
-			)).(*activationHandler)
-			handler.probeTimeout = test.probeTimeout
-
-			// Setup transports.
 			rt := network.RoundTripperFunc(fakeRt.RT)
-			handler.transport = rt
-			handler.probeTransportFactory = rtFact(rt)
 
+			sksLister := sksLister(sks(testNamespace, testRevName))
 			if test.sksLister != nil {
-				handler.sksLister = test.sksLister
+				sksLister = test.sksLister
 			}
+			svcLister := serviceLister(service(testNamespace, testRevName, "http"))
 			if test.svcLister != nil {
-				handler.serviceLister = test.svcLister
+				svcLister = test.svcLister
 			}
+
+			handler := handler.New(
+				TestLogger(t),
+				reporter,
+				throttler,
+				revisionLister(revision(testNamespace, testRevName)),
+				svcLister,
+				sksLister,
+				prober.New(nil, rtFact(rt)))
+			handler.Transport = rt
+			handler.ProbeTimeout = test.probeTimeout
 
 			resp := httptest.NewRecorder()
 
@@ -388,18 +393,18 @@ func TestActivationHandlerOverflow(t *testing.T) {
 		revisionLister(revision(namespace, revName)),
 		TestLogger(t))
 
-	handler := (New(TestLogger(t), reporter, throttler,
+	handler := handler.New(
+		TestLogger(t),
+		reporter,
+		throttler,
 		revisionLister(revision(namespace, revName)),
 		serviceLister(service(namespace, revName, "http")),
 		sksLister(sks(namespace, revName)),
-	)).(*activationHandler)
+		prober.New(nil, rtFact(rt)))
+	handler.Transport = rt
 
-	// Setup transports.
-	handler.transport = rt
-	handler.probeTransportFactory = rtFact(rt)
-
-	sendRequests(requests, namespace, revName, respCh, *handler)
-	assertResponses(wantedSuccess, wantedFailure, requests, lockerCh, respCh, t)
+	sendRequests(requests, namespace, revName, respCh, handler)
+	assertResponses(wantedSuccess, wantedFailure, lockerCh, respCh, t)
 }
 
 // Make sure if one breaker is overflowed, the requests to other revisions are still served
@@ -435,18 +440,21 @@ func TestActivationHandlerOverflowSeveralRevisions(t *testing.T) {
 		},
 	}
 	rt := network.RoundTripperFunc(fakeRT.RT)
-	handler := (New(TestLogger(t), reporter, throttler,
-		revClient, svcClient, sksClient)).(*activationHandler)
-
-	// Setup transports.
-	handler.transport = rt
-	handler.probeTransportFactory = rtFact(rt)
+	handler := handler.New(
+		TestLogger(t),
+		reporter,
+		throttler,
+		revClient,
+		svcClient,
+		sksClient,
+		prober.New(nil, rtFact(rt)))
+	handler.Transport = rt
 
 	for _, revName := range revisions {
 		requestCount := overallRequests / len(revisions)
-		sendRequests(requestCount, testNamespace, revName, respCh, *handler)
+		sendRequests(requestCount, testNamespace, revName, respCh, handler)
 	}
-	assertResponses(wantedSuccess, wantedFailure, overallRequests, lockerCh, respCh, t)
+	assertResponses(wantedSuccess, wantedFailure, lockerCh, respCh, t)
 }
 
 func TestActivationHandlerProxyHeader(t *testing.T) {
@@ -475,16 +483,15 @@ func TestActivationHandlerProxyHeader(t *testing.T) {
 	}
 	probeRt := network.RoundTripperFunc(fakeRT.RT)
 
-	handler := activationHandler{
-		transport:             rt,
-		probeTransportFactory: rtFact(probeRt),
-		logger:                TestLogger(t),
-		reporter:              &fakeReporter{},
-		throttler:             throttler,
-		revisionLister:        revisionLister(revision(testNamespace, testRevName)),
-		serviceLister:         serviceLister(service(testNamespace, testRevName, "http")),
-		sksLister:             sksLister(sks(testNamespace, testRevName)),
-	}
+	handler := handler.New(
+		TestLogger(t),
+		&fakeReporter{},
+		throttler,
+		revisionLister(revision(testNamespace, testRevName)),
+		serviceLister(service(testNamespace, testRevName, "http")),
+		sksLister(sks(testNamespace, testRevName)),
+		prober.New(nil, rtFact(probeRt)))
+	handler.Transport = rt
 
 	writer := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
@@ -541,18 +548,15 @@ func TestActivationHandlerTraceSpans(t *testing.T) {
 		revisionLister(revision(namespace, revName)),
 		TestLogger(t))
 
-	handler := activationHandler{
-		transport:             rt,
-		probeTransportFactory: rtFact(rt),
-		logger:                TestLogger(t),
-		reporter:              &fakeReporter{},
-		throttler:             throttler,
-		revisionLister:        revisionLister(revision(testNamespace, testRevName)),
-		serviceLister:         serviceLister(service(testNamespace, testRevName, "http")),
-		sksLister:             sksLister(sks(testNamespace, testRevName)),
-	}
-	handler.transport = rt
-	handler.probeTransportFactory = rtFact(rt)
+	handler := handler.New(
+		TestLogger(t),
+		&fakeReporter{},
+		throttler,
+		revisionLister(revision(testNamespace, testRevName)),
+		serviceLister(service(testNamespace, testRevName, "http")),
+		sksLister(sks(testNamespace, testRevName)),
+		prober.New(nil, rtFact(rt)))
+	handler.Transport = rt
 
 	_ = sendRequest(namespace, revName, handler)
 
@@ -568,7 +572,7 @@ func TestActivationHandlerTraceSpans(t *testing.T) {
 	}
 }
 
-func sendRequest(namespace, revName string, handler activationHandler) *httptest.ResponseRecorder {
+func sendRequest(namespace, revName string, handler http.Handler) *httptest.ResponseRecorder {
 	resp := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
 	req.Header.Set(activator.RevisionHeaderNamespace, namespace)
@@ -579,7 +583,7 @@ func sendRequest(namespace, revName string, handler activationHandler) *httptest
 
 // sendRequests sends `count` concurrent requests via the given handler and writes
 // the recorded responses to the `respCh`.
-func sendRequests(count int, namespace, revName string, respCh chan *httptest.ResponseRecorder, handler activationHandler) {
+func sendRequests(count int, namespace, revName string, respCh chan *httptest.ResponseRecorder, handler http.Handler) {
 	for i := 0; i < count; i++ {
 		go func() {
 			respCh <- sendRequest(namespace, revName, handler)
@@ -587,7 +591,7 @@ func sendRequests(count int, namespace, revName string, respCh chan *httptest.Re
 	}
 }
 
-func assertResponses(wantedSuccess, wantedFailure, overallRequests int, lockerCh chan struct{}, respCh chan *httptest.ResponseRecorder, t *testing.T) {
+func assertResponses(wantedSuccess, wantedFailure int, lockerCh chan struct{}, respCh chan *httptest.ResponseRecorder, t *testing.T) {
 	t.Helper()
 
 	const channelTimeout = 3 * time.Second

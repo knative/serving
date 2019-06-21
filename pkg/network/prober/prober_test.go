@@ -68,9 +68,10 @@ func TestDoServing(t *testing.T) {
 		headerValue: "",
 		want:        false,
 	}}
+	prober := New(func(arg interface{}, success bool, err error) {}, network.NewAutoTransport)
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got, err := Do(context.Background(), network.NewAutoTransport(), ts.URL, test.headerValue)
+			got, err := prober.Do(context.Background(), ts.URL, test.headerValue)
 			if want := test.want; got != want {
 				t.Errorf("Got = %v, want: %v", got, want)
 			}
@@ -82,7 +83,8 @@ func TestDoServing(t *testing.T) {
 }
 
 func TestBlackHole(t *testing.T) {
-	got, err := Do(context.Background(), network.NewAutoTransport(), "http://gone.fishing.svc.custer.local:8080", systemName)
+	prober := New(func(arg interface{}, success bool, err error) {}, network.NewAutoTransport)
+	got, err := prober.Do(context.Background(), "http://gone.fishing.svc.custer.local:8080", systemName)
 	if want := false; got != want {
 		t.Errorf("Got = %v, want: %v", got, want)
 	}
@@ -92,7 +94,8 @@ func TestBlackHole(t *testing.T) {
 }
 
 func TestBadURL(t *testing.T) {
-	_, err := Do(context.Background(), network.NewAutoTransport(), ":foo", systemName)
+	prober := New(func(arg interface{}, success bool, err error) {}, network.NewAutoTransport)
+	_, err := prober.Do(context.Background(), ":foo", systemName)
 	if err == nil {
 		t.Error("Do did not return an error")
 	}

@@ -46,6 +46,7 @@ import (
 	pkghttp "github.com/knative/serving/pkg/http"
 	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/pkg/network"
+	"github.com/knative/serving/pkg/network/prober"
 	"github.com/knative/serving/pkg/queue"
 	"github.com/knative/serving/pkg/tracing"
 	tracingconfig "github.com/knative/serving/pkg/tracing/config"
@@ -230,7 +231,7 @@ func main() {
 		revisionInformer.Lister(),
 		serviceInformer.Lister(),
 		sksInformer.Lister(),
-	)
+		prober.New(nil, network.NewAutoTransport))
 	ah = activatorhandler.NewRequestEventHandler(reqChan, ah)
 	ah = tracing.HTTPSpanMiddleware(ah)
 	ah = configStore.HTTPMiddleware(ah)

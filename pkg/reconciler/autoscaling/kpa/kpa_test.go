@@ -19,7 +19,7 @@ package kpa
 import (
 	"context"
 	"fmt"
-	"net/http"
+	"github.com/knative/serving/pkg/network/prober"
 	"strconv"
 	"sync"
 	"testing"
@@ -303,7 +303,11 @@ func TestReconcileAndScaleToZero(t *testing.T) {
 		fakeMetrics := newTestMetrics()
 		psFactory := presources.NewPodScalableInformerFactory(ctx)
 		scaler := newScaler(ctx, psFactory, func(interface{}, time.Duration) {})
-		scaler.activatorProbe = func(*asv1a1.PodAutoscaler, http.RoundTripper) (bool, error) { return true, nil }
+		scaler.prober = &fakeProber{
+			DoOver: func(ctx context.Context, target, headerValue string, pos ...prober.ProbeOption) (b bool, e error) {
+				return true, nil
+			},
+		}
 		return &Reconciler{
 			Base: &areconciler.Base{
 				Base:              rpkg.NewBase(ctx, controllerAgentName, newConfigWatcher()),

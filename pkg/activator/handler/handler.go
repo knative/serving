@@ -49,12 +49,12 @@ import (
 // to be available before proxing the request
 type activationHandler struct {
 	logger    *zap.SugaredLogger
-	transport http.RoundTripper
+	Transport http.RoundTripper
 	reporter  activator.StatsReporter
 	throttler *activator.Throttler
 
-	probeTimeout          time.Duration
-	probeTransportFactory prober.TransportFactory
+	ProbeTimeout time.Duration
+	prober       prober.Prober
 	endpointTimeout       time.Duration
 
 	revisionLister servinglisters.RevisionLister
@@ -68,24 +68,17 @@ const defaulTimeout = 2 * time.Minute
 // New constructs a new http.Handler that deals with revision activation.
 func New(l *zap.SugaredLogger, r activator.StatsReporter, t *activator.Throttler,
 	rl servinglisters.RevisionLister, sl corev1listers.ServiceLister,
-	sksL netlisters.ServerlessServiceLister) http.Handler {
-
+	sksL netlisters.ServerlessServiceLister, pb prober.Prober) *activationHandler {
 	return &activationHandler{
 		logger:         l,
-		transport:      network.AutoTransport,
+		Transport:      network.AutoTransport,
 		reporter:       r,
 		throttler:      t,
 		revisionLister: rl,
 		sksLister:      sksL,
 		serviceLister:  sl,
-		probeTimeout:   defaulTimeout,
-		// In activator we collect metrics, so we're wrapping
-		// the Roundtripper the prober would use inside annotating transport.
-		probeTransportFactory: func() http.RoundTripper {
-			return &ochttp.Transport{
-				Base: network.NewAutoTransport(),
-			}
-		},
+		ProbeTimeout:   defaulTimeout,
+		prober:         pb,
 		endpointTimeout: defaulTimeout,
 	}
 }
@@ -111,9 +104,9 @@ func (a *activationHandler) probeEndpoint(logger *zap.SugaredLogger, r *http.Req
 		a.logger.Debugf("Probing %s took %d attempts and %v time", target.String(), attempts, time.Since(st))
 	}()
 
-	err := wait.PollImmediate(100*time.Millisecond, a.probeTimeout, func() (bool, error) {
+	err := wait.PollImmediate(100*time.Millisecond, a.ProbeTimeout, func() (bool, error) {
 		attempts++
-		ret, err := prober.Do(reqCtx, a.probeTransportFactory(), target.String(), queue.Name, withOrigProto(r))
+		ret, err := a.prober.Do(reqCtx, target.String(), queue.Name, withOrigProto(r))
 		if err != nil {
 			logger.Warnw("Pod probe failed", zap.Error(err))
 			return false, nil
@@ -217,7 +210,7 @@ func (a *activationHandler) proxyRequest(w http.ResponseWriter, r *http.Request,
 	recorder := pkghttp.NewResponseRecorder(w, http.StatusOK)
 	proxy := httputil.NewSingleHostReverseProxy(target)
 	proxy.Transport = &ochttp.Transport{
-		Base: a.transport,
+		Base: a.Transport,
 	}
 	proxy.FlushInterval = -1
 
