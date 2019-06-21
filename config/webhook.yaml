@@ -60,6 +60,8 @@ spec:
               fieldPath: metadata.namespace
         - name: CONFIG_LOGGING_NAME
           value: config-logging
+        securityContext:
+          allowPrivilegeEscalation: false
       volumes:
         - name: config-logging
           configMap:

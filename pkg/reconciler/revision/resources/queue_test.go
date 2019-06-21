@@ -74,10 +74,11 @@ func TestMakeQueueContainer(t *testing.T) {
 		cc: &deployment.Config{},
 		want: &corev1.Container{
 			// These are effectively constant
-			Name:           QueueContainerName,
-			Resources:      createQueueResources(make(map[string]string), &corev1.Container{}),
-			Ports:          append(queueNonServingPorts, queueHTTPPort),
-			ReadinessProbe: queueReadinessProbe,
+			Name:            QueueContainerName,
+			Resources:       createQueueResources(make(map[string]string), &corev1.Container{}),
+			Ports:           append(queueNonServingPorts, queueHTTPPort),
+			ReadinessProbe:  queueReadinessProbe,
+			SecurityContext: queueSecurityContext,
 			// These changed based on the Revision and configs passed in.
 			Env: env(nil),
 		},
@@ -113,10 +114,11 @@ func TestMakeQueueContainer(t *testing.T) {
 		},
 		want: &corev1.Container{
 			// These are effectively constant
-			Name:           QueueContainerName,
-			Resources:      createQueueResources(make(map[string]string), &corev1.Container{}),
-			Ports:          append(queueNonServingPorts, queueHTTP2Port),
-			ReadinessProbe: queueReadinessProbe,
+			Name:            QueueContainerName,
+			Resources:       createQueueResources(make(map[string]string), &corev1.Container{}),
+			Ports:           append(queueNonServingPorts, queueHTTP2Port),
+			ReadinessProbe:  queueReadinessProbe,
+			SecurityContext: queueSecurityContext,
 			// These changed based on the Revision and configs passed in.
 			Image: "alpine",
 			Env: env(map[string]string{
@@ -150,10 +152,11 @@ func TestMakeQueueContainer(t *testing.T) {
 		},
 		want: &corev1.Container{
 			// These are effectively constant
-			Name:           QueueContainerName,
-			Resources:      createQueueResources(make(map[string]string), &corev1.Container{}),
-			Ports:          append(queueNonServingPorts, queueHTTPPort),
-			ReadinessProbe: queueReadinessProbe,
+			Name:            QueueContainerName,
+			Resources:       createQueueResources(make(map[string]string), &corev1.Container{}),
+			Ports:           append(queueNonServingPorts, queueHTTPPort),
+			ReadinessProbe:  queueReadinessProbe,
+			SecurityContext: queueSecurityContext,
 			// These changed based on the Revision and configs passed in.
 			Image: "alpine",
 			Env: env(map[string]string{
@@ -187,10 +190,11 @@ func TestMakeQueueContainer(t *testing.T) {
 		cc: &deployment.Config{},
 		want: &corev1.Container{
 			// These are effectively constant
-			Name:           QueueContainerName,
-			Resources:      createQueueResources(make(map[string]string), &corev1.Container{}),
-			Ports:          append(queueNonServingPorts, queueHTTPPort),
-			ReadinessProbe: queueReadinessProbe,
+			Name:            QueueContainerName,
+			Resources:       createQueueResources(make(map[string]string), &corev1.Container{}),
+			Ports:           append(queueNonServingPorts, queueHTTPPort),
+			ReadinessProbe:  queueReadinessProbe,
+			SecurityContext: queueSecurityContext,
 			// These changed based on the Revision and configs passed in.
 			Env: env(map[string]string{
 				"CONTAINER_CONCURRENCY": "0",
@@ -225,10 +229,11 @@ func TestMakeQueueContainer(t *testing.T) {
 		cc: &deployment.Config{},
 		want: &corev1.Container{
 			// These are effectively constant
-			Name:           QueueContainerName,
-			Resources:      createQueueResources(make(map[string]string), &corev1.Container{}),
-			Ports:          append(queueNonServingPorts, queueHTTPPort),
-			ReadinessProbe: queueReadinessProbe,
+			Name:            QueueContainerName,
+			Resources:       createQueueResources(make(map[string]string), &corev1.Container{}),
+			Ports:           append(queueNonServingPorts, queueHTTPPort),
+			ReadinessProbe:  queueReadinessProbe,
+			SecurityContext: queueSecurityContext,
 			// These changed based on the Revision and configs passed in.
 			Env: env(map[string]string{
 				"CONTAINER_CONCURRENCY":  "0",
@@ -259,10 +264,11 @@ func TestMakeQueueContainer(t *testing.T) {
 		cc: &deployment.Config{},
 		want: &corev1.Container{
 			// These are effectively constant
-			Name:           QueueContainerName,
-			Resources:      createQueueResources(make(map[string]string), &corev1.Container{}),
-			Ports:          append(queueNonServingPorts, queueHTTPPort),
-			ReadinessProbe: queueReadinessProbe,
+			Name:            QueueContainerName,
+			Resources:       createQueueResources(make(map[string]string), &corev1.Container{}),
+			Ports:           append(queueNonServingPorts, queueHTTPPort),
+			ReadinessProbe:  queueReadinessProbe,
+			SecurityContext: queueSecurityContext,
 			// These changed based on the Revision and configs passed in.
 			Env: env(map[string]string{
 				"CONTAINER_CONCURRENCY": "10",
@@ -289,10 +295,11 @@ func TestMakeQueueContainer(t *testing.T) {
 		cc: &deployment.Config{},
 		want: &corev1.Container{
 			// These are effectively constant
-			Name:           QueueContainerName,
-			Resources:      createQueueResources(make(map[string]string), &corev1.Container{}),
-			Ports:          append(queueNonServingPorts, queueHTTPPort),
-			ReadinessProbe: queueReadinessProbe,
+			Name:            QueueContainerName,
+			Resources:       createQueueResources(make(map[string]string), &corev1.Container{}),
+			Ports:           append(queueNonServingPorts, queueHTTPPort),
+			ReadinessProbe:  queueReadinessProbe,
+			SecurityContext: queueSecurityContext,
 			// These changed based on the Revision and configs passed in.
 			Env: env(map[string]string{
 				"CONTAINER_CONCURRENCY":        "0",
@@ -322,10 +329,11 @@ func TestMakeQueueContainer(t *testing.T) {
 		cc: &deployment.Config{},
 		want: &corev1.Container{
 			// These are effectively constant
-			Name:           QueueContainerName,
-			Resources:      createQueueResources(make(map[string]string), &corev1.Container{}),
-			Ports:          append(queueNonServingPorts, queueHTTPPort),
-			ReadinessProbe: queueReadinessProbe,
+			Name:            QueueContainerName,
+			Resources:       createQueueResources(make(map[string]string), &corev1.Container{}),
+			Ports:           append(queueNonServingPorts, queueHTTPPort),
+			ReadinessProbe:  queueReadinessProbe,
+			SecurityContext: queueSecurityContext,
 			// These changed based on the Revision and configs passed in.
 			Env: env(map[string]string{
 				"CONTAINER_CONCURRENCY":           "0",
@@ -412,8 +420,9 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 					corev1.ResourceName("memory"): *resource.NewQuantity(429496736, resource.BinarySI),
 				},
 			},
-			Ports:          append(queueNonServingPorts, queueHTTPPort),
-			ReadinessProbe: queueReadinessProbe,
+			Ports:           append(queueNonServingPorts, queueHTTPPort),
+			ReadinessProbe:  queueReadinessProbe,
+			SecurityContext: queueSecurityContext,
 			// These changed based on the Revision and configs passed in.
 			Image: "alpine",
 			Env: env(map[string]string{
@@ -466,8 +475,9 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 					corev1.ResourceName("memory"): resource.MustParse("50Mi"),
 				},
 			},
-			Ports:          append(queueNonServingPorts, queueHTTPPort),
-			ReadinessProbe: queueReadinessProbe,
+			Ports:           append(queueNonServingPorts, queueHTTPPort),
+			ReadinessProbe:  queueReadinessProbe,
+			SecurityContext: queueSecurityContext,
 			// These changed based on the Revision and configs passed in.
 			Image: "alpine",
 			Env: env(map[string]string{
@@ -519,8 +529,9 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 					corev1.ResourceName("cpu"): resource.MustParse("25m"),
 				},
 			},
-			Ports:          append(queueNonServingPorts, queueHTTPPort),
-			ReadinessProbe: queueReadinessProbe,
+			Ports:           append(queueNonServingPorts, queueHTTPPort),
+			ReadinessProbe:  queueReadinessProbe,
+			SecurityContext: queueSecurityContext,
 			// These changed based on the Revision and configs passed in.
 			Image: "alpine",
 			Env: env(map[string]string{
@@ -572,8 +583,9 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 					corev1.ResourceName("memory"): resource.MustParse("200Mi"),
 				},
 			},
-			Ports:          append(queueNonServingPorts, queueHTTPPort),
-			ReadinessProbe: queueReadinessProbe,
+			Ports:           append(queueNonServingPorts, queueHTTPPort),
+			ReadinessProbe:  queueReadinessProbe,
+			SecurityContext: queueSecurityContext,
 			// These changed based on the Revision and configs passed in.
 			Image: "alpine",
 			Env: env(map[string]string{

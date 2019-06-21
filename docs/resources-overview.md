@@ -41,6 +41,9 @@ the `knative-serving` namespace. For example, if you create a Knative Serivce in
 namespace 'foo' the corresponding Istio resources will also be in namespace
 'foo'.
 
+All of these components are run as a non-root user (uid: 1337) and disallow
+privilege escalation.
+
 ## Kubernetes Resource Configs
 
 The various Kubernetes resource configurations are organized as follows:
