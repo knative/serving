@@ -20,6 +20,7 @@ package gcs
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"log"
@@ -128,6 +129,18 @@ func Read(ctx context.Context, bucketName, filePath string) ([]byte, error) {
 	return contents, nil
 }
 
+// ReadURL reads from a gsUrl and return a log structure
+func ReadURL(ctx context.Context, gcsURL string) ([]byte, error) {
+	var data []byte
+
+	bucket, obj, err := linkToBucketAndObject(gcsURL)
+	if err != nil {
+		return data, err
+	}
+
+	return Read(ctx, bucket, obj)
+}
+
 // NewReader creates a new Reader of a gcs file.
 // Important: caller must call Close on the returned Reader when done reading
 func NewReader(ctx context.Context, bucketName, filePath string) (*storage.Reader, error) {
@@ -182,4 +195,17 @@ func getObjectsIter(ctx context.Context, bucketName, storagePath, exclusionFilte
 		Prefix:    storagePath,
 		Delimiter: exclusionFilter,
 	})
+}
+
+// get the bucket and object from the gsURL
+func linkToBucketAndObject(gsURL string) (string, string, error) {
+	var bucket, obj string
+	gsURL = strings.Replace(gsURL, "gs://", "", 1)
+
+	sIdx := strings.IndexByte(gsURL, '/')
+	if sIdx == -1 || sIdx+1 >= len(gsURL) {
+		return bucket, obj, fmt.Errorf("the gsUrl (%s) cannot be converted to bucket/object", gsURL)
+	}
+
+	return gsURL[:sIdx], gsURL[sIdx+1:], nil
 }

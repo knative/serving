@@ -27,10 +27,10 @@ import (
 	"path"
 	"time"
 
+	"fortio.org/fortio/fhttp"
+	"fortio.org/fortio/periodic"
 	"github.com/knative/test-infra/shared/common"
 	"github.com/knative/test-infra/shared/prow"
-	"istio.io/fortio/fhttp"
-	"istio.io/fortio/periodic"
 )
 
 const (
