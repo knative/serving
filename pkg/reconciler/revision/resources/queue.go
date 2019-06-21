@@ -26,6 +26,7 @@ import (
 
 	"github.com/knative/pkg/logging"
 	pkgmetrics "github.com/knative/pkg/metrics"
+	"github.com/knative/pkg/ptr"
 	"github.com/knative/pkg/system"
 	"github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/serving"
@@ -79,10 +80,8 @@ var (
 		TimeoutSeconds: 10,
 	}
 
-	queueAllowPrivilegeEscalation = false
-
 	queueSecurityContext = &corev1.SecurityContext{
-		AllowPrivilegeEscalation: &queueAllowPrivilegeEscalation,
+		AllowPrivilegeEscalation: ptr.Bool(false),
 	}
 )
 
