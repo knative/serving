@@ -232,6 +232,19 @@ func TestNewConfig(t *testing.T) {
 			"panic-threshold-percentage":              "200",
 		},
 		wantErr: true,
+	}, {
+		name: "target capacity less than 1",
+		input: map[string]string{
+			"max-scale-up-rate":                       "1.0",
+			"container-concurrency-target-percentage": "30.0",
+			"container-concurrency-target-default":    "2",
+			"stable-window":                           "not a duration",
+			"panic-window":                            "10s",
+			"tick-interval":                           "2s",
+			"panic-window-percentage":                 "10",
+			"panic-threshold-percentage":              "200",
+		},
+		wantErr: true,
 	}}
 
 	for _, test := range tests {

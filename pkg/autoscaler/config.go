@@ -123,6 +123,10 @@ func NewConfigFromMap(data map[string]string) (*Config, error) {
 		lc.ContainerConcurrencyTargetFraction /= 100.0
 	}
 
+	if x := lc.ContainerConcurrencyTargetFraction * lc.ContainerConcurrencyTargetDefault; x < 1.0 {
+		return nil, fmt.Errorf("container-concurrency-target-percentage and container-concurrency-target-default yield target concurrency of %f, can't be less 1", x)
+	}
+
 	// Process Duration fields
 	for _, dur := range []struct {
 		key          string

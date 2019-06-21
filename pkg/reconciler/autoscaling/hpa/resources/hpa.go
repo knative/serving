@@ -71,7 +71,7 @@ func MakeHPA(pa *v1alpha1.PodAutoscaler, config *autoscaler.Config) *autoscaling
 			}}
 		}
 	case autoscaling.Concurrency:
-		target := int64(math.Ceil(aresources.ResolveTargetConcurrency(pa, config)))
+		target := int64(math.Ceil(aresources.ResolveConcurrency(pa, config)))
 		hpa.Spec.Metrics = []autoscalingv2beta1.MetricSpec{{
 			Type: autoscalingv2beta1.ObjectMetricSourceType,
 			Object: &autoscalingv2beta1.ObjectMetricSource{

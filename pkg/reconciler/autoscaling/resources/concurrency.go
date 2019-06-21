@@ -23,10 +23,10 @@ import (
 	"github.com/knative/serving/pkg/autoscaler"
 )
 
-// ResolveTargetConcurrency takes concurrency knobs from multiple locations and resolves them
+// ResolveConcurrency takes concurrency knobs from multiple locations and resolves them
 // to the final value to be used by the autoscaler.
-func ResolveTargetConcurrency(pa *v1alpha1.PodAutoscaler, config *autoscaler.Config) float64 {
-	target := float64(pa.Spec.ContainerConcurrency) * config.ContainerConcurrencyTargetFraction
+func ResolveConcurrency(pa *v1alpha1.PodAutoscaler, config *autoscaler.Config) float64 {
+	target := math.Max(1, float64(pa.Spec.ContainerConcurrency)*config.ContainerConcurrencyTargetFraction)
 
 	// If containerConcurrency is 0 we'll always target the default.
 	if pa.Spec.ContainerConcurrency == 0 {
