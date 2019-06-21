@@ -31,6 +31,7 @@ import (
 	v1a1test "github.com/knative/serving/test/v1alpha1"
 	"github.com/knative/test-infra/shared/junit"
 	"github.com/knative/test-infra/shared/loadgenerator"
+	perf "github.com/knative/test-infra/shared/performance"
 	"github.com/knative/test-infra/shared/testgrid"
 )
 
@@ -102,7 +103,7 @@ func timeToServe(t *testing.T, img, query string, reqTimeout time.Duration) {
 		t.Fatal("No result found for the load test")
 	}
 
-	if ErrorsPercentage(resp) > 0 {
+	if resp.ErrorsPercentage(0) > 0 {
 		t.Fatal("Found non 200 response")
 	}
 
@@ -111,7 +112,7 @@ func timeToServe(t *testing.T, img, query string, reqTimeout time.Duration) {
 	for _, p := range resp.Result[0].DurationHistogram.Percentiles {
 		val := float32(p.Value) * 1000
 		name := fmt.Sprintf("p%d(ms)", int(p.Percentile))
-		tc = append(tc, CreatePerfTestCase(val, name, tName))
+		tc = append(tc, perf.CreatePerfTestCase(val, name, tName))
 	}
 
 	if err = testgrid.CreateXMLOutput(tc, tName); err != nil {

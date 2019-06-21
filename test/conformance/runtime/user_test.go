@@ -22,9 +22,9 @@ import (
 	"testing"
 
 	"github.com/knative/serving/test"
-	v1a1test "github.com/knative/serving/test/v1alpha1"
-
 	corev1 "k8s.io/api/core/v1"
+
+	. "github.com/knative/serving/pkg/testing/v1alpha1"
 )
 
 const (
@@ -43,7 +43,7 @@ func TestMustRunAsUser(t *testing.T) {
 		RunAsUser: &runAsUser,
 	}
 
-	_, ri, err := fetchRuntimeInfo(t, clients, &v1a1test.Options{SecurityContext: securityContext})
+	_, ri, err := fetchRuntimeInfo(t, clients, WithSecurityContext(securityContext))
 	if err != nil {
 		t.Fatalf("Error fetching runtime info: %v", err)
 	}
@@ -73,7 +73,7 @@ func TestMustRunAsUser(t *testing.T) {
 func TestShouldRunAsUserContainerDefault(t *testing.T) {
 	t.Parallel()
 	clients := test.Setup(t)
-	_, ri, err := fetchRuntimeInfoUnprivileged(t, clients, &v1a1test.Options{})
+	_, ri, err := fetchRuntimeInfoUnprivileged(t, clients)
 
 	if err != nil {
 		t.Fatalf("Error fetching runtime info: %v", err)

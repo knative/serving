@@ -28,6 +28,7 @@ import (
 	ingress "github.com/knative/pkg/test/ingress"
 	rnames "github.com/knative/serving/pkg/reconciler/revision/resources/names"
 	"github.com/knative/serving/test"
+	"github.com/knative/pkg/test/logstream"
 	v1a1test "github.com/knative/serving/test/v1alpha1"
 	"k8s.io/apimachinery/pkg/util/wait"
 )
@@ -107,6 +108,10 @@ func validateWebSocketConnection(t *testing.T, clients *test.Clients, names test
 // (2) connects to the service using websocket, (3) sends a message, and
 // (4) verifies that we receive back the same message.
 func TestWebSocket(t *testing.T) {
+	t.Parallel()
+	cancel := logstream.Start(t)
+	defer cancel()
+
 	clients := Setup(t)
 
 	names := test.ResourceNames{
@@ -133,6 +138,10 @@ func TestWebSocket(t *testing.T) {
 // (3) connects to the service using websocket, (4) sends a message, and
 // (5) verifies that we receive back the same message.
 func TestWebSocketFromZero(t *testing.T) {
+	t.Parallel()
+	cancel := logstream.Start(t)
+	defer cancel()
+
 	clients := Setup(t)
 
 	names := test.ResourceNames{

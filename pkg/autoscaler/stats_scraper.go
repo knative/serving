@@ -179,8 +179,8 @@ func (s *ServiceScraper) Scrape() (*StatMessage, error) {
 	var (
 		avgConcurrency        float64
 		avgProxiedConcurrency float64
-		reqCount              int32
-		proxiedReqCount       int32
+		reqCount              float64
+		proxiedReqCount       float64
 		successCount          float64
 	)
 
@@ -192,10 +192,11 @@ func (s *ServiceScraper) Scrape() (*StatMessage, error) {
 		proxiedReqCount += stat.ProxiedRequestCount
 	}
 
+	frpc := float64(readyPodsCount)
 	avgConcurrency = avgConcurrency / successCount
 	avgProxiedConcurrency = avgProxiedConcurrency / successCount
-	reqCount = int32(float64(reqCount) / successCount)
-	proxiedReqCount = int32(float64(proxiedReqCount) / successCount)
+	reqCount = reqCount / successCount
+	proxiedReqCount = proxiedReqCount / successCount
 	now := time.Now()
 
 	// Assumptions:
@@ -210,10 +211,10 @@ func (s *ServiceScraper) Scrape() (*StatMessage, error) {
 	extrapolatedStat := Stat{
 		Time:                             &now,
 		PodName:                          scraperPodName,
-		AverageConcurrentRequests:        avgConcurrency * float64(readyPodsCount),
-		AverageProxiedConcurrentRequests: avgProxiedConcurrency * float64(readyPodsCount),
-		RequestCount:                     reqCount * int32(readyPodsCount),
-		ProxiedRequestCount:              proxiedReqCount * int32(readyPodsCount),
+		AverageConcurrentRequests:        avgConcurrency * frpc,
+		AverageProxiedConcurrentRequests: avgProxiedConcurrency * frpc,
+		RequestCount:                     reqCount * frpc,
+		ProxiedRequestCount:              proxiedReqCount * frpc,
 	}
 
 	return &StatMessage{

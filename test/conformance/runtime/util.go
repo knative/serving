@@ -22,26 +22,40 @@ import (
 	"testing"
 
 	pkgTest "github.com/knative/pkg/test"
-	reconciler "github.com/knative/serving/pkg/testing/v1alpha1"
-	v1a1test "github.com/knative/serving/test/v1alpha1"
-
 	"github.com/knative/serving/test"
 	"github.com/knative/serving/test/types"
+	v1a1test "github.com/knative/serving/test/v1alpha1"
+
+	. "github.com/knative/serving/pkg/testing/v1alpha1"
 )
 
 // fetchRuntimeInfoUnprivileged creates a Service that uses the 'runtime-unprivileged' test image, and extracts the returned output into the
 // RuntimeInfo object.
-func fetchRuntimeInfoUnprivileged(t *testing.T, clients *test.Clients, options *v1a1test.Options, opts ...reconciler.ServiceOption) (*test.ResourceNames, *types.RuntimeInfo, error) {
-	return runtimeInfo(t, clients, &test.ResourceNames{Image: test.RuntimeUnprivileged}, options, opts...)
+func fetchRuntimeInfoUnprivileged(
+	t *testing.T,
+	clients *test.Clients,
+	opts ...interface{}) (*test.ResourceNames, *types.RuntimeInfo, error) {
+
+	return runtimeInfo(t, clients, &test.ResourceNames{Image: test.RuntimeUnprivileged}, opts...)
 }
 
 // fetchRuntimeInfo creates a Service that uses the 'runtime' test image, and extracts the returned output into the
 // RuntimeInfo object. The 'runtime' image uses uid 0.
-func fetchRuntimeInfo(t *testing.T, clients *test.Clients, options *v1a1test.Options, opts ...reconciler.ServiceOption) (*test.ResourceNames, *types.RuntimeInfo, error) {
-	return runtimeInfo(t, clients, &test.ResourceNames{}, options, opts...)
+func fetchRuntimeInfo(
+	t *testing.T,
+	clients *test.Clients,
+	opts ...interface{}) (*test.ResourceNames, *types.RuntimeInfo, error) {
+
+	return runtimeInfo(t, clients, &test.ResourceNames{}, opts...)
 }
 
-func runtimeInfo(t *testing.T, clients *test.Clients, names *test.ResourceNames, options *v1a1test.Options, opts ...reconciler.ServiceOption) (*test.ResourceNames, *types.RuntimeInfo, error) {
+func runtimeInfo(
+	t *testing.T,
+	clients *test.Clients,
+	names *test.ResourceNames,
+	opts ...interface{}) (*test.ResourceNames, *types.RuntimeInfo, error) {
+
+	t.Helper()
 	names.Service = test.ObjectNameForTest(t)
 	if names.Image == "" {
 		names.Image = test.Runtime
@@ -52,7 +66,12 @@ func runtimeInfo(t *testing.T, clients *test.Clients, names *test.ResourceNames,
 	defer test.TearDown(clients, *names)
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, *names) })
 
-	objects, err := v1a1test.CreateRunLatestServiceReady(t, clients, names, options, opts...)
+	serviceOpts, reqOpts, err := splitOpts(opts...)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	objects, err := v1a1test.CreateRunLatestServiceReady(t, clients, names, &v1a1test.Options{}, serviceOpts...)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -63,7 +82,8 @@ func runtimeInfo(t *testing.T, clients *test.Clients, names *test.ResourceNames,
 		objects.Service.Status.URL.Host,
 		v1a1test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
 		"RuntimeInfo",
-		test.ServingFlags.ResolvableDomain)
+		test.ServingFlags.ResolvableDomain,
+		reqOpts...)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -71,4 +91,21 @@ func runtimeInfo(t *testing.T, clients *test.Clients, names *test.ResourceNames,
 	var ri types.RuntimeInfo
 	err = json.Unmarshal(resp.Body, &ri)
 	return names, &ri, err
+}
+
+func splitOpts(opts ...interface{}) ([]ServiceOption, []pkgTest.RequestOption, error) {
+	serviceOpts := []ServiceOption{}
+	reqOpts := []pkgTest.RequestOption{}
+	for _, opt := range opts {
+		switch t := opt.(type) {
+		case ServiceOption:
+			serviceOpts = append(serviceOpts, opt.(ServiceOption))
+		case pkgTest.RequestOption:
+			reqOpts = append(reqOpts, opt.(pkgTest.RequestOption))
+		default:
+			return nil, nil, fmt.Errorf("invalid option type: %T", t)
+		}
+
+	}
+	return serviceOpts, reqOpts, nil
 }

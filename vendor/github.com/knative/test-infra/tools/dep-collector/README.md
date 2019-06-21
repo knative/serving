@@ -1,14 +1,14 @@
 # dep-collector
 
 `dep-collector` is a tool for gathering up a collection of licenses for Go
-dependencies that have been pulled into the idiomatic `vendor/` directory.
-The resulting file from running `dep-collector` is intended for inclusion
-in container images to respect the licenses of the included software.
+dependencies that have been pulled into the idiomatic `vendor/` directory. The
+resulting file from running `dep-collector` is intended for inclusion in
+container images to respect the licenses of the included software.
 
 ## Basic Usage
 
-You can run `dep-collector` on one or more Go import paths as entrypoints,
-and it will:
+You can run `dep-collector` on one or more Go import paths as entrypoints, and
+it will:
 
 1. Walk the transitive dependencies to identify vendored software packages,
 1. Search for licenses for each vendored dependency,
@@ -43,11 +43,11 @@ Import: github.com/mattmoor/warm-image/vendor/cloud.google.com/go
 
 ## CSV Usage
 
-You can also run `dep-collector` in a mode that produces CSV output,
-including basic classification of the license.
+You can also run `dep-collector` in a mode that produces CSV output, including
+basic classification of the license.
 
-> In order to run dep-collector in this mode, you must first run:
-> go get github.com/google/licenseclassifier
+> In order to run dep-collector in this mode, you must first run: go get
+> github.com/google/licenseclassifier
 
 For example:
 
@@ -61,18 +61,19 @@ github.com/sergi/go-diff,Static,,https://github.com/mattmoor/dep-collector/blob/
 
 The columns here are:
 
-* Import Path,
-* How the dependency is linked in (always reports "static"),
-* A column for whether any modifications have been made (always empty),
-* The URL by which to access the license file (assumes `master`),
-* A classification of what license this is ([using this](https://github.com/google/licenseclassifier)).
+- Import Path,
+- How the dependency is linked in (always reports "static"),
+- A column for whether any modifications have been made (always empty),
+- The URL by which to access the license file (assumes `master`),
+- A classification of what license this is
+  ([using this](https://github.com/google/licenseclassifier)).
 
 ## Check mode
 
 `dep-collector` also includes a mode that will check for "forbidden" licenses.
 
-> In order to run dep-collector in this mode, you must first run:
-> go get github.com/google/licenseclassifier
+> In order to run dep-collector in this mode, you must first run: go get
+> github.com/google/licenseclassifier
 
 For example (failing):
 

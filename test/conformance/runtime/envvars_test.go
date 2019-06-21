@@ -25,15 +25,15 @@ import (
 
 	"github.com/knative/serving/test"
 	"github.com/knative/serving/test/types"
-	v1a1test "github.com/knative/serving/test/v1alpha1"
-	corev1 "k8s.io/api/core/v1"
+
+	. "github.com/knative/serving/pkg/testing/v1alpha1"
 )
 
 // TestShouldEnvVars verifies environment variables that are declared as "SHOULD be set" in runtime-contract
 func TestShouldEnvVars(t *testing.T) {
 	t.Parallel()
 	clients := test.Setup(t)
-	names, ri, err := fetchRuntimeInfo(t, clients, &v1a1test.Options{})
+	names, ri, err := fetchRuntimeInfo(t, clients)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -62,11 +62,7 @@ func TestMustEnvVars(t *testing.T) {
 	if err != nil {
 		t.Fatal("Invalid PORT value in MustEnvVars")
 	}
-	_, ri, err := fetchRuntimeInfo(t, clients, &v1a1test.Options{
-		ContainerPorts: []corev1.ContainerPort{
-			{ContainerPort: int32(port)},
-		},
-	})
+	_, ri, err := fetchRuntimeInfo(t, clients, WithNumberedPort(int32(port)))
 	if err != nil {
 		t.Fatal(err)
 	}

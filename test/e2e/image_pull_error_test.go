@@ -25,10 +25,15 @@ import (
 	serviceresourcenames "github.com/knative/serving/pkg/reconciler/service/resources/names"
 	v1alpha1testing "github.com/knative/serving/pkg/testing/v1alpha1"
 	"github.com/knative/serving/test"
+	"github.com/knative/pkg/test/logstream"
 	v1a1test "github.com/knative/serving/test/v1alpha1"
 )
 
 func TestImagePullError(t *testing.T) {
+	t.Parallel()
+	cancel := logstream.Start(t)
+	defer cancel()
+
 	clients := Setup(t)
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),

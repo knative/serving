@@ -139,9 +139,8 @@ func (c *Reconciler) reconcile(ctx context.Context, service *v1alpha1.Service) e
 		if ce, ok := err.(*v1alpha1.CannotConvertError); ok {
 			service.Status.MarkResourceNotConvertible(ce)
 			return nil
-		} else {
-			return err
 		}
+		return err
 	}
 
 	configName := resourcenames.Configuration(service)

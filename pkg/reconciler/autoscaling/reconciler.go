@@ -33,8 +33,7 @@ import (
 	nlisters "github.com/knative/serving/pkg/client/listers/networking/v1alpha1"
 	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/autoscaling/config"
-	"github.com/knative/serving/pkg/reconciler/autoscaling/kpa/resources"
-	aresources "github.com/knative/serving/pkg/reconciler/autoscaling/resources"
+	"github.com/knative/serving/pkg/reconciler/autoscaling/resources"
 	anames "github.com/knative/serving/pkg/reconciler/autoscaling/resources/names"
 	resourceutil "github.com/knative/serving/pkg/resources"
 
@@ -52,7 +51,7 @@ type Base struct {
 	PALister          listers.PodAutoscalerLister
 	ServiceLister     corev1listers.ServiceLister
 	SKSLister         nlisters.ServerlessServiceLister
-	Metrics           aresources.Metrics
+	Metrics           resources.Metrics
 	ConfigStore       reconciler.ConfigStore
 	PSInformerFactory duck.InformerFactory
 }
@@ -69,7 +68,7 @@ func (c *Base) ReconcileSKS(ctx context.Context, pa *pav1alpha1.PodAutoscaler) (
 	sks, err := c.SKSLister.ServerlessServices(pa.Namespace).Get(sksName)
 	if errors.IsNotFound(err) {
 		logger.Infof("SKS %s/%s does not exist; creating.", pa.Namespace, sksName)
-		sks = aresources.MakeSKS(pa, mode)
+		sks = resources.MakeSKS(pa, mode)
 		_, err = c.ServingClientSet.NetworkingV1alpha1().ServerlessServices(sks.Namespace).Create(sks)
 		if err != nil {
 			return nil, perrors.Wrapf(err, "error creating SKS %s", sksName)
@@ -81,7 +80,7 @@ func (c *Base) ReconcileSKS(ctx context.Context, pa *pav1alpha1.PodAutoscaler) (
 		pa.Status.MarkResourceNotOwned("ServerlessService", sksName)
 		return nil, fmt.Errorf("PA: %s does not own SKS: %s", pa.Name, sksName)
 	} else {
-		tmpl := aresources.MakeSKS(pa, mode)
+		tmpl := resources.MakeSKS(pa, mode)
 		if !equality.Semantic.DeepEqual(tmpl.Spec, sks.Spec) {
 			want := sks.DeepCopy()
 			want.Spec = tmpl.Spec
@@ -137,7 +136,7 @@ func (c *Base) ReconcileMetricsService(ctx context.Context, pa *pav1alpha1.PodAu
 
 	svc, err := c.metricService(pa)
 	if errors.IsNotFound(err) {
-		logger.Infof("Metrics K8s service for KPA %s/%s does not exist; creating.", pa.Namespace, pa.Name)
+		logger.Infof("Metrics K8s service for PA %s/%s does not exist; creating.", pa.Namespace, pa.Name)
 		svc = resources.MakeMetricsService(pa, selector)
 		svc, err = c.KubeClientSet.CoreV1().Services(pa.Namespace).Create(svc)
 		if err != nil {
@@ -169,7 +168,7 @@ func (c *Base) ReconcileMetricsService(ctx context.Context, pa *pav1alpha1.PodAu
 
 // ReconcileMetric reconciles a metric instance out of the given PodAutoscaler to control metric collection.
 func (c *Base) ReconcileMetric(ctx context.Context, pa *pav1alpha1.PodAutoscaler, metricSN string) error {
-	desiredMetric := aresources.MakeMetric(ctx, pa, metricSN, config.FromContext(ctx).Autoscaler)
+	desiredMetric := resources.MakeMetric(ctx, pa, metricSN, config.FromContext(ctx).Autoscaler)
 	metric, err := c.Metrics.Get(ctx, desiredMetric.Namespace, desiredMetric.Name)
 	if errors.IsNotFound(err) {
 		metric, err = c.Metrics.Create(ctx, desiredMetric)

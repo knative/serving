@@ -25,8 +25,13 @@ import (
 	"strings"
 	"testing"
 
+	pkgTest "github.com/knative/pkg/test"
 	"github.com/knative/serving/test"
-	v1a1test "github.com/knative/serving/test/v1alpha1"
+)
+
+const (
+	userHeaderKey   = "this-was-user-set"
+	userHeaderValue = "a value"
 )
 
 // TestMustHaveHeadersSet verified that all headers declared as "MUST" in the runtime
@@ -35,7 +40,7 @@ func TestMustHaveHeadersSet(t *testing.T) {
 	t.Parallel()
 	clients := test.Setup(t)
 
-	_, ri, err := fetchRuntimeInfo(t, clients, &v1a1test.Options{})
+	_, ri, err := fetchRuntimeInfo(t, clients)
 	if err != nil {
 		t.Fatalf("Error fetching runtime info: %v", err)
 	}
@@ -77,10 +82,15 @@ func TestShouldHaveHeadersSet(t *testing.T) {
 	t.Parallel()
 	clients := test.Setup(t)
 
+	userHeaders := make(http.Header)
+	userHeaders.Add(userHeaderKey, userHeaderValue)
+
 	expectedHeaders := map[string]interface {
 		MatchString(string) bool
 		String() string
 	}{
+		// We expect user headers to be passed through exactly as-is.
+		userHeaderKey: regexp.MustCompile("^" + userHeaderValue + "$"),
 		// We expect the protocol to be http for our test image.
 		"x-forwarded-proto": regexp.MustCompile("https?"),
 		// We expect the value to be a list of at least one comma separated IP addresses (IPv4 or IPv6).
@@ -98,7 +108,7 @@ func TestShouldHaveHeadersSet(t *testing.T) {
 		// required for tracing so we do not validate them.
 	}
 
-	_, ri, err := fetchRuntimeInfo(t, clients, &v1a1test.Options{})
+	_, ri, err := fetchRuntimeInfo(t, clients, pkgTest.WithHeader(userHeaders))
 	if err != nil {
 		t.Fatalf("Error fetching runtime info: %v", err)
 	}

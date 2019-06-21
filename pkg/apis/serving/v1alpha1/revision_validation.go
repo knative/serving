@@ -85,7 +85,6 @@ func (rt *RevisionTemplateSpec) Validate(ctx context.Context) *apis.FieldError {
 	}
 
 	errs = errs.Also(validateAnnotations(rt.Annotations))
-
 	return errs
 }
 

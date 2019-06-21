@@ -30,8 +30,8 @@ import (
 	"github.com/knative/serving/pkg/network"
 )
 
-// TransportFactory creates new transport.
-var TransportFactory = network.NewAutoTransport
+// TransportFactory is a function which returns a HTTP transport
+type TransportFactory func() http.RoundTripper
 
 // ProbeOption is a way for caller to modify the HTTP request before it goes out.
 type ProbeOption func(r *http.Request) *http.Request
@@ -39,7 +39,7 @@ type ProbeOption func(r *http.Request) *http.Request
 // Do sends a single probe to given target, e.g. `http://revision.default.svc.cluster.local:81`.
 // headerValue is the value for the `k-network-probe` header.
 // Do returns whether the probe was successful or not, or there was an error probing.
-func Do(ctx context.Context, target, headerValue string, pos ...ProbeOption) (bool, error) {
+func Do(ctx context.Context, transport http.RoundTripper, target, headerValue string, pos ...ProbeOption) (bool, error) {
 	req, err := http.NewRequest(http.MethodGet, target, nil)
 	if err != nil {
 		return false, errors.Wrapf(err, "%s is not a valid URL", target)
@@ -50,7 +50,7 @@ func Do(ctx context.Context, target, headerValue string, pos ...ProbeOption) (bo
 
 	req.Header.Set(http.CanonicalHeaderKey(network.ProbeHeaderName), headerValue)
 	req = req.WithContext(ctx)
-	resp, err := TransportFactory().RoundTrip(req)
+	resp, err := transport.RoundTrip(req)
 	if err != nil {
 		return false, errors.Wrapf(err, "error roundtripping %s", target)
 	}
@@ -72,7 +72,8 @@ type Done func(arg interface{}, success bool, err error)
 // Manager manages async probes and makes sure we run concurrently only a single
 // probe for the same key.
 type Manager struct {
-	cb Done
+	cb               Done
+	transportFactory TransportFactory
 
 	// mu guards keys.
 	mu   sync.Mutex
@@ -81,10 +82,11 @@ type Manager struct {
 
 // New creates a new Manager, that will invoke the given callback when
 // async probing is finished.
-func New(cb Done) *Manager {
+func New(cb Done, transportFactory TransportFactory) *Manager {
 	return &Manager{
-		keys: sets.NewString(),
-		cb:   cb,
+		keys:             sets.NewString(),
+		cb:               cb,
+		transportFactory: transportFactory,
 	}
 }
 
@@ -101,12 +103,12 @@ func (m *Manager) Offer(ctx context.Context, target, headerValue string, arg int
 		return false
 	}
 	m.keys.Insert(target)
-	m.doAsync(ctx, target, headerValue, arg, period, timeout)
+	m.doAsync(ctx, m.transportFactory, target, headerValue, arg, period, timeout)
 	return true
 }
 
 // doAsync starts a go routine that probes the target with given period.
-func (m *Manager) doAsync(ctx context.Context, target, headerValue string, arg interface{}, period, timeout time.Duration) {
+func (m *Manager) doAsync(ctx context.Context, transportFactory TransportFactory, target, headerValue string, arg interface{}, period, timeout time.Duration) {
 	go func() {
 		defer func() {
 			m.mu.Lock()
@@ -118,7 +120,7 @@ func (m *Manager) doAsync(ctx context.Context, target, headerValue string, arg i
 			err    error
 		)
 		err = wait.PollImmediate(period, timeout, func() (bool, error) {
-			result, err = Do(ctx, target, headerValue)
+			result, err = Do(ctx, transportFactory(), target, headerValue)
 			return result, err
 		})
 		m.cb(arg, result, err)

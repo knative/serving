@@ -62,7 +62,7 @@ func (pa *PodAutoscaler) validateMetric() *apis.FieldError {
 			}
 		case autoscaling.HPA:
 			switch metric {
-			case autoscaling.CPU:
+			case autoscaling.CPU, autoscaling.Concurrency:
 				return nil
 			}
 			// TODO: implement OPS autoscaling.

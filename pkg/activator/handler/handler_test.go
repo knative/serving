@@ -45,7 +45,6 @@ import (
 	netlisters "github.com/knative/serving/pkg/client/listers/networking/v1alpha1"
 	servinglisters "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
 	"github.com/knative/serving/pkg/network"
-	"github.com/knative/serving/pkg/network/prober"
 	"github.com/knative/serving/pkg/queue"
 	"github.com/knative/serving/pkg/tracing"
 	tracingconfig "github.com/knative/serving/pkg/tracing/config"
@@ -307,12 +306,7 @@ func TestActivationHandler(t *testing.T) {
 
 			// Setup transports.
 			handler.transport = rt
-			prober.TransportFactory = func() http.RoundTripper {
-				return rt
-			}
-			defer func() {
-				prober.TransportFactory = network.NewAutoTransport
-			}()
+			handler.probeTransportFactory = rtFact(rt)
 
 			if test.sksLister != nil {
 				handler.sksLister = test.sksLister
@@ -378,15 +372,9 @@ func TestActivationHandlerOverflow(t *testing.T) {
 
 	// Setup transports.
 	handler.transport = rt
-	prober.TransportFactory = func() http.RoundTripper {
-		return rt
-	}
-	defer func() {
-		prober.TransportFactory = network.NewAutoTransport
-	}()
+	handler.probeTransportFactory = rtFact(rt)
 
 	sendRequests(requests, namespace, revName, respCh, *handler)
-
 	assertResponses(wantedSuccess, wantedFailure, requests, lockerCh, respCh, t)
 }
 
@@ -417,15 +405,10 @@ func TestActivationHandlerOverflowSeveralRevisions(t *testing.T) {
 	rt := getRT(t, nil, 200, []string{}, nil, wantBody, "", lockerCh)
 	handler := (New(TestLogger(t), reporter, throttler,
 		revClient, svcClient, sksClient)).(*activationHandler)
-	handler.transport = rt
 
 	// Setup transports.
-	prober.TransportFactory = func() http.RoundTripper {
-		return rt
-	}
-	defer func() {
-		prober.TransportFactory = network.NewAutoTransport
-	}()
+	handler.transport = rt
+	handler.probeTransportFactory = rtFact(rt)
 
 	for _, revName := range revisions {
 		requestCount := overallRequests / len(revisions)
@@ -452,22 +435,16 @@ func TestActivationHandlerProxyHeader(t *testing.T) {
 		TestLogger(t))
 
 	probeRt := getRT(t, nil, 200, []string{}, nil, wantBody, "", nil)
-	// Setup transports.
-	prober.TransportFactory = func() http.RoundTripper {
-		return probeRt
-	}
-	defer func() {
-		prober.TransportFactory = network.NewAutoTransport
-	}()
 
 	handler := activationHandler{
-		transport:      rt,
-		logger:         TestLogger(t),
-		reporter:       &fakeReporter{},
-		throttler:      throttler,
-		revisionLister: revisionLister(revision(testNamespace, testRevName)),
-		serviceLister:  serviceLister(service(testNamespace, testRevName, "http")),
-		sksLister:      sksLister(sks(testNamespace, testRevName)),
+		transport:             rt,
+		probeTransportFactory: rtFact(probeRt),
+		logger:                TestLogger(t),
+		reporter:              &fakeReporter{},
+		throttler:             throttler,
+		revisionLister:        revisionLister(revision(testNamespace, testRevName)),
+		serviceLister:         serviceLister(service(testNamespace, testRevName, "http")),
+		sksLister:             sksLister(sks(testNamespace, testRevName)),
 	}
 
 	writer := httptest.NewRecorder()
@@ -489,12 +466,6 @@ func TestActivationHandlerProxyHeader(t *testing.T) {
 func TestActivationHandlerTraceSpans(t *testing.T) {
 	// Setup transport
 	rt := getRT(t, nil, 200, []string{}, nil, "hello", "", nil)
-	prober.TransportFactory = func() http.RoundTripper {
-		return rt
-	}
-	defer func() {
-		prober.TransportFactory = network.NewAutoTransport
-	}()
 
 	// Create tracer with reporter recorder
 	reporter := reporterrecorder.NewReporter()
@@ -533,6 +504,8 @@ func TestActivationHandlerTraceSpans(t *testing.T) {
 		serviceLister:  serviceLister(service(testNamespace, testRevName, "http")),
 		sksLister:      sksLister(sks(testNamespace, testRevName)),
 	}
+	handler.transport = rt
+	handler.probeTransportFactory = rtFact(rt)
 
 	_ = sendRequest(namespace, revName, handler)
 
@@ -860,4 +833,10 @@ func endpointsInformer(eps ...*corev1.Endpoints) corev1informers.EndpointsInform
 
 func errMsg(msg string) string {
 	return fmt.Sprintf("Error getting active endpoint: %v\n", msg)
+}
+
+func rtFact(rt http.RoundTripper) func() http.RoundTripper {
+	return func() http.RoundTripper {
+		return rt
+	}
 }

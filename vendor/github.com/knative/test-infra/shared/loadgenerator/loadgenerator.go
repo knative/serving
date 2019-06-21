@@ -22,14 +22,15 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"path"
 	"time"
 
+	"fortio.org/fortio/fhttp"
+	"fortio.org/fortio/periodic"
 	"github.com/knative/test-infra/shared/common"
 	"github.com/knative/test-infra/shared/prow"
-	"istio.io/fortio/fhttp"
-	"istio.io/fortio/periodic"
 )
 
 const (
@@ -190,4 +191,22 @@ func (gr *GeneratorResults) SaveJSON() error {
 	}
 
 	return nil
+}
+
+// ErrorsPercentage returns the error percentage of the result[idx] based on response codes.
+// Any non 200 response will provide a value > 0.0
+func (gr *GeneratorResults) ErrorsPercentage(idx int) float64 {
+	if idx < 0 || idx > len(gr.Result) {
+		return 0
+	}
+
+	var successes, errors int64
+	for retCode, count := range gr.Result[idx].RetCodes {
+		if retCode == http.StatusOK {
+			successes = successes + count
+		} else {
+			errors = errors + count
+		}
+	}
+	return float64(errors*100) / float64(errors+successes)
 }

@@ -171,9 +171,8 @@ func (c *Reconciler) reconcile(ctx context.Context, rev *v1alpha1.Revision) erro
 		if ce, ok := err.(*v1alpha1.CannotConvertError); ok {
 			rev.Status.MarkResourceNotConvertible(ce)
 			return nil
-		} else {
-			return err
 		}
+		return err
 	}
 
 	phases := []struct {

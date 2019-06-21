@@ -82,6 +82,20 @@ func WithNamedPort(name string) ServiceOption {
 	}
 }
 
+// WithNumberedPort sets the Service's port number to what's provided.
+func WithNumberedPort(number int32) ServiceOption {
+	return func(svc *v1beta1.Service) {
+		c := &svc.Spec.Template.Spec.Containers[0]
+		if len(c.Ports) == 1 {
+			c.Ports[0].ContainerPort = number
+		} else {
+			c.Ports = []corev1.ContainerPort{{
+				ContainerPort: number,
+			}}
+		}
+	}
+}
+
 // WithResourceRequirements attaches resource requirements to the service
 func WithResourceRequirements(resourceRequirements corev1.ResourceRequirements) ServiceOption {
 	return func(svc *v1beta1.Service) {
@@ -150,5 +164,26 @@ func WithVolume(name, mountPath string, volumeSource corev1.VolumeSource) Servic
 			Name:         name,
 			VolumeSource: volumeSource,
 		})
+	}
+}
+
+// WithEnv configures the Service to use the provided environment variables.
+func WithEnv(evs ...corev1.EnvVar) ServiceOption {
+	return func(s *v1beta1.Service) {
+		s.Spec.Template.Spec.Containers[0].Env = evs
+	}
+}
+
+// WithEnvFrom configures the Service to use the provided environment variables.
+func WithEnvFrom(evs ...corev1.EnvFromSource) ServiceOption {
+	return func(s *v1beta1.Service) {
+		s.Spec.Template.Spec.Containers[0].EnvFrom = evs
+	}
+}
+
+// WithSecurityContext configures the Service to use the provided security context.
+func WithSecurityContext(sc *corev1.SecurityContext) ServiceOption {
+	return func(s *v1beta1.Service) {
+		s.Spec.Template.Spec.Containers[0].SecurityContext = sc
 	}
 }

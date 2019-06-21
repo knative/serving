@@ -30,6 +30,7 @@ import (
 	ingress "github.com/knative/pkg/test/ingress"
 	resourcenames "github.com/knative/serving/pkg/reconciler/revision/resources/names"
 	"github.com/knative/serving/test"
+	"github.com/knative/pkg/test/logstream"
 	ping "github.com/knative/serving/test/test_images/grpc-ping/proto"
 	v1a1test "github.com/knative/serving/test/v1alpha1"
 	"google.golang.org/grpc"
@@ -151,6 +152,9 @@ func streamTest(t *testing.T, resources *v1a1test.ResourceObjects, clients *test
 func testGRPC(t *testing.T, f grpcTest) {
 	t.Helper()
 	t.Parallel()
+	cancel := logstream.Start(t)
+	defer cancel()
+
 	// Setup
 	clients := Setup(t)
 

@@ -371,7 +371,7 @@ func TestTargetAnnotation(t *testing.T) {
 	cases := []struct {
 		name       string
 		pa         *PodAutoscaler
-		wantTarget int32
+		wantTarget float64
 		wantOk     bool
 	}{{
 		name:       "not present",
@@ -552,6 +552,47 @@ func TestClass(t *testing.T) {
 			got := tc.pa.Class()
 			if got != tc.want {
 				t.Errorf("got class: %q wanted: %q", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestMetric(t *testing.T) {
+	cases := []struct {
+		name string
+		pa   *PodAutoscaler
+		want string
+	}{{
+		name: "default class, annotation set",
+		pa: pa(map[string]string{
+			autoscaling.MetricAnnotationKey: autoscaling.Concurrency,
+		}),
+		want: autoscaling.Concurrency,
+	}, {
+		name: "hpa class",
+		pa: pa(map[string]string{
+			autoscaling.ClassAnnotationKey: autoscaling.HPA,
+		}),
+		want: autoscaling.CPU,
+	}, {
+		name: "kpa class",
+		pa: pa(map[string]string{
+			autoscaling.ClassAnnotationKey: autoscaling.KPA,
+		}),
+		want: autoscaling.Concurrency,
+	}, {
+		name: "custom class",
+		pa: pa(map[string]string{
+			autoscaling.ClassAnnotationKey: "yolo.sandwich.com",
+		}),
+		want: "",
+	}}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := tc.pa.Metric()
+			if got != tc.want {
+				t.Errorf("Metric() = %q, want %q", got, tc.want)
 			}
 		})
 	}

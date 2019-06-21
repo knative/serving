@@ -25,10 +25,6 @@ import (
 	"github.com/knative/pkg/test/helpers"
 )
 
-const (
-	testNamePrefix = "Test"
-)
-
 // ResourceNames holds names of various resources.
 type ResourceNames struct {
 	Config        string
@@ -51,13 +47,11 @@ var AppendRandomString = helpers.AppendRandomString
 var MakeK8sNamePrefix = helpers.MakeK8sNamePrefix
 
 // ObjectNameForTest generates a random object name based on the test name.
-func ObjectNameForTest(t *testing.T) string {
-	return AppendRandomString(MakeK8sNamePrefix(strings.TrimPrefix(t.Name(), testNamePrefix)))
-}
+var ObjectNameForTest = helpers.ObjectNameForTest
 
 // SubServiceNameForTest generates a random service name based on the test name and
 // the given subservice name.
 func SubServiceNameForTest(t *testing.T, subsvc string) string {
-	fullPrefix := strings.TrimPrefix(t.Name(), testNamePrefix) + "-" + subsvc
+	fullPrefix := strings.TrimPrefix(t.Name(), "Test") + "-" + subsvc
 	return AppendRandomString(MakeK8sNamePrefix(fullPrefix))
 }

@@ -42,7 +42,6 @@ import (
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
 	"github.com/knative/serving/pkg/network"
-	"github.com/knative/serving/pkg/network/prober"
 	"github.com/knative/serving/pkg/reconciler/autoscaling/config"
 	revisionresources "github.com/knative/serving/pkg/reconciler/revision/resources"
 	"github.com/knative/serving/pkg/reconciler/revision/resources/names"
@@ -67,10 +66,6 @@ const (
 
 func TestScaler(t *testing.T) {
 	defer logtesting.ClearAll()
-	ptf := prober.TransportFactory
-	defer func() {
-		prober.TransportFactory = ptf
-	}()
 	tests := []struct {
 		label               string
 		startReplicas       int
@@ -80,7 +75,7 @@ func TestScaler(t *testing.T) {
 		wantReplicas        int32
 		wantScaling         bool
 		kpaMutation         func(*pav1alpha1.PodAutoscaler)
-		proberfunc          func(*pav1alpha1.PodAutoscaler) (bool, error)
+		proberfunc          func(*pav1alpha1.PodAutoscaler, http.RoundTripper) (bool, error)
 		wantCBCount         int
 		wantAsyncProbeCount int
 	}{{
@@ -140,7 +135,9 @@ func TestScaler(t *testing.T) {
 		kpaMutation: func(k *pav1alpha1.PodAutoscaler) {
 			kpaMarkInactive(k, time.Now().Add(-gracePeriod))
 		},
-		proberfunc:          func(*pav1alpha1.PodAutoscaler) (bool, error) { return false, errors.New("hell or high water") },
+		proberfunc: func(*pav1alpha1.PodAutoscaler, http.RoundTripper) (bool, error) {
+			return false, errors.New("hell or high water")
+		},
 		wantAsyncProbeCount: 1,
 	}, {
 		label:         "scale to zero after grace period, but wrong prober response",
@@ -151,7 +148,7 @@ func TestScaler(t *testing.T) {
 		kpaMutation: func(k *pav1alpha1.PodAutoscaler) {
 			kpaMarkInactive(k, time.Now().Add(-gracePeriod))
 		},
-		proberfunc:          func(*pav1alpha1.PodAutoscaler) (bool, error) { return false, nil },
+		proberfunc:          func(*pav1alpha1.PodAutoscaler, http.RoundTripper) (bool, error) { return false, nil },
 		wantAsyncProbeCount: 1,
 	}, {
 		label:         "does not scale while activating",
@@ -245,7 +242,7 @@ func TestScaler(t *testing.T) {
 			if test.proberfunc != nil {
 				revisionScaler.activatorProbe = test.proberfunc
 			} else {
-				revisionScaler.activatorProbe = func(*pav1alpha1.PodAutoscaler) (bool, error) { return true, nil }
+				revisionScaler.activatorProbe = func(*pav1alpha1.PodAutoscaler, http.RoundTripper) (bool, error) { return true, nil }
 			}
 			cp := &countingProber{}
 			revisionScaler.probeManager = cp
@@ -537,10 +534,7 @@ func TestActivatorProbe(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			prober.TransportFactory = func() http.RoundTripper {
-				return test.rt
-			}
-			res, err := activatorProbe(pa)
+			res, err := activatorProbe(pa, test.rt)
 			if got, want := res, test.wantRes; got != want {
 				t.Errorf("Result = %v, want: %v", got, want)
 			}

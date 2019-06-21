@@ -158,6 +158,20 @@ func WithServiceLabel(key, value string) ServiceOption {
 	}
 }
 
+// WithNumberedPort sets the Service's port number to what's provided.
+func WithNumberedPort(number int32) ServiceOption {
+	return func(svc *v1alpha1.Service) {
+		c := &svc.Spec.Template.Spec.Containers[0]
+		if len(c.Ports) == 1 {
+			c.Ports[0].ContainerPort = number
+		} else {
+			c.Ports = []corev1.ContainerPort{{
+				ContainerPort: number,
+			}}
+		}
+	}
+}
+
 // WithResourceRequirements attaches resource requirements to the service
 func WithResourceRequirements(resourceRequirements corev1.ResourceRequirements) ServiceOption {
 	return func(svc *v1alpha1.Service) {
@@ -417,4 +431,11 @@ func WithServiceLatestReadyRevision(lrr string) ServiceOption {
 // WithServiceStatusRouteNotReady sets the `RoutesReady` condition on the service to `Unknown`.
 func WithServiceStatusRouteNotReady(s *v1alpha1.Service) {
 	s.Status.MarkRouteNotYetReady()
+}
+
+// WithSecurityContext configures the Service to use the provided security context.
+func WithSecurityContext(sc *corev1.SecurityContext) ServiceOption {
+	return func(s *v1alpha1.Service) {
+		s.Spec.Template.Spec.Containers[0].SecurityContext = sc
+	}
 }

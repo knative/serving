@@ -26,6 +26,7 @@ import (
 	pkgTest "github.com/knative/pkg/test"
 	"github.com/knative/pkg/test/spoof"
 	"github.com/knative/serving/test"
+	"github.com/knative/pkg/test/logstream"
 	v1a1test "github.com/knative/serving/test/v1alpha1"
 
 	corev1 "k8s.io/api/core/v1"
@@ -139,6 +140,9 @@ func testProxyToHelloworld(t *testing.T, clients *test.Clients, helloworldDomain
 // to helloworld app.
 func TestServiceToServiceCall(t *testing.T) {
 	t.Parallel()
+	cancel := logstream.Start(t)
+	defer cancel()
+
 	clients := Setup(t)
 
 	t.Log("Creating a Service for the helloworld test app.")
@@ -182,6 +186,9 @@ func TestServiceToServiceCall(t *testing.T) {
 // we're waiting for target app to be scaled to zero
 func TestServiceToServiceCallFromZero(t *testing.T) {
 	t.Parallel()
+	cancel := logstream.Start(t)
+	defer cancel()
+
 	clients := Setup(t)
 
 	t.Log("Creating helloworld Service")

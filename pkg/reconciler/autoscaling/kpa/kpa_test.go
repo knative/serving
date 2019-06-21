@@ -19,6 +19,7 @@ package kpa
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"strconv"
 	"sync"
 	"testing"
@@ -121,7 +122,7 @@ func withMSvcName(sn string) K8sServiceOption {
 
 func metricsSvc(ns, n string, opts ...K8sServiceOption) *corev1.Service {
 	pa := kpa(ns, n)
-	svc := resources.MakeMetricsService(pa, map[string]string{})
+	svc := aresources.MakeMetricsService(pa, map[string]string{})
 	for _, opt := range opts {
 		opt(svc)
 	}
@@ -302,7 +303,7 @@ func TestReconcileAndScaleToZero(t *testing.T) {
 		fakeMetrics := newTestMetrics()
 		psFactory := presources.NewPodScalableInformerFactory(ctx)
 		scaler := newScaler(ctx, psFactory, func(interface{}, time.Duration) {})
-		scaler.activatorProbe = func(*asv1a1.PodAutoscaler) (bool, error) { return true, nil }
+		scaler.activatorProbe = func(*asv1a1.PodAutoscaler, http.RoundTripper) (bool, error) { return true, nil }
 		return &Reconciler{
 			Base: &areconciler.Base{
 				Base:              rpkg.NewBase(ctx, controllerAgentName, newConfigWatcher()),
@@ -916,7 +917,7 @@ func TestControllerSynchronizesCreatesAndDeletes(t *testing.T) {
 	fakeservingclient.Get(ctx).NetworkingV1alpha1().ServerlessServices(testNamespace).Create(sks)
 	fakesksinformer.Get(ctx).Informer().GetIndexer().Add(sks)
 
-	msvc := resources.MakeMetricsService(kpa, map[string]string{
+	msvc := aresources.MakeMetricsService(kpa, map[string]string{
 		serving.RevisionLabelKey: rev.Name,
 	})
 	fakekubeclient.Get(ctx).CoreV1().Services(testNamespace).Create(msvc)
@@ -986,7 +987,7 @@ func TestUpdate(t *testing.T) {
 	fakeservingclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
 	fakekpainformer.Get(ctx).Informer().GetIndexer().Add(kpa)
 
-	msvc := resources.MakeMetricsService(kpa, map[string]string{
+	msvc := aresources.MakeMetricsService(kpa, map[string]string{
 		serving.RevisionLabelKey: rev.Name,
 	})
 	fakekubeclient.Get(ctx).CoreV1().Services(testNamespace).Create(msvc)

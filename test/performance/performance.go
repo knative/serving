@@ -18,7 +18,6 @@ package performance
 
 import (
 	"fmt"
-	"net/http"
 	"os"
 	"path"
 	"testing"
@@ -29,8 +28,6 @@ import (
 	"github.com/knative/pkg/test/zipkin"
 	"github.com/knative/serving/test"
 	"github.com/knative/test-infra/shared/common"
-	"github.com/knative/test-infra/shared/junit"
-	"github.com/knative/test-infra/shared/loadgenerator"
 	"github.com/knative/test-infra/shared/prometheus"
 	"github.com/knative/test-infra/shared/prow"
 
@@ -113,30 +110,6 @@ func TearDown(client *Client, names test.ResourceNames, logf logging.FormatLogge
 		zipkin.CleanupZipkinTracingSetup(logf)
 		traceFile.Close()
 	}
-}
-
-// CreatePerfTestCase creates a perf test case with the provided name and value
-func CreatePerfTestCase(metricValue float32, metricName, testName string) junit.TestCase {
-	tp := []junit.TestProperty{{Name: perfLatency, Value: fmt.Sprintf("%f", metricValue)}}
-	tc := junit.TestCase{
-		ClassName:  testName,
-		Name:       fmt.Sprintf("%s/%s", testName, metricName),
-		Properties: junit.TestProperties{Properties: tp}}
-	return tc
-}
-
-// ErrorsPercentage returns the error percentage based on response codes.
-// Any non 200 response will provide a value > 0.0
-func ErrorsPercentage(resp *loadgenerator.GeneratorResults) float64 {
-	var successes, errors int64
-	for retCode, count := range resp.Result[0].RetCodes {
-		if retCode == http.StatusOK {
-			successes = successes + count
-		} else {
-			errors = errors + count
-		}
-	}
-	return float64(errors*100) / float64(errors+successes)
 }
 
 // AddTrace gets the JSON zipkin trace for the traceId and stores it.

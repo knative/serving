@@ -34,6 +34,7 @@ import (
 	v1a1test "github.com/knative/serving/test/v1alpha1"
 	"github.com/knative/test-infra/shared/junit"
 	"github.com/knative/test-infra/shared/loadgenerator"
+	perf "github.com/knative/test-infra/shared/performance"
 	"github.com/knative/test-infra/shared/testgrid"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -174,20 +175,20 @@ func scaleRevisionByLoad(t *testing.T, numClients int) []junit.TestCase {
 
 	tc := make([]junit.TestCase, 0)
 
-	tc = append(tc, CreatePerfTestCase(float32(resp.Result[0].DurationHistogram.Count), "requestCount", t.Name()))
-	tc = append(tc, CreatePerfTestCase(float32(qpsPerClient*numClients), "requestedQPS", t.Name()))
-	tc = append(tc, CreatePerfTestCase(float32(resp.Result[0].ActualQPS), "actualQPS", t.Name()))
-	tc = append(tc, CreatePerfTestCase(float32(ErrorsPercentage(resp)), "errorsPercentage", t.Name()))
+	tc = append(tc, perf.CreatePerfTestCase(float32(resp.Result[0].DurationHistogram.Count), "requestCount", t.Name()))
+	tc = append(tc, perf.CreatePerfTestCase(float32(qpsPerClient*numClients), "requestedQPS", t.Name()))
+	tc = append(tc, perf.CreatePerfTestCase(float32(resp.Result[0].ActualQPS), "actualQPS", t.Name()))
+	tc = append(tc, perf.CreatePerfTestCase(float32(resp.ErrorsPercentage(0)), "errorsPercentage", t.Name()))
 
 	for ev := range scaleCh {
 		t.Logf("Scaled: %d -> %d in %v", ev.oldScale, ev.newScale, ev.timestamp.Sub(resp.Result[0].StartTime))
-		tc = append(tc, CreatePerfTestCase(float32(ev.timestamp.Sub(resp.Result[0].StartTime)/time.Second), fmt.Sprintf("scale-from-%02d-to-%02d(seconds)", ev.oldScale, ev.newScale), t.Name()))
+		tc = append(tc, perf.CreatePerfTestCase(float32(ev.timestamp.Sub(resp.Result[0].StartTime)/time.Second), fmt.Sprintf("scale-from-%02d-to-%02d(seconds)", ev.oldScale, ev.newScale), t.Name()))
 	}
 
 	for _, p := range resp.Result[0].DurationHistogram.Percentiles {
 		val := float32(p.Value) * 1000
 		name := fmt.Sprintf("p%d(ms)", int(p.Percentile))
-		tc = append(tc, CreatePerfTestCase(val, name, t.Name()))
+		tc = append(tc, perf.CreatePerfTestCase(val, name, t.Name()))
 	}
 
 	return tc
