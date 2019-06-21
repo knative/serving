@@ -39,6 +39,25 @@ spec:
         # This is the Go import path for the binary that is containerized
         # and substituted here.
         image: github.com/knative/serving/cmd/autoscaler
+        readinessProbe:
+          httpGet:
+            # The path does not matter, we look for the kubelet user-agent
+            # (or our header below)
+            path: /healthz
+            port: 8080
+            httpHeaders:
+            # Istio with mTLS strips the Kubelet user-agent, so pass a header too.
+            - name: k-kubelet-probe
+              value: "autoscaler"
+        livenessProbe:
+          httpGet:
+            # The path does not matter, we look for kubelet probe headers.
+            path: /healthz
+            port: 8080
+            httpHeaders:
+            # Istio with mTLS strips the Kubelet user-agent, so pass a header too.
+            - name: k-kubelet-probe
+              value: "autoscaler"
         resources:
           # Request 2x what we saw running e2e
           requests:
