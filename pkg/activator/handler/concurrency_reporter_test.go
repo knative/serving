@@ -211,7 +211,7 @@ func TestStats(t *testing.T) {
 			}
 
 			// Gather reported stats
-			stats := make([]*autoscaler.StatMessage, 0)
+			stats := make([]*autoscaler.StatMessage, 0, len(tc.expectedStats))
 			for i := 0; i < len(tc.expectedStats); i++ {
 				sm := <-s.statChan
 				stats = append(stats, sm)
