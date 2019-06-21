@@ -16,19 +16,16 @@ limitations under the License.
 
 package names
 
-import (
-	"github.com/knative/pkg/kmeta"
-	"github.com/knative/serving/pkg/resources"
-)
+import "github.com/knative/pkg/kmeta"
 
 // Deployment returns the precomputed name for the revision deployment
 func Deployment(rev kmeta.Accessor) string {
-	return resources.ChildName(rev.GetName(), "-deployment")
+	return kmeta.ChildName(rev.GetName(), "-deployment")
 }
 
 // ImageCache returns the precomputed name for the image cache.
 func ImageCache(rev kmeta.Accessor) string {
-	return resources.ChildName(rev.GetName(), "-cache")
+	return kmeta.ChildName(rev.GetName(), "-cache")
 }
 
 // KPA returns the PA name for the revision.
