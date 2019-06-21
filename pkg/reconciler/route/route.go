@@ -43,6 +43,7 @@ import (
 	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 	networkinglisters "github.com/knative/serving/pkg/client/listers/networking/v1alpha1"
 	listers "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
+	"github.com/knative/serving/pkg/network"
 	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/route/config"
 	"github.com/knative/serving/pkg/reconciler/route/domains"
@@ -266,14 +267,14 @@ func (c *Reconciler) reconcile(ctx context.Context, r *v1alpha1.Route) error {
 	clusterLocalServiceNames = resources.GetNames(clusterLocalServices)
 
 	tls := []netv1alpha1.IngressTLS{}
-	if config.FromContext(ctx).Network.AutoTLS{
+	if config.FromContext(ctx).Network.AutoTLS {
 		tagToDomainMap, err := domains.GetAllDomainsAndTags(ctx, r, getTrafficNames(traffic.Targets), clusterLocalServiceNames)
 		if err != nil {
 			return err
 		}
 
 		for tag, domain := range tagToDomainMap {
-			if domains.IsClusterLocal(domain) {
+			if network.IsClusterLocal(domain) {
 				delete(tagToDomainMap, tag)
 			}
 		}

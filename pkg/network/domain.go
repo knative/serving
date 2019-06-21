@@ -73,3 +73,8 @@ func getClusterDomainName(r io.Reader) string {
 	// For all abnormal cases return default domain name
 	return defaultDomainName
 }
+
+// IsClusterLocal checks if a domain is only visible with cluster.
+func IsClusterLocal(domain string) bool {
+	return strings.HasSuffix(domain, GetClusterDomainName())
+}

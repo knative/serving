@@ -70,3 +70,29 @@ options ndots:5
 		}
 	}
 }
+
+func TestIsClusterLocal(t *testing.T) {
+	tests := []struct {
+		name string
+		domain string
+		want bool
+	}{
+		{
+			name: "domain is public",
+			domain: "k8s.io",
+			want: false,
+		},
+		{
+			name: "domain is cluster local",
+			domain: "my-app.cluster.local",
+			want: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := IsClusterLocal(tt.domain); got != tt.want {
+				t.Errorf("IsClusterLocal() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
