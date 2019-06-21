@@ -139,6 +139,13 @@ func main() {
 
 	go controller.StartAll(ctx.Done(), controllers...)
 
+	go func() {
+		for sm := range statsCh {
+			collector.Record(sm.Key, sm.Stat)
+			multiScaler.Poke(sm.Key, sm.Stat)
+		}
+	}()
+
 	// Run the controllers and the statserver in a group.
 	var eg errgroup.Group
 	eg.Go(func() error {
@@ -149,24 +156,13 @@ func main() {
 		return statsServer.ListenAndServe()
 	})
 
-	go func() {
-		for {
-			sm, ok := <-statsCh
-			if !ok {
-				break
-			}
-			collector.Record(sm.Key, sm.Stat)
-			multiScaler.Poke(sm.Key, sm.Stat)
-		}
-	}()
-
 	egCh := make(chan struct{})
 
 	go func() {
+		defer close(egCh)
 		if err := eg.Wait(); err != nil {
 			logger.Errorw("Group error.", zap.Error(err))
 		}
-		close(egCh)
 	}()
 
 	select {
