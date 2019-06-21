@@ -116,11 +116,11 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 			c.Recorder.Eventf(ci, corev1.EventTypeWarning, "UpdateFailed",
 				"Failed to update status for ClusterIngress %q: %v", ci.Name, err)
 			return err
-		} else {
-			logger.Infof("Updated status for ClusterIngress %q", ci.Name)
-			c.Recorder.Eventf(ci, corev1.EventTypeNormal, "Updated",
-				"Updated status for ClusterIngress %q", ci.Name)
 		}
+
+		logger.Infof("Updated status for ClusterIngress %q", ci.Name)
+		c.Recorder.Eventf(ci, corev1.EventTypeNormal, "Updated",
+			"Updated status for ClusterIngress %q", ci.Name)
 	}
 	if reconcileErr != nil {
 		c.Recorder.Event(ci, corev1.EventTypeWarning, "InternalError", reconcileErr.Error())
