@@ -207,8 +207,8 @@ func (pas *PodAutoscalerStatus) MarkContainerExiting(exitCode int32, message str
 	podCondSet.Manage(pas).MarkFalse(PodAutoscalerConditionBootstrap, exitCodeString, message)
 }
 
-// MarkImagePullBackoff changes the "Bootstrap" condition to false.
-func (pas *PodAutoscalerStatus) MarkImagePullBackoff(reason, message string) {
+// MarkImagePullError changes the "Bootstrap" condition to false.
+func (pas *PodAutoscalerStatus) MarkImagePullError(reason, message string) {
 	podCondSet.Manage(pas).MarkFalse(PodAutoscalerConditionBootstrap, reason, message)
 }
 

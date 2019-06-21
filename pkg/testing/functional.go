@@ -98,10 +98,10 @@ func WithContainerExiting(exitCode int32, message string) PodAutoscalerOption {
 	}
 }
 
-// WithImagePullBackoff updates the PA to have ContainersHealthy condition false.
-func WithImagePullBackoff(reason, message string) PodAutoscalerOption {
+// WithImagePullError updates the PA to have ContainersHealthy condition false.
+func WithImagePullError(reason, message string) PodAutoscalerOption {
 	return func(pa *autoscalingv1alpha1.PodAutoscaler) {
-		pa.Status.MarkImagePullBackoff(reason, message)
+		pa.Status.MarkImagePullError(reason, message)
 	}
 }
 

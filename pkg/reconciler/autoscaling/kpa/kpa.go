@@ -257,9 +257,9 @@ func (c *Reconciler) computeBootstrapConditions(ctx context.Context, pa *pav1alp
 					if t := status.LastTerminationState.Terminated; t != nil {
 						logger.Infof("%s marking %s exiting with: %d/%s", pa.Name, status.Name, t.ExitCode, t.Message)
 						pa.Status.MarkContainerExiting(t.ExitCode, t.Message)
-					} else if w := status.State.Waiting; w != nil && w.Reason == "ImagePullBackoff" {
+					} else if w := status.State.Waiting; w != nil && (w.Reason == "ImagePullBackOff" || w.Reason == "ErrImagePull") {
 						logger.Infof("%s marking %s is waiting with: %s: %s", pa.Name, w.Reason, w.Message)
-						pa.Status.MarkImagePullBackoff(w.Reason, w.Message)
+						pa.Status.MarkImagePullError(w.Reason, w.Message)
 					}
 					break
 				}

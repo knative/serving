@@ -440,7 +440,7 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			rev("foo", "pull-backoff",
 				withK8sServiceName("the-taxman"), WithLogURL, MarkActivating("Deploying", "")),
-			kpa("foo", "pull-backoff", WithImagePullBackoff("ImagePullBackoff", "can't pull it")),
+			kpa("foo", "pull-backoff", WithImagePullError("ImagePullBackoff", "can't pull it")),
 			timeoutDeploy(deploy("foo", "pull-backoff")),
 			image("foo", "pull-backoff"),
 		},
