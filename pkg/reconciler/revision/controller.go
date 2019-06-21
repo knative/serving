@@ -87,8 +87,10 @@ func NewController(
 	c.Logger.Info("Setting up event handlers")
 	revisionInformer.Informer().AddEventHandler(controller.HandleAll(impl.Enqueue))
 
-	endpointsInformer.Informer().AddEventHandler(controller.HandleAll(
-		impl.EnqueueLabelOfNamespaceScopedResource("", serving.RevisionLabelKey)))
+	endpointsInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+		FilterFunc: reconciler.LabelExistsFilterFunc(serving.RevisionLabelKey),
+		Handler:    controller.HandleAll(impl.EnqueueLabelOfNamespaceScopedResource("", serving.RevisionLabelKey)),
+	})
 
 	deploymentInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: controller.Filter(v1alpha1.SchemeGroupVersion.WithKind("Revision")),

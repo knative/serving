@@ -78,8 +78,10 @@ func NewController(
 	}
 	paInformer.Informer().AddEventHandler(paHandler)
 
-	endpointsInformer.Informer().AddEventHandler(
-		controller.HandleAll(impl.EnqueueLabelOfNamespaceScopedResource("", autoscaling.KPALabelKey)))
+	endpointsInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+		FilterFunc: reconciler.LabelExistsFilterFunc(autoscaling.KPALabelKey),
+		Handler:    controller.HandleAll(impl.EnqueueLabelOfNamespaceScopedResource("", autoscaling.KPALabelKey)),
+	})
 
 	// Watch all the services that we have created.
 	serviceInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
