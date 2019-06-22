@@ -304,7 +304,7 @@ func TestReconcileAndScaleToZero(t *testing.T) {
 		fakeMetrics := newTestMetrics()
 		psFactory := presources.NewPodScalableInformerFactory(ctx)
 		prober := &fakeProber{
-			DoOver: func(ctx context.Context, target, headerValue string, pos ...prober.ProbeOption) (b bool, e error) {
+			FakeDo: func(ctx context.Context, target, headerValue string, pos ...prober.ProbeOption) (b bool, e error) {
 				return true, nil
 			},
 		}

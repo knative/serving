@@ -238,20 +238,20 @@ func TestScaler(t *testing.T) {
 			deployment := newDeployment(t, dynamicClient, names.Deployment(revision), test.startReplicas)
 			cbCount := 0
 
-			var doOver func(ctx context.Context, target, headerValue string, pos ...prober.ProbeOption) (b bool, e error)
+			var fakeDo func(ctx context.Context, target, headerValue string, pos ...prober.ProbeOption) (b bool, e error)
 			if test.proberfunc != nil {
-				doOver = func(ctx context.Context, target, headerValue string, pos ...prober.ProbeOption) (b bool, e error){
+				fakeDo = func(ctx context.Context, target, headerValue string, pos ...prober.ProbeOption) (b bool, e error){
 					return test.proberfunc(nil, nil)
 				}
 			} else {
-				doOver = func(ctx context.Context, target, headerValue string, pos ...prober.ProbeOption) (bool, error){
+				fakeDo = func(ctx context.Context, target, headerValue string, pos ...prober.ProbeOption) (bool, error){
 					return true, nil
 				}
 			}
 			prober := &countingProber{
-				prober: &fakeProber{
+				Prober: &fakeProber{
 					Prober: prober.New(network.NewAutoTransport()),
-					DoOver: doOver, // TODO(bancel): fix this ugliness
+					FakeDo: fakeDo,
 				},
 			}
 			enqueueFunc := func(interface{}, time.Duration) { cbCount++ }
@@ -283,7 +283,7 @@ func TestScaler(t *testing.T) {
 			if err == nil && desiredScale != test.wantReplicas {
 				t.Errorf("desiredScale = %d, wanted %d", desiredScale, test.wantReplicas)
 			}
-			if got, want := prober.asyncCount, test.wantAsyncProbeCount; got != want {
+			if got, want := prober.asyncProbeCount, test.wantAsyncProbeCount; got != want {
 				t.Errorf("Async probe invoked = %d time, want: %d", got, want)
 			}
 			if got, want := cbCount, test.wantCBCount; got != want {
@@ -562,12 +562,12 @@ func TestActivatorProbe(t *testing.T) {
 
 type fakeProber struct {
 	Prober prober.Prober
-	DoOver func(ctx context.Context, target, headerValue string, pos ...prober.ProbeOption) (bool, error)
+	FakeDo func(ctx context.Context, target, headerValue string, pos ...prober.ProbeOption) (bool, error)
 }
 
 func (c *fakeProber) Do(ctx context.Context, target, headerValue string, pos ...prober.ProbeOption) (bool, error) {
-	if c.DoOver != nil {
-		return c.DoOver(ctx, target, headerValue, pos...)
+	if c.FakeDo != nil {
+		return c.FakeDo(ctx, target, headerValue, pos...)
 	}
 	return c.Prober.Do(ctx, target, headerValue, pos...)
 }
@@ -577,17 +577,17 @@ func (c *fakeProber) Offer(ctx context.Context, target, headerValue string, call
 }
 
 type countingProber struct {
-	prober prober.Prober
-	syncCount int
-	asyncCount int
+	Prober          prober.Prober
+	syncProbeCount  int
+	asyncProbeCount int
 }
 
 func (c *countingProber) Do(ctx context.Context, target, headerValue string, pos ...prober.ProbeOption) (bool, error) {
-	c.syncCount++
-	return c.prober.Do(ctx, target, headerValue, pos...)
+	c.syncProbeCount++
+	return c.Prober.Do(ctx, target, headerValue, pos...)
 }
 
 func (c *countingProber) Offer(ctx context.Context, target, headerValue string, callback prober.Callback, period, timeout time.Duration) bool {
-	c.asyncCount++
-	return c.prober.Offer(ctx, target, headerValue, callback, period, timeout)
+	c.asyncProbeCount++
+	return c.Prober.Offer(ctx, target, headerValue, callback, period, timeout)
 }
