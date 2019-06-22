@@ -68,7 +68,7 @@ func TestDoServing(t *testing.T) {
 		headerValue: "",
 		want:        false,
 	}}
-	prober := New(func(arg interface{}, success bool, err error) {}, network.NewAutoTransport)
+	prober := New(network.NewAutoTransport())
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			got, err := prober.Do(context.Background(), ts.URL, test.headerValue)
@@ -83,7 +83,7 @@ func TestDoServing(t *testing.T) {
 }
 
 func TestBlackHole(t *testing.T) {
-	prober := New(func(arg interface{}, success bool, err error) {}, network.NewAutoTransport)
+	prober := New(network.NewAutoTransport())
 	got, err := prober.Do(context.Background(), "http://gone.fishing.svc.custer.local:8080", systemName)
 	if want := false; got != want {
 		t.Errorf("Got = %v, want: %v", got, want)
@@ -94,7 +94,7 @@ func TestBlackHole(t *testing.T) {
 }
 
 func TestBadURL(t *testing.T) {
-	prober := New(func(arg interface{}, success bool, err error) {}, network.NewAutoTransport)
+	prober := New(network.NewAutoTransport())
 	_, err := prober.Do(context.Background(), ":foo", systemName)
 	if err == nil {
 		t.Error("Do did not return an error")
@@ -112,17 +112,14 @@ func TestDoAsync(t *testing.T) {
 	tests := []struct {
 		name        string
 		headerValue string
-		cb          Done
+		callback Callback
 	}{{
 		name:        "ok",
 		headerValue: systemName,
-		cb: func(arg interface{}, ret bool, err error) {
+		callback: func(ret bool, err error) {
 			defer func() {
 				wch <- 42
 			}()
-			if got, want := arg.(string), "ok"; got != want {
-				t.Errorf("arg = %s, want: %s", got, want)
-			}
 			if !ret {
 				t.Error("result was false")
 			}
@@ -130,7 +127,7 @@ func TestDoAsync(t *testing.T) {
 	}, {
 		name:        "wrong system",
 		headerValue: "bells-and-whistles",
-		cb: func(arg interface{}, ret bool, err error) {
+		callback: func(ret bool, err error) {
 			defer func() {
 				wch <- 1984
 			}()
@@ -141,7 +138,7 @@ func TestDoAsync(t *testing.T) {
 	}, {
 		name:        "no header",
 		headerValue: "",
-		cb: func(arg interface{}, ret bool, err error) {
+		callback: func(ret bool, err error) {
 			defer func() {
 				wch <- 2006
 			}()
@@ -152,8 +149,8 @@ func TestDoAsync(t *testing.T) {
 	}}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			m := New(test.cb, network.NewAutoTransport)
-			m.Offer(context.Background(), ts.URL, test.headerValue, test.name, 50*time.Millisecond, 2*time.Second)
+			prober := New(network.NewAutoTransport())
+			prober.Offer(context.Background(), ts.URL, test.headerValue, test.callback, 50*time.Millisecond, 2*time.Second)
 			<-wch
 		})
 	}
@@ -180,17 +177,17 @@ func TestDoAsyncRepeat(t *testing.T) {
 
 	wch := make(chan interface{})
 	defer close(wch)
-	cb := func(arg interface{}, done bool, err error) {
+	cb := func(done bool, err error) {
 		if !done {
 			t.Error("done was false")
 		}
 		if err != nil {
 			t.Errorf("Unexpected error = %v", err)
 		}
-		wch <- arg
+		wch <- 42
 	}
-	m := New(cb, network.NewAutoTransport)
-	m.Offer(context.Background(), ts.URL, systemName, 42, 50*time.Millisecond, 3*time.Second)
+	m := New(network.NewAutoTransport())
+	m.Offer(context.Background(), ts.URL, systemName, cb, 50*time.Millisecond, 3*time.Second)
 	<-wch
 	if got, want := c.calls, 3; got != want {
 		t.Errorf("Probe invocation count = %d, want: %d", got, want)
@@ -206,14 +203,14 @@ func TestDoAsyncTimeout(t *testing.T) {
 	wch := make(chan interface{})
 	defer close(wch)
 
-	cb := func(arg interface{}, done bool, err error) {
+	cb := func(done bool, err error) {
 		if err != wait.ErrWaitTimeout {
 			t.Errorf("Unexpected error = %v", err)
 		}
-		wch <- arg
+		wch <- 2009
 	}
-	m := New(cb, network.NewAutoTransport)
-	m.Offer(context.Background(), ts.URL, systemName, 2009, 10*time.Millisecond, 200*time.Millisecond)
+	m := New(network.NewAutoTransport())
+	m.Offer(context.Background(), ts.URL, systemName, cb, 10*time.Millisecond, 200*time.Millisecond)
 	<-wch
 }
 
@@ -223,15 +220,15 @@ func TestAsyncMultiple(t *testing.T) {
 
 	wch := make(chan interface{})
 	defer close(wch)
-	cb := func(arg interface{}, done bool, err error) {
+	cb := func(done bool, err error) {
 		<-wch
 		wch <- 2006
 	}
-	m := New(cb, network.NewAutoTransport)
-	if !m.Offer(context.Background(), ts.URL, systemName, 1984, 100*time.Millisecond, 1*time.Second) {
+	m := New(network.NewAutoTransport())
+	if !m.Offer(context.Background(), ts.URL, systemName, cb, 100*time.Millisecond, 1*time.Second) {
 		t.Error("First call to offer returned false")
 	}
-	if m.Offer(context.Background(), ts.URL, systemName, 1982, 100*time.Millisecond, 1*time.Second) {
+	if m.Offer(context.Background(), ts.URL, systemName, cb, 100*time.Millisecond, 1*time.Second) {
 		t.Error("Second call to offer returned true")
 	}
 	if got, want := m.len(), 1; got != want {

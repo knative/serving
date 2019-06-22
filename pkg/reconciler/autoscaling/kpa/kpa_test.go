@@ -19,6 +19,7 @@ package kpa
 import (
 	"context"
 	"fmt"
+	"github.com/knative/serving/pkg/network"
 	"github.com/knative/serving/pkg/network/prober"
 	"strconv"
 	"sync"
@@ -302,12 +303,14 @@ func TestReconcileAndScaleToZero(t *testing.T) {
 
 		fakeMetrics := newTestMetrics()
 		psFactory := presources.NewPodScalableInformerFactory(ctx)
-		scaler := newScaler(ctx, psFactory, func(interface{}, time.Duration) {})
-		scaler.prober = &fakeProber{
+		prober := &fakeProber{
 			DoOver: func(ctx context.Context, target, headerValue string, pos ...prober.ProbeOption) (b bool, e error) {
 				return true, nil
 			},
 		}
+		enqueueFunc := func(interface{}, time.Duration) {}
+		scaler := newScaler(ctx, psFactory, prober, enqueueFunc)
+
 		return &Reconciler{
 			Base: &areconciler.Base{
 				Base:              rpkg.NewBase(ctx, controllerAgentName, newConfigWatcher()),
@@ -780,6 +783,8 @@ func TestReconcile(t *testing.T) {
 
 		psFactory := presources.NewPodScalableInformerFactory(ctx)
 		fakeMetrics := newTestMetrics()
+		prober := prober.New(network.NewAutoTransport())
+		enqueueFunc := func(interface{}, time.Duration) {}
 		return &Reconciler{
 			Base: &areconciler.Base{
 				Base:              rpkg.NewBase(ctx, controllerAgentName, newConfigWatcher()),
@@ -792,7 +797,7 @@ func TestReconcile(t *testing.T) {
 			},
 			endpointsLister: listers.GetEndpointsLister(),
 			deciders:        fakeDeciders,
-			scaler:          newScaler(ctx, psFactory, func(interface{}, time.Duration) {}),
+			scaler:          newScaler(ctx, psFactory, prober, enqueueFunc),
 		}
 	}))
 }

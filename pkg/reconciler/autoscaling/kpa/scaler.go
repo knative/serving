@@ -48,11 +48,6 @@ const (
 	reenqeuePeriod = 1 * time.Second
 )
 
-// for mocking in tests
-type asyncProber interface {
-	Offer(context.Context, string, string, interface{}, time.Duration, time.Duration) bool
-}
-
 // scaler scales the target of a kpa-class PA up or down including scaling to zero.
 type scaler struct {
 	psInformerFactory duck.InformerFactory
@@ -64,7 +59,7 @@ type scaler struct {
 }
 
 // newScaler creates a scaler.
-func newScaler(ctx context.Context, psInformerFactory duck.InformerFactory, enqueueCB func(interface{}, time.Duration)) *scaler {
+func newScaler(ctx context.Context, psInformerFactory duck.InformerFactory, prober prober.Prober, enqueueCB func(interface{}, time.Duration)) *scaler {
 	logger := logging.FromContext(ctx)
 	ks := &scaler{
 		// Wrap it in a cache, so that we don't stamp out a new
@@ -72,14 +67,7 @@ func newScaler(ctx context.Context, psInformerFactory duck.InformerFactory, enqu
 		psInformerFactory: psInformerFactory,
 		dynamicClient:     dynamicclient.Get(ctx),
 		logger:            logger,
-
-		// Production setup uses the default probe implementation.
-		prober: prober.New(/*func(arg interface{}, success bool, err error) {
-			logger.Infof("Async prober is done for %v: success?: %v error: %v", arg, success, err)
-			// Re-enqeue the PA in any case. If the probe timed out to retry again, if succeeded to scale to 0.
-			enqueueCB(arg, reenqeuePeriod)
-		}, */network.NewAutoTransport())
-		.WithCallback(),
+		prober: prober,
 		enqueueCB: enqueueCB,
 	}
 	return ks
@@ -158,7 +146,12 @@ func (ks *scaler) handleScaleToZero(pa *pav1alpha1.PodAutoscaler, desiredScale i
 
 		// Otherwise (any prober failure) start the async probe.
 		ks.logger.Infof("%s is not yet backed by activator, cannot scale to zero", pa.Name)
-		if !ks.prober.Offer(context.Background(), paToProbeTarget(pa), activator.Name, pa, probePeriod, probeTimeout) {
+		callback := func(success bool, err error) {
+			ks.logger.Infof("Async prober is done for %v: success: %v error: %v", pa, success, err)
+			// Re-enqeue the PA in any case. If the probe timed out to retry again, if succeeded to scale to 0.
+			ks.enqueueCB(pa, reenqeuePeriod)
+		}
+		if !ks.prober.Offer(context.Background(), paToProbeTarget(pa), activator.Name, callback, probePeriod, probeTimeout) {
 			ks.logger.Infof("Probe for %s is already in flight", pa.Name)
 		}
 		return desiredScale, false

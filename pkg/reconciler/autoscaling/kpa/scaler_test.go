@@ -237,9 +237,6 @@ func TestScaler(t *testing.T) {
 			revision := newRevision(t, fakeservingclient.Get(ctx), test.minScale, test.maxScale)
 			deployment := newDeployment(t, dynamicClient, names.Deployment(revision), test.startReplicas)
 			cbCount := 0
-			revisionScaler := newScaler(ctx, presources.NewPodScalableInformerFactory(ctx), func(interface{}, time.Duration) {
-				cbCount++
-			})
 
 			var doOver func(ctx context.Context, target, headerValue string, pos ...prober.ProbeOption) (b bool, e error)
 			if test.proberfunc != nil {
@@ -251,16 +248,14 @@ func TestScaler(t *testing.T) {
 					return true, nil
 				}
 			}
-
-			cp := &countingProber{
+			prober := &countingProber{
 				prober: &fakeProber{
-					Prober: prober.New(func(arg interface{}, success bool, err error) {
-						
-					}, network.NewAutoTransport),
-					DoOver: doOver,
+					Prober: prober.New(network.NewAutoTransport()),
+					DoOver: doOver, // TODO(bancel): fix this ugliness
 				},
 			}
-			revisionScaler.prober = cp
+			enqueueFunc := func(interface{}, time.Duration) { cbCount++ }
+			revisionScaler := newScaler(ctx, presources.NewPodScalableInformerFactory(ctx), prober, enqueueFunc)
 
 			// We test like this because the dynamic client's fake doesn't properly handle
 			// patch modes prior to 1.13 (where vaikas added JSON Patch support).
@@ -288,7 +283,7 @@ func TestScaler(t *testing.T) {
 			if err == nil && desiredScale != test.wantReplicas {
 				t.Errorf("desiredScale = %d, wanted %d", desiredScale, test.wantReplicas)
 			}
-			if got, want := cp.asyncCount, test.wantAsyncProbeCount; got != want {
+			if got, want := prober.asyncCount, test.wantAsyncProbeCount; got != want {
 				t.Errorf("Async probe invoked = %d time, want: %d", got, want)
 			}
 			if got, want := cbCount, test.wantCBCount; got != want {
@@ -551,8 +546,9 @@ func TestActivatorProbe(t *testing.T) {
 	ctx, _ := SetupFakeContext(t)
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			scaler := newScaler(ctx, presources.NewPodScalableInformerFactory(ctx), func(interface{}, time.Duration) {})
-			scaler.prober = prober.New(nil, func() http.RoundTripper { return test.rt })
+			prober := prober.New(test.rt)
+			enqueueFunc := func(interface{}, time.Duration) {}
+			scaler := newScaler(ctx, presources.NewPodScalableInformerFactory(ctx), prober, enqueueFunc)
 			res, err := scaler.activatorProbe(pa)
 			if got, want := res, test.wantRes; got != want {
 				t.Errorf("Result = %v, want: %v", got, want)
@@ -576,8 +572,8 @@ func (c *fakeProber) Do(ctx context.Context, target, headerValue string, pos ...
 	return c.Prober.Do(ctx, target, headerValue, pos...)
 }
 
-func (c *fakeProber) Offer(ctx context.Context, target, headerValue string, arg interface{}, period, timeout time.Duration) bool {
-	return c.Prober.Offer(ctx, target, headerValue, arg, period, timeout)
+func (c *fakeProber) Offer(ctx context.Context, target, headerValue string, callback prober.Callback, period, timeout time.Duration) bool {
+	return c.Prober.Offer(ctx, target, headerValue, callback, period, timeout)
 }
 
 type countingProber struct {
@@ -591,7 +587,7 @@ func (c *countingProber) Do(ctx context.Context, target, headerValue string, pos
 	return c.prober.Do(ctx, target, headerValue, pos...)
 }
 
-func (c *countingProber) Offer(ctx context.Context, target, headerValue string, arg interface{}, period, timeout time.Duration) bool {
+func (c *countingProber) Offer(ctx context.Context, target, headerValue string, callback prober.Callback, period, timeout time.Duration) bool {
 	c.asyncCount++
-	return c.prober.Offer(ctx, target, headerValue, arg, period, timeout)
+	return c.prober.Offer(ctx, target, headerValue, callback, period, timeout)
 }

@@ -32,8 +32,11 @@ import (
 
 type Prober interface {
 	Do(ctx context.Context, target, headerValue string, pos ...ProbeOption) (bool, error)
-	Offer(ctx context.Context, target, headerValue string, arg interface{}, period, timeout time.Duration) bool
+	Offer(ctx context.Context, target, headerValue string, callback Callback, period, timeout time.Duration) bool
 }
+
+// Ensure Manager implements Prober interface
+var _ Prober = &Manager{}
 
 // TransportFactory is a function which returns an HTTP transport.
 type TransportFactory func() http.RoundTripper
@@ -46,12 +49,11 @@ type ProbeOption func(r *http.Request) *http.Request
 // are the return values of the `Do` call.
 // It is assumed that the opaque arg is consistent for a given target and
 // we will coalesce concurrent Offer invocations on target.
-type Done func(arg interface{}, success bool, err error)
+type Callback func(success bool, err error)
 
 // Manager manages async probes and makes sure we run concurrently only a single
 // probe for the same key.
 type Manager struct {
-	DoneCallback               Done
 	RoundTripper http.RoundTripper
 
 	// mu guards keys.
@@ -63,16 +65,10 @@ type option func(*Manager)
 
 // New creates a new Manager, that will invoke the given callback when
 // async probing is finished.
-func New(roundTripper http.RoundTripper, opts option) *Manager {
+func New(roundTripper http.RoundTripper) *Manager {
 	return &Manager{
-		keys:             sets.NewString(),
+		keys:         sets.NewString(),
 		RoundTripper: roundTripper,
-	}
-}
-
-func WithCallback(done Done) option {
-	return func(m *Manager) {
-		m.DoneCallback = done
 	}
 }
 
@@ -108,19 +104,19 @@ func (m *Manager) Do(ctx context.Context, target, headerValue string, pos ...Pro
 // Otherwise Offer starts a goroutine that periodically executes
 // `Do`, until timeout is reached, the probe succeeds, or fails with an error.
 // In the end the callback is invoked with the provided `arg` and probing results.
-func (m *Manager) Offer(ctx context.Context, target, headerValue string, arg interface{}, period, timeout time.Duration) bool {
+func (m *Manager) Offer(ctx context.Context, target, headerValue string, callback Callback, period, timeout time.Duration) bool {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if m.keys.Has(target) {
 		return false
 	}
 	m.keys.Insert(target)
-	m.doAsync(ctx, target, headerValue, arg, period, timeout)
+	m.doAsync(ctx, target, headerValue, callback, period, timeout)
 	return true
 }
 
 // doAsync starts a go routine that probes the target with given period.
-func (m *Manager) doAsync(ctx context.Context, target, headerValue string, arg interface{}, period, timeout time.Duration) {
+func (m *Manager) doAsync(ctx context.Context, target, headerValue string, callback Callback, period, timeout time.Duration) {
 	go func() {
 		defer func() {
 			m.mu.Lock()
@@ -128,16 +124,16 @@ func (m *Manager) doAsync(ctx context.Context, target, headerValue string, arg i
 			m.keys.Delete(target)
 		}()
 		var (
-			result bool
-			err    error
+			success bool
+			err     error
 		)
 		err = wait.PollImmediate(period, timeout, func() (bool, error) {
-			result, err = m.Do(ctx, target, headerValue)
-			return result, err
+			success, err = m.Do(ctx, target, headerValue)
+			return success, err
 		})
 
-		if m.cb != nil {
-			m.cb(arg, result, err)
+		if callback != nil {
+			callback(success, err)
 		}
 	}()
 }

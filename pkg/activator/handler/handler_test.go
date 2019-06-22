@@ -333,7 +333,7 @@ func TestActivationHandler(t *testing.T) {
 				revisionLister(revision(testNamespace, testRevName)),
 				svcLister,
 				sksLister,
-				prober.New(nil, rtFact(rt)))
+				prober.New(rt))
 			handler.Transport = rt
 			handler.ProbeTimeout = test.probeTimeout
 
@@ -400,7 +400,7 @@ func TestActivationHandlerOverflow(t *testing.T) {
 		revisionLister(revision(namespace, revName)),
 		serviceLister(service(namespace, revName, "http")),
 		sksLister(sks(namespace, revName)),
-		prober.New(nil, rtFact(rt)))
+		prober.New(rt))
 	handler.Transport = rt
 
 	sendRequests(requests, namespace, revName, respCh, handler)
@@ -447,7 +447,7 @@ func TestActivationHandlerOverflowSeveralRevisions(t *testing.T) {
 		revClient,
 		svcClient,
 		sksClient,
-		prober.New(nil, rtFact(rt)))
+		prober.New(rt))
 	handler.Transport = rt
 
 	for _, revName := range revisions {
@@ -490,7 +490,7 @@ func TestActivationHandlerProxyHeader(t *testing.T) {
 		revisionLister(revision(testNamespace, testRevName)),
 		serviceLister(service(testNamespace, testRevName, "http")),
 		sksLister(sks(testNamespace, testRevName)),
-		prober.New(nil, rtFact(probeRt)))
+		prober.New(probeRt))
 	handler.Transport = rt
 
 	writer := httptest.NewRecorder()
@@ -555,7 +555,7 @@ func TestActivationHandlerTraceSpans(t *testing.T) {
 		revisionLister(revision(testNamespace, testRevName)),
 		serviceLister(service(testNamespace, testRevName, "http")),
 		sksLister(sks(testNamespace, testRevName)),
-		prober.New(nil, rtFact(rt)))
+		prober.New(rt))
 	handler.Transport = rt
 
 	_ = sendRequest(namespace, revName, handler)

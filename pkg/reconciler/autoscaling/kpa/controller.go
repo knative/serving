@@ -24,6 +24,8 @@ import (
 	serviceinformer "github.com/knative/pkg/injection/informers/kubeinformers/corev1/service"
 	kpainformer "github.com/knative/serving/pkg/client/injection/informers/autoscaling/v1alpha1/podautoscaler"
 	sksinformer "github.com/knative/serving/pkg/client/injection/informers/networking/v1alpha1/serverlessservice"
+	"github.com/knative/serving/pkg/network"
+	"github.com/knative/serving/pkg/network/prober"
 
 	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/controller"
@@ -67,7 +69,8 @@ func NewController(
 		deciders:        deciders,
 	}
 	impl := controller.NewImpl(c, c.Logger, "KPA-Class Autoscaling")
-	c.scaler = newScaler(ctx, psInformerFactory, impl.EnqueueAfter)
+	prober := prober.New(network.NewAutoTransport())
+	c.scaler = newScaler(ctx, psInformerFactory, prober, impl.EnqueueAfter)
 
 	c.Logger.Info("Setting up KPA-Class event handlers")
 	// Handle PodAutoscalers missing the class annotation for backward compatibility.
