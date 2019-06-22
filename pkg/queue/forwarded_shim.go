@@ -32,7 +32,7 @@ func ForwardedShimHandler(h http.Handler) http.Handler {
 		defer h.ServeHTTP(w, r)
 
 		// Forwarded: by=<identifier>;for=<identifier>;host=<host>;proto=<http|https>
-		fwd := r.Header.Get("forwarded")
+		fwd := r.Header.Get("Forwarded")
 
 		// Don't add a shim if the header is already present
 		if fwd != "" {
@@ -40,11 +40,11 @@ func ForwardedShimHandler(h http.Handler) http.Handler {
 		}
 
 		// X-Forwarded-For: <client>, <proxy1>, <proxy2>
-		xff := r.Header.Get("x-forwarded-for")
+		xff := r.Header.Get("X-Forwarded-For")
 		// X-Forwarded-Proto: <protocol>
-		xfp := r.Header.Get("x-forwarded-proto")
+		xfp := r.Header.Get("X-Forwarded-Proto")
 		// X-Forwarded-Host: <host>
-		xfh := r.Header.Get("x-forwarded-host")
+		xfh := r.Header.Get("X-Forwarded-Host")
 
 		// Nothing to do if we don't have any x-fowarded-* headers
 		if xff == "" && xfp == "" && xfh == "" {
@@ -96,6 +96,6 @@ func ForwardedShimHandler(h http.Handler) http.Handler {
 		fwd = strings.Join(elements, ", ")
 
 		// Add forwarded header
-		r.Header.Set("forwarded", fwd)
+		r.Header.Set("Forwarded", fwd)
 	})
 }
