@@ -174,15 +174,15 @@ func TestDestroyPodTimely(t *testing.T) {
 	// of the containers of that pod are no longer running. It can take an arbitrarily long time to
 	// actually remove the pod itself while we only care about containers being stopped.
 	deploymentName := rnames.Deployment(objects.Revision)
-	var podList *v1.PodList
+	var latestPodState v1.Pod
 	pkgTest.WaitForPodListState(
 		clients.KubeClient,
 		func(p *v1.PodList) (bool, error) {
-			podList = p
 			for _, pod := range p.Items {
 				if !strings.Contains(pod.Name, deploymentName) {
 					continue
 				}
+				latestPodState = pod
 				for _, status := range pod.Status.ContainerStatuses {
 					// There are still containers running, keep retrying.
 					if status.State.Running != nil {
@@ -196,7 +196,7 @@ func TestDestroyPodTimely(t *testing.T) {
 
 	timeToDelete := time.Since(start)
 	if timeToDelete > maxTimeToDelete {
-		t.Logf("Pod list: %s", spew.Sprint(podList))
+		t.Logf("State: %s", spew.Sprint(latestPodState))
 		t.Errorf("Time to delete pods = %v, want < %v", timeToDelete, maxTimeToDelete)
 	}
 }
