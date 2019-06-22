@@ -24,7 +24,6 @@ import (
 	"github.com/knative/pkg/injection/clients/kubeclient"
 	deploymentinformer "github.com/knative/pkg/injection/informers/kubeinformers/appsv1/deployment"
 	configmapinformer "github.com/knative/pkg/injection/informers/kubeinformers/corev1/configmap"
-	endpointsinformer "github.com/knative/pkg/injection/informers/kubeinformers/corev1/endpoints"
 	serviceinformer "github.com/knative/pkg/injection/informers/kubeinformers/corev1/service"
 	kpainformer "github.com/knative/serving/pkg/client/injection/informers/autoscaling/v1alpha1/podautoscaler"
 	revisioninformer "github.com/knative/serving/pkg/client/injection/informers/serving/v1alpha1/revision"
@@ -32,7 +31,6 @@ import (
 	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/controller"
 	"github.com/knative/pkg/logging"
-	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/deployment"
 	"github.com/knative/serving/pkg/metrics"
@@ -61,7 +59,6 @@ func NewController(
 
 	deploymentInformer := deploymentinformer.Get(ctx)
 	serviceInformer := serviceinformer.Get(ctx)
-	endpointsInformer := endpointsinformer.Get(ctx)
 	configMapInformer := configmapinformer.Get(ctx)
 	imageInformer := imageinformer.Get(ctx)
 	revisionInformer := revisioninformer.Get(ctx)
@@ -74,7 +71,6 @@ func NewController(
 		imageLister:         imageInformer.Lister(),
 		deploymentLister:    deploymentInformer.Lister(),
 		serviceLister:       serviceInformer.Lister(),
-		endpointsLister:     endpointsInformer.Lister(),
 		configMapLister:     configMapInformer.Lister(),
 		resolver: &digestResolver{
 			client:    kubeclient.Get(ctx),
@@ -86,11 +82,6 @@ func NewController(
 	// Set up an event handler for when the resource types of interest change
 	c.Logger.Info("Setting up event handlers")
 	revisionInformer.Informer().AddEventHandler(controller.HandleAll(impl.Enqueue))
-
-	endpointsInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
-		FilterFunc: reconciler.LabelExistsFilterFunc(serving.RevisionLabelKey),
-		Handler:    controller.HandleAll(impl.EnqueueLabelOfNamespaceScopedResource("", serving.RevisionLabelKey)),
-	})
 
 	deploymentInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: controller.Filter(v1alpha1.SchemeGroupVersion.WithKind("Revision")),
