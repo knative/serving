@@ -78,6 +78,8 @@ func runtimeInfo(
 		return nil, nil, err
 	}
 
+	t.Logf("Got runtime info: %s", string(resp.Body))
+
 	var ri types.RuntimeInfo
 	err = json.Unmarshal(resp.Body, &ri)
 	return names, &ri, err

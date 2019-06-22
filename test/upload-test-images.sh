@@ -36,3 +36,7 @@ function upload_test_images() {
 : ${KO_DOCKER_REPO:?"You must set 'KO_DOCKER_REPO', see DEVELOPMENT.md"}
 
 upload_test_images $@
+
+go get -u github.com/google/go-containerregistry/cmd/crane
+
+crane config ${KO_DOCKER_REPO}/runtime:latest | python -mjson.tool
