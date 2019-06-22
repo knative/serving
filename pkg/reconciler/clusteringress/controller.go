@@ -70,7 +70,7 @@ func NewController(
 
 	virtualServiceInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: myFilterFunc,
-		Handler:    controller.HandleAll(impl.EnqueueLabelOfClusterScopedResource(networking.IngressLabelKey)),
+		Handler:    controller.HandleAll(impl.EnqueueLabelOfClusterScopedResource(networking.ClusterIngressLabelKey)),
 	})
 
 	c.tracker = tracker.New(impl.EnqueueKey, controller.GetTrackerLease(ctx))
