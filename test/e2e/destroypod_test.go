@@ -167,7 +167,7 @@ func TestDestroyPodTimely(t *testing.T) {
 		LabelSelector: fmt.Sprintf("%s=%s", serving.RevisionLabelKey, objects.Revision.Name),
 	})
 	if err != nil || len(pods.Items) == 0 {
-		t.Fatalf("Failed to fetch pods: %v", err)
+		t.Fatalf("No pods or error: %v", err)
 	}
 
 	podToDelete := pods.Items[0].Name
