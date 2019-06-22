@@ -136,6 +136,22 @@ func TestThrottlerActivatorEndpoints(t *testing.T) {
 		updatePollTimeout  = 3 * time.Second
 	)
 
+	ep := &corev1.Endpoints{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      testRevision,
+			Namespace: testNamespace,
+		},
+		Subsets: endpointsSubset(1, 1),
+	}
+	fake := kubefake.NewSimpleClientset(ep)
+	informer := kubeinformers.NewSharedInformerFactory(fake, 0)
+	endpoints := informer.Core().V1().Endpoints()
+	endpoints.Informer().GetIndexer().Add(ep)
+
+	stopCh := make(chan struct{})
+	defer close(stopCh)
+	controller.StartInformers(stopCh, endpoints.Informer())
+
 	scenarios := []struct {
 		name                string
 		activatorCount      int
@@ -155,13 +171,6 @@ func TestThrottlerActivatorEndpoints(t *testing.T) {
 
 	for _, s := range scenarios {
 		t.Run(s.name, func(t *testing.T) {
-			ep := &corev1.Endpoints{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      testRevision,
-					Namespace: testNamespace,
-				},
-				Subsets: endpointsSubset(1, 1),
-			}
 			activatorEp := &corev1.Endpoints{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      K8sServiceName,
@@ -169,11 +178,6 @@ func TestThrottlerActivatorEndpoints(t *testing.T) {
 				},
 				Subsets: endpointsSubset(1, s.activatorCount),
 			}
-
-			fake := kubefake.NewSimpleClientset(ep)
-			informer := kubeinformers.NewSharedInformerFactory(fake, 0)
-			endpoints := informer.Core().V1().Endpoints()
-			endpoints.Informer().GetIndexer().Add(ep)
 
 			throttler := getThrottler(
 				defaultMaxConcurrency,
@@ -185,10 +189,8 @@ func TestThrottlerActivatorEndpoints(t *testing.T) {
 			)
 			throttler.UpdateCapacity(revID, 1) // This sets the initial breaker
 
-			stopCh := make(chan struct{})
-			defer close(stopCh)
-			controller.StartInformers(stopCh, endpoints.Informer())
 			fake.CoreV1().Endpoints(activatorEp.Namespace).Create(activatorEp)
+			endpoints.Informer().GetIndexer().Add(activatorEp)
 
 			breaker := throttler.breakers[RevisionID{Name: testRevision, Namespace: testNamespace}]
 
