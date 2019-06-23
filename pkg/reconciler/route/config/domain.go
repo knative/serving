@@ -20,7 +20,7 @@ import (
 	"strings"
 
 	"github.com/ghodss/yaml"
-	. "github.com/knative/pkg/configmap/testing"
+	"github.com/knative/pkg/configmap"
 	"github.com/knative/serving/pkg/network"
 	corev1 "k8s.io/api/core/v1"
 )
@@ -77,7 +77,7 @@ func NewDomainFromConfigMap(configMap *corev1.ConfigMap) (*Domain, error) {
 	c := Domain{Domains: map[string]*LabelSelector{}}
 	hasDefault := false
 	for k, v := range configMap.Data {
-		if k == ExampleKey {
+		if k == configmap.ExampleKey {
 			continue
 		}
 		labelSelector := LabelSelector{}
