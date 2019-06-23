@@ -55,7 +55,6 @@ type Reconciler struct {
 	imageLister         cachinglisters.ImageLister
 	deploymentLister    appsv1listers.DeploymentLister
 	serviceLister       corev1listers.ServiceLister
-	endpointsLister     corev1listers.EndpointsLister
 	configMapLister     corev1listers.ConfigMapLister
 
 	resolver    resolver

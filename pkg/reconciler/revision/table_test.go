@@ -562,7 +562,6 @@ func TestReconcile(t *testing.T) {
 			imageLister:         listers.GetImageLister(),
 			deploymentLister:    listers.GetDeploymentLister(),
 			serviceLister:       listers.GetK8sServiceLister(),
-			endpointsLister:     listers.GetEndpointsLister(),
 			configMapLister:     listers.GetConfigMapLister(),
 			resolver:            &nopResolver{},
 			configStore:         &testConfigStore{config: ReconcilerTestConfig()},
