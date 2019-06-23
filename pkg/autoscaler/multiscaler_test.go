@@ -33,7 +33,7 @@ import (
 
 const (
 	tickInterval = 5 * time.Millisecond
-	tickTimeout  = 50 * time.Millisecond
+	tickTimeout  = 100 * time.Millisecond
 )
 
 // watchFunc generates a function to assert the changes happening in the multiscaler.
@@ -97,7 +97,6 @@ func TestMultiScalerScaling(t *testing.T) {
 	}
 
 	errCh := make(chan error)
-	defer close(errCh)
 	ms.Watch(watchFunc(ctx, ms, decider, 1, errCh))
 
 	_, err = ms.Create(ctx, decider)
@@ -186,7 +185,6 @@ func TestMultiScalerScaleToZero(t *testing.T) {
 	}
 
 	errCh := make(chan error)
-	defer close(errCh)
 	ms.Watch(watchFunc(ctx, ms, decider, 0, errCh))
 
 	_, err = ms.Create(ctx, decider)
@@ -221,7 +219,6 @@ func TestMultiScalerScaleFromZero(t *testing.T) {
 	uniScaler.setScaleResult(1, true)
 
 	errCh := make(chan error)
-	defer close(errCh)
 	ms.Watch(watchFunc(ctx, ms, decider, 1, errCh))
 
 	_, err := ms.Create(ctx, decider)
@@ -267,7 +264,6 @@ func TestMultiScalerIgnoreNegativeScale(t *testing.T) {
 	}
 
 	errCh := make(chan error)
-	defer close(errCh)
 	ms.Watch(func(key string) {
 		// Let the main process know when this is called.
 		errCh <- nil
