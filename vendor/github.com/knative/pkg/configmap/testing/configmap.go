@@ -20,11 +20,10 @@ import (
 	"testing"
 
 	"github.com/ghodss/yaml"
+	"github.com/knative/pkg/configmap"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
-
-const ExampleKey = "_example"
 
 // ConfigMapFromTestFile creates a v1.ConfigMap from a YAML file
 // It loads the YAML file from the testdata folder.
@@ -57,7 +56,7 @@ func ConfigMapsFromTestFile(t *testing.T, name string, allowed ...string) (*core
 
 	// We expect each of the allowed keys, and a key holding an example
 	// configuration for us to validate.
-	allowed = append(allowed, ExampleKey)
+	allowed = append(allowed, configmap.ExampleKey)
 
 	if len(orig.Data) != len(allowed) {
 		// See here for why we only check in empty ConfigMaps:
@@ -72,7 +71,7 @@ func ConfigMapsFromTestFile(t *testing.T, name string, allowed ...string) (*core
 	}
 	// With the length and membership checks, we know that the keyspace matches.
 
-	exampleBody := orig.Data[ExampleKey]
+	exampleBody := orig.Data[configmap.ExampleKey]
 	// Check that exampleBody does not have lines that end in a trailing space,
 	for i, line := range strings.Split(exampleBody, "\n") {
 		if strings.HasSuffix(line, " ") {
