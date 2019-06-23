@@ -89,14 +89,15 @@ func (h *timeoutHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		h.handler.ServeHTTP(tw, r.WithContext(ctx))
 	}()
 
-	timeout := time.After(h.dt)
+	timeout := time.NewTimer(h.dt)
+	defer timeout.Stop()
 	for {
 		select {
 		case p := <-panicChan:
 			panic(p)
 		case <-done:
 			return
-		case <-timeout:
+		case <-timeout.C:
 			if tw.TimeoutAndWriteError(h.errorBody()) {
 				return
 			}
