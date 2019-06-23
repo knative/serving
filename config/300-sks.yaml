@@ -36,6 +36,9 @@ spec:
   subresources:
     status: {}
   additionalPrinterColumns:
+  - name: Mode
+    type: string
+    JSONPath: ".spec.mode"
   - name: ServiceName
     type: string
     JSONPath: ".status.serviceName"
