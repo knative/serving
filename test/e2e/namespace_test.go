@@ -59,7 +59,7 @@ func TestMultipleNamespace(t *testing.T) {
 
 	defaultResources := test.ResourceNames{
 		Service: serviceName,
-		Image:   pizzaPlanet1,
+		Image:   test.PizzaPlanet1,
 	}
 	test.CleanupOnInterrupt(func() { test.TearDown(defaultClients, defaultResources) })
 	defer test.TearDown(defaultClients, defaultResources)
@@ -69,7 +69,7 @@ func TestMultipleNamespace(t *testing.T) {
 
 	altResources := test.ResourceNames{
 		Service: serviceName,
-		Image:   pizzaPlanet2,
+		Image:   test.PizzaPlanet2,
 	}
 	test.CleanupOnInterrupt(func() { test.TearDown(altClients, altResources) })
 	defer test.TearDown(altClients, altResources)
@@ -77,11 +77,11 @@ func TestMultipleNamespace(t *testing.T) {
 		t.Fatalf("Failed to create Service %v in namespace %v: %v", altResources.Service, test.AlternativeServingNamespace, err)
 	}
 
-	if err := checkResponse(t, defaultClients, defaultResources, pizzaPlanetText1); err != nil {
+	if err := checkResponse(t, defaultClients, defaultResources, test.PizzaPlanetText1); err != nil {
 		t.Error(err)
 	}
 
-	if err := checkResponse(t, altClients, altResources, pizzaPlanetText2); err != nil {
+	if err := checkResponse(t, altClients, altResources, test.PizzaPlanetText2); err != nil {
 		t.Error(err)
 	}
 }
@@ -95,7 +95,7 @@ func TestConflictingRouteService(t *testing.T) {
 	names := test.ResourceNames{
 		Service:       test.AppendRandomString("conflicting-route-service"),
 		TrafficTarget: "chips",
-		Image:         pizzaPlanet1,
+		Image:         test.PizzaPlanet1,
 	}
 
 	// Create a service in a different namespace but route label points to a route in another namespace
