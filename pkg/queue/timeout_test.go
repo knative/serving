@@ -23,8 +23,10 @@ import (
 )
 
 func TestTimeToFirstByteTimeoutHandler(t *testing.T) {
-	failingTimeout := 10 * time.Millisecond
-	sleepToFail := 100 * time.Millisecond
+	const (
+		failingTimeout = 10 * time.Millisecond
+		sleepToFail    = 100 * time.Millisecond
+	)
 
 	tests := []struct {
 		name           string
