@@ -89,22 +89,22 @@ func TestForwardedShimHandler(t *testing.T) {
 			}
 
 			if test.xff != "" {
-				req.Header.Set(http.CanonicalHeaderKey("x-forwarded-for"), test.xff)
+				req.Header.Set("X-Forwarded-For", test.xff)
 			}
 			if test.xfh != "" {
-				req.Header.Set(http.CanonicalHeaderKey("x-forwarded-host"), test.xfh)
+				req.Header.Set("X-Forwarded-Host", test.xfh)
 			}
 			if test.xfp != "" {
-				req.Header.Set(http.CanonicalHeaderKey("x-forwarded-proto"), test.xfp)
+				req.Header.Set("X-Forwarded-Proto", test.xfp)
 			}
 			if test.fwd != "" {
-				req.Header.Set(http.CanonicalHeaderKey("forwarded"), test.fwd)
+				req.Header.Set("Forwarded", test.fwd)
 			}
 
 			resp := httptest.NewRecorder()
 
 			h := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				got = req.Header.Get(http.CanonicalHeaderKey("forwarded"))
+				got = req.Header.Get("Forwarded")
 			})
 
 			ForwardedShimHandler(h).ServeHTTP(resp, req)

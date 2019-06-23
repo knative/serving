@@ -100,8 +100,8 @@ func TestUpdateRequestLogFromConfigMap(t *testing.T) {
 			resp := httptest.NewRecorder()
 			req := httptest.NewRequest(http.MethodPost, test.url, bytes.NewBufferString(test.body))
 			req.Header = map[string][]string{
-				http.CanonicalHeaderKey(activator.RevisionHeaderName):      {testRevisionName},
-				http.CanonicalHeaderKey(activator.RevisionHeaderNamespace): {testNamespaceName},
+				activator.RevisionHeaderName:      {testRevisionName},
+				activator.RevisionHeaderNamespace: {testNamespaceName},
 			}
 			handler.ServeHTTP(resp, req)
 
@@ -124,8 +124,8 @@ func TestRequestLogTemplateInputGetter(t *testing.T) {
 		name:   "success",
 		getter: requestLogTemplateInputGetter(getRevisionLister(true)),
 		request: &http.Request{Header: map[string][]string{
-			http.CanonicalHeaderKey(activator.RevisionHeaderName):      {testRevisionName},
-			http.CanonicalHeaderKey(activator.RevisionHeaderNamespace): {testNamespaceName},
+			activator.RevisionHeaderName:      {testRevisionName},
+			activator.RevisionHeaderNamespace: {testNamespaceName},
 		}},
 		response: &pkghttp.RequestLogResponse{Code: http.StatusAlreadyReported},
 		want: pkghttp.RequestLogRevision{
@@ -138,8 +138,8 @@ func TestRequestLogTemplateInputGetter(t *testing.T) {
 		name:   "revision not found",
 		getter: requestLogTemplateInputGetter(getRevisionLister(true)),
 		request: &http.Request{Header: map[string][]string{
-			http.CanonicalHeaderKey(activator.RevisionHeaderName):      {"foo"},
-			http.CanonicalHeaderKey(activator.RevisionHeaderNamespace): {"bar"},
+			activator.RevisionHeaderName:      {"foo"},
+			activator.RevisionHeaderNamespace: {"bar"},
 		}},
 		response: &pkghttp.RequestLogResponse{Code: http.StatusAlreadyReported},
 		want: pkghttp.RequestLogRevision{
@@ -150,8 +150,8 @@ func TestRequestLogTemplateInputGetter(t *testing.T) {
 		name:   "labels not found",
 		getter: requestLogTemplateInputGetter(getRevisionLister(false)),
 		request: &http.Request{Header: map[string][]string{
-			http.CanonicalHeaderKey(activator.RevisionHeaderName):      {testRevisionName},
-			http.CanonicalHeaderKey(activator.RevisionHeaderNamespace): {testNamespaceName},
+			activator.RevisionHeaderName:      {testRevisionName},
+			activator.RevisionHeaderNamespace: {testNamespaceName},
 		}},
 		response: &pkghttp.RequestLogResponse{Code: http.StatusAlreadyReported},
 		want: pkghttp.RequestLogRevision{
