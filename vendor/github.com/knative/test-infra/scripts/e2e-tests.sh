@@ -323,7 +323,8 @@ function setup_test_cluster() {
   if [[ -z "$(kubectl get clusterrolebinding cluster-admin-binding 2> /dev/null)" ]]; then
     acquire_cluster_admin_role ${k8s_user} ${E2E_CLUSTER_NAME} ${E2E_CLUSTER_REGION} ${E2E_CLUSTER_ZONE}
     kubectl config set-context ${k8s_cluster} --namespace=default
-    export KO_DOCKER_REPO=gcr.io/${E2E_PROJECT_ID}/${E2E_BASE_NAME}-e2e-img
+    # Incorporate an element of randomness to ensure that each run properly publishes images.
+    export KO_DOCKER_REPO=gcr.io/${E2E_PROJECT_ID}/${E2E_BASE_NAME}-e2e-img/${RANDOM}
   fi
 
   # Safety checks
