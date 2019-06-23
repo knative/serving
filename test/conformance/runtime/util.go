@@ -22,6 +22,7 @@ import (
 	"testing"
 
 	pkgTest "github.com/knative/pkg/test"
+	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/test"
 	"github.com/knative/serving/test/types"
 	v1a1test "github.com/knative/serving/test/v1alpha1"
@@ -60,6 +61,11 @@ func runtimeInfo(
 	if err != nil {
 		return nil, nil, err
 	}
+
+	serviceOpts = append(serviceOpts, func(svc *v1alpha1.Service) {
+		// Always fetch the latest runtime image.
+		svc.Spec.Template.Spec.Containers[0].ImagePullPolicy = "Always"
+	})
 
 	objects, err := v1a1test.CreateRunLatestServiceReady(t, clients, names, &v1a1test.Options{}, serviceOpts...)
 	if err != nil {
