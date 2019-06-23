@@ -225,13 +225,12 @@ func (m *MultiScaler) runScalerTicker(ctx context.Context, runner *scalerRunner)
 	metricKey := NewMetricKey(runner.decider.Namespace, runner.decider.Name)
 	ticker := time.NewTicker(runner.decider.Spec.TickInterval)
 	go func() {
+		defer ticker.Stop()
 		for {
 			select {
 			case <-m.scalersStopCh:
-				ticker.Stop()
 				return
 			case <-runner.stopCh:
-				ticker.Stop()
 				return
 			case <-ticker.C:
 				m.tickScaler(ctx, runner.scaler, runner, metricKey)
