@@ -38,7 +38,6 @@ import (
 	"github.com/knative/serving/test"
 	v1a1test "github.com/knative/serving/test/v1alpha1"
 
-	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -51,12 +50,6 @@ const (
 	// but not high enough to generate scheduling problems.
 	containerConcurrency = 6
 )
-
-func isDeploymentScaledUp() func(d *appsv1.Deployment) (bool, error) {
-	return func(d *appsv1.Deployment) (bool, error) {
-		return d.Status.ReadyReplicas > 1, nil
-	}
-}
 
 func generateTraffic(ctx *testContext, concurrency int, duration time.Duration, stopChan chan struct{}) error {
 	var (
