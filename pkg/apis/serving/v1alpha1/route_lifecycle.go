@@ -67,6 +67,13 @@ func (rs *RouteStatus) MarkServiceNotOwned(name string) {
 		fmt.Sprintf("There is an existing placeholder Service %q that we do not own.", name))
 }
 
+// MarkIngressNotConfigured changes the IngressReady condition to be unknown to reflect
+// that the Ingress does not yet have a Status
+func (rs *RouteStatus) MarkIngressNotConfigured() {
+	routeCondSet.Manage(rs).MarkUnknown(RouteConditionIngressReady,
+		"IngressNotConfigured", "Ingress has not yet been reconciled.")
+}
+
 func (rs *RouteStatus) MarkTrafficAssigned() {
 	routeCondSet.Manage(rs).MarkTrue(RouteConditionAllTrafficAssigned)
 }
@@ -150,6 +157,7 @@ func (rs *RouteStatus) MarkCertificateNotOwned(name string) {
 func (rs *RouteStatus) PropagateClusterIngressStatus(cs v1alpha1.IngressStatus) {
 	cc := cs.GetCondition(v1alpha1.IngressConditionReady)
 	if cc == nil {
+		rs.MarkIngressNotConfigured()
 		return
 	}
 	switch {

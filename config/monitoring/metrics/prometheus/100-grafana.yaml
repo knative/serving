@@ -190,12 +190,6 @@ spec:
           mountPath: /grafana-dashboard-definition/knative-efficiency
         - name: grafana-dashboard-definition-knative-reconciler
           mountPath: /grafana-dashboard-definition/knative-reconciler
-        - name: grafana-dashboard-definition-istio
-          mountPath: /grafana-dashboard-definition/istio
-        - name: grafana-dashboard-definition-mixer
-          mountPath: /grafana-dashboard-definition/mixer
-        - name: grafana-dashboard-definition-pilot
-          mountPath: /grafana-dashboard-definition/pilot
         - name: grafana-dashboard-definition-kubernetes-deployment
           mountPath: /grafana-dashboard-definition/kubernetes-deployment
         - name: grafana-dashboard-definition-kubernetes-capacity-planning
@@ -244,15 +238,6 @@ spec:
       - name: grafana-dashboard-definition-knative-reconciler
         configMap:
           name: grafana-dashboard-definition-knative-reconciler
-      - name: grafana-dashboard-definition-istio
-        configMap:
-          name: grafana-dashboard-definition-istio
-      - name: grafana-dashboard-definition-mixer
-        configMap:
-          name: grafana-dashboard-definition-mixer
-      - name: grafana-dashboard-definition-pilot
-        configMap:
-          name: grafana-dashboard-definition-pilot
       - name: grafana-dashboard-definition-kubernetes-deployment
         configMap:
           name: grafana-dashboard-definition-kubernetes-deployment
@@ -283,4 +268,3 @@ spec:
       - name: scaling-config
         configMap:
           name: scaling-config
----

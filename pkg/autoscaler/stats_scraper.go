@@ -57,10 +57,6 @@ type scrapeClient interface {
 	Scrape(url string) (*Stat, error)
 }
 
-// SampleSizeFunc is the function for getting a sample size for a given
-// population.
-type SampleSizeFunc func(int) int
-
 // cacheDisabledClient is a http client with cache disabled. It is shared by
 // every goruntime for a revision scraper.
 var cacheDisabledClient = &http.Client{

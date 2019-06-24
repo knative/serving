@@ -31,7 +31,7 @@ import (
 
 	"github.com/knative/pkg/ptr"
 	"github.com/knative/pkg/test"
-	servingtest "github.com/knative/serving/test"
+	"github.com/knative/pkg/test/helpers"
 )
 
 type kubelogs struct {
@@ -141,7 +141,7 @@ func (k *kubelogs) handleLine(l string) {
 func (k *kubelogs) Start(t *testing.T) Canceler {
 	k.once.Do(func() { k.init(t) })
 
-	name := servingtest.ObjectPrefixForTest(t)
+	name := helpers.ObjectPrefixForTest(t)
 
 	// Register a key
 	k.m.Lock()

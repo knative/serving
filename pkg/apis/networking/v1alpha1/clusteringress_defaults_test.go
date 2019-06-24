@@ -32,6 +32,7 @@ import (
 )
 
 func TestClusterIngressDefaulting(t *testing.T) {
+	defer logtesting.ClearAll()
 	tests := []struct {
 		name string
 		in   *ClusterIngress

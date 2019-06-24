@@ -33,8 +33,8 @@ required = [
 
 [[constraint]]
   name = "github.com/google/go-containerregistry"
-  # HEAD as of 2019-06-18
-  revision = "876b8855d23c32bdb30f1929de2977ed3d1653ff"
+  # HEAD as of 2019-06-19
+  revision = "abf9ef06abd9f532944e28e8942644ea4b710a40"
 
 [[constraint]]
   name = "github.com/jetstack/cert-manager"

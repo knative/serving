@@ -19,6 +19,7 @@ package activator
 import (
 	"errors"
 	"sync"
+	"time"
 
 	"go.uber.org/zap"
 
@@ -57,7 +58,9 @@ type Throttler struct {
 	endpointsLister corev1listers.EndpointsLister
 	revisionLister  servinglisters.RevisionLister
 	sksLister       netlisters.ServerlessServiceLister
-	numActivators   int
+
+	numActivatorsMux sync.RWMutex
+	numActivators    int
 }
 
 // NewThrottler creates a new Throttler.
@@ -124,32 +127,42 @@ func (t *Throttler) UpdateCapacity(rev RevisionID, size int) error {
 		return err
 	}
 	breaker, _ := t.getOrCreateBreaker(rev)
-	return t.updateCapacity(breaker, int(revision.Spec.ContainerConcurrency), size, minOneOrValue(t.numActivators))
+	return t.updateCapacity(breaker, int(revision.Spec.ContainerConcurrency), size, t.activatorCount())
 }
 
 // Try potentially registers a new breaker in our bookkeeping
 // and executes the `function` on the Breaker.
 // It returns an error if either breaker doesn't have enough capacity,
 // or breaker's registration didn't succeed, e.g. getting endpoints or update capacity failed.
-func (t *Throttler) Try(rev RevisionID, function func()) error {
+// timeout is the time before this function returns ErrActivatorOverload. A 0 value for
+// timeout is infinite.
+func (t *Throttler) Try(timeout time.Duration, rev RevisionID, function func()) error {
 	breaker, existed := t.getOrCreateBreaker(rev)
-	activatorCount := minOneOrValue(t.numActivators)
 	if !existed {
 		// Need to fetch the latest endpoints state, in case we missed the update.
-		if err := t.forceUpdateCapacity(rev, breaker, activatorCount); err != nil {
+		if err := t.forceUpdateCapacity(rev, breaker, t.activatorCount()); err != nil {
 			return err
 		}
 	}
-	if !breaker.Maybe(function) {
+	if !breaker.Maybe(timeout, function) {
 		return ErrActivatorOverload
 	}
 	return nil
 }
 
+func (t *Throttler) activatorCount() int {
+	t.numActivatorsMux.RLock()
+	defer t.numActivatorsMux.RUnlock()
+	return t.numActivators
+}
+
 func (t *Throttler) activatorEndpointsUpdated(newObj interface{}) {
 	endpoints := newObj.(*corev1.Endpoints)
+
+	t.numActivatorsMux.Lock()
+	defer t.numActivatorsMux.Unlock()
 	t.numActivators = resources.ReadyAddressCount(endpoints)
-	t.updateAllBreakerCapacity()
+	t.updateAllBreakerCapacity(t.numActivators)
 }
 
 // minOneOrValue function returns num if its greater than 1
@@ -169,7 +182,7 @@ func (t *Throttler) updateCapacity(breaker *queue.Breaker, cc, size, activatorCo
 		// The concurrency is unlimited, thus hand out as many tokens as we can in this breaker.
 		targetCapacity = t.breakerParams.MaxConcurrency
 	} else if targetCapacity > 0 {
-		targetCapacity = minOneOrValue(targetCapacity / activatorCount)
+		targetCapacity = minOneOrValue(targetCapacity / minOneOrValue(activatorCount))
 	}
 	return breaker.UpdateConcurrency(targetCapacity)
 }
@@ -216,10 +229,9 @@ func (t *Throttler) forceUpdateCapacity(rev RevisionID, breaker *queue.Breaker, 
 }
 
 // updateAllBreakerCapacity updates the capacity of all breakers.
-func (t *Throttler) updateAllBreakerCapacity() {
+func (t *Throttler) updateAllBreakerCapacity(activatorCount int) {
 	t.breakersMux.Lock()
 	defer t.breakersMux.Unlock()
-	activatorCount := minOneOrValue(t.numActivators)
 	for revID, breaker := range t.breakers {
 		if err := t.forceUpdateCapacity(revID, breaker, activatorCount); err != nil {
 			t.logger.With(zap.String(logkey.Key, revID.String())).Errorw("updating capacity failed", zap.Error(err))

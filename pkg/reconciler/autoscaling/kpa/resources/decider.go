@@ -56,7 +56,7 @@ func MakeDecider(ctx context.Context, pa *v1alpha1.PodAutoscaler, config *autosc
 		stableWindow = config.StableWindow
 	}
 
-	target := resources.ResolveTargetConcurrency(pa, config)
+	target := resources.ResolveConcurrency(pa, config)
 	panicThreshold := target * panicThresholdPercentage / 100.0
 
 	return &autoscaler.Decider{

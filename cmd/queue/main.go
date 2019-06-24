@@ -197,7 +197,7 @@ func handler(reqChan chan queue.ReqEvent, breaker *queue.Breaker, proxy *httputi
 
 		// Enforce queuing and concurrency limits.
 		if breaker != nil {
-			ok := breaker.Maybe(func() {
+			ok := breaker.Maybe(0 /* Infinite timeout */, func() {
 				proxy.ServeHTTP(w, r)
 			})
 			if !ok {
@@ -276,6 +276,7 @@ func main() {
 	// Create queue handler chain
 	// Note: innermost handlers are specified first, ie. the last handler in the chain will be executed first
 	var composedHandler http.Handler = http.HandlerFunc(handler(reqChan, breaker, httpProxy))
+	composedHandler = queue.ForwardedShimHandler(composedHandler)
 	composedHandler = queue.TimeToFirstByteTimeoutHandler(composedHandler,
 		time.Duration(revisionTimeoutSeconds)*time.Second, "request timeout")
 	composedHandler = pushRequestLogHandler(composedHandler)
