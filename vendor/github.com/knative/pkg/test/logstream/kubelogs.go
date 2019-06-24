@@ -47,6 +47,9 @@ type logger func(string, ...interface{})
 
 var _ streamer = (*kubelogs)(nil)
 
+// timeFormat defines a simple timestamp with millisecond granularity
+const timeFormat = "15:04:05.000"
+
 func (k *kubelogs) init(t *testing.T) {
 	k.keys = make(map[string]logger)
 
@@ -113,6 +116,7 @@ func (k *kubelogs) handleLine(l string) {
 		Caller     string    `json:"caller"`
 		Key        string    `json:"knative.dev/key"`
 		Message    string    `json:"msg"`
+		Error      string    `json:"error"`
 
 		// TODO(mattmoor): Parse out more context.
 	}
@@ -132,8 +136,20 @@ func (k *kubelogs) handleLine(l string) {
 		if !strings.Contains(line.Key, name) {
 			continue
 		}
-		// TODO(mattmoor): What information do we want to display?
-		logf("[%s] %s", line.Controller, line.Message)
+
+		// E 15:04:05.000 [route-controller] [default/testroute-xyz] this is my message
+		msg := fmt.Sprintf("%s %s [%s] [%s] %s",
+			strings.ToUpper(string(line.Level[0])),
+			line.Timestamp.Format(timeFormat),
+			line.Controller,
+			line.Key,
+			line.Message)
+
+		if line.Error != "" {
+			msg += " err=" + line.Error
+		}
+
+		logf(msg)
 	}
 }
 
