@@ -250,7 +250,7 @@ func TestScaler(t *testing.T) {
 			}
 			prober := &countingProber{
 				Prober: &fakeProber{
-					Prober: prober.New(network.NewAutoTransport()),
+					Prober: prober.New(network.NewAutoTransport),
 					FakeDo: fakeDo,
 				},
 			}
@@ -546,7 +546,7 @@ func TestActivatorProbe(t *testing.T) {
 	ctx, _ := SetupFakeContext(t)
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			prober := prober.New(test.rt)
+			prober := prober.New(func() http.RoundTripper {return  test.rt})
 			enqueueFunc := func(interface{}, time.Duration) {}
 			scaler := newScaler(ctx, presources.NewPodScalableInformerFactory(ctx), prober, enqueueFunc)
 			res, err := scaler.activatorProbe(pa)

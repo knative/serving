@@ -69,7 +69,7 @@ func NewController(
 		deciders:        deciders,
 	}
 	impl := controller.NewImpl(c, c.Logger, "KPA-Class Autoscaling")
-	prober := prober.New(network.NewAutoTransport())
+	prober := prober.New(network.NewAutoTransport)
 	c.scaler = newScaler(ctx, psInformerFactory, prober, impl.EnqueueAfter)
 
 	c.Logger.Info("Setting up KPA-Class event handlers")

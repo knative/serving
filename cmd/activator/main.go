@@ -231,7 +231,7 @@ func main() {
 		revisionInformer.Lister(),
 		serviceInformer.Lister(),
 		sksInformer.Lister(),
-		prober.New(network.NewAutoTransport()))
+		prober.New(network.NewAutoTransport))
 	ah = activatorhandler.NewRequestEventHandler(reqChan, ah)
 	ah = tracing.HTTPSpanMiddleware(ah)
 	ah = configStore.HTTPMiddleware(ah)

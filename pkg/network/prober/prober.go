@@ -30,13 +30,13 @@ import (
 	"github.com/knative/serving/pkg/network"
 )
 
+// Prober is implemented by any value that has a Do and Offer methods,
+// which respectively are synchronous and asynchronous probe methods.
 type Prober interface {
+	// TODO(bancel): rename to something more meaningful (e.g. ProbeSync, ProbeAsync)
 	Do(ctx context.Context, target, headerValue string, pos ...ProbeOption) (bool, error)
 	Offer(ctx context.Context, target, headerValue string, callback Callback, period, timeout time.Duration) bool
 }
-
-// Ensure Manager implements Prober interface
-var _ Prober = &Manager{}
 
 // TransportFactory is a function which returns an HTTP transport.
 type TransportFactory func() http.RoundTripper
@@ -50,19 +50,22 @@ type Callback func(success bool, err error)
 // Manager manages async probes and makes sure we run concurrently only a single
 // probe for the same key.
 type Manager struct {
-	RoundTripper http.RoundTripper
+	transportFactory TransportFactory
 
 	// mu guards keys.
 	mu   sync.Mutex
 	keys sets.String
 }
 
+// Ensure that Manager implements the Prober interface
+var _ Prober = &Manager{}
+
 // New creates a new Manager, that will invoke the given callback when
 // async probing is finished.
-func New(roundTripper http.RoundTripper) *Manager {
+func New(transportFactory TransportFactory) *Manager {
 	return &Manager{
-		keys:         sets.NewString(),
-		RoundTripper: roundTripper,
+		keys:             sets.NewString(),
+		transportFactory: transportFactory,
 	}
 }
 
@@ -80,7 +83,7 @@ func (m *Manager) Do(ctx context.Context, target, headerValue string, pos ...Pro
 
 	req.Header.Set(network.ProbeHeaderName, headerValue)
 	req = req.WithContext(ctx)
-	resp, err := m.RoundTripper.RoundTrip(req)
+	resp, err := m.transportFactory().RoundTrip(req)
 	if err != nil {
 		return false, errors.Wrapf(err, "error roundtripping %s", target)
 	}

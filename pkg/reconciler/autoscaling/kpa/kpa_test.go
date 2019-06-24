@@ -783,7 +783,7 @@ func TestReconcile(t *testing.T) {
 
 		psFactory := presources.NewPodScalableInformerFactory(ctx)
 		fakeMetrics := newTestMetrics()
-		prober := prober.New(network.NewAutoTransport())
+		prober := prober.New(network.NewAutoTransport)
 		enqueueFunc := func(interface{}, time.Duration) {}
 		return &Reconciler{
 			Base: &areconciler.Base{
