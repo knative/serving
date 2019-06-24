@@ -30,7 +30,7 @@ import (
 	"github.com/knative/serving/pkg/network"
 )
 
-// TransportFactory is a function which returns a HTTP transport.
+// TransportFactory is a function which returns an HTTP transport.
 type TransportFactory func() http.RoundTripper
 
 // ProbeOption is a way for caller to modify the HTTP request before it goes out.
