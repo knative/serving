@@ -191,6 +191,7 @@ func (pas *PodAutoscalerStatus) MarkInactive(reason, message string) {
 // MarkResourceNotOwned changes the "Active" condition to false to reflect that the
 // resource of the given kind and name has already been created, and we do not own it.
 func (pas *PodAutoscalerStatus) MarkResourceNotOwned(kind, name string) {
+	// TODO: This looks more like a bootstrap condition?
 	pas.MarkInactive("NotOwned",
 		fmt.Sprintf("There is an existing %s %q that we do not own.", kind, name))
 }
@@ -198,6 +199,7 @@ func (pas *PodAutoscalerStatus) MarkResourceNotOwned(kind, name string) {
 // MarkResourceFailedCreation changes the "Active" condition to false to reflect that a
 // critical resource of the given kind and name was unable to be created.
 func (pas *PodAutoscalerStatus) MarkResourceFailedCreation(kind, name string) {
+	// TODO: This looks more like a bootstrap condition?
 	pas.MarkInactive("FailedCreate",
 		fmt.Sprintf("Failed to create %s %q.", kind, name))
 }

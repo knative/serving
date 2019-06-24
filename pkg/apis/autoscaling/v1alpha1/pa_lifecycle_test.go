@@ -253,7 +253,7 @@ func TestIsActivating(t *testing.T) {
 			Status: duckv1beta1.Status{
 				Conditions: duckv1beta1.Conditions{{
 					Type:   PodAutoscalerConditionActive,
-					Status: corev1.ConditionTrue,
+					Status: corev1.ConditionFalse,
 				}},
 			},
 		},
@@ -262,6 +262,57 @@ func TestIsActivating(t *testing.T) {
 
 	for _, tc := range cases {
 		if e, a := tc.isActivating, tc.status.IsActivating(); e != a {
+			t.Errorf("%q expected: %v got: %v", tc.name, e, a)
+		}
+	}
+}
+
+func TestIsActive(t *testing.T) {
+	cases := []struct {
+		name     string
+		status   PodAutoscalerStatus
+		isActive bool
+	}{{
+		name:     "empty status",
+		status:   PodAutoscalerStatus{},
+		isActive: false,
+	}, {
+		name: "active=unknown",
+		status: PodAutoscalerStatus{
+			Status: duckv1beta1.Status{
+				Conditions: duckv1beta1.Conditions{{
+					Type:   PodAutoscalerConditionActive,
+					Status: corev1.ConditionUnknown,
+				}},
+			},
+		},
+		isActive: false,
+	}, {
+		name: "active=false",
+		status: PodAutoscalerStatus{
+			Status: duckv1beta1.Status{
+				Conditions: duckv1beta1.Conditions{{
+					Type:   PodAutoscalerConditionActive,
+					Status: corev1.ConditionFalse,
+				}},
+			},
+		},
+		isActive: false,
+	}, {
+		name: "active=true",
+		status: PodAutoscalerStatus{
+			Status: duckv1beta1.Status{
+				Conditions: duckv1beta1.Conditions{{
+					Type:   PodAutoscalerConditionActive,
+					Status: corev1.ConditionTrue,
+				}},
+			},
+		},
+		isActive: true,
+	}}
+
+	for _, tc := range cases {
+		if e, a := tc.isActive, tc.status.IsActive(); e != a {
 			t.Errorf("%q expected: %v got: %v", tc.name, e, a)
 		}
 	}
@@ -281,7 +332,7 @@ func TestIsReady(t *testing.T) {
 		status: PodAutoscalerStatus{
 			Status: duckv1beta1.Status{
 				Conditions: duckv1beta1.Conditions{{
-					Type:   PodAutoscalerConditionActive,
+					Type:   PodAutoscalerConditionBootstrap,
 					Status: corev1.ConditionTrue,
 				}},
 			},
@@ -368,6 +419,112 @@ func TestIsReady(t *testing.T) {
 
 	for _, tc := range cases {
 		if e, a := tc.isReady, tc.status.IsReady(); e != a {
+			t.Errorf("%q expected: %v got: %v", tc.name, e, a)
+		}
+	}
+}
+
+func TestHasFailed(t *testing.T) {
+	cases := []struct {
+		name      string
+		status    PodAutoscalerStatus
+		hasFailed bool
+	}{{
+		name:      "empty status should not have failed",
+		status:    PodAutoscalerStatus{},
+		hasFailed: false,
+	}, {
+		name: "Different condition type should not have failed",
+		status: PodAutoscalerStatus{
+			Status: duckv1beta1.Status{
+				Conditions: duckv1beta1.Conditions{{
+					Type:   PodAutoscalerConditionBootstrap,
+					Status: corev1.ConditionFalse,
+				}},
+			},
+		},
+		hasFailed: false,
+	}, {
+		name: "Unknown condition status should not have failed",
+		status: PodAutoscalerStatus{
+			Status: duckv1beta1.Status{
+				Conditions: duckv1beta1.Conditions{{
+					Type:   PodAutoscalerConditionReady,
+					Status: corev1.ConditionUnknown,
+				}},
+			},
+		},
+		hasFailed: false,
+	}, {
+		name: "Missing condition status should not be ready",
+		status: PodAutoscalerStatus{
+			Status: duckv1beta1.Status{
+				Conditions: duckv1beta1.Conditions{{
+					Type: PodAutoscalerConditionReady,
+				}},
+			},
+		},
+		hasFailed: false,
+	}, {
+		name: "True condition status should not have failed",
+		status: PodAutoscalerStatus{
+			Status: duckv1beta1.Status{
+				Conditions: duckv1beta1.Conditions{{
+					Type:   PodAutoscalerConditionReady,
+					Status: corev1.ConditionTrue,
+				}},
+			},
+		},
+		hasFailed: false,
+	}, {
+		name: "Multiple conditions with ready status should not have failed",
+		status: PodAutoscalerStatus{
+			Status: duckv1beta1.Status{
+				Conditions: duckv1beta1.Conditions{{
+					Type:   PodAutoscalerConditionActive,
+					Status: corev1.ConditionFalse,
+				}, {
+					Type:   PodAutoscalerConditionBootstrap,
+					Status: corev1.ConditionFalse,
+				}, {
+					Type:   PodAutoscalerConditionReady,
+					Status: corev1.ConditionTrue,
+				}},
+			},
+		},
+		hasFailed: false,
+	}, {
+		name: "False condition status should have failed",
+		status: PodAutoscalerStatus{
+			Status: duckv1beta1.Status{
+				Conditions: duckv1beta1.Conditions{{
+					Type:   PodAutoscalerConditionReady,
+					Status: corev1.ConditionFalse,
+				}},
+			},
+		},
+		hasFailed: true,
+	}, {
+		name: "Multiple conditions with ready status false should have failed",
+		status: PodAutoscalerStatus{
+			Status: duckv1beta1.Status{
+				Conditions: duckv1beta1.Conditions{{
+					Type:   PodAutoscalerConditionActive,
+					Status: corev1.ConditionTrue,
+				}, {
+					Type:   PodAutoscalerConditionBootstrap,
+					Status: corev1.ConditionTrue,
+				}, {
+					Type:   PodAutoscalerConditionReady,
+					Status: corev1.ConditionFalse,
+				}},
+			},
+		},
+		hasFailed: true,
+	}}
+
+	for _, tc := range cases {
+		if e, a := tc.hasFailed, tc.status.HasFailed(); e != a {
 			t.Errorf("%q expected: %v got: %v", tc.name, e, a)
 		}
 	}
@@ -521,6 +678,62 @@ func TestMarkResourceFailedCreation(t *testing.T) {
 	}
 	if active.Reason != "FailedCreate" {
 		t.Errorf("TestMarkResourceFailedCreation expected active.Reason: FailedCreate got: %v", active.Reason)
+	}
+}
+
+func TestMarkContainerExiting(t *testing.T) {
+	pa := &PodAutoscalerStatus{}
+	pa.MarkContainerExiting(5, "I'm failing")
+	apitest.CheckConditionFailed(pa.duck(), PodAutoscalerConditionBootstrap, t)
+
+	bootstrap := pa.GetCondition("Bootstrap")
+	if bootstrap.Status != corev1.ConditionFalse {
+		t.Errorf("TestMarkContainerExiting expected bootstrap.status: False got: %v", bootstrap.Status)
+	}
+	if bootstrap.Reason != "ExitCode5" {
+		t.Errorf("TestMarkContainerExiting expected bootstrap.Reason: ExitCode5 got: %v", bootstrap.Reason)
+	}
+}
+
+func TestMarkImagePullError(t *testing.T) {
+	pa := &PodAutoscalerStatus{}
+	pa.MarkImagePullError("PullProblem", "Some pull problem occurred")
+	apitest.CheckConditionFailed(pa.duck(), PodAutoscalerConditionBootstrap, t)
+
+	bootstrap := pa.GetCondition("Bootstrap")
+	if bootstrap.Status != corev1.ConditionFalse {
+		t.Errorf("TestMarkImagePullError expected bootstrap.status: False got: %v", bootstrap.Status)
+	}
+	if bootstrap.Reason != "PullProblem" {
+		t.Errorf("TestMarkImagePullError expected bootstrap.Reason: PullProblem got: %v", bootstrap.Reason)
+	}
+}
+
+func TestMarkPodUnscheduled(t *testing.T) {
+	pa := &PodAutoscalerStatus{}
+	pa.MarkPodUnscheduled("PodUnscheduled", "Pod cannot be scheduled")
+	apitest.CheckConditionFailed(pa.duck(), PodAutoscalerConditionBootstrap, t)
+
+	bootstrap := pa.GetCondition("Bootstrap")
+	if bootstrap.Status != corev1.ConditionFalse {
+		t.Errorf("TestMarkPodUnscheduled expected bootstrap.status: False got: %v", bootstrap.Status)
+	}
+	if bootstrap.Reason != "PodUnscheduled" {
+		t.Errorf("TestMarkPodUnscheduled expected bootstrap.Reason: PodUnscheduled got: %v", bootstrap.Reason)
+	}
+}
+
+func TestMarkBootstrapSuccessful(t *testing.T) {
+	pa := &PodAutoscalerStatus{}
+	pa.MarkBootstrapSuccessful()
+	apitest.CheckConditionSucceeded(pa.duck(), PodAutoscalerConditionBootstrap, t)
+
+	bootstrap := pa.GetCondition("Bootstrap")
+	if bootstrap.Status != corev1.ConditionTrue {
+		t.Errorf("TestMarkMarkBootstrapSuccessful expected bootstrap.status: True got: %v", bootstrap.Status)
+	}
+	if bootstrap.Reason != "" {
+		t.Errorf("TestMarkBootstrapSuccessful expected bootstrap.Reason: <empty> got: %v", bootstrap.Reason)
 	}
 }
 
