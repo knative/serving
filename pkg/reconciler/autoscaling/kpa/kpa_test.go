@@ -19,6 +19,7 @@ package kpa
 import (
 	"context"
 	"fmt"
+	"github.com/knative/pkg/ptr"
 	"net/http"
 	"strconv"
 	"sync"
@@ -30,7 +31,6 @@ import (
 	fakekubeclient "github.com/knative/pkg/injection/clients/kubeclient/fake"
 	fakeendpointsinformer "github.com/knative/pkg/injection/informers/kubeinformers/corev1/endpoints/fake"
 	fakeserviceinformer "github.com/knative/pkg/injection/informers/kubeinformers/corev1/service/fake"
-	"github.com/knative/pkg/ptr"
 	fakeservingclient "github.com/knative/serving/pkg/client/injection/client/fake"
 	fakekpainformer "github.com/knative/serving/pkg/client/injection/informers/autoscaling/v1alpha1/podautoscaler/fake"
 	fakesksinformer "github.com/knative/serving/pkg/client/injection/informers/networking/v1alpha1/serverlessservice/fake"
@@ -224,6 +224,137 @@ func TestReconcileAndScaleToZero(t *testing.T) {
 			},
 			Name:  deployName,
 			Patch: []byte(`[{"op":"add","path":"/spec/replicas","value":0}]`),
+		}},
+	}, {
+		Name: "scale to zero on container exiting",
+		Key:  key,
+		Objects: []runtime.Object{
+			kpa(testNamespace, testRevision,
+				WithContainerExiting(3, "Ouch!!!"),
+				WithPAStatusService(testRevision),
+				withMSvcStatus("out-of-the-blue")),
+			sks(testNamespace, testRevision, WithDeployRef(deployName), WithProxyMode, WithSKSReady),
+			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector),
+				withMSvcName("out-of-the-blue")),
+			deploy(testNamespace, testRevision),
+			// Should be present, but empty.
+			makeSKSPrivateEndpoints(0, testNamespace, testRevision),
+		},
+		WantPatches: []clientgotesting.PatchActionImpl{{
+			ActionImpl: clientgotesting.ActionImpl{
+				Namespace: testNamespace,
+			},
+			Name:  deployName,
+			Patch: []byte(`[{"op":"add","path":"/spec/replicas","value":0}]`),
+		}},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: kpa(testNamespace, testRevision,
+				WithNoTraffic("NoTraffic", "The target is not receiving traffic."),
+				WithContainerExiting(3, "Ouch!!!"), WithPAStatusService(testRevision),
+				withMSvcStatus("out-of-the-blue")),
+		}},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: sks(testNamespace, testRevision, WithSKSReady,
+				WithDeployRef(deployName), WithServeMode),
+		}},
+	}, {
+		Name: "scale to zero on unschedulable pod",
+		Key:  key,
+		Objects: []runtime.Object{
+			kpa(testNamespace, testRevision,
+				WithPodUnscheduled("Foo", "Cannot scheduled pod"),
+				WithPAStatusService(testRevision),
+				withMSvcStatus("out-of-the-blue")),
+			sks(testNamespace, testRevision, WithDeployRef(deployName), WithProxyMode, WithSKSReady),
+			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector),
+				withMSvcName("out-of-the-blue")),
+			deploy(testNamespace, testRevision),
+			// Should be present, but empty.
+			makeSKSPrivateEndpoints(0, testNamespace, testRevision),
+		},
+		WantPatches: []clientgotesting.PatchActionImpl{{
+			ActionImpl: clientgotesting.ActionImpl{
+				Namespace: testNamespace,
+			},
+			Name:  deployName,
+			Patch: []byte(`[{"op":"add","path":"/spec/replicas","value":0}]`),
+		}},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: kpa(testNamespace, testRevision,
+				WithNoTraffic("NoTraffic", "The target is not receiving traffic."),
+				WithPodUnscheduled("Foo", "Cannot scheduled pod"),
+				WithPAStatusService(testRevision),
+				withMSvcStatus("out-of-the-blue")),
+		}},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: sks(testNamespace, testRevision, WithSKSReady,
+				WithDeployRef(deployName), WithServeMode),
+		}},
+	}, {
+		Name: "scale to zero on pull image backoff",
+		Key:  key,
+		Objects: []runtime.Object{
+			kpa(testNamespace, testRevision,
+				WithImagePullError("ImagePullBackOff", "missing image"),
+				WithPAStatusService(testRevision),
+				withMSvcStatus("out-of-the-blue")),
+			sks(testNamespace, testRevision, WithDeployRef(deployName), WithProxyMode, WithSKSReady),
+			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector),
+				withMSvcName("out-of-the-blue")),
+			deploy(testNamespace, testRevision),
+			// Should be present, but empty.
+			makeSKSPrivateEndpoints(0, testNamespace, testRevision),
+		},
+		WantPatches: []clientgotesting.PatchActionImpl{{
+			ActionImpl: clientgotesting.ActionImpl{
+				Namespace: testNamespace,
+			},
+			Name:  deployName,
+			Patch: []byte(`[{"op":"add","path":"/spec/replicas","value":0}]`),
+		}},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: kpa(testNamespace, testRevision,
+				WithNoTraffic("NoTraffic", "The target is not receiving traffic."),
+				WithImagePullError("ImagePullBackOff", "missing image"),
+				WithPAStatusService(testRevision),
+				withMSvcStatus("out-of-the-blue")),
+		}},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: sks(testNamespace, testRevision, WithSKSReady,
+				WithDeployRef(deployName), WithServeMode),
+		}},
+	}, {
+		Name: "scale to zero on pull image backoff",
+		Key:  key,
+		Objects: []runtime.Object{
+			kpa(testNamespace, testRevision,
+				WithImagePullError("ErrImagePull", "something is wrong"),
+				WithPAStatusService(testRevision),
+				withMSvcStatus("out-of-the-blue")),
+			sks(testNamespace, testRevision, WithDeployRef(deployName), WithProxyMode, WithSKSReady),
+			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector),
+				withMSvcName("out-of-the-blue")),
+			deploy(testNamespace, testRevision),
+			// Should be present, but empty.
+			makeSKSPrivateEndpoints(0, testNamespace, testRevision),
+		},
+		WantPatches: []clientgotesting.PatchActionImpl{{
+			ActionImpl: clientgotesting.ActionImpl{
+				Namespace: testNamespace,
+			},
+			Name:  deployName,
+			Patch: []byte(`[{"op":"add","path":"/spec/replicas","value":0}]`),
+		}},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: kpa(testNamespace, testRevision,
+				WithNoTraffic("NoTraffic", "The target is not receiving traffic."),
+				WithImagePullError("ErrImagePull", "something is wrong"),
+				WithPAStatusService(testRevision),
+				withMSvcStatus("out-of-the-blue")),
+		}},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: sks(testNamespace, testRevision, WithSKSReady,
+				WithDeployRef(deployName), WithServeMode),
 		}},
 	}, {
 		Name: "from serving to proxy",

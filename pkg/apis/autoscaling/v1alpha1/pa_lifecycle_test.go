@@ -338,6 +338,9 @@ func TestIsReady(t *testing.T) {
 					Type:   PodAutoscalerConditionActive,
 					Status: corev1.ConditionTrue,
 				}, {
+					Type:   PodAutoscalerConditionBootstrap,
+					Status: corev1.ConditionTrue,
+				}, {
 					Type:   PodAutoscalerConditionReady,
 					Status: corev1.ConditionTrue,
 				}},
@@ -350,6 +353,9 @@ func TestIsReady(t *testing.T) {
 			Status: duckv1beta1.Status{
 				Conditions: duckv1beta1.Conditions{{
 					Type:   PodAutoscalerConditionActive,
+					Status: corev1.ConditionTrue,
+				}, {
+					Type:   PodAutoscalerConditionBootstrap,
 					Status: corev1.ConditionTrue,
 				}, {
 					Type:   PodAutoscalerConditionReady,

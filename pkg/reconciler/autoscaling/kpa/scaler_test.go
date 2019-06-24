@@ -108,15 +108,6 @@ func TestScaler(t *testing.T) {
 			kpaMarkActive(k, time.Now().Add(-stableWindow))
 		},
 	}, {
-		label:         "scale to zero after grace period",
-		startReplicas: 1,
-		scaleTo:       0,
-		wantReplicas:  0,
-		wantScaling:   true,
-		kpaMutation: func(k *pav1alpha1.PodAutoscaler) {
-			kpaMarkInactive(k, time.Now().Add(-gracePeriod))
-		},
-	}, {
 		label:         "waits to scale to zero (just before grace period)",
 		startReplicas: 1,
 		scaleTo:       0,
@@ -126,6 +117,15 @@ func TestScaler(t *testing.T) {
 			kpaMarkInactive(k, time.Now().Add(-gracePeriod).Add(1*time.Second))
 		},
 		wantCBCount: 1,
+	}, {
+		label:         "scale to zero after grace period",
+		startReplicas: 1,
+		scaleTo:       0,
+		wantReplicas:  0,
+		wantScaling:   true,
+		kpaMutation: func(k *pav1alpha1.PodAutoscaler) {
+			kpaMarkInactive(k, time.Now().Add(-gracePeriod))
+		},
 	}, {
 		label:         "scale to zero after grace period, but fail prober",
 		startReplicas: 1,
@@ -150,6 +150,42 @@ func TestScaler(t *testing.T) {
 		},
 		proberfunc:          func(*pav1alpha1.PodAutoscaler, http.RoundTripper) (bool, error) { return false, nil },
 		wantAsyncProbeCount: 1,
+	}, {
+		label:         "scale to zero when pod unschedulable",
+		startReplicas: 1,
+		scaleTo:       -1,
+		wantReplicas:  0,
+		wantScaling:   true,
+		kpaMutation: func(k *pav1alpha1.PodAutoscaler) {
+			k.Status.MarkPodUnscheduled("PodUnschedulable", "")
+		},
+	}, {
+		label:         "scale to zero when container exiting",
+		startReplicas: 1,
+		scaleTo:       -1,
+		wantReplicas:  0,
+		wantScaling:   true,
+		kpaMutation: func(k *pav1alpha1.PodAutoscaler) {
+			k.Status.MarkContainerExiting(3, "Ouch!")
+		},
+	}, {
+		label:         "scale to zero when ImagePullBackOff",
+		startReplicas: 1,
+		scaleTo:       -1,
+		wantReplicas:  0,
+		wantScaling:   true,
+		kpaMutation: func(k *pav1alpha1.PodAutoscaler) {
+			k.Status.MarkImagePullError("ImagePullBackOff", "Cannot pull image")
+		},
+	}, {
+		label:         "scale to zero when ErrPullImage",
+		startReplicas: 1,
+		scaleTo:       -1,
+		wantReplicas:  0,
+		wantScaling:   true,
+		kpaMutation: func(k *pav1alpha1.PodAutoscaler) {
+			k.Status.MarkImagePullError("ErrPullImage", "Cannot pull image")
+		},
 	}, {
 		label:         "does not scale while activating",
 		startReplicas: 1,

@@ -370,6 +370,11 @@ func WithProxyMode(sks *netv1alpha1.ServerlessService) {
 	sks.Spec.Mode = netv1alpha1.SKSOperationModeProxy
 }
 
+// WithServeMode puts SKS into serve mode.
+func WithServeMode(sks *netv1alpha1.ServerlessService) {
+	sks.Spec.Mode = netv1alpha1.SKSOperationModeServe
+}
+
 // SKS creates a generic ServerlessService object.
 func SKS(ns, name string, so ...SKSOption) *netv1alpha1.ServerlessService {
 	s := &netv1alpha1.ServerlessService{
