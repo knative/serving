@@ -255,6 +255,22 @@ func TestGetSetCondition(t *testing.T) {
 	}
 }
 
+func TestRevisionStatus_MarkContainerHealthy(t *testing.T) {
+	rs := &RevisionStatus{}
+	rs.MarkContainerHealthy()
+	if cond := rs.GetCondition(RevisionConditionContainerHealthy); cond.Status != corev1.ConditionTrue {
+		t.Errorf("TestRevisionStatus_MarkContainerHealthy expected True, got %v", cond.Status)
+	}
+}
+
+func TestRevisionStatus_MarkContainerUnhealthy(t *testing.T) {
+	rs := &RevisionStatus{}
+	rs.MarkContainerUnhealthy("SomethingWrong", "Something went wrong with container")
+	if cond := rs.GetCondition(RevisionConditionContainerHealthy); cond.Status != corev1.ConditionFalse {
+		t.Errorf("TestRevisionStatus_MarkContainerUnhealthy expected False, got %v", cond.Status)
+	}
+}
+
 func TestTypicalFlowWithServiceTimeout(t *testing.T) {
 	r := &RevisionStatus{}
 	r.InitializeConditions()
