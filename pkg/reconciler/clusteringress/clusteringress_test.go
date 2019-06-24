@@ -242,9 +242,9 @@ func TestReconcile(t *testing.T) {
 					Name:      "reconcile-virtualservice-extra",
 					Namespace: system.Namespace(),
 					Labels: map[string]string{
-						networking.ClusterIngressLabelKey:     "reconcile-virtualservice",
-						serving.RouteLabelKey:          "test-route",
-						serving.RouteNamespaceLabelKey: "test-ns",
+						networking.ClusterIngressLabelKey: "reconcile-virtualservice",
+						serving.RouteLabelKey:             "test-route",
+						serving.RouteNamespaceLabelKey:    "test-ns",
 					},
 					OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(ingress("reconcile-virtualservice", 1234))},
 				},
