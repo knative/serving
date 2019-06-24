@@ -146,7 +146,7 @@ function resolve_k8s_version() {
       --format='value(validMasterVersions)' \
       --zone=$2)"
   [[ -z "${versions}" ]] && return 1
-  local gke_versions=($(echo -n "${versions//;/ /}"))
+  local gke_versions=($(echo -n "${versions//;/ }"))
   echo "Available GKE versions in $2 are [${versions//;/, }]"
   if [[ "${target_version}" == "gke-latest" ]]; then
     # Get first (latest) version, excluding the "-gke.#" suffix
@@ -323,7 +323,8 @@ function setup_test_cluster() {
   if [[ -z "$(kubectl get clusterrolebinding cluster-admin-binding 2> /dev/null)" ]]; then
     acquire_cluster_admin_role ${k8s_user} ${E2E_CLUSTER_NAME} ${E2E_CLUSTER_REGION} ${E2E_CLUSTER_ZONE}
     kubectl config set-context ${k8s_cluster} --namespace=default
-    export KO_DOCKER_REPO=gcr.io/${E2E_PROJECT_ID}/${E2E_BASE_NAME}-e2e-img
+    # Incorporate an element of randomness to ensure that each run properly publishes images.
+    export KO_DOCKER_REPO=gcr.io/${E2E_PROJECT_ID}/${E2E_BASE_NAME}-e2e-img/${RANDOM}
   fi
 
   # Safety checks

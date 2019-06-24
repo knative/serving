@@ -187,3 +187,10 @@ func WithSecurityContext(sc *corev1.SecurityContext) ServiceOption {
 		s.Spec.Template.Spec.Containers[0].SecurityContext = sc
 	}
 }
+
+// WithWorkingDir configures the Service to use the provided working directory.
+func WithWorkingDir(wd string) ServiceOption {
+	return func(s *v1beta1.Service) {
+		s.Spec.Template.Spec.Containers[0].WorkingDir = wd
+	}
+}

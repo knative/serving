@@ -18,6 +18,7 @@ package v1alpha1
 
 import (
 	"fmt"
+	"math"
 	"strconv"
 	"time"
 
@@ -83,14 +84,15 @@ func (pa *PodAutoscaler) ScaleBounds() (min, max int32) {
 	return
 }
 
-// Target returns the target annotation value or false if not present.
-func (pa *PodAutoscaler) Target() (target int32, ok bool) {
+// Target returns the target annotation value or false if not present, or invalid.
+func (pa *PodAutoscaler) Target() (float64, bool) {
 	if s, ok := pa.Annotations[autoscaling.TargetAnnotationKey]; ok {
-		if i, err := strconv.Atoi(s); err == nil {
-			if i < 1 {
+		if ta, err := strconv.ParseFloat(s, 64 /*width*/); err == nil {
+			// Max check for backwards compatibility.
+			if ta < 1 || ta > math.MaxInt32 {
 				return 0, false
 			}
-			return int32(i), true
+			return ta, true
 		}
 	}
 	return 0, false

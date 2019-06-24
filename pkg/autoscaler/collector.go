@@ -35,8 +35,8 @@ const (
 	// to get metrics across all pods of a revision.
 	scrapeTickInterval = time.Second
 
-	// bucketSize is the size of the buckets of stats we create.
-	bucketSize = 2 * time.Second
+	// BucketSize is the size of the buckets of stats we create.
+	BucketSize = 2 * time.Second
 )
 
 var (
@@ -246,7 +246,7 @@ func (c *collection) getScraper() StatsScraper {
 func newCollection(metric *Metric, scraper StatsScraper, logger *zap.SugaredLogger) *collection {
 	c := &collection{
 		metric:  metric,
-		buckets: aggregation.NewTimedFloat64Buckets(bucketSize),
+		buckets: aggregation.NewTimedFloat64Buckets(BucketSize),
 		scraper: scraper,
 
 		stopCh: make(chan struct{}),

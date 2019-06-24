@@ -28,7 +28,7 @@ func retrieveGCPMetadata() *gcpMetadata {
 	if err == nil && project != "" {
 		gm.project = project
 	}
-	location, err := metadata.Zone()
+	location, err := metadata.InstanceAttributeValue("cluster-location")
 	if err == nil && location != "" {
 		gm.location = location
 	}

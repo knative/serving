@@ -22,9 +22,9 @@ import (
 	"runtime/pprof"
 	"sort"
 
-	"istio.io/fortio/log"
-	"istio.io/fortio/periodic"
-	"istio.io/fortio/stats"
+	"fortio.org/fortio/log"
+	"fortio.org/fortio/periodic"
+	"fortio.org/fortio/stats"
 )
 
 // Most of the code in this file is the library-fication of code originally
@@ -43,6 +43,10 @@ type HTTPRunnerResults struct {
 	Sizes       *stats.HistogramData
 	HeaderSizes *stats.HistogramData
 	URL         string
+	SocketCount int
+	// http code to abort the run on (-1 for connection or other socket error)
+	AbortOn int
+	aborter *periodic.Aborter
 }
 
 // Run tests http request fetching. Main call being run at the target QPS.
@@ -51,10 +55,14 @@ func (httpstate *HTTPRunnerResults) Run(t int) {
 	log.Debugf("Calling in %d", t)
 	code, body, headerSize := httpstate.client.Fetch()
 	size := len(body)
-	log.Debugf("Got in %3d hsz %d sz %d", code, headerSize, size)
+	log.Debugf("Got in %3d hsz %d sz %d - will abort on %d", code, headerSize, size, httpstate.AbortOn)
 	httpstate.RetCodes[code]++
 	httpstate.sizes.Record(float64(size))
 	httpstate.headerSizes.Record(float64(headerSize))
+	if httpstate.AbortOn == code {
+		httpstate.aborter.Abort()
+		log.Infof("Aborted run because of code %d - data %s", code, DebugSummary(body, 1024))
+	}
 }
 
 // HTTPRunnerOptions includes the base RunnerOptions plus http specific
@@ -64,11 +72,13 @@ type HTTPRunnerOptions struct {
 	HTTPOptions               // Need to call Init() to initialize
 	Profiler           string // file to save profiles to. defaults to no profiling
 	AllowInitialErrors bool   // whether initial errors don't cause an abort
+	// Which status code cause an abort of the run (default 0 = don't abort; reminder -1 is returned for socket errors)
+	AbortOn int
 }
 
 // RunHTTPTest runs an http test and returns the aggregated stats.
 func RunHTTPTest(o *HTTPRunnerOptions) (*HTTPRunnerResults, error) {
-	// TODO 1. use std client automatically when https url
+	o.RunType = "HTTP"
 	log.Infof("Starting http test for %s with %d threads at %.1f qps", o.URL, o.NumThreads, o.QPS)
 	r := periodic.NewPeriodicRunner(&o.RunnerOptions)
 	defer r.Options().Abort()
@@ -80,6 +90,8 @@ func RunHTTPTest(o *HTTPRunnerOptions) (*HTTPRunnerResults, error) {
 		sizes:       stats.NewHistogram(0, 100),
 		headerSizes: stats.NewHistogram(0, 5),
 		URL:         o.URL,
+		AbortOn:     o.AbortOn,
+		aborter:     r.Options().Stop,
 	}
 	httpstate := make([]HTTPRunnerResults, numThreads)
 	for i := 0; i < numThreads; i++ {
@@ -102,6 +114,8 @@ func RunHTTPTest(o *HTTPRunnerOptions) (*HTTPRunnerResults, error) {
 		httpstate[i].sizes = total.sizes.Clone()
 		httpstate[i].headerSizes = total.headerSizes.Clone()
 		httpstate[i].RetCodes = make(map[int]int64)
+		httpstate[i].AbortOn = total.AbortOn
+		httpstate[i].aborter = total.aborter
 	}
 
 	if o.Profiler != "" {
@@ -123,12 +137,13 @@ func RunHTTPTest(o *HTTPRunnerOptions) (*HTTPRunnerResults, error) {
 		runtime.GC()               // get up-to-date statistics
 		pprof.WriteHeapProfile(fm) // nolint:gas,errcheck
 		fm.Close()                 // nolint:gas,errcheck
-		fmt.Fprintf(out, "Wrote profile data to %s.{cpu|mem}\n", o.Profiler)
+		_, _ = fmt.Fprintf(out, "Wrote profile data to %s.{cpu|mem}\n", o.Profiler)
 	}
-	// Numthreads may have reduced
-	numThreads = r.Options().NumThreads
+	// Numthreads may have reduced but it should be ok to accumulate 0s from
+	// unused ones. We also must cleanup all the created clients.
 	keys := []int{}
 	for i := 0; i < numThreads; i++ {
+		total.SocketCount += httpstate[i].client.Close()
 		// Q: is there some copying each time stats[i] is used?
 		for k := range httpstate[i].RetCodes {
 			if _, exists := total.RetCodes[k]; !exists {
@@ -139,10 +154,13 @@ func RunHTTPTest(o *HTTPRunnerOptions) (*HTTPRunnerResults, error) {
 		total.sizes.Transfer(httpstate[i].sizes)
 		total.headerSizes.Transfer(httpstate[i].headerSizes)
 	}
+	// Cleanup state:
+	r.Options().ReleaseRunners()
 	sort.Ints(keys)
 	totalCount := float64(total.DurationHistogram.Count)
+	_, _ = fmt.Fprintf(out, "Sockets used: %d (for perfect keepalive, would be %d)\n", total.SocketCount, r.Options().NumThreads)
 	for _, k := range keys {
-		fmt.Fprintf(out, "Code %3d : %d (%.1f %%)\n", k, total.RetCodes[k], 100.*float64(total.RetCodes[k])/totalCount)
+		_, _ = fmt.Fprintf(out, "Code %3d : %d (%.1f %%)\n", k, total.RetCodes[k], 100.*float64(total.RetCodes[k])/totalCount)
 	}
 	total.HeaderSizes = total.headerSizes.Export()
 	total.Sizes = total.sizes.Export()

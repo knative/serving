@@ -177,6 +177,11 @@ func MarkIngressReady(r *v1alpha1.Route) {
 	})
 }
 
+// MarkIngressNotConfigured calls the method of the same name on .Status
+func MarkIngressNotConfigured(r *v1alpha1.Route) {
+	r.Status.MarkIngressNotConfigured()
+}
+
 // MarkMissingTrafficTarget calls the method of the same name on .Status
 func MarkMissingTrafficTarget(kind, revision string) RouteOption {
 	return func(r *v1alpha1.Route) {

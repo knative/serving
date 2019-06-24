@@ -28,6 +28,8 @@ import (
 )
 
 func TestOurConfig(t *testing.T) {
+	defer logtesting.ClearAll()
+
 	actual, example := ConfigMapsFromTestFile(t, "config-gc")
 	for _, tt := range []struct {
 		name string

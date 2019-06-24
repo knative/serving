@@ -144,7 +144,7 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 				clients.KubeClient,
 				t.Logf,
 				domain,
-				v1a1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesBody(helloWorldExpectedOutput))),
+				v1a1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesBody(test.HelloWorldText))),
 				"WaitForEndpointToServeText",
 				test.ServingFlags.ResolvableDomain)
 			if err != nil {

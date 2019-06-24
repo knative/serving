@@ -29,7 +29,7 @@ import (
 
 const (
 	securityContextUserID = 2020
-	unprivilegedUserID    = 1000
+	unprivilegedUserID    = 65532
 )
 
 // TestMustRunAsUser verifies that a supplied runAsUser through securityContext takes
@@ -43,7 +43,9 @@ func TestMustRunAsUser(t *testing.T) {
 		RunAsUser: &runAsUser,
 	}
 
-	_, ri, err := fetchRuntimeInfo(t, clients, WithSecurityContext(securityContext))
+	// We need to modify the working dir because the specified user cannot access the
+	// default user's working dir.
+	_, ri, err := fetchRuntimeInfo(t, clients, WithSecurityContext(securityContext), WithWorkingDir("/"))
 	if err != nil {
 		t.Fatalf("Error fetching runtime info: %v", err)
 	}
@@ -73,7 +75,7 @@ func TestMustRunAsUser(t *testing.T) {
 func TestShouldRunAsUserContainerDefault(t *testing.T) {
 	t.Parallel()
 	clients := test.Setup(t)
-	_, ri, err := fetchRuntimeInfoUnprivileged(t, clients)
+	_, ri, err := fetchRuntimeInfo(t, clients)
 
 	if err != nil {
 		t.Fatalf("Error fetching runtime info: %v", err)

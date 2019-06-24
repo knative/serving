@@ -48,7 +48,7 @@ func Do(ctx context.Context, transport http.RoundTripper, target, headerValue st
 		req = po(req)
 	}
 
-	req.Header.Set(http.CanonicalHeaderKey(network.ProbeHeaderName), headerValue)
+	req.Header.Set(network.ProbeHeaderName, headerValue)
 	req = req.WithContext(ctx)
 	resp, err := transport.RoundTrip(req)
 	if err != nil {

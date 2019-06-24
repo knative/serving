@@ -31,14 +31,13 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	pkgTest "github.com/knative/pkg/test"
+	"github.com/knative/pkg/test/logstream"
 	"github.com/knative/serving/pkg/apis/autoscaling"
 	resourcenames "github.com/knative/serving/pkg/reconciler/revision/resources/names"
 	rtesting "github.com/knative/serving/pkg/testing/v1alpha1"
 	"github.com/knative/serving/test"
-	"github.com/knative/serving/test/logstream"
 	v1a1test "github.com/knative/serving/test/v1alpha1"
 
-	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -51,12 +50,6 @@ const (
 	// but not high enough to generate scheduling problems.
 	containerConcurrency = 6
 )
-
-func isDeploymentScaledUp() func(d *appsv1.Deployment) (bool, error) {
-	return func(d *appsv1.Deployment) (bool, error) {
-		return d.Status.ReadyReplicas > 1, nil
-	}
-}
 
 func generateTraffic(ctx *testContext, concurrency int, duration time.Duration, stopChan chan struct{}) error {
 	var (
@@ -174,23 +167,6 @@ func setup(t *testing.T, class string, metric string) *testContext {
 	}
 }
 
-func assertScaleUp(ctx *testContext) {
-	ctx.t.Log("The autoscaler spins up additional replicas when traffic increases.")
-	if err := generateTraffic(ctx, 2*containerConcurrency, 20*time.Second, nil); err != nil {
-		ctx.t.Fatalf("Error during initial scale up: %v", err)
-	}
-	ctx.t.Logf("Waiting for scale up revision %s", ctx.names.Revision)
-	if err := pkgTest.WaitForDeploymentState(
-		ctx.clients.KubeClient,
-		ctx.deploymentName,
-		isDeploymentScaledUp(),
-		"DeploymentIsScaledUp",
-		test.ServingNamespace,
-		3*time.Minute); err != nil {
-		ctx.t.Fatalf("Unable to observe the Deployment named %s scaling up. %s", ctx.deploymentName, err)
-	}
-}
-
 func assertScaleDown(ctx *testContext) {
 	if err := WaitForScaleToZero(ctx.t, ctx.deploymentName, ctx.clients); err != nil {
 		ctx.t.Fatalf("Unable to observe the Deployment named %s scaling down: %v", ctx.deploymentName, err)
@@ -269,6 +245,7 @@ func assertAutoscaleUpToNumPods(ctx *testContext, curPods, targetPods int32, dur
 					// A quick test succeeds when the number of pods scales up to `targetPods`
 					// (and, for sanity check, no more than `maxPods`).
 					if got >= targetPods && got <= maxPods {
+						ctx.t.Logf("got %d replicas, reached target of %d, exiting early", got, targetPods)
 						return nil
 					}
 				}
@@ -306,12 +283,9 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 	ctx := setup(t, autoscaling.KPA, autoscaling.Concurrency)
 	defer test.TearDown(ctx.clients, ctx.names)
 
-	sc := startDiagnosis(t, ctx.clients, 15*time.Second)
-	defer sc.stop()
-
-	assertScaleUp(ctx)
+	assertAutoscaleUpToNumPods(ctx, 1, 2, 60*time.Second, true)
 	assertScaleDown(ctx)
-	assertScaleUp(ctx)
+	assertAutoscaleUpToNumPods(ctx, 0, 2, 60*time.Second, true)
 }
 
 func TestAutoscaleUpCountPods(t *testing.T) {

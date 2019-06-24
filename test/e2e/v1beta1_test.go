@@ -22,7 +22,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/knative/serving/test/logstream"
+	"github.com/knative/pkg/test/logstream"
 	v1a1test "github.com/knative/serving/test/v1alpha1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

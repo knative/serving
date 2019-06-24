@@ -20,7 +20,7 @@
 // is also ../histogram to use the stats from the command line and ../echosrv
 // as a very light http server that can be used to test proxies etc like
 // the Istio components.
-package periodic // import "istio.io/fortio/periodic"
+package periodic // import "fortio.org/fortio/periodic"
 
 import (
 	"fmt"
@@ -31,13 +31,9 @@ import (
 	"sync"
 	"time"
 
-	"istio.io/fortio/log"
-	"istio.io/fortio/stats"
-)
-
-const (
-	// Version is the overall package version (used to version json output too).
-	Version = "0.6.8"
+	"fortio.org/fortio/log"
+	"fortio.org/fortio/stats"
+	"fortio.org/fortio/version"
 )
 
 // DefaultRunnerOptions are the default values for options (do not mutate!).
@@ -70,6 +66,13 @@ func (r *RunnerOptions) MakeRunners(rr Runnable) {
 	}
 }
 
+// ReleaseRunners clear the runners state.
+func (r *RunnerOptions) ReleaseRunners() {
+	for idx := range r.Runners {
+		r.Runners[idx] = nil
+	}
+}
+
 // Aborter is the object controlling Abort() of the runs.
 type Aborter struct {
 	sync.Mutex
@@ -97,6 +100,8 @@ func NewAborter() *Aborter {
 
 // RunnerOptions are the parameters to the PeriodicRunner.
 type RunnerOptions struct {
+	// Type of run (to be copied into results)
+	RunType string
 	// Array of objects to run in each thread (use MakeRunners() to clone the same one)
 	Runners []Runnable
 	// At which (target) rate to run the Runners across NumThreads.
@@ -125,6 +130,7 @@ type RunnerOptions struct {
 
 // RunnerResults encapsulates the actual QPS observed and duration histogram.
 type RunnerResults struct {
+	RunType           string
 	Labels            string
 	StartTime         time.Time
 	RequestedQPS      string
@@ -260,14 +266,18 @@ func (r *RunnerOptions) Abort() {
 	}
 }
 
-// internal version, returning the concrete implementation.
+// internal version, returning the concrete implementation. logical std::move
 func newPeriodicRunner(opts *RunnerOptions) *periodicRunner {
 	r := &periodicRunner{*opts} // by default just copy the input params
+	opts.ReleaseRunners()
+	opts.Stop = nil
 	r.Normalize()
 	return r
 }
 
 // NewPeriodicRunner constructs a runner from input parameters/options.
+// The options will be moved and normalized to the returned object, do
+// not use the original options after this call, call Options() instead.
 // Abort() must be called if Run() is not called.
 func NewPeriodicRunner(params *RunnerOptions) PeriodicRunner {
 	return newPeriodicRunner(params)
@@ -317,20 +327,20 @@ func (r *periodicRunner) Run() RunnerResults {
 				leftOver = r.Exactly - totalCalls
 				if log.Log(log.Warning) {
 					// nolint: gas
-					fmt.Fprintf(r.Out, "Starting at %g qps with %d thread(s) [gomax %d] : exactly %d, %d calls each (total %d + %d)\n",
+					_, _ = fmt.Fprintf(r.Out, "Starting at %g qps with %d thread(s) [gomax %d] : exactly %d, %d calls each (total %d + %d)\n",
 						r.QPS, r.NumThreads, runtime.GOMAXPROCS(0), r.Exactly, numCalls, totalCalls, leftOver)
 				}
 			} else {
 				if log.Log(log.Warning) {
 					// nolint: gas
-					fmt.Fprintf(r.Out, "Starting at %g qps with %d thread(s) [gomax %d] for %v : %d calls each (total %d)\n",
+					_, _ = fmt.Fprintf(r.Out, "Starting at %g qps with %d thread(s) [gomax %d] for %v : %d calls each (total %d)\n",
 						r.QPS, r.NumThreads, runtime.GOMAXPROCS(0), r.Duration, numCalls, totalCalls)
 				}
 			}
 		} else {
 			// Always print that as we need ^C to interrupt, in that case the user need to notice
 			// nolint: gas
-			fmt.Fprintf(r.Out, "Starting at %g qps with %d thread(s) [gomax %d] until interrupted\n",
+			_, _ = fmt.Fprintf(r.Out, "Starting at %g qps with %d thread(s) [gomax %d] until interrupted\n",
 				r.QPS, r.NumThreads, runtime.GOMAXPROCS(0))
 			numCalls = 0
 		}
@@ -338,12 +348,12 @@ func (r *periodicRunner) Run() RunnerResults {
 		if !useExactly && !hasDuration {
 			// Always log something when waiting for ^C
 			// nolint: gas
-			fmt.Fprintf(r.Out, "Starting at max qps with %d thread(s) [gomax %d] until interrupted\n",
+			_, _ = fmt.Fprintf(r.Out, "Starting at max qps with %d thread(s) [gomax %d] until interrupted\n",
 				r.NumThreads, runtime.GOMAXPROCS(0))
 		} else {
 			if log.Log(log.Warning) {
 				// nolint: gas
-				fmt.Fprintf(r.Out, "Starting at max qps with %d thread(s) [gomax %d] ",
+				_, _ = fmt.Fprintf(r.Out, "Starting at max qps with %d thread(s) [gomax %d] ",
 					r.NumThreads, runtime.GOMAXPROCS(0))
 			}
 			if useExactly {
@@ -352,13 +362,13 @@ func (r *periodicRunner) Run() RunnerResults {
 				leftOver = r.Exactly % int64(r.NumThreads)
 				if log.Log(log.Warning) {
 					// nolint: gas
-					fmt.Fprintf(r.Out, "for %s (%d per thread + %d)\n", requestedDuration, numCalls, leftOver)
+					_, _ = fmt.Fprintf(r.Out, "for %s (%d per thread + %d)\n", requestedDuration, numCalls, leftOver)
 				}
 			} else {
 				requestedDuration = fmt.Sprint(r.Duration)
 				if log.Log(log.Warning) {
 					// nolint: gas
-					fmt.Fprintf(r.Out, "for %s\n", requestedDuration)
+					_, _ = fmt.Fprintf(r.Out, "for %s\n", requestedDuration)
 				}
 			}
 		}
@@ -409,7 +419,7 @@ func (r *periodicRunner) Run() RunnerResults {
 	actualQPS := float64(functionDuration.Count) / elapsed.Seconds()
 	if log.Log(log.Warning) {
 		// nolint: gas
-		fmt.Fprintf(r.Out, "Ended after %v : %d calls. qps=%.5g\n", elapsed, functionDuration.Count, actualQPS)
+		_, _ = fmt.Fprintf(r.Out, "Ended after %v : %d calls. qps=%.5g\n", elapsed, functionDuration.Count, actualQPS)
 	}
 	if useQPS {
 		percentNegative := 100. * float64(sleepTime.Hdata[0]) / float64(sleepTime.Count)
@@ -418,7 +428,7 @@ func (r *periodicRunner) Run() RunnerResults {
 		// user.
 		if percentNegative > 5 {
 			sleepTime.Print(r.Out, "Aggregated Sleep Time", []float64{50})
-			fmt.Fprintf(r.Out, "WARNING %.2f%% of sleep were falling behind\n", percentNegative) // nolint: gas
+			_, _ = fmt.Fprintf(r.Out, "WARNING %.2f%% of sleep were falling behind\n", percentNegative) // nolint: gas
 		} else {
 			if log.Log(log.Verbose) {
 				sleepTime.Print(r.Out, "Aggregated Sleep Time", []float64{50})
@@ -431,14 +441,14 @@ func (r *periodicRunner) Run() RunnerResults {
 	if useExactly && actualCount != r.Exactly {
 		requestedDuration += fmt.Sprintf(", interrupted after %d", actualCount)
 	}
-	result := RunnerResults{r.Labels, start, requestedQPS, requestedDuration,
-		actualQPS, elapsed, r.NumThreads, Version, functionDuration.Export().CalcPercentiles(r.Percentiles), r.Exactly}
+	result := RunnerResults{r.RunType, r.Labels, start, requestedQPS, requestedDuration,
+		actualQPS, elapsed, r.NumThreads, version.Short(), functionDuration.Export().CalcPercentiles(r.Percentiles), r.Exactly}
 	if log.Log(log.Warning) {
 		result.DurationHistogram.Print(r.Out, "Aggregated Function Time")
 	} else {
 		functionDuration.Counter.Print(r.Out, "Aggregated Function Time")
 		for _, p := range result.DurationHistogram.Percentiles {
-			fmt.Fprintf(r.Out, "# target %g%% %.6g\n", p.Percentile, p.Value) // nolint: gas
+			_, _ = fmt.Fprintf(r.Out, "# target %g%% %.6g\n", p.Percentile, p.Value) // nolint: gas
 		}
 	}
 	select {

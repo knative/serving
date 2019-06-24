@@ -23,6 +23,11 @@ import (
 )
 
 func TestTimeToFirstByteTimeoutHandler(t *testing.T) {
+	const (
+		failingTimeout = 10 * time.Millisecond
+		sleepToFail    = 100 * time.Millisecond
+	)
+
 	tests := []struct {
 		name           string
 		timeout        time.Duration
@@ -44,10 +49,10 @@ func TestTimeToFirstByteTimeoutHandler(t *testing.T) {
 		wantBody:   "hi",
 	}, {
 		name:    "timeout",
-		timeout: 50 * time.Millisecond,
+		timeout: failingTimeout,
 		handler: func(writeErrors chan error) http.Handler {
 			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				time.Sleep(100 * time.Millisecond)
+				time.Sleep(sleepToFail)
 				w.WriteHeader(http.StatusOK)
 				_, werr := w.Write([]byte("hi"))
 				writeErrors <- werr
@@ -58,11 +63,11 @@ func TestTimeToFirstByteTimeoutHandler(t *testing.T) {
 		wantWriteError: true,
 	}, {
 		name:    "write then sleep",
-		timeout: 10 * time.Millisecond,
+		timeout: failingTimeout,
 		handler: func(writeErrors chan error) http.Handler {
 			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusOK)
-				time.Sleep(50 * time.Millisecond)
+				time.Sleep(sleepToFail)
 				w.Write([]byte("hi"))
 			})
 		},
@@ -70,10 +75,10 @@ func TestTimeToFirstByteTimeoutHandler(t *testing.T) {
 		wantBody:   "hi",
 	}, {
 		name:    "custom timeout message",
-		timeout: 50 * time.Millisecond,
+		timeout: failingTimeout,
 		handler: func(writeErrors chan error) http.Handler {
 			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				time.Sleep(100 * time.Millisecond)
+				time.Sleep(sleepToFail)
 				_, werr := w.Write([]byte("hi"))
 				writeErrors <- werr
 			})
@@ -84,7 +89,7 @@ func TestTimeToFirstByteTimeoutHandler(t *testing.T) {
 		wantWriteError: true,
 	}, {
 		name:    "propagate panic",
-		timeout: 50 * time.Millisecond,
+		timeout: 10 * time.Second,
 		handler: func(writeErrors chan error) http.Handler {
 			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				panic(http.ErrAbortHandler)

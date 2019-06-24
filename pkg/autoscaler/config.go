@@ -111,10 +111,6 @@ func NewConfigFromMap(data map[string]string) (*Config, error) {
 		}
 	}
 
-	if lc.ContainerConcurrencyTargetFraction <= 0 || lc.ContainerConcurrencyTargetFraction > 100 {
-		return nil, fmt.Errorf("container-concurrency-target-percentage = %f is outside of valid range of (0, 100]", lc.ContainerConcurrencyTargetFraction)
-	}
-
 	// Adjust % ⇒ fractions: for legacy reasons we allow values
 	// (0, 1] interval, so minimal percentage must be greater than 1.0.
 	// Internally we want to have fractions, since otherwise we'll have
@@ -154,8 +150,34 @@ func NewConfigFromMap(data map[string]string) (*Config, error) {
 		}
 	}
 
+	return validate(lc)
+}
+
+func validate(lc *Config) (*Config, error) {
 	if lc.ScaleToZeroGracePeriod < 30*time.Second {
 		return nil, fmt.Errorf("scale-to-zero-grace-period must be at least 30s, got %v", lc.ScaleToZeroGracePeriod)
+	}
+
+	if lc.ContainerConcurrencyTargetFraction <= 0 || lc.ContainerConcurrencyTargetFraction > 1 {
+		return nil, fmt.Errorf("container-concurrency-target-percentage = %f is outside of valid range of (0, 100]", lc.ContainerConcurrencyTargetFraction)
+	}
+
+	if x := lc.ContainerConcurrencyTargetFraction * lc.ContainerConcurrencyTargetDefault; x < 1.0 {
+		return nil, fmt.Errorf("container-concurrency-target-percentage and container-concurrency-target-default yield target concurrency of %f, can't be less than 1", x)
+	}
+
+	// We can't permit stable window be less than our aggregation window for correctness.
+	if lc.StableWindow < BucketSize {
+		return nil, fmt.Errorf("stable-window = %v, must be at least %v", lc.StableWindow, BucketSize)
+	}
+
+	if lc.PanicWindow < BucketSize || lc.PanicWindow > lc.StableWindow {
+		return nil, fmt.Errorf("panic-window = %v, must be in [%v, %v] interval", lc.PanicWindow, BucketSize, lc.StableWindow)
+	}
+
+	effPW := time.Duration(lc.PanicWindowPercentage / 100 * float64(lc.StableWindow))
+	if effPW < BucketSize || effPW > lc.StableWindow {
+		return nil, fmt.Errorf("panic-window = %v, must be in [%v, %v] interval", lc.PanicWindow, BucketSize, lc.StableWindow)
 	}
 
 	return lc, nil

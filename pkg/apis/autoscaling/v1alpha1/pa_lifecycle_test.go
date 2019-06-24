@@ -377,7 +377,7 @@ func TestTargetAnnotation(t *testing.T) {
 	cases := []struct {
 		name       string
 		pa         *PodAutoscaler
-		wantTarget int32
+		wantTarget float64
 		wantOk     bool
 	}{{
 		name:       "not present",

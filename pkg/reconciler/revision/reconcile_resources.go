@@ -27,6 +27,7 @@ import (
 	"github.com/knative/serving/pkg/reconciler/revision/resources"
 	resourcenames "github.com/knative/serving/pkg/reconciler/revision/resources/names"
 	"go.uber.org/zap"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
@@ -167,4 +168,20 @@ func (c *Reconciler) reconcileKPA(ctx context.Context, rev *v1alpha1.Revision) e
 	}
 
 	return nil
+}
+
+func hasDeploymentTimedOut(deployment *appsv1.Deployment) bool {
+	// as per https://kubernetes.io/docs/concepts/workloads/controllers/deployment
+	for _, cond := range deployment.Status.Conditions {
+		// Look for Deployment with status False
+		if cond.Status != corev1.ConditionFalse {
+			continue
+		}
+		// with Type Progressing and Reason Timeout
+		// TODO(arvtiwar): hard coding "ProgressDeadlineExceeded" to avoid import kubernetes/kubernetes
+		if cond.Type == appsv1.DeploymentProgressing && cond.Reason == "ProgressDeadlineExceeded" {
+			return true
+		}
+	}
+	return false
 }
