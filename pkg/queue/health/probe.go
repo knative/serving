@@ -51,8 +51,6 @@ func TCPProbe(config TCPProbeConfigOptions) error {
 }
 
 // HTTPProbe checks that HTTP connection can be established to the address.
-// Did not reuse k8s.io/kubernetes/pkg/probe/tcp to not create a dependency
-// on klog.
 func HTTPProbe(config HTTPProbeConfigOptions) error {
 	httpClient := &http.Client{
 		Transport: &http.Transport{
@@ -77,7 +75,7 @@ func HTTPProbe(config HTTPProbeConfigOptions) error {
 		return err
 	}
 	if res == nil {
-		return fmt.Errorf("httpGet probe response was nil")
+		return fmt.Errorf("httpGet probe failed to get response")
 	}
 	// response status code between 200-399 indicates success
 	if res.StatusCode < 200 || res.StatusCode >= 400 {

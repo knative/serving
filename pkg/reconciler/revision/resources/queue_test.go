@@ -35,8 +35,10 @@ import (
 	"github.com/knative/serving/pkg/metrics"
 	"go.uber.org/zap/zapcore"
 	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"knative.dev/pkg/logging"
 	pkgmetrics "knative.dev/pkg/metrics"
 	_ "knative.dev/pkg/metrics/testing"
@@ -620,20 +622,7 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 	}
 }
 
-func TestProbeGeneration(t *testing.T) {
-	expectedProbe := &corev1.Probe{
-		Handler: corev1.Handler{
-			HTTPGet: &corev1.HTTPGetAction{
-				Path: "/",
-			},
-		},
-		PeriodSeconds:  1,
-		TimeoutSeconds: 10,
-	}
-	probeBytes, err := json.Marshal(expectedProbe)
-	if err != nil {
-		t.Fatalf("Failed to marshall readiness probe %#v", err)
-	}
+func TestProbeGenerationHTTPDefaults(t *testing.T) {
 	rev := &v1alpha1.Revision{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: "foo",
@@ -646,13 +635,178 @@ func TestProbeGeneration(t *testing.T) {
 				TimeoutSeconds:       ptr.Int64(45),
 				PodSpec: corev1.PodSpec{
 					Containers: []corev1.Container{{
-						Name:           containerName,
-						ReadinessProbe: expectedProbe,
+						Name: containerName,
+						ReadinessProbe: &corev1.Probe{
+							Handler: corev1.Handler{
+								HTTPGet: &corev1.HTTPGetAction{
+									Path: "/",
+								},
+							},
+							PeriodSeconds:  1,
+							TimeoutSeconds: 10,
+						},
 					}},
 				},
 			},
 		},
 	}
+
+	expectedProbe := &corev1.Probe{
+		Handler: corev1.Handler{
+			HTTPGet: &corev1.HTTPGetAction{
+				Host:   "127.0.0.1",
+				Path:   "/",
+				Port:   intstr.FromInt(int(v1alpha1.DefaultUserPort)),
+				Scheme: corev1.URISchemeHTTP,
+			},
+		},
+		PeriodSeconds:  1,
+		TimeoutSeconds: 10,
+	}
+	probeBytes, err := json.Marshal(expectedProbe)
+	if err != nil {
+		t.Fatalf("Failed to marshall readiness probe %#v", err)
+	}
+
+	lc := &logging.Config{}
+	oc := &metrics.ObservabilityConfig{}
+	ac := &autoscaler.Config{}
+	cc := &deployment.Config{}
+	want := &corev1.Container{
+		// These are effectively constant
+		Name:           QueueContainerName,
+		Resources:      createQueueResources(make(map[string]string), &corev1.Container{}),
+		Ports:          append(queueNonServingPorts, queueHTTPPort),
+		ReadinessProbe: queueReadinessProbe,
+		// These changed based on the Revision and configs passed in.
+		Env:  env(map[string]string{}),
+		Args: []string{"--readiness-probe", string(probeBytes)},
+	}
+
+	got := makeQueueContainer(rev, lc, oc, ac, cc)
+	sortEnv(got.Env)
+	if diff := cmp.Diff(want, got, cmpopts.IgnoreUnexported(resource.Quantity{})); diff != "" {
+		t.Errorf("makeQueueContainerWithPercentageAnnotation (-want, +got) = %v", diff)
+	}
+}
+
+func TestProbeGenerationHTTP(t *testing.T) {
+	userPort := 12345
+	probePath := "/health"
+
+	rev := &v1alpha1.Revision{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "foo",
+			Name:      "bar",
+			UID:       "1234",
+		},
+		Spec: v1alpha1.RevisionSpec{
+			RevisionSpec: v1beta1.RevisionSpec{
+				ContainerConcurrency: 1,
+				TimeoutSeconds:       ptr.Int64(45),
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Name: containerName,
+						Ports: []v1.ContainerPort{{
+							ContainerPort: int32(userPort),
+						}},
+						ReadinessProbe: &corev1.Probe{
+							Handler: corev1.Handler{
+								HTTPGet: &corev1.HTTPGetAction{
+									Path:   probePath,
+									Scheme: corev1.URISchemeHTTPS,
+								},
+							},
+							PeriodSeconds:  1,
+							TimeoutSeconds: 10,
+						},
+					}},
+				},
+			},
+		},
+	}
+
+	expectedProbe := &corev1.Probe{
+		Handler: corev1.Handler{
+			HTTPGet: &corev1.HTTPGetAction{
+				Host:   "127.0.0.1",
+				Path:   probePath,
+				Port:   intstr.FromInt(userPort),
+				Scheme: corev1.URISchemeHTTPS,
+			},
+		},
+		PeriodSeconds:  1,
+		TimeoutSeconds: 10,
+	}
+	probeBytes, err := json.Marshal(expectedProbe)
+	if err != nil {
+		t.Fatalf("Failed to marshall readiness probe %#v", err)
+	}
+
+	lc := &logging.Config{}
+	oc := &metrics.ObservabilityConfig{}
+	ac := &autoscaler.Config{}
+	cc := &deployment.Config{}
+	want := &corev1.Container{
+		// These are effectively constant
+		Name:           QueueContainerName,
+		Resources:      createQueueResources(make(map[string]string), &corev1.Container{}),
+		Ports:          append(queueNonServingPorts, queueHTTPPort),
+		ReadinessProbe: queueReadinessProbe,
+		// These changed based on the Revision and configs passed in.
+		Env:  env(map[string]string{"USER_PORT": strconv.Itoa(userPort)}),
+		Args: []string{"--readiness-probe", string(probeBytes)},
+	}
+
+	got := makeQueueContainer(rev, lc, oc, ac, cc)
+	sortEnv(got.Env)
+	if diff := cmp.Diff(want, got, cmpopts.IgnoreUnexported(resource.Quantity{})); diff != "" {
+		t.Errorf("makeQueueContainerWithPercentageAnnotation (-want, +got) = %v", diff)
+	}
+}
+
+func TestProbeGenerationTCPDefaults(t *testing.T) {
+	rev := &v1alpha1.Revision{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "foo",
+			Name:      "bar",
+			UID:       "1234",
+		},
+		Spec: v1alpha1.RevisionSpec{
+			RevisionSpec: v1beta1.RevisionSpec{
+				ContainerConcurrency: 1,
+				TimeoutSeconds:       ptr.Int64(45),
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Name: containerName,
+						ReadinessProbe: &corev1.Probe{
+							Handler: corev1.Handler{
+								TCPSocket: &corev1.TCPSocketAction{},
+							},
+							PeriodSeconds:  1,
+							TimeoutSeconds: 10,
+						},
+					}},
+				},
+			},
+		},
+	}
+
+	expectedProbe := &corev1.Probe{
+		Handler: corev1.Handler{
+			TCPSocket: &corev1.TCPSocketAction{
+				Host: "127.0.0.1",
+				Port: intstr.FromInt(int(v1alpha1.DefaultUserPort)),
+			},
+		},
+		PeriodSeconds:  1,
+		TimeoutSeconds: 10,
+	}
+	probeBytes, err := json.Marshal(expectedProbe)
+	if err != nil {
+		t.Fatalf("Failed to marshall readiness probe %#v", err)
+	}
+
 	lc := &logging.Config{}
 	oc := &metrics.ObservabilityConfig{}
 	ac := &autoscaler.Config{}
@@ -667,6 +821,74 @@ func TestProbeGeneration(t *testing.T) {
 		Env:             env(map[string]string{}),
 		SecurityContext: queueSecurityContext,
 		Args:            []string{"--readiness-probe", string(probeBytes)},
+	}
+
+	got := makeQueueContainer(rev, lc, oc, ac, cc)
+	sortEnv(got.Env)
+	if diff := cmp.Diff(want, got, cmpopts.IgnoreUnexported(resource.Quantity{})); diff != "" {
+		t.Errorf("makeQueueContainerWithPercentageAnnotation (-want, +got) = %v", diff)
+	}
+}
+
+func TestProbeGenerationTCP(t *testing.T) {
+	userPort := 12345
+	rev := &v1alpha1.Revision{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "foo",
+			Name:      "bar",
+			UID:       "1234",
+		},
+		Spec: v1alpha1.RevisionSpec{
+			RevisionSpec: v1beta1.RevisionSpec{
+				ContainerConcurrency: 1,
+				TimeoutSeconds:       ptr.Int64(45),
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Name: containerName,
+						Ports: []v1.ContainerPort{{
+							ContainerPort: int32(userPort),
+						}},
+						ReadinessProbe: &corev1.Probe{
+							Handler: corev1.Handler{
+								TCPSocket: &corev1.TCPSocketAction{},
+							},
+							PeriodSeconds:  1,
+							TimeoutSeconds: 10,
+						},
+					}},
+				},
+			},
+		},
+	}
+
+	expectedProbe := &corev1.Probe{
+		Handler: corev1.Handler{
+			TCPSocket: &corev1.TCPSocketAction{
+				Host: "127.0.0.1",
+				Port: intstr.FromInt(userPort),
+			},
+		},
+		PeriodSeconds:  1,
+		TimeoutSeconds: 10,
+	}
+	probeBytes, err := json.Marshal(expectedProbe)
+	if err != nil {
+		t.Fatalf("Failed to marshall readiness probe %#v", err)
+	}
+
+	lc := &logging.Config{}
+	oc := &metrics.ObservabilityConfig{}
+	ac := &autoscaler.Config{}
+	cc := &deployment.Config{}
+	want := &corev1.Container{
+		// These are effectively constant
+		Name:           QueueContainerName,
+		Resources:      createQueueResources(make(map[string]string), &corev1.Container{}),
+		Ports:          append(queueNonServingPorts, queueHTTPPort),
+		ReadinessProbe: queueReadinessProbe,
+		// These changed based on the Revision and configs passed in.
+		Env:  env(map[string]string{"USER_PORT": strconv.Itoa(userPort)}),
+		Args: []string{"--readiness-probe", string(probeBytes)},
 	}
 
 	got := makeQueueContainer(rev, lc, oc, ac, cc)

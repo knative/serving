@@ -192,7 +192,22 @@ func makeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, o
 		volumeMounts = append(volumeMounts, internalVolumeMount)
 	}
 
-	probeJSON, err := json.Marshal(rev.Spec.GetContainer().ReadinessProbe)
+	rp := rev.Spec.GetContainer().ReadinessProbe.DeepCopy()
+
+	if rp != nil {
+		if rp.HTTPGet != nil {
+			rp.HTTPGet.Host = "127.0.0.1"
+			rp.HTTPGet.Port = intstr.FromInt(int(userPort))
+
+			if rp.HTTPGet.Scheme == "" {
+				rp.HTTPGet.Scheme = corev1.URISchemeHTTP
+			}
+		} else if rp.TCPSocket != nil {
+			rp.TCPSocket.Host = "127.0.0.1"
+			rp.TCPSocket.Port = intstr.FromInt(int(userPort))
+		}
+	}
+	probeJSON, err := json.Marshal(rp)
 	if err != nil {
 		probeJSON = []byte{}
 	}

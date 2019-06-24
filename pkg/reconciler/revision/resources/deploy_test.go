@@ -17,6 +17,7 @@ limitations under the License.
 package resources
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -251,6 +252,10 @@ func withEnvVar(name, value string) containerOption {
 	}
 }
 
+func withEmptyProbeArgs() containerOption {
+	return withArgs([]string{"--readiness-probe", "null"})
+}
+
 func withArgs(args []string) containerOption {
 	return func(container *corev1.Container) {
 		container.Args = append(container.Args, args...)
@@ -400,7 +405,7 @@ func TestMakePodSpec(t *testing.T) {
 				queueContainer(
 					withEnvVar("CONTAINER_CONCURRENCY", "1"),
 					withEnvVar("USER_PORT", "8888"),
-					withArgs([]string{"--readiness-probe", "null"}),
+					withEmptyProbeArgs(),
 				),
 			}),
 	}, {
@@ -444,7 +449,7 @@ func TestMakePodSpec(t *testing.T) {
 				queueContainer(
 					withEnvVar("CONTAINER_CONCURRENCY", "1"),
 					withEnvVar("USER_PORT", "8888"),
-					withArgs([]string{"--readiness-probe", "null"}),
+					withEmptyProbeArgs(),
 				),
 			}, withAppendedVolumes(corev1.Volume{
 				Name: "asdf",
@@ -466,7 +471,7 @@ func TestMakePodSpec(t *testing.T) {
 				userContainer(),
 				queueContainer(
 					withEnvVar("CONTAINER_CONCURRENCY", "1"),
-					withArgs([]string{"--readiness-probe", "null"}),
+					withEmptyProbeArgs(),
 				),
 			}),
 	}, {
@@ -490,7 +495,7 @@ func TestMakePodSpec(t *testing.T) {
 				}),
 				queueContainer(
 					withEnvVar("CONTAINER_CONCURRENCY", "1"),
-					withArgs([]string{"--readiness-probe", "null"}),
+					withEmptyProbeArgs(),
 				),
 			}),
 	}, {
@@ -509,7 +514,7 @@ func TestMakePodSpec(t *testing.T) {
 				queueContainer(
 					withEnvVar("SERVING_CONFIGURATION", "parent-config"),
 					withEnvVar("CONTAINER_CONCURRENCY", "1"),
-					withArgs([]string{"--readiness-probe", "null"}),
+					withEmptyProbeArgs(),
 				),
 			}),
 	}, {
@@ -525,12 +530,34 @@ func TestMakePodSpec(t *testing.T) {
 		cc: &deployment.Config{},
 		want: podSpec(
 			[]corev1.Container{
-				userContainer(
-					withHTTPQPReadinessProbe,
-				),
+				userContainer(),
 				queueContainer(
 					withEnvVar("CONTAINER_CONCURRENCY", "0"),
-					withArgs([]string{"--readiness-probe", `{"httpGet":{"path":"/","port":8080}}`}),
+					withArgs([]string{"--readiness-probe", fmt.Sprintf(`{"httpGet":{"path":"/","port":%d,"host":"127.0.0.1","scheme":"HTTP"}}`, v1alpha1.DefaultUserPort)}),
+				),
+			}),
+	}, {
+		name: "with tcp readiness probe",
+		rev: revision(func(revision *v1alpha1.Revision) {
+			container(revision.Spec.GetContainer(),
+				withReadinessProbe(corev1.Handler{
+					TCPSocket: &corev1.TCPSocketAction{
+						Host: "127.0.0.1",
+						Port: intstr.FromInt(12345),
+					},
+				}),
+			)
+		}),
+		lc: &logging.Config{},
+		oc: &metrics.ObservabilityConfig{},
+		ac: &autoscaler.Config{},
+		cc: &deployment.Config{},
+		want: podSpec(
+			[]corev1.Container{
+				userContainer(),
+				queueContainer(
+					withEnvVar("CONTAINER_CONCURRENCY", "0"),
+					withArgs([]string{"--readiness-probe", fmt.Sprintf(`{"tcpSocket":{"port":%d,"host":"127.0.0.1"}}`, v1alpha1.DefaultUserPort)}),
 				),
 			}),
 	}, {
@@ -589,7 +616,7 @@ func TestMakePodSpec(t *testing.T) {
 				),
 				queueContainer(
 					withEnvVar("CONTAINER_CONCURRENCY", "0"),
-					withArgs([]string{"--readiness-probe", "null"}),
+					withEmptyProbeArgs(),
 				),
 			}),
 	}, {
@@ -616,7 +643,7 @@ func TestMakePodSpec(t *testing.T) {
 				),
 				queueContainer(
 					withEnvVar("CONTAINER_CONCURRENCY", "0"),
-					withArgs([]string{"--readiness-probe", "null"}),
+					withEmptyProbeArgs(),
 				),
 			}),
 	}, {
@@ -635,7 +662,7 @@ func TestMakePodSpec(t *testing.T) {
 					withEnvVar("CONTAINER_CONCURRENCY", "1"),
 					withEnvVar("ENABLE_VAR_LOG_COLLECTION", "true"),
 					withInternalVolumeMount(),
-					withArgs([]string{"--readiness-probe", "null"}),
+					withEmptyProbeArgs(),
 				),
 			},
 			func(podSpec *corev1.PodSpec) {
@@ -702,7 +729,7 @@ func TestMakePodSpec(t *testing.T) {
 				queueContainer(
 					withEnvVar("CONTAINER_CONCURRENCY", "1"),
 					withEnvVar("SERVING_SERVICE", ""),
-					withArgs([]string{"--readiness-probe", "null"}),
+					withEmptyProbeArgs(),
 				),
 			}),
 	}}

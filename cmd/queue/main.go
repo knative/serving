@@ -321,6 +321,9 @@ func (p *probe) ProbeContainer() bool {
 		err = p.httpProbe()
 	} else if p.TCPSocket != nil {
 		err = p.tcpProbe()
+	} else if p.Exec != nil {
+		// Assumes the true readinessProbe is being executed directly on user container. See (#4086).
+		return true
 	} else {
 		// using Fprintf for a concise error message in the event log
 		fmt.Fprintf(os.Stderr, "unimplemented probe type.")

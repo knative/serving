@@ -272,7 +272,7 @@ func TestTCPFailure(t *testing.T) {
 	}
 }
 
-func TestUnimplementedProbe(t *testing.T) {
+func TestEmptyHandler(t *testing.T) {
 	pb := newProbe(&corev1.Probe{
 		PeriodSeconds:    1,
 		TimeoutSeconds:   1,
@@ -285,6 +285,24 @@ func TestUnimplementedProbe(t *testing.T) {
 		t.Error("Reported success when no server was available for connection")
 	}
 }
+
+func TestExecHandler(t *testing.T) {
+	pb := newProbe(&corev1.Probe{
+		PeriodSeconds:    1,
+		TimeoutSeconds:   1,
+		SuccessThreshold: 1,
+		FailureThreshold: 1,
+		Handler: corev1.Handler{
+			Exec: &corev1.ExecAction{
+				Command: []string{"echo", "hello"},
+			}},
+	}, t)
+
+	if !pb.ProbeContainer() {
+		t.Error("Probe failed. Expected Exec probe to always pass.")
+	}
+}
+
 func TestTCPSuccess(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
