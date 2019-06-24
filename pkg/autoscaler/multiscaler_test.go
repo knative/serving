@@ -33,7 +33,7 @@ import (
 
 const (
 	tickInterval = 5 * time.Millisecond
-	tickTimeout  = 50 * time.Millisecond
+	tickTimeout  = 100 * time.Millisecond
 )
 
 // watchFunc generates a function to assert the changes happening in the multiscaler.
@@ -97,7 +97,6 @@ func TestMultiScalerScaling(t *testing.T) {
 	}
 
 	errCh := make(chan error)
-	defer close(errCh)
 	ms.Watch(watchFunc(ctx, ms, decider, 1, errCh))
 
 	_, err = ms.Create(ctx, decider)
@@ -153,14 +152,14 @@ func TestMultiScalerTickUpdate(t *testing.T) {
 		t.Fatalf("Expected count to be 0 but got %d", count)
 	}
 
-	decider.Spec.TickInterval = time.Millisecond
+	decider.Spec.TickInterval = tickInterval
 
 	if _, err = ms.Update(ctx, decider); err != nil {
 		t.Errorf("Update() = %v", err)
 	}
 
-	if err := wait.PollImmediate(time.Millisecond, 10*time.Millisecond, func() (bool, error) {
-		// Expected count to be greater than 1 as the tick interval is updated to be 1ms
+	if err := wait.PollImmediate(tickInterval, tickTimeout, func() (bool, error) {
+		// Expected count to be greater than 1 as the tick interval is updated to be 5ms
 		if uniScaler.getScaleCount() >= 1 {
 			return true, nil
 		}
@@ -186,7 +185,6 @@ func TestMultiScalerScaleToZero(t *testing.T) {
 	}
 
 	errCh := make(chan error)
-	defer close(errCh)
 	ms.Watch(watchFunc(ctx, ms, decider, 0, errCh))
 
 	_, err = ms.Create(ctx, decider)
@@ -221,7 +219,6 @@ func TestMultiScalerScaleFromZero(t *testing.T) {
 	uniScaler.setScaleResult(1, true)
 
 	errCh := make(chan error)
-	defer close(errCh)
 	ms.Watch(watchFunc(ctx, ms, decider, 1, errCh))
 
 	_, err := ms.Create(ctx, decider)
@@ -267,7 +264,6 @@ func TestMultiScalerIgnoreNegativeScale(t *testing.T) {
 	}
 
 	errCh := make(chan error)
-	defer close(errCh)
 	ms.Watch(func(key string) {
 		// Let the main process know when this is called.
 		errCh <- nil

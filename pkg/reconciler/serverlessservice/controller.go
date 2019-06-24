@@ -22,6 +22,7 @@ import (
 	endpointsinformer "github.com/knative/pkg/injection/informers/kubeinformers/corev1/endpoints"
 	serviceinformer "github.com/knative/pkg/injection/informers/kubeinformers/corev1/service"
 	sksinformer "github.com/knative/serving/pkg/client/injection/informers/networking/v1alpha1/serverlessservice"
+	pkgreconciler "github.com/knative/serving/pkg/reconciler"
 
 	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/controller"
@@ -63,8 +64,10 @@ func NewController(
 	sksInformer.Informer().AddEventHandler(controller.HandleAll(impl.Enqueue))
 
 	// Watch all the endpoints that we have attached our label to.
-	endpointsInformer.Informer().AddEventHandler(
-		controller.HandleAll(impl.EnqueueLabelOfNamespaceScopedResource("" /*any namespace*/, networking.SKSLabelKey)))
+	endpointsInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+		FilterFunc: pkgreconciler.LabelExistsFilterFunc(networking.SKSLabelKey),
+		Handler:    controller.HandleAll(impl.EnqueueLabelOfNamespaceScopedResource("" /*any namespace*/, networking.SKSLabelKey)),
+	})
 
 	// Watch all the services that we have created.
 	serviceInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{

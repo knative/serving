@@ -22,10 +22,10 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/knative/pkg/test/logstream"
 	"github.com/knative/serving/pkg/apis/autoscaling"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/test"
-	"github.com/knative/serving/test/logstream"
 	v1a1test "github.com/knative/serving/test/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )

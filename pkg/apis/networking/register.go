@@ -35,9 +35,9 @@ const (
 	// Istio-based ClusterIngress will reconcile into a VirtualService).
 	IngressClassAnnotationKey = "networking.knative.dev/ingress.class"
 
-	// IngressLabelKey is the label key attached to underlying network programming
+	// ClusterIngressLabelKey is the label key attached to underlying network programming
 	// resources to indicate which ClusterIngress triggered their creation.
-	IngressLabelKey = GroupName + "/clusteringress"
+	ClusterIngressLabelKey = GroupName + "/clusteringress"
 
 	// SKSLabelKey is the label key that SKS Controller attaches to the
 	// underlying resources it controls.

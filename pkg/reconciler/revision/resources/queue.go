@@ -26,6 +26,7 @@ import (
 
 	"github.com/knative/pkg/logging"
 	pkgmetrics "github.com/knative/pkg/metrics"
+	"github.com/knative/pkg/ptr"
 	"github.com/knative/pkg/system"
 	"github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/serving"
@@ -77,6 +78,10 @@ var (
 		// actively probing the user-container on that endpoint and
 		// thus don't want to be limited by K8s granularity here.
 		TimeoutSeconds: 10,
+	}
+
+	queueSecurityContext = &corev1.SecurityContext{
+		AllowPrivilegeEscalation: ptr.Bool(false),
 	}
 )
 
@@ -192,12 +197,13 @@ func makeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, o
 	}
 
 	return &corev1.Container{
-		Name:           QueueContainerName,
-		Image:          deploymentConfig.QueueSidecarImage,
-		Resources:      createQueueResources(rev.GetAnnotations(), rev.Spec.GetContainer()),
-		Ports:          ports,
-		ReadinessProbe: queueReadinessProbe,
-		VolumeMounts:   volumeMounts,
+		Name:            QueueContainerName,
+		Image:           deploymentConfig.QueueSidecarImage,
+		Resources:       createQueueResources(rev.GetAnnotations(), rev.Spec.GetContainer()),
+		Ports:           ports,
+		ReadinessProbe:  queueReadinessProbe,
+		VolumeMounts:    volumeMounts,
+		SecurityContext: queueSecurityContext,
 		Env: []corev1.EnvVar{{
 			Name:  "SERVING_NAMESPACE",
 			Value: rev.Namespace,

@@ -28,9 +28,9 @@ import (
 
 	pkgTest "github.com/knative/pkg/test"
 	ingress "github.com/knative/pkg/test/ingress"
+	"github.com/knative/pkg/test/logstream"
 	resourcenames "github.com/knative/serving/pkg/reconciler/revision/resources/names"
 	"github.com/knative/serving/test"
-	"github.com/knative/serving/test/logstream"
 	ping "github.com/knative/serving/test/test_images/grpc-ping/proto"
 	v1a1test "github.com/knative/serving/test/v1alpha1"
 	"google.golang.org/grpc"

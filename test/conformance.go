@@ -39,7 +39,6 @@ const (
 	PrintPort           = "printport"
 	Protocols           = "protocols"
 	Runtime             = "runtime"
-	RuntimeUnprivileged = "runtime-unprivileged"
 	SingleThreadedImage = "singlethreaded"
 	Timeout             = "timeout"
 	WorkingDir          = "workingdir"

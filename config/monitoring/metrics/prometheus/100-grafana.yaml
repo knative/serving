@@ -268,4 +268,3 @@ spec:
       - name: scaling-config
         configMap:
           name: scaling-config
----

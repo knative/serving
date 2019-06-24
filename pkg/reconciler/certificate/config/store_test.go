@@ -26,6 +26,7 @@ import (
 )
 
 func TestStoreLoadWithContext(t *testing.T) {
+	defer ClearAll()
 	store := NewStore(TestLogger(t))
 
 	certManagerConfig := ConfigMapFromTestFile(t, CertManagerConfigName)
@@ -39,16 +40,14 @@ func TestStoreLoadWithContext(t *testing.T) {
 }
 
 func TestStoreImmutableConfig(t *testing.T) {
+	defer ClearAll()
+
 	store := NewStore(TestLogger(t))
-
 	store.OnConfigChanged(ConfigMapFromTestFile(t, CertManagerConfigName))
-
 	config := store.Load()
 
 	config.CertManager.IssuerRef.Kind = "newKind"
-
 	newConfig := store.Load()
-
 	if newConfig.CertManager.IssuerRef.Kind == "newKind" {
 		t.Error("CertManager config is not immutable")
 	}

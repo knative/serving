@@ -253,31 +253,7 @@ func TestReconcile(t *testing.T) {
 		},
 		Key: "foo/stable-deactivation",
 	}, {
-		Name: "endpoint is created (not ready)",
-		// Test the transition when a Revision's Endpoints are created (but not yet ready)
-		// This initializes the state of the world to the steady-state after a Revision's
-		// first reconciliation*.  It then introduces an Endpoints resource that's not yet
-		// ready.  This should result in no change, since there isn't really any new
-		// information.
-		//
-		// * - One caveat is that we have to explicitly set LastTransitionTime to keep us
-		// from thinking we've been waiting for this Endpoint since the beginning of time
-		// and declaring a timeout (this is the main difference from that test below).
-		Objects: []runtime.Object{
-			rev("foo", "endpoint-created-not-ready",
-				WithLogURL, AllUnknownConditions),
-			kpa("foo", "endpoint-created-not-ready"),
-			deploy("foo", "endpoint-created-not-ready"),
-			image("foo", "endpoint-created-not-ready"),
-		},
-		// No updates, since the endpoint didn't have meaningful status.
-		Key: "foo/endpoint-created-not-ready",
-	}, {
 		Name: "kpa is ready",
-		// Test the transition that Reconcile makes when Endpoints become ready.
-		// This puts the world into the stable post-reconcile state for an Active
-		// Revision.  It then creates an Endpoints resource with active subsets.
-		// This signal should make our Reconcile mark the Revision as Ready.
 		Objects: []runtime.Object{
 			rev("foo", "kpa-ready",
 				withK8sServiceName("old-stuff"), WithLogURL, AllUnknownConditions),
@@ -562,7 +538,6 @@ func TestReconcile(t *testing.T) {
 			imageLister:         listers.GetImageLister(),
 			deploymentLister:    listers.GetDeploymentLister(),
 			serviceLister:       listers.GetK8sServiceLister(),
-			endpointsLister:     listers.GetEndpointsLister(),
 			configMapLister:     listers.GetConfigMapLister(),
 			resolver:            &nopResolver{},
 			configStore:         &testConfigStore{config: ReconcilerTestConfig()},

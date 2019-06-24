@@ -26,9 +26,9 @@ const (
 	// K8sServiceName is the name of the activator Kubernetes service.
 	K8sServiceName = "activator-service"
 	// RevisionHeaderName is the header key for revision name.
-	RevisionHeaderName = "knative-serving-revision"
+	RevisionHeaderName = "Knative-Serving-Revision"
 	// RevisionHeaderNamespace is the header key for revision's namespace.
-	RevisionHeaderNamespace = "knative-serving-namespace"
+	RevisionHeaderNamespace = "Knative-Serving-Namespace"
 )
 
 // RevisionID is the combination of namespace and revision name

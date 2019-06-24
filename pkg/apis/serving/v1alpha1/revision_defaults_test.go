@@ -31,6 +31,7 @@ import (
 )
 
 func TestRevisionDefaulting(t *testing.T) {
+	defer logtesting.ClearAll()
 	tests := []struct {
 		name string
 		in   *Revision

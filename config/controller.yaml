@@ -64,6 +64,8 @@ spec:
           value: config-observability
         - name: METRICS_DOMAIN
           value: knative.dev/serving
+        securityContext:
+          allowPrivilegeEscalation: false
       volumes:
         - name: config-logging
           configMap:
