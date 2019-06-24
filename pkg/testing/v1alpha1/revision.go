@@ -132,7 +132,7 @@ func MarkContainerMissing(rev *v1alpha1.Revision) {
 	rev.Status.MarkContainerMissing("It's the end of the world as we know it")
 }
 
-// MarkContainerUnhealthy calls .Status.MarkContainerUnhealthy on the Revision.
+// MarkContainerUnhealthy is an adaptor to call .Status.MarkContainerUnhealthy on the Revision.
 func MarkContainerUnhealthy(reason, message string) RevisionOption {
 	return func(r *v1alpha1.Revision) {
 		r.Status.MarkContainerUnhealthy(reason, message)

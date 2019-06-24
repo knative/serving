@@ -18,6 +18,7 @@ package resources
 
 import (
 	"context"
+
 	"github.com/knative/pkg/apis"
 	"github.com/knative/pkg/apis/duck"
 	"github.com/knative/pkg/controller"
