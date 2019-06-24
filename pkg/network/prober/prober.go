@@ -30,7 +30,7 @@ import (
 	"github.com/knative/serving/pkg/network"
 )
 
-// TransportFactory is a function which returns a HTTP transport
+// TransportFactory is a function which returns an HTTP transport.
 type TransportFactory func() http.RoundTripper
 
 // ProbeOption is a way for caller to modify the HTTP request before it goes out.
@@ -72,7 +72,12 @@ type Done func(arg interface{}, success bool, err error)
 // Manager manages async probes and makes sure we run concurrently only a single
 // probe for the same key.
 type Manager struct {
-	cb               Done
+	cb Done
+	// NB: it is paramount to use factory here, since we need a fresh roundtripper
+	// for every request. The way K8s Services work is that they won't terminate
+	// the TCP connection while the backend is still alive, and we won't scale it
+	// to zero, until we receive an activator response. Without mesh the connection
+	// is never severed and we continue probing the pod.
 	transportFactory TransportFactory
 
 	// mu guards keys.
