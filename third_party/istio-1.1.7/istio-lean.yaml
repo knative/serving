@@ -8,73 +8,6 @@ metadata:
     istio-injection: disabled
 # PATCH #1 ends.
 ---
-# Source: istio/charts/gateways/templates/poddisruptionbudget.yaml
-
-apiVersion: policy/v1beta1
-kind: PodDisruptionBudget
-metadata:
-  name: cluster-local-gateway
-  namespace: istio-system
-  labels:
-    chart: gateways
-    heritage: Tiller
-    release: release-name
-    app: cluster-local-gateway
-    istio: cluster-local-gateway
-spec:
-
-  minAvailable: 1
-  selector:
-    matchLabels:
-      release: release-name
-      app: cluster-local-gateway
-      istio: cluster-local-gateway
----
-apiVersion: policy/v1beta1
-kind: PodDisruptionBudget
-metadata:
-  name: istio-ingressgateway
-  namespace: istio-system
-  labels:
-    chart: gateways
-    heritage: Tiller
-    release: release-name
-    app: istio-ingressgateway
-    istio: ingressgateway
-spec:
-
-  minAvailable: 1
-  selector:
-    matchLabels:
-      release: release-name
-      app: istio-ingressgateway
-      istio: ingressgateway
----
-
----
-# Source: istio/charts/pilot/templates/poddisruptionbudget.yaml
-
-apiVersion: policy/v1beta1
-kind: PodDisruptionBudget
-metadata:
-  name: istio-pilot
-  namespace: istio-system
-  labels:
-    app: pilot
-    chart: pilot
-    heritage: Tiller
-    release: release-name
-    istio: pilot
-spec:
-
-  minAvailable: 1
-  selector:
-    matchLabels:
-      app: pilot
-      release: release-name
-      istio: pilot
-
----
 # Source: istio/templates/configmap.yaml
 
 apiVersion: v1
@@ -982,8 +915,8 @@ spec:
             value: "1"
           resources:
             requests:
-              cpu: 500m
-              memory: 128Mi
+              cpu: 100m
+              memory: 256Mi
 
           volumeMounts:
           - name: config-volume
@@ -1088,6 +1021,10 @@ spec:
 ---
 
 ---
+# Source: istio/charts/gateways/templates/poddisruptionbudget.yaml
+
+
+---
 # Source: istio/charts/gateways/templates/preconfigured.yaml
 
 
@@ -1127,6 +1064,10 @@ spec:
 ---
 # Source: istio/charts/pilot/templates/meshexpansion.yaml
 
+
+
+---
+# Source: istio/charts/pilot/templates/poddisruptionbudget.yaml
 
 
 ---

@@ -4,10 +4,14 @@ global:
     accessLogFile: "/dev/stdout"
     autoInject: disabled
   disablePolicyChecks: true
+  omitSidecarInjectorConfigMap: true
+  defaultPodDisruptionBudget:
+    enabled: false
+  useMCP: false
 
 sidecarInjectorWebhook:
-  enabled: true
-  enableNamespacesByDefault: true
+  enabled: false
+  enableNamespacesByDefault: false
 
 gateways:
   istio-ingressgateway:
@@ -59,10 +63,25 @@ prometheus:
   enabled: false
 
 mixer:
+  enabled: false
+  policy:
+    enabled: false
+  telemetry:
+    enabled: false
   adapters:
     prometheus:
       enabled: false
 
 pilot:
   traceSampling: 100
-  autoscaleMin: 2
+  sidecar: false
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+
+galley:
+  enabled: false
+
+security:
+  enabled: false
