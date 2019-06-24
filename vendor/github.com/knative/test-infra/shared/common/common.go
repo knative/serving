@@ -19,6 +19,8 @@ package common
 import (
 	"fmt"
 	"os"
+	"os/exec"
+	"strings"
 )
 
 const allUsersFullPermission = 0777
@@ -38,4 +40,23 @@ func CreateDirWithFileMode(dirPath string, perm os.FileMode) error {
 		}
 	}
 	return nil
+}
+
+// GetRootDir gets directory of git root
+func GetRootDir() (string, error) {
+	cmd := exec.Command("git", "rev-parse", "--show-toplevel")
+	output, err := cmd.Output()
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(string(output)), nil
+}
+
+// CDToRootDir change directory to git root dir
+func CDToRootDir() error {
+	d, err := GetRootDir()
+	if nil != err {
+		return err
+	}
+	return os.Chdir(d)
 }
