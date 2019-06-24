@@ -679,8 +679,9 @@ func TestProbeGenerationHTTPDefaults(t *testing.T) {
 		Ports:          append(queueNonServingPorts, queueHTTPPort),
 		ReadinessProbe: queueReadinessProbe,
 		// These changed based on the Revision and configs passed in.
-		Env:  env(map[string]string{}),
-		Args: []string{"--readiness-probe", string(probeBytes)},
+		Env:             env(map[string]string{}),
+		SecurityContext: queueSecurityContext,
+		Args:            []string{"--readiness-probe", string(probeBytes)},
 	}
 
 	got := makeQueueContainer(rev, lc, oc, ac, cc)
@@ -754,8 +755,9 @@ func TestProbeGenerationHTTP(t *testing.T) {
 		Ports:          append(queueNonServingPorts, queueHTTPPort),
 		ReadinessProbe: queueReadinessProbe,
 		// These changed based on the Revision and configs passed in.
-		Env:  env(map[string]string{"USER_PORT": strconv.Itoa(userPort)}),
-		Args: []string{"--readiness-probe", string(probeBytes)},
+		Env:             env(map[string]string{"USER_PORT": strconv.Itoa(userPort)}),
+		SecurityContext: queueSecurityContext,
+		Args:            []string{"--readiness-probe", string(probeBytes)},
 	}
 
 	got := makeQueueContainer(rev, lc, oc, ac, cc)
@@ -887,8 +889,9 @@ func TestProbeGenerationTCP(t *testing.T) {
 		Ports:          append(queueNonServingPorts, queueHTTPPort),
 		ReadinessProbe: queueReadinessProbe,
 		// These changed based on the Revision and configs passed in.
-		Env:  env(map[string]string{"USER_PORT": strconv.Itoa(userPort)}),
-		Args: []string{"--readiness-probe", string(probeBytes)},
+		Env:             env(map[string]string{"USER_PORT": strconv.Itoa(userPort)}),
+		SecurityContext: queueSecurityContext,
+		Args:            []string{"--readiness-probe", string(probeBytes)},
 	}
 
 	got := makeQueueContainer(rev, lc, oc, ac, cc)
