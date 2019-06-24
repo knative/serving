@@ -144,7 +144,8 @@ func TestDestroyPodInflight(t *testing.T) {
 const revisionTimeout = 5 * time.Minute
 
 func TestDestroyPodTimely(t *testing.T) {
-	t.Parallel()
+	// Not running in parallel on purpose.
+
 	cancel := logstream.Start(t)
 	defer cancel()
 
