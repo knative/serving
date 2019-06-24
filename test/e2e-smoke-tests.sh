@@ -35,7 +35,7 @@ function knative_setup() {
 
 # Script entry point.
 
-initialize $@
+initialize $@ --skip-istio-addon
 
 # Ensure Knative Serving can be uninstalled/reinstalled cleanly
 subheader "Uninstalling Knative Serving"
