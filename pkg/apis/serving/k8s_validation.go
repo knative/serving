@@ -400,9 +400,9 @@ func validateContainerPorts(ports []corev1.ContainerPort) *apis.FieldError {
 		errs = errs.Also(apis.ErrInvalidValue(userPort.ContainerPort, "containerPort"))
 	}
 
-	if userPort.ContainerPort < 1 || userPort.ContainerPort > 65535 {
+	if userPort.ContainerPort < 0 || userPort.ContainerPort > 65535 {
 		errs = errs.Also(apis.ErrOutOfBoundsValue(userPort.ContainerPort,
-			1, 65535, "containerPort"))
+			0, 65535, "containerPort"))
 	}
 
 	if !validPortNames.Has(userPort.Name) {

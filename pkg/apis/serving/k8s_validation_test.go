@@ -245,8 +245,7 @@ func TestContainerValidation(t *testing.T) {
 		c: corev1.Container{
 			Image: "foo",
 			Ports: []corev1.ContainerPort{{
-				Name:          "http1",
-				ContainerPort: 8081,
+				Name: "http1",
 			}},
 		},
 		want: nil,
@@ -255,8 +254,7 @@ func TestContainerValidation(t *testing.T) {
 		c: corev1.Container{
 			Image: "foo",
 			Ports: []corev1.ContainerPort{{
-				Name:          "h2c",
-				ContainerPort: 8081,
+				Name: "h2c",
 			}},
 		},
 		want: nil,
@@ -265,11 +263,9 @@ func TestContainerValidation(t *testing.T) {
 		c: corev1.Container{
 			Image: "foo",
 			Ports: []corev1.ContainerPort{{
-				Name:          "h2c",
-				ContainerPort: 8080,
+				Name: "h2c",
 			}, {
-				Name:          "http1",
-				ContainerPort: 8181,
+				Name: "http1",
 			}},
 		},
 		want: &apis.FieldError{
@@ -285,14 +281,14 @@ func TestContainerValidation(t *testing.T) {
 				ContainerPort: 65536,
 			}},
 		},
-		want: apis.ErrOutOfBoundsValue(65536, 1, 65535, "ports.containerPort"),
+		want: apis.ErrOutOfBoundsValue(65536, 0, 65535, "ports.containerPort"),
 	}, {
 		name: "has an empty port set",
 		c: corev1.Container{
 			Image: "foo",
 			Ports: []corev1.ContainerPort{{}},
 		},
-		want: apis.ErrOutOfBoundsValue(0, 1, 65535, "ports.containerPort"),
+		want: nil,
 	}, {
 		name: "has more than one unnamed port",
 		c: corev1.Container{
@@ -313,8 +309,7 @@ func TestContainerValidation(t *testing.T) {
 		c: corev1.Container{
 			Image: "foo",
 			Ports: []corev1.ContainerPort{{
-				Protocol:      corev1.ProtocolTCP,
-				ContainerPort: 8080,
+				Protocol: corev1.ProtocolTCP,
 			}},
 		},
 		want: nil,
@@ -323,8 +318,7 @@ func TestContainerValidation(t *testing.T) {
 		c: corev1.Container{
 			Image: "foo",
 			Ports: []corev1.ContainerPort{{
-				Protocol:      "tdp",
-				ContainerPort: 8080,
+				Protocol: "tdp",
 			}},
 		},
 		want: apis.ErrInvalidValue("tdp", "ports.protocol"),
@@ -333,8 +327,7 @@ func TestContainerValidation(t *testing.T) {
 		c: corev1.Container{
 			Image: "foo",
 			Ports: []corev1.ContainerPort{{
-				HostPort:      80,
-				ContainerPort: 8080,
+				HostPort: 80,
 			}},
 		},
 		want: apis.ErrDisallowedFields("ports.hostPort"),
@@ -343,8 +336,7 @@ func TestContainerValidation(t *testing.T) {
 		c: corev1.Container{
 			Image: "foo",
 			Ports: []corev1.ContainerPort{{
-				HostIP:        "127.0.0.1",
-				ContainerPort: 8080,
+				HostIP: "127.0.0.1",
 			}},
 		},
 		want: apis.ErrDisallowedFields("ports.hostIP"),
@@ -389,8 +381,7 @@ func TestContainerValidation(t *testing.T) {
 		c: corev1.Container{
 			Image: "foo",
 			Ports: []corev1.ContainerPort{{
-				Name:          "foobar",
-				ContainerPort: 8080,
+				Name: "foobar",
 			}},
 		},
 		want: &apis.FieldError{

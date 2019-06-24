@@ -72,11 +72,9 @@ func WithNamedPort(name string) ServiceOption {
 		c := &svc.Spec.Template.Spec.Containers[0]
 		if len(c.Ports) == 1 {
 			c.Ports[0].Name = name
-			c.Ports[0].ContainerPort = 8080
 		} else {
 			c.Ports = []corev1.ContainerPort{{
-				Name:          name,
-				ContainerPort: 8080,
+				Name: name,
 			}}
 		}
 	}

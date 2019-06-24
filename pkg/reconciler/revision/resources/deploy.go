@@ -157,8 +157,10 @@ func makePodSpec(rev *v1alpha1.Revision, loggingConfig *logging.Config, observab
 }
 
 func getUserPort(rev *v1alpha1.Revision) int32 {
-	if len(rev.Spec.GetContainer().Ports) == 1 {
-		return rev.Spec.GetContainer().Ports[0].ContainerPort
+	ports := rev.Spec.GetContainer().Ports
+
+	if len(ports) > 0 && ports[0].ContainerPort != 0 {
+		return ports[0].ContainerPort
 	}
 
 	//TODO(#2258): Use container EXPOSE metadata from image before falling back to default value

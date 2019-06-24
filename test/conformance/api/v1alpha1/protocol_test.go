@@ -106,7 +106,7 @@ func portOption(portname string) *v1a1test.Options {
 	options := &v1a1test.Options{}
 
 	if portname != "" {
-		options.ContainerPorts = []corev1.ContainerPort{{Name: portname, ContainerPort: 8080}}
+		options.ContainerPorts = []corev1.ContainerPort{{Name: portname}}
 	}
 
 	return options

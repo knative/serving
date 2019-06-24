@@ -43,8 +43,7 @@ func TestMustNotContainerConstraints(t *testing.T) {
 		name: "TestArbitraryPortName",
 		options: func(s *v1alpha1.Service) {
 			s.Spec.Template.Spec.Containers[0].Ports = []corev1.ContainerPort{{
-				Name:          "arbitrary",
-				ContainerPort: 8080,
+				Name: "arbitrary",
 			}}
 		},
 	}, {
@@ -157,8 +156,7 @@ func TestShouldNotContainerConstraints(t *testing.T) {
 		name: "TestHostPort",
 		options: func(s *v1alpha1.Service) {
 			s.Spec.Template.Spec.Containers[0].Ports = []corev1.ContainerPort{{
-				ContainerPort: 8081,
-				HostPort:      80,
+				HostPort: 80,
 			}}
 		},
 	}, {
