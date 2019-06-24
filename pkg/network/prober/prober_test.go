@@ -112,7 +112,7 @@ func TestDoAsync(t *testing.T) {
 	tests := []struct {
 		name        string
 		headerValue string
-		callback Callback
+		callback    Callback
 	}{{
 		name:        "ok",
 		headerValue: systemName,

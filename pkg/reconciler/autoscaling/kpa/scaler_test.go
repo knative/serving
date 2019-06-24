@@ -240,11 +240,11 @@ func TestScaler(t *testing.T) {
 
 			var fakeDo func(ctx context.Context, target, headerValue string, pos ...prober.ProbeOption) (b bool, e error)
 			if test.proberfunc != nil {
-				fakeDo = func(ctx context.Context, target, headerValue string, pos ...prober.ProbeOption) (b bool, e error){
+				fakeDo = func(ctx context.Context, target, headerValue string, pos ...prober.ProbeOption) (b bool, e error) {
 					return test.proberfunc(nil, nil)
 				}
 			} else {
-				fakeDo = func(ctx context.Context, target, headerValue string, pos ...prober.ProbeOption) (bool, error){
+				fakeDo = func(ctx context.Context, target, headerValue string, pos ...prober.ProbeOption) (bool, error) {
 					return true, nil
 				}
 			}
@@ -546,7 +546,7 @@ func TestActivatorProbe(t *testing.T) {
 	ctx, _ := SetupFakeContext(t)
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			prober := prober.New(func() http.RoundTripper {return  test.rt})
+			prober := prober.New(func() http.RoundTripper { return test.rt })
 			enqueueFunc := func(interface{}, time.Duration) {}
 			scaler := newScaler(ctx, presources.NewPodScalableInformerFactory(ctx), prober, enqueueFunc)
 			res, err := scaler.activatorProbe(pa)
