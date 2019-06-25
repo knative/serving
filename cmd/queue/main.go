@@ -29,8 +29,6 @@ import (
 	"strings"
 	"time"
 
-	"go.uber.org/zap"
-
 	"github.com/knative/pkg/logging/logkey"
 	"github.com/knative/pkg/metrics"
 	"github.com/knative/pkg/signals"
@@ -45,7 +43,8 @@ import (
 	"github.com/knative/serving/pkg/queue"
 	"github.com/knative/serving/pkg/queue/health"
 	queuestats "github.com/knative/serving/pkg/queue/stats"
-
+	"github.com/pkg/errors"
+	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/wait"
 )
 
@@ -63,6 +62,10 @@ const (
 	// from its configuration and propagate that to all istio-proxies
 	// in the mesh.
 	quitSleepDuration = 20 * time.Second
+
+	// Set equal to the queue-proxy's ExecProbe timeout to take
+	// advantage of the full window
+	probeTimeout = 10 * time.Second
 
 	badProbeTemplate = "unexpected probe header value: %s"
 )
@@ -92,6 +95,8 @@ var (
 
 	healthState      = &health.State{}
 	promStatReporter *queue.PrometheusStatsReporter // Prometheus stats reporter.
+
+	probe = flag.Bool("probe", false, "run readiness probe")
 )
 
 func initEnv() {
@@ -145,7 +150,7 @@ func knativeProxyHeader(r *http.Request) string {
 
 func probeUserContainer() bool {
 	var err error
-	wait.PollImmediate(50*time.Millisecond, 10*time.Second, func() (bool, error) {
+	wait.PollImmediate(50*time.Millisecond, probeTimeout, func() (bool, error) {
 		logger.Debug("TCP probing the user-container.")
 		err = health.TCPProbe(userTargetAddress, 100*time.Millisecond)
 		return err == nil, nil
@@ -218,8 +223,59 @@ func createAdminHandlers() *http.ServeMux {
 	return mux
 }
 
+func probeQueueHealthPath(port int) error {
+	url := fmt.Sprintf("http://127.0.0.1:%d%s", port, queue.RequestQueueHealthPath)
+
+	httpClient := &http.Client{
+		Transport: &http.Transport{
+			// Do not use the cached connection
+			DisableKeepAlives: true,
+		},
+		Timeout: probeTimeout,
+	}
+
+	var lastErr error
+
+	// The 25 millisecond retry interval is an unscientific compromise between wanting to get
+	// started as early as possible while still wanting to give the container some breathing
+	// room to get up and running.
+	timeoutErr := wait.PollImmediate(25*time.Millisecond, probeTimeout, func() (bool, error) {
+		var res *http.Response
+		res, lastErr = httpClient.Get(url)
+
+		if res == nil {
+			return false, nil
+		}
+
+		defer res.Body.Close()
+		return res.StatusCode == http.StatusOK, nil
+	})
+
+	if lastErr != nil {
+		return errors.Wrap(lastErr, "failed to probe")
+	}
+
+	// An http.StatusOK was never returned during probing
+	if timeoutErr != nil {
+		return errors.New("probe returned not ready")
+	}
+
+	return nil
+}
+
 func main() {
 	flag.Parse()
+
+	if *probe {
+		if err := probeQueueHealthPath(networking.QueueAdminPort); err != nil {
+			// used instead of the logger to produce a concise event message
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+
+		os.Exit(0)
+	}
+
 	logger, _ = logging.NewLogger(os.Getenv("SERVING_LOGGING_CONFIG"), os.Getenv("SERVING_LOGGING_LEVEL"))
 	logger = logger.Named("queueproxy")
 	defer flush(logger)
