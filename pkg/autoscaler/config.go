@@ -39,6 +39,8 @@ type Config struct {
 	// Target concurrency knobs for different container concurrency configurations.
 	ContainerConcurrencyTargetFraction float64
 	ContainerConcurrencyTargetDefault  float64
+	// NB: most of our computations are in floats, so this is float to avoid casting.
+	TargetBurstCapacity float64
 
 	// General autoscaler algorithm configuration.
 	MaxScaleUpRate           float64
@@ -92,6 +94,10 @@ func NewConfigFromMap(data map[string]string) (*Config, error) {
 		key:          "container-concurrency-target-default",
 		field:        &lc.ContainerConcurrencyTargetDefault,
 		defaultValue: 100.0,
+	}, {
+		key:          "target-burst-capacity",
+		field:        &lc.TargetBurstCapacity,
+		defaultValue: 0,
 	}, {
 		key:          "panic-window-percentage",
 		field:        &lc.PanicWindowPercentage,
@@ -155,6 +161,9 @@ func NewConfigFromMap(data map[string]string) (*Config, error) {
 func validate(lc *Config) (*Config, error) {
 	if lc.ScaleToZeroGracePeriod < 30*time.Second {
 		return nil, fmt.Errorf("scale-to-zero-grace-period must be at least 30s, got %v", lc.ScaleToZeroGracePeriod)
+	}
+	if lc.TargetBurstCapacity < 0 {
+		return nil, fmt.Errorf("target-burst-capacity must be non-negative, got %f", lc.TargetBurstCapacity)
 	}
 
 	if lc.ContainerConcurrencyTargetFraction <= 0 || lc.ContainerConcurrencyTargetFraction > 1 {
