@@ -19,7 +19,6 @@ package autoscaler
 import (
 	"fmt"
 	"net/http"
-	"sync"
 	"time"
 
 	"golang.org/x/sync/errgroup"
@@ -73,9 +72,7 @@ type ServiceScraper struct {
 	counter   resources.ReadyPodCounter
 	namespace string
 	metricKey string
-
-	urlMu sync.RWMutex
-	url   string
+	url       string
 }
 
 // NewServiceScraper creates a new StatsScraper for the Revision which
@@ -121,12 +118,6 @@ func urlFromTarget(t, ns string) string {
 		t, ns, networking.AutoscalingQueueMetricsPort)
 }
 
-func (s *ServiceScraper) target() string {
-	s.urlMu.RLock()
-	defer s.urlMu.RUnlock()
-	return s.url
-}
-
 // Scrape calls the destination service then sends it
 // to the given stats channel.
 func (s *ServiceScraper) Scrape() (*StatMessage, error) {
@@ -142,11 +133,10 @@ func (s *ServiceScraper) Scrape() (*StatMessage, error) {
 	sampleSize := populationMeanSampleSize(readyPodsCount)
 	statCh := make(chan *Stat, sampleSize)
 
-	url := s.target()
 	grp := errgroup.Group{}
 	for i := 0; i < sampleSize; i++ {
 		grp.Go(func() error {
-			stat, err := s.sClient.Scrape(url)
+			stat, err := s.sClient.Scrape(s.url)
 			if err != nil {
 				return err
 			}
