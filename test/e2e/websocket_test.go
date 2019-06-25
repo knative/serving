@@ -29,7 +29,7 @@ import (
 	"github.com/knative/pkg/test/logstream"
 	rnames "github.com/knative/serving/pkg/reconciler/revision/resources/names"
 	"github.com/knative/serving/test"
-	v1a1test "github.com/knative/serving/test/v1alpha1"
+	v1b1test "github.com/knative/serving/test/v1beta1"
 	"k8s.io/apimachinery/pkg/util/wait"
 )
 
@@ -123,7 +123,7 @@ func TestWebSocket(t *testing.T) {
 	defer test.TearDown(clients, names)
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 
-	if _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, &v1a1test.Options{}); err != nil {
+	if _, err := v1b1test.CreateServiceReady(t, clients, &names); err != nil {
 		t.Fatalf("Failed to create WebSocket server: %v", err)
 	}
 
@@ -153,7 +153,7 @@ func TestWebSocketFromZero(t *testing.T) {
 	defer test.TearDown(clients, names)
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 
-	resources, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, &v1a1test.Options{})
+	resources, err := v1b1test.CreateServiceReady(t, clients, &names)
 	if err != nil {
 		t.Fatalf("Failed to create WebSocket server: %v", err)
 	}

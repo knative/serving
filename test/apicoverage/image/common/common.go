@@ -19,16 +19,16 @@ package common
 import (
 	"github.com/knative/pkg/system"
 	pkgWebhook "github.com/knative/pkg/webhook"
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 var (
 	ResourceMap = map[schema.GroupVersionKind]pkgWebhook.GenericCRD{
-		v1alpha1.SchemeGroupVersion.WithKind("Revision"):      &v1alpha1.Revision{},
-		v1alpha1.SchemeGroupVersion.WithKind("Configuration"): &v1alpha1.Configuration{},
-		v1alpha1.SchemeGroupVersion.WithKind("Route"):         &v1alpha1.Route{},
-		v1alpha1.SchemeGroupVersion.WithKind("Service"):       &v1alpha1.Service{},
+		v1beta1.SchemeGroupVersion.WithKind("Revision"):      &v1beta1.Revision{},
+		v1beta1.SchemeGroupVersion.WithKind("Configuration"): &v1beta1.Configuration{},
+		v1beta1.SchemeGroupVersion.WithKind("Route"):         &v1beta1.Route{},
+		v1beta1.SchemeGroupVersion.WithKind("Service"):       &v1beta1.Service{},
 	}
 	WebhookNamespace = system.Namespace()
 )

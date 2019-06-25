@@ -22,12 +22,12 @@ import (
 	"testing"
 
 	pkgTest "github.com/knative/pkg/test"
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 	"github.com/knative/serving/test"
 	"github.com/knative/serving/test/types"
-	v1a1test "github.com/knative/serving/test/v1alpha1"
+	v1b1test "github.com/knative/serving/test/v1beta1"
 
-	. "github.com/knative/serving/pkg/testing/v1alpha1"
+	. "github.com/knative/serving/pkg/testing/v1beta1"
 )
 
 // fetchRuntimeInfo creates a Service that uses the 'runtime' test image, and extracts the returned output into the
@@ -62,12 +62,12 @@ func runtimeInfo(
 		return nil, nil, err
 	}
 
-	serviceOpts = append(serviceOpts, func(svc *v1alpha1.Service) {
+	serviceOpts = append(serviceOpts, func(svc *v1beta1.Service) {
 		// Always fetch the latest runtime image.
 		svc.Spec.Template.Spec.Containers[0].ImagePullPolicy = "Always"
 	})
 
-	objects, err := v1a1test.CreateRunLatestServiceReady(t, clients, names, &v1a1test.Options{}, serviceOpts...)
+	objects, err := v1b1test.CreateServiceReady(t, clients, names, serviceOpts...)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -76,7 +76,7 @@ func runtimeInfo(
 		clients.KubeClient,
 		t.Logf,
 		objects.Service.Status.URL.Host,
-		v1a1test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
+		v1b1test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
 		"RuntimeInfo",
 		test.ServingFlags.ResolvableDomain,
 		reqOpts...)

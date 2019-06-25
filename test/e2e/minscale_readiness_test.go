@@ -24,9 +24,9 @@ import (
 
 	"github.com/knative/pkg/test/logstream"
 	"github.com/knative/serving/pkg/apis/autoscaling"
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 	"github.com/knative/serving/test"
-	v1a1test "github.com/knative/serving/test/v1alpha1"
+	v1b1test "github.com/knative/serving/test/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -44,7 +44,7 @@ func TestMinScale(t *testing.T) {
 		Image:  "helloworld",
 	}
 
-	if _, err := v1a1test.CreateConfiguration(t, clients, names, &v1a1test.Options{}, func(cfg *v1alpha1.Configuration) {
+	if _, err := v1b1test.CreateConfiguration(t, clients, names, func(cfg *v1beta1.Configuration) {
 		if cfg.Spec.Template.Annotations == nil {
 			cfg.Spec.Template.Annotations = make(map[string]string)
 		}
@@ -59,18 +59,18 @@ func TestMinScale(t *testing.T) {
 	defer test.TearDown(clients, names)
 
 	// Wait for the Config have a LatestCreatedRevisionName
-	if err := v1a1test.WaitForConfigurationState(clients.ServingAlphaClient, names.Config, v1a1test.ConfigurationHasCreatedRevision, "ConfigurationHasCreatedRevision"); err != nil {
+	if err := v1b1test.WaitForConfigurationState(clients.ServingBetaClient, names.Config, v1b1test.ConfigurationHasCreatedRevision, "ConfigurationHasCreatedRevision"); err != nil {
 		t.Fatalf("The Configuration %q does not have a LatestCreatedRevisionName: %v", names.Config, err)
 	}
 
-	config, err := clients.ServingAlphaClient.Configs.Get(names.Config, metav1.GetOptions{})
+	config, err := clients.ServingBetaClient.Configs.Get(names.Config, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Failed to get Configuration after it was seen to be live: %v", err)
 	}
 
 	revName := config.Status.LatestCreatedRevisionName
 
-	if err = v1a1test.WaitForRevisionState(clients.ServingAlphaClient, revName, v1a1test.IsRevisionReady, "RevisionIsReady"); err != nil {
+	if err = v1b1test.WaitForRevisionState(clients.ServingBetaClient, revName, v1b1test.IsRevisionReady, "RevisionIsReady"); err != nil {
 		t.Fatal("Revision did not become ready.")
 	}
 

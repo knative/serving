@@ -27,14 +27,14 @@ import (
 	"github.com/knative/pkg/test/logstream"
 	"github.com/knative/pkg/test/spoof"
 	"github.com/knative/serving/test"
-	v1a1test "github.com/knative/serving/test/v1alpha1"
+	v1b1test "github.com/knative/serving/test/v1beta1"
 
 	corev1 "k8s.io/api/core/v1"
 
 	"github.com/knative/serving/pkg/reconciler/revision/resources/names"
 	routeconfig "github.com/knative/serving/pkg/reconciler/route/config"
 
-	. "github.com/knative/serving/pkg/testing/v1alpha1"
+	rtesting "github.com/knative/serving/pkg/testing/v1beta1"
 )
 
 const (
@@ -71,11 +71,11 @@ func sendRequest(t *testing.T, clients *test.Clients, resolvableDomain bool, dom
 }
 
 func testProxyToHelloworld(t *testing.T, clients *test.Clients, helloworldDomain string) {
-	// Create envVars to be used in httpproxy app.
-	envVars := []corev1.EnvVar{{
+	// Create envVar to be used in httpproxy app.
+	envVar := corev1.EnvVar{
 		Name:  targetHostEnv,
 		Value: helloworldDomain,
-	}}
+	}
 
 	// Set up httpproxy app.
 	t.Log("Creating a Service for the httpproxy test app.")
@@ -86,9 +86,7 @@ func testProxyToHelloworld(t *testing.T, clients *test.Clients, helloworldDomain
 
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 	defer test.TearDown(clients, names)
-	resources, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, &v1a1test.Options{
-		EnvVars: envVars,
-	})
+	resources, err := v1b1test.CreateServiceReady(t, clients, &names, rtesting.WithEnv(envVar))
 	if err != nil {
 		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
 	}
@@ -154,9 +152,9 @@ func TestServiceToServiceCall(t *testing.T) {
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 	defer test.TearDown(clients, names)
 
-	withInternalVisibility := WithServiceLabel(
+	withInternalVisibility := rtesting.WithServiceLabel(
 		routeconfig.VisibilityLabelKey, routeconfig.VisibilityClusterLocal)
-	resources, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, &v1a1test.Options{}, withInternalVisibility)
+	resources, err := v1b1test.CreateServiceReady(t, clients, &names, withInternalVisibility)
 	if err != nil {
 		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
 	}
@@ -198,13 +196,13 @@ func TestServiceToServiceCallFromZero(t *testing.T) {
 		Image:   "helloworld",
 	}
 
-	withInternalVisibility := WithServiceLabel(
+	withInternalVisibility := rtesting.WithServiceLabel(
 		routeconfig.VisibilityLabelKey, routeconfig.VisibilityClusterLocal)
 
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, helloWorldNames) })
 	defer test.TearDown(clients, helloWorldNames)
 
-	helloWorld, err := v1a1test.CreateRunLatestServiceReady(t, clients, &helloWorldNames, &v1a1test.Options{}, withInternalVisibility)
+	helloWorld, err := v1b1test.CreateServiceReady(t, clients, &helloWorldNames, withInternalVisibility)
 	if err != nil {
 		t.Fatalf("Failed to create a service: %v", err)
 	}

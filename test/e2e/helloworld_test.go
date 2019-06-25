@@ -26,8 +26,9 @@ import (
 	pkgTest "github.com/knative/pkg/test"
 	"github.com/knative/pkg/test/logstream"
 	"github.com/knative/serving/pkg/apis/serving"
+	rtesting "github.com/knative/serving/pkg/testing/v1beta1"
 	"github.com/knative/serving/test"
-	v1a1test "github.com/knative/serving/test/v1alpha1"
+	v1b1test "github.com/knative/serving/test/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -49,9 +50,9 @@ func TestHelloWorld(t *testing.T) {
 	defer test.TearDown(clients, names)
 
 	t.Log("Creating a new Service")
-	resources, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, &v1a1test.Options{
-		RevisionTemplateAnnotations: map[string]string{},
-	})
+	resources, err := v1b1test.CreateServiceReady(t, clients, &names, rtesting.WithServiceTemplateMeta(metav1.ObjectMeta{
+		Annotations: map[string]string{},
+	}))
 	if err != nil {
 		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
 	}
@@ -61,7 +62,7 @@ func TestHelloWorld(t *testing.T) {
 		clients.KubeClient,
 		t.Logf,
 		domain,
-		v1a1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesBody(test.HelloWorldText))),
+		v1b1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesBody(test.HelloWorldText))),
 		"HelloWorldServesText",
 		test.ServingFlags.ResolvableDomain); err != nil {
 		t.Fatalf("The endpoint for Route %s at domain %s didn't serve the expected text \"%s\": %v", names.Route, domain, test.HelloWorldText, err)
@@ -100,11 +101,12 @@ func TestQueueSideCarResourceLimit(t *testing.T) {
 	defer test.TearDown(clients, names)
 
 	t.Log("Creating a new Service")
-	resources, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, &v1a1test.Options{
-		RevisionTemplateAnnotations: map[string]string{
-			serving.QueueSideCarResourcePercentageAnnotation: "0.2",
-		},
-		ContainerResources: corev1.ResourceRequirements{
+	resources, err := v1b1test.CreateServiceReady(t, clients, &names,
+		rtesting.WithServiceTemplateMeta(metav1.ObjectMeta{
+			Annotations: map[string]string{
+				serving.QueueSideCarResourcePercentageAnnotation: "0.2",
+			},
+		}), rtesting.WithResourceRequirements(corev1.ResourceRequirements{
 			Requests: corev1.ResourceList{
 				corev1.ResourceName("cpu"):    resource.MustParse("50m"),
 				corev1.ResourceName("memory"): resource.MustParse("128Mi"),
@@ -113,8 +115,7 @@ func TestQueueSideCarResourceLimit(t *testing.T) {
 				corev1.ResourceName("cpu"):    resource.MustParse("100m"),
 				corev1.ResourceName("memory"): resource.MustParse("258Mi"),
 			},
-		},
-	})
+		}))
 	if err != nil {
 		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
 	}
@@ -124,7 +125,7 @@ func TestQueueSideCarResourceLimit(t *testing.T) {
 		clients.KubeClient,
 		t.Logf,
 		domain,
-		v1a1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesBody(test.HelloWorldText))),
+		v1b1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesBody(test.HelloWorldText))),
 		"HelloWorldServesText",
 		test.ServingFlags.ResolvableDomain); err != nil {
 		t.Fatalf("The endpoint for Route %s at domain %s didn't serve the expected text \"%s\": %v", names.Route, domain, test.HelloWorldText, err)

@@ -39,7 +39,7 @@ func SetupWebhookServer() {
 	ac := webhook.APICoverageRecorder{
 		Logger: webhookConf.Logger,
 		ResourceForest: resourcetree.ResourceForest{
-			Version:        "v1alpha1",
+			Version:        "v1beta1",
 			ConnectedNodes: make(map[string]*list.List),
 			TopLevelTrees:  make(map[string]resourcetree.ResourceTree),
 		},

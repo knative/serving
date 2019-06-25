@@ -23,9 +23,9 @@ import (
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/knative/pkg/ptr"
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 	"github.com/knative/serving/test"
-	v1a1test "github.com/knative/serving/test/v1alpha1"
+	v1a1test "github.com/knative/serving/test/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
@@ -38,10 +38,10 @@ func TestMustNotContainerConstraints(t *testing.T) {
 
 	testCases := []struct {
 		name    string
-		options func(s *v1alpha1.Service)
+		options func(s *v1beta1.Service)
 	}{{
 		name: "TestArbitraryPortName",
-		options: func(s *v1alpha1.Service) {
+		options: func(s *v1beta1.Service) {
 			s.Spec.Template.Spec.Containers[0].Ports = []corev1.ContainerPort{{
 				Name:          "arbitrary",
 				ContainerPort: 8080,
@@ -49,7 +49,7 @@ func TestMustNotContainerConstraints(t *testing.T) {
 		},
 	}, {
 		name: "TestMountPropagation",
-		options: func(s *v1alpha1.Service) {
+		options: func(s *v1beta1.Service) {
 			propagationMode := corev1.MountPropagationHostToContainer
 			s.Spec.Template.Spec.Containers[0].VolumeMounts = []corev1.VolumeMount{{
 				Name:             "VolumeMount",
@@ -59,7 +59,7 @@ func TestMustNotContainerConstraints(t *testing.T) {
 		},
 	}, {
 		name: "TestReadinessHTTPProbePort",
-		options: func(s *v1alpha1.Service) {
+		options: func(s *v1beta1.Service) {
 			s.Spec.Template.Spec.Containers[0].ReadinessProbe = &corev1.Probe{
 				Handler: corev1.Handler{
 					HTTPGet: &corev1.HTTPGetAction{
@@ -71,7 +71,7 @@ func TestMustNotContainerConstraints(t *testing.T) {
 		},
 	}, {
 		name: "TestLivenessHTTPProbePort",
-		options: func(s *v1alpha1.Service) {
+		options: func(s *v1beta1.Service) {
 			s.Spec.Template.Spec.Containers[0].LivenessProbe = &corev1.Probe{
 				Handler: corev1.Handler{
 					HTTPGet: &corev1.HTTPGetAction{
@@ -83,7 +83,7 @@ func TestMustNotContainerConstraints(t *testing.T) {
 		},
 	}, {
 		name: "TestReadinessTCPProbePort",
-		options: func(s *v1alpha1.Service) {
+		options: func(s *v1beta1.Service) {
 			s.Spec.Template.Spec.Containers[0].ReadinessProbe = &corev1.Probe{
 				Handler: corev1.Handler{
 					TCPSocket: &corev1.TCPSocketAction{Port: intstr.FromInt(8888)},
@@ -92,7 +92,7 @@ func TestMustNotContainerConstraints(t *testing.T) {
 		},
 	}, {
 		name: "TestLivenessTCPProbePort",
-		options: func(s *v1alpha1.Service) {
+		options: func(s *v1beta1.Service) {
 			s.Spec.Template.Spec.Containers[0].LivenessProbe = &corev1.Probe{
 				Handler: corev1.Handler{
 					TCPSocket: &corev1.TCPSocketAction{Port: intstr.FromInt(8888)},
@@ -109,7 +109,7 @@ func TestMustNotContainerConstraints(t *testing.T) {
 				Service: test.ObjectNameForTest(t),
 				Image:   test.Runtime,
 			}
-			if svc, err := v1a1test.CreateLatestService(t, clients, names, &v1a1test.Options{}, tc.options); err == nil {
+			if svc, err := v1a1test.CreateService(t, clients, names, tc.options); err == nil {
 				t.Errorf("CreateService = %v, want: error", spew.Sdump(svc))
 			}
 		})
@@ -124,10 +124,10 @@ func TestShouldNotContainerConstraints(t *testing.T) {
 
 	testCases := []struct {
 		name    string
-		options func(s *v1alpha1.Service)
+		options func(s *v1beta1.Service)
 	}{{
 		name: "TestPoststartHook",
-		options: func(s *v1alpha1.Service) {
+		options: func(s *v1beta1.Service) {
 			lifecycleHandler := &corev1.ExecAction{
 				Command: []string{"/bin/sh", "-c", "echo Hello from the post start handler > /usr/share/message"},
 			}
@@ -137,7 +137,7 @@ func TestShouldNotContainerConstraints(t *testing.T) {
 		},
 	}, {
 		name: "TestPrestopHook",
-		options: func(s *v1alpha1.Service) {
+		options: func(s *v1beta1.Service) {
 			lifecycleHandler := &corev1.ExecAction{
 				Command: []string{"/bin/sh", "-c", "echo Hello from the pre stop handler > /usr/share/message"},
 			}
@@ -147,7 +147,7 @@ func TestShouldNotContainerConstraints(t *testing.T) {
 		},
 	}, {
 		name: "TestMultiplePorts",
-		options: func(s *v1alpha1.Service) {
+		options: func(s *v1beta1.Service) {
 			s.Spec.Template.Spec.Containers[0].Ports = []corev1.ContainerPort{
 				{ContainerPort: 80},
 				{ContainerPort: 81},
@@ -155,7 +155,7 @@ func TestShouldNotContainerConstraints(t *testing.T) {
 		},
 	}, {
 		name: "TestHostPort",
-		options: func(s *v1alpha1.Service) {
+		options: func(s *v1beta1.Service) {
 			s.Spec.Template.Spec.Containers[0].Ports = []corev1.ContainerPort{{
 				ContainerPort: 8081,
 				HostPort:      80,
@@ -163,22 +163,22 @@ func TestShouldNotContainerConstraints(t *testing.T) {
 		},
 	}, {
 		name: "TestStdin",
-		options: func(s *v1alpha1.Service) {
+		options: func(s *v1beta1.Service) {
 			s.Spec.Template.Spec.Containers[0].Stdin = true
 		},
 	}, {
 		name: "TestStdinOnce",
-		options: func(s *v1alpha1.Service) {
+		options: func(s *v1beta1.Service) {
 			s.Spec.Template.Spec.Containers[0].StdinOnce = true
 		},
 	}, {
 		name: "TestTTY",
-		options: func(s *v1alpha1.Service) {
+		options: func(s *v1beta1.Service) {
 			s.Spec.Template.Spec.Containers[0].TTY = true
 		},
 	}, {
 		name: "TestInvalidUID",
-		options: func(s *v1alpha1.Service) {
+		options: func(s *v1beta1.Service) {
 			s.Spec.Template.Spec.Containers[0].SecurityContext = &corev1.SecurityContext{
 				RunAsUser: ptr.Int64(-10),
 			}
@@ -193,8 +193,8 @@ func TestShouldNotContainerConstraints(t *testing.T) {
 				Service: test.ObjectNameForTest(t),
 				Image:   test.Runtime,
 			}
-			if svc, err := v1a1test.CreateLatestService(t, clients, names, &v1a1test.Options{}, tc.options); err == nil {
-				t.Errorf("CreateLatestService = %v, want: error", spew.Sdump(svc))
+			if svc, err := v1a1test.CreateService(t, clients, names, tc.options); err == nil {
+				t.Errorf("CreateService = %v, want: error", spew.Sdump(svc))
 			}
 		})
 	}

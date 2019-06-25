@@ -23,17 +23,17 @@ import (
 	"time"
 
 	pkgTest "github.com/knative/pkg/test"
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/knative/serving/pkg/apis/serving/v1beta1"
+	"github.com/knative/serving/pkg/pool"
 	serviceresourcenames "github.com/knative/serving/pkg/reconciler/service/resources/names"
 	"github.com/knative/serving/test"
-	v1a1test "github.com/knative/serving/test/v1alpha1"
+	v1b1test "github.com/knative/serving/test/v1beta1"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/knative/serving/pkg/pool"
-
-	. "github.com/knative/serving/pkg/testing/v1alpha1"
+	. "github.com/knative/serving/pkg/testing/v1beta1"
 )
 
 // Latencies is an interface for providing mechanisms for recording timings
@@ -79,25 +79,22 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 				Image:   "helloworld",
 			}
 
-			options := &v1a1test.Options{
-				// Give each request 10 seconds to respond.
-				// This is mostly to work around #2897
-				RevisionTimeoutSeconds: 10,
-				ReadinessProbe: &corev1.Probe{
-					Handler: corev1.Handler{
-						HTTPGet: &corev1.HTTPGetAction{
-							Path: "/",
-						},
-					},
-				},
-			}
-
 			// Start the clock for various waypoints towards Service readiness.
 			start := time.Now()
 			// Record the overall completion time regardless of success/failure.
 			defer latencies.Add("time-to-done", start)
 
-			svc, err := v1a1test.CreateLatestService(t, clients, names, options,
+			svc, err := v1b1test.CreateService(t, clients, names,
+				// Give each request 10 seconds to respond.
+				// This is mostly to work around #2897
+				WithRevisionTimeoutSeconds(10),
+				WithReadinessProbe(&corev1.Probe{
+					Handler: corev1.Handler{
+						HTTPGet: &corev1.HTTPGetAction{
+							Path: "/",
+						},
+					},
+				}),
 				WithResourceRequirements(corev1.ResourceRequirements{
 					Limits: corev1.ResourceList{
 						corev1.ResourceCPU:    resource.MustParse("10m"),
@@ -108,8 +105,10 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 						corev1.ResourceMemory: resource.MustParse("20Mi"),
 					},
 				}),
-				WithConfigAnnotations(map[string]string{
-					"autoscaling.knative.dev/maxScale": "1",
+				WithServiceTemplateMeta(metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"autoscaling.knative.dev/maxScale": "1",
+					},
 				}))
 
 			if err != nil {
@@ -126,12 +125,12 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 
 			t.Logf("Wait for %s to become ready.", names.Service)
 			var domain string
-			err = v1a1test.WaitForServiceState(clients.ServingAlphaClient, names.Service, func(s *v1alpha1.Service) (bool, error) {
+			err = v1b1test.WaitForServiceState(clients.ServingBetaClient, names.Service, func(s *v1beta1.Service) (bool, error) {
 				if s.Status.URL == nil {
 					return false, nil
 				}
 				domain = s.Status.URL.Host
-				return v1a1test.IsServiceReady(s)
+				return v1b1test.IsServiceReady(s)
 			}, "ServiceUpdatedWithURL")
 			if err != nil {
 				t.Errorf("WaitForServiceState(w/ Domain) = %v", err)
@@ -144,7 +143,7 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 				clients.KubeClient,
 				t.Logf,
 				domain,
-				v1a1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesBody(test.HelloWorldText))),
+				v1b1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesBody(test.HelloWorldText))),
 				"WaitForEndpointToServeText",
 				test.ServingFlags.ResolvableDomain)
 			if err != nil {

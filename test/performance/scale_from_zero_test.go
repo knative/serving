@@ -30,12 +30,11 @@ import (
 
 	pkgTest "github.com/knative/pkg/test"
 	"github.com/knative/pkg/test/zipkin"
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/reconciler/revision/resources/names"
-	ktest "github.com/knative/serving/pkg/testing/v1alpha1"
+	ktest "github.com/knative/serving/pkg/testing/v1beta1"
 	"github.com/knative/serving/test"
 	"github.com/knative/serving/test/e2e"
-	v1a1test "github.com/knative/serving/test/v1alpha1"
+	v1b1test "github.com/knative/serving/test/v1beta1"
 	"github.com/knative/test-infra/shared/junit"
 	perf "github.com/knative/test-infra/shared/performance"
 	"github.com/knative/test-infra/shared/testgrid"
@@ -54,7 +53,7 @@ type stats struct {
 	max time.Duration
 }
 
-func runScaleFromZero(idx int, t *testing.T, clients *test.Clients, ro *v1a1test.ResourceObjects) (time.Duration, error) {
+func runScaleFromZero(idx int, t *testing.T, clients *test.Clients, ro *v1b1test.ResourceObjects) (time.Duration, error) {
 	t.Helper()
 	deploymentName := names.Deployment(ro.Revision)
 
@@ -115,32 +114,32 @@ func parallelScaleFromZero(t *testing.T, count int) ([]time.Duration, error) {
 	defer cleanupNames()
 	test.CleanupOnInterrupt(cleanupNames)
 
-	objs := make([]*v1a1test.ResourceObjects, count)
+	objs := make([]*v1b1test.ResourceObjects, count)
 	begin := time.Now()
 	defer func() {
 		t.Logf("Total time for test: %v", time.Since(begin))
 	}()
 	sos := []ktest.ServiceOption{
 		// We set a small resource alloc so that we can pack more pods into the cluster.
-		func(svc *v1alpha1.Service) {
-			svc.Spec.ConfigurationSpec.Template.Spec.Containers[0].Resources = corev1.ResourceRequirements{
-				Limits: corev1.ResourceList{
-					corev1.ResourceCPU:    resource.MustParse("10m"),
-					corev1.ResourceMemory: resource.MustParse("50Mi"),
-				},
-				Requests: corev1.ResourceList{
-					corev1.ResourceCPU:    resource.MustParse("10m"),
-					corev1.ResourceMemory: resource.MustParse("20Mi"),
-				},
-			}
-		}}
+		ktest.WithResourceRequirements(corev1.ResourceRequirements{
+			Limits: corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse("10m"),
+				corev1.ResourceMemory: resource.MustParse("50Mi"),
+			},
+			Requests: corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse("10m"),
+				corev1.ResourceMemory: resource.MustParse("20Mi"),
+			},
+		}),
+	}
+
 	g := errgroup.Group{}
 	for i := 0; i < count; i++ {
 		ndx := i
 		g.Go(func() error {
 			var err error
-			if objs[ndx], err = v1a1test.CreateRunLatestServiceReady(
-				t, pc.E2EClients, testNames[ndx], &v1a1test.Options{}, sos...); err != nil {
+			if objs[ndx], err = v1b1test.CreateServiceReady(
+				t, pc.E2EClients, testNames[ndx], sos...); err != nil {
 				return fmt.Errorf("%02d: failed to create Ready service: %v", ndx, err)
 			}
 			return nil

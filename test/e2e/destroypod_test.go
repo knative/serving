@@ -31,10 +31,10 @@ import (
 	pkgTest "github.com/knative/pkg/test"
 	"github.com/knative/pkg/test/logstream"
 	"github.com/knative/serving/pkg/apis/serving"
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/knative/serving/pkg/apis/serving/v1beta1"
+	rtesting "github.com/knative/serving/pkg/testing/v1beta1"
 	"github.com/knative/serving/test"
-	v1a1test "github.com/knative/serving/test/v1alpha1"
-
+	v1b1test "github.com/knative/serving/test/v1beta1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -54,7 +54,7 @@ func TestDestroyPodInflight(t *testing.T) {
 	clients := Setup(t)
 
 	t.Log("Creating a new Route and Configuration")
-	names, err := CreateRouteAndConfig(t, clients, "timeout", &v1a1test.Options{RevisionTimeoutSeconds: revisionTimeoutSeconds})
+	names, err := CreateRouteAndConfig(t, clients, "timeout", rtesting.WithConfigTimeoutSeconds(revisionTimeoutSeconds))
 	if err != nil {
 		t.Fatalf("Failed to create Route and Configuration: %v", err)
 	}
@@ -62,17 +62,17 @@ func TestDestroyPodInflight(t *testing.T) {
 	defer test.TearDown(clients, names)
 
 	t.Log("When the Revision can have traffic routed to it, the Route is marked as Ready")
-	if err := v1a1test.WaitForRouteState(clients.ServingAlphaClient, names.Route, v1a1test.IsRouteReady, "RouteIsReady"); err != nil {
+	if err := v1b1test.WaitForRouteState(clients.ServingBetaClient, names.Route, v1b1test.IsRouteReady, "RouteIsReady"); err != nil {
 		t.Fatalf("The Route %s was not marked as Ready to serve traffic: %v", names.Route, err)
 	}
 
-	route, err := clients.ServingAlphaClient.Routes.Get(names.Route, metav1.GetOptions{})
+	route, err := clients.ServingBetaClient.Routes.Get(names.Route, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Error fetching Route %s: %v", names.Route, err)
 	}
 	domain := route.Status.URL.Host
 
-	err = v1a1test.WaitForConfigurationState(clients.ServingAlphaClient, names.Config, func(c *v1alpha1.Configuration) (bool, error) {
+	err = v1b1test.WaitForConfigurationState(clients.ServingBetaClient, names.Config, func(c *v1beta1.Configuration) (bool, error) {
 		if c.Status.LatestCreatedRevisionName != names.Revision {
 			names.Revision = c.Status.LatestCreatedRevisionName
 			return true, nil
@@ -87,7 +87,7 @@ func TestDestroyPodInflight(t *testing.T) {
 		clients.KubeClient,
 		t.Logf,
 		domain,
-		v1a1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesBody(timeoutExpectedOutput))),
+		v1b1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesBody(timeoutExpectedOutput))),
 		"TimeoutAppServesText",
 		test.ServingFlags.ResolvableDomain)
 	if err != nil {
@@ -131,7 +131,7 @@ func TestDestroyPodInflight(t *testing.T) {
 		time.Sleep(timeoutRequestDuration / 2)
 
 		t.Log("Destroying the configuration (also destroys the pods)")
-		return clients.ServingAlphaClient.Configs.Delete(names.Config, nil)
+		return clients.ServingBetaClient.Configs.Delete(names.Config, nil)
 	})
 
 	if err := g.Wait(); err != nil {
@@ -159,7 +159,7 @@ func TestDestroyPodTimely(t *testing.T) {
 	defer test.TearDown(clients, names)
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 
-	objects, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, &v1a1test.Options{RevisionTimeoutSeconds: int64(revisionTimeout.Seconds())})
+	objects, err := v1b1test.CreateServiceReady(t, clients, &names, rtesting.WithRevisionTimeoutSeconds(int64(revisionTimeout.Seconds())))
 	if err != nil {
 		t.Fatalf("Failed to create a service: %v", err)
 	}

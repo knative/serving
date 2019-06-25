@@ -27,7 +27,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 
-	. "github.com/knative/serving/pkg/testing/v1alpha1"
+	. "github.com/knative/serving/pkg/testing/v1beta1"
 )
 
 const (

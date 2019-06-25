@@ -25,7 +25,7 @@ import (
 	"github.com/knative/serving/test"
 	corev1 "k8s.io/api/core/v1"
 
-	. "github.com/knative/serving/pkg/testing/v1alpha1"
+	. "github.com/knative/serving/pkg/testing/v1beta1"
 )
 
 // TestSecretsViaEnv verifies propagation of Secrets through environment variables.

@@ -29,15 +29,16 @@ import (
 	pkgTest "github.com/knative/pkg/test"
 	ingress "github.com/knative/pkg/test/ingress"
 	"github.com/knative/serving/pkg/resources"
-	testingv1alpha1 "github.com/knative/serving/pkg/testing/v1alpha1"
+	testingv1beta1 "github.com/knative/serving/pkg/testing/v1beta1"
 	"github.com/knative/serving/test"
-	v1a1test "github.com/knative/serving/test/v1alpha1"
+	v1b1test "github.com/knative/serving/test/v1beta1"
 	"github.com/knative/test-infra/shared/junit"
 	"github.com/knative/test-infra/shared/loadgenerator"
 	perf "github.com/knative/test-infra/shared/performance"
 	"github.com/knative/test-infra/shared/testgrid"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/tools/cache"
 )
@@ -87,14 +88,20 @@ func scaleRevisionByLoad(t *testing.T, numClients int) []junit.TestCase {
 	test.CleanupOnInterrupt(func() { TearDown(perfClients, names, t.Logf) })
 
 	t.Log("Creating a new Service")
-	objs, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, &v1a1test.Options{
-		ContainerResources: corev1.ResourceRequirements{
-			Requests: corev1.ResourceList{
-				corev1.ResourceCPU:    resource.MustParse("50m"),
-				corev1.ResourceMemory: resource.MustParse("20Mi"),
+	objs, err := v1b1test.CreateServiceReady(t, clients, &names,
+		testingv1beta1.WithResourceRequirements(
+			corev1.ResourceRequirements{
+				Requests: corev1.ResourceList{
+					corev1.ResourceCPU:    resource.MustParse("50m"),
+					corev1.ResourceMemory: resource.MustParse("20Mi"),
+				},
 			},
-		}},
-		testingv1alpha1.WithConfigAnnotations(map[string]string{"autoscaling.knative.dev/target": strconv.Itoa(targetConcurrency)}),
+		),
+		testingv1beta1.WithServiceTemplateMeta(metav1.ObjectMeta{
+			Annotations: map[string]string{
+				"autoscaling.knative.dev/target": strconv.Itoa(targetConcurrency),
+			},
+		}),
 	)
 	if err != nil {
 		t.Fatalf("Failed to create Service: %v", err)
@@ -113,7 +120,7 @@ func scaleRevisionByLoad(t *testing.T, numClients int) []junit.TestCase {
 		clients.KubeClient,
 		t.Logf,
 		domain+"/?timeout=10", // To generate any kind of a valid response.
-		v1a1test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
+		v1b1test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
 		"WaitForEndpointToServeText",
 		test.ServingFlags.ResolvableDomain)
 	if err != nil {

@@ -19,6 +19,7 @@ package v1beta1
 import (
 	corev1 "k8s.io/api/core/v1"
 
+	"github.com/knative/pkg/ptr"
 	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 )
 
@@ -37,5 +38,12 @@ func WithConfigReadinessProbe(p *corev1.Probe) ConfigOption {
 func WithConfigImage(img string) ConfigOption {
 	return func(cfg *v1beta1.Configuration) {
 		cfg.Spec.Template.Spec.Containers[0].Image = img
+	}
+}
+
+// WithConfigTimeoutSeconds sets revision timeout
+func WithConfigTimeoutSeconds(revisionTimeoutSeconds int64) ConfigOption {
+	return func(cfg *v1beta1.Configuration) {
+		cfg.Spec.Template.Spec.TimeoutSeconds = ptr.Int64(revisionTimeoutSeconds)
 	}
 }

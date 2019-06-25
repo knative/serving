@@ -26,12 +26,10 @@ import (
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 
-	// 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 
-	// 	"github.com/knative/pkg/ptr"
 	ptest "github.com/knative/pkg/test"
 	rtesting "github.com/knative/serving/pkg/testing/v1beta1"
 	"github.com/knative/serving/test"
@@ -155,17 +153,7 @@ func CheckConfigurationState(client *test.ServingBetaClients, name string, inSta
 	return nil
 }
 
-// // ConfigurationHasCreatedRevision returns whether the Configuration has created a Revision.
-// func ConfigurationHasCreatedRevision(c *v1beta1.Configuration) (bool, error) {
-// 	return c.Status.LatestCreatedRevisionName != "", nil
-// }
-
-// // IsConfigRevisionCreationFailed will check the status conditions of the
-// // configuration and return true if the configuration's revision failed to
-// // create.
-// func IsConfigRevisionCreationFailed(c *v1beta1.Configuration) (bool, error) {
-// 	if cond := c.Status.GetCondition(v1beta1.ConfigurationConditionReady); cond != nil {
-// 		return cond.Status == corev1.ConditionFalse && cond.Reason == "RevisionFailed", nil
-// 	}
-// 	return false, nil
-// }
+// ConfigurationHasCreatedRevision returns whether the Configuration has created a Revision.
+func ConfigurationHasCreatedRevision(c *v1beta1.Configuration) (bool, error) {
+	return c.Status.LatestCreatedRevisionName != "", nil
+}

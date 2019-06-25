@@ -34,11 +34,13 @@ import (
 	pkgTest "github.com/knative/pkg/test"
 	"github.com/knative/pkg/test/spoof"
 	"github.com/knative/serving/test"
-	v1a1test "github.com/knative/serving/test/v1alpha1"
+	v1b1test "github.com/knative/serving/test/v1beta1"
 	"github.com/knative/test-infra/shared/junit"
 	perf "github.com/knative/test-infra/shared/performance"
 	"github.com/knative/test-infra/shared/testgrid"
 	"golang.org/x/sync/errgroup"
+
+	rtesting "github.com/knative/serving/pkg/testing/v1beta1"
 )
 
 // generateTraffic loads the given endpoint with the given concurrency for the given duration.
@@ -151,15 +153,15 @@ func testConcurrencyN(t *testing.T, concurrency int) []junit.TestCase {
 	test.CleanupOnInterrupt(func() { TearDown(perfClients, names, t.Logf) })
 
 	t.Log("Creating a new Service")
-	objs, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, &v1a1test.Options{
-		ContainerConcurrency: 1,
-		ContainerResources: corev1.ResourceRequirements{
+	objs, err := v1b1test.CreateServiceReady(t, clients, &names,
+		rtesting.WithContainerConcurrency(1),
+		rtesting.WithResourceRequirements(corev1.ResourceRequirements{
 			Requests: corev1.ResourceList{
 				corev1.ResourceCPU:    resource.MustParse("10m"),
 				corev1.ResourceMemory: resource.MustParse("20Mi"),
 			},
-		},
-	})
+		}),
+	)
 	if err != nil {
 		t.Fatalf("Failed to create Service: %v", err)
 	}
@@ -179,7 +181,7 @@ func testConcurrencyN(t *testing.T, concurrency int) []junit.TestCase {
 		clients.KubeClient,
 		t.Logf,
 		domain+"/?timeout=10", // To generate any kind of a valid response.
-		v1a1test.RetryingRouteInconsistency(func(resp *spoof.Response) (bool, error) {
+		v1b1test.RetryingRouteInconsistency(func(resp *spoof.Response) (bool, error) {
 			_, _, err := parseResponse(string(resp.Body))
 			return err == nil, nil
 		}),

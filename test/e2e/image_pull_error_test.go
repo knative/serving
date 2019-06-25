@@ -22,11 +22,11 @@ import (
 	"testing"
 
 	"github.com/knative/pkg/test/logstream"
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 	serviceresourcenames "github.com/knative/serving/pkg/reconciler/service/resources/names"
-	v1alpha1testing "github.com/knative/serving/pkg/testing/v1alpha1"
+	v1beta1testing "github.com/knative/serving/pkg/testing/v1beta1"
 	"github.com/knative/serving/test"
-	v1a1test "github.com/knative/serving/test/v1alpha1"
+	v1b1test "github.com/knative/serving/test/v1beta1"
 )
 
 func TestImagePullError(t *testing.T) {
@@ -46,7 +46,7 @@ func TestImagePullError(t *testing.T) {
 
 	t.Logf("Creating a new Service %s", names.Image)
 	var (
-		svc *v1alpha1.Service
+		svc *v1beta1.Service
 		err error
 	)
 	if svc, err = createLatestService(t, clients, names); err != nil {
@@ -55,8 +55,8 @@ func TestImagePullError(t *testing.T) {
 
 	names.Config = serviceresourcenames.Configuration(svc)
 
-	err = v1a1test.WaitForServiceState(clients.ServingAlphaClient, names.Service, func(r *v1alpha1.Service) (bool, error) {
-		cond := r.Status.GetCondition(v1alpha1.ConfigurationConditionReady)
+	err = v1b1test.WaitForServiceState(clients.ServingBetaClient, names.Service, func(r *v1beta1.Service) (bool, error) {
+		cond := r.Status.GetCondition(v1beta1.ConfigurationConditionReady)
 		if cond != nil && !cond.IsUnknown() {
 			if cond.IsFalse() {
 				if cond.Reason == "RevisionFailed" {
@@ -80,8 +80,8 @@ func TestImagePullError(t *testing.T) {
 	}
 
 	t.Log("When the images are not pulled, the revision should have error status.")
-	err = v1a1test.CheckRevisionState(clients.ServingAlphaClient, revisionName, func(r *v1alpha1.Revision) (bool, error) {
-		cond := r.Status.GetCondition(v1alpha1.RevisionConditionReady)
+	err = v1b1test.CheckRevisionState(clients.ServingBetaClient, revisionName, func(r *v1beta1.Revision) (bool, error) {
+		cond := r.Status.GetCondition(v1beta1.RevisionConditionReady)
 		if cond != nil {
 			if cond.Reason == "ImagePullBackOff" || cond.Reason == "ErrImagePull" {
 				return true, nil
@@ -99,9 +99,9 @@ func TestImagePullError(t *testing.T) {
 
 // Wrote our own thing so that we can pass in an image by digest.
 // knative/pkg/test.ImagePath currently assumes there's a tag, which fails to parse.
-func createLatestService(t *testing.T, clients *test.Clients, names test.ResourceNames) (*v1alpha1.Service, error) {
-	opt := v1alpha1testing.WithInlineConfigSpec(*v1a1test.ConfigurationSpec(names.Image, &v1a1test.Options{}))
-	service := v1alpha1testing.ServiceWithoutNamespace(names.Service, opt)
-	v1a1test.LogResourceObject(t, v1a1test.ResourceObjects{Service: service})
-	return clients.ServingAlphaClient.Services.Create(service)
+func createLatestService(t *testing.T, clients *test.Clients, names test.ResourceNames) (*v1beta1.Service, error) {
+	opt := v1beta1testing.WithInlineConfigSpec(*v1b1test.ConfigurationSpec(names.Image))
+	service := v1beta1testing.ServiceWithoutNamespace(names.Service, opt)
+	v1b1test.LogResourceObject(t, v1b1test.ResourceObjects{Service: service})
+	return clients.ServingBetaClient.Services.Create(service)
 }

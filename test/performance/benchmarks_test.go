@@ -27,7 +27,7 @@ import (
 	pkgTest "github.com/knative/pkg/test"
 	"github.com/knative/pkg/test/ingress"
 	"github.com/knative/serving/test"
-	v1a1test "github.com/knative/serving/test/v1alpha1"
+	v1b1test "github.com/knative/serving/test/v1beta1"
 	"github.com/knative/test-infra/shared/junit"
 	"github.com/knative/test-infra/shared/loadgenerator"
 	perf "github.com/knative/test-infra/shared/performance"
@@ -64,7 +64,7 @@ func runTest(t *testing.T, img string, baseQPS float64, loadFactors []float64) {
 	test.CleanupOnInterrupt(func() { TearDown(perfClients, names, t.Logf) })
 
 	t.Log("Creating a new Service")
-	objs, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, &v1a1test.Options{})
+	objs, err := v1b1test.CreateServiceReady(t, clients, &names)
 	if err != nil {
 		t.Fatalf("Failed to create Service: %v", err)
 	}
@@ -79,7 +79,7 @@ func runTest(t *testing.T, img string, baseQPS float64, loadFactors []float64) {
 		clients.KubeClient,
 		t.Logf,
 		domain,
-		v1a1test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
+		v1b1test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
 		"WaitForSuccessfulResponse",
 		test.ServingFlags.ResolvableDomain); err != nil {
 		t.Fatalf("Error probing domain %s: %v", domain, err)

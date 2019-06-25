@@ -66,6 +66,14 @@ func WithInlineConfigSpec(config v1beta1.ConfigurationSpec) ServiceOption {
 	}
 }
 
+// WithReadinessProbe sets the provided probe to be the readiness
+// probe on the service.
+func WithReadinessProbe(p *corev1.Probe) ServiceOption {
+	return func(svc *v1beta1.Service) {
+		svc.Spec.Template.Spec.Containers[0].ReadinessProbe = p
+	}
+}
+
 // WithNamedPort sets the name on the Service's port to the provided name
 func WithNamedPort(name string) ServiceOption {
 	return func(svc *v1beta1.Service) {
@@ -132,6 +140,16 @@ func WithServiceImage(img string) ServiceOption {
 func WithServiceTemplateMeta(m metav1.ObjectMeta) ServiceOption {
 	return func(svc *v1beta1.Service) {
 		svc.Spec.Template.ObjectMeta = m
+	}
+}
+
+// WithServiceLabel attaches a particular label to the service.
+func WithServiceLabel(key, value string) ServiceOption {
+	return func(service *v1beta1.Service) {
+		if service.Labels == nil {
+			service.Labels = make(map[string]string)
+		}
+		service.Labels[key] = value
 	}
 }
 

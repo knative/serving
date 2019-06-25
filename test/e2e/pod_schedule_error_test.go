@@ -23,13 +23,15 @@ import (
 	"testing"
 
 	"github.com/knative/pkg/test/logstream"
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 	serviceresourcenames "github.com/knative/serving/pkg/reconciler/service/resources/names"
 	"github.com/knative/serving/test"
-	v1a1test "github.com/knative/serving/test/v1alpha1"
+	v1b1test "github.com/knative/serving/test/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	rtesting "github.com/knative/serving/pkg/testing/v1beta1"
 )
 
 func TestPodScheduleError(t *testing.T) {
@@ -61,17 +63,17 @@ func TestPodScheduleError(t *testing.T) {
 		},
 	}
 	var (
-		svc *v1alpha1.Service
+		svc *v1beta1.Service
 		err error
 	)
-	if svc, err = v1a1test.CreateLatestService(t, clients, names, &v1a1test.Options{ContainerResources: resources}); err != nil {
+	if svc, err = v1b1test.CreateService(t, clients, names, rtesting.WithResourceRequirements(resources)); err != nil {
 		t.Fatalf("Failed to create Service %s: %v", names.Service, err)
 	}
 
 	names.Config = serviceresourcenames.Configuration(svc)
 
-	err = v1a1test.WaitForServiceState(clients.ServingAlphaClient, names.Service, func(r *v1alpha1.Service) (bool, error) {
-		cond := r.Status.GetCondition(v1alpha1.ConfigurationConditionReady)
+	err = v1b1test.WaitForServiceState(clients.ServingBetaClient, names.Service, func(r *v1beta1.Service) (bool, error) {
+		cond := r.Status.GetCondition(v1beta1.ConfigurationConditionReady)
 		if cond != nil && !cond.IsUnknown() {
 			if strings.Contains(cond.Message, errorMsg) && cond.IsFalse() {
 				return true, nil
@@ -93,8 +95,8 @@ func TestPodScheduleError(t *testing.T) {
 	}
 
 	t.Log("When the containers are not scheduled, the revision should have error status.")
-	err = v1a1test.WaitForRevisionState(clients.ServingAlphaClient, revisionName, func(r *v1alpha1.Revision) (bool, error) {
-		cond := r.Status.GetCondition(v1alpha1.RevisionConditionReady)
+	err = v1b1test.WaitForRevisionState(clients.ServingBetaClient, revisionName, func(r *v1beta1.Revision) (bool, error) {
+		cond := r.Status.GetCondition(v1beta1.RevisionConditionReady)
 		if cond != nil {
 			if cond.Reason == revisionReason && strings.Contains(cond.Message, errorMsg) {
 				return true, nil
@@ -112,7 +114,7 @@ func TestPodScheduleError(t *testing.T) {
 
 // Get revision name from configuration.
 func revisionFromConfiguration(clients *test.Clients, configName string) (string, error) {
-	config, err := clients.ServingAlphaClient.Configs.Get(configName, metav1.GetOptions{})
+	config, err := clients.ServingBetaClient.Configs.Get(configName, metav1.GetOptions{})
 	if err != nil {
 		return "", err
 	}
