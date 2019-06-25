@@ -41,7 +41,7 @@ func MakeRevision(config *v1alpha1.Configuration) *v1alpha1.Revision {
 	UpdateRevisionLabels(rev, config)
 
 	if rev.Annotations == nil {
-		rev.Annotations = make(map[string]string)
+		rev.Annotations = config.GetAnnotations()
 	}
 
 	// Populate OwnerReferences so that deletes cascade.

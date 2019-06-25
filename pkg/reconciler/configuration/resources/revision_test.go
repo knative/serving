@@ -54,7 +54,7 @@ func TestMakeRevisions(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace:    "no",
 				GenerateName: "build-",
-				Annotations:  map[string]string{},
+				Annotations:  nil,
 				OwnerReferences: []metav1.OwnerReference{{
 					APIVersion:         v1alpha1.SchemeGroupVersion.String(),
 					Kind:               "Configuration",
@@ -102,7 +102,7 @@ func TestMakeRevisions(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace:    "with",
 				GenerateName: "labels-",
-				Annotations:  map[string]string{},
+				Annotations:  nil,
 				OwnerReferences: []metav1.OwnerReference{{
 					APIVersion:         v1alpha1.SchemeGroupVersion.String(),
 					Kind:               "Configuration",
@@ -167,6 +167,55 @@ func TestMakeRevisions(t *testing.T) {
 				Annotations: map[string]string{
 					"foo": "bar",
 					"baz": "blah",
+				},
+			},
+			Spec: v1alpha1.RevisionSpec{
+				DeprecatedContainer: &corev1.Container{
+					Image: "busybox",
+				},
+			},
+		},
+	}, {
+		name: "with annotation from config",
+		configuration: &v1alpha1.Configuration{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: "anno",
+				Name:      "config",
+				Annotations: map[string]string{
+					"serving.knative.dev/creator":      "admin",
+					"serving.knative.dev/lastModifier": "admin",
+				},
+				Generation: 10,
+			},
+			Spec: v1alpha1.ConfigurationSpec{
+				DeprecatedRevisionTemplate: &v1alpha1.RevisionTemplateSpec{
+					Spec: v1alpha1.RevisionSpec{
+						DeprecatedContainer: &corev1.Container{
+							Image: "busybox",
+						},
+					},
+				},
+			},
+		},
+		want: &v1alpha1.Revision{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace:    "anno",
+				GenerateName: "config-",
+				Annotations: map[string]string{
+					"serving.knative.dev/creator":      "admin",
+					"serving.knative.dev/lastModifier": "admin",
+				},
+				OwnerReferences: []metav1.OwnerReference{{
+					APIVersion:         v1alpha1.SchemeGroupVersion.String(),
+					Kind:               "Configuration",
+					Name:               "config",
+					Controller:         ptr.Bool(true),
+					BlockOwnerDeletion: ptr.Bool(true),
+				}},
+				Labels: map[string]string{
+					serving.ConfigurationLabelKey:           "config",
+					serving.ConfigurationGenerationLabelKey: "10",
+					serving.ServiceLabelKey:                 "",
 				},
 			},
 			Spec: v1alpha1.RevisionSpec{
