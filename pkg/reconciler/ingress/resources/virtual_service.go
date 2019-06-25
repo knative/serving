@@ -1,5 +1,5 @@
 /*
-Copyright 2018 The Knative Authors
+Copyright 2019 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -33,7 +33,7 @@ import (
 	"github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/network"
-	"github.com/knative/serving/pkg/reconciler/clusteringress/resources/names"
+	"github.com/knative/serving/pkg/reconciler/ingress/resources/names"
 	"github.com/knative/serving/pkg/resources"
 )
 

@@ -38,8 +38,8 @@ import (
 	"github.com/knative/serving/pkg/apis/serving"
 	listers "github.com/knative/serving/pkg/client/listers/networking/v1alpha1"
 	"github.com/knative/serving/pkg/reconciler"
-	"github.com/knative/serving/pkg/reconciler/clusteringress/config"
-	"github.com/knative/serving/pkg/reconciler/clusteringress/resources"
+	"github.com/knative/serving/pkg/reconciler/ingress/config"
+	"github.com/knative/serving/pkg/reconciler/ingress/resources"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -116,11 +116,11 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 			c.Recorder.Eventf(ci, corev1.EventTypeWarning, "UpdateFailed",
 				"Failed to update status for ClusterIngress %q: %v", ci.Name, err)
 			return err
-		} else {
-			logger.Infof("Updated status for ClusterIngress %q", ci.Name)
-			c.Recorder.Eventf(ci, corev1.EventTypeNormal, "Updated",
-				"Updated status for ClusterIngress %q", ci.Name)
 		}
+
+		logger.Infof("Updated status for ClusterIngress %q", ci.Name)
+		c.Recorder.Eventf(ci, corev1.EventTypeNormal, "Updated",
+			"Updated status for ClusterIngress %q", ci.Name)
 	}
 	if reconcileErr != nil {
 		c.Recorder.Event(ci, corev1.EventTypeWarning, "InternalError", reconcileErr.Error())

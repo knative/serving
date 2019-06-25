@@ -55,8 +55,8 @@ import (
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/network"
 	"github.com/knative/serving/pkg/reconciler"
-	"github.com/knative/serving/pkg/reconciler/clusteringress/config"
-	"github.com/knative/serving/pkg/reconciler/clusteringress/resources"
+	"github.com/knative/serving/pkg/reconciler/ingress/config"
+	"github.com/knative/serving/pkg/reconciler/ingress/resources"
 	presources "github.com/knative/serving/pkg/resources"
 
 	. "github.com/knative/pkg/reconciler/testing"
@@ -597,6 +597,50 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 			Eventf(corev1.EventTypeNormal, "Updated", "Updated status for ClusterIngress %q", "reconciling-clusteringress"),
 		},
 		Key: "reconciling-clusteringress",
+	}, {
+		Name:                    "Reconcile with autoTLS but cluster local visibilty, mesh only",
+		SkipNamespaceValidation: true,
+		Objects: []runtime.Object{
+			ingressWithTLSClusterLocal("reconciling-clusteringress", 1234, ingressTLS),
+			// No Gateway servers match the given TLS of ClusterIngress.
+			gateway("knative-ingress-gateway", system.Namespace(), []v1alpha3.Server{irrelevantServer}),
+			originSecret("istio-system", "secret0"),
+		},
+		WantCreates: []runtime.Object{
+			// The creation of gateways are triggered when setting up the test.
+			gateway("knative-ingress-gateway", system.Namespace(), []v1alpha3.Server{irrelevantServer}),
+			resources.MakeMeshVirtualService(ingress("reconciling-clusteringress", 1234)),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: ingressWithTLSAndStatusClusterLocal("reconciling-clusteringress", 1234,
+				ingressTLS,
+				v1alpha1.IngressStatus{
+					LoadBalancer: &v1alpha1.LoadBalancerStatus{
+						Ingress: []v1alpha1.LoadBalancerIngressStatus{{MeshOnly: true}},
+					},
+					Status: duckv1beta1.Status{
+						Conditions: duckv1beta1.Conditions{{
+							Type:     v1alpha1.IngressConditionLoadBalancerReady,
+							Status:   corev1.ConditionTrue,
+							Severity: apis.ConditionSeverityError,
+						}, {
+							Type:     v1alpha1.IngressConditionNetworkConfigured,
+							Status:   corev1.ConditionTrue,
+							Severity: apis.ConditionSeverityError,
+						}, {
+							Type:     v1alpha1.IngressConditionReady,
+							Status:   corev1.ConditionTrue,
+							Severity: apis.ConditionSeverityError,
+						}},
+					},
+				},
+			),
+		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "Created", "Created VirtualService %q", "reconciling-clusteringress-mesh"),
+			Eventf(corev1.EventTypeNormal, "Updated", "Updated status for ClusterIngress %q", "reconciling-clusteringress"),
+		},
+		Key: "reconciling-clusteringress",
 	}}
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
 
@@ -765,9 +809,21 @@ func ingressWithTLS(name string, generation int64, tls []v1alpha1.IngressTLS) *v
 	return ingressWithTLSAndStatus(name, generation, tls, v1alpha1.IngressStatus{})
 }
 
+func ingressWithTLSClusterLocal(name string, generation int64, tls []v1alpha1.IngressTLS) *v1alpha1.ClusterIngress {
+	ci := ingressWithTLSAndStatus(name, generation, tls, v1alpha1.IngressStatus{})
+	ci.Spec.Visibility = v1alpha1.IngressVisibilityClusterLocal
+	return ci
+}
+
 func ingressWithTLSAndStatus(name string, generation int64, tls []v1alpha1.IngressTLS, status v1alpha1.IngressStatus) *v1alpha1.ClusterIngress {
 	ci := ingressWithStatus(name, generation, status)
 	ci.Spec.TLS = tls
+	return ci
+}
+
+func ingressWithTLSAndStatusClusterLocal(name string, generation int64, tls []v1alpha1.IngressTLS, status v1alpha1.IngressStatus) *v1alpha1.ClusterIngress {
+	ci := ingressWithTLSAndStatus(name, generation, tls, status)
+	ci.Spec.Visibility = v1alpha1.IngressVisibilityClusterLocal
 	return ci
 }
 
