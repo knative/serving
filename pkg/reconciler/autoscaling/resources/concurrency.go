@@ -17,7 +17,6 @@ limitations under the License.
 package resources
 
 import (
-	"fmt"
 	"math"
 
 	"github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
@@ -31,7 +30,6 @@ import (
 func ResolveConcurrency(pa *v1alpha1.PodAutoscaler, config *autoscaler.Config) (target float64, total float64) {
 	total = float64(pa.Spec.ContainerConcurrency)
 	target = math.Max(1, total*config.ContainerConcurrencyTargetFraction)
-	fmt.Printf("###3 total: %f target: %f frac: %f\n", total, target, config.ContainerConcurrencyTargetFraction)
 
 	// If containerConcurrency is 0 we'll always target the default.
 	if pa.Spec.ContainerConcurrency == 0 {
