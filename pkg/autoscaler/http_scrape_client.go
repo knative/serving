@@ -76,6 +76,13 @@ func extractData(body io.Reader) (*Stat, error) {
 			return nil, fmt.Errorf("could not find value for %s in response", m)
 		}
 		*pv = *pm.Gauge.Value
+
+		if stat.PodName == "" {
+			stat.PodName = prometheusLabel(pm.Label, "destination_pod")
+			if stat.PodName == "" {
+				return nil, fmt.Errorf("could not find pod name in metric labels")
+			}
+		}
 	}
 	return &stat, nil
 }
@@ -89,4 +96,16 @@ func prometheusMetric(metricFamilies map[string]*dto.MetricFamily, key string) *
 	}
 
 	return nil
+}
+
+// prometheusLabels returns the value of the label with the given key from the
+// given slice of labels. Returns an empty string if the label cannot be found.
+func prometheusLabel(labels []*dto.LabelPair, key string) string {
+	for _, label := range labels {
+		if *label.Name == key {
+			return *label.Value
+		}
+	}
+
+	return ""
 }

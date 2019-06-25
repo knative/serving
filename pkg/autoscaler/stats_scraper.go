@@ -19,7 +19,10 @@ package autoscaler
 import (
 	"fmt"
 	"net/http"
+	"sync"
 	"time"
+
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	"golang.org/x/sync/errgroup"
 
@@ -38,6 +41,14 @@ const (
 	// Instead, the autoscaler knows the stats it receives are either from the
 	// scraper or the activator.
 	scraperPodName = "service-scraper"
+
+	// scraperMaxRetries are retries to be done to the actual Scrape routine. We want
+	// to retry if a Scrape returns an error or if the Scrape goes to a pod we already
+	// scraped.
+	scraperMaxRetries = 10
+
+	// scraperRetryInterval is the interval to wait after a failed scrape.
+	scraperRetryInterval = 10 * time.Nanosecond
 )
 
 // StatsScraper defines the interface for collecting Revision metrics
@@ -132,22 +143,31 @@ func (s *ServiceScraper) Scrape() (*StatMessage, error) {
 
 	sampleSize := populationMeanSampleSize(readyPodsCount)
 	statCh := make(chan *Stat, sampleSize)
+	scrapedPods := &safeStringSet{set: sets.NewString()}
 
 	grp := errgroup.Group{}
 	for i := 0; i < sampleSize; i++ {
 		grp.Go(func() error {
-			stat, err := s.sClient.Scrape(s.url)
-			if err != nil {
-				return err
+			for tries := 0; ; tries++ {
+				stat, err := s.tryScrape(scrapedPods.addIfAbsent)
+				if err != nil {
+					// Return the error if we exhausted our retries.
+					if tries == scraperMaxRetries-1 {
+						return err
+					}
+					time.Sleep(scraperRetryInterval)
+					continue
+				}
+
+				statCh <- stat
+				return nil
 			}
-			statCh <- stat
-			return nil
 		})
 	}
 
 	// Return the inner error, if any.
 	if err := grp.Wait(); err != nil {
-		return nil, errors.Wrapf(err, "fail to get a successful scrape for %d tries", sampleSize)
+		return nil, errors.Wrapf(err, "unsuccessful scrape, sampleSize=%d", sampleSize)
 	}
 	close(statCh)
 
@@ -174,10 +194,8 @@ func (s *ServiceScraper) Scrape() (*StatMessage, error) {
 	proxiedReqCount = proxiedReqCount / successCount
 	now := time.Now()
 
-	// Assumptions:
-	// 1. Traffic is routed to pods evenly.
-	// 2. A particular pod can stand for other pods, i.e. other pods have
-	//    similar concurrency and QPS.
+	// Assumption: A particular pod can stand for other pods, i.e. other pods
+	// have similar concurrency and QPS.
 	//
 	// Hide the actual pods behind scraper and send only one stat for all the
 	// customer pods per scraping. The pod name is set to a unique value, i.e.
@@ -196,4 +214,40 @@ func (s *ServiceScraper) Scrape() (*StatMessage, error) {
 		Stat: extrapolatedStat,
 		Key:  s.metricKey,
 	}, nil
+}
+
+// tryScrape runs a single scrape and checks if it was valid using the given
+// conditional function.
+func (s *ServiceScraper) tryScrape(cond func(key string) bool) (*Stat, error) {
+	stat, err := s.sClient.Scrape(s.url)
+	if err != nil {
+		return nil, err
+	}
+
+	if !cond(stat.PodName) {
+		return nil, errors.New("did not receive stat from an unscraped pod")
+	}
+
+	return stat, nil
+}
+
+// safeStringSet is a threadsafe wrapper for a regular sets.String.
+type safeStringSet struct {
+	set sets.String
+	mux sync.Mutex
+}
+
+// addIfAbsent adds the given key to the set if it wasn't already
+// in there. Returns false if the key was already in the set and
+// thus it wasn't written.
+func (s *safeStringSet) addIfAbsent(key string) bool {
+	s.mux.Lock()
+	defer s.mux.Unlock()
+
+	if s.set.Has(key) {
+		return false
+	}
+
+	s.set.Insert(key)
+	return true
 }
