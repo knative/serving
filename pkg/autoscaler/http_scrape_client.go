@@ -80,7 +80,7 @@ func extractData(body io.Reader) (*Stat, error) {
 		if stat.PodName == "" {
 			stat.PodName = prometheusLabel(pm.Label, "destination_pod")
 			if stat.PodName == "" {
-				return nil, fmt.Errorf("could not find pod name in metric labels")
+				return nil, errors.New("could not find pod name in metric labels")
 			}
 		}
 	}
