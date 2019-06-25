@@ -66,7 +66,7 @@ func getClusterDomainName(r io.Reader) string {
 		}
 		for i := 1; i < len(elements)-1; i++ {
 			if strings.HasPrefix(elements[i], "svc.") {
-				return elements[i][4:]
+				return strings.TrimSuffix(elements[i][4:], ".")
 			}
 		}
 	}
