@@ -518,6 +518,36 @@ func TestContainerValidation(t *testing.T) {
 		},
 		want: apis.ErrDisallowedFields("readinessProbe.httpGet.port"),
 	}, {
+		name: "invalid readiness probe (has failureThreshold while using special probe)",
+		c: corev1.Container{
+			Image: "foo",
+			ReadinessProbe: &corev1.Probe{
+				PeriodSeconds:    0,
+				FailureThreshold: 2,
+				Handler: corev1.Handler{
+					HTTPGet: &corev1.HTTPGetAction{
+						Path: "/",
+					},
+				},
+			},
+		},
+		want: apis.ErrDisallowedFields("readinessProbe.failureThreshold"),
+	}, {
+		name: "invalid readiness probe (has timeoutSeconds while using special probe)",
+		c: corev1.Container{
+			Image: "foo",
+			ReadinessProbe: &corev1.Probe{
+				PeriodSeconds:  0,
+				TimeoutSeconds: 2,
+				Handler: corev1.Handler{
+					HTTPGet: &corev1.HTTPGetAction{
+						Path: "/",
+					},
+				},
+			},
+		},
+		want: apis.ErrDisallowedFields("readinessProbe.timeoutSeconds"),
+	}, {
 		name: "disallowed security context field",
 		c: corev1.Container{
 			Image: "foo",

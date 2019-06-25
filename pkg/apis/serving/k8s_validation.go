@@ -278,7 +278,7 @@ func ValidateContainer(container corev1.Container, volumes sets.String) *apis.Fi
 	// Ports
 	errs = errs.Also(validateContainerPorts(container.Ports).ViaField("ports"))
 	// Readiness Probes
-	errs = errs.Also(validateProbe(container.ReadinessProbe).ViaField("readinessProbe"))
+	errs = errs.Also(validateReadinessProbe(container.ReadinessProbe).ViaField("readinessProbe"))
 	// Resources
 	errs = errs.Also(validateResources(&container.Resources).ViaField("resources"))
 	// SecurityContext
@@ -411,6 +411,27 @@ func validateContainerPorts(ports []corev1.ContainerPort) *apis.FieldError {
 			Paths:   []string{apis.CurrentField},
 			Details: "Name must be empty, or one of: 'h2c', 'http1'",
 		})
+	}
+
+	return errs
+}
+
+func validateReadinessProbe(p *corev1.Probe) *apis.FieldError {
+	if p == nil {
+		return nil
+	}
+
+	errs := validateProbe(p)
+
+	// PeriodSeconds == 0 indicates Knative's special probe with aggressive retries
+	if p.PeriodSeconds == 0 {
+		if p.FailureThreshold > 0 {
+			errs = errs.Also(apis.ErrDisallowedFields("failureThreshold"))
+		}
+
+		if p.TimeoutSeconds > 0 {
+			errs = errs.Also(apis.ErrDisallowedFields("timeoutSeconds"))
+		}
 	}
 
 	return errs
