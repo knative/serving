@@ -22,8 +22,6 @@ import (
 	"sync"
 	"time"
 
-	"k8s.io/apimachinery/pkg/util/sets"
-
 	"golang.org/x/sync/errgroup"
 
 	"github.com/knative/serving/pkg/apis/networking"
@@ -143,24 +141,22 @@ func (s *ServiceScraper) Scrape() (*StatMessage, error) {
 
 	sampleSize := populationMeanSampleSize(readyPodsCount)
 	statCh := make(chan *Stat, sampleSize)
-	scrapedPods := &safeStringSet{set: sets.NewString()}
+	scrapedPods := &sync.Map{}
 
 	grp := errgroup.Group{}
 	for i := 0; i < sampleSize; i++ {
 		grp.Go(func() error {
-			for tries := 0; ; tries++ {
-				stat, err := s.tryScrape(scrapedPods.addIfAbsent)
-				if err != nil {
-					// Return the error if we exhausted our retries.
-					if tries == scraperMaxRetries-1 {
-						return err
-					}
-					time.Sleep(scraperRetryInterval)
-					continue
+			for tries := 1; ; tries++ {
+				stat, err := s.tryScrape(scrapedPods)
+				if err == nil {
+					statCh <- stat
+					return nil
 				}
 
-				statCh <- stat
-				return nil
+				// Return the error if we exhausted our retries.
+				if tries == scraperMaxRetries {
+					return err
+				}
 			}
 		})
 	}
@@ -216,38 +212,17 @@ func (s *ServiceScraper) Scrape() (*StatMessage, error) {
 	}, nil
 }
 
-// tryScrape runs a single scrape and checks if it was valid using the given
-// conditional function.
-func (s *ServiceScraper) tryScrape(cond func(key string) bool) (*Stat, error) {
+// tryScrape runs a single scrape and checks if this pod wasn't already scraped
+// against the given already scraped pods.
+func (s *ServiceScraper) tryScrape(scrapedPods *sync.Map) (*Stat, error) {
 	stat, err := s.sClient.Scrape(s.url)
 	if err != nil {
 		return nil, err
 	}
 
-	if !cond(stat.PodName) {
+	if _, exists := scrapedPods.LoadOrStore(stat.PodName, struct{}{}); exists {
 		return nil, errors.New("did not receive stat from an unscraped pod")
 	}
 
 	return stat, nil
-}
-
-// safeStringSet is a threadsafe wrapper for a regular sets.String.
-type safeStringSet struct {
-	set sets.String
-	mux sync.Mutex
-}
-
-// addIfAbsent adds the given key to the set if it wasn't already
-// in there. Returns false if the key was already in the set and
-// thus it wasn't written.
-func (s *safeStringSet) addIfAbsent(key string) bool {
-	s.mux.Lock()
-	defer s.mux.Unlock()
-
-	if s.set.Has(key) {
-		return false
-	}
-
-	s.set.Insert(key)
-	return true
 }
