@@ -17,7 +17,6 @@ limitations under the License.
 package autoscaler
 
 import (
-	"fmt"
 	"sync"
 	"testing"
 	"time"
@@ -202,21 +201,6 @@ func TestScrapeReportErrorIfAllFail(t *testing.T) {
 	_, err = scraper.Scrape()
 	if errors.Cause(err) != errTest {
 		t.Errorf("scraper.Scrape() = %v, want %v", err, errTest)
-	}
-}
-
-func TestUpdateTarget(t *testing.T) {
-	client := newTestScrapeClient(testStats, nil)
-	scraper, err := serviceScraperForTest(client)
-	if err != nil {
-		t.Fatalf("serviceScraperForTest=%v, want no error", err)
-	}
-	if got, want := scraper.target(), fmt.Sprintf("http://%s-zhudex.%s:9090/metrics", testRevision, testNamespace); got != want {
-		t.Errorf("Initial target = %s, want: %s, diff: %s", got, want, cmp.Diff(got, want))
-	}
-	scraper.UpdateTarget("last-words", "said-again")
-	if got, want := scraper.target(), "http://last-words.said-again:9090/metrics"; got != want {
-		t.Errorf("Initial target = %s, want: %s, diff: %s", got, want, cmp.Diff(got, want))
 	}
 }
 
