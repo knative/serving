@@ -409,7 +409,6 @@ MUST be provided:
 | ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `/tmp`     | MUST be Read-write.<p>SHOULD be backed by tmpfs if disk load is a concern.                                                                                       |
 | `/var/log` | MUST be a directory with write permissions for logs storage. Implementations MAY permit the creation of additional subdirectories and log rotation and renaming. |
-| `/dev/log` | MUST be a writable socket to syslog                                                                                                                              |
 
 In addition, the following files may be overridden by the runtime environment to
 enable DNS resolution:

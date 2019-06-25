@@ -45,9 +45,6 @@ var MustFiles = map[string]FileInfo{
 	"/dev/full": {
 		IsDir: ptr.Bool(false),
 	},
-	// TODO(#822): Add conformance tests for "/dev/log" once implemented
-	//"/dev/log": {
-	//},
 	"/dev/null": {
 		IsDir: ptr.Bool(false),
 	},
