@@ -164,32 +164,9 @@ func TestScrapeReportStatWhenAllCallsSucceed(t *testing.T) {
 	}
 }
 
-func TestScrapeReportStatWhenAtLeastOneCallSucceeds(t *testing.T) {
+func TestScrapeReportErrorIfAnyFails(t *testing.T) {
 	errTest := errors.New("test")
-	client := newTestScrapeClient(testStats, []error{nil, errTest, errTest})
-	scraper, err := serviceScraperForTest(client)
-	if err != nil {
-		t.Fatalf("serviceScraperForTest=%v, want no error", err)
-	}
-
-	// Make an Endpoints with 3 pods.
-	endpoints(3)
-
-	got, err := scraper.Scrape()
-	if err != nil {
-		t.Fatalf("unexpected error from scraper.Scrape(): %v", err)
-	}
-	// Only first sample.
-	// 3.0 * 3
-	if got.Stat.AverageConcurrentRequests != 9.0 {
-		t.Errorf("StatMessage.Stat.AverageConcurrentRequests=%v, want %v",
-			got.Stat.AverageConcurrentRequests, 9.0)
-	}
-}
-
-func TestScrapeReportErrorIfAllFail(t *testing.T) {
-	errTest := errors.New("test")
-	client := newTestScrapeClient(testStats, []error{errTest, errTest})
+	client := newTestScrapeClient(testStats, []error{nil, errTest})
 	scraper, err := serviceScraperForTest(client)
 	if err != nil {
 		t.Fatalf("serviceScraperForTest=%v, want no error", err)

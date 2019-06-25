@@ -145,8 +145,8 @@ func (s *ServiceScraper) Scrape() (*StatMessage, error) {
 		})
 	}
 
-	// Return the inner error if all of the scrape calls failed.
-	if err := grp.Wait(); err != nil && len(statCh) == 0 {
+	// Return the inner error, if any.
+	if err := grp.Wait(); err != nil {
 		return nil, errors.Wrapf(err, "fail to get a successful scrape for %d tries", sampleSize)
 	}
 	close(statCh)
