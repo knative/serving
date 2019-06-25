@@ -241,6 +241,15 @@ func TestContainerValidation(t *testing.T) {
 		},
 		want: nil,
 	}, {
+		name: "has valid unnamed user port",
+		c: corev1.Container{
+			Image: "foo",
+			Ports: []corev1.ContainerPort{{
+				ContainerPort: 8181,
+			}},
+		},
+		want: nil,
+	}, {
 		name: "has valid user port http1",
 		c: corev1.Container{
 			Image: "foo",
