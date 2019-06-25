@@ -45,9 +45,6 @@ const (
 type StatsScraper interface {
 	// Scrape scrapes the Revision queue metric endpoint.
 	Scrape() (*StatMessage, error)
-
-	// UpdateTarget updates the target URL to scrape, usign K8s service name and namespace.
-	UpdateTarget(target, ns string)
 }
 
 // scrapeClient defines the interface for collecting Revision metrics for a given
@@ -128,14 +125,6 @@ func (s *ServiceScraper) target() string {
 	s.urlMu.RLock()
 	defer s.urlMu.RUnlock()
 	return s.url
-}
-
-// UpdateTarget implements StatsScraper interface.
-func (s *ServiceScraper) UpdateTarget(target, ns string) {
-	url := urlFromTarget(target, ns)
-	s.urlMu.Lock()
-	defer s.urlMu.Unlock()
-	s.url = url
 }
 
 // Scrape calls the destination service then sends it
