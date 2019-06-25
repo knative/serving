@@ -90,6 +90,12 @@ header "Running postupgrade tests"
 go_test_e2e -tags=postupgrade -timeout=${TIMEOUT} ./test/upgrade \
   --resolvabledomain=$(use_resolvable_domain) || fail_test
 
+install_latest_release
+
+header "Running postdowngrade tests"
+go_test_e2e -tags=postdowngrade -timeout=${TIMEOUT} ./test/upgrade \
+  --resolvabledomain=$(use_resolvable_domain) || fail_test
+
 # The prober is blocking on /tmp/prober-signal to know when it should exit.
 #
 # This is kind of gross. First attempt was to just send a signal to the go test,
