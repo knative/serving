@@ -17,6 +17,7 @@ limitations under the License.
 package resources
 
 import (
+	"fmt"
 	"math"
 
 	"github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
@@ -25,12 +26,17 @@ import (
 
 // ResolveConcurrency takes concurrency knobs from multiple locations and resolves them
 // to the final value to be used by the autoscaler.
-func ResolveConcurrency(pa *v1alpha1.PodAutoscaler, config *autoscaler.Config) float64 {
-	target := math.Max(1, float64(pa.Spec.ContainerConcurrency)*config.ContainerConcurrencyTargetFraction)
+// `target` is the target concurrency that we autoscaler will aim for;
+// `total` is the maximum possible concurrency that is permitted on the pod.
+func ResolveConcurrency(pa *v1alpha1.PodAutoscaler, config *autoscaler.Config) (target float64, total float64) {
+	total = float64(pa.Spec.ContainerConcurrency)
+	target = math.Max(1, total*config.ContainerConcurrencyTargetFraction)
+	fmt.Printf("###3 total: %f target: %f frac: %f\n", total, target, config.ContainerConcurrencyTargetFraction)
 
 	// If containerConcurrency is 0 we'll always target the default.
 	if pa.Spec.ContainerConcurrency == 0 {
 		target = config.ContainerConcurrencyTargetDefault
+		total = target
 	}
 
 	// Use the target provided via annotation, if applicable.
@@ -39,7 +45,8 @@ func ResolveConcurrency(pa *v1alpha1.PodAutoscaler, config *autoscaler.Config) f
 		// to make sure the autoscaler does not aim for a higher concurrency than the application
 		// can handle per containerConcurrency.
 		target = math.Min(target, annotationTarget)
+		total = target
 	}
 
-	return target
+	return target, total
 }

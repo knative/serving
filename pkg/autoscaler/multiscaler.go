@@ -19,6 +19,7 @@ package autoscaler
 import (
 	"context"
 	"fmt"
+	"math"
 	"sync"
 	"time"
 
@@ -40,10 +41,17 @@ type Decider struct {
 
 // DeciderSpec is the parameters in which the Revision should scaled.
 type DeciderSpec struct {
-	TickInterval      time.Duration
-	MaxScaleUpRate    float64
+	TickInterval   time.Duration
+	MaxScaleUpRate float64
+	// The concurrency per pod that we target to maintain.
+	// TargetConcurrency <= TotalConcurency.
 	TargetConcurrency float64
-	PanicThreshold    float64
+	// The total concurrency that a pod can maintain.
+	TotalConcurrency float64
+	// The burst capacity that user wants to maintain without queing at the POD level.
+	// Note, that queueing still might happen due to the non-ideal load balancing.
+	TargetBurstCapacity float64
+	PanicThreshold      float64
 	// StableWindow is needed to determine when to exit panicmode.
 	StableWindow time.Duration
 	// The name of the k8s service for pod information.
@@ -53,13 +61,20 @@ type DeciderSpec struct {
 // DeciderStatus is the current scale recommendation.
 type DeciderStatus struct {
 	DesiredScale int32
+	// ExcessBurstCapacity is the difference between spare capacity
+	// (how many more concurrent requests the pods in the revision
+	// deployment can serve) and the configured target burst capacity.
+	// If this number is negative: Activator will be threaded in
+	// by the PodAutoscaler controller.
+	ExcessBurstCapacity int32
 }
 
 // UniScaler records statistics for a particular Decider and proposes the scale for the Decider's target based on those statistics.
 type UniScaler interface {
-	// Scale either proposes a number of replicas or skips proposing. The proposal is requested at the given time.
+	// Scale either proposes a number of replicas and available excess burst capacity,
+	// or skips proposing. The proposal is requested at the given time.
 	// The returned boolean is true if and only if a proposal was returned.
-	Scale(context.Context, time.Time) (int32, bool)
+	Scale(context.Context, time.Time) (int32, int32, bool)
 
 	// Update reconfigures the UniScaler according to the DeciderSpec.
 	Update(DeciderSpec) error
@@ -85,14 +100,26 @@ func (sr *scalerRunner) getLatestScale() int32 {
 	return sr.decider.Status.DesiredScale
 }
 
-func (sr *scalerRunner) updateLatestScale(new int32) bool {
+func sameSign(a, b int32) bool {
+	return (a&math.MinInt32)^(b&math.MinInt32) == 0
+}
+
+func (sr *scalerRunner) updateLatestScale(proposed, ebc int32) bool {
+	ret := false
 	sr.mux.Lock()
 	defer sr.mux.Unlock()
-	if sr.decider.Status.DesiredScale != new {
-		sr.decider.Status.DesiredScale = new
-		return true
+	if sr.decider.Status.DesiredScale != proposed {
+		sr.decider.Status.DesiredScale = proposed
+		ret = true
 	}
-	return false
+
+	// If sign has changed -- then we have to update KPA
+	if !sameSign(sr.decider.Status.ExcessBurstCapacity, ebc) {
+		ret = true
+	}
+	// Update with the latest calculation anyway.
+	sr.decider.Status.ExcessBurstCapacity = ebc
+	return ret
 }
 
 // NewMetricKey identifies a UniScaler in the multiscaler. Stats send in
@@ -262,19 +289,19 @@ func (m *MultiScaler) createScaler(ctx context.Context, decider *Decider) (*scal
 
 func (m *MultiScaler) tickScaler(ctx context.Context, scaler UniScaler, runner *scalerRunner, metricKey string) {
 	logger := logging.FromContext(ctx)
-	desiredScale, scaled := scaler.Scale(ctx, time.Now())
+	desiredScale, excessBC, scaled := scaler.Scale(ctx, time.Now())
 
 	if !scaled {
 		return
 	}
 
-	// Cannot scale negative.
+	// Cannot scale negative (nor we can compute burst capacity).
 	if desiredScale < 0 {
 		logger.Errorf("Cannot scale: desiredScale %d < 0.", desiredScale)
 		return
 	}
 
-	if runner.updateLatestScale(desiredScale) {
+	if runner.updateLatestScale(desiredScale, excessBC) {
 		m.Inform(metricKey)
 	}
 }
