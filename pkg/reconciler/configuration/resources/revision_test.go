@@ -176,14 +176,14 @@ func TestMakeRevisions(t *testing.T) {
 			},
 		},
 	}, {
-		name: "with annotation from config",
+		name: "with creator annotation from config",
 		configuration: &v1alpha1.Configuration{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: "anno",
 				Name:      "config",
 				Annotations: map[string]string{
 					"serving.knative.dev/creator":      "admin",
-					"serving.knative.dev/lastModifier": "admin",
+					"serving.knative.dev/lastModifier": "someone",
 				},
 				Generation: 10,
 			},
@@ -202,8 +202,7 @@ func TestMakeRevisions(t *testing.T) {
 				Namespace:    "anno",
 				GenerateName: "config-",
 				Annotations: map[string]string{
-					"serving.knative.dev/creator":      "admin",
-					"serving.knative.dev/lastModifier": "admin",
+					"serving.knative.dev/creator": "admin",
 				},
 				OwnerReferences: []metav1.OwnerReference{{
 					APIVersion:         v1alpha1.SchemeGroupVersion.String(),

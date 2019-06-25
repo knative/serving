@@ -40,8 +40,16 @@ func MakeRevision(config *v1alpha1.Configuration) *v1alpha1.Revision {
 
 	UpdateRevisionLabels(rev, config)
 
-	if rev.Annotations == nil {
-		rev.Annotations = config.GetAnnotations()
+	// Populate the CreatorAnnotation from configuration.
+	cans := config.GetAnnotations()
+	creator, ok := cans[serving.CreatorAnnotation]
+	if ok {
+		rans := rev.GetAnnotations()
+		if rans == nil {
+			rev.Annotations = map[string]string{serving.CreatorAnnotation: creator}
+		} else {
+			rans[serving.CreatorAnnotation] = creator
+		}
 	}
 
 	// Populate OwnerReferences so that deletes cascade.

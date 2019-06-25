@@ -22,6 +22,8 @@ import (
 	corev1 "k8s.io/api/core/v1"
 
 	"github.com/knative/serving/pkg/apis/config"
+	"github.com/knative/serving/pkg/apis/serving"
+	"knative.dev/pkg/apis"
 )
 
 // SetDefaults implements apis.Defaultable
@@ -32,6 +34,19 @@ func (r *Revision) SetDefaults(ctx context.Context) {
 // SetDefaults implements apis.Defaultable
 func (rts *RevisionTemplateSpec) SetDefaults(ctx context.Context) {
 	rts.Spec.SetDefaults(ctx)
+
+	if apis.IsInUpdate(ctx) {
+		return
+	}
+	ctx = apis.WithinParent(ctx, rts.ObjectMeta)
+	if ui := apis.GetUserInfo(ctx); ui != nil {
+		ans := rts.GetAnnotations()
+		if ans == nil {
+			ans = map[string]string{}
+			defer rts.SetAnnotations(ans)
+		}
+		ans[serving.UpdaterAnnotation] = ui.Username
+	}
 }
 
 // SetDefaults implements apis.Defaultable
