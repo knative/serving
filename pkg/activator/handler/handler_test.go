@@ -12,7 +12,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-package handler_test
+package handler
 
 import (
 	"errors"
@@ -334,8 +334,8 @@ func TestActivationHandler(t *testing.T) {
 				svcLister,
 				sksLister,
 				prober.New(rtFact(rt)))
-			handler.Transport = rt
-			handler.ProbeTimeout = test.probeTimeout
+			handler.transport = rt
+			handler.probeTimeout = test.probeTimeout
 
 			resp := httptest.NewRecorder()
 
@@ -401,7 +401,7 @@ func TestActivationHandlerOverflow(t *testing.T) {
 		serviceLister(service(namespace, revName, "http")),
 		sksLister(sks(namespace, revName)),
 		prober.New(rtFact(rt)))
-	handler.Transport = rt
+	handler.transport = rt
 
 	sendRequests(requests, namespace, revName, respCh, handler)
 	assertResponses(wantedSuccess, wantedFailure, lockerCh, respCh, t)
@@ -448,7 +448,7 @@ func TestActivationHandlerOverflowSeveralRevisions(t *testing.T) {
 		svcClient,
 		sksClient,
 		prober.New(rtFact(rt)))
-	handler.Transport = rt
+	handler.transport = rt
 
 	for _, revName := range revisions {
 		requestCount := overallRequests / len(revisions)
@@ -491,7 +491,7 @@ func TestActivationHandlerProxyHeader(t *testing.T) {
 		serviceLister(service(testNamespace, testRevName, "http")),
 		sksLister(sks(testNamespace, testRevName)),
 		prober.New(rtFact(probeRt)))
-	handler.Transport = rt
+	handler.transport = rt
 
 	writer := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
@@ -556,7 +556,7 @@ func TestActivationHandlerTraceSpans(t *testing.T) {
 		serviceLister(service(testNamespace, testRevName, "http")),
 		sksLister(sks(testNamespace, testRevName)),
 		prober.New(rtFact(rt)))
-	handler.Transport = rt
+	handler.transport = rt
 
 	_ = sendRequest(namespace, revName, handler)
 

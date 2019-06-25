@@ -45,15 +45,15 @@ import (
 	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
-// ActivationHandler will wait for an active endpoint for a revision
+// activationHandler will wait for an active endpoint for a revision
 // to be available before proxing the request
-type ActivationHandler struct {
+type activationHandler struct {
 	logger    *zap.SugaredLogger
-	Transport http.RoundTripper
+	transport http.RoundTripper
 	reporter  activator.StatsReporter
 	throttler *activator.Throttler
 
-	ProbeTimeout    time.Duration
+	probeTimeout    time.Duration
 	prober          prober.Prober
 	endpointTimeout time.Duration
 
@@ -68,16 +68,16 @@ const defaultTimeout = 2 * time.Minute
 // New constructs a new http.Handler that deals with revision activation.
 func New(l *zap.SugaredLogger, r activator.StatsReporter, t *activator.Throttler,
 	rl servinglisters.RevisionLister, sl corev1listers.ServiceLister,
-	sksL netlisters.ServerlessServiceLister, pb prober.Prober) *ActivationHandler {
-	return &ActivationHandler{
+	sksL netlisters.ServerlessServiceLister, pb prober.Prober) http.Handler {
+	return &activationHandler{
 		logger:          l,
-		Transport:       network.AutoTransport,
+		transport:       network.AutoTransport,
 		reporter:        r,
 		throttler:       t,
 		revisionLister:  rl,
 		sksLister:       sksL,
 		serviceLister:   sl,
-		ProbeTimeout:    defaultTimeout,
+		probeTimeout:    defaultTimeout,
 		prober:          pb,
 		endpointTimeout: defaultTimeout,
 	}
@@ -92,7 +92,7 @@ func withOrigProto(or *http.Request) prober.ProbeOption {
 	}
 }
 
-func (a *ActivationHandler) probeEndpoint(logger *zap.SugaredLogger, r *http.Request, target *url.URL) (bool, int) {
+func (a *activationHandler) probeEndpoint(logger *zap.SugaredLogger, r *http.Request, target *url.URL) (bool, int) {
 	var (
 		attempts int
 		st       = time.Now()
@@ -104,7 +104,7 @@ func (a *ActivationHandler) probeEndpoint(logger *zap.SugaredLogger, r *http.Req
 		a.logger.Debugf("Probing %s took %d attempts and %v time", target.String(), attempts, time.Since(st))
 	}()
 
-	err := wait.PollImmediate(100*time.Millisecond, a.ProbeTimeout, func() (bool, error) {
+	err := wait.PollImmediate(100*time.Millisecond, a.probeTimeout, func() (bool, error) {
 		attempts++
 		ret, err := a.prober.Do(reqCtx, target.String(), queue.Name, withOrigProto(r))
 		if err != nil {
@@ -120,7 +120,7 @@ func (a *ActivationHandler) probeEndpoint(logger *zap.SugaredLogger, r *http.Req
 	return (err == nil), attempts
 }
 
-func (a *ActivationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (a *activationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	namespace := pkghttp.LastHeaderValue(r.Header, activator.RevisionHeaderNamespace)
 	name := pkghttp.LastHeaderValue(r.Header, activator.RevisionHeaderName)
 	start := time.Now()
@@ -205,12 +205,12 @@ func (a *ActivationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (a *ActivationHandler) proxyRequest(w http.ResponseWriter, r *http.Request, target *url.URL) int {
+func (a *activationHandler) proxyRequest(w http.ResponseWriter, r *http.Request, target *url.URL) int {
 	network.RewriteHostIn(r)
 	recorder := pkghttp.NewResponseRecorder(w, http.StatusOK)
 	proxy := httputil.NewSingleHostReverseProxy(target)
 	proxy.Transport = &ochttp.Transport{
-		Base: a.Transport,
+		Base: a.transport,
 	}
 	proxy.FlushInterval = -1
 
@@ -224,7 +224,7 @@ func (a *ActivationHandler) proxyRequest(w http.ResponseWriter, r *http.Request,
 
 // serviceHostName obtains the hostname of the underlying service and the correct
 // port to send requests to.
-func (a *ActivationHandler) serviceHostName(rev *v1alpha1.Revision, serviceName string) (string, error) {
+func (a *activationHandler) serviceHostName(rev *v1alpha1.Revision, serviceName string) (string, error) {
 	svc, err := a.serviceLister.Services(rev.Namespace).Get(serviceName)
 	if err != nil {
 		return "", err
