@@ -17,7 +17,6 @@ package handler
 import (
 	"errors"
 	"fmt"
-	"github.com/knative/serving/pkg/activator/handler"
 	"github.com/knative/serving/pkg/network/prober"
 	"io/ioutil"
 	"net/http"
@@ -326,14 +325,14 @@ func TestActivationHandler(t *testing.T) {
 				svcLister = test.svcLister
 			}
 
-			handler := handler.New(
+			handler := New(
 				TestLogger(t),
 				reporter,
 				throttler,
 				revisionLister(revision(testNamespace, testRevName)),
 				svcLister,
 				sksLister,
-				prober.New(rtFact(rt)))
+				prober.New(rtFact(rt))).(*activationHandler)
 			handler.transport = rt
 			handler.probeTimeout = test.probeTimeout
 
@@ -393,14 +392,14 @@ func TestActivationHandlerOverflow(t *testing.T) {
 		revisionLister(revision(namespace, revName)),
 		TestLogger(t))
 
-	handler := handler.New(
+	handler := New(
 		TestLogger(t),
 		reporter,
 		throttler,
 		revisionLister(revision(namespace, revName)),
 		serviceLister(service(namespace, revName, "http")),
 		sksLister(sks(namespace, revName)),
-		prober.New(rtFact(rt)))
+		prober.New(rtFact(rt))).(*activationHandler)
 	handler.transport = rt
 
 	sendRequests(requests, namespace, revName, respCh, handler)
@@ -440,14 +439,14 @@ func TestActivationHandlerOverflowSeveralRevisions(t *testing.T) {
 		},
 	}
 	rt := network.RoundTripperFunc(fakeRT.RT)
-	handler := handler.New(
+	handler := New(
 		TestLogger(t),
 		reporter,
 		throttler,
 		revClient,
 		svcClient,
 		sksClient,
-		prober.New(rtFact(rt)))
+		prober.New(rtFact(rt))).(*activationHandler)
 	handler.transport = rt
 
 	for _, revName := range revisions {
@@ -483,14 +482,14 @@ func TestActivationHandlerProxyHeader(t *testing.T) {
 	}
 	probeRt := network.RoundTripperFunc(fakeRT.RT)
 
-	handler := handler.New(
+	handler := New(
 		TestLogger(t),
 		&fakeReporter{},
 		throttler,
 		revisionLister(revision(testNamespace, testRevName)),
 		serviceLister(service(testNamespace, testRevName, "http")),
 		sksLister(sks(testNamespace, testRevName)),
-		prober.New(rtFact(probeRt)))
+		prober.New(rtFact(probeRt))).(*activationHandler)
 	handler.transport = rt
 
 	writer := httptest.NewRecorder()
@@ -548,14 +547,14 @@ func TestActivationHandlerTraceSpans(t *testing.T) {
 		revisionLister(revision(namespace, revName)),
 		TestLogger(t))
 
-	handler := handler.New(
+	handler := New(
 		TestLogger(t),
 		&fakeReporter{},
 		throttler,
 		revisionLister(revision(testNamespace, testRevName)),
 		serviceLister(service(testNamespace, testRevName, "http")),
 		sksLister(sks(testNamespace, testRevName)),
-		prober.New(rtFact(rt)))
+		prober.New(rtFact(rt))).(*activationHandler)
 	handler.transport = rt
 
 	_ = sendRequest(namespace, revName, handler)
