@@ -98,7 +98,7 @@ function build_knative_from_source() {
 
   # set ko flags to omit istio resources from generated YAMLs
   if [[ -n "${GLOO_VERSION}" ]]; then
-    KO_FLAGS="--selector=networking.knative.dev/ingress-provider!=istio"
+    KO_FLAGS="${KO_FLAGS} --selector=networking.knative.dev/ingress-provider!=istio"
   fi
 
   # Generate manifests, capture environment variables pointing to the YAML files.
@@ -161,7 +161,7 @@ function install_gloo() {
   echo "Gloo YAML: ${INSTALL_GLOO_YAML}"
   echo ">> Bringing up Gloo"
 
-  kubectl apply -f ${INSTALL_GLOO_YAML}
+  kubectl apply -f ${INSTALL_GLOO_YAML} || return 1
 }
 
 # Installs Knative Serving in the current cluster, and waits for it to be ready.
@@ -287,11 +287,16 @@ function knative_teardown() {
 # Create test resources and images
 function test_setup() {
   echo ">> Creating test resources (test/config/)"
-  ko apply -f test/config/ || return 1
+  ko apply ${KO_FLAGS} -f test/config/ || return 1
   ${REPO_ROOT_DIR}/test/upload-test-images.sh || return 1
   wait_until_pods_running knative-serving || return 1
-  wait_until_pods_running istio-system || return 1
-  wait_until_service_has_external_ip istio-system istio-ingressgateway
+  if [[ -z "${GLOO_VERSION}" ]]; then
+    wait_until_pods_running istio-system || return 1
+    wait_until_service_has_external_ip istio-system istio-ingressgateway
+  else
+    wait_until_pods_running gloo-system || return 1
+    wait_until_service_has_external_ip gloo-system clusteringress-proxy
+  fi
   if [[ -n "${INSTALL_MONITORING_YAML}" ]]; then
     wait_until_pods_running knative-monitoring || return 1
   fi
