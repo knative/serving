@@ -86,7 +86,7 @@ data:
     # Max scale up rate limits the rate at which the autoscaler will
     # increase pod count. It is the maximum ratio of desired pods versus
     # observed pods.
-    max-scale-up-rate: "10"
+    max-scale-up-rate: "1000.0"
 
     # Scale to zero feature flag
     enable-scale-to-zero: "true"

@@ -82,7 +82,7 @@ func NewConfigFromMap(data map[string]string) (*Config, error) {
 	}{{
 		key:          "max-scale-up-rate",
 		field:        &lc.MaxScaleUpRate,
-		defaultValue: 10.0,
+		defaultValue: 1000.0,
 	}, {
 		key:   "container-concurrency-target-percentage",
 		field: &lc.ContainerConcurrencyTargetFraction,
