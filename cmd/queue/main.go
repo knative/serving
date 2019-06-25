@@ -257,9 +257,9 @@ func handler(reqChan chan queue.ReqEvent, breaker *queue.Breaker, handler http.H
 }
 
 // Sets up /health and /wait-for-drain endpoints.
-func createAdminHandlers(probeUserContainer func() bool) *http.ServeMux {
+func createAdminHandlers(readinessProbe func() bool) *http.ServeMux {
 	mux := http.NewServeMux()
-	mux.HandleFunc(requestQueueHealthPath, healthState.HealthHandler(probeUserContainer))
+	mux.HandleFunc(requestQueueHealthPath, healthState.HealthHandler(readinessProbe))
 	mux.HandleFunc(queue.RequestQueueDrainPath, healthState.DrainHandler())
 
 	return mux
