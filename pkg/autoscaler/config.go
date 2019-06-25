@@ -87,8 +87,7 @@ func NewConfigFromMap(data map[string]string) (*Config, error) {
 		key:   "container-concurrency-target-percentage",
 		field: &lc.ContainerConcurrencyTargetFraction,
 		// TODO(#1956): Tune target usage based on empirical data.
-		// TODO(#2016): Revert to 0.7 once incorrect reporting is solved
-		defaultValue: 1.0,
+		defaultValue: 0.7,
 	}, {
 		key:          "container-concurrency-target-default",
 		field:        &lc.ContainerConcurrencyTargetDefault,
@@ -111,7 +110,7 @@ func NewConfigFromMap(data map[string]string) (*Config, error) {
 		}
 	}
 
-	// Adjust % ⇒ fractions: for legacy reasons we allow values
+	// Adjust % ⇒ fractions: for legacy reasons we allow values in the
 	// (0, 1] interval, so minimal percentage must be greater than 1.0.
 	// Internally we want to have fractions, since otherwise we'll have
 	// to perform division on each computation.

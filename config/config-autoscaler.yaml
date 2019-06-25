@@ -49,8 +49,7 @@ data:
     # fractional values in (0, 1] interval (i.e. 0.7 ⇒ 70%).
     # Thus minimal percentage value must be greater than 1.0, or it will be
     # treated as a fraction.
-    # TODO(#2016): Set to 70%.
-    container-concurrency-target-percentage: "100"
+    container-concurrency-target-percentage: "70"
 
     # The container concurrency target default is what the Autoscaler will
     # try to maintain when the Revision specifies unlimited concurrency.
