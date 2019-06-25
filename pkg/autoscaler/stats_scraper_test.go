@@ -38,15 +38,23 @@ const (
 var (
 	testStats = []*Stat{
 		{
+			PodName:                          "pod-1",
 			AverageConcurrentRequests:        3.0,
 			AverageProxiedConcurrentRequests: 2.0,
 			RequestCount:                     5,
 			ProxiedRequestCount:              4,
 		}, {
+			PodName:                          "pod-2",
 			AverageConcurrentRequests:        5.0,
 			AverageProxiedConcurrentRequests: 4.0,
 			RequestCount:                     7,
 			ProxiedRequestCount:              6,
+		}, {
+			PodName:                          "pod-3",
+			AverageConcurrentRequests:        3.0,
+			AverageProxiedConcurrentRequests: 2.0,
+			RequestCount:                     5,
+			ProxiedRequestCount:              4,
 		},
 	}
 )
@@ -164,32 +172,28 @@ func TestScrapeReportStatWhenAllCallsSucceed(t *testing.T) {
 	}
 }
 
-func TestScrapeReportStatWhenAtLeastOneCallSucceeds(t *testing.T) {
-	errTest := errors.New("test")
-	client := newTestScrapeClient(testStats, []error{nil, errTest, errTest})
+func TestScrapeReportErrorCannotFindEnoughPods(t *testing.T) {
+	client := newTestScrapeClient(testStats[2:], []error{nil})
 	scraper, err := serviceScraperForTest(client)
 	if err != nil {
 		t.Fatalf("serviceScraperForTest=%v, want no error", err)
 	}
 
-	// Make an Endpoints with 3 pods.
-	endpoints(3)
+	// Make an Endpoints with 2 pods.
+	endpoints(2)
 
-	got, err := scraper.Scrape()
-	if err != nil {
-		t.Fatalf("unexpected error from scraper.Scrape(): %v", err)
-	}
-	// Only first sample.
-	// 3.0 * 3
-	if got.Stat.AverageConcurrentRequests != 9.0 {
-		t.Errorf("StatMessage.Stat.AverageConcurrentRequests=%v, want %v",
-			got.Stat.AverageConcurrentRequests, 9.0)
+	_, err = scraper.Scrape()
+	if err == nil {
+		t.Errorf("scrape.Scrape() = nil, expected an error")
 	}
 }
 
-func TestScrapeReportErrorIfAllFail(t *testing.T) {
+func TestScrapeReportErrorIfAnyFails(t *testing.T) {
 	errTest := errors.New("test")
-	client := newTestScrapeClient(testStats, []error{errTest, errTest})
+
+	// 1 success and 10 failures so one scrape fails permanently through retries.
+	client := newTestScrapeClient(testStats, []error{nil,
+		errTest, errTest, errTest, errTest, errTest, errTest, errTest, errTest, errTest, errTest})
 	scraper, err := serviceScraperForTest(client)
 	if err != nil {
 		t.Fatalf("serviceScraperForTest=%v, want no error", err)
