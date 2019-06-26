@@ -64,7 +64,7 @@ func (cs *CertificateStatus) GetCondition(t apis.ConditionType) *apis.Condition 
 // ConditionType represents a Certificate condition value
 const (
 	// CertificateConditionReady is set when the requested certificate
-	// is provioned and valid.
+	// is provisioned and valid.
 	CertificateConditionReady = apis.ConditionReady
 )
 
