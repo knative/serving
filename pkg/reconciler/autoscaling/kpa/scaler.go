@@ -22,6 +22,8 @@ import (
 	"net/http"
 	"time"
 
+	"go.uber.org/zap"
+
 	"github.com/knative/pkg/apis/duck"
 	"github.com/knative/pkg/injection/clients/dynamicclient"
 	"github.com/knative/pkg/logging"
@@ -32,8 +34,9 @@ import (
 	"github.com/knative/serving/pkg/network"
 	"github.com/knative/serving/pkg/network/prober"
 	"github.com/knative/serving/pkg/reconciler/autoscaling/config"
+	aresources "github.com/knative/serving/pkg/reconciler/autoscaling/resources"
 	"github.com/knative/serving/pkg/resources"
-	"go.uber.org/zap"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/dynamic"
@@ -142,14 +145,15 @@ func (ks *scaler) handleScaleToZero(pa *pav1alpha1.PodAutoscaler, desiredScale i
 		// Don't scale-to-zero if the PA is active
 
 		// Do not scale to 0, but return desiredScale of 0 to mark PA inactive.
-		if pa.Status.CanMarkInactive(config.StableWindow) {
+		sw := aresources.StableWindow(pa, config)
+		if pa.Status.CanMarkInactive(sw) {
 			// We do not need to enqueue PA here, since this will
 			// make SKS reconcile and when it's done, PA will be reconciled again.
 			return desiredScale, false
 		}
 		// Otherwise, scale down to 1 until the idle period elapses and re-enqueue
 		// the PA for reconciliation at that time.
-		ks.enqueueCB(pa, config.StableWindow)
+		ks.enqueueCB(pa, sw)
 		desiredScale = 1
 	} else { // Active=False
 		r, err := ks.activatorProbe(pa, ks.transportFactory())
