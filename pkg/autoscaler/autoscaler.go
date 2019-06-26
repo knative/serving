@@ -19,6 +19,7 @@ package autoscaler
 import (
 	"context"
 	"errors"
+	"fmt"
 	"math"
 	"sync"
 	"time"
@@ -122,8 +123,12 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (desiredPodCount 
 	a.reporter.ReportPanicRequestConcurrency(observedPanicConcurrency)
 	a.reporter.ReportTargetRequestConcurrency(spec.TargetConcurrency)
 
-	logger.Debugf("STABLE: Observed average %0.3f concurrency, targeting %0.3f.", observedStableConcurrency, spec.TargetConcurrency)
-	logger.Debugf("PANIC: Observed average %0.3f concurrency, targeting %0.3f.", observedPanicConcurrency, spec.TargetConcurrency)
+	logger.Debugw(fmt.Sprintf("Observed average %0.3f concurrency, targeting %0.3f.",
+		observedStableConcurrency, spec.TargetConcurrency),
+		zap.String("concurrency", "stable"))
+	logger.Debugw(fmt.Sprintf("Observed average %0.3f concurrency, targeting %0.3f.",
+		observedPanicConcurrency, spec.TargetConcurrency),
+		zap.String("concurrency", "panic"))
 
 	isOverPanicThreshold := observedPanicConcurrency/readyPodsCount >= spec.PanicThreshold
 
