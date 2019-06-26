@@ -53,7 +53,7 @@ func (sss *ServerlessServiceStatus) MarkEndpointsNotOwned(kind, name string) {
 		"Resource %s of type %s is not owned by SKS", name, kind)
 }
 
-// MarkEndpointsNotReady marks the ServerlessServiceStatus endpoints populated conditiohn to unknown.
+// MarkEndpointsNotReady marks the ServerlessServiceStatus endpoints populated condition to unknown.
 func (sss *ServerlessServiceStatus) MarkEndpointsNotReady(reason string) {
 	serverlessServiceCondSet.Manage(sss).MarkUnknown(
 		ServerlessServiceConditionEndspointsPopulated, reason,
