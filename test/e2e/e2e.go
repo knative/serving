@@ -10,7 +10,7 @@ import (
 	// https://github.com/kubernetes/client-go/issues/242
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 
-	pkgTest "github.com/knative/pkg/test"
+	pkgTest "knative.dev/pkg/test"
 	"github.com/knative/serving/pkg/autoscaler"
 	"github.com/knative/serving/test"
 	v1a1test "github.com/knative/serving/test/v1alpha1"

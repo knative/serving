@@ -25,7 +25,7 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/knative/pkg/webhook"
+	"knative.dev/pkg/webhook"
 	"github.com/knative/test-infra/tools/webhook-apicoverage/coveragecalculator"
 	"github.com/knative/test-infra/tools/webhook-apicoverage/resourcetree"
 	"github.com/knative/test-infra/tools/webhook-apicoverage/view"

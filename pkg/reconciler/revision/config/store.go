@@ -19,9 +19,9 @@ package config
 import (
 	"context"
 
-	"github.com/knative/pkg/configmap"
-	pkglogging "github.com/knative/pkg/logging"
-	pkgmetrics "github.com/knative/pkg/metrics"
+	"knative.dev/pkg/configmap"
+	pkglogging "knative.dev/pkg/logging"
+	pkgmetrics "knative.dev/pkg/metrics"
 	"github.com/knative/serving/pkg/autoscaler"
 	deployment "github.com/knative/serving/pkg/deployment"
 	"github.com/knative/serving/pkg/logging"

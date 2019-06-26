@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/knative/pkg/apis"
+	"knative.dev/pkg/apis"
 )
 
 func getIntGE0(m map[string]string, k string) (int64, *apis.FieldError) {

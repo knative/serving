@@ -31,8 +31,8 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 
-	"github.com/knative/pkg/apis/duck"
-	"github.com/knative/pkg/logging"
+	"knative.dev/pkg/apis/duck"
+	"knative.dev/pkg/logging"
 	netv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"

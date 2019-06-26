@@ -27,14 +27,14 @@ import (
 	"time"
 
 	// These are the fake informers we want setup.
-	fakedynamicclient "github.com/knative/pkg/injection/clients/dynamicclient/fake"
+	fakedynamicclient "knative.dev/pkg/injection/clients/dynamicclient/fake"
 	fakeservingclient "github.com/knative/serving/pkg/client/injection/client/fake"
 
-	"github.com/knative/pkg/apis"
-	"github.com/knative/pkg/apis/duck"
-	"github.com/knative/pkg/logging"
-	logtesting "github.com/knative/pkg/logging/testing"
-	_ "github.com/knative/pkg/system/testing"
+	"knative.dev/pkg/apis"
+	"knative.dev/pkg/apis/duck"
+	"knative.dev/pkg/logging"
+	logtesting "knative.dev/pkg/logging/testing"
+	_ "knative.dev/pkg/system/testing"
 	"github.com/knative/serving/pkg/activator"
 	"github.com/knative/serving/pkg/apis/autoscaling"
 	pav1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
@@ -55,7 +55,7 @@ import (
 	fakedynamic "k8s.io/client-go/dynamic/fake"
 	clientgotesting "k8s.io/client-go/testing"
 
-	. "github.com/knative/pkg/reconciler/testing"
+	. "knative.dev/pkg/reconciler/testing"
 	. "github.com/knative/serving/pkg/testing"
 )
 

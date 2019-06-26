@@ -22,17 +22,17 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/knative/pkg/tracker"
+	"knative.dev/pkg/tracker"
 
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 
-	"github.com/knative/pkg/apis/istio/v1alpha3"
-	istiolisters "github.com/knative/pkg/client/listers/istio/v1alpha3"
-	"github.com/knative/pkg/controller"
-	"github.com/knative/pkg/logging"
-	"github.com/knative/pkg/system"
+	"knative.dev/pkg/apis/istio/v1alpha3"
+	istiolisters "knative.dev/pkg/client/listers/istio/v1alpha3"
+	"knative.dev/pkg/controller"
+	"knative.dev/pkg/logging"
+	"knative.dev/pkg/system"
 	"github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving"

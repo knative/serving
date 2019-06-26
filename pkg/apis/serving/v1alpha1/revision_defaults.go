@@ -19,7 +19,7 @@ package v1alpha1
 import (
 	"context"
 
-	"github.com/knative/pkg/apis"
+	"knative.dev/pkg/apis"
 	corev1 "k8s.io/api/core/v1"
 
 	"github.com/knative/serving/pkg/apis/serving/v1beta1"

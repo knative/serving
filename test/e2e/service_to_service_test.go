@@ -23,9 +23,9 @@ import (
 	"strings"
 	"testing"
 
-	pkgTest "github.com/knative/pkg/test"
-	"github.com/knative/pkg/test/logstream"
-	"github.com/knative/pkg/test/spoof"
+	pkgTest "knative.dev/pkg/test"
+	"knative.dev/pkg/test/logstream"
+	"knative.dev/pkg/test/spoof"
 	"github.com/knative/serving/test"
 	v1a1test "github.com/knative/serving/test/v1alpha1"
 

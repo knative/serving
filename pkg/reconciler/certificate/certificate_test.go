@@ -26,11 +26,11 @@ import (
 	_ "github.com/knative/serving/pkg/client/injection/informers/networking/v1alpha1/certificate/fake"
 
 	certmanagerv1alpha1 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1alpha1"
-	"github.com/knative/pkg/apis"
-	duckv1beta1 "github.com/knative/pkg/apis/duck/v1beta1"
-	"github.com/knative/pkg/configmap"
-	"github.com/knative/pkg/controller"
-	"github.com/knative/pkg/system"
+	"knative.dev/pkg/apis"
+	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
+	"knative.dev/pkg/configmap"
+	"knative.dev/pkg/controller"
+	"knative.dev/pkg/system"
 	"github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/certificate/config"
@@ -40,8 +40,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgotesting "k8s.io/client-go/testing"
 
-	. "github.com/knative/pkg/logging/testing"
-	. "github.com/knative/pkg/reconciler/testing"
+	. "knative.dev/pkg/logging/testing"
+	. "knative.dev/pkg/reconciler/testing"
 	. "github.com/knative/serving/pkg/reconciler/testing/v1alpha1"
 )
 

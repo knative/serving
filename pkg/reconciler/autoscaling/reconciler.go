@@ -23,8 +23,8 @@ import (
 
 	perrors "github.com/pkg/errors"
 
-	"github.com/knative/pkg/apis/duck"
-	"github.com/knative/pkg/logging"
+	"knative.dev/pkg/apis/duck"
+	"knative.dev/pkg/logging"
 	"github.com/knative/serving/pkg/apis/autoscaling"
 	pav1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/apis/networking"

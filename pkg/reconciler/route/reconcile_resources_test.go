@@ -24,9 +24,9 @@ import (
 	"github.com/google/go-cmp/cmp"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/knative/pkg/apis"
-	"github.com/knative/pkg/kmeta"
-	"github.com/knative/pkg/system"
+	"knative.dev/pkg/apis"
+	"knative.dev/pkg/kmeta"
+	"knative.dev/pkg/system"
 	netv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1beta1"
@@ -37,7 +37,7 @@ import (
 	"github.com/knative/serving/pkg/reconciler/route/resources"
 	"github.com/knative/serving/pkg/reconciler/route/traffic"
 
-	. "github.com/knative/pkg/logging/testing"
+	. "knative.dev/pkg/logging/testing"
 )
 
 func TestReconcileClusterIngress_Insert(t *testing.T) {

@@ -18,7 +18,7 @@ package resources
 
 import (
 	certmanagerv1alpha1 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1alpha1"
-	"github.com/knative/pkg/kmeta"
+	"knative.dev/pkg/kmeta"
 	"github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/reconciler/certificate/config"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

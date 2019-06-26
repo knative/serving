@@ -25,7 +25,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/knative/pkg/test/helpers"
+	"knative.dev/pkg/test/helpers"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -33,8 +33,8 @@ import (
 	zipkinreporter "github.com/openzipkin/zipkin-go/reporter"
 	reporterrecorder "github.com/openzipkin/zipkin-go/reporter/recorder"
 
-	. "github.com/knative/pkg/logging/testing"
-	_ "github.com/knative/pkg/system/testing"
+	. "knative.dev/pkg/logging/testing"
+	_ "knative.dev/pkg/system/testing"
 	"github.com/knative/serving/pkg/activator"
 	activatortest "github.com/knative/serving/pkg/activator/testing"
 	nv1a1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"

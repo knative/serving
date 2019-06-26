@@ -19,7 +19,7 @@ package handler
 import (
 	"time"
 
-	"github.com/knative/pkg/system"
+	"knative.dev/pkg/system"
 	"github.com/knative/serving/pkg/autoscaler"
 )
 

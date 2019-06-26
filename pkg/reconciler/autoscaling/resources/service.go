@@ -17,7 +17,7 @@ limitations under the License.
 package resources
 
 import (
-	"github.com/knative/pkg/kmeta"
+	"knative.dev/pkg/kmeta"
 	"github.com/knative/serving/pkg/apis/autoscaling"
 	pav1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/apis/networking"

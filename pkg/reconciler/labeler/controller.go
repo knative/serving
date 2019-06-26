@@ -23,8 +23,8 @@ import (
 	revisioninformer "github.com/knative/serving/pkg/client/injection/informers/serving/v1alpha1/revision"
 	routeinformer "github.com/knative/serving/pkg/client/injection/informers/serving/v1alpha1/route"
 
-	"github.com/knative/pkg/configmap"
-	"github.com/knative/pkg/controller"
+	"knative.dev/pkg/configmap"
+	"knative.dev/pkg/controller"
 	"github.com/knative/serving/pkg/reconciler"
 )
 

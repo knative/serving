@@ -21,7 +21,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/knative/pkg/configmap"
+	"knative.dev/pkg/configmap"
 	corev1 "k8s.io/api/core/v1"
 )
 

@@ -20,7 +20,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/knative/pkg/apis"
+	"knative.dev/pkg/apis"
 	"github.com/knative/serving/pkg/apis/autoscaling"
 	"github.com/knative/serving/pkg/apis/serving"
 	"k8s.io/apimachinery/pkg/api/equality"

@@ -30,15 +30,15 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgotesting "k8s.io/client-go/testing"
 
-	"github.com/knative/pkg/configmap"
-	"github.com/knative/pkg/controller"
-	"github.com/knative/pkg/kmeta"
-	logtesting "github.com/knative/pkg/logging/testing"
+	"knative.dev/pkg/configmap"
+	"knative.dev/pkg/controller"
+	"knative.dev/pkg/kmeta"
+	logtesting "knative.dev/pkg/logging/testing"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 	"github.com/knative/serving/pkg/reconciler"
 
-	. "github.com/knative/pkg/reconciler/testing"
+	. "knative.dev/pkg/reconciler/testing"
 	. "github.com/knative/serving/pkg/reconciler/testing/v1alpha1"
 )
 

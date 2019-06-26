@@ -19,17 +19,17 @@ package route
 import (
 	"context"
 
-	serviceinformer "github.com/knative/pkg/injection/informers/kubeinformers/corev1/service"
+	serviceinformer "knative.dev/pkg/injection/informers/kubeinformers/corev1/service"
 	certificateinformer "github.com/knative/serving/pkg/client/injection/informers/networking/v1alpha1/certificate"
 	clusteringressinformer "github.com/knative/serving/pkg/client/injection/informers/networking/v1alpha1/clusteringress"
 	configurationinformer "github.com/knative/serving/pkg/client/injection/informers/serving/v1alpha1/configuration"
 	revisioninformer "github.com/knative/serving/pkg/client/injection/informers/serving/v1alpha1/revision"
 	routeinformer "github.com/knative/serving/pkg/client/injection/informers/serving/v1alpha1/route"
 
-	"github.com/knative/pkg/configmap"
-	"github.com/knative/pkg/controller"
-	"github.com/knative/pkg/system"
-	"github.com/knative/pkg/tracker"
+	"knative.dev/pkg/configmap"
+	"knative.dev/pkg/controller"
+	"knative.dev/pkg/system"
+	"knative.dev/pkg/tracker"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/network"

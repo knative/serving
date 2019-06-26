@@ -20,7 +20,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/knative/pkg/ptr"
+	"knative.dev/pkg/ptr"
 	pav1a1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/apis/networking"
 	nv1a1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"

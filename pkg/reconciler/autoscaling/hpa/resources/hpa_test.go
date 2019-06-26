@@ -21,9 +21,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/knative/pkg/kmp"
+	"knative.dev/pkg/kmp"
 
-	"github.com/knative/pkg/ptr"
+	"knative.dev/pkg/ptr"
 	"github.com/knative/serving/pkg/apis/autoscaling"
 	"github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	servingv1alpha1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"

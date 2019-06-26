@@ -19,8 +19,8 @@ package labeler
 import (
 	"context"
 
-	"github.com/knative/pkg/controller"
-	"github.com/knative/pkg/logging"
+	"knative.dev/pkg/controller"
+	"knative.dev/pkg/logging"
 	listers "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
 	"github.com/knative/serving/pkg/reconciler"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"

@@ -23,7 +23,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
 
-	. "github.com/knative/pkg/configmap/testing"
+	. "knative.dev/pkg/configmap/testing"
 )
 
 func TestNewConfig(t *testing.T) {

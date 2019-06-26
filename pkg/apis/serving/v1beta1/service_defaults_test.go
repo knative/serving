@@ -24,8 +24,8 @@ import (
 	authv1 "k8s.io/api/authentication/v1"
 	corev1 "k8s.io/api/core/v1"
 
-	"github.com/knative/pkg/apis"
-	"github.com/knative/pkg/ptr"
+	"knative.dev/pkg/apis"
+	"knative.dev/pkg/ptr"
 	"github.com/knative/serving/pkg/apis/config"
 	"github.com/knative/serving/pkg/apis/serving"
 )

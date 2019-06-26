@@ -20,7 +20,7 @@ import (
 	"github.com/knative/serving/pkg/reconciler/clusteringress"
 
 	// This defines the shared main for injected controllers.
-	"github.com/knative/pkg/injection/sharedmain"
+	"knative.dev/pkg/injection/sharedmain"
 )
 
 func main() {

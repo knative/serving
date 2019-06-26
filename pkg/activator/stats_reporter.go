@@ -22,8 +22,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/knative/pkg/metrics"
-	"github.com/knative/pkg/metrics/metricskey"
+	"knative.dev/pkg/metrics"
+	"knative.dev/pkg/metrics/metricskey"
 	"go.opencensus.io/stats"
 	"go.opencensus.io/stats/view"
 	"go.opencensus.io/tag"

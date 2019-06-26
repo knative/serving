@@ -22,7 +22,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/knative/pkg/apis/istio/v1alpha3"
+	"knative.dev/pkg/apis/istio/v1alpha3"
 	"github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/network"
 	"github.com/knative/serving/pkg/reconciler/ingress/config"

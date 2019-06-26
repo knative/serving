@@ -20,7 +20,7 @@ import (
 	"context"
 	"strconv"
 
-	"github.com/knative/pkg/apis"
+	"knative.dev/pkg/apis"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )

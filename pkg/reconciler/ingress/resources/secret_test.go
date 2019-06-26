@@ -20,10 +20,10 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/knative/pkg/kmeta"
+	"knative.dev/pkg/kmeta"
 
 	"github.com/google/go-cmp/cmp"
-	. "github.com/knative/pkg/logging/testing"
+	. "knative.dev/pkg/logging/testing"
 	"github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/reconciler/ingress/config"

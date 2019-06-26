@@ -21,7 +21,7 @@ import (
 	"time"
 
 	"github.com/davecgh/go-spew/spew"
-	"github.com/knative/pkg/apis/duck"
+	"knative.dev/pkg/apis/duck"
 	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 )
 

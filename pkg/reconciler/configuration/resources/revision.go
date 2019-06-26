@@ -19,7 +19,7 @@ package resources
 import (
 	"fmt"
 
-	"github.com/knative/pkg/kmeta"
+	"knative.dev/pkg/kmeta"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 )

@@ -19,9 +19,9 @@ package resources
 import (
 	"strconv"
 
-	"github.com/knative/pkg/kmeta"
-	"github.com/knative/pkg/logging"
-	"github.com/knative/pkg/ptr"
+	"knative.dev/pkg/kmeta"
+	"knative.dev/pkg/logging"
+	"knative.dev/pkg/ptr"
 	"github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"

@@ -118,6 +118,14 @@
   revision = "23def4e6c14b4da8ac2ed8007337bc5eb5007998"
 
 [[projects]]
+  branch = "master"
+  digest = "1:b7cb6054d3dff43b38ad2e92492f220f57ae6087ee797dca298139776749ace8"
+  name = "github.com/golang/groupcache"
+  packages = ["lru"]
+  pruneopts = "NUT"
+  revision = "5b532d6fd5efaf7fa130d4e859a2fde0fc3a9e1b"
+
+[[projects]]
   digest = "1:4dacf728c83400b3e9d1d3025dd3c1e93e9a1b033726d1b193dc209f3fa9cb7a"
   name = "github.com/golang/protobuf"
   packages = [
@@ -243,28 +251,6 @@
   packages = ["."]
   pruneopts = "NUT"
   revision = "f2b4162afba35581b6d4a50d3b8f34e33c144682"
-
-[[projects]]
-  digest = "1:6a405899228cd065e8730e163e7fbb4faaee51af4035120ec054795873380d50"
-  name = "github.com/knative/pkg"
-  packages = [
-    "apis",
-    "changeset",
-    "codegen/cmd/injection-gen",
-    "codegen/cmd/injection-gen/args",
-    "codegen/cmd/injection-gen/generators",
-    "configmap",
-    "controller",
-    "injection",
-    "kmeta",
-    "kmp",
-    "logging",
-    "logging/logkey",
-    "metrics",
-    "metrics/metricskey",
-  ]
-  pruneopts = "T"
-  revision = "4d86f3ad6f48dffa0846c76711ca6c3697def63c"
 
 [[projects]]
   branch = "master"
@@ -746,7 +732,7 @@
   version = "kubernetes-1.12.6"
 
 [[projects]]
-  digest = "1:febab0466fc1b384189951d4c1aa175cbd03ad10cdb529d1ff2e8b20036ba7e3"
+  digest = "1:5ccc821e42e8ab9d53d252b4c12d0b7f388afea1f4f2ceb2014dd27976970dc7"
   name = "k8s.io/client-go"
   packages = [
     "discovery",
@@ -867,6 +853,7 @@
     "tools/clientcmd/api",
     "tools/metrics",
     "tools/pager",
+    "tools/record",
     "tools/reference",
     "transport",
     "util/buffer",
@@ -941,17 +928,34 @@
   pruneopts = "NUT"
   revision = "e3762e86a74c878ffed47484592986685639c2cd"
 
+[[projects]]
+  branch = "master"
+  digest = "1:a1c54962db67cc9b1bda27c8657ae3ca1e7cd9f2702a80012e0abc932c7c7091"
+  name = "knative.dev/pkg"
+  packages = [
+    "apis",
+    "changeset",
+    "codegen/cmd/injection-gen",
+    "codegen/cmd/injection-gen/args",
+    "codegen/cmd/injection-gen/generators",
+    "configmap",
+    "controller",
+    "injection",
+    "kmeta",
+    "kmp",
+    "logging",
+    "logging/logkey",
+    "metrics",
+    "metrics/metricskey",
+  ]
+  pruneopts = "T"
+  revision = "3c6bc12e7897bf8c0d1eb1411fbd3d80537420f9"
+
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
   input-imports = [
     "github.com/google/go-cmp/cmp",
-    "github.com/knative/pkg/apis",
-    "github.com/knative/pkg/codegen/cmd/injection-gen",
-    "github.com/knative/pkg/controller",
-    "github.com/knative/pkg/injection",
-    "github.com/knative/pkg/kmeta",
-    "github.com/knative/pkg/logging",
     "github.com/knative/test-infra/scripts",
     "github.com/knative/test-infra/tools/dep-collector",
     "k8s.io/api/core/v1",
@@ -977,6 +981,12 @@
     "k8s.io/code-generator/cmd/defaulter-gen",
     "k8s.io/code-generator/cmd/informer-gen",
     "k8s.io/code-generator/cmd/lister-gen",
+    "knative.dev/pkg/apis",
+    "knative.dev/pkg/codegen/cmd/injection-gen",
+    "knative.dev/pkg/controller",
+    "knative.dev/pkg/injection",
+    "knative.dev/pkg/kmeta",
+    "knative.dev/pkg/logging",
   ]
   solver-name = "gps-cdcl"
   solver-version = 1

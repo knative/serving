@@ -21,7 +21,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/knative/pkg/apis"
+	"knative.dev/pkg/apis"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
