@@ -19,6 +19,7 @@ package domains
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"fmt"
 
 	"knative.dev/pkg/apis"
@@ -54,6 +55,11 @@ func DomainNameFromTemplate(ctx context.Context, r *v1alpha1.Route, name string)
 	domainConfig := config.FromContext(ctx).Domain
 	domain := domainConfig.LookupDomainForLabels(r.ObjectMeta.Labels)
 	annotations := r.ObjectMeta.Annotations
+
+	// Generates an unique string that can be used as part of domain name
+	// The unique string is SHA256 generated from KnRoute's UID and shortened to 12 symbols
+	unique := fmt.Sprintf("%x", sha256.Sum256([]byte(r.UID)))[:12]
+
 	// These are the available properties they can choose from.
 	// We could add more over time - e.g. RevisionName if we thought that
 	// might be of interest to people.
@@ -61,6 +67,7 @@ func DomainNameFromTemplate(ctx context.Context, r *v1alpha1.Route, name string)
 		Name:        name,
 		Namespace:   r.Namespace,
 		Domain:      domain,
+		Unique:      unique,
 		Annotations: annotations,
 	}
 

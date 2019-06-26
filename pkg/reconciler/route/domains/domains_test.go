@@ -30,6 +30,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+const (
+	exampleRouteUID                   = "example-uid-for-testing-unique-value-in-domain"
+	uniqueValueBasedOnExampleRouteUID = "78e273dd728c"
+)
+
 func testConfig() *config.Config {
 	return &config.Config{
 		Domain: &config.Domain{
@@ -86,6 +91,21 @@ func TestDomainNameFromTemplate(t *testing.T) {
 		args:     args{name: "test-name"},
 		want:     "test-name.mysub.example.com",
 	}, {
+		name:     "UniqueValue",
+		template: "{{.Name}}.{{.Unique}}.{{.Domain}}",
+		args:     args{name: "test-name"},
+		want:     "test-name." + uniqueValueBasedOnExampleRouteUID + ".example.com",
+	}, {
+		name:     "UniqueValueNamespace",
+		template: "{{.Name}}.{{.Unique}}.{{.Namespace}}.{{.Domain}}",
+		args:     args{name: "test-name"},
+		want:     "test-name." + uniqueValueBasedOnExampleRouteUID + ".default.example.com",
+	}, {
+		name:     "UniqueValueDash",
+		template: "{{.Name}}-{{.Unique}}.{{.Domain}}",
+		args:     args{name: "test-name"},
+		want:     "test-name-" + uniqueValueBasedOnExampleRouteUID + ".example.com",
+	}, {
 		// This cannot get through our validation, but verify we handle errors.
 		name:     "BadVarName",
 		template: "{{.Name}}.{{.NNNamespace}}.{{.Domain}}",
@@ -104,6 +124,7 @@ func TestDomainNameFromTemplate(t *testing.T) {
 			Annotations: map[string]string{
 				"sub": "mysub",
 			},
+			UID: exampleRouteUID,
 		},
 	}
 
@@ -194,6 +215,15 @@ func TestGetAllDomainsAndTags(t *testing.T) {
 			"myroute.default.example.com":              "",
 		},
 	}, {
+		name:           "with generated unique value",
+		domainTemplate: "{{.Name}}.{{.Unique}}.{{.Domain}}",
+		tagTemplate:    "{{.Name}}-{{.Tag}}",
+		want: map[string]string{
+			"myroute-target-1." + uniqueValueBasedOnExampleRouteUID + ".example.com": "target-1",
+			"myroute-target-2." + uniqueValueBasedOnExampleRouteUID + ".example.com": "target-2",
+			"myroute." + uniqueValueBasedOnExampleRouteUID + ".example.com":          "",
+		},
+	}, {
 		name:           "bad template",
 		domainTemplate: "{{.NNName}}.{{.Namespace}}.{{.Domain}}",
 		tagTemplate:    "{{.Name}}-{{.Tag}}",
@@ -213,6 +243,7 @@ func TestGetAllDomainsAndTags(t *testing.T) {
 			Labels: map[string]string{
 				"route": "myapp",
 			},
+			UID: exampleRouteUID,
 		},
 	}
 

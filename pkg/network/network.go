@@ -122,6 +122,7 @@ type DomainTemplateValues struct {
 	Name        string
 	Namespace   string
 	Domain      string
+	Unique      string
 	Annotations map[string]string
 }
 
@@ -280,6 +281,7 @@ func checkDomainTemplate(t *template.Template) error {
 		Name:        "foo",
 		Namespace:   "bar",
 		Domain:      "baz.com",
+		Unique:      "uniq",
 		Annotations: nil,
 	}
 	buf := bytes.Buffer{}

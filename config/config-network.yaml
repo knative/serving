@@ -102,6 +102,11 @@ data:
     # We strongly recommend keeping namespace part of the template to avoid domain name clashes
     # Example '{{.Name}}-{{.Namespace}}.{{ index .Annotations "sub"}}.{{.Domain}}'
     # and you have an annotation {"sub":"foo"}, then the generated template would be {Name}-{Namespace}.foo.{Domain}
+    # {{.Unique}} variable can be used as an another option to avoid domain name clashes.
+    # Unique value (12 symbols) will be generated as a part of domain name, so user don't have to
+    # worry about collisions with other routes in the system. It can be used with or without {{.Namespace}} variable.
+    # Example '{{.Name}}-{{.Unique}}.{{.Domain}}' results in {Name}-123456789abc.{Domain}.
+    # Example '{{.Name}}-{{.Unique}}.{{.Namespace}}.{{.Domain}}' results in {Name}-123456789abc.{Namespace}.{Domain}.
     domainTemplate: "{{.Name}}.{{.Namespace}}.{{.Domain}}"
 
     # tagTemplate specifies the golang text template string to use

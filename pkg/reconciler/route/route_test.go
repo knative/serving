@@ -60,9 +60,11 @@ import (
 )
 
 const (
-	testNamespace       = "test"
-	defaultDomainSuffix = "test-domain.dev"
-	prodDomainSuffix    = "prod-domain.com"
+	testNamespace                     = "test"
+	defaultDomainSuffix               = "test-domain.dev"
+	prodDomainSuffix                  = "prod-domain.com"
+	exampleRouteUID                   = "example-uid-for-testing-unique-value-in-domain"
+	uniqueValueBasedOnExampleRouteUID = "78e273dd728c"
 )
 
 func getTestRouteWithTrafficTargets(traffic []v1alpha1.TrafficTarget) *v1alpha1.Route {
@@ -1002,6 +1004,7 @@ func TestRouteDomain(t *testing.T) {
 			Annotations: map[string]string{
 				"sub": "mysub",
 			},
+			UID: exampleRouteUID,
 		},
 	}
 
@@ -1039,6 +1042,21 @@ func TestRouteDomain(t *testing.T) {
 		Template: `{{.Name}}.{{ index .Annotations "sub"}}.{{.Domain}}`,
 		Pass:     true,
 		Expected: "myapp.mysub.example.com",
+	}, {
+		Name:     "UniqueValue",
+		Template: "{{.Name}}.{{.Unique}}.{{.Domain}}",
+		Pass:     true,
+		Expected: "myapp." + uniqueValueBasedOnExampleRouteUID + ".example.com",
+	}, {
+		Name:     "UniqueValueNamespace",
+		Template: "{{.Name}}.{{.Unique}}.{{.Namespace}}.{{.Domain}}",
+		Pass:     true,
+		Expected: "myapp." + uniqueValueBasedOnExampleRouteUID + ".default.example.com",
+	}, {
+		Name:     "UniqueValueDash",
+		Template: "{{.Name}}-{{.Unique}}.{{.Domain}}",
+		Pass:     true,
+		Expected: "myapp-" + uniqueValueBasedOnExampleRouteUID + ".example.com",
 	}, {
 		// This cannot get through our validation, but verify we handle errors.
 		Name:     "BadVarName",
