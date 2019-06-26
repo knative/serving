@@ -255,19 +255,6 @@ func TestGetSetCondition(t *testing.T) {
 	}
 }
 
-func TestTypicalFlowWithServiceTimeout(t *testing.T) {
-	r := &RevisionStatus{}
-	r.InitializeConditions()
-	apitest.CheckConditionOngoing(r.duck(), RevisionConditionResourcesAvailable, t)
-	apitest.CheckConditionOngoing(r.duck(), RevisionConditionContainerHealthy, t)
-	apitest.CheckConditionOngoing(r.duck(), RevisionConditionReady, t)
-
-	r.MarkServiceTimeout()
-	apitest.CheckConditionFailed(r.duck(), RevisionConditionResourcesAvailable, t)
-	apitest.CheckConditionOngoing(r.duck(), RevisionConditionContainerHealthy, t)
-	apitest.CheckConditionFailed(r.duck(), RevisionConditionReady, t)
-}
-
 func TestTypicalFlowWithProgressDeadlineExceeded(t *testing.T) {
 	r := &RevisionStatus{}
 	r.InitializeConditions()

@@ -156,11 +156,6 @@ func (rs *RevisionStatus) MarkDeploying(reason string) {
 	revCondSet.Manage(rs).MarkUnknown(RevisionConditionContainerHealthy, reason, "")
 }
 
-func (rs *RevisionStatus) MarkServiceTimeout() {
-	revCondSet.Manage(rs).MarkFalse(RevisionConditionResourcesAvailable, "ServiceTimeout",
-		"Timed out waiting for a service endpoint to become ready")
-}
-
 func (rs *RevisionStatus) MarkProgressDeadlineExceeded(message string) {
 	revCondSet.Manage(rs).MarkFalse(RevisionConditionResourcesAvailable, "ProgressDeadlineExceeded", message)
 }
