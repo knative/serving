@@ -198,6 +198,7 @@ function prepare_dot_release() {
   echo "Dot release requested"
   TAG_RELEASE=1
   PUBLISH_RELEASE=1
+  git fetch --all || abort "error fetching branches/tags from remote"
   # List latest release
   local releases # don't combine with the line below, or $? will be 0
   releases="$(hub_tool release)"
@@ -210,21 +211,26 @@ function prepare_dot_release() {
   fi
   local last_version="$(echo "${releases}" | grep '^v[0-9]\+\.[0-9]\+\.[0-9]\+$' | sort -r | head -1)"
   [[ -n "${last_version}" ]] || abort "no previous release exist"
+  local major_minor_version=""
   if [[ -z "${RELEASE_BRANCH}" ]]; then
     echo "Last release is ${last_version}"
     # Determine branch
-    local major_minor_version="$(master_version ${last_version})"
+    major_minor_version="$(master_version ${last_version})"
     RELEASE_BRANCH="release-${major_minor_version}"
     echo "Last release branch is ${RELEASE_BRANCH}"
+  else
+    major_minor_version="${RELEASE_BRANCH##release-}"
   fi
+  [[ -n "${major_minor_version}" ]] || abort "cannot get release major/minor version"
   # Ensure there are new commits in the branch, otherwise we don't create a new release
   setup_branch
   local last_release_commit="$(git rev-list -n 1 ${last_version})"
   local release_branch_commit="$(git rev-list -n 1 upstream/${RELEASE_BRANCH})"
   [[ -n "${last_release_commit}" ]] || abort "cannot get last release commit"
   [[ -n "${release_branch_commit}" ]] || abort "cannot get release branch last commit"
+  echo "Version ${last_version} is at commit ${last_release_commit}"
+  echo "Branch ${RELEASE_BRANCH} is at commit ${release_branch_commit}"
   if [[ "${last_release_commit}" == "${release_branch_commit}" ]]; then
-    echo "*** Branch ${RELEASE_BRANCH} is at commit ${release_branch_commit}"
     echo "*** Branch ${RELEASE_BRANCH} has no new cherry-picks since release ${last_version}"
     echo "*** No dot release will be generated, as no changes exist"
     exit 0

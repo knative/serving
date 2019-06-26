@@ -22,16 +22,16 @@ import (
 	"testing"
 
 	fakecachingclient "github.com/knative/caching/pkg/client/injection/client/fake"
-	fakesharedclient "github.com/knative/pkg/client/injection/client/fake"
-	fakedynamicclient "github.com/knative/pkg/injection/clients/dynamicclient/fake"
-	fakekubeclient "github.com/knative/pkg/injection/clients/kubeclient/fake"
+	fakesharedclient "knative.dev/pkg/client/injection/client/fake"
+	fakedynamicclient "knative.dev/pkg/injection/clients/dynamicclient/fake"
+	fakekubeclient "knative.dev/pkg/injection/clients/kubeclient/fake"
 	fakecertmanagerclient "github.com/knative/serving/pkg/client/certmanager/injection/client/fake"
 	fakeservingclient "github.com/knative/serving/pkg/client/injection/client/fake"
 
-	"github.com/knative/pkg/configmap"
-	"github.com/knative/pkg/controller"
-	"github.com/knative/pkg/logging"
-	logtesting "github.com/knative/pkg/logging/testing"
+	"knative.dev/pkg/configmap"
+	"knative.dev/pkg/controller"
+	"knative.dev/pkg/logging"
+	logtesting "knative.dev/pkg/logging/testing"
 
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -39,7 +39,7 @@ import (
 	ktesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/record"
 
-	. "github.com/knative/pkg/reconciler/testing"
+	. "knative.dev/pkg/reconciler/testing"
 	"github.com/knative/serving/pkg/reconciler"
 )
 

@@ -19,7 +19,7 @@ package test
 import (
 	"os"
 
-	"github.com/knative/pkg/system"
+	"knative.dev/pkg/system"
 )
 
 func init() {

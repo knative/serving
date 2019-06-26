@@ -23,9 +23,9 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/knative/pkg/controller"
-	"github.com/knative/pkg/logging/logkey"
-	"github.com/knative/pkg/system"
+	"knative.dev/pkg/controller"
+	"knative.dev/pkg/logging/logkey"
+	"knative.dev/pkg/system"
 	"github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/serving"
 	netlisters "github.com/knative/serving/pkg/client/listers/networking/v1alpha1"

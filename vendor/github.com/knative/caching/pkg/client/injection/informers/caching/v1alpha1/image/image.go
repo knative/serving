@@ -23,9 +23,9 @@ import (
 
 	v1alpha1 "github.com/knative/caching/pkg/client/informers/externalversions/caching/v1alpha1"
 	factory "github.com/knative/caching/pkg/client/injection/informers/caching/factory"
-	controller "github.com/knative/pkg/controller"
-	injection "github.com/knative/pkg/injection"
-	logging "github.com/knative/pkg/logging"
+	controller "knative.dev/pkg/controller"
+	injection "knative.dev/pkg/injection"
+	logging "knative.dev/pkg/logging"
 )
 
 func init() {

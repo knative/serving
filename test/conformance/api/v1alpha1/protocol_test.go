@@ -23,8 +23,8 @@ import (
 	"fmt"
 	"testing"
 
-	pkgTest "github.com/knative/pkg/test"
-	"github.com/knative/pkg/test/spoof"
+	pkgTest "knative.dev/pkg/test"
+	"knative.dev/pkg/test/spoof"
 	"github.com/knative/serving/test"
 	v1a1test "github.com/knative/serving/test/v1alpha1"
 	corev1 "k8s.io/api/core/v1"

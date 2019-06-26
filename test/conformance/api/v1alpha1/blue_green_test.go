@@ -23,7 +23,7 @@ import (
 	"math"
 	"testing"
 
-	pkgTest "github.com/knative/pkg/test"
+	pkgTest "knative.dev/pkg/test"
 	"github.com/knative/serving/test"
 	v1a1test "github.com/knative/serving/test/v1alpha1"
 	"golang.org/x/sync/errgroup"

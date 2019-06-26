@@ -23,19 +23,19 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
-	fakedynamicclient "github.com/knative/pkg/injection/clients/dynamicclient/fake"
-	fakekubeclient "github.com/knative/pkg/injection/clients/kubeclient/fake"
+	fakedynamicclient "knative.dev/pkg/injection/clients/dynamicclient/fake"
+	fakekubeclient "knative.dev/pkg/injection/clients/kubeclient/fake"
 	fakeservingclient "github.com/knative/serving/pkg/client/injection/client/fake"
 
-	"github.com/knative/pkg/configmap"
-	"github.com/knative/pkg/controller"
-	logtesting "github.com/knative/pkg/logging/testing"
+	"knative.dev/pkg/configmap"
+	"knative.dev/pkg/controller"
+	logtesting "knative.dev/pkg/logging/testing"
 	"github.com/knative/serving/pkg/activator"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
-	. "github.com/knative/pkg/reconciler/testing"
+	. "knative.dev/pkg/reconciler/testing"
 	. "github.com/knative/serving/pkg/reconciler/testing/v1alpha1"
 	. "github.com/knative/serving/pkg/testing"
 )

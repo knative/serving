@@ -23,7 +23,7 @@ import (
 	"github.com/google/go-cmp/cmp/cmpopts"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/knative/pkg/system"
+	"knative.dev/pkg/system"
 	"github.com/knative/serving/pkg/autoscaler"
 )
 

@@ -24,8 +24,8 @@ import (
 	routeinformer "github.com/knative/serving/pkg/client/injection/informers/serving/v1alpha1/route"
 	kserviceinformer "github.com/knative/serving/pkg/client/injection/informers/serving/v1alpha1/service"
 
-	"github.com/knative/pkg/configmap"
-	"github.com/knative/pkg/controller"
+	"knative.dev/pkg/configmap"
+	"knative.dev/pkg/controller"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/reconciler"
 	"k8s.io/client-go/tools/cache"

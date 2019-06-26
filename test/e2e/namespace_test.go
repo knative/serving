@@ -21,8 +21,8 @@ import (
 	"fmt"
 	"testing"
 
-	pkgTest "github.com/knative/pkg/test"
-	"github.com/knative/pkg/test/logstream"
+	pkgTest "knative.dev/pkg/test"
+	"knative.dev/pkg/test/logstream"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/test"
 	v1a1test "github.com/knative/serving/test/v1alpha1"

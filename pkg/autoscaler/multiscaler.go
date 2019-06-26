@@ -23,7 +23,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/knative/pkg/logging"
+	"knative.dev/pkg/logging"
 	kpa "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/api/errors"

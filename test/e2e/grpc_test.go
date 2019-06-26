@@ -26,9 +26,9 @@ import (
 	"testing"
 	"time"
 
-	pkgTest "github.com/knative/pkg/test"
-	ingress "github.com/knative/pkg/test/ingress"
-	"github.com/knative/pkg/test/logstream"
+	pkgTest "knative.dev/pkg/test"
+	ingress "knative.dev/pkg/test/ingress"
+	"knative.dev/pkg/test/logstream"
 	resourcenames "github.com/knative/serving/pkg/reconciler/revision/resources/names"
 	"github.com/knative/serving/test"
 	ping "github.com/knative/serving/test/test_images/grpc-ping/proto"

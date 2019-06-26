@@ -29,9 +29,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/knative/pkg/logging/logkey"
-	"github.com/knative/pkg/metrics"
-	"github.com/knative/pkg/signals"
+	"knative.dev/pkg/logging/logkey"
+	"knative.dev/pkg/metrics"
+	"knative.dev/pkg/signals"
 	"github.com/knative/serving/cmd/util"
 	"github.com/knative/serving/pkg/activator"
 	activatorutil "github.com/knative/serving/pkg/activator/util"

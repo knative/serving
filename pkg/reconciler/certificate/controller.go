@@ -23,8 +23,8 @@ import (
 	cmcertinformer "github.com/knative/serving/pkg/client/certmanager/injection/informers/certmanager/v1alpha1/certificate"
 	kcertinformer "github.com/knative/serving/pkg/client/injection/informers/networking/v1alpha1/certificate"
 
-	"github.com/knative/pkg/configmap"
-	"github.com/knative/pkg/controller"
+	"knative.dev/pkg/configmap"
+	"knative.dev/pkg/controller"
 	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/certificate/config"
 )

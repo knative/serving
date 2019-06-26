@@ -23,16 +23,16 @@ import (
 	"time"
 
 	// Inject our fakes
-	fakesharedclient "github.com/knative/pkg/client/injection/client/fake"
-	_ "github.com/knative/pkg/client/injection/informers/istio/v1alpha3/gateway/fake"
-	_ "github.com/knative/pkg/client/injection/informers/istio/v1alpha3/virtualservice/fake"
-	fakekubeclient "github.com/knative/pkg/injection/clients/kubeclient/fake"
-	_ "github.com/knative/pkg/injection/informers/kubeinformers/corev1/secret/fake"
+	fakesharedclient "knative.dev/pkg/client/injection/client/fake"
+	_ "knative.dev/pkg/client/injection/informers/istio/v1alpha3/gateway/fake"
+	_ "knative.dev/pkg/client/injection/informers/istio/v1alpha3/virtualservice/fake"
+	fakekubeclient "knative.dev/pkg/injection/clients/kubeclient/fake"
+	_ "knative.dev/pkg/injection/informers/kubeinformers/corev1/secret/fake"
 	fakeservingclient "github.com/knative/serving/pkg/client/injection/client/fake"
 	_ "github.com/knative/serving/pkg/client/injection/informers/networking/v1alpha1/clusteringress/fake"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/knative/pkg/kmeta"
+	"knative.dev/pkg/kmeta"
 	"golang.org/x/sync/errgroup"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -40,15 +40,15 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	clientgotesting "k8s.io/client-go/testing"
 
-	"github.com/knative/pkg/apis"
-	duckv1beta1 "github.com/knative/pkg/apis/duck/v1beta1"
-	"github.com/knative/pkg/apis/istio/v1alpha3"
-	"github.com/knative/pkg/configmap"
-	"github.com/knative/pkg/controller"
+	"knative.dev/pkg/apis"
+	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
+	"knative.dev/pkg/apis/istio/v1alpha3"
+	"knative.dev/pkg/configmap"
+	"knative.dev/pkg/controller"
 
-	logtesting "github.com/knative/pkg/logging/testing"
-	"github.com/knative/pkg/system"
-	_ "github.com/knative/pkg/system/testing"
+	logtesting "knative.dev/pkg/logging/testing"
+	"knative.dev/pkg/system"
+	_ "knative.dev/pkg/system/testing"
 	apiconfig "github.com/knative/serving/pkg/apis/config"
 	"github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/networking/v1alpha1"
@@ -59,7 +59,7 @@ import (
 	"github.com/knative/serving/pkg/reconciler/ingress/resources"
 	presources "github.com/knative/serving/pkg/resources"
 
-	. "github.com/knative/pkg/reconciler/testing"
+	. "knative.dev/pkg/reconciler/testing"
 	. "github.com/knative/serving/pkg/reconciler/testing/v1alpha1"
 )
 

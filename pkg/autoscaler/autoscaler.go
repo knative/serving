@@ -26,8 +26,8 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/knative/pkg/logging"
 	"github.com/knative/serving/pkg/resources"
+	"knative.dev/pkg/logging"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 )

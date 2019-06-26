@@ -24,9 +24,9 @@ import (
 	"github.com/knative/serving/pkg/apis/config"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/knative/pkg/apis"
-	logtesting "github.com/knative/pkg/logging/testing"
-	"github.com/knative/pkg/ptr"
+	"knative.dev/pkg/apis"
+	logtesting "knative.dev/pkg/logging/testing"
+	"knative.dev/pkg/ptr"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

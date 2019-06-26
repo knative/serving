@@ -27,8 +27,8 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/knative/pkg/apis"
-	"github.com/knative/pkg/ptr"
+	"knative.dev/pkg/apis"
+	"knative.dev/pkg/ptr"
 	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 )
 

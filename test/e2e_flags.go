@@ -22,8 +22,8 @@ package test
 import (
 	"flag"
 
-	"github.com/knative/pkg/test"
-	"github.com/knative/pkg/test/logging"
+	"knative.dev/pkg/test"
+	"knative.dev/pkg/test/logging"
 )
 
 const (

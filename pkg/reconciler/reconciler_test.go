@@ -21,15 +21,15 @@ import (
 	"testing"
 
 	_ "github.com/knative/caching/pkg/client/injection/client/fake"
-	_ "github.com/knative/pkg/client/injection/client/fake"
-	_ "github.com/knative/pkg/injection/clients/dynamicclient/fake"
-	_ "github.com/knative/pkg/injection/clients/kubeclient/fake"
+	_ "knative.dev/pkg/client/injection/client/fake"
+	_ "knative.dev/pkg/injection/clients/dynamicclient/fake"
+	_ "knative.dev/pkg/injection/clients/kubeclient/fake"
 	_ "github.com/knative/serving/pkg/client/injection/client/fake"
 
-	"github.com/knative/pkg/configmap"
-	"github.com/knative/pkg/injection"
-	logtesting "github.com/knative/pkg/logging/testing"
-	_ "github.com/knative/pkg/system/testing"
+	"knative.dev/pkg/configmap"
+	"knative.dev/pkg/injection"
+	logtesting "knative.dev/pkg/logging/testing"
+	_ "knative.dev/pkg/system/testing"
 	"k8s.io/client-go/rest"
 )
 

@@ -19,9 +19,9 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/knative/pkg/apis/duck"
-	duckv1beta1 "github.com/knative/pkg/apis/duck/v1alpha1"
-	apitest "github.com/knative/pkg/apis/testing"
+	"knative.dev/pkg/apis/duck"
+	duckv1beta1 "knative.dev/pkg/apis/duck/v1alpha1"
+	apitest "knative.dev/pkg/apis/testing"
 )
 
 func TestIngressDuckTypes(t *testing.T) {

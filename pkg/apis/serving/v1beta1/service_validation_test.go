@@ -23,11 +23,11 @@ import (
 	"github.com/knative/serving/pkg/apis/config"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/knative/pkg/ptr"
+	"knative.dev/pkg/ptr"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/knative/pkg/apis"
+	"knative.dev/pkg/apis"
 )
 
 func TestServiceValidation(t *testing.T) {
