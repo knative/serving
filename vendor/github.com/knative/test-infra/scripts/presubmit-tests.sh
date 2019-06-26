@@ -85,18 +85,23 @@ function results_banner() {
   header "$1 tests ${result}"
 }
 
-# Create a JUnit XML for a failure.
-# Parameters: $1 - check name as an identifier (e.g., PresubmitBuildTest)
-#             $2 - failure message (can contain newlines)
+# Create a JUnit XML for a test.
+# Parameters: $1 - check class name as an identifier (e.g. BuildTests)
+#             $2 - check name as an identifier (e.g., GoBuild)
+#             $3 - failure message (can contain newlines), optional (means success)
 function create_junit_xml() {
   local xml="$(mktemp ${ARTIFACTS}/junit_XXXXXXXX.xml)"
-  # Transform newlines into HTML code.
-  local msg="$(echo -n "$2" | sed 's/$/\&#xA;/g' | tr -d '\n')"
+  local failure=""
+  if [[ "$3" != "" ]]; then
+    # Transform newlines into HTML code.
+    local msg="$(echo -n "$3" | sed 's/$/\&#xA;/g' | tr -d '\n')"
+    failure="<failure message=\"Failed\" type=\"\">${msg}</failure>"
+  fi
   cat << EOF > "${xml}"
 <testsuites>
 	<testsuite tests="1" failures="1" time="0.000" name="">
-		<testcase classname="" name="$1" time="0.0">
-			<failure message="Failed" type="">${msg}</failure>
+		<testcase classname="$1" name="$2" time="0.0">
+			${failure}
 		</testcase>
 	</testsuite>
 </testsuites>
@@ -167,14 +172,15 @@ function default_build_test_runner() {
   # Ensure all the code builds
   subheader "Checking that go code builds"
   local report=$(mktemp)
+  local errors=""
   go build -v ./... 2>&1 | tee ${report}
   local build_failed=( ${PIPESTATUS[@]} )
   if [[ ${build_failed[0]} -ne 0 ]]; then
     failed=1
     # Consider an error message everything that's not a package name.
-    local errors="$(grep -v '^github.com/' "${report}" | sort | uniq)"
-    create_junit_xml PresubmitBuildTest "${errors}"
+    errors="$(grep -v '^github.com/' "${report}" | sort | uniq)"
   fi
+  create_junit_xml _build_tests Build_Go "${errors}"
   # Get all build tags in go code (ignore /vendor)
   local tags="$(grep -r '// +build' . \
       | grep -v '^./vendor/' | cut -f3 -d' ' | sort | uniq | tr '\n' ' ')"
