@@ -68,3 +68,155 @@ func TestIsPublic(t *testing.T) {
 	}
 
 }
+
+func TestClusterIngress_GetClusterLocalRules(t *testing.T) {
+	tests := []struct {
+		name  string
+		rules []IngressRule
+		want  []IngressRule
+	}{
+		{
+			name: "has cluster-local rules only",
+			rules: []IngressRule{
+				{
+					Hosts:      []string{"something.namespace.svc.cluster.local"},
+					Visibility: IngressVisibilityClusterLocal,
+				},
+			},
+			want: []IngressRule{
+				{
+					Hosts:      []string{"something.namespace.svc.cluster.local"},
+					Visibility: IngressVisibilityClusterLocal,
+				},
+			},
+		},
+		{
+			name: "has public rules only",
+			rules: []IngressRule{
+				{
+					Hosts:      []string{"something.example.com"},
+					Visibility: IngressVisibilityExternalIP,
+				},
+			},
+			want: nil,
+		},
+		{
+			name: "has mixed rules",
+			rules: []IngressRule{
+				{
+					Hosts:      []string{"something.namespace.svc.cluster.local"},
+					Visibility: IngressVisibilityClusterLocal,
+				},
+				{
+					Hosts:      []string{"something.example.com"},
+					Visibility: IngressVisibilityExternalIP,
+				},
+			},
+			want: []IngressRule{
+				{
+					Hosts:      []string{"something.namespace.svc.cluster.local"},
+					Visibility: IngressVisibilityClusterLocal,
+				},
+			},
+		},
+		{
+			name: "has unspecified visibility",
+			rules: []IngressRule{
+				{
+					Hosts:      []string{"something.namespace.svc.cluster.local"},
+				},
+			},
+			want: nil,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ci := &ClusterIngress{
+				Spec: IngressSpec{
+					Rules: tt.rules,
+				},
+			}
+			if got := ci.GetClusterLocalRules(); !cmp.Equal(got, tt.want) {
+				t.Errorf("ClusterIngress.GetClusterLocalRules() (-want, +got) = %v", cmp.Diff(tt.want, got))
+			}
+		})
+	}
+}
+
+func TestGetPublicRules(t *testing.T) {
+	tests := []struct {
+		name  string
+		rules []IngressRule
+		want  []IngressRule
+	}{
+		{
+			name: "has cluster-local rules only",
+			rules: []IngressRule{
+				{
+					Hosts:      []string{"something.namespace.svc.cluster.local"},
+					Visibility: IngressVisibilityClusterLocal,
+				},
+			},
+			want: nil,
+		},
+		{
+			name: "has public rules only",
+			rules: []IngressRule{
+				{
+					Hosts:      []string{"something.example.com"},
+					Visibility: IngressVisibilityExternalIP,
+				},
+			},
+			want: []IngressRule{
+				{
+					Hosts:      []string{"something.example.com"},
+					Visibility: IngressVisibilityExternalIP,
+				},
+			},
+		},
+		{
+			name: "has mixed rules",
+			rules: []IngressRule{
+				{
+					Hosts:      []string{"something.namespace.svc.cluster.local"},
+					Visibility: IngressVisibilityClusterLocal,
+				},
+				{
+					Hosts:      []string{"something.example.com"},
+					Visibility: IngressVisibilityExternalIP,
+				},
+			},
+			want: []IngressRule{
+				{
+					Hosts:      []string{"something.example.com"},
+					Visibility: IngressVisibilityExternalIP,
+				},
+			},
+		},
+		{
+			name: "has unspecified visibility",
+			rules: []IngressRule{
+				{
+					Hosts:      []string{"something.namespace.svc.cluster.local"},
+				},
+			},
+			want: []IngressRule{
+				{
+					Hosts:      []string{"something.namespace.svc.cluster.local"},
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ci := &ClusterIngress{
+				Spec: IngressSpec{
+					Rules: tt.rules,
+				},
+			}
+			if got := ci.GetPublicRules(); !cmp.Equal(got, tt.want) {
+				t.Errorf("ClusterIngress.GetPublicRules() (-want, +got) = %v", cmp.Diff(tt.want, got))
+			}
+		})
+	}
+}

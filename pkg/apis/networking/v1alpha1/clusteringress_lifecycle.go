@@ -28,3 +28,25 @@ func (ci *ClusterIngress) GetGroupVersionKind() schema.GroupVersionKind {
 func (ci *ClusterIngress) IsPublic() bool {
 	return ci.Spec.Visibility == "" || ci.Spec.Visibility == IngressVisibilityExternalIP
 }
+
+func (ci *ClusterIngress) GetClusterLocalRules() []IngressRule {
+	var result []IngressRule
+	for _, rule := range ci.Spec.Rules {
+		if rule.Visibility == IngressVisibilityClusterLocal {
+			result = append(result, rule)
+		}
+	}
+
+	return result
+}
+
+func (ci *ClusterIngress) GetPublicRules() []IngressRule {
+	var result []IngressRule
+	for _, rule := range ci.Spec.Rules {
+		if rule.Visibility == IngressVisibilityExternalIP || rule.Visibility == "" {
+			result = append(result, rule)
+		}
+	}
+
+	return result
+}

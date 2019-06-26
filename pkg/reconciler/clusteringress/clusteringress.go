@@ -160,7 +160,7 @@ func (c *Reconciler) reconcile(ctx context.Context, ci *v1alpha1.ClusterIngress)
 	ci.Status.InitializeConditions()
 	logger.Infof("Reconciling clusterIngress: %#v", ci)
 
-	gatewayNames := gatewayNamesFromContext(ctx, ci)
+	gatewayNames := gatewayNamesFromContext(ctx)
 	vses := resources.MakeVirtualServices(ci, gatewayNames)
 
 	// First, create the VirtualServices.
@@ -203,7 +203,7 @@ func (c *Reconciler) reconcile(ctx context.Context, ci *v1alpha1.ClusterIngress)
 			return err
 		}
 
-		for _, gatewayName := range gatewayNames {
+		for _, gatewayName := range gatewayNames[v1alpha1.IngressVisibilityExternalIP] {
 			ns, err := resources.GatewayServiceNamespace(config.FromContext(ctx).Istio.IngressGateways, gatewayName)
 			if err != nil {
 				return err
@@ -271,18 +271,22 @@ func privateGatewayServiceURLFromContext(ctx context.Context) string {
 	return ""
 }
 
-func gatewayNamesFromContext(ctx context.Context, ci *v1alpha1.ClusterIngress) []string {
-	gateways := []string{}
-	if ci.IsPublic() {
-		for _, gw := range config.FromContext(ctx).Istio.IngressGateways {
-			gateways = append(gateways, gw.GatewayName)
-		}
-	} else {
-		for _, gw := range config.FromContext(ctx).Istio.LocalGateways {
-			gateways = append(gateways, gw.GatewayName)
-		}
+func gatewayNamesFromContext(ctx context.Context) map[v1alpha1.IngressVisibility][]string {
+	var publicGateways []string
+	for _, gw := range config.FromContext(ctx).Istio.IngressGateways {
+		publicGateways = append(publicGateways, gw.GatewayName)
 	}
-	return dedup(gateways)
+	dedup(publicGateways)
+
+	var privateGateways []string
+	for _, gw := range config.FromContext(ctx).Istio.LocalGateways {
+		privateGateways = append(privateGateways, gw.GatewayName)
+	}
+
+	return map[v1alpha1.IngressVisibility][]string{
+		v1alpha1.IngressVisibilityExternalIP:   publicGateways,
+		v1alpha1.IngressVisibilityClusterLocal: privateGateways,
+	}
 }
 
 func dedup(strs []string) []string {
@@ -401,12 +405,14 @@ func (c *Reconciler) reconcileDeletion(ctx context.Context, ci *v1alpha1.Cluster
 		return nil
 	}
 
-	gatewayNames := gatewayNamesFromContext(ctx, ci)
+	allGateways := gatewayNamesFromContext(ctx)
 	logger.Infof("Cleaning up Gateway Servers for ClusterIngress %s", ci.Name)
 	// No desired Servers means deleting all of the existing Servers associated with the CI.
-	for _, gatewayName := range gatewayNames {
-		if err := c.reconcileGateway(ctx, ci, gatewayName, []v1alpha3.Server{}); err != nil {
-			return err
+	for _, gatewayNames := range allGateways {
+		for _, gatewayName := range gatewayNames {
+			if err := c.reconcileGateway(ctx, ci, gatewayName, []v1alpha3.Server{}); err != nil {
+				return err
+			}
 		}
 	}
 
