@@ -1040,39 +1040,6 @@ func TestUpdate(t *testing.T) {
 	}
 }
 
-func TestNonKPAClass(t *testing.T) {
-	defer logtesting.ClearAll()
-	ctx, _ := SetupFakeContext(t)
-
-	fakeDeciders := newTestDeciders()
-	fakeMetrics := newTestMetrics()
-	ctl := NewController(ctx, newConfigWatcher(), fakeDeciders, fakeMetrics, presources.NewPodScalableInformerFactory(ctx))
-
-	rev := newTestRevision(testNamespace, testRevision)
-	rev.Annotations = map[string]string{
-		autoscaling.ClassAnnotationKey: autoscaling.HPA, // non "kpa" class
-	}
-
-	fakeservingclient.Get(ctx).ServingV1alpha1().Revisions(testNamespace).Create(rev)
-	fakerevisioninformer.Get(ctx).Informer().GetIndexer().Add(rev)
-	kpa := revisionresources.MakeKPA(rev)
-	fakeservingclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
-	fakekpainformer.Get(ctx).Informer().GetIndexer().Add(kpa)
-
-	// Wait for the Reconcile to complete.
-	if err := ctl.Reconciler.Reconcile(context.Background(), testNamespace+"/"+testRevision); err != nil {
-		t.Errorf("Reconcile() = %v", err)
-	}
-
-	// Verify no Deciders or Metrics were created
-	if fakeDeciders.createCallCount.Load() != 0 {
-		t.Error("Unexpected Deciders created")
-	}
-	if fakeMetrics.createCallCount.Load() != 0 {
-		t.Error("Unexpected Metrics created")
-	}
-}
-
 func TestNoEndpoints(t *testing.T) {
 	defer logtesting.ClearAll()
 	ctx, _ := SetupFakeContext(t)
@@ -1386,6 +1353,9 @@ func newTestRevision(namespace string, name string) *v1alpha1.Revision {
 			SelfLink:  fmt.Sprintf("/apis/ela/v1alpha1/namespaces/%s/revisions/%s", namespace, name),
 			Name:      name,
 			Namespace: namespace,
+			Annotations: map[string]string{
+				autoscaling.ClassAnnotationKey: autoscaling.KPA,
+			},
 		},
 		Spec: v1alpha1.RevisionSpec{
 			DeprecatedContainer: &corev1.Container{
