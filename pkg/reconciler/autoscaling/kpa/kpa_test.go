@@ -81,6 +81,7 @@ import (
 const (
 	gracePeriod              = 60 * time.Second
 	stableWindow             = 5 * time.Minute
+	paStableWindow           = 45 * time.Second
 	defaultConcurrencyTarget = 10.0
 )
 

@@ -46,6 +46,7 @@ import (
 	revisionresources "github.com/knative/serving/pkg/reconciler/revision/resources"
 	"github.com/knative/serving/pkg/reconciler/revision/resources/names"
 	presources "github.com/knative/serving/pkg/resources"
+
 	v1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -89,6 +90,27 @@ func TestScaler(t *testing.T) {
 		},
 		wantCBCount: 1,
 	}, {
+		label:         "waits to scale to zero (just before idle period), custom PA window",
+		startReplicas: 1,
+		scaleTo:       0,
+		wantReplicas:  1,
+		wantScaling:   false,
+		kpaMutation: func(k *pav1alpha1.PodAutoscaler) {
+			WithWindowAnnotation(paStableWindow.String())(k)
+			kpaMarkActive(k, time.Now().Add(-paStableWindow).Add(1*time.Second))
+		},
+		wantCBCount: 1,
+	}, {
+		label:         "custom PA window, check for standard window, no probe",
+		startReplicas: 1,
+		scaleTo:       0,
+		wantReplicas:  0,
+		wantScaling:   false,
+		kpaMutation: func(k *pav1alpha1.PodAutoscaler) {
+			WithWindowAnnotation(paStableWindow.String())(k)
+			kpaMarkActive(k, time.Now().Add(-stableWindow))
+		},
+	}, {
 		label:         "scale to 1 waiting for idle expires",
 		startReplicas: 10,
 		scaleTo:       0,
@@ -106,6 +128,16 @@ func TestScaler(t *testing.T) {
 		wantScaling:   false,
 		kpaMutation: func(k *pav1alpha1.PodAutoscaler) {
 			kpaMarkActive(k, time.Now().Add(-stableWindow))
+		},
+	}, {
+		label:         "waits to scale to zero after idle period (custom PA window)",
+		startReplicas: 1,
+		scaleTo:       0,
+		wantReplicas:  0,
+		wantScaling:   false,
+		kpaMutation: func(k *pav1alpha1.PodAutoscaler) {
+			WithWindowAnnotation(paStableWindow.String())(k)
+			kpaMarkActive(k, time.Now().Add(-paStableWindow))
 		},
 	}, {
 		label:         "scale to zero after grace period",
