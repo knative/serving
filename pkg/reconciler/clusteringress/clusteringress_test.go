@@ -55,6 +55,7 @@ import (
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/network"
 	"github.com/knative/serving/pkg/reconciler"
+	ing "github.com/knative/serving/pkg/reconciler/ingress"
 	"github.com/knative/serving/pkg/reconciler/ingress/config"
 	"github.com/knative/serving/pkg/reconciler/ingress/resources"
 	presources "github.com/knative/serving/pkg/resources"
@@ -303,13 +304,15 @@ func TestReconcile(t *testing.T) {
 	defer logtesting.ClearAll()
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
 		return &Reconciler{
-			Base:                 reconciler.NewBase(ctx, controllerAgentName, cmw),
-			virtualServiceLister: listers.GetVirtualServiceLister(),
-			clusterIngressLister: listers.GetClusterIngressLister(),
-			gatewayLister:        listers.GetGatewayLister(),
-			configStore: &testConfigStore{
-				config: ReconcilerTestConfig(),
+			BaseIngressReconciler: &ing.BaseIngressReconciler{
+				Base:                 reconciler.NewBase(ctx, controllerAgentName, cmw),
+				VirtualServiceLister: listers.GetVirtualServiceLister(),
+				GatewayLister:        listers.GetGatewayLister(),
+				ConfigStore: &testConfigStore{
+					config: ReconcilerTestConfig(),
+				},
 			},
+			clusterIngressLister: listers.GetClusterIngressLister(),
 		}
 	}))
 }
@@ -654,27 +657,29 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 		}
 
 		return &Reconciler{
-			Base:                 reconciler.NewBase(ctx, controllerAgentName, cmw),
-			virtualServiceLister: listers.GetVirtualServiceLister(),
-			clusterIngressLister: listers.GetClusterIngressLister(),
-			gatewayLister:        listers.GetGatewayLister(),
-			secretLister:         listers.GetSecretLister(),
-			tracker:              &NullTracker{},
-			// Enable reconciling gateway.
-			configStore: &testConfigStore{
-				config: &config.Config{
-					Istio: &config.Istio{
-						IngressGateways: []config.Gateway{{
-							GatewayName: "knative-ingress-gateway",
-							ServiceURL:  network.GetServiceHostname("istio-ingressgateway", "istio-system"),
-						}},
-					},
-					Network: &network.Config{
-						AutoTLS:      true,
-						HTTPProtocol: network.HTTPDisabled,
+			BaseIngressReconciler: &ing.BaseIngressReconciler{
+				Base:                 reconciler.NewBase(ctx, controllerAgentName, cmw),
+				VirtualServiceLister: listers.GetVirtualServiceLister(),
+				GatewayLister:        listers.GetGatewayLister(),
+				SecretLister:         listers.GetSecretLister(),
+				Tracker:              &NullTracker{},
+				// Enable reconciling gateway.
+				ConfigStore: &testConfigStore{
+					config: &config.Config{
+						Istio: &config.Istio{
+							IngressGateways: []config.Gateway{{
+								GatewayName: "knative-ingress-gateway",
+								ServiceURL:  network.GetServiceHostname("istio-ingressgateway", "istio-system"),
+							}},
+						},
+						Network: &network.Config{
+							AutoTLS:      true,
+							HTTPProtocol: network.HTTPDisabled,
+						},
 					},
 				},
 			},
+			clusterIngressLister: listers.GetClusterIngressLister(),
 		}
 	}))
 }
