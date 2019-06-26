@@ -118,8 +118,6 @@ var (
 	healthState      = &health.State{}
 	promStatReporter *queue.PrometheusStatsReporter // Prometheus stats reporter.
 
-	readinessProbe = flag.Bool("probe", false, "run readiness probe")
-
 	// Metric counters.
 	requestCountM = stats.Int64(
 		requestCountN,
@@ -137,6 +135,7 @@ var (
 		appResponseTimeInMsecN,
 		"The response time in millisecond",
 		stats.UnitMilliseconds)
+	readinessProbeTimeout = flag.Int("probe", -1, "run readiness probe with given timeout")
 )
 
 func initEnv() {
@@ -268,6 +267,10 @@ func createAdminHandlers(readinessProbe func() bool) *http.ServeMux {
 func probeQueueHealthPath(port int, timeout time.Duration) error {
 	url := fmt.Sprintf(healthURLTemplate, port)
 
+	if timeout == 0 {
+		return knativeProbe(url)
+	}
+
 	httpClient := &http.Client{
 		Transport: &http.Transport{
 			// Do not use the cached connection
@@ -276,12 +279,34 @@ func probeQueueHealthPath(port int, timeout time.Duration) error {
 		Timeout: timeout,
 	}
 
+	res, err := httpClient.Get(url)
+
+	if err != nil {
+		return errors.Wrap(err, "failed to probe")
+	}
+
+	if res == nil || res.StatusCode != http.StatusOK {
+		return errors.New("probe returned not ready")
+	}
+
+	return nil
+}
+
+func knativeProbe(url string) error {
+	httpClient := &http.Client{
+		Transport: &http.Transport{
+			// Do not use the cached connection
+			DisableKeepAlives: true,
+		},
+		Timeout: probeTimeout,
+	}
+
 	var lastErr error
 
 	// The 25 millisecond retry interval is an unscientific compromise between wanting to get
 	// started as early as possible while still wanting to give the container some breathing
 	// room to get up and running.
-	timeoutErr := wait.PollImmediate(25*time.Millisecond, timeout, func() (bool, error) {
+	timeoutErr := wait.PollImmediate(25*time.Millisecond, probeTimeout, func() (bool, error) {
 		var res *http.Response
 		if res, lastErr = httpClient.Get(url); res == nil {
 			return false, nil
@@ -399,8 +424,9 @@ func main() {
 	ucProbe := flag.String("readiness-probe", "", "JSON readiness probe configuration for user container")
 	flag.Parse()
 
-	if *readinessProbe {
-		if err := probeQueueHealthPath(networking.QueueAdminPort, probeTimeout); err != nil {
+	if *readinessProbeTimeout >= 0 {
+		pt := time.Duration(*readinessProbeTimeout) * time.Second
+		if err := probeQueueHealthPath(networking.QueueAdminPort, pt); err != nil {
 			// used instead of the logger to produce a concise event message
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)

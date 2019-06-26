@@ -162,6 +162,7 @@ func TestCreateVarLogLink(t *testing.T) {
 
 func TestProbeQueueConnectionFailure(t *testing.T) {
 	port := 12345 // some random port (that's not listening)
+
 	if err := probeQueueHealthPath(port, time.Second); err == nil {
 		t.Error("Expected error, got nil")
 	}
@@ -217,7 +218,34 @@ func TestProbeQueueReady(t *testing.T) {
 	}
 
 	if err = probeQueueHealthPath(port, 1*time.Second); err != nil {
-		t.Errorf("probeQueueHealthPath(%d) = %s", port, err)
+		t.Errorf("probeQueueHealthPath(%d, 1s) = %s", port, err)
+	}
+
+	if !queueProbed {
+		t.Errorf("Expected the queue proxy server to be probed")
+	}
+}
+
+func TestProbeQueueTimeout(t *testing.T) {
+	queueProbed := false
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		queueProbed = true
+		time.Sleep(2 * time.Second)
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	defer ts.Close()
+
+	portStr := strings.TrimPrefix(ts.URL, "http://127.0.0.1:")
+
+	port, err := strconv.Atoi(portStr)
+	if err != nil {
+		t.Fatalf("failed to convert port(%s) to int", portStr)
+	}
+
+	timeout := 1 * time.Second
+	if err = probeQueueHealthPath(port, timeout); err == nil {
+		t.Errorf("Expected probeQueueHealthPath(%d, %v) to return timeout error", port, timeout)
 	}
 
 	if !queueProbed {
@@ -248,7 +276,8 @@ func TestProbeQueueDelayedReady(t *testing.T) {
 		t.Fatalf("Failed to convert port(%s) to int: %v", u.Port(), err)
 	}
 
-	if err := probeQueueHealthPath(port, time.Second); err != nil {
+	timeout := 0 * time.Second
+	if err := probeQueueHealthPath(port, timeout); err != nil {
 		t.Errorf("probeQueueHealthPath(%d) = %s", port, err)
 	}
 }
@@ -282,7 +311,7 @@ func TestEmptyHandler(t *testing.T) {
 	}, t)
 
 	if pb.ProbeContainer() {
-		t.Error("Reported success when no server was available for connection")
+		t.Error("Reported success when no handler was configured.")
 	}
 }
 
