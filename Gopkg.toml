@@ -12,6 +12,8 @@ required = [
   "github.com/knative/caching/pkg/apis/caching",
   "github.com/knative/test-infra/scripts",
   "github.com/knative/test-infra/tools/dep-collector",
+  # For load testing.
+  "github.com/rakyll/hey"
 ]
 
 [[override]]
