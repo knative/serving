@@ -86,12 +86,12 @@ func newInitializer(ctx context.Context, cmw configmap.Watcher) ing.ReconcilerIn
 	return r
 }
 
-// SetTracker - SetTracker
+// SetTracker assigns the Tracker field
 func (c *Reconciler) SetTracker(tracker tracker.Interface) {
 	c.Tracker = tracker
 }
 
-// Init performs initialization
+// Init method performs initializations to ingress reconciler
 func (c *Reconciler) Init(ctx context.Context, cmw configmap.Watcher, impl *controller.Impl) {
 
 	ing.CommonInitializations(ctx, cmw, c, impl)
