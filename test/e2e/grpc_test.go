@@ -169,8 +169,7 @@ func testGRPC(t *testing.T, f grpcTest) {
 	defer test.TearDown(clients, names)
 	resources, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, &v1a1test.Options{
 		ContainerPorts: []corev1.ContainerPort{{
-			Name:          "h2c",
-			ContainerPort: 8080,
+			Name: "h2c",
 		}},
 	})
 	if err != nil {
