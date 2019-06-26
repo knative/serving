@@ -107,7 +107,6 @@ func createServices(t *testing.T, pc *Client, count int) ([]*v1a1test.ResourceOb
 			TearDown(pc, *testNames[i], t.Logf)
 		}
 	}
-	defer cleanupNames()
 	test.CleanupOnInterrupt(cleanupNames)
 
 	objs := make([]*v1a1test.ResourceObjects, count)
@@ -146,10 +145,11 @@ func createServices(t *testing.T, pc *Client, count int) ([]*v1a1test.ResourceOb
 		return nil, nil, err
 	}
 	t.Logf("Created all the services in %v", time.Since(begin))
-	return objs, cleanupName, nil
+	return objs, cleanupNames, nil
 }
 
-func parallelScaleFromZero(t *testing.T, pc *Clients, objs []*v1a1test.ResourceObjects, count int) ([]time.Duration, error) {
+func parallelScaleFromZero(t *testing.T, pc *Client, objs []*v1a1test.ResourceObjects, count int) ([]time.Duration, error) {
+	g := errgroup.Group{}
 	durations := make([]time.Duration, count)
 	for i := 0; i < count; i++ {
 		ndx := i
@@ -223,7 +223,7 @@ func testScaleFromZero(t *testing.T, count, numRuns int) {
 	runStats := make([]*stats, numRuns)
 	tName := fmt.Sprintf("TestScaleFromZero%02d", count)
 	for i := 0; i < numRuns; i++ {
-		durs, err := parallelScaleFromZero(t, objs, count)
+		durs, err := parallelScaleFromZero(t, pc, objs, count)
 		if err != nil {
 			t.Fatalf("Run %d: %v", i+1, err)
 		}
