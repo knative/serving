@@ -23,7 +23,7 @@ import (
 	"strings"
 
 	"github.com/google/go-containerregistry/pkg/name"
-	"github.com/knative/pkg/apis"
+	"knative.dev/pkg/apis"
 	"github.com/knative/serving/pkg/apis/networking"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"

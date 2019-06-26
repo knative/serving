@@ -23,7 +23,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
 
-	. "github.com/knative/pkg/configmap/testing"
+	. "knative.dev/pkg/configmap/testing"
 )
 
 func TestNewConfig(t *testing.T) {
@@ -329,6 +329,19 @@ func TestNewConfig(t *testing.T) {
 			"panic-window":                            "3s",
 			"tick-interval":                           "2s",
 			"panic-window-percentage":                 "110",
+			"panic-threshold-percentage":              "200",
+		},
+		wantErr: true,
+	}, {
+		name: "TU*CC < 1",
+		input: map[string]string{
+			"max-scale-up-rate":                       "1.0",
+			"container-concurrency-target-percentage": "5",
+			"container-concurrency-target-default":    "10.0",
+			"stable-window":                           "62s",
+			"panic-window":                            "12s",
+			"tick-interval":                           "2s",
+			"panic-window-percentage":                 "50",
 			"panic-threshold-percentage":              "200",
 		},
 		wantErr: true,

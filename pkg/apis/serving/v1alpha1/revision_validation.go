@@ -24,8 +24,8 @@ import (
 
 	"github.com/knative/serving/pkg/apis/config"
 
-	"github.com/knative/pkg/apis"
-	"github.com/knative/pkg/kmp"
+	"knative.dev/pkg/apis"
+	"knative.dev/pkg/kmp"
 	"github.com/knative/serving/pkg/apis/serving"
 	"k8s.io/apimachinery/pkg/api/equality"
 )

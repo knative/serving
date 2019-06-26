@@ -19,8 +19,8 @@ package v1beta1
 import (
 	"context"
 
-	"github.com/knative/pkg/apis"
-	"github.com/knative/pkg/ptr"
+	"knative.dev/pkg/apis"
+	"knative.dev/pkg/ptr"
 )
 
 // SetDefaults implements apis.Defaultable

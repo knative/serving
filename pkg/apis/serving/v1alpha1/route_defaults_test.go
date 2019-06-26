@@ -22,7 +22,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 
-	"github.com/knative/pkg/ptr"
+	"knative.dev/pkg/ptr"
 	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 )
 

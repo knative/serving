@@ -21,9 +21,9 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	logtesting "github.com/knative/pkg/logging/testing"
+	logtesting "knative.dev/pkg/logging/testing"
 
-	. "github.com/knative/pkg/configmap/testing"
+	. "knative.dev/pkg/configmap/testing"
 	"github.com/knative/serving/pkg/autoscaler"
 )
 

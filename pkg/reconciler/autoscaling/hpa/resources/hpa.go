@@ -19,8 +19,8 @@ package resources
 import (
 	"math"
 
-	"github.com/knative/pkg/kmeta"
-	"github.com/knative/pkg/ptr"
+	"knative.dev/pkg/kmeta"
+	"knative.dev/pkg/ptr"
 	"github.com/knative/serving/pkg/apis/autoscaling"
 	"github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	servingv1alpha1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
@@ -71,7 +71,8 @@ func MakeHPA(pa *v1alpha1.PodAutoscaler, config *autoscaler.Config) *autoscaling
 			}}
 		}
 	case autoscaling.Concurrency:
-		target := int64(math.Ceil(aresources.ResolveConcurrency(pa, config)))
+		t, _ := aresources.ResolveConcurrency(pa, config)
+		target := int64(math.Ceil(t))
 		hpa.Spec.Metrics = []autoscalingv2beta1.MetricSpec{{
 			Type: autoscalingv2beta1.ObjectMetricSourceType,
 			Object: &autoscalingv2beta1.ObjectMetricSource{

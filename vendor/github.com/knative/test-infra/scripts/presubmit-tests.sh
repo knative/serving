@@ -99,8 +99,8 @@ function create_junit_xml() {
   fi
   cat << EOF > "${xml}"
 <testsuites>
-	<testsuite tests="1" failures="1" time="0.000" name="">
-		<testcase classname="$1" name="$2" time="0.0">
+	<testsuite tests="1" failures="1" time="0.000" name="$1">
+		<testcase classname="" name="$2" time="0.0">
 			${failure}
 		</testcase>
 	</testsuite>

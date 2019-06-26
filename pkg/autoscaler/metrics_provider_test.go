@@ -21,7 +21,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/knative/pkg/kmp"
+	"knative.dev/pkg/kmp"
 	"github.com/knative/serving/pkg/apis/autoscaling"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/kubernetes-incubator/custom-metrics-apiserver/pkg/provider"

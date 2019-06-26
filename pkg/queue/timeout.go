@@ -25,7 +25,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/knative/pkg/websocket"
+	"knative.dev/pkg/websocket"
 )
 
 var defaultTimeoutBody = "<html><head><title>Timeout</title></head><body><h1>Timeout</h1></body></html>"

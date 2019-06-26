@@ -25,8 +25,8 @@ import (
 	"testing"
 
 	"github.com/davecgh/go-spew/spew"
-	"github.com/knative/pkg/test/logging"
-	"github.com/knative/pkg/test/spoof"
+	"knative.dev/pkg/test/logging"
+	"knative.dev/pkg/test/spoof"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 	"github.com/pkg/errors"

@@ -19,14 +19,14 @@ package clusteringress
 import (
 	"context"
 
-	gatewayinformer "github.com/knative/pkg/client/injection/informers/istio/v1alpha3/gateway"
-	virtualserviceinformer "github.com/knative/pkg/client/injection/informers/istio/v1alpha3/virtualservice"
+	gatewayinformer "knative.dev/pkg/client/injection/informers/istio/v1alpha3/gateway"
+	virtualserviceinformer "knative.dev/pkg/client/injection/informers/istio/v1alpha3/virtualservice"
 	clusteringressinformer "github.com/knative/serving/pkg/client/injection/informers/networking/v1alpha1/clusteringress"
 
-	"github.com/knative/pkg/configmap"
-	"github.com/knative/pkg/controller"
-	secretinformer "github.com/knative/pkg/injection/informers/kubeinformers/corev1/secret"
-	"github.com/knative/pkg/tracker"
+	"knative.dev/pkg/configmap"
+	"knative.dev/pkg/controller"
+	secretinformer "knative.dev/pkg/injection/informers/kubeinformers/corev1/secret"
+	"knative.dev/pkg/tracker"
 	"github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/network"
 	"github.com/knative/serving/pkg/reconciler"

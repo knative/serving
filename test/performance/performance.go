@@ -23,9 +23,9 @@ import (
 	"testing"
 	"time"
 
-	pkgTest "github.com/knative/pkg/test"
-	"github.com/knative/pkg/test/logging"
-	"github.com/knative/pkg/test/zipkin"
+	pkgTest "knative.dev/pkg/test"
+	"knative.dev/pkg/test/logging"
+	"knative.dev/pkg/test/zipkin"
 	"github.com/knative/serving/test"
 	"github.com/knative/test-infra/shared/common"
 	"github.com/knative/test-infra/shared/prometheus"

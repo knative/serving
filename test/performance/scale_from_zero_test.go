@@ -28,8 +28,8 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 
-	pkgTest "github.com/knative/pkg/test"
-	"github.com/knative/pkg/test/zipkin"
+	pkgTest "knative.dev/pkg/test"
+	"knative.dev/pkg/test/zipkin"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/reconciler/revision/resources/names"
 	ktest "github.com/knative/serving/pkg/testing/v1alpha1"

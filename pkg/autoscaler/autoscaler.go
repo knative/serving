@@ -19,17 +19,20 @@ package autoscaler
 import (
 	"context"
 	"errors"
+	"fmt"
 	"math"
 	"sync"
 	"time"
 
-	"github.com/knative/pkg/logging"
-	"github.com/knative/serving/pkg/resources"
 	"go.uber.org/zap"
+
+	"github.com/knative/serving/pkg/resources"
+	"knative.dev/pkg/logging"
+
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 )
 
-// Autoscaler stores current state of an instance of an autoscaler
+// Autoscaler stores current state of an instance of an autoscaler.
 type Autoscaler struct {
 	namespace    string
 	revision     string
@@ -88,7 +91,7 @@ func (a *Autoscaler) Update(deciderSpec DeciderSpec) error {
 // Scale calculates the desired scale based on current statistics given the current time.
 // desiredPodCount is the calculated pod count the autoscaler would like to set.
 // validScale signifies whether the desiredPodCount should be applied or not.
-func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (desiredPodCount int32, validScale bool) {
+func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (desiredPodCount int32, excessBC int32, validScale bool) {
 	logger := logging.FromContext(ctx)
 
 	spec := a.currentSpec()
@@ -96,7 +99,7 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (desiredPodCount 
 	// If the error is NotFound, then presume 0.
 	if err != nil && !apierrors.IsNotFound(err) {
 		logger.Errorw("Failed to get Endpoints via K8S Lister", zap.Error(err))
-		return 0, false
+		return 0, 0, false
 	}
 	// Use 1 if there are zero current pods.
 	readyPodsCount := math.Max(1, float64(originalReadyPodsCount))
@@ -109,7 +112,7 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (desiredPodCount 
 		} else {
 			logger.Errorw("Failed to obtain metrics", zap.Error(err))
 		}
-		return 0, false
+		return 0, 0, false
 	}
 
 	maxScaleUp := spec.MaxScaleUpRate * readyPodsCount
@@ -120,8 +123,12 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (desiredPodCount 
 	a.reporter.ReportPanicRequestConcurrency(observedPanicConcurrency)
 	a.reporter.ReportTargetRequestConcurrency(spec.TargetConcurrency)
 
-	logger.Debugf("STABLE: Observed average %0.3f concurrency, targeting %v.", observedStableConcurrency, spec.TargetConcurrency)
-	logger.Debugf("PANIC: Observed average %0.3f concurrency, targeting %v.", observedPanicConcurrency, spec.TargetConcurrency)
+	logger.Debugw(fmt.Sprintf("Observed average %0.3f concurrency, targeting %0.3f.",
+		observedStableConcurrency, spec.TargetConcurrency),
+		zap.String("concurrency", "stable"))
+	logger.Debugw(fmt.Sprintf("Observed average %0.3f concurrency, targeting %0.3f.",
+		observedPanicConcurrency, spec.TargetConcurrency),
+		zap.String("concurrency", "panic"))
 
 	isOverPanicThreshold := observedPanicConcurrency/readyPodsCount >= spec.PanicThreshold
 
@@ -154,8 +161,16 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (desiredPodCount 
 		desiredPodCount = desiredStablePodCount
 	}
 
+	// Compute the excess burst capacity based on stable concurrency for now, since we don't want to
+	// be making knee-jerk decisions about Activator in the request path. Negative EBC means
+	// that the deployment does not have enough capacity to serve the desired burst off hand.
+	// EBC = TotCapacity - Cur#ReqInFlight - TargetBurstCapacity
+	excessBC = int32(readyPodsCount*a.deciderSpec.TotalConcurrency - observedStableConcurrency -
+		a.deciderSpec.TargetBurstCapacity)
+	logger.Debug("Excess burst capacity = ", excessBC)
+
 	a.reporter.ReportDesiredPodCount(int64(desiredPodCount))
-	return desiredPodCount, true
+	return desiredPodCount, excessBC, true
 }
 
 func (a *Autoscaler) currentSpec() DeciderSpec {

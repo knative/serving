@@ -18,10 +18,10 @@ package v1alpha1
 import (
 	"testing"
 
-	"github.com/knative/pkg/apis/duck"
-	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
-	duckv1beta1 "github.com/knative/pkg/apis/duck/v1beta1"
-	apitesting "github.com/knative/pkg/apis/testing"
+	"knative.dev/pkg/apis/duck"
+	duckv1alpha1 "knative.dev/pkg/apis/duck/v1alpha1"
+	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
+	apitesting "knative.dev/pkg/apis/testing"
 	netv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"

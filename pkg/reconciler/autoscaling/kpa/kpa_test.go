@@ -26,10 +26,10 @@ import (
 	"time"
 
 	// These are the fake informers we want setup.
-	fakedynamicclient "github.com/knative/pkg/injection/clients/dynamicclient/fake"
-	fakekubeclient "github.com/knative/pkg/injection/clients/kubeclient/fake"
-	fakeendpointsinformer "github.com/knative/pkg/injection/informers/kubeinformers/corev1/endpoints/fake"
-	fakeserviceinformer "github.com/knative/pkg/injection/informers/kubeinformers/corev1/service/fake"
+	fakedynamicclient "knative.dev/pkg/injection/clients/dynamicclient/fake"
+	fakekubeclient "knative.dev/pkg/injection/clients/kubeclient/fake"
+	fakeendpointsinformer "knative.dev/pkg/injection/informers/kubeinformers/corev1/endpoints/fake"
+	fakeserviceinformer "knative.dev/pkg/injection/informers/kubeinformers/corev1/service/fake"
 	fakeservingclient "github.com/knative/serving/pkg/client/injection/client/fake"
 	fakekpainformer "github.com/knative/serving/pkg/client/injection/informers/autoscaling/v1alpha1/podautoscaler/fake"
 	fakesksinformer "github.com/knative/serving/pkg/client/injection/informers/networking/v1alpha1/serverlessservice/fake"
@@ -43,12 +43,12 @@ import (
 	"go.uber.org/atomic"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/knative/pkg/configmap"
-	"github.com/knative/pkg/controller"
-	logtesting "github.com/knative/pkg/logging/testing"
-	"github.com/knative/pkg/ptr"
-	"github.com/knative/pkg/system"
-	_ "github.com/knative/pkg/system/testing"
+	"knative.dev/pkg/configmap"
+	"knative.dev/pkg/controller"
+	logtesting "knative.dev/pkg/logging/testing"
+	"knative.dev/pkg/ptr"
+	"knative.dev/pkg/system"
+	_ "knative.dev/pkg/system/testing"
 	"github.com/knative/serving/pkg/apis/autoscaling"
 	asv1a1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	nv1a1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
@@ -71,7 +71,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgotesting "k8s.io/client-go/testing"
 
-	. "github.com/knative/pkg/reconciler/testing"
+	. "knative.dev/pkg/reconciler/testing"
 	. "github.com/knative/serving/pkg/reconciler/testing/v1alpha1"
 	. "github.com/knative/serving/pkg/testing"
 )

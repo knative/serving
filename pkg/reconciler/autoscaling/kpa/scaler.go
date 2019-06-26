@@ -24,9 +24,10 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/knative/pkg/apis/duck"
-	"github.com/knative/pkg/injection/clients/dynamicclient"
-	"github.com/knative/pkg/logging"
+	"knative.dev/pkg/apis/duck"
+	"knative.dev/pkg/injection/clients/dynamicclient"
+	"knative.dev/pkg/logging"
+
 	"github.com/knative/serving/pkg/activator"
 	pav1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/apis/networking"

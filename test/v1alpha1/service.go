@@ -24,8 +24,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/knative/pkg/apis/duck"
-	"github.com/knative/pkg/test/logging"
+	"knative.dev/pkg/apis/duck"
+	"knative.dev/pkg/test/logging"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	serviceresourcenames "github.com/knative/serving/pkg/reconciler/service/resources/names"
 	"github.com/mattbaird/jsonpatch"
@@ -34,7 +34,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 
-	ptest "github.com/knative/pkg/test"
+	ptest "knative.dev/pkg/test"
 	rtesting "github.com/knative/serving/pkg/testing/v1alpha1"
 	"github.com/knative/serving/test"
 )

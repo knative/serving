@@ -22,10 +22,10 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	logtesting "github.com/knative/pkg/logging/testing"
+	logtesting "knative.dev/pkg/logging/testing"
 	"k8s.io/apimachinery/pkg/api/resource"
 
-	. "github.com/knative/pkg/configmap/testing"
+	. "knative.dev/pkg/configmap/testing"
 )
 
 var ignoreStuff = cmp.Options{
