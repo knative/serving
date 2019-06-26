@@ -333,6 +333,19 @@ func TestNewConfig(t *testing.T) {
 		},
 		wantErr: true,
 	}, {
+		name: "TU*CC < 1",
+		input: map[string]string{
+			"max-scale-up-rate":                       "1.0",
+			"container-concurrency-target-percentage": "5",
+			"container-concurrency-target-default":    "10.0",
+			"stable-window":                           "62s",
+			"panic-window":                            "12s",
+			"tick-interval":                           "2s",
+			"panic-window-percentage":                 "50",
+			"panic-threshold-percentage":              "200",
+		},
+		wantErr: true,
+	}, {
 		name: "grace window too big",
 		input: map[string]string{
 			"max-scale-up-rate":                       "1.0",

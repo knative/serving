@@ -27,14 +27,16 @@ import (
 
 func TestResolveConcurrency(t *testing.T) {
 	cases := []struct {
-		name   string
-		pa     *v1alpha1.PodAutoscaler
-		cfgOpt func(autoscaler.Config) *autoscaler.Config
-		want   float64
+		name    string
+		pa      *v1alpha1.PodAutoscaler
+		cfgOpt  func(autoscaler.Config) *autoscaler.Config
+		wantTgt float64
+		wantTot float64
 	}{{
-		name: "defaults",
-		pa:   pa(),
-		want: 100,
+		name:    "defaults",
+		pa:      pa(),
+		wantTgt: 100,
+		wantTot: 100,
 	}, {
 		name: "with container concurrency 10 and TU=80%",
 		pa:   pa(WithContainerConcurrency(10)),
@@ -42,7 +44,7 @@ func TestResolveConcurrency(t *testing.T) {
 			c.ContainerConcurrencyTargetFraction = 0.8
 			return &c
 		},
-		want: 8,
+		wantTgt: 8,
 	}, {
 		name: "with container concurrency 1 and TU=80%",
 		pa:   pa(WithContainerConcurrency(1)),
@@ -50,27 +52,29 @@ func TestResolveConcurrency(t *testing.T) {
 			c.ContainerConcurrencyTargetFraction = 0.8
 			return &c
 		},
-		want: 1, // Not permitting less than 1.
+		wantTgt: 1, // Not permitting less than 1.
 	}, {
-		name: "with container concurrency 1",
-		pa:   pa(WithContainerConcurrency(1)),
-		want: 1,
+		name:    "with container concurrency 1",
+		pa:      pa(WithContainerConcurrency(1)),
+		wantTgt: 1,
 	}, {
-		name: "with container concurrency 10",
-		pa:   pa(WithContainerConcurrency(10)),
-		want: 10,
+		name:    "with container concurrency 10",
+		pa:      pa(WithContainerConcurrency(10)),
+		wantTgt: 10,
 	}, {
-		name: "with target annotation 1",
-		pa:   pa(WithTargetAnnotation("1")),
-		want: 1,
+		name:    "with target annotation 1",
+		pa:      pa(WithTargetAnnotation("1")),
+		wantTgt: 1,
 	}, {
-		name: "with container concurrency greater than target annotation (ok)",
-		pa:   pa(WithContainerConcurrency(10), WithTargetAnnotation("1")),
-		want: 1,
+		name:    "with container concurrency greater than target annotation (ok)",
+		pa:      pa(WithContainerConcurrency(10), WithTargetAnnotation("1")),
+		wantTgt: 1,
+		wantTot: 1,
 	}, {
-		name: "with target annotation greater than container concurrency (ignore annotation for safety)",
-		pa:   pa(WithContainerConcurrency(1), WithTargetAnnotation("10")),
-		want: 1,
+		name:    "with target annotation greater than container concurrency (ignore annotation for safety)",
+		pa:      pa(WithContainerConcurrency(1), WithTargetAnnotation("10")),
+		wantTgt: 1,
+		wantTot: 1,
 	}}
 
 	for _, tc := range cases {
@@ -79,8 +83,8 @@ func TestResolveConcurrency(t *testing.T) {
 			if tc.cfgOpt != nil {
 				cfg = tc.cfgOpt(*cfg)
 			}
-			if got := ResolveConcurrency(tc.pa, cfg); got != tc.want {
-				t.Errorf("ResolveTargetConcurrency(%v, %v) = %v, want %v", tc.pa, config, got, tc.want)
+			if gotTgt, _ := ResolveConcurrency(tc.pa, cfg); gotTgt != tc.wantTgt {
+				t.Errorf("ResolveTargetConcurrency(%v, %v) = %v, want %v", tc.pa, config, gotTgt, tc.wantTgt)
 			}
 		})
 	}
