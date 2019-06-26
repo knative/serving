@@ -895,6 +895,17 @@
   revision = "282c8707aa210456a825798969cc27edda34992a"
 
 [[projects]]
+  digest = "1:285e9ed8b84f6895bf88ab829315f213a06480888fab223861be0c3dfca1a2ed"
+  name = "github.com/rakyll/hey"
+  packages = [
+    ".",
+    "requester",
+  ]
+  pruneopts = "NUT"
+  revision = "01803349acd49d756dafa2cb6ac5b5bfc141fc3b"
+  version = "v0.1.2"
+
+[[projects]]
   digest = "1:7008ec21a0ce773bd21deefdb7d17fab8cb9f1ae0bc44026cdd2b658ab1582ca"
   name = "github.com/rogpeppe/go-internal"
   packages = ["semver"]
@@ -1806,6 +1817,7 @@
     "github.com/prometheus/client_golang/prometheus/promhttp",
     "github.com/prometheus/client_model/go",
     "github.com/prometheus/common/expfmt",
+    "github.com/rakyll/hey",
     "github.com/spf13/pflag",
     "go.opencensus.io/exporter/zipkin",
     "go.opencensus.io/plugin/ochttp",
