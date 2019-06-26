@@ -252,8 +252,8 @@ func withEnvVar(name, value string) containerOption {
 	}
 }
 
-func withEmptyProbeArgs() containerOption {
-	return withArgs([]string{"--readiness-probe", "null"})
+func withEmptyProbeArgs(container *corev1.Container) {
+	container.Args = append(container.Args, []string{"--readiness-probe", "null"}...)
 }
 
 func withArgs(args []string) containerOption {
@@ -405,7 +405,7 @@ func TestMakePodSpec(t *testing.T) {
 				queueContainer(
 					withEnvVar("CONTAINER_CONCURRENCY", "1"),
 					withEnvVar("USER_PORT", "8888"),
-					withEmptyProbeArgs(),
+					withEmptyProbeArgs,
 				),
 			}),
 	}, {
@@ -449,7 +449,7 @@ func TestMakePodSpec(t *testing.T) {
 				queueContainer(
 					withEnvVar("CONTAINER_CONCURRENCY", "1"),
 					withEnvVar("USER_PORT", "8888"),
-					withEmptyProbeArgs(),
+					withEmptyProbeArgs,
 				),
 			}, withAppendedVolumes(corev1.Volume{
 				Name: "asdf",
@@ -471,7 +471,7 @@ func TestMakePodSpec(t *testing.T) {
 				userContainer(),
 				queueContainer(
 					withEnvVar("CONTAINER_CONCURRENCY", "1"),
-					withEmptyProbeArgs(),
+					withEmptyProbeArgs,
 				),
 			}),
 	}, {
@@ -495,7 +495,7 @@ func TestMakePodSpec(t *testing.T) {
 				}),
 				queueContainer(
 					withEnvVar("CONTAINER_CONCURRENCY", "1"),
-					withEmptyProbeArgs(),
+					withEmptyProbeArgs,
 				),
 			}),
 	}, {
@@ -514,7 +514,7 @@ func TestMakePodSpec(t *testing.T) {
 				queueContainer(
 					withEnvVar("SERVING_CONFIGURATION", "parent-config"),
 					withEnvVar("CONTAINER_CONCURRENCY", "1"),
-					withEmptyProbeArgs(),
+					withEmptyProbeArgs,
 				),
 			}),
 	}, {
@@ -616,7 +616,7 @@ func TestMakePodSpec(t *testing.T) {
 				),
 				queueContainer(
 					withEnvVar("CONTAINER_CONCURRENCY", "0"),
-					withEmptyProbeArgs(),
+					withEmptyProbeArgs,
 				),
 			}),
 	}, {
@@ -643,7 +643,7 @@ func TestMakePodSpec(t *testing.T) {
 				),
 				queueContainer(
 					withEnvVar("CONTAINER_CONCURRENCY", "0"),
-					withEmptyProbeArgs(),
+					withEmptyProbeArgs,
 				),
 			}),
 	}, {
@@ -662,7 +662,7 @@ func TestMakePodSpec(t *testing.T) {
 					withEnvVar("CONTAINER_CONCURRENCY", "1"),
 					withEnvVar("ENABLE_VAR_LOG_COLLECTION", "true"),
 					withInternalVolumeMount(),
-					withEmptyProbeArgs(),
+					withEmptyProbeArgs,
 				),
 			},
 			func(podSpec *corev1.PodSpec) {
@@ -729,7 +729,7 @@ func TestMakePodSpec(t *testing.T) {
 				queueContainer(
 					withEnvVar("CONTAINER_CONCURRENCY", "1"),
 					withEnvVar("SERVING_SERVICE", ""),
-					withEmptyProbeArgs(),
+					withEmptyProbeArgs,
 				),
 			}),
 	}}
