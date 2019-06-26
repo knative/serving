@@ -280,12 +280,6 @@ func TestReconcile(t *testing.T) {
 				`PodAutoscaler: "test-revision" does not own HPA: "test-revision"`),
 		},
 	}, {
-		Name: "do not create hpa when non-hpa-class pod autoscaler",
-		Objects: []runtime.Object{
-			pa(testRevision, testNamespace, WithKPAClass),
-		},
-		Key: key(testRevision, testNamespace),
-	}, {
 		Name: "nop deletion reconcile",
 		// Test that with a DeletionTimestamp we do nothing.
 		Objects: []runtime.Object{

@@ -69,11 +69,6 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 		return err
 	}
 
-	if original.Class() != autoscaling.HPA {
-		logger.Warn("Ignoring non-hpa-class PA")
-		return nil
-	}
-
 	// Don't modify the informer's copy.
 	pa := original.DeepCopy()
 	// Reconcile this copy of the pa and then write back any status

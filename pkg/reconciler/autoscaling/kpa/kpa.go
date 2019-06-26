@@ -81,11 +81,6 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 		return err
 	}
 
-	if original.Class() != autoscaling.KPA {
-		logger.Warn("Ignoring non-kpa-class PA")
-		return nil
-	}
-
 	// Don't modify the informer's copy.
 	pa := original.DeepCopy()
 
