@@ -63,7 +63,7 @@ var (
 	queueReadinessProbe = &corev1.Probe{
 		Handler: corev1.Handler{
 			Exec: &corev1.ExecAction{
-				Command: []string{"/ko-app/queue", "-probe", "true"},
+				Command: []string{"/ko-app/queue", "-probe", "0"},
 			},
 		},
 		// We want to mark the service as not ready as soon as the
@@ -158,6 +158,46 @@ func createResourcePercentageFromAnnotations(m map[string]string, k string) (boo
 	return true, float32(value / 100)
 }
 
+func makeQueueProbe(in *corev1.Probe) *corev1.Probe {
+	if in == nil || in.PeriodSeconds == 0 {
+		return &corev1.Probe{
+			Handler: corev1.Handler{
+				Exec: &corev1.ExecAction{
+					Command: []string{"/ko-app/queue", "-probe", "0"},
+				},
+			},
+			// We want to mark the service as not ready as soon as the
+			// PreStop handler is called, so we need to check a little
+			// bit more often than the default.  It is a small
+			// sacrifice for a low rate of 503s.
+			PeriodSeconds: 1,
+			// We keep the connection open for a while because we're
+			// actively probing the user-container on that endpoint and
+			// thus don't want to be limited by K8s granularity here.
+			TimeoutSeconds: 10,
+		}
+	}
+
+	timeout := 1
+
+	if in.TimeoutSeconds > 1 {
+		timeout = int(in.TimeoutSeconds)
+	}
+
+	return &corev1.Probe{
+		Handler: corev1.Handler{
+			Exec: &corev1.ExecAction{
+				Command: []string{"/ko-app/queue", "-probe", strconv.Itoa(timeout)},
+			},
+		},
+		PeriodSeconds:       in.PeriodSeconds,
+		TimeoutSeconds:      int32(timeout),
+		SuccessThreshold:    in.SuccessThreshold,
+		FailureThreshold:    in.FailureThreshold,
+		InitialDelaySeconds: in.InitialDelaySeconds,
+	}
+}
+
 // makeQueueContainer creates the container spec for the queue sidecar.
 func makeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, observabilityConfig *metrics.ObservabilityConfig,
 	autoscalerConfig *autoscaler.Config, deploymentConfig *deployment.Config) *corev1.Container {
@@ -207,6 +247,10 @@ func makeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, o
 			rp.TCPSocket.Host = "127.0.0.1"
 			rp.TCPSocket.Port = intstr.FromInt(int(userPort))
 		}
+
+		if rp.PeriodSeconds > 0 && rp.TimeoutSeconds < 1 {
+			rp.TimeoutSeconds = 1
+		}
 	}
 	probeJSON, err := json.Marshal(rp)
 	if err != nil {
@@ -218,7 +262,7 @@ func makeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, o
 		Image:           deploymentConfig.QueueSidecarImage,
 		Resources:       createQueueResources(rev.GetAnnotations(), rev.Spec.GetContainer()),
 		Ports:           ports,
-		ReadinessProbe:  queueReadinessProbe,
+		ReadinessProbe:  makeQueueProbe(rp),
 		VolumeMounts:    volumeMounts,
 		Args:            []string{"--readiness-probe", string(probeJSON)},
 		SecurityContext: queueSecurityContext,
