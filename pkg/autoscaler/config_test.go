@@ -218,7 +218,7 @@ func TestNewConfig(t *testing.T) {
 		name: "invalid target burst capacity",
 		input: map[string]string{
 			"max-scale-up-rate":                       "1.0",
-			"container-concurrency-target-percentage": "42",
+			"container-concurrency-target-percentage": "80",
 			"container-concurrency-target-default":    "10.0",
 			"target-burst-capacity":                   "-1",
 			"stable-window":                           "3s",
