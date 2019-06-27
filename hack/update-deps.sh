@@ -40,6 +40,8 @@ update_licenses third_party/VENDOR-LICENSE "./cmd/*"
 #
 # Once we're on 1.15 we can drop this patch, but we will have to be careful when
 # bumping kubernetes dependencies.
+#
+# TODO(#4549): Drop this patch.
 git apply ${REPO_ROOT_DIR}/hack/1996.patch
 
 remove_broken_symlinks ./vendor
