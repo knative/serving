@@ -68,6 +68,19 @@ func TestMakeMetric(t *testing.T) {
 	}
 }
 
+func TestStableWindow(t *testing.T) {
+	// Not set on PA.
+	thePa := pa()
+	if got, want := StableWindow(thePa, config), config.StableWindow; got != want {
+		t.Errorf("StableWindow = %v, want: %v", got, want)
+	}
+
+	thePa = pa(WithWindowAnnotation("251s"))
+	if got, want := StableWindow(thePa, config), 251*time.Second; got != want {
+		t.Errorf("StableWindow = %v, want: %v", got, want)
+	}
+}
+
 type MetricOption func(*autoscaler.Metric)
 
 func withStableWindow(window time.Duration) MetricOption {

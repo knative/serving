@@ -51,11 +51,6 @@ func MakeDecider(ctx context.Context, pa *v1alpha1.PodAutoscaler, config *autosc
 		panicThresholdPercentage = config.PanicThresholdPercentage
 	}
 
-	stableWindow, ok := pa.Window()
-	if !ok {
-		stableWindow = config.StableWindow
-	}
-
 	target, total := resources.ResolveConcurrency(pa, config)
 	panicThreshold := target * panicThresholdPercentage / 100.0
 
@@ -68,7 +63,7 @@ func MakeDecider(ctx context.Context, pa *v1alpha1.PodAutoscaler, config *autosc
 			TotalConcurrency:    total,
 			TargetBurstCapacity: config.TargetBurstCapacity,
 			PanicThreshold:      panicThreshold,
-			StableWindow:        stableWindow,
+			StableWindow:        resources.StableWindow(pa, config),
 			ServiceName:         svc,
 		},
 	}
