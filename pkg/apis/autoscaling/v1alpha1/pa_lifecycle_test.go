@@ -658,12 +658,12 @@ func TestScaleBounds(t *testing.T) {
 func TestMarkResourceNotOwned(t *testing.T) {
 	pa := pa(map[string]string{})
 	pa.Status.MarkResourceNotOwned("doesn't", "matter")
-	active := pa.Status.GetCondition("Active")
-	if active.Status != corev1.ConditionFalse {
-		t.Errorf("TestMarkResourceNotOwned expected active.Status: False got: %v", active.Status)
+	bootstrap := pa.Status.GetCondition("Bootstrap")
+	if bootstrap.Status != corev1.ConditionFalse {
+		t.Errorf("TestMarkResourceNotOwned expected bootstrap.Status: False got: %v", bootstrap.Status)
 	}
-	if active.Reason != "NotOwned" {
-		t.Errorf("TestMarkResourceNotOwned expected active.Reason: NotOwned got: %v", active.Reason)
+	if bootstrap.Reason != "NotOwned" {
+		t.Errorf("TestMarkResourceNotOwned expected bootstrap.Reason: NotOwned got: %v", bootstrap.Reason)
 	}
 }
 
