@@ -25,8 +25,6 @@ import (
 	"time"
 
 	"golang.org/x/sync/errgroup"
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
 
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/zipkin"
@@ -39,6 +37,9 @@ import (
 	"github.com/knative/test-infra/shared/junit"
 	perf "github.com/knative/test-infra/shared/performance"
 	"github.com/knative/test-infra/shared/testgrid"
+
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 )
 
 const (
@@ -89,14 +90,8 @@ func runScaleFromZero(idx int, t *testing.T, clients *test.Clients, ro *v1a1test
 	return dur, nil
 }
 
-func parallelScaleFromZero(t *testing.T, count int) ([]time.Duration, error) {
-	pc, err := Setup(t, EnableZipkinTracing)
-	if err != nil {
-		return nil, fmt.Errorf("failed to setup clients: %v", err)
-	}
-
+func createServices(t *testing.T, pc *Client, count int) ([]*v1a1test.ResourceObjects, func(), error) {
 	testNames := make([]*test.ResourceNames, count)
-	durations := make([]time.Duration, count)
 
 	// Initialize our service names.
 	for i := 0; i < count; i++ {
@@ -112,7 +107,6 @@ func parallelScaleFromZero(t *testing.T, count int) ([]time.Duration, error) {
 			TearDown(pc, *testNames[i], t.Logf)
 		}
 	}
-	defer cleanupNames()
 	test.CleanupOnInterrupt(cleanupNames)
 
 	objs := make([]*v1a1test.ResourceObjects, count)
@@ -133,7 +127,8 @@ func parallelScaleFromZero(t *testing.T, count int) ([]time.Duration, error) {
 					corev1.ResourceMemory: resource.MustParse("20Mi"),
 				},
 			}
-		}}
+		},
+	}
 	g := errgroup.Group{}
 	for i := 0; i < count; i++ {
 		ndx := i
@@ -147,9 +142,15 @@ func parallelScaleFromZero(t *testing.T, count int) ([]time.Duration, error) {
 		})
 	}
 	if err := g.Wait(); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	t.Logf("Created all the services in %v", time.Since(begin))
+	return objs, cleanupNames, nil
+}
+
+func parallelScaleFromZero(t *testing.T, pc *Client, objs []*v1a1test.ResourceObjects, count int) ([]time.Duration, error) {
+	g := errgroup.Group{}
+	durations := make([]time.Duration, count)
 	for i := 0; i < count; i++ {
 		ndx := i
 		g.Go(func() error {
@@ -208,10 +209,21 @@ func getMultiRunStats(runStats []*stats) *stats {
 }
 
 func testScaleFromZero(t *testing.T, count, numRuns int) {
+	pc, err := Setup(t, EnableZipkinTracing)
+	if err != nil {
+		t.Fatalf("Failed to setup clients: %v", err)
+	}
+	// Create the services once.
+	objs, cleanup, err := createServices(t, pc, count)
+	if err != nil {
+		t.Fatalf("Failed to create services: %v", err)
+	}
+	defer cleanup()
+
 	runStats := make([]*stats, numRuns)
 	tName := fmt.Sprintf("TestScaleFromZero%02d", count)
 	for i := 0; i < numRuns; i++ {
-		durs, err := parallelScaleFromZero(t, count)
+		durs, err := parallelScaleFromZero(t, pc, objs, count)
 		if err != nil {
 			t.Fatalf("Run %d: %v", i+1, err)
 		}
