@@ -211,7 +211,10 @@ when you use Minikube or Docker Desktop as the Kubernetes environment.
 Next, run:
 
 ```shell
-ko apply -f config/
+# There are some issues with multi-versioned CRDs before Kubernetes 1.14, so
+# depending on how you plan to use knative you may need to switch this to
+# v1alpha1, see also: https://github.com/knative/serving/issues/4533
+ko apply -f config/ -f config/v1beta1
 
 # Optional steps
 
