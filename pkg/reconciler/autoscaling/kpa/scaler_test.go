@@ -27,14 +27,9 @@ import (
 	"time"
 
 	// These are the fake informers we want setup.
-	fakedynamicclient "knative.dev/pkg/injection/clients/dynamicclient/fake"
 	fakeservingclient "github.com/knative/serving/pkg/client/injection/client/fake"
+	fakedynamicclient "knative.dev/pkg/injection/clients/dynamicclient/fake"
 
-	"knative.dev/pkg/apis"
-	"knative.dev/pkg/apis/duck"
-	"knative.dev/pkg/logging"
-	logtesting "knative.dev/pkg/logging/testing"
-	_ "knative.dev/pkg/system/testing"
 	"github.com/knative/serving/pkg/activator"
 	"github.com/knative/serving/pkg/apis/autoscaling"
 	pav1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
@@ -46,6 +41,11 @@ import (
 	revisionresources "github.com/knative/serving/pkg/reconciler/revision/resources"
 	"github.com/knative/serving/pkg/reconciler/revision/resources/names"
 	presources "github.com/knative/serving/pkg/resources"
+	"knative.dev/pkg/apis"
+	"knative.dev/pkg/apis/duck"
+	"knative.dev/pkg/logging"
+	logtesting "knative.dev/pkg/logging/testing"
+	_ "knative.dev/pkg/system/testing"
 
 	v1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -56,8 +56,8 @@ import (
 	fakedynamic "k8s.io/client-go/dynamic/fake"
 	clientgotesting "k8s.io/client-go/testing"
 
-	. "knative.dev/pkg/reconciler/testing"
 	. "github.com/knative/serving/pkg/testing"
+	. "knative.dev/pkg/reconciler/testing"
 )
 
 const (
@@ -90,6 +90,7 @@ func TestScaler(t *testing.T) {
 		},
 		wantCBCount: 1,
 	}, {
+		// Custom window will be shorter in the tests with custom PA window.
 		label:         "waits to scale to zero (just before idle period), custom PA window",
 		startReplicas: 1,
 		scaleTo:       0,
