@@ -12,9 +12,9 @@ with the following controller constructor:
 import (
 	"context"
 
-	"github.com/knative/pkg/configmap"
-	"github.com/knative/pkg/controller"
-	"github.com/knative/pkg/logging"
+	"knative.dev/pkg/configmap"
+	"knative.dev/pkg/controller"
+	"knative.dev/pkg/logging"
 )
 
 func NewController(ctx context.Context, cmw configmap.Watcher) *controller.Impl {
@@ -48,8 +48,8 @@ these below).
 import (
 	// These are how you access a client or informer off of the "ctx" passed
 	// to set up the controller.
-	"github.com/knative/pkg/injection/clients/kubeclient"
-	svcinformer "github.com/knative/pkg/injection/informers/kubeinformers/corev1/service"
+	"knative.dev/pkg/injection/clients/kubeclient"
+	svcinformer "knative.dev/pkg/injection/informers/kubeinformers/corev1/service"
 
 	// Other imports ...
 )
@@ -91,11 +91,11 @@ import (
 	"testing"
 
 	// Link the fakes for any informers our controller accesses.
-	_ "github.com/knative/pkg/injection/informers/kubeinformers/corev1/service/fake"
+	_ "knative.dev/pkg/injection/informers/kubeinformers/corev1/service/fake"
 
 	"k8s.io/client-go/rest"
-	"github.com/knative/pkg/injection"
-	logtesting "github.com/knative/pkg/logging/testing"
+	"knative.dev/pkg/injection"
+	logtesting "knative.dev/pkg/logging/testing"
 )
 
 func TestFoo(t *testing.T) {
@@ -116,11 +116,11 @@ The fake clients also support manually setting up contexts seeded with objects:
 import (
 	"testing"
 
-	fakekubeclient "github.com/knative/pkg/injection/clients/kubeclient/fake"
+	fakekubeclient "knative.dev/pkg/injection/clients/kubeclient/fake"
 
 	"k8s.io/client-go/rest"
-	"github.com/knative/pkg/injection"
-	logtesting "github.com/knative/pkg/logging/testing"
+	"knative.dev/pkg/injection"
+	logtesting "knative.dev/pkg/logging/testing"
 )
 
 func TestFoo(t *testing.T) {
@@ -159,7 +159,7 @@ import (
 	"github.com/knative/baz/pkg/reconciler/blah"
 
 	// This defines the shared main for injected controllers.
-	"github.com/knative/pkg/injection/sharedmain"
+	"knative.dev/pkg/injection/sharedmain"
 )
 
 func main() {
@@ -191,7 +191,7 @@ group):
 
 ```shell
 
-KNATIVE_CODEGEN_PKG=${KNATIVE_CODEGEN_PKG:-$(cd ${REPO_ROOT}; ls -d -1 ./vendor/github.com/knative/pkg 2>/dev/null || echo ../pkg)}
+KNATIVE_CODEGEN_PKG=${KNATIVE_CODEGEN_PKG:-$(cd ${REPO_ROOT}; ls -d -1 ./vendor/knative.dev/pkg 2>/dev/null || echo ../pkg)}
 
 ${KNATIVE_CODEGEN_PKG}/hack/generate-knative.sh "injection" \
   github.com/knative/sample-controller/pkg/client github.com/knative/sample-controller/pkg/apis \
@@ -205,14 +205,14 @@ To ensure the appropriate tooling is vendored, add the following to
 
 ```toml
 required = [
-  "github.com/knative/pkg/codegen/cmd/injection-gen",
+  "knative.dev/pkg/codegen/cmd/injection-gen",
 ]
 
 # .. Constraints
 
 # Keeps things like the generate-knative.sh script
 [[prune.project]]
-  name = "github.com/knative/pkg"
+  name = "knative.dev/pkg"
   unused-packages = false
   non-go = false
 ```
