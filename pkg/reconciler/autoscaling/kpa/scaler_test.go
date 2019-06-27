@@ -583,7 +583,7 @@ type countingProber struct {
 	count int
 }
 
-func (c *countingProber) Offer(ctx context.Context, target, headerValue string, arg interface{}, period, timeout time.Duration) bool {
+func (c *countingProber) Offer(ctx context.Context, target string, arg interface{}, period, timeout time.Duration, ops ...interface{}) bool {
 	c.count++
 	return true
 }

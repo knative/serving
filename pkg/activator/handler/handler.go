@@ -90,7 +90,7 @@ func New(l *zap.SugaredLogger, r activator.StatsReporter, t *activator.Throttler
 	}
 }
 
-func withOrigProto(or *http.Request) prober.ProbeOption {
+func withOrigProto(or *http.Request) prober.Preparer {
 	return func(r *http.Request) *http.Request {
 		r.Proto = or.Proto
 		r.ProtoMajor = or.ProtoMajor
@@ -113,7 +113,13 @@ func (a *activationHandler) probeEndpoint(logger *zap.SugaredLogger, r *http.Req
 
 	err := wait.PollImmediate(100*time.Millisecond, a.probeTimeout, func() (bool, error) {
 		attempts++
-		ret, err := prober.Do(reqCtx, a.probeTransportFactory(), target.String(), queue.Name, withOrigProto(r))
+		ret, err := prober.Do(
+			reqCtx,
+			a.probeTransportFactory(),
+			target.String(),
+			prober.WithHeader(network.ProbeHeaderName, queue.Name),
+			prober.ExpectsBody(queue.Name),
+			withOrigProto(r))
 		if err != nil {
 			logger.Warnw("Pod probe failed", zap.Error(err))
 			return false, nil
