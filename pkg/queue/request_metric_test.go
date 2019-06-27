@@ -23,6 +23,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/knative/serving/pkg/network"
 	"github.com/knative/serving/pkg/queue/stats"
 )
 
@@ -32,7 +33,7 @@ func TestNewRequestMetricHandlerFailure(t *testing.T) {
 	})
 
 	var r stats.StatsReporter
-	_, err := NewRequestMetricHandler(baseHandler, r)
+	_, err := NewRequestMetricHandler(baseHandler, r, "activator")
 	if err == nil {
 		t.Error("should get error when StatsReporter is empty")
 	}
@@ -43,7 +44,7 @@ func TestRequestMetricHandler(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	})
 	r := &fakeStatsReporter{}
-	handler, err := NewRequestMetricHandler(baseHandler, r)
+	handler, err := NewRequestMetricHandler(baseHandler, r, "activator")
 	if err != nil {
 		t.Fatalf("failed to create handler: %v", err)
 	}
@@ -69,7 +70,7 @@ func TestRequestMetricHandlerPanickingHandler(t *testing.T) {
 		panic("no!")
 	})
 	r := &fakeStatsReporter{}
-	handler, err := NewRequestMetricHandler(baseHandler, r)
+	handler, err := NewRequestMetricHandler(baseHandler, r, "activator")
 	if err != nil {
 		t.Fatalf("Failed to create handler: %v", err)
 	}
@@ -96,21 +97,63 @@ func TestRequestMetricHandlerPanickingHandler(t *testing.T) {
 	handler.ServeHTTP(resp, req)
 }
 
+func TestRequestMetricHandlerProxied(t *testing.T) {
+	baseHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+	r := &fakeStatsReporter{}
+	handler, err := NewRequestMetricHandler(baseHandler, r, "activator")
+	if err != nil {
+		t.Fatalf("failed to create handler: %v", err)
+	}
+
+	resp := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "http://example.com", bytes.NewBufferString("test"))
+	req.Header.Set(network.ProxyHeaderName, "activator")
+	handler.ServeHTTP(resp, req)
+
+	if got, want := r.lastProxied, true; got != want {
+		t.Errorf("proxied_through_activator got %v, want %v", got, want)
+	}
+}
+
+func TestRequestMetricHandlerNotProxied(t *testing.T) {
+	baseHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+	r := &fakeStatsReporter{}
+	handler, err := NewRequestMetricHandler(baseHandler, r, "activator")
+	if err != nil {
+		t.Fatalf("failed to create handler: %v", err)
+	}
+
+	resp := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "http://example.com", bytes.NewBufferString("test"))
+	handler.ServeHTTP(resp, req)
+
+	if got, want := r.lastProxied, false; got != want {
+		t.Errorf("proxied_through_activator got %v, want %v", got, want)
+	}
+}
+
 // fakeStatsReporter just record the last stat it received.
 type fakeStatsReporter struct {
 	lastRespCode   int
 	lastReqCount   int64
 	lastReqLatency time.Duration
+	lastProxied    bool
 }
 
-func (r *fakeStatsReporter) ReportRequestCount(responseCode int, v int64) error {
+func (r *fakeStatsReporter) ReportRequestCount(responseCode int, v int64, proxied bool) error {
 	r.lastRespCode = responseCode
 	r.lastReqCount = v
+	r.lastProxied = proxied
 	return nil
 }
 
-func (r *fakeStatsReporter) ReportResponseTime(responseCode int, d time.Duration) error {
+func (r *fakeStatsReporter) ReportResponseTime(responseCode int, d time.Duration, proxied bool) error {
 	r.lastRespCode = responseCode
 	r.lastReqLatency = d
+	r.lastProxied = proxied
 	return nil
 }

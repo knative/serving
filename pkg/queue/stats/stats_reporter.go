@@ -29,44 +29,31 @@ import (
 	"go.opencensus.io/tag"
 )
 
-const (
-	requestCountN       = "request_count"
-	responseTimeInMsecN = "request_latencies"
-)
-
-var (
-	requestCountM = stats.Int64(
-		requestCountN,
-		"The number of requests that are routed to queue-proxy",
-		stats.UnitDimensionless)
-	responseTimeInMsecM = stats.Float64(
-		responseTimeInMsecN,
-		"The response time in millisecond",
-		stats.UnitMilliseconds)
-
-	defaultLatencyDistribution = view.Distribution(0, 5, 10, 20, 40, 60, 80, 100, 150, 200, 250, 300, 350, 400, 450, 500, 600, 700, 800, 900, 1000, 2000, 5000, 10000, 20000, 50000, 100000)
-)
+var defaultLatencyDistribution = view.Distribution(0, 5, 10, 20, 40, 60, 80, 100, 150, 200, 250, 300, 350, 400, 450, 500, 600, 700, 800, 900, 1000, 2000, 5000, 10000, 20000, 50000, 100000)
 
 // StatsReporter defines the interface for sending queue-proxy metrics
 type StatsReporter interface {
-	ReportRequestCount(responseCode int, v int64) error
-	ReportResponseTime(responseCode int, d time.Duration) error
+	ReportRequestCount(responseCode int, v int64, isProxiedThroughActivator bool) error
+	ReportResponseTime(responseCode int, d time.Duration, isProxiedThroughActivator bool) error
 }
 
 // Reporter holds cached metric objects to report autoscaler metrics
 type Reporter struct {
-	initialized          bool
-	ctx                  context.Context
-	namespaceTagKey      tag.Key
-	serviceTagKey        tag.Key
-	configTagKey         tag.Key
-	revisionTagKey       tag.Key
-	responseCodeKey      tag.Key
-	responseCodeClassKey tag.Key
+	initialized               bool
+	ctx                       context.Context
+	namespaceTagKey           tag.Key
+	serviceTagKey             tag.Key
+	configTagKey              tag.Key
+	revisionTagKey            tag.Key
+	responseCodeKey           tag.Key
+	responseCodeClassKey      tag.Key
+	proxiedThoughActivatorKey tag.Key
+	countMetric               *stats.Int64Measure
+	latencyMetric             *stats.Float64Measure
 }
 
 // NewStatsReporter creates a reporter that collects and reports queue proxy metrics
-func NewStatsReporter(ns, service, config, rev string) (*Reporter, error) {
+func NewStatsReporter(ns, service, config, rev string, countMetric *stats.Int64Measure, latencyMetric *stats.Float64Measure) (*Reporter, error) {
 	if ns == "" {
 		return nil, errors.New("namespace must not be empty")
 	}
@@ -102,20 +89,24 @@ func NewStatsReporter(ns, service, config, rev string) (*Reporter, error) {
 	if err != nil {
 		return nil, err
 	}
+	proxiedTag, err := tag.NewKey("proxied_through_activator")
+	if err != nil {
+		return nil, err
+	}
 
 	// Create view to see our measurements.
 	err = view.Register(
 		&view.View{
 			Description: "The number of requests that are routed to queue-proxy",
-			Measure:     requestCountM,
+			Measure:     countMetric,
 			Aggregation: view.Sum(),
-			TagKeys:     []tag.Key{nsTag, svcTag, configTag, revTag, responseCodeTag, responseCodeClassTag},
+			TagKeys:     []tag.Key{nsTag, svcTag, configTag, revTag, responseCodeTag, responseCodeClassTag, proxiedTag},
 		},
 		&view.View{
 			Description: "The response time in millisecond",
-			Measure:     responseTimeInMsecM,
+			Measure:     latencyMetric,
 			Aggregation: defaultLatencyDistribution,
-			TagKeys:     []tag.Key{nsTag, svcTag, configTag, revTag, responseCodeTag, responseCodeClassTag},
+			TagKeys:     []tag.Key{nsTag, svcTag, configTag, revTag, responseCodeTag, responseCodeClassTag, proxiedTag},
 		},
 	)
 	if err != nil {
@@ -135,14 +126,17 @@ func NewStatsReporter(ns, service, config, rev string) (*Reporter, error) {
 	}
 
 	return &Reporter{
-		initialized:          true,
-		ctx:                  ctx,
-		namespaceTagKey:      nsTag,
-		serviceTagKey:        svcTag,
-		configTagKey:         configTag,
-		revisionTagKey:       revTag,
-		responseCodeKey:      responseCodeTag,
-		responseCodeClassKey: responseCodeClassTag,
+		initialized:               true,
+		ctx:                       ctx,
+		namespaceTagKey:           nsTag,
+		serviceTagKey:             svcTag,
+		configTagKey:              configTag,
+		revisionTagKey:            revTag,
+		responseCodeKey:           responseCodeTag,
+		responseCodeClassKey:      responseCodeClassTag,
+		proxiedThoughActivatorKey: proxiedTag,
+		countMetric:               countMetric,
+		latencyMetric:             latencyMetric,
 	}, nil
 }
 
@@ -154,7 +148,7 @@ func valueOrUnknown(v string) string {
 }
 
 // ReportRequestCount captures request count metric with value v.
-func (r *Reporter) ReportRequestCount(responseCode int, v int64) error {
+func (r *Reporter) ReportRequestCount(responseCode int, v int64, proxied bool) error {
 	if !r.initialized {
 		return errors.New("StatsReporter is not initialized yet")
 	}
@@ -163,17 +157,18 @@ func (r *Reporter) ReportRequestCount(responseCode int, v int64) error {
 	ctx, err := tag.New(
 		r.ctx,
 		tag.Insert(r.responseCodeKey, strconv.Itoa(responseCode)),
-		tag.Insert(r.responseCodeClassKey, responseCodeClass(responseCode)))
+		tag.Insert(r.responseCodeClassKey, responseCodeClass(responseCode)),
+		tag.Insert(r.proxiedThoughActivatorKey, strconv.FormatBool(proxied)))
 	if err != nil {
 		return err
 	}
 
-	metrics.Record(ctx, requestCountM.M(v))
+	metrics.Record(ctx, r.countMetric.M(v))
 	return nil
 }
 
 // ReportResponseTime captures response time requests
-func (r *Reporter) ReportResponseTime(responseCode int, d time.Duration) error {
+func (r *Reporter) ReportResponseTime(responseCode int, d time.Duration, proxied bool) error {
 	if !r.initialized {
 		return errors.New("StatsReporter is not initialized yet")
 	}
@@ -182,13 +177,14 @@ func (r *Reporter) ReportResponseTime(responseCode int, d time.Duration) error {
 	ctx, err := tag.New(
 		r.ctx,
 		tag.Insert(r.responseCodeKey, strconv.Itoa(responseCode)),
-		tag.Insert(r.responseCodeClassKey, responseCodeClass(responseCode)))
+		tag.Insert(r.responseCodeClassKey, responseCodeClass(responseCode)),
+		tag.Insert(r.proxiedThoughActivatorKey, strconv.FormatBool(proxied)))
 	if err != nil {
 		return err
 	}
 
 	// convert time.Duration in nanoseconds to milliseconds
-	metrics.Record(ctx, responseTimeInMsecM.M(float64(d/time.Millisecond)))
+	metrics.Record(ctx, r.latencyMetric.M(float64(d/time.Millisecond)))
 	return nil
 }
 

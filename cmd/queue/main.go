@@ -44,6 +44,8 @@ import (
 	"github.com/knative/serving/pkg/queue/health"
 	queuestats "github.com/knative/serving/pkg/queue/stats"
 	"github.com/pkg/errors"
+
+	"go.opencensus.io/stats"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/wait"
 )
@@ -68,6 +70,12 @@ const (
 	probeTimeout = 10 * time.Second
 
 	badProbeTemplate = "unexpected probe header value: %s"
+
+	// Metrics' names (without component prefix).
+	requestCountN          = "request_count"
+	responseTimeInMsecN    = "request_latencies"
+	appRequestCountN       = "app_request_count"
+	appResponseTimeInMsecN = "app_request_latencies"
 )
 
 var (
@@ -97,6 +105,24 @@ var (
 	promStatReporter *queue.PrometheusStatsReporter // Prometheus stats reporter.
 
 	probe = flag.Bool("probe", false, "run readiness probe")
+
+	// Metric counters.
+	requestCountM = stats.Int64(
+		requestCountN,
+		"The number of requests that are routed to queue-proxy",
+		stats.UnitDimensionless)
+	responseTimeInMsecM = stats.Float64(
+		responseTimeInMsecN,
+		"The response time in millisecond",
+		stats.UnitMilliseconds)
+	appRequestCountM = stats.Int64(
+		appRequestCountN,
+		"The number of requests that are routed to user-container",
+		stats.UnitDimensionless)
+	appResponseTimeInMsecM = stats.Float64(
+		appResponseTimeInMsecN,
+		"The response time in millisecond",
+		stats.UnitMilliseconds)
 )
 
 func initEnv() {
@@ -166,7 +192,7 @@ func probeUserContainer() bool {
 }
 
 // Make handler a closure for testing.
-func handler(reqChan chan queue.ReqEvent, breaker *queue.Breaker, proxy *httputil.ReverseProxy) func(http.ResponseWriter, *http.Request) {
+func handler(reqChan chan queue.ReqEvent, breaker *queue.Breaker, handler http.Handler) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ph := knativeProbeHeader(r)
 		switch {
@@ -184,14 +210,13 @@ func handler(reqChan chan queue.ReqEvent, breaker *queue.Breaker, proxy *httputi
 			return
 		case network.IsKubeletProbe(r):
 			// Do not count health checks for concurrency metrics
-			proxy.ServeHTTP(w, r)
+			handler.ServeHTTP(w, r)
 			return
 		}
 
 		// Metrics for autoscaling.
-		h := knativeProxyHeader(r)
 		in, out := queue.ReqIn, queue.ReqOut
-		if activator.Name == h {
+		if activator.Name == r.Header.Get(network.ProxyHeaderName) {
 			in, out = queue.ProxiedIn, queue.ProxiedOut
 		}
 		reqChan <- queue.ReqEvent{Time: time.Now(), EventType: in}
@@ -203,13 +228,13 @@ func handler(reqChan chan queue.ReqEvent, breaker *queue.Breaker, proxy *httputi
 		// Enforce queuing and concurrency limits.
 		if breaker != nil {
 			ok := breaker.Maybe(0 /* Infinite timeout */, func() {
-				proxy.ServeHTTP(w, r)
+				handler.ServeHTTP(w, r)
 			})
 			if !ok {
 				http.Error(w, "overload", http.StatusServiceUnavailable)
 			}
 		} else {
-			proxy.ServeHTTP(w, r)
+			handler.ServeHTTP(w, r)
 		}
 	}
 }
@@ -331,12 +356,13 @@ func main() {
 
 	// Create queue handler chain
 	// Note: innermost handlers are specified first, ie. the last handler in the chain will be executed first
-	var composedHandler http.Handler = http.HandlerFunc(handler(reqChan, breaker, httpProxy))
+	composedHandler := pushRequestMetricHandler(httpProxy, appRequestCountM, appResponseTimeInMsecM)
+	composedHandler = http.HandlerFunc(handler(reqChan, breaker, composedHandler))
 	composedHandler = queue.ForwardedShimHandler(composedHandler)
 	composedHandler = queue.TimeToFirstByteTimeoutHandler(composedHandler,
 		time.Duration(revisionTimeoutSeconds)*time.Second, "request timeout")
 	composedHandler = pushRequestLogHandler(composedHandler)
-	composedHandler = pushRequestMetricHandler(composedHandler)
+	composedHandler = pushRequestMetricHandler(composedHandler, requestCountM, responseTimeInMsecM)
 	logger.Infof("Queue-proxy will listen on port %d", queueServingPort)
 	server := network.NewServer(fmt.Sprintf(":%d", queueServingPort), composedHandler)
 
@@ -425,14 +451,14 @@ func pushRequestLogHandler(currentHandler http.Handler) http.Handler {
 	return handler
 }
 
-func pushRequestMetricHandler(currentHandler http.Handler) http.Handler {
+func pushRequestMetricHandler(currentHandler http.Handler, countMetric *stats.Int64Measure, latencyMetric *stats.Float64Measure) http.Handler {
 	backend := os.Getenv("SERVING_REQUEST_METRICS_BACKEND")
 	logger.Infof("SERVING_REQUEST_METRICS_BACKEND=%v", backend)
 	if backend == "" {
 		return currentHandler
 	}
 
-	r, err := queuestats.NewStatsReporter(servingNamespace, servingService, servingConfig, servingRevision)
+	r, err := queuestats.NewStatsReporter(servingNamespace, servingService, servingConfig, servingRevision, countMetric, latencyMetric)
 	if err != nil {
 		logger.Errorw("Error setting up request metrics reporter. Request metrics will be unavailable.", zap.Error(err))
 		return currentHandler
@@ -458,7 +484,7 @@ func pushRequestMetricHandler(currentHandler http.Handler) http.Handler {
 		return currentHandler
 	}
 
-	handler, err := queue.NewRequestMetricHandler(currentHandler, r)
+	handler, err := queue.NewRequestMetricHandler(currentHandler, r, activator.Name)
 	if err != nil {
 		logger.Errorw("Error setting up request metrics handler. Request metrics will be unavailable.", zap.Error(err))
 		return currentHandler
