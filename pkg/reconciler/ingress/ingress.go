@@ -19,18 +19,18 @@ package ingress
 import (
 	"context"
 
-	gatewayinformer "github.com/knative/pkg/client/injection/informers/istio/v1alpha3/gateway"
-	virtualserviceinformer "github.com/knative/pkg/client/injection/informers/istio/v1alpha3/virtualservice"
-	"github.com/knative/pkg/logging"
 	ingressinformer "github.com/knative/serving/pkg/client/injection/informers/networking/v1alpha1/ingress"
 	listers "github.com/knative/serving/pkg/client/listers/networking/v1alpha1"
 	"github.com/knative/serving/pkg/reconciler/ingress/config"
+	gatewayinformer "knative.dev/pkg/client/injection/informers/istio/v1alpha3/gateway"
+	virtualserviceinformer "knative.dev/pkg/client/injection/informers/istio/v1alpha3/virtualservice"
+	"knative.dev/pkg/logging"
 
-	istiolisters "github.com/knative/pkg/client/listers/istio/v1alpha3"
-	"github.com/knative/pkg/configmap"
-	"github.com/knative/pkg/controller"
-	secretinformer "github.com/knative/pkg/injection/informers/kubeinformers/corev1/secret"
-	"github.com/knative/pkg/tracker"
+	istiolisters "knative.dev/pkg/client/listers/istio/v1alpha3"
+	"knative.dev/pkg/configmap"
+	"knative.dev/pkg/controller"
+	secretinformer "knative.dev/pkg/injection/informers/kubeinformers/corev1/secret"
+	"knative.dev/pkg/tracker"
 
 	"github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/networking/v1alpha1"
