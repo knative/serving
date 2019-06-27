@@ -41,6 +41,7 @@ import (
 	revisionresources "github.com/knative/serving/pkg/reconciler/revision/resources"
 	"github.com/knative/serving/pkg/reconciler/revision/resources/names"
 	presources "github.com/knative/serving/pkg/resources"
+
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/apis/duck"
 	"knative.dev/pkg/logging"
