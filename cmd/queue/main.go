@@ -29,9 +29,6 @@ import (
 	"strings"
 	"time"
 
-	"knative.dev/pkg/logging/logkey"
-	"knative.dev/pkg/metrics"
-	"knative.dev/pkg/signals"
 	"github.com/knative/serving/cmd/util"
 	"github.com/knative/serving/pkg/activator"
 	activatorutil "github.com/knative/serving/pkg/activator/util"
@@ -47,6 +44,11 @@ import (
 
 	"go.opencensus.io/stats"
 	"go.uber.org/zap"
+
+	"knative.dev/pkg/logging/logkey"
+	"knative.dev/pkg/metrics"
+	"knative.dev/pkg/signals"
+
 	"k8s.io/apimachinery/pkg/util/wait"
 )
 
@@ -76,6 +78,12 @@ const (
 	responseTimeInMsecN    = "request_latencies"
 	appRequestCountN       = "app_request_count"
 	appResponseTimeInMsecN = "app_request_latencies"
+
+	// requestQueueHealthPath specifies the path for health checks for
+	// queue-proxy.
+	requestQueueHealthPath = "/health"
+
+	healthURLTemplate = "http://127.0.0.1:%d" + requestQueueHealthPath
 )
 
 var (
@@ -227,10 +235,9 @@ func handler(reqChan chan queue.ReqEvent, breaker *queue.Breaker, handler http.H
 
 		// Enforce queuing and concurrency limits.
 		if breaker != nil {
-			ok := breaker.Maybe(0 /* Infinite timeout */, func() {
+			if !breaker.Maybe(0 /* Infinite timeout */, func() {
 				handler.ServeHTTP(w, r)
-			})
-			if !ok {
+			}) {
 				http.Error(w, "overload", http.StatusServiceUnavailable)
 			}
 		} else {
@@ -242,21 +249,21 @@ func handler(reqChan chan queue.ReqEvent, breaker *queue.Breaker, handler http.H
 // Sets up /health and /wait-for-drain endpoints.
 func createAdminHandlers() *http.ServeMux {
 	mux := http.NewServeMux()
-	mux.HandleFunc(queue.RequestQueueHealthPath, healthState.HealthHandler(probeUserContainer))
+	mux.HandleFunc(requestQueueHealthPath, healthState.HealthHandler(probeUserContainer))
 	mux.HandleFunc(queue.RequestQueueDrainPath, healthState.DrainHandler())
 
 	return mux
 }
 
-func probeQueueHealthPath(port int) error {
-	url := fmt.Sprintf("http://127.0.0.1:%d%s", port, queue.RequestQueueHealthPath)
+func probeQueueHealthPath(port int, timeout time.Duration) error {
+	url := fmt.Sprintf(healthURLTemplate, port)
 
 	httpClient := &http.Client{
 		Transport: &http.Transport{
 			// Do not use the cached connection
 			DisableKeepAlives: true,
 		},
-		Timeout: probeTimeout,
+		Timeout: timeout,
 	}
 
 	var lastErr error
@@ -264,15 +271,13 @@ func probeQueueHealthPath(port int) error {
 	// The 25 millisecond retry interval is an unscientific compromise between wanting to get
 	// started as early as possible while still wanting to give the container some breathing
 	// room to get up and running.
-	timeoutErr := wait.PollImmediate(25*time.Millisecond, probeTimeout, func() (bool, error) {
+	timeoutErr := wait.PollImmediate(25*time.Millisecond, timeout, func() (bool, error) {
 		var res *http.Response
-		res, lastErr = httpClient.Get(url)
-
-		if res == nil {
+		if res, lastErr = httpClient.Get(url); res == nil {
 			return false, nil
 		}
-
 		defer res.Body.Close()
+
 		return res.StatusCode == http.StatusOK, nil
 	})
 
@@ -292,12 +297,11 @@ func main() {
 	flag.Parse()
 
 	if *probe {
-		if err := probeQueueHealthPath(networking.QueueAdminPort); err != nil {
+		if err := probeQueueHealthPath(networking.QueueAdminPort, probeTimeout); err != nil {
 			// used instead of the logger to produce a concise event message
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
-
 		os.Exit(0)
 	}
 

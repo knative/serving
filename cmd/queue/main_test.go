@@ -31,15 +31,15 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 
-	logtesting "knative.dev/pkg/logging/testing"
 	"github.com/knative/serving/pkg/activator"
 	"github.com/knative/serving/pkg/network"
 	"github.com/knative/serving/pkg/queue"
+	logtesting "knative.dev/pkg/logging/testing"
 )
 
 const wantHost = "a-better-host.com"
 
-func TestHandler_ReqEvent(t *testing.T) {
+func TestHandlerReqEvent(t *testing.T) {
 	var httpHandler http.HandlerFunc = func(w http.ResponseWriter, r *http.Request) {
 		if r.Header.Get(activator.RevisionHeaderName) != "" {
 			w.WriteHeader(http.StatusBadRequest)
@@ -158,8 +158,7 @@ func TestCreateVarLogLink(t *testing.T) {
 
 func TestProbeQueueConnectionFailure(t *testing.T) {
 	port := 12345 // some random port (that's not listening)
-
-	if err := probeQueueHealthPath(port); err == nil {
+	if err := probeQueueHealthPath(port, time.Second); err == nil {
 		t.Error("Expected error, got nil")
 	}
 }
@@ -173,14 +172,17 @@ func TestProbeQueueNotReady(t *testing.T) {
 
 	defer ts.Close()
 
-	portStr := strings.TrimPrefix(ts.URL, "http://127.0.0.1:")
-
-	port, err := strconv.Atoi(portStr)
+	u, err := url.Parse(ts.URL)
 	if err != nil {
-		t.Fatalf("failed to convert port(%s) to int", portStr)
+		t.Fatalf("%s is not a valid URL: %v", ts.URL, err)
 	}
 
-	err = probeQueueHealthPath(port)
+	port, err := strconv.Atoi(u.Port())
+	if err != nil {
+		t.Fatalf("Failed to convert port(%s) to int: %v", u.Port(), err)
+	}
+
+	err = probeQueueHealthPath(port, 1*time.Second)
 
 	if diff := cmp.Diff(err.Error(), "probe returned not ready"); diff != "" {
 		t.Errorf("Unexpected not ready message: %s", diff)
@@ -200,14 +202,17 @@ func TestProbeQueueReady(t *testing.T) {
 
 	defer ts.Close()
 
-	portStr := strings.TrimPrefix(ts.URL, "http://127.0.0.1:")
-
-	port, err := strconv.Atoi(portStr)
+	u, err := url.Parse(ts.URL)
 	if err != nil {
-		t.Fatalf("failed to convert port(%s) to int", portStr)
+		t.Fatalf("%s is not a valid URL: %v", ts.URL, err)
 	}
 
-	if err = probeQueueHealthPath(port); err != nil {
+	port, err := strconv.Atoi(u.Port())
+	if err != nil {
+		t.Fatalf("Failed to convert port(%s) to int: %v", u.Port(), err)
+	}
+
+	if err = probeQueueHealthPath(port, 1*time.Second); err != nil {
 		t.Errorf("probeQueueHealthPath(%d) = %s", port, err)
 	}
 
@@ -224,20 +229,22 @@ func TestProbeQueueDelayedReady(t *testing.T) {
 			count++
 			return
 		}
-
 		w.WriteHeader(http.StatusOK)
 	}))
 
 	defer ts.Close()
 
-	portStr := strings.TrimPrefix(ts.URL, "http://127.0.0.1:")
-
-	port, err := strconv.Atoi(portStr)
+	u, err := url.Parse(ts.URL)
 	if err != nil {
-		t.Fatalf("failed to convert port(%s) to int", portStr)
+		t.Fatalf("%s is not a valid URL: %v", ts.URL, err)
 	}
 
-	if err := probeQueueHealthPath(port); err != nil {
+	port, err := strconv.Atoi(u.Port())
+	if err != nil {
+		t.Fatalf("Failed to convert port(%s) to int: %v", u.Port(), err)
+	}
+
+	if err := probeQueueHealthPath(port, time.Second); err != nil {
 		t.Errorf("probeQueueHealthPath(%d) = %s", port, err)
 	}
 }

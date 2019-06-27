@@ -47,7 +47,7 @@ events to `"http://localhost:8080"`.
 package main
 
 import (
-    "github.com/knative/pkg/cloudevents"
+    "knative.dev/pkg/cloudevents"
     "log"
 )
 
@@ -92,7 +92,7 @@ import (
     "net/http"
     "time"
 
-    "github.com/knative/pkg/cloudevents"
+    "knative.dev/pkg/cloudevents"
 )
 
 type Example struct {

@@ -28,14 +28,14 @@ At present, these downstream repositories include:
 
 ```toml
 [[override]]
-  name = "github.com/knative/pkg"
+  name = "knative.dev/pkg"
   branch = "master"
 ```
 
 Then the following is run:
 
 ```shell
-dep ensure -update github.com/knative/pkg
+dep ensure -update knative.dev/pkg
 ./hack/update-codegen.sh
 ```
 
@@ -56,7 +56,7 @@ These staging PRs are then updated to:
 
 ```toml
 [[override]]
-  name = "github.com/knative/pkg"
+  name = "knative.dev/pkg"
   # The 0.X release branch.
   branch = "release-0.X"
 ```
@@ -86,6 +86,6 @@ Downstream repositories should reference `knative/pkg` release branches from
 their own release branches, so to update the `knative/pkg` dependency we run:
 
 ```shell
-dep ensure -update github.com/knative/pkg
+dep ensure -update knative.dev/pkg
 ./hack/update-deps.sh
 ```
