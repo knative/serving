@@ -39,6 +39,8 @@ type Config struct {
 	// Target concurrency knobs for different container concurrency configurations.
 	ContainerConcurrencyTargetFraction float64
 	ContainerConcurrencyTargetDefault  float64
+	// NB: most of our computations are in floats, so this is float to avoid casting.
+	TargetBurstCapacity float64
 
 	// General autoscaler algorithm configuration.
 	MaxScaleUpRate           float64
@@ -82,17 +84,20 @@ func NewConfigFromMap(data map[string]string) (*Config, error) {
 	}{{
 		key:          "max-scale-up-rate",
 		field:        &lc.MaxScaleUpRate,
-		defaultValue: 10.0,
+		defaultValue: 1000.0,
 	}, {
 		key:   "container-concurrency-target-percentage",
 		field: &lc.ContainerConcurrencyTargetFraction,
 		// TODO(#1956): Tune target usage based on empirical data.
-		// TODO(#2016): Revert to 0.7 once incorrect reporting is solved
-		defaultValue: 1.0,
+		defaultValue: 0.7,
 	}, {
 		key:          "container-concurrency-target-default",
 		field:        &lc.ContainerConcurrencyTargetDefault,
 		defaultValue: 100.0,
+	}, {
+		key:          "target-burst-capacity",
+		field:        &lc.TargetBurstCapacity,
+		defaultValue: 0,
 	}, {
 		key:          "panic-window-percentage",
 		field:        &lc.PanicWindowPercentage,
@@ -111,7 +116,7 @@ func NewConfigFromMap(data map[string]string) (*Config, error) {
 		}
 	}
 
-	// Adjust % ⇒ fractions: for legacy reasons we allow values
+	// Adjust % ⇒ fractions: for legacy reasons we allow values in the
 	// (0, 1] interval, so minimal percentage must be greater than 1.0.
 	// Internally we want to have fractions, since otherwise we'll have
 	// to perform division on each computation.
@@ -156,6 +161,9 @@ func NewConfigFromMap(data map[string]string) (*Config, error) {
 func validate(lc *Config) (*Config, error) {
 	if lc.ScaleToZeroGracePeriod < 30*time.Second {
 		return nil, fmt.Errorf("scale-to-zero-grace-period must be at least 30s, got %v", lc.ScaleToZeroGracePeriod)
+	}
+	if lc.TargetBurstCapacity < 0 {
+		return nil, fmt.Errorf("target-burst-capacity must be non-negative, got %f", lc.TargetBurstCapacity)
 	}
 
 	if lc.ContainerConcurrencyTargetFraction <= 0 || lc.ContainerConcurrencyTargetFraction > 1 {

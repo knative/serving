@@ -26,9 +26,9 @@ import (
 	"testing"
 	"time"
 
-	pkgTest "github.com/knative/pkg/test"
-	ingress "github.com/knative/pkg/test/ingress"
-	"github.com/knative/pkg/test/logstream"
+	pkgTest "knative.dev/pkg/test"
+	ingress "knative.dev/pkg/test/ingress"
+	"knative.dev/pkg/test/logstream"
 	resourcenames "github.com/knative/serving/pkg/reconciler/revision/resources/names"
 	"github.com/knative/serving/test"
 	ping "github.com/knative/serving/test/test_images/grpc-ping/proto"
@@ -169,8 +169,7 @@ func testGRPC(t *testing.T, f grpcTest) {
 	defer test.TearDown(clients, names)
 	resources, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, &v1a1test.Options{
 		ContainerPorts: []corev1.ContainerPort{{
-			Name:          "h2c",
-			ContainerPort: 8080,
+			Name: "h2c",
 		}},
 	})
 	if err != nil {

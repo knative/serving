@@ -26,7 +26,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/knative/pkg/kmeta"
+	"knative.dev/pkg/kmeta"
 	netv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"

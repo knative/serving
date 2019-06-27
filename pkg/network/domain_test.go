@@ -37,6 +37,15 @@ options ndots:5
 			want: "abc.com",
 		},
 		{
+			name: "all good with trailing dot",
+			resolvConf: `
+nameserver 1.1.1.1
+search default.svc.abc.com. svc.abc.com. abc.com.
+options ndots:5
+`,
+			want: "abc.com",
+		},
+		{
 			name: "missing search line",
 			resolvConf: `
 nameserver 1.1.1.1

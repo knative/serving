@@ -21,11 +21,11 @@ package clusterissuer
 import (
 	"context"
 
-	controller "github.com/knative/pkg/controller"
-	injection "github.com/knative/pkg/injection"
-	logging "github.com/knative/pkg/logging"
 	v1alpha1 "github.com/knative/serving/pkg/client/certmanager/informers/externalversions/certmanager/v1alpha1"
 	factory "github.com/knative/serving/pkg/client/certmanager/injection/informers/certmanager/factory"
+	controller "knative.dev/pkg/controller"
+	injection "knative.dev/pkg/injection"
+	logging "knative.dev/pkg/logging"
 )
 
 func init() {

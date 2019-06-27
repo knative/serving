@@ -20,9 +20,9 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/knative/pkg/apis/duck"
-	fakedynamicclient "github.com/knative/pkg/injection/clients/dynamicclient/fake"
-	logtesting "github.com/knative/pkg/logging/testing"
+	"knative.dev/pkg/apis/duck"
+	fakedynamicclient "knative.dev/pkg/injection/clients/dynamicclient/fake"
+	logtesting "knative.dev/pkg/logging/testing"
 	"github.com/knative/serving/pkg/apis/serving"
 
 	v1 "k8s.io/api/apps/v1"
@@ -32,7 +32,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 
-	. "github.com/knative/pkg/reconciler/testing"
+	. "knative.dev/pkg/reconciler/testing"
 )
 
 func TestScaleResource(t *testing.T) {

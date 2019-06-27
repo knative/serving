@@ -26,7 +26,7 @@ source $(dirname $0)/../vendor/github.com/knative/test-infra/scripts/library.sh
 
 CODEGEN_PKG=${CODEGEN_PKG:-$(cd ${REPO_ROOT_DIR}; ls -d -1 ./vendor/k8s.io/code-generator 2>/dev/null || echo ../code-generator)}
 
-KNATIVE_CODEGEN_PKG=${KNATIVE_CODEGEN_PKG:-$(cd ${REPO_ROOT_DIR}; ls -d -1 ./vendor/github.com/knative/pkg 2>/dev/null || echo ../pkg)}
+KNATIVE_CODEGEN_PKG=${KNATIVE_CODEGEN_PKG:-$(cd ${REPO_ROOT_DIR}; ls -d -1 ./vendor/knative.dev/pkg 2>/dev/null || echo ../pkg)}
 
 # generate the code with:
 # --output-base    because this script should also be able to run inside the vendor dir of
@@ -60,7 +60,7 @@ ${GOPATH}/bin/deepcopy-gen \
   -O zz_generated.deepcopy \
   --go-header-file ${REPO_ROOT_DIR}/hack/boilerplate/boilerplate.go.txt \
   -i github.com/knative/serving/pkg/apis/config \
-  -i github.com/knative/serving/pkg/reconciler/clusteringress/config \
+  -i github.com/knative/serving/pkg/reconciler/ingress/config \
   -i github.com/knative/serving/pkg/reconciler/certificate/config \
   -i github.com/knative/serving/pkg/reconciler/configuration/config \
   -i github.com/knative/serving/pkg/reconciler/revision/config \

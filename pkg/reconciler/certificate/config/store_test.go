@@ -21,8 +21,8 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	. "github.com/knative/pkg/configmap/testing"
-	. "github.com/knative/pkg/logging/testing"
+	. "knative.dev/pkg/configmap/testing"
+	. "knative.dev/pkg/logging/testing"
 )
 
 func TestStoreLoadWithContext(t *testing.T) {

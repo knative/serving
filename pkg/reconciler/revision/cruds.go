@@ -20,8 +20,8 @@ import (
 	"context"
 
 	caching "github.com/knative/caching/pkg/apis/caching/v1alpha1"
-	"github.com/knative/pkg/kmp"
-	"github.com/knative/pkg/logging"
+	"knative.dev/pkg/kmp"
+	"knative.dev/pkg/logging"
 	kpav1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/reconciler/revision/config"

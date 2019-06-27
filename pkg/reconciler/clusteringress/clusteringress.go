@@ -22,32 +22,39 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/knative/pkg/tracker"
-
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 
-	"github.com/knative/pkg/apis/istio/v1alpha3"
-	istiolisters "github.com/knative/pkg/client/listers/istio/v1alpha3"
-	"github.com/knative/pkg/controller"
-	"github.com/knative/pkg/logging"
-	"github.com/knative/pkg/system"
+	"github.com/knative/serving/pkg/network"
+	"github.com/knative/serving/pkg/reconciler"
+
 	"github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving"
+	clusteringressinformer "github.com/knative/serving/pkg/client/injection/informers/networking/v1alpha1/clusteringress"
 	listers "github.com/knative/serving/pkg/client/listers/networking/v1alpha1"
-	"github.com/knative/serving/pkg/reconciler"
-	"github.com/knative/serving/pkg/reconciler/clusteringress/config"
-	"github.com/knative/serving/pkg/reconciler/clusteringress/resources"
+	ing "github.com/knative/serving/pkg/reconciler/ingress"
+	"github.com/knative/serving/pkg/reconciler/ingress/config"
+	"github.com/knative/serving/pkg/reconciler/ingress/resources"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"knative.dev/pkg/apis/istio/v1alpha3"
+	virtualserviceinformer "knative.dev/pkg/client/injection/informers/istio/v1alpha3/virtualservice"
+	"knative.dev/pkg/configmap"
+	"knative.dev/pkg/controller"
+	"knative.dev/pkg/logging"
+	"knative.dev/pkg/system"
+	"knative.dev/pkg/tracker"
 
-	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
+)
+
+const (
+	controllerAgentName = "clusteringress-controller"
 )
 
 // clusterIngressFinalizer is the name that we put into the resource finalizer list, e.g.
@@ -61,20 +68,62 @@ var (
 
 // Reconciler implements controller.Reconciler for ClusterIngress resources.
 type Reconciler struct {
-	*reconciler.Base
-
-	// listers index properties about resources
+	*ing.BaseIngressReconciler
 	clusterIngressLister listers.ClusterIngressLister
-	virtualServiceLister istiolisters.VirtualServiceLister
-	gatewayLister        istiolisters.GatewayLister
-	secretLister         corev1listers.SecretLister
-	configStore          reconciler.ConfigStore
-
-	tracker tracker.Interface
 }
 
 // Check that our Reconciler implements controller.Reconciler
 var _ controller.Reconciler = (*Reconciler)(nil)
+
+// newInitializer creates an Ingress Reconciler and returns ReconcilerInitializer
+func newInitializer(ctx context.Context, cmw configmap.Watcher) ing.ReconcilerInitializer {
+	clusterIngressInformer := clusteringressinformer.Get(ctx)
+	r := &Reconciler{
+		BaseIngressReconciler: ing.NewBaseIngressReconciler(ctx, controllerAgentName, cmw),
+		clusterIngressLister:  clusterIngressInformer.Lister(),
+	}
+	return r
+}
+
+// SetTracker assigns the Tracker field
+func (c *Reconciler) SetTracker(tracker tracker.Interface) {
+	c.Tracker = tracker
+}
+
+// Init method performs initializations to ingress reconciler
+func (c *Reconciler) Init(ctx context.Context, cmw configmap.Watcher, impl *controller.Impl) {
+
+	ing.SetupSecretTracker(ctx, cmw, c, impl)
+
+	c.Logger.Info("Setting up Ingress event handlers")
+	clusterIngressInformer := clusteringressinformer.Get(ctx)
+
+	myFilterFunc := reconciler.AnnotationFilterFunc(networking.IngressClassAnnotationKey, network.IstioIngressClassName, true)
+	clusterIngressHandler := cache.FilteringResourceEventHandler{
+		FilterFunc: myFilterFunc,
+		Handler:    controller.HandleAll(impl.Enqueue),
+	}
+	clusterIngressInformer.Informer().AddEventHandler(clusterIngressHandler)
+
+	virtualServiceInformer := virtualserviceinformer.Get(ctx)
+	virtualServiceInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+		FilterFunc: myFilterFunc,
+		Handler:    controller.HandleAll(impl.EnqueueLabelOfClusterScopedResource(networking.ClusterIngressLabelKey)),
+	})
+
+	c.Logger.Info("Setting up ConfigMap receivers")
+	configsToResync := []interface{}{
+		&config.Istio{},
+		&network.Config{},
+	}
+	resyncIngressesOnConfigChange := configmap.TypeFilter(configsToResync...)(func(string, interface{}) {
+		controller.SendGlobalUpdates(clusterIngressInformer.Informer(), clusterIngressHandler)
+	})
+	configStore := config.NewStore(c.Logger.Named("config-store"), resyncIngressesOnConfigChange)
+	configStore.WatchConfigs(cmw)
+	c.BaseIngressReconciler.ConfigStore = configStore
+
+}
 
 // Reconcile compares the actual state with the desired, and attempts to
 // converge the two. It then updates the Status block of the ClusterIngress resource
@@ -88,7 +137,7 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 	}
 	logger := logging.FromContext(ctx)
 
-	ctx = c.configStore.ToContext(ctx)
+	ctx = c.ConfigStore.ToContext(ctx)
 
 	// Get the ClusterIngress resource with this name.
 	original, err := c.clusterIngressLister.Get(name)
@@ -116,11 +165,11 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 			c.Recorder.Eventf(ci, corev1.EventTypeWarning, "UpdateFailed",
 				"Failed to update status for ClusterIngress %q: %v", ci.Name, err)
 			return err
-		} else {
-			logger.Infof("Updated status for ClusterIngress %q", ci.Name)
-			c.Recorder.Eventf(ci, corev1.EventTypeNormal, "Updated",
-				"Updated status for ClusterIngress %q", ci.Name)
 		}
+
+		logger.Infof("Updated status for ClusterIngress %q", ci.Name)
+		c.Recorder.Eventf(ci, corev1.EventTypeNormal, "Updated",
+			"Updated status for ClusterIngress %q", ci.Name)
 	}
 	if reconcileErr != nil {
 		c.Recorder.Event(ci, corev1.EventTypeWarning, "InternalError", reconcileErr.Error())
@@ -189,7 +238,7 @@ func (c *Reconciler) reconcile(ctx context.Context, ci *v1alpha1.ClusterIngress)
 			return err
 		}
 
-		originSecrets, err := resources.GetSecrets(ci, c.secretLister)
+		originSecrets, err := resources.GetSecrets(ci, c.SecretLister)
 		if err != nil {
 			return err
 		}
@@ -288,7 +337,7 @@ func (c *Reconciler) reconcileVirtualServices(ctx context.Context, ci *v1alpha1.
 		kept.Insert(d.Name)
 	}
 	// Now, remove the extra ones.
-	vses, err := c.virtualServiceLister.VirtualServices(resources.VirtualServiceNamespace(ci)).List(
+	vses, err := c.VirtualServiceLister.VirtualServices(resources.VirtualServiceNamespace(ci)).List(
 		labels.Set(map[string]string{
 			serving.RouteLabelKey:          ci.Labels[serving.RouteLabelKey],
 			serving.RouteNamespaceLabelKey: ci.Labels[serving.RouteNamespaceLabelKey]}).AsSelector())
@@ -315,7 +364,7 @@ func (c *Reconciler) reconcileVirtualService(ctx context.Context, ci *v1alpha1.C
 	ns := desired.Namespace
 	name := desired.Name
 
-	vs, err := c.virtualServiceLister.VirtualServices(ns).Get(name)
+	vs, err := c.VirtualServiceLister.VirtualServices(ns).Get(name)
 	if apierrs.IsNotFound(err) {
 		_, err = c.SharedClientSet.NetworkingV1alpha3().VirtualServices(ns).Create(desired)
 		if err != nil {
@@ -399,7 +448,7 @@ func (c *Reconciler) reconcileGateway(ctx context.Context, ci *v1alpha1.ClusterI
 	// TODO(zhiminx): Need to handle the scenario when deleting ClusterIngress. In this scenario,
 	// the Gateway servers of the ClusterIngress need also be removed from Gateway.
 	logger := logging.FromContext(ctx)
-	gateway, err := c.gatewayLister.Gateways(system.Namespace()).Get(gatewayName)
+	gateway, err := c.GatewayLister.Gateways(system.Namespace()).Get(gatewayName)
 	if err != nil {
 		// Not like VirtualService, A default gateway needs to be existed.
 		// It should be installed when installing Knative.
@@ -445,11 +494,11 @@ func (c *Reconciler) reconcileCertSecrets(ctx context.Context, ci *v1alpha1.Clus
 func (c *Reconciler) reconcileCertSecret(ctx context.Context, ci *v1alpha1.ClusterIngress, desired *corev1.Secret) error {
 	// We track the origin and desired secrets so that desired secrets could be synced accordingly when the origin TLS certificate
 	// secret is refreshed.
-	c.tracker.Track(resources.SecretRef(desired.Namespace, desired.Name), ci)
-	c.tracker.Track(resources.SecretRef(desired.Labels[networking.OriginSecretNamespaceLabelKey], desired.Labels[networking.OriginSecretNameLabelKey]), ci)
+	c.Tracker.Track(resources.SecretRef(desired.Namespace, desired.Name), ci)
+	c.Tracker.Track(resources.SecretRef(desired.Labels[networking.OriginSecretNamespaceLabelKey], desired.Labels[networking.OriginSecretNameLabelKey]), ci)
 
 	logger := logging.FromContext(ctx)
-	existing, err := c.secretLister.Secrets(desired.Namespace).Get(desired.Name)
+	existing, err := c.SecretLister.Secrets(desired.Namespace).Get(desired.Name)
 	if apierrs.IsNotFound(err) {
 		_, err = c.KubeClientSet.CoreV1().Secrets(desired.Namespace).Create(desired)
 		if err != nil {

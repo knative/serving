@@ -22,9 +22,12 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/knative/pkg/apis/duck"
-	"github.com/knative/pkg/injection/clients/dynamicclient"
-	"github.com/knative/pkg/logging"
+	"go.uber.org/zap"
+
+	"knative.dev/pkg/apis/duck"
+	"knative.dev/pkg/injection/clients/dynamicclient"
+	"knative.dev/pkg/logging"
+
 	"github.com/knative/serving/pkg/activator"
 	pav1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/apis/networking"
@@ -32,8 +35,9 @@ import (
 	"github.com/knative/serving/pkg/network"
 	"github.com/knative/serving/pkg/network/prober"
 	"github.com/knative/serving/pkg/reconciler/autoscaling/config"
+	aresources "github.com/knative/serving/pkg/reconciler/autoscaling/resources"
 	"github.com/knative/serving/pkg/resources"
-	"go.uber.org/zap"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/dynamic"
@@ -49,9 +53,14 @@ const (
 	reenqeuePeriod = 1 * time.Second
 )
 
+var probeOptions = []interface{} {
+	prober.WithHeader(network.ProbeHeaderName, activator.Name),
+	prober.ExpectsBody(activator.Name),
+}
+
 // for mocking in tests
 type asyncProber interface {
-	Offer(context.Context, string, string, interface{}, time.Duration, time.Duration) bool
+	Offer(context.Context, string, interface{}, time.Duration, time.Duration, ...interface{}) bool
 }
 
 // scaler scales the target of a kpa-class PA up or down including scaling to zero.
@@ -108,7 +117,7 @@ func activatorProbe(pa *pav1alpha1.PodAutoscaler, transport http.RoundTripper) (
 	if pa.Status.ServiceName == "" {
 		return false, nil
 	}
-	return prober.Do(context.Background(), transport, paToProbeTarget(pa), activator.Name)
+	return prober.Do(context.Background(), transport, paToProbeTarget(pa), probeOptions...)
 }
 
 // pre: 0 <= min <= max && 0 <= x
@@ -146,14 +155,15 @@ func (ks *scaler) handleScaleToZero(pa *pav1alpha1.PodAutoscaler, desiredScale i
 		return scaleUnknown, false
 	} else if pa.Status.IsActive() {
 		// Do not scale to 0, but return desiredScale of 0 to mark PA inactive.
-		if pa.Status.CanMarkInactive(config.StableWindow) {
+		sw := aresources.StableWindow(pa, config)
+		if pa.Status.CanMarkInactive(sw) {
 			// We do not need to enqueue PA here, since this will
 			// make SKS reconcile and when it's done, PA will be reconciled again.
 			return desiredScale, false
 		}
 		// Otherwise, scale down to 1 until the idle period elapses and re-enqueue
 		// the PA for reconciliation at that time.
-		ks.enqueueCB(pa, config.StableWindow)
+		ks.enqueueCB(pa, sw)
 		desiredScale = 1
 	} else { // Active=False
 		r, err := ks.activatorProbe(pa, ks.transportFactory())
@@ -171,7 +181,7 @@ func (ks *scaler) handleScaleToZero(pa *pav1alpha1.PodAutoscaler, desiredScale i
 
 		// Otherwise (any prober failure) start the async probe.
 		ks.logger.Infof("%s is not yet backed by activator, cannot scale to zero", pa.Name)
-		if !ks.probeManager.Offer(context.Background(), paToProbeTarget(pa), activator.Name, pa, probePeriod, probeTimeout) {
+		if !ks.probeManager.Offer(context.Background(), paToProbeTarget(pa), pa, probePeriod, probeTimeout, probeOptions...) {
 			ks.logger.Infof("Probe for %s is already in flight", pa.Name)
 		}
 		return desiredScale, false

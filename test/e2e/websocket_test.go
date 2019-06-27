@@ -24,9 +24,9 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
-	pkgTest "github.com/knative/pkg/test"
-	ingress "github.com/knative/pkg/test/ingress"
-	"github.com/knative/pkg/test/logstream"
+	pkgTest "knative.dev/pkg/test"
+	ingress "knative.dev/pkg/test/ingress"
+	"knative.dev/pkg/test/logstream"
 	rnames "github.com/knative/serving/pkg/reconciler/revision/resources/names"
 	"github.com/knative/serving/test"
 	v1a1test "github.com/knative/serving/test/v1alpha1"

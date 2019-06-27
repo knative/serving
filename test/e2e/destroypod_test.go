@@ -28,8 +28,8 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/davecgh/go-spew/spew"
-	pkgTest "github.com/knative/pkg/test"
-	"github.com/knative/pkg/test/logstream"
+	pkgTest "knative.dev/pkg/test"
+	"knative.dev/pkg/test/logstream"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/test"
@@ -144,7 +144,8 @@ func TestDestroyPodInflight(t *testing.T) {
 const revisionTimeout = 5 * time.Minute
 
 func TestDestroyPodTimely(t *testing.T) {
-	t.Parallel()
+	// Not running in parallel on purpose.
+
 	cancel := logstream.Start(t)
 	defer cancel()
 

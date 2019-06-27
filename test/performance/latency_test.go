@@ -25,8 +25,8 @@ import (
 	"testing"
 	"time"
 
-	pkgTest "github.com/knative/pkg/test"
-	ingress "github.com/knative/pkg/test/ingress"
+	pkgTest "knative.dev/pkg/test"
+	ingress "knative.dev/pkg/test/ingress"
 	"github.com/knative/serving/test"
 	v1a1test "github.com/knative/serving/test/v1alpha1"
 	"github.com/knative/test-infra/shared/junit"

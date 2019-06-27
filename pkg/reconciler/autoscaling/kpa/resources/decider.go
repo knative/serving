@@ -51,23 +51,20 @@ func MakeDecider(ctx context.Context, pa *v1alpha1.PodAutoscaler, config *autosc
 		panicThresholdPercentage = config.PanicThresholdPercentage
 	}
 
-	stableWindow, ok := pa.Window()
-	if !ok {
-		stableWindow = config.StableWindow
-	}
-
-	target := resources.ResolveConcurrency(pa, config)
+	target, total := resources.ResolveConcurrency(pa, config)
 	panicThreshold := target * panicThresholdPercentage / 100.0
 
 	return &autoscaler.Decider{
 		ObjectMeta: *pa.ObjectMeta.DeepCopy(),
 		Spec: autoscaler.DeciderSpec{
-			TickInterval:      config.TickInterval,
-			MaxScaleUpRate:    config.MaxScaleUpRate,
-			TargetConcurrency: target,
-			PanicThreshold:    panicThreshold,
-			StableWindow:      stableWindow,
-			ServiceName:       svc,
+			TickInterval:        config.TickInterval,
+			MaxScaleUpRate:      config.MaxScaleUpRate,
+			TargetConcurrency:   target,
+			TotalConcurrency:    total,
+			TargetBurstCapacity: config.TargetBurstCapacity,
+			PanicThreshold:      panicThreshold,
+			StableWindow:        resources.StableWindow(pa, config),
+			ServiceName:         svc,
 		},
 	}
 }

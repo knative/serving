@@ -19,7 +19,7 @@ package v1beta1
 import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
-	"github.com/knative/pkg/apis"
+	"knative.dev/pkg/apis"
 )
 
 var configurationCondSet = apis.NewLivingConditionSet()

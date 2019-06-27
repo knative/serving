@@ -52,9 +52,8 @@ func (h *requestMetricHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		if err != nil {
 			h.sendRequestMetrics(http.StatusInternalServerError, latency)
 			panic(err)
-		} else {
-			h.sendRequestMetrics(rr.ResponseCode, latency)
 		}
+		h.sendRequestMetrics(rr.ResponseCode, latency)
 	}()
 	h.handler.ServeHTTP(rr, r)
 }

@@ -20,13 +20,13 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/knative/pkg/system"
+	"knative.dev/pkg/system"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 
-	. "github.com/knative/pkg/configmap/testing"
-	_ "github.com/knative/pkg/system/testing"
+	. "knative.dev/pkg/configmap/testing"
+	_ "knative.dev/pkg/system/testing"
 )
 
 var noSidecarImage = ""

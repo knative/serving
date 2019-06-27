@@ -21,7 +21,7 @@ import (
 	"hash/adler32"
 	"sort"
 
-	"github.com/knative/pkg/kmeta"
+	"knative.dev/pkg/kmeta"
 	networkingv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/reconciler/route/resources/names"

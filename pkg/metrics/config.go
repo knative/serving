@@ -20,7 +20,7 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/knative/pkg/metrics"
+	"knative.dev/pkg/metrics"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 )

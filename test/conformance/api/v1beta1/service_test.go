@@ -24,8 +24,8 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	"github.com/knative/pkg/ptr"
-	pkgTest "github.com/knative/pkg/test"
+	"knative.dev/pkg/ptr"
+	pkgTest "knative.dev/pkg/test"
 	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 	"github.com/knative/serving/test"
 	v1b1test "github.com/knative/serving/test/v1beta1"

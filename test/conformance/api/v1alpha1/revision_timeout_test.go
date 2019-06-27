@@ -25,7 +25,7 @@ import (
 	"testing"
 	"time"
 
-	pkgTest "github.com/knative/pkg/test"
+	pkgTest "knative.dev/pkg/test"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 	serviceresourcenames "github.com/knative/serving/pkg/reconciler/service/resources/names"

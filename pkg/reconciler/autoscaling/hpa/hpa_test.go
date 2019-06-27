@@ -21,17 +21,17 @@ import (
 	"testing"
 
 	// Inject our fake informers
-	fakekubeclient "github.com/knative/pkg/injection/clients/kubeclient/fake"
-	_ "github.com/knative/pkg/injection/informers/kubeinformers/autoscalingv2beta1/hpa/fake"
-	_ "github.com/knative/pkg/injection/informers/kubeinformers/corev1/service/fake"
+	fakekubeclient "knative.dev/pkg/injection/clients/kubeclient/fake"
+	_ "knative.dev/pkg/injection/informers/kubeinformers/autoscalingv2beta1/hpa/fake"
+	_ "knative.dev/pkg/injection/informers/kubeinformers/corev1/service/fake"
 	fakeservingclient "github.com/knative/serving/pkg/client/injection/client/fake"
 	fakekpainformer "github.com/knative/serving/pkg/client/injection/informers/autoscaling/v1alpha1/podautoscaler/fake"
 	_ "github.com/knative/serving/pkg/client/injection/informers/networking/v1alpha1/serverlessservice/fake"
 
-	"github.com/knative/pkg/configmap"
-	"github.com/knative/pkg/controller"
-	logtesting "github.com/knative/pkg/logging/testing"
-	"github.com/knative/pkg/system"
+	"knative.dev/pkg/configmap"
+	"knative.dev/pkg/controller"
+	logtesting "knative.dev/pkg/logging/testing"
+	"knative.dev/pkg/system"
 	"github.com/knative/serving/pkg/apis/autoscaling"
 	asv1a1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	autoscalingv1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
@@ -53,7 +53,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	ktesting "k8s.io/client-go/testing"
 
-	. "github.com/knative/pkg/reconciler/testing"
+	. "knative.dev/pkg/reconciler/testing"
 	. "github.com/knative/serving/pkg/reconciler/testing/v1alpha1"
 	. "github.com/knative/serving/pkg/testing"
 )
@@ -279,12 +279,6 @@ func TestReconcile(t *testing.T) {
 			Eventf(corev1.EventTypeWarning, "InternalError",
 				`PodAutoscaler: "test-revision" does not own HPA: "test-revision"`),
 		},
-	}, {
-		Name: "do not create hpa when non-hpa-class pod autoscaler",
-		Objects: []runtime.Object{
-			pa(testRevision, testNamespace, WithKPAClass, WithSuccessfulBootstrap()),
-		},
-		Key: key(testRevision, testNamespace),
 	}, {
 		Name: "nop deletion reconcile",
 		// Test that with a DeletionTimestamp we do nothing.

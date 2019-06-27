@@ -19,9 +19,10 @@ package v1alpha1
 import (
 	"fmt"
 
-	"github.com/knative/pkg/apis"
-	duckv1beta1 "github.com/knative/pkg/apis/duck/v1beta1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+
+	"knative.dev/pkg/apis"
+	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
 )
 
 // InitializeConditions initializes the certificate conditions.
@@ -64,7 +65,7 @@ func (cs *CertificateStatus) GetCondition(t apis.ConditionType) *apis.Condition 
 // ConditionType represents a Certificate condition value
 const (
 	// CertificateConditionReady is set when the requested certificate
-	// is provioned and valid.
+	// is provisioned and valid.
 	CertificateConditionReady = apis.ConditionReady
 )
 

@@ -24,8 +24,8 @@ import (
 	perrors "github.com/pkg/errors"
 	"go.uber.org/zap"
 
-	"github.com/knative/pkg/controller"
-	"github.com/knative/pkg/logging"
+	"knative.dev/pkg/controller"
+	"knative.dev/pkg/logging"
 	"github.com/knative/serving/pkg/apis/autoscaling"
 	pav1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving"
@@ -81,11 +81,6 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 		return nil
 	} else if err != nil {
 		return err
-	}
-
-	if original.Class() != autoscaling.KPA {
-		logger.Warn("Ignoring non-kpa-class PA")
-		return nil
 	}
 
 	// Don't modify the informer's copy.

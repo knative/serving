@@ -21,10 +21,10 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	"github.com/knative/pkg/apis"
-	"github.com/knative/pkg/apis/duck"
-	duckv1beta1 "github.com/knative/pkg/apis/duck/v1beta1"
-	apitest "github.com/knative/pkg/apis/testing"
+	"knative.dev/pkg/apis"
+	"knative.dev/pkg/apis/duck"
+	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
+	apitest "knative.dev/pkg/apis/testing"
 	net "github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/serving"
 	corev1 "k8s.io/api/core/v1"
@@ -269,19 +269,6 @@ func TestRevisionStatus_MarkContainerUnhealthy(t *testing.T) {
 	if cond := rs.GetCondition(RevisionConditionContainerHealthy); cond.Status != corev1.ConditionFalse {
 		t.Errorf("TestRevisionStatus_MarkContainerUnhealthy expected False, got %v", cond.Status)
 	}
-}
-
-func TestTypicalFlowWithServiceTimeout(t *testing.T) {
-	r := &RevisionStatus{}
-	r.InitializeConditions()
-	apitest.CheckConditionOngoing(r.duck(), RevisionConditionResourcesAvailable, t)
-	apitest.CheckConditionOngoing(r.duck(), RevisionConditionContainerHealthy, t)
-	apitest.CheckConditionOngoing(r.duck(), RevisionConditionReady, t)
-
-	r.MarkServiceTimeout()
-	apitest.CheckConditionFailed(r.duck(), RevisionConditionResourcesAvailable, t)
-	apitest.CheckConditionOngoing(r.duck(), RevisionConditionContainerHealthy, t)
-	apitest.CheckConditionFailed(r.duck(), RevisionConditionReady, t)
 }
 
 func TestTypicalFlowWithProgressDeadlineExceeded(t *testing.T) {

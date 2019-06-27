@@ -131,11 +131,9 @@ func Read(ctx context.Context, bucketName, filePath string) ([]byte, error) {
 
 // ReadURL reads from a gsUrl and return a log structure
 func ReadURL(ctx context.Context, gcsURL string) ([]byte, error) {
-	var data []byte
-
 	bucket, obj, err := linkToBucketAndObject(gcsURL)
 	if err != nil {
-		return data, err
+		return nil, err
 	}
 
 	return Read(ctx, bucket, obj)
@@ -149,6 +147,11 @@ func NewReader(ctx context.Context, bucketName, filePath string) (*storage.Reade
 		return nil, err
 	}
 	return o.NewReader(ctx)
+}
+
+// BuildLogPath returns the build log path from the test result gcsURL
+func BuildLogPath(gcsURL string) string {
+	return gcsURL + "build-log.txt"
 }
 
 // create storage object handle, this step doesn't access internet

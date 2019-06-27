@@ -17,7 +17,7 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/knative/pkg/signals"
+	"knative.dev/pkg/signals"
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
 )

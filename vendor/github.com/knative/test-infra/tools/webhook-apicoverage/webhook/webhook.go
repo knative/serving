@@ -26,9 +26,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/knative/pkg/configmap"
-	"github.com/knative/pkg/logging"
-	"github.com/knative/pkg/webhook"
+	"knative.dev/pkg/configmap"
+	"knative.dev/pkg/logging"
+	"knative.dev/pkg/webhook"
 	"github.com/markbates/inflect"
 	"go.uber.org/zap"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"

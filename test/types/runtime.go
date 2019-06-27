@@ -17,7 +17,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/knative/pkg/ptr"
+	"knative.dev/pkg/ptr"
 )
 
 // MustEnvVars defines environment variables that "MUST" be set.

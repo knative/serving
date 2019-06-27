@@ -20,7 +20,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	caching "github.com/knative/caching/pkg/apis/caching/v1alpha1"
-	"github.com/knative/pkg/kmeta"
+	"knative.dev/pkg/kmeta"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/reconciler/revision/resources/names"

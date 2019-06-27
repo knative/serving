@@ -2063,8 +2063,8 @@ spec:
               cpu: 2000m
               memory: 1024Mi
             requests:
-              cpu: 500m
-              memory: 256Mi
+              cpu: 100m
+              memory: 128Mi
 
           env:
           - name: POD_NAME

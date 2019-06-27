@@ -24,7 +24,7 @@ import (
 	"regexp"
 	"testing"
 
-	pkgTest "github.com/knative/pkg/test"
+	pkgTest "knative.dev/pkg/test"
 	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 	rtesting "github.com/knative/serving/pkg/testing/v1beta1"
 	"github.com/knative/serving/test"

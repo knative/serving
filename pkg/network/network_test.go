@@ -25,12 +25,12 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	"github.com/knative/pkg/system"
+	"knative.dev/pkg/system"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	. "github.com/knative/pkg/configmap/testing"
-	_ "github.com/knative/pkg/system/testing"
+	. "knative.dev/pkg/configmap/testing"
+	_ "knative.dev/pkg/system/testing"
 )
 
 func TestOurConfig(t *testing.T) {

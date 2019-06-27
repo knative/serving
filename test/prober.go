@@ -24,9 +24,9 @@ import (
 	"sync"
 	"testing"
 
-	pkgTest "github.com/knative/pkg/test"
-	"github.com/knative/pkg/test/logging"
-	"github.com/knative/pkg/test/spoof"
+	pkgTest "knative.dev/pkg/test"
+	"knative.dev/pkg/test/logging"
+	"knative.dev/pkg/test/spoof"
 	"golang.org/x/sync/errgroup"
 )
 

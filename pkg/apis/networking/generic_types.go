@@ -19,7 +19,7 @@ package networking
 import (
 	"context"
 
-	"github.com/knative/pkg/apis"
+	"knative.dev/pkg/apis"
 )
 
 // This files contains the versionless types and enums that are strongly

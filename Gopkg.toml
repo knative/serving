@@ -8,10 +8,12 @@ required = [
   "k8s.io/code-generator/cmd/client-gen",
   "k8s.io/code-generator/cmd/lister-gen",
   "k8s.io/code-generator/cmd/informer-gen",
-  "github.com/knative/pkg/codegen/cmd/injection-gen",
+  "knative.dev/pkg/codegen/cmd/injection-gen",
   "github.com/knative/caching/pkg/apis/caching",
   "github.com/knative/test-infra/scripts",
   "github.com/knative/test-infra/tools/dep-collector",
+  # For load testing.
+  "github.com/rakyll/hey"
 ]
 
 [[override]]
@@ -19,7 +21,7 @@ required = [
   version = "v2.2.1"
 
 [[override]]
-  name = "github.com/knative/pkg"
+  name = "knative.dev/pkg"
   branch = "master"
 
 [[override]]
@@ -28,8 +30,8 @@ required = [
 
 [[constraint]]
   name = "github.com/knative/caching"
-  # HEAD as of 2019-06-05
-  revision = "b6c8f4851e3fb13987782cf8014316141e42fbd3"
+  # HEAD as of 2019-06-26
+  revision = "aa9bd3961c44b5c8a772cf44dc5364d381d935cf"
 
 [[constraint]]
   name = "github.com/google/go-containerregistry"
@@ -105,6 +107,6 @@ required = [
   non-go = false
 
  [[prune.project]]
-  name = "github.com/knative/pkg"
+  name = "knative.dev/pkg"
   unused-packages = false
   non-go = false

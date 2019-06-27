@@ -20,7 +20,7 @@ import (
 	"strings"
 
 	"github.com/ghodss/yaml"
-	"github.com/knative/pkg/configmap"
+	"knative.dev/pkg/configmap"
 	"github.com/knative/serving/pkg/network"
 	corev1 "k8s.io/api/core/v1"
 )

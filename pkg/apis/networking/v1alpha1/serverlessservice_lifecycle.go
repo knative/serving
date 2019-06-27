@@ -17,8 +17,8 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"github.com/knative/pkg/apis"
-	duckv1beta1 "github.com/knative/pkg/apis/duck/v1beta1"
+	"knative.dev/pkg/apis"
+	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
@@ -53,7 +53,7 @@ func (sss *ServerlessServiceStatus) MarkEndpointsNotOwned(kind, name string) {
 		"Resource %s of type %s is not owned by SKS", name, kind)
 }
 
-// MarkEndpointsNotReady marks the ServerlessServiceStatus endpoints populated conditiohn to unknown.
+// MarkEndpointsNotReady marks the ServerlessServiceStatus endpoints populated condition to unknown.
 func (sss *ServerlessServiceStatus) MarkEndpointsNotReady(reason string) {
 	serverlessServiceCondSet.Manage(sss).MarkUnknown(
 		ServerlessServiceConditionEndspointsPopulated, reason,

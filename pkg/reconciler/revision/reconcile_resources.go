@@ -20,8 +20,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/knative/pkg/logging"
-	"github.com/knative/pkg/logging/logkey"
+	"knative.dev/pkg/logging"
+	"knative.dev/pkg/logging/logkey"
 	kpav1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/reconciler/revision/resources"

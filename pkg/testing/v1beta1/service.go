@@ -22,7 +22,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/knative/pkg/ptr"
+	"knative.dev/pkg/ptr"
 	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 	presources "github.com/knative/serving/pkg/resources"
 )
@@ -72,11 +72,9 @@ func WithNamedPort(name string) ServiceOption {
 		c := &svc.Spec.Template.Spec.Containers[0]
 		if len(c.Ports) == 1 {
 			c.Ports[0].Name = name
-			c.Ports[0].ContainerPort = 8080
 		} else {
 			c.Ports = []corev1.ContainerPort{{
-				Name:          name,
-				ContainerPort: 8080,
+				Name: name,
 			}}
 		}
 	}

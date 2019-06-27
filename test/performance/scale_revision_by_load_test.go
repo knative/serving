@@ -22,12 +22,10 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
-	"github.com/knative/pkg/controller"
-	pkgTest "github.com/knative/pkg/test"
-	ingress "github.com/knative/pkg/test/ingress"
 	"github.com/knative/serving/pkg/resources"
 	testingv1alpha1 "github.com/knative/serving/pkg/testing/v1alpha1"
 	"github.com/knative/serving/test"
@@ -40,6 +38,9 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/tools/cache"
+	"knative.dev/pkg/controller"
+	pkgTest "knative.dev/pkg/test"
+	ingress "knative.dev/pkg/test/ingress"
 )
 
 const (
@@ -121,9 +122,9 @@ func scaleRevisionByLoad(t *testing.T, numClients int) []junit.TestCase {
 	}
 	t.Logf("Took %v for the endpoint to start serving", time.Since(st))
 
-	// The number of scale events should be at most ~numClients/targetConcurrency,
-	// adding a big buffer to account for unexpected events
-	scaleCh := make(chan *scaleEvent, numClients/targetConcurrency*10)
+	// The number of scale events should be at most ~numClients/targetConcurrency
+	scaleEvents := make([]*scaleEvent, 0, numClients/targetConcurrency*10)
+	var scaleEventsMutex sync.Mutex
 	stopCh := make(chan struct{})
 
 	factory := informers.NewSharedInformerFactory(clients.KubeClient.Kube, 0)
@@ -140,10 +141,9 @@ func scaleRevisionByLoad(t *testing.T, numClients int) []junit.TestCase {
 						newScale:  newNumAddresses,
 						timestamp: time.Now(),
 					}
-					select {
-					case scaleCh <- event:
-					default:
-					}
+					scaleEventsMutex.Lock()
+					defer scaleEventsMutex.Unlock()
+					scaleEvents = append(scaleEvents, event)
 				}
 			}
 		},
@@ -168,7 +168,6 @@ func scaleRevisionByLoad(t *testing.T, numClients int) []junit.TestCase {
 	}
 
 	close(stopCh)
-	close(scaleCh)
 
 	// Save the json result for benchmarking
 	resp.SaveJSON()
@@ -180,7 +179,9 @@ func scaleRevisionByLoad(t *testing.T, numClients int) []junit.TestCase {
 	tc = append(tc, perf.CreatePerfTestCase(float32(resp.Result[0].ActualQPS), "actualQPS", t.Name()))
 	tc = append(tc, perf.CreatePerfTestCase(float32(resp.ErrorsPercentage(0)), "errorsPercentage", t.Name()))
 
-	for ev := range scaleCh {
+	scaleEventsMutex.Lock()
+	defer scaleEventsMutex.Unlock()
+	for _, ev := range scaleEvents {
 		t.Logf("Scaled: %d -> %d in %v", ev.oldScale, ev.newScale, ev.timestamp.Sub(resp.Result[0].StartTime))
 		tc = append(tc, perf.CreatePerfTestCase(float32(ev.timestamp.Sub(resp.Result[0].StartTime)/time.Second), fmt.Sprintf("scale-from-%02d-to-%02d(seconds)", ev.oldScale, ev.newScale), t.Name()))
 	}

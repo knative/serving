@@ -16,7 +16,7 @@ limitations under the License.
 
 package names
 
-import "github.com/knative/pkg/kmeta"
+import "knative.dev/pkg/kmeta"
 
 func Configuration(service kmeta.Accessor) string {
 	return service.GetName()

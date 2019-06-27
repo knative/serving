@@ -19,9 +19,9 @@ package resources
 import (
 	"strconv"
 
-	"github.com/knative/pkg/kmeta"
-	"github.com/knative/pkg/logging"
-	"github.com/knative/pkg/ptr"
+	"knative.dev/pkg/kmeta"
+	"knative.dev/pkg/logging"
+	"knative.dev/pkg/ptr"
 	"github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
@@ -157,8 +157,10 @@ func makePodSpec(rev *v1alpha1.Revision, loggingConfig *logging.Config, observab
 }
 
 func getUserPort(rev *v1alpha1.Revision) int32 {
-	if len(rev.Spec.GetContainer().Ports) == 1 {
-		return rev.Spec.GetContainer().Ports[0].ContainerPort
+	ports := rev.Spec.GetContainer().Ports
+
+	if len(ports) > 0 && ports[0].ContainerPort != 0 {
+		return ports[0].ContainerPort
 	}
 
 	//TODO(#2258): Use container EXPOSE metadata from image before falling back to default value

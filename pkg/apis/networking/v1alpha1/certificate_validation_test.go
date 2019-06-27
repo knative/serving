@@ -21,7 +21,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/knative/pkg/apis"
+	"knative.dev/pkg/apis"
 )
 
 func TestCertificateSpecValidation(t *testing.T) {

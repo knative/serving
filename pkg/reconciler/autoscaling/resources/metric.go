@@ -39,13 +39,21 @@ type Metrics interface {
 	Update(ctx context.Context, metric *autoscaler.Metric) (*autoscaler.Metric, error)
 }
 
+// StableWindow returns the stable window for the revision from PA, if set, or
+// systemwide default.
+func StableWindow(pa *v1alpha1.PodAutoscaler, config *autoscaler.Config) time.Duration {
+	sw, ok := pa.Window()
+	if !ok {
+		sw = config.StableWindow
+	}
+	return sw
+}
+
 // MakeMetric constructs a Metric resource from a PodAutoscaler
 func MakeMetric(ctx context.Context, pa *v1alpha1.PodAutoscaler, metricSvc string,
 	config *autoscaler.Config) *autoscaler.Metric {
-	stableWindow, ok := pa.Window()
-	if !ok {
-		stableWindow = config.StableWindow
-	}
+
+	stableWindow := StableWindow(pa, config)
 	// Look for a panic window percentage annotation.
 	panicWindowPercentage, ok := pa.PanicWindowPercentage()
 	if !ok {

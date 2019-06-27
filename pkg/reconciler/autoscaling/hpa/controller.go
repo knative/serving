@@ -19,14 +19,14 @@ package hpa
 import (
 	"context"
 
-	"github.com/knative/pkg/apis/duck"
-	hpainformer "github.com/knative/pkg/injection/informers/kubeinformers/autoscalingv2beta1/hpa"
-	serviceinformer "github.com/knative/pkg/injection/informers/kubeinformers/corev1/service"
+	"knative.dev/pkg/apis/duck"
+	hpainformer "knative.dev/pkg/injection/informers/kubeinformers/autoscalingv2beta1/hpa"
+	serviceinformer "knative.dev/pkg/injection/informers/kubeinformers/corev1/service"
 	kpainformer "github.com/knative/serving/pkg/client/injection/informers/autoscaling/v1alpha1/podautoscaler"
 	sksinformer "github.com/knative/serving/pkg/client/injection/informers/networking/v1alpha1/serverlessservice"
 
-	"github.com/knative/pkg/configmap"
-	"github.com/knative/pkg/controller"
+	"knative.dev/pkg/configmap"
+	"knative.dev/pkg/controller"
 	"github.com/knative/serving/pkg/apis/autoscaling"
 	"github.com/knative/serving/pkg/autoscaler"
 	"github.com/knative/serving/pkg/reconciler"
