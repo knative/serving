@@ -142,7 +142,7 @@ func (r *Reconciler) Init(ctx context.Context, cmw configmap.Watcher, impl *cont
 
 }
 
-// SetupSecretTracker performs common initializations for all Ingress
+// SetupSecretTracker initializes Secret Tracker
 func SetupSecretTracker(ctx context.Context, cmw configmap.Watcher, init ReconcilerInitializer, impl *controller.Impl) {
 
 	logger := logging.FromContext(ctx)
