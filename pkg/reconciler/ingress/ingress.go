@@ -110,7 +110,7 @@ func (r *Reconciler) SetTracker(tracker tracker.Interface) {
 // Init method performs initializations to ingress reconciler
 func (r *Reconciler) Init(ctx context.Context, cmw configmap.Watcher, impl *controller.Impl) {
 
-	CommonInitializations(ctx, cmw, r, impl)
+	SetupSecretTracker(ctx, cmw, r, impl)
 
 	r.Logger.Info("Setting up Ingress event handlers")
 	ingressInformer := ingressinformer.Get(ctx)
@@ -125,8 +125,7 @@ func (r *Reconciler) Init(ctx context.Context, cmw configmap.Watcher, impl *cont
 	virtualServiceInformer := virtualserviceinformer.Get(ctx)
 	virtualServiceInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: myFilterFunc,
-		Handler: controller.HandleAll(impl.EnqueueLabelOfNamespaceScopedResource(networking.IngressNamespaceLabelKey,
-			networking.IngressLabelKey)),
+		Handler:    controller.HandleAll(impl.EnqueueControllerOf),
 	})
 
 	r.Logger.Info("Setting up ConfigMap receivers")
@@ -143,8 +142,8 @@ func (r *Reconciler) Init(ctx context.Context, cmw configmap.Watcher, impl *cont
 
 }
 
-// CommonInitializations performs common initializations for all Ingress
-func CommonInitializations(ctx context.Context, cmw configmap.Watcher, init ReconcilerInitializer, impl *controller.Impl) {
+// SetupSecretTracker performs common initializations for all Ingress
+func SetupSecretTracker(ctx context.Context, cmw configmap.Watcher, init ReconcilerInitializer, impl *controller.Impl) {
 
 	logger := logging.FromContext(ctx)
 	logger.Info("Setting up secret informer event handler")
