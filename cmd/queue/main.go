@@ -136,6 +136,7 @@ var (
 		"The response time in millisecond",
 		stats.UnitMilliseconds)
 	readinessProbeTimeout = flag.Int("probe", -1, "run readiness probe with given timeout")
+	ucProbe               = flag.String("readiness-probe", "", "JSON readiness probe configuration for user container")
 )
 
 func initEnv() {
@@ -256,9 +257,14 @@ func handler(reqChan chan queue.ReqEvent, breaker *queue.Breaker, handler http.H
 }
 
 // Sets up /health and /wait-for-drain endpoints.
-func createAdminHandlers(readinessProbe func() bool) *http.ServeMux {
+func createAdminHandlers(p *probe) *http.ServeMux {
 	mux := http.NewServeMux()
-	mux.HandleFunc(requestQueueHealthPath, healthState.HealthHandler(readinessProbe))
+
+	if p.isStandardProbe() {
+		mux.HandleFunc(requestQueueHealthPath, healthState.HealthHandlerStd(p.ProbeContainer))
+	} else {
+		mux.HandleFunc(requestQueueHealthPath, healthState.HealthHandler(p.ProbeContainer))
+	}
 	mux.HandleFunc(queue.RequestQueueDrainPath, healthState.DrainHandler())
 
 	return mux
@@ -411,6 +417,7 @@ func (p *probe) httpProbe() error {
 			return false, nil
 		}
 		p.count++
+
 		return p.Count() >= p.SuccessThreshold, nil
 	})
 }
@@ -421,7 +428,6 @@ func (p *probe) Count() int32 {
 }
 
 func main() {
-	ucProbe := flag.String("readiness-probe", "", "JSON readiness probe configuration for user container")
 	flag.Parse()
 
 	if *readinessProbeTimeout >= 0 {
@@ -489,7 +495,7 @@ func main() {
 
 	adminServer := &http.Server{
 		Addr:    fmt.Sprintf(":%d", networking.QueueAdminPort),
-		Handler: createAdminHandlers(pb.ProbeContainer),
+		Handler: createAdminHandlers(pb),
 	}
 
 	metricsSupported := false

@@ -108,6 +108,32 @@ func (h *State) HealthHandler(prober func() bool) func(w http.ResponseWriter, r 
 	}
 }
 
+// HealthHandlerStd constructs a handler that returns the current state of
+// the health server.
+func (h *State) HealthHandlerStd(prober func() bool) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		sendAlive := func() {
+			io.WriteString(w, "alive: true")
+		}
+
+		sendNotAlive := func() {
+			w.WriteHeader(http.StatusBadRequest)
+			io.WriteString(w, "alive: false")
+		}
+
+		switch {
+		case h.IsShuttingDown():
+			sendNotAlive()
+		case prober == nil:
+			sendAlive()
+		case !prober():
+			sendNotAlive()
+		default:
+			sendAlive()
+		}
+	}
+}
+
 // DrainHandler constructs a handler that waits until the proxy server is shut down.
 func (h *State) DrainHandler() func(_ http.ResponseWriter, _ *http.Request) {
 	h.mutex.Lock()
