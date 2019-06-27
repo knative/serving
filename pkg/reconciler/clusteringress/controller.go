@@ -19,80 +19,20 @@ package clusteringress
 import (
 	"context"
 
-	gatewayinformer "knative.dev/pkg/client/injection/informers/istio/v1alpha3/gateway"
-	virtualserviceinformer "knative.dev/pkg/client/injection/informers/istio/v1alpha3/virtualservice"
-	clusteringressinformer "github.com/knative/serving/pkg/client/injection/informers/networking/v1alpha1/clusteringress"
+	ing "github.com/knative/serving/pkg/reconciler/ingress"
 
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
-	secretinformer "knative.dev/pkg/injection/informers/kubeinformers/corev1/secret"
-	"knative.dev/pkg/tracker"
-	"github.com/knative/serving/pkg/apis/networking"
-	"github.com/knative/serving/pkg/network"
-	"github.com/knative/serving/pkg/reconciler"
-	"github.com/knative/serving/pkg/reconciler/ingress/config"
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/client-go/tools/cache"
 )
 
 const (
-	controllerAgentName = "clusteringress-controller"
+	ciWorkQueueName = "ClusterIngresses"
 )
 
-// NewController initializes the controller and is called by the generated code
-// Registers eventhandlers to enqueue events.
+// NewController works as a constructor for Ingress Controller
 func NewController(
 	ctx context.Context,
 	cmw configmap.Watcher,
 ) *controller.Impl {
-
-	clusterIngressInformer := clusteringressinformer.Get(ctx)
-	virtualServiceInformer := virtualserviceinformer.Get(ctx)
-	gatewayInformer := gatewayinformer.Get(ctx)
-	secretInformer := secretinformer.Get(ctx)
-
-	c := &Reconciler{
-		Base:                 reconciler.NewBase(ctx, controllerAgentName, cmw),
-		clusterIngressLister: clusterIngressInformer.Lister(),
-		virtualServiceLister: virtualServiceInformer.Lister(),
-		gatewayLister:        gatewayInformer.Lister(),
-		secretLister:         secretInformer.Lister(),
-	}
-	impl := controller.NewImpl(c, c.Logger, "ClusterIngresses")
-
-	c.Logger.Info("Setting up event handlers")
-	myFilterFunc := reconciler.AnnotationFilterFunc(networking.IngressClassAnnotationKey, network.IstioIngressClassName, true)
-	ciHandler := cache.FilteringResourceEventHandler{
-		FilterFunc: myFilterFunc,
-		Handler:    controller.HandleAll(impl.Enqueue),
-	}
-	clusterIngressInformer.Informer().AddEventHandler(ciHandler)
-
-	virtualServiceInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
-		FilterFunc: myFilterFunc,
-		Handler:    controller.HandleAll(impl.EnqueueLabelOfClusterScopedResource(networking.ClusterIngressLabelKey)),
-	})
-
-	c.tracker = tracker.New(impl.EnqueueKey, controller.GetTrackerLease(ctx))
-
-	secretInformer.Informer().AddEventHandler(controller.HandleAll(
-		controller.EnsureTypeMeta(
-			c.tracker.OnChanged,
-			corev1.SchemeGroupVersion.WithKind("Secret"),
-		),
-	))
-
-	c.Logger.Info("Setting up ConfigMap receivers")
-	configsToResync := []interface{}{
-		&config.Istio{},
-		&network.Config{},
-	}
-	resyncIngressesOnConfigChange := configmap.TypeFilter(configsToResync...)(func(string, interface{}) {
-		controller.SendGlobalUpdates(clusterIngressInformer.Informer(), ciHandler)
-	})
-	configStore := config.NewStore(c.Logger.Named("config-store"), resyncIngressesOnConfigChange)
-	configStore.WatchConfigs(cmw)
-	c.configStore = configStore
-
-	return impl
+	return ing.CreateController(ctx, cmw, ciWorkQueueName, newInitializer)
 }
