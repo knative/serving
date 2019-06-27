@@ -710,7 +710,7 @@ func TestReconcile(t *testing.T) {
 			Object: kpa(testNamespace, testRevision, markActive, WithPAStatusService(testRevision),
 				withMSvcStatus("b737max-800"),
 				// We expect this change in status:
-				markResourceNotOwned("Service", "b737max-800"), WithSuccessfulBootstrap()),
+				markResourceNotOwned("Service", "b737max-800")),
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "InternalError", "error reconciling metrics service: PA: test-revision does not own Service: b737max-800"),
@@ -890,7 +890,7 @@ func TestReconcile(t *testing.T) {
 		},
 		WantErr: true,
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: kpa(testNamespace, testRevision, markResourceNotOwned("ServerlessService", testRevision), WithSuccessfulBootstrap()),
+			Object: kpa(testNamespace, testRevision, markActive, markResourceNotOwned("ServerlessService", testRevision)),
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "InternalError", "error reconciling SKS: PA: test-revision does not own SKS: test-revision"),

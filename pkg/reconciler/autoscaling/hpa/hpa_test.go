@@ -92,6 +92,10 @@ func TestControllerCanReconcile(t *testing.T) {
 	}
 }
 
+func markActive(pa *asv1a1.PodAutoscaler) {
+	pa.Status.MarkActive()
+}
+
 func TestReconcile(t *testing.T) {
 	const deployName = testRevision + "-deployment"
 	usualSelector := map[string]string{"a": "b"}
@@ -255,7 +259,7 @@ func TestReconcile(t *testing.T) {
 		Key:     key(testRevision, testNamespace),
 		WantErr: true,
 		WantStatusUpdates: []ktesting.UpdateActionImpl{{
-			Object: pa(testRevision, testNamespace, WithHPAClass, MarkResourceNotOwnedByPA("ServerlessService", testRevision), WithSuccessfulBootstrap()),
+			Object: pa(testRevision, testNamespace, WithHPAClass, markActive, MarkResourceNotOwnedByPA("ServerlessService", testRevision)),
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "InternalError", `error reconciling SKS: PA: test-revision does not own SKS: test-revision`),
@@ -273,7 +277,7 @@ func TestReconcile(t *testing.T) {
 		Key:     key(testRevision, testNamespace),
 		WantErr: true,
 		WantStatusUpdates: []ktesting.UpdateActionImpl{{
-			Object: pa(testRevision, testNamespace, WithHPAClass, MarkResourceNotOwnedByPA("HorizontalPodAutoscaler", testRevision), WithSuccessfulBootstrap()),
+			Object: pa(testRevision, testNamespace, WithHPAClass, markActive, MarkResourceNotOwnedByPA("HorizontalPodAutoscaler", testRevision)),
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "InternalError",
@@ -350,7 +354,7 @@ func TestReconcile(t *testing.T) {
 	}, {
 		Name: "failure to create hpa",
 		Objects: []runtime.Object{
-			pa(testRevision, testNamespace, WithHPAClass, WithSuccessfulBootstrap()),
+			pa(testRevision, testNamespace, WithHPAClass, markActive, WithSuccessfulBootstrap()),
 			deploy(testNamespace, testRevision),
 		},
 		Key: key(testRevision, testNamespace),
@@ -361,8 +365,8 @@ func TestReconcile(t *testing.T) {
 			InduceFailure("create", "horizontalpodautoscalers"),
 		},
 		WantStatusUpdates: []ktesting.UpdateActionImpl{{
-			Object: pa(testRevision, testNamespace, WithHPAClass, WithNoTraffic(
-				"FailedCreate", "Failed to create HorizontalPodAutoscaler \"test-revision\"."), WithSuccessfulBootstrap()),
+			Object: pa(testRevision, testNamespace, WithHPAClass, markActive,
+				WithResourceFailedCreation("HorizontalPodAutoscaler", "test-revision")),
 		}},
 		WantErr: true,
 		WantEvents: []string{

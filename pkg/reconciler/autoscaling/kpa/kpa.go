@@ -130,9 +130,6 @@ func (c *Reconciler) reconcile(ctx context.Context, pa *pav1alpha1.PodAutoscaler
 		return perrors.Wrap(err, "error reconciling metrics service")
 	}
 
-	// TODO: This looks like a bug reconciling SKS before computing Active condition while
-	//  SKS mode is based on Active condition? PA can be Activating here, then go to Inactive below,
-	//  and SKS has an update from Proxy to Serve here, whereas the mode should be Proxy for Inactive.
 	sks, err := c.ReconcileSKS(ctx, pa)
 	if err != nil {
 		return perrors.Wrap(err, "error reconciling SKS")

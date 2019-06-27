@@ -670,14 +670,14 @@ func TestMarkResourceNotOwned(t *testing.T) {
 func TestMarkResourceFailedCreation(t *testing.T) {
 	pa := &PodAutoscalerStatus{}
 	pa.MarkResourceFailedCreation("doesn't", "matter")
-	apitest.CheckConditionFailed(pa.duck(), PodAutoscalerConditionActive, t)
+	apitest.CheckConditionFailed(pa.duck(), PodAutoscalerConditionBootstrap, t)
 
-	active := pa.GetCondition("Active")
-	if active.Status != corev1.ConditionFalse {
-		t.Errorf("TestMarkResourceFailedCreation expected active.Status: False got: %v", active.Status)
+	bootstrap := pa.GetCondition("Bootstrap")
+	if bootstrap.Status != corev1.ConditionFalse {
+		t.Errorf("TestMarkResourceFailedCreation expected active.Status: False got: %v", bootstrap.Status)
 	}
-	if active.Reason != "FailedCreate" {
-		t.Errorf("TestMarkResourceFailedCreation expected active.Reason: FailedCreate got: %v", active.Reason)
+	if bootstrap.Reason != "FailedCreate" {
+		t.Errorf("TestMarkResourceFailedCreation expected active.Reason: FailedCreate got: %v", bootstrap.Reason)
 	}
 }
 

@@ -84,31 +84,45 @@ func WithNoTraffic(reason, message string) PodAutoscalerOption {
 	}
 }
 
-// WithSuccessfulBootstrap updates the PA to have ContainersHealthy condition true.
+// WithSuccessfulBootstrap updates the PA to have Bootstrap condition true.
 func WithSuccessfulBootstrap() PodAutoscalerOption {
 	return func(pa *autoscalingv1alpha1.PodAutoscaler) {
 		pa.Status.MarkBootstrapSuccessful()
 	}
 }
 
-// WithContainerExiting updates the PA to have ContainersHealthy condition false with the exit code and message.
+// WithContainerExiting updates the PA to have Bootstrap condition false with the exit code and message.
 func WithContainerExiting(exitCode int32, message string) PodAutoscalerOption {
 	return func(pa *autoscalingv1alpha1.PodAutoscaler) {
 		pa.Status.MarkContainerExiting(exitCode, message)
 	}
 }
 
-// WithImagePullError updates the PA to have ContainersHealthy condition false.
+// WithImagePullError updates the PA to have Bootstrap condition false.
 func WithImagePullError(reason, message string) PodAutoscalerOption {
 	return func(pa *autoscalingv1alpha1.PodAutoscaler) {
 		pa.Status.MarkImagePullError(reason, message)
 	}
 }
 
-// WithPodUnscheduled updates the PA to have PodsHealthy condition false.
+// WithPodUnscheduled updates the PA to have Bootstrap condition false.
 func WithPodUnscheduled(reason, message string) PodAutoscalerOption {
 	return func(pa *autoscalingv1alpha1.PodAutoscaler) {
 		pa.Status.MarkPodUnscheduled(reason, message)
+	}
+}
+
+// WithResourceNotOwned updates the PA to have Bootstrap condition false.
+func WithResourceNotOwned(kind, name string) PodAutoscalerOption {
+	return func(pa *autoscalingv1alpha1.PodAutoscaler) {
+		pa.Status.MarkResourceNotOwned(kind, name)
+	}
+}
+
+// WithResourceFailedCreation updates the PA to have Bootstrap condition false.
+func WithResourceFailedCreation(kind, name string) PodAutoscalerOption {
+	return func(pa *autoscalingv1alpha1.PodAutoscaler) {
+		pa.Status.MarkResourceFailedCreation(kind, name)
 	}
 }
 
