@@ -26,8 +26,7 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
-	pkgTest "knative.dev/pkg/test"
-	"knative.dev/pkg/test/zipkin"
+	"github.com/knative/serving/pkg/apis/autoscaling"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/reconciler/revision/resources/names"
 	ktest "github.com/knative/serving/pkg/testing/v1alpha1"
@@ -37,6 +36,9 @@ import (
 	"github.com/knative/test-infra/shared/junit"
 	perf "github.com/knative/test-infra/shared/performance"
 	"github.com/knative/test-infra/shared/testgrid"
+
+	pkgTest "knative.dev/pkg/test"
+	"knative.dev/pkg/test/zipkin"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -135,7 +137,11 @@ func createServices(t *testing.T, pc *Client, count int) ([]*v1a1test.ResourceOb
 		g.Go(func() error {
 			var err error
 			if objs[ndx], err = v1a1test.CreateRunLatestServiceReady(
-				t, pc.E2EClients, testNames[ndx], &v1a1test.Options{}, sos...); err != nil {
+				t, pc.E2EClients, testNames[ndx], &v1a1test.Options{
+					RevisionTemplateAnnotations: map[string]string{
+						autoscaling.WindowAnnotationKey: "7s",
+					},
+				}, sos...); err != nil {
 				return fmt.Errorf("%02d: failed to create Ready service: %v", ndx, err)
 			}
 			return nil
