@@ -30,8 +30,8 @@ import (
 	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
 
-	pkgTest "github.com/knative/pkg/test"
-	"github.com/knative/pkg/test/logstream"
+	pkgTest "knative.dev/pkg/test"
+	"knative.dev/pkg/test/logstream"
 	"github.com/knative/serving/pkg/apis/autoscaling"
 	resourcenames "github.com/knative/serving/pkg/reconciler/revision/resources/names"
 	rtesting "github.com/knative/serving/pkg/testing/v1alpha1"
@@ -110,14 +110,16 @@ func generateTraffic(ctx *testContext, concurrency int, duration time.Duration, 
 }
 
 type testContext struct {
-	t              *testing.T
-	clients        *test.Clients
-	names          test.ResourceNames
-	deploymentName string
-	domain         string
+	t                 *testing.T
+	clients           *test.Clients
+	names             test.ResourceNames
+	deploymentName    string
+	domain            string
+	targetUtilization float64
 }
 
 func setup(t *testing.T, class string, metric string) *testContext {
+	t.Helper()
 	clients := Setup(t)
 
 	t.Log("Creating a new Route and Configuration")
@@ -144,6 +146,11 @@ func setup(t *testing.T, class string, metric string) *testContext {
 		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
 	}
 
+	cfg, err := autoscalerCM(clients)
+	if err != nil {
+		t.Fatalf("Error retrieving autoscaler configmap: %v", err)
+	}
+
 	domain := resources.Route.Status.URL.Host
 	if _, err := pkgTest.WaitForEndpointState(
 		clients.KubeClient,
@@ -159,11 +166,12 @@ func setup(t *testing.T, class string, metric string) *testContext {
 	}
 
 	return &testContext{
-		t:              t,
-		clients:        clients,
-		names:          names,
-		deploymentName: resourcenames.Deployment(resources.Revision),
-		domain:         domain,
+		t:                 t,
+		clients:           clients,
+		names:             names,
+		deploymentName:    resourcenames.Deployment(resources.Revision),
+		domain:            domain,
+		targetUtilization: cfg.ContainerConcurrencyTargetFraction,
 	}
 }
 
@@ -207,14 +215,17 @@ func numberOfPods(ctx *testContext) (int32, error) {
 }
 
 func assertAutoscaleUpToNumPods(ctx *testContext, curPods, targetPods int32, duration time.Duration, quick bool) {
+	ctx.t.Helper()
 	// There are two test modes: quick, and not quick.
 	// 1) Quick mode: succeeds when the number of pods meets targetPods.
 	// 2) Not Quick (sustaining) mode: succeeds when the number of pods gets scaled to targetPods and
 	//    sustains there for the `duration`.
 
 	// Relax the bounds to reduce the flakiness caused by sampling in the autoscaling algorithm.
-	minPods := curPods - 1
-	maxPods := targetPods + 1
+	// Also adjust the values by the target utilization values.
+
+	minPods := int32(math.Floor(float64(curPods)/ctx.targetUtilization)) - 1
+	maxPods := int32(math.Ceil(float64(targetPods)/ctx.targetUtilization)) + 1
 
 	stopChan := make(chan struct{})
 	var grp errgroup.Group

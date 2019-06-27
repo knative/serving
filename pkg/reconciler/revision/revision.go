@@ -23,8 +23,8 @@ import (
 
 	"github.com/google/go-containerregistry/pkg/authn/k8schain"
 	cachinglisters "github.com/knative/caching/pkg/client/listers/caching/v1alpha1"
-	"github.com/knative/pkg/controller"
-	commonlogging "github.com/knative/pkg/logging"
+	"knative.dev/pkg/controller"
+	commonlogging "knative.dev/pkg/logging"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 	kpalisters "github.com/knative/serving/pkg/client/listers/autoscaling/v1alpha1"

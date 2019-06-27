@@ -21,8 +21,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/knative/pkg/apis"
-	duckv1beta1 "github.com/knative/pkg/apis/duck/v1beta1"
+	"knative.dev/pkg/apis"
+	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
 	net "github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/serving"
 	corev1 "k8s.io/api/core/v1"
@@ -154,11 +154,6 @@ func (rs *RevisionStatus) MarkResourceNotOwned(kind, name string) {
 func (rs *RevisionStatus) MarkDeploying(reason string) {
 	revCondSet.Manage(rs).MarkUnknown(RevisionConditionResourcesAvailable, reason, "")
 	revCondSet.Manage(rs).MarkUnknown(RevisionConditionContainerHealthy, reason, "")
-}
-
-func (rs *RevisionStatus) MarkServiceTimeout() {
-	revCondSet.Manage(rs).MarkFalse(RevisionConditionResourcesAvailable, "ServiceTimeout",
-		"Timed out waiting for a service endpoint to become ready")
 }
 
 func (rs *RevisionStatus) MarkProgressDeadlineExceeded(message string) {

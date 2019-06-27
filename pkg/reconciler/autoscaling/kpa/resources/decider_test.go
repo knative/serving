@@ -32,35 +32,61 @@ import (
 
 func TestMakeDecider(t *testing.T) {
 	cases := []struct {
-		name string
-		pa   *v1alpha1.PodAutoscaler
-		svc  string
-		want *autoscaler.Decider
+		name   string
+		pa     *v1alpha1.PodAutoscaler
+		svc    string
+		want   *autoscaler.Decider
+		cfgOpt func(autoscaler.Config) *autoscaler.Config
 	}{{
 		name: "defaults",
 		pa:   pa(),
-		want: decider(withTarget(100.0), withPanicThreshold(200.0)),
+		want: decider(withTarget(100.0), withPanicThreshold(200.0), withTotal(100)),
+	}, {
+		name: "tu < 1", // See #4449 why Target=100
+		pa:   pa(),
+		want: decider(withTarget(100), withPanicThreshold(200.0), withTotal(100)),
+		cfgOpt: func(c autoscaler.Config) *autoscaler.Config {
+			c.ContainerConcurrencyTargetFraction = 0.8
+			return &c
+		},
 	}, {
 		name: "with container concurrency 1",
 		pa:   pa(WithContainerConcurrency(1)),
-		want: decider(withTarget(1.0), withPanicThreshold(2.0)),
+		want: decider(withTarget(1.0), withPanicThreshold(2.0), withTotal(1)),
 	}, {
 		name: "with target annotation 1",
 		pa:   pa(WithTargetAnnotation("1")),
-		want: decider(withTarget(1.0), withPanicThreshold(2.0), withTargetAnnotation("1")),
+		want: decider(withTarget(1.0), withTotal(1), withPanicThreshold(2.0), withTargetAnnotation("1")),
+	}, {
+		name: "with container concurrency and tu < 1",
+		pa:   pa(WithContainerConcurrency(100)),
+		want: decider(withTarget(80), withTotal(100), withPanicThreshold(160)), // PanicThreshold depends on TCC.
+		cfgOpt: func(c autoscaler.Config) *autoscaler.Config {
+			c.ContainerConcurrencyTargetFraction = 0.8
+			return &c
+		},
+	}, {
+		name: "with burst capacity set",
+		pa:   pa(WithContainerConcurrency(120)),
+		want: decider(withTarget(96), withTotal(120), withPanicThreshold(192), withTargetBurstCapacity(63)),
+		cfgOpt: func(c autoscaler.Config) *autoscaler.Config {
+			c.TargetBurstCapacity = 63
+			c.ContainerConcurrencyTargetFraction = 0.8
+			return &c
+		},
 	}, {
 		name: "with container concurrency greater than target annotation (ok)",
 		pa:   pa(WithContainerConcurrency(10), WithTargetAnnotation("1")),
-		want: decider(withTarget(1.0), withPanicThreshold(2.0), withTargetAnnotation("1")),
+		want: decider(withTarget(1.0), withTotal(1), withPanicThreshold(2.0), withTargetAnnotation("1")),
 	}, {
 		name: "with target annotation greater than container concurrency (ignore annotation for safety)",
 		pa:   pa(WithContainerConcurrency(1), WithTargetAnnotation("10")),
-		want: decider(withTarget(1.0), withPanicThreshold(2.0), withTargetAnnotation("10")),
+		want: decider(withTarget(1.0), withTotal(1), withPanicThreshold(2.0), withTargetAnnotation("10")),
 	}, {
 		name: "with higher panic target",
 		pa:   pa(WithTargetAnnotation("10"), WithPanicThresholdPercentageAnnotation("400")),
 		want: decider(
-			withTarget(10.0), withPanicThreshold(40.0),
+			withTarget(10.0), withPanicThreshold(40.0), withTotal(10),
 			withTargetAnnotation("10"), withPanicThresholdPercentageAnnotation("400")),
 	}, {
 		name: "with service name",
@@ -68,13 +94,18 @@ func TestMakeDecider(t *testing.T) {
 		svc:  "rock-solid",
 		want: decider(
 			withService("rock-solid"),
-			withTarget(10.0), withPanicThreshold(40.0),
+			withTarget(10.0), withPanicThreshold(40.0), withTotal(10.0),
 			withTargetAnnotation("10"), withPanicThresholdPercentageAnnotation("400")),
 	}}
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			if diff := cmp.Diff(tc.want, MakeDecider(context.Background(), tc.pa, config, tc.svc)); diff != "" {
+			cfg := config
+			if tc.cfgOpt != nil {
+				cfg = tc.cfgOpt(*config)
+			}
+
+			if diff := cmp.Diff(tc.want, MakeDecider(context.Background(), tc.pa, cfg, tc.svc)); diff != "" {
 				t.Errorf("%q (-want, +got):\n%v", tc.name, diff)
 			}
 		})
@@ -111,11 +142,13 @@ func decider(options ...DeciderOption) *autoscaler.Decider {
 			},
 		},
 		Spec: autoscaler.DeciderSpec{
-			MaxScaleUpRate:    config.MaxScaleUpRate,
-			TickInterval:      config.TickInterval,
-			TargetConcurrency: float64(100),
-			PanicThreshold:    float64(200),
-			StableWindow:      config.StableWindow,
+			MaxScaleUpRate:      config.MaxScaleUpRate,
+			TickInterval:        config.TickInterval,
+			TargetConcurrency:   100,
+			TotalConcurrency:    100,
+			TargetBurstCapacity: 211,
+			PanicThreshold:      200,
+			StableWindow:        config.StableWindow,
 		},
 	}
 	for _, fn := range options {
@@ -125,6 +158,18 @@ func decider(options ...DeciderOption) *autoscaler.Decider {
 }
 
 type DeciderOption func(*autoscaler.Decider)
+
+func withTargetBurstCapacity(tbc float64) DeciderOption {
+	return func(decider *autoscaler.Decider) {
+		decider.Spec.TargetBurstCapacity = tbc
+	}
+}
+
+func withTotal(total float64) DeciderOption {
+	return func(decider *autoscaler.Decider) {
+		decider.Spec.TotalConcurrency = total
+	}
+}
 
 func withTarget(target float64) DeciderOption {
 	return func(decider *autoscaler.Decider) {
@@ -159,6 +204,7 @@ var config = &autoscaler.Config{
 	EnableScaleToZero:                  true,
 	ContainerConcurrencyTargetFraction: 1.0,
 	ContainerConcurrencyTargetDefault:  100.0,
+	TargetBurstCapacity:                211.0,
 	MaxScaleUpRate:                     10.0,
 	StableWindow:                       60 * time.Second,
 	PanicThresholdPercentage:           200,

@@ -23,7 +23,7 @@ import (
 	"strings"
 
 	"github.com/google/go-containerregistry/pkg/name"
-	"github.com/knative/pkg/apis"
+	"knative.dev/pkg/apis"
 	"github.com/knative/serving/pkg/apis/networking"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -400,9 +400,9 @@ func validateContainerPorts(ports []corev1.ContainerPort) *apis.FieldError {
 		errs = errs.Also(apis.ErrInvalidValue(userPort.ContainerPort, "containerPort"))
 	}
 
-	if userPort.ContainerPort < 1 || userPort.ContainerPort > 65535 {
+	if userPort.ContainerPort < 0 || userPort.ContainerPort > 65535 {
 		errs = errs.Also(apis.ErrOutOfBoundsValue(userPort.ContainerPort,
-			1, 65535, "containerPort"))
+			0, 65535, "containerPort"))
 	}
 
 	if !validPortNames.Has(userPort.Name) {

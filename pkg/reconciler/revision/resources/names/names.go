@@ -16,7 +16,7 @@ limitations under the License.
 
 package names
 
-import "github.com/knative/pkg/kmeta"
+import "knative.dev/pkg/kmeta"
 
 // Deployment returns the precomputed name for the revision deployment
 func Deployment(rev kmeta.Accessor) string {

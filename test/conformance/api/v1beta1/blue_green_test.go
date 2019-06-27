@@ -23,7 +23,7 @@ import (
 	"math"
 	"testing"
 
-	pkgTest "github.com/knative/pkg/test"
+	pkgTest "knative.dev/pkg/test"
 	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 	"github.com/knative/serving/test"
 	v1b1test "github.com/knative/serving/test/v1beta1"

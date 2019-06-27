@@ -24,13 +24,14 @@ import (
 	"net/url"
 	"os"
 	"path"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/google/go-cmp/cmp"
 
-	logtesting "github.com/knative/pkg/logging/testing"
+	logtesting "knative.dev/pkg/logging/testing"
 	"github.com/knative/serving/pkg/activator"
 	"github.com/knative/serving/pkg/network"
 	"github.com/knative/serving/pkg/queue"
@@ -152,5 +153,91 @@ func TestCreateVarLogLink(t *testing.T) {
 	}
 	if got != want {
 		t.Errorf("Incorrect symlink = %q, want %q, diff: %s", got, want, cmp.Diff(got, want))
+	}
+}
+
+func TestProbeQueueConnectionFailure(t *testing.T) {
+	port := 12345 // some random port (that's not listening)
+
+	if err := probeQueueHealthPath(port); err == nil {
+		t.Error("Expected error, got nil")
+	}
+}
+
+func TestProbeQueueNotReady(t *testing.T) {
+	queueProbed := false
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		queueProbed = true
+		w.WriteHeader(http.StatusBadRequest)
+	}))
+
+	defer ts.Close()
+
+	portStr := strings.TrimPrefix(ts.URL, "http://127.0.0.1:")
+
+	port, err := strconv.Atoi(portStr)
+	if err != nil {
+		t.Fatalf("failed to convert port(%s) to int", portStr)
+	}
+
+	err = probeQueueHealthPath(port)
+
+	if diff := cmp.Diff(err.Error(), "probe returned not ready"); diff != "" {
+		t.Errorf("Unexpected not ready message: %s", diff)
+	}
+
+	if !queueProbed {
+		t.Errorf("Expected the queue proxy server to be probed")
+	}
+}
+
+func TestProbeQueueReady(t *testing.T) {
+	queueProbed := false
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		queueProbed = true
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	defer ts.Close()
+
+	portStr := strings.TrimPrefix(ts.URL, "http://127.0.0.1:")
+
+	port, err := strconv.Atoi(portStr)
+	if err != nil {
+		t.Fatalf("failed to convert port(%s) to int", portStr)
+	}
+
+	if err = probeQueueHealthPath(port); err != nil {
+		t.Errorf("probeQueueHealthPath(%d) = %s", port, err)
+	}
+
+	if !queueProbed {
+		t.Errorf("Expected the queue proxy server to be probed")
+	}
+}
+
+func TestProbeQueueDelayedReady(t *testing.T) {
+	count := 0
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if count < 9 {
+			w.WriteHeader(http.StatusBadRequest)
+			count++
+			return
+		}
+
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	defer ts.Close()
+
+	portStr := strings.TrimPrefix(ts.URL, "http://127.0.0.1:")
+
+	port, err := strconv.Atoi(portStr)
+	if err != nil {
+		t.Fatalf("failed to convert port(%s) to int", portStr)
+	}
+
+	if err := probeQueueHealthPath(port); err != nil {
+		t.Errorf("probeQueueHealthPath(%d) = %s", port, err)
 	}
 }

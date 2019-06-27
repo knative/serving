@@ -27,7 +27,7 @@ import (
 	"go.opencensus.io/trace"
 	"go.uber.org/zap"
 
-	"github.com/knative/pkg/logging/logkey"
+	"knative.dev/pkg/logging/logkey"
 	"github.com/knative/serving/pkg/activator"
 	"github.com/knative/serving/pkg/activator/util"
 	"github.com/knative/serving/pkg/apis/networking"

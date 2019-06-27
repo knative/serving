@@ -25,7 +25,7 @@ import (
 	"strings"
 	"testing"
 
-	pkgTest "github.com/knative/pkg/test"
+	pkgTest "knative.dev/pkg/test"
 	"github.com/knative/serving/test"
 )
 

@@ -17,7 +17,7 @@ limitations under the License.
 package names
 
 import (
-	"github.com/knative/pkg/kmeta"
+	"knative.dev/pkg/kmeta"
 )
 
 // IngressVirtualService returns the name of the VirtualService child

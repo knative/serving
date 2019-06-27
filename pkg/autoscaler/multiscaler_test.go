@@ -26,7 +26,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/util/wait"
 
-	. "github.com/knative/pkg/logging/testing"
+	. "knative.dev/pkg/logging/testing"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -88,7 +88,7 @@ func TestMultiScalerScaling(t *testing.T) {
 	defer close(statCh)
 
 	decider := newDecider()
-	uniScaler.setScaleResult(1, true)
+	uniScaler.setScaleResult(1, 1, true)
 
 	// Before it exists, we should get a NotFound.
 	m, err := ms.Get(ctx, decider.Namespace, decider.Name)
@@ -125,6 +125,47 @@ func TestMultiScalerScaling(t *testing.T) {
 	}
 }
 
+func TestMultiScalerOnlyCapacityChange(t *testing.T) {
+	ctx := context.Background()
+	ms, stopCh, statCh, uniScaler := createMultiScaler(t)
+	defer close(stopCh)
+	defer close(statCh)
+
+	decider := newDecider()
+	uniScaler.setScaleResult(1, 1, true)
+
+	errCh := make(chan error)
+	ms.Watch(watchFunc(ctx, ms, decider, 1, errCh))
+
+	_, err := ms.Create(ctx, decider)
+	if err != nil {
+		t.Errorf("Create() = %v", err)
+	}
+
+	// Verify that we see a "tick"
+	if err := verifyTick(errCh); err != nil {
+		t.Fatal(err)
+	}
+
+	// Change the sign of the excess capacity.
+	uniScaler.setScaleResult(1, -1, true)
+
+	// Verify that subsequent "ticks" don't trigger a callback, since
+	// the desired scale has not changed.
+	if err := verifyTick(errCh); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := ms.Delete(ctx, decider.Namespace, decider.Name); err != nil {
+		t.Errorf("Delete() = %v", err)
+	}
+
+	// Verify that we stop seeing "ticks"
+	if err := verifyNoTick(errCh); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestMultiScalerTickUpdate(t *testing.T) {
 	ctx := context.Background()
 	ms, stopCh, statCh, uniScaler := createMultiScaler(t)
@@ -133,7 +174,7 @@ func TestMultiScalerTickUpdate(t *testing.T) {
 
 	decider := newDecider()
 	decider.Spec.TickInterval = 10 * time.Second
-	uniScaler.setScaleResult(1, true)
+	uniScaler.setScaleResult(1, 1, true)
 
 	// Before it exists, we should get a NotFound.
 	m, err := ms.Get(ctx, decider.Namespace, decider.Name)
@@ -176,7 +217,7 @@ func TestMultiScalerScaleToZero(t *testing.T) {
 	defer close(statCh)
 
 	decider := newDecider()
-	uniScaler.setScaleResult(0, true)
+	uniScaler.setScaleResult(0, 1, true)
 
 	// Before it exists, we should get a NotFound.
 	m, err := ms.Get(ctx, decider.Namespace, decider.Name)
@@ -216,7 +257,7 @@ func TestMultiScalerScaleFromZero(t *testing.T) {
 
 	decider := newDecider()
 	decider.Spec.TickInterval = 60 * time.Second
-	uniScaler.setScaleResult(1, true)
+	uniScaler.setScaleResult(1, 1, true)
 
 	errCh := make(chan error)
 	ms.Watch(watchFunc(ctx, ms, decider, 1, errCh))
@@ -228,7 +269,7 @@ func TestMultiScalerScaleFromZero(t *testing.T) {
 	metricKey := NewMetricKey(decider.Namespace, decider.Name)
 	if scaler, exists := ms.scalers[metricKey]; !exists {
 		t.Errorf("Failed to get scaler for metric %s", metricKey)
-	} else if !scaler.updateLatestScale(0) {
+	} else if !scaler.updateLatestScale(0, 10) {
 		t.Error("Failed to set scale for metric to 0")
 	}
 
@@ -255,7 +296,7 @@ func TestMultiScalerIgnoreNegativeScale(t *testing.T) {
 
 	decider := newDecider()
 
-	uniScaler.setScaleResult(-1, true)
+	uniScaler.setScaleResult(-1, 10, true)
 
 	// Before it exists, we should get a NotFound.
 	m, err := ms.Get(ctx, decider.Namespace, decider.Name)
@@ -298,7 +339,7 @@ func TestMultiScalerUpdate(t *testing.T) {
 
 	decider := newDecider()
 	decider.Spec.TargetConcurrency = 1.0
-	uniScaler.setScaleResult(0, true)
+	uniScaler.setScaleResult(0, 100, true)
 
 	// Create the decider and verify the Spec
 	_, err := ms.Create(ctx, decider)
@@ -341,6 +382,7 @@ func createMultiScaler(t *testing.T) (*MultiScaler, chan<- struct{}, chan *StatM
 type fakeUniScaler struct {
 	mutex      sync.RWMutex
 	replicas   int32
+	surplus    int32
 	scaled     bool
 	lastStat   Stat
 	scaleCount int
@@ -350,11 +392,11 @@ func (u *fakeUniScaler) fakeUniScalerFactory(*Decider) (UniScaler, error) {
 	return u, nil
 }
 
-func (u *fakeUniScaler) Scale(context.Context, time.Time) (int32, bool) {
+func (u *fakeUniScaler) Scale(context.Context, time.Time) (int32, int32, bool) {
 	u.mutex.Lock()
 	defer u.mutex.Unlock()
 	u.scaleCount++
-	return u.replicas, u.scaled
+	return u.replicas, u.surplus, u.scaled
 }
 
 func (u *fakeUniScaler) getScaleCount() int {
@@ -363,10 +405,11 @@ func (u *fakeUniScaler) getScaleCount() int {
 	return u.scaleCount
 }
 
-func (u *fakeUniScaler) setScaleResult(replicas int32, scaled bool) {
+func (u *fakeUniScaler) setScaleResult(replicas int32, surplus int32, scaled bool) {
 	u.mutex.Lock()
 	defer u.mutex.Unlock()
 
+	u.surplus = surplus
 	u.replicas = replicas
 	u.scaled = scaled
 }
@@ -393,5 +436,22 @@ func newDecider() *Decider {
 			TargetConcurrency: 1,
 		},
 		Status: DeciderStatus{},
+	}
+}
+
+func TestSameSign(t *testing.T) {
+	tests := []struct {
+		а, b int32
+		want bool
+	}{{1982, 1984, true},
+		{-1984, -1988, true},
+		{-1988, 2006, false},
+		{-2006, 2009, false},
+		{0, 1, true}, // 0 is considered positive for our needs
+		{0, -42, false}}
+	for _, test := range tests {
+		if got, want := sameSign(test.а, test.b), test.want; got != want {
+			t.Errorf("%d <=> %d: got: %v, want: %v", test.а, test.b, got, want)
+		}
 	}
 }

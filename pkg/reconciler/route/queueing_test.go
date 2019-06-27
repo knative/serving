@@ -21,10 +21,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/knative/pkg/configmap"
-	"github.com/knative/pkg/controller"
-	logtesting "github.com/knative/pkg/logging/testing"
-	"github.com/knative/pkg/system"
+	"knative.dev/pkg/configmap"
+	"knative.dev/pkg/controller"
+	logtesting "knative.dev/pkg/logging/testing"
+	"knative.dev/pkg/system"
 	netv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1beta1"
@@ -37,7 +37,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
-	. "github.com/knative/pkg/reconciler/testing"
+	. "knative.dev/pkg/reconciler/testing"
 )
 
 func TestNewRouteCallsSyncHandler(t *testing.T) {

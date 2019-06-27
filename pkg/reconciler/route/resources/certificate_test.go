@@ -18,7 +18,7 @@ package resources
 import (
 	"testing"
 
-	"github.com/knative/pkg/kmeta"
+	"knative.dev/pkg/kmeta"
 
 	"github.com/google/go-cmp/cmp"
 	netv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"

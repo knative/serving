@@ -21,7 +21,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/knative/pkg/apis"
+	"knative.dev/pkg/apis"
 )
 
 func TestValidateScaleBoundAnnotations(t *testing.T) {

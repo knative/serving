@@ -22,8 +22,6 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/knative/pkg/tracker"
-
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -31,12 +29,6 @@ import (
 	"github.com/knative/serving/pkg/network"
 	"github.com/knative/serving/pkg/reconciler"
 
-	"github.com/knative/pkg/apis/istio/v1alpha3"
-	virtualserviceinformer "github.com/knative/pkg/client/injection/informers/istio/v1alpha3/virtualservice"
-	"github.com/knative/pkg/configmap"
-	"github.com/knative/pkg/controller"
-	"github.com/knative/pkg/logging"
-	"github.com/knative/pkg/system"
 	"github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving"
@@ -50,6 +42,13 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"knative.dev/pkg/apis/istio/v1alpha3"
+	virtualserviceinformer "knative.dev/pkg/client/injection/informers/istio/v1alpha3/virtualservice"
+	"knative.dev/pkg/configmap"
+	"knative.dev/pkg/controller"
+	"knative.dev/pkg/logging"
+	"knative.dev/pkg/system"
+	"knative.dev/pkg/tracker"
 
 	"k8s.io/client-go/tools/cache"
 )

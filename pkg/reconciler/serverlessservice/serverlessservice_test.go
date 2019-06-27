@@ -23,15 +23,15 @@ import (
 	"time"
 
 	// Inject the fakes for informers this reconciler depends on.
-	_ "github.com/knative/pkg/injection/informers/kubeinformers/corev1/endpoints/fake"
-	_ "github.com/knative/pkg/injection/informers/kubeinformers/corev1/service/fake"
+	_ "knative.dev/pkg/injection/informers/kubeinformers/corev1/endpoints/fake"
+	_ "knative.dev/pkg/injection/informers/kubeinformers/corev1/service/fake"
 	_ "github.com/knative/serving/pkg/client/injection/informers/networking/v1alpha1/serverlessservice/fake"
 
-	"github.com/knative/pkg/configmap"
-	"github.com/knative/pkg/controller"
-	logtesting "github.com/knative/pkg/logging/testing"
-	"github.com/knative/pkg/ptr"
-	"github.com/knative/pkg/system"
+	"knative.dev/pkg/configmap"
+	"knative.dev/pkg/controller"
+	logtesting "knative.dev/pkg/logging/testing"
+	"knative.dev/pkg/ptr"
+	"knative.dev/pkg/system"
 	"github.com/knative/serving/pkg/activator"
 	"github.com/knative/serving/pkg/apis/networking"
 	nv1a1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
@@ -47,7 +47,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	clientgotesting "k8s.io/client-go/testing"
 
-	. "github.com/knative/pkg/reconciler/testing"
+	. "knative.dev/pkg/reconciler/testing"
 	. "github.com/knative/serving/pkg/reconciler/testing/v1alpha1"
 	. "github.com/knative/serving/pkg/testing"
 )

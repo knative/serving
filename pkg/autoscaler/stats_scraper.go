@@ -39,6 +39,14 @@ const (
 	// Instead, the autoscaler knows the stats it receives are either from the
 	// scraper or the activator.
 	scraperPodName = "service-scraper"
+
+	// scraperMaxRetries are retries to be done to the actual Scrape routine. We want
+	// to retry if a Scrape returns an error or if the Scrape goes to a pod we already
+	// scraped.
+	scraperMaxRetries = 10
+
+	// scraperRetryInterval is the interval to wait after a failed scrape.
+	scraperRetryInterval = 10 * time.Nanosecond
 )
 
 // StatsScraper defines the interface for collecting Revision metrics
@@ -73,9 +81,7 @@ type ServiceScraper struct {
 	counter   resources.ReadyPodCounter
 	namespace string
 	metricKey string
-
-	urlMu sync.RWMutex
-	url   string
+	url       string
 }
 
 // NewServiceScraper creates a new StatsScraper for the Revision which
@@ -121,12 +127,6 @@ func urlFromTarget(t, ns string) string {
 		t, ns, networking.AutoscalingQueueMetricsPort)
 }
 
-func (s *ServiceScraper) target() string {
-	s.urlMu.RLock()
-	defer s.urlMu.RUnlock()
-	return s.url
-}
-
 // Scrape calls the destination service then sends it
 // to the given stats channel.
 func (s *ServiceScraper) Scrape() (*StatMessage, error) {
@@ -141,23 +141,29 @@ func (s *ServiceScraper) Scrape() (*StatMessage, error) {
 
 	sampleSize := populationMeanSampleSize(readyPodsCount)
 	statCh := make(chan *Stat, sampleSize)
+	scrapedPods := &sync.Map{}
 
-	url := s.target()
 	grp := errgroup.Group{}
 	for i := 0; i < sampleSize; i++ {
 		grp.Go(func() error {
-			stat, err := s.sClient.Scrape(url)
-			if err != nil {
-				return err
+			for tries := 1; ; tries++ {
+				stat, err := s.tryScrape(scrapedPods)
+				if err == nil {
+					statCh <- stat
+					return nil
+				}
+
+				// Return the error if we exhausted our retries.
+				if tries == scraperMaxRetries {
+					return err
+				}
 			}
-			statCh <- stat
-			return nil
 		})
 	}
 
-	// Return the inner error if all of the scrape calls failed.
-	if err := grp.Wait(); err != nil && len(statCh) == 0 {
-		return nil, errors.Wrapf(err, "fail to get a successful scrape for %d tries", sampleSize)
+	// Return the inner error, if any.
+	if err := grp.Wait(); err != nil {
+		return nil, errors.Wrapf(err, "unsuccessful scrape, sampleSize=%d", sampleSize)
 	}
 	close(statCh)
 
@@ -184,10 +190,8 @@ func (s *ServiceScraper) Scrape() (*StatMessage, error) {
 	proxiedReqCount = proxiedReqCount / successCount
 	now := time.Now()
 
-	// Assumptions:
-	// 1. Traffic is routed to pods evenly.
-	// 2. A particular pod can stand for other pods, i.e. other pods have
-	//    similar concurrency and QPS.
+	// Assumption: A particular pod can stand for other pods, i.e. other pods
+	// have similar concurrency and QPS.
 	//
 	// Hide the actual pods behind scraper and send only one stat for all the
 	// customer pods per scraping. The pod name is set to a unique value, i.e.
@@ -206,4 +210,19 @@ func (s *ServiceScraper) Scrape() (*StatMessage, error) {
 		Stat: extrapolatedStat,
 		Key:  s.metricKey,
 	}, nil
+}
+
+// tryScrape runs a single scrape and checks if this pod wasn't already scraped
+// against the given already scraped pods.
+func (s *ServiceScraper) tryScrape(scrapedPods *sync.Map) (*Stat, error) {
+	stat, err := s.sClient.Scrape(s.url)
+	if err != nil {
+		return nil, err
+	}
+
+	if _, exists := scrapedPods.LoadOrStore(stat.PodName, struct{}{}); exists {
+		return nil, errors.New("did not receive stat from an unscraped pod")
+	}
+
+	return stat, nil
 }

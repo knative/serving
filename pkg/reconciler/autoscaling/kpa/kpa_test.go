@@ -26,10 +26,10 @@ import (
 	"time"
 
 	// These are the fake informers we want setup.
-	fakedynamicclient "github.com/knative/pkg/injection/clients/dynamicclient/fake"
-	fakekubeclient "github.com/knative/pkg/injection/clients/kubeclient/fake"
-	fakeendpointsinformer "github.com/knative/pkg/injection/informers/kubeinformers/corev1/endpoints/fake"
-	fakeserviceinformer "github.com/knative/pkg/injection/informers/kubeinformers/corev1/service/fake"
+	fakedynamicclient "knative.dev/pkg/injection/clients/dynamicclient/fake"
+	fakekubeclient "knative.dev/pkg/injection/clients/kubeclient/fake"
+	fakeendpointsinformer "knative.dev/pkg/injection/informers/kubeinformers/corev1/endpoints/fake"
+	fakeserviceinformer "knative.dev/pkg/injection/informers/kubeinformers/corev1/service/fake"
 	fakeservingclient "github.com/knative/serving/pkg/client/injection/client/fake"
 	fakekpainformer "github.com/knative/serving/pkg/client/injection/informers/autoscaling/v1alpha1/podautoscaler/fake"
 	fakesksinformer "github.com/knative/serving/pkg/client/injection/informers/networking/v1alpha1/serverlessservice/fake"
@@ -43,12 +43,12 @@ import (
 	"go.uber.org/atomic"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/knative/pkg/configmap"
-	"github.com/knative/pkg/controller"
-	logtesting "github.com/knative/pkg/logging/testing"
-	"github.com/knative/pkg/ptr"
-	"github.com/knative/pkg/system"
-	_ "github.com/knative/pkg/system/testing"
+	"knative.dev/pkg/configmap"
+	"knative.dev/pkg/controller"
+	logtesting "knative.dev/pkg/logging/testing"
+	"knative.dev/pkg/ptr"
+	"knative.dev/pkg/system"
+	_ "knative.dev/pkg/system/testing"
 	"github.com/knative/serving/pkg/apis/autoscaling"
 	asv1a1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	nv1a1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
@@ -71,7 +71,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgotesting "k8s.io/client-go/testing"
 
-	. "github.com/knative/pkg/reconciler/testing"
+	. "knative.dev/pkg/reconciler/testing"
 	. "github.com/knative/serving/pkg/reconciler/testing/v1alpha1"
 	. "github.com/knative/serving/pkg/testing"
 )
@@ -81,6 +81,7 @@ import (
 const (
 	gracePeriod              = 60 * time.Second
 	stableWindow             = 5 * time.Minute
+	paStableWindow           = 45 * time.Second
 	defaultConcurrencyTarget = 10.0
 )
 
@@ -1040,39 +1041,6 @@ func TestUpdate(t *testing.T) {
 	}
 }
 
-func TestNonKPAClass(t *testing.T) {
-	defer logtesting.ClearAll()
-	ctx, _ := SetupFakeContext(t)
-
-	fakeDeciders := newTestDeciders()
-	fakeMetrics := newTestMetrics()
-	ctl := NewController(ctx, newConfigWatcher(), fakeDeciders, fakeMetrics, presources.NewPodScalableInformerFactory(ctx))
-
-	rev := newTestRevision(testNamespace, testRevision)
-	rev.Annotations = map[string]string{
-		autoscaling.ClassAnnotationKey: autoscaling.HPA, // non "kpa" class
-	}
-
-	fakeservingclient.Get(ctx).ServingV1alpha1().Revisions(testNamespace).Create(rev)
-	fakerevisioninformer.Get(ctx).Informer().GetIndexer().Add(rev)
-	kpa := revisionresources.MakeKPA(rev)
-	fakeservingclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
-	fakekpainformer.Get(ctx).Informer().GetIndexer().Add(kpa)
-
-	// Wait for the Reconcile to complete.
-	if err := ctl.Reconciler.Reconcile(context.Background(), testNamespace+"/"+testRevision); err != nil {
-		t.Errorf("Reconcile() = %v", err)
-	}
-
-	// Verify no Deciders or Metrics were created
-	if fakeDeciders.createCallCount.Load() != 0 {
-		t.Error("Unexpected Deciders created")
-	}
-	if fakeMetrics.createCallCount.Load() != 0 {
-		t.Error("Unexpected Metrics created")
-	}
-}
-
 func TestNoEndpoints(t *testing.T) {
 	defer logtesting.ClearAll()
 	ctx, _ := SetupFakeContext(t)
@@ -1386,6 +1354,9 @@ func newTestRevision(namespace string, name string) *v1alpha1.Revision {
 			SelfLink:  fmt.Sprintf("/apis/ela/v1alpha1/namespaces/%s/revisions/%s", namespace, name),
 			Name:      name,
 			Namespace: namespace,
+			Annotations: map[string]string{
+				autoscaling.ClassAnnotationKey: autoscaling.KPA,
+			},
 		},
 		Spec: v1alpha1.RevisionSpec{
 			DeprecatedContainer: &corev1.Container{

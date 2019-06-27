@@ -21,8 +21,8 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/knative/pkg/apis/istio/v1alpha3"
-	"github.com/knative/pkg/system"
+	"knative.dev/pkg/apis/istio/v1alpha3"
+	"knative.dev/pkg/system"
 	"github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/network"
 	"github.com/knative/serving/pkg/reconciler/ingress/config"

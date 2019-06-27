@@ -85,18 +85,23 @@ function results_banner() {
   header "$1 tests ${result}"
 }
 
-# Create a JUnit XML for a failure.
-# Parameters: $1 - check name as an identifier (e.g., PresubmitBuildTest)
-#             $2 - failure message (can contain newlines)
+# Create a JUnit XML for a test.
+# Parameters: $1 - check class name as an identifier (e.g. BuildTests)
+#             $2 - check name as an identifier (e.g., GoBuild)
+#             $3 - failure message (can contain newlines), optional (means success)
 function create_junit_xml() {
   local xml="$(mktemp ${ARTIFACTS}/junit_XXXXXXXX.xml)"
-  # Transform newlines into HTML code.
-  local msg="$(echo -n "$2" | sed 's/$/\&#xA;/g' | tr -d '\n')"
+  local failure=""
+  if [[ "$3" != "" ]]; then
+    # Transform newlines into HTML code.
+    local msg="$(echo -n "$3" | sed 's/$/\&#xA;/g' | tr -d '\n')"
+    failure="<failure message=\"Failed\" type=\"\">${msg}</failure>"
+  fi
   cat << EOF > "${xml}"
 <testsuites>
-	<testsuite tests="1" failures="1" time="0.000" name="">
-		<testcase classname="" name="$1" time="0.0">
-			<failure message="Failed" type="">${msg}</failure>
+	<testsuite tests="1" failures="1" time="0.000" name="$1">
+		<testcase classname="" name="$2" time="0.0">
+			${failure}
 		</testcase>
 	</testsuite>
 </testsuites>
@@ -167,14 +172,15 @@ function default_build_test_runner() {
   # Ensure all the code builds
   subheader "Checking that go code builds"
   local report=$(mktemp)
+  local errors=""
   go build -v ./... 2>&1 | tee ${report}
   local build_failed=( ${PIPESTATUS[@]} )
   if [[ ${build_failed[0]} -ne 0 ]]; then
     failed=1
     # Consider an error message everything that's not a package name.
-    local errors="$(grep -v '^github.com/' "${report}" | sort | uniq)"
-    create_junit_xml PresubmitBuildTest "${errors}"
+    errors="$(grep -v '^github.com/' "${report}" | sort | uniq)"
   fi
+  create_junit_xml _build_tests Build_Go "${errors}"
   # Get all build tags in go code (ignore /vendor)
   local tags="$(grep -r '// +build' . \
       | grep -v '^./vendor/' | cut -f3 -d' ' | sort | uniq | tr '\n' ' ')"
@@ -298,12 +304,23 @@ function main() {
     go version
     echo ">> git version"
     git version
+    echo ">> ko built from commit"
+    [[ -f /ko_version ]] && cat /ko_version || echo "unknown"
     echo ">> bazel version"
     [[ -f /bazel_version ]] && cat /bazel_version || echo "unknown"
     if [[ "${DOCKER_IN_DOCKER_ENABLED}" == "true" ]]; then
       echo ">> docker version"
       docker version
     fi
+    # node/pod names are important for debugging purposes, but they are missing
+    # after migrating from bootstrap to podutil.
+    # Report it here with the same logic as in bootstrap until it is fixed.
+    # (https://github.com/kubernetes/test-infra/blob/09bd4c6709dc64308406443f8996f90cf3b40ed1/jenkins/bootstrap.py#L588)
+    # TODO(chaodaiG): follow up on https://github.com/kubernetes/test-infra/blob/0fabd2ea816daa8c15d410c77a0c93c0550b283f/prow/initupload/run.go#L49
+    echo ">> node name"
+    echo "$(curl -H "Metadata-Flavor: Google" 'http://169.254.169.254/computeMetadata/v1/instance/name' 2> /dev/null)"
+    echo ">> pod name"
+    echo ${HOSTNAME}
   fi
 
   [[ -z $1 ]] && set -- "--all-tests"

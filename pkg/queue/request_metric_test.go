@@ -26,7 +26,7 @@ import (
 	"github.com/knative/serving/pkg/queue/stats"
 )
 
-func TestNewRequestMetricHandler_failure(t *testing.T) {
+func TestNewRequestMetricHandlerFailure(t *testing.T) {
 	baseHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})
@@ -64,14 +64,14 @@ func TestRequestMetricHandler(t *testing.T) {
 	}
 }
 
-func TestRequestMetricHandler_PanickingHandler(t *testing.T) {
+func TestRequestMetricHandlerPanickingHandler(t *testing.T) {
 	baseHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		panic("no!")
 	})
 	r := &fakeStatsReporter{}
 	handler, err := NewRequestMetricHandler(baseHandler, r)
 	if err != nil {
-		t.Fatalf("failed to create handler: %v", err)
+		t.Fatalf("Failed to create handler: %v", err)
 	}
 
 	resp := httptest.NewRecorder()
@@ -79,22 +79,21 @@ func TestRequestMetricHandler_PanickingHandler(t *testing.T) {
 	defer func() {
 		err := recover()
 		if err == nil {
-			t.Error("want ServeHTTP to panic, got nothing.")
+			t.Error("Want ServeHTTP to panic, got nothing.")
 		}
 
 		// Serve one request, should get 1 request count and none zero latency
 		if got, want := r.lastRespCode, http.StatusInternalServerError; got != want {
-			t.Errorf("response code got %v, want %v", got, want)
+			t.Errorf("Response code got %v, want %v", got, want)
 		}
-		if got, want := r.lastReqCount, 1; got != int64(want) {
-			t.Errorf("request count got %v, want %v", got, want)
+		if got, want := r.lastReqCount, int64(1); got != want {
+			t.Errorf("Request count got %d, want %d", got, want)
 		}
 		if r.lastReqLatency == 0 {
-			t.Errorf("request latency got %v, want larger than 0", r.lastReqLatency)
+			t.Errorf("Request latency got %v, want larger than 0", r.lastReqLatency)
 		}
 	}()
 	handler.ServeHTTP(resp, req)
-
 }
 
 // fakeStatsReporter just record the last stat it received.

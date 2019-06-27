@@ -21,14 +21,14 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/knative/pkg/apis"
-	"github.com/knative/pkg/system"
+	"knative.dev/pkg/apis"
+	"knative.dev/pkg/system"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	. "github.com/knative/pkg/configmap/testing"
-	_ "github.com/knative/pkg/system/testing"
+	. "knative.dev/pkg/configmap/testing"
+	_ "knative.dev/pkg/system/testing"
 )
 
 func TestDefaultsConfigurationFromFile(t *testing.T) {

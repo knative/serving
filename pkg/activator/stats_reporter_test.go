@@ -20,7 +20,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/knative/pkg/metrics/metricskey"
+	"knative.dev/pkg/metrics/metricskey"
 
 	"go.opencensus.io/stats/view"
 )

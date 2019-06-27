@@ -19,7 +19,7 @@ limitations under the License.
 package test
 
 import (
-	"github.com/knative/pkg/test"
+	"knative.dev/pkg/test"
 	"github.com/knative/serving/pkg/client/clientset/versioned"
 	servingv1alpha1 "github.com/knative/serving/pkg/client/clientset/versioned/typed/serving/v1alpha1"
 	servingv1beta1 "github.com/knative/serving/pkg/client/clientset/versioned/typed/serving/v1beta1"

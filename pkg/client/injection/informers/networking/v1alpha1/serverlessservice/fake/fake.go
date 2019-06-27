@@ -21,10 +21,10 @@ package fake
 import (
 	"context"
 
-	controller "github.com/knative/pkg/controller"
-	injection "github.com/knative/pkg/injection"
 	fake "github.com/knative/serving/pkg/client/injection/informers/networking/factory/fake"
 	serverlessservice "github.com/knative/serving/pkg/client/injection/informers/networking/v1alpha1/serverlessservice"
+	controller "knative.dev/pkg/controller"
+	injection "knative.dev/pkg/injection"
 )
 
 var Get = serverlessservice.Get

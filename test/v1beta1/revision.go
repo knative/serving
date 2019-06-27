@@ -20,7 +20,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/knative/pkg/test/logging"
+	"knative.dev/pkg/test/logging"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 	"github.com/knative/serving/test"

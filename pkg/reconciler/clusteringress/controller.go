@@ -19,9 +19,10 @@ package clusteringress
 import (
 	"context"
 
-	"github.com/knative/pkg/configmap"
-	"github.com/knative/pkg/controller"
 	ing "github.com/knative/serving/pkg/reconciler/ingress"
+
+	"knative.dev/pkg/configmap"
+	"knative.dev/pkg/controller"
 )
 
 const (

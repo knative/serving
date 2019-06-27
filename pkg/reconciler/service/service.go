@@ -23,9 +23,9 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp/cmpopts"
-	"github.com/knative/pkg/controller"
-	"github.com/knative/pkg/kmp"
-	"github.com/knative/pkg/logging"
+	"knative.dev/pkg/controller"
+	"knative.dev/pkg/kmp"
+	"knative.dev/pkg/logging"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 	listers "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"

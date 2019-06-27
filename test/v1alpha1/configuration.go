@@ -24,7 +24,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/knative/pkg/test/logging"
+	"knative.dev/pkg/test/logging"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 	"github.com/pkg/errors"
@@ -34,8 +34,8 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 
-	"github.com/knative/pkg/ptr"
-	ptest "github.com/knative/pkg/test"
+	"knative.dev/pkg/ptr"
+	ptest "knative.dev/pkg/test"
 	rtesting "github.com/knative/serving/pkg/testing/v1alpha1"
 	v1alpha1testing "github.com/knative/serving/pkg/testing/v1alpha1"
 	"github.com/knative/serving/test"

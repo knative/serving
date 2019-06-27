@@ -19,10 +19,10 @@ package resources
 import (
 	"context"
 
-	"github.com/knative/pkg/apis"
-	"github.com/knative/pkg/apis/duck"
-	"github.com/knative/pkg/controller"
-	"github.com/knative/pkg/injection/clients/dynamicclient"
+	"knative.dev/pkg/apis"
+	"knative.dev/pkg/apis/duck"
+	"knative.dev/pkg/controller"
+	"knative.dev/pkg/injection/clients/dynamicclient"
 	pav1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/pkg/errors"
 

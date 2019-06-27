@@ -28,6 +28,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -35,7 +36,9 @@ import (
 	"github.com/google/go-containerregistry/pkg/authn/k8schain"
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
+	"github.com/google/go-containerregistry/pkg/v1/partial"
 	"github.com/google/go-containerregistry/pkg/v1/random"
+	"github.com/google/go-containerregistry/pkg/v1/types"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -44,15 +47,19 @@ import (
 
 var emptyRegistrySet = sets.NewString()
 
-func mustDigest(t *testing.T, img v1.Image) v1.Hash {
-	h, err := img.Digest()
+type digestible interface {
+	Digest() (v1.Hash, error)
+}
+
+func mustDigest(t *testing.T, d digestible) v1.Hash {
+	h, err := d.Digest()
 	if err != nil {
 		t.Fatalf("Digest() = %v", err)
 	}
 	return h
 }
 
-func mustRawManifest(t *testing.T, img v1.Image) []byte {
+func mustRawManifest(t *testing.T, img partial.WithRawManifest) []byte {
 	m, err := img.RawManifest()
 	if err != nil {
 		t.Fatalf("RawManifest() = %v", err)
@@ -60,15 +67,17 @@ func mustRawManifest(t *testing.T, img v1.Image) []byte {
 	return m
 }
 
-func fakeRegistry(t *testing.T, repo, username, password string, img v1.Image) *httptest.Server {
-	manifestPath := fmt.Sprintf("/v2/%s/manifests/latest", repo)
+func fakeRegistry(t *testing.T, repo, username, password string, img v1.Image, idx v1.ImageIndex) *httptest.Server {
+	indexPath := fmt.Sprintf("/v2/%s/manifests/latest", repo)
+	imagePath := fmt.Sprintf("/v2/%s/manifests/%s", repo, mustDigest(t, img))
+	schema1Path := fmt.Sprintf("/v2/%s/manifests/schema1", repo)
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/v2/":
 			// Issue a "Basic" auth challenge, so we can check the auth sent to the registry.
 			w.Header().Set("WWW-Authenticate", `Basic `)
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		case manifestPath:
+		case indexPath:
 			// Check that we get an auth header with base64 encoded username:password
 			hdr := r.Header.Get("Authorization")
 			if !strings.HasPrefix(hdr, "Basic ") {
@@ -80,7 +89,14 @@ func fakeRegistry(t *testing.T, repo, username, password string, img v1.Image) *
 			if r.Method != http.MethodGet {
 				t.Errorf("Method; got %v, want %v", r.Method, http.MethodGet)
 			}
+			w.Header().Set("Content-Type", string(types.OCIImageIndex))
+			w.Write(mustRawManifest(t, idx))
+		case imagePath:
 			w.Write(mustRawManifest(t, img))
+		case schema1Path:
+			w.Header().Set("Content-Type", string(types.DockerManifestSchema1Signed))
+			w.Header().Set("Docker-Content-Digest", mustDigest(t, idx).String())
+			w.Write([]byte("{}"))
 		default:
 			t.Fatalf("Unexpected path: %v", r.URL.Path)
 		}
@@ -118,67 +134,87 @@ func TestResolve(t *testing.T) {
 	username, password := "foo", "bar"
 	ns, svcacct := "user-project", "user-robot"
 
-	img, err := random.Image(3, 1024)
+	idx, err := random.Index(1, 3, 1024)
 	if err != nil {
-		t.Fatalf("random.Image() = %v", err)
+		t.Fatalf("random.Index() = %v", err)
+	}
+	manifest, err := idx.IndexManifest()
+	if err != nil {
+		t.Fatalf("idx.IndexManifest() = %v", err)
+	}
+	img, err := idx.Image(manifest.Manifests[0].Digest)
+	if err != nil {
+		t.Fatalf("idx.Image(%v) = %v", manifest.Manifests[0].Digest, err)
+	}
+	// Make sure we resolve this child no matter which platform this test is being run on.
+	manifest.Manifests[0].Platform = &v1.Platform{
+		Architecture: runtime.GOARCH,
+		OS:           runtime.GOOS,
 	}
 
 	// Stand up a fake registry
 	expectedRepo := "booger/nose"
-	server := fakeRegistry(t, expectedRepo, username, password, img)
+	server := fakeRegistry(t, expectedRepo, username, password, img, idx)
 	defer server.Close()
 	u, err := url.Parse(server.URL)
 	if err != nil {
 		t.Fatalf("url.Parse(%v) = %v", server.URL, err)
 	}
 
-	// Create a tag pointing to an image on our fake registry
-	tag, err := name.NewTag(fmt.Sprintf("%s/%s:latest", u.Host, expectedRepo), name.WeakValidation)
-	if err != nil {
-		t.Fatalf("NewTag() = %v", err)
-	}
+	for ref, dgst := range map[string]v1.Hash{
+		"latest": mustDigest(t, img),
+		// This is a bit silly, but we are just going to pretend that the
+		// registry has a schema1 manifest with the same digest as our index.
+		"schema1": mustDigest(t, idx),
+	} {
+		// Create a tag pointing to an image on our fake registry
+		tag, err := name.NewTag(fmt.Sprintf("%s/%s:%s", u.Host, expectedRepo, ref), name.WeakValidation)
+		if err != nil {
+			t.Fatalf("NewTag() = %v", err)
+		}
 
-	// Set up a fake service account with pull secrets for our fake registry
-	client := fakeclient.NewSimpleClientset(&corev1.ServiceAccount{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      svcacct,
-			Namespace: ns,
-		},
-		ImagePullSecrets: []corev1.LocalObjectReference{{
-			Name: "secret",
-		}},
-	}, &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "secret",
-			Namespace: ns,
-		},
-		Type: corev1.SecretTypeDockercfg,
-		Data: map[string][]byte{
-			corev1.DockerConfigKey: []byte(
-				fmt.Sprintf(`{%q: {"username": %q, "password": %q}}`,
-					tag.RegistryStr(), username, password),
-			),
-		},
-	})
+		// Set up a fake service account with pull secrets for our fake registry
+		client := fakeclient.NewSimpleClientset(&corev1.ServiceAccount{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      svcacct,
+				Namespace: ns,
+			},
+			ImagePullSecrets: []corev1.LocalObjectReference{{
+				Name: "secret",
+			}},
+		}, &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "secret",
+				Namespace: ns,
+			},
+			Type: corev1.SecretTypeDockercfg,
+			Data: map[string][]byte{
+				corev1.DockerConfigKey: []byte(
+					fmt.Sprintf(`{%q: {"username": %q, "password": %q}}`,
+						tag.RegistryStr(), username, password),
+				),
+			},
+		})
 
-	// Resolve our tag on the fake registry to the digest of the random.Image()
-	dr := &digestResolver{client: client, transport: http.DefaultTransport}
-	opt := k8schain.Options{
-		Namespace:          ns,
-		ServiceAccountName: svcacct,
-	}
-	resolvedDigest, err := dr.Resolve(tag.String(), opt, emptyRegistrySet)
-	if err != nil {
-		t.Fatalf("Resolve() = %v", err)
-	}
+		// Resolve our tag on the fake registry to the digest of the random.Image()
+		dr := &digestResolver{client: client, transport: http.DefaultTransport}
+		opt := k8schain.Options{
+			Namespace:          ns,
+			ServiceAccountName: svcacct,
+		}
+		resolvedDigest, err := dr.Resolve(tag.String(), opt, emptyRegistrySet)
+		if err != nil {
+			t.Fatalf("Resolve() = %v", err)
+		}
 
-	// Make sure that we get back the appropriate digest.
-	digest, err := name.NewDigest(resolvedDigest, name.WeakValidation)
-	if err != nil {
-		t.Fatalf("NewDigest() = %v", err)
-	}
-	if got, want := digest.DigestStr(), mustDigest(t, img).String(); got != want {
-		t.Fatalf("Resolve() = %v, want %v", got, want)
+		// Make sure that we get back the appropriate digest.
+		digest, err := name.NewDigest(resolvedDigest, name.WeakValidation)
+		if err != nil {
+			t.Fatalf("NewDigest() = %v", err)
+		}
+		if got, want := digest.DigestStr(), dgst.String(); got != want {
+			t.Fatalf("Resolve() = %v, want %v", got, want)
+		}
 	}
 }
 

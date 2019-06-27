@@ -20,7 +20,7 @@ limitations under the License.
 package test
 
 import (
-	pkgTest "github.com/knative/pkg/test"
+	pkgTest "knative.dev/pkg/test"
 	appsv1 "k8s.io/api/apps/v1"
 	k8styped "k8s.io/client-go/kubernetes/typed/core/v1"
 )

@@ -96,6 +96,9 @@ func TestHTTPScrapeClient_Scrape_HappyCase(t *testing.T) {
 	if stat.ProxiedRequestCount != 4 {
 		t.Errorf("stat.ProxiedCount = %v, want 4", stat.ProxiedRequestCount)
 	}
+	if stat.PodName != "test-revision-1234" {
+		t.Errorf("stat.PodName = %s, want test-revision-1234", stat.PodName)
+	}
 }
 
 func TestHTTPScrapeClient_Scrape_ErrorCases(t *testing.T) {

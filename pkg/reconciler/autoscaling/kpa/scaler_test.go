@@ -27,14 +27,9 @@ import (
 	"time"
 
 	// These are the fake informers we want setup.
-	fakedynamicclient "github.com/knative/pkg/injection/clients/dynamicclient/fake"
 	fakeservingclient "github.com/knative/serving/pkg/client/injection/client/fake"
+	fakedynamicclient "knative.dev/pkg/injection/clients/dynamicclient/fake"
 
-	"github.com/knative/pkg/apis"
-	"github.com/knative/pkg/apis/duck"
-	"github.com/knative/pkg/logging"
-	logtesting "github.com/knative/pkg/logging/testing"
-	_ "github.com/knative/pkg/system/testing"
 	"github.com/knative/serving/pkg/activator"
 	"github.com/knative/serving/pkg/apis/autoscaling"
 	pav1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
@@ -46,6 +41,12 @@ import (
 	revisionresources "github.com/knative/serving/pkg/reconciler/revision/resources"
 	"github.com/knative/serving/pkg/reconciler/revision/resources/names"
 	presources "github.com/knative/serving/pkg/resources"
+	"knative.dev/pkg/apis"
+	"knative.dev/pkg/apis/duck"
+	"knative.dev/pkg/logging"
+	logtesting "knative.dev/pkg/logging/testing"
+	_ "knative.dev/pkg/system/testing"
+
 	v1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -55,8 +56,8 @@ import (
 	fakedynamic "k8s.io/client-go/dynamic/fake"
 	clientgotesting "k8s.io/client-go/testing"
 
-	. "github.com/knative/pkg/reconciler/testing"
 	. "github.com/knative/serving/pkg/testing"
+	. "knative.dev/pkg/reconciler/testing"
 )
 
 const (
@@ -89,6 +90,28 @@ func TestScaler(t *testing.T) {
 		},
 		wantCBCount: 1,
 	}, {
+		// Custom window will be shorter in the tests with custom PA window.
+		label:         "waits to scale to zero (just before idle period), custom PA window",
+		startReplicas: 1,
+		scaleTo:       0,
+		wantReplicas:  1,
+		wantScaling:   false,
+		kpaMutation: func(k *pav1alpha1.PodAutoscaler) {
+			WithWindowAnnotation(paStableWindow.String())(k)
+			kpaMarkActive(k, time.Now().Add(-paStableWindow).Add(1*time.Second))
+		},
+		wantCBCount: 1,
+	}, {
+		label:         "custom PA window, check for standard window, no probe",
+		startReplicas: 1,
+		scaleTo:       0,
+		wantReplicas:  0,
+		wantScaling:   false,
+		kpaMutation: func(k *pav1alpha1.PodAutoscaler) {
+			WithWindowAnnotation(paStableWindow.String())(k)
+			kpaMarkActive(k, time.Now().Add(-stableWindow))
+		},
+	}, {
 		label:         "scale to 1 waiting for idle expires",
 		startReplicas: 10,
 		scaleTo:       0,
@@ -106,6 +129,16 @@ func TestScaler(t *testing.T) {
 		wantScaling:   false,
 		kpaMutation: func(k *pav1alpha1.PodAutoscaler) {
 			kpaMarkActive(k, time.Now().Add(-stableWindow))
+		},
+	}, {
+		label:         "waits to scale to zero after idle period (custom PA window)",
+		startReplicas: 1,
+		scaleTo:       0,
+		wantReplicas:  0,
+		wantScaling:   false,
+		kpaMutation: func(k *pav1alpha1.PodAutoscaler) {
+			WithWindowAnnotation(paStableWindow.String())(k)
+			kpaMarkActive(k, time.Now().Add(-paStableWindow))
 		},
 	}, {
 		label:         "scale to zero after grace period",

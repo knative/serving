@@ -22,7 +22,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/knative/pkg/test/helpers"
+	"knative.dev/pkg/test/helpers"
 )
 
 // ResourceNames holds names of various resources.

@@ -23,8 +23,8 @@ import (
 
 	fake "github.com/knative/caching/pkg/client/injection/informers/caching/factory/fake"
 	image "github.com/knative/caching/pkg/client/injection/informers/caching/v1alpha1/image"
-	controller "github.com/knative/pkg/controller"
-	injection "github.com/knative/pkg/injection"
+	controller "knative.dev/pkg/controller"
+	injection "knative.dev/pkg/injection"
 )
 
 var Get = image.Get

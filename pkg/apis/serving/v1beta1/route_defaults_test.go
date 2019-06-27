@@ -21,7 +21,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/knative/pkg/ptr"
+	"knative.dev/pkg/ptr"
 )
 
 func TestRouteDefaulting(t *testing.T) {

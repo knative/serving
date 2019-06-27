@@ -23,8 +23,8 @@ import (
 	"sort"
 	"time"
 
-	"github.com/knative/pkg/controller"
-	"github.com/knative/pkg/logging"
+	"knative.dev/pkg/controller"
+	"knative.dev/pkg/logging"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1beta1"
