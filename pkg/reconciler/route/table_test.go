@@ -2170,9 +2170,17 @@ func readyIngressStatus() netv1alpha1.IngressStatus {
 	status := netv1alpha1.IngressStatus{}
 	status.InitializeConditions()
 	status.MarkNetworkConfigured()
-	status.MarkLoadBalancerReady([]netv1alpha1.LoadBalancerIngressStatus{
-		{DomainInternal: network.GetServiceHostname("istio-ingressgateway", "istio-system")},
-	})
+	status.MarkLoadBalancerReady(
+		[]netv1alpha1.LoadBalancerIngressStatus{
+			{DomainInternal: network.GetServiceHostname("istio-ingressgateway", "istio-system")},
+		},
+		[]netv1alpha1.LoadBalancerIngressStatus{
+			{DomainInternal: network.GetServiceHostname("istio-ingressgateway", "istio-system")},
+		},
+		[]netv1alpha1.LoadBalancerIngressStatus{
+			{DomainInternal: network.GetServiceHostname("private-istio-ingressgateway", "istio-system")},
+		},
+	)
 
 	return status
 }
