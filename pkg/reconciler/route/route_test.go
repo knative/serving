@@ -311,6 +311,7 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 					},
 				}},
 			},
+			Visibility: netv1alpha1.IngressVisibilityExternalIP,
 		}},
 	}
 	if diff := cmp.Diff(expectedSpec, ci.Spec); diff != "" {
@@ -422,6 +423,7 @@ func TestCreateRouteWithMultipleTargets(t *testing.T) {
 					},
 				}},
 			},
+			Visibility: netv1alpha1.IngressVisibilityExternalIP,
 		}},
 	}
 
@@ -506,6 +508,7 @@ func TestCreateRouteWithOneTargetReserve(t *testing.T) {
 					},
 				}},
 			},
+			Visibility: netv1alpha1.IngressVisibilityExternalIP,
 		}},
 	}
 	if diff := cmp.Diff(expectedSpec, ci.Spec); diff != "" {
@@ -614,6 +617,7 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 					},
 				}},
 			},
+			Visibility: netv1alpha1.IngressVisibilityExternalIP,
 		}, {
 			Hosts: []string{
 				"test-revision-1-test-route.test.test-domain.dev",
@@ -634,6 +638,7 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 					},
 				}},
 			},
+			Visibility: netv1alpha1.IngressVisibilityExternalIP,
 		}, {
 			Hosts: []string{
 				"test-revision-2-test-route.test.test-domain.dev",
@@ -654,6 +659,7 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 					},
 				}},
 			},
+			Visibility: netv1alpha1.IngressVisibilityExternalIP,
 		}},
 	}
 
@@ -739,6 +745,7 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 					},
 				}},
 			},
+			Visibility: netv1alpha1.IngressVisibilityExternalIP,
 		}, {
 			Hosts: []string{
 				"bar-test-route.test.test-domain.dev",
@@ -759,6 +766,7 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 					},
 				}},
 			},
+			Visibility: netv1alpha1.IngressVisibilityExternalIP,
 		}, {
 			Hosts: []string{
 				"foo-test-route.test.test-domain.dev",
@@ -779,6 +787,7 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 					},
 				}},
 			},
+			Visibility: netv1alpha1.IngressVisibilityExternalIP,
 		}},
 	}
 
@@ -1047,7 +1056,7 @@ func TestRouteDomain(t *testing.T) {
 	for _, test := range tests {
 		cfg.Network.DomainTemplate = test.Template
 
-		res, err := domains.DomainNameFromTemplate(context, route, route.Name)
+		res, err := domains.DomainNameFromTemplate(context, route.ObjectMeta, route.Name)
 
 		if test.Pass != (err == nil) {
 			t.Fatalf("TestRouteDomain %q test: supposed to fail but didn't",

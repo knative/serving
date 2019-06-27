@@ -20,6 +20,9 @@ import (
 	"testing"
 	"time"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
+
 	"github.com/google/go-cmp/cmp"
 	"knative.dev/pkg/apis"
 
@@ -27,7 +30,6 @@ import (
 	"github.com/knative/serving/pkg/gc"
 	"github.com/knative/serving/pkg/network"
 	"github.com/knative/serving/pkg/reconciler/route/config"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func testConfig() *config.Config {
@@ -106,17 +108,15 @@ func TestDomainNameFromTemplate(t *testing.T) {
 		local:    false,
 	}}
 
-	route := &v1alpha1.Route{
-		ObjectMeta: metav1.ObjectMeta{
-			SelfLink:  "/apis/serving/v1alpha1/namespaces/test/Routes/myapp",
-			Name:      "myroute",
-			Namespace: "default",
-			Labels: map[string]string{
-				"route": "myapp",
-			},
-			Annotations: map[string]string{
-				"sub": "mysub",
-			},
+	meta := metav1.ObjectMeta{
+		SelfLink:  "/apis/serving/v1alpha1/namespaces/test/Routes/myapp",
+		Name:      "myroute",
+		Namespace: "default",
+		Labels: map[string]string{
+			"route": "myapp",
+		},
+		Annotations: map[string]string{
+			"sub": "mysub",
 		},
 	}
 
@@ -128,12 +128,12 @@ func TestDomainNameFromTemplate(t *testing.T) {
 			ctx = config.ToContext(ctx, cfg)
 
 			if tt.local {
-				route.ObjectMeta.Labels[config.VisibilityLabelKey] = config.VisibilityClusterLocal
+				meta.Labels[config.VisibilityLabelKey] = config.VisibilityClusterLocal
 			} else {
-				delete(route.ObjectMeta.Labels, config.VisibilityLabelKey)
+				delete(meta.Labels, config.VisibilityLabelKey)
 			}
 
-			got, err := DomainNameFromTemplate(ctx, route, tt.args.name)
+			got, err := DomainNameFromTemplate(ctx, meta, tt.args.name)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("DomainNameFromTemplate() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -244,13 +244,38 @@ func TestGetAllDomainsAndTags(t *testing.T) {
 			ctx = config.ToContext(ctx, cfg)
 
 			// here, a tag-less major domain will have empty string as the input
-			got, err := GetAllDomainsAndTags(ctx, route, []string{"", "target-1", "target-2"})
+			got, err := GetAllDomainsAndTags(ctx, route, []string{"", "target-1", "target-2"}, sets.String{})
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetAllDomains() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if diff := cmp.Diff(tt.want, got); diff != "" {
 				t.Errorf("GetAllDomains() diff (-want +got): %v", diff)
+			}
+		})
+	}
+}
+func TestIsClusterLocal(t *testing.T) {
+	tests := []struct {
+		name   string
+		domain string
+		want   bool
+	}{
+		{
+			name:   "domain is public",
+			domain: "k8s.io",
+			want:   false,
+		},
+		{
+			name:   "domain is cluster local",
+			domain: "my-app.cluster.local",
+			want:   true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := IsClusterLocal(tt.domain); got != tt.want {
+				t.Errorf("IsClusterLocal() = %v, want %v", got, tt.want)
 			}
 		})
 	}
