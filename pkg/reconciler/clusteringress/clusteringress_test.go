@@ -186,7 +186,7 @@ func TestReconcile(t *testing.T) {
 		WantCreates: []runtime.Object{
 			resources.MakeMeshVirtualService(ingress("no-virtualservice-yet", 1234)),
 			resources.MakeIngressVirtualService(ingress("no-virtualservice-yet", 1234),
-				[]string{"knative-test-gateway", "knative-ingress-gateway"}),
+				makeGatewayMap([]string{"knative-test-gateway", "knative-ingress-gateway"}, nil)),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: ingressWithStatus("no-virtualservice-yet", 1234,
@@ -264,7 +264,7 @@ func TestReconcile(t *testing.T) {
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: resources.MakeIngressVirtualService(ingress("reconcile-virtualservice", 1234),
-				[]string{"knative-test-gateway", "knative-ingress-gateway"}),
+				makeGatewayMap([]string{"knative-test-gateway", "knative-ingress-gateway"}, nil)),
 		}},
 		WantCreates: []runtime.Object{
 			resources.MakeMeshVirtualService(ingress("reconcile-virtualservice", 1234)),
@@ -354,7 +354,7 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 
 			resources.MakeMeshVirtualService(ingress("reconciling-clusteringress", 1234)),
 			resources.MakeIngressVirtualService(ingress("reconciling-clusteringress", 1234),
-				[]string{"knative-ingress-gateway"}),
+				makeGatewayMap([]string{"knative-ingress-gateway"}, nil)),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			// ingressTLSServer needs to be added into Gateway.
@@ -417,7 +417,7 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 		WantCreates: []runtime.Object{
 			resources.MakeMeshVirtualService(ingress("reconciling-clusteringress", 1234)),
 			resources.MakeIngressVirtualService(ingress("reconciling-clusteringress", 1234),
-				[]string{"knative-ingress-gateway"}),
+				makeGatewayMap([]string{"knative-ingress-gateway"}, nil)),
 		},
 		WantPatches: []clientgotesting.PatchActionImpl{
 			patchAddFinalizerAction("reconciling-clusteringress", clusterIngressFinalizer),
@@ -506,7 +506,7 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 
 			resources.MakeMeshVirtualService(ingress("reconciling-clusteringress", 1234)),
 			resources.MakeIngressVirtualService(ingress("reconciling-clusteringress", 1234),
-				[]string{"knative-ingress-gateway"}),
+				makeGatewayMap([]string{"knative-ingress-gateway"}, nil)),
 
 			// The secret copy under istio-system.
 			secret("istio-system", targetSecretName, map[string]string{
@@ -596,7 +596,7 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 			gateway("knative-ingress-gateway", system.Namespace(), []v1alpha3.Server{*withCredentialName(ingressTLSServer.DeepCopy(), targetSecretName), irrelevantServer}),
 			resources.MakeMeshVirtualService(ingress("reconciling-clusteringress", 1234)),
 			resources.MakeIngressVirtualService(ingress("reconciling-clusteringress", 1234),
-				[]string{"knative-ingress-gateway"}),
+				makeGatewayMap([]string{"knative-ingress-gateway"}, nil)),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: &corev1.Secret{
@@ -673,7 +673,7 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 		WantCreates: []runtime.Object{
 			// The creation of gateways are triggered when setting up the test.
 			gateway("knative-ingress-gateway", system.Namespace(), []v1alpha3.Server{irrelevantServer}),
-			resources.MakeMeshVirtualService(ingress("reconciling-clusteringress", 1234)),
+			resources.MakeMeshVirtualService(ingressWithTLSClusterLocal("reconciling-clusteringress", 1234, []v1alpha1.IngressTLS{})),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: ingressWithTLSAndStatusClusterLocal("reconciling-clusteringress", 1234,
@@ -887,8 +887,18 @@ func ingressWithTLS(name string, generation int64, tls []v1alpha1.IngressTLS) *v
 }
 
 func ingressWithTLSClusterLocal(name string, generation int64, tls []v1alpha1.IngressTLS) *v1alpha1.ClusterIngress {
-	ci := ingressWithTLSAndStatus(name, generation, tls, v1alpha1.IngressStatus{})
+	ci := ingressWithTLSAndStatus(name, generation, tls, v1alpha1.IngressStatus{}).DeepCopy()
 	ci.Spec.Visibility = v1alpha1.IngressVisibilityClusterLocal
+
+	rules := ci.Spec.Rules
+	for i, rule := range rules {
+		rCopy := rule.DeepCopy()
+		rCopy.Visibility = v1alpha1.IngressVisibilityClusterLocal
+		rules[i] = *rCopy
+	}
+
+	ci.Spec.Rules = rules
+
 	return ci
 }
 
@@ -899,8 +909,8 @@ func ingressWithTLSAndStatus(name string, generation int64, tls []v1alpha1.Ingre
 }
 
 func ingressWithTLSAndStatusClusterLocal(name string, generation int64, tls []v1alpha1.IngressTLS, status v1alpha1.IngressStatus) *v1alpha1.ClusterIngress {
-	ci := ingressWithTLSAndStatus(name, generation, tls, status)
-	ci.Spec.Visibility = v1alpha1.IngressVisibilityClusterLocal
+	ci := ingressWithTLSClusterLocal(name, generation, tls)
+	ci.Status = status
 	return ci
 }
 
@@ -1122,5 +1132,12 @@ func TestGlobalResyncOnUpdateNetwork(t *testing.T) {
 
 	if err := h.WaitForHooks(3 * time.Second); err != nil {
 		t.Error(err)
+	}
+}
+
+func makeGatewayMap(publicGateways []string, privateGateways []string) map[v1alpha1.IngressVisibility][]string {
+	return map[v1alpha1.IngressVisibility][]string{
+		v1alpha1.IngressVisibilityExternalIP:   publicGateways,
+		v1alpha1.IngressVisibilityClusterLocal: privateGateways,
 	}
 }
