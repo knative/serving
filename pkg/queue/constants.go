@@ -20,10 +20,6 @@ const (
 	// Name is the name of the component.
 	Name = "queue"
 
-	// RequestQueueHealthPath specifies the path for health checks for
-	// queue-proxy.
-	RequestQueueHealthPath = "/health"
-
 	// RequestQueueDrainPath specifies the path to wait until the proxy
 	// server is shut down. Any subsequent calls to this endpoint after
 	// the server has finished shutting down it will return immediately.
