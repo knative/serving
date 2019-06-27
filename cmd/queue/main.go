@@ -224,7 +224,7 @@ func handler(reqChan chan queue.ReqEvent, breaker *queue.Breaker, handler http.H
 
 		// Metrics for autoscaling.
 		in, out := queue.ReqIn, queue.ReqOut
-		if activator.Name == r.Header.Get(network.ProxyHeaderName) {
+		if activator.Name == knativeProxyHeader(r) {
 			in, out = queue.ProxiedIn, queue.ProxiedOut
 		}
 		reqChan <- queue.ReqEvent{Time: time.Now(), EventType: in}
@@ -358,15 +358,32 @@ func main() {
 		Handler: createAdminHandlers(),
 	}
 
+	metricsSupported := false
+	if metricsBackend := os.Getenv("SERVING_REQUEST_METRICS_BACKEND"); metricsBackend != "" {
+		if err := setupMetricsExporter(metricsBackend); err == nil {
+			metricsSupported = true
+			logger.Infof("SERVING_REQUEST_METRICS_BACKEND=%v", metricsBackend)
+		} else {
+			logger.Errorw("Error setting up request metrics exporter. Request metrics will be unavailable.", zap.Error(err))
+		}
+	} else {
+		logger.Info("SERVING_REQUEST_METRICS_BACKEND is undefined.")
+	}
+
 	// Create queue handler chain
 	// Note: innermost handlers are specified first, ie. the last handler in the chain will be executed first
-	composedHandler := pushRequestMetricHandler(httpProxy, appRequestCountM, appResponseTimeInMsecM)
+	var composedHandler http.Handler = httpProxy
+	if metricsSupported {
+		composedHandler = pushRequestMetricHandler(httpProxy, appRequestCountM, appResponseTimeInMsecM)
+	}
 	composedHandler = http.HandlerFunc(handler(reqChan, breaker, composedHandler))
 	composedHandler = queue.ForwardedShimHandler(composedHandler)
 	composedHandler = queue.TimeToFirstByteTimeoutHandler(composedHandler,
 		time.Duration(revisionTimeoutSeconds)*time.Second, "request timeout")
 	composedHandler = pushRequestLogHandler(composedHandler)
-	composedHandler = pushRequestMetricHandler(composedHandler, requestCountM, responseTimeInMsecM)
+	if metricsSupported {
+		composedHandler = pushRequestMetricHandler(composedHandler, requestCountM, responseTimeInMsecM)
+	}
 	logger.Infof("Queue-proxy will listen on port %d", queueServingPort)
 	server := network.NewServer(fmt.Sprintf(":%d", queueServingPort), composedHandler)
 
@@ -456,18 +473,21 @@ func pushRequestLogHandler(currentHandler http.Handler) http.Handler {
 }
 
 func pushRequestMetricHandler(currentHandler http.Handler, countMetric *stats.Int64Measure, latencyMetric *stats.Float64Measure) http.Handler {
-	backend := os.Getenv("SERVING_REQUEST_METRICS_BACKEND")
-	logger.Infof("SERVING_REQUEST_METRICS_BACKEND=%v", backend)
-	if backend == "" {
-		return currentHandler
-	}
-
 	r, err := queuestats.NewStatsReporter(servingNamespace, servingService, servingConfig, servingRevision, countMetric, latencyMetric)
 	if err != nil {
 		logger.Errorw("Error setting up request metrics reporter. Request metrics will be unavailable.", zap.Error(err))
 		return currentHandler
 	}
 
+	handler, err := queue.NewRequestMetricHandler(currentHandler, r, activator.Name)
+	if err != nil {
+		logger.Errorw("Error setting up request metrics handler. Request metrics will be unavailable.", zap.Error(err))
+		return currentHandler
+	}
+	return handler
+}
+
+func setupMetricsExporter(backend string) error {
 	// Set up OpenCensus exporter.
 	// NOTE: We use revision as the component instead of queue because queue is
 	// implementation specific. The current metrics are request relative. Using
@@ -482,18 +502,7 @@ func pushRequestMetricHandler(currentHandler http.Handler, countMetric *stats.In
 			metrics.BackendDestinationKey: backend,
 		},
 	}
-	err = metrics.UpdateExporter(ops, logger)
-	if err != nil {
-		logger.Errorw("Error setting up request metrics exporter. Request metrics will be unavailable.", zap.Error(err))
-		return currentHandler
-	}
-
-	handler, err := queue.NewRequestMetricHandler(currentHandler, r, activator.Name)
-	if err != nil {
-		logger.Errorw("Error setting up request metrics handler. Request metrics will be unavailable.", zap.Error(err))
-		return currentHandler
-	}
-	return handler
+	return metrics.UpdateExporter(ops, logger)
 }
 
 func flush(logger *zap.SugaredLogger) {
