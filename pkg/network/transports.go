@@ -18,10 +18,11 @@ package network
 import (
 	"context"
 	"errors"
-	"math/rand"
 	"net"
 	"net/http"
 	"time"
+
+	"k8s.io/apimachinery/pkg/util/wait"
 )
 
 // RoundTripperFunc implementation roundtrips a request.
@@ -44,7 +45,7 @@ func newAutoTransport(v1 http.RoundTripper, v2 http.RoundTripper) http.RoundTrip
 
 const (
 	initialTO = float64(50 * time.Millisecond)
-	sleepTO   = float64(30 * time.Millisecond)
+	sleepTO   = 30 * time.Millisecond
 	factor    = 1.4
 	numSteps  = 10
 )
@@ -57,7 +58,7 @@ func dialWithBackOff(ctx context.Context, network, address string) (net.Conn, er
 	return dialBackOffHelper(ctx, network, address, numSteps, initialTO, sleepTO)
 }
 
-func dialBackOffHelper(ctx context.Context, network, address string, steps int, initial, sleep float64) (net.Conn, error) {
+func dialBackOffHelper(ctx context.Context, network, address string, steps int, initial float64, sleep time.Duration) (net.Conn, error) {
 	to := initial
 	dialer := &net.Dialer{
 		Timeout:   time.Duration(to),
@@ -73,7 +74,7 @@ func dialBackOffHelper(ctx context.Context, network, address string, steps int, 
 				}
 				to *= factor
 				dialer.Timeout = time.Duration(to)
-				time.Sleep(time.Duration(sleep + rand.Float64()*sleep)) // Sleep with jitter.
+				time.Sleep(wait.Jitter(sleep, 1.0)) // Sleep with jitter.
 				continue
 			}
 			return nil, err
