@@ -68,6 +68,9 @@ func dialBackOffHelper(ctx context.Context, network, address string, steps int, 
 		c, err := dialer.DialContext(ctx, network, address)
 		if err != nil {
 			if err, ok := err.(net.Error); ok && err.Timeout() {
+				if i == steps-1 {
+					break
+				}
 				to *= factor
 				dialer.Timeout = time.Duration(to)
 				time.Sleep(time.Duration(sleep + rand.Float64()*sleep)) // Sleep with jitter.
