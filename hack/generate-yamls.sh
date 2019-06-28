@@ -49,6 +49,11 @@ rm -fr ${YAML_OUTPUT_DIR}/*.yaml
 
 # Generated Knative component YAML files
 readonly SERVING_YAML=${YAML_OUTPUT_DIR}/serving.yaml
+readonly SERVING_CRD_ALPHA_YAML=${YAML_OUTPUT_DIR}/serving-alpha-crds.yaml
+readonly SERVING_ALPHA_YAML=${YAML_OUTPUT_DIR}/serving-pre-1.14.yaml
+readonly SERVING_CRD_BETA_YAML=${YAML_OUTPUT_DIR}/serving-beta-crds.yaml
+readonly SERVING_BETA_YAML=${YAML_OUTPUT_DIR}/serving-post-1.14.yaml
+
 readonly MONITORING_YAML=${YAML_OUTPUT_DIR}/monitoring.yaml
 readonly MONITORING_METRIC_PROMETHEUS_YAML=${YAML_OUTPUT_DIR}/monitoring-metrics-prometheus.yaml
 readonly MONITORING_TRACE_ZIPKIN_YAML=${YAML_OUTPUT_DIR}/monitoring-tracing-zipkin.yaml
@@ -75,6 +80,21 @@ cd "${YAML_REPO_ROOT}"
 
 echo "Building Knative Serving"
 ko resolve ${KO_YAML_FLAGS} -f config/ | "${LABEL_YAML_CMD[@]}" > "${SERVING_YAML}"
+# These don't have images, but ko will concatenate them for us.
+ko resolve ${KO_YAML_FLAGS} -f config/v1alpha1 | "${LABEL_YAML_CMD[@]}" > "${SERVING_CRD_ALPHA_YAML}"
+ko resolve ${KO_YAML_FLAGS} -f config/v1beta1 | "${LABEL_YAML_CMD[@]}" > "${SERVING_CRD_BETA_YAML}"
+
+# Create the full alpha install.
+cat "${SERVING_YAML}" > "${SERVING_ALPHA_YAML}"
+cat "${SERVING_CRD_ALPHA_YAML}" >> "${SERVING_ALPHA_YAML}"
+
+# Create the full beta install.
+cat "${SERVING_YAML}" > "${SERVING_BETA_YAML}"
+cat "${SERVING_CRD_BETA_YAML}" >> "${SERVING_BETA_YAML}"
+
+# Our ${SERVING_YAML} should be a complete install, so bias towards the most
+# broadly compatible by default.
+cat "${SERVING_ALPHA_YAML}" > "${SERVING_YAML}"
 
 echo "Building Monitoring & Logging"
 # Use ko to concatenate them all together.
@@ -112,4 +132,8 @@ echo "All manifests generated"
 # List generated YAML files, with serving.yaml first.
 
 ls -1 ${SERVING_YAML} > ${YAML_LIST_FILE}
+ls -1 ${SERVING_CRD_ALPHA_YAML} >> ${YAML_LIST_FILE}
+ls -1 ${SERVING_ALPHA_YAML} >> ${YAML_LIST_FILE}
+ls -1 ${SERVING_CRD_BETA_YAML} >> ${YAML_LIST_FILE}
+ls -1 ${SERVING_BETA_YAML} >> ${YAML_LIST_FILE}
 ls -1 ${YAML_OUTPUT_DIR}/*.yaml | grep -v ${SERVING_YAML} >> ${YAML_LIST_FILE}
