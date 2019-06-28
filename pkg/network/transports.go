@@ -65,6 +65,7 @@ func dialBackOffHelper(ctx context.Context, network, address string, steps int, 
 		KeepAlive: 5 * time.Second,
 		DualStack: true,
 	}
+	// TODO(vagababov): use backoff.Step when we use moden k8s client.
 	for i := 0; i < steps; i++ {
 		c, err := dialer.DialContext(ctx, network, address)
 		if err != nil {
