@@ -23,10 +23,10 @@ import (
 	"os/exec"
 	"strings"
 
-	"knative.dev/pkg/test/logging"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+	"knative.dev/pkg/test/logging"
 )
 
 // CheckPortAvailability checks to see if the port is available on the machine.
