@@ -225,7 +225,7 @@ func (c *Reconciler) computeBootstrapConditions(ctx context.Context, pa *pav1alp
 	}
 	ps, err := resourceutil.GetScaleResource(pa.Namespace, pa.Spec.ScaleTargetRef, c.PSInformerFactory)
 	if err != nil {
-		logger.Errorf("Error getting deployment: %v", err)
+		logger.Errorf("Error getting PodScalable: %v", err)
 		return err
 	}
 	// If the PodScalable does not go up from 0, it may be stuck in a bootstrap terminal problem.
