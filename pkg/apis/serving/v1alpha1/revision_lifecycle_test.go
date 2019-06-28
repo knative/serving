@@ -21,15 +21,15 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	"knative.dev/pkg/apis"
-	"knative.dev/pkg/apis/duck"
-	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
-	apitest "knative.dev/pkg/apis/testing"
 	net "github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/serving"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"knative.dev/pkg/apis"
+	"knative.dev/pkg/apis/duck"
+	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
+	apitest "knative.dev/pkg/apis/testing"
 )
 
 func TestRevisionDuckTypes(t *testing.T) {
@@ -358,6 +358,29 @@ func TestRevisionNotOwnedStuff(t *testing.T) {
 	}
 	if got := r.GetCondition(RevisionConditionReady); got == nil || got.Reason != want {
 		t.Errorf("MarkResourceNotOwned = %v, want %v", got, want)
+	}
+}
+
+func TestRevisionContainerExiting(t *testing.T) {
+	r := &RevisionStatus{}
+	r.InitializeConditions()
+	apitest.CheckConditionOngoing(r.duck(), RevisionConditionResourcesAvailable, t)
+	apitest.CheckConditionOngoing(r.duck(), RevisionConditionContainerHealthy, t)
+	apitest.CheckConditionOngoing(r.duck(), RevisionConditionReady, t)
+
+	const (
+		exitCode                = 137
+		reason, message         = "OOMKilled", "Out of memory"
+		wantReason, wantMessage = "ExitCode137/OOMKilled", "Container failed with: Out of memory"
+	)
+	r.MarkContainerExiting(exitCode, reason, message)
+	apitest.CheckConditionFailed(r.duck(), RevisionConditionContainerHealthy, t)
+	apitest.CheckConditionFailed(r.duck(), RevisionConditionReady, t)
+	if got := r.GetCondition(RevisionConditionContainerHealthy); got == nil || got.Reason != wantReason {
+		t.Errorf("RevisionConditionResourcesAvailable = %v, want %v", got.Reason, wantReason)
+	}
+	if got := r.GetCondition(RevisionConditionContainerHealthy); got == nil || got.Message != wantMessage {
+		t.Errorf("RevisionConditionResourcesAvailable = %v, want %v", got.Message, wantMessage)
 	}
 }
 

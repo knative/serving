@@ -21,12 +21,12 @@ import (
 	"strconv"
 	"time"
 
-	"knative.dev/pkg/apis"
-	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
 	net "github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/serving"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"knative.dev/pkg/apis"
+	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
 )
 
 const (
@@ -164,8 +164,8 @@ func (rs *RevisionStatus) MarkContainerHealthy() {
 	revCondSet.Manage(rs).MarkTrue(RevisionConditionContainerHealthy)
 }
 
-func (rs *RevisionStatus) MarkContainerExiting(exitCode int32, message string) {
-	exitCodeString := fmt.Sprintf("ExitCode%d", exitCode)
+func (rs *RevisionStatus) MarkContainerExiting(exitCode int32, reason, message string) {
+	exitCodeString := fmt.Sprintf("ExitCode%d/%s", exitCode, reason)
 	revCondSet.Manage(rs).MarkFalse(RevisionConditionContainerHealthy, exitCodeString, RevisionContainerExitingMessage(message))
 }
 

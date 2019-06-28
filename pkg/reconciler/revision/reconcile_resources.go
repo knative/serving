@@ -20,8 +20,6 @@ import (
 	"context"
 	"fmt"
 
-	"knative.dev/pkg/logging"
-	"knative.dev/pkg/logging/logkey"
 	kpav1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/reconciler/revision/resources"
@@ -32,6 +30,8 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"knative.dev/pkg/logging"
+	"knative.dev/pkg/logging/logkey"
 )
 
 func (c *Reconciler) reconcileDeployment(ctx context.Context, rev *v1alpha1.Revision) error {
@@ -86,8 +86,10 @@ func (c *Reconciler) reconcileDeployment(ctx context.Context, rev *v1alpha1.Revi
 			for _, status := range pod.Status.ContainerStatuses {
 				if status.Name == rev.Spec.GetContainer().Name {
 					if t := status.LastTerminationState.Terminated; t != nil {
-						logger.Infof("%s marking exiting with: %d/%s", rev.Name, t.ExitCode, t.Message)
-						rev.Status.MarkContainerExiting(t.ExitCode, t.Message)
+						logger.Infof("%s marking exiting with: %d/%s: %s", rev.Name, t.ExitCode, t.Reason, t.Message)
+						logger.Infof("Container %s in pod %s of revision %s is in terminated status: %d/%s",
+							status.Name, pod.Name, rev.Name, t.ExitCode, t.Reason)
+						rev.Status.MarkContainerExiting(t.ExitCode, t.Reason, t.Message)
 					} else if w := status.State.Waiting; w != nil && hasDeploymentTimedOut(deployment) {
 						logger.Infof("%s marking resources unavailable with: %s: %s", rev.Name, w.Reason, w.Message)
 						rev.Status.MarkResourcesUnavailable(w.Reason, w.Message)
