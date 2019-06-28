@@ -44,12 +44,21 @@ header "Running tests"
 failed=0
 
 # Run conformance and e2e tests.
-go_test_e2e -timeout=30m \
-  ./test/conformance/api/v1alpha1 \
-  ./test/conformance/api/v1beta1 \
-  ./test/conformance/runtime \
-  ./test/e2e \
-  "--resolvabledomain=$(use_resolvable_domain)" || failed=1
+if (( INSTALL_BETA )); then
+  # When beta is installed, include our beta tests.
+  go_test_e2e -timeout=30m \
+    ./test/conformance/api/v1alpha1 \
+    ./test/conformance/api/v1beta1 \
+    ./test/conformance/runtime \
+    ./test/e2e \
+    "--resolvabledomain=$(use_resolvable_domain)" || failed=1
+else
+  go_test_e2e -timeout=30m \
+    ./test/conformance/api/v1alpha1 \
+    ./test/conformance/runtime \
+    ./test/e2e \
+    "--resolvabledomain=$(use_resolvable_domain)" || failed=1
+fi
 
 # Dump cluster state after e2e tests to prevent logs being truncated.
 (( failed )) && dump_cluster_state
