@@ -395,7 +395,7 @@ func (p *probe) tcpProbe() error {
 			return false, nil
 		}
 		p.count++
-		return p.Count() >= p.SuccessThreshold, nil
+		return p.SuccessCount() >= p.SuccessThreshold, nil
 	})
 }
 
@@ -418,12 +418,12 @@ func (p *probe) httpProbe() error {
 		}
 		p.count++
 
-		return p.Count() >= p.SuccessThreshold, nil
+		return p.SuccessCount() >= p.SuccessThreshold, nil
 	})
 }
 
 // Count function fetches current probe count
-func (p *probe) Count() int32 {
+func (p *probe) SuccessCount() int32 {
 	return p.count
 }
 

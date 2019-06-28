@@ -753,8 +753,8 @@ func TestKNativeTCPProbeSuccessWithThreshold(t *testing.T) {
 		t.Error("Got probe error. Wanted success.")
 	}
 
-	if pb.Count() != 3 {
-		t.Errorf("Expected count to be 3, go %d", pb.Count())
+	if pb.SuccessCount() != 3 {
+		t.Errorf("Expected count to be 3, go %d", pb.SuccessCount())
 	}
 }
 
@@ -816,8 +816,8 @@ func TestKNativeTCPProbeSuccessThresholdIncludesFailure(t *testing.T) {
 	if probeErr := <-errChan; !probeErr {
 		t.Error("Wanted ProbeContainer() successed but got error")
 	}
-	if pb.Count() != successThreshold {
-		t.Errorf("Expected count to be %d but got %d", successThreshold, pb.Count())
+	if pb.SuccessCount() != successThreshold {
+		t.Errorf("Expected count to be %d but got %d", successThreshold, pb.SuccessCount())
 	}
 }
 

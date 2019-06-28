@@ -160,7 +160,7 @@ func createResourcePercentageFromAnnotations(m map[string]string, k string) (boo
 
 func makeQueueProbe(in *corev1.Probe) *corev1.Probe {
 	if in == nil || in.PeriodSeconds == 0 {
-		return &corev1.Probe{
+		out := &corev1.Probe{
 			Handler: corev1.Handler{
 				Exec: &corev1.ExecAction{
 					Command: []string{"/ko-app/queue", "-probe", "0"},
@@ -176,6 +176,11 @@ func makeQueueProbe(in *corev1.Probe) *corev1.Probe {
 			// thus don't want to be limited by K8s granularity here.
 			TimeoutSeconds: 10,
 		}
+
+		if in != nil {
+			out.InitialDelaySeconds = in.InitialDelaySeconds
+		}
+		return out
 	}
 
 	timeout := 1
