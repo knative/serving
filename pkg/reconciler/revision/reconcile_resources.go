@@ -100,7 +100,7 @@ func (c *Reconciler) reconcileDeployment(ctx context.Context, rev *v1alpha1.Revi
 							}
 						} else if w := status.State.Waiting; w != nil && hasDeploymentTimedOut(deployment) {
 							logger.Warnf("Container %s in pod %s of revision %s is timeout in waiting status: %s/%s",
-								status.Name, pod.Name, rev.Name, t.Reason, t.Message)
+								status.Name, pod.Name, rev.Name, w.Reason, w.Message)
 							if shouldMarkRev {
 								logger.Infof("%s marking resources unavailable with: %s: %s", rev.Name, w.Reason, w.Message)
 								rev.Status.MarkResourcesUnavailable(w.Reason, w.Message)

@@ -165,7 +165,10 @@ func (rs *RevisionStatus) MarkContainerHealthy() {
 }
 
 func (rs *RevisionStatus) MarkContainerExiting(exitCode int32, reason, message string) {
-	exitCodeString := fmt.Sprintf("ExitCode%d/%s", exitCode, reason)
+	exitCodeString := fmt.Sprintf("ExitCode%d", exitCode)
+	if reason != "" {
+		exitCodeString = fmt.Sprintf("%s/%s", exitCodeString, reason)
+	}
 	revCondSet.Manage(rs).MarkFalse(RevisionConditionContainerHealthy, exitCodeString, RevisionContainerExitingMessage(message))
 }
 
