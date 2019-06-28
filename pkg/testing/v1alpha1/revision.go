@@ -133,9 +133,9 @@ func MarkContainerMissing(rev *v1alpha1.Revision) {
 }
 
 // MarkContainerExiting calls .Status.MarkContainerExiting on the Revision.
-func MarkContainerExiting(exitCode int32, message string) RevisionOption {
+func MarkContainerExiting(exitCode int32, reason, message string) RevisionOption {
 	return func(r *v1alpha1.Revision) {
-		r.Status.MarkContainerExiting(exitCode, message)
+		r.Status.MarkContainerExiting(exitCode, reason, message)
 	}
 }
 

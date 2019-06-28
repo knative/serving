@@ -246,13 +246,14 @@ type PodOption func(*corev1.Pod)
 
 // WithFailingContainer sets the .Status.ContainerStatuses on the pod to
 // include a container named accordingly to fail with the given state.
-func WithFailingContainer(name string, exitCode int, message string) PodOption {
+func WithFailingContainer(name string, exitCode int, reason, message string) PodOption {
 	return func(pod *corev1.Pod) {
 		pod.Status.ContainerStatuses = []corev1.ContainerStatus{{
 			Name: name,
 			LastTerminationState: corev1.ContainerState{
 				Terminated: &corev1.ContainerStateTerminated{
 					ExitCode: int32(exitCode),
+					Reason:   reason,
 					Message:  message,
 				},
 			},

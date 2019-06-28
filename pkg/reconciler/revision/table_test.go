@@ -21,10 +21,6 @@ import (
 	"testing"
 
 	caching "github.com/knative/caching/pkg/apis/caching/v1alpha1"
-	"knative.dev/pkg/configmap"
-	"knative.dev/pkg/controller"
-	"knative.dev/pkg/logging"
-	logtesting "knative.dev/pkg/logging/testing"
 	autoscalingv1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
@@ -40,11 +36,15 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgotesting "k8s.io/client-go/testing"
+	"knative.dev/pkg/configmap"
+	"knative.dev/pkg/controller"
+	"knative.dev/pkg/logging"
+	logtesting "knative.dev/pkg/logging/testing"
 
-	. "knative.dev/pkg/reconciler/testing"
 	. "github.com/knative/serving/pkg/reconciler/testing/v1alpha1"
 	. "github.com/knative/serving/pkg/testing"
 	. "github.com/knative/serving/pkg/testing/v1alpha1"
+	. "knative.dev/pkg/reconciler/testing"
 )
 
 // This is heavily based on the way the OpenShift Ingress controller tests its reconciliation method.
@@ -437,13 +437,13 @@ func TestReconcile(t *testing.T) {
 			rev("foo", "pod-error",
 				withK8sServiceName("a-pod-error"), WithLogURL, AllUnknownConditions, MarkActive),
 			kpa("foo", "pod-error"), // PA can't be ready, since no traffic.
-			pod("foo", "pod-error", WithFailingContainer("user-container", 5, "I failed man!")),
+			pod("foo", "pod-error", WithFailingContainer("user-container", 5, "Failed", "I failed man!")),
 			deploy("foo", "pod-error"),
 			image("foo", "pod-error"),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: rev("foo", "pod-error",
-				WithLogURL, AllUnknownConditions, MarkContainerExiting(5, "I failed man!")),
+				WithLogURL, AllUnknownConditions, MarkContainerExiting(5, "Failed", "I failed man!")),
 		}},
 		Key: "foo/pod-error",
 	}, {
