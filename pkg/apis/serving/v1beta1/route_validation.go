@@ -20,9 +20,9 @@ import (
 	"context"
 	"fmt"
 
-	"knative.dev/pkg/apis"
 	"github.com/knative/serving/pkg/apis/serving"
 	"k8s.io/apimachinery/pkg/util/validation"
+	"knative.dev/pkg/apis"
 )
 
 // Validate makes sure that Route is properly configured.
@@ -75,20 +75,15 @@ func (rs *RouteSpec) Validate(ctx context.Context) *apis.FieldError {
 
 // Validate verifies that TrafficTarget is properly configured.
 func (tt *TrafficTarget) Validate(ctx context.Context) *apis.FieldError {
-	var errs *apis.FieldError
+	errs := tt.validateLatestRevision(ctx)
+	errs = tt.validateRevisionAndConfiguration(ctx, errs)
+	errs = tt.validateTrafficPercentage(errs)
+	return tt.validateUrl(ctx, errs)
+}
 
+func (tt *TrafficTarget) validateRevisionAndConfiguration(ctx context.Context, errs *apis.FieldError) *apis.FieldError {
 	// We only validate the sense of latestRevision in the context of a Spec,
 	// and only when it is specified.
-	if apis.IsInSpec(ctx) && tt.LatestRevision != nil {
-		lr := *tt.LatestRevision
-		pinned := tt.RevisionName != ""
-		if pinned == lr {
-			// The senses for whether to pin to a particular revision or
-			// float forward to the latest revision must match.
-			errs = errs.Also(apis.ErrInvalidValue(lr, "latestRevision"))
-		}
-	}
-
 	switch {
 	// When we have a default configurationName, we don't
 	// allow one to be specified.
@@ -127,13 +122,32 @@ func (tt *TrafficTarget) Validate(ctx context.Context) *apis.FieldError {
 		errs = errs.Also(apis.ErrMissingOneOf(
 			"revisionName", "configurationName"))
 	}
+	return errs
+}
 
+func (tt *TrafficTarget) validateTrafficPercentage(errs *apis.FieldError) *apis.FieldError {
 	// Check that the traffic Percentage is within bounds.
 	if tt.Percent < 0 || tt.Percent > 100 {
 		errs = errs.Also(apis.ErrOutOfBoundsValue(
 			tt.Percent, 0, 100, "percent"))
 	}
+	return errs
+}
 
+func (tt *TrafficTarget) validateLatestRevision(ctx context.Context) *apis.FieldError {
+	if apis.IsInSpec(ctx) && tt.LatestRevision != nil {
+		lr := *tt.LatestRevision
+		pinned := tt.RevisionName != ""
+		if pinned == lr {
+			// The senses for whether to pin to a particular revision or
+			// float forward to the latest revision must match.
+			return apis.ErrInvalidValue(lr, "latestRevision")
+		}
+	}
+	return nil
+}
+
+func (tt *TrafficTarget) validateUrl(ctx context.Context, errs *apis.FieldError) *apis.FieldError {
 	// Check that we set the URL appropriately.
 	if tt.URL.String() != "" {
 		// URL is not allowed in traffic under spec.
@@ -151,7 +165,6 @@ func (tt *TrafficTarget) Validate(ctx context.Context) *apis.FieldError {
 			errs = errs.Also(apis.ErrMissingField("url"))
 		}
 	}
-
 	return errs
 }
 

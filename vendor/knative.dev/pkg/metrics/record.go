@@ -20,8 +20,8 @@ import (
 	"context"
 	"path"
 
-	"knative.dev/pkg/metrics/metricskey"
 	"go.opencensus.io/stats"
+	"knative.dev/pkg/metrics/metricskey"
 )
 
 // Record decides whether to record one measurement via OpenCensus based on the

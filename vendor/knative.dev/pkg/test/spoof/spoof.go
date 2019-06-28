@@ -24,12 +24,12 @@ import (
 	"net/http"
 	"time"
 
-	ingress "knative.dev/pkg/test/ingress"
-	"knative.dev/pkg/test/logging"
-	"knative.dev/pkg/test/zipkin"
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
+	ingress "knative.dev/pkg/test/ingress"
+	"knative.dev/pkg/test/logging"
+	"knative.dev/pkg/test/zipkin"
 
 	"go.opencensus.io/plugin/ochttp"
 	"go.opencensus.io/plugin/ochttp/propagation/b3"

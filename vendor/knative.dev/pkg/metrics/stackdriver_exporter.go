@@ -18,10 +18,10 @@ import (
 
 	"contrib.go.opencensus.io/exporter/stackdriver"
 	"contrib.go.opencensus.io/exporter/stackdriver/monitoredresource"
-	"knative.dev/pkg/metrics/metricskey"
 	"go.opencensus.io/stats/view"
 	"go.opencensus.io/tag"
 	"go.uber.org/zap"
+	"knative.dev/pkg/metrics/metricskey"
 )
 
 // customMetricTypePrefix is the metric type prefix for unsupported metrics by

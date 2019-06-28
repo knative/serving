@@ -21,11 +21,11 @@ import (
 	"errors"
 	"time"
 
-	"knative.dev/pkg/metrics"
 	"go.opencensus.io/stats"
 	"go.opencensus.io/stats/view"
 	"go.opencensus.io/tag"
 	"go.uber.org/zap"
+	"knative.dev/pkg/metrics"
 )
 
 var (

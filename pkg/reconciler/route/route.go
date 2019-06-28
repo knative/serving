@@ -30,13 +30,6 @@ import (
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 
-	"knative.dev/pkg/apis"
-	duckv1alpha1 "knative.dev/pkg/apis/duck/v1alpha1"
-	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
-	"knative.dev/pkg/controller"
-	"knative.dev/pkg/logging"
-	"knative.dev/pkg/system"
-	"knative.dev/pkg/tracker"
 	"github.com/knative/serving/pkg/apis/networking"
 	netv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
@@ -50,6 +43,13 @@ import (
 	resourcenames "github.com/knative/serving/pkg/reconciler/route/resources/names"
 	"github.com/knative/serving/pkg/reconciler/route/traffic"
 	tr "github.com/knative/serving/pkg/reconciler/route/traffic"
+	"knative.dev/pkg/apis"
+	duckv1alpha1 "knative.dev/pkg/apis/duck/v1alpha1"
+	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
+	"knative.dev/pkg/controller"
+	"knative.dev/pkg/logging"
+	"knative.dev/pkg/system"
+	"knative.dev/pkg/tracker"
 )
 
 // routeFinalizer is the name that we put into the resource finalizer list, e.g.
@@ -218,44 +218,9 @@ func (c *Reconciler) reconcile(ctx context.Context, r *v1alpha1.Route) error {
 		return err
 	}
 
-	tls := []netv1alpha1.IngressTLS{}
-	if config.FromContext(ctx).Network.AutoTLS && !resources.IsClusterLocal(r) {
-		allDomainTagMap, err := domains.GetAllDomainsAndTags(ctx, r, getTrafficNames(traffic.Targets))
-		if err != nil {
-			return err
-		}
-		desiredCerts := resources.MakeCertificates(r, allDomainTagMap)
-		for _, desiredCert := range desiredCerts {
-
-			cert, err := c.reconcileCertificate(ctx, r, desiredCert)
-			if err != nil {
-				r.Status.MarkCertificateProvisionFailed(desiredCert.Name)
-				return err
-			}
-
-			dnsNames := sets.NewString(cert.Spec.DNSNames...)
-			if cert.Status.IsReady() {
-				r.Status.MarkCertificateReady(cert.Name)
-				// r.Status.URL is for the major domain, so only change if the cert is for
-				// the major domain
-				if dnsNames.Has(host) {
-					r.Status.URL.Scheme = "https"
-				}
-				// TODO: we should only mark https for the public visible targets when
-				// we are able to configure visibility per target.
-				setTargetsScheme(&r.Status, cert.Spec.DNSNames, "https")
-			} else {
-				r.Status.MarkCertificateNotReady(cert.Name)
-				if dnsNames.Has(host) {
-					r.Status.URL = &apis.URL{
-						Scheme: "http",
-						Host:   host,
-					}
-				}
-				setTargetsScheme(&r.Status, cert.Spec.DNSNames, "http")
-			}
-			tls = append(tls, resources.MakeIngressTLS(cert, cert.Spec.DNSNames))
-		}
+	tls, err := c.tls(ctx, host, r, traffic)
+	if err != nil {
+		return err
 	}
 
 	logger.Info("Creating ClusterIngress.")
@@ -277,6 +242,50 @@ func (c *Reconciler) reconcile(ctx context.Context, r *v1alpha1.Route) error {
 	r.Status.ObservedGeneration = r.Generation
 	logger.Info("Route successfully synced")
 	return nil
+}
+
+func (c *Reconciler) tls(ctx context.Context, host string, r *v1alpha1.Route, traffic *traffic.Config) ([]netv1alpha1.IngressTLS, error) {
+	tls := []netv1alpha1.IngressTLS{}
+	if !config.FromContext(ctx).Network.AutoTLS || resources.IsClusterLocal(r) {
+		return tls, nil
+	}
+	allDomainTagMap, err := domains.GetAllDomainsAndTags(ctx, r, getTrafficNames(traffic.Targets))
+	if err != nil {
+		return nil, err
+	}
+	desiredCerts := resources.MakeCertificates(r, allDomainTagMap)
+	for _, desiredCert := range desiredCerts {
+
+		cert, err := c.reconcileCertificate(ctx, r, desiredCert)
+		if err != nil {
+			r.Status.MarkCertificateProvisionFailed(desiredCert.Name)
+			return nil, err
+		}
+
+		dnsNames := sets.NewString(cert.Spec.DNSNames...)
+		if cert.Status.IsReady() {
+			r.Status.MarkCertificateReady(cert.Name)
+			// r.Status.URL is for the major domain, so only change if the cert is for
+			// the major domain
+			if dnsNames.Has(host) {
+				r.Status.URL.Scheme = "https"
+			}
+			// TODO: we should only mark https for the public visible targets when
+			// we are able to configure visibility per target.
+			setTargetsScheme(&r.Status, cert.Spec.DNSNames, "https")
+		} else {
+			r.Status.MarkCertificateNotReady(cert.Name)
+			if dnsNames.Has(host) {
+				r.Status.URL = &apis.URL{
+					Scheme: "http",
+					Host:   host,
+				}
+			}
+			setTargetsScheme(&r.Status, cert.Spec.DNSNames, "http")
+		}
+		tls = append(tls, resources.MakeIngressTLS(cert, cert.Spec.DNSNames))
+	}
+	return tls, nil
 }
 
 func (c *Reconciler) reconcileDeletion(ctx context.Context, r *v1alpha1.Route) error {
