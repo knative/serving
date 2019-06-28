@@ -19,6 +19,7 @@ package stats
 import (
 	"errors"
 	"fmt"
+	"go.opencensus.io/stats"
 	"testing"
 	"time"
 
@@ -28,10 +29,23 @@ import (
 )
 
 const (
-	testNs   = "test-default"
-	testSvc  = "helloworld-go-service"
-	testConf = "helloworld-go"
-	testRev  = "helloworld-go-00001"
+	testNs      = "test-default"
+	testSvc     = "helloworld-go-service"
+	testConf    = "helloworld-go"
+	testRev     = "helloworld-go-00001"
+	countName   = "request_count"
+	latencyName = "request_latencies"
+)
+
+var (
+	countMetric = stats.Int64(
+		countName,
+		"The number of requests that are routed to queue-proxy",
+		stats.UnitDimensionless)
+	latencyMetric = stats.Float64(
+		latencyName,
+		"The response time in millisecond",
+		stats.UnitMilliseconds)
 )
 
 func TestNewStatsReporter_negative(t *testing.T) {
@@ -67,7 +81,7 @@ func TestNewStatsReporter_negative(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			if _, err := NewStatsReporter(test.namespace, testSvc, test.config, test.revision); err.Error() != test.result.Error() {
+			if _, err := NewStatsReporter(test.namespace, testSvc, test.config, test.revision, countMetric, latencyMetric); err.Error() != test.result.Error() {
 				t.Errorf("%+v, got: '%+v'", test.errorMsg, err)
 			}
 		})
@@ -80,7 +94,7 @@ func TestReporter_Report(t *testing.T) {
 		t.Error("Reporter.ReportRequestCount() expected an error for Report call before init. Got success.")
 	}
 
-	r, err := NewStatsReporter(testNs, testSvc, testConf, testRev)
+	r, err := NewStatsReporter(testNs, testSvc, testConf, testRev, countMetric, latencyMetric)
 	if err != nil {
 		t.Fatalf("Unexpected error from NewStatsReporter() = %v", err)
 	}
@@ -114,7 +128,7 @@ func TestReporter_Report(t *testing.T) {
 	unregisterViews(r)
 
 	// Test reporter with empty service name
-	r, err = NewStatsReporter(testNs, "" /*service name*/, testConf, testRev)
+	r, err = NewStatsReporter(testNs, "" /*service name*/, testConf, testRev, countMetric, latencyMetric)
 	if err != nil {
 		t.Fatalf("Unexpected error from NewStatsReporter() = %v", err)
 	}
@@ -251,10 +265,10 @@ func unregisterViews(r *Reporter) error {
 		return errors.New("reporter is not initialized")
 	}
 	var views []*view.View
-	if v := view.Find(requestCountN); v != nil {
+	if v := view.Find(countName); v != nil {
 		views = append(views, v)
 	}
-	if v := view.Find(responseTimeInMsecN); v != nil {
+	if v := view.Find(latencyName); v != nil {
 		views = append(views, v)
 	}
 	view.Unregister(views...)
