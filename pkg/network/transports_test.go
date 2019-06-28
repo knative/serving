@@ -16,7 +16,10 @@ limitations under the License.
 package network
 
 import (
+	"context"
 	"net/http"
+	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -66,4 +69,32 @@ func TestHTTPRoundTripper(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestDialWithBackoff(t *testing.T) {
+	// Nobody's listening on a random port. Usually.
+	c, err := dialWithBackOff(context.Background(), "tcp4", "127.0.0.1:41482")
+	if err == nil {
+		c.Close()
+		t.Error("Unexpected success dialing")
+	}
+
+	// Timeout. Use special testing IP address.
+	c, err = dialBackOffHelper(context.Background(), "tcp4", "198.18.0.254:8888", 2, initialTO, sleepTO)
+	if err == nil {
+		c.Close()
+		t.Error("Unexpected success dialing")
+	}
+	if err != errDialTimeout {
+		t.Errorf("Error = %v, want: %v", err, errDialTimeout)
+	}
+
+	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
+	defer s.Close()
+
+	c, err = dialWithBackOff(context.Background(), "tcp4", strings.TrimPrefix(s.URL, "http://"))
+	if err != nil {
+		t.Fatalf("dial error = %v, want nil", err)
+	}
+	c.Close()
 }

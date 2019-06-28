@@ -16,6 +16,9 @@ limitations under the License.
 package network
 
 import (
+	"context"
+	"errors"
+	"math/rand"
 	"net"
 	"net/http"
 	"time"
@@ -39,6 +42,44 @@ func newAutoTransport(v1 http.RoundTripper, v2 http.RoundTripper) http.RoundTrip
 	})
 }
 
+const (
+	initialTO = float64(50 * time.Millisecond)
+	sleepTO   = float64(30 * time.Millisecond)
+	factor    = 1.4
+	numSteps  = 10
+)
+
+var errDialTimeout = errors.New("timed out dialing")
+
+// dialWithBackOff executes `net.Dialer.DialContext()` with exponentially increasing
+// dial timeouts. In addition it sleeps with random jitter between tries.
+func dialWithBackOff(ctx context.Context, network, address string) (net.Conn, error) {
+	return dialBackOffHelper(ctx, network, address, numSteps, initialTO, sleepTO)
+}
+
+func dialBackOffHelper(ctx context.Context, network, address string, steps int, initial, sleep float64) (net.Conn, error) {
+	to := initial
+	dialer := &net.Dialer{
+		Timeout:   time.Duration(to),
+		KeepAlive: 5 * time.Second,
+		DualStack: true,
+	}
+	for i := 0; i < steps; i++ {
+		c, err := dialer.DialContext(ctx, network, address)
+		if err != nil {
+			if err, ok := err.(net.Error); ok && err.Timeout() {
+				to *= factor
+				dialer.Timeout = time.Duration(to)
+				time.Sleep(time.Duration(sleep + rand.Float64()*sleep)) // Sleep with jitter.
+				continue
+			}
+			return nil, err
+		}
+		return c, err
+	}
+	return nil, errDialTimeout
+}
+
 func newHTTPTransport(connTimeout time.Duration) http.RoundTripper {
 	return &http.Transport{
 		// Those match net/http/transport.go
@@ -49,11 +90,7 @@ func newHTTPTransport(connTimeout time.Duration) http.RoundTripper {
 		ExpectContinueTimeout: 1 * time.Second,
 
 		// This is bespoke.
-		DialContext: (&net.Dialer{
-			Timeout:   connTimeout,
-			KeepAlive: 5 * time.Second,
-			DualStack: true,
-		}).DialContext,
+		DialContext: dialWithBackOff,
 	}
 }
 
