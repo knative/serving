@@ -40,18 +40,16 @@ import (
 	"github.com/knative/serving/pkg/network"
 	"github.com/knative/serving/pkg/queue"
 	"github.com/knative/serving/pkg/queue/health"
+	"github.com/knative/serving/pkg/queue/readiness"
 	queuestats "github.com/knative/serving/pkg/queue/stats"
 	"github.com/pkg/errors"
-
 	"go.opencensus.io/stats"
 	"go.uber.org/zap"
-
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"knative.dev/pkg/logging/logkey"
 	"knative.dev/pkg/metrics"
 	"knative.dev/pkg/signals"
-
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/util/wait"
 )
 
 const (
@@ -88,8 +86,6 @@ const (
 	healthURLTemplate = "http://127.0.0.1:%d" + requestQueueHealthPath
 	// defaultProbeTimeout is the default duration for TCP/HTTP probe timeout.
 	defaultProbeTimeout = 100 * time.Millisecond
-	pollTimeout         = 10 * time.Second
-	retryInterval       = 50 * time.Millisecond
 )
 
 var (
@@ -257,10 +253,10 @@ func handler(reqChan chan queue.ReqEvent, breaker *queue.Breaker, handler http.H
 }
 
 // Sets up /health and /wait-for-drain endpoints.
-func createAdminHandlers(p *probe) *http.ServeMux {
+func createAdminHandlers(p *readiness.Probe) *http.ServeMux {
 	mux := http.NewServeMux()
 
-	if p.isStandardProbe() {
+	if p.IsStandardProbe() {
 		mux.HandleFunc(requestQueueHealthPath, healthState.HealthHandlerStd(p.ProbeContainer))
 	} else {
 		mux.HandleFunc(requestQueueHealthPath, healthState.HealthHandler(p.ProbeContainer))
@@ -334,97 +330,14 @@ func knativeProbe(url string) error {
 	return nil
 }
 
-type probe struct {
-	*corev1.Probe
-	count  int32
-	logger *zap.SugaredLogger
-}
-
-// isStandardProbe function checks if default probe should be used or custom
-func (p *probe) isStandardProbe() bool {
-	return p.PeriodSeconds != 0
-}
-
-func (p *probe) ProbeContainer() bool {
-	var err error
-
-	if p.HTTPGet != nil {
-		err = p.httpProbe()
-	} else if p.TCPSocket != nil {
-		err = p.tcpProbe()
-	} else if p.Exec != nil {
-		// Assumes the true readinessProbe is being executed directly on user container. See (#4086).
-		return true
-	} else {
-		// using Fprintf for a concise error message in the event log
-		fmt.Fprintf(os.Stderr, "unimplemented probe type.")
-		return false
-	}
-
+func parseProbe(ucProbe string) (*corev1.Probe, error) {
+	p := &corev1.Probe{}
+	err := json.Unmarshal([]byte(ucProbe), p)
 	if err != nil {
-		p.logger.Errorw("User-container could not be probed successfully.", zap.Error(err))
-		return false
+		return nil, err
 	}
-
-	p.logger.Info("User-container successfully probed.")
-	return true
-}
-
-func (p *probe) timeout() time.Duration {
-	if p.isStandardProbe() {
-		return time.Duration(p.TimeoutSeconds) * time.Second
-	}
-	return defaultProbeTimeout
-}
-
-// tcpProbe function executes TCP probe once if its standard probe
-// otherwise TCP probe polls condition function which returns true
-// if the probe count is greater than success threshold and false if TCP probe fails
-func (p *probe) tcpProbe() error {
-	config := health.TCPProbeConfigOptions{
-		Address:       fmt.Sprintf("%s:%d", p.TCPSocket.Host, p.TCPSocket.Port.IntValue()),
-		SocketTimeout: p.timeout(),
-	}
-	if p.isStandardProbe() {
-		return health.TCPProbe(config)
-	}
-
-	return wait.PollImmediate(retryInterval, pollTimeout, func() (bool, error) {
-		if tcpErr := health.TCPProbe(config); tcpErr != nil {
-			p.count = 0
-			return false, nil
-		}
-		p.count++
-		return p.SuccessCount() >= p.SuccessThreshold, nil
-	})
-}
-
-// httpProbe function executes HTTP probe once if its standard probe
-// otherwise HTTP probe polls condition function which returns true
-// if the probe count is greater than success threshold and false if HTTP probe fails
-func (p *probe) httpProbe() error {
-	httpProbeConfig := health.HTTPProbeConfigOptions{
-		HTTPGetAction: p.HTTPGet,
-		Timeout:       p.timeout(),
-	}
-	if p.isStandardProbe() {
-		return health.HTTPProbe(httpProbeConfig)
-	}
-
-	return wait.PollImmediate(retryInterval, pollTimeout, func() (bool, error) {
-		if err := health.HTTPProbe(httpProbeConfig); err != nil {
-			p.count = 0
-			return false, nil
-		}
-		p.count++
-
-		return p.SuccessCount() >= p.SuccessThreshold, nil
-	})
-}
-
-// Count function fetches current probe count
-func (p *probe) SuccessCount() int32 {
-	return p.count
+	return p, nil
+	//	return readiness.NewProbe(p, logger.With(zap.String(logkey.Key, "readinessProbe"))), nil
 }
 
 func main() {
@@ -488,14 +401,16 @@ func main() {
 		StatChan:   statChan,
 	}, time.Now())
 
-	pb, err := parseProbe(*ucProbe)
+	coreProbe, err := parseProbe(*ucProbe)
 	if err != nil {
 		logger.Fatalf("Queue container failed to parse readiness probe %#v", err)
 	}
 
+	rp := readiness.NewProbe(coreProbe, logger.With(zap.String(logkey.Key, "readinessProbe")))
+
 	adminServer := &http.Server{
 		Addr:    fmt.Sprintf(":%d", networking.QueueAdminPort),
-		Handler: createAdminHandlers(pb),
+		Handler: createAdminHandlers(rp),
 	}
 
 	metricsSupported := false
@@ -575,21 +490,6 @@ func main() {
 			logger.Errorw("Failed to shutdown admin-server", zap.Error(err))
 		}
 	}
-}
-
-func parseProbe(ucProbe string) (*probe, error) {
-	p := &corev1.Probe{}
-	err := json.Unmarshal([]byte(ucProbe), p)
-	if err != nil {
-		return nil, err
-	}
-	return &probe{
-		Probe: p,
-		logger: logger.With(
-			zap.String(logkey.Key, "readinessProbe"),
-		),
-		count: 0,
-	}, nil
 }
 
 // createVarLogLink creates a symlink allowing the fluentd daemon set to capture the
