@@ -23,9 +23,6 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp/cmpopts"
-	"knative.dev/pkg/controller"
-	"knative.dev/pkg/kmp"
-	"knative.dev/pkg/logging"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 	listers "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
@@ -40,6 +37,9 @@ import (
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
+	"knative.dev/pkg/controller"
+	"knative.dev/pkg/kmp"
+	"knative.dev/pkg/logging"
 )
 
 const (
@@ -143,29 +143,8 @@ func (c *Reconciler) reconcile(ctx context.Context, service *v1alpha1.Service) e
 		return err
 	}
 
-	configName := resourcenames.Configuration(service)
-	config, err := c.configurationLister.Configurations(service.Namespace).Get(configName)
-	if errors.IsNotFound(err) {
-		config, err = c.createConfiguration(service)
-		if err != nil {
-			logger.Errorf("Failed to create Configuration %q: %v", configName, err)
-			c.Recorder.Eventf(service, corev1.EventTypeWarning, "CreationFailed", "Failed to create Configuration %q: %v", configName, err)
-			return err
-		}
-		c.Recorder.Eventf(service, corev1.EventTypeNormal, "Created", "Created Configuration %q", configName)
-	} else if err != nil {
-		logger.Errorw(
-			fmt.Sprintf("Failed to reconcile Service: %q failed to Get Configuration: %q", service.Name, configName),
-			zap.Error(err))
-		return err
-	} else if !metav1.IsControlledBy(config, service) {
-		// Surface an error in the service's status,and return an error.
-		service.Status.MarkConfigurationNotOwned(configName)
-		return fmt.Errorf("service: %q does not own configuration: %q", service.Name, configName)
-	} else if config, err = c.reconcileConfiguration(ctx, service, config); err != nil {
-		logger.Errorw(
-			fmt.Sprintf("Failed to reconcile Service: %q failed to reconcile Configuration: %q",
-				service.Name, configName), zap.Error(err))
+	config, err := c.config(ctx, logger, service)
+	if err != nil {
 		return err
 	}
 
@@ -188,28 +167,12 @@ func (c *Reconciler) reconcile(ctx context.Context, service *v1alpha1.Service) e
 		return nil
 	}
 
-	routeName := resourcenames.Route(service)
-	route, err := c.routeLister.Routes(service.Namespace).Get(routeName)
-	if errors.IsNotFound(err) {
-		route, err = c.createRoute(service)
-		if err != nil {
-			logger.Errorf("Failed to create Route %q: %v", routeName, err)
-			c.Recorder.Eventf(service, corev1.EventTypeWarning, "CreationFailed", "Failed to create Route %q: %v", routeName, err)
-			return err
-		}
-		c.Recorder.Eventf(service, corev1.EventTypeNormal, "Created", "Created Route %q", routeName)
-	} else if err != nil {
-		logger.Errorf("Failed to reconcile Service: %q failed to Get Route: %q", service.Name, routeName)
-		return err
-	} else if !metav1.IsControlledBy(route, service) {
-		// Surface an error in the service's status, and return an error.
-		service.Status.MarkRouteNotOwned(routeName)
-		return fmt.Errorf("service: %q does not own route: %q", service.Name, routeName)
-	} else if route, err = c.reconcileRoute(ctx, service, route); err != nil {
-		logger.Errorf("Failed to reconcile Service: %q failed to reconcile Route: %q", service.Name, routeName)
+	route, err := c.route(ctx, logger, service)
+	if err != nil {
 		return err
 	}
 
+	// Update our Status based on the state of our underlying Route.
 	ss := &service.Status
 	if route.Generation != route.Status.ObservedGeneration {
 		// The Route hasn't yet reconciled our latest changes to
@@ -220,35 +183,96 @@ func (c *Reconciler) reconcile(ctx context.Context, service *v1alpha1.Service) e
 		ss.PropagateRouteStatus(&route.Status)
 	}
 
-	// `manual` is not reconciled.
-	rc := service.Status.GetCondition(v1alpha1.ServiceConditionRoutesReady)
-	if rc != nil && rc.Status == corev1.ConditionTrue {
-		if len(route.Spec.Traffic) != len(route.Status.Traffic) {
-			service.Status.MarkRouteNotYetReady()
-		} else {
-			want, got := route.Spec.DeepCopy().Traffic, route.Status.DeepCopy().Traffic
-			// Replace `configuration` target with its latest ready revision.
-			for idx := range want {
-				if want[idx].ConfigurationName == config.Name {
-					want[idx].RevisionName = config.Status.LatestReadyRevisionName
-					want[idx].ConfigurationName = ""
-				}
-			}
-			ignoreFields := cmpopts.IgnoreFields(v1alpha1.TrafficTarget{},
-				"TrafficTarget.URL", "TrafficTarget.LatestRevision",
-				// We specify the Routing via Tag in spec, but the status surfaces it
-				// via both names for now, so ignore the deprecated name field when
-				// comparing them.
-				"DeprecatedName")
-			if diff, err := kmp.SafeDiff(got, want, ignoreFields); err != nil || diff != "" {
-				logger.Errorf("Route %q is not yet what we want: %s", service.Name, diff)
-				service.Status.MarkRouteNotYetReady()
-			}
-		}
-	}
+	c.checkRoutesNotReady(config, logger, route, service)
 	service.Status.ObservedGeneration = service.Generation
 
 	return nil
+}
+
+func (c *Reconciler) config(ctx context.Context, logger *zap.SugaredLogger, service *v1alpha1.Service) (*v1alpha1.Configuration, error) {
+	configName := resourcenames.Configuration(service)
+	config, err := c.configurationLister.Configurations(service.Namespace).Get(configName)
+	if errors.IsNotFound(err) {
+		config, err = c.createConfiguration(service)
+		if err != nil {
+			logger.Errorf("Failed to create Configuration %q: %v", configName, err)
+			c.Recorder.Eventf(service, corev1.EventTypeWarning, "CreationFailed", "Failed to create Configuration %q: %v", configName, err)
+			return nil, err
+		}
+		c.Recorder.Eventf(service, corev1.EventTypeNormal, "Created", "Created Configuration %q", configName)
+	} else if err != nil {
+		logger.Errorw(
+			fmt.Sprintf("Failed to reconcile Service: %q failed to Get Configuration: %q", service.Name, configName),
+			zap.Error(err))
+		return nil, err
+	} else if !metav1.IsControlledBy(config, service) {
+		// Surface an error in the service's status,and return an error.
+		service.Status.MarkConfigurationNotOwned(configName)
+		return nil, fmt.Errorf("service: %q does not own configuration: %q", service.Name, configName)
+	} else if config, err = c.reconcileConfiguration(ctx, service, config); err != nil {
+		logger.Errorw(
+			fmt.Sprintf("Failed to reconcile Service: %q failed to reconcile Configuration: %q",
+				service.Name, configName), zap.Error(err))
+		return nil, err
+	}
+	return config, nil
+}
+
+func (c *Reconciler) route(ctx context.Context, logger *zap.SugaredLogger, service *v1alpha1.Service) (*v1alpha1.Route, error) {
+	routeName := resourcenames.Route(service)
+	route, err := c.routeLister.Routes(service.Namespace).Get(routeName)
+	if errors.IsNotFound(err) {
+		route, err = c.createRoute(service)
+		if err != nil {
+			logger.Errorf("Failed to create Route %q: %v", routeName, err)
+			c.Recorder.Eventf(service, corev1.EventTypeWarning, "CreationFailed", "Failed to create Route %q: %v", routeName, err)
+			return nil, err
+		}
+		c.Recorder.Eventf(service, corev1.EventTypeNormal, "Created", "Created Route %q", routeName)
+	} else if err != nil {
+		logger.Errorf("Failed to reconcile Service: %q failed to Get Route: %q", service.Name, routeName)
+		return nil, err
+	} else if !metav1.IsControlledBy(route, service) {
+		// Surface an error in the service's status, and return an error.
+		service.Status.MarkRouteNotOwned(routeName)
+		return nil, fmt.Errorf("service: %q does not own route: %q", service.Name, routeName)
+	} else if route, err = c.reconcileRoute(ctx, service, route); err != nil {
+		logger.Errorf("Failed to reconcile Service: %q failed to reconcile Route: %q", service.Name, routeName)
+		return nil, err
+	}
+	return route, nil
+}
+
+func (c *Reconciler) checkRoutesNotReady(config *v1alpha1.Configuration, logger *zap.SugaredLogger, route *v1alpha1.Route, service *v1alpha1.Service) {
+	// `manual` is not reconciled.
+	rc := service.Status.GetCondition(v1alpha1.ServiceConditionRoutesReady)
+	if rc == nil || rc.Status != corev1.ConditionTrue {
+		return
+	}
+
+	if len(route.Spec.Traffic) != len(route.Status.Traffic) {
+		service.Status.MarkRouteNotYetReady()
+		return
+	}
+
+	want, got := route.Spec.DeepCopy().Traffic, route.Status.DeepCopy().Traffic
+	// Replace `configuration` target with its latest ready revision.
+	for idx := range want {
+		if want[idx].ConfigurationName == config.Name {
+			want[idx].RevisionName = config.Status.LatestReadyRevisionName
+			want[idx].ConfigurationName = ""
+		}
+	}
+	ignoreFields := cmpopts.IgnoreFields(v1alpha1.TrafficTarget{},
+		"TrafficTarget.URL", "TrafficTarget.LatestRevision",
+		// We specify the Routing via Tag in spec, but the status surfaces it
+		// via both names for now, so ignore the deprecated name field when
+		// comparing them.
+		"DeprecatedName")
+	if diff, err := kmp.SafeDiff(got, want, ignoreFields); err != nil || diff != "" {
+		logger.Errorf("Route %q is not yet what we want: %s", service.Name, diff)
+		service.Status.MarkRouteNotYetReady()
+	}
 }
 
 func (c *Reconciler) updateStatus(desired *v1alpha1.Service) (*v1alpha1.Service, error) {
