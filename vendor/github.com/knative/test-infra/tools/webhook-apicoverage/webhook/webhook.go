@@ -26,9 +26,6 @@ import (
 	"strings"
 	"time"
 
-	"knative.dev/pkg/configmap"
-	"knative.dev/pkg/logging"
-	"knative.dev/pkg/webhook"
 	"github.com/markbates/inflect"
 	"go.uber.org/zap"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
@@ -37,6 +34,9 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+	"knative.dev/pkg/configmap"
+	"knative.dev/pkg/logging"
+	"knative.dev/pkg/webhook"
 )
 
 var (

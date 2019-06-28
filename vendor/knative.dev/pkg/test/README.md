@@ -31,8 +31,8 @@ These flags are useful for running against an existing cluster, making use of
 your existing
 [environment setup](https://github.com/knative/serving/blob/master/DEVELOPMENT.md#environment-setup).
 
-By importing `knative.dev/pkg/test` you get access to a global variable
-called `test.Flags` which holds the values of
+By importing `knative.dev/pkg/test` you get access to a global variable called
+`test.Flags` which holds the values of
 [the command line flags](/test/README.md#flags).
 
 ```go
@@ -170,8 +170,7 @@ _See [cleanup.go](./cleanup.go)._
 Importing [the test library](#test-library) adds flags that are useful for end
 to end tests that need to run against a cluster.
 
-Tests importing [`knative.dev/pkg/test`](#test-library) recognize these
-flags:
+Tests importing [`knative.dev/pkg/test`](#test-library) recognize these flags:
 
 - [`--kubeconfig`](#specifying-kubeconfig)
 - [`--cluster`](#specifying-cluster)
