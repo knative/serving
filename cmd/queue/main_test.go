@@ -527,7 +527,7 @@ func TestHTTPSuccessWithDelay(t *testing.T) {
 	}
 }
 
-func TestKNHTTPSuccessWithRetry(t *testing.T) {
+func TestKnHTTPSuccessWithRetry(t *testing.T) {
 	attempted := false
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -561,7 +561,7 @@ func TestKNHTTPSuccessWithRetry(t *testing.T) {
 	}
 }
 
-func TestKNHTTPSuccessWithThreshold(t *testing.T) {
+func TestKnHTTPSuccessWithThreshold(t *testing.T) {
 	var count int32
 	var threshold int32 = 3
 
@@ -596,7 +596,7 @@ func TestKNHTTPSuccessWithThreshold(t *testing.T) {
 	}
 }
 
-func TestKNHTTPSuccessWithThresholdAndFailure(t *testing.T) {
+func TestKnHTTPSuccessWithThresholdAndFailure(t *testing.T) {
 	var count int32
 	var threshold int32 = 3
 	var requestFailure int32 = 2
@@ -642,7 +642,7 @@ func TestKNHTTPSuccessWithThresholdAndFailure(t *testing.T) {
 	}
 }
 
-func TestKNHTTPTimeoutFailure(t *testing.T) {
+func TestKnHTTPTimeoutFailure(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		time.Sleep(200 * time.Millisecond)
 		w.WriteHeader(http.StatusOK)
@@ -670,7 +670,7 @@ func TestKNHTTPTimeoutFailure(t *testing.T) {
 	}
 }
 
-func TestKNativeTCPProbeSuccess(t *testing.T) {
+func TestKnTCPProbeSuccess(t *testing.T) {
 	port := freePort(t)
 	pb := newProbe(&corev1.Probe{
 		PeriodSeconds:    0,
@@ -696,7 +696,7 @@ func TestKNativeTCPProbeSuccess(t *testing.T) {
 	}
 }
 
-func TestKNativeUnimplementedProbe(t *testing.T) {
+func TestKnUnimplementedProbe(t *testing.T) {
 	pb := newProbe(&corev1.Probe{
 		PeriodSeconds:    0,
 		TimeoutSeconds:   0,
@@ -709,7 +709,7 @@ func TestKNativeUnimplementedProbe(t *testing.T) {
 		t.Error("Got probe success. Wanted failure.")
 	}
 }
-func TestKNativeTCPProbeFailure(t *testing.T) {
+func TestKnTCPProbeFailure(t *testing.T) {
 	pb := newProbe(&corev1.Probe{
 		PeriodSeconds:    0,
 		TimeoutSeconds:   0,
@@ -728,7 +728,7 @@ func TestKNativeTCPProbeFailure(t *testing.T) {
 	}
 }
 
-func TestKNativeTCPProbeSuccessWithThreshold(t *testing.T) {
+func TestKnTCPProbeSuccessWithThreshold(t *testing.T) {
 	port := freePort(t)
 	pb := newProbe(&corev1.Probe{
 		PeriodSeconds:    0,
@@ -758,7 +758,7 @@ func TestKNativeTCPProbeSuccessWithThreshold(t *testing.T) {
 	}
 }
 
-func TestKNativeTCPProbeSuccessThresholdIncludesFailure(t *testing.T) {
+func TestKnTCPProbeSuccessThresholdIncludesFailure(t *testing.T) {
 	var successThreshold int32 = 3
 	port := freePort(t)
 	pb := newProbe(&corev1.Probe{
