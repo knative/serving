@@ -22,19 +22,16 @@ import (
 	"time"
 
 	pkghttp "github.com/knative/serving/pkg/http"
-	"github.com/knative/serving/pkg/network"
 	"github.com/knative/serving/pkg/queue/stats"
 )
 
 type requestMetricHandler struct {
 	handler       http.Handler
 	statsReporter stats.StatsReporter
-	activatorName string
 }
 
 // NewRequestMetricHandler creates an http.Handler that emits request metrics.
-// Note: activatorName is plumbed in to avoid import cycle when using activator.Name directly.
-func NewRequestMetricHandler(h http.Handler, r stats.StatsReporter, activatorName string) (http.Handler, error) {
+func NewRequestMetricHandler(h http.Handler, r stats.StatsReporter) (http.Handler, error) {
 	if r == nil {
 		return nil, errors.New("StatsReporter must not be nil")
 	}
@@ -42,28 +39,26 @@ func NewRequestMetricHandler(h http.Handler, r stats.StatsReporter, activatorNam
 	return &requestMetricHandler{
 		handler:       h,
 		statsReporter: r,
-		activatorName: activatorName,
 	}, nil
 }
 
 func (h *requestMetricHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	rr := pkghttp.NewResponseRecorder(w, http.StatusOK)
-	proxied := h.activatorName == r.Header.Get(network.ProxyHeaderName)
 	startTime := time.Now()
 	defer func() {
 		// If ServeHTTP panics, recover, record the failure and panic again.
 		err := recover()
 		latency := time.Since(startTime)
 		if err != nil {
-			h.sendRequestMetrics(http.StatusInternalServerError, latency, proxied)
+			h.sendRequestMetrics(http.StatusInternalServerError, latency)
 			panic(err)
 		}
-		h.sendRequestMetrics(rr.ResponseCode, latency, proxied)
+		h.sendRequestMetrics(rr.ResponseCode, latency)
 	}()
 	h.handler.ServeHTTP(rr, r)
 }
 
-func (h *requestMetricHandler) sendRequestMetrics(respCode int, latency time.Duration, isProxiedThroughActivator bool) {
-	h.statsReporter.ReportRequestCount(respCode, 1, isProxiedThroughActivator)
-	h.statsReporter.ReportResponseTime(respCode, latency, isProxiedThroughActivator)
+func (h *requestMetricHandler) sendRequestMetrics(respCode int, latency time.Duration) {
+	h.statsReporter.ReportRequestCount(respCode, 1)
+	h.statsReporter.ReportResponseTime(respCode, latency)
 }

@@ -479,7 +479,7 @@ func pushRequestMetricHandler(currentHandler http.Handler, countMetric *stats.In
 		return currentHandler
 	}
 
-	handler, err := queue.NewRequestMetricHandler(currentHandler, r, activator.Name)
+	handler, err := queue.NewRequestMetricHandler(currentHandler, r)
 	if err != nil {
 		logger.Errorw("Error setting up request metrics handler. Request metrics will be unavailable.", zap.Error(err))
 		return currentHandler

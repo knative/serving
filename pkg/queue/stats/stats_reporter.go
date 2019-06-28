@@ -33,8 +33,8 @@ var defaultLatencyDistribution = view.Distribution(0, 5, 10, 20, 40, 60, 80, 100
 
 // StatsReporter defines the interface for sending queue-proxy metrics
 type StatsReporter interface {
-	ReportRequestCount(responseCode int, v int64, isProxiedThroughActivator bool) error
-	ReportResponseTime(responseCode int, d time.Duration, isProxiedThroughActivator bool) error
+	ReportRequestCount(responseCode int, v int64) error
+	ReportResponseTime(responseCode int, d time.Duration) error
 }
 
 // Reporter holds cached metric objects to report autoscaler metrics
@@ -47,7 +47,6 @@ type Reporter struct {
 	revisionTagKey            tag.Key
 	responseCodeKey           tag.Key
 	responseCodeClassKey      tag.Key
-	proxiedThoughActivatorKey tag.Key
 	countMetric               *stats.Int64Measure
 	latencyMetric             *stats.Float64Measure
 }
@@ -89,10 +88,6 @@ func NewStatsReporter(ns, service, config, rev string, countMetric *stats.Int64M
 	if err != nil {
 		return nil, err
 	}
-	proxiedTag, err := tag.NewKey("proxied_through_activator")
-	if err != nil {
-		return nil, err
-	}
 
 	// Create view to see our measurements.
 	err = view.Register(
@@ -100,13 +95,13 @@ func NewStatsReporter(ns, service, config, rev string, countMetric *stats.Int64M
 			Description: "The number of requests that are routed to queue-proxy",
 			Measure:     countMetric,
 			Aggregation: view.Sum(),
-			TagKeys:     []tag.Key{nsTag, svcTag, configTag, revTag, responseCodeTag, responseCodeClassTag, proxiedTag},
+			TagKeys:     []tag.Key{nsTag, svcTag, configTag, revTag, responseCodeTag, responseCodeClassTag},
 		},
 		&view.View{
 			Description: "The response time in millisecond",
 			Measure:     latencyMetric,
 			Aggregation: defaultLatencyDistribution,
-			TagKeys:     []tag.Key{nsTag, svcTag, configTag, revTag, responseCodeTag, responseCodeClassTag, proxiedTag},
+			TagKeys:     []tag.Key{nsTag, svcTag, configTag, revTag, responseCodeTag, responseCodeClassTag},
 		},
 	)
 	if err != nil {
@@ -134,7 +129,6 @@ func NewStatsReporter(ns, service, config, rev string, countMetric *stats.Int64M
 		revisionTagKey:            revTag,
 		responseCodeKey:           responseCodeTag,
 		responseCodeClassKey:      responseCodeClassTag,
-		proxiedThoughActivatorKey: proxiedTag,
 		countMetric:               countMetric,
 		latencyMetric:             latencyMetric,
 	}, nil
@@ -148,7 +142,7 @@ func valueOrUnknown(v string) string {
 }
 
 // ReportRequestCount captures request count metric with value v.
-func (r *Reporter) ReportRequestCount(responseCode int, v int64, proxied bool) error {
+func (r *Reporter) ReportRequestCount(responseCode int, v int64) error {
 	if !r.initialized {
 		return errors.New("StatsReporter is not initialized yet")
 	}
@@ -157,8 +151,7 @@ func (r *Reporter) ReportRequestCount(responseCode int, v int64, proxied bool) e
 	ctx, err := tag.New(
 		r.ctx,
 		tag.Insert(r.responseCodeKey, strconv.Itoa(responseCode)),
-		tag.Insert(r.responseCodeClassKey, responseCodeClass(responseCode)),
-		tag.Insert(r.proxiedThoughActivatorKey, strconv.FormatBool(proxied)))
+		tag.Insert(r.responseCodeClassKey, responseCodeClass(responseCode)))
 	if err != nil {
 		return err
 	}
@@ -168,7 +161,7 @@ func (r *Reporter) ReportRequestCount(responseCode int, v int64, proxied bool) e
 }
 
 // ReportResponseTime captures response time requests
-func (r *Reporter) ReportResponseTime(responseCode int, d time.Duration, proxied bool) error {
+func (r *Reporter) ReportResponseTime(responseCode int, d time.Duration) error {
 	if !r.initialized {
 		return errors.New("StatsReporter is not initialized yet")
 	}
@@ -177,8 +170,7 @@ func (r *Reporter) ReportResponseTime(responseCode int, d time.Duration, proxied
 	ctx, err := tag.New(
 		r.ctx,
 		tag.Insert(r.responseCodeKey, strconv.Itoa(responseCode)),
-		tag.Insert(r.responseCodeClassKey, responseCodeClass(responseCode)),
-		tag.Insert(r.proxiedThoughActivatorKey, strconv.FormatBool(proxied)))
+		tag.Insert(r.responseCodeClassKey, responseCodeClass(responseCode)))
 	if err != nil {
 		return err
 	}

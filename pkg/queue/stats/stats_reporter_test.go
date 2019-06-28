@@ -33,8 +33,6 @@ const (
 	testSvc     = "helloworld-go-service"
 	testConf    = "helloworld-go"
 	testRev     = "helloworld-go-00001"
-	proxied     = true
-	direct      = false
 	countName   = "request_count"
 	latencyName = "request_latencies"
 )
@@ -92,7 +90,7 @@ func TestNewStatsReporter_negative(t *testing.T) {
 
 func TestReporter_Report(t *testing.T) {
 	r := &Reporter{}
-	if err := r.ReportRequestCount(200, 10, direct); err == nil {
+	if err := r.ReportRequestCount(200, 10); err == nil {
 		t.Error("Reporter.ReportRequestCount() expected an error for Report call before init. Got success.")
 	}
 
@@ -107,25 +105,24 @@ func TestReporter_Report(t *testing.T) {
 		metricskey.LabelRevisionName:      testRev,
 		"response_code":                   "200",
 		"response_code_class":             "2xx",
-		"proxied_through_activator":       "false",
 	}
 
 	// Send statistics only once and observe the results
-	expectSuccess(t, "ReportRequestCount", func() error { return r.ReportRequestCount(200, 1, direct) })
+	expectSuccess(t, "ReportRequestCount", func() error { return r.ReportRequestCount(200, 1) })
 	assertSumData(t, "request_count", wantTags, 1)
 
 	// The stats are cumulative - record multiple entries, should get sum
-	expectSuccess(t, "ReportRequestCount", func() error { return r.ReportRequestCount(200, 2, direct) })
-	expectSuccess(t, "ReportRequestCount", func() error { return r.ReportRequestCount(200, 3, direct) })
+	expectSuccess(t, "ReportRequestCount", func() error { return r.ReportRequestCount(200, 2) })
+	expectSuccess(t, "ReportRequestCount", func() error { return r.ReportRequestCount(200, 3) })
 	assertSumData(t, "request_count", wantTags, 6)
 
 	// Send statistics only once and observe the results
-	expectSuccess(t, "ReportResponseTime", func() error { return r.ReportResponseTime(200, 100*time.Millisecond, direct) })
+	expectSuccess(t, "ReportResponseTime", func() error { return r.ReportResponseTime(200, 100*time.Millisecond) })
 	assertDistributionData(t, "request_latencies", wantTags, 1, 100, 100)
 
 	// The stats are cumulative - record multiple entries, should get count sum
-	expectSuccess(t, "ReportRequestCount", func() error { return r.ReportResponseTime(200, 200*time.Millisecond, direct) })
-	expectSuccess(t, "ReportRequestCount", func() error { return r.ReportResponseTime(200, 300*time.Millisecond, direct) })
+	expectSuccess(t, "ReportRequestCount", func() error { return r.ReportResponseTime(200, 200*time.Millisecond) })
+	expectSuccess(t, "ReportRequestCount", func() error { return r.ReportResponseTime(200, 300*time.Millisecond) })
 	assertDistributionData(t, "request_latencies", wantTags, 3, 100, 300)
 
 	unregisterViews(r)
@@ -142,57 +139,13 @@ func TestReporter_Report(t *testing.T) {
 		metricskey.LabelRevisionName:      testRev,
 		"response_code":                   "200",
 		"response_code_class":             "2xx",
-		"proxied_through_activator":       "false",
 	}
 
 	// Send statistics only once and observe the results
-	expectSuccess(t, "ReportRequestCount", func() error { return r.ReportRequestCount(200, 1, direct) })
+	expectSuccess(t, "ReportRequestCount", func() error { return r.ReportRequestCount(200, 1) })
 	assertSumData(t, "request_count", wantTags, 1)
 
 	unregisterViews(r)
-}
-
-func TestNewStatsReporter_proxiedTag(t *testing.T) {
-	wantTags := map[string]string{
-		metricskey.LabelNamespaceName:     testNs,
-		metricskey.LabelServiceName:       testSvc,
-		metricskey.LabelConfigurationName: testConf,
-		metricskey.LabelRevisionName:      testRev,
-		"response_code":                   "200",
-		"response_code_class":             "2xx",
-		"proxied_through_activator":       "false",
-	}
-	tests := []struct {
-		name      string
-		isProxied bool
-		expected  string
-	}{{
-		"proxied request",
-		proxied,
-		"true",
-	}, {
-		"direct request",
-		direct,
-		"false",
-	}}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			r, err := NewStatsReporter(testNs, testSvc, testConf, testRev, countMetric, latencyMetric)
-			if err != nil {
-				t.Error(err)
-			}
-			r.ReportRequestCount(200, 1, test.isProxied)
-			wantTags["proxied_through_activator"] = test.expected
-			assertSumData(t, countName, wantTags, 1)
-
-			r.ReportResponseTime(200, 300*time.Millisecond, test.isProxied)
-			assertDistributionData(t, latencyName, wantTags, 1, 300, 300)
-
-			unregisterViews(r)
-
-		})
-	}
 }
 
 func expectSuccess(t *testing.T, funcName string, f func() error) {
