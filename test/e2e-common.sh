@@ -293,6 +293,10 @@ function test_setup() {
   if [[ -z "${GLOO_VERSION}" ]]; then
     wait_until_pods_running istio-system || return 1
     wait_until_service_has_external_ip istio-system istio-ingressgateway
+    # we must set these override values to allow the test spoofing client to work with Gloo
+    # see https://github.com/knative/pkg/blob/release-0.7/test/ingress/ingress.go#L37
+    export GATEWAY_OVERRIDE=clusteringress-proxy
+    export GATEWAY_NAMESPACE_OVERRIDE=gloo-system
   else
     wait_until_pods_running gloo-system || return 1
     wait_until_service_has_external_ip gloo-system clusteringress-proxy
