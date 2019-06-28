@@ -121,7 +121,7 @@ func createServices(t *testing.T, pc *Client, count int) ([]*v1a1test.ResourceOb
 		func(svc *v1alpha1.Service) {
 			svc.Spec.ConfigurationSpec.Template.Spec.Containers[0].Resources = corev1.ResourceRequirements{
 				Limits: corev1.ResourceList{
-					corev1.ResourceCPU:    resource.MustParse("10m"),
+					corev1.ResourceCPU:    resource.MustParse("50m"),
 					corev1.ResourceMemory: resource.MustParse("50Mi"),
 				},
 				Requests: corev1.ResourceList{
@@ -255,6 +255,6 @@ func TestScaleFromZero5(t *testing.T) {
 	testScaleFromZero(t, 5 /* parallelism */, 5 /* runs */)
 }
 
-func TestScaleFromZero50(t *testing.T) {
-	testScaleFromZero(t, 50 /* parallelism */, 5 /* runs */)
+func TestScaleFromZero25(t *testing.T) {
+	testScaleFromZero(t, 25 /* parallelism */, 5 /* runs */)
 }
