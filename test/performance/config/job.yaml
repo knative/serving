@@ -19,7 +19,7 @@ metadata:
 data:
   payload: |
     GET http://autoscale-go.default.svc.cluster.local?sleep=100
----    
+---
 apiVersion: batch/v1
 kind: Job
 metadata:
