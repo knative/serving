@@ -99,4 +99,3 @@ data:
     # flag to "true" could cause extra Stackdriver charge.
     # If metrics.backend-destination is not Stackdriver, this is ignored.
     metrics.allow-stackdriver-custom-metrics: "false"
-  metrics.request-metrics-backend-destination: stackdriver
