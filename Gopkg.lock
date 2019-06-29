@@ -178,6 +178,14 @@
   revision = "4c0e84591b9aa9e6dcfdf3e020114cd81f89d5f9"
 
 [[projects]]
+  branch = "master"
+  digest = "1:2755397479777565ae0c383f63be30e8975da63805281283bdde46d73bed9a7d"
+  name = "github.com/c2h5oh/datasize"
+  packages = ["."]
+  pruneopts = "NUT"
+  revision = "4eba002a5eaea69cf8d235a388fc6b65ae68d2dd"
+
+[[projects]]
   digest = "1:7b306d2c6d792f8e71bf123669ee967cdeec633ca8944c627b50db13cc36c5ec"
   name = "github.com/census-instrumentation/opencensus-proto"
   packages = [
@@ -548,6 +556,14 @@
   version = "v0.3.6"
 
 [[projects]]
+  branch = "master"
+  digest = "1:aa0434674a14402891f31f393b4dd53792bc67eee05158748d999096a8826ed3"
+  name = "github.com/influxdata/tdigest"
+  packages = ["."]
+  pruneopts = "NUT"
+  revision = "bf2b5ad3c0a925c44a0d2842c5d8182113cd248e"
+
+[[projects]]
   digest = "1:2a40bae32c6caa0b7ccc5458450be1d003b459e42094e850d3c28b56abe40346"
   name = "github.com/jetstack/cert-manager"
   packages = [
@@ -801,17 +817,6 @@
   revision = "282c8707aa210456a825798969cc27edda34992a"
 
 [[projects]]
-  digest = "1:285e9ed8b84f6895bf88ab829315f213a06480888fab223861be0c3dfca1a2ed"
-  name = "github.com/rakyll/hey"
-  packages = [
-    ".",
-    "requester",
-  ]
-  pruneopts = "NUT"
-  revision = "01803349acd49d756dafa2cb6ac5b5bfc141fc3b"
-  version = "v0.1.2"
-
-[[projects]]
   digest = "1:7008ec21a0ce773bd21deefdb7d17fab8cb9f1ae0bc44026cdd2b658ab1582ca"
   name = "github.com/rogpeppe/go-internal"
   packages = ["semver"]
@@ -827,12 +832,53 @@
   version = "v1.0.0"
 
 [[projects]]
+  branch = "master"
+  digest = "1:68cecd4c1137f77dfa2db1f13a0ceef2b5606d6b69d66fa69f7df1b2f2fe9afc"
+  name = "github.com/shurcooL/httpfs"
+  packages = ["vfsutil"]
+  pruneopts = "NUT"
+  revision = "6a4d4a70508bfeac7afc814c5e4345e1c640b6b2"
+
+[[projects]]
+  branch = "master"
+  digest = "1:9ad746e784d9616f68a0ea56566a01b23dff758b8c864eaf3e69dfe86d6c3c89"
+  name = "github.com/shurcooL/vfsgen"
+  packages = ["."]
+  pruneopts = "NUT"
+  revision = "6a9ea43bcacdf716a5c1b38efff722c07adf0069"
+
+[[projects]]
   digest = "1:9d8420bbf131d1618bde6530af37c3799340d3762cc47210c1d9532a4c3a2779"
   name = "github.com/spf13/pflag"
   packages = ["."]
   pruneopts = "NUT"
   revision = "298182f68c66c05229eb03ac171abe6e309ee79a"
   version = "v1.0.3"
+
+[[projects]]
+  branch = "master"
+  digest = "1:a889ff8426d462ae8b9a91ef29eb1bcd0d9a9ad792c55f9f32f6f912d57b9b8c"
+  name = "github.com/tsenart/go-tsz"
+  packages = [
+    ".",
+    "testdata",
+  ]
+  pruneopts = "NUT"
+  revision = "0bd30b3df1c328dfc87ed857cdf695c3c7d2cb09"
+
+[[projects]]
+  branch = "master"
+  digest = "1:2f94b13edb425d3ba58e6b9cf01348a930f57b0324193ad4c840b9d3f1e299df"
+  name = "github.com/tsenart/vegeta"
+  packages = [
+    ".",
+    "internal/resolver",
+    "lib",
+    "lib/lttb",
+    "lib/plot",
+  ]
+  pruneopts = "NUT"
+  revision = "28707121bb7840461a563aabcb510a9636e5c5a1"
 
 [[projects]]
   digest = "1:76763f300778a3b9baef4872dc9fcc9a7463ba2a5f6b2acaf589cd7f3b392503"
@@ -1756,8 +1802,8 @@
     "github.com/prometheus/client_golang/prometheus/promhttp",
     "github.com/prometheus/client_model/go",
     "github.com/prometheus/common/expfmt",
-    "github.com/rakyll/hey",
     "github.com/spf13/pflag",
+    "github.com/tsenart/vegeta",
     "go.opencensus.io/exporter/zipkin",
     "go.opencensus.io/plugin/ochttp",
     "go.opencensus.io/stats",

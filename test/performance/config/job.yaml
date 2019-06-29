@@ -12,31 +12,41 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: vegeta-payload
+data:
+  payload: |
+    GET http://autoscale-go.default.svc.cluster.local?sleep=100
+---    
 apiVersion: batch/v1
 kind: Job
 metadata:
   name: load-test
   namespace: default
 spec:
-  parallelism: 5
+  parallelism: 1
   template:
     metadata:
       labels:
         app: load-test
     spec:
       containers:
-      - name: hey
-        image: github.com/knative/serving/vendor/github.com/rakyll/hey
-        args: [
-          "-c", "200",
-          "-z", "4m",
-          "-m", "GET",
-          "-t", "30",
-          "-cpus", "1",
-          "http://autoscale-go.default.svc.cluster.local?sleep=100",
-        ]
+      - name: vegeta
+        image: github.com/knative/serving/vendor/github.com/tsenart/vegeta
+        command: ["/bin/bash", "-c"]
+        args:
+        - "/ko-app/vegeta -cpus=1 attack -duration=4m -rate=1000/1s -targets=/var/vegeta/payload | /ko-app/vegeta report -type=json"
         resources:
           requests:
             cpu: 1000m
-            memory: 200Mi
+            memory: 3Gi
+        volumeMounts:
+        - name: vegeta-payload
+          mountPath: /var/vegeta
+      volumes:
+      - name: vegeta-payload
+        configMap:
+          name: vegeta-payload
       restartPolicy: Never
