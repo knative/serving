@@ -34,16 +34,16 @@ import (
 	"knative.dev/pkg/logging/logkey"
 )
 
-// shouldSurfaceToUser is the key used to represent whether the logs should
-// surface to user
+// userFacing is the key used to represent whether the logs should be surfaced
+// to user
 // TODO: Move this to knative/pkg/logging/logkey
-const shouldSurfaceToUser = "surface"
+const userFacing = "userfacing"
 
 func (c *Reconciler) reconcileDeployment(ctx context.Context, rev *v1alpha1.Revision) error {
 	ns := rev.Namespace
 	deploymentName := resourcenames.Deployment(rev)
 	logger := logging.FromContext(ctx).With(zap.String(logkey.Deployment, deploymentName))
-	surfaceLogger := logger.With(zap.Bool(shouldSurfaceToUser, true))
+	surfaceLogger := logger.With(zap.Bool(userFacing, true))
 
 	deployment, err := c.deploymentLister.Deployments(ns).Get(deploymentName)
 	if apierrs.IsNotFound(err) {
