@@ -125,7 +125,7 @@ func newServingBetaClients(cfg *rest.Config, namespace string) (*ServingBetaClie
 
 // Delete will delete all Routes and Configs with the names routes and configs, if clients
 // has been successfully initialized.
-func (clients *ServingBetaClients) Delete(routes []string, configs []string, services []string) error {
+func (clients *ServingAlphaClients) Delete(routes []string, configs []string, services []string) error {
 	deletions := []struct {
 		client interface {
 			Delete(name string, options *v1.DeleteOptions) error
