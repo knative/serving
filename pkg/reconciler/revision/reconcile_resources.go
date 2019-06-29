@@ -34,10 +34,16 @@ import (
 	"knative.dev/pkg/logging/logkey"
 )
 
+// shouldSurfaceToUser is the key used to represent whether the logs should
+// surface to user
+// TODO: Move this to knative/pkg/logging/logkey
+const shouldSurfaceToUser = "surface"
+
 func (c *Reconciler) reconcileDeployment(ctx context.Context, rev *v1alpha1.Revision) error {
 	ns := rev.Namespace
 	deploymentName := resourcenames.Deployment(rev)
 	logger := logging.FromContext(ctx).With(zap.String(logkey.Deployment, deploymentName))
+	surfaceLogger := logger.With(zap.Bool(shouldSurfaceToUser, true))
 
 	deployment, err := c.deploymentLister.Deployments(ns).Get(deploymentName)
 	if apierrs.IsNotFound(err) {
@@ -78,7 +84,7 @@ func (c *Reconciler) reconcileDeployment(ctx context.Context, rev *v1alpha1.Revi
 				// If pod cannot be scheduled then we expect the container status to be empty.
 				for _, cond := range pod.Status.Conditions {
 					if cond.Type == corev1.PodScheduled && cond.Status == corev1.ConditionFalse {
-						logger.Warnf("Pod %s of revision %s cannot be scheduled: %s/%s", pod.Name, rev.Name, cond.Reason, cond.Message)
+						surfaceLogger.Warnf("Pod %s of revision %s cannot be scheduled: %s/%s", pod.Name, rev.Name, cond.Reason, cond.Message)
 						if shouldMarkRev {
 							logger.Infof("%s marking resources unavailable with: %s: %s", rev.Name, cond.Reason, cond.Message)
 							rev.Status.MarkResourcesUnavailable(cond.Reason, cond.Message)
@@ -92,14 +98,14 @@ func (c *Reconciler) reconcileDeployment(ctx context.Context, rev *v1alpha1.Revi
 					// the user container.
 					if status.Name == rev.Spec.GetContainer().Name {
 						if t := status.LastTerminationState.Terminated; t != nil {
-							logger.Warnf("Container %s in pod %s of revision %s is in terminated status: %s/%s",
+							surfaceLogger.Warnf("Container %s in pod %s of revision %s is in terminated status: %s/%s",
 								status.Name, pod.Name, rev.Name, t.Reason, t.Message)
 							if shouldMarkRev {
 								logger.Infof("%s marking exiting with: %d/%s: %s", rev.Name, t.ExitCode, t.Reason, t.Message)
 								rev.Status.MarkContainerExiting(t.ExitCode, t.Reason, t.Message)
 							}
 						} else if w := status.State.Waiting; w != nil && hasDeploymentTimedOut(deployment) {
-							logger.Warnf("Container %s in pod %s of revision %s is timeout in waiting status: %s/%s",
+							surfaceLogger.Warnf("Container %s in pod %s of revision %s is timeout in waiting status: %s/%s",
 								status.Name, pod.Name, rev.Name, w.Reason, w.Message)
 							if shouldMarkRev {
 								logger.Infof("%s marking resources unavailable with: %s: %s", rev.Name, w.Reason, w.Message)
