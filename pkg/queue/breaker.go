@@ -53,7 +53,7 @@ func NewBreaker(params BreakerParams) *Breaker {
 		panic(fmt.Sprintf("Queue depth must be greater than 0. Got %v.", params.QueueDepth))
 	}
 	if params.MaxConcurrency < 0 {
-		panic(fmt.Sprintf("Max concurrency must be 0 or greater. Got %v.", params.QueueDepth))
+		panic(fmt.Sprintf("Max concurrency must be 0 or greater. Got %v.", params.MaxConcurrency))
 	}
 	if params.InitialCapacity < 0 || params.InitialCapacity > params.MaxConcurrency {
 		panic(fmt.Sprintf("Initial capacity must be between 0 and max concurrency. Got %v.", params.InitialCapacity))
