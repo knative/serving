@@ -173,7 +173,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, key string) error {
 	return ReconcileIngress(r.ConfigStore.ToContext(ctx), r, key)
 }
 
-// ReconcileIngress retrieves Ingress by key and performs reconcilation
+// ReconcileIngress retrieves Ingress by key and performs reconciliation
 func ReconcileIngress(ctx context.Context, ra ReconcilerAccessor, key string) error {
 	// Convert the namespace/name string into a distinct namespace and name
 	logger := logging.FromContext(ctx)
