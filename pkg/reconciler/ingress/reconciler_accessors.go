@@ -56,54 +56,67 @@ type ReconcilerAccessor interface {
 	UpdateIngressStatus(v1alpha1.IngressAccessor) (v1alpha1.IngressAccessor, error)
 }
 
+// DeepCopy returns a deep copied Ingress object of type IngressAccessor
 func (r *Reconciler) DeepCopy(ia v1alpha1.IngressAccessor) v1alpha1.IngressAccessor {
 	return ia.(*v1alpha1.Ingress).DeepCopy()
 }
 
+// GetFinalizer returns Ingress Finalizer
 func (r *Reconciler) GetFinalizer() string {
 	return ingressFinalizer
 }
 
+// GetGatewayLister returns GatewayLister belongs to this Reconciler
 func (r *Reconciler) GetGatewayLister() istiolisters.GatewayLister {
 	return r.GatewayLister
 }
 
+// GetIngress returns an Ingress object of type IngressAccessor
 func (r *Reconciler) GetIngress(ns, name string) (v1alpha1.IngressAccessor, error) {
 	return r.ingressLister.Ingresses(ns).Get(name)
 }
 
+// GetKubeClientSet returns KubeClientSet belongs to this Reconciler
 func (r *Reconciler) GetKubeClientSet() kubernetes.Interface {
 	return r.KubeClientSet
 }
 
+// GetRecorder returns Recorder belongs to this Reconciler
 func (r *Reconciler) GetRecorder() record.EventRecorder {
 	return r.Recorder
 }
 
-func (r *Reconciler) GetSharedClientSet() sharedclientset.Interface {
-	return r.SharedClientSet
-}
-
+// GetSecretLister returns SecretLister belongs to this Reconciler
 func (r *Reconciler) GetSecretLister() corev1listers.SecretLister {
 	return r.SecretLister
 }
 
+// GetSharedClientSet returns SharedClientSet belongs to this Reconciler
+func (r *Reconciler) GetSharedClientSet() sharedclientset.Interface {
+	return r.SharedClientSet
+}
+
+// GetTracker returns Tracker belongs to this Reconciler
 func (r *Reconciler) GetTracker() tracker.Interface {
 	return r.Tracker
 }
 
+// GetVirtualServiceLister returns VirtualServiceLister belongs to this Reconciler
 func (r *Reconciler) GetVirtualServiceLister() istiolisters.VirtualServiceLister {
 	return r.VirtualServiceLister
 }
 
+// PatchIngress invokes APIs tp Patch an Ingress
 func (r *Reconciler) PatchIngress(ns, name string, pt types.PatchType, data []byte, subresources ...string) (v1alpha1.IngressAccessor, error) {
 	return r.ServingClientSet.NetworkingV1alpha1().Ingresses(ns).Patch(name, pt, data, subresources...)
 }
 
+// UpdateIngress invokes APIs tp Update an Ingress
 func (r *Reconciler) UpdateIngress(ia v1alpha1.IngressAccessor) (v1alpha1.IngressAccessor, error) {
 	return r.ServingClientSet.NetworkingV1alpha1().Ingresses(ia.GetObjectMeta().GetNamespace()).Update(ia.(*v1alpha1.Ingress))
 }
 
+// UpdateIngressStatus invokes APIs tp Update an IngressStatus
 func (r *Reconciler) UpdateIngressStatus(ia v1alpha1.IngressAccessor) (v1alpha1.IngressAccessor, error) {
 	return r.ServingClientSet.NetworkingV1alpha1().Ingresses(ia.GetObjectMeta().GetNamespace()).UpdateStatus(ia.(*v1alpha1.Ingress))
 }
