@@ -96,6 +96,28 @@ func TestMakeVirtualServices_CorrectMetadata(t *testing.T) {
 				serving.RouteNamespaceLabelKey:    "test-ns",
 			},
 		}},
+	}, {
+		name:     "mesh only with namespace",
+		gateways: nil,
+		ci: &v1alpha1.ClusterIngress{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-ingress",
+				Namespace: "test-ns",
+				Labels: map[string]string{
+					serving.RouteLabelKey:          "test-route",
+					serving.RouteNamespaceLabelKey: "test-ns",
+				},
+			},
+			Spec: v1alpha1.IngressSpec{},
+		},
+		expected: []metav1.ObjectMeta{{
+			Name:      "test-ingress-mesh",
+			Namespace: "test-ns",
+			Labels: map[string]string{
+				serving.RouteLabelKey:          "test-route",
+				serving.RouteNamespaceLabelKey: "test-ns",
+			},
+		}},
 	}} {
 		t.Run(tc.name, func(t *testing.T) {
 			vss := MakeVirtualServices(tc.ci, tc.gateways)
