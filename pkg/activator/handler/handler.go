@@ -16,6 +16,7 @@ limitations under the License.
 package handler
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -27,7 +28,6 @@ import (
 	"go.opencensus.io/trace"
 	"go.uber.org/zap"
 
-	"knative.dev/pkg/logging/logkey"
 	"github.com/knative/serving/pkg/activator"
 	"github.com/knative/serving/pkg/activator/util"
 	"github.com/knative/serving/pkg/apis/networking"
@@ -39,6 +39,7 @@ import (
 	"github.com/knative/serving/pkg/network"
 	"github.com/knative/serving/pkg/network/prober"
 	"github.com/knative/serving/pkg/queue"
+	"knative.dev/pkg/logging/logkey"
 
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -169,7 +170,9 @@ func (a *activationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	_, ttSpan := trace.StartSpan(r.Context(), "throttler_try")
 	ttStart := time.Now()
-	err = a.throttler.Try(a.endpointTimeout, revID, func() {
+	tryContext, cancel := context.WithTimeout(r.Context(), a.endpointTimeout)
+	defer cancel()
+	err = a.throttler.Try(tryContext, revID, func() {
 		var (
 			httpStatus int
 		)
