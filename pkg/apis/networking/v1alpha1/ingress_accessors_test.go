@@ -70,4 +70,13 @@ func TestIngressAccessorMethods(t *testing.T) {
 	if strings.Compare(status.LoadBalancer.Ingress[0].DomainInternal, "test-domain") != 0 {
 		t.Error("Failed to call IngressAccessor.GetStatus()")
 	}
+
+	status2 := status.DeepCopy()
+	status2.LoadBalancer.Ingress[0].DomainInternal = "test-domain2"
+
+	ia.SetStatus(*status2)
+	status = ia.GetStatus()
+	if strings.Compare(status.LoadBalancer.Ingress[0].DomainInternal, "test-domain2") != 0 {
+		t.Error("Failed to call IngressAccessor.SetStatus()")
+	}
 }
