@@ -170,8 +170,13 @@ func (a *activationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	_, ttSpan := trace.StartSpan(r.Context(), "throttler_try")
 	ttStart := time.Now()
-	tryContext, cancel := context.WithTimeout(r.Context(), a.endpointTimeout)
-	defer cancel()
+
+	tryContext := r.Context()
+	if a.endpointTimeout > 0 {
+		var cancel context.CancelFunc
+		tryContext, cancel = context.WithTimeout(r.Context(), a.endpointTimeout)
+		defer cancel()
+	}
 	err = a.throttler.Try(tryContext, revID, func() {
 		var (
 			httpStatus int
