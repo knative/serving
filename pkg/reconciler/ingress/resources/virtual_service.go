@@ -74,6 +74,7 @@ func MakeIngressVirtualService(ia v1alpha1.IngressAccessor, gateways []string) *
 	return vs
 }
 
+// MakeMeshVirtualService creates a mesh Virtual Service
 func MakeMeshVirtualService(ia v1alpha1.IngressAccessor) *v1alpha3.VirtualService {
 	vs := &v1alpha3.VirtualService{
 		ObjectMeta: metav1.ObjectMeta{
@@ -97,6 +98,7 @@ func MakeMeshVirtualService(ia v1alpha1.IngressAccessor) *v1alpha3.VirtualServic
 	return vs
 }
 
+// MakeVirtualServices creates a mesh virtualservice and a virtual service for each gateway
 func MakeVirtualServices(ia v1alpha1.IngressAccessor, gateways []string) []*v1alpha3.VirtualService {
 	vss := []*v1alpha3.VirtualService{MakeMeshVirtualService(ia)}
 	if len(gateways) > 0 {
