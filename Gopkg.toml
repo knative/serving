@@ -46,19 +46,19 @@ required = [
 
 [[override]]
   name = "k8s.io/api"
-  version = "kubernetes-1.12.6"
+  version = "kubernetes-1.12.9"
 
 [[override]]
   name = "k8s.io/apimachinery"
-  version = "kubernetes-1.12.6"
+  version = "kubernetes-1.12.9"
 
 [[override]]
   name = "k8s.io/code-generator"
-  version = "kubernetes-1.12.6"
+  version = "kubernetes-1.12.9"
 
 [[override]]
   name = "k8s.io/client-go"
-  version = "kubernetes-1.12.6"
+  version = "kubernetes-1.12.9"
 
 [[override]]
   name = "github.com/rogpeppe/go-internal"
@@ -79,11 +79,11 @@ required = [
 
 [[override]]
   name = "k8s.io/apiserver"
-  version = "kubernetes-1.12.6"
+  version = "kubernetes-1.12.9"
 
 [[override]]
   name = "k8s.io/metrics"
-  version = "kubernetes-1.12.6"
+  version = "kubernetes-1.12.9"
 
 [prune]
   go-tests = true
