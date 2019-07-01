@@ -22,14 +22,16 @@ import (
 	"strconv"
 	"time"
 
-	"knative.dev/pkg/metrics"
-	"knative.dev/pkg/metrics/metricskey"
 	"go.opencensus.io/stats"
 	"go.opencensus.io/stats/view"
 	"go.opencensus.io/tag"
+	"knative.dev/pkg/metrics"
+	"knative.dev/pkg/metrics/metricskey"
 )
 
-var defaultLatencyDistribution = view.Distribution(0, 5, 10, 20, 40, 60, 80, 100, 150, 200, 250, 300, 350, 400, 450, 500, 600, 700, 800, 900, 1000, 2000, 5000, 10000, 20000, 50000, 100000)
+// NOTE: 0 should not be used as boundary. See
+// https://github.com/census-ecosystem/opencensus-go-exporter-stackdriver/issues/98
+var defaultLatencyDistribution = view.Distribution(5, 10, 20, 40, 60, 80, 100, 150, 200, 250, 300, 350, 400, 450, 500, 600, 700, 800, 900, 1000, 2000, 5000, 10000, 20000, 50000, 100000)
 
 // StatsReporter defines the interface for sending queue-proxy metrics
 type StatsReporter interface {
@@ -39,16 +41,16 @@ type StatsReporter interface {
 
 // Reporter holds cached metric objects to report autoscaler metrics
 type Reporter struct {
-	initialized               bool
-	ctx                       context.Context
-	namespaceTagKey           tag.Key
-	serviceTagKey             tag.Key
-	configTagKey              tag.Key
-	revisionTagKey            tag.Key
-	responseCodeKey           tag.Key
-	responseCodeClassKey      tag.Key
-	countMetric               *stats.Int64Measure
-	latencyMetric             *stats.Float64Measure
+	initialized          bool
+	ctx                  context.Context
+	namespaceTagKey      tag.Key
+	serviceTagKey        tag.Key
+	configTagKey         tag.Key
+	revisionTagKey       tag.Key
+	responseCodeKey      tag.Key
+	responseCodeClassKey tag.Key
+	countMetric          *stats.Int64Measure
+	latencyMetric        *stats.Float64Measure
 }
 
 // NewStatsReporter creates a reporter that collects and reports queue proxy metrics
@@ -121,16 +123,16 @@ func NewStatsReporter(ns, service, config, rev string, countMetric *stats.Int64M
 	}
 
 	return &Reporter{
-		initialized:               true,
-		ctx:                       ctx,
-		namespaceTagKey:           nsTag,
-		serviceTagKey:             svcTag,
-		configTagKey:              configTag,
-		revisionTagKey:            revTag,
-		responseCodeKey:           responseCodeTag,
-		responseCodeClassKey:      responseCodeClassTag,
-		countMetric:               countMetric,
-		latencyMetric:             latencyMetric,
+		initialized:          true,
+		ctx:                  ctx,
+		namespaceTagKey:      nsTag,
+		serviceTagKey:        svcTag,
+		configTagKey:         configTag,
+		revisionTagKey:       revTag,
+		responseCodeKey:      responseCodeTag,
+		responseCodeClassKey: responseCodeClassTag,
+		countMetric:          countMetric,
+		latencyMetric:        latencyMetric,
 	}, nil
 }
 
