@@ -44,9 +44,6 @@ const (
 	// to retry if a Scrape returns an error or if the Scrape goes to a pod we already
 	// scraped.
 	scraperMaxRetries = 10
-
-	// scraperRetryInterval is the interval to wait after a failed scrape.
-	scraperRetryInterval = 10 * time.Nanosecond
 )
 
 // StatsScraper defines the interface for collecting Revision metrics
