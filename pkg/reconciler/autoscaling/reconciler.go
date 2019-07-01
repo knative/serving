@@ -66,7 +66,7 @@ func (c *Base) ReconcileSKS(ctx context.Context, pa *pav1alpha1.PodAutoscaler, d
 	// 1. The revision is scaled to 0.
 	// 2. The excess burst capacity is negative.
 	if pa.Status.IsInactive() || (d != nil && d.Status.ExcessBurstCapacity < 0) {
-		logger.Infof("SKS %s is in proxy mode: pa.IsInactive = %v, ebc = %d", pa.Name, pa.Status.IsInactive(), d.Status.ExcessBurstCapacity)
+		logger.Debugf("SKS %s is in proxy mode: pa.IsInactive = %v, ebc = %d", pa.Name, pa.Status.IsInactive(), d.Status.ExcessBurstCapacity)
 		mode = nv1alpha1.SKSOperationModeProxy
 	}
 	sksName := anames.SKS(pa.Name)

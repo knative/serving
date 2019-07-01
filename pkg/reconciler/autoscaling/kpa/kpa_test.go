@@ -182,8 +182,8 @@ func markResourceNotOwned(rType, name string) PodAutoscalerOption {
 }
 
 func TestReconcileNegativeBurstCapacity(t *testing.T) {
-	// This test suite uses special decider that will
-	// force KPA to scale to 0.
+	// This suite plays with different values for the excess burst capacity
+	// and checks that SKS gets reconciled correctly inside KPA.
 	const (
 		key          = testNamespace + "/" + testRevision
 		deployName   = testRevision + "-deployment"
