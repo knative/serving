@@ -21,12 +21,12 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
-	"knative.dev/pkg/ptr"
 	"github.com/knative/serving/pkg/apis/autoscaling"
 	pav1a1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"knative.dev/pkg/ptr"
 )
 
 func TestMakeService(t *testing.T) {
@@ -35,7 +35,7 @@ func TestMakeService(t *testing.T) {
 			Namespace: "here",
 			Name:      "with-you",
 			UID:       "2006",
-			// Those labels are propagated from the Revision->KPA.
+			// Those labels are propagated from the Revision->PA.
 			Labels: map[string]string{
 				serving.RevisionLabelKey: "with-you",
 				serving.RevisionUID:      "2009",

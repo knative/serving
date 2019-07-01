@@ -21,10 +21,6 @@ import (
 	"testing"
 
 	caching "github.com/knative/caching/pkg/apis/caching/v1alpha1"
-	"knative.dev/pkg/configmap"
-	"knative.dev/pkg/controller"
-	"knative.dev/pkg/logging"
-	logtesting "knative.dev/pkg/logging/testing"
 	autoscalingv1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
@@ -40,11 +36,15 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgotesting "k8s.io/client-go/testing"
+	"knative.dev/pkg/configmap"
+	"knative.dev/pkg/controller"
+	"knative.dev/pkg/logging"
+	logtesting "knative.dev/pkg/logging/testing"
 
-	. "knative.dev/pkg/reconciler/testing"
 	. "github.com/knative/serving/pkg/reconciler/testing/v1alpha1"
 	. "github.com/knative/serving/pkg/testing"
 	. "github.com/knative/serving/pkg/testing/v1alpha1"
+	. "knative.dev/pkg/reconciler/testing"
 )
 
 // This is heavily based on the way the OpenShift Ingress controller tests its reconciliation method.
@@ -74,7 +74,7 @@ func TestReconcile(t *testing.T) {
 		},
 		WantCreates: []runtime.Object{
 			// The first reconciliation of a Revision creates the following resources.
-			kpa("foo", "first-reconcile"),
+			pa("foo", "first-reconcile"),
 			deploy("foo", "first-reconcile"),
 			image("foo", "first-reconcile"),
 		},
@@ -94,7 +94,7 @@ func TestReconcile(t *testing.T) {
 		},
 		Objects: []runtime.Object{
 			rev("foo", "update-status-failure"),
-			kpa("foo", "update-status-failure"),
+			pa("foo", "update-status-failure"),
 		},
 		WantCreates: []runtime.Object{
 			// We still see the following creates before the failure is induced.
@@ -112,24 +112,24 @@ func TestReconcile(t *testing.T) {
 		},
 		Key: "foo/update-status-failure",
 	}, {
-		Name: "failure creating kpa",
+		Name: "failure creating pa",
 		// This starts from the first reconciliation case above and induces a failure
-		// creating the KPA.
+		// creating the PA.
 		WantErr: true,
 		WithReactors: []clientgotesting.ReactionFunc{
 			InduceFailure("create", "podautoscalers"),
 		},
 		Objects: []runtime.Object{
-			rev("foo", "create-kpa-failure"),
+			rev("foo", "create-pa-failure"),
 		},
 		WantCreates: []runtime.Object{
 			// We still see the following creates before the failure is induced.
-			kpa("foo", "create-kpa-failure"),
-			deploy("foo", "create-kpa-failure"),
-			image("foo", "create-kpa-failure"),
+			pa("foo", "create-pa-failure"),
+			deploy("foo", "create-pa-failure"),
+			image("foo", "create-pa-failure"),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: rev("foo", "create-kpa-failure",
+			Object: rev("foo", "create-pa-failure",
 				// Despite failure, the following status properties are set.
 				WithLogURL, WithInitRevConditions,
 				MarkDeploying("Deploying")),
@@ -137,7 +137,7 @@ func TestReconcile(t *testing.T) {
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "InternalError", "inducing failure for create podautoscalers"),
 		},
-		Key: "foo/create-kpa-failure",
+		Key: "foo/create-pa-failure",
 	}, {
 		Name: "failure creating user deployment",
 		// This starts from the first reconciliation case above and induces a failure
@@ -148,7 +148,7 @@ func TestReconcile(t *testing.T) {
 		},
 		Objects: []runtime.Object{
 			rev("foo", "create-user-deploy-failure"),
-			kpa("foo", "create-user-deploy-failure"),
+			pa("foo", "create-user-deploy-failure"),
 		},
 		WantCreates: []runtime.Object{
 			// We still see the following creates before the failure is induced.
@@ -172,7 +172,7 @@ func TestReconcile(t *testing.T) {
 		// are necessary.
 		Objects: []runtime.Object{
 			rev("foo", "stable-reconcile", WithLogURL, AllUnknownConditions),
-			kpa("foo", "stable-reconcile"),
+			pa("foo", "stable-reconcile"),
 			deploy("foo", "stable-reconcile"),
 			image("foo", "stable-reconcile"),
 		},
@@ -189,7 +189,7 @@ func TestReconcile(t *testing.T) {
 				rev.Spec.DeprecatedContainer = &rev.Spec.Containers[0]
 				rev.Spec.Containers = nil
 			}),
-			kpa("foo", "needs-upgrade"),
+			pa("foo", "needs-upgrade"),
 			deploy("foo", "needs-upgrade"),
 			image("foo", "needs-upgrade"),
 		},
@@ -208,7 +208,7 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			rev("foo", "fix-containers",
 				WithLogURL, AllUnknownConditions),
-			kpa("foo", "fix-containers"),
+			pa("foo", "fix-containers"),
 			changeContainers(deploy("foo", "fix-containers")),
 			image("foo", "fix-containers"),
 		},
@@ -226,7 +226,7 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			rev("foo", "failure-update-deploy",
 				withK8sServiceName("whateves"), WithLogURL, AllUnknownConditions),
-			kpa("foo", "failure-update-deploy"),
+			pa("foo", "failure-update-deploy"),
 			changeContainers(deploy("foo", "failure-update-deploy")),
 			image("foo", "failure-update-deploy"),
 		},
@@ -246,143 +246,143 @@ func TestReconcile(t *testing.T) {
 			rev("foo", "stable-deactivation",
 				WithLogURL, MarkRevisionReady,
 				MarkInactive("NoTraffic", "This thing is inactive.")),
-			kpa("foo", "stable-deactivation",
+			pa("foo", "stable-deactivation",
 				WithNoTraffic("NoTraffic", "This thing is inactive.")),
 			deploy("foo", "stable-deactivation"),
 			image("foo", "stable-deactivation"),
 		},
 		Key: "foo/stable-deactivation",
 	}, {
-		Name: "kpa is ready",
+		Name: "pa is ready",
 		Objects: []runtime.Object{
-			rev("foo", "kpa-ready",
+			rev("foo", "pa-ready",
 				withK8sServiceName("old-stuff"), WithLogURL, AllUnknownConditions),
-			kpa("foo", "kpa-ready", WithTraffic, WithPAStatusService("new-stuff")),
-			deploy("foo", "kpa-ready"),
-			image("foo", "kpa-ready"),
+			pa("foo", "pa-ready", WithTraffic, WithPAStatusService("new-stuff")),
+			deploy("foo", "pa-ready"),
+			image("foo", "pa-ready"),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: rev("foo", "kpa-ready", withK8sServiceName("new-stuff"),
+			Object: rev("foo", "pa-ready", withK8sServiceName("new-stuff"),
 				WithLogURL,
-				// When the endpoint and KPA are ready, then we will see the
+				// When the endpoint and pa are ready, then we will see the
 				// Revision become ready.
 				MarkRevisionReady),
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "RevisionReady", "Revision becomes ready upon all resources being ready"),
 		},
-		Key: "foo/kpa-ready",
+		Key: "foo/pa-ready",
 	}, {
-		Name: "kpa not ready",
-		// Test propagating the KPA not ready status to the Revision.
+		Name: "pa not ready",
+		// Test propagating the pa not ready status to the Revision.
 		Objects: []runtime.Object{
-			rev("foo", "kpa-not-ready",
+			rev("foo", "pa-not-ready",
 				withK8sServiceName("somebody-told-me"), WithLogURL,
 				MarkRevisionReady),
-			kpa("foo", "kpa-not-ready",
+			pa("foo", "pa-not-ready",
 				WithPAStatusService("its-not-confidential"),
 				WithBufferedTraffic("Something", "This is something longer")),
-			deploy("foo", "kpa-not-ready"),
-			image("foo", "kpa-not-ready"),
+			deploy("foo", "pa-not-ready"),
+			image("foo", "pa-not-ready"),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: rev("foo", "kpa-not-ready",
+			Object: rev("foo", "pa-not-ready",
 				WithLogURL, MarkRevisionReady,
 				withK8sServiceName("its-not-confidential"),
-				// When we reconcile a ready state and our KPA is in an activating
+				// When we reconcile a ready state and our pa is in an activating
 				// state, we should see the following mutation.
 				MarkActivating("Something", "This is something longer"),
 			),
 		}},
-		Key: "foo/kpa-not-ready",
+		Key: "foo/pa-not-ready",
 	}, {
-		Name: "kpa inactive",
-		// Test propagating the inactivity signal from the KPA to the Revision.
+		Name: "pa inactive",
+		// Test propagating the inactivity signal from the pa to the Revision.
 		Objects: []runtime.Object{
-			rev("foo", "kpa-inactive",
+			rev("foo", "pa-inactive",
 				withK8sServiceName("something-in-the-way"), WithLogURL, MarkRevisionReady),
-			kpa("foo", "kpa-inactive",
+			pa("foo", "pa-inactive",
 				WithNoTraffic("NoTraffic", "This thing is inactive.")),
-			deploy("foo", "kpa-inactive"),
-			image("foo", "kpa-inactive"),
+			deploy("foo", "pa-inactive"),
+			image("foo", "pa-inactive"),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: rev("foo", "kpa-inactive",
+			Object: rev("foo", "pa-inactive",
 				WithLogURL, MarkRevisionReady,
-				// When we reconcile an "all ready" revision when the KPA
+				// When we reconcile an "all ready" revision when the PA
 				// is inactive, we should see the following change.
 				MarkInactive("NoTraffic", "This thing is inactive.")),
 		}},
-		Key: "foo/kpa-inactive",
+		Key: "foo/pa-inactive",
 	}, {
-		Name: "kpa inactive, but has service",
-		// Test propagating the inactivity signal from the KPA to the Revision.
+		Name: "pa inactive, but has service",
+		// Test propagating the inactivity signal from the pa to the Revision.
 		// But propagatethe service name.
 		Objects: []runtime.Object{
-			rev("foo", "kpa-inactive",
+			rev("foo", "pa-inactive",
 				withK8sServiceName("here-comes-the-sun"), WithLogURL, MarkRevisionReady),
-			kpa("foo", "kpa-inactive",
+			pa("foo", "pa-inactive",
 				WithNoTraffic("NoTraffic", "This thing is inactive."),
-				WithPAStatusService("kpa-inactive-svc")),
-			deploy("foo", "kpa-inactive"),
-			image("foo", "kpa-inactive"),
+				WithPAStatusService("pa-inactive-svc")),
+			deploy("foo", "pa-inactive"),
+			image("foo", "pa-inactive"),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: rev("foo", "kpa-inactive",
+			Object: rev("foo", "pa-inactive",
 				WithLogURL, MarkRevisionReady,
-				withK8sServiceName("kpa-inactive-svc"),
-				// When we reconcile an "all ready" revision when the KPA
+				withK8sServiceName("pa-inactive-svc"),
+				// When we reconcile an "all ready" revision when the PA
 				// is inactive, we should see the following change.
 				MarkInactive("NoTraffic", "This thing is inactive.")),
 		}},
-		Key: "foo/kpa-inactive",
+		Key: "foo/pa-inactive",
 	}, {
-		Name: "mutated KPA gets fixed",
-		// This test validates, that when users mess with the KPA directly
+		Name: "mutated pa gets fixed",
+		// This test validates, that when users mess with the pa directly
 		// we bring it back to the required shape.
-		// Protocol type is the only thing that can be changed on KPA
+		// Protocol type is the only thing that can be changed on PA
 		Objects: []runtime.Object{
-			rev("foo", "fix-mutated-kpa",
+			rev("foo", "fix-mutated-pa",
 				withK8sServiceName("ill-follow-the-sun"), WithLogURL, MarkRevisionReady),
-			kpa("foo", "fix-mutated-kpa", WithProtocolType(networking.ProtocolH2C),
-				WithTraffic, WithPAStatusService("fix-mutated-kpa")),
-			deploy("foo", "fix-mutated-kpa"),
-			image("foo", "fix-mutated-kpa"),
+			pa("foo", "fix-mutated-pa", WithProtocolType(networking.ProtocolH2C),
+				WithTraffic, WithPAStatusService("fix-mutated-pa")),
+			deploy("foo", "fix-mutated-pa"),
+			image("foo", "fix-mutated-pa"),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: rev("foo", "fix-mutated-kpa",
+			Object: rev("foo", "fix-mutated-pa",
 				WithLogURL, AllUnknownConditions,
 				// When our reconciliation has to change the service
 				// we should see the following mutations to status.
-				withK8sServiceName("fix-mutated-kpa"), WithLogURL, MarkRevisionReady),
+				withK8sServiceName("fix-mutated-pa"), WithLogURL, MarkRevisionReady),
 		}},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: kpa("foo", "fix-mutated-kpa", WithTraffic,
-				WithPAStatusService("fix-mutated-kpa")),
+			Object: pa("foo", "fix-mutated-pa", WithTraffic,
+				WithPAStatusService("fix-mutated-pa")),
 		}},
-		Key: "foo/fix-mutated-kpa",
+		Key: "foo/fix-mutated-pa",
 	}, {
-		Name: "mutated KPA gets error during the fix",
+		Name: "mutated pa gets error during the fix",
 		// Same as above, but will fail during the update.
 		Objects: []runtime.Object{
-			rev("foo", "fix-mutated-kpa-fail",
+			rev("foo", "fix-mutated-pa-fail",
 				withK8sServiceName("some-old-stuff"),
 				WithLogURL, AllUnknownConditions),
-			kpa("foo", "fix-mutated-kpa-fail", WithProtocolType(networking.ProtocolH2C)),
-			deploy("foo", "fix-mutated-kpa-fail"),
-			image("foo", "fix-mutated-kpa-fail"),
+			pa("foo", "fix-mutated-pa-fail", WithProtocolType(networking.ProtocolH2C)),
+			deploy("foo", "fix-mutated-pa-fail"),
+			image("foo", "fix-mutated-pa-fail"),
 		},
 		WantErr: true,
 		WithReactors: []clientgotesting.ReactionFunc{
 			InduceFailure("update", "podautoscalers"),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: kpa("foo", "fix-mutated-kpa-fail"),
+			Object: pa("foo", "fix-mutated-pa-fail"),
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "InternalError", "inducing failure for update podautoscalers"),
 		},
-		Key: "foo/fix-mutated-kpa-fail",
+		Key: "foo/fix-mutated-pa-fail",
 	}, {
 		Name: "surface deployment timeout",
 		// Test the propagation of ProgressDeadlineExceeded from Deployment.
@@ -393,7 +393,7 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			rev("foo", "deploy-timeout",
 				withK8sServiceName("the-taxman"), WithLogURL, MarkActive),
-			kpa("foo", "deploy-timeout"), // KPA can't be ready since deployment times out.
+			pa("foo", "deploy-timeout"), // pa can't be ready since deployment times out.
 			timeoutDeploy(deploy("foo", "deploy-timeout")),
 			image("foo", "deploy-timeout"),
 		},
@@ -416,7 +416,7 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			rev("foo", "pull-backoff",
 				withK8sServiceName("the-taxman"), WithLogURL, MarkActivating("Deploying", "")),
-			kpa("foo", "pull-backoff"), // KPA can't be ready since deployment times out.
+			pa("foo", "pull-backoff"), // pa can't be ready since deployment times out.
 			pod("foo", "pull-backoff", WithWaitingContainer("user-container", "ImagePullBackoff", "can't pull it")),
 			timeoutDeploy(deploy("foo", "pull-backoff")),
 			image("foo", "pull-backoff"),
@@ -436,7 +436,7 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			rev("foo", "pod-error",
 				withK8sServiceName("a-pod-error"), WithLogURL, AllUnknownConditions, MarkActive),
-			kpa("foo", "pod-error"), // PA can't be ready, since no traffic.
+			pa("foo", "pod-error"), // PA can't be ready, since no traffic.
 			pod("foo", "pod-error", WithFailingContainer("user-container", 5, "I failed man!")),
 			deploy("foo", "pod-error"),
 			image("foo", "pod-error"),
@@ -454,7 +454,7 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			rev("foo", "pod-schedule-error",
 				withK8sServiceName("a-pod-schedule-error"), WithLogURL, AllUnknownConditions, MarkActive),
-			kpa("foo", "pod-schedule-error"), // PA can't be ready, since no traffic.
+			pa("foo", "pod-schedule-error"), // PA can't be ready, since no traffic.
 			pod("foo", "pod-schedule-error", WithUnschedulableContainer("Insufficient energy", "Unschedulable")),
 			deploy("foo", "pod-schedule-error"),
 			image("foo", "pod-schedule-error"),
@@ -467,13 +467,13 @@ func TestReconcile(t *testing.T) {
 	}, {
 		Name: "ready steady state",
 		// Test the transition that Reconcile makes when Endpoints become ready on the
-		// SKS owned services, which is signalled by KPA having servince name.
+		// SKS owned services, which is signalled by pa having servince name.
 		// This puts the world into the stable post-reconcile state for an Active
 		// Revision.  It then creates an Endpoints resource with active subsets.
 		// This signal should make our Reconcile mark the Revision as Ready.
 		Objects: []runtime.Object{
 			rev("foo", "steady-ready", withK8sServiceName("very-steady"), WithLogURL),
-			kpa("foo", "steady-ready", WithTraffic, WithPAStatusService("steadier-even")),
+			pa("foo", "steady-ready", WithTraffic, WithPAStatusService("steadier-even")),
 			deploy("foo", "steady-ready"),
 			image("foo", "steady-ready"),
 		},
@@ -488,12 +488,12 @@ func TestReconcile(t *testing.T) {
 		},
 		Key: "foo/steady-ready",
 	}, {
-		Name:    "lost kpa owner ref",
+		Name:    "lost pa owner ref",
 		WantErr: true,
 		Objects: []runtime.Object{
 			rev("foo", "missing-owners", withK8sServiceName("lesser-revision"), WithLogURL,
 				MarkRevisionReady),
-			kpa("foo", "missing-owners", WithTraffic, WithPodAutoscalerOwnersRemoved),
+			pa("foo", "missing-owners", WithTraffic, WithPodAutoscalerOwnersRemoved),
 			deploy("foo", "missing-owners"),
 			image("foo", "missing-owners"),
 		},
@@ -513,7 +513,7 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			rev("foo", "missing-owners", withK8sServiceName("youre-gonna-lose"), WithLogURL,
 				MarkRevisionReady),
-			kpa("foo", "missing-owners", WithTraffic),
+			pa("foo", "missing-owners", WithTraffic),
 			noOwner(deploy("foo", "missing-owners")),
 			image("foo", "missing-owners"),
 		},
@@ -642,9 +642,9 @@ func image(namespace, name string, co ...configOption) *caching.Image {
 	return resources.MakeImageCache(rev(namespace, name))
 }
 
-func kpa(namespace, name string, ko ...PodAutoscalerOption) *autoscalingv1alpha1.PodAutoscaler {
+func pa(namespace, name string, ko ...PodAutoscalerOption) *autoscalingv1alpha1.PodAutoscaler {
 	rev := rev(namespace, name)
-	k := resources.MakeKPA(rev)
+	k := resources.MakePA(rev)
 
 	for _, opt := range ko {
 		opt(k)

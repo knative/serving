@@ -32,6 +32,7 @@ spec:
     - autoscaling
     shortNames:
     - kpa
+    - pa
   scope: Namespaced
   subresources:
     status: {}

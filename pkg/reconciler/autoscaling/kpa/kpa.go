@@ -93,7 +93,7 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 		// cache may be stale and we don't want to overwrite a prior update
 		// to status with this stale state.
 	} else if _, err = c.UpdateStatus(pa); err != nil {
-		logger.Warnw("Failed to update kpa status", zap.Error(err))
+		logger.Warnw("Failed to update pa status", zap.Error(err))
 		c.Recorder.Eventf(pa, corev1.EventTypeWarning, "UpdateFailed",
 			"Failed to update status for PA %q: %v", pa.Name, err)
 		return err
@@ -252,7 +252,7 @@ func computeActiveCondition(pa *pav1alpha1.PodAutoscaler, want int32, got int) (
 	return
 }
 
-// activeThreshold returns the scale required for the kpa to be marked Active
+// activeThreshold returns the scale required for the pa to be marked Active
 func activeThreshold(pa *pav1alpha1.PodAutoscaler) int {
 	if min, ok := pa.Annotations[autoscaling.MinScaleAnnotationKey]; ok {
 		if ms, err := strconv.Atoi(min); err == nil {
