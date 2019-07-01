@@ -26,15 +26,15 @@ import (
 	"time"
 
 	// These are the fake informers we want setup.
-	fakedynamicclient "knative.dev/pkg/injection/clients/dynamicclient/fake"
-	fakekubeclient "knative.dev/pkg/injection/clients/kubeclient/fake"
-	fakeendpointsinformer "knative.dev/pkg/injection/informers/kubeinformers/corev1/endpoints/fake"
-	fakeserviceinformer "knative.dev/pkg/injection/informers/kubeinformers/corev1/service/fake"
 	fakeservingclient "github.com/knative/serving/pkg/client/injection/client/fake"
 	fakekpainformer "github.com/knative/serving/pkg/client/injection/informers/autoscaling/v1alpha1/podautoscaler/fake"
 	fakesksinformer "github.com/knative/serving/pkg/client/injection/informers/networking/v1alpha1/serverlessservice/fake"
 	fakerevisioninformer "github.com/knative/serving/pkg/client/injection/informers/serving/v1alpha1/revision/fake"
 	"github.com/knative/serving/pkg/reconciler"
+	fakedynamicclient "knative.dev/pkg/injection/clients/dynamicclient/fake"
+	fakekubeclient "knative.dev/pkg/injection/clients/kubeclient/fake"
+	fakeendpointsinformer "knative.dev/pkg/injection/informers/kubeinformers/corev1/endpoints/fake"
+	fakeserviceinformer "knative.dev/pkg/injection/informers/kubeinformers/corev1/service/fake"
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -43,12 +43,6 @@ import (
 	"go.uber.org/atomic"
 	"golang.org/x/sync/errgroup"
 
-	"knative.dev/pkg/configmap"
-	"knative.dev/pkg/controller"
-	logtesting "knative.dev/pkg/logging/testing"
-	"knative.dev/pkg/ptr"
-	"knative.dev/pkg/system"
-	_ "knative.dev/pkg/system/testing"
 	"github.com/knative/serving/pkg/apis/autoscaling"
 	asv1a1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	nv1a1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
@@ -63,6 +57,12 @@ import (
 	revisionresources "github.com/knative/serving/pkg/reconciler/revision/resources"
 	presources "github.com/knative/serving/pkg/resources"
 	perrors "github.com/pkg/errors"
+	"knative.dev/pkg/configmap"
+	"knative.dev/pkg/controller"
+	logtesting "knative.dev/pkg/logging/testing"
+	"knative.dev/pkg/ptr"
+	"knative.dev/pkg/system"
+	_ "knative.dev/pkg/system/testing"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -71,9 +71,9 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgotesting "k8s.io/client-go/testing"
 
-	. "knative.dev/pkg/reconciler/testing"
 	. "github.com/knative/serving/pkg/reconciler/testing/v1alpha1"
 	. "github.com/knative/serving/pkg/testing"
+	. "knative.dev/pkg/reconciler/testing"
 )
 
 // TODO(#3591): Convert KPA tests to table tests.
@@ -83,13 +83,14 @@ const (
 	stableWindow             = 5 * time.Minute
 	paStableWindow           = 45 * time.Second
 	defaultConcurrencyTarget = 10.0
+	defaultTU                = 0.5
 )
 
 func defaultConfigMapData() map[string]string {
 	return map[string]string{
 		"max-scale-up-rate":                       "1.0",
-		"container-concurrency-target-percentage": "0.5",
-		"container-concurrency-target-default":    fmt.Sprintf("%v", defaultConcurrencyTarget),
+		"container-concurrency-target-percentage": fmt.Sprintf("%f", defaultTU),
+		"container-concurrency-target-default":    fmt.Sprintf("%f", defaultConcurrencyTarget),
 		"stable-window":                           stableWindow.String(),
 		"panic-window":                            "10s",
 		"scale-to-zero-grace-period":              gracePeriod.String(),
@@ -865,7 +866,7 @@ func TestGlobalResyncOnUpdateAutoscalerConfigMap(t *testing.T) {
 	// Wait for decider to be created.
 	if decider, err := pollDeciders(fakeDeciders, testNamespace, testRevision, nil); err != nil {
 		t.Fatalf("Failed to get decider: %v", err)
-	} else if got, want := decider.Spec.TargetConcurrency, defaultConcurrencyTarget; got != want {
+	} else if got, want := decider.Spec.TargetConcurrency, defaultConcurrencyTarget*defaultTU; got != want {
 		t.Fatalf("TargetConcurrency = %v, want %v", got, want)
 	}
 
@@ -886,7 +887,7 @@ func TestGlobalResyncOnUpdateAutoscalerConfigMap(t *testing.T) {
 	}
 	if decider, err := pollDeciders(fakeDeciders, testNamespace, testRevision, cond); err != nil {
 		t.Fatalf("Failed to get decider: %v", err)
-	} else if got, want := decider.Spec.TargetConcurrency, concurrencyTargetAfterUpdate; got != want {
+	} else if got, want := decider.Spec.TargetConcurrency, concurrencyTargetAfterUpdate*defaultTU; got != want {
 		t.Fatalf("TargetConcurrency = %v, want %v", got, want)
 	}
 }
