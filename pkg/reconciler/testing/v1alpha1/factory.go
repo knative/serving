@@ -22,11 +22,11 @@ import (
 	"testing"
 
 	fakecachingclient "github.com/knative/caching/pkg/client/injection/client/fake"
+	fakecertmanagerclient "github.com/knative/serving/pkg/client/certmanager/injection/client/fake"
+	fakeservingclient "github.com/knative/serving/pkg/client/injection/client/fake"
 	fakesharedclient "knative.dev/pkg/client/injection/client/fake"
 	fakedynamicclient "knative.dev/pkg/injection/clients/dynamicclient/fake"
 	fakekubeclient "knative.dev/pkg/injection/clients/kubeclient/fake"
-	fakecertmanagerclient "github.com/knative/serving/pkg/client/certmanager/injection/client/fake"
-	fakeservingclient "github.com/knative/serving/pkg/client/injection/client/fake"
 
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
@@ -39,8 +39,8 @@ import (
 	ktesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/record"
 
-	. "knative.dev/pkg/reconciler/testing"
 	"github.com/knative/serving/pkg/reconciler"
+	. "knative.dev/pkg/reconciler/testing"
 )
 
 const (
@@ -57,7 +57,10 @@ func MakeFactory(ctor Ctor) Factory {
 	return func(t *testing.T, r *TableRow) (controller.Reconciler, ActionRecorderList, EventList, *FakeStatsReporter) {
 		ls := NewListers(r.Objects)
 
-		ctx := context.Background()
+		ctx := r.Ctx
+		if ctx == nil {
+			ctx = context.Background()
+		}
 		logger := logtesting.TestLogger(t)
 		ctx = logging.WithLogger(ctx, logger)
 

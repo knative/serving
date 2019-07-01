@@ -22,16 +22,6 @@ import (
 	"log"
 	"time"
 
-	"knative.dev/pkg/configmap"
-	"knative.dev/pkg/controller"
-	"knative.dev/pkg/injection"
-	"knative.dev/pkg/injection/clients/kubeclient"
-	endpointsinformer "knative.dev/pkg/injection/informers/kubeinformers/corev1/endpoints"
-	"knative.dev/pkg/logging"
-	"knative.dev/pkg/metrics"
-	pkgmetrics "knative.dev/pkg/metrics"
-	"knative.dev/pkg/signals"
-	"knative.dev/pkg/system"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/autoscaler"
 	"github.com/knative/serving/pkg/autoscaler/statserver"
@@ -42,6 +32,16 @@ import (
 	"github.com/spf13/pflag"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
+	"knative.dev/pkg/configmap"
+	"knative.dev/pkg/controller"
+	"knative.dev/pkg/injection"
+	"knative.dev/pkg/injection/clients/kubeclient"
+	endpointsinformer "knative.dev/pkg/injection/informers/kubeinformers/corev1/endpoints"
+	"knative.dev/pkg/logging"
+	"knative.dev/pkg/metrics"
+	pkgmetrics "knative.dev/pkg/metrics"
+	"knative.dev/pkg/signals"
+	"knative.dev/pkg/system"
 
 	corev1informers "k8s.io/client-go/informers/core/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
@@ -179,7 +179,7 @@ func uniScalerFactoryFunc(endpointsInformer corev1informers.EndpointsInformer, m
 			return nil, err
 		}
 
-		podCounter := resources.NewScopedEndpointsCounter(endpointsInformer.Lister(), decider.Namespace, decider.Name)
+		podCounter := resources.NewScopedEndpointsCounter(endpointsInformer.Lister(), decider.Namespace, decider.Spec.ServiceName)
 		return autoscaler.New(decider.Namespace, decider.Name, metricClient, podCounter, decider.Spec, reporter)
 	}
 }

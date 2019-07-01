@@ -168,6 +168,10 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (desiredPodCount 
 	excessBC = int32(float64(originalReadyPodsCount)*a.deciderSpec.TotalConcurrency - observedStableConcurrency -
 		a.deciderSpec.TargetBurstCapacity)
 	logger.Debug("Excess burst capacity = ", excessBC)
+	fmt.Printf("### PO=%v TC=%v OSC=%v TBC=%v EBC=%v\n",
+		originalReadyPodsCount,
+		a.deciderSpec.TotalConcurrency,
+		observedStableConcurrency, a.deciderSpec.TargetBurstCapacity, excessBC)
 
 	a.reporter.ReportDesiredPodCount(int64(desiredPodCount))
 	return desiredPodCount, excessBC, true

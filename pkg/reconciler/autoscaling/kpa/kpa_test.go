@@ -181,6 +181,102 @@ func markResourceNotOwned(rType, name string) PodAutoscalerOption {
 	}
 }
 
+func TestReconcileNegativeBurstCapacity(t *testing.T) {
+	// This test suite uses special decider that will
+	// force KPA to scale to 0.
+	const (
+		key          = testNamespace + "/" + testRevision
+		deployName   = testRevision + "-deployment"
+		desiredScale = int32(5)
+	)
+	ebcKey := struct{}{}
+
+	usualSelector := map[string]string{"a": "b"}
+
+	expectedDeploy := deploy(testNamespace, testRevision, func(d *appsv1.Deployment) {
+		d.Spec.Replicas = ptr.Int32(desiredScale)
+	})
+
+	table := TableTest{{
+		Name: "steady not enough capacity",
+		Key:  key,
+		Ctx:  context.WithValue(context.Background(), ebcKey, int32(-1)),
+		Objects: []runtime.Object{
+			kpa(testNamespace, testRevision, markActive, withMSvcStatus("yak-40"),
+				WithPAStatusService(testRevision)),
+			sks(testNamespace, testRevision, WithDeployRef(deployName), WithProxyMode, WithSKSReady),
+			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector),
+				withMSvcName("yak-40")),
+			makeSKSPrivateEndpoints(1, testNamespace, testRevision),
+			expectedDeploy,
+		},
+	}, {
+		Name: "traffic increased, no longer enough burst capacity",
+		Key:  key,
+		Ctx:  context.WithValue(context.Background(), ebcKey, int32(-1)),
+		Objects: []runtime.Object{
+			kpa(testNamespace, testRevision, markActive, withMSvcStatus("yak-42"),
+				WithPAStatusService(testRevision)),
+			sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSReady),
+			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector),
+				withMSvcName("yak-42")),
+			makeSKSPrivateEndpoints(1, testNamespace, testRevision),
+			expectedDeploy,
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: sks(testNamespace, testRevision, WithSKSReady,
+				WithDeployRef(deployName), WithProxyMode),
+		}},
+	}, {
+		Name: "traffic decreased, now we have enough burst capacity",
+		Key:  key,
+		Ctx:  context.WithValue(context.Background(), ebcKey, int32(1)),
+		Objects: []runtime.Object{
+			kpa(testNamespace, testRevision, markActive, withMSvcStatus("yak-42"),
+				WithPAStatusService(testRevision)),
+			sks(testNamespace, testRevision, WithDeployRef(deployName), WithProxyMode, WithSKSReady),
+			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector),
+				withMSvcName("yak-42")),
+			makeSKSPrivateEndpoints(1, testNamespace, testRevision),
+			expectedDeploy,
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: sks(testNamespace, testRevision, WithSKSReady,
+				WithDeployRef(deployName)),
+		}},
+	}}
+
+	defer logtesting.ClearAll()
+	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
+		fakeDeciders := newTestDeciders()
+		// Make sure we want to scale to 0.
+		decider := resources.MakeDecider(
+			ctx, kpa(testNamespace, testRevision), defaultConfig().Autoscaler, "quite-important-here")
+		decider.Status.DesiredScale = desiredScale
+		decider.Status.ExcessBurstCapacity = ctx.Value(ebcKey).(int32)
+		fakeDeciders.Create(ctx, decider)
+
+		fakeMetrics := newTestMetrics()
+		psFactory := presources.NewPodScalableInformerFactory(ctx)
+		scaler := newScaler(ctx, psFactory, func(interface{}, time.Duration) {})
+		scaler.activatorProbe = func(*asv1a1.PodAutoscaler, http.RoundTripper) (bool, error) { return true, nil }
+		return &Reconciler{
+			Base: &areconciler.Base{
+				Base:              rpkg.NewBase(ctx, controllerAgentName, newConfigWatcher()),
+				PALister:          listers.GetPodAutoscalerLister(),
+				SKSLister:         listers.GetServerlessServiceLister(),
+				ServiceLister:     listers.GetK8sServiceLister(),
+				Metrics:           fakeMetrics,
+				ConfigStore:       &testConfigStore{config: defaultConfig()},
+				PSInformerFactory: psFactory,
+			},
+			endpointsLister: listers.GetEndpointsLister(),
+			deciders:        fakeDeciders,
+			scaler:          scaler,
+		}
+	}))
+}
+
 func TestReconcileAndScaleToZero(t *testing.T) {
 	// This test suite uses special decider that will
 	// force KPA to scale to 0.
