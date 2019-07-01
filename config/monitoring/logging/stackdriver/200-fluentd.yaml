@@ -19,8 +19,6 @@ metadata:
   namespace: knative-monitoring
   labels:
     app: fluentd-ds
-    kubernetes.io/cluster-service: "true"
-    addonmanager.kubernetes.io/mode: Reconcile
     serving.knative.dev/release: devel
 ---
 kind: ClusterRole
@@ -29,8 +27,6 @@ metadata:
   name: fluentd-ds
   labels:
     app: fluentd-ds
-    kubernetes.io/cluster-service: "true"
-    addonmanager.kubernetes.io/mode: Reconcile
     serving.knative.dev/release: devel
 rules:
 - apiGroups:
@@ -49,8 +45,6 @@ metadata:
   name: fluentd-ds
   labels:
     app: fluentd-ds
-    kubernetes.io/cluster-service: "true"
-    addonmanager.kubernetes.io/mode: Reconcile
     serving.knative.dev/release: devel
 subjects:
 - kind: ServiceAccount
@@ -94,8 +88,6 @@ metadata:
   labels:
     app: fluentd-ds
     version: v2.0.4
-    kubernetes.io/cluster-service: "true"
-    addonmanager.kubernetes.io/mode: Reconcile
     serving.knative.dev/release: devel
 spec:
   selector:
@@ -106,7 +98,6 @@ spec:
     metadata:
       labels:
         app: fluentd-ds
-        kubernetes.io/cluster-service: "true"
         version: v2.0.4
         serving.knative.dev/release: devel
       # This annotation ensures that fluentd does not get evicted if the node
