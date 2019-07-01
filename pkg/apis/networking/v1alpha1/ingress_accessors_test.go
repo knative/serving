@@ -24,9 +24,7 @@ import (
 )
 
 func TestIngressAccessorMethods(t *testing.T) {
-
 	ci := &Ingress{
-
 		Status: IngressStatus{
 			LoadBalancer: &LoadBalancerStatus{
 				Ingress: []LoadBalancerIngressStatus{{
@@ -34,7 +32,6 @@ func TestIngressAccessorMethods(t *testing.T) {
 				}},
 			},
 		},
-
 		Spec: IngressSpec{
 			TLS: []IngressTLS{{
 				SecretNamespace: "secret-space",

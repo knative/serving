@@ -24,9 +24,7 @@ import (
 )
 
 func TestCIAccessorMethods(t *testing.T) {
-
 	ci := &ClusterIngress{
-
 		Status: IngressStatus{
 			LoadBalancer: &LoadBalancerStatus{
 				Ingress: []LoadBalancerIngressStatus{{
@@ -34,7 +32,6 @@ func TestCIAccessorMethods(t *testing.T) {
 				}},
 			},
 		},
-
 		Spec: IngressSpec{
 			TLS: []IngressTLS{{
 				SecretNamespace: "secret-space",
@@ -79,5 +76,4 @@ func TestCIAccessorMethods(t *testing.T) {
 	if strings.Compare(status.LoadBalancer.Ingress[0].DomainInternal, "test-domain2") != 0 {
 		t.Error("Failed to call IngressAccessor.SetStatus()")
 	}
-
 }
