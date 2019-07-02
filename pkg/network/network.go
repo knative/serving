@@ -265,7 +265,7 @@ func NewConfigFromConfigMap(configMap *corev1.ConfigMap) (*Config, error) {
 	return nc, nil
 }
 
-// GetDomainTemplate returns the golang Template from the config map.
+// GetDomainTemplate returns the golang Template from the config map
 // or panics (the value is validated during CM validation and at
 // this point guaranteed to be parseable).
 func (c *Config) GetDomainTemplate() *template.Template {

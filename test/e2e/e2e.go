@@ -60,7 +60,6 @@ func CreateRouteAndConfig(t *testing.T, clients *test.Clients, image string, opt
 // autoscalerCM returns the current autoscaler config map deployed to the
 // test cluster.
 func autoscalerCM(clients *test.Clients) (*autoscaler.Config, error) {
-	// Assume an empty map (and therefore return defaults) if getting the config map fails.
 	autoscalerCM, err := clients.KubeClient.Kube.CoreV1().ConfigMaps("knative-serving").Get(
 		autoscaler.ConfigName,
 		metav1.GetOptions{})
