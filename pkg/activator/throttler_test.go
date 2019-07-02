@@ -17,6 +17,7 @@ limitations under the License.
 package activator
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -24,10 +25,6 @@ import (
 
 	"go.uber.org/zap"
 
-	"knative.dev/pkg/controller"
-	. "knative.dev/pkg/logging/testing"
-	"knative.dev/pkg/system"
-	"knative.dev/pkg/test/helpers"
 	"github.com/knative/serving/pkg/apis/networking"
 	nv1a1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving"
@@ -38,14 +35,18 @@ import (
 	netlisters "github.com/knative/serving/pkg/client/listers/networking/v1alpha1"
 	servinglisters "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
 	"github.com/knative/serving/pkg/queue"
+	"knative.dev/pkg/controller"
+	. "knative.dev/pkg/logging/testing"
+	"knative.dev/pkg/system"
+	"knative.dev/pkg/test/helpers"
 
-	_ "knative.dev/pkg/system/testing"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubeinformers "k8s.io/client-go/informers"
 	corev1informers "k8s.io/client-go/informers/core/v1"
 	kubefake "k8s.io/client-go/kubernetes/fake"
+	_ "knative.dev/pkg/system/testing"
 )
 
 const (
@@ -257,7 +258,7 @@ func TestThrottlerTry(t *testing.T) {
 			if s.addCapacity {
 				throttler.UpdateCapacity(revID, 1)
 			}
-			err := throttler.Try(0, revID, func() {
+			err := throttler.Try(context.Background(), revID, func() {
 				called++
 			})
 			if err == nil && s.wantError {
@@ -291,7 +292,7 @@ func TestThrottlerTryOverload(t *testing.T) {
 	allowedRequests := initialCapacity + queueLength
 	for i := 0; i < allowedRequests+1; i++ {
 		go func() {
-			err := th.Try(0, revID, func() {
+			err := th.Try(context.Background(), revID, func() {
 				doneCh <- struct{}{} // Blocks forever
 			})
 			if err != nil {
