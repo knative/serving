@@ -32,7 +32,7 @@ Other classifications:
 
 > 0.2.x
 > 0.3.x
-> HEAD
+> Git SHA
 
 ## Expected Behavior
 
