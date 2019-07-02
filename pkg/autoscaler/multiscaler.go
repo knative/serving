@@ -61,7 +61,7 @@ type DeciderSpec struct {
 // DeciderStatus is the current scale recommendation.
 type DeciderStatus struct {
 	// DesiredScale is the target number of instances that autoscaler
-	// thiks revision needs.
+	// this revision needs.
 	DesiredScale int32
 
 	// ExcessBurstCapacity is the difference between spare capacity
