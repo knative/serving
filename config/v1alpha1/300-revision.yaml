@@ -39,9 +39,6 @@ spec:
   subresources:
     status: {}
   additionalPrinterColumns:
-  - name: Kn Service Name
-    type: string
-    JSONPath: ".metadata.labels['serving\\.knative\\.dev/service']"
   - name: Config Name
     type: string
     JSONPath: ".metadata.labels['serving\\.knative\\.dev/configuration']"
