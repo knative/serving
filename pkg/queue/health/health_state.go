@@ -81,9 +81,10 @@ func (h *State) drainFinished() {
 
 }
 
-// HealthHandler constructs a handler that returns the current state of
-// the health server.
-func (h *State) HealthHandler(prober func() bool) func(w http.ResponseWriter, r *http.Request) {
+// HealthHandlerKProbe constructs a handler that returns the current state of
+// the health server. After coming alive, will return success automatically
+// until receiving shutdown call, without checking prober again.
+func (h *State) HealthHandlerKProbe(prober func() bool) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		sendAlive := func() {
 			io.WriteString(w, "alive: true")
@@ -108,9 +109,9 @@ func (h *State) HealthHandler(prober func() bool) func(w http.ResponseWriter, r 
 	}
 }
 
-// HealthHandlerStd constructs a handler that returns the current state of
+// HealthHandler constructs a handler that returns the current state of
 // the health server.
-func (h *State) HealthHandlerStd(prober func() bool) func(w http.ResponseWriter, r *http.Request) {
+func (h *State) HealthHandler(prober func() bool) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		sendAlive := func() {
 			io.WriteString(w, "alive: true")

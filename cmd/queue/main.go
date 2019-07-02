@@ -257,9 +257,9 @@ func createAdminHandlers(p *readiness.Probe) *http.ServeMux {
 	mux := http.NewServeMux()
 
 	if p.IsStandardProbe() {
-		mux.HandleFunc(requestQueueHealthPath, healthState.HealthHandlerStd(p.ProbeContainer))
-	} else {
 		mux.HandleFunc(requestQueueHealthPath, healthState.HealthHandler(p.ProbeContainer))
+	} else {
+		mux.HandleFunc(requestQueueHealthPath, healthState.HealthHandlerKProbe(p.ProbeContainer))
 	}
 	mux.HandleFunc(queue.RequestQueueDrainPath, healthState.DrainHandler())
 
@@ -269,6 +269,7 @@ func createAdminHandlers(p *readiness.Probe) *http.ServeMux {
 func probeQueueHealthPath(port int, timeout time.Duration) error {
 	url := fmt.Sprintf(healthURLTemplate, port)
 
+	// use aggressive retries
 	if timeout == 0 {
 		return knativeProbe(url)
 	}
@@ -330,6 +331,7 @@ func knativeProbe(url string) error {
 	return nil
 }
 
+// parseProbe takes a json serialised *corev1.Probe and returns a Probe or an error
 func parseProbe(ucProbe string) (*corev1.Probe, error) {
 	p := &corev1.Probe{}
 	err := json.Unmarshal([]byte(ucProbe), p)
@@ -337,7 +339,6 @@ func parseProbe(ucProbe string) (*corev1.Probe, error) {
 		return nil, err
 	}
 	return p, nil
-	//	return readiness.NewProbe(p, logger.With(zap.String(logkey.Key, "readinessProbe"))), nil
 }
 
 func main() {

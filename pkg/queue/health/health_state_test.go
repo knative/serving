@@ -64,7 +64,7 @@ func TestHealthStateSetsState(t *testing.T) {
 	wantShuttingDown()
 }
 
-func TestHealthStateHealthHandler(t *testing.T) {
+func TestHealthStateHealthHandlerKProbe(t *testing.T) {
 	tests := []struct {
 		name       string
 		state      *State
@@ -107,7 +107,7 @@ func TestHealthStateHealthHandler(t *testing.T) {
 			}
 
 			rr := httptest.NewRecorder()
-			handler := http.HandlerFunc(test.state.HealthHandler(test.prober))
+			handler := http.HandlerFunc(test.state.HealthHandlerKProbe(test.prober))
 
 			handler.ServeHTTP(rr, req)
 
@@ -124,7 +124,7 @@ func TestHealthStateHealthHandler(t *testing.T) {
 	}
 }
 
-func TestHealthStateHealthHandlerStd(t *testing.T) {
+func TestHealthStateHealthHandler(t *testing.T) {
 	tests := []struct {
 		name       string
 		state      *State
@@ -169,7 +169,7 @@ func TestHealthStateHealthHandlerStd(t *testing.T) {
 			}
 
 			rr := httptest.NewRecorder()
-			handler := http.HandlerFunc(test.state.HealthHandlerStd(test.prober))
+			handler := http.HandlerFunc(test.state.HealthHandler(test.prober))
 
 			handler.ServeHTTP(rr, req)
 
