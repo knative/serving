@@ -22,6 +22,7 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/knative/serving/pkg/network"
 	"github.com/knative/serving/pkg/resources"
 
 	"github.com/google/go-cmp/cmp"
@@ -675,6 +676,10 @@ func TestProbeGenerationHTTPDefaults(t *testing.T) {
 				Path:   "/",
 				Port:   intstr.FromInt(int(v1alpha1.DefaultUserPort)),
 				Scheme: corev1.URISchemeHTTP,
+				HTTPHeaders: []corev1.HTTPHeader{{
+					Name:  network.KubeletProbeHeaderName,
+					Value: "queue",
+				}},
 			},
 		},
 		PeriodSeconds:  1,
@@ -759,6 +764,10 @@ func TestProbeGenerationHTTP(t *testing.T) {
 				Path:   probePath,
 				Port:   intstr.FromInt(userPort),
 				Scheme: corev1.URISchemeHTTPS,
+				HTTPHeaders: []corev1.HTTPHeader{{
+					Name:  network.KubeletProbeHeaderName,
+					Value: "queue",
+				}},
 			},
 		},
 		PeriodSeconds:  2,

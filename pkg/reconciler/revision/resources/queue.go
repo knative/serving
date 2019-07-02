@@ -27,6 +27,7 @@ import (
 	"github.com/knative/serving/pkg/autoscaler"
 	"github.com/knative/serving/pkg/deployment"
 	"github.com/knative/serving/pkg/metrics"
+	"github.com/knative/serving/pkg/network"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -248,6 +249,11 @@ func makeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, o
 			if rp.HTTPGet.Scheme == "" {
 				rp.HTTPGet.Scheme = corev1.URISchemeHTTP
 			}
+
+			rp.HTTPGet.HTTPHeaders = append(rp.HTTPGet.HTTPHeaders, corev1.HTTPHeader{
+				Name:  network.KubeletProbeHeaderName,
+				Value: "queue",
+			})
 		} else if rp.TCPSocket != nil {
 			rp.TCPSocket.Host = "127.0.0.1"
 			rp.TCPSocket.Port = intstr.FromInt(int(userPort))

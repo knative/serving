@@ -533,7 +533,7 @@ func TestMakePodSpec(t *testing.T) {
 				userContainer(),
 				queueContainer(
 					withEnvVar("CONTAINER_CONCURRENCY", "0"),
-					withArgs([]string{"--readiness-probe", fmt.Sprintf(`{"httpGet":{"path":"/","port":%d,"host":"127.0.0.1","scheme":"HTTP"}}`, v1alpha1.DefaultUserPort)}),
+					withArgs([]string{"--readiness-probe", fmt.Sprintf(`{"httpGet":{"path":"/","port":%d,"host":"127.0.0.1","scheme":"HTTP","httpHeaders":[{"name":"K-Kubelet-Probe","value":"queue"}]}}`, v1alpha1.DefaultUserPort)}),
 				),
 			}),
 	}, {
