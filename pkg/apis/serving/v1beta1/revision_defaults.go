@@ -22,9 +22,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 
 	"github.com/knative/serving/pkg/apis/config"
-	"github.com/knative/serving/pkg/apis/serving"
-	"k8s.io/apimachinery/pkg/api/equality"
-	"knative.dev/pkg/apis"
 )
 
 // SetDefaults implements apis.Defaultable
@@ -35,28 +32,6 @@ func (r *Revision) SetDefaults(ctx context.Context) {
 // SetDefaults implements apis.Defaultable
 func (rts *RevisionTemplateSpec) SetDefaults(ctx context.Context) {
 	rts.Spec.SetDefaults(ctx)
-
-	ctx = apis.WithinParent(ctx, rts.ObjectMeta)
-	if ui := apis.GetUserInfo(ctx); ui != nil {
-		ans := rts.GetAnnotations()
-		if ans == nil {
-			ans = map[string]string{}
-			defer rts.SetAnnotations(ans)
-		}
-		if apis.IsInUpdate(ctx) {
-			var oldSpec RevisionSpec
-			switch apis.GetBaseline(ctx).(type) {
-			case *Service:
-				oldSpec = apis.GetBaseline(ctx).(*Service).Spec.ConfigurationSpec.Template.Spec
-			case *Configuration:
-				oldSpec = apis.GetBaseline(ctx).(*Configuration).Spec.Template.Spec
-			}
-			if equality.Semantic.DeepEqual(oldSpec, rts.Spec) {
-				return
-			}
-		}
-		ans[serving.UpdaterAnnotation] = ui.Username
-	}
 }
 
 // SetDefaults implements apis.Defaultable

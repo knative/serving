@@ -25,7 +25,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	logtesting "knative.dev/pkg/logging/testing"
 	"knative.dev/pkg/ptr"
 
@@ -176,80 +175,6 @@ func TestRevisionDefaulting(t *testing.T) {
 			if !cmp.Equal(test.want, got, ignoreUnexportedResources) {
 				t.Errorf("SetDefaults (-want, +got) = %v",
 					cmp.Diff(test.want, got, ignoreUnexportedResources))
-			}
-		})
-	}
-}
-
-func TestRevisionTemplateSpecDefaulting(t *testing.T) {
-	defer logtesting.ClearAll()
-	tests := []struct {
-		name string
-		in   *RevisionTemplateSpec
-		want *RevisionTemplateSpec
-		wc   func(context.Context) context.Context
-	}{
-		{
-			name: "add updater annotation",
-			in:   &RevisionTemplateSpec{},
-			want: &RevisionTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{serving.UpdaterAnnotation: "testuser"},
-				},
-				Spec: RevisionSpec{
-					TimeoutSeconds: ptr.Int64(config.DefaultRevisionTimeoutSeconds),
-					PodSpec: corev1.PodSpec{
-						Containers: []corev1.Container{{
-							Name:      config.DefaultUserContainerName,
-							Resources: defaultResources,
-						}},
-					},
-				},
-			},
-			wc: func(ctx context.Context) context.Context {
-				return apis.WithUserInfo(context.Background(), &authv1.UserInfo{
-					Username: "testuser",
-				})
-			},
-		}, {
-			name: "update updater annotation",
-			in: &RevisionTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{serving.UpdaterAnnotation: "olduser"},
-				},
-			},
-			want: &RevisionTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{serving.UpdaterAnnotation: "newuser"},
-				},
-				Spec: RevisionSpec{
-					TimeoutSeconds: ptr.Int64(config.DefaultRevisionTimeoutSeconds),
-					PodSpec: corev1.PodSpec{
-						Containers: []corev1.Container{{
-							Name:      config.DefaultUserContainerName,
-							Resources: defaultResources,
-						}},
-					},
-				},
-			},
-			wc: func(ctx context.Context) context.Context {
-				return apis.WithUserInfo(context.Background(), &authv1.UserInfo{
-					Username: "newuser",
-				})
-			},
-		}}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			got := test.in
-			ctx := context.Background()
-			if test.wc != nil {
-				ctx = test.wc(ctx)
-			}
-			got.SetDefaults(ctx)
-			if !cmp.Equal(test.want, got) {
-				t.Errorf("SetDefaults (-want, +got) = %v",
-					cmp.Diff(test.want, got))
 			}
 		})
 	}
