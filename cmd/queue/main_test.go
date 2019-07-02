@@ -246,6 +246,8 @@ func TestProbeQueueTimeout(t *testing.T) {
 		t.Errorf("Expected probeQueueHealthPath(%d, %v) to return timeout error", port, timeout)
 	}
 
+	ts.Close()
+
 	if !queueProbed {
 		t.Errorf("Expected the queue proxy server to be probed")
 	}
