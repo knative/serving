@@ -17,9 +17,13 @@ limitations under the License.
 package resources
 
 import (
+	"crypto/md5"
+	"encoding/json"
+	"fmt"
 	"regexp"
 	"strings"
 
+	"github.com/pkg/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -34,6 +38,11 @@ import (
 	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/reconciler/ingress/resources/names"
 	"knative.dev/serving/pkg/resources"
+)
+
+const (
+	// ProbeHostSuffix is the suffix of the hosts used for probing
+	ProbeHostSuffix = ".probe.invalid"
 )
 
 // VirtualServiceNamespace gives the namespace of the child
@@ -101,7 +110,7 @@ func MakeMeshVirtualService(ia v1alpha1.IngressAccessor) *v1alpha3.VirtualServic
 }
 
 // MakeVirtualServices creates a mesh virtualservice and a virtual service for each gateway
-func MakeVirtualServices(ia v1alpha1.IngressAccessor, gateways map[v1alpha1.IngressVisibility]sets.String) []*v1alpha3.VirtualService {
+func MakeVirtualServices(ia v1alpha1.IngressAccessor, gateways map[v1alpha1.IngressVisibility]sets.String) ([]*v1alpha3.VirtualService, error) {
 	vss := []*v1alpha3.VirtualService{MakeMeshVirtualService(ia)}
 
 	requiredGatewayCount := 0
@@ -116,7 +125,41 @@ func MakeVirtualServices(ia v1alpha1.IngressAccessor, gateways map[v1alpha1.Ingr
 	if requiredGatewayCount > 0 {
 		vss = append(vss, MakeIngressVirtualService(ia, gateways))
 	}
-	return vss
+
+	// Add probe routes
+	for _, vs := range vss {
+		if _, err := InsertProbe(vs); err != nil {
+			return nil, errors.Wrapf(err, "failed to insert probe route to %s/%s", vs.Namespace, vs.Name)
+		}
+	}
+
+	return vss, nil
+}
+
+// InsertProbe inserts a rule used to probe the VirtualService
+func InsertProbe(vs *v1alpha3.VirtualService) (string, error) {
+	hash, err := computeVirtualServiceHash(vs)
+	if err != nil {
+		return "", errors.Wrapf(err, "failed to compute the hash of %s/%s", vs.Namespace, vs.Name)
+	}
+	// As per RFC1153, a DNS label must be under 63 8-bit octets
+	host := fmt.Sprintf("%x", hash) + ProbeHostSuffix
+	vs.Spec.Hosts = append(vs.Spec.Hosts, host)
+	vs.Spec.HTTP = append(vs.Spec.HTTP, makeProbeRoute(host))
+	return host, nil
+}
+
+// computeVirtualService computes a hash of the VirtualService Spec and Namespace.
+// It is designed to uniquely identify the effect of a VirtualService. Therefore,
+// Name is irrelevant but Namespace is relevant because Gateway resolution is done within the
+// namespace of the VirtualService if a namespace is not specified in the Gateway definition.
+func computeVirtualServiceHash(vs *v1alpha3.VirtualService) ([16]byte, error) {
+	bytes, err := json.Marshal(vs.Spec)
+	if err != nil {
+		return [16]byte{}, fmt.Errorf("failed to serialize the VirtualServiceSpec: %v", err)
+	}
+	bytes = append(bytes, []byte(vs.Namespace)...)
+	return md5.Sum(bytes), nil
 }
 
 func makeVirtualServiceSpec(ia v1alpha1.IngressAccessor, gateways map[v1alpha1.IngressVisibility]sets.String, hosts sets.String) *v1alpha3.VirtualServiceSpec {
@@ -125,6 +168,7 @@ func makeVirtualServiceSpec(ia v1alpha1.IngressAccessor, gateways map[v1alpha1.I
 		Gateways: gw.List(),
 		Hosts:    hosts.List(),
 	}
+
 	for _, rule := range ia.GetSpec().Rules {
 		for _, p := range rule.HTTP.Paths {
 			hosts := hosts.Intersection(sets.NewString(rule.Hosts...))
@@ -134,6 +178,48 @@ func makeVirtualServiceSpec(ia v1alpha1.IngressAccessor, gateways map[v1alpha1.I
 		}
 	}
 	return &spec
+}
+
+// qualifyGateways modifies the provided gateway list to add namespace
+// information into gateway names that don't already have them.
+func qualifyGateways(gws []string) []string {
+	if len(gws) == 0 {
+		return nil
+	}
+	gwsQualify := make([]string, len(gws))
+	for i, gw := range gws {
+		if !(strings.Contains(gw, "/") || strings.Contains(gw, ".") || gw == "mesh") { // unqualified
+			gwsQualify[i] = system.Namespace() + "/" + gw
+		} else {
+			gwsQualify[i] = gw
+		}
+	}
+	return gwsQualify
+}
+
+func makeProbeRoute(host string) v1alpha3.HTTPRoute {
+	return v1alpha3.HTTPRoute{
+		// Matches the provided host
+		Match: []v1alpha3.HTTPMatchRequest{{
+			Authority: &istiov1alpha1.StringMatch{
+				Exact: host,
+			}}},
+		// Always returns HTTP 200
+		Fault: &v1alpha3.HTTPFaultInjection{
+			Abort: &v1alpha3.InjectAbort{
+				Percent:    100,
+				HTTPStatus: 200,
+			}},
+		// Unused dummy destination
+		Route: []v1alpha3.HTTPRouteDestination{{
+			Destination: v1alpha3.Destination{
+				Host: "null.invalid",
+				Port: v1alpha3.PortSelector{
+					Number: 80,
+				},
+			},
+		}},
+	}
 }
 
 func makePortSelector(ios intstr.IntOrString) v1alpha3.PortSelector {
