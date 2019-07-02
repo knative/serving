@@ -33,12 +33,14 @@ const (
 	retryInterval       = 50 * time.Millisecond
 )
 
+// Probe wraps a corev1.Probe along with a logger and a count of consecutive, successful probes
 type Probe struct {
 	*corev1.Probe
 	count  int32
 	logger *zap.SugaredLogger
 }
 
+// NewProbe returns a pointer a new Probe
 func NewProbe(v1p *corev1.Probe, logger *zap.SugaredLogger) *Probe {
 	return &Probe{
 		Probe:  v1p,
@@ -51,6 +53,7 @@ func (p *Probe) IsStandardProbe() bool {
 	return p.PeriodSeconds != 0
 }
 
+// ProbeContainer executes the defined Probe against the user-container
 func (p *Probe) ProbeContainer() bool {
 	var err error
 
