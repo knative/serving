@@ -67,10 +67,6 @@ const (
 	// in the mesh.
 	quitSleepDuration = 20 * time.Second
 
-	// Set equal to the queue-proxy's ExecProbe timeout to take
-	// advantage of the full window
-	probeTimeout = 10 * time.Second
-
 	badProbeTemplate = "unexpected probe header value: %s"
 
 	// Metrics' names (without component prefix).
@@ -186,7 +182,7 @@ func knativeProxyHeader(r *http.Request) string {
 
 func probeUserContainer() bool {
 	var err error
-	wait.PollImmediate(50*time.Millisecond, probeTimeout, func() (bool, error) {
+	wait.PollImmediate(50*time.Millisecond, 10*time.Second, func() (bool, error) {
 		config := health.TCPProbeConfigOptions{
 			Address:       userTargetAddress,
 			SocketTimeout: defaultProbeTimeout,
@@ -266,7 +262,7 @@ func createAdminHandlers(p *readiness.Probe) *http.ServeMux {
 	return mux
 }
 
-func probeQueueHealthPath(port int, timeout time.Duration) error {
+func probeQueueHealthPath(port int, timeout int) error {
 	url := fmt.Sprintf(healthURLTemplate, port)
 
 	// use aggressive retries
@@ -279,7 +275,7 @@ func probeQueueHealthPath(port int, timeout time.Duration) error {
 			// Do not use the cached connection
 			DisableKeepAlives: true,
 		},
-		Timeout: timeout,
+		Timeout: time.Duration(timeout) * time.Second,
 	}
 
 	res, err := httpClient.Get(url)
@@ -287,8 +283,7 @@ func probeQueueHealthPath(port int, timeout time.Duration) error {
 	if err != nil {
 		return errors.Wrap(err, "failed to probe")
 	}
-
-	if res == nil || res.StatusCode != http.StatusOK {
+	if !health.IsHTTPProbeReady(res) {
 		return errors.New("probe returned not ready")
 	}
 
@@ -301,7 +296,7 @@ func knativeProbe(url string) error {
 			// Do not use the cached connection
 			DisableKeepAlives: true,
 		},
-		Timeout: probeTimeout,
+		Timeout: readiness.PollTimeout,
 	}
 
 	var lastErr error
@@ -309,14 +304,13 @@ func knativeProbe(url string) error {
 	// The 25 millisecond retry interval is an unscientific compromise between wanting to get
 	// started as early as possible while still wanting to give the container some breathing
 	// room to get up and running.
-	timeoutErr := wait.PollImmediate(25*time.Millisecond, probeTimeout, func() (bool, error) {
+	timeoutErr := wait.PollImmediate(25*time.Millisecond, readiness.PollTimeout, func() (bool, error) {
 		var res *http.Response
 		if res, lastErr = httpClient.Get(url); res == nil {
 			return false, nil
 		}
 		defer res.Body.Close()
-
-		return res.StatusCode == http.StatusOK, nil
+		return health.IsHTTPProbeReady(res), nil
 	})
 
 	if lastErr != nil {
@@ -345,8 +339,7 @@ func main() {
 	flag.Parse()
 
 	if *readinessProbeTimeout >= 0 {
-		pt := time.Duration(*readinessProbeTimeout) * time.Second
-		if err := probeQueueHealthPath(networking.QueueAdminPort, pt); err != nil {
+		if err := probeQueueHealthPath(networking.QueueAdminPort, *readinessProbeTimeout); err != nil {
 			// used instead of the logger to produce a concise event message
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)

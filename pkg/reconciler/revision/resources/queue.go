@@ -28,6 +28,7 @@ import (
 	"github.com/knative/serving/pkg/deployment"
 	"github.com/knative/serving/pkg/metrics"
 	"github.com/knative/serving/pkg/network"
+	"github.com/knative/serving/pkg/queue"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -38,7 +39,10 @@ import (
 	"knative.dev/pkg/system"
 )
 
-const requestQueueHTTPPortName = "queue-port"
+const (
+	localAddress             = "127.0.0.1"
+	requestQueueHTTPPortName = "queue-port"
+)
 
 var (
 	queueHTTPPort = corev1.ContainerPort{
@@ -241,28 +245,8 @@ func makeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, o
 
 	rp := rev.Spec.GetContainer().ReadinessProbe.DeepCopy()
 
-	if rp != nil {
-		if rp.HTTPGet != nil {
-			rp.HTTPGet.Host = "127.0.0.1"
-			rp.HTTPGet.Port = intstr.FromInt(int(userPort))
+	applyReadinessProbeDefaults(rp, userPort)
 
-			if rp.HTTPGet.Scheme == "" {
-				rp.HTTPGet.Scheme = corev1.URISchemeHTTP
-			}
-
-			rp.HTTPGet.HTTPHeaders = append(rp.HTTPGet.HTTPHeaders, corev1.HTTPHeader{
-				Name:  network.KubeletProbeHeaderName,
-				Value: "queue",
-			})
-		} else if rp.TCPSocket != nil {
-			rp.TCPSocket.Host = "127.0.0.1"
-			rp.TCPSocket.Port = intstr.FromInt(int(userPort))
-		}
-
-		if rp.PeriodSeconds > 0 && rp.TimeoutSeconds < 1 {
-			rp.TimeoutSeconds = 1
-		}
-	}
 	probeJSON, err := json.Marshal(rp)
 	if err != nil {
 		probeJSON = []byte{}
@@ -346,5 +330,32 @@ func makeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, o
 			Name:  "INTERNAL_VOLUME_PATH",
 			Value: internalVolumePath,
 		}},
+	}
+}
+
+func applyReadinessProbeDefaults(p *corev1.Probe, port int32) {
+	if p == nil {
+		return
+	}
+
+	if p.HTTPGet != nil {
+		p.HTTPGet.Host = localAddress
+		p.HTTPGet.Port = intstr.FromInt(int(port))
+
+		if p.HTTPGet.Scheme == "" {
+			p.HTTPGet.Scheme = corev1.URISchemeHTTP
+		}
+
+		p.HTTPGet.HTTPHeaders = append(p.HTTPGet.HTTPHeaders, corev1.HTTPHeader{
+			Name:  network.KubeletProbeHeaderName,
+			Value: queue.Name,
+		})
+	} else if p.TCPSocket != nil {
+		p.TCPSocket.Host = localAddress
+		p.TCPSocket.Port = intstr.FromInt(int(port))
+	}
+
+	if p.PeriodSeconds > 0 && p.TimeoutSeconds < 1 {
+		p.TimeoutSeconds = 1
 	}
 }

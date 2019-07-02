@@ -18,6 +18,7 @@ package health
 
 import (
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -66,20 +67,29 @@ func HTTPProbe(config HTTPProbeConfigOptions) error {
 	if err != nil {
 		return fmt.Errorf("Error constructing request %s", err.Error())
 	}
+
 	for _, header := range config.HTTPHeaders {
 		req.Header.Add(header.Name, header.Value)
 	}
+
 	var res *http.Response
 	res, err = httpClient.Do(req)
 	if err != nil {
 		return err
 	}
-	if res == nil {
-		return fmt.Errorf("httpGet probe failed to get response")
+
+	if !IsHTTPProbeReady(res) {
+		return errors.New("http probe did not respond Ready")
 	}
-	// response status code between 200-399 indicates success
-	if res.StatusCode < 200 || res.StatusCode >= 400 {
-		return fmt.Errorf("httpGet probe response status code is %d", res.StatusCode)
-	}
+
 	return nil
+}
+
+func IsHTTPProbeReady(res *http.Response) bool {
+	if res == nil {
+		return false
+	}
+
+	// response status code between 200-399 indicates success
+	return res.StatusCode >= 200 && res.StatusCode < 400
 }

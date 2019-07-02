@@ -161,7 +161,7 @@ func TestCreateVarLogLink(t *testing.T) {
 func TestProbeQueueConnectionFailure(t *testing.T) {
 	port := 12345 // some random port (that's not listening)
 
-	if err := probeQueueHealthPath(port, time.Second); err == nil {
+	if err := probeQueueHealthPath(port, 1); err == nil {
 		t.Error("Expected error, got nil")
 	}
 }
@@ -185,7 +185,7 @@ func TestProbeQueueNotReady(t *testing.T) {
 		t.Fatalf("Failed to convert port(%s) to int: %v", u.Port(), err)
 	}
 
-	err = probeQueueHealthPath(port, 1*time.Second)
+	err = probeQueueHealthPath(port, 1)
 
 	if diff := cmp.Diff(err.Error(), "probe returned not ready"); diff != "" {
 		t.Errorf("Unexpected not ready message: %s", diff)
@@ -215,7 +215,7 @@ func TestProbeQueueReady(t *testing.T) {
 		t.Fatalf("Failed to convert port(%s) to int: %v", u.Port(), err)
 	}
 
-	if err = probeQueueHealthPath(port, 1*time.Second); err != nil {
+	if err = probeQueueHealthPath(port, 1); err != nil {
 		t.Errorf("probeQueueHealthPath(%d, 1s) = %s", port, err)
 	}
 
@@ -241,7 +241,7 @@ func TestProbeQueueTimeout(t *testing.T) {
 		t.Fatalf("failed to convert port(%s) to int", portStr)
 	}
 
-	timeout := 1 * time.Second
+	timeout := 1
 	if err = probeQueueHealthPath(port, timeout); err == nil {
 		t.Errorf("Expected probeQueueHealthPath(%d, %v) to return timeout error", port, timeout)
 	}
@@ -276,7 +276,7 @@ func TestProbeQueueDelayedReady(t *testing.T) {
 		t.Fatalf("Failed to convert port(%s) to int: %v", u.Port(), err)
 	}
 
-	timeout := 0 * time.Second
+	timeout := 0
 	if err := probeQueueHealthPath(port, timeout); err != nil {
 		t.Errorf("probeQueueHealthPath(%d) = %s", port, err)
 	}

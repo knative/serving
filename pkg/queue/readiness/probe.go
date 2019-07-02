@@ -29,8 +29,10 @@ import (
 
 const (
 	defaultProbeTimeout = 100 * time.Millisecond
-	pollTimeout         = 10 * time.Second
-	retryInterval       = 50 * time.Millisecond
+	// Set equal to the queue-proxy's ExecProbe timeout to take
+	// advantage of the full window
+	PollTimeout   = 10 * time.Second
+	retryInterval = 50 * time.Millisecond
 )
 
 // Probe wraps a corev1.Probe along with a logger and a count of consecutive, successful probes
@@ -98,7 +100,7 @@ func (p *Probe) tcpProbe() error {
 		return health.TCPProbe(config)
 	}
 
-	return wait.PollImmediate(retryInterval, pollTimeout, func() (bool, error) {
+	return wait.PollImmediate(retryInterval, PollTimeout, func() (bool, error) {
 		if tcpErr := health.TCPProbe(config); tcpErr != nil {
 			p.count = 0
 			return false, nil
@@ -120,7 +122,7 @@ func (p *Probe) httpProbe() error {
 		return health.HTTPProbe(httpProbeConfig)
 	}
 
-	return wait.PollImmediate(retryInterval, pollTimeout, func() (bool, error) {
+	return wait.PollImmediate(retryInterval, PollTimeout, func() (bool, error) {
 		if err := health.HTTPProbe(httpProbeConfig); err != nil {
 			p.count = 0
 			return false, nil
