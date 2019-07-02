@@ -124,11 +124,6 @@ the OCI specification as long as:
   contents from a particular execution. Because containers (particularly failing
   containers) can experience frequent starts, operators or platform providers
   SHOULD limit the total space consumed by these failures.
-- A container ought to write its own termination message to `/dev/termination-log`
-  by default. If no message is written by the container, the last few lines of
-  log output SHOULD be reported as the execution error (i.e. by
-  [setting the `terminationMessagePolicy` to `FallbackToLogsOnError`](https://kubernetes.io/docs/tasks/debug-application-cluster/determine-reason-pod-failure/#customizing-the-termination-message))
-  on Kubernetes.
 
 ### Warnings
 
@@ -290,9 +285,9 @@ code. These settings apply to both `livenessProbe` and `readinessProbe`:
 - `initialDelaySeconds` set to 0
 - `periodSeconds` set to platform-specific value
 
-In order to enable scaling in response to load, setting `initialDelaySeconds`
-to a value greater than 0 can be used, while striving to minimize container
-startup time (aka cold start time).
+Setting `initialDelaySeconds` to a value greater than 0 impacts container
+startup time (aka cold start time) as a container will not serve traffic until
+the probe succeeds.
 
 ##### Deployment probe
 
@@ -424,7 +419,7 @@ used for many different purposes, including containerization of existing legacy
 or stateful processes which might store substantial amounts of on-disk state. In a
 scaled-out, stateless environment, container startup and teardown is accelerated
 when on-disk resources are kept to a minimum. Additionally, developers might not
-have access to the container filesystems (or the containers might be rapidly
+have access to the container's filesystems (or the containers might be rapidly
 recycled), so log aggregation SHOULD be provided.
 
 In addition to the filesystems recommended in the OCI, the following filesystems
@@ -436,8 +431,7 @@ be provided:
 | `/tmp`     | MUST be Read-write.<p>SHOULD be backed by tmpfs if disk load is a concern.                                                                                       |
 | `/var/log` | MUST be a directory with write permissions for logs storage. Implementations MAY permit the creation of additional subdirectories and log rotation and renaming. |
 
-In addition, the following constraints are specified for the overridden files
-indicated:
+To enable DNS resolution, the following files might be overwritten at runtime:
 
 | File               | Description                                                                                                                                                          |
 | ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -501,9 +495,9 @@ Seccomp provides a mechanism for further restricting the set of linux syscalls
 permitted to the processes running inside the container environment. A seccomp
 sandbox MAY be enforced by the platform operator; any such application profiles
 SHOULD be configured and applied in a consistent mechanism outside of the
-container specification. As the seccomp policy might be part of the platform
-security hardening, operators MAY tune this over time as the threat environment
-changes.
+container specification. A seccomp policy MAY be part of the platform
+security configuration that operators can tune over time as the
+threat environment changes.
 
 ### Rootfs Mount Propagation
 
@@ -516,16 +510,16 @@ From the OCI spec:
 > propagation.
 
 This option MAY be set by the operator or platform provider, and MUST
-NOT be configurable by the developer. As mount propagation might be part of the
-platform security hardening, operators might tune this over time as the threat
-environment changes.
+NOT be configurable by the developer. Mount propagation MAY be part of the
+platform security configuration that operators can tune over time
+as the threat environment changes.
 
 ### Masked Paths
 
 This option MAY be set by the operator or platform provider, and MUST NOT
-be configurable by the developer. As masked paths might be part of the platform
-security hardening, operators might tune this from time to time as the threat
-environment changes.
+be configurable by the developer. Masked paths MAY be part of the platform
+security configuration that operators can tune over time as the
+threat environment changes.
 
 ### Readonly Paths
 
