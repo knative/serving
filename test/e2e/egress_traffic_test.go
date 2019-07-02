@@ -23,6 +23,7 @@ import (
 	"testing"
 
 	"github.com/knative/serving/test"
+	v1a1test "github.com/knative/serving/test/v1alpha1"
 
 	corev1 "k8s.io/api/core/v1"
 )
@@ -47,13 +48,14 @@ func TestEgressTraffic(t *testing.T) {
 	defer test.TearDown(clients, names)
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 
-	service, err := test.CreateRunLatestServiceReady(t, clients, &names, &test.Options{EnvVars: envVars})
+	service, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, &v1a1test.Options{EnvVars: envVars})
 	if err != nil {
 		t.Fatalf("Failed to create a service: %v", err)
 	}
 	if service.Route.Status.URL == nil {
 		t.Fatalf("Can't get internal request domain: service.Route.Status.URL is nil")
 	}
+	t.Log(service.Route.Status.URL.Host)
 	response, err := sendRequest(t, clients, test.ServingFlags.ResolvableDomain, service.Route.Status.URL.Host)
 	if err != nil {
 		t.Fatalf("Failed to send request to httpproxy: %v", err)
