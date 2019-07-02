@@ -42,9 +42,9 @@ assumes the
 
 In particular, the default Knative implementation relies on Kubernetes behavior
 to implement container operation. In some cases, current Kubernetes behavior in
-2018 is not as performant as specified in this documentation. The goal of the
+2018 is not as performant as envisioned in this documentation. The goal of the
 Knative authors is to push as much of the needed functionality into Kubernetes
-and/or Istio as possible, rather than implementing reach-around layers.
+and/or HTTP routers as possible, rather than implementing reach-around layers.
 
 This document considers two users of a given Knative environment, and is
 particularly concerned with the expectations of _developers_ (and _language and
@@ -71,7 +71,7 @@ needed to run a service. Some of these production-friendly features include:
     where possible.
 
 In order to achieve these properties, containers which are operated as part of a
-serverless platform SHOULD observe the following properties:
+serverless platform are expected to observe the following properties:
 
 - Fast startup time (<1s until a request or event can be processed, given
   container image layer caching),
@@ -82,8 +82,6 @@ serverless platform SHOULD observe the following properties:
 
 ### State
 
-The general OCI state might not be available for introspection within the
-container, and might only be visible to the system operator or platform provider.
 In a highly-shared environment, containers might experience the following:
 
 - Containers with `status` of `stopped` MAY be immediately reclaimed by the
@@ -126,7 +124,7 @@ the OCI specification as long as:
   contents from a particular execution. Because containers (particularly failing
   containers) can experience frequent starts, operators or platform providers
   SHOULD limit the total space consumed by these failures.
-- A container SHOULD write its own termination message to `/dev/termination-log`
+- A container ought to write its own termination message to `/dev/termination-log`
   by default. If no message is written by the container, the last few lines of
   log output SHOULD be reported as the execution error (i.e. by
   [setting the `terminationMessagePolicy` to `FallbackToLogsOnError`](https://kubernetes.io/docs/tasks/debug-application-cluster/determine-reason-pod-failure/#customizing-the-termination-message))
@@ -165,7 +163,7 @@ always result in `EOF`. The `stdout` and `stderr` file descriptors on the
 container SHOULD be collected and retained in a developer-accessible logging
 repository. (TODO:[docs#902](https://github.com/knative/docs/issues/902)).
 
-Within the container, pipes and file descriptors MAY be used to communicate
+Within the container, pipes and file descriptors can be used to communicate
 between processes running in the same container.
 
 #### Dev symbolic links
@@ -217,10 +215,10 @@ following protocol will be used:
 - `h2c`: HTTP/2 transport, as described in
   [section 3.4 of the HTTP2 spec (Starting HTTP/2 with Prior Knowledge)](https://http2.github.io/http2-spec/#known-http)
 
-Developers SHOULD use automatic content negotiation where available,
+Developers ought to use automatic content negotiation where available,
 and MUST NOT set the `name` field to arbitrary values, as additional transports
-might be defined in the future. Developers MUST assume all traffic is
-intermediated by an L7 proxy. Developers MUST NOT assume a direct network
+might be defined in the future. Developers can assume all traffic is
+intermediated by an L7 proxy. Developers can not assume a direct network
 connection between their server process and client processes.
 
 #### Headers
@@ -292,9 +290,9 @@ code. These settings apply to both `livenessProbe` and `readinessProbe`:
 - `initialDelaySeconds` set to 0
 - `periodSeconds` set to platform-specific value
 
-In order to enable scaling in response to load, developers SHOULD NOT set the
-`initialDelaySeconds` to a value greater than 0, and SHOULD aim to minimize
-container startup time (aka cold start time).
+In order to enable scaling in response to load, setting `initialDelaySeconds`
+to a value greater than 0 can be used, while striving to minimize container
+startup time (aka cold start time).
 
 ##### Deployment probe
 
@@ -421,7 +419,7 @@ be failed.
 
 ### Default Filesystems
 
-The OCI specification describes a default container environment which might be
+The OCI specification describes a default container environment which can be
 used for many different purposes, including containerization of existing legacy
 or stateful processes which might store substantial amounts of on-disk state. In a
 scaled-out, stateless environment, container startup and teardown is accelerated
@@ -438,13 +436,13 @@ be provided:
 | `/tmp`     | MUST be Read-write.<p>SHOULD be backed by tmpfs if disk load is a concern.                                                                                       |
 | `/var/log` | MUST be a directory with write permissions for logs storage. Implementations MAY permit the creation of additional subdirectories and log rotation and renaming. |
 
-In addition, the following files MAY be overridden by the runtime environment to
-enable DNS resolution:
+In addition, the following constraints are specified for the overridden files
+indicated:
 
 | File               | Description                                                                                                                                                          |
 | ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `/etc/hosts`       | MAY be overridden to provide host mappings for well-known or provider-specific resources.                                                                            |
-| `/etc/hostname`    | OPTIONAL: some environments might set this to a different value for each container, but other environments might use the same value for all containers.                  |
+| `/etc/hostname`    | some environments MAY set this to a different value for each container, but other environments might use the same value for all containers.                  |
 | `/etc/resolv.conf` | SHOULD be set to a valid cluster-specific recursive resolver. Providers MAY provide additional default search domains to improve customer experience in the cluster. |
 
 Platform providers MAY provide additional platform-specific mount points
@@ -517,14 +515,14 @@ From the OCI spec:
 > article in the kernel documentation has more information about mount
 > propagation.
 
-This option SHOULD only be set by the operator or platform provider, and MUST
+This option MAY be set by the operator or platform provider, and MUST
 NOT be configurable by the developer. As mount propagation might be part of the
 platform security hardening, operators might tune this over time as the threat
 environment changes.
 
 ### Masked Paths
 
-This option SHOULD only be set by the operator or platform provider, and MUST NOT
+This option MAY be set by the operator or platform provider, and MUST NOT
 be configurable by the developer. As masked paths might be part of the platform
 security hardening, operators might tune this from time to time as the threat
 environment changes.
