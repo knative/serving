@@ -291,10 +291,10 @@ func TestReconcileAndScaleToZero(t *testing.T) {
 			kpa(testNamespace, testRevision,
 				WithNoTraffic("NoTraffic", "The target is not receiving traffic."),
 				markOld, WithPAStatusService(testRevision),
-				withMSvcStatus("rocking-in-the-free-world")),
+				withMSvcStatus("my-my-hey-hey")),
 			sks(testNamespace, testRevision, WithDeployRef(deployName), WithProxyMode, WithSKSReady),
 			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector),
-				withMSvcName("rocking-in-the-free-world")),
+				withMSvcName("my-my-hey-hey")),
 			deploy(testNamespace, testRevision, func(d *appsv1.Deployment) {
 				d.Spec.Replicas = ptr.Int32(0)
 			}),
@@ -350,10 +350,10 @@ func TestReconcileAndScaleToZero(t *testing.T) {
 		Key:  key,
 		Objects: []runtime.Object{
 			kpa(testNamespace, testRevision, markActive, markOld,
-				WithPAStatusService(testRevision), withMSvcStatus("you-ask-for-this")),
+				WithPAStatusService(testRevision), withMSvcStatus("they-give-you-this")),
 			sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSReady),
 			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector),
-				withMSvcName("you-ask-for-this")),
+				withMSvcName("they-give-you-this")),
 			deploy(testNamespace, testRevision),
 			makeSKSPrivateEndpoints(1, testNamespace, testRevision),
 		},
@@ -368,7 +368,7 @@ func TestReconcileAndScaleToZero(t *testing.T) {
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: kpa(testNamespace, testRevision,
 				WithNoTraffic("NoTraffic", "The target is not receiving traffic."),
-				WithPAStatusService(testRevision), withMSvcStatus("you-ask-for-this")),
+				WithPAStatusService(testRevision), withMSvcStatus("they-give-you-this")),
 		}},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: sks(testNamespace, testRevision, WithSKSReady,
@@ -379,13 +379,42 @@ func TestReconcileAndScaleToZero(t *testing.T) {
 		Key:  key,
 		Objects: []runtime.Object{
 			kpa(testNamespace, testRevision, markActive,
-				WithPAStatusService(testRevision), withMSvcStatus("but-we-give-you-that")),
+				WithPAStatusService(testRevision), withMSvcStatus("but-you-pay-for-that")),
 			sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSReady),
 			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector),
-				withMSvcName("but-we-give-you-that")),
+				withMSvcName("but-you-pay-for-that")),
 			deploy(testNamespace, testRevision),
 			makeSKSPrivateEndpoints(1, testNamespace, testRevision),
 		},
+	}, {
+		Name: "activing failure",
+		Key:  key,
+		Objects: []runtime.Object{
+			kpa(testNamespace, testRevision, markActivating, markOld,
+				WithPAStatusService(testRevision),
+				withMSvcStatus("once-you're-gone")),
+			sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSReady),
+			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector),
+				withMSvcName("once-you're-gone")),
+			deploy(testNamespace, testRevision),
+			makeSKSPrivateEndpoints(1, testNamespace, testRevision),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: kpa(testNamespace, testRevision,
+				WithNoTraffic("TimedOut", "The target could not be activated."),
+				WithPAStatusService(testRevision), withMSvcStatus("once-you're-gone")),
+		}},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: sks(testNamespace, testRevision, WithSKSReady,
+				WithDeployRef(deployName), WithProxyMode),
+		}},
+		WantPatches: []clientgotesting.PatchActionImpl{{
+			ActionImpl: clientgotesting.ActionImpl{
+				Namespace: testNamespace,
+			},
+			Name:  deployName,
+			Patch: []byte(`[{"op":"add","path":"/spec/replicas","value":0}]`),
+		}},
 	}}
 
 	defer logtesting.ClearAll()
