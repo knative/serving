@@ -5,7 +5,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-    http://www.apache.org/licenses/LICENSE-2.0
+  http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -80,28 +80,28 @@ func TestValidateScaleBoundAnnotations(t *testing.T) {
 			MaxScaleAnnotationKey: "0",
 		},
 	}, {
-		name:        "panic window  percentange bad",
+		name:        "panic window percentange bad",
 		annotations: map[string]string{PanicWindowPercentageAnnotationKey: "-1"},
-		expectErr:   "Invalid annatation value autoscaling.knative.dev/panicWindowPercentage=-1, not a valid percentage : autoscaling.knative.dev/panicWindowPercentage",
+		expectErr:   "expected 1 <= -1 <= 100: annotation: autoscaling.knative.dev/panicWindowPercentage",
 	}, {
 		name:        "panic window percentange bad2",
 		annotations: map[string]string{PanicWindowPercentageAnnotationKey: "202"},
-		expectErr:   "Invalid annatation value autoscaling.knative.dev/panicWindowPercentage=202, not a valid percentage : autoscaling.knative.dev/panicWindowPercentage",
+		expectErr:   "expected 1 <= 202 <= 100: annotation: autoscaling.knative.dev/panicWindowPercentage",
 	}, {
 		name:        "panic window percentange bad3",
 		annotations: map[string]string{PanicWindowPercentageAnnotationKey: "fifty"},
-		expectErr:   "Invalid annatation value autoscaling.knative.dev/panicWindowPercentage=fifty, not a valid number: autoscaling.knative.dev/panicWindowPercentage",
+		expectErr:   "invalid value: fifty: annotation: autoscaling.knative.dev/panicWindowPercentage",
 	}, {
-		name:        "panic threshold percentange bad2",
+		name:        "panic threshold percentange good",
 		annotations: map[string]string{PanicThresholdPercentageAnnotationKey: "210"},
 	}, {
 		name:        "panic threshold percentange bad2",
 		annotations: map[string]string{PanicThresholdPercentageAnnotationKey: "109"},
-		expectErr:   "Invalid annatation value autoscaling.knative.dev/panicThresholdPercentage=109, must be at least 110: autoscaling.knative.dev/panicThresholdPercentage",
+		expectErr:   "Invalid annotation value 109, must be at least 110: autoscaling.knative.dev/panicThresholdPercentage",
 	}, {
 		name:        "panic threshold percentange bad3",
 		annotations: map[string]string{PanicThresholdPercentageAnnotationKey: "fifty"},
-		expectErr:   "Invalid annatation value autoscaling.knative.dev/panicThresholdPercentage=fifty, not a valid number: autoscaling.knative.dev/panicThresholdPercentage",
+		expectErr:   "invalid value: fifty: annotation: autoscaling.knative.dev/panicThresholdPercentage",
 	}, {
 		name: "all together now fail",
 		annotations: map[string]string{
@@ -110,7 +110,7 @@ func TestValidateScaleBoundAnnotations(t *testing.T) {
 			MinScaleAnnotationKey:                 "-4",
 			MaxScaleAnnotationKey:                 "never",
 		},
-		expectErr: "Invalid annatation value autoscaling.knative.dev/panicThresholdPercentage=fifty, not a valid number: autoscaling.knative.dev/panicThresholdPercentage\nInvalid annatation value autoscaling.knative.dev/panicWindowPercentage=-11, not a valid percentage : autoscaling.knative.dev/panicWindowPercentage\nInvalid autoscaling.knative.dev/maxScale annotation value: must be an integer equal or greater than 0: autoscaling.knative.dev/maxScale\nInvalid autoscaling.knative.dev/minScale annotation value: must be an integer equal or greater than 0: autoscaling.knative.dev/minScale",
+		expectErr: "Invalid autoscaling.knative.dev/maxScale annotation value: must be an integer equal or greater than 0: autoscaling.knative.dev/maxScale\nInvalid autoscaling.knative.dev/minScale annotation value: must be an integer equal or greater than 0: autoscaling.knative.dev/minScale\nexpected 1 <= -11 <= 100: annotation: autoscaling.knative.dev/panicWindowPercentage\ninvalid value: fifty: annotation: autoscaling.knative.dev/panicThresholdPercentage",
 	}, {
 		name: "all together now, succeed",
 		annotations: map[string]string{

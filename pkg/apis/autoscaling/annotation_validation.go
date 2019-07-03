@@ -50,28 +50,18 @@ func validateWindows(annotations map[string]string) *apis.FieldError {
 	var errs *apis.FieldError
 	if v, ok := annotations[PanicWindowPercentageAnnotationKey]; ok {
 		if fv, err := strconv.ParseFloat(v, 64); err != nil {
-			errs = &apis.FieldError{
-				Message: fmt.Sprintf("Invalid annatation value %s=%s, not a valid number",
-					PanicWindowPercentageAnnotationKey, v),
-				Paths: []string{PanicWindowPercentageAnnotationKey},
-			}
+			errs = errs.Also(apis.ErrInvalidValue(v, "annotation: "+PanicWindowPercentageAnnotationKey))
 		} else if fv < PanicWindowPercentageMin || fv > PanicWindowPercentageMax {
-			errs = &apis.FieldError{
-				Message: fmt.Sprintf("Invalid annatation value %s=%s, not a valid percentage ",
-					PanicWindowPercentageAnnotationKey, v),
-				Paths: []string{PanicWindowPercentageAnnotationKey},
-			}
+			errs = apis.ErrOutOfBoundsValue(v, PanicWindowPercentageMin,
+				PanicWindowPercentageMax, "annotation: "+PanicWindowPercentageAnnotationKey)
 		}
 	}
 	if v, ok := annotations[PanicThresholdPercentageAnnotationKey]; ok {
 		if fv, err := strconv.ParseFloat(v, 64); err != nil {
-			errs = errs.Also(&apis.FieldError{
-				Message: fmt.Sprintf("Invalid annatation value %s=%s, not a valid number", PanicThresholdPercentageAnnotationKey, v),
-				Paths:   []string{PanicThresholdPercentageAnnotationKey},
-			})
+			errs = errs.Also(apis.ErrInvalidValue(v, "annotation: "+PanicThresholdPercentageAnnotationKey))
 		} else if fv < PanicThresholdPercentageMin {
 			errs = errs.Also(&apis.FieldError{
-				Message: fmt.Sprintf("Invalid annatation value %s=%s, must be at least 110", PanicThresholdPercentageAnnotationKey, v),
+				Message: fmt.Sprintf("Invalid annotation value %s, must be at least %v", v, PanicThresholdPercentageMin),
 				Paths:   []string{PanicThresholdPercentageAnnotationKey},
 			})
 		}
