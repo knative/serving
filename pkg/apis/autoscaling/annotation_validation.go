@@ -31,8 +31,8 @@ func getIntGE0(m map[string]string, k string) (int64, *apis.FieldError) {
 	i, err := strconv.ParseInt(v, 10, 32)
 	if err != nil || i < 0 {
 		return 0, &apis.FieldError{
-			Message: "invalid annotation value: must be an integer equal or greater than 0",
-			Paths:   []string{k},
+			Message: "invalid value: must be an integer equal or greater than 0",
+			Paths:   []string{annotationKey(k)},
 		}
 	}
 	return i, nil
@@ -50,19 +50,19 @@ func validateWindows(annotations map[string]string) *apis.FieldError {
 	var errs *apis.FieldError
 	if v, ok := annotations[PanicWindowPercentageAnnotationKey]; ok {
 		if fv, err := strconv.ParseFloat(v, 64); err != nil {
-			errs = errs.Also(apis.ErrInvalidValue(v, "annotation: "+PanicWindowPercentageAnnotationKey))
+			errs = errs.Also(apis.ErrInvalidValue(v, annotationKey(PanicWindowPercentageAnnotationKey)))
 		} else if fv < PanicWindowPercentageMin || fv > PanicWindowPercentageMax {
 			errs = apis.ErrOutOfBoundsValue(v, PanicWindowPercentageMin,
-				PanicWindowPercentageMax, "annotation: "+PanicWindowPercentageAnnotationKey)
+				PanicWindowPercentageMax, annotationKey(PanicWindowPercentageAnnotationKey))
 		}
 	}
 	if v, ok := annotations[PanicThresholdPercentageAnnotationKey]; ok {
 		if fv, err := strconv.ParseFloat(v, 64); err != nil {
-			errs = errs.Also(apis.ErrInvalidValue(v, "annotation: "+PanicThresholdPercentageAnnotationKey))
+			errs = errs.Also(apis.ErrInvalidValue(v, annotationKey(PanicThresholdPercentageAnnotationKey)))
 		} else if fv < PanicThresholdPercentageMin {
 			errs = errs.Also(&apis.FieldError{
-				Message: fmt.Sprintf("invalid annotation value %s, must be at least %v", v, PanicThresholdPercentageMin),
-				Paths:   []string{PanicThresholdPercentageAnnotationKey},
+				Message: fmt.Sprintf("invalid value %s, must be at least %v", v, PanicThresholdPercentageMin),
+				Paths:   []string{annotationKey(PanicThresholdPercentageAnnotationKey)},
 			})
 		}
 	}
@@ -84,8 +84,12 @@ func validateMinMaxScale(annotations map[string]string) *apis.FieldError {
 	if max != 0 && max < min {
 		errs = errs.Also(&apis.FieldError{
 			Message: fmt.Sprintf("%s=%v is less than %s=%v", MaxScaleAnnotationKey, max, MinScaleAnnotationKey, min),
-			Paths:   []string{MaxScaleAnnotationKey, MinScaleAnnotationKey},
+			Paths:   []string{annotationKey(MaxScaleAnnotationKey), annotationKey(MinScaleAnnotationKey)},
 		})
 	}
 	return errs
+}
+
+func annotationKey(ak string) string {
+	return "annotation: " + ak
 }
