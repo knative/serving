@@ -31,7 +31,7 @@ import (
 )
 
 const (
-	// scrapeTickInterval is the interval of time between triggring StatsScraper.Scrape()
+	// scrapeTickInterval is the interval of time between triggering StatsScraper.Scrape()
 	// to get metrics across all pods of a revision.
 	scrapeTickInterval = time.Second
 
@@ -126,7 +126,7 @@ func NewMetricCollector(statsScraperFactory StatsScraperFactory, logger *zap.Sug
 	return collector
 }
 
-// Get gets a Metric's state from the collector.
+// Get gets a Metric object from the collector.
 // Returns a copy of the Metric object. Mutations won't be seen by the collector.
 func (c *MetricCollector) Get(ctx context.Context, namespace, name string) (*Metric, error) {
 	c.collectionsMutex.RLock()
@@ -242,7 +242,8 @@ func (c *collection) getScraper() StatsScraper {
 	return c.scraper
 }
 
-// newCollection creates a new collection.
+// newCollection creates a new collection, which uses the given scraper to
+// collect stats every scrapeTickInterval.
 func newCollection(metric *Metric, scraper StatsScraper, logger *zap.SugaredLogger) *collection {
 	c := &collection{
 		metric:  metric,
