@@ -27,7 +27,6 @@ spec:
     plural: certificates
     singular: certificate
     categories:
-    - all
     - knative-internal
     - networking
     shortNames:

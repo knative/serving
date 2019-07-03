@@ -27,7 +27,6 @@ spec:
     plural: podautoscalers
     singular: podautoscaler
     categories:
-    - all
     - knative-internal
     - autoscaling
     shortNames:
