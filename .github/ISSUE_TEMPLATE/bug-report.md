@@ -32,7 +32,7 @@ Other classifications:
 
 > 0.2.x
 > 0.3.x
-> Git SHA
+> Output of git describe --dirty
 
 ## Expected Behavior
 
