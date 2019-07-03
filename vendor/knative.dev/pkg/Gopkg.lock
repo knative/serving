@@ -307,7 +307,7 @@
     "tools/dep-collector",
   ]
   pruneopts = "UT"
-  revision = "3f359626cb5e4f29001a1b6d9b4c38a0954f2069"
+  revision = "91d37e4abc3047fc32ff6c0adcdea4fd29d47602"
 
 [[projects]]
   digest = "1:56dbf15e091bf7926cb33a57cb6bdfc658fc6d3498d2f76f10a97ce7856f1fde"
