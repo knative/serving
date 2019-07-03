@@ -23,9 +23,6 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"knative.dev/pkg/apis"
-	logtesting "knative.dev/pkg/logging/testing"
-	"knative.dev/pkg/ptr"
 	"github.com/knative/serving/pkg/apis/autoscaling"
 	"github.com/knative/serving/pkg/apis/config"
 	net "github.com/knative/serving/pkg/apis/networking"
@@ -33,6 +30,9 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"knative.dev/pkg/apis"
+	logtesting "knative.dev/pkg/logging/testing"
+	"knative.dev/pkg/ptr"
 
 	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 )
@@ -452,16 +452,16 @@ func TestRevisionValidation(t *testing.T) {
 			},
 		},
 		want: (&apis.FieldError{
-			Message: fmt.Sprintf("%s=%v is less than %s=%v", autoscaling.MaxScaleAnnotationKey, 2, autoscaling.MinScaleAnnotationKey, 5),
-			Paths:   []string{autoscaling.MaxScaleAnnotationKey, autoscaling.MinScaleAnnotationKey},
+			Message: "autoscaling.knative.dev/maxScale=2 is less than autoscaling.knative.dev/minScale=5",
+			Paths:   []string{autoscaling.AnnotationErrKey(autoscaling.MaxScaleAnnotationKey), autoscaling.AnnotationErrKey(autoscaling.MinScaleAnnotationKey)},
 		}).ViaField("annotations").ViaField("metadata"),
 	}}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			got := test.r.Validate(context.Background())
-			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
-				t.Errorf("Validate (-want, +got) = %v", diff)
+			if got, want := got.Error(), test.want.Error(); got != want {
+				t.Errorf("Validate got: %s, want: %s, diff:(-want, +got)=\n%v", got, want, cmp.Diff(got, want))
 			}
 		})
 	}

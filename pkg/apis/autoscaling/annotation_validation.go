@@ -32,7 +32,7 @@ func getIntGE0(m map[string]string, k string) (int64, *apis.FieldError) {
 	if err != nil || i < 0 {
 		return 0, &apis.FieldError{
 			Message: "invalid value: must be an integer equal or greater than 0",
-			Paths:   []string{annotationKey(k)},
+			Paths:   []string{AnnotationErrKey(k)},
 		}
 	}
 	return i, nil
@@ -50,19 +50,19 @@ func validateWindows(annotations map[string]string) *apis.FieldError {
 	var errs *apis.FieldError
 	if v, ok := annotations[PanicWindowPercentageAnnotationKey]; ok {
 		if fv, err := strconv.ParseFloat(v, 64); err != nil {
-			errs = errs.Also(apis.ErrInvalidValue(v, annotationKey(PanicWindowPercentageAnnotationKey)))
+			errs = errs.Also(apis.ErrInvalidValue(v, AnnotationErrKey(PanicWindowPercentageAnnotationKey)))
 		} else if fv < PanicWindowPercentageMin || fv > PanicWindowPercentageMax {
 			errs = apis.ErrOutOfBoundsValue(v, PanicWindowPercentageMin,
-				PanicWindowPercentageMax, annotationKey(PanicWindowPercentageAnnotationKey))
+				PanicWindowPercentageMax, AnnotationErrKey(PanicWindowPercentageAnnotationKey))
 		}
 	}
 	if v, ok := annotations[PanicThresholdPercentageAnnotationKey]; ok {
 		if fv, err := strconv.ParseFloat(v, 64); err != nil {
-			errs = errs.Also(apis.ErrInvalidValue(v, annotationKey(PanicThresholdPercentageAnnotationKey)))
+			errs = errs.Also(apis.ErrInvalidValue(v, AnnotationErrKey(PanicThresholdPercentageAnnotationKey)))
 		} else if fv < PanicThresholdPercentageMin {
 			errs = errs.Also(&apis.FieldError{
 				Message: fmt.Sprintf("invalid value %s, must be at least %v", v, PanicThresholdPercentageMin),
-				Paths:   []string{annotationKey(PanicThresholdPercentageAnnotationKey)},
+				Paths:   []string{AnnotationErrKey(PanicThresholdPercentageAnnotationKey)},
 			})
 		}
 	}
@@ -84,12 +84,13 @@ func validateMinMaxScale(annotations map[string]string) *apis.FieldError {
 	if max != 0 && max < min {
 		errs = errs.Also(&apis.FieldError{
 			Message: fmt.Sprintf("%s=%v is less than %s=%v", MaxScaleAnnotationKey, max, MinScaleAnnotationKey, min),
-			Paths:   []string{annotationKey(MaxScaleAnnotationKey), annotationKey(MinScaleAnnotationKey)},
+			Paths:   []string{AnnotationErrKey(MaxScaleAnnotationKey), AnnotationErrKey(MinScaleAnnotationKey)},
 		})
 	}
 	return errs
 }
 
-func annotationKey(ak string) string {
+// AnnotationErrKey formats the annotation key for error reporting.
+func AnnotationErrKey(ak string) string {
 	return "annotation: " + ak
 }
