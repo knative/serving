@@ -38,8 +38,6 @@ var (
 
 // ReconcilerAccessor defines functions that access reconciler data specific to Ingress types
 type ReconcilerAccessor interface {
-	DeepCopy(v1alpha1.IngressAccessor) v1alpha1.IngressAccessor
-
 	GetFinalizer() string
 	GetGatewayLister() istiolisters.GatewayLister
 	GetIngress(ns, name string) (v1alpha1.IngressAccessor, error)
@@ -54,11 +52,6 @@ type ReconcilerAccessor interface {
 
 	UpdateIngress(v1alpha1.IngressAccessor) (v1alpha1.IngressAccessor, error)
 	UpdateIngressStatus(v1alpha1.IngressAccessor) (v1alpha1.IngressAccessor, error)
-}
-
-// DeepCopy returns a deep copied Ingress object of type IngressAccessor
-func (r *Reconciler) DeepCopy(ia v1alpha1.IngressAccessor) v1alpha1.IngressAccessor {
-	return ia.(*v1alpha1.Ingress).DeepCopy()
 }
 
 // GetFinalizer returns Ingress Finalizer

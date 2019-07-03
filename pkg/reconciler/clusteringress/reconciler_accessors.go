@@ -36,11 +36,6 @@ var (
 	clusterIngressFinalizer = clusterIngressResource.String()
 )
 
-// DeepCopy returns a deep copied ClusterIngress object of type IngressAccessor
-func (r *Reconciler) DeepCopy(ia v1alpha1.IngressAccessor) v1alpha1.IngressAccessor {
-	return ia.(*v1alpha1.ClusterIngress).DeepCopy()
-}
-
 // GetFinalizer returns CliusterIngress Finalizer
 func (r *Reconciler) GetFinalizer() string {
 	return clusterIngressFinalizer

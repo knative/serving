@@ -194,7 +194,7 @@ func ReconcileIngress(ctx context.Context, ra ReconcilerAccessor, key string) er
 		return err
 	}
 	// Don't modify the informers copy
-	ingress := ra.DeepCopy(original)
+	ingress := original.DeepCopyObject().(v1alpha1.IngressAccessor)
 
 	// Reconcile this copy of the Ingress and then write back any status
 	// updates regardless of whether the reconciliation errored out.
@@ -449,7 +449,7 @@ func updateStatus(ra ReconcilerAccessor, desired v1alpha1.IngressAccessor) (v1al
 		return ingress, nil
 	}
 	// Don't modify the informers copy
-	existing := ra.DeepCopy(ingress)
+	existing := ingress.DeepCopyObject().(v1alpha1.IngressAccessor)
 	existing.SetStatus(*desired.GetStatus())
 	return ra.UpdateIngressStatus(existing)
 }
