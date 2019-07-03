@@ -23,6 +23,7 @@ import (
 	"github.com/knative/serving/pkg/reconciler"
 
 	"github.com/knative/serving/pkg/apis/networking"
+	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	clusteringressinformer "github.com/knative/serving/pkg/client/injection/informers/networking/v1alpha1/clusteringress"
 	listers "github.com/knative/serving/pkg/client/listers/networking/v1alpha1"
 	ing "github.com/knative/serving/pkg/reconciler/ingress"
@@ -48,11 +49,20 @@ type Reconciler struct {
 // Check that our Reconciler implements controller.Reconciler
 var _ controller.Reconciler = (*Reconciler)(nil)
 
+// clusterIngressFinalizer is the name that we put into the resource finalizer list, e.g.
+//  metadata:
+//    finalizers:
+//    - clusteringresses.networking.internal.knative.dev
+var (
+	clusterIngressResource  = v1alpha1.Resource("clusteringresses")
+	clusterIngressFinalizer = clusterIngressResource.String()
+)
+
 // newInitializer creates an Ingress Reconciler and returns ReconcilerInitializer
 func newInitializer(ctx context.Context, cmw configmap.Watcher) ing.ReconcilerInitializer {
 	clusterIngressInformer := clusteringressinformer.Get(ctx)
 	r := &Reconciler{
-		BaseIngressReconciler: ing.NewBaseIngressReconciler(ctx, controllerAgentName, cmw),
+		BaseIngressReconciler: ing.NewBaseIngressReconciler(ctx, controllerAgentName, clusterIngressFinalizer, cmw),
 		clusterIngressLister:  clusterIngressInformer.Lister(),
 	}
 	return r
@@ -102,5 +112,5 @@ func (c *Reconciler) Init(ctx context.Context, cmw configmap.Watcher, impl *cont
 // converge the two. It then updates the Status block of the ClusterIngress resource
 // with the current status of the resource.
 func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
-	return ing.ReconcileIngress(c.ConfigStore.ToContext(ctx), c, key)
+	return c.BaseIngressReconciler.ReconcileIngress(c.ConfigStore.ToContext(ctx), c, key)
 }

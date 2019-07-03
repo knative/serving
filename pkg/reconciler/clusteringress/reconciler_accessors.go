@@ -19,66 +19,11 @@ package clusteringress
 import (
 	"github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/kubernetes"
-	corev1listers "k8s.io/client-go/listers/core/v1"
-	"k8s.io/client-go/tools/record"
-	sharedclientset "knative.dev/pkg/client/clientset/versioned"
-	istiolisters "knative.dev/pkg/client/listers/istio/v1alpha3"
-	"knative.dev/pkg/tracker"
 )
-
-// clusterIngressFinalizer is the name that we put into the resource finalizer list, e.g.
-//  metadata:
-//    finalizers:
-//    - clusteringresses.networking.internal.knative.dev
-var (
-	clusterIngressResource  = v1alpha1.Resource("clusteringresses")
-	clusterIngressFinalizer = clusterIngressResource.String()
-)
-
-// GetFinalizer returns CliusterIngress Finalizer
-func (r *Reconciler) GetFinalizer() string {
-	return clusterIngressFinalizer
-}
-
-// GetGatewayLister returns GatewayLister belongs to this Reconciler
-func (r *Reconciler) GetGatewayLister() istiolisters.GatewayLister {
-	return r.GatewayLister
-}
 
 // GetIngress returns an ClsuterIngress object of type IngressAccessor
 func (r *Reconciler) GetIngress(ns, name string) (v1alpha1.IngressAccessor, error) {
 	return r.clusterIngressLister.Get(name)
-}
-
-// GetKubeClientSet returns KubeClientSet belongs to this Reconciler
-func (r *Reconciler) GetKubeClientSet() kubernetes.Interface {
-	return r.KubeClientSet
-}
-
-// GetRecorder returns Recorder belongs to this Reconciler
-func (r *Reconciler) GetRecorder() record.EventRecorder {
-	return r.Recorder
-}
-
-// GetSecretLister returns SecretLister belongs to this Reconciler
-func (r *Reconciler) GetSecretLister() corev1listers.SecretLister {
-	return r.SecretLister
-}
-
-// GetSharedClientSet returns SharedClientSet belongs to this Reconciler
-func (r *Reconciler) GetSharedClientSet() sharedclientset.Interface {
-	return r.SharedClientSet
-}
-
-// GetTracker returns Tracker belongs to this Reconciler
-func (r *Reconciler) GetTracker() tracker.Interface {
-	return r.Tracker
-}
-
-// GetVirtualServiceLister returns VirtualServiceLister belongs to this Reconciler
-func (r *Reconciler) GetVirtualServiceLister() istiolisters.VirtualServiceLister {
-	return r.VirtualServiceLister
 }
 
 // PatchIngress invokes APIs tp Patch an ClusterIngress

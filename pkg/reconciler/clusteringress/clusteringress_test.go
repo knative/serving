@@ -308,6 +308,7 @@ func TestReconcile(t *testing.T) {
 				Base:                 reconciler.NewBase(ctx, controllerAgentName, cmw),
 				VirtualServiceLister: listers.GetVirtualServiceLister(),
 				GatewayLister:        listers.GetGatewayLister(),
+				Finalizer:            clusterIngressFinalizer,
 				ConfigStore: &testConfigStore{
 					config: ReconcilerTestConfig(),
 				},
@@ -663,6 +664,7 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 				GatewayLister:        listers.GetGatewayLister(),
 				SecretLister:         listers.GetSecretLister(),
 				Tracker:              &NullTracker{},
+				Finalizer:            clusterIngressFinalizer,
 				// Enable reconciling gateway.
 				ConfigStore: &testConfigStore{
 					config: &config.Config{

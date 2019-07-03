@@ -68,6 +68,15 @@ type Reconciler struct {
 // Check that our Reconciler implements controller.Reconciler
 var _ controller.Reconciler = (*Reconciler)(nil)
 
+// ingressFinalizer is the name that we put into the resource finalizer list, e.g.
+//  metadata:
+//    finalizers:
+//    - ingresses.networking.internal.knative.dev
+var (
+	ingressResource  = v1alpha1.Resource("ingresses")
+	ingressFinalizer = ingressResource.String()
+)
+
 // BaseIngressReconciler is the conmon struct for InjectReconciles
 type BaseIngressReconciler struct {
 	*reconciler.Base
@@ -78,11 +87,12 @@ type BaseIngressReconciler struct {
 	SecretLister         corev1listers.SecretLister
 	ConfigStore          reconciler.ConfigStore
 
-	Tracker tracker.Interface
+	Tracker   tracker.Interface
+	Finalizer string
 }
 
 // NewBaseIngressReconciler creates a new BaseIngressReconciler
-func NewBaseIngressReconciler(ctx context.Context, agentName string, cmw configmap.Watcher) *BaseIngressReconciler {
+func NewBaseIngressReconciler(ctx context.Context, agentName, finalizer string, cmw configmap.Watcher) *BaseIngressReconciler {
 	virtualServiceInformer := virtualserviceinformer.Get(ctx)
 	gatewayInformer := gatewayinformer.Get(ctx)
 	secretInformer := secretinformer.Get(ctx)
@@ -92,6 +102,7 @@ func NewBaseIngressReconciler(ctx context.Context, agentName string, cmw configm
 		VirtualServiceLister: virtualServiceInformer.Lister(),
 		GatewayLister:        gatewayInformer.Lister(),
 		SecretLister:         secretInformer.Lister(),
+		Finalizer:            finalizer,
 	}
 	return base
 }
@@ -100,7 +111,7 @@ func NewBaseIngressReconciler(ctx context.Context, agentName string, cmw configm
 func newInitializer(ctx context.Context, cmw configmap.Watcher) ReconcilerInitializer {
 	ingressInformer := ingressinformer.Get(ctx)
 	r := &Reconciler{
-		BaseIngressReconciler: NewBaseIngressReconciler(ctx, controllerAgentName, cmw),
+		BaseIngressReconciler: NewBaseIngressReconciler(ctx, controllerAgentName, ingressFinalizer, cmw),
 		ingressLister:         ingressInformer.Lister(),
 	}
 	return r
@@ -170,11 +181,11 @@ func SetupSecretTracker(ctx context.Context, cmw configmap.Watcher, init Reconci
 // converge the two. It then updates the Status block of the Ingress resource
 // with the current status of the resource.
 func (r *Reconciler) Reconcile(ctx context.Context, key string) error {
-	return ReconcileIngress(r.ConfigStore.ToContext(ctx), r, key)
+	return r.BaseIngressReconciler.ReconcileIngress(r.ConfigStore.ToContext(ctx), r, key)
 }
 
 // ReconcileIngress retrieves Ingress by key and performs reconciliation
-func ReconcileIngress(ctx context.Context, ra ReconcilerAccessor, key string) error {
+func (r *BaseIngressReconciler) ReconcileIngress(ctx context.Context, ra ReconcilerAccessor, key string) error {
 	// Convert the namespace/name string into a distinct namespace and name
 	logger := logging.FromContext(ctx)
 
@@ -198,34 +209,34 @@ func ReconcileIngress(ctx context.Context, ra ReconcilerAccessor, key string) er
 
 	// Reconcile this copy of the Ingress and then write back any status
 	// updates regardless of whether the reconciliation errored out.
-	reconcileErr := reconcileIngress(ctx, ra, ingress)
+	reconcileErr := r.reconcileIngress(ctx, ra, ingress)
 	if equality.Semantic.DeepEqual(original.GetStatus(), ingress.GetStatus()) {
 		// If we didn't change anything then don't call updateStatus.
 		// This is important because the copy we loaded from the informer's
 		// cache may be stale and we don't want to overwrite a prior update
 		// to status with this stale state.
 	} else {
-		if _, err = updateStatus(ra, ingress); err != nil {
+		if _, err = r.updateStatus(ra, ingress); err != nil {
 			logger.Warnw("Failed to update Ingress status", zap.Error(err))
-			ra.GetRecorder().Eventf(ingress, corev1.EventTypeWarning, "UpdateFailed",
+			r.Recorder.Eventf(ingress, corev1.EventTypeWarning, "UpdateFailed",
 				"Failed to update status for Ingress %q: %v", ingress.GetName(), err)
 			return err
 		}
 
 		logger.Infof("Updated status for Ingress %q", ingress.GetName())
-		ra.GetRecorder().Eventf(ingress, corev1.EventTypeNormal, "Updated",
+		r.Recorder.Eventf(ingress, corev1.EventTypeNormal, "Updated",
 			"Updated status for Ingress %q", ingress.GetName())
 	}
 	if reconcileErr != nil {
-		ra.GetRecorder().Event(ingress, corev1.EventTypeWarning, "InternalError", reconcileErr.Error())
+		r.Recorder.Event(ingress, corev1.EventTypeWarning, "InternalError", reconcileErr.Error())
 	}
 	return reconcileErr
 }
 
-func reconcileIngress(ctx context.Context, ra ReconcilerAccessor, ia v1alpha1.IngressAccessor) error {
+func (r *BaseIngressReconciler) reconcileIngress(ctx context.Context, ra ReconcilerAccessor, ia v1alpha1.IngressAccessor) error {
 	logger := logging.FromContext(ctx)
 	if ia.GetDeletionTimestamp() != nil {
-		return reconcileDeletion(ctx, ra, ia)
+		return r.reconcileDeletion(ctx, ra, ia)
 	}
 
 	// We may be reading a version of the object that was stored at an older version
@@ -242,7 +253,7 @@ func reconcileIngress(ctx context.Context, ra ReconcilerAccessor, ia v1alpha1.In
 
 	// First, create the VirtualServices.
 	logger.Infof("Creating/Updating VirtualServices")
-	if err := reconcileVirtualServices(ctx, ra, ia, vses); err != nil {
+	if err := r.reconcileVirtualServices(ctx, ia, vses); err != nil {
 		// TODO(lichuqiang): should we explicitly mark the ingress as unready
 		// when error reconciling VirtualService?
 		return err
@@ -262,16 +273,16 @@ func reconcileIngress(ctx context.Context, ra ReconcilerAccessor, ia v1alpha1.In
 
 		// Add the finalizer before adding `Servers` into Gateway so that we can be sure
 		// the `Servers` get cleaned up from Gateway.
-		if err := ensureFinalizer(ra, ia); err != nil {
+		if err := r.ensureFinalizer(ra, ia); err != nil {
 			return err
 		}
 
-		originSecrets, err := resources.GetSecrets(ia, ra.GetSecretLister())
+		originSecrets, err := resources.GetSecrets(ia, r.SecretLister)
 		if err != nil {
 			return err
 		}
 		targetSecrets := resources.MakeSecrets(ctx, originSecrets, ia)
-		if err := reconcileCertSecrets(ctx, ra, ia, targetSecrets); err != nil {
+		if err := r.reconcileCertSecrets(ctx, ia, targetSecrets); err != nil {
 			return err
 		}
 
@@ -284,7 +295,7 @@ func reconcileIngress(ctx context.Context, ra ReconcilerAccessor, ia v1alpha1.In
 			if err != nil {
 				return err
 			}
-			if err := reconcileGateway(ctx, ra, ia, gatewayName, desired); err != nil {
+			if err := r.reconcileGateway(ctx, ia, gatewayName, desired); err != nil {
 				return err
 			}
 		}
@@ -295,65 +306,62 @@ func reconcileIngress(ctx context.Context, ra ReconcilerAccessor, ia v1alpha1.In
 	return nil
 }
 
-func reconcileCertSecrets(ctx context.Context, ra ReconcilerAccessor, ia v1alpha1.IngressAccessor, desiredSecrets []*corev1.Secret) error {
+func (r *BaseIngressReconciler) reconcileCertSecrets(ctx context.Context, ia v1alpha1.IngressAccessor, desiredSecrets []*corev1.Secret) error {
 	for _, certSecret := range desiredSecrets {
-		if err := reconcileCertSecret(ctx, ra, ia, certSecret); err != nil {
+		if err := r.reconcileCertSecret(ctx, ia, certSecret); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func reconcileCertSecret(ctx context.Context, ra ReconcilerAccessor, ia v1alpha1.IngressAccessor, desired *corev1.Secret) error {
+func (r *BaseIngressReconciler) reconcileCertSecret(ctx context.Context, ia v1alpha1.IngressAccessor, desired *corev1.Secret) error {
 	// We track the origin and desired secrets so that desired secrets could be synced accordingly when the origin TLS certificate
 	// secret is refreshed.
-	ra.GetTracker().Track(resources.SecretRef(desired.Namespace, desired.Name), ia)
-	ra.GetTracker().Track(resources.SecretRef(desired.Labels[networking.OriginSecretNamespaceLabelKey], desired.Labels[networking.OriginSecretNameLabelKey]), ia)
+	r.Tracker.Track(resources.SecretRef(desired.Namespace, desired.Name), ia)
+	r.Tracker.Track(resources.SecretRef(desired.Labels[networking.OriginSecretNamespaceLabelKey], desired.Labels[networking.OriginSecretNameLabelKey]), ia)
 
 	logger := logging.FromContext(ctx)
-	existing, err := ra.GetSecretLister().Secrets(desired.Namespace).Get(desired.Name)
+	existing, err := r.SecretLister.Secrets(desired.Namespace).Get(desired.Name)
 	if apierrs.IsNotFound(err) {
-		_, err = ra.GetKubeClientSet().CoreV1().Secrets(desired.Namespace).Create(desired)
+		_, err = r.KubeClientSet.CoreV1().Secrets(desired.Namespace).Create(desired)
 		if err != nil {
 			logger.Errorw("Failed to create Certificate Secret", zap.Error(err))
-			ra.GetRecorder().Eventf(ia, corev1.EventTypeWarning, "CreationFailed",
+			r.Recorder.Eventf(ia, corev1.EventTypeWarning, "CreationFailed",
 				"Failed to create Secret %s/%s: %v", desired.Namespace, desired.Name, err)
 			return err
 		}
-		ra.GetRecorder().Eventf(ia, corev1.EventTypeNormal, "Created",
-			"Created Secret %s/%s", desired.Namespace, desired.Name)
+		r.Recorder.Eventf(ia, corev1.EventTypeNormal, "Created", "Created Secret %s/%s", desired.Namespace, desired.Name)
 	} else if err != nil {
 		return err
 	} else if !equality.Semantic.DeepEqual(existing.Data, desired.Data) {
 		// Don't modify the informers copy
 		copy := existing.DeepCopy()
 		copy.Data = desired.Data
-		_, err = ra.GetKubeClientSet().CoreV1().Secrets(copy.Namespace).Update(copy)
+		_, err = r.KubeClientSet.CoreV1().Secrets(copy.Namespace).Update(copy)
 		if err != nil {
 			logger.Errorw("Failed to update target secret", zap.Error(err))
-			ra.GetRecorder().Eventf(ia, corev1.EventTypeWarning, "UpdateFailed",
-				"Failed to update Secret %s/%s: %v", desired.Namespace, desired.Name, err)
+			r.Recorder.Eventf(ia, corev1.EventTypeWarning, "UpdateFailed", "Failed to update Secret %s/%s: %v", desired.Namespace, desired.Name, err)
 			return err
 		}
-		ra.GetRecorder().Eventf(ia, corev1.EventTypeNormal, "Updated",
-			"Updated Secret %s/%s", copy.Namespace, copy.Name)
+		r.Recorder.Eventf(ia, corev1.EventTypeNormal, "Updated", "Updated Secret %s/%s", copy.Namespace, copy.Name)
 	}
 	return nil
 }
 
-func reconcileVirtualServices(ctx context.Context, ra ReconcilerAccessor, ia v1alpha1.IngressAccessor,
+func (r *BaseIngressReconciler) reconcileVirtualServices(ctx context.Context, ia v1alpha1.IngressAccessor,
 	desired []*v1alpha3.VirtualService) error {
 	logger := logging.FromContext(ctx)
 	// First, create all needed VirtualServices.
 	kept := sets.NewString()
 	for _, d := range desired {
-		if err := reconcileVirtualService(ctx, ra, ia, d); err != nil {
+		if err := r.reconcileVirtualService(ctx, ia, d); err != nil {
 			return err
 		}
 		kept.Insert(d.Name)
 	}
 	// Now, remove the extra ones.
-	vses, err := ra.GetVirtualServiceLister().VirtualServices(resources.VirtualServiceNamespace(ia)).List(
+	vses, err := r.VirtualServiceLister.VirtualServices(resources.VirtualServiceNamespace(ia)).List(
 		labels.Set(map[string]string{
 			serving.RouteLabelKey:          ia.GetLabels()[serving.RouteLabelKey],
 			serving.RouteNamespaceLabelKey: ia.GetLabels()[serving.RouteNamespaceLabelKey]}).AsSelector())
@@ -366,7 +374,7 @@ func reconcileVirtualServices(ctx context.Context, ra ReconcilerAccessor, ia v1a
 		if kept.Has(n) {
 			continue
 		}
-		if err = ra.GetSharedClientSet().NetworkingV1alpha3().VirtualServices(ns).Delete(n, &metav1.DeleteOptions{}); err != nil {
+		if err = r.SharedClientSet.NetworkingV1alpha3().VirtualServices(ns).Delete(n, &metav1.DeleteOptions{}); err != nil {
 			logger.Errorw("Failed to delete VirtualService", zap.Error(err))
 			return err
 		}
@@ -374,23 +382,22 @@ func reconcileVirtualServices(ctx context.Context, ra ReconcilerAccessor, ia v1a
 	return nil
 }
 
-func reconcileVirtualService(ctx context.Context, ra ReconcilerAccessor, ia v1alpha1.IngressAccessor,
+func (r *BaseIngressReconciler) reconcileVirtualService(ctx context.Context, ia v1alpha1.IngressAccessor,
 	desired *v1alpha3.VirtualService) error {
 	logger := logging.FromContext(ctx)
 	ns := desired.Namespace
 	name := desired.Name
 
-	vs, err := ra.GetVirtualServiceLister().VirtualServices(ns).Get(name)
+	vs, err := r.VirtualServiceLister.VirtualServices(ns).Get(name)
 	if apierrs.IsNotFound(err) {
-		_, err = ra.GetSharedClientSet().NetworkingV1alpha3().VirtualServices(ns).Create(desired)
+		_, err = r.SharedClientSet.NetworkingV1alpha3().VirtualServices(ns).Create(desired)
 		if err != nil {
 			logger.Errorw("Failed to create VirtualService", zap.Error(err))
-			ra.GetRecorder().Eventf(ia, corev1.EventTypeWarning, "CreationFailed",
+			r.Recorder.Eventf(ia, corev1.EventTypeWarning, "CreationFailed",
 				"Failed to create VirtualService %q/%q: %v", ns, name, err)
 			return err
 		}
-		ra.GetRecorder().Eventf(ia, corev1.EventTypeNormal, "Created",
-			"Created VirtualService %q", desired.Name)
+		r.Recorder.Eventf(ia, corev1.EventTypeNormal, "Created", "Created VirtualService %q", desired.Name)
 	} else if err != nil {
 		return err
 	} else if !metav1.IsControlledBy(vs, ia) {
@@ -401,23 +408,22 @@ func reconcileVirtualService(ctx context.Context, ra ReconcilerAccessor, ia v1al
 		// Don't modify the informers copy
 		existing := vs.DeepCopy()
 		existing.Spec = desired.Spec
-		_, err = ra.GetSharedClientSet().NetworkingV1alpha3().VirtualServices(ns).Update(existing)
+		_, err = r.SharedClientSet.NetworkingV1alpha3().VirtualServices(ns).Update(existing)
 		if err != nil {
 			logger.Errorw("Failed to update VirtualService", zap.Error(err))
 			return err
 		}
-		ra.GetRecorder().Eventf(ia, corev1.EventTypeNormal, "Updated",
-			"Updated status for VirtualService %q/%q", ns, name)
+		r.Recorder.Eventf(ia, corev1.EventTypeNormal, "Updated", "Updated status for VirtualService %q/%q", ns, name)
 	}
 	return nil
 }
 
-func reconcileDeletion(ctx context.Context, ra ReconcilerAccessor, ia v1alpha1.IngressAccessor) error {
+func (r *BaseIngressReconciler) reconcileDeletion(ctx context.Context, ra ReconcilerAccessor, ia v1alpha1.IngressAccessor) error {
 	logger := logging.FromContext(ctx)
 
 	// If our Finalizer is first, delete the `Servers` from Gateway for this ClusterIngress,
 	// and remove the finalizer.
-	if len(ia.GetFinalizers()) == 0 || ia.GetFinalizers()[0] != ra.GetFinalizer() {
+	if len(ia.GetFinalizers()) == 0 || ia.GetFinalizers()[0] != r.Finalizer {
 		return nil
 	}
 
@@ -425,7 +431,7 @@ func reconcileDeletion(ctx context.Context, ra ReconcilerAccessor, ia v1alpha1.I
 	logger.Infof("Cleaning up Gateway Servers for Ingress %s", ia.GetName())
 	// No desired Servers means deleting all of the existing Servers associated with the CI.
 	for _, gatewayName := range gatewayNames {
-		if err := reconcileGateway(ctx, ra, ia, gatewayName, []v1alpha3.Server{}); err != nil {
+		if err := r.reconcileGateway(ctx, ia, gatewayName, []v1alpha3.Server{}); err != nil {
 			return err
 		}
 	}
@@ -439,7 +445,7 @@ func reconcileDeletion(ctx context.Context, ra ReconcilerAccessor, ia v1alpha1.I
 
 // Update the Status of the Ingress.  Caller is responsible for checking
 // for semantic differences before calling.
-func updateStatus(ra ReconcilerAccessor, desired v1alpha1.IngressAccessor) (v1alpha1.IngressAccessor, error) {
+func (r *BaseIngressReconciler) updateStatus(ra ReconcilerAccessor, desired v1alpha1.IngressAccessor) (v1alpha1.IngressAccessor, error) {
 	ingress, err := ra.GetIngress(desired.GetNamespace(), desired.GetName())
 	if err != nil {
 		return nil, err
@@ -454,15 +460,15 @@ func updateStatus(ra ReconcilerAccessor, desired v1alpha1.IngressAccessor) (v1al
 	return ra.UpdateIngressStatus(existing)
 }
 
-func ensureFinalizer(ra ReconcilerAccessor, ia v1alpha1.IngressAccessor) error {
+func (r *BaseIngressReconciler) ensureFinalizer(ra ReconcilerAccessor, ia v1alpha1.IngressAccessor) error {
 	finalizers := sets.NewString(ia.GetFinalizers()...)
-	if finalizers.Has(ra.GetFinalizer()) {
+	if finalizers.Has(r.Finalizer) {
 		return nil
 	}
 
 	mergePatch := map[string]interface{}{
 		"metadata": map[string]interface{}{
-			"finalizers":      append(ia.GetFinalizers(), ra.GetFinalizer()),
+			"finalizers":      append(ia.GetFinalizers(), r.Finalizer),
 			"resourceVersion": ia.GetResourceVersion(),
 		},
 	}
@@ -476,11 +482,11 @@ func ensureFinalizer(ra ReconcilerAccessor, ia v1alpha1.IngressAccessor) error {
 	return err
 }
 
-func reconcileGateway(ctx context.Context, ra ReconcilerAccessor, ia v1alpha1.IngressAccessor, gatewayName string, desired []v1alpha3.Server) error {
+func (r *BaseIngressReconciler) reconcileGateway(ctx context.Context, ia v1alpha1.IngressAccessor, gatewayName string, desired []v1alpha3.Server) error {
 	// TODO(zhiminx): Need to handle the scenario when deleting ClusterIngress. In this scenario,
 	// the Gateway servers of the ClusterIngress need also be removed from Gateway.
 	logger := logging.FromContext(ctx)
-	gateway, err := ra.GetGatewayLister().Gateways(system.Namespace()).Get(gatewayName)
+	gateway, err := r.GatewayLister.Gateways(system.Namespace()).Get(gatewayName)
 	if err != nil {
 		// Not like VirtualService, A default gateway needs to be existed.
 		// It should be installed when installing Knative.
@@ -505,12 +511,11 @@ func reconcileGateway(ctx context.Context, ra ReconcilerAccessor, ia v1alpha1.In
 
 	copy := gateway.DeepCopy()
 	copy = resources.UpdateGateway(copy, desired, existing)
-	if _, err := ra.GetSharedClientSet().NetworkingV1alpha3().Gateways(copy.Namespace).Update(copy); err != nil {
+	if _, err := r.SharedClientSet.NetworkingV1alpha3().Gateways(copy.Namespace).Update(copy); err != nil {
 		logger.Errorw("Failed to update Gateway", zap.Error(err))
 		return err
 	}
-	ra.GetRecorder().Eventf(ia, corev1.EventTypeNormal, "Updated",
-		"Updated Gateway %q/%q", gateway.Namespace, gateway.Name)
+	r.Recorder.Eventf(ia, corev1.EventTypeNormal, "Updated", "Updated Gateway %q/%q", gateway.Namespace, gateway.Name)
 	return nil
 }
 
