@@ -28,26 +28,17 @@ import (
 	// Inject the fakes for informers this controller relies on.
 	fakecachingclient "github.com/knative/caching/pkg/client/injection/client/fake"
 	fakeimageinformer "github.com/knative/caching/pkg/client/injection/informers/caching/v1alpha1/image/fake"
+	fakeservingclient "github.com/knative/serving/pkg/client/injection/client/fake"
+	fakepainformer "github.com/knative/serving/pkg/client/injection/informers/autoscaling/v1alpha1/podautoscaler/fake"
+	fakerevisioninformer "github.com/knative/serving/pkg/client/injection/informers/serving/v1alpha1/revision/fake"
 	fakekubeclient "knative.dev/pkg/injection/clients/kubeclient/fake"
 	fakedeploymentinformer "knative.dev/pkg/injection/informers/kubeinformers/appsv1/deployment/fake"
 	_ "knative.dev/pkg/injection/informers/kubeinformers/corev1/configmap/fake"
 	fakeendpointsinformer "knative.dev/pkg/injection/informers/kubeinformers/corev1/endpoints/fake"
 	_ "knative.dev/pkg/injection/informers/kubeinformers/corev1/service/fake"
-	fakeservingclient "github.com/knative/serving/pkg/client/injection/client/fake"
-	fakekpainformer "github.com/knative/serving/pkg/client/injection/informers/autoscaling/v1alpha1/podautoscaler/fake"
-	fakerevisioninformer "github.com/knative/serving/pkg/client/injection/informers/serving/v1alpha1/revision/fake"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-containerregistry/pkg/authn/k8schain"
-	"knative.dev/pkg/apis"
-	"knative.dev/pkg/configmap"
-	"knative.dev/pkg/controller"
-	"knative.dev/pkg/kmeta"
-	"knative.dev/pkg/logging"
-	logtesting "knative.dev/pkg/logging/testing"
-	"knative.dev/pkg/metrics"
-	_ "knative.dev/pkg/metrics/testing"
-	"knative.dev/pkg/system"
 	av1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
@@ -64,6 +55,15 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/tools/record"
+	"knative.dev/pkg/apis"
+	"knative.dev/pkg/configmap"
+	"knative.dev/pkg/controller"
+	"knative.dev/pkg/kmeta"
+	"knative.dev/pkg/logging"
+	logtesting "knative.dev/pkg/logging/testing"
+	"knative.dev/pkg/metrics"
+	_ "knative.dev/pkg/metrics/testing"
+	"knative.dev/pkg/system"
 
 	. "knative.dev/pkg/reconciler/testing"
 )
@@ -99,12 +99,12 @@ func testReadyEndpoints(revName string) *corev1.Endpoints {
 	}
 }
 
-func testReadyKPA(rev *v1alpha1.Revision) *av1alpha1.PodAutoscaler {
-	kpa := resources.MakeKPA(rev)
-	kpa.Status.InitializeConditions()
-	kpa.Status.MarkActive()
-	kpa.Status.ServiceName = serviceName(rev.Name)
-	return kpa
+func testReadyPA(rev *v1alpha1.Revision) *av1alpha1.PodAutoscaler {
+	pa := resources.MakePA(rev)
+	pa.Status.InitializeConditions()
+	pa.Status.MarkActive()
+	pa.Status.ServiceName = serviceName(rev.Name)
+	return pa
 }
 
 func newTestControllerWithConfig(t *testing.T, deploymentConfig *deployment.Config, configs ...*corev1.ConfigMap) (
@@ -210,14 +210,14 @@ func addResourcesToInformers(t *testing.T, ctx context.Context, rev *v1alpha1.Re
 
 	ns := rev.Namespace
 
-	kpaName := resourcenames.KPA(rev)
-	kpa, err := fakeservingclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(rev.Namespace).Get(kpaName, metav1.GetOptions{})
+	paName := resourcenames.PA(rev)
+	pa, err := fakeservingclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(rev.Namespace).Get(paName, metav1.GetOptions{})
 	if apierrs.IsNotFound(err) && haveBuild {
 		// If we're doing a Build this won't exist yet.
 	} else if err != nil {
-		t.Errorf("PodAutoscalers.Get(%v) = %v", kpaName, err)
+		t.Errorf("PodAutoscalers.Get(%v) = %v", paName, err)
 	} else {
-		fakekpainformer.Get(ctx).Informer().GetIndexer().Add(kpa)
+		fakepainformer.Get(ctx).Informer().GetIndexer().Add(pa)
 	}
 
 	imageName := resourcenames.ImageCache(rev)
@@ -240,7 +240,7 @@ func addResourcesToInformers(t *testing.T, ctx context.Context, rev *v1alpha1.Re
 		fakedeploymentinformer.Get(ctx).Informer().GetIndexer().Add(deployment)
 	}
 
-	return rev, deployment, kpa
+	return rev, deployment, pa
 }
 
 type fixedResolver struct {
@@ -367,8 +367,8 @@ func TestMarkRevReadyUponEndpointBecomesReady(t *testing.T) {
 
 	endpoints := testReadyEndpoints(rev.Name)
 	fakeendpointsinformer.Get(ctx).Informer().GetIndexer().Add(endpoints)
-	kpa := testReadyKPA(rev)
-	fakekpainformer.Get(ctx).Informer().GetIndexer().Add(kpa)
+	pa := testReadyPA(rev)
+	fakepainformer.Get(ctx).Informer().GetIndexer().Add(pa)
 	f := controller.EnqueueLabelOfNamespaceScopedResource("", serving.RevisionLabelKey)
 	f(endpoints)
 	if err := controller.Reconciler.Reconcile(context.Background(), KeyOrDie(rev)); err != nil {

@@ -21,16 +21,13 @@ import (
 	"net/http"
 
 	imageinformer "github.com/knative/caching/pkg/client/injection/informers/caching/v1alpha1/image"
+	painformer "github.com/knative/serving/pkg/client/injection/informers/autoscaling/v1alpha1/podautoscaler"
+	revisioninformer "github.com/knative/serving/pkg/client/injection/informers/serving/v1alpha1/revision"
 	"knative.dev/pkg/injection/clients/kubeclient"
 	deploymentinformer "knative.dev/pkg/injection/informers/kubeinformers/appsv1/deployment"
 	configmapinformer "knative.dev/pkg/injection/informers/kubeinformers/corev1/configmap"
 	serviceinformer "knative.dev/pkg/injection/informers/kubeinformers/corev1/service"
-	kpainformer "github.com/knative/serving/pkg/client/injection/informers/autoscaling/v1alpha1/podautoscaler"
-	revisioninformer "github.com/knative/serving/pkg/client/injection/informers/serving/v1alpha1/revision"
 
-	"knative.dev/pkg/configmap"
-	"knative.dev/pkg/controller"
-	"knative.dev/pkg/logging"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/deployment"
 	"github.com/knative/serving/pkg/metrics"
@@ -38,6 +35,9 @@ import (
 	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/revision/config"
 	"k8s.io/client-go/tools/cache"
+	"knative.dev/pkg/configmap"
+	"knative.dev/pkg/controller"
+	"knative.dev/pkg/logging"
 )
 
 const (
@@ -62,12 +62,12 @@ func NewController(
 	configMapInformer := configmapinformer.Get(ctx)
 	imageInformer := imageinformer.Get(ctx)
 	revisionInformer := revisioninformer.Get(ctx)
-	kpaInformer := kpainformer.Get(ctx)
+	paInformer := painformer.Get(ctx)
 
 	c := &Reconciler{
 		Base:                reconciler.NewBase(ctx, controllerAgentName, cmw),
 		revisionLister:      revisionInformer.Lister(),
-		podAutoscalerLister: kpaInformer.Lister(),
+		podAutoscalerLister: paInformer.Lister(),
 		imageLister:         imageInformer.Lister(),
 		deploymentLister:    deploymentInformer.Lister(),
 		serviceLister:       serviceInformer.Lister(),
@@ -88,7 +88,7 @@ func NewController(
 		Handler:    controller.HandleAll(impl.EnqueueControllerOf),
 	})
 
-	kpaInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+	paInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: controller.Filter(v1alpha1.SchemeGroupVersion.WithKind("Revision")),
 		Handler:    controller.HandleAll(impl.EnqueueControllerOf),
 	})

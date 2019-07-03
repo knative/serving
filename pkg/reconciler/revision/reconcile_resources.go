@@ -20,9 +20,7 @@ import (
 	"context"
 	"fmt"
 
-	"knative.dev/pkg/logging"
-	"knative.dev/pkg/logging/logkey"
-	kpav1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
+	av1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/reconciler/revision/resources"
 	resourcenames "github.com/knative/serving/pkg/reconciler/revision/resources/names"
@@ -32,6 +30,8 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"knative.dev/pkg/logging"
+	"knative.dev/pkg/logging/logkey"
 )
 
 func (c *Reconciler) reconcileDeployment(ctx context.Context, rev *v1alpha1.Revision) error {
@@ -131,52 +131,52 @@ func (c *Reconciler) reconcileImageCache(ctx context.Context, rev *v1alpha1.Revi
 	return nil
 }
 
-func (c *Reconciler) reconcileKPA(ctx context.Context, rev *v1alpha1.Revision) error {
+func (c *Reconciler) reconcilePA(ctx context.Context, rev *v1alpha1.Revision) error {
 	ns := rev.Namespace
-	kpaName := resourcenames.KPA(rev)
+	paName := resourcenames.PA(rev)
 	logger := logging.FromContext(ctx)
-	logger.Info("Reconciling KPA:", kpaName)
+	logger.Info("Reconciling PA:", paName)
 
-	kpa, err := c.podAutoscalerLister.PodAutoscalers(ns).Get(kpaName)
+	pa, err := c.podAutoscalerLister.PodAutoscalers(ns).Get(paName)
 	if apierrs.IsNotFound(err) {
-		// KPA does not exist. Create it.
-		kpa, err = c.createKPA(ctx, rev)
+		// PA does not exist. Create it.
+		pa, err = c.createPA(ctx, rev)
 		if err != nil {
-			logger.Errorf("Error creating KPA %s: %v", kpaName, err)
+			logger.Errorf("Error creating PA %s: %v", paName, err)
 			return err
 		}
-		logger.Info("Created KPA:", kpaName)
+		logger.Info("Created PA:", paName)
 	} else if err != nil {
-		logger.Errorf("Error reconciling kpa %s: %v", kpaName, err)
+		logger.Errorf("Error reconciling pa %s: %v", paName, err)
 		return err
-	} else if !metav1.IsControlledBy(kpa, rev) {
+	} else if !metav1.IsControlledBy(pa, rev) {
 		// Surface an error in the revision's status, and return an error.
-		rev.Status.MarkResourceNotOwned("PodAutoscaler", kpaName)
-		return fmt.Errorf("revision: %q does not own PodAutoscaler: %q", rev.Name, kpaName)
+		rev.Status.MarkResourceNotOwned("PodAutoscaler", paName)
+		return fmt.Errorf("revision: %q does not own PodAutoscaler: %q", rev.Name, paName)
 	}
 
-	// Perhaps tha KPA spec changed underneath ourselves?
+	// Perhaps tha PA spec changed underneath ourselves?
 	// TODO(vagababov): required for #1997. Should be removed in 0.7,
 	// to fix the protocol type when it's unset.
-	tmpl := resources.MakeKPA(rev)
-	if !equality.Semantic.DeepEqual(tmpl.Spec, kpa.Spec) {
-		logger.Infof("KPA %s needs reconciliation", kpa.Name)
+	tmpl := resources.MakePA(rev)
+	if !equality.Semantic.DeepEqual(tmpl.Spec, pa.Spec) {
+		logger.Infof("PA %s needs reconciliation", pa.Name)
 
-		want := kpa.DeepCopy()
+		want := pa.DeepCopy()
 		want.Spec = tmpl.Spec
-		if kpa, err = c.ServingClientSet.AutoscalingV1alpha1().PodAutoscalers(kpa.Namespace).Update(want); err != nil {
+		if pa, err = c.ServingClientSet.AutoscalingV1alpha1().PodAutoscalers(pa.Namespace).Update(want); err != nil {
 			return err
 		}
-		// This change will trigger KPA -> SKS -> K8s service change;
+		// This change will trigger PA -> SKS -> K8s service change;
 		// and those after reconciliation will back progpagate here.
 		rev.Status.MarkDeploying("Updating")
 	}
 
 	// Propagate the service name from the PA.
-	rev.Status.ServiceName = kpa.Status.ServiceName
+	rev.Status.ServiceName = pa.Status.ServiceName
 
-	// Reflect the KPA status in our own.
-	cond := kpa.Status.GetCondition(kpav1alpha1.PodAutoscalerConditionReady)
+	// Reflect the PA status in our own.
+	cond := pa.Status.GetCondition(av1alpha1.PodAutoscalerConditionReady)
 	switch {
 	case cond == nil:
 		rev.Status.MarkActivating("Deploying", "")

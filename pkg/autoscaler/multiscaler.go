@@ -23,7 +23,7 @@ import (
 	"sync"
 	"time"
 
-	kpa "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
+	av1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -166,7 +166,7 @@ func (m *MultiScaler) Get(ctx context.Context, namespace, name string) (*Decider
 	scaler, exists := m.scalers[key]
 	if !exists {
 		// This GroupResource is a lie, but unfortunately this interface requires one.
-		return nil, errors.NewNotFound(kpa.Resource("Deciders"), key)
+		return nil, errors.NewNotFound(av1alpha1.Resource("Deciders"), key)
 	}
 	scaler.mux.RLock()
 	defer scaler.mux.RUnlock()
@@ -209,7 +209,7 @@ func (m *MultiScaler) Update(ctx context.Context, decider *Decider) (*Decider, e
 		return decider, nil
 	}
 	// This GroupResource is a lie, but unfortunately this interface requires one.
-	return nil, errors.NewNotFound(kpa.Resource("Deciders"), key)
+	return nil, errors.NewNotFound(av1alpha1.Resource("Deciders"), key)
 }
 
 // Delete stops and removes a Decider.

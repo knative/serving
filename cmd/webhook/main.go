@@ -25,6 +25,13 @@ import (
 
 	"go.uber.org/zap"
 
+	autoscalingv1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
+	apiconfig "github.com/knative/serving/pkg/apis/config"
+	net "github.com/knative/serving/pkg/apis/networking/v1alpha1"
+	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/knative/serving/pkg/apis/serving/v1beta1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/kubernetes"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/logging/logkey"
@@ -32,13 +39,6 @@ import (
 	"knative.dev/pkg/system"
 	"knative.dev/pkg/version"
 	"knative.dev/pkg/webhook"
-	kpa "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
-	apiconfig "github.com/knative/serving/pkg/apis/config"
-	net "github.com/knative/serving/pkg/apis/networking/v1alpha1"
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	"github.com/knative/serving/pkg/apis/serving/v1beta1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/client-go/kubernetes"
 )
 
 const (
@@ -106,18 +106,18 @@ func main() {
 		Client:  kubeClient,
 		Options: options,
 		Handlers: map[schema.GroupVersionKind]webhook.GenericCRD{
-			v1alpha1.SchemeGroupVersion.WithKind("Revision"):      &v1alpha1.Revision{},
-			v1alpha1.SchemeGroupVersion.WithKind("Configuration"): &v1alpha1.Configuration{},
-			v1alpha1.SchemeGroupVersion.WithKind("Route"):         &v1alpha1.Route{},
-			v1alpha1.SchemeGroupVersion.WithKind("Service"):       &v1alpha1.Service{},
-			v1beta1.SchemeGroupVersion.WithKind("Revision"):       &v1beta1.Revision{},
-			v1beta1.SchemeGroupVersion.WithKind("Configuration"):  &v1beta1.Configuration{},
-			v1beta1.SchemeGroupVersion.WithKind("Route"):          &v1beta1.Route{},
-			v1beta1.SchemeGroupVersion.WithKind("Service"):        &v1beta1.Service{},
-			kpa.SchemeGroupVersion.WithKind("PodAutoscaler"):      &kpa.PodAutoscaler{},
-			net.SchemeGroupVersion.WithKind("Certificate"):        &net.Certificate{},
-			net.SchemeGroupVersion.WithKind("ClusterIngress"):     &net.ClusterIngress{},
-			net.SchemeGroupVersion.WithKind("ServerlessService"):  &net.ServerlessService{},
+			v1alpha1.SchemeGroupVersion.WithKind("Revision"):                 &v1alpha1.Revision{},
+			v1alpha1.SchemeGroupVersion.WithKind("Configuration"):            &v1alpha1.Configuration{},
+			v1alpha1.SchemeGroupVersion.WithKind("Route"):                    &v1alpha1.Route{},
+			v1alpha1.SchemeGroupVersion.WithKind("Service"):                  &v1alpha1.Service{},
+			v1beta1.SchemeGroupVersion.WithKind("Revision"):                  &v1beta1.Revision{},
+			v1beta1.SchemeGroupVersion.WithKind("Configuration"):             &v1beta1.Configuration{},
+			v1beta1.SchemeGroupVersion.WithKind("Route"):                     &v1beta1.Route{},
+			v1beta1.SchemeGroupVersion.WithKind("Service"):                   &v1beta1.Service{},
+			autoscalingv1alpha1.SchemeGroupVersion.WithKind("PodAutoscaler"): &autoscalingv1alpha1.PodAutoscaler{},
+			net.SchemeGroupVersion.WithKind("Certificate"):                   &net.Certificate{},
+			net.SchemeGroupVersion.WithKind("ClusterIngress"):                &net.ClusterIngress{},
+			net.SchemeGroupVersion.WithKind("ServerlessService"):             &net.ServerlessService{},
 		},
 		Logger:                logger,
 		DisallowUnknownFields: true,

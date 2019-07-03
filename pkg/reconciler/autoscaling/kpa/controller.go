@@ -22,7 +22,7 @@ import (
 	"knative.dev/pkg/apis/duck"
 	endpointsinformer "knative.dev/pkg/injection/informers/kubeinformers/corev1/endpoints"
 	serviceinformer "knative.dev/pkg/injection/informers/kubeinformers/corev1/service"
-	kpainformer "github.com/knative/serving/pkg/client/injection/informers/autoscaling/v1alpha1/podautoscaler"
+	painformer "github.com/knative/serving/pkg/client/injection/informers/autoscaling/v1alpha1/podautoscaler"
 	sksinformer "github.com/knative/serving/pkg/client/injection/informers/networking/v1alpha1/serverlessservice"
 
 	"knative.dev/pkg/configmap"
@@ -49,7 +49,7 @@ func NewController(
 	psInformerFactory duck.InformerFactory,
 ) *controller.Impl {
 
-	paInformer := kpainformer.Get(ctx)
+	paInformer := painformer.Get(ctx)
 	sksInformer := sksinformer.Get(ctx)
 	serviceInformer := serviceinformer.Get(ctx)
 	endpointsInformer := endpointsinformer.Get(ctx)
