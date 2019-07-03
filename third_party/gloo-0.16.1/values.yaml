@@ -8,6 +8,7 @@ discovery:
       tag: 0.14.0
     replicas: 1
     stats: true
+  fdsMode: whitelist
 gateway:
   enabled: false
 gloo:
@@ -38,7 +39,6 @@ settings:
   integrations:
     knative:
       enabled: true
-      installKnative: false
       proxy:
         httpPort: "80"
         httpsPort: "443"
