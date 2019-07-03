@@ -61,7 +61,7 @@ func validateWindows(annotations map[string]string) *apis.FieldError {
 			errs = errs.Also(apis.ErrInvalidValue(v, "annotation: "+PanicThresholdPercentageAnnotationKey))
 		} else if fv < PanicThresholdPercentageMin {
 			errs = errs.Also(&apis.FieldError{
-				Message: fmt.Sprintf("Invalid annotation value %s, must be at least %v", v, PanicThresholdPercentageMin),
+				Message: fmt.Sprintf("invalid annotation value %s, must be at least %v", v, PanicThresholdPercentageMin),
 				Paths:   []string{PanicThresholdPercentageAnnotationKey},
 			})
 		}
