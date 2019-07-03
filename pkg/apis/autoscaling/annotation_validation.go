@@ -31,7 +31,7 @@ func getIntGE0(m map[string]string, k string) (int64, *apis.FieldError) {
 	i, err := strconv.ParseInt(v, 10, 32)
 	if err != nil || i < 0 {
 		return 0, &apis.FieldError{
-			Message: fmt.Sprintf("Invalid %s annotation value: must be an integer equal or greater than 0", k),
+			Message: "invalid annotation value: must be an integer equal or greater than 0",
 			Paths:   []string{k},
 		}
 	}
