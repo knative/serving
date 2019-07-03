@@ -57,11 +57,6 @@ data:
     # try to maintain when the Revision specifies unlimited concurrency.
     # Even when specifying unlimited concurrency, the autoscaler will
     # horizontally scale the application based on this target concurrency.
-    #
-    # A value of 100 is chosen because it's enough to allow vertical pod
-    # autoscaling to tune resource requests. E.g. maintaining 1 concurrent
-    # "hello world" request doesn't consume enough resources to allow VPA
-    # to achieve efficient resource usage (VPA CPU minimum is 300m).
     container-concurrency-target-default: "100"
 
     # The target burst capacity specifies the size of burst in concurrent

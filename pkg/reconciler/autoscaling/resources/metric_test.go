@@ -42,11 +42,18 @@ func TestMakeMetric(t *testing.T) {
 		msn:  "ik",
 		want: metric(withScarapeTarget("ik")),
 	}, {
+		name: "with too short panic window",
+		pa:   pa(WithWindowAnnotation("10s"), WithPanicWindowPercentageAnnotation("10")),
+		msn:  "wil",
+		want: metric(withScarapeTarget("wil"), withWindowAnnotation("10s"),
+			withStableWindow(10*time.Second), withPanicWindow(autoscaler.BucketSize),
+			withPanicWindowPercentageAnnotation("10")),
+	}, {
 		name: "with longer stable window, no panic window percentage, defaults to 10%",
 		pa:   pa(WithWindowAnnotation("10m")),
-		msn:  "wil",
+		msn:  "nu",
 		want: metric(
-			withScarapeTarget("wil"),
+			withScarapeTarget("nu"),
 			withStableWindow(10*time.Minute), withPanicWindow(time.Minute),
 			withWindowAnnotation("10m")),
 	}, {

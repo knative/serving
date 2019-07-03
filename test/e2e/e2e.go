@@ -10,11 +10,11 @@ import (
 	// https://github.com/kubernetes/client-go/issues/242
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 
-	pkgTest "knative.dev/pkg/test"
 	"github.com/knative/serving/pkg/autoscaler"
 	"github.com/knative/serving/test"
 	v1a1test "github.com/knative/serving/test/v1alpha1"
 	perrors "github.com/pkg/errors"
+	pkgTest "knative.dev/pkg/test"
 )
 
 // Setup creates the client objects needed in the e2e tests.
@@ -60,16 +60,13 @@ func CreateRouteAndConfig(t *testing.T, clients *test.Clients, image string, opt
 // autoscalerCM returns the current autoscaler config map deployed to the
 // test cluster.
 func autoscalerCM(clients *test.Clients) (*autoscaler.Config, error) {
-	// Assume an empty map (and therefore return defaults) if getting the config map fails.
-	cmData := map[string]string{}
 	autoscalerCM, err := clients.KubeClient.Kube.CoreV1().ConfigMaps("knative-serving").Get(
 		autoscaler.ConfigName,
 		metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}
-	cmData = autoscalerCM.Data
-	return autoscaler.NewConfigFromMap(cmData)
+	return autoscaler.NewConfigFromMap(autoscalerCM.Data)
 }
 
 // WaitForScaleToZero will wait for the specified deployment to scale to 0 replicas.

@@ -23,11 +23,9 @@ import (
 
 	"github.com/google/go-containerregistry/pkg/authn/k8schain"
 	cachinglisters "github.com/knative/caching/pkg/client/listers/caching/v1alpha1"
-	"knative.dev/pkg/controller"
-	commonlogging "knative.dev/pkg/logging"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1beta1"
-	kpalisters "github.com/knative/serving/pkg/client/listers/autoscaling/v1alpha1"
+	palisters "github.com/knative/serving/pkg/client/listers/autoscaling/v1alpha1"
 	listers "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
 	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/revision/config"
@@ -39,6 +37,8 @@ import (
 	appsv1listers "k8s.io/client-go/listers/apps/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
+	"knative.dev/pkg/controller"
+	commonlogging "knative.dev/pkg/logging"
 )
 
 type resolver interface {
@@ -51,7 +51,7 @@ type Reconciler struct {
 
 	// lister indexes properties about Revision
 	revisionLister      listers.RevisionLister
-	podAutoscalerLister kpalisters.PodAutoscalerLister
+	podAutoscalerLister palisters.PodAutoscalerLister
 	imageLister         cachinglisters.ImageLister
 	deploymentLister    appsv1listers.DeploymentLister
 	serviceLister       corev1listers.ServiceLister
@@ -187,8 +187,8 @@ func (c *Reconciler) reconcile(ctx context.Context, rev *v1alpha1.Revision) erro
 		name: "image cache",
 		f:    c.reconcileImageCache,
 	}, {
-		name: "KPA",
-		f:    c.reconcileKPA,
+		name: "PA",
+		f:    c.reconcilePA,
 	}}
 
 	for _, phase := range phases {

@@ -17,15 +17,12 @@ limitations under the License.
 package activator
 
 import (
+	"context"
 	"errors"
 	"sync"
-	"time"
 
 	"go.uber.org/zap"
 
-	"knative.dev/pkg/controller"
-	"knative.dev/pkg/logging/logkey"
-	"knative.dev/pkg/system"
 	"github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/serving"
 	netlisters "github.com/knative/serving/pkg/client/listers/networking/v1alpha1"
@@ -33,6 +30,9 @@ import (
 	"github.com/knative/serving/pkg/queue"
 	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/resources"
+	"knative.dev/pkg/controller"
+	"knative.dev/pkg/logging/logkey"
+	"knative.dev/pkg/system"
 
 	corev1 "k8s.io/api/core/v1"
 	corev1informers "k8s.io/client-go/informers/core/v1"
@@ -134,9 +134,7 @@ func (t *Throttler) UpdateCapacity(rev RevisionID, size int) error {
 // and executes the `function` on the Breaker.
 // It returns an error if either breaker doesn't have enough capacity,
 // or breaker's registration didn't succeed, e.g. getting endpoints or update capacity failed.
-// timeout is the time before this function returns ErrActivatorOverload. A 0 value for
-// timeout is infinite.
-func (t *Throttler) Try(timeout time.Duration, rev RevisionID, function func()) error {
+func (t *Throttler) Try(ctx context.Context, rev RevisionID, function func()) error {
 	breaker, existed := t.getOrCreateBreaker(rev)
 	if !existed {
 		// Need to fetch the latest endpoints state, in case we missed the update.
@@ -144,7 +142,7 @@ func (t *Throttler) Try(timeout time.Duration, rev RevisionID, function func()) 
 			return err
 		}
 	}
-	if !breaker.Maybe(timeout, function) {
+	if !breaker.Maybe(ctx, function) {
 		return ErrActivatorOverload
 	}
 	return nil

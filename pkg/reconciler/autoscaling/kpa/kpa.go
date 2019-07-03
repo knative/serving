@@ -24,8 +24,6 @@ import (
 	perrors "github.com/pkg/errors"
 	"go.uber.org/zap"
 
-	"knative.dev/pkg/controller"
-	"knative.dev/pkg/logging"
 	"github.com/knative/serving/pkg/apis/autoscaling"
 	pav1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving"
@@ -34,6 +32,8 @@ import (
 	"github.com/knative/serving/pkg/reconciler/autoscaling/config"
 	"github.com/knative/serving/pkg/reconciler/autoscaling/kpa/resources"
 	resourceutil "github.com/knative/serving/pkg/resources"
+	"knative.dev/pkg/controller"
+	"knative.dev/pkg/logging"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -93,7 +93,7 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 		// cache may be stale and we don't want to overwrite a prior update
 		// to status with this stale state.
 	} else if _, err = c.UpdateStatus(pa); err != nil {
-		logger.Warnw("Failed to update kpa status", zap.Error(err))
+		logger.Warnw("Failed to update pa status", zap.Error(err))
 		c.Recorder.Eventf(pa, corev1.EventTypeWarning, "UpdateFailed",
 			"Failed to update status for PA %q: %v", pa.Name, err)
 		return err
@@ -125,11 +125,6 @@ func (c *Reconciler) reconcile(ctx context.Context, pa *pav1alpha1.PodAutoscaler
 		return perrors.Wrap(err, "error reconciling metrics service")
 	}
 
-	sks, err := c.ReconcileSKS(ctx, pa)
-	if err != nil {
-		return perrors.Wrap(err, "error reconciling SKS")
-	}
-
 	// Since metricSvc is what is being scraped for metrics
 	// it should be the correct representation of the pods in the deployment
 	// for autoscaling decisions.
@@ -140,6 +135,11 @@ func (c *Reconciler) reconcile(ctx context.Context, pa *pav1alpha1.PodAutoscaler
 
 	if err := c.ReconcileMetric(ctx, pa, metricSvc); err != nil {
 		return perrors.Wrap(err, "error reconciling metric")
+	}
+
+	sks, err := c.ReconcileSKS(ctx, pa, decider)
+	if err != nil {
+		return perrors.Wrap(err, "error reconciling SKS")
 	}
 
 	// Get the appropriate current scale from the metric, and right size
@@ -153,6 +153,7 @@ func (c *Reconciler) reconcile(ctx context.Context, pa *pav1alpha1.PodAutoscaler
 	// We fetch private endpoints here, since for scaling we're interested in the actual
 	// state of the deployment.
 	got := 0
+
 	// Propagate service name.
 	pa.Status.ServiceName = sks.Status.ServiceName
 	if sks.Status.IsReady() {
@@ -172,7 +173,7 @@ func (c *Reconciler) reconcile(ctx context.Context, pa *pav1alpha1.PodAutoscaler
 	// computeActiveCondition decides if we need to change the SKS mode,
 	// and returns true if the status has changed.
 	if changed := computeActiveCondition(pa, want, got); changed {
-		_, err := c.ReconcileSKS(ctx, pa)
+		_, err := c.ReconcileSKS(ctx, pa, decider)
 		if err != nil {
 			return perrors.Wrap(err, "error re-reconciling SKS")
 		}
@@ -251,7 +252,7 @@ func computeActiveCondition(pa *pav1alpha1.PodAutoscaler, want int32, got int) (
 	return
 }
 
-// activeThreshold returns the scale required for the kpa to be marked Active
+// activeThreshold returns the scale required for the pa to be marked Active
 func activeThreshold(pa *pav1alpha1.PodAutoscaler) int {
 	if min, ok := pa.Annotations[autoscaling.MinScaleAnnotationKey]; ok {
 		if ms, err := strconv.Atoi(min); err == nil {

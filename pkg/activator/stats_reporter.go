@@ -22,11 +22,11 @@ import (
 	"strconv"
 	"time"
 
-	"knative.dev/pkg/metrics"
-	"knative.dev/pkg/metrics/metricskey"
 	"go.opencensus.io/stats"
 	"go.opencensus.io/stats/view"
 	"go.opencensus.io/tag"
+	"knative.dev/pkg/metrics"
+	"knative.dev/pkg/metrics/metricskey"
 )
 
 var (
@@ -39,7 +39,9 @@ var (
 		"The response time in millisecond",
 		stats.UnitMilliseconds)
 
-	defaultLatencyDistribution = view.Distribution(0, 5, 10, 20, 40, 60, 80, 100, 150, 200, 250, 300, 350, 400, 450, 500, 600, 700, 800, 900, 1000, 2000, 5000, 10000, 20000, 50000, 100000)
+	// NOTE: 0 should not be used as boundary. See
+	// https://github.com/census-ecosystem/opencensus-go-exporter-stackdriver/issues/98
+	defaultLatencyDistribution = view.Distribution(5, 10, 20, 40, 60, 80, 100, 150, 200, 250, 300, 350, 400, 450, 500, 600, 700, 800, 900, 1000, 2000, 5000, 10000, 20000, 50000, 100000)
 )
 
 // StatsReporter defines the interface for sending activator metrics

@@ -17,6 +17,7 @@ limitations under the License.
 package queue
 
 import (
+	"context"
 	"sync"
 	"testing"
 	"time"
@@ -81,7 +82,7 @@ func TestBreakerOverload(t *testing.T) {
 	b := NewBreaker(params)           // Breaker capacity = 2
 	want := []bool{true, true, false} // Only first two requests will be processed
 
-	locks := b.concurrentRequests(3, 0)
+	locks := b.concurrentRequests(context.Background(), 3)
 
 	unlockAll(locks)
 
@@ -96,7 +97,7 @@ func TestBreakerOverloadWithEmptySemaphore(t *testing.T) {
 	want := []bool{true, true, false} // Only first two requests are processed
 
 	b.sem.release()
-	locks := b.concurrentRequests(3, 0)
+	locks := b.concurrentRequests(context.Background(), 3)
 
 	unlockAll(locks)
 
@@ -110,12 +111,12 @@ func TestBreakerNoOverload(t *testing.T) {
 	b := NewBreaker(params)                // Breaker capacity = 2
 	want := []bool{true, true, true, true} // Only two requests will be in flight at a time
 	locks := make([]request, 4)
-	locks[0] = b.concurrentRequest(0)
-	locks[1] = b.concurrentRequest(0)
+	locks[0] = b.concurrentRequest(context.Background())
+	locks[1] = b.concurrentRequest(context.Background())
 	unlock(locks[0])
-	locks[2] = b.concurrentRequest(0)
+	locks[2] = b.concurrentRequest(context.Background())
 	unlock(locks[1])
-	locks[3] = b.concurrentRequest(0)
+	locks[3] = b.concurrentRequest(context.Background())
 	unlockAll(locks[2:])
 
 	if diff := cmp.Diff(accepted(locks), want); diff != "" {
@@ -128,10 +129,10 @@ func TestBreakerRecover(t *testing.T) {
 	b := NewBreaker(params)                              // Breaker capacity = 2
 	want := []bool{true, true, false, false, true, true} // Shedding will stop when capacity opens up
 
-	locks := b.concurrentRequests(4, 0)
+	locks := b.concurrentRequests(context.Background(), 4)
 	unlockAll(locks)
 	// Breaker recovers
-	moreLocks := b.concurrentRequests(2, 0)
+	moreLocks := b.concurrentRequests(context.Background(), 2)
 	unlockAll(moreLocks)
 
 	if diff := cmp.Diff(accepted(append(locks, moreLocks...)), want); diff != "" {
@@ -154,13 +155,13 @@ func TestBreakerLargeCapacityRecover(t *testing.T) {
 	}
 
 	// Send 100 requests.
-	locks := b.concurrentRequests(100, 0)
+	locks := b.concurrentRequests(context.Background(), 100)
 	// Process one request and send one request, 50 times.
 	for i := 100; i < 150; i++ {
 		// Open capacity
 		unlock(locks[i-100])
 		// Add another request
-		locks = append(locks, b.concurrentRequest(0))
+		locks = append(locks, b.concurrentRequest(context.Background()))
 	}
 	unlockAll(locks[50:])
 
@@ -194,13 +195,18 @@ func TestBreaker_Timeout(t *testing.T) {
 	locks := make([]request, 3)
 
 	// Timeout a request with no capacity
-	locks[0] = b.concurrentRequest(1 * time.Millisecond)
+	ctx1, cancel1 := context.WithCancel(context.Background())
+	locks[0] = b.concurrentRequest(ctx1)
+	cancel1()
 	locks[0].wait()
 
 	// Let through a request with capacity then timeout following request
 	b.UpdateConcurrency(1)
-	locks[1] = b.concurrentRequest(1 * time.Millisecond)
-	locks[2] = b.concurrentRequest(1 * time.Millisecond)
+
+	ctx2, cancel2 := context.WithCancel(context.Background())
+	locks[1] = b.concurrentRequest(context.Background())
+	locks[2] = b.concurrentRequest(ctx2)
+	cancel2()
 	locks[2].wait()
 
 	// Only our second request should have actually happened
@@ -263,7 +269,7 @@ func TestSemaphore_acquire_HasCapacity(t *testing.T) {
 
 func TestSemaphore_release(t *testing.T) {
 	sem := newSemaphore(1, 1)
-	sem.acquire(0)
+	sem.acquire(context.Background())
 	if err := sem.release(); err != nil {
 		t.Errorf("release = %v; want: %v", err, nil)
 	}
@@ -276,8 +282,8 @@ func TestSemaphore_releasesSeveralReducers(t *testing.T) {
 	const wantAfterFirstrelease = 1
 	const wantAfterSecondrelease = 0
 	sem := newSemaphore(2, 2)
-	sem.acquire(0)
-	sem.acquire(0)
+	sem.acquire(context.Background())
+	sem.acquire(context.Background())
 	sem.updateCapacity(0)
 	sem.release()
 	if got := sem.Capacity(); got != wantAfterSecondrelease {
@@ -302,7 +308,7 @@ func TestSemaphore_updateCapacity(t *testing.T) {
 	if got, want := sem.Capacity(), 1; got != want {
 		t.Errorf("Capacity = %d, want: %d", got, want)
 	}
-	sem.acquire(0)
+	sem.acquire(context.Background())
 	sem.updateCapacity(initialCapacity + 2)
 	if got, want := sem.Capacity(), 3; got != want {
 		t.Errorf("Capacity = %d, want: %d", got, want)
@@ -313,8 +319,8 @@ func TestSemaphore_updateCapacity(t *testing.T) {
 func TestSemaphore_updateCapacity_LessThenReducers(t *testing.T) {
 	const initialCapacity = 2
 	sem := newSemaphore(2, initialCapacity)
-	sem.acquire(0)
-	sem.acquire(0)
+	sem.acquire(context.Background())
+	sem.acquire(context.Background())
 	sem.updateCapacity(initialCapacity - 2)
 	if got, want := sem.reducers, 2; got != want {
 		t.Errorf("sem.reducers = %d, want: %d", got, want)
@@ -330,8 +336,8 @@ func TestSemaphore_updateCapacity_LessThenReducers(t *testing.T) {
 func TestSemaphore_updateCapacity_ConsumingReducers(t *testing.T) {
 	const initialCapacity = 2
 	sem := newSemaphore(2, initialCapacity)
-	sem.acquire(0)
-	sem.acquire(0)
+	sem.acquire(context.Background())
+	sem.acquire(context.Background())
 	sem.updateCapacity(initialCapacity - 2)
 	if got, want := sem.reducers, 2; got != want {
 		t.Errorf("sem.reducers = %d, want: %d", got, want)
@@ -352,7 +358,7 @@ func TestSemaphore_updateCapacity_Overflow(t *testing.T) {
 
 func TestSemaphore_updateCapacity_OutOfBound(t *testing.T) {
 	sem := newSemaphore(1, 1)
-	sem.acquire(0)
+	sem.acquire(context.Background())
 	if err := sem.updateCapacity(-1); err != ErrUpdateCapacity {
 		t.Errorf("updateCapacity = %v, want: %v", err, ErrUpdateCapacity)
 	}
@@ -384,7 +390,7 @@ func TestSemaphore_WrongInitialCapacity(t *testing.T) {
 
 // Attempts to perform a concurrent request against the specified breaker.
 // Will wait for request to either be performed, enqueued or rejected.
-func (b *Breaker) concurrentRequest(timeout time.Duration) request {
+func (b *Breaker) concurrentRequest(ctx context.Context) request {
 	r := request{barrier: make(chan struct{}), accepted: make(chan bool, 1)}
 
 	if len(b.sem.queue) > 0 {
@@ -402,7 +408,7 @@ func (b *Breaker) concurrentRequest(timeout time.Duration) request {
 	start.Add(1)
 	go func() {
 		start.Done()
-		ok := b.Maybe(timeout, func() {
+		ok := b.Maybe(ctx, func() {
 			<-r.barrier
 		})
 		r.accepted <- ok
@@ -412,10 +418,10 @@ func (b *Breaker) concurrentRequest(timeout time.Duration) request {
 }
 
 // Perform n requests against the breaker, returning request objects.
-func (b *Breaker) concurrentRequests(n int, timeout time.Duration) []request {
+func (b *Breaker) concurrentRequests(ctx context.Context, n int) []request {
 	requests := make([]request, n)
 	for i := range requests {
-		requests[i] = b.concurrentRequest(timeout)
+		requests[i] = b.concurrentRequest(ctx)
 	}
 	return requests
 }
@@ -451,7 +457,7 @@ func unlockAll(requests []request) {
 func tryAcquire(sem *semaphore, gotChan chan struct{}) {
 	go func() {
 		// blocking until someone puts the token into the semaphore
-		sem.acquire(0)
+		sem.acquire(context.Background())
 		gotChan <- struct{}{}
 	}()
 }

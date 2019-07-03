@@ -235,7 +235,7 @@ func handler(reqChan chan queue.ReqEvent, breaker *queue.Breaker, handler http.H
 
 		// Enforce queuing and concurrency limits.
 		if breaker != nil {
-			if !breaker.Maybe(0 /* Infinite timeout */, func() {
+			if !breaker.Maybe(r.Context(), func() {
 				handler.ServeHTTP(w, r)
 			}) {
 				http.Error(w, "overload", http.StatusServiceUnavailable)

@@ -28,9 +28,7 @@ func ImageCache(rev kmeta.Accessor) string {
 	return kmeta.ChildName(rev.GetName(), "-cache")
 }
 
-// KPA returns the PA name for the revision.
-func KPA(rev kmeta.Accessor) string {
-	// We want the KPA's "key" to match the revision,
-	// to simplify the transition to the KPA.
+// PA returns the PA name for the revision.
+func PA(rev kmeta.Accessor) string {
 	return rev.GetName()
 }
