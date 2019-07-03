@@ -43,21 +43,59 @@ func ValidateAnnotations(annotations map[string]string) *apis.FieldError {
 		return nil
 	}
 
+	return validateMinMaxScale(annotations).Also(validateWindows(annotations))
+}
+
+func validateWindows(annotations map[string]string) *apis.FieldError {
+	var errs *apis.FieldError
+	if v, ok := annotations[PanicWindowPercentageAnnotationKey]; ok {
+		if fv, err := strconv.ParseFloat(v, 64); err != nil {
+			errs = &apis.FieldError{
+				Message: fmt.Sprintf("Invalid annatation value %s=%s, not a valid number",
+					PanicWindowPercentageAnnotationKey, v),
+				Paths: []string{PanicWindowPercentageAnnotationKey},
+			}
+		} else if fv < PanicWindowPercentageMin || fv > PanicWindowPercentageMax {
+			errs = &apis.FieldError{
+				Message: fmt.Sprintf("Invalid annatation value %s=%s, not a valid percentage ",
+					PanicWindowPercentageAnnotationKey, v),
+				Paths: []string{PanicWindowPercentageAnnotationKey},
+			}
+		}
+	}
+	if v, ok := annotations[PanicThresholdPercentageAnnotationKey]; ok {
+		if fv, err := strconv.ParseFloat(v, 64); err != nil {
+			errs = errs.Also(&apis.FieldError{
+				Message: fmt.Sprintf("Invalid annatation value %s=%s, not a valid number", PanicThresholdPercentageAnnotationKey, v),
+				Paths:   []string{PanicThresholdPercentageAnnotationKey},
+			})
+		} else if fv < PanicThresholdPercentageMin {
+			errs = errs.Also(&apis.FieldError{
+				Message: fmt.Sprintf("Invalid annatation value %s=%s, must be at least 110", PanicThresholdPercentageAnnotationKey, v),
+				Paths:   []string{PanicThresholdPercentageAnnotationKey},
+			})
+		}
+	}
+	return errs
+}
+
+func validateMinMaxScale(annotations map[string]string) *apis.FieldError {
+	var errs *apis.FieldError
+
 	min, err := getIntGE0(annotations, MinScaleAnnotationKey)
 	if err != nil {
-		return err
+		errs = err
 	}
 	max, err := getIntGE0(annotations, MaxScaleAnnotationKey)
 	if err != nil {
-		return err
+		errs = errs.Also(err)
 	}
 
 	if max != 0 && max < min {
-		return &apis.FieldError{
+		errs = errs.Also(&apis.FieldError{
 			Message: fmt.Sprintf("%s=%v is less than %s=%v", MaxScaleAnnotationKey, max, MinScaleAnnotationKey, min),
 			Paths:   []string{MaxScaleAnnotationKey, MinScaleAnnotationKey},
-		}
+		})
 	}
-
-	return nil
+	return errs
 }

@@ -17,95 +17,114 @@ limitations under the License.
 package autoscaling
 
 import (
-	"fmt"
 	"reflect"
 	"testing"
 
-	"knative.dev/pkg/apis"
+	"github.com/google/go-cmp/cmp"
 )
 
 func TestValidateScaleBoundAnnotations(t *testing.T) {
 	cases := []struct {
 		name        string
 		annotations map[string]string
-		expectErr   *apis.FieldError
+		expectErr   string
 	}{{
 		name:        "nil annotations",
 		annotations: nil,
-		expectErr:   nil,
 	}, {
 		name:        "empty annotations",
 		annotations: map[string]string{},
-		expectErr:   nil,
 	}, {
 		name:        "minScale is 0",
 		annotations: map[string]string{MinScaleAnnotationKey: "0"},
-		expectErr:   nil,
 	}, {
 		name:        "maxScale is 0",
 		annotations: map[string]string{MaxScaleAnnotationKey: "0"},
-		expectErr:   nil,
 	}, {
 		name:        "minScale is -1",
 		annotations: map[string]string{MinScaleAnnotationKey: "-1"},
-		expectErr: &apis.FieldError{
-			Message: fmt.Sprintf("Invalid %s annotation value: must be an integer equal or greater than 0", MinScaleAnnotationKey),
-			Paths:   []string{MinScaleAnnotationKey},
-		},
+		expectErr:   "Invalid autoscaling.knative.dev/minScale annotation value: must be an integer equal or greater than 0: autoscaling.knative.dev/minScale",
 	}, {
 		name:        "maxScale is -1",
 		annotations: map[string]string{MaxScaleAnnotationKey: "-1"},
-		expectErr: &apis.FieldError{
-			Message: fmt.Sprintf("Invalid %s annotation value: must be an integer equal or greater than 0", MaxScaleAnnotationKey),
-			Paths:   []string{MaxScaleAnnotationKey},
-		},
+		expectErr:   "Invalid autoscaling.knative.dev/maxScale annotation value: must be an integer equal or greater than 0: autoscaling.knative.dev/maxScale",
 	}, {
 		name:        "minScale is foo",
 		annotations: map[string]string{MinScaleAnnotationKey: "foo"},
-		expectErr: &apis.FieldError{
-			Message: fmt.Sprintf("Invalid %s annotation value: must be an integer equal or greater than 0", MinScaleAnnotationKey),
-			Paths:   []string{MinScaleAnnotationKey},
-		},
+		expectErr:   "Invalid autoscaling.knative.dev/minScale annotation value: must be an integer equal or greater than 0: autoscaling.knative.dev/minScale",
 	}, {
 		name:        "maxScale is bar",
 		annotations: map[string]string{MaxScaleAnnotationKey: "bar"},
-		expectErr: &apis.FieldError{
-			Message: fmt.Sprintf("Invalid %s annotation value: must be an integer equal or greater than 0", MaxScaleAnnotationKey),
-			Paths:   []string{MaxScaleAnnotationKey},
-		},
+		expectErr:   "Invalid autoscaling.knative.dev/maxScale annotation value: must be an integer equal or greater than 0: autoscaling.knative.dev/maxScale",
+	}, {
+		name:        "max/minScale is bar",
+		annotations: map[string]string{MaxScaleAnnotationKey: "bar", MinScaleAnnotationKey: "bar"},
+		expectErr:   "Invalid autoscaling.knative.dev/maxScale annotation value: must be an integer equal or greater than 0: autoscaling.knative.dev/maxScale\nInvalid autoscaling.knative.dev/minScale annotation value: must be an integer equal or greater than 0: autoscaling.knative.dev/minScale",
 	}, {
 		name:        "minScale is 5",
 		annotations: map[string]string{MinScaleAnnotationKey: "5"},
-		expectErr:   nil,
 	}, {
 		name:        "maxScale is 2",
 		annotations: map[string]string{MaxScaleAnnotationKey: "2"},
-		expectErr:   nil,
 	}, {
 		name:        "minScale is 2, maxScale is 5",
 		annotations: map[string]string{MinScaleAnnotationKey: "2", MaxScaleAnnotationKey: "5"},
-		expectErr:   nil,
 	}, {
 		name:        "minScale is 5, maxScale is 2",
 		annotations: map[string]string{MinScaleAnnotationKey: "5", MaxScaleAnnotationKey: "2"},
-		expectErr: &apis.FieldError{
-			Message: fmt.Sprintf("%s=%v is less than %s=%v", MaxScaleAnnotationKey, 2, MinScaleAnnotationKey, 5),
-			Paths:   []string{MaxScaleAnnotationKey, MinScaleAnnotationKey},
-		},
+		expectErr:   "autoscaling.knative.dev/maxScale=2 is less than autoscaling.knative.dev/minScale=5: autoscaling.knative.dev/maxScale, autoscaling.knative.dev/minScale",
 	}, {
 		name: "minScale is 0, maxScale is 0",
 		annotations: map[string]string{
 			MinScaleAnnotationKey: "0",
 			MaxScaleAnnotationKey: "0",
 		},
-		expectErr: nil,
+	}, {
+		name:        "panic window  percentange bad",
+		annotations: map[string]string{PanicWindowPercentageAnnotationKey: "-1"},
+		expectErr:   "Invalid annatation value autoscaling.knative.dev/panicWindowPercentage=-1, not a valid percentage : autoscaling.knative.dev/panicWindowPercentage",
+	}, {
+		name:        "panic window percentange bad2",
+		annotations: map[string]string{PanicWindowPercentageAnnotationKey: "202"},
+		expectErr:   "Invalid annatation value autoscaling.knative.dev/panicWindowPercentage=202, not a valid percentage : autoscaling.knative.dev/panicWindowPercentage",
+	}, {
+		name:        "panic window percentange bad3",
+		annotations: map[string]string{PanicWindowPercentageAnnotationKey: "fifty"},
+		expectErr:   "Invalid annatation value autoscaling.knative.dev/panicWindowPercentage=fifty, not a valid number: autoscaling.knative.dev/panicWindowPercentage",
+	}, {
+		name:        "panic threshold percentange bad2",
+		annotations: map[string]string{PanicThresholdPercentageAnnotationKey: "210"},
+	}, {
+		name:        "panic threshold percentange bad2",
+		annotations: map[string]string{PanicThresholdPercentageAnnotationKey: "109"},
+		expectErr:   "Invalid annatation value autoscaling.knative.dev/panicThresholdPercentage=109, must be at least 110: autoscaling.knative.dev/panicThresholdPercentage",
+	}, {
+		name:        "panic threshold percentange bad3",
+		annotations: map[string]string{PanicThresholdPercentageAnnotationKey: "fifty"},
+		expectErr:   "Invalid annatation value autoscaling.knative.dev/panicThresholdPercentage=fifty, not a valid number: autoscaling.knative.dev/panicThresholdPercentage",
+	}, {
+		name: "all together now fail",
+		annotations: map[string]string{
+			PanicThresholdPercentageAnnotationKey: "fifty",
+			PanicWindowPercentageAnnotationKey:    "-11",
+			MinScaleAnnotationKey:                 "-4",
+			MaxScaleAnnotationKey:                 "never",
+		},
+		expectErr: "Invalid annatation value autoscaling.knative.dev/panicThresholdPercentage=fifty, not a valid number: autoscaling.knative.dev/panicThresholdPercentage\nInvalid annatation value autoscaling.knative.dev/panicWindowPercentage=-11, not a valid percentage : autoscaling.knative.dev/panicWindowPercentage\nInvalid autoscaling.knative.dev/maxScale annotation value: must be an integer equal or greater than 0: autoscaling.knative.dev/maxScale\nInvalid autoscaling.knative.dev/minScale annotation value: must be an integer equal or greater than 0: autoscaling.knative.dev/minScale",
+	}, {
+		name: "all together now, succeed",
+		annotations: map[string]string{
+			PanicThresholdPercentageAnnotationKey: "125",
+			PanicWindowPercentageAnnotationKey:    "75",
+			MinScaleAnnotationKey:                 "5",
+			MaxScaleAnnotationKey:                 "8",
+		},
 	}}
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			err := ValidateAnnotations(c.annotations)
-			if !reflect.DeepEqual(c.expectErr, err) {
-				t.Errorf("Expected: '%+v', Got: '%+v'", c.expectErr, err)
+			if got, want := ValidateAnnotations(c.annotations).Error(), c.expectErr; !reflect.DeepEqual(got, want) {
+				t.Errorf("Err = %q, want: %q, diff:\n%s", got, want, cmp.Diff(got, want))
 			}
 		})
 	}
