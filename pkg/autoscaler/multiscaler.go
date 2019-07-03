@@ -23,11 +23,11 @@ import (
 	"sync"
 	"time"
 
-	"knative.dev/pkg/logging"
 	kpa "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"knative.dev/pkg/logging"
 )
 
 // Decider is a resource which observes the request load of a Revision and
@@ -60,12 +60,15 @@ type DeciderSpec struct {
 
 // DeciderStatus is the current scale recommendation.
 type DeciderStatus struct {
+	// DesiredScale is the target number of instances that autoscaler
+	// this revision needs.
 	DesiredScale int32
+
 	// ExcessBurstCapacity is the difference between spare capacity
 	// (how many more concurrent requests the pods in the revision
 	// deployment can serve) and the configured target burst capacity.
 	// If this number is negative: Activator will be threaded in
-	// by the PodAutoscaler controller.
+	// the request path by the PodAutoscaler controller.
 	ExcessBurstCapacity int32
 }
 
