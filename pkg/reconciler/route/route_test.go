@@ -617,7 +617,6 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 		}, {
 			Hosts: []string{
 				"test-revision-1-test-route.test.test-domain.dev",
-				"test-revision-1." + domain,
 			},
 			HTTP: &netv1alpha1.HTTPIngressRuleValue{
 				Paths: []netv1alpha1.HTTPIngressPath{{
@@ -638,7 +637,6 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 		}, {
 			Hosts: []string{
 				"test-revision-2-test-route.test.test-domain.dev",
-				"test-revision-2." + domain,
 			},
 			HTTP: &netv1alpha1.HTTPIngressRuleValue{
 				Paths: []netv1alpha1.HTTPIngressPath{{
@@ -744,7 +742,6 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 		}, {
 			Hosts: []string{
 				"bar-test-route.test.test-domain.dev",
-				"bar." + domain,
 			},
 			HTTP: &netv1alpha1.HTTPIngressRuleValue{
 				Paths: []netv1alpha1.HTTPIngressPath{{
@@ -765,7 +762,7 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 		}, {
 			Hosts: []string{
 				"foo-test-route.test.test-domain.dev",
-				"foo." + domain},
+			},
 			HTTP: &netv1alpha1.HTTPIngressRuleValue{
 				Paths: []netv1alpha1.HTTPIngressPath{{
 					Splits: []netv1alpha1.IngressBackendSplit{{

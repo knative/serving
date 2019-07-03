@@ -25,12 +25,12 @@ import (
 	fakesharedclientset "knative.dev/pkg/client/clientset/versioned/fake"
 	istiolisters "knative.dev/pkg/client/listers/istio/v1alpha3"
 	"knative.dev/pkg/reconciler/testing"
-	kpa "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
+	av1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	networking "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	certmanagerlisters "github.com/knative/serving/pkg/client/certmanager/listers/certmanager/v1alpha1"
 	fakeservingclientset "github.com/knative/serving/pkg/client/clientset/versioned/fake"
-	kpalisters "github.com/knative/serving/pkg/client/listers/autoscaling/v1alpha1"
+	palisters "github.com/knative/serving/pkg/client/listers/autoscaling/v1alpha1"
 	networkinglisters "github.com/knative/serving/pkg/client/listers/networking/v1alpha1"
 	servinglisters "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
@@ -129,8 +129,8 @@ func (l *Listers) GetRevisionLister() servinglisters.RevisionLister {
 	return servinglisters.NewRevisionLister(l.IndexerFor(&v1alpha1.Revision{}))
 }
 
-func (l *Listers) GetPodAutoscalerLister() kpalisters.PodAutoscalerLister {
-	return kpalisters.NewPodAutoscalerLister(l.IndexerFor(&kpa.PodAutoscaler{}))
+func (l *Listers) GetPodAutoscalerLister() palisters.PodAutoscalerLister {
+	return palisters.NewPodAutoscalerLister(l.IndexerFor(&av1alpha1.PodAutoscaler{}))
 }
 
 // GetHorizontalPodAutoscalerLister gets lister for HorizontalPodAutoscaler resources.

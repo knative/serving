@@ -22,6 +22,17 @@ import (
 	"log"
 	"time"
 
+	"github.com/spf13/pflag"
+	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
+
+	"github.com/knative/serving/pkg/apis/serving"
+	"github.com/knative/serving/pkg/autoscaler"
+	"github.com/knative/serving/pkg/autoscaler/statserver"
+	"github.com/knative/serving/pkg/reconciler/autoscaling/hpa"
+	"github.com/knative/serving/pkg/reconciler/autoscaling/kpa"
+	"github.com/knative/serving/pkg/resources"
+
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/injection"
@@ -32,17 +43,8 @@ import (
 	pkgmetrics "knative.dev/pkg/metrics"
 	"knative.dev/pkg/signals"
 	"knative.dev/pkg/system"
-	"github.com/knative/serving/pkg/apis/serving"
-	"github.com/knative/serving/pkg/autoscaler"
-	"github.com/knative/serving/pkg/autoscaler/statserver"
-	"github.com/knative/serving/pkg/reconciler/autoscaling/hpa"
-	"github.com/knative/serving/pkg/reconciler/autoscaling/kpa"
-	"github.com/knative/serving/pkg/resources"
-	basecmd "github.com/kubernetes-incubator/custom-metrics-apiserver/pkg/cmd"
-	"github.com/spf13/pflag"
-	"go.uber.org/zap"
-	"golang.org/x/sync/errgroup"
 
+	basecmd "github.com/kubernetes-incubator/custom-metrics-apiserver/pkg/cmd"
 	corev1informers "k8s.io/client-go/informers/core/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/rest"
@@ -179,7 +181,7 @@ func uniScalerFactoryFunc(endpointsInformer corev1informers.EndpointsInformer, m
 			return nil, err
 		}
 
-		podCounter := resources.NewScopedEndpointsCounter(endpointsInformer.Lister(), decider.Namespace, decider.Name)
+		podCounter := resources.NewScopedEndpointsCounter(endpointsInformer.Lister(), decider.Namespace, decider.Spec.ServiceName)
 		return autoscaler.New(decider.Namespace, decider.Name, metricClient, podCounter, decider.Spec, reporter)
 	}
 }

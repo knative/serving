@@ -27,7 +27,7 @@ import (
 
 	// These are the fake informers we want setup.
 	fakeservingclient "github.com/knative/serving/pkg/client/injection/client/fake"
-	fakekpainformer "github.com/knative/serving/pkg/client/injection/informers/autoscaling/v1alpha1/podautoscaler/fake"
+	fakepainformer "github.com/knative/serving/pkg/client/injection/informers/autoscaling/v1alpha1/podautoscaler/fake"
 	fakesksinformer "github.com/knative/serving/pkg/client/injection/informers/networking/v1alpha1/serverlessservice/fake"
 	fakerevisioninformer "github.com/knative/serving/pkg/client/injection/informers/serving/v1alpha1/revision/fake"
 	"github.com/knative/serving/pkg/reconciler"
@@ -166,7 +166,7 @@ func withMSvcStatus(s string) PodAutoscalerOption {
 
 func kpa(ns, n string, opts ...PodAutoscalerOption) *asv1a1.PodAutoscaler {
 	rev := newTestRevision(ns, n)
-	kpa := revisionresources.MakeKPA(rev)
+	kpa := revisionresources.MakePA(rev)
 	kpa.Annotations["autoscaling.knative.dev/class"] = "kpa.autoscaling.knative.dev"
 	kpa.Annotations["autoscaling.knative.dev/metric"] = "concurrency"
 	for _, opt := range opts {
@@ -179,6 +179,102 @@ func markResourceNotOwned(rType, name string) PodAutoscalerOption {
 	return func(pa *asv1a1.PodAutoscaler) {
 		pa.Status.MarkResourceNotOwned(rType, name)
 	}
+}
+
+func TestReconcileNegativeBurstCapacity(t *testing.T) {
+	// This suite plays with different values for the excess burst capacity
+	// and checks that SKS gets reconciled correctly inside KPA.
+	const (
+		key          = testNamespace + "/" + testRevision
+		deployName   = testRevision + "-deployment"
+		desiredScale = int32(5)
+	)
+	ebcKey := struct{}{}
+
+	usualSelector := map[string]string{"a": "b"}
+
+	expectedDeploy := deploy(testNamespace, testRevision, func(d *appsv1.Deployment) {
+		d.Spec.Replicas = ptr.Int32(desiredScale)
+	})
+
+	table := TableTest{{
+		Name: "steady not enough capacity",
+		Key:  key,
+		Ctx:  context.WithValue(context.Background(), ebcKey, int32(-1)),
+		Objects: []runtime.Object{
+			kpa(testNamespace, testRevision, markActive, withMSvcStatus("yak-40"),
+				WithPAStatusService(testRevision)),
+			sks(testNamespace, testRevision, WithDeployRef(deployName), WithProxyMode, WithSKSReady),
+			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector),
+				withMSvcName("yak-40")),
+			makeSKSPrivateEndpoints(1, testNamespace, testRevision),
+			expectedDeploy,
+		},
+	}, {
+		Name: "traffic increased, no longer enough burst capacity",
+		Key:  key,
+		Ctx:  context.WithValue(context.Background(), ebcKey, int32(-1)),
+		Objects: []runtime.Object{
+			kpa(testNamespace, testRevision, markActive, withMSvcStatus("yak-42"),
+				WithPAStatusService(testRevision)),
+			sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSReady),
+			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector),
+				withMSvcName("yak-42")),
+			makeSKSPrivateEndpoints(1, testNamespace, testRevision),
+			expectedDeploy,
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: sks(testNamespace, testRevision, WithSKSReady,
+				WithDeployRef(deployName), WithProxyMode),
+		}},
+	}, {
+		Name: "traffic decreased, now we have enough burst capacity",
+		Key:  key,
+		Ctx:  context.WithValue(context.Background(), ebcKey, int32(1)),
+		Objects: []runtime.Object{
+			kpa(testNamespace, testRevision, markActive, withMSvcStatus("yak-42"),
+				WithPAStatusService(testRevision)),
+			sks(testNamespace, testRevision, WithDeployRef(deployName), WithProxyMode, WithSKSReady),
+			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector),
+				withMSvcName("yak-42")),
+			makeSKSPrivateEndpoints(1, testNamespace, testRevision),
+			expectedDeploy,
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: sks(testNamespace, testRevision, WithSKSReady,
+				WithDeployRef(deployName)),
+		}},
+	}}
+
+	defer logtesting.ClearAll()
+	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
+		fakeDeciders := newTestDeciders()
+		// Make sure we want to scale to 0.
+		decider := resources.MakeDecider(
+			ctx, kpa(testNamespace, testRevision), defaultConfig().Autoscaler, "quite-important-here")
+		decider.Status.DesiredScale = desiredScale
+		decider.Status.ExcessBurstCapacity = ctx.Value(ebcKey).(int32)
+		fakeDeciders.Create(ctx, decider)
+
+		fakeMetrics := newTestMetrics()
+		psFactory := presources.NewPodScalableInformerFactory(ctx)
+		scaler := newScaler(ctx, psFactory, func(interface{}, time.Duration) {})
+		scaler.activatorProbe = func(*asv1a1.PodAutoscaler, http.RoundTripper) (bool, error) { return true, nil }
+		return &Reconciler{
+			Base: &areconciler.Base{
+				Base:              rpkg.NewBase(ctx, controllerAgentName, newConfigWatcher()),
+				PALister:          listers.GetPodAutoscalerLister(),
+				SKSLister:         listers.GetServerlessServiceLister(),
+				ServiceLister:     listers.GetK8sServiceLister(),
+				Metrics:           fakeMetrics,
+				ConfigStore:       &testConfigStore{config: defaultConfig()},
+				PSInformerFactory: psFactory,
+			},
+			endpointsLister: listers.GetEndpointsLister(),
+			deciders:        fakeDeciders,
+			scaler:          scaler,
+		}
+	}))
 }
 
 func TestReconcileAndScaleToZero(t *testing.T) {
@@ -859,9 +955,9 @@ func TestGlobalResyncOnUpdateAutoscalerConfigMap(t *testing.T) {
 	rev := newTestRevision(testNamespace, testRevision)
 	newDeployment(t, fakedynamicclient.Get(ctx), testRevision+"-deployment", 3)
 
-	kpa := revisionresources.MakeKPA(rev)
+	kpa := revisionresources.MakePA(rev)
 	fakeservingclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
-	fakekpainformer.Get(ctx).Informer().GetIndexer().Add(kpa)
+	fakepainformer.Get(ctx).Informer().GetIndexer().Add(kpa)
 
 	// Wait for decider to be created.
 	if decider, err := pollDeciders(fakeDeciders, testNamespace, testRevision, nil); err != nil {
@@ -910,9 +1006,9 @@ func TestControllerSynchronizesCreatesAndDeletes(t *testing.T) {
 
 	newDeployment(t, fakedynamicclient.Get(ctx), testRevision+"-deployment", 3)
 
-	kpa := revisionresources.MakeKPA(rev)
+	kpa := revisionresources.MakePA(rev)
 	fakeservingclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
-	fakekpainformer.Get(ctx).Informer().GetIndexer().Add(kpa)
+	fakepainformer.Get(ctx).Informer().GetIndexer().Add(kpa)
 
 	sks := sks(testNamespace, testRevision, WithDeployRef(kpa.Spec.ScaleTargetRef.Name),
 		WithSKSReady)
@@ -946,7 +1042,7 @@ func TestControllerSynchronizesCreatesAndDeletes(t *testing.T) {
 	fakeservingclient.Get(ctx).ServingV1alpha1().Revisions(testNamespace).Delete(testRevision, nil)
 	fakerevisioninformer.Get(ctx).Informer().GetIndexer().Delete(rev)
 	fakeservingclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(testNamespace).Delete(testRevision, nil)
-	fakekpainformer.Get(ctx).Informer().GetIndexer().Delete(kpa)
+	fakepainformer.Get(ctx).Informer().GetIndexer().Delete(kpa)
 	if err := ctl.Reconciler.Reconcile(context.Background(), testNamespace+"/"+testRevision); err != nil {
 		t.Errorf("Reconcile() = %v", err)
 	}
@@ -984,10 +1080,10 @@ func TestUpdate(t *testing.T) {
 	fakekubeclient.Get(ctx).CoreV1().Endpoints(testNamespace).Create(ep)
 	fakeendpointsinformer.Get(ctx).Informer().GetIndexer().Add(ep)
 
-	kpa := revisionresources.MakeKPA(rev)
+	kpa := revisionresources.MakePA(rev)
 	kpa.SetDefaults(context.Background())
 	fakeservingclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
-	fakekpainformer.Get(ctx).Informer().GetIndexer().Add(kpa)
+	fakepainformer.Get(ctx).Informer().GetIndexer().Add(kpa)
 
 	msvc := aresources.MakeMetricsService(kpa, map[string]string{
 		serving.RevisionLabelKey: rev.Name,
@@ -1031,7 +1127,7 @@ func TestUpdate(t *testing.T) {
 	// Update the KPA container concurrency.
 	kpa.Spec.ContainerConcurrency = 2
 	fakeservingclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(testNamespace).Update(kpa)
-	fakekpainformer.Get(ctx).Informer().GetIndexer().Update(kpa)
+	fakepainformer.Get(ctx).Informer().GetIndexer().Update(kpa)
 
 	if err := ctl.Reconciler.Reconcile(context.Background(), testNamespace+"/"+testRevision); err != nil {
 		t.Errorf("Reconcile() = %v", err)
@@ -1052,9 +1148,9 @@ func TestNoEndpoints(t *testing.T) {
 	fakeservingclient.Get(ctx).ServingV1alpha1().Revisions(testNamespace).Create(rev)
 	fakerevisioninformer.Get(ctx).Informer().GetIndexer().Add(rev)
 
-	kpa := revisionresources.MakeKPA(rev)
+	kpa := revisionresources.MakePA(rev)
 	fakeservingclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
-	fakekpainformer.Get(ctx).Informer().GetIndexer().Add(kpa)
+	fakepainformer.Get(ctx).Informer().GetIndexer().Add(kpa)
 
 	newDeployment(t, fakedynamicclient.Get(ctx), testRevision+"-deployment", 3)
 
@@ -1085,9 +1181,9 @@ func TestEmptyEndpoints(t *testing.T) {
 
 	newDeployment(t, fakedynamicclient.Get(ctx), testRevision+"-deployment", 3)
 
-	kpa := revisionresources.MakeKPA(rev)
+	kpa := revisionresources.MakePA(rev)
 	fakeservingclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
-	fakekpainformer.Get(ctx).Informer().GetIndexer().Add(kpa)
+	fakepainformer.Get(ctx).Informer().GetIndexer().Add(kpa)
 
 	// Wait for the Reconcile to complete.
 	if err := ctl.Reconciler.Reconcile(context.Background(), testNamespace+"/"+testRevision); err != nil {
@@ -1120,9 +1216,9 @@ func TestControllerCreateError(t *testing.T) {
 		presources.NewPodScalableInformerFactory(ctx),
 	)
 
-	kpa := revisionresources.MakeKPA(newTestRevision(testNamespace, testRevision))
+	kpa := revisionresources.MakePA(newTestRevision(testNamespace, testRevision))
 	fakeservingclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
-	fakekpainformer.Get(ctx).Informer().GetIndexer().Add(kpa)
+	fakepainformer.Get(ctx).Informer().GetIndexer().Add(kpa)
 
 	newDeployment(t, fakedynamicclient.Get(ctx), testRevision+"-deployment", 3)
 
@@ -1148,9 +1244,9 @@ func TestControllerUpdateError(t *testing.T) {
 		presources.NewPodScalableInformerFactory(ctx),
 	)
 
-	kpa := revisionresources.MakeKPA(newTestRevision(testNamespace, testRevision))
+	kpa := revisionresources.MakePA(newTestRevision(testNamespace, testRevision))
 	fakeservingclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
-	fakekpainformer.Get(ctx).Informer().GetIndexer().Add(kpa)
+	fakepainformer.Get(ctx).Informer().GetIndexer().Add(kpa)
 
 	newDeployment(t, fakedynamicclient.Get(ctx), testRevision+"-deployment", 3)
 
@@ -1175,9 +1271,9 @@ func TestControllerGetError(t *testing.T) {
 		presources.NewPodScalableInformerFactory(ctx),
 	)
 
-	kpa := revisionresources.MakeKPA(newTestRevision(testNamespace, testRevision))
+	kpa := revisionresources.MakePA(newTestRevision(testNamespace, testRevision))
 	fakeservingclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
-	fakekpainformer.Get(ctx).Informer().GetIndexer().Add(kpa)
+	fakepainformer.Get(ctx).Informer().GetIndexer().Add(kpa)
 
 	newDeployment(t, fakedynamicclient.Get(ctx), testRevision+"-deployment", 3)
 
@@ -1195,8 +1291,8 @@ func TestScaleFailure(t *testing.T) {
 
 	// Only put the KPA in the lister, which will prompt failures scaling it.
 	rev := newTestRevision(testNamespace, testRevision)
-	kpa := revisionresources.MakeKPA(rev)
-	fakekpainformer.Get(ctx).Informer().GetIndexer().Add(kpa)
+	kpa := revisionresources.MakePA(rev)
+	fakepainformer.Get(ctx).Informer().GetIndexer().Add(kpa)
 
 	newDeployment(t, fakedynamicclient.Get(ctx), testRevision+"-deployment", 3)
 

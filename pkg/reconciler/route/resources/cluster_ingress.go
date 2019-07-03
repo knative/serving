@@ -119,15 +119,6 @@ func routeDomains(ctx context.Context, targetName string, r *servingv1alpha1.Rou
 
 	ruleDomains := []string{fullName}
 
-	// TODO(andrew-su): We are adding this for backwards compatibility. This should be removed when
-	// we feel the users had sufficient time to move away from the deprecated name.
-	if r.Status.URL != nil {
-		deprecatedFullName := traffic.DeprecatedTagDomain(targetName, r.Status.URL.Host)
-		if fullName != deprecatedFullName {
-			ruleDomains = append(ruleDomains, deprecatedFullName)
-		}
-	}
-
 	if targetName == traffic.DefaultTarget {
 		// The default target is also referred to by its internal K8s
 		// generated domain name.

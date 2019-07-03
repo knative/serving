@@ -24,7 +24,7 @@ import (
 
 	"github.com/knative/serving/pkg/autoscaler/aggregation"
 
-	kpa "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
+	av1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"go.uber.org/zap"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -135,7 +135,7 @@ func (c *MetricCollector) Get(ctx context.Context, namespace, name string) (*Met
 	key := NewMetricKey(namespace, name)
 	collector, ok := c.collections[key]
 	if !ok {
-		return nil, k8serrors.NewNotFound(kpa.Resource("Metrics"), key)
+		return nil, k8serrors.NewNotFound(av1alpha1.Resource("Metrics"), key)
 	}
 
 	return collector.metric.DeepCopy(), nil
@@ -179,7 +179,7 @@ func (c *MetricCollector) Update(ctx context.Context, metric *Metric) (*Metric, 
 		collection.updateMetric(metric)
 		return metric.DeepCopy(), nil
 	}
-	return nil, k8serrors.NewNotFound(kpa.Resource("Metrics"), key)
+	return nil, k8serrors.NewNotFound(av1alpha1.Resource("Metrics"), key)
 }
 
 // Delete deletes a Metric and halts collection.
@@ -211,7 +211,7 @@ func (c *MetricCollector) Record(key string, stat Stat) {
 func (c *MetricCollector) StableAndPanicConcurrency(key string) (float64, float64, error) {
 	collection, exists := c.collections[key]
 	if !exists {
-		return 0, 0, k8serrors.NewNotFound(kpa.Resource("Metrics"), key)
+		return 0, 0, k8serrors.NewNotFound(av1alpha1.Resource("Metrics"), key)
 	}
 
 	return collection.stableAndPanicConcurrency(time.Now())
