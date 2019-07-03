@@ -18,17 +18,16 @@ package v1alpha1
 
 import (
 	"context"
-	"fmt"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"knative.dev/pkg/apis"
 	"github.com/knative/serving/pkg/apis/autoscaling"
 	net "github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/serving/v1beta1"
+	"knative.dev/pkg/apis"
 )
 
 func TestPodAutoscalerSpecValidation(t *testing.T) {
@@ -199,8 +198,8 @@ func TestPodAutoscalerValidation(t *testing.T) {
 			},
 		},
 		want: (&apis.FieldError{
-			Message: fmt.Sprintf("Invalid %s annotation value: must be an integer equal or greater than 0", autoscaling.MinScaleAnnotationKey),
-			Paths:   []string{autoscaling.MinScaleAnnotationKey},
+			Message: "invalid value: must be an integer equal or greater than 0",
+			Paths:   []string{autoscaling.AnnotationErrKey(autoscaling.MinScaleAnnotationKey)},
 		}).ViaField("annotations").ViaField("metadata"),
 	}, {
 		name: "empty spec",
@@ -232,8 +231,8 @@ func TestPodAutoscalerValidation(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			got := test.r.Validate(context.Background())
-			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
-				t.Errorf("Validate (-want, +got) = %v", diff)
+			if got, want := got.Error(), test.want.Error(); !cmp.Equal(got, want) {
+				t.Errorf("Got = %v, want: %v, diff: %s", got, want, cmp.Diff(got, want))
 			}
 		})
 	}
