@@ -452,7 +452,7 @@ func TestRevisionValidation(t *testing.T) {
 			},
 		},
 		want: (&apis.FieldError{
-			Message: "autoscaling.knative.dev/maxScale=2 is less than autoscaling.knative.dev/minScale=5",
+			Message: "maxScale=2 is less than minScale=5",
 			Paths:   []string{autoscaling.MaxScaleAnnotationKey, autoscaling.MinScaleAnnotationKey},
 		}).ViaField("annotations").ViaField("metadata"),
 	}}
@@ -461,7 +461,7 @@ func TestRevisionValidation(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			got := test.r.Validate(context.Background())
 			if got, want := got.Error(), test.want.Error(); got != want {
-				t.Errorf("Validate got: %s, want: %s, diff:(-want, +got)=\n%v", got, want, cmp.Diff(got, want))
+				t.Errorf("Validate got:\n%s, want:\n%s, diff:(-want, +got)=\n%v", got, want, cmp.Diff(got, want))
 			}
 		})
 	}

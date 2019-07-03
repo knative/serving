@@ -69,17 +69,14 @@ func validateMinMaxScale(annotations map[string]string) *apis.FieldError {
 	var errs *apis.FieldError
 
 	min, err := getIntGE0(annotations, MinScaleAnnotationKey)
-	if err != nil {
-		errs = err
-	}
+	errs = errs.Also(err)
+
 	max, err := getIntGE0(annotations, MaxScaleAnnotationKey)
-	if err != nil {
-		errs = errs.Also(err)
-	}
+	errs = errs.Also(err)
 
 	if max != 0 && max < min {
 		errs = errs.Also(&apis.FieldError{
-			Message: fmt.Sprintf("%s=%v is less than %s=%v", MaxScaleAnnotationKey, max, MinScaleAnnotationKey, min),
+			Message: fmt.Sprintf("maxScale=%d is less than minScale=%d", max, min),
 			Paths:   []string{MaxScaleAnnotationKey, MinScaleAnnotationKey},
 		})
 	}

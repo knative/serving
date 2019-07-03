@@ -72,7 +72,7 @@ func TestValidateScaleBoundAnnotations(t *testing.T) {
 	}, {
 		name:        "minScale is 5, maxScale is 2",
 		annotations: map[string]string{MinScaleAnnotationKey: "5", MaxScaleAnnotationKey: "2"},
-		expectErr:   "autoscaling.knative.dev/maxScale=2 is less than autoscaling.knative.dev/minScale=5: autoscaling.knative.dev/maxScale, autoscaling.knative.dev/minScale",
+		expectErr:   "maxScale=2 is less than minScale=5: autoscaling.knative.dev/maxScale, autoscaling.knative.dev/minScale",
 	}, {
 		name: "minScale is 0, maxScale is 0",
 		annotations: map[string]string{
@@ -92,7 +92,7 @@ func TestValidateScaleBoundAnnotations(t *testing.T) {
 		annotations: map[string]string{PanicWindowPercentageAnnotationKey: "fifty"},
 		expectErr:   "invalid value: fifty: autoscaling.knative.dev/panicWindowPercentage",
 	}, {
-		name:        "panic threshold percentange good",
+		name:        "panic window percentange good",
 		annotations: map[string]string{PanicThresholdPercentageAnnotationKey: "210"},
 	}, {
 		name:        "panic threshold percentange bad2",
