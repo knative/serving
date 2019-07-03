@@ -21,10 +21,10 @@ package v1alpha1
 import (
 	"testing"
 
-	pkgTest "knative.dev/pkg/test"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/test"
 	v1a1test "github.com/knative/serving/test/v1alpha1"
+	pkgTest "knative.dev/pkg/test"
 )
 
 func assertResourcesUpdatedWhenRevisionIsReady(t *testing.T, clients *test.Clients, names test.ResourceNames, domain string, expectedGeneration, expectedText string) {
@@ -79,12 +79,14 @@ func getRouteDomain(clients *test.Clients, names test.ResourceNames) (string, er
 		clients.ServingAlphaClient,
 		names.Route,
 		func(r *v1alpha1.Route) (bool, error) {
+			if r.Status.URL == nil {
+				return false, nil
+			}
 			domain = r.Status.URL.Host
 			return domain != "", nil
 		},
 		"RouteDomain",
 	)
-
 	return domain, err
 }
 
