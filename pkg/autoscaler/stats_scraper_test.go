@@ -32,7 +32,7 @@ const (
 	testRevision  = "test-revision"
 	testService   = "test-revision-metrics"
 	testNamespace = "test-namespace"
-	testKPAKey    = "test-namespace/test-revision"
+	testPAKey     = "test-namespace/test-revision"
 )
 
 var (
@@ -67,8 +67,8 @@ func TestNewServiceScraperWithClient_HappyCase(t *testing.T) {
 		if scraper.url != testURL {
 			t.Errorf("scraper.url=%v, want %v", scraper.url, testURL)
 		}
-		if scraper.metricKey != testKPAKey {
-			t.Errorf("scraper.metricKey=%v, want %v", scraper.metricKey, testKPAKey)
+		if scraper.metricKey != testPAKey {
+			t.Errorf("scraper.metricKey=%v, want %v", scraper.metricKey, testPAKey)
 		}
 	}
 }
@@ -143,8 +143,8 @@ func TestScrapeReportStatWhenAllCallsSucceed(t *testing.T) {
 		t.Fatalf("unexpected error from scraper.Scrape(): %v", err)
 	}
 
-	if got.Key != testKPAKey {
-		t.Errorf("StatMessage.Key=%v, want %v", got.Key, testKPAKey)
+	if got.Key != testPAKey {
+		t.Errorf("StatMessage.Key=%v, want %v", got.Key, testPAKey)
 	}
 	if got.Stat.Time.Before(now) {
 		t.Errorf("stat.Time=%v, want bigger than %v", got.Stat.Time, now)

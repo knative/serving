@@ -28,10 +28,10 @@ import (
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/golang/glog"
-	"knative.dev/pkg/logging"
 	"go.opencensus.io/stats/view"
 	"go.opencensus.io/trace"
 	"go.uber.org/zap"
+	"knative.dev/pkg/logging"
 )
 
 const (

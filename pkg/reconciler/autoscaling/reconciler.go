@@ -23,12 +23,11 @@ import (
 
 	perrors "github.com/pkg/errors"
 
-	"knative.dev/pkg/apis/duck"
-	"knative.dev/pkg/logging"
 	"github.com/knative/serving/pkg/apis/autoscaling"
 	pav1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/apis/networking"
 	nv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
+	"github.com/knative/serving/pkg/autoscaler"
 	listers "github.com/knative/serving/pkg/client/listers/autoscaling/v1alpha1"
 	nlisters "github.com/knative/serving/pkg/client/listers/networking/v1alpha1"
 	"github.com/knative/serving/pkg/reconciler"
@@ -36,6 +35,8 @@ import (
 	"github.com/knative/serving/pkg/reconciler/autoscaling/resources"
 	anames "github.com/knative/serving/pkg/reconciler/autoscaling/resources/names"
 	resourceutil "github.com/knative/serving/pkg/resources"
+	"knative.dev/pkg/apis/duck"
+	"knative.dev/pkg/logging"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -57,11 +58,15 @@ type Base struct {
 }
 
 // ReconcileSKS reconciles a ServerlessService based on the given PodAutoscaler.
-func (c *Base) ReconcileSKS(ctx context.Context, pa *pav1alpha1.PodAutoscaler) (*nv1alpha1.ServerlessService, error) {
+func (c *Base) ReconcileSKS(ctx context.Context, pa *pav1alpha1.PodAutoscaler, d *autoscaler.Decider) (*nv1alpha1.ServerlessService, error) {
 	logger := logging.FromContext(ctx)
 
 	mode := nv1alpha1.SKSOperationModeServe
-	if pa.Status.IsInactive() {
+	// We put activator in the serving path in two cases:
+	// 1. The revision is scaled to 0.
+	// 2. The excess burst capacity is negative.
+	if pa.Status.IsInactive() || (d != nil && d.Status.ExcessBurstCapacity < 0) {
+		logger.Debugf("SKS %s is in proxy mode: pa.IsInactive = %v, ebc = %d", pa.Name, pa.Status.IsInactive(), d.Status.ExcessBurstCapacity)
 		mode = nv1alpha1.SKSOperationModeProxy
 	}
 	sksName := anames.SKS(pa.Name)

@@ -17,10 +17,10 @@ limitations under the License.
 package queue
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"sync"
-	"time"
 )
 
 var (
@@ -53,7 +53,7 @@ func NewBreaker(params BreakerParams) *Breaker {
 		panic(fmt.Sprintf("Queue depth must be greater than 0. Got %v.", params.QueueDepth))
 	}
 	if params.MaxConcurrency < 0 {
-		panic(fmt.Sprintf("Max concurrency must be 0 or greater. Got %v.", params.QueueDepth))
+		panic(fmt.Sprintf("Max concurrency must be 0 or greater. Got %v.", params.MaxConcurrency))
 	}
 	if params.InitialCapacity < 0 || params.InitialCapacity > params.MaxConcurrency {
 		panic(fmt.Sprintf("Initial capacity must be between 0 and max concurrency. Got %v.", params.InitialCapacity))
@@ -68,10 +68,8 @@ func NewBreaker(params BreakerParams) *Breaker {
 // Maybe conditionally executes thunk based on the Breaker concurrency
 // and queue parameters. If the concurrency limit and queue capacity are
 // already consumed, Maybe returns immediately without calling thunk. If
-// the thunk was executed, Maybe returns true, else false. Timeout is the
-// time before this function returns false without calling thunk. A 0
-// timeout value is infinite timeout.
-func (b *Breaker) Maybe(timeout time.Duration, thunk func()) bool {
+// the thunk was executed, Maybe returns true, else false.
+func (b *Breaker) Maybe(ctx context.Context, thunk func()) bool {
 	select {
 	default:
 		// Pending request queue is full.  Report failure.
@@ -79,7 +77,7 @@ func (b *Breaker) Maybe(timeout time.Duration, thunk func()) bool {
 	case b.pendingRequests <- struct{}{}:
 		// Pending request has capacity.
 		// Wait for capacity in the active queue.
-		if !b.sem.acquire(timeout) {
+		if !b.sem.acquire(ctx) {
 			return false
 		}
 		// Defer releasing capacity in the active and pending request queue.
@@ -135,17 +133,11 @@ type semaphore struct {
 }
 
 // acquire receives the token from the semaphore, potentially blocking.
-func (s *semaphore) acquire(timeout time.Duration) bool {
-	tt := &time.Timer{}
-	if timeout != 0 {
-		tt = time.NewTimer(timeout)
-		defer tt.Stop()
-	}
-
+func (s *semaphore) acquire(ctx context.Context) bool {
 	select {
 	case <-s.queue:
 		return true
-	case <-tt.C:
+	case <-ctx.Done():
 		return false
 	}
 }

@@ -21,17 +21,13 @@ import (
 	"testing"
 
 	// Inject our fake informers
+	fakeservingclient "github.com/knative/serving/pkg/client/injection/client/fake"
+	fakepainformer "github.com/knative/serving/pkg/client/injection/informers/autoscaling/v1alpha1/podautoscaler/fake"
+	_ "github.com/knative/serving/pkg/client/injection/informers/networking/v1alpha1/serverlessservice/fake"
 	fakekubeclient "knative.dev/pkg/injection/clients/kubeclient/fake"
 	_ "knative.dev/pkg/injection/informers/kubeinformers/autoscalingv2beta1/hpa/fake"
 	_ "knative.dev/pkg/injection/informers/kubeinformers/corev1/service/fake"
-	fakeservingclient "github.com/knative/serving/pkg/client/injection/client/fake"
-	fakekpainformer "github.com/knative/serving/pkg/client/injection/informers/autoscaling/v1alpha1/podautoscaler/fake"
-	_ "github.com/knative/serving/pkg/client/injection/informers/networking/v1alpha1/serverlessservice/fake"
 
-	"knative.dev/pkg/configmap"
-	"knative.dev/pkg/controller"
-	logtesting "knative.dev/pkg/logging/testing"
-	"knative.dev/pkg/system"
 	"github.com/knative/serving/pkg/apis/autoscaling"
 	asv1a1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	autoscalingv1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
@@ -52,10 +48,14 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ktesting "k8s.io/client-go/testing"
+	"knative.dev/pkg/configmap"
+	"knative.dev/pkg/controller"
+	logtesting "knative.dev/pkg/logging/testing"
+	"knative.dev/pkg/system"
 
-	. "knative.dev/pkg/reconciler/testing"
 	. "github.com/knative/serving/pkg/reconciler/testing/v1alpha1"
 	. "github.com/knative/serving/pkg/testing"
+	. "knative.dev/pkg/reconciler/testing"
 )
 
 const (
@@ -79,7 +79,7 @@ func TestControllerCanReconcile(t *testing.T) {
 
 	podAutoscaler := pa(testRevision, testNamespace, WithHPAClass)
 	fakeservingclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(podAutoscaler)
-	fakekpainformer.Get(ctx).Informer().GetIndexer().Add(podAutoscaler)
+	fakepainformer.Get(ctx).Informer().GetIndexer().Add(podAutoscaler)
 
 	err := ctl.Reconciler.Reconcile(context.Background(), testNamespace+"/"+testRevision)
 	if err != nil {

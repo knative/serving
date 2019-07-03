@@ -25,15 +25,6 @@ import (
 	"os"
 	"time"
 
-	"knative.dev/pkg/configmap"
-	"knative.dev/pkg/controller"
-	pkglogging "knative.dev/pkg/logging"
-	"knative.dev/pkg/logging/logkey"
-	"knative.dev/pkg/metrics"
-	"knative.dev/pkg/signals"
-	"knative.dev/pkg/system"
-	"knative.dev/pkg/version"
-	"knative.dev/pkg/websocket"
 	"github.com/knative/serving/cmd/util"
 	"github.com/knative/serving/pkg/activator"
 	activatorconfig "github.com/knative/serving/pkg/activator/config"
@@ -56,6 +47,15 @@ import (
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
+	"knative.dev/pkg/configmap"
+	"knative.dev/pkg/controller"
+	pkglogging "knative.dev/pkg/logging"
+	"knative.dev/pkg/logging/logkey"
+	"knative.dev/pkg/metrics"
+	"knative.dev/pkg/signals"
+	"knative.dev/pkg/system"
+	"knative.dev/pkg/version"
+	"knative.dev/pkg/websocket"
 )
 
 // Fail if using unsupported go version.
@@ -97,10 +97,6 @@ func statReporter(statSink *websocket.ManagedConnection, stopCh <-chan struct{},
 	for {
 		select {
 		case sm := <-statChan:
-			if statSink == nil {
-				logger.Error("Stat sink is not connected")
-				continue
-			}
 			if err := statSink.Send(sm); err != nil {
 				logger.Errorw("Error while sending stat", zap.Error(err))
 			}

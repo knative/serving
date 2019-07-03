@@ -19,14 +19,12 @@ package hpa
 import (
 	"context"
 
+	painformer "github.com/knative/serving/pkg/client/injection/informers/autoscaling/v1alpha1/podautoscaler"
+	sksinformer "github.com/knative/serving/pkg/client/injection/informers/networking/v1alpha1/serverlessservice"
 	"knative.dev/pkg/apis/duck"
 	hpainformer "knative.dev/pkg/injection/informers/kubeinformers/autoscalingv2beta1/hpa"
 	serviceinformer "knative.dev/pkg/injection/informers/kubeinformers/corev1/service"
-	kpainformer "github.com/knative/serving/pkg/client/injection/informers/autoscaling/v1alpha1/podautoscaler"
-	sksinformer "github.com/knative/serving/pkg/client/injection/informers/networking/v1alpha1/serverlessservice"
 
-	"knative.dev/pkg/configmap"
-	"knative.dev/pkg/controller"
 	"github.com/knative/serving/pkg/apis/autoscaling"
 	"github.com/knative/serving/pkg/autoscaler"
 	"github.com/knative/serving/pkg/reconciler"
@@ -34,6 +32,8 @@ import (
 	"github.com/knative/serving/pkg/reconciler/autoscaling/config"
 	aresources "github.com/knative/serving/pkg/reconciler/autoscaling/resources"
 	"k8s.io/client-go/tools/cache"
+	"knative.dev/pkg/configmap"
+	"knative.dev/pkg/controller"
 )
 
 const (
@@ -48,7 +48,7 @@ func NewController(
 	psInformerFactory duck.InformerFactory,
 ) *controller.Impl {
 
-	paInformer := kpainformer.Get(ctx)
+	paInformer := painformer.Get(ctx)
 	sksInformer := sksinformer.Get(ctx)
 	hpaInformer := hpainformer.Get(ctx)
 	serviceInformer := serviceinformer.Get(ctx)

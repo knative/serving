@@ -22,30 +22,16 @@ import (
 	"strconv"
 	"time"
 
-	"knative.dev/pkg/metrics"
-	"knative.dev/pkg/metrics/metricskey"
 	"go.opencensus.io/stats"
 	"go.opencensus.io/stats/view"
 	"go.opencensus.io/tag"
+	"knative.dev/pkg/metrics"
+	"knative.dev/pkg/metrics/metricskey"
 )
 
-const (
-	requestCountN       = "request_count"
-	responseTimeInMsecN = "request_latencies"
-)
-
-var (
-	requestCountM = stats.Int64(
-		requestCountN,
-		"The number of requests that are routed to queue-proxy",
-		stats.UnitDimensionless)
-	responseTimeInMsecM = stats.Float64(
-		responseTimeInMsecN,
-		"The response time in millisecond",
-		stats.UnitMilliseconds)
-
-	defaultLatencyDistribution = view.Distribution(0, 5, 10, 20, 40, 60, 80, 100, 150, 200, 250, 300, 350, 400, 450, 500, 600, 700, 800, 900, 1000, 2000, 5000, 10000, 20000, 50000, 100000)
-)
+// NOTE: 0 should not be used as boundary. See
+// https://github.com/census-ecosystem/opencensus-go-exporter-stackdriver/issues/98
+var defaultLatencyDistribution = view.Distribution(5, 10, 20, 40, 60, 80, 100, 150, 200, 250, 300, 350, 400, 450, 500, 600, 700, 800, 900, 1000, 2000, 5000, 10000, 20000, 50000, 100000)
 
 // StatsReporter defines the interface for sending queue-proxy metrics
 type StatsReporter interface {
@@ -63,10 +49,12 @@ type Reporter struct {
 	revisionTagKey       tag.Key
 	responseCodeKey      tag.Key
 	responseCodeClassKey tag.Key
+	countMetric          *stats.Int64Measure
+	latencyMetric        *stats.Float64Measure
 }
 
 // NewStatsReporter creates a reporter that collects and reports queue proxy metrics
-func NewStatsReporter(ns, service, config, rev string) (*Reporter, error) {
+func NewStatsReporter(ns, service, config, rev string, countMetric *stats.Int64Measure, latencyMetric *stats.Float64Measure) (*Reporter, error) {
 	if ns == "" {
 		return nil, errors.New("namespace must not be empty")
 	}
@@ -107,13 +95,13 @@ func NewStatsReporter(ns, service, config, rev string) (*Reporter, error) {
 	err = view.Register(
 		&view.View{
 			Description: "The number of requests that are routed to queue-proxy",
-			Measure:     requestCountM,
+			Measure:     countMetric,
 			Aggregation: view.Sum(),
 			TagKeys:     []tag.Key{nsTag, svcTag, configTag, revTag, responseCodeTag, responseCodeClassTag},
 		},
 		&view.View{
 			Description: "The response time in millisecond",
-			Measure:     responseTimeInMsecM,
+			Measure:     latencyMetric,
 			Aggregation: defaultLatencyDistribution,
 			TagKeys:     []tag.Key{nsTag, svcTag, configTag, revTag, responseCodeTag, responseCodeClassTag},
 		},
@@ -143,6 +131,8 @@ func NewStatsReporter(ns, service, config, rev string) (*Reporter, error) {
 		revisionTagKey:       revTag,
 		responseCodeKey:      responseCodeTag,
 		responseCodeClassKey: responseCodeClassTag,
+		countMetric:          countMetric,
+		latencyMetric:        latencyMetric,
 	}, nil
 }
 
@@ -168,7 +158,7 @@ func (r *Reporter) ReportRequestCount(responseCode int, v int64) error {
 		return err
 	}
 
-	metrics.Record(ctx, requestCountM.M(v))
+	metrics.Record(ctx, r.countMetric.M(v))
 	return nil
 }
 
@@ -188,7 +178,7 @@ func (r *Reporter) ReportResponseTime(responseCode int, d time.Duration) error {
 	}
 
 	// convert time.Duration in nanoseconds to milliseconds
-	metrics.Record(ctx, responseTimeInMsecM.M(float64(d/time.Millisecond)))
+	metrics.Record(ctx, r.latencyMetric.M(float64(d/time.Millisecond)))
 	return nil
 }
 

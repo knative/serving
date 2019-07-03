@@ -165,9 +165,12 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (desiredPodCount 
 	// be making knee-jerk decisions about Activator in the request path. Negative EBC means
 	// that the deployment does not have enough capacity to serve the desired burst off hand.
 	// EBC = TotCapacity - Cur#ReqInFlight - TargetBurstCapacity
-	excessBC = int32(readyPodsCount*a.deciderSpec.TotalConcurrency - observedStableConcurrency -
+	excessBC = int32(float64(originalReadyPodsCount)*a.deciderSpec.TotalConcurrency - observedStableConcurrency -
 		a.deciderSpec.TargetBurstCapacity)
-	logger.Debug("Excess burst capacity = ", excessBC)
+	logger.Debugf("PodCount=%v TotalConc=%v ObservedStableConc=%v TargetBC=%v ExcessBC=%v",
+		originalReadyPodsCount,
+		a.deciderSpec.TotalConcurrency,
+		observedStableConcurrency, a.deciderSpec.TargetBurstCapacity, excessBC)
 
 	a.reporter.ReportDesiredPodCount(int64(desiredPodCount))
 	return desiredPodCount, excessBC, true

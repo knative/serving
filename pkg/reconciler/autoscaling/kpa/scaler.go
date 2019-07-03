@@ -53,9 +53,14 @@ const (
 	reenqeuePeriod = 1 * time.Second
 )
 
+var probeOptions = []interface{} {
+	prober.WithHeader(network.ProbeHeaderName, activator.Name),
+	prober.ExpectsBody(activator.Name),
+}
+
 // for mocking in tests
 type asyncProber interface {
-	Offer(context.Context, string, string, interface{}, time.Duration, time.Duration) bool
+	Offer(context.Context, string, interface{}, time.Duration, time.Duration, ...interface{}) bool
 }
 
 // scaler scales the target of a kpa-class PA up or down including scaling to zero.
@@ -112,7 +117,7 @@ func activatorProbe(pa *pav1alpha1.PodAutoscaler, transport http.RoundTripper) (
 	if pa.Status.ServiceName == "" {
 		return false, nil
 	}
-	return prober.Do(context.Background(), transport, paToProbeTarget(pa), activator.Name)
+	return prober.Do(context.Background(), transport, paToProbeTarget(pa), probeOptions...)
 }
 
 // pre: 0 <= min <= max && 0 <= x
@@ -172,7 +177,7 @@ func (ks *scaler) handleScaleToZero(pa *pav1alpha1.PodAutoscaler, desiredScale i
 
 		// Otherwise (any prober failure) start the async probe.
 		ks.logger.Infof("%s is not yet backed by activator, cannot scale to zero", pa.Name)
-		if !ks.probeManager.Offer(context.Background(), paToProbeTarget(pa), activator.Name, pa, probePeriod, probeTimeout) {
+		if !ks.probeManager.Offer(context.Background(), paToProbeTarget(pa), pa, probePeriod, probeTimeout, probeOptions...) {
 			ks.logger.Infof("Probe for %s is already in flight", pa.Name)
 		}
 		return desiredScale, false

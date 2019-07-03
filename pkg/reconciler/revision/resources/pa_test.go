@@ -25,19 +25,19 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"knative.dev/pkg/ptr"
-	kpa "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
+	av1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1beta1"
+	"knative.dev/pkg/ptr"
 )
 
-func TestMakeKPA(t *testing.T) {
+func TestMakePA(t *testing.T) {
 	tests := []struct {
 		name string
 		rev  *v1alpha1.Revision
-		want *kpa.PodAutoscaler
+		want *av1alpha1.PodAutoscaler
 	}{{
 		name: "name is bar (Concurrency=1)",
 		rev: &v1alpha1.Revision{
@@ -56,7 +56,7 @@ func TestMakeKPA(t *testing.T) {
 				},
 			},
 		},
-		want: &kpa.PodAutoscaler{
+		want: &av1alpha1.PodAutoscaler{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: "foo",
 				Name:      "bar",
@@ -77,7 +77,7 @@ func TestMakeKPA(t *testing.T) {
 					BlockOwnerDeletion: ptr.Bool(true),
 				}},
 			},
-			Spec: kpa.PodAutoscalerSpec{
+			Spec: av1alpha1.PodAutoscalerSpec{
 				ContainerConcurrency: 1,
 				ScaleTargetRef: corev1.ObjectReference{
 					APIVersion: "apps/v1",
@@ -107,7 +107,7 @@ func TestMakeKPA(t *testing.T) {
 				},
 			},
 		},
-		want: &kpa.PodAutoscaler{
+		want: &av1alpha1.PodAutoscaler{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: "blah",
 				Name:      "baz",
@@ -126,7 +126,7 @@ func TestMakeKPA(t *testing.T) {
 					BlockOwnerDeletion: ptr.Bool(true),
 				}},
 			},
-			Spec: kpa.PodAutoscalerSpec{
+			Spec: av1alpha1.PodAutoscalerSpec{
 				ContainerConcurrency: 0,
 				ScaleTargetRef: corev1.ObjectReference{
 					APIVersion: "apps/v1",
@@ -139,7 +139,7 @@ func TestMakeKPA(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got := MakeKPA(test.rev)
+			got := MakePA(test.rev)
 			if diff := cmp.Diff(test.want, got, cmpopts.IgnoreUnexported(resource.Quantity{})); diff != "" {
 				t.Errorf("MakeK8sService (-want, +got) = %v", diff)
 			}

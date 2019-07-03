@@ -25,7 +25,6 @@ import (
 	"reflect"
 	"strings"
 
-	"knative.dev/pkg/webhook"
 	"github.com/knative/test-infra/tools/webhook-apicoverage/coveragecalculator"
 	"github.com/knative/test-infra/tools/webhook-apicoverage/resourcetree"
 	"github.com/knative/test-infra/tools/webhook-apicoverage/view"
@@ -35,6 +34,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
+	"knative.dev/pkg/webhook"
 )
 
 var (

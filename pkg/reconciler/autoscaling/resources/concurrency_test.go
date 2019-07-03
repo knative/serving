@@ -38,6 +38,25 @@ func TestResolveConcurrency(t *testing.T) {
 		wantTgt: 100,
 		wantTot: 100,
 	}, {
+		name: "default CC + 80% TU",
+		pa:   pa(),
+		cfgOpt: func(c autoscaler.Config) *autoscaler.Config {
+			c.ContainerConcurrencyTargetFraction = 0.8
+			return &c
+		},
+		wantTgt: 80,
+		wantTot: 100,
+	}, {
+		name: "non-default CC and TU",
+		pa:   pa(),
+		cfgOpt: func(c autoscaler.Config) *autoscaler.Config {
+			c.ContainerConcurrencyTargetFraction = 0.3
+			c.ContainerConcurrencyTargetDefault = 2
+			return &c
+		},
+		wantTgt: 1,
+		wantTot: 2,
+	}, {
 		name: "with container concurrency 10 and TU=80%",
 		pa:   pa(WithContainerConcurrency(10)),
 		cfgOpt: func(c autoscaler.Config) *autoscaler.Config {
@@ -58,6 +77,15 @@ func TestResolveConcurrency(t *testing.T) {
 		pa:      pa(WithContainerConcurrency(1)),
 		wantTgt: 1,
 	}, {
+		name: "with container concurrency 10 and TU=80%",
+		pa:   pa(WithContainerConcurrency(10)),
+		cfgOpt: func(c autoscaler.Config) *autoscaler.Config {
+			c.ContainerConcurrencyTargetFraction = 0.8
+			return &c
+		},
+		wantTgt: 8,
+		wantTot: 10,
+	}, {
 		name:    "with container concurrency 10",
 		pa:      pa(WithContainerConcurrency(10)),
 		wantTgt: 10,
@@ -65,6 +93,24 @@ func TestResolveConcurrency(t *testing.T) {
 		name:    "with target annotation 1",
 		pa:      pa(WithTargetAnnotation("1")),
 		wantTgt: 1,
+	}, {
+		name: "with target annotation 1 and TU=75%",
+		pa:   pa(WithTargetAnnotation("1")),
+		cfgOpt: func(c autoscaler.Config) *autoscaler.Config {
+			c.ContainerConcurrencyTargetFraction = 0.75
+			return &c
+		},
+		wantTgt: 1,
+		wantTot: 1,
+	}, {
+		name: "with target annotation 10 and TU=75%",
+		pa:   pa(WithTargetAnnotation("10")),
+		cfgOpt: func(c autoscaler.Config) *autoscaler.Config {
+			c.ContainerConcurrencyTargetFraction = 0.75
+			return &c
+		},
+		wantTgt: 7.5,
+		wantTot: 10,
 	}, {
 		name:    "with container concurrency greater than target annotation (ok)",
 		pa:      pa(WithContainerConcurrency(10), WithTargetAnnotation("1")),

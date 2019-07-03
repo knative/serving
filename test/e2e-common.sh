@@ -35,6 +35,8 @@ INSTALL_MONITORING_YAML=""
 
 INSTALL_MONITORING=0
 
+INSTALL_BETA=1
+
 # List of custom YAMLs to install, if specified (space-separated).
 INSTALL_CUSTOM_YAMLS=""
 
@@ -61,6 +63,14 @@ function parse_flags() {
       ;;
     --install-monitoring)
       readonly INSTALL_MONITORING=1
+      return 1
+      ;;
+    --install-alpha)
+      readonly INSTALL_BETA=0
+      return 1
+      ;;
+    --install-beta)
+      readonly INSTALL_BETA=1
       return 1
       ;;
     --custom-yamls)
@@ -122,7 +132,11 @@ function install_knative_serving_standard() {
   if [[ -z "$1" ]]; then
     # install_knative_serving_standard was called with no arg.
     build_knative_from_source
-    INSTALL_RELEASE_YAML="${SERVING_YAML}"
+    if (( INSTALL_BETA )); then
+      INSTALL_RELEASE_YAML="${SERVING_BETA_YAML}"
+    else
+      INSTALL_RELEASE_YAML="${SERVING_ALPHA_YAML}"
+    fi
     if (( INSTALL_MONITORING )); then
       INSTALL_MONITORING_YAML="${MONITORING_YAML}"
     fi

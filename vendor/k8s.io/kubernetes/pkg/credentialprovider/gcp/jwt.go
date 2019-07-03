@@ -21,12 +21,11 @@ import (
 	"time"
 
 	"github.com/golang/glog"
+	"github.com/spf13/pflag"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 	"golang.org/x/oauth2/jwt"
 	"k8s.io/kubernetes/pkg/credentialprovider"
-
-	"github.com/spf13/pflag"
 )
 
 const (
@@ -87,12 +86,12 @@ func (j *jwtProvider) Enabled() bool {
 }
 
 // LazyProvide implements DockerConfigProvider. Should never be called.
-func (j *jwtProvider) LazyProvide() *credentialprovider.DockerConfigEntry {
+func (j *jwtProvider) LazyProvide(image string) *credentialprovider.DockerConfigEntry {
 	return nil
 }
 
 // Provide implements DockerConfigProvider
-func (j *jwtProvider) Provide() credentialprovider.DockerConfig {
+func (j *jwtProvider) Provide(image string) credentialprovider.DockerConfig {
 	cfg := credentialprovider.DockerConfig{}
 
 	ts := j.config.TokenSource(oauth2.NoContext)

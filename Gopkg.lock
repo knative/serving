@@ -607,7 +607,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:81b579d538f04ef73505c2a83faea71183443e4e32e65361992ce6a2ddb19b72"
+  digest = "1:963b4eb21d350a037baeb18060fab18a463a59578441d019e6b6198d10c7bbb1"
   name = "github.com/knative/test-infra"
   packages = [
     "scripts",
@@ -627,7 +627,7 @@
     "tools/webhook-apicoverage/webhook",
   ]
   pruneopts = "UT"
-  revision = "3f359626cb5e4f29001a1b6d9b4c38a0954f2069"
+  revision = "a923afe5a821562b9b6e37dfaf71f54c045adf90"
 
 [[projects]]
   digest = "1:58999a98719fddbac6303cb17e8d85b945f60b72f48e3a2df6b950b97fa926f1"
@@ -1165,8 +1165,8 @@
     "storage/v1beta1",
   ]
   pruneopts = "NUT"
-  revision = "145d52631d00cbfe68490d19ae4f0f501fd31a95"
-  version = "kubernetes-1.12.6"
+  revision = "9ad12a4af32677db3ae70bef3371bf9b618eb3a0"
+  version = "kubernetes-1.12.9"
 
 [[projects]]
   digest = "1:9b911316f4641b42323e80636e4126523d4da86e65aec9d85f6b1adeae4ba0e9"
@@ -1225,10 +1225,10 @@
   ]
   pruneopts = "NUT"
   revision = "01f179d85dbce0f2e0e4351a92394b38694b7cae"
-  version = "kubernetes-1.12.6"
+  version = "kubernetes-1.12.9"
 
 [[projects]]
-  digest = "1:ed7ce413c932c7ef755d7f0898697ebe106697ba105550b576afd1be77ece275"
+  digest = "1:f377d1603f74cf6c582eb8cd0770866770c6cded6557d54fef092ab05c24350b"
   name = "k8s.io/apiserver"
   packages = [
     "pkg/admission",
@@ -1326,11 +1326,11 @@
     "plugin/pkg/authorizer/webhook",
   ]
   pruneopts = "NUT"
-  revision = "cf2f1d68202d872417a0a0af0589f40e1bb04458"
-  version = "kubernetes-1.12.6"
+  revision = "2d60c3dee27075aa71f0017df05b14d7a00bb226"
+  version = "kubernetes-1.12.9"
 
 [[projects]]
-  digest = "1:c23e09203e9da52f97def04ee7ed484028c4d3e2d074fe7fa54666e82a345291"
+  digest = "1:77bb65f3c81e9c3a8642f174c1129ad67a683891b6226fc17ada24d84f4f27db"
   name = "k8s.io/client-go"
   packages = [
     "discovery",
@@ -1507,8 +1507,8 @@
     "util/workqueue",
   ]
   pruneopts = "NUT"
-  revision = "78295b709ec6fa5be12e35892477a326dea2b5d3"
-  version = "kubernetes-1.12.6"
+  revision = "4f3abb12cae2d6817e1b6d72d9cbc3d3a6ddf965"
+  version = "kubernetes-1.12.9"
 
 [[projects]]
   digest = "1:26b81b5e76e3f84ea5140da4f74649576e470f79091d2ef8e0d1b5000bc636ca"
@@ -1536,7 +1536,7 @@
   ]
   pruneopts = "T"
   revision = "b1289fc74931d4b6b04bd1a259acfc88a2cb0a66"
-  version = "kubernetes-1.12.6"
+  version = "kubernetes-1.12.9"
 
 [[projects]]
   branch = "master"
@@ -1577,7 +1577,7 @@
   revision = "0cf8f7e6ed1d2e3d47d02e3b6e559369af24d803"
 
 [[projects]]
-  digest = "1:58b3a85d2c3d0b49f7d4b7f6a3234d7e9c10cbc364af297adca941b67e5bb2f6"
+  digest = "1:82f9b2deb157470451063cea72fe0a7155f68c97bd43c6f5e671ba347d72e4a0"
   name = "k8s.io/kubernetes"
   packages = [
     "pkg/cloudprovider/providers/azure/auth",
@@ -1586,6 +1586,7 @@
     "pkg/credentialprovider/azure",
     "pkg/credentialprovider/gcp",
     "pkg/credentialprovider/secrets",
+    "pkg/version",
   ]
   pruneopts = "NUT"
   revision = "81753b10df112992bf51bbc2c2f85208aad78335"
@@ -1604,12 +1605,12 @@
     "pkg/apis/external_metrics/v1beta1",
   ]
   pruneopts = "NUT"
-  revision = "f3f09b9076d11765ebf1ce6e6b92b79d003bcb15"
-  version = "kubernetes-1.12.6"
+  revision = "05eb8901940c297ce4b9e06358ab471b3f8250ce"
+  version = "kubernetes-1.12.9"
 
 [[projects]]
   branch = "master"
-  digest = "1:6ecb9d5aa84772cbbc21e966fd1ab71bc7e13dee2857a71186db6ca59da78159"
+  digest = "1:df8dd286355037777c67f3cf8a4b287d018df3fd98b76cf31c21eba955933664"
   name = "knative.dev/pkg"
   packages = [
     "apis",
@@ -1699,7 +1700,7 @@
     "websocket",
   ]
   pruneopts = "T"
-  revision = "1104d6c75533160d27c02d3eb373fc567bd6d60c"
+  revision = "1864f499dcaa98b9de0e46faa40861591b678f03"
 
 [solve-meta]
   analyzer-name = "dep"
@@ -1820,6 +1821,7 @@
     "k8s.io/code-generator/cmd/defaulter-gen",
     "k8s.io/code-generator/cmd/informer-gen",
     "k8s.io/code-generator/cmd/lister-gen",
+    "k8s.io/kubernetes/pkg/version",
     "k8s.io/metrics/pkg/apis/custom_metrics",
     "knative.dev/pkg/apis",
     "knative.dev/pkg/apis/duck",

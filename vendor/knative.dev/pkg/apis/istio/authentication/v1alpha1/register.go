@@ -17,10 +17,10 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"knative.dev/pkg/apis/istio/authentication"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"knative.dev/pkg/apis/istio/authentication"
 )
 
 // SchemeGroupVersion is group version used to register these objects

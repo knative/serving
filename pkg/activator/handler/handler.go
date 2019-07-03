@@ -16,6 +16,7 @@ limitations under the License.
 package handler
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -27,7 +28,6 @@ import (
 	"go.opencensus.io/trace"
 	"go.uber.org/zap"
 
-	"knative.dev/pkg/logging/logkey"
 	"github.com/knative/serving/pkg/activator"
 	"github.com/knative/serving/pkg/activator/util"
 	"github.com/knative/serving/pkg/apis/networking"
@@ -39,6 +39,7 @@ import (
 	"github.com/knative/serving/pkg/network"
 	"github.com/knative/serving/pkg/network/prober"
 	"github.com/knative/serving/pkg/queue"
+	"knative.dev/pkg/logging/logkey"
 
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -90,7 +91,7 @@ func New(l *zap.SugaredLogger, r activator.StatsReporter, t *activator.Throttler
 	}
 }
 
-func withOrigProto(or *http.Request) prober.ProbeOption {
+func withOrigProto(or *http.Request) prober.Preparer {
 	return func(r *http.Request) *http.Request {
 		r.Proto = or.Proto
 		r.ProtoMajor = or.ProtoMajor
@@ -113,7 +114,13 @@ func (a *activationHandler) probeEndpoint(logger *zap.SugaredLogger, r *http.Req
 
 	err := wait.PollImmediate(100*time.Millisecond, a.probeTimeout, func() (bool, error) {
 		attempts++
-		ret, err := prober.Do(reqCtx, a.probeTransportFactory(), target.String(), queue.Name, withOrigProto(r))
+		ret, err := prober.Do(
+			reqCtx,
+			a.probeTransportFactory(),
+			target.String(),
+			prober.WithHeader(network.ProbeHeaderName, queue.Name),
+			prober.ExpectsBody(queue.Name),
+			withOrigProto(r))
 		if err != nil {
 			logger.Warnw("Pod probe failed", zap.Error(err))
 			return false, nil
@@ -163,7 +170,14 @@ func (a *activationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	_, ttSpan := trace.StartSpan(r.Context(), "throttler_try")
 	ttStart := time.Now()
-	err = a.throttler.Try(a.endpointTimeout, revID, func() {
+
+	tryContext := r.Context()
+	if a.endpointTimeout > 0 {
+		var cancel context.CancelFunc
+		tryContext, cancel = context.WithTimeout(r.Context(), a.endpointTimeout)
+		defer cancel()
+	}
+	err = a.throttler.Try(tryContext, revID, func() {
 		var (
 			httpStatus int
 		)

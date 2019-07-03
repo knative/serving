@@ -44,7 +44,7 @@ func TestMakeDecider(t *testing.T) {
 	}, {
 		name: "tu < 1", // See #4449 why Target=100
 		pa:   pa(),
-		want: decider(withTarget(100), withPanicThreshold(200.0), withTotal(100)),
+		want: decider(withTarget(80), withPanicThreshold(160.0), withTotal(100)),
 		cfgOpt: func(c autoscaler.Config) *autoscaler.Config {
 			c.ContainerConcurrencyTargetFraction = 0.8
 			return &c

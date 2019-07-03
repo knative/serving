@@ -24,10 +24,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
-	"knative.dev/pkg/ptr"
 	"github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving"
+	"knative.dev/pkg/ptr"
 )
 
 var (
@@ -48,7 +48,7 @@ func TestMakePublicService(t *testing.T) {
 				Namespace: "melon",
 				Name:      "collie",
 				UID:       "1982",
-				// Those labels are propagated from the Revision->KPA.
+				// Those labels are propagated from the Revision->PA.
 				Labels: map[string]string{
 					serving.RevisionLabelKey: "collie",
 					serving.RevisionUID:      "1982",
@@ -96,7 +96,7 @@ func TestMakePublicService(t *testing.T) {
 				Namespace: "melon",
 				Name:      "collie",
 				UID:       "1982",
-				// Those labels are propagated from the Revision->KPA.
+				// Those labels are propagated from the Revision->PA.
 				Labels: map[string]string{
 					serving.RevisionLabelKey: "collie",
 					serving.RevisionUID:      "1982",
@@ -144,7 +144,7 @@ func TestMakePublicService(t *testing.T) {
 				Namespace: "siamese",
 				Name:      "dream",
 				UID:       "1988",
-				// Those labels are propagated from the Revision->KPA.
+				// Those labels are propagated from the Revision->PA.
 				Labels: map[string]string{
 					serving.RevisionLabelKey: "dream",
 					serving.RevisionUID:      "1988",
@@ -197,7 +197,7 @@ func TestMakePublicService(t *testing.T) {
 				Namespace: "siamese",
 				Name:      "dream",
 				UID:       "1988",
-				// Those labels are propagated from the Revision->KPA.
+				// Those labels are propagated from the Revision->PA.
 				Labels: map[string]string{
 					serving.RevisionLabelKey: "dream",
 					serving.RevisionUID:      "1988",
@@ -250,7 +250,7 @@ func TestMakePublicService(t *testing.T) {
 				Namespace: "siamese",
 				Name:      "dream",
 				UID:       "1988",
-				// Those labels are propagated from the Revision->KPA.
+				// Those labels are propagated from the Revision->PA.
 				Labels: map[string]string{
 					serving.RevisionLabelKey: "dream",
 					serving.RevisionUID:      "1988",
@@ -321,7 +321,7 @@ func TestMakeEndpoints(t *testing.T) {
 				Namespace: "melon",
 				Name:      "collie",
 				UID:       "1982",
-				// Those labels are propagated from the Revision->KPA.
+				// Those labels are propagated from the Revision->PA.
 				Labels: map[string]string{
 					serving.RevisionLabelKey: "collie",
 					serving.RevisionUID:      "1982",
@@ -366,7 +366,7 @@ func TestMakeEndpoints(t *testing.T) {
 				Namespace: "melon",
 				Name:      "collie",
 				UID:       "1982",
-				// Those labels are propagated from the Revision->KPA.
+				// Those labels are propagated from the Revision->PA.
 				Labels: map[string]string{
 					serving.RevisionLabelKey:  "collie",
 					serving.RevisionUID:       "1982",
@@ -458,7 +458,7 @@ func TestMakePrivateService(t *testing.T) {
 				Namespace: "melon",
 				Name:      "collie",
 				UID:       "1982",
-				// Those labels are propagated from the Revision->KPA.
+				// Those labels are propagated from the Revision->PA.
 				Labels: map[string]string{
 					serving.RevisionLabelKey: "collie",
 					serving.RevisionUID:      "1982",
@@ -513,7 +513,7 @@ func TestMakePrivateService(t *testing.T) {
 				Namespace: "siamese",
 				Name:      "dream",
 				UID:       "1988",
-				// Those labels are propagated from the Revision->KPA.
+				// Those labels are propagated from the Revision->PA.
 				Labels: map[string]string{
 					serving.RevisionLabelKey: "dream",
 					serving.RevisionUID:      "1988",

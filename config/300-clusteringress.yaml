@@ -27,7 +27,6 @@ spec:
     plural: clusteringresses
     singular: clusteringress
     categories:
-    - all
     - knative-internal
     - networking
   scope: Cluster

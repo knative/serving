@@ -9,6 +9,8 @@ required = [
   "k8s.io/code-generator/cmd/lister-gen",
   "k8s.io/code-generator/cmd/informer-gen",
   "knative.dev/pkg/codegen/cmd/injection-gen",
+  # TODO(#4549): Drop this when we drop our patches.
+  "k8s.io/kubernetes/pkg/version",
   "github.com/knative/caching/pkg/apis/caching",
   "github.com/knative/test-infra/scripts",
   "github.com/knative/test-infra/tools/dep-collector",
@@ -44,19 +46,19 @@ required = [
 
 [[override]]
   name = "k8s.io/api"
-  version = "kubernetes-1.12.6"
+  version = "kubernetes-1.12.9"
 
 [[override]]
   name = "k8s.io/apimachinery"
-  version = "kubernetes-1.12.6"
+  version = "kubernetes-1.12.9"
 
 [[override]]
   name = "k8s.io/code-generator"
-  version = "kubernetes-1.12.6"
+  version = "kubernetes-1.12.9"
 
 [[override]]
   name = "k8s.io/client-go"
-  version = "kubernetes-1.12.6"
+  version = "kubernetes-1.12.9"
 
 [[override]]
   name = "github.com/rogpeppe/go-internal"
@@ -77,11 +79,11 @@ required = [
 
 [[override]]
   name = "k8s.io/apiserver"
-  version = "kubernetes-1.12.6"
+  version = "kubernetes-1.12.9"
 
 [[override]]
   name = "k8s.io/metrics"
-  version = "kubernetes-1.12.6"
+  version = "kubernetes-1.12.9"
 
 [prune]
   go-tests = true

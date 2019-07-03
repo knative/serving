@@ -20,9 +20,9 @@ import (
 	"testing"
 
 	"github.com/ghodss/yaml"
-	"knative.dev/pkg/configmap"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"knative.dev/pkg/configmap"
 )
 
 // ConfigMapFromTestFile creates a v1.ConfigMap from a YAML file

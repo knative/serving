@@ -1,4 +1,4 @@
-# Copyright 2018 The Knative Authors
+# Copyright 2019 The Knative Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,7 +15,7 @@
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
-  name: revisions.serving.knative.dev
+  name: configurations.serving.knative.dev
   labels:
     serving.knative.dev/release: devel
     knative.dev/crd-install: "true"
@@ -25,29 +25,27 @@ spec:
   - name: v1alpha1
     served: true
     storage: true
-  - name: v1beta1
-    served: true
-    storage: false
   names:
-    kind: Revision
-    plural: revisions
-    singular: revision
+    kind: Configuration
+    plural: configurations
+    singular: configuration
     categories:
     - all
     - knative
     - serving
     shortNames:
-    - rev
+    - config
+    - cfg
   scope: Namespaced
   subresources:
     status: {}
   additionalPrinterColumns:
-  - name: Service Name
+  - name: LatestCreated
     type: string
-    JSONPath: .status.serviceName
-  - name: Generation
-    type: string # int in string form :(
-    JSONPath: ".metadata.labels['serving\\.knative\\.dev/configurationGeneration']"
+    JSONPath: .status.latestCreatedRevisionName
+  - name: LatestReady
+    type: string
+    JSONPath: .status.latestReadyRevisionName
   - name: Ready
     type: string
     JSONPath: ".status.conditions[?(@.type=='Ready')].status"

@@ -16,9 +16,13 @@ limitations under the License.
 package network
 
 import (
+	"context"
+	"errors"
 	"net"
 	"net/http"
 	"time"
+
+	"k8s.io/apimachinery/pkg/util/wait"
 )
 
 // RoundTripperFunc implementation roundtrips a request.
@@ -39,6 +43,48 @@ func newAutoTransport(v1 http.RoundTripper, v2 http.RoundTripper) http.RoundTrip
 	})
 }
 
+const (
+	initialTO = float64(50 * time.Millisecond)
+	sleepTO   = 30 * time.Millisecond
+	factor    = 1.4
+	numSteps  = 10
+)
+
+var errDialTimeout = errors.New("timed out dialing")
+
+// dialWithBackOff executes `net.Dialer.DialContext()` with exponentially increasing
+// dial timeouts. In addition it sleeps with random jitter between tries.
+func dialWithBackOff(ctx context.Context, network, address string) (net.Conn, error) {
+	return dialBackOffHelper(ctx, network, address, numSteps, initialTO, sleepTO)
+}
+
+func dialBackOffHelper(ctx context.Context, network, address string, steps int, initial float64, sleep time.Duration) (net.Conn, error) {
+	to := initial
+	dialer := &net.Dialer{
+		Timeout:   time.Duration(to),
+		KeepAlive: 5 * time.Second,
+		DualStack: true,
+	}
+	// TODO(vagababov): use backoff.Step when we use modern k8s client.
+	for i := 0; i < steps; i++ {
+		c, err := dialer.DialContext(ctx, network, address)
+		if err != nil {
+			if err, ok := err.(net.Error); ok && err.Timeout() {
+				if i == steps-1 {
+					break
+				}
+				to *= factor
+				dialer.Timeout = time.Duration(to)
+				time.Sleep(wait.Jitter(sleep, 1.0)) // Sleep with jitter.
+				continue
+			}
+			return nil, err
+		}
+		return c, err
+	}
+	return nil, errDialTimeout
+}
+
 func newHTTPTransport(connTimeout time.Duration) http.RoundTripper {
 	return &http.Transport{
 		// Those match net/http/transport.go
@@ -49,11 +95,7 @@ func newHTTPTransport(connTimeout time.Duration) http.RoundTripper {
 		ExpectContinueTimeout: 1 * time.Second,
 
 		// This is bespoke.
-		DialContext: (&net.Dialer{
-			Timeout:   connTimeout,
-			KeepAlive: 5 * time.Second,
-			DualStack: true,
-		}).DialContext,
+		DialContext: dialWithBackOff,
 	}
 }
 
