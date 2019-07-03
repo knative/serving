@@ -149,7 +149,7 @@ func (ks *scaler) handleScaleToZero(pa *pav1alpha1.PodAutoscaler, desiredScale i
 
 	if pa.Status.IsActivating() { // Active=Unknown
 		if pa.Status.CanFailActivation(activationTimeout) {
-			ks.logger.Infof("%s activation has timed out after %s.", pa.Name, activationTimeout)
+			ks.logger.Infof("%s activation has timed out after %v.", pa.Name, activationTimeout)
 			return 0, true
 		}
 		ks.enqueueCB(pa, activationTimeout)
