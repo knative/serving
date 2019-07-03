@@ -24,10 +24,10 @@ import (
 	"sync"
 	"testing"
 
+	"golang.org/x/sync/errgroup"
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/logging"
 	"knative.dev/pkg/test/spoof"
-	"golang.org/x/sync/errgroup"
 )
 
 // Prober is the interface for a prober, which checks the result of the probes when stopped.

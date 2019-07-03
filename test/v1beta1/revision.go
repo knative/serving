@@ -20,13 +20,13 @@ import (
 	"context"
 	"fmt"
 
-	"knative.dev/pkg/test/logging"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 	"github.com/knative/serving/test"
 	"github.com/pkg/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"knative.dev/pkg/test/logging"
 )
 
 // WaitForRevisionState polls the status of the Revision called name

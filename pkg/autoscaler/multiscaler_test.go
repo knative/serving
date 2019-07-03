@@ -26,9 +26,9 @@ import (
 
 	"k8s.io/apimachinery/pkg/util/wait"
 
-	. "knative.dev/pkg/logging/testing"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	. "knative.dev/pkg/logging/testing"
 )
 
 const (

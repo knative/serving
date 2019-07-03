@@ -17,10 +17,10 @@ limitations under the License.
 package resources
 
 import (
-	"knative.dev/pkg/kmeta"
 	"github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/resources"
+	"knative.dev/pkg/kmeta"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

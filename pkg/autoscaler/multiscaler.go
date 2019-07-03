@@ -23,11 +23,11 @@ import (
 	"sync"
 	"time"
 
-	"knative.dev/pkg/logging"
 	kpa "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"knative.dev/pkg/logging"
 )
 
 // Decider is a resource which observes the request load of a Revision and

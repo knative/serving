@@ -21,8 +21,8 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/equality"
 
-	"knative.dev/pkg/apis"
 	"github.com/knative/serving/pkg/apis/serving"
+	"knative.dev/pkg/apis"
 )
 
 // Validate makes sure that Configuration is properly configured.

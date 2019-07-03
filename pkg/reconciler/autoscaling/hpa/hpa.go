@@ -23,8 +23,6 @@ import (
 	perrors "github.com/pkg/errors"
 	"go.uber.org/zap"
 
-	"knative.dev/pkg/controller"
-	"knative.dev/pkg/logging"
 	"github.com/knative/serving/pkg/apis/autoscaling"
 	pav1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	areconciler "github.com/knative/serving/pkg/reconciler/autoscaling"
@@ -37,6 +35,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/runtime"
 	autoscalingv2beta1listers "k8s.io/client-go/listers/autoscaling/v2beta1"
 	"k8s.io/client-go/tools/cache"
+	"knative.dev/pkg/controller"
+	"knative.dev/pkg/logging"
 )
 
 // Reconciler implements the control loop for the HPA resources.

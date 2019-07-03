@@ -22,12 +22,12 @@ import (
 	configurationinformer "github.com/knative/serving/pkg/client/injection/informers/serving/v1alpha1/configuration"
 	revisioninformer "github.com/knative/serving/pkg/client/injection/informers/serving/v1alpha1/revision"
 
-	"knative.dev/pkg/configmap"
-	"knative.dev/pkg/controller"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/reconciler"
 	configns "github.com/knative/serving/pkg/reconciler/configuration/config"
 	"k8s.io/client-go/tools/cache"
+	"knative.dev/pkg/configmap"
+	"knative.dev/pkg/controller"
 )
 
 const controllerAgentName = "configuration-controller"

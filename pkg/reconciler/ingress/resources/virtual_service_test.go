@@ -21,17 +21,17 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
-	istiov1alpha1 "knative.dev/pkg/apis/istio/common/v1alpha1"
-	"knative.dev/pkg/apis/istio/v1alpha3"
-	"knative.dev/pkg/kmeta"
-	"knative.dev/pkg/system"
-	_ "knative.dev/pkg/system/testing"
 	apiconfig "github.com/knative/serving/pkg/apis/config"
 	"github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	istiov1alpha1 "knative.dev/pkg/apis/istio/common/v1alpha1"
+	"knative.dev/pkg/apis/istio/v1alpha3"
+	"knative.dev/pkg/kmeta"
+	"knative.dev/pkg/system"
+	_ "knative.dev/pkg/system/testing"
 )
 
 var (

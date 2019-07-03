@@ -21,8 +21,8 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"knative.dev/pkg/kmeta"
 	"github.com/knative/serving/pkg/apis/networking/v1alpha1"
+	"knative.dev/pkg/kmeta"
 )
 
 func TestNamer(t *testing.T) {

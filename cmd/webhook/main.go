@@ -25,13 +25,6 @@ import (
 
 	"go.uber.org/zap"
 
-	"knative.dev/pkg/configmap"
-	"knative.dev/pkg/logging"
-	"knative.dev/pkg/logging/logkey"
-	"knative.dev/pkg/signals"
-	"knative.dev/pkg/system"
-	"knative.dev/pkg/version"
-	"knative.dev/pkg/webhook"
 	kpa "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	apiconfig "github.com/knative/serving/pkg/apis/config"
 	net "github.com/knative/serving/pkg/apis/networking/v1alpha1"
@@ -39,6 +32,13 @@ import (
 	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes"
+	"knative.dev/pkg/configmap"
+	"knative.dev/pkg/logging"
+	"knative.dev/pkg/logging/logkey"
+	"knative.dev/pkg/signals"
+	"knative.dev/pkg/system"
+	"knative.dev/pkg/version"
+	"knative.dev/pkg/webhook"
 )
 
 const (

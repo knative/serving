@@ -19,14 +19,14 @@ package config
 import (
 	"context"
 
-	"knative.dev/pkg/configmap"
-	pkglogging "knative.dev/pkg/logging"
-	pkgmetrics "knative.dev/pkg/metrics"
 	"github.com/knative/serving/pkg/autoscaler"
 	deployment "github.com/knative/serving/pkg/deployment"
 	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/pkg/metrics"
 	"github.com/knative/serving/pkg/network"
+	"knative.dev/pkg/configmap"
+	pkglogging "knative.dev/pkg/logging"
+	pkgmetrics "knative.dev/pkg/metrics"
 )
 
 type cfgKey struct{}

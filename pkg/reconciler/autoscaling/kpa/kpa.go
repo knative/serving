@@ -24,8 +24,6 @@ import (
 	perrors "github.com/pkg/errors"
 	"go.uber.org/zap"
 
-	"knative.dev/pkg/controller"
-	"knative.dev/pkg/logging"
 	"github.com/knative/serving/pkg/apis/autoscaling"
 	pav1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving"
@@ -34,6 +32,8 @@ import (
 	"github.com/knative/serving/pkg/reconciler/autoscaling/config"
 	"github.com/knative/serving/pkg/reconciler/autoscaling/kpa/resources"
 	resourceutil "github.com/knative/serving/pkg/resources"
+	"knative.dev/pkg/controller"
+	"knative.dev/pkg/logging"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"

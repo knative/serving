@@ -21,10 +21,10 @@ import (
 	"context"
 	"fmt"
 
-	"knative.dev/pkg/apis"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/network"
 	"github.com/knative/serving/pkg/reconciler/route/config"
+	"knative.dev/pkg/apis"
 )
 
 // HTTPScheme is the string representation of http.

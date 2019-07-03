@@ -20,10 +20,10 @@ import (
 	"context"
 	"fmt"
 
-	"knative.dev/pkg/apis"
 	"github.com/knative/serving/pkg/apis/autoscaling"
 	"github.com/knative/serving/pkg/apis/serving"
 	"k8s.io/apimachinery/pkg/api/equality"
+	"knative.dev/pkg/apis"
 )
 
 func (pa *PodAutoscaler) Validate(ctx context.Context) *apis.FieldError {

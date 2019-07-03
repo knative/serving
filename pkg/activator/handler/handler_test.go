@@ -33,8 +33,6 @@ import (
 	zipkinreporter "github.com/openzipkin/zipkin-go/reporter"
 	reporterrecorder "github.com/openzipkin/zipkin-go/reporter/recorder"
 
-	. "knative.dev/pkg/logging/testing"
-	_ "knative.dev/pkg/system/testing"
 	"github.com/knative/serving/pkg/activator"
 	activatortest "github.com/knative/serving/pkg/activator/testing"
 	nv1a1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
@@ -49,6 +47,8 @@ import (
 	"github.com/knative/serving/pkg/queue"
 	"github.com/knative/serving/pkg/tracing"
 	tracingconfig "github.com/knative/serving/pkg/tracing/config"
+	. "knative.dev/pkg/logging/testing"
+	_ "knative.dev/pkg/system/testing"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

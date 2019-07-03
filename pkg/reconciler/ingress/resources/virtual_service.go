@@ -25,16 +25,16 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/sets"
 
-	istiov1alpha1 "knative.dev/pkg/apis/istio/common/v1alpha1"
-	"knative.dev/pkg/apis/istio/v1alpha3"
-	"knative.dev/pkg/kmeta"
-	"knative.dev/pkg/system"
 	"github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/network"
 	"github.com/knative/serving/pkg/reconciler/ingress/resources/names"
 	"github.com/knative/serving/pkg/resources"
+	istiov1alpha1 "knative.dev/pkg/apis/istio/common/v1alpha1"
+	"knative.dev/pkg/apis/istio/v1alpha3"
+	"knative.dev/pkg/kmeta"
+	"knative.dev/pkg/system"
 )
 
 // VirtualServiceNamespace gives the namespace of the child

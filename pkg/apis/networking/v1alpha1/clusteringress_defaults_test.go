@@ -22,10 +22,10 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
-	logtesting "knative.dev/pkg/logging/testing"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	logtesting "knative.dev/pkg/logging/testing"
 
 	"github.com/knative/serving/pkg/apis/config"
 	"github.com/knative/serving/pkg/apis/networking"

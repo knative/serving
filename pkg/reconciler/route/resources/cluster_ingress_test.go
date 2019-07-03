@@ -23,9 +23,6 @@ import (
 	"github.com/knative/serving/pkg/reconciler/route/config"
 
 	"github.com/google/go-cmp/cmp"
-	"knative.dev/pkg/apis"
-	"knative.dev/pkg/system"
-	_ "knative.dev/pkg/system/testing"
 	"github.com/knative/serving/pkg/apis/networking"
 	netv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving"
@@ -34,6 +31,9 @@ import (
 	"github.com/knative/serving/pkg/reconciler/route/traffic"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"knative.dev/pkg/apis"
+	"knative.dev/pkg/system"
+	_ "knative.dev/pkg/system/testing"
 )
 
 const ns = "test-ns"

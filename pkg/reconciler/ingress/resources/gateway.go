@@ -22,13 +22,13 @@ import (
 	"sort"
 	"strings"
 
-	"knative.dev/pkg/apis/istio/v1alpha3"
 	"github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/network"
 	"github.com/knative/serving/pkg/reconciler/ingress/config"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"knative.dev/pkg/apis/istio/v1alpha3"
 )
 
 var httpServerPortName = "http-server"

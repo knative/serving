@@ -19,8 +19,8 @@ package names
 import (
 	"fmt"
 
-	"knative.dev/pkg/kmeta"
 	"github.com/knative/serving/pkg/network"
+	"knative.dev/pkg/kmeta"
 )
 
 func K8sService(route kmeta.Accessor) string {

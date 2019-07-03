@@ -19,9 +19,9 @@ package resources
 import (
 	"fmt"
 
-	"knative.dev/pkg/kmeta"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"knative.dev/pkg/kmeta"
 )
 
 // MakeRevision creates a revision object from configuration.

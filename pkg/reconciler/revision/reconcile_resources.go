@@ -20,8 +20,6 @@ import (
 	"context"
 	"fmt"
 
-	"knative.dev/pkg/logging"
-	"knative.dev/pkg/logging/logkey"
 	kpav1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/reconciler/revision/resources"
@@ -32,6 +30,8 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"knative.dev/pkg/logging"
+	"knative.dev/pkg/logging/logkey"
 )
 
 func (c *Reconciler) reconcileDeployment(ctx context.Context, rev *v1alpha1.Revision) error {

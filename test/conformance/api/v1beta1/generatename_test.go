@@ -24,11 +24,11 @@ import (
 	"regexp"
 	"testing"
 
-	pkgTest "knative.dev/pkg/test"
 	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 	rtesting "github.com/knative/serving/pkg/testing/v1beta1"
 	"github.com/knative/serving/test"
 	v1b1test "github.com/knative/serving/test/v1beta1"
+	pkgTest "knative.dev/pkg/test"
 )
 
 func setServiceGenerateName(generateName string) rtesting.ServiceOption {

@@ -20,8 +20,8 @@ import (
 	"context"
 	"net/http"
 
-	"knative.dev/pkg/configmap"
 	tracingconfig "github.com/knative/serving/pkg/tracing/config"
+	"knative.dev/pkg/configmap"
 )
 
 type cfgKey struct{}

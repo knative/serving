@@ -20,8 +20,6 @@ import (
 	"context"
 
 	caching "github.com/knative/caching/pkg/apis/caching/v1alpha1"
-	"knative.dev/pkg/kmp"
-	"knative.dev/pkg/logging"
 	kpav1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/reconciler/revision/config"
@@ -29,6 +27,8 @@ import (
 	presources "github.com/knative/serving/pkg/resources"
 	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
+	"knative.dev/pkg/kmp"
+	"knative.dev/pkg/logging"
 )
 
 func (c *Reconciler) createDeployment(ctx context.Context, rev *v1alpha1.Revision) (*appsv1.Deployment, error) {

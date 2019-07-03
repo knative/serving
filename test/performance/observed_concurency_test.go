@@ -31,14 +31,14 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 
-	pkgTest "knative.dev/pkg/test"
-	"knative.dev/pkg/test/spoof"
 	"github.com/knative/serving/test"
 	v1a1test "github.com/knative/serving/test/v1alpha1"
 	"github.com/knative/test-infra/shared/junit"
 	perf "github.com/knative/test-infra/shared/performance"
 	"github.com/knative/test-infra/shared/testgrid"
 	"golang.org/x/sync/errgroup"
+	pkgTest "knative.dev/pkg/test"
+	"knative.dev/pkg/test/spoof"
 )
 
 // generateTraffic loads the given endpoint with the given concurrency for the given duration.

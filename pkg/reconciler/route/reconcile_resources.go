@@ -31,8 +31,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 
-	"knative.dev/pkg/apis/duck"
-	"knative.dev/pkg/logging"
 	netv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
@@ -40,6 +38,8 @@ import (
 	"github.com/knative/serving/pkg/reconciler/route/resources"
 	resourcenames "github.com/knative/serving/pkg/reconciler/route/resources/names"
 	"github.com/knative/serving/pkg/reconciler/route/traffic"
+	"knative.dev/pkg/apis/duck"
+	"knative.dev/pkg/logging"
 )
 
 func (c *Reconciler) getClusterIngressForRoute(route *v1alpha1.Route) (*netv1alpha1.ClusterIngress, error) {

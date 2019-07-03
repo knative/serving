@@ -23,8 +23,6 @@ import (
 
 	perrors "github.com/pkg/errors"
 
-	"knative.dev/pkg/apis/duck"
-	"knative.dev/pkg/logging"
 	"github.com/knative/serving/pkg/apis/autoscaling"
 	pav1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/apis/networking"
@@ -36,6 +34,8 @@ import (
 	"github.com/knative/serving/pkg/reconciler/autoscaling/resources"
 	anames "github.com/knative/serving/pkg/reconciler/autoscaling/resources/names"
 	resourceutil "github.com/knative/serving/pkg/resources"
+	"knative.dev/pkg/apis/duck"
+	"knative.dev/pkg/logging"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"

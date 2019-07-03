@@ -21,16 +21,13 @@ import (
 	"net/http"
 
 	imageinformer "github.com/knative/caching/pkg/client/injection/informers/caching/v1alpha1/image"
+	kpainformer "github.com/knative/serving/pkg/client/injection/informers/autoscaling/v1alpha1/podautoscaler"
+	revisioninformer "github.com/knative/serving/pkg/client/injection/informers/serving/v1alpha1/revision"
 	"knative.dev/pkg/injection/clients/kubeclient"
 	deploymentinformer "knative.dev/pkg/injection/informers/kubeinformers/appsv1/deployment"
 	configmapinformer "knative.dev/pkg/injection/informers/kubeinformers/corev1/configmap"
 	serviceinformer "knative.dev/pkg/injection/informers/kubeinformers/corev1/service"
-	kpainformer "github.com/knative/serving/pkg/client/injection/informers/autoscaling/v1alpha1/podautoscaler"
-	revisioninformer "github.com/knative/serving/pkg/client/injection/informers/serving/v1alpha1/revision"
 
-	"knative.dev/pkg/configmap"
-	"knative.dev/pkg/controller"
-	"knative.dev/pkg/logging"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/deployment"
 	"github.com/knative/serving/pkg/metrics"
@@ -38,6 +35,9 @@ import (
 	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/revision/config"
 	"k8s.io/client-go/tools/cache"
+	"knative.dev/pkg/configmap"
+	"knative.dev/pkg/controller"
+	"knative.dev/pkg/logging"
 )
 
 const (
