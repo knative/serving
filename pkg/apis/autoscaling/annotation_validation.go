@@ -18,6 +18,7 @@ package autoscaling
 
 import (
 	"fmt"
+	"math"
 	"strconv"
 
 	"knative.dev/pkg/apis"
@@ -30,10 +31,7 @@ func getIntGE0(m map[string]string, k string) (int64, *apis.FieldError) {
 	}
 	i, err := strconv.ParseInt(v, 10, 32)
 	if err != nil || i < 0 {
-		return 0, &apis.FieldError{
-			Message: "invalid value: must be an integer equal or greater than 0",
-			Paths:   []string{AnnotationErrKey(k)},
-		}
+		return 0, apis.ErrOutOfBoundsValue(v, 1, math.MaxInt32, k)
 	}
 	return i, nil
 }
@@ -50,20 +48,18 @@ func validateWindows(annotations map[string]string) *apis.FieldError {
 	var errs *apis.FieldError
 	if v, ok := annotations[PanicWindowPercentageAnnotationKey]; ok {
 		if fv, err := strconv.ParseFloat(v, 64); err != nil {
-			errs = errs.Also(apis.ErrInvalidValue(v, AnnotationErrKey(PanicWindowPercentageAnnotationKey)))
+			errs = errs.Also(apis.ErrInvalidValue(v, PanicWindowPercentageAnnotationKey))
 		} else if fv < PanicWindowPercentageMin || fv > PanicWindowPercentageMax {
 			errs = apis.ErrOutOfBoundsValue(v, PanicWindowPercentageMin,
-				PanicWindowPercentageMax, AnnotationErrKey(PanicWindowPercentageAnnotationKey))
+				PanicWindowPercentageMax, PanicWindowPercentageAnnotationKey)
 		}
 	}
 	if v, ok := annotations[PanicThresholdPercentageAnnotationKey]; ok {
 		if fv, err := strconv.ParseFloat(v, 64); err != nil {
-			errs = errs.Also(apis.ErrInvalidValue(v, AnnotationErrKey(PanicThresholdPercentageAnnotationKey)))
-		} else if fv < PanicThresholdPercentageMin {
-			errs = errs.Also(&apis.FieldError{
-				Message: fmt.Sprintf("invalid value %s, must be at least %v", v, PanicThresholdPercentageMin),
-				Paths:   []string{AnnotationErrKey(PanicThresholdPercentageAnnotationKey)},
-			})
+			errs = errs.Also(apis.ErrInvalidValue(v, PanicThresholdPercentageAnnotationKey))
+		} else if fv < PanicThresholdPercentageMin || fv > PanicThresholdPercentageMax {
+			errs = errs.Also(apis.ErrOutOfBoundsValue(v, PanicThresholdPercentageMin, PanicThresholdPercentageMax,
+				PanicThresholdPercentageAnnotationKey))
 		}
 	}
 	return errs
@@ -84,13 +80,8 @@ func validateMinMaxScale(annotations map[string]string) *apis.FieldError {
 	if max != 0 && max < min {
 		errs = errs.Also(&apis.FieldError{
 			Message: fmt.Sprintf("%s=%v is less than %s=%v", MaxScaleAnnotationKey, max, MinScaleAnnotationKey, min),
-			Paths:   []string{AnnotationErrKey(MaxScaleAnnotationKey), AnnotationErrKey(MinScaleAnnotationKey)},
+			Paths:   []string{MaxScaleAnnotationKey, MinScaleAnnotationKey},
 		})
 	}
 	return errs
-}
-
-// AnnotationErrKey formats the annotation key for error reporting.
-func AnnotationErrKey(ak string) string {
-	return "annotation: " + ak
 }

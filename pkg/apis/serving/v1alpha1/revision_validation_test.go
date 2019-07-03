@@ -453,7 +453,7 @@ func TestRevisionValidation(t *testing.T) {
 		},
 		want: (&apis.FieldError{
 			Message: "autoscaling.knative.dev/maxScale=2 is less than autoscaling.knative.dev/minScale=5",
-			Paths:   []string{autoscaling.AnnotationErrKey(autoscaling.MaxScaleAnnotationKey), autoscaling.AnnotationErrKey(autoscaling.MinScaleAnnotationKey)},
+			Paths:   []string{autoscaling.MaxScaleAnnotationKey, autoscaling.MinScaleAnnotationKey},
 		}).ViaField("annotations").ViaField("metadata"),
 	}}
 

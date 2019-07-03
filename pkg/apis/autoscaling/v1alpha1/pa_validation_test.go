@@ -18,6 +18,7 @@ package v1alpha1
 
 import (
 	"context"
+	"math"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -197,10 +198,7 @@ func TestPodAutoscalerValidation(t *testing.T) {
 				},
 			},
 		},
-		want: (&apis.FieldError{
-			Message: "invalid value: must be an integer equal or greater than 0",
-			Paths:   []string{autoscaling.AnnotationErrKey(autoscaling.MinScaleAnnotationKey)},
-		}).ViaField("annotations").ViaField("metadata"),
+		want: apis.ErrOutOfBoundsValue("FOO", 1, math.MaxInt32, autoscaling.MinScaleAnnotationKey).ViaField("metadata", "annotations"),
 	}, {
 		name: "empty spec",
 		r: &PodAutoscaler{
@@ -232,7 +230,7 @@ func TestPodAutoscalerValidation(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			got := test.r.Validate(context.Background())
 			if got, want := got.Error(), test.want.Error(); !cmp.Equal(got, want) {
-				t.Errorf("Got = %v, want: %v, diff: %s", got, want, cmp.Diff(got, want))
+				t.Errorf("Got: %q, want: %q, diff: %s", got, want, cmp.Diff(got, want))
 			}
 		})
 	}
