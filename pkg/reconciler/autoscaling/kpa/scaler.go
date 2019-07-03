@@ -36,6 +36,7 @@ import (
 	"github.com/knative/serving/pkg/network/prober"
 	"github.com/knative/serving/pkg/reconciler/autoscaling/config"
 	aresources "github.com/knative/serving/pkg/reconciler/autoscaling/resources"
+	rresources "github.com/knative/serving/pkg/reconciler/revision/resources"
 	"github.com/knative/serving/pkg/resources"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -50,7 +51,8 @@ const (
 	// The time after which the PA will be re-enqueued.
 	// This number is small, since `handleScaleToZero` below will
 	// re-enque for the configured grace period.
-	reenqeuePeriod = 1 * time.Second
+	reenqeuePeriod    = 1 * time.Second
+	activationTimeout = time.Duration(rresources.ProgressDeadlineSeconds) * time.Second
 )
 
 var probeOptions = []interface{}{
@@ -146,6 +148,11 @@ func (ks *scaler) handleScaleToZero(pa *pav1alpha1.PodAutoscaler, desiredScale i
 	}
 
 	if pa.Status.IsActivating() { // Active=Unknown
+		if pa.Status.CanFailActivation(activationTimeout) {
+			ks.logger.Infof("%s activation has timed out after %s.", pa.Name, activationTimeout)
+			return 0, true
+		}
+		ks.enqueueCB(pa, activationTimeout)
 		return scaleUnknown, false
 	} else if pa.Status.IsReady() { // Active=True
 		// Don't scale-to-zero if the PA is active
@@ -221,7 +228,7 @@ func (ks *scaler) applyScale(ctx context.Context, pa *pav1alpha1.PodAutoscaler, 
 func (ks *scaler) Scale(ctx context.Context, pa *pav1alpha1.PodAutoscaler, desiredScale int32) (int32, error) {
 	logger := logging.FromContext(ctx)
 
-	if desiredScale < 0 {
+	if desiredScale < 0 && !pa.Status.IsActivating() {
 		logger.Debug("Metrics are not yet being collected.")
 		return desiredScale, nil
 	}
