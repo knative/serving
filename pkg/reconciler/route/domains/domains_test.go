@@ -60,37 +60,50 @@ func TestDomainNameFromTemplate(t *testing.T) {
 		args     args
 		want     string
 		wantErr  bool
+		local    bool
 	}{{
 		name:     "Default",
 		template: "{{.Name}}.{{.Namespace}}.{{.Domain}}",
 		args:     args{name: "test-name"},
 		want:     "test-name.default.example.com",
+		local:    false,
 	}, {
 		name:     "Dash",
 		template: "{{.Name}}-{{.Namespace}}.{{.Domain}}",
 		args:     args{name: "test-name"},
 		want:     "test-name-default.example.com",
+		local:    false,
+	}, {
+		name:     "LocalDash",
+		template: "{{.Name}}-{{.Namespace}}.{{.Domain}}",
+		args:     args{name: "test-name"},
+		want:     "test-name.default.svc.cluster.local",
+		local:    true,
 	}, {
 		name:     "Short",
 		template: "{{.Name}}.{{.Domain}}",
 		args:     args{name: "test-name"},
 		want:     "test-name.example.com",
+		local:    false,
 	}, {
 		name:     "SuperShort",
 		template: "{{.Name}}",
 		args:     args{name: "test-name"},
 		want:     "test-name",
+		local:    false,
 	}, {
 		name:     "Annotations",
 		template: `{{.Name}}.{{ index .Annotations "sub"}}.{{.Domain}}`,
 		args:     args{name: "test-name"},
 		want:     "test-name.mysub.example.com",
+		local:    false,
 	}, {
 		// This cannot get through our validation, but verify we handle errors.
 		name:     "BadVarName",
 		template: "{{.Name}}.{{.NNNamespace}}.{{.Domain}}",
 		args:     args{name: "test-name"},
 		wantErr:  true,
+		local:    false,
 	}}
 
 	route := &v1alpha1.Route{
@@ -113,6 +126,12 @@ func TestDomainNameFromTemplate(t *testing.T) {
 			cfg := testConfig()
 			cfg.Network.DomainTemplate = tt.template
 			ctx = config.ToContext(ctx, cfg)
+
+			if tt.local {
+				route.ObjectMeta.Labels[config.VisibilityLabelKey] = config.VisibilityClusterLocal
+			} else {
+				delete(route.ObjectMeta.Labels, config.VisibilityLabelKey)
+			}
 
 			got, err := DomainNameFromTemplate(ctx, route, tt.args.name)
 			if (err != nil) != tt.wantErr {
