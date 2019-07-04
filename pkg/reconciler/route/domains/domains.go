@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"text/template"
 
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/network"
@@ -53,7 +54,8 @@ func GetAllDomainsAndTags(ctx context.Context, r *v1alpha1.Route, names []string
 // name is the "subdomain" which will be referred as the "name" in the template
 func DomainNameFromTemplate(ctx context.Context, r *v1alpha1.Route, name string) (string, error) {
 	domainConfig := config.FromContext(ctx).Domain
-	domain := domainConfig.LookupDomainForLabels(r.ObjectMeta.Labels)
+	rLabels := r.ObjectMeta.Labels
+	domain := domainConfig.LookupDomainForLabels(rLabels)
 	annotations := r.ObjectMeta.Annotations
 	// These are the available properties they can choose from.
 	// We could add more over time - e.g. RevisionName if we thought that
@@ -67,7 +69,18 @@ func DomainNameFromTemplate(ctx context.Context, r *v1alpha1.Route, name string)
 
 	networkConfig := config.FromContext(ctx).Network
 	buf := bytes.Buffer{}
-	if err := networkConfig.GetDomainTemplate().Execute(&buf, data); err != nil {
+
+	var templ *template.Template
+	// If the route is "cluster local" then don't use the user-defined
+	// domain template, use the default one
+	if rLabels[config.VisibilityLabelKey] == config.VisibilityClusterLocal {
+		templ = template.Must(template.New("domain-template").Parse(
+			network.DefaultDomainTemplate))
+	} else {
+		templ = networkConfig.GetDomainTemplate()
+	}
+
+	if err := templ.Execute(&buf, data); err != nil {
 		return "", fmt.Errorf("error executing the DomainTemplate: %v", err)
 	}
 	return buf.String(), nil
