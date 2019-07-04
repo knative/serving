@@ -52,7 +52,6 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/clock"
 	kubeinformers "k8s.io/client-go/informers"
 	corev1informers "k8s.io/client-go/informers/core/v1"
 	kubefake "k8s.io/client-go/kubernetes/fake"
@@ -848,34 +847,19 @@ func rtFact(rt http.RoundTripper) func() http.RoundTripper {
 }
 
 func TestProbeCache(t *testing.T) {
-	tS := time.Now()
 	cache := &probeCache{
-		probes: map[string]time.Time{},
-		clock:  clock.NewFakeClock(tS),
+		probes: map[activator.RevisionID]bool{},
 	}
-	const url = "totes.probes.svc"
-	cache.mark(url)
-
-	// Check at the same time.
-	if cache.should(url) {
+	revID := activator.RevisionID{}
+	if !cache.should(revID) {
 		t.Error("should returned true")
 	}
-	cache.clock = clock.NewFakeClock(tS.Add(time.Second))
-	// Now one more second passed.
-	if cache.should(url) {
-		t.Error("should returned true")
-	}
-
-	cache.clock = clock.NewFakeClock(tS.Add(-probeCacheTimout + time.Millisecond))
-	// Now timeout passed.
-	if !cache.should(url) {
+	cache.mark(revID)
+	if cache.should(revID) {
 		t.Error("should returned false")
 	}
-	// Now update.
-	cache.mark(url)
-
-	// And check.
-	if cache.should(url) {
+	cache.unmark(revID)
+	if !cache.should(revID) {
 		t.Error("should returned true")
 	}
 }

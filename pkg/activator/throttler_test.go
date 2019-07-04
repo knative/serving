@@ -256,7 +256,12 @@ func TestThrottlerTry(t *testing.T) {
 				initCapacity)
 
 			if s.addCapacity {
-				throttler.UpdateCapacity(revID, 1)
+				// If we had success updating the capacity > 0, check that it's properly returned.
+				if throttler.UpdateCapacity(revID, 1) == nil {
+					if got, want := throttler.GetRevisionCapacity(revID), 1*10; got != want {
+						t.Errorf("Breaker Capacity = %d, want: %d", got, want)
+					}
+				}
 			}
 			err := throttler.Try(context.Background(), revID, func() {
 				called++
