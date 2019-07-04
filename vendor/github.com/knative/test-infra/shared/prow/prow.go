@@ -280,7 +280,7 @@ func (b *Build) GetFinishTime() (int64, error) {
 
 // GetArtifacts gets gcs path for all artifacts of current build
 func (b *Build) GetArtifacts() []string {
-	return gcs.ListDirectChildren(ctx, BucketName, b.GetArtifactsDir())
+	return gcs.ListChildrenFiles(ctx, BucketName, b.GetArtifactsDir())
 }
 
 // GetArtifactsDir gets gcs path for artifacts of current build
