@@ -53,7 +53,7 @@ const (
 	reenqeuePeriod = 1 * time.Second
 )
 
-var probeOptions = []interface{} {
+var probeOptions = []interface{}{
 	prober.WithHeader(network.ProbeHeaderName, activator.Name),
 	prober.ExpectsBody(activator.Name),
 }
