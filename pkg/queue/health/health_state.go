@@ -81,10 +81,11 @@ func (h *State) drainFinished() {
 
 }
 
-// HealthHandlerKProbe constructs a handler that returns the current state of
-// the health server. After coming alive, will return success automatically
-// until receiving shutdown call, without checking prober again.
-func (h *State) HealthHandlerKProbe(prober func() bool) func(w http.ResponseWriter, r *http.Request) {
+// HealthHandler constructs a handler that returns the current state of the
+// health server. If isKProbe is true and prober has succeeded previously,
+// will immediately return success without probing user-container again (until
+// shutdown).
+func (h *State) HealthHandler(prober func() bool, isKProbe bool) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		sendAlive := func() {
 			io.WriteString(w, "alive: true")
@@ -96,7 +97,7 @@ func (h *State) HealthHandlerKProbe(prober func() bool) func(w http.ResponseWrit
 		}
 
 		switch {
-		case h.IsAlive():
+		case isKProbe && h.IsAlive():
 			sendAlive()
 		case h.IsShuttingDown():
 			sendNotAlive()
@@ -104,32 +105,6 @@ func (h *State) HealthHandlerKProbe(prober func() bool) func(w http.ResponseWrit
 			sendNotAlive()
 		default:
 			h.setAlive()
-			sendAlive()
-		}
-	}
-}
-
-// HealthHandler constructs a handler that returns the current state of
-// the health server.
-func (h *State) HealthHandler(prober func() bool) func(w http.ResponseWriter, r *http.Request) {
-	return func(w http.ResponseWriter, r *http.Request) {
-		sendAlive := func() {
-			io.WriteString(w, "alive: true")
-		}
-
-		sendNotAlive := func() {
-			w.WriteHeader(http.StatusBadRequest)
-			io.WriteString(w, "alive: false")
-		}
-
-		switch {
-		case h.IsShuttingDown():
-			sendNotAlive()
-		case prober == nil:
-			sendAlive()
-		case !prober():
-			sendNotAlive()
-		default:
 			sendAlive()
 		}
 	}

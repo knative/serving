@@ -28,7 +28,7 @@ import (
 )
 
 const (
-	defaultProbeTimeout = 100 * time.Millisecond
+	kProbeTimeout = 100 * time.Millisecond
 	// Set equal to the queue-proxy's ExecProbe timeout to take
 	// advantage of the full window
 	PollTimeout   = 10 * time.Second
@@ -50,9 +50,9 @@ func NewProbe(v1p *corev1.Probe, logger *zap.SugaredLogger) *Probe {
 	}
 }
 
-// IsStandardProbe function checks if default probe should be used or custom
-func (p *Probe) IsStandardProbe() bool {
-	return p.PeriodSeconds != 0
+// IsKProbe indicates whether the default Knative probe with aggresive retries should be used.
+func (p *Probe) IsKProbe() bool {
+	return p.PeriodSeconds == 0
 }
 
 // ProbeContainer executes the defined Probe against the user-container
@@ -82,10 +82,10 @@ func (p *Probe) ProbeContainer() bool {
 }
 
 func (p *Probe) timeout() time.Duration {
-	if p.IsStandardProbe() {
-		return time.Duration(p.TimeoutSeconds) * time.Second
+	if p.IsKProbe() {
+		return kProbeTimeout
 	}
-	return defaultProbeTimeout
+	return time.Duration(p.TimeoutSeconds) * time.Second
 }
 
 // tcpProbe function executes TCP probe once if its standard probe
@@ -96,7 +96,7 @@ func (p *Probe) tcpProbe() error {
 		Address:       fmt.Sprintf("%s:%d", p.TCPSocket.Host, p.TCPSocket.Port.IntValue()),
 		SocketTimeout: p.timeout(),
 	}
-	if p.IsStandardProbe() {
+	if !p.IsKProbe() {
 		return health.TCPProbe(config)
 	}
 
@@ -118,7 +118,7 @@ func (p *Probe) httpProbe() error {
 		HTTPGetAction: p.HTTPGet,
 		Timeout:       p.timeout(),
 	}
-	if p.IsStandardProbe() {
+	if !p.IsKProbe() {
 		return health.HTTPProbe(httpProbeConfig)
 	}
 

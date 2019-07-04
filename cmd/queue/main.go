@@ -82,6 +82,10 @@ const (
 	healthURLTemplate = "http://127.0.0.1:%d" + requestQueueHealthPath
 	// defaultProbeTimeout is the default duration for TCP/HTTP probe timeout.
 	defaultProbeTimeout = 100 * time.Millisecond
+	// The 25 millisecond retry interval is an unscientific compromise between wanting to get
+	// started as early as possible while still wanting to give the container some breathing
+	// room to get up and running.
+	kProbePollInterval = 25 * time.Millisecond
 )
 
 var (
@@ -252,21 +256,17 @@ func handler(reqChan chan queue.ReqEvent, breaker *queue.Breaker, handler http.H
 func createAdminHandlers(p *readiness.Probe) *http.ServeMux {
 	mux := http.NewServeMux()
 
-	if p.IsStandardProbe() {
-		mux.HandleFunc(requestQueueHealthPath, healthState.HealthHandler(p.ProbeContainer))
-	} else {
-		mux.HandleFunc(requestQueueHealthPath, healthState.HealthHandlerKProbe(p.ProbeContainer))
-	}
+	mux.HandleFunc(requestQueueHealthPath, healthState.HealthHandler(p.ProbeContainer, p.IsKProbe()))
 	mux.HandleFunc(queue.RequestQueueDrainPath, healthState.DrainHandler())
 
 	return mux
 }
 
-func probeQueueHealthPath(port int, timeout int) error {
+func probeQueueHealthPath(port int, timeoutSeconds int) error {
 	url := fmt.Sprintf(healthURLTemplate, port)
 
-	// use aggressive retries
-	if timeout == 0 {
+	// Use aggressive sub-second retries.
+	if timeoutSeconds == 0 {
 		return knativeProbe(url)
 	}
 
@@ -275,7 +275,7 @@ func probeQueueHealthPath(port int, timeout int) error {
 			// Do not use the cached connection
 			DisableKeepAlives: true,
 		},
-		Timeout: time.Duration(timeout) * time.Second,
+		Timeout: time.Duration(timeoutSeconds) * time.Second,
 	}
 
 	res, err := httpClient.Get(url)
@@ -301,10 +301,7 @@ func knativeProbe(url string) error {
 
 	var lastErr error
 
-	// The 25 millisecond retry interval is an unscientific compromise between wanting to get
-	// started as early as possible while still wanting to give the container some breathing
-	// room to get up and running.
-	timeoutErr := wait.PollImmediate(25*time.Millisecond, readiness.PollTimeout, func() (bool, error) {
+	timeoutErr := wait.PollImmediate(kProbePollInterval, readiness.PollTimeout, func() (bool, error) {
 		var res *http.Response
 		if res, lastErr = httpClient.Get(url); res == nil {
 			return false, nil
@@ -325,7 +322,7 @@ func knativeProbe(url string) error {
 	return nil
 }
 
-// parseProbe takes a json serialised *corev1.Probe and returns a Probe or an error
+// parseProbe takes a json serialised *corev1.Probe and returns a Probe or an error.
 func parseProbe(ucProbe string) (*corev1.Probe, error) {
 	p := &corev1.Probe{}
 	err := json.Unmarshal([]byte(ucProbe), p)
@@ -397,7 +394,7 @@ func main() {
 
 	coreProbe, err := parseProbe(*ucProbe)
 	if err != nil {
-		logger.Fatalf("Queue container failed to parse readiness probe %#v", err)
+		logger.Fatalw("Queue container failed to parse readiness probe", zap.Error(err))
 	}
 
 	rp := readiness.NewProbe(coreProbe, logger.With(zap.String(logkey.Key, "readinessProbe")))

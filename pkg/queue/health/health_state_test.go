@@ -64,100 +64,85 @@ func TestHealthStateSetsState(t *testing.T) {
 	wantShuttingDown()
 }
 
-func TestHealthStateHealthHandlerKProbe(t *testing.T) {
-	tests := []struct {
-		name       string
-		state      *State
-		prober     func() bool
-		wantStatus int
-		wantBody   string
-	}{{
-		name:       "alive: true",
-		state:      &State{alive: true},
-		wantStatus: http.StatusOK,
-		wantBody:   aliveBody,
-	}, {
-		name:       "alive: false, prober: true",
-		state:      &State{alive: false},
-		prober:     func() bool { return true },
-		wantStatus: http.StatusOK,
-		wantBody:   aliveBody,
-	}, {
-		name:       "alive: false, prober: false",
-		state:      &State{alive: false},
-		prober:     func() bool { return false },
-		wantStatus: http.StatusBadRequest,
-		wantBody:   notAliveBody,
-	}, {
-		name:       "alive: false, no prober",
-		state:      &State{alive: false},
-		wantStatus: http.StatusOK,
-		wantBody:   aliveBody,
-	}, {
-		name:       "shuttingDown: true",
-		state:      &State{shuttingDown: true},
-		wantStatus: http.StatusBadRequest,
-		wantBody:   notAliveBody,
-	}}
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			req, err := http.NewRequest(http.MethodGet, "/", nil)
-			if err != nil {
-				t.Fatal(err)
-			}
-
-			rr := httptest.NewRecorder()
-			handler := http.HandlerFunc(test.state.HealthHandlerKProbe(test.prober))
-
-			handler.ServeHTTP(rr, req)
-
-			if rr.Code != test.wantStatus {
-				t.Errorf("handler returned wrong status code: got %v want %v",
-					rr.Code, test.wantStatus)
-			}
-
-			if rr.Body.String() != test.wantBody {
-				t.Errorf("handler returned unexpected body: got %v want %v",
-					rr.Body.String(), test.wantBody)
-			}
-		})
-	}
-}
-
 func TestHealthStateHealthHandler(t *testing.T) {
 	tests := []struct {
 		name       string
 		state      *State
 		prober     func() bool
+		isKProbe   bool
 		wantStatus int
 		wantBody   string
 	}{{
+		name:       "alive: true, K-Probe",
+		state:      &State{alive: true},
+		isKProbe:   true,
+		wantStatus: http.StatusOK,
+		wantBody:   aliveBody,
+	}, {
+		name:       "alive: false, prober: true, K-Probe",
+		state:      &State{alive: false},
+		prober:     func() bool { return true },
+		isKProbe:   true,
+		wantStatus: http.StatusOK,
+		wantBody:   aliveBody,
+	}, {
+		name:       "alive: false, prober: false, K-Probe",
+		state:      &State{alive: false},
+		prober:     func() bool { return false },
+		isKProbe:   true,
+		wantStatus: http.StatusBadRequest,
+		wantBody:   notAliveBody,
+	}, {
+		name:       "alive: false, no prober, K-Probe",
+		state:      &State{alive: false},
+		isKProbe:   true,
+		wantStatus: http.StatusOK,
+		wantBody:   aliveBody,
+	}, {
+		name:       "shuttingDown: true, K-Probe",
+		state:      &State{shuttingDown: true},
+		isKProbe:   true,
+		wantStatus: http.StatusBadRequest,
+		wantBody:   notAliveBody,
+	}, {
 		name:       "no prober, shuttingDown: false",
 		state:      &State{},
+		isKProbe:   false,
 		wantStatus: http.StatusOK,
 		wantBody:   aliveBody,
 	}, {
 		name:       "prober: true, shuttingDown: true",
 		state:      &State{shuttingDown: true},
 		prober:     func() bool { return true },
+		isKProbe:   false,
 		wantStatus: http.StatusBadRequest,
 		wantBody:   notAliveBody,
 	}, {
 		name:       "prober: true, shuttingDown: false",
 		state:      &State{},
 		prober:     func() bool { return true },
+		isKProbe:   false,
 		wantStatus: http.StatusOK,
 		wantBody:   aliveBody,
 	}, {
 		name:       "prober: false, shuttingDown: false",
 		state:      &State{},
 		prober:     func() bool { return false },
+		isKProbe:   false,
 		wantStatus: http.StatusBadRequest,
 		wantBody:   notAliveBody,
 	}, {
 		name:       "prober: false, shuttingDown: true",
 		state:      &State{},
 		prober:     func() bool { return false },
+		isKProbe:   false,
+		wantStatus: http.StatusBadRequest,
+		wantBody:   notAliveBody,
+	}, {
+		name:       "alive: true, prober: false, shuttingDown: false",
+		state:      &State{alive: true},
+		prober:     func() bool { return false },
+		isKProbe:   false,
 		wantStatus: http.StatusBadRequest,
 		wantBody:   notAliveBody,
 	}}
@@ -169,7 +154,7 @@ func TestHealthStateHealthHandler(t *testing.T) {
 			}
 
 			rr := httptest.NewRecorder()
-			handler := http.HandlerFunc(test.state.HealthHandler(test.prober))
+			handler := http.HandlerFunc(test.state.HealthHandler(test.prober, test.isKProbe))
 
 			handler.ServeHTTP(rr, req)
 
