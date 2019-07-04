@@ -135,21 +135,22 @@ func routeDomains(ctx context.Context, targetName string, r *servingv1alpha1.Rou
 	}
 
 	meta := r.ObjectMeta.DeepCopy()
-	labels.SetVisibility(meta, isClusterLocal)
-
-	fullName, err := domains.DomainNameFromTemplate(ctx, *meta, hostname)
+	labels.SetVisibility(meta, true)
+	clusterLocalName, err := domains.DomainNameFromTemplate(ctx, *meta, hostname)
 	if err != nil {
 		return nil, err
 	}
+	ruleDomains := []string{clusterLocalName}
 
-	ruleDomains := []string{fullName}
+	if !isClusterLocal {
+		labels.SetVisibility(meta, false)
+		fullName, err := domains.DomainNameFromTemplate(ctx, *meta, hostname)
+		if err != nil {
+			return nil, err
+		}
 
-	if targetName == traffic.DefaultTarget {
-		// The default target is also referred to by its internal K8s
-		// generated domain name.
-		internalHost := names.K8sServiceFullname(r)
-		if internalHost != "" && ruleDomains[0] != internalHost {
-			ruleDomains = append(ruleDomains, internalHost)
+		if fullName != clusterLocalName {
+			ruleDomains = append(ruleDomains, fullName)
 		}
 	}
 

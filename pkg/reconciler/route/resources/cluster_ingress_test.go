@@ -122,8 +122,8 @@ func TestMakeClusterIngressSpec_CorrectRules(t *testing.T) {
 
 	expected := []netv1alpha1.IngressRule{{
 		Hosts: []string{
-			"test-route.test-ns.example.com",
 			"test-route.test-ns.svc.cluster.local",
+			"test-route.test-ns.example.com",
 		},
 		HTTP: &netv1alpha1.HTTPIngressRuleValue{
 			Paths: []netv1alpha1.HTTPIngressPath{{
@@ -144,6 +144,7 @@ func TestMakeClusterIngressSpec_CorrectRules(t *testing.T) {
 		Visibility: netv1alpha1.IngressVisibilityExternalIP,
 	}, {
 		Hosts: []string{
+			"v1-test-route.test-ns.svc.cluster.local",
 			"v1-test-route.test-ns.example.com",
 		},
 		HTTP: &netv1alpha1.HTTPIngressRuleValue{
@@ -345,8 +346,8 @@ func TestGetRouteDomains_NamelessTargetDup(t *testing.T) {
 		},
 	}
 	expected := []string{
-		"test-route.test-ns.example.com",
 		"test-route.test-ns.svc.cluster.local",
+		"test-route.test-ns.example.com",
 	}
 	domains, err := routeDomains(getContext(), "", r, false)
 	if err != nil {
@@ -374,8 +375,8 @@ func TestGetRouteDomains_NamelessTarget(t *testing.T) {
 		},
 	}
 	expected := []string{
-		"test-route.test-ns.example.com",
 		"test-route.test-ns.svc.cluster.local",
+		"test-route.test-ns.example.com",
 	}
 	domains, err := routeDomains(getContext(), "", r, false)
 	if err != nil {
@@ -407,6 +408,7 @@ func TestGetRouteDomains_NamedTarget(t *testing.T) {
 		},
 	}
 	expected := []string{
+		"v1-test-route.test-ns.svc.cluster.local",
 		"v1-test-route.test-ns.example.com",
 	}
 	domains, err := routeDomains(getContext(), name, r, false)

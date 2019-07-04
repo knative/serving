@@ -292,8 +292,8 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 		TLS:        []netv1alpha1.IngressTLS{},
 		Rules: []netv1alpha1.IngressRule{{
 			Hosts: []string{
-				domain,
 				"test-route.test.svc.cluster.local",
+				domain,
 			},
 			HTTP: &netv1alpha1.HTTPIngressRuleValue{
 				Paths: []netv1alpha1.HTTPIngressPath{{
@@ -397,8 +397,8 @@ func TestCreateRouteWithMultipleTargets(t *testing.T) {
 		TLS:        []netv1alpha1.IngressTLS{},
 		Rules: []netv1alpha1.IngressRule{{
 			Hosts: []string{
-				domain,
 				"test-route.test.svc.cluster.local",
+				domain,
 			},
 			HTTP: &netv1alpha1.HTTPIngressRuleValue{
 				Paths: []netv1alpha1.HTTPIngressPath{{
@@ -482,8 +482,8 @@ func TestCreateRouteWithOneTargetReserve(t *testing.T) {
 		TLS:        []netv1alpha1.IngressTLS{},
 		Rules: []netv1alpha1.IngressRule{{
 			Hosts: []string{
-				domain,
 				"test-route.test.svc.cluster.local",
+				domain,
 			},
 			HTTP: &netv1alpha1.HTTPIngressRuleValue{
 				Paths: []netv1alpha1.HTTPIngressPath{{
@@ -591,8 +591,8 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 		TLS:        []netv1alpha1.IngressTLS{},
 		Rules: []netv1alpha1.IngressRule{{
 			Hosts: []string{
-				domain,
 				"test-route.test.svc.cluster.local",
+				domain,
 			},
 			HTTP: &netv1alpha1.HTTPIngressRuleValue{
 				Paths: []netv1alpha1.HTTPIngressPath{{
@@ -620,6 +620,7 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 			Visibility: netv1alpha1.IngressVisibilityExternalIP,
 		}, {
 			Hosts: []string{
+				"test-revision-1-test-route.test.svc.cluster.local",
 				"test-revision-1-test-route.test.test-domain.dev",
 			},
 			HTTP: &netv1alpha1.HTTPIngressRuleValue{
@@ -641,6 +642,7 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 			Visibility: netv1alpha1.IngressVisibilityExternalIP,
 		}, {
 			Hosts: []string{
+				"test-revision-2-test-route.test.svc.cluster.local",
 				"test-revision-2-test-route.test.test-domain.dev",
 			},
 			HTTP: &netv1alpha1.HTTPIngressRuleValue{
@@ -719,8 +721,8 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 		TLS:        []netv1alpha1.IngressTLS{},
 		Rules: []netv1alpha1.IngressRule{{
 			Hosts: []string{
-				domain,
 				"test-route.test.svc.cluster.local",
+				domain,
 			},
 			HTTP: &netv1alpha1.HTTPIngressRuleValue{
 				Paths: []netv1alpha1.HTTPIngressPath{{
@@ -748,6 +750,7 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 			Visibility: netv1alpha1.IngressVisibilityExternalIP,
 		}, {
 			Hosts: []string{
+				"bar-test-route.test.svc.cluster.local",
 				"bar-test-route.test.test-domain.dev",
 			},
 			HTTP: &netv1alpha1.HTTPIngressRuleValue{
@@ -769,6 +772,7 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 			Visibility: netv1alpha1.IngressVisibilityExternalIP,
 		}, {
 			Hosts: []string{
+				"foo-test-route.test.svc.cluster.local",
 				"foo-test-route.test.test-domain.dev",
 			},
 			HTTP: &netv1alpha1.HTTPIngressRuleValue{
