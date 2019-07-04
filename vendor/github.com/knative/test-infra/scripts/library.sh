@@ -517,7 +517,7 @@ function get_latest_knative_yaml_source() {
 # These MUST come last.
 
 readonly _TEST_INFRA_SCRIPTS_DIR="$(dirname $(get_canonical_path ${BASH_SOURCE[0]}))"
-readonly REPO_NAME_FORMATTED="Knative $(capitalize ${REPO_NAME//-/})"
+readonly REPO_NAME_FORMATTED="Knative $(capitalize ${REPO_NAME//-/ })"
 
 # Public latest nightly or release yaml files.
 readonly KNATIVE_SERVING_RELEASE="$(get_latest_knative_yaml_source "serving" "serving")"
