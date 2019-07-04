@@ -50,7 +50,7 @@ func NewProbe(v1p *corev1.Probe, logger *zap.SugaredLogger) *Probe {
 	}
 }
 
-// IsKProbe indicates whether the default Knative probe with aggresive retries should be used.
+// IsKProbe indicates whether the default Knative probe with aggressive retries should be used.
 func (p *Probe) IsKProbe() bool {
 	return p.PeriodSeconds == 0
 }
