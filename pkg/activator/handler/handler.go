@@ -22,6 +22,7 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"sync"
 	"time"
 
 	"go.opencensus.io/plugin/ochttp"
@@ -42,6 +43,7 @@ import (
 	"knative.dev/pkg/logging/logkey"
 
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/util/clock"
 	"k8s.io/apimachinery/pkg/util/wait"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 )
@@ -61,6 +63,38 @@ type activationHandler struct {
 	revisionLister servinglisters.RevisionLister
 	serviceLister  corev1listers.ServiceLister
 	sksLister      netlisters.ServerlessServiceLister
+
+	cache *probeCache
+}
+
+const probeCacheTimout = -5 * time.Second
+
+type probeCache struct {
+	mu     sync.RWMutex
+	clock  clock.Clock
+	probes map[string]time.Time
+}
+
+func newProbeCache() *probeCache {
+	return &probeCache{
+		probes: map[string]time.Time{},
+		clock:  &clock.RealClock{},
+	}
+}
+
+// should returns true if we should probe the URL.
+func (pc *probeCache) should(url string) bool {
+	pc.mu.RLock()
+	defer pc.mu.RUnlock()
+	v, ok := pc.probes[url]
+	return !ok || !v.After(pc.clock.Now().Add(probeCacheTimout))
+}
+
+// mark marks the url as been probed "now".
+func (pc *probeCache) mark(url string) {
+	pc.mu.Lock()
+	defer pc.mu.Unlock()
+	pc.probes[url] = pc.clock.Now()
 }
 
 // The default time we'll try to probe the revision for activation.
@@ -88,6 +122,7 @@ func New(l *zap.SugaredLogger, r activator.StatsReporter, t *activator.Throttler
 			}
 		},
 		endpointTimeout: defaulTimeout,
+		cache:           newProbeCache(),
 	}
 }
 
@@ -104,7 +139,15 @@ func (a *activationHandler) probeEndpoint(logger *zap.SugaredLogger, r *http.Req
 	var (
 		attempts int
 		st       = time.Now()
+		url      = target.String()
 	)
+	// This opputunistically caches the probes, so
+	// a few concurrent requests might result in concurrent probes
+	// but requests coming after won't.
+	if !a.cache.should(url) {
+		logger.Debug("%s has been probed recently enough", url)
+		return true, 0
+	}
 
 	reqCtx, probeSpan := trace.StartSpan(r.Context(), "probe")
 	defer func() {
@@ -117,7 +160,7 @@ func (a *activationHandler) probeEndpoint(logger *zap.SugaredLogger, r *http.Req
 		ret, err := prober.Do(
 			reqCtx,
 			a.probeTransportFactory(),
-			target.String(),
+			url,
 			prober.WithHeader(network.ProbeHeaderName, queue.Name),
 			prober.ExpectsBody(queue.Name),
 			withOrigProto(r))
@@ -129,6 +172,8 @@ func (a *activationHandler) probeEndpoint(logger *zap.SugaredLogger, r *http.Req
 			logger.Warn("Pod probe unsuccessful")
 			return false, nil
 		}
+		// Cache probe success.
+		a.cache.mark(url)
 		return true, nil
 	})
 	return (err == nil), attempts
