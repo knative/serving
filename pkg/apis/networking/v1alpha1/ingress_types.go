@@ -274,8 +274,17 @@ type IngressStatus struct {
 	duckv1beta1.Status `json:",inline"`
 
 	// LoadBalancer contains the current status of the load-balancer.
+	// This is to be superseded by the combination of `PublicLoadBalancer` and `PrivateLoadBalancer`
 	// +optional
 	LoadBalancer *LoadBalancerStatus `json:"loadBalancer,omitempty"`
+
+	// PublicLoadBalancer contains the current status of the load-balancer.
+	// +optional
+	PublicLoadBalancer *LoadBalancerStatus `json:"publicLoadBalancer,omitempty"`
+
+	// PrivateLoadBalancer contains the current status of the load-balancer.
+	// +optional
+	PrivateLoadBalancer *LoadBalancerStatus `json:"privateLoadBalancer,omitempty"`
 }
 
 // LoadBalancerStatus represents the status of a load-balancer.
