@@ -52,6 +52,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
 	kubeinformers "k8s.io/client-go/informers"
 	corev1informers "k8s.io/client-go/informers/core/v1"
 	kubefake "k8s.io/client-go/kubernetes/fake"
@@ -848,7 +849,7 @@ func rtFact(rt http.RoundTripper) func() http.RoundTripper {
 
 func TestProbeCache(t *testing.T) {
 	cache := &probeCache{
-		probes: map[activator.RevisionID]struct{}{},
+		probes: sets.NewString(),
 	}
 	revID := activator.RevisionID{}
 	if !cache.should(revID) {

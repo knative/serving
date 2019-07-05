@@ -43,6 +43,7 @@ import (
 	"knative.dev/pkg/logging/logkey"
 
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 )
@@ -68,12 +69,12 @@ type activationHandler struct {
 
 type probeCache struct {
 	mu     sync.RWMutex
-	probes map[activator.RevisionID]struct{}
+	probes sets.String
 }
 
 func newProbeCache() *probeCache {
 	return &probeCache{
-		probes: map[activator.RevisionID]struct{}{},
+		probes: sets.NewString(),
 	}
 }
 
@@ -81,22 +82,21 @@ func newProbeCache() *probeCache {
 func (pc *probeCache) should(revID activator.RevisionID) bool {
 	pc.mu.RLock()
 	defer pc.mu.RUnlock()
-	_, ok := pc.probes[revID]
-	return !ok
+	return !pc.probes.Has(revID.String())
 }
 
 // mark marks the revision as been probed.
 func (pc *probeCache) mark(revID activator.RevisionID) {
 	pc.mu.Lock()
 	defer pc.mu.Unlock()
-	pc.probes[revID] = struct{}{}
+	pc.probes.Insert(revID.String())
 }
 
 // unmark removes the probe cache entry for the revision.
 func (pc *probeCache) unmark(revID activator.RevisionID) {
 	pc.mu.Lock()
 	defer pc.mu.Unlock()
-	delete(pc.probes, revID)
+	pc.probes.Delete(revID.String())
 }
 
 // The default time we'll try to probe the revision for activation.
@@ -143,7 +143,8 @@ func (a *activationHandler) probeEndpoint(logger *zap.SugaredLogger, r *http.Req
 		st       = time.Now()
 		url      = target.String()
 	)
-	// This opputunistically caches the probes, so
+
+	// This opportunistically caches the probes, so
 	// a few concurrent requests might result in concurrent probes
 	// but requests coming after won't.
 	if !a.cache.should(revID) {
