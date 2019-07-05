@@ -147,7 +147,7 @@ func (r *reconciler) reconcilePublicService(ctx context.Context, sks *netv1alpha
 	sn := sks.Name
 	srv, err := r.serviceLister.Services(sks.Namespace).Get(sn)
 	if errors.IsNotFound(err) {
-		logger.Infof("K8s service %s does not exist; creating.", sn)
+		logger.Infof("K8s public service %s does not exist; creating.", sn)
 		// We've just created the service, so it has no endpoints.
 		sks.Status.MarkEndpointsNotReady("CreatingPublicService")
 		srv = resources.MakePublicService(sks)
@@ -156,7 +156,7 @@ func (r *reconciler) reconcilePublicService(ctx context.Context, sks *netv1alpha
 			logger.Errorw(fmt.Sprint("Error creating K8s Service:", sn), zap.Error(err))
 			return err
 		}
-		logger.Info("Created K8s service: ", sn)
+		logger.Info("Created public K8s service: ", sn)
 	} else if err != nil {
 		logger.Errorw(fmt.Sprint("Error getting K8s Service:", sn), zap.Error(err))
 		return err
@@ -187,16 +187,27 @@ func (r *reconciler) reconcilePublicEndpoints(ctx context.Context, sks *netv1alp
 
 	var (
 		srcEps                *corev1.Endpoints
-		activatorEps          *corev1.Endpoints
-		err                   error
 		foundServingEndpoints bool
 	)
-	activatorEps, err = r.endpointsLister.Endpoints(system.Namespace()).Get(activator.K8sServiceName)
+	activatorEps, err := r.endpointsLister.Endpoints(system.Namespace()).Get(activator.K8sServiceName)
 	if err != nil {
 		logger.Errorw("Error obtaining activator service endpoints", zap.Error(err))
 		return err
 	}
 	logger.Debugf("Activator endpoints: %s", spew.Sprint(activatorEps))
+
+	psn := sks.Status.PrivateServiceName
+	pvtEps, err := r.endpointsLister.Endpoints(sks.Namespace).Get(psn)
+	if err != nil {
+		logger.Errorw(fmt.Sprintf("Error obtaining private service endpoints: %s", psn), zap.Error(err))
+		return err
+	}
+	// We still might be "ready" even if in proxy mode,
+	// if proxy mode is by means of burst capacity handling.
+	pvtReady := presources.ReadyAddressCount(pvtEps)
+	if pvtReady > 0 {
+		foundServingEndpoints = true
+	}
 
 	// The logic below is as follows:
 	// if mode == serve:
@@ -213,18 +224,14 @@ func (r *reconciler) reconcilePublicEndpoints(ctx context.Context, sks *netv1alp
 	case netv1alpha1.SKSOperationModeServe:
 		// We should have successfully reconciled the private service if we're here
 		// which means that we'd have the name assigned in Status.
-		psn := sks.Status.PrivateServiceName
-		srcEps, err = r.endpointsLister.Endpoints(sks.Namespace).Get(sks.Status.PrivateServiceName)
-		if err != nil {
-			logger.Errorw(fmt.Sprintf("Error obtaining private service endpoints: %s", psn), zap.Error(err))
-			return err
-		}
-		logger.Debugf("Private endpoints: %s", spew.Sprint(srcEps))
-		if r := presources.ReadyAddressCount(srcEps); r == 0 {
+		logger.Debugf("Private endpoints: %s", spew.Sprint(pvtEps))
+		// Serving but no ready endpoints.
+		if pvtReady == 0 {
 			logger.Infof("%s is in mode Serve but has no endpoints, using Activator endpoints for now", psn)
 			srcEps = activatorEps
 		} else {
-			foundServingEndpoints = true
+			// Serving & have endpoints ready.
+			srcEps = pvtEps
 		}
 	case netv1alpha1.SKSOperationModeProxy:
 		srcEps = activatorEps
