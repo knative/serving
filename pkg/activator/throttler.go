@@ -50,7 +50,7 @@ var ErrActivatorOverload = errors.New("activator overload")
 // It enables the use case to start with max concurrency set to 0 (no requests are sent because no endpoints are available)
 // and gradually increase its value depending on the external condition (e.g. new endpoints become available)
 type Throttler struct {
-	breakersMux sync.Mutex
+	breakersMux sync.RWMutex
 	breakers    map[RevisionID]*queue.Breaker
 
 	breakerParams   queue.BreakerParams
@@ -197,6 +197,17 @@ func (t *Throttler) getOrCreateBreaker(rev RevisionID) (*queue.Breaker, bool) {
 		t.breakers[rev] = breaker
 	}
 	return breaker, ok
+}
+
+// GetRevisionCapacity returns the capacity for the revision.
+func (t *Throttler) GetRevisionCapacity(rev RevisionID) int {
+	t.breakersMux.RLock()
+	defer t.breakersMux.RUnlock()
+	b, ok := t.breakers[rev]
+	if !ok {
+		return 0
+	}
+	return b.Capacity()
 }
 
 // forceUpdateCapacity fetches the endpoints and updates the capacity of the newly created breaker.

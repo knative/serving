@@ -33,8 +33,6 @@ import (
 	zipkinreporter "github.com/openzipkin/zipkin-go/reporter"
 	reporterrecorder "github.com/openzipkin/zipkin-go/reporter/recorder"
 
-	. "knative.dev/pkg/logging/testing"
-	_ "knative.dev/pkg/system/testing"
 	"github.com/knative/serving/pkg/activator"
 	activatortest "github.com/knative/serving/pkg/activator/testing"
 	nv1a1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
@@ -49,9 +47,12 @@ import (
 	"github.com/knative/serving/pkg/queue"
 	"github.com/knative/serving/pkg/tracing"
 	tracingconfig "github.com/knative/serving/pkg/tracing/config"
+	. "knative.dev/pkg/logging/testing"
+	_ "knative.dev/pkg/system/testing"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
 	kubeinformers "k8s.io/client-go/informers"
 	corev1informers "k8s.io/client-go/informers/core/v1"
 	kubefake "k8s.io/client-go/kubernetes/fake"
@@ -369,14 +370,14 @@ func TestActivationHandlerOverflow(t *testing.T) {
 	revName := testRevName
 
 	lockerCh := make(chan struct{})
-	fakeRt := activatortest.FakeRoundTripper{
+	fakeRT := activatortest.FakeRoundTripper{
 		LockerCh: lockerCh,
 		RequestResponse: &activatortest.FakeResponse{
 			Code: http.StatusOK,
 			Body: wantBody,
 		},
 	}
-	rt := network.RoundTripperFunc(fakeRt.RT)
+	rt := network.RoundTripperFunc(fakeRT.RT)
 
 	breakerParams := queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}
 	reporter := &fakeReporter{}
@@ -398,8 +399,13 @@ func TestActivationHandlerOverflow(t *testing.T) {
 	handler.transport = rt
 	handler.probeTransportFactory = rtFact(rt)
 
-	sendRequests(requests, namespace, revName, respCh, *handler)
+	sendRequests(requests, namespace, revName, respCh, handler)
 	assertResponses(wantedSuccess, wantedFailure, requests, lockerCh, respCh, t)
+	// Verify that only some of them did probe. Manual testing shows numbers in the 1-3 range
+	// but to be sure, let's presume one third.
+	if got, want := fakeRT.NumProbes, int32(requests/3); got >= want {
+		t.Errorf("num probes = %d, expect at most: %d", got, want)
+	}
 }
 
 // Make sure if one breaker is overflowed, the requests to other revisions are still served
@@ -444,9 +450,18 @@ func TestActivationHandlerOverflowSeveralRevisions(t *testing.T) {
 
 	for _, revName := range revisions {
 		requestCount := overallRequests / len(revisions)
-		sendRequests(requestCount, testNamespace, revName, respCh, *handler)
+		sendRequests(requestCount, testNamespace, revName, respCh, handler)
 	}
 	assertResponses(wantedSuccess, wantedFailure, overallRequests, lockerCh, respCh, t)
+
+	// Verify that only some of them did probe for each of revisions.
+	if got, want := fakeRT.NumProbes, int32(overallRequests/3); got >= want {
+		t.Errorf("num probes = %d, expect at most: %d", got, want)
+	}
+	// Verify cache size.
+	if got, want := len(handler.cache.probes), 2; got != want {
+		t.Errorf("ProbeCacheSize = %d, want: %d", got, want)
+	}
 }
 
 func TestActivationHandlerProxyHeader(t *testing.T) {
@@ -475,7 +490,7 @@ func TestActivationHandlerProxyHeader(t *testing.T) {
 	}
 	probeRt := network.RoundTripperFunc(fakeRT.RT)
 
-	handler := activationHandler{
+	handler := &activationHandler{
 		transport:             rt,
 		probeTransportFactory: rtFact(probeRt),
 		logger:                TestLogger(t),
@@ -484,6 +499,7 @@ func TestActivationHandlerProxyHeader(t *testing.T) {
 		revisionLister:        revisionLister(revision(testNamespace, testRevName)),
 		serviceLister:         serviceLister(service(testNamespace, testRevName, "http")),
 		sksLister:             sksLister(sks(testNamespace, testRevName)),
+		cache:                 newProbeCache(),
 	}
 
 	writer := httptest.NewRecorder()
@@ -541,7 +557,7 @@ func TestActivationHandlerTraceSpans(t *testing.T) {
 		revisionLister(revision(namespace, revName)),
 		TestLogger(t))
 
-	handler := activationHandler{
+	handler := &activationHandler{
 		transport:             rt,
 		probeTransportFactory: rtFact(rt),
 		logger:                TestLogger(t),
@@ -550,6 +566,7 @@ func TestActivationHandlerTraceSpans(t *testing.T) {
 		revisionLister:        revisionLister(revision(testNamespace, testRevName)),
 		serviceLister:         serviceLister(service(testNamespace, testRevName, "http")),
 		sksLister:             sksLister(sks(testNamespace, testRevName)),
+		cache:                 newProbeCache(),
 	}
 	handler.transport = rt
 	handler.probeTransportFactory = rtFact(rt)
@@ -568,7 +585,7 @@ func TestActivationHandlerTraceSpans(t *testing.T) {
 	}
 }
 
-func sendRequest(namespace, revName string, handler activationHandler) *httptest.ResponseRecorder {
+func sendRequest(namespace, revName string, handler *activationHandler) *httptest.ResponseRecorder {
 	resp := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
 	req.Header.Set(activator.RevisionHeaderNamespace, namespace)
@@ -579,7 +596,7 @@ func sendRequest(namespace, revName string, handler activationHandler) *httptest
 
 // sendRequests sends `count` concurrent requests via the given handler and writes
 // the recorded responses to the `respCh`.
-func sendRequests(count int, namespace, revName string, respCh chan *httptest.ResponseRecorder, handler activationHandler) {
+func sendRequests(count int, namespace, revName string, respCh chan *httptest.ResponseRecorder, handler *activationHandler) {
 	for i := 0; i < count; i++ {
 		go func() {
 			respCh <- sendRequest(namespace, revName, handler)
@@ -827,5 +844,23 @@ func errMsg(msg string) string {
 func rtFact(rt http.RoundTripper) func() http.RoundTripper {
 	return func() http.RoundTripper {
 		return rt
+	}
+}
+
+func TestProbeCache(t *testing.T) {
+	cache := &probeCache{
+		probes: sets.NewString(),
+	}
+	revID := activator.RevisionID{}
+	if !cache.should(revID) {
+		t.Error("should returned true")
+	}
+	cache.mark(revID)
+	if cache.should(revID) {
+		t.Error("should returned false")
+	}
+	cache.unmark(revID)
+	if !cache.should(revID) {
+		t.Error("should returned true")
 	}
 }
