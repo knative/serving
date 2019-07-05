@@ -19,13 +19,14 @@ package stats
 import (
 	"errors"
 	"fmt"
-	"go.opencensus.io/stats"
 	"testing"
 	"time"
 
-	"knative.dev/pkg/metrics/metricskey"
+	"go.opencensus.io/stats"
+
 	"go.opencensus.io/stats/view"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"knative.dev/pkg/metrics/metricskey"
 )
 
 const (

@@ -21,8 +21,8 @@ import (
 	"strconv"
 	"time"
 
-	"knative.dev/pkg/configmap"
 	corev1 "k8s.io/api/core/v1"
+	"knative.dev/pkg/configmap"
 )
 
 const (

@@ -17,9 +17,9 @@ import (
 	"context"
 	"net/http"
 
-	"knative.dev/pkg/signals"
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
+	"knative.dev/pkg/signals"
 )
 
 // HelloVolumePath is the path to the test volume.

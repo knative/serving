@@ -23,10 +23,10 @@ import (
 	"fmt"
 	"testing"
 
-	pkgTest "knative.dev/pkg/test"
-	"knative.dev/pkg/test/spoof"
 	"github.com/knative/serving/test"
 	v1b1test "github.com/knative/serving/test/v1beta1"
+	pkgTest "knative.dev/pkg/test"
+	"knative.dev/pkg/test/spoof"
 
 	rtesting "github.com/knative/serving/pkg/testing/v1beta1"
 )

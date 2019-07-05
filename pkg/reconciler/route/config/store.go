@@ -20,9 +20,9 @@ import (
 	"context"
 	"time"
 
-	"knative.dev/pkg/configmap"
 	"github.com/knative/serving/pkg/gc"
 	"github.com/knative/serving/pkg/network"
+	"knative.dev/pkg/configmap"
 )
 
 type cfgKey struct{}

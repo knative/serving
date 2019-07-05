@@ -20,9 +20,9 @@ import (
 	"strings"
 	"text/template"
 
-	"knative.dev/pkg/metrics"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
+	"knative.dev/pkg/metrics"
 )
 
 const (

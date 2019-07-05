@@ -25,8 +25,8 @@ import (
 
 	"k8s.io/apimachinery/pkg/util/wait"
 
-	"knative.dev/pkg/metrics/metricskey"
 	"go.opencensus.io/stats/view"
+	"knative.dev/pkg/metrics/metricskey"
 )
 
 func TestNewStatsReporterErrors(t *testing.T) {

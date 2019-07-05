@@ -24,22 +24,15 @@ import (
 	"time"
 
 	// Inject the informers this controller depends on.
-	_ "knative.dev/pkg/injection/informers/kubeinformers/corev1/service/fake"
 	fakeservingclient "github.com/knative/serving/pkg/client/injection/client/fake"
 	_ "github.com/knative/serving/pkg/client/injection/informers/networking/v1alpha1/certificate/fake"
 	fakeciinformer "github.com/knative/serving/pkg/client/injection/informers/networking/v1alpha1/clusteringress/fake"
 	fakecfginformer "github.com/knative/serving/pkg/client/injection/informers/serving/v1alpha1/configuration/fake"
 	fakerevisioninformer "github.com/knative/serving/pkg/client/injection/informers/serving/v1alpha1/revision/fake"
 	fakerouteinformer "github.com/knative/serving/pkg/client/injection/informers/serving/v1alpha1/route/fake"
+	_ "knative.dev/pkg/injection/informers/kubeinformers/corev1/service/fake"
 
 	"github.com/google/go-cmp/cmp"
-	"knative.dev/pkg/apis"
-	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
-	"knative.dev/pkg/configmap"
-	"knative.dev/pkg/controller"
-	ctrl "knative.dev/pkg/controller"
-	logtesting "knative.dev/pkg/logging/testing"
-	"knative.dev/pkg/system"
 	netv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
@@ -55,6 +48,13 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/tools/record"
+	"knative.dev/pkg/apis"
+	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
+	"knative.dev/pkg/configmap"
+	"knative.dev/pkg/controller"
+	ctrl "knative.dev/pkg/controller"
+	logtesting "knative.dev/pkg/logging/testing"
+	"knative.dev/pkg/system"
 
 	. "knative.dev/pkg/reconciler/testing"
 )

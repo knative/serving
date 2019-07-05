@@ -28,9 +28,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
-	"knative.dev/pkg/apis"
 	"github.com/knative/serving/pkg/apis/config"
 	"github.com/knative/serving/pkg/apis/serving/v1beta1"
+	"knative.dev/pkg/apis"
 )
 
 func TestConfigurationSpecValidation(t *testing.T) {

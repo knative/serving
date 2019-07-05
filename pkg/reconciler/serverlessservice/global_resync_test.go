@@ -23,21 +23,21 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
+	fakeservingclient "github.com/knative/serving/pkg/client/injection/client/fake"
 	fakedynamicclient "knative.dev/pkg/injection/clients/dynamicclient/fake"
 	fakekubeclient "knative.dev/pkg/injection/clients/kubeclient/fake"
-	fakeservingclient "github.com/knative/serving/pkg/client/injection/client/fake"
 
+	"github.com/knative/serving/pkg/activator"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	logtesting "knative.dev/pkg/logging/testing"
-	"github.com/knative/serving/pkg/activator"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
-	. "knative.dev/pkg/reconciler/testing"
 	. "github.com/knative/serving/pkg/reconciler/testing/v1alpha1"
 	. "github.com/knative/serving/pkg/testing"
+	. "knative.dev/pkg/reconciler/testing"
 )
 
 func TestGlobalResyncOnActivatorChange(t *testing.T) {

@@ -20,9 +20,9 @@ import (
 	"context"
 	"strconv"
 
-	"knative.dev/pkg/apis"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"knative.dev/pkg/apis"
 )
 
 // Validate inspects and validates Ingress object.
