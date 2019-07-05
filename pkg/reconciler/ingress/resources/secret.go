@@ -20,19 +20,19 @@ import (
 	"context"
 	"fmt"
 
-	"knative.dev/pkg/kmeta"
 	"github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
+	"knative.dev/pkg/kmeta"
 )
 
 // GetSecrets gets the all of the secrets referenced by the given ClusterIngress, and
 // returns a map whose key is the a secret namespace/name key and value is pointer of the secret.
-func GetSecrets(ci *v1alpha1.ClusterIngress, secretLister corev1listers.SecretLister) (map[string]*corev1.Secret, error) {
+func GetSecrets(ia v1alpha1.IngressAccessor, secretLister corev1listers.SecretLister) (map[string]*corev1.Secret, error) {
 	secrets := map[string]*corev1.Secret{}
-	for _, tls := range ci.Spec.TLS {
+	for _, tls := range ia.GetSpec().TLS {
 		ref := secretKey(tls)
 		if _, ok := secrets[ref]; ok {
 			continue
@@ -47,7 +47,7 @@ func GetSecrets(ci *v1alpha1.ClusterIngress, secretLister corev1listers.SecretLi
 }
 
 // MakeSecrets makes copies of the origin Secrets under the namespace of Istio gateway service.
-func MakeSecrets(ctx context.Context, originSecrets map[string]*corev1.Secret, ci *v1alpha1.ClusterIngress) []*corev1.Secret {
+func MakeSecrets(ctx context.Context, originSecrets map[string]*corev1.Secret, ia v1alpha1.IngressAccessor) []*corev1.Secret {
 	gatewaySvcNamespaces := getAllGatewaySvcNamespaces(ctx)
 	secrets := []*corev1.Secret{}
 	for _, originSecret := range originSecrets {
@@ -57,22 +57,22 @@ func MakeSecrets(ctx context.Context, originSecrets map[string]*corev1.Secret, c
 				// as the origin namespace
 				continue
 			}
-			secrets = append(secrets, makeSecret(originSecret, ns, ci))
+			secrets = append(secrets, makeSecret(originSecret, ns, ia))
 		}
 	}
 	return secrets
 }
 
-func makeSecret(originSecret *corev1.Secret, targetNamespace string, ci *v1alpha1.ClusterIngress) *corev1.Secret {
+func makeSecret(originSecret *corev1.Secret, targetNamespace string, ia v1alpha1.IngressAccessor) *corev1.Secret {
 	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      targetSecret(originSecret, ci),
+			Name:      targetSecret(originSecret, ia),
 			Namespace: targetNamespace,
 			Labels: map[string]string{
 				networking.OriginSecretNameLabelKey:      originSecret.Name,
 				networking.OriginSecretNamespaceLabelKey: originSecret.Namespace,
 			},
-			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(ci)},
+			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(ia)},
 		},
 		Data: originSecret.Data,
 		Type: originSecret.Type,
@@ -80,8 +80,8 @@ func makeSecret(originSecret *corev1.Secret, targetNamespace string, ci *v1alpha
 }
 
 // targetSecret returns the name of the Secret that is copied from the origin Secret.
-func targetSecret(originSecret *corev1.Secret, ci *v1alpha1.ClusterIngress) string {
-	return fmt.Sprintf("%s-%s", ci.Name, originSecret.UID)
+func targetSecret(originSecret *corev1.Secret, ia v1alpha1.IngressAccessor) string {
+	return fmt.Sprintf("%s-%s", ia.GetObjectMeta().GetName(), originSecret.UID)
 }
 
 // SecretRef returns the ObjectReference of a secret given the namespace and name of the secret.

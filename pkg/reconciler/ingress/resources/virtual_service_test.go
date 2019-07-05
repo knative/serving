@@ -21,17 +21,17 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
-	istiov1alpha1 "knative.dev/pkg/apis/istio/common/v1alpha1"
-	"knative.dev/pkg/apis/istio/v1alpha3"
-	"knative.dev/pkg/kmeta"
-	"knative.dev/pkg/system"
-	_ "knative.dev/pkg/system/testing"
 	apiconfig "github.com/knative/serving/pkg/apis/config"
 	"github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	istiov1alpha1 "knative.dev/pkg/apis/istio/common/v1alpha1"
+	"knative.dev/pkg/apis/istio/v1alpha3"
+	"knative.dev/pkg/kmeta"
+	"knative.dev/pkg/system"
+	_ "knative.dev/pkg/system/testing"
 )
 
 var (
@@ -94,6 +94,28 @@ func TestMakeVirtualServices_CorrectMetadata(t *testing.T) {
 				networking.ClusterIngressLabelKey: "test-ingress",
 				serving.RouteLabelKey:             "test-route",
 				serving.RouteNamespaceLabelKey:    "test-ns",
+			},
+		}},
+	}, {
+		name:     "mesh only with namespace",
+		gateways: nil,
+		ci: &v1alpha1.ClusterIngress{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-ingress",
+				Namespace: "test-ns",
+				Labels: map[string]string{
+					serving.RouteLabelKey:          "test-route",
+					serving.RouteNamespaceLabelKey: "test-ns",
+				},
+			},
+			Spec: v1alpha1.IngressSpec{},
+		},
+		expected: []metav1.ObjectMeta{{
+			Name:      "test-ingress-mesh",
+			Namespace: "test-ns",
+			Labels: map[string]string{
+				serving.RouteLabelKey:          "test-route",
+				serving.RouteNamespaceLabelKey: "test-ns",
 			},
 		}},
 	}} {

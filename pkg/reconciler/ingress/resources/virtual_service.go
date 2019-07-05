@@ -25,88 +25,94 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/sets"
 
-	istiov1alpha1 "knative.dev/pkg/apis/istio/common/v1alpha1"
-	"knative.dev/pkg/apis/istio/v1alpha3"
-	"knative.dev/pkg/kmeta"
-	"knative.dev/pkg/system"
 	"github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/network"
 	"github.com/knative/serving/pkg/reconciler/ingress/resources/names"
 	"github.com/knative/serving/pkg/resources"
+	istiov1alpha1 "knative.dev/pkg/apis/istio/common/v1alpha1"
+	"knative.dev/pkg/apis/istio/v1alpha3"
+	"knative.dev/pkg/kmeta"
+	"knative.dev/pkg/system"
 )
 
 // VirtualServiceNamespace gives the namespace of the child
 // VirtualServices for a given ClusterIngress.
-func VirtualServiceNamespace(_ *v1alpha1.ClusterIngress) string {
-	return system.Namespace()
+func VirtualServiceNamespace(ia v1alpha1.IngressAccessor) string {
+	if len(ia.GetNamespace()) == 0 {
+		return system.Namespace()
+	}
+	return ia.GetNamespace()
 }
 
 // MakeIngressVirtualService creates Istio VirtualService as network
 // programming for Istio Gateways other than 'mesh'.
-func MakeIngressVirtualService(ci *v1alpha1.ClusterIngress, gateways []string) *v1alpha3.VirtualService {
+func MakeIngressVirtualService(ia v1alpha1.IngressAccessor, gateways []string) *v1alpha3.VirtualService {
 	vs := &v1alpha3.VirtualService{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:            names.IngressVirtualService(ci),
-			Namespace:       VirtualServiceNamespace(ci),
-			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(ci)},
-			Annotations:     ci.ObjectMeta.Annotations,
+			Name:            names.IngressVirtualService(ia),
+			Namespace:       VirtualServiceNamespace(ia),
+			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(ia)},
+			Annotations:     ia.GetAnnotations(),
 		},
-		Spec: *makeVirtualServiceSpec(ci, gateways, expandedHosts(getHosts(ci))),
+		Spec: *makeVirtualServiceSpec(ia, gateways, expandedHosts(getHosts(ia))),
 	}
 
 	// Populate the ClusterIngress labels.
 	if vs.Labels == nil {
 		vs.Labels = make(map[string]string)
 	}
-	vs.Labels[networking.ClusterIngressLabelKey] = ci.Name
 
-	ingressLabels := ci.Labels
+	if len(ia.GetNamespace()) == 0 {
+		vs.Labels[networking.ClusterIngressLabelKey] = ia.GetName()
+	}
+
+	ingressLabels := ia.GetLabels()
 	vs.Labels[serving.RouteLabelKey] = ingressLabels[serving.RouteLabelKey]
 	vs.Labels[serving.RouteNamespaceLabelKey] = ingressLabels[serving.RouteNamespaceLabelKey]
 	return vs
 }
 
-// MakeMeshVirtualService creates Istio VirtualService as network
-// programming for Istio network mesh.
-func MakeMeshVirtualService(ci *v1alpha1.ClusterIngress) *v1alpha3.VirtualService {
+// MakeMeshVirtualService creates a mesh Virtual Service
+func MakeMeshVirtualService(ia v1alpha1.IngressAccessor) *v1alpha3.VirtualService {
 	vs := &v1alpha3.VirtualService{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:            names.MeshVirtualService(ci),
-			Namespace:       VirtualServiceNamespace(ci),
-			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(ci)},
-			Annotations:     ci.ObjectMeta.Annotations,
+			Name:            names.MeshVirtualService(ia),
+			Namespace:       VirtualServiceNamespace(ia),
+			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(ia)},
+			Annotations:     ia.GetAnnotations(),
 		},
-		Spec: *makeVirtualServiceSpec(ci, []string{"mesh"}, retainLocals(getHosts(ci))),
+		Spec: *makeVirtualServiceSpec(ia, []string{"mesh"}, retainLocals(getHosts(ia))),
 	}
 	// Populate the ClusterIngress labels.
-	vs.Labels = resources.UnionMaps(
-		resources.FilterMap(ci.Labels, func(k string) bool {
-			return k != serving.RouteLabelKey && k != serving.RouteNamespaceLabelKey
-		}),
-		map[string]string{networking.ClusterIngressLabelKey: ci.Name})
+
+	vs.Labels = resources.FilterMap(ia.GetLabels(), func(k string) bool {
+		return k != serving.RouteLabelKey && k != serving.RouteNamespaceLabelKey
+	})
+
+	if len(ia.GetNamespace()) == 0 {
+		vs.Labels[networking.ClusterIngressLabelKey] = ia.GetName()
+	}
+
 	return vs
 }
 
-// MakeVirtualServices creates Istio VirtualServices as network programming.
-//
-// These VirtualService specifies which Gateways and Hosts that it applies to,
-// as well as the routing rules.
-func MakeVirtualServices(ci *v1alpha1.ClusterIngress, gateways []string) []*v1alpha3.VirtualService {
-	vss := []*v1alpha3.VirtualService{MakeMeshVirtualService(ci)}
+// MakeVirtualServices creates a mesh virtualservice and a virtual service for each gateway
+func MakeVirtualServices(ia v1alpha1.IngressAccessor, gateways []string) []*v1alpha3.VirtualService {
+	vss := []*v1alpha3.VirtualService{MakeMeshVirtualService(ia)}
 	if len(gateways) > 0 {
-		vss = append(vss, MakeIngressVirtualService(ci, gateways))
+		vss = append(vss, MakeIngressVirtualService(ia, gateways))
 	}
 	return vss
 }
 
-func makeVirtualServiceSpec(ci *v1alpha1.ClusterIngress, gateways []string, hosts []string) *v1alpha3.VirtualServiceSpec {
+func makeVirtualServiceSpec(ia v1alpha1.IngressAccessor, gateways []string, hosts []string) *v1alpha3.VirtualServiceSpec {
 	spec := v1alpha3.VirtualServiceSpec{
 		Gateways: gateways,
 		Hosts:    hosts,
 	}
-	for _, rule := range ci.Spec.Rules {
+	for _, rule := range ia.GetSpec().Rules {
 		for _, p := range rule.HTTP.Paths {
 			hosts := intersect(rule.Hosts, hosts)
 			if len(hosts) != 0 {
@@ -242,9 +248,9 @@ func hostRegExp(host string) string {
 	return fmt.Sprintf("^%s%s$", regexp.QuoteMeta(host), portMatch)
 }
 
-func getHosts(ci *v1alpha1.ClusterIngress) []string {
-	hosts := make([]string, 0, len(ci.Spec.Rules))
-	for _, rule := range ci.Spec.Rules {
+func getHosts(ia v1alpha1.IngressAccessor) []string {
+	hosts := make([]string, 0, len(ia.GetSpec().Rules))
+	for _, rule := range ia.GetSpec().Rules {
 		hosts = append(hosts, rule.Hosts...)
 	}
 	return dedup(hosts)
