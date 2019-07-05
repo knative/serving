@@ -25,8 +25,8 @@ import (
 	"strings"
 	"testing"
 
-	pkgTest "knative.dev/pkg/test"
 	"github.com/knative/serving/test"
+	pkgTest "knative.dev/pkg/test"
 )
 
 const (
@@ -58,7 +58,7 @@ func TestMustHaveHeadersSet(t *testing.T) {
 		// We expect the forwarded header to be key-value pairs separated by commas and semi-colons, where
 		// the allowed keys are `for`, `by`, `proto` and `host` and values are loosely validated by shape.
 		// See https://tools.ietf.org/html/rfc7239#section-4 for the full syntax rules.
-		"forwarded": regexp.MustCompile(`((^|\s*[,;]\s*)((for|by)=("[^"]+"|[0-9.:]+)|proto=https?|host=[^",;]+))+$`),
+		"forwarded": &checkForwardedHeader{expected: "valid Forwarded header per RFC7239"},
 	}
 
 	headers := ri.Request.Headers
@@ -121,6 +121,50 @@ func (*checkIPList) MatchString(s string) bool {
 
 // String returns the expected string from the object.
 func (c *checkIPList) String() string {
+	return c.expected
+}
+
+type checkForwardedHeader struct {
+	expected string
+}
+
+// token as defined in https://tools.ietf.org/html/rfc7230#section-3.2.6
+var tokenMatcher = regexp.MustCompile(`^[0-9a-zA-Z!#$%&'*+-.^_|~]+$`)
+
+// approximation of quoted-string as defined in https://tools.ietf.org/html/rfc7230#section-3.2.6
+var quotedStringMatcher = regexp.MustCompile(`^"[^"]+"$`)
+
+func isDelimiter(r rune) bool {
+	return r == ';' || r == ','
+}
+
+// MatchString returns true if the passed string contains a roughly valid Forwarded header content.
+func (*checkForwardedHeader) MatchString(s string) bool {
+	for _, pair := range strings.FieldsFunc(s, isDelimiter) {
+		// Allow for a trailing delimiter. Some routers unfortunately do that.
+		if pair == "" {
+			continue
+		}
+		parts := strings.Split(strings.TrimSpace(pair), "=")
+		if len(parts) < 2 {
+			return false
+		}
+		token := parts[0]
+		value := parts[1]
+
+		if !tokenMatcher.MatchString(token) {
+			return false
+		}
+
+		if value != "" && !(tokenMatcher.MatchString(value) || quotedStringMatcher.MatchString(value)) {
+			return false
+		}
+	}
+	return true
+}
+
+// String returns the expected string from the object.
+func (c *checkForwardedHeader) String() string {
 	return c.expected
 }
 
