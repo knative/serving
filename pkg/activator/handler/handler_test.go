@@ -848,7 +848,7 @@ func rtFact(rt http.RoundTripper) func() http.RoundTripper {
 
 func TestProbeCache(t *testing.T) {
 	cache := &probeCache{
-		probes: map[activator.RevisionID]bool{},
+		probes: map[activator.RevisionID]struct{}{},
 	}
 	revID := activator.RevisionID{}
 	if !cache.should(revID) {

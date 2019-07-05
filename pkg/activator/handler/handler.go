@@ -68,12 +68,12 @@ type activationHandler struct {
 
 type probeCache struct {
 	mu     sync.RWMutex
-	probes map[activator.RevisionID]bool
+	probes map[activator.RevisionID]struct{}
 }
 
 func newProbeCache() *probeCache {
 	return &probeCache{
-		probes: map[activator.RevisionID]bool{},
+		probes: map[activator.RevisionID]struct{}{},
 	}
 }
 
@@ -89,7 +89,7 @@ func (pc *probeCache) should(revID activator.RevisionID) bool {
 func (pc *probeCache) mark(revID activator.RevisionID) {
 	pc.mu.Lock()
 	defer pc.mu.Unlock()
-	pc.probes[revID] = true
+	pc.probes[revID] = struct{}{}
 }
 
 // unmark removes the probe cache entry for the revision.
