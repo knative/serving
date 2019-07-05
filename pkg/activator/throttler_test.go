@@ -53,6 +53,7 @@ const (
 	testNamespace         = "good-namespace"
 	testRevision          = "good-name"
 	defaultMaxConcurrency = 1000
+	defaultConcurrency    = 10
 	initCapacity          = 0
 )
 
@@ -70,10 +71,10 @@ func TestThrottlerUpdateCapacity(t *testing.T) {
 		wantError      bool
 	}{{
 		label:          "all good",
-		revisionLister: revisionLister(testNamespace, testRevision, 10),
+		revisionLister: revisionLister(testNamespace, testRevision, defaultConcurrency),
 		numEndpoints:   1,
 		maxConcurrency: defaultMaxConcurrency,
-		want:           10,
+		want:           defaultConcurrency,
 	}, {
 		label:          "unlimited concurrency",
 		revisionLister: revisionLister(testNamespace, testRevision, 0),
@@ -82,14 +83,14 @@ func TestThrottlerUpdateCapacity(t *testing.T) {
 		want:           100,
 	}, {
 		label:          "non-existing revision",
-		revisionLister: revisionLister("bogus-namespace", testRevision, 10),
+		revisionLister: revisionLister("bogus-namespace", testRevision, defaultConcurrency),
 		numEndpoints:   1,
 		maxConcurrency: defaultMaxConcurrency,
 		want:           0,
 		wantError:      true,
 	}, {
 		label:          "exceeds maxConcurrency",
-		revisionLister: revisionLister(testNamespace, testRevision, 10),
+		revisionLister: revisionLister(testNamespace, testRevision, defaultConcurrency),
 		numEndpoints:   1,
 		maxConcurrency: 5,
 		want:           5,
@@ -161,7 +162,7 @@ func TestThrottlerActivatorEndpoints(t *testing.T) {
 	}{{
 		name:                "less activators, more cc",
 		activatorCount:      2,
-		revisionConcurrency: 10,
+		revisionConcurrency: defaultConcurrency,
 		wantCapacity:        5, //revConcurrency / activatorCount
 	}, {
 		name:                "many activators, less cc",
@@ -217,28 +218,28 @@ func TestThrottlerTry(t *testing.T) {
 	}{{
 		label:             "all good",
 		addCapacity:       true,
-		revisionLister:    revisionLister(testNamespace, testRevision, 10),
+		revisionLister:    revisionLister(testNamespace, testRevision, defaultConcurrency),
 		endpointsInformer: endpointsInformer(testNamespace, testRevision, 0),
 		sksLister:         sksLister(testNamespace, testRevision),
 		wantCalls:         1,
 	}, {
 		label:             "non-existing revision",
 		addCapacity:       true,
-		revisionLister:    revisionLister("bogus-namespace", testRevision, 10),
+		revisionLister:    revisionLister("bogus-namespace", testRevision, defaultConcurrency),
 		endpointsInformer: endpointsInformer(testNamespace, testRevision, 0),
 		sksLister:         sksLister(testNamespace, testRevision),
 		wantCalls:         0,
 		wantError:         true,
 	}, {
 		label:             "error getting SKS",
-		revisionLister:    revisionLister(testNamespace, testRevision, 10),
+		revisionLister:    revisionLister(testNamespace, testRevision, defaultConcurrency),
 		endpointsInformer: endpointsInformer(testNamespace, testRevision, 1),
 		sksLister:         sksLister("bogus-namespace", testRevision),
 		wantCalls:         0,
 		wantError:         true,
 	}, {
 		label:             "error getting endpoint",
-		revisionLister:    revisionLister(testNamespace, testRevision, 10),
+		revisionLister:    revisionLister(testNamespace, testRevision, defaultConcurrency),
 		endpointsInformer: endpointsInformer("bogus-namespace", testRevision, 0),
 		sksLister:         sksLister(testNamespace, testRevision),
 		wantCalls:         0,
@@ -258,7 +259,7 @@ func TestThrottlerTry(t *testing.T) {
 			if s.addCapacity {
 				// If we had success updating the capacity > 0, check that it's properly returned.
 				if throttler.UpdateCapacity(revID, 1) == nil {
-					if got, want := throttler.GetRevisionCapacity(revID), 1*10; got != want {
+					if got, want := throttler.GetRevisionCapacity(revID), defaultConcurrency; got != want {
 						t.Errorf("Breaker Capacity = %d, want: %d", got, want)
 					}
 				}
@@ -395,10 +396,10 @@ func TestHelper_ReactToEndpoints(t *testing.T) {
 	newEp.Subsets = endpointsSubset(10, 1)
 	fake.Core().Endpoints(ep.Namespace).Update(newEp)
 	wait.PollImmediate(updatePollInterval, updatePollTimeout, func() (bool, error) {
-		return breaker.Capacity() == 100, nil
+		return breaker.Capacity() == 10*defaultConcurrency, nil
 	})
-	if got := breaker.Capacity(); got != 100 {
-		t.Errorf("Capacity() = %d, want 100", got)
+	if got, want := breaker.Capacity(), 10*defaultConcurrency; got != want {
+		t.Errorf("Capacity() = %d, want %d", got, want)
 	}
 
 	// Removing the endpoints causes the breaker to be removed.
