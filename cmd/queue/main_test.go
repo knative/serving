@@ -142,8 +142,14 @@ func TestCreateVarLogLink(t *testing.T) {
 		t.Errorf("Failed to created temporary directory: %v", err)
 	}
 	defer os.RemoveAll(dir)
-
-	createVarLogLink("default", "service-7f97f9465b-5kkm5", "user-container", "knative-var-log", dir)
+	var env = config{
+		ServingNamespace:   "default",
+		ServingPod:         "service-7f97f9465b-5kkm5",
+		UserContainerName:  "user-container",
+		VarLogVolumeName:   "knative-var-log",
+		InternalVolumePath: dir,
+	}
+	createVarLogLink(env)
 
 	source := path.Join(dir, "default_service-7f97f9465b-5kkm5_user-container")
 	want := "../knative-var-log"

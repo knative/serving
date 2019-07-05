@@ -26,7 +26,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/knative/serving/cmd/util"
+	"github.com/kelseyhightower/envconfig"
 	"github.com/knative/serving/pkg/activator"
 	activatorconfig "github.com/knative/serving/pkg/activator/config"
 	activatorhandler "github.com/knative/serving/pkg/activator/handler"
@@ -107,6 +107,10 @@ func statReporter(statSink *websocket.ManagedConnection, stopCh <-chan struct{},
 			return
 		}
 	}
+}
+
+type config struct {
+	PodName string `split_words:"true" required:"true"`
 }
 
 func main() {
@@ -210,7 +214,11 @@ func main() {
 	statSink := websocket.NewDurableSendingConnection(autoscalerEndpoint, logger)
 	go statReporter(statSink, stopCh, statChan, logger)
 
-	podName := util.GetRequiredEnvOrFatal("POD_NAME", logger)
+	var env config
+	if err := envconfig.Process("", &env); err != nil {
+		logger.Fatal("Failed to process env", err)
+	}
+	podName := env.PodName
 
 	// Create and run our concurrency reporter
 	reportTicker := time.NewTicker(time.Second)

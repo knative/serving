@@ -25,11 +25,11 @@ import (
 	"net/url"
 	"os"
 	"path"
-	"strconv"
+        "strconv"
 	"strings"
 	"time"
 
-	"github.com/knative/serving/cmd/util"
+	"github.com/kelseyhightower/envconfig"
 	"github.com/knative/serving/pkg/activator"
 	activatorutil "github.com/knative/serving/pkg/activator/util"
 	"github.com/knative/serving/pkg/apis/networking"
@@ -87,25 +87,11 @@ const (
 )
 
 var (
-	containerConcurrency   int
-	queueServingPort       int
-	revisionTimeoutSeconds int
-	servingConfig          string
-	servingNamespace       string
-	servingPodIP           string
-	servingPodName         string
-	servingRevision        string
-	servingRevisionKey     string
-	servingService         string
-	userTargetAddress      string
-	userTargetPort         int
-	userContainerName      string
-	enableVarLogCollection bool
-	varLogVolumeName       string
-	internalVolumePath     string
-	reqChan                = make(chan queue.ReqEvent, requestCountingQueueLength)
-	logger                 *zap.SugaredLogger
-	breaker                *queue.Breaker
+	servingRevisionKey string
+	userTargetAddress  string
+	reqChan            = make(chan queue.ReqEvent, requestCountingQueueLength)
+	logger             *zap.SugaredLogger
+	breaker            *queue.Breaker
 
 	httpProxy *httputil.ReverseProxy
 
@@ -133,33 +119,39 @@ var (
 		stats.UnitMilliseconds)
 )
 
-func initEnv() {
-	containerConcurrency = util.MustParseIntEnvOrFatal("CONTAINER_CONCURRENCY", logger)
-	queueServingPort = util.MustParseIntEnvOrFatal("QUEUE_SERVING_PORT", logger)
-	revisionTimeoutSeconds = util.MustParseIntEnvOrFatal("REVISION_TIMEOUT_SECONDS", logger)
-	servingConfig = util.GetRequiredEnvOrFatal("SERVING_CONFIGURATION", logger)
-	servingNamespace = util.GetRequiredEnvOrFatal("SERVING_NAMESPACE", logger)
-	servingPodIP = util.GetRequiredEnvOrFatal("SERVING_POD_IP", logger)
-	servingPodName = util.GetRequiredEnvOrFatal("SERVING_POD", logger)
-	servingRevision = util.GetRequiredEnvOrFatal("SERVING_REVISION", logger)
-	servingService = os.Getenv("SERVING_SERVICE") // KService is optional
-	userTargetPort = util.MustParseIntEnvOrFatal("USER_PORT", logger)
-	userTargetAddress = "127.0.0.1:" + strconv.Itoa(userTargetPort)
-	userContainerName = util.GetRequiredEnvOrFatal("USER_CONTAINER_NAME", logger)
+type config struct {
+	ContainerConcurrency         int    `split_words:"true" required:"true"`
+	QueueServingPort             int    `split_words:"true" required:"true"`
+	RevisionTimeoutSeconds       int    `split_words:"true" required:"true"`
+	UserPort                     int    `split_words:"true" required:"true"`
+	EnableVarLogCollection       bool   `split_words:"true"` // optional
+	ServingConfiguration         string `split_words:"true" required:"true"`
+	ServingNamespace             string `split_words:"true" required:"true"`
+	ServingPodIP                 string `split_words:"true" required:"true"`
+	ServingPod                   string `split_words:"true" required:"true"`
+	ServingRevision              string `split_words:"true" required:"true"`
+	ServingService               string `split_words:"true"` // optional
+	UserContainerName            string `split_words:"true" required:"true"`
+	VarLogVolumeName             string `split_words:"true" required:"true"`
+	InternalVolumePath           string `split_words:"true" required:"true"`
+	ServingLoggingConfig         string `split_words:"true" required:"true"`
+	ServingLoggingLevel          string `split_words:"true" required:"true"`
+	ServingRequestMetricsBackend string `split_words:"true" required:"true"`
+	ServingRequestLogTemplate    string `split_words:"true" required:"true"`
+}
 
-	enableVarLogCollection, _ = strconv.ParseBool(os.Getenv("ENABLE_VAR_LOG_COLLECTION")) // Optional, default is false
-	varLogVolumeName = os.Getenv("VAR_LOG_VOLUME_NAME")
-	if varLogVolumeName == "" && enableVarLogCollection {
+func initConfig(env config) {
+	userTargetAddress = "127.0.0.1:" + strconv.Itoa(env.UserPort)
+	if env.VarLogVolumeName == "" && env.EnableVarLogCollection {
 		logger.Fatal("VAR_LOG_VOLUME_NAME must be specified when ENABLE_VAR_LOG_COLLECTION is true")
 	}
-	internalVolumePath = os.Getenv("INTERNAL_VOLUME_PATH")
-	if internalVolumePath == "" && enableVarLogCollection {
+	if env.InternalVolumePath == "" && env.EnableVarLogCollection {
 		logger.Fatal("INTERNAL_VOLUME_PATH must be specified when ENABLE_VAR_LOG_COLLECTION is true")
 	}
 
 	// TODO(mattmoor): Move this key to be in terms of the KPA.
-	servingRevisionKey = autoscaler.NewMetricKey(servingNamespace, servingRevision)
-	_psr, err := queue.NewPrometheusStatsReporter(servingNamespace, servingConfig, servingRevision, servingPodName)
+	servingRevisionKey = autoscaler.NewMetricKey(env.ServingNamespace, env.ServingRevision)
+	_psr, err := queue.NewPrometheusStatsReporter(env.ServingNamespace, env.ServingConfiguration, env.ServingRevision, env.ServingPod)
 	if err != nil {
 		logger.Fatalw("Failed to create stats reporter", zap.Error(err))
 	}
@@ -305,14 +297,20 @@ func main() {
 		os.Exit(0)
 	}
 
-	logger, _ = logging.NewLogger(os.Getenv("SERVING_LOGGING_CONFIG"), os.Getenv("SERVING_LOGGING_LEVEL"))
+	var env config
+	if err := envconfig.Process("", &env); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+
+	logger, _ = logging.NewLogger(env.ServingLoggingConfig, env.ServingLoggingLevel)
 	logger = logger.Named("queueproxy")
 	defer flush(logger)
 
-	initEnv()
+	initConfig(env)
 	logger = logger.With(
 		zap.String(logkey.Key, servingRevisionKey),
-		zap.String(logkey.Pod, servingPodName))
+		zap.String(logkey.Pod, env.ServingPod))
 
 	target, err := url.Parse("http://" + userTargetAddress)
 	if err != nil {
@@ -325,12 +323,12 @@ func main() {
 
 	activatorutil.SetupHeaderPruning(httpProxy)
 
-	// If containerConcurrency == 0 then concurrency is unlimited.
-	if containerConcurrency > 0 {
+	// If env.ContainerConcurrency == 0 then concurrency is unlimited.
+	if env.ContainerConcurrency > 0 {
 		// We set the queue depth to be equal to the container concurrency * 10 to
 		// allow the autoscaler to get a strong enough signal.
-		queueDepth := containerConcurrency * 10
-		params := queue.BreakerParams{QueueDepth: queueDepth, MaxConcurrency: containerConcurrency, InitialCapacity: containerConcurrency}
+		queueDepth := env.ContainerConcurrency * 10
+		params := queue.BreakerParams{QueueDepth: queueDepth, MaxConcurrency: env.ContainerConcurrency, InitialCapacity: env.ContainerConcurrency}
 		breaker = queue.NewBreaker(params)
 		logger.Infof("Queue container is starting with %#v", params)
 	}
@@ -347,7 +345,7 @@ func main() {
 
 	reportTicker := time.NewTicker(queue.ReporterReportingPeriod)
 	defer reportTicker.Stop()
-	queue.NewStats(servingPodName, queue.Channels{
+	queue.NewStats(env.ServingPod, queue.Channels{
 		ReqChan:    reqChan,
 		ReportChan: reportTicker.C,
 		StatChan:   statChan,
@@ -359,7 +357,7 @@ func main() {
 	}
 
 	metricsSupported := false
-	if metricsBackend := os.Getenv("SERVING_REQUEST_METRICS_BACKEND"); metricsBackend != "" {
+	if metricsBackend := env.ServingRequestMetricsBackend; metricsBackend != "" {
 		if err := setupMetricsExporter(metricsBackend); err == nil {
 			metricsSupported = true
 			logger.Infof("SERVING_REQUEST_METRICS_BACKEND=%v", metricsBackend)
@@ -374,17 +372,17 @@ func main() {
 	// Note: innermost handlers are specified first, ie. the last handler in the chain will be executed first
 	var composedHandler http.Handler = httpProxy
 	if metricsSupported {
-		composedHandler = pushRequestMetricHandler(httpProxy, appRequestCountM, appResponseTimeInMsecM)
+		composedHandler = pushRequestMetricHandler(httpProxy, appRequestCountM, appResponseTimeInMsecM, env)
 	}
 	composedHandler = http.HandlerFunc(handler(reqChan, breaker, composedHandler))
 	composedHandler = queue.ForwardedShimHandler(composedHandler)
 	composedHandler = queue.TimeToFirstByteTimeoutHandler(composedHandler,
-		time.Duration(revisionTimeoutSeconds)*time.Second, "request timeout")
-	composedHandler = pushRequestLogHandler(composedHandler)
+		time.Duration(env.RevisionTimeoutSeconds)*time.Second, "request timeout")
+	composedHandler = pushRequestLogHandler(composedHandler, env)
 	if metricsSupported {
-		composedHandler = pushRequestMetricHandler(composedHandler, requestCountM, responseTimeInMsecM)
+		composedHandler = pushRequestMetricHandler(composedHandler, requestCountM, responseTimeInMsecM, env)
 	}
-	qSP := strconv.Itoa(queueServingPort)
+	qSP := strconv.Itoa(env.QueueServingPort)
 	logger.Info("Queue-proxy will listen on port ", qSP)
 	server := network.NewServer(":"+qSP, composedHandler)
 
@@ -405,8 +403,8 @@ func main() {
 	// Logic that isn't required to be executed before the critical path
 	// and should be started last to not impact start up latency
 	go func() {
-		if enableVarLogCollection {
-			createVarLogLink(servingNamespace, servingPodName, userContainerName, varLogVolumeName, internalVolumePath)
+		if env.EnableVarLogCollection {
+			createVarLogLink(env)
 		}
 	}()
 
@@ -440,30 +438,29 @@ func main() {
 
 // createVarLogLink creates a symlink allowing the fluentd daemon set to capture the
 // logs from the user container /var/log. See fluentd config for more details.
-func createVarLogLink(servingNamespace, servingPodName, userContainerName, varLogVolumeName, internalVolumePath string) {
-	link := strings.Join([]string{servingNamespace, servingPodName, userContainerName}, "_")
-	target := path.Join("..", varLogVolumeName)
-	source := path.Join(internalVolumePath, link)
+func createVarLogLink(env config) {
+	link := strings.Join([]string{env.ServingNamespace, env.ServingPod, env.UserContainerName}, "_")
+	target := path.Join("..", env.VarLogVolumeName)
+	source := path.Join(env.InternalVolumePath, link)
 	if err := os.Symlink(target, source); err != nil {
 		logger.Errorw("Failed to create /var/log symlink. Log collection will not work.", zap.Error(err))
 	}
 }
 
-func pushRequestLogHandler(currentHandler http.Handler) http.Handler {
-	templ := os.Getenv("SERVING_REQUEST_LOG_TEMPLATE")
-	if templ == "" {
+func pushRequestLogHandler(currentHandler http.Handler, env config) http.Handler {
+	if env.ServingRequestLogTemplate == "" {
 		return currentHandler
 	}
 
 	revInfo := &pkghttp.RequestLogRevision{
-		Name:          servingRevision,
-		Namespace:     servingNamespace,
-		Service:       servingService,
-		Configuration: servingConfig,
-		PodName:       servingPodName,
-		PodIP:         servingPodIP,
+		Name:          env.ServingRevision,
+		Namespace:     env.ServingNamespace,
+		Service:       env.ServingService,
+		Configuration: env.ServingConfiguration,
+		PodName:       env.ServingPod,
+		PodIP:         env.ServingPodIP,
 	}
-	handler, err := pkghttp.NewRequestLogHandler(currentHandler, logging.NewSyncFileWriter(os.Stdout), templ,
+	handler, err := pkghttp.NewRequestLogHandler(currentHandler, logging.NewSyncFileWriter(os.Stdout), env.ServingRequestLogTemplate,
 		pkghttp.RequestLogTemplateInputGetterFromRevision(revInfo))
 
 	if err != nil {
@@ -473,8 +470,8 @@ func pushRequestLogHandler(currentHandler http.Handler) http.Handler {
 	return handler
 }
 
-func pushRequestMetricHandler(currentHandler http.Handler, countMetric *stats.Int64Measure, latencyMetric *stats.Float64Measure) http.Handler {
-	r, err := queuestats.NewStatsReporter(servingNamespace, servingService, servingConfig, servingRevision, countMetric, latencyMetric)
+func pushRequestMetricHandler(currentHandler http.Handler, countMetric *stats.Int64Measure, latencyMetric *stats.Float64Measure, env config) http.Handler {
+	r, err := queuestats.NewStatsReporter(env.ServingNamespace, env.ServingService, env.ServingConfiguration, env.ServingRevision, countMetric, latencyMetric)
 	if err != nil {
 		logger.Errorw("Error setting up request metrics reporter. Request metrics will be unavailable.", zap.Error(err))
 		return currentHandler
