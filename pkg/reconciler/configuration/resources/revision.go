@@ -46,7 +46,8 @@ func MakeRevision(config *v1alpha1.Configuration) *v1alpha1.Revision {
 	if ok {
 		rans := rev.GetAnnotations()
 		if rans == nil {
-			rev.Annotations = map[string]string{serving.CreatorAnnotation: creator}
+			rans = map[string]string{serving.CreatorAnnotation: creator}
+			defer rev.SetAnnotations(rans)
 		} else {
 			rans[serving.CreatorAnnotation] = creator
 		}
