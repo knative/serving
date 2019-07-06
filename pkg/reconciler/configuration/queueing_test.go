@@ -21,9 +21,6 @@ import (
 	"testing"
 	"time"
 
-	"knative.dev/pkg/configmap"
-	"knative.dev/pkg/controller"
-	"knative.dev/pkg/system"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 	fakeservingclient "github.com/knative/serving/pkg/client/injection/client/fake"
@@ -32,6 +29,9 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"knative.dev/pkg/configmap"
+	"knative.dev/pkg/controller"
+	"knative.dev/pkg/system"
 
 	. "knative.dev/pkg/reconciler/testing"
 )

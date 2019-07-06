@@ -19,9 +19,9 @@ package v1alpha1
 import (
 	"fmt"
 
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"knative.dev/pkg/apis"
 	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 var ingressCondSet = apis.NewLivingConditionSet(

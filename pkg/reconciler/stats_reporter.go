@@ -21,10 +21,10 @@ import (
 	"fmt"
 	"time"
 
-	"knative.dev/pkg/metrics"
 	"go.opencensus.io/stats"
 	"go.opencensus.io/stats/view"
 	"go.opencensus.io/tag"
+	"knative.dev/pkg/metrics"
 )
 
 type Measurement int

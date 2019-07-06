@@ -22,11 +22,11 @@ import (
 	"strconv"
 	"time"
 
-	"knative.dev/pkg/apis"
-	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
 	"github.com/knative/serving/pkg/apis/autoscaling"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"knative.dev/pkg/apis"
+	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
 )
 
 var podCondSet = apis.NewLivingConditionSet(

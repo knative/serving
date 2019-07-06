@@ -20,9 +20,9 @@ import (
 	"strings"
 
 	"github.com/ghodss/yaml"
-	"knative.dev/pkg/configmap"
 	"github.com/knative/serving/pkg/network"
 	corev1 "k8s.io/api/core/v1"
+	"knative.dev/pkg/configmap"
 )
 
 const (

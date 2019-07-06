@@ -22,9 +22,9 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/ptr"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func TestTrafficTargetValidation(t *testing.T) {

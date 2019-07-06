@@ -21,8 +21,8 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"knative.dev/pkg/apis"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"knative.dev/pkg/apis"
 )
 
 func TestIngressSpecValidation(t *testing.T) {

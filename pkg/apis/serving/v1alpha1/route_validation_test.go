@@ -22,8 +22,8 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"knative.dev/pkg/apis"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"knative.dev/pkg/apis"
 
 	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 )

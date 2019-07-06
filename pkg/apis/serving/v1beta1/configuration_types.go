@@ -17,10 +17,10 @@ limitations under the License.
 package v1beta1
 
 import (
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/apis"
 	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
 	"knative.dev/pkg/kmeta"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // +genclient

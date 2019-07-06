@@ -26,7 +26,6 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 
 	"github.com/google/go-cmp/cmp"
-	"knative.dev/pkg/kmeta"
 	netv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
@@ -35,6 +34,7 @@ import (
 	"github.com/knative/serving/pkg/network"
 	"github.com/knative/serving/pkg/reconciler/route/config"
 	"github.com/knative/serving/pkg/reconciler/route/traffic"
+	"knative.dev/pkg/kmeta"
 )
 
 var (

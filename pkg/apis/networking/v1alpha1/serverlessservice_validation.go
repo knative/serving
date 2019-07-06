@@ -19,9 +19,9 @@ package v1alpha1
 import (
 	"context"
 
-	"knative.dev/pkg/apis"
 	"github.com/knative/serving/pkg/apis/serving"
 	"k8s.io/apimachinery/pkg/api/equality"
+	"knative.dev/pkg/apis"
 )
 
 // Validate inspects and validates ClusterServerlessService object.

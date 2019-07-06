@@ -20,10 +20,10 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"knative.dev/pkg/metrics"
-	"knative.dev/pkg/system"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"knative.dev/pkg/metrics"
+	"knative.dev/pkg/system"
 
 	. "knative.dev/pkg/configmap/testing"
 	_ "knative.dev/pkg/system/testing"

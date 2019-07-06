@@ -24,12 +24,12 @@ import (
 	"strings"
 	"testing"
 
-	pkgTest "knative.dev/pkg/test"
-	"knative.dev/pkg/test/spoof"
 	"github.com/knative/serving/test"
 	v1a1test "github.com/knative/serving/test/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+	pkgTest "knative.dev/pkg/test"
+	"knative.dev/pkg/test/spoof"
 )
 
 func TestCustomResourcesLimits(t *testing.T) {

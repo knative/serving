@@ -22,8 +22,6 @@ import (
 	"reflect"
 
 	cmv1alpha1 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1alpha1"
-	"knative.dev/pkg/controller"
-	"knative.dev/pkg/logging"
 	"github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	certmanagerclientset "github.com/knative/serving/pkg/client/certmanager/clientset/versioned"
 	certmanagerlisters "github.com/knative/serving/pkg/client/certmanager/listers/certmanager/v1alpha1"
@@ -37,6 +35,8 @@ import (
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
+	"knative.dev/pkg/controller"
+	"knative.dev/pkg/logging"
 )
 
 const (

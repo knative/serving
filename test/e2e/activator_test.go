@@ -24,12 +24,12 @@ import (
 	"sync"
 	"testing"
 
-	pkgTest "knative.dev/pkg/test"
-	"knative.dev/pkg/test/logstream"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	rnames "github.com/knative/serving/pkg/reconciler/revision/resources/names"
 	"github.com/knative/serving/test"
 	v1a1test "github.com/knative/serving/test/v1alpha1"
+	pkgTest "knative.dev/pkg/test"
+	"knative.dev/pkg/test/logstream"
 )
 
 // TestActivatorOverload makes sure that activator can handle the load when scaling from 0.

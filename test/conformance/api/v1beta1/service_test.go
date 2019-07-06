@@ -24,13 +24,13 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	"knative.dev/pkg/ptr"
-	pkgTest "knative.dev/pkg/test"
 	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 	"github.com/knative/serving/test"
 	v1b1test "github.com/knative/serving/test/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"knative.dev/pkg/ptr"
+	pkgTest "knative.dev/pkg/test"
 
 	rtesting "github.com/knative/serving/pkg/testing/v1beta1"
 )

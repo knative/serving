@@ -19,8 +19,8 @@ package v1beta1
 import (
 	"context"
 
-	"knative.dev/pkg/apis"
 	"github.com/knative/serving/pkg/apis/serving"
+	"knative.dev/pkg/apis"
 )
 
 // Validate makes sure that Service is properly configured.
