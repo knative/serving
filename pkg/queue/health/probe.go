@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"net/url"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -62,24 +63,27 @@ func HTTPProbe(config HTTPProbeConfigOptions) error {
 		},
 		Timeout: config.Timeout,
 	}
-	url := fmt.Sprintf("%s://%s:%d%s", config.Scheme, config.Host, config.Port.IntValue(), config.Path)
-	req, err := http.NewRequest("GET", url, nil)
+	url := url.URL{
+		Scheme: string(config.Scheme),
+		Host:   config.Host + ":" + config.Port.String(),
+		Path:   config.Path,
+	}
+	req, err := http.NewRequest(http.MethodGet, url.String(), nil)
 	if err != nil {
-		return fmt.Errorf("Error constructing request %s", err.Error())
+		return fmt.Errorf("error constructing probe request %v", err)
 	}
 
 	for _, header := range config.HTTPHeaders {
 		req.Header.Add(header.Name, header.Value)
 	}
 
-	var res *http.Response
-	res, err = httpClient.Do(req)
+	res, err := httpClient.Do(req)
 	if err != nil {
 		return err
 	}
 
 	if !IsHTTPProbeReady(res) {
-		return errors.New("http probe did not respond Ready")
+		return errors.New("HTTP probe did not respond Ready")
 	}
 
 	return nil
