@@ -85,6 +85,7 @@ func HTTPProbe(config HTTPProbeConfigOptions) error {
 	return nil
 }
 
+// IsHTTPProbeReady checks whether we received a successful Response
 func IsHTTPProbeReady(res *http.Response) bool {
 	if res == nil {
 		return false
