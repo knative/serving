@@ -358,6 +358,58 @@ func TestActivationHandler(t *testing.T) {
 	}
 }
 
+func TestActivationHandlerProbeCaching(t *testing.T) {
+	namespace := testNamespace
+	revName := testRevName
+	revID := activator.RevisionID{Namespace: namespace, Name: revName}
+
+	fakeRT := activatortest.FakeRoundTripper{}
+	rt := network.RoundTripperFunc(fakeRT.RT)
+
+	breakerParams := queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}
+	reporter := &fakeReporter{}
+
+	throttler := activator.NewThrottler(
+		breakerParams,
+		endpointsInformer(endpoints(namespace, revName, breakerParams.InitialCapacity)),
+		sksLister(sks(namespace, revName)),
+		revisionLister(revision(namespace, revName)),
+		TestLogger(t))
+
+	handler := (New(TestLogger(t), reporter, throttler,
+		revisionLister(revision(namespace, revName)),
+		serviceLister(service(namespace, revName, "http")),
+		sksLister(sks(namespace, revName)),
+	)).(*activationHandler)
+
+	// Setup transports.
+	handler.transport = rt
+	handler.probeTransportFactory = rtFact(rt)
+
+	sendRequest(namespace, revName, handler)
+	if fakeRT.NumProbes != 1 {
+		t.Errorf("NumProbes = %d, want: %d", fakeRT.NumProbes, 1)
+	}
+
+	sendRequest(namespace, revName, handler)
+	// Assert that we didn't reprobe
+	if fakeRT.NumProbes != 1 {
+		t.Errorf("NumProbes = %d, want: %d", fakeRT.NumProbes, 1)
+	}
+
+	// Dropping the capacity to 0 causes the next request to probe again.
+	throttler.UpdateCapacity(revID, 0)
+	time.AfterFunc(100*time.Millisecond, func() {
+		// Asynchronously updating the capacity to let the request through.
+		throttler.UpdateCapacity(revID, 1)
+	})
+
+	sendRequest(namespace, revName, handler)
+	if fakeRT.NumProbes != 2 {
+		t.Errorf("NumProbes = %d, want: %d", fakeRT.NumProbes, 2)
+	}
+}
+
 // Make sure we return http internal server error when the Breaker is overflowed
 func TestActivationHandlerOverflow(t *testing.T) {
 	const (
@@ -401,11 +453,6 @@ func TestActivationHandlerOverflow(t *testing.T) {
 
 	sendRequests(requests, namespace, revName, respCh, handler)
 	assertResponses(wantedSuccess, wantedFailure, requests, lockerCh, respCh, t)
-	// Verify that only some of them did probe. Manual testing shows numbers in the 1-3 range
-	// but to be sure, let's presume one third.
-	if got, want := fakeRT.NumProbes, int32(requests/3); got >= want {
-		t.Errorf("num probes = %d, expect at most: %d", got, want)
-	}
 }
 
 // Make sure if one breaker is overflowed, the requests to other revisions are still served
@@ -454,10 +501,6 @@ func TestActivationHandlerOverflowSeveralRevisions(t *testing.T) {
 	}
 	assertResponses(wantedSuccess, wantedFailure, overallRequests, lockerCh, respCh, t)
 
-	// Verify that only some of them did probe for each of revisions.
-	if got, want := fakeRT.NumProbes, int32(overallRequests/3); got >= want {
-		t.Errorf("num probes = %d, expect at most: %d", got, want)
-	}
 	// Verify cache size.
 	if got, want := len(handler.cache.probes), 2; got != want {
 		t.Errorf("ProbeCacheSize = %d, want: %d", got, want)
