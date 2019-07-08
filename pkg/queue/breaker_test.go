@@ -421,7 +421,7 @@ func (r *requestor) expectFailure(t *testing.T) {
 }
 
 // processSuccessfully allows a request to pass the barrier, waits for it to
-// be finished and asserts it to succeeed.
+// be finished and asserts it to succeed.
 func (r *requestor) processSuccessfully(t *testing.T) {
 	t.Helper()
 	r.barrierCh <- struct{}{}
