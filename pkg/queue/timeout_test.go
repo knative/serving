@@ -18,20 +18,21 @@ package queue
 import (
 	"net/http"
 	"net/http/httptest"
+	"sync"
 	"testing"
 	"time"
 )
 
 func TestTimeToFirstByteTimeoutHandler(t *testing.T) {
 	const (
-		failingTimeout = 10 * time.Millisecond
-		sleepToFail    = 100 * time.Millisecond
+		failingTimeout = 1 * time.Millisecond
+		longTimeout    = 10 * time.Second
 	)
 
 	tests := []struct {
 		name           string
 		timeout        time.Duration
-		handler        func(writeErrors chan error) http.Handler
+		handler        func(mux *sync.Mutex, writeErrors chan error) http.Handler
 		timeoutMessage string
 		wantStatus     int
 		wantBody       string
@@ -39,8 +40,8 @@ func TestTimeToFirstByteTimeoutHandler(t *testing.T) {
 		wantPanic      bool
 	}{{
 		name:    "all good",
-		timeout: 10 * time.Second,
-		handler: func(writeErrors chan error) http.Handler {
+		timeout: longTimeout,
+		handler: func(_ *sync.Mutex, _ chan error) http.Handler {
 			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				w.Write([]byte("hi"))
 			})
@@ -50,9 +51,10 @@ func TestTimeToFirstByteTimeoutHandler(t *testing.T) {
 	}, {
 		name:    "timeout",
 		timeout: failingTimeout,
-		handler: func(writeErrors chan error) http.Handler {
+		handler: func(mux *sync.Mutex, writeErrors chan error) http.Handler {
 			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				time.Sleep(sleepToFail)
+				mux.Lock()
+				defer mux.Unlock()
 				w.WriteHeader(http.StatusOK)
 				_, werr := w.Write([]byte("hi"))
 				writeErrors <- werr
@@ -63,11 +65,11 @@ func TestTimeToFirstByteTimeoutHandler(t *testing.T) {
 		wantWriteError: true,
 	}, {
 		name:    "write then sleep",
-		timeout: failingTimeout,
-		handler: func(writeErrors chan error) http.Handler {
+		timeout: 50 * time.Millisecond,
+		handler: func(mux *sync.Mutex, writeErrors chan error) http.Handler {
 			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusOK)
-				time.Sleep(sleepToFail)
+				time.Sleep(100 * time.Millisecond) // sleep longer than the timeout.
 				w.Write([]byte("hi"))
 			})
 		},
@@ -76,9 +78,10 @@ func TestTimeToFirstByteTimeoutHandler(t *testing.T) {
 	}, {
 		name:    "custom timeout message",
 		timeout: failingTimeout,
-		handler: func(writeErrors chan error) http.Handler {
+		handler: func(mux *sync.Mutex, writeErrors chan error) http.Handler {
 			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				time.Sleep(sleepToFail)
+				mux.Lock()
+				defer mux.Unlock()
 				_, werr := w.Write([]byte("hi"))
 				writeErrors <- werr
 			})
@@ -89,8 +92,8 @@ func TestTimeToFirstByteTimeoutHandler(t *testing.T) {
 		wantWriteError: true,
 	}, {
 		name:    "propagate panic",
-		timeout: 10 * time.Second,
-		handler: func(writeErrors chan error) http.Handler {
+		timeout: longTimeout,
+		handler: func(_ *sync.Mutex, _ chan error) http.Handler {
 			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				panic(http.ErrAbortHandler)
 			})
@@ -106,9 +109,10 @@ func TestTimeToFirstByteTimeoutHandler(t *testing.T) {
 				t.Fatal(err)
 			}
 
+			var reqMux sync.Mutex
 			writeErrors := make(chan error, 1)
 			rr := httptest.NewRecorder()
-			handler := TimeToFirstByteTimeoutHandler(test.handler(writeErrors), test.timeout, test.timeoutMessage)
+			handler := TimeToFirstByteTimeoutHandler(test.handler(&reqMux, writeErrors), test.timeout, test.timeoutMessage)
 
 			defer func() {
 				if test.wantPanic {
@@ -117,7 +121,10 @@ func TestTimeToFirstByteTimeoutHandler(t *testing.T) {
 					}
 				}
 			}()
+
+			reqMux.Lock() // Will cause an inner 'Lock' to block. ServeHTTP will exit early if the call times out.
 			handler.ServeHTTP(rr, req)
+			reqMux.Unlock() // Allows the inner 'Lock' to go through to complete potential writes.
 
 			if status := rr.Code; status != test.wantStatus {
 				t.Errorf("Handler returned wrong status code: got %v want %v", status, test.wantStatus)
