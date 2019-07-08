@@ -71,7 +71,7 @@ func TestMinScale(t *testing.T) {
 	revName := config.Status.LatestCreatedRevisionName
 
 	if err = v1a1test.WaitForRevisionState(clients.ServingAlphaClient, revName, v1a1test.IsRevisionReady, "RevisionIsReady"); err != nil {
-		t.Fatal("Revision did not become ready.")
+		t.Fatalf("The Revision %q did not become ready: %v", revName, err)
 	}
 
 	deployment, err := clients.KubeClient.Kube.ExtensionsV1beta1().Deployments(test.ServingNamespace).Get(revName+"-deployment", metav1.GetOptions{})
