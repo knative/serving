@@ -34,7 +34,7 @@ func (s *Service) SetDefaults(ctx context.Context) {
 		ans := s.GetAnnotations()
 		if ans == nil {
 			ans = map[string]string{}
-			defer s.SetAnnotations(ans)
+			s.SetAnnotations(ans)
 		}
 
 		if apis.IsInUpdate(ctx) {

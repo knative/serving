@@ -629,7 +629,7 @@ func TestAnnotateUserInfo(t *testing.T) {
 		a := s.GetAnnotations()
 		if a == nil {
 			a = map[string]string{}
-			defer s.SetAnnotations(a)
+			s.SetAnnotations(a)
 		}
 		a[serving.CreatorAnnotation] = u1
 		a[serving.UpdaterAnnotation] = u2
