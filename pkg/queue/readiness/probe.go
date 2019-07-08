@@ -28,7 +28,7 @@ import (
 )
 
 const (
-	kProbeTimeout = 100 * time.Millisecond
+	aggressiveProbeTimeout = 100 * time.Millisecond
 	// Set equal to the queue-proxy's ExecProbe timeout to take
 	// advantage of the full window
 	PollTimeout   = 10 * time.Second
@@ -50,8 +50,8 @@ func NewProbe(v1p *corev1.Probe, logger *zap.SugaredLogger) *Probe {
 	}
 }
 
-// IsKProbe indicates whether the default Knative probe with aggressive retries should be used.
-func (p *Probe) IsKProbe() bool {
+// IsAggressive indicates whether the Knative probe with aggressive retries should be used.
+func (p *Probe) IsAggressive() bool {
 	return p.PeriodSeconds == 0
 }
 
@@ -81,56 +81,66 @@ func (p *Probe) ProbeContainer() bool {
 	return true
 }
 
-func (p *Probe) timeout() time.Duration {
-	if p.IsKProbe() {
-		return kProbeTimeout
-	}
-	return time.Duration(p.TimeoutSeconds) * time.Second
-}
-
 // tcpProbe function executes TCP probe once if its standard probe
 // otherwise TCP probe polls condition function which returns true
 // if the probe count is greater than success threshold and false if TCP probe fails
 func (p *Probe) tcpProbe() error {
 	config := health.TCPProbeConfigOptions{
 		Address:       fmt.Sprintf("%s:%d", p.TCPSocket.Host, p.TCPSocket.Port.IntValue()),
-		SocketTimeout: p.timeout(),
-	}
-	if !p.IsKProbe() {
-		return health.TCPProbe(config)
+		SocketTimeout: time.Duration(p.TimeoutSeconds) * time.Second,
 	}
 
-	return wait.PollImmediate(retryInterval, PollTimeout, func() (bool, error) {
-		if tcpErr := health.TCPProbe(config); tcpErr != nil {
-			p.count = 0
-			return false, nil
-		}
-		p.count++
-		return p.Count() >= p.SuccessThreshold, nil
-	})
+	if p.IsAggressive() {
+		// timeout quickly so we can aggressively retry
+		config.SocketTimeout = aggressiveProbeTimeout
+
+		return wait.PollImmediate(retryInterval, PollTimeout, func() (bool, error) {
+			if tcpErr := health.TCPProbe(config); tcpErr != nil {
+				// reset count of consecutive successes to zero
+				p.count = 0
+				return false, nil
+			}
+
+			p.count++
+
+			// return success if count of consecutive successes is equal to or greater
+			// than the probe's SuccessThreshold.
+			return p.Count() >= p.SuccessThreshold, nil
+		})
+	}
+
+	return health.TCPProbe(config)
 }
 
 // httpProbe function executes HTTP probe once if its standard probe
 // otherwise HTTP probe polls condition function which returns true
 // if the probe count is greater than success threshold and false if HTTP probe fails
 func (p *Probe) httpProbe() error {
-	httpProbeConfig := health.HTTPProbeConfigOptions{
+	config := health.HTTPProbeConfigOptions{
 		HTTPGetAction: p.HTTPGet,
-		Timeout:       p.timeout(),
-	}
-	if !p.IsKProbe() {
-		return health.HTTPProbe(httpProbeConfig)
+		Timeout:       time.Duration(p.TimeoutSeconds) * time.Second,
 	}
 
-	return wait.PollImmediate(retryInterval, PollTimeout, func() (bool, error) {
-		if err := health.HTTPProbe(httpProbeConfig); err != nil {
-			p.count = 0
-			return false, nil
-		}
-		p.count++
+	if p.IsAggressive() {
+		// timeout quickly so we can aggressively retry
+		config.Timeout = aggressiveProbeTimeout
 
-		return p.Count() >= p.SuccessThreshold, nil
-	})
+		return wait.PollImmediate(retryInterval, PollTimeout, func() (bool, error) {
+			if err := health.HTTPProbe(config); err != nil {
+				// reset count of consecutive successes to zero
+				p.count = 0
+				return false, nil
+			}
+
+			p.count++
+
+			// return success if count of consecutive successes is equal to or greater
+			// than the probe's SuccessThreshold.
+			return p.Count() >= p.SuccessThreshold, nil
+		})
+	}
+
+	return health.HTTPProbe(config)
 }
 
 // Count function fetches current probe count

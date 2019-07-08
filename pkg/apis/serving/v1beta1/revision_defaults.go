@@ -86,7 +86,7 @@ func (rs *RevisionSpec) SetDefaults(ctx context.Context) {
 	if container.ReadinessProbe == nil {
 		container.ReadinessProbe = &corev1.Probe{}
 	}
-	if container.ReadinessProbe.TCPSocket == nil && container.ReadinessProbe.HTTPGet == nil {
+	if container.ReadinessProbe.TCPSocket == nil && container.ReadinessProbe.HTTPGet == nil && container.ReadinessProbe.Exec == nil {
 		container.ReadinessProbe.TCPSocket = &corev1.TCPSocketAction{}
 	}
 

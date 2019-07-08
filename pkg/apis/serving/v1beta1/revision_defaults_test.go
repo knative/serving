@@ -169,6 +169,41 @@ func TestRevisionDefaulting(t *testing.T) {
 			},
 		},
 	}, {
+		name: "no overwrite exec",
+		in: &Revision{
+			Spec: RevisionSpec{
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						ReadinessProbe: &corev1.Probe{
+							Handler: corev1.Handler{
+								Exec: &corev1.ExecAction{
+									Command: []string{"echo", "hi"},
+								},
+							},
+						},
+					}},
+				},
+			},
+		},
+		want: &Revision{
+			Spec: RevisionSpec{
+				TimeoutSeconds: ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Name:      config.DefaultUserContainerName,
+						Resources: defaultResources,
+						ReadinessProbe: &corev1.Probe{
+							Handler: corev1.Handler{
+								Exec: &corev1.ExecAction{
+									Command: []string{"echo", "hi"},
+								},
+							},
+						},
+					}},
+				},
+			},
+		},
+	}, {
 		name: "partially initialized",
 		in: &Revision{
 			Spec: RevisionSpec{},

@@ -136,6 +136,8 @@ func makePodSpec(rev *v1alpha1.Revision, loggingConfig *logging.Config, observab
 
 	if userContainer.ReadinessProbe != nil {
 		if userContainer.ReadinessProbe.HTTPGet != nil || userContainer.ReadinessProbe.TCPSocket != nil {
+			// HTTP and TCP ReadinessProbes are executed by the queue-proxy directly against the
+			// user-container instead of via kubelet.
 			userContainer.ReadinessProbe = nil
 		}
 	}

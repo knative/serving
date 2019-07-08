@@ -80,12 +80,11 @@ const (
 	requestQueueHealthPath = "/health"
 
 	healthURLTemplate = "http://127.0.0.1:%d" + requestQueueHealthPath
-	// defaultProbeTimeout is the default duration for TCP/HTTP probe timeout.
-	defaultProbeTimeout = 100 * time.Millisecond
+	tcpProbeTimeout   = 100 * time.Millisecond
 	// The 25 millisecond retry interval is an unscientific compromise between wanting to get
 	// started as early as possible while still wanting to give the container some breathing
 	// room to get up and running.
-	kProbePollInterval = 25 * time.Millisecond
+	aggressivePollInterval = 25 * time.Millisecond
 )
 
 var (
@@ -189,7 +188,7 @@ func probeUserContainer() bool {
 	wait.PollImmediate(50*time.Millisecond, 10*time.Second, func() (bool, error) {
 		config := health.TCPProbeConfigOptions{
 			Address:       userTargetAddress,
-			SocketTimeout: defaultProbeTimeout,
+			SocketTimeout: tcpProbeTimeout,
 		}
 		logger.Debug("TCP probing the user-container.")
 		err = health.TCPProbe(config)
@@ -256,7 +255,7 @@ func handler(reqChan chan queue.ReqEvent, breaker *queue.Breaker, handler http.H
 func createAdminHandlers(p *readiness.Probe) *http.ServeMux {
 	mux := http.NewServeMux()
 
-	mux.HandleFunc(requestQueueHealthPath, healthState.HealthHandler(p.ProbeContainer, p.IsKProbe()))
+	mux.HandleFunc(requestQueueHealthPath, healthState.HealthHandler(p.ProbeContainer, p.IsAggressive()))
 	mux.HandleFunc(queue.RequestQueueDrainPath, healthState.DrainHandler())
 
 	return mux
@@ -301,7 +300,7 @@ func knativeProbe(url string) error {
 
 	var lastErr error
 
-	timeoutErr := wait.PollImmediate(kProbePollInterval, readiness.PollTimeout, func() (bool, error) {
+	timeoutErr := wait.PollImmediate(aggressivePollInterval, readiness.PollTimeout, func() (bool, error) {
 		var res *http.Response
 		if res, lastErr = httpClient.Get(url); res == nil {
 			return false, nil
@@ -325,8 +324,7 @@ func knativeProbe(url string) error {
 // parseProbe takes a json serialised *corev1.Probe and returns a Probe or an error.
 func parseProbe(ucProbe string) (*corev1.Probe, error) {
 	p := &corev1.Probe{}
-	err := json.Unmarshal([]byte(ucProbe), p)
-	if err != nil {
+	if err := json.Unmarshal([]byte(ucProbe), p); err != nil {
 		return nil, err
 	}
 	return p, nil
