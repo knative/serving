@@ -81,7 +81,7 @@ func (rt *FakeRoundTripper) popResponse() *FakeResponse {
 	defer rt.responseMux.Unlock()
 
 	responses := rt.ProbeResponses
-	if responses == nil || len(responses) == 0 {
+	if len(responses) == 0 {
 		return defaultProbeResponse()
 	}
 	resp := &responses[0]

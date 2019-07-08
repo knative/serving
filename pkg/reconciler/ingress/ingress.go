@@ -408,7 +408,7 @@ func (r *BaseIngressReconciler) reconcileVirtualService(ctx context.Context, ia 
 	} else if !metav1.IsControlledBy(vs, ia) {
 		// Surface an error in the ClusterIngress's status, and return an error.
 		ia.GetStatus().MarkResourceNotOwned("VirtualService", name)
-		return fmt.Errorf("Ingress: %q does not own VirtualService: %q", ia.GetName(), name)
+		return fmt.Errorf("ingress: %q does not own VirtualService: %q", ia.GetName(), name)
 	} else if !equality.Semantic.DeepEqual(vs.Spec, desired.Spec) {
 		// Don't modify the informers copy
 		existing := vs.DeepCopy()
