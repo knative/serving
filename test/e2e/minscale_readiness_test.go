@@ -20,6 +20,7 @@ package e2e
 
 import (
 	"strconv"
+
 	"testing"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -41,8 +42,12 @@ func TestMinScale(t *testing.T) {
 
 	names := test.ResourceNames{
 		Config: test.ObjectNameForTest(t),
+		Route:  test.ObjectNameForTest(t),
 		Image:  "helloworld",
 	}
+
+	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
+	defer test.TearDown(clients, names)
 
 	if _, err := v1a1test.CreateConfiguration(t, clients, names, func(cfg *v1alpha1.Configuration) {
 		if cfg.Spec.Template.Annotations == nil {
@@ -55,14 +60,35 @@ func TestMinScale(t *testing.T) {
 		t.Fatalf("Failed to create Configuration: %v", err)
 	}
 
-	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
-	defer test.TearDown(clients, names)
-
 	// Wait for the Config have a LatestCreatedRevisionName
 	if err := v1a1test.WaitForConfigurationState(clients.ServingAlphaClient, names.Config, v1a1test.ConfigurationHasCreatedRevision, "ConfigurationHasCreatedRevision"); err != nil {
 		t.Fatalf("The Configuration %q does not have a LatestCreatedRevisionName: %v", names.Config, err)
 	}
 
+	// Without a route, MinScale should be ignored
+	got := latestAvailableReplicas(t, clients, names)
+
+	if got > 1 {
+		t.Fatalf("Reported ready with %d replicas, expected <= 1", got)
+	}
+
+	if _, err := v1a1test.CreateRoute(t, clients, names); err != nil {
+		t.Fatalf("Failed to create Route: %v", err)
+	}
+
+	if err := v1a1test.WaitForRouteState(clients.ServingAlphaClient, names.Route, v1a1test.IsRouteReady, "RouteIsReady"); err != nil {
+		t.Fatalf("The Route %q is not ready: %v", names.Route, err)
+	}
+
+	// With a route, MinScale should be observed
+	got = latestAvailableReplicas(t, clients, names)
+
+	if got < int32(minScale) {
+		t.Fatalf("Reported ready with %d replicas, expected %d", got, minScale)
+	}
+}
+
+func latestAvailableReplicas(t *testing.T, clients *test.Clients, names test.ResourceNames) int32 {
 	config, err := clients.ServingAlphaClient.Configs.Get(names.Config, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Failed to get Configuration after it was seen to be live: %v", err)
@@ -79,7 +105,5 @@ func TestMinScale(t *testing.T) {
 		t.Fatalf("Failed to get Deployment for Revision %s, err: %v", revName, err)
 	}
 
-	if deployment.Status.AvailableReplicas < int32(minScale) {
-		t.Fatalf("Reported ready with %d replicas when minScale was %d", deployment.Status.AvailableReplicas, minScale)
-	}
+	return deployment.Status.AvailableReplicas
 }
