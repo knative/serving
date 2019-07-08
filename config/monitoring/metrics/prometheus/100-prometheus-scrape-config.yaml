@@ -91,7 +91,7 @@ data:
       # Scrape only the the targets matching the following metadata
       - source_labels: [__meta_kubernetes_pod_label_serving_knative_dev_revision, __meta_kubernetes_pod_container_port_name]
         action: keep
-        regex: .+;user-metrics
+        regex: .+;(user-metrics|queue-metrics)
       # Rename metadata labels to be reader friendly
       - source_labels: [__meta_kubernetes_namespace]
         target_label: namespace
