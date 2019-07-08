@@ -16,7 +16,6 @@ limitations under the License.
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -34,8 +33,6 @@ import (
 	"github.com/knative/serving/pkg/activator"
 	"github.com/knative/serving/pkg/network"
 	"github.com/knative/serving/pkg/queue"
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/util/intstr"
 	logtesting "knative.dev/pkg/logging/testing"
 )
 
@@ -279,43 +276,5 @@ func TestProbeQueueDelayedReady(t *testing.T) {
 	timeout := 0
 	if err := probeQueueHealthPath(port, timeout); err != nil {
 		t.Errorf("probeQueueHealthPath(%d) = %s", port, err)
-	}
-}
-
-func TestParseProbeSuccess(t *testing.T) {
-	//logger = logtesting.TestLogger(t)
-	expectedProbe := &corev1.Probe{
-		PeriodSeconds:    1,
-		TimeoutSeconds:   2,
-		SuccessThreshold: 1,
-		FailureThreshold: 1,
-		Handler: corev1.Handler{
-			TCPSocket: &corev1.TCPSocketAction{
-				Host: "127.0.0.1",
-				Port: intstr.FromString("8080"),
-			},
-		},
-	}
-	probeBytes, err := json.Marshal(expectedProbe)
-	if err != nil {
-		t.Fatalf("Failed to parse probe %#v", err)
-	}
-	gotProbe, err := parseProbe(string(probeBytes))
-	if err != nil {
-		t.Fatalf("Failed parseProbe %#v", err)
-	}
-	if d := cmp.Diff(gotProbe, expectedProbe); d != "" {
-		t.Errorf("probe diff %s", d)
-	}
-}
-
-func TestParseProbeFailure(t *testing.T) {
-	probeBytes, err := json.Marshal("wrongProbeObject")
-	if err != nil {
-		t.Fatalf("Failed to parse probe %#v", err)
-	}
-	_, err = parseProbe(string(probeBytes))
-	if err == nil {
-		t.Fatal("Expected parseProbe() to fail")
 	}
 }

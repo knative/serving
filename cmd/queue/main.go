@@ -18,7 +18,6 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"flag"
 	"fmt"
 	"net/http"
@@ -45,7 +44,6 @@ import (
 	"github.com/pkg/errors"
 	"go.opencensus.io/stats"
 	"go.uber.org/zap"
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"knative.dev/pkg/logging/logkey"
 	"knative.dev/pkg/metrics"
@@ -321,15 +319,6 @@ func knativeProbe(url string) error {
 	return nil
 }
 
-// parseProbe takes a json serialised *corev1.Probe and returns a Probe or an error.
-func parseProbe(ucProbe string) (*corev1.Probe, error) {
-	p := &corev1.Probe{}
-	if err := json.Unmarshal([]byte(ucProbe), p); err != nil {
-		return nil, err
-	}
-	return p, nil
-}
-
 func main() {
 	flag.Parse()
 
@@ -390,7 +379,7 @@ func main() {
 		StatChan:   statChan,
 	}, time.Now())
 
-	coreProbe, err := parseProbe(*ucProbe)
+	coreProbe, err := readiness.DecodeProbe(*ucProbe)
 	if err != nil {
 		logger.Fatalw("Queue container failed to parse readiness probe", zap.Error(err))
 	}

@@ -17,7 +17,6 @@ limitations under the License.
 package resources
 
 import (
-	"encoding/json"
 	"math"
 	"strconv"
 
@@ -29,6 +28,7 @@ import (
 	"github.com/knative/serving/pkg/metrics"
 	"github.com/knative/serving/pkg/network"
 	"github.com/knative/serving/pkg/queue"
+	"github.com/knative/serving/pkg/queue/readiness"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -230,10 +230,7 @@ func makeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, o
 
 	applyReadinessProbeDefaults(rp, userPort)
 
-	probeJSON, err := json.Marshal(rp)
-	if err != nil {
-		probeJSON = []byte{}
-	}
+	probeJSON := readiness.EncodeProbe(rp)
 
 	return &corev1.Container{
 		Name:            QueueContainerName,
@@ -242,7 +239,7 @@ func makeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, o
 		Ports:           ports,
 		ReadinessProbe:  makeQueueProbe(rp),
 		VolumeMounts:    volumeMounts,
-		Args:            []string{"--readiness-probe", string(probeJSON)},
+		Args:            []string{"--readiness-probe", probeJSON},
 		SecurityContext: queueSecurityContext,
 		Env: []corev1.EnvVar{{
 			Name:  "SERVING_NAMESPACE",
