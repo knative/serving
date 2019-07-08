@@ -90,6 +90,10 @@ func (rs *RevisionSpec) SetDefaults(ctx context.Context) {
 		container.ReadinessProbe.TCPSocket = &corev1.TCPSocketAction{}
 	}
 
+	if container.ReadinessProbe.SuccessThreshold == 0 {
+		container.ReadinessProbe.SuccessThreshold = 1
+	}
+
 	vms := container.VolumeMounts
 	for i := range vms {
 		vms[i].ReadOnly = true

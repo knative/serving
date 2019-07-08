@@ -423,6 +423,14 @@ func validateReadinessProbe(p *corev1.Probe) *apis.FieldError {
 
 	errs := validateProbe(p)
 
+	if p.PeriodSeconds < 0 {
+		errs = errs.Also(apis.ErrOutOfBoundsValue(p.PeriodSeconds, 0, math.MaxInt32, "periodSeconds"))
+	}
+
+	if p.SuccessThreshold < 1 {
+		errs = errs.Also(apis.ErrOutOfBoundsValue(p.SuccessThreshold, 1, math.MaxInt32, "successThreshold"))
+	}
+
 	// PeriodSeconds == 0 indicates Knative's special probe with aggressive retries
 	if p.PeriodSeconds == 0 {
 		if p.FailureThreshold > 0 {
@@ -431,6 +439,14 @@ func validateReadinessProbe(p *corev1.Probe) *apis.FieldError {
 
 		if p.TimeoutSeconds > 0 {
 			errs = errs.Also(apis.ErrDisallowedFields("timeoutSeconds"))
+		}
+	} else {
+		if p.TimeoutSeconds < 1 {
+			errs = errs.Also(apis.ErrOutOfBoundsValue(p.TimeoutSeconds, 1, math.MaxInt32, "timeoutSeconds"))
+		}
+
+		if p.FailureThreshold < 1 {
+			errs = errs.Also(apis.ErrOutOfBoundsValue(p.FailureThreshold, 1, math.MaxInt32, "failureThreshold"))
 		}
 	}
 

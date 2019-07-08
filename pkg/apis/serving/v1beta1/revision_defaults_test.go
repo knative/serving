@@ -37,6 +37,7 @@ var (
 		Limits:   corev1.ResourceList{},
 	}
 	defaultProbe = &corev1.Probe{
+		SuccessThreshold: 1,
 		Handler: corev1.Handler{
 			TCPSocket: &corev1.TCPSocketAction{},
 		},
@@ -158,6 +159,7 @@ func TestRevisionDefaulting(t *testing.T) {
 						Name:      "foo",
 						Resources: defaultResources,
 						ReadinessProbe: &corev1.Probe{
+							SuccessThreshold: 1,
 							Handler: corev1.Handler{
 								TCPSocket: &corev1.TCPSocketAction{
 									Host: "127.0.0.2",
@@ -193,6 +195,7 @@ func TestRevisionDefaulting(t *testing.T) {
 						Name:      config.DefaultUserContainerName,
 						Resources: defaultResources,
 						ReadinessProbe: &corev1.Probe{
+							SuccessThreshold: 1,
 							Handler: corev1.Handler{
 								Exec: &corev1.ExecAction{
 									Command: []string{"echo", "hi"},

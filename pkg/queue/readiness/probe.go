@@ -68,7 +68,7 @@ func (p *Probe) ProbeContainer() bool {
 		return true
 	} else {
 		// using Fprintf for a concise error message in the event log
-		fmt.Fprintf(os.Stderr, "unimplemented probe type.")
+		fmt.Fprint(os.Stderr, "no probe found")
 		return false
 	}
 

@@ -31,6 +31,7 @@ import (
 )
 
 var defaultProbe = &corev1.Probe{
+	SuccessThreshold: 1,
 	Handler: corev1.Handler{
 		TCPSocket: &corev1.TCPSocketAction{},
 	},
