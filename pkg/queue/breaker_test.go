@@ -18,13 +18,8 @@ package queue
 
 import (
 	"context"
-	"sync"
 	"testing"
 	"time"
-
-	"github.com/google/go-cmp/cmp"
-
-	"k8s.io/apimachinery/pkg/util/wait"
 )
 
 const (
@@ -36,15 +31,6 @@ const (
 	// of acquires is reached to assert that no more acquires get through.
 	semNoChangeTimeout = 50 * time.Millisecond
 )
-
-type request struct {
-	barrier  chan struct{}
-	accepted chan bool
-}
-
-func (r *request) wait() {
-	r.accepted <- <-r.accepted
-}
 
 func TestBreakerInvalidConstructor(t *testing.T) {
 	tests := []struct {
@@ -79,95 +65,123 @@ func TestBreakerInvalidConstructor(t *testing.T) {
 
 func TestBreakerOverload(t *testing.T) {
 	params := BreakerParams{QueueDepth: 1, MaxConcurrency: 1, InitialCapacity: 1}
-	b := NewBreaker(params)           // Breaker capacity = 2
-	want := []bool{true, true, false} // Only first two requests will be processed
+	b := NewBreaker(params) // Breaker capacity = 2
+	reqs := newRequestor(b)
 
-	locks := b.concurrentRequests(context.Background(), 3)
+	// Bring breaker to capacity.
+	reqs.request()
+	reqs.request()
 
-	unlockAll(locks)
+	// Overshoot by one.
+	reqs.request()
+	reqs.expectFailure(t)
 
-	if diff := cmp.Diff(accepted(locks), want); diff != "" {
-		t.Errorf("Unexpected accepted requests (-want +got): %s", diff)
-	}
-}
-
-func TestBreakerOverloadWithEmptySemaphore(t *testing.T) {
-	params := BreakerParams{QueueDepth: 1, MaxConcurrency: 1, InitialCapacity: 0}
-	b := NewBreaker(params)           // Breaker capacity = 2
-	want := []bool{true, true, false} // Only first two requests are processed
-
-	b.sem.release()
-	locks := b.concurrentRequests(context.Background(), 3)
-
-	unlockAll(locks)
-
-	if diff := cmp.Diff(accepted(locks), want); diff != "" {
-		t.Errorf("Unexpected accepted requests (-want +got): %s", diff)
-	}
+	// The remainer should succeed.
+	reqs.processSuccessfully(t)
+	reqs.processSuccessfully(t)
 }
 
 func TestBreakerNoOverload(t *testing.T) {
 	params := BreakerParams{QueueDepth: 1, MaxConcurrency: 1, InitialCapacity: 1}
-	b := NewBreaker(params)                // Breaker capacity = 2
-	want := []bool{true, true, true, true} // Only two requests will be in flight at a time
-	locks := make([]request, 4)
-	locks[0] = b.concurrentRequest(context.Background())
-	locks[1] = b.concurrentRequest(context.Background())
-	unlock(locks[0])
-	locks[2] = b.concurrentRequest(context.Background())
-	unlock(locks[1])
-	locks[3] = b.concurrentRequest(context.Background())
-	unlockAll(locks[2:])
+	b := NewBreaker(params) // Breaker capacity = 2
+	reqs := newRequestor(b)
 
-	if diff := cmp.Diff(accepted(locks), want); diff != "" {
-		t.Errorf("Unexpected accepted requests (-want +got): %s", diff)
-	}
+	// Bring request to capacity.
+	reqs.request()
+	reqs.request()
+
+	// Process one, send a new one in, at capacity again.
+	reqs.processSuccessfully(t)
+	reqs.request()
+
+	// Process one, send a new one in, at capacity again.
+	reqs.processSuccessfully(t)
+	reqs.request()
+
+	// Process the remainder successfully.
+	reqs.processSuccessfully(t)
+	reqs.processSuccessfully(t)
 }
 
 func TestBreakerRecover(t *testing.T) {
 	params := BreakerParams{QueueDepth: 1, MaxConcurrency: 1, InitialCapacity: 1}
-	b := NewBreaker(params)                              // Breaker capacity = 2
-	want := []bool{true, true, false, false, true, true} // Shedding will stop when capacity opens up
+	b := NewBreaker(params) // Breaker capacity = 2
+	reqs := newRequestor(b)
 
-	locks := b.concurrentRequests(context.Background(), 4)
-	unlockAll(locks)
-	// Breaker recovers
-	moreLocks := b.concurrentRequests(context.Background(), 2)
-	unlockAll(moreLocks)
+	// Overshoot breaker capacity by 2.
+	reqs.request()
+	reqs.request()
+	reqs.request()
+	reqs.request()
 
-	if diff := cmp.Diff(accepted(append(locks, moreLocks...)), want); diff != "" {
-		t.Errorf("Unexpected accepted requests (-want +got): %s", diff)
-	}
+	// Expect 2 failures and 2 successes.
+	reqs.expectFailure(t)
+	reqs.expectFailure(t)
+	reqs.processSuccessfully(t)
+	reqs.processSuccessfully(t)
+
+	// As capacity has freed, more requests should succeed.
+	reqs.request()
+	reqs.request()
+	reqs.processSuccessfully(t)
+	reqs.processSuccessfully(t)
 }
 
 func TestBreakerLargeCapacityRecover(t *testing.T) {
 	params := BreakerParams{QueueDepth: 5, MaxConcurrency: 45, InitialCapacity: 45}
-	b := NewBreaker(params)   // Breaker capacity = 50
-	want := make([]bool, 150) // Process 150 requests
+	b := NewBreaker(params) // Breaker capacity = 50
+	reqs := newRequestor(b)
+
+	// Overshoot the capacity twice.
+	for i := 0; i < 100; i++ {
+		reqs.request()
+	}
+
+	// Expect 50 failed requests.
 	for i := 0; i < 50; i++ {
-		want[i] = true // First 50 will fill the breaker capacity.
-	}
-	for i := 50; i < 100; i++ {
-		want[i] = false // The next 50 will be shed.
-	}
-	for i := 100; i < 150; i++ {
-		want[i] = true // The next 50 will be processed as capacity opens up.
+		reqs.expectFailure(t)
 	}
 
-	// Send 100 requests.
-	locks := b.concurrentRequests(context.Background(), 100)
-	// Process one request and send one request, 50 times.
-	for i := 100; i < 150; i++ {
-		// Open capacity
-		unlock(locks[i-100])
-		// Add another request
-		locks = append(locks, b.concurrentRequest(context.Background()))
+	// Process and send another request, one at a time.
+	for i := 0; i < 50; i++ {
+		reqs.processSuccessfully(t)
+		reqs.request()
 	}
-	unlockAll(locks[50:])
 
-	if diff := cmp.Diff(accepted(locks), want); diff != "" {
-		t.Errorf("Unexpected accepted requests (-want +got): %s", diff)
+	// All remaining requests should succeed.
+	for i := 0; i < 50; i++ {
+		reqs.processSuccessfully(t)
 	}
+}
+
+func TestBreakerCancel(t *testing.T) {
+	params := BreakerParams{QueueDepth: 1, MaxConcurrency: 1, InitialCapacity: 0}
+	b := NewBreaker(params)
+	reqs := newRequestor(b)
+
+	// Cancel a request which cannot get capacity.
+	ctx1, cancel1 := context.WithCancel(context.Background())
+	reqs.requestWithContext(ctx1)
+	cancel1()
+	reqs.expectFailure(t)
+
+	// Let through a request with capacity then timeout following request
+	b.UpdateConcurrency(1)
+	reqs.request()
+
+	// Exceed capacity and assert failure. This makes sure the Breaker is consistently
+	// at capacity.
+	reqs.request()
+	reqs.expectFailure(t)
+
+	// This request cannot get capacity.
+	ctx2, cancel2 := context.WithCancel(context.Background())
+	reqs.requestWithContext(ctx2)
+	cancel2()
+	reqs.expectFailure(t)
+
+	// The request that was put in earlier should succeed.
+	reqs.processSuccessfully(t)
 }
 
 func TestBreaker_UpdateConcurrency(t *testing.T) {
@@ -185,36 +199,6 @@ func TestBreaker_UpdateConcurrency(t *testing.T) {
 
 	if err := b.UpdateConcurrency(-2); err != ErrUpdateCapacity {
 		t.Errorf("UpdateConcurrency = %v, want: %v", err, ErrUpdateCapacity)
-	}
-}
-
-func TestBreaker_Timeout(t *testing.T) {
-	params := BreakerParams{QueueDepth: 1, MaxConcurrency: 1, InitialCapacity: 0}
-	b := NewBreaker(params)
-	want := []bool{false, true, false}
-	locks := make([]request, 3)
-
-	// Timeout a request with no capacity
-	ctx1, cancel1 := context.WithCancel(context.Background())
-	locks[0] = b.concurrentRequest(ctx1)
-	cancel1()
-	locks[0].wait()
-
-	// Let through a request with capacity then timeout following request
-	b.UpdateConcurrency(1)
-
-	ctx2, cancel2 := context.WithCancel(context.Background())
-	locks[1] = b.concurrentRequest(context.Background())
-	locks[2] = b.concurrentRequest(ctx2)
-	cancel2()
-	locks[2].wait()
-
-	// Only our second request should have actually happened
-	unlock(locks[1])
-
-	if !cmp.Equal(accepted(locks), want) {
-		diff := cmp.Diff(accepted(locks), want)
-		t.Errorf("Unexpected accepted requests (-want +got): %s", diff)
 	}
 }
 
@@ -388,76 +372,60 @@ func TestSemaphore_WrongInitialCapacity(t *testing.T) {
 	newSemaphore(1, 2)
 }
 
-// Attempts to perform a concurrent request against the specified breaker.
-// Will wait for request to either be performed, enqueued or rejected.
-func (b *Breaker) concurrentRequest(ctx context.Context) request {
-	r := request{barrier: make(chan struct{}), accepted: make(chan bool, 1)}
-
-	if len(b.sem.queue) > 0 {
-		// Expect request to be performed
-		defer waitForQueue(b.sem.queue, len(b.sem.queue)-1)
-	} else if len(b.pendingRequests) < cap(b.pendingRequests) {
-		// Expect request to be queued
-		defer waitForQueue(b.pendingRequests, len(b.pendingRequests)+1)
-	} else {
-		// Expect request to be rejected
-		defer r.wait()
-	}
-
-	var start sync.WaitGroup
-	start.Add(1)
-	go func() {
-		start.Done()
-		ok := b.Maybe(ctx, func() {
-			<-r.barrier
-		})
-		r.accepted <- ok
-	}()
-	start.Wait() // Ensure that the go func has had a chance to execute.
-	return r
-}
-
-// Perform n requests against the breaker, returning request objects.
-func (b *Breaker) concurrentRequests(ctx context.Context, n int) []request {
-	requests := make([]request, n)
-	for i := range requests {
-		requests[i] = b.concurrentRequest(ctx)
-	}
-	return requests
-}
-
-func waitForQueue(queue chan struct{}, size int) {
-	if err := wait.PollImmediate(1*time.Millisecond, 100*time.Millisecond, func() (bool, error) {
-		return len(queue) == size, nil
-	}); err != nil {
-		panic("timed out waiting for queue")
-	}
-}
-
-func accepted(requests []request) []bool {
-	got := make([]bool, len(requests))
-	for i, r := range requests {
-		got[i] = <-r.accepted
-	}
-	return got
-}
-
-func unlock(req request) {
-	close(req.barrier)
-	// Verify that function has completed
-	req.wait()
-}
-
-func unlockAll(requests []request) {
-	for _, lc := range requests {
-		unlock(lc)
-	}
-}
-
 func tryAcquire(sem *semaphore, gotChan chan struct{}) {
 	go func() {
 		// blocking until someone puts the token into the semaphore
 		sem.acquire(context.Background())
 		gotChan <- struct{}{}
 	}()
+}
+
+// requestor is a set of test helpers around breaker testing.
+type requestor struct {
+	breaker    *Breaker
+	acceptedCh chan bool
+	barrierCh  chan struct{}
+}
+
+func newRequestor(breaker *Breaker) *requestor {
+	return &requestor{
+		breaker:    breaker,
+		acceptedCh: make(chan bool),
+		barrierCh:  make(chan struct{}),
+	}
+}
+
+// request is the same as requestWithContext but with a default context.
+func (r *requestor) request() {
+	r.requestWithContext(context.Background())
+}
+
+// requestWithContext simulates a request in a separate goroutine. The
+// request will either fail immediately (as observable via expectFailure)
+// or block until processSuccessfully is called.
+func (r *requestor) requestWithContext(ctx context.Context) {
+	go func() {
+		ok := r.breaker.Maybe(ctx, func() {
+			<-r.barrierCh
+		})
+		r.acceptedCh <- ok
+	}()
+}
+
+// expectFailure waits for a request to finish and asserts it to be failed.
+func (r *requestor) expectFailure(t *testing.T) {
+	t.Helper()
+	if <-r.acceptedCh {
+		t.Error("expected request to fail but it succeeded")
+	}
+}
+
+// processSuccessfully allows a request to pass the barrier, waits for it to
+// be finished and asserts it to succeeed.
+func (r *requestor) processSuccessfully(t *testing.T) {
+	t.Helper()
+	r.barrierCh <- struct{}{}
+	if !<-r.acceptedCh {
+		t.Error("expected request to succeed but it failed")
+	}
 }
