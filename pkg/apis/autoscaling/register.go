@@ -77,6 +77,10 @@ const (
 	// isn't going to work well.
 	WindowMin = 6 * time.Second
 
+	// WindowMax is the maximum permitted stable autoscaling window.
+	// This keeps the event horizon to a resonable enough limit.
+	WindowMax = 1 * time.Hour
+
 	// PanicWindowPercentageAnnotationKey is the annotation to
 	// specify the time interval over which to calculate the average
 	// metric during a spike. Where a spike is defined as the metric

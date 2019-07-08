@@ -386,6 +386,13 @@ func TestTargetAnnotation(t *testing.T) {
 		wantTarget: 1,
 		wantOk:     true,
 	}, {
+		name: "present float",
+		pa: pa(map[string]string{
+			autoscaling.TargetAnnotationKey: "19.82",
+		}),
+		wantTarget: 19.82,
+		wantOk:     true,
+	}, {
 		name: "invalid zero",
 		pa: pa(map[string]string{
 			autoscaling.TargetAnnotationKey: "0",
@@ -616,20 +623,6 @@ func TestWindowAnnotation(t *testing.T) {
 		}),
 		wantWindow: time.Second * 120,
 		wantOk:     true,
-	}, {
-		name: "invalid too small",
-		pa: pa(map[string]string{
-			autoscaling.WindowAnnotationKey: "1s",
-		}),
-		wantWindow: 0,
-		wantOk:     false,
-	}, {
-		name: "invalid format",
-		pa: pa(map[string]string{
-			autoscaling.WindowAnnotationKey: "sandwich",
-		}),
-		wantWindow: 0,
-		wantOk:     false,
 	}}
 
 	for _, tc := range cases {
@@ -663,20 +656,6 @@ func TestPanicWindowPercentageAnnotation(t *testing.T) {
 		}),
 		wantPercentage: 10.0,
 		wantOk:         true,
-	}, {
-		name: "too large",
-		pa: pa(map[string]string{
-			autoscaling.PanicWindowPercentageAnnotationKey: "150.0",
-		}),
-		wantPercentage: 0.0,
-		wantOk:         false,
-	}, {
-		name: "too small",
-		pa: pa(map[string]string{
-			autoscaling.PanicWindowPercentageAnnotationKey: "0.0",
-		}),
-		wantPercentage: 0.0,
-		wantOk:         false,
 	}, {
 		name: "malformed",
 		pa: pa(map[string]string{
@@ -717,13 +696,6 @@ func TestPanicThresholdPercentage(t *testing.T) {
 		}),
 		wantPercentage: 300.0,
 		wantOk:         true,
-	}, {
-		name: "too small",
-		pa: pa(map[string]string{
-			autoscaling.PanicThresholdPercentageAnnotationKey: "100.0",
-		}),
-		wantPercentage: 0.0,
-		wantOk:         false,
 	}}
 
 	for _, tc := range cases {

@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"math"
 	"strconv"
+	"time"
 
 	"knative.dev/pkg/apis"
 )
@@ -36,15 +37,14 @@ func getIntGE0(m map[string]string, k string) (int64, *apis.FieldError) {
 	return i, nil
 }
 
-func ValidateAnnotations(annotations map[string]string) *apis.FieldError {
-	if len(annotations) == 0 {
+func ValidateAnnotations(anns map[string]string) *apis.FieldError {
+	if len(anns) == 0 {
 		return nil
 	}
-
-	return validateMinMaxScale(annotations).Also(validateWindows(annotations))
+	return validateMinMaxScale(anns).Also(validatePercentages(anns)).Also(validateWindows(anns))
 }
 
-func validateWindows(annotations map[string]string) *apis.FieldError {
+func validatePercentages(annotations map[string]string) *apis.FieldError {
 	var errs *apis.FieldError
 	if v, ok := annotations[PanicWindowPercentageAnnotationKey]; ok {
 		if fv, err := strconv.ParseFloat(v, 64); err != nil {
@@ -60,6 +60,20 @@ func validateWindows(annotations map[string]string) *apis.FieldError {
 		} else if fv < PanicThresholdPercentageMin || fv > PanicThresholdPercentageMax {
 			errs = errs.Also(apis.ErrOutOfBoundsValue(v, PanicThresholdPercentageMin, PanicThresholdPercentageMax,
 				PanicThresholdPercentageAnnotationKey))
+		}
+	}
+
+	return errs
+}
+
+func validateWindows(annotations map[string]string) *apis.FieldError {
+	var errs *apis.FieldError
+	if v, ok := annotations[WindowAnnotationKey]; ok {
+		d, err := time.ParseDuration(v)
+		if err != nil {
+			errs = apis.ErrInvalidValue(v, WindowAnnotationKey)
+		} else if d < WindowMin || d > WindowMax {
+			errs = apis.ErrOutOfBoundsValue(v, WindowMin, WindowMax, WindowAnnotationKey)
 		}
 	}
 	return errs
