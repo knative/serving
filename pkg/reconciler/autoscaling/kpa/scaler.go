@@ -51,8 +51,17 @@ const (
 	// The time after which the PA will be re-enqueued.
 	// This number is small, since `handleScaleToZero` below will
 	// re-enque for the configured grace period.
-	reenqeuePeriod    = 1 * time.Second
-	activationTimeout = time.Duration(rresources.ProgressDeadlineSeconds) * time.Second
+	reenqeuePeriod = 1 * time.Second
+
+	// TODO(#3456): Remove this buffer once KPA does pod failure diagnostics.
+	//
+	// KPA will scale the Deployment down to zero if it fails to activate after ProgressDeadlineSeconds,
+	// however, after ProgressDeadlineSeconds, the Deployment itself updates its status, which causes
+	// the Revision to re-reconcile and diagnose pod failures. If we use the same timeout here, we will
+	// race the Revision reconciler and scale down the pods before it can actually surface the pod errors.
+	// We should instead ddo pod failure diagnostics here immediately before scaling down the Deployment.
+	activationTimeoutBuffer = 10 * time.Second
+	activationTimeout       = time.Duration(rresources.ProgressDeadlineSeconds)*time.Second + activationTimeoutBuffer
 )
 
 var probeOptions = []interface{}{
