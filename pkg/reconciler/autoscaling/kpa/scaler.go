@@ -148,6 +148,7 @@ func (ks *scaler) handleScaleToZero(pa *pav1alpha1.PodAutoscaler, desiredScale i
 	}
 
 	if pa.Status.IsActivating() { // Active=Unknown
+		// If we are stuck activating for longer than our progress deadline, presume we cannot succeed and scale to 0.
 		if pa.Status.CanFailActivation(activationTimeout) {
 			ks.logger.Infof("%s activation has timed out after %v.", pa.Name, activationTimeout)
 			return 0, true
