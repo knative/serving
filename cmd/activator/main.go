@@ -23,6 +23,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/knative/serving/cmd/util"
@@ -81,7 +82,7 @@ const (
 	breakerMaxConcurrency = 1000
 
 	// The port on which autoscaler WebSocket server listens.
-	autoscalerPort = 8080
+	autoscalerPort = ":8080"
 
 	defaultResyncInterval = 10 * time.Hour
 )
@@ -203,8 +204,8 @@ func main() {
 	configStore := activatorconfig.NewStore(createdLogger, tracerUpdater)
 	configStore.WatchConfigs(configMapWatcher)
 
-	// Open a websocket connection to the autoscaler
-	autoscalerEndpoint := fmt.Sprintf("ws://%s.%s.svc.%s:%d", "autoscaler", system.Namespace(), network.GetClusterDomainName(), autoscalerPort)
+	// Open a WebSocket connection to the autoscaler.
+	autoscalerEndpoint := fmt.Sprintf("ws://%s.%s.svc.%s%s", "autoscaler", system.Namespace(), network.GetClusterDomainName(), autoscalerPort)
 	logger.Info("Connecting to autoscaler at", autoscalerEndpoint)
 	statSink := websocket.NewDurableSendingConnection(autoscalerEndpoint, logger)
 	go statReporter(statSink, stopCh, statChan, logger)
@@ -250,8 +251,8 @@ func main() {
 	}
 
 	servers := map[string]*http.Server{
-		"http1": network.NewServer(fmt.Sprintf(":%d", networking.BackendHTTPPort), ah),
-		"h2c":   network.NewServer(fmt.Sprintf(":%d", networking.BackendHTTP2Port), ah),
+		"http1": network.NewServer(":"+strconv.Itoa(networking.BackendHTTPPort), ah),
+		"h2c":   network.NewServer(":"+strconv.Itoa(networking.BackendHTTP2Port), ah),
 	}
 
 	errCh := make(chan error, len(servers))
