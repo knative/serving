@@ -40,8 +40,6 @@ var defaultConfig = Config{
 	PanicThresholdPercentage:           200.0,
 }
 
-type confMods func(c Config) *Config
-
 func TestNewConfig(t *testing.T) {
 	tests := []struct {
 		name    string
