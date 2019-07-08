@@ -81,6 +81,23 @@ func TestBreakerOverload(t *testing.T) {
 	reqs.processSuccessfully(t)
 }
 
+func TestBreakerQueueing(t *testing.T) {
+	params := BreakerParams{QueueDepth: 2, MaxConcurrency: 1, InitialCapacity: 0}
+	b := NewBreaker(params) // Breaker capacity = 2
+	reqs := newRequestor(b)
+
+	// Bring breaker to capacity. Doesn't error because queue subsumes these requests.
+	reqs.request()
+	reqs.request()
+
+	// Update concurrency to allow the requests to be processed.
+	b.UpdateConcurrency(1)
+
+	// They should pass just fine.
+	reqs.processSuccessfully(t)
+	reqs.processSuccessfully(t)
+}
+
 func TestBreakerNoOverload(t *testing.T) {
 	params := BreakerParams{QueueDepth: 1, MaxConcurrency: 1, InitialCapacity: 1}
 	b := NewBreaker(params) // Breaker capacity = 2
@@ -101,57 +118,6 @@ func TestBreakerNoOverload(t *testing.T) {
 	// Process the remainder successfully.
 	reqs.processSuccessfully(t)
 	reqs.processSuccessfully(t)
-}
-
-func TestBreakerRecover(t *testing.T) {
-	params := BreakerParams{QueueDepth: 1, MaxConcurrency: 1, InitialCapacity: 1}
-	b := NewBreaker(params) // Breaker capacity = 2
-	reqs := newRequestor(b)
-
-	// Overshoot breaker capacity by 2.
-	reqs.request()
-	reqs.request()
-	reqs.request()
-	reqs.request()
-
-	// Expect 2 failures and 2 successes.
-	reqs.expectFailure(t)
-	reqs.expectFailure(t)
-	reqs.processSuccessfully(t)
-	reqs.processSuccessfully(t)
-
-	// As capacity has freed, more requests should succeed.
-	reqs.request()
-	reqs.request()
-	reqs.processSuccessfully(t)
-	reqs.processSuccessfully(t)
-}
-
-func TestBreakerLargeCapacityRecover(t *testing.T) {
-	params := BreakerParams{QueueDepth: 5, MaxConcurrency: 45, InitialCapacity: 45}
-	b := NewBreaker(params) // Breaker capacity = 50
-	reqs := newRequestor(b)
-
-	// Overshoot the capacity twice.
-	for i := 0; i < 100; i++ {
-		reqs.request()
-	}
-
-	// Expect 50 failed requests.
-	for i := 0; i < 50; i++ {
-		reqs.expectFailure(t)
-	}
-
-	// Process and send another request, one at a time.
-	for i := 0; i < 50; i++ {
-		reqs.processSuccessfully(t)
-		reqs.request()
-	}
-
-	// All remaining requests should succeed.
-	for i := 0; i < 50; i++ {
-		reqs.processSuccessfully(t)
-	}
 }
 
 func TestBreakerCancel(t *testing.T) {
@@ -184,7 +150,7 @@ func TestBreakerCancel(t *testing.T) {
 	reqs.processSuccessfully(t)
 }
 
-func TestBreaker_UpdateConcurrency(t *testing.T) {
+func TestBreakerUpdateConcurrency(t *testing.T) {
 	params := BreakerParams{QueueDepth: 1, MaxConcurrency: 1, InitialCapacity: 0}
 	b := NewBreaker(params)
 	b.UpdateConcurrency(1)
@@ -202,7 +168,7 @@ func TestBreaker_UpdateConcurrency(t *testing.T) {
 	}
 }
 
-func TestBreaker_UpdateConcurrency_Overlow(t *testing.T) {
+func TestBreakerUpdateConcurrencyOverlow(t *testing.T) {
 	params := BreakerParams{QueueDepth: 1, MaxConcurrency: 1, InitialCapacity: 0}
 	b := NewBreaker(params)
 	if err := b.UpdateConcurrency(2); err != ErrUpdateCapacity {
