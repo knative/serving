@@ -202,7 +202,7 @@ func TestMakeRevisions(t *testing.T) {
 				Namespace:    "anno",
 				GenerateName: "config-",
 				Annotations: map[string]string{
-					"serving.knative.dev/creator": "admin",
+					"serving.knative.dev/creator": "someone",
 				},
 				OwnerReferences: []metav1.OwnerReference{{
 					APIVersion:         v1alpha1.SchemeGroupVersion.String(),
