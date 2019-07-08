@@ -81,9 +81,11 @@ func (h *State) drainFinished() {
 
 }
 
-// HealthHandler constructs a handler that returns the current state of
-// the health server.
-func (h *State) HealthHandler(prober func() bool) func(w http.ResponseWriter, r *http.Request) {
+// HealthHandler constructs a handler that returns the current state of the
+// health server. If isAggressive is true and prober has succeeded previously,
+// will immediately return success without probing user-container again (until
+// shutdown).
+func (h *State) HealthHandler(prober func() bool, isAggressive bool) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		sendAlive := func() {
 			io.WriteString(w, "alive: true")
@@ -95,7 +97,7 @@ func (h *State) HealthHandler(prober func() bool) func(w http.ResponseWriter, r 
 		}
 
 		switch {
-		case h.IsAlive():
+		case isAggressive && h.IsAlive():
 			sendAlive()
 		case h.IsShuttingDown():
 			sendNotAlive()
