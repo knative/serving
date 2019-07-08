@@ -144,7 +144,7 @@ func initEnv() {
 	servingRevision = util.GetRequiredEnvOrFatal("SERVING_REVISION", logger)
 	servingService = os.Getenv("SERVING_SERVICE") // KService is optional
 	userTargetPort = util.MustParseIntEnvOrFatal("USER_PORT", logger)
-	userTargetAddress = fmt.Sprintf("127.0.0.1:%d", userTargetPort)
+	userTargetAddress = "127.0.0.1:" + strconv.Itoa(userTargetPort)
 	userContainerName = util.GetRequiredEnvOrFatal("USER_CONTAINER_NAME", logger)
 
 	enableVarLogCollection, _ = strconv.ParseBool(os.Getenv("ENABLE_VAR_LOG_COLLECTION")) // Optional, default is false
@@ -354,7 +354,7 @@ func main() {
 	}, time.Now())
 
 	adminServer := &http.Server{
-		Addr:    fmt.Sprintf(":%d", networking.QueueAdminPort),
+		Addr:    ":" + strconv.Itoa(networking.QueueAdminPort),
 		Handler: createAdminHandlers(),
 	}
 
@@ -384,8 +384,9 @@ func main() {
 	if metricsSupported {
 		composedHandler = pushRequestMetricHandler(composedHandler, requestCountM, responseTimeInMsecM)
 	}
-	logger.Infof("Queue-proxy will listen on port %d", queueServingPort)
-	server := network.NewServer(fmt.Sprintf(":%d", queueServingPort), composedHandler)
+	qSP := strconv.Itoa(queueServingPort)
+	logger.Info("Queue-proxy will listen on port ", qSP)
+	server := network.NewServer(":"+qSP, composedHandler)
 
 	errChan := make(chan error, 2)
 	defer close(errChan)

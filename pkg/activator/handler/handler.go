@@ -22,6 +22,7 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"strconv"
 	"sync"
 	"time"
 
@@ -316,9 +317,7 @@ func (a *activationHandler) serviceHostName(rev *v1alpha1.Revision, serviceName 
 		return "", errors.New("revision needs external HTTP port")
 	}
 
-	serviceFQDN := network.GetServiceHostname(serviceName, rev.Namespace)
-
-	return fmt.Sprintf("%s:%d", serviceFQDN, port), nil
+	return network.GetServiceHostname(serviceName, rev.Namespace) + ":" + strconv.Itoa(port), nil
 }
 
 func sendError(err error, w http.ResponseWriter) {
