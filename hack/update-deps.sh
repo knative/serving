@@ -23,6 +23,8 @@ set -o pipefail
 
 cd ${ROOT_DIR}
 
+which hg >/dev/null || echo "If dep hangs, you need to install mercurial: https://github.com/knative/serving/issues/4663"
+
 # Ensure we have everything we need under vendor/
 dep ensure
 
