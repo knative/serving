@@ -24,6 +24,8 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/knative/serving/pkg/network"
+	"github.com/knative/serving/pkg/queue"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
@@ -50,7 +52,7 @@ func TestTCPProbe(t *testing.T) {
 }
 
 func TestHTTPProbeSuccess(t *testing.T) {
-	var gotHeader corev1.HTTPHeader
+	var gotHeader, kubeletHeader corev1.HTTPHeader
 	expectedHeader := corev1.HTTPHeader{
 		Name:  "Testkey",
 		Value: "Testval",
@@ -59,9 +61,13 @@ func TestHTTPProbeSuccess(t *testing.T) {
 	expectedPath := "/health"
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		for headerKey, headerValue := range r.Header {
-			// Flitering for expectedHeader.TestKey to avoid other HTTP probe headers
+			// Filtering for expectedHeader.TestKey to avoid other HTTP probe headers
 			if expectedHeader.Name == headerKey {
 				gotHeader = corev1.HTTPHeader{Name: headerKey, Value: headerValue[0]}
+			}
+
+			if headerKey == network.KubeletProbeHeaderName {
+				kubeletHeader = corev1.HTTPHeader{Name: headerKey, Value: headerValue[0]}
 			}
 		}
 
@@ -83,6 +89,9 @@ func TestHTTPProbeSuccess(t *testing.T) {
 	}
 	if d := cmp.Diff(gotHeader, expectedHeader); d != "" {
 		t.Errorf("Expected probe headers to match but got %s", d)
+	}
+	if d := cmp.Diff(kubeletHeader, corev1.HTTPHeader{Name: network.KubeletProbeHeaderName, Value: queue.Name}); d != "" {
+		t.Errorf("Expected kubelet probe header to be added to request, go %s", d)
 	}
 	if !cmp.Equal(gotPath, expectedPath) {
 		t.Errorf("Expected %s path to match but got %s", expectedPath, gotPath)

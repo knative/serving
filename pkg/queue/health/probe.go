@@ -25,6 +25,8 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/knative/serving/pkg/network"
+	"github.com/knative/serving/pkg/queue"
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -73,6 +75,8 @@ func HTTPProbe(config HTTPProbeConfigOptions) error {
 		return fmt.Errorf("error constructing probe request %v", err)
 	}
 
+	req.Header.Add(network.KubeletProbeHeaderName, queue.Name)
+
 	for _, header := range config.HTTPHeaders {
 		req.Header.Add(header.Name, header.Value)
 	}
@@ -83,7 +87,7 @@ func HTTPProbe(config HTTPProbeConfigOptions) error {
 	}
 
 	if !IsHTTPProbeReady(res) {
-		return errors.New("HTTP probe did not respond Ready")
+		return errors.New(fmt.Sprintf("HTTP probe did not respond Ready, got status code: %d", res.StatusCode))
 	}
 
 	return nil
