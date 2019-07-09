@@ -85,8 +85,8 @@ func MakeMeshVirtualService(ia v1alpha1.IngressAccessor) *v1alpha3.VirtualServic
 			Annotations:     ia.GetAnnotations(),
 		},
 		Spec: *makeVirtualServiceSpec(ia, map[v1alpha1.IngressVisibility][]string{
-			v1alpha1.IngressVisibilityExternalIP:   []string{"mesh"},
-			v1alpha1.IngressVisibilityClusterLocal: []string{"mesh"},
+			v1alpha1.IngressVisibilityExternalIP:   {"mesh"},
+			v1alpha1.IngressVisibilityClusterLocal: {"mesh"},
 		}, retainLocals(getHosts(ia))),
 	}
 	// Populate the ClusterIngress labels.
