@@ -98,10 +98,19 @@ func (pa *PodAutoscaler) Target() (float64, bool) {
 	return 0, false
 }
 
+// TargetUtilization returns the target capacity utilization as a fraction,
+// if the corresponding annotation is set.
+func (pa *PodAutoscaler) TargetUtilization() (float64, bool) {
+	if tu, ok := pa.annotationFloat64(autoscaling.TargetUtilizationPercentageKey); ok {
+		return tu / 100, true
+	}
+	return 0, false
+}
+
 // Window returns the window annotation value or false if not present.
 func (pa *PodAutoscaler) Window() (window time.Duration, ok bool) {
+	// The value is validated in the webhook.
 	if s, ok := pa.Annotations[autoscaling.WindowAnnotationKey]; ok {
-		// The value is already validated in the webhook.
 		d, err := time.ParseDuration(s)
 		return d, err == nil
 	}

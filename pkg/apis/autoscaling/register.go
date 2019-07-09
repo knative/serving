@@ -76,10 +76,15 @@ const (
 	// smaller than the stable window. Anything less than 6 second
 	// isn't going to work well.
 	WindowMin = 6 * time.Second
-
 	// WindowMax is the maximum permitted stable autoscaling window.
 	// This keeps the event horizon to a resonable enough limit.
 	WindowMax = 1 * time.Hour
+
+	// TargetUtilizationPercentageKey is the annotation which specifies the
+	// desired target resource utilization for the revision.
+	// TargetUtilization is a percentage in the 1 <= TU <= 100 range.
+	// This annotation takes precedence over the config map value.
+	TargetUtilizationPercentageKey = GroupName + "/targetUtilizationPercentage"
 
 	// PanicWindowPercentageAnnotationKey is the annotation to
 	// specify the time interval over which to calculate the average
