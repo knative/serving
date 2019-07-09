@@ -16,7 +16,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package e2e
+package v1beta1
 
 import (
 	"encoding/json"
@@ -37,7 +37,7 @@ func TestV1beta1Translation(t *testing.T) {
 	cancel := logstream.Start(t)
 	defer cancel()
 
-	clients := Setup(t)
+	clients := test.Setup(t)
 
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
@@ -72,7 +72,7 @@ func TestV1beta1Rejection(t *testing.T) {
 	cancel := logstream.Start(t)
 	defer cancel()
 
-	clients := Setup(t)
+	clients := test.Setup(t)
 
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
