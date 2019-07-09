@@ -29,7 +29,7 @@ import (
 
 const (
 	aggressiveProbeTimeout = 100 * time.Millisecond
-	// Set equal to the queue-proxy's ExecProbe timeout to take
+	// PollTimeout is set equal to the queue-proxy's ExecProbe timeout to take
 	// advantage of the full window
 	PollTimeout   = 10 * time.Second
 	retryInterval = 50 * time.Millisecond
