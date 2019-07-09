@@ -71,7 +71,7 @@ func UpdateRevisionAnnotations(rev *v1alpha1.Revision, config *v1alpha1.Configur
 	// Populate the CreatorAnnotation from configuration.
 	cans := config.GetAnnotations()
 	if c, ok := cans[serving.UpdaterAnnotation]; ok {
-		rev.GetAnnotations()[serving.CreatorAnnotation] = c
+		rev.Annotations[serving.CreatorAnnotation] = c
 	}
 }
 
