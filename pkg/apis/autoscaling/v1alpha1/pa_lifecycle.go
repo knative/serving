@@ -79,9 +79,8 @@ func (pa *PodAutoscaler) annotationFloat64(key string) (float64, bool) {
 // `(min, max int32)`. The value of 0 for any of min or max means the bound is
 // not set
 func (pa *PodAutoscaler) ScaleBounds() (min, max int32) {
-	min = pa.annotationInt32(autoscaling.MinScaleAnnotationKey)
-	max = pa.annotationInt32(autoscaling.MaxScaleAnnotationKey)
-	return
+	return pa.annotationInt32(autoscaling.MinScaleAnnotationKey),
+		pa.annotationInt32(autoscaling.MaxScaleAnnotationKey)
 }
 
 // Target returns the target annotation value or false if not present, or invalid.
@@ -111,15 +110,13 @@ func (pa *PodAutoscaler) Window() (window time.Duration, ok bool) {
 // PanicWindowPercentage returns panic window annotation value or false if not present.
 func (pa *PodAutoscaler) PanicWindowPercentage() (percentage float64, ok bool) {
 	// The value is validated in the webhook.
-	percentage, ok = pa.annotationFloat64(autoscaling.PanicWindowPercentageAnnotationKey)
-	return percentage, ok
+	return pa.annotationFloat64(autoscaling.PanicWindowPercentageAnnotationKey)
 }
 
 // PanicThresholdPercentage return the panic target annotation value or false if not present.
 func (pa *PodAutoscaler) PanicThresholdPercentage() (percentage float64, ok bool) {
 	// The value is validated in the webhook.
-	percentage, ok = pa.annotationFloat64(autoscaling.PanicThresholdPercentageAnnotationKey)
-	return percentage, ok
+	return pa.annotationFloat64(autoscaling.PanicThresholdPercentageAnnotationKey)
 }
 
 // IsReady looks at the conditions and if the Status has a condition
