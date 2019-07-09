@@ -72,7 +72,12 @@ func TestEncodeProbe(t *testing.T) {
 		},
 	}
 
-	jsonProbe := EncodeProbe(probe)
+	jsonProbe, err := EncodeProbe(probe)
+
+	if err != nil {
+		t.Fatalf("Expected no errer, got: %#v", err)
+	}
+
 	wantProbe := `{"tcpSocket":{"port":"8080","host":"127.0.0.1"},"successThreshold":1}`
 
 	if diff := cmp.Diff(jsonProbe, wantProbe); diff != "" {
