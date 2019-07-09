@@ -63,11 +63,11 @@ func validatePercentages(annotations map[string]string) *apis.FieldError {
 		}
 	}
 
-	if v, ok := annotations[TargetUtilizationKey]; ok {
+	if v, ok := annotations[TargetUtilizationPercentageKey]; ok {
 		if fv, err := strconv.ParseFloat(v, 64); err != nil {
-			errs = errs.Also(apis.ErrInvalidValue(v, TargetUtilizationKey))
+			errs = errs.Also(apis.ErrInvalidValue(v, TargetUtilizationPercentageKey))
 		} else if fv < 1 || fv > 100 {
-			errs = errs.Also(apis.ErrOutOfBoundsValue(v, 1, 100, TargetUtilizationKey))
+			errs = errs.Also(apis.ErrOutOfBoundsValue(v, 1, 100, TargetUtilizationPercentageKey))
 		}
 	}
 	return errs

@@ -100,7 +100,7 @@ func (pa *PodAutoscaler) Target() (float64, bool) {
 // TargetUtilization returns the target capacity utilization as a fraction,
 // if the corresponding annotation is set.
 func (pa *PodAutoscaler) TargetUtilization() (float64, bool) {
-	if tu, ok := pa.annotationFloat64(autoscaling.TargetUtilizationKey); ok {
+	if tu, ok := pa.annotationFloat64(autoscaling.TargetUtilizationPercentageKey); ok {
 		return tu / 100, true
 	}
 	return 0, false

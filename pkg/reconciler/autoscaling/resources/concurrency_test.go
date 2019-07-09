@@ -147,6 +147,6 @@ func TestResolveConcurrency(t *testing.T) {
 
 func withTU(tu string) PodAutoscalerOption {
 	return func(pa *v1alpha1.PodAutoscaler) {
-		pa.Annotations[autoscaling.TargetUtilizationKey] = tu
+		pa.Annotations[autoscaling.TargetUtilizationPercentageKey] = tu
 	}
 }

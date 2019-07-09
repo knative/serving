@@ -699,14 +699,14 @@ func TestTargetUtilization(t *testing.T) {
 	}, {
 		name: "present",
 		pa: pa(map[string]string{
-			autoscaling.TargetUtilizationKey: "10.0",
+			autoscaling.TargetUtilizationPercentageKey: "10.0",
 		}),
 		want:   .1,
 		wantOK: true,
 	}, {
 		name: "malformed",
 		pa: pa(map[string]string{
-			autoscaling.TargetUtilizationKey: "NPH",
+			autoscaling.TargetUtilizationPercentageKey: "NPH",
 		}),
 		want:   0.0,
 		wantOK: false,
