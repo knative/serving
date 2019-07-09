@@ -107,6 +107,18 @@ func TestValidateScaleBoundAnnotations(t *testing.T) {
 		annotations: map[string]string{PanicThresholdPercentageAnnotationKey: "fifty"},
 		expectErr:   "invalid value: fifty: autoscaling.knative.dev/panicThresholdPercentage",
 	}, {
+		name:        "window invalid",
+		annotations: map[string]string{WindowAnnotationKey: "jerry-was-a-racecar-driver"},
+		expectErr:   "invalid value: jerry-was-a-racecar-driver: autoscaling.knative.dev/window",
+	}, {
+		name:        "window too short",
+		annotations: map[string]string{WindowAnnotationKey: "1s"},
+		expectErr:   "expected 6s <= 1s <= 1h0m0s: autoscaling.knative.dev/window",
+	}, {
+		name:        "window too long",
+		annotations: map[string]string{WindowAnnotationKey: "365h"},
+		expectErr:   "expected 6s <= 365h <= 1h0m0s: autoscaling.knative.dev/window",
+	}, {
 		name: "all together now fail",
 		annotations: map[string]string{
 			PanicThresholdPercentageAnnotationKey: "fifty",
@@ -122,6 +134,7 @@ func TestValidateScaleBoundAnnotations(t *testing.T) {
 			PanicWindowPercentageAnnotationKey:    "75",
 			MinScaleAnnotationKey:                 "5",
 			MaxScaleAnnotationKey:                 "8",
+			WindowAnnotationKey:                   "1984s",
 		},
 	}}
 
