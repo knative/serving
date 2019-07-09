@@ -31,7 +31,7 @@ func DecodeProbe(jsonProbe string) (*corev1.Probe, error) {
 	return p, nil
 }
 
-// EncodeProbe takes *corev1.Probe object and returns marshalled Probe byte array
+// EncodeProbe takes *corev1.Probe object and returns marshalled Probe JSON string.
 func EncodeProbe(rp *corev1.Probe) string {
 	probeJSON, err := json.Marshal(rp)
 	if err != nil {
