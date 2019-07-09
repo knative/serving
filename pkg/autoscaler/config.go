@@ -187,7 +187,7 @@ func validate(lc *Config) (*Config, error) {
 
 	effPW := time.Duration(lc.PanicWindowPercentage / 100 * float64(lc.StableWindow))
 	if effPW < BucketSize || effPW > lc.StableWindow {
-		return nil, fmt.Errorf("panic-window = %v, must be in [%v, %v] interval", lc.PanicWindow, BucketSize, lc.StableWindow)
+		return nil, fmt.Errorf("panic-window-percentage = %v, must be in [%v, 100] interval", lc.PanicWindow, 100*float64(BucketSize)/float64(lc.StableWindow))
 	}
 
 	return lc, nil
