@@ -57,7 +57,7 @@ func TestMakeVirtualServices_CorrectMetadata(t *testing.T) {
 			},
 			Spec: v1alpha1.IngressSpec{Rules: []v1alpha1.IngressRule{{
 				Visibility: v1alpha1.IngressVisibilityExternalIP,
-				HTTP: &v1alpha1.HTTPIngressRuleValue{},
+				HTTP:       &v1alpha1.HTTPIngressRuleValue{},
 			}}},
 		},
 		expected: []metav1.ObjectMeta{{
