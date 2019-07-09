@@ -178,7 +178,11 @@ func probeUserContainer() bool {
 	var err error
 	wait.PollImmediate(50*time.Millisecond, probeTimeout, func() (bool, error) {
 		logger.Debug("TCP probing the user-container.")
-		err = health.TCPProbe(userTargetAddress, 100*time.Millisecond)
+		config := health.TCPProbeConfigOptions{
+			Address:       userTargetAddress,
+			SocketTimeout: 100 * time.Millisecond,
+		}
+		err = health.TCPProbe(config)
 		return err == nil, nil
 	})
 
@@ -241,7 +245,8 @@ func handler(reqChan chan queue.ReqEvent, breaker *queue.Breaker, handler http.H
 // Sets up /health and /wait-for-drain endpoints.
 func createAdminHandlers() *http.ServeMux {
 	mux := http.NewServeMux()
-	mux.HandleFunc(requestQueueHealthPath, healthState.HealthHandler(probeUserContainer))
+	// TODO(@joshrider): temporary change while waiting on other PRs to merge (See #4014)
+	mux.HandleFunc(requestQueueHealthPath, healthState.HealthHandler(probeUserContainer, true /*isNotAggressive*/))
 	mux.HandleFunc(queue.RequestQueueDrainPath, healthState.DrainHandler())
 
 	return mux

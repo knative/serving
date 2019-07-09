@@ -76,7 +76,7 @@ const (
 
 	// Since K8s 1.8, prober requests have
 	//   User-Agent = "kube-probe/{major-version}.{minor-version}".
-	kubeProbeUAPrefix = "kube-probe/"
+	KubeProbeUAPrefix = "kube-probe/"
 
 	// Istio with mTLS rewrites probes, but their probes pass a different
 	// user-agent.  So we augment the probes with this header.
@@ -320,7 +320,7 @@ func checkTagTemplate(t *template.Template) error {
 
 // IsKubeletProbe returns true if the request is a kubernetes probe.
 func IsKubeletProbe(r *http.Request) bool {
-	return strings.HasPrefix(r.Header.Get("User-Agent"), kubeProbeUAPrefix) ||
+	return strings.HasPrefix(r.Header.Get("User-Agent"), KubeProbeUAPrefix) ||
 		r.Header.Get(KubeletProbeHeaderName) != ""
 }
 
