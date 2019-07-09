@@ -19,11 +19,11 @@ limitations under the License.
 package e2e
 
 import (
-	"net/http"
 	"testing"
 
 	"github.com/knative/serving/test"
 	v1a1test "github.com/knative/serving/test/v1alpha1"
+	pkgTest "knative.dev/pkg/test"
 
 	corev1 "k8s.io/api/core/v1"
 )
@@ -56,11 +56,15 @@ func TestEgressTraffic(t *testing.T) {
 		t.Fatalf("Can't get internal request domain: service.Route.Status.URL is nil")
 	}
 	t.Log(service.Route.Status.URL.Host)
-	response, err := sendRequest(t, clients, test.ServingFlags.ResolvableDomain, service.Route.Status.URL.Host)
-	if err != nil {
+
+	domain := service.Route.Status.URL.Host
+	if _, err = pkgTest.WaitForEndpointState(
+		clients.KubeClient,
+		t.Logf,
+		domain,
+		v1a1test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
+		"HTTPProxy",
+		test.ServingFlags.ResolvableDomain); err != nil {
 		t.Fatalf("Failed to send request to httpproxy: %v", err)
-	}
-	if got, want := response.StatusCode, http.StatusOK; got != want {
-		t.Fatalf("%v response StatusCode = %v, want %v", targetHostDomain, got, want)
 	}
 }
