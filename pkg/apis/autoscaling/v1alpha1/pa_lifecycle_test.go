@@ -623,6 +623,13 @@ func TestWindowAnnotation(t *testing.T) {
 		}),
 		wantWindow: time.Second * 120,
 		wantOk:     true,
+	}, {
+		name: "invalid",
+		pa: pa(map[string]string{
+			autoscaling.WindowAnnotationKey: "365d",
+		}),
+		wantWindow: 0,
+		wantOk:     false,
 	}}
 
 	for _, tc := range cases {

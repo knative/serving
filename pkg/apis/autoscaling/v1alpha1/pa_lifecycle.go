@@ -102,8 +102,8 @@ func (pa *PodAutoscaler) Target() (float64, bool) {
 func (pa *PodAutoscaler) Window() (window time.Duration, ok bool) {
 	if s, ok := pa.Annotations[autoscaling.WindowAnnotationKey]; ok {
 		// The value is already validated in the webhook.
-		d, _ := time.ParseDuration(s)
-		return d, true
+		d, err := time.ParseDuration(s)
+		return d, err == nil
 	}
 	return 0, false
 }
