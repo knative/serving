@@ -607,8 +607,8 @@ func TestReconcile(t *testing.T) {
 				},
 				WithHosts(
 					0,
-					"different-domain.default.another-example.com",
 					"different-domain.default.svc.cluster.local",
+					"different-domain.default.another-example.com",
 				),
 			),
 		}},
