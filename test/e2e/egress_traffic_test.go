@@ -24,6 +24,7 @@ import (
 
 	"github.com/knative/serving/test"
 	v1a1test "github.com/knative/serving/test/v1alpha1"
+	pkgTest "knative.dev/pkg/test"
 
 	corev1 "k8s.io/api/core/v1"
 )
@@ -56,7 +57,20 @@ func TestEgressTraffic(t *testing.T) {
 		t.Fatalf("Can't get internal request domain: service.Route.Status.URL is nil")
 	}
 	t.Log(service.Route.Status.URL.Host)
-	response, err := sendRequest(t, clients, test.ServingFlags.ResolvableDomain, service.Route.Status.URL.Host)
+
+	domain := service.Route.Status.URL.Host
+	if _, err = pkgTest.WaitForEndpointState(
+		clients.KubeClient,
+		t.Logf,
+		domain,
+		v1a1test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
+		"HTTPProxy",
+		test.ServingFlags.ResolvableDomain); err != nil {
+		t.Fatalf("Failed to start endpoint of httpproxy: %v", err)
+	}
+	t.Log("httpproxy is ready.")
+
+	response, err := sendRequest(t, clients, test.ServingFlags.ResolvableDomain, domain)
 	if err != nil {
 		t.Fatalf("Failed to send request to httpproxy: %v", err)
 	}
