@@ -19,7 +19,6 @@ limitations under the License.
 package e2e
 
 import (
-	"net/http"
 	"testing"
 
 	"github.com/knative/serving/test"
@@ -66,15 +65,6 @@ func TestEgressTraffic(t *testing.T) {
 		v1a1test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
 		"HTTPProxy",
 		test.ServingFlags.ResolvableDomain); err != nil {
-		t.Fatalf("Failed to start endpoint of httpproxy: %v", err)
-	}
-	t.Log("httpproxy is ready.")
-
-	response, err := sendRequest(t, clients, test.ServingFlags.ResolvableDomain, domain)
-	if err != nil {
 		t.Fatalf("Failed to send request to httpproxy: %v", err)
-	}
-	if got, want := response.StatusCode, http.StatusOK; got != want {
-		t.Fatalf("%v response StatusCode = %v, want %v", targetHostDomain, got, want)
 	}
 }
