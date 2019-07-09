@@ -41,7 +41,7 @@ func TestTCPProbe(t *testing.T) {
 	}
 	// Connecting to the server should work
 	if err := TCPProbe(config); err != nil {
-		t.Errorf("Expected probe to succeed but failed with error %v", err)
+		t.Errorf("Probe failed with: %v", err)
 	}
 
 	// Close the server so probing fails afterwards

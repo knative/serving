@@ -59,21 +59,26 @@ func (p *Probe) IsAggressive() bool {
 func (p *Probe) ProbeContainer() bool {
 	var err error
 
-	if p.HTTPGet != nil {
+	switch {
+	case p.HTTPGet != nil:
 		err = p.httpProbe()
-	} else if p.TCPSocket != nil {
+	case p.TCPSocket != nil:
 		err = p.tcpProbe()
-	} else if p.Exec != nil {
-		// Assumes the true readinessProbe is being executed directly on user container. See (#4086).
-		return true
-	} else {
-		// using Fprintf for a concise error message in the event log
+	case p.Exec != nil:
+		// Should never be reachable. Exec probes to be translated to
+		// TCP probes when container is built.
+		// Using Fprintf for a concise error message in the event log.
+		fmt.Fprint(os.Stderr, "exec probe not supported")
+		return false
+	default:
+		// Using Fprintf for a concise error message in the event log.
 		fmt.Fprint(os.Stderr, "no probe found")
 		return false
 	}
 
 	if err != nil {
-		p.logger.Errorw("User-container could not be probed successfully.", zap.Error(err))
+		// Using Fprintf for a concise error message in the event log.
+		fmt.Fprintf(os.Stderr, err.Error())
 		return false
 	}
 
@@ -81,21 +86,10 @@ func (p *Probe) ProbeContainer() bool {
 	return true
 }
 
-// tcpProbe function executes TCP probe once if its standard probe
-// otherwise TCP probe polls condition function which returns true
-// if the probe count is greater than success threshold and false if TCP probe fails
-func (p *Probe) tcpProbe() error {
-	config := health.TCPProbeConfigOptions{
-		Address:       fmt.Sprintf("%s:%d", p.TCPSocket.Host, p.TCPSocket.Port.IntValue()),
-		SocketTimeout: time.Duration(p.TimeoutSeconds) * time.Second,
-	}
-
+func (p *Probe) doProbe(probe func(time.Duration) error) error {
 	if p.IsAggressive() {
-		// timeout quickly so we can aggressively retry
-		config.SocketTimeout = aggressiveProbeTimeout
-
 		return wait.PollImmediate(retryInterval, PollTimeout, func() (bool, error) {
-			if tcpErr := health.TCPProbe(config); tcpErr != nil {
+			if tcpErr := probe(aggressiveProbeTimeout); tcpErr != nil {
 				// reset count of consecutive successes to zero
 				p.count = 0
 				return false, nil
@@ -109,7 +103,21 @@ func (p *Probe) tcpProbe() error {
 		})
 	}
 
-	return health.TCPProbe(config)
+	return probe(time.Duration(p.TimeoutSeconds) * time.Second)
+}
+
+// tcpProbe function executes TCP probe once if its standard probe
+// otherwise TCP probe polls condition function which returns true
+// if the probe count is greater than success threshold and false if TCP probe fails
+func (p *Probe) tcpProbe() error {
+	config := health.TCPProbeConfigOptions{
+		Address: fmt.Sprintf("%s:%d", p.TCPSocket.Host, p.TCPSocket.Port.IntValue()),
+	}
+
+	return p.doProbe(func(to time.Duration) error {
+		config.SocketTimeout = to
+		return health.TCPProbe(config)
+	})
 }
 
 // httpProbe function executes HTTP probe once if its standard probe
@@ -118,29 +126,12 @@ func (p *Probe) tcpProbe() error {
 func (p *Probe) httpProbe() error {
 	config := health.HTTPProbeConfigOptions{
 		HTTPGetAction: p.HTTPGet,
-		Timeout:       time.Duration(p.TimeoutSeconds) * time.Second,
 	}
 
-	if p.IsAggressive() {
-		// timeout quickly so we can aggressively retry
-		config.Timeout = aggressiveProbeTimeout
-
-		return wait.PollImmediate(retryInterval, PollTimeout, func() (bool, error) {
-			if err := health.HTTPProbe(config); err != nil {
-				// reset count of consecutive successes to zero
-				p.count = 0
-				return false, nil
-			}
-
-			p.count++
-
-			// return success if count of consecutive successes is equal to or greater
-			// than the probe's SuccessThreshold.
-			return p.Count() >= p.SuccessThreshold, nil
-		})
-	}
-
-	return health.HTTPProbe(config)
+	return p.doProbe(func(to time.Duration) error {
+		config.Timeout = to
+		return health.HTTPProbe(config)
+	})
 }
 
 // Count function fetches current probe count

@@ -103,8 +103,8 @@ func TestExecHandler(t *testing.T) {
 			}},
 	}, t)
 
-	if !pb.ProbeContainer() {
-		t.Error("Probe failed. Expected Exec probe to always pass.")
+	if pb.ProbeContainer() {
+		t.Error("Expected ExecProbe to always fail")
 	}
 }
 
