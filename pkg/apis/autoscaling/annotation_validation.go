@@ -41,10 +41,10 @@ func ValidateAnnotations(anns map[string]string) *apis.FieldError {
 	if len(anns) == 0 {
 		return nil
 	}
-	return validateMinMaxScale(anns).Also(validatePercentages(anns)).Also(validateWindows(anns))
+	return validateMinMaxScale(anns).Also(validateFloats(anns)).Also(validateWindows(anns))
 }
 
-func validatePercentages(annotations map[string]string) *apis.FieldError {
+func validateFloats(annotations map[string]string) *apis.FieldError {
 	var errs *apis.FieldError
 	if v, ok := annotations[PanicWindowPercentageAnnotationKey]; ok {
 		if fv, err := strconv.ParseFloat(v, 64); err != nil {
@@ -68,6 +68,12 @@ func validatePercentages(annotations map[string]string) *apis.FieldError {
 			errs = errs.Also(apis.ErrInvalidValue(v, TargetUtilizationPercentageKey))
 		} else if fv < 1 || fv > 100 {
 			errs = errs.Also(apis.ErrOutOfBoundsValue(v, 1, 100, TargetUtilizationPercentageKey))
+		}
+	}
+
+	if v, ok := annotations[TargetBurstCapacityKey]; ok {
+		if fv, err := strconv.ParseFloat(v, 64); err != nil || fv < 0 && fv != -1 {
+			errs = errs.Also(apis.ErrInvalidValue(v, TargetBurstCapacityKey))
 		}
 	}
 	return errs

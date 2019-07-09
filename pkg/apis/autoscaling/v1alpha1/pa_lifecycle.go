@@ -107,6 +107,13 @@ func (pa *PodAutoscaler) TargetUtilization() (float64, bool) {
 	return 0, false
 }
 
+// TargetBC returns the target burst capacity,
+// if the corresponding annotation is set.
+func (pa *PodAutoscaler) TargetBC() (float64, bool) {
+	// The value is validated in the webhook.
+	return pa.annotationFloat64(autoscaling.TargetBurstCapacityKey)
+}
+
 // Window returns the window annotation value or false if not present.
 func (pa *PodAutoscaler) Window() (window time.Duration, ok bool) {
 	// The value is validated in the webhook.

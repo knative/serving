@@ -889,3 +889,55 @@ func TestTypicalFlow(t *testing.T) {
 	apitest.CheckConditionSucceeded(r.duck(), PodAutoscalerConditionActive, t)
 	apitest.CheckConditionSucceeded(r.duck(), PodAutoscalerConditionReady, t)
 }
+
+func TestTargetBC(t *testing.T) {
+	cases := []struct {
+		name   string
+		pa     *PodAutoscaler
+		want   float64
+		wantOK bool
+	}{{
+		name: "not present",
+		pa:   pa(map[string]string{}),
+		want: 0.0,
+	}, {
+		name: "present",
+		pa: pa(map[string]string{
+			autoscaling.TargetBurstCapacityKey: "101.0",
+		}),
+		want:   101,
+		wantOK: true,
+	}, {
+		name: "present 0",
+		pa: pa(map[string]string{
+			autoscaling.TargetBurstCapacityKey: "0",
+		}),
+		want:   0,
+		wantOK: true,
+	}, {
+		name: "present -1",
+		pa: pa(map[string]string{
+			autoscaling.TargetBurstCapacityKey: "-1",
+		}),
+		want:   -1,
+		wantOK: true,
+	}, {
+		name: "malformed",
+		pa: pa(map[string]string{
+			autoscaling.TargetBurstCapacityKey: "NPH",
+		}),
+		want: 0.0,
+	}}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got, gotOK := tc.pa.TargetBC()
+			if got, want := got, tc.want; got != want {
+				t.Errorf("%q target burst capacity: %v want: %v", tc.name, got, want)
+			}
+			if gotOK != tc.wantOK {
+				t.Errorf("%q expected ok: %v got %v", tc.name, tc.wantOK, gotOK)
+			}
+		})
+	}
+}
