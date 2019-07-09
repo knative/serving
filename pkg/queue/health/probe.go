@@ -26,7 +26,6 @@ import (
 	"time"
 
 	"github.com/knative/serving/pkg/network"
-	"github.com/knative/serving/pkg/queue"
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -34,6 +33,8 @@ import (
 type HTTPProbeConfigOptions struct {
 	Timeout time.Duration
 	*corev1.HTTPGetAction
+	KubeMajor string
+	KubeMinor string
 }
 
 // TCPProbeConfigOptions holds the TCP probe config options
@@ -75,7 +76,7 @@ func HTTPProbe(config HTTPProbeConfigOptions) error {
 		return fmt.Errorf("error constructing probe request %v", err)
 	}
 
-	req.Header.Add(network.KubeletProbeHeaderName, queue.Name)
+	req.Header.Add("User-Agent", network.KubeProbeUAPrefix+config.KubeMajor+"/"+config.KubeMinor)
 
 	for _, header := range config.HTTPHeaders {
 		req.Header.Add(header.Name, header.Value)
