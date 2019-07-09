@@ -39,22 +39,7 @@ func MakeRevision(config *v1alpha1.Configuration) *v1alpha1.Revision {
 	}
 
 	UpdateRevisionLabels(rev, config)
-
-	// Populate the CreatorAnnotation from configuration.
-	cans := config.GetAnnotations()
-	creator, ok := cans[serving.UpdaterAnnotation]
-	if ok {
-		rans := rev.GetAnnotations()
-		if rans == nil {
-			rans = map[string]string{}
-			rev.SetAnnotations(rans)
-		}
-		rans[serving.CreatorAnnotation] = creator
-	} else {
-		if rev.Annotations == nil {
-			rev.Annotations = make(map[string]string)
-		}
-	}
+	UpdateRevisionAnnotations(rev, config)
 
 	// Populate OwnerReferences so that deletes cascade.
 	rev.OwnerReferences = append(rev.OwnerReferences, *kmeta.NewControllerRef(config))
@@ -74,6 +59,21 @@ func UpdateRevisionLabels(rev *v1alpha1.Revision, config *v1alpha1.Configuration
 		serving.ConfigurationGenerationLabelKey,
 	} {
 		rev.Labels[key] = RevisionLabelValueForKey(key, config)
+	}
+}
+
+// UpdateRevisionAnnotations sets the revisions annotations given a Configuration's updater annotation.
+func UpdateRevisionAnnotations(rev *v1alpha1.Revision, config *v1alpha1.Configuration) {
+	if rev.Annotations == nil {
+		rev.Annotations = make(map[string]string)
+	}
+
+	// Populate the CreatorAnnotation from configuration.
+	cans := config.GetAnnotations()
+	creator, ok := cans[serving.UpdaterAnnotation]
+	if ok {
+		rans := rev.GetAnnotations()
+		rans[serving.CreatorAnnotation] = creator
 	}
 }
 
