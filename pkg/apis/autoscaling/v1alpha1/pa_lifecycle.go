@@ -109,36 +109,24 @@ func (pa *PodAutoscaler) TargetUtilization() (float64, bool) {
 
 // Window returns the window annotation value or false if not present.
 func (pa *PodAutoscaler) Window() (window time.Duration, ok bool) {
+	// The value is validated in the webhook.
 	if s, ok := pa.Annotations[autoscaling.WindowAnnotationKey]; ok {
 		d, err := time.ParseDuration(s)
-		if err != nil {
-			return 0, false
-		}
-		if d < autoscaling.WindowMin {
-			return 0, false
-		}
-		return d, true
+		return d, err == nil
 	}
 	return 0, false
 }
 
 // PanicWindowPercentage returns panic window annotation value or false if not present.
 func (pa *PodAutoscaler) PanicWindowPercentage() (percentage float64, ok bool) {
-	percentage, ok = pa.annotationFloat64(autoscaling.PanicWindowPercentageAnnotationKey)
-	if !ok || percentage > autoscaling.PanicWindowPercentageMax ||
-		percentage < autoscaling.PanicWindowPercentageMin {
-		return 0, false
-	}
-	return percentage, ok
+	// The value is validated in the webhook.
+	return pa.annotationFloat64(autoscaling.PanicWindowPercentageAnnotationKey)
 }
 
 // PanicThresholdPercentage return the panic target annotation value or false if not present.
 func (pa *PodAutoscaler) PanicThresholdPercentage() (percentage float64, ok bool) {
-	percentage, ok = pa.annotationFloat64(autoscaling.PanicThresholdPercentageAnnotationKey)
-	if !ok || percentage < autoscaling.PanicThresholdPercentageMin {
-		return 0, false
-	}
-	return percentage, ok
+	// The value is validated in the webhook.
+	return pa.annotationFloat64(autoscaling.PanicThresholdPercentageAnnotationKey)
 }
 
 // IsReady looks at the conditions and if the Status has a condition
