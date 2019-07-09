@@ -114,10 +114,11 @@ type ResourceDefaulter func(patches *[]jsonpatch.JsonPatchOperation, crd Generic
 // AdmissionController implements the external admission webhook for validation of
 // pilot configuration.
 type AdmissionController struct {
-	Client   kubernetes.Interface
-	Options  ControllerOptions
-	Handlers map[schema.GroupVersionKind]GenericCRD
-	Logger   *zap.SugaredLogger
+	Client        kubernetes.Interface
+	Options       ControllerOptions
+	Handlers      map[schema.GroupVersionKind]GenericCRD
+	Logger        *zap.SugaredLogger
+	StatsReporter StatsReporter
 
 	WithContext           func(context.Context) context.Context
 	DisallowUnknownFields bool
@@ -408,6 +409,7 @@ func (ac *AdmissionController) register(
 // ServeHTTP implements the external admission webhook for mutating
 // serving resources.
 func (ac *AdmissionController) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	var ttStart = time.Now()
 	logger := ac.Logger
 	logger.Infof("Webhook ServeHTTP request=%#v", r)
 
@@ -452,6 +454,9 @@ func (ac *AdmissionController) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		http.Error(w, fmt.Sprintf("could encode response: %v", err), http.StatusInternalServerError)
 		return
 	}
+
+	// Only report valid requests
+	ac.StatsReporter.ReportRequest(review.Request, response.Response, time.Since(ttStart))
 }
 
 func makeErrorStatus(reason string, args ...interface{}) *admissionv1beta1.AdmissionResponse {
