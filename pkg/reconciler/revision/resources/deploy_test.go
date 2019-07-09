@@ -172,7 +172,7 @@ var (
 					serving.RevisionUID: "1234",
 				},
 			},
-			ProgressDeadlineSeconds: &ProgressDeadlineSeconds,
+			ProgressDeadlineSeconds: ptr.Int32(ProgressDeadlineSeconds),
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{

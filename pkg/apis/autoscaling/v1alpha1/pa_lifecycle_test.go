@@ -19,9 +19,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/knative/serving/pkg/apis/autoscaling"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/knative/serving/pkg/apis/autoscaling"
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/apis/duck"
 	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
@@ -213,6 +214,85 @@ func TestCanMarkInactive(t *testing.T) {
 		if e, a := tc.result, tc.status.CanMarkInactive(tc.idle); e != a {
 			t.Errorf("%q expected: %v got: %v", tc.name, e, a)
 		}
+	}
+}
+
+func TestCanFailActivation(t *testing.T) {
+	cases := []struct {
+		name   string
+		status PodAutoscalerStatus
+		result bool
+		grace  time.Duration
+	}{{
+		name:   "empty status",
+		status: PodAutoscalerStatus{},
+		result: false,
+		grace:  10 * time.Second,
+	}, {
+		name: "active condition",
+		status: PodAutoscalerStatus{
+			Status: duckv1beta1.Status{
+				Conditions: duckv1beta1.Conditions{{
+					Type:   PodAutoscalerConditionActive,
+					Status: corev1.ConditionTrue,
+				}},
+			},
+		},
+		result: false,
+		grace:  10 * time.Second,
+	}, {
+		name: "activating condition (no LTT)",
+		status: PodAutoscalerStatus{
+			Status: duckv1beta1.Status{
+				Conditions: duckv1beta1.Conditions{{
+					Type:   PodAutoscalerConditionActive,
+					Status: corev1.ConditionUnknown,
+					// No LTT = beginning of time, so for sure we can.
+				}},
+			},
+		},
+		result: true,
+		grace:  10 * time.Second,
+	}, {
+		name: "activating condition (LTT longer than grace period ago)",
+		status: PodAutoscalerStatus{
+			Status: duckv1beta1.Status{
+				Conditions: duckv1beta1.Conditions{{
+					Type:   PodAutoscalerConditionActive,
+					Status: corev1.ConditionUnknown,
+					LastTransitionTime: apis.VolatileTime{
+						Inner: metav1.NewTime(time.Now().Add(-30 * time.Second)),
+					},
+					// LTT = 30 seconds ago.
+				}},
+			},
+		},
+		result: true,
+		grace:  10 * time.Second,
+	}, {
+		name: "activating condition (LTT less than grace period ago)",
+		status: PodAutoscalerStatus{
+			Status: duckv1beta1.Status{
+				Conditions: duckv1beta1.Conditions{{
+					Type:   PodAutoscalerConditionActive,
+					Status: corev1.ConditionUnknown,
+					LastTransitionTime: apis.VolatileTime{
+						Inner: metav1.NewTime(time.Now().Add(-10 * time.Second)),
+					},
+					// LTT = 10 seconds ago.
+				}},
+			},
+		},
+		result: false,
+		grace:  30 * time.Second,
+	}}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if e, a := tc.result, tc.status.CanFailActivation(tc.grace); e != a {
+				t.Errorf("%q expected: %v got: %v", tc.name, e, a)
+			}
+		})
 	}
 }
 

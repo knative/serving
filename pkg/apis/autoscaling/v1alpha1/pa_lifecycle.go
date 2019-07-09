@@ -22,9 +22,10 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/knative/serving/pkg/apis/autoscaling"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+
+	"github.com/knative/serving/pkg/apis/autoscaling"
 	"knative.dev/pkg/apis"
 	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
 )
@@ -187,6 +188,12 @@ func (pas *PodAutoscalerStatus) CanScaleToZero(gracePeriod time.Duration) bool {
 // for at least the specified idle period.
 func (pas *PodAutoscalerStatus) CanMarkInactive(idlePeriod time.Duration) bool {
 	return pas.inStatusFor(corev1.ConditionTrue, idlePeriod)
+}
+
+// CanFailActivation checks whether the pod autoscaler has been activating
+// for at least the specified idle period.
+func (pas *PodAutoscalerStatus) CanFailActivation(idlePeriod time.Duration) bool {
+	return pas.inStatusFor(corev1.ConditionUnknown, idlePeriod)
 }
 
 // inStatusFor returns true if the PodAutoscalerStatus's Active condition has stayed in

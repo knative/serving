@@ -185,13 +185,23 @@ func TestScaler(t *testing.T) {
 		proberfunc:          func(*pav1alpha1.PodAutoscaler, http.RoundTripper) (bool, error) { return false, nil },
 		wantAsyncProbeCount: 1,
 	}, {
-		label:         "does not scale while activating",
+		label:         "waits to scale to zero while activating until after deadline exceeded",
 		startReplicas: 1,
 		scaleTo:       0,
 		wantReplicas:  -1,
 		wantScaling:   false,
 		paMutation: func(k *pav1alpha1.PodAutoscaler) {
-			k.Status.MarkActivating("", "")
+			paMarkActivating(k, time.Now().Add(-activationTimeout/2))
+		},
+		wantCBCount: 1,
+	}, {
+		label:         "scale to zero while activating after deadline exceeded",
+		startReplicas: 1,
+		scaleTo:       0,
+		wantReplicas:  0,
+		wantScaling:   true,
+		paMutation: func(k *pav1alpha1.PodAutoscaler) {
+			paMarkActivating(k, time.Now().Add(-(activationTimeout + time.Second)))
 		},
 	}, {
 		label:         "scale down to minScale before grace period",
@@ -241,6 +251,9 @@ func TestScaler(t *testing.T) {
 		scaleTo:       -1, // no metrics
 		wantReplicas:  -1,
 		wantScaling:   false,
+		paMutation: func(k *pav1alpha1.PodAutoscaler) {
+			paMarkInactive(k, time.Now())
+		},
 	}, {
 		label:         "scales up from zero to desired one",
 		startReplicas: 0,
@@ -259,6 +272,9 @@ func TestScaler(t *testing.T) {
 		scaleTo:       -1,
 		wantReplicas:  -1,
 		wantScaling:   false,
+		paMutation: func(k *pav1alpha1.PodAutoscaler) {
+			paMarkActive(k, time.Now())
+		},
 	}}
 
 	for _, test := range tests {
@@ -381,6 +397,7 @@ func TestDisableScaleToZero(t *testing.T) {
 				psInformerFactory: presources.NewPodScalableInformerFactory(ctx),
 			}
 			pa := newKPA(t, fakeservingclient.Get(ctx), revision)
+			paMarkActive(pa, time.Now())
 
 			conf := defaultConfig()
 			conf.Autoscaler.EnableScaleToZero = false
@@ -490,6 +507,13 @@ func paMarkActive(pa *pav1alpha1.PodAutoscaler, ltt time.Time) {
 
 func paMarkInactive(pa *pav1alpha1.PodAutoscaler, ltt time.Time) {
 	pa.Status.MarkInactive("", "")
+
+	// This works because the conditions are sorted alphabetically
+	pa.Status.Conditions[0].LastTransitionTime = apis.VolatileTime{Inner: metav1.NewTime(ltt)}
+}
+
+func paMarkActivating(pa *pav1alpha1.PodAutoscaler, ltt time.Time) {
+	pa.Status.MarkActivating("", "")
 
 	// This works because the conditions are sorted alphabetically
 	pa.Status.Conditions[0].LastTransitionTime = apis.VolatileTime{Inner: metav1.NewTime(ltt)}

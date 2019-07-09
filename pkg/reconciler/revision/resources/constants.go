@@ -31,13 +31,13 @@ const (
 
 	// AppLabelKey is the label defining the application's name.
 	AppLabelKey = "app"
-)
 
-var (
 	// ProgressDeadlineSeconds is the time in seconds we wait for the deployment to
 	// be ready before considering it failed.
 	ProgressDeadlineSeconds = int32(120)
+)
 
+var (
 	// See https://github.com/knative/serving/pull/1124#issuecomment-397120430
 	// for how CPU and memory values were calculated.
 	queueContainerCPU = resource.MustParse("25m")
