@@ -19,6 +19,7 @@ package resources
 import (
 	"testing"
 
+	"github.com/knative/serving/pkg/apis/autoscaling"
 	"github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/autoscaler"
 
@@ -56,6 +57,14 @@ func TestResolveConcurrency(t *testing.T) {
 		},
 		wantTgt: 1,
 		wantTot: 2,
+	}, {
+		name: "with container concurrency 12 and TU=80%, but TU annotation 75%",
+		pa:   pa(WithContainerConcurrency(12), withTU("75")),
+		cfgOpt: func(c autoscaler.Config) *autoscaler.Config {
+			c.ContainerConcurrencyTargetFraction = 0.8
+			return &c
+		},
+		wantTgt: 9,
 	}, {
 		name: "with container concurrency 10 and TU=80%",
 		pa:   pa(WithContainerConcurrency(10)),
@@ -133,5 +142,11 @@ func TestResolveConcurrency(t *testing.T) {
 				t.Errorf("ResolveTargetConcurrency(%v, %v) = %v, want %v", tc.pa, config, gotTgt, tc.wantTgt)
 			}
 		})
+	}
+}
+
+func withTU(tu string) PodAutoscalerOption {
+	return func(pa *v1alpha1.PodAutoscaler) {
+		pa.Annotations[autoscaling.TargetUtilizationKey] = tu
 	}
 }

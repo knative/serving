@@ -685,6 +685,46 @@ func TestPanicWindowPercentageAnnotation(t *testing.T) {
 	}
 }
 
+func TestTargetUtilization(t *testing.T) {
+	cases := []struct {
+		name   string
+		pa     *PodAutoscaler
+		want   float64
+		wantOK bool
+	}{{
+		name:   "not present",
+		pa:     pa(map[string]string{}),
+		want:   0.0,
+		wantOK: false,
+	}, {
+		name: "present",
+		pa: pa(map[string]string{
+			autoscaling.TargetUtilizationKey: "10.0",
+		}),
+		want:   .1,
+		wantOK: true,
+	}, {
+		name: "malformed",
+		pa: pa(map[string]string{
+			autoscaling.TargetUtilizationKey: "NPH",
+		}),
+		want:   0.0,
+		wantOK: false,
+	}}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got, gotOK := tc.pa.TargetUtilization()
+			if got, want := got, tc.want; got != want {
+				t.Errorf("%q target utilization: %v want: %v", tc.name, got, want)
+			}
+			if gotOK != tc.wantOK {
+				t.Errorf("%q expected ok: %v got %v", tc.name, tc.wantOK, gotOK)
+			}
+		})
+	}
+}
+
 func TestPanicThresholdPercentage(t *testing.T) {
 	cases := []struct {
 		name           string

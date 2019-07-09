@@ -107,6 +107,18 @@ func TestValidateScaleBoundAnnotations(t *testing.T) {
 		annotations: map[string]string{PanicThresholdPercentageAnnotationKey: "fifty"},
 		expectErr:   "invalid value: fifty: autoscaling.knative.dev/panicThresholdPercentage",
 	}, {
+		name:        "TU too small",
+		annotations: map[string]string{TargetUtilizationKey: "0"},
+		expectErr:   "expected 1 <= 0 <= 100: autoscaling.knative.dev/targetUtilization",
+	}, {
+		name:        "TU too big",
+		annotations: map[string]string{TargetUtilizationKey: "101"},
+		expectErr:   "expected 1 <= 101 <= 100: autoscaling.knative.dev/targetUtilization",
+	}, {
+		name:        "TU invalid",
+		annotations: map[string]string{TargetUtilizationKey: "dghyak"},
+		expectErr:   "invalid value: dghyak: autoscaling.knative.dev/targetUtilization",
+	}, {
 		name:        "window invalid",
 		annotations: map[string]string{WindowAnnotationKey: "jerry-was-a-racecar-driver"},
 		expectErr:   "invalid value: jerry-was-a-racecar-driver: autoscaling.knative.dev/window",

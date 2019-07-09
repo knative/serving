@@ -98,27 +98,46 @@ func (pa *PodAutoscaler) Target() (float64, bool) {
 	return 0, false
 }
 
+// TargetUtilization returns the target capacity utilization as a fraction,
+// if the corresponding annotation is set.
+func (pa *PodAutoscaler) TargetUtilization() (float64, bool) {
+	if tu, ok := pa.annotationFloat64(autoscaling.TargetUtilizationKey); ok {
+		return tu / 100, true
+	}
+	return 0, false
+}
+
 // Window returns the window annotation value or false if not present.
 func (pa *PodAutoscaler) Window() (window time.Duration, ok bool) {
 	if s, ok := pa.Annotations[autoscaling.WindowAnnotationKey]; ok {
-		// The value is already validated in the webhook.
 		d, err := time.ParseDuration(s)
-		return d, err == nil
+		if err != nil {
+			return 0, false
+		}
+		if d < autoscaling.WindowMin {
+			return 0, false
+		}
+		return d, true
 	}
 	return 0, false
 }
 
 // PanicWindowPercentage returns panic window annotation value or false if not present.
 func (pa *PodAutoscaler) PanicWindowPercentage() (percentage float64, ok bool) {
-	// The value is validated in the webhook.
 	percentage, ok = pa.annotationFloat64(autoscaling.PanicWindowPercentageAnnotationKey)
+	if !ok || percentage > autoscaling.PanicWindowPercentageMax ||
+		percentage < autoscaling.PanicWindowPercentageMin {
+		return 0, false
+	}
 	return percentage, ok
 }
 
 // PanicThresholdPercentage return the panic target annotation value or false if not present.
 func (pa *PodAutoscaler) PanicThresholdPercentage() (percentage float64, ok bool) {
-	// The value is validated in the webhook.
 	percentage, ok = pa.annotationFloat64(autoscaling.PanicThresholdPercentageAnnotationKey)
+	if !ok || percentage < autoscaling.PanicThresholdPercentageMin {
+		return 0, false
+	}
 	return percentage, ok
 }
 

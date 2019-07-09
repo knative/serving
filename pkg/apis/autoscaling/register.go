@@ -76,10 +76,22 @@ const (
 	// smaller than the stable window. Anything less than 6 second
 	// isn't going to work well.
 	WindowMin = 6 * time.Second
-
 	// WindowMax is the maximum permitted stable autoscaling window.
 	// This keeps the event horizon to a resonable enough limit.
 	WindowMax = 1 * time.Hour
+
+	// TargetUtilizationKey is the annotation which specifies the
+	// desired target resource utilization for the revision.
+	// TargetUtilization is a percentage in the 1 <= TU <= 100 range.
+	// This annotation takes precedence over the config map value.
+	TargetUtilizationKey = GroupName + "/targetUtilization"
+
+	// TargetBurstCapacity is the annotation key that specifies
+	// the desired burst capacity for the revision.
+	// Valid values are -1 and 0 <= TBC <= MaxInt32, where -1 is the infinite
+	// capacity, and 0 no desired burst capacity.
+	// This annotation takes precedence over the config map value.
+	TargetBurstCapacityKey = GroupName + "/targetBurstCapacity"
 
 	// PanicWindowPercentageAnnotationKey is the annotation to
 	// specify the time interval over which to calculate the average
