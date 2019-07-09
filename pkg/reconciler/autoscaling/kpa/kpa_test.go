@@ -387,7 +387,7 @@ func TestReconcileAndScaleToZero(t *testing.T) {
 			makeSKSPrivateEndpoints(1, testNamespace, testRevision),
 		},
 	}, {
-		Name: "activing failure",
+		Name: "activation failure",
 		Key:  key,
 		Objects: []runtime.Object{
 			kpa(testNamespace, testRevision, markActivating, markOld,

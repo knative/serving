@@ -59,7 +59,7 @@ const (
 	// however, after ProgressDeadlineSeconds, the Deployment itself updates its status, which causes
 	// the Revision to re-reconcile and diagnose pod failures. If we use the same timeout here, we will
 	// race the Revision reconciler and scale down the pods before it can actually surface the pod errors.
-	// We should instead ddo pod failure diagnostics here immediately before scaling down the Deployment.
+	// We should instead do pod failure diagnostics here immediately before scaling down the Deployment.
 	activationTimeoutBuffer = 10 * time.Second
 	activationTimeout       = time.Duration(rresources.ProgressDeadlineSeconds)*time.Second + activationTimeoutBuffer
 )
