@@ -134,28 +134,9 @@ func (c *Reconciler) deleteServices(namespace string, serviceNames sets.String) 
 	return nil
 }
 
-func (c *Reconciler) getServiceNameSet(route *v1alpha1.Route) (sets.String, error) {
-	currentServices, err := c.serviceLister.Services(route.Namespace).List(resources.SelectorFromRoute(route))
-	if err != nil {
-		return nil, err
-	}
-
-	serviceNames := sets.NewString()
-	for _, svc := range currentServices {
-		serviceNames.Insert(svc.Name)
-	}
-
-	return serviceNames, nil
-}
-
-func (c *Reconciler) reconcilePlaceholderServices(ctx context.Context, route *v1alpha1.Route, targets map[string]traffic.RevisionTargets) ([]*corev1.Service, error) {
+func (c *Reconciler) reconcilePlaceholderServices(ctx context.Context, route *v1alpha1.Route, targets map[string]traffic.RevisionTargets, currentServiceNames sets.String) ([]*corev1.Service, error) {
 	logger := logging.FromContext(ctx)
 	ns := route.Namespace
-
-	currentServices, err := c.getServiceNameSet(route)
-	if err != nil {
-		return nil, err
-	}
 
 	names := sets.NewString()
 	for name := range targets {
@@ -191,11 +172,11 @@ func (c *Reconciler) reconcilePlaceholderServices(ctx context.Context, route *v1
 		}
 
 		services = append(services, service)
-		delete(currentServices, desiredService.Name)
+		delete(currentServiceNames, desiredService.Name)
 	}
 
 	// Delete any current services that was no longer desired.
-	if err := c.deleteServices(ns, currentServices); err != nil {
+	if err := c.deleteServices(ns, currentServiceNames); err != nil {
 		return nil, err
 	}
 
@@ -212,7 +193,7 @@ func (c *Reconciler) updatePlaceholderServices(ctx context.Context, route *v1alp
 	for _, service := range services {
 		service := service
 		eg.Go(func() error {
-			desiredService, err := resources.MakeK8sService(ctx, route, service.Name, ingress)
+			desiredService, err := resources.MakeK8sService(ctx, route, service.Name, ingress, resources.IsClusterLocalService(service))
 			if err != nil {
 				// Loadbalancer not ready, no need to update.
 				logger.Warnf("Failed to update k8s service: %v", err)

@@ -23,6 +23,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	netv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
@@ -178,7 +179,7 @@ func newTestClusterIngress(t *testing.T, r *v1alpha1.Route, trafficOpts ...func(
 			ServerCertificate: "tls.crt",
 		},
 	}
-	ingress, err := resources.MakeClusterIngress(getContext(), r, tc, tls, "foo-ingress")
+	ingress, err := resources.MakeClusterIngress(getContext(), r, tc, tls, sets.NewString(), "foo-ingress")
 	if err != nil {
 		t.Errorf("Unexpected error %v", err)
 	}

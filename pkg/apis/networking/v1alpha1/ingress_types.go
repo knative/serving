@@ -170,6 +170,11 @@ type IngressRule struct {
 	// +optional
 	Hosts []string `json:"hosts,omitempty"`
 
+	// Visibility signifies whether this rule should `ClusterLocal`. If it's not
+	// specified then it defaults to `ExternalIP`.
+	// +optional
+	Visibility IngressVisibility `json:"visibility,omitempty"`
+
 	// HTTP represents a rule to apply against incoming requests. If the
 	// rule is satisfied, the request is routed to the specified backend.
 	HTTP *HTTPIngressRuleValue `json:"http,omitempty"`

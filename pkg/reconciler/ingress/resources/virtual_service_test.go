@@ -41,12 +41,12 @@ var (
 func TestMakeVirtualServices_CorrectMetadata(t *testing.T) {
 	for _, tc := range []struct {
 		name     string
-		gateways []string
+		gateways map[v1alpha1.IngressVisibility][]string
 		ci       *v1alpha1.ClusterIngress
 		expected []metav1.ObjectMeta
 	}{{
 		name:     "mesh and ingress",
-		gateways: []string{"gateway"},
+		gateways: makeGatewayMap([]string{"gateway"}, []string{"private-gateway"}),
 		ci: &v1alpha1.ClusterIngress{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "test-ingress",
@@ -55,7 +55,10 @@ func TestMakeVirtualServices_CorrectMetadata(t *testing.T) {
 					serving.RouteNamespaceLabelKey: "test-ns",
 				},
 			},
-			Spec: v1alpha1.IngressSpec{},
+			Spec: v1alpha1.IngressSpec{Rules: []v1alpha1.IngressRule{{
+				Visibility: v1alpha1.IngressVisibilityExternalIP,
+				HTTP: &v1alpha1.HTTPIngressRuleValue{},
+			}}},
 		},
 		expected: []metav1.ObjectMeta{{
 			Name:      "test-ingress-mesh",
@@ -122,7 +125,7 @@ func TestMakeVirtualServices_CorrectMetadata(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			vss := MakeVirtualServices(tc.ci, tc.gateways)
 			if len(vss) != len(tc.expected) {
-				t.Errorf("Expected %d VirtualService, saw %d", len(tc.expected), len(vss))
+				t.Fatalf("Expected %d VirtualService, saw %d", len(tc.expected), len(vss))
 			}
 			for i := range tc.expected {
 				tc.expected[i].OwnerReferences = []metav1.OwnerReference{*kmeta.NewControllerRef(tc.ci)}
@@ -277,7 +280,7 @@ func TestMakeIngressVirtualServiceSpec_CorrectGateways(t *testing.T) {
 		Spec: v1alpha1.IngressSpec{},
 	}
 	expected := []string{"gateway-one", "gateway-two"}
-	gateways := MakeIngressVirtualService(ci, []string{"gateway-one", "gateway-two"}).Spec.Gateways
+	gateways := MakeIngressVirtualService(ci, makeGatewayMap([]string{"gateway-one", "gateway-two"}, nil)).Spec.Gateways
 	if diff := cmp.Diff(expected, gateways); diff != "" {
 		t.Errorf("Unexpected gateways (-want +got): %v", diff)
 	}
@@ -423,7 +426,7 @@ func TestMakeIngressVirtualServiceSpec_CorrectRoutes(t *testing.T) {
 		WebsocketUpgrade: true,
 	}}
 
-	routes := MakeIngressVirtualService(ci, []string{"gateway"}).Spec.HTTP
+	routes := MakeIngressVirtualService(ci, makeGatewayMap([]string{"gateway"}, nil)).Spec.HTTP
 	if diff := cmp.Diff(expected, routes); diff != "" {
 		t.Errorf("Unexpected routes (-want +got): %v", diff)
 	}
@@ -448,11 +451,13 @@ func TestMakeVirtualServiceRoute_Vanilla(t *testing.T) {
 		},
 	}
 	hosts := []string{"a.com", "b.org"}
-	route := makeVirtualServiceRoute(hosts, ingressPath)
+	route := makeVirtualServiceRoute(hosts, ingressPath, []string{"gateway-1"})
 	expected := v1alpha3.HTTPRoute{
 		Match: []v1alpha3.HTTPMatchRequest{{
+			Gateways:  []string{"gateway-1"},
 			Authority: &istiov1alpha1.StringMatch{Regex: `^a\.com(?::\d{1,5})?$`},
 		}, {
+			Gateways:  []string{"gateway-1"},
 			Authority: &istiov1alpha1.StringMatch{Regex: `^b\.org(?::\d{1,5})?$`},
 		}},
 		Route: []v1alpha3.HTTPRouteDestination{{
@@ -499,9 +504,10 @@ func TestMakeVirtualServiceRoute_TwoTargets(t *testing.T) {
 		},
 	}
 	hosts := []string{"test.org"}
-	route := makeVirtualServiceRoute(hosts, ingressPath)
+	route := makeVirtualServiceRoute(hosts, ingressPath, []string{"gateway-1"})
 	expected := v1alpha3.HTTPRoute{
 		Match: []v1alpha3.HTTPMatchRequest{{
+			Gateways:  []string{"gateway-1"},
 			Authority: &istiov1alpha1.StringMatch{Regex: `^test\.org(?::\d{1,5})?$`},
 		}},
 		Route: []v1alpha3.HTTPRouteDestination{{
@@ -606,5 +612,12 @@ func TestGetExpandedHosts(t *testing.T) {
 				t.Errorf("Unexpected (-want +got): %v", diff)
 			}
 		})
+	}
+}
+
+func makeGatewayMap(publicGateways []string, privateGateways []string) map[v1alpha1.IngressVisibility][]string {
+	return map[v1alpha1.IngressVisibility][]string{
+		v1alpha1.IngressVisibilityExternalIP:   publicGateways,
+		v1alpha1.IngressVisibilityClusterLocal: privateGateways,
 	}
 }
