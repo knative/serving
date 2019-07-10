@@ -158,11 +158,10 @@ func setup(t *testing.T, class string, metric string) *testContext {
 		domain,
 		// Istio doesn't expose a status for us here: https://github.com/istio/istio/issues/6082
 		// TODO(tcnghia): Remove this when https://github.com/istio/istio/issues/882 is fixed.
-		v1a1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.EventuallyMatchesBody(autoscaleExpectedOutput))),
+		v1a1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK)),
 		"CheckingEndpointAfterUpdating",
 		test.ServingFlags.ResolvableDomain); err != nil {
-		t.Fatalf("The endpoint for Route %s at domain %s didn't serve the expected text \"%v\": %v",
-			names.Route, domain, autoscaleExpectedOutput, err)
+		t.Fatalf("Error probing domain %s: %v", domain, err)
 	}
 
 	return &testContext{
