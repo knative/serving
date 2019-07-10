@@ -35,6 +35,9 @@ spec:
         serving.knative.dev/release: devel
     spec:
       serviceAccountName: controller
+      # We want to give Activator quite some to exit, to process the existing requests
+      # which might be quite long running, i.e. streaming.
+      terminationGracePeriodSeconds: 300
       containers:
       - name: activator
         # This is the Go import path for the binary that is containerized
