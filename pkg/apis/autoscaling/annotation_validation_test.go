@@ -107,6 +107,23 @@ func TestValidateScaleBoundAnnotations(t *testing.T) {
 		annotations: map[string]string{PanicThresholdPercentageAnnotationKey: "fifty"},
 		expectErr:   "invalid value: fifty: autoscaling.knative.dev/panicThresholdPercentage",
 	}, {
+		name:        "TBC negative",
+		annotations: map[string]string{TargetBurstCapacityKey: "-11"},
+		expectErr:   "invalid value: -11: autoscaling.knative.dev/targetBurstCapacity",
+	}, {
+		name:        "TBC 0",
+		annotations: map[string]string{TargetBurstCapacityKey: "0"},
+	}, {
+		name:        "TBC 19880709",
+		annotations: map[string]string{TargetBurstCapacityKey: "19870709"},
+	}, {
+		name:        "TBC -1",
+		annotations: map[string]string{TargetBurstCapacityKey: "-1"},
+	}, {
+		name:        "TBC invalid",
+		annotations: map[string]string{TargetBurstCapacityKey: "qarashen"},
+		expectErr:   "invalid value: qarashen: autoscaling.knative.dev/targetBurstCapacity",
+	}, {
 		name:        "TU too small",
 		annotations: map[string]string{TargetUtilizationPercentageKey: "0"},
 		expectErr:   "expected 1 <= 0 <= 100: autoscaling.knative.dev/targetUtilizationPercentage",

@@ -86,6 +86,14 @@ const (
 	// This annotation takes precedence over the config map value.
 	TargetUtilizationPercentageKey = GroupName + "/targetUtilizationPercentage"
 
+	// TargetBurstCapacityKey specifies the desired burst capacity for the
+	// revision. Possible values are:
+	// -1 -- infinite;
+	//  0 -- no TBC;
+	// >0 -- actual TBC.
+	// <0 && != -1 -- an error.
+	TargetBurstCapacityKey = GroupName + "/targetBurstCapacity"
+
 	// PanicWindowPercentageAnnotationKey is the annotation to
 	// specify the time interval over which to calculate the average
 	// metric during a spike. Where a spike is defined as the metric
