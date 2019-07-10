@@ -30,21 +30,14 @@ const HelloVolumePath = "/hello/world"
 // ListenAndServeGracefully calls into ListenAndServeGracefullyWithPattern
 // by passing handler to handle requests for "/"
 func ListenAndServeGracefully(addr string, handler func(w http.ResponseWriter, r *http.Request)) {
-	ListenAndServeGracefullyWithPattern(addr, map[string]func(w http.ResponseWriter, r *http.Request){
-		"/": handler,
-	})
+	ListenAndServeGracefullyWithHandler(addr, http.HandlerFunc(handler))
 }
 
 // ListenAndServeGracefullyWithPattern creates an HTTP server, listens on the defined address
-// and handles incoming requests specified on pattern(path) with the given handlers.
+// and handles incoming requests with the given handler.
 // It blocks until SIGTERM is received and the underlying server has shutdown gracefully.
-func ListenAndServeGracefullyWithPattern(addr string, handlers map[string]func(w http.ResponseWriter, r *http.Request)) {
-	m := http.NewServeMux()
-	for pattern, handler := range handlers {
-		m.HandleFunc(pattern, handler)
-	}
-
-	server := http.Server{Addr: addr, Handler: h2c.NewHandler(m, &http2.Server{})}
+func ListenAndServeGracefullyWithHandler(addr string, handler http.Handler) {
+	server := http.Server{Addr: addr, Handler: h2c.NewHandler(handler, &http2.Server{})}
 	go server.ListenAndServe()
 
 	<-signals.SetupSignalHandler()

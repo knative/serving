@@ -129,6 +129,10 @@ type RequestInfo struct {
 	Method string `json:"method"`
 	// Headers is a Map of all headers set.
 	Headers http.Header `json:"headers"`
+	// ProtoMajor is the major version of the incoming protocol.
+	ProtoMajor int `json:"protoMajor"`
+	// ProtoMinor is the minor version of the incoming protocol.
+	ProtoMinor int `json:"protoMinor"`
 }
 
 // HostInfo contains information about the host environment.
