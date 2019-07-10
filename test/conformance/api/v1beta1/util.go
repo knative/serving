@@ -339,6 +339,9 @@ func fetchRuntimeInfo(t *testing.T, clients *test.Clients, opts ...v1b1options.S
 		Image:   test.Runtime,
 	}
 
+	defer test.TearDown(clients, *names)
+	test.CleanupOnInterrupt(func() { test.TearDown(clients, *names) })
+
 	objects, err := v1b1test.CreateServiceReady(t, clients, names, opts...)
 	if err != nil {
 		t.Fatalf("Failed to create service: %v", err)
