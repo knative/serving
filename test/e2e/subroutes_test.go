@@ -19,10 +19,14 @@ package e2e
 
 import (
 	"fmt"
+	"github.com/knative/serving/pkg/network"
+	"github.com/knative/serving/pkg/reconciler/route/resources/labels"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"knative.dev/pkg/apis/duck"
+	"knative.dev/pkg/test/logstream"
 	"strings"
 	"testing"
-
-	"knative.dev/pkg/test/logstream"
 
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1beta1"
@@ -83,5 +87,85 @@ func TestSubrouteLocalSTS(t *testing.T) { // We can't use a longer more descript
 		t.Run(tc.name, func(t *testing.T) {
 			testProxyToHelloworld(t, clients, helloworldDomain)
 		})
+	}
+}
+
+func TestSubrouteVisibilityChange(t *testing.T) {
+	t.Parallel()
+	cancel := logstream.Start(t)
+	defer cancel()
+
+	clients := Setup(t)
+
+	t.Log("Creating a Service for the helloworld test app.")
+	names := test.ResourceNames{
+		Service: test.ObjectNameForTest(t),
+		Image:   "helloworld",
+	}
+
+	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
+	defer test.TearDown(clients, names)
+
+	tag := "my-tag"
+
+	withInternalVisibility := WithServiceLabel(
+		routeconfig.VisibilityLabelKey, routeconfig.VisibilityClusterLocal)
+	withTrafficSpec := WithInlineRouteSpec(v1alpha1.RouteSpec{
+		Traffic: []v1alpha1.TrafficTarget{
+			{
+				TrafficTarget: v1beta1.TrafficTarget{
+					Tag:     tag,
+					Percent: 100,
+				},
+			},
+		},
+	})
+	resources, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, &v1a1test.Options{}, withInternalVisibility, withTrafficSpec)
+	if err != nil {
+		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
+	}
+
+	// Ensure that it only has cluster local addresses
+	for _, traffic := range resources.Route.Status.Traffic {
+		if !strings.HasSuffix(traffic.TrafficTarget.URL.Host, network.GetClusterDomainName()) {
+			t.Fatalf("Expected all subroutes to be cluster local")
+		}
+	}
+
+	serviceName := fmt.Sprintf("%s-%s", tag, resources.Route.Name)
+	svc, err := clients.KubeClient.Kube.CoreV1().Services(test.ServingNamespace).Get(serviceName, v1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Failed to get k8s service to modify: %s", err.Error())
+	}
+
+	svcCopy := svc.DeepCopy()
+	labels.SetVisibility(&svcCopy.ObjectMeta, false)
+
+	patch, err := duck.CreatePatch(svc, svcCopy)
+	if err != nil {
+		t.Fatalf("Failed to create patch: %s", err.Error())
+	}
+
+	encPatch, err := patch.MarshalJSON()
+	if err != nil {
+		t.Fatalf("Failed to marshal patch: %s", err.Error())
+	}
+	_, err = clients.KubeClient.Kube.CoreV1().Services(test.ServingNamespace).Patch(serviceName, types.JSONPatchType, encPatch)
+	if err != nil {
+		t.Fatalf("Failed to patch service: %s", err.Error())
+	}
+
+	// Get updated route to check.
+	err = v1a1test.WaitForRouteState(clients.ServingAlphaClient, resources.Route.Name, func(r *v1alpha1.Route) (bool, error) {
+		for _, traffic := range r.Status.Traffic {
+			if traffic.TrafficTarget.Tag == tag && strings.HasSuffix(traffic.TrafficTarget.URL.Host, network.GetClusterDomainName()) {
+				return true, nil
+			}
+		}
+		return false, nil
+	}, "TrafficUrlUpdated")
+
+	if err != nil {
+		t.Fatalf("Timed out waiting for traffic url to change: %s", err.Error())
 	}
 }
