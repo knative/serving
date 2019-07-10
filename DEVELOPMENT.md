@@ -33,6 +33,7 @@ You must install these tools:
 1. [`ko`](https://github.com/google/ko): For development.
 1. [`kubectl`](https://kubernetes.io/docs/tasks/tools/install-kubectl/): For
    managing development environments.
+1. [`hg`](https://www.mercurial-scm.org/wiki/Download): For enabling scripts for dependency update.
 
 ### Create a cluster and a repo
 
@@ -274,6 +275,8 @@ kubectl apply -R -f config/monitoring/100-namespace.yaml \
 ```
 
 ## Iterating
+
+Before running the `./hack/update-codegen.sh` and `./hack/update-deps.sh` scripts, ensure that [mercurial](https://www.mercurial-scm.org/wiki/Download) is installed.
 
 As you make changes to the code-base, there are two special cases to be aware
 of:
