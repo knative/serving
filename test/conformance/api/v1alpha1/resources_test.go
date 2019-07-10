@@ -21,7 +21,6 @@ package v1alpha1
 import (
 	"fmt"
 	"net/http"
-	"strings"
 	"testing"
 
 	"github.com/knative/serving/test"
@@ -48,7 +47,7 @@ func TestCustomResourcesLimits(t *testing.T) {
 
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
-		Image:   test.BloatingCow,
+		Image:   test.Autoscale,
 	}
 
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
@@ -60,16 +59,15 @@ func TestCustomResourcesLimits(t *testing.T) {
 	}
 	domain := objects.Route.Status.URL.Host
 
-	want := "Moo!"
 	_, err = pkgTest.WaitForEndpointState(
 		clients.KubeClient,
 		t.Logf,
 		domain,
-		v1a1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesBody(want))),
+		v1a1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK)),
 		"ResourceTestServesText",
 		test.ServingFlags.ResolvableDomain)
 	if err != nil {
-		t.Fatalf("The endpoint for Route %s at domain %s didn't serve the expected text \"%s\": %v", names.Route, domain, want, err)
+		t.Fatalf("Error probing domain %s: %v", domain, err)
 	}
 
 	sendPostRequest := func(resolvableDomain bool, domain string, query string) (*spoof.Response, error) {
@@ -87,12 +85,12 @@ func TestCustomResourcesLimits(t *testing.T) {
 	}
 
 	pokeCowForMB := func(mb int) error {
-		response, err := sendPostRequest(test.ServingFlags.ResolvableDomain, domain, fmt.Sprintf("memory_in_mb=%d", mb))
+		response, err := sendPostRequest(test.ServingFlags.ResolvableDomain, domain, fmt.Sprintf("bloat=%d", mb))
 		if err != nil {
 			return err
 		}
-		if want != strings.TrimSpace(string(response.Body)) {
-			return fmt.Errorf("the response %q is not equal to expected response %q", string(response.Body), want)
+		if response.StatusCode != http.StatusOK {
+			return fmt.Errorf("StatusCode = %d, want %d", response.StatusCode, http.StatusOK)
 		}
 		return nil
 	}

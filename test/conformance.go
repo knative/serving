@@ -28,7 +28,7 @@ import (
 // Constants for test images located in test/test_images.
 const (
 	// Test image names
-	BloatingCow         = "bloatingcow"
+	Autoscale           = "autoscale"
 	Failing             = "failing"
 	HelloVolume         = "hellovolume"
 	HelloWorld          = "helloworld"
