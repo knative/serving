@@ -19,25 +19,12 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"encoding/json"
 	"testing"
 
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	v1a1options "github.com/knative/serving/pkg/testing/v1alpha1"
 	"github.com/knative/serving/test"
-	"github.com/knative/serving/test/types"
-	v1a1test "github.com/knative/serving/test/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
-	pkgTest "knative.dev/pkg/test"
 )
-
-func withPort(name string) v1a1options.ServiceOption {
-	return func(s *v1alpha1.Service) {
-		if name != "" {
-			s.Spec.Template.Spec.Containers[0].Ports = []corev1.ContainerPort{{Name: name}}
-		}
-	}
-}
 
 func TestProtocols(t *testing.T) {
 	t.Parallel()
@@ -69,29 +56,14 @@ func TestProtocols(t *testing.T) {
 			t.Parallel()
 
 			clients := test.Setup(t)
-			names := &test.ResourceNames{
-				Service: test.ObjectNameForTest(t),
-				Image:   test.Runtime,
-			}
-
-			objects, err := v1a1test.CreateRunLatestServiceReady(t, clients, names, &v1a1test.Options{}, withPort(tt.portName))
+			ri, err := fetchRuntimeInfo(t, clients, func(s *v1alpha1.Service) {
+				if tt.portName != "" {
+					s.Spec.Template.Spec.Containers[0].Ports = []corev1.ContainerPort{{Name: tt.portName}}
+				}
+			})
 			if err != nil {
-				t.Fatalf("Failed to create service: %v", err)
+				t.Fatalf("Failed to fetch runtime info: %v", err)
 			}
-
-			resp, err := pkgTest.WaitForEndpointState(
-				clients.KubeClient,
-				t.Logf,
-				objects.Service.Status.URL.Host,
-				v1a1test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
-				"Protocols",
-				test.ServingFlags.ResolvableDomain)
-			if err != nil {
-				t.Fatalf("Error probing domain %s: %v", objects.Service.Status.URL.Host, err)
-			}
-
-			var ri types.RuntimeInfo
-			err = json.Unmarshal(resp.Body, &ri)
 
 			if tt.wantMajor != ri.Request.ProtoMajor || tt.wantMinor != ri.Request.ProtoMinor {
 				t.Errorf("Want HTTP/%d.%d, got HTTP/%d.%d", tt.wantMajor, tt.wantMinor, ri.Request.ProtoMajor, ri.Request.ProtoMinor)
