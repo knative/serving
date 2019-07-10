@@ -31,7 +31,9 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 
+	rsNames "github.com/knative/serving/pkg/reconciler/revision/resources/names"
 	"github.com/knative/serving/test"
+	"github.com/knative/serving/test/e2e"
 	v1a1test "github.com/knative/serving/test/v1alpha1"
 	"github.com/knative/test-infra/shared/junit"
 	perf "github.com/knative/test-infra/shared/performance"
@@ -164,31 +166,18 @@ func testConcurrencyN(t *testing.T, concurrency int) []junit.TestCase {
 		t.Fatalf("Failed to create Service: %v", err)
 	}
 
-	domain := objs.Route.Status.URL.Host
+	t.Logf("%02d: waiting for deployment to scale to zero.", concurrency)
+	deploymentName := rsNames.Deployment(objs.Revision)
+	if err := e2e.WaitForScaleToZero(t, deploymentName, clients); err != nil {
+		t.Fatalf("%02d: failed waiting for deployment to scale to zero: %v", concurrency, err)
+	}
 
+	domain := objs.Route.Status.URL.Host
 	url := fmt.Sprintf("http://%s/?timeout=1000", domain)
 	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, t.Logf, domain, test.ServingFlags.ResolvableDomain)
 	if err != nil {
 		t.Fatalf("Error creating spoofing client: %v", err)
 	}
-
-	// Make sure we are ready to serve.
-	st := time.Now()
-	t.Log("Starting to probe the endpoint at", st)
-	_, err = pkgTest.WaitForEndpointState(
-		clients.KubeClient,
-		t.Logf,
-		domain+"/?timeout=10", // To generate any kind of a valid response.
-		v1a1test.RetryingRouteInconsistency(func(resp *spoof.Response) (bool, error) {
-			_, _, err := parseResponse(string(resp.Body))
-			return err == nil, nil
-		}),
-		"WaitForEndpointToServeText",
-		test.ServingFlags.ResolvableDomain)
-	if err != nil {
-		t.Fatalf("The endpoint at domain %s didn't serve the expected response: %v", domain, err)
-	}
-	t.Logf("Took %v for the endpoint to start serving", time.Since(st))
 
 	// This just helps with preallocation.
 	const presumedSize = 1000
