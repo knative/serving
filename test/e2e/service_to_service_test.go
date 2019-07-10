@@ -90,7 +90,7 @@ func testProxyToHelloworld(t *testing.T, clients *test.Clients, helloworldDomain
 	resources, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, &v1a1test.Options{
 		EnvVars: envVars,
 		RevisionTemplateAnnotations: map[string]string{
-			autoscaling.WindowAnnotationKey: "7s",
+			autoscaling.WindowAnnotationKey: "6s", // shortest permitted.
 		},
 	})
 	if err != nil {
@@ -162,7 +162,7 @@ func TestServiceToServiceCall(t *testing.T) {
 		routeconfig.VisibilityLabelKey, routeconfig.VisibilityClusterLocal)
 	resources, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, &v1a1test.Options{
 		RevisionTemplateAnnotations: map[string]string{
-			autoscaling.WindowAnnotationKey: "7s",
+			autoscaling.WindowAnnotationKey: "6s", // shortest permitted; this is not required here, but for uniformity.
 		},
 	}, withInternalVisibility)
 	if err != nil {
