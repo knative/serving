@@ -89,7 +89,7 @@ func (c *Base) ReconcileSKS(ctx context.Context, pa *pav1alpha1.PodAutoscaler, d
 		if !equality.Semantic.DeepEqual(tmpl.Spec, sks.Spec) {
 			want := sks.DeepCopy()
 			want.Spec = tmpl.Spec
-			logger.Info("SKS changed; reconciling:", sksName)
+			logger.Infof("SKS %s changed; reconciling, want mode: %v", sksName, want.Spec.Mode)
 			if sks, err = c.ServingClientSet.NetworkingV1alpha1().ServerlessServices(sks.Namespace).Update(want); err != nil {
 				return nil, perrors.Wrapf(err, "error updating SKS %s", sksName)
 			}
