@@ -316,7 +316,8 @@ ko delete --ignore-not-found=true \
   -f ./third_party/config/build/release.yaml \
   -f ./third_party/istio-1.2-latest/istio.yaml \
   -f ./third_party/istio-1.2-latest/istio-crds.yaml \
-  -f ./third_party/cert-manager-0.6.1/cert-manager-crds.yaml
+  -f ./third_party/cert-manager-0.6.1/cert-manager-crds.yaml \
+  -f ./third_party/cert-manager-0.6.1/cert-manager.yaml
 ```
 
 ## Telemetry
