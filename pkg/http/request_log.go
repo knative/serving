@@ -31,6 +31,7 @@ import (
 type RequestLogHandler struct {
 	handler     http.Handler
 	inputGetter RequestLogTemplateInputGetter
+	writerMux   sync.Mutex
 	writer      io.Writer
 	templateMux sync.RWMutex
 	templateStr string
@@ -156,6 +157,8 @@ func (h *RequestLogHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *RequestLogHandler) write(t *template.Template, in *RequestLogTemplateInput) {
+	h.writerMux.Lock()
+	defer h.writerMux.Unlock()
 	if err := t.Execute(h.writer, in); err != nil {
 		// Template execution failed. Write an error message with some basic information about the request.
 		fmt.Fprintf(h.writer, "Invalid request log template: method: %v, response code: %v, latency: %v, url: %v\n",
