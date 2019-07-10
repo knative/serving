@@ -36,6 +36,7 @@ import (
 	"github.com/knative/serving/pkg/network/prober"
 	"github.com/knative/serving/pkg/reconciler/autoscaling/config"
 	aresources "github.com/knative/serving/pkg/reconciler/autoscaling/resources"
+	rresources "github.com/knative/serving/pkg/reconciler/revision/resources"
 	"github.com/knative/serving/pkg/resources"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -51,9 +52,19 @@ const (
 	// This number is small, since `handleScaleToZero` below will
 	// re-enque for the configured grace period.
 	reenqeuePeriod = 1 * time.Second
+
+	// TODO(#3456): Remove this buffer once KPA does pod failure diagnostics.
+	//
+	// KPA will scale the Deployment down to zero if it fails to activate after ProgressDeadlineSeconds,
+	// however, after ProgressDeadlineSeconds, the Deployment itself updates its status, which causes
+	// the Revision to re-reconcile and diagnose pod failures. If we use the same timeout here, we will
+	// race the Revision reconciler and scale down the pods before it can actually surface the pod errors.
+	// We should instead do pod failure diagnostics here immediately before scaling down the Deployment.
+	activationTimeoutBuffer = 10 * time.Second
+	activationTimeout       = time.Duration(rresources.ProgressDeadlineSeconds)*time.Second + activationTimeoutBuffer
 )
 
-var probeOptions = []interface{} {
+var probeOptions = []interface{}{
 	prober.WithHeader(network.ProbeHeaderName, activator.Name),
 	prober.ExpectsBody(activator.Name),
 }
@@ -146,6 +157,12 @@ func (ks *scaler) handleScaleToZero(pa *pav1alpha1.PodAutoscaler, desiredScale i
 	}
 
 	if pa.Status.IsActivating() { // Active=Unknown
+		// If we are stuck activating for longer than our progress deadline, presume we cannot succeed and scale to 0.
+		if pa.Status.CanFailActivation(activationTimeout) {
+			ks.logger.Infof("%s activation has timed out after %v.", pa.Name, activationTimeout)
+			return 0, true
+		}
+		ks.enqueueCB(pa, activationTimeout)
 		return scaleUnknown, false
 	} else if pa.Status.IsReady() { // Active=True
 		// Don't scale-to-zero if the PA is active
@@ -221,7 +238,7 @@ func (ks *scaler) applyScale(ctx context.Context, pa *pav1alpha1.PodAutoscaler, 
 func (ks *scaler) Scale(ctx context.Context, pa *pav1alpha1.PodAutoscaler, desiredScale int32) (int32, error) {
 	logger := logging.FromContext(ctx)
 
-	if desiredScale < 0 {
+	if desiredScale < 0 && !pa.Status.IsActivating() {
 		logger.Debug("Metrics are not yet being collected.")
 		return desiredScale, nil
 	}

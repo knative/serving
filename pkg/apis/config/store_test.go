@@ -22,8 +22,8 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	logtesting "knative.dev/pkg/logging/testing"
 	"k8s.io/apimachinery/pkg/api/resource"
+	logtesting "knative.dev/pkg/logging/testing"
 
 	. "knative.dev/pkg/configmap/testing"
 )

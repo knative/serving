@@ -44,7 +44,7 @@ const shortModeMaxScale = 10
 // While redundant, we run two versions of this by default:
 // 1. TestScaleToN/size-10: a developer smoke test that's useful when changing this to assess whether
 //   things have gone horribly wrong.  This should take about 12-20 seconds total.
-// 2. TestScaleToN/scale-50: a more proper execution of the test, which verifies a slightly more
+// 2. TestScaleToN/scale-100: a more proper execution of the test, which verifies a slightly more
 //   interesting burst of deployments, but low enough to complete in a reasonable window.
 func TestScaleToN(t *testing.T) {
 	// Run each of these variations.
@@ -55,8 +55,8 @@ func TestScaleToN(t *testing.T) {
 		size:    10,
 		timeout: 60 * time.Second,
 	}, {
-		size:    50,
-		timeout: 8 * time.Minute,
+		size:    100,
+		timeout: 10 * time.Minute,
 	}}
 
 	for _, test := range tests {

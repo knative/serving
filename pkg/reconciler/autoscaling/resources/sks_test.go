@@ -20,13 +20,13 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"knative.dev/pkg/ptr"
 	pav1a1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/apis/networking"
 	nv1a1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"knative.dev/pkg/ptr"
 )
 
 // MakeSKS makes an SKS resource from the PA, selector and operation mode.
@@ -36,7 +36,7 @@ func TestMakeSKS(t *testing.T) {
 			Namespace: "here",
 			Name:      "with-you",
 			UID:       "2006",
-			// Those labels are propagated from the Revision->KPA.
+			// Those labels are propagated from the Revision->PA.
 			Labels: map[string]string{
 				serving.RevisionLabelKey: "with-you",
 				serving.RevisionUID:      "2009",

@@ -16,17 +16,17 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package e2e
+package v1beta1
 
 import (
 	"encoding/json"
 	"testing"
 
-	"knative.dev/pkg/test/logstream"
 	v1a1test "github.com/knative/serving/test/v1alpha1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"knative.dev/pkg/test/logstream"
 
 	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 	"github.com/knative/serving/test"
@@ -37,7 +37,7 @@ func TestV1beta1Translation(t *testing.T) {
 	cancel := logstream.Start(t)
 	defer cancel()
 
-	clients := Setup(t)
+	clients := test.Setup(t)
 
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
@@ -72,7 +72,7 @@ func TestV1beta1Rejection(t *testing.T) {
 	cancel := logstream.Start(t)
 	defer cancel()
 
-	clients := Setup(t)
+	clients := test.Setup(t)
 
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),

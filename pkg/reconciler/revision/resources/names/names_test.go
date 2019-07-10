@@ -22,8 +22,8 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"knative.dev/pkg/kmeta"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"knative.dev/pkg/kmeta"
 )
 
 func TestNamer(t *testing.T) {
@@ -87,13 +87,13 @@ func TestNamer(t *testing.T) {
 		f:    ImageCache,
 		want: "foo-cache",
 	}, {
-		name: "KPA",
+		name: "PA",
 		rev: &v1alpha1.Revision{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "baz",
 			},
 		},
-		f:    KPA,
+		f:    PA,
 		want: "baz",
 	}}
 

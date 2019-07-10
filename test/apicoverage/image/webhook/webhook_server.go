@@ -21,11 +21,11 @@ import (
 	"log"
 	"net/http"
 
-	"knative.dev/pkg/signals"
 	"github.com/knative/serving/test/apicoverage/image/common"
 	"github.com/knative/serving/test/apicoverage/image/rules"
 	"github.com/knative/test-infra/tools/webhook-apicoverage/resourcetree"
 	"github.com/knative/test-infra/tools/webhook-apicoverage/webhook"
+	"knative.dev/pkg/signals"
 )
 
 // SetupWebhookServer builds the necessary webhook configuration, HTTPServer and starts the webhook.

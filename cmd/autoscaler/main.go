@@ -22,6 +22,16 @@ import (
 	"log"
 	"time"
 
+	"github.com/spf13/pflag"
+	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
+
+	"github.com/knative/serving/pkg/apis/serving"
+	"github.com/knative/serving/pkg/autoscaler"
+	"github.com/knative/serving/pkg/autoscaler/statserver"
+	"github.com/knative/serving/pkg/reconciler/autoscaling/hpa"
+	"github.com/knative/serving/pkg/reconciler/autoscaling/kpa"
+	"github.com/knative/serving/pkg/resources"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/injection"
@@ -32,17 +42,8 @@ import (
 	pkgmetrics "knative.dev/pkg/metrics"
 	"knative.dev/pkg/signals"
 	"knative.dev/pkg/system"
-	"github.com/knative/serving/pkg/apis/serving"
-	"github.com/knative/serving/pkg/autoscaler"
-	"github.com/knative/serving/pkg/autoscaler/statserver"
-	"github.com/knative/serving/pkg/reconciler/autoscaling/hpa"
-	"github.com/knative/serving/pkg/reconciler/autoscaling/kpa"
-	"github.com/knative/serving/pkg/resources"
-	basecmd "github.com/kubernetes-incubator/custom-metrics-apiserver/pkg/cmd"
-	"github.com/spf13/pflag"
-	"go.uber.org/zap"
-	"golang.org/x/sync/errgroup"
 
+	basecmd "github.com/kubernetes-incubator/custom-metrics-apiserver/pkg/cmd"
 	corev1informers "k8s.io/client-go/informers/core/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/rest"
@@ -53,6 +54,7 @@ const (
 	statsServerAddr = ":8080"
 	statsBufferLen  = 1000
 	component       = "autoscaler"
+	controllerNum   = 2
 )
 
 var (
@@ -90,15 +92,15 @@ func main() {
 	logger.Infof("Registering %d clients", len(injection.Default.GetClients()))
 	logger.Infof("Registering %d informer factories", len(injection.Default.GetInformerFactories()))
 	logger.Infof("Registering %d informers", len(injection.Default.GetInformers()))
-	logger.Infof("Registering %d controllers", 2)
+	logger.Infof("Registering %d controllers", controllerNum)
 
 	// Adjust our client's rate limits based on the number of controller's we are running.
-	cfg.QPS = 2 * rest.DefaultQPS
-	cfg.Burst = 2 * rest.DefaultBurst
+	cfg.QPS = controllerNum * rest.DefaultQPS
+	cfg.Burst = controllerNum * rest.DefaultBurst
 
 	ctx, informers := injection.Default.SetupInformers(ctx, cfg)
 
-	// statsCh is the main communication channel between the stats channel and multiscaler.
+	// statsCh is the main communication channel between the stats server and multiscaler.
 	statsCh := make(chan *autoscaler.StatMessage, statsBufferLen)
 	defer close(statsCh)
 
@@ -179,7 +181,7 @@ func uniScalerFactoryFunc(endpointsInformer corev1informers.EndpointsInformer, m
 			return nil, err
 		}
 
-		podCounter := resources.NewScopedEndpointsCounter(endpointsInformer.Lister(), decider.Namespace, decider.Name)
+		podCounter := resources.NewScopedEndpointsCounter(endpointsInformer.Lister(), decider.Namespace, decider.Spec.ServiceName)
 		return autoscaler.New(decider.Namespace, decider.Name, metricClient, podCounter, decider.Spec, reporter)
 	}
 }

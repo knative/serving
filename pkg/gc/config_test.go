@@ -21,8 +21,8 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
-	logtesting "knative.dev/pkg/logging/testing"
 	corev1 "k8s.io/api/core/v1"
+	logtesting "knative.dev/pkg/logging/testing"
 
 	. "knative.dev/pkg/configmap/testing"
 )

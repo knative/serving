@@ -84,6 +84,12 @@ func TestAutoscalerNoDataAtZeroNoAutoscaleWithExplicitEPs(t *testing.T) {
 	a.expectScale(t, time.Now(), 0, expectedEBC(10, 100, 0, 1), true)
 }
 
+func TestAutoscalerStableModeUnlimitedTBC(t *testing.T) {
+	metrics := &testMetricClient{stableConcurrency: 21.0}
+	a := newTestAutoscaler(181, -1, metrics)
+	a.expectScale(t, time.Now(), 1, -1, true)
+}
+
 func TestAutoscalerStableModeNoChange(t *testing.T) {
 	metrics := &testMetricClient{stableConcurrency: 50.0}
 	a := newTestAutoscaler(10, 100, metrics)

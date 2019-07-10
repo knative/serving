@@ -20,11 +20,11 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	certmanagerv1alpha1 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1alpha1"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	. "knative.dev/pkg/configmap/testing"
 	"knative.dev/pkg/system"
 	_ "knative.dev/pkg/system/testing"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func TestCertManagerConfig(t *testing.T) {

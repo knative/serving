@@ -20,19 +20,19 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"knative.dev/pkg/kmeta"
-	kpa "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
+	av1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/reconciler/revision/resources/names"
 	"github.com/knative/serving/pkg/resources"
+	"knative.dev/pkg/kmeta"
 )
 
-// MakeKPA makes a Knative Pod Autoscaler resource from a revision.
-func MakeKPA(rev *v1alpha1.Revision) *kpa.PodAutoscaler {
-	return &kpa.PodAutoscaler{
+// MakePA makes a Knative Pod Autoscaler resource from a revision.
+func MakePA(rev *v1alpha1.Revision) *av1alpha1.PodAutoscaler {
+	return &av1alpha1.PodAutoscaler{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      names.KPA(rev),
+			Name:      names.PA(rev),
 			Namespace: rev.Namespace,
 			Labels:    makeLabels(rev),
 			Annotations: resources.FilterMap(rev.GetAnnotations(), func(k string) bool {
@@ -41,7 +41,7 @@ func MakeKPA(rev *v1alpha1.Revision) *kpa.PodAutoscaler {
 			}),
 			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(rev)},
 		},
-		Spec: kpa.PodAutoscalerSpec{
+		Spec: av1alpha1.PodAutoscalerSpec{
 			ContainerConcurrency: rev.Spec.ContainerConcurrency,
 			ScaleTargetRef: corev1.ObjectReference{
 				APIVersion: "apps/v1",

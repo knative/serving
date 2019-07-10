@@ -27,7 +27,6 @@ spec:
     plural: serverlessservices
     singular: serverlessservice
     categories:
-    - all
     - knative-internal
     - networking
     shortNames:

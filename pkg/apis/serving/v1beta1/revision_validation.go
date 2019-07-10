@@ -23,9 +23,9 @@ import (
 
 	"github.com/knative/serving/pkg/apis/config"
 
+	"github.com/knative/serving/pkg/apis/serving"
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/kmp"
-	"github.com/knative/serving/pkg/apis/serving"
 )
 
 // Validate ensures Revision is properly configured.

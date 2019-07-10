@@ -24,14 +24,14 @@ import (
 
 	"github.com/knative/serving/pkg/autoscaler/aggregation"
 
-	kpa "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
+	av1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"go.uber.org/zap"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
-	// scrapeTickInterval is the interval of time between triggring StatsScraper.Scrape()
+	// scrapeTickInterval is the interval of time between triggering StatsScraper.Scrape()
 	// to get metrics across all pods of a revision.
 	scrapeTickInterval = time.Second
 
@@ -126,7 +126,7 @@ func NewMetricCollector(statsScraperFactory StatsScraperFactory, logger *zap.Sug
 	return collector
 }
 
-// Get gets a Metric's state from the collector.
+// Get gets a Metric object from the collector.
 // Returns a copy of the Metric object. Mutations won't be seen by the collector.
 func (c *MetricCollector) Get(ctx context.Context, namespace, name string) (*Metric, error) {
 	c.collectionsMutex.RLock()
@@ -135,7 +135,7 @@ func (c *MetricCollector) Get(ctx context.Context, namespace, name string) (*Met
 	key := NewMetricKey(namespace, name)
 	collector, ok := c.collections[key]
 	if !ok {
-		return nil, k8serrors.NewNotFound(kpa.Resource("Metrics"), key)
+		return nil, k8serrors.NewNotFound(av1alpha1.Resource("Metrics"), key)
 	}
 
 	return collector.metric.DeepCopy(), nil
@@ -179,7 +179,7 @@ func (c *MetricCollector) Update(ctx context.Context, metric *Metric) (*Metric, 
 		collection.updateMetric(metric)
 		return metric.DeepCopy(), nil
 	}
-	return nil, k8serrors.NewNotFound(kpa.Resource("Metrics"), key)
+	return nil, k8serrors.NewNotFound(av1alpha1.Resource("Metrics"), key)
 }
 
 // Delete deletes a Metric and halts collection.
@@ -211,7 +211,7 @@ func (c *MetricCollector) Record(key string, stat Stat) {
 func (c *MetricCollector) StableAndPanicConcurrency(key string) (float64, float64, error) {
 	collection, exists := c.collections[key]
 	if !exists {
-		return 0, 0, k8serrors.NewNotFound(kpa.Resource("Metrics"), key)
+		return 0, 0, k8serrors.NewNotFound(av1alpha1.Resource("Metrics"), key)
 	}
 
 	return collection.stableAndPanicConcurrency(time.Now())
@@ -242,7 +242,8 @@ func (c *collection) getScraper() StatsScraper {
 	return c.scraper
 }
 
-// newCollection creates a new collection.
+// newCollection creates a new collection, which uses the given scraper to
+// collect stats every scrapeTickInterval.
 func newCollection(metric *Metric, scraper StatsScraper, logger *zap.SugaredLogger) *collection {
 	c := &collection{
 		metric:  metric,

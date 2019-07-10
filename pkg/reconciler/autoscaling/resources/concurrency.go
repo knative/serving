@@ -30,6 +30,9 @@ import (
 func ResolveConcurrency(pa *v1alpha1.PodAutoscaler, config *autoscaler.Config) (target float64, total float64) {
 	total = float64(pa.Spec.ContainerConcurrency)
 	tu := config.ContainerConcurrencyTargetFraction
+	if v, ok := pa.TargetUtilization(); ok {
+		tu = v
+	}
 	target = math.Max(1, total*tu)
 
 	// If containerConcurrency is 0 we'll always target the default.

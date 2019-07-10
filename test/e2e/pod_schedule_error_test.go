@@ -22,7 +22,6 @@ import (
 	"strings"
 	"testing"
 
-	"knative.dev/pkg/test/logstream"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	serviceresourcenames "github.com/knative/serving/pkg/reconciler/service/resources/names"
 	"github.com/knative/serving/test"
@@ -30,6 +29,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"knative.dev/pkg/test/logstream"
 )
 
 func TestPodScheduleError(t *testing.T) {

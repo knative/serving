@@ -21,8 +21,8 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"knative.dev/pkg/kmeta"
 	"github.com/knative/serving/pkg/apis/networking/v1alpha1"
+	"knative.dev/pkg/kmeta"
 )
 
 func TestNamer(t *testing.T) {
@@ -41,10 +41,30 @@ func TestNamer(t *testing.T) {
 		f:    IngressVirtualService,
 		want: "foo",
 	}, {
+		name: "IngressVirtualService",
+		ingress: &v1alpha1.ClusterIngress{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "foo",
+				Namespace: "ns1",
+			},
+		},
+		f:    IngressVirtualService,
+		want: "foo",
+	}, {
 		name: "MeshVirtualService",
 		ingress: &v1alpha1.ClusterIngress{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "foo",
+			},
+		},
+		f:    MeshVirtualService,
+		want: "foo-mesh",
+	}, {
+		name: "MeshVirtualService",
+		ingress: &v1alpha1.ClusterIngress{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "foo",
+				Namespace: "ns2",
 			},
 		},
 		f:    MeshVirtualService,

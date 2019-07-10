@@ -19,8 +19,8 @@ package v1alpha1
 import (
 	"context"
 
-	"knative.dev/pkg/apis"
 	"github.com/knative/serving/pkg/apis/autoscaling"
+	"knative.dev/pkg/apis"
 )
 
 func defaultMetric(class string) string {

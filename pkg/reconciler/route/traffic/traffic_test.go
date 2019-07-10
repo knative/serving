@@ -25,6 +25,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	net "github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/serving"
@@ -958,40 +959,13 @@ func TestRoundTripping(t *testing.T) {
 	if tc, err := BuildTrafficConfiguration(configLister, revLister, route); err != nil {
 		t.Errorf("Unexpected error %v", err)
 	} else {
-		targets, err := tc.GetRevisionTrafficTargets(getContext(), route)
+		targets, err := tc.GetRevisionTrafficTargets(getContext(), route, sets.String{})
 		if err != nil {
 			t.Errorf("Unexpected error %v", err)
 		}
 		if want, got := expected, targets; !cmp.Equal(want, got) {
 			t.Errorf("Unexpected traffic diff (-want +got): %v", cmp.Diff(want, got))
 		}
-	}
-}
-
-func TestDeprecatedTagDomain(t *testing.T) {
-	tests := []struct {
-		TestName string
-		Name     string
-		Domain   string
-		Expected string
-	}{{
-		TestName: "subdomain",
-		Name:     "current",
-		Domain:   "svc.local.com",
-		Expected: "current.svc.local.com",
-	}, {
-		TestName: "default target",
-		Name:     DefaultTarget,
-		Domain:   "default.com",
-		Expected: "default.com",
-	}}
-
-	for _, tt := range tests {
-		t.Run(tt.TestName, func(t *testing.T) {
-			if got, want := DeprecatedTagDomain(tt.Name, tt.Domain), tt.Expected; got != want {
-				t.Errorf("DeprecatedTagDomain = %s, want: %s", got, want)
-			}
-		})
 	}
 }
 

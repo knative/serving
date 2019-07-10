@@ -66,38 +66,85 @@ func TestHealthStateSetsState(t *testing.T) {
 
 func TestHealthStateHealthHandler(t *testing.T) {
 	tests := []struct {
-		name       string
-		state      *State
-		prober     func() bool
-		wantStatus int
-		wantBody   string
+		name            string
+		state           *State
+		prober          func() bool
+		isNotAggressive bool
+		wantStatus      int
+		wantBody        string
 	}{{
-		name:       "alive: true",
-		state:      &State{alive: true},
-		wantStatus: http.StatusOK,
-		wantBody:   aliveBody,
+		name:            "alive: true, K-Probe",
+		state:           &State{alive: true},
+		isNotAggressive: true,
+		wantStatus:      http.StatusOK,
+		wantBody:        aliveBody,
 	}, {
-		name:       "alive: false, prober: true",
-		state:      &State{alive: false},
-		prober:     func() bool { return true },
-		wantStatus: http.StatusOK,
-		wantBody:   aliveBody,
+		name:            "alive: false, prober: true, K-Probe",
+		state:           &State{alive: false},
+		prober:          func() bool { return true },
+		isNotAggressive: true,
+		wantStatus:      http.StatusOK,
+		wantBody:        aliveBody,
 	}, {
-		name:       "alive: false, prober: false",
-		state:      &State{alive: false},
-		prober:     func() bool { return false },
-		wantStatus: http.StatusBadRequest,
-		wantBody:   notAliveBody,
+		name:            "alive: false, prober: false, K-Probe",
+		state:           &State{alive: false},
+		prober:          func() bool { return false },
+		isNotAggressive: true,
+		wantStatus:      http.StatusBadRequest,
+		wantBody:        notAliveBody,
 	}, {
-		name:       "alive: false, no prober",
-		state:      &State{alive: false},
-		wantStatus: http.StatusOK,
-		wantBody:   aliveBody,
+		name:            "alive: false, no prober, K-Probe",
+		state:           &State{alive: false},
+		isNotAggressive: true,
+		wantStatus:      http.StatusOK,
+		wantBody:        aliveBody,
 	}, {
-		name:       "shuttingDown: true",
-		state:      &State{shuttingDown: true},
-		wantStatus: http.StatusBadRequest,
-		wantBody:   notAliveBody,
+		name:            "shuttingDown: true, K-Probe",
+		state:           &State{shuttingDown: true},
+		isNotAggressive: true,
+		wantStatus:      http.StatusBadRequest,
+		wantBody:        notAliveBody,
+	}, {
+		name:            "no prober, shuttingDown: false",
+		state:           &State{},
+		isNotAggressive: false,
+		wantStatus:      http.StatusOK,
+		wantBody:        aliveBody,
+	}, {
+		name:            "prober: true, shuttingDown: true",
+		state:           &State{shuttingDown: true},
+		prober:          func() bool { return true },
+		isNotAggressive: false,
+		wantStatus:      http.StatusBadRequest,
+		wantBody:        notAliveBody,
+	}, {
+		name:            "prober: true, shuttingDown: false",
+		state:           &State{},
+		prober:          func() bool { return true },
+		isNotAggressive: false,
+		wantStatus:      http.StatusOK,
+		wantBody:        aliveBody,
+	}, {
+		name:            "prober: false, shuttingDown: false",
+		state:           &State{},
+		prober:          func() bool { return false },
+		isNotAggressive: false,
+		wantStatus:      http.StatusBadRequest,
+		wantBody:        notAliveBody,
+	}, {
+		name:            "prober: false, shuttingDown: true",
+		state:           &State{},
+		prober:          func() bool { return false },
+		isNotAggressive: false,
+		wantStatus:      http.StatusBadRequest,
+		wantBody:        notAliveBody,
+	}, {
+		name:            "alive: true, prober: false, shuttingDown: false",
+		state:           &State{alive: true},
+		prober:          func() bool { return false },
+		isNotAggressive: false,
+		wantStatus:      http.StatusBadRequest,
+		wantBody:        notAliveBody,
 	}}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -107,7 +154,7 @@ func TestHealthStateHealthHandler(t *testing.T) {
 			}
 
 			rr := httptest.NewRecorder()
-			handler := http.HandlerFunc(test.state.HealthHandler(test.prober))
+			handler := http.HandlerFunc(test.state.HealthHandler(test.prober, test.isNotAggressive))
 
 			handler.ServeHTTP(rr, req)
 

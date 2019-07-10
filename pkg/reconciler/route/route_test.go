@@ -24,22 +24,15 @@ import (
 	"time"
 
 	// Inject the informers this controller depends on.
-	_ "knative.dev/pkg/injection/informers/kubeinformers/corev1/service/fake"
 	fakeservingclient "github.com/knative/serving/pkg/client/injection/client/fake"
 	_ "github.com/knative/serving/pkg/client/injection/informers/networking/v1alpha1/certificate/fake"
 	fakeciinformer "github.com/knative/serving/pkg/client/injection/informers/networking/v1alpha1/clusteringress/fake"
 	fakecfginformer "github.com/knative/serving/pkg/client/injection/informers/serving/v1alpha1/configuration/fake"
 	fakerevisioninformer "github.com/knative/serving/pkg/client/injection/informers/serving/v1alpha1/revision/fake"
 	fakerouteinformer "github.com/knative/serving/pkg/client/injection/informers/serving/v1alpha1/route/fake"
+	_ "knative.dev/pkg/injection/informers/kubeinformers/corev1/service/fake"
 
 	"github.com/google/go-cmp/cmp"
-	"knative.dev/pkg/apis"
-	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
-	"knative.dev/pkg/configmap"
-	"knative.dev/pkg/controller"
-	ctrl "knative.dev/pkg/controller"
-	logtesting "knative.dev/pkg/logging/testing"
-	"knative.dev/pkg/system"
 	netv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
@@ -55,6 +48,13 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/tools/record"
+	"knative.dev/pkg/apis"
+	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
+	"knative.dev/pkg/configmap"
+	"knative.dev/pkg/controller"
+	ctrl "knative.dev/pkg/controller"
+	logtesting "knative.dev/pkg/logging/testing"
+	"knative.dev/pkg/system"
 
 	. "knative.dev/pkg/reconciler/testing"
 )
@@ -292,8 +292,8 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 		TLS:        []netv1alpha1.IngressTLS{},
 		Rules: []netv1alpha1.IngressRule{{
 			Hosts: []string{
-				domain,
 				"test-route.test.svc.cluster.local",
+				domain,
 			},
 			HTTP: &netv1alpha1.HTTPIngressRuleValue{
 				Paths: []netv1alpha1.HTTPIngressPath{{
@@ -311,6 +311,7 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 					},
 				}},
 			},
+			Visibility: netv1alpha1.IngressVisibilityExternalIP,
 		}},
 	}
 	if diff := cmp.Diff(expectedSpec, ci.Spec); diff != "" {
@@ -396,8 +397,8 @@ func TestCreateRouteWithMultipleTargets(t *testing.T) {
 		TLS:        []netv1alpha1.IngressTLS{},
 		Rules: []netv1alpha1.IngressRule{{
 			Hosts: []string{
-				domain,
 				"test-route.test.svc.cluster.local",
+				domain,
 			},
 			HTTP: &netv1alpha1.HTTPIngressRuleValue{
 				Paths: []netv1alpha1.HTTPIngressPath{{
@@ -422,6 +423,7 @@ func TestCreateRouteWithMultipleTargets(t *testing.T) {
 					},
 				}},
 			},
+			Visibility: netv1alpha1.IngressVisibilityExternalIP,
 		}},
 	}
 
@@ -480,8 +482,8 @@ func TestCreateRouteWithOneTargetReserve(t *testing.T) {
 		TLS:        []netv1alpha1.IngressTLS{},
 		Rules: []netv1alpha1.IngressRule{{
 			Hosts: []string{
-				domain,
 				"test-route.test.svc.cluster.local",
+				domain,
 			},
 			HTTP: &netv1alpha1.HTTPIngressRuleValue{
 				Paths: []netv1alpha1.HTTPIngressPath{{
@@ -506,6 +508,7 @@ func TestCreateRouteWithOneTargetReserve(t *testing.T) {
 					},
 				}},
 			},
+			Visibility: netv1alpha1.IngressVisibilityExternalIP,
 		}},
 	}
 	if diff := cmp.Diff(expectedSpec, ci.Spec); diff != "" {
@@ -588,8 +591,8 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 		TLS:        []netv1alpha1.IngressTLS{},
 		Rules: []netv1alpha1.IngressRule{{
 			Hosts: []string{
-				domain,
 				"test-route.test.svc.cluster.local",
+				domain,
 			},
 			HTTP: &netv1alpha1.HTTPIngressRuleValue{
 				Paths: []netv1alpha1.HTTPIngressPath{{
@@ -614,10 +617,11 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 					},
 				}},
 			},
+			Visibility: netv1alpha1.IngressVisibilityExternalIP,
 		}, {
 			Hosts: []string{
+				"test-revision-1-test-route.test.svc.cluster.local",
 				"test-revision-1-test-route.test.test-domain.dev",
-				"test-revision-1." + domain,
 			},
 			HTTP: &netv1alpha1.HTTPIngressRuleValue{
 				Paths: []netv1alpha1.HTTPIngressPath{{
@@ -635,10 +639,11 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 					},
 				}},
 			},
+			Visibility: netv1alpha1.IngressVisibilityExternalIP,
 		}, {
 			Hosts: []string{
+				"test-revision-2-test-route.test.svc.cluster.local",
 				"test-revision-2-test-route.test.test-domain.dev",
-				"test-revision-2." + domain,
 			},
 			HTTP: &netv1alpha1.HTTPIngressRuleValue{
 				Paths: []netv1alpha1.HTTPIngressPath{{
@@ -656,6 +661,7 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 					},
 				}},
 			},
+			Visibility: netv1alpha1.IngressVisibilityExternalIP,
 		}},
 	}
 
@@ -715,8 +721,8 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 		TLS:        []netv1alpha1.IngressTLS{},
 		Rules: []netv1alpha1.IngressRule{{
 			Hosts: []string{
-				domain,
 				"test-route.test.svc.cluster.local",
+				domain,
 			},
 			HTTP: &netv1alpha1.HTTPIngressRuleValue{
 				Paths: []netv1alpha1.HTTPIngressPath{{
@@ -741,10 +747,11 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 					},
 				}},
 			},
+			Visibility: netv1alpha1.IngressVisibilityExternalIP,
 		}, {
 			Hosts: []string{
+				"bar-test-route.test.svc.cluster.local",
 				"bar-test-route.test.test-domain.dev",
-				"bar." + domain,
 			},
 			HTTP: &netv1alpha1.HTTPIngressRuleValue{
 				Paths: []netv1alpha1.HTTPIngressPath{{
@@ -762,10 +769,12 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 					},
 				}},
 			},
+			Visibility: netv1alpha1.IngressVisibilityExternalIP,
 		}, {
 			Hosts: []string{
+				"foo-test-route.test.svc.cluster.local",
 				"foo-test-route.test.test-domain.dev",
-				"foo." + domain},
+			},
 			HTTP: &netv1alpha1.HTTPIngressRuleValue{
 				Paths: []netv1alpha1.HTTPIngressPath{{
 					Splits: []netv1alpha1.IngressBackendSplit{{
@@ -782,6 +791,7 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 					},
 				}},
 			},
+			Visibility: netv1alpha1.IngressVisibilityExternalIP,
 		}},
 	}
 
@@ -1050,7 +1060,7 @@ func TestRouteDomain(t *testing.T) {
 	for _, test := range tests {
 		cfg.Network.DomainTemplate = test.Template
 
-		res, err := domains.DomainNameFromTemplate(context, route, route.Name)
+		res, err := domains.DomainNameFromTemplate(context, route.ObjectMeta, route.Name)
 
 		if test.Pass != (err == nil) {
 			t.Fatalf("TestRouteDomain %q test: supposed to fail but didn't",

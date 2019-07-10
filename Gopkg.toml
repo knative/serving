@@ -104,6 +104,10 @@ required = [
   name = "github.com/knative/test-infra"
   non-go = false
 
+[[override]]
+  name = "github.com/kelseyhightower/envconfig"
+  version = "v1.4.0"
+
 [[prune.project]]
   name = "bitbucket.org/ww/goautoneg"
   non-go = false

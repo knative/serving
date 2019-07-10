@@ -24,6 +24,7 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
+	"net/url"
 	"os"
 	"path"
 	"strings"
@@ -150,8 +151,25 @@ func NewReader(ctx context.Context, bucketName, filePath string) (*storage.Reade
 }
 
 // BuildLogPath returns the build log path from the test result gcsURL
-func BuildLogPath(gcsURL string) string {
-	return gcsURL + "build-log.txt"
+func BuildLogPath(gcsURL string) (string, error) {
+	u, err := url.Parse(gcsURL)
+	if err != nil {
+		return gcsURL, err
+	}
+	u.Path = path.Join(u.Path, "build-log.txt")
+	return u.String(), nil
+}
+
+// GetConsoleURL returns the gcs link renderable directly from a browser
+func GetConsoleURL(gcsURL string) (string, error) {
+	u, err := url.Parse(gcsURL)
+	if err != nil {
+		return gcsURL, err
+	}
+	u.Path = path.Join("storage/browser", u.Host, u.Path)
+	u.Scheme = "https"
+	u.Host = "console.cloud.google.com"
+	return u.String(), nil
 }
 
 // create storage object handle, this step doesn't access internet

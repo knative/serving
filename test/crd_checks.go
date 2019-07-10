@@ -20,9 +20,9 @@ limitations under the License.
 package test
 
 import (
-	pkgTest "knative.dev/pkg/test"
 	appsv1 "k8s.io/api/apps/v1"
 	k8styped "k8s.io/client-go/kubernetes/typed/core/v1"
+	pkgTest "knative.dev/pkg/test"
 )
 
 // GetConfigMap gets the knative serving config map.

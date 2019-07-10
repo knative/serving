@@ -57,7 +57,7 @@ func MakeMetric(ctx context.Context, pa *v1alpha1.PodAutoscaler, metricSvc strin
 	// Look for a panic window percentage annotation.
 	panicWindowPercentage, ok := pa.PanicWindowPercentage()
 	if !ok {
-		// Fall back on cluster config.
+		// Fall back to cluster config.
 		panicWindowPercentage = config.PanicWindowPercentage
 	}
 	panicWindow := time.Duration(float64(stableWindow) * panicWindowPercentage / 100.0)

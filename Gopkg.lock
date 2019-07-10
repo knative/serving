@@ -580,6 +580,14 @@
   revision = "f2b4162afba35581b6d4a50d3b8f34e33c144682"
 
 [[projects]]
+  digest = "1:08c58ac78a8c1f61e9a96350066d30fe194b8779799bd932a79932a5166a173f"
+  name = "github.com/kelseyhightower/envconfig"
+  packages = ["."]
+  pruneopts = "NUT"
+  revision = "0b417c4ec4a8a82eecc22a1459a504aa55163d61"
+  version = "v1.4.0"
+
+[[projects]]
   digest = "1:0468429ef23dc7bd427ca25eb24cf869c4752872b7c21fc5ad2e47c0ccbfbb00"
   name = "github.com/knative/caching"
   packages = [
@@ -607,7 +615,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:963b4eb21d350a037baeb18060fab18a463a59578441d019e6b6198d10c7bbb1"
+  digest = "1:c7e8a621d81ea73d326d5c1c8528013398b067054008f467a5fdcac602c58ead"
   name = "github.com/knative/test-infra"
   packages = [
     "scripts",
@@ -627,7 +635,7 @@
     "tools/webhook-apicoverage/webhook",
   ]
   pruneopts = "UT"
-  revision = "a923afe5a821562b9b6e37dfaf71f54c045adf90"
+  revision = "2b0eeafd5300d91d0c96a719bd230fb3b3dd96ce"
 
 [[projects]]
   digest = "1:58999a98719fddbac6303cb17e8d85b945f60b72f48e3a2df6b950b97fa926f1"
@@ -1610,7 +1618,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:df8dd286355037777c67f3cf8a4b287d018df3fd98b76cf31c21eba955933664"
+  digest = "1:c1c7cfe29d74a22c0fbc3ab02907361f8f5cd7e4a6757b9452f64d21682b040b"
   name = "knative.dev/pkg"
   packages = [
     "apis",
@@ -1700,7 +1708,7 @@
     "websocket",
   ]
   pruneopts = "T"
-  revision = "1864f499dcaa98b9de0e46faa40861591b678f03"
+  revision = "c9bcf7e03fb535c28eae2b5ec1cf70e9363e32a7"
 
 [solve-meta]
   analyzer-name = "dep"
@@ -1721,6 +1729,7 @@
     "github.com/google/go-containerregistry/pkg/v1/types",
     "github.com/gorilla/websocket",
     "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1alpha1",
+    "github.com/kelseyhightower/envconfig",
     "github.com/knative/caching/pkg/apis/caching",
     "github.com/knative/caching/pkg/apis/caching/v1alpha1",
     "github.com/knative/caching/pkg/client/clientset/versioned",

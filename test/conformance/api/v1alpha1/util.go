@@ -25,14 +25,14 @@ import (
 	"strings"
 	"testing"
 
-	pkgTest "knative.dev/pkg/test"
-	"knative.dev/pkg/test/spoof"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/test"
 	v1a1test "github.com/knative/serving/test/v1alpha1"
 	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
+	pkgTest "knative.dev/pkg/test"
+	"knative.dev/pkg/test/spoof"
 )
 
 func waitForExpectedResponse(t *testing.T, clients *test.Clients, domain, expectedResponse string) error {
@@ -52,8 +52,9 @@ func validateDomains(
 	t *testing.T, clients *test.Clients, baseDomain string,
 	baseExpected, trafficTargets, targetsExpected []string) error {
 	var subdomains []string
+	split := strings.SplitN(baseDomain, ".", 2)
 	for _, target := range trafficTargets {
-		subdomains = append(subdomains, fmt.Sprintf("%s.%s", target, baseDomain))
+		subdomains = append(subdomains, fmt.Sprintf("%s-%s.%s", target, split[0], split[1]))
 	}
 
 	g, _ := errgroup.WithContext(context.Background())

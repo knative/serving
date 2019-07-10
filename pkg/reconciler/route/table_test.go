@@ -28,14 +28,9 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/sets"
 	clientgotesting "k8s.io/client-go/testing"
 
-	"knative.dev/pkg/apis"
-	"knative.dev/pkg/configmap"
-	"knative.dev/pkg/controller"
-	"knative.dev/pkg/kmeta"
-	logtesting "knative.dev/pkg/logging/testing"
-	"knative.dev/pkg/ptr"
 	netv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
@@ -46,11 +41,17 @@ import (
 	"github.com/knative/serving/pkg/reconciler/route/config"
 	"github.com/knative/serving/pkg/reconciler/route/resources"
 	"github.com/knative/serving/pkg/reconciler/route/traffic"
+	"knative.dev/pkg/apis"
+	"knative.dev/pkg/configmap"
+	"knative.dev/pkg/controller"
+	"knative.dev/pkg/kmeta"
+	logtesting "knative.dev/pkg/logging/testing"
+	"knative.dev/pkg/ptr"
 
-	. "knative.dev/pkg/reconciler/testing"
 	. "github.com/knative/serving/pkg/reconciler/testing/v1alpha1"
 	. "github.com/knative/serving/pkg/testing"
 	. "github.com/knative/serving/pkg/testing/v1alpha1"
+	. "knative.dev/pkg/reconciler/testing"
 )
 
 const TestIngressClass = "ingress-class-foo"
@@ -197,6 +198,7 @@ func TestReconcile(t *testing.T) {
 					},
 				},
 				"custom-ingress-class",
+				sets.NewString(),
 			),
 			simplePlaceholderK8sService(
 				getContext(),
@@ -239,7 +241,7 @@ func TestReconcile(t *testing.T) {
 			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001"), WithServiceName("tb")),
 		},
 		WantCreates: []runtime.Object{
-			simpleClusterIngress(
+			simpleClusterIngressWithVisibility(
 				route("default", "becomes-ready", WithConfigTarget("config"),
 					WithLocalDomain, WithRouteUID("65-23"),
 					WithRouteLabel("serving.knative.dev/visibility", "cluster-local")),
@@ -256,6 +258,7 @@ func TestReconcile(t *testing.T) {
 						}},
 					},
 				},
+				sets.NewString("becomes-ready"),
 			),
 			simplePlaceholderK8sService(
 				getContext(),
@@ -604,8 +607,8 @@ func TestReconcile(t *testing.T) {
 				},
 				WithHosts(
 					0,
-					"different-domain.default.another-example.com",
 					"different-domain.default.svc.cluster.local",
+					"different-domain.default.another-example.com",
 				),
 			),
 		}},
@@ -2123,7 +2126,7 @@ func simpleK8sService(r *v1alpha1.Route, so ...K8sServiceOption) *corev1.Service
 
 	// omit the error here, as we are sure the loadbalancer info is porvided.
 	// return the service instance only, so that the result can be used in TableRow.
-	svc, _ := resources.MakeK8sService(ctx, r, "", &netv1alpha1.ClusterIngress{Status: readyIngressStatus()})
+	svc, _ := resources.MakeK8sService(ctx, r, "", &netv1alpha1.ClusterIngress{Status: readyIngressStatus()}, false)
 
 	for _, opt := range so {
 		opt(svc)
@@ -2133,11 +2136,15 @@ func simpleK8sService(r *v1alpha1.Route, so ...K8sServiceOption) *corev1.Service
 }
 
 func simpleClusterIngress(r *v1alpha1.Route, tc *traffic.Config, io ...ClusterIngressOption) *netv1alpha1.ClusterIngress {
-	return ingressWithClass(r, tc, TestIngressClass, io...)
+	return simpleClusterIngressWithVisibility(r, tc, sets.NewString(), io...)
 }
 
-func ingressWithClass(r *v1alpha1.Route, tc *traffic.Config, class string, io ...ClusterIngressOption) *netv1alpha1.ClusterIngress {
-	ingress, _ := resources.MakeClusterIngress(getContext(), r, tc, nil, class)
+func simpleClusterIngressWithVisibility(r *v1alpha1.Route, tc *traffic.Config, serviceVisibility sets.String, io ...ClusterIngressOption) *netv1alpha1.ClusterIngress {
+	return ingressWithClass(r, tc, TestIngressClass, serviceVisibility, io...)
+}
+
+func ingressWithClass(r *v1alpha1.Route, tc *traffic.Config, class string, serviceVisibility sets.String, io ...ClusterIngressOption) *netv1alpha1.ClusterIngress {
+	ingress, _ := resources.MakeClusterIngress(getContext(), r, tc, nil, serviceVisibility, class)
 
 	for _, opt := range io {
 		opt(ingress)
@@ -2147,7 +2154,7 @@ func ingressWithClass(r *v1alpha1.Route, tc *traffic.Config, class string, io ..
 }
 
 func ingressWithTLS(r *v1alpha1.Route, tc *traffic.Config, tls []netv1alpha1.IngressTLS, io ...ClusterIngressOption) *netv1alpha1.ClusterIngress {
-	ingress, _ := resources.MakeClusterIngress(getContext(), r, tc, tls, TestIngressClass)
+	ingress, _ := resources.MakeClusterIngress(getContext(), r, tc, tls, sets.NewString(), TestIngressClass)
 
 	for _, opt := range io {
 		opt(ingress)
@@ -2170,9 +2177,17 @@ func readyIngressStatus() netv1alpha1.IngressStatus {
 	status := netv1alpha1.IngressStatus{}
 	status.InitializeConditions()
 	status.MarkNetworkConfigured()
-	status.MarkLoadBalancerReady([]netv1alpha1.LoadBalancerIngressStatus{
-		{DomainInternal: network.GetServiceHostname("istio-ingressgateway", "istio-system")},
-	})
+	status.MarkLoadBalancerReady(
+		[]netv1alpha1.LoadBalancerIngressStatus{
+			{DomainInternal: network.GetServiceHostname("istio-ingressgateway", "istio-system")},
+		},
+		[]netv1alpha1.LoadBalancerIngressStatus{
+			{DomainInternal: network.GetServiceHostname("istio-ingressgateway", "istio-system")},
+		},
+		[]netv1alpha1.LoadBalancerIngressStatus{
+			{DomainInternal: network.GetServiceHostname("private-istio-ingressgateway", "istio-system")},
+		},
+	)
 
 	return status
 }

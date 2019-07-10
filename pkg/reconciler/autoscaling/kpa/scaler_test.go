@@ -76,7 +76,7 @@ func TestScaler(t *testing.T) {
 		maxScale            int32
 		wantReplicas        int32
 		wantScaling         bool
-		kpaMutation         func(*pav1alpha1.PodAutoscaler)
+		paMutation          func(*pav1alpha1.PodAutoscaler)
 		proberfunc          func(*pav1alpha1.PodAutoscaler, http.RoundTripper) (bool, error)
 		wantCBCount         int
 		wantAsyncProbeCount int
@@ -86,8 +86,8 @@ func TestScaler(t *testing.T) {
 		scaleTo:       0,
 		wantReplicas:  1,
 		wantScaling:   false,
-		kpaMutation: func(k *pav1alpha1.PodAutoscaler) {
-			kpaMarkActive(k, time.Now().Add(-stableWindow).Add(1*time.Second))
+		paMutation: func(k *pav1alpha1.PodAutoscaler) {
+			paMarkActive(k, time.Now().Add(-stableWindow).Add(1*time.Second))
 		},
 		wantCBCount: 1,
 	}, {
@@ -97,9 +97,9 @@ func TestScaler(t *testing.T) {
 		scaleTo:       0,
 		wantReplicas:  1,
 		wantScaling:   false,
-		kpaMutation: func(k *pav1alpha1.PodAutoscaler) {
+		paMutation: func(k *pav1alpha1.PodAutoscaler) {
 			WithWindowAnnotation(paStableWindow.String())(k)
-			kpaMarkActive(k, time.Now().Add(-paStableWindow).Add(1*time.Second))
+			paMarkActive(k, time.Now().Add(-paStableWindow).Add(1*time.Second))
 		},
 		wantCBCount: 1,
 	}, {
@@ -108,9 +108,9 @@ func TestScaler(t *testing.T) {
 		scaleTo:       0,
 		wantReplicas:  0,
 		wantScaling:   false,
-		kpaMutation: func(k *pav1alpha1.PodAutoscaler) {
+		paMutation: func(k *pav1alpha1.PodAutoscaler) {
 			WithWindowAnnotation(paStableWindow.String())(k)
-			kpaMarkActive(k, time.Now().Add(-stableWindow))
+			paMarkActive(k, time.Now().Add(-stableWindow))
 		},
 	}, {
 		label:         "scale to 1 waiting for idle expires",
@@ -118,8 +118,8 @@ func TestScaler(t *testing.T) {
 		scaleTo:       0,
 		wantReplicas:  1,
 		wantScaling:   true,
-		kpaMutation: func(k *pav1alpha1.PodAutoscaler) {
-			kpaMarkActive(k, time.Now().Add(-stableWindow).Add(1*time.Second))
+		paMutation: func(k *pav1alpha1.PodAutoscaler) {
+			paMarkActive(k, time.Now().Add(-stableWindow).Add(1*time.Second))
 		},
 		wantCBCount: 1,
 	}, {
@@ -128,8 +128,8 @@ func TestScaler(t *testing.T) {
 		scaleTo:       0,
 		wantReplicas:  0,
 		wantScaling:   false,
-		kpaMutation: func(k *pav1alpha1.PodAutoscaler) {
-			kpaMarkActive(k, time.Now().Add(-stableWindow))
+		paMutation: func(k *pav1alpha1.PodAutoscaler) {
+			paMarkActive(k, time.Now().Add(-stableWindow))
 		},
 	}, {
 		label:         "waits to scale to zero after idle period (custom PA window)",
@@ -137,9 +137,9 @@ func TestScaler(t *testing.T) {
 		scaleTo:       0,
 		wantReplicas:  0,
 		wantScaling:   false,
-		kpaMutation: func(k *pav1alpha1.PodAutoscaler) {
+		paMutation: func(k *pav1alpha1.PodAutoscaler) {
 			WithWindowAnnotation(paStableWindow.String())(k)
-			kpaMarkActive(k, time.Now().Add(-paStableWindow))
+			paMarkActive(k, time.Now().Add(-paStableWindow))
 		},
 	}, {
 		label:         "scale to zero after grace period",
@@ -147,8 +147,8 @@ func TestScaler(t *testing.T) {
 		scaleTo:       0,
 		wantReplicas:  0,
 		wantScaling:   true,
-		kpaMutation: func(k *pav1alpha1.PodAutoscaler) {
-			kpaMarkInactive(k, time.Now().Add(-gracePeriod))
+		paMutation: func(k *pav1alpha1.PodAutoscaler) {
+			paMarkInactive(k, time.Now().Add(-gracePeriod))
 		},
 	}, {
 		label:         "waits to scale to zero (just before grace period)",
@@ -156,8 +156,8 @@ func TestScaler(t *testing.T) {
 		scaleTo:       0,
 		wantReplicas:  0,
 		wantScaling:   false,
-		kpaMutation: func(k *pav1alpha1.PodAutoscaler) {
-			kpaMarkInactive(k, time.Now().Add(-gracePeriod).Add(1*time.Second))
+		paMutation: func(k *pav1alpha1.PodAutoscaler) {
+			paMarkInactive(k, time.Now().Add(-gracePeriod).Add(1*time.Second))
 		},
 		wantCBCount: 1,
 	}, {
@@ -166,8 +166,8 @@ func TestScaler(t *testing.T) {
 		scaleTo:       0,
 		wantReplicas:  0,
 		wantScaling:   false,
-		kpaMutation: func(k *pav1alpha1.PodAutoscaler) {
-			kpaMarkInactive(k, time.Now().Add(-gracePeriod))
+		paMutation: func(k *pav1alpha1.PodAutoscaler) {
+			paMarkInactive(k, time.Now().Add(-gracePeriod))
 		},
 		proberfunc: func(*pav1alpha1.PodAutoscaler, http.RoundTripper) (bool, error) {
 			return false, errors.New("hell or high water")
@@ -179,19 +179,29 @@ func TestScaler(t *testing.T) {
 		scaleTo:       0,
 		wantReplicas:  0,
 		wantScaling:   false,
-		kpaMutation: func(k *pav1alpha1.PodAutoscaler) {
-			kpaMarkInactive(k, time.Now().Add(-gracePeriod))
+		paMutation: func(k *pav1alpha1.PodAutoscaler) {
+			paMarkInactive(k, time.Now().Add(-gracePeriod))
 		},
 		proberfunc:          func(*pav1alpha1.PodAutoscaler, http.RoundTripper) (bool, error) { return false, nil },
 		wantAsyncProbeCount: 1,
 	}, {
-		label:         "does not scale while activating",
+		label:         "waits to scale to zero while activating until after deadline exceeded",
 		startReplicas: 1,
 		scaleTo:       0,
 		wantReplicas:  -1,
 		wantScaling:   false,
-		kpaMutation: func(k *pav1alpha1.PodAutoscaler) {
-			k.Status.MarkActivating("", "")
+		paMutation: func(k *pav1alpha1.PodAutoscaler) {
+			paMarkActivating(k, time.Now().Add(-activationTimeout/2))
+		},
+		wantCBCount: 1,
+	}, {
+		label:         "scale to zero while activating after deadline exceeded",
+		startReplicas: 1,
+		scaleTo:       0,
+		wantReplicas:  0,
+		wantScaling:   true,
+		paMutation: func(k *pav1alpha1.PodAutoscaler) {
+			paMarkActivating(k, time.Now().Add(-(activationTimeout + time.Second)))
 		},
 	}, {
 		label:         "scale down to minScale before grace period",
@@ -200,8 +210,8 @@ func TestScaler(t *testing.T) {
 		minScale:      2,
 		wantReplicas:  2,
 		wantScaling:   true,
-		kpaMutation: func(k *pav1alpha1.PodAutoscaler) {
-			kpaMarkInactive(k, time.Now().Add(-gracePeriod+time.Second))
+		paMutation: func(k *pav1alpha1.PodAutoscaler) {
+			paMarkInactive(k, time.Now().Add(-gracePeriod+time.Second))
 		},
 	}, {
 		label:         "scale down to minScale after grace period",
@@ -210,8 +220,8 @@ func TestScaler(t *testing.T) {
 		minScale:      2,
 		wantReplicas:  2,
 		wantScaling:   true,
-		kpaMutation: func(k *pav1alpha1.PodAutoscaler) {
-			kpaMarkInactive(k, time.Now().Add(-gracePeriod))
+		paMutation: func(k *pav1alpha1.PodAutoscaler) {
+			paMarkInactive(k, time.Now().Add(-gracePeriod))
 		},
 	}, {
 		label:         "scales up",
@@ -232,8 +242,8 @@ func TestScaler(t *testing.T) {
 		scaleTo:       10,
 		wantReplicas:  10,
 		wantScaling:   true,
-		kpaMutation: func(k *pav1alpha1.PodAutoscaler) {
-			kpaMarkInactive(k, time.Now().Add(-gracePeriod/2))
+		paMutation: func(k *pav1alpha1.PodAutoscaler) {
+			paMarkInactive(k, time.Now().Add(-gracePeriod/2))
 		},
 	}, {
 		label:         "does not scale up from zero with no metrics",
@@ -241,6 +251,9 @@ func TestScaler(t *testing.T) {
 		scaleTo:       -1, // no metrics
 		wantReplicas:  -1,
 		wantScaling:   false,
+		paMutation: func(k *pav1alpha1.PodAutoscaler) {
+			paMarkInactive(k, time.Now())
+		},
 	}, {
 		label:         "scales up from zero to desired one",
 		startReplicas: 0,
@@ -259,6 +272,9 @@ func TestScaler(t *testing.T) {
 		scaleTo:       -1,
 		wantReplicas:  -1,
 		wantScaling:   false,
+		paMutation: func(k *pav1alpha1.PodAutoscaler) {
+			paMarkActive(k, time.Now())
+		},
 	}}
 
 	for _, test := range tests {
@@ -295,8 +311,8 @@ func TestScaler(t *testing.T) {
 				})
 
 			pa := newKPA(t, fakeservingclient.Get(ctx), revision)
-			if test.kpaMutation != nil {
-				test.kpaMutation(pa)
+			if test.paMutation != nil {
+				test.paMutation(pa)
 			}
 
 			ctx = config.ToContext(ctx, defaultConfig())
@@ -381,6 +397,7 @@ func TestDisableScaleToZero(t *testing.T) {
 				psInformerFactory: presources.NewPodScalableInformerFactory(ctx),
 			}
 			pa := newKPA(t, fakeservingclient.Get(ctx), revision)
+			paMarkActive(pa, time.Now())
 
 			conf := defaultConfig()
 			conf.Autoscaler.EnableScaleToZero = false
@@ -404,7 +421,7 @@ func TestDisableScaleToZero(t *testing.T) {
 }
 
 func newKPA(t *testing.T, servingClient clientset.Interface, revision *v1alpha1.Revision) *pav1alpha1.PodAutoscaler {
-	pa := revisionresources.MakeKPA(revision)
+	pa := revisionresources.MakePA(revision)
 	pa.Status.InitializeConditions()
 	_, err := servingClient.AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(pa)
 	if err != nil {
@@ -481,15 +498,22 @@ func newDeployment(t *testing.T, dynamicClient dynamic.Interface, name string, r
 	return deployment
 }
 
-func kpaMarkActive(pa *pav1alpha1.PodAutoscaler, ltt time.Time) {
+func paMarkActive(pa *pav1alpha1.PodAutoscaler, ltt time.Time) {
 	pa.Status.MarkActive()
 
 	// This works because the conditions are sorted alphabetically
 	pa.Status.Conditions[0].LastTransitionTime = apis.VolatileTime{Inner: metav1.NewTime(ltt)}
 }
 
-func kpaMarkInactive(pa *pav1alpha1.PodAutoscaler, ltt time.Time) {
+func paMarkInactive(pa *pav1alpha1.PodAutoscaler, ltt time.Time) {
 	pa.Status.MarkInactive("", "")
+
+	// This works because the conditions are sorted alphabetically
+	pa.Status.Conditions[0].LastTransitionTime = apis.VolatileTime{Inner: metav1.NewTime(ltt)}
+}
+
+func paMarkActivating(pa *pav1alpha1.PodAutoscaler, ltt time.Time) {
+	pa.Status.MarkActivating("", "")
 
 	// This works because the conditions are sorted alphabetically
 	pa.Status.Conditions[0].LastTransitionTime = apis.VolatileTime{Inner: metav1.NewTime(ltt)}

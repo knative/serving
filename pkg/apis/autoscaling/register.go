@@ -76,6 +76,23 @@ const (
 	// smaller than the stable window. Anything less than 6 second
 	// isn't going to work well.
 	WindowMin = 6 * time.Second
+	// WindowMax is the maximum permitted stable autoscaling window.
+	// This keeps the event horizon to a resonable enough limit.
+	WindowMax = 1 * time.Hour
+
+	// TargetUtilizationPercentageKey is the annotation which specifies the
+	// desired target resource utilization for the revision.
+	// TargetUtilization is a percentage in the 1 <= TU <= 100 range.
+	// This annotation takes precedence over the config map value.
+	TargetUtilizationPercentageKey = GroupName + "/targetUtilizationPercentage"
+
+	// TargetBurstCapacityKey specifies the desired burst capacity for the
+	// revision. Possible values are:
+	// -1 -- infinite;
+	//  0 -- no TBC;
+	// >0 -- actual TBC.
+	// <0 && != -1 -- an error.
+	TargetBurstCapacityKey = GroupName + "/targetBurstCapacity"
 
 	// PanicWindowPercentageAnnotationKey is the annotation to
 	// specify the time interval over which to calculate the average
@@ -128,6 +145,10 @@ const (
 	// never scale down. One hundred and ten percent is about the
 	// smallest useful value.
 	PanicThresholdPercentageMin = 110.0
+
+	// PanicThresholdPercentageMax is the counterpart to the PanicThresholdPercentageMin
+	// but bounding from above.
+	PanicThresholdPercentageMax = 1000.0
 
 	// KPALabelKey is the label key attached to a K8s Service to hint to the KPA
 	// which services/endpoints should trigger reconciles.

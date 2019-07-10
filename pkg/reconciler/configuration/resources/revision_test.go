@@ -19,9 +19,9 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"knative.dev/pkg/ptr"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"knative.dev/pkg/ptr"
 
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
@@ -167,6 +167,110 @@ func TestMakeRevisions(t *testing.T) {
 				Annotations: map[string]string{
 					"foo": "bar",
 					"baz": "blah",
+				},
+			},
+			Spec: v1alpha1.RevisionSpec{
+				DeprecatedContainer: &corev1.Container{
+					Image: "busybox",
+				},
+			},
+		},
+	}, {
+		name: "with creator annotation from config",
+		configuration: &v1alpha1.Configuration{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: "anno",
+				Name:      "config",
+				Annotations: map[string]string{
+					"serving.knative.dev/creator":      "admin",
+					"serving.knative.dev/lastModifier": "someone",
+				},
+				Generation: 10,
+			},
+			Spec: v1alpha1.ConfigurationSpec{
+				DeprecatedRevisionTemplate: &v1alpha1.RevisionTemplateSpec{
+					Spec: v1alpha1.RevisionSpec{
+						DeprecatedContainer: &corev1.Container{
+							Image: "busybox",
+						},
+					},
+				},
+			},
+		},
+		want: &v1alpha1.Revision{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace:    "anno",
+				GenerateName: "config-",
+				Annotations: map[string]string{
+					"serving.knative.dev/creator": "someone",
+				},
+				OwnerReferences: []metav1.OwnerReference{{
+					APIVersion:         v1alpha1.SchemeGroupVersion.String(),
+					Kind:               "Configuration",
+					Name:               "config",
+					Controller:         ptr.Bool(true),
+					BlockOwnerDeletion: ptr.Bool(true),
+				}},
+				Labels: map[string]string{
+					serving.ConfigurationLabelKey:           "config",
+					serving.ConfigurationGenerationLabelKey: "10",
+					serving.ServiceLabelKey:                 "",
+				},
+			},
+			Spec: v1alpha1.RevisionSpec{
+				DeprecatedContainer: &corev1.Container{
+					Image: "busybox",
+				},
+			},
+		},
+	}, {
+		name: "with creator annotation from config with other annotations",
+		configuration: &v1alpha1.Configuration{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: "anno",
+				Name:      "config",
+				Annotations: map[string]string{
+					"serving.knative.dev/creator":      "admin",
+					"serving.knative.dev/lastModifier": "someone",
+				},
+				Generation: 10,
+			},
+			Spec: v1alpha1.ConfigurationSpec{
+				DeprecatedRevisionTemplate: &v1alpha1.RevisionTemplateSpec{
+					Spec: v1alpha1.RevisionSpec{
+						DeprecatedContainer: &corev1.Container{
+							Image: "busybox",
+						},
+					},
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							"foo": "bar",
+							"baz": "blah",
+						},
+					},
+				},
+			},
+		},
+		want: &v1alpha1.Revision{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace:    "anno",
+				GenerateName: "config-",
+				Annotations: map[string]string{
+					"serving.knative.dev/creator": "someone",
+					"foo":                         "bar",
+					"baz":                         "blah",
+				},
+				OwnerReferences: []metav1.OwnerReference{{
+					APIVersion:         v1alpha1.SchemeGroupVersion.String(),
+					Kind:               "Configuration",
+					Name:               "config",
+					Controller:         ptr.Bool(true),
+					BlockOwnerDeletion: ptr.Bool(true),
+				}},
+				Labels: map[string]string{
+					serving.ConfigurationLabelKey:           "config",
+					serving.ConfigurationGenerationLabelKey: "10",
+					serving.ServiceLabelKey:                 "",
 				},
 			},
 			Spec: v1alpha1.RevisionSpec{

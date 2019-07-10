@@ -139,8 +139,7 @@ func (l *latencies) Results(t *testing.T) []junit.TestCase {
 
 func TestScaleToN(t *testing.T) {
 	// Run each of these variations.
-	// >50 testsize will fail the expected slo's based on the current istio config.
-	tests := []int{10, 50}
+	tests := []int{10, 50, 100}
 
 	// Accumulate the results from each row in our table (recorded below).
 	var results []junit.TestCase

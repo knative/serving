@@ -17,9 +17,9 @@ limitations under the License.
 package serving
 
 import (
-	"knative.dev/pkg/apis"
 	"github.com/knative/serving/pkg/apis/autoscaling"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"knative.dev/pkg/apis"
 )
 
 // ValidateObjectMetadata validates that `metadata` stanza of the

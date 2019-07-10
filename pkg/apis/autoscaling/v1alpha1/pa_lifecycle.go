@@ -22,11 +22,12 @@ import (
 	"strconv"
 	"time"
 
-	"knative.dev/pkg/apis"
-	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
-	"github.com/knative/serving/pkg/apis/autoscaling"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+
+	"github.com/knative/serving/pkg/apis/autoscaling"
+	"knative.dev/pkg/apis"
+	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
 )
 
 var podCondSet = apis.NewLivingConditionSet(
@@ -79,9 +80,8 @@ func (pa *PodAutoscaler) annotationFloat64(key string) (float64, bool) {
 // `(min, max int32)`. The value of 0 for any of min or max means the bound is
 // not set
 func (pa *PodAutoscaler) ScaleBounds() (min, max int32) {
-	min = pa.annotationInt32(autoscaling.MinScaleAnnotationKey)
-	max = pa.annotationInt32(autoscaling.MaxScaleAnnotationKey)
-	return
+	return pa.annotationInt32(autoscaling.MinScaleAnnotationKey),
+		pa.annotationInt32(autoscaling.MaxScaleAnnotationKey)
 }
 
 // Target returns the target annotation value or false if not present, or invalid.
@@ -98,38 +98,42 @@ func (pa *PodAutoscaler) Target() (float64, bool) {
 	return 0, false
 }
 
+// TargetUtilization returns the target capacity utilization as a fraction,
+// if the corresponding annotation is set.
+func (pa *PodAutoscaler) TargetUtilization() (float64, bool) {
+	if tu, ok := pa.annotationFloat64(autoscaling.TargetUtilizationPercentageKey); ok {
+		return tu / 100, true
+	}
+	return 0, false
+}
+
+// TargetBC returns the target burst capacity,
+// if the corresponding annotation is set.
+func (pa *PodAutoscaler) TargetBC() (float64, bool) {
+	// The value is validated in the webhook.
+	return pa.annotationFloat64(autoscaling.TargetBurstCapacityKey)
+}
+
 // Window returns the window annotation value or false if not present.
 func (pa *PodAutoscaler) Window() (window time.Duration, ok bool) {
+	// The value is validated in the webhook.
 	if s, ok := pa.Annotations[autoscaling.WindowAnnotationKey]; ok {
 		d, err := time.ParseDuration(s)
-		if err != nil {
-			return 0, false
-		}
-		if d < autoscaling.WindowMin {
-			return 0, false
-		}
-		return d, true
+		return d, err == nil
 	}
 	return 0, false
 }
 
 // PanicWindowPercentage returns panic window annotation value or false if not present.
 func (pa *PodAutoscaler) PanicWindowPercentage() (percentage float64, ok bool) {
-	percentage, ok = pa.annotationFloat64(autoscaling.PanicWindowPercentageAnnotationKey)
-	if !ok || percentage > autoscaling.PanicWindowPercentageMax ||
-		percentage < autoscaling.PanicWindowPercentageMin {
-		return 0, false
-	}
-	return percentage, ok
+	// The value is validated in the webhook.
+	return pa.annotationFloat64(autoscaling.PanicWindowPercentageAnnotationKey)
 }
 
 // PanicThresholdPercentage return the panic target annotation value or false if not present.
 func (pa *PodAutoscaler) PanicThresholdPercentage() (percentage float64, ok bool) {
-	percentage, ok = pa.annotationFloat64(autoscaling.PanicThresholdPercentageAnnotationKey)
-	if !ok || percentage < autoscaling.PanicThresholdPercentageMin {
-		return 0, false
-	}
-	return percentage, ok
+	// The value is validated in the webhook.
+	return pa.annotationFloat64(autoscaling.PanicThresholdPercentageAnnotationKey)
 }
 
 // IsReady looks at the conditions and if the Status has a condition
@@ -200,6 +204,12 @@ func (pas *PodAutoscalerStatus) CanScaleToZero(gracePeriod time.Duration) bool {
 // for at least the specified idle period.
 func (pas *PodAutoscalerStatus) CanMarkInactive(idlePeriod time.Duration) bool {
 	return pas.inStatusFor(corev1.ConditionTrue, idlePeriod)
+}
+
+// CanFailActivation checks whether the pod autoscaler has been activating
+// for at least the specified idle period.
+func (pas *PodAutoscalerStatus) CanFailActivation(idlePeriod time.Duration) bool {
+	return pas.inStatusFor(corev1.ConditionUnknown, idlePeriod)
 }
 
 // inStatusFor returns true if the PodAutoscalerStatus's Active condition has stayed in

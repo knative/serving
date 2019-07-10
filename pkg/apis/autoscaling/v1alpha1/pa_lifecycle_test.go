@@ -19,13 +19,14 @@ import (
 	"testing"
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/knative/serving/pkg/apis/autoscaling"
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/apis/duck"
 	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
 	apitest "knative.dev/pkg/apis/testing"
-	"github.com/knative/serving/pkg/apis/autoscaling"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func TestPodAutoscalerDuckTypes(t *testing.T) {
@@ -216,6 +217,85 @@ func TestCanMarkInactive(t *testing.T) {
 	}
 }
 
+func TestCanFailActivation(t *testing.T) {
+	cases := []struct {
+		name   string
+		status PodAutoscalerStatus
+		result bool
+		grace  time.Duration
+	}{{
+		name:   "empty status",
+		status: PodAutoscalerStatus{},
+		result: false,
+		grace:  10 * time.Second,
+	}, {
+		name: "active condition",
+		status: PodAutoscalerStatus{
+			Status: duckv1beta1.Status{
+				Conditions: duckv1beta1.Conditions{{
+					Type:   PodAutoscalerConditionActive,
+					Status: corev1.ConditionTrue,
+				}},
+			},
+		},
+		result: false,
+		grace:  10 * time.Second,
+	}, {
+		name: "activating condition (no LTT)",
+		status: PodAutoscalerStatus{
+			Status: duckv1beta1.Status{
+				Conditions: duckv1beta1.Conditions{{
+					Type:   PodAutoscalerConditionActive,
+					Status: corev1.ConditionUnknown,
+					// No LTT = beginning of time, so for sure we can.
+				}},
+			},
+		},
+		result: true,
+		grace:  10 * time.Second,
+	}, {
+		name: "activating condition (LTT longer than grace period ago)",
+		status: PodAutoscalerStatus{
+			Status: duckv1beta1.Status{
+				Conditions: duckv1beta1.Conditions{{
+					Type:   PodAutoscalerConditionActive,
+					Status: corev1.ConditionUnknown,
+					LastTransitionTime: apis.VolatileTime{
+						Inner: metav1.NewTime(time.Now().Add(-30 * time.Second)),
+					},
+					// LTT = 30 seconds ago.
+				}},
+			},
+		},
+		result: true,
+		grace:  10 * time.Second,
+	}, {
+		name: "activating condition (LTT less than grace period ago)",
+		status: PodAutoscalerStatus{
+			Status: duckv1beta1.Status{
+				Conditions: duckv1beta1.Conditions{{
+					Type:   PodAutoscalerConditionActive,
+					Status: corev1.ConditionUnknown,
+					LastTransitionTime: apis.VolatileTime{
+						Inner: metav1.NewTime(time.Now().Add(-10 * time.Second)),
+					},
+					// LTT = 10 seconds ago.
+				}},
+			},
+		},
+		result: false,
+		grace:  30 * time.Second,
+	}}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if e, a := tc.result, tc.status.CanFailActivation(tc.grace); e != a {
+				t.Errorf("%q expected: %v got: %v", tc.name, e, a)
+			}
+		})
+	}
+}
+
 func TestIsActivating(t *testing.T) {
 	cases := []struct {
 		name         string
@@ -384,6 +464,13 @@ func TestTargetAnnotation(t *testing.T) {
 			autoscaling.TargetAnnotationKey: "1",
 		}),
 		wantTarget: 1,
+		wantOk:     true,
+	}, {
+		name: "present float",
+		pa: pa(map[string]string{
+			autoscaling.TargetAnnotationKey: "19.82",
+		}),
+		wantTarget: 19.82,
 		wantOk:     true,
 	}, {
 		name: "invalid zero",
@@ -617,16 +704,9 @@ func TestWindowAnnotation(t *testing.T) {
 		wantWindow: time.Second * 120,
 		wantOk:     true,
 	}, {
-		name: "invalid too small",
+		name: "invalid",
 		pa: pa(map[string]string{
-			autoscaling.WindowAnnotationKey: "1s",
-		}),
-		wantWindow: 0,
-		wantOk:     false,
-	}, {
-		name: "invalid format",
-		pa: pa(map[string]string{
-			autoscaling.WindowAnnotationKey: "sandwich",
+			autoscaling.WindowAnnotationKey: "365d",
 		}),
 		wantWindow: 0,
 		wantOk:     false,
@@ -664,20 +744,6 @@ func TestPanicWindowPercentageAnnotation(t *testing.T) {
 		wantPercentage: 10.0,
 		wantOk:         true,
 	}, {
-		name: "too large",
-		pa: pa(map[string]string{
-			autoscaling.PanicWindowPercentageAnnotationKey: "150.0",
-		}),
-		wantPercentage: 0.0,
-		wantOk:         false,
-	}, {
-		name: "too small",
-		pa: pa(map[string]string{
-			autoscaling.PanicWindowPercentageAnnotationKey: "0.0",
-		}),
-		wantPercentage: 0.0,
-		wantOk:         false,
-	}, {
 		name: "malformed",
 		pa: pa(map[string]string{
 			autoscaling.PanicWindowPercentageAnnotationKey: "sandwich",
@@ -694,6 +760,46 @@ func TestPanicWindowPercentageAnnotation(t *testing.T) {
 			}
 			if gotOk != tc.wantOk {
 				t.Errorf("%q expected ok: %v got %v", tc.name, tc.wantOk, gotOk)
+			}
+		})
+	}
+}
+
+func TestTargetUtilization(t *testing.T) {
+	cases := []struct {
+		name   string
+		pa     *PodAutoscaler
+		want   float64
+		wantOK bool
+	}{{
+		name:   "not present",
+		pa:     pa(map[string]string{}),
+		want:   0.0,
+		wantOK: false,
+	}, {
+		name: "present",
+		pa: pa(map[string]string{
+			autoscaling.TargetUtilizationPercentageKey: "10.0",
+		}),
+		want:   .1,
+		wantOK: true,
+	}, {
+		name: "malformed",
+		pa: pa(map[string]string{
+			autoscaling.TargetUtilizationPercentageKey: "NPH",
+		}),
+		want:   0.0,
+		wantOK: false,
+	}}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got, gotOK := tc.pa.TargetUtilization()
+			if got, want := got, tc.want; got != want {
+				t.Errorf("%q target utilization: %v want: %v", tc.name, got, want)
+			}
+			if gotOK != tc.wantOK {
+				t.Errorf("%q expected ok: %v got %v", tc.name, tc.wantOK, gotOK)
 			}
 		})
 	}
@@ -717,13 +823,6 @@ func TestPanicThresholdPercentage(t *testing.T) {
 		}),
 		wantPercentage: 300.0,
 		wantOk:         true,
-	}, {
-		name: "too small",
-		pa: pa(map[string]string{
-			autoscaling.PanicThresholdPercentageAnnotationKey: "100.0",
-		}),
-		wantPercentage: 0.0,
-		wantOk:         false,
 	}}
 
 	for _, tc := range cases {
@@ -789,4 +888,56 @@ func TestTypicalFlow(t *testing.T) {
 	r.MarkActive()
 	apitest.CheckConditionSucceeded(r.duck(), PodAutoscalerConditionActive, t)
 	apitest.CheckConditionSucceeded(r.duck(), PodAutoscalerConditionReady, t)
+}
+
+func TestTargetBC(t *testing.T) {
+	cases := []struct {
+		name   string
+		pa     *PodAutoscaler
+		want   float64
+		wantOK bool
+	}{{
+		name: "not present",
+		pa:   pa(map[string]string{}),
+		want: 0.0,
+	}, {
+		name: "present",
+		pa: pa(map[string]string{
+			autoscaling.TargetBurstCapacityKey: "101.0",
+		}),
+		want:   101,
+		wantOK: true,
+	}, {
+		name: "present 0",
+		pa: pa(map[string]string{
+			autoscaling.TargetBurstCapacityKey: "0",
+		}),
+		want:   0,
+		wantOK: true,
+	}, {
+		name: "present -1",
+		pa: pa(map[string]string{
+			autoscaling.TargetBurstCapacityKey: "-1",
+		}),
+		want:   -1,
+		wantOK: true,
+	}, {
+		name: "malformed",
+		pa: pa(map[string]string{
+			autoscaling.TargetBurstCapacityKey: "NPH",
+		}),
+		want: 0.0,
+	}}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got, gotOK := tc.pa.TargetBC()
+			if got, want := got, tc.want; got != want {
+				t.Errorf("%q target burst capacity: %v want: %v", tc.name, got, want)
+			}
+			if gotOK != tc.wantOK {
+				t.Errorf("%q expected ok: %v got %v", tc.name, tc.wantOK, gotOK)
+			}
+		})
+	}
 }

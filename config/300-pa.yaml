@@ -27,11 +27,11 @@ spec:
     plural: podautoscalers
     singular: podautoscaler
     categories:
-    - all
     - knative-internal
     - autoscaling
     shortNames:
     - kpa
+    - pa
   scope: Namespaced
   subresources:
     status: {}
