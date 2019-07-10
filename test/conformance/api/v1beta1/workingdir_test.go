@@ -23,35 +23,22 @@ import (
 
 	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 	"github.com/knative/serving/test"
-	v1b1test "github.com/knative/serving/test/v1beta1"
 )
 
 func TestWorkingDirService(t *testing.T) {
 	t.Parallel()
 	clients := test.Setup(t)
 
-	names := test.ResourceNames{
-		Service: test.ObjectNameForTest(t),
-		Image:   test.WorkingDir,
-	}
-
-	// Clean up on test failure or interrupt
-	defer test.TearDown(clients, names)
-	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
-
 	const wd = "/foo/bar/baz"
 
-	// Setup initial Service
-	_, err := v1b1test.CreateServiceReady(t, clients, &names,
-		func(svc *v1beta1.Service) {
-			c := &svc.Spec.Template.Spec.Containers[0]
-			c.WorkingDir = wd
-		})
+	ri, err := fetchRuntimeInfo(t, clients, func(svc *v1beta1.Service) {
+		svc.Spec.Template.Spec.Containers[0].WorkingDir = wd
+	})
 	if err != nil {
-		t.Fatalf("Failed to create initial Service %v: %v", names.Service, err)
+		t.Fatalf("Failed to fetch runtime info: %v", err)
 	}
 
-	if err = validateDataPlane(t, clients, names, wd); err != nil {
-		t.Error(err)
+	if ri.Host.User.Cwd != wd {
+		t.Errorf("cwd = %s, want %s, error=%s", ri.Host.User.Cwd, wd, ri.Host.User.Error)
 	}
 }

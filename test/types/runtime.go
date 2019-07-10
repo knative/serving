@@ -155,10 +155,12 @@ type Stdin struct {
 
 // UserInfo container information about the current user and group for the running process.
 type UserInfo struct {
-	UID  int `json:"uid"`
-	EUID int `json:"euid"`
-	GID  int `json:"gid"`
-	EGID int `json:"egid"`
+	UID   int    `json:"uid"`
+	EUID  int    `json:"euid"`
+	GID   int    `json:"gid"`
+	EGID  int    `json:"egid"`
+	Cwd   string `json:"cwd"`
+	Error string `json:"error,omitempty"`
 }
 
 // FileInfo contains the metadata for a given file.
