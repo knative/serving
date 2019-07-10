@@ -1,31 +1,15 @@
 crds:
   create: true
 discovery:
-  deployment:
-    image:
-      pullPolicy: Always
-      repository: quay.io/solo-io/discovery
-      tag: 0.14.0
-    replicas: 1
-    stats: true
-  fdsMode: whitelist
+  fdsMode: WHITELIST
 gateway:
   enabled: false
-gloo:
-  deployment:
-    image:
-      pullPolicy: Always
-      repository: quay.io/solo-io/gloo
-      tag: 0.14.0
-    replicas: 1
-    stats: true
-    xdsPort: "9977"
 ingress:
   deployment:
     image:
       pullPolicy: Always
       repository: quay.io/solo-io/ingress
-      tag: 0.14.0
+      tag: 0.17.0
     replicas: 1
     stats: false
   enabled: false
@@ -36,16 +20,17 @@ namespace:
 rbac:
   create: true
 settings:
+  create: true
   integrations:
     knative:
       enabled: true
+      installKnative: true
       proxy:
         httpPort: "80"
         httpsPort: "443"
         image:
           pullPolicy: Always
           repository: quay.io/solo-io/gloo-envoy-wrapper
-          tag: 0.14.0
+          tag: 0.17.0
         replicas: 1
         stats: false
-  writeNamespace: gloo-system

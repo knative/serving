@@ -198,6 +198,9 @@ rules:
 - apiGroups: ["networking.internal.knative.dev"]
   resources: ["clusteringresses"]
   verbs: ["get", "list", "watch"]
+- apiGroups: ["networking.internal.knative.dev"]
+  resources: ["clusteringresses/status"]
+  verbs: ["update"]
 ---
 # Source: gloo/templates/25-namespace-clusterrolebinding-knative.yaml
 
@@ -279,7 +282,7 @@ spec:
         gloo: ingress
     spec:
       containers:
-      - image: "quay.io/solo-io/ingress:0.14.0"
+      - image: "quay.io/solo-io/ingress:0.17.0"
         imagePullPolicy: Always
         name: ingress
         env:
@@ -324,7 +327,7 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.name
-        image: quay.io/solo-io/gloo-envoy-wrapper:0.14.0
+        image: quay.io/solo-io/gloo-envoy-wrapper:0.17.0
         imagePullPolicy: Always
         name: clusteringress-proxy
         securityContext:
@@ -375,7 +378,7 @@ spec:
         prometheus.io/scrape: "true"
     spec:
       containers:
-      - image: "quay.io/solo-io/gloo:0.14.0"
+      - image: "quay.io/solo-io/gloo:0.17.0"
         imagePullPolicy: Always
         name: gloo
         resources:
@@ -428,7 +431,7 @@ spec:
         prometheus.io/scrape: "true"
     spec:
       containers:
-      - image: "quay.io/solo-io/discovery:0.14.0"
+      - image: "quay.io/solo-io/discovery:0.17.0"
         imagePullPolicy: Always
         name: discovery
         securityContext:
@@ -447,9 +450,28 @@ spec:
           - name: START_STATS_SERVER
             value: "true"
 
-
 ---
-# Source: gloo/templates/101-knative-crds-0.5.1.yaml
+# Source: gloo/templates/18-settings.yaml
+
+
+apiVersion: gloo.solo.io/v1
+kind: Settings
+metadata:
+  name: default
+  namespace: gloo-system
+  annotations:
+    "helm.sh/hook": pre-install
+spec:
+  bindAddr: 0.0.0.0:9977
+  discoveryNamespace: gloo-system
+  kubernetesArtifactSource: {}
+  kubernetesConfigSource: {}
+  kubernetesSecretSource: {}
+  refreshRate: 60s
+  knative:
+    clusterIngressProxyAddress: "clusteringress-proxy.gloo-system.svc.cluster.local"
+  discovery:
+    fdsMode: WHITELIST
 
 ---
 # Source: gloo/templates/11-ingress-proxy-deployment.yaml
@@ -459,14 +481,6 @@ spec:
 
 ---
 # Source: gloo/templates/13-ingress-proxy-service.yaml
-
----
-# Source: gloo/templates/17-knative-no-istio-0.5.1.yaml
-
-
----
-# Source: gloo/templates/18-settings.yaml
-
 
 ---
 # Source: gloo/templates/20-namespace-clusterrole-gateway.yaml
