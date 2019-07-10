@@ -62,8 +62,8 @@ func TestSubrouteLocalSTS(t *testing.T) { // We can't use a longer more descript
 		Traffic: []v1alpha1.TrafficTarget{
 			{
 				TrafficTarget: v1beta1.TrafficTarget{
-					Tag:            tag,
-					Percent:        100,
+					Tag:     tag,
+					Percent: 100,
 				},
 			},
 		},
