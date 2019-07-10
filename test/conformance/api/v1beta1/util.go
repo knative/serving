@@ -18,7 +18,6 @@ package v1beta1
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"math"
 	"net/http"
@@ -28,9 +27,7 @@ import (
 
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1beta1"
-	v1b1options "github.com/knative/serving/pkg/testing/v1beta1"
 	"github.com/knative/serving/test"
-	"github.com/knative/serving/test/types"
 	v1b1test "github.com/knative/serving/test/v1beta1"
 	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
@@ -331,34 +328,4 @@ func validateReleaseServiceShape(objs *v1b1test.ResourceObjects) error {
 func validateImageDigest(imageName string, imageDigest string) (bool, error) {
 	imageDigestRegex := fmt.Sprintf("%s/%s@sha256:[0-9a-f]{64}", pkgTest.Flags.DockerRepo, imageName)
 	return regexp.MatchString(imageDigestRegex, imageDigest)
-}
-
-func fetchRuntimeInfo(t *testing.T, clients *test.Clients, opts ...v1b1options.ServiceOption) (*types.RuntimeInfo, error) {
-	names := &test.ResourceNames{
-		Service: test.ObjectNameForTest(t),
-		Image:   test.Runtime,
-	}
-
-	defer test.TearDown(clients, *names)
-	test.CleanupOnInterrupt(func() { test.TearDown(clients, *names) })
-
-	objects, err := v1b1test.CreateServiceReady(t, clients, names, opts...)
-	if err != nil {
-		t.Fatalf("Failed to create service: %v", err)
-	}
-
-	resp, err := pkgTest.WaitForEndpointState(
-		clients.KubeClient,
-		t.Logf,
-		objects.Service.Status.URL.Host,
-		v1b1test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
-		t.Name(),
-		test.ServingFlags.ResolvableDomain)
-	if err != nil {
-		t.Fatalf("Error probing domain %s: %v", objects.Service.Status.URL.Host, err)
-	}
-
-	var ri types.RuntimeInfo
-	err = json.Unmarshal(resp.Body, &ri)
-	return &ri, err
 }

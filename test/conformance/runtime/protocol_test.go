@@ -16,15 +16,24 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1beta1
+package runtime
 
 import (
 	"testing"
 
-	"github.com/knative/serving/pkg/apis/serving/v1beta1"
+	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	v1a1options "github.com/knative/serving/pkg/testing/v1alpha1"
 	"github.com/knative/serving/test"
 	corev1 "k8s.io/api/core/v1"
 )
+
+func withPort(name string) v1a1options.ServiceOption {
+	return func(s *v1alpha1.Service) {
+		if name != "" {
+			s.Spec.Template.Spec.Containers[0].Ports = []corev1.ContainerPort{{Name: name}}
+		}
+	}
+}
 
 func TestProtocols(t *testing.T) {
 	t.Parallel()
@@ -56,11 +65,7 @@ func TestProtocols(t *testing.T) {
 			t.Parallel()
 
 			clients := test.Setup(t)
-			ri, err := fetchRuntimeInfo(t, clients, func(s *v1beta1.Service) {
-				if tt.portName != "" {
-					s.Spec.Template.Spec.Containers[0].Ports = []corev1.ContainerPort{{Name: tt.portName}}
-				}
-			})
+			_, ri, err := fetchRuntimeInfo(t, clients, withPort(tt.portName))
 			if err != nil {
 				t.Fatalf("Failed to fetch runtime info: %v", err)
 			}
