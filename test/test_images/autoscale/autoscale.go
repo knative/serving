@@ -86,11 +86,10 @@ func bloat(mb int) string {
 
 func prime(max int) string {
 	p := primes(max)
-	if len(p) > 0 {
-		return fmt.Sprintf("The largest prime less than %v is %v.\n", max, p[len(p)-1])
-	} else {
-		return fmt.Sprintf("There are no primes smaller than %v.\n", max)
+	if len(p) == 0 {
+		return fmt.Sprintf("There are no primes smaller than %d.\n", max)
 	}
+	return fmt.Sprintf("The largest prime less than %d is %d.\n", max, p[len(p)-1])
 }
 
 func sleep(ms int) string {
