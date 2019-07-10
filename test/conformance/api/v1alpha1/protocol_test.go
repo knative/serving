@@ -20,135 +20,81 @@ package v1alpha1
 
 import (
 	"encoding/json"
-	"fmt"
 	"testing"
 
+	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	v1a1options "github.com/knative/serving/pkg/testing/v1alpha1"
 	"github.com/knative/serving/test"
+	"github.com/knative/serving/test/types"
 	v1a1test "github.com/knative/serving/test/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	pkgTest "knative.dev/pkg/test"
-	"knative.dev/pkg/test/spoof"
 )
 
-type protocolsTest struct {
-	t       *testing.T
-	clients *test.Clients
-	names   test.ResourceNames
-}
-
-func (pt *protocolsTest) setup(t *testing.T) {
-	pt.t = t
-
-	pt.clients = test.Setup(t)
-	pt.names = test.ResourceNames{
-		Service: test.ObjectNameForTest(t),
-		Image:   test.Protocols,
+func withPort(name string) v1a1options.ServiceOption {
+	return func(s *v1alpha1.Service) {
+		if name != "" {
+			s.Spec.Template.Spec.Containers[0].Ports = []corev1.ContainerPort{{Name: name}}
+		}
 	}
-
-	test.CleanupOnInterrupt(func() { pt.teardown() })
-}
-
-func (pt *protocolsTest) teardown() {
-	test.TearDown(pt.clients, pt.names)
-}
-
-func (pt *protocolsTest) getProtocol(resp *spoof.Response) protocol {
-	var got protocol
-
-	err := json.Unmarshal(resp.Body, &got)
-	if err != nil {
-		pt.t.Fatalf("Can't unmarshal response %s: %v", resp.Body, err)
-	}
-
-	pt.t.Logf("Parsed version: %q", got.String())
-
-	return got
-}
-
-func (pt *protocolsTest) makeRequest(domain string) *spoof.Response {
-	pt.t.Logf("Making request to %q", domain)
-
-	resp, err := pkgTest.WaitForEndpointState(
-		pt.clients.KubeClient, pt.t.Logf, domain,
-		v1a1test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
-		pt.t.Name(), test.ServingFlags.ResolvableDomain,
-	)
-	if err != nil {
-		pt.t.Fatalf("Failed to get a successful request from %s: %v", domain, err)
-	}
-
-	pt.t.Logf("Got response: %s", resp.Body)
-
-	return resp
-}
-
-func (pt *protocolsTest) createService(options *v1a1test.Options) string {
-	pt.t.Logf("Creating service %q with options: %#v", pt.names.Service, options)
-
-	objects, err := v1a1test.CreateRunLatestServiceReady(pt.t, pt.clients, &pt.names, options)
-	if err != nil {
-		pt.t.Fatalf("Failed to create service %v", err)
-	}
-
-	return objects.Route.Status.URL.Host
-}
-
-type protocol struct {
-	Major int `json:"protoMajor"`
-	Minor int `json:"protoMinor"`
-}
-
-func (p *protocol) String() string {
-	return fmt.Sprintf("HTTP/%d.%d", p.Major, p.Minor)
-}
-
-func portOption(portname string) *v1a1test.Options {
-	options := &v1a1test.Options{}
-
-	if portname != "" {
-		options.ContainerPorts = []corev1.ContainerPort{{Name: portname}}
-	}
-
-	return options
 }
 
 func TestProtocols(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
-		Name     string
-		PortName string
-		Want     protocol
+		name      string
+		portName  string
+		wantMajor int
+		wantMinor int
 	}{{
-		Name:     "h2c",
-		PortName: "h2c",
-		Want:     protocol{Major: 2, Minor: 0},
+		name:      "h2c",
+		portName:  "h2c",
+		wantMajor: 2,
+		wantMinor: 0,
 	}, {
-		Name:     "http1",
-		PortName: "http1",
-		Want:     protocol{Major: 1, Minor: 1},
+		name:      "http1",
+		portName:  "http1",
+		wantMajor: 1,
+		wantMinor: 1,
 	}, {
-		Name:     "default",
-		PortName: "",
-		Want:     protocol{Major: 1, Minor: 1},
+		name:      "default",
+		portName:  "",
+		wantMajor: 1,
+		wantMinor: 1,
 	}}
 
 	for _, tt := range tests {
 		tt := tt
-		t.Run(tt.Name, func(t *testing.T) {
+		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			var pt protocolsTest
 
-			pt.setup(t)
-			defer pt.teardown()
+			clients := test.Setup(t)
+			names := &test.ResourceNames{
+				Service: test.ObjectNameForTest(t),
+				Image:   test.Runtime,
+			}
 
-			options := portOption(tt.PortName)
-			domain := pt.createService(options)
+			objects, err := v1a1test.CreateRunLatestServiceReady(t, clients, names, &v1a1test.Options{}, withPort(tt.portName))
+			if err != nil {
+				t.Fatalf("Failed to create service: %v", err)
+			}
 
-			response := pt.makeRequest(domain)
-			got := pt.getProtocol(response)
+			resp, err := pkgTest.WaitForEndpointState(
+				clients.KubeClient,
+				t.Logf,
+				objects.Service.Status.URL.Host,
+				v1a1test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
+				"Protocols",
+				test.ServingFlags.ResolvableDomain)
+			if err != nil {
+				t.Fatalf("Error probing domain %s: %v", objects.Service.Status.URL.Host, err)
+			}
 
-			if got != tt.Want {
-				t.Errorf("Want %s, got %s", tt.Want.String(), got.String())
+			var ri types.RuntimeInfo
+			err = json.Unmarshal(resp.Body, &ri)
+
+			if tt.wantMajor != ri.Request.ProtoMajor || tt.wantMinor != ri.Request.ProtoMinor {
+				t.Errorf("Want HTTP/%d.%d, got HTTP/%d.%d", tt.wantMajor, tt.wantMinor, ri.Request.ProtoMajor, ri.Request.ProtoMinor)
 			}
 		})
 	}
