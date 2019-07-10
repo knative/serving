@@ -54,7 +54,7 @@ func TestDestroyPodInflight(t *testing.T) {
 	clients := Setup(t)
 
 	t.Log("Creating a new Route and Configuration")
-	names, err := CreateRouteAndConfig(t, clients, "timeout", &v1a1test.Options{RevisionTimeoutSeconds: revisionTimeoutSeconds})
+	names, err := CreateRouteAndConfig(t, clients, test.Timeout, &v1a1test.Options{RevisionTimeoutSeconds: revisionTimeoutSeconds})
 	if err != nil {
 		t.Fatalf("Failed to create Route and Configuration: %v", err)
 	}
@@ -91,7 +91,7 @@ func TestDestroyPodInflight(t *testing.T) {
 		"TimeoutAppServesText",
 		test.ServingFlags.ResolvableDomain)
 	if err != nil {
-		t.Fatalf("The endpoint for Route %s at domain %s didn't serve the expected text \"%s\": %v", names.Route, domain, test.HelloWorldText, err)
+		t.Fatalf("The endpoint for Route %s at domain %s didn't serve the expected text %q: %v", names.Route, domain, timeoutExpectedOutput, err)
 	}
 
 	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, t.Logf, domain, test.ServingFlags.ResolvableDomain)
@@ -153,7 +153,7 @@ func TestDestroyPodTimely(t *testing.T) {
 
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
-		Image:   "helloworld",
+		Image:   test.PizzaPlanet1,
 	}
 
 	defer test.TearDown(clients, names)

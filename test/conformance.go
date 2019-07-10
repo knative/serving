@@ -31,7 +31,6 @@ const (
 	Autoscale           = "autoscale"
 	Failing             = "failing"
 	HelloVolume         = "hellovolume"
-	HelloWorld          = "helloworld"
 	HTTPProxy           = "httpproxy"
 	InvalidHelloWorld   = "invalidhelloworld" // Not a real image
 	PizzaPlanet1        = "pizzaplanetv1"
@@ -45,7 +44,6 @@ const (
 	// Constants for test image output.
 	PizzaPlanetText1 = "What a spaceport!"
 	PizzaPlanetText2 = "Re-energize yourself with a slice of pepperoni!"
-	HelloWorldText   = "Hello World! How about some tasty noodles?"
 
 	ConcurrentRequests = 50
 	// We expect to see 100% of requests succeed for traffic sent directly to revisions.

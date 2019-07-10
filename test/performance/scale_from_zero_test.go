@@ -46,8 +46,7 @@ import (
 
 const (
 	serviceName              = "perftest-scalefromzero"
-	helloWorldExpectedOutput = "Hello World!"
-	helloWorldImage          = "helloworld"
+	helloWorldExpectedOutput = "What a spaceport!"
 	waitToServe              = 10 * time.Minute
 )
 
@@ -75,11 +74,11 @@ func runScaleFromZero(idx int, t *testing.T, clients *test.Clients, ro *v1a1test
 		clients.KubeClient,
 		t.Logf,
 		domain,
-		pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesBody(helloWorldExpectedOutput)),
+		pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesBody(test.PizzaPlanetText1)),
 		"HelloWorldServesText",
 		test.ServingFlags.ResolvableDomain, waitToServe)
 	if err != nil {
-		m := fmt.Sprintf("%02d: the endpoint for Route %q at domain %q didn't serve the expected text %q: %v", idx, ro.Route.Name, domain, helloWorldExpectedOutput, err)
+		m := fmt.Sprintf("%02d: the endpoint for Route %q at domain %q didn't serve the expected text %q: %v", idx, ro.Route.Name, domain, test.PizzaPlanetText1, err)
 		t.Log(m)
 		return 0, errors.New(m)
 	}
@@ -100,7 +99,7 @@ func createServices(t *testing.T, pc *Client, count int) ([]*v1a1test.ResourceOb
 		testNames[i] = &test.ResourceNames{
 			Service: test.AppendRandomString(fmt.Sprintf("%s-%02d", serviceName, i)),
 			// The crd.go helpers will convert to the actual image path.
-			Image: helloWorldImage,
+			Image: test.PizzaPlanet1,
 		}
 	}
 

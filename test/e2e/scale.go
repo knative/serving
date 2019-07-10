@@ -76,7 +76,7 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 		wg.Go(func() error {
 			names := test.ResourceNames{
 				Service: test.SubServiceNameForTest(t, fmt.Sprintf("%0[1]*[2]d", width, i)),
-				Image:   "helloworld",
+				Image:   test.PizzaPlanet1,
 			}
 
 			options := &v1a1test.Options{
@@ -144,7 +144,7 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 				clients.KubeClient,
 				t.Logf,
 				domain,
-				v1a1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesBody(test.HelloWorldText))),
+				v1a1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesBody(test.PizzaPlanetText1))),
 				"WaitForEndpointToServeText",
 				test.ServingFlags.ResolvableDomain)
 			if err != nil {

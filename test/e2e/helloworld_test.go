@@ -42,7 +42,7 @@ func TestHelloWorld(t *testing.T) {
 
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
-		Image:   "helloworld",
+		Image:   test.PizzaPlanet1,
 	}
 
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
@@ -61,10 +61,10 @@ func TestHelloWorld(t *testing.T) {
 		clients.KubeClient,
 		t.Logf,
 		domain,
-		v1a1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesBody(test.HelloWorldText))),
+		v1a1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesBody(test.PizzaPlanetText1))),
 		"HelloWorldServesText",
 		test.ServingFlags.ResolvableDomain); err != nil {
-		t.Fatalf("The endpoint for Route %s at domain %s didn't serve the expected text \"%s\": %v", names.Route, domain, test.HelloWorldText, err)
+		t.Fatalf("The endpoint for Route %s at domain %s didn't serve the expected text %q: %v", names.Route, domain, test.PizzaPlanetText1, err)
 	}
 
 	revision := resources.Revision
@@ -93,7 +93,7 @@ func TestQueueSideCarResourceLimit(t *testing.T) {
 
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
-		Image:   "helloworld",
+		Image:   test.PizzaPlanet1,
 	}
 
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
@@ -124,10 +124,10 @@ func TestQueueSideCarResourceLimit(t *testing.T) {
 		clients.KubeClient,
 		t.Logf,
 		domain,
-		v1a1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesBody(test.HelloWorldText))),
+		v1a1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesBody(test.PizzaPlanetText1))),
 		"HelloWorldServesText",
 		test.ServingFlags.ResolvableDomain); err != nil {
-		t.Fatalf("The endpoint for Route %s at domain %s didn't serve the expected text \"%s\": %v", names.Route, domain, test.HelloWorldText, err)
+		t.Fatalf("The endpoint for Route %s at domain %s didn't serve the expected text %q: %v", names.Route, domain, test.PizzaPlanetText1, err)
 	}
 
 	revision := resources.Revision

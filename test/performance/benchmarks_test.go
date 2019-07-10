@@ -36,7 +36,7 @@ import (
 
 const (
 	reqTimeout = 30 * time.Second
-	app        = "helloworld"
+	app        = test.PizzaPlanet1
 )
 
 var loads = [...]int32{1, 100, 1000}

@@ -122,12 +122,12 @@ func timeToServe(t *testing.T, img, query string, reqTimeout time.Duration) {
 
 // Performs perf test on the hello world app
 func TestTimeToServeLatency(t *testing.T) {
-	timeToServe(t, "helloworld", "", hwReqtimeout)
+	timeToServe(t, test.PizzaPlanet1, "", hwReqtimeout)
 }
 
 // Performs perf testing on a long running app.
 // It uses the timeout app that sleeps for the specified amount of time.
 func TestTimeToServeLatencyLongRunning(t *testing.T) {
 	q := fmt.Sprintf("timeout=%d", sleepTime/time.Millisecond)
-	timeToServe(t, "timeout", q, sleepReqTimeout)
+	timeToServe(t, test.Timeout, q, sleepReqTimeout)
 }

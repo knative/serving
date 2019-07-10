@@ -41,7 +41,7 @@ func TestMinScale(t *testing.T) {
 
 	names := test.ResourceNames{
 		Config: test.ObjectNameForTest(t),
-		Image:  "helloworld",
+		Image:  test.PizzaPlanet1,
 	}
 
 	if _, err := v1a1test.CreateConfiguration(t, clients, names, &v1a1test.Options{}, func(cfg *v1alpha1.Configuration) {

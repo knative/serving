@@ -40,7 +40,7 @@ import (
 
 const (
 	targetHostEnv      = "TARGET_HOST"
-	helloworldResponse = "Hello World! How about some tasty noodles?"
+	helloworldResponse = "What a spaceport!"
 )
 
 // testCases for table-driven testing.
@@ -152,7 +152,7 @@ func TestServiceToServiceCall(t *testing.T) {
 	t.Log("Creating a Service for the helloworld test app.")
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
-		Image:   "helloworld",
+		Image:   test.PizzaPlanet1,
 	}
 
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
@@ -203,7 +203,7 @@ func TestServiceToServiceCallFromZero(t *testing.T) {
 
 	testNames := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
-		Image:   "helloworld",
+		Image:   test.PizzaPlanet1,
 	}
 
 	withInternalVisibility := WithServiceLabel(

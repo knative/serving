@@ -45,7 +45,7 @@ func TestPodScheduleError(t *testing.T) {
 	)
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
-		Image:   "helloworld",
+		Image:   test.PizzaPlanet1,
 	}
 
 	defer test.TearDown(clients, names)

@@ -41,7 +41,7 @@ func TestV1beta1Translation(t *testing.T) {
 
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
-		Image:   "helloworld",
+		Image:   test.PizzaPlanet1,
 	}
 
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
@@ -76,7 +76,7 @@ func TestV1beta1Rejection(t *testing.T) {
 
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
-		Image:   "helloworld",
+		Image:   test.PizzaPlanet1,
 	}
 
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
