@@ -20,7 +20,7 @@ import (
 	"context"
 	"testing"
 
-	caching "github.com/knative/caching/pkg/apis/caching/v1alpha1"
+	caching "knative.dev/caching/pkg/apis/caching/v1alpha1"
 	autoscalingv1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"

@@ -21,7 +21,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	fakecachingclient "github.com/knative/caching/pkg/client/injection/client/fake"
+	fakecachingclient "knative.dev/caching/pkg/client/injection/client/fake"
 	fakecertmanagerclient "github.com/knative/serving/pkg/client/certmanager/injection/client/fake"
 	fakeservingclient "github.com/knative/serving/pkg/client/injection/client/fake"
 	fakesharedclient "knative.dev/pkg/client/injection/client/fake"

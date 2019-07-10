@@ -19,7 +19,7 @@ package revision
 import (
 	"context"
 
-	caching "github.com/knative/caching/pkg/apis/caching/v1alpha1"
+	caching "knative.dev/caching/pkg/apis/caching/v1alpha1"
 	av1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/reconciler/revision/config"

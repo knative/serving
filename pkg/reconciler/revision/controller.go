@@ -20,7 +20,7 @@ import (
 	"context"
 	"net/http"
 
-	imageinformer "github.com/knative/caching/pkg/client/injection/informers/caching/v1alpha1/image"
+	imageinformer "knative.dev/caching/pkg/client/injection/informers/caching/v1alpha1/image"
 	painformer "github.com/knative/serving/pkg/client/injection/informers/autoscaling/v1alpha1/podautoscaler"
 	revisioninformer "github.com/knative/serving/pkg/client/injection/informers/serving/v1alpha1/revision"
 	"knative.dev/pkg/injection/clients/kubeclient"

@@ -588,32 +588,6 @@
   version = "v1.4.0"
 
 [[projects]]
-  digest = "1:0468429ef23dc7bd427ca25eb24cf869c4752872b7c21fc5ad2e47c0ccbfbb00"
-  name = "github.com/knative/caching"
-  packages = [
-    "pkg/apis/caching",
-    "pkg/apis/caching/v1alpha1",
-    "pkg/client/clientset/versioned",
-    "pkg/client/clientset/versioned/fake",
-    "pkg/client/clientset/versioned/scheme",
-    "pkg/client/clientset/versioned/typed/caching/v1alpha1",
-    "pkg/client/clientset/versioned/typed/caching/v1alpha1/fake",
-    "pkg/client/informers/externalversions",
-    "pkg/client/informers/externalversions/caching",
-    "pkg/client/informers/externalversions/caching/v1alpha1",
-    "pkg/client/informers/externalversions/internalinterfaces",
-    "pkg/client/injection/client",
-    "pkg/client/injection/client/fake",
-    "pkg/client/injection/informers/caching/factory",
-    "pkg/client/injection/informers/caching/factory/fake",
-    "pkg/client/injection/informers/caching/v1alpha1/image",
-    "pkg/client/injection/informers/caching/v1alpha1/image/fake",
-    "pkg/client/listers/caching/v1alpha1",
-  ]
-  pruneopts = "T"
-  revision = "aa9bd3961c44b5c8a772cf44dc5364d381d935cf"
-
-[[projects]]
   branch = "master"
   digest = "1:c7e8a621d81ea73d326d5c1c8528013398b067054008f467a5fdcac602c58ead"
   name = "github.com/knative/test-infra"
@@ -1618,6 +1592,33 @@
 
 [[projects]]
   branch = "master"
+  digest = "1:30493fd8862d24c39a5ad2c8799967de1aa9ce27913ad4ae8067909a1c11dfe0"
+  name = "knative.dev/caching"
+  packages = [
+    "pkg/apis/caching",
+    "pkg/apis/caching/v1alpha1",
+    "pkg/client/clientset/versioned",
+    "pkg/client/clientset/versioned/fake",
+    "pkg/client/clientset/versioned/scheme",
+    "pkg/client/clientset/versioned/typed/caching/v1alpha1",
+    "pkg/client/clientset/versioned/typed/caching/v1alpha1/fake",
+    "pkg/client/informers/externalversions",
+    "pkg/client/informers/externalversions/caching",
+    "pkg/client/informers/externalversions/caching/v1alpha1",
+    "pkg/client/informers/externalversions/internalinterfaces",
+    "pkg/client/injection/client",
+    "pkg/client/injection/client/fake",
+    "pkg/client/injection/informers/caching/factory",
+    "pkg/client/injection/informers/caching/factory/fake",
+    "pkg/client/injection/informers/caching/v1alpha1/image",
+    "pkg/client/injection/informers/caching/v1alpha1/image/fake",
+    "pkg/client/listers/caching/v1alpha1",
+  ]
+  pruneopts = "T"
+  revision = "77d253c889d96753ba0a8b2f3e466b06f26f11c5"
+
+[[projects]]
+  branch = "master"
   digest = "1:4563adec376c56f3441da3767facc1d6c733d93a39f593495c009fed54dbb76c"
   name = "knative.dev/pkg"
   packages = [
@@ -1730,15 +1731,6 @@
     "github.com/gorilla/websocket",
     "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1alpha1",
     "github.com/kelseyhightower/envconfig",
-    "github.com/knative/caching/pkg/apis/caching",
-    "github.com/knative/caching/pkg/apis/caching/v1alpha1",
-    "github.com/knative/caching/pkg/client/clientset/versioned",
-    "github.com/knative/caching/pkg/client/clientset/versioned/fake",
-    "github.com/knative/caching/pkg/client/injection/client",
-    "github.com/knative/caching/pkg/client/injection/client/fake",
-    "github.com/knative/caching/pkg/client/injection/informers/caching/v1alpha1/image",
-    "github.com/knative/caching/pkg/client/injection/informers/caching/v1alpha1/image/fake",
-    "github.com/knative/caching/pkg/client/listers/caching/v1alpha1",
     "github.com/knative/test-infra/scripts",
     "github.com/knative/test-infra/shared/common",
     "github.com/knative/test-infra/shared/junit",
@@ -1832,6 +1824,15 @@
     "k8s.io/code-generator/cmd/lister-gen",
     "k8s.io/kubernetes/pkg/version",
     "k8s.io/metrics/pkg/apis/custom_metrics",
+    "knative.dev/caching/pkg/apis/caching",
+    "knative.dev/caching/pkg/apis/caching/v1alpha1",
+    "knative.dev/caching/pkg/client/clientset/versioned",
+    "knative.dev/caching/pkg/client/clientset/versioned/fake",
+    "knative.dev/caching/pkg/client/injection/client",
+    "knative.dev/caching/pkg/client/injection/client/fake",
+    "knative.dev/caching/pkg/client/injection/informers/caching/v1alpha1/image",
+    "knative.dev/caching/pkg/client/injection/informers/caching/v1alpha1/image/fake",
+    "knative.dev/caching/pkg/client/listers/caching/v1alpha1",
     "knative.dev/pkg/apis",
     "knative.dev/pkg/apis/duck",
     "knative.dev/pkg/apis/duck/v1alpha1",

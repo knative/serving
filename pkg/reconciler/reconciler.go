@@ -31,13 +31,13 @@ import (
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/record"
 
-	cachingclient "github.com/knative/caching/pkg/client/injection/client"
+	cachingclient "knative.dev/caching/pkg/client/injection/client"
 	servingclient "github.com/knative/serving/pkg/client/injection/client"
 	sharedclient "knative.dev/pkg/client/injection/client"
 	"knative.dev/pkg/injection/clients/dynamicclient"
 	"knative.dev/pkg/injection/clients/kubeclient"
 
-	cachingclientset "github.com/knative/caching/pkg/client/clientset/versioned"
+	cachingclientset "knative.dev/caching/pkg/client/clientset/versioned"
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
 	servingScheme "github.com/knative/serving/pkg/client/clientset/versioned/scheme"
 	sharedclientset "knative.dev/pkg/client/clientset/versioned"

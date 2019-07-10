@@ -22,7 +22,7 @@ import (
 	"strings"
 
 	"github.com/google/go-containerregistry/pkg/authn/k8schain"
-	cachinglisters "github.com/knative/caching/pkg/client/listers/caching/v1alpha1"
+	cachinglisters "knative.dev/caching/pkg/client/listers/caching/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 	palisters "github.com/knative/serving/pkg/client/listers/autoscaling/v1alpha1"
