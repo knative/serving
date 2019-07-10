@@ -28,7 +28,6 @@ import (
 // Constants for test images located in test/test_images.
 const (
 	// Test image names
-	BloatingCow         = "bloatingcow"
 	Failing             = "failing"
 	HelloVolume         = "hellovolume"
 	HelloWorld          = "helloworld"
@@ -36,12 +35,10 @@ const (
 	InvalidHelloWorld   = "invalidhelloworld"
 	PizzaPlanet1        = "pizzaplanetv1"
 	PizzaPlanet2        = "pizzaplanetv2"
-	PrintPort           = "printport"
 	Protocols           = "protocols"
 	Runtime             = "runtime"
 	SingleThreadedImage = "singlethreaded"
 	Timeout             = "timeout"
-	WorkingDir          = "workingdir"
 
 	// Constants for test image output.
 	PizzaPlanetText1 = "What a spaceport!"
