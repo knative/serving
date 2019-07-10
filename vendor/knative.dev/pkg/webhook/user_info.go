@@ -31,7 +31,7 @@ const (
 
 	// UpdaterAnnotationSuffix is the suffix of the annotation key to describe
 	// the user who last modified the resource.
-	UpdaterAnnotationSuffix = "/updater"
+	UpdaterAnnotationSuffix = "/lastModifier"
 )
 
 // SetUserInfoAnnotations sets creator and updater annotations on a resource.
@@ -45,7 +45,7 @@ func SetUserInfoAnnotations(resource apis.HasSpec, ctx context.Context, groupNam
 		annotations := objectMetaAccessor.GetObjectMeta().GetAnnotations()
 		if annotations == nil {
 			annotations = map[string]string{}
-			defer objectMetaAccessor.GetObjectMeta().SetAnnotations(annotations)
+			objectMetaAccessor.GetObjectMeta().SetAnnotations(annotations)
 		}
 
 		if apis.IsInUpdate(ctx) {
