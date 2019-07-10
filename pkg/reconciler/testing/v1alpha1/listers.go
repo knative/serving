@@ -18,9 +18,9 @@ package v1alpha1
 
 import (
 	certmanagerv1alpha1 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1alpha1"
-	cachingv1alpha1 "github.com/knative/caching/pkg/apis/caching/v1alpha1"
-	fakecachingclientset "github.com/knative/caching/pkg/client/clientset/versioned/fake"
-	cachinglisters "github.com/knative/caching/pkg/client/listers/caching/v1alpha1"
+	cachingv1alpha1 "knative.dev/caching/pkg/apis/caching/v1alpha1"
+	fakecachingclientset "knative.dev/caching/pkg/client/clientset/versioned/fake"
+	cachinglisters "knative.dev/caching/pkg/client/listers/caching/v1alpha1"
 	av1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	networking "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"

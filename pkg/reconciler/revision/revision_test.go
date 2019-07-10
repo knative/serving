@@ -26,8 +26,8 @@ import (
 	"time"
 
 	// Inject the fakes for informers this controller relies on.
-	fakecachingclient "github.com/knative/caching/pkg/client/injection/client/fake"
-	fakeimageinformer "github.com/knative/caching/pkg/client/injection/informers/caching/v1alpha1/image/fake"
+	fakecachingclient "knative.dev/caching/pkg/client/injection/client/fake"
+	fakeimageinformer "knative.dev/caching/pkg/client/injection/informers/caching/v1alpha1/image/fake"
 	fakeservingclient "github.com/knative/serving/pkg/client/injection/client/fake"
 	fakepainformer "github.com/knative/serving/pkg/client/injection/informers/autoscaling/v1alpha1/podautoscaler/fake"
 	fakerevisioninformer "github.com/knative/serving/pkg/client/injection/informers/serving/v1alpha1/revision/fake"

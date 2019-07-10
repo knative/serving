@@ -11,7 +11,7 @@ required = [
   "knative.dev/pkg/codegen/cmd/injection-gen",
   # TODO(#4549): Drop this when we drop our patches.
   "k8s.io/kubernetes/pkg/version",
-  "github.com/knative/caching/pkg/apis/caching",
+  "knative.dev/caching/pkg/apis/caching",
   "github.com/knative/test-infra/scripts",
   "github.com/knative/test-infra/tools/dep-collector",
   # For load testing.
@@ -26,14 +26,13 @@ required = [
   name = "knative.dev/pkg"
   branch = "master"
 
+[[constraint]]
+  name = "knative.dev/caching"
+  branch = "master"
+
 [[override]]
   name = "go.uber.org/zap"
   revision = "67bc79d13d155c02fd008f721863ff8cc5f30659"
-
-[[constraint]]
-  name = "github.com/knative/caching"
-  # HEAD as of 2019-06-26
-  revision = "aa9bd3961c44b5c8a772cf44dc5364d381d935cf"
 
 [[constraint]]
   name = "github.com/google/go-containerregistry"
@@ -96,11 +95,6 @@ required = [
   non-go = false
 
 [[prune.project]]
-  name = "github.com/knative/caching"
-  unused-packages = false
-  non-go = false
-
-[[prune.project]]
   name = "github.com/knative/test-infra"
   non-go = false
 
@@ -114,5 +108,10 @@ required = [
 
  [[prune.project]]
   name = "knative.dev/pkg"
+  unused-packages = false
+  non-go = false
+
+[[prune.project]]
+  name = "knative.dev/caching"
   unused-packages = false
   non-go = false
