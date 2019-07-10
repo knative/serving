@@ -249,7 +249,7 @@ func TestReleaseService(t *testing.T) {
 	// Create Initial Service
 	clients := test.Setup(t)
 	releaseImagePath2 := pkgTest.ImagePath(test.PizzaPlanet2)
-	releaseImagePath3 := pkgTest.ImagePath(test.HelloWorld)
+	releaseImagePath3 := pkgTest.ImagePath(test.PizzaPlanet1)
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
 		Image:   test.PizzaPlanet1,
@@ -261,7 +261,7 @@ func TestReleaseService(t *testing.T) {
 	const (
 		expectedFirstRev  = test.PizzaPlanetText1
 		expectedSecondRev = test.PizzaPlanetText2
-		expectedThirdRev  = test.HelloWorldText
+		expectedThirdRev  = test.PizzaPlanetText1
 	)
 
 	// Setup initial Service
@@ -587,8 +587,8 @@ func TestAnnotationPropagation(t *testing.T) {
 	// Updating metadata does not trigger revision or generation
 	// change, so let's generate a change that we can watch.
 	t.Log("Updating the Service to use a different image.")
-	names.Image = test.HelloWorld
-	image3 := pkgTest.ImagePath(test.HelloWorld)
+	names.Image = test.PizzaPlanet1
+	image3 := pkgTest.ImagePath(names.Image)
 	if _, err := v1a1test.PatchServiceImage(t, clients, objects.Service, image3); err != nil {
 		t.Fatalf("Patch update for Service %s with new image %s failed: %v", names.Service, image3, err)
 	}

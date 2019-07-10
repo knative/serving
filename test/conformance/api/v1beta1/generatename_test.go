@@ -95,11 +95,11 @@ func canServeRequests(t *testing.T, clients *test.Clients, route *v1beta1.Route)
 		clients.KubeClient,
 		t.Logf,
 		domain,
-		v1b1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesBody(test.HelloWorldText))),
+		v1b1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesBody(test.PizzaPlanetText1))),
 		"WaitForEndpointToServeText",
 		test.ServingFlags.ResolvableDomain)
 	if err != nil {
-		return fmt.Errorf("the endpoint for Route %s at domain %s didn't serve the expected text %q: %v", route.Name, domain, test.HelloWorldText, err)
+		return fmt.Errorf("the endpoint for Route %s at domain %s didn't serve the expected text %q: %v", route.Name, domain, test.PizzaPlanetText1, err)
 	}
 
 	return nil
@@ -114,7 +114,7 @@ func TestServiceGenerateName(t *testing.T) {
 
 	generateName := generateNamePrefix(t)
 	names := test.ResourceNames{
-		Image: test.HelloWorld,
+		Image: test.PizzaPlanet1,
 	}
 
 	// Cleanup on test failure.
@@ -151,7 +151,7 @@ func TestRouteAndConfigGenerateName(t *testing.T) {
 
 	generateName := generateNamePrefix(t)
 	names := test.ResourceNames{
-		Image: test.HelloWorld,
+		Image: test.PizzaPlanet1,
 	}
 
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
