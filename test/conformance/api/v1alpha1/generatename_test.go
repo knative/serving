@@ -95,7 +95,7 @@ func canServeRequests(t *testing.T, clients *test.Clients, route *v1alpha1.Route
 		clients.KubeClient,
 		t.Logf,
 		domain,
-		v1a1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesBody(test.PizzaPlanet1))),
+		v1a1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesBody(test.PizzaPlanetText1))),
 		"WaitForEndpointToServeText",
 		test.ServingFlags.ResolvableDomain)
 	if err != nil {
