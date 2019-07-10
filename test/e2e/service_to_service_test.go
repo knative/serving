@@ -31,6 +31,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 
+	"github.com/knative/serving/pkg/apis/autoscaling"
 	"github.com/knative/serving/pkg/reconciler/revision/resources/names"
 	routeconfig "github.com/knative/serving/pkg/reconciler/route/config"
 
@@ -88,6 +89,9 @@ func testProxyToHelloworld(t *testing.T, clients *test.Clients, helloworldDomain
 	defer test.TearDown(clients, names)
 	resources, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, &v1a1test.Options{
 		EnvVars: envVars,
+		RevisionTemplateAnnotations: map[string]string{
+			autoscaling.WindowAnnotationKey: "7s",
+		},
 	})
 	if err != nil {
 		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
@@ -156,7 +160,11 @@ func TestServiceToServiceCall(t *testing.T) {
 
 	withInternalVisibility := WithServiceLabel(
 		routeconfig.VisibilityLabelKey, routeconfig.VisibilityClusterLocal)
-	resources, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, &v1a1test.Options{}, withInternalVisibility)
+	resources, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, &v1a1test.Options{
+		RevisionTemplateAnnotations: map[string]string{
+			autoscaling.WindowAnnotationKey: "7s",
+		},
+	}, withInternalVisibility)
 	if err != nil {
 		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
 	}
@@ -193,7 +201,7 @@ func TestServiceToServiceCallFromZero(t *testing.T) {
 
 	t.Log("Creating helloworld Service")
 
-	helloWorldNames := test.ResourceNames{
+	testNames := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
 		Image:   "helloworld",
 	}
@@ -201,10 +209,15 @@ func TestServiceToServiceCallFromZero(t *testing.T) {
 	withInternalVisibility := WithServiceLabel(
 		routeconfig.VisibilityLabelKey, routeconfig.VisibilityClusterLocal)
 
-	test.CleanupOnInterrupt(func() { test.TearDown(clients, helloWorldNames) })
-	defer test.TearDown(clients, helloWorldNames)
+	test.CleanupOnInterrupt(func() { test.TearDown(clients, testNames) })
+	defer test.TearDown(clients, testNames)
 
-	helloWorld, err := v1a1test.CreateRunLatestServiceReady(t, clients, &helloWorldNames, &v1a1test.Options{}, withInternalVisibility)
+	helloWorld, err := v1a1test.CreateRunLatestServiceReady(t, clients, &testNames,
+		&v1a1test.Options{
+			RevisionTemplateAnnotations: map[string]string{
+				autoscaling.WindowAnnotationKey: "7s",
+			},
+		}, withInternalVisibility)
 	if err != nil {
 		t.Fatalf("Failed to create a service: %v", err)
 	}
