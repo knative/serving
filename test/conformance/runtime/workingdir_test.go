@@ -16,14 +16,21 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1beta1
+package runtime
 
 import (
 	"testing"
 
-	"github.com/knative/serving/pkg/apis/serving/v1beta1"
+	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	v1a1options "github.com/knative/serving/pkg/testing/v1alpha1"
 	"github.com/knative/serving/test"
 )
+
+func withWorkingDir(wd string) v1a1options.ServiceOption {
+	return func(svc *v1alpha1.Service) {
+		svc.Spec.Template.Spec.Containers[0].WorkingDir = wd
+	}
+}
 
 func TestWorkingDirService(t *testing.T) {
 	t.Parallel()
@@ -31,9 +38,7 @@ func TestWorkingDirService(t *testing.T) {
 
 	const wd = "/foo/bar/baz"
 
-	ri, err := fetchRuntimeInfo(t, clients, func(svc *v1beta1.Service) {
-		svc.Spec.Template.Spec.Containers[0].WorkingDir = wd
-	})
+	_, ri, err := fetchRuntimeInfo(t, clients, withWorkingDir(wd))
 	if err != nil {
 		t.Fatalf("Failed to fetch runtime info: %v", err)
 	}
