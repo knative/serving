@@ -28,6 +28,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ptest "knative.dev/pkg/test"
 	"knative.dev/serving/pkg/apis/serving/v1beta1"
+	serviceresourcenames "knative.dev/serving/pkg/reconciler/service/resources/names"
 	"knative.dev/serving/test"
 	v1b1test "knative.dev/serving/test/v1beta1"
 
@@ -49,23 +50,29 @@ func TestContainerErrorMsg(t *testing.T) {
 	clients := test.Setup(t)
 
 	names := test.ResourceNames{
-		Config: test.ObjectNameForTest(t),
-		Image:  test.InvalidHelloWorld,
+		Service: test.ObjectNameForTest(t),
+		Image:   test.InvalidHelloWorld,
 	}
-	// Specify an invalid image path
-	// A valid DockerRepo is still needed, otherwise will get UNAUTHORIZED instead of container missing error
-	t.Logf("Creating a new Configuration %s", names.Image)
-	if _, err := v1b1test.CreateConfiguration(t, clients, names); err != nil {
-		t.Fatalf("Failed to create configuration %s", names.Config)
-	}
+
 	defer test.TearDown(clients, names)
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
+
+	// Specify an invalid image path
+	// A valid DockerRepo is still needed, otherwise will get UNAUTHORIZED instead of container missing error
+	t.Logf("Creating a new Service %s", names.Service)
+	svc, err := createService(t, clients, names, 2)
+	if err != nil {
+		t.Fatalf("Failed to create Service: %v", err)
+	}
+
+	names.Config = serviceresourcenames.Configuration(svc)
+	names.Route = serviceresourcenames.Route(svc)
 
 	manifestUnknown := string(transport.ManifestUnknownErrorCode)
 	t.Log("When the imagepath is invalid, the Configuration should have error status.")
 
 	// Checking for "Container image not present in repository" scenario defined in error condition spec
-	err := v1b1test.WaitForConfigurationState(clients.ServingBetaClient, names.Config, func(r *v1beta1.Configuration) (bool, error) {
+	err = v1b1test.WaitForConfigurationState(clients.ServingBetaClient, names.Config, func(r *v1beta1.Configuration) (bool, error) {
 		cond := r.Status.GetCondition(v1beta1.ConfigurationConditionReady)
 		if cond != nil && !cond.IsUnknown() {
 			if strings.Contains(cond.Message, manifestUnknown) && cond.IsFalse() {
@@ -113,7 +120,11 @@ func TestContainerErrorMsg(t *testing.T) {
 	// TODO(jessiezcc): actually validate the logURL, but requires kibana setup
 	t.Logf("LogURL: %s", logURL)
 
-	// TODO(jessiezcc): add the check to validate that Route is not marked as ready once https://knative.dev/serving/issues/990 is fixed
+	t.Log("Checking to ensure Route is in desired state")
+	err = v1b1test.CheckRouteState(clients.ServingBetaClient, names.Route, v1b1test.IsRouteNotReady)
+	if err != nil {
+		t.Fatalf("the Route %s was not desired state: %v", names.Route, err)
+	}
 }
 
 // TestContainerExitingMsg is to validate the error condition defined at
@@ -161,7 +172,7 @@ func TestContainerExitingMsg(t *testing.T) {
 			defer test.TearDown(clients, names)
 			test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 
-			t.Logf("Creating a new Configuration %s", names.Image)
+			t.Logf("Creating a new Configuration %s", names.Config)
 
 			if _, err := v1b1test.CreateConfiguration(t, clients, names, rtesting.WithConfigReadinessProbe(tt.ReadinessProbe)); err != nil {
 				t.Fatalf("Failed to create configuration %s: %v", names.Config, err)
