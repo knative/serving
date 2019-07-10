@@ -41,7 +41,7 @@ func TestTCPProbe(t *testing.T) {
 	}
 	// Connecting to the server should work
 	if err := TCPProbe(config); err != nil {
-		t.Errorf("Expected probe to succeed but it failed with %v", err)
+		t.Errorf("Probe failed with: %v", err)
 	}
 
 	// Close the server so probing fails afterwards
@@ -116,7 +116,7 @@ func TestHTTPsSchemeProbeSuccess(t *testing.T) {
 	}
 	// Connecting to the server should work
 	if err := HTTPProbe(config); err != nil {
-		t.Errorf("Expected probe to succeed but it failed with %v", err)
+		t.Errorf("Expected probe to succeed but failed with error %v", err)
 	}
 
 	// Close the server so probing fails afterwards
@@ -138,7 +138,7 @@ func TestHTTPProbeTimeoutFailure(t *testing.T) {
 		HTTPGetAction: newHTTPGetAction(t, server.URL),
 	}
 	if err := HTTPProbe(config); err == nil {
-		t.Error("Expected probe to fail but it successded")
+		t.Error("Expected probe to fail but it succeeded")
 	}
 }
 
@@ -153,7 +153,7 @@ func TestHTTPProbeResponseStatusCodeFailure(t *testing.T) {
 		HTTPGetAction: newHTTPGetAction(t, server.URL),
 	}
 	if err := HTTPProbe(config); err == nil {
-		t.Error("Expected probe to fail but it successded")
+		t.Error("Expected probe to fail but it succeeded")
 	}
 }
 
@@ -162,7 +162,7 @@ func TestHTTPProbeResponseErrorFailure(t *testing.T) {
 		HTTPGetAction: newHTTPGetAction(t, "http://localhost:0"),
 	}
 	if err := HTTPProbe(config); err == nil {
-		t.Error("Expected probe to fail but it successded")
+		t.Error("Expected probe to fail but it succeeded")
 	}
 }
 
