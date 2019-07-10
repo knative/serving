@@ -275,6 +275,8 @@ kubectl apply -R -f config/monitoring/100-namespace.yaml \
 
 ## Iterating
 
+Before running the `./hack/update-codegen.sh` and `./hack/update-deps.sh` scripts, ensure that [mercurial](https://www.mercurial-scm.org/wiki/Download) is installed.
+
 As you make changes to the code-base, there are two special cases to be aware
 of:
 
