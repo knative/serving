@@ -46,9 +46,9 @@ type Deciders interface {
 // into account the PA's ContainerConcurrency and the relevant
 // autoscaling annotation.
 func MakeDecider(ctx context.Context, pa *v1alpha1.PodAutoscaler, config *autoscaler.Config, svc string) *autoscaler.Decider {
-	panicThresholdPercentage, ok := pa.PanicThresholdPercentage()
-	if !ok {
-		panicThresholdPercentage = config.PanicThresholdPercentage
+	panicThresholdPercentage := config.PanicThresholdPercentage
+	if x, ok := pa.PanicThresholdPercentage(); ok {
+		panicThresholdPercentage = x
 	}
 
 	target, total := resources.ResolveConcurrency(pa, config)
