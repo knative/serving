@@ -119,7 +119,7 @@ func NewIstioFromConfigMap(configMap *corev1.ConfigMap) (*Istio, error) {
 	if err != nil {
 		return nil, err
 	}
-	reconcileGateway := strings.ToLower(configMap.Data[ReconcileExternalGatewayKey]) == "enabled"
+	reconcileGateway := strings.EqualFold(configMap.Data[ReconcileExternalGatewayKey], "enabled")
 	return &Istio{
 		IngressGateways:          gateways,
 		LocalGateways:            localGateways,
