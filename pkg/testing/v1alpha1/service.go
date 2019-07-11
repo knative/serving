@@ -216,9 +216,11 @@ func WithServiceAnnotations(annotations map[string]string) ServiceOption {
 func WithConfigAnnotations(annotations map[string]string) ServiceOption {
 	return func(service *v1alpha1.Service) {
 		if service.Spec.DeprecatedRunLatest != nil {
-			service.Spec.DeprecatedRunLatest.Configuration.GetTemplate().ObjectMeta.Annotations = annotations
+			service.Spec.DeprecatedRunLatest.Configuration.GetTemplate().ObjectMeta.Annotations = resources.UnionMaps(
+				service.Spec.DeprecatedRunLatest.Configuration.GetTemplate().ObjectMeta.Annotations, annotations)
 		} else {
-			service.Spec.ConfigurationSpec.Template.ObjectMeta.Annotations = annotations
+			service.Spec.ConfigurationSpec.Template.ObjectMeta.Annotations = resources.UnionMaps(
+				service.Spec.ConfigurationSpec.Template.ObjectMeta.Annotations, annotations)
 		}
 	}
 }
