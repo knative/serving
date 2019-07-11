@@ -36,6 +36,13 @@ func (rts *RevisionTemplateSpec) SetDefaults(ctx context.Context) {
 
 // SetDefaults implements apis.Defaultable
 func (rs *RevisionSpec) SetDefaults(ctx context.Context) {
+	// More than one container is not allowed for now. Do not set default
+	// values to avoid inappropriate error happens.
+	// https://github.com/knative/serving/issues/4659
+	if len(rs.PodSpec.Containers) > 1 {
+		return
+	}
+
 	cfg := config.FromContextOrDefaults(ctx)
 
 	// Default TimeoutSeconds based on our configmap
