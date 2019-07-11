@@ -81,6 +81,24 @@ data:
         target_label: pod
       - source_labels: [__meta_kubernetes_service_name]
         target_label: service
+    # Webhook pods
+    - job_name: webhook
+      scrape_interval: 3s
+      scrape_timeout: 3s
+      kubernetes_sd_configs:
+      - role: pod
+      relabel_configs:
+      # Scrape only the the targets matching the following metadata
+      - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_pod_label_role, __meta_kubernetes_pod_container_port_name]
+        action: keep
+        regex: knative-serving;webhook;metrics-port
+      # Rename metadata labels to be reader friendly
+      - source_labels: [__meta_kubernetes_namespace]
+        target_label: namespace
+      - source_labels: [__meta_kubernetes_pod_name]
+        target_label: pod
+      - source_labels: [__meta_kubernetes_service_name]
+        target_label: service
     # Queue proxy metrics
     - job_name: queue-proxy
       scrape_interval: 3s
