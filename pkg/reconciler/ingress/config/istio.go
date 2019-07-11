@@ -57,7 +57,7 @@ var (
 		ServiceURL: fmt.Sprintf("cluster-local-gateway.istio-system.svc.%s",
 			network.GetClusterDomainName()),
 	}
-	defaultReconcileGateway = "false"
+	defaultReconcileGateway = false
 )
 
 // Gateway specifies the name of the Gateway and the K8s Service backing it.
@@ -121,13 +121,11 @@ func NewIstioFromConfigMap(configMap *corev1.ConfigMap) (*Istio, error) {
 	if err != nil {
 		return nil, err
 	}
-	reconcileGatewayStr := configMap.Data[ReconcileExternalGatewayKey]
-	if len(reconcileGatewayStr) == 0 {
-		reconcileGatewayStr = defaultReconcileGateway
-	}
-	reconcileGateway, err := strconv.ParseBool(reconcileGatewayStr)
-	if err != nil {
-		return nil, err
+	reconcileGateway := defaultReconcileGateway
+	if reconcileGatewayStr := configMap.Data[ReconcileExternalGatewayKey]; len(reconcileGatewayStr) != 0 {
+		if reconcileGateway, err = strconv.ParseBool(reconcileGatewayStr); err != nil {
+			return nil, err
+		}
 	}
 	return &Istio{
 		IngressGateways:          gateways,
