@@ -69,6 +69,11 @@ func TestContainerErrorMsg(t *testing.T) {
 	manifestUnknown := string(transport.ManifestUnknownErrorCode)
 	t.Log("When the imagepath is invalid, the Configuration should have error status.")
 
+	// Wait for ServiceState becomes NotReady. It also waits for the creation of Configuration.
+	if err := v1a1test.WaitForServiceState(clients.ServingAlphaClient, names.Service, v1a1test.IsServiceNotReady, "ServiceIsNotReady"); err != nil {
+		t.Fatalf("The Service %s was unexpected state: %v", names.Service, err)
+	}
+
 	// Checking for "Container image not present in repository" scenario defined in error condition spec
 	err = v1a1test.WaitForConfigurationState(clients.ServingAlphaClient, names.Config, func(r *v1alpha1.Configuration) (bool, error) {
 		cond := r.Status.GetCondition(v1alpha1.ConfigurationConditionReady)

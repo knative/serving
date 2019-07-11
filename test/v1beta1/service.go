@@ -244,3 +244,9 @@ func CheckServiceState(client *test.ServingBetaClients, name string, inState fun
 func IsServiceReady(s *v1beta1.Service) (bool, error) {
 	return s.Generation == s.Status.ObservedGeneration && s.Status.IsReady(), nil
 }
+
+// IsServiceNotReady will check the status conditions of the service and return true if the service is
+// not ready.
+func IsServiceNotReady(s *v1beta1.Service) (bool, error) {
+	return s.Generation == s.Status.ObservedGeneration && !s.Status.IsReady(), nil
+}
