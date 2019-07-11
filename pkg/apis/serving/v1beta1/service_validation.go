@@ -19,7 +19,7 @@ package v1beta1
 import (
 	"context"
 
-	"github.com/knative/serving/pkg/apis/serving"
+	"knative.dev/serving/pkg/apis/serving"
 	"knative.dev/pkg/apis"
 )
 

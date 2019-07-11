@@ -31,9 +31,9 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 
-	"github.com/knative/serving/pkg/activator"
-	"github.com/knative/serving/pkg/network"
-	"github.com/knative/serving/pkg/queue"
+	"knative.dev/serving/pkg/activator"
+	"knative.dev/serving/pkg/network"
+	"knative.dev/serving/pkg/queue"
 	logtesting "knative.dev/pkg/logging/testing"
 )
 

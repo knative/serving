@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/knative/serving/pkg/apis/serving/v1beta1"
+	"knative.dev/serving/pkg/apis/serving/v1beta1"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	"knative.dev/pkg/test/logging"
@@ -32,8 +32,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	// 	"knative.dev/pkg/ptr"
-	rtesting "github.com/knative/serving/pkg/testing/v1beta1"
-	"github.com/knative/serving/test"
+	rtesting "knative.dev/serving/pkg/testing/v1beta1"
+	"knative.dev/serving/test"
 	ptest "knative.dev/pkg/test"
 )
 

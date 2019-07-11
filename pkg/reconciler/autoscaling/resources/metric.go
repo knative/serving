@@ -20,8 +20,8 @@ import (
 	"context"
 	"time"
 
-	"github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
-	"github.com/knative/serving/pkg/autoscaler"
+	"knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
+	"knative.dev/serving/pkg/autoscaler"
 )
 
 // Metrics is an interface for notifying the presence or absence of metric collection.

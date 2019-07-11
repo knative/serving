@@ -21,13 +21,13 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/knative/serving/pkg/apis/config"
+	"knative.dev/serving/pkg/apis/config"
 
 	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/knative/serving/pkg/apis/serving/v1beta1"
+	"knative.dev/serving/pkg/apis/serving/v1beta1"
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/ptr"
 )

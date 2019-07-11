@@ -21,7 +21,7 @@ package runtime
 import (
 	"testing"
 
-	"github.com/knative/serving/test"
+	"knative.dev/serving/test"
 )
 
 // TestMustHaveCgroupConfigured verifies using the runtime test container that reading from the

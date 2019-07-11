@@ -20,7 +20,7 @@ import (
 	"io"
 	"os"
 
-	"github.com/knative/serving/test/types"
+	"knative.dev/serving/test/types"
 )
 
 // stdin attempts to read bytes from the stdin file descriptor and returns the result.

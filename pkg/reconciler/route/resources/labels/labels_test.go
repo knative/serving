@@ -19,7 +19,7 @@ package labels
 import (
 	"testing"
 
-	"github.com/knative/serving/pkg/reconciler/route/config"
+	"knative.dev/serving/pkg/reconciler/route/config"
 
 	"github.com/google/go-cmp/cmp"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"

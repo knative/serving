@@ -31,7 +31,7 @@ import (
 	perf "github.com/knative/test-infra/shared/performance"
 	"github.com/knative/test-infra/shared/testgrid"
 
-	"github.com/knative/serving/test/e2e"
+	"knative.dev/serving/test/e2e"
 )
 
 type metrics struct {

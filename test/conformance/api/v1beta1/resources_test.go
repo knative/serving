@@ -23,14 +23,14 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/knative/serving/test"
-	v1b1test "github.com/knative/serving/test/v1beta1"
+	"knative.dev/serving/test"
+	v1b1test "knative.dev/serving/test/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/spoof"
 
-	rtesting "github.com/knative/serving/pkg/testing/v1beta1"
+	rtesting "knative.dev/serving/pkg/testing/v1beta1"
 )
 
 func TestCustomResourcesLimits(t *testing.T) {

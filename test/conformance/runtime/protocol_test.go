@@ -21,9 +21,9 @@ package runtime
 import (
 	"testing"
 
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	v1a1options "github.com/knative/serving/pkg/testing/v1alpha1"
-	"github.com/knative/serving/test"
+	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	v1a1options "knative.dev/serving/pkg/testing/v1alpha1"
+	"knative.dev/serving/test"
 	corev1 "k8s.io/api/core/v1"
 )
 

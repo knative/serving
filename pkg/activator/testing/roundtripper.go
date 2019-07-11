@@ -23,8 +23,8 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/knative/serving/pkg/network"
-	"github.com/knative/serving/pkg/queue"
+	"knative.dev/serving/pkg/network"
+	"knative.dev/serving/pkg/queue"
 )
 
 // FakeResponse is a response given by the FakeRoundTripper

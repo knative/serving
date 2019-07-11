@@ -23,7 +23,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/knative/serving/pkg/network"
+	"knative.dev/serving/pkg/network"
 	"k8s.io/apimachinery/pkg/util/wait"
 )
 
