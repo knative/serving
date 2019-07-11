@@ -16,42 +16,34 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1alpha1
+package runtime
 
 import (
 	"testing"
 
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	v1a1options "github.com/knative/serving/pkg/testing/v1alpha1"
 	"github.com/knative/serving/test"
-	v1a1test "github.com/knative/serving/test/v1alpha1"
 )
+
+func withWorkingDir(wd string) v1a1options.ServiceOption {
+	return func(svc *v1alpha1.Service) {
+		svc.Spec.Template.Spec.Containers[0].WorkingDir = wd
+	}
+}
 
 func TestWorkingDirService(t *testing.T) {
 	t.Parallel()
 	clients := test.Setup(t)
 
-	names := test.ResourceNames{
-		Service: test.ObjectNameForTest(t),
-		Image:   test.WorkingDir,
-	}
-
-	// Clean up on test failure or interrupt
-	defer test.TearDown(clients, names)
-	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
-
 	const wd = "/foo/bar/baz"
 
-	// Setup initial Service
-	_, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, &v1a1test.Options{},
-		func(svc *v1alpha1.Service) {
-			c := &svc.Spec.Template.Spec.Containers[0]
-			c.WorkingDir = wd
-		})
+	_, ri, err := fetchRuntimeInfo(t, clients, withWorkingDir(wd))
 	if err != nil {
-		t.Fatalf("Failed to create initial Service %v: %v", names.Service, err)
+		t.Fatalf("Failed to fetch runtime info: %v", err)
 	}
 
-	if err = validateRunLatestDataPlane(t, clients, names, wd); err != nil {
-		t.Error(err)
+	if ri.Host.User.Cwd.Directory != wd {
+		t.Errorf("cwd = %s, want %s, error=%s", ri.Host.User.Cwd, wd, ri.Host.User.Cwd.Error)
 	}
 }
