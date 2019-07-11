@@ -208,13 +208,13 @@ func TestRevisionSpecValidation(t *testing.T) {
 		},
 		want: apis.ErrDisallowedFields("containers[0].lifecycle"),
 	}, {
-		name: "missing container",
+		name: "missing image",
 		rs: &RevisionSpec{
 			PodSpec: corev1.PodSpec{
 				Containers: []corev1.Container{},
 			},
 		},
-		want: apis.ErrMissingField("containers"),
+		want: apis.ErrMissingField("containers[0].image"),
 	}, {
 		name: "too many containers",
 		rs: &RevisionSpec{
@@ -284,6 +284,7 @@ func TestRevisionSpecValidation(t *testing.T) {
 			if test.wc != nil {
 				ctx = test.wc(ctx)
 			}
+			test.rs.SetDefaults(ctx)
 			got := test.rs.Validate(ctx)
 			if !cmp.Equal(test.want.Error(), got.Error()) {
 				t.Errorf("Validate (-want, +got) = %v",
