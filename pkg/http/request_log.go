@@ -171,7 +171,7 @@ func (h *RequestLogHandler) write(t *template.Template, in *RequestLogTemplateIn
 	}
 }
 
-// InMemoryWriter is an io.Writer that is backed by an byte slice in memory.
+// InMemoryWriter is an io.Writer that is backed by a byte slice in memory.
 // It is not safe to be used in parallel.
 // TODO(yanweiguo): Move this to knative/pkg repository.
 type InMemoryWriter struct {
