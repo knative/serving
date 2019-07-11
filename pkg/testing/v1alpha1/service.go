@@ -212,6 +212,19 @@ func WithServiceAnnotations(annotations map[string]string) ServiceOption {
 	}
 }
 
+// WithContainerConcurrency setss the container concurrency on the resource.
+func WithContainerConcurrency(cc int) ServiceOption {
+	return func(s *v1alpha1.Service) {
+		if s.Spec.DeprecatedRunLatest != nil {
+			s.Spec.DeprecatedRunLatest.Configuration.GetTemplate().Spec.ContainerConcurrency =
+				v1beta1.RevisionContainerConcurrencyType(cc)
+		} else {
+			s.Spec.ConfigurationSpec.Template.Spec.ContainerConcurrency =
+				v1beta1.RevisionContainerConcurrencyType(cc)
+		}
+	}
+}
+
 // WithConfigAnnotations assigns config annotations to a service
 func WithConfigAnnotations(annotations map[string]string) ServiceOption {
 	return func(service *v1alpha1.Service) {
