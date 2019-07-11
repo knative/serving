@@ -8,6 +8,7 @@
   packages = ["."]
   pruneopts = "UT"
   revision = "75cd24fc2f2c2a2088577d12123ddee5f54e0675"
+  source = "https://hg@bitbucket.org/ww/goautoneg"
 
 [[projects]]
   digest = "1:6db34685a5216187ec35414e36c3bd0436fa2ac291d47b39f4ab4d68cf1c55f1"
