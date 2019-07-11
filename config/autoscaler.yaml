@@ -29,6 +29,10 @@ spec:
       annotations:
         cluster-autoscaler.kubernetes.io/safe-to-evict: "false"
         sidecar.istio.io/inject: "true"
+        # traffic.sidecar.istio.io/excludeInboundPorts: 8443 didn't work as
+        # expected and still firewalled the given port off. Using a whitelist
+        # instead works as expected.
+        traffic.sidecar.istio.io/includeInboundPorts: "8080,9090"
       labels:
         app: autoscaler
         serving.knative.dev/release: devel
