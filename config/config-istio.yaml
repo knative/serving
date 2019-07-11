@@ -57,3 +57,9 @@ data:
     # To use only Istio service mesh and no cluster-local-gateway, replace
     # all local-gateway.* entries the following entry.
     local-gateway.mesh: "mesh"
+
+    # Feature flag to enable reconciling external Istio Gateways.
+    # When auto TLS feature is turned on, reconcileExternalGateway will be automatically enforced.
+    # 1. Enabled: enabling reconciling external gateways.
+    # 2. Disabled: disabling reconciling external gateways.
+    reconcileExternalGateway: "Disabled"
