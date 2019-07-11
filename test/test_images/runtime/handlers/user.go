@@ -24,8 +24,11 @@ import (
 
 func userInfo() *types.UserInfo {
 	cwd, err := os.Getwd()
+	cwdInfo := &types.Cwd{
+		Directory: cwd,
+	}
 	if err != nil {
-		return &types.UserInfo{Error: err.Error()}
+		cwdInfo.Error = err.Error()
 	}
 
 	return &types.UserInfo{
@@ -33,6 +36,6 @@ func userInfo() *types.UserInfo {
 		EUID: os.Geteuid(),
 		GID:  os.Getgid(),
 		EGID: os.Getegid(),
-		Cwd:  cwd,
+		Cwd:  cwdInfo,
 	}
 }
