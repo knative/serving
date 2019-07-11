@@ -21,9 +21,10 @@ import (
 	"testing"
 	"time"
 
+	"go.opencensus.io/stats/view"
 	"go.opencensus.io/tag"
 
-	"go.opencensus.io/stats/view"
+	"knative.dev/pkg/metrics/metricstest"
 )
 
 const (
@@ -61,22 +62,13 @@ func TestReporter_ReportDuration(t *testing.T) {
 	if err = reporter.ReportServiceReady(testServiceNamespace, testServiceName, time.Second); err != nil {
 		t.Error(err)
 	}
-	expectedTags := []tag.Tag{
-		{Key: keyTagKey, Value: fmt.Sprintf("%s/%s", testServiceNamespace, testServiceName)},
-		{Key: reconcilerTagKey, Value: reconcilerMockName},
+	expectedTags := map[string]string{
+		keyTagKey.Name():        fmt.Sprintf("%s/%s", testServiceNamespace, testServiceName),
+		reconcilerTagKey.Name(): reconcilerMockName,
 	}
 
-	latency := getMetric(t, ServiceReadyLatencyN)
-	if v := latency.Data.(*view.LastValueData).Value; v != 1000 {
-		t.Errorf("Expected latency %v, Got %v", 1000, v)
-	}
-	checkTags(t, expectedTags, latency.Tags)
-
-	count := getMetric(t, ServiceReadyCountN)
-	if got, want := count.Data.(*view.CountData).Value, countWas+1; got != want {
-		t.Errorf("Latency report count = %d, want: %d", got, want)
-	}
-	checkTags(t, expectedTags, count.Tags)
+	metricstest.CheckLastValueData(t, ServiceReadyLatencyN, expectedTags, 1000)
+	metricstest.CheckCountData(t, ServiceReadyCountN, expectedTags, countWas+1)
 }
 
 func getMetric(t *testing.T, metric string) *view.Row {
@@ -89,16 +81,4 @@ func getMetric(t *testing.T, metric string) *view.Row {
 		return nil
 	}
 	return rows[0]
-}
-
-func checkTags(t *testing.T, expected, observed []tag.Tag) {
-	t.Helper()
-	if len(expected) != len(observed) {
-		t.Errorf("Unexpected tags: desired %v observed %v", expected, observed)
-	}
-	for i := 0; i < len(expected); i++ {
-		if expected[i] != observed[i] {
-			t.Errorf("Unexpected tag at location %v: desired %v observed %v", i, expected[i], observed[i])
-		}
-	}
 }
