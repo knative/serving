@@ -27,14 +27,18 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
 
+	"github.com/knative/serving/pkg/activator"
 	"github.com/knative/serving/pkg/apis/autoscaling"
 	resourcenames "github.com/knative/serving/pkg/reconciler/revision/resources/names"
+	"github.com/knative/serving/pkg/resources"
 	rtesting "github.com/knative/serving/pkg/testing/v1alpha1"
 	"github.com/knative/serving/test"
 	v1a1test "github.com/knative/serving/test/v1alpha1"
+	"knative.dev/pkg/system"
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/logstream"
 
@@ -42,6 +46,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
 )
 
 const (
@@ -50,6 +55,16 @@ const (
 	// but not high enough to generate scheduling problems.
 	containerConcurrency = 6
 )
+
+type testContext struct {
+	t                 *testing.T
+	clients           *test.Clients
+	names             test.ResourceNames
+	resources         *v1a1test.ResourceObjects
+	deploymentName    string
+	domain            string
+	targetUtilization float64
+}
 
 func generateTraffic(ctx *testContext, concurrency int, duration time.Duration, stopChan chan struct{}) error {
 	var (
@@ -109,16 +124,7 @@ func generateTraffic(ctx *testContext, concurrency int, duration time.Duration, 
 	return nil
 }
 
-type testContext struct {
-	t                 *testing.T
-	clients           *test.Clients
-	names             test.ResourceNames
-	deploymentName    string
-	domain            string
-	targetUtilization float64
-}
-
-func setup(t *testing.T, class string, metric string) *testContext {
+func setup(t *testing.T, class string, metric string, opts *v1a1test.Options, fopts ...rtesting.ServiceOption) *testContext {
 	t.Helper()
 	clients := Setup(t)
 
@@ -128,20 +134,18 @@ func setup(t *testing.T, class string, metric string) *testContext {
 		Image:   "autoscale",
 	}
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
-	resources, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, &v1a1test.Options{
-		ContainerConcurrency: containerConcurrency,
-	}, rtesting.WithConfigAnnotations(map[string]string{
-		autoscaling.ClassAnnotationKey:  class,
-		autoscaling.MetricAnnotationKey: metric,
-	}), rtesting.WithResourceRequirements(corev1.ResourceRequirements{
-		Limits: corev1.ResourceList{
-			corev1.ResourceMemory: resource.MustParse("512Mi"),
-		},
-		Requests: corev1.ResourceList{
-			corev1.ResourceMemory: resource.MustParse("300Mi"),
-		},
-	}),
-	)
+	resources, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, opts,
+		append(fopts, rtesting.WithConfigAnnotations(map[string]string{
+			autoscaling.ClassAnnotationKey:  class,
+			autoscaling.MetricAnnotationKey: metric,
+		}), rtesting.WithResourceRequirements(corev1.ResourceRequirements{
+			Limits: corev1.ResourceList{
+				corev1.ResourceMemory: resource.MustParse("512Mi"),
+			},
+			Requests: corev1.ResourceList{
+				corev1.ResourceMemory: resource.MustParse("300Mi"),
+			},
+		}))...)
 	if err != nil {
 		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
 	}
@@ -168,6 +172,7 @@ func setup(t *testing.T, class string, metric string) *testContext {
 		t:                 t,
 		clients:           clients,
 		names:             names,
+		resources:         resources,
 		deploymentName:    resourcenames.Deployment(resources.Revision),
 		domain:            domain,
 		targetUtilization: cfg.ContainerConcurrencyTargetFraction,
@@ -290,7 +295,8 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 	cancel := logstream.Start(t)
 	defer cancel()
 
-	ctx := setup(t, autoscaling.KPA, autoscaling.Concurrency)
+	ctx := setup(t, autoscaling.KPA, autoscaling.Concurrency, &v1a1test.Options{},
+		rtesting.WithContainerConcurrency(containerConcurrency))
 	defer test.TearDown(ctx.clients, ctx.names)
 
 	assertAutoscaleUpToNumPods(ctx, 1, 2, 60*time.Second, true)
@@ -313,7 +319,8 @@ func TestAutoscaleUpCountPods(t *testing.T) {
 			cancel := logstream.Start(t)
 			defer cancel()
 
-			ctx := setup(tt, class, autoscaling.Concurrency)
+			ctx := setup(tt, class, autoscaling.Concurrency, &v1a1test.Options{},
+				rtesting.WithContainerConcurrency(containerConcurrency))
 			defer test.TearDown(ctx.clients, ctx.names)
 
 			ctx.t.Log("The autoscaler spins up additional replicas when traffic increases.")
@@ -339,8 +346,94 @@ func TestAutoscaleSustaining(t *testing.T) {
 	cancel := logstream.Start(t)
 	defer cancel()
 
-	ctx := setup(t, autoscaling.KPA, autoscaling.Concurrency)
+	ctx := setup(t, autoscaling.KPA, autoscaling.Concurrency, &v1a1test.Options{},
+		rtesting.WithContainerConcurrency(containerConcurrency))
 	defer test.TearDown(ctx.clients, ctx.names)
 
 	assertAutoscaleUpToNumPods(ctx, 1, 10, 3*time.Minute, false)
+}
+
+func TestTargetBurstCapacity(t *testing.T) {
+	// This test sets up a service with CC=10 TU=70% and TBC=7.
+	// Then sends requests at concurrency 5, causing Activator in the path (1 pod, 10-5=5 < 7).
+	// Then at the concurrency 10, getting spare capacity of 20-10=10, which should remove the
+	// Activator from the request path.
+	cancel := logstream.Start(t)
+	defer cancel()
+
+	ctx := setup(t, autoscaling.KPA, autoscaling.Concurrency, &v1a1test.Options{},
+		rtesting.WithConfigAnnotations(map[string]string{
+			autoscaling.TargetAnnotationKey:                   "10",
+			autoscaling.TargetUtilizationPercentageKey:        "70",
+			autoscaling.TargetBurstCapacityKey:                "7",
+			autoscaling.PanicThresholdPercentageAnnotationKey: "200", // makes panic'ing rare
+		}))
+	defer test.TearDown(ctx.clients, ctx.names)
+
+	cfg, err := autoscalerCM(ctx.clients)
+	if err != nil {
+		t.Fatalf("Error retrieving autoscaler configmap: %v", err)
+	}
+	var (
+		grp    errgroup.Group
+		stopCh = make(chan struct{})
+	)
+	defer grp.Wait()
+	defer close(stopCh)
+
+	// We'll terminate the test via stopCh.
+	const duration = time.Hour
+
+	grp.Go(func() error {
+		return generateTraffic(ctx, 5, duration, stopCh)
+	})
+	aeps, err := ctx.clients.KubeClient.Kube.CoreV1().Endpoints(system.Namespace()).Get(activator.K8sServiceName, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Error getting activator endpoints: %v", err)
+	}
+	t.Logf("Activator endpoints: %v", aeps)
+
+	// Wait for the endpoints to equalize.
+	// There's some jitter in the beginning possible, since it takes 2 seconds
+	// for us to start evaluating things.
+	if err := wait.Poll(250*time.Millisecond, cfg.StableWindow, func() (bool, error) {
+		svcEps, err := ctx.clients.KubeClient.Kube.CoreV1().Endpoints(test.ServingNamespace).Get(
+			ctx.resources.Revision.Status.ServiceName, metav1.GetOptions{})
+		if err != nil {
+			return false, err
+		}
+		return cmp.Equal(svcEps.Subsets, aeps.Subsets), nil
+	}); err != nil {
+		t.Fatalf("Initial state never achieved: %v", err)
+	}
+
+	// Start second load generator.
+	grp.Go(func() error {
+		return generateTraffic(ctx, 5, duration, stopCh)
+	})
+
+	// Wait for two stable pods.
+	if err := wait.Poll(250*time.Millisecond, cfg.StableWindow, func() (bool, error) {
+		x, err := numberOfPods(ctx)
+		if err != nil {
+			return false, err
+		}
+		// We want exactly 2. Not 1, not panicing 3, just 2.
+		return x == 2, nil
+	}); err != nil {
+		t.Fatalf("Desired scale of 2 never achieved: %v", err)
+	}
+
+	// Now read the service endpoints and make sure there are 2 endpoints there.
+	// As always poll, since network programming takes times...
+	if err := wait.Poll(250*time.Millisecond, cfg.ScaleToZeroGracePeriod, func() (bool, error) {
+		svcEps, err := ctx.clients.KubeClient.Kube.CoreV1().Endpoints(test.ServingNamespace).Get(
+			ctx.resources.Revision.Status.ServiceName, metav1.GetOptions{})
+		if err != nil {
+			return false, err
+		}
+		return resources.ReadyAddressCount(svcEps) == 2, nil
+	}); err != nil {
+		t.Errorf("Never achieved subset of size 2: %v", err)
+	}
 }
