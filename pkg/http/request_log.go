@@ -161,13 +161,10 @@ func (h *RequestLogHandler) write(t *template.Template, in *RequestLogTemplateIn
 	// is used directly, parallel template executions may result in interleaved
 	// output.
 	w := &bytes.Buffer{}
-	err := t.Execute(w, in)
-	if err == nil {
-		_, err = h.writer.Write(w.Bytes())
-	}
-	if err != nil {
+	if err := t.Execute(w, in); err != nil {
 		// Template execution failed. Write an error message with some basic information about the request.
 		fmt.Fprintf(h.writer, "Invalid request log template: method: %v, response code: %v, latency: %v, url: %v\n",
 			in.Request.Method, in.Response.Code, in.Response.Latency, in.Request.URL)
 	}
+	h.writer.Write(w.Bytes())
 }
