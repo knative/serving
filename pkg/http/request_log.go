@@ -17,6 +17,7 @@ limitations under the License.
 package http
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"net/http"
@@ -159,32 +160,14 @@ func (h *RequestLogHandler) write(t *template.Template, in *RequestLogTemplateIn
 	// Use a local buffer to store the whole template expansion first. If h.writer
 	// is used directly, parallel template executions may result in interleaved
 	// output.
-	w := NewInMemoryWriter()
+	w := &bytes.Buffer{}
 	err := t.Execute(w, in)
 	if err == nil {
-		_, err = h.writer.Write(w.Text)
+		_, err = h.writer.Write(w.Bytes())
 	}
 	if err != nil {
 		// Template execution failed. Write an error message with some basic information about the request.
 		fmt.Fprintf(h.writer, "Invalid request log template: method: %v, response code: %v, latency: %v, url: %v\n",
 			in.Request.Method, in.Response.Code, in.Response.Latency, in.Request.URL)
 	}
-}
-
-// InMemoryWriter is an io.Writer that is backed by a byte slice in memory.
-// It is not safe to be used in parallel.
-// TODO(yanweiguo): Move this to knative/pkg repository.
-type InMemoryWriter struct {
-	Text []byte
-}
-
-// NewInMemoryWriter returns a new InMemoryWriter object.
-func NewInMemoryWriter() *InMemoryWriter {
-	return &InMemoryWriter{make([]byte, 0)}
-}
-
-// Write appends len(b) bytes to the existing bytes.
-func (w *InMemoryWriter) Write(b []byte) (n int, err error) {
-	w.Text = append(w.Text, b...)
-	return len(b), nil
 }
