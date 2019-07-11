@@ -155,7 +155,7 @@ func TestReconcileGatewayConfiguration(t *testing.T) {
 				Name:      IstioConfigName,
 			},
 			Data: map[string]string{
-				"reconcileExternalGateway": "Enabled",
+				"reconcileExternalGateway": "true",
 			},
 		},
 	}, {
@@ -167,7 +167,7 @@ func TestReconcileGatewayConfiguration(t *testing.T) {
 				Name:      IstioConfigName,
 			},
 			Data: map[string]string{
-				"reconcileExternalGateway": "Disabled",
+				"reconcileExternalGateway": "false",
 			},
 		},
 	}, {
