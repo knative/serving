@@ -20,8 +20,8 @@ import (
 	"context"
 	"testing"
 
-	_ "knative.dev/caching/pkg/client/injection/client/fake"
 	_ "github.com/knative/serving/pkg/client/injection/client/fake"
+	_ "knative.dev/caching/pkg/client/injection/client/fake"
 	_ "knative.dev/pkg/client/injection/client/fake"
 	_ "knative.dev/pkg/injection/clients/dynamicclient/fake"
 	_ "knative.dev/pkg/injection/clients/kubeclient/fake"

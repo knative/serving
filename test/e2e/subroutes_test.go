@@ -19,14 +19,15 @@ package e2e
 
 import (
 	"fmt"
+	"strings"
+	"testing"
+
 	"github.com/knative/serving/pkg/network"
 	"github.com/knative/serving/pkg/reconciler/route/resources/labels"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"knative.dev/pkg/apis/duck"
 	"knative.dev/pkg/test/logstream"
-	"strings"
-	"testing"
 
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1beta1"
