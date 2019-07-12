@@ -23,7 +23,7 @@ import (
 	"testing"
 	"time"
 
-	. "github.com/knative/serving/test/e2e"
+	. "knative.dev/serving/test/e2e"
 )
 
 type nopLatencies struct {

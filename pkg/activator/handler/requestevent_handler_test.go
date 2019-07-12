@@ -20,7 +20,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/knative/serving/pkg/activator"
+	"knative.dev/serving/pkg/activator"
 )
 
 func TestRequestEventHandler(t *testing.T) {

@@ -24,12 +24,12 @@ import (
 	"testing"
 
 	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	"github.com/knative/serving/test"
-	v1a1test "github.com/knative/serving/test/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ptest "knative.dev/pkg/test"
+	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	"knative.dev/serving/test"
+	v1a1test "knative.dev/serving/test/v1alpha1"
 )
 
 const (
@@ -37,7 +37,7 @@ const (
 )
 
 // TestContainerErrorMsg is to validate the error condition defined at
-// https://github.com/knative/serving/blob/master/docs/spec/errors.md
+// https://knative.dev/serving/blob/master/docs/spec/errors.md
 // for the container image missing scenario.
 func TestContainerErrorMsg(t *testing.T) {
 	t.Parallel()
@@ -111,11 +111,11 @@ func TestContainerErrorMsg(t *testing.T) {
 	// TODO(jessiezcc): actually validate the logURL, but requires kibana setup
 	t.Logf("LogURL: %s", logURL)
 
-	// TODO(jessiezcc): add the check to validate that Route is not marked as ready once https://github.com/knative/serving/issues/990 is fixed
+	// TODO(jessiezcc): add the check to validate that Route is not marked as ready once https://knative.dev/serving/issues/990 is fixed
 }
 
 // TestContainerExitingMsg is to validate the error condition defined at
-// https://github.com/knative/serving/blob/master/docs/spec/errors.md
+// https://knative.dev/serving/blob/master/docs/spec/errors.md
 // for the container crashing scenario.
 func TestContainerExitingMsg(t *testing.T) {
 	t.Parallel()

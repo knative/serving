@@ -19,7 +19,7 @@ package handlers
 import (
 	"os"
 
-	"github.com/knative/serving/test/types"
+	"knative.dev/serving/test/types"
 )
 
 func userInfo() *types.UserInfo {

@@ -21,12 +21,12 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	serviceresourcenames "github.com/knative/serving/pkg/reconciler/service/resources/names"
-	v1alpha1testing "github.com/knative/serving/pkg/testing/v1alpha1"
-	"github.com/knative/serving/test"
-	v1a1test "github.com/knative/serving/test/v1alpha1"
 	"knative.dev/pkg/test/logstream"
+	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	serviceresourcenames "knative.dev/serving/pkg/reconciler/service/resources/names"
+	v1alpha1testing "knative.dev/serving/pkg/testing/v1alpha1"
+	"knative.dev/serving/test"
+	v1a1test "knative.dev/serving/test/v1alpha1"
 )
 
 func TestImagePullError(t *testing.T) {

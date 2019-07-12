@@ -20,9 +20,9 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/knative/serving/pkg/apis/serving"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"knative.dev/pkg/apis"
+	"knative.dev/serving/pkg/apis/serving"
 )
 
 func (r *Route) Validate(ctx context.Context) *apis.FieldError {

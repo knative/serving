@@ -22,9 +22,9 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/knative/serving/pkg/apis/serving/v1beta1"
-	"github.com/knative/serving/test"
-	v1b1test "github.com/knative/serving/test/v1beta1"
+	"knative.dev/serving/pkg/apis/serving/v1beta1"
+	"knative.dev/serving/test"
+	v1b1test "knative.dev/serving/test/v1beta1"
 )
 
 func TestCmdArgsService(t *testing.T) {

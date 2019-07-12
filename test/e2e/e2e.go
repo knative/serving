@@ -10,11 +10,11 @@ import (
 	// https://github.com/kubernetes/client-go/issues/242
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 
-	"github.com/knative/serving/pkg/autoscaler"
-	"github.com/knative/serving/test"
-	v1a1test "github.com/knative/serving/test/v1alpha1"
 	perrors "github.com/pkg/errors"
 	pkgTest "knative.dev/pkg/test"
+	"knative.dev/serving/pkg/autoscaler"
+	"knative.dev/serving/test"
+	v1a1test "knative.dev/serving/test/v1alpha1"
 )
 
 // Setup creates the client objects needed in the e2e tests.

@@ -23,8 +23,8 @@ import (
 	"github.com/google/go-cmp/cmp"
 	logtesting "knative.dev/pkg/logging/testing"
 
-	"github.com/knative/serving/pkg/network"
 	. "knative.dev/pkg/configmap/testing"
+	"knative.dev/serving/pkg/network"
 )
 
 func TestStoreLoadWithContext(t *testing.T) {

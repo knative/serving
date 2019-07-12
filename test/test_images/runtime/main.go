@@ -18,8 +18,8 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/knative/serving/test"
-	"github.com/knative/serving/test/test_images/runtime/handlers"
+	"knative.dev/serving/test"
+	"knative.dev/serving/test/test_images/runtime/handlers"
 )
 
 func main() {

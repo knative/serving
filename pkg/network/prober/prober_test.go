@@ -23,8 +23,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/knative/serving/pkg/network"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"knative.dev/serving/pkg/network"
 )
 
 const (

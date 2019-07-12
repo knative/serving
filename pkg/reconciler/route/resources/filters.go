@@ -17,8 +17,8 @@ limitations under the License.
 package resources
 
 import (
-	"github.com/knative/serving/pkg/reconciler/route/config"
 	corev1 "k8s.io/api/core/v1"
+	"knative.dev/serving/pkg/reconciler/route/config"
 )
 
 // Filter is used for applying a function to a service

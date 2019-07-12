@@ -19,14 +19,14 @@ package certificate
 import (
 	"context"
 
-	cmclient "github.com/knative/serving/pkg/client/certmanager/injection/client"
-	cmcertinformer "github.com/knative/serving/pkg/client/certmanager/injection/informers/certmanager/v1alpha1/certificate"
-	kcertinformer "github.com/knative/serving/pkg/client/injection/informers/networking/v1alpha1/certificate"
+	cmclient "knative.dev/serving/pkg/client/certmanager/injection/client"
+	cmcertinformer "knative.dev/serving/pkg/client/certmanager/injection/informers/certmanager/v1alpha1/certificate"
+	kcertinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/certificate"
 
-	"github.com/knative/serving/pkg/reconciler"
-	"github.com/knative/serving/pkg/reconciler/certificate/config"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
+	"knative.dev/serving/pkg/reconciler"
+	"knative.dev/serving/pkg/reconciler/certificate/config"
 )
 
 const (

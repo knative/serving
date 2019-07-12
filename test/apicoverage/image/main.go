@@ -17,7 +17,7 @@ limitations under the License.
 package main
 
 import (
-	"github.com/knative/serving/test/apicoverage/image/webhook"
+	"knative.dev/serving/test/apicoverage/image/webhook"
 )
 
 func main() {

@@ -19,13 +19,13 @@ package labeler
 import (
 	"context"
 
-	configurationinformer "github.com/knative/serving/pkg/client/injection/informers/serving/v1alpha1/configuration"
-	revisioninformer "github.com/knative/serving/pkg/client/injection/informers/serving/v1alpha1/revision"
-	routeinformer "github.com/knative/serving/pkg/client/injection/informers/serving/v1alpha1/route"
+	configurationinformer "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/configuration"
+	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/revision"
+	routeinformer "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/route"
 
-	"github.com/knative/serving/pkg/reconciler"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
+	"knative.dev/serving/pkg/reconciler"
 )
 
 const (

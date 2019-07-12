@@ -22,12 +22,12 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/knative/serving/pkg/apis/autoscaling"
-	"github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
-	"github.com/knative/serving/pkg/autoscaler"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"knative.dev/serving/pkg/apis/autoscaling"
+	"knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
+	"knative.dev/serving/pkg/autoscaler"
 
-	. "github.com/knative/serving/pkg/testing"
+	. "knative.dev/serving/pkg/testing"
 )
 
 func TestMakeDecider(t *testing.T) {
@@ -51,7 +51,7 @@ func TestMakeDecider(t *testing.T) {
 		},
 	}, {
 		name: "with container concurrency 1",
-		pa:   pa(WithContainerConcurrency(1)),
+		pa:   pa(WithPAContainerConcurrency(1)),
 		want: decider(withTarget(1.0), withPanicThreshold(2.0), withTotal(1)),
 	}, {
 		name: "with target annotation 1",
@@ -59,7 +59,7 @@ func TestMakeDecider(t *testing.T) {
 		want: decider(withTarget(1.0), withTotal(1), withPanicThreshold(2.0), withTargetAnnotation("1")),
 	}, {
 		name: "with container concurrency and tu < 1",
-		pa:   pa(WithContainerConcurrency(100)),
+		pa:   pa(WithPAContainerConcurrency(100)),
 		want: decider(withTarget(80), withTotal(100), withPanicThreshold(160)), // PanicThreshold depends on TCC.
 		cfgOpt: func(c autoscaler.Config) *autoscaler.Config {
 			c.ContainerConcurrencyTargetFraction = 0.8
@@ -67,7 +67,7 @@ func TestMakeDecider(t *testing.T) {
 		},
 	}, {
 		name: "with burst capacity set",
-		pa:   pa(WithContainerConcurrency(120)),
+		pa:   pa(WithPAContainerConcurrency(120)),
 		want: decider(withTarget(96), withTotal(120), withPanicThreshold(192), withTargetBurstCapacity(63)),
 		cfgOpt: func(c autoscaler.Config) *autoscaler.Config {
 			c.TargetBurstCapacity = 63
@@ -76,7 +76,7 @@ func TestMakeDecider(t *testing.T) {
 		},
 	}, {
 		name: "with burst capacity set on the annotation",
-		pa:   pa(WithContainerConcurrency(120), withTBCAnnotation("211")),
+		pa:   pa(WithPAContainerConcurrency(120), withTBCAnnotation("211")),
 		want: decider(withTarget(96), withTotal(120), withPanicThreshold(192),
 			withDeciderTBCAnnotation("211"), withTargetBurstCapacity(211)),
 		cfgOpt: func(c autoscaler.Config) *autoscaler.Config {
@@ -86,11 +86,11 @@ func TestMakeDecider(t *testing.T) {
 		},
 	}, {
 		name: "with container concurrency greater than target annotation (ok)",
-		pa:   pa(WithContainerConcurrency(10), WithTargetAnnotation("1")),
+		pa:   pa(WithPAContainerConcurrency(10), WithTargetAnnotation("1")),
 		want: decider(withTarget(1.0), withTotal(1), withPanicThreshold(2.0), withTargetAnnotation("1")),
 	}, {
 		name: "with target annotation greater than container concurrency (ignore annotation for safety)",
-		pa:   pa(WithContainerConcurrency(1), WithTargetAnnotation("10")),
+		pa:   pa(WithPAContainerConcurrency(1), WithTargetAnnotation("10")),
 		want: decider(withTarget(1.0), withTotal(1), withPanicThreshold(2.0), withTargetAnnotation("10")),
 	}, {
 		name: "with higher panic target",

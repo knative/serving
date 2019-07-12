@@ -4,11 +4,11 @@ import (
 	"errors"
 	"sync"
 
-	"github.com/knative/serving/pkg/tracing/config"
 	zipkinmodel "github.com/openzipkin/zipkin-go/model"
 	zipkinreporter "github.com/openzipkin/zipkin-go/reporter"
 	"go.opencensus.io/exporter/zipkin"
 	"go.opencensus.io/trace"
+	"knative.dev/serving/pkg/tracing/config"
 )
 
 // ConfigOption is the interface for adding additional exporters and configuring opencensus tracing.

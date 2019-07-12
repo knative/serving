@@ -17,7 +17,7 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/knative/serving/test/types"
+	"knative.dev/serving/test/types"
 )
 
 func runtimeHandler(w http.ResponseWriter, r *http.Request) {
@@ -43,6 +43,7 @@ func runtimeHandler(w http.ResponseWriter, r *http.Request) {
 			Mounts:  mounts(),
 			Stdin:   stdin(),
 			User:    userInfo(),
+			Args:    args(),
 		},
 	}
 

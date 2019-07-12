@@ -27,8 +27,6 @@ import (
 	"knative.dev/pkg/metrics"
 )
 
-type Measurement int
-
 const (
 	// ServiceReadyCountN is the number of services that have become ready.
 	ServiceReadyCountN = "service_ready_count"

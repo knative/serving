@@ -40,7 +40,10 @@ spec:
       - name: webhook
         # This is the Go import path for the binary that is containerized
         # and substituted here.
-        image: github.com/knative/serving/cmd/webhook
+        image: knative.dev/serving/cmd/webhook
+        ports:
+        - name: metrics-port
+          containerPort: 9090
         resources:
           # Request 2x what we saw running e2e
           requests:
@@ -60,6 +63,10 @@ spec:
               fieldPath: metadata.namespace
         - name: CONFIG_LOGGING_NAME
           value: config-logging
+        - name: CONFIG_OBSERVABILITY_NAME
+          value: config-observability
+        - name: METRICS_DOMAIN
+          value: knative.dev/serving
         securityContext:
           allowPrivilegeEscalation: false
       volumes:

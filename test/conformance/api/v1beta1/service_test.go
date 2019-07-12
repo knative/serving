@@ -19,23 +19,19 @@ limitations under the License.
 package v1beta1
 
 import (
-	"strconv"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	"github.com/knative/serving/pkg/apis/serving/v1beta1"
-	"github.com/knative/serving/test"
-	v1b1test "github.com/knative/serving/test/v1beta1"
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/ptr"
 	pkgTest "knative.dev/pkg/test"
+	"knative.dev/serving/pkg/apis/serving/v1beta1"
+	"knative.dev/serving/test"
+	v1b1test "knative.dev/serving/test/v1beta1"
 
-	rtesting "github.com/knative/serving/pkg/testing/v1beta1"
+	rtesting "knative.dev/serving/pkg/testing/v1beta1"
 )
-
-const userPort = int32(8081)
 
 // TestService tests both Creation and Update paths for a service. The test performs a series of Update/Validate steps to ensure that
 // the service transitions as expected during each step.
@@ -44,7 +40,6 @@ const userPort = int32(8081)
 // 2. Update Metadata
 //    a. Update Labels
 //    b. Update Annotations
-// 3. Update UserPort
 func TestService(t *testing.T) {
 	t.Parallel()
 	clients := test.Setup(t)
@@ -88,7 +83,7 @@ func TestService(t *testing.T) {
 
 	// Update Container Image
 	t.Log("Updating the Service to use a different image.")
-	names.Image = test.PrintPort
+	names.Image = test.PizzaPlanet2
 	image2 := pkgTest.ImagePath(names.Image)
 	if _, err := v1b1test.PatchService(t, clients, objects.Service, rtesting.WithServiceImage(image2)); err != nil {
 		t.Fatalf("Patch update for Service %s with new image %s failed: %v", names.Service, image2, err)
@@ -109,7 +104,7 @@ func TestService(t *testing.T) {
 	if err = validateControlPlane(t, clients, names, "2"); err != nil {
 		t.Error(err)
 	}
-	if err = validateDataPlane(t, clients, names, strconv.Itoa(v1beta1.DefaultUserPort)); err != nil {
+	if err = validateDataPlane(t, clients, names, test.PizzaPlanetText2); err != nil {
 		t.Error(err)
 	}
 
@@ -157,37 +152,7 @@ func TestService(t *testing.T) {
 	if err = validateControlPlane(t, clients, names, "4"); err != nil {
 		t.Error(err)
 	}
-	if err = validateDataPlane(t, clients, names, strconv.Itoa(v1beta1.DefaultUserPort)); err != nil {
-		t.Error(err)
-	}
-
-	// Update container with user port.
-	t.Logf("Updating the port of the user container for service %s to %d", names.Service, userPort)
-	withContainerPort := func(svc *v1beta1.Service) {
-		svc.Spec.Template.Spec.Containers[0].Ports = []corev1.ContainerPort{{
-			ContainerPort: userPort,
-		}}
-	}
-	if objects.Service, err = v1b1test.PatchService(t, clients, objects.Service, withContainerPort); err != nil {
-		t.Fatalf("Service %s was not updated with a new port for the user container: %v", names.Service, err)
-	}
-
-	t.Log("Waiting for the new revision to appear as LatestRevision.")
-	if names.Revision, err = v1b1test.WaitForServiceLatestRevision(clients, names); err != nil {
-		t.Fatalf("The new revision has not become ready in Service: %v", err)
-	}
-
-	t.Log("Waiting for Service to transition to Ready.")
-	if err := v1b1test.WaitForServiceState(clients.ServingBetaClient, names.Service, v1b1test.IsServiceReady, "ServiceIsReady"); err != nil {
-		t.Fatalf("Error waiting for the service to become ready for the latest revision: %v", err)
-	}
-
-	// Validate Service
-	if err = validateControlPlane(t, clients, names, "5"); err != nil {
-		t.Error(err)
-	}
-
-	if err = validateDataPlane(t, clients, names, strconv.Itoa(int(userPort))); err != nil {
+	if err = validateDataPlane(t, clients, names, test.PizzaPlanetText2); err != nil {
 		t.Error(err)
 	}
 }
@@ -265,7 +230,7 @@ func TestServiceBYOName(t *testing.T) {
 
 	// Update Container Image
 	t.Log("Updating the Service to use a different image.")
-	names.Image = test.PrintPort
+	names.Image = test.PizzaPlanet2
 	image2 := pkgTest.ImagePath(names.Image)
 	if _, err := v1b1test.PatchService(t, clients, objects.Service, rtesting.WithServiceImage(image2)); err == nil {
 		t.Fatalf("Patch update for Service %s didn't fail.", names.Service)
@@ -555,7 +520,7 @@ func TestAnnotationPropagation(t *testing.T) {
 	// Updating metadata does not trigger revision or generation
 	// change, so let's generate a change that we can watch.
 	t.Log("Updating the Service to use a different image.")
-	image2 := pkgTest.ImagePath(test.PrintPort)
+	image2 := pkgTest.ImagePath(test.PizzaPlanet2)
 	if _, err := v1b1test.PatchService(t, clients, objects.Service, rtesting.WithServiceImage(image2)); err != nil {
 		t.Fatalf("Patch update for Service %s with new image %s failed: %v", names.Service, image2, err)
 	}

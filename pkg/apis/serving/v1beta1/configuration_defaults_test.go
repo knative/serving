@@ -24,7 +24,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"knative.dev/pkg/ptr"
 
-	"github.com/knative/serving/pkg/apis/config"
+	"knative.dev/serving/pkg/apis/config"
 )
 
 func TestConfigurationDefaulting(t *testing.T) {

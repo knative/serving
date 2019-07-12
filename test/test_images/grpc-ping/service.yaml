@@ -7,7 +7,7 @@ spec:
   template:
     spec:
       containers:
-      - image: github.com/knative/serving/test/test_images/grpc-ping
+      - image: knative.dev/serving/test/test_images/grpc-ping
         ports:
         - name: h2c
           containerPort: 8080

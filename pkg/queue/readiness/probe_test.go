@@ -21,7 +21,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
-	"strings"
+	"net/url"
 	"testing"
 	"time"
 
@@ -114,7 +114,12 @@ func TestTCPSuccess(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	port := strings.TrimPrefix(ts.URL, "http://127.0.0.1:")
+	tsURL, err := url.Parse(ts.URL)
+	if err != nil {
+		t.Fatalf("Failed to parse URL %s: %v", ts.URL, err)
+	}
+
+	t.Log("Port", tsURL.Port())
 
 	pb := newProbe(&corev1.Probe{
 		PeriodSeconds:    1,
@@ -123,8 +128,8 @@ func TestTCPSuccess(t *testing.T) {
 		FailureThreshold: 1,
 		Handler: corev1.Handler{
 			TCPSocket: &corev1.TCPSocketAction{
-				Host: "127.0.0.1",
-				Port: intstr.FromString(port),
+				Host: tsURL.Hostname(),
+				Port: intstr.FromString(tsURL.Port()),
 			},
 		},
 	}, t)
@@ -160,7 +165,10 @@ func TestHTTPBadResponse(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	port := strings.TrimPrefix(ts.URL, "http://127.0.0.1:")
+	tsURL, err := url.Parse(ts.URL)
+	if err != nil {
+		t.Fatalf("Failed to parse URL %s: %v", ts.URL, err)
+	}
 
 	pb := newProbe(&corev1.Probe{
 		PeriodSeconds:    1,
@@ -169,8 +177,8 @@ func TestHTTPBadResponse(t *testing.T) {
 		FailureThreshold: 1,
 		Handler: corev1.Handler{
 			HTTPGet: &corev1.HTTPGetAction{
-				Host:   "127.0.0.1",
-				Port:   intstr.FromString(port),
+				Host:   tsURL.Hostname(),
+				Port:   intstr.FromString(tsURL.Port()),
 				Scheme: corev1.URISchemeHTTP,
 			},
 		},
@@ -187,7 +195,10 @@ func TestHTTPSuccess(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	port := strings.TrimPrefix(ts.URL, "http://127.0.0.1:")
+	tsURL, err := url.Parse(ts.URL)
+	if err != nil {
+		t.Fatalf("Failed to parse URL %s: %v", ts.URL, err)
+	}
 
 	pb := newProbe(&corev1.Probe{
 		PeriodSeconds:    1,
@@ -196,8 +207,8 @@ func TestHTTPSuccess(t *testing.T) {
 		FailureThreshold: 1,
 		Handler: corev1.Handler{
 			HTTPGet: &corev1.HTTPGetAction{
-				Host:   "127.0.0.1",
-				Port:   intstr.FromString(port),
+				Host:   tsURL.Hostname(),
+				Port:   intstr.FromString(tsURL.Port()),
 				Scheme: corev1.URISchemeHTTP,
 			},
 		},
@@ -215,7 +226,10 @@ func TestHTTPTimeout(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	port := strings.TrimPrefix(ts.URL, "http://127.0.0.1:")
+	tsURL, err := url.Parse(ts.URL)
+	if err != nil {
+		t.Fatalf("Failed to parse URL %s: %v", ts.URL, err)
+	}
 
 	pb := newProbe(&corev1.Probe{
 		PeriodSeconds:    1,
@@ -224,8 +238,8 @@ func TestHTTPTimeout(t *testing.T) {
 		FailureThreshold: 1,
 		Handler: corev1.Handler{
 			HTTPGet: &corev1.HTTPGetAction{
-				Host: "127.0.0.1",
-				Port: intstr.FromString(port),
+				Host: tsURL.Hostname(),
+				Port: intstr.FromString(tsURL.Port()),
 			},
 		},
 	}, t)
@@ -242,7 +256,10 @@ func TestHTTPSuccessWithDelay(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	port := strings.TrimPrefix(ts.URL, "http://127.0.0.1:")
+	tsURL, err := url.Parse(ts.URL)
+	if err != nil {
+		t.Fatalf("Failed to parse URL %s: %v", ts.URL, err)
+	}
 
 	pb := newProbe(&corev1.Probe{
 		PeriodSeconds:    1,
@@ -251,8 +268,8 @@ func TestHTTPSuccessWithDelay(t *testing.T) {
 		FailureThreshold: 1,
 		Handler: corev1.Handler{
 			HTTPGet: &corev1.HTTPGetAction{
-				Host:   "127.0.0.1",
-				Port:   intstr.FromString(port),
+				Host:   tsURL.Hostname(),
+				Port:   intstr.FromString(tsURL.Port()),
 				Scheme: corev1.URISchemeHTTP,
 			},
 		},
@@ -276,7 +293,10 @@ func TestKnHTTPSuccessWithRetry(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	port := strings.TrimPrefix(ts.URL, "http://127.0.0.1:")
+	tsURL, err := url.Parse(ts.URL)
+	if err != nil {
+		t.Fatalf("Failed to parse URL %s: %v", ts.URL, err)
+	}
 
 	pb := newProbe(&corev1.Probe{
 		PeriodSeconds:    0,
@@ -285,8 +305,8 @@ func TestKnHTTPSuccessWithRetry(t *testing.T) {
 		FailureThreshold: 0,
 		Handler: corev1.Handler{
 			HTTPGet: &corev1.HTTPGetAction{
-				Host:   "127.0.0.1",
-				Port:   intstr.FromString(port),
+				Host:   tsURL.Hostname(),
+				Port:   intstr.FromString(tsURL.Port()),
 				Scheme: corev1.URISchemeHTTP,
 			},
 		},
@@ -307,7 +327,10 @@ func TestKnHTTPSuccessWithThreshold(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	port := strings.TrimPrefix(ts.URL, "http://127.0.0.1:")
+	tsURL, err := url.Parse(ts.URL)
+	if err != nil {
+		t.Fatalf("Failed to parse URL %s: %v", ts.URL, err)
+	}
 
 	pb := newProbe(&corev1.Probe{
 		PeriodSeconds:    0,
@@ -316,8 +339,8 @@ func TestKnHTTPSuccessWithThreshold(t *testing.T) {
 		FailureThreshold: 0,
 		Handler: corev1.Handler{
 			HTTPGet: &corev1.HTTPGetAction{
-				Host:   "127.0.0.1",
-				Port:   intstr.FromString(port),
+				Host:   tsURL.Hostname(),
+				Port:   intstr.FromString(tsURL.Port()),
 				Scheme: corev1.URISchemeHTTP,
 			},
 		},
@@ -349,7 +372,10 @@ func TestKnHTTPSuccessWithThresholdAndFailure(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	port := strings.TrimPrefix(ts.URL, "http://127.0.0.1:")
+	tsURL, err := url.Parse(ts.URL)
+	if err != nil {
+		t.Fatalf("Failed to parse URL %s: %v", ts.URL, err)
+	}
 
 	pb := newProbe(&corev1.Probe{
 		PeriodSeconds:    0,
@@ -358,8 +384,8 @@ func TestKnHTTPSuccessWithThresholdAndFailure(t *testing.T) {
 		FailureThreshold: 0,
 		Handler: corev1.Handler{
 			HTTPGet: &corev1.HTTPGetAction{
-				Host: "127.0.0.1",
-				Port: intstr.FromString(port),
+				Host: tsURL.Hostname(),
+				Port: intstr.FromString(tsURL.Port()),
 				HTTPHeaders: []corev1.HTTPHeader{{
 					Name:  "Test-key",
 					Value: "Test-value",
@@ -380,12 +406,15 @@ func TestKnHTTPSuccessWithThresholdAndFailure(t *testing.T) {
 
 func TestKnHTTPTimeoutFailure(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		time.Sleep(200 * time.Millisecond)
+		time.Sleep(1 * time.Second)
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer ts.Close()
 
-	port := strings.TrimPrefix(ts.URL, "http://127.0.0.1:")
+	tsURL, err := url.Parse(ts.URL)
+	if err != nil {
+		t.Fatalf("Failed to parse URL %s: %v", ts.URL, err)
+	}
 
 	pb := newProbe(&corev1.Probe{
 		PeriodSeconds:    0,
@@ -394,8 +423,8 @@ func TestKnHTTPTimeoutFailure(t *testing.T) {
 		FailureThreshold: 0,
 		Handler: corev1.Handler{
 			HTTPGet: &corev1.HTTPGetAction{
-				Host:   "127.0.0.1",
-				Port:   intstr.FromString(port),
+				Host:   tsURL.Hostname(),
+				Port:   intstr.FromString(tsURL.Port()),
 				Scheme: corev1.URISchemeHTTP,
 			},
 		},
