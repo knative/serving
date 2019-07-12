@@ -23,13 +23,6 @@ import (
 	"sort"
 	"time"
 
-	"knative.dev/serving/pkg/apis/serving"
-	"knative.dev/serving/pkg/apis/serving/v1alpha1"
-	"knative.dev/serving/pkg/apis/serving/v1beta1"
-	listers "knative.dev/serving/pkg/client/listers/serving/v1alpha1"
-	"knative.dev/serving/pkg/reconciler"
-	configns "knative.dev/serving/pkg/reconciler/configuration/config"
-	"knative.dev/serving/pkg/reconciler/configuration/resources"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -39,6 +32,13 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
+	"knative.dev/serving/pkg/apis/serving"
+	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	"knative.dev/serving/pkg/apis/serving/v1beta1"
+	listers "knative.dev/serving/pkg/client/listers/serving/v1alpha1"
+	"knative.dev/serving/pkg/reconciler"
+	configns "knative.dev/serving/pkg/reconciler/configuration/config"
+	"knative.dev/serving/pkg/reconciler/configuration/resources"
 )
 
 // Reconciler implements controller.Reconciler for Configuration resources.

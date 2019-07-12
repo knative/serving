@@ -26,15 +26,15 @@ import (
 	"time"
 
 	// These are the fake informers we want setup.
+	fakedynamicclient "knative.dev/pkg/injection/clients/dynamicclient/fake"
+	fakekubeclient "knative.dev/pkg/injection/clients/kubeclient/fake"
+	fakeendpointsinformer "knative.dev/pkg/injection/informers/kubeinformers/corev1/endpoints/fake"
+	fakeserviceinformer "knative.dev/pkg/injection/informers/kubeinformers/corev1/service/fake"
 	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
 	fakepainformer "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/podautoscaler/fake"
 	fakesksinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/serverlessservice/fake"
 	fakerevisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/revision/fake"
 	"knative.dev/serving/pkg/reconciler"
-	fakedynamicclient "knative.dev/pkg/injection/clients/dynamicclient/fake"
-	fakekubeclient "knative.dev/pkg/injection/clients/kubeclient/fake"
-	fakeendpointsinformer "knative.dev/pkg/injection/informers/kubeinformers/corev1/endpoints/fake"
-	fakeserviceinformer "knative.dev/pkg/injection/informers/kubeinformers/corev1/service/fake"
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -43,6 +43,13 @@ import (
 	"go.uber.org/atomic"
 	"golang.org/x/sync/errgroup"
 
+	perrors "github.com/pkg/errors"
+	"knative.dev/pkg/configmap"
+	"knative.dev/pkg/controller"
+	logtesting "knative.dev/pkg/logging/testing"
+	"knative.dev/pkg/ptr"
+	"knative.dev/pkg/system"
+	_ "knative.dev/pkg/system/testing"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	asv1a1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	nv1a1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
@@ -56,13 +63,6 @@ import (
 	aresources "knative.dev/serving/pkg/reconciler/autoscaling/resources"
 	revisionresources "knative.dev/serving/pkg/reconciler/revision/resources"
 	presources "knative.dev/serving/pkg/resources"
-	perrors "github.com/pkg/errors"
-	"knative.dev/pkg/configmap"
-	"knative.dev/pkg/controller"
-	logtesting "knative.dev/pkg/logging/testing"
-	"knative.dev/pkg/ptr"
-	"knative.dev/pkg/system"
-	_ "knative.dev/pkg/system/testing"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -71,9 +71,9 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgotesting "k8s.io/client-go/testing"
 
+	. "knative.dev/pkg/reconciler/testing"
 	. "knative.dev/serving/pkg/reconciler/testing/v1alpha1"
 	. "knative.dev/serving/pkg/testing"
-	. "knative.dev/pkg/reconciler/testing"
 )
 
 // TODO(#3591): Convert KPA tests to table tests.

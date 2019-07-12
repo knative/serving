@@ -30,6 +30,7 @@ import (
 	"go.opencensus.io/trace"
 	"go.uber.org/zap"
 
+	"knative.dev/pkg/logging/logkey"
 	"knative.dev/serving/pkg/activator"
 	"knative.dev/serving/pkg/activator/util"
 	"knative.dev/serving/pkg/apis/networking"
@@ -41,7 +42,6 @@ import (
 	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/network/prober"
 	"knative.dev/serving/pkg/queue"
-	"knative.dev/pkg/logging/logkey"
 
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/sets"

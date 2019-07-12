@@ -20,12 +20,6 @@ import (
 	"math"
 	"strconv"
 
-	"knative.dev/serving/pkg/apis/networking"
-	"knative.dev/serving/pkg/apis/serving"
-	"knative.dev/serving/pkg/apis/serving/v1alpha1"
-	"knative.dev/serving/pkg/autoscaler"
-	"knative.dev/serving/pkg/deployment"
-	"knative.dev/serving/pkg/metrics"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -33,6 +27,12 @@ import (
 	pkgmetrics "knative.dev/pkg/metrics"
 	"knative.dev/pkg/ptr"
 	"knative.dev/pkg/system"
+	"knative.dev/serving/pkg/apis/networking"
+	"knative.dev/serving/pkg/apis/serving"
+	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	"knative.dev/serving/pkg/autoscaler"
+	"knative.dev/serving/pkg/deployment"
+	"knative.dev/serving/pkg/metrics"
 )
 
 const requestQueueHTTPPortName = "queue-port"

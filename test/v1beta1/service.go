@@ -22,10 +22,6 @@ import (
 	"fmt"
 	"testing"
 
-	"knative.dev/serving/pkg/apis/serving/v1beta1"
-	serviceresourcenames "knative.dev/serving/pkg/reconciler/service/resources/names"
-	rtesting "knative.dev/serving/pkg/testing/v1beta1"
-	"knative.dev/serving/test"
 	"github.com/mattbaird/jsonpatch"
 	"github.com/pkg/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -33,6 +29,10 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	ptest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/logging"
+	"knative.dev/serving/pkg/apis/serving/v1beta1"
+	serviceresourcenames "knative.dev/serving/pkg/reconciler/service/resources/names"
+	rtesting "knative.dev/serving/pkg/testing/v1beta1"
+	"knative.dev/serving/test"
 )
 
 func validateCreatedServiceStatus(clients *test.Clients, names *test.ResourceNames) error {

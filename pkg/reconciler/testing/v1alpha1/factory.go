@@ -21,12 +21,12 @@ import (
 	"encoding/json"
 	"testing"
 
-	fakecertmanagerclient "knative.dev/serving/pkg/client/certmanager/injection/client/fake"
-	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
 	fakecachingclient "knative.dev/caching/pkg/client/injection/client/fake"
 	fakesharedclient "knative.dev/pkg/client/injection/client/fake"
 	fakedynamicclient "knative.dev/pkg/injection/clients/dynamicclient/fake"
 	fakekubeclient "knative.dev/pkg/injection/clients/kubeclient/fake"
+	fakecertmanagerclient "knative.dev/serving/pkg/client/certmanager/injection/client/fake"
+	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
 
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
@@ -39,8 +39,8 @@ import (
 	ktesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/record"
 
-	"knative.dev/serving/pkg/reconciler"
 	. "knative.dev/pkg/reconciler/testing"
+	"knative.dev/serving/pkg/reconciler"
 )
 
 const (

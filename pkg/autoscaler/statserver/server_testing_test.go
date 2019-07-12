@@ -19,8 +19,8 @@ package statserver
 import (
 	"net"
 
-	"knative.dev/serving/pkg/autoscaler"
 	"go.uber.org/zap"
+	"knative.dev/serving/pkg/autoscaler"
 )
 
 const testAddress = "127.0.0.1:0"

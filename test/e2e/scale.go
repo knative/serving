@@ -22,14 +22,14 @@ import (
 	"testing"
 	"time"
 
-	"knative.dev/serving/pkg/apis/serving/v1alpha1"
-	serviceresourcenames "knative.dev/serving/pkg/reconciler/service/resources/names"
-	"knative.dev/serving/test"
-	v1a1test "knative.dev/serving/test/v1alpha1"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	pkgTest "knative.dev/pkg/test"
+	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	serviceresourcenames "knative.dev/serving/pkg/reconciler/service/resources/names"
+	"knative.dev/serving/test"
+	v1a1test "knative.dev/serving/test/v1alpha1"
 
 	"knative.dev/serving/pkg/pool"
 

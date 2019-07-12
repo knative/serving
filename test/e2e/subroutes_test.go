@@ -22,12 +22,12 @@ import (
 	"strings"
 	"testing"
 
-	"knative.dev/serving/pkg/network"
-	"knative.dev/serving/pkg/reconciler/route/resources/labels"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"knative.dev/pkg/apis/duck"
 	"knative.dev/pkg/test/logstream"
+	"knative.dev/serving/pkg/network"
+	"knative.dev/serving/pkg/reconciler/route/resources/labels"
 
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving/v1beta1"

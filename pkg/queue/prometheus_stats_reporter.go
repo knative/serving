@@ -22,9 +22,9 @@ import (
 	"net/http"
 	"time"
 
-	"knative.dev/serving/pkg/autoscaler"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"knative.dev/serving/pkg/autoscaler"
 )
 
 const (

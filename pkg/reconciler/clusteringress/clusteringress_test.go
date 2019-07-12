@@ -23,13 +23,13 @@ import (
 	"time"
 
 	// Inject our fakes
-	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
-	_ "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/clusteringress/fake"
 	fakesharedclient "knative.dev/pkg/client/injection/client/fake"
 	_ "knative.dev/pkg/client/injection/informers/istio/v1alpha3/gateway/fake"
 	_ "knative.dev/pkg/client/injection/informers/istio/v1alpha3/virtualservice/fake"
 	fakekubeclient "knative.dev/pkg/injection/clients/kubeclient/fake"
 	_ "knative.dev/pkg/injection/informers/kubeinformers/corev1/secret/fake"
+	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
+	_ "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/clusteringress/fake"
 
 	"github.com/google/go-cmp/cmp"
 	"golang.org/x/sync/errgroup"
@@ -46,6 +46,9 @@ import (
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 
+	logtesting "knative.dev/pkg/logging/testing"
+	"knative.dev/pkg/system"
+	_ "knative.dev/pkg/system/testing"
 	apiconfig "knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/networking/v1alpha1"
@@ -56,12 +59,9 @@ import (
 	"knative.dev/serving/pkg/reconciler/ingress/config"
 	"knative.dev/serving/pkg/reconciler/ingress/resources"
 	presources "knative.dev/serving/pkg/resources"
-	logtesting "knative.dev/pkg/logging/testing"
-	"knative.dev/pkg/system"
-	_ "knative.dev/pkg/system/testing"
 
-	. "knative.dev/serving/pkg/reconciler/testing/v1alpha1"
 	. "knative.dev/pkg/reconciler/testing"
+	. "knative.dev/serving/pkg/reconciler/testing/v1alpha1"
 )
 
 const (

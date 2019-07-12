@@ -24,8 +24,8 @@ import (
 	"net/url"
 	"time"
 
-	"knative.dev/serving/pkg/network"
 	corev1 "k8s.io/api/core/v1"
+	"knative.dev/serving/pkg/network"
 )
 
 // HTTPProbeConfigOptions holds the HTTP probe config options

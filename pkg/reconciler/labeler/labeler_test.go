@@ -30,16 +30,16 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgotesting "k8s.io/client-go/testing"
 
-	"knative.dev/serving/pkg/apis/serving/v1alpha1"
-	"knative.dev/serving/pkg/apis/serving/v1beta1"
-	"knative.dev/serving/pkg/reconciler"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/kmeta"
 	logtesting "knative.dev/pkg/logging/testing"
+	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	"knative.dev/serving/pkg/apis/serving/v1beta1"
+	"knative.dev/serving/pkg/reconciler"
 
-	. "knative.dev/serving/pkg/reconciler/testing/v1alpha1"
 	. "knative.dev/pkg/reconciler/testing"
+	. "knative.dev/serving/pkg/reconciler/testing/v1alpha1"
 )
 
 // This is heavily based on the way the OpenShift Ingress controller tests its reconciliation method.

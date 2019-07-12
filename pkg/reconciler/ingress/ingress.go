@@ -22,13 +22,13 @@ import (
 	"fmt"
 	"reflect"
 
-	ingressinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/ingress"
-	listers "knative.dev/serving/pkg/client/listers/networking/v1alpha1"
 	"knative.dev/pkg/apis/istio/v1alpha3"
 	gatewayinformer "knative.dev/pkg/client/injection/informers/istio/v1alpha3/gateway"
 	virtualserviceinformer "knative.dev/pkg/client/injection/informers/istio/v1alpha3/virtualservice"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/system"
+	ingressinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/ingress"
+	listers "knative.dev/serving/pkg/client/listers/networking/v1alpha1"
 
 	istiolisters "knative.dev/pkg/client/listers/istio/v1alpha3"
 	"knative.dev/pkg/configmap"
@@ -36,6 +36,7 @@ import (
 	secretinformer "knative.dev/pkg/injection/informers/kubeinformers/corev1/secret"
 	"knative.dev/pkg/tracker"
 
+	"go.uber.org/zap"
 	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
@@ -43,7 +44,6 @@ import (
 	"knative.dev/serving/pkg/reconciler"
 	"knative.dev/serving/pkg/reconciler/ingress/config"
 	"knative.dev/serving/pkg/reconciler/ingress/resources"
-	"go.uber.org/zap"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"

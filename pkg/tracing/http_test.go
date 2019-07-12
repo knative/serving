@@ -21,10 +21,10 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"knative.dev/serving/pkg/tracing/config"
 	openzipkin "github.com/openzipkin/zipkin-go"
 	zipkinreporter "github.com/openzipkin/zipkin-go/reporter"
 	reporterrecorder "github.com/openzipkin/zipkin-go/reporter/recorder"
+	"knative.dev/serving/pkg/tracing/config"
 )
 
 type fakeWriter struct {
