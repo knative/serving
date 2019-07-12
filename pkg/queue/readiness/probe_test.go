@@ -114,12 +114,12 @@ func TestTCPSuccess(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	tsUrl, err := url.Parse(ts.URL)
+	tsURL, err := url.Parse(ts.URL)
 	if err != nil {
 		t.Fatalf("Failed to parse URL %s: %v", ts.URL, err)
 	}
 
-	t.Log("Port", tsUrl.Port())
+	t.Log("Port", tsURL.Port())
 
 	pb := newProbe(&corev1.Probe{
 		PeriodSeconds:    1,
@@ -128,8 +128,8 @@ func TestTCPSuccess(t *testing.T) {
 		FailureThreshold: 1,
 		Handler: corev1.Handler{
 			TCPSocket: &corev1.TCPSocketAction{
-				Host: tsUrl.Hostname(),
-				Port: intstr.FromString(tsUrl.Port()),
+				Host: tsURL.Hostname(),
+				Port: intstr.FromString(tsURL.Port()),
 			},
 		},
 	}, t)
@@ -165,7 +165,7 @@ func TestHTTPBadResponse(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	tsUrl, err := url.Parse(ts.URL)
+	tsURL, err := url.Parse(ts.URL)
 	if err != nil {
 		t.Fatalf("Failed to parse URL %s: %v", ts.URL, err)
 	}
@@ -177,8 +177,8 @@ func TestHTTPBadResponse(t *testing.T) {
 		FailureThreshold: 1,
 		Handler: corev1.Handler{
 			HTTPGet: &corev1.HTTPGetAction{
-				Host:   tsUrl.Hostname(),
-				Port:   intstr.FromString(tsUrl.Port()),
+				Host:   tsURL.Hostname(),
+				Port:   intstr.FromString(tsURL.Port()),
 				Scheme: corev1.URISchemeHTTP,
 			},
 		},
@@ -195,7 +195,7 @@ func TestHTTPSuccess(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	tsUrl, err := url.Parse(ts.URL)
+	tsURL, err := url.Parse(ts.URL)
 	if err != nil {
 		t.Fatalf("Failed to parse URL %s: %v", ts.URL, err)
 	}
@@ -207,8 +207,8 @@ func TestHTTPSuccess(t *testing.T) {
 		FailureThreshold: 1,
 		Handler: corev1.Handler{
 			HTTPGet: &corev1.HTTPGetAction{
-				Host:   tsUrl.Hostname(),
-				Port:   intstr.FromString(tsUrl.Port()),
+				Host:   tsURL.Hostname(),
+				Port:   intstr.FromString(tsURL.Port()),
 				Scheme: corev1.URISchemeHTTP,
 			},
 		},
@@ -226,7 +226,7 @@ func TestHTTPTimeout(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	tsUrl, err := url.Parse(ts.URL)
+	tsURL, err := url.Parse(ts.URL)
 	if err != nil {
 		t.Fatalf("Failed to parse URL %s: %v", ts.URL, err)
 	}
@@ -238,8 +238,8 @@ func TestHTTPTimeout(t *testing.T) {
 		FailureThreshold: 1,
 		Handler: corev1.Handler{
 			HTTPGet: &corev1.HTTPGetAction{
-				Host: tsUrl.Hostname(),
-				Port: intstr.FromString(tsUrl.Port()),
+				Host: tsURL.Hostname(),
+				Port: intstr.FromString(tsURL.Port()),
 			},
 		},
 	}, t)
@@ -256,7 +256,7 @@ func TestHTTPSuccessWithDelay(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	tsUrl, err := url.Parse(ts.URL)
+	tsURL, err := url.Parse(ts.URL)
 	if err != nil {
 		t.Fatalf("Failed to parse URL %s: %v", ts.URL, err)
 	}
@@ -268,8 +268,8 @@ func TestHTTPSuccessWithDelay(t *testing.T) {
 		FailureThreshold: 1,
 		Handler: corev1.Handler{
 			HTTPGet: &corev1.HTTPGetAction{
-				Host:   tsUrl.Hostname(),
-				Port:   intstr.FromString(tsUrl.Port()),
+				Host:   tsURL.Hostname(),
+				Port:   intstr.FromString(tsURL.Port()),
 				Scheme: corev1.URISchemeHTTP,
 			},
 		},
@@ -293,7 +293,7 @@ func TestKnHTTPSuccessWithRetry(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	tsUrl, err := url.Parse(ts.URL)
+	tsURL, err := url.Parse(ts.URL)
 	if err != nil {
 		t.Fatalf("Failed to parse URL %s: %v", ts.URL, err)
 	}
@@ -305,8 +305,8 @@ func TestKnHTTPSuccessWithRetry(t *testing.T) {
 		FailureThreshold: 0,
 		Handler: corev1.Handler{
 			HTTPGet: &corev1.HTTPGetAction{
-				Host:   tsUrl.Hostname(),
-				Port:   intstr.FromString(tsUrl.Port()),
+				Host:   tsURL.Hostname(),
+				Port:   intstr.FromString(tsURL.Port()),
 				Scheme: corev1.URISchemeHTTP,
 			},
 		},
@@ -327,7 +327,7 @@ func TestKnHTTPSuccessWithThreshold(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	tsUrl, err := url.Parse(ts.URL)
+	tsURL, err := url.Parse(ts.URL)
 	if err != nil {
 		t.Fatalf("Failed to parse URL %s: %v", ts.URL, err)
 	}
@@ -339,8 +339,8 @@ func TestKnHTTPSuccessWithThreshold(t *testing.T) {
 		FailureThreshold: 0,
 		Handler: corev1.Handler{
 			HTTPGet: &corev1.HTTPGetAction{
-				Host:   tsUrl.Hostname(),
-				Port:   intstr.FromString(tsUrl.Port()),
+				Host:   tsURL.Hostname(),
+				Port:   intstr.FromString(tsURL.Port()),
 				Scheme: corev1.URISchemeHTTP,
 			},
 		},
@@ -372,7 +372,7 @@ func TestKnHTTPSuccessWithThresholdAndFailure(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	tsUrl, err := url.Parse(ts.URL)
+	tsURL, err := url.Parse(ts.URL)
 	if err != nil {
 		t.Fatalf("Failed to parse URL %s: %v", ts.URL, err)
 	}
@@ -384,8 +384,8 @@ func TestKnHTTPSuccessWithThresholdAndFailure(t *testing.T) {
 		FailureThreshold: 0,
 		Handler: corev1.Handler{
 			HTTPGet: &corev1.HTTPGetAction{
-				Host: tsUrl.Hostname(),
-				Port: intstr.FromString(tsUrl.Port()),
+				Host: tsURL.Hostname(),
+				Port: intstr.FromString(tsURL.Port()),
 				HTTPHeaders: []corev1.HTTPHeader{{
 					Name:  "Test-key",
 					Value: "Test-value",
@@ -411,7 +411,7 @@ func TestKnHTTPTimeoutFailure(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	tsUrl, err := url.Parse(ts.URL)
+	tsURL, err := url.Parse(ts.URL)
 	if err != nil {
 		t.Fatalf("Failed to parse URL %s: %v", ts.URL, err)
 	}
@@ -423,8 +423,8 @@ func TestKnHTTPTimeoutFailure(t *testing.T) {
 		FailureThreshold: 0,
 		Handler: corev1.Handler{
 			HTTPGet: &corev1.HTTPGetAction{
-				Host:   tsUrl.Hostname(),
-				Port:   intstr.FromString(tsUrl.Port()),
+				Host:   tsURL.Hostname(),
+				Port:   intstr.FromString(tsURL.Port()),
 				Scheme: corev1.URISchemeHTTP,
 			},
 		},
