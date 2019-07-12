@@ -20,28 +20,12 @@ import (
 	"strings"
 	"text/template"
 
-	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
-	"knative.dev/pkg/metrics"
 )
 
 const (
 	defaultLogURLTemplate = "http://localhost:8001/api/v1/namespaces/knative-monitoring/services/kibana-logging/proxy/app/kibana#/discover?_a=(query:(match:(kubernetes.labels.knative-dev%2FrevisionUID:(query:'${REVISION_UID}',type:phrase))))"
 )
-
-// UpdateExporterFromConfigMap returns a helper func that can be used to update the exporter
-// when a config map is updated
-func UpdateExporterFromConfigMap(component string, logger *zap.SugaredLogger) func(configMap *corev1.ConfigMap) {
-	return func(configMap *corev1.ConfigMap) {
-		if err := metrics.UpdateExporter(metrics.ExporterOptions{
-			Domain:    metrics.Domain(),
-			Component: component,
-			ConfigMap: configMap.Data,
-		}, logger); err != nil {
-			logger.Errorw("Error updating metrics exporter", zap.Error(err))
-		}
-	}
-}
 
 // ObservabilityConfig contains the configuration defined in the observability ConfigMap.
 type ObservabilityConfig struct {
