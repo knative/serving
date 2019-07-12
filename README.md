@@ -1,5 +1,5 @@
 # Knative Serving
-
+ 
 [![GoDoc](https://godoc.org/github.com/knative/serving?status.svg)](https://godoc.org/github.com/knative/serving)
 [![Go Report Card](https://goreportcard.com/badge/knative/serving)](https://goreportcard.com/report/knative/serving)
 [![Releases](https://img.shields.io/github/release-pre/knative/serving.svg)](https://github.com/knative/serving/releases)
