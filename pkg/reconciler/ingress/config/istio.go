@@ -36,9 +36,6 @@ const (
 
 	// LocalGatewayKeyPrefix is the prefix of all keys to configure Istio gateways for public & private ClusterIngresses.
 	LocalGatewayKeyPrefix = "local-gateway."
-
-	// MeshGatewayName is the name of the special 'mesh' Istio Gateway.
-	MeshGatewayName = "mesh"
 )
 
 var (

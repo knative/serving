@@ -18,7 +18,6 @@ package health
 
 import (
 	"crypto/tls"
-	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -88,7 +87,7 @@ func HTTPProbe(config HTTPProbeConfigOptions) error {
 	}
 
 	if !IsHTTPProbeReady(res) {
-		return errors.New(fmt.Sprintf("HTTP probe did not respond Ready, got status code: %d", res.StatusCode))
+		return fmt.Errorf("HTTP probe did not respond Ready, got status code: %d", res.StatusCode)
 	}
 
 	return nil

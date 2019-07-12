@@ -78,7 +78,7 @@ func (p *Probe) ProbeContainer() bool {
 
 	if err != nil {
 		// Using Fprintf for a concise error message in the event log.
-		fmt.Fprintf(os.Stderr, err.Error())
+		fmt.Fprint(os.Stderr, err.Error())
 		return false
 	}
 
