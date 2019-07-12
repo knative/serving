@@ -106,9 +106,9 @@ func WithKPAClass(pa *autoscalingv1alpha1.PodAutoscaler) {
 	pa.Annotations[autoscaling.ClassAnnotationKey] = autoscaling.KPA
 }
 
-// WithContainerConcurrency returns a PodAutoscalerOption which sets
+// WithPAContainerConcurrency returns a PodAutoscalerOption which sets
 // the PodAutoscaler containerConcurrency to the provided value.
-func WithContainerConcurrency(cc v1beta1.RevisionContainerConcurrencyType) PodAutoscalerOption {
+func WithPAContainerConcurrency(cc v1beta1.RevisionContainerConcurrencyType) PodAutoscalerOption {
 	return func(pa *autoscalingv1alpha1.PodAutoscaler) {
 		pa.Spec.ContainerConcurrency = cc
 	}
