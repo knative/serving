@@ -3,10 +3,14 @@
 approvers:
 - productivity-approvers
 - serving-api-approvers
+- networking-approvers
+- autoscaling-approvers
 
 reviewers:
 - productivity-reviewers
 - serving-api-approvers
+- networking-approvers
+- autoscaling-approvers
 
 labels:
 - area/test-and-release

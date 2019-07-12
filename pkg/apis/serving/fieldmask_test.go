@@ -19,10 +19,10 @@ package serving
 import (
 	"testing"
 
-	"knative.dev/pkg/kmp"
-	"knative.dev/pkg/ptr"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"knative.dev/pkg/kmp"
+	"knative.dev/pkg/ptr"
 )
 
 func TestVolumeMask(t *testing.T) {

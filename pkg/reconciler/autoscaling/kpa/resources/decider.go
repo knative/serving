@@ -46,14 +46,18 @@ type Deciders interface {
 // into account the PA's ContainerConcurrency and the relevant
 // autoscaling annotation.
 func MakeDecider(ctx context.Context, pa *v1alpha1.PodAutoscaler, config *autoscaler.Config, svc string) *autoscaler.Decider {
-	panicThresholdPercentage, ok := pa.PanicThresholdPercentage()
-	if !ok {
-		panicThresholdPercentage = config.PanicThresholdPercentage
+	panicThresholdPercentage := config.PanicThresholdPercentage
+	if x, ok := pa.PanicThresholdPercentage(); ok {
+		panicThresholdPercentage = x
 	}
 
 	target, total := resources.ResolveConcurrency(pa, config)
 	panicThreshold := target * panicThresholdPercentage / 100.0
 
+	tbc := config.TargetBurstCapacity
+	if x, ok := pa.TargetBC(); ok {
+		tbc = x
+	}
 	return &autoscaler.Decider{
 		ObjectMeta: *pa.ObjectMeta.DeepCopy(),
 		Spec: autoscaler.DeciderSpec{
@@ -61,7 +65,7 @@ func MakeDecider(ctx context.Context, pa *v1alpha1.PodAutoscaler, config *autosc
 			MaxScaleUpRate:      config.MaxScaleUpRate,
 			TargetConcurrency:   target,
 			TotalConcurrency:    total,
-			TargetBurstCapacity: config.TargetBurstCapacity,
+			TargetBurstCapacity: tbc,
 			PanicThreshold:      panicThreshold,
 			StableWindow:        resources.StableWindow(pa, config),
 			ServiceName:         svc,

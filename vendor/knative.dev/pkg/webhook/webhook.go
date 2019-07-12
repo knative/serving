@@ -99,6 +99,10 @@ type ControllerOptions struct {
 	// TLS Client Authentication.
 	// The default value is tls.NoClientCert.
 	ClientAuth tls.ClientAuthType
+
+	// StatsReporter reports metrics about the webhook.
+	// This will be automatically initialized by the constructor if left uninitialized.
+	StatsReporter StatsReporter
 }
 
 // ResourceCallback defines a signature for resource specific (Route, Configuration, etc.)
@@ -133,6 +137,33 @@ type GenericCRD interface {
 	apis.Defaultable
 	apis.Validatable
 	runtime.Object
+}
+
+// NewAdmissionController constructs an AdmissionController
+func NewAdmissionController(
+	client kubernetes.Interface,
+	opts ControllerOptions,
+	handlers map[schema.GroupVersionKind]GenericCRD,
+	logger *zap.SugaredLogger,
+	ctx func(context.Context) context.Context,
+	disallowUnknownFields bool) (*AdmissionController, error) {
+
+	if opts.StatsReporter == nil {
+		reporter, err := NewStatsReporter()
+		if err != nil {
+			return nil, err
+		}
+		opts.StatsReporter = reporter
+	}
+
+	return &AdmissionController{
+		Client:                client,
+		Options:               opts,
+		Handlers:              handlers,
+		Logger:                logger,
+		WithContext:           ctx,
+		DisallowUnknownFields: disallowUnknownFields,
+	}, nil
 }
 
 // GetAPIServerExtensionCACert gets the Kubernetes aggregate apiserver
@@ -408,6 +439,7 @@ func (ac *AdmissionController) register(
 // ServeHTTP implements the external admission webhook for mutating
 // serving resources.
 func (ac *AdmissionController) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	var ttStart = time.Now()
 	logger := ac.Logger
 	logger.Infof("Webhook ServeHTTP request=%#v", r)
 
@@ -451,6 +483,11 @@ func (ac *AdmissionController) ServeHTTP(w http.ResponseWriter, r *http.Request)
 	if err := json.NewEncoder(w).Encode(response); err != nil {
 		http.Error(w, fmt.Sprintf("could encode response: %v", err), http.StatusInternalServerError)
 		return
+	}
+
+	if ac.Options.StatsReporter != nil {
+		// Only report valid requests
+		ac.Options.StatsReporter.ReportRequest(review.Request, response.Response, time.Since(ttStart))
 	}
 }
 

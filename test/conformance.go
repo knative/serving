@@ -28,15 +28,14 @@ import (
 // Constants for test images located in test/test_images.
 const (
 	// Test image names
-	BloatingCow         = "bloatingcow"
+	Autoscale           = "autoscale"
 	Failing             = "failing"
 	HelloVolume         = "hellovolume"
 	HelloWorld          = "helloworld"
 	HTTPProxy           = "httpproxy"
-	InvalidHelloWorld   = "invalidhelloworld"
+	InvalidHelloWorld   = "invalidhelloworld" // Not a real image
 	PizzaPlanet1        = "pizzaplanetv1"
 	PizzaPlanet2        = "pizzaplanetv2"
-	PrintPort           = "printport"
 	Protocols           = "protocols"
 	Runtime             = "runtime"
 	SingleThreadedImage = "singlethreaded"

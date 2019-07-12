@@ -18,9 +18,9 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"math"
 	"net/http"
+	"strconv"
 	"sync"
 	"time"
 
@@ -76,28 +76,81 @@ func primes(N int) []int {
 	return primes
 }
 
+func bloat(mb int) string {
+	b := make([]byte, mb*1024*1024)
+	for i := 0; i < len(b); i++ {
+		b[i] = 1
+	}
+	return fmt.Sprintf("Allocated %v Mb of memory.\n", mb)
+}
+
+func prime(max int) string {
+	p := primes(max)
+	if len(p) == 0 {
+		return fmt.Sprintf("There are no primes smaller than %d.\n", max)
+	}
+	return fmt.Sprintf("The largest prime less than %d is %d.\n", max, p[len(p)-1])
+}
+
+func sleep(ms int) string {
+	start := time.Now()
+	time.Sleep(time.Duration(ms) * time.Millisecond)
+	return fmt.Sprintf("Slept for %v.\n", time.Since(start))
+}
+
+func parseIntParam(r *http.Request, param string) (int, bool, error) {
+	value := r.URL.Query().Get(param)
+	if value == "" {
+		return 0, false, nil
+	}
+	i, err := strconv.Atoi(value)
+	if err != nil {
+		return 0, false, err
+	}
+	return i, true, nil
+}
+
 func handler(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
+	// Validate inputs.
+	ms, hasMs, err := parseIntParam(r, "sleep")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	max, hasMax, err := parseIntParam(r, "prime")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	mb, hasMb, err := parseIntParam(r, "bloat")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	// Consume time, cpu and memory in parallel.
 	var wg sync.WaitGroup
-	wg.Add(2)
-	go func() {
-		defer wg.Done()
-		p := primes(400000)
-		largest := p[len(p)-1]
-		msg := fmt.Sprintf("The largest prime under 400000 is %d. Enjoy your noodles!", largest)
-		fmt.Fprint(w, msg)
-		log.Print(msg)
-	}()
-	go func() {
-		defer wg.Done()
-		start := time.Now()
-		time.Sleep(time.Second)
-		msg := fmt.Sprintf("Slept for %v.", time.Since(start))
-		fmt.Fprint(w, msg)
-		log.Print(msg)
-	}()
-	wg.Wait()
+	defer wg.Wait()
+	if hasMs && ms > 0 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			fmt.Fprint(w, sleep(ms))
+		}()
+	}
+	if hasMax && max > 0 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			fmt.Fprint(w, prime(max))
+		}()
+	}
+	if hasMb && mb > 0 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			fmt.Fprint(w, bloat(mb))
+		}()
+	}
 }
 
 func main() {

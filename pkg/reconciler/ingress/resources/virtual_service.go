@@ -25,92 +25,115 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/sets"
 
-	istiov1alpha1 "knative.dev/pkg/apis/istio/common/v1alpha1"
-	"knative.dev/pkg/apis/istio/v1alpha3"
-	"knative.dev/pkg/kmeta"
-	"knative.dev/pkg/system"
 	"github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/network"
 	"github.com/knative/serving/pkg/reconciler/ingress/resources/names"
 	"github.com/knative/serving/pkg/resources"
+	istiov1alpha1 "knative.dev/pkg/apis/istio/common/v1alpha1"
+	"knative.dev/pkg/apis/istio/v1alpha3"
+	"knative.dev/pkg/kmeta"
+	"knative.dev/pkg/system"
 )
 
 // VirtualServiceNamespace gives the namespace of the child
 // VirtualServices for a given ClusterIngress.
-func VirtualServiceNamespace(_ *v1alpha1.ClusterIngress) string {
-	return system.Namespace()
+func VirtualServiceNamespace(ia v1alpha1.IngressAccessor) string {
+	if len(ia.GetNamespace()) == 0 {
+		return system.Namespace()
+	}
+	return ia.GetNamespace()
 }
 
 // MakeIngressVirtualService creates Istio VirtualService as network
 // programming for Istio Gateways other than 'mesh'.
-func MakeIngressVirtualService(ci *v1alpha1.ClusterIngress, gateways []string) *v1alpha3.VirtualService {
+func MakeIngressVirtualService(ia v1alpha1.IngressAccessor, gateways map[v1alpha1.IngressVisibility][]string) *v1alpha3.VirtualService {
+	hosts := expandedHosts(getHosts(ia))
 	vs := &v1alpha3.VirtualService{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:            names.IngressVirtualService(ci),
-			Namespace:       VirtualServiceNamespace(ci),
-			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(ci)},
-			Annotations:     ci.ObjectMeta.Annotations,
+			Name:            names.IngressVirtualService(ia),
+			Namespace:       VirtualServiceNamespace(ia),
+			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(ia)},
+			Annotations:     ia.GetAnnotations(),
 		},
-		Spec: *makeVirtualServiceSpec(ci, gateways, expandedHosts(getHosts(ci))),
+		Spec: *makeVirtualServiceSpec(ia, gateways, hosts),
 	}
 
 	// Populate the ClusterIngress labels.
 	if vs.Labels == nil {
 		vs.Labels = make(map[string]string)
 	}
-	vs.Labels[networking.ClusterIngressLabelKey] = ci.Name
 
-	ingressLabels := ci.Labels
+	if len(ia.GetNamespace()) == 0 {
+		vs.Labels[networking.ClusterIngressLabelKey] = ia.GetName()
+	}
+
+	ingressLabels := ia.GetLabels()
 	vs.Labels[serving.RouteLabelKey] = ingressLabels[serving.RouteLabelKey]
 	vs.Labels[serving.RouteNamespaceLabelKey] = ingressLabels[serving.RouteNamespaceLabelKey]
 	return vs
 }
 
-// MakeMeshVirtualService creates Istio VirtualService as network
-// programming for Istio network mesh.
-func MakeMeshVirtualService(ci *v1alpha1.ClusterIngress) *v1alpha3.VirtualService {
+// MakeMeshVirtualService creates a mesh Virtual Service
+func MakeMeshVirtualService(ia v1alpha1.IngressAccessor) *v1alpha3.VirtualService {
 	vs := &v1alpha3.VirtualService{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:            names.MeshVirtualService(ci),
-			Namespace:       VirtualServiceNamespace(ci),
-			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(ci)},
-			Annotations:     ci.ObjectMeta.Annotations,
+			Name:            names.MeshVirtualService(ia),
+			Namespace:       VirtualServiceNamespace(ia),
+			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(ia)},
+			Annotations:     ia.GetAnnotations(),
 		},
-		Spec: *makeVirtualServiceSpec(ci, []string{"mesh"}, retainLocals(getHosts(ci))),
+		Spec: *makeVirtualServiceSpec(ia, map[v1alpha1.IngressVisibility][]string{
+			v1alpha1.IngressVisibilityExternalIP:   {"mesh"},
+			v1alpha1.IngressVisibilityClusterLocal: {"mesh"},
+		}, retainLocals(getHosts(ia))),
 	}
 	// Populate the ClusterIngress labels.
-	vs.Labels = resources.UnionMaps(
-		resources.FilterMap(ci.Labels, func(k string) bool {
-			return k != serving.RouteLabelKey && k != serving.RouteNamespaceLabelKey
-		}),
-		map[string]string{networking.ClusterIngressLabelKey: ci.Name})
+
+	vs.Labels = resources.FilterMap(ia.GetLabels(), func(k string) bool {
+		return k != serving.RouteLabelKey && k != serving.RouteNamespaceLabelKey
+	})
+
+	if len(ia.GetNamespace()) == 0 {
+		vs.Labels[networking.ClusterIngressLabelKey] = ia.GetName()
+	}
+
 	return vs
 }
 
-// MakeVirtualServices creates Istio VirtualServices as network programming.
-//
-// These VirtualService specifies which Gateways and Hosts that it applies to,
-// as well as the routing rules.
-func MakeVirtualServices(ci *v1alpha1.ClusterIngress, gateways []string) []*v1alpha3.VirtualService {
-	vss := []*v1alpha3.VirtualService{MakeMeshVirtualService(ci)}
-	if len(gateways) > 0 {
-		vss = append(vss, MakeIngressVirtualService(ci, gateways))
+// MakeVirtualServices creates a mesh virtualservice and a virtual service for each gateway
+func MakeVirtualServices(ia v1alpha1.IngressAccessor, gateways map[v1alpha1.IngressVisibility][]string) []*v1alpha3.VirtualService {
+	vss := []*v1alpha3.VirtualService{MakeMeshVirtualService(ia)}
+
+	requiredGatewayCount := 0
+	if len(getPublicIngressRules(ia)) > 0 {
+		requiredGatewayCount += len(gateways[v1alpha1.IngressVisibilityExternalIP])
+	}
+
+	if len(getClusterLocalIngressRules(ia)) > 0 {
+		requiredGatewayCount += len(gateways[v1alpha1.IngressVisibilityClusterLocal])
+	}
+
+	if requiredGatewayCount > 0 {
+		vss = append(vss, MakeIngressVirtualService(ia, gateways))
 	}
 	return vss
 }
 
-func makeVirtualServiceSpec(ci *v1alpha1.ClusterIngress, gateways []string, hosts []string) *v1alpha3.VirtualServiceSpec {
+func makeVirtualServiceSpec(ia v1alpha1.IngressAccessor, gateways map[v1alpha1.IngressVisibility][]string, hosts []string) *v1alpha3.VirtualServiceSpec {
+	gw := sets.String{}
+	gw.Insert(gateways[v1alpha1.IngressVisibilityClusterLocal]...)
+	gw.Insert(gateways[v1alpha1.IngressVisibilityExternalIP]...)
 	spec := v1alpha3.VirtualServiceSpec{
-		Gateways: gateways,
+		Gateways: gw.List(),
 		Hosts:    hosts,
 	}
-	for _, rule := range ci.Spec.Rules {
+	for _, rule := range ia.GetSpec().Rules {
 		for _, p := range rule.HTTP.Paths {
 			hosts := intersect(rule.Hosts, hosts)
 			if len(hosts) != 0 {
-				spec.HTTP = append(spec.HTTP, *makeVirtualServiceRoute(hosts, &p))
+				spec.HTTP = append(spec.HTTP, *makeVirtualServiceRoute(hosts, &p, gateways[rule.Visibility]))
 			}
 		}
 	}
@@ -128,10 +151,10 @@ func makePortSelector(ios intstr.IntOrString) v1alpha3.PortSelector {
 	}
 }
 
-func makeVirtualServiceRoute(hosts []string, http *v1alpha1.HTTPIngressPath) *v1alpha3.HTTPRoute {
+func makeVirtualServiceRoute(hosts []string, http *v1alpha1.HTTPIngressPath, gateways []string) *v1alpha3.HTTPRoute {
 	matches := []v1alpha3.HTTPMatchRequest{}
 	for _, host := range expandedHosts(hosts) {
-		matches = append(matches, makeMatch(host, http.Path))
+		matches = append(matches, makeMatch(host, http.Path, gateways))
 	}
 	weights := []v1alpha3.HTTPRouteDestination{}
 	for _, split := range http.Splits {
@@ -218,8 +241,9 @@ func expandedHosts(hosts []string) []string {
 	return dedup(expanded)
 }
 
-func makeMatch(host string, pathRegExp string) v1alpha3.HTTPMatchRequest {
+func makeMatch(host string, pathRegExp string, gateways []string) v1alpha3.HTTPMatchRequest {
 	match := v1alpha3.HTTPMatchRequest{
+		Gateways: gateways,
 		Authority: &istiov1alpha1.StringMatch{
 			Regex: hostRegExp(host),
 		},
@@ -242,9 +266,9 @@ func hostRegExp(host string) string {
 	return fmt.Sprintf("^%s%s$", regexp.QuoteMeta(host), portMatch)
 }
 
-func getHosts(ci *v1alpha1.ClusterIngress) []string {
-	hosts := make([]string, 0, len(ci.Spec.Rules))
-	for _, rule := range ci.Spec.Rules {
+func getHosts(ia v1alpha1.IngressAccessor) []string {
+	hosts := make([]string, 0, len(ia.GetSpec().Rules))
+	for _, rule := range ia.GetSpec().Rules {
 		hosts = append(hosts, rule.Hosts...)
 	}
 	return dedup(hosts)
@@ -252,4 +276,26 @@ func getHosts(ci *v1alpha1.ClusterIngress) []string {
 
 func intersect(h1, h2 []string) []string {
 	return sets.NewString(h1...).Intersection(sets.NewString(h2...)).List()
+}
+
+func getClusterLocalIngressRules(ci v1alpha1.IngressAccessor) []v1alpha1.IngressRule {
+	var result []v1alpha1.IngressRule
+	for _, rule := range ci.GetSpec().Rules {
+		if rule.Visibility == v1alpha1.IngressVisibilityClusterLocal {
+			result = append(result, rule)
+		}
+	}
+
+	return result
+}
+
+func getPublicIngressRules(ci v1alpha1.IngressAccessor) []v1alpha1.IngressRule {
+	var result []v1alpha1.IngressRule
+	for _, rule := range ci.GetSpec().Rules {
+		if rule.Visibility == v1alpha1.IngressVisibilityExternalIP || rule.Visibility == "" {
+			result = append(result, rule)
+		}
+	}
+
+	return result
 }

@@ -17,16 +17,11 @@ limitations under the License.
 package autoscaler
 
 import (
-	"errors"
-	"fmt"
 	"strings"
 	"testing"
-	"time"
-
-	"k8s.io/apimachinery/pkg/util/wait"
 
 	"knative.dev/pkg/metrics/metricskey"
-	"go.opencensus.io/stats/view"
+	"knative.dev/pkg/metrics/metricstest"
 )
 
 func TestNewStatsReporterErrors(t *testing.T) {
@@ -41,11 +36,11 @@ func TestNewStatsReporterErrors(t *testing.T) {
 		if err == nil {
 			t.Errorf("Expected err to not be nil for value %q, got nil", v)
 		}
-
 	}
 }
 
 func TestReporter_Report(t *testing.T) {
+	resetMetrics()
 	r := &Reporter{}
 	if err := r.ReportDesiredPodCount(10); err == nil {
 		t.Error("Reporter.ReportDesiredPodCount() expected an error for Report call before init. Got success.")
@@ -67,40 +62,41 @@ func TestReporter_Report(t *testing.T) {
 	expectSuccess(t, "ReportStableRequestConcurrency", func() error { return r.ReportStableRequestConcurrency(2) })
 	expectSuccess(t, "ReportPanicRequestConcurrency", func() error { return r.ReportPanicRequestConcurrency(3) })
 	expectSuccess(t, "ReportTargetRequestConcurrency", func() error { return r.ReportTargetRequestConcurrency(0.9) })
-	assertData(t, "desired_pods", wantTags, 10)
-	assertData(t, "requested_pods", wantTags, 7)
-	assertData(t, "actual_pods", wantTags, 5)
-	assertData(t, "panic_mode", wantTags, 0)
-	assertData(t, "stable_request_concurrency", wantTags, 2)
-	assertData(t, "panic_request_concurrency", wantTags, 3)
-	assertData(t, "target_concurrency_per_pod", wantTags, 0.9)
+	metricstest.CheckLastValueData(t, "desired_pods", wantTags, 10)
+	metricstest.CheckLastValueData(t, "requested_pods", wantTags, 7)
+	metricstest.CheckLastValueData(t, "actual_pods", wantTags, 5)
+	metricstest.CheckLastValueData(t, "panic_mode", wantTags, 0)
+	metricstest.CheckLastValueData(t, "stable_request_concurrency", wantTags, 2)
+	metricstest.CheckLastValueData(t, "panic_request_concurrency", wantTags, 3)
+	metricstest.CheckLastValueData(t, "target_concurrency_per_pod", wantTags, 0.9)
 
 	// All the stats are gauges - record multiple entries for one stat - last one should stick
 	expectSuccess(t, "ReportDesiredPodCount", func() error { return r.ReportDesiredPodCount(1) })
 	expectSuccess(t, "ReportDesiredPodCount", func() error { return r.ReportDesiredPodCount(2) })
 	expectSuccess(t, "ReportDesiredPodCount", func() error { return r.ReportDesiredPodCount(3) })
-	assertData(t, "desired_pods", wantTags, 3)
+	metricstest.CheckLastValueData(t, "desired_pods", wantTags, 3)
 
 	expectSuccess(t, "ReportRequestedPodCount", func() error { return r.ReportRequestedPodCount(4) })
 	expectSuccess(t, "ReportRequestedPodCount", func() error { return r.ReportRequestedPodCount(5) })
 	expectSuccess(t, "ReportRequestedPodCount", func() error { return r.ReportRequestedPodCount(6) })
-	assertData(t, "requested_pods", wantTags, 6)
+	metricstest.CheckLastValueData(t, "requested_pods", wantTags, 6)
 
 	expectSuccess(t, "ReportActualPodCount", func() error { return r.ReportActualPodCount(7) })
 	expectSuccess(t, "ReportActualPodCount", func() error { return r.ReportActualPodCount(8) })
 	expectSuccess(t, "ReportActualPodCount", func() error { return r.ReportActualPodCount(9) })
-	assertData(t, "actual_pods", wantTags, 9)
+	metricstest.CheckLastValueData(t, "actual_pods", wantTags, 9)
 
 	expectSuccess(t, "ReportPanic", func() error { return r.ReportPanic(1) })
 	expectSuccess(t, "ReportPanic", func() error { return r.ReportPanic(0) })
 	expectSuccess(t, "ReportPanic", func() error { return r.ReportPanic(1) })
-	assertData(t, "panic_mode", wantTags, 1)
+	metricstest.CheckLastValueData(t, "panic_mode", wantTags, 1)
 
 	expectSuccess(t, "ReportPanic", func() error { return r.ReportPanic(0) })
-	assertData(t, "panic_mode", wantTags, 0)
+	metricstest.CheckLastValueData(t, "panic_mode", wantTags, 0)
 }
 
 func TestReporter_EmptyServiceName(t *testing.T) {
+	resetMetrics()
 	// Metrics reported to an empty service name will be recorded with service "unknown" (metricskey.ValueUnknown).
 	r, _ := NewStatsReporter("testns", "" /*service=*/, "testconfig", "testrev")
 	wantTags := map[string]string{
@@ -110,7 +106,7 @@ func TestReporter_EmptyServiceName(t *testing.T) {
 		metricskey.LabelRevisionName:      "testrev",
 	}
 	expectSuccess(t, "ReportDesiredPodCount", func() error { return r.ReportDesiredPodCount(10) })
-	assertData(t, "desired_pods", wantTags, 10)
+	metricstest.CheckLastValueData(t, "desired_pods", wantTags, 10)
 }
 
 func expectSuccess(t *testing.T, funcName string, f func() error) {
@@ -119,50 +115,17 @@ func expectSuccess(t *testing.T, funcName string, f func() error) {
 	}
 }
 
-func assertData(t *testing.T, name string, wantTags map[string]string, wantValue float64) {
-	var err error
-	wait.PollImmediate(1*time.Millisecond, 2*time.Second, func() (bool, error) {
-		if err = checkData(name, wantTags, wantValue); err != nil {
-			return false, nil
-		}
-		return true, nil
-	})
-
-	if err != nil {
-		t.Error(err)
-	}
-}
-
-func checkData(name string, wantTags map[string]string, wantValue float64) error {
-	d, err := view.RetrieveData(name)
-	if err != nil {
-		return err
-	}
-
-	if len(d) < 1 {
-		return errors.New("len(d) = 0, want: >= 0")
-	}
-	last := d[len(d)-1]
-
-	for _, got := range last.Tags {
-		want, ok := wantTags[got.Key.Name()]
-		if !ok {
-			return fmt.Errorf("got an unexpected tag from view.RetrieveData: (%v, %v)", got.Key.Name(), got.Value)
-		}
-		if got.Value != want {
-			return fmt.Errorf("Tags[%v] = %v, want: %v", got.Key.Name(), got.Value, want)
-		}
-	}
-
-	var value *view.LastValueData
-	value, ok := last.Data.(*view.LastValueData)
-	if !ok {
-		return fmt.Errorf("last.Data.(Type) = %T, want: %T", last.Data, value)
-	}
-
-	if value.Value != wantValue {
-		return fmt.Errorf("Value = %v, want: %v", value.Value, wantValue)
-	}
-
-	return nil
+// Resets global state from the opencensus package
+// Required to run at the beginning of tests that check metrics' values
+// to make the tests idempotent
+func resetMetrics() {
+	metricstest.Unregister(
+		desiredPodCountM.Name(),
+		requestedPodCountM.Name(),
+		actualPodCountM.Name(),
+		stableRequestConcurrencyM.Name(),
+		panicRequestConcurrencyM.Name(),
+		targetRequestConcurrencyM.Name(),
+		panicM.Name())
+	register()
 }

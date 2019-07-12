@@ -18,9 +18,9 @@ package v1beta1
 import (
 	"testing"
 
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"knative.dev/pkg/apis/duck"
 	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 func TestRevisionDuckTypes(t *testing.T) {

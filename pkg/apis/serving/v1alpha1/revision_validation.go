@@ -24,10 +24,10 @@ import (
 
 	"github.com/knative/serving/pkg/apis/config"
 
-	"knative.dev/pkg/apis"
-	"knative.dev/pkg/kmp"
 	"github.com/knative/serving/pkg/apis/serving"
 	"k8s.io/apimachinery/pkg/api/equality"
+	"knative.dev/pkg/apis"
+	"knative.dev/pkg/kmp"
 )
 
 func (r *Revision) checkImmutableFields(ctx context.Context, original *Revision) *apis.FieldError {

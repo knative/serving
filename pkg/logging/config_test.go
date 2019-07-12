@@ -19,13 +19,13 @@ package logging
 import (
 	"testing"
 
-	"knative.dev/pkg/logging"
-	"knative.dev/pkg/system"
-	_ "knative.dev/pkg/system/testing"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"knative.dev/pkg/logging"
+	"knative.dev/pkg/system"
+	_ "knative.dev/pkg/system/testing"
 
 	. "knative.dev/pkg/configmap/testing"
 )

@@ -19,9 +19,9 @@ package resources
 import (
 	"fmt"
 
-	"knative.dev/pkg/kmeta"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"knative.dev/pkg/kmeta"
 )
 
 // MakeRevision creates a revision object from configuration.
@@ -39,10 +39,7 @@ func MakeRevision(config *v1alpha1.Configuration) *v1alpha1.Revision {
 	}
 
 	UpdateRevisionLabels(rev, config)
-
-	if rev.Annotations == nil {
-		rev.Annotations = make(map[string]string)
-	}
+	UpdateRevisionAnnotations(rev, config)
 
 	// Populate OwnerReferences so that deletes cascade.
 	rev.OwnerReferences = append(rev.OwnerReferences, *kmeta.NewControllerRef(config))
@@ -62,6 +59,19 @@ func UpdateRevisionLabels(rev *v1alpha1.Revision, config *v1alpha1.Configuration
 		serving.ConfigurationGenerationLabelKey,
 	} {
 		rev.Labels[key] = RevisionLabelValueForKey(key, config)
+	}
+}
+
+// UpdateRevisionAnnotations sets the revisions annotations given a Configuration's updater annotation.
+func UpdateRevisionAnnotations(rev *v1alpha1.Revision, config *v1alpha1.Configuration) {
+	if rev.Annotations == nil {
+		rev.Annotations = make(map[string]string)
+	}
+
+	// Populate the CreatorAnnotation from configuration.
+	cans := config.GetAnnotations()
+	if c, ok := cans[serving.UpdaterAnnotation]; ok {
+		rev.Annotations[serving.CreatorAnnotation] = c
 	}
 }
 

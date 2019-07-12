@@ -384,7 +384,6 @@ type fakeUniScaler struct {
 	replicas   int32
 	surplus    int32
 	scaled     bool
-	lastStat   Stat
 	scaleCount int
 }
 
@@ -412,13 +411,6 @@ func (u *fakeUniScaler) setScaleResult(replicas int32, surplus int32, scaled boo
 	u.surplus = surplus
 	u.replicas = replicas
 	u.scaled = scaled
-}
-
-func (u *fakeUniScaler) Record(ctx context.Context, stat Stat) {
-	u.mutex.Lock()
-	defer u.mutex.Unlock()
-
-	u.lastStat = stat
 }
 
 func (u *fakeUniScaler) Update(DeciderSpec) error {

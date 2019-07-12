@@ -23,7 +23,6 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	testing2 "knative.dev/pkg/logging/testing"
 	"github.com/knative/serving/pkg/activator"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
@@ -31,6 +30,7 @@ import (
 	servinginformers "github.com/knative/serving/pkg/client/informers/externalversions"
 	servinglisters "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
 	pkghttp "github.com/knative/serving/pkg/http"
+	testing2 "knative.dev/pkg/logging/testing"
 
 	corev1 "k8s.io/api/core/v1"
 )

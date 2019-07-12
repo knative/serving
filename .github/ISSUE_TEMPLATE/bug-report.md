@@ -32,7 +32,7 @@ Other classifications:
 
 > 0.2.x
 > 0.3.x
-> HEAD
+> Output of git describe --dirty
 
 ## Expected Behavior
 

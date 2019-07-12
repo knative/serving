@@ -23,8 +23,6 @@ import (
 	"sort"
 	"time"
 
-	"knative.dev/pkg/controller"
-	"knative.dev/pkg/logging"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1beta1"
@@ -39,6 +37,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/tools/cache"
+	"knative.dev/pkg/controller"
+	"knative.dev/pkg/logging"
 )
 
 // Reconciler implements controller.Reconciler for Configuration resources.

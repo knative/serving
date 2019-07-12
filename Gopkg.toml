@@ -11,12 +11,16 @@ required = [
   "knative.dev/pkg/codegen/cmd/injection-gen",
   # TODO(#4549): Drop this when we drop our patches.
   "k8s.io/kubernetes/pkg/version",
-  "github.com/knative/caching/pkg/apis/caching",
+  "knative.dev/caching/pkg/apis/caching",
   "github.com/knative/test-infra/scripts",
   "github.com/knative/test-infra/tools/dep-collector",
   # For load testing.
-  "github.com/rakyll/hey"
+  "github.com/tsenart/vegeta"
 ]
+
+[[constraint]]
+  name = "github.com/tsenart/vegeta"
+  branch = "master"
 
 [[override]]
   name = "gopkg.in/yaml.v2"
@@ -26,14 +30,13 @@ required = [
   name = "knative.dev/pkg"
   branch = "master"
 
+[[constraint]]
+  name = "knative.dev/caching"
+  branch = "master"
+
 [[override]]
   name = "go.uber.org/zap"
   revision = "67bc79d13d155c02fd008f721863ff8cc5f30659"
-
-[[constraint]]
-  name = "github.com/knative/caching"
-  # HEAD as of 2019-06-26
-  revision = "aa9bd3961c44b5c8a772cf44dc5364d381d935cf"
 
 [[constraint]]
   name = "github.com/google/go-containerregistry"
@@ -67,6 +70,10 @@ required = [
   revision = "4bbc89b6501cca7dd6b5557d78d70c8d2c6e8b97"
 
 [[override]]
+  name = "github.com/kelseyhightower/envconfig"
+  version = "v1.4.0"
+
+[[override]]
   name = "contrib.go.opencensus.io/exporter/stackdriver"
   # HEAD as of 2019-02-11
   # Needed because this includes a fix to support Stackdriver built-in metrics
@@ -85,6 +92,10 @@ required = [
   name = "k8s.io/metrics"
   version = "kubernetes-1.12.9"
 
+[[override]]
+  name = "bitbucket.org/ww/goautoneg"
+  source = "https://hg@bitbucket.org/ww/goautoneg"
+
 [prune]
   go-tests = true
   unused-packages = true
@@ -92,11 +103,6 @@ required = [
 
 [[prune.project]]
   name = "k8s.io/code-generator"
-  unused-packages = false
-  non-go = false
-
-[[prune.project]]
-  name = "github.com/knative/caching"
   unused-packages = false
   non-go = false
 
@@ -110,5 +116,10 @@ required = [
 
  [[prune.project]]
   name = "knative.dev/pkg"
+  unused-packages = false
+  non-go = false
+
+[[prune.project]]
+  name = "knative.dev/caching"
   unused-packages = false
   non-go = false

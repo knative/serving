@@ -27,7 +27,6 @@ spec:
     plural: ingresses
     singular: ingress
     categories:
-    - all
     - knative-internal
     - networking
     shortNames:

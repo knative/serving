@@ -129,6 +129,10 @@ type RequestInfo struct {
 	Method string `json:"method"`
 	// Headers is a Map of all headers set.
 	Headers http.Header `json:"headers"`
+	// ProtoMajor is the major version of the incoming protocol.
+	ProtoMajor int `json:"protoMajor"`
+	// ProtoMinor is the minor version of the incoming protocol.
+	ProtoMinor int `json:"protoMinor"`
 }
 
 // HostInfo contains information about the host environment.
@@ -143,6 +147,7 @@ type HostInfo struct {
 	Mounts []*Mount  `json:"mounts"`
 	Stdin  *Stdin    `json:"stdin"`
 	User   *UserInfo `json:"user"`
+	Args   []string  `json:"args"`
 }
 
 // Stdin contains information about the Stdin file descriptor for the container.
@@ -155,10 +160,16 @@ type Stdin struct {
 
 // UserInfo container information about the current user and group for the running process.
 type UserInfo struct {
-	UID  int `json:"uid"`
-	EUID int `json:"euid"`
-	GID  int `json:"gid"`
-	EGID int `json:"egid"`
+	UID  int  `json:"uid"`
+	EUID int  `json:"euid"`
+	GID  int  `json:"gid"`
+	EGID int  `json:"egid"`
+	Cwd  *Cwd `json:"cwd"`
+}
+
+type Cwd struct {
+	Directory string `json:"directory"`
+	Error     string `json:"error"`
 }
 
 // FileInfo contains the metadata for a given file.

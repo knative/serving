@@ -21,10 +21,6 @@ import (
 	"fmt"
 	"time"
 
-	"knative.dev/pkg/apis"
-	duckv1alpha1 "knative.dev/pkg/apis/duck/v1alpha1"
-	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
-	"knative.dev/pkg/ptr"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 	"github.com/knative/serving/pkg/reconciler/route/domains"
@@ -32,6 +28,10 @@ import (
 	"github.com/knative/serving/pkg/resources"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"knative.dev/pkg/apis"
+	duckv1alpha1 "knative.dev/pkg/apis/duck/v1alpha1"
+	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
+	"knative.dev/pkg/ptr"
 )
 
 // ServiceOption enables further configuration of a Service.
@@ -216,9 +216,11 @@ func WithServiceAnnotations(annotations map[string]string) ServiceOption {
 func WithConfigAnnotations(annotations map[string]string) ServiceOption {
 	return func(service *v1alpha1.Service) {
 		if service.Spec.DeprecatedRunLatest != nil {
-			service.Spec.DeprecatedRunLatest.Configuration.GetTemplate().ObjectMeta.Annotations = annotations
+			service.Spec.DeprecatedRunLatest.Configuration.GetTemplate().ObjectMeta.Annotations = resources.UnionMaps(
+				service.Spec.DeprecatedRunLatest.Configuration.GetTemplate().ObjectMeta.Annotations, annotations)
 		} else {
-			service.Spec.ConfigurationSpec.Template.ObjectMeta.Annotations = annotations
+			service.Spec.ConfigurationSpec.Template.ObjectMeta.Annotations = resources.UnionMaps(
+				service.Spec.ConfigurationSpec.Template.ObjectMeta.Annotations, annotations)
 		}
 	}
 }

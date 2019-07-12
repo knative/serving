@@ -28,12 +28,12 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/davecgh/go-spew/spew"
-	pkgTest "knative.dev/pkg/test"
-	"knative.dev/pkg/test/logstream"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/test"
 	v1a1test "github.com/knative/serving/test/v1alpha1"
+	pkgTest "knative.dev/pkg/test"
+	"knative.dev/pkg/test/logstream"
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

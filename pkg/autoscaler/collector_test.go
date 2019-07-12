@@ -24,10 +24,10 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 
-	. "knative.dev/pkg/logging/testing"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
+	. "knative.dev/pkg/logging/testing"
 )
 
 var (
@@ -221,8 +221,4 @@ type testScraper struct {
 
 func (s *testScraper) Scrape() (*StatMessage, error) {
 	return s.s()
-}
-
-func (s *testScraper) UpdateTarget(sv, ns string) {
-	s.url = urlFromTarget(sv, ns)
 }

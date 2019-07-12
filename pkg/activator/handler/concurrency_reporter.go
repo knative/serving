@@ -19,8 +19,8 @@ package handler
 import (
 	"time"
 
-	"knative.dev/pkg/system"
 	"github.com/knative/serving/pkg/autoscaler"
+	"knative.dev/pkg/system"
 )
 
 // ConcurrencyReporter reports stats based on incoming requests and ticks.

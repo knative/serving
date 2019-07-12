@@ -21,10 +21,10 @@ package v1beta1
 import (
 	"testing"
 
-	pkgTest "knative.dev/pkg/test"
 	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 	"github.com/knative/serving/test"
 	v1b1test "github.com/knative/serving/test/v1beta1"
+	pkgTest "knative.dev/pkg/test"
 
 	rtesting "github.com/knative/serving/pkg/testing/v1beta1"
 )
@@ -81,6 +81,9 @@ func getRouteDomain(clients *test.Clients, names test.ResourceNames) (string, er
 		clients.ServingBetaClient,
 		names.Route,
 		func(r *v1beta1.Route) (bool, error) {
+			if r.Status.URL == nil {
+				return false, nil
+			}
 			domain = r.Status.URL.Host
 			return domain != "", nil
 		},

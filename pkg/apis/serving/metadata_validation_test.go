@@ -21,8 +21,8 @@ import (
 	"strings"
 	"testing"
 
-	"knative.dev/pkg/apis"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"knative.dev/pkg/apis"
 )
 
 func TestValidateObjectMetadata(t *testing.T) {

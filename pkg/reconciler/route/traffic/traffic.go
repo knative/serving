@@ -20,6 +20,7 @@ import (
 	"context"
 
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	net "github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/serving"
@@ -27,6 +28,7 @@ import (
 	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 	listers "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
 	"github.com/knative/serving/pkg/reconciler/route/domains"
+	"github.com/knative/serving/pkg/reconciler/route/resources/labels"
 )
 
 const (
@@ -70,14 +72,14 @@ type Config struct {
 //
 // In the case that some target is missing, an error of type TargetError will be returned.
 func BuildTrafficConfiguration(configLister listers.ConfigurationLister, revLister listers.RevisionLister,
-	u *v1alpha1.Route) (*Config, error) {
-	builder := newBuilder(configLister, revLister, u.Namespace, len(u.Spec.Traffic))
-	builder.applySpecTraffic(u.Spec.Traffic)
+	r *v1alpha1.Route) (*Config, error) {
+	builder := newBuilder(configLister, revLister, r.Namespace, len(r.Spec.Traffic))
+	builder.applySpecTraffic(r.Spec.Traffic)
 	return builder.build()
 }
 
 // GetRevisionTrafficTargets returns a list of TrafficTarget flattened to the RevisionName, and having ConfigurationName cleared out.
-func (t *Config) GetRevisionTrafficTargets(ctx context.Context, r *v1alpha1.Route) ([]v1alpha1.TrafficTarget, error) {
+func (t *Config) GetRevisionTrafficTargets(ctx context.Context, r *v1alpha1.Route, clusterLocalService sets.String) ([]v1alpha1.TrafficTarget, error) {
 	results := make([]v1alpha1.TrafficTarget, len(t.revisionTargets))
 	for i, tt := range t.revisionTargets {
 		// We cannot `DeepCopy` here, since tt.TrafficTarget might contain both
@@ -91,12 +93,17 @@ func (t *Config) GetRevisionTrafficTargets(ctx context.Context, r *v1alpha1.Rout
 			},
 		}
 		if tt.Tag != "" {
-			hostname, err := domains.HostnameFromTemplate(ctx, r.Name, tt.Tag)
+			meta := r.ObjectMeta.DeepCopy()
+
+			hostname, err := domains.HostnameFromTemplate(ctx, meta.Name, tt.Tag)
 			if err != nil {
 				return nil, err
 			}
+
+			labels.SetVisibility(meta, clusterLocalService.Has(hostname))
+
 			// http is currently the only supported scheme
-			fullDomain, err := domains.DomainNameFromTemplate(ctx, r, hostname)
+			fullDomain, err := domains.DomainNameFromTemplate(ctx, *meta, hostname)
 			if err != nil {
 				return nil, err
 			}

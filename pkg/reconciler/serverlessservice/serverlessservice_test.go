@@ -23,21 +23,21 @@ import (
 	"time"
 
 	// Inject the fakes for informers this reconciler depends on.
+	_ "github.com/knative/serving/pkg/client/injection/informers/networking/v1alpha1/serverlessservice/fake"
 	_ "knative.dev/pkg/injection/informers/kubeinformers/corev1/endpoints/fake"
 	_ "knative.dev/pkg/injection/informers/kubeinformers/corev1/service/fake"
-	_ "github.com/knative/serving/pkg/client/injection/informers/networking/v1alpha1/serverlessservice/fake"
 
-	"knative.dev/pkg/configmap"
-	"knative.dev/pkg/controller"
-	logtesting "knative.dev/pkg/logging/testing"
-	"knative.dev/pkg/ptr"
-	"knative.dev/pkg/system"
 	"github.com/knative/serving/pkg/activator"
 	"github.com/knative/serving/pkg/apis/networking"
 	nv1a1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	rpkg "github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/serverlessservice/resources"
 	presources "github.com/knative/serving/pkg/resources"
+	"knative.dev/pkg/configmap"
+	"knative.dev/pkg/controller"
+	logtesting "knative.dev/pkg/logging/testing"
+	"knative.dev/pkg/ptr"
+	"knative.dev/pkg/system"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -47,9 +47,9 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	clientgotesting "k8s.io/client-go/testing"
 
-	. "knative.dev/pkg/reconciler/testing"
 	. "github.com/knative/serving/pkg/reconciler/testing/v1alpha1"
 	. "github.com/knative/serving/pkg/testing"
+	. "knative.dev/pkg/reconciler/testing"
 )
 
 func TestNewController(t *testing.T) {
@@ -88,6 +88,7 @@ func TestReconcile(t *testing.T) {
 			activatorEndpoints(WithSubsets),
 		},
 	}, {
+		// This is the case for once we are scaled to zero.
 		Name: "steady switch to proxy mode",
 		Key:  "steady/to-proxy",
 		Objects: []runtime.Object{
@@ -97,12 +98,12 @@ func TestReconcile(t *testing.T) {
 			svcpub("steady", "to-proxy"),
 			svcpriv("steady", "to-proxy", svcWithName("to-proxy-deadbeef")),
 			endpointspub("steady", "to-proxy", withOtherSubsets),
-			endpointspriv("steady", "to-proxy", epsWithName("to-proxy-deadbeed")),
+			endpointspriv("steady", "to-proxy", epsWithName("to-proxy-deadbeef")),
 			activatorEndpoints(WithSubsets),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: SKS("steady", "to-proxy", WithDeployRef("bar"),
-				markNoEndpoints, WithProxyMode, WithPubService, WithPrivateService("to-proxy-deadbeef")),
+			Object: SKS("steady", "to-proxy", WithDeployRef("bar"), markNoEndpoints,
+				WithProxyMode, WithPubService, WithPrivateService("to-proxy-deadbeef")),
 		}},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: endpointspub("steady", "to-proxy", WithSubsets),
@@ -110,6 +111,24 @@ func TestReconcile(t *testing.T) {
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Updated", `Successfully updated ServerlessService "steady/to-proxy"`),
 		},
+	}, {
+		// This is the case for once we are proxying for unsufficient burst capacity.
+		// It should be a no-op.
+		Name: "steady switch to proxy mode with endpoints",
+		Key:  "steady/to-proxy",
+		Objects: []runtime.Object{
+			SKS("steady", "to-proxy", markHappy, WithPubService, WithPrivateService("to-proxy-deadbeef"),
+				WithDeployRef("bar"), WithProxyMode),
+			deploy("steady", "bar"),
+			svcpub("steady", "to-proxy"),
+			svcpriv("steady", "to-proxy", svcWithName("to-proxy-deadbeef")),
+			endpointspub("steady", "to-proxy", withOtherSubsets),
+			endpointspriv("steady", "to-proxy", epsWithName("to-proxy-deadbeef"), WithSubsets),
+			activatorEndpoints(WithSubsets),
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: endpointspub("steady", "to-proxy", WithSubsets),
+		}},
 	}, {
 		Name: "many-private-services",
 		Key:  "many/privates",
@@ -243,7 +262,8 @@ func TestReconcile(t *testing.T) {
 			InduceFailure("create", "services"),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: SKS("svc", "fail2", WithPrivateService("fail2-badbeef"), WithDeployRef("blah"), markTransitioning("CreatingPublicService")),
+			Object: SKS("svc", "fail2", WithPrivateService("fail2-badbeef"), WithDeployRef("blah"),
+				markTransitioning("CreatingPublicService")),
 		}},
 		WantCreates: []runtime.Object{
 			svcpub("svc", "fail2"),
@@ -300,6 +320,52 @@ func TestReconcile(t *testing.T) {
 			Eventf(corev1.EventTypeNormal, "Updated", `Successfully updated ServerlessService "on/cneps"`),
 		},
 	}, {
+		Name: "OnCreate-no-activator-eps-exist",
+		Key:  "on/cnaeps2",
+		Objects: []runtime.Object{
+			SKS("on", "cnaeps2", WithDeployRef("blah")),
+			deploy("on", "blah"),
+			endpointspriv("on", "cnaeps2", WithSubsets, epsWithName("cnaeps2-00001")),
+			endpointspub("on", "cnaeps2", WithSubsets),
+		},
+		WantErr: true,
+		WantCreates: []runtime.Object{
+			svcpriv("on", "cnaeps2"),
+			svcpub("on", "cnaeps2"),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: SKS("on", "cnaeps2", WithDeployRef("blah"), WithPubService,
+				WithPrivateService("cnaeps2-00001"),
+				markTransitioning("CreatingPublicService")),
+		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeWarning, "UpdateFailed", `InternalError: endpoints "activator-service" not found`),
+			Eventf(corev1.EventTypeNormal, "Updated", `Successfully updated ServerlessService "on/cnaeps2"`),
+		},
+	}, {
+		Name: "OnCreate-no-private-eps-exist",
+		Key:  "on/cnaeps3",
+		Objects: []runtime.Object{
+			SKS("on", "cnaeps3", WithDeployRef("blah")),
+			deploy("on", "blah"),
+			endpointspub("on", "cnaeps3", WithSubsets),
+			activatorEndpoints(WithSubsets),
+		},
+		WantErr: true,
+		WantCreates: []runtime.Object{
+			svcpriv("on", "cnaeps3"),
+			svcpub("on", "cnaeps3"),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: SKS("on", "cnaeps3", WithDeployRef("blah"), WithPubService,
+				WithPrivateService("cnaeps3-00001"),
+				markTransitioning("CreatingPublicService")),
+		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeWarning, "UpdateFailed", `InternalError: endpoints "cnaeps3-00001" not found`),
+			Eventf(corev1.EventTypeNormal, "Updated", `Successfully updated ServerlessService "on/cnaeps3"`),
+		},
+	}, {
 		Name: "OnCreate-no-activator-eps-serve",
 		Key:  "on/cnaeps",
 		Objects: []runtime.Object{
@@ -326,7 +392,7 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			SKS("on", "cnaeps", WithDeployRef("blah"), WithProxyMode),
 			deploy("on", "blah"),
-			endpointspriv("on", "cnaeps", WithSubsets), // This should be ignored.
+			endpointspriv("on", "cnaeps", epsWithName("cnaeps-00001")), // This should be ignored.
 			activatorEndpoints(),
 		},
 		WantCreates: []runtime.Object{

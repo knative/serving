@@ -21,11 +21,11 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"knative.dev/pkg/ptr"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 	"github.com/knative/serving/pkg/reconciler/service/resources/names"
+	"knative.dev/pkg/ptr"
 )
 
 func makeRoute(service *v1alpha1.Service) (*v1alpha1.Route, error) {

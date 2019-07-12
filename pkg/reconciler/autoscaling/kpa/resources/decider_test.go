@@ -75,6 +75,16 @@ func TestMakeDecider(t *testing.T) {
 			return &c
 		},
 	}, {
+		name: "with burst capacity set on the annotation",
+		pa:   pa(WithContainerConcurrency(120), withTBCAnnotation("211")),
+		want: decider(withTarget(96), withTotal(120), withPanicThreshold(192),
+			withDeciderTBCAnnotation("211"), withTargetBurstCapacity(211)),
+		cfgOpt: func(c autoscaler.Config) *autoscaler.Config {
+			c.TargetBurstCapacity = 63
+			c.ContainerConcurrencyTargetFraction = 0.8
+			return &c
+		},
+	}, {
 		name: "with container concurrency greater than target annotation (ok)",
 		pa:   pa(WithContainerConcurrency(10), WithTargetAnnotation("1")),
 		want: decider(withTarget(1.0), withTotal(1), withPanicThreshold(2.0), withTargetAnnotation("1")),
@@ -130,6 +140,18 @@ func pa(options ...PodAutoscalerOption) *v1alpha1.PodAutoscaler {
 		fn(p)
 	}
 	return p
+}
+
+func withTBCAnnotation(tbc string) PodAutoscalerOption {
+	return func(pa *v1alpha1.PodAutoscaler) {
+		pa.Annotations[autoscaling.TargetBurstCapacityKey] = tbc
+	}
+}
+
+func withDeciderTBCAnnotation(tbc string) DeciderOption {
+	return func(d *autoscaler.Decider) {
+		d.Annotations[autoscaling.TargetBurstCapacityKey] = tbc
+	}
 }
 
 func decider(options ...DeciderOption) *autoscaler.Decider {

@@ -43,6 +43,7 @@ func runtimeHandler(w http.ResponseWriter, r *http.Request) {
 			Mounts:  mounts(),
 			Stdin:   stdin(),
 			User:    userInfo(),
+			Args:    args(),
 		},
 	}
 

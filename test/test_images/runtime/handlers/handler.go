@@ -15,18 +15,18 @@ package handlers
 
 import (
 	"encoding/json"
-	"fmt"
 	"log"
 	"net/http"
 	"net/http/httputil"
+	"strings"
+
+	"github.com/knative/serving/pkg/network"
 )
 
 // InitHandlers initializes all handlers.
 func InitHandlers(mux *http.ServeMux) {
 	mux.HandleFunc("/", withHeaders(withRequestLog(runtimeHandler)))
-	mux.HandleFunc("/_healthz", withRequestLog(func(w http.ResponseWriter, _ *http.Request) {
-		fmt.Fprint(w, "ok")
-	}))
+	mux.HandleFunc("/healthz", withRequestLog(withKubeletProbeHeaderCheck))
 }
 
 // withRequestLog logs each request before handling it.
@@ -40,6 +40,15 @@ func withRequestLog(next http.HandlerFunc) http.HandlerFunc {
 		}
 
 		next.ServeHTTP(w, r)
+	}
+}
+
+// withKubeletProbeHeaderCheck checks each health request has Kubelet probe header
+func withKubeletProbeHeaderCheck(w http.ResponseWriter, r *http.Request) {
+	if !strings.HasPrefix(r.Header.Get("User-Agent"), network.KubeProbeUAPrefix) {
+		w.WriteHeader(http.StatusBadRequest)
+	} else {
+		w.WriteHeader(http.StatusOK)
 	}
 }
 

@@ -20,17 +20,17 @@ import (
 	"context"
 	"testing"
 
-	_ "github.com/knative/caching/pkg/client/injection/client/fake"
+	_ "github.com/knative/serving/pkg/client/injection/client/fake"
+	_ "knative.dev/caching/pkg/client/injection/client/fake"
 	_ "knative.dev/pkg/client/injection/client/fake"
 	_ "knative.dev/pkg/injection/clients/dynamicclient/fake"
 	_ "knative.dev/pkg/injection/clients/kubeclient/fake"
-	_ "github.com/knative/serving/pkg/client/injection/client/fake"
 
+	"k8s.io/client-go/rest"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/injection"
 	logtesting "knative.dev/pkg/logging/testing"
 	_ "knative.dev/pkg/system/testing"
-	"k8s.io/client-go/rest"
 )
 
 var reconcilerName = "test-reconciler"

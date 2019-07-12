@@ -19,12 +19,12 @@ package resources
 import (
 	"context"
 
+	pav1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
+	"github.com/pkg/errors"
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/apis/duck"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/injection/clients/dynamicclient"
-	pav1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
-	"github.com/pkg/errors"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"

@@ -19,9 +19,6 @@ package resources
 import (
 	"strconv"
 
-	"knative.dev/pkg/kmeta"
-	"knative.dev/pkg/logging"
-	"knative.dev/pkg/ptr"
 	"github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
@@ -32,6 +29,9 @@ import (
 	"github.com/knative/serving/pkg/queue"
 	"github.com/knative/serving/pkg/reconciler/revision/resources/names"
 	"github.com/knative/serving/pkg/resources"
+	"knative.dev/pkg/kmeta"
+	"knative.dev/pkg/logging"
+	"knative.dev/pkg/ptr"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -228,7 +228,7 @@ func MakeDeployment(rev *v1alpha1.Revision,
 		Spec: appsv1.DeploymentSpec{
 			Replicas:                ptr.Int32(1),
 			Selector:                makeSelector(rev),
-			ProgressDeadlineSeconds: &ProgressDeadlineSeconds,
+			ProgressDeadlineSeconds: ptr.Int32(ProgressDeadlineSeconds),
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels:      makeLabels(rev),

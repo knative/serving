@@ -18,6 +18,7 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/knative/serving/test"
 	"github.com/knative/serving/test/test_images/runtime/handlers"
 )
 
@@ -33,11 +34,6 @@ func main() {
 	mux := http.NewServeMux()
 	handlers.InitHandlers(mux)
 
-	server := &http.Server{
-		Addr:    ":" + port,
-		Handler: mux,
-	}
-
 	log.Printf("Server starting on port %s", port)
-	log.Fatal(server.ListenAndServe())
+	test.ListenAndServeGracefullyWithHandler(":"+port, mux)
 }

@@ -24,8 +24,6 @@ import (
 	"fmt"
 	"testing"
 
-	"knative.dev/pkg/apis/duck"
-	"knative.dev/pkg/test/logging"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	serviceresourcenames "github.com/knative/serving/pkg/reconciler/service/resources/names"
 	"github.com/mattbaird/jsonpatch"
@@ -33,10 +31,12 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"knative.dev/pkg/apis/duck"
+	"knative.dev/pkg/test/logging"
 
-	ptest "knative.dev/pkg/test"
 	rtesting "github.com/knative/serving/pkg/testing/v1alpha1"
 	"github.com/knative/serving/test"
+	ptest "knative.dev/pkg/test"
 )
 
 // TODO(dangerd): Move function to duck.CreateBytePatch

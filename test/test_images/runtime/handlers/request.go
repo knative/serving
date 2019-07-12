@@ -22,10 +22,12 @@ import (
 
 func requestInfo(r *http.Request) *types.RequestInfo {
 	return &types.RequestInfo{
-		Ts:      time.Now(),
-		URI:     r.RequestURI,
-		Host:    r.Host,
-		Method:  r.Method,
-		Headers: r.Header,
+		Ts:         time.Now(),
+		URI:        r.RequestURI,
+		Host:       r.Host,
+		Method:     r.Method,
+		Headers:    r.Header,
+		ProtoMajor: r.ProtoMajor,
+		ProtoMinor: r.ProtoMinor,
 	}
 }

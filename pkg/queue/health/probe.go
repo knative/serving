@@ -17,18 +17,88 @@ limitations under the License.
 package health
 
 import (
+	"crypto/tls"
+	"fmt"
 	"net"
+	"net/http"
+	"net/url"
 	"time"
+
+	"github.com/knative/serving/pkg/network"
+	corev1 "k8s.io/api/core/v1"
 )
+
+// HTTPProbeConfigOptions holds the HTTP probe config options
+type HTTPProbeConfigOptions struct {
+	Timeout time.Duration
+	*corev1.HTTPGetAction
+	KubeMajor string
+	KubeMinor string
+}
+
+// TCPProbeConfigOptions holds the TCP probe config options
+type TCPProbeConfigOptions struct {
+	SocketTimeout time.Duration
+	Address       string
+}
 
 // TCPProbe checks that a TCP socket to the address can be opened.
 // Did not reuse k8s.io/kubernetes/pkg/probe/tcp to not create a dependency
 // on klog.
-func TCPProbe(addr string, socketTimeout time.Duration) error {
-	conn, err := net.DialTimeout("tcp", addr, socketTimeout)
+func TCPProbe(config TCPProbeConfigOptions) error {
+	conn, err := net.DialTimeout("tcp", config.Address, config.SocketTimeout)
 	if err != nil {
 		return err
 	}
 	conn.Close()
 	return nil
+}
+
+// HTTPProbe checks that HTTP connection can be established to the address.
+func HTTPProbe(config HTTPProbeConfigOptions) error {
+	httpClient := &http.Client{
+		Transport: &http.Transport{
+			DisableKeepAlives: true,
+			TLSClientConfig: &tls.Config{
+				InsecureSkipVerify: true,
+			},
+		},
+		Timeout: config.Timeout,
+	}
+	url := url.URL{
+		Scheme: string(config.Scheme),
+		Host:   config.Host + ":" + config.Port.String(),
+		Path:   config.Path,
+	}
+	req, err := http.NewRequest(http.MethodGet, url.String(), nil)
+	if err != nil {
+		return fmt.Errorf("error constructing probe request %v", err)
+	}
+
+	req.Header.Add("User-Agent", network.KubeProbeUAPrefix+config.KubeMajor+"/"+config.KubeMinor)
+
+	for _, header := range config.HTTPHeaders {
+		req.Header.Add(header.Name, header.Value)
+	}
+
+	res, err := httpClient.Do(req)
+	if err != nil {
+		return err
+	}
+
+	if !IsHTTPProbeReady(res) {
+		return fmt.Errorf("HTTP probe did not respond Ready, got status code: %d", res.StatusCode)
+	}
+
+	return nil
+}
+
+// IsHTTPProbeReady checks whether we received a successful Response
+func IsHTTPProbeReady(res *http.Response) bool {
+	if res == nil {
+		return false
+	}
+
+	// response status code between 200-399 indicates success
+	return res.StatusCode >= 200 && res.StatusCode < 400
 }

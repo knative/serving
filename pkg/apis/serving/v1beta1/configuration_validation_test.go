@@ -20,8 +20,8 @@ import (
 	"context"
 	"testing"
 
-	"knative.dev/pkg/ptr"
 	"github.com/knative/serving/pkg/apis/config"
+	"knative.dev/pkg/ptr"
 
 	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
