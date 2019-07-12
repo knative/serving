@@ -37,22 +37,9 @@ func fetchRuntimeInfo(
 	clients *test.Clients,
 	opts ...interface{}) (*test.ResourceNames, *types.RuntimeInfo, error) {
 
-	return runtimeInfo(t, clients, &test.ResourceNames{}, opts...)
-}
-
-func runtimeInfo(
-	t *testing.T,
-	clients *test.Clients,
-	names *test.ResourceNames,
-	opts ...interface{}) (*test.ResourceNames, *types.RuntimeInfo, error) {
-
+	names := &test.ResourceNames{Image: test.Runtime}
 	t.Helper()
 	names.Service = test.ObjectNameForTest(t)
-	if names.Image == "" {
-		names.Image = test.Runtime
-	} else if names.Image != test.Runtime {
-		return nil, nil, fmt.Errorf("invalid image provided: %s", names.Image)
-	}
 
 	defer test.TearDown(clients, *names)
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, *names) })
