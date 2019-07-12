@@ -249,7 +249,7 @@ func TestServiceWithTrafficSplit(t *testing.T) {
 	// Create Initial Service
 	clients := test.Setup(t)
 	releaseImagePath2 := pkgTest.ImagePath(test.PizzaPlanet2)
-	releaseImagePath3 := pkgTest.ImagePath(test.PizzaPlanet1)
+	releaseImagePath3 := pkgTest.ImagePath(test.SingleThreaded)
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
 		Image:   test.PizzaPlanet1,
@@ -261,7 +261,7 @@ func TestServiceWithTrafficSplit(t *testing.T) {
 	const (
 		expectedFirstRev  = test.PizzaPlanetText1
 		expectedSecondRev = test.PizzaPlanetText2
-		expectedThirdRev  = test.PizzaPlanetText1
+		expectedThirdRev  = test.SingleThreadedText
 	)
 
 	// Setup initial Service

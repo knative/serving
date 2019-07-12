@@ -28,22 +28,23 @@ import (
 // Constants for test images located in test/test_images.
 const (
 	// Test image names
-	Autoscale           = "autoscale"
-	Failing             = "failing"
-	HelloVolume         = "hellovolume"
-	HTTPProxy           = "httpproxy"
-	InvalidHelloWorld   = "invalidhelloworld" // Not a real image
-	PizzaPlanet1        = "pizzaplanetv1"
-	PizzaPlanet2        = "pizzaplanetv2"
-	Protocols           = "protocols"
-	Runtime             = "runtime"
-	SingleThreadedImage = "singlethreaded"
-	Timeout             = "timeout"
-	WorkingDir          = "workingdir"
+	Autoscale         = "autoscale"
+	Failing           = "failing"
+	HelloVolume       = "hellovolume"
+	HTTPProxy         = "httpproxy"
+	InvalidHelloWorld = "invalidhelloworld" // Not a real image
+	PizzaPlanet1      = "pizzaplanetv1"
+	PizzaPlanet2      = "pizzaplanetv2"
+	Protocols         = "protocols"
+	Runtime           = "runtime"
+	SingleThreaded    = "singlethreaded"
+	Timeout           = "timeout"
+	WorkingDir        = "workingdir"
 
 	// Constants for test image output.
-	PizzaPlanetText1 = "What a spaceport!"
-	PizzaPlanetText2 = "Re-energize yourself with a slice of pepperoni!"
+	PizzaPlanetText1   = "What a spaceport!"
+	PizzaPlanetText2   = "Re-energize yourself with a slice of pepperoni!"
+	SingleThreadedText = "One at a time"
 
 	ConcurrentRequests = 50
 	// We expect to see 100% of requests succeed for traffic sent directly to revisions.
