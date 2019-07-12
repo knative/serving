@@ -20,7 +20,7 @@ import (
 	"net/http"
 	"net/http/httputil"
 
-	"github.com/knative/serving/pkg/activator"
+	"knative.dev/serving/pkg/activator"
 )
 
 var headersToRemove = []string{

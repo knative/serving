@@ -19,8 +19,8 @@ package resources
 import (
 	"math"
 
-	"github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
-	"github.com/knative/serving/pkg/autoscaler"
+	"knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
+	"knative.dev/serving/pkg/autoscaler"
 )
 
 // ResolveConcurrency takes concurrency knobs from multiple locations and resolves them

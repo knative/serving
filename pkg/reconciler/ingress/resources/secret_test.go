@@ -23,9 +23,9 @@ import (
 	"knative.dev/pkg/kmeta"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/knative/serving/pkg/apis/networking"
-	"github.com/knative/serving/pkg/apis/networking/v1alpha1"
-	"github.com/knative/serving/pkg/reconciler/ingress/config"
+	"knative.dev/serving/pkg/apis/networking"
+	"knative.dev/serving/pkg/apis/networking/v1alpha1"
+	"knative.dev/serving/pkg/reconciler/ingress/config"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubeinformers "k8s.io/client-go/informers"

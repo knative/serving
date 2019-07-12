@@ -19,16 +19,16 @@ package serverlessservice
 import (
 	"context"
 
-	sksinformer "github.com/knative/serving/pkg/client/injection/informers/networking/v1alpha1/serverlessservice"
-	pkgreconciler "github.com/knative/serving/pkg/reconciler"
+	sksinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/serverlessservice"
+	pkgreconciler "knative.dev/serving/pkg/reconciler"
 	endpointsinformer "knative.dev/pkg/injection/informers/kubeinformers/corev1/endpoints"
 	serviceinformer "knative.dev/pkg/injection/informers/kubeinformers/corev1/service"
 
-	"github.com/knative/serving/pkg/activator"
-	"github.com/knative/serving/pkg/apis/networking"
-	netv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
-	rbase "github.com/knative/serving/pkg/reconciler"
-	presources "github.com/knative/serving/pkg/resources"
+	"knative.dev/serving/pkg/activator"
+	"knative.dev/serving/pkg/apis/networking"
+	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
+	rbase "knative.dev/serving/pkg/reconciler"
+	presources "knative.dev/serving/pkg/resources"
 	"k8s.io/client-go/tools/cache"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"

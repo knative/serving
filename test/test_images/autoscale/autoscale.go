@@ -24,7 +24,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/knative/serving/test"
+	"knative.dev/serving/test"
 )
 
 // Algorithm from https://stackoverflow.com/a/21854246

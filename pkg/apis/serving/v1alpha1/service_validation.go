@@ -20,12 +20,12 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/knative/serving/pkg/apis/serving"
+	"knative.dev/serving/pkg/apis/serving"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/util/validation"
 	"knative.dev/pkg/apis"
 
-	"github.com/knative/serving/pkg/apis/serving/v1beta1"
+	"knative.dev/serving/pkg/apis/serving/v1beta1"
 )
 
 // Validate validates the fields belonging to Service

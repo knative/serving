@@ -90,7 +90,7 @@ type IngressSpec struct {
 	// This property will be dropped in future Knative releases and should
 	// not be used - use metadata.generation
 	//
-	// Tracking issue: https://github.com/knative/serving/issues/643
+	// Tracking issue: https://knative.dev/serving/issues/643
 	//
 	// +optional
 	DeprecatedGeneration int64 `json:"generation,omitempty"`

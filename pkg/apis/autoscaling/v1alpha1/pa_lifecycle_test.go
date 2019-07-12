@@ -22,7 +22,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/knative/serving/pkg/apis/autoscaling"
+	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/apis/duck"
 	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"

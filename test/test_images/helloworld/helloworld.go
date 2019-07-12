@@ -22,7 +22,7 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/knative/serving/test"
+	"knative.dev/serving/test"
 )
 
 func handler(w http.ResponseWriter, r *http.Request) {

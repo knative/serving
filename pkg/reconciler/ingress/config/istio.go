@@ -21,7 +21,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/knative/serving/pkg/network"
+	"knative.dev/serving/pkg/network"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/validation"
 )

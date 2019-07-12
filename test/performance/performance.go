@@ -23,7 +23,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/knative/serving/test"
+	"knative.dev/serving/test"
 	"github.com/knative/test-infra/shared/common"
 	"github.com/knative/test-infra/shared/prometheus"
 	"github.com/knative/test-infra/shared/prow"

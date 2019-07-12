@@ -19,7 +19,7 @@ limitations under the License.
 package v1beta1
 
 import (
-	internalinterfaces "github.com/knative/serving/pkg/client/informers/externalversions/internalinterfaces"
+	internalinterfaces "knative.dev/serving/pkg/client/informers/externalversions/internalinterfaces"
 )
 
 // Interface provides access to all the informers in this group version.

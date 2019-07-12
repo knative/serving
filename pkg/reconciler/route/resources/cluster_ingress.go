@@ -24,16 +24,16 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/sets"
 
-	"github.com/knative/serving/pkg/activator"
-	"github.com/knative/serving/pkg/apis/networking"
-	"github.com/knative/serving/pkg/apis/networking/v1alpha1"
-	"github.com/knative/serving/pkg/apis/serving"
-	servingv1alpha1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	"github.com/knative/serving/pkg/reconciler/route/domains"
-	"github.com/knative/serving/pkg/reconciler/route/resources/labels"
-	"github.com/knative/serving/pkg/reconciler/route/resources/names"
-	"github.com/knative/serving/pkg/reconciler/route/traffic"
-	"github.com/knative/serving/pkg/resources"
+	"knative.dev/serving/pkg/activator"
+	"knative.dev/serving/pkg/apis/networking"
+	"knative.dev/serving/pkg/apis/networking/v1alpha1"
+	"knative.dev/serving/pkg/apis/serving"
+	servingv1alpha1 "knative.dev/serving/pkg/apis/serving/v1alpha1"
+	"knative.dev/serving/pkg/reconciler/route/domains"
+	"knative.dev/serving/pkg/reconciler/route/resources/labels"
+	"knative.dev/serving/pkg/reconciler/route/resources/names"
+	"knative.dev/serving/pkg/reconciler/route/traffic"
+	"knative.dev/serving/pkg/resources"
 )
 
 // MakeIngressTLS creates IngressTLS to configure the ingress TLS.

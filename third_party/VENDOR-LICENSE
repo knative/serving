@@ -1,6 +1,6 @@
 
 ===========================================================
-Import: github.com/knative/serving/vendor/bitbucket.org/ww/goautoneg
+Import: knative.dev/serving/vendor/bitbucket.org/ww/goautoneg
 
 Copyright (c) 2011, Open Knowledge Foundation Ltd.
 All rights reserved.
@@ -37,7 +37,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 
 ===========================================================
-Import: github.com/knative/serving/vendor/cloud.google.com/go
+Import: knative.dev/serving/vendor/cloud.google.com/go
 
 
                                  Apache License
@@ -245,7 +245,7 @@ Import: github.com/knative/serving/vendor/cloud.google.com/go
 
 
 ===========================================================
-Import: github.com/knative/serving/vendor/contrib.go.opencensus.io/exporter/ocagent
+Import: knative.dev/serving/vendor/contrib.go.opencensus.io/exporter/ocagent
 
                                  Apache License
                            Version 2.0, January 2004
@@ -452,7 +452,7 @@ Import: github.com/knative/serving/vendor/contrib.go.opencensus.io/exporter/ocag
 
 
 ===========================================================
-Import: github.com/knative/serving/vendor/contrib.go.opencensus.io/exporter/stackdriver
+Import: knative.dev/serving/vendor/contrib.go.opencensus.io/exporter/stackdriver
 
 
                                  Apache License
@@ -660,7 +660,7 @@ Import: github.com/knative/serving/vendor/contrib.go.opencensus.io/exporter/stac
 
 
 ===========================================================
-Import: github.com/knative/serving/vendor/github.com/Azure/azure-sdk-for-go
+Import: knative.dev/serving/vendor/github.com/Azure/azure-sdk-for-go
 
 
                                  Apache License
@@ -868,7 +868,7 @@ Import: github.com/knative/serving/vendor/github.com/Azure/azure-sdk-for-go
 
 
 ===========================================================
-Import: github.com/knative/serving/vendor/github.com/Azure/go-autorest
+Import: knative.dev/serving/vendor/github.com/Azure/go-autorest
 
 
                                  Apache License
@@ -1065,7 +1065,7 @@ Import: github.com/knative/serving/vendor/github.com/Azure/go-autorest
 
 
 ===========================================================
-Import: github.com/knative/serving/vendor/github.com/NYTimes/gziphandler
+Import: knative.dev/serving/vendor/github.com/NYTimes/gziphandler
 
                                  Apache License
                            Version 2.0, January 2004
@@ -1272,7 +1272,7 @@ Import: github.com/knative/serving/vendor/github.com/NYTimes/gziphandler
 
 
 ===========================================================
-Import: github.com/knative/serving/vendor/github.com/PuerkitoBio/purell
+Import: knative.dev/serving/vendor/github.com/PuerkitoBio/purell
 
 Copyright (c) 2012, Martin Angers
 All rights reserved.
@@ -1290,7 +1290,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 
 
 ===========================================================
-Import: github.com/knative/serving/vendor/github.com/PuerkitoBio/urlesc
+Import: knative.dev/serving/vendor/github.com/PuerkitoBio/urlesc
 
 Copyright (c) 2012 The Go Authors. All rights reserved.
 
@@ -1323,7 +1323,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 
 ===========================================================
-Import: github.com/knative/serving/vendor/github.com/aws/aws-sdk-go
+Import: knative.dev/serving/vendor/github.com/aws/aws-sdk-go
 
 
                                  Apache License
@@ -1531,7 +1531,7 @@ Import: github.com/knative/serving/vendor/github.com/aws/aws-sdk-go
 
 
 ===========================================================
-Import: github.com/knative/serving/vendor/github.com/beorn7/perks
+Import: knative.dev/serving/vendor/github.com/beorn7/perks
 
 Copyright (C) 2013 Blake Mizerany
 
@@ -1557,7 +1557,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 
 ===========================================================
-Import: github.com/knative/serving/vendor/github.com/census-instrumentation/opencensus-proto
+Import: knative.dev/serving/vendor/github.com/census-instrumentation/opencensus-proto
 
 
                                  Apache License
@@ -1765,7 +1765,7 @@ Import: github.com/knative/serving/vendor/github.com/census-instrumentation/open
 
 
 ===========================================================
-Import: github.com/knative/serving/vendor/github.com/coreos/etcd
+Import: knative.dev/serving/vendor/github.com/coreos/etcd
 
 
                                  Apache License
@@ -1973,7 +1973,7 @@ Import: github.com/knative/serving/vendor/github.com/coreos/etcd
 
 
 ===========================================================
-Import: github.com/knative/serving/vendor/github.com/coreos/go-semver
+Import: knative.dev/serving/vendor/github.com/coreos/go-semver
 
 
                                  Apache License
@@ -2181,7 +2181,7 @@ Import: github.com/knative/serving/vendor/github.com/coreos/go-semver
 
 
 ===========================================================
-Import: github.com/knative/serving/vendor/github.com/coreos/go-systemd
+Import: knative.dev/serving/vendor/github.com/coreos/go-systemd
 
 Apache License
 Version 2.0, January 2004
@@ -2378,7 +2378,7 @@ third-party archives.
 
 
 ===========================================================
-Import: github.com/knative/serving/vendor/github.com/davecgh/go-spew
+Import: knative.dev/serving/vendor/github.com/davecgh/go-spew
 
 ISC License
 
@@ -2399,7 +2399,7 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 
 ===========================================================
-Import: github.com/knative/serving/vendor/github.com/dgrijalva/jwt-go
+Import: knative.dev/serving/vendor/github.com/dgrijalva/jwt-go
 
 Copyright (c) 2012 Dave Grijalva
 
@@ -2413,7 +2413,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 
 ===========================================================
-Import: github.com/knative/serving/vendor/github.com/docker/docker
+Import: knative.dev/serving/vendor/github.com/docker/docker
 
 
                                  Apache License
@@ -2610,7 +2610,7 @@ Import: github.com/knative/serving/vendor/github.com/docker/docker
 
 
 ===========================================================
-Import: github.com/knative/serving/vendor/github.com/docker/go-connections
+Import: knative.dev/serving/vendor/github.com/docker/go-connections
 
 
                                  Apache License
@@ -2807,7 +2807,7 @@ Import: github.com/knative/serving/vendor/github.com/docker/go-connections
 
 
 ===========================================================
-Import: github.com/knative/serving/vendor/github.com/docker/go-units
+Import: knative.dev/serving/vendor/github.com/docker/go-units
 
 
                                  Apache License
@@ -3004,7 +3004,7 @@ Import: github.com/knative/serving/vendor/github.com/docker/go-units
 
 
 ===========================================================
-Import: github.com/knative/serving/vendor/github.com/elazarl/go-bindata-assetfs
+Import: knative.dev/serving/vendor/github.com/elazarl/go-bindata-assetfs
 
 Copyright (c) 2014, Elazar Leibovich
 All rights reserved.
@@ -3033,7 +3033,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 
 ===========================================================
-Import: github.com/knative/serving/vendor/github.com/emicklei/go-restful
+Import: knative.dev/serving/vendor/github.com/emicklei/go-restful
 
 Copyright (c) 2012,2013 Ernest Micklei
 
@@ -3060,7 +3060,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 
 ===========================================================
-Import: github.com/knative/serving/vendor/github.com/emicklei/go-restful-swagger12
+Import: knative.dev/serving/vendor/github.com/emicklei/go-restful-swagger12
 
 Copyright (c) 2017 Ernest Micklei
 
@@ -3087,7 +3087,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 
 ===========================================================
-Import: github.com/knative/serving/vendor/github.com/evanphx/json-patch
+Import: knative.dev/serving/vendor/github.com/evanphx/json-patch
 
 Copyright (c) 2014, Evan Phoenix
 All rights reserved.
@@ -3118,7 +3118,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 
 ===========================================================
-Import: github.com/knative/serving/vendor/github.com/ghodss/yaml
+Import: knative.dev/serving/vendor/github.com/ghodss/yaml
 
 The MIT License (MIT)
 
@@ -3174,7 +3174,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 
 ===========================================================
-Import: github.com/knative/serving/vendor/github.com/go-openapi/jsonpointer
+Import: knative.dev/serving/vendor/github.com/go-openapi/jsonpointer
 
 
                                  Apache License
@@ -3382,7 +3382,7 @@ Import: github.com/knative/serving/vendor/github.com/go-openapi/jsonpointer
 
 
 ===========================================================
-Import: github.com/knative/serving/vendor/github.com/go-openapi/jsonreference
+Import: knative.dev/serving/vendor/github.com/go-openapi/jsonreference
 
 
                                  Apache License
@@ -3590,7 +3590,7 @@ Import: github.com/knative/serving/vendor/github.com/go-openapi/jsonreference
 
 
 ===========================================================
-Import: github.com/knative/serving/vendor/github.com/go-openapi/spec
+Import: knative.dev/serving/vendor/github.com/go-openapi/spec
 
 
                                  Apache License
@@ -3798,7 +3798,7 @@ Import: github.com/knative/serving/vendor/github.com/go-openapi/spec
 
 
 ===========================================================
-Import: github.com/knative/serving/vendor/github.com/go-openapi/swag
+Import: knative.dev/serving/vendor/github.com/go-openapi/swag
 
 
                                  Apache License
@@ -4006,7 +4006,7 @@ Import: github.com/knative/serving/vendor/github.com/go-openapi/swag
 
 
 ===========================================================
-Import: github.com/knative/serving/vendor/github.com/gobuffalo/envy
+Import: knative.dev/serving/vendor/github.com/gobuffalo/envy
 
 The MIT License (MIT)
 Copyright (c) 2018 Mark Bates
@@ -4020,7 +4020,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 
 ===========================================================
-Import: github.com/knative/serving/vendor/github.com/gogo/protobuf
+Import: knative.dev/serving/vendor/github.com/gogo/protobuf
 
 Protocol Buffers for Go with Gadgets
 
@@ -4062,7 +4062,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 
 ===========================================================
-Import: github.com/knative/serving/vendor/github.com/golang/glog
+Import: knative.dev/serving/vendor/github.com/golang/glog
 
 Apache License
 Version 2.0, January 2004
@@ -4259,7 +4259,7 @@ third-party archives.
 
 
 ===========================================================
-Import: github.com/knative/serving/vendor/github.com/golang/groupcache
+Import: knative.dev/serving/vendor/github.com/golang/groupcache
 
 Apache License
 Version 2.0, January 2004
@@ -4456,7 +4456,7 @@ third-party archives.
 
 
 ===========================================================
-Import: github.com/knative/serving/vendor/github.com/golang/protobuf
+Import: knative.dev/serving/vendor/github.com/golang/protobuf
 
 Copyright 2010 The Go Authors.  All rights reserved.
 
@@ -4490,7 +4490,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 
 ===========================================================
-Import: github.com/knative/serving/vendor/github.com/google/btree
+Import: knative.dev/serving/vendor/github.com/google/btree
 
 
                                  Apache License
@@ -4698,7 +4698,7 @@ Import: github.com/knative/serving/vendor/github.com/google/btree
 
 
 ===========================================================
-Import: github.com/knative/serving/vendor/github.com/google/go-cmp
+Import: knative.dev/serving/vendor/github.com/google/go-cmp
 
 Copyright (c) 2017 The Go Authors. All rights reserved.
 
@@ -4731,7 +4731,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 
 ===========================================================
-Import: github.com/knative/serving/vendor/github.com/google/go-containerregistry
+Import: knative.dev/serving/vendor/github.com/google/go-containerregistry
 
 
                                  Apache License
@@ -4938,7 +4938,7 @@ Import: github.com/knative/serving/vendor/github.com/google/go-containerregistry
 
 
 ===========================================================
-Import: github.com/knative/serving/vendor/github.com/google/gofuzz
+Import: knative.dev/serving/vendor/github.com/google/gofuzz
 
 
                                  Apache License
@@ -5146,7 +5146,7 @@ Import: github.com/knative/serving/vendor/github.com/google/gofuzz
 
 
 ===========================================================
-Import: github.com/knative/serving/vendor/github.com/google/uuid
+Import: knative.dev/serving/vendor/github.com/google/uuid
 
 Copyright (c) 2009,2014 Google Inc. All rights reserved.
 
@@ -5179,7 +5179,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 
 ===========================================================
-Import: github.com/knative/serving/vendor/github.com/googleapis/gax-go
+Import: knative.dev/serving/vendor/github.com/googleapis/gax-go
 
 Copyright 2016, Google Inc.
 All rights reserved.
@@ -5212,7 +5212,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 
 ===========================================================
-Import: github.com/knative/serving/vendor/github.com/googleapis/gnostic
+Import: knative.dev/serving/vendor/github.com/googleapis/gnostic
 
 
                                  Apache License
@@ -5421,7 +5421,7 @@ Import: github.com/knative/serving/vendor/github.com/googleapis/gnostic
 
 
 ===========================================================
-Import: github.com/knative/serving/vendor/github.com/gorilla/websocket
+Import: knative.dev/serving/vendor/github.com/gorilla/websocket
 
 Copyright (c) 2013 The Gorilla WebSocket Authors. All rights reserved.
 
@@ -5449,7 +5449,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 
 ===========================================================
-Import: github.com/knative/serving/vendor/github.com/gregjones/httpcache
+Import: knative.dev/serving/vendor/github.com/gregjones/httpcache
 
 Copyright © 2012 Greg Jones (greg.jones@gmail.com)
 
@@ -5461,7 +5461,7 @@ THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR I
 
 
 ===========================================================
-Import: github.com/knative/serving/vendor/github.com/grpc-ecosystem/go-grpc-prometheus
+Import: knative.dev/serving/vendor/github.com/grpc-ecosystem/go-grpc-prometheus
 
                  Apache License
                            Version 2.0, January 2004
@@ -5667,7 +5667,7 @@ Import: github.com/knative/serving/vendor/github.com/grpc-ecosystem/go-grpc-prom
 
 
 ===========================================================
-Import: github.com/knative/serving/vendor/github.com/hashicorp/golang-lru
+Import: knative.dev/serving/vendor/github.com/hashicorp/golang-lru
 
 Mozilla Public License, version 2.0
 
@@ -6035,7 +6035,7 @@ Exhibit B - "Incompatible With Secondary Licenses" Notice
 
 
 ===========================================================
-Import: github.com/knative/serving/vendor/github.com/imdario/mergo
+Import: knative.dev/serving/vendor/github.com/imdario/mergo
 
 Copyright (c) 2013 Dario Castañé. All rights reserved.
 Copyright (c) 2012 The Go Authors. All rights reserved.
@@ -6069,7 +6069,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 
 ===========================================================
-Import: github.com/knative/serving/vendor/github.com/jmespath/go-jmespath
+Import: knative.dev/serving/vendor/github.com/jmespath/go-jmespath
 
 Copyright 2015 James Saryerwinnie
 
@@ -6088,7 +6088,7 @@ limitations under the License.
 
 
 ===========================================================
-Import: github.com/knative/serving/vendor/github.com/joho/godotenv
+Import: knative.dev/serving/vendor/github.com/joho/godotenv
 
 Copyright (c) 2013 John Barton
 
@@ -6117,7 +6117,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 
 ===========================================================
-Import: github.com/knative/serving/vendor/github.com/json-iterator/go
+Import: knative.dev/serving/vendor/github.com/json-iterator/go
 
 MIT License
 
@@ -6144,7 +6144,7 @@ SOFTWARE.
 
 
 ===========================================================
-Import: github.com/knative/serving/vendor/github.com/kelseyhightower/envconfig
+Import: knative.dev/serving/vendor/github.com/kelseyhightower/envconfig
 
 Copyright (c) 2013 Kelsey Hightower
 
@@ -6169,7 +6169,7 @@ SOFTWARE.
 
 
 ===========================================================
-Import: github.com/knative/serving/vendor/github.com/kubernetes-incubator/custom-metrics-apiserver
+Import: knative.dev/serving/vendor/github.com/kubernetes-incubator/custom-metrics-apiserver
 
                                  Apache License
                            Version 2.0, January 2004
@@ -6376,7 +6376,7 @@ Import: github.com/knative/serving/vendor/github.com/kubernetes-incubator/custom
 
 
 ===========================================================
-Import: github.com/knative/serving/vendor/github.com/mailru/easyjson
+Import: knative.dev/serving/vendor/github.com/mailru/easyjson
 
 Copyright (c) 2016 Mail.Ru Group
 
@@ -6389,7 +6389,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 
 ===========================================================
-Import: github.com/knative/serving/vendor/github.com/markbates/inflect
+Import: knative.dev/serving/vendor/github.com/markbates/inflect
 
 Copyright (c) 2011 Chris Farmiloe
 
@@ -6402,7 +6402,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 
 ===========================================================
-Import: github.com/knative/serving/vendor/github.com/mattbaird/jsonpatch
+Import: knative.dev/serving/vendor/github.com/mattbaird/jsonpatch
 
                                  Apache License
                            Version 2.0, January 2004
@@ -6610,7 +6610,7 @@ Import: github.com/knative/serving/vendor/github.com/mattbaird/jsonpatch
 
 
 ===========================================================
-Import: github.com/knative/serving/vendor/github.com/matttproud/golang_protobuf_extensions
+Import: knative.dev/serving/vendor/github.com/matttproud/golang_protobuf_extensions
 
                                  Apache License
                            Version 2.0, January 2004
@@ -6817,7 +6817,7 @@ Import: github.com/knative/serving/vendor/github.com/matttproud/golang_protobuf_
 
 
 ===========================================================
-Import: github.com/knative/serving/vendor/github.com/modern-go/concurrent
+Import: knative.dev/serving/vendor/github.com/modern-go/concurrent
 
                                  Apache License
                            Version 2.0, January 2004
@@ -7024,7 +7024,7 @@ Import: github.com/knative/serving/vendor/github.com/modern-go/concurrent
 
 
 ===========================================================
-Import: github.com/knative/serving/vendor/github.com/modern-go/reflect2
+Import: knative.dev/serving/vendor/github.com/modern-go/reflect2
 
                                  Apache License
                            Version 2.0, January 2004
@@ -7231,7 +7231,7 @@ Import: github.com/knative/serving/vendor/github.com/modern-go/reflect2
 
 
 ===========================================================
-Import: github.com/knative/serving/vendor/github.com/openzipkin/zipkin-go
+Import: knative.dev/serving/vendor/github.com/openzipkin/zipkin-go
 
 Apache License
 Version 2.0, January 2004
@@ -7438,7 +7438,7 @@ limitations under the License.
 
 
 ===========================================================
-Import: github.com/knative/serving/vendor/github.com/pborman/uuid
+Import: knative.dev/serving/vendor/github.com/pborman/uuid
 
 Copyright (c) 2009,2014 Google Inc. All rights reserved.
 
@@ -7471,7 +7471,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 
 ===========================================================
-Import: github.com/knative/serving/vendor/github.com/peterbourgon/diskv
+Import: knative.dev/serving/vendor/github.com/peterbourgon/diskv
 
 Copyright (c) 2011-2012 Peter Bourgon
 
@@ -7496,7 +7496,7 @@ THE SOFTWARE.
 
 
 ===========================================================
-Import: github.com/knative/serving/vendor/github.com/pkg/errors
+Import: knative.dev/serving/vendor/github.com/pkg/errors
 
 Copyright (c) 2015, Dave Cheney <dave@cheney.net>
 All rights reserved.
@@ -7525,7 +7525,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 
 ===========================================================
-Import: github.com/knative/serving/vendor/github.com/prometheus/client_golang
+Import: knative.dev/serving/vendor/github.com/prometheus/client_golang
 
                                  Apache License
                            Version 2.0, January 2004
@@ -7732,7 +7732,7 @@ Import: github.com/knative/serving/vendor/github.com/prometheus/client_golang
 
 
 ===========================================================
-Import: github.com/knative/serving/vendor/github.com/prometheus/client_model
+Import: knative.dev/serving/vendor/github.com/prometheus/client_model
 
                                  Apache License
                            Version 2.0, January 2004
@@ -7939,7 +7939,7 @@ Import: github.com/knative/serving/vendor/github.com/prometheus/client_model
 
 
 ===========================================================
-Import: github.com/knative/serving/vendor/github.com/prometheus/common
+Import: knative.dev/serving/vendor/github.com/prometheus/common
 
                                  Apache License
                            Version 2.0, January 2004
@@ -8146,7 +8146,7 @@ Import: github.com/knative/serving/vendor/github.com/prometheus/common
 
 
 ===========================================================
-Import: github.com/knative/serving/vendor/github.com/prometheus/procfs
+Import: knative.dev/serving/vendor/github.com/prometheus/procfs
 
                                  Apache License
                            Version 2.0, January 2004
@@ -8353,7 +8353,7 @@ Import: github.com/knative/serving/vendor/github.com/prometheus/procfs
 
 
 ===========================================================
-Import: github.com/knative/serving/vendor/github.com/rogpeppe/go-internal
+Import: knative.dev/serving/vendor/github.com/rogpeppe/go-internal
 
 Copyright (c) 2018 The Go Authors. All rights reserved.
 
@@ -8386,7 +8386,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 
 ===========================================================
-Import: github.com/knative/serving/vendor/github.com/spf13/pflag
+Import: knative.dev/serving/vendor/github.com/spf13/pflag
 
 Copyright (c) 2012 Alex Ogier. All rights reserved.
 Copyright (c) 2012 The Go Authors. All rights reserved.
@@ -8420,7 +8420,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 
 ===========================================================
-Import: github.com/knative/serving/vendor/go.opencensus.io
+Import: knative.dev/serving/vendor/go.opencensus.io
 
 
                                  Apache License
@@ -8627,7 +8627,7 @@ Import: github.com/knative/serving/vendor/go.opencensus.io
 
 
 ===========================================================
-Import: github.com/knative/serving/vendor/go.uber.org/atomic
+Import: knative.dev/serving/vendor/go.uber.org/atomic
 
 Copyright (c) 2016 Uber Technologies, Inc.
 
@@ -8652,7 +8652,7 @@ THE SOFTWARE.
 
 
 ===========================================================
-Import: github.com/knative/serving/vendor/go.uber.org/multierr
+Import: knative.dev/serving/vendor/go.uber.org/multierr
 
 Copyright (c) 2017 Uber Technologies, Inc.
 
@@ -8677,7 +8677,7 @@ THE SOFTWARE.
 
 
 ===========================================================
-Import: github.com/knative/serving/vendor/go.uber.org/zap
+Import: knative.dev/serving/vendor/go.uber.org/zap
 
 Copyright (c) 2016-2017 Uber Technologies, Inc.
 
@@ -8702,7 +8702,7 @@ THE SOFTWARE.
 
 
 ===========================================================
-Import: github.com/knative/serving/vendor/golang.org/x/crypto
+Import: knative.dev/serving/vendor/golang.org/x/crypto
 
 Copyright (c) 2009 The Go Authors. All rights reserved.
 
@@ -8735,7 +8735,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 
 ===========================================================
-Import: github.com/knative/serving/vendor/golang.org/x/net
+Import: knative.dev/serving/vendor/golang.org/x/net
 
 Copyright (c) 2009 The Go Authors. All rights reserved.
 
@@ -8768,7 +8768,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 
 ===========================================================
-Import: github.com/knative/serving/vendor/golang.org/x/oauth2
+Import: knative.dev/serving/vendor/golang.org/x/oauth2
 
 Copyright (c) 2009 The Go Authors. All rights reserved.
 
@@ -8801,7 +8801,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 
 ===========================================================
-Import: github.com/knative/serving/vendor/golang.org/x/sync
+Import: knative.dev/serving/vendor/golang.org/x/sync
 
 Copyright (c) 2009 The Go Authors. All rights reserved.
 
@@ -8834,7 +8834,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 
 ===========================================================
-Import: github.com/knative/serving/vendor/golang.org/x/sys
+Import: knative.dev/serving/vendor/golang.org/x/sys
 
 Copyright (c) 2009 The Go Authors. All rights reserved.
 
@@ -8867,7 +8867,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 
 ===========================================================
-Import: github.com/knative/serving/vendor/golang.org/x/text
+Import: knative.dev/serving/vendor/golang.org/x/text
 
 Copyright (c) 2009 The Go Authors. All rights reserved.
 
@@ -8900,7 +8900,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 
 ===========================================================
-Import: github.com/knative/serving/vendor/golang.org/x/time
+Import: knative.dev/serving/vendor/golang.org/x/time
 
 Copyright (c) 2009 The Go Authors. All rights reserved.
 
@@ -8933,7 +8933,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 
 ===========================================================
-Import: github.com/knative/serving/vendor/google.golang.org/api
+Import: knative.dev/serving/vendor/google.golang.org/api
 
 Copyright (c) 2011 Google Inc. All rights reserved.
 
@@ -8966,7 +8966,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 
 ===========================================================
-Import: github.com/knative/serving/vendor/google.golang.org/genproto
+Import: knative.dev/serving/vendor/google.golang.org/genproto
 
 
                                  Apache License
@@ -9174,7 +9174,7 @@ Import: github.com/knative/serving/vendor/google.golang.org/genproto
 
 
 ===========================================================
-Import: github.com/knative/serving/vendor/google.golang.org/grpc
+Import: knative.dev/serving/vendor/google.golang.org/grpc
 
 
                                  Apache License
@@ -9382,7 +9382,7 @@ Import: github.com/knative/serving/vendor/google.golang.org/grpc
 
 
 ===========================================================
-Import: github.com/knative/serving/vendor/gopkg.in/inf.v0
+Import: knative.dev/serving/vendor/gopkg.in/inf.v0
 
 Copyright (c) 2012 Péter Surányi. Portions Copyright (c) 2009 The Go
 Authors. All rights reserved.
@@ -9416,7 +9416,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 
 ===========================================================
-Import: github.com/knative/serving/vendor/gopkg.in/natefinch/lumberjack.v2
+Import: knative.dev/serving/vendor/gopkg.in/natefinch/lumberjack.v2
 
 The MIT License (MIT)
 
@@ -9442,7 +9442,7 @@ SOFTWARE.
 
 
 ===========================================================
-Import: github.com/knative/serving/vendor/gopkg.in/yaml.v2
+Import: knative.dev/serving/vendor/gopkg.in/yaml.v2
 
                                  Apache License
                            Version 2.0, January 2004
@@ -9649,7 +9649,7 @@ Import: github.com/knative/serving/vendor/gopkg.in/yaml.v2
 
 
 ===========================================================
-Import: github.com/knative/serving/vendor/k8s.io/api
+Import: knative.dev/serving/vendor/k8s.io/api
 
 
                                  Apache License
@@ -9857,7 +9857,7 @@ Import: github.com/knative/serving/vendor/k8s.io/api
 
 
 ===========================================================
-Import: github.com/knative/serving/vendor/k8s.io/apimachinery
+Import: knative.dev/serving/vendor/k8s.io/apimachinery
 
 
                                  Apache License
@@ -10065,7 +10065,7 @@ Import: github.com/knative/serving/vendor/k8s.io/apimachinery
 
 
 ===========================================================
-Import: github.com/knative/serving/vendor/k8s.io/apiserver
+Import: knative.dev/serving/vendor/k8s.io/apiserver
 
 
                                  Apache License
@@ -10273,7 +10273,7 @@ Import: github.com/knative/serving/vendor/k8s.io/apiserver
 
 
 ===========================================================
-Import: github.com/knative/serving/vendor/k8s.io/client-go
+Import: knative.dev/serving/vendor/k8s.io/client-go
 
 
                                  Apache License
@@ -10481,7 +10481,7 @@ Import: github.com/knative/serving/vendor/k8s.io/client-go
 
 
 ===========================================================
-Import: github.com/knative/serving/vendor/k8s.io/kube-openapi
+Import: knative.dev/serving/vendor/k8s.io/kube-openapi
 
 
                                  Apache License
@@ -10689,7 +10689,7 @@ Import: github.com/knative/serving/vendor/k8s.io/kube-openapi
 
 
 ===========================================================
-Import: github.com/knative/serving/vendor/k8s.io/kubernetes
+Import: knative.dev/serving/vendor/k8s.io/kubernetes
 
 
                                  Apache License
@@ -10897,7 +10897,7 @@ Import: github.com/knative/serving/vendor/k8s.io/kubernetes
 
 
 ===========================================================
-Import: github.com/knative/serving/vendor/k8s.io/metrics
+Import: knative.dev/serving/vendor/k8s.io/metrics
 
                                  Apache License
                            Version 2.0, January 2004
@@ -11104,7 +11104,7 @@ Import: github.com/knative/serving/vendor/k8s.io/metrics
 
 
 ===========================================================
-Import: github.com/knative/serving/vendor/knative.dev/caching
+Import: knative.dev/serving/vendor/knative.dev/caching
 
                                  Apache License
                            Version 2.0, January 2004
@@ -11311,7 +11311,7 @@ Import: github.com/knative/serving/vendor/knative.dev/caching
 
 
 ===========================================================
-Import: github.com/knative/serving/vendor/knative.dev/pkg
+Import: knative.dev/serving/vendor/knative.dev/pkg
 
                                  Apache License
                            Version 2.0, January 2004

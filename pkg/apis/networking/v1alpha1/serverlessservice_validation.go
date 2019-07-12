@@ -19,7 +19,7 @@ package v1alpha1
 import (
 	"context"
 
-	"github.com/knative/serving/pkg/apis/serving"
+	"knative.dev/serving/pkg/apis/serving"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"knative.dev/pkg/apis"
 )

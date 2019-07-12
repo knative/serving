@@ -19,9 +19,9 @@ limitations under the License.
 package serving
 
 import (
-	internalinterfaces "github.com/knative/serving/pkg/client/informers/externalversions/internalinterfaces"
-	v1alpha1 "github.com/knative/serving/pkg/client/informers/externalversions/serving/v1alpha1"
-	v1beta1 "github.com/knative/serving/pkg/client/informers/externalversions/serving/v1beta1"
+	internalinterfaces "knative.dev/serving/pkg/client/informers/externalversions/internalinterfaces"
+	v1alpha1 "knative.dev/serving/pkg/client/informers/externalversions/serving/v1alpha1"
+	v1beta1 "knative.dev/serving/pkg/client/informers/externalversions/serving/v1beta1"
 )
 
 // Interface provides access to each of this group's versions.

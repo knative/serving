@@ -18,12 +18,12 @@ package main
 
 import (
 	// The set of controllers this controller process runs.
-	"github.com/knative/serving/pkg/reconciler/configuration"
-	"github.com/knative/serving/pkg/reconciler/labeler"
-	"github.com/knative/serving/pkg/reconciler/revision"
-	"github.com/knative/serving/pkg/reconciler/route"
-	"github.com/knative/serving/pkg/reconciler/serverlessservice"
-	"github.com/knative/serving/pkg/reconciler/service"
+	"knative.dev/serving/pkg/reconciler/configuration"
+	"knative.dev/serving/pkg/reconciler/labeler"
+	"knative.dev/serving/pkg/reconciler/revision"
+	"knative.dev/serving/pkg/reconciler/route"
+	"knative.dev/serving/pkg/reconciler/serverlessservice"
+	"knative.dev/serving/pkg/reconciler/service"
 
 	// This defines the shared main for injected controllers.
 	"knative.dev/pkg/injection/sharedmain"

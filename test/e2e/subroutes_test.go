@@ -22,20 +22,20 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/knative/serving/pkg/network"
-	"github.com/knative/serving/pkg/reconciler/route/resources/labels"
+	"knative.dev/serving/pkg/network"
+	"knative.dev/serving/pkg/reconciler/route/resources/labels"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"knative.dev/pkg/apis/duck"
 	"knative.dev/pkg/test/logstream"
 
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	"github.com/knative/serving/pkg/apis/serving/v1beta1"
-	routeconfig "github.com/knative/serving/pkg/reconciler/route/config"
-	"github.com/knative/serving/test"
-	v1a1test "github.com/knative/serving/test/v1alpha1"
+	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	"knative.dev/serving/pkg/apis/serving/v1beta1"
+	routeconfig "knative.dev/serving/pkg/reconciler/route/config"
+	"knative.dev/serving/test"
+	v1a1test "knative.dev/serving/test/v1alpha1"
 
-	. "github.com/knative/serving/pkg/testing/v1alpha1"
+	. "knative.dev/serving/pkg/testing/v1alpha1"
 )
 
 // In this test, we set up two apps: helloworld and httpproxy.
