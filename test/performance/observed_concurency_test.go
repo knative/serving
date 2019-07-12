@@ -31,9 +31,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 
-	rsNames "github.com/knative/serving/pkg/reconciler/revision/resources/names"
 	"github.com/knative/serving/test"
-	"github.com/knative/serving/test/e2e"
 	v1a1test "github.com/knative/serving/test/v1alpha1"
 	"github.com/knative/test-infra/shared/junit"
 	perf "github.com/knative/test-infra/shared/performance"
@@ -112,8 +110,9 @@ func parseResponse(body string) (*event, *event, error) {
 
 // timeToScale calculates the time it took to scale to a given scale, starting from a given
 // time. Returns an error if that scale was never reached.
-func timeToScale(events []*event, start time.Time, desiredScale int) (time.Duration, error) {
+func timeToScale(events []*event, desiredScale int) (time.Duration, error) {
 	var currentConcurrency int
+	start := events[0].timestamp
 	for _, event := range events {
 		currentConcurrency += event.concurrencyModifier
 		if currentConcurrency == desiredScale {
@@ -166,12 +165,6 @@ func testConcurrencyN(t *testing.T, concurrency int) []junit.TestCase {
 		t.Fatalf("Failed to create Service: %v", err)
 	}
 
-	t.Logf("%02d: waiting for deployment to scale to zero.", concurrency)
-	deploymentName := rsNames.Deployment(objs.Revision)
-	if err := e2e.WaitForScaleToZero(t, deploymentName, clients); err != nil {
-		t.Fatalf("%02d: failed waiting for deployment to scale to zero: %v", concurrency, err)
-	}
-
 	domain := objs.Route.Status.URL.Host
 	url := fmt.Sprintf("http://%s/?timeout=1000", domain)
 	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, t.Logf, domain, test.ServingFlags.ResolvableDomain)
@@ -183,7 +176,6 @@ func testConcurrencyN(t *testing.T, concurrency int) []junit.TestCase {
 	const presumedSize = 1000
 
 	eg := errgroup.Group{}
-	trafficStart := time.Now()
 	responseChannel := make(chan *spoof.Response, presumedSize)
 	events := make([]*event, 0, presumedSize)
 	failedRequests := 0
@@ -219,8 +211,8 @@ func testConcurrencyN(t *testing.T, concurrency int) []junit.TestCase {
 	t.Logf("Generated %d requests with %d failed", len(events)+failedRequests, failedRequests)
 
 	var tc []junit.TestCase
-	for i := 1; i <= concurrency; i++ {
-		toConcurrency, err := timeToScale(events, trafficStart, i)
+	for i := 2; i <= concurrency; i++ {
+		toConcurrency, err := timeToScale(events, i)
 		if err != nil {
 			t.Logf("Never scaled to %d", i)
 		} else {
