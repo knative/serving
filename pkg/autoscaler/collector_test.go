@@ -222,7 +222,3 @@ type testScraper struct {
 func (s *testScraper) Scrape() (*StatMessage, error) {
 	return s.s()
 }
-
-func (s *testScraper) UpdateTarget(sv, ns string) {
-	s.url = urlFromTarget(sv, ns)
-}

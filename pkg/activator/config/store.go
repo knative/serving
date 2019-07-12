@@ -90,14 +90,3 @@ func (s *Store) HTTPMiddleware(next http.Handler) http.Handler {
 		next:  next,
 	}
 }
-
-// TracingEnabledForContext returns true if tracing is enabled in the Configuration and ok if configuration
-// was able to be found in context
-func TracingEnabledForContext(ctx context.Context) (bool, bool) {
-	cfg := FromContext(ctx)
-	if cfg == nil {
-		return false, false
-	}
-
-	return cfg.Tracing.Enable, true
-}
