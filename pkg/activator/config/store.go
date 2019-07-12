@@ -20,7 +20,7 @@ import (
 	"context"
 	"net/http"
 
-	tracingconfig "github.com/knative/serving/pkg/tracing/config"
+	tracingconfig "knative.dev/serving/pkg/tracing/config"
 	"knative.dev/pkg/configmap"
 )
 
@@ -89,15 +89,4 @@ func (s *Store) HTTPMiddleware(next http.Handler) http.Handler {
 		store: s,
 		next:  next,
 	}
-}
-
-// TracingEnabledForContext returns true if tracing is enabled in the Configuration and ok if configuration
-// was able to be found in context
-func TracingEnabledForContext(ctx context.Context) (bool, bool) {
-	cfg := FromContext(ctx)
-	if cfg == nil {
-		return false, false
-	}
-
-	return cfg.Tracing.Enable, true
 }

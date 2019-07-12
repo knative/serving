@@ -23,7 +23,7 @@ spec:
       containers:
       - # This is the Go import path for the binary to containerize
         # and substitute here.
-        image: github.com/knative/serving/test/test_images/hellovolume
+        image: knative.dev/serving/test/test_images/hellovolume
         volumeMounts:
         - name: foo
           mountPath: /hello/

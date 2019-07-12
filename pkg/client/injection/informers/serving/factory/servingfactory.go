@@ -21,11 +21,11 @@ package servingfactory
 import (
 	"context"
 
-	externalversions "github.com/knative/serving/pkg/client/informers/externalversions"
-	client "github.com/knative/serving/pkg/client/injection/client"
 	controller "knative.dev/pkg/controller"
 	injection "knative.dev/pkg/injection"
 	logging "knative.dev/pkg/logging"
+	externalversions "knative.dev/serving/pkg/client/informers/externalversions"
+	client "knative.dev/serving/pkg/client/injection/client"
 )
 
 func init() {

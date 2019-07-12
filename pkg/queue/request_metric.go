@@ -21,8 +21,8 @@ import (
 	"net/http"
 	"time"
 
-	pkghttp "github.com/knative/serving/pkg/http"
-	"github.com/knative/serving/pkg/queue/stats"
+	pkghttp "knative.dev/serving/pkg/http"
+	"knative.dev/serving/pkg/queue/stats"
 )
 
 type requestMetricHandler struct {

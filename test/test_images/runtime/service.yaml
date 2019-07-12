@@ -7,6 +7,6 @@ spec:
   template:
     spec:
       containers:
-      - image: github.com/knative/serving/test/test_images/runtime
+      - image: knative.dev/serving/test/test_images/runtime
         securityContext:
           runAsUser: 2020

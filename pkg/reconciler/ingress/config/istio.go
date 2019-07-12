@@ -21,7 +21,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/knative/serving/pkg/network"
+	"knative.dev/serving/pkg/network"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/validation"
 )
@@ -36,9 +36,6 @@ const (
 
 	// LocalGatewayKeyPrefix is the prefix of all keys to configure Istio gateways for public & private ClusterIngresses.
 	LocalGatewayKeyPrefix = "local-gateway."
-
-	// MeshGatewayName is the name of the special 'mesh' Istio Gateway.
-	MeshGatewayName = "mesh"
 )
 
 var (

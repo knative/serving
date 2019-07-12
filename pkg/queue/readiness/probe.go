@@ -21,7 +21,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/knative/serving/pkg/queue/health"
+	"knative.dev/serving/pkg/queue/health"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -78,7 +78,7 @@ func (p *Probe) ProbeContainer() bool {
 
 	if err != nil {
 		// Using Fprintf for a concise error message in the event log.
-		fmt.Fprintf(os.Stderr, err.Error())
+		fmt.Fprint(os.Stderr, err.Error())
 		return false
 	}
 

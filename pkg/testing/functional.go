@@ -20,11 +20,11 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/knative/serving/pkg/apis/autoscaling"
-	autoscalingv1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
-	"github.com/knative/serving/pkg/apis/networking"
-	netv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
-	"github.com/knative/serving/pkg/apis/serving/v1beta1"
+	"knative.dev/serving/pkg/apis/autoscaling"
+	autoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
+	"knative.dev/serving/pkg/apis/networking"
+	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
+	"knative.dev/serving/pkg/apis/serving/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -96,14 +96,6 @@ func WithHPAClass(pa *autoscalingv1alpha1.PodAutoscaler) {
 		pa.Annotations = make(map[string]string)
 	}
 	pa.Annotations[autoscaling.ClassAnnotationKey] = autoscaling.HPA
-}
-
-// WithKPAClass updates the PA to add the kpa class annotation.
-func WithKPAClass(pa *autoscalingv1alpha1.PodAutoscaler) {
-	if pa.Annotations == nil {
-		pa.Annotations = make(map[string]string)
-	}
-	pa.Annotations[autoscaling.ClassAnnotationKey] = autoscaling.KPA
 }
 
 // WithContainerConcurrency returns a PodAutoscalerOption which sets

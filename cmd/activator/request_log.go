@@ -19,10 +19,10 @@ package main
 import (
 	"net/http"
 
-	"github.com/knative/serving/pkg/activator"
-	"github.com/knative/serving/pkg/apis/serving"
-	servinglisters "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
-	pkghttp "github.com/knative/serving/pkg/http"
+	"knative.dev/serving/pkg/activator"
+	"knative.dev/serving/pkg/apis/serving"
+	servinglisters "knative.dev/serving/pkg/client/listers/serving/v1alpha1"
+	pkghttp "knative.dev/serving/pkg/http"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 )

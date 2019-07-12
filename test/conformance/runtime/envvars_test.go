@@ -23,10 +23,10 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/knative/serving/test"
-	"github.com/knative/serving/test/types"
+	"knative.dev/serving/test"
+	"knative.dev/serving/test/types"
 
-	. "github.com/knative/serving/pkg/testing/v1alpha1"
+	. "knative.dev/serving/pkg/testing/v1alpha1"
 )
 
 // TestShouldEnvVars verifies environment variables that are declared as "SHOULD be set" in runtime-contract

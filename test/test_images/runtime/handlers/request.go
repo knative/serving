@@ -17,7 +17,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/knative/serving/test/types"
+	"knative.dev/serving/test/types"
 )
 
 func requestInfo(r *http.Request) *types.RequestInfo {

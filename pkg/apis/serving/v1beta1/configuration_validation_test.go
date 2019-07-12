@@ -20,7 +20,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/knative/serving/pkg/apis/config"
+	"knative.dev/serving/pkg/apis/config"
 	"knative.dev/pkg/ptr"
 
 	"github.com/google/go-cmp/cmp"

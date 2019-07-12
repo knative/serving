@@ -19,7 +19,7 @@ package resources
 import (
 	"context"
 
-	pav1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
+	pav1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/pkg/errors"
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/apis/duck"

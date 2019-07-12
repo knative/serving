@@ -19,7 +19,7 @@ package statserver
 import (
 	"net"
 
-	"github.com/knative/serving/pkg/autoscaler"
+	"knative.dev/serving/pkg/autoscaler"
 	"go.uber.org/zap"
 )
 
