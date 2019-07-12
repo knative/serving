@@ -610,7 +610,7 @@
     "tools/webhook-apicoverage/webhook",
   ]
   pruneopts = "UT"
-  revision = "a48a69542f32d426f089d8a12b3aa55547176b69"
+  revision = "bf05b82bcaaf2e7516d0b2edfc96fc904813bcf2"
 
 [[projects]]
   digest = "1:58999a98719fddbac6303cb17e8d85b945f60b72f48e3a2df6b950b97fa926f1"
@@ -1620,7 +1620,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:4563adec376c56f3441da3767facc1d6c733d93a39f593495c009fed54dbb76c"
+  digest = "1:45a635362a586b2729559eceffcc1ba62dd3f79c0fbb2a666b6f4410f46515ab"
   name = "knative.dev/pkg"
   packages = [
     "apis",
@@ -1690,6 +1690,7 @@
     "logging/testing",
     "metrics",
     "metrics/metricskey",
+    "metrics/metricstest",
     "metrics/testing",
     "ptr",
     "reconciler/testing",
@@ -1710,7 +1711,7 @@
     "websocket",
   ]
   pruneopts = "T"
-  revision = "e2418a08c195ff0acda037c11c21882ca5453d96"
+  revision = "76da19bbc6f409dba9017f60003560e03aeff6e7"
 
 [solve-meta]
   analyzer-name = "dep"
@@ -1879,6 +1880,7 @@
     "knative.dev/pkg/logging/testing",
     "knative.dev/pkg/metrics",
     "knative.dev/pkg/metrics/metricskey",
+    "knative.dev/pkg/metrics/metricstest",
     "knative.dev/pkg/metrics/testing",
     "knative.dev/pkg/ptr",
     "knative.dev/pkg/reconciler/testing",
