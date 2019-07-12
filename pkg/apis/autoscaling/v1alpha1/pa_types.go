@@ -17,14 +17,14 @@ limitations under the License.
 package v1alpha1
 
 import (
-	net "knative.dev/serving/pkg/apis/networking"
-	servingv1alpha1 "knative.dev/serving/pkg/apis/serving/v1alpha1"
-	servingv1beta1 "knative.dev/serving/pkg/apis/serving/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/apis"
 	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
 	"knative.dev/pkg/kmeta"
+	net "knative.dev/serving/pkg/apis/networking"
+	servingv1alpha1 "knative.dev/serving/pkg/apis/serving/v1alpha1"
+	servingv1beta1 "knative.dev/serving/pkg/apis/serving/v1beta1"
 )
 
 // +genclient

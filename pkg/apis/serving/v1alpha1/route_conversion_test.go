@@ -23,9 +23,9 @@ import (
 	"github.com/google/go-cmp/cmp"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"knative.dev/serving/pkg/apis/serving/v1beta1"
 	"knative.dev/pkg/apis"
 	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
+	"knative.dev/serving/pkg/apis/serving/v1beta1"
 )
 
 func TestRouteConversionBadType(t *testing.T) {

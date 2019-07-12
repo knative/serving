@@ -19,11 +19,11 @@ package resources
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"knative.dev/pkg/kmeta"
 	"knative.dev/serving/pkg/apis/serving"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	"knative.dev/serving/pkg/reconciler/service/resources/names"
 	"knative.dev/serving/pkg/resources"
-	"knative.dev/pkg/kmeta"
 )
 
 // MakeConfiguration creates a Configuration from a Service object.

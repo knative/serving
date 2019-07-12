@@ -21,10 +21,10 @@ package v1alpha1
 import (
 	"testing"
 
+	pkgTest "knative.dev/pkg/test"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	"knative.dev/serving/test"
 	v1a1test "knative.dev/serving/test/v1alpha1"
-	pkgTest "knative.dev/pkg/test"
 )
 
 func assertResourcesUpdatedWhenRevisionIsReady(t *testing.T, clients *test.Clients, names test.ResourceNames, domain string, expectedGeneration, expectedText string) {

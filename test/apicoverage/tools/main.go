@@ -23,10 +23,10 @@ import (
 	"path"
 	"strings"
 
-	"knative.dev/serving/test/apicoverage/image/common"
-	"knative.dev/serving/test/apicoverage/image/rules"
 	"github.com/knative/test-infra/shared/prow"
 	"github.com/knative/test-infra/tools/webhook-apicoverage/tools"
+	"knative.dev/serving/test/apicoverage/image/common"
+	"knative.dev/serving/test/apicoverage/image/rules"
 )
 
 func main() {

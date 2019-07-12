@@ -19,9 +19,9 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	"knative.dev/pkg/apis"
+	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 )
 
 func TestIsFailure_Missing(t *testing.T) {

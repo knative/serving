@@ -28,9 +28,9 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
+	pkgTest "knative.dev/pkg/test"
 	"knative.dev/serving/test"
 	v1a1test "knative.dev/serving/test/v1alpha1"
-	pkgTest "knative.dev/pkg/test"
 )
 
 func TestSingleConcurrency(t *testing.T) {

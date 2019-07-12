@@ -22,10 +22,10 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
-	"knative.dev/serving/pkg/apis/serving"
-	"knative.dev/serving/pkg/resources"
 	"github.com/pkg/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"knative.dev/serving/pkg/apis/serving"
+	"knative.dev/serving/pkg/resources"
 )
 
 const (

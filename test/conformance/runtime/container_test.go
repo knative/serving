@@ -22,12 +22,12 @@ import (
 	"testing"
 
 	"github.com/davecgh/go-spew/spew"
-	"knative.dev/serving/pkg/apis/serving/v1alpha1"
-	"knative.dev/serving/test"
-	v1a1test "knative.dev/serving/test/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"knative.dev/pkg/ptr"
+	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	"knative.dev/serving/test"
+	v1a1test "knative.dev/serving/test/v1alpha1"
 )
 
 // TestMustNotContainerContraints tests that attempting to set unsupported fields or invalid values as

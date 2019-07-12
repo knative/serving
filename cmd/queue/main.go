@@ -30,6 +30,7 @@ import (
 	"time"
 
 	"github.com/kelseyhightower/envconfig"
+	"github.com/pkg/errors"
 	"knative.dev/serving/pkg/activator"
 	activatorutil "knative.dev/serving/pkg/activator/util"
 	"knative.dev/serving/pkg/apis/networking"
@@ -40,7 +41,6 @@ import (
 	"knative.dev/serving/pkg/queue"
 	"knative.dev/serving/pkg/queue/health"
 	queuestats "knative.dev/serving/pkg/queue/stats"
-	"github.com/pkg/errors"
 
 	"go.opencensus.io/stats"
 	"go.uber.org/zap"

@@ -17,8 +17,8 @@ limitations under the License.
 package clusteringress
 
 import (
-	"knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"k8s.io/apimachinery/pkg/types"
+	"knative.dev/serving/pkg/apis/networking/v1alpha1"
 )
 
 // GetIngress returns an ClsuterIngress object of type IngressAccessor

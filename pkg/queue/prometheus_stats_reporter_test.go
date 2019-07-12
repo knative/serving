@@ -20,8 +20,8 @@ import (
 	"errors"
 	"testing"
 
-	"knative.dev/serving/pkg/autoscaler"
 	"github.com/prometheus/client_golang/prometheus"
+	"knative.dev/serving/pkg/autoscaler"
 
 	dto "github.com/prometheus/client_model/go"
 )

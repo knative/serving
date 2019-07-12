@@ -23,12 +23,12 @@ import (
 	"strings"
 
 	"github.com/google/go-containerregistry/pkg/name"
-	"knative.dev/serving/pkg/apis/networking"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation"
 	"knative.dev/pkg/apis"
+	"knative.dev/serving/pkg/apis/networking"
 )
 
 const (

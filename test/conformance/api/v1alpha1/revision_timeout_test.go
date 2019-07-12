@@ -25,15 +25,15 @@ import (
 	"testing"
 	"time"
 
+	"github.com/mattbaird/jsonpatch"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+	pkgTest "knative.dev/pkg/test"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving/v1beta1"
 	serviceresourcenames "knative.dev/serving/pkg/reconciler/service/resources/names"
 	"knative.dev/serving/test"
 	v1a1test "knative.dev/serving/test/v1alpha1"
-	"github.com/mattbaird/jsonpatch"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
-	pkgTest "knative.dev/pkg/test"
 
 	. "knative.dev/serving/pkg/testing/v1alpha1"
 )
