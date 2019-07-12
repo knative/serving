@@ -170,6 +170,15 @@ func TestPodSpecValidation(t *testing.T) {
 			}},
 		},
 		want: apis.ErrDisallowedFields("initContainers"),
+	}, {
+		name: "bad service account name",
+		ps: corev1.PodSpec{
+			Containers: []corev1.Container{{
+				Image: "busybox",
+			}},
+			ServiceAccountName: "foo@bar.baz",
+		},
+		want: apis.ErrInvalidValue("serviceAccountName", "foo@bar.baz"),
 	}}
 
 	for _, test := range tests {
