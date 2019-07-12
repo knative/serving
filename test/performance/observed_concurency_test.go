@@ -37,9 +37,7 @@ import (
 	"golang.org/x/sync/errgroup"
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/spoof"
-	rsNames "knative.dev/serving/pkg/reconciler/revision/resources/names"
 	"knative.dev/serving/test"
-	"knative.dev/serving/test/e2e"
 	v1a1test "knative.dev/serving/test/v1alpha1"
 )
 
