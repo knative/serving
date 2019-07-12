@@ -24,11 +24,11 @@ import (
 	routeinformer "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/route"
 	kserviceinformer "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/service"
 
-	"knative.dev/serving/pkg/apis/serving/v1alpha1"
-	"knative.dev/serving/pkg/reconciler"
 	"k8s.io/client-go/tools/cache"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
+	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	"knative.dev/serving/pkg/reconciler"
 )
 
 const (

@@ -24,13 +24,13 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
-	rnames "knative.dev/serving/pkg/reconciler/revision/resources/names"
-	"knative.dev/serving/test"
-	v1a1test "knative.dev/serving/test/v1alpha1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	pkgTest "knative.dev/pkg/test"
 	ingress "knative.dev/pkg/test/ingress"
 	"knative.dev/pkg/test/logstream"
+	rnames "knative.dev/serving/pkg/reconciler/revision/resources/names"
+	"knative.dev/serving/test"
+	v1a1test "knative.dev/serving/test/v1alpha1"
 )
 
 const (

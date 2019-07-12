@@ -26,15 +26,15 @@ import (
 	"testing"
 	"time"
 
-	resourcenames "knative.dev/serving/pkg/reconciler/revision/resources/names"
-	"knative.dev/serving/test"
-	ping "knative.dev/serving/test/test_images/grpc-ping/proto"
-	v1a1test "knative.dev/serving/test/v1alpha1"
 	"google.golang.org/grpc"
 	corev1 "k8s.io/api/core/v1"
 	pkgTest "knative.dev/pkg/test"
 	ingress "knative.dev/pkg/test/ingress"
 	"knative.dev/pkg/test/logstream"
+	resourcenames "knative.dev/serving/pkg/reconciler/revision/resources/names"
+	"knative.dev/serving/test"
+	ping "knative.dev/serving/test/test_images/grpc-ping/proto"
+	v1a1test "knative.dev/serving/test/v1alpha1"
 )
 
 type grpcTest func(*testing.T, *v1a1test.ResourceObjects, *test.Clients, string, string)

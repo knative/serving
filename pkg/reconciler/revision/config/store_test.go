@@ -23,14 +23,14 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	pkglogging "knative.dev/pkg/logging"
+	logtesting "knative.dev/pkg/logging/testing"
+	pkgmetrics "knative.dev/pkg/metrics"
 	"knative.dev/serving/pkg/autoscaler"
 	deployment "knative.dev/serving/pkg/deployment"
 	"knative.dev/serving/pkg/logging"
 	"knative.dev/serving/pkg/metrics"
 	"knative.dev/serving/pkg/network"
-	pkglogging "knative.dev/pkg/logging"
-	logtesting "knative.dev/pkg/logging/testing"
-	pkgmetrics "knative.dev/pkg/metrics"
 
 	. "knative.dev/pkg/configmap/testing"
 )

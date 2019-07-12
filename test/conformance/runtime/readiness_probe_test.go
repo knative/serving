@@ -21,10 +21,10 @@ package runtime
 import (
 	"testing"
 
-	"knative.dev/serving/test"
-	v1a1test "knative.dev/serving/test/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	"knative.dev/pkg/test/logstream"
+	"knative.dev/serving/test"
+	v1a1test "knative.dev/serving/test/v1alpha1"
 )
 
 func TestProbeRuntime(t *testing.T) {

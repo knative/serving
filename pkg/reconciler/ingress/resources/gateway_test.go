@@ -21,13 +21,13 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"knative.dev/serving/pkg/apis/networking/v1alpha1"
-	"knative.dev/serving/pkg/network"
-	"knative.dev/serving/pkg/reconciler/ingress/config"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/apis/istio/v1alpha3"
 	"knative.dev/pkg/system"
+	"knative.dev/serving/pkg/apis/networking/v1alpha1"
+	"knative.dev/serving/pkg/network"
+	"knative.dev/serving/pkg/reconciler/ingress/config"
 )
 
 var secret = corev1.Secret{

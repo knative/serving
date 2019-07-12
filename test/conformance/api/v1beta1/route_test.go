@@ -21,10 +21,10 @@ package v1beta1
 import (
 	"testing"
 
+	pkgTest "knative.dev/pkg/test"
 	"knative.dev/serving/pkg/apis/serving/v1beta1"
 	"knative.dev/serving/test"
 	v1b1test "knative.dev/serving/test/v1beta1"
-	pkgTest "knative.dev/pkg/test"
 
 	rtesting "knative.dev/serving/pkg/testing/v1beta1"
 )

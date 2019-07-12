@@ -21,10 +21,10 @@ import (
 	"fmt"
 	"testing"
 
-	"knative.dev/serving/pkg/apis/serving/v1beta1"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	"knative.dev/pkg/test/logging"
+	"knative.dev/serving/pkg/apis/serving/v1beta1"
 
 	// 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -32,9 +32,9 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	// 	"knative.dev/pkg/ptr"
+	ptest "knative.dev/pkg/test"
 	rtesting "knative.dev/serving/pkg/testing/v1beta1"
 	"knative.dev/serving/test"
-	ptest "knative.dev/pkg/test"
 )
 
 // CreateConfiguration create a configuration resource in namespace with the name names.Config

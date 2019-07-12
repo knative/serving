@@ -24,10 +24,10 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
+	"github.com/pkg/errors"
 	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/serving"
 	"knative.dev/serving/pkg/resources"
-	"github.com/pkg/errors"
 )
 
 const (

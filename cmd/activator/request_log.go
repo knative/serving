@@ -19,12 +19,12 @@ package main
 import (
 	"net/http"
 
+	"go.uber.org/zap"
+	corev1 "k8s.io/api/core/v1"
 	"knative.dev/serving/pkg/activator"
 	"knative.dev/serving/pkg/apis/serving"
 	servinglisters "knative.dev/serving/pkg/client/listers/serving/v1alpha1"
 	pkghttp "knative.dev/serving/pkg/http"
-	"go.uber.org/zap"
-	corev1 "k8s.io/api/core/v1"
 )
 
 func updateRequestLogFromConfigMap(logger *zap.SugaredLogger, h *pkghttp.RequestLogHandler) func(configMap *corev1.ConfigMap) {

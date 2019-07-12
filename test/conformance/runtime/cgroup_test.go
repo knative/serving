@@ -23,9 +23,9 @@ import (
 	"strconv"
 	"testing"
 
-	"knative.dev/serving/test"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+	"knative.dev/serving/test"
 
 	. "knative.dev/serving/pkg/testing/v1alpha1"
 )

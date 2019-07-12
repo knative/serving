@@ -26,9 +26,9 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+	"go.uber.org/zap"
 	"knative.dev/serving/pkg/autoscaler"
 	"knative.dev/serving/pkg/network"
-	"go.uber.org/zap"
 )
 
 const closeCodeServiceRestart = 1012 // See https://www.iana.org/assignments/websocket/websocket.xhtml

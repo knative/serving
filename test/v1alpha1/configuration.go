@@ -24,8 +24,6 @@ import (
 	"testing"
 	"time"
 
-	"knative.dev/serving/pkg/apis/serving/v1alpha1"
-	"knative.dev/serving/pkg/apis/serving/v1beta1"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -33,12 +31,14 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"knative.dev/pkg/test/logging"
+	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	"knative.dev/serving/pkg/apis/serving/v1beta1"
 
+	"knative.dev/pkg/ptr"
+	ptest "knative.dev/pkg/test"
 	rtesting "knative.dev/serving/pkg/testing/v1alpha1"
 	v1alpha1testing "knative.dev/serving/pkg/testing/v1alpha1"
 	"knative.dev/serving/test"
-	"knative.dev/pkg/ptr"
-	ptest "knative.dev/pkg/test"
 )
 
 const (
