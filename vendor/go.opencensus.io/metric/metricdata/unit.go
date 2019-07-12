@@ -12,14 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package internal
+package metricdata
 
-import (
-	"go.opencensus.io/tag"
+// Unit is a string encoded according to the case-sensitive abbreviations from the
+// Unified Code for Units of Measure: http://unitsofmeasure.org/ucum.html
+type Unit string
+
+// Predefined units. To record against a unit not represented here, create your
+// own Unit type constant from a string.
+const (
+	UnitDimensionless Unit = "1"
+	UnitBytes         Unit = "By"
+	UnitMilliseconds  Unit = "ms"
 )
-
-// DefaultRecorder will be called for each Record call.
-var DefaultRecorder func(tags *tag.Map, measurement interface{}, attachments map[string]interface{})
-
-// SubscriptionReporter reports when a view subscribed with a measure.
-var SubscriptionReporter func(measure string)

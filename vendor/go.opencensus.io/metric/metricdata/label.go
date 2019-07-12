@@ -12,14 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package internal
+package metricdata
 
-import (
-	"go.opencensus.io/tag"
-)
+// LabelValue represents the value of a label.
+// The zero value represents a missing label value, which may be treated
+// differently to an empty string value by some back ends.
+type LabelValue struct {
+	Value   string // string value of the label
+	Present bool   // flag that indicated whether a value is present or not
+}
 
-// DefaultRecorder will be called for each Record call.
-var DefaultRecorder func(tags *tag.Map, measurement interface{}, attachments map[string]interface{})
-
-// SubscriptionReporter reports when a view subscribed with a measure.
-var SubscriptionReporter func(measure string)
+// NewLabelValue creates a new non-nil LabelValue that represents the given string.
+func NewLabelValue(val string) LabelValue {
+	return LabelValue{Value: val, Present: true}
+}

@@ -12,14 +12,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package internal
+package metricdata
 
 import (
-	"go.opencensus.io/tag"
+	"time"
 )
 
-// DefaultRecorder will be called for each Record call.
-var DefaultRecorder func(tags *tag.Map, measurement interface{}, attachments map[string]interface{})
+// Exemplar is an example data point associated with each bucket of a
+// distribution type aggregation.
+//
+// Their purpose is to provide an example of the kind of thing
+// (request, RPC, trace span, etc.) that resulted in that measurement.
+type Exemplar struct {
+	Value       float64     // the value that was recorded
+	Timestamp   time.Time   // the time the value was recorded
+	Attachments Attachments // attachments (if any)
+}
 
-// SubscriptionReporter reports when a view subscribed with a measure.
-var SubscriptionReporter func(measure string)
+// Attachments is a map of extra values associated with a recorded data point.
+type Attachments map[string]interface{}
