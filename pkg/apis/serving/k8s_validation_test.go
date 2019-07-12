@@ -539,7 +539,7 @@ func TestContainerValidation(t *testing.T) {
 		},
 		want: nil,
 	}, {
-		name: "invalid with no probes ",
+		name: "invalid with no handler",
 		c: corev1.Container{
 			Image: "foo",
 			ReadinessProbe: &corev1.Probe{
@@ -557,7 +557,27 @@ func TestContainerValidation(t *testing.T) {
 				Handler: corev1.Handler{},
 			},
 		},
-		want: apis.ErrMissingField(""),
+		want: apis.ErrMissingField("livenessProbe.handler"),
+	}, {
+		name: "invalid with multiple handlers",
+		c: corev1.Container{
+			Image: "foo",
+			ReadinessProbe: &corev1.Probe{
+				PeriodSeconds:    1,
+				TimeoutSeconds:   1,
+				SuccessThreshold: 1,
+				FailureThreshold: 3,
+				Handler: corev1.Handler{
+					HTTPGet: &corev1.HTTPGetAction{
+						Path: "/",
+					},
+					Exec:      &corev1.ExecAction{},
+					TCPSocket: &corev1.TCPSocketAction{},
+				},
+			},
+		},
+		want: apis.ErrDisallowedFields("readinessProbe.exec").Also(
+			apis.ErrDisallowedFields("readinessProbe.tcpSocket")),
 	}, {
 		name: "invalid readiness http probe (has port)",
 		c: corev1.Container{
