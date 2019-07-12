@@ -27,8 +27,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	logtesting "knative.dev/pkg/logging/testing"
 
-	"github.com/knative/serving/pkg/apis/config"
-	"github.com/knative/serving/pkg/apis/networking"
+	"knative.dev/serving/pkg/apis/config"
+	"knative.dev/serving/pkg/apis/networking"
 )
 
 func TestClusterIngressDefaulting(t *testing.T) {

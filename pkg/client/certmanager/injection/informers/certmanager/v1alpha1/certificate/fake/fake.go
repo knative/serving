@@ -21,10 +21,10 @@ package fake
 import (
 	"context"
 
-	fake "github.com/knative/serving/pkg/client/certmanager/injection/informers/certmanager/factory/fake"
-	certificate "github.com/knative/serving/pkg/client/certmanager/injection/informers/certmanager/v1alpha1/certificate"
 	controller "knative.dev/pkg/controller"
 	injection "knative.dev/pkg/injection"
+	fake "knative.dev/serving/pkg/client/certmanager/injection/informers/certmanager/factory/fake"
+	certificate "knative.dev/serving/pkg/client/certmanager/injection/informers/certmanager/v1alpha1/certificate"
 )
 
 var Get = certificate.Get

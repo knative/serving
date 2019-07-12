@@ -23,7 +23,7 @@ import (
 	"net/url"
 	"testing"
 
-	"github.com/knative/serving/pkg/activator"
+	"knative.dev/serving/pkg/activator"
 )
 
 func TestHeaderPruning(t *testing.T) {

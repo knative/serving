@@ -23,7 +23,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/knative/serving/test"
+	"knative.dev/serving/test"
 )
 
 func handler(w http.ResponseWriter, r *http.Request) {

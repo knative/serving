@@ -22,8 +22,8 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/knative/serving/pkg/apis/serving/v1beta1"
-	presources "github.com/knative/serving/pkg/resources"
+	"knative.dev/serving/pkg/apis/serving/v1beta1"
+	presources "knative.dev/serving/pkg/resources"
 	"knative.dev/pkg/ptr"
 )
 

@@ -25,7 +25,7 @@ import (
 	"net/http/httputil"
 	"net/url"
 
-	"github.com/knative/serving/test"
+	"knative.dev/serving/test"
 )
 
 const (

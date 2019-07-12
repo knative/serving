@@ -21,10 +21,10 @@ package upgrade
 import (
 	"testing"
 
-	revisionresourcenames "github.com/knative/serving/pkg/reconciler/revision/resources/names"
-	"github.com/knative/serving/test"
-	"github.com/knative/serving/test/e2e"
-	v1a1test "github.com/knative/serving/test/v1alpha1"
+	revisionresourcenames "knative.dev/serving/pkg/reconciler/revision/resources/names"
+	"knative.dev/serving/test"
+	"knative.dev/serving/test/e2e"
+	v1a1test "knative.dev/serving/test/v1alpha1"
 )
 
 func TestRunLatestServicePreUpgrade(t *testing.T) {

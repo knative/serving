@@ -24,8 +24,8 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"knative.dev/pkg/ptr"
 
-	"github.com/knative/serving/pkg/apis/config"
-	"github.com/knative/serving/pkg/apis/serving/v1beta1"
+	"knative.dev/serving/pkg/apis/config"
+	"knative.dev/serving/pkg/apis/serving/v1beta1"
 )
 
 func TestServiceDefaulting(t *testing.T) {

@@ -20,9 +20,9 @@ package v1alpha1
 
 import (
 	v1alpha1 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1alpha1"
-	"github.com/knative/serving/pkg/client/certmanager/clientset/versioned/scheme"
 	serializer "k8s.io/apimachinery/pkg/runtime/serializer"
 	rest "k8s.io/client-go/rest"
+	"knative.dev/serving/pkg/client/certmanager/clientset/versioned/scheme"
 )
 
 type CertmanagerV1alpha1Interface interface {

@@ -22,13 +22,13 @@ import (
 	time "time"
 
 	certmanagerv1alpha1 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1alpha1"
-	versioned "github.com/knative/serving/pkg/client/certmanager/clientset/versioned"
-	internalinterfaces "github.com/knative/serving/pkg/client/certmanager/informers/externalversions/internalinterfaces"
-	v1alpha1 "github.com/knative/serving/pkg/client/certmanager/listers/certmanager/v1alpha1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	watch "k8s.io/apimachinery/pkg/watch"
 	cache "k8s.io/client-go/tools/cache"
+	versioned "knative.dev/serving/pkg/client/certmanager/clientset/versioned"
+	internalinterfaces "knative.dev/serving/pkg/client/certmanager/informers/externalversions/internalinterfaces"
+	v1alpha1 "knative.dev/serving/pkg/client/certmanager/listers/certmanager/v1alpha1"
 )
 
 // CertificateInformer provides access to a shared informer and lister for

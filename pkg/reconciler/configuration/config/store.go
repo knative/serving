@@ -20,7 +20,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/knative/serving/pkg/gc"
+	"knative.dev/serving/pkg/gc"
 	"knative.dev/pkg/configmap"
 )
 

@@ -17,7 +17,7 @@ limitations under the License.
 package v1alpha1
 
 import (
-	networking "github.com/knative/serving/pkg/apis/networking"
+	networking "knative.dev/serving/pkg/apis/networking"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/apis"

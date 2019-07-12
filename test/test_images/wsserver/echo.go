@@ -21,7 +21,7 @@ import (
 	"net/http"
 
 	"github.com/gorilla/websocket"
-	"github.com/knative/serving/test"
+	"knative.dev/serving/test"
 )
 
 var addr = flag.String("addr", "localhost:8080", "http service address")

@@ -25,10 +25,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/knative/serving/pkg/apis/serving"
-	"github.com/knative/serving/pkg/apis/serving/v1beta1"
-	"github.com/knative/serving/test"
-	v1b1test "github.com/knative/serving/test/v1beta1"
+	"knative.dev/serving/pkg/apis/serving"
+	"knative.dev/serving/pkg/apis/serving/v1beta1"
+	"knative.dev/serving/test"
+	v1b1test "knative.dev/serving/test/v1beta1"
 	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
 	pkgTest "knative.dev/pkg/test"
@@ -262,7 +262,7 @@ func validateControlPlane(t *testing.T, clients *test.Clients, names test.Resour
 }
 
 // Validates labels on Revision, Configuration, and Route objects when created by a Service
-// see spec here: https://github.com/knative/serving/blob/master/docs/spec/spec.md#revision
+// see spec here: https://knative.dev/serving/blob/master/docs/spec/spec.md#revision
 func validateLabelsPropagation(t *testing.T, objects v1b1test.ResourceObjects, names test.ResourceNames) error {
 	t.Log("Validate Labels on Revision Object")
 	revision := objects.Revision

@@ -19,13 +19,13 @@ package service
 import (
 	"context"
 
-	configurationinformer "github.com/knative/serving/pkg/client/injection/informers/serving/v1alpha1/configuration"
-	revisioninformer "github.com/knative/serving/pkg/client/injection/informers/serving/v1alpha1/revision"
-	routeinformer "github.com/knative/serving/pkg/client/injection/informers/serving/v1alpha1/route"
-	kserviceinformer "github.com/knative/serving/pkg/client/injection/informers/serving/v1alpha1/service"
+	configurationinformer "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/configuration"
+	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/revision"
+	routeinformer "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/route"
+	kserviceinformer "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/service"
 
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	"github.com/knative/serving/pkg/reconciler"
+	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	"knative.dev/serving/pkg/reconciler"
 	"k8s.io/client-go/tools/cache"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"

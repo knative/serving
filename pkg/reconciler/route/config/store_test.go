@@ -22,8 +22,8 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/knative/serving/pkg/gc"
-	"github.com/knative/serving/pkg/network"
+	"knative.dev/serving/pkg/gc"
+	"knative.dev/serving/pkg/network"
 	logtesting "knative.dev/pkg/logging/testing"
 
 	. "knative.dev/pkg/configmap/testing"

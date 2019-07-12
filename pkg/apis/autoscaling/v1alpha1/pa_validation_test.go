@@ -25,9 +25,9 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/knative/serving/pkg/apis/autoscaling"
-	net "github.com/knative/serving/pkg/apis/networking"
-	"github.com/knative/serving/pkg/apis/serving/v1beta1"
+	"knative.dev/serving/pkg/apis/autoscaling"
+	net "knative.dev/serving/pkg/apis/networking"
+	"knative.dev/serving/pkg/apis/serving/v1beta1"
 	"knative.dev/pkg/apis"
 )
 

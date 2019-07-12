@@ -19,12 +19,12 @@ package configuration
 import (
 	"context"
 
-	configurationinformer "github.com/knative/serving/pkg/client/injection/informers/serving/v1alpha1/configuration"
-	revisioninformer "github.com/knative/serving/pkg/client/injection/informers/serving/v1alpha1/revision"
+	configurationinformer "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/configuration"
+	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/revision"
 
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	"github.com/knative/serving/pkg/reconciler"
-	configns "github.com/knative/serving/pkg/reconciler/configuration/config"
+	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	"knative.dev/serving/pkg/reconciler"
+	configns "knative.dev/serving/pkg/reconciler/configuration/config"
 	"k8s.io/client-go/tools/cache"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"

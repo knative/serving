@@ -16,8 +16,8 @@ package handler
 import (
 	"net/http"
 
-	"github.com/knative/serving/pkg/activator"
-	"github.com/knative/serving/pkg/autoscaler"
+	"knative.dev/serving/pkg/activator"
+	"knative.dev/serving/pkg/autoscaler"
 )
 
 // ReqEvent represents an incoming/finished request with a given key

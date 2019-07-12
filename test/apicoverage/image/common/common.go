@@ -17,7 +17,7 @@ limitations under the License.
 package common
 
 import (
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"knative.dev/pkg/system"
 	pkgWebhook "knative.dev/pkg/webhook"

@@ -19,11 +19,11 @@ package resources
 import (
 	"testing"
 
-	"github.com/knative/serving/pkg/apis/autoscaling"
-	"github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
-	"github.com/knative/serving/pkg/autoscaler"
+	"knative.dev/serving/pkg/apis/autoscaling"
+	"knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
+	"knative.dev/serving/pkg/autoscaler"
 
-	. "github.com/knative/serving/pkg/testing"
+	. "knative.dev/serving/pkg/testing"
 )
 
 func TestResolveConcurrency(t *testing.T) {

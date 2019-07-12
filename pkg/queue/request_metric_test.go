@@ -23,7 +23,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/knative/serving/pkg/queue/stats"
+	"knative.dev/serving/pkg/queue/stats"
 )
 
 func TestNewRequestMetricHandlerFailure(t *testing.T) {

@@ -17,7 +17,7 @@ limitations under the License.
 package labels
 
 import (
-	"github.com/knative/serving/pkg/reconciler/route/config"
+	"knative.dev/serving/pkg/reconciler/route/config"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
