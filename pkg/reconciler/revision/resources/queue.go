@@ -315,11 +315,9 @@ func makeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, o
 }
 
 func applyReadinessProbeDefaults(p *corev1.Probe, port int32) {
-	if p == nil {
-		return
-	}
-
 	switch {
+	case p == nil:
+		return
 	case p.HTTPGet != nil:
 		p.HTTPGet.Host = localAddress
 		p.HTTPGet.Port = intstr.FromInt(int(port))
