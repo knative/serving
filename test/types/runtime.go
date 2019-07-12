@@ -147,6 +147,7 @@ type HostInfo struct {
 	Mounts []*Mount  `json:"mounts"`
 	Stdin  *Stdin    `json:"stdin"`
 	User   *UserInfo `json:"user"`
+	Args   []string  `json:"args"`
 }
 
 // Stdin contains information about the Stdin file descriptor for the container.
