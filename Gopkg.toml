@@ -94,7 +94,7 @@ required = [
 
 [[override]]
   name = "bitbucket.org/ww/goautoneg"
-  source = "https://hg@bitbucket.org/ww/goautoneg"
+  source = "github.com/munnerz/goautoneg"
 
 [[constraint]]
   name = "go.opencensus.io"
@@ -112,10 +112,6 @@ required = [
 
 [[prune.project]]
   name = "github.com/knative/test-infra"
-  non-go = false
-
-[[prune.project]]
-  name = "bitbucket.org/ww/goautoneg"
   non-go = false
 
 [[prune.project]]
