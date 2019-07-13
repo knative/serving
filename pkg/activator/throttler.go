@@ -23,6 +23,9 @@ import (
 
 	"go.uber.org/zap"
 
+	"knative.dev/pkg/controller"
+	"knative.dev/pkg/logging/logkey"
+	"knative.dev/pkg/system"
 	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/serving"
 	netlisters "knative.dev/serving/pkg/client/listers/networking/v1alpha1"
@@ -30,9 +33,6 @@ import (
 	"knative.dev/serving/pkg/queue"
 	"knative.dev/serving/pkg/reconciler"
 	"knative.dev/serving/pkg/resources"
-	"knative.dev/pkg/controller"
-	"knative.dev/pkg/logging/logkey"
-	"knative.dev/pkg/system"
 
 	corev1 "k8s.io/api/core/v1"
 	corev1informers "k8s.io/client-go/informers/core/v1"

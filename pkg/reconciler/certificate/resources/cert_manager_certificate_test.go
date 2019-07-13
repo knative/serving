@@ -21,10 +21,10 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	certmanagerv1alpha1 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1alpha1"
-	"knative.dev/serving/pkg/apis/networking/v1alpha1"
-	"knative.dev/serving/pkg/reconciler/certificate/config"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/kmeta"
+	"knative.dev/serving/pkg/apis/networking/v1alpha1"
+	"knative.dev/serving/pkg/reconciler/certificate/config"
 )
 
 var cert = &v1alpha1.Certificate{

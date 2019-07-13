@@ -17,8 +17,8 @@ limitations under the License.
 package ingress
 
 import (
-	"knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"k8s.io/apimachinery/pkg/types"
+	"knative.dev/serving/pkg/apis/networking/v1alpha1"
 )
 
 // ReconcilerAccessor defines functions that access reconciler data specific to Ingress types

@@ -19,23 +19,23 @@ package route
 import (
 	"context"
 
+	serviceinformer "knative.dev/pkg/injection/informers/kubeinformers/corev1/service"
 	certificateinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/certificate"
 	clusteringressinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/clusteringress"
 	configurationinformer "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/configuration"
 	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/revision"
 	routeinformer "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/route"
-	serviceinformer "knative.dev/pkg/injection/informers/kubeinformers/corev1/service"
 
-	"knative.dev/serving/pkg/apis/serving"
-	"knative.dev/serving/pkg/apis/serving/v1alpha1"
-	"knative.dev/serving/pkg/network"
-	"knative.dev/serving/pkg/reconciler"
-	"knative.dev/serving/pkg/reconciler/route/config"
 	"k8s.io/client-go/tools/cache"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/system"
 	"knative.dev/pkg/tracker"
+	"knative.dev/serving/pkg/apis/serving"
+	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	"knative.dev/serving/pkg/network"
+	"knative.dev/serving/pkg/reconciler"
+	"knative.dev/serving/pkg/reconciler/route/config"
 )
 
 const (

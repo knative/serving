@@ -22,10 +22,10 @@ import (
 	"path/filepath"
 	"testing"
 
+	"knative.dev/pkg/ptr"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	"knative.dev/serving/test"
 	v1a1test "knative.dev/serving/test/v1alpha1"
-	"knative.dev/pkg/ptr"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

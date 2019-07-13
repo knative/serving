@@ -21,8 +21,8 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"knative.dev/serving/pkg/apis/autoscaling"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"knative.dev/serving/pkg/apis/autoscaling"
 )
 
 func TestPodAutoscalerDefaulting(t *testing.T) {

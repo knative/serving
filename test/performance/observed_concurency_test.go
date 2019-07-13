@@ -125,7 +125,7 @@ func timeToScale(events []*event, desiredScale int) (time.Duration, error) {
 
 func TestObservedConcurrency(t *testing.T) {
 	var tc []junit.TestCase
-	tests := []int{5, 10} //going beyond 10 currently causes "overload" responses
+	tests := []int{5, 10, 25} //going beyond 10 currently causes "overload" responses
 	for _, clients := range tests {
 		t.Run(fmt.Sprintf("scale-%02d", clients), func(t *testing.T) {
 			tc = append(tc, testConcurrencyN(t, clients)...)

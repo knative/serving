@@ -21,8 +21,8 @@ import (
 	"time"
 
 	"github.com/davecgh/go-spew/spew"
-	"knative.dev/serving/pkg/apis/serving/v1beta1"
 	"knative.dev/pkg/apis/duck"
+	"knative.dev/serving/pkg/apis/serving/v1beta1"
 )
 
 const (

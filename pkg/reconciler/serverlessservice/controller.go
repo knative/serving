@@ -19,20 +19,20 @@ package serverlessservice
 import (
 	"context"
 
-	sksinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/serverlessservice"
-	pkgreconciler "knative.dev/serving/pkg/reconciler"
 	endpointsinformer "knative.dev/pkg/injection/informers/kubeinformers/corev1/endpoints"
 	serviceinformer "knative.dev/pkg/injection/informers/kubeinformers/corev1/service"
+	sksinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/serverlessservice"
+	pkgreconciler "knative.dev/serving/pkg/reconciler"
 
+	"k8s.io/client-go/tools/cache"
+	"knative.dev/pkg/configmap"
+	"knative.dev/pkg/controller"
+	"knative.dev/pkg/system"
 	"knative.dev/serving/pkg/activator"
 	"knative.dev/serving/pkg/apis/networking"
 	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	rbase "knative.dev/serving/pkg/reconciler"
 	presources "knative.dev/serving/pkg/resources"
-	"k8s.io/client-go/tools/cache"
-	"knative.dev/pkg/configmap"
-	"knative.dev/pkg/controller"
-	"knative.dev/pkg/system"
 )
 
 const (

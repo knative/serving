@@ -22,12 +22,12 @@ import (
 	"testing"
 	"time"
 
-	"knative.dev/serving/pkg/resources"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubeinformers "k8s.io/client-go/informers"
 	fakeK8s "k8s.io/client-go/kubernetes/fake"
 	. "knative.dev/pkg/logging/testing"
+	"knative.dev/serving/pkg/resources"
 )
 
 const (

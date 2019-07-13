@@ -25,14 +25,14 @@ import (
 	"testing"
 	"time"
 
-	"knative.dev/serving/test"
-	v1a1test "knative.dev/serving/test/v1alpha1"
 	"github.com/knative/test-infra/shared/junit"
 	"github.com/knative/test-infra/shared/loadgenerator"
 	perf "github.com/knative/test-infra/shared/performance"
 	"github.com/knative/test-infra/shared/testgrid"
 	pkgTest "knative.dev/pkg/test"
 	ingress "knative.dev/pkg/test/ingress"
+	"knative.dev/serving/test"
+	v1a1test "knative.dev/serving/test/v1alpha1"
 )
 
 const (

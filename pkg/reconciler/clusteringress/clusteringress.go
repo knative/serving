@@ -22,16 +22,16 @@ import (
 	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/reconciler"
 
+	virtualserviceinformer "knative.dev/pkg/client/injection/informers/istio/v1alpha3/virtualservice"
+	"knative.dev/pkg/configmap"
+	"knative.dev/pkg/controller"
+	"knative.dev/pkg/tracker"
 	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	clusteringressinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/clusteringress"
 	listers "knative.dev/serving/pkg/client/listers/networking/v1alpha1"
 	ing "knative.dev/serving/pkg/reconciler/ingress"
 	"knative.dev/serving/pkg/reconciler/ingress/config"
-	virtualserviceinformer "knative.dev/pkg/client/injection/informers/istio/v1alpha3/virtualservice"
-	"knative.dev/pkg/configmap"
-	"knative.dev/pkg/controller"
-	"knative.dev/pkg/tracker"
 
 	"k8s.io/client-go/tools/cache"
 )

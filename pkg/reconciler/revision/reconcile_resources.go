@@ -20,10 +20,6 @@ import (
 	"context"
 	"fmt"
 
-	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
-	"knative.dev/serving/pkg/apis/serving/v1alpha1"
-	"knative.dev/serving/pkg/reconciler/revision/resources"
-	resourcenames "knative.dev/serving/pkg/reconciler/revision/resources/names"
 	"go.uber.org/zap"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -32,6 +28,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/logging/logkey"
+	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
+	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	"knative.dev/serving/pkg/reconciler/revision/resources"
+	resourcenames "knative.dev/serving/pkg/reconciler/revision/resources/names"
 )
 
 func (c *Reconciler) reconcileDeployment(ctx context.Context, rev *v1alpha1.Revision) error {

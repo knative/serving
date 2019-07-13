@@ -1,9 +1,4 @@
-package adal
-
-import (
-	"fmt"
-	"runtime"
-)
+package version
 
 // Copyright 2017 Microsoft Corporation
 //
@@ -19,17 +14,24 @@ import (
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-const number = "v1.0.0"
+import (
+	"fmt"
+	"runtime"
+)
+
+// Number contains the semantic version of this SDK.
+const Number = "v11.1.2"
 
 var (
-	ua = fmt.Sprintf("Go/%s (%s-%s) go-autorest/adal/%s",
+	userAgent = fmt.Sprintf("Go/%s (%s-%s) go-autorest/%s",
 		runtime.Version(),
 		runtime.GOARCH,
 		runtime.GOOS,
-		number,
+		Number,
 	)
 )
 
-func userAgent() string {
-	return ua
+// UserAgent returns a string containing the Go version, system archityecture and OS, and the go-autorest version.
+func UserAgent() string {
+	return userAgent
 }

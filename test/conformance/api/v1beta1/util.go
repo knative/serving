@@ -25,14 +25,14 @@ import (
 	"strings"
 	"testing"
 
-	"knative.dev/serving/pkg/apis/serving"
-	"knative.dev/serving/pkg/apis/serving/v1beta1"
-	"knative.dev/serving/test"
-	v1b1test "knative.dev/serving/test/v1beta1"
 	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/spoof"
+	"knative.dev/serving/pkg/apis/serving"
+	"knative.dev/serving/pkg/apis/serving/v1beta1"
+	"knative.dev/serving/test"
+	v1b1test "knative.dev/serving/test/v1beta1"
 )
 
 func waitForExpectedResponse(t *testing.T, clients *test.Clients, domain, expectedResponse string) error {

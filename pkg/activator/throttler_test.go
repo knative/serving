@@ -25,6 +25,10 @@ import (
 
 	"go.uber.org/zap"
 
+	"knative.dev/pkg/controller"
+	. "knative.dev/pkg/logging/testing"
+	"knative.dev/pkg/system"
+	"knative.dev/pkg/test/helpers"
 	"knative.dev/serving/pkg/apis/networking"
 	nv1a1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
@@ -35,10 +39,6 @@ import (
 	netlisters "knative.dev/serving/pkg/client/listers/networking/v1alpha1"
 	servinglisters "knative.dev/serving/pkg/client/listers/serving/v1alpha1"
 	"knative.dev/serving/pkg/queue"
-	"knative.dev/pkg/controller"
-	. "knative.dev/pkg/logging/testing"
-	"knative.dev/pkg/system"
-	"knative.dev/pkg/test/helpers"
 
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
