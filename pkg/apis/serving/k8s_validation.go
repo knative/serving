@@ -241,6 +241,11 @@ func ValidatePodSpec(ps corev1.PodSpec) *apis.FieldError {
 	default:
 		errs = errs.Also(apis.ErrMultipleOneOf("containers"))
 	}
+	if ps.ServiceAccountName != "" {
+		for range validation.IsDNS1123Subdomain(ps.ServiceAccountName) {
+			errs = errs.Also(apis.ErrInvalidValue("serviceAccountName", ps.ServiceAccountName))
+		}
+	}
 	return errs
 }
 
