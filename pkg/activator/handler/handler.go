@@ -317,7 +317,9 @@ func (a *activationHandler) serviceHostName(rev *v1alpha1.Revision, serviceName 
 		return "", errors.New("revision needs external HTTP port")
 	}
 
-	return network.GetServiceHostname(serviceName, rev.Namespace) + ":" + strconv.Itoa(port), nil
+	// Use the ClusterIP directly to elide DNS lookup, which both adds latency
+	// and hurts reliability when routing through the activator.
+	return svc.Spec.ClusterIP + ":" + strconv.Itoa(port), nil
 }
 
 func sendError(err error, w http.ResponseWriter) {
