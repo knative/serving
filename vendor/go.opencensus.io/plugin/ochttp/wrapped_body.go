@@ -1,4 +1,4 @@
-// Copyright 2018, OpenCensus Authors
+// Copyright 2019, OpenCensus Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,14 +12,33 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package internal
+package ochttp
 
 import (
-	"go.opencensus.io/tag"
+	"io"
 )
 
-// DefaultRecorder will be called for each Record call.
-var DefaultRecorder func(tags *tag.Map, measurement interface{}, attachments map[string]interface{})
+// wrappedBody returns a wrapped version of the original
+// Body and only implements the same combination of additional
+// interfaces as the original.
+func wrappedBody(wrapper io.ReadCloser, body io.ReadCloser) io.ReadCloser {
+	var (
+		wr, i0 = body.(io.Writer)
+	)
+	switch {
+	case !i0:
+		return struct {
+			io.ReadCloser
+		}{wrapper}
 
-// SubscriptionReporter reports when a view subscribed with a measure.
-var SubscriptionReporter func(measure string)
+	case i0:
+		return struct {
+			io.ReadCloser
+			io.Writer
+		}{wrapper, wr}
+	default:
+		return struct {
+			io.ReadCloser
+		}{wrapper}
+	}
+}

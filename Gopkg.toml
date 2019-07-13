@@ -96,6 +96,10 @@ required = [
   name = "bitbucket.org/ww/goautoneg"
   source = "https://hg@bitbucket.org/ww/goautoneg"
 
+[[constraint]]
+  name = "go.opencensus.io"
+  version = "v0.20.2"
+
 [prune]
   go-tests = true
   unused-packages = true
@@ -114,7 +118,7 @@ required = [
   name = "bitbucket.org/ww/goautoneg"
   non-go = false
 
- [[prune.project]]
+[[prune.project]]
   name = "knative.dev/pkg"
   unused-packages = false
   non-go = false

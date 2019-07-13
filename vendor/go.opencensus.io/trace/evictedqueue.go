@@ -1,4 +1,4 @@
-// Copyright 2018, OpenCensus Authors
+// Copyright 2019, OpenCensus Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,14 +12,27 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package internal
+package trace
 
-import (
-	"go.opencensus.io/tag"
-)
+type evictedQueue struct {
+	queue        []interface{}
+	capacity     int
+	droppedCount int
+}
 
-// DefaultRecorder will be called for each Record call.
-var DefaultRecorder func(tags *tag.Map, measurement interface{}, attachments map[string]interface{})
+func newEvictedQueue(capacity int) *evictedQueue {
+	eq := &evictedQueue{
+		capacity: capacity,
+		queue:    make([]interface{}, 0),
+	}
 
-// SubscriptionReporter reports when a view subscribed with a measure.
-var SubscriptionReporter func(measure string)
+	return eq
+}
+
+func (eq *evictedQueue) add(value interface{}) {
+	if len(eq.queue) == eq.capacity {
+		eq.queue = eq.queue[1:]
+		eq.droppedCount++
+	}
+	eq.queue = append(eq.queue, value)
+}
