@@ -216,7 +216,7 @@ func TestServiceDefaulting(t *testing.T) {
 			got.SetDefaults(context.Background())
 			if !cmp.Equal(got, test.want, ignoreUnexportedResources) {
 				t.Errorf("SetDefaults (-want, +got) = %v",
-					cmp.Diff(got, test.want, ignoreUnexportedResources))
+					cmp.Diff(test.want, got, ignoreUnexportedResources))
 			}
 		})
 	}
