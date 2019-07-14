@@ -18,9 +18,6 @@ package v1alpha1
 
 import (
 	certmanagerv1alpha1 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1alpha1"
-	cachingv1alpha1 "knative.dev/caching/pkg/apis/caching/v1alpha1"
-	fakecachingclientset "knative.dev/caching/pkg/client/clientset/versioned/fake"
-	cachinglisters "knative.dev/caching/pkg/client/listers/caching/v1alpha1"
 	av1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	networking "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
@@ -38,6 +35,9 @@ import (
 	autoscalingv2beta1listers "k8s.io/client-go/listers/autoscaling/v2beta1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
+	cachingv1alpha1 "knative.dev/caching/pkg/apis/caching/v1alpha1"
+	fakecachingclientset "knative.dev/caching/pkg/client/clientset/versioned/fake"
+	cachinglisters "knative.dev/caching/pkg/client/listers/caching/v1alpha1"
 	istiov1alpha3 "knative.dev/pkg/apis/istio/v1alpha3"
 	fakesharedclientset "knative.dev/pkg/client/clientset/versioned/fake"
 	istiolisters "knative.dev/pkg/client/listers/istio/v1alpha3"
@@ -141,6 +141,11 @@ func (l *Listers) GetHorizontalPodAutoscalerLister() autoscalingv2beta1listers.H
 // GetClusterIngressLister get lister for ClusterIngress resource.
 func (l *Listers) GetClusterIngressLister() networkinglisters.ClusterIngressLister {
 	return networkinglisters.NewClusterIngressLister(l.IndexerFor(&networking.ClusterIngress{}))
+}
+
+// GetIngressLister get lister for Ingress resource.
+func (l *Listers) GetIngressLister() networkinglisters.IngressLister {
+	return networkinglisters.NewIngressLister(l.IndexerFor(&networking.Ingress{}))
 }
 
 // GetCertificateLister get lister for Certificate resource.

@@ -85,7 +85,7 @@ func MakeK8sPlaceholderService(ctx context.Context, route *v1alpha1.Route, targe
 // MakeK8sService creates a Service that redirect to the loadbalancer specified
 // in ClusterIngress status. It's owned by the provided v1alpha1.Route.
 // The purpose of this service is to provide a domain name for Istio routing.
-func MakeK8sService(ctx context.Context, route *v1alpha1.Route, targetName string, ingress *netv1alpha1.ClusterIngress, isPrivate bool) (*corev1.Service, error) {
+func MakeK8sService(ctx context.Context, route *v1alpha1.Route, targetName string, ingress netv1alpha1.IngressAccessor, isPrivate bool) (*corev1.Service, error) {
 	svcSpec, err := makeServiceSpec(ingress, isPrivate)
 	if err != nil {
 		return nil, err
@@ -126,8 +126,8 @@ func makeK8sService(ctx context.Context, route *v1alpha1.Route, targetName strin
 	}, nil
 }
 
-func makeServiceSpec(ingress *netv1alpha1.ClusterIngress, isPrivate bool) (*corev1.ServiceSpec, error) {
-	ingressStatus := ingress.Status
+func makeServiceSpec(ingress netv1alpha1.IngressAccessor, isPrivate bool) (*corev1.ServiceSpec, error) {
+	ingressStatus := ingress.GetStatus()
 
 	var lbStatus *netv1alpha1.LoadBalancerStatus
 
@@ -142,7 +142,7 @@ func makeServiceSpec(ingress *netv1alpha1.ClusterIngress, isPrivate bool) (*core
 	}
 	if len(lbStatus.Ingress) > 1 {
 		// Return error as we only support one LoadBalancer currently.
-		return nil, fmt.Errorf("more than one ingress are specified in status(LoadBalancer) of ClusterIngress %s", ingress.Name)
+		return nil, fmt.Errorf("more than one ingress are specified in status(LoadBalancer) of %s %s", GetIngressTypeName(ingress), ingress.GetName())
 	}
 	balancer := lbStatus.Ingress[0]
 

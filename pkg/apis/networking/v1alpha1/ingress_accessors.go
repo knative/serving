@@ -31,6 +31,7 @@ type IngressAccessor interface {
 	SetStatus(IngressStatus)
 
 	GetSpec() *IngressSpec
+	SetSpec(IngressSpec)
 
 	// lifecycle methods
 	IsPublic() bool
@@ -51,4 +52,9 @@ func (ingress *Ingress) GetSpec() *IngressSpec {
 // SetStatus assigns ingress status
 func (ingress *Ingress) SetStatus(status IngressStatus) {
 	ingress.Status = status
+}
+
+// SetSpec assigns ingress spec
+func (ingress *Ingress) SetSpec(spec IngressSpec) {
+	ingress.Spec = spec
 }

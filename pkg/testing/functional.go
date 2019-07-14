@@ -289,13 +289,13 @@ func WithWaitingContainer(name, reason, message string) PodOption {
 	}
 }
 
-// ClusterIngressOption enables further configuration of the Cluster Ingress.
-type ClusterIngressOption func(*netv1alpha1.ClusterIngress)
+// IngressOption enables further configuration of the IngressAccessor.
+type IngressOption func(netv1alpha1.IngressAccessor)
 
 // WithHosts sets the Hosts of the ingress rule specified index
-func WithHosts(index int, hosts ...string) ClusterIngressOption {
-	return func(ingress *netv1alpha1.ClusterIngress) {
-		ingress.Spec.Rules[index].Hosts = hosts
+func WithHosts(index int, hosts ...string) IngressOption {
+	return func(ingress netv1alpha1.IngressAccessor) {
+		ingress.GetSpec().Rules[index].Hosts = hosts
 	}
 }
 

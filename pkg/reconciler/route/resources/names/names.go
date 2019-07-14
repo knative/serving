@@ -37,6 +37,12 @@ func ClusterIngress(route kmeta.Accessor) string {
 	return fmt.Sprintf("route-%s", route.GetUID())
 }
 
+// Ingress returns the name for the Ingress
+// child resource for the given Route.
+func Ingress(route kmeta.Accessor) string {
+	return kmeta.ChildName(route.GetName(), "")
+}
+
 // Certificate returns the name for the Certificate
 // child resource for the given Route.
 func Certificate(route kmeta.Accessor) string {

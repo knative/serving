@@ -18,6 +18,7 @@ package main
 
 import (
 	"github.com/knative/serving/pkg/reconciler/clusteringress"
+	"github.com/knative/serving/pkg/reconciler/ingress"
 
 	// This defines the shared main for injected controllers.
 	"knative.dev/pkg/injection/sharedmain"
@@ -25,5 +26,5 @@ import (
 
 func main() {
 	sharedmain.Main("controller-ingress-istio",
-		clusteringress.NewController)
+		clusteringress.NewController, ingress.NewController)
 }

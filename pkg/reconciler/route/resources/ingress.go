@@ -27,6 +27,7 @@ import (
 	"github.com/knative/serving/pkg/activator"
 	"github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/networking/v1alpha1"
+	netv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving"
 	servingv1alpha1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/reconciler/route/domains"
@@ -54,8 +55,8 @@ func MakeClusterIngress(
 	tls []v1alpha1.IngressTLS,
 	clusterLocalServices sets.String,
 	ingressClass string,
-) (*v1alpha1.ClusterIngress, error) {
-	spec, err := makeIngressSpec(ctx, r, tls, clusterLocalServices, tc.Targets)
+) (v1alpha1.IngressAccessor, error) {
+	spec, err := MakeIngressSpec(ctx, r, tls, clusterLocalServices, tc.Targets)
 	if err != nil {
 		return nil, err
 	}
@@ -76,7 +77,38 @@ func MakeClusterIngress(
 	}, nil
 }
 
-func makeIngressSpec(
+// MakeIngress creates Ingress to set up routing rules. Such Ingress specifies
+// which Hosts that it applies to, as well as the routing rules.
+func MakeIngress(
+	ctx context.Context,
+	r *servingv1alpha1.Route,
+	tc *traffic.Config,
+	tls []v1alpha1.IngressTLS,
+	clusterLocalServices sets.String,
+	ingressClass string,
+) (v1alpha1.IngressAccessor, error) {
+	spec, err := MakeIngressSpec(ctx, r, tls, clusterLocalServices, tc.Targets)
+	if err != nil {
+		return nil, err
+	}
+	return &v1alpha1.Ingress{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      names.Ingress(r),
+			Namespace: r.Namespace,
+			Labels: map[string]string{
+				serving.RouteLabelKey:          r.Name,
+				serving.RouteNamespaceLabelKey: r.Namespace,
+			},
+			Annotations: resources.UnionMaps(map[string]string{
+				networking.IngressClassAnnotationKey: ingressClass,
+			}, r.ObjectMeta.Annotations),
+		},
+		Spec: spec,
+	}, nil
+}
+
+// MakeIngressSpec creates a new IngressSpec
+func MakeIngressSpec(
 	ctx context.Context,
 	r *servingv1alpha1.Route,
 	tls []v1alpha1.IngressTLS,
@@ -229,4 +261,13 @@ func maxInactive(targets traffic.RevisionTargets) string {
 		return inactiveRevisionName
 	}
 	return revisionName
+}
+
+// GetIngressTypeName returns ingress type name: ClusterIngress or Ingress
+func GetIngressTypeName(ingress netv1alpha1.IngressAccessor) string {
+	if ingress.GetNamespace() == "" {
+		return "ClusterIngress"
+	} else {
+		return "Ingress"
+	}
 }
