@@ -355,9 +355,11 @@ func TestAutoscaleSustaining(t *testing.T) {
 
 func TestTargetBurstCapacity(t *testing.T) {
 	// This test sets up a service with CC=10 TU=70% and TBC=7.
-	// Then sends requests at concurrency 5, causing Activator in the path (1 pod, 10-5=5 < 7).
-	// Then at the concurrency 10, getting spare capacity of 20-10=10, which should remove the
+	// Then sends requests at concurrency causing activator in the path.
+	// Then at the higher concurrency 10,
+	// getting spare capacity of 20-10=10, which should remove the
 	// Activator from the request path.
+	t.Parallel()
 	cancel := logstream.Start(t)
 	defer cancel()
 
@@ -366,7 +368,7 @@ func TestTargetBurstCapacity(t *testing.T) {
 			autoscaling.TargetAnnotationKey:                   "10",
 			autoscaling.TargetUtilizationPercentageKey:        "70",
 			autoscaling.TargetBurstCapacityKey:                "7",
-			autoscaling.PanicThresholdPercentageAnnotationKey: "200", // makes panic'ing rare
+			autoscaling.PanicThresholdPercentageAnnotationKey: "200", // makes panicking rare
 		}))
 	defer test.TearDown(ctx.clients, ctx.names)
 
@@ -385,7 +387,7 @@ func TestTargetBurstCapacity(t *testing.T) {
 	const duration = time.Hour
 
 	grp.Go(func() error {
-		return generateTraffic(ctx, 5, duration, stopCh)
+		return generateTraffic(ctx, 7, duration, stopCh)
 	})
 	aeps, err := ctx.clients.KubeClient.Kube.CoreV1().Endpoints(system.Namespace()).Get(activator.K8sServiceName, metav1.GetOptions{})
 	if err != nil {
@@ -435,5 +437,42 @@ func TestTargetBurstCapacity(t *testing.T) {
 		return resources.ReadyAddressCount(svcEps) == 2, nil
 	}); err != nil {
 		t.Errorf("Never achieved subset of size 2: %v", err)
+	}
+}
+
+func TestTargetBurstCapacityMinusOne(t *testing.T) {
+	t.Parallel()
+	cancel := logstream.Start(t)
+	defer cancel()
+
+	ctx := setup(t, autoscaling.KPA, autoscaling.Concurrency, &v1a1test.Options{},
+		rtesting.WithConfigAnnotations(map[string]string{
+			autoscaling.TargetAnnotationKey:            "10",
+			autoscaling.TargetUtilizationPercentageKey: "70",
+			autoscaling.TargetBurstCapacityKey:         "-1",
+		}))
+	defer test.TearDown(ctx.clients, ctx.names)
+
+	cfg, err := autoscalerCM(ctx.clients)
+	if err != nil {
+		t.Fatalf("Error retrieving autoscaler configmap: %v", err)
+	}
+	aeps, err := ctx.clients.KubeClient.Kube.CoreV1().Endpoints(
+		system.Namespace()).Get(activator.K8sServiceName, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Error getting activator endpoints: %v", err)
+	}
+	t.Logf("Activator endpoints: %v", aeps)
+
+	// Wait for the endpoints to equalize.
+	if err := wait.Poll(250*time.Millisecond, cfg.StableWindow, func() (bool, error) {
+		svcEps, err := ctx.clients.KubeClient.Kube.CoreV1().Endpoints(test.ServingNamespace).Get(
+			ctx.resources.Revision.Status.ServiceName, metav1.GetOptions{})
+		if err != nil {
+			return false, err
+		}
+		return cmp.Equal(svcEps.Subsets, aeps.Subsets), nil
+	}); err != nil {
+		t.Fatalf("Initial state never achieved: %v", err)
 	}
 }
