@@ -21,8 +21,8 @@ package service
 import (
 	"context"
 
-	v1alpha1 "github.com/knative/serving/pkg/client/informers/externalversions/serving/v1alpha1"
-	factory "github.com/knative/serving/pkg/client/injection/informers/serving/factory"
+	v1alpha1 "knative.dev/serving/pkg/client/informers/externalversions/serving/v1alpha1"
+	factory "knative.dev/serving/pkg/client/injection/informers/serving/factory"
 	controller "knative.dev/pkg/controller"
 	injection "knative.dev/pkg/injection"
 	logging "knative.dev/pkg/logging"

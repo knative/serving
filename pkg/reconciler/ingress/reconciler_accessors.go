@@ -17,7 +17,7 @@ limitations under the License.
 package ingress
 
 import (
-	"github.com/knative/serving/pkg/apis/networking/v1alpha1"
+	"knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"k8s.io/apimachinery/pkg/types"
 )
 

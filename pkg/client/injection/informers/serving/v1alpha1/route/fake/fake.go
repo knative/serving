@@ -21,8 +21,8 @@ package fake
 import (
 	"context"
 
-	fake "github.com/knative/serving/pkg/client/injection/informers/serving/factory/fake"
-	route "github.com/knative/serving/pkg/client/injection/informers/serving/v1alpha1/route"
+	fake "knative.dev/serving/pkg/client/injection/informers/serving/factory/fake"
+	route "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/route"
 	controller "knative.dev/pkg/controller"
 	injection "knative.dev/pkg/injection"
 )

@@ -24,15 +24,15 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	"github.com/knative/serving/pkg/apis/serving/v1beta1"
-	"github.com/knative/serving/test"
-	v1b1test "github.com/knative/serving/test/v1beta1"
+	"knative.dev/serving/pkg/apis/serving/v1beta1"
+	"knative.dev/serving/test"
+	v1b1test "knative.dev/serving/test/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/ptr"
 	pkgTest "knative.dev/pkg/test"
 
-	rtesting "github.com/knative/serving/pkg/testing/v1beta1"
+	rtesting "knative.dev/serving/pkg/testing/v1beta1"
 )
 
 const userPort = int32(8081)

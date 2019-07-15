@@ -30,11 +30,11 @@ import (
 	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/knative/serving/pkg/apis/autoscaling"
-	resourcenames "github.com/knative/serving/pkg/reconciler/revision/resources/names"
-	rtesting "github.com/knative/serving/pkg/testing/v1alpha1"
-	"github.com/knative/serving/test"
-	v1a1test "github.com/knative/serving/test/v1alpha1"
+	"knative.dev/serving/pkg/apis/autoscaling"
+	resourcenames "knative.dev/serving/pkg/reconciler/revision/resources/names"
+	rtesting "knative.dev/serving/pkg/testing/v1alpha1"
+	"knative.dev/serving/test"
+	v1a1test "knative.dev/serving/test/v1alpha1"
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/logstream"
 

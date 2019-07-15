@@ -21,7 +21,7 @@ package client
 import (
 	"context"
 
-	versioned "github.com/knative/serving/pkg/client/clientset/versioned"
+	versioned "knative.dev/serving/pkg/client/clientset/versioned"
 	rest "k8s.io/client-go/rest"
 	injection "knative.dev/pkg/injection"
 	logging "knative.dev/pkg/logging"

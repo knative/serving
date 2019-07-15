@@ -32,14 +32,14 @@ import (
 	"k8s.io/client-go/tools/record"
 
 	cachingclient "knative.dev/caching/pkg/client/injection/client"
-	servingclient "github.com/knative/serving/pkg/client/injection/client"
+	servingclient "knative.dev/serving/pkg/client/injection/client"
 	sharedclient "knative.dev/pkg/client/injection/client"
 	"knative.dev/pkg/injection/clients/dynamicclient"
 	"knative.dev/pkg/injection/clients/kubeclient"
 
 	cachingclientset "knative.dev/caching/pkg/client/clientset/versioned"
-	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
-	servingScheme "github.com/knative/serving/pkg/client/clientset/versioned/scheme"
+	clientset "knative.dev/serving/pkg/client/clientset/versioned"
+	servingScheme "knative.dev/serving/pkg/client/clientset/versioned/scheme"
 	sharedclientset "knative.dev/pkg/client/clientset/versioned"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"

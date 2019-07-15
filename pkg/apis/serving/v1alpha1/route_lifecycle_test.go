@@ -18,7 +18,7 @@ package v1alpha1
 import (
 	"testing"
 
-	netv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
+	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"knative.dev/pkg/apis/duck"

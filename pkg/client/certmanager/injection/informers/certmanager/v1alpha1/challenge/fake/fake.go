@@ -21,8 +21,8 @@ package fake
 import (
 	"context"
 
-	fake "github.com/knative/serving/pkg/client/certmanager/injection/informers/certmanager/factory/fake"
-	challenge "github.com/knative/serving/pkg/client/certmanager/injection/informers/certmanager/v1alpha1/challenge"
+	fake "knative.dev/serving/pkg/client/certmanager/injection/informers/certmanager/factory/fake"
+	challenge "knative.dev/serving/pkg/client/certmanager/injection/informers/certmanager/v1alpha1/challenge"
 	controller "knative.dev/pkg/controller"
 	injection "knative.dev/pkg/injection"
 )

@@ -22,16 +22,16 @@ import (
 	"testing"
 
 	// Install our fake informers
-	_ "github.com/knative/serving/pkg/client/injection/informers/serving/v1alpha1/configuration/fake"
-	_ "github.com/knative/serving/pkg/client/injection/informers/serving/v1alpha1/revision/fake"
-	_ "github.com/knative/serving/pkg/client/injection/informers/serving/v1alpha1/route/fake"
-	_ "github.com/knative/serving/pkg/client/injection/informers/serving/v1alpha1/service/fake"
+	_ "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/configuration/fake"
+	_ "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/revision/fake"
+	_ "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/route/fake"
+	_ "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/service/fake"
 
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	"github.com/knative/serving/pkg/apis/serving/v1beta1"
-	"github.com/knative/serving/pkg/reconciler"
-	"github.com/knative/serving/pkg/reconciler/service/resources"
-	presources "github.com/knative/serving/pkg/resources"
+	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	"knative.dev/serving/pkg/apis/serving/v1beta1"
+	"knative.dev/serving/pkg/reconciler"
+	"knative.dev/serving/pkg/reconciler/service/resources"
+	presources "knative.dev/serving/pkg/resources"
 	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
@@ -42,8 +42,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgotesting "k8s.io/client-go/testing"
 
-	. "github.com/knative/serving/pkg/reconciler/testing/v1alpha1"
-	. "github.com/knative/serving/pkg/testing/v1alpha1"
+	. "knative.dev/serving/pkg/reconciler/testing/v1alpha1"
+	. "knative.dev/serving/pkg/testing/v1alpha1"
 	. "knative.dev/pkg/reconciler/testing"
 )
 

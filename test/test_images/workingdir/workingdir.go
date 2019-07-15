@@ -23,7 +23,7 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/knative/serving/test"
+	"knative.dev/serving/test"
 )
 
 var wd string

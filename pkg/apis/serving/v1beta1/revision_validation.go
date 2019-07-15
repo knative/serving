@@ -21,9 +21,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/knative/serving/pkg/apis/config"
+	"knative.dev/serving/pkg/apis/config"
 
-	"github.com/knative/serving/pkg/apis/serving"
+	"knative.dev/serving/pkg/apis/serving"
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/kmp"
 )

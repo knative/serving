@@ -26,8 +26,8 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
-	"github.com/knative/serving/pkg/autoscaler"
-	"github.com/knative/serving/pkg/network"
+	"knative.dev/serving/pkg/autoscaler"
+	"knative.dev/serving/pkg/network"
 	"go.uber.org/zap"
 )
 

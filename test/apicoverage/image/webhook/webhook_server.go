@@ -21,8 +21,8 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/knative/serving/test/apicoverage/image/common"
-	"github.com/knative/serving/test/apicoverage/image/rules"
+	"knative.dev/serving/test/apicoverage/image/common"
+	"knative.dev/serving/test/apicoverage/image/rules"
 	"github.com/knative/test-infra/tools/webhook-apicoverage/resourcetree"
 	"github.com/knative/test-infra/tools/webhook-apicoverage/webhook"
 	"knative.dev/pkg/signals"

@@ -24,7 +24,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/knative/serving/test"
+	"knative.dev/serving/test"
 )
 
 var (

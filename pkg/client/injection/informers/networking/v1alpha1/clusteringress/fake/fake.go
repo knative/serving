@@ -21,8 +21,8 @@ package fake
 import (
 	"context"
 
-	fake "github.com/knative/serving/pkg/client/injection/informers/networking/factory/fake"
-	clusteringress "github.com/knative/serving/pkg/client/injection/informers/networking/v1alpha1/clusteringress"
+	fake "knative.dev/serving/pkg/client/injection/informers/networking/factory/fake"
+	clusteringress "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/clusteringress"
 	controller "knative.dev/pkg/controller"
 	injection "knative.dev/pkg/injection"
 )

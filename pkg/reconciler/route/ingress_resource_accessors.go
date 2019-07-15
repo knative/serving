@@ -21,13 +21,13 @@ import (
 
 	"k8s.io/apimachinery/pkg/util/sets"
 
-	netv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
-	networkinglisters "github.com/knative/serving/pkg/client/listers/networking/v1alpha1"
-	"github.com/knative/serving/pkg/reconciler/route/resources"
-	resourcenames "github.com/knative/serving/pkg/reconciler/route/resources/names"
-	"github.com/knative/serving/pkg/reconciler/route/traffic"
+	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
+	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	clientset "knative.dev/serving/pkg/client/clientset/versioned"
+	networkinglisters "knative.dev/serving/pkg/client/listers/networking/v1alpha1"
+	"knative.dev/serving/pkg/reconciler/route/resources"
+	resourcenames "knative.dev/serving/pkg/reconciler/route/resources/names"
+	"knative.dev/serving/pkg/reconciler/route/traffic"
 	"knative.dev/pkg/logging"
 )
 

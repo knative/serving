@@ -23,9 +23,9 @@ import (
 	sync "sync"
 	time "time"
 
-	versioned "github.com/knative/serving/pkg/client/certmanager/clientset/versioned"
-	certmanager "github.com/knative/serving/pkg/client/certmanager/informers/externalversions/certmanager"
-	internalinterfaces "github.com/knative/serving/pkg/client/certmanager/informers/externalversions/internalinterfaces"
+	versioned "knative.dev/serving/pkg/client/certmanager/clientset/versioned"
+	certmanager "knative.dev/serving/pkg/client/certmanager/informers/externalversions/certmanager"
+	internalinterfaces "knative.dev/serving/pkg/client/certmanager/informers/externalversions/internalinterfaces"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"

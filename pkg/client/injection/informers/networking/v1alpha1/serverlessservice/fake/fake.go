@@ -21,8 +21,8 @@ package fake
 import (
 	"context"
 
-	fake "github.com/knative/serving/pkg/client/injection/informers/networking/factory/fake"
-	serverlessservice "github.com/knative/serving/pkg/client/injection/informers/networking/v1alpha1/serverlessservice"
+	fake "knative.dev/serving/pkg/client/injection/informers/networking/factory/fake"
+	serverlessservice "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/serverlessservice"
 	controller "knative.dev/pkg/controller"
 	injection "knative.dev/pkg/injection"
 )

@@ -25,7 +25,7 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/knative/serving/pkg/network"
+	"knative.dev/serving/pkg/network"
 	corev1 "k8s.io/api/core/v1"
 )
 

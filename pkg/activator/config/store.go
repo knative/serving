@@ -20,7 +20,7 @@ import (
 	"context"
 	"net/http"
 
-	tracingconfig "github.com/knative/serving/pkg/tracing/config"
+	tracingconfig "knative.dev/serving/pkg/tracing/config"
 	"knative.dev/pkg/configmap"
 )
 

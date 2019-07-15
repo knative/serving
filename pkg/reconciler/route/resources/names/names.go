@@ -19,7 +19,7 @@ package names
 import (
 	"fmt"
 
-	"github.com/knative/serving/pkg/network"
+	"knative.dev/serving/pkg/network"
 	"knative.dev/pkg/kmeta"
 )
 

@@ -19,8 +19,8 @@ limitations under the License.
 package certmanager
 
 import (
-	v1alpha1 "github.com/knative/serving/pkg/client/certmanager/informers/externalversions/certmanager/v1alpha1"
-	internalinterfaces "github.com/knative/serving/pkg/client/certmanager/informers/externalversions/internalinterfaces"
+	v1alpha1 "knative.dev/serving/pkg/client/certmanager/informers/externalversions/certmanager/v1alpha1"
+	internalinterfaces "knative.dev/serving/pkg/client/certmanager/informers/externalversions/internalinterfaces"
 )
 
 // Interface provides access to each of this group's versions.

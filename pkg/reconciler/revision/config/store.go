@@ -19,11 +19,11 @@ package config
 import (
 	"context"
 
-	"github.com/knative/serving/pkg/autoscaler"
-	deployment "github.com/knative/serving/pkg/deployment"
-	"github.com/knative/serving/pkg/logging"
-	"github.com/knative/serving/pkg/metrics"
-	"github.com/knative/serving/pkg/network"
+	"knative.dev/serving/pkg/autoscaler"
+	deployment "knative.dev/serving/pkg/deployment"
+	"knative.dev/serving/pkg/logging"
+	"knative.dev/serving/pkg/metrics"
+	"knative.dev/serving/pkg/network"
 	"knative.dev/pkg/configmap"
 	pkglogging "knative.dev/pkg/logging"
 	pkgmetrics "knative.dev/pkg/metrics"

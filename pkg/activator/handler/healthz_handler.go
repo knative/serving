@@ -16,7 +16,7 @@ package handler
 import (
 	"net/http"
 
-	"github.com/knative/serving/pkg/network"
+	"knative.dev/serving/pkg/network"
 )
 
 // HealthHandler handles responding to kubelet probes with a provided health check.

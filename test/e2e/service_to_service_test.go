@@ -23,19 +23,19 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/knative/serving/test"
-	v1a1test "github.com/knative/serving/test/v1alpha1"
+	"knative.dev/serving/test"
+	v1a1test "knative.dev/serving/test/v1alpha1"
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/logstream"
 	"knative.dev/pkg/test/spoof"
 
 	corev1 "k8s.io/api/core/v1"
 
-	"github.com/knative/serving/pkg/apis/autoscaling"
-	"github.com/knative/serving/pkg/reconciler/revision/resources/names"
-	routeconfig "github.com/knative/serving/pkg/reconciler/route/config"
+	"knative.dev/serving/pkg/apis/autoscaling"
+	"knative.dev/serving/pkg/reconciler/revision/resources/names"
+	routeconfig "knative.dev/serving/pkg/reconciler/route/config"
 
-	. "github.com/knative/serving/pkg/testing/v1alpha1"
+	. "knative.dev/serving/pkg/testing/v1alpha1"
 )
 
 const (

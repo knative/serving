@@ -17,8 +17,8 @@ limitations under the License.
 package main
 
 import (
-	"github.com/knative/serving/pkg/reconciler/clusteringress"
-	"github.com/knative/serving/pkg/reconciler/ingress"
+	"knative.dev/serving/pkg/reconciler/clusteringress"
+	"knative.dev/serving/pkg/reconciler/ingress"
 
 	// This defines the shared main for injected controllers.
 	"knative.dev/pkg/injection/sharedmain"

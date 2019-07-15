@@ -21,10 +21,10 @@ package externalversions
 import (
 	"fmt"
 
-	v1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
-	networkingv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
-	servingv1alpha1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	v1beta1 "github.com/knative/serving/pkg/apis/serving/v1beta1"
+	v1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
+	networkingv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
+	servingv1alpha1 "knative.dev/serving/pkg/apis/serving/v1alpha1"
+	v1beta1 "knative.dev/serving/pkg/apis/serving/v1beta1"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	cache "k8s.io/client-go/tools/cache"
 )

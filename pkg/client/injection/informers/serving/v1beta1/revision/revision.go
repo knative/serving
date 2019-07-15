@@ -21,8 +21,8 @@ package revision
 import (
 	"context"
 
-	v1beta1 "github.com/knative/serving/pkg/client/informers/externalversions/serving/v1beta1"
-	factory "github.com/knative/serving/pkg/client/injection/informers/serving/factory"
+	v1beta1 "knative.dev/serving/pkg/client/informers/externalversions/serving/v1beta1"
+	factory "knative.dev/serving/pkg/client/injection/informers/serving/factory"
 	controller "knative.dev/pkg/controller"
 	injection "knative.dev/pkg/injection"
 	logging "knative.dev/pkg/logging"
