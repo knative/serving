@@ -223,6 +223,33 @@ func TestRevisionDefaulting(t *testing.T) {
 				},
 			},
 		},
+	}, {
+		name: "multiple containers",
+		in: &Revision{
+			Spec: RevisionSpec{
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Name: "busybox",
+					}, {
+						Name: "helloworld",
+					}},
+				},
+			},
+		},
+		want: &Revision{
+			Spec: RevisionSpec{
+				TimeoutSeconds: ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Name:      "busybox",
+						Resources: defaultResources,
+					}, {
+						Name:      "helloworld",
+						Resources: defaultResources,
+					}},
+				},
+			},
+		},
 	}}
 
 	for _, test := range tests {
