@@ -44,7 +44,6 @@ import (
 	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
-	ctrl "knative.dev/pkg/controller"
 	logtesting "knative.dev/pkg/logging/testing"
 	"knative.dev/pkg/system"
 	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
@@ -165,14 +164,14 @@ func newTestReconciler(t *testing.T, configs ...*corev1.ConfigMap) (
 func newTestSetup(t *testing.T, configs ...*corev1.ConfigMap) (
 	ctx context.Context,
 	informers []controller.Informer,
-	controller *ctrl.Impl,
+	ctrl *controller.Impl,
 	reconciler *Reconciler,
 	configMapWatcher *configmap.ManualWatcher) {
 
 	ctx, informers = SetupFakeContext(t)
 	configMapWatcher = &configmap.ManualWatcher{Namespace: system.Namespace()}
-	controller = NewController(ctx, configMapWatcher)
-	reconciler = controller.Reconciler.(*Reconciler)
+	ctrl = NewController(ctx, configMapWatcher)
+	reconciler = ctrl.Reconciler.(*Reconciler)
 
 	cms := append([]*corev1.ConfigMap{{
 		ObjectMeta: metav1.ObjectMeta{

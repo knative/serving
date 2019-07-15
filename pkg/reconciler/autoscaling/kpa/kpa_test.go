@@ -56,7 +56,6 @@ import (
 	"knative.dev/serving/pkg/apis/serving"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	"knative.dev/serving/pkg/autoscaler"
-	rpkg "knative.dev/serving/pkg/reconciler"
 	areconciler "knative.dev/serving/pkg/reconciler/autoscaling"
 	"knative.dev/serving/pkg/reconciler/autoscaling/config"
 	"knative.dev/serving/pkg/reconciler/autoscaling/kpa/resources"
@@ -262,7 +261,7 @@ func TestReconcileNegativeBurstCapacity(t *testing.T) {
 		scaler.activatorProbe = func(*asv1a1.PodAutoscaler, http.RoundTripper) (bool, error) { return true, nil }
 		return &Reconciler{
 			Base: &areconciler.Base{
-				Base:              rpkg.NewBase(ctx, controllerAgentName, newConfigWatcher()),
+				Base:              reconciler.NewBase(ctx, controllerAgentName, newConfigWatcher()),
 				PALister:          listers.GetPodAutoscalerLister(),
 				SKSLister:         listers.GetServerlessServiceLister(),
 				ServiceLister:     listers.GetK8sServiceLister(),
@@ -433,7 +432,7 @@ func TestReconcileAndScaleToZero(t *testing.T) {
 		scaler.activatorProbe = func(*asv1a1.PodAutoscaler, http.RoundTripper) (bool, error) { return true, nil }
 		return &Reconciler{
 			Base: &areconciler.Base{
-				Base:              rpkg.NewBase(ctx, controllerAgentName, newConfigWatcher()),
+				Base:              reconciler.NewBase(ctx, controllerAgentName, newConfigWatcher()),
 				PALister:          listers.GetPodAutoscalerLister(),
 				SKSLister:         listers.GetServerlessServiceLister(),
 				ServiceLister:     listers.GetK8sServiceLister(),
@@ -905,7 +904,7 @@ func TestReconcile(t *testing.T) {
 		fakeMetrics := newTestMetrics()
 		return &Reconciler{
 			Base: &areconciler.Base{
-				Base:              rpkg.NewBase(ctx, controllerAgentName, newConfigWatcher()),
+				Base:              reconciler.NewBase(ctx, controllerAgentName, newConfigWatcher()),
 				PALister:          listers.GetPodAutoscalerLister(),
 				SKSLister:         listers.GetServerlessServiceLister(),
 				ServiceLister:     listers.GetK8sServiceLister(),

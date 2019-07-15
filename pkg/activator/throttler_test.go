@@ -41,7 +41,6 @@ import (
 	"knative.dev/serving/pkg/queue"
 
 	corev1 "k8s.io/api/core/v1"
-	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubeinformers "k8s.io/client-go/informers"
 	corev1informers "k8s.io/client-go/informers/core/v1"
@@ -491,11 +490,11 @@ func breakerCount(t *Throttler) int {
 	return len(t.breakers)
 }
 
-func endpointsSubset(hostsPerSubset, subsets int) []v1.EndpointSubset {
-	resp := []v1.EndpointSubset{}
+func endpointsSubset(hostsPerSubset, subsets int) []corev1.EndpointSubset {
+	resp := []corev1.EndpointSubset{}
 	if hostsPerSubset > 0 {
-		addresses := make([]v1.EndpointAddress, hostsPerSubset)
-		subset := v1.EndpointSubset{Addresses: addresses}
+		addresses := make([]corev1.EndpointAddress, hostsPerSubset)
+		subset := corev1.EndpointSubset{Addresses: addresses}
 		for s := 0; s < subsets; s++ {
 			resp = append(resp, subset)
 		}

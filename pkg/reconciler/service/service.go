@@ -27,7 +27,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
-	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 	"knative.dev/pkg/controller"
@@ -75,7 +74,7 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 
 	// Get the Service resource with this namespace/name
 	original, err := c.serviceLister.Services(namespace).Get(name)
-	if apierrs.IsNotFound(err) {
+	if errors.IsNotFound(err) {
 		// The resource may no longer exist, in which case we stop processing.
 		logger.Errorf("service %q in work queue no longer exists", key)
 		return nil

@@ -28,7 +28,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
-	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	corev1listers "k8s.io/client-go/listers/core/v1"
@@ -79,7 +78,7 @@ func (r *reconciler) Reconcile(ctx context.Context, key string) error {
 	logger.Debugf("Reconciling SKS resource: %s", key)
 	// Get the current SKS resource.
 	original, err := r.sksLister.ServerlessServices(namespace).Get(name)
-	if apierrs.IsNotFound(err) {
+	if errors.IsNotFound(err) {
 		// The resource may no longer exist, in which case we stop processing.
 		logger.Errorf("SKS resource %q in work queue no longer exists", key)
 		return nil
@@ -286,7 +285,7 @@ func (r *reconciler) privateService(sks *netv1alpha1.ServerlessService) (*corev1
 	}
 	switch l := len(svcs); l {
 	case 0:
-		return nil, apierrs.NewNotFound(corev1.Resource("Services"), sks.Name)
+		return nil, errors.NewNotFound(corev1.Resource("Services"), sks.Name)
 	case 1:
 		return svcs[0], nil
 	default:

@@ -21,7 +21,6 @@ import (
 	"knative.dev/serving/pkg/apis/autoscaling"
 	pav1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/apis/networking"
-	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	sv1a1 "knative.dev/serving/pkg/apis/serving/v1alpha1"
 	"knative.dev/serving/pkg/resources"
 
@@ -45,12 +44,12 @@ func MakeMetricsService(pa *pav1alpha1.PodAutoscaler, selector map[string]string
 		},
 		Spec: corev1.ServiceSpec{
 			Ports: []corev1.ServicePort{{
-				Name:       v1alpha1.ServiceQueueMetricsPortName,
+				Name:       sv1a1.ServiceQueueMetricsPortName,
 				Protocol:   corev1.ProtocolTCP,
 				Port:       networking.AutoscalingQueueMetricsPort,
 				TargetPort: intstr.FromString(sv1a1.AutoscalingQueueMetricsPortName),
 			}, {
-				Name:       v1alpha1.UserQueueMetricsPortName,
+				Name:       sv1a1.UserQueueMetricsPortName,
 				Protocol:   corev1.ProtocolTCP,
 				Port:       networking.UserQueueMetricsPort,
 				TargetPort: intstr.FromString(sv1a1.UserQueueMetricsPortName),
