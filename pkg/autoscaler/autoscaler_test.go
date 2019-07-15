@@ -19,6 +19,7 @@ package autoscaler
 import (
 	"errors"
 	"fmt"
+	"math"
 	"testing"
 	"time"
 
@@ -70,7 +71,7 @@ func TestAutoscalerNoDataNoAutoscale(t *testing.T) {
 }
 
 func expectedEBC(tc, tbc, rc, np float64) int32 {
-	return int32(tc/targetUtilization*np - tbc - rc)
+	return int32(math.Floor(tc/targetUtilization*np - tbc - rc))
 }
 func TestAutoscalerNoDataAtZeroNoAutoscale(t *testing.T) {
 	a := newTestAutoscaler(10, 100, &testMetricClient{})
@@ -88,6 +89,12 @@ func TestAutoscalerStableModeUnlimitedTBC(t *testing.T) {
 	metrics := &testMetricClient{stableConcurrency: 21.0}
 	a := newTestAutoscaler(181, -1, metrics)
 	a.expectScale(t, time.Now(), 1, -1, true)
+}
+
+func TestAutoscaler0TBC(t *testing.T) {
+	metrics := &testMetricClient{stableConcurrency: 50.0}
+	a := newTestAutoscaler(10, 0, metrics)
+	a.expectScale(t, time.Now(), 5, 0, true)
 }
 
 func TestAutoscalerStableModeNoChange(t *testing.T) {
