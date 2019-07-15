@@ -240,7 +240,6 @@ func makeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, o
 		Ports:           ports,
 		ReadinessProbe:  makeQueueProbe(rp),
 		VolumeMounts:    volumeMounts,
-		Args:            []string{"--readiness-probe", probeJSON},
 		SecurityContext: queueSecurityContext,
 		Env: []corev1.EnvVar{{
 			Name:  "SERVING_NAMESPACE",
@@ -310,6 +309,9 @@ func makeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, o
 		}, {
 			Name:  "INTERNAL_VOLUME_PATH",
 			Value: internalVolumePath,
+		}, {
+			Name:  "SERVING_READINESS_PROBE",
+			Value: probeJSON,
 		}},
 	}
 }

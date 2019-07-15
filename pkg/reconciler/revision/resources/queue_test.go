@@ -373,8 +373,12 @@ func TestMakeQueueContainer(t *testing.T) {
 			}
 
 			got := makeQueueContainer(test.rev, test.lc, test.oc, test.ac, test.cc)
+			test.want.Env = append(test.want.Env, corev1.EnvVar{
+				Name:  "SERVING_READINESS_PROBE",
+				Value: probeJSON(test.rev.Spec.GetContainer().ReadinessProbe),
+			})
 			sortEnv(got.Env)
-			test.want.Args = probeArgs(test.want.Args, test.rev.Spec.GetContainer().ReadinessProbe)
+			sortEnv(test.want.Env)
 			if diff := cmp.Diff(test.want, got, cmpopts.IgnoreUnexported(resource.Quantity{})); diff != "" {
 				t.Errorf("makeQueueContainer (-want, +got) = %v", diff)
 			}
@@ -618,8 +622,12 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			got := makeQueueContainer(test.rev, test.lc, test.oc, test.ac, test.cc)
+			test.want.Env = append(test.want.Env, corev1.EnvVar{
+				Name:  "SERVING_READINESS_PROBE",
+				Value: probeJSON(test.rev.Spec.GetContainer().ReadinessProbe),
+			})
 			sortEnv(got.Env)
-			test.want.Args = probeArgs(test.want.Args, test.rev.Spec.GetContainer().ReadinessProbe)
+			sortEnv(test.want.Env)
 			if diff := cmp.Diff(test.want, got, cmpopts.IgnoreUnexported(resource.Quantity{})); diff != "" {
 				t.Errorf("makeQueueContainerWithPercentageAnnotation (-want, +got) = %v", diff)
 			}
@@ -684,10 +692,6 @@ func TestProbeGenerationHTTPDefaults(t *testing.T) {
 		PeriodSeconds:  1,
 		TimeoutSeconds: 10,
 	}
-	probeBytes, err := json.Marshal(expectedProbe)
-	if err != nil {
-		t.Fatalf("Failed to marshall readiness probe %#v", err)
-	}
 
 	lc := &logging.Config{}
 	oc := &metrics.ObservabilityConfig{}
@@ -708,9 +712,10 @@ func TestProbeGenerationHTTPDefaults(t *testing.T) {
 			TimeoutSeconds: 10,
 		},
 		// These changed based on the Revision and configs passed in.
-		Env:             env(map[string]string{}),
+		Env: env(map[string]string{
+			"SERVING_READINESS_PROBE": probeJSON(expectedProbe),
+		}),
 		SecurityContext: queueSecurityContext,
-		Args:            []string{"--readiness-probe", string(probeBytes)},
 	}
 
 	got := makeQueueContainer(rev, lc, oc, ac, cc)
@@ -772,10 +777,6 @@ func TestProbeGenerationHTTP(t *testing.T) {
 		PeriodSeconds:  2,
 		TimeoutSeconds: 10,
 	}
-	probeBytes, err := json.Marshal(expectedProbe)
-	if err != nil {
-		t.Fatalf("Failed to marshall readiness probe %#v", err)
-	}
 
 	lc := &logging.Config{}
 	oc := &metrics.ObservabilityConfig{}
@@ -796,9 +797,8 @@ func TestProbeGenerationHTTP(t *testing.T) {
 			TimeoutSeconds: 10,
 		},
 		// These changed based on the Revision and configs passed in.
-		Env:             env(map[string]string{"USER_PORT": strconv.Itoa(userPort)}),
+		Env:             env(map[string]string{"USER_PORT": strconv.Itoa(userPort), "SERVING_READINESS_PROBE": probeJSON(expectedProbe)}),
 		SecurityContext: queueSecurityContext,
-		Args:            []string{"--readiness-probe", string(probeBytes)},
 	}
 
 	got := makeQueueContainer(rev, lc, oc, ac, cc)
@@ -980,12 +980,6 @@ func TestTCPProbeGeneration(t *testing.T) {
 			oc := &metrics.ObservabilityConfig{}
 			ac := &autoscaler.Config{}
 			cc := &deployment.Config{}
-			probeBytes, err := json.Marshal(test.wantProbe)
-			if err != nil {
-				t.Fatalf("Failed to marshall readiness probe %#v", err)
-			}
-			test.want.Args = []string{"--readiness-probe", string(probeBytes)}
-
 			testRev := &v1alpha1.Revision{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: "foo",
@@ -994,9 +988,14 @@ func TestTCPProbeGeneration(t *testing.T) {
 				},
 				Spec: test.rev,
 			}
+			test.want.Env = append(test.want.Env, corev1.EnvVar{
+				Name:  "SERVING_READINESS_PROBE",
+				Value: probeJSON(test.wantProbe),
+			})
 
 			got := makeQueueContainer(testRev, lc, oc, ac, cc)
 			sortEnv(got.Env)
+			sortEnv(test.want.Env)
 			if diff := cmp.Diff(test.want, got, cmpopts.IgnoreUnexported(resource.Quantity{})); diff != "" {
 				t.Errorf("makeQueueContainer (-want, +got) = %v", diff)
 			}
@@ -1025,16 +1024,13 @@ var defaultEnv = map[string]string{
 	"INTERNAL_VOLUME_PATH":            internalVolumePath,
 }
 
-func probeArgs(containerArgs []string, probe *corev1.Probe) []string {
-	probeArgs := []string{"--readiness-probe", "null"}
+func probeJSON(probe *corev1.Probe) string {
 	if probe != nil {
-		probeBytes, err := json.Marshal(probe)
-		if err != nil {
-			return append(containerArgs, probeArgs...)
+		if probeBytes, err := json.Marshal(probe); err == nil {
+			return string(probeBytes)
 		}
-		return append(containerArgs, []string{"--readiness-probe", string(probeBytes)}...)
 	}
-	return append(containerArgs, probeArgs...)
+	return ""
 }
 
 func env(overrides map[string]string) []corev1.EnvVar {

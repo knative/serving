@@ -115,7 +115,6 @@ var (
 		"The response time in millisecond",
 		stats.UnitMilliseconds)
 	readinessProbeTimeout = flag.Int("probe", -1, "run readiness probe with given timeout")
-	ucProbe               = flag.String("readiness-probe", "", "JSON readiness probe configuration for user container")
 )
 
 type config struct {
@@ -137,6 +136,7 @@ type config struct {
 	ServingLoggingLevel          string `split_words:"true" required:"true"`
 	ServingRequestMetricsBackend string `split_words:"true" required:"true"`
 	ServingRequestLogTemplate    string `split_words:"true" required:"true"`
+	ServingReadinessProbe        string `split_words:"true" required:"true"`
 }
 
 func initConfig(env config) {
@@ -234,54 +234,37 @@ func createAdminHandlers(p *readiness.Probe) *http.ServeMux {
 
 	return mux
 }
-
 func probeQueueHealthPath(port int, timeoutSeconds int) error {
 	url := fmt.Sprintf(healthURLTemplate, port)
-
-	// Use aggressive sub-second retries.
-	if timeoutSeconds == 0 {
-		return knativeProbe(url)
+	timeoutDuration := readiness.PollTimeout
+	if timeoutSeconds != 0 {
+		timeoutDuration = time.Duration(timeoutSeconds) * time.Second
 	}
-
 	httpClient := &http.Client{
 		Transport: &http.Transport{
 			// Do not use the cached connection
 			DisableKeepAlives: true,
 		},
-		Timeout: time.Duration(timeoutSeconds) * time.Second,
+		Timeout: timeoutDuration,
 	}
 
-	res, err := httpClient.Get(url)
+	stopCh := make(chan struct{})
+	timeCh := time.After(timeoutDuration)
 
-	if err != nil {
-		return errors.Wrap(err, "failed to probe")
-	}
-	if !health.IsHTTPProbeReady(res) {
-		return errors.New("probe returned not ready")
-	}
-
-	return nil
-}
-
-func knativeProbe(url string) error {
-	httpClient := &http.Client{
-		Transport: &http.Transport{
-			// Do not use the cached connection
-			DisableKeepAlives: true,
-		},
-		Timeout: readiness.PollTimeout,
-	}
+	go func() {
+		<-timeCh
+		close(stopCh)
+	}()
 
 	var lastErr error
-
-	timeoutErr := wait.PollImmediate(aggressivePollInterval, readiness.PollTimeout, func() (bool, error) {
+	timeoutErr := wait.PollImmediateUntil(aggressivePollInterval, func() (bool, error) {
 		var res *http.Response
 		if res, lastErr = httpClient.Get(url); res == nil {
 			return false, nil
 		}
 		defer res.Body.Close()
 		return health.IsHTTPProbeReady(res), nil
-	})
+	}, stopCh)
 
 	if lastErr != nil {
 		return errors.Wrap(lastErr, "failed to probe")
@@ -361,7 +344,7 @@ func main() {
 		StatChan:   statChan,
 	}, time.Now())
 
-	coreProbe, err := readiness.DecodeProbe(*ucProbe)
+	coreProbe, err := readiness.DecodeProbe(env.ServingReadinessProbe)
 	if err != nil {
 		logger.Fatalw("Queue container failed to parse readiness probe", zap.Error(err))
 	}
