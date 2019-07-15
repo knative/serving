@@ -57,9 +57,9 @@ type activationHandler struct {
 	reporter  activator.StatsReporter
 	throttler *activator.Throttler
 
-	probeTimeout          time.Duration
-	probeTransportFactory prober.TransportFactory
-	endpointTimeout       time.Duration
+	probeTimeout    time.Duration
+	probeTransport  http.RoundTripper
+	endpointTimeout time.Duration
 
 	revisionLister servinglisters.RevisionLister
 	serviceLister  corev1listers.ServiceLister
@@ -118,11 +118,9 @@ func New(l *zap.SugaredLogger, r activator.StatsReporter, t *activator.Throttler
 		serviceLister:  sl,
 		probeTimeout:   defaulTimeout,
 		// In activator we collect metrics, so we're wrapping
-		// the Roundtripper the prober would use inside annotating transport.
-		probeTransportFactory: func() http.RoundTripper {
-			return &ochttp.Transport{
-				Base: network.NewAutoTransport(),
-			}
+		// the RoundTripper the prober would use inside an annotating transport.
+		probeTransport: &ochttp.Transport{
+			Base: network.NewProberTransport(),
 		},
 		endpointTimeout: defaulTimeout,
 		cache:           newProbeCache(),
@@ -163,7 +161,7 @@ func (a *activationHandler) probeEndpoint(logger *zap.SugaredLogger, r *http.Req
 		attempts++
 		ret, err := prober.Do(
 			reqCtx,
-			a.probeTransportFactory(),
+			a.probeTransport,
 			url,
 			prober.WithHeader(network.ProbeHeaderName, queue.Name),
 			prober.ExpectsBody(queue.Name),
