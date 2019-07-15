@@ -470,12 +470,8 @@ func validateProbe(p *corev1.Probe) *apis.FieldError {
 	numHandlers := 0
 
 	if h.HTTPGet != nil {
-		if numHandlers > 0 {
-			errs = errs.Also(apis.ErrDisallowedFields("httpGet"))
-		} else {
-			numHandlers++
-			errs = errs.Also(apis.CheckDisallowedFields(*h.HTTPGet, *HTTPGetActionMask(h.HTTPGet))).ViaField("httpGet")
-		}
+		numHandlers++
+		errs = errs.Also(apis.CheckDisallowedFields(*h.HTTPGet, *HTTPGetActionMask(h.HTTPGet))).ViaField("httpGet")
 	}
 	if h.TCPSocket != nil {
 		if numHandlers > 0 {
