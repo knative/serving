@@ -110,9 +110,6 @@ func (b *Breaker) Capacity() int {
 // in the rotation. Attempting to add more capacity then the max will result in error.
 // Initial capacity is the initial number of free tokens.
 func newSemaphore(maxCapacity, initialCapacity int) *semaphore {
-	if initialCapacity < 0 || initialCapacity > maxCapacity {
-		panic(fmt.Sprintf("Initial capacity must be between 0 and maximal capacity. Got %v.", initialCapacity))
-	}
 	queue := make(chan struct{}, maxCapacity)
 	sem := &semaphore{queue: queue}
 	if initialCapacity > 0 {
