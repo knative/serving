@@ -35,7 +35,7 @@ func TestMakeMetric(t *testing.T) {
 		name string
 		pa   *v1alpha1.PodAutoscaler
 		msn  string
-		want *autoscaler.Metric
+		want *v1alpha1.Metric
 	}{{
 		name: "defaults",
 		pa:   pa(),
@@ -88,40 +88,40 @@ func TestStableWindow(t *testing.T) {
 	}
 }
 
-type MetricOption func(*autoscaler.Metric)
+type MetricOption func(*v1alpha1.Metric)
 
 func withStableWindow(window time.Duration) MetricOption {
-	return func(metric *autoscaler.Metric) {
+	return func(metric *v1alpha1.Metric) {
 		metric.Spec.StableWindow = window
 	}
 }
 
 func withPanicWindow(window time.Duration) MetricOption {
-	return func(metric *autoscaler.Metric) {
+	return func(metric *v1alpha1.Metric) {
 		metric.Spec.PanicWindow = window
 	}
 }
 
 func withWindowAnnotation(window string) MetricOption {
-	return func(metric *autoscaler.Metric) {
+	return func(metric *v1alpha1.Metric) {
 		metric.Annotations[autoscaling.WindowAnnotationKey] = window
 	}
 }
 
 func withPanicWindowPercentageAnnotation(percentage string) MetricOption {
-	return func(metric *autoscaler.Metric) {
+	return func(metric *v1alpha1.Metric) {
 		metric.Annotations[autoscaling.PanicWindowPercentageAnnotationKey] = percentage
 	}
 }
 
 func withScarapeTarget(s string) MetricOption {
-	return func(metric *autoscaler.Metric) {
+	return func(metric *v1alpha1.Metric) {
 		metric.Spec.ScrapeTarget = s
 	}
 }
 
-func metric(options ...MetricOption) *autoscaler.Metric {
-	m := &autoscaler.Metric{
+func metric(options ...MetricOption) *v1alpha1.Metric {
+	m := &v1alpha1.Metric{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: "test-namespace",
 			Name:      "test-name",
@@ -129,7 +129,7 @@ func metric(options ...MetricOption) *autoscaler.Metric {
 				autoscaling.ClassAnnotationKey: autoscaling.KPA,
 			},
 		},
-		Spec: autoscaler.MetricSpec{
+		Spec: v1alpha1.MetricSpec{
 			StableWindow: 60 * time.Second,
 			PanicWindow:  6 * time.Second,
 		},

@@ -27,12 +27,17 @@ import (
 
 type AutoscalingV1alpha1Interface interface {
 	RESTClient() rest.Interface
+	MetricsGetter
 	PodAutoscalersGetter
 }
 
 // AutoscalingV1alpha1Client is used to interact with features provided by the autoscaling.internal.knative.dev group.
 type AutoscalingV1alpha1Client struct {
 	restClient rest.Interface
+}
+
+func (c *AutoscalingV1alpha1Client) Metrics(namespace string) MetricInterface {
+	return newMetrics(c, namespace)
 }
 
 func (c *AutoscalingV1alpha1Client) PodAutoscalers(namespace string) PodAutoscalerInterface {

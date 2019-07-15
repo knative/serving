@@ -28,17 +28,18 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	. "knative.dev/pkg/logging/testing"
+	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 )
 
 var (
 	defaultNamespace = "test-namespace"
 	defaultName      = "test-name"
-	defaultMetric    = &Metric{
+	defaultMetric    = &av1alpha1.Metric{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: defaultNamespace,
 			Name:      defaultName,
 		},
-		Spec: MetricSpec{
+		Spec: av1alpha1.MetricSpec{
 			StableWindow: 60 * time.Second,
 			PanicWindow:  6 * time.Second,
 			ScrapeTarget: "original-target",
@@ -68,7 +69,7 @@ func TestMetricCollectorCRUD(t *testing.T) {
 
 	t.Run("error on mismatch", func(t *testing.T) {
 		coll := NewMetricCollector(factory, logger)
-		coll.Create(ctx, &Metric{
+		coll.Create(ctx, &av1alpha1.Metric{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: "another-namespace",
 				Name:      defaultName,
@@ -209,7 +210,7 @@ func TestMetricCollectorRecord(t *testing.T) {
 }
 
 func scraperFactory(scraper StatsScraper, err error) StatsScraperFactory {
-	return func(*Metric) (StatsScraper, error) {
+	return func(*av1alpha1.Metric) (StatsScraper, error) {
 		return scraper, err
 	}
 }

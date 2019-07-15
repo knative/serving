@@ -36,6 +36,7 @@ import (
 	pkgmetrics "knative.dev/pkg/metrics"
 	"knative.dev/pkg/signals"
 	"knative.dev/pkg/system"
+	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
 	"knative.dev/serving/pkg/autoscaler"
 	"knative.dev/serving/pkg/autoscaler/statserver"
@@ -186,8 +187,8 @@ func uniScalerFactoryFunc(endpointsInformer corev1informers.EndpointsInformer, m
 	}
 }
 
-func statsScraperFactoryFunc(endpointsLister corev1listers.EndpointsLister) func(metric *autoscaler.Metric) (autoscaler.StatsScraper, error) {
-	return func(metric *autoscaler.Metric) (autoscaler.StatsScraper, error) {
+func statsScraperFactoryFunc(endpointsLister corev1listers.EndpointsLister) func(metric *av1alpha1.Metric) (autoscaler.StatsScraper, error) {
+	return func(metric *av1alpha1.Metric) (autoscaler.StatsScraper, error) {
 		podCounter := resources.NewScopedEndpointsCounter(endpointsLister, metric.Namespace, metric.Spec.ScrapeTarget)
 		return autoscaler.NewServiceScraper(metric, podCounter)
 	}
