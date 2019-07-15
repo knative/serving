@@ -42,7 +42,6 @@ import (
 	"knative.dev/pkg/system"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	asv1a1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
-	autoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/apis/networking"
 	nv1a1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/pkg/autoscaler"
@@ -403,13 +402,13 @@ func key(name, namespace string) string {
 	return namespace + "/" + name
 }
 
-func pa(name, namespace string, options ...PodAutoscalerOption) *autoscalingv1alpha1.PodAutoscaler {
-	pa := &autoscalingv1alpha1.PodAutoscaler{
+func pa(name, namespace string, options ...PodAutoscalerOption) *asv1a1.PodAutoscaler {
+	pa := &asv1a1.PodAutoscaler{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
 		},
-		Spec: autoscalingv1alpha1.PodAutoscalerSpec{
+		Spec: asv1a1.PodAutoscalerSpec{
 			ScaleTargetRef: corev1.ObjectReference{
 				APIVersion: "apps/v1",
 				Kind:       "Deployment",
@@ -430,7 +429,7 @@ func withHPAOwnersRemoved(hpa *autoscalingv2beta1.HorizontalPodAutoscaler) {
 	hpa.OwnerReferences = nil
 }
 
-func hpa(name, namespace string, pa *autoscalingv1alpha1.PodAutoscaler, options ...hpaOption) *autoscalingv2beta1.HorizontalPodAutoscaler {
+func hpa(name, namespace string, pa *asv1a1.PodAutoscaler, options ...hpaOption) *autoscalingv2beta1.HorizontalPodAutoscaler {
 	h := resources.MakeHPA(pa, defaultConfig().Autoscaler)
 	for _, o := range options {
 		o(h)
@@ -486,17 +485,17 @@ type testMetrics struct {
 	deleteCallCount    *atomic.Uint32
 	updateCallCount    *atomic.Uint32
 	deleteBeforeCreate *atomic.Bool
-	metric             *autoscaler.Metric
+	metric             *asv1a1.Metric
 }
 
-func (km *testMetrics) Get(ctx context.Context, namespace, name string) (*autoscaler.Metric, error) {
+func (km *testMetrics) Get(ctx context.Context, namespace, name string) (*asv1a1.Metric, error) {
 	if km.metric == nil {
 		return nil, apierrors.NewNotFound(asv1a1.Resource("Metric"), autoscaler.NewMetricKey(namespace, name))
 	}
 	return km.metric, nil
 }
 
-func (km *testMetrics) Create(ctx context.Context, metric *autoscaler.Metric) (*autoscaler.Metric, error) {
+func (km *testMetrics) Create(ctx context.Context, metric *asv1a1.Metric) (*asv1a1.Metric, error) {
 	km.metric = metric
 	km.createCallCount.Add(1)
 	return metric, nil
@@ -511,7 +510,7 @@ func (km *testMetrics) Delete(ctx context.Context, namespace, name string) error
 	return nil
 }
 
-func (km *testMetrics) Update(ctx context.Context, metric *autoscaler.Metric) (*autoscaler.Metric, error) {
+func (km *testMetrics) Update(ctx context.Context, metric *asv1a1.Metric) (*asv1a1.Metric, error) {
 	km.metric = metric
 	km.updateCallCount.Add(1)
 	return metric, nil
