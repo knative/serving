@@ -30,6 +30,11 @@ import (
 	fakedynamicclient "knative.dev/pkg/injection/clients/dynamicclient/fake"
 	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
 
+	"knative.dev/pkg/apis"
+	"knative.dev/pkg/apis/duck"
+	"knative.dev/pkg/logging"
+	logtesting "knative.dev/pkg/logging/testing"
+	_ "knative.dev/pkg/system/testing"
 	"knative.dev/serving/pkg/activator"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	pav1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
@@ -41,12 +46,6 @@ import (
 	revisionresources "knative.dev/serving/pkg/reconciler/revision/resources"
 	"knative.dev/serving/pkg/reconciler/revision/resources/names"
 	presources "knative.dev/serving/pkg/resources"
-
-	"knative.dev/pkg/apis"
-	"knative.dev/pkg/apis/duck"
-	"knative.dev/pkg/logging"
-	logtesting "knative.dev/pkg/logging/testing"
-	_ "knative.dev/pkg/system/testing"
 
 	v1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
