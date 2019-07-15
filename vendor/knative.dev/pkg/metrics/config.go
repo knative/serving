@@ -39,7 +39,7 @@ type metricsBackend string
 
 const (
 	// The following keys are used to configure metrics reporting.
-	// See https://knative.dev/serving/blob/master/config/config-observability.yaml
+	// See https://github.com/knative/serving/blob/master/config/config-observability.yaml
 	// for details.
 	AllowStackdriverCustomMetricsKey = "metrics.allow-stackdriver-custom-metrics"
 	BackendDestinationKey            = "metrics.backend-destination"
@@ -75,7 +75,7 @@ type ExporterOptions struct {
 	PrometheusPort int
 
 	// ConfigMap is the data from config map config-observability. Must be present.
-	// See https://knative.dev/serving/blob/master/config/config-observability.yaml
+	// See https://github.com/knative/serving/blob/master/config/config-observability.yaml
 	// for details.
 	ConfigMap map[string]string
 }

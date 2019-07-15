@@ -36,7 +36,7 @@ const (
 	ZipkinTraceIDHeader = "ZIPKIN_TRACE_ID"
 
 	// ZipkinPort is port exposed by the Zipkin Pod
-	// https://knative.dev/serving/blob/master/config/monitoring/200-common/100-zipkin.yaml#L25 configures the Zipkin Port on the cluster.
+	// https://github.com/knative/serving/blob/master/config/monitoring/200-common/100-zipkin.yaml#L25 configures the Zipkin Port on the cluster.
 	ZipkinPort = 9411
 
 	// ZipkinTraceEndpoint port-forwarded zipkin endpoint

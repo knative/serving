@@ -60,7 +60,7 @@ func ConfigMapsFromTestFile(t *testing.T, name string, allowed ...string) (*core
 
 	if len(orig.Data) != len(allowed) {
 		// See here for why we only check in empty ConfigMaps:
-		// https://knative.dev/serving/issues/2668
+		// https://github.com/knative/serving/issues/2668
 		t.Errorf("Data = %v, wanted %v", orig.Data, allowed)
 	}
 	allow := sets.NewString(allowed...)
