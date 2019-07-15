@@ -205,7 +205,7 @@ func newTestSetup(t *testing.T, configs ...*corev1.ConfigMap) (
 	return
 }
 
-func getRouteClusterIngressFromClient(t *testing.T, ctx context.Context, route *v1alpha1.Route) *netv1alpha1.ClusterIngress {
+func getRouteClusterIngressFromClient(ctx context.Context, t *testing.T, route *v1alpha1.Route) *netv1alpha1.ClusterIngress {
 	opts := metav1.ListOptions{
 		LabelSelector: labels.Set(map[string]string{
 			serving.RouteLabelKey:          route.Name,
@@ -224,7 +224,7 @@ func getRouteClusterIngressFromClient(t *testing.T, ctx context.Context, route *
 	return &cis.Items[0]
 }
 
-func getRouteIngressFromClient(t *testing.T, ctx context.Context, route *v1alpha1.Route) *netv1alpha1.Ingress {
+func getRouteIngressFromClient(ctx context.Context, t *testing.T, route *v1alpha1.Route) *netv1alpha1.Ingress {
 	opts := metav1.ListOptions{
 		LabelSelector: labels.Set(map[string]string{
 			serving.RouteLabelKey:          route.Name,
@@ -261,9 +261,9 @@ func addResourcesToInformers(t *testing.T, ctx context.Context, route *v1alpha1.
 	}
 	fakerouteinformer.Get(ctx).Informer().GetIndexer().Add(route)
 
-	ci := getRouteClusterIngressFromClient(t, ctx, route)
+	ci := getRouteClusterIngressFromClient(ctx, t, route)
 	fakeciinformer.Get(ctx).Informer().GetIndexer().Add(ci)
-	ingress := getRouteIngressFromClient(t, ctx, route)
+	ingress := getRouteIngressFromClient(ctx, t, route)
 	fakeingressinformer.Get(ctx).Informer().GetIndexer().Add(ingress)
 }
 
@@ -296,7 +296,7 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 
 	reconciler.Reconcile(context.Background(), KeyOrDie(route))
 
-	ci := getRouteIngressFromClient(t, ctx, route)
+	ci := getRouteIngressFromClient(ctx, t, route)
 
 	// Check labels
 	expectedLabels := map[string]string{
@@ -411,7 +411,7 @@ func TestCreateRouteWithMultipleTargets(t *testing.T) {
 
 	reconciler.Reconcile(context.Background(), KeyOrDie(route))
 
-	ci := getRouteIngressFromClient(t, ctx, route)
+	ci := getRouteIngressFromClient(ctx, t, route)
 	domain := strings.Join([]string{route.Name, route.Namespace, defaultDomainSuffix}, ".")
 	expectedSpec := netv1alpha1.IngressSpec{
 		Visibility: netv1alpha1.IngressVisibilityExternalIP,
@@ -496,7 +496,7 @@ func TestCreateRouteWithOneTargetReserve(t *testing.T) {
 
 	reconciler.Reconcile(context.Background(), KeyOrDie(route))
 
-	ci := getRouteIngressFromClient(t, ctx, route)
+	ci := getRouteIngressFromClient(ctx, t, route)
 	domain := strings.Join([]string{route.Name, route.Namespace, defaultDomainSuffix}, ".")
 	expectedSpec := netv1alpha1.IngressSpec{
 		Visibility: netv1alpha1.IngressVisibilityExternalIP,
@@ -605,7 +605,7 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 
 	reconciler.Reconcile(context.Background(), KeyOrDie(route))
 
-	ci := getRouteIngressFromClient(t, ctx, route)
+	ci := getRouteIngressFromClient(ctx, t, route)
 	domain := strings.Join([]string{route.Name, route.Namespace, defaultDomainSuffix}, ".")
 	expectedSpec := netv1alpha1.IngressSpec{
 		Visibility: netv1alpha1.IngressVisibilityExternalIP,
@@ -735,7 +735,7 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 
 	reconciler.Reconcile(context.Background(), KeyOrDie(route))
 
-	ci := getRouteIngressFromClient(t, ctx, route)
+	ci := getRouteIngressFromClient(ctx, t, route)
 	domain := strings.Join([]string{route.Name, route.Namespace, defaultDomainSuffix}, ".")
 	expectedSpec := netv1alpha1.IngressSpec{
 		Visibility: netv1alpha1.IngressVisibilityExternalIP,
