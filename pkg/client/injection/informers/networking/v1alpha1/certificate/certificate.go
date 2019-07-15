@@ -21,11 +21,11 @@ package certificate
 import (
 	"context"
 
-	v1alpha1 "knative.dev/serving/pkg/client/informers/externalversions/networking/v1alpha1"
-	factory "knative.dev/serving/pkg/client/injection/informers/networking/factory"
 	controller "knative.dev/pkg/controller"
 	injection "knative.dev/pkg/injection"
 	logging "knative.dev/pkg/logging"
+	v1alpha1 "knative.dev/serving/pkg/client/informers/externalversions/networking/v1alpha1"
+	factory "knative.dev/serving/pkg/client/injection/informers/networking/factory"
 )
 
 func init() {

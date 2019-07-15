@@ -26,10 +26,6 @@ import (
 	_ "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/certificate/fake"
 
 	certmanagerv1alpha1 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1alpha1"
-	"knative.dev/serving/pkg/apis/networking/v1alpha1"
-	"knative.dev/serving/pkg/reconciler"
-	"knative.dev/serving/pkg/reconciler/certificate/config"
-	"knative.dev/serving/pkg/reconciler/certificate/resources"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -39,10 +35,14 @@ import (
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/system"
+	"knative.dev/serving/pkg/apis/networking/v1alpha1"
+	"knative.dev/serving/pkg/reconciler"
+	"knative.dev/serving/pkg/reconciler/certificate/config"
+	"knative.dev/serving/pkg/reconciler/certificate/resources"
 
-	. "knative.dev/serving/pkg/reconciler/testing/v1alpha1"
 	. "knative.dev/pkg/logging/testing"
 	. "knative.dev/pkg/reconciler/testing"
+	. "knative.dev/serving/pkg/reconciler/testing/v1alpha1"
 )
 
 const generation = 23132

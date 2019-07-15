@@ -21,11 +21,11 @@ import (
 	"fmt"
 	"testing"
 
+	pkgTest "knative.dev/pkg/test"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	"knative.dev/serving/test"
 	"knative.dev/serving/test/types"
 	v1a1test "knative.dev/serving/test/v1alpha1"
-	pkgTest "knative.dev/pkg/test"
 
 	. "knative.dev/serving/pkg/testing/v1alpha1"
 )
@@ -37,22 +37,9 @@ func fetchRuntimeInfo(
 	clients *test.Clients,
 	opts ...interface{}) (*test.ResourceNames, *types.RuntimeInfo, error) {
 
-	return runtimeInfo(t, clients, &test.ResourceNames{}, opts...)
-}
-
-func runtimeInfo(
-	t *testing.T,
-	clients *test.Clients,
-	names *test.ResourceNames,
-	opts ...interface{}) (*test.ResourceNames, *types.RuntimeInfo, error) {
-
+	names := &test.ResourceNames{Image: test.Runtime}
 	t.Helper()
 	names.Service = test.ObjectNameForTest(t)
-	if names.Image == "" {
-		names.Image = test.Runtime
-	} else if names.Image != test.Runtime {
-		return nil, nil, fmt.Errorf("invalid image provided: %s", names.Image)
-	}
 
 	defer test.TearDown(clients, *names)
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, *names) })

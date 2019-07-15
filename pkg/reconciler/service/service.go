@@ -23,13 +23,6 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp/cmpopts"
-	"knative.dev/serving/pkg/apis/serving/v1alpha1"
-	"knative.dev/serving/pkg/apis/serving/v1beta1"
-	listers "knative.dev/serving/pkg/client/listers/serving/v1alpha1"
-	"knative.dev/serving/pkg/reconciler"
-	cfgreconciler "knative.dev/serving/pkg/reconciler/configuration"
-	"knative.dev/serving/pkg/reconciler/service/resources"
-	resourcenames "knative.dev/serving/pkg/reconciler/service/resources/names"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -40,6 +33,13 @@ import (
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/kmp"
 	"knative.dev/pkg/logging"
+	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	"knative.dev/serving/pkg/apis/serving/v1beta1"
+	listers "knative.dev/serving/pkg/client/listers/serving/v1alpha1"
+	"knative.dev/serving/pkg/reconciler"
+	cfgreconciler "knative.dev/serving/pkg/reconciler/configuration"
+	"knative.dev/serving/pkg/reconciler/service/resources"
+	resourcenames "knative.dev/serving/pkg/reconciler/service/resources/names"
 )
 
 const (

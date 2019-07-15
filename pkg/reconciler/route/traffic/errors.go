@@ -19,8 +19,8 @@ package traffic
 import (
 	"fmt"
 
-	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
+	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 )
 
 // TargetError gives details about an invalid traffic target.

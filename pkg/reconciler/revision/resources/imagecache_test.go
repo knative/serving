@@ -24,10 +24,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	caching "knative.dev/caching/pkg/apis/caching/v1alpha1"
+	"knative.dev/pkg/ptr"
 	"knative.dev/serving/pkg/apis/serving"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving/v1beta1"
-	"knative.dev/pkg/ptr"
 )
 
 func TestMakeImageCache(t *testing.T) {

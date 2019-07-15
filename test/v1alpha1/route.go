@@ -25,13 +25,13 @@ import (
 	"testing"
 
 	"github.com/davecgh/go-spew/spew"
-	"knative.dev/serving/pkg/apis/serving/v1alpha1"
-	"knative.dev/serving/pkg/apis/serving/v1beta1"
 	"github.com/pkg/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"knative.dev/pkg/test/logging"
 	"knative.dev/pkg/test/spoof"
+	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	"knative.dev/serving/pkg/apis/serving/v1beta1"
 
 	rtesting "knative.dev/serving/pkg/testing/v1alpha1"
 	v1alpha1testing "knative.dev/serving/pkg/testing/v1alpha1"

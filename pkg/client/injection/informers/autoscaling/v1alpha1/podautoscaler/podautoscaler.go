@@ -21,11 +21,11 @@ package podautoscaler
 import (
 	"context"
 
-	v1alpha1 "knative.dev/serving/pkg/client/informers/externalversions/autoscaling/v1alpha1"
-	factory "knative.dev/serving/pkg/client/injection/informers/autoscaling/factory"
 	controller "knative.dev/pkg/controller"
 	injection "knative.dev/pkg/injection"
 	logging "knative.dev/pkg/logging"
+	v1alpha1 "knative.dev/serving/pkg/client/informers/externalversions/autoscaling/v1alpha1"
+	factory "knative.dev/serving/pkg/client/injection/informers/autoscaling/factory"
 )
 
 func init() {

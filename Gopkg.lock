@@ -2,12 +2,13 @@
 
 
 [[projects]]
-  branch = "default"
-  digest = "1:24df057f15e7a09e75c1241cbe6f6590fd3eac9804f1110b02efade3214f042d"
+  branch = "master"
+  digest = "1:1604410fccff1fa79d0978bf9271d52d9ea1c8c06618d5c624dabba9cfe9cc83"
   name = "bitbucket.org/ww/goautoneg"
   packages = ["."]
-  pruneopts = "UT"
-  revision = "75cd24fc2f2c2a2088577d12123ddee5f54e0675"
+  pruneopts = "NUT"
+  revision = "2ae31c8b6b30d2f4c8100c20d527b571e9c433bb"
+  source = "github.com/munnerz/goautoneg"
 
 [[projects]]
   digest = "1:6db34685a5216187ec35414e36c3bd0436fa2ac291d47b39f4ab4d68cf1c55f1"
@@ -26,14 +27,6 @@
   pruneopts = "NUT"
   revision = "0ebda48a7f143b1cce9eb37a8c1106ac762a3430"
   version = "v0.34.0"
-
-[[projects]]
-  digest = "1:f323f98930459f65f4699b5bfba563743680e2633d96e72d61a9732648e2d07c"
-  name = "contrib.go.opencensus.io/exporter/ocagent"
-  packages = ["."]
-  pruneopts = "NUT"
-  revision = "00af367e65149ff1f2f4b93bbfbb84fd9297170d"
-  version = "v0.2.0"
 
 [[projects]]
   digest = "1:b6eb7c2538ec2999a072c0e372a18d7b7e3aedac249f26e159586fa5f892909f"
@@ -80,7 +73,7 @@
   revision = "d6e3b3328b783f23731bc4d058875b0371ff8109"
 
 [[projects]]
-  digest = "1:44a1ddb10a1ee66aa8b7625b507829d30a423e555690b8db840f8caf35cb0e79"
+  digest = "1:90df11ad9349a69d46e08211d47eb8db80311bf985a447dd88cb30d5b5f54add"
   name = "github.com/Azure/go-autorest"
   packages = [
     "autorest",
@@ -90,11 +83,11 @@
     "autorest/to",
     "autorest/validation",
     "logger",
-    "tracing",
+    "version",
   ]
   pruneopts = "NUT"
-  revision = "f401b1ccc8eb505927fae7a0c7f6406d37ca1c7e"
-  version = "v11.2.8"
+  revision = "1ffcc8896ef6dfe022d90a4317d866f925cf0f9e"
+  version = "v11.1.2"
 
 [[projects]]
   digest = "1:632e5f740de6cafce1c08f659bfa10e75f7e7938dfaeb3d99c82fcbf484484e2"
@@ -178,14 +171,20 @@
   revision = "4c0e84591b9aa9e6dcfdf3e020114cd81f89d5f9"
 
 [[projects]]
-  digest = "1:7b306d2c6d792f8e71bf123669ee967cdeec633ca8944c627b50db13cc36c5ec"
+  branch = "master"
+  digest = "1:2755397479777565ae0c383f63be30e8975da63805281283bdde46d73bed9a7d"
+  name = "github.com/c2h5oh/datasize"
+  packages = ["."]
+  pruneopts = "NUT"
+  revision = "4eba002a5eaea69cf8d235a388fc6b65ae68d2dd"
+
+[[projects]]
+  digest = "1:fa965c1fd0f17153f608037e109e62104058bc1d08d44849867795fd306fa8b8"
   name = "github.com/census-instrumentation/opencensus-proto"
   packages = [
     "gen-go/agent/common/v1",
-    "gen-go/agent/trace/v1",
     "gen-go/metrics/v1",
     "gen-go/resource/v1",
-    "gen-go/trace/v1",
   ]
   pruneopts = "NUT"
   revision = "7f2434bc10da710debe5c4315ed6d4df454b4024"
@@ -548,6 +547,14 @@
   version = "v0.3.6"
 
 [[projects]]
+  branch = "master"
+  digest = "1:aa0434674a14402891f31f393b4dd53792bc67eee05158748d999096a8826ed3"
+  name = "github.com/influxdata/tdigest"
+  packages = ["."]
+  pruneopts = "NUT"
+  revision = "bf2b5ad3c0a925c44a0d2842c5d8182113cd248e"
+
+[[projects]]
   digest = "1:2a40bae32c6caa0b7ccc5458450be1d003b459e42094e850d3c28b56abe40346"
   name = "github.com/jetstack/cert-manager"
   packages = [
@@ -589,7 +596,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:c7e8a621d81ea73d326d5c1c8528013398b067054008f467a5fdcac602c58ead"
+  digest = "1:7b19f4701b58045cd625b893d12e5350b3c4d3df4c61d013c32d07d67726ed50"
   name = "github.com/knative/test-infra"
   packages = [
     "scripts",
@@ -609,7 +616,7 @@
     "tools/webhook-apicoverage/webhook",
   ]
   pruneopts = "UT"
-  revision = "d976261d75101cab99291409641dc999c7baec68"
+  revision = "bf05b82bcaaf2e7516d0b2edfc96fc904813bcf2"
 
 [[projects]]
   digest = "1:58999a98719fddbac6303cb17e8d85b945f60b72f48e3a2df6b950b97fa926f1"
@@ -783,17 +790,6 @@
   revision = "282c8707aa210456a825798969cc27edda34992a"
 
 [[projects]]
-  digest = "1:285e9ed8b84f6895bf88ab829315f213a06480888fab223861be0c3dfca1a2ed"
-  name = "github.com/rakyll/hey"
-  packages = [
-    ".",
-    "requester",
-  ]
-  pruneopts = "NUT"
-  revision = "01803349acd49d756dafa2cb6ac5b5bfc141fc3b"
-  version = "v0.1.2"
-
-[[projects]]
   digest = "1:7008ec21a0ce773bd21deefdb7d17fab8cb9f1ae0bc44026cdd2b658ab1582ca"
   name = "github.com/rogpeppe/go-internal"
   packages = ["semver"]
@@ -809,6 +805,22 @@
   version = "v1.0.0"
 
 [[projects]]
+  branch = "master"
+  digest = "1:68cecd4c1137f77dfa2db1f13a0ceef2b5606d6b69d66fa69f7df1b2f2fe9afc"
+  name = "github.com/shurcooL/httpfs"
+  packages = ["vfsutil"]
+  pruneopts = "NUT"
+  revision = "6a4d4a70508bfeac7afc814c5e4345e1c640b6b2"
+
+[[projects]]
+  branch = "master"
+  digest = "1:9ad746e784d9616f68a0ea56566a01b23dff758b8c864eaf3e69dfe86d6c3c89"
+  name = "github.com/shurcooL/vfsgen"
+  packages = ["."]
+  pruneopts = "NUT"
+  revision = "6a9ea43bcacdf716a5c1b38efff722c07adf0069"
+
+[[projects]]
   digest = "1:9d8420bbf131d1618bde6530af37c3799340d3762cc47210c1d9532a4c3a2779"
   name = "github.com/spf13/pflag"
   packages = ["."]
@@ -817,19 +829,45 @@
   version = "v1.0.3"
 
 [[projects]]
-  digest = "1:76763f300778a3b9baef4872dc9fcc9a7463ba2a5f6b2acaf589cd7f3b392503"
+  branch = "master"
+  digest = "1:a889ff8426d462ae8b9a91ef29eb1bcd0d9a9ad792c55f9f32f6f912d57b9b8c"
+  name = "github.com/tsenart/go-tsz"
+  packages = [
+    ".",
+    "testdata",
+  ]
+  pruneopts = "NUT"
+  revision = "0bd30b3df1c328dfc87ed857cdf695c3c7d2cb09"
+
+[[projects]]
+  branch = "master"
+  digest = "1:2f94b13edb425d3ba58e6b9cf01348a930f57b0324193ad4c840b9d3f1e299df"
+  name = "github.com/tsenart/vegeta"
+  packages = [
+    ".",
+    "internal/resolver",
+    "lib",
+    "lib/lttb",
+    "lib/plot",
+  ]
+  pruneopts = "NUT"
+  revision = "28707121bb7840461a563aabcb510a9636e5c5a1"
+
+[[projects]]
+  digest = "1:b8baa7541ef444be218da02d3a7b607d33513263660e489d86d429afbffcdd86"
   name = "go.opencensus.io"
   packages = [
     ".",
-    "exemplar",
     "exporter/prometheus",
     "exporter/zipkin",
     "internal",
     "internal/tagencoding",
+    "metric/metricdata",
+    "metric/metricproducer",
     "plugin/ocgrpc",
     "plugin/ochttp",
     "plugin/ochttp/propagation/b3",
-    "plugin/ochttp/propagation/tracecontext",
+    "resource",
     "stats",
     "stats/internal",
     "stats/view",
@@ -840,8 +878,8 @@
     "trace/tracestate",
   ]
   pruneopts = "NUT"
-  revision = "b7bf3cdb64150a8c8c53b769fdeb2ba581bd4d4b"
-  version = "v0.18.0"
+  revision = "75c0cca22312e51bfd4fafdbe9197ae399e18b38"
+  version = "v0.20.2"
 
 [[projects]]
   digest = "1:22f696cee54865fb8e9ff91df7b633f6b8f22037a8015253c6b6a71ca82219c7"
@@ -1619,7 +1657,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:4563adec376c56f3441da3767facc1d6c733d93a39f593495c009fed54dbb76c"
+  digest = "1:45a635362a586b2729559eceffcc1ba62dd3f79c0fbb2a666b6f4410f46515ab"
   name = "knative.dev/pkg"
   packages = [
     "apis",
@@ -1689,6 +1727,7 @@
     "logging/testing",
     "metrics",
     "metrics/metricskey",
+    "metrics/metricstest",
     "metrics/testing",
     "ptr",
     "reconciler/testing",
@@ -1709,7 +1748,7 @@
     "websocket",
   ]
   pruneopts = "T"
-  revision = "e2418a08c195ff0acda037c11c21882ca5453d96"
+  revision = "76da19bbc6f409dba9017f60003560e03aeff6e7"
 
 [solve-meta]
   analyzer-name = "dep"
@@ -1757,8 +1796,8 @@
     "github.com/prometheus/client_golang/prometheus/promhttp",
     "github.com/prometheus/client_model/go",
     "github.com/prometheus/common/expfmt",
-    "github.com/rakyll/hey",
     "github.com/spf13/pflag",
+    "github.com/tsenart/vegeta",
     "go.opencensus.io/exporter/zipkin",
     "go.opencensus.io/plugin/ochttp",
     "go.opencensus.io/stats",
@@ -1878,6 +1917,7 @@
     "knative.dev/pkg/logging/testing",
     "knative.dev/pkg/metrics",
     "knative.dev/pkg/metrics/metricskey",
+    "knative.dev/pkg/metrics/metricstest",
     "knative.dev/pkg/metrics/testing",
     "knative.dev/pkg/ptr",
     "knative.dev/pkg/reconciler/testing",

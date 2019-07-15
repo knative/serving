@@ -22,13 +22,6 @@ import (
 	"reflect"
 
 	cmv1alpha1 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1alpha1"
-	"knative.dev/serving/pkg/apis/networking/v1alpha1"
-	certmanagerclientset "knative.dev/serving/pkg/client/certmanager/clientset/versioned"
-	certmanagerlisters "knative.dev/serving/pkg/client/certmanager/listers/certmanager/v1alpha1"
-	listers "knative.dev/serving/pkg/client/listers/networking/v1alpha1"
-	"knative.dev/serving/pkg/reconciler"
-	"knative.dev/serving/pkg/reconciler/certificate/config"
-	"knative.dev/serving/pkg/reconciler/certificate/resources"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -37,6 +30,13 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
+	"knative.dev/serving/pkg/apis/networking/v1alpha1"
+	certmanagerclientset "knative.dev/serving/pkg/client/certmanager/clientset/versioned"
+	certmanagerlisters "knative.dev/serving/pkg/client/certmanager/listers/certmanager/v1alpha1"
+	listers "knative.dev/serving/pkg/client/listers/networking/v1alpha1"
+	"knative.dev/serving/pkg/reconciler"
+	"knative.dev/serving/pkg/reconciler/certificate/config"
+	"knative.dev/serving/pkg/reconciler/certificate/resources"
 )
 
 const (

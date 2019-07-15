@@ -31,6 +31,12 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	clientgotesting "k8s.io/client-go/testing"
 
+	"knative.dev/pkg/apis"
+	"knative.dev/pkg/configmap"
+	"knative.dev/pkg/controller"
+	"knative.dev/pkg/kmeta"
+	logtesting "knative.dev/pkg/logging/testing"
+	"knative.dev/pkg/ptr"
 	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
@@ -41,17 +47,11 @@ import (
 	"knative.dev/serving/pkg/reconciler/route/config"
 	"knative.dev/serving/pkg/reconciler/route/resources"
 	"knative.dev/serving/pkg/reconciler/route/traffic"
-	"knative.dev/pkg/apis"
-	"knative.dev/pkg/configmap"
-	"knative.dev/pkg/controller"
-	"knative.dev/pkg/kmeta"
-	logtesting "knative.dev/pkg/logging/testing"
-	"knative.dev/pkg/ptr"
 
+	. "knative.dev/pkg/reconciler/testing"
 	. "knative.dev/serving/pkg/reconciler/testing/v1alpha1"
 	. "knative.dev/serving/pkg/testing"
 	. "knative.dev/serving/pkg/testing/v1alpha1"
-	. "knative.dev/pkg/reconciler/testing"
 )
 
 const TestIngressClass = "ingress-class-foo"

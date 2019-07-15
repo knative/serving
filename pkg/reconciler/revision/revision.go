@@ -22,13 +22,6 @@ import (
 	"strings"
 
 	"github.com/google/go-containerregistry/pkg/authn/k8schain"
-	cachinglisters "knative.dev/caching/pkg/client/listers/caching/v1alpha1"
-	"knative.dev/serving/pkg/apis/serving/v1alpha1"
-	"knative.dev/serving/pkg/apis/serving/v1beta1"
-	palisters "knative.dev/serving/pkg/client/listers/autoscaling/v1alpha1"
-	listers "knative.dev/serving/pkg/client/listers/serving/v1alpha1"
-	"knative.dev/serving/pkg/reconciler"
-	"knative.dev/serving/pkg/reconciler/revision/config"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -37,8 +30,15 @@ import (
 	appsv1listers "k8s.io/client-go/listers/apps/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
+	cachinglisters "knative.dev/caching/pkg/client/listers/caching/v1alpha1"
 	"knative.dev/pkg/controller"
 	commonlogging "knative.dev/pkg/logging"
+	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	"knative.dev/serving/pkg/apis/serving/v1beta1"
+	palisters "knative.dev/serving/pkg/client/listers/autoscaling/v1alpha1"
+	listers "knative.dev/serving/pkg/client/listers/serving/v1alpha1"
+	"knative.dev/serving/pkg/reconciler"
+	"knative.dev/serving/pkg/reconciler/revision/config"
 )
 
 type resolver interface {

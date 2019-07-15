@@ -19,9 +19,9 @@ limitations under the License.
 package fake
 
 import (
-	v1beta1 "knative.dev/serving/pkg/client/clientset/versioned/typed/serving/v1beta1"
 	rest "k8s.io/client-go/rest"
 	testing "k8s.io/client-go/testing"
+	v1beta1 "knative.dev/serving/pkg/client/clientset/versioned/typed/serving/v1beta1"
 )
 
 type FakeServingV1beta1 struct {

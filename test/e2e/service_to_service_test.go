@@ -22,17 +22,23 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+	"time"
 
-	"knative.dev/serving/test"
-	v1a1test "knative.dev/serving/test/v1alpha1"
+	"github.com/google/go-cmp/cmp"
+	"knative.dev/pkg/system"
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/logstream"
 	"knative.dev/pkg/test/spoof"
+	"knative.dev/serving/pkg/activator"
+	rtesting "knative.dev/serving/pkg/testing/v1alpha1"
+	"knative.dev/serving/test"
+	v1a1test "knative.dev/serving/test/v1alpha1"
 
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
 
 	"knative.dev/serving/pkg/apis/autoscaling"
-	"knative.dev/serving/pkg/reconciler/revision/resources/names"
 	routeconfig "knative.dev/serving/pkg/reconciler/route/config"
 
 	. "knative.dev/serving/pkg/testing/v1alpha1"
@@ -192,7 +198,7 @@ func TestServiceToServiceCall(t *testing.T) {
 
 // Same test as TestServiceToServiceCall but before sending requests
 // we're waiting for target app to be scaled to zero
-func TestServiceToServiceCallFromZero(t *testing.T) {
+func TestServiceToServiceCallViaActivator(t *testing.T) {
 	t.Parallel()
 	cancel := logstream.Start(t)
 	defer cancel()
@@ -212,22 +218,34 @@ func TestServiceToServiceCallFromZero(t *testing.T) {
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, testNames) })
 	defer test.TearDown(clients, testNames)
 
-	helloWorld, err := v1a1test.CreateRunLatestServiceReady(t, clients, &testNames,
-		&v1a1test.Options{
-			RevisionTemplateAnnotations: map[string]string{
-				autoscaling.WindowAnnotationKey: "6s", // shortest permitted.
-			},
-		}, withInternalVisibility)
+	resources, err := v1a1test.CreateRunLatestServiceReady(t, clients, &testNames,
+		&v1a1test.Options{},
+		rtesting.WithConfigAnnotations(map[string]string{
+			autoscaling.TargetBurstCapacityKey: "-1",
+		}), withInternalVisibility)
 	if err != nil {
 		t.Fatalf("Failed to create a service: %v", err)
 	}
 
-	// Wait for service to be scaled to zero
-	deploymentName := names.Deployment(helloWorld.Revision)
-	if err := WaitForScaleToZero(t, deploymentName, clients); err != nil {
-		t.Fatalf("Could not scale to zero: %v", err)
+	aeps, err := clients.KubeClient.Kube.CoreV1().Endpoints(
+		system.Namespace()).Get(activator.K8sServiceName, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Error getting activator endpoints: %v", err)
+	}
+	t.Logf("Activator endpoints: %v", aeps)
+
+	// Wait for the endpoints to equalize.
+	if err := wait.Poll(250*time.Millisecond, time.Minute, func() (bool, error) {
+		svcEps, err := clients.KubeClient.Kube.CoreV1().Endpoints(test.ServingNamespace).Get(
+			resources.Revision.Status.ServiceName, metav1.GetOptions{})
+		if err != nil {
+			return false, err
+		}
+		return cmp.Equal(svcEps.Subsets, aeps.Subsets), nil
+	}); err != nil {
+		t.Fatalf("Initial state never achieved: %v", err)
 	}
 
 	// Send request to helloworld app via httpproxy service
-	testProxyToHelloworld(t, clients, helloWorld.Route.Status.URL.Host)
+	testProxyToHelloworld(t, clients, resources.Route.Status.URL.Host)
 }

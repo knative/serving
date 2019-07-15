@@ -21,10 +21,10 @@ package fake
 import (
 	"context"
 
-	fake "knative.dev/serving/pkg/client/injection/informers/networking/factory/fake"
-	clusteringress "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/clusteringress"
 	controller "knative.dev/pkg/controller"
 	injection "knative.dev/pkg/injection"
+	fake "knative.dev/serving/pkg/client/injection/informers/networking/factory/fake"
+	clusteringress "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/clusteringress"
 )
 
 var Get = clusteringress.Get

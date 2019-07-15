@@ -23,9 +23,9 @@ import (
 	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/revision"
 	routeinformer "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/route"
 
-	"knative.dev/serving/pkg/reconciler"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
+	"knative.dev/serving/pkg/reconciler"
 )
 
 const (

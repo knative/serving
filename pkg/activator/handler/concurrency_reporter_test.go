@@ -23,8 +23,8 @@ import (
 	"github.com/google/go-cmp/cmp/cmpopts"
 
 	"github.com/google/go-cmp/cmp"
-	"knative.dev/serving/pkg/autoscaler"
 	"knative.dev/pkg/system"
+	"knative.dev/serving/pkg/autoscaler"
 )
 
 const (

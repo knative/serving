@@ -20,11 +20,11 @@ package v1alpha1
 
 import (
 	v1alpha1 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1alpha1"
-	scheme "knative.dev/serving/pkg/client/certmanager/clientset/versioned/scheme"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
 	rest "k8s.io/client-go/rest"
+	scheme "knative.dev/serving/pkg/client/certmanager/clientset/versioned/scheme"
 )
 
 // ClusterIssuersGetter has a method to return a ClusterIssuerInterface.

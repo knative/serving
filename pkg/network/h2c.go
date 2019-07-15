@@ -35,12 +35,6 @@ func NewServer(addr string, h http.Handler) *http.Server {
 	return h1s
 }
 
-// ListenAndServe starts a new server and listens on the `addr`.
-func ListenAndServe(addr string, h http.Handler) error {
-	s := NewServer(addr, h)
-	return s.ListenAndServe()
-}
-
 // NewH2CTransport constructs a new H2C transport.
 // That transport will reroute all HTTPS traffic to HTTP. This is
 // to explicitly allow h2c (http2 without TLS) transport.
@@ -58,6 +52,3 @@ func NewH2CTransport() http.RoundTripper {
 		},
 	}
 }
-
-// DefaultH2CTransport is a singleton instance of H2C transport.
-var DefaultH2CTransport http.RoundTripper = NewH2CTransport()

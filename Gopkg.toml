@@ -15,8 +15,12 @@ required = [
   "github.com/knative/test-infra/scripts",
   "github.com/knative/test-infra/tools/dep-collector",
   # For load testing.
-  "github.com/rakyll/hey"
+  "github.com/tsenart/vegeta"
 ]
+
+[[constraint]]
+  name = "github.com/tsenart/vegeta"
+  branch = "master"
 
 [[override]]
   name = "gopkg.in/yaml.v2"
@@ -66,6 +70,10 @@ required = [
   revision = "4bbc89b6501cca7dd6b5557d78d70c8d2c6e8b97"
 
 [[override]]
+  name = "github.com/kelseyhightower/envconfig"
+  version = "v1.4.0"
+
+[[override]]
   name = "contrib.go.opencensus.io/exporter/stackdriver"
   # HEAD as of 2019-02-11
   # Needed because this includes a fix to support Stackdriver built-in metrics
@@ -84,6 +92,14 @@ required = [
   name = "k8s.io/metrics"
   version = "kubernetes-1.12.9"
 
+[[override]]
+  name = "bitbucket.org/ww/goautoneg"
+  source = "github.com/munnerz/goautoneg"
+
+[[constraint]]
+  name = "go.opencensus.io"
+  version = "v0.20.2"
+
 [prune]
   go-tests = true
   unused-packages = true
@@ -98,15 +114,7 @@ required = [
   name = "github.com/knative/test-infra"
   non-go = false
 
-[[override]]
-  name = "github.com/kelseyhightower/envconfig"
-  version = "v1.4.0"
-
 [[prune.project]]
-  name = "bitbucket.org/ww/goautoneg"
-  non-go = false
-
- [[prune.project]]
   name = "knative.dev/pkg"
   unused-packages = false
   non-go = false

@@ -17,6 +17,7 @@ limitations under the License.
 package http
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"net/http"
@@ -156,9 +157,14 @@ func (h *RequestLogHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *RequestLogHandler) write(t *template.Template, in *RequestLogTemplateInput) {
-	if err := t.Execute(h.writer, in); err != nil {
+	// Use a local buffer to store the whole template expansion first. If h.writer
+	// is used directly, parallel template executions may result in interleaved
+	// output.
+	w := &bytes.Buffer{}
+	if err := t.Execute(w, in); err != nil {
 		// Template execution failed. Write an error message with some basic information about the request.
 		fmt.Fprintf(h.writer, "Invalid request log template: method: %v, response code: %v, latency: %v, url: %v\n",
 			in.Request.Method, in.Response.Code, in.Response.Latency, in.Request.URL)
 	}
+	h.writer.Write(w.Bytes())
 }

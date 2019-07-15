@@ -19,15 +19,15 @@ limitations under the License.
 package fake
 
 import (
-	autoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
-	networkingv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
-	servingv1alpha1 "knative.dev/serving/pkg/apis/serving/v1alpha1"
-	servingv1beta1 "knative.dev/serving/pkg/apis/serving/v1beta1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	serializer "k8s.io/apimachinery/pkg/runtime/serializer"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	autoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
+	networkingv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
+	servingv1alpha1 "knative.dev/serving/pkg/apis/serving/v1alpha1"
+	servingv1beta1 "knative.dev/serving/pkg/apis/serving/v1beta1"
 )
 
 var scheme = runtime.NewScheme()

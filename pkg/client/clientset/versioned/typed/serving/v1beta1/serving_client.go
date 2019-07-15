@@ -19,10 +19,10 @@ limitations under the License.
 package v1beta1
 
 import (
-	v1beta1 "knative.dev/serving/pkg/apis/serving/v1beta1"
-	"knative.dev/serving/pkg/client/clientset/versioned/scheme"
 	serializer "k8s.io/apimachinery/pkg/runtime/serializer"
 	rest "k8s.io/client-go/rest"
+	v1beta1 "knative.dev/serving/pkg/apis/serving/v1beta1"
+	"knative.dev/serving/pkg/client/clientset/versioned/scheme"
 )
 
 type ServingV1beta1Interface interface {

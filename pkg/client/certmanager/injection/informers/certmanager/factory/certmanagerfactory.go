@@ -21,11 +21,11 @@ package certmanagerfactory
 import (
 	"context"
 
-	externalversions "knative.dev/serving/pkg/client/certmanager/informers/externalversions"
-	client "knative.dev/serving/pkg/client/certmanager/injection/client"
 	controller "knative.dev/pkg/controller"
 	injection "knative.dev/pkg/injection"
 	logging "knative.dev/pkg/logging"
+	externalversions "knative.dev/serving/pkg/client/certmanager/informers/externalversions"
+	client "knative.dev/serving/pkg/client/certmanager/injection/client"
 )
 
 func init() {

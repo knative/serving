@@ -25,20 +25,21 @@ import (
 
 	"go.uber.org/zap"
 
-	autoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
-	apiconfig "knative.dev/serving/pkg/apis/config"
-	net "knative.dev/serving/pkg/apis/networking/v1alpha1"
-	"knative.dev/serving/pkg/apis/serving/v1alpha1"
-	"knative.dev/serving/pkg/apis/serving/v1beta1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/logging/logkey"
+	"knative.dev/pkg/metrics"
 	"knative.dev/pkg/signals"
 	"knative.dev/pkg/system"
 	"knative.dev/pkg/version"
 	"knative.dev/pkg/webhook"
+	autoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
+	apiconfig "knative.dev/serving/pkg/apis/config"
+	net "knative.dev/serving/pkg/apis/networking/v1alpha1"
+	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	"knative.dev/serving/pkg/apis/serving/v1beta1"
 )
 
 const (
@@ -85,6 +86,9 @@ func main() {
 
 	// Watch the logging config map and dynamically update logging levels.
 	configMapWatcher := configmap.NewInformedWatcher(kubeClient, system.Namespace())
+	// Watch the observability config map and dynamically update metrics exporter.
+	configMapWatcher.Watch(metrics.ConfigMapName(), metrics.UpdateExporterFromConfigMap(component, logger))
+	// Watch the observability config map and dynamically update request logs.
 	configMapWatcher.Watch(logging.ConfigMapName(), logging.UpdateLevelFromConfigMap(logger, atomicLevel, component))
 
 	store := apiconfig.NewStore(logger.Named("config-store"))
@@ -102,32 +106,34 @@ func main() {
 		SecretName:     "webhook-certs",
 		WebhookName:    "webhook.serving.knative.dev",
 	}
-	controller := webhook.AdmissionController{
-		Client:  kubeClient,
-		Options: options,
-		Handlers: map[schema.GroupVersionKind]webhook.GenericCRD{
-			v1alpha1.SchemeGroupVersion.WithKind("Revision"):                 &v1alpha1.Revision{},
-			v1alpha1.SchemeGroupVersion.WithKind("Configuration"):            &v1alpha1.Configuration{},
-			v1alpha1.SchemeGroupVersion.WithKind("Route"):                    &v1alpha1.Route{},
-			v1alpha1.SchemeGroupVersion.WithKind("Service"):                  &v1alpha1.Service{},
-			v1beta1.SchemeGroupVersion.WithKind("Revision"):                  &v1beta1.Revision{},
-			v1beta1.SchemeGroupVersion.WithKind("Configuration"):             &v1beta1.Configuration{},
-			v1beta1.SchemeGroupVersion.WithKind("Route"):                     &v1beta1.Route{},
-			v1beta1.SchemeGroupVersion.WithKind("Service"):                   &v1beta1.Service{},
-			autoscalingv1alpha1.SchemeGroupVersion.WithKind("PodAutoscaler"): &autoscalingv1alpha1.PodAutoscaler{},
-			net.SchemeGroupVersion.WithKind("Certificate"):                   &net.Certificate{},
-			net.SchemeGroupVersion.WithKind("ClusterIngress"):                &net.ClusterIngress{},
-			net.SchemeGroupVersion.WithKind("Ingress"):                       &net.Ingress{},
-			net.SchemeGroupVersion.WithKind("ServerlessService"):             &net.ServerlessService{},
-		},
-		Logger:                logger,
-		DisallowUnknownFields: true,
 
-		// Decorate contexts with the current state of the config.
-		WithContext: func(ctx context.Context) context.Context {
-			return v1beta1.WithUpgradeViaDefaulting(store.ToContext(ctx))
-		},
+	handlers := map[schema.GroupVersionKind]webhook.GenericCRD{
+		v1alpha1.SchemeGroupVersion.WithKind("Revision"):                 &v1alpha1.Revision{},
+		v1alpha1.SchemeGroupVersion.WithKind("Configuration"):            &v1alpha1.Configuration{},
+		v1alpha1.SchemeGroupVersion.WithKind("Route"):                    &v1alpha1.Route{},
+		v1alpha1.SchemeGroupVersion.WithKind("Service"):                  &v1alpha1.Service{},
+		v1beta1.SchemeGroupVersion.WithKind("Revision"):                  &v1beta1.Revision{},
+		v1beta1.SchemeGroupVersion.WithKind("Configuration"):             &v1beta1.Configuration{},
+		v1beta1.SchemeGroupVersion.WithKind("Route"):                     &v1beta1.Route{},
+		v1beta1.SchemeGroupVersion.WithKind("Service"):                   &v1beta1.Service{},
+		autoscalingv1alpha1.SchemeGroupVersion.WithKind("PodAutoscaler"): &autoscalingv1alpha1.PodAutoscaler{},
+		net.SchemeGroupVersion.WithKind("Certificate"):                   &net.Certificate{},
+		net.SchemeGroupVersion.WithKind("ClusterIngress"):                &net.ClusterIngress{},
+		net.SchemeGroupVersion.WithKind("Ingress"):                       &net.Ingress{},
+		net.SchemeGroupVersion.WithKind("ServerlessService"):             &net.ServerlessService{},
 	}
+
+	// Decorate contexts with the current state of the config.
+	ctxFunc := func(ctx context.Context) context.Context {
+		return v1beta1.WithUpgradeViaDefaulting(store.ToContext(ctx))
+	}
+
+	controller, err := webhook.NewAdmissionController(kubeClient, options, handlers, logger, ctxFunc, true)
+
+	if err != nil {
+		logger.Fatalw("Failed to create admission controller", zap.Error(err))
+	}
+
 	if err = controller.Run(stopCh); err != nil {
 		logger.Fatalw("Failed to start the admission controller", zap.Error(err))
 	}

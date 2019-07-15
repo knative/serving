@@ -30,6 +30,13 @@ import (
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 
+	"knative.dev/pkg/apis"
+	duckv1alpha1 "knative.dev/pkg/apis/duck/v1alpha1"
+	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
+	"knative.dev/pkg/controller"
+	"knative.dev/pkg/logging"
+	"knative.dev/pkg/system"
+	"knative.dev/pkg/tracker"
 	"knative.dev/serving/pkg/apis/networking"
 	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
@@ -44,13 +51,6 @@ import (
 	resourcenames "knative.dev/serving/pkg/reconciler/route/resources/names"
 	"knative.dev/serving/pkg/reconciler/route/traffic"
 	tr "knative.dev/serving/pkg/reconciler/route/traffic"
-	"knative.dev/pkg/apis"
-	duckv1alpha1 "knative.dev/pkg/apis/duck/v1alpha1"
-	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
-	"knative.dev/pkg/controller"
-	"knative.dev/pkg/logging"
-	"knative.dev/pkg/system"
-	"knative.dev/pkg/tracker"
 )
 
 // routeFinalizer is the name that we put into the resource finalizer list, e.g.

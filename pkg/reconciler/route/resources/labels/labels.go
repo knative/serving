@@ -17,8 +17,8 @@ limitations under the License.
 package labels
 
 import (
-	"knative.dev/serving/pkg/reconciler/route/config"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"knative.dev/serving/pkg/reconciler/route/config"
 )
 
 // IsObjectLocalVisibility returns whether an ObjectMeta is of cluster-local visibility

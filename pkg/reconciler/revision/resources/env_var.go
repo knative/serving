@@ -17,9 +17,9 @@ limitations under the License.
 package resources
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	"knative.dev/serving/pkg/apis/serving"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
-	corev1 "k8s.io/api/core/v1"
 )
 
 const (

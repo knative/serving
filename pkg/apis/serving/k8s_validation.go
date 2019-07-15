@@ -23,12 +23,12 @@ import (
 	"strings"
 
 	"github.com/google/go-containerregistry/pkg/name"
-	"knative.dev/serving/pkg/apis/networking"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation"
 	"knative.dev/pkg/apis"
+	"knative.dev/serving/pkg/apis/networking"
 )
 
 const (
@@ -240,6 +240,11 @@ func ValidatePodSpec(ps corev1.PodSpec) *apis.FieldError {
 			ViaFieldIndex("containers", 0))
 	default:
 		errs = errs.Also(apis.ErrMultipleOneOf("containers"))
+	}
+	if ps.ServiceAccountName != "" {
+		for range validation.IsDNS1123Subdomain(ps.ServiceAccountName) {
+			errs = errs.Also(apis.ErrInvalidValue("serviceAccountName", ps.ServiceAccountName))
+		}
 	}
 	return errs
 }

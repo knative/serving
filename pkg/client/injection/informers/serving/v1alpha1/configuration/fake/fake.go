@@ -21,10 +21,10 @@ package fake
 import (
 	"context"
 
-	fake "knative.dev/serving/pkg/client/injection/informers/serving/factory/fake"
-	configuration "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/configuration"
 	controller "knative.dev/pkg/controller"
 	injection "knative.dev/pkg/injection"
+	fake "knative.dev/serving/pkg/client/injection/informers/serving/factory/fake"
+	configuration "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/configuration"
 )
 
 var Get = configuration.Get

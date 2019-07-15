@@ -24,10 +24,10 @@ import (
 	authv1 "k8s.io/api/authentication/v1"
 	corev1 "k8s.io/api/core/v1"
 
-	"knative.dev/serving/pkg/apis/config"
-	"knative.dev/serving/pkg/apis/serving"
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/ptr"
+	"knative.dev/serving/pkg/apis/config"
+	"knative.dev/serving/pkg/apis/serving"
 )
 
 func TestServiceDefaulting(t *testing.T) {
@@ -216,7 +216,7 @@ func TestServiceDefaulting(t *testing.T) {
 			got.SetDefaults(context.Background())
 			if !cmp.Equal(got, test.want, ignoreUnexportedResources) {
 				t.Errorf("SetDefaults (-want, +got) = %v",
-					cmp.Diff(got, test.want, ignoreUnexportedResources))
+					cmp.Diff(test.want, got, ignoreUnexportedResources))
 			}
 		})
 	}

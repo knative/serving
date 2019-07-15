@@ -31,14 +31,14 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 
+	"knative.dev/pkg/apis/duck"
+	"knative.dev/pkg/logging"
 	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	"knative.dev/serving/pkg/reconciler/route/config"
 	"knative.dev/serving/pkg/reconciler/route/resources"
 	"knative.dev/serving/pkg/reconciler/route/traffic"
-	"knative.dev/pkg/apis/duck"
-	"knative.dev/pkg/logging"
 )
 
 func routeOwnerLabelSelector(route *v1alpha1.Route) labels.Selector {

@@ -24,6 +24,7 @@ import (
 	"time"
 
 	// Inject the informers this controller depends on.
+	_ "knative.dev/pkg/injection/informers/kubeinformers/corev1/service/fake"
 	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
 	_ "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/certificate/fake"
 	fakeciinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/clusteringress/fake"
@@ -31,17 +32,8 @@ import (
 	fakecfginformer "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/configuration/fake"
 	fakerevisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/revision/fake"
 	fakerouteinformer "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/route/fake"
-	_ "knative.dev/pkg/injection/informers/kubeinformers/corev1/service/fake"
 
 	"github.com/google/go-cmp/cmp"
-	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
-	"knative.dev/serving/pkg/apis/serving"
-	"knative.dev/serving/pkg/apis/serving/v1alpha1"
-	"knative.dev/serving/pkg/apis/serving/v1beta1"
-	"knative.dev/serving/pkg/gc"
-	"knative.dev/serving/pkg/network"
-	"knative.dev/serving/pkg/reconciler/route/config"
-	"knative.dev/serving/pkg/reconciler/route/domains"
 	"golang.org/x/sync/errgroup"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -56,6 +48,14 @@ import (
 	ctrl "knative.dev/pkg/controller"
 	logtesting "knative.dev/pkg/logging/testing"
 	"knative.dev/pkg/system"
+	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
+	"knative.dev/serving/pkg/apis/serving"
+	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	"knative.dev/serving/pkg/apis/serving/v1beta1"
+	"knative.dev/serving/pkg/gc"
+	"knative.dev/serving/pkg/network"
+	"knative.dev/serving/pkg/reconciler/route/config"
+	"knative.dev/serving/pkg/reconciler/route/domains"
 
 	. "knative.dev/pkg/reconciler/testing"
 )

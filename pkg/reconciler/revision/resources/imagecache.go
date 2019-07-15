@@ -20,11 +20,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	caching "knative.dev/caching/pkg/apis/caching/v1alpha1"
+	"knative.dev/pkg/kmeta"
 	"knative.dev/serving/pkg/apis/serving"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	"knative.dev/serving/pkg/reconciler/revision/resources/names"
 	"knative.dev/serving/pkg/resources"
-	"knative.dev/pkg/kmeta"
 )
 
 // MakeImageCache makes an caching.Image resources from a revision.

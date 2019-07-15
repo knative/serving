@@ -18,15 +18,14 @@ package health
 
 import (
 	"crypto/tls"
-	"errors"
 	"fmt"
 	"net"
 	"net/http"
 	"net/url"
 	"time"
 
-	"knative.dev/serving/pkg/network"
 	corev1 "k8s.io/api/core/v1"
+	"knative.dev/serving/pkg/network"
 )
 
 // HTTPProbeConfigOptions holds the HTTP probe config options
@@ -88,7 +87,7 @@ func HTTPProbe(config HTTPProbeConfigOptions) error {
 	}
 
 	if !IsHTTPProbeReady(res) {
-		return errors.New(fmt.Sprintf("HTTP probe did not respond Ready, got status code: %d", res.StatusCode))
+		return fmt.Errorf("HTTP probe did not respond Ready, got status code: %d", res.StatusCode)
 	}
 
 	return nil

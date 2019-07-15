@@ -31,10 +31,10 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 
+	logtesting "knative.dev/pkg/logging/testing"
 	"knative.dev/serving/pkg/activator"
 	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/queue"
-	logtesting "knative.dev/pkg/logging/testing"
 )
 
 const wantHost = "a-better-host.com"

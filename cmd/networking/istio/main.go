@@ -25,6 +25,6 @@ import (
 )
 
 func main() {
-	sharedmain.Main("controller-ingress-istio",
+	sharedmain.Main("istiocontroller",
 		clusteringress.NewController, ingress.NewController)
 }

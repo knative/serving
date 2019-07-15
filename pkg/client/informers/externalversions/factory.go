@@ -23,15 +23,15 @@ import (
 	sync "sync"
 	time "time"
 
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	runtime "k8s.io/apimachinery/pkg/runtime"
+	schema "k8s.io/apimachinery/pkg/runtime/schema"
+	cache "k8s.io/client-go/tools/cache"
 	versioned "knative.dev/serving/pkg/client/clientset/versioned"
 	autoscaling "knative.dev/serving/pkg/client/informers/externalversions/autoscaling"
 	internalinterfaces "knative.dev/serving/pkg/client/informers/externalversions/internalinterfaces"
 	networking "knative.dev/serving/pkg/client/informers/externalversions/networking"
 	serving "knative.dev/serving/pkg/client/informers/externalversions/serving"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	runtime "k8s.io/apimachinery/pkg/runtime"
-	schema "k8s.io/apimachinery/pkg/runtime/schema"
-	cache "k8s.io/client-go/tools/cache"
 )
 
 // SharedInformerOption defines the functional option type for SharedInformerFactory.

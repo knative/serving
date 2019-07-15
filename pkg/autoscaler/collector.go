@@ -24,10 +24,10 @@ import (
 
 	"knative.dev/serving/pkg/autoscaler/aggregation"
 
-	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"go.uber.org/zap"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 )
 
 const (

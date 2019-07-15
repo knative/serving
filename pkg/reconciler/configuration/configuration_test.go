@@ -26,12 +26,6 @@ import (
 	_ "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/configuration/fake"
 	_ "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/revision/fake"
 
-	"knative.dev/serving/pkg/apis/serving/v1alpha1"
-	"knative.dev/serving/pkg/apis/serving/v1beta1"
-	"knative.dev/serving/pkg/gc"
-	"knative.dev/serving/pkg/reconciler"
-	"knative.dev/serving/pkg/reconciler/configuration/config"
-	"knative.dev/serving/pkg/reconciler/configuration/resources"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -42,10 +36,16 @@ import (
 	"knative.dev/pkg/controller"
 	logtesting "knative.dev/pkg/logging/testing"
 	"knative.dev/pkg/ptr"
+	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	"knative.dev/serving/pkg/apis/serving/v1beta1"
+	"knative.dev/serving/pkg/gc"
+	"knative.dev/serving/pkg/reconciler"
+	"knative.dev/serving/pkg/reconciler/configuration/config"
+	"knative.dev/serving/pkg/reconciler/configuration/resources"
 
+	. "knative.dev/pkg/reconciler/testing"
 	. "knative.dev/serving/pkg/reconciler/testing/v1alpha1"
 	. "knative.dev/serving/pkg/testing/v1alpha1"
-	. "knative.dev/pkg/reconciler/testing"
 )
 
 var revisionSpec = v1alpha1.RevisionSpec{

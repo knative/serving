@@ -23,10 +23,10 @@ import (
 	cmcertinformer "knative.dev/serving/pkg/client/certmanager/injection/informers/certmanager/v1alpha1/certificate"
 	kcertinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/certificate"
 
-	"knative.dev/serving/pkg/reconciler"
-	"knative.dev/serving/pkg/reconciler/certificate/config"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
+	"knative.dev/serving/pkg/reconciler"
+	"knative.dev/serving/pkg/reconciler/certificate/config"
 )
 
 const (

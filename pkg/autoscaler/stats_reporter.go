@@ -64,6 +64,10 @@ var (
 )
 
 func init() {
+	register()
+}
+
+func register() {
 	var err error
 	// Create the tag keys that will be used to add tags to our measurements.
 	// Tag keys must conform to the restrictions described in
@@ -137,7 +141,6 @@ func init() {
 	if err != nil {
 		panic(err)
 	}
-
 }
 
 // StatsReporter defines the interface for sending autoscaler metrics

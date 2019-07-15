@@ -29,11 +29,11 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 
-	cicfg "knative.dev/serving/pkg/reconciler/ingress/config"
-	routecfg "knative.dev/serving/pkg/reconciler/route/config"
 	corev1 "k8s.io/api/core/v1"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/system"
+	cicfg "knative.dev/serving/pkg/reconciler/ingress/config"
+	routecfg "knative.dev/serving/pkg/reconciler/route/config"
 )
 
 var (

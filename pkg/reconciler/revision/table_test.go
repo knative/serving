@@ -20,7 +20,16 @@ import (
 	"context"
 	"testing"
 
+	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	clientgotesting "k8s.io/client-go/testing"
 	caching "knative.dev/caching/pkg/apis/caching/v1alpha1"
+	"knative.dev/pkg/configmap"
+	"knative.dev/pkg/controller"
+	"knative.dev/pkg/logging"
+	logtesting "knative.dev/pkg/logging/testing"
 	autoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
@@ -31,20 +40,11 @@ import (
 	"knative.dev/serving/pkg/reconciler"
 	"knative.dev/serving/pkg/reconciler/revision/config"
 	"knative.dev/serving/pkg/reconciler/revision/resources"
-	appsv1 "k8s.io/api/apps/v1"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	clientgotesting "k8s.io/client-go/testing"
-	"knative.dev/pkg/configmap"
-	"knative.dev/pkg/controller"
-	"knative.dev/pkg/logging"
-	logtesting "knative.dev/pkg/logging/testing"
 
+	. "knative.dev/pkg/reconciler/testing"
 	. "knative.dev/serving/pkg/reconciler/testing/v1alpha1"
 	. "knative.dev/serving/pkg/testing"
 	. "knative.dev/serving/pkg/testing/v1alpha1"
-	. "knative.dev/pkg/reconciler/testing"
 )
 
 // This is heavily based on the way the OpenShift Ingress controller tests its reconciliation method.

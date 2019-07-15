@@ -21,17 +21,17 @@ import (
 	"fmt"
 	"time"
 
-	"knative.dev/serving/pkg/apis/serving/v1alpha1"
-	"knative.dev/serving/pkg/apis/serving/v1beta1"
-	"knative.dev/serving/pkg/reconciler/route/domains"
-	servicenames "knative.dev/serving/pkg/reconciler/service/resources/names"
-	"knative.dev/serving/pkg/resources"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/apis"
 	duckv1alpha1 "knative.dev/pkg/apis/duck/v1alpha1"
 	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
 	"knative.dev/pkg/ptr"
+	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	"knative.dev/serving/pkg/apis/serving/v1beta1"
+	"knative.dev/serving/pkg/reconciler/route/domains"
+	servicenames "knative.dev/serving/pkg/reconciler/service/resources/names"
+	"knative.dev/serving/pkg/resources"
 )
 
 // ServiceOption enables further configuration of a Service.
@@ -212,13 +212,28 @@ func WithServiceAnnotations(annotations map[string]string) ServiceOption {
 	}
 }
 
+// WithContainerConcurrency setss the container concurrency on the resource.
+func WithContainerConcurrency(cc int) ServiceOption {
+	return func(s *v1alpha1.Service) {
+		if s.Spec.DeprecatedRunLatest != nil {
+			s.Spec.DeprecatedRunLatest.Configuration.GetTemplate().Spec.ContainerConcurrency =
+				v1beta1.RevisionContainerConcurrencyType(cc)
+		} else {
+			s.Spec.ConfigurationSpec.Template.Spec.ContainerConcurrency =
+				v1beta1.RevisionContainerConcurrencyType(cc)
+		}
+	}
+}
+
 // WithConfigAnnotations assigns config annotations to a service
 func WithConfigAnnotations(annotations map[string]string) ServiceOption {
 	return func(service *v1alpha1.Service) {
 		if service.Spec.DeprecatedRunLatest != nil {
-			service.Spec.DeprecatedRunLatest.Configuration.GetTemplate().ObjectMeta.Annotations = annotations
+			service.Spec.DeprecatedRunLatest.Configuration.GetTemplate().ObjectMeta.Annotations = resources.UnionMaps(
+				service.Spec.DeprecatedRunLatest.Configuration.GetTemplate().ObjectMeta.Annotations, annotations)
 		} else {
-			service.Spec.ConfigurationSpec.Template.ObjectMeta.Annotations = annotations
+			service.Spec.ConfigurationSpec.Template.ObjectMeta.Annotations = resources.UnionMaps(
+				service.Spec.ConfigurationSpec.Template.ObjectMeta.Annotations, annotations)
 		}
 	}
 }
