@@ -55,21 +55,10 @@ func TestRevisionDefaulting(t *testing.T) {
 	}{{
 		name: "empty",
 		in:   &Revision{},
-		want: &Revision{
-			Spec: RevisionSpec{
-				TimeoutSeconds: ptr.Int64(config.DefaultRevisionTimeoutSeconds),
-				PodSpec: corev1.PodSpec{
-					Containers: []corev1.Container{{
-						Name:           config.DefaultUserContainerName,
-						Resources:      defaultResources,
-						ReadinessProbe: defaultProbe,
-					}},
-				},
-			},
-		},
+		want: &Revision{Spec: RevisionSpec{TimeoutSeconds: ptr.Int64(config.DefaultRevisionTimeoutSeconds)}},
 	}, {
 		name: "with context",
-		in:   &Revision{},
+		in:   &Revision{Spec: RevisionSpec{PodSpec: corev1.PodSpec{Containers: []corev1.Container{{}}}}},
 		wc: func(ctx context.Context) context.Context {
 			s := config.NewStore(logtesting.TestLogger(t))
 			s.OnConfigChanged(&corev1.ConfigMap{
@@ -209,7 +198,9 @@ func TestRevisionDefaulting(t *testing.T) {
 	}, {
 		name: "partially initialized",
 		in: &Revision{
-			Spec: RevisionSpec{},
+			Spec: RevisionSpec{
+				PodSpec: corev1.PodSpec{Containers: []corev1.Container{{}}},
+			},
 		},
 		want: &Revision{
 			Spec: RevisionSpec{

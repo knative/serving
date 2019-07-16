@@ -39,13 +39,6 @@ func TestConfigurationDefaulting(t *testing.T) {
 			Spec: ConfigurationSpec{
 				Template: RevisionTemplateSpec{
 					Spec: RevisionSpec{
-						PodSpec: corev1.PodSpec{
-							Containers: []corev1.Container{{
-								Name:           config.DefaultUserContainerName,
-								Resources:      defaultResources,
-								ReadinessProbe: defaultProbe,
-							}},
-						},
 						TimeoutSeconds: ptr.Int64(config.DefaultRevisionTimeoutSeconds),
 					},
 				},
