@@ -43,15 +43,15 @@ var (
 		stats.UnitDimensionless)
 	excessBurstCapacityM = stats.Float64(
 		"excess_burst_capacity",
-		"Excess burst capacity overserved in each stable window",
+		"Excess burst capacity overserved over the stable window",
 		stats.UnitDimensionless)
 	stableRequestConcurrencyM = stats.Float64(
 		"stable_request_concurrency",
-		"Average of requests count per observed pod in each stable window",
+		"Average of requests count per observed pod over the stable window",
 		stats.UnitDimensionless)
 	panicRequestConcurrencyM = stats.Float64(
 		"panic_request_concurrency",
-		"Average of requests count per observed pod in each panic window",
+		"Average of requests count per observed pod over the panic window",
 		stats.UnitDimensionless)
 	targetRequestConcurrencyM = stats.Float64(
 		"target_concurrency_per_pod",
@@ -118,7 +118,7 @@ func register() {
 			TagKeys:     []tag.Key{namespaceTagKey, serviceTagKey, configTagKey, revisionTagKey},
 		},
 		&view.View{
-			Description: "Average of requests count over the table window",
+			Description: "Average of requests count over the stable window",
 			Measure:     stableRequestConcurrencyM,
 			Aggregation: view.LastValue(),
 			TagKeys:     []tag.Key{namespaceTagKey, serviceTagKey, configTagKey, revisionTagKey},
@@ -130,7 +130,7 @@ func register() {
 			TagKeys:     []tag.Key{namespaceTagKey, serviceTagKey, configTagKey, revisionTagKey},
 		},
 		&view.View{
-			Description: "Average of requests count over the second panic window",
+			Description: "Average of requests count over the panic window",
 			Measure:     panicRequestConcurrencyM,
 			Aggregation: view.LastValue(),
 			TagKeys:     []tag.Key{namespaceTagKey, serviceTagKey, configTagKey, revisionTagKey},
