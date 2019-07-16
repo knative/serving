@@ -105,9 +105,9 @@ func runTest(t *testing.T, pacer vegeta.Pacer, saveMetrics bool) {
 
 	var tc []junit.TestCase
 	// Add latency metrics
-	tc = append(tc, perf.CreatePerfTestCase(float32(metrics.Latencies.P50)*1000, "p50(ms)", tName))
-	tc = append(tc, perf.CreatePerfTestCase(float32(metrics.Latencies.Quantile(0.90))*1000, "p90(ms)", tName))
-	tc = append(tc, perf.CreatePerfTestCase(float32(metrics.Latencies.P99)*1000, "p99(ms)", tName))
+	tc = append(tc, perf.CreatePerfTestCase(float32(metrics.Latencies.P50.Seconds()*1000), "p50(ms)", tName))
+	tc = append(tc, perf.CreatePerfTestCase(float32(metrics.Latencies.Quantile(0.90).Seconds()*1000), "p90(ms)", tName))
+	tc = append(tc, perf.CreatePerfTestCase(float32(metrics.Latencies.P99.Seconds()*1000), "p99(ms)", tName))
 
 	// Add errorsPercentage metrics
 	tc = append(tc, perf.CreatePerfTestCase(float32(1-metrics.Success), "errorsPercentage", tName))
