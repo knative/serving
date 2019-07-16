@@ -65,7 +65,7 @@ func runTest(t *testing.T, pacer vegeta.Pacer, saveMetrics bool) {
 	test.CleanupOnInterrupt(func() { TearDown(perfClients, names, t.Logf) })
 
 	t.Log("Creating a new Service")
-	objs, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, &v1a1test.Options{})
+	objs, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names)
 	if err != nil {
 		t.Fatalf("Failed to create Service: %v", err)
 	}
