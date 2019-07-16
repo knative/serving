@@ -36,11 +36,11 @@ type Metric struct {
 
 	// Spec holds the desired state of the Metric (from the client).
 	// +optional
-	Spec MetricSpec
+	Spec MetricSpec `json:"spec,omitempty"`
 
 	// Status communicates the observed state of the Metric (from the controller).
 	// +optional
-	Status MetricStatus
+	Status MetricStatus `json:"status,omitempty"`
 }
 
 // Verify that Metric adheres to the appropriate interfaces.
@@ -56,11 +56,11 @@ var (
 // MetricSpec contains all values a metric collector needs to operate.
 type MetricSpec struct {
 	// StableWindow is the aggregation window for metrics in a stable state.
-	StableWindow time.Duration
+	StableWindow time.Duration `json:"stableWindow"`
 	// PanicWindow is the aggregation window for metrics where quick reactions are needed.
-	PanicWindow time.Duration
+	PanicWindow time.Duration `json:"panicWindow"`
 	// ScrapeTarget is the K8s service that publishes the metric endpoint.
-	ScrapeTarget string
+	ScrapeTarget string `json:"scrapeTarget"`
 }
 
 const (
@@ -72,7 +72,7 @@ const (
 
 // MetricStatus reflects the status of metric collection for this specific entity.
 type MetricStatus struct {
-	duckv1beta1.Status
+	duckv1beta1.Status `json:",inline"`
 }
 
 // MetricList is a list of Metric resources
