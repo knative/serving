@@ -241,11 +241,13 @@ func TestRevisionDefaulting(t *testing.T) {
 				TimeoutSeconds: ptr.Int64(config.DefaultRevisionTimeoutSeconds),
 				PodSpec: corev1.PodSpec{
 					Containers: []corev1.Container{{
-						Name:      "busybox",
-						Resources: defaultResources,
+						Name:           "busybox",
+						Resources:      defaultResources,
+						ReadinessProbe: defaultProbe,
 					}, {
-						Name:      "helloworld",
-						Resources: defaultResources,
+						Name:           "helloworld",
+						Resources:      defaultResources,
+						ReadinessProbe: defaultProbe,
 					}},
 				},
 			},
