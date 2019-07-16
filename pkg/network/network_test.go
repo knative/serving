@@ -58,6 +58,7 @@ func TestConfiguration(t *testing.T) {
 		wantConfig: &Config{
 			IstioOutboundIPRanges:      "*",
 			DefaultClusterIngressClass: "istio.ingress.networking.knative.dev",
+			DefaultCertificateClass:    CertManagerCertificateClassName,
 			DomainTemplate:             DefaultDomainTemplate,
 			TagTemplate:                DefaultTagTemplate,
 			HTTPProtocol:               HTTPEnabled,
@@ -85,6 +86,7 @@ func TestConfiguration(t *testing.T) {
 		wantErr: false,
 		wantConfig: &Config{
 			DefaultClusterIngressClass: "istio.ingress.networking.knative.dev",
+			DefaultCertificateClass:    CertManagerCertificateClassName,
 			DomainTemplate:             DefaultDomainTemplate,
 			TagTemplate:                DefaultTagTemplate,
 			HTTPProtocol:               HTTPEnabled,
@@ -163,6 +165,7 @@ func TestConfiguration(t *testing.T) {
 		wantErr: false,
 		wantConfig: &Config{
 			DefaultClusterIngressClass: "istio.ingress.networking.knative.dev",
+			DefaultCertificateClass:    CertManagerCertificateClassName,
 			DomainTemplate:             DefaultDomainTemplate,
 			TagTemplate:                DefaultTagTemplate,
 			HTTPProtocol:               HTTPEnabled,
@@ -181,6 +184,7 @@ func TestConfiguration(t *testing.T) {
 		wantErr: false,
 		wantConfig: &Config{
 			DefaultClusterIngressClass: "istio.ingress.networking.knative.dev",
+			DefaultCertificateClass:    CertManagerCertificateClassName,
 			DomainTemplate:             DefaultDomainTemplate,
 			TagTemplate:                DefaultTagTemplate,
 			HTTPProtocol:               HTTPEnabled,
@@ -199,6 +203,7 @@ func TestConfiguration(t *testing.T) {
 		wantErr: false,
 		wantConfig: &Config{
 			DefaultClusterIngressClass: "istio.ingress.networking.knative.dev",
+			DefaultCertificateClass:    CertManagerCertificateClassName,
 			DomainTemplate:             DefaultDomainTemplate,
 			TagTemplate:                DefaultTagTemplate,
 			HTTPProtocol:               HTTPEnabled,
@@ -218,6 +223,7 @@ func TestConfiguration(t *testing.T) {
 		wantConfig: &Config{
 			IstioOutboundIPRanges:      "10.10.10.0/24",
 			DefaultClusterIngressClass: "istio.ingress.networking.knative.dev",
+			DefaultCertificateClass:    CertManagerCertificateClassName,
 			DomainTemplate:             DefaultDomainTemplate,
 			TagTemplate:                DefaultTagTemplate,
 			HTTPProtocol:               HTTPEnabled,
@@ -237,6 +243,7 @@ func TestConfiguration(t *testing.T) {
 		wantConfig: &Config{
 			IstioOutboundIPRanges:      "10.10.10.0/24,10.240.10.0/14,192.192.10.0/16",
 			DefaultClusterIngressClass: "istio.ingress.networking.knative.dev",
+			DefaultCertificateClass:    CertManagerCertificateClassName,
 			DomainTemplate:             DefaultDomainTemplate,
 			TagTemplate:                DefaultTagTemplate,
 			HTTPProtocol:               HTTPEnabled,
@@ -256,6 +263,7 @@ func TestConfiguration(t *testing.T) {
 		wantConfig: &Config{
 			IstioOutboundIPRanges:      "*",
 			DefaultClusterIngressClass: "istio.ingress.networking.knative.dev",
+			DefaultCertificateClass:    CertManagerCertificateClassName,
 			DomainTemplate:             DefaultDomainTemplate,
 			TagTemplate:                DefaultTagTemplate,
 			HTTPProtocol:               HTTPEnabled,
@@ -275,6 +283,7 @@ func TestConfiguration(t *testing.T) {
 		wantConfig: &Config{
 			IstioOutboundIPRanges:      "*",
 			DefaultClusterIngressClass: "foo-ingress",
+			DefaultCertificateClass:    CertManagerCertificateClassName,
 			DomainTemplate:             DefaultDomainTemplate,
 			TagTemplate:                DefaultTagTemplate,
 			HTTPProtocol:               HTTPEnabled,
@@ -290,11 +299,33 @@ func TestConfiguration(t *testing.T) {
 			},
 		},
 	}, {
+		name:    "network configuration with non-Cert-Manager Certificate type",
+		wantErr: false,
+		wantConfig: &Config{
+			IstioOutboundIPRanges:      "*",
+			DefaultClusterIngressClass: "istio.ingress.networking.knative.dev",
+			DefaultCertificateClass:    "foo-cert",
+			DomainTemplate:             DefaultDomainTemplate,
+			TagTemplate:                DefaultTagTemplate,
+			HTTPProtocol:               HTTPEnabled,
+		},
+		config: &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: system.Namespace(),
+				Name:      ConfigName,
+			},
+			Data: map[string]string{
+				IstioOutboundIPRangesKey:   "*",
+				DefaultCertificateClassKey: "foo-cert",
+			},
+		},
+	}, {
 		name:    "network configuration with diff domain template",
 		wantErr: false,
 		wantConfig: &Config{
 			IstioOutboundIPRanges:      "*",
 			DefaultClusterIngressClass: "foo-ingress",
+			DefaultCertificateClass:    CertManagerCertificateClassName,
 			DomainTemplate:             nonDefaultDomainTemplate,
 			TagTemplate:                DefaultTagTemplate,
 			HTTPProtocol:               HTTPEnabled,
@@ -390,6 +421,7 @@ func TestConfiguration(t *testing.T) {
 		wantConfig: &Config{
 			IstioOutboundIPRanges:      "*",
 			DefaultClusterIngressClass: "istio.ingress.networking.knative.dev",
+			DefaultCertificateClass:    CertManagerCertificateClassName,
 			DomainTemplate:             DefaultDomainTemplate,
 			TagTemplate:                DefaultTagTemplate,
 			AutoTLS:                    true,
@@ -411,6 +443,7 @@ func TestConfiguration(t *testing.T) {
 		wantConfig: &Config{
 			IstioOutboundIPRanges:      "*",
 			DefaultClusterIngressClass: "istio.ingress.networking.knative.dev",
+			DefaultCertificateClass:    CertManagerCertificateClassName,
 			DomainTemplate:             DefaultDomainTemplate,
 			TagTemplate:                DefaultTagTemplate,
 			AutoTLS:                    false,
@@ -432,6 +465,7 @@ func TestConfiguration(t *testing.T) {
 		wantConfig: &Config{
 			IstioOutboundIPRanges:      "*",
 			DefaultClusterIngressClass: "istio.ingress.networking.knative.dev",
+			DefaultCertificateClass:    CertManagerCertificateClassName,
 			DomainTemplate:             DefaultDomainTemplate,
 			TagTemplate:                DefaultTagTemplate,
 			AutoTLS:                    true,
@@ -454,6 +488,7 @@ func TestConfiguration(t *testing.T) {
 		wantConfig: &Config{
 			IstioOutboundIPRanges:      "*",
 			DefaultClusterIngressClass: "istio.ingress.networking.knative.dev",
+			DefaultCertificateClass:    CertManagerCertificateClassName,
 			DomainTemplate:             DefaultDomainTemplate,
 			TagTemplate:                DefaultTagTemplate,
 			AutoTLS:                    true,
