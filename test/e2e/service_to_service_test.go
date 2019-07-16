@@ -232,7 +232,7 @@ func testSvcToSvcCallViaActivator(t *testing.T, clients *test.Clients, injectA b
 		&v1a1test.Options{},
 		rtesting.WithConfigAnnotations(map[string]string{
 			autoscaling.TargetBurstCapacityKey: "-1",
-			"sidecar.istio.io/inject": strconv.FormatBool(injectB),
+			"sidecar.istio.io/inject":          strconv.FormatBool(injectB),
 		}), withInternalVisibility)
 	if err != nil {
 		t.Fatalf("Failed to create a service: %v", err)
@@ -276,4 +276,3 @@ func TestServiceToServiceCallViaActivator(t *testing.T) {
 		})
 	}
 }
-
