@@ -26,7 +26,7 @@ import (
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
-	"k8s.io/apimachinery/pkg/api/errors"
+	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 	"knative.dev/pkg/controller"
@@ -74,7 +74,7 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 
 	// Get the Service resource with this namespace/name
 	original, err := c.serviceLister.Services(namespace).Get(name)
-	if errors.IsNotFound(err) {
+	if apierrs.IsNotFound(err) {
 		// The resource may no longer exist, in which case we stop processing.
 		logger.Errorf("service %q in work queue no longer exists", key)
 		return nil
@@ -161,7 +161,7 @@ func (c *Reconciler) reconcile(ctx context.Context, service *v1alpha1.Service) e
 	// otherwise a bad patch could lead to folks inadvertently routing traffic to a
 	// pre-existing Revision (possibly for another Configuration).
 	if _, err := cfgreconciler.CheckNameAvailability(config, c.revisionLister); err != nil &&
-		!errors.IsNotFound(err) {
+		!apierrs.IsNotFound(err) {
 		service.Status.MarkRevisionNameTaken(config.Spec.GetTemplate().Name)
 		return nil
 	}
@@ -191,7 +191,7 @@ func (c *Reconciler) reconcile(ctx context.Context, service *v1alpha1.Service) e
 func (c *Reconciler) config(ctx context.Context, logger *zap.SugaredLogger, service *v1alpha1.Service) (*v1alpha1.Configuration, error) {
 	configName := resourcenames.Configuration(service)
 	config, err := c.configurationLister.Configurations(service.Namespace).Get(configName)
-	if errors.IsNotFound(err) {
+	if apierrs.IsNotFound(err) {
 		config, err = c.createConfiguration(service)
 		if err != nil {
 			logger.Errorf("Failed to create Configuration %q: %v", configName, err)
@@ -220,7 +220,7 @@ func (c *Reconciler) config(ctx context.Context, logger *zap.SugaredLogger, serv
 func (c *Reconciler) route(ctx context.Context, logger *zap.SugaredLogger, service *v1alpha1.Service) (*v1alpha1.Route, error) {
 	routeName := resourcenames.Route(service)
 	route, err := c.routeLister.Routes(service.Namespace).Get(routeName)
-	if errors.IsNotFound(err) {
+	if apierrs.IsNotFound(err) {
 		route, err = c.createRoute(service)
 		if err != nil {
 			logger.Errorf("Failed to create Route %q: %v", routeName, err)
