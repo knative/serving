@@ -114,7 +114,7 @@ var (
 		appResponseTimeInMsecN,
 		"The response time in millisecond",
 		stats.UnitMilliseconds)
-	readinessProbeTimeout = flag.Int("probe", -1, "run readiness probe with given timeout")
+	readinessProbeTimeout = flag.Int("probe-period", -1, "run readiness probe with given timeout")
 )
 
 type config struct {

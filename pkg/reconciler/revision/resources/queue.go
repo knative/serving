@@ -151,7 +151,7 @@ func makeQueueProbe(in *corev1.Probe) *corev1.Probe {
 		out := &corev1.Probe{
 			Handler: corev1.Handler{
 				Exec: &corev1.ExecAction{
-					Command: []string{"/ko-app/queue", "-probe", "0"},
+					Command: []string{"/ko-app/queue", "-probe-period", "0"},
 				},
 			},
 			// We want to mark the service as not ready as soon as the
@@ -180,7 +180,7 @@ func makeQueueProbe(in *corev1.Probe) *corev1.Probe {
 	return &corev1.Probe{
 		Handler: corev1.Handler{
 			Exec: &corev1.ExecAction{
-				Command: []string{"/ko-app/queue", "-probe", strconv.Itoa(timeout)},
+				Command: []string{"/ko-app/queue", "-probe-period", strconv.Itoa(timeout)},
 			},
 		},
 		PeriodSeconds:       in.PeriodSeconds,
