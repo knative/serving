@@ -43,15 +43,15 @@ var (
 		stats.UnitDimensionless)
 	excessBurstCapacityM = stats.Float64(
 		"excess_burst_capacity",
-		"Excess burst capacity overserved in each stable window (default 60 seconds)",
+		"Excess burst capacity overserved in each stable window",
 		stats.UnitDimensionless)
 	stableRequestConcurrencyM = stats.Float64(
 		"stable_request_concurrency",
-		"Average of requests count per observed pod in each stable window (default 60 seconds)",
+		"Average of requests count per observed pod in each stable window",
 		stats.UnitDimensionless)
 	panicRequestConcurrencyM = stats.Float64(
 		"panic_request_concurrency",
-		"Average of requests count per observed pod in each panic window (default 6 seconds)",
+		"Average of requests count per observed pod in each panic window",
 		stats.UnitDimensionless)
 	targetRequestConcurrencyM = stats.Float64(
 		"target_concurrency_per_pod",
@@ -118,19 +118,19 @@ func register() {
 			TagKeys:     []tag.Key{namespaceTagKey, serviceTagKey, configTagKey, revisionTagKey},
 		},
 		&view.View{
-			Description: "Average of requests count in each 60 second stable window",
+			Description: "Average of requests count over the table window",
 			Measure:     stableRequestConcurrencyM,
 			Aggregation: view.LastValue(),
 			TagKeys:     []tag.Key{namespaceTagKey, serviceTagKey, configTagKey, revisionTagKey},
 		},
 		&view.View{
-			Description: "Current excess burst capacity over average request count in each 60 second stable window",
+			Description: "Current excess burst capacity over average request count over the stable window",
 			Measure:     excessBurstCapacityM,
 			Aggregation: view.LastValue(),
 			TagKeys:     []tag.Key{namespaceTagKey, serviceTagKey, configTagKey, revisionTagKey},
 		},
 		&view.View{
-			Description: "Average of requests count in each 6 second panic window",
+			Description: "Average of requests count over the second panic window",
 			Measure:     panicRequestConcurrencyM,
 			Aggregation: view.LastValue(),
 			TagKeys:     []tag.Key{namespaceTagKey, serviceTagKey, configTagKey, revisionTagKey},
