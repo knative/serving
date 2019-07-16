@@ -272,6 +272,11 @@ func (r *mockReporter) ReportPanic(v int64) error {
 	return nil
 }
 
+// ReportExcessBurstCapacity retports excess burst capacity.
+func (r *mockReporter) ReportExcessBurstCapacity(v float64) error {
+	return nil
+}
+
 func newTestAutoscaler(targetConcurrency, targetBurstCapacity float64, metrics MetricClient) *Autoscaler {
 	deciderSpec := DeciderSpec{
 		TargetConcurrency:   targetConcurrency,
