@@ -22,6 +22,7 @@ import (
 	"sort"
 
 	"knative.dev/serving/pkg/apis/networking"
+	"knative.dev/serving/pkg/resources"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/kmeta"
@@ -60,9 +61,9 @@ func MakeCertificates(route *v1alpha1.Route, domainTagMap map[string]string, cer
 				Name:            certName,
 				Namespace:       route.Namespace,
 				OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(route)},
-				Annotations: map[string]string{
+				Annotations: resources.UnionMaps(map[string]string{
 					networking.CertificateClassAnnotationKey: certClass,
-				},
+				}, route.ObjectMeta.Annotations),
 			},
 			Spec: networkingv1alpha1.CertificateSpec{
 				DNSNames:   []string{dnsName},
