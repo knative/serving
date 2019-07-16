@@ -64,7 +64,7 @@ func runTest(t *testing.T, img string, baseQPS float64, loadFactors []float64) {
 	test.CleanupOnInterrupt(func() { TearDown(perfClients, names, t.Logf) })
 
 	t.Log("Creating a new Service")
-	objs, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, )
+	objs, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names)
 	if err != nil {
 		t.Fatalf("Failed to create Service: %v", err)
 	}
