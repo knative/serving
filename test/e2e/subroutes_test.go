@@ -74,7 +74,7 @@ func TestSubrouteLocalSTS(t *testing.T) { // We can't use a longer more descript
 		},
 	})
 
-	resources, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, &v1a1test.Options{}, withInternalVisibility, withTrafficSpec)
+	resources, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, withInternalVisibility, withTrafficSpec)
 	if err != nil {
 		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
 	}
@@ -121,7 +121,7 @@ func TestSubrouteVisibilityChange(t *testing.T) {
 			},
 		},
 	})
-	resources, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, &v1a1test.Options{}, withInternalVisibility, withTrafficSpec)
+	resources, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, withInternalVisibility, withTrafficSpec)
 	if err != nil {
 		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
 	}

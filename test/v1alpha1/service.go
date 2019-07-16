@@ -104,13 +104,13 @@ func GetResourceObjects(clients *test.Clients, names test.ResourceNames) (*Resou
 // CreateRunLatestServiceReady creates a new Service in state 'Ready'. This function expects Service and Image name passed in through 'names'.
 // Names is updated with the Route and Configuration created by the Service and ResourceObjects is returned with the Service, Route, and Configuration objects.
 // Returns error if the service does not come up correctly.
-func CreateRunLatestServiceReady(t *testing.T, clients *test.Clients, names *test.ResourceNames, options *Options, fopt ...rtesting.ServiceOption) (*ResourceObjects, error) {
+func CreateRunLatestServiceReady(t *testing.T, clients *test.Clients, names *test.ResourceNames, fopt ...rtesting.ServiceOption) (*ResourceObjects, error) {
 	if names.Image == "" {
 		return nil, fmt.Errorf("expected non-empty Image name; got Image=%v", names.Image)
 	}
 
 	t.Logf("Creating a new Service %s.", names.Service)
-	svc, err := CreateLatestService(t, clients, *names, options, fopt...)
+	svc, err := CreateLatestService(t, clients, *names, fopt...)
 	if err != nil {
 		return nil, err
 	}
@@ -146,13 +146,13 @@ func CreateRunLatestServiceReady(t *testing.T, clients *test.Clients, names *tes
 // CreateRunLatestServiceLegacyReady creates a new Service in state 'Ready'. This function expects Service and Image name passed in through 'names'.
 // Names is updated with the Route and Configuration created by the Service and ResourceObjects is returned with the Service, Route, and Configuration objects.
 // Returns error if the service does not come up correctly.
-func CreateRunLatestServiceLegacyReady(t *testing.T, clients *test.Clients, names *test.ResourceNames, options *Options, fopt ...rtesting.ServiceOption) (*ResourceObjects, error) {
+func CreateRunLatestServiceLegacyReady(t *testing.T, clients *test.Clients, names *test.ResourceNames, fopt ...rtesting.ServiceOption) (*ResourceObjects, error) {
 	if names.Image == "" {
 		return nil, fmt.Errorf("expected non-empty Image name; got Image=%v", names.Image)
 	}
 
 	t.Logf("Creating a new Service %s.", names.Service)
-	svc, err := CreateLatestServiceLegacy(t, clients, *names, options, fopt...)
+	svc, err := CreateLatestServiceLegacy(t, clients, *names, fopt...)
 	if err != nil {
 		return nil, err
 	}
@@ -186,16 +186,16 @@ func CreateRunLatestServiceLegacyReady(t *testing.T, clients *test.Clients, name
 }
 
 // CreateLatestService creates a service in namespace with the name names.Service and names.Image
-func CreateLatestService(t *testing.T, clients *test.Clients, names test.ResourceNames, options *Options, fopt ...rtesting.ServiceOption) (*v1alpha1.Service, error) {
-	service := LatestService(names, options, fopt...)
+func CreateLatestService(t *testing.T, clients *test.Clients, names test.ResourceNames, fopt ...rtesting.ServiceOption) (*v1alpha1.Service, error) {
+	service := LatestService(names, fopt...)
 	LogResourceObject(t, ResourceObjects{Service: service})
 	svc, err := clients.ServingAlphaClient.Services.Create(service)
 	return svc, err
 }
 
 // CreateLatestServiceLegacy creates a service in namespace with the name names.Service and names.Image
-func CreateLatestServiceLegacy(t *testing.T, clients *test.Clients, names test.ResourceNames, options *Options, fopt ...rtesting.ServiceOption) (*v1alpha1.Service, error) {
-	service := LatestServiceLegacy(names, options, fopt...)
+func CreateLatestServiceLegacy(t *testing.T, clients *test.Clients, names test.ResourceNames, fopt ...rtesting.ServiceOption) (*v1alpha1.Service, error) {
+	service := LatestServiceLegacy(names, fopt...)
 	LogResourceObject(t, ResourceObjects{Service: service})
 	svc, err := clients.ServingAlphaClient.Services.Create(service)
 	return svc, err
@@ -281,18 +281,18 @@ func WaitForServiceLatestRevision(clients *test.Clients, names test.ResourceName
 
 // LatestService returns a Service object in namespace with the name names.Service
 // that uses the image specified by names.Image.
-func LatestService(names test.ResourceNames, options *Options, fopt ...rtesting.ServiceOption) *v1alpha1.Service {
+func LatestService(names test.ResourceNames, fopt ...rtesting.ServiceOption) *v1alpha1.Service {
 	a := append([]rtesting.ServiceOption{
-		rtesting.WithInlineConfigSpec(*ConfigurationSpec(ptest.ImagePath(names.Image), options)),
+		rtesting.WithInlineConfigSpec(*ConfigurationSpec(ptest.ImagePath(names.Image))),
 	}, fopt...)
 	return rtesting.ServiceWithoutNamespace(names.Service, a...)
 }
 
 // LatestServiceLegacy returns a DeprecatedRunLatest Service object in namespace with the name names.Service
 // that uses the image specified by names.Image.
-func LatestServiceLegacy(names test.ResourceNames, options *Options, fopt ...rtesting.ServiceOption) *v1alpha1.Service {
+func LatestServiceLegacy(names test.ResourceNames, fopt ...rtesting.ServiceOption) *v1alpha1.Service {
 	a := append([]rtesting.ServiceOption{
-		rtesting.WithRunLatestConfigSpec(*LegacyConfigurationSpec(ptest.ImagePath(names.Image), options)),
+		rtesting.WithRunLatestConfigSpec(*LegacyConfigurationSpec(ptest.ImagePath(names.Image))),
 	}, fopt...)
 	svc := rtesting.ServiceWithoutNamespace(names.Service, a...)
 	// Clear the name, which is put there by defaulting.

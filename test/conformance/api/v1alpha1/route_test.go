@@ -107,7 +107,7 @@ func TestRouteCreation(t *testing.T) {
 	defer test.TearDown(clients, names)
 
 	t.Log("Creating a new Route and Configuration")
-	config, err := v1a1test.CreateConfiguration(t, clients, names, &v1a1test.Options{})
+	config, err := v1a1test.CreateConfiguration(t, clients, names, )
 	if err != nil {
 		t.Fatalf("Failed to create Configuration: %v", err)
 	}
