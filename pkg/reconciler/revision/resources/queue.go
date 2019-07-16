@@ -23,6 +23,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"knative.dev/pkg/logging"
 	pkgmetrics "knative.dev/pkg/metrics"
 	"knative.dev/pkg/ptr"
@@ -33,9 +34,15 @@ import (
 	"knative.dev/serving/pkg/autoscaler"
 	"knative.dev/serving/pkg/deployment"
 	"knative.dev/serving/pkg/metrics"
+	"knative.dev/serving/pkg/network"
+	"knative.dev/serving/pkg/queue"
+	"knative.dev/serving/pkg/queue/readiness"
 )
 
-const requestQueueHTTPPortName = "queue-port"
+const (
+	localAddress             = "127.0.0.1"
+	requestQueueHTTPPortName = "queue-port"
+)
 
 var (
 	queueHTTPPort = corev1.ContainerPort{
@@ -57,23 +64,6 @@ var (
 		Name:          v1alpha1.UserQueueMetricsPortName,
 		ContainerPort: int32(networking.UserQueueMetricsPort),
 	}}
-
-	queueReadinessProbe = &corev1.Probe{
-		Handler: corev1.Handler{
-			Exec: &corev1.ExecAction{
-				Command: []string{"/ko-app/queue", "-probe", "true"},
-			},
-		},
-		// We want to mark the service as not ready as soon as the
-		// PreStop handler is called, so we need to check a little
-		// bit more often than the default.  It is a small
-		// sacrifice for a low rate of 503s.
-		PeriodSeconds: 1,
-		// We keep the connection open for a while because we're
-		// actively probing the user-container on that endpoint and
-		// thus don't want to be limited by K8s granularity here.
-		TimeoutSeconds: 10,
-	}
 
 	queueSecurityContext = &corev1.SecurityContext{
 		AllowPrivilegeEscalation: ptr.Bool(false),
@@ -156,6 +146,51 @@ func createResourcePercentageFromAnnotations(m map[string]string, k string) (boo
 	return true, float32(value / 100)
 }
 
+func makeQueueProbe(in *corev1.Probe) *corev1.Probe {
+	if in == nil || in.PeriodSeconds == 0 {
+		out := &corev1.Probe{
+			Handler: corev1.Handler{
+				Exec: &corev1.ExecAction{
+					Command: []string{"/ko-app/queue", "-probe-period", "0"},
+				},
+			},
+			// We want to mark the service as not ready as soon as the
+			// PreStop handler is called, so we need to check a little
+			// bit more often than the default.  It is a small
+			// sacrifice for a low rate of 503s.
+			PeriodSeconds: 1,
+			// We keep the connection open for a while because we're
+			// actively probing the user-container on that endpoint and
+			// thus don't want to be limited by K8s granularity here.
+			TimeoutSeconds: 10,
+		}
+
+		if in != nil {
+			out.InitialDelaySeconds = in.InitialDelaySeconds
+		}
+		return out
+	}
+
+	timeout := 1
+
+	if in.TimeoutSeconds > 1 {
+		timeout = int(in.TimeoutSeconds)
+	}
+
+	return &corev1.Probe{
+		Handler: corev1.Handler{
+			Exec: &corev1.ExecAction{
+				Command: []string{"/ko-app/queue", "-probe-period", strconv.Itoa(timeout)},
+			},
+		},
+		PeriodSeconds:       in.PeriodSeconds,
+		TimeoutSeconds:      int32(timeout),
+		SuccessThreshold:    in.SuccessThreshold,
+		FailureThreshold:    in.FailureThreshold,
+		InitialDelaySeconds: in.InitialDelaySeconds,
+	}
+}
+
 // makeQueueContainer creates the container spec for the queue sidecar.
 func makeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, observabilityConfig *metrics.ObservabilityConfig,
 	autoscalerConfig *autoscaler.Config, deploymentConfig *deployment.Config) *corev1.Container {
@@ -191,12 +226,19 @@ func makeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, o
 		volumeMounts = append(volumeMounts, internalVolumeMount)
 	}
 
+	rp := rev.Spec.GetContainer().ReadinessProbe.DeepCopy()
+
+	applyReadinessProbeDefaults(rp, userPort)
+
+	// TODO(joshrider) bubble up error instead of squashing it here
+	probeJSON, _ := readiness.EncodeProbe(rp)
+
 	return &corev1.Container{
 		Name:            QueueContainerName,
 		Image:           deploymentConfig.QueueSidecarImage,
 		Resources:       createQueueResources(rev.GetAnnotations(), rev.Spec.GetContainer()),
 		Ports:           ports,
-		ReadinessProbe:  queueReadinessProbe,
+		ReadinessProbe:  makeQueueProbe(rp),
 		VolumeMounts:    volumeMounts,
 		SecurityContext: queueSecurityContext,
 		Env: []corev1.EnvVar{{
@@ -267,6 +309,38 @@ func makeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, o
 		}, {
 			Name:  "INTERNAL_VOLUME_PATH",
 			Value: internalVolumePath,
+		}, {
+			Name:  "SERVING_READINESS_PROBE",
+			Value: probeJSON,
 		}},
+	}
+}
+
+func applyReadinessProbeDefaults(p *corev1.Probe, port int32) {
+	switch {
+	case p == nil:
+		return
+	case p.HTTPGet != nil:
+		p.HTTPGet.Host = localAddress
+		p.HTTPGet.Port = intstr.FromInt(int(port))
+
+		if p.HTTPGet.Scheme == "" {
+			p.HTTPGet.Scheme = corev1.URISchemeHTTP
+		}
+
+		p.HTTPGet.HTTPHeaders = append(p.HTTPGet.HTTPHeaders, corev1.HTTPHeader{
+			Name:  network.KubeletProbeHeaderName,
+			Value: queue.Name,
+		})
+	case p.TCPSocket != nil:
+		p.TCPSocket.Host = localAddress
+		p.TCPSocket.Port = intstr.FromInt(int(port))
+	case p.Exec != nil:
+		//User-defined ExecProbe will still be run on user-container.
+		p.Exec = nil
+	}
+
+	if p.PeriodSeconds > 0 && p.TimeoutSeconds < 1 {
+		p.TimeoutSeconds = 1
 	}
 }

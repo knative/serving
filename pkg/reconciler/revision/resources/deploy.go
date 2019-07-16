@@ -134,8 +134,15 @@ func makePodSpec(rev *v1alpha1.Revision, loggingConfig *logging.Config, observab
 		userContainer.TerminationMessagePolicy = corev1.TerminationMessageFallbackToLogsOnError
 	}
 
+	if userContainer.ReadinessProbe != nil {
+		if userContainer.ReadinessProbe.HTTPGet != nil || userContainer.ReadinessProbe.TCPSocket != nil {
+			// HTTP and TCP ReadinessProbes are executed by the queue-proxy directly against the
+			// user-container instead of via kubelet.
+			userContainer.ReadinessProbe = nil
+		}
+	}
+
 	// If the client provides probes, we should fill in the port for them.
-	rewriteUserProbe(userContainer.ReadinessProbe, userPortInt)
 	rewriteUserProbe(userContainer.LivenessProbe, userPortInt)
 
 	podSpec := &corev1.PodSpec{
