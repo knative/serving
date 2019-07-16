@@ -172,6 +172,20 @@ func WithNumberedPort(number int32) ServiceOption {
 	}
 }
 
+// WithNamedPort sets the Service's port name to what's provided.
+func WithNamedPort(name string) ServiceOption {
+	return func(svc *v1alpha1.Service) {
+		c := &svc.Spec.Template.Spec.Containers[0]
+		if len(c.Ports) == 1 {
+			c.Ports[0].Name = name
+		} else {
+			c.Ports = []corev1.ContainerPort{{
+				Name: name,
+			}}
+		}
+	}
+}
+
 // WithResourceRequirements attaches resource requirements to the service
 func WithResourceRequirements(resourceRequirements corev1.ResourceRequirements) ServiceOption {
 	return func(svc *v1alpha1.Service) {
@@ -459,5 +473,13 @@ func WithSecurityContext(sc *corev1.SecurityContext) ServiceOption {
 func WithWorkingDir(wd string) ServiceOption {
 	return func(s *v1alpha1.Service) {
 		s.Spec.Template.Spec.Containers[0].WorkingDir = wd
+	}
+}
+
+// WithReadinessProbe sets the provided probe to be the readiness
+// probe on the service.
+func WithReadinessProbe(p *corev1.Probe) ServiceOption {
+	return func(s *v1alpha1.Service) {
+		s.Spec.Template.Spec.Containers[0].ReadinessProbe = p
 	}
 }

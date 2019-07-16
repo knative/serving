@@ -28,6 +28,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ptest "knative.dev/pkg/test"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	v1a1opts "knative.dev/serving/pkg/testing/v1alpha1"
 	"knative.dev/serving/test"
 	v1a1test "knative.dev/serving/test/v1alpha1"
 )
@@ -161,7 +162,7 @@ func TestContainerExitingMsg(t *testing.T) {
 
 			t.Logf("Creating a new Configuration %s", names.Image)
 
-			if _, err := v1a1test.CreateConfiguration(t, clients, names, &v1a1test.Options{ReadinessProbe: tt.ReadinessProbe}); err != nil {
+			if _, err := v1a1test.CreateConfiguration(t, clients, names, &v1a1test.Options{}, v1a1opts.WithConfigReadinessProbe(tt.ReadinessProbe)); err != nil {
 				t.Fatalf("Failed to create configuration %s: %v", names.Config, err)
 			}
 

@@ -32,6 +32,7 @@ import (
 	"knative.dev/pkg/test/logstream"
 	"knative.dev/serving/pkg/apis/serving"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	v1a1opts "knative.dev/serving/pkg/testing/v1alpha1"
 	"knative.dev/serving/test"
 	v1a1test "knative.dev/serving/test/v1alpha1"
 
@@ -53,11 +54,20 @@ func TestDestroyPodInflight(t *testing.T) {
 
 	clients := Setup(t)
 
-	t.Log("Creating a new Route and Configuration")
-	names, err := CreateRouteAndConfig(t, clients, "timeout", &v1a1test.Options{RevisionTimeoutSeconds: revisionTimeoutSeconds})
-	if err != nil {
-		t.Fatalf("Failed to create Route and Configuration: %v", err)
+	svcName := test.ObjectNameForTest(t)
+	names := test.ResourceNames{
+		Config: svcName,
+		Route:  svcName,
+		Image:  "timeout",
 	}
+
+	if _, err := v1a1test.CreateConfiguration(t, clients, names, &v1a1test.Options{}, v1a1opts.WithConfigRevisionTimeoutSeconds(revisionTimeoutSeconds)); err != nil {
+		t.Fatalf("Failed to create Configuration: %v", err)
+	}
+	if _, err := v1a1test.CreateRoute(t, clients, names); err != nil {
+		t.Fatalf("Failed to create Route: %v", err)
+	}
+
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 	defer test.TearDown(clients, names)
 
@@ -159,7 +169,7 @@ func TestDestroyPodTimely(t *testing.T) {
 	defer test.TearDown(clients, names)
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 
-	objects, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, &v1a1test.Options{RevisionTimeoutSeconds: int64(revisionTimeout.Seconds())})
+	objects, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, &v1a1test.Options{}, v1a1opts.WithRevisionTimeoutSeconds(int64(revisionTimeout.Seconds())))
 	if err != nil {
 		t.Fatalf("Failed to create a service: %v", err)
 	}

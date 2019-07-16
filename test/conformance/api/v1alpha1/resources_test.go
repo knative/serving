@@ -27,6 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/spoof"
+	v1a1opts "knative.dev/serving/pkg/testing/v1alpha1"
 	"knative.dev/serving/test"
 	v1a1test "knative.dev/serving/test/v1alpha1"
 )
@@ -53,7 +54,7 @@ func TestCustomResourcesLimits(t *testing.T) {
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 	defer test.TearDown(clients, names)
 
-	objects, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, &v1a1test.Options{ContainerResources: resources})
+	objects, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, &v1a1test.Options{}, v1a1opts.WithResourceRequirements(resources))
 	if err != nil {
 		t.Fatalf("Failed to create initial Service %v: %v", names.Service, err)
 	}

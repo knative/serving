@@ -109,13 +109,12 @@ func testProxyToHelloworld(t *testing.T, clients *test.Clients, helloworldDomain
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 	defer test.TearDown(clients, names)
 
-	resources, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, &v1a1test.Options{
-		EnvVars: envVars,
-		RevisionTemplateAnnotations: map[string]string{
+	resources, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, &v1a1test.Options{},
+		rtesting.WithEnv(envVars...),
+		rtesting.WithConfigAnnotations(map[string]string{
 			autoscaling.WindowAnnotationKey: "6s", // shortest permitted; this is not required here, but for uniformity.
 			"sidecar.istio.io/inject":       strconv.FormatBool(inject),
-		},
-	})
+		}))
 	if err != nil {
 		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
 	}
@@ -183,11 +182,11 @@ func TestServiceToServiceCall(t *testing.T) {
 
 	withInternalVisibility := WithServiceLabel(
 		routeconfig.VisibilityLabelKey, routeconfig.VisibilityClusterLocal)
-	resources, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, &v1a1test.Options{
-		RevisionTemplateAnnotations: map[string]string{
+	resources, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, &v1a1test.Options{},
+		withInternalVisibility,
+		rtesting.WithConfigAnnotations(map[string]string{
 			autoscaling.WindowAnnotationKey: "6s", // shortest permitted; this is not required here, but for uniformity.
-		},
-	}, withInternalVisibility)
+		}))
 	if err != nil {
 		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
 	}
@@ -232,7 +231,7 @@ func testSvcToSvcCallViaActivator(t *testing.T, clients *test.Clients, injectA b
 		&v1a1test.Options{},
 		rtesting.WithConfigAnnotations(map[string]string{
 			autoscaling.TargetBurstCapacityKey: "-1",
-			"sidecar.istio.io/inject": strconv.FormatBool(injectB),
+			"sidecar.istio.io/inject":          strconv.FormatBool(injectB),
 		}), withInternalVisibility)
 	if err != nil {
 		t.Fatalf("Failed to create a service: %v", err)
@@ -276,4 +275,3 @@ func TestServiceToServiceCallViaActivator(t *testing.T) {
 		})
 	}
 }
-

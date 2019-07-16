@@ -29,7 +29,6 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/grpc"
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"knative.dev/pkg/system"
@@ -172,13 +171,11 @@ func testGRPC(t *testing.T, f grpcTest, fopts ...rtesting.ServiceOption) {
 		Image:   "grpc-ping",
 	}
 
+	fopts = append(fopts, rtesting.WithNamedPort("h2c"))
+
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 	defer test.TearDown(clients, names)
-	resources, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, &v1a1test.Options{
-		ContainerPorts: []corev1.ContainerPort{{
-			Name: "h2c",
-		}},
-	}, fopts...)
+	resources, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, &v1a1test.Options{}, fopts...)
 	if err != nil {
 		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
 	}

@@ -28,6 +28,7 @@ import (
 	"knative.dev/pkg/test/logstream"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	serviceresourcenames "knative.dev/serving/pkg/reconciler/service/resources/names"
+	v1a1opts "knative.dev/serving/pkg/testing/v1alpha1"
 	"knative.dev/serving/test"
 	v1a1test "knative.dev/serving/test/v1alpha1"
 )
@@ -64,7 +65,7 @@ func TestPodScheduleError(t *testing.T) {
 		svc *v1alpha1.Service
 		err error
 	)
-	if svc, err = v1a1test.CreateLatestService(t, clients, names, &v1a1test.Options{ContainerResources: resources}); err != nil {
+	if svc, err = v1a1test.CreateLatestService(t, clients, names, &v1a1test.Options{}, v1a1opts.WithResourceRequirements(resources)); err != nil {
 		t.Fatalf("Failed to create Service %s: %v", names.Service, err)
 	}
 
