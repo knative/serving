@@ -244,11 +244,14 @@ func TestProbeQueueTimeout(t *testing.T) {
 
 	defer ts.Close()
 
-	portStr := strings.TrimPrefix(ts.URL, "http://127.0.0.1:")
-
-	port, err := strconv.Atoi(portStr)
+	u, err := url.Parse(ts.URL)
 	if err != nil {
-		t.Fatalf("failed to convert port(%s) to int", portStr)
+		t.Fatalf("%s is not a valid URL: %v", ts.URL, err)
+	}
+
+	port, err := strconv.Atoi(u.Port())
+	if err != nil {
+		t.Fatalf("failed to convert port(%s) to int", u.Port())
 	}
 
 	timeout := 1
