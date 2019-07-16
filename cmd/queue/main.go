@@ -247,14 +247,9 @@ func probeQueueHealthPath(port int, timeoutSeconds int) error {
 		},
 		Timeout: timeoutDuration,
 	}
-
-	stopCh := make(chan struct{})
-	timeCh := time.After(timeoutDuration)
-
-	go func() {
-		<-timeCh
-		close(stopCh)
-	}()
+	ctx, cancel := context.WithTimeout(context.Background(), timeoutDuration)
+	defer cancel()
+	stopCh := ctx.Done()
 
 	var lastErr error
 	timeoutErr := wait.PollImmediateUntil(aggressivePollInterval, func() (bool, error) {

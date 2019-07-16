@@ -336,12 +336,7 @@ func applyReadinessProbeDefaults(p *corev1.Probe, port int32) {
 		p.TCPSocket.Host = localAddress
 		p.TCPSocket.Port = intstr.FromInt(int(port))
 	case p.Exec != nil:
-		// Use default TCP connect probe to ensure data path is open from queue-proxy to
-		// user-container. User-defined ExecProbe will still be run on user-container.
-		p.TCPSocket = &corev1.TCPSocketAction{}
-		p.SuccessThreshold = 1
-		p.TCPSocket.Host = localAddress
-		p.TCPSocket.Port = intstr.FromInt(int(port))
+		//User-defined ExecProbe will still be run on user-container.
 		p.Exec = nil
 	}
 

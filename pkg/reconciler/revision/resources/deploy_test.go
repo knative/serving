@@ -580,7 +580,7 @@ func TestMakePodSpec(t *testing.T) {
 					withExecReadinessProbe([]string{"echo", "hello"})),
 				queueContainer(
 					withEnvVar("CONTAINER_CONCURRENCY", "0"),
-					withEnvVar("SERVING_READINESS_PROBE", `{"tcpSocket":{"port":8080,"host":"127.0.0.1"},"successThreshold":1}`),
+					withEnvVar("SERVING_READINESS_PROBE", "{}"),
 				),
 			}),
 	}, {

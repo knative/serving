@@ -576,8 +576,7 @@ func TestContainerValidation(t *testing.T) {
 				},
 			},
 		},
-		want: apis.ErrDisallowedFields("readinessProbe.exec").Also(
-			apis.ErrDisallowedFields("readinessProbe.tcpSocket")),
+		want: apis.ErrMultipleOneOf("readinessProbe.exec", "readinessProbe.tcpSocket", "readinessProbe.httpGet"),
 	}, {
 		name: "invalid readiness http probe (has port)",
 		c: corev1.Container{

@@ -467,30 +467,25 @@ func validateProbe(p *corev1.Probe) *apis.FieldError {
 	h := p.Handler
 	errs = errs.Also(apis.CheckDisallowedFields(h, *HandlerMask(&h)))
 
-	numHandlers := 0
+	var handlers []string
 
 	if h.HTTPGet != nil {
-		numHandlers++
+		handlers = append(handlers, "httpGet")
 		errs = errs.Also(apis.CheckDisallowedFields(*h.HTTPGet, *HTTPGetActionMask(h.HTTPGet))).ViaField("httpGet")
 	}
 	if h.TCPSocket != nil {
-		if numHandlers > 0 {
-			errs = errs.Also(apis.ErrDisallowedFields("tcpSocket"))
-		} else {
-			numHandlers++
-			errs = errs.Also(apis.CheckDisallowedFields(*h.TCPSocket, *TCPSocketActionMask(h.TCPSocket))).ViaField("tcpSocket")
-		}
+		handlers = append(handlers, "tcpSocket")
+		errs = errs.Also(apis.CheckDisallowedFields(*h.TCPSocket, *TCPSocketActionMask(h.TCPSocket))).ViaField("tcpSocket")
 	}
 	if h.Exec != nil {
-		if numHandlers > 0 {
-			errs = errs.Also(apis.ErrDisallowedFields("exec"))
-		} else {
-			numHandlers++
-			errs = errs.Also(apis.CheckDisallowedFields(*h.Exec, *ExecActionMask(h.Exec))).ViaField("exec")
-		}
+		handlers = append(handlers, "exec")
+		errs = errs.Also(apis.CheckDisallowedFields(*h.Exec, *ExecActionMask(h.Exec))).ViaField("exec")
 	}
-	if numHandlers == 0 {
+
+	if len(handlers) == 0 {
 		errs = errs.Also(apis.ErrMissingField("handler"))
+	} else if len(handlers) > 1 {
+		errs = errs.Also(apis.ErrMultipleOneOf(handlers...))
 	}
 	return errs
 }
