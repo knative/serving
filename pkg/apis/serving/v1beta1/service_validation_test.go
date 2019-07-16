@@ -42,6 +42,12 @@ func TestServiceValidation(t *testing.T) {
 			},
 		},
 	}
+	goodRouteSpec := RouteSpec{
+		Traffic: []TrafficTarget{{
+			LatestRevision: ptr.Bool(true),
+			Percent:        100,
+		}},
+	}
 
 	tests := []struct {
 		name string
@@ -64,6 +70,66 @@ func TestServiceValidation(t *testing.T) {
 			},
 		},
 		want: nil,
+	}, {
+		name: "valid visibility label",
+		r: &Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid",
+				Labels: map[string]string{
+					"serving.knative.dev/visibility": "cluster-local",
+				},
+			},
+			Spec: ServiceSpec{
+				ConfigurationSpec: goodConfigSpec,
+				RouteSpec:         goodRouteSpec,
+			},
+		},
+		want: nil,
+	}, {
+		name: "invalid knative label",
+		r: &Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid",
+				Labels: map[string]string{
+					"serving.knative.dev/name": "some-value",
+				},
+			},
+			Spec: ServiceSpec{
+				ConfigurationSpec: goodConfigSpec,
+				RouteSpec:         goodRouteSpec,
+			},
+		},
+		want: apis.ErrInvalidKeyName("serving.knative.dev/name", "metadata.label"),
+	}, {
+		name: "valid non knative label",
+		r: &Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid",
+				Labels: map[string]string{
+					"serving.name": "some-name",
+				},
+			},
+			Spec: ServiceSpec{
+				ConfigurationSpec: goodConfigSpec,
+				RouteSpec:         goodRouteSpec,
+			},
+		},
+		want: nil,
+	}, {
+		name: "invalid visibility label value",
+		r: &Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid",
+				Labels: map[string]string{
+					"serving.knative.dev/visibility": "bad-label",
+				},
+			},
+			Spec: ServiceSpec{
+				ConfigurationSpec: goodConfigSpec,
+				RouteSpec:         goodRouteSpec,
+			},
+		},
+		want: apis.ErrInvalidValue("bad-label", "metadata.label.[serving.knative.dev/visibility]"),
 	}, {
 		name: "valid release",
 		r: &Service{

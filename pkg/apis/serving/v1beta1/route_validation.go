@@ -19,15 +19,18 @@ package v1beta1
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"k8s.io/apimachinery/pkg/util/validation"
 	"knative.dev/pkg/apis"
 	"knative.dev/serving/pkg/apis/serving"
+	"knative.dev/serving/pkg/reconciler/route/config"
 )
 
 // Validate makes sure that Route is properly configured.
 func (r *Route) Validate(ctx context.Context) *apis.FieldError {
 	errs := serving.ValidateObjectMetadata(r.GetObjectMeta()).ViaField("metadata")
+	errs = errs.Also(r.ValidateLabels())
 	errs = errs.Also(r.Spec.Validate(apis.WithinSpec(ctx)).ViaField("spec"))
 	errs = errs.Also(r.Status.Validate(apis.WithinStatus(ctx)).ViaField("status"))
 	return errs
@@ -181,4 +184,32 @@ func (rsf *RouteStatusFields) Validate(ctx context.Context) *apis.FieldError {
 		return validateTrafficList(ctx, rsf.Traffic).ViaField("traffic")
 	}
 	return nil
+}
+
+// ValidateLabels function validates service labels
+func (r *Route) ValidateLabels() *apis.FieldError {
+	configurationLabels := r.GetLabels()
+	var errs *apis.FieldError
+LabelLoop:
+	for key, val := range configurationLabels {
+		if key == config.VisibilityLabelKey {
+			if val != config.VisibilityClusterLocal {
+				errs = errs.Also(apis.ErrInvalidValue(val, "").ViaFieldKey("label", key))
+			}
+			continue
+		}
+		if key == serving.ServiceLabelKey {
+			for _, ref := range r.GetOwnerReferences() {
+				if ref.Kind == "Service" && val == ref.Name {
+					continue LabelLoop
+				}
+			}
+			errs = errs.Also(apis.ErrInvalidValue(val, "").ViaFieldKey("label", key))
+			continue LabelLoop
+		}
+		if strings.HasPrefix(key, serving.GroupName+"/") {
+			errs = errs.Also(apis.ErrInvalidKeyName(key, "label"))
+		}
+	}
+	return errs.ViaField("metadata")
 }
