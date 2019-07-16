@@ -124,7 +124,7 @@ func generateTraffic(ctx *testContext, concurrency int, duration time.Duration, 
 	return nil
 }
 
-func setup(t *testing.T, class string, metric string, opts *v1a1test.Options, fopts ...rtesting.ServiceOption) *testContext {
+func setup(t *testing.T, class string, metric string, fopts ...rtesting.ServiceOption) *testContext {
 	t.Helper()
 	clients := Setup(t)
 
@@ -134,7 +134,7 @@ func setup(t *testing.T, class string, metric string, opts *v1a1test.Options, fo
 		Image:   "autoscale",
 	}
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
-	resources, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, opts,
+	resources, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
 		append(fopts, rtesting.WithConfigAnnotations(map[string]string{
 			autoscaling.ClassAnnotationKey:  class,
 			autoscaling.MetricAnnotationKey: metric,
@@ -295,7 +295,7 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 	cancel := logstream.Start(t)
 	defer cancel()
 
-	ctx := setup(t, autoscaling.KPA, autoscaling.Concurrency, &v1a1test.Options{},
+	ctx := setup(t, autoscaling.KPA, autoscaling.Concurrency,
 		rtesting.WithContainerConcurrency(containerConcurrency))
 	defer test.TearDown(ctx.clients, ctx.names)
 
@@ -319,7 +319,7 @@ func TestAutoscaleUpCountPods(t *testing.T) {
 			cancel := logstream.Start(t)
 			defer cancel()
 
-			ctx := setup(tt, class, autoscaling.Concurrency, &v1a1test.Options{},
+			ctx := setup(tt, class, autoscaling.Concurrency,
 				rtesting.WithContainerConcurrency(containerConcurrency))
 			defer test.TearDown(ctx.clients, ctx.names)
 
@@ -346,7 +346,7 @@ func TestAutoscaleSustaining(t *testing.T) {
 	cancel := logstream.Start(t)
 	defer cancel()
 
-	ctx := setup(t, autoscaling.KPA, autoscaling.Concurrency, &v1a1test.Options{},
+	ctx := setup(t, autoscaling.KPA, autoscaling.Concurrency,
 		rtesting.WithContainerConcurrency(containerConcurrency))
 	defer test.TearDown(ctx.clients, ctx.names)
 
@@ -363,7 +363,7 @@ func TestTargetBurstCapacity(t *testing.T) {
 	cancel := logstream.Start(t)
 	defer cancel()
 
-	ctx := setup(t, autoscaling.KPA, autoscaling.Concurrency, &v1a1test.Options{},
+	ctx := setup(t, autoscaling.KPA, autoscaling.Concurrency,
 		rtesting.WithConfigAnnotations(map[string]string{
 			autoscaling.TargetAnnotationKey:                   "10",
 			autoscaling.TargetUtilizationPercentageKey:        "70",
@@ -445,7 +445,7 @@ func TestTargetBurstCapacityMinusOne(t *testing.T) {
 	cancel := logstream.Start(t)
 	defer cancel()
 
-	ctx := setup(t, autoscaling.KPA, autoscaling.Concurrency, &v1a1test.Options{},
+	ctx := setup(t, autoscaling.KPA, autoscaling.Concurrency,
 		rtesting.WithConfigAnnotations(map[string]string{
 			autoscaling.TargetAnnotationKey:            "10",
 			autoscaling.TargetUtilizationPercentageKey: "70",

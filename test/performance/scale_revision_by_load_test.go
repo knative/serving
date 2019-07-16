@@ -88,13 +88,13 @@ func scaleRevisionByLoad(t *testing.T, numClients int) []junit.TestCase {
 	test.CleanupOnInterrupt(func() { TearDown(perfClients, names, t.Logf) })
 
 	t.Log("Creating a new Service")
-	objs, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, &v1a1test.Options{
-		ContainerResources: corev1.ResourceRequirements{
+	objs, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
+		testingv1alpha1.WithResourceRequirements(corev1.ResourceRequirements{
 			Requests: corev1.ResourceList{
 				corev1.ResourceCPU:    resource.MustParse("50m"),
 				corev1.ResourceMemory: resource.MustParse("20Mi"),
 			},
-		}},
+		}),
 		testingv1alpha1.WithConfigAnnotations(map[string]string{"autoscaling.knative.dev/target": strconv.Itoa(targetConcurrency)}),
 	)
 	if err != nil {

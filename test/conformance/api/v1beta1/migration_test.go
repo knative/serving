@@ -50,7 +50,7 @@ func TestV1beta1Translation(t *testing.T) {
 	t.Log("Creating a new Service")
 	// Create a legacy RunLatest service.  This should perform conversion during the webhook
 	// and return back a converted service resource.
-	service, err := v1a1test.CreateLatestServiceLegacy(t, clients, names, &v1a1test.Options{})
+	service, err := v1a1test.CreateLatestServiceLegacy(t, clients, names, )
 	if err != nil {
 		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
 	}
@@ -84,7 +84,7 @@ func TestV1beta1Rejection(t *testing.T) {
 
 	t.Log("Creating a new Service")
 	// Create a legacy RunLatest service, but give it the TypeMeta of v1beta1.
-	service := v1a1test.LatestServiceLegacy(names, &v1a1test.Options{})
+	service := v1a1test.LatestServiceLegacy(names, )
 	service.APIVersion = v1beta1.SchemeGroupVersion.String()
 	service.Kind = "Service"
 

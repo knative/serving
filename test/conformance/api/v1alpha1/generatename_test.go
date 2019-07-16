@@ -123,7 +123,7 @@ func TestServiceGenerateName(t *testing.T) {
 
 	// Create the service using the generate name field. If the serivce does not become ready this will fail.
 	t.Logf("Creating new service with generateName %s", generateName)
-	resources, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, &v1a1test.Options{}, setServiceGenerateName(generateName))
+	resources, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, setServiceGenerateName(generateName))
 	if err != nil {
 		t.Fatalf("Failed to create service with generateName %s: %v", generateName, err)
 	}
@@ -158,7 +158,7 @@ func TestRouteAndConfigGenerateName(t *testing.T) {
 	defer func() { test.TearDown(clients, names) }()
 
 	t.Logf("Creating new configuration with generateName %s", generateName)
-	config, err := v1a1test.CreateConfiguration(t, clients, names, &v1a1test.Options{}, setConfigurationGenerateName(generateName))
+	config, err := v1a1test.CreateConfiguration(t, clients, names, setConfigurationGenerateName(generateName))
 	if err != nil {
 		t.Fatalf("Failed to create configuration with generateName %s: %v", generateName, err)
 	}

@@ -61,7 +61,7 @@ func TestDestroyPodInflight(t *testing.T) {
 		Image:  "timeout",
 	}
 
-	if _, err := v1a1test.CreateConfiguration(t, clients, names, &v1a1test.Options{}, v1a1opts.WithConfigRevisionTimeoutSeconds(revisionTimeoutSeconds)); err != nil {
+	if _, err := v1a1test.CreateConfiguration(t, clients, names, v1a1opts.WithConfigRevisionTimeoutSeconds(revisionTimeoutSeconds)); err != nil {
 		t.Fatalf("Failed to create Configuration: %v", err)
 	}
 	if _, err := v1a1test.CreateRoute(t, clients, names); err != nil {
@@ -169,7 +169,7 @@ func TestDestroyPodTimely(t *testing.T) {
 	defer test.TearDown(clients, names)
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 
-	objects, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, &v1a1test.Options{}, v1a1opts.WithRevisionTimeoutSeconds(int64(revisionTimeout.Seconds())))
+	objects, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, v1a1opts.WithRevisionTimeoutSeconds(int64(revisionTimeout.Seconds())))
 	if err != nil {
 		t.Fatalf("Failed to create a service: %v", err)
 	}

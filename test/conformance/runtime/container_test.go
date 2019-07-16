@@ -108,7 +108,7 @@ func TestMustNotContainerConstraints(t *testing.T) {
 				Service: test.ObjectNameForTest(t),
 				Image:   test.Runtime,
 			}
-			if svc, err := v1a1test.CreateLatestService(t, clients, names, &v1a1test.Options{}, tc.options); err == nil {
+			if svc, err := v1a1test.CreateLatestService(t, clients, names, tc.options); err == nil {
 				t.Errorf("CreateService = %v, want: error", spew.Sdump(svc))
 			}
 		})
@@ -191,7 +191,7 @@ func TestShouldNotContainerConstraints(t *testing.T) {
 				Service: test.ObjectNameForTest(t),
 				Image:   test.Runtime,
 			}
-			if svc, err := v1a1test.CreateLatestService(t, clients, names, &v1a1test.Options{}, tc.options); err == nil {
+			if svc, err := v1a1test.CreateLatestService(t, clients, names, tc.options); err == nil {
 				t.Errorf("CreateLatestService = %v, want: error", spew.Sdump(svc))
 			}
 		})

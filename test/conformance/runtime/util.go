@@ -54,7 +54,7 @@ func fetchRuntimeInfo(
 		svc.Spec.Template.Spec.Containers[0].ImagePullPolicy = "Always"
 	})
 
-	objects, err := v1a1test.CreateRunLatestServiceReady(t, clients, names, &v1a1test.Options{}, serviceOpts...)
+	objects, err := v1a1test.CreateRunLatestServiceReady(t, clients, names, serviceOpts...)
 	if err != nil {
 		return nil, nil, err
 	}

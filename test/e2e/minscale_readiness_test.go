@@ -44,7 +44,7 @@ func TestMinScale(t *testing.T) {
 		Image:  "helloworld",
 	}
 
-	if _, err := v1a1test.CreateConfiguration(t, clients, names, &v1a1test.Options{}, func(cfg *v1alpha1.Configuration) {
+	if _, err := v1a1test.CreateConfiguration(t, clients, names, func(cfg *v1alpha1.Configuration) {
 		if cfg.Spec.Template.Annotations == nil {
 			cfg.Spec.Template.Annotations = make(map[string]string)
 		}

@@ -65,7 +65,7 @@ func TestPodScheduleError(t *testing.T) {
 		svc *v1alpha1.Service
 		err error
 	)
-	if svc, err = v1a1test.CreateLatestService(t, clients, names, &v1a1test.Options{}, v1a1opts.WithResourceRequirements(resources)); err != nil {
+	if svc, err = v1a1test.CreateLatestService(t, clients, names, v1a1opts.WithResourceRequirements(resources)); err != nil {
 		t.Fatalf("Failed to create Service %s: %v", names.Service, err)
 	}
 

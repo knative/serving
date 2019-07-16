@@ -109,7 +109,7 @@ func testProxyToHelloworld(t *testing.T, clients *test.Clients, helloworldDomain
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 	defer test.TearDown(clients, names)
 
-	resources, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, &v1a1test.Options{},
+	resources, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
 		rtesting.WithEnv(envVars...),
 		rtesting.WithConfigAnnotations(map[string]string{
 			autoscaling.WindowAnnotationKey: "6s", // shortest permitted; this is not required here, but for uniformity.
@@ -182,7 +182,7 @@ func TestServiceToServiceCall(t *testing.T) {
 
 	withInternalVisibility := WithServiceLabel(
 		routeconfig.VisibilityLabelKey, routeconfig.VisibilityClusterLocal)
-	resources, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, &v1a1test.Options{},
+	resources, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
 		withInternalVisibility,
 		rtesting.WithConfigAnnotations(map[string]string{
 			autoscaling.WindowAnnotationKey: "6s", // shortest permitted; this is not required here, but for uniformity.
@@ -228,7 +228,6 @@ func testSvcToSvcCallViaActivator(t *testing.T, clients *test.Clients, injectA b
 	defer test.TearDown(clients, testNames)
 
 	resources, err := v1a1test.CreateRunLatestServiceReady(t, clients, &testNames,
-		&v1a1test.Options{},
 		rtesting.WithConfigAnnotations(map[string]string{
 			autoscaling.TargetBurstCapacityKey: "-1",
 			"sidecar.istio.io/inject":          strconv.FormatBool(injectB),

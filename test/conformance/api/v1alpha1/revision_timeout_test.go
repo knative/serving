@@ -41,7 +41,7 @@ import (
 // createLatestService creates a service in namespace with the name names.Service
 // that uses the image specified by names.Image
 func createLatestService(t *testing.T, clients *test.Clients, names test.ResourceNames, revisionTimeoutSeconds int64) (*v1alpha1.Service, error) {
-	service := v1a1test.LatestService(names, &v1a1test.Options{}, WithRevisionTimeoutSeconds(revisionTimeoutSeconds))
+	service := v1a1test.LatestService(names, WithRevisionTimeoutSeconds(revisionTimeoutSeconds))
 	v1a1test.LogResourceObject(t, v1a1test.ResourceObjects{Service: service})
 	svc, err := clients.ServingAlphaClient.Services.Create(service)
 	return svc, err

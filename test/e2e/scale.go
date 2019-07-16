@@ -84,7 +84,7 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 			// Record the overall completion time regardless of success/failure.
 			defer latencies.Add("time-to-done", start)
 
-			svc, err := v1a1test.CreateLatestService(t, clients, names, &v1a1test.Options{},
+			svc, err := v1a1test.CreateLatestService(t, clients, names,
 				WithResourceRequirements(corev1.ResourceRequirements{
 					Limits: corev1.ResourceList{
 						corev1.ResourceCPU:    resource.MustParse("10m"),

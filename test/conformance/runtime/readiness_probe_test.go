@@ -44,7 +44,7 @@ func TestProbeRuntime(t *testing.T) {
 	defer test.TearDown(clients, names)
 
 	t.Log("Creating a new Service")
-	_, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, &v1a1test.Options{}, v1a1opts.WithReadinessProbe(
+	_, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, v1a1opts.WithReadinessProbe(
 		&corev1.Probe{
 			Handler: corev1.Handler{
 				HTTPGet: &corev1.HTTPGetAction{

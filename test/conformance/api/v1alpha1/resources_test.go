@@ -54,7 +54,7 @@ func TestCustomResourcesLimits(t *testing.T) {
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 	defer test.TearDown(clients, names)
 
-	objects, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, &v1a1test.Options{}, v1a1opts.WithResourceRequirements(resources))
+	objects, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, v1a1opts.WithResourceRequirements(resources))
 	if err != nil {
 		t.Fatalf("Failed to create initial Service %v: %v", names.Service, err)
 	}
