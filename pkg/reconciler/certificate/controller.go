@@ -56,9 +56,9 @@ func NewController(
 	impl := controller.NewImpl(c, c.Logger, "Certificate")
 
 	c.Logger.Info("Setting up event handlers")
-	myFilterFunc := reconciler.AnnotationFilterFunc(networking.CertificateClassAnnotationKey, network.CertManagerCertificateClassName, true)
+	classFilterFunc := reconciler.AnnotationFilterFunc(networking.CertificateClassAnnotationKey, network.CertManagerCertificateClassName, true)
 	certHandler := cache.FilteringResourceEventHandler{
-		FilterFunc: myFilterFunc,
+		FilterFunc: classFilterFunc,
 		Handler:    controller.HandleAll(impl.Enqueue),
 	}
 	knCertificateInformer.Informer().AddEventHandler(certHandler)
