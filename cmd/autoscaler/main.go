@@ -33,7 +33,6 @@ import (
 	endpointsinformer "knative.dev/pkg/injection/informers/kubeinformers/corev1/endpoints"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/metrics"
-	pkgmetrics "knative.dev/pkg/metrics"
 	"knative.dev/pkg/signals"
 	"knative.dev/pkg/system"
 	"knative.dev/serving/pkg/apis/serving"
@@ -195,5 +194,5 @@ func statsScraperFactoryFunc(endpointsLister corev1listers.EndpointsLister) func
 
 func flush(logger *zap.SugaredLogger) {
 	logger.Sync()
-	pkgmetrics.FlushExporter()
+	metrics.FlushExporter()
 }
