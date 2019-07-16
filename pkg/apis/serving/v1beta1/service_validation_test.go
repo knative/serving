@@ -669,3 +669,121 @@ func TestServiceSubresourceUpdate(t *testing.T) {
 		})
 	}
 }
+
+func getServiceSpec(image string) ServiceSpec {
+	return ServiceSpec{
+		ConfigurationSpec: ConfigurationSpec{
+			Template: RevisionTemplateSpec{
+				Spec: RevisionSpec{
+					PodSpec: corev1.PodSpec{
+						Containers: []corev1.Container{{
+							Image: image,
+						}},
+					},
+					TimeoutSeconds: ptr.Int64(config.DefaultMaxRevisionTimeoutSeconds),
+				},
+			},
+		},
+		RouteSpec: RouteSpec{
+			Traffic: []TrafficTarget{{
+				LatestRevision: ptr.Bool(true),
+				Percent:        100,
+			}},
+		},
+	}
+}
+
+func TestServiceAnnotationUpdate(t *testing.T) {
+	const (
+		u1 = "oveja@knative.dev"
+		u2 = "cabra@knative.dev"
+		u3 = "vaca@knative.dev"
+	)
+	tests := []struct {
+		name string
+		prev *Service
+		this *Service
+		want *apis.FieldError
+	}{{
+		name: "update creator annotation",
+		this: &Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid",
+				Annotations: map[string]string{
+					serving.CreatorAnnotation: u2,
+					serving.UpdaterAnnotation: u1,
+				},
+			},
+			Spec: getServiceSpec("helloworld:foo"),
+		},
+		prev: &Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid",
+				Annotations: map[string]string{
+					serving.CreatorAnnotation: u1,
+					serving.UpdaterAnnotation: u1,
+				},
+			},
+			Spec: getServiceSpec("helloworld:foo"),
+		},
+		want: &apis.FieldError{Message: fmt.Sprintf("annotation %q is immutable", serving.CreatorAnnotation),
+			Paths: []string{"metadata.annotations." + serving.CreatorAnnotation}},
+	}, {
+		name: "update lastModifier without spec changes",
+		this: &Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid",
+				Annotations: map[string]string{
+					serving.CreatorAnnotation: u1,
+					serving.UpdaterAnnotation: u2,
+				},
+			},
+			Spec: getServiceSpec("helloworld:foo"),
+		},
+		prev: &Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid",
+				Annotations: map[string]string{
+					serving.CreatorAnnotation: u1,
+					serving.UpdaterAnnotation: u1,
+				},
+			},
+			Spec: getServiceSpec("helloworld:foo"),
+		},
+		want: &apis.FieldError{Message: fmt.Sprintf("annotation %q is immutable", serving.UpdaterAnnotation),
+			Paths: []string{"metadata.annotations." + serving.UpdaterAnnotation}},
+	}, {
+		name: "update lastModifier with spec changes",
+		this: &Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid",
+				Annotations: map[string]string{
+					serving.CreatorAnnotation: u1,
+					serving.UpdaterAnnotation: u3,
+				},
+			},
+			Spec: getServiceSpec("helloworld:bar"),
+		},
+		prev: &Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid",
+				Annotations: map[string]string{
+					serving.CreatorAnnotation: u1,
+					serving.UpdaterAnnotation: u1,
+				},
+			},
+			Spec: getServiceSpec("helloworld:foo"),
+		},
+		want: nil,
+	}}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			ctx := context.Background()
+			ctx = apis.WithinUpdate(ctx, test.prev)
+			got := test.this.Validate(ctx)
+			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
+				t.Errorf("Validate (-want, +got) = %v", diff)
+			}
+		})
+	}
+}

@@ -36,6 +36,7 @@ func (s *Service) Validate(ctx context.Context) (errs *apis.FieldError) {
 	// spec validation.
 	if !apis.IsInStatusUpdate(ctx) {
 		errs = errs.Also(serving.ValidateObjectMetadata(s.GetObjectMeta()).ViaField("metadata"))
+		errs = errs.Also(s.validateCreatorAndModifier(ctx).ViaField("metadata.annotations"))
 		ctx = apis.WithinParent(ctx, s.ObjectMeta)
 		errs = errs.Also(s.Spec.Validate(apis.WithinSpec(ctx)).ViaField("spec"))
 	}
@@ -179,4 +180,28 @@ func (rt *ReleaseType) Validate(ctx context.Context) *apis.FieldError {
 	}
 
 	return errs.Also(rt.Configuration.Validate(ctx).ViaField("configuration"))
+}
+
+func (s *Service) validateCreatorAndModifier(ctx context.Context) *apis.FieldError {
+	if len(s.GetAnnotations()) == 0 {
+		return nil
+	}
+	var errs *apis.FieldError
+	if !apis.IsInUpdate(ctx) {
+		return nil
+	}
+	original := apis.GetBaseline(ctx).(*Service)
+	if original.GetAnnotations()[serving.CreatorAnnotation] != s.GetAnnotations()[serving.CreatorAnnotation] {
+		errs = errs.Also(&apis.FieldError{
+			Message: fmt.Sprintf("annotation %q is immutable", serving.CreatorAnnotation),
+			Paths:   []string{serving.CreatorAnnotation},
+		})
+	}
+	if equality.Semantic.DeepEqual(original.Spec, s.Spec) && original.GetAnnotations()[serving.UpdaterAnnotation] != s.GetAnnotations()[serving.UpdaterAnnotation] {
+		errs = errs.Also(&apis.FieldError{
+			Message: fmt.Sprintf("annotation %q is immutable", serving.UpdaterAnnotation),
+			Paths:   []string{serving.UpdaterAnnotation},
+		})
+	}
+	return errs
 }
