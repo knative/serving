@@ -59,7 +59,7 @@ var (
 	}
 )
 
-func TestNewServiceScraperWithClient_HappyCase(t *testing.T) {
+func TestNewServiceScraperWithClientHappyCase(t *testing.T) {
 	client := newTestScrapeClient(testStats, []error{nil})
 	if scraper, err := serviceScraperForTest(client); err != nil {
 		t.Fatalf("serviceScraperForTest=%v, want no error", err)
@@ -73,7 +73,7 @@ func TestNewServiceScraperWithClient_HappyCase(t *testing.T) {
 	}
 }
 
-func TestNewServiceScraperWithClient_ErrorCases(t *testing.T) {
+func TestNewServiceScraperWithClientErrorCases(t *testing.T) {
 	metric := testMetric()
 	invalidMetric := testMetric()
 	invalidMetric.Labels = map[string]string{}
