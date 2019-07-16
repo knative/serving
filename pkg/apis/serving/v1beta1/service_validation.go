@@ -18,13 +18,16 @@ package v1beta1
 
 import (
 	"context"
+	"strings"
 
 	"knative.dev/pkg/apis"
 	"knative.dev/serving/pkg/apis/serving"
+	"knative.dev/serving/pkg/reconciler/route/config"
 )
 
 // Validate makes sure that Service is properly configured.
 func (s *Service) Validate(ctx context.Context) (errs *apis.FieldError) {
+	errs = errs.Also(s.ValidateLabels())
 	// If we are in a status sub resource update, the metadata and spec cannot change.
 	// So, to avoid rejecting controller status updates due to validations that may
 	// have changed (i.e. due to config-defaults changes), we elide the metadata and
@@ -44,7 +47,6 @@ func (s *Service) Validate(ctx context.Context) (errs *apis.FieldError) {
 			original.Spec.ConfigurationSpec.Template)
 		errs = errs.Also(err.ViaField("spec.template"))
 	}
-
 	return errs
 }
 
@@ -60,4 +62,23 @@ func (ss *ServiceSpec) Validate(ctx context.Context) *apis.FieldError {
 func (ss *ServiceStatus) Validate(ctx context.Context) *apis.FieldError {
 	return ss.ConfigurationStatusFields.Validate(ctx).Also(
 		ss.RouteStatusFields.Validate(ctx))
+}
+
+// ValidateLabels function validates service labels
+func (s *Service) ValidateLabels() *apis.FieldError {
+	serviceLabels := s.GetLabels()
+	var errs *apis.FieldError
+	for key, val := range serviceLabels {
+		if key == config.VisibilityLabelKey {
+			if val != config.VisibilityClusterLocal {
+				errs = errs.Also(apis.ErrInvalidValue(val, "").ViaFieldKey("label", key))
+			}
+			continue
+		}
+		if strings.HasPrefix(key, serving.GroupName+"/") {
+			errs = errs.Also(apis.ErrInvalidKeyName(key, "label"))
+		}
+	}
+
+	return errs.ViaField("metadata")
 }

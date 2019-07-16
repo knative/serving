@@ -471,3 +471,92 @@ func TestRouteValidation(t *testing.T) {
 		})
 	}
 }
+
+func TestRouteLabelValidation(t *testing.T) {
+	validRouteSpec := RouteSpec{
+		Traffic: []TrafficTarget{{
+			Tag:          "bar",
+			RevisionName: "foo",
+			Percent:      100,
+		}},
+	}
+	tests := []struct {
+		name string
+		r    *Route
+		want *apis.FieldError
+	}{{
+		name: "valid visibility name",
+		r: &Route{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "byo-name",
+				Labels: map[string]string{
+					"serving.knative.dev/visibility": "cluster-local",
+				},
+			},
+			Spec: validRouteSpec,
+		},
+		want: nil,
+	}, {
+		name: "invalid visibility name",
+		r: &Route{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "byo-name",
+				Labels: map[string]string{
+					"serving.knative.dev/visibility": "bad-value",
+				},
+			},
+			Spec: validRouteSpec,
+		},
+		want: apis.ErrInvalidValue("bad-value", "metadata.label.[serving.knative.dev/visibility]"),
+	}, {
+		name: "valid knative service name",
+		r: &Route{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "byo-name",
+				Labels: map[string]string{
+					"serving.knative.dev/service": "test-svc",
+				},
+				OwnerReferences: []metav1.OwnerReference{{
+					APIVersion: "serving.knative.dev/v1alpha1",
+					Kind:       "Service",
+					Name:       "test-svc",
+				}},
+			},
+			Spec: validRouteSpec,
+		},
+		want: nil,
+	}, {
+		name: "invalid knative service name",
+		r: &Route{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "byo-name",
+				Labels: map[string]string{
+					"serving.knative.dev/service": "absent-svc",
+				},
+			},
+			Spec: validRouteSpec,
+		},
+		want: apis.ErrInvalidValue("absent-svc", "metadata.label.[serving.knative.dev/service]"),
+	}, {
+		name: "invalid knative label",
+		r: &Route{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "byo-name",
+				Labels: map[string]string{
+					"serving.knative.dev/testlabel": "value",
+				},
+			},
+			Spec: validRouteSpec,
+		},
+		want: apis.ErrInvalidKeyName("serving.knative.dev/testlabel", "metadata.label"),
+	}}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			got := test.r.Validate(context.Background())
+			if !cmp.Equal(test.want.Error(), got.Error()) {
+				t.Errorf("Validate (-want, +got) = %v",
+					cmp.Diff(test.want.Error(), got.Error()))
+			}
+		})
+	}
+}

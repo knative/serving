@@ -21,16 +21,16 @@ import (
 	"fmt"
 	"strings"
 
-	"knative.dev/serving/pkg/apis/config"
-
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/kmp"
+	"knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/apis/serving"
 )
 
 // Validate ensures Revision is properly configured.
 func (r *Revision) Validate(ctx context.Context) *apis.FieldError {
 	errs := serving.ValidateObjectMetadata(r.GetObjectMeta()).ViaField("metadata")
+	errs = errs.Also(r.ValidateLabels())
 	errs = errs.Also(r.Status.Validate(apis.WithinStatus(ctx)).ViaField("status"))
 
 	if apis.IsInUpdate(ctx) {
@@ -137,4 +137,29 @@ func (cc RevisionContainerConcurrencyType) Validate(ctx context.Context) *apis.F
 // Validate implements apis.Validatable
 func (rs *RevisionStatus) Validate(ctx context.Context) *apis.FieldError {
 	return nil
+}
+
+// ValidateLabels function validates service labels
+func (r *Revision) ValidateLabels() *apis.FieldError {
+	revLabels := r.GetLabels()
+	var errs *apis.FieldError
+LabelLoop:
+	for key, val := range revLabels {
+		if key == serving.RouteLabelKey || key == serving.ServiceLabelKey || key == serving.ConfigurationGenerationLabelKey {
+			continue
+		}
+		if key == serving.ConfigurationLabelKey {
+			for _, ref := range r.GetOwnerReferences() {
+				if ref.Kind == "Configuration" && val == ref.Name {
+					continue LabelLoop
+				}
+			}
+			errs = errs.Also(apis.ErrInvalidValue(val, "").ViaFieldKey("label", key))
+			continue LabelLoop
+		}
+		if strings.HasPrefix(key, serving.GroupName+"/") {
+			errs = errs.Also(apis.ErrInvalidKeyName(key, "label"))
+		}
+	}
+	return errs.ViaField("metadata")
 }

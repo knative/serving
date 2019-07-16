@@ -85,6 +85,107 @@ func TestRevisionValidation(t *testing.T) {
 	}
 }
 
+func TestRevisionLabelValidation(t *testing.T) {
+	validRevisionSpec := RevisionSpec{
+		PodSpec: corev1.PodSpec{
+			Containers: []corev1.Container{{
+				Image: "busybox",
+			}},
+		},
+	}
+	tests := []struct {
+		name string
+		r    *Revision
+		want *apis.FieldError
+	}{{
+		name: "valid route name",
+		r: &Revision{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "byo-name",
+				Labels: map[string]string{
+					"serving.knative.dev/route": "test-route",
+				},
+			},
+			Spec: validRevisionSpec,
+		},
+		want: nil,
+	}, {
+		name: "valid knative service name",
+		r: &Revision{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "byo-name",
+				Labels: map[string]string{
+					"serving.knative.dev/service": "test-svc",
+				},
+			},
+			Spec: validRevisionSpec,
+		},
+		want: nil,
+	}, {
+		name: "valid knative service name",
+		r: &Revision{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "byo-name",
+				Labels: map[string]string{
+					"serving.knative.dev/configurationGeneration": "1234",
+				},
+			},
+			Spec: validRevisionSpec,
+		},
+		want: nil,
+	}, {
+		name: "invalid knative configuration name",
+		r: &Revision{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "byo-name",
+				Labels: map[string]string{
+					"serving.knative.dev/configuration": "absent-cfg",
+				},
+			},
+			Spec: validRevisionSpec,
+		},
+		want: apis.ErrInvalidValue("absent-cfg", "metadata.label.[serving.knative.dev/configuration]"),
+	}, {
+		name: "valid knative configuration name",
+		r: &Revision{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "byo-name",
+				Labels: map[string]string{
+					"serving.knative.dev/configuration": "test-cfg",
+				},
+				OwnerReferences: []metav1.OwnerReference{{
+					APIVersion: "serving.knative.dev/v1alpha1",
+					Kind:       "Configuration",
+					Name:       "test-cfg",
+				}},
+			},
+			Spec: validRevisionSpec,
+		},
+		want: nil,
+	}, {
+		name: "invalid knative label",
+		r: &Revision{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "byo-name",
+				Labels: map[string]string{
+					"serving.knative.dev/testlabel": "value",
+				},
+			},
+			Spec: validRevisionSpec,
+		},
+		want: apis.ErrInvalidKeyName("serving.knative.dev/testlabel", "metadata.label"),
+	}}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			got := test.r.Validate(context.Background())
+			if !cmp.Equal(test.want.Error(), got.Error()) {
+				t.Errorf("Validate (-want, +got) = %v",
+					cmp.Diff(test.want.Error(), got.Error()))
+			}
+		})
+	}
+}
+
 func TestContainerConcurrencyValidation(t *testing.T) {
 	tests := []struct {
 		name string

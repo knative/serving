@@ -158,6 +158,113 @@ func TestConfigurationValidation(t *testing.T) {
 	}
 }
 
+func TestConfigurationLabelValidation(t *testing.T) {
+	validConfigSpec := ConfigurationSpec{
+		Template: RevisionTemplateSpec{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "byo-name-foo",
+			},
+			Spec: RevisionSpec{
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Image: "hellworld",
+					}},
+				},
+			},
+		},
+	}
+	tests := []struct {
+		name string
+		c    *Configuration
+		want *apis.FieldError
+	}{{
+		name: "valid visibility name",
+		c: &Configuration{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "byo-name",
+				Labels: map[string]string{
+					"serving.knative.dev/visibility": "cluster-local",
+				},
+			},
+			Spec: validConfigSpec,
+		},
+		want: nil,
+	}, {
+		name: "invalid visibility name",
+		c: &Configuration{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "byo-name",
+				Labels: map[string]string{
+					"serving.knative.dev/visibility": "bad-value",
+				},
+			},
+			Spec: validConfigSpec,
+		},
+		want: apis.ErrInvalidValue("bad-value", "metadata.label.[serving.knative.dev/visibility]"),
+	}, {
+		name: "valid route name",
+		c: &Configuration{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "byo-name",
+				Labels: map[string]string{
+					"serving.knative.dev/route": "test-route",
+				},
+			},
+			Spec: validConfigSpec,
+		},
+		want: nil,
+	}, {
+		name: "valid knative service name",
+		c: &Configuration{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "byo-name",
+				Labels: map[string]string{
+					"serving.knative.dev/service": "test-svc",
+				},
+				OwnerReferences: []metav1.OwnerReference{{
+					APIVersion: "serving.knative.dev/v1alpha1",
+					Kind:       "Service",
+					Name:       "test-svc",
+				}},
+			},
+			Spec: validConfigSpec,
+		},
+		want: nil,
+	}, {
+		name: "invalid knative service name",
+		c: &Configuration{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "byo-name",
+				Labels: map[string]string{
+					"serving.knative.dev/service": "absent-svc",
+				},
+			},
+			Spec: validConfigSpec,
+		},
+		want: apis.ErrInvalidValue("absent-svc", "metadata.label.[serving.knative.dev/service]"),
+	}, {
+		name: "invalid knative label",
+		c: &Configuration{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "byo-name",
+				Labels: map[string]string{
+					"serving.knative.dev/testlabel": "value",
+				},
+			},
+			Spec: validConfigSpec,
+		},
+		want: apis.ErrInvalidKeyName("serving.knative.dev/testlabel", "metadata.label"),
+	}}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			got := test.c.Validate(context.Background())
+			if !cmp.Equal(test.want.Error(), got.Error()) {
+				t.Errorf("Validate (-want, +got) = %v",
+					cmp.Diff(test.want.Error(), got.Error()))
+			}
+		})
+	}
+}
 func TestImmutableConfigurationFields(t *testing.T) {
 	tests := []struct {
 		name string
