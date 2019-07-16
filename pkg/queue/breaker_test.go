@@ -131,15 +131,21 @@ func TestBreakerCancel(t *testing.T) {
 	cancel1()
 	reqs.expectFailure(t)
 
-	// Let through a request with capacity and cache a request.
+	// Let through a request with capacity.
 	b.UpdateConcurrency(1)
 	reqs.request()
-	reqs.request()
 
-	// This request cannot get capacity.
+	// This request fails due to canceled.
 	ctx2, cancel2 := context.WithCancel(context.Background())
 	reqs.requestWithContext(ctx2)
 	cancel2()
+	reqs.expectFailure(t)
+
+	// This request is cached
+	reqs.request()
+
+	// This request fails due to overflows.
+	reqs.request()
 	reqs.expectFailure(t)
 
 	// The requests that were put in earlier should succeed.
