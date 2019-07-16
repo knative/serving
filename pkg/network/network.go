@@ -60,9 +60,17 @@ const (
 	// that specifies the default ClusterIngress.
 	DefaultClusterIngressClassKey = "clusteringress.class"
 
+	// DefaultCertificateClassKey is the name of the configuration entry
+	// that specifies the default Certificate.
+	DefaultCertificateClassKey = "certificate.class"
+
 	// IstioIngressClassName value for specifying knative's Istio
 	// ClusterIngress reconciler.
 	IstioIngressClassName = "istio.ingress.networking.knative.dev"
+
+	// CertManagerCertificateClassName value for specifying Knative's Cert-Manager
+	// Certificate reconciler.
+	CertManagerCertificateClassName = "cert-manager.certificate.networking.internal.knative.dev"
 
 	// DomainTemplateKey is the name of the configuration entry that
 	// specifies the golang template string to use to construct the
@@ -156,6 +164,9 @@ type Config struct {
 	// HTTPProtocol specifics the behavior of HTTP endpoint of Knative
 	// ingress.
 	HTTPProtocol HTTPProtocol
+
+	// DefaultCertificateClass specifies the default Certificate class.
+	DefaultCertificateClass string
 }
 
 // HTTPProtocol indicates a type of HTTP endpoint behavior
@@ -214,6 +225,11 @@ func NewConfigFromConfigMap(configMap *corev1.ConfigMap) (*Config, error) {
 		nc.DefaultClusterIngressClass = IstioIngressClassName
 	} else {
 		nc.DefaultClusterIngressClass = ingressClass
+	}
+
+	nc.DefaultCertificateClass = CertManagerCertificateClassName
+	if certClass, ok := configMap.Data[DefaultCertificateClassKey]; ok {
+		nc.DefaultCertificateClass = certClass
 	}
 
 	// Blank DomainTemplate makes no sense so use our default

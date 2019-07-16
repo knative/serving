@@ -21,6 +21,8 @@ import (
 	"hash/adler32"
 	"sort"
 
+	"knative.dev/serving/pkg/apis/networking"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/kmeta"
 	networkingv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
@@ -32,7 +34,7 @@ import (
 // domainTagMap is an one-to-one mapping between domain and tag, for major domain (tag-less),
 // the value is an empty string
 // Returns one certificate for each domain
-func MakeCertificates(route *v1alpha1.Route, domainTagMap map[string]string) []*networkingv1alpha1.Certificate {
+func MakeCertificates(route *v1alpha1.Route, domainTagMap map[string]string, certClass string) []*networkingv1alpha1.Certificate {
 	order := make(sort.StringSlice, 0, len(domainTagMap))
 	for dnsName := range domainTagMap {
 		order = append(order, dnsName)
@@ -58,6 +60,9 @@ func MakeCertificates(route *v1alpha1.Route, domainTagMap map[string]string) []*
 				Name:            certName,
 				Namespace:       route.Namespace,
 				OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(route)},
+				Annotations: map[string]string{
+					networking.CertificateClassAnnotationKey: certClass,
+				},
 			},
 			Spec: networkingv1alpha1.CertificateSpec{
 				DNSNames:   []string{dnsName},

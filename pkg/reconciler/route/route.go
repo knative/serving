@@ -146,6 +146,13 @@ func ingressClassForRoute(ctx context.Context, r *v1alpha1.Route) string {
 	return config.FromContext(ctx).Network.DefaultClusterIngressClass
 }
 
+func certClass(ctx context.Context, r *v1alpha1.Route) string {
+	if class := r.Annotations[networking.CertificateClassAnnotationKey]; class != "" {
+		return class
+	}
+	return config.FromContext(ctx).Network.DefaultCertificateClass
+}
+
 func (c *Reconciler) getServices(route *v1alpha1.Route) ([]*corev1.Service, error) {
 	currentServices, err := c.serviceLister.Services(route.Namespace).List(resources.SelectorFromRoute(route))
 	if err != nil {
@@ -306,7 +313,7 @@ func (c *Reconciler) tls(ctx context.Context, host string, r *v1alpha1.Route, tr
 		}
 	}
 
-	desiredCerts := resources.MakeCertificates(r, tagToDomainMap)
+	desiredCerts := resources.MakeCertificates(r, tagToDomainMap, certClass(ctx, r))
 	for _, desiredCert := range desiredCerts {
 
 		cert, err := c.reconcileCertificate(ctx, r, desiredCert)
