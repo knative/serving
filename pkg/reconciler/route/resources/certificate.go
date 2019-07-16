@@ -61,9 +61,10 @@ func MakeCertificates(route *v1alpha1.Route, domainTagMap map[string]string, cer
 				Name:            certName,
 				Namespace:       route.Namespace,
 				OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(route)},
-				Annotations: resources.UnionMaps(map[string]string{
-					networking.CertificateClassAnnotationKey: certClass,
-				}, route.ObjectMeta.Annotations),
+				Annotations: resources.UnionMaps(route.ObjectMeta.Annotations,
+					map[string]string{
+						networking.CertificateClassAnnotationKey: certClass,
+					}),
 			},
 			Spec: networkingv1alpha1.CertificateSpec{
 				DNSNames:   []string{dnsName},
