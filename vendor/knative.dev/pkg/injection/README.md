@@ -147,8 +147,8 @@ func TestFoo(t *testing.T) {
 ## Starting controllers
 
 All we do is import the controller packages and pass their constructors along
-with a component name to our shared main. Then our shared main method sets it
-all up and runs our controllers.
+with a component name (single word) to our shared main. Then our shared main
+method sets it all up and runs our controllers.
 
 ```go
 package main
@@ -163,7 +163,7 @@ import (
 )
 
 func main() {
-	sharedmain.Main("component-name",
+	sharedmain.Main("componentname",
        bar.NewController,
        blah.NewController,
     )

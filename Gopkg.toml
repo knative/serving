@@ -73,12 +73,6 @@ required = [
   name = "github.com/kelseyhightower/envconfig"
   version = "v1.4.0"
 
-[[override]]
-  name = "contrib.go.opencensus.io/exporter/stackdriver"
-  # HEAD as of 2019-02-11
-  # Needed because this includes a fix to support Stackdriver built-in metrics
-  revision = "c06c82c832edca4eaf7b0241bd655560a1be0346"
-
 # Added for the custom-metrics-apiserver specifically
 [[override]]
   name = "github.com/kubernetes-incubator/custom-metrics-apiserver"
@@ -95,10 +89,6 @@ required = [
 [[override]]
   name = "bitbucket.org/ww/goautoneg"
   source = "github.com/munnerz/goautoneg"
-
-[[constraint]]
-  name = "go.opencensus.io"
-  version = "v0.20.2"
 
 [prune]
   go-tests = true
@@ -123,3 +113,34 @@ required = [
   name = "knative.dev/caching"
   unused-packages = false
   non-go = false
+
+
+# The dependencies below are required for opencensus.
+[[override]]
+  name = "google.golang.org/genproto"
+  revision = "357c62f0e4bbba7e6cc403ae09edcf3e2b9028fe"
+
+[[override]]
+  name = "contrib.go.opencensus.io/exporter/stackdriver"
+  version = "0.12.2"
+
+[[override]]
+  name = "contrib.go.opencensus.io/exporter/prometheus"
+  version = "0.1.0"
+
+[[override]]
+  name = "contrib.go.opencensus.io/exporter/zipkin"
+  version = "0.1.1"
+
+[[constraint]]
+  name = "go.opencensus.io"
+  version = "0.22.0"
+
+[[override]]
+  name = "github.com/census-instrumentation/opencensus-proto"
+  version = "0.2.0"
+
+[[override]]
+  name="github.com/golang/protobuf"
+  version = "1.3.2"
+

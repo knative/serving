@@ -111,14 +111,26 @@ func (r *ShortDiffReporter) Report(rs cmp.Result) {
 	t := cur.Type()
 	var diff string
 	// Prefix struct values with the types to add clarity in output
-	if !vx.IsValid() || !vy.IsValid() {
+	if !vx.IsValid() && !vy.IsValid() {
 		r.err = fmt.Errorf("Unable to diff %+v and %+v on path %#v", vx, vy, r.path)
-	} else if t.Kind() == reflect.Struct {
-		diff = fmt.Sprintf("%#v:\n\t-: %+v: \"%+v\"\n\t+: %+v: \"%+v\"\n", r.path, t, vx, t, vy)
 	} else {
-		diff = fmt.Sprintf("%#v:\n\t-: \"%+v\"\n\t+: \"%+v\"\n", r.path, vx, vy)
+		diff = fmt.Sprintf("%#v:\n", r.path)
+		if vx.IsValid() {
+			diff += r.diffString("-", t, vx)
+		}
+		if vy.IsValid() {
+			diff += r.diffString("+", t, vy)
+		}
 	}
 	r.diffs = append(r.diffs, diff)
+}
+
+func (r *ShortDiffReporter) diffString(diffType string, t reflect.Type, v reflect.Value) string {
+	if t.Kind() == reflect.Struct {
+		return fmt.Sprintf("\t%s: %+v: \"%+v\"\n", diffType, t, v)
+	} else {
+		return fmt.Sprintf("\t%s: \"%+v\"\n", diffType, v)
+	}
 }
 
 // PopStep implements the cmp.Reporter.
