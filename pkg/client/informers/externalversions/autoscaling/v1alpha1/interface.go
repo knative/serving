@@ -24,6 +24,8 @@ import (
 
 // Interface provides access to all the informers in this group version.
 type Interface interface {
+	// Metrics returns a MetricInformer.
+	Metrics() MetricInformer
 	// PodAutoscalers returns a PodAutoscalerInformer.
 	PodAutoscalers() PodAutoscalerInformer
 }
@@ -37,6 +39,11 @@ type version struct {
 // New returns a new Interface.
 func New(f internalinterfaces.SharedInformerFactory, namespace string, tweakListOptions internalinterfaces.TweakListOptionsFunc) Interface {
 	return &version{factory: f, namespace: namespace, tweakListOptions: tweakListOptions}
+}
+
+// Metrics returns a MetricInformer.
+func (v *version) Metrics() MetricInformer {
+	return &metricInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }
 
 // PodAutoscalers returns a PodAutoscalerInformer.

@@ -56,6 +56,8 @@ func (f *genericInformer) Lister() cache.GenericLister {
 func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource) (GenericInformer, error) {
 	switch resource {
 	// Group=autoscaling.internal.knative.dev, Version=v1alpha1
+	case v1alpha1.SchemeGroupVersion.WithResource("metrics"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Autoscaling().V1alpha1().Metrics().Informer()}, nil
 	case v1alpha1.SchemeGroupVersion.WithResource("podautoscalers"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Autoscaling().V1alpha1().PodAutoscalers().Informer()}, nil
 

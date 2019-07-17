@@ -485,17 +485,17 @@ type testMetrics struct {
 	deleteCallCount    *atomic.Uint32
 	updateCallCount    *atomic.Uint32
 	deleteBeforeCreate *atomic.Bool
-	metric             *autoscaler.Metric
+	metric             *asv1a1.Metric
 }
 
-func (km *testMetrics) Get(ctx context.Context, namespace, name string) (*autoscaler.Metric, error) {
+func (km *testMetrics) Get(ctx context.Context, namespace, name string) (*asv1a1.Metric, error) {
 	if km.metric == nil {
 		return nil, apierrors.NewNotFound(asv1a1.Resource("Metric"), autoscaler.NewMetricKey(namespace, name))
 	}
 	return km.metric, nil
 }
 
-func (km *testMetrics) Create(ctx context.Context, metric *autoscaler.Metric) (*autoscaler.Metric, error) {
+func (km *testMetrics) Create(ctx context.Context, metric *asv1a1.Metric) (*asv1a1.Metric, error) {
 	km.metric = metric
 	km.createCallCount.Add(1)
 	return metric, nil
@@ -510,7 +510,7 @@ func (km *testMetrics) Delete(ctx context.Context, namespace, name string) error
 	return nil
 }
 
-func (km *testMetrics) Update(ctx context.Context, metric *autoscaler.Metric) (*autoscaler.Metric, error) {
+func (km *testMetrics) Update(ctx context.Context, metric *asv1a1.Metric) (*asv1a1.Metric, error) {
 	km.metric = metric
 	km.updateCallCount.Add(1)
 	return metric, nil
