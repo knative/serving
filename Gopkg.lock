@@ -29,6 +29,14 @@
   version = "v0.34.0"
 
 [[projects]]
+  digest = "1:642cf8e80572f9dc0677b0f241c8ab2e715c9dccc215270ea873c86ddca0062c"
+  name = "contrib.go.opencensus.io/exporter/prometheus"
+  packages = ["."]
+  pruneopts = "NUT"
+  revision = "f4a2c1e53ec45636355d35fb9022b64e4bdd4a91"
+  version = "v0.1.0"
+
+[[projects]]
   digest = "1:b6eb7c2538ec2999a072c0e372a18d7b7e3aedac249f26e159586fa5f892909f"
   name = "contrib.go.opencensus.io/exporter/stackdriver"
   packages = [
@@ -596,7 +604,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:7b19f4701b58045cd625b893d12e5350b3c4d3df4c61d013c32d07d67726ed50"
+  digest = "1:13b204981c91abdcc5a16ec5aafe61096565db898b2aea4487d8bca6f403d5f5"
   name = "github.com/knative/test-infra"
   packages = [
     "scripts",
@@ -616,7 +624,7 @@
     "tools/webhook-apicoverage/webhook",
   ]
   pruneopts = "UT"
-  revision = "bf05b82bcaaf2e7516d0b2edfc96fc904813bcf2"
+  revision = "81861c7c2060af68e3dbdc72bcd3a2f0584566d2"
 
 [[projects]]
   digest = "1:58999a98719fddbac6303cb17e8d85b945f60b72f48e3a2df6b950b97fa926f1"
@@ -854,15 +862,15 @@
   revision = "28707121bb7840461a563aabcb510a9636e5c5a1"
 
 [[projects]]
-  digest = "1:b8baa7541ef444be218da02d3a7b607d33513263660e489d86d429afbffcdd86"
+  digest = "1:3b0ac528d81dc47546796b95d6e9ab9d10471538a75a04317da9a59f1d515b97"
   name = "go.opencensus.io"
   packages = [
     ".",
-    "exporter/prometheus",
     "exporter/zipkin",
     "internal",
     "internal/tagencoding",
     "metric/metricdata",
+    "metric/metricexport",
     "metric/metricproducer",
     "plugin/ocgrpc",
     "plugin/ochttp",
@@ -1630,7 +1638,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:30493fd8862d24c39a5ad2c8799967de1aa9ce27913ad4ae8067909a1c11dfe0"
+  digest = "1:0e65c9800a541bc5213ec52719f57c2316a889d1e544a0613e7fcbfc84b695e1"
   name = "knative.dev/caching"
   packages = [
     "pkg/apis/caching",
@@ -1653,11 +1661,11 @@
     "pkg/client/listers/caching/v1alpha1",
   ]
   pruneopts = "T"
-  revision = "77d253c889d96753ba0a8b2f3e466b06f26f11c5"
+  revision = "194ab5436211061640c3d52d8c2fb431efcb8276"
 
 [[projects]]
   branch = "master"
-  digest = "1:45a635362a586b2729559eceffcc1ba62dd3f79c0fbb2a666b6f4410f46515ab"
+  digest = "1:839426434a9863272c181b8a0a4ec81860420a9b7ace6447f6e0cb5765e81792"
   name = "knative.dev/pkg"
   packages = [
     "apis",
@@ -1748,7 +1756,7 @@
     "websocket",
   ]
   pruneopts = "T"
-  revision = "76da19bbc6f409dba9017f60003560e03aeff6e7"
+  revision = "7a85e28f40120b4c632c0e7965fcbc768a52478c"
 
 [solve-meta]
   analyzer-name = "dep"
