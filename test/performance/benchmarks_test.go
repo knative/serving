@@ -121,11 +121,10 @@ func runTest(t *testing.T, pacer vegeta.Pacer, saveMetrics bool) {
 func TestBenchmarkSteadyTraffic(t *testing.T) {
 	for _, load := range loads {
 		t.Run(fmt.Sprintf("N%d", load), func(t *testing.T) {
-			zeroToNSteadyPacer := vegeta.SinePacer{
-				Period:  4 * duration,
-				Mean:    vegeta.Rate{Freq: load, Per: time.Second},
-				Amp:     vegeta.Rate{Freq: load - 1, Per: time.Second},
-				StartAt: vegeta.Trough,
+			zeroToNSteadyPacer := SteadyUpPacer{
+				Min:        vegeta.Rate{Freq: 1, Per: time.Second},
+				Max:        vegeta.Rate{Freq: load, Per: time.Second},
+				UpDuration: 0.5 * duration,
 			}
 			runTest(t, zeroToNSteadyPacer, true)
 		})
@@ -147,11 +146,10 @@ func TestBenchmarkBurstNto2N(t *testing.T) {
 	for _, load := range loads {
 		t.Run(fmt.Sprintf("N%d", load), func(t *testing.T) {
 			// Steady ramp up from 0 to N, then burst to 2N
-			zeroToNSteadyPacer := vegeta.SinePacer{
-				Period:  4 * duration,
-				Mean:    vegeta.Rate{Freq: load, Per: time.Second},
-				Amp:     vegeta.Rate{Freq: load - 1, Per: time.Second},
-				StartAt: vegeta.Trough,
+			zeroToNSteadyPacer := SteadyUpPacer{
+				Min:        vegeta.Rate{Freq: 1, Per: time.Second},
+				Max:        vegeta.Rate{Freq: load, Per: time.Second},
+				UpDuration: duration,
 			}
 			runTest(t, zeroToNSteadyPacer, false)
 
