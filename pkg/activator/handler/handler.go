@@ -19,6 +19,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -317,7 +318,7 @@ func (a *activationHandler) serviceHostName(rev *v1alpha1.Revision, serviceName 
 
 	// Use the ClusterIP directly to elide DNS lookup, which both adds latency
 	// and hurts reliability when routing through the activator.
-	return svc.Spec.ClusterIP + ":" + strconv.Itoa(port), nil
+	return net.JoinHostPort(svc.Spec.ClusterIP, strconv.Itoa(port)), nil
 }
 
 func sendError(err error, w http.ResponseWriter) {
