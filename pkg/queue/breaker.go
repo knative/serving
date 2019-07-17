@@ -86,12 +86,10 @@ func (b *Breaker) Maybe(ctx context.Context, thunk func()) bool {
 			return false
 		}
 		// Defer releasing capacity in the active.
-		defer func() {
-			// It's safe to ignore the error returned by release since we
-			// make sure the semaphore is only manipulated here and acquire
-			// + release calls are equally paired.
-			b.sem.release()
-		}()
+		// It's safe to ignore the error returned by release since we
+		// make sure the semaphore is only manipulated here and acquire
+		// + release calls are equally paired.
+		defer b.sem.release()
 
 		// Do the thing.
 		thunk()

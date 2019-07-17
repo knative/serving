@@ -131,21 +131,27 @@ func TestBreakerCancel(t *testing.T) {
 	cancel1()
 	reqs.expectFailure(t)
 
-	// Let through a request with capacity.
-	b.UpdateConcurrency(1)
-	reqs.request()
-
-	// This request fails due to canceled.
+	// This request cannot get capacity either. This reproduced a bug we had when
+	// freeing slots on the pendingRequests channel.
 	ctx2, cancel2 := context.WithCancel(context.Background())
 	reqs.requestWithContext(ctx2)
 	cancel2()
 	reqs.expectFailure(t)
 
-	// This request is cached
+	// Let through a request with capacity then timeout following request
+	b.UpdateConcurrency(1)
 	reqs.request()
 
-	// This request fails due to overflows.
+	// Exceed capacity and assert one failure. This makes sure the Breaker is consistently
+	// at capacity.
 	reqs.request()
+	reqs.request()
+	reqs.expectFailure(t)
+
+	// This request cannot get capacity.
+	ctx3, cancel3 := context.WithCancel(context.Background())
+	reqs.requestWithContext(ctx3)
+	cancel3()
 	reqs.expectFailure(t)
 
 	// The requests that were put in earlier should succeed.
