@@ -21,6 +21,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"math"
 	"net/http"
 	"os"
 	"strconv"
@@ -79,7 +80,9 @@ const (
 
 	// The upper bound for concurrent requests sent to the revision.
 	// As new endpoints show up, the Breakers concurrency increases up to this value.
-	breakerMaxConcurrency = 1000
+	// NB: current implementation of Breaker uses a `chan struct{}` which consumes 0 additional
+	// memory per entry, hence it's free.
+	breakerMaxConcurrency = int(math.MaxInt32 - 1)
 
 	// The port on which autoscaler WebSocket server listens.
 	autoscalerPort = ":8080"
