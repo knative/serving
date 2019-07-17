@@ -221,6 +221,13 @@ func MakeDeployment(rev *v1alpha1.Revision,
 		}
 	}
 
+	podSpec := makePodSpec(rev, loggingConfig, observabilityConfig, autoscalerConfig, deploymentConfig)
+	if _, ok := podTemplateAnnotations[istioIncludeInboundPortsAnnotation]; !ok {
+		queuePort := queueServingPort(rev.GetProtocol())
+		// Only intercept the serving port.
+		podTemplateAnnotations[istioIncludeInboundPortsAnnotation] = strconv.Itoa(int(queuePort.ContainerPort))
+	}
+
 	return &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      names.Deployment(rev),
@@ -241,7 +248,7 @@ func MakeDeployment(rev *v1alpha1.Revision,
 					Labels:      makeLabels(rev),
 					Annotations: podTemplateAnnotations,
 				},
-				Spec: *makePodSpec(rev, loggingConfig, observabilityConfig, autoscalerConfig, deploymentConfig),
+				Spec: *podSpec,
 			},
 		},
 	}

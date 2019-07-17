@@ -29,6 +29,8 @@ const (
 	// TODO(mattmoor): Make this private once we remove revision_test.go
 	IstioOutboundIPRangeAnnotation = "traffic.sidecar.istio.io/includeOutboundIPRanges"
 
+	istioIncludeInboundPortsAnnotation = "traffic.sidecar.istio.io/includeInboundPorts"
+
 	// AppLabelKey is the label defining the application's name.
 	AppLabelKey = "app"
 

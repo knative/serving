@@ -191,6 +191,14 @@ func makeQueueProbe(in *corev1.Probe) *corev1.Probe {
 	}
 }
 
+func queueServingPort(protocol networking.ProtocolType) corev1.ContainerPort {
+	if protocol == networking.ProtocolH2C {
+		return queueHTTP2Port
+	} else {
+		return queueHTTPPort
+	}
+}
+
 // makeQueueContainer creates the container spec for the queue sidecar.
 func makeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, observabilityConfig *metrics.ObservabilityConfig,
 	autoscalerConfig *autoscaler.Config, deploymentConfig *deployment.Config) *corev1.Container {
@@ -214,12 +222,7 @@ func makeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, o
 
 	// We need to configure only one serving port for the Queue proxy, since
 	// we know the protocol that is being used by this application.
-	ports := queueNonServingPorts
-	if rev.GetProtocol() == networking.ProtocolH2C {
-		ports = append(ports, queueHTTP2Port)
-	} else {
-		ports = append(ports, queueHTTPPort)
-	}
+	ports := append(queueNonServingPorts, queueServingPort(rev.GetProtocol()))
 
 	var volumeMounts []corev1.VolumeMount
 	if observabilityConfig.EnableVarLogCollection {

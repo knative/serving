@@ -189,7 +189,8 @@ var (
 						AppLabelKey:              "bar",
 					},
 					Annotations: map[string]string{
-						sidecarIstioInjectAnnotation: "true",
+						sidecarIstioInjectAnnotation:       "true",
+						istioIncludeInboundPortsAnnotation: "8012",
 					},
 				},
 				// Spec: filled in by makePodSpec
@@ -259,12 +260,6 @@ func withEnvVar(name, value string) containerOption {
 	}
 }
 
-func withArgs(args []string) containerOption {
-	return func(container *corev1.Container) {
-		container.Args = append(container.Args, args...)
-	}
-}
-
 func withInternalVolumeMount() containerOption {
 	return func(container *corev1.Container) {
 		container.VolumeMounts = append(container.VolumeMounts, internalVolumeMount)
@@ -284,19 +279,6 @@ func withHTTPReadinessProbe(port int) containerOption {
 			Path: "/",
 		},
 	})
-}
-
-func withHTTPQPReadinessProbe(c *corev1.Container) {
-	withReadinessProbe(corev1.Handler{
-		HTTPGet: &corev1.HTTPGetAction{
-			Port: intstr.FromInt(networking.BackendHTTPPort),
-			Path: "/",
-			HTTPHeaders: []corev1.HTTPHeader{{
-				Name:  network.KubeletProbeHeaderName,
-				Value: "queue",
-			}},
-		},
-	})(c)
 }
 
 func withExecReadinessProbe(command []string) containerOption {
@@ -844,6 +826,41 @@ func TestMakeDeployment(t *testing.T) {
 		want: makeDeployment(func(deploy *appsv1.Deployment) {
 			deploy.ObjectMeta.Annotations[IstioOutboundIPRangeAnnotation] = "10.4.0.0/14,10.7.240.0/20"
 			deploy.Spec.Template.ObjectMeta.Annotations[IstioOutboundIPRangeAnnotation] = "10.4.0.0/14,10.7.240.0/20"
+		}),
+	}, {
+		name: "with inbound ports override",
+		rev: revision(
+			withoutLabels,
+			func(revision *v1alpha1.Revision) {
+				revision.ObjectMeta.Annotations = map[string]string{
+					istioIncludeInboundPortsAnnotation: "1337",
+				}
+			},
+		),
+		lc: &logging.Config{},
+		nc: &network.Config{},
+		oc: &metrics.ObservabilityConfig{},
+		ac: &autoscaler.Config{},
+		cc: &deployment.Config{},
+		want: makeDeployment(func(deploy *appsv1.Deployment) {
+			deploy.ObjectMeta.Annotations[istioIncludeInboundPortsAnnotation] = "1337"
+			deploy.Spec.Template.ObjectMeta.Annotations[istioIncludeInboundPortsAnnotation] = "1337"
+		}),
+	}, {
+		name: "with h2c port",
+		rev: revision(
+			withoutLabels,
+			func(revision *v1alpha1.Revision) {
+				revision.Spec.GetContainer().Ports = []corev1.ContainerPort{{Name: "h2c"}}
+			},
+		),
+		lc: &logging.Config{},
+		nc: &network.Config{},
+		oc: &metrics.ObservabilityConfig{},
+		ac: &autoscaler.Config{},
+		cc: &deployment.Config{},
+		want: makeDeployment(func(deploy *appsv1.Deployment) {
+			deploy.Spec.Template.ObjectMeta.Annotations[istioIncludeInboundPortsAnnotation] = "8013"
 		}),
 	}}
 
