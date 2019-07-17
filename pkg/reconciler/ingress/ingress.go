@@ -270,7 +270,7 @@ func (r *BaseIngressReconciler) reconcileIngress(ctx context.Context, ra Reconci
 	ia.GetStatus().MarkLoadBalancerReady(lbs, publicLbs, privateLbs)
 	ia.GetStatus().ObservedGeneration = ia.GetGeneration()
 
-	if enablesAutoTLS(ctx) {
+	if enableReconcileGateway(ctx) {
 		if !ia.IsPublic() {
 			logger.Infof("Ingress %s is not public. So no need to configure TLS.", ia.GetName())
 			return nil
@@ -600,6 +600,6 @@ func getLBStatus(gatewayServiceURL string) []v1alpha1.LoadBalancerIngressStatus 
 	}
 }
 
-func enablesAutoTLS(ctx context.Context) bool {
-	return config.FromContext(ctx).Network.AutoTLS
+func enableReconcileGateway(ctx context.Context) bool {
+	return config.FromContext(ctx).Network.AutoTLS || config.FromContext(ctx).Istio.ReconcileExternalGateway
 }

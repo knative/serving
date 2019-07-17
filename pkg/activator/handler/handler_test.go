@@ -324,7 +324,7 @@ func TestActivationHandler(t *testing.T) {
 			// Setup transports.
 			rt := network.RoundTripperFunc(fakeRt.RT)
 			handler.transport = rt
-			handler.probeTransportFactory = rtFact(rt)
+			handler.probeTransport = rt
 
 			if test.sksLister != nil {
 				handler.sksLister = test.sksLister
@@ -384,7 +384,7 @@ func TestActivationHandlerProbeCaching(t *testing.T) {
 
 	// Setup transports.
 	handler.transport = rt
-	handler.probeTransportFactory = rtFact(rt)
+	handler.probeTransport = rt
 
 	sendRequest(namespace, revName, handler)
 	if fakeRT.NumProbes != 1 {
@@ -449,7 +449,7 @@ func TestActivationHandlerOverflow(t *testing.T) {
 
 	// Setup transports.
 	handler.transport = rt
-	handler.probeTransportFactory = rtFact(rt)
+	handler.probeTransport = rt
 
 	sendRequests(requests, namespace, revName, respCh, handler)
 	assertResponses(wantedSuccess, wantedFailure, requests, lockerCh, respCh, t)
@@ -493,7 +493,7 @@ func TestActivationHandlerOverflowSeveralRevisions(t *testing.T) {
 
 	// Setup transports.
 	handler.transport = rt
-	handler.probeTransportFactory = rtFact(rt)
+	handler.probeTransport = rt
 
 	for _, revName := range revisions {
 		requestCount := overallRequests / len(revisions)
@@ -534,15 +534,15 @@ func TestActivationHandlerProxyHeader(t *testing.T) {
 	probeRt := network.RoundTripperFunc(fakeRT.RT)
 
 	handler := &activationHandler{
-		transport:             rt,
-		probeTransportFactory: rtFact(probeRt),
-		logger:                TestLogger(t),
-		reporter:              &fakeReporter{},
-		throttler:             throttler,
-		revisionLister:        revisionLister(revision(testNamespace, testRevName)),
-		serviceLister:         serviceLister(service(testNamespace, testRevName, "http")),
-		sksLister:             sksLister(sks(testNamespace, testRevName)),
-		cache:                 newProbeCache(),
+		transport:      rt,
+		probeTransport: probeRt,
+		logger:         TestLogger(t),
+		reporter:       &fakeReporter{},
+		throttler:      throttler,
+		revisionLister: revisionLister(revision(testNamespace, testRevName)),
+		serviceLister:  serviceLister(service(testNamespace, testRevName, "http")),
+		sksLister:      sksLister(sks(testNamespace, testRevName)),
+		cache:          newProbeCache(),
 	}
 
 	writer := httptest.NewRecorder()
@@ -601,18 +601,18 @@ func TestActivationHandlerTraceSpans(t *testing.T) {
 		TestLogger(t))
 
 	handler := &activationHandler{
-		transport:             rt,
-		probeTransportFactory: rtFact(rt),
-		logger:                TestLogger(t),
-		reporter:              &fakeReporter{},
-		throttler:             throttler,
-		revisionLister:        revisionLister(revision(testNamespace, testRevName)),
-		serviceLister:         serviceLister(service(testNamespace, testRevName, "http")),
-		sksLister:             sksLister(sks(testNamespace, testRevName)),
-		cache:                 newProbeCache(),
+		transport:      rt,
+		probeTransport: rt,
+		logger:         TestLogger(t),
+		reporter:       &fakeReporter{},
+		throttler:      throttler,
+		revisionLister: revisionLister(revision(testNamespace, testRevName)),
+		serviceLister:  serviceLister(service(testNamespace, testRevName, "http")),
+		sksLister:      sksLister(sks(testNamespace, testRevName)),
+		cache:          newProbeCache(),
 	}
 	handler.transport = rt
-	handler.probeTransportFactory = rtFact(rt)
+	handler.probeTransport = rt
 
 	_ = sendRequest(namespace, revName, handler)
 
@@ -882,12 +882,6 @@ func endpointsInformer(eps ...*corev1.Endpoints) corev1informers.EndpointsInform
 
 func errMsg(msg string) string {
 	return fmt.Sprintf("Error getting active endpoint: %v\n", msg)
-}
-
-func rtFact(rt http.RoundTripper) func() http.RoundTripper {
-	return func() http.RoundTripper {
-		return rt
-	}
 }
 
 func TestProbeCache(t *testing.T) {

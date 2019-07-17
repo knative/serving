@@ -19,7 +19,10 @@ package v1alpha1
 import (
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"knative.dev/pkg/ptr"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving/v1beta1"
 )
@@ -102,5 +105,20 @@ func WithConfigLabel(key, value string) ConfigOption {
 			config.Labels = make(map[string]string)
 		}
 		config.Labels[key] = value
+	}
+}
+
+// WithConfigReadinessProbe sets the provided probe to be the readiness
+// probe on the configuration.
+func WithConfigReadinessProbe(p *corev1.Probe) ConfigOption {
+	return func(cfg *v1alpha1.Configuration) {
+		cfg.Spec.Template.Spec.Containers[0].ReadinessProbe = p
+	}
+}
+
+// WithConfigRevisionTimeoutSeconds sets revision timeout.
+func WithConfigRevisionTimeoutSeconds(revisionTimeoutSeconds int64) ConfigOption {
+	return func(cfg *v1alpha1.Configuration) {
+		cfg.Spec.Template.Spec.TimeoutSeconds = ptr.Int64(revisionTimeoutSeconds)
 	}
 }

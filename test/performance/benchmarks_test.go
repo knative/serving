@@ -64,7 +64,7 @@ func runTest(t *testing.T, img string, baseQPS float64, loadFactors []float64) {
 	test.CleanupOnInterrupt(func() { TearDown(perfClients, names, t.Logf) })
 
 	t.Log("Creating a new Service")
-	objs, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, &v1a1test.Options{})
+	objs, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, )
 	if err != nil {
 		t.Fatalf("Failed to create Service: %v", err)
 	}
@@ -86,9 +86,12 @@ func runTest(t *testing.T, img string, baseQPS float64, loadFactors []float64) {
 	}
 
 	opts := loadgenerator.GeneratorOptions{
-		Duration:       duration,
-		NumThreads:     1,
-		NumConnections: 5,
+		Duration: duration,
+		// Use the same number of threads as the QPS to send the requests
+		NumThreads: int(baseQPS),
+		// Use the same number of connections as the QPS to avoid TIME_OUT state sockets, see
+		// http://tleyden.github.io/blog/2016/11/21/tuning-the-go-http-client-library-for-load-testing/
+		NumConnections: int(baseQPS),
 		Domain:         domain,
 		URL:            fmt.Sprintf("http://%s", *endpoint),
 		RequestTimeout: reqTimeout,
@@ -108,17 +111,15 @@ func runTest(t *testing.T, img string, baseQPS float64, loadFactors []float64) {
 		t.Fatal("No result found for the load test")
 	}
 
-	if resp.ErrorsPercentage(0) > 0 {
-		t.Fatal("Found non 200 response")
-	}
-
-	// Add latency metrics
 	var tc []junit.TestCase
+	// Add latency metrics
 	for _, p := range resp.Result[0].DurationHistogram.Percentiles {
 		val := float32(p.Value) * 1000
 		name := fmt.Sprintf("p%d(ms)", int(p.Percentile))
 		tc = append(tc, perf.CreatePerfTestCase(val, name, tName))
 	}
+	// Add errorsPercentage metrics
+	tc = append(tc, perf.CreatePerfTestCase(float32(resp.ErrorsPercentageOverall()), "errorsPercentage", tName))
 
 	if err = testgrid.CreateXMLOutput(tc, filename(tName)); err != nil {
 		t.Fatalf("Cannot create output xml: %v", err)

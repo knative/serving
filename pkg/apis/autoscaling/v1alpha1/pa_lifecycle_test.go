@@ -473,30 +473,9 @@ func TestTargetAnnotation(t *testing.T) {
 		wantTarget: 19.82,
 		wantOk:     true,
 	}, {
-		name: "invalid zero",
-		pa: pa(map[string]string{
-			autoscaling.TargetAnnotationKey: "0",
-		}),
-		wantTarget: 0,
-		wantOk:     false,
-	}, {
 		name: "invalid format",
 		pa: pa(map[string]string{
 			autoscaling.TargetAnnotationKey: "sandwich",
-		}),
-		wantTarget: 0,
-		wantOk:     false,
-	}, {
-		name: "invalid negative",
-		pa: pa(map[string]string{
-			autoscaling.TargetAnnotationKey: "-1",
-		}),
-		wantTarget: 0,
-		wantOk:     false,
-	}, {
-		name: "invalid overflow int32",
-		pa: pa(map[string]string{
-			autoscaling.TargetAnnotationKey: "100000000000000000000",
 		}),
 		wantTarget: 0,
 		wantOk:     false,

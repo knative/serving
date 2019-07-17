@@ -63,6 +63,12 @@ func validateFloats(annotations map[string]string) *apis.FieldError {
 		}
 	}
 
+	if v, ok := annotations[TargetAnnotationKey]; ok {
+		if fv, err := strconv.ParseFloat(v, 64); err != nil || fv < TargetMin {
+			errs = errs.Also(apis.ErrInvalidValue(v, TargetAnnotationKey))
+		}
+	}
+
 	if v, ok := annotations[TargetUtilizationPercentageKey]; ok {
 		if fv, err := strconv.ParseFloat(v, 64); err != nil {
 			errs = errs.Also(apis.ErrInvalidValue(v, TargetUtilizationPercentageKey))

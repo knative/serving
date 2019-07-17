@@ -98,12 +98,10 @@ type Done func(arg interface{}, success bool, err error)
 // probe for the same key.
 type Manager struct {
 	cb Done
-	// NB: it is paramount to use factory here, since we need a fresh roundtripper
-	// for every request. The way K8s Services work is that they won't terminate
-	// the TCP connection while the backend is still alive, and we won't scale it
-	// to zero, until we receive an activator response. Without mesh the connection
-	// is never severed and we continue probing the pod.
-	transportFactory TransportFactory
+	// NB: it is paramount to use a transport that will close the connection
+	// after every request here. Otherwise the cached connections will prohibit
+	// scaling to zero, due to unsuccessful probes to the Activator.
+	transport http.RoundTripper
 
 	// mu guards keys.
 	mu   sync.Mutex
@@ -112,11 +110,11 @@ type Manager struct {
 
 // New creates a new Manager, that will invoke the given callback when
 // async probing is finished.
-func New(cb Done, transportFactory TransportFactory) *Manager {
+func New(cb Done, transport http.RoundTripper) *Manager {
 	return &Manager{
-		keys:             sets.NewString(),
-		cb:               cb,
-		transportFactory: transportFactory,
+		keys:      sets.NewString(),
+		cb:        cb,
+		transport: transport,
 	}
 }
 
@@ -133,12 +131,12 @@ func (m *Manager) Offer(ctx context.Context, target string, arg interface{}, per
 		return false
 	}
 	m.keys.Insert(target)
-	m.doAsync(ctx, m.transportFactory, target, arg, period, timeout, ops...)
+	m.doAsync(ctx, target, arg, period, timeout, ops...)
 	return true
 }
 
 // doAsync starts a go routine that probes the target with given period.
-func (m *Manager) doAsync(ctx context.Context, transportFactory TransportFactory, target string, arg interface{}, period, timeout time.Duration, ops ...interface{}) {
+func (m *Manager) doAsync(ctx context.Context, target string, arg interface{}, period, timeout time.Duration, ops ...interface{}) {
 	go func() {
 		defer func() {
 			m.mu.Lock()
@@ -151,7 +149,7 @@ func (m *Manager) doAsync(ctx context.Context, transportFactory TransportFactory
 		)
 
 		err = wait.PollImmediate(period, timeout, func() (bool, error) {
-			result, err = Do(ctx, transportFactory(), target, ops...)
+			result, err = Do(ctx, m.transport, target, ops...)
 			return result, err
 		})
 		m.cb(arg, result, err)

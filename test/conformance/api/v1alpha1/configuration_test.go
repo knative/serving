@@ -41,7 +41,7 @@ func TestUpdateConfigurationMetadata(t *testing.T) {
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 
 	t.Logf("Creating new configuration %s", names.Config)
-	if _, err := v1a1test.CreateConfiguration(t, clients, names, &v1a1test.Options{}); err != nil {
+	if _, err := v1a1test.CreateConfiguration(t, clients, names); err != nil {
 		t.Fatalf("Failed to create configuration %s", names.Config)
 	}
 

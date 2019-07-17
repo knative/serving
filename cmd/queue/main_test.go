@@ -30,8 +30,6 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
-
-	logtesting "knative.dev/pkg/logging/testing"
 	"knative.dev/serving/pkg/activator"
 	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/queue"
@@ -70,7 +68,7 @@ func TestHandlerReqEvent(t *testing.T) {
 	params := queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}
 	breaker := queue.NewBreaker(params)
 	reqChan := make(chan queue.ReqEvent, 10)
-	h := handler(reqChan, breaker, proxy)
+	h := handler(reqChan, breaker, proxy, func() bool { return true })
 
 	writer := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
@@ -91,48 +89,56 @@ func TestHandlerReqEvent(t *testing.T) {
 	}
 }
 
-func TestProberHandler(t *testing.T) {
-	defer logtesting.ClearAll()
-	logger = logtesting.TestLogger(t)
+func TestProbeHandler(t *testing.T) {
+	testcases := []struct {
+		name          string
+		prober        func() bool
+		wantCode      int
+		wantBody      string
+		requestHeader string
+	}{{
+		name:          "unexpected probe header",
+		prober:        func() bool { return true },
+		wantCode:      http.StatusBadRequest,
+		wantBody:      fmt.Sprintf(badProbeTemplate, "test-probe"),
+		requestHeader: "test-probe",
+	}, {
+		name:          "true probe function",
+		prober:        func() bool { return true },
+		wantCode:      http.StatusOK,
+		wantBody:      queue.Name,
+		requestHeader: queue.Name,
+	}, {
+		name:          "nil probe function",
+		prober:        nil,
+		wantCode:      http.StatusInternalServerError,
+		wantBody:      "no probe",
+		requestHeader: queue.Name,
+	}, {
+		name:          "false probe function",
+		prober:        func() bool { return false },
+		wantCode:      http.StatusServiceUnavailable,
+		wantBody:      "container not ready",
+		requestHeader: queue.Name,
+	}}
 
-	// All arguments are needed only for serving.
-	h := handler(nil, nil, nil)
+	for _, tc := range testcases {
+		t.Run(tc.name, func(t *testing.T) {
+			writer := httptest.NewRecorder()
+			req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
+			req.Header.Set(network.ProbeHeaderName, tc.requestHeader)
 
-	writer := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
+			h := handler(nil, nil, nil, tc.prober)
+			h(writer, req)
 
-	req.Header.Set(network.ProbeHeaderName, "test-probe")
-	req.Header.Set(network.ProxyHeaderName, activator.Name)
-
-	h(writer, req)
-
-	// Should get 400.
-	if got, want := writer.Code, http.StatusBadRequest; got != want {
-		t.Errorf("Bad probe status = %v, want: %v", got, want)
-	}
-	if got, want := strings.TrimSpace(writer.Body.String()), fmt.Sprintf(badProbeTemplate, "test-probe"); got != want {
-		// \r\n might be inserted, etc.
-		t.Errorf("Bad probe body = %q, want: %q, diff: %s", got, want, cmp.Diff(got, want))
-	}
-
-	// Fix up the header.
-	writer = httptest.NewRecorder()
-	req.Header.Set(network.ProbeHeaderName, queue.Name)
-
-	server := httptest.NewServer(http.HandlerFunc(h))
-	defer server.Close()
-	userTargetAddress = strings.TrimPrefix(server.URL, "http://")
-	h(writer, req)
-
-	// Should get 200.
-	if got, want := writer.Code, http.StatusOK; got != want {
-		t.Errorf("Good probe status = %v, want: %v", got, want)
-	}
-
-	// Body should be the `queue`.
-	if got, want := strings.TrimSpace(writer.Body.String()), queue.Name; got != want {
-		// \r\n might be inserted, etc.
-		t.Errorf("Good probe body = %q, want: %q, diff: %s", got, want, cmp.Diff(got, want))
+			if got, want := writer.Code, tc.wantCode; got != want {
+				t.Errorf("probe status = %v, want: %v", got, want)
+			}
+			if got, want := strings.TrimSpace(writer.Body.String()), tc.wantBody; got != want {
+				// \r\n might be inserted, etc.
+				t.Errorf("probe body = %q, want: %q, diff: %s", got, want, cmp.Diff(got, want))
+			}
+		})
 	}
 }
 
@@ -164,7 +170,8 @@ func TestCreateVarLogLink(t *testing.T) {
 
 func TestProbeQueueConnectionFailure(t *testing.T) {
 	port := 12345 // some random port (that's not listening)
-	if err := probeQueueHealthPath(port, time.Second); err == nil {
+
+	if err := probeQueueHealthPath(port, 1); err == nil {
 		t.Error("Expected error, got nil")
 	}
 }
@@ -188,7 +195,7 @@ func TestProbeQueueNotReady(t *testing.T) {
 		t.Fatalf("Failed to convert port(%s) to int: %v", u.Port(), err)
 	}
 
-	err = probeQueueHealthPath(port, 1*time.Second)
+	err = probeQueueHealthPath(port, 1)
 
 	if diff := cmp.Diff(err.Error(), "probe returned not ready"); diff != "" {
 		t.Errorf("Unexpected not ready message: %s", diff)
@@ -218,9 +225,41 @@ func TestProbeQueueReady(t *testing.T) {
 		t.Fatalf("Failed to convert port(%s) to int: %v", u.Port(), err)
 	}
 
-	if err = probeQueueHealthPath(port, 1*time.Second); err != nil {
-		t.Errorf("probeQueueHealthPath(%d) = %s", port, err)
+	if err = probeQueueHealthPath(port, 1); err != nil {
+		t.Errorf("probeQueueHealthPath(%d, 1s) = %s", port, err)
 	}
+
+	if !queueProbed {
+		t.Errorf("Expected the queue proxy server to be probed")
+	}
+}
+
+func TestProbeQueueTimeout(t *testing.T) {
+	queueProbed := false
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		queueProbed = true
+		time.Sleep(2 * time.Second)
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	defer ts.Close()
+
+	u, err := url.Parse(ts.URL)
+	if err != nil {
+		t.Fatalf("%s is not a valid URL: %v", ts.URL, err)
+	}
+
+	port, err := strconv.Atoi(u.Port())
+	if err != nil {
+		t.Fatalf("failed to convert port(%s) to int", u.Port())
+	}
+
+	timeout := 1
+	if err = probeQueueHealthPath(port, timeout); err == nil {
+		t.Errorf("Expected probeQueueHealthPath(%d, %v) to return timeout error", port, timeout)
+	}
+
+	ts.Close()
 
 	if !queueProbed {
 		t.Errorf("Expected the queue proxy server to be probed")
@@ -250,7 +289,8 @@ func TestProbeQueueDelayedReady(t *testing.T) {
 		t.Fatalf("Failed to convert port(%s) to int: %v", u.Port(), err)
 	}
 
-	if err := probeQueueHealthPath(port, time.Second); err != nil {
+	timeout := 0
+	if err := probeQueueHealthPath(port, timeout); err != nil {
 		t.Errorf("probeQueueHealthPath(%d) = %s", port, err)
 	}
 }

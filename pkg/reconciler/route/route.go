@@ -50,7 +50,6 @@ import (
 	"knative.dev/serving/pkg/reconciler/route/resources/labels"
 	resourcenames "knative.dev/serving/pkg/reconciler/route/resources/names"
 	"knative.dev/serving/pkg/reconciler/route/traffic"
-	tr "knative.dev/serving/pkg/reconciler/route/traffic"
 )
 
 // routeFinalizer is the name that we put into the resource finalizer list, e.g.
@@ -145,6 +144,13 @@ func ingressClassForRoute(ctx context.Context, r *v1alpha1.Route) string {
 		return ingressClass
 	}
 	return config.FromContext(ctx).Network.DefaultClusterIngressClass
+}
+
+func certClass(ctx context.Context, r *v1alpha1.Route) string {
+	if class := r.Annotations[networking.CertificateClassAnnotationKey]; class != "" {
+		return class
+	}
+	return config.FromContext(ctx).Network.DefaultCertificateClass
 }
 
 func (c *Reconciler) getServices(route *v1alpha1.Route) ([]*corev1.Service, error) {
@@ -342,7 +348,7 @@ func (c *Reconciler) tls(ctx context.Context, host string, r *v1alpha1.Route, tr
 		}
 	}
 
-	desiredCerts := resources.MakeCertificates(r, tagToDomainMap)
+	desiredCerts := resources.MakeCertificates(r, tagToDomainMap, certClass(ctx, r))
 	for _, desiredCert := range desiredCerts {
 
 		cert, err := c.reconcileCertificate(ctx, r, desiredCert)
@@ -405,9 +411,9 @@ func (c *Reconciler) reconcileDeletion(ctx context.Context, r *v1alpha1.Route) e
 //
 // If traffic is configured we update the RouteStatus with AllTrafficAssigned = True.  Otherwise we
 // mark AllTrafficAssigned = False, with a message referring to one of the missing target.
-func (c *Reconciler) configureTraffic(ctx context.Context, r *v1alpha1.Route, clusterLocalServices sets.String) (*tr.Config, error) {
+func (c *Reconciler) configureTraffic(ctx context.Context, r *v1alpha1.Route, clusterLocalServices sets.String) (*traffic.Config, error) {
 	logger := logging.FromContext(ctx)
-	t, err := tr.BuildTrafficConfiguration(c.configurationLister, c.revisionLister, r)
+	t, err := traffic.BuildTrafficConfiguration(c.configurationLister, c.revisionLister, r)
 
 	if t != nil {
 		// Tell our trackers to reconcile Route whenever the things referred to by our
@@ -427,7 +433,7 @@ func (c *Reconciler) configureTraffic(ctx context.Context, r *v1alpha1.Route, cl
 		}
 	}
 
-	badTarget, isTargetError := err.(tr.TargetError)
+	badTarget, isTargetError := err.(traffic.TargetError)
 	if err != nil && !isTargetError {
 		// An error that's not due to missing traffic target should
 		// make us fail fast.

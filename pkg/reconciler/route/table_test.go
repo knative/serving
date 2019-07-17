@@ -22,6 +22,8 @@ import (
 	"testing"
 	"time"
 
+	"knative.dev/serving/pkg/apis/networking"
+
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -2415,7 +2417,7 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 		},
 		WantCreates: []runtime.Object{
 			resources.MakeCertificates(route("default", "becomes-ready", WithConfigTarget("config"), WithURL, WithRouteUID("12-34")),
-				map[string]string{"becomes-ready.default.example.com": ""})[0],
+				map[string]string{"becomes-ready.default.example.com": ""}, network.CertManagerCertificateClassName)[0],
 			clusterIngressWithTLS(
 				route("default", "becomes-ready", WithConfigTarget("config"), WithURL,
 					WithRouteUID("12-34")),
@@ -2504,6 +2506,9 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 					Namespace: "default",
 					OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(
 						route("default", "becomes-ready", WithConfigTarget("config"), WithRouteUID("12-34")))},
+					Annotations: map[string]string{
+						networking.CertificateClassAnnotationKey: network.CertManagerCertificateClassName,
+					},
 				},
 				Spec: netv1alpha1.CertificateSpec{
 					DNSNames: []string{"abc.test.example.com"},
@@ -2567,7 +2572,7 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: certificateWithStatus(resources.MakeCertificates(route("default", "becomes-ready", WithConfigTarget("config"), WithURL, WithRouteUID("12-34")),
-				map[string]string{"becomes-ready.default.example.com": ""})[0], readyCertStatus()),
+				map[string]string{"becomes-ready.default.example.com": ""}, network.CertManagerCertificateClassName)[0], readyCertStatus()),
 		}},
 		WantPatches: []clientgotesting.PatchActionImpl{
 			patchFinalizers("default", "becomes-ready"),
@@ -2875,6 +2880,7 @@ func ReconcilerTestConfig(enableAutoTLS bool) *config.Config {
 		},
 		Network: &network.Config{
 			DefaultClusterIngressClass: TestIngressClass,
+			DefaultCertificateClass:    network.CertManagerCertificateClassName,
 			AutoTLS:                    enableAutoTLS,
 			DomainTemplate:             network.DefaultDomainTemplate,
 			TagTemplate:                network.DefaultTagTemplate,

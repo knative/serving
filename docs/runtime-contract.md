@@ -12,8 +12,8 @@ properties:
 - Little or no long-term runtime state (especially in cases where code might be
   scaled to zero in the absence of request traffic).
 - Logging and monitoring aggregation (telemetry) is important for understanding
-  and debugging the system, as containers might be created or deleted at any time
-  in response to autoscaling.
+  and debugging the system, as containers might be created or deleted at any
+  time in response to autoscaling.
 - Multitenancy is highly desirable to allow cost sharing for bursty applications
   on relatively stable underlying hardware resources.
 
@@ -35,9 +35,9 @@ The
 ([v1.0.1](https://github.com/opencontainers/runtime-spec/blob/v1.0.1/spec.md))
 is the basis for this document. When this document and the OCI specification
 conflict, this document is assumed to override the general OCI recommendations.
-Where this document does not specify behavior, runtime implementations SHOULD
-be OCI compliant with respect to those features.  Additionally, the core Knative definition
-assumes the
+Where this document does not specify behavior, runtime implementations SHOULD be
+OCI compliant with respect to those features. Additionally, the core Knative
+definition assumes the
 [Linux Container Configuration](https://github.com/opencontainers/runtime-spec/blob/master/config-linux.md).
 
 In particular, the default Knative implementation relies on Kubernetes behavior
@@ -210,11 +210,11 @@ following protocol will be used:
 - `h2c`: HTTP/2 transport, as described in
   [section 3.4 of the HTTP2 spec (Starting HTTP/2 with Prior Knowledge)](https://http2.github.io/http2-spec/#known-http)
 
-Developers ought to use automatic content negotiation where available,
-and MUST NOT set the `name` field to arbitrary values, as additional transports
-might be defined in the future. Developers can assume all traffic is
-intermediated by an L7 proxy. Developers can not assume a direct network
-connection between their server process and client processes.
+Developers ought to use automatic content negotiation where available, and MUST
+NOT set the `name` field to arbitrary values, as additional transports might be
+defined in the future. Developers can assume all traffic is intermediated by an
+L7 proxy. Developers can not assume a direct network connection between their
+server process and client processes.
 
 #### Headers
 
@@ -275,11 +275,12 @@ target the inbound container port; platform providers SHOULD disallow other
 probe methods.
 
 Because serverless platforms automatically scale instances based on inbound
-requests, and because noncompliant (or even failing) containers might be provided
-by developers, the following defaults SHOULD be applied by the platform provider
-if not set by the developer. The probes are intended to be trivially supportable
-by naive conforming containers while preventing interference with developer
-code. These settings apply to both `livenessProbe` and `readinessProbe`:
+requests, and because noncompliant (or even failing) containers might be
+provided by developers, the following defaults SHOULD be applied by the platform
+provider if not set by the developer. The probes are intended to be trivially
+supportable by naive conforming containers while preventing interference with
+developer code. These settings apply to both `livenessProbe` and
+`readinessProbe`:
 
 - `tcpSocket` set to the container's port
 - `initialDelaySeconds` set to 0
@@ -399,8 +400,8 @@ such variables will follow demonstrated usage and utility.
 
 ### User
 
-Developers MAY specify that containers be run as a specific user or group
-ID using the `runAsUser` container property. If specified, the runtime
+Developers MAY specify that containers be run as a specific user or group ID
+using the `runAsUser` container property. If specified, the runtime
 [MUST](https://github.com/knative/serving/blob/master/test/conformance/runtime/user_test.go)
 run the container as the specified user ID if allowed by the platform (see
 below). If no `runAsUser` is specified, a platform-specific default SHALL be
@@ -416,11 +417,11 @@ be failed.
 
 The OCI specification describes a default container environment which can be
 used for many different purposes, including containerization of existing legacy
-or stateful processes which might store substantial amounts of on-disk state. In a
-scaled-out, stateless environment, container startup and teardown is accelerated
-when on-disk resources are kept to a minimum. Additionally, developers might not
-have access to the container's filesystems (or the containers might be rapidly
-recycled), so log aggregation SHOULD be provided.
+or stateful processes which might store substantial amounts of on-disk state. In
+a scaled-out, stateless environment, container startup and teardown is
+accelerated when on-disk resources are kept to a minimum. Additionally,
+developers might not have access to the container's filesystems (or the
+containers might be rapidly recycled), so log aggregation SHOULD be provided.
 
 In addition to the filesystems recommended in the OCI, the following filesystems
 [MUST](https://github.com/knative/serving/blob/master/test/conformance/runtime/filesystem_perm_test.go)
@@ -436,7 +437,7 @@ To enable DNS resolution, the following files might be overwritten at runtime:
 | File               | Description                                                                                                                                                          |
 | ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `/etc/hosts`       | MAY be overridden to provide host mappings for well-known or provider-specific resources.                                                                            |
-| `/etc/hostname`    | some environments MAY set this to a different value for each container, but other environments might use the same value for all containers.                  |
+| `/etc/hostname`    | some environments MAY set this to a different value for each container, but other environments might use the same value for all containers.                          |
 | `/etc/resolv.conf` | SHOULD be set to a valid cluster-specific recursive resolver. Providers MAY provide additional default search domains to improve customer experience in the cluster. |
 
 Platform providers MAY provide additional platform-specific mount points
@@ -495,9 +496,9 @@ Seccomp provides a mechanism for further restricting the set of linux syscalls
 permitted to the processes running inside the container environment. A seccomp
 sandbox MAY be enforced by the platform operator; any such application profiles
 SHOULD be configured and applied in a consistent mechanism outside of the
-container specification. A seccomp policy MAY be part of the platform
-security configuration that operators can tune over time as the
-threat environment changes.
+container specification. A seccomp policy MAY be part of the platform security
+configuration that operators can tune over time as the threat environment
+changes.
 
 ### Rootfs Mount Propagation
 
@@ -509,17 +510,17 @@ From the OCI spec:
 > article in the kernel documentation has more information about mount
 > propagation.
 
-This option MAY be set by the operator or platform provider, and MUST
-NOT be configurable by the developer. Mount propagation MAY be part of the
-platform security configuration that operators can tune over time
-as the threat environment changes.
+This option MAY be set by the operator or platform provider, and MUST NOT be
+configurable by the developer. Mount propagation MAY be part of the platform
+security configuration that operators can tune over time as the threat
+environment changes.
 
 ### Masked Paths
 
-This option MAY be set by the operator or platform provider, and MUST NOT
-be configurable by the developer. Masked paths MAY be part of the platform
-security configuration that operators can tune over time as the
-threat environment changes.
+This option MAY be set by the operator or platform provider, and MUST NOT be
+configurable by the developer. Masked paths MAY be part of the platform security
+configuration that operators can tune over time as the threat environment
+changes.
 
 ### Readonly Paths
 

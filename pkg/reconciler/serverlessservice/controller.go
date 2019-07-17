@@ -31,7 +31,6 @@ import (
 	"knative.dev/serving/pkg/activator"
 	"knative.dev/serving/pkg/apis/networking"
 	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
-	rbase "knative.dev/serving/pkg/reconciler"
 	presources "knative.dev/serving/pkg/resources"
 )
 
@@ -50,7 +49,7 @@ func NewController(
 	sksInformer := sksinformer.Get(ctx)
 
 	c := &reconciler{
-		Base:              rbase.NewBase(ctx, controllerAgentName, cmw),
+		Base:              pkgreconciler.NewBase(ctx, controllerAgentName, cmw),
 		endpointsLister:   endpointsInformer.Lister(),
 		serviceLister:     serviceInformer.Lister(),
 		sksLister:         sksInformer.Lister(),
@@ -84,9 +83,9 @@ func NewController(
 	}
 	endpointsInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		// Accept only ActivatorService K8s service objects.
-		FilterFunc: rbase.ChainFilterFuncs(
-			rbase.NamespaceFilterFunc(system.Namespace()),
-			rbase.NameFilterFunc(activator.K8sServiceName)),
+		FilterFunc: pkgreconciler.ChainFilterFuncs(
+			pkgreconciler.NamespaceFilterFunc(system.Namespace()),
+			pkgreconciler.NameFilterFunc(activator.K8sServiceName)),
 		Handler: controller.HandleAll(grCb),
 	})
 

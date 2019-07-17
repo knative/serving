@@ -19,6 +19,8 @@ package readiness
 import (
 	"encoding/json"
 
+	"github.com/pkg/errors"
+
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -33,6 +35,10 @@ func DecodeProbe(jsonProbe string) (*corev1.Probe, error) {
 
 // EncodeProbe takes *corev1.Probe object and returns marshalled Probe JSON string and an error.
 func EncodeProbe(rp *corev1.Probe) (string, error) {
+	if rp == nil {
+		return "", errors.New("cannot encode nil probe")
+	}
+
 	probeJSON, err := json.Marshal(rp)
 	if err != nil {
 		return "", err

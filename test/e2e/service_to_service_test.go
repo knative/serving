@@ -20,6 +20,7 @@ package e2e
 import (
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -63,6 +64,20 @@ var testCases = []struct {
 	{"shortest", ".svc.cluster.local"},
 }
 
+// testcases for table-driven testing.
+var testInjection = []struct {
+	name string
+	// injectA indicates whether istio sidecar injection is enabled for httpproxy service
+	// injectB indicates whether istio sidecar injection is enabled for helloworld service
+	injectA bool
+	injectB bool
+}{
+	{"both-disabled", false, false},
+	{"a-disabled", false, true},
+	{"b-disabled", true, false},
+	{"both-enabled", true, true},
+}
+
 func sendRequest(t *testing.T, clients *test.Clients, resolvableDomain bool, domain string) (*spoof.Response, error) {
 	t.Logf("The domain of request is %s.", domain)
 	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, t.Logf, domain, resolvableDomain)
@@ -77,7 +92,7 @@ func sendRequest(t *testing.T, clients *test.Clients, resolvableDomain bool, dom
 	return client.Do(req)
 }
 
-func testProxyToHelloworld(t *testing.T, clients *test.Clients, helloworldDomain string) {
+func testProxyToHelloworld(t *testing.T, clients *test.Clients, helloworldDomain string, inject bool) {
 	// Create envVars to be used in httpproxy app.
 	envVars := []corev1.EnvVar{{
 		Name:  targetHostEnv,
@@ -93,12 +108,13 @@ func testProxyToHelloworld(t *testing.T, clients *test.Clients, helloworldDomain
 
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 	defer test.TearDown(clients, names)
-	resources, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, &v1a1test.Options{
-		EnvVars: envVars,
-		RevisionTemplateAnnotations: map[string]string{
+
+	resources, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
+		rtesting.WithEnv(envVars...),
+		rtesting.WithConfigAnnotations(map[string]string{
 			autoscaling.WindowAnnotationKey: "6s", // shortest permitted; this is not required here, but for uniformity.
-		},
-	})
+			"sidecar.istio.io/inject":       strconv.FormatBool(inject),
+		}))
 	if err != nil {
 		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
 	}
@@ -166,11 +182,11 @@ func TestServiceToServiceCall(t *testing.T) {
 
 	withInternalVisibility := WithServiceLabel(
 		routeconfig.VisibilityLabelKey, routeconfig.VisibilityClusterLocal)
-	resources, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, &v1a1test.Options{
-		RevisionTemplateAnnotations: map[string]string{
+	resources, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
+		withInternalVisibility,
+		rtesting.WithConfigAnnotations(map[string]string{
 			autoscaling.WindowAnnotationKey: "6s", // shortest permitted; this is not required here, but for uniformity.
-		},
-	}, withInternalVisibility)
+		}))
 	if err != nil {
 		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
 	}
@@ -191,19 +207,12 @@ func TestServiceToServiceCall(t *testing.T) {
 	for _, tc := range testCases {
 		helloworldDomain := strings.TrimSuffix(resources.Route.Status.URL.Host, tc.suffix)
 		t.Run(tc.name, func(t *testing.T) {
-			testProxyToHelloworld(t, clients, helloworldDomain)
+			testProxyToHelloworld(t, clients, helloworldDomain, true)
 		})
 	}
 }
 
-// Same test as TestServiceToServiceCall but before sending requests
-// we're waiting for target app to be scaled to zero
-func TestServiceToServiceCallViaActivator(t *testing.T) {
-	t.Parallel()
-	cancel := logstream.Start(t)
-	defer cancel()
-
-	clients := Setup(t)
+func testSvcToSvcCallViaActivator(t *testing.T, clients *test.Clients, injectA bool, injectB bool) {
 
 	t.Log("Creating helloworld Service")
 
@@ -219,9 +228,9 @@ func TestServiceToServiceCallViaActivator(t *testing.T) {
 	defer test.TearDown(clients, testNames)
 
 	resources, err := v1a1test.CreateRunLatestServiceReady(t, clients, &testNames,
-		&v1a1test.Options{},
 		rtesting.WithConfigAnnotations(map[string]string{
 			autoscaling.TargetBurstCapacityKey: "-1",
+			"sidecar.istio.io/inject":          strconv.FormatBool(injectB),
 		}), withInternalVisibility)
 	if err != nil {
 		t.Fatalf("Failed to create a service: %v", err)
@@ -247,5 +256,21 @@ func TestServiceToServiceCallViaActivator(t *testing.T) {
 	}
 
 	// Send request to helloworld app via httpproxy service
-	testProxyToHelloworld(t, clients, resources.Route.Status.URL.Host)
+	testProxyToHelloworld(t, clients, resources.Route.Status.URL.Host, injectA)
+}
+
+// Same test as TestServiceToServiceCall but before sending requests
+// we're waiting for target app to be scaled to zero
+func TestServiceToServiceCallViaActivator(t *testing.T) {
+	t.Parallel()
+	cancel := logstream.Start(t)
+	defer cancel()
+
+	clients := Setup(t)
+
+	for _, tc := range testInjection {
+		t.Run(tc.name, func(t *testing.T) {
+			testSvcToSvcCallViaActivator(t, clients, tc.injectA, tc.injectB)
+		})
+	}
 }

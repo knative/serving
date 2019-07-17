@@ -35,7 +35,7 @@ func TestRunLatestServicePreUpgrade(t *testing.T) {
 	names.Service = serviceName
 	names.Image = test.PizzaPlanet1
 
-	resources, err := v1a1test.CreateRunLatestServiceLegacyReady(t, clients, &names, &v1a1test.Options{})
+	resources, err := v1a1test.CreateRunLatestServiceLegacyReady(t, clients, &names)
 	if err != nil {
 		t.Fatalf("Failed to create Service: %v", err)
 	}
@@ -51,7 +51,7 @@ func TestRunLatestServicePreUpgradeAndScaleToZero(t *testing.T) {
 	names.Service = scaleToZeroServiceName
 	names.Image = test.PizzaPlanet1
 
-	resources, err := v1a1test.CreateRunLatestServiceLegacyReady(t, clients, &names, &v1a1test.Options{})
+	resources, err := v1a1test.CreateRunLatestServiceLegacyReady(t, clients, &names)
 	if err != nil {
 		t.Fatalf("Failed to create Service: %v", err)
 	}

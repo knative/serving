@@ -42,10 +42,8 @@ data:
     # target percentage is how much of that maximum to use in a stable
     # state. E.g. if a Revision specifies ContainerConcurrency of 10, then
     # the Autoscaler will try to maintain 7 concurrent connections per pod
-    # on average. A value of 70 is chosen because the Autoscaler panics
-    # when concurrency exceeds 2x the desired set point. So we will panic
-    # before we reach the limit.
-    # Note: this limit will be applied to container concurency set at every
+    # on average.
+    # Note: this limit will be applied to container concurrency set at every
     # level (ConfigMap, Revision Spec or Annotation).
     # For legacy and backwards compatibility reasons, this value also accepts
     # fractional values in (0, 1] interval (i.e. 0.7 ⇒ 70%).
