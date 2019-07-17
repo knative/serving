@@ -65,9 +65,7 @@ required = [
 
 [[override]]
   name = "github.com/rogpeppe/go-internal"
-  # HEAD as of 2019-01-09
-  # Needed because release 1.0.0 does not contain a LICENSE file
-  revision = "4bbc89b6501cca7dd6b5557d78d70c8d2c6e8b97"
+  version = "1.3.0"
 
 [[override]]
   name = "github.com/kelseyhightower/envconfig"
