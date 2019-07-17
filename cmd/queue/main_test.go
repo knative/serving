@@ -26,10 +26,12 @@ import (
 	"path"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/google/go-cmp/cmp"
+	"knative.dev/pkg/ptr"
 	"knative.dev/serving/pkg/activator"
 	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/queue"
@@ -177,9 +179,9 @@ func TestProbeQueueConnectionFailure(t *testing.T) {
 }
 
 func TestProbeQueueNotReady(t *testing.T) {
-	queueProbed := false
+	queueProbed := ptr.Int32(0)
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		queueProbed = true
+		atomic.AddInt32(queueProbed, 1)
 		w.WriteHeader(http.StatusBadRequest)
 	}))
 
@@ -201,15 +203,15 @@ func TestProbeQueueNotReady(t *testing.T) {
 		t.Errorf("Unexpected not ready message: %s", diff)
 	}
 
-	if !queueProbed {
+	if atomic.LoadInt32(queueProbed) == 0 {
 		t.Errorf("Expected the queue proxy server to be probed")
 	}
 }
 
 func TestProbeQueueReady(t *testing.T) {
-	queueProbed := false
+	queueProbed := ptr.Int32(0)
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		queueProbed = true
+		atomic.AddInt32(queueProbed, 1)
 		w.WriteHeader(http.StatusOK)
 	}))
 
@@ -229,15 +231,15 @@ func TestProbeQueueReady(t *testing.T) {
 		t.Errorf("probeQueueHealthPath(%d, 1s) = %s", port, err)
 	}
 
-	if !queueProbed {
+	if atomic.LoadInt32(queueProbed) == 0 {
 		t.Errorf("Expected the queue proxy server to be probed")
 	}
 }
 
 func TestProbeQueueTimeout(t *testing.T) {
-	queueProbed := false
+	queueProbed := ptr.Int32(0)
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		queueProbed = true
+		atomic.AddInt32(queueProbed, 1)
 		time.Sleep(2 * time.Second)
 		w.WriteHeader(http.StatusOK)
 	}))
@@ -261,17 +263,16 @@ func TestProbeQueueTimeout(t *testing.T) {
 
 	ts.Close()
 
-	if !queueProbed {
+	if atomic.LoadInt32(queueProbed) == 0 {
 		t.Errorf("Expected the queue proxy server to be probed")
 	}
 }
 
 func TestProbeQueueDelayedReady(t *testing.T) {
-	count := 0
+	count := ptr.Int32(0)
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if count < 9 {
+		if atomic.AddInt32(count, 1) < 9 {
 			w.WriteHeader(http.StatusBadRequest)
-			count++
 			return
 		}
 		w.WriteHeader(http.StatusOK)
