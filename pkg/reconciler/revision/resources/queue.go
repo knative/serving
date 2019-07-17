@@ -191,12 +191,13 @@ func makeQueueProbe(in *corev1.Probe) *corev1.Probe {
 	}
 }
 
+// queueServingPort decides which port to export from the queue-proxy based on the protocol
+// indicated given.
 func queueServingPort(protocol networking.ProtocolType) corev1.ContainerPort {
 	if protocol == networking.ProtocolH2C {
 		return queueHTTP2Port
-	} else {
-		return queueHTTPPort
 	}
+	return queueHTTPPort
 }
 
 // makeQueueContainer creates the container spec for the queue sidecar.
