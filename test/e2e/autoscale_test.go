@@ -415,7 +415,7 @@ func TestTargetBurstCapacity(t *testing.T) {
 	})
 
 	// Wait for two stable pods.
-	if err := wait.Poll(250*time.Millisecond, cfg.StableWindow, func() (bool, error) {
+	if err := wait.Poll(250*time.Millisecond, cfg.StableWindow+cfg.TickInterval, func() (bool, error) {
 		x, err := numberOfPods(ctx)
 		if err != nil {
 			return false, err
@@ -427,8 +427,9 @@ func TestTargetBurstCapacity(t *testing.T) {
 	}
 
 	// Now read the service endpoints and make sure there are 2 endpoints there.
-	// As always poll, since network programming takes times...
-	if err := wait.Poll(250*time.Millisecond, cfg.ScaleToZeroGracePeriod, func() (bool, error) {
+	// We poll, since network programming takes times, but the timeout is set for
+	// uniformness with one above.
+	if err := wait.Poll(250*time.Millisecond, cfg.StableWindow+cfg.TickInterval, func() (bool, error) {
 		svcEps, err := ctx.clients.KubeClient.Kube.CoreV1().Endpoints(test.ServingNamespace).Get(
 			ctx.resources.Revision.Status.ServiceName, metav1.GetOptions{})
 		if err != nil {
