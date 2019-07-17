@@ -18,7 +18,7 @@ import (
 	"net/http"
 	"sync"
 
-	"go.opencensus.io/exporter/prometheus"
+	"contrib.go.opencensus.io/exporter/prometheus"
 	"go.opencensus.io/stats/view"
 	"go.uber.org/zap"
 )
