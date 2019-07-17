@@ -20,6 +20,7 @@ package performance
 
 import (
 	"fmt"
+	"net/http"
 	"strings"
 	"testing"
 	"time"
@@ -87,8 +88,8 @@ func runTest(t *testing.T, pacer vegeta.Pacer, saveMetrics bool) {
 	}
 
 	targeter := vegeta.NewStaticTargeter(vegeta.Target{
-		Method: "GET",
-		URL:    fmt.Sprintf("http://%s", *endpoint),
+		Method: http.MethodGet,
+		URL:    fmt.Sprintf("http://%s/", *endpoint),
 	})
 	attacker := vegeta.NewAttacker()
 
@@ -98,7 +99,7 @@ func runTest(t *testing.T, pacer vegeta.Pacer, saveMetrics bool) {
 	}
 	metrics.Close()
 
-	// Return directly if we do not want to save metrics for this test run
+	// Return directly if we do not want to save metrics for this test run.
 	if !saveMetrics {
 		return
 	}
@@ -121,11 +122,11 @@ func runTest(t *testing.T, pacer vegeta.Pacer, saveMetrics bool) {
 func TestBenchmarkSteadyTraffic(t *testing.T) {
 	for _, load := range loads {
 		t.Run(fmt.Sprintf("N%d", load), func(t *testing.T) {
-			zeroToNSteadyPacer := SteadyUpPacer{
-				Min:        vegeta.Rate{Freq: 1, Per: time.Second},
-				Max:        vegeta.Rate{Freq: load, Per: time.Second},
-				UpDuration: 0.5 * duration,
-			}
+			zeroToNSteadyPacer := NewSteadyUpPacer(
+				vegeta.Rate{Freq: 1, Per: time.Second},
+				vegeta.Rate{Freq: load, Per: time.Second},
+				duration/2,
+			)
 			runTest(t, zeroToNSteadyPacer, true)
 		})
 	}
@@ -145,12 +146,13 @@ func TestBenchmarkBurstZeroToN(t *testing.T) {
 func TestBenchmarkBurstNto2N(t *testing.T) {
 	for _, load := range loads {
 		t.Run(fmt.Sprintf("N%d", load), func(t *testing.T) {
-			// Steady ramp up from 0 to N, then burst to 2N
-			zeroToNSteadyPacer := SteadyUpPacer{
-				Min:        vegeta.Rate{Freq: 1, Per: time.Second},
-				Max:        vegeta.Rate{Freq: load, Per: time.Second},
-				UpDuration: duration,
-			}
+			// Steady ramp up from 0 to N, then burst to 2N.
+			zeroToNSteadyPacer := NewSteadyUpPacer(
+				vegeta.Rate{Freq: 1, Per: time.Second},
+				vegeta.Rate{Freq: load, Per: time.Second},
+				duration,
+			)
+			// Scale up to the desired load and discard the metrics.
 			runTest(t, zeroToNSteadyPacer, false)
 
 			nTo2NBurstPacer := vegeta.ConstantPacer{Freq: 2 * load, Per: time.Second}

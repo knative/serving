@@ -24,7 +24,7 @@ import (
 	vegeta "github.com/tsenart/vegeta/lib"
 )
 
-// SteadyUpPacer is a Pacer that describes attack request rates that increases in the beginning then becomes steady.
+// steadyUpPacer is a Pacer that describes attack request rates that increases in the beginning then becomes steady.
 //  Max  |     ,----------------
 //       |    /
 //       |   /
@@ -32,30 +32,47 @@ import (
 //       | /
 //  Min -+------------------------------> t
 //       |<-Up->|
-type SteadyUpPacer struct {
+type steadyUpPacer struct {
 	// UpDuration is the duration that attack request rates increase from Min to Max.
 	UpDuration time.Duration
-	// Min is the attack request rates from the beginning.
+	// Min is the attack request rates from the beginning, must be larger than 0.
 	Min vegeta.Rate
 	// Max is the maximum and final steady attack request rates.
 	Max vegeta.Rate
+
+	slope        float64
+	minHitsPerNs float64
+	maxHitsPerNs float64
 }
 
-// SteadyUpPacer satisfies the Pacer interface.
-var _ vegeta.Pacer = SteadyUpPacer{}
+// NewSteadyUpPacer returns a new SteadyUpPacer with the given config.
+func NewSteadyUpPacer(min vegeta.Rate, max vegeta.Rate, upDuration time.Duration) vegeta.Pacer {
+	pacer := &steadyUpPacer{
+		Min:        min,
+		Max:        max,
+		UpDuration: upDuration,
+	}
+	pacer.slope = (hitsPerNs(max) - hitsPerNs(min)) / float64(upDuration)
+	pacer.minHitsPerNs = hitsPerNs(pacer.Min)
+	pacer.maxHitsPerNs = hitsPerNs(pacer.Max)
+	return pacer
+}
 
-// String returns a pretty-printed description of the SteadyUpPacer's behaviour.
-func (sup SteadyUpPacer) String() string {
+// steadyUpPacer satisfies the Pacer interface.
+var _ vegeta.Pacer = steadyUpPacer{}
+
+// String returns a pretty-printed description of the steadyUpPacer's behaviour.
+func (sup steadyUpPacer) String() string {
 	return fmt.Sprintf("Up{%s + %s / %s}, then Steady{%s}", sup.Min, sup.Max, sup.UpDuration, sup.Max)
 }
 
-// invalid tests the constraints documented in the SteadyUpPacer struct definition.
-func (sup SteadyUpPacer) invalid() bool {
-	return sup.UpDuration <= 0 || hitsPerNs(sup.Min) <= 0 || hitsPerNs(sup.Max) <= hitsPerNs(sup.Min)
+// invalid tests the constraints documented in the steadyUpPacer struct definition.
+func (sup steadyUpPacer) invalid() bool {
+	return sup.UpDuration <= 0 || sup.minHitsPerNs <= 0 || sup.maxHitsPerNs <= sup.minHitsPerNs
 }
 
 // Pace determines the length of time to sleep until the next hit is sent.
-func (sup SteadyUpPacer) Pace(elapsedTime time.Duration, elapsedHits uint64) (time.Duration, bool) {
+func (sup steadyUpPacer) Pace(elapsedTime time.Duration, elapsedHits uint64) (time.Duration, bool) {
 	if sup.invalid() {
 		// If pacer configuration is invalid, stop the attack.
 		return 0, true
@@ -90,35 +107,30 @@ func (sup SteadyUpPacer) Pace(elapsedTime time.Duration, elapsedHits uint64) (ti
 }
 
 // hits returns the number of expected hits for this pacer during the given time.
-func (sup SteadyUpPacer) hits(t time.Duration) float64 {
+func (sup steadyUpPacer) hits(t time.Duration) float64 {
 	if t <= 0 || sup.invalid() {
 		return 0
 	}
 
-	// If t is smaller than the UpDuration, calculate the hits as a triangle.
+	// If t is smaller than the UpDuration, calculate the hits as a trapezoid.
 	if t <= sup.UpDuration {
 		curtHitsPerNs := sup.hitsPerNs(t)
-		return (curtHitsPerNs + hitsPerNs(sup.Min)) / 2.0 * float64(t)
+		return (curtHitsPerNs + sup.minHitsPerNs) / 2.0 * float64(t)
 	}
 
-	// If t is larger than the UpDuration, calculate the hits as a triangle + a rectangle.
-	upHits := (hitsPerNs(sup.Max) + hitsPerNs(sup.Min)) / 2.0 * float64(sup.UpDuration)
-	steadyHits := hitsPerNs(sup.Max) * float64(t-sup.UpDuration)
+	// If t is larger than the UpDuration, calculate the hits as a trapezoid + a rectangle.
+	upHits := (sup.maxHitsPerNs + sup.minHitsPerNs) / 2.0 * float64(sup.UpDuration)
+	steadyHits := sup.maxHitsPerNs * float64(t-sup.UpDuration)
 	return upHits + steadyHits
 }
 
-// slope returns slope of the up line.
-func (sup SteadyUpPacer) slope() float64 {
-	return (hitsPerNs(sup.Max) - hitsPerNs(sup.Min)) / float64(sup.UpDuration)
-}
-
 // hitsPerNs returns the attack rate for this pacer at a given time.
-func (sup SteadyUpPacer) hitsPerNs(t time.Duration) float64 {
+func (sup steadyUpPacer) hitsPerNs(t time.Duration) float64 {
 	if t <= sup.UpDuration {
-		return hitsPerNs(sup.Min) + float64(t)*sup.slope()
+		return sup.minHitsPerNs + float64(t)*sup.slope
 	}
 
-	return hitsPerNs(sup.Max)
+	return sup.maxHitsPerNs
 }
 
 // hitsPerNs returns the attack rate this ConstantPacer represents, in
