@@ -32,6 +32,7 @@ import (
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/system"
 	"knative.dev/pkg/tracker"
+	"knative.dev/serving/pkg/apis/serving"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/reconciler"
@@ -88,7 +89,10 @@ func NewControllerWithClock(
 		Handler:    controller.HandleAll(impl.EnqueueControllerOf),
 	})
 
-	clusterIngressInformer.Informer().AddEventHandler(controller.HandleAll(impl.EnqueueControllerOf))
+	clusterIngressInformer.Informer().AddEventHandler(controller.HandleAll(
+		impl.EnqueueLabelOfNamespaceScopedResource(
+			serving.RouteNamespaceLabelKey, serving.RouteLabelKey)))
+
 	ingressInformer.Informer().AddEventHandler(controller.HandleAll(impl.EnqueueControllerOf))
 
 	c.tracker = tracker.New(impl.EnqueueKey, controller.GetTrackerLease(ctx))

@@ -24,6 +24,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/sets"
 
+	"knative.dev/pkg/kmeta"
 	"knative.dev/serving/pkg/activator"
 	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/networking/v1alpha1"
@@ -102,6 +103,7 @@ func MakeIngress(
 			Annotations: resources.UnionMaps(map[string]string{
 				networking.IngressClassAnnotationKey: ingressClass,
 			}, r.ObjectMeta.Annotations),
+			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(r)},
 		},
 		Spec: spec,
 	}, nil
