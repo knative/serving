@@ -14,6 +14,14 @@
   version = "v0.39.0"
 
 [[projects]]
+  digest = "1:642cf8e80572f9dc0677b0f241c8ab2e715c9dccc215270ea873c86ddca0062c"
+  name = "contrib.go.opencensus.io/exporter/prometheus"
+  packages = ["."]
+  pruneopts = "NUT"
+  revision = "f4a2c1e53ec45636355d35fb9022b64e4bdd4a91"
+  version = "v0.1.0"
+
+[[projects]]
   digest = "1:b6eb7c2538ec2999a072c0e372a18d7b7e3aedac249f26e159586fa5f892909f"
   name = "contrib.go.opencensus.io/exporter/stackdriver"
   packages = [
@@ -261,7 +269,7 @@
     "tools/dep-collector",
   ]
   pruneopts = "UT"
-  revision = "f7f13f8e3a8af17943e1a44102607f1d3fc4751d"
+  revision = "bf05b82bcaaf2e7516d0b2edfc96fc904813bcf2"
 
 [[projects]]
   digest = "1:5985ef4caf91ece5d54817c11ea25f182697534f8ae6521eadcd628c142ac4b6"
@@ -363,14 +371,14 @@
   version = "v1.0.3"
 
 [[projects]]
-  digest = "1:69a97603fe8952de86ee1e74a065f7974ec7d7d1d2301d3f5da6d342156363f4"
+  digest = "1:d2e799c7b52b568fa8ee9e62dbd2c5b0a1a34bf4a6bc43c2dd4b0b35bf52874f"
   name = "go.opencensus.io"
   packages = [
     ".",
-    "exporter/prometheus",
     "internal",
     "internal/tagencoding",
     "metric/metricdata",
+    "metric/metricexport",
     "metric/metricproducer",
     "plugin/ocgrpc",
     "plugin/ochttp",
@@ -386,8 +394,8 @@
     "trace/tracestate",
   ]
   pruneopts = "NUT"
-  revision = "75c0cca22312e51bfd4fafdbe9197ae399e18b38"
-  version = "v0.20.2"
+  revision = "9c377598961b706d1542bd2d84d538b5094d596e"
+  version = "v0.22.0"
 
 [[projects]]
   digest = "1:cc9d86ec4e6e3bdf87e3a421273bfeed003cf8e21351c0302fe8b0eb7b10efe6"
@@ -930,7 +938,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:ed15fad369d1d253ebcae3defd279859d26e54d83e1e601fb3cf40d192377404"
+  digest = "1:84c8f2d8045716adf46ada32c56b1a6fdd61d0d0b21fa03ca6308c07b1913d7c"
   name = "knative.dev/pkg"
   packages = [
     "apis",
@@ -949,7 +957,7 @@
     "metrics/metricskey",
   ]
   pruneopts = "T"
-  revision = "84d3910c565e397fa044f246398f94712da53303"
+  revision = "a3e4b8d9f7bd4bc96c266f751762e194d5efe98f"
 
 [solve-meta]
   analyzer-name = "dep"

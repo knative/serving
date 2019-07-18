@@ -454,7 +454,8 @@
     "semver",
   ]
   pruneopts = "NUT"
-  revision = "4bbc89b6501cca7dd6b5557d78d70c8d2c6e8b97"
+  revision = "438578804ca6f31be148c27683afc419ce47c06e"
+  version = "v1.3.0"
 
 [[projects]]
   digest = "1:d917313f309bda80d27274d53985bc65651f81a5b66b820749ac7f8ef061fd04"
