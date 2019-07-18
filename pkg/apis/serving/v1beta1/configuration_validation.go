@@ -72,9 +72,7 @@ func (c *Configuration) ValidateLabels() *apis.FieldError {
 LabelLoop:
 	for key, val := range configurationLabels {
 		if key == config.VisibilityLabelKey {
-			if val != config.VisibilityClusterLocal {
-				errs = errs.Also(apis.ErrInvalidValue(val, "").ViaFieldKey("label", key))
-			}
+			errs = errs.Also(validateClusterVisbilityLabel(val))
 			continue
 		}
 		if key == serving.RouteLabelKey {
