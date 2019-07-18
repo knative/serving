@@ -17,6 +17,8 @@ limitations under the License.
 package serving
 
 import (
+	"strings"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/apis"
 	"knative.dev/serving/pkg/apis/autoscaling"
@@ -25,6 +27,17 @@ import (
 // ValidateObjectMetadata validates that `metadata` stanza of the
 // resources is correct.
 func ValidateObjectMetadata(meta metav1.Object) *apis.FieldError {
-	return apis.ValidateObjectMetadata(meta).Also(
-		autoscaling.ValidateAnnotations(meta.GetAnnotations()).ViaField("annotations"))
+	return apis.ValidateObjectMetadata(meta).
+		Also(autoscaling.ValidateAnnotations(meta.GetAnnotations()).
+			Also(validateKnativeAnnotations(meta.GetAnnotations())).
+			ViaField("annotations"))
+}
+
+func validateKnativeAnnotations(annotations map[string]string) (errs *apis.FieldError) {
+	for key, val := range annotations {
+		if strings.HasPrefix(key, GroupName+"/") {
+			errs = apis.ErrInvalidValue(val, key)
+		}
+	}
+	return errs
 }
