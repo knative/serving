@@ -19,16 +19,16 @@ package revision
 import (
 	"context"
 
-	av1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	"github.com/knative/serving/pkg/reconciler/revision/config"
-	"github.com/knative/serving/pkg/reconciler/revision/resources"
-	presources "github.com/knative/serving/pkg/resources"
 	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	caching "knative.dev/caching/pkg/apis/caching/v1alpha1"
 	"knative.dev/pkg/kmp"
 	"knative.dev/pkg/logging"
+	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
+	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	"knative.dev/serving/pkg/reconciler/revision/config"
+	"knative.dev/serving/pkg/reconciler/revision/resources"
+	presources "knative.dev/serving/pkg/resources"
 )
 
 func (c *Reconciler) createDeployment(ctx context.Context, rev *v1alpha1.Revision) (*appsv1.Deployment, error) {

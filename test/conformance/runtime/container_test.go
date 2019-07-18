@@ -22,12 +22,12 @@ import (
 	"testing"
 
 	"github.com/davecgh/go-spew/spew"
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	"github.com/knative/serving/test"
-	v1a1test "github.com/knative/serving/test/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"knative.dev/pkg/ptr"
+	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	"knative.dev/serving/test"
+	v1a1test "knative.dev/serving/test/v1alpha1"
 )
 
 // TestMustNotContainerContraints tests that attempting to set unsupported fields or invalid values as
@@ -108,7 +108,7 @@ func TestMustNotContainerConstraints(t *testing.T) {
 				Service: test.ObjectNameForTest(t),
 				Image:   test.Runtime,
 			}
-			if svc, err := v1a1test.CreateLatestService(t, clients, names, &v1a1test.Options{}, tc.options); err == nil {
+			if svc, err := v1a1test.CreateLatestService(t, clients, names, tc.options); err == nil {
 				t.Errorf("CreateService = %v, want: error", spew.Sdump(svc))
 			}
 		})
@@ -191,7 +191,7 @@ func TestShouldNotContainerConstraints(t *testing.T) {
 				Service: test.ObjectNameForTest(t),
 				Image:   test.Runtime,
 			}
-			if svc, err := v1a1test.CreateLatestService(t, clients, names, &v1a1test.Options{}, tc.options); err == nil {
+			if svc, err := v1a1test.CreateLatestService(t, clients, names, tc.options); err == nil {
 				t.Errorf("CreateLatestService = %v, want: error", spew.Sdump(svc))
 			}
 		})

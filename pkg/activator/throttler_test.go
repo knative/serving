@@ -25,23 +25,22 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/knative/serving/pkg/apis/networking"
-	nv1a1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
-	"github.com/knative/serving/pkg/apis/serving"
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	"github.com/knative/serving/pkg/apis/serving/v1beta1"
-	servingfake "github.com/knative/serving/pkg/client/clientset/versioned/fake"
-	servinginformers "github.com/knative/serving/pkg/client/informers/externalversions"
-	netlisters "github.com/knative/serving/pkg/client/listers/networking/v1alpha1"
-	servinglisters "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
-	"github.com/knative/serving/pkg/queue"
 	"knative.dev/pkg/controller"
 	. "knative.dev/pkg/logging/testing"
 	"knative.dev/pkg/system"
 	"knative.dev/pkg/test/helpers"
+	"knative.dev/serving/pkg/apis/networking"
+	nv1a1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
+	"knative.dev/serving/pkg/apis/serving"
+	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	"knative.dev/serving/pkg/apis/serving/v1beta1"
+	servingfake "knative.dev/serving/pkg/client/clientset/versioned/fake"
+	servinginformers "knative.dev/serving/pkg/client/informers/externalversions"
+	netlisters "knative.dev/serving/pkg/client/listers/networking/v1alpha1"
+	servinglisters "knative.dev/serving/pkg/client/listers/serving/v1alpha1"
+	"knative.dev/serving/pkg/queue"
 
 	corev1 "k8s.io/api/core/v1"
-	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubeinformers "k8s.io/client-go/informers"
 	corev1informers "k8s.io/client-go/informers/core/v1"
@@ -491,11 +490,11 @@ func breakerCount(t *Throttler) int {
 	return len(t.breakers)
 }
 
-func endpointsSubset(hostsPerSubset, subsets int) []v1.EndpointSubset {
-	resp := []v1.EndpointSubset{}
+func endpointsSubset(hostsPerSubset, subsets int) []corev1.EndpointSubset {
+	resp := []corev1.EndpointSubset{}
 	if hostsPerSubset > 0 {
-		addresses := make([]v1.EndpointAddress, hostsPerSubset)
-		subset := v1.EndpointSubset{Addresses: addresses}
+		addresses := make([]corev1.EndpointAddress, hostsPerSubset)
+		subset := corev1.EndpointSubset{Addresses: addresses}
 		for s := 0; s < subsets; s++ {
 			resp = append(resp, subset)
 		}

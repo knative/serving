@@ -23,23 +23,22 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp/cmpopts"
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	"github.com/knative/serving/pkg/apis/serving/v1beta1"
-	listers "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
-	"github.com/knative/serving/pkg/reconciler"
-	cfgreconciler "github.com/knative/serving/pkg/reconciler/configuration"
-	"github.com/knative/serving/pkg/reconciler/service/resources"
-	resourcenames "github.com/knative/serving/pkg/reconciler/service/resources/names"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
-	"k8s.io/apimachinery/pkg/api/errors"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/kmp"
 	"knative.dev/pkg/logging"
+	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	"knative.dev/serving/pkg/apis/serving/v1beta1"
+	listers "knative.dev/serving/pkg/client/listers/serving/v1alpha1"
+	"knative.dev/serving/pkg/reconciler"
+	cfgreconciler "knative.dev/serving/pkg/reconciler/configuration"
+	"knative.dev/serving/pkg/reconciler/service/resources"
+	resourcenames "knative.dev/serving/pkg/reconciler/service/resources/names"
 )
 
 const (
@@ -162,7 +161,7 @@ func (c *Reconciler) reconcile(ctx context.Context, service *v1alpha1.Service) e
 	// otherwise a bad patch could lead to folks inadvertently routing traffic to a
 	// pre-existing Revision (possibly for another Configuration).
 	if _, err := cfgreconciler.CheckNameAvailability(config, c.revisionLister); err != nil &&
-		!errors.IsNotFound(err) {
+		!apierrs.IsNotFound(err) {
 		service.Status.MarkRevisionNameTaken(config.Spec.GetTemplate().Name)
 		return nil
 	}
@@ -192,7 +191,7 @@ func (c *Reconciler) reconcile(ctx context.Context, service *v1alpha1.Service) e
 func (c *Reconciler) config(ctx context.Context, logger *zap.SugaredLogger, service *v1alpha1.Service) (*v1alpha1.Configuration, error) {
 	configName := resourcenames.Configuration(service)
 	config, err := c.configurationLister.Configurations(service.Namespace).Get(configName)
-	if errors.IsNotFound(err) {
+	if apierrs.IsNotFound(err) {
 		config, err = c.createConfiguration(service)
 		if err != nil {
 			logger.Errorf("Failed to create Configuration %q: %v", configName, err)
@@ -221,7 +220,7 @@ func (c *Reconciler) config(ctx context.Context, logger *zap.SugaredLogger, serv
 func (c *Reconciler) route(ctx context.Context, logger *zap.SugaredLogger, service *v1alpha1.Service) (*v1alpha1.Route, error) {
 	routeName := resourcenames.Route(service)
 	route, err := c.routeLister.Routes(service.Namespace).Get(routeName)
-	if errors.IsNotFound(err) {
+	if apierrs.IsNotFound(err) {
 		route, err = c.createRoute(service)
 		if err != nil {
 			logger.Errorf("Failed to create Route %q: %v", routeName, err)

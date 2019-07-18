@@ -22,8 +22,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/knative/serving/test"
-	"github.com/knative/serving/test/types"
+	"knative.dev/serving/test"
+	"knative.dev/serving/test/types"
 )
 
 func verifyPermissionsString(resp string, expected string) error {

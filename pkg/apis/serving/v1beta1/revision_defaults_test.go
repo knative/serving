@@ -28,13 +28,19 @@ import (
 	logtesting "knative.dev/pkg/logging/testing"
 	"knative.dev/pkg/ptr"
 
-	"github.com/knative/serving/pkg/apis/config"
+	"knative.dev/serving/pkg/apis/config"
 )
 
 var (
 	defaultResources = corev1.ResourceRequirements{
 		Requests: corev1.ResourceList{},
 		Limits:   corev1.ResourceList{},
+	}
+	defaultProbe = &corev1.Probe{
+		SuccessThreshold: 1,
+		Handler: corev1.Handler{
+			TCPSocket: &corev1.TCPSocketAction{},
+		},
 	}
 	ignoreUnexportedResources = cmpopts.IgnoreUnexported(resource.Quantity{})
 )
@@ -49,20 +55,10 @@ func TestRevisionDefaulting(t *testing.T) {
 	}{{
 		name: "empty",
 		in:   &Revision{},
-		want: &Revision{
-			Spec: RevisionSpec{
-				TimeoutSeconds: ptr.Int64(config.DefaultRevisionTimeoutSeconds),
-				PodSpec: corev1.PodSpec{
-					Containers: []corev1.Container{{
-						Name:      config.DefaultUserContainerName,
-						Resources: defaultResources,
-					}},
-				},
-			},
-		},
+		want: &Revision{Spec: RevisionSpec{TimeoutSeconds: ptr.Int64(config.DefaultRevisionTimeoutSeconds)}},
 	}, {
 		name: "with context",
-		in:   &Revision{},
+		in:   &Revision{Spec: RevisionSpec{PodSpec: corev1.PodSpec{Containers: []corev1.Container{{}}}}},
 		wc: func(ctx context.Context) context.Context {
 			s := config.NewStore(logtesting.TestLogger(t))
 			s.OnConfigChanged(&corev1.ConfigMap{
@@ -82,8 +78,9 @@ func TestRevisionDefaulting(t *testing.T) {
 				TimeoutSeconds:       ptr.Int64(123),
 				PodSpec: corev1.PodSpec{
 					Containers: []corev1.Container{{
-						Name:      config.DefaultUserContainerName,
-						Resources: defaultResources,
+						Name:           config.DefaultUserContainerName,
+						Resources:      defaultResources,
+						ReadinessProbe: defaultProbe,
 					}},
 				},
 			},
@@ -114,7 +111,8 @@ func TestRevisionDefaulting(t *testing.T) {
 							Name:     "bar",
 							ReadOnly: true,
 						}},
-						Resources: defaultResources,
+						Resources:      defaultResources,
+						ReadinessProbe: defaultProbe,
 					}},
 				},
 				ContainerConcurrency: 1,
@@ -130,6 +128,13 @@ func TestRevisionDefaulting(t *testing.T) {
 				PodSpec: corev1.PodSpec{
 					Containers: []corev1.Container{{
 						Name: "foo",
+						ReadinessProbe: &corev1.Probe{
+							Handler: corev1.Handler{
+								TCPSocket: &corev1.TCPSocketAction{
+									Host: "127.0.0.2",
+								},
+							},
+						},
 					}},
 				},
 			},
@@ -142,14 +147,34 @@ func TestRevisionDefaulting(t *testing.T) {
 					Containers: []corev1.Container{{
 						Name:      "foo",
 						Resources: defaultResources,
+						ReadinessProbe: &corev1.Probe{
+							SuccessThreshold: 1,
+							Handler: corev1.Handler{
+								TCPSocket: &corev1.TCPSocketAction{
+									Host: "127.0.0.2",
+								},
+							},
+						},
 					}},
 				},
 			},
 		},
 	}, {
-		name: "partially initialized",
+		name: "no overwrite exec",
 		in: &Revision{
-			Spec: RevisionSpec{},
+			Spec: RevisionSpec{
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						ReadinessProbe: &corev1.Probe{
+							Handler: corev1.Handler{
+								Exec: &corev1.ExecAction{
+									Command: []string{"echo", "hi"},
+								},
+							},
+						},
+					}},
+				},
+			},
 		},
 		want: &Revision{
 			Spec: RevisionSpec{
@@ -158,6 +183,62 @@ func TestRevisionDefaulting(t *testing.T) {
 					Containers: []corev1.Container{{
 						Name:      config.DefaultUserContainerName,
 						Resources: defaultResources,
+						ReadinessProbe: &corev1.Probe{
+							SuccessThreshold: 1,
+							Handler: corev1.Handler{
+								Exec: &corev1.ExecAction{
+									Command: []string{"echo", "hi"},
+								},
+							},
+						},
+					}},
+				},
+			},
+		},
+	}, {
+		name: "partially initialized",
+		in: &Revision{
+			Spec: RevisionSpec{
+				PodSpec: corev1.PodSpec{Containers: []corev1.Container{{}}},
+			},
+		},
+		want: &Revision{
+			Spec: RevisionSpec{
+				TimeoutSeconds: ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Name:           config.DefaultUserContainerName,
+						Resources:      defaultResources,
+						ReadinessProbe: defaultProbe,
+					}},
+				},
+			},
+		},
+	}, {
+		name: "multiple containers",
+		in: &Revision{
+			Spec: RevisionSpec{
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Name: "busybox",
+					}, {
+						Name: "helloworld",
+					}},
+				},
+			},
+		},
+		want: &Revision{
+			Spec: RevisionSpec{
+				TimeoutSeconds: ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Name:           "busybox",
+						Resources:      defaultResources,
+						ReadinessProbe: defaultProbe,
+					}, {
+						Name:           "helloworld",
+						Resources:      defaultResources,
+						ReadinessProbe: defaultProbe,
 					}},
 				},
 			},

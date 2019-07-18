@@ -25,11 +25,6 @@ import (
 
 	"go.uber.org/zap"
 
-	autoscalingv1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
-	apiconfig "github.com/knative/serving/pkg/apis/config"
-	net "github.com/knative/serving/pkg/apis/networking/v1alpha1"
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes"
 	"knative.dev/pkg/configmap"
@@ -40,6 +35,11 @@ import (
 	"knative.dev/pkg/system"
 	"knative.dev/pkg/version"
 	"knative.dev/pkg/webhook"
+	autoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
+	apiconfig "knative.dev/serving/pkg/apis/config"
+	net "knative.dev/serving/pkg/apis/networking/v1alpha1"
+	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	"knative.dev/serving/pkg/apis/serving/v1beta1"
 )
 
 const (
@@ -117,6 +117,7 @@ func main() {
 		v1beta1.SchemeGroupVersion.WithKind("Route"):                     &v1beta1.Route{},
 		v1beta1.SchemeGroupVersion.WithKind("Service"):                   &v1beta1.Service{},
 		autoscalingv1alpha1.SchemeGroupVersion.WithKind("PodAutoscaler"): &autoscalingv1alpha1.PodAutoscaler{},
+		autoscalingv1alpha1.SchemeGroupVersion.WithKind("Metric"):        &autoscalingv1alpha1.Metric{},
 		net.SchemeGroupVersion.WithKind("Certificate"):                   &net.Certificate{},
 		net.SchemeGroupVersion.WithKind("ClusterIngress"):                &net.ClusterIngress{},
 		net.SchemeGroupVersion.WithKind("ServerlessService"):             &net.ServerlessService{},

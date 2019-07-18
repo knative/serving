@@ -22,10 +22,11 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/knative/serving/pkg/apis/serving"
-	"github.com/knative/serving/pkg/resources"
 	"github.com/pkg/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
+	"knative.dev/serving/pkg/apis/serving"
+	"knative.dev/serving/pkg/resources"
 )
 
 const (
@@ -59,7 +60,7 @@ var (
 	}
 )
 
-func TestNewServiceScraperWithClient_HappyCase(t *testing.T) {
+func TestNewServiceScraperWithClientHappyCase(t *testing.T) {
 	client := newTestScrapeClient(testStats, []error{nil})
 	if scraper, err := serviceScraperForTest(client); err != nil {
 		t.Fatalf("serviceScraperForTest=%v, want no error", err)
@@ -73,7 +74,7 @@ func TestNewServiceScraperWithClient_HappyCase(t *testing.T) {
 	}
 }
 
-func TestNewServiceScraperWithClient_ErrorCases(t *testing.T) {
+func TestNewServiceScraperWithClientErrorCases(t *testing.T) {
 	metric := testMetric()
 	invalidMetric := testMetric()
 	invalidMetric.Labels = map[string]string{}
@@ -83,7 +84,7 @@ func TestNewServiceScraperWithClient_ErrorCases(t *testing.T) {
 
 	testCases := []struct {
 		name        string
-		metric      *Metric
+		metric      *av1alpha1.Metric
 		client      scrapeClient
 		counter     resources.ReadyPodCounter
 		expectedErr string
@@ -233,8 +234,8 @@ func serviceScraperForTest(sClient scrapeClient) (*ServiceScraper, error) {
 	return newServiceScraperWithClient(metric, counter, sClient)
 }
 
-func testMetric() *Metric {
-	return &Metric{
+func testMetric() *av1alpha1.Metric {
+	return &av1alpha1.Metric{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: testNamespace,
 			Name:      testRevision,
@@ -242,7 +243,7 @@ func testMetric() *Metric {
 				serving.RevisionLabelKey: testRevision,
 			},
 		},
-		Spec: MetricSpec{
+		Spec: av1alpha1.MetricSpec{
 			ScrapeTarget: testRevision + "-zhudex",
 		},
 	}

@@ -22,7 +22,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/knative/serving/pkg/apis/autoscaling"
+	"knative.dev/serving/pkg/apis/autoscaling"
 
 	corev1 "k8s.io/api/core/v1"
 )

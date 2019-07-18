@@ -32,7 +32,7 @@ spec:
       - name: default-domain
         # This is the Go import path for the binary that is containerized
         # and substituted here.
-        image: github.com/knative/serving/cmd/default-domain
+        image: knative.dev/serving/cmd/default-domain
         args: ["-magic-dns=xip.io"]
         env:
           - name: SYSTEM_NAMESPACE

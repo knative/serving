@@ -28,16 +28,16 @@ import (
 	"knative.dev/pkg/injection/clients/dynamicclient"
 	"knative.dev/pkg/logging"
 
-	"github.com/knative/serving/pkg/activator"
-	pav1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
-	"github.com/knative/serving/pkg/apis/networking"
-	"github.com/knative/serving/pkg/autoscaler"
-	"github.com/knative/serving/pkg/network"
-	"github.com/knative/serving/pkg/network/prober"
-	"github.com/knative/serving/pkg/reconciler/autoscaling/config"
-	aresources "github.com/knative/serving/pkg/reconciler/autoscaling/resources"
-	rresources "github.com/knative/serving/pkg/reconciler/revision/resources"
-	"github.com/knative/serving/pkg/resources"
+	"knative.dev/serving/pkg/activator"
+	pav1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
+	"knative.dev/serving/pkg/apis/networking"
+	"knative.dev/serving/pkg/autoscaler"
+	"knative.dev/serving/pkg/network"
+	"knative.dev/serving/pkg/network/prober"
+	"knative.dev/serving/pkg/reconciler/autoscaling/config"
+	aresources "knative.dev/serving/pkg/reconciler/autoscaling/resources"
+	rresources "knative.dev/serving/pkg/reconciler/revision/resources"
+	"knative.dev/serving/pkg/resources"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -79,6 +79,7 @@ type scaler struct {
 	psInformerFactory duck.InformerFactory
 	dynamicClient     dynamic.Interface
 	logger            *zap.SugaredLogger
+	transport         http.RoundTripper
 	transportFactory  prober.TransportFactory
 
 	// For sync probes.
@@ -89,15 +90,19 @@ type scaler struct {
 	enqueueCB    func(interface{}, time.Duration)
 }
 
+var transport = network.NewProberTransport()
+
 // newScaler creates a scaler.
 func newScaler(ctx context.Context, psInformerFactory duck.InformerFactory, enqueueCB func(interface{}, time.Duration)) *scaler {
 	logger := logging.FromContext(ctx)
+	transport := network.NewProberTransport()
 	ks := &scaler{
 		// Wrap it in a cache, so that we don't stamp out a new
 		// informer/lister each time.
 		psInformerFactory: psInformerFactory,
 		dynamicClient:     dynamicclient.Get(ctx),
 		logger:            logger,
+		transport:         transport,
 		transportFactory: func() http.RoundTripper {
 			return network.NewAutoTransport()
 		},
@@ -108,7 +113,7 @@ func newScaler(ctx context.Context, psInformerFactory duck.InformerFactory, enqu
 			logger.Infof("Async prober is done for %v: success?: %v error: %v", arg, success, err)
 			// Re-enqeue the PA in any case. If the probe timed out to retry again, if succeeded to scale to 0.
 			enqueueCB(arg, reenqeuePeriod)
-		}, network.NewAutoTransport),
+		}, transport),
 		enqueueCB: enqueueCB,
 	}
 	return ks
@@ -179,7 +184,7 @@ func (ks *scaler) handleScaleToZero(pa *pav1alpha1.PodAutoscaler, desiredScale i
 		ks.enqueueCB(pa, sw)
 		desiredScale = 1
 	} else { // Active=False
-		r, err := ks.activatorProbe(pa, ks.transportFactory())
+		r, err := ks.activatorProbe(pa, ks.transport)
 		ks.logger.Infof("%s probing activator = %v, err = %v", pa.Name, r, err)
 		if r {
 			// Make sure we've been inactive for enough time.

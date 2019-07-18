@@ -19,6 +19,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -30,18 +31,18 @@ import (
 	"go.opencensus.io/trace"
 	"go.uber.org/zap"
 
-	"github.com/knative/serving/pkg/activator"
-	"github.com/knative/serving/pkg/activator/util"
-	"github.com/knative/serving/pkg/apis/networking"
-	"github.com/knative/serving/pkg/apis/serving"
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	netlisters "github.com/knative/serving/pkg/client/listers/networking/v1alpha1"
-	servinglisters "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
-	pkghttp "github.com/knative/serving/pkg/http"
-	"github.com/knative/serving/pkg/network"
-	"github.com/knative/serving/pkg/network/prober"
-	"github.com/knative/serving/pkg/queue"
 	"knative.dev/pkg/logging/logkey"
+	"knative.dev/serving/pkg/activator"
+	"knative.dev/serving/pkg/activator/util"
+	"knative.dev/serving/pkg/apis/networking"
+	"knative.dev/serving/pkg/apis/serving"
+	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	netlisters "knative.dev/serving/pkg/client/listers/networking/v1alpha1"
+	servinglisters "knative.dev/serving/pkg/client/listers/serving/v1alpha1"
+	pkghttp "knative.dev/serving/pkg/http"
+	"knative.dev/serving/pkg/network"
+	"knative.dev/serving/pkg/network/prober"
+	"knative.dev/serving/pkg/queue"
 
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -57,9 +58,9 @@ type activationHandler struct {
 	reporter  activator.StatsReporter
 	throttler *activator.Throttler
 
-	probeTimeout          time.Duration
-	probeTransportFactory prober.TransportFactory
-	endpointTimeout       time.Duration
+	probeTimeout    time.Duration
+	probeTransport  http.RoundTripper
+	endpointTimeout time.Duration
 
 	revisionLister servinglisters.RevisionLister
 	serviceLister  corev1listers.ServiceLister
@@ -118,11 +119,9 @@ func New(l *zap.SugaredLogger, r activator.StatsReporter, t *activator.Throttler
 		serviceLister:  sl,
 		probeTimeout:   defaulTimeout,
 		// In activator we collect metrics, so we're wrapping
-		// the Roundtripper the prober would use inside annotating transport.
-		probeTransportFactory: func() http.RoundTripper {
-			return &ochttp.Transport{
-				Base: network.NewAutoTransport(),
-			}
+		// the RoundTripper the prober would use inside an annotating transport.
+		probeTransport: &ochttp.Transport{
+			Base: network.NewProberTransport(),
 		},
 		endpointTimeout: defaulTimeout,
 		cache:           newProbeCache(),
@@ -163,7 +162,7 @@ func (a *activationHandler) probeEndpoint(logger *zap.SugaredLogger, r *http.Req
 		attempts++
 		ret, err := prober.Do(
 			reqCtx,
-			a.probeTransportFactory(),
+			a.probeTransport,
 			url,
 			prober.WithHeader(network.ProbeHeaderName, queue.Name),
 			prober.ExpectsBody(queue.Name),
@@ -317,7 +316,9 @@ func (a *activationHandler) serviceHostName(rev *v1alpha1.Revision, serviceName 
 		return "", errors.New("revision needs external HTTP port")
 	}
 
-	return network.GetServiceHostname(serviceName, rev.Namespace) + ":" + strconv.Itoa(port), nil
+	// Use the ClusterIP directly to elide DNS lookup, which both adds latency
+	// and hurts reliability when routing through the activator.
+	return net.JoinHostPort(svc.Spec.ClusterIP, strconv.Itoa(port)), nil
 }
 
 func sendError(err error, w http.ResponseWriter) {

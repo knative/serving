@@ -23,7 +23,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/util/sets"
 
-	"github.com/knative/serving/test"
+	"knative.dev/serving/test"
 )
 
 // TestShouldHaveSysctlReadOnly verifies that the /proc/sys filesystem mounted within the container

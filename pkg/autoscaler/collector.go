@@ -22,12 +22,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/knative/serving/pkg/autoscaler/aggregation"
+	"knative.dev/serving/pkg/autoscaler/aggregation"
 
-	av1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"go.uber.org/zap"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 )
 
 const (
@@ -44,29 +43,8 @@ var (
 	ErrNoData = errors.New("no data available")
 )
 
-// Metric represents a resource to configure the metric collector with.
-// +k8s:deepcopy-gen=true
-type Metric struct {
-	metav1.ObjectMeta
-	Spec   MetricSpec
-	Status MetricStatus
-}
-
-// MetricSpec contains all values the metric collector needs to operate.
-type MetricSpec struct {
-	StableWindow time.Duration
-	PanicWindow  time.Duration
-
-	// ScrapeTarget is the K8s service that is publishes the metric
-	// endpoint.
-	ScrapeTarget string
-}
-
-// MetricStatus reflects the status of metric collection for this specific entity.
-type MetricStatus struct{}
-
 // StatsScraperFactory creates a StatsScraper for a given Metric.
-type StatsScraperFactory func(*Metric) (StatsScraper, error)
+type StatsScraperFactory func(*av1alpha1.Metric) (StatsScraper, error)
 
 // Stat defines a single measurement at a point in time
 type Stat struct {
@@ -128,7 +106,7 @@ func NewMetricCollector(statsScraperFactory StatsScraperFactory, logger *zap.Sug
 
 // Get gets a Metric object from the collector.
 // Returns a copy of the Metric object. Mutations won't be seen by the collector.
-func (c *MetricCollector) Get(ctx context.Context, namespace, name string) (*Metric, error) {
+func (c *MetricCollector) Get(ctx context.Context, namespace, name string) (*av1alpha1.Metric, error) {
 	c.collectionsMutex.RLock()
 	defer c.collectionsMutex.RUnlock()
 
@@ -143,7 +121,7 @@ func (c *MetricCollector) Get(ctx context.Context, namespace, name string) (*Met
 
 // Create creates a new metric and thus starts collection for that entity.
 // Returns a copy of the Metric object. Mutations won't be seen by the collector.
-func (c *MetricCollector) Create(ctx context.Context, metric *Metric) (*Metric, error) {
+func (c *MetricCollector) Create(ctx context.Context, metric *av1alpha1.Metric) (*av1alpha1.Metric, error) {
 	c.collectionsMutex.Lock()
 	defer c.collectionsMutex.Unlock()
 
@@ -165,7 +143,7 @@ func (c *MetricCollector) Create(ctx context.Context, metric *Metric) (*Metric, 
 
 // Update updates the Metric.
 // Returns a copy of the Metric object. Mutations won't be seen by the collector.
-func (c *MetricCollector) Update(ctx context.Context, metric *Metric) (*Metric, error) {
+func (c *MetricCollector) Update(ctx context.Context, metric *av1alpha1.Metric) (*av1alpha1.Metric, error) {
 	c.collectionsMutex.Lock()
 	defer c.collectionsMutex.Unlock()
 
@@ -220,7 +198,7 @@ func (c *MetricCollector) StableAndPanicConcurrency(key string) (float64, float6
 // collection represents the collection of metrics for one specific entity.
 type collection struct {
 	metricMutex sync.RWMutex
-	metric      *Metric
+	metric      *av1alpha1.Metric
 
 	scraperMutex sync.RWMutex
 	scraper      StatsScraper
@@ -244,7 +222,7 @@ func (c *collection) getScraper() StatsScraper {
 
 // newCollection creates a new collection, which uses the given scraper to
 // collect stats every scrapeTickInterval.
-func newCollection(metric *Metric, scraper StatsScraper, logger *zap.SugaredLogger) *collection {
+func newCollection(metric *av1alpha1.Metric, scraper StatsScraper, logger *zap.SugaredLogger) *collection {
 	c := &collection{
 		metric:  metric,
 		buckets: aggregation.NewTimedFloat64Buckets(BucketSize),
@@ -279,7 +257,7 @@ func newCollection(metric *Metric, scraper StatsScraper, logger *zap.SugaredLogg
 }
 
 // updateMetric safely updates the metric stored in the collection.
-func (c *collection) updateMetric(metric *Metric) {
+func (c *collection) updateMetric(metric *av1alpha1.Metric) {
 	c.metricMutex.Lock()
 	defer c.metricMutex.Unlock()
 
@@ -287,7 +265,7 @@ func (c *collection) updateMetric(metric *Metric) {
 }
 
 // currentMetric safely returns the current metric stored in the collection.
-func (c *collection) currentMetric() *Metric {
+func (c *collection) currentMetric() *av1alpha1.Metric {
 	c.metricMutex.RLock()
 	defer c.metricMutex.RUnlock()
 

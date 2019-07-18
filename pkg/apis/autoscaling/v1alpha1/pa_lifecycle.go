@@ -18,16 +18,15 @@ package v1alpha1
 
 import (
 	"fmt"
-	"math"
 	"strconv"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
-	"github.com/knative/serving/pkg/apis/autoscaling"
 	"knative.dev/pkg/apis"
 	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
+	"knative.dev/serving/pkg/apis/autoscaling"
 )
 
 var podCondSet = apis.NewLivingConditionSet(
@@ -86,16 +85,7 @@ func (pa *PodAutoscaler) ScaleBounds() (min, max int32) {
 
 // Target returns the target annotation value or false if not present, or invalid.
 func (pa *PodAutoscaler) Target() (float64, bool) {
-	if s, ok := pa.Annotations[autoscaling.TargetAnnotationKey]; ok {
-		if ta, err := strconv.ParseFloat(s, 64 /*width*/); err == nil {
-			// Max check for backwards compatibility.
-			if ta < 1 || ta > math.MaxInt32 {
-				return 0, false
-			}
-			return ta, true
-		}
-	}
-	return 0, false
+	return pa.annotationFloat64(autoscaling.TargetAnnotationKey)
 }
 
 // TargetUtilization returns the target capacity utilization as a fraction,

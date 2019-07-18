@@ -25,23 +25,23 @@ import (
 	"testing"
 	"time"
 
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	"github.com/knative/serving/pkg/apis/serving/v1beta1"
-	serviceresourcenames "github.com/knative/serving/pkg/reconciler/service/resources/names"
-	"github.com/knative/serving/test"
-	v1a1test "github.com/knative/serving/test/v1alpha1"
 	"github.com/mattbaird/jsonpatch"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	pkgTest "knative.dev/pkg/test"
+	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	"knative.dev/serving/pkg/apis/serving/v1beta1"
+	serviceresourcenames "knative.dev/serving/pkg/reconciler/service/resources/names"
+	"knative.dev/serving/test"
+	v1a1test "knative.dev/serving/test/v1alpha1"
 
-	. "github.com/knative/serving/pkg/testing/v1alpha1"
+	. "knative.dev/serving/pkg/testing/v1alpha1"
 )
 
 // createLatestService creates a service in namespace with the name names.Service
 // that uses the image specified by names.Image
 func createLatestService(t *testing.T, clients *test.Clients, names test.ResourceNames, revisionTimeoutSeconds int64) (*v1alpha1.Service, error) {
-	service := v1a1test.LatestService(names, &v1a1test.Options{}, WithRevisionTimeoutSeconds(revisionTimeoutSeconds))
+	service := v1a1test.LatestService(names, WithRevisionTimeoutSeconds(revisionTimeoutSeconds))
 	v1a1test.LogResourceObject(t, v1a1test.ResourceObjects{Service: service})
 	svc, err := clients.ServingAlphaClient.Services.Create(service)
 	return svc, err

@@ -20,18 +20,20 @@ package performance
 
 import (
 	"fmt"
+	"net/http"
 	"strings"
 	"testing"
 	"time"
 
-	"github.com/knative/serving/test"
-	v1a1test "github.com/knative/serving/test/v1alpha1"
 	"github.com/knative/test-infra/shared/junit"
-	"github.com/knative/test-infra/shared/loadgenerator"
 	perf "github.com/knative/test-infra/shared/performance"
 	"github.com/knative/test-infra/shared/testgrid"
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/ingress"
+	"knative.dev/serving/test"
+	v1a1test "knative.dev/serving/test/v1alpha1"
+
+	vegeta "github.com/tsenart/vegeta/lib"
 )
 
 const (
@@ -39,14 +41,14 @@ const (
 	app        = "helloworld"
 )
 
-var loads = [...]int32{1, 100, 1000}
+var loads = [...]int{100, 1000}
 
 func filename(name string) string {
 	// Replace characters in `name` with characters for a file name.
 	return strings.ReplaceAll(name, "/", "-")
 }
 
-func runTest(t *testing.T, img string, baseQPS float64, loadFactors []float64) {
+func runTest(t *testing.T, pacer vegeta.Pacer, saveMetrics bool) {
 	t.Helper()
 	tName := t.Name()
 	perfClients, err := Setup(t)
@@ -57,14 +59,14 @@ func runTest(t *testing.T, img string, baseQPS float64, loadFactors []float64) {
 	clients := perfClients.E2EClients
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
-		Image:   img,
+		Image:   app,
 	}
 
 	defer TearDown(perfClients, names, t.Logf)
 	test.CleanupOnInterrupt(func() { TearDown(perfClients, names, t.Logf) })
 
 	t.Log("Creating a new Service")
-	objs, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, &v1a1test.Options{})
+	objs, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names)
 	if err != nil {
 		t.Fatalf("Failed to create Service: %v", err)
 	}
@@ -85,40 +87,31 @@ func runTest(t *testing.T, img string, baseQPS float64, loadFactors []float64) {
 		t.Fatalf("Error probing domain %s: %v", domain, err)
 	}
 
-	opts := loadgenerator.GeneratorOptions{
-		Duration:       duration,
-		NumThreads:     1,
-		NumConnections: 5,
-		Domain:         domain,
-		URL:            fmt.Sprintf("http://%s", *endpoint),
-		RequestTimeout: reqTimeout,
-		BaseQPS:        baseQPS,
-		LoadFactors:    loadFactors,
-		FileNamePrefix: filename(tName),
-	}
-	resp, err := opts.RunLoadTest(loadgenerator.AddHostHeader)
-	if err != nil {
-		t.Fatalf("Generating traffic via fortio failed: %v", err)
-	}
+	targeter := vegeta.NewStaticTargeter(vegeta.Target{
+		Method: http.MethodGet,
+		URL:    fmt.Sprintf("http://%s/", *endpoint),
+	})
+	attacker := vegeta.NewAttacker()
 
-	// Save the json result for benchmarking
-	resp.SaveJSON()
+	var metrics vegeta.Metrics
+	for res := range attacker.Attack(targeter, pacer, duration, tName) {
+		metrics.Add(res)
+	}
+	metrics.Close()
 
-	if len(resp.Result) == 0 {
-		t.Fatal("No result found for the load test")
+	// Return directly if we do not want to save metrics for this test run.
+	if !saveMetrics {
+		return
 	}
 
-	if resp.ErrorsPercentage(0) > 0 {
-		t.Fatal("Found non 200 response")
-	}
-
-	// Add latency metrics
 	var tc []junit.TestCase
-	for _, p := range resp.Result[0].DurationHistogram.Percentiles {
-		val := float32(p.Value) * 1000
-		name := fmt.Sprintf("p%d(ms)", int(p.Percentile))
-		tc = append(tc, perf.CreatePerfTestCase(val, name, tName))
-	}
+	// Add latency metrics
+	tc = append(tc, perf.CreatePerfTestCase(float32(metrics.Latencies.P50.Seconds()*1000), "p50(ms)", tName))
+	tc = append(tc, perf.CreatePerfTestCase(float32(metrics.Latencies.Quantile(0.90).Seconds()*1000), "p90(ms)", tName))
+	tc = append(tc, perf.CreatePerfTestCase(float32(metrics.Latencies.P99.Seconds()*1000), "p99(ms)", tName))
+
+	// Add errorsPercentage metrics
+	tc = append(tc, perf.CreatePerfTestCase(float32(1-metrics.Success), "errorsPercentage", tName))
 
 	if err = testgrid.CreateXMLOutput(tc, filename(tName)); err != nil {
 		t.Fatalf("Cannot create output xml: %v", err)
@@ -129,7 +122,12 @@ func runTest(t *testing.T, img string, baseQPS float64, loadFactors []float64) {
 func TestBenchmarkSteadyTraffic(t *testing.T) {
 	for _, load := range loads {
 		t.Run(fmt.Sprintf("N%d", load), func(t *testing.T) {
-			runTest(t, app, float64(load), []float64{1})
+			zeroToNSteadyPacer := NewSteadyUpPacer(
+				vegeta.Rate{Freq: 1, Per: time.Second},
+				vegeta.Rate{Freq: load, Per: time.Second},
+				duration/2,
+			)
+			runTest(t, zeroToNSteadyPacer, true)
 		})
 	}
 }
@@ -138,7 +136,8 @@ func TestBenchmarkSteadyTraffic(t *testing.T) {
 func TestBenchmarkBurstZeroToN(t *testing.T) {
 	for _, load := range loads {
 		t.Run(fmt.Sprintf("N%d", load), func(t *testing.T) {
-			runTest(t, app, float64(load), []float64{0, 1})
+			zeroToNBurstPacer := vegeta.ConstantPacer{Freq: load, Per: time.Second}
+			runTest(t, zeroToNBurstPacer, true)
 		})
 	}
 }
@@ -147,7 +146,17 @@ func TestBenchmarkBurstZeroToN(t *testing.T) {
 func TestBenchmarkBurstNto2N(t *testing.T) {
 	for _, load := range loads {
 		t.Run(fmt.Sprintf("N%d", load), func(t *testing.T) {
-			runTest(t, app, float64(load), []float64{1, 2})
+			// Steady ramp up from 0 to N, then burst to 2N.
+			zeroToNSteadyPacer := NewSteadyUpPacer(
+				vegeta.Rate{Freq: 1, Per: time.Second},
+				vegeta.Rate{Freq: load, Per: time.Second},
+				duration,
+			)
+			// Scale up to the desired load and discard the metrics.
+			runTest(t, zeroToNSteadyPacer, false)
+
+			nTo2NBurstPacer := vegeta.ConstantPacer{Freq: 2 * load, Per: time.Second}
+			runTest(t, nTo2NBurstPacer, true)
 		})
 	}
 }

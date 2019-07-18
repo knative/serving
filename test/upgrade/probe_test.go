@@ -25,9 +25,9 @@ import (
 	"syscall"
 	"testing"
 
-	"github.com/knative/serving/test"
-	"github.com/knative/serving/test/e2e"
-	v1a1test "github.com/knative/serving/test/v1alpha1"
+	"knative.dev/serving/test"
+	"knative.dev/serving/test/e2e"
+	v1a1test "knative.dev/serving/test/v1alpha1"
 )
 
 const pipe = "/tmp/prober-signal"
@@ -51,7 +51,7 @@ func TestProbe(t *testing.T) {
 	}
 	defer test.TearDown(clients, names)
 
-	objects, err := v1a1test.CreateRunLatestServiceLegacyReady(t, clients, &names, &v1a1test.Options{})
+	objects, err := v1a1test.CreateRunLatestServiceLegacyReady(t, clients, &names)
 	if err != nil {
 		t.Fatalf("Failed to create Service: %v", err)
 	}

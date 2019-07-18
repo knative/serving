@@ -23,13 +23,8 @@ set -o pipefail
 
 cd ${ROOT_DIR}
 
-which hg >/dev/null || echo "If dep hangs, you need to install mercurial: https://github.com/knative/serving/issues/4663"
-
 # Ensure we have everything we need under vendor/
 dep ensure
-
-# The license for this is embedded in the readme.
-sed -n '11,41p' vendor/bitbucket.org/ww/goautoneg/README.txt > vendor/bitbucket.org/ww/goautoneg/LICENSE
 
 rm -rf $(find vendor/ -name 'OWNERS')
 rm -rf $(find vendor/ -name '*_test.go')

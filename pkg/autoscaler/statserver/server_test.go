@@ -29,9 +29,9 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/gorilla/websocket"
-	"github.com/knative/serving/pkg/autoscaler"
-	stats "github.com/knative/serving/pkg/autoscaler/statserver"
 	"golang.org/x/sync/errgroup"
+	"knative.dev/serving/pkg/autoscaler"
+	stats "knative.dev/serving/pkg/autoscaler/statserver"
 )
 
 func TestServerLifecycle(t *testing.T) {

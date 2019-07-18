@@ -19,11 +19,12 @@ package config
 import (
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 
-	"github.com/knative/serving/pkg/network"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/validation"
+	"knative.dev/serving/pkg/network"
 )
 
 const (
@@ -36,6 +37,10 @@ const (
 
 	// LocalGatewayKeyPrefix is the prefix of all keys to configure Istio gateways for public & private ClusterIngresses.
 	LocalGatewayKeyPrefix = "local-gateway."
+
+	// ReconcileExternalGatewayKey the is the name of the configuration entry that specifies
+	// reconciling external Istio Gateways or not.
+	ReconcileExternalGatewayKey = "reconcileExternalGateway"
 )
 
 var (
@@ -49,6 +54,7 @@ var (
 		ServiceURL: fmt.Sprintf("cluster-local-gateway.istio-system.svc.%s",
 			network.GetClusterDomainName()),
 	}
+	defaultReconcileGateway = false
 )
 
 // Gateway specifies the name of the Gateway and the K8s Service backing it.
@@ -65,6 +71,9 @@ type Istio struct {
 
 	// LocalGateway specifies the gateway urls for public & private ClusterIngress.
 	LocalGateways []Gateway
+
+	// ReconcileExternalGateway specifies if external Istio Gateways will be reconciled or not.
+	ReconcileExternalGateway bool
 }
 
 func parseGateways(configMap *corev1.ConfigMap, prefix string) ([]Gateway, error) {
@@ -109,9 +118,16 @@ func NewIstioFromConfigMap(configMap *corev1.ConfigMap) (*Istio, error) {
 	if err != nil {
 		return nil, err
 	}
+	reconcileGateway := defaultReconcileGateway
+	if reconcileGatewayStr := configMap.Data[ReconcileExternalGatewayKey]; len(reconcileGatewayStr) != 0 {
+		if reconcileGateway, err = strconv.ParseBool(reconcileGatewayStr); err != nil {
+			return nil, err
+		}
+	}
 	return &Istio{
-		IngressGateways: gateways,
-		LocalGateways:   localGateways,
+		IngressGateways:          gateways,
+		LocalGateways:            localGateways,
+		ReconcileExternalGateway: reconcileGateway,
 	}, nil
 }
 

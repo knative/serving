@@ -31,15 +31,15 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 
-	netv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
-	"github.com/knative/serving/pkg/apis/serving"
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	"github.com/knative/serving/pkg/reconciler/route/config"
-	"github.com/knative/serving/pkg/reconciler/route/resources"
-	resourcenames "github.com/knative/serving/pkg/reconciler/route/resources/names"
-	"github.com/knative/serving/pkg/reconciler/route/traffic"
 	"knative.dev/pkg/apis/duck"
 	"knative.dev/pkg/logging"
+	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
+	"knative.dev/serving/pkg/apis/serving"
+	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	"knative.dev/serving/pkg/reconciler/route/config"
+	"knative.dev/serving/pkg/reconciler/route/resources"
+	resourcenames "knative.dev/serving/pkg/reconciler/route/resources/names"
+	"knative.dev/serving/pkg/reconciler/route/traffic"
 )
 
 func (c *Reconciler) getClusterIngressForRoute(route *v1alpha1.Route) (*netv1alpha1.ClusterIngress, error) {
@@ -255,6 +255,7 @@ func (c *Reconciler) reconcileTargetRevisions(ctx context.Context, t *traffic.Co
 				}
 
 				newRev := rev.DeepCopy()
+
 				lastPin, err := newRev.GetLastPinned()
 				if err != nil {
 					// Missing is an expected error case for a not yet pinned revision.
@@ -268,11 +269,8 @@ func (c *Reconciler) reconcileTargetRevisions(ctx context.Context, t *traffic.Co
 					}
 				}
 
-				if newRev.Annotations == nil {
-					newRev.Annotations = make(map[string]string)
-				}
+				newRev.SetLastPinned(c.clock.Now())
 
-				newRev.ObjectMeta.Annotations[serving.RevisionLastPinnedAnnotationKey] = v1alpha1.RevisionLastPinnedString(c.clock.Now())
 				patch, err := duck.CreateMergePatch(rev, newRev)
 				if err != nil {
 					return err

@@ -21,17 +21,17 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	"github.com/knative/serving/pkg/apis/serving/v1beta1"
-	"github.com/knative/serving/pkg/reconciler/route/domains"
-	servicenames "github.com/knative/serving/pkg/reconciler/service/resources/names"
-	"github.com/knative/serving/pkg/resources"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/apis"
 	duckv1alpha1 "knative.dev/pkg/apis/duck/v1alpha1"
 	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
 	"knative.dev/pkg/ptr"
+	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	"knative.dev/serving/pkg/apis/serving/v1beta1"
+	"knative.dev/serving/pkg/reconciler/route/domains"
+	servicenames "knative.dev/serving/pkg/reconciler/service/resources/names"
+	"knative.dev/serving/pkg/resources"
 )
 
 // ServiceOption enables further configuration of a Service.
@@ -172,6 +172,20 @@ func WithNumberedPort(number int32) ServiceOption {
 	}
 }
 
+// WithNamedPort sets the Service's port name to what's provided.
+func WithNamedPort(name string) ServiceOption {
+	return func(svc *v1alpha1.Service) {
+		c := &svc.Spec.Template.Spec.Containers[0]
+		if len(c.Ports) == 1 {
+			c.Ports[0].Name = name
+		} else {
+			c.Ports = []corev1.ContainerPort{{
+				Name: name,
+			}}
+		}
+	}
+}
+
 // WithResourceRequirements attaches resource requirements to the service
 func WithResourceRequirements(resourceRequirements corev1.ResourceRequirements) ServiceOption {
 	return func(svc *v1alpha1.Service) {
@@ -209,6 +223,19 @@ func WithVolume(name, mountPath string, volumeSource corev1.VolumeSource) Servic
 func WithServiceAnnotations(annotations map[string]string) ServiceOption {
 	return func(service *v1alpha1.Service) {
 		service.Annotations = resources.UnionMaps(service.Annotations, annotations)
+	}
+}
+
+// WithContainerConcurrency setss the container concurrency on the resource.
+func WithContainerConcurrency(cc int) ServiceOption {
+	return func(s *v1alpha1.Service) {
+		if s.Spec.DeprecatedRunLatest != nil {
+			s.Spec.DeprecatedRunLatest.Configuration.GetTemplate().Spec.ContainerConcurrency =
+				v1beta1.RevisionContainerConcurrencyType(cc)
+		} else {
+			s.Spec.ConfigurationSpec.Template.Spec.ContainerConcurrency =
+				v1beta1.RevisionContainerConcurrencyType(cc)
+		}
 	}
 }
 
@@ -446,5 +473,13 @@ func WithSecurityContext(sc *corev1.SecurityContext) ServiceOption {
 func WithWorkingDir(wd string) ServiceOption {
 	return func(s *v1alpha1.Service) {
 		s.Spec.Template.Spec.Containers[0].WorkingDir = wd
+	}
+}
+
+// WithReadinessProbe sets the provided probe to be the readiness
+// probe on the service.
+func WithReadinessProbe(p *corev1.Probe) ServiceOption {
+	return func(s *v1alpha1.Service) {
+		s.Spec.Template.Spec.Containers[0].ReadinessProbe = p
 	}
 }

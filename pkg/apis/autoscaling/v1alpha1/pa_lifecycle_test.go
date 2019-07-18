@@ -22,11 +22,11 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/knative/serving/pkg/apis/autoscaling"
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/apis/duck"
 	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
 	apitest "knative.dev/pkg/apis/testing"
+	"knative.dev/serving/pkg/apis/autoscaling"
 )
 
 func TestPodAutoscalerDuckTypes(t *testing.T) {
@@ -473,30 +473,9 @@ func TestTargetAnnotation(t *testing.T) {
 		wantTarget: 19.82,
 		wantOk:     true,
 	}, {
-		name: "invalid zero",
-		pa: pa(map[string]string{
-			autoscaling.TargetAnnotationKey: "0",
-		}),
-		wantTarget: 0,
-		wantOk:     false,
-	}, {
 		name: "invalid format",
 		pa: pa(map[string]string{
 			autoscaling.TargetAnnotationKey: "sandwich",
-		}),
-		wantTarget: 0,
-		wantOk:     false,
-	}, {
-		name: "invalid negative",
-		pa: pa(map[string]string{
-			autoscaling.TargetAnnotationKey: "-1",
-		}),
-		wantTarget: 0,
-		wantOk:     false,
-	}, {
-		name: "invalid overflow int32",
-		pa: pa(map[string]string{
-			autoscaling.TargetAnnotationKey: "100000000000000000000",
 		}),
 		wantTarget: 0,
 		wantOk:     false,

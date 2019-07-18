@@ -23,12 +23,12 @@ import (
 	"strings"
 
 	"github.com/google/go-containerregistry/pkg/name"
-	"github.com/knative/serving/pkg/apis/networking"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation"
 	"knative.dev/pkg/apis"
+	"knative.dev/serving/pkg/apis/networking"
 )
 
 const (
@@ -60,7 +60,7 @@ var (
 	// The port is named "user-port" on the deployment, but a user cannot set an arbitrary name on the port
 	// in Configuration. The name field is reserved for content-negotiation. Currently 'h2c' and 'http1' are
 	// allowed.
-	// https://github.com/knative/serving/blob/master/docs/runtime-contract.md#inbound-network-connectivity
+	// https://knative.dev/serving/blob/master/docs/runtime-contract.md#inbound-network-connectivity
 	validPortNames = sets.NewString(
 		"h2c",
 		"http1",
@@ -241,6 +241,11 @@ func ValidatePodSpec(ps corev1.PodSpec) *apis.FieldError {
 	default:
 		errs = errs.Also(apis.ErrMultipleOneOf("containers"))
 	}
+	if ps.ServiceAccountName != "" {
+		for range validation.IsDNS1123Subdomain(ps.ServiceAccountName) {
+			errs = errs.Also(apis.ErrInvalidValue("serviceAccountName", ps.ServiceAccountName))
+		}
+	}
 	return errs
 }
 
@@ -278,7 +283,7 @@ func ValidateContainer(container corev1.Container, volumes sets.String) *apis.Fi
 	// Ports
 	errs = errs.Also(validateContainerPorts(container.Ports).ViaField("ports"))
 	// Readiness Probes
-	errs = errs.Also(validateProbe(container.ReadinessProbe).ViaField("readinessProbe"))
+	errs = errs.Also(validateReadinessProbe(container.ReadinessProbe).ViaField("readinessProbe"))
 	// Resources
 	errs = errs.Also(validateResources(&container.Resources).ViaField("resources"))
 	// SecurityContext
@@ -416,6 +421,43 @@ func validateContainerPorts(ports []corev1.ContainerPort) *apis.FieldError {
 	return errs
 }
 
+func validateReadinessProbe(p *corev1.Probe) *apis.FieldError {
+	if p == nil {
+		return nil
+	}
+
+	errs := validateProbe(p)
+
+	if p.PeriodSeconds < 0 {
+		errs = errs.Also(apis.ErrOutOfBoundsValue(p.PeriodSeconds, 0, math.MaxInt32, "periodSeconds"))
+	}
+
+	if p.SuccessThreshold < 1 {
+		errs = errs.Also(apis.ErrOutOfBoundsValue(p.SuccessThreshold, 1, math.MaxInt32, "successThreshold"))
+	}
+
+	// PeriodSeconds == 0 indicates Knative's special probe with aggressive retries
+	if p.PeriodSeconds == 0 {
+		if p.FailureThreshold != 0 {
+			errs = errs.Also(apis.ErrDisallowedFields("failureThreshold"))
+		}
+
+		if p.TimeoutSeconds != 0 {
+			errs = errs.Also(apis.ErrDisallowedFields("timeoutSeconds"))
+		}
+	} else {
+		if p.TimeoutSeconds < 1 {
+			errs = errs.Also(apis.ErrOutOfBoundsValue(p.TimeoutSeconds, 1, math.MaxInt32, "timeoutSeconds"))
+		}
+
+		if p.FailureThreshold < 1 {
+			errs = errs.Also(apis.ErrOutOfBoundsValue(p.FailureThreshold, 1, math.MaxInt32, "failureThreshold"))
+		}
+	}
+
+	return errs
+}
+
 func validateProbe(p *corev1.Probe) *apis.FieldError {
 	if p == nil {
 		return nil
@@ -425,11 +467,25 @@ func validateProbe(p *corev1.Probe) *apis.FieldError {
 	h := p.Handler
 	errs = errs.Also(apis.CheckDisallowedFields(h, *HandlerMask(&h)))
 
-	switch {
-	case h.HTTPGet != nil:
+	var handlers []string
+
+	if h.HTTPGet != nil {
+		handlers = append(handlers, "httpGet")
 		errs = errs.Also(apis.CheckDisallowedFields(*h.HTTPGet, *HTTPGetActionMask(h.HTTPGet))).ViaField("httpGet")
-	case h.TCPSocket != nil:
+	}
+	if h.TCPSocket != nil {
+		handlers = append(handlers, "tcpSocket")
 		errs = errs.Also(apis.CheckDisallowedFields(*h.TCPSocket, *TCPSocketActionMask(h.TCPSocket))).ViaField("tcpSocket")
+	}
+	if h.Exec != nil {
+		handlers = append(handlers, "exec")
+		errs = errs.Also(apis.CheckDisallowedFields(*h.Exec, *ExecActionMask(h.Exec))).ViaField("exec")
+	}
+
+	if len(handlers) == 0 {
+		errs = errs.Also(apis.ErrMissingField("handler"))
+	} else if len(handlers) > 1 {
+		errs = errs.Also(apis.ErrMultipleOneOf(handlers...))
 	}
 	return errs
 }

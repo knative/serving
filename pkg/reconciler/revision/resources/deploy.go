@@ -19,19 +19,19 @@ package resources
 import (
 	"strconv"
 
-	"github.com/knative/serving/pkg/apis/networking"
-	"github.com/knative/serving/pkg/apis/serving"
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	"github.com/knative/serving/pkg/autoscaler"
-	"github.com/knative/serving/pkg/deployment"
-	"github.com/knative/serving/pkg/metrics"
-	"github.com/knative/serving/pkg/network"
-	"github.com/knative/serving/pkg/queue"
-	"github.com/knative/serving/pkg/reconciler/revision/resources/names"
-	"github.com/knative/serving/pkg/resources"
 	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/ptr"
+	"knative.dev/serving/pkg/apis/networking"
+	"knative.dev/serving/pkg/apis/serving"
+	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	"knative.dev/serving/pkg/autoscaler"
+	"knative.dev/serving/pkg/deployment"
+	"knative.dev/serving/pkg/metrics"
+	"knative.dev/serving/pkg/network"
+	"knative.dev/serving/pkg/queue"
+	"knative.dev/serving/pkg/reconciler/revision/resources/names"
+	"knative.dev/serving/pkg/resources"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -134,8 +134,15 @@ func makePodSpec(rev *v1alpha1.Revision, loggingConfig *logging.Config, observab
 		userContainer.TerminationMessagePolicy = corev1.TerminationMessageFallbackToLogsOnError
 	}
 
+	if userContainer.ReadinessProbe != nil {
+		if userContainer.ReadinessProbe.HTTPGet != nil || userContainer.ReadinessProbe.TCPSocket != nil {
+			// HTTP and TCP ReadinessProbes are executed by the queue-proxy directly against the
+			// user-container instead of via kubelet.
+			userContainer.ReadinessProbe = nil
+		}
+	}
+
 	// If the client provides probes, we should fill in the port for them.
-	rewriteUserProbe(userContainer.ReadinessProbe, userPortInt)
 	rewriteUserProbe(userContainer.LivenessProbe, userPortInt)
 
 	podSpec := &corev1.PodSpec{

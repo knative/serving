@@ -27,26 +27,25 @@ import (
 	"time"
 
 	// These are the fake informers we want setup.
-	fakeservingclient "github.com/knative/serving/pkg/client/injection/client/fake"
 	fakedynamicclient "knative.dev/pkg/injection/clients/dynamicclient/fake"
-
-	"github.com/knative/serving/pkg/activator"
-	"github.com/knative/serving/pkg/apis/autoscaling"
-	pav1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
-	"github.com/knative/serving/pkg/apis/serving"
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
-	"github.com/knative/serving/pkg/network"
-	"github.com/knative/serving/pkg/reconciler/autoscaling/config"
-	revisionresources "github.com/knative/serving/pkg/reconciler/revision/resources"
-	"github.com/knative/serving/pkg/reconciler/revision/resources/names"
-	presources "github.com/knative/serving/pkg/resources"
+	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
 
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/apis/duck"
 	"knative.dev/pkg/logging"
 	logtesting "knative.dev/pkg/logging/testing"
 	_ "knative.dev/pkg/system/testing"
+	"knative.dev/serving/pkg/activator"
+	"knative.dev/serving/pkg/apis/autoscaling"
+	pav1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
+	"knative.dev/serving/pkg/apis/serving"
+	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	clientset "knative.dev/serving/pkg/client/clientset/versioned"
+	"knative.dev/serving/pkg/network"
+	"knative.dev/serving/pkg/reconciler/autoscaling/config"
+	revisionresources "knative.dev/serving/pkg/reconciler/revision/resources"
+	"knative.dev/serving/pkg/reconciler/revision/resources/names"
+	presources "knative.dev/serving/pkg/resources"
 
 	v1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -57,8 +56,8 @@ import (
 	fakedynamic "k8s.io/client-go/dynamic/fake"
 	clientgotesting "k8s.io/client-go/testing"
 
-	. "github.com/knative/serving/pkg/testing"
 	. "knative.dev/pkg/reconciler/testing"
+	. "knative.dev/serving/pkg/testing"
 )
 
 const (

@@ -17,13 +17,12 @@ limitations under the License.
 package resources
 
 import (
-	"github.com/knative/serving/pkg/apis/autoscaling"
-	pav1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
-	"github.com/knative/serving/pkg/apis/networking"
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	sv1a1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	"github.com/knative/serving/pkg/resources"
 	"knative.dev/pkg/kmeta"
+	"knative.dev/serving/pkg/apis/autoscaling"
+	pav1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
+	"knative.dev/serving/pkg/apis/networking"
+	sv1a1 "knative.dev/serving/pkg/apis/serving/v1alpha1"
+	"knative.dev/serving/pkg/resources"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -45,12 +44,12 @@ func MakeMetricsService(pa *pav1alpha1.PodAutoscaler, selector map[string]string
 		},
 		Spec: corev1.ServiceSpec{
 			Ports: []corev1.ServicePort{{
-				Name:       v1alpha1.ServiceQueueMetricsPortName,
+				Name:       sv1a1.ServiceQueueMetricsPortName,
 				Protocol:   corev1.ProtocolTCP,
 				Port:       networking.AutoscalingQueueMetricsPort,
 				TargetPort: intstr.FromString(sv1a1.AutoscalingQueueMetricsPortName),
 			}, {
-				Name:       v1alpha1.UserQueueMetricsPortName,
+				Name:       sv1a1.UserQueueMetricsPortName,
 				Protocol:   corev1.ProtocolTCP,
 				Port:       networking.UserQueueMetricsPort,
 				TargetPort: intstr.FromString(sv1a1.UserQueueMetricsPortName),

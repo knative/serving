@@ -22,10 +22,6 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/knative/serving/pkg/apis/serving/v1beta1"
-	serviceresourcenames "github.com/knative/serving/pkg/reconciler/service/resources/names"
-	rtesting "github.com/knative/serving/pkg/testing/v1beta1"
-	"github.com/knative/serving/test"
 	"github.com/mattbaird/jsonpatch"
 	"github.com/pkg/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -33,6 +29,10 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	ptest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/logging"
+	"knative.dev/serving/pkg/apis/serving/v1beta1"
+	serviceresourcenames "knative.dev/serving/pkg/reconciler/service/resources/names"
+	rtesting "knative.dev/serving/pkg/testing/v1beta1"
+	"knative.dev/serving/test"
 )
 
 func validateCreatedServiceStatus(clients *test.Clients, names *test.ResourceNames) error {
@@ -243,4 +243,10 @@ func CheckServiceState(client *test.ServingBetaClients, name string, inState fun
 // ready. This means that its configurations and routes have all reported ready.
 func IsServiceReady(s *v1beta1.Service) (bool, error) {
 	return s.Generation == s.Status.ObservedGeneration && s.Status.IsReady(), nil
+}
+
+// IsServiceNotReady will check the status conditions of the service and return true if the service is
+// not ready.
+func IsServiceNotReady(s *v1beta1.Service) (bool, error) {
+	return s.Generation == s.Status.ObservedGeneration && !s.Status.IsReady(), nil
 }

@@ -19,20 +19,19 @@ package serverlessservice
 import (
 	"context"
 
-	sksinformer "github.com/knative/serving/pkg/client/injection/informers/networking/v1alpha1/serverlessservice"
-	pkgreconciler "github.com/knative/serving/pkg/reconciler"
 	endpointsinformer "knative.dev/pkg/injection/informers/kubeinformers/corev1/endpoints"
 	serviceinformer "knative.dev/pkg/injection/informers/kubeinformers/corev1/service"
+	sksinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/serverlessservice"
+	pkgreconciler "knative.dev/serving/pkg/reconciler"
 
-	"github.com/knative/serving/pkg/activator"
-	"github.com/knative/serving/pkg/apis/networking"
-	netv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
-	rbase "github.com/knative/serving/pkg/reconciler"
-	presources "github.com/knative/serving/pkg/resources"
 	"k8s.io/client-go/tools/cache"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/system"
+	"knative.dev/serving/pkg/activator"
+	"knative.dev/serving/pkg/apis/networking"
+	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
+	presources "knative.dev/serving/pkg/resources"
 )
 
 const (
@@ -50,7 +49,7 @@ func NewController(
 	sksInformer := sksinformer.Get(ctx)
 
 	c := &reconciler{
-		Base:              rbase.NewBase(ctx, controllerAgentName, cmw),
+		Base:              pkgreconciler.NewBase(ctx, controllerAgentName, cmw),
 		endpointsLister:   endpointsInformer.Lister(),
 		serviceLister:     serviceInformer.Lister(),
 		sksLister:         sksInformer.Lister(),
@@ -84,9 +83,9 @@ func NewController(
 	}
 	endpointsInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		// Accept only ActivatorService K8s service objects.
-		FilterFunc: rbase.ChainFilterFuncs(
-			rbase.NamespaceFilterFunc(system.Namespace()),
-			rbase.NameFilterFunc(activator.K8sServiceName)),
+		FilterFunc: pkgreconciler.ChainFilterFuncs(
+			pkgreconciler.NamespaceFilterFunc(system.Namespace()),
+			pkgreconciler.NameFilterFunc(activator.K8sServiceName)),
 		Handler: controller.HandleAll(grCb),
 	})
 

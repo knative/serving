@@ -33,8 +33,6 @@ You must install these tools:
 1. [`ko`](https://github.com/google/ko): For development.
 1. [`kubectl`](https://kubernetes.io/docs/tasks/tools/install-kubectl/): For
    managing development environments.
-1. [`hg`](https://www.mercurial-scm.org/wiki/Download): For enabling scripts for
-   dependency update.
 
 ### Create a cluster and a repo
 
@@ -82,7 +80,7 @@ export KO_DOCKER_REPO='gcr.io/my-gcloud-project-id'
 ### Checkout your fork
 
 The Go tools require that you clone the repository to the
-`src/github.com/knative/serving` directory in your
+`src/knative.dev/serving` directory in your
 [`GOPATH`](https://github.com/golang/go/wiki/SettingGOPATH).
 
 To check out this repository:
@@ -92,8 +90,8 @@ To check out this repository:
 1. Clone it to your machine:
 
 ```shell
-mkdir -p ${GOPATH}/src/github.com/knative
-cd ${GOPATH}/src/github.com/knative
+mkdir -p ${GOPATH}/src/knative.dev
+cd ${GOPATH}/src/knative.dev
 git clone git@github.com:${YOUR_GITHUB_USERNAME}/serving.git
 cd serving
 git remote add upstream git@github.com:knative/serving.git
@@ -277,10 +275,6 @@ kubectl apply -R -f config/monitoring/100-namespace.yaml \
 
 ## Iterating
 
-Before running the `./hack/update-codegen.sh` and `./hack/update-deps.sh`
-scripts, ensure that [mercurial](https://www.mercurial-scm.org/wiki/Download) is
-installed.
-
 As you make changes to the code-base, there are two special cases to be aware
 of:
 
@@ -322,7 +316,8 @@ ko delete --ignore-not-found=true \
   -f ./third_party/config/build/release.yaml \
   -f ./third_party/istio-1.2-latest/istio.yaml \
   -f ./third_party/istio-1.2-latest/istio-crds.yaml \
-  -f ./third_party/cert-manager-0.6.1/cert-manager-crds.yaml
+  -f ./third_party/cert-manager-0.6.1/cert-manager-crds.yaml \
+  -f ./third_party/cert-manager-0.6.1/cert-manager.yaml
 ```
 
 ## Telemetry

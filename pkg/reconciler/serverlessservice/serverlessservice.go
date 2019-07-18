@@ -23,18 +23,10 @@ import (
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/google/go-cmp/cmp"
-	"github.com/knative/serving/pkg/activator"
-	"github.com/knative/serving/pkg/apis/networking"
-	netv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
-	listers "github.com/knative/serving/pkg/client/listers/networking/v1alpha1"
-	rbase "github.com/knative/serving/pkg/reconciler"
-	"github.com/knative/serving/pkg/reconciler/serverlessservice/resources"
-	presources "github.com/knative/serving/pkg/resources"
-	perrors "github.com/pkg/errors"
+	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
-	"k8s.io/apimachinery/pkg/api/errors"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -44,6 +36,13 @@ import (
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/system"
+	"knative.dev/serving/pkg/activator"
+	"knative.dev/serving/pkg/apis/networking"
+	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
+	listers "knative.dev/serving/pkg/client/listers/networking/v1alpha1"
+	rbase "knative.dev/serving/pkg/reconciler"
+	"knative.dev/serving/pkg/reconciler/serverlessservice/resources"
+	presources "knative.dev/serving/pkg/resources"
 )
 
 const reconcilerName = "ServerlessServices"
@@ -146,7 +145,7 @@ func (r *reconciler) reconcilePublicService(ctx context.Context, sks *netv1alpha
 
 	sn := sks.Name
 	srv, err := r.serviceLister.Services(sks.Namespace).Get(sn)
-	if errors.IsNotFound(err) {
+	if apierrs.IsNotFound(err) {
 		logger.Infof("K8s public service %s does not exist; creating.", sn)
 		// We've just created the service, so it has no endpoints.
 		sks.Status.MarkEndpointsNotReady("CreatingPublicService")
@@ -240,7 +239,7 @@ func (r *reconciler) reconcilePublicEndpoints(ctx context.Context, sks *netv1alp
 	sn := sks.Name
 	eps, err := r.endpointsLister.Endpoints(sks.Namespace).Get(sn)
 
-	if errors.IsNotFound(err) {
+	if apierrs.IsNotFound(err) {
 		logger.Infof("K8s endpoints %s does not exist; creating.", sn)
 		sks.Status.MarkEndpointsNotReady("CreatingPublicEndpoints")
 		eps, err = r.KubeClientSet.CoreV1().Endpoints(sks.Namespace).Create(resources.MakePublicEndpoints(sks, srcEps))
@@ -311,11 +310,11 @@ func (r *reconciler) reconcilePrivateService(ctx context.Context, sks *netv1alph
 
 	selector, err := r.getSelector(sks)
 	if err != nil {
-		return perrors.Wrap(err, "error retrieving deployment selector spec")
+		return errors.Wrap(err, "error retrieving deployment selector spec")
 	}
 
 	svc, err := r.privateService(sks)
-	if errors.IsNotFound(err) {
+	if apierrs.IsNotFound(err) {
 		logger.Infof("SKS %s has no private service; creating.", sks.Name)
 		sks.Status.MarkEndpointsNotReady("CreatingPrivateService")
 		svc = resources.MakePrivateService(sks, selector)

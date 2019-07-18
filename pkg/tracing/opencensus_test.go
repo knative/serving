@@ -6,11 +6,11 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/knative/serving/pkg/tracing/config"
 	openzipkin "github.com/openzipkin/zipkin-go"
 	zipkinreporter "github.com/openzipkin/zipkin-go/reporter"
 	reporterrecorder "github.com/openzipkin/zipkin-go/reporter/recorder"
 	"go.opencensus.io/trace"
+	"knative.dev/serving/pkg/tracing/config"
 )
 
 func TestOpenCensusTracerGlobalLifecycle(t *testing.T) {

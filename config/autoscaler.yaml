@@ -42,7 +42,7 @@ spec:
       - name: autoscaler
         # This is the Go import path for the binary that is containerized
         # and substituted here.
-        image: github.com/knative/serving/cmd/autoscaler
+        image: knative.dev/serving/cmd/autoscaler
         readinessProbe:
           httpGet:
             # The path does not matter, we look for the kubelet user-agent

@@ -19,7 +19,7 @@ package clusteringress
 import (
 	"context"
 
-	ing "github.com/knative/serving/pkg/reconciler/ingress"
+	ing "knative.dev/serving/pkg/reconciler/ingress"
 
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"

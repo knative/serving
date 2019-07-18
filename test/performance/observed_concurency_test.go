@@ -31,16 +31,15 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 
-	rsNames "github.com/knative/serving/pkg/reconciler/revision/resources/names"
-	"github.com/knative/serving/test"
-	"github.com/knative/serving/test/e2e"
-	v1a1test "github.com/knative/serving/test/v1alpha1"
 	"github.com/knative/test-infra/shared/junit"
 	perf "github.com/knative/test-infra/shared/performance"
 	"github.com/knative/test-infra/shared/testgrid"
 	"golang.org/x/sync/errgroup"
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/spoof"
+	v1a1opts "knative.dev/serving/pkg/testing/v1alpha1"
+	"knative.dev/serving/test"
+	v1a1test "knative.dev/serving/test/v1alpha1"
 )
 
 // generateTraffic loads the given endpoint with the given concurrency for the given duration.
@@ -112,8 +111,9 @@ func parseResponse(body string) (*event, *event, error) {
 
 // timeToScale calculates the time it took to scale to a given scale, starting from a given
 // time. Returns an error if that scale was never reached.
-func timeToScale(events []*event, start time.Time, desiredScale int) (time.Duration, error) {
+func timeToScale(events []*event, desiredScale int) (time.Duration, error) {
 	var currentConcurrency int
+	start := events[0].timestamp
 	for _, event := range events {
 		currentConcurrency += event.concurrencyModifier
 		if currentConcurrency == desiredScale {
@@ -126,7 +126,7 @@ func timeToScale(events []*event, start time.Time, desiredScale int) (time.Durat
 
 func TestObservedConcurrency(t *testing.T) {
 	var tc []junit.TestCase
-	tests := []int{5, 10} //going beyond 10 currently causes "overload" responses
+	tests := []int{5, 10, 15} //going beyond 15 currently causes "overload" responses
 	for _, clients := range tests {
 		t.Run(fmt.Sprintf("scale-%02d", clients), func(t *testing.T) {
 			tc = append(tc, testConcurrencyN(t, clients)...)
@@ -153,23 +153,16 @@ func testConcurrencyN(t *testing.T, concurrency int) []junit.TestCase {
 	test.CleanupOnInterrupt(func() { TearDown(perfClients, names, t.Logf) })
 
 	t.Log("Creating a new Service")
-	objs, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, &v1a1test.Options{
-		ContainerConcurrency: 1,
-		ContainerResources: corev1.ResourceRequirements{
+	objs, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
+		v1a1opts.WithResourceRequirements(corev1.ResourceRequirements{
 			Requests: corev1.ResourceList{
 				corev1.ResourceCPU:    resource.MustParse("10m"),
 				corev1.ResourceMemory: resource.MustParse("20Mi"),
 			},
-		},
-	})
+		}),
+		v1a1opts.WithContainerConcurrency(1))
 	if err != nil {
 		t.Fatalf("Failed to create Service: %v", err)
-	}
-
-	t.Logf("%02d: waiting for deployment to scale to zero.", concurrency)
-	deploymentName := rsNames.Deployment(objs.Revision)
-	if err := e2e.WaitForScaleToZero(t, deploymentName, clients); err != nil {
-		t.Fatalf("%02d: failed waiting for deployment to scale to zero: %v", concurrency, err)
 	}
 
 	domain := objs.Route.Status.URL.Host
@@ -183,7 +176,6 @@ func testConcurrencyN(t *testing.T, concurrency int) []junit.TestCase {
 	const presumedSize = 1000
 
 	eg := errgroup.Group{}
-	trafficStart := time.Now()
 	responseChannel := make(chan *spoof.Response, presumedSize)
 	events := make([]*event, 0, presumedSize)
 	failedRequests := 0
@@ -219,8 +211,8 @@ func testConcurrencyN(t *testing.T, concurrency int) []junit.TestCase {
 	t.Logf("Generated %d requests with %d failed", len(events)+failedRequests, failedRequests)
 
 	var tc []junit.TestCase
-	for i := 1; i <= concurrency; i++ {
-		toConcurrency, err := timeToScale(events, trafficStart, i)
+	for i := 2; i <= concurrency; i++ {
+		toConcurrency, err := timeToScale(events, i)
 		if err != nil {
 			t.Logf("Never scaled to %d", i)
 		} else {

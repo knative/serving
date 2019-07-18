@@ -20,9 +20,9 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/knative/serving/pkg/apis/serving"
 	"k8s.io/apimachinery/pkg/util/validation"
 	"knative.dev/pkg/apis"
+	"knative.dev/serving/pkg/apis/serving"
 )
 
 // Validate makes sure that Route is properly configured.

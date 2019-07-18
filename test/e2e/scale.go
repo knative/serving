@@ -22,18 +22,18 @@ import (
 	"testing"
 	"time"
 
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	serviceresourcenames "github.com/knative/serving/pkg/reconciler/service/resources/names"
-	"github.com/knative/serving/test"
-	v1a1test "github.com/knative/serving/test/v1alpha1"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	pkgTest "knative.dev/pkg/test"
+	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	serviceresourcenames "knative.dev/serving/pkg/reconciler/service/resources/names"
+	"knative.dev/serving/test"
+	v1a1test "knative.dev/serving/test/v1alpha1"
 
-	"github.com/knative/serving/pkg/pool"
+	"knative.dev/serving/pkg/pool"
 
-	. "github.com/knative/serving/pkg/testing/v1alpha1"
+	. "knative.dev/serving/pkg/testing/v1alpha1"
 )
 
 // Latencies is an interface for providing mechanisms for recording timings
@@ -79,25 +79,12 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 				Image:   "helloworld",
 			}
 
-			options := &v1a1test.Options{
-				// Give each request 10 seconds to respond.
-				// This is mostly to work around #2897
-				RevisionTimeoutSeconds: 10,
-				ReadinessProbe: &corev1.Probe{
-					Handler: corev1.Handler{
-						HTTPGet: &corev1.HTTPGetAction{
-							Path: "/",
-						},
-					},
-				},
-			}
-
 			// Start the clock for various waypoints towards Service readiness.
 			start := time.Now()
 			// Record the overall completion time regardless of success/failure.
 			defer latencies.Add("time-to-done", start)
 
-			svc, err := v1a1test.CreateLatestService(t, clients, names, options,
+			svc, err := v1a1test.CreateLatestService(t, clients, names,
 				WithResourceRequirements(corev1.ResourceRequirements{
 					Limits: corev1.ResourceList{
 						corev1.ResourceCPU:    resource.MustParse("10m"),
@@ -110,7 +97,15 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 				}),
 				WithConfigAnnotations(map[string]string{
 					"autoscaling.knative.dev/maxScale": "1",
-				}))
+				}),
+				WithReadinessProbe(&corev1.Probe{
+					Handler: corev1.Handler{
+						HTTPGet: &corev1.HTTPGetAction{
+							Path: "/",
+						},
+					},
+				}),
+				WithRevisionTimeoutSeconds(10))
 
 			if err != nil {
 				t.Errorf("CreateLatestService() = %v", err)

@@ -22,13 +22,13 @@ import (
 	"fmt"
 	"reflect"
 
-	ingressinformer "github.com/knative/serving/pkg/client/injection/informers/networking/v1alpha1/ingress"
-	listers "github.com/knative/serving/pkg/client/listers/networking/v1alpha1"
 	"knative.dev/pkg/apis/istio/v1alpha3"
 	gatewayinformer "knative.dev/pkg/client/injection/informers/istio/v1alpha3/gateway"
 	virtualserviceinformer "knative.dev/pkg/client/injection/informers/istio/v1alpha3/virtualservice"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/system"
+	ingressinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/ingress"
+	listers "knative.dev/serving/pkg/client/listers/networking/v1alpha1"
 
 	istiolisters "knative.dev/pkg/client/listers/istio/v1alpha3"
 	"knative.dev/pkg/configmap"
@@ -36,14 +36,14 @@ import (
 	secretinformer "knative.dev/pkg/injection/informers/kubeinformers/corev1/secret"
 	"knative.dev/pkg/tracker"
 
-	"github.com/knative/serving/pkg/apis/networking"
-	"github.com/knative/serving/pkg/apis/networking/v1alpha1"
-	"github.com/knative/serving/pkg/apis/serving"
-	"github.com/knative/serving/pkg/network"
-	"github.com/knative/serving/pkg/reconciler"
-	"github.com/knative/serving/pkg/reconciler/ingress/config"
-	"github.com/knative/serving/pkg/reconciler/ingress/resources"
 	"go.uber.org/zap"
+	"knative.dev/serving/pkg/apis/networking"
+	"knative.dev/serving/pkg/apis/networking/v1alpha1"
+	"knative.dev/serving/pkg/apis/serving"
+	"knative.dev/serving/pkg/network"
+	"knative.dev/serving/pkg/reconciler"
+	"knative.dev/serving/pkg/reconciler/ingress/config"
+	"knative.dev/serving/pkg/reconciler/ingress/resources"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -270,7 +270,7 @@ func (r *BaseIngressReconciler) reconcileIngress(ctx context.Context, ra Reconci
 	ia.GetStatus().MarkLoadBalancerReady(lbs, publicLbs, privateLbs)
 	ia.GetStatus().ObservedGeneration = ia.GetGeneration()
 
-	if enablesAutoTLS(ctx) {
+	if enableReconcileGateway(ctx) {
 		if !ia.IsPublic() {
 			logger.Infof("Ingress %s is not public. So no need to configure TLS.", ia.GetName())
 			return nil
@@ -600,6 +600,6 @@ func getLBStatus(gatewayServiceURL string) []v1alpha1.LoadBalancerIngressStatus 
 	}
 }
 
-func enablesAutoTLS(ctx context.Context) bool {
-	return config.FromContext(ctx).Network.AutoTLS
+func enableReconcileGateway(ctx context.Context) bool {
+	return config.FromContext(ctx).Network.AutoTLS || config.FromContext(ctx).Istio.ReconcileExternalGateway
 }

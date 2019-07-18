@@ -22,20 +22,20 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/knative/serving/pkg/network"
-	"github.com/knative/serving/pkg/reconciler/route/resources/labels"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"knative.dev/pkg/apis/duck"
 	"knative.dev/pkg/test/logstream"
+	"knative.dev/serving/pkg/network"
+	"knative.dev/serving/pkg/reconciler/route/resources/labels"
 
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	"github.com/knative/serving/pkg/apis/serving/v1beta1"
-	routeconfig "github.com/knative/serving/pkg/reconciler/route/config"
-	"github.com/knative/serving/test"
-	v1a1test "github.com/knative/serving/test/v1alpha1"
+	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	"knative.dev/serving/pkg/apis/serving/v1beta1"
+	routeconfig "knative.dev/serving/pkg/reconciler/route/config"
+	"knative.dev/serving/test"
+	v1a1test "knative.dev/serving/test/v1alpha1"
 
-	. "github.com/knative/serving/pkg/testing/v1alpha1"
+	. "knative.dev/serving/pkg/testing/v1alpha1"
 )
 
 // In this test, we set up two apps: helloworld and httpproxy.
@@ -74,7 +74,7 @@ func TestSubrouteLocalSTS(t *testing.T) { // We can't use a longer more descript
 		},
 	})
 
-	resources, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, &v1a1test.Options{}, withInternalVisibility, withTrafficSpec)
+	resources, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, withInternalVisibility, withTrafficSpec)
 	if err != nil {
 		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
 	}
@@ -86,7 +86,7 @@ func TestSubrouteLocalSTS(t *testing.T) { // We can't use a longer more descript
 		domain := fmt.Sprintf("%s-%s", tag, resources.Route.Status.Address.URL.Host)
 		helloworldDomain := strings.TrimSuffix(domain, tc.suffix)
 		t.Run(tc.name, func(t *testing.T) {
-			testProxyToHelloworld(t, clients, helloworldDomain)
+			testProxyToHelloworld(t, clients, helloworldDomain, true)
 		})
 	}
 }
@@ -121,7 +121,7 @@ func TestSubrouteVisibilityChange(t *testing.T) {
 			},
 		},
 	})
-	resources, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, &v1a1test.Options{}, withInternalVisibility, withTrafficSpec)
+	resources, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, withInternalVisibility, withTrafficSpec)
 	if err != nil {
 		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
 	}

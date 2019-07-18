@@ -26,8 +26,8 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/knative/serving/pkg/resources"
 	"knative.dev/pkg/logging"
+	"knative.dev/serving/pkg/resources"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 )
@@ -166,9 +166,12 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (desiredPodCount 
 	// that the deployment does not have enough capacity to serve the desired burst off hand.
 	// EBC = TotCapacity - Cur#ReqInFlight - TargetBurstCapacity
 	excessBC = int32(-1)
-	if a.deciderSpec.TargetBurstCapacity >= 0 {
-		excessBC = int32(float64(originalReadyPodsCount)*a.deciderSpec.TotalConcurrency - observedStableConcurrency -
-			a.deciderSpec.TargetBurstCapacity)
+	switch {
+	case a.deciderSpec.TargetBurstCapacity == 0:
+		excessBC = 0
+	case a.deciderSpec.TargetBurstCapacity >= 0:
+		excessBC = int32(math.Floor(float64(originalReadyPodsCount)*a.deciderSpec.TotalConcurrency - observedStableConcurrency -
+			a.deciderSpec.TargetBurstCapacity))
 		logger.Debugf("PodCount=%v TotalConc=%v ObservedStableConc=%v TargetBC=%v ExcessBC=%v",
 			originalReadyPodsCount,
 			a.deciderSpec.TotalConcurrency,

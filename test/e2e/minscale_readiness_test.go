@@ -22,12 +22,12 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/knative/serving/pkg/apis/autoscaling"
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	"github.com/knative/serving/test"
-	v1a1test "github.com/knative/serving/test/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/test/logstream"
+	"knative.dev/serving/pkg/apis/autoscaling"
+	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	"knative.dev/serving/test"
+	v1a1test "knative.dev/serving/test/v1alpha1"
 )
 
 func TestMinScale(t *testing.T) {
@@ -44,7 +44,7 @@ func TestMinScale(t *testing.T) {
 		Image:  "helloworld",
 	}
 
-	if _, err := v1a1test.CreateConfiguration(t, clients, names, &v1a1test.Options{}, func(cfg *v1alpha1.Configuration) {
+	if _, err := v1a1test.CreateConfiguration(t, clients, names, func(cfg *v1alpha1.Configuration) {
 		if cfg.Spec.Template.Annotations == nil {
 			cfg.Spec.Template.Annotations = make(map[string]string)
 		}
@@ -74,7 +74,7 @@ func TestMinScale(t *testing.T) {
 		t.Fatalf("The Revision %q did not become ready: %v", revName, err)
 	}
 
-	deployment, err := clients.KubeClient.Kube.ExtensionsV1beta1().Deployments(test.ServingNamespace).Get(revName+"-deployment", metav1.GetOptions{})
+	deployment, err := clients.KubeClient.Kube.AppsV1().Deployments(test.ServingNamespace).Get(revName+"-deployment", metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Failed to get Deployment for Revision %s, err: %v", revName, err)
 	}

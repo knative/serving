@@ -23,21 +23,21 @@ import (
 	"time"
 
 	// Inject the fakes for informers this reconciler depends on.
-	_ "github.com/knative/serving/pkg/client/injection/informers/networking/v1alpha1/serverlessservice/fake"
 	_ "knative.dev/pkg/injection/informers/kubeinformers/corev1/endpoints/fake"
 	_ "knative.dev/pkg/injection/informers/kubeinformers/corev1/service/fake"
+	_ "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/serverlessservice/fake"
 
-	"github.com/knative/serving/pkg/activator"
-	"github.com/knative/serving/pkg/apis/networking"
-	nv1a1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
-	rpkg "github.com/knative/serving/pkg/reconciler"
-	"github.com/knative/serving/pkg/reconciler/serverlessservice/resources"
-	presources "github.com/knative/serving/pkg/resources"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	logtesting "knative.dev/pkg/logging/testing"
 	"knative.dev/pkg/ptr"
 	"knative.dev/pkg/system"
+	"knative.dev/serving/pkg/activator"
+	"knative.dev/serving/pkg/apis/networking"
+	nv1a1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
+	rpkg "knative.dev/serving/pkg/reconciler"
+	"knative.dev/serving/pkg/reconciler/serverlessservice/resources"
+	presources "knative.dev/serving/pkg/resources"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -47,9 +47,9 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	clientgotesting "k8s.io/client-go/testing"
 
-	. "github.com/knative/serving/pkg/reconciler/testing/v1alpha1"
-	. "github.com/knative/serving/pkg/testing"
 	. "knative.dev/pkg/reconciler/testing"
+	. "knative.dev/serving/pkg/reconciler/testing/v1alpha1"
+	. "knative.dev/serving/pkg/testing"
 )
 
 func TestNewController(t *testing.T) {

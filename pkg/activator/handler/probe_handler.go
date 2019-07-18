@@ -17,8 +17,8 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/knative/serving/pkg/activator"
-	"github.com/knative/serving/pkg/network"
+	"knative.dev/serving/pkg/activator"
+	"knative.dev/serving/pkg/network"
 )
 
 // ProbeHandler handles responding to Knative internal network probes.

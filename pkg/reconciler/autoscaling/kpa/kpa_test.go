@@ -26,15 +26,15 @@ import (
 	"time"
 
 	// These are the fake informers we want setup.
-	fakeservingclient "github.com/knative/serving/pkg/client/injection/client/fake"
-	fakepainformer "github.com/knative/serving/pkg/client/injection/informers/autoscaling/v1alpha1/podautoscaler/fake"
-	fakesksinformer "github.com/knative/serving/pkg/client/injection/informers/networking/v1alpha1/serverlessservice/fake"
-	fakerevisioninformer "github.com/knative/serving/pkg/client/injection/informers/serving/v1alpha1/revision/fake"
-	"github.com/knative/serving/pkg/reconciler"
 	fakedynamicclient "knative.dev/pkg/injection/clients/dynamicclient/fake"
 	fakekubeclient "knative.dev/pkg/injection/clients/kubeclient/fake"
 	fakeendpointsinformer "knative.dev/pkg/injection/informers/kubeinformers/corev1/endpoints/fake"
 	fakeserviceinformer "knative.dev/pkg/injection/informers/kubeinformers/corev1/service/fake"
+	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
+	fakepainformer "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/podautoscaler/fake"
+	fakesksinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/serverlessservice/fake"
+	fakerevisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/revision/fake"
+	"knative.dev/serving/pkg/reconciler"
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -43,19 +43,6 @@ import (
 	"go.uber.org/atomic"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/knative/serving/pkg/apis/autoscaling"
-	asv1a1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
-	nv1a1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
-	"github.com/knative/serving/pkg/apis/serving"
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	"github.com/knative/serving/pkg/autoscaler"
-	rpkg "github.com/knative/serving/pkg/reconciler"
-	areconciler "github.com/knative/serving/pkg/reconciler/autoscaling"
-	"github.com/knative/serving/pkg/reconciler/autoscaling/config"
-	"github.com/knative/serving/pkg/reconciler/autoscaling/kpa/resources"
-	aresources "github.com/knative/serving/pkg/reconciler/autoscaling/resources"
-	revisionresources "github.com/knative/serving/pkg/reconciler/revision/resources"
-	presources "github.com/knative/serving/pkg/resources"
 	perrors "github.com/pkg/errors"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
@@ -63,6 +50,18 @@ import (
 	"knative.dev/pkg/ptr"
 	"knative.dev/pkg/system"
 	_ "knative.dev/pkg/system/testing"
+	"knative.dev/serving/pkg/apis/autoscaling"
+	asv1a1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
+	nv1a1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
+	"knative.dev/serving/pkg/apis/serving"
+	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	"knative.dev/serving/pkg/autoscaler"
+	areconciler "knative.dev/serving/pkg/reconciler/autoscaling"
+	"knative.dev/serving/pkg/reconciler/autoscaling/config"
+	"knative.dev/serving/pkg/reconciler/autoscaling/kpa/resources"
+	aresources "knative.dev/serving/pkg/reconciler/autoscaling/resources"
+	revisionresources "knative.dev/serving/pkg/reconciler/revision/resources"
+	presources "knative.dev/serving/pkg/resources"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -71,9 +70,9 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgotesting "k8s.io/client-go/testing"
 
-	. "github.com/knative/serving/pkg/reconciler/testing/v1alpha1"
-	. "github.com/knative/serving/pkg/testing"
 	. "knative.dev/pkg/reconciler/testing"
+	. "knative.dev/serving/pkg/reconciler/testing/v1alpha1"
+	. "knative.dev/serving/pkg/testing"
 )
 
 // TODO(#3591): Convert KPA tests to table tests.
@@ -262,7 +261,7 @@ func TestReconcileNegativeBurstCapacity(t *testing.T) {
 		scaler.activatorProbe = func(*asv1a1.PodAutoscaler, http.RoundTripper) (bool, error) { return true, nil }
 		return &Reconciler{
 			Base: &areconciler.Base{
-				Base:              rpkg.NewBase(ctx, controllerAgentName, newConfigWatcher()),
+				Base:              reconciler.NewBase(ctx, controllerAgentName, newConfigWatcher()),
 				PALister:          listers.GetPodAutoscalerLister(),
 				SKSLister:         listers.GetServerlessServiceLister(),
 				ServiceLister:     listers.GetK8sServiceLister(),
@@ -433,7 +432,7 @@ func TestReconcileAndScaleToZero(t *testing.T) {
 		scaler.activatorProbe = func(*asv1a1.PodAutoscaler, http.RoundTripper) (bool, error) { return true, nil }
 		return &Reconciler{
 			Base: &areconciler.Base{
-				Base:              rpkg.NewBase(ctx, controllerAgentName, newConfigWatcher()),
+				Base:              reconciler.NewBase(ctx, controllerAgentName, newConfigWatcher()),
 				PALister:          listers.GetPodAutoscalerLister(),
 				SKSLister:         listers.GetServerlessServiceLister(),
 				ServiceLister:     listers.GetK8sServiceLister(),
@@ -905,7 +904,7 @@ func TestReconcile(t *testing.T) {
 		fakeMetrics := newTestMetrics()
 		return &Reconciler{
 			Base: &areconciler.Base{
-				Base:              rpkg.NewBase(ctx, controllerAgentName, newConfigWatcher()),
+				Base:              reconciler.NewBase(ctx, controllerAgentName, newConfigWatcher()),
 				PALister:          listers.GetPodAutoscalerLister(),
 				SKSLister:         listers.GetServerlessServiceLister(),
 				ServiceLister:     listers.GetK8sServiceLister(),
@@ -1443,17 +1442,17 @@ type testMetrics struct {
 	deleteCallCount    *atomic.Uint32
 	updateCallCount    *atomic.Uint32
 	deleteBeforeCreate *atomic.Bool
-	metric             *autoscaler.Metric
+	metric             *asv1a1.Metric
 }
 
-func (km *testMetrics) Get(ctx context.Context, namespace, name string) (*autoscaler.Metric, error) {
+func (km *testMetrics) Get(ctx context.Context, namespace, name string) (*asv1a1.Metric, error) {
 	if km.metric == nil {
 		return nil, apierrors.NewNotFound(asv1a1.Resource("Metric"), autoscaler.NewMetricKey(namespace, name))
 	}
 	return km.metric, nil
 }
 
-func (km *testMetrics) Create(ctx context.Context, metric *autoscaler.Metric) (*autoscaler.Metric, error) {
+func (km *testMetrics) Create(ctx context.Context, metric *asv1a1.Metric) (*asv1a1.Metric, error) {
 	km.metric = metric
 	km.createCallCount.Add(1)
 	return metric, nil
@@ -1468,7 +1467,7 @@ func (km *testMetrics) Delete(ctx context.Context, namespace, name string) error
 	return nil
 }
 
-func (km *testMetrics) Update(ctx context.Context, metric *autoscaler.Metric) (*autoscaler.Metric, error) {
+func (km *testMetrics) Update(ctx context.Context, metric *asv1a1.Metric) (*asv1a1.Metric, error) {
 	km.metric = metric
 	km.updateCallCount.Add(1)
 	return metric, nil

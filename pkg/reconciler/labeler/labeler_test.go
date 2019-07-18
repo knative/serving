@@ -22,24 +22,24 @@ import (
 	"testing"
 
 	// Inject the fake informers that this controller needs.
-	_ "github.com/knative/serving/pkg/client/injection/informers/serving/v1alpha1/configuration/fake"
-	_ "github.com/knative/serving/pkg/client/injection/informers/serving/v1alpha1/revision/fake"
-	_ "github.com/knative/serving/pkg/client/injection/informers/serving/v1alpha1/route/fake"
+	_ "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/configuration/fake"
+	_ "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/revision/fake"
+	_ "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/route/fake"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgotesting "k8s.io/client-go/testing"
 
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	"github.com/knative/serving/pkg/apis/serving/v1beta1"
-	"github.com/knative/serving/pkg/reconciler"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/kmeta"
 	logtesting "knative.dev/pkg/logging/testing"
+	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	"knative.dev/serving/pkg/apis/serving/v1beta1"
+	"knative.dev/serving/pkg/reconciler"
 
-	. "github.com/knative/serving/pkg/reconciler/testing/v1alpha1"
 	. "knative.dev/pkg/reconciler/testing"
+	. "knative.dev/serving/pkg/reconciler/testing/v1alpha1"
 )
 
 // This is heavily based on the way the OpenShift Ingress controller tests its reconciliation method.

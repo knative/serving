@@ -7,4 +7,4 @@ spec:
   template:
     spec:
       containers:
-      - image: github.com/knative/serving/test/test_images/observed-concurrency
+      - image: knative.dev/serving/test/test_images/observed-concurrency

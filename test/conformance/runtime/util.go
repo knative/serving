@@ -21,13 +21,13 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	"github.com/knative/serving/test"
-	"github.com/knative/serving/test/types"
-	v1a1test "github.com/knative/serving/test/v1alpha1"
 	pkgTest "knative.dev/pkg/test"
+	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	"knative.dev/serving/test"
+	"knative.dev/serving/test/types"
+	v1a1test "knative.dev/serving/test/v1alpha1"
 
-	. "github.com/knative/serving/pkg/testing/v1alpha1"
+	. "knative.dev/serving/pkg/testing/v1alpha1"
 )
 
 // fetchRuntimeInfo creates a Service that uses the 'runtime' test image, and extracts the returned output into the
@@ -54,7 +54,7 @@ func fetchRuntimeInfo(
 		svc.Spec.Template.Spec.Containers[0].ImagePullPolicy = "Always"
 	})
 
-	objects, err := v1a1test.CreateRunLatestServiceReady(t, clients, names, &v1a1test.Options{}, serviceOpts...)
+	objects, err := v1a1test.CreateRunLatestServiceReady(t, clients, names, serviceOpts...)
 	if err != nil {
 		return nil, nil, err
 	}

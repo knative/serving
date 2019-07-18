@@ -26,7 +26,6 @@ import (
 	"time"
 
 	"github.com/Azure/go-autorest/autorest"
-	"github.com/Azure/go-autorest/tracing"
 )
 
 const (
@@ -94,16 +93,6 @@ func (f *Future) Done(sender autorest.Sender) (bool, error) {
 
 // DoneWithContext queries the service to see if the operation has completed.
 func (f *Future) DoneWithContext(ctx context.Context, sender autorest.Sender) (done bool, err error) {
-	ctx = tracing.StartSpan(ctx, "github.com/Azure/go-autorest/autorest/azure/async.DoneWithContext")
-	defer func() {
-		sc := -1
-		resp := f.Response()
-		if resp != nil {
-			sc = resp.StatusCode
-		}
-		tracing.EndSpan(ctx, sc, err)
-	}()
-
 	// support for legacy Future implementation
 	if f.req != nil {
 		resp, err := sender.Do(f.req)
@@ -181,18 +170,15 @@ func (f Future) WaitForCompletion(ctx context.Context, client autorest.Client) e
 // running operation has completed, the provided context is cancelled, or the client's
 // polling duration has been exceeded.  It will retry failed polling attempts based on
 // the retry value defined in the client up to the maximum retry attempts.
+// If no deadline is specified in the context then the client.PollingDuration will be
+// used to determine if a default deadline should be used.
+// If PollingDuration is greater than zero the value will be used as the context's timeout.
+// If PollingDuration is zero then no default deadline will be used.
 func (f *Future) WaitForCompletionRef(ctx context.Context, client autorest.Client) (err error) {
-	ctx = tracing.StartSpan(ctx, "github.com/Azure/go-autorest/autorest/azure/async.WaitForCompletionRef")
-	defer func() {
-		sc := -1
-		resp := f.Response()
-		if resp != nil {
-			sc = resp.StatusCode
-		}
-		tracing.EndSpan(ctx, sc, err)
-	}()
 	cancelCtx := ctx
-	if d := client.PollingDuration; d != 0 {
+	// if the provided context already has a deadline don't override it
+	_, hasDeadline := ctx.Deadline()
+	if d := client.PollingDuration; !hasDeadline && d != 0 {
 		var cancel context.CancelFunc
 		cancelCtx, cancel = context.WithTimeout(ctx, d)
 		defer cancel()
@@ -824,8 +810,6 @@ func (pt *pollingTrackerPut) updatePollingMethod() error {
 				pt.URI = lh
 				pt.Pm = PollingLocation
 			}
-			// when both headers are returned we use the value in the Location header for the final GET
-			pt.FinalGetURI = lh
 		}
 		// make sure a polling URL was found
 		if pt.URI == "" {

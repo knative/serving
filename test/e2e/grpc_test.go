@@ -20,21 +20,27 @@ package e2e
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"strconv"
 	"strings"
 	"testing"
 	"time"
 
-	resourcenames "github.com/knative/serving/pkg/reconciler/revision/resources/names"
-	"github.com/knative/serving/test"
-	ping "github.com/knative/serving/test/test_images/grpc-ping/proto"
-	v1a1test "github.com/knative/serving/test/v1alpha1"
+	"github.com/google/go-cmp/cmp"
 	"google.golang.org/grpc"
-	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
+	"knative.dev/pkg/system"
 	pkgTest "knative.dev/pkg/test"
 	ingress "knative.dev/pkg/test/ingress"
 	"knative.dev/pkg/test/logstream"
+	"knative.dev/serving/pkg/activator"
+	"knative.dev/serving/pkg/apis/autoscaling"
+	rtesting "knative.dev/serving/pkg/testing/v1alpha1"
+	"knative.dev/serving/test"
+	ping "knative.dev/serving/test/test_images/grpc-ping/proto"
+	v1a1test "knative.dev/serving/test/v1alpha1"
 )
 
 type grpcTest func(*testing.T, *v1a1test.ResourceObjects, *test.Clients, string, string)
@@ -149,7 +155,7 @@ func streamTest(t *testing.T, resources *v1a1test.ResourceObjects, clients *test
 	}
 }
 
-func testGRPC(t *testing.T, f grpcTest) {
+func testGRPC(t *testing.T, f grpcTest, fopts ...rtesting.ServiceOption) {
 	t.Helper()
 	t.Parallel()
 	cancel := logstream.Start(t)
@@ -165,13 +171,11 @@ func testGRPC(t *testing.T, f grpcTest) {
 		Image:   "grpc-ping",
 	}
 
+	fopts = append(fopts, rtesting.WithNamedPort("h2c"))
+
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 	defer test.TearDown(clients, names)
-	resources, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, &v1a1test.Options{
-		ContainerPorts: []corev1.ContainerPort{{
-			Name: "h2c",
-		}},
-	})
+	resources, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, fopts...)
 	if err != nil {
 		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
 	}
@@ -209,22 +213,48 @@ func TestGRPCStreamingPing(t *testing.T) {
 	testGRPC(t, streamTest)
 }
 
-func TestGRPCUnaryPingFromZero(t *testing.T) {
-	testGRPC(t, func(t *testing.T, resources *v1a1test.ResourceObjects, clients *test.Clients, host, domain string) {
-		if err := WaitForScaleToZero(t, resourcenames.Deployment(resources.Revision), clients); err != nil {
-			t.Fatalf("Could not scale to zero: %v", err)
-		}
+func waitForActivatorEPS(resources *v1a1test.ResourceObjects, clients *test.Clients) error {
+	aeps, err := clients.KubeClient.Kube.CoreV1().Endpoints(
+		system.Namespace()).Get(activator.K8sServiceName, metav1.GetOptions{})
+	if err != nil {
+		return fmt.Errorf("error getting activator endpoints: %v", err)
+	}
 
-		unaryTest(t, resources, clients, host, domain)
+	// Wait for the endpoints to equalize.
+	return wait.Poll(250*time.Millisecond, time.Minute, func() (bool, error) {
+		svcEps, err := clients.KubeClient.Kube.CoreV1().Endpoints(test.ServingNamespace).Get(
+			resources.Revision.Status.ServiceName, metav1.GetOptions{})
+		if err != nil {
+			return false, err
+		}
+		return cmp.Equal(svcEps.Subsets, aeps.Subsets), nil
 	})
 }
 
-func TestGRPCStreamingPingFromZero(t *testing.T) {
-	testGRPC(t, func(t *testing.T, resources *v1a1test.ResourceObjects, clients *test.Clients, host, domain string) {
-		if err := WaitForScaleToZero(t, resourcenames.Deployment(resources.Revision), clients); err != nil {
-			t.Fatalf("Could not scale to zero: %v", err)
-		}
+func TestGRPCUnaryPingViaActivator(t *testing.T) {
+	testGRPC(t,
+		func(t *testing.T, resources *v1a1test.ResourceObjects, clients *test.Clients, host, domain string) {
+			if err := waitForActivatorEPS(resources, clients); err != nil {
+				t.Fatal("Never got Activator endpoints in the service")
+			}
+			unaryTest(t, resources, clients, host, domain)
+		},
+		rtesting.WithConfigAnnotations(map[string]string{
+			autoscaling.TargetBurstCapacityKey: "-1",
+		}),
+	)
+}
 
-		streamTest(t, resources, clients, host, domain)
-	})
+func TestGRPCStreamingPingViaActivator(t *testing.T) {
+	testGRPC(t,
+		func(t *testing.T, resources *v1a1test.ResourceObjects, clients *test.Clients, host, domain string) {
+			if err := waitForActivatorEPS(resources, clients); err != nil {
+				t.Fatal("Never got Activator endpoints in the service")
+			}
+			streamTest(t, resources, clients, host, domain)
+		},
+		rtesting.WithConfigAnnotations(map[string]string{
+			autoscaling.TargetBurstCapacityKey: "-1",
+		}),
+	)
 }

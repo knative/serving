@@ -19,14 +19,17 @@ package certificate
 import (
 	"context"
 
-	cmclient "github.com/knative/serving/pkg/client/certmanager/injection/client"
-	cmcertinformer "github.com/knative/serving/pkg/client/certmanager/injection/informers/certmanager/v1alpha1/certificate"
-	kcertinformer "github.com/knative/serving/pkg/client/injection/informers/networking/v1alpha1/certificate"
+	"k8s.io/client-go/tools/cache"
+	cmclient "knative.dev/serving/pkg/client/certmanager/injection/client"
+	cmcertinformer "knative.dev/serving/pkg/client/certmanager/injection/informers/certmanager/v1alpha1/certificate"
+	kcertinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/certificate"
 
-	"github.com/knative/serving/pkg/reconciler"
-	"github.com/knative/serving/pkg/reconciler/certificate/config"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
+	"knative.dev/serving/pkg/apis/networking"
+	"knative.dev/serving/pkg/network"
+	"knative.dev/serving/pkg/reconciler"
+	"knative.dev/serving/pkg/reconciler/certificate/config"
 )
 
 const (
@@ -53,7 +56,13 @@ func NewController(
 	impl := controller.NewImpl(c, c.Logger, "Certificate")
 
 	c.Logger.Info("Setting up event handlers")
-	knCertificateInformer.Informer().AddEventHandler(controller.HandleAll(impl.Enqueue))
+	classFilterFunc := reconciler.AnnotationFilterFunc(networking.CertificateClassAnnotationKey, network.CertManagerCertificateClassName, true)
+	certHandler := cache.FilteringResourceEventHandler{
+		FilterFunc: classFilterFunc,
+		Handler:    controller.HandleAll(impl.Enqueue),
+	}
+	knCertificateInformer.Informer().AddEventHandler(certHandler)
+
 	cmCertificateInformer.Informer().AddEventHandler(controller.HandleAll(impl.EnqueueControllerOf))
 
 	c.Logger.Info("Setting up ConfigMap receivers")

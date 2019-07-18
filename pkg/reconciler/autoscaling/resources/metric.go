@@ -20,23 +20,23 @@ import (
 	"context"
 	"time"
 
-	"github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
-	"github.com/knative/serving/pkg/autoscaler"
+	"knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
+	"knative.dev/serving/pkg/autoscaler"
 )
 
 // Metrics is an interface for notifying the presence or absence of metric collection.
 type Metrics interface {
 	// Get accesses the Metric resource for this key, returning any errors.
-	Get(ctx context.Context, namespace, name string) (*autoscaler.Metric, error)
+	Get(ctx context.Context, namespace, name string) (*v1alpha1.Metric, error)
 
 	// Create adds a Metric resource for a given key, returning any errors.
-	Create(ctx context.Context, metric *autoscaler.Metric) (*autoscaler.Metric, error)
+	Create(ctx context.Context, metric *v1alpha1.Metric) (*v1alpha1.Metric, error)
 
 	// Delete removes the Metric resource for a given key, returning any errors.
 	Delete(ctx context.Context, namespace, name string) error
 
 	// Update update the Metric resource, return the new Metric or any errors.
-	Update(ctx context.Context, metric *autoscaler.Metric) (*autoscaler.Metric, error)
+	Update(ctx context.Context, metric *v1alpha1.Metric) (*v1alpha1.Metric, error)
 }
 
 // StableWindow returns the stable window for the revision from PA, if set, or
@@ -51,7 +51,7 @@ func StableWindow(pa *v1alpha1.PodAutoscaler, config *autoscaler.Config) time.Du
 
 // MakeMetric constructs a Metric resource from a PodAutoscaler
 func MakeMetric(ctx context.Context, pa *v1alpha1.PodAutoscaler, metricSvc string,
-	config *autoscaler.Config) *autoscaler.Metric {
+	config *autoscaler.Config) *v1alpha1.Metric {
 	stableWindow := StableWindow(pa, config)
 
 	// Look for a panic window percentage annotation.
@@ -64,9 +64,9 @@ func MakeMetric(ctx context.Context, pa *v1alpha1.PodAutoscaler, metricSvc strin
 	if panicWindow < autoscaler.BucketSize {
 		panicWindow = autoscaler.BucketSize
 	}
-	return &autoscaler.Metric{
+	return &v1alpha1.Metric{
 		ObjectMeta: pa.ObjectMeta,
-		Spec: autoscaler.MetricSpec{
+		Spec: v1alpha1.MetricSpec{
 			StableWindow: stableWindow,
 			PanicWindow:  panicWindow,
 			ScrapeTarget: metricSvc,

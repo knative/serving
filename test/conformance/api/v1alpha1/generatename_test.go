@@ -23,11 +23,11 @@ import (
 	"regexp"
 	"testing"
 
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	rtesting "github.com/knative/serving/pkg/testing/v1alpha1"
-	"github.com/knative/serving/test"
-	v1a1test "github.com/knative/serving/test/v1alpha1"
 	pkgTest "knative.dev/pkg/test"
+	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	rtesting "knative.dev/serving/pkg/testing/v1alpha1"
+	"knative.dev/serving/test"
+	v1a1test "knative.dev/serving/test/v1alpha1"
 )
 
 func setServiceGenerateName(generateName string) rtesting.ServiceOption {
@@ -123,7 +123,7 @@ func TestServiceGenerateName(t *testing.T) {
 
 	// Create the service using the generate name field. If the serivce does not become ready this will fail.
 	t.Logf("Creating new service with generateName %s", generateName)
-	resources, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, &v1a1test.Options{}, setServiceGenerateName(generateName))
+	resources, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, setServiceGenerateName(generateName))
 	if err != nil {
 		t.Fatalf("Failed to create service with generateName %s: %v", generateName, err)
 	}
@@ -158,7 +158,7 @@ func TestRouteAndConfigGenerateName(t *testing.T) {
 	defer func() { test.TearDown(clients, names) }()
 
 	t.Logf("Creating new configuration with generateName %s", generateName)
-	config, err := v1a1test.CreateConfiguration(t, clients, names, &v1a1test.Options{}, setConfigurationGenerateName(generateName))
+	config, err := v1a1test.CreateConfiguration(t, clients, names, setConfigurationGenerateName(generateName))
 	if err != nil {
 		t.Fatalf("Failed to create configuration with generateName %s: %v", generateName, err)
 	}

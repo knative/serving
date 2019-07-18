@@ -23,15 +23,9 @@ import (
 	"time"
 
 	// Inject the fake informers we need.
-	_ "github.com/knative/serving/pkg/client/injection/informers/serving/v1alpha1/configuration/fake"
-	_ "github.com/knative/serving/pkg/client/injection/informers/serving/v1alpha1/revision/fake"
+	_ "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/configuration/fake"
+	_ "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/revision/fake"
 
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	"github.com/knative/serving/pkg/apis/serving/v1beta1"
-	"github.com/knative/serving/pkg/gc"
-	"github.com/knative/serving/pkg/reconciler"
-	"github.com/knative/serving/pkg/reconciler/configuration/config"
-	"github.com/knative/serving/pkg/reconciler/configuration/resources"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -42,10 +36,16 @@ import (
 	"knative.dev/pkg/controller"
 	logtesting "knative.dev/pkg/logging/testing"
 	"knative.dev/pkg/ptr"
+	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	"knative.dev/serving/pkg/apis/serving/v1beta1"
+	"knative.dev/serving/pkg/gc"
+	"knative.dev/serving/pkg/reconciler"
+	"knative.dev/serving/pkg/reconciler/configuration/config"
+	"knative.dev/serving/pkg/reconciler/configuration/resources"
 
-	. "github.com/knative/serving/pkg/reconciler/testing/v1alpha1"
-	. "github.com/knative/serving/pkg/testing/v1alpha1"
 	. "knative.dev/pkg/reconciler/testing"
+	. "knative.dev/serving/pkg/reconciler/testing/v1alpha1"
+	. "knative.dev/serving/pkg/testing/v1alpha1"
 )
 
 var revisionSpec = v1alpha1.RevisionSpec{

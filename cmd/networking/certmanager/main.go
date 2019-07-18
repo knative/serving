@@ -17,13 +17,13 @@ limitations under the License.
 package main
 
 import (
-	"github.com/knative/serving/pkg/reconciler/certificate"
+	"knative.dev/serving/pkg/reconciler/certificate"
 
 	// This defines the shared main for injected controllers.
 	"knative.dev/pkg/injection/sharedmain"
 )
 
 func main() {
-	sharedmain.Main("controller-certificate-cert-manager",
+	sharedmain.Main("certcontroller",
 		certificate.NewController)
 }

@@ -21,10 +21,10 @@ package internalinterfaces
 import (
 	time "time"
 
-	versioned "github.com/knative/serving/pkg/client/certmanager/clientset/versioned"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	cache "k8s.io/client-go/tools/cache"
+	versioned "knative.dev/serving/pkg/client/certmanager/clientset/versioned"
 )
 
 type NewInformerFunc func(versioned.Interface, time.Duration) cache.SharedIndexInformer
