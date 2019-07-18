@@ -80,7 +80,6 @@ type scaler struct {
 	dynamicClient     dynamic.Interface
 	logger            *zap.SugaredLogger
 	transport         http.RoundTripper
-	transportFactory  prober.TransportFactory
 
 	// For sync probes.
 	activatorProbe func(pa *pav1alpha1.PodAutoscaler, transport http.RoundTripper) (bool, error)
@@ -103,9 +102,6 @@ func newScaler(ctx context.Context, psInformerFactory duck.InformerFactory, enqu
 		dynamicClient:     dynamicclient.Get(ctx),
 		logger:            logger,
 		transport:         transport,
-		transportFactory: func() http.RoundTripper {
-			return network.NewAutoTransport()
-		},
 
 		// Production setup uses the default probe implementation.
 		activatorProbe: activatorProbe,
