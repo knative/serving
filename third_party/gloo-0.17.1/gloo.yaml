@@ -282,7 +282,7 @@ spec:
         gloo: ingress
     spec:
       containers:
-      - image: "quay.io/solo-io/ingress:0.17.0"
+      - image: "quay.io/solo-io/ingress:0.17.1"
         imagePullPolicy: Always
         name: ingress
         env:
@@ -327,7 +327,7 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.name
-        image: quay.io/solo-io/gloo-envoy-wrapper:0.17.0
+        image: quay.io/solo-io/gloo-envoy-wrapper:0.17.1
         imagePullPolicy: Always
         name: clusteringress-proxy
         securityContext:
@@ -378,7 +378,7 @@ spec:
         prometheus.io/scrape: "true"
     spec:
       containers:
-      - image: "quay.io/solo-io/gloo:0.17.0"
+      - image: "quay.io/solo-io/gloo:0.17.1"
         imagePullPolicy: Always
         name: gloo
         resources:
@@ -431,7 +431,7 @@ spec:
         prometheus.io/scrape: "true"
     spec:
       containers:
-      - image: "quay.io/solo-io/discovery:0.17.0"
+      - image: "quay.io/solo-io/discovery:0.17.1"
         imagePullPolicy: Always
         name: discovery
         securityContext:
