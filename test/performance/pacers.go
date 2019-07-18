@@ -47,15 +47,14 @@ type steadyUpPacer struct {
 
 // NewSteadyUpPacer returns a new SteadyUpPacer with the given config.
 func NewSteadyUpPacer(min vegeta.Rate, max vegeta.Rate, upDuration time.Duration) vegeta.Pacer {
-	pacer := &steadyUpPacer{
-		Min:        min,
-		Max:        max,
-		UpDuration: upDuration,
+	return &steadyUpPacer{
+		Min:          min,
+		Max:          max,
+		UpDuration:   upDuration,
+		slope:        (hitsPerNs(max) - hitsPerNs(min)) / float64(upDuration),
+		minHitsPerNs: hitsPerNs(min),
+		maxHitsPerNs: hitsPerNs(max),
 	}
-	pacer.slope = (hitsPerNs(max) - hitsPerNs(min)) / float64(upDuration)
-	pacer.minHitsPerNs = hitsPerNs(pacer.Min)
-	pacer.maxHitsPerNs = hitsPerNs(pacer.Max)
-	return pacer
 }
 
 // steadyUpPacer satisfies the Pacer interface.
