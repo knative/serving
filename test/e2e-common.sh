@@ -326,7 +326,11 @@ function dump_extra_cluster_state() {
   echo ">>> Revisions:"
   kubectl get revisions -o yaml --all-namespaces
 
+  echo ">>> Knative logs:"
   for app in controller webhook autoscaler activator networking-certmanager networking-istio; do
     dump_app_logs ${app} knative-serving
   done
+
+  echo ">>> Istio logs:"
+  dump_app_logs istio-ingressgateway istio-system
 }
