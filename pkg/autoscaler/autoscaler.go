@@ -24,6 +24,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/wacul/ptr"
 	"go.uber.org/zap"
 
 	"knative.dev/pkg/logging"
@@ -66,8 +67,23 @@ func New(
 		return nil, errors.New("stats reporter must not be nil")
 	}
 
-	// A new instance of autoscaler is created without panic mode.
-	reporter.ReportPanic(0)
+	// We always start in the panic mode, if the deployment is scaled up over 1 pod.
+	// If the scale is 0 or 1, normal Autoscaler behavior is fine.
+	// When Autoscaler restarts we lose metric history, which causes us to
+	// momentarily scale down, and that is not a desired behaviour.
+	// Thus, we're keeping the current scale until we accumulate enough data to make conscious decisions.
+	curC, err := podCounter.ReadyCount()
+	if err != nil {
+		return nil, fmt.Errorf("initial pod count failed: %v", err)
+	}
+	var pt *time.Time
+	if curC > 1 {
+		pt = ptr.Time(time.Now())
+		// A new instance of autoscaler is created in panic mode.
+		reporter.ReportPanic(1)
+	} else {
+		reporter.ReportPanic(0)
+	}
 
 	return &Autoscaler{
 		namespace:    namespace,
@@ -76,6 +92,9 @@ func New(
 		podCounter:   podCounter,
 		deciderSpec:  deciderSpec,
 		reporter:     reporter,
+
+		panicTime:    pt,
+		maxPanicPods: int32(curC),
 	}, nil
 }
 
