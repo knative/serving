@@ -583,7 +583,7 @@ data:
                            "format":"time_series",
                            "interval":"1s",
                            "intervalFactor":1,
-                           "legendFormat":"60 Second Average Concurrency",
+                           "legendFormat":"Average Concurrency",
                            "refId":"A"
                         },
                         {  
@@ -591,19 +591,25 @@ data:
                            "format":"time_series",
                            "interval":"1s",
                            "intervalFactor":1,
-                           "legendFormat":"6 Second Average Panic Concurrency",
+                           "legendFormat":"Average Panic Concurrency",
                            "refId":"B"
                         },
                         {  
                            "expr":"sum(autoscaler_target_concurrency_per_pod{namespace_name=\"$namespace\", configuration_name=\"$configuration\", revision_name=\"$revision\"})",
                            "format":"time_series",
                            "intervalFactor":1,
-                           "legendFormat":"60 Second Target Concurrency",
+                           "legendFormat":"Target Concurrency",
                            "refId":"C"
+                        },
+                        {  
+                           "expr":"sum(autoscaler_excess_burst_capacity{namespace_name=\"$namespace\", configuration_name=\"$configuration\", revision_name=\"$revision\"})",
+                           "format":"time_series",
+                           "intervalFactor":1,
+                           "legendFormat":"Excess Burst Capacity",
+                           "refId":"D"
                         }
                      ],
                      "thresholds":[  
-
                      ],
                      "timeFrom":null,
                      "timeShift":null,
