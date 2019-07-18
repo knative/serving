@@ -19,7 +19,9 @@ package certificate
 import (
 	"context"
 	"fmt"
+	"hash/adler32"
 	"reflect"
+	"strconv"
 
 	cmv1alpha1 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1alpha1"
 	"go.uber.org/zap"
@@ -28,10 +30,15 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/selection"
+	kubelisters "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 
+	"knative.dev/pkg/apis"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
+	"knative.dev/pkg/tracker"
 	"knative.dev/serving/pkg/apis/networking/v1alpha1"
 	certmanagerclientset "knative.dev/serving/pkg/client/certmanager/clientset/versioned"
 	certmanagerlisters "knative.dev/serving/pkg/client/certmanager/listers/certmanager/v1alpha1"
@@ -46,6 +53,8 @@ const (
 	noCMConditionMessage = "The ready condition of Cert Manager Certifiate does not exist."
 	notReconciledReason  = "ReconcileFailed"
 	notReconciledMessage = "Cert-Manager certificate has not yet been reconciled."
+	httpDomainLabel      = "certmanager.k8s.io/acme-http-domain"
+	httpChallengePath    = "/.well-known/acme-challenge"
 )
 
 // Reconciler implements controller.Reconciler for Certificate resources.
@@ -55,7 +64,10 @@ type Reconciler struct {
 	// listers index properties about resources
 	knCertificateLister listers.CertificateLister
 	cmCertificateLister certmanagerlisters.CertificateLister
+	cmChallengeLister   certmanagerlisters.ChallengeLister
+	svcLister           kubelisters.ServiceLister
 	certManagerClient   certmanagerclientset.Interface
+	tracker             tracker.Interface
 
 	configStore reconciler.ConfigStore
 }
@@ -119,6 +131,7 @@ func (c *Reconciler) reconcile(ctx context.Context, knCert *v1alpha1.Certificate
 	knCert.Status.ObservedGeneration = knCert.Generation
 
 	cmConfig := config.FromContext(ctx).CertManager
+
 	cmCert := resources.MakeCertManagerCertificate(cmConfig, knCert)
 	cmCert, err := c.reconcileCMCertificate(ctx, knCert, cmCert)
 	if err != nil {
@@ -135,9 +148,19 @@ func (c *Reconciler) reconcile(ctx context.Context, knCert *v1alpha1.Certificate
 		knCert.Status.MarkNotReady(cmCertReadyCondition.Reason, cmCertReadyCondition.Message)
 	case cmCertReadyCondition.Status == cmv1alpha1.ConditionTrue:
 		knCert.Status.MarkReady()
+		knCert.Status.HTTP01Challenges = []v1alpha1.HTTP01Challenge{}
 	case cmCertReadyCondition.Status == cmv1alpha1.ConditionFalse:
 		knCert.Status.MarkFailed(cmCertReadyCondition.Reason, cmCertReadyCondition.Message)
 	}
+
+	http01Domains := getHTTP01Domains(cmCert)
+	if !knCert.Status.IsReady() && len(http01Domains) > 0 {
+		err := c.setHTTP01Challenges(knCert, http01Domains)
+		if err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
@@ -187,4 +210,76 @@ func (c *Reconciler) updateStatus(desired *v1alpha1.Certificate) (*v1alpha1.Cert
 	existing.Status = desired.Status
 
 	return c.ServingClientSet.NetworkingV1alpha1().Certificates(existing.Namespace).UpdateStatus(existing)
+}
+
+func (c *Reconciler) setHTTP01Challenges(knCert *v1alpha1.Certificate, http01Domains []string) error {
+	challenges := make([]v1alpha1.HTTP01Challenge, 0, len(http01Domains))
+	for _, dnsName := range http01Domains {
+		// This selector comes from https://github.com/jetstack/cert-manager/blob/1b9b83a4b80068207b0a8070dadb0e760f5095f6/pkg/issuer/acme/http/pod.go#L34
+		selector := labels.NewSelector()
+		value := strconv.FormatUint(uint64(adler32.Checksum([]byte(dnsName))), 10)
+		req, err := labels.NewRequirement(httpDomainLabel, selection.Equals, []string{value})
+		if err != nil {
+			return fmt.Errorf("failed to create requirement %s=%s: %w", httpDomainLabel, value, err)
+		}
+		selector = selector.Add(*req)
+
+		svcs, err := c.svcLister.Services(knCert.Namespace).List(selector)
+		if err != nil {
+			return fmt.Errorf("failed to list services: %w", err)
+		}
+		if len(svcs) == 0 {
+			return fmt.Errorf("no challenge solver service for domain %s.", dnsName)
+		}
+
+		for _, svc := range svcs {
+			if err := c.tracker.Track(svcRef(svc.Namespace, svc.Name), knCert); err != nil {
+				return err
+			}
+			owner := svc.GetOwnerReferences()[0]
+			cmChallenge, err := c.cmChallengeLister.Challenges(knCert.Namespace).Get(owner.Name)
+			if err != nil {
+				return err
+			}
+
+			challenge := v1alpha1.HTTP01Challenge{
+				ServiceName:      svc.Name,
+				ServicePort:      svc.Spec.Ports[0].TargetPort,
+				ServiceNamespace: svc.Namespace,
+				URL: &apis.URL{
+					Scheme: "http",
+					Path:   fmt.Sprintf("%s/%s", httpChallengePath, cmChallenge.Spec.Token),
+					Host:   cmChallenge.Spec.DNSName,
+				},
+			}
+			challenges = append(challenges, challenge)
+		}
+	}
+	knCert.Status.HTTP01Challenges = challenges
+	return nil
+}
+
+func getHTTP01Domains(cmCert *cmv1alpha1.Certificate) []string {
+	domains := make([]string, 0, len(cmCert.Spec.DNSNames))
+	if cmCert.Spec.ACME == nil {
+		return domains
+	}
+
+	for _, domainConfig := range cmCert.Spec.ACME.Config {
+		if domainConfig.SolverConfig.HTTP01 != nil {
+			domains = append(domains, domainConfig.Domains...)
+		}
+	}
+	return domains
+}
+
+func svcRef(namespace, name string) corev1.ObjectReference {
+	gvk := corev1.SchemeGroupVersion.WithKind("Service")
+	apiVersion, kind := gvk.ToAPIVersionAndKind()
+	return corev1.ObjectReference{
+		APIVersion: apiVersion,
+		Kind:       kind,
+		Namespace:  namespace,
+		Name:       name,
+	}
 }

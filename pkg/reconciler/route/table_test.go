@@ -28,6 +28,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/intstr"
+
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
 	clientgotesting "k8s.io/client-go/testing"
@@ -1917,6 +1919,7 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 						SecretNamespace: "default",
 					},
 				},
+				nil,
 			),
 			simpleK8sService(
 				Route("default", "becomes-ready", WithConfigTarget("config"), WithRouteUID("12-34")),
@@ -1973,6 +1976,7 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 					SecretName:      "route-12-34",
 					SecretNamespace: "default",
 				}},
+				nil,
 			),
 			simpleK8sService(
 				Route("default", "becomes-ready", WithConfigTarget("config"), WithRouteUID("12-34")),
@@ -2050,6 +2054,7 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 						SecretNamespace: "default",
 					},
 				},
+				nil,
 			),
 			simpleK8sService(
 				Route("default", "becomes-ready", WithConfigTarget("config"), WithRouteUID("12-34")),
@@ -2081,6 +2086,109 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 			Eventf(corev1.EventTypeNormal, "Created", "Created Ingress %q", "becomes-ready"),
 		},
 		Key: "default/becomes-ready",
+	}, {
+		Name: "verify ingress rules created for http01 challenges",
+		Objects: []runtime.Object{
+			Route("default", "becomes-ready", WithConfigTarget("config"), WithRouteUID("12-34")),
+			cfg("default", "config",
+				WithGeneration(1), WithLatestCreated("config-00001"), WithLatestReady("config-00001")),
+			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001"), WithServiceName("mcd")),
+			&netv1alpha1.Certificate{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "route-12-34",
+					Namespace: "default",
+					OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(
+						Route("default", "becomes-ready", WithConfigTarget("config"), WithRouteUID("12-34")))},
+					Annotations: map[string]string{
+						networking.CertificateClassAnnotationKey: network.CertManagerCertificateClassName,
+					},
+					Labels: map[string]string{
+						serving.RouteLabelKey: "becomes-ready",
+					},
+				},
+				Spec: netv1alpha1.CertificateSpec{
+					DNSNames:   []string{"becomes-ready.default.example.com"},
+					SecretName: "route-12-34",
+				},
+				Status: netv1alpha1.CertificateStatus{
+					HTTP01Challenges: []netv1alpha1.HTTP01Challenge{{
+						URL: &apis.URL{
+							Scheme: "http",
+							Host:   "becomes-ready.default.example.com",
+							Path:   "/.well-known/acme-challenge/challengeToken",
+						},
+						ServiceName:      "cm-solver",
+						ServicePort:      intstr.FromInt(8090),
+						ServiceNamespace: "default",
+					}},
+				},
+			},
+		},
+		WantCreates: []runtime.Object{
+			ingressWithTLS(
+				Route("default", "becomes-ready", WithConfigTarget("config"), WithURL,
+					WithRouteUID("12-34")),
+				&traffic.Config{
+					Targets: map[string]traffic.RevisionTargets{
+						traffic.DefaultTarget: {{
+							TrafficTarget: v1.TrafficTarget{
+								// Use the Revision name from the config.
+								RevisionName: "config-00001",
+								Percent:      ptr.Int64(100),
+							},
+							ServiceName: "mcd",
+							Active:      true,
+						}},
+					},
+				},
+				[]netv1alpha1.IngressTLS{
+					{
+						Hosts:           []string{"becomes-ready.default.example.com"},
+						SecretName:      "route-12-34",
+						SecretNamespace: "default",
+					},
+				},
+				[]netv1alpha1.HTTP01Challenge{{
+					URL: &apis.URL{
+						Scheme: "http",
+						Host:   "becomes-ready.default.example.com",
+						Path:   "/.well-known/acme-challenge/challengeToken",
+					},
+					ServiceName:      "cm-solver",
+					ServicePort:      intstr.FromInt(8090),
+					ServiceNamespace: "default",
+				}},
+			),
+			simpleK8sService(
+				Route("default", "becomes-ready", WithConfigTarget("config"), WithRouteUID("12-34")),
+				WithExternalName("becomes-ready.default.example.com"),
+			),
+		},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "Created", "Created placeholder service %q", "becomes-ready"),
+			Eventf(corev1.EventTypeNormal, "Created", "Created Ingress %q", "becomes-ready"),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: Route("default", "becomes-ready", WithConfigTarget("config"),
+				WithRouteUID("12-34"),
+				// Populated by reconciliation when all traffic has been assigned.
+				WithAddress, WithInitRouteConditions,
+				MarkTrafficAssigned, MarkIngressNotConfigured, WithStatusTraffic(v1alpha1.TrafficTarget{
+					TrafficTarget: v1.TrafficTarget{
+						RevisionName:   "config-00001",
+						Percent:        ptr.Int64(100),
+						LatestRevision: ptr.Bool(true),
+					},
+				}),
+				// The certificate has to be created in the not ready state for the ACME challenge
+				// ingress rules to be added.
+				MarkCertificateNotReady,
+				// Which also means no HTTPS URL
+				WithURL,
+			),
+		}},
+		Key:                     "default/becomes-ready",
+		SkipNamespaceValidation: true,
 	}, {
 		Name:    "check that Route updates status and produces event log when valid name but not owned certificate",
 		WantErr: true,
@@ -2181,6 +2289,7 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 						SecretNamespace: "default",
 					},
 				},
+				nil,
 			),
 			simpleK8sService(
 				Route("default", "becomes-ready", WithConfigTarget("config"), WithRouteUID("12-34")),
@@ -2369,6 +2478,7 @@ func TestReconcile_EnableAutoTLS_HTTPDisabled(t *testing.T) {
 						SecretNamespace: "default",
 					},
 				},
+				nil,
 			),
 			simpleK8sService(
 				Route("default", "becomes-ready", WithConfigTarget("config"), WithRouteUID("12-34")),
@@ -2482,7 +2592,9 @@ type ingressCtor func(ctx context.Context,
 	tc *traffic.Config,
 	tls []netv1alpha1.IngressTLS,
 	clusterLocalServices sets.String,
-	ingressClass string) (*netv1alpha1.Ingress, error)
+	ingressClass string,
+	acmeChallenges ...netv1alpha1.HTTP01Challenge,
+) (*netv1alpha1.Ingress, error)
 
 func simpleIngress(r *v1alpha1.Route, tc *traffic.Config, io ...IngressOption) *netv1alpha1.Ingress {
 	return simpleIngressWithVisibility(r, tc, sets.NewString(), io...)
@@ -2506,12 +2618,12 @@ func baseIngressWithClass(r *v1alpha1.Route, tc *traffic.Config, class string, s
 	return ingress
 }
 
-func ingressWithTLS(r *v1alpha1.Route, tc *traffic.Config, tls []netv1alpha1.IngressTLS, io ...IngressOption) *netv1alpha1.Ingress {
-	return baseIngressWithTLS(r, tc, tls, resources.MakeIngress, io...)
+func ingressWithTLS(r *v1alpha1.Route, tc *traffic.Config, tls []netv1alpha1.IngressTLS, challenges []netv1alpha1.HTTP01Challenge, io ...IngressOption) *netv1alpha1.Ingress {
+	return baseIngressWithTLS(r, tc, tls, resources.MakeIngress, challenges, io...)
 }
 
-func baseIngressWithTLS(r *v1alpha1.Route, tc *traffic.Config, tls []netv1alpha1.IngressTLS, ctor ingressCtor, io ...IngressOption) *netv1alpha1.Ingress {
-	ingress, _ := ctor(getContext(), r, tc, tls, sets.NewString(), TestIngressClass)
+func baseIngressWithTLS(r *v1alpha1.Route, tc *traffic.Config, tls []netv1alpha1.IngressTLS, ctor ingressCtor, challenges []netv1alpha1.HTTP01Challenge, io ...IngressOption) *netv1alpha1.Ingress {
+	ingress, _ := ctor(getContext(), r, tc, tls, sets.NewString(), TestIngressClass, challenges...)
 
 	for _, opt := range io {
 		opt(ingress)

@@ -18,11 +18,15 @@ package certificate
 
 import (
 	"context"
+	"fmt"
+	"hash/adler32"
 	"testing"
 	"time"
 
+	_ "knative.dev/pkg/client/injection/kube/informers/core/v1/service/fake"
 	fakecertmanagerclient "knative.dev/serving/pkg/client/certmanager/injection/client/fake"
 	_ "knative.dev/serving/pkg/client/certmanager/injection/informers/certmanager/v1alpha1/certificate/fake"
+	_ "knative.dev/serving/pkg/client/certmanager/injection/informers/certmanager/v1alpha1/challenge/fake"
 	_ "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/certificate/fake"
 
 	certmanagerv1alpha1 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1alpha1"
@@ -244,6 +248,38 @@ func TestReconcile(t *testing.T) {
 				}),
 		}},
 		Key: "foo/knCert",
+	}, {
+		Name: "reconcile cm certificate fails",
+		Key:  "foo/knCert",
+		Objects: []runtime.Object{
+			knCert("knCert", "foo"),
+		},
+		WantErr: true,
+		WithReactors: []clientgotesting.ReactionFunc{
+			InduceFailure("create", "certificates"),
+		},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeWarning, "CreationFailed", "Failed to create Cert-Manager Certificate knCert/foo: inducing failure for create certificates"),
+			Eventf(corev1.EventTypeWarning, "InternalError", "failed to create Cert-Manager Certificate: inducing failure for create certificates"),
+		},
+		WantCreates: []runtime.Object{
+			resources.MakeCertManagerCertificate(certmanagerConfig(), knCert("knCert", "foo")),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: knCertWithStatus("knCert", "foo",
+				&v1alpha1.CertificateStatus{
+					Status: duckv1.Status{
+						ObservedGeneration: generation,
+						Conditions: duckv1.Conditions{{
+							Type:     v1alpha1.CertificateConditionReady,
+							Status:   corev1.ConditionUnknown,
+							Reason:   notReconciledReason,
+							Severity: apis.ConditionSeverityError,
+							Message:  notReconciledMessage,
+						}},
+					},
+				}),
+		}},
 	}}
 
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
@@ -251,10 +287,114 @@ func TestReconcile(t *testing.T) {
 			Base:                reconciler.NewBase(ctx, controllerAgentName, cmw),
 			knCertificateLister: listers.GetKnCertificateLister(),
 			cmCertificateLister: listers.GetCMCertificateLister(),
+			cmChallengeLister:   listers.GetCMChallengeLister(),
+			svcLister:           listers.GetK8sServiceLister(),
 			certManagerClient:   fakecertmanagerclient.Get(ctx),
+			tracker:             &NullTracker{},
 			configStore: &testConfigStore{
 				config: &config.Config{
 					CertManager: certmanagerConfig(),
+				},
+			},
+		}
+	}))
+}
+
+func TestReconcile_HTTP01Challenges(t *testing.T) {
+	table := TableTest{{
+		Name:                    "fail to set status.HTTP01Challenges",
+		Key:                     "foo/knCert",
+		SkipNamespaceValidation: true,
+		WantErr:                 true,
+		Objects: []runtime.Object{
+			knCert("knCert", "foo"),
+		},
+		WantCreates: []runtime.Object{
+			resources.MakeCertManagerCertificate(certmanagerHTTP01Config(), knCert("knCert", "foo")),
+		},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "Created", "Created Cert-Manager Certificate %s/%s", "foo", "knCert"),
+			Eventf(corev1.EventTypeWarning, "InternalError", "no challenge solver service for domain %s.", correctDNSNames[0]),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: knCertWithStatus("knCert", "foo",
+				&v1alpha1.CertificateStatus{
+					Status: duckv1.Status{
+						ObservedGeneration: generation,
+						Conditions: duckv1.Conditions{{
+							Type:     v1alpha1.CertificateConditionReady,
+							Status:   corev1.ConditionUnknown,
+							Reason:   notReconciledReason,
+							Severity: apis.ConditionSeverityError,
+							Message:  notReconciledMessage,
+						}},
+					},
+				}),
+		}},
+	}, {
+		Name: "set Status.HTTP01Challenges on Knative certificate",
+		Key:  "foo/knCert",
+		Objects: []runtime.Object{
+			cmSolverService(correctDNSNames[0], "foo"),
+			cmSolverService(correctDNSNames[1], "foo"),
+			cmChallenge(correctDNSNames[0], "foo"),
+			cmChallenge(correctDNSNames[1], "foo"),
+			cmCert("knCert", "foo", correctDNSNames),
+			knCert("knCert", "foo"),
+		},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "Updated", "Updated Spec for Cert-Manager Certificate foo/knCert"),
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: resources.MakeCertManagerCertificate(certmanagerHTTP01Config(), knCert("knCert", "foo")),
+		}},
+
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: knCertWithStatus("knCert", "foo",
+				&v1alpha1.CertificateStatus{
+					HTTP01Challenges: []v1alpha1.HTTP01Challenge{{
+						URL: &apis.URL{
+							Scheme: "http",
+							Host:   correctDNSNames[0],
+							Path:   "/.well-known/acme-challenge/cm-challenge-token",
+						},
+						ServiceName:      "cm-solver-" + correctDNSNames[0],
+						ServiceNamespace: "foo",
+					}, {
+						URL: &apis.URL{
+							Scheme: "http",
+							Host:   correctDNSNames[1],
+							Path:   "/.well-known/acme-challenge/cm-challenge-token",
+						},
+						ServiceName:      "cm-solver-" + correctDNSNames[1],
+						ServiceNamespace: "foo",
+					}},
+					Status: duckv1.Status{
+						ObservedGeneration: generation,
+						Conditions: duckv1.Conditions{{
+							Type:     v1alpha1.CertificateConditionReady,
+							Status:   corev1.ConditionUnknown,
+							Severity: apis.ConditionSeverityError,
+							Reason:   noCMConditionReason,
+							Message:  noCMConditionMessage,
+						}},
+					},
+				}),
+		}},
+	}}
+
+	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
+		return &Reconciler{
+			Base:                reconciler.NewBase(ctx, controllerAgentName, cmw),
+			knCertificateLister: listers.GetKnCertificateLister(),
+			cmCertificateLister: listers.GetCMCertificateLister(),
+			cmChallengeLister:   listers.GetCMChallengeLister(),
+			svcLister:           listers.GetK8sServiceLister(),
+			certManagerClient:   fakecertmanagerclient.Get(ctx),
+			tracker:             &NullTracker{},
+			configStore: &testConfigStore{
+				config: &config.Config{
+					CertManager: certmanagerHTTP01Config(),
 				},
 			},
 		}
@@ -282,7 +422,19 @@ func certmanagerConfig() *config.CertManagerConfig {
 			Kind: "ClusterIssuer",
 			Name: "Letsencrypt-issuer",
 		},
+		IssuerKind: "acme",
 	}
+}
+
+func certmanagerHTTP01Config() *config.CertManagerConfig {
+	cfg := certmanagerConfig()
+
+	cfg.SolverConfig = &certmanagerv1alpha1.SolverConfig{
+		HTTP01: &certmanagerv1alpha1.HTTP01SolverConfig{
+			Ingress: "",
+		},
+	}
+	return cfg
 }
 
 func knCert(name, namespace string) *v1alpha1.Certificate {
@@ -322,4 +474,40 @@ func cmCertWithStatus(name, namespace string, dnsNames []string, status certmana
 	}}
 	cert.Status.NotAfter = notAfter
 	return cert
+}
+
+func cmChallenge(hostname, namespace string) *certmanagerv1alpha1.Challenge {
+	return &certmanagerv1alpha1.Challenge{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "challenge-" + hostname,
+			Namespace: namespace,
+		},
+		Spec: certmanagerv1alpha1.ChallengeSpec{
+			Type:    "http01",
+			DNSName: hostname,
+			Token:   "cm-challenge-token",
+		},
+	}
+}
+
+func cmSolverService(hostname, namespace string) *corev1.Service {
+	return &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			OwnerReferences: []metav1.OwnerReference{{
+				Name: "challenge-" + hostname,
+			}},
+			Name:      "cm-solver-" + hostname,
+			Namespace: namespace,
+			Labels: map[string]string{
+				httpDomainLabel: fmt.Sprintf("%d", adler32.Checksum([]byte(hostname))),
+			},
+		},
+		Spec: corev1.ServiceSpec{
+			Ports: []corev1.ServicePort{{
+				Port:     8090,
+				Protocol: "tcp",
+			}},
+		},
+	}
+
 }
