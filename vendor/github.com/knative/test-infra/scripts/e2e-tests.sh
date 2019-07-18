@@ -219,7 +219,7 @@ function create_test_cluster() {
 
   # Set a minimal kubernetes environment that satisfies kubetest
   # TODO(adrcunha): Remove once https://github.com/kubernetes/test-infra/issues/13029 is fixed.
-  local kubedir="$(mktemp -d --tmpdir kubernetes.XXXXXXXXXX)"
+  local kubedir="$(mktemp -d -t kubernetes.XXXXXXXXXX)"
   local test_wrapper="${kubedir}/e2e-test.sh"
   mkdir ${kubedir}/cluster
   ln -s "$(which kubectl)" ${kubedir}/cluster/kubectl.sh
