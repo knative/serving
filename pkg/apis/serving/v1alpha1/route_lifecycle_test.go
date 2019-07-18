@@ -167,7 +167,7 @@ func TestTypicalRouteFlow(t *testing.T) {
 	apitesting.CheckConditionOngoing(r.duck(), RouteConditionIngressReady, t)
 	apitesting.CheckConditionOngoing(r.duck(), RouteConditionReady, t)
 
-	r.PropagateClusterIngressStatus(netv1alpha1.IngressStatus{
+	r.PropagateIngressStatus(netv1alpha1.IngressStatus{
 		Status: duckv1beta1.Status{
 			Conditions: duckv1beta1.Conditions{{
 				Type:   netv1alpha1.IngressConditionReady,
@@ -257,7 +257,7 @@ func TestTargetRevisionFailedToBeReadyFlow(t *testing.T) {
 func TestClusterIngressFailureRecovery(t *testing.T) {
 	r := &RouteStatus{}
 	r.InitializeConditions()
-	r.PropagateClusterIngressStatus(netv1alpha1.IngressStatus{
+	r.PropagateIngressStatus(netv1alpha1.IngressStatus{
 		Status: duckv1beta1.Status{
 			Conditions: duckv1beta1.Conditions{{
 				Type:   netv1alpha1.IngressConditionReady,
@@ -270,13 +270,13 @@ func TestClusterIngressFailureRecovery(t *testing.T) {
 	apitesting.CheckConditionOngoing(r.duck(), RouteConditionReady, t)
 
 	// Empty IngressStatus marks ingress "NotConfigured"
-	r.PropagateClusterIngressStatus(netv1alpha1.IngressStatus{})
+	r.PropagateIngressStatus(netv1alpha1.IngressStatus{})
 	apitesting.CheckConditionOngoing(r.duck(), RouteConditionAllTrafficAssigned, t)
 	apitesting.CheckConditionOngoing(r.duck(), RouteConditionIngressReady, t)
 	apitesting.CheckConditionOngoing(r.duck(), RouteConditionReady, t)
 
 	r.MarkTrafficAssigned()
-	r.PropagateClusterIngressStatus(netv1alpha1.IngressStatus{
+	r.PropagateIngressStatus(netv1alpha1.IngressStatus{
 		Status: duckv1beta1.Status{
 			Conditions: duckv1beta1.Conditions{{
 				Type:   netv1alpha1.IngressConditionReady,
@@ -288,7 +288,7 @@ func TestClusterIngressFailureRecovery(t *testing.T) {
 	apitesting.CheckConditionSucceeded(r.duck(), RouteConditionIngressReady, t)
 	apitesting.CheckConditionSucceeded(r.duck(), RouteConditionReady, t)
 
-	r.PropagateClusterIngressStatus(netv1alpha1.IngressStatus{
+	r.PropagateIngressStatus(netv1alpha1.IngressStatus{
 		Status: duckv1beta1.Status{
 			Conditions: duckv1beta1.Conditions{{
 				Type:   netv1alpha1.IngressConditionReady,
@@ -300,7 +300,7 @@ func TestClusterIngressFailureRecovery(t *testing.T) {
 	apitesting.CheckConditionFailed(r.duck(), RouteConditionIngressReady, t)
 	apitesting.CheckConditionFailed(r.duck(), RouteConditionReady, t)
 
-	r.PropagateClusterIngressStatus(netv1alpha1.IngressStatus{
+	r.PropagateIngressStatus(netv1alpha1.IngressStatus{
 		Status: duckv1beta1.Status{
 			Conditions: duckv1beta1.Conditions{{
 				Type:   netv1alpha1.IngressConditionReady,
@@ -316,7 +316,7 @@ func TestClusterIngressFailureRecovery(t *testing.T) {
 func TestRouteNotOwnedStuff(t *testing.T) {
 	r := &RouteStatus{}
 	r.InitializeConditions()
-	r.PropagateClusterIngressStatus(netv1alpha1.IngressStatus{
+	r.PropagateIngressStatus(netv1alpha1.IngressStatus{
 		Status: duckv1beta1.Status{
 			Conditions: duckv1beta1.Conditions{{
 				Type:   netv1alpha1.IngressConditionReady,

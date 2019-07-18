@@ -3,7 +3,7 @@
 set -ex
 
 # Download and unpack Gloo
-GLOO_VERSION=0.17.0
+GLOO_VERSION=0.17.1
 GLOO_CHART=gloo-${GLOO_VERSION}.tgz
 DOWNLOAD_URL=https://storage.googleapis.com/solo-public-helm/charts/${GLOO_CHART}
 

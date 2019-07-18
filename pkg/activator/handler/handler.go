@@ -24,7 +24,6 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"strconv"
-	"sync"
 	"time"
 
 	"go.opencensus.io/plugin/ochttp"
@@ -45,7 +44,6 @@ import (
 	"knative.dev/serving/pkg/queue"
 
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 )
@@ -65,40 +63,6 @@ type activationHandler struct {
 	revisionLister servinglisters.RevisionLister
 	serviceLister  corev1listers.ServiceLister
 	sksLister      netlisters.ServerlessServiceLister
-
-	cache *probeCache
-}
-
-type probeCache struct {
-	mu     sync.RWMutex
-	probes sets.String
-}
-
-func newProbeCache() *probeCache {
-	return &probeCache{
-		probes: sets.NewString(),
-	}
-}
-
-// should returns true if we should probe the URL.
-func (pc *probeCache) should(revID activator.RevisionID) bool {
-	pc.mu.RLock()
-	defer pc.mu.RUnlock()
-	return !pc.probes.Has(revID.String())
-}
-
-// mark marks the revision as been probed.
-func (pc *probeCache) mark(revID activator.RevisionID) {
-	pc.mu.Lock()
-	defer pc.mu.Unlock()
-	pc.probes.Insert(revID.String())
-}
-
-// unmark removes the probe cache entry for the revision.
-func (pc *probeCache) unmark(revID activator.RevisionID) {
-	pc.mu.Lock()
-	defer pc.mu.Unlock()
-	pc.probes.Delete(revID.String())
 }
 
 // The default time we'll try to probe the revision for activation.
@@ -124,7 +88,6 @@ func New(l *zap.SugaredLogger, r activator.StatsReporter, t *activator.Throttler
 			Base: network.NewProberTransport(),
 		},
 		endpointTimeout: defaulTimeout,
-		cache:           newProbeCache(),
 	}
 }
 
@@ -137,20 +100,12 @@ func withOrigProto(or *http.Request) prober.Preparer {
 	}
 }
 
-func (a *activationHandler) probeEndpoint(logger *zap.SugaredLogger, r *http.Request, target *url.URL, revID activator.RevisionID) (bool, int) {
+func (a *activationHandler) probeEndpoint(logger *zap.SugaredLogger, r *http.Request, target *url.URL) (bool, int) {
 	var (
 		attempts int
 		st       = time.Now()
 		url      = target.String()
 	)
-
-	// This opportunistically caches the probes, so
-	// a few concurrent requests might result in concurrent probes
-	// but requests coming after won't.
-	if !a.cache.should(revID) {
-		return true, 0
-	}
-	logger.Debugf("Actually will be probing %s", url)
 
 	reqCtx, probeSpan := trace.StartSpan(r.Context(), "probe")
 	defer func() {
@@ -175,8 +130,6 @@ func (a *activationHandler) probeEndpoint(logger *zap.SugaredLogger, r *http.Req
 			logger.Warn("Pod probe unsuccessful")
 			return false, nil
 		}
-		// Cache probe success.
-		a.cache.mark(revID)
 		return true, nil
 	})
 	return (err == nil), attempts
@@ -187,13 +140,8 @@ func (a *activationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	name := pkghttp.LastHeaderValue(r.Header, activator.RevisionHeaderName)
 	start := time.Now()
 	revID := activator.RevisionID{Namespace: namespace, Name: name}
-	logger := a.logger.With(zap.String(logkey.Key, revID.String()))
 
-	// Always probe is there's no capacity.
-	if rc := a.throttler.GetRevisionCapacity(revID); rc == 0 {
-		logger.Debugf("No capacity, marking %v for probing", revID)
-		a.cache.unmark(revID)
-	}
+	logger := a.logger.With(zap.String(logkey.Key, revID.String()))
 
 	revision, err := a.revisionLister.Revisions(namespace).Get(name)
 	if err != nil {
@@ -238,7 +186,7 @@ func (a *activationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		ttSpan.End()
 		a.logger.Debugf("Waiting for throttler took %v time", time.Since(ttStart))
 
-		success, attempts := a.probeEndpoint(logger, r, target, revID)
+		success, attempts := a.probeEndpoint(logger, r, target)
 		if success {
 			// Once we see a successful probe, send traffic.
 			attempts++

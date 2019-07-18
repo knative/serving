@@ -50,7 +50,7 @@ var ErrActivatorOverload = errors.New("activator overload")
 // It enables the use case to start with max concurrency set to 0 (no requests are sent because no endpoints are available)
 // and gradually increase its value depending on the external condition (e.g. new endpoints become available)
 type Throttler struct {
-	breakersMux sync.RWMutex
+	breakersMux sync.Mutex
 	breakers    map[RevisionID]*queue.Breaker
 
 	breakerParams   queue.BreakerParams
@@ -199,17 +199,6 @@ func (t *Throttler) getOrCreateBreaker(rev RevisionID) (*queue.Breaker, bool) {
 	return breaker, ok
 }
 
-// GetRevisionCapacity returns the capacity for the revision.
-func (t *Throttler) GetRevisionCapacity(rev RevisionID) int {
-	t.breakersMux.RLock()
-	defer t.breakersMux.RUnlock()
-	b, ok := t.breakers[rev]
-	if !ok {
-		return 0
-	}
-	return b.Capacity()
-}
-
 // forceUpdateCapacity fetches the endpoints and updates the capacity of the newly created breaker.
 // This avoids a potential deadlock in case if we missed the updates from the Endpoints informer.
 // This could happen because of a restart of the Activator or when a new one is added as part of scale out.
@@ -255,9 +244,15 @@ func (t *Throttler) updateAllBreakerCapacity(activatorCount int) {
 //
 // This function must not be called in parallel to not induce a wrong order of events.
 func (t *Throttler) endpointsUpdated(newObj interface{}) {
-	endpoints := newObj.(*corev1.Endpoints)
-	addresses := resources.ReadyAddressCount(endpoints)
-	revID := RevisionID{endpoints.Namespace, resources.ParentResourceFromService(endpoints.Name)}
+	ep := newObj.(*corev1.Endpoints)
+
+	revisionName, ok := ep.Labels[serving.RevisionLabelKey]
+	if !ok {
+		t.logger.Errorf("updating capacity failed: endpoints %s/%s didn't have a revision label", ep.Namespace, ep.Name)
+		return
+	}
+	addresses := resources.ReadyAddressCount(ep)
+	revID := RevisionID{ep.Namespace, revisionName}
 	if err := t.UpdateCapacity(revID, addresses); err != nil {
 		t.logger.With(zap.String(logkey.Key, revID.String())).Errorw("updating capacity failed", zap.Error(err))
 	}
@@ -267,7 +262,12 @@ func (t *Throttler) endpointsUpdated(newObj interface{}) {
 // It removes the Breaker from the Throttler bookkeeping.
 func (t *Throttler) endpointsDeleted(obj interface{}) {
 	ep := obj.(*corev1.Endpoints)
-	name := resources.ParentResourceFromService(ep.Name)
-	revID := RevisionID{ep.Namespace, name}
+
+	revisionName, ok := ep.Labels[serving.RevisionLabelKey]
+	if !ok {
+		t.logger.Errorf("deleting breaker failed: endpoints %s/%s didn't have a revision label", ep.Namespace, ep.Name)
+		return
+	}
+	revID := RevisionID{ep.Namespace, revisionName}
 	t.Remove(revID)
 }

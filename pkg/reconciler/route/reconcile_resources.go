@@ -38,36 +38,8 @@ import (
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	"knative.dev/serving/pkg/reconciler/route/config"
 	"knative.dev/serving/pkg/reconciler/route/resources"
-	resourcenames "knative.dev/serving/pkg/reconciler/route/resources/names"
 	"knative.dev/serving/pkg/reconciler/route/traffic"
 )
-
-func (c *Reconciler) getClusterIngressForRoute(route *v1alpha1.Route) (*netv1alpha1.ClusterIngress, error) {
-	// First, look up the fixed name.
-	ciName := resourcenames.ClusterIngress(route)
-	ci, err := c.clusterIngressLister.Get(ciName)
-	if err == nil {
-		return ci, nil
-	}
-
-	// If that isn't found, then fallback on the legacy selector-based approach.
-	selector := routeOwnerLabelSelector(route)
-	ingresses, err := c.clusterIngressLister.List(selector)
-	if err != nil {
-		return nil, err
-	}
-	if len(ingresses) == 0 {
-		return nil, apierrs.NewNotFound(
-			v1alpha1.Resource("clusteringress"), resourcenames.ClusterIngress(route))
-	}
-
-	if len(ingresses) > 1 {
-		// Return error as we expect only one ingress instance for a route.
-		return nil, fmt.Errorf("more than one ClusterIngress are found for route %s/%s: %v", route.Namespace, route.Name, ingresses)
-	}
-
-	return ingresses[0], nil
-}
 
 func routeOwnerLabelSelector(route *v1alpha1.Route) labels.Selector {
 	return labels.Set(map[string]string{
@@ -76,51 +48,59 @@ func routeOwnerLabelSelector(route *v1alpha1.Route) labels.Selector {
 	}).AsSelector()
 }
 
-func (c *Reconciler) deleteClusterIngressesForRoute(route *v1alpha1.Route) error {
-	selector := routeOwnerLabelSelector(route).String()
+func (c *Reconciler) deleteIngressesForRoute(route *v1alpha1.Route) error {
 
 	// We always use DeleteCollection because even with a fixed name, we apply the labels.
-	return c.ServingClientSet.NetworkingV1alpha1().ClusterIngresses().DeleteCollection(
-		nil, metav1.ListOptions{LabelSelector: selector},
-	)
+	selector := routeOwnerLabelSelector(route).String()
+
+	// Delete ClusterIngresses and Ingresses owned by this route.
+
+	if err := c.ServingClientSet.NetworkingV1alpha1().ClusterIngresses().DeleteCollection(
+		nil, metav1.ListOptions{LabelSelector: selector}); err != nil {
+		return err
+	}
+
+	return c.ServingClientSet.NetworkingV1alpha1().Ingresses(route.Namespace).DeleteCollection(
+		nil, metav1.ListOptions{LabelSelector: selector})
 }
 
-func (c *Reconciler) reconcileClusterIngress(
-	ctx context.Context, r *v1alpha1.Route, desired *netv1alpha1.ClusterIngress) (*netv1alpha1.ClusterIngress, error) {
+func (c *Reconciler) reconcileIngress(
+	ctx context.Context, ira IngressResourceAccessors, r *v1alpha1.Route, desired netv1alpha1.IngressAccessor) (netv1alpha1.IngressAccessor, error) {
 	logger := logging.FromContext(ctx)
-	clusterIngress, err := c.getClusterIngressForRoute(r)
+	ingress, err := ira.getIngressForRoute(r)
 	if apierrs.IsNotFound(err) {
-		clusterIngress, err = c.ServingClientSet.NetworkingV1alpha1().ClusterIngresses().Create(desired)
+		ingress, err = ira.createIngress(desired)
 		if err != nil {
-			logger.Errorw("Failed to create ClusterIngress", zap.Error(err))
+			logger.Errorw("Failed to create Ingress", zap.Error(err))
 			c.Recorder.Eventf(r, corev1.EventTypeWarning, "CreationFailed",
-				"Failed to create ClusterIngress for route %s/%s: %v", r.Namespace, r.Name, err)
+				"Failed to create Ingress for route %s/%s: %v", r.Namespace, r.Name, err)
 			return nil, err
 		}
+
 		c.Recorder.Eventf(r, corev1.EventTypeNormal, "Created",
-			"Created ClusterIngress %q", clusterIngress.Name)
-		return clusterIngress, nil
+			"Created %s %q", resources.GetIngressTypeName(ingress), ingress.GetName())
+		return ingress, nil
 	} else if err != nil {
 		return nil, err
 	} else {
 		// It is notable that one reason for differences here may be defaulting.
 		// When that is the case, the Update will end up being a nop because the
 		// webhook will bring them into alignment and no new reconciliation will occur.
-		if !equality.Semantic.DeepEqual(clusterIngress.Spec, desired.Spec) {
+		if !equality.Semantic.DeepEqual(ingress.GetSpec(), desired.GetSpec()) {
 			// Don't modify the informers copy
-			origin := clusterIngress.DeepCopy()
-			origin.Spec = desired.Spec
+			origin := ingress.DeepCopyObject().(netv1alpha1.IngressAccessor)
+			origin.SetSpec(*desired.GetSpec())
 
-			updated, err := c.ServingClientSet.NetworkingV1alpha1().ClusterIngresses().Update(origin)
+			updated, err := ira.updateIngress(origin)
 			if err != nil {
-				logger.Errorw("Failed to update ClusterIngress", zap.Error(err))
+				logger.Errorw("Failed to update %s", resources.GetIngressTypeName(ingress), zap.Error(err))
 				return nil, err
 			}
 			return updated, nil
 		}
 	}
 
-	return clusterIngress, err
+	return ingress, err
 }
 
 func (c *Reconciler) deleteServices(namespace string, serviceNames sets.String) error {
@@ -185,7 +165,7 @@ func (c *Reconciler) reconcilePlaceholderServices(ctx context.Context, route *v1
 	return services, nil
 }
 
-func (c *Reconciler) updatePlaceholderServices(ctx context.Context, route *v1alpha1.Route, services []*corev1.Service, ingress *netv1alpha1.ClusterIngress) error {
+func (c *Reconciler) updatePlaceholderServices(ctx context.Context, route *v1alpha1.Route, services []*corev1.Service, ingress netv1alpha1.IngressAccessor) error {
 	logger := logging.FromContext(ctx)
 	ns := route.Namespace
 
@@ -255,6 +235,7 @@ func (c *Reconciler) reconcileTargetRevisions(ctx context.Context, t *traffic.Co
 				}
 
 				newRev := rev.DeepCopy()
+
 				lastPin, err := newRev.GetLastPinned()
 				if err != nil {
 					// Missing is an expected error case for a not yet pinned revision.
@@ -268,11 +249,8 @@ func (c *Reconciler) reconcileTargetRevisions(ctx context.Context, t *traffic.Co
 					}
 				}
 
-				if newRev.Annotations == nil {
-					newRev.Annotations = make(map[string]string)
-				}
+				newRev.SetLastPinned(c.clock.Now())
 
-				newRev.ObjectMeta.Annotations[serving.RevisionLastPinnedAnnotationKey] = v1alpha1.RevisionLastPinnedString(c.clock.Now())
 				patch, err := duck.CreateMergePatch(rev, newRev)
 				if err != nil {
 					return err

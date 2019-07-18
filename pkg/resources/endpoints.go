@@ -17,24 +17,9 @@ limitations under the License.
 package resources
 
 import (
-	"strings"
-
 	corev1 "k8s.io/api/core/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 )
-
-// ParentResourceFromService returns the parent resource name from
-// endpoints or k8s service resource.
-// The function is based upon knowledge that all knative built services
-// have `parent-resource-<svc-unique-suffix` format.
-func ParentResourceFromService(name string) string {
-	li := strings.LastIndex(name, "-")
-	if li == -1 {
-		// Presume same.
-		return name
-	}
-	return name[:li]
-}
 
 // ReadyAddressCount returns the total number of addresses ready for the given endpoint.
 func ReadyAddressCount(endpoints *corev1.Endpoints) int {

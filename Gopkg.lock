@@ -614,7 +614,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:7b19f4701b58045cd625b893d12e5350b3c4d3df4c61d013c32d07d67726ed50"
+  digest = "1:13b204981c91abdcc5a16ec5aafe61096565db898b2aea4487d8bca6f403d5f5"
   name = "github.com/knative/test-infra"
   packages = [
     "scripts",
@@ -634,7 +634,7 @@
     "tools/webhook-apicoverage/webhook",
   ]
   pruneopts = "UT"
-  revision = "bf05b82bcaaf2e7516d0b2edfc96fc904813bcf2"
+  revision = "bb74f5a60ee307a6ec7d5ad589cd2184f7ba5f2c"
 
 [[projects]]
   digest = "1:58999a98719fddbac6303cb17e8d85b945f60b72f48e3a2df6b950b97fa926f1"
@@ -812,7 +812,8 @@
   name = "github.com/rogpeppe/go-internal"
   packages = ["semver"]
   pruneopts = "NUT"
-  revision = "4bbc89b6501cca7dd6b5557d78d70c8d2c6e8b97"
+  revision = "438578804ca6f31be148c27683afc419ce47c06e"
+  version = "v1.3.0"
 
 [[projects]]
   digest = "1:d917313f309bda80d27274d53985bc65651f81a5b66b820749ac7f8ef061fd04"
@@ -1649,7 +1650,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:30493fd8862d24c39a5ad2c8799967de1aa9ce27913ad4ae8067909a1c11dfe0"
+  digest = "1:7626b93348c8c694f56697295497e28470d0c967b01704bc219af7ea2e78260d"
   name = "knative.dev/caching"
   packages = [
     "pkg/apis/caching",
@@ -1672,11 +1673,11 @@
     "pkg/client/listers/caching/v1alpha1",
   ]
   pruneopts = "T"
-  revision = "77d253c889d96753ba0a8b2f3e466b06f26f11c5"
+  revision = "191bdc53f90de88e54bc6692a71222e6dee7ff4a"
 
 [[projects]]
   branch = "master"
-  digest = "1:84c8f2d8045716adf46ada32c56b1a6fdd61d0d0b21fa03ca6308c07b1913d7c"
+  digest = "1:8ec01314b69645c0da5a23e0f257f0c90215176783684bf7aadfe988f641cc4d"
   name = "knative.dev/pkg"
   packages = [
     "apis",
@@ -1767,7 +1768,7 @@
     "websocket",
   ]
   pruneopts = "T"
-  revision = "a3e4b8d9f7bd4bc96c266f751762e194d5efe98f"
+  revision = "a7dbe912205c611ffe07d57f995ee02b577d34c0"
 
 [solve-meta]
   analyzer-name = "dep"
@@ -1818,6 +1819,7 @@
     "github.com/prometheus/common/expfmt",
     "github.com/spf13/pflag",
     "github.com/tsenart/vegeta",
+    "github.com/tsenart/vegeta/lib",
     "go.opencensus.io/plugin/ochttp",
     "go.opencensus.io/stats",
     "go.opencensus.io/stats/view",
