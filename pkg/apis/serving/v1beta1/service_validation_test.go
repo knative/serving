@@ -726,7 +726,7 @@ func TestServiceAnnotationUpdate(t *testing.T) {
 			},
 			Spec: getServiceSpec("helloworld:foo"),
 		},
-		want: &apis.FieldError{Message: fmt.Sprintf("annotation %q is immutable", serving.CreatorAnnotation),
+		want: &apis.FieldError{Message: "annotation value is immutable",
 			Paths: []string{"metadata.annotations." + serving.CreatorAnnotation}},
 	}, {
 		name: "update lastModifier without spec changes",
@@ -750,8 +750,7 @@ func TestServiceAnnotationUpdate(t *testing.T) {
 			},
 			Spec: getServiceSpec("helloworld:foo"),
 		},
-		want: &apis.FieldError{Message: fmt.Sprintf("annotation %q is immutable", serving.UpdaterAnnotation),
-			Paths: []string{"metadata.annotations." + serving.UpdaterAnnotation}},
+		want: apis.ErrInvalidValue(u2, "metadata.annotations."+serving.UpdaterAnnotation),
 	}, {
 		name: "update lastModifier with spec changes",
 		this: &Service{

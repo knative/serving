@@ -193,15 +193,12 @@ func (s *Service) validateCreatorAndModifier(ctx context.Context) *apis.FieldErr
 	original := apis.GetBaseline(ctx).(*Service)
 	if original.GetAnnotations()[serving.CreatorAnnotation] != s.GetAnnotations()[serving.CreatorAnnotation] {
 		errs = errs.Also(&apis.FieldError{
-			Message: fmt.Sprintf("annotation %q is immutable", serving.CreatorAnnotation),
+			Message: "annotation value is immutable",
 			Paths:   []string{serving.CreatorAnnotation},
 		})
 	}
 	if equality.Semantic.DeepEqual(original.Spec, s.Spec) && original.GetAnnotations()[serving.UpdaterAnnotation] != s.GetAnnotations()[serving.UpdaterAnnotation] {
-		errs = errs.Also(&apis.FieldError{
-			Message: fmt.Sprintf("annotation %q is immutable", serving.UpdaterAnnotation),
-			Paths:   []string{serving.UpdaterAnnotation},
-		})
+		errs = errs.Also(apis.ErrInvalidValue(s.GetAnnotations()[serving.UpdaterAnnotation], serving.UpdaterAnnotation))
 	}
 	return errs
 }
