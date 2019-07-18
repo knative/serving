@@ -255,6 +255,7 @@ func (c *Reconciler) reconcileTargetRevisions(ctx context.Context, t *traffic.Co
 				}
 
 				newRev := rev.DeepCopy()
+
 				lastPin, err := newRev.GetLastPinned()
 				if err != nil {
 					// Missing is an expected error case for a not yet pinned revision.
@@ -268,11 +269,8 @@ func (c *Reconciler) reconcileTargetRevisions(ctx context.Context, t *traffic.Co
 					}
 				}
 
-				if newRev.Annotations == nil {
-					newRev.Annotations = make(map[string]string)
-				}
+				newRev.SetLastPinned(c.clock.Now())
 
-				newRev.ObjectMeta.Annotations[serving.RevisionLastPinnedAnnotationKey] = v1alpha1.RevisionLastPinnedString(c.clock.Now())
 				patch, err := duck.CreateMergePatch(rev, newRev)
 				if err != nil {
 					return err
