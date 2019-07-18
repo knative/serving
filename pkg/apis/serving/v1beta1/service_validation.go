@@ -70,9 +70,7 @@ func (s *Service) ValidateLabels() *apis.FieldError {
 	var errs *apis.FieldError
 	for key, val := range serviceLabels {
 		if key == config.VisibilityLabelKey {
-			if val != config.VisibilityClusterLocal {
-				errs = errs.Also(apis.ErrInvalidValue(val, "").ViaFieldKey("label", key))
-			}
+			errs = errs.Also(validateClusterVisbilityLabel(val))
 			continue
 		}
 		if strings.HasPrefix(key, serving.GroupName+"/") {
