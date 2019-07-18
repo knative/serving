@@ -30,3 +30,8 @@ func (ci *ClusterIngress) GetSpec() *IngressSpec {
 func (ci *ClusterIngress) SetStatus(status IngressStatus) {
 	ci.Status = status
 }
+
+// SetSpec assigns ingress spec
+func (ci *ClusterIngress) SetSpec(spec IngressSpec) {
+	ci.Spec = spec
+}

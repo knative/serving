@@ -22,6 +22,7 @@ import (
 	serviceinformer "knative.dev/pkg/injection/informers/kubeinformers/corev1/service"
 	certificateinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/certificate"
 	clusteringressinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/clusteringress"
+	ingressinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/ingress"
 	configurationinformer "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/configuration"
 	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/revision"
 	routeinformer "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/route"
@@ -62,6 +63,7 @@ func NewControllerWithClock(
 	configInformer := configurationinformer.Get(ctx)
 	revisionInformer := revisioninformer.Get(ctx)
 	clusterIngressInformer := clusteringressinformer.Get(ctx)
+	ingressInformer := ingressinformer.Get(ctx)
 	certificateInformer := certificateinformer.Get(ctx)
 
 	// No need to lock domainConfigMutex yet since the informers that can modify
@@ -73,6 +75,7 @@ func NewControllerWithClock(
 		revisionLister:       revisionInformer.Lister(),
 		serviceLister:        serviceInformer.Lister(),
 		clusterIngressLister: clusterIngressInformer.Lister(),
+		ingressLister:        ingressInformer.Lister(),
 		certificateLister:    certificateInformer.Lister(),
 		clock:                clock,
 	}
@@ -89,6 +92,8 @@ func NewControllerWithClock(
 	clusterIngressInformer.Informer().AddEventHandler(controller.HandleAll(
 		impl.EnqueueLabelOfNamespaceScopedResource(
 			serving.RouteNamespaceLabelKey, serving.RouteLabelKey)))
+
+	ingressInformer.Informer().AddEventHandler(controller.HandleAll(impl.EnqueueControllerOf))
 
 	c.tracker = tracker.New(impl.EnqueueKey, controller.GetTrackerLease(ctx))
 

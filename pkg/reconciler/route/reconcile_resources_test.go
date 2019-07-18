@@ -50,10 +50,18 @@ func TestReconcileClusterIngress_Insert(t *testing.T) {
 		},
 	}
 	ci := newTestClusterIngress(t, r)
-	if _, err := reconciler.reconcileClusterIngress(TestContextWithLogger(t), r, ci); err != nil {
+
+	ira := &ClusterIngressResources{
+		BaseIngressResources: BaseIngressResources{
+			servingClientSet: reconciler.ServingClientSet,
+		},
+		clusterIngressLister: reconciler.clusterIngressLister,
+	}
+
+	if _, err := reconciler.reconcileIngress(TestContextWithLogger(t), ira, r, ci); err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
-	created := getRouteIngressFromClient(t, ctx, r)
+	created := getRouteClusterIngressFromClient(ctx, t, r)
 	if diff := cmp.Diff(ci, created); diff != "" {
 		t.Errorf("Unexpected diff (-want +got): %v", diff)
 	}
@@ -69,12 +77,19 @@ func TestReconcileClusterIngress_Update(t *testing.T) {
 		},
 	}
 
+	ira := &ClusterIngressResources{
+		BaseIngressResources: BaseIngressResources{
+			servingClientSet: reconciler.ServingClientSet,
+		},
+		clusterIngressLister: reconciler.clusterIngressLister,
+	}
+
 	ci := newTestClusterIngress(t, r)
-	if _, err := reconciler.reconcileClusterIngress(TestContextWithLogger(t), r, ci); err != nil {
+	if _, err := reconciler.reconcileIngress(TestContextWithLogger(t), ira, r, ci); err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
 
-	updated := getRouteIngressFromClient(t, ctx, r)
+	updated := getRouteClusterIngressFromClient(ctx, t, r)
 	fakeciinformer.Get(ctx).Informer().GetIndexer().Add(updated)
 
 	ci2 := newTestClusterIngress(t, r, func(tc *traffic.Config) {
@@ -86,11 +101,11 @@ func TestReconcileClusterIngress_Update(t *testing.T) {
 			},
 		})
 	})
-	if _, err := reconciler.reconcileClusterIngress(TestContextWithLogger(t), r, ci2); err != nil {
+	if _, err := reconciler.reconcileIngress(TestContextWithLogger(t), ira, r, ci2); err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
 
-	updated = getRouteIngressFromClient(t, ctx, r)
+	updated = getRouteClusterIngressFromClient(ctx, t, r)
 	if diff := cmp.Diff(ci2, updated); diff != "" {
 		t.Errorf("Unexpected diff (-want +got): %v", diff)
 	}
@@ -156,7 +171,7 @@ func TestReconcileTargetRevisions(t *testing.T) {
 	}
 }
 
-func newTestClusterIngress(t *testing.T, r *v1alpha1.Route, trafficOpts ...func(tc *traffic.Config)) *netv1alpha1.ClusterIngress {
+func newTestClusterIngress(t *testing.T, r *v1alpha1.Route, trafficOpts ...func(tc *traffic.Config)) netv1alpha1.IngressAccessor {
 	tc := &traffic.Config{Targets: map[string]traffic.RevisionTargets{
 		traffic.DefaultTarget: {{
 			TrafficTarget: v1beta1.TrafficTarget{

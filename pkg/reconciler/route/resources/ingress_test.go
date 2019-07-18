@@ -73,11 +73,12 @@ func TestMakeClusterIngress_CorrectMetadata(t *testing.T) {
 			networking.IngressClassAnnotationKey: ingressClass,
 		},
 	}
-	ci, err := MakeClusterIngress(getContext(), r, &traffic.Config{Targets: targets}, nil, getServiceVisibility(), ingressClass)
+	ia, err := MakeClusterIngress(getContext(), r, &traffic.Config{Targets: targets}, nil, getServiceVisibility(), ingressClass)
 	if err != nil {
 		t.Errorf("Unexpected error %v", err)
 	}
 
+	ci := ia.(*netv1alpha1.ClusterIngress)
 	if !cmp.Equal(expected, ci.ObjectMeta) {
 		t.Errorf("Unexpected metadata (-want, +got): %s", cmp.Diff(expected, ci.ObjectMeta))
 	}
@@ -166,7 +167,7 @@ func TestMakeClusterIngressSpec_CorrectRules(t *testing.T) {
 		Visibility: netv1alpha1.IngressVisibilityExternalIP,
 	}}
 
-	ci, err := makeIngressSpec(getContext(), r, nil, getServiceVisibility(), targets)
+	ci, err := MakeIngressSpec(getContext(), r, nil, getServiceVisibility(), targets)
 	if err != nil {
 		t.Errorf("Unexpected error %v", err)
 	}
@@ -212,7 +213,7 @@ func TestMakeClusterIngressSpec_CorrectVisibility(t *testing.T) {
 	}}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			ci, err := makeIngressSpec(getContext(), &c.route, nil, c.serviceVisibility, nil)
+			ci, err := MakeIngressSpec(getContext(), &c.route, nil, c.serviceVisibility, nil)
 			if err != nil {
 				t.Errorf("Unexpected error %v", err)
 			}
@@ -317,7 +318,7 @@ func TestMakeClusterIngressSpec_CorrectRuleVisibility(t *testing.T) {
 	}}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			ci, err := makeIngressSpec(getContext(), &c.route, nil, c.serviceVisibility, c.targets)
+			ci, err := MakeIngressSpec(getContext(), &c.route, nil, c.serviceVisibility, c.targets)
 			if err != nil {
 				t.Errorf("Unexpected error %v", err)
 			}
