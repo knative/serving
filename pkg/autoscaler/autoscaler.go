@@ -71,7 +71,8 @@ func New(
 	// If the scale is 0 or 1, normal Autoscaler behavior is fine.
 	// When Autoscaler restarts we lose metric history, which causes us to
 	// momentarily scale down, and that is not a desired behaviour.
-	// Thus, we're keeping the current scale until we accumulate enough data to make conscious decisions.
+	// Thus, we're keeping at least the current scale until we
+	// accumulate enough data to make conscious decisions.
 	curC, err := podCounter.ReadyCount()
 	if err != nil {
 		return nil, fmt.Errorf("initial pod count failed: %v", err)
