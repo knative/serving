@@ -28,9 +28,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 )
 
-// TransportFactory is a function which returns an HTTP transport.
-type TransportFactory func() http.RoundTripper
-
 // Preparer is a way for the caller to modify the HTTP request before it goes out.
 type Preparer func(r *http.Request) *http.Request
 
