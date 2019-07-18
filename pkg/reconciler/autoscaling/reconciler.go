@@ -29,7 +29,6 @@ import (
 	pav1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/apis/networking"
 	nv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
-	"knative.dev/serving/pkg/autoscaler"
 	listers "knative.dev/serving/pkg/client/listers/autoscaling/v1alpha1"
 	nlisters "knative.dev/serving/pkg/client/listers/networking/v1alpha1"
 	"knative.dev/serving/pkg/reconciler"
@@ -58,17 +57,9 @@ type Base struct {
 }
 
 // ReconcileSKS reconciles a ServerlessService based on the given PodAutoscaler.
-func (c *Base) ReconcileSKS(ctx context.Context, pa *pav1alpha1.PodAutoscaler, d *autoscaler.Decider) (*nv1alpha1.ServerlessService, error) {
+func (c *Base) ReconcileSKS(ctx context.Context, pa *pav1alpha1.PodAutoscaler, mode nv1alpha1.ServerlessServiceOperationMode) (*nv1alpha1.ServerlessService, error) {
 	logger := logging.FromContext(ctx)
 
-	mode := nv1alpha1.SKSOperationModeServe
-	// We put activator in the serving path in two cases:
-	// 1. The revision is scaled to 0.
-	// 2. The excess burst capacity is negative.
-	if pa.Status.IsInactive() || (d != nil && d.Status.ExcessBurstCapacity < 0) {
-		logger.Debugf("SKS %s is in proxy mode: pa.IsInactive = %v, ebc = %d", pa.Name, pa.Status.IsInactive(), d.Status.ExcessBurstCapacity)
-		mode = nv1alpha1.SKSOperationModeProxy
-	}
 	sksName := anames.SKS(pa.Name)
 	sks, err := c.SKSLister.ServerlessServices(pa.Namespace).Get(sksName)
 	if errors.IsNotFound(err) {
