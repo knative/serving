@@ -350,6 +350,7 @@ func TestHelper_ReactToEndpoints(t *testing.T) {
 			Labels: map[string]string{
 				serving.RevisionUID:       "test",
 				networking.ServiceTypeKey: string(networking.ServiceTypePrivate),
+				serving.RevisionLabelKey:  testRevision,
 			},
 		},
 		Subsets: endpointsSubset(0, 1),

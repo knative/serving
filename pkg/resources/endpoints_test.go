@@ -125,18 +125,3 @@ func endpoints(ipCount int) *corev1.Endpoints {
 	}}
 	return ep
 }
-
-func TestParentResourceFromService(t *testing.T) {
-	tests := map[string]string{
-		"":      "",
-		"a":     "a",
-		"a-":    "a",
-		"a-b":   "a",
-		"a-b-c": "a-b",
-	}
-	for in, want := range tests {
-		if got := ParentResourceFromService(in); got != want {
-			t.Errorf("%s => got: %s, want: %s", in, got, want)
-		}
-	}
-}
