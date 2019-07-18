@@ -19,7 +19,6 @@ package route
 import (
 	"context"
 	"encoding/json"
-
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -187,51 +186,20 @@ func (c *Reconciler) reconcile(ctx context.Context, r *v1alpha1.Route) error {
 
 	logger.Infof("Reconciling route: %#v", r)
 
-	// Get all services
-	existingServices, err := c.getServices(r) // This is what we use to determine whether we default or not.
-	if err != nil {
-		return err
-	}
-	existingServiceNames := resources.GetNames(existingServices)
-
-	clusterLocalServices := resources.FilterService(existingServices, resources.IsClusterLocalService)
-	clusterLocalServiceNames := resources.GetNames(clusterLocalServices)
-
-	// Any new service will follow the default route visibility. We only need to consider the case where it is "cluster-local"
-	// The alternative visibility means it should not be cluster local.
-	if labels.IsObjectLocalVisibility(r.ObjectMeta) {
-		expectedServiceNames, err := resources.GetDesiredServiceNames(ctx, r)
-		if err != nil {
-			return err
-		}
-
-		serviceWithDefaultVisibility := expectedServiceNames.Difference(existingServiceNames)
-		clusterLocalServiceNames = clusterLocalServiceNames.Union(serviceWithDefaultVisibility)
-	}
-
-	mainRouteMeta := r.ObjectMeta.DeepCopy()
-	mainRouteServiceName, err := domains.HostnameFromTemplate(ctx, r.Name, "")
-	if err != nil {
-		return err
-	}
-	labels.SetVisibility(mainRouteMeta, clusterLocalServiceNames.Has(mainRouteServiceName))
-
-	// Update the information that makes us Addressable. This is needed to configure traffic and
-	// make the cluster ingress.
-	host, err := domains.DomainNameFromTemplate(ctx, *mainRouteMeta, r.Name)
-	if err != nil {
+	if err := c.updateRouteStatusURL(ctx, r); err != nil {
 		return err
 	}
 
-	r.Status.URL = &apis.URL{
-		Scheme: "http",
-		Host:   host,
-	}
 	// TODO(mattmoor): Remove completely after 0.7 cuts.
 	r.Status.DeprecatedDomain = ""
 
+	existingPublicServiceNames, existingClusterLocalServiceNames, _, desiredClusterLocalServiceNames, err := c.getServiceNames(ctx, r)
+	if err != nil {
+		return err
+	}
+
 	// Configure traffic based on the RouteSpec.
-	traffic, err := c.configureTraffic(ctx, r, clusterLocalServiceNames)
+	traffic, err := c.configureTraffic(ctx, r, desiredClusterLocalServiceNames)
 	if traffic == nil || err != nil {
 		// Traffic targets aren't ready, no need to configure child resources.
 		return err
@@ -264,14 +232,14 @@ func (c *Reconciler) reconcile(ctx context.Context, r *v1alpha1.Route) error {
 	}
 
 	logger.Info("Creating placeholder k8s services")
-	services, err := c.reconcilePlaceholderServices(ctx, r, traffic.Targets, resources.GetNames(existingServices))
+	existingServiceNames := existingPublicServiceNames.Union(existingClusterLocalServiceNames)
+	services, err := c.reconcilePlaceholderServices(ctx, r, traffic.Targets, existingServiceNames)
 	if err != nil {
 		return err
 	}
 
-	clusterLocalServices = resources.FilterService(services, resources.IsClusterLocalService)
-	clusterLocalServiceNames = resources.GetNames(clusterLocalServices)
-	tls, err := c.tls(ctx, host, r, traffic, clusterLocalServiceNames)
+	clusterLocalServiceNames := existingClusterLocalServiceNames.Union(desiredClusterLocalServiceNames)
+	tls, err := c.tls(ctx, r.Status.URL.Host, r, traffic, clusterLocalServiceNames)
 	if err != nil {
 		return err
 	}
@@ -480,6 +448,71 @@ func (c *Reconciler) ensureFinalizer(route *v1alpha1.Route) error {
 
 	_, err = c.ServingClientSet.ServingV1alpha1().Routes(route.Namespace).Patch(route.Name, types.MergePatchType, patch)
 	return err
+}
+
+func (c *Reconciler) updateRouteStatusURL(ctx context.Context, route *v1alpha1.Route) error {
+	_, existingPrivateServiceNames, _, desiredClusterLocalServiceNames, err := c.getServiceNames(ctx, route)
+	if err != nil {
+		return err
+	}
+
+	mainRouteServiceName, err := domains.HostnameFromTemplate(ctx, route.Name, "")
+	if err != nil {
+		return err
+	}
+
+	mainRouteMeta := route.ObjectMeta.DeepCopy()
+	allClusterLocalServiceNames := existingPrivateServiceNames.Union(desiredClusterLocalServiceNames)
+	labels.SetVisibility(mainRouteMeta, allClusterLocalServiceNames.Has(mainRouteServiceName))
+
+	host, err := domains.DomainNameFromTemplate(ctx, *mainRouteMeta, route.Name)
+	if err != nil {
+		return err
+	}
+
+	route.Status.URL = &apis.URL{
+		Scheme: "http",
+		Host:   host,
+	}
+
+	return nil
+}
+
+func (c *Reconciler) getServiceNames(ctx context.Context, route *v1alpha1.Route) (
+	existingPublicServiceNames sets.String,
+	existingClusterLocalServiceNames sets.String,
+	desiredPublicServiceNames sets.String,
+	desiredClusterLocalServiceNames sets.String,
+	err error,
+) {
+	// Populate existing service name sets
+	existingServices, err := c.getServices(route)
+	if err != nil {
+		return
+	}
+	existingServiceNames := resources.GetNames(existingServices)
+	existingClusterLocalServices := resources.FilterService(existingServices, resources.IsClusterLocalService)
+	existingClusterLocalServiceNames = resources.GetNames(existingClusterLocalServices)
+	existingPublicServiceNames = existingServiceNames.Difference(existingClusterLocalServiceNames)
+
+	// Populate desired service name sets
+	desiredServiceNames, err := resources.GetDesiredServiceNames(ctx, route)
+	if err != nil {
+		return
+	}
+	desiredPublicServiceNames = desiredServiceNames.Intersection(existingPublicServiceNames)
+	desiredClusterLocalServiceNames = desiredServiceNames.Intersection(existingClusterLocalServiceNames)
+
+	// Any new desired services will follow the default route visibility. We only need to consider the case where it is
+	// "cluster-local". The alternative visibility means it should not be cluster local.
+	serviceWithDefaultVisibility := desiredServiceNames.Difference(existingServiceNames)
+	if labels.IsObjectLocalVisibility(route.ObjectMeta) {
+		desiredClusterLocalServiceNames = desiredClusterLocalServiceNames.Union(serviceWithDefaultVisibility)
+	} else {
+		desiredPublicServiceNames = desiredPublicServiceNames.Union(serviceWithDefaultVisibility)
+	}
+
+	return
 }
 
 /////////////////////////////////////////
