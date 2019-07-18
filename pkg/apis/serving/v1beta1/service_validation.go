@@ -27,13 +27,13 @@ import (
 
 // Validate makes sure that Service is properly configured.
 func (s *Service) Validate(ctx context.Context) (errs *apis.FieldError) {
-	errs = errs.Also(s.ValidateLabels())
 	// If we are in a status sub resource update, the metadata and spec cannot change.
 	// So, to avoid rejecting controller status updates due to validations that may
 	// have changed (i.e. due to config-defaults changes), we elide the metadata and
 	// spec validation.
 	if !apis.IsInStatusUpdate(ctx) {
 		errs = errs.Also(serving.ValidateObjectMetadata(s.GetObjectMeta()).ViaField("metadata"))
+		errs = errs.Also(s.ValidateLabels())
 		ctx = apis.WithinParent(ctx, s.ObjectMeta)
 		errs = errs.Also(s.Spec.Validate(apis.WithinSpec(ctx)).ViaField("spec"))
 	}

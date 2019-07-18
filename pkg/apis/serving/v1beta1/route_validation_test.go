@@ -472,7 +472,7 @@ func TestRouteValidation(t *testing.T) {
 	}
 }
 
-func TestRouteLabelValidation(t *testing.T) {
+func TestRouteLabelAnnotationValidation(t *testing.T) {
 	validRouteSpec := RouteSpec{
 		Traffic: []TrafficTarget{{
 			Tag:          "bar",
@@ -549,6 +549,30 @@ func TestRouteLabelValidation(t *testing.T) {
 			Spec: validRouteSpec,
 		},
 		want: apis.ErrInvalidKeyName("serving.knative.dev/testlabel", "metadata.label"),
+	}, {
+		name: "invalid annotation label",
+		r: &Route{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "byo-name",
+				Annotations: map[string]string{
+					"serving.knative.dev/testAnnotation": "value",
+				},
+			},
+			Spec: validRouteSpec,
+		},
+		want: apis.ErrInvalidValue("value", "metadata.annotations.serving.knative.dev/testAnnotation"),
+	}, {
+		name: "valid annotation label",
+		r: &Route{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "byo-name",
+				Annotations: map[string]string{
+					"testAnnotation": "testValue",
+				},
+			},
+			Spec: validRouteSpec,
+		},
+		want: nil,
 	}}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
