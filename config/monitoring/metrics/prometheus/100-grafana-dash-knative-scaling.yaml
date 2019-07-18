@@ -601,7 +601,7 @@ data:
                            "legendFormat":"Target Concurrency",
                            "refId":"C"
                         },
-                        {  
+                        {
                            "expr":"sum(autoscaler_excess_burst_capacity{namespace_name=\"$namespace\", configuration_name=\"$configuration\", revision_name=\"$revision\"})",
                            "format":"time_series",
                            "intervalFactor":1,
