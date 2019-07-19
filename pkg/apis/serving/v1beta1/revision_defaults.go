@@ -44,7 +44,7 @@ func (rs *RevisionSpec) SetDefaults(ctx context.Context) {
 		rs.TimeoutSeconds = &ts
 	}
 
-	for idx, _ := range rs.PodSpec.Containers {
+	for idx := range rs.PodSpec.Containers {
 		if rs.PodSpec.Containers[idx].Name == "" {
 			rs.PodSpec.Containers[idx].Name = cfg.Defaults.UserContainerName(ctx)
 		}
