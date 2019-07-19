@@ -29,8 +29,8 @@ import (
 
 // Validate ensures Revision is properly configured.
 func (r *Revision) Validate(ctx context.Context) *apis.FieldError {
-	errs := serving.ValidateObjectMetadata(r.GetObjectMeta()).ViaField("metadata")
-	errs = errs.Also(r.ValidateLabels())
+	errs := serving.ValidateObjectMetadata(r.GetObjectMeta()).Also(
+		r.ValidateLabels().ViaField("labels")).ViaField("metadata")
 	errs = errs.Also(r.Status.Validate(apis.WithinStatus(ctx)).ViaField("status"))
 
 	if apis.IsInUpdate(ctx) {
@@ -140,8 +140,7 @@ func (rs *RevisionStatus) Validate(ctx context.Context) *apis.FieldError {
 }
 
 // ValidateLabels function validates service labels
-func (r *Revision) ValidateLabels() *apis.FieldError {
-	var errs *apis.FieldError
+func (r *Revision) ValidateLabels() (errs *apis.FieldError) {
 LabelLoop:
 	for key, val := range r.GetLabels() {
 		switch {
@@ -152,10 +151,10 @@ LabelLoop:
 					continue LabelLoop
 				}
 			}
-			errs = errs.Also(apis.ErrInvalidValue(val, key).ViaField("labels"))
-		case strings.HasPrefix(key, serving.GroupName+"/"):
-			errs = errs.Also(apis.ErrInvalidKeyName(key, "labels"))
+			errs = errs.Also(apis.ErrInvalidValue(val, key))
+		case strings.HasPrefix(key, serving.GroupNamePrefix):
+			errs = errs.Also(apis.ErrInvalidKeyName(key, ""))
 		}
 	}
-	return errs.ViaField("metadata")
+	return
 }

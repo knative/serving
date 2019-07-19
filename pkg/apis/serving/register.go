@@ -19,6 +19,8 @@ package serving
 const (
 	GroupName = "serving.knative.dev"
 
+	// GroupNamePrefix is the label key and annotation key
+	GroupNamePrefix = GroupName + "/"
 	// ConfigurationLabelKey is the label key attached to a Revision indicating by
 	// which Configuration it is created.
 	ConfigurationLabelKey = GroupName + "/configuration"

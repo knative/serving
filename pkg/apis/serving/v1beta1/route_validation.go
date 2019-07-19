@@ -29,8 +29,8 @@ import (
 
 // Validate makes sure that Route is properly configured.
 func (r *Route) Validate(ctx context.Context) *apis.FieldError {
-	errs := serving.ValidateObjectMetadata(r.GetObjectMeta()).ViaField("metadata")
-	errs = errs.Also(r.ValidateLabels())
+	errs := serving.ValidateObjectMetadata(r.GetObjectMeta()).Also(
+		r.ValidateLabels().ViaField("labels")).ViaField("metadata")
 	errs = errs.Also(r.Spec.Validate(apis.WithinSpec(ctx)).ViaField("spec"))
 	errs = errs.Also(r.Status.Validate(apis.WithinStatus(ctx)).ViaField("status"))
 	return errs
@@ -186,17 +186,15 @@ func (rsf *RouteStatusFields) Validate(ctx context.Context) *apis.FieldError {
 	return nil
 }
 
-func validateClusterVisbilityLabel(label string) *apis.FieldError {
-	var errs *apis.FieldError
+func validateClusterVisbilityLabel(label string) (errs *apis.FieldError) {
 	if label != config.VisibilityClusterLocal {
-		errs = apis.ErrInvalidValue(label, "").ViaFieldKey("label", config.VisibilityLabelKey)
+		errs = apis.ErrInvalidValue(label, config.VisibilityLabelKey)
 	}
-	return errs
+	return
 }
 
 // ValidateLabels function validates service labels
-func (r *Route) ValidateLabels() *apis.FieldError {
-	var errs *apis.FieldError
+func (r *Route) ValidateLabels() (errs *apis.FieldError) {
 LabelLoop:
 	for key, val := range r.GetLabels() {
 		switch {
@@ -208,10 +206,10 @@ LabelLoop:
 					continue LabelLoop
 				}
 			}
-			errs = errs.Also(apis.ErrInvalidValue(val, key).ViaField("labels"))
-		case strings.HasPrefix(key, serving.GroupName+"/"):
-			errs = errs.Also(apis.ErrInvalidKeyName(key, "labels"))
+			errs = errs.Also(apis.ErrInvalidValue(val, key))
+		case strings.HasPrefix(key, serving.GroupNamePrefix):
+			errs = errs.Also(apis.ErrInvalidKeyName(key, ""))
 		}
 	}
-	return errs.ViaField("metadata")
+	return
 }

@@ -159,7 +159,7 @@ func TestServiceValidation(t *testing.T) {
 				RouteSpec:         goodRouteSpec,
 			},
 		},
-		want: apis.ErrInvalidValue("bad-label", "metadata.label.[serving.knative.dev/visibility]"),
+		want: apis.ErrInvalidValue("bad-label", "metadata.labels.serving.knative.dev/visibility"),
 	}, {
 		name: "valid release",
 		r: &Service{
