@@ -193,13 +193,13 @@ func (c *Reconciler) reconcile(ctx context.Context, r *v1alpha1.Route) error {
 	// TODO(mattmoor): Remove completely after 0.7 cuts.
 	r.Status.DeprecatedDomain = ""
 
-	existingPublicServiceNames, existingClusterLocalServiceNames, _, desiredClusterLocalServiceNames, err := c.getServiceNames(ctx, r)
+	serviceNames, err := c.getServiceNames(ctx, r)
 	if err != nil {
 		return err
 	}
 
 	// Configure traffic based on the RouteSpec.
-	traffic, err := c.configureTraffic(ctx, r, desiredClusterLocalServiceNames)
+	traffic, err := c.configureTraffic(ctx, r, serviceNames.desiredClusterLocalServiceNames)
 	if traffic == nil || err != nil {
 		// Traffic targets aren't ready, no need to configure child resources.
 		return err
@@ -232,13 +232,12 @@ func (c *Reconciler) reconcile(ctx context.Context, r *v1alpha1.Route) error {
 	}
 
 	logger.Info("Creating placeholder k8s services")
-	existingServiceNames := existingPublicServiceNames.Union(existingClusterLocalServiceNames)
-	services, err := c.reconcilePlaceholderServices(ctx, r, traffic.Targets, existingServiceNames)
+	services, err := c.reconcilePlaceholderServices(ctx, r, traffic.Targets, serviceNames.existing())
 	if err != nil {
 		return err
 	}
 
-	clusterLocalServiceNames := existingClusterLocalServiceNames.Union(desiredClusterLocalServiceNames)
+	clusterLocalServiceNames := serviceNames.clusterLocal()
 	tls, err := c.tls(ctx, r.Status.URL.Host, r, traffic, clusterLocalServiceNames)
 	if err != nil {
 		return err
@@ -451,7 +450,7 @@ func (c *Reconciler) ensureFinalizer(route *v1alpha1.Route) error {
 }
 
 func (c *Reconciler) updateRouteStatusURL(ctx context.Context, route *v1alpha1.Route) error {
-	_, existingPrivateServiceNames, _, desiredClusterLocalServiceNames, err := c.getServiceNames(ctx, route)
+	serviceNames, err := c.getServiceNames(ctx, route)
 	if err != nil {
 		return err
 	}
@@ -462,8 +461,7 @@ func (c *Reconciler) updateRouteStatusURL(ctx context.Context, route *v1alpha1.R
 	}
 
 	mainRouteMeta := route.ObjectMeta.DeepCopy()
-	allClusterLocalServiceNames := existingPrivateServiceNames.Union(desiredClusterLocalServiceNames)
-	labels.SetVisibility(mainRouteMeta, allClusterLocalServiceNames.Has(mainRouteServiceName))
+	labels.SetVisibility(mainRouteMeta, serviceNames.clusterLocal().Has(mainRouteServiceName))
 
 	host, err := domains.DomainNameFromTemplate(ctx, *mainRouteMeta, route.Name)
 	if err != nil {
@@ -478,30 +476,24 @@ func (c *Reconciler) updateRouteStatusURL(ctx context.Context, route *v1alpha1.R
 	return nil
 }
 
-func (c *Reconciler) getServiceNames(ctx context.Context, route *v1alpha1.Route) (
-	existingPublicServiceNames sets.String,
-	existingClusterLocalServiceNames sets.String,
-	desiredPublicServiceNames sets.String,
-	desiredClusterLocalServiceNames sets.String,
-	err error,
-) {
+func (c *Reconciler) getServiceNames(ctx context.Context, route *v1alpha1.Route) (serviceNames, error) {
 	// Populate existing service name sets
 	existingServices, err := c.getServices(route)
 	if err != nil {
-		return
+		return serviceNames{}, err
 	}
 	existingServiceNames := resources.GetNames(existingServices)
 	existingClusterLocalServices := resources.FilterService(existingServices, resources.IsClusterLocalService)
-	existingClusterLocalServiceNames = resources.GetNames(existingClusterLocalServices)
-	existingPublicServiceNames = existingServiceNames.Difference(existingClusterLocalServiceNames)
+	existingClusterLocalServiceNames := resources.GetNames(existingClusterLocalServices)
+	existingPublicServiceNames := existingServiceNames.Difference(existingClusterLocalServiceNames)
 
 	// Populate desired service name sets
 	desiredServiceNames, err := resources.GetDesiredServiceNames(ctx, route)
 	if err != nil {
-		return
+		return serviceNames{}, err
 	}
-	desiredPublicServiceNames = desiredServiceNames.Intersection(existingPublicServiceNames)
-	desiredClusterLocalServiceNames = desiredServiceNames.Intersection(existingClusterLocalServiceNames)
+	desiredPublicServiceNames := desiredServiceNames.Intersection(existingPublicServiceNames)
+	desiredClusterLocalServiceNames := desiredServiceNames.Intersection(existingClusterLocalServiceNames)
 
 	// Any new desired services will follow the default route visibility. We only need to consider the case where it is
 	// "cluster-local". The alternative visibility means it should not be cluster local.
@@ -512,12 +504,36 @@ func (c *Reconciler) getServiceNames(ctx context.Context, route *v1alpha1.Route)
 		desiredPublicServiceNames = desiredPublicServiceNames.Union(serviceWithDefaultVisibility)
 	}
 
-	return
+	return serviceNames{
+		existingPublicServiceNames:       existingPublicServiceNames,
+		existingClusterLocalServiceNames: existingClusterLocalServiceNames,
+		desiredPublicServiceNames:        desiredPublicServiceNames,
+		desiredClusterLocalServiceNames:  desiredClusterLocalServiceNames,
+	}, nil
 }
 
 /////////////////////////////////////////
 // Misc helpers.
 /////////////////////////////////////////
+
+type serviceNames struct {
+	existingPublicServiceNames       sets.String
+	existingClusterLocalServiceNames sets.String
+	desiredPublicServiceNames        sets.String
+	desiredClusterLocalServiceNames  sets.String
+}
+
+func (sn serviceNames) existing() sets.String {
+	return sn.existingPublicServiceNames.Union(sn.existingClusterLocalServiceNames)
+}
+
+func (sn serviceNames) desired() sets.String {
+	return sn.desiredPublicServiceNames.Union(sn.desiredClusterLocalServiceNames)
+}
+
+func (sn serviceNames) clusterLocal() sets.String {
+	return sn.existingClusterLocalServiceNames.Union(sn.desiredClusterLocalServiceNames)
+}
 
 type accessor interface {
 	GetGroupVersionKind() schema.GroupVersionKind
