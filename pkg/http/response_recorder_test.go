@@ -30,7 +30,7 @@ func (w *fakeResponseWriter) Write(p []byte) (int, error) { return len(p), nil }
 func (w *fakeResponseWriter) WriteHeader(code int)        {}
 func (w *fakeResponseWriter) Flush()                      {}
 
-var defaultHeader = http.Header{"item1": []string{"value1"}}
+var defaultHeader = http.Header{"item1": {"value1"}}
 
 func TestResponseRecorder(t *testing.T) {
 	tests := []struct {
