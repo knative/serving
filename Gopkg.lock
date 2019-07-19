@@ -1677,7 +1677,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:8ec01314b69645c0da5a23e0f257f0c90215176783684bf7aadfe988f641cc4d"
+  digest = "1:010e08234c592ef2e9f39ad9d86e1e99b46cb16290ca97369bfd627d59fee6b8"
   name = "knative.dev/pkg"
   packages = [
     "apis",
@@ -1768,7 +1768,7 @@
     "websocket",
   ]
   pruneopts = "T"
-  revision = "a7dbe912205c611ffe07d57f995ee02b577d34c0"
+  revision = "83cfa18c151d1efd88783df4ef35e19f47b592a1"
 
 [solve-meta]
   analyzer-name = "dep"

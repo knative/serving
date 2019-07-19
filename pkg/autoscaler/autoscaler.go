@@ -24,10 +24,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/wacul/ptr"
 	"go.uber.org/zap"
 
 	"knative.dev/pkg/logging"
+	"knative.dev/pkg/ptr"
 	"knative.dev/serving/pkg/resources"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
