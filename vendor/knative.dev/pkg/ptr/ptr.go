@@ -47,3 +47,9 @@ func String(s string) *string {
 func Duration(t time.Duration) *time.Duration {
 	return &t
 }
+
+// Time is a helper for turning a const time.Time into a pointer for use in
+// API types that want *time.Duration.
+func Time(t time.Time) *time.Time {
+	return &t
+}
