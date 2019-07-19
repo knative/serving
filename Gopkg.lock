@@ -614,7 +614,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:13b204981c91abdcc5a16ec5aafe61096565db898b2aea4487d8bca6f403d5f5"
+  digest = "1:148445446f896e9bcc55ca8fd05f84d6219eea8b31dd34cde61f1ba75aa1bc21"
   name = "github.com/knative/test-infra"
   packages = [
     "scripts",
@@ -634,7 +634,7 @@
     "tools/webhook-apicoverage/webhook",
   ]
   pruneopts = "UT"
-  revision = "bb74f5a60ee307a6ec7d5ad589cd2184f7ba5f2c"
+  revision = "cad8ba5b64ca151d6435a914fd29f0b8a5cdec74"
 
 [[projects]]
   digest = "1:58999a98719fddbac6303cb17e8d85b945f60b72f48e3a2df6b950b97fa926f1"
@@ -1650,7 +1650,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:7626b93348c8c694f56697295497e28470d0c967b01704bc219af7ea2e78260d"
+  digest = "1:ae210c07458ba932039a77d54416d0f68a3ac8ba55aed640f57ce51ce7839f95"
   name = "knative.dev/caching"
   packages = [
     "pkg/apis/caching",
@@ -1673,7 +1673,7 @@
     "pkg/client/listers/caching/v1alpha1",
   ]
   pruneopts = "T"
-  revision = "191bdc53f90de88e54bc6692a71222e6dee7ff4a"
+  revision = "5c6bfd657c73d4f632ce38b467913dd4dc84d00f"
 
 [[projects]]
   branch = "master"
