@@ -26,20 +26,14 @@ import (
 	"knative.dev/serving/test"
 	v1a1test "knative.dev/serving/test/v1alpha1"
 	"knative.dev/pkg/test/logstream"
-	"knative.dev/pkg/apis"
 	serviceresourcenames "knative.dev/serving/pkg/reconciler/service/resources/names"
 	. "knative.dev/serving/pkg/testing/v1alpha1"
 )
 
-var serviceCondSet = apis.NewLivingConditionSet(
-	v1alpha1.ServiceConditionConfigurationsReady,
-	v1alpha1.ServiceConditionRoutesReady,
-)
-
-// TestRouteNotReady tests the scenario that when route's status is
-// Ready == false, the service's RouteReady value should change from
+// TestRoutesNotReady tests the scenario that when Route's status is
+// Ready == False, the Service's RoutesReady value should change from
 // Unknown to False
-func TestRouteNotReady(t *testing.T) {
+func TestRoutesNotReady(t *testing.T) {
 	t.Parallel()
 	cancel := logstream.Start(t)
 	defer cancel()
@@ -65,26 +59,26 @@ func TestRouteNotReady(t *testing.T) {
 		},
 	})
 
-	t.Log("Creating a new Service with RouteReady == Unknown and route Ready == False")
+	t.Log("Creating a new Service with an invalid traffic target.")
 	svc, err := v1a1test.CreateLatestService(t, clients, names, withTrafficSpec)
 	if err != nil {
 		t.Fatalf("Failed to create initial Service %q: %#v", names.Service, err)
 	}
 
-	t.Logf("Waiting for Service %q to transition to Ready == false.", names.Service)
+	t.Logf("Waiting for Service %q ObservedGeneration to match Generation, and status transition to Ready == False.", names.Service)
 	if err := v1a1test.WaitForServiceState(clients.ServingAlphaClient, names.Service, v1a1test.IsServiceNotReady, "ServiceIsNotReady"); err != nil {
-		t.Fatalf("Failed waiting for Service %q to transition to Ready false: %#v", names.Service, err)
+		t.Fatalf("Failed waiting for Service %q to transition to Ready == False: %#v", names.Service, err)
 	}
 
-	t.Logf("Waiting for Route %q to transition to Ready == false.", serviceresourcenames.Route(svc))
+	t.Logf("Validating Route %q has reconciled to Ready == False.", serviceresourcenames.Route(svc))
 	// Check Route is not ready
-	if err = v1a1test.WaitForRouteState(clients.ServingAlphaClient, serviceresourcenames.Route(svc), v1a1test.IsRouteNotReady, "RouteIsNotReady"); err != nil {
-		t.Fatalf("The Route %s was marked as Ready to serve traffic but it should not be: %#v", names.Route, err)
+	if err = v1a1test.CheckRouteState(clients.ServingAlphaClient, serviceresourcenames.Route(svc), v1a1test.IsRouteNotReady); err != nil {
+		t.Fatalf("The Route %q was marked as Ready to serve traffic but it should not be: %#v", serviceresourcenames.Route(svc), err)
 	}
 
-	// Wait for RouteReady to become false
-	t.Log("Wait for the service RouteReady to be false")
-	if err = v1a1test.WaitForServiceState(clients.ServingAlphaClient, names.Service, v1a1test.IsServiceNotRouteReady, "ServiceRouteReadyFalse"); err != nil {
-		t.Fatalf("Service RouteReady is not set to false")
+	// Wait for RoutesReady to become False
+	t.Logf("Validating Service %q has reconciled to RoutesReady == False.", names.Service)
+	if err = v1a1test.CheckServiceState(clients.ServingAlphaClient, names.Service, v1a1test.IsServiceRoutesNotReady); err != nil {
+		t.Fatalf("Service %q was not marked RoutesReady  == False: %#v", names.Service, err)
 	}
 }

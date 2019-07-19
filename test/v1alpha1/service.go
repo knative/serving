@@ -347,16 +347,14 @@ func IsServiceReady(s *v1alpha1.Service) (bool, error) {
 	return s.Generation == s.Status.ObservedGeneration && s.Status.IsReady(), nil
 }
 
-// IsServiceNotReady will check the status conditions of the service and return false if the service is
-// ready.
+// IsServiceNotReady checks the Ready status condition of the service and returns true only if Ready is set to False.
 func IsServiceNotReady(s *v1alpha1.Service) (bool, error) {
 	result := s.Status.GetCondition(v1alpha1.ServiceConditionReady)
-	return result != nil && result.Status == corev1.ConditionFalse, nil
+	return s.Generation == s.Status.ObservedGeneration && result != nil && result.Status == corev1.ConditionFalse, nil
 }
 
-// IsServiceNotRouteReady checks the RouteReady status of the service and return false if the service's
-// RouteReady is true.
-func IsServiceNotRouteReady(s *v1alpha1.Service) (bool, error) {
+// IsServiceRoutesNotReady checks the RoutesReady status of the service and returns true only if RoutesReady is set to False.
+func IsServiceRoutesNotReady(s *v1alpha1.Service) (bool, error) {
 	result := s.Status.GetCondition(v1alpha1.ServiceConditionRoutesReady)
-	return result != nil && result.Status == corev1.ConditionFalse, nil
+	return s.Generation == s.Status.ObservedGeneration && result != nil && result.Status == corev1.ConditionFalse, nil
 }
