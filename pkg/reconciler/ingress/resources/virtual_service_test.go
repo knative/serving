@@ -236,21 +236,21 @@ func TestMakeMeshVirtualServiceSpec_CorrectRoutes(t *testing.T) {
 				Port: v1alpha3.PortSelector{Number: 80},
 			},
 			Weight: 100,
-			// Headers: &v1alpha3.Headers{
-			// 	Request: &v1alpha3.HeaderOperations{
-			// 		Add: map[string]string{
-			// 			"ugh": "blah",
-			// 		},
-			// 	},
-			// },
+			Headers: &v1alpha3.Headers{
+				Request: &v1alpha3.HeaderOperations{
+					Add: map[string]string{
+						"ugh": "blah",
+					},
+				},
+			},
 		}},
-		// Headers: &v1alpha3.Headers{
-		// 	Request: &v1alpha3.HeaderOperations{
-		// 		Add: map[string]string{
-		// 			"foo": "bar",
-		// 		},
-		// 	},
-		// },
+		Headers: &v1alpha3.Headers{
+			Request: &v1alpha3.HeaderOperations{
+				Add: map[string]string{
+					"foo": "bar",
+				},
+			},
+		},
 		DeprecatedAppendHeaders: map[string]string{
 			"foo": "bar",
 		},
@@ -372,21 +372,21 @@ func TestMakeIngressVirtualServiceSpec_CorrectRoutes(t *testing.T) {
 				Port: v1alpha3.PortSelector{Number: 80},
 			},
 			Weight: 100,
-			// Headers: &v1alpha3.Headers{
-			// 	Request: &v1alpha3.HeaderOperations{
-			// 		Add: map[string]string{
-			// 			"ugh": "blah",
-			// 		},
-			// 	},
-			// },
+			Headers: &v1alpha3.Headers{
+				Request: &v1alpha3.HeaderOperations{
+					Add: map[string]string{
+						"ugh": "blah",
+					},
+				},
+			},
 		}},
-		// Headers: &v1alpha3.Headers{
-		// 	Request: &v1alpha3.HeaderOperations{
-		// 		Add: map[string]string{
-		// 			"foo": "bar",
-		// 		},
-		// 	},
-		// },
+		Headers: &v1alpha3.Headers{
+			Request: &v1alpha3.HeaderOperations{
+				Add: map[string]string{
+					"foo": "bar",
+				},
+			},
+		},
 		DeprecatedAppendHeaders: map[string]string{
 			"foo": "bar",
 		},
@@ -408,13 +408,13 @@ func TestMakeIngressVirtualServiceSpec_CorrectRoutes(t *testing.T) {
 			},
 			Weight: 100,
 		}},
-		// Headers: &v1alpha3.Headers{
-		// 	Request: &v1alpha3.HeaderOperations{
-		// 		Add: map[string]string{
-		// 			"foo": "baz",
-		// 		},
-		// 	},
-		// },
+		Headers: &v1alpha3.Headers{
+			Request: &v1alpha3.HeaderOperations{
+				Add: map[string]string{
+					"foo": "baz",
+				},
+			},
+		},
 		DeprecatedAppendHeaders: map[string]string{
 			"foo": "baz",
 		},
