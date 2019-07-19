@@ -685,7 +685,6 @@ func TestMakeClusterIngressRule_ZeroPercentTargetInactive(t *testing.T) {
 			RevisionName:      "new-revision",
 			Percent:           0,
 		},
-		// TODO(vagababov): when we have active handoff, service will be here.
 		Active: false,
 	}}
 	domains := []string{"test.org"}

@@ -43,13 +43,8 @@ func (rs *PodAutoscalerSpec) Validate(ctx context.Context) *apis.FieldError {
 	return errs.Also(validateSKSFields(ctx, rs))
 }
 
-func validateSKSFields(ctx context.Context, rs *PodAutoscalerSpec) *apis.FieldError {
-	var all *apis.FieldError
-	// TODO(vagababov) stop permitting empty protocol type, once SKS controller is live.
-	if string(rs.ProtocolType) != "" {
-		all = all.Also(rs.ProtocolType.Validate(ctx)).ViaField("protocolType")
-	}
-	return all
+func validateSKSFields(ctx context.Context, rs *PodAutoscalerSpec) (errs *apis.FieldError) {
+	return errs.Also(rs.ProtocolType.Validate(ctx)).ViaField("protocolType")
 }
 
 func (pa *PodAutoscaler) validateMetric() *apis.FieldError {

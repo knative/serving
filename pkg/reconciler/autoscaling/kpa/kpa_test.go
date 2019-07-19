@@ -522,21 +522,6 @@ func TestReconcile(t *testing.T) {
 			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector)),
 		},
 	}, {
-		Name: "metric-service-exists-not-on-status",
-		Key:  key,
-		Objects: []runtime.Object{
-			kpa(testNamespace, testRevision, markActive, WithPAStatusService(testRevision)),
-			sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSReady),
-			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector),
-				withMSvcName("erj-e190")),
-			expectedDeploy,
-			makeSKSPrivateEndpoints(1, testNamespace, testRevision),
-		},
-		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: kpa(testNamespace, testRevision, markActive,
-				WithPAStatusService(testRevision), withMSvcStatus("erj-e190")),
-		}},
-	}, {
 		Name: "delete redundant metrics svc",
 		Key:  key,
 		Objects: []runtime.Object{

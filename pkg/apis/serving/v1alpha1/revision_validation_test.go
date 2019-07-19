@@ -741,7 +741,7 @@ func TestRevisionProtocolType(t *testing.T) {
 	}, {
 		net.ProtocolHTTP1, nil,
 	}, {
-		net.ProtocolType(""), apis.ErrInvalidValue("", apis.CurrentField),
+		net.ProtocolType(""), apis.ErrMissingField(apis.CurrentField),
 	}, {
 		net.ProtocolType("token-ring"), apis.ErrInvalidValue("token-ring", apis.CurrentField),
 	}}
