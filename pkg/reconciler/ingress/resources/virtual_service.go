@@ -140,16 +140,15 @@ func makeVirtualServiceSpec(ia v1alpha1.IngressAccessor, gateways map[v1alpha1.I
 	return &spec
 }
 
+// qualifyGateways modifies the provided gateway list to add namespace
+// information into gateway names that don't already have them.
 func qualifyGateways(gws []string) []string {
-	var q []string
-	for _, gw := range gws {
-		if strings.Contains(gw, "/") || strings.Contains(gw, ".") || gw == "mesh" { // qualified gateway name
-			q = append(q, gw)
-		} else {
-			q = append(q, system.Namespace()+"/"+gw)
+	for i, gw := range gws {
+		if !(strings.Contains(gw, "/") || strings.Contains(gw, ".") || gw == "mesh") { // unqualified
+			gws[i] = system.Namespace() + "/" + gw
 		}
 	}
-	return q
+	return gws
 }
 
 func makePortSelector(ios intstr.IntOrString) v1alpha3.PortSelector {
