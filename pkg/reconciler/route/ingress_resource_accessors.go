@@ -21,6 +21,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/util/sets"
 
+	"knative.dev/pkg/logging"
 	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	clientset "knative.dev/serving/pkg/client/clientset/versioned"
@@ -28,7 +29,6 @@ import (
 	"knative.dev/serving/pkg/reconciler/route/resources"
 	resourcenames "knative.dev/serving/pkg/reconciler/route/resources/names"
 	"knative.dev/serving/pkg/reconciler/route/traffic"
-	"knative.dev/pkg/logging"
 )
 
 // IngressResourceAccessors Interface for accessing ingress resource

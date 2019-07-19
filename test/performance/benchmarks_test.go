@@ -89,7 +89,7 @@ func runTest(t *testing.T, pacer vegeta.Pacer, saveMetrics bool) {
 
 	targeter := vegeta.NewStaticTargeter(vegeta.Target{
 		Method: http.MethodGet,
-		Header: map[string][]string{"Host": []string{domain}},
+		Header: map[string][]string{"Host": {domain}},
 		URL:    fmt.Sprintf("http://%s", *endpoint),
 	})
 	attacker := vegeta.NewAttacker()
