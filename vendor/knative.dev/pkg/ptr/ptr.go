@@ -16,6 +16,8 @@ limitations under the License.
 
 package ptr
 
+import "time"
+
 // Int32 is a helper for turning integers into pointers for use in
 // API types that want *int32.
 func Int32(i int32) *int32 {
@@ -38,4 +40,16 @@ func Bool(b bool) *bool {
 // API types that want *string.
 func String(s string) *string {
 	return &s
+}
+
+// Duration is a helper for turning time.Duration into pointers for use in
+// API types that want *time.Duration.
+func Duration(t time.Duration) *time.Duration {
+	return &t
+}
+
+// Time is a helper for turning a const time.Time into a pointer for use in
+// API types that want *time.Duration.
+func Time(t time.Time) *time.Time {
+	return &t
 }
