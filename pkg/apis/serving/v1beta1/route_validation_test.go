@@ -25,6 +25,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/ptr"
+	"knative.dev/serving/pkg/apis/serving"
+	routeconfig "knative.dev/serving/pkg/reconciler/route/config"
 )
 
 func TestTrafficTargetValidation(t *testing.T) {
@@ -490,7 +492,7 @@ func TestRouteLabelAnnotationValidation(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "byo-name",
 				Labels: map[string]string{
-					"serving.knative.dev/visibility": "cluster-local",
+					routeconfig.VisibilityLabelKey: "cluster-local",
 				},
 			},
 			Spec: validRouteSpec,
@@ -502,7 +504,7 @@ func TestRouteLabelAnnotationValidation(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "byo-name",
 				Labels: map[string]string{
-					"serving.knative.dev/visibility": "bad-value",
+					routeconfig.VisibilityLabelKey: "bad-value",
 				},
 			},
 			Spec: validRouteSpec,
@@ -514,7 +516,7 @@ func TestRouteLabelAnnotationValidation(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "byo-name",
 				Labels: map[string]string{
-					"serving.knative.dev/service": "test-svc",
+					serving.ServiceLabelKey: "test-svc",
 				},
 				OwnerReferences: []metav1.OwnerReference{{
 					APIVersion: "serving.knative.dev/v1alpha1",
@@ -531,12 +533,12 @@ func TestRouteLabelAnnotationValidation(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "byo-name",
 				Labels: map[string]string{
-					"serving.knative.dev/service": "absent-svc",
+					serving.ServiceLabelKey: "absent-svc",
 				},
 			},
 			Spec: validRouteSpec,
 		},
-		want: apis.ErrInvalidValue("absent-svc", "metadata.label.[serving.knative.dev/service]"),
+		want: apis.ErrInvalidValue("absent-svc", "metadata.labels.serving.knative.dev/service"),
 	}, {
 		name: "invalid knative label",
 		r: &Route{
@@ -548,7 +550,7 @@ func TestRouteLabelAnnotationValidation(t *testing.T) {
 			},
 			Spec: validRouteSpec,
 		},
-		want: apis.ErrInvalidKeyName("serving.knative.dev/testlabel", "metadata.label"),
+		want: apis.ErrInvalidKeyName("serving.knative.dev/testlabel", "metadata.labels"),
 	}, {
 		name: "invalid annotation label",
 		r: &Route{
@@ -560,7 +562,7 @@ func TestRouteLabelAnnotationValidation(t *testing.T) {
 			},
 			Spec: validRouteSpec,
 		},
-		want: apis.ErrInvalidValue("value", "metadata.annotations.serving.knative.dev/testAnnotation"),
+		want: apis.ErrInvalidKeyName("serving.knative.dev/testAnnotation", "metadata.annotations"),
 	}, {
 		name: "valid annotation label",
 		r: &Route{

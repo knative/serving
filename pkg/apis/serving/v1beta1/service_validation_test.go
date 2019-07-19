@@ -20,12 +20,12 @@ import (
 	"context"
 	"testing"
 
-	"knative.dev/serving/pkg/apis/config"
-
 	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/ptr"
+	"knative.dev/serving/pkg/apis/config"
+	routeconfig "knative.dev/serving/pkg/reconciler/route/config"
 
 	"knative.dev/pkg/apis"
 )
@@ -84,7 +84,7 @@ func TestServiceValidation(t *testing.T) {
 				RouteSpec:         goodRouteSpec,
 			},
 		},
-		want: apis.ErrInvalidValue("value", "metadata.annotations.serving.knative.dev/testAnnotation"),
+		want: apis.ErrInvalidKeyName("serving.knative.dev/testAnnotation", "metadata.annotations"),
 	}, {
 		name: "valid annotation label",
 		r: &Service{
@@ -106,7 +106,7 @@ func TestServiceValidation(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "valid",
 				Labels: map[string]string{
-					"serving.knative.dev/visibility": "cluster-local",
+					routeconfig.VisibilityLabelKey: "cluster-local",
 				},
 			},
 			Spec: ServiceSpec{
@@ -129,7 +129,7 @@ func TestServiceValidation(t *testing.T) {
 				RouteSpec:         goodRouteSpec,
 			},
 		},
-		want: apis.ErrInvalidKeyName("serving.knative.dev/name", "metadata.label"),
+		want: apis.ErrInvalidKeyName("serving.knative.dev/name", "metadata.labels"),
 	}, {
 		name: "valid non knative label",
 		r: &Service{
@@ -151,7 +151,7 @@ func TestServiceValidation(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "valid",
 				Labels: map[string]string{
-					"serving.knative.dev/visibility": "bad-label",
+					routeconfig.VisibilityLabelKey: "bad-label",
 				},
 			},
 			Spec: ServiceSpec{
