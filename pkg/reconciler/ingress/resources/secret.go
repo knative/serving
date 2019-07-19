@@ -47,7 +47,7 @@ func GetSecrets(ia v1alpha1.IngressAccessor, secretLister corev1listers.SecretLi
 }
 
 // MakeSecrets makes copies of the origin Secrets under the namespace of Istio gateway service.
-func MakeSecrets(ctx context.Context, originSecrets map[string]*corev1.Secret, ia v1alpha1.IngressAccessor) []*corev1.Secret {
+func MakeSecrets(ctx context.Context, originSecrets map[string]*corev1.Secret, accessor kmeta.OwnerRefableAccessor) []*corev1.Secret {
 	gatewaySvcNamespaces := getAllGatewaySvcNamespaces(ctx)
 	secrets := []*corev1.Secret{}
 	for _, originSecret := range originSecrets {
@@ -57,22 +57,22 @@ func MakeSecrets(ctx context.Context, originSecrets map[string]*corev1.Secret, i
 				// as the origin namespace
 				continue
 			}
-			secrets = append(secrets, makeSecret(originSecret, ns, ia))
+			secrets = append(secrets, makeSecret(originSecret, ns, accessor))
 		}
 	}
 	return secrets
 }
 
-func makeSecret(originSecret *corev1.Secret, targetNamespace string, ia v1alpha1.IngressAccessor) *corev1.Secret {
+func makeSecret(originSecret *corev1.Secret, targetNamespace string, accessor kmeta.OwnerRefableAccessor) *corev1.Secret {
 	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      targetSecret(originSecret, ia),
+			Name:      targetSecret(originSecret, accessor),
 			Namespace: targetNamespace,
 			Labels: map[string]string{
 				networking.OriginSecretNameLabelKey:      originSecret.Name,
 				networking.OriginSecretNamespaceLabelKey: originSecret.Namespace,
 			},
-			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(ia)},
+			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(accessor)},
 		},
 		Data: originSecret.Data,
 		Type: originSecret.Type,
@@ -80,8 +80,8 @@ func makeSecret(originSecret *corev1.Secret, targetNamespace string, ia v1alpha1
 }
 
 // targetSecret returns the name of the Secret that is copied from the origin Secret.
-func targetSecret(originSecret *corev1.Secret, ia v1alpha1.IngressAccessor) string {
-	return fmt.Sprintf("%s-%s", ia.GetObjectMeta().GetName(), originSecret.UID)
+func targetSecret(originSecret *corev1.Secret, accessor kmeta.OwnerRefable) string {
+	return fmt.Sprintf("%s-%s", accessor.GetObjectMeta().GetName(), originSecret.UID)
 }
 
 // SecretRef returns the ObjectReference of a secret given the namespace and name of the secret.
