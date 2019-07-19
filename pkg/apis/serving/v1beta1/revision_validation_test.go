@@ -23,6 +23,7 @@ import (
 
 	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/apis/config"
+	"knative.dev/serving/pkg/apis/serving"
 
 	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
@@ -104,7 +105,7 @@ func TestRevisionLabelAnnotationValidation(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "byo-name",
 				Labels: map[string]string{
-					"serving.knative.dev/route": "test-route",
+					serving.RouteLabelKey: "test-route",
 				},
 			},
 			Spec: validRevisionSpec,
@@ -116,7 +117,7 @@ func TestRevisionLabelAnnotationValidation(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "byo-name",
 				Labels: map[string]string{
-					"serving.knative.dev/service": "test-svc",
+					serving.ServiceLabelKey: "test-svc",
 				},
 			},
 			Spec: validRevisionSpec,
@@ -128,7 +129,7 @@ func TestRevisionLabelAnnotationValidation(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "byo-name",
 				Labels: map[string]string{
-					"serving.knative.dev/configurationGeneration": "1234",
+					serving.ConfigurationGenerationLabelKey: "1234",
 				},
 			},
 			Spec: validRevisionSpec,
@@ -140,7 +141,7 @@ func TestRevisionLabelAnnotationValidation(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "byo-name",
 				Labels: map[string]string{
-					"serving.knative.dev/configuration": "absent-cfg",
+					serving.ConfigurationLabelKey: "absent-cfg",
 				},
 			},
 			Spec: validRevisionSpec,
@@ -152,7 +153,7 @@ func TestRevisionLabelAnnotationValidation(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "byo-name",
 				Labels: map[string]string{
-					"serving.knative.dev/configuration": "test-cfg",
+					serving.ConfigurationLabelKey: "test-cfg",
 				},
 				OwnerReferences: []metav1.OwnerReference{{
 					APIVersion: "serving.knative.dev/v1alpha1",
@@ -163,6 +164,44 @@ func TestRevisionLabelAnnotationValidation(t *testing.T) {
 			Spec: validRevisionSpec,
 		},
 		want: nil,
+	}, {
+		name: "invalid knative configuration name without owner ref",
+		r: &Revision{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "byo-name",
+				Labels: map[string]string{
+					serving.ConfigurationLabelKey: "test-svc",
+				},
+				OwnerReferences: []metav1.OwnerReference{{
+					APIVersion: "serving.knative.dev/v1alpha1",
+					Kind:       "Configuration",
+					Name:       "diff-cfg",
+				}},
+			},
+			Spec: validRevisionSpec,
+		},
+		want: apis.ErrInvalidValue("diff-cfg", "metadata.labels.serving.knative.dev/configuration[0]"),
+	}, {
+		name: "invalid knative configuration name with multiple owner ref",
+		r: &Revision{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "byo-name",
+				Labels: map[string]string{
+					serving.ConfigurationLabelKey: "test-cfg",
+				},
+				OwnerReferences: []metav1.OwnerReference{{
+					APIVersion: "serving.knative.dev/v1alpha1",
+					Kind:       "NewConfiguration",
+					Name:       "test-new-cfg",
+				}, {
+					APIVersion: "serving.knative.dev/v1alpha1",
+					Kind:       "Configuration",
+					Name:       "test-cfg",
+				}},
+			},
+			Spec: validRevisionSpec,
+		},
+		want: apis.ErrInvalidValue("test-new-cfg", "metadata.labels.serving.knative.dev/configuration[0]"),
 	}, {
 		name: "invalid knative label",
 		r: &Revision{

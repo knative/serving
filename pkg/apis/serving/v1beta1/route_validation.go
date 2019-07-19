@@ -195,18 +195,12 @@ func validateClusterVisbilityLabel(label string) (errs *apis.FieldError) {
 
 // ValidateLabels function validates service labels
 func (r *Route) ValidateLabels() (errs *apis.FieldError) {
-LabelLoop:
 	for key, val := range r.GetLabels() {
 		switch {
 		case key == config.VisibilityLabelKey:
 			errs = errs.Also(validateClusterVisbilityLabel(val))
 		case key == serving.ServiceLabelKey:
-			for _, ref := range r.GetOwnerReferences() {
-				if ref.Kind == "Service" && val == ref.Name {
-					continue LabelLoop
-				}
-			}
-			errs = errs.Also(apis.ErrInvalidValue(val, key))
+			errs = errs.Also(verifyLabelOwnerRef(val, serving.ServiceLabelKey, "Service", r.GetOwnerReferences()))
 		case strings.HasPrefix(key, serving.GroupNamePrefix):
 			errs = errs.Also(apis.ErrInvalidKeyName(key, ""))
 		}

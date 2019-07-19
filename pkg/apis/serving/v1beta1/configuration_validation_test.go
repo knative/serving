@@ -233,6 +233,44 @@ func TestConfigurationLabelAnnotationValidation(t *testing.T) {
 		},
 		want: nil,
 	}, {
+		name: "invalid knative service name without matching owner references",
+		c: &Configuration{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "byo-name",
+				Labels: map[string]string{
+					serving.ServiceLabelKey: "test-svc",
+				},
+				OwnerReferences: []metav1.OwnerReference{{
+					APIVersion: "serving.knative.dev/v1alpha1",
+					Kind:       "Service",
+					Name:       "absent-svc",
+				}},
+			},
+			Spec: validConfigSpec,
+		},
+		want: apis.ErrInvalidValue("absent-svc", "metadata.labels.serving.knative.dev/service[0]"),
+	}, {
+		name: "invalid knative service name with multiple owner ref",
+		c: &Configuration{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "byo-name",
+				Labels: map[string]string{
+					serving.ServiceLabelKey: "test-svc",
+				},
+				OwnerReferences: []metav1.OwnerReference{{
+					APIVersion: "serving.knative.dev/v1alpha1",
+					Kind:       "NewSerice",
+					Name:       "test-new-svc",
+				}, {
+					APIVersion: "serving.knative.dev/v1alpha1",
+					Kind:       "Service",
+					Name:       "test-svc",
+				}},
+			},
+			Spec: validConfigSpec,
+		},
+		want: apis.ErrInvalidValue("test-new-svc", "metadata.labels.serving.knative.dev/service[0]"),
+	}, {
 		name: "invalid knative service name",
 		c: &Configuration{
 			ObjectMeta: metav1.ObjectMeta{
