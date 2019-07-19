@@ -540,6 +540,44 @@ func TestRouteLabelAnnotationValidation(t *testing.T) {
 		},
 		want: apis.ErrInvalidValue("absent-svc", "metadata.labels.serving.knative.dev/service"),
 	}, {
+		name: "invalid knative service name without correct owner ref",
+		r: &Route{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "byo-name",
+				Labels: map[string]string{
+					serving.ServiceLabelKey: "test-svc",
+				},
+				OwnerReferences: []metav1.OwnerReference{{
+					APIVersion: "serving.knative.dev/v1alpha1",
+					Kind:       "Service",
+					Name:       "absent-svc",
+				}},
+			},
+			Spec: validRouteSpec,
+		},
+		want: apis.ErrInvalidValue("absent-svc", "metadata.labels.serving.knative.dev/service[0]"),
+	}, {
+		name: "invalid knative service name with multiple owner ref",
+		r: &Route{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "byo-name",
+				Labels: map[string]string{
+					serving.ServiceLabelKey: "test-svc",
+				},
+				OwnerReferences: []metav1.OwnerReference{{
+					APIVersion: "serving.knative.dev/v1alpha1",
+					Kind:       "NewSerice",
+					Name:       "test-new-svc",
+				}, {
+					APIVersion: "serving.knative.dev/v1alpha1",
+					Kind:       "Service",
+					Name:       "test-svc",
+				}},
+			},
+			Spec: validRouteSpec,
+		},
+		want: apis.ErrInvalidValue("test-new-svc", "metadata.labels.serving.knative.dev/service[0]"),
+	}, {
 		name: "invalid knative label",
 		r: &Route{
 			ObjectMeta: metav1.ObjectMeta{

@@ -20,6 +20,7 @@ import (
 	"context"
 	"strings"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/apis"
 	"knative.dev/serving/pkg/apis/serving"
 	"knative.dev/serving/pkg/reconciler/route/config"
@@ -67,22 +68,31 @@ func (csf *ConfigurationStatusFields) Validate(ctx context.Context) *apis.FieldE
 
 // ValidateLabels function validates service labels
 func (c *Configuration) ValidateLabels() (errs *apis.FieldError) {
-LabelLoop:
 	for key, val := range c.GetLabels() {
 		switch {
 		case key == config.VisibilityLabelKey:
 			errs = errs.Also(validateClusterVisbilityLabel(val))
 		case key == serving.RouteLabelKey:
 		case key == serving.ServiceLabelKey:
-			for _, ref := range c.GetOwnerReferences() {
-				if ref.Kind == "Service" && val == ref.Name {
-					continue LabelLoop
-				}
-			}
-			errs = errs.Also(apis.ErrInvalidValue(val, key))
+			errs = errs.Also(verifyLabelOwnerRef(val, serving.ServiceLabelKey, "Service", c.GetOwnerReferences()))
 		case strings.HasPrefix(key, serving.GroupNamePrefix):
 			errs = errs.Also(apis.ErrInvalidKeyName(key, ""))
 		}
+	}
+	return
+}
+
+// verifyServiceLabelOwnerRef verifies the owner references of configuration matches the service label value
+func verifyLabelOwnerRef(val, label, resource string, ownerRefs []metav1.OwnerReference) (errs *apis.FieldError) {
+	found := false
+	for i, ref := range ownerRefs {
+		if ref.Kind != resource || val != ref.Name {
+			errs = errs.Also(apis.ErrInvalidArrayValue(ref.Name, label, i))
+		}
+		found = true
+	}
+	if !found {
+		errs = errs.Also(apis.ErrInvalidValue(val, label))
 	}
 	return
 }

@@ -141,17 +141,11 @@ func (rs *RevisionStatus) Validate(ctx context.Context) *apis.FieldError {
 
 // ValidateLabels function validates service labels
 func (r *Revision) ValidateLabels() (errs *apis.FieldError) {
-LabelLoop:
 	for key, val := range r.GetLabels() {
 		switch {
 		case key == serving.RouteLabelKey || key == serving.ServiceLabelKey || key == serving.ConfigurationGenerationLabelKey:
 		case key == serving.ConfigurationLabelKey:
-			for _, ref := range r.GetOwnerReferences() {
-				if ref.Kind == "Configuration" && val == ref.Name {
-					continue LabelLoop
-				}
-			}
-			errs = errs.Also(apis.ErrInvalidValue(val, key))
+			errs = errs.Also(verifyLabelOwnerRef(val, serving.ConfigurationLabelKey, "Configuration", r.GetOwnerReferences()))
 		case strings.HasPrefix(key, serving.GroupNamePrefix):
 			errs = errs.Also(apis.ErrInvalidKeyName(key, ""))
 		}
