@@ -27,13 +27,13 @@ import (
 
 // Validate makes sure that Configuration is properly configured.
 func (c *Configuration) Validate(ctx context.Context) (errs *apis.FieldError) {
-	errs = errs.Also(c.ValidateLabels())
 	// If we are in a status sub resource update, the metadata and spec cannot change.
 	// So, to avoid rejecting controller status updates due to validations that may
 	// have changed (i.e. due to config-defaults changes), we elide the metadata and
 	// spec validation.
 	if !apis.IsInStatusUpdate(ctx) {
-		errs = errs.Also(serving.ValidateObjectMetadata(c.GetObjectMeta()).ViaField("metadata"))
+		errs = errs.Also(serving.ValidateObjectMetadata(c.GetObjectMeta()).Also(
+			c.ValidateLabels().ViaField("labels")).ViaField("metadata"))
 		ctx = apis.WithinParent(ctx, c.ObjectMeta)
 		errs = errs.Also(c.Spec.Validate(apis.WithinSpec(ctx)).ViaField("spec"))
 	}
@@ -66,8 +66,7 @@ func (csf *ConfigurationStatusFields) Validate(ctx context.Context) *apis.FieldE
 }
 
 // ValidateLabels function validates service labels
-func (c *Configuration) ValidateLabels() *apis.FieldError {
-	var errs *apis.FieldError
+func (c *Configuration) ValidateLabels() (errs *apis.FieldError) {
 LabelLoop:
 	for key, val := range c.GetLabels() {
 		switch {
@@ -80,10 +79,10 @@ LabelLoop:
 					continue LabelLoop
 				}
 			}
-			errs = errs.Also(apis.ErrInvalidValue(val, key).ViaField("labels"))
-		case strings.HasPrefix(key, serving.GroupName+"/"):
-			errs = errs.Also(apis.ErrInvalidKeyName(key, "labels"))
+			errs = errs.Also(apis.ErrInvalidValue(val, key))
+		case strings.HasPrefix(key, serving.GroupNamePrefix):
+			errs = errs.Also(apis.ErrInvalidKeyName(key, ""))
 		}
 	}
-	return errs.ViaField("metadata")
+	return
 }

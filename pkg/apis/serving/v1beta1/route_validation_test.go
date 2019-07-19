@@ -509,7 +509,7 @@ func TestRouteLabelAnnotationValidation(t *testing.T) {
 			},
 			Spec: validRouteSpec,
 		},
-		want: apis.ErrInvalidValue("bad-value", "metadata.label.[serving.knative.dev/visibility]"),
+		want: apis.ErrInvalidValue("bad-value", "metadata.labels.serving.knative.dev/visibility"),
 	}, {
 		name: "valid knative service name",
 		r: &Route{

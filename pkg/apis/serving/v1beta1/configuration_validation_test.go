@@ -202,7 +202,7 @@ func TestConfigurationLabelAnnotationValidation(t *testing.T) {
 			},
 			Spec: validConfigSpec,
 		},
-		want: apis.ErrInvalidValue("bad-value", "metadata.label.[serving.knative.dev/visibility]"),
+		want: apis.ErrInvalidValue("bad-value", "metadata.labels.serving.knative.dev/visibility"),
 	}, {
 		name: "valid route name",
 		c: &Configuration{
