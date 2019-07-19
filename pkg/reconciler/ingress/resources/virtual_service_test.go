@@ -279,7 +279,7 @@ func TestMakeIngressVirtualServiceSpec_CorrectGateways(t *testing.T) {
 		},
 		Spec: v1alpha1.IngressSpec{},
 	}
-	expected := []string{"gateway-one", "gateway-two"}
+	expected := []string{"knative-testing/gateway-one", "knative-testing/gateway-two"}
 	gateways := MakeIngressVirtualService(ci, makeGatewayMap([]string{"gateway-one", "gateway-two"}, nil)).Spec.Gateways
 	if diff := cmp.Diff(expected, gateways); diff != "" {
 		t.Errorf("Unexpected gateways (-want +got): %v", diff)
@@ -454,10 +454,10 @@ func TestMakeVirtualServiceRoute_Vanilla(t *testing.T) {
 	route := makeVirtualServiceRoute(hosts, ingressPath, []string{"gateway-1"})
 	expected := v1alpha3.HTTPRoute{
 		Match: []v1alpha3.HTTPMatchRequest{{
-			Gateways:  []string{"gateway-1"},
+			Gateways:  []string{"knative-testing/gateway-1"},
 			Authority: &istiov1alpha1.StringMatch{Regex: `^a\.com(?::\d{1,5})?$`},
 		}, {
-			Gateways:  []string{"gateway-1"},
+			Gateways:  []string{"knative-testing/gateway-1"},
 			Authority: &istiov1alpha1.StringMatch{Regex: `^b\.org(?::\d{1,5})?$`},
 		}},
 		Route: []v1alpha3.HTTPRouteDestination{{
@@ -507,7 +507,7 @@ func TestMakeVirtualServiceRoute_TwoTargets(t *testing.T) {
 	route := makeVirtualServiceRoute(hosts, ingressPath, []string{"gateway-1"})
 	expected := v1alpha3.HTTPRoute{
 		Match: []v1alpha3.HTTPMatchRequest{{
-			Gateways:  []string{"gateway-1"},
+			Gateways:  []string{"knative-testing/gateway-1"},
 			Authority: &istiov1alpha1.StringMatch{Regex: `^test\.org(?::\d{1,5})?$`},
 		}},
 		Route: []v1alpha3.HTTPRouteDestination{{

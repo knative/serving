@@ -126,7 +126,7 @@ func makeVirtualServiceSpec(ia v1alpha1.IngressAccessor, gateways map[v1alpha1.I
 	gw.Insert(gateways[v1alpha1.IngressVisibilityClusterLocal]...)
 	gw.Insert(gateways[v1alpha1.IngressVisibilityExternalIP]...)
 	spec := v1alpha3.VirtualServiceSpec{
-		Gateways: gw.List(),
+		Gateways: qualifyGateways(gw.List()),
 		Hosts:    hosts,
 	}
 	for _, rule := range ia.GetSpec().Rules {
@@ -138,6 +138,18 @@ func makeVirtualServiceSpec(ia v1alpha1.IngressAccessor, gateways map[v1alpha1.I
 		}
 	}
 	return &spec
+}
+
+func qualifyGateways(gws []string) []string {
+	var q []string
+	for _, gw := range gws {
+		if strings.Contains(gw, "/") || strings.Contains(gw, ".") || gw == "mesh" { // qualified gateway name
+			q = append(q, gw)
+		} else {
+			q = append(q, system.Namespace()+"/"+gw)
+		}
+	}
+	return q
 }
 
 func makePortSelector(ios intstr.IntOrString) v1alpha3.PortSelector {
@@ -240,7 +252,7 @@ func expandedHosts(hosts []string) []string {
 
 func makeMatch(host string, pathRegExp string, gateways []string) v1alpha3.HTTPMatchRequest {
 	match := v1alpha3.HTTPMatchRequest{
-		Gateways: gateways,
+		Gateways: qualifyGateways(gateways),
 		Authority: &istiov1alpha1.StringMatch{
 			Regex: hostRegExp(host),
 		},
