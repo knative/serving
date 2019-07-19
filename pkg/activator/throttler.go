@@ -191,7 +191,7 @@ func (t *Throttler) updateCapacity(breaker breaker, cc, size, activatorCount int
 
 	if size > 0 && (cc == 0 || targetCapacity > t.breakerParams.MaxConcurrency) {
 		// If cc==0, we need to pick a number, but it does not matter, since
-		// infinite breake will dole out as many tokens as it can.
+		// infinite breaker will dole out as many tokens as it can.
 		targetCapacity = t.breakerParams.MaxConcurrency
 	} else if targetCapacity > 0 {
 		targetCapacity = minOneOrValue(targetCapacity / minOneOrValue(activatorCount))
@@ -296,9 +296,29 @@ func (t *Throttler) endpointsDeleted(obj interface{}) {
 	t.Remove(revID)
 }
 
+// infiniteBreaker is basically a short circuit.
+// infiniteBreaker provides us capability to send unlimited number
+// of requests to the downstream system.
+// This is to be used only when the container concurrency is unset
+// (i.e. infinity).
+// The infiniteBreaker will, though, block the requests when
+// downstream capacity is 0.
 type infiniteBreaker struct {
-	mu          sync.RWMutex
-	broadcast   chan struct{}
+	// mu guards `broadcast` channel.
+	mu sync.RWMutex
+
+	// broadcast channel is used notify the waiting requests that
+	// downstream capacity showed up.
+	// When the downstream capacity switches from 0 to 1, the channel is closed.
+	// When the downstream capacity disappears, the a new channel is created.
+	// Reads/Writes to the `broadcast` must be guarded by `mu`.
+	broadcast chan struct{}
+
+	// concurrency in the infinite breaker takes only two values
+	// 0 (no downstream capacity) and 1 (infinite downstream capacity).
+	// `Maybe` checks this value to determine whether to proxy the request
+	// immediately or wait for capacity to appear.
+	// `concurrency` should only be manipulated by `sync/atomic` methods.
 	concurrency int32
 }
 
