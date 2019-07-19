@@ -51,7 +51,7 @@ func connect(t *testing.T, ingressIP string, domain string) (*websocket.Conn, er
 	var conn *websocket.Conn
 	waitErr := wait.PollImmediate(connectRetryInterval, connectTimeout, func() (bool, error) {
 		t.Logf("Connecting using websocket: url=%s, host=%s", u.String(), domain)
-		c, resp, err := websocket.DefaultDialer.Dial(u.String(), http.Header{"Host": []string{domain}})
+		c, resp, err := websocket.DefaultDialer.Dial(u.String(), http.Header{"Host": {domain}})
 		if err == nil {
 			t.Log("WebSocket connection established.")
 			conn = c
