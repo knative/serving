@@ -186,17 +186,17 @@ func (c *Reconciler) reconcile(ctx context.Context, r *v1alpha1.Route) error {
 
 	logger.Infof("Reconciling route: %#v", r)
 
-	if err := c.updateRouteStatusURL(ctx, r); err != nil {
+	serviceNames, err := c.getServiceNames(ctx, r)
+	if err != nil {
+		return err
+	}
+
+	if err := c.updateRouteStatusURL(ctx, r, serviceNames.clusterLocal()); err != nil {
 		return err
 	}
 
 	// TODO(mattmoor): Remove completely after 0.7 cuts.
 	r.Status.DeprecatedDomain = ""
-
-	serviceNames, err := c.getServiceNames(ctx, r)
-	if err != nil {
-		return err
-	}
 
 	// Configure traffic based on the RouteSpec.
 	traffic, err := c.configureTraffic(ctx, r, serviceNames.desiredClusterLocalServiceNames)
@@ -449,19 +449,14 @@ func (c *Reconciler) ensureFinalizer(route *v1alpha1.Route) error {
 	return err
 }
 
-func (c *Reconciler) updateRouteStatusURL(ctx context.Context, route *v1alpha1.Route) error {
-	serviceNames, err := c.getServiceNames(ctx, route)
-	if err != nil {
-		return err
-	}
-
+func (c *Reconciler) updateRouteStatusURL(ctx context.Context, route *v1alpha1.Route, clusterLocalServices sets.String) error {
 	mainRouteServiceName, err := domains.HostnameFromTemplate(ctx, route.Name, "")
 	if err != nil {
 		return err
 	}
 
 	mainRouteMeta := route.ObjectMeta.DeepCopy()
-	labels.SetVisibility(mainRouteMeta, serviceNames.clusterLocal().Has(mainRouteServiceName))
+	labels.SetVisibility(mainRouteMeta, clusterLocalServices.Has(mainRouteServiceName))
 
 	host, err := domains.DomainNameFromTemplate(ctx, *mainRouteMeta, route.Name)
 	if err != nil {
@@ -525,10 +520,6 @@ type serviceNames struct {
 
 func (sn serviceNames) existing() sets.String {
 	return sn.existingPublicServiceNames.Union(sn.existingClusterLocalServiceNames)
-}
-
-func (sn serviceNames) desired() sets.String {
-	return sn.desiredPublicServiceNames.Union(sn.desiredClusterLocalServiceNames)
 }
 
 func (sn serviceNames) clusterLocal() sets.String {
