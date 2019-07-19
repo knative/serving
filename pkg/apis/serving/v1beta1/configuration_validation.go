@@ -67,28 +67,22 @@ func (csf *ConfigurationStatusFields) Validate(ctx context.Context) *apis.FieldE
 
 // ValidateLabels function validates service labels
 func (c *Configuration) ValidateLabels() *apis.FieldError {
-	configurationLabels := c.GetLabels()
 	var errs *apis.FieldError
 LabelLoop:
-	for key, val := range configurationLabels {
-		if key == config.VisibilityLabelKey {
+	for key, val := range c.GetLabels() {
+		switch {
+		case key == config.VisibilityLabelKey:
 			errs = errs.Also(validateClusterVisbilityLabel(val))
-			continue
-		}
-		if key == serving.RouteLabelKey {
-			continue
-		}
-		if key == serving.ServiceLabelKey {
+		case key == serving.RouteLabelKey:
+		case key == serving.ServiceLabelKey:
 			for _, ref := range c.GetOwnerReferences() {
 				if ref.Kind == "Service" && val == ref.Name {
 					continue LabelLoop
 				}
 			}
-			errs = errs.Also(apis.ErrInvalidValue(val, "").ViaFieldKey("label", key))
-			continue LabelLoop
-		}
-		if strings.HasPrefix(key, serving.GroupName+"/") {
-			errs = errs.Also(apis.ErrInvalidKeyName(key, "label"))
+			errs = errs.Also(apis.ErrInvalidValue(val, key).ViaField("labels"))
+		case strings.HasPrefix(key, serving.GroupName+"/"):
+			errs = errs.Also(apis.ErrInvalidKeyName(key, "labels"))
 		}
 	}
 	return errs.ViaField("metadata")

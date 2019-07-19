@@ -22,6 +22,8 @@ import (
 
 	"knative.dev/pkg/ptr"
 	"knative.dev/serving/pkg/apis/config"
+	"knative.dev/serving/pkg/apis/serving"
+	routeconfig "knative.dev/serving/pkg/reconciler/route/config"
 
 	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
@@ -183,7 +185,7 @@ func TestConfigurationLabelAnnotationValidation(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "byo-name",
 				Labels: map[string]string{
-					"serving.knative.dev/visibility": "cluster-local",
+					routeconfig.VisibilityLabelKey: "cluster-local",
 				},
 			},
 			Spec: validConfigSpec,
@@ -195,7 +197,7 @@ func TestConfigurationLabelAnnotationValidation(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "byo-name",
 				Labels: map[string]string{
-					"serving.knative.dev/visibility": "bad-value",
+					routeconfig.VisibilityLabelKey: "bad-value",
 				},
 			},
 			Spec: validConfigSpec,
@@ -207,7 +209,7 @@ func TestConfigurationLabelAnnotationValidation(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "byo-name",
 				Labels: map[string]string{
-					"serving.knative.dev/route": "test-route",
+					serving.RouteLabelKey: "test-route",
 				},
 			},
 			Spec: validConfigSpec,
@@ -219,7 +221,7 @@ func TestConfigurationLabelAnnotationValidation(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "byo-name",
 				Labels: map[string]string{
-					"serving.knative.dev/service": "test-svc",
+					serving.ServiceLabelKey: "test-svc",
 				},
 				OwnerReferences: []metav1.OwnerReference{{
 					APIVersion: "serving.knative.dev/v1alpha1",
@@ -236,12 +238,12 @@ func TestConfigurationLabelAnnotationValidation(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "byo-name",
 				Labels: map[string]string{
-					"serving.knative.dev/service": "absent-svc",
+					serving.ServiceLabelKey: "absent-svc",
 				},
 			},
 			Spec: validConfigSpec,
 		},
-		want: apis.ErrInvalidValue("absent-svc", "metadata.label.[serving.knative.dev/service]"),
+		want: apis.ErrInvalidValue("absent-svc", "metadata.labels.serving.knative.dev/service"),
 	}, {
 		name: "invalid knative label",
 		c: &Configuration{
@@ -253,7 +255,7 @@ func TestConfigurationLabelAnnotationValidation(t *testing.T) {
 			},
 			Spec: validConfigSpec,
 		},
-		want: apis.ErrInvalidKeyName("serving.knative.dev/testlabel", "metadata.label"),
+		want: apis.ErrInvalidKeyName("serving.knative.dev/testlabel", "metadata.labels"),
 	}, {
 		name: "invalid annotation label",
 		c: &Configuration{
@@ -265,7 +267,7 @@ func TestConfigurationLabelAnnotationValidation(t *testing.T) {
 			},
 			Spec: validConfigSpec,
 		},
-		want: apis.ErrInvalidValue("value", "metadata.annotations.serving.knative.dev/testAnnotation"),
+		want: apis.ErrInvalidKeyName("serving.knative.dev/testAnnotation", "metadata.annotations"),
 	}, {
 		name: "valid annotation label",
 		c: &Configuration{

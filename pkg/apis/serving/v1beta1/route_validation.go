@@ -196,25 +196,21 @@ func validateClusterVisbilityLabel(label string) *apis.FieldError {
 
 // ValidateLabels function validates service labels
 func (r *Route) ValidateLabels() *apis.FieldError {
-	configurationLabels := r.GetLabels()
 	var errs *apis.FieldError
 LabelLoop:
-	for key, val := range configurationLabels {
-		if key == config.VisibilityLabelKey {
+	for key, val := range r.GetLabels() {
+		switch {
+		case key == config.VisibilityLabelKey:
 			errs = errs.Also(validateClusterVisbilityLabel(val))
-			continue
-		}
-		if key == serving.ServiceLabelKey {
+		case key == serving.ServiceLabelKey:
 			for _, ref := range r.GetOwnerReferences() {
 				if ref.Kind == "Service" && val == ref.Name {
 					continue LabelLoop
 				}
 			}
-			errs = errs.Also(apis.ErrInvalidValue(val, "").ViaFieldKey("label", key))
-			continue LabelLoop
-		}
-		if strings.HasPrefix(key, serving.GroupName+"/") {
-			errs = errs.Also(apis.ErrInvalidKeyName(key, "label"))
+			errs = errs.Also(apis.ErrInvalidValue(val, key).ViaField("labels"))
+		case strings.HasPrefix(key, serving.GroupName+"/"):
+			errs = errs.Also(apis.ErrInvalidKeyName(key, "labels"))
 		}
 	}
 	return errs.ViaField("metadata")

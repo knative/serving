@@ -144,7 +144,7 @@ func TestRevisionLabelAnnotationValidation(t *testing.T) {
 			},
 			Spec: validRevisionSpec,
 		},
-		want: apis.ErrInvalidValue("absent-cfg", "metadata.label.[serving.knative.dev/configuration]"),
+		want: apis.ErrInvalidValue("absent-cfg", "metadata.labels.serving.knative.dev/configuration"),
 	}, {
 		name: "valid knative configuration name",
 		r: &Revision{
@@ -173,7 +173,7 @@ func TestRevisionLabelAnnotationValidation(t *testing.T) {
 			},
 			Spec: validRevisionSpec,
 		},
-		want: apis.ErrInvalidKeyName("serving.knative.dev/testlabel", "metadata.label"),
+		want: apis.ErrInvalidKeyName("serving.knative.dev/testlabel", "metadata.labels"),
 	}, {
 		name: "valid annotation label",
 		r: &Revision{
@@ -197,7 +197,7 @@ func TestRevisionLabelAnnotationValidation(t *testing.T) {
 			},
 			Spec: validRevisionSpec,
 		},
-		want: apis.ErrInvalidValue("value", "metadata.annotations.serving.knative.dev/testAnnotation"),
+		want: apis.ErrInvalidKeyName("serving.knative.dev/testAnnotation", "metadata.annotations"),
 	}}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
