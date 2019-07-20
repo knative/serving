@@ -216,6 +216,10 @@ func getRouteClusterIngressFromClient(ctx context.Context, t *testing.T, route *
 		t.Errorf("ClusterIngress.Get(%v) = %v", opts, err)
 	}
 
+	if len(cis.Items) == 0 {
+		return nil
+	}
+
 	if len(cis.Items) != 1 {
 		t.Errorf("ClusterIngress.Get(%v), expect 1 instance, but got %d", opts, len(cis.Items))
 	}
@@ -260,8 +264,9 @@ func addResourcesToInformers(t *testing.T, ctx context.Context, route *v1alpha1.
 	}
 	fakerouteinformer.Get(ctx).Informer().GetIndexer().Add(route)
 
-	ci := getRouteClusterIngressFromClient(ctx, t, route)
-	fakeciinformer.Get(ctx).Informer().GetIndexer().Add(ci)
+	if ci := getRouteClusterIngressFromClient(ctx, t, route); ci != nil {
+		fakeciinformer.Get(ctx).Informer().GetIndexer().Add(ci)
+	}
 	ingress := getRouteIngressFromClient(ctx, t, route)
 	fakeingressinformer.Get(ctx).Informer().GetIndexer().Add(ingress)
 }
@@ -362,7 +367,7 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 	}
 	select {
 	case got := <-fakeRecorder.Events:
-		const wantPrefix = `Normal Created Created ClusterIngress`
+		const wantPrefix = `Normal Created Created Ingress`
 		if !strings.HasPrefix(got, wantPrefix) {
 			t.Errorf("<-Events = %s, wanted prefix %s", got, wantPrefix)
 		}

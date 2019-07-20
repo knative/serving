@@ -284,6 +284,7 @@ func (c *Reconciler) reconcile(ctx context.Context, r *v1alpha1.Route) error {
 			},
 			clusterIngressLister: c.clusterIngressLister,
 		},
+		true, /* optional */
 	)
 
 	if err != nil {
@@ -298,6 +299,7 @@ func (c *Reconciler) reconcile(ctx context.Context, r *v1alpha1.Route) error {
 			},
 			ingressLister: c.ingressLister,
 		},
+		false, /*optional*/
 	)
 
 	if err != nil {
@@ -317,14 +319,14 @@ func (c *Reconciler) reconcile(ctx context.Context, r *v1alpha1.Route) error {
 }
 
 func (c *Reconciler) reconcileIngressResources(ctx context.Context, r *v1alpha1.Route, tc *traffic.Config, tls []netv1alpha1.IngressTLS,
-	clusterLocalServices sets.String, ingressClass string, ira IngressResourceAccessors) (netv1alpha1.IngressAccessor, error) {
+	clusterLocalServices sets.String, ingressClass string, ira IngressResourceAccessors, optional bool) (netv1alpha1.IngressAccessor, error) {
 
 	desired, err := ira.makeIngress(ctx, r, tc, tls, clusterLocalServices, ingressClass)
 	if err != nil {
 		return nil, err
 	}
 
-	clusterIngress, err := c.reconcileIngress(ctx, ira, r, desired)
+	clusterIngress, err := c.reconcileIngress(ctx, ira, r, desired, optional)
 	if err != nil {
 		return nil, err
 	}

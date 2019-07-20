@@ -128,23 +128,6 @@ func TestReconcile(t *testing.T) {
 			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001"), WithServiceName("mcd")),
 		},
 		WantCreates: []runtime.Object{
-			simpleClusterIngress(
-				route("default", "becomes-ready", WithConfigTarget("config"), WithURL,
-					WithRouteUID("12-34")),
-				&traffic.Config{
-					Targets: map[string]traffic.RevisionTargets{
-						traffic.DefaultTarget: {{
-							TrafficTarget: v1beta1.TrafficTarget{
-								// Use the Revision name from the config.
-								RevisionName: "config-00001",
-								Percent:      100,
-							},
-							ServiceName: "mcd",
-							Active:      true,
-						}},
-					},
-				},
-			),
 			simpleIngress(
 				route("default", "becomes-ready", WithConfigTarget("config"), WithURL,
 					WithRouteUID("12-34")),
@@ -186,7 +169,6 @@ func TestReconcile(t *testing.T) {
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Created", "Created placeholder service %q", "becomes-ready"),
-			Eventf(corev1.EventTypeNormal, "Created", "Created ClusterIngress %q", "route-12-34"),
 			Eventf(corev1.EventTypeNormal, "Created", "Created Ingress %q", "becomes-ready"),
 		},
 		Key: "default/becomes-ready",
@@ -202,24 +184,6 @@ func TestReconcile(t *testing.T) {
 			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001"), WithServiceName("bk")),
 		},
 		WantCreates: []runtime.Object{
-			clusterIngressWithClass(
-				route("default", "becomes-ready", WithConfigTarget("config"), WithURL, WithRouteUID("12-34")),
-				&traffic.Config{
-					Targets: map[string]traffic.RevisionTargets{
-						traffic.DefaultTarget: {{
-							TrafficTarget: v1beta1.TrafficTarget{
-								// Use the Revision name from the config.
-								RevisionName: "config-00001",
-								Percent:      100,
-							},
-							ServiceName: "bk",
-							Active:      true,
-						}},
-					},
-				},
-				"custom-ingress-class",
-				sets.NewString(),
-			),
 			ingressWithClass(
 				route("default", "becomes-ready", WithConfigTarget("config"), WithURL, WithRouteUID("12-34")),
 				&traffic.Config{
@@ -263,7 +227,6 @@ func TestReconcile(t *testing.T) {
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Created", "Created placeholder service %q", "becomes-ready"),
-			Eventf(corev1.EventTypeNormal, "Created", "Created ClusterIngress %q", "route-12-34"),
 			Eventf(corev1.EventTypeNormal, "Created", "Created Ingress %q", "becomes-ready"),
 		},
 		Key: "default/becomes-ready",
@@ -280,25 +243,6 @@ func TestReconcile(t *testing.T) {
 			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001"), WithServiceName("tb")),
 		},
 		WantCreates: []runtime.Object{
-			simpleClusterIngressWithVisibility(
-				route("default", "becomes-ready", WithConfigTarget("config"),
-					WithLocalDomain, WithRouteUID("65-23"),
-					WithRouteLabel("serving.knative.dev/visibility", "cluster-local")),
-				&traffic.Config{
-					Targets: map[string]traffic.RevisionTargets{
-						traffic.DefaultTarget: {{
-							TrafficTarget: v1beta1.TrafficTarget{
-								// Use the Revision name from the config.
-								RevisionName: "config-00001",
-								Percent:      100,
-							},
-							ServiceName: "tb",
-							Active:      true,
-						}},
-					},
-				},
-				sets.NewString("becomes-ready"),
-			),
 			simpleIngressWithVisibility(
 				route("default", "becomes-ready", WithConfigTarget("config"),
 					WithLocalDomain, WithRouteUID("65-23"),
@@ -345,7 +289,6 @@ func TestReconcile(t *testing.T) {
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Created", "Created placeholder service %q", "becomes-ready"),
-			Eventf(corev1.EventTypeNormal, "Created", "Created ClusterIngress %q", "route-65-23"),
 			Eventf(corev1.EventTypeNormal, "Created", "Created Ingress %q", "becomes-ready"),
 		},
 		Key: "default/becomes-ready",
@@ -468,21 +411,21 @@ func TestReconcile(t *testing.T) {
 		},
 		Key: "default/create-svc-failure",
 	}, {
-		Name: "failure creating cluster ingress",
+		Name: "failure creating ingress",
 		Objects: []runtime.Object{
 			route("default", "ingress-create-failure", WithConfigTarget("config"), WithRouteFinalizer),
 			cfg("default", "config",
 				WithGeneration(1), WithLatestCreated("config-00001"), WithLatestReady("config-00001")),
 			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001"), WithServiceName("astrid")),
 		},
-		// We induce a failure creating the ClusterIngress.
+		// We induce a failure creating the Ingress.
 		WantErr: true,
 		WithReactors: []clientgotesting.ReactionFunc{
-			InduceFailure("create", "clusteringresses"),
+			InduceFailure("create", "ingresses"),
 		},
 		WantCreates: []runtime.Object{
-			//This is the Create we see for the cluter ingress, but we induce a failure.
-			simpleClusterIngress(
+			//This is the Create we see for the ingress, but we induce a failure.
+			simpleIngress(
 				route("default", "ingress-create-failure", WithConfigTarget("config"),
 					WithURL),
 				&traffic.Config{
@@ -523,8 +466,8 @@ func TestReconcile(t *testing.T) {
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Created", "Created placeholder service %q", "ingress-create-failure"),
 			Eventf(corev1.EventTypeWarning, "CreationFailed", "Failed to create Ingress for route %s/%s: %v",
-				"default", "ingress-create-failure", "inducing failure for create clusteringresses"),
-			Eventf(corev1.EventTypeWarning, "InternalError", "inducing failure for create clusteringresses"),
+				"default", "ingress-create-failure", "inducing failure for create ingresses"),
+			Eventf(corev1.EventTypeWarning, "InternalError", "inducing failure for create ingresses"),
 		},
 		Key:                     "default/ingress-create-failure",
 		SkipNamespaceValidation: true,
@@ -1539,41 +1482,6 @@ func TestReconcile(t *testing.T) {
 			rev("default", "green", 1, MarkRevisionReady, WithRevName("green-00001"), WithServiceName("green-lake")),
 		},
 		WantCreates: []runtime.Object{
-			simpleClusterIngress(
-				route("default", "named-traffic-split", WithURL, WithSpecTraffic(
-					v1alpha1.TrafficTarget{
-						TrafficTarget: v1beta1.TrafficTarget{
-							ConfigurationName: "blue",
-							Percent:           50,
-						},
-					}, v1alpha1.TrafficTarget{
-						TrafficTarget: v1beta1.TrafficTarget{
-							ConfigurationName: "green",
-							Percent:           50,
-						},
-					}), WithRouteUID("34-78")),
-				&traffic.Config{
-					Targets: map[string]traffic.RevisionTargets{
-						traffic.DefaultTarget: {{
-							TrafficTarget: v1beta1.TrafficTarget{
-								// Use the Revision name from the config.
-								RevisionName: "blue-00001",
-								Percent:      50,
-							},
-							ServiceName: "blue-ridge",
-							Active:      true,
-						}, {
-							TrafficTarget: v1beta1.TrafficTarget{
-								// Use the Revision name from the config.
-								RevisionName: "green-00001",
-								Percent:      50,
-							},
-							ServiceName: "green-lake",
-							Active:      true,
-						}},
-					},
-				},
-			),
 			simpleIngress(
 				route("default", "named-traffic-split", WithURL, WithSpecTraffic(
 					v1alpha1.TrafficTarget{
@@ -1657,7 +1565,6 @@ func TestReconcile(t *testing.T) {
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Created", "Created placeholder service %q", "named-traffic-split"),
-			Eventf(corev1.EventTypeNormal, "Created", "Created ClusterIngress %q", "route-34-78"),
 			Eventf(corev1.EventTypeNormal, "Created", "Created Ingress %q", "named-traffic-split"),
 		},
 		Key:                     "default/named-traffic-split",
@@ -1684,53 +1591,6 @@ func TestReconcile(t *testing.T) {
 			rev("default", "gray", 1, MarkRevisionReady, WithRevName("gray-00001"), WithServiceName("shades")),
 		},
 		WantCreates: []runtime.Object{
-			simpleClusterIngress(
-				route("default", "same-revision-targets", WithURL, WithSpecTraffic(
-					v1alpha1.TrafficTarget{
-						TrafficTarget: v1beta1.TrafficTarget{
-							Tag:               "gray",
-							ConfigurationName: "gray",
-							Percent:           50,
-						},
-					}, v1alpha1.TrafficTarget{
-						TrafficTarget: v1beta1.TrafficTarget{
-							Tag:          "also-gray",
-							RevisionName: "gray-00001",
-							Percent:      50,
-						},
-					}), WithRouteUID("1-2")),
-				&traffic.Config{
-					Targets: map[string]traffic.RevisionTargets{
-						traffic.DefaultTarget: {{
-							TrafficTarget: v1beta1.TrafficTarget{
-								// Use the Revision name from the config.
-								RevisionName: "gray-00001",
-								Percent:      100,
-							},
-							ServiceName: "shades",
-							Active:      true,
-						}},
-						"gray": {{
-							TrafficTarget: v1beta1.TrafficTarget{
-								// Use the Revision name from the config.
-								RevisionName: "gray-00001",
-								Percent:      100,
-							},
-							ServiceName: "shades",
-							Active:      true,
-						}},
-						"also-gray": {{
-							TrafficTarget: v1beta1.TrafficTarget{
-								// Use the Revision name from the config.
-								RevisionName: "gray-00001",
-								Percent:      100,
-							},
-							ServiceName: "shades",
-							Active:      true,
-						}},
-					},
-				},
-			),
 			simpleIngress(
 				route("default", "same-revision-targets", WithURL, WithSpecTraffic(
 					v1alpha1.TrafficTarget{
@@ -1878,7 +1738,6 @@ func TestReconcile(t *testing.T) {
 			Eventf(corev1.EventTypeNormal, "Created", "Created placeholder service %q", "same-revision-targets"),
 			Eventf(corev1.EventTypeNormal, "Created", "Created placeholder service %q", "also-gray-same-revision-targets"),
 			Eventf(corev1.EventTypeNormal, "Created", "Created placeholder service %q", "gray-same-revision-targets"),
-			Eventf(corev1.EventTypeNormal, "Created", "Created ClusterIngress %q", "route-1-2"),
 			Eventf(corev1.EventTypeNormal, "Created", "Created Ingress %q", "same-revision-targets"),
 		},
 		Key:                     "default/same-revision-targets",
@@ -2418,28 +2277,6 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 		WantCreates: []runtime.Object{
 			resources.MakeCertificates(route("default", "becomes-ready", WithConfigTarget("config"), WithURL, WithRouteUID("12-34")),
 				map[string]string{"becomes-ready.default.example.com": ""}, network.CertManagerCertificateClassName)[0],
-			clusterIngressWithTLS(
-				route("default", "becomes-ready", WithConfigTarget("config"), WithURL,
-					WithRouteUID("12-34")),
-				&traffic.Config{
-					Targets: map[string]traffic.RevisionTargets{
-						traffic.DefaultTarget: {{
-							TrafficTarget: v1beta1.TrafficTarget{
-								// Use the Revision name from the config.
-								RevisionName: "config-00001",
-								Percent:      100,
-							},
-							ServiceName: "mcd",
-							Active:      true,
-						}},
-					},
-				},
-				[]netv1alpha1.IngressTLS{{
-					Hosts:           []string{"becomes-ready.default.example.com"},
-					SecretName:      "route-12-34",
-					SecretNamespace: "default",
-				}},
-			),
 			ingressWithTLS(
 				route("default", "becomes-ready", WithConfigTarget("config"), WithURL,
 					WithRouteUID("12-34")),
@@ -2486,7 +2323,6 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Created", "Created placeholder service %q", "becomes-ready"),
 			Eventf(corev1.EventTypeNormal, "Created", "Created Certificate %q/%q", "default", "route-12-34"),
-			Eventf(corev1.EventTypeNormal, "Created", "Created ClusterIngress %q", "route-12-34"),
 			Eventf(corev1.EventTypeNormal, "Created", "Created Ingress %q", "becomes-ready"),
 		},
 		Key:                     "default/becomes-ready",
@@ -2517,30 +2353,6 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 			},
 		},
 		WantCreates: []runtime.Object{
-			clusterIngressWithTLS(
-				route("default", "becomes-ready", WithConfigTarget("config"), WithURL,
-					WithRouteUID("12-34")),
-				&traffic.Config{
-					Targets: map[string]traffic.RevisionTargets{
-						traffic.DefaultTarget: {{
-							TrafficTarget: v1beta1.TrafficTarget{
-								// Use the Revision name from the config.
-								RevisionName: "config-00001",
-								Percent:      100,
-							},
-							ServiceName: "mcd",
-							Active:      true,
-						}},
-					},
-				},
-				[]netv1alpha1.IngressTLS{
-					{
-						Hosts:           []string{"becomes-ready.default.example.com"},
-						SecretName:      "route-12-34",
-						SecretNamespace: "default",
-					},
-				},
-			),
 			ingressWithTLS(
 				route("default", "becomes-ready", WithConfigTarget("config"), WithURL,
 					WithRouteUID("12-34")),
@@ -2595,7 +2407,6 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Created", "Created placeholder service %q", "becomes-ready"),
 			Eventf(corev1.EventTypeNormal, "Updated", "Updated Spec for Certificate %s/%s", "default", "route-12-34"),
-			Eventf(corev1.EventTypeNormal, "Created", "Created ClusterIngress %q", "route-12-34"),
 			Eventf(corev1.EventTypeNormal, "Created", "Created Ingress %q", "becomes-ready"),
 		},
 		Key:                     "default/becomes-ready",
