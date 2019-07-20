@@ -286,11 +286,16 @@ function knative_teardown() {
 
 # Create test resources and images
 function test_setup() {
+  echo ">> Setting up logging..."
+  bash <( curl -sfL https://raw.githubusercontent.com/boz/kail/master/godownloader.sh) -b "$GOPATH/bin"
+  kail --ns knative-serving > ${ARTIFACTS}/knative-serving.log.txt &
+
   echo ">> Creating test resources (test/config/)"
   ko apply ${KO_FLAGS} -f test/config/ || return 1
   ${REPO_ROOT_DIR}/test/upload-test-images.sh || return 1
   wait_until_pods_running knative-serving || return 1
   if [[ -z "${GLOO_VERSION}" ]]; then
+    kail --ns istio-system > ${ARTIFACTS}/istio-system.log.txt &
     wait_until_pods_running istio-system || return 1
     wait_until_service_has_external_ip istio-system istio-ingressgateway
   else
