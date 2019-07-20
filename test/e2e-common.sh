@@ -287,7 +287,9 @@ function knative_teardown() {
 # Create test resources and images
 function test_setup() {
   echo ">> Setting up logging..."
-  bash <( curl -sfL https://raw.githubusercontent.com/boz/kail/master/godownloader.sh) -b "$GOPATH/bin"
+  go get github.com/boz/kail
+  go install github.com/boz/kail
+
   kail --ns knative-serving > ${ARTIFACTS}/knative-serving.log.txt &
 
   echo ">> Creating test resources (test/config/)"
