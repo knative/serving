@@ -83,7 +83,7 @@ function go_test_e2e() {
   local go_options=""
   (( EMIT_METRICS )) && test_options="-emitmetrics"
   [[ ! " $@" == *" -tags="* ]] && go_options="-tags=e2e"
-  report_go_test -v -count=1 ${go_options} $@ ${test_options}
+  report_go_test -v -race -count=1 ${go_options} $@ ${test_options}
 }
 
 # Dump info about the test cluster. If dump_extra_cluster_info() is defined, calls it too.
