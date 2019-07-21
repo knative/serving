@@ -19,13 +19,19 @@ package resources
 import (
 	"context"
 	"fmt"
+	"hash/adler32"
 	"sort"
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
+	corev1listers "k8s.io/client-go/listers/core/v1"
 	"knative.dev/pkg/apis/istio/v1alpha3"
+	"knative.dev/pkg/kmeta"
+	"knative.dev/pkg/system"
+	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/reconciler/ingress/config"
@@ -83,9 +89,77 @@ func SortServers(servers []v1alpha3.Server) []v1alpha3.Server {
 	return servers
 }
 
-// MakeServers creates the expected Gateway `Servers` based on the given
-// ClusterIngress.
-func MakeServers(ia v1alpha1.IngressAccessor, gatewayServiceNamespace string, originSecrets map[string]*corev1.Secret) ([]v1alpha3.Server, error) {
+// MakeIngressGateways creates Gateways for a given IngressAccessor.
+func MakeIngressGateways(ctx context.Context, ia v1alpha1.IngressAccessor, originSecrets map[string]*corev1.Secret, svcLister corev1listers.ServiceLister) ([]*v1alpha3.Gateway, error) {
+	gatewayServices, err := getGatewayServices(ctx, svcLister)
+	if err != nil {
+		return nil, err
+	}
+	gateways := []*v1alpha3.Gateway{}
+	for _, gatewayService := range gatewayServices {
+		gateway, err := makeIngressGateway(ctx, ia, originSecrets, gatewayService.Spec.Selector, gatewayService)
+		if err != nil {
+			return nil, err
+		}
+		gateways = append(gateways, gateway)
+	}
+	return gateways, nil
+}
+
+func makeIngressGateway(ctx context.Context, ia v1alpha1.IngressAccessor, originSecrets map[string]*corev1.Secret, selector map[string]string, gatewayService *corev1.Service) (*v1alpha3.Gateway, error) {
+	ns := ia.GetNamespace()
+	if len(ns) == 0 {
+		ns = system.Namespace()
+	}
+	servers, err := MakeTLSServers(ia, gatewayService.Namespace, originSecrets)
+	if err != nil {
+		return nil, err
+	}
+	hosts := sets.String{}
+	for _, rule := range ia.GetSpec().Rules {
+		hosts.Insert(rule.Hosts...)
+	}
+	servers = append(servers, *MakeHTTPServer(config.FromContext(ctx).Network.HTTPProtocol, hosts.List()))
+	return &v1alpha3.Gateway{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            GatewayName(ia, gatewayService),
+			Namespace:       ns,
+			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(ia)},
+			Labels: map[string]string{
+				// We need this label to find out all of Gateways of a given Ingress.
+				networking.IngressLabelKey: ia.GetName(),
+			},
+		},
+		Spec: v1alpha3.GatewaySpec{
+			Selector: selector,
+			Servers:  servers,
+		},
+	}, nil
+}
+
+func getGatewayServices(ctx context.Context, svcLister corev1listers.ServiceLister) ([]*corev1.Service, error) {
+	ingressSvcMetas := getIngressGatewaySvcNameNamespaces(ctx)
+	services := []*corev1.Service{}
+	for _, ingressSvcMeta := range ingressSvcMetas {
+		svc, err := svcLister.Services(ingressSvcMeta.Namespace).Get(ingressSvcMeta.Name)
+		if err != nil {
+			return nil, err
+		}
+		services = append(services, svc)
+	}
+	return services, nil
+}
+
+// GatewayName create a name for the Gateway that is built based on the given IngressAccessor and bonds to the
+// given ingress gateway service.
+func GatewayName(accessor kmeta.Accessor, gatewaySvc *corev1.Service) string {
+	gatewayServiceKey := fmt.Sprintf("%s/%s", gatewaySvc.Namespace, gatewaySvc.Name)
+	return fmt.Sprintf("%s-%d", accessor.GetName(), adler32.Checksum([]byte(gatewayServiceKey)))
+}
+
+// MakeTLSServers creates the expected Gateway TLS `Servers` based on the given
+// IngressAccessor.
+func MakeTLSServers(ia v1alpha1.IngressAccessor, gatewayServiceNamespace string, originSecrets map[string]*corev1.Secret) ([]v1alpha3.Server, error) {
 	servers := []v1alpha3.Server{}
 	// TODO(zhiminx): for the hosts that does not included in the ClusterIngressTLS but listed in the ClusterIngressRule,
 	// do we consider them as hosts for HTTP?
@@ -120,12 +194,12 @@ func MakeServers(ia v1alpha1.IngressAccessor, gatewayServiceNamespace string, or
 
 // MakeHTTPServer creates a HTTP Gateway `Server` based on the HTTPProtocol
 // configureation.
-func MakeHTTPServer(httpProtocol network.HTTPProtocol) *v1alpha3.Server {
+func MakeHTTPServer(httpProtocol network.HTTPProtocol, hosts []string) *v1alpha3.Server {
 	if httpProtocol == network.HTTPDisabled {
 		return nil
 	}
 	server := &v1alpha3.Server{
-		Hosts: []string{"*"},
+		Hosts: hosts,
 		Port: v1alpha3.Port{
 			Name:     httpServerPortName,
 			Number:   80,
@@ -158,18 +232,20 @@ func GatewayServiceNamespace(ingressGateways []config.Gateway, gatewayName strin
 	return "", fmt.Errorf("no Gateway configuration is found for gateway %s", gatewayName)
 }
 
-// getAllGatewaySvcNamespaces gets all of the namespaces of Istio gateway services from context.
-func getAllGatewaySvcNamespaces(ctx context.Context) []string {
+func getIngressGatewaySvcNameNamespaces(ctx context.Context) []metav1.ObjectMeta {
 	cfg := config.FromContext(ctx).Istio
-	namespaces := sets.String{}
+	nameNamespaces := []metav1.ObjectMeta{}
 	for _, ingressgateway := range cfg.IngressGateways {
 		// serviceURL should be of the form serviceName.namespace.<domain>, for example
 		// serviceName.namespace.svc.cluster.local.
-
+		name := strings.Split(ingressgateway.ServiceURL, ".")[0]
 		ns := strings.Split(ingressgateway.ServiceURL, ".")[1]
-		namespaces.Insert(ns)
+		nameNamespaces = append(nameNamespaces, metav1.ObjectMeta{
+			Name:      name,
+			Namespace: ns,
+		})
 	}
-	return namespaces.List()
+	return nameNamespaces
 }
 
 // UpdateGateway replaces the existing servers with the wanted servers.
