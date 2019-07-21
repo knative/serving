@@ -142,7 +142,12 @@ func makeVirtualServiceSpec(ia v1alpha1.IngressAccessor, gateways map[v1alpha1.I
 
 // qualifyGateways modifies the provided gateway list to add namespace
 // information into gateway names that don't already have them.
-func qualifyGateways(gws []string) []string {
+func qualifyGateways(gwsOrg []string) []string {
+	if len(gwsOrg) == 0 {
+		return nil
+	}
+	gws := make([]string, len(gwsOrg))
+	copy(gws, gwsOrg)
 	for i, gw := range gws {
 		if !(strings.Contains(gw, "/") || strings.Contains(gw, ".") || gw == "mesh") { // unqualified
 			gws[i] = system.Namespace() + "/" + gw
