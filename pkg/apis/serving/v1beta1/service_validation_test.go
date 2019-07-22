@@ -71,36 +71,6 @@ func TestServiceValidation(t *testing.T) {
 		},
 		want: nil,
 	}, {
-		name: "invalid annotation label",
-		r: &Service{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "valid",
-				Annotations: map[string]string{
-					"serving.knative.dev/testAnnotation": "value",
-				},
-			},
-			Spec: ServiceSpec{
-				ConfigurationSpec: goodConfigSpec,
-				RouteSpec:         goodRouteSpec,
-			},
-		},
-		want: apis.ErrInvalidKeyName("serving.knative.dev/testAnnotation", "metadata.annotations"),
-	}, {
-		name: "valid annotation label",
-		r: &Service{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "valid",
-				Annotations: map[string]string{
-					"testAnnotation": "testValue",
-				},
-			},
-			Spec: ServiceSpec{
-				ConfigurationSpec: goodConfigSpec,
-				RouteSpec:         goodRouteSpec,
-			},
-		},
-		want: nil,
-	}, {
 		name: "valid visibility label",
 		r: &Service{
 			ObjectMeta: metav1.ObjectMeta{

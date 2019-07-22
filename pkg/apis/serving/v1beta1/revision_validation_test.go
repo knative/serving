@@ -214,30 +214,6 @@ func TestRevisionLabelAnnotationValidation(t *testing.T) {
 			Spec: validRevisionSpec,
 		},
 		want: apis.ErrInvalidKeyName("serving.knative.dev/testlabel", "metadata.labels"),
-	}, {
-		name: "valid annotation label",
-		r: &Revision{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "byo-name",
-				Annotations: map[string]string{
-					"testAnnotation": "testValue",
-				},
-			},
-			Spec: validRevisionSpec,
-		},
-		want: nil,
-	}, {
-		name: "invalid annotation label",
-		r: &Revision{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "byo-name",
-				Annotations: map[string]string{
-					"serving.knative.dev/testAnnotation": "value",
-				},
-			},
-			Spec: validRevisionSpec,
-		},
-		want: apis.ErrInvalidKeyName("serving.knative.dev/testAnnotation", "metadata.annotations"),
 	}}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
