@@ -244,7 +244,7 @@ func TestRevisionDefaulting(t *testing.T) {
 			},
 		},
 	}, {
-		name: "defaluting non aggressive probe",
+		name: "defaulting non aggressive probe",
 		in: &Revision{
 			Spec: RevisionSpec{
 				PodSpec: corev1.PodSpec{
