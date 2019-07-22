@@ -78,8 +78,8 @@ pilot:
   sidecar: false
   resources:
     requests:
-      cpu: 100m
-      memory: 256Mi
+      cpu: 500m
+      memory: 2048Mi
 
 galley:
   enabled: false
