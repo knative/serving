@@ -45,67 +45,68 @@ func (rs *RevisionSpec) SetDefaults(ctx context.Context) {
 	}
 
 	for idx := range rs.PodSpec.Containers {
-		if rs.PodSpec.Containers[idx].Name == "" {
-			rs.PodSpec.Containers[idx].Name = cfg.Defaults.UserContainerName(ctx)
+		ctr := &rs.PodSpec.Containers[idx]
+
+		if ctr.Name == "" {
+			ctr.Name = cfg.Defaults.UserContainerName(ctx)
 		}
 
-		if rs.PodSpec.Containers[idx].Resources.Requests == nil {
-			rs.PodSpec.Containers[idx].Resources.Requests = corev1.ResourceList{}
+		if ctr.Resources.Requests == nil {
+			ctr.Resources.Requests = corev1.ResourceList{}
 		}
-		if _, ok := rs.PodSpec.Containers[idx].Resources.Requests[corev1.ResourceCPU]; !ok {
+		if _, ok := ctr.Resources.Requests[corev1.ResourceCPU]; !ok {
 			if rsrc := cfg.Defaults.RevisionCPURequest; rsrc != nil {
-				rs.PodSpec.Containers[idx].Resources.Requests[corev1.ResourceCPU] = *rsrc
+				ctr.Resources.Requests[corev1.ResourceCPU] = *rsrc
 			}
 		}
-		if _, ok := rs.PodSpec.Containers[idx].Resources.Requests[corev1.ResourceMemory]; !ok {
+		if _, ok := ctr.Resources.Requests[corev1.ResourceMemory]; !ok {
 			if rsrc := cfg.Defaults.RevisionMemoryRequest; rsrc != nil {
-				rs.PodSpec.Containers[idx].Resources.Requests[corev1.ResourceMemory] = *rsrc
+				ctr.Resources.Requests[corev1.ResourceMemory] = *rsrc
 			}
 		}
 
-		if rs.PodSpec.Containers[idx].Resources.Limits == nil {
-			rs.PodSpec.Containers[idx].Resources.Limits = corev1.ResourceList{}
+		if ctr.Resources.Limits == nil {
+			ctr.Resources.Limits = corev1.ResourceList{}
 		}
-		if _, ok := rs.PodSpec.Containers[idx].Resources.Limits[corev1.ResourceCPU]; !ok {
+		if _, ok := ctr.Resources.Limits[corev1.ResourceCPU]; !ok {
 			if rsrc := cfg.Defaults.RevisionCPULimit; rsrc != nil {
-				rs.PodSpec.Containers[idx].Resources.Limits[corev1.ResourceCPU] = *rsrc
+				ctr.Resources.Limits[corev1.ResourceCPU] = *rsrc
 			}
 		}
-		if _, ok := rs.PodSpec.Containers[idx].Resources.Limits[corev1.ResourceMemory]; !ok {
+		if _, ok := ctr.Resources.Limits[corev1.ResourceMemory]; !ok {
 			if rsrc := cfg.Defaults.RevisionMemoryLimit; rsrc != nil {
-				rs.PodSpec.Containers[idx].Resources.Limits[corev1.ResourceMemory] = *rsrc
+				ctr.Resources.Limits[corev1.ResourceMemory] = *rsrc
 			}
 		}
 
-		readinessProbe := &rs.PodSpec.Containers[idx].ReadinessProbe
-		if *readinessProbe == nil {
-			*readinessProbe = &corev1.Probe{}
+		if ctr.ReadinessProbe == nil {
+			ctr.ReadinessProbe = &corev1.Probe{}
 		}
-		if (*readinessProbe).TCPSocket == nil &&
-			(*readinessProbe).HTTPGet == nil &&
-			(*readinessProbe).Exec == nil {
-			(*readinessProbe).TCPSocket = &corev1.TCPSocketAction{}
+		if ctr.ReadinessProbe.TCPSocket == nil &&
+			ctr.ReadinessProbe.HTTPGet == nil &&
+			ctr.ReadinessProbe.Exec == nil {
+			ctr.ReadinessProbe.TCPSocket = &corev1.TCPSocketAction{}
 		}
-		if (*readinessProbe).SuccessThreshold == 0 {
-			(*readinessProbe).SuccessThreshold = 1
+		if ctr.ReadinessProbe.SuccessThreshold == 0 {
+			ctr.ReadinessProbe.SuccessThreshold = 1
 		}
 		// If any of FailureThreshold, TimeoutSeconds or PeriodSeconds are greater than 0,
 		// standard k8s-style would be used so setting normal k8s default values.
-		if (*readinessProbe).FailureThreshold > 0 ||
-			(*readinessProbe).TimeoutSeconds > 0 ||
-			(*readinessProbe).PeriodSeconds > 0 {
-			if (*readinessProbe).FailureThreshold == 0 {
-				(*readinessProbe).FailureThreshold = 3
+		if ctr.ReadinessProbe.FailureThreshold > 0 ||
+			ctr.ReadinessProbe.TimeoutSeconds > 0 ||
+			ctr.ReadinessProbe.PeriodSeconds > 0 {
+			if ctr.ReadinessProbe.FailureThreshold == 0 {
+				ctr.ReadinessProbe.FailureThreshold = 3
 			}
-			if (*readinessProbe).TimeoutSeconds == 0 {
-				(*readinessProbe).TimeoutSeconds = 1
+			if ctr.ReadinessProbe.TimeoutSeconds == 0 {
+				ctr.ReadinessProbe.TimeoutSeconds = 1
 			}
-			if (*readinessProbe).PeriodSeconds == 0 {
-				(*readinessProbe).PeriodSeconds = 10
+			if ctr.ReadinessProbe.PeriodSeconds == 0 {
+				ctr.ReadinessProbe.PeriodSeconds = 10
 			}
 		}
 
-		vms := rs.PodSpec.Containers[idx].VolumeMounts
+		vms := ctr.VolumeMounts
 		for i := range vms {
 			vms[i].ReadOnly = true
 		}
