@@ -77,30 +77,31 @@ func (rs *RevisionSpec) SetDefaults(ctx context.Context) {
 			}
 		}
 
-		if rs.PodSpec.Containers[idx].ReadinessProbe == nil {
-			rs.PodSpec.Containers[idx].ReadinessProbe = &corev1.Probe{}
+		readinessProbe := &rs.PodSpec.Containers[idx].ReadinessProbe
+		if *readinessProbe == nil {
+			*readinessProbe = &corev1.Probe{}
 		}
-		if rs.PodSpec.Containers[idx].ReadinessProbe.TCPSocket == nil &&
-			rs.PodSpec.Containers[idx].ReadinessProbe.HTTPGet == nil &&
-			rs.PodSpec.Containers[idx].ReadinessProbe.Exec == nil {
-			rs.PodSpec.Containers[idx].ReadinessProbe.TCPSocket = &corev1.TCPSocketAction{}
+		if (*readinessProbe).TCPSocket == nil &&
+			(*readinessProbe).HTTPGet == nil &&
+			(*readinessProbe).Exec == nil {
+			(*readinessProbe).TCPSocket = &corev1.TCPSocketAction{}
 		}
-		if rs.PodSpec.Containers[idx].ReadinessProbe.SuccessThreshold == 0 {
-			rs.PodSpec.Containers[idx].ReadinessProbe.SuccessThreshold = 1
+		if (*readinessProbe).SuccessThreshold == 0 {
+			(*readinessProbe).SuccessThreshold = 1
 		}
 		// If any of FailureThreshold, TimeoutSeconds or PeriodSeconds are greater than 0,
 		// standard k8s-style would be used so setting normal k8s default values.
-		if rs.PodSpec.Containers[idx].ReadinessProbe.FailureThreshold > 0 ||
-			rs.PodSpec.Containers[idx].ReadinessProbe.TimeoutSeconds > 0 ||
-			rs.PodSpec.Containers[idx].ReadinessProbe.PeriodSeconds > 0 {
-			if rs.PodSpec.Containers[idx].ReadinessProbe.FailureThreshold == 0 {
-				rs.PodSpec.Containers[idx].ReadinessProbe.FailureThreshold = 3
+		if (*readinessProbe).FailureThreshold > 0 ||
+			(*readinessProbe).TimeoutSeconds > 0 ||
+			(*readinessProbe).PeriodSeconds > 0 {
+			if (*readinessProbe).FailureThreshold == 0 {
+				(*readinessProbe).FailureThreshold = 3
 			}
-			if rs.PodSpec.Containers[idx].ReadinessProbe.TimeoutSeconds == 0 {
-				rs.PodSpec.Containers[idx].ReadinessProbe.TimeoutSeconds = 1
+			if (*readinessProbe).TimeoutSeconds == 0 {
+				(*readinessProbe).TimeoutSeconds = 1
 			}
-			if rs.PodSpec.Containers[idx].ReadinessProbe.PeriodSeconds == 0 {
-				rs.PodSpec.Containers[idx].ReadinessProbe.PeriodSeconds = 10
+			if (*readinessProbe).PeriodSeconds == 0 {
+				(*readinessProbe).PeriodSeconds = 10
 			}
 		}
 
