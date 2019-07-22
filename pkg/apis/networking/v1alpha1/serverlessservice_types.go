@@ -126,4 +126,10 @@ const (
 	// ServerlessServiceConditionEndspointsPopulated is set when the ServerlessService's underlying
 	// Revision K8s Service has been populated with endpoints.
 	ServerlessServiceConditionEndspointsPopulated apis.ConditionType = "EndpointsPopulated"
+
+	// ActivatorEndpointsPopulated is an informational status that reports
+	// when the revision is backed by activator points. This might happen even if
+	// revision is active (no pods yet created) or even when it has healthy pods
+	// (e.g. due to target burst capacity settings).
+	ActivatorEndpointsPopulated apis.ConditionType = "ActivatorEndpointsPopulated"
 )
