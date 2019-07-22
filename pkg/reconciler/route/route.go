@@ -471,11 +471,11 @@ func (c *Reconciler) updateRouteStatusURL(ctx context.Context, route *v1alpha1.R
 	return nil
 }
 
-func (c *Reconciler) getServiceNames(ctx context.Context, route *v1alpha1.Route) (serviceNames, error) {
+func (c *Reconciler) getServiceNames(ctx context.Context, route *v1alpha1.Route) (*serviceNames, error) {
 	// Populate existing service name sets
 	existingServices, err := c.getServices(route)
 	if err != nil {
-		return serviceNames{}, err
+		return nil, err
 	}
 	existingServiceNames := resources.GetNames(existingServices)
 	existingClusterLocalServices := resources.FilterService(existingServices, resources.IsClusterLocalService)
@@ -485,7 +485,7 @@ func (c *Reconciler) getServiceNames(ctx context.Context, route *v1alpha1.Route)
 	// Populate desired service name sets
 	desiredServiceNames, err := resources.GetDesiredServiceNames(ctx, route)
 	if err != nil {
-		return serviceNames{}, err
+		return nil, err
 	}
 	desiredPublicServiceNames := desiredServiceNames.Intersection(existingPublicServiceNames)
 	desiredClusterLocalServiceNames := desiredServiceNames.Intersection(existingClusterLocalServiceNames)
@@ -499,7 +499,7 @@ func (c *Reconciler) getServiceNames(ctx context.Context, route *v1alpha1.Route)
 		desiredPublicServiceNames = desiredPublicServiceNames.Union(serviceWithDefaultVisibility)
 	}
 
-	return serviceNames{
+	return &serviceNames{
 		existingPublicServiceNames:       existingPublicServiceNames,
 		existingClusterLocalServiceNames: existingClusterLocalServiceNames,
 		desiredPublicServiceNames:        desiredPublicServiceNames,
