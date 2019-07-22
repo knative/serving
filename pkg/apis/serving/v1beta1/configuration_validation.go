@@ -82,7 +82,7 @@ func (c *Configuration) ValidateLabels() (errs *apis.FieldError) {
 	return
 }
 
-// verifyServiceLabelOwnerRef verifies the owner references of configuration matches the service label value
+// verifyServiceLabelOwnerRef function verifies the owner references of resource with label key has val value.
 func verifyLabelOwnerRef(val, label, resource string, ownerRefs []metav1.OwnerReference) (errs *apis.FieldError) {
 	found := false
 	for i, ref := range ownerRefs {
