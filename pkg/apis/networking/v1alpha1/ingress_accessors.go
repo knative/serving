@@ -24,8 +24,7 @@ import (
 
 // IngressAccessor interfaces that exposes members of an Ingress
 type IngressAccessor interface {
-	kmeta.Accessor
-	kmeta.OwnerRefable
+	kmeta.OwnerRefableAccessor
 
 	GetStatus() *IngressStatus
 	SetStatus(IngressStatus)
