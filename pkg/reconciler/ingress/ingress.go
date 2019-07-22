@@ -286,7 +286,10 @@ func (r *BaseIngressReconciler) reconcileIngress(ctx context.Context, ra Reconci
 		if err != nil {
 			return err
 		}
-		targetSecrets := resources.MakeSecrets(ctx, originSecrets, ia)
+		targetSecrets, err := resources.MakeSecrets(ctx, originSecrets, ia)
+		if err != nil {
+			return err
+		}
 		if err := r.reconcileCertSecrets(ctx, ia, targetSecrets); err != nil {
 			return err
 		}
@@ -296,7 +299,7 @@ func (r *BaseIngressReconciler) reconcileIngress(ctx context.Context, ra Reconci
 			if err != nil {
 				return err
 			}
-			desired, err := resources.MakeServers(ia, ns, originSecrets)
+			desired, err := resources.MakeTLSServers(ia, ns, originSecrets)
 			if err != nil {
 				return err
 			}
@@ -506,7 +509,7 @@ func (r *BaseIngressReconciler) reconcileGateway(ctx context.Context, ia v1alpha
 		existing = append(existing, *existingHTTPServer)
 	}
 
-	desiredHTTPServer := resources.MakeHTTPServer(config.FromContext(ctx).Network.HTTPProtocol)
+	desiredHTTPServer := resources.MakeHTTPServer(config.FromContext(ctx).Network.HTTPProtocol, []string{"*"})
 	if desiredHTTPServer != nil {
 		desired = append(desired, *desiredHTTPServer)
 	}

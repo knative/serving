@@ -47,20 +47,23 @@ func GetSecrets(ia v1alpha1.IngressAccessor, secretLister corev1listers.SecretLi
 }
 
 // MakeSecrets makes copies of the origin Secrets under the namespace of Istio gateway service.
-func MakeSecrets(ctx context.Context, originSecrets map[string]*corev1.Secret, accessor kmeta.OwnerRefableAccessor) []*corev1.Secret {
-	gatewaySvcNamespaces := getAllGatewaySvcNamespaces(ctx)
+func MakeSecrets(ctx context.Context, originSecrets map[string]*corev1.Secret, accessor kmeta.OwnerRefableAccessor) ([]*corev1.Secret, error) {
+	nameNamespaces, err := getIngressGatewaySvcNameNamespaces(ctx)
+	if err != nil {
+		return nil, err
+	}
 	secrets := []*corev1.Secret{}
 	for _, originSecret := range originSecrets {
-		for _, ns := range gatewaySvcNamespaces {
-			if ns == originSecret.Namespace {
+		for _, meta := range nameNamespaces {
+			if meta.Namespace == originSecret.Namespace {
 				// no need to copy secret when the target namespace is the same
 				// as the origin namespace
 				continue
 			}
-			secrets = append(secrets, makeSecret(originSecret, ns, accessor))
+			secrets = append(secrets, makeSecret(originSecret, meta.Namespace, accessor))
 		}
 	}
-	return secrets
+	return secrets, nil
 }
 
 func makeSecret(originSecret *corev1.Secret, targetNamespace string, accessor kmeta.OwnerRefableAccessor) *corev1.Secret {
