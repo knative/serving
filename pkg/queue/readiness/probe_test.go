@@ -22,6 +22,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -47,9 +48,7 @@ func TestNewProbe(t *testing.T) {
 		},
 	}
 
-	logger := logtesting.TestLogger(t)
-
-	p := NewProbe(v1p, logger)
+	p := NewProbe(v1p, logtesting.TestLogger(t))
 
 	if diff := cmp.Diff(p.Probe, v1p); diff != "" {
 		t.Errorf("NewProbe (-want, +got) = %v", diff)
@@ -303,11 +302,11 @@ func TestHTTPSuccessWithDelay(t *testing.T) {
 func TestKnHTTPSuccessWithRetry(t *testing.T) {
 	defer logtesting.ClearAll()
 
-	attempted := false
+	var count int32
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if !attempted {
+		// Fail the very first request.
+		if atomic.AddInt32(&count, 1) == 1 {
 			w.WriteHeader(http.StatusBadRequest)
-			attempted = true
 			return
 		}
 		w.WriteHeader(http.StatusOK)
@@ -345,7 +344,7 @@ func TestKnHTTPSuccessWithThreshold(t *testing.T) {
 	var threshold int32 = 3
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		count++
+		atomic.AddInt32(&count, 1)
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer ts.Close()
@@ -373,7 +372,7 @@ func TestKnHTTPSuccessWithThreshold(t *testing.T) {
 		t.Error("Expected success after second attempt.")
 	}
 
-	if count != threshold {
+	if atomic.LoadInt32(&count) != threshold {
 		t.Errorf("Expected %d requests before reporting success", threshold)
 	}
 }
@@ -386,9 +385,7 @@ func TestKnHTTPSuccessWithThresholdAndFailure(t *testing.T) {
 	var requestFailure int32 = 2
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		count++
-
-		if count == requestFailure {
+		if atomic.AddInt32(&count, 1) == requestFailure {
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
@@ -424,7 +421,7 @@ func TestKnHTTPSuccessWithThresholdAndFailure(t *testing.T) {
 		t.Error("Expected success.")
 	}
 
-	if count != threshold+requestFailure {
+	if atomic.LoadInt32(&count) != threshold+requestFailure {
 		t.Errorf("Wanted %d requests before reporting success, got=%d", threshold+requestFailure, count)
 	}
 }
