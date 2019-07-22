@@ -2525,10 +2525,6 @@ func simpleClusterIngressWithVisibility(r *v1alpha1.Route, tc *traffic.Config, s
 	return baseIngressWithClass(r, tc, TestIngressClass, serviceVisibility, resources.MakeClusterIngress, io...)
 }
 
-func clusterIngressWithClass(r *v1alpha1.Route, tc *traffic.Config, class string, serviceVisibility sets.String, io ...IngressOption) netv1alpha1.IngressAccessor {
-	return baseIngressWithClass(r, tc, class, serviceVisibility, resources.MakeClusterIngress, io...)
-}
-
 func ingressWithClass(r *v1alpha1.Route, tc *traffic.Config, class string, serviceVisibility sets.String, io ...IngressOption) netv1alpha1.IngressAccessor {
 	return baseIngressWithClass(r, tc, class, serviceVisibility, resources.MakeIngress, io...)
 }
@@ -2541,10 +2537,6 @@ func baseIngressWithClass(r *v1alpha1.Route, tc *traffic.Config, class string, s
 	}
 
 	return ingress
-}
-
-func clusterIngressWithTLS(r *v1alpha1.Route, tc *traffic.Config, tls []netv1alpha1.IngressTLS, io ...IngressOption) netv1alpha1.IngressAccessor {
-	return baseIngressWithTLS(r, tc, tls, resources.MakeClusterIngress, io...)
 }
 
 func ingressWithTLS(r *v1alpha1.Route, tc *traffic.Config, tls []netv1alpha1.IngressTLS, io ...IngressOption) netv1alpha1.IngressAccessor {

@@ -89,8 +89,6 @@ type scaler struct {
 	enqueueCB    func(interface{}, time.Duration)
 }
 
-var transport = network.NewProberTransport()
-
 // newScaler creates a scaler.
 func newScaler(ctx context.Context, psInformerFactory duck.InformerFactory, enqueueCB func(interface{}, time.Duration)) *scaler {
 	logger := logging.FromContext(ctx)
