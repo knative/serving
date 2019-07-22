@@ -107,16 +107,10 @@ func (a *activationHandler) probeEndpoint(logger *zap.SugaredLogger, r *http.Req
 		url      = target.String()
 	)
 
-	reqCtx, probeSpan := trace.StartSpan(r.Context(), "probe")
-	defer func() {
-		probeSpan.End()
-		a.logger.Debugf("Probing %s took %d attempts and %v time", target.String(), attempts, time.Since(st))
-	}()
-
 	err := wait.PollImmediate(100*time.Millisecond, a.probeTimeout, func() (bool, error) {
 		attempts++
 		ret, err := prober.Do(
-			reqCtx,
+			r.Context(),
 			a.probeTransport,
 			url,
 			prober.WithHeader(network.ProbeHeaderName, queue.Name),
@@ -132,6 +126,8 @@ func (a *activationHandler) probeEndpoint(logger *zap.SugaredLogger, r *http.Req
 		}
 		return true, nil
 	})
+
+	a.logger.Debugf("Probing %s took %d attempts and %v time", target.String(), attempts, time.Since(st))
 	return (err == nil), attempts
 }
 
@@ -169,54 +165,45 @@ func (a *activationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		Host:   host,
 	}
 
-	_, ttSpan := trace.StartSpan(r.Context(), "throttler_try")
-	ttStart := time.Now()
-
-	tryContext := r.Context()
+	tryContext, trySpan := trace.StartSpan(r.Context(), "throttler_try")
 	if a.endpointTimeout > 0 {
 		var cancel context.CancelFunc
-		tryContext, cancel = context.WithTimeout(r.Context(), a.endpointTimeout)
+		tryContext, cancel = context.WithTimeout(tryContext, a.endpointTimeout)
 		defer cancel()
 	}
+
+	tryStart := time.Now()
 	err = a.throttler.Try(tryContext, revID, func() {
-		var (
-			httpStatus int
-		)
+		trySpan.End()
+		a.logger.Debugf("Waiting for throttler took %v time", time.Since(tryStart))
 
-		ttSpan.End()
-		a.logger.Debugf("Waiting for throttler took %v time", time.Since(ttStart))
+		probeCtx, probeSpan := trace.StartSpan(r.Context(), "probe")
+		success, attempts := a.probeEndpoint(logger, r.WithContext(probeCtx), target)
+		probeSpan.End()
 
-		success, attempts := a.probeEndpoint(logger, r, target)
+		var httpStatus int
 		if success {
 			// Once we see a successful probe, send traffic.
 			attempts++
-			reqCtx, proxySpan := trace.StartSpan(r.Context(), "proxy")
-			httpStatus = a.proxyRequest(w, r.WithContext(reqCtx), target)
+			proxyCtx, proxySpan := trace.StartSpan(r.Context(), "proxy")
+			httpStatus = a.proxyRequest(w, r.WithContext(proxyCtx), target)
 			proxySpan.End()
 		} else {
 			httpStatus = http.StatusInternalServerError
 			w.WriteHeader(httpStatus)
 		}
 
-		// Report the metrics
-		duration := time.Since(start)
-
-		var configurationName string
-		var serviceName string
-		if revision.Labels != nil {
-			configurationName = revision.Labels[serving.ConfigurationLabelKey]
-			serviceName = revision.Labels[serving.ServiceLabelKey]
-		}
-
+		configurationName := revision.Labels[serving.ConfigurationLabelKey]
+		serviceName := revision.Labels[serving.ServiceLabelKey]
 		a.reporter.ReportRequestCount(namespace, serviceName, configurationName, name, httpStatus, attempts, 1.0)
-		a.reporter.ReportResponseTime(namespace, serviceName, configurationName, name, httpStatus, duration)
+		a.reporter.ReportResponseTime(namespace, serviceName, configurationName, name, httpStatus, time.Since(start))
 	})
 	if err != nil {
 		// Set error on our capacity waiting span and end it
-		ttSpan.Annotate([]trace.Attribute{
+		trySpan.Annotate([]trace.Attribute{
 			trace.StringAttribute("activator.throttler.error", err.Error()),
 		}, "ThrottlerTry")
-		ttSpan.End()
+		trySpan.End()
 
 		if err == activator.ErrActivatorOverload {
 			http.Error(w, activator.ErrActivatorOverload.Error(), http.StatusServiceUnavailable)

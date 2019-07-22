@@ -28,7 +28,6 @@ import (
 	"knative.dev/serving/pkg/activator"
 	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/networking/v1alpha1"
-	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
 	servingv1alpha1 "knative.dev/serving/pkg/apis/serving/v1alpha1"
 	"knative.dev/serving/pkg/reconciler/route/domains"
@@ -233,7 +232,7 @@ func makeIngressRule(domains []string, ns string, isClusterLocal bool, targets t
 }
 
 // GetIngressTypeName returns ingress type name: ClusterIngress or Ingress
-func GetIngressTypeName(ingress netv1alpha1.IngressAccessor) string {
+func GetIngressTypeName(ingress v1alpha1.IngressAccessor) string {
 	if ingress.GetNamespace() == "" {
 		return "ClusterIngress"
 	} else {

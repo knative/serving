@@ -26,7 +26,6 @@ import (
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"go.uber.org/zap/zapcore"
 	corev1 "k8s.io/api/core/v1"
-	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -742,7 +741,7 @@ func TestProbeGenerationHTTP(t *testing.T) {
 				PodSpec: corev1.PodSpec{
 					Containers: []corev1.Container{{
 						Name: containerName,
-						Ports: []v1.ContainerPort{{
+						Ports: []corev1.ContainerPort{{
 							ContainerPort: int32(userPort),
 						}},
 						ReadinessProbe: &corev1.Probe{
@@ -834,7 +833,7 @@ func TestTCPProbeGeneration(t *testing.T) {
 				PodSpec: corev1.PodSpec{
 					Containers: []corev1.Container{{
 						Name: containerName,
-						Ports: []v1.ContainerPort{{
+						Ports: []corev1.ContainerPort{{
 							ContainerPort: int32(userPort),
 						}},
 						ReadinessProbe: &corev1.Probe{
@@ -935,7 +934,7 @@ func TestTCPProbeGeneration(t *testing.T) {
 				PodSpec: corev1.PodSpec{
 					Containers: []corev1.Container{{
 						Name: containerName,
-						Ports: []v1.ContainerPort{{
+						Ports: []corev1.ContainerPort{{
 							ContainerPort: int32(userPort),
 						}},
 						ReadinessProbe: &corev1.Probe{
