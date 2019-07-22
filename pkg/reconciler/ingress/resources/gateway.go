@@ -95,13 +95,13 @@ func MakeIngressGateways(ctx context.Context, ia v1alpha1.IngressAccessor, origi
 	if err != nil {
 		return nil, err
 	}
-	gateways := []*v1alpha3.Gateway{}
-	for _, gatewayService := range gatewayServices {
+	gateways := make([]*v1alpha3.Gateway, len(gatewayServices))
+	for i, gatewayService := range gatewayServices {
 		gateway, err := makeIngressGateway(ctx, ia, originSecrets, gatewayService.Spec.Selector, gatewayService)
 		if err != nil {
 			return nil, err
 		}
-		gateways = append(gateways, gateway)
+		gateways[i] = gateway
 	}
 	return gateways, nil
 }
@@ -138,7 +138,10 @@ func makeIngressGateway(ctx context.Context, ia v1alpha1.IngressAccessor, origin
 }
 
 func getGatewayServices(ctx context.Context, svcLister corev1listers.ServiceLister) ([]*corev1.Service, error) {
-	ingressSvcMetas := getIngressGatewaySvcNameNamespaces(ctx)
+	ingressSvcMetas, err := getIngressGatewaySvcNameNamespaces(ctx)
+	if err != nil {
+		return nil, err
+	}
 	services := []*corev1.Service{}
 	for _, ingressSvcMeta := range ingressSvcMetas {
 		svc, err := svcLister.Services(ingressSvcMeta.Namespace).Get(ingressSvcMeta.Name)
@@ -232,20 +235,20 @@ func GatewayServiceNamespace(ingressGateways []config.Gateway, gatewayName strin
 	return "", fmt.Errorf("no Gateway configuration is found for gateway %s", gatewayName)
 }
 
-func getIngressGatewaySvcNameNamespaces(ctx context.Context) []metav1.ObjectMeta {
+func getIngressGatewaySvcNameNamespaces(ctx context.Context) ([]metav1.ObjectMeta, error) {
 	cfg := config.FromContext(ctx).Istio
-	nameNamespaces := []metav1.ObjectMeta{}
-	for _, ingressgateway := range cfg.IngressGateways {
-		// serviceURL should be of the form serviceName.namespace.<domain>, for example
-		// serviceName.namespace.svc.cluster.local.
-		name := strings.Split(ingressgateway.ServiceURL, ".")[0]
-		ns := strings.Split(ingressgateway.ServiceURL, ".")[1]
-		nameNamespaces = append(nameNamespaces, metav1.ObjectMeta{
-			Name:      name,
-			Namespace: ns,
-		})
+	nameNamespaces := make([]metav1.ObjectMeta, len(cfg.IngressGateways))
+	for i, ingressgateway := range cfg.IngressGateways {
+		parts := strings.SplitN(ingressgateway.ServiceURL, ".", 3)
+		if len(parts) != 3 {
+			return nil, fmt.Errorf("unexpected service URL form: %s", ingressgateway.ServiceURL)
+		}
+		nameNamespaces[i] = metav1.ObjectMeta{
+			Name:      parts[0],
+			Namespace: parts[1],
+		}
 	}
-	return nameNamespaces
+	return nameNamespaces, nil
 }
 
 // UpdateGateway replaces the existing servers with the wanted servers.
