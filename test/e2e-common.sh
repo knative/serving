@@ -288,10 +288,13 @@ function setup_log_for_namespace() {
   NAMESPACE="$1"
 
   # Log all container log from knative-serving namespace.
-  unbuffer kail --ns "${NAMESPACE}" > "${ARTIFACTS}/${NAMESPACE}.log.txt" &
+  kail --ns "${NAMESPACE}" > "${ARTIFACTS}/${NAMESPACE}.log.txt" &
   # Log all pod events in knative-serving namespace.
-  unbuffer kubectl get pods -n "${NAMESPACE}" --watch -o wide \
-    > "${ARTIFACTS}/${NAMESPACE}.pod-event.txt" &
+  kubectl get pods -n "${NAMESPACE}" --watch -o wide \
+    > "${ARTIFACTS}/${NAMESPACE}.pods.txt" &
+  # Log all pod events in knative-serving namespace.
+  kubectl get events -n "${NAMESPACE}" --watch -o wide \
+    > "${ARTIFACTS}/${NAMESPACE}.events.txt" &
 }
 
 # Create test resources and images
