@@ -18,39 +18,9 @@ package v1alpha1
 
 import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
-
-	"knative.dev/pkg/apis"
-	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
 )
-
-var metricCondSet = apis.NewLivingConditionSet(MetricConditionActive)
 
 // GetGroupVersionKind implements OwnerRefable.
 func (m *Metric) GetGroupVersionKind() schema.GroupVersionKind {
 	return SchemeGroupVersion.WithKind("Metric")
-}
-
-// IsReady looks at the conditions and if the Status has a condition
-// ConditionReady returns true if ConditionStatus is True
-func (ms *MetricStatus) IsReady() bool {
-	return metricCondSet.Manage(ms.duck()).IsHappy()
-}
-
-// InitializeConditions initializes the conditions of the Metric.
-func (ms *MetricStatus) InitializeConditions() {
-	metricCondSet.Manage(ms.duck()).InitializeConditions()
-}
-
-// MarkActive marks the Metric active.
-func (ms *MetricStatus) MarkActive() {
-	metricCondSet.Manage(ms.duck()).MarkTrue(MetricConditionActive)
-}
-
-// MarkInactive marks the Metric as inactive.
-func (ms *MetricStatus) MarkInactive(reason, message string) {
-	metricCondSet.Manage(ms.duck()).MarkFalse(MetricConditionActive, reason, message)
-}
-
-func (ms *MetricStatus) duck() *duckv1beta1.Status {
-	return (*duckv1beta1.Status)(&ms.Status)
 }
