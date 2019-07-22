@@ -142,13 +142,13 @@ func getGatewayServices(ctx context.Context, svcLister corev1listers.ServiceList
 	if err != nil {
 		return nil, err
 	}
-	services := []*corev1.Service{}
-	for _, ingressSvcMeta := range ingressSvcMetas {
+	services := make([]*corev1.Service, len(ingressSvcMetas))
+	for i, ingressSvcMeta := range ingressSvcMetas {
 		svc, err := svcLister.Services(ingressSvcMeta.Namespace).Get(ingressSvcMeta.Name)
 		if err != nil {
 			return nil, err
 		}
-		services = append(services, svc)
+		services[i] = svc
 	}
 	return services, nil
 }
@@ -163,7 +163,7 @@ func GatewayName(accessor kmeta.Accessor, gatewaySvc *corev1.Service) string {
 // MakeTLSServers creates the expected Gateway TLS `Servers` based on the given
 // IngressAccessor.
 func MakeTLSServers(ia v1alpha1.IngressAccessor, gatewayServiceNamespace string, originSecrets map[string]*corev1.Secret) ([]v1alpha3.Server, error) {
-	servers := []v1alpha3.Server{}
+	servers := make([]v1alpha3.Server, len(ia.GetSpec().TLS))
 	// TODO(zhiminx): for the hosts that does not included in the ClusterIngressTLS but listed in the ClusterIngressRule,
 	// do we consider them as hosts for HTTP?
 	for i, tls := range ia.GetSpec().TLS {
@@ -177,7 +177,7 @@ func MakeTLSServers(ia v1alpha1.IngressAccessor, gatewayServiceNamespace string,
 			}
 			credentialName = targetSecret(originSecret, ia)
 		}
-		servers = append(servers, v1alpha3.Server{
+		servers[i] = v1alpha3.Server{
 			Hosts: tls.Hosts,
 			Port: v1alpha3.Port{
 				Name:     fmt.Sprintf("%s:%d", ia.GetName(), i),
@@ -190,7 +190,7 @@ func MakeTLSServers(ia v1alpha1.IngressAccessor, gatewayServiceNamespace string,
 				PrivateKey:        tls.PrivateKey,
 				CredentialName:    credentialName,
 			},
-		})
+		}
 	}
 	return SortServers(servers), nil
 }
