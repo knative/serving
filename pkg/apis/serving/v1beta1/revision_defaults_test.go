@@ -243,6 +243,40 @@ func TestRevisionDefaulting(t *testing.T) {
 				},
 			},
 		},
+	}, {
+		name: "defaluting non aggressive probe",
+		in: &Revision{
+			Spec: RevisionSpec{
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Name: config.DefaultUserContainerName,
+						ReadinessProbe: &corev1.Probe{
+							FailureThreshold: 3,
+						},
+					}},
+				},
+			},
+		},
+		want: &Revision{
+			Spec: RevisionSpec{
+				TimeoutSeconds: ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Name:      config.DefaultUserContainerName,
+						Resources: defaultResources,
+						ReadinessProbe: &corev1.Probe{
+							TimeoutSeconds:   1,
+							PeriodSeconds:    10,
+							FailureThreshold: 3,
+							SuccessThreshold: 1,
+							Handler: corev1.Handler{
+								TCPSocket: &corev1.TCPSocketAction{},
+							},
+						},
+					}},
+				},
+			},
+		},
 	}}
 
 	for _, test := range tests {

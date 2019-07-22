@@ -76,6 +76,7 @@ func (rs *RevisionSpec) SetDefaults(ctx context.Context) {
 				rs.PodSpec.Containers[idx].Resources.Limits[corev1.ResourceMemory] = *rsrc
 			}
 		}
+
 		if rs.PodSpec.Containers[idx].ReadinessProbe == nil {
 			rs.PodSpec.Containers[idx].ReadinessProbe = &corev1.Probe{}
 		}
@@ -84,9 +85,23 @@ func (rs *RevisionSpec) SetDefaults(ctx context.Context) {
 			rs.PodSpec.Containers[idx].ReadinessProbe.Exec == nil {
 			rs.PodSpec.Containers[idx].ReadinessProbe.TCPSocket = &corev1.TCPSocketAction{}
 		}
-
 		if rs.PodSpec.Containers[idx].ReadinessProbe.SuccessThreshold == 0 {
 			rs.PodSpec.Containers[idx].ReadinessProbe.SuccessThreshold = 1
+		}
+		// If any of FailureThreshold, TimeoutSeconds or PeriodSeconds are greater than 0,
+		// standard k8s-style would be used so setting normal k8s default values.
+		if rs.PodSpec.Containers[idx].ReadinessProbe.FailureThreshold > 0 ||
+			rs.PodSpec.Containers[idx].ReadinessProbe.TimeoutSeconds > 0 ||
+			rs.PodSpec.Containers[idx].ReadinessProbe.PeriodSeconds > 0 {
+			if rs.PodSpec.Containers[idx].ReadinessProbe.FailureThreshold == 0 {
+				rs.PodSpec.Containers[idx].ReadinessProbe.FailureThreshold = 3
+			}
+			if rs.PodSpec.Containers[idx].ReadinessProbe.TimeoutSeconds == 0 {
+				rs.PodSpec.Containers[idx].ReadinessProbe.TimeoutSeconds = 1
+			}
+			if rs.PodSpec.Containers[idx].ReadinessProbe.PeriodSeconds == 0 {
+				rs.PodSpec.Containers[idx].ReadinessProbe.PeriodSeconds = 10
+			}
 		}
 
 		vms := rs.PodSpec.Containers[idx].VolumeMounts
