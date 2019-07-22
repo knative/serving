@@ -24,6 +24,7 @@ import (
 	"knative.dev/serving/pkg/reconciler/route"
 	"knative.dev/serving/pkg/reconciler/serverlessservice"
 	"knative.dev/serving/pkg/reconciler/service"
+	"knative.dev/serving/pkg/reconciler/gc"
 
 	// This defines the shared main for injected controllers.
 	"knative.dev/pkg/injection/sharedmain"
@@ -37,5 +38,6 @@ func main() {
 		route.NewController,
 		serverlessservice.NewController,
 		service.NewController,
+		gc.NewController,
 	)
 }
