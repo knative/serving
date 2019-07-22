@@ -284,23 +284,31 @@ function knative_teardown() {
   fi
 }
 
+function setup_log_for_namespace() {
+  NAMESPACE="$1"
+
+  # Log all container log from knative-serving namespace.
+  unbuffer kail --ns "${NAMESPACE}" > "${ARTIFACTS}/${NAMESPACE}.log.txt" &
+  # Log all pod events in knative-serving namespace.
+  unbuffer kubectl get pods -n "${NAMESPACE}" --watch -o wide \
+    > "${ARTIFACTS}/${NAMESPACE}.pod-event.txt" &
+}
+
 # Create test resources and images
 function test_setup() {
   echo ">> Setting up logging..."
 
   # Install kail.
   bash <( curl -sfL https://raw.githubusercontent.com/boz/kail/master/godownloader.sh) -b "$GOPATH/bin"
-
-  # Log all container log from knative-serving namespace.
-  kail --ns knative-serving > ${ARTIFACTS}/knative-serving.log.txt &
+  setup_log_for_namespace knative-serving
 
   echo ">> Creating test resources (test/config/)"
   ko apply ${KO_FLAGS} -f test/config/ || return 1
   ${REPO_ROOT_DIR}/test/upload-test-images.sh || return 1
   wait_until_pods_running knative-serving || return 1
   if [[ -z "${GLOO_VERSION}" ]]; then
-    # Log all container log from istio-system namespace.
-    kail --ns istio-system > ${ARTIFACTS}/istio-system.log.txt &
+    setup_log_for_namespace istio-system
+
     wait_until_pods_running istio-system || return 1
     wait_until_service_has_external_ip istio-system istio-ingressgateway
   else
