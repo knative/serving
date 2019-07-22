@@ -69,8 +69,8 @@ func (s *Service) ValidateLabels() (errs *apis.FieldError) {
 	for key, val := range s.GetLabels() {
 		switch {
 		case key == config.VisibilityLabelKey:
-			errs = errs.Also(validateClusterVisbilityLabel(val))
-		case strings.HasPrefix(key, serving.GroupNamePrefix):
+			errs = errs.Also(validateClusterVisibilityLabel(val))
+		case strings.HasPrefix(key, groupNamePrefix):
 			errs = errs.Also(apis.ErrInvalidKeyName(key, ""))
 		}
 	}

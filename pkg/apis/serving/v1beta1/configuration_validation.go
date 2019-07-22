@@ -71,28 +71,27 @@ func (c *Configuration) ValidateLabels() (errs *apis.FieldError) {
 	for key, val := range c.GetLabels() {
 		switch {
 		case key == config.VisibilityLabelKey:
-			errs = errs.Also(validateClusterVisbilityLabel(val))
+			errs = errs.Also(validateClusterVisibilityLabel(val))
 		case key == serving.RouteLabelKey:
 		case key == serving.ServiceLabelKey:
 			errs = errs.Also(verifyLabelOwnerRef(val, serving.ServiceLabelKey, "Service", c.GetOwnerReferences()))
-		case strings.HasPrefix(key, serving.GroupNamePrefix):
+		case strings.HasPrefix(key, groupNamePrefix):
 			errs = errs.Also(apis.ErrInvalidKeyName(key, ""))
 		}
 	}
 	return
 }
 
-// verifyServiceLabelOwnerRef function verifies the owner references of resource with label key has val value.
+// verifyLabelOwnerRef function verifies the owner references of resource with label key has val value.
 func verifyLabelOwnerRef(val, label, resource string, ownerRefs []metav1.OwnerReference) (errs *apis.FieldError) {
-	found := false
+	if len(ownerRefs) == 0 {
+		errs = errs.Also(apis.ErrInvalidValue(val, label))
+	}
 	for i, ref := range ownerRefs {
-		if ref.Kind != resource || val != ref.Name {
+		if ref.Kind == resource && val == ref.Name {
+		} else {
 			errs = errs.Also(apis.ErrInvalidArrayValue(ref.Name, label, i))
 		}
-		found = true
-	}
-	if !found {
-		errs = errs.Also(apis.ErrInvalidValue(val, label))
 	}
 	return
 }

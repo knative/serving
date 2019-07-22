@@ -203,6 +203,23 @@ func TestRevisionLabelAnnotationValidation(t *testing.T) {
 		},
 		want: apis.ErrInvalidValue("test-new-cfg", "metadata.labels.serving.knative.dev/configuration[0]"),
 	}, {
+		name: "Mismatch knative configuration label and owner ref",
+		r: &Revision{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "byo-name",
+				Labels: map[string]string{
+					serving.ConfigurationLabelKey: "test-cfg",
+				},
+				OwnerReferences: []metav1.OwnerReference{{
+					APIVersion: "serving.knative.dev/v1alpha1",
+					Kind:       "BrandNewService",
+					Name:       "brand-new-svc",
+				}},
+			},
+			Spec: validRevisionSpec,
+		},
+		want: apis.ErrInvalidValue("brand-new-svc", "metadata.labels.serving.knative.dev/configuration[0]"),
+	}, {
 		name: "invalid knative label",
 		r: &Revision{
 			ObjectMeta: metav1.ObjectMeta{

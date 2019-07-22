@@ -148,7 +148,7 @@ func (r *Revision) ValidateLabels() (errs *apis.FieldError) {
 		case key == serving.RouteLabelKey || key == serving.ServiceLabelKey || key == serving.ConfigurationGenerationLabelKey:
 		case key == serving.ConfigurationLabelKey:
 			errs = errs.Also(verifyLabelOwnerRef(val, serving.ConfigurationLabelKey, "Configuration", r.GetOwnerReferences()))
-		case strings.HasPrefix(key, serving.GroupNamePrefix):
+		case strings.HasPrefix(key, groupNamePrefix):
 			errs = errs.Also(apis.ErrInvalidKeyName(key, ""))
 		}
 	}

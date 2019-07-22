@@ -24,6 +24,11 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
+const (
+	// GroupNamePrefix is the prefix for label key and annotation key
+	groupNamePrefix = serving.GroupName + "/"
+)
+
 // SchemeGroupVersion is group version used to register these objects
 var SchemeGroupVersion = schema.GroupVersion{Group: serving.GroupName, Version: "v1beta1"}
 

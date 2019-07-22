@@ -186,7 +186,7 @@ func (rsf *RouteStatusFields) Validate(ctx context.Context) *apis.FieldError {
 	return nil
 }
 
-func validateClusterVisbilityLabel(label string) (errs *apis.FieldError) {
+func validateClusterVisibilityLabel(label string) (errs *apis.FieldError) {
 	if label != config.VisibilityClusterLocal {
 		errs = apis.ErrInvalidValue(label, config.VisibilityLabelKey)
 	}
@@ -198,10 +198,10 @@ func (r *Route) ValidateLabels() (errs *apis.FieldError) {
 	for key, val := range r.GetLabels() {
 		switch {
 		case key == config.VisibilityLabelKey:
-			errs = errs.Also(validateClusterVisbilityLabel(val))
+			errs = errs.Also(validateClusterVisibilityLabel(val))
 		case key == serving.ServiceLabelKey:
 			errs = errs.Also(verifyLabelOwnerRef(val, serving.ServiceLabelKey, "Service", r.GetOwnerReferences()))
-		case strings.HasPrefix(key, serving.GroupNamePrefix):
+		case strings.HasPrefix(key, groupNamePrefix):
 			errs = errs.Also(apis.ErrInvalidKeyName(key, ""))
 		}
 	}
