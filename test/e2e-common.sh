@@ -301,6 +301,8 @@ function test_setup() {
   if [[ -z "${GLOO_VERSION}" ]]; then
     # Log all container log from istio-system namespace.
     kail --ns istio-system > ${ARTIFACTS}/istio-system.log.txt &
+    kubectl get pods -o wide -n istio-system --watch > ${ARTIFACTS}/istio-system.pod.txt &
+
     wait_until_pods_running istio-system || return 1
     wait_until_service_has_external_ip istio-system istio-ingressgateway
   else
