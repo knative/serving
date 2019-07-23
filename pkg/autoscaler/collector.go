@@ -17,16 +17,14 @@ limitations under the License.
 package autoscaler
 
 import (
-	"context"
 	"errors"
 	"sync"
 	"time"
 
+	"k8s.io/apimachinery/pkg/types"
 	"knative.dev/serving/pkg/autoscaler/aggregation"
 
 	"go.uber.org/zap"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/types"
 	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 )
 
@@ -85,7 +83,7 @@ type Collector interface {
 	// it already exist.
 	CreateOrUpdate(*av1alpha1.Metric) error
 	// Delete deletes a Metric and halts collection.
-	Delete(context.Context, string, string) error
+	Delete(string, string) error
 }
 
 // MetricClient surfaces the metrics that can be obtained via the collector.
@@ -117,62 +115,6 @@ func NewMetricCollector(statsScraperFactory StatsScraperFactory, logger *zap.Sug
 	}
 
 	return collector
-}
-
-// Get gets a Metric object from the collector.
-// Returns a copy of the Metric object. Mutations won't be seen by the collector.
-func (c *MetricCollector) Get(ctx context.Context, namespace, name string) (*av1alpha1.Metric, error) {
-	c.collectionsMutex.RLock()
-	defer c.collectionsMutex.RUnlock()
-
-	key := types.NamespacedName{Namespace: namespace, Name: name}
-	collector, ok := c.collections[key]
-	if !ok {
-		return nil, k8serrors.NewNotFound(av1alpha1.Resource("Metrics"), key.String())
-	}
-
-	return collector.metric.DeepCopy(), nil
-}
-
-// Create creates a new metric and thus starts collection for that entity.
-// Returns a copy of the Metric object. Mutations won't be seen by the collector.
-func (c *MetricCollector) Create(ctx context.Context, metric *av1alpha1.Metric) (*av1alpha1.Metric, error) {
-	c.collectionsMutex.Lock()
-	defer c.collectionsMutex.Unlock()
-
-	c.logger.Debugf("Starting metric collection of %s/%s", metric.Namespace, metric.Name)
-
-	key := types.NamespacedName{Namespace: metric.Namespace, Name: metric.Name}
-	coll, exists := c.collections[key]
-	if !exists {
-		scraper, err := c.statsScraperFactory(metric)
-		if err != nil {
-			return nil, err
-		}
-		coll = newCollection(metric, scraper, c.logger)
-		c.collections[key] = coll
-	}
-
-	return coll.metric.DeepCopy(), nil
-}
-
-// Update updates the Metric.
-// Returns a copy of the Metric object. Mutations won't be seen by the collector.
-func (c *MetricCollector) Update(ctx context.Context, metric *av1alpha1.Metric) (*av1alpha1.Metric, error) {
-	c.collectionsMutex.Lock()
-	defer c.collectionsMutex.Unlock()
-
-	key := types.NamespacedName{Namespace: metric.Namespace, Name: metric.Name}
-	if collection, exists := c.collections[key]; exists {
-		scraper, err := c.statsScraperFactory(metric)
-		if err != nil {
-			return nil, err
-		}
-		collection.updateScraper(scraper)
-		collection.updateMetric(metric)
-		return metric.DeepCopy(), nil
-	}
-	return nil, k8serrors.NewNotFound(av1alpha1.Resource("Metrics"), key.String())
 }
 
 // CreateOrUpdate either creates a collection for the given metric or update it, should
@@ -209,7 +151,7 @@ func (c *MetricCollector) CreateOrUpdate(metric *av1alpha1.Metric) error {
 }
 
 // Delete deletes a Metric and halts collection.
-func (c *MetricCollector) Delete(ctx context.Context, namespace, name string) error {
+func (c *MetricCollector) Delete(namespace, name string) error {
 	c.collectionsMutex.Lock()
 	defer c.collectionsMutex.Unlock()
 

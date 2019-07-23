@@ -154,7 +154,7 @@ func (c *testCollector) CreateOrUpdate(metric *av1alpha1.Metric) error {
 	return c.createOrUpdateError
 }
 
-func (c *testCollector) Delete(ctx context.Context, namespace, name string) error {
+func (c *testCollector) Delete(namespace, name string) error {
 	c.deleteCalls++
 	return c.deleteError
 }

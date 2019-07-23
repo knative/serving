@@ -27,21 +27,6 @@ import (
 	"knative.dev/serving/pkg/resources"
 )
 
-// Metrics is an interface for notifying the presence or absence of metric collection.
-type Metrics interface {
-	// Get accesses the Metric resource for this key, returning any errors.
-	Get(ctx context.Context, namespace, name string) (*v1alpha1.Metric, error)
-
-	// Create adds a Metric resource for a given key, returning any errors.
-	Create(ctx context.Context, metric *v1alpha1.Metric) (*v1alpha1.Metric, error)
-
-	// Delete removes the Metric resource for a given key, returning any errors.
-	Delete(ctx context.Context, namespace, name string) error
-
-	// Update update the Metric resource, return the new Metric or any errors.
-	Update(ctx context.Context, metric *v1alpha1.Metric) (*v1alpha1.Metric, error)
-}
-
 // StableWindow returns the stable window for the revision from PA, if set, or
 // systemwide default.
 func StableWindow(pa *v1alpha1.PodAutoscaler, config *autoscaler.Config) time.Duration {

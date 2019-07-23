@@ -17,13 +17,11 @@ limitations under the License.
 package autoscaler
 
 import (
-	"context"
 	"errors"
 	"testing"
 	"time"
 
 	"github.com/google/go-cmp/cmp"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -49,9 +47,7 @@ var (
 
 func TestMetricCollectorCRUD(t *testing.T) {
 	defer ClearAll()
-
 	logger := TestLogger(t)
-	ctx := context.Background()
 
 	scraper := &testScraper{
 		s: func() (*StatMessage, error) {
@@ -67,28 +63,12 @@ func TestMetricCollectorCRUD(t *testing.T) {
 	}
 	factory := scraperFactory(scraper, nil)
 
-	t.Run("error on mismatch", func(t *testing.T) {
-		coll := NewMetricCollector(factory, logger)
-		coll.Create(ctx, &av1alpha1.Metric{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: "another-namespace",
-				Name:      defaultName,
-			},
-		})
-		if _, err := coll.Get(ctx, defaultNamespace, defaultName); err == nil {
-			t.Error("Get() did not return an error")
-		}
-		if _, err := coll.Update(ctx, defaultMetric); err == nil {
-			t.Error("Update() did not return an error")
-		}
-	})
-
 	t.Run("error on creating scraper", func(t *testing.T) {
 		want := errors.New("factory failure")
 		failingFactory := scraperFactory(nil, want)
 
 		coll := NewMetricCollector(failingFactory, logger)
-		_, got := coll.Create(ctx, defaultMetric)
+		got := coll.CreateOrUpdate(defaultMetric)
 
 		if got != want {
 			t.Errorf("Create() = %v, want %v", got, want)
@@ -96,65 +76,34 @@ func TestMetricCollectorCRUD(t *testing.T) {
 	})
 
 	t.Run("full crud", func(t *testing.T) {
+		key := types.NamespacedName{Namespace: defaultMetric.Namespace, Name: defaultMetric.Name}
 		coll := NewMetricCollector(factory, logger)
-		coll.Create(ctx, defaultMetric)
-
-		got, err := coll.Get(ctx, defaultNamespace, defaultName)
-		if err != nil {
-			t.Errorf("Get() = %v, want no error", err)
+		if err := coll.CreateOrUpdate(defaultMetric); err != nil {
+			t.Errorf("CreateOrUpdate() = %v, want no error", err)
 		}
+
+		got := coll.collections[key].metric
 		if !cmp.Equal(defaultMetric, got) {
 			t.Errorf("Get() didn't return the same metric: %v", cmp.Diff(defaultMetric, got))
 		}
-		key := types.NamespacedName{Namespace: defaultMetric.Namespace, Name: defaultMetric.Name}
 
 		defaultMetric.Spec.ScrapeTarget = "new-target"
 		coll.statsScraperFactory = scraperFactory(scraper2, nil)
-		got, err = coll.Update(ctx, defaultMetric)
-		if err != nil {
-			t.Errorf("Update() = %v, want no error", err)
+		if err := coll.CreateOrUpdate(defaultMetric); err != nil {
+			t.Errorf("CreateOrUpdate() = %v, want no error", err)
 		}
+
+		got = coll.collections[key].metric
 		if !cmp.Equal(defaultMetric, got) {
 			t.Errorf("Update() didn't return the same metric: %v", cmp.Diff(defaultMetric, got))
 		}
+
 		newURL := (coll.collections[key]).scraper.(*testScraper).url
 		if got, want := newURL, "slightly-off"; got != want {
 			t.Errorf("Updated scraper URL = %s, want: %s, diff: %s", got, want, cmp.Diff(got, want))
 		}
 
-		if err := coll.Delete(ctx, defaultNamespace, defaultName); err != nil {
-			t.Errorf("Delete() = %v, want no error", err)
-		}
-	})
-
-	t.Run("full crud with createOrUpdate", func(t *testing.T) {
-		coll := NewMetricCollector(factory, logger)
-		coll.CreateOrUpdate(defaultMetric)
-
-		got, err := coll.Get(ctx, defaultNamespace, defaultName)
-		if err != nil {
-			t.Errorf("Get() = %v, want no error", err)
-		}
-		if !cmp.Equal(defaultMetric, got) {
-			t.Errorf("Get() didn't return the same metric: %v", cmp.Diff(defaultMetric, got))
-		}
-		key := types.NamespacedName{Namespace: defaultMetric.Namespace, Name: defaultMetric.Name}
-
-		defaultMetric.Spec.ScrapeTarget = "new-target"
-		coll.statsScraperFactory = scraperFactory(scraper2, nil)
-		err = coll.CreateOrUpdate(defaultMetric)
-		if err != nil {
-			t.Errorf("Update() = %v, want no error", err)
-		}
-		if !cmp.Equal(defaultMetric, got) {
-			t.Errorf("Update() didn't return the same metric: %v", cmp.Diff(defaultMetric, got))
-		}
-		newURL := (coll.collections[key]).scraper.(*testScraper).url
-		if got, want := newURL, "slightly-off"; got != want {
-			t.Errorf("Updated scraper URL = %s, want: %s, diff: %s", got, want, cmp.Diff(got, want))
-		}
-
-		if err := coll.Delete(ctx, defaultNamespace, defaultName); err != nil {
+		if err := coll.Delete(defaultNamespace, defaultName); err != nil {
 			t.Errorf("Delete() = %v, want no error", err)
 		}
 	})
@@ -162,9 +111,7 @@ func TestMetricCollectorCRUD(t *testing.T) {
 
 func TestMetricCollectorScraper(t *testing.T) {
 	defer ClearAll()
-
 	logger := TestLogger(t)
-	ctx := context.Background()
 
 	now := time.Now()
 	metricKey := types.NamespacedName{Namespace: defaultNamespace, Name: defaultName}
@@ -185,7 +132,7 @@ func TestMetricCollectorScraper(t *testing.T) {
 	factory := scraperFactory(scraper, nil)
 
 	coll := NewMetricCollector(factory, logger)
-	coll.Create(ctx, defaultMetric)
+	coll.CreateOrUpdate(defaultMetric)
 
 	// stable concurrency should eventually be equal to the stat.
 	var got float64
@@ -207,7 +154,7 @@ func TestMetricCollectorScraper(t *testing.T) {
 	}
 
 	// deleting the metric should cause a calculation error
-	coll.Delete(ctx, defaultNamespace, defaultName)
+	coll.Delete(defaultNamespace, defaultName)
 	_, _, err := coll.StableAndPanicConcurrency(metricKey, now)
 	if err != ErrNotScraping {
 		t.Errorf("StableAndPanicConcurrency() = %v, want %v", err, ErrNotScraping)
@@ -216,9 +163,7 @@ func TestMetricCollectorScraper(t *testing.T) {
 
 func TestMetricCollectorRecord(t *testing.T) {
 	defer ClearAll()
-
 	logger := TestLogger(t)
-	ctx := context.Background()
 
 	now := time.Now()
 	metricKey := types.NamespacedName{Namespace: defaultNamespace, Name: defaultName}
@@ -239,7 +184,7 @@ func TestMetricCollectorRecord(t *testing.T) {
 	coll := NewMetricCollector(factory, logger)
 
 	// Freshly created collection does not contain any metrics and should return an error.
-	coll.Create(ctx, defaultMetric)
+	coll.CreateOrUpdate(defaultMetric)
 	if _, _, err := coll.StableAndPanicConcurrency(metricKey, now); err == nil {
 		t.Error("StableAndPanicConcurrency() = nil, wanted an error")
 	}
