@@ -20,8 +20,11 @@ import (
 	"context"
 	"time"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"knative.dev/pkg/kmeta"
 	"knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/autoscaler"
+	"knative.dev/serving/pkg/resources"
 )
 
 // Metrics is an interface for notifying the presence or absence of metric collection.
@@ -65,7 +68,13 @@ func MakeMetric(ctx context.Context, pa *v1alpha1.PodAutoscaler, metricSvc strin
 		panicWindow = autoscaler.BucketSize
 	}
 	return &v1alpha1.Metric{
-		ObjectMeta: pa.ObjectMeta,
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace:       pa.Namespace,
+			Name:            pa.Name,
+			Annotations:     resources.CopyMap(pa.Annotations),
+			Labels:          resources.CopyMap(pa.Labels),
+			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(pa)},
+		},
 		Spec: v1alpha1.MetricSpec{
 			StableWindow: stableWindow,
 			PanicWindow:  panicWindow,

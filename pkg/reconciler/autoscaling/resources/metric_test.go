@@ -23,6 +23,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"knative.dev/pkg/kmeta"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/autoscaler"
@@ -40,12 +41,12 @@ func TestMakeMetric(t *testing.T) {
 		name: "defaults",
 		pa:   pa(),
 		msn:  "ik",
-		want: metric(withScarapeTarget("ik")),
+		want: metric(withScrapeTarget("ik")),
 	}, {
 		name: "with too short panic window",
 		pa:   pa(WithWindowAnnotation("10s"), WithPanicWindowPercentageAnnotation("10")),
 		msn:  "wil",
-		want: metric(withScarapeTarget("wil"), withWindowAnnotation("10s"),
+		want: metric(withScrapeTarget("wil"), withWindowAnnotation("10s"),
 			withStableWindow(10*time.Second), withPanicWindow(autoscaler.BucketSize),
 			withPanicWindowPercentageAnnotation("10")),
 	}, {
@@ -53,7 +54,7 @@ func TestMakeMetric(t *testing.T) {
 		pa:   pa(WithWindowAnnotation("10m")),
 		msn:  "nu",
 		want: metric(
-			withScarapeTarget("nu"),
+			withScrapeTarget("nu"),
 			withStableWindow(10*time.Minute), withPanicWindow(time.Minute),
 			withWindowAnnotation("10m")),
 	}, {
@@ -61,7 +62,7 @@ func TestMakeMetric(t *testing.T) {
 		pa:   pa(WithPanicWindowPercentageAnnotation("50")),
 		msn:  "dansen",
 		want: metric(
-			withScarapeTarget("dansen"),
+			withScrapeTarget("dansen"),
 			withStableWindow(time.Minute), withPanicWindow(30*time.Second),
 			withPanicWindowPercentageAnnotation("50")),
 	}}
@@ -114,7 +115,7 @@ func withPanicWindowPercentageAnnotation(percentage string) MetricOption {
 	}
 }
 
-func withScarapeTarget(s string) MetricOption {
+func withScrapeTarget(s string) MetricOption {
 	return func(metric *v1alpha1.Metric) {
 		metric.Spec.ScrapeTarget = s
 	}
@@ -128,6 +129,8 @@ func metric(options ...MetricOption) *v1alpha1.Metric {
 			Annotations: map[string]string{
 				autoscaling.ClassAnnotationKey: autoscaling.KPA,
 			},
+			Labels:          map[string]string{},
+			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(pa())},
 		},
 		Spec: v1alpha1.MetricSpec{
 			StableWindow: 60 * time.Second,

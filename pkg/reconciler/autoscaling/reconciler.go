@@ -175,19 +175,21 @@ func (c *Base) ReconcileMetric(ctx context.Context, pa *pav1alpha1.PodAutoscaler
 	desiredMetric := resources.MakeMetric(ctx, pa, metricSN, config.FromContext(ctx).Autoscaler)
 	metric, err := c.Metrics.Get(ctx, desiredMetric.Namespace, desiredMetric.Name)
 	if errors.IsNotFound(err) {
-		metric, err = c.Metrics.Create(ctx, desiredMetric)
+		_, err = c.Metrics.Create(ctx, desiredMetric)
 		if err != nil {
 			return perrors.Wrap(err, "error creating metric")
 		}
 	} else if err != nil {
 		return perrors.Wrap(err, "error fetching metric")
-	}
-
-	// Ignore status when reconciling
-	desiredMetric.Status = metric.Status
-	if !equality.Semantic.DeepEqual(desiredMetric, metric) {
-		if _, err = c.Metrics.Update(ctx, desiredMetric); err != nil {
-			return perrors.Wrap(err, "error updating metric")
+	} else {
+		// Ignore status when reconciling
+		desiredMetric.Status = metric.Status
+		if !equality.Semantic.DeepEqual(desiredMetric, metric) {
+			want := metric.DeepCopy()
+			want.Spec = desiredMetric.Spec
+			if _, err = c.Metrics.Update(ctx, desiredMetric); err != nil {
+				return perrors.Wrap(err, "error updating metric")
+			}
 		}
 	}
 
