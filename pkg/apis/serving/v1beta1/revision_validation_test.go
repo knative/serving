@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"testing"
 
+	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/apis/config"
 
 	"github.com/google/go-cmp/cmp"
@@ -568,6 +569,94 @@ func TestImmutableFields(t *testing.T) {
 			got := test.new.Validate(ctx)
 			if got, want := got.Error(), test.want.Error(); got != want {
 				t.Errorf("Validate got: %s, want: %s, diff:(-want, +got)=\n%v", got, want, cmp.Diff(got, want))
+			}
+		})
+	}
+}
+
+func TestRevisionTemplateSpecValidation(t *testing.T) {
+	tests := []struct {
+		name string
+		rts  *RevisionTemplateSpec
+		want *apis.FieldError
+	}{{
+		name: "valid",
+		rts: &RevisionTemplateSpec{
+			Spec: RevisionSpec{
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Image: "helloworld",
+					}},
+				},
+			},
+		},
+		want: nil,
+	}, {
+		name: "empty spec",
+		rts:  &RevisionTemplateSpec{},
+		want: apis.ErrMissingField("spec.containers"),
+	}, {
+		name: "nested spec error",
+		rts: &RevisionTemplateSpec{
+			Spec: RevisionSpec{
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Name:      "kevin",
+						Image:     "helloworld",
+						Lifecycle: &corev1.Lifecycle{},
+					}},
+				},
+			},
+		},
+		want: apis.ErrDisallowedFields("spec.containers[0].lifecycle"),
+	}, {
+		name: "has revision template name",
+		rts: &RevisionTemplateSpec{
+			ObjectMeta: metav1.ObjectMeta{
+				// We let users bring their own revision name.
+				Name: "parent-foo",
+			},
+			Spec: RevisionSpec{
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Image: "helloworld",
+					}},
+				},
+			},
+		},
+		want: nil,
+	}, {
+		name: "invalid metadata.annotations for scale",
+		rts: &RevisionTemplateSpec{
+			ObjectMeta: metav1.ObjectMeta{
+				Annotations: map[string]string{
+					autoscaling.MinScaleAnnotationKey: "5",
+					autoscaling.MaxScaleAnnotationKey: "",
+				},
+			},
+			Spec: RevisionSpec{
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Image: "helloworld",
+					}},
+				},
+			},
+		},
+		want: (&apis.FieldError{
+			Message: "expected 1 <=  <= 2147483647",
+			Paths:   []string{autoscaling.MaxScaleAnnotationKey},
+		}).ViaField("annotations").ViaField("metadata"),
+	}}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			ctx := apis.WithinParent(context.Background(), metav1.ObjectMeta{
+				Name: "parent",
+			})
+
+			got := test.rts.Validate(ctx)
+			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
+				t.Errorf("Validate (-want, +got) = %v", diff)
 			}
 		})
 	}
