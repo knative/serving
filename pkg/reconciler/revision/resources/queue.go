@@ -79,7 +79,7 @@ func createQueueResources(annotations map[string]string, userContainer *corev1.C
 		resourcePercentage                               float32
 	)
 
-	if ok, resourcePercentage = createResourcePercentageFromAnnotations(annotations, serving.QueueSideCarResourcePercentageAnnotation); ok {
+	if ok, resourcePercentage = fractionFromPercentage(annotations, serving.QueueSideCarResourcePercentageAnnotation); ok {
 		if ok, requestCPU = computeResourceRequirements(userContainer.Resources.Requests.Cpu(), resourcePercentage, queueContainerRequestCPU); ok {
 			resourceRequests[corev1.ResourceCPU] = requestCPU
 		}
@@ -134,16 +134,13 @@ func computeResourceRequirements(resourceQuantity *resource.Quantity, percentage
 	return true, newquantity
 }
 
-func createResourcePercentageFromAnnotations(m map[string]string, k string) (bool, float32) {
+func fractionFromPercentage(m map[string]string, k string) (bool, float32) {
 	v, ok := m[k]
 	if !ok {
 		return false, 0
 	}
 	value, err := strconv.ParseFloat(v, 32)
-	if err != nil {
-		return false, 0
-	}
-	return true, float32(value / 100)
+	return err == nil, float32(value / 100)
 }
 
 func makeQueueProbe(in *corev1.Probe) *corev1.Probe {
