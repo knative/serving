@@ -24,6 +24,7 @@ import (
 	"testing"
 	"time"
 
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -266,7 +267,7 @@ func TestMultiScalerScaleFromZero(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Create() = %v", err)
 	}
-	metricKey := NewMetricKey(decider.Namespace, decider.Name)
+	metricKey := types.NamespacedName{Namespace: decider.Namespace, Name: decider.Name}
 	if scaler, exists := ms.scalers[metricKey]; !exists {
 		t.Errorf("Failed to get scaler for metric %s", metricKey)
 	} else if !scaler.updateLatestScale(0, 10) {

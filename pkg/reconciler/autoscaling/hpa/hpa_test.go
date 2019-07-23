@@ -35,6 +35,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	ktesting "k8s.io/client-go/testing"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
@@ -490,7 +491,7 @@ type testMetrics struct {
 
 func (km *testMetrics) Get(ctx context.Context, namespace, name string) (*asv1a1.Metric, error) {
 	if km.metric == nil {
-		return nil, apierrors.NewNotFound(asv1a1.Resource("Metric"), autoscaler.NewMetricKey(namespace, name))
+		return nil, apierrors.NewNotFound(asv1a1.Resource("Metric"), types.NamespacedName{Namespace: namespace, Name: name}.String())
 	}
 	return km.metric, nil
 }

@@ -63,7 +63,7 @@ func (p *MetricProvider) GetMetricByName(name types.NamespacedName, info provide
 		return nil, errMetricNotSupported
 	}
 
-	concurrency, _, err := p.metricClient.StableAndPanicConcurrency(name.String())
+	concurrency, _, err := p.metricClient.StableAndPanicConcurrency(name)
 	if err != nil {
 		return nil, err
 	}

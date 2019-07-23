@@ -37,6 +37,7 @@ import (
 	"knative.dev/serving/pkg/reconciler"
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	"github.com/google/go-cmp/cmp"
@@ -1351,7 +1352,7 @@ func (km *testDeciders) Get(ctx context.Context, namespace, name string) (*autos
 	defer km.mutex.Unlock()
 
 	if km.decider == nil {
-		return nil, apierrors.NewNotFound(asv1a1.Resource("Deciders"), autoscaler.NewMetricKey(namespace, name))
+		return nil, apierrors.NewNotFound(asv1a1.Resource("Deciders"), types.NamespacedName{Namespace: namespace, Name: name}.String())
 	}
 	return km.decider, nil
 }
@@ -1432,7 +1433,7 @@ type testMetrics struct {
 
 func (km *testMetrics) Get(ctx context.Context, namespace, name string) (*asv1a1.Metric, error) {
 	if km.metric == nil {
-		return nil, apierrors.NewNotFound(asv1a1.Resource("Metric"), autoscaler.NewMetricKey(namespace, name))
+		return nil, apierrors.NewNotFound(asv1a1.Resource("Metric"), types.NamespacedName{Namespace: namespace, Name: name}.String())
 	}
 	return km.metric, nil
 }
