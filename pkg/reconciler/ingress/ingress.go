@@ -265,24 +265,8 @@ func (r *BaseIngressReconciler) reconcileIngress(ctx context.Context, ra Reconci
 		// when error reconciling VirtualService?
 		return err
 	}
-	// As underlying network programming (VirtualService now) is stateless,
-	// here we simply mark the ingress as ready if the VirtualService
-	// is successfully synced.
-	ia.GetStatus().MarkNetworkConfigured()
 
-	lbs := getLBStatus(gatewayServiceURLFromContext(ctx, ia))
-	publicLbs := getLBStatus(publicGatewayServiceURLFromContext(ctx))
-	privateLbs := getLBStatus(privateGatewayServiceURLFromContext(ctx))
-
-	ia.GetStatus().MarkLoadBalancerReady(lbs, publicLbs, privateLbs)
-	ia.GetStatus().ObservedGeneration = ia.GetGeneration()
-
-	if enableReconcileGateway(ctx) {
-		if !ia.IsPublic() {
-			logger.Infof("Ingress %s is not public. So no need to configure TLS.", ia.GetName())
-			return nil
-		}
-
+	if enableReconcileGateway(ctx) && ia.IsPublic() {
 		// Add the finalizer before adding `Servers` into Gateway so that we can be sure
 		// the `Servers` get cleaned up from Gateway.
 		if err := r.ensureFinalizer(ra, ia); err != nil {
@@ -315,6 +299,18 @@ func (r *BaseIngressReconciler) reconcileIngress(ctx context.Context, ra Reconci
 			}
 		}
 	}
+
+	// As underlying network programming (VirtualService now) is stateless,
+	// here we simply mark the ingress as ready if the VirtualService
+	// is successfully synced.
+	ia.GetStatus().MarkNetworkConfigured()
+
+	lbs := getLBStatus(gatewayServiceURLFromContext(ctx, ia))
+	publicLbs := getLBStatus(publicGatewayServiceURLFromContext(ctx))
+	privateLbs := getLBStatus(privateGatewayServiceURLFromContext(ctx))
+
+	ia.GetStatus().MarkLoadBalancerReady(lbs, publicLbs, privateLbs)
+	ia.GetStatus().ObservedGeneration = ia.GetGeneration()
 
 	// TODO(zhiminx): Mark Route status to indicate that Gateway is configured.
 	logger.Info("ClusterIngress successfully synced")
