@@ -117,9 +117,8 @@ func (sr *scalerRunner) updateLatestScale(proposed, ebc int32) bool {
 	}
 
 	// If sign has changed -- then we have to update KPA
-	if !sameSign(sr.decider.Status.ExcessBurstCapacity, ebc) {
-		ret = true
-	}
+	ret = ret || !sameSign(sr.decider.Status.ExcessBurstCapacity, ebc)
+
 	// Update with the latest calculation anyway.
 	sr.decider.Status.ExcessBurstCapacity = ebc
 	return ret
@@ -246,6 +245,7 @@ func (m *MultiScaler) Inform(event string) bool {
 	}
 	return false
 }
+
 func (m *MultiScaler) updateRunner(ctx context.Context, runner *scalerRunner) {
 	runner.stopCh <- struct{}{}
 	m.runScalerTicker(ctx, runner)
@@ -277,10 +277,9 @@ func (m *MultiScaler) createScaler(ctx context.Context, decider *Decider) (*scal
 		return nil, err
 	}
 
-	stopCh := make(chan struct{})
 	runner := &scalerRunner{
 		scaler:  scaler,
-		stopCh:  stopCh,
+		stopCh:  make(chan struct{}),
 		decider: *decider,
 		pokeCh:  make(chan struct{}),
 	}
