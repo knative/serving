@@ -309,30 +309,42 @@ func TestQueueTraceSpans(t *testing.T) {
 		wantSpans     int
 		requestHeader string
 		probeFail     bool
+		enableTrace   bool
 	}{{
 		name:          "true probe function",
 		prober:        func() bool { return true },
 		wantSpans:     3,
 		requestHeader: queue.Name,
 		probeFail:     false,
+		enableTrace:   true,
 	}, {
 		name:          "unexpected probe header",
 		prober:        func() bool { return true },
 		wantSpans:     1,
 		requestHeader: "test-probe",
 		probeFail:     true,
+		enableTrace:   true,
 	}, {
 		name:          "nil probe function",
 		prober:        nil,
 		wantSpans:     1,
 		requestHeader: queue.Name,
 		probeFail:     true,
+		enableTrace:   true,
 	}, {
 		name:          "false probe function",
 		prober:        func() bool { return false },
 		wantSpans:     1,
 		requestHeader: queue.Name,
 		probeFail:     true,
+		enableTrace:   true,
+	}, {
+		name:          "true probe function",
+		prober:        func() bool { return true },
+		wantSpans:     0,
+		requestHeader: queue.Name,
+		probeFail:     false,
+		enableTrace:   false,
 	}}
 
 	for _, tc := range testcases {
@@ -347,7 +359,7 @@ func TestQueueTraceSpans(t *testing.T) {
 			defer oct.Finish()
 
 			cfg := tracingconfig.Config{
-				Enable: true,
+				Enable: tc.enableTrace,
 				Debug:  true,
 			}
 			if err := oct.ApplyConfig(&cfg); err != nil {

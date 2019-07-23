@@ -17,6 +17,8 @@ limitations under the License.
 package resources
 
 import (
+	"strconv"
+
 	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/ptr"
@@ -31,7 +33,6 @@ import (
 	"knative.dev/serving/pkg/reconciler/revision/resources/names"
 	"knative.dev/serving/pkg/resources"
 	tracingconfig "knative.dev/serving/pkg/tracing/config"
-	"strconv"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"

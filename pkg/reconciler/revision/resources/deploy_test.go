@@ -17,6 +17,8 @@ limitations under the License.
 package resources
 
 import (
+	"testing"
+
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	appsv1 "k8s.io/api/apps/v1"
@@ -39,7 +41,6 @@ import (
 	"knative.dev/serving/pkg/metrics"
 	"knative.dev/serving/pkg/network"
 	tracingconfig "knative.dev/serving/pkg/tracing/config"
-	"testing"
 )
 
 var (

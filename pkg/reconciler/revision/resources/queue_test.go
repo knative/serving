@@ -18,6 +18,10 @@ package resources
 
 import (
 	"encoding/json"
+	"sort"
+	"strconv"
+	"testing"
+
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"go.uber.org/zap/zapcore"
@@ -42,9 +46,6 @@ import (
 	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/resources"
 	tracingconfig "knative.dev/serving/pkg/tracing/config"
-	"sort"
-	"strconv"
-	"testing"
 )
 
 var defaultKnativeQReadinessProbe = &corev1.Probe{

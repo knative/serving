@@ -123,29 +123,29 @@ var (
 )
 
 type config struct {
-	ContainerConcurrency         int    `split_words:"true" required:"true"`
-	QueueServingPort             int    `split_words:"true" required:"true"`
-	RevisionTimeoutSeconds       int    `split_words:"true" required:"true"`
-	UserPort                     int    `split_words:"true" required:"true"`
-	EnableVarLogCollection       bool   `split_words:"true"` // optional
-	ServingConfiguration         string `split_words:"true" required:"true"`
-	ServingNamespace             string `split_words:"true" required:"true"`
-	ServingPodIP                 string `split_words:"true" required:"true"`
-	ServingPod                   string `split_words:"true" required:"true"`
-	ServingRevision              string `split_words:"true" required:"true"`
-	ServingService               string `split_words:"true"` // optional
-	UserContainerName            string `split_words:"true" required:"true"`
-	VarLogVolumeName             string `split_words:"true" required:"true"`
-	InternalVolumePath           string `split_words:"true" required:"true"`
-	ServingLoggingConfig         string `split_words:"true" required:"true"`
-	ServingLoggingLevel          string `split_words:"true" required:"true"`
-	ServingRequestMetricsBackend string `split_words:"true" required:"true"`
-	ServingRequestLogTemplate    string `split_words:"true" required:"true"`
-	ServingReadinessProbe        string `split_words:"true" required:"true"`
-	TracingConfigEnable          string `split_words:"true" required:"true" default:"false"`
-	TracingConfigZipkinEndpoint  string `split_words:"true" required:"true"`
-	TracingConfigDebug           string `split_words:"true" required:"true" default:"false"`
-	TracingConfigSampleRate      string `split_words:"true" required:"true" default:"0"`
+	ContainerConcurrency         int     `split_words:"true" required:"true"`
+	QueueServingPort             int     `split_words:"true" required:"true"`
+	RevisionTimeoutSeconds       int     `split_words:"true" required:"true"`
+	UserPort                     int     `split_words:"true" required:"true"`
+	EnableVarLogCollection       bool    `split_words:"true"` // optional
+	ServingConfiguration         string  `split_words:"true" required:"true"`
+	ServingNamespace             string  `split_words:"true" required:"true"`
+	ServingPodIP                 string  `split_words:"true" required:"true"`
+	ServingPod                   string  `split_words:"true" required:"true"`
+	ServingRevision              string  `split_words:"true" required:"true"`
+	ServingService               string  `split_words:"true"` // optional
+	UserContainerName            string  `split_words:"true" required:"true"`
+	VarLogVolumeName             string  `split_words:"true" required:"true"`
+	InternalVolumePath           string  `split_words:"true" required:"true"`
+	ServingLoggingConfig         string  `split_words:"true" required:"true"`
+	ServingLoggingLevel          string  `split_words:"true" required:"true"`
+	ServingRequestMetricsBackend string  `split_words:"true" required:"true"`
+	ServingRequestLogTemplate    string  `split_words:"true" required:"true"`
+	ServingReadinessProbe        string  `split_words:"true" required:"true"`
+	TracingConfigDebug           bool    `split_words:"true"` // optional
+	TracingConfigEnable          bool    `split_words:"true" required:"true"`
+	TracingConfigSampleRate      float64 `split_words:"true"` // optional
+	TracingConfigZipkinEndpoint  string  `split_words:"true"` // optional
 }
 
 func initConfig(env config) {
@@ -185,15 +185,15 @@ func knativeProxyHeader(r *http.Request) string {
 // Make handler a closure for testing.
 func handler(reqChan chan queue.ReqEvent, breaker *queue.Breaker, handler http.Handler, prober func() bool) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		reqCtx, probeSpan := trace.StartSpan(r.Context(), "probe")
+		probeCtx, probeSpan := trace.StartSpan(r.Context(), "probe")
 		ph := knativeProbeHeader(r)
 		switch {
 		case ph != "":
 			if ph != queue.Name {
+				http.Error(w, fmt.Sprintf(badProbeTemplate, ph), http.StatusBadRequest)
 				probeSpan.Annotate([]trace.Attribute{
 					trace.StringAttribute("queueproxy.probe.error", fmt.Sprintf(badProbeTemplate, ph))}, "error")
 				probeSpan.End()
-				http.Error(w, fmt.Sprintf(badProbeTemplate, ph), http.StatusBadRequest)
 				return
 			}
 			if prober != nil {
@@ -201,27 +201,26 @@ func handler(reqChan chan queue.ReqEvent, breaker *queue.Breaker, handler http.H
 					// Respond with the name of the component handling the request.
 					w.Write([]byte(queue.Name))
 				} else {
+					http.Error(w, "container not ready", http.StatusServiceUnavailable)
 					probeSpan.Annotate([]trace.Attribute{
 						trace.StringAttribute("queueproxy.probe.error", "container not ready")}, "error")
-					probeSpan.End()
-					http.Error(w, "container not ready", http.StatusServiceUnavailable)
 				}
 
 			} else {
+				http.Error(w, "no probe", http.StatusInternalServerError)
 				probeSpan.Annotate([]trace.Attribute{
 					trace.StringAttribute("queueproxy.probe.error", "no probe")}, "error")
-				probeSpan.End()
-				http.Error(w, "no probe", http.StatusInternalServerError)
 			}
-
+			probeSpan.End()
 			return
 		case network.IsKubeletProbe(r):
 			// Do not count health checks for concurrency metrics
-			handler.ServeHTTP(w, r.WithContext(reqCtx))
+			handler.ServeHTTP(w, r.WithContext(probeCtx))
+			probeSpan.End()
 			return
 		}
 		probeSpan.End()
-		reqCtx, proxySpan := trace.StartSpan(r.Context(), "proxy")
+		proxyCtx, proxySpan := trace.StartSpan(r.Context(), "proxy")
 		defer proxySpan.End()
 		// Metrics for autoscaling.
 		in, out := queue.ReqIn, queue.ReqOut
@@ -237,12 +236,12 @@ func handler(reqChan chan queue.ReqEvent, breaker *queue.Breaker, handler http.H
 		// Enforce queuing and concurrency limits.
 		if breaker != nil {
 			if !breaker.Maybe(r.Context(), func() {
-				handler.ServeHTTP(w, r.WithContext(reqCtx))
+				handler.ServeHTTP(w, r.WithContext(proxyCtx))
 			}) {
 				http.Error(w, "overload", http.StatusServiceUnavailable)
 			}
 		} else {
-			handler.ServeHTTP(w, r.WithContext(reqCtx))
+			handler.ServeHTTP(w, r.WithContext(proxyCtx))
 		}
 	}
 }
@@ -329,42 +328,34 @@ func main() {
 		logger.Fatalw("Failed to parse localhost URL", zap.Error(err))
 	}
 
-	queueProxyL3 := fmt.Sprintf("%s:%d", env.ServingPod, networking.ServiceHTTPPort)
-	zipkinEndpoint, err := zipkin.NewEndpoint(env.ServingPod, queueProxyL3)
+	if (env.TracingConfigEnable) {
+		queueProxyL3 := fmt.Sprintf("%s:%d", env.ServingPod, networking.ServiceHTTPPort)
+		zipkinEndpoint, err := zipkin.NewEndpoint(env.ServingPod, queueProxyL3)
 
-	if err != nil {
-		logger.Fatalw("Unable to create tracing endpoint", zap.Error(err))
-		return
-	}
+		if err != nil {
+			logger.Fatalw("Unable to create tracing endpoint", zap.Error(err))
+			return
+		}
 
-	oct := tracing.NewOpenCensusTracer(
-		tracing.WithZipkinExporter(tracing.CreateZipkinReporter, zipkinEndpoint),
-	)
+		oct := tracing.NewOpenCensusTracer(
+			tracing.WithZipkinExporter(tracing.CreateZipkinReporter, zipkinEndpoint),
+		)
 
-	enableVal, err := strconv.ParseBool(env.TracingConfigEnable)
-	if err != nil {
-		logger.Infow("Error parsing tracing enable var", zap.Error(err))
+		cfg := tracingconfig.Config{
+			Enable:         env.TracingConfigEnable,
+			Debug:          env.TracingConfigDebug,
+			ZipkinEndpoint: env.TracingConfigZipkinEndpoint,
+			SampleRate:     env.TracingConfigSampleRate,
+		}
+		oct.ApplyConfig(&cfg)
 	}
-	debugVal, err := strconv.ParseBool(env.TracingConfigDebug)
-	if err != nil {
-		logger.Infow("Error parsing tracing debug var", zap.Error(err))
-	}
-	sampleVal, err := strconv.ParseFloat(env.TracingConfigSampleRate, 64)
-	if err != nil {
-		logger.Infow("Error parsing tracing sample var", zap.Error(err))
-	}
-
-	cfg := tracingconfig.Config{
-		Enable:         enableVal,
-		Debug:          debugVal,
-		ZipkinEndpoint: env.TracingConfigZipkinEndpoint,
-		SampleRate:     sampleVal,
-	}
-	oct.ApplyConfig(&cfg)
 
 	httpProxy = httputil.NewSingleHostReverseProxy(target)
-	httpProxy.Transport = &ochttp.Transport{
-		Base: network.AutoTransport,
+
+	if (env.TracingConfigEnable) {
+		httpProxy.Transport = &ochttp.Transport{
+			Base: network.AutoTransport,
+		}
 	}
 	httpProxy.FlushInterval = -1
 

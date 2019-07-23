@@ -18,6 +18,7 @@ package config
 
 import (
 	"context"
+
 	"knative.dev/pkg/configmap"
 	pkglogging "knative.dev/pkg/logging"
 	pkgmetrics "knative.dev/pkg/metrics"
