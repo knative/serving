@@ -20,7 +20,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -28,9 +27,6 @@ import (
 )
 
 const (
-	// ReporterReportingPeriod is the interval of time between reporting stats by queue proxy.
-	ReporterReportingPeriod = time.Second
-
 	destinationNsLabel     = "destination_namespace"
 	destinationConfigLabel = "destination_configuration"
 	destinationRevLabel    = "destination_revision"
@@ -45,7 +41,6 @@ var (
 		destinationPodLabel,
 	}
 
-	// TODO(#2524): make reporting period accurate.
 	operationsPerSecondGV = newGV(
 		"queue_operations_per_second",
 		"Number of operations per second")
@@ -69,13 +64,14 @@ func newGV(n, h string) *prometheus.GaugeVec {
 
 // PrometheusStatsReporter structure represents a prometheus stats reporter.
 type PrometheusStatsReporter struct {
-	initialized bool
-	labels      prometheus.Labels
-	handler     http.Handler
+	initialized             bool
+	labels                  prometheus.Labels
+	handler                 http.Handler
+	reporterReportingPeriod int64 // ReporterReportingPeriod is the interval of time between reporting stats by queue proxy.
 }
 
 // NewPrometheusStatsReporter creates a reporter that collects and reports queue metrics.
-func NewPrometheusStatsReporter(namespace, config, revision, pod string) (*PrometheusStatsReporter, error) {
+func NewPrometheusStatsReporter(namespace, config, revision, pod string, reporterReportingPeriod int64) (*PrometheusStatsReporter, error) {
 	if namespace == "" {
 		return nil, errors.New("namespace must not be empty")
 	}
@@ -104,7 +100,8 @@ func NewPrometheusStatsReporter(namespace, config, revision, pod string) (*Prome
 			destinationRevLabel:    revision,
 			destinationPodLabel:    pod,
 		},
-		handler: promhttp.HandlerFor(registry, promhttp.HandlerOpts{}),
+		handler:                 promhttp.HandlerFor(registry, promhttp.HandlerOpts{}),
+		reporterReportingPeriod: reporterReportingPeriod,
 	}, nil
 }
 
@@ -114,10 +111,10 @@ func (r *PrometheusStatsReporter) Report(stat *autoscaler.Stat) error {
 		return errors.New("PrometheusStatsReporter is not initialized yet")
 	}
 
-	operationsPerSecondGV.With(r.labels).Set(stat.RequestCount)
-	proxiedOperationsPerSecondGV.With(r.labels).Set(stat.ProxiedRequestCount)
-	averageConcurrentRequestsGV.With(r.labels).Set(stat.AverageConcurrentRequests)
-	averageProxiedConcurrentRequestsGV.With(r.labels).Set(stat.AverageProxiedConcurrentRequests)
+	operationsPerSecondGV.With(r.labels).Set((stat.RequestCount / (float64)(r.reporterReportingPeriod)))
+	proxiedOperationsPerSecondGV.With(r.labels).Set((stat.ProxiedRequestCount / (float64)(r.reporterReportingPeriod)))
+	averageConcurrentRequestsGV.With(r.labels).Set((stat.AverageConcurrentRequests / (float64)(r.reporterReportingPeriod)))
+	averageProxiedConcurrentRequestsGV.With(r.labels).Set((stat.AverageProxiedConcurrentRequests / (float64)(r.reporterReportingPeriod)))
 
 	return nil
 }
