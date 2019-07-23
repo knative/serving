@@ -18,7 +18,6 @@ package autoscaler
 
 import (
 	"context"
-	"fmt"
 	"math"
 	"sync"
 	"time"
@@ -26,6 +25,7 @@ import (
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"knative.dev/pkg/logging"
 	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 )
@@ -124,15 +124,9 @@ func (sr *scalerRunner) updateLatestScale(proposed, ebc int32) bool {
 	return ret
 }
 
-// NewMetricKey identifies a UniScaler in the multiscaler. Stats send in
-// are identified and routed via this key.
-func NewMetricKey(namespace string, name string) string {
-	return fmt.Sprintf("%s/%s", namespace, name)
-}
-
 // MultiScaler maintains a collection of Uniscalers.
 type MultiScaler struct {
-	scalers       map[string]*scalerRunner
+	scalers       map[types.NamespacedName]*scalerRunner
 	scalersMutex  sync.RWMutex
 	scalersStopCh <-chan struct{}
 
@@ -150,7 +144,7 @@ func NewMultiScaler(
 	uniScalerFactory UniScalerFactory,
 	logger *zap.SugaredLogger) *MultiScaler {
 	return &MultiScaler{
-		scalers:          make(map[string]*scalerRunner),
+		scalers:          make(map[types.NamespacedName]*scalerRunner),
 		scalersStopCh:    stopCh,
 		uniScalerFactory: uniScalerFactory,
 		logger:           logger,
@@ -159,13 +153,13 @@ func NewMultiScaler(
 
 // Get return the current Decider.
 func (m *MultiScaler) Get(ctx context.Context, namespace, name string) (*Decider, error) {
-	key := NewMetricKey(namespace, name)
+	key := types.NamespacedName{Namespace: namespace, Name: name}
 	m.scalersMutex.RLock()
 	defer m.scalersMutex.RUnlock()
 	scaler, exists := m.scalers[key]
 	if !exists {
 		// This GroupResource is a lie, but unfortunately this interface requires one.
-		return nil, errors.NewNotFound(av1alpha1.Resource("Deciders"), key)
+		return nil, errors.NewNotFound(av1alpha1.Resource("Deciders"), key.String())
 	}
 	scaler.mux.RLock()
 	defer scaler.mux.RUnlock()
@@ -176,7 +170,7 @@ func (m *MultiScaler) Get(ctx context.Context, namespace, name string) (*Decider
 func (m *MultiScaler) Create(ctx context.Context, decider *Decider) (*Decider, error) {
 	m.scalersMutex.Lock()
 	defer m.scalersMutex.Unlock()
-	key := NewMetricKey(decider.Namespace, decider.Name)
+	key := types.NamespacedName{Namespace: decider.Namespace, Name: decider.Name}
 	scaler, exists := m.scalers[key]
 	if !exists {
 		var err error
@@ -193,7 +187,7 @@ func (m *MultiScaler) Create(ctx context.Context, decider *Decider) (*Decider, e
 
 // Update applied the desired DeciderSpec to a currently running Decider.
 func (m *MultiScaler) Update(ctx context.Context, decider *Decider) (*Decider, error) {
-	key := NewMetricKey(decider.Namespace, decider.Name)
+	key := types.NamespacedName{Namespace: decider.Namespace, Name: decider.Name}
 	m.scalersMutex.Lock()
 	defer m.scalersMutex.Unlock()
 	if scaler, exists := m.scalers[key]; exists {
@@ -208,12 +202,12 @@ func (m *MultiScaler) Update(ctx context.Context, decider *Decider) (*Decider, e
 		return decider, nil
 	}
 	// This GroupResource is a lie, but unfortunately this interface requires one.
-	return nil, errors.NewNotFound(av1alpha1.Resource("Deciders"), key)
+	return nil, errors.NewNotFound(av1alpha1.Resource("Deciders"), key.String())
 }
 
 // Delete stops and removes a Decider.
 func (m *MultiScaler) Delete(ctx context.Context, namespace, name string) error {
-	key := NewMetricKey(namespace, name)
+	key := types.NamespacedName{Namespace: namespace, Name: name}
 	m.scalersMutex.Lock()
 	defer m.scalersMutex.Unlock()
 	if scaler, exists := m.scalers[key]; exists {
@@ -252,7 +246,7 @@ func (m *MultiScaler) updateRunner(ctx context.Context, runner *scalerRunner) {
 }
 
 func (m *MultiScaler) runScalerTicker(ctx context.Context, runner *scalerRunner) {
-	metricKey := NewMetricKey(runner.decider.Namespace, runner.decider.Name)
+	metricKey := types.NamespacedName{Namespace: runner.decider.Namespace, Name: runner.decider.Name}
 	ticker := time.NewTicker(runner.decider.Spec.TickInterval)
 	go func() {
 		defer ticker.Stop()
@@ -289,7 +283,7 @@ func (m *MultiScaler) createScaler(ctx context.Context, decider *Decider) (*scal
 	return runner, nil
 }
 
-func (m *MultiScaler) tickScaler(ctx context.Context, scaler UniScaler, runner *scalerRunner, metricKey string) {
+func (m *MultiScaler) tickScaler(ctx context.Context, scaler UniScaler, runner *scalerRunner, metricKey types.NamespacedName) {
 	logger := logging.FromContext(ctx)
 	desiredScale, excessBC, scaled := scaler.Scale(ctx, time.Now())
 
@@ -304,12 +298,12 @@ func (m *MultiScaler) tickScaler(ctx context.Context, scaler UniScaler, runner *
 	}
 
 	if runner.updateLatestScale(desiredScale, excessBC) {
-		m.Inform(metricKey)
+		m.Inform(metricKey.String())
 	}
 }
 
 // Poke checks if the autoscaler needs to be run immediately.
-func (m *MultiScaler) Poke(key string, stat Stat) {
+func (m *MultiScaler) Poke(key types.NamespacedName, stat Stat) {
 	m.scalersMutex.RLock()
 	defer m.scalersMutex.RUnlock()
 

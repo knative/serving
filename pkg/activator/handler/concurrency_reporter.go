@@ -19,6 +19,7 @@ package handler
 import (
 	"time"
 
+	"k8s.io/apimachinery/pkg/types"
 	"knative.dev/pkg/system"
 	"knative.dev/serving/pkg/autoscaler"
 )
@@ -55,7 +56,7 @@ func NewConcurrencyReporterWithClock(podName string, reqChan chan ReqEvent, repo
 	}
 }
 
-func (cr *ConcurrencyReporter) report(key string, concurrency, requestCount int32) {
+func (cr *ConcurrencyReporter) report(key types.NamespacedName, concurrency, requestCount int32) {
 	stat := autoscaler.Stat{
 		PodName:                   cr.podName,
 		AverageConcurrentRequests: float64(concurrency),
@@ -73,10 +74,10 @@ func (cr *ConcurrencyReporter) report(key string, concurrency, requestCount int3
 // Run runs until stopCh is closed and processes events on all incoming channels
 func (cr *ConcurrencyReporter) Run(stopCh <-chan struct{}) {
 	// Contains the number of in-flight requests per-key
-	outstandingRequestsPerKey := make(map[string]int32)
+	outstandingRequestsPerKey := make(map[types.NamespacedName]int32)
 	// Contains the number of incoming requests in the current
 	// reporting period, per key.
-	incomingRequestsPerKey := make(map[string]int32)
+	incomingRequestsPerKey := make(map[types.NamespacedName]int32)
 
 	for {
 		select {
@@ -102,7 +103,7 @@ func (cr *ConcurrencyReporter) Run(stopCh <-chan struct{}) {
 				}
 			}
 
-			incomingRequestsPerKey = make(map[string]int32)
+			incomingRequestsPerKey = make(map[types.NamespacedName]int32)
 		case <-stopCh:
 			return
 		}

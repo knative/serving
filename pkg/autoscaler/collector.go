@@ -26,6 +26,7 @@ import (
 
 	"go.uber.org/zap"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/types"
 	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 )
 
@@ -71,14 +72,14 @@ type Stat struct {
 // StatMessage wraps a Stat with identifying information so it can be routed
 // to the correct receiver.
 type StatMessage struct {
-	Key  string
+	Key  types.NamespacedName
 	Stat Stat
 }
 
 // MetricClient surfaces the metrics that can be obtained via the collector.
 type MetricClient interface {
 	// StableAndPanicConcurrency returns both the stable and the panic concurrency.
-	StableAndPanicConcurrency(key string) (float64, float64, error)
+	StableAndPanicConcurrency(key types.NamespacedName) (float64, float64, error)
 }
 
 // MetricCollector manages collection of metrics for many entities.
@@ -87,7 +88,7 @@ type MetricCollector struct {
 
 	statsScraperFactory StatsScraperFactory
 
-	collections      map[string]*collection
+	collections      map[types.NamespacedName]*collection
 	collectionsMutex sync.RWMutex
 }
 
@@ -97,7 +98,7 @@ var _ MetricClient = &MetricCollector{}
 func NewMetricCollector(statsScraperFactory StatsScraperFactory, logger *zap.SugaredLogger) *MetricCollector {
 	collector := &MetricCollector{
 		logger:              logger,
-		collections:         make(map[string]*collection),
+		collections:         make(map[types.NamespacedName]*collection),
 		statsScraperFactory: statsScraperFactory,
 	}
 
@@ -110,10 +111,10 @@ func (c *MetricCollector) Get(ctx context.Context, namespace, name string) (*av1
 	c.collectionsMutex.RLock()
 	defer c.collectionsMutex.RUnlock()
 
-	key := NewMetricKey(namespace, name)
+	key := types.NamespacedName{Namespace: namespace, Name: name}
 	collector, ok := c.collections[key]
 	if !ok {
-		return nil, k8serrors.NewNotFound(av1alpha1.Resource("Metrics"), key)
+		return nil, k8serrors.NewNotFound(av1alpha1.Resource("Metrics"), key.String())
 	}
 
 	return collector.metric.DeepCopy(), nil
@@ -127,7 +128,7 @@ func (c *MetricCollector) Create(ctx context.Context, metric *av1alpha1.Metric) 
 
 	c.logger.Debugf("Starting metric collection of %s/%s", metric.Namespace, metric.Name)
 
-	key := NewMetricKey(metric.Namespace, metric.Name)
+	key := types.NamespacedName{Namespace: metric.Namespace, Name: metric.Name}
 	coll, exists := c.collections[key]
 	if !exists {
 		scraper, err := c.statsScraperFactory(metric)
@@ -147,7 +148,7 @@ func (c *MetricCollector) Update(ctx context.Context, metric *av1alpha1.Metric) 
 	c.collectionsMutex.Lock()
 	defer c.collectionsMutex.Unlock()
 
-	key := NewMetricKey(metric.Namespace, metric.Name)
+	key := types.NamespacedName{Namespace: metric.Namespace, Name: metric.Name}
 	if collection, exists := c.collections[key]; exists {
 		scraper, err := c.statsScraperFactory(metric)
 		if err != nil {
@@ -157,7 +158,7 @@ func (c *MetricCollector) Update(ctx context.Context, metric *av1alpha1.Metric) 
 		collection.updateMetric(metric)
 		return metric.DeepCopy(), nil
 	}
-	return nil, k8serrors.NewNotFound(av1alpha1.Resource("Metrics"), key)
+	return nil, k8serrors.NewNotFound(av1alpha1.Resource("Metrics"), key.String())
 }
 
 // Delete deletes a Metric and halts collection.
@@ -167,7 +168,7 @@ func (c *MetricCollector) Delete(ctx context.Context, namespace, name string) er
 
 	c.logger.Debugf("Stopping metric collection of %s/%s", namespace, name)
 
-	key := NewMetricKey(namespace, name)
+	key := types.NamespacedName{Namespace: namespace, Name: name}
 	if collection, ok := c.collections[key]; ok {
 		collection.close()
 		delete(c.collections, key)
@@ -176,7 +177,7 @@ func (c *MetricCollector) Delete(ctx context.Context, namespace, name string) er
 }
 
 // Record records a stat that's been generated outside of the metric collector.
-func (c *MetricCollector) Record(key string, stat Stat) {
+func (c *MetricCollector) Record(key types.NamespacedName, stat Stat) {
 	c.collectionsMutex.RLock()
 	defer c.collectionsMutex.RUnlock()
 
@@ -186,10 +187,10 @@ func (c *MetricCollector) Record(key string, stat Stat) {
 }
 
 // StableAndPanicConcurrency returns both the stable and the panic concurrency.
-func (c *MetricCollector) StableAndPanicConcurrency(key string) (float64, float64, error) {
+func (c *MetricCollector) StableAndPanicConcurrency(key types.NamespacedName) (float64, float64, error) {
 	collection, exists := c.collections[key]
 	if !exists {
-		return 0, 0, k8serrors.NewNotFound(av1alpha1.Resource("Metrics"), key)
+		return 0, 0, k8serrors.NewNotFound(av1alpha1.Resource("Metrics"), key.String())
 	}
 
 	return collection.stableAndPanicConcurrency(time.Now())

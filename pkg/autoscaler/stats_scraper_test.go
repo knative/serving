@@ -24,6 +24,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/pkg/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
 	"knative.dev/serving/pkg/resources"
@@ -33,10 +34,10 @@ const (
 	testRevision  = "test-revision"
 	testService   = "test-revision-metrics"
 	testNamespace = "test-namespace"
-	testPAKey     = "test-namespace/test-revision"
 )
 
 var (
+	testPAKey = types.NamespacedName{Namespace: "test-namespace", Name: "test-revision"}
 	testStats = []*Stat{
 		{
 			PodName:                          "pod-1",

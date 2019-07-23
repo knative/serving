@@ -26,6 +26,7 @@ import (
 
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	. "knative.dev/pkg/logging/testing"
 	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
@@ -106,7 +107,7 @@ func TestMetricCollectorCRUD(t *testing.T) {
 		if !cmp.Equal(defaultMetric, got) {
 			t.Errorf("Get() didn't return the same metric: %v", cmp.Diff(defaultMetric, got))
 		}
-		key := NewMetricKey(defaultMetric.Namespace, defaultMetric.Name)
+		key := types.NamespacedName{Namespace: defaultMetric.Namespace, Name: defaultMetric.Name}
 
 		defaultMetric.Spec.ScrapeTarget = "new-target"
 		coll.statsScraperFactory = scraperFactory(scraper2, nil)
@@ -135,7 +136,7 @@ func TestMetricCollectorScraper(t *testing.T) {
 	ctx := context.Background()
 
 	now := time.Now()
-	metricKey := NewMetricKey(defaultNamespace, defaultName)
+	metricKey := types.NamespacedName{Namespace: defaultNamespace, Name: defaultName}
 	want := 10.0
 	stat := &StatMessage{
 		Key: metricKey,
@@ -179,7 +180,7 @@ func TestMetricCollectorRecord(t *testing.T) {
 	ctx := context.Background()
 
 	now := time.Now()
-	metricKey := NewMetricKey(defaultNamespace, defaultName)
+	metricKey := types.NamespacedName{Namespace: defaultNamespace, Name: defaultName}
 	want := 10.0
 	stat := Stat{
 		Time:                             &now,

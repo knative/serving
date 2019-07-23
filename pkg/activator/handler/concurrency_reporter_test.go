@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp/cmpopts"
+	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/google/go-cmp/cmp"
 	"knative.dev/pkg/system"
@@ -33,6 +34,12 @@ const (
 	requestOpEnd   = "RequestOpEnd"
 )
 
+var (
+	pod1 = types.NamespacedName{Namespace: "test", Name: "pod1"}
+	pod2 = types.NamespacedName{Namespace: "test", Name: "pod2"}
+	pod3 = types.NamespacedName{Namespace: "test", Name: "pod3"}
+)
+
 type fakeClock struct {
 	Time time.Time
 }
@@ -43,7 +50,7 @@ func (c fakeClock) Now() time.Time {
 
 type reqOp struct {
 	op   string
-	key  string
+	key  types.NamespacedName
 	time time.Time
 }
 
@@ -56,19 +63,19 @@ func TestStats(t *testing.T) {
 		name: "Scale-from-zero sends stat",
 		ops: []reqOp{{
 			op:  requestOpStart,
-			key: "pod1",
+			key: pod1,
 		}, {
 			op:  requestOpStart,
-			key: "pod2",
+			key: pod2,
 		}},
 		expectedStats: []*autoscaler.StatMessage{{
-			Key: "pod1",
+			Key: pod1,
 			Stat: autoscaler.Stat{
 				AverageConcurrentRequests: 1,
 				RequestCount:              1,
 				PodName:                   "activator",
 			}}, {
-			Key: "pod2",
+			Key: pod2,
 			Stat: autoscaler.Stat{
 				AverageConcurrentRequests: 1,
 				RequestCount:              1,
@@ -78,21 +85,21 @@ func TestStats(t *testing.T) {
 		name: "Scale to two",
 		ops: []reqOp{{
 			op:  requestOpStart,
-			key: "pod1",
+			key: pod1,
 		}, {
 			op:  requestOpStart,
-			key: "pod1",
+			key: pod1,
 		}, {
 			op: requestOpTick,
 		}},
 		expectedStats: []*autoscaler.StatMessage{{
-			Key: "pod1",
+			Key: pod1,
 			Stat: autoscaler.Stat{
 				AverageConcurrentRequests: 1,
 				RequestCount:              1,
 				PodName:                   "activator",
 			}}, {
-			Key: "pod1",
+			Key: pod1,
 			Stat: autoscaler.Stat{
 				AverageConcurrentRequests: 2,
 				RequestCount:              2,
@@ -102,24 +109,24 @@ func TestStats(t *testing.T) {
 		name: "Scale-from-zero after tick sends stat",
 		ops: []reqOp{{
 			op:  requestOpStart,
-			key: "pod1",
+			key: pod1,
 		}, {
 			op:  requestOpEnd,
-			key: "pod1",
+			key: pod1,
 		}, {
 			op: requestOpTick,
 		}, {
 			op:  requestOpStart,
-			key: "pod1",
+			key: pod1,
 		}},
 		expectedStats: []*autoscaler.StatMessage{{
-			Key: "pod1",
+			Key: pod1,
 			Stat: autoscaler.Stat{
 				AverageConcurrentRequests: 1,
 				RequestCount:              1,
 				PodName:                   "activator",
 			}}, {
-			Key: "pod1",
+			Key: pod1,
 			Stat: autoscaler.Stat{
 				AverageConcurrentRequests: 1,
 				RequestCount:              1,
@@ -129,59 +136,59 @@ func TestStats(t *testing.T) {
 		name: "Multiple pods tick",
 		ops: []reqOp{{
 			op:  requestOpStart,
-			key: "pod1",
+			key: pod1,
 		}, {
 			op:  requestOpStart,
-			key: "pod2",
+			key: pod2,
 		}, {
 			op: requestOpTick,
 		}, {
 			op:  requestOpEnd,
-			key: "pod1",
+			key: pod1,
 		}, {
 			op:  requestOpStart,
-			key: "pod3",
+			key: pod3,
 		}, {
 			op: requestOpTick,
 		}},
 		expectedStats: []*autoscaler.StatMessage{{
-			Key: "pod1",
+			Key: pod1,
 			Stat: autoscaler.Stat{
 				AverageConcurrentRequests: 1,
 				RequestCount:              1,
 				PodName:                   "activator",
 			}}, {
-			Key: "pod2",
+			Key: pod2,
 			Stat: autoscaler.Stat{
 				AverageConcurrentRequests: 1,
 				RequestCount:              1,
 				PodName:                   "activator",
 			}}, {
-			Key: "pod1",
+			Key: pod1,
 			Stat: autoscaler.Stat{
 				AverageConcurrentRequests: 1,
 				RequestCount:              1,
 				PodName:                   "activator",
 			}}, {
-			Key: "pod2",
+			Key: pod2,
 			Stat: autoscaler.Stat{
 				AverageConcurrentRequests: 1,
 				RequestCount:              1,
 				PodName:                   "activator",
 			}}, {
-			Key: "pod3",
+			Key: pod3,
 			Stat: autoscaler.Stat{
 				AverageConcurrentRequests: 1,
 				RequestCount:              1,
 				PodName:                   "activator",
 			}}, {
-			Key: "pod2",
+			Key: pod2,
 			Stat: autoscaler.Stat{
 				AverageConcurrentRequests: 1,
 				RequestCount:              0,
 				PodName:                   "activator",
 			}}, {
-			Key: "pod3",
+			Key: pod3,
 			Stat: autoscaler.Stat{
 				AverageConcurrentRequests: 1,
 				RequestCount:              1,
@@ -219,7 +226,7 @@ func TestStats(t *testing.T) {
 
 			// Check the stats we got match what we wanted
 			sorter := cmpopts.SortSlices(func(a, b *autoscaler.StatMessage) bool {
-				return a.Key < b.Key
+				return a.Key.Name < b.Key.Name
 			})
 			if diff := cmp.Diff(tc.expectedStats, stats, sorter); diff != "" {
 				t.Errorf("Unexpected stats (-want +got): %v", diff)
