@@ -18,7 +18,9 @@ package clusteringress
 
 import (
 	"context"
+	"encoding/json"
 	"knative.dev/pkg/apis/istio/v1alpha3"
+	"log"
 
 	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/reconciler"
@@ -97,16 +99,16 @@ func (c *Reconciler) Init(ctx context.Context, cmw configmap.Watcher, impl *cont
 	virtualServiceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			vs, _ := obj.(*v1alpha3.VirtualService)
-			c.Logger.Infof("VirtualService - Add: %s/%s: %v", vs.Namespace, vs.Name, vs)
+			c.Logger.Infof("VirtualService - Add: %s/%s: %s", vs.Namespace, vs.Name, toJSON(vs))
 		},
 		UpdateFunc: func(oldObj, newObj interface{}) {
 			oldVs, _ := oldObj.(*v1alpha3.VirtualService)
 			newVs, _ := newObj.(*v1alpha3.VirtualService)
-			c.Logger.Infof("VirtualService - Update: %s/%s, Old: %v, New: %v", oldVs.Namespace, oldVs.Name, oldVs, newVs)
+			c.Logger.Infof("VirtualService - Update: %s/%s, Old: %s, New: %s", oldVs.Namespace, oldVs.Name, toJSON(oldVs), toJSON(newVs))
 		},
 		DeleteFunc: func(obj interface{}) {
 			vs, _ := obj.(*v1alpha3.VirtualService)
-			c.Logger.Infof("VirtualService - Delete: %s/%s: %v", vs.Namespace, vs.Name, vs)
+			c.Logger.Infof("VirtualService - Delete: %s/%s: %s", vs.Namespace, vs.Name, toJSON(vs))
 		},
 	})
 
@@ -130,4 +132,11 @@ func (c *Reconciler) Init(ctx context.Context, cmw configmap.Watcher, impl *cont
 // with the current status of the resource.
 func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 	return c.BaseIngressReconciler.ReconcileIngress(c.ConfigStore.ToContext(ctx), c, key)
+}
+func toJSON(obj interface{}) string {
+	bytes, err := json.Marshal(obj)
+	if err != nil {
+		log.Fatalf("failed to serialize to JSON: %v", err)
+	}
+	return string(bytes)
 }

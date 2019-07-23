@@ -20,6 +20,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"fortio.org/fortio/log"
 	"reflect"
 
 	"knative.dev/pkg/apis/istio/v1alpha3"
@@ -246,7 +247,7 @@ func (r *BaseIngressReconciler) reconcileIngress(ctx context.Context, ra Reconci
 	ia.SetDefaults(ctx)
 
 	ia.GetStatus().InitializeConditions()
-	logger.Infof("Reconciling ingress: %#v", ia)
+	logger.Infof("Reconciling ingress: %s", toJSON(ia))
 
 	gatewayNames := gatewayNamesFromContext(ctx)
 	vses := resources.MakeVirtualServices(ia, gatewayNames)
@@ -378,7 +379,7 @@ func (r *BaseIngressReconciler) reconcileVirtualServices(ctx context.Context, ia
 		if kept.Has(n) {
 			continue
 		}
-		logger.Infof("Deleting VirtualService %s/%s: %v", ns, n, vs)
+		logger.Infof("Deleting VirtualService %s/%s: %s", ns, n, toJSON(vs))
 		if err = r.SharedClientSet.NetworkingV1alpha3().VirtualServices(ns).Delete(n, &metav1.DeleteOptions{}); err != nil {
 			logger.Errorw("Failed to delete VirtualService", zap.Error(err))
 			return err
@@ -396,7 +397,7 @@ func (r *BaseIngressReconciler) reconcileVirtualService(ctx context.Context, ia 
 	vs, err := r.VirtualServiceLister.VirtualServices(ns).Get(name)
 	if apierrs.IsNotFound(err) {
 		_, err = r.SharedClientSet.NetworkingV1alpha3().VirtualServices(ns).Create(desired)
-		logger.Infof("Creating VirtualService %s/%s: %v", ns, name, desired)
+		logger.Infof("Creating VirtualService %s/%s: %s", ns, name, toJSON(desired))
 		if err != nil {
 			logger.Errorw("Failed to create VirtualService", zap.Error(err))
 			r.Recorder.Eventf(ia, corev1.EventTypeWarning, "CreationFailed",
@@ -414,7 +415,7 @@ func (r *BaseIngressReconciler) reconcileVirtualService(ctx context.Context, ia 
 		// Don't modify the informers copy
 		existing := vs.DeepCopy()
 		existing.Spec = desired.Spec
-		logger.Infof("Updating VirtualService %s/%s: %v", ns, name, existing)
+		logger.Infof("Updating VirtualService %s/%s: %s", ns, name, toJSON(existing))
 		_, err = r.SharedClientSet.NetworkingV1alpha3().VirtualServices(ns).Update(existing)
 		if err != nil {
 			logger.Errorw("Failed to update VirtualService", zap.Error(err))
@@ -518,6 +519,7 @@ func (r *BaseIngressReconciler) reconcileGateway(ctx context.Context, ia v1alpha
 	}
 
 	copy := gateway.DeepCopy()
+	logger.Infof("Updating Gateway %s/%s: %s", copy.Namespace, copy.Name, toJSON(copy))
 	copy = resources.UpdateGateway(copy, desired, existing)
 	if _, err := r.SharedClientSet.NetworkingV1alpha3().Gateways(copy.Namespace).Update(copy); err != nil {
 		logger.Errorw("Failed to update Gateway", zap.Error(err))
@@ -604,4 +606,12 @@ func getLBStatus(gatewayServiceURL string) []v1alpha1.LoadBalancerIngressStatus 
 
 func enableReconcileGateway(ctx context.Context) bool {
 	return config.FromContext(ctx).Network.AutoTLS || config.FromContext(ctx).Istio.ReconcileExternalGateway
+}
+
+func toJSON(obj interface{}) string {
+	bytes, err := json.Marshal(obj)
+	if err != nil {
+		log.Fatalf("failed to serialize to JSON: %v", err)
+	}
+	return string(bytes)
 }
