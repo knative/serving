@@ -126,7 +126,7 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (desiredPodCount 
 	readyPodsCount := math.Max(1, float64(originalReadyPodsCount))
 
 	metricKey := types.NamespacedName{Namespace: a.namespace, Name: a.revision}
-	observedStableConcurrency, observedPanicConcurrency, err := a.metricClient.StableAndPanicConcurrency(metricKey)
+	observedStableConcurrency, observedPanicConcurrency, err := a.metricClient.StableAndPanicConcurrency(metricKey, now)
 	if err != nil {
 		if err == ErrNoData {
 			logger.Debug("No data to scale on yet")

@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+	time "time"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -150,6 +151,6 @@ func getTestUniScalerFactory() func(decider *autoscaler.Decider) (autoscaler.Uni
 
 type testMetricClient struct{}
 
-func (t *testMetricClient) StableAndPanicConcurrency(key types.NamespacedName) (float64, float64, error) {
+func (t *testMetricClient) StableAndPanicConcurrency(key types.NamespacedName, now time.Time) (float64, float64, error) {
 	return 1.0, 1.0, nil
 }

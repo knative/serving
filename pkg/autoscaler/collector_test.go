@@ -134,7 +134,7 @@ func TestMetricCollectorScraper(t *testing.T) {
 	logger := TestLogger(t)
 	ctx := context.Background()
 
-	now := time.Now()
+	now := time.Unix(0, 0)
 	metricKey := types.NamespacedName{Namespace: defaultNamespace, Name: defaultName}
 	want := 10.0
 	stat := &StatMessage{
@@ -158,15 +158,25 @@ func TestMetricCollectorScraper(t *testing.T) {
 	// stable concurrency should eventually be equal to the stat.
 	var got float64
 	wait.PollImmediate(10*time.Millisecond, 2*time.Second, func() (bool, error) {
-		got, _, _ = coll.StableAndPanicConcurrency(metricKey)
+		got, _, _ = coll.StableAndPanicConcurrency(metricKey, now)
 		return got == want, nil
 	})
 	if got != want {
 		t.Errorf("StableAndPanicConcurrency() = %v, want %v", got, want)
 	}
 
+	// injecting times inside the window should not change the calculation result
+	wait.PollImmediate(10*time.Millisecond, 2*time.Second, func() (bool, error) {
+		got, _, _ = coll.StableAndPanicConcurrency(metricKey, now.Add(stableWindow).Add(-1*time.Second))
+		return got == want, nil
+	})
+	if got != want {
+		t.Errorf("StableAndPanicConcurrency() = %v, want %v", got, want)
+	}
+
+	// deleting the metric should cause a calculation error
 	coll.Delete(ctx, defaultNamespace, defaultName)
-	_, _, err := coll.StableAndPanicConcurrency(metricKey)
+	_, _, err := coll.StableAndPanicConcurrency(metricKey, now)
 	if err != ErrNotScraping {
 		t.Errorf("StableAndPanicConcurrency() = %v, want %v", err, ErrNotScraping)
 	}
@@ -198,13 +208,13 @@ func TestMetricCollectorRecord(t *testing.T) {
 
 	// Freshly created collection does not contain any metrics and should return an error.
 	coll.Create(ctx, defaultMetric)
-	if _, _, err := coll.StableAndPanicConcurrency(metricKey); err == nil {
+	if _, _, err := coll.StableAndPanicConcurrency(metricKey, now); err == nil {
 		t.Error("StableAndPanicConcurrency() = nil, wanted an error")
 	}
 
 	// After adding a stat the concurrencies are calculated correctly.
 	coll.Record(metricKey, stat)
-	if stable, panic, err := coll.StableAndPanicConcurrency(metricKey); stable != panic && stable != want && err != nil {
+	if stable, panic, err := coll.StableAndPanicConcurrency(metricKey, now); stable != panic && stable != want && err != nil {
 		t.Errorf("StableAndPanicConcurrency() = %v, %v, %v; want %v, %v, nil", stable, panic, err, want, want)
 	}
 }

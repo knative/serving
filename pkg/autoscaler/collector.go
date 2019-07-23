@@ -81,8 +81,9 @@ type StatMessage struct {
 
 // MetricClient surfaces the metrics that can be obtained via the collector.
 type MetricClient interface {
-	// StableAndPanicConcurrency returns both the stable and the panic concurrency.
-	StableAndPanicConcurrency(key types.NamespacedName) (float64, float64, error)
+	// StableAndPanicConcurrency returns both the stable and the panic concurrency
+	// for the given replica as of the given time.
+	StableAndPanicConcurrency(key types.NamespacedName, now time.Time) (float64, float64, error)
 }
 
 // MetricCollector manages collection of metrics for many entities.
@@ -190,7 +191,8 @@ func (c *MetricCollector) Record(key types.NamespacedName, stat Stat) {
 }
 
 // StableAndPanicConcurrency returns both the stable and the panic concurrency.
-func (c *MetricCollector) StableAndPanicConcurrency(key types.NamespacedName) (float64, float64, error) {
+// It may truncate metric buckets as a side-effect.
+func (c *MetricCollector) StableAndPanicConcurrency(key types.NamespacedName, now time.Time) (float64, float64, error) {
 	c.collectionsMutex.RLock()
 	defer c.collectionsMutex.RUnlock()
 
@@ -199,7 +201,7 @@ func (c *MetricCollector) StableAndPanicConcurrency(key types.NamespacedName) (f
 		return 0, 0, ErrNotScraping
 	}
 
-	return collection.stableAndPanicConcurrency(time.Now())
+	return collection.stableAndPanicConcurrency(now)
 }
 
 // collection represents the collection of metrics for one specific entity.

@@ -19,6 +19,7 @@ package autoscaler
 import (
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/kubernetes-incubator/custom-metrics-apiserver/pkg/provider"
 	"knative.dev/pkg/kmp"
@@ -110,7 +111,7 @@ func TestListAllMetrics(t *testing.T) {
 
 type staticConcurrency float64
 
-func (s staticConcurrency) StableAndPanicConcurrency(key types.NamespacedName) (float64, float64, error) {
+func (s staticConcurrency) StableAndPanicConcurrency(key types.NamespacedName, now time.Time) (float64, float64, error) {
 	if key.Namespace == existingNamespace {
 		return (float64)(s), 0.0, nil
 	}
