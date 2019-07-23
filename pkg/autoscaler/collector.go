@@ -42,6 +42,9 @@ const (
 var (
 	// ErrNoData denotes that the collector could not calculate data.
 	ErrNoData = errors.New("no data available")
+
+	// ErrNotScraping denotes that the collector is not collecting metrics for the given resource.
+	ErrNotScraping = errors.New("the requested resource is not being scraped")
 )
 
 // StatsScraperFactory creates a StatsScraper for a given Metric.
@@ -92,7 +95,7 @@ type MetricCollector struct {
 	collectionsMutex sync.RWMutex
 }
 
-var _ MetricClient = &MetricCollector{}
+var _ MetricClient = (*MetricCollector)(nil)
 
 // NewMetricCollector creates a new metric collector.
 func NewMetricCollector(statsScraperFactory StatsScraperFactory, logger *zap.SugaredLogger) *MetricCollector {
@@ -188,9 +191,12 @@ func (c *MetricCollector) Record(key types.NamespacedName, stat Stat) {
 
 // StableAndPanicConcurrency returns both the stable and the panic concurrency.
 func (c *MetricCollector) StableAndPanicConcurrency(key types.NamespacedName) (float64, float64, error) {
+	c.collectionsMutex.RLock()
+	defer c.collectionsMutex.RUnlock()
+
 	collection, exists := c.collections[key]
 	if !exists {
-		return 0, 0, k8serrors.NewNotFound(av1alpha1.Resource("Metrics"), key.String())
+		return 0, 0, ErrNotScraping
 	}
 
 	return collection.stableAndPanicConcurrency(time.Now())

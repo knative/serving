@@ -24,7 +24,6 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -55,15 +54,15 @@ func TestMetricCollectorCRUD(t *testing.T) {
 	ctx := context.Background()
 
 	scraper := &testScraper{
-		s: (func() (*StatMessage, error) {
+		s: func() (*StatMessage, error) {
 			return nil, nil
-		}),
+		},
 		url: "just-right",
 	}
 	scraper2 := &testScraper{
-		s: (func() (*StatMessage, error) {
+		s: func() (*StatMessage, error) {
 			return nil, nil
-		}),
+		},
 		url: "slightly-off",
 	}
 	factory := scraperFactory(scraper, nil)
@@ -168,8 +167,8 @@ func TestMetricCollectorScraper(t *testing.T) {
 
 	coll.Delete(ctx, defaultNamespace, defaultName)
 	_, _, err := coll.StableAndPanicConcurrency(metricKey)
-	if !k8serrors.IsNotFound(err) {
-		t.Errorf("StableAndPanicConcurrency() = %v, want a not found error", err)
+	if err != ErrNotScraping {
+		t.Errorf("StableAndPanicConcurrency() = %v, want %v", err, ErrNotScraping)
 	}
 }
 
