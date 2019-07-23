@@ -21,6 +21,7 @@ package v1alpha1
 import (
 	"context"
 	"fmt"
+	"log"
 	"net/http"
 	"testing"
 
@@ -74,6 +75,7 @@ func CreateRoute(t *testing.T, clients *test.Clients, names test.ResourceNames, 
 // - 404 until the route is propagated to the proxy
 func RetryingRouteInconsistency(innerCheck spoof.ResponseChecker) spoof.ResponseChecker {
 	return func(resp *spoof.Response) (bool, error) {
+		log.Printf("Probing: HTTP %d", resp.StatusCode)
 		if resp.StatusCode == http.StatusNotFound {
 			return false, nil
 		}

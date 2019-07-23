@@ -18,6 +18,7 @@ package clusteringress
 
 import (
 	"context"
+	"knative.dev/pkg/apis/istio/v1alpha3"
 
 	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/reconciler"
@@ -93,6 +94,21 @@ func (c *Reconciler) Init(ctx context.Context, cmw configmap.Watcher, impl *cont
 		FilterFunc: myFilterFunc,
 		Handler:    controller.HandleAll(impl.EnqueueLabelOfClusterScopedResource(networking.ClusterIngressLabelKey)),
 	})
+	virtualServiceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			vs, _ := obj.(*v1alpha3.VirtualService)
+			c.Logger.Infof("VirtualService - Add: %s/%s: %v", vs.Namespace, vs.Name, vs)
+		},
+		UpdateFunc: func(oldObj, newObj interface{}) {
+			oldVs, _ := oldObj.(*v1alpha3.VirtualService)
+			newVs, _ := newObj.(*v1alpha3.VirtualService)
+			c.Logger.Infof("VirtualService - Update: %s/%s, Old: %v, New: %v", oldVs.Namespace, oldVs.Name, oldVs, newVs)
+		},
+		DeleteFunc: func(obj interface{}) {
+			vs, _ := obj.(*v1alpha3.VirtualService)
+			c.Logger.Infof("VirtualService - Delete: %s/%s: %v", vs.Namespace, vs.Name, vs)
+		},
+	})
 
 	c.Logger.Info("Setting up ConfigMap receivers")
 	configsToResync := []interface{}{
@@ -100,6 +116,7 @@ func (c *Reconciler) Init(ctx context.Context, cmw configmap.Watcher, impl *cont
 		&network.Config{},
 	}
 	resyncIngressesOnConfigChange := configmap.TypeFilter(configsToResync...)(func(string, interface{}) {
+		c.Logger.Infof("Reconcile all Ingresses because of ConfigMap changes")
 		controller.SendGlobalUpdates(clusterIngressInformer.Informer(), clusterIngressHandler)
 	})
 	configStore := config.NewStore(c.Logger.Named("config-store"), resyncIngressesOnConfigChange)

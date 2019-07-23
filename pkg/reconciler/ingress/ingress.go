@@ -378,6 +378,7 @@ func (r *BaseIngressReconciler) reconcileVirtualServices(ctx context.Context, ia
 		if kept.Has(n) {
 			continue
 		}
+		logger.Infof("Deleting VirtualService %s/%s: %v", ns, n, vs)
 		if err = r.SharedClientSet.NetworkingV1alpha3().VirtualServices(ns).Delete(n, &metav1.DeleteOptions{}); err != nil {
 			logger.Errorw("Failed to delete VirtualService", zap.Error(err))
 			return err
@@ -395,6 +396,7 @@ func (r *BaseIngressReconciler) reconcileVirtualService(ctx context.Context, ia 
 	vs, err := r.VirtualServiceLister.VirtualServices(ns).Get(name)
 	if apierrs.IsNotFound(err) {
 		_, err = r.SharedClientSet.NetworkingV1alpha3().VirtualServices(ns).Create(desired)
+		logger.Infof("Creating VirtualService %s/%s: %v", ns, name, desired)
 		if err != nil {
 			logger.Errorw("Failed to create VirtualService", zap.Error(err))
 			r.Recorder.Eventf(ia, corev1.EventTypeWarning, "CreationFailed",
@@ -412,6 +414,7 @@ func (r *BaseIngressReconciler) reconcileVirtualService(ctx context.Context, ia 
 		// Don't modify the informers copy
 		existing := vs.DeepCopy()
 		existing.Spec = desired.Spec
+		logger.Infof("Updating VirtualService %s/%s: %v", ns, name, existing)
 		_, err = r.SharedClientSet.NetworkingV1alpha3().VirtualServices(ns).Update(existing)
 		if err != nil {
 			logger.Errorw("Failed to update VirtualService", zap.Error(err))
