@@ -140,6 +140,13 @@ func WithRevisionTimeoutSeconds(revisionTimeoutSeconds int64) ServiceOption {
 	}
 }
 
+// WithServiceAccountName sets revision service account name
+func WithServiceAccountName(sericeAccountName string) ServiceOption {
+	return func(service *v1beta1.Service) {
+		service.Spec.Template.Spec.ServiceAccountName = sericeAccountName
+	}
+}
+
 // WithContainerConcurrency sets the given Service's concurrency.
 func WithContainerConcurrency(cc v1beta1.RevisionContainerConcurrencyType) ServiceOption {
 	return func(svc *v1beta1.Service) {
