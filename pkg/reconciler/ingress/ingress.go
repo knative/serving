@@ -18,7 +18,6 @@ package ingress
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"reflect"
 
@@ -51,7 +50,6 @@ import (
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
@@ -255,7 +253,34 @@ func (r *BaseIngressReconciler) reconcileIngress(ctx context.Context, ra Reconci
 	ia.GetStatus().InitializeConditions()
 	logger.Infof("Reconciling ingress: %#v", ia)
 
-	gatewayNames := gatewayNamesFromContext(ctx)
+	gatewayNames := sharedGatewayNamesFromContext(ctx)
+	if enableReconcileGateway(ctx) && ia.IsPublic() {
+		// We used to add Servers of Ingress
+		for _, sharedGatewayName := range gatewayNames[v1alpha1.IngressVisibilityExternalIP] {
+			if err := r.reconcileSharedGateway(ctx, ia, sharedGatewayName, []v1alpha3.Server{}); err != nil {
+				return err
+			}
+		}
+		originSecrets, err := resources.GetSecrets(ia, r.SecretLister)
+		if err != nil {
+			return err
+		}
+		targetSecrets := resources.MakeSecrets(ctx, originSecrets, ia)
+		if err := r.reconcileCertSecrets(ctx, ia, targetSecrets); err != nil {
+			return err
+		}
+		ingressGateways, err := resources.MakeIngressGateways(ctx, ia, originSecrets, r.ServiceLister)
+		if err != nil {
+			return err
+		}
+		for _, ingressGateway := range ingressGateways {
+			if err := r.reconcileIngressGateway(ctx, ia, ingressGateway); err != nil {
+				return err
+			}
+		}
+		gatewayNames[v1alpha1.IngressVisibilityExternalIP] = append(gatewayNames[v1alpha1.IngressVisibilityExternalIP], resources.GetQualifiedGatewayNames(ingressGateways)...)
+	}
+
 	vses := resources.MakeVirtualServices(ia, gatewayNames)
 
 	// First, create the VirtualServices.
@@ -264,40 +289,6 @@ func (r *BaseIngressReconciler) reconcileIngress(ctx context.Context, ra Reconci
 		// TODO(lichuqiang): should we explicitly mark the ingress as unready
 		// when error reconciling VirtualService?
 		return err
-	}
-
-	if enableReconcileGateway(ctx) && ia.IsPublic() {
-		// Add the finalizer before adding `Servers` into Gateway so that we can be sure
-		// the `Servers` get cleaned up from Gateway.
-		if err := r.ensureFinalizer(ra, ia); err != nil {
-			return err
-		}
-
-		originSecrets, err := resources.GetSecrets(ia, r.SecretLister)
-		if err != nil {
-			return err
-		}
-		targetSecrets, err := resources.MakeSecrets(ctx, originSecrets, ia)
-		if err != nil {
-			return err
-		}
-		if err := r.reconcileCertSecrets(ctx, ia, targetSecrets); err != nil {
-			return err
-		}
-
-		for _, gatewayName := range gatewayNames[v1alpha1.IngressVisibilityExternalIP] {
-			ns, err := resources.GatewayServiceNamespace(config.FromContext(ctx).Istio.IngressGateways, gatewayName)
-			if err != nil {
-				return err
-			}
-			desired, err := resources.MakeTLSServers(ia, ns, originSecrets)
-			if err != nil {
-				return err
-			}
-			if err := r.reconcileGateway(ctx, ia, gatewayName, desired); err != nil {
-				return err
-			}
-		}
 	}
 
 	// As underlying network programming (VirtualService now) is stateless,
@@ -438,11 +429,11 @@ func (r *BaseIngressReconciler) reconcileDeletion(ctx context.Context, ra Reconc
 		return nil
 	}
 
-	allGateways := gatewayNamesFromContext(ctx)
+	allGateways := sharedGatewayNamesFromContext(ctx)
 	logger.Infof("Cleaning up Gateway Servers for ClusterIngress %s", ia.GetName())
 	for _, gatewayNames := range allGateways {
 		for _, gatewayName := range gatewayNames {
-			if err := r.reconcileGateway(ctx, ia, gatewayName, []v1alpha3.Server{}); err != nil {
+			if err := r.reconcileSharedGateway(ctx, ia, gatewayName, []v1alpha3.Server{}); err != nil {
 				return err
 			}
 		}
@@ -472,31 +463,7 @@ func (r *BaseIngressReconciler) updateStatus(ra ReconcilerAccessor, desired v1al
 	return ra.UpdateIngressStatus(existing)
 }
 
-func (r *BaseIngressReconciler) ensureFinalizer(ra ReconcilerAccessor, ia v1alpha1.IngressAccessor) error {
-	finalizers := sets.NewString(ia.GetFinalizers()...)
-	if finalizers.Has(r.Finalizer) {
-		return nil
-	}
-
-	mergePatch := map[string]interface{}{
-		"metadata": map[string]interface{}{
-			"finalizers":      append(ia.GetFinalizers(), r.Finalizer),
-			"resourceVersion": ia.GetResourceVersion(),
-		},
-	}
-
-	patch, err := json.Marshal(mergePatch)
-	if err != nil {
-		return err
-	}
-
-	_, err = ra.PatchIngress(ia.GetNamespace(), ia.GetName(), types.MergePatchType, patch)
-	return err
-}
-
-func (r *BaseIngressReconciler) reconcileGateway(ctx context.Context, ia v1alpha1.IngressAccessor, gatewayName string, desired []v1alpha3.Server) error {
-	// TODO(zhiminx): Need to handle the scenario when deleting ClusterIngress. In this scenario,
-	// the Gateway servers of the ClusterIngress need also be removed from Gateway.
+func (r *BaseIngressReconciler) reconcileSharedGateway(ctx context.Context, ia v1alpha1.IngressAccessor, gatewayName string, desired []v1alpha3.Server) error {
 	logger := logging.FromContext(ctx)
 	gateway, err := r.GatewayLister.Gateways(system.Namespace()).Get(gatewayName)
 	if err != nil {
@@ -507,32 +474,22 @@ func (r *BaseIngressReconciler) reconcileGateway(ctx context.Context, ia v1alpha
 	}
 
 	existing := resources.GetServers(gateway, ia)
-	existingHTTPServer := resources.GetHTTPServer(gateway)
-	if existingHTTPServer != nil {
-		existing = append(existing, *existingHTTPServer)
+	// We should reconcile Gateway if there is any "default" wildcard Server in the Gateway
+	// in order to remove those Servers to prevent host name conflict.
+	if !equality.Semantic.DeepEqual(existing, desired) || len(resources.GetDefaultServers(gateway)) != 0 {
+		copy := gateway.DeepCopy()
+		copy = resources.UpdateGateway(copy, desired, existing)
+		if _, err := r.SharedClientSet.NetworkingV1alpha3().Gateways(copy.Namespace).Update(copy); err != nil {
+			logger.Errorw("Failed to update Gateway", zap.Error(err))
+			return err
+		}
+		r.Recorder.Eventf(ia, corev1.EventTypeNormal, "Updated", "Updated Gateway %q/%q", gateway.Namespace, gateway.Name)
 	}
-
-	desiredHTTPServer := resources.MakeHTTPServer(config.FromContext(ctx).Network.HTTPProtocol, []string{"*"})
-	if desiredHTTPServer != nil {
-		desired = append(desired, *desiredHTTPServer)
-	}
-
-	if equality.Semantic.DeepEqual(existing, desired) {
-		return nil
-	}
-
-	copy := gateway.DeepCopy()
-	copy = resources.UpdateGateway(copy, desired, existing)
-	if _, err := r.SharedClientSet.NetworkingV1alpha3().Gateways(copy.Namespace).Update(copy); err != nil {
-		logger.Errorw("Failed to update Gateway", zap.Error(err))
-		return err
-	}
-	r.Recorder.Eventf(ia, corev1.EventTypeNormal, "Updated", "Updated Gateway %q/%q", gateway.Namespace, gateway.Name)
 	return nil
 }
 
-// gatewayNamesFromContext get gateway names from context
-func gatewayNamesFromContext(ctx context.Context) map[v1alpha1.IngressVisibility][]string {
+// sharedGatewayNamesFromContext get names of shared Gateways from context
+func sharedGatewayNamesFromContext(ctx context.Context) map[v1alpha1.IngressVisibility][]string {
 	var publicGateways []string
 	for _, gw := range config.FromContext(ctx).Istio.IngressGateways {
 		publicGateways = append(publicGateways, gw.GatewayName)

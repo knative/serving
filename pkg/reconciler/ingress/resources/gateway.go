@@ -61,14 +61,15 @@ func GetServers(gateway *v1alpha3.Gateway, ia v1alpha1.IngressAccessor) []v1alph
 	return SortServers(servers)
 }
 
-// GetHTTPServer gets the HTTP `Server` from `Gateway`.
-func GetHTTPServer(gateway *v1alpha3.Gateway) *v1alpha3.Server {
+// GetDefaultServers gets the default HTTP or HTTPS servers provided by Knative.
+func GetDefaultServers(gateway *v1alpha3.Gateway) []v1alpha3.Server {
+	result := []v1alpha3.Server{}
 	for _, server := range gateway.Spec.Servers {
-		if server.Port.Name == httpServerPortName {
-			return &server
+		if isDefaultServer(&server) {
+			result = append(result, server)
 		}
 	}
-	return nil
+	return result
 }
 
 func belongsToClusterIngress(server *v1alpha3.Server, ia v1alpha1.IngressAccessor) bool {
@@ -283,7 +284,8 @@ func UpdateGateway(gateway *v1alpha3.Gateway, want []v1alpha3.Server, existing [
 }
 
 func isDefaultServer(server *v1alpha3.Server) bool {
-	return server.Port.Name == "http" || server.Port.Name == "https"
+	return (server.Port.Name == "http" || server.Port.Name == "https" || server.Port.Name == "http-server") &&
+		sets.NewString(server.Hosts...).Has("*")
 }
 
 func isPlaceHolderServer(server *v1alpha3.Server) bool {
