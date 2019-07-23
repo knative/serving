@@ -247,7 +247,7 @@ func (r *BaseIngressReconciler) reconcileIngress(ctx context.Context, ra Reconci
 	ia.SetDefaults(ctx)
 
 	ia.GetStatus().InitializeConditions()
-	logger.Infof("Reconciling ingress: %s", toJSON(ia))
+	logger.Infof("Reconciling ingress: %s", ingressToJSON(ia))
 
 	gatewayNames := gatewayNamesFromContext(ctx)
 	vses := resources.MakeVirtualServices(ia, gatewayNames)
@@ -379,7 +379,7 @@ func (r *BaseIngressReconciler) reconcileVirtualServices(ctx context.Context, ia
 		if kept.Has(n) {
 			continue
 		}
-		logger.Infof("Deleting VirtualService %s/%s: %s", ns, n, toJSON(vs))
+		logger.Infof("Deleting VirtualService %s/%s: %s", ns, n, virtualServiceToJSON(vs))
 		if err = r.SharedClientSet.NetworkingV1alpha3().VirtualServices(ns).Delete(n, &metav1.DeleteOptions{}); err != nil {
 			logger.Errorw("Failed to delete VirtualService", zap.Error(err))
 			return err
@@ -397,7 +397,7 @@ func (r *BaseIngressReconciler) reconcileVirtualService(ctx context.Context, ia 
 	vs, err := r.VirtualServiceLister.VirtualServices(ns).Get(name)
 	if apierrs.IsNotFound(err) {
 		_, err = r.SharedClientSet.NetworkingV1alpha3().VirtualServices(ns).Create(desired)
-		logger.Infof("Creating VirtualService %s/%s: %s", ns, name, toJSON(desired))
+		logger.Infof("Creating VirtualService %s/%s: %s", ns, name, virtualServiceToJSON(desired))
 		if err != nil {
 			logger.Errorw("Failed to create VirtualService", zap.Error(err))
 			r.Recorder.Eventf(ia, corev1.EventTypeWarning, "CreationFailed",
@@ -415,7 +415,7 @@ func (r *BaseIngressReconciler) reconcileVirtualService(ctx context.Context, ia 
 		// Don't modify the informers copy
 		existing := vs.DeepCopy()
 		existing.Spec = desired.Spec
-		logger.Infof("Updating VirtualService %s/%s: %s", ns, name, toJSON(existing))
+		logger.Infof("Updating VirtualService %s/%s: %s", ns, name, virtualServiceToJSON(existing))
 		_, err = r.SharedClientSet.NetworkingV1alpha3().VirtualServices(ns).Update(existing)
 		if err != nil {
 			logger.Errorw("Failed to update VirtualService", zap.Error(err))
@@ -519,7 +519,7 @@ func (r *BaseIngressReconciler) reconcileGateway(ctx context.Context, ia v1alpha
 	}
 
 	copy := gateway.DeepCopy()
-	logger.Infof("Updating Gateway %s/%s: %s", copy.Namespace, copy.Name, toJSON(copy))
+	logger.Infof("Updating Gateway %s/%s: %s", copy.Namespace, copy.Name, gatewayToJSON(copy))
 	copy = resources.UpdateGateway(copy, desired, existing)
 	if _, err := r.SharedClientSet.NetworkingV1alpha3().Gateways(copy.Namespace).Update(copy); err != nil {
 		logger.Errorw("Failed to update Gateway", zap.Error(err))
@@ -608,8 +608,24 @@ func enableReconcileGateway(ctx context.Context) bool {
 	return config.FromContext(ctx).Network.AutoTLS || config.FromContext(ctx).Istio.ReconcileExternalGateway
 }
 
-func toJSON(obj interface{}) string {
-	bytes, err := json.Marshal(obj)
+func virtualServiceToJSON(vs *v1alpha3.VirtualService) string {
+	bytes, err := json.Marshal(*vs)
+	if err != nil {
+		log.Fatalf("failed to serialize to JSON: %v", err)
+	}
+	return string(bytes)
+}
+
+func ingressToJSON(in v1alpha1.IngressAccessor) string {
+	bytes, err := json.Marshal(in)
+	if err != nil {
+		log.Fatalf("failed to serialize to JSON: %v", err)
+	}
+	return string(bytes)
+}
+
+func gatewayToJSON(gw *v1alpha3.Gateway) string {
+	bytes, err := json.Marshal(*gw)
 	if err != nil {
 		log.Fatalf("failed to serialize to JSON: %v", err)
 	}

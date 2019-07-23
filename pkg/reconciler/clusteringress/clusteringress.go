@@ -133,8 +133,8 @@ func (c *Reconciler) Init(ctx context.Context, cmw configmap.Watcher, impl *cont
 func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 	return c.BaseIngressReconciler.ReconcileIngress(c.ConfigStore.ToContext(ctx), c, key)
 }
-func toJSON(obj interface{}) string {
-	bytes, err := json.Marshal(obj)
+func toJSON(vs *v1alpha3.VirtualService) string {
+	bytes, err := json.Marshal(*vs)
 	if err != nil {
 		log.Fatalf("failed to serialize to JSON: %v", err)
 	}
