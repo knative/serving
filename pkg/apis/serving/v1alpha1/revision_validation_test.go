@@ -362,6 +362,25 @@ func TestRevisionTemplateSpecValidation(t *testing.T) {
 			Message: "invalid value: 50mx",
 			Paths:   []string{fmt.Sprintf("[%s]", serving.QueueSideCarResourcePercentageAnnotation)},
 		},
+	}, {
+		name: "invalid metadata.annotations for scale",
+		rts: &RevisionTemplateSpec{
+			ObjectMeta: metav1.ObjectMeta{
+				Annotations: map[string]string{
+					autoscaling.MinScaleAnnotationKey: "5",
+					autoscaling.MaxScaleAnnotationKey: "",
+				},
+			},
+			Spec: RevisionSpec{
+				DeprecatedContainer: &corev1.Container{
+					Image: "helloworld",
+				},
+			},
+		},
+		want: (&apis.FieldError{
+			Message: "expected 1 <=  <= 2147483647",
+			Paths:   []string{autoscaling.MaxScaleAnnotationKey},
+		}).ViaField("annotations").ViaField("metadata"),
 	}}
 
 	for _, test := range tests {
