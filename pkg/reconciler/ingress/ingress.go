@@ -34,6 +34,7 @@ import (
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	secretinformer "knative.dev/pkg/injection/informers/kubeinformers/corev1/secret"
+	serviceinformer "knative.dev/pkg/injection/informers/kubeinformers/corev1/service"
 	"knative.dev/pkg/tracker"
 
 	"go.uber.org/zap"
@@ -85,6 +86,7 @@ type BaseIngressReconciler struct {
 	VirtualServiceLister istiolisters.VirtualServiceLister
 	GatewayLister        istiolisters.GatewayLister
 	SecretLister         corev1listers.SecretLister
+	ServiceLister        corev1listers.ServiceLister
 	ConfigStore          reconciler.ConfigStore
 
 	Tracker   tracker.Interface
@@ -96,12 +98,14 @@ func NewBaseIngressReconciler(ctx context.Context, agentName, finalizer string, 
 	virtualServiceInformer := virtualserviceinformer.Get(ctx)
 	gatewayInformer := gatewayinformer.Get(ctx)
 	secretInformer := secretinformer.Get(ctx)
+	serviceInformer := serviceinformer.Get(ctx)
 
 	base := &BaseIngressReconciler{
 		Base:                 reconciler.NewBase(ctx, agentName, cmw),
 		VirtualServiceLister: virtualServiceInformer.Lister(),
 		GatewayLister:        gatewayInformer.Lister(),
 		SecretLister:         secretInformer.Lister(),
+		ServiceLister:        serviceInformer.Lister(),
 		Finalizer:            finalizer,
 	}
 	return base
@@ -235,6 +239,9 @@ func (r *BaseIngressReconciler) ReconcileIngress(ctx context.Context, ra Reconci
 
 func (r *BaseIngressReconciler) reconcileIngress(ctx context.Context, ra ReconcilerAccessor, ia v1alpha1.IngressAccessor) error {
 	logger := logging.FromContext(ctx)
+	// We shoudl keep reconcileDeleteion temporarily for those Routes that have been deployed with
+	// old reconcilation way in which we add finalizer onto Routes.
+	// TODO(zhiminx): delete reconcileDeletion logic.
 	if ia.GetDeletionTimestamp() != nil {
 		return r.reconcileDeletion(ctx, ra, ia)
 	}
