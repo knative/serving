@@ -202,6 +202,10 @@ func (c *Reconciler) reconcile(ctx context.Context, r *v1alpha1.Route) error {
 	traffic, err := c.configureTraffic(ctx, r, serviceNames.desiredClusterLocalServiceNames)
 	if traffic == nil || err != nil {
 		// Traffic targets aren't ready, no need to configure child resources.
+		// Need to update ObservedGeneration, otherwise Route's Ready state won't
+		// be propagated to Service and the Service's RoutesReady will stay in
+		// 'Unknown'.
+		r.Status.ObservedGeneration = r.Generation
 		return err
 	}
 

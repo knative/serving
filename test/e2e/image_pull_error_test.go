@@ -56,7 +56,7 @@ func TestImagePullError(t *testing.T) {
 	names.Config = serviceresourcenames.Configuration(svc)
 
 	err = v1a1test.WaitForServiceState(clients.ServingAlphaClient, names.Service, func(r *v1alpha1.Service) (bool, error) {
-		cond := r.Status.GetCondition(v1alpha1.ConfigurationConditionReady)
+		cond := r.Status.GetCondition(v1alpha1.ServiceConditionConfigurationsReady)
 		if cond != nil && !cond.IsUnknown() {
 			if cond.IsFalse() {
 				if cond.Reason == "RevisionFailed" {
