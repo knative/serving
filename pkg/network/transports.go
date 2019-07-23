@@ -47,7 +47,7 @@ const (
 	initialTO = float64(50 * time.Millisecond)
 	sleepTO   = 30 * time.Millisecond
 	factor    = 1.4
-	numSteps  = 10
+	numSteps  = 15
 )
 
 var errDialTimeout = errors.New("timed out dialing")
