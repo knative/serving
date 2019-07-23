@@ -346,35 +346,6 @@ func TestReconcileAndScaleToZero(t *testing.T) {
 				WithDeployRef(deployName), WithProxyMode),
 		}},
 	}, {
-		Name: "from serving to proxy, sks update fail :-(",
-		Key:  key,
-		Objects: []runtime.Object{
-			kpa(testNamespace, testRevision, markActive, markOld,
-				WithPAStatusService(testRevision), withMSvcStatus("they-give-you-this")),
-			sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSReady),
-			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector),
-				withMSvcName("they-give-you-this")),
-			deploy(testNamespace, testRevision),
-			makeSKSPrivateEndpoints(1, testNamespace, testRevision),
-		},
-		WantErr: true,
-		WithReactors: []clientgotesting.ReactionFunc{
-			InduceFailure("update", "serverlessservices"),
-		},
-		WantEvents: []string{
-			Eventf(corev1.EventTypeWarning, "InternalError",
-				"error re-reconciling SKS: error updating SKS test-revision: inducing failure for update serverlessservices"),
-		},
-		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: kpa(testNamespace, testRevision,
-				WithNoTraffic("NoTraffic", "The target is not receiving traffic."),
-				WithPAStatusService(testRevision), withMSvcStatus("they-give-you-this")),
-		}},
-		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: sks(testNamespace, testRevision, WithSKSReady,
-				WithDeployRef(deployName), WithProxyMode),
-		}},
-	}, {
 		Name: "scaling to 0, but not stable for long enough, so no-op",
 		Key:  key,
 		Objects: []runtime.Object{
