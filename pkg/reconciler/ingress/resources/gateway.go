@@ -291,3 +291,12 @@ func isDefaultServer(server *v1alpha3.Server) bool {
 func isPlaceHolderServer(server *v1alpha3.Server) bool {
 	return equality.Semantic.DeepEqual(server, &placeholderServer)
 }
+
+// GetQualifiedGatewayNames return the qualifed Gateway names for a give Gateway slice.
+func GetQualifiedGatewayNames(gateways []*v1alpha3.Gateway) []string {
+	names := []string{}
+	for _, gateway := range gateways {
+		names = append(names, fmt.Sprintf("%s/%s", gateway.Namespace, gateway.Name))
+	}
+	return names
+}

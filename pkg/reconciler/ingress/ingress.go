@@ -255,8 +255,11 @@ func (r *BaseIngressReconciler) reconcileIngress(ctx context.Context, ra Reconci
 
 	gatewayNames := sharedGatewayNamesFromContext(ctx)
 	if enableReconcileGateway(ctx) && ia.IsPublic() {
-		// We used to add Servers of Ingress
+		// We used to add Servers of the given Ingress to shared Gateways.
+		// Now when we start splitting Gateway, we need to remove them from the shared Gateways.
 		for _, sharedGatewayName := range gatewayNames[v1alpha1.IngressVisibilityExternalIP] {
+			// We set the desired Servers as empty slice, which means we want to remove existing Servers of the
+			// given Ingress from the Gateway.
 			if err := r.reconcileSharedGateway(ctx, ia, sharedGatewayName, []v1alpha3.Server{}); err != nil {
 				return err
 			}
@@ -265,7 +268,10 @@ func (r *BaseIngressReconciler) reconcileIngress(ctx context.Context, ra Reconci
 		if err != nil {
 			return err
 		}
-		targetSecrets := resources.MakeSecrets(ctx, originSecrets, ia)
+		targetSecrets, err := resources.MakeSecrets(ctx, originSecrets, ia)
+		if err != nil {
+			return err
+		}
 		if err := r.reconcileCertSecrets(ctx, ia, targetSecrets); err != nil {
 			return err
 		}
@@ -283,7 +289,7 @@ func (r *BaseIngressReconciler) reconcileIngress(ctx context.Context, ra Reconci
 
 	vses := resources.MakeVirtualServices(ia, gatewayNames)
 
-	// First, create the VirtualServices.
+	// Create the VirtualServices.
 	logger.Infof("Creating/Updating VirtualServices")
 	if err := r.reconcileVirtualServices(ctx, ia, vses); err != nil {
 		// TODO(lichuqiang): should we explicitly mark the ingress as unready
@@ -305,6 +311,29 @@ func (r *BaseIngressReconciler) reconcileIngress(ctx context.Context, ra Reconci
 
 	// TODO(zhiminx): Mark Route status to indicate that Gateway is configured.
 	logger.Info("ClusterIngress successfully synced")
+	return nil
+}
+
+func (r *BaseIngressReconciler) reconcileIngressGateway(ctx context.Context, ia v1alpha1.IngressAccessor, desired *v1alpha3.Gateway) error {
+	gateway, err := r.GatewayLister.Gateways(desired.Namespace).Get(desired.Name)
+	if apierrs.IsNotFound(err) {
+		_, err = r.SharedClientSet.NetworkingV1alpha3().Gateways(desired.Namespace).Create(desired)
+		if err != nil {
+			return err
+		}
+	} else if err != nil {
+		return err
+	} else if !metav1.IsControlledBy(gateway, ia) {
+		ia.GetStatus().MarkResourceNotOwned("Gateway", gateway.Name)
+		return fmt.Errorf("ingress :%q does not own Gateway: %q", ia.GetName(), gateway.Name)
+	} else if !equality.Semantic.DeepEqual(gateway.Spec, desired.Spec) {
+		existing := gateway.DeepCopy()
+		existing.Spec = desired.Spec
+		_, err = r.SharedClientSet.NetworkingV1alpha3().Gateways(existing.Namespace).Update(existing)
+		if err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
