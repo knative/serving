@@ -84,14 +84,11 @@ func (c *Configuration) ValidateLabels() (errs *apis.FieldError) {
 
 // verifyLabelOwnerRef function verifies the owner references of resource with label key has val value.
 func verifyLabelOwnerRef(val, label, resource string, ownerRefs []metav1.OwnerReference) (errs *apis.FieldError) {
-	if len(ownerRefs) == 0 {
-		errs = errs.Also(apis.ErrInvalidValue(val, label))
-	}
-	for i, ref := range ownerRefs {
+	for _, ref := range ownerRefs {
 		if ref.Kind == resource && val == ref.Name {
-		} else {
-			errs = errs.Also(apis.ErrInvalidArrayValue(ref.Name, label, i))
+			return
 		}
 	}
+	errs = errs.Also(apis.ErrMissingField(label))
 	return
 }

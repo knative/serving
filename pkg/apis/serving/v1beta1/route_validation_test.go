@@ -538,7 +538,7 @@ func TestRouteLabelAnnotationValidation(t *testing.T) {
 			},
 			Spec: validRouteSpec,
 		},
-		want: apis.ErrInvalidValue("absent-svc", "metadata.labels.serving.knative.dev/service"),
+		want: apis.ErrMissingField("metadata.labels.serving.knative.dev/service"),
 	}, {
 		name: "Mismatch knative service label and owner ref",
 		r: &Route{
@@ -555,7 +555,7 @@ func TestRouteLabelAnnotationValidation(t *testing.T) {
 			},
 			Spec: validRouteSpec,
 		},
-		want: apis.ErrInvalidValue("brand-new-svc", "metadata.labels.serving.knative.dev/service[0]"),
+		want: apis.ErrMissingField("metadata.labels.serving.knative.dev/service"),
 	}, {
 		name: "invalid knative service name without correct owner ref",
 		r: &Route{
@@ -572,7 +572,7 @@ func TestRouteLabelAnnotationValidation(t *testing.T) {
 			},
 			Spec: validRouteSpec,
 		},
-		want: apis.ErrInvalidValue("absent-svc", "metadata.labels.serving.knative.dev/service[0]"),
+		want: apis.ErrMissingField("metadata.labels.serving.knative.dev/service"),
 	}, {
 		name: "invalid knative service name with multiple owner ref",
 		r: &Route{
@@ -593,7 +593,6 @@ func TestRouteLabelAnnotationValidation(t *testing.T) {
 			},
 			Spec: validRouteSpec,
 		},
-		want: apis.ErrInvalidValue("test-new-svc", "metadata.labels.serving.knative.dev/service[0]"),
 	}, {
 		name: "invalid knative label",
 		r: &Route{

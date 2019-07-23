@@ -146,7 +146,7 @@ func TestRevisionLabelAnnotationValidation(t *testing.T) {
 			},
 			Spec: validRevisionSpec,
 		},
-		want: apis.ErrInvalidValue("absent-cfg", "metadata.labels.serving.knative.dev/configuration"),
+		want: apis.ErrMissingField("metadata.labels.serving.knative.dev/configuration"),
 	}, {
 		name: "valid knative configuration name",
 		r: &Revision{
@@ -180,7 +180,7 @@ func TestRevisionLabelAnnotationValidation(t *testing.T) {
 			},
 			Spec: validRevisionSpec,
 		},
-		want: apis.ErrInvalidValue("diff-cfg", "metadata.labels.serving.knative.dev/configuration[0]"),
+		want: apis.ErrMissingField("metadata.labels.serving.knative.dev/configuration"),
 	}, {
 		name: "invalid knative configuration name with multiple owner ref",
 		r: &Revision{
@@ -201,7 +201,6 @@ func TestRevisionLabelAnnotationValidation(t *testing.T) {
 			},
 			Spec: validRevisionSpec,
 		},
-		want: apis.ErrInvalidValue("test-new-cfg", "metadata.labels.serving.knative.dev/configuration[0]"),
 	}, {
 		name: "Mismatch knative configuration label and owner ref",
 		r: &Revision{
@@ -218,7 +217,7 @@ func TestRevisionLabelAnnotationValidation(t *testing.T) {
 			},
 			Spec: validRevisionSpec,
 		},
-		want: apis.ErrInvalidValue("brand-new-svc", "metadata.labels.serving.knative.dev/configuration[0]"),
+		want: apis.ErrMissingField("metadata.labels.serving.knative.dev/configuration"),
 	}, {
 		name: "invalid knative label",
 		r: &Revision{
