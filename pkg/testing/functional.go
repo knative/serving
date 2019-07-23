@@ -360,6 +360,8 @@ func SKS(ns, name string, so ...SKSOption) *netv1alpha1.ServerlessService {
 			},
 		},
 	}
+	// By default for tests we can presume happy-serve path.
+	s.Status.MarkActivatorEndpointsRemoved()
 	for _, opt := range so {
 		opt(s)
 	}
