@@ -78,7 +78,7 @@ func (rts *RevisionTemplateSpec) Validate(ctx context.Context) *apis.FieldError 
 		}
 	}
 
-	errs = errs.Also(serving.ValidateQueueSidecarAnnotation(rts.Annotations))
+	errs = errs.Also(serving.ValidateQueueSidecarAnnotation(rts.Annotations).ViaField("metadata.annotations"))
 	return errs
 }
 
