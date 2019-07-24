@@ -91,7 +91,7 @@ func runTest(t *testing.T, pacer vegeta.Pacer, saveMetrics bool) {
 
 	url := endpoint
 	if !strings.HasPrefix(url, httpPrefix) {
-		url = fmt.Sprintf("%s%s", httpPrefix, url)
+		url = httpPrefix + url
 	}
 
 	headers := make(map[string][]string)

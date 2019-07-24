@@ -136,7 +136,7 @@ func AddTrace(logf logging.FormatLogger, tName string, traceID string) {
 }
 
 func resolveEndpoint(kubeClientset *pkgTest.KubeClient, domain string, resolvable bool, endpointOverride string) (string, error) {
-	var endpoint string
+	endpoint := domain
 	if !resolvable {
 		e := &endpointOverride
 		if endpointOverride == "" {
@@ -147,9 +147,6 @@ func resolveEndpoint(kubeClientset *pkgTest.KubeClient, domain string, resolvabl
 			}
 		}
 		endpoint = *e
-	} else {
-		// If the domain is resolvable, we can use it directly when we make requests.
-		endpoint = domain
 	}
 	return endpoint, nil
 }
