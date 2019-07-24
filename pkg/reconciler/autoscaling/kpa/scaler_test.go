@@ -158,7 +158,7 @@ func TestScaler(t *testing.T) {
 		wantReplicas:  0,
 		wantScaling:   false,
 		paMutation: func(k *pav1alpha1.PodAutoscaler) {
-			paMarkInactive(k, time.Now().Add(-gracePeriod).Add(1*time.Second))
+			paMarkInactive(k, time.Now().Add(-gracePeriod).Add(time.Second))
 		},
 		wantCBCount: 1,
 	}, {
@@ -181,7 +181,7 @@ func TestScaler(t *testing.T) {
 		wantReplicas:  0,
 		wantScaling:   true,
 		paMutation: func(k *pav1alpha1.PodAutoscaler) {
-			paMarkInactive(k, time.Now().Add(-gracePeriod).Add(1*time.Second))
+			paMarkInactive(k, time.Now().Add(-gracePeriod).Add(time.Second))
 		},
 		sks: func(s *nv1a1.ServerlessService) {
 			markSKSInProxyFor(s, gracePeriod)

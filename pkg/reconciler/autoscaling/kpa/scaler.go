@@ -200,6 +200,7 @@ func (ks *scaler) handleScaleToZero(pa *pav1alpha1.PodAutoscaler, sks *nv1a1.Ser
 				// can scale to zero.
 				to -= sks.Status.ProxyFor()
 				if to <= 0 {
+					ks.logger.Infof("Fast path scaling to 0, in proxy mode for: %v", sks.Status.ProxyFor())
 					return desiredScale, true
 				}
 			}
