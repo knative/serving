@@ -203,24 +203,40 @@ func (t *Throttler) updateCapacity(breaker breaker, cc, size, activatorCount int
 // This is important for not losing the update signals
 // that came before the requests reached the Activator's Handler.
 func (t *Throttler) getOrCreateBreaker(revID RevisionID) (breaker, bool, error) {
+	// Optimistically try to just read the breaker from the map.
+	t.breakersMux.RLock()
+	breaker, ok := t.breakers[revID]
+	t.breakersMux.RUnlock()
+	if ok {
+		// Exit early if we got a breaker.
+		return breaker, true, nil
+	}
+
+	// We didn't get a breaker so we might need to mutate the map.
 	t.breakersMux.Lock()
 	defer t.breakersMux.Unlock()
-	breaker, ok := t.breakers[revID]
-	if !ok {
-		revision, err := t.revisionLister.Revisions(revID.Namespace).Get(revID.Name)
-		if err != nil {
-			return nil, false, err
-		}
-		if revision.Spec.ContainerConcurrency == 0 {
-			breaker = &infiniteBreaker{
-				broadcast: make(chan struct{}),
-			}
-		} else {
-			breaker = queue.NewBreaker(t.breakerParams)
-		}
-		t.breakers[revID] = breaker
+
+	// Try to read again in case other goroutines raced to create.
+	breaker, ok = t.breakers[revID]
+	if ok {
+		return breaker, true, nil
 	}
-	return breaker, ok, nil
+
+	// Only one goroutine will reach this to create one breaker from scratch.
+	revision, err := t.revisionLister.Revisions(revID.Namespace).Get(revID.Name)
+	if err != nil {
+		return nil, false, err
+	}
+	if revision.Spec.ContainerConcurrency == 0 {
+		breaker = &infiniteBreaker{
+			broadcast: make(chan struct{}),
+		}
+	} else {
+		breaker = queue.NewBreaker(t.breakerParams)
+	}
+	t.breakers[revID] = breaker
+
+	return breaker, false, nil
 }
 
 // forceUpdateCapacity fetches the endpoints and updates the capacity of the newly created breaker.
