@@ -79,6 +79,12 @@ type StatMessage struct {
 	Stat Stat
 }
 
+// Collector starts and stops metric collection for a given entity.
+type Collector interface {
+	CreateOrUpdate(*av1alpha1.Metric) error
+	Delete(context.Context, string, string) error
+}
+
 // MetricClient surfaces the metrics that can be obtained via the collector.
 type MetricClient interface {
 	// StableAndPanicConcurrency returns both the stable and the panic concurrency
@@ -96,6 +102,7 @@ type MetricCollector struct {
 	collectionsMutex sync.RWMutex
 }
 
+var _ Collector = (*MetricCollector)(nil)
 var _ MetricClient = (*MetricCollector)(nil)
 
 // NewMetricCollector creates a new metric collector.
@@ -163,6 +170,28 @@ func (c *MetricCollector) Update(ctx context.Context, metric *av1alpha1.Metric) 
 		return metric.DeepCopy(), nil
 	}
 	return nil, k8serrors.NewNotFound(av1alpha1.Resource("Metrics"), key.String())
+}
+
+// CreateOrUpdate either creates a collection for the given metric or update it, should
+// it already exist.
+func (c *MetricCollector) CreateOrUpdate(metric *av1alpha1.Metric) error {
+	c.collectionsMutex.Lock()
+	defer c.collectionsMutex.Unlock()
+
+	scraper, err := c.statsScraperFactory(metric)
+	if err != nil {
+		return err
+	}
+
+	key := types.NamespacedName{Namespace: metric.Namespace, Name: metric.Name}
+	collection, exists := c.collections[key]
+	if !exists {
+		c.collections[key] = newCollection(metric, scraper, c.logger)
+	} else {
+		collection.updateScraper(scraper)
+		collection.updateMetric(metric)
+	}
+	return nil
 }
 
 // Delete deletes a Metric and halts collection.

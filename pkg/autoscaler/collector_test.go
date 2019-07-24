@@ -126,6 +126,38 @@ func TestMetricCollectorCRUD(t *testing.T) {
 			t.Errorf("Delete() = %v, want no error", err)
 		}
 	})
+
+	t.Run("full crud with createOrUpdate", func(t *testing.T) {
+		coll := NewMetricCollector(factory, logger)
+		coll.CreateOrUpdate(defaultMetric)
+
+		got, err := coll.Get(ctx, defaultNamespace, defaultName)
+		if err != nil {
+			t.Errorf("Get() = %v, want no error", err)
+		}
+		if !cmp.Equal(defaultMetric, got) {
+			t.Errorf("Get() didn't return the same metric: %v", cmp.Diff(defaultMetric, got))
+		}
+		key := types.NamespacedName{Namespace: defaultMetric.Namespace, Name: defaultMetric.Name}
+
+		defaultMetric.Spec.ScrapeTarget = "new-target"
+		coll.statsScraperFactory = scraperFactory(scraper2, nil)
+		err = coll.CreateOrUpdate(defaultMetric)
+		if err != nil {
+			t.Errorf("Update() = %v, want no error", err)
+		}
+		if !cmp.Equal(defaultMetric, got) {
+			t.Errorf("Update() didn't return the same metric: %v", cmp.Diff(defaultMetric, got))
+		}
+		newURL := (coll.collections[key]).scraper.(*testScraper).url
+		if got, want := newURL, "slightly-off"; got != want {
+			t.Errorf("Updated scraper URL = %s, want: %s, diff: %s", got, want, cmp.Diff(got, want))
+		}
+
+		if err := coll.Delete(ctx, defaultNamespace, defaultName); err != nil {
+			t.Errorf("Delete() = %v, want no error", err)
+		}
+	})
 }
 
 func TestMetricCollectorScraper(t *testing.T) {
