@@ -73,26 +73,22 @@ var (
 func createQueueResources(annotations map[string]string, userContainer *corev1.Container) corev1.ResourceRequirements {
 	resourceRequests := corev1.ResourceList{corev1.ResourceCPU: queueContainerCPU}
 	resourceLimits := corev1.ResourceList{}
-	var (
-		ok                                               bool
-		requestCPU, limitCPU, requestMemory, limitMemory resource.Quantity
-		resourcePercentage                               float32
-	)
+	var requestCPU, limitCPU, requestMemory, limitMemory resource.Quantity
 
-	if ok, resourcePercentage = createResourcePercentageFromAnnotations(annotations, serving.QueueSideCarResourcePercentageAnnotation); ok {
-		if ok, requestCPU = computeResourceRequirements(userContainer.Resources.Requests.Cpu(), resourcePercentage, queueContainerRequestCPU); ok {
+	if resourceFraction, ok := fractionFromPercentage(annotations, serving.QueueSideCarResourcePercentageAnnotation); ok {
+		if ok, requestCPU = computeResourceRequirements(userContainer.Resources.Requests.Cpu(), resourceFraction, queueContainerRequestCPU); ok {
 			resourceRequests[corev1.ResourceCPU] = requestCPU
 		}
 
-		if ok, limitCPU = computeResourceRequirements(userContainer.Resources.Limits.Cpu(), resourcePercentage, queueContainerLimitCPU); ok {
+		if ok, limitCPU = computeResourceRequirements(userContainer.Resources.Limits.Cpu(), resourceFraction, queueContainerLimitCPU); ok {
 			resourceLimits[corev1.ResourceCPU] = limitCPU
 		}
 
-		if ok, requestMemory = computeResourceRequirements(userContainer.Resources.Requests.Memory(), resourcePercentage, queueContainerRequestMemory); ok {
+		if ok, requestMemory = computeResourceRequirements(userContainer.Resources.Requests.Memory(), resourceFraction, queueContainerRequestMemory); ok {
 			resourceRequests[corev1.ResourceMemory] = requestMemory
 		}
 
-		if ok, limitMemory = computeResourceRequirements(userContainer.Resources.Limits.Memory(), resourcePercentage, queueContainerLimitMemory); ok {
+		if ok, limitMemory = computeResourceRequirements(userContainer.Resources.Limits.Memory(), resourceFraction, queueContainerLimitMemory); ok {
 			resourceLimits[corev1.ResourceMemory] = limitMemory
 		}
 	}
@@ -107,12 +103,12 @@ func createQueueResources(annotations map[string]string, userContainer *corev1.C
 	return resources
 }
 
-func computeResourceRequirements(resourceQuantity *resource.Quantity, percentage float32, boundary resourceBoundary) (bool, resource.Quantity) {
+func computeResourceRequirements(resourceQuantity *resource.Quantity, fraction float64, boundary resourceBoundary) (bool, resource.Quantity) {
 	if resourceQuantity.IsZero() {
 		return false, resource.Quantity{}
 	}
 
-	// Incase the resourceQuantity MilliValue overflow in we use MaxInt64
+	// In case the resourceQuantity MilliValue overflows int64 we use MaxInt64
 	// https://github.com/kubernetes/apimachinery/blob/master/pkg/api/resource/quantity.go
 	scaledValue := resourceQuantity.Value()
 	scaledMilliValue := int64(math.MaxInt64 - 1)
@@ -121,29 +117,19 @@ func computeResourceRequirements(resourceQuantity *resource.Quantity, percentage
 	}
 
 	// float64(math.MaxInt64) > math.MaxInt64, to avoid overflow
-	percentageValue := float64(scaledMilliValue) * float64(percentage)
-	var newValue int64
-	if percentageValue >= math.MaxInt64 {
-		newValue = math.MaxInt64
-	} else {
+	percentageValue := float64(scaledMilliValue) * fraction
+	newValue := int64(math.MaxInt64)
+	if percentageValue < math.MaxInt64 {
 		newValue = int64(percentageValue)
 	}
 
-	newquantity := *resource.NewMilliQuantity(newValue, resource.BinarySI)
-	newquantity = boundary.applyBoundary(newquantity)
+	newquantity := boundary.applyBoundary(*resource.NewMilliQuantity(newValue, resource.BinarySI))
 	return true, newquantity
 }
 
-func createResourcePercentageFromAnnotations(m map[string]string, k string) (bool, float32) {
-	v, ok := m[k]
-	if !ok {
-		return false, 0
-	}
-	value, err := strconv.ParseFloat(v, 32)
-	if err != nil {
-		return false, 0
-	}
-	return true, float32(value / 100)
+func fractionFromPercentage(m map[string]string, k string) (float64, bool) {
+	value, err := strconv.ParseFloat(m[k], 64)
+	return float64(value / 100), err == nil
 }
 
 func makeQueueProbe(in *corev1.Probe) *corev1.Probe {
