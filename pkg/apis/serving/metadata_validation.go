@@ -17,9 +17,13 @@ limitations under the License.
 package serving
 
 import (
+	"context"
+	"strconv"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/apis"
 	"knative.dev/serving/pkg/apis/autoscaling"
+	"knative.dev/serving/pkg/apis/config"
 )
 
 // ValidateObjectMetadata validates that `metadata` stanza of the
@@ -27,4 +31,42 @@ import (
 func ValidateObjectMetadata(meta metav1.Object) *apis.FieldError {
 	return apis.ValidateObjectMetadata(meta).
 		Also(autoscaling.ValidateAnnotations(meta.GetAnnotations()).ViaField("annotations"))
+}
+
+// ValidateQueueSidecarAnnotation validates QueueSideCarResourcePercentageAnnotation
+func ValidateQueueSidecarAnnotation(annotations map[string]string) *apis.FieldError {
+	return validatePercentageAnnotationKey(annotations, QueueSideCarResourcePercentageAnnotation)
+}
+
+func validatePercentageAnnotationKey(annotations map[string]string, resourcePercentageAnnotationKey string) *apis.FieldError {
+	if len(annotations) == 0 {
+		return nil
+	}
+
+	v, ok := annotations[resourcePercentageAnnotationKey]
+	if !ok {
+		return nil
+	}
+	value, err := strconv.ParseFloat(v, 32)
+	if err != nil {
+		return apis.ErrInvalidValue(v, apis.CurrentField).ViaKey(resourcePercentageAnnotationKey)
+	}
+
+	if value <= float64(0.1) || value > float64(100) {
+		return apis.ErrOutOfBoundsValue(value, 0.1, 100.0, resourcePercentageAnnotationKey)
+	}
+	return nil
+}
+
+// ValidateTimeoutSeconds validates timeout by comparing MaxRevisionTimeoutSeconds
+func ValidateTimeoutSeconds(ctx context.Context, timeoutSeconds int64) *apis.FieldError {
+	if timeoutSeconds != 0 {
+		cfg := config.FromContextOrDefaults(ctx)
+		if timeoutSeconds > cfg.Defaults.MaxRevisionTimeoutSeconds || timeoutSeconds < 0 {
+			return apis.ErrOutOfBoundsValue(timeoutSeconds, 0,
+				cfg.Defaults.MaxRevisionTimeoutSeconds,
+				"timeoutSeconds")
+		}
+	}
+	return nil
 }
