@@ -134,7 +134,7 @@ func TestMetricCollectorScraper(t *testing.T) {
 	logger := TestLogger(t)
 	ctx := context.Background()
 
-	now := time.Unix(0, 0)
+	now := time.Now()
 	metricKey := types.NamespacedName{Namespace: defaultNamespace, Name: defaultName}
 	want := 10.0
 	stat := &StatMessage{
@@ -167,7 +167,7 @@ func TestMetricCollectorScraper(t *testing.T) {
 
 	// injecting times inside the window should not change the calculation result
 	wait.PollImmediate(10*time.Millisecond, 2*time.Second, func() (bool, error) {
-		got, _, _ = coll.StableAndPanicConcurrency(metricKey, now.Add(stableWindow).Add(-1*time.Second))
+		got, _, _ = coll.StableAndPanicConcurrency(metricKey, now.Add(stableWindow).Add(-5*time.Second))
 		return got == want, nil
 	})
 	if got != want {
