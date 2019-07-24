@@ -18,6 +18,7 @@ package activator
 
 import (
 	"context"
+	"strconv"
 	"testing"
 	"time"
 
@@ -562,5 +563,29 @@ func TestInfiniteBreaker(t *testing.T) {
 	if !res {
 		t.Error("thunk was not invoked")
 	}
+}
 
+func BenchmarkThrottler(b *testing.B) {
+	throttler := getThrottler(
+		defaultMaxConcurrency,
+		revisionLister(testNamespace, testRevision, 0),
+		endpointsInformer(testNamespace, testRevision, 0),
+		sksLister(testNamespace, testRevision),
+		nil,
+		initCapacity)
+
+	throttler.UpdateCapacity(revID, 1)
+
+	for _, parallelism := range []int{1, 10, 100, 1000, 10000} {
+		b.Run(strconv.Itoa(parallelism), func(b *testing.B) {
+			b.SetParallelism(parallelism)
+			b.RunParallel(func(pb *testing.PB) {
+				for pb.Next() {
+					if err := throttler.Try(context.Background(), revID, func() {}); err != nil {
+						b.Errorf("Try() unexpectedly returned an error: %v", err)
+					}
+				}
+			})
+		})
+	}
 }
