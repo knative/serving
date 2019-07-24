@@ -326,7 +326,7 @@ func main() {
 		logger.Fatalw("Failed to parse localhost URL", zap.Error(err))
 	}
 
-	if (env.TracingConfigEnable) {
+	if env.TracingConfigEnable {
 		queueProxyL3 := fmt.Sprintf("%s:%d", env.ServingPod, networking.ServiceHTTPPort)
 		zipkinEndpoint, err := zipkin.NewEndpoint(env.ServingPod, queueProxyL3)
 
@@ -350,7 +350,7 @@ func main() {
 
 	httpProxy = httputil.NewSingleHostReverseProxy(target)
 
-	if (env.TracingConfigEnable) {
+	if env.TracingConfigEnable {
 		httpProxy.Transport = &ochttp.Transport{
 			Base: network.AutoTransport,
 		}
