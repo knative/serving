@@ -310,7 +310,7 @@ func main() {
 	}
 	oct.ApplyConfig(&cfg)
 
-	httpProxy = httputil.NewSingleHostReverseProxy(target)
+	httpProxy := httputil.NewSingleHostReverseProxy(target)
 
   if env.TracingConfigEnable {
   	httpProxy.Transport = &ochttp.Transport{
