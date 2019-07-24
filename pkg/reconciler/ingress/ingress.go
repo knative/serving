@@ -258,6 +258,41 @@ func (r *BaseIngressReconciler) reconcileIngress(ctx context.Context, ra Reconci
 		// when error reconciling VirtualService?
 		return err
 	}
+
+	if enableReconcileGateway(ctx) && ia.IsPublic() {
+		// Add the finalizer before adding `Servers` into Gateway so that we can be sure
+		// the `Servers` get cleaned up from Gateway.
+		if err := r.ensureFinalizer(ra, ia); err != nil {
+			return err
+		}
+
+		originSecrets, err := resources.GetSecrets(ia, r.SecretLister)
+		if err != nil {
+			return err
+		}
+		targetSecrets, err := resources.MakeSecrets(ctx, originSecrets, ia)
+		if err != nil {
+			return err
+		}
+		if err := r.reconcileCertSecrets(ctx, ia, targetSecrets); err != nil {
+			return err
+		}
+
+		for _, gatewayName := range gatewayNames[v1alpha1.IngressVisibilityExternalIP] {
+			ns, err := resources.GatewayServiceNamespace(config.FromContext(ctx).Istio.IngressGateways, gatewayName)
+			if err != nil {
+				return err
+			}
+			desired, err := resources.MakeTLSServers(ia, ns, originSecrets)
+			if err != nil {
+				return err
+			}
+			if err := r.reconcileGateway(ctx, ia, gatewayName, desired); err != nil {
+				return err
+			}
+		}
+	}
+
 	// As underlying network programming (VirtualService now) is stateless,
 	// here we simply mark the ingress as ready if the VirtualService
 	// is successfully synced.
@@ -269,42 +304,6 @@ func (r *BaseIngressReconciler) reconcileIngress(ctx context.Context, ra Reconci
 
 	ia.GetStatus().MarkLoadBalancerReady(lbs, publicLbs, privateLbs)
 	ia.GetStatus().ObservedGeneration = ia.GetGeneration()
-
-	if enableReconcileGateway(ctx) {
-		if !ia.IsPublic() {
-			logger.Infof("Ingress %s is not public. So no need to configure TLS.", ia.GetName())
-			return nil
-		}
-
-		// Add the finalizer before adding `Servers` into Gateway so that we can be sure
-		// the `Servers` get cleaned up from Gateway.
-		if err := r.ensureFinalizer(ra, ia); err != nil {
-			return err
-		}
-
-		originSecrets, err := resources.GetSecrets(ia, r.SecretLister)
-		if err != nil {
-			return err
-		}
-		targetSecrets := resources.MakeSecrets(ctx, originSecrets, ia)
-		if err := r.reconcileCertSecrets(ctx, ia, targetSecrets); err != nil {
-			return err
-		}
-
-		for _, gatewayName := range gatewayNames[v1alpha1.IngressVisibilityExternalIP] {
-			ns, err := resources.GatewayServiceNamespace(config.FromContext(ctx).Istio.IngressGateways, gatewayName)
-			if err != nil {
-				return err
-			}
-			desired, err := resources.MakeServers(ia, ns, originSecrets)
-			if err != nil {
-				return err
-			}
-			if err := r.reconcileGateway(ctx, ia, gatewayName, desired); err != nil {
-				return err
-			}
-		}
-	}
 
 	// TODO(zhiminx): Mark Route status to indicate that Gateway is configured.
 	logger.Info("ClusterIngress successfully synced")
@@ -506,7 +505,7 @@ func (r *BaseIngressReconciler) reconcileGateway(ctx context.Context, ia v1alpha
 		existing = append(existing, *existingHTTPServer)
 	}
 
-	desiredHTTPServer := resources.MakeHTTPServer(config.FromContext(ctx).Network.HTTPProtocol)
+	desiredHTTPServer := resources.MakeHTTPServer(config.FromContext(ctx).Network.HTTPProtocol, []string{"*"})
 	if desiredHTTPServer != nil {
 		desired = append(desired, *desiredHTTPServer)
 	}

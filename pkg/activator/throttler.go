@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"sync"
+	"sync/atomic"
 
 	"go.uber.org/zap"
 
@@ -50,8 +51,8 @@ var ErrActivatorOverload = errors.New("activator overload")
 // It enables the use case to start with max concurrency set to 0 (no requests are sent because no endpoints are available)
 // and gradually increase its value depending on the external condition (e.g. new endpoints become available)
 type Throttler struct {
-	breakersMux sync.Mutex
-	breakers    map[RevisionID]*queue.Breaker
+	breakersMux sync.RWMutex
+	breakers    map[RevisionID]breaker
 
 	breakerParams   queue.BreakerParams
 	logger          *zap.SugaredLogger
@@ -63,6 +64,12 @@ type Throttler struct {
 	numActivators    int
 }
 
+type breaker interface {
+	Capacity() int
+	Maybe(ctx context.Context, thunk func()) bool
+	UpdateConcurrency(int) error
+}
+
 // NewThrottler creates a new Throttler.
 func NewThrottler(
 	params queue.BreakerParams,
@@ -72,7 +79,7 @@ func NewThrottler(
 	logger *zap.SugaredLogger) *Throttler {
 
 	throttler := &Throttler{
-		breakers:        make(map[RevisionID]*queue.Breaker),
+		breakers:        make(map[RevisionID]breaker),
 		breakerParams:   params,
 		logger:          logger,
 		endpointsLister: endpointsInformer.Lister(),
@@ -126,7 +133,10 @@ func (t *Throttler) UpdateCapacity(rev RevisionID, size int) error {
 	if err != nil {
 		return err
 	}
-	breaker, _ := t.getOrCreateBreaker(rev)
+	breaker, _, err := t.getOrCreateBreaker(rev)
+	if err != nil {
+		return err
+	}
 	return t.updateCapacity(breaker, int(revision.Spec.ContainerConcurrency), size, t.activatorCount())
 }
 
@@ -135,7 +145,10 @@ func (t *Throttler) UpdateCapacity(rev RevisionID, size int) error {
 // It returns an error if either breaker doesn't have enough capacity,
 // or breaker's registration didn't succeed, e.g. getting endpoints or update capacity failed.
 func (t *Throttler) Try(ctx context.Context, rev RevisionID, function func()) error {
-	breaker, existed := t.getOrCreateBreaker(rev)
+	breaker, existed, err := t.getOrCreateBreaker(rev)
+	if err != nil {
+		return err
+	}
 	if !existed {
 		// Need to fetch the latest endpoints state, in case we missed the update.
 		if err := t.forceUpdateCapacity(rev, breaker, t.activatorCount()); err != nil {
@@ -173,11 +186,12 @@ func minOneOrValue(num int) int {
 }
 
 // This method updates Breaker's concurrency.
-func (t *Throttler) updateCapacity(breaker *queue.Breaker, cc, size, activatorCount int) (err error) {
+func (t *Throttler) updateCapacity(breaker breaker, cc, size, activatorCount int) (err error) {
 	targetCapacity := cc * size
 
 	if size > 0 && (cc == 0 || targetCapacity > t.breakerParams.MaxConcurrency) {
-		// The concurrency is unlimited, thus hand out as many tokens as we can in this breaker.
+		// If cc==0, we need to pick a number, but it does not matter, since
+		// infinite breaker will dole out as many tokens as it can.
 		targetCapacity = t.breakerParams.MaxConcurrency
 	} else if targetCapacity > 0 {
 		targetCapacity = minOneOrValue(targetCapacity / minOneOrValue(activatorCount))
@@ -186,23 +200,33 @@ func (t *Throttler) updateCapacity(breaker *queue.Breaker, cc, size, activatorCo
 }
 
 // getOrCreateBreaker retrieves existing breaker or creates a new one.
-// This is important for not loosing the update signals
+// This is important for not losing the update signals
 // that came before the requests reached the Activator's Handler.
-func (t *Throttler) getOrCreateBreaker(rev RevisionID) (*queue.Breaker, bool) {
+func (t *Throttler) getOrCreateBreaker(revID RevisionID) (breaker, bool, error) {
 	t.breakersMux.Lock()
 	defer t.breakersMux.Unlock()
-	breaker, ok := t.breakers[rev]
+	breaker, ok := t.breakers[revID]
 	if !ok {
-		breaker = queue.NewBreaker(t.breakerParams)
-		t.breakers[rev] = breaker
+		revision, err := t.revisionLister.Revisions(revID.Namespace).Get(revID.Name)
+		if err != nil {
+			return nil, false, err
+		}
+		if revision.Spec.ContainerConcurrency == 0 {
+			breaker = &infiniteBreaker{
+				broadcast: make(chan struct{}),
+			}
+		} else {
+			breaker = queue.NewBreaker(t.breakerParams)
+		}
+		t.breakers[revID] = breaker
 	}
-	return breaker, ok
+	return breaker, ok, nil
 }
 
 // forceUpdateCapacity fetches the endpoints and updates the capacity of the newly created breaker.
 // This avoids a potential deadlock in case if we missed the updates from the Endpoints informer.
 // This could happen because of a restart of the Activator or when a new one is added as part of scale out.
-func (t *Throttler) forceUpdateCapacity(rev RevisionID, breaker *queue.Breaker, activatorCount int) (err error) {
+func (t *Throttler) forceUpdateCapacity(rev RevisionID, breaker breaker, activatorCount int) (err error) {
 	revision, err := t.revisionLister.Revisions(rev.Namespace).Get(rev.Name)
 	if err != nil {
 		return err
@@ -270,4 +294,85 @@ func (t *Throttler) endpointsDeleted(obj interface{}) {
 	}
 	revID := RevisionID{ep.Namespace, revisionName}
 	t.Remove(revID)
+}
+
+// infiniteBreaker is basically a short circuit.
+// infiniteBreaker provides us capability to send unlimited number
+// of requests to the downstream system.
+// This is to be used only when the container concurrency is unset
+// (i.e. infinity).
+// The infiniteBreaker will, though, block the requests when
+// downstream capacity is 0.
+type infiniteBreaker struct {
+	// mu guards `broadcast` channel.
+	mu sync.RWMutex
+
+	// broadcast channel is used notify the waiting requests that
+	// downstream capacity showed up.
+	// When the downstream capacity switches from 0 to 1, the channel is closed.
+	// When the downstream capacity disappears, the a new channel is created.
+	// Reads/Writes to the `broadcast` must be guarded by `mu`.
+	broadcast chan struct{}
+
+	// concurrency in the infinite breaker takes only two values
+	// 0 (no downstream capacity) and 1 (infinite downstream capacity).
+	// `Maybe` checks this value to determine whether to proxy the request
+	// immediately or wait for capacity to appear.
+	// `concurrency` should only be manipulated by `sync/atomic` methods.
+	concurrency int32
+}
+
+func (ib *infiniteBreaker) Capacity() int {
+	return int(atomic.LoadInt32(&ib.concurrency))
+}
+
+func zeroOrOne(x int) int32 {
+	if x == 0 {
+		return 0
+	}
+	return 1
+}
+
+func (ib *infiniteBreaker) UpdateConcurrency(cc int) error {
+	rcc := zeroOrOne(cc)
+	// We lock here to make sure two scale up events don't
+	// stomp on each other's feet.
+	ib.mu.Lock()
+	defer ib.mu.Unlock()
+	old := atomic.SwapInt32(&ib.concurrency, rcc)
+
+	// Scale up/down event.
+	if old != rcc {
+		if rcc == 0 {
+			// Scaled to 0.
+			ib.broadcast = make(chan struct{})
+		} else {
+			close(ib.broadcast)
+		}
+	}
+	return nil
+}
+
+func (ib *infiniteBreaker) Maybe(ctx context.Context, thunk func()) bool {
+	has := ib.Capacity()
+	// We're scaled to serve.
+	if has > 0 {
+		thunk()
+		return true
+	}
+
+	// Make sure we lock to get the channel, to avoid
+	// race between Maybe and UpdateConcurrency.
+	var ch chan struct{}
+	ib.mu.RLock()
+	ch = ib.broadcast
+	ib.mu.RUnlock()
+	select {
+	case <-ch:
+		// Scaled up.
+		thunk()
+		return true
+	case <-ctx.Done():
+		return false
+	}
 }

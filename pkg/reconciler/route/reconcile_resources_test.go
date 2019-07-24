@@ -58,12 +58,12 @@ func TestReconcileClusterIngress_Insert(t *testing.T) {
 		clusterIngressLister: reconciler.clusterIngressLister,
 	}
 
-	if _, err := reconciler.reconcileIngress(TestContextWithLogger(t), ira, r, ci); err != nil {
+	if _, err := reconciler.reconcileIngress(TestContextWithLogger(t), ira, r, ci, true /* optional*/); err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
 	created := getRouteClusterIngressFromClient(ctx, t, r)
-	if diff := cmp.Diff(ci, created); diff != "" {
-		t.Errorf("Unexpected diff (-want +got): %v", diff)
+	if created != nil {
+		t.Errorf("Unexpected ClusterIngress creation")
 	}
 }
 
@@ -85,7 +85,7 @@ func TestReconcileClusterIngress_Update(t *testing.T) {
 	}
 
 	ci := newTestClusterIngress(t, r)
-	if _, err := reconciler.reconcileIngress(TestContextWithLogger(t), ira, r, ci); err != nil {
+	if _, err := reconciler.reconcileIngress(TestContextWithLogger(t), ira, r, ci, false /*optional*/); err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
 
@@ -101,7 +101,7 @@ func TestReconcileClusterIngress_Update(t *testing.T) {
 			},
 		})
 	})
-	if _, err := reconciler.reconcileIngress(TestContextWithLogger(t), ira, r, ci2); err != nil {
+	if _, err := reconciler.reconcileIngress(TestContextWithLogger(t), ira, r, ci2, true /*optional*/); err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
 

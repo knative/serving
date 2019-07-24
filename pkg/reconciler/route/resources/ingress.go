@@ -28,7 +28,6 @@ import (
 	"knative.dev/serving/pkg/activator"
 	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/networking/v1alpha1"
-	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
 	servingv1alpha1 "knative.dev/serving/pkg/apis/serving/v1alpha1"
 	"knative.dev/serving/pkg/reconciler/route/domains"
@@ -208,11 +207,10 @@ func makeIngressRule(domains []string, ns string, isClusterLocal bool, targets t
 				ServicePort: intstr.FromInt(int(networking.ServicePort(t.Protocol))),
 			},
 			Percent: t.Percent,
-			// TODO(nghia): Append headers per-split.
-			// AppendHeaders: map[string]string{
-			// 	activator.RevisionHeaderName:      t.TrafficTarget.RevisionName,
-			// 	activator.RevisionHeaderNamespace: ns,
-			// },
+			AppendHeaders: map[string]string{
+				activator.RevisionHeaderName:      t.TrafficTarget.RevisionName,
+				activator.RevisionHeaderNamespace: ns,
+			},
 		})
 	}
 
@@ -228,45 +226,13 @@ func makeIngressRule(domains []string, ns string, isClusterLocal bool, targets t
 			Paths: []v1alpha1.HTTPIngressPath{{
 				Splits: splits,
 				// TODO(lichuqiang): #2201, plumbing to config timeout and retries.
-				AppendHeaders: map[string]string{
-					activator.RevisionHeaderName:      maxInactive(targets),
-					activator.RevisionHeaderNamespace: ns,
-				},
 			}},
 		},
 	}
 }
 
-// maxInactive constructs Splits for the inactive targets, and add into given IngressPath.
-func maxInactive(targets traffic.RevisionTargets) string {
-	revisionName, inactiveRevisionName := "", ""
-	maxTargetPercent := 0         // There must be a non-zero target if things add to 100
-	maxInactiveTargetPercent := 0 // There must be a non-zero target if things add to 100
-
-	for _, t := range targets {
-		if t.Percent == 0 {
-			continue
-		}
-		if t.Percent >= maxTargetPercent {
-			revisionName = t.RevisionName
-			maxTargetPercent = t.Percent
-		}
-		if t.Active {
-			continue
-		}
-		if t.Percent >= maxInactiveTargetPercent {
-			inactiveRevisionName = t.RevisionName
-			maxInactiveTargetPercent = t.Percent
-		}
-	}
-	if inactiveRevisionName != "" {
-		return inactiveRevisionName
-	}
-	return revisionName
-}
-
 // GetIngressTypeName returns ingress type name: ClusterIngress or Ingress
-func GetIngressTypeName(ingress netv1alpha1.IngressAccessor) string {
+func GetIngressTypeName(ingress v1alpha1.IngressAccessor) string {
 	if ingress.GetNamespace() == "" {
 		return "ClusterIngress"
 	} else {

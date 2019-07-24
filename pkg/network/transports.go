@@ -47,7 +47,7 @@ const (
 	initialTO = float64(50 * time.Millisecond)
 	sleepTO   = 30 * time.Millisecond
 	factor    = 1.4
-	numSteps  = 10
+	numSteps  = 15
 )
 
 var errDialTimeout = errors.New("timed out dialing")
@@ -89,7 +89,8 @@ func newHTTPTransport(connTimeout time.Duration, disableKeepAlives bool) http.Ro
 	return &http.Transport{
 		// Those match net/http/transport.go
 		Proxy:                 http.ProxyFromEnvironment,
-		MaxIdleConns:          100,
+		MaxIdleConns:          1000,
+		MaxIdleConnsPerHost:   100,
 		IdleConnTimeout:       5 * time.Second,
 		TLSHandshakeTimeout:   10 * time.Second,
 		ExpectContinueTimeout: 1 * time.Second,

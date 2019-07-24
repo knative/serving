@@ -33,6 +33,7 @@ import (
 	"knative.dev/pkg/test/logging"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	serviceresourcenames "knative.dev/serving/pkg/reconciler/service/resources/names"
+	corev1 "k8s.io/api/core/v1"
 
 	ptest "knative.dev/pkg/test"
 	rtesting "knative.dev/serving/pkg/testing/v1alpha1"
@@ -346,8 +347,14 @@ func IsServiceReady(s *v1alpha1.Service) (bool, error) {
 	return s.Generation == s.Status.ObservedGeneration && s.Status.IsReady(), nil
 }
 
-// IsServiceNotReady will check the status conditions of the service and return true if the service is
-// not ready.
+// IsServiceNotReady checks the Ready status condition of the service and returns true only if Ready is set to False.
 func IsServiceNotReady(s *v1alpha1.Service) (bool, error) {
-	return s.Generation == s.Status.ObservedGeneration && !s.Status.IsReady(), nil
+	result := s.Status.GetCondition(v1alpha1.ServiceConditionReady)
+	return s.Generation == s.Status.ObservedGeneration && result != nil && result.Status == corev1.ConditionFalse, nil
+}
+
+// IsServiceRoutesNotReady checks the RoutesReady status of the service and returns true only if RoutesReady is set to False.
+func IsServiceRoutesNotReady(s *v1alpha1.Service) (bool, error) {
+	result := s.Status.GetCondition(v1alpha1.ServiceConditionRoutesReady)
+	return s.Generation == s.Status.ObservedGeneration && result != nil && result.Status == corev1.ConditionFalse, nil
 }

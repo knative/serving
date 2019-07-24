@@ -36,6 +36,7 @@ import (
 	"go.opencensus.io/stats"
 	"go.opencensus.io/trace"
 	"go.uber.org/zap"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"knative.dev/pkg/logging/logkey"
 	"knative.dev/pkg/metrics"
@@ -91,11 +92,10 @@ const (
 )
 
 var (
-	servingRevisionKey string
-	userTargetAddress  string
-	reqChan            = make(chan queue.ReqEvent, requestCountingQueueLength)
-	logger             *zap.SugaredLogger
-	breaker            *queue.Breaker
+	userTargetAddress string
+	reqChan           = make(chan queue.ReqEvent, requestCountingQueueLength)
+	logger            *zap.SugaredLogger
+	breaker           *queue.Breaker
 
 	httpProxy *httputil.ReverseProxy
 
@@ -157,8 +157,6 @@ func initConfig(env config) {
 		logger.Fatal("INTERNAL_VOLUME_PATH must be specified when ENABLE_VAR_LOG_COLLECTION is true")
 	}
 
-	// TODO(mattmoor): Move this key to be in terms of the KPA.
-	servingRevisionKey = autoscaler.NewMetricKey(env.ServingNamespace, env.ServingRevision)
 	_psr, err := queue.NewPrometheusStatsReporter(env.ServingNamespace, env.ServingConfiguration, env.ServingRevision, env.ServingPod)
 	if err != nil {
 		logger.Fatalw("Failed to create stats reporter", zap.Error(err))
@@ -320,7 +318,7 @@ func main() {
 
 	initConfig(env)
 	logger = logger.With(
-		zap.String(logkey.Key, servingRevisionKey),
+		zap.String(logkey.Key, types.NamespacedName{Namespace: env.ServingNamespace, Name: env.ServingRevision}.String()),
 		zap.String(logkey.Pod, env.ServingPod))
 
 	target, err := url.Parse("http://" + userTargetAddress)

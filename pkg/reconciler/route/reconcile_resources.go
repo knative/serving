@@ -65,10 +65,13 @@ func (c *Reconciler) deleteIngressesForRoute(route *v1alpha1.Route) error {
 }
 
 func (c *Reconciler) reconcileIngress(
-	ctx context.Context, ira IngressResourceAccessors, r *v1alpha1.Route, desired netv1alpha1.IngressAccessor) (netv1alpha1.IngressAccessor, error) {
+	ctx context.Context, ira IngressResourceAccessors, r *v1alpha1.Route, desired netv1alpha1.IngressAccessor, optional bool) (netv1alpha1.IngressAccessor, error) {
 	logger := logging.FromContext(ctx)
 	ingress, err := ira.getIngressForRoute(r)
 	if apierrs.IsNotFound(err) {
+		if optional {
+			return nil, nil
+		}
 		ingress, err = ira.createIngress(desired)
 		if err != nil {
 			logger.Errorw("Failed to create Ingress", zap.Error(err))
@@ -114,7 +117,7 @@ func (c *Reconciler) deleteServices(namespace string, serviceNames sets.String) 
 	return nil
 }
 
-func (c *Reconciler) reconcilePlaceholderServices(ctx context.Context, route *v1alpha1.Route, targets map[string]traffic.RevisionTargets, currentServiceNames sets.String) ([]*corev1.Service, error) {
+func (c *Reconciler) reconcilePlaceholderServices(ctx context.Context, route *v1alpha1.Route, targets map[string]traffic.RevisionTargets, existingServiceNames sets.String) ([]*corev1.Service, error) {
 	logger := logging.FromContext(ctx)
 	ns := route.Namespace
 
@@ -122,6 +125,8 @@ func (c *Reconciler) reconcilePlaceholderServices(ctx context.Context, route *v1
 	for name := range targets {
 		names.Insert(name)
 	}
+
+	createdServiceNames := sets.String{}
 
 	var services []*corev1.Service
 	for _, name := range names.List() {
@@ -152,11 +157,11 @@ func (c *Reconciler) reconcilePlaceholderServices(ctx context.Context, route *v1
 		}
 
 		services = append(services, service)
-		delete(currentServiceNames, desiredService.Name)
+		createdServiceNames.Insert(desiredService.Name)
 	}
 
 	// Delete any current services that was no longer desired.
-	if err := c.deleteServices(ns, currentServiceNames); err != nil {
+	if err := c.deleteServices(ns, existingServiceNames.Difference(createdServiceNames)); err != nil {
 		return nil, err
 	}
 

@@ -17,7 +17,9 @@ limitations under the License.
 package v1alpha1
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+
 	"knative.dev/pkg/apis"
 	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
 )
@@ -51,6 +53,28 @@ func (sss *ServerlessServiceStatus) MarkEndpointsNotOwned(kind, name string) {
 	serverlessServiceCondSet.Manage(sss).MarkFalse(
 		ServerlessServiceConditionEndspointsPopulated, "NotOwned",
 		"Resource %s of type %s is not owned by SKS", name, kind)
+}
+
+// MarkActivatorEndpointsPopulated is setting the ActivatorEndpointsPopulated to True.
+func (sss *ServerlessServiceStatus) MarkActivatorEndpointsPopulated() {
+	serverlessServiceCondSet.Manage(sss).SetCondition(apis.Condition{
+		Type:     ActivatorEndpointsPopulated,
+		Status:   corev1.ConditionTrue,
+		Severity: apis.ConditionSeverityInfo,
+		Reason:   "ActivatorEndpointsPopulated",
+		Message:  "Revision is backed by Activator",
+	})
+}
+
+// MarkActivatorEndpointsRemoved is setting the ActivatorEndpointsPopulated to False.
+func (sss *ServerlessServiceStatus) MarkActivatorEndpointsRemoved() {
+	serverlessServiceCondSet.Manage(sss).SetCondition(apis.Condition{
+		Type:     ActivatorEndpointsPopulated,
+		Status:   corev1.ConditionFalse,
+		Severity: apis.ConditionSeverityInfo,
+		Reason:   "ActivatorEndpointsPopulated",
+		Message:  "Revision is backed by Activator",
+	})
 }
 
 // MarkEndpointsNotReady marks the ServerlessServiceStatus endpoints populated condition to unknown.

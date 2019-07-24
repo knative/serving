@@ -272,12 +272,6 @@ func withEnvVar(name, value string) containerOption {
 	}
 }
 
-func withArgs(args []string) containerOption {
-	return func(container *corev1.Container) {
-		container.Args = append(container.Args, args...)
-	}
-}
-
 func withInternalVolumeMount() containerOption {
 	return func(container *corev1.Container) {
 		container.VolumeMounts = append(container.VolumeMounts, internalVolumeMount)
@@ -297,19 +291,6 @@ func withHTTPReadinessProbe(port int) containerOption {
 			Path: "/",
 		},
 	})
-}
-
-func withHTTPQPReadinessProbe(c *corev1.Container) {
-	withReadinessProbe(corev1.Handler{
-		HTTPGet: &corev1.HTTPGetAction{
-			Port: intstr.FromInt(networking.BackendHTTPPort),
-			Path: "/",
-			HTTPHeaders: []corev1.HTTPHeader{{
-				Name:  network.KubeletProbeHeaderName,
-				Value: "queue",
-			}},
-		},
-	})(c)
 }
 
 func withExecReadinessProbe(command []string) containerOption {

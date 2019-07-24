@@ -104,8 +104,7 @@ func MakePrivateService(sks *v1alpha1.ServerlessService, selector map[string]str
 			Ports: []corev1.ServicePort{{
 				Name:     networking.ServicePortName(sks.Spec.ProtocolType),
 				Protocol: corev1.ProtocolTCP,
-				// TODO(vagababov): make this work with matching port.
-				Port: networking.ServiceHTTPPort,
+				Port:     networking.ServiceHTTPPort,
 				// This one is matching the public one, since this is the
 				// port queue-proxy listens on.
 				TargetPort: targetPort(sks),

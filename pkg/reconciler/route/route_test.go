@@ -216,6 +216,10 @@ func getRouteClusterIngressFromClient(ctx context.Context, t *testing.T, route *
 		t.Errorf("ClusterIngress.Get(%v) = %v", opts, err)
 	}
 
+	if len(cis.Items) == 0 {
+		return nil
+	}
+
 	if len(cis.Items) != 1 {
 		t.Errorf("ClusterIngress.Get(%v), expect 1 instance, but got %d", opts, len(cis.Items))
 	}
@@ -260,8 +264,9 @@ func addResourcesToInformers(t *testing.T, ctx context.Context, route *v1alpha1.
 	}
 	fakerouteinformer.Get(ctx).Informer().GetIndexer().Add(route)
 
-	ci := getRouteClusterIngressFromClient(ctx, t, route)
-	fakeciinformer.Get(ctx).Informer().GetIndexer().Add(ci)
+	if ci := getRouteClusterIngressFromClient(ctx, t, route); ci != nil {
+		fakeciinformer.Get(ctx).Informer().GetIndexer().Add(ci)
+	}
 	ingress := getRouteIngressFromClient(ctx, t, route)
 	fakeingressinformer.Get(ctx).Informer().GetIndexer().Add(ingress)
 }
@@ -324,11 +329,11 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 							ServicePort:      intstr.FromInt(80),
 						},
 						Percent: 100,
+						AppendHeaders: map[string]string{
+							"Knative-Serving-Revision":  "test-rev",
+							"Knative-Serving-Namespace": testNamespace,
+						},
 					}},
-					AppendHeaders: map[string]string{
-						"Knative-Serving-Revision":  "test-rev",
-						"Knative-Serving-Namespace": testNamespace,
-					},
 				}},
 			},
 			Visibility: netv1alpha1.IngressVisibilityExternalIP,
@@ -362,7 +367,7 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 	}
 	select {
 	case got := <-fakeRecorder.Events:
-		const wantPrefix = `Normal Created Created ClusterIngress`
+		const wantPrefix = `Normal Created Created Ingress`
 		if !strings.HasPrefix(got, wantPrefix) {
 			t.Errorf("<-Events = %s, wanted prefix %s", got, wantPrefix)
 		}
@@ -429,6 +434,10 @@ func TestCreateRouteWithMultipleTargets(t *testing.T) {
 							ServicePort:      intstr.FromInt(80),
 						},
 						Percent: 90,
+						AppendHeaders: map[string]string{
+							"Knative-Serving-Revision":  cfgrev.Name,
+							"Knative-Serving-Namespace": testNamespace,
+						},
 					}, {
 						IngressBackend: netv1alpha1.IngressBackend{
 							ServiceNamespace: testNamespace,
@@ -436,11 +445,11 @@ func TestCreateRouteWithMultipleTargets(t *testing.T) {
 							ServicePort:      intstr.FromInt(80),
 						},
 						Percent: 10,
+						AppendHeaders: map[string]string{
+							"Knative-Serving-Revision":  rev.Name,
+							"Knative-Serving-Namespace": testNamespace,
+						},
 					}},
-					AppendHeaders: map[string]string{
-						"Knative-Serving-Revision":  cfgrev.Name,
-						"Knative-Serving-Namespace": testNamespace,
-					},
 				}},
 			},
 			Visibility: netv1alpha1.IngressVisibilityExternalIP,
@@ -514,6 +523,10 @@ func TestCreateRouteWithOneTargetReserve(t *testing.T) {
 							ServicePort:      intstr.FromInt(80),
 						},
 						Percent: 90,
+						AppendHeaders: map[string]string{
+							"Knative-Serving-Revision":  cfgrev.Name,
+							"Knative-Serving-Namespace": testNamespace,
+						},
 					}, {
 						IngressBackend: netv1alpha1.IngressBackend{
 							ServiceNamespace: testNamespace,
@@ -521,11 +534,11 @@ func TestCreateRouteWithOneTargetReserve(t *testing.T) {
 							ServicePort:      intstr.FromInt(80),
 						},
 						Percent: 10,
+						AppendHeaders: map[string]string{
+							"Knative-Serving-Revision":  rev.Name,
+							"Knative-Serving-Namespace": testNamespace,
+						},
 					}},
-					AppendHeaders: map[string]string{
-						"Knative-Serving-Revision":  "test-rev",
-						"Knative-Serving-Namespace": testNamespace,
-					},
 				}},
 			},
 			Visibility: netv1alpha1.IngressVisibilityExternalIP,
@@ -623,6 +636,10 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 							ServicePort:      intstr.FromInt(80),
 						},
 						Percent: 50,
+						AppendHeaders: map[string]string{
+							"Knative-Serving-Revision":  cfgrev.Name,
+							"Knative-Serving-Namespace": testNamespace,
+						},
 					}, {
 						IngressBackend: netv1alpha1.IngressBackend{
 							ServiceNamespace: testNamespace,
@@ -630,11 +647,11 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 							ServicePort:      intstr.FromInt(80),
 						},
 						Percent: 50,
+						AppendHeaders: map[string]string{
+							"Knative-Serving-Revision":  rev.Name,
+							"Knative-Serving-Namespace": testNamespace,
+						},
 					}},
-					AppendHeaders: map[string]string{
-						"Knative-Serving-Revision":  rev.Name,
-						"Knative-Serving-Namespace": testNamespace,
-					},
 				}},
 			},
 			Visibility: netv1alpha1.IngressVisibilityExternalIP,
@@ -652,11 +669,11 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 							ServicePort:      intstr.FromInt(80),
 						},
 						Percent: 100,
+						AppendHeaders: map[string]string{
+							"Knative-Serving-Revision":  rev.Name,
+							"Knative-Serving-Namespace": testNamespace,
+						},
 					}},
-					AppendHeaders: map[string]string{
-						"Knative-Serving-Revision":  rev.Name,
-						"Knative-Serving-Namespace": testNamespace,
-					},
 				}},
 			},
 			Visibility: netv1alpha1.IngressVisibilityExternalIP,
@@ -674,11 +691,11 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 							ServicePort:      intstr.FromInt(80),
 						},
 						Percent: 100,
+						AppendHeaders: map[string]string{
+							"Knative-Serving-Revision":  rev.Name,
+							"Knative-Serving-Namespace": testNamespace,
+						},
 					}},
-					AppendHeaders: map[string]string{
-						"Knative-Serving-Revision":  rev.Name,
-						"Knative-Serving-Namespace": testNamespace,
-					},
 				}},
 			},
 			Visibility: netv1alpha1.IngressVisibilityExternalIP,
@@ -753,6 +770,10 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 							ServicePort:      intstr.FromInt(80),
 						},
 						Percent: 50,
+						AppendHeaders: map[string]string{
+							"Knative-Serving-Revision":  rev.Name,
+							"Knative-Serving-Namespace": testNamespace,
+						},
 					}, {
 						IngressBackend: netv1alpha1.IngressBackend{
 							ServiceNamespace: testNamespace,
@@ -760,11 +781,11 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 							ServicePort:      intstr.FromInt(80),
 						},
 						Percent: 50,
+						AppendHeaders: map[string]string{
+							"Knative-Serving-Revision":  cfgrev.Name,
+							"Knative-Serving-Namespace": testNamespace,
+						},
 					}},
-					AppendHeaders: map[string]string{
-						"Knative-Serving-Revision":  cfgrev.Name,
-						"Knative-Serving-Namespace": testNamespace,
-					},
 				}},
 			},
 			Visibility: netv1alpha1.IngressVisibilityExternalIP,
@@ -782,11 +803,11 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 							ServicePort:      intstr.FromInt(80),
 						},
 						Percent: 100,
+						AppendHeaders: map[string]string{
+							"Knative-Serving-Revision":  cfgrev.Name,
+							"Knative-Serving-Namespace": testNamespace,
+						},
 					}},
-					AppendHeaders: map[string]string{
-						"Knative-Serving-Revision":  cfgrev.Name,
-						"Knative-Serving-Namespace": testNamespace,
-					},
 				}},
 			},
 			Visibility: netv1alpha1.IngressVisibilityExternalIP,
@@ -804,11 +825,11 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 							ServicePort:      intstr.FromInt(80),
 						},
 						Percent: 100,
+						AppendHeaders: map[string]string{
+							"Knative-Serving-Revision":  rev.Name,
+							"Knative-Serving-Namespace": testNamespace,
+						},
 					}},
-					AppendHeaders: map[string]string{
-						"Knative-Serving-Revision":  rev.Name,
-						"Knative-Serving-Namespace": testNamespace,
-					},
 				}},
 			},
 			Visibility: netv1alpha1.IngressVisibilityExternalIP,

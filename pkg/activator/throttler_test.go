@@ -78,7 +78,7 @@ func TestThrottlerUpdateCapacity(t *testing.T) {
 		revisionLister: revisionLister(testNamespace, testRevision, 0),
 		numEndpoints:   1,
 		maxConcurrency: 100,
-		want:           100,
+		want:           1, // We're using infinity breaker, which is 0-1 only.
 	}, {
 		label:          "non-existing revision",
 		revisionLister: revisionLister("bogus-namespace", testRevision, 10),
@@ -119,7 +119,7 @@ func TestThrottlerUpdateCapacity(t *testing.T) {
 			if err == nil && s.wantError {
 				t.Errorf("UpdateCapacity() did not return an error")
 			} else if err != nil && !s.wantError {
-				t.Errorf("UpdateCapacity() = %v, wanted no error", err)
+				t.Errorf("UpdateCapacity() = `%v`, wanted no error", err)
 			}
 			if s.want > 0 {
 				if got := throttler.breakers[revID].Capacity(); got != s.want {
@@ -496,4 +496,71 @@ func endpointsSubset(hostsPerSubset, subsets int) []corev1.EndpointSubset {
 		return resp
 	}
 	return resp
+}
+
+func TestInfiniteBreaker(t *testing.T) {
+	b := &infiniteBreaker{
+		broadcast: make(chan struct{}),
+	}
+
+	// Verify initial condition.
+	if got, want := b.Capacity(), 0; got != want {
+		t.Errorf("Cap=%d, want: %d", got, want)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if b.Maybe(ctx, nil) {
+		t.Error("Should have failed, but didn't")
+	}
+
+	b.UpdateConcurrency(1)
+	if got, want := b.Capacity(), 1; got != want {
+		t.Errorf("Cap=%d, want: %d", got, want)
+	}
+
+	// Verify we call the thunk when we have achieved capacity.
+	// Twice.
+	for i := 0; i < 2; i++ {
+		ctx, cancel = context.WithCancel(context.Background())
+		cancel()
+		res := false
+		if !b.Maybe(ctx, func() { res = true }) {
+			t.Error("Should have succeeded, but didn't")
+		}
+		if !res {
+			t.Error("thunk was not invoked")
+		}
+	}
+
+	// Scale to zero
+	b.UpdateConcurrency(0)
+
+	// Repeat initial test.
+	ctx, cancel = context.WithCancel(context.Background())
+	cancel()
+	if b.Maybe(ctx, nil) {
+		t.Error("Should have failed, but didn't")
+	}
+	if got, want := b.Capacity(), 0; got != want {
+		t.Errorf("Cap=%d, want: %d", got, want)
+	}
+
+	// And now do the async test.
+	ctx, cancel = context.WithCancel(context.Background())
+	defer cancel()
+
+	// Unlock the channel after a short delay.
+	go func() {
+		time.Sleep(10 * time.Millisecond)
+		b.UpdateConcurrency(1)
+	}()
+	res := false
+	if !b.Maybe(ctx, func() { res = true }) {
+		t.Error("Should have succeeded, but didn't")
+	}
+	if !res {
+		t.Error("thunk was not invoked")
+	}
+
 }

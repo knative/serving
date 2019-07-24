@@ -34,6 +34,7 @@ import (
 	"knative.dev/pkg/logging"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	pav1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
+	nv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	areconciler "knative.dev/serving/pkg/reconciler/autoscaling"
 	"knative.dev/serving/pkg/reconciler/autoscaling/config"
 	"knative.dev/serving/pkg/reconciler/autoscaling/hpa/resources"
@@ -148,8 +149,7 @@ func (c *Reconciler) reconcile(ctx context.Context, key string, pa *pav1alpha1.P
 		}
 	}
 
-	// HPA has its own deciders.
-	sks, err := c.ReconcileSKS(ctx, pa, nil /* decider */)
+	sks, err := c.ReconcileSKS(ctx, pa, nv1alpha1.SKSOperationModeServe)
 	if err != nil {
 		return perrors.Wrap(err, "error reconciling SKS")
 	}

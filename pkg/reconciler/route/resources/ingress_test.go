@@ -135,11 +135,11 @@ func TestMakeClusterIngressSpec_CorrectRules(t *testing.T) {
 						ServicePort:      intstr.FromInt(80),
 					},
 					Percent: 100,
+					AppendHeaders: map[string]string{
+						"Knative-Serving-Revision":  "v2",
+						"Knative-Serving-Namespace": "test-ns",
+					},
 				}},
-				AppendHeaders: map[string]string{
-					"Knative-Serving-Revision":  "v2",
-					"Knative-Serving-Namespace": "test-ns",
-				},
 			}},
 		},
 		Visibility: netv1alpha1.IngressVisibilityExternalIP,
@@ -157,11 +157,11 @@ func TestMakeClusterIngressSpec_CorrectRules(t *testing.T) {
 						ServicePort:      intstr.FromInt(80),
 					},
 					Percent: 100,
+					AppendHeaders: map[string]string{
+						"Knative-Serving-Revision":  "v1",
+						"Knative-Serving-Namespace": "test-ns",
+					},
 				}},
-				AppendHeaders: map[string]string{
-					"Knative-Serving-Revision":  "v1",
-					"Knative-Serving-Namespace": "test-ns",
-				},
 			}},
 		},
 		Visibility: netv1alpha1.IngressVisibilityExternalIP,
@@ -449,11 +449,11 @@ func TestMakeClusterIngressRule_Vanilla(t *testing.T) {
 						ServicePort:      intstr.FromInt(80),
 					},
 					Percent: 100,
+					AppendHeaders: map[string]string{
+						"Knative-Serving-Revision":  "revision",
+						"Knative-Serving-Namespace": "test-ns",
+					},
 				}},
-				AppendHeaders: map[string]string{
-					"Knative-Serving-Revision":  "revision",
-					"Knative-Serving-Namespace": "test-ns",
-				},
 			}},
 		},
 		Visibility: netv1alpha1.IngressVisibilityExternalIP,
@@ -496,11 +496,11 @@ func TestMakeClusterIngressRule_ZeroPercentTarget(t *testing.T) {
 						ServicePort:      intstr.FromInt(80),
 					},
 					Percent: 100,
+					AppendHeaders: map[string]string{
+						"Knative-Serving-Revision":  "revision",
+						"Knative-Serving-Namespace": "test-ns",
+					},
 				}},
-				AppendHeaders: map[string]string{
-					"Knative-Serving-Revision":  "revision",
-					"Knative-Serving-Namespace": "test-ns",
-				},
 			}},
 		},
 		Visibility: netv1alpha1.IngressVisibilityExternalIP,
@@ -543,6 +543,10 @@ func TestMakeClusterIngressRule_TwoTargets(t *testing.T) {
 						ServicePort:      intstr.FromInt(80),
 					},
 					Percent: 80,
+					AppendHeaders: map[string]string{
+						"Knative-Serving-Namespace": "test-ns",
+						"Knative-Serving-Revision":  "revision",
+					},
 				}, {
 					IngressBackend: netv1alpha1.IngressBackend{
 						ServiceNamespace: "test-ns",
@@ -550,11 +554,11 @@ func TestMakeClusterIngressRule_TwoTargets(t *testing.T) {
 						ServicePort:      intstr.FromInt(80),
 					},
 					Percent: 20,
+					AppendHeaders: map[string]string{
+						"Knative-Serving-Namespace": "test-ns",
+						"Knative-Serving-Revision":  "new-revision",
+					},
 				}},
-				AppendHeaders: map[string]string{
-					"Knative-Serving-Revision":  "revision",
-					"Knative-Serving-Namespace": "test-ns",
-				},
 			}},
 		},
 		Visibility: netv1alpha1.IngressVisibilityExternalIP,
@@ -592,11 +596,11 @@ func TestMakeClusterIngressRule_InactiveTarget(t *testing.T) {
 						ServicePort:      intstr.FromInt(80),
 					},
 					Percent: 100,
+					AppendHeaders: map[string]string{
+						"Knative-Serving-Revision":  "revision",
+						"Knative-Serving-Namespace": "test-ns",
+					},
 				}},
-				AppendHeaders: map[string]string{
-					"Knative-Serving-Revision":  "revision",
-					"Knative-Serving-Namespace": "test-ns",
-				},
 			}},
 		},
 		Visibility: netv1alpha1.IngressVisibilityExternalIP,
@@ -641,6 +645,10 @@ func TestMakeClusterIngressRule_TwoInactiveTargets(t *testing.T) {
 						ServicePort:      intstr.FromInt(80),
 					},
 					Percent: 80,
+					AppendHeaders: map[string]string{
+						"Knative-Serving-Revision":  "revision",
+						"Knative-Serving-Namespace": "test-ns",
+					},
 				}, {
 					IngressBackend: netv1alpha1.IngressBackend{
 						ServiceNamespace: ns,
@@ -648,11 +656,11 @@ func TestMakeClusterIngressRule_TwoInactiveTargets(t *testing.T) {
 						ServicePort:      intstr.FromInt(80),
 					},
 					Percent: 20,
+					AppendHeaders: map[string]string{
+						"Knative-Serving-Revision":  "new-revision",
+						"Knative-Serving-Namespace": "test-ns",
+					},
 				}},
-				AppendHeaders: map[string]string{
-					"Knative-Serving-Revision":  "revision",
-					"Knative-Serving-Namespace": "test-ns",
-				},
 			}},
 		},
 		Visibility: netv1alpha1.IngressVisibilityExternalIP,
@@ -677,7 +685,6 @@ func TestMakeClusterIngressRule_ZeroPercentTargetInactive(t *testing.T) {
 			RevisionName:      "new-revision",
 			Percent:           0,
 		},
-		// TODO(vagababov): when we have active handoff, service will be here.
 		Active: false,
 	}}
 	domains := []string{"test.org"}
@@ -693,11 +700,11 @@ func TestMakeClusterIngressRule_ZeroPercentTargetInactive(t *testing.T) {
 						ServicePort:      intstr.FromInt(80),
 					},
 					Percent: 100,
+					AppendHeaders: map[string]string{
+						"Knative-Serving-Revision":  "revision",
+						"Knative-Serving-Namespace": "test-ns",
+					},
 				}},
-				AppendHeaders: map[string]string{
-					"Knative-Serving-Revision":  "revision",
-					"Knative-Serving-Namespace": "test-ns",
-				},
 			}},
 		},
 		Visibility: netv1alpha1.IngressVisibilityExternalIP,

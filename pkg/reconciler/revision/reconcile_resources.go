@@ -156,8 +156,7 @@ func (c *Reconciler) reconcilePA(ctx context.Context, rev *v1alpha1.Revision) er
 	}
 
 	// Perhaps tha PA spec changed underneath ourselves?
-	// TODO(vagababov): required for #1997. Should be removed in 0.7,
-	// to fix the protocol type when it's unset.
+	// We no longer require immutability, so need to reconcile PA each time.
 	tmpl := resources.MakePA(rev)
 	if !equality.Semantic.DeepEqual(tmpl.Spec, pa.Spec) {
 		logger.Infof("PA %s needs reconciliation", pa.Name)

@@ -39,6 +39,10 @@ const (
 	// resources to indicate which ClusterIngress triggered their creation.
 	ClusterIngressLabelKey = GroupName + "/clusteringress"
 
+	// IngressLabelKey is the label key attached to underlying network programming
+	// resources to indicate which Ingress triggered their creation.
+	IngressLabelKey = GroupName + "/ingress"
+
 	// SKSLabelKey is the label key that SKS Controller attaches to the
 	// underlying resources it controls.
 	SKSLabelKey = GroupName + "/serverlessservice"

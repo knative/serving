@@ -60,6 +60,14 @@ func TestSSTypicalFlow(t *testing.T) {
 	r.MarkEndpointsReady()
 	apitest.CheckConditionSucceeded(r.duck(), ServerlessServiceConditionEndspointsPopulated, t)
 	apitest.CheckConditionSucceeded(r.duck(), ServerlessServiceConditionReady, t)
+
+	// Verify that activator endpoints status is informational and does not
+	// affect readiness.
+	r.MarkActivatorEndpointsPopulated()
+	apitest.CheckConditionSucceeded(r.duck(), ServerlessServiceConditionReady, t)
+	r.MarkActivatorEndpointsRemoved()
+	apitest.CheckConditionSucceeded(r.duck(), ServerlessServiceConditionReady, t)
+
 	// Or another way to check the same condition.
 	if !r.IsReady() {
 		t.Error("IsReady=false, want: true")
@@ -67,6 +75,22 @@ func TestSSTypicalFlow(t *testing.T) {
 	r.MarkEndpointsNotReady("random")
 	apitest.CheckConditionOngoing(r.duck(), ServerlessServiceConditionReady, t)
 
+	// Verify that activator endpoints status is informational and does not
+	// affect readiness.
+	r.MarkActivatorEndpointsPopulated()
+	apitest.CheckConditionOngoing(r.duck(), ServerlessServiceConditionReady, t)
+	r.MarkActivatorEndpointsRemoved()
+	apitest.CheckConditionOngoing(r.duck(), ServerlessServiceConditionReady, t)
+
 	r.MarkEndpointsNotOwned("service", "jukebox")
 	apitest.CheckConditionFailed(r.duck(), ServerlessServiceConditionReady, t)
+
+	// Verify that activator endpoints status is informational and does not
+	// affect readiness.
+	r.MarkActivatorEndpointsPopulated()
+	apitest.CheckConditionFailed(r.duck(), ServerlessServiceConditionReady, t)
+	apitest.CheckConditionSucceeded(r.duck(), ActivatorEndpointsPopulated, t)
+	r.MarkActivatorEndpointsRemoved()
+	apitest.CheckConditionFailed(r.duck(), ServerlessServiceConditionReady, t)
+	apitest.CheckConditionFailed(r.duck(), ActivatorEndpointsPopulated, t)
 }

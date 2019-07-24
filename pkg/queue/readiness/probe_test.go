@@ -22,6 +22,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -32,6 +33,8 @@ import (
 )
 
 func TestNewProbe(t *testing.T) {
+	defer logtesting.ClearAll()
+
 	v1p := &corev1.Probe{
 		PeriodSeconds:    1,
 		TimeoutSeconds:   1,
@@ -45,9 +48,7 @@ func TestNewProbe(t *testing.T) {
 		},
 	}
 
-	logger := logtesting.TestLogger(t)
-
-	p := NewProbe(v1p, logger)
+	p := NewProbe(v1p, logtesting.TestLogger(t))
 
 	if diff := cmp.Diff(p.Probe, v1p); diff != "" {
 		t.Errorf("NewProbe (-want, +got) = %v", diff)
@@ -59,6 +60,8 @@ func TestNewProbe(t *testing.T) {
 }
 
 func TestTCPFailure(t *testing.T) {
+	defer logtesting.ClearAll()
+
 	pb := newProbe(&corev1.Probe{
 		PeriodSeconds:    1,
 		TimeoutSeconds:   1,
@@ -78,6 +81,8 @@ func TestTCPFailure(t *testing.T) {
 }
 
 func TestEmptyHandler(t *testing.T) {
+	defer logtesting.ClearAll()
+
 	pb := newProbe(&corev1.Probe{
 		PeriodSeconds:    1,
 		TimeoutSeconds:   1,
@@ -92,6 +97,8 @@ func TestEmptyHandler(t *testing.T) {
 }
 
 func TestExecHandler(t *testing.T) {
+	defer logtesting.ClearAll()
+
 	pb := newProbe(&corev1.Probe{
 		PeriodSeconds:    1,
 		TimeoutSeconds:   1,
@@ -109,6 +116,8 @@ func TestExecHandler(t *testing.T) {
 }
 
 func TestTCPSuccess(t *testing.T) {
+	defer logtesting.ClearAll()
+
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
@@ -140,6 +149,8 @@ func TestTCPSuccess(t *testing.T) {
 }
 
 func TestHTTPFailureToConnect(t *testing.T) {
+	defer logtesting.ClearAll()
+
 	pb := newProbe(&corev1.Probe{
 		PeriodSeconds:    1,
 		TimeoutSeconds:   2,
@@ -160,6 +171,8 @@ func TestHTTPFailureToConnect(t *testing.T) {
 }
 
 func TestHTTPBadResponse(t *testing.T) {
+	defer logtesting.ClearAll()
+
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 	}))
@@ -190,6 +203,8 @@ func TestHTTPBadResponse(t *testing.T) {
 }
 
 func TestHTTPSuccess(t *testing.T) {
+	defer logtesting.ClearAll()
+
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
@@ -220,6 +235,8 @@ func TestHTTPSuccess(t *testing.T) {
 }
 
 func TestHTTPTimeout(t *testing.T) {
+	defer logtesting.ClearAll()
+
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		time.Sleep(3 * time.Second)
 		w.WriteHeader(http.StatusOK)
@@ -250,6 +267,8 @@ func TestHTTPTimeout(t *testing.T) {
 }
 
 func TestHTTPSuccessWithDelay(t *testing.T) {
+	defer logtesting.ClearAll()
+
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		time.Sleep(200 * time.Millisecond)
 		w.WriteHeader(http.StatusOK)
@@ -281,12 +300,13 @@ func TestHTTPSuccessWithDelay(t *testing.T) {
 }
 
 func TestKnHTTPSuccessWithRetry(t *testing.T) {
-	attempted := false
+	defer logtesting.ClearAll()
 
+	var count int32
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if !attempted {
+		// Fail the very first request.
+		if atomic.AddInt32(&count, 1) == 1 {
 			w.WriteHeader(http.StatusBadRequest)
-			attempted = true
 			return
 		}
 		w.WriteHeader(http.StatusOK)
@@ -318,11 +338,13 @@ func TestKnHTTPSuccessWithRetry(t *testing.T) {
 }
 
 func TestKnHTTPSuccessWithThreshold(t *testing.T) {
+	defer logtesting.ClearAll()
+
 	var count int32
 	var threshold int32 = 3
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		count++
+		atomic.AddInt32(&count, 1)
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer ts.Close()
@@ -350,20 +372,20 @@ func TestKnHTTPSuccessWithThreshold(t *testing.T) {
 		t.Error("Expected success after second attempt.")
 	}
 
-	if count != threshold {
+	if atomic.LoadInt32(&count) != threshold {
 		t.Errorf("Expected %d requests before reporting success", threshold)
 	}
 }
 
 func TestKnHTTPSuccessWithThresholdAndFailure(t *testing.T) {
+	defer logtesting.ClearAll()
+
 	var count int32
 	var threshold int32 = 3
 	var requestFailure int32 = 2
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		count++
-
-		if count == requestFailure {
+		if atomic.AddInt32(&count, 1) == requestFailure {
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
@@ -399,12 +421,14 @@ func TestKnHTTPSuccessWithThresholdAndFailure(t *testing.T) {
 		t.Error("Expected success.")
 	}
 
-	if count != threshold+requestFailure {
+	if atomic.LoadInt32(&count) != threshold+requestFailure {
 		t.Errorf("Wanted %d requests before reporting success, got=%d", threshold+requestFailure, count)
 	}
 }
 
 func TestKnHTTPTimeoutFailure(t *testing.T) {
+	defer logtesting.ClearAll()
+
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		time.Sleep(1 * time.Second)
 		w.WriteHeader(http.StatusOK)
@@ -436,6 +460,8 @@ func TestKnHTTPTimeoutFailure(t *testing.T) {
 }
 
 func TestKnTCPProbeSuccess(t *testing.T) {
+	defer logtesting.ClearAll()
+
 	port := freePort(t)
 	pb := newProbe(&corev1.Probe{
 		PeriodSeconds:    0,
@@ -462,6 +488,8 @@ func TestKnTCPProbeSuccess(t *testing.T) {
 }
 
 func TestKnUnimplementedProbe(t *testing.T) {
+	defer logtesting.ClearAll()
+
 	pb := newProbe(&corev1.Probe{
 		PeriodSeconds:    0,
 		TimeoutSeconds:   0,
@@ -475,6 +503,8 @@ func TestKnUnimplementedProbe(t *testing.T) {
 	}
 }
 func TestKnTCPProbeFailure(t *testing.T) {
+	defer logtesting.ClearAll()
+
 	pb := newProbe(&corev1.Probe{
 		PeriodSeconds:    0,
 		TimeoutSeconds:   0,
@@ -494,6 +524,8 @@ func TestKnTCPProbeFailure(t *testing.T) {
 }
 
 func TestKnTCPProbeSuccessWithThreshold(t *testing.T) {
+	defer logtesting.ClearAll()
+
 	port := freePort(t)
 	pb := newProbe(&corev1.Probe{
 		PeriodSeconds:    0,
@@ -524,6 +556,8 @@ func TestKnTCPProbeSuccessWithThreshold(t *testing.T) {
 }
 
 func TestKnTCPProbeSuccessThresholdIncludesFailure(t *testing.T) {
+	defer logtesting.ClearAll()
+
 	var successThreshold int32 = 3
 	port := freePort(t)
 	pb := newProbe(&corev1.Probe{

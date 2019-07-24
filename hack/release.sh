@@ -14,6 +14,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# Documentation about this script and how to use it can be found
+# at https://github.com/knative/test-infra/tree/master/ci
+
 source $(dirname $0)/../vendor/github.com/knative/test-infra/scripts/release.sh
 
 function build_release() {

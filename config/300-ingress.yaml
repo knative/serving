@@ -21,7 +21,10 @@ metadata:
     knative.dev/crd-install: "true"
 spec:
   group: networking.internal.knative.dev
-  version: v1alpha1
+  versions:
+  - name: v1alpha1
+    served: true
+    storage: true
   names:
     kind: Ingress
     plural: ingresses
