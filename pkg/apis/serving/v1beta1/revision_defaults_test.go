@@ -74,7 +74,7 @@ func TestRevisionDefaulting(t *testing.T) {
 		},
 		want: &Revision{
 			Spec: RevisionSpec{
-				ContainerConcurrency: 0,
+				ContainerConcurrency: ptr.Int64(0),
 				TimeoutSeconds:       ptr.Int64(123),
 				PodSpec: corev1.PodSpec{
 					Containers: []corev1.Container{{
@@ -97,7 +97,7 @@ func TestRevisionDefaulting(t *testing.T) {
 						}},
 					}},
 				},
-				ContainerConcurrency: 1,
+				ContainerConcurrency: ptr.Int64(1),
 				TimeoutSeconds:       ptr.Int64(99),
 			},
 		},
@@ -115,7 +115,7 @@ func TestRevisionDefaulting(t *testing.T) {
 						ReadinessProbe: defaultProbe,
 					}},
 				},
-				ContainerConcurrency: 1,
+				ContainerConcurrency: ptr.Int64(1),
 				TimeoutSeconds:       ptr.Int64(99),
 			},
 		},
@@ -123,7 +123,7 @@ func TestRevisionDefaulting(t *testing.T) {
 		name: "no overwrite",
 		in: &Revision{
 			Spec: RevisionSpec{
-				ContainerConcurrency: 1,
+				ContainerConcurrency: ptr.Int64(1),
 				TimeoutSeconds:       ptr.Int64(99),
 				PodSpec: corev1.PodSpec{
 					Containers: []corev1.Container{{
@@ -141,7 +141,7 @@ func TestRevisionDefaulting(t *testing.T) {
 		},
 		want: &Revision{
 			Spec: RevisionSpec{
-				ContainerConcurrency: 1,
+				ContainerConcurrency: ptr.Int64(1),
 				TimeoutSeconds:       ptr.Int64(99),
 				PodSpec: corev1.PodSpec{
 					Containers: []corev1.Container{{

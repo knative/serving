@@ -148,7 +148,7 @@ func TestConfigurationDefaulting(t *testing.T) {
 				DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 					Spec: RevisionSpec{
 						RevisionSpec: v1beta1.RevisionSpec{
-							ContainerConcurrency: 1,
+							ContainerConcurrency: ptr.Int64(1),
 							TimeoutSeconds:       ptr.Int64(99),
 						},
 						DeprecatedContainer: &corev1.Container{
@@ -164,7 +164,7 @@ func TestConfigurationDefaulting(t *testing.T) {
 				DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 					Spec: RevisionSpec{
 						RevisionSpec: v1beta1.RevisionSpec{
-							ContainerConcurrency: 1,
+							ContainerConcurrency: ptr.Int64(1),
 							TimeoutSeconds:       ptr.Int64(99),
 						},
 						DeprecatedContainer: &corev1.Container{

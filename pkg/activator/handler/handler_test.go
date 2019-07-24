@@ -26,6 +26,8 @@ import (
 	"testing"
 	"time"
 
+	"knative.dev/pkg/ptr"
+
 	"knative.dev/pkg/test/helpers"
 
 	"github.com/google/go-cmp/cmp"
@@ -738,7 +740,7 @@ func revision(namespace, name string) *v1alpha1.Revision {
 		},
 		Spec: v1alpha1.RevisionSpec{
 			RevisionSpec: v1beta1.RevisionSpec{
-				ContainerConcurrency: 1,
+				ContainerConcurrency: ptr.Int64(1),
 			},
 		},
 	}

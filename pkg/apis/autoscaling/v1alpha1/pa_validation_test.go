@@ -21,6 +21,8 @@ import (
 	"math"
 	"testing"
 
+	"knative.dev/pkg/ptr"
+
 	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -39,7 +41,7 @@ func TestPodAutoscalerSpecValidation(t *testing.T) {
 	}{{
 		name: "valid",
 		rs: &PodAutoscalerSpec{
-			ContainerConcurrency: 0,
+			ContainerConcurrency: ptr.Int64(0),
 			ScaleTargetRef: corev1.ObjectReference{
 				APIVersion: "apps/v1",
 				Kind:       "Deployment",
@@ -51,7 +53,7 @@ func TestPodAutoscalerSpecValidation(t *testing.T) {
 	}, {
 		name: "protocol type missing",
 		rs: &PodAutoscalerSpec{
-			ContainerConcurrency: 0,
+			ContainerConcurrency: ptr.Int64(0),
 			ScaleTargetRef: corev1.ObjectReference{
 				APIVersion: "apps/v1",
 				Kind:       "Deployment",
@@ -62,7 +64,7 @@ func TestPodAutoscalerSpecValidation(t *testing.T) {
 	}, {
 		name: "protcol type invalid",
 		rs: &PodAutoscalerSpec{
-			ContainerConcurrency: 0,
+			ContainerConcurrency: ptr.Int64(0),
 			ScaleTargetRef: corev1.ObjectReference{
 				APIVersion: "apps/v1",
 				Kind:       "Deployment",
@@ -74,7 +76,7 @@ func TestPodAutoscalerSpecValidation(t *testing.T) {
 	}, {
 		name: "has missing scaleTargetRef",
 		rs: &PodAutoscalerSpec{
-			ContainerConcurrency: 1,
+			ContainerConcurrency: ptr.Int64(1),
 			ProtocolType:         net.ProtocolHTTP1,
 		},
 		want: apis.ErrMissingField("scaleTargetRef.apiVersion", "scaleTargetRef.kind",
@@ -82,7 +84,7 @@ func TestPodAutoscalerSpecValidation(t *testing.T) {
 	}, {
 		name: "has missing scaleTargetRef kind",
 		rs: &PodAutoscalerSpec{
-			ContainerConcurrency: 1,
+			ContainerConcurrency: ptr.Int64(1),
 			ScaleTargetRef: corev1.ObjectReference{
 				APIVersion: "apps/v1",
 				Name:       "bar",
@@ -93,7 +95,7 @@ func TestPodAutoscalerSpecValidation(t *testing.T) {
 	}, {
 		name: "has missing scaleTargetRef apiVersion",
 		rs: &PodAutoscalerSpec{
-			ContainerConcurrency: 0,
+			ContainerConcurrency: ptr.Int64(0),
 			ScaleTargetRef: corev1.ObjectReference{
 				Kind: "Deployment",
 				Name: "bar",
@@ -104,7 +106,7 @@ func TestPodAutoscalerSpecValidation(t *testing.T) {
 	}, {
 		name: "has missing scaleTargetRef name",
 		rs: &PodAutoscalerSpec{
-			ContainerConcurrency: 0,
+			ContainerConcurrency: ptr.Int64(0),
 			ScaleTargetRef: corev1.ObjectReference{
 				APIVersion: "apps/v1",
 				Kind:       "Deployment",
@@ -115,7 +117,7 @@ func TestPodAutoscalerSpecValidation(t *testing.T) {
 	}, {
 		name: "bad container concurrency",
 		rs: &PodAutoscalerSpec{
-			ContainerConcurrency: -1,
+			ContainerConcurrency: ptr.Int64(-1),
 			ScaleTargetRef: corev1.ObjectReference{
 				APIVersion: "apps/v1",
 				Kind:       "Deployment",
@@ -128,7 +130,7 @@ func TestPodAutoscalerSpecValidation(t *testing.T) {
 	}, {
 		name: "multi invalid, bad concurrency and missing ref kind",
 		rs: &PodAutoscalerSpec{
-			ContainerConcurrency: -2,
+			ContainerConcurrency: ptr.Int64(-2),
 			ScaleTargetRef: corev1.ObjectReference{
 				APIVersion: "apps/v1",
 				Name:       "bar",
@@ -246,7 +248,7 @@ func TestPodAutoscalerValidation(t *testing.T) {
 				Name: "valid",
 			},
 			Spec: PodAutoscalerSpec{
-				ContainerConcurrency: -1,
+				ContainerConcurrency: ptr.Int64(-1),
 				ScaleTargetRef: corev1.ObjectReference{
 					APIVersion: "apps/v1",
 					Kind:       "Deployment",

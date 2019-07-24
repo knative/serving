@@ -79,7 +79,7 @@ func TestConfigurationConversion(t *testing.T) {
 								}},
 							},
 							TimeoutSeconds:       ptr.Int64(18),
-							ContainerConcurrency: 53,
+							ContainerConcurrency: ptr.Int64(53),
 						},
 					},
 				},

@@ -137,6 +137,8 @@ type Defaults struct {
 
 	UserContainerNameTemplate string
 
+	ContainerConcurrency *int64
+
 	RevisionCPURequest    *resource.Quantity
 	RevisionCPULimit      *resource.Quantity
 	RevisionMemoryRequest *resource.Quantity

@@ -67,7 +67,7 @@ func TestRevisionValidation(t *testing.T) {
 						Image: "busybox",
 					}},
 				},
-				ContainerConcurrency: -10,
+				ContainerConcurrency: ptr.Int64(-10),
 			},
 		},
 		want: apis.ErrOutOfBoundsValue(
@@ -249,31 +249,36 @@ func TestContainerConcurrencyValidation(t *testing.T) {
 		want *apis.FieldError
 	}{{
 		name: "single",
-		cc:   1,
+		cc:   ptr.Int64(1),
 		want: nil,
 	}, {
 		name: "unlimited",
-		cc:   0,
+		cc:   ptr.Int64(0),
 		want: nil,
 	}, {
 		name: "ten",
-		cc:   10,
+		cc:   ptr.Int64(10),
 		want: nil,
 	}, {
 		name: "invalid container concurrency (too small)",
-		cc:   -1,
+		cc:   ptr.Int64(-1),
 		want: apis.ErrOutOfBoundsValue(-1, 0, RevisionContainerConcurrencyMax,
 			apis.CurrentField),
 	}, {
 		name: "invalid container concurrency (too large)",
-		cc:   RevisionContainerConcurrencyMax + 1,
+		cc:   ptr.Int64(RevisionContainerConcurrencyMax + 1),
 		want: apis.ErrOutOfBoundsValue(RevisionContainerConcurrencyMax+1,
 			0, RevisionContainerConcurrencyMax, apis.CurrentField),
 	}}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got := test.cc.Validate(context.Background())
+			var got *apis.FieldError
+			if *test.cc < 0 || *test.cc > RevisionContainerConcurrencyMax {
+				got = apis.ErrOutOfBoundsValue(
+					*test.cc, 0, RevisionContainerConcurrencyMax, apis.CurrentField)
+			}
+			got = test.cc.Validate(context.Background())
 			if got, want := got.Error(), test.want.Error(); !cmp.Equal(got, want) {
 				t.Errorf("Validate (-want, +got) = %v", cmp.Diff(want, got))
 			}
@@ -614,7 +619,7 @@ func TestImmutableFields(t *testing.T) {
 						Image: "helloworld",
 					}},
 				},
-				ContainerConcurrency: 1,
+				ContainerConcurrency: ptr.Int64(1),
 			},
 		},
 		old: &Revision{
@@ -627,7 +632,7 @@ func TestImmutableFields(t *testing.T) {
 						Image: "helloworld",
 					}},
 				},
-				ContainerConcurrency: 2,
+				ContainerConcurrency: ptr.Int64(2),
 			},
 		},
 		want: &apis.FieldError{
@@ -650,7 +655,7 @@ func TestImmutableFields(t *testing.T) {
 						Image: "helloworld",
 					}},
 				},
-				ContainerConcurrency: 42,
+				ContainerConcurrency: ptr.Int64(42),
 			},
 		},
 		old: &Revision{
@@ -685,7 +690,7 @@ func TestImmutableFields(t *testing.T) {
 						Image: "helloworld",
 					}},
 				},
-				ContainerConcurrency: 2,
+				ContainerConcurrency: ptr.Int64(2),
 			},
 		},
 		old: &Revision{
@@ -698,7 +703,7 @@ func TestImmutableFields(t *testing.T) {
 						Image: "busybox",
 					}},
 				},
-				ContainerConcurrency: 4,
+				ContainerConcurrency: ptr.Int64(4),
 			},
 		},
 		want: &apis.FieldError{

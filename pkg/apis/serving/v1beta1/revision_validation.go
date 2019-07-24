@@ -111,7 +111,13 @@ func (current *RevisionTemplateSpec) VerifyNameChange(ctx context.Context, og Re
 
 // Validate implements apis.Validatable
 func (rs *RevisionSpec) Validate(ctx context.Context) *apis.FieldError {
-	errs := rs.ContainerConcurrency.Validate(ctx).ViaField("containerConcurrency")
+	var errs *apis.FieldError
+	if *rs.ContainerConcurrency < 0 || *rs.ContainerConcurrency > RevisionContainerConcurrencyMax {
+		errs = apis.ErrOutOfBoundsValue(
+			*rs.ContainerConcurrency, 0, RevisionContainerConcurrencyMax, apis.CurrentField)
+	}
+
+	errs = rs.ContainerConcurrency.Validate(ctx).ViaField("containerConcurrency")
 
 	errs = errs.Also(serving.ValidatePodSpec(rs.PodSpec))
 
@@ -120,15 +126,6 @@ func (rs *RevisionSpec) Validate(ctx context.Context) *apis.FieldError {
 	}
 
 	return errs
-}
-
-// Validate implements apis.Validatable.
-func (cc RevisionContainerConcurrencyType) Validate(ctx context.Context) *apis.FieldError {
-	if cc < 0 || cc > RevisionContainerConcurrencyMax {
-		return apis.ErrOutOfBoundsValue(
-			cc, 0, RevisionContainerConcurrencyMax, apis.CurrentField)
-	}
-	return nil
 }
 
 // Validate implements apis.Validatable
