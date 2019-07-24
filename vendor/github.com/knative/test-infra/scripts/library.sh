@@ -257,7 +257,7 @@ function dump_app_logs() {
   for pod in $(get_app_pods "$1" "$2")
   do
     echo ">>> Pod: $pod"
-    kubectl -n "$2" logs "$pod" -c "$1"
+    kubectl -n "$2" logs "$pod" --all-containers
   done
 }
 
@@ -340,7 +340,7 @@ function report_go_test() {
   # Run tests in verbose mode to capture details.
   # go doesn't like repeating -v, so remove if passed.
   local args=" $@ "
-  local go_test="go test -race -v ${args/ -v / }"
+  local go_test="go test -v ${args/ -v / }"
   # Just run regular go tests if not on Prow.
   echo "Running tests with '${go_test}'"
   local report="$(mktemp)"
