@@ -17,6 +17,7 @@ limitations under the License.
 package activator
 
 import (
+	"net/http"
 	"testing"
 	"time"
 
@@ -35,7 +36,7 @@ func unregister() {
 func TestActivatorReporter(t *testing.T) {
 	r := &Reporter{}
 
-	if err := r.ReportRequestCount("testns", "testsvc", "testconfig", "testrev", 200, 1, 1); err == nil {
+	if err := r.ReportRequestCount("testns", "testsvc", "testconfig", "testrev", http.StatusOK, 1, 1); err == nil {
 		t.Error("Reporter expected an error for Report call before init. Got success.")
 	}
 
@@ -57,8 +58,12 @@ func TestActivatorReporter(t *testing.T) {
 		"response_code_class":             "2xx",
 		"num_tries":                       "6",
 	}
-	expectSuccess(t, func() error { return r.ReportRequestCount("testns", "testsvc", "testconfig", "testrev", 200, 6, 1) })
-	expectSuccess(t, func() error { return r.ReportRequestCount("testns", "testsvc", "testconfig", "testrev", 200, 6, 3) })
+	expectSuccess(t, func() error {
+		return r.ReportRequestCount("testns", "testsvc", "testconfig", "testrev", http.StatusOK, 6, 1)
+	})
+	expectSuccess(t, func() error {
+		return r.ReportRequestCount("testns", "testsvc", "testconfig", "testrev", http.StatusOK, 6, 3)
+	})
 	metricstest.CheckSumData(t, "request_count", wantTags2, 4)
 
 	// test ReportResponseTime
@@ -71,10 +76,10 @@ func TestActivatorReporter(t *testing.T) {
 		"response_code_class":             "2xx",
 	}
 	expectSuccess(t, func() error {
-		return r.ReportResponseTime("testns", "testsvc", "testconfig", "testrev", 200, 1100*time.Millisecond)
+		return r.ReportResponseTime("testns", "testsvc", "testconfig", "testrev", http.StatusOK, 1100*time.Millisecond)
 	})
 	expectSuccess(t, func() error {
-		return r.ReportResponseTime("testns", "testsvc", "testconfig", "testrev", 200, 9100*time.Millisecond)
+		return r.ReportResponseTime("testns", "testsvc", "testconfig", "testrev", http.StatusOK, 9100*time.Millisecond)
 	})
 	metricstest.CheckDistributionData(t, "request_latencies", wantTags3, 2, 1100.0, 9100.0)
 }
@@ -93,7 +98,7 @@ func TestReportRequestCount_EmptyServiceName(t *testing.T) {
 		"num_tries":                       "6",
 	}
 	expectSuccess(t, func() error {
-		return r.ReportRequestCount("testns" /*service=*/, "", "testconfig", "testrev", 200, 6, 10)
+		return r.ReportRequestCount("testns" /*service=*/, "", "testconfig", "testrev", http.StatusOK, 6, 10)
 	})
 	metricstest.CheckSumData(t, "request_count", wantTags, 10)
 }
@@ -111,10 +116,10 @@ func TestReportResponseTimeEmptyServiceName(t *testing.T) {
 		"response_code_class":             "2xx",
 	}
 	expectSuccess(t, func() error {
-		return r.ReportResponseTime("testns" /*service=*/, "", "testconfig", "testrev", 200, 7100*time.Millisecond)
+		return r.ReportResponseTime("testns" /*service=*/, "", "testconfig", "testrev", http.StatusOK, 7100*time.Millisecond)
 	})
 	expectSuccess(t, func() error {
-		return r.ReportResponseTime("testns" /*service=*/, "", "testconfig", "testrev", 200, 5100*time.Millisecond)
+		return r.ReportResponseTime("testns" /*service=*/, "", "testconfig", "testrev", http.StatusOK, 5100*time.Millisecond)
 	})
 	metricstest.CheckDistributionData(t, "request_latencies", wantTags, 2, 5100.0, 7100.0)
 }

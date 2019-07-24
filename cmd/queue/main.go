@@ -20,6 +20,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"net"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -92,15 +93,7 @@ const (
 )
 
 var (
-	userTargetAddress string
-	reqChan           = make(chan queue.ReqEvent, requestCountingQueueLength)
-	logger            *zap.SugaredLogger
-	breaker           *queue.Breaker
-
-	httpProxy *httputil.ReverseProxy
-
-	healthState      = &health.State{}
-	promStatReporter *queue.PrometheusStatsReporter // Prometheus stats reporter.
+	logger *zap.SugaredLogger
 
 	// Metric counters.
 	requestCountM = stats.Int64(
@@ -119,6 +112,7 @@ var (
 		appResponseTimeInMsecN,
 		"The response time in millisecond",
 		stats.UnitMilliseconds)
+
 	readinessProbeTimeout = flag.Int("probe-period", -1, "run readiness probe with given timeout")
 )
 
@@ -146,30 +140,6 @@ type config struct {
 	TracingConfigEnable          bool    `split_words:"true"` // optional
 	TracingConfigSampleRate      float64 `split_words:"true"` // optional
 	TracingConfigZipkinEndpoint  string  `split_words:"true"` // optional
-}
-
-func initConfig(env config) {
-	userTargetAddress = "127.0.0.1:" + strconv.Itoa(env.UserPort)
-	if env.VarLogVolumeName == "" && env.EnableVarLogCollection {
-		logger.Fatal("VAR_LOG_VOLUME_NAME must be specified when ENABLE_VAR_LOG_COLLECTION is true")
-	}
-	if env.InternalVolumePath == "" && env.EnableVarLogCollection {
-		logger.Fatal("INTERNAL_VOLUME_PATH must be specified when ENABLE_VAR_LOG_COLLECTION is true")
-	}
-
-	_psr, err := queue.NewPrometheusStatsReporter(env.ServingNamespace, env.ServingConfiguration, env.ServingRevision, env.ServingPod)
-	if err != nil {
-		logger.Fatalw("Failed to create stats reporter", zap.Error(err))
-	}
-	promStatReporter = _psr
-}
-
-func reportStats(statChan chan *autoscaler.Stat) {
-	for s := range statChan {
-		if err := promStatReporter.Report(s); err != nil {
-			logger.Errorw("Error while sending stat", zap.Error(err))
-		}
-	}
 }
 
 func knativeProbeHeader(r *http.Request) string {
@@ -244,15 +214,6 @@ func handler(reqChan chan queue.ReqEvent, breaker *queue.Breaker, handler http.H
 	}
 }
 
-// Sets up /health and /wait-for-drain endpoints.
-func createAdminHandlers(p *readiness.Probe) *http.ServeMux {
-	mux := http.NewServeMux()
-
-	mux.HandleFunc(requestQueueHealthPath, healthState.HealthHandler(p.ProbeContainer, p.IsAggressive()))
-	mux.HandleFunc(queue.RequestQueueDrainPath, healthState.DrainHandler())
-
-	return mux
-}
 func probeQueueHealthPath(port int, timeoutSeconds int) error {
 	url := fmt.Sprintf(healthURLTemplate, port)
 	timeoutDuration := readiness.PollTimeout
@@ -297,6 +258,7 @@ func probeQueueHealthPath(port int, timeoutSeconds int) error {
 func main() {
 	flag.Parse()
 
+	// If this is set, we run as a standalone binary to probe the queue-proxy.
 	if *readinessProbeTimeout >= 0 {
 		if err := probeQueueHealthPath(networking.QueueAdminPort, *readinessProbeTimeout); err != nil {
 			// used instead of the logger to produce a concise event message
@@ -306,26 +268,28 @@ func main() {
 		os.Exit(0)
 	}
 
+	// Parse the environment.
 	var env config
 	if err := envconfig.Process("", &env); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 
+	// Setup the logger.
 	logger, _ = logging.NewLogger(env.ServingLoggingConfig, env.ServingLoggingLevel)
 	logger = logger.Named("queueproxy")
 	defer flush(logger)
 
-	initConfig(env)
 	logger = logger.With(
 		zap.String(logkey.Key, types.NamespacedName{Namespace: env.ServingNamespace, Name: env.ServingRevision}.String()),
 		zap.String(logkey.Pod, env.ServingPod))
 
-	target, err := url.Parse("http://" + userTargetAddress)
-	if err != nil {
-		logger.Fatalw("Failed to parse localhost URL", zap.Error(err))
+	// Setup the reverse proxy to forward requests.
+	target := &url.URL{
+		Scheme: "http",
+		Host:   net.JoinHostPort("127.0.0.1", strconv.Itoa(env.UserPort)),
 	}
-
+  
 	queueProxyL3 := fmt.Sprintf("%s:%d", env.ServingPod, networking.ServiceHTTPPort)
 	zipkinEndpoint, err := zipkin.NewEndpoint(env.ServingPod, queueProxyL3)
 
@@ -348,14 +312,20 @@ func main() {
 
 	httpProxy = httputil.NewSingleHostReverseProxy(target)
 
-	httpProxy.Transport = &ochttp.Transport{
-		Base: network.AutoTransport,
-	}
-	httpProxy.FlushInterval = -1
+  if env.TracingConfigEnable {
+  	httpProxy.Transport = &ochttp.Transport{
+	  	Base: network.AutoTransport,
+  	}
+  } else {
+    httpProxy.Transport = network.AutoTransport
+  }
 
+	httpProxy.FlushInterval = -1
 	activatorutil.SetupHeaderPruning(httpProxy)
 
+	// Setup the breaker to enforce containreConcurrency.
 	// If env.ContainerConcurrency == 0 then concurrency is unlimited.
+	var breaker *queue.Breaker
 	if env.ContainerConcurrency > 0 {
 		// We set the queue depth to be equal to the container concurrency * 10 to
 		// allow the autoscaler to get a strong enough signal.
@@ -365,16 +335,24 @@ func main() {
 		logger.Infof("Queue container is starting with %#v", params)
 	}
 
-	go func() {
-		mux := http.NewServeMux()
-		mux.Handle("/metrics", promStatReporter.Handler())
-		http.ListenAndServe(fmt.Sprintf(":%d", networking.AutoscalingQueueMetricsPort), mux)
-	}()
+	// Setup reporters and processes to handle stat reporting.
+	promStatReporter, err := queue.NewPrometheusStatsReporter(env.ServingNamespace, env.ServingConfiguration, env.ServingRevision, env.ServingPod)
+	if err != nil {
+		logger.Fatalw("Failed to create stats reporter", zap.Error(err))
+	}
 
 	statChan := make(chan *autoscaler.Stat, statReportingQueueLength)
 	defer close(statChan)
-	go reportStats(statChan)
+	go func() {
+		for s := range statChan {
+			if err := promStatReporter.Report(s); err != nil {
+				logger.Errorw("Error while sending stat", zap.Error(err))
+			}
+		}
+	}()
 
+	reqChan := make(chan queue.ReqEvent, requestCountingQueueLength)
+	defer close(reqChan)
 	reportTicker := time.NewTicker(queue.ReporterReportingPeriod)
 	defer reportTicker.Stop()
 	queue.NewStats(env.ServingPod, queue.Channels{
@@ -383,32 +361,25 @@ func main() {
 		StatChan:   statChan,
 	}, time.Now())
 
+	// Setup request metrics reporting for end-user metrics.
+	metricsSupported := false
+	if env.ServingRequestMetricsBackend != "" {
+		if err := setupMetricsExporter(env.ServingRequestMetricsBackend); err == nil {
+			metricsSupported = true
+		} else {
+			logger.Errorw("Error setting up request metrics exporter. Request metrics will be unavailable.", zap.Error(err))
+		}
+	}
+
+	// Setup probe to run for checking user-application healthiness.
 	coreProbe, err := readiness.DecodeProbe(env.ServingReadinessProbe)
 	if err != nil {
 		logger.Fatalw("Queue container failed to parse readiness probe", zap.Error(err))
 	}
-
 	rp := readiness.NewProbe(coreProbe, logger.With(zap.String(logkey.Key, "readinessProbe")))
 
-	adminServer := &http.Server{
-		Addr:    ":" + strconv.Itoa(networking.QueueAdminPort),
-		Handler: createAdminHandlers(rp),
-	}
-
-	metricsSupported := false
-	if metricsBackend := env.ServingRequestMetricsBackend; metricsBackend != "" {
-		if err := setupMetricsExporter(metricsBackend); err == nil {
-			metricsSupported = true
-			logger.Infof("SERVING_REQUEST_METRICS_BACKEND=%v", metricsBackend)
-		} else {
-			logger.Errorw("Error setting up request metrics exporter. Request metrics will be unavailable.", zap.Error(err))
-		}
-	} else {
-		logger.Info("SERVING_REQUEST_METRICS_BACKEND is undefined.")
-	}
-
-	// Create queue handler chain
-	// Note: innermost handlers are specified first, ie. the last handler in the chain will be executed first
+	// Create queue handler chain.
+	// Note: innermost handlers are specified first, ie. the last handler in the chain will be executed first.
 	var composedHandler http.Handler = httpProxy
 	if metricsSupported {
 		composedHandler = pushRequestMetricHandler(httpProxy, appRequestCountM, appResponseTimeInMsecM, env)
@@ -422,27 +393,50 @@ func main() {
 	if metricsSupported {
 		composedHandler = pushRequestMetricHandler(composedHandler, requestCountM, responseTimeInMsecM, env)
 	}
-	composedHandler = tracing.HTTPSpanMiddleware(composedHandler)
-	qSP := strconv.Itoa(env.QueueServingPort)
-	logger.Info("Queue-proxy will listen on port ", qSP)
-	server := network.NewServer(":"+qSP, composedHandler)
+  composedHandler = tracing.HTTPSpanMiddleware(composedHandler)
+	server := network.NewServer(":"+strconv.Itoa(env.QueueServingPort), composedHandler)
 
-	errChan := make(chan error, 2)
-	defer close(errChan)
-	// Runs a server created by creator and sends fatal errors to the errChan.
-	// Does not act on the ErrServerClosed error since that indicates we're
-	// already shutting everything down.
-	catchServerError := func(creator func() error) {
-		if err := creator(); err != nil && err != http.ErrServerClosed {
-			errChan <- err
-		}
+	adminMux := http.NewServeMux()
+	healthState := &health.State{}
+	adminMux.HandleFunc(requestQueueHealthPath, healthState.HealthHandler(rp.ProbeContainer, rp.IsAggressive()))
+	adminMux.HandleFunc(queue.RequestQueueDrainPath, healthState.DrainHandler())
+	adminServer := &http.Server{
+		Addr:    ":" + strconv.Itoa(networking.QueueAdminPort),
+		Handler: adminMux,
 	}
 
-	go catchServerError(server.ListenAndServe)
-	go catchServerError(adminServer.ListenAndServe)
+	metricsMux := http.NewServeMux()
+	metricsMux.Handle("/metrics", promStatReporter.Handler())
+	metricsServer := &http.Server{
+		Addr:    ":" + strconv.Itoa(networking.AutoscalingQueueMetricsPort),
+		Handler: metricsMux,
+	}
 
+	servers := map[string]*http.Server{
+		"main":    server,
+		"admin":   adminServer,
+		"metrics": metricsServer,
+	}
+
+	errCh := make(chan error, len(servers))
+	for name, server := range servers {
+		go func(name string, s *http.Server) {
+			// Don't forward ErrServerClosed as that indicates we're already shutting down.
+			if err := s.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+				errCh <- errors.Wrapf(err, "%s server failed", name)
+			}
+		}(name, server)
+	}
+
+	// Setup /var/log.
 	// Logic that isn't required to be executed before the critical path
 	// and should be started last to not impact start up latency
+	if env.VarLogVolumeName == "" && env.EnableVarLogCollection {
+		logger.Fatal("VAR_LOG_VOLUME_NAME must be specified when ENABLE_VAR_LOG_COLLECTION is true")
+	}
+	if env.InternalVolumePath == "" && env.EnableVarLogCollection {
+		logger.Fatal("INTERNAL_VOLUME_PATH must be specified when ENABLE_VAR_LOG_COLLECTION is true")
+	}
 	go func() {
 		if env.EnableVarLogCollection {
 			createVarLogLink(env)
@@ -453,7 +447,7 @@ func main() {
 	// exit unexpectedly. We fold both signals together because we only want
 	// to act on the first of those to reach here.
 	select {
-	case err := <-errChan:
+	case err := <-errCh:
 		logger.Errorw("Failed to bring up queue-proxy, shutting down.", zap.Error(err))
 		flush(logger)
 		os.Exit(1)

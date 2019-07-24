@@ -451,8 +451,8 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 					corev1.ResourceName("cpu"): resource.MustParse("25m"),
 				},
 				Limits: corev1.ResourceList{
+					corev1.ResourceName("memory"): *resource.NewMilliQuantity(429496729600, resource.BinarySI),
 					corev1.ResourceName("cpu"):    *resource.NewMilliQuantity(400, resource.BinarySI),
-					corev1.ResourceName("memory"): *resource.NewQuantity(429496736, resource.BinarySI),
 				},
 			},
 			Ports:           append(queueNonServingPorts, queueHTTPPort),
@@ -645,16 +645,16 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 				t.Errorf("makeQueueContainerWithPercentageAnnotation (-want, +got) = %v", diff)
 			}
 			if test.want.Resources.Limits.Memory().Cmp(*got.Resources.Limits.Memory()) != 0 {
-				t.Errorf("Expected Resources.Limits.Memory %v got %v ", test.want.Resources.Limits.Memory(), got.Resources.Limits.Memory())
+				t.Errorf("Resources.Limits.Memory = %v, want: %v", got.Resources.Limits.Memory(), test.want.Resources.Limits.Memory())
 			}
 			if test.want.Resources.Requests.Cpu().Cmp(*got.Resources.Requests.Cpu()) != 0 {
-				t.Errorf("Expected Resources.Request.Cpu %v got %v ", test.want.Resources.Requests.Cpu(), got.Resources.Requests.Cpu())
+				t.Errorf("Resources.Request.CPU = %v, want: %v", got.Resources.Requests.Cpu(), test.want.Resources.Requests.Cpu())
 			}
 			if test.want.Resources.Requests.Memory().Cmp(*got.Resources.Requests.Memory()) != 0 {
-				t.Errorf("Expected Resources.Requests.Memory %v got %v ", test.want.Resources.Requests.Memory(), got.Resources.Requests.Memory())
+				t.Errorf("Resources.Requests.Memory = %v, want: %v", got.Resources.Requests.Memory(), test.want.Resources.Requests.Memory())
 			}
 			if test.want.Resources.Limits.Cpu().Cmp(*got.Resources.Limits.Cpu()) != 0 {
-				t.Errorf("Expected Resources.Limits.Cpu %v got %v ", test.want.Resources.Limits.Cpu(), got.Resources.Limits.Cpu())
+				t.Errorf("Resources.Limits.CPU  = %v, want: %v", got.Resources.Limits.Cpu(), test.want.Resources.Limits.Cpu())
 			}
 		})
 	}
