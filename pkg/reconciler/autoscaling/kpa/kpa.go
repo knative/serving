@@ -34,6 +34,7 @@ import (
 	areconciler "knative.dev/serving/pkg/reconciler/autoscaling"
 	"knative.dev/serving/pkg/reconciler/autoscaling/config"
 	"knative.dev/serving/pkg/reconciler/autoscaling/kpa/resources"
+	anames "knative.dev/serving/pkg/reconciler/autoscaling/resources/names"
 	resourceutil "knative.dev/serving/pkg/resources"
 
 	corev1 "k8s.io/api/core/v1"
@@ -138,9 +139,17 @@ func (c *Reconciler) reconcile(ctx context.Context, pa *pav1alpha1.PodAutoscaler
 		return perrors.Wrap(err, "error reconciling metric")
 	}
 
+	// We need the SKS object in order to optimize scale to zero
+	// performance. It is OK if SKS is nil at this point.
+	sksName := anames.SKS(pa.Name)
+	sks, err := c.SKSLister.ServerlessServices(pa.Namespace).Get(sksName)
+	if err != nil && !errors.IsNotFound(err) {
+		logger.Warnw("Error retrieving SKS for Scaler", zap.Error(err))
+	}
+
 	// Get the appropriate current scale from the metric, and right size
 	// the scaleTargetRef based on it.
-	want, err := c.scaler.Scale(ctx, pa, decider.Status.DesiredScale)
+	want, err := c.scaler.Scale(ctx, pa, sks, decider.Status.DesiredScale)
 	if err != nil {
 		return perrors.Wrap(err, "error scaling target")
 	}
@@ -154,7 +163,7 @@ func (c *Reconciler) reconcile(ctx context.Context, pa *pav1alpha1.PodAutoscaler
 		mode = nv1alpha1.SKSOperationModeProxy
 	}
 
-	sks, err := c.ReconcileSKS(ctx, pa, mode)
+	sks, err = c.ReconcileSKS(ctx, pa, mode)
 	if err != nil {
 		return perrors.Wrap(err, "error reconciling SKS")
 	}
