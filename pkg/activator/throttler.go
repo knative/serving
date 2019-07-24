@@ -200,29 +200,25 @@ func (t *Throttler) updateCapacity(breaker breaker, cc, size, activatorCount int
 }
 
 // getOrCreateBreaker retrieves existing breaker or creates a new one.
-// This is important for not losing the update signals
-// that came before the requests reached the Activator's Handler.
+// This is important for not losing the update signals that came before the requests reached
+// the Activator's Handler.
+// The lock handling is optimized via https://en.wikipedia.org/wiki/Double-checked_locking.
 func (t *Throttler) getOrCreateBreaker(revID RevisionID) (breaker, bool, error) {
-	// Optimistically try to just read the breaker from the map.
 	t.breakersMux.RLock()
 	breaker, ok := t.breakers[revID]
 	t.breakersMux.RUnlock()
 	if ok {
-		// Exit early if we got a breaker.
 		return breaker, true, nil
 	}
 
-	// We didn't get a breaker so we might need to mutate the map.
 	t.breakersMux.Lock()
 	defer t.breakersMux.Unlock()
 
-	// Try to read again in case other goroutines raced to create.
 	breaker, ok = t.breakers[revID]
 	if ok {
 		return breaker, true, nil
 	}
 
-	// Only one goroutine will reach this to create one breaker from scratch.
 	revision, err := t.revisionLister.Revisions(revID.Namespace).Get(revID.Name)
 	if err != nil {
 		return nil, false, err
