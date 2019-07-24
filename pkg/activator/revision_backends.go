@@ -78,9 +78,10 @@ func endpointsToDests(endpoints *corev1.Endpoints) []string {
 			continue
 		}
 
+		pvs := strconv.Itoa(int(portVal))
 		for _, addr := range es.Addresses {
 			// Prefer IP as we can avoid a DNS lookup this way
-			ret = append(ret, net.JoinHostPort(addr.IP, strconv.Itoa(int(portVal))))
+			ret = append(ret, net.JoinHostPort(addr.IP, pvs))
 		}
 	}
 
