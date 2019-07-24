@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 	corev1 "k8s.io/api/core/v1"
 	corev1informers "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/tools/cache"
@@ -111,6 +112,8 @@ func (rw *revisionWatcher) checkDests() {
 	ctx, cancel := context.WithTimeout(context.Background(), probeTimeout)
 	defer cancel()
 
+	var probeGroup errgroup.Group
+
 	for _, dest := range rw.dests {
 		// If the dest is already healthy then save this
 		if curHealthy, ok := rw.healthStates[dest]; ok && curHealthy {
@@ -118,23 +121,22 @@ func (rw *revisionWatcher) checkDests() {
 			continue
 		}
 
-		go func(dest string) {
+		pDest := dest
+		probeGroup.Go(func() error {
 			httpDest := url.URL{
 				Scheme: "http",
-				Host:   dest,
+				Host:   pDest,
 			}
 			ok, err := prober.Do(ctx, rw.transport, httpDest.String(),
 				prober.WithHeader(network.ProbeHeaderName, queue.Name),
 				prober.ExpectsBody(queue.Name))
+			healthStatesCh <- &destHealth{pDest, ok}
+			return err
+		})
+	}
 
-			healthStatesCh <- &destHealth{dest, ok}
-
-			if err != nil {
-				rw.logger.Errorw("Failed probing "+dest, zap.Error(err))
-			} else if !ok {
-				rw.logger.Info("Probing of dest " + dest)
-			}
-		}(dest)
+	if err := probeGroup.Wait(); err != nil {
+		rw.logger.Errorw("Failed probing", zap.Error(err))
 	}
 
 	healthStates := make(map[string]bool, len(rw.dests))
