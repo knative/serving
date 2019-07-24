@@ -289,36 +289,36 @@ func main() {
 		Scheme: "http",
 		Host:   net.JoinHostPort("127.0.0.1", strconv.Itoa(env.UserPort)),
 	}
-  
-	queueProxyL3 := fmt.Sprintf("%s:%d", env.ServingPod, networking.ServiceHTTPPort)
-	zipkinEndpoint, err := zipkin.NewEndpoint(env.ServingPod, queueProxyL3)
-
-	if err != nil {
-		logger.Fatalw("Unable to create tracing endpoint", zap.Error(err))
-		return
-	}
-
-	oct := tracing.NewOpenCensusTracer(
-		tracing.WithZipkinExporter(tracing.CreateZipkinReporter, zipkinEndpoint),
-	)
-
-	cfg := tracingconfig.Config{
-		Enable:         env.TracingConfigEnable,
-		Debug:          env.TracingConfigDebug,
-		ZipkinEndpoint: env.TracingConfigZipkinEndpoint,
-		SampleRate:     env.TracingConfigSampleRate,
-	}
-	oct.ApplyConfig(&cfg)
 
 	httpProxy := httputil.NewSingleHostReverseProxy(target)
 
-  if env.TracingConfigEnable {
-  	httpProxy.Transport = &ochttp.Transport{
-	  	Base: network.AutoTransport,
-  	}
-  } else {
-    httpProxy.Transport = network.AutoTransport
-  }
+	if env.TracingConfigEnable {
+		queueProxyL3 := fmt.Sprintf("%s:%d", env.ServingPod, networking.ServiceHTTPPort)
+		zipkinEndpoint, err := zipkin.NewEndpoint(env.ServingPod, queueProxyL3)
+
+		if err != nil {
+			logger.Fatalw("Unable to create tracing endpoint", zap.Error(err))
+			return
+		}
+
+		oct := tracing.NewOpenCensusTracer(
+			tracing.WithZipkinExporter(tracing.CreateZipkinReporter, zipkinEndpoint),
+		)
+
+		cfg := tracingconfig.Config{
+			Enable:         env.TracingConfigEnable,
+			Debug:          env.TracingConfigDebug,
+			ZipkinEndpoint: env.TracingConfigZipkinEndpoint,
+			SampleRate:     env.TracingConfigSampleRate,
+		}
+		oct.ApplyConfig(&cfg)
+
+		httpProxy.Transport = &ochttp.Transport{
+			Base: network.AutoTransport,
+		}
+	} else {
+		httpProxy.Transport = network.AutoTransport
+	}
 
 	httpProxy.FlushInterval = -1
 	activatorutil.SetupHeaderPruning(httpProxy)
@@ -393,7 +393,7 @@ func main() {
 	if metricsSupported {
 		composedHandler = pushRequestMetricHandler(composedHandler, requestCountM, responseTimeInMsecM, env)
 	}
-  composedHandler = tracing.HTTPSpanMiddleware(composedHandler)
+	composedHandler = tracing.HTTPSpanMiddleware(composedHandler)
 	server := network.NewServer(":"+strconv.Itoa(env.QueueServingPort), composedHandler)
 
 	adminMux := http.NewServeMux()
