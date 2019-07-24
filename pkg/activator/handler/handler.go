@@ -34,7 +34,6 @@ import (
 	"knative.dev/serving/pkg/activator"
 	"knative.dev/serving/pkg/activator/util"
 	"knative.dev/serving/pkg/apis/networking"
-	"knative.dev/serving/pkg/apis/serving"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	netlisters "knative.dev/serving/pkg/client/listers/networking/v1alpha1"
 	servinglisters "knative.dev/serving/pkg/client/listers/serving/v1alpha1"
@@ -53,7 +52,6 @@ import (
 type activationHandler struct {
 	logger    *zap.SugaredLogger
 	transport http.RoundTripper
-	reporter  activator.StatsReporter
 	throttler *activator.Throttler
 
 	probeTimeout    time.Duration
@@ -69,14 +67,13 @@ type activationHandler struct {
 const defaulTimeout = 2 * time.Minute
 
 // New constructs a new http.Handler that deals with revision activation.
-func New(l *zap.SugaredLogger, r activator.StatsReporter, t *activator.Throttler,
+func New(l *zap.SugaredLogger, t *activator.Throttler,
 	rl servinglisters.RevisionLister, sl corev1listers.ServiceLister,
 	sksL netlisters.ServerlessServiceLister) http.Handler {
 
 	return &activationHandler{
 		logger:         l,
 		transport:      network.AutoTransport,
-		reporter:       r,
 		throttler:      t,
 		revisionLister: rl,
 		sksLister:      sksL,
@@ -134,7 +131,6 @@ func (a *activationHandler) probeEndpoint(logger *zap.SugaredLogger, r *http.Req
 func (a *activationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	namespace := pkghttp.LastHeaderValue(r.Header, activator.RevisionHeaderNamespace)
 	name := pkghttp.LastHeaderValue(r.Header, activator.RevisionHeaderName)
-	start := time.Now()
 	revID := activator.RevisionID{Namespace: namespace, Name: name}
 
 	logger := a.logger.With(zap.String(logkey.Key, revID.String()))
@@ -164,6 +160,10 @@ func (a *activationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		Scheme: "http",
 		Host:   host,
 	}
+	var (
+		attempts int
+		success bool
+	)
 
 	tryContext, trySpan := trace.StartSpan(r.Context(), "throttler_try")
 	if a.endpointTimeout > 0 {
@@ -178,7 +178,7 @@ func (a *activationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		a.logger.Debugf("Waiting for throttler took %v time", time.Since(tryStart))
 
 		probeCtx, probeSpan := trace.StartSpan(r.Context(), "probe")
-		success, attempts := a.probeEndpoint(logger, r.WithContext(probeCtx), target)
+		success, attempts = a.probeEndpoint(logger, r.WithContext(probeCtx), target)
 		probeSpan.End()
 
 		var httpStatus int
@@ -192,11 +192,6 @@ func (a *activationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			httpStatus = http.StatusInternalServerError
 			w.WriteHeader(httpStatus)
 		}
-
-		configurationName := revision.Labels[serving.ConfigurationLabelKey]
-		serviceName := revision.Labels[serving.ServiceLabelKey]
-		a.reporter.ReportRequestCount(namespace, serviceName, configurationName, name, httpStatus, attempts, 1.0)
-		a.reporter.ReportResponseTime(namespace, serviceName, configurationName, name, httpStatus, time.Since(start))
 	})
 	if err != nil {
 		// Set error on our capacity waiting span and end it
@@ -212,6 +207,8 @@ func (a *activationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			logger.Errorw("Error processing request in the activator", zap.Error(err))
 		}
 	}
+	// This is right after WriteHeader, which intends to be used internally
+	w.Header().Set(activator.ProxyAttempts, strconv.Itoa(attempts))
 }
 
 func (a *activationHandler) proxyRequest(w http.ResponseWriter, r *http.Request, target *url.URL) int {

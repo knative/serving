@@ -230,7 +230,6 @@ func main() {
 	// Note: innermost handlers are specified first, ie. the last handler in the chain will be executed first
 	var ah http.Handler = activatorhandler.New(
 		logger,
-		reporter,
 		throttler,
 		revisionInformer.Lister(),
 		serviceInformer.Lister(),
@@ -244,7 +243,7 @@ func main() {
 	if err != nil {
 		logger.Fatalw("Unable to create request log handler", zap.Error(err))
 	}
-	ah = reqLogHandler
+	ah = activatorhandler.NewRequestMetricHandler(revisionInformer.Lister(), reporter, logger, reqLogHandler)
 	ah = &activatorhandler.ProbeHandler{NextHandler: ah}
 	ah = &activatorhandler.HealthHandler{HealthCheck: statSink.Status, NextHandler: ah}
 
