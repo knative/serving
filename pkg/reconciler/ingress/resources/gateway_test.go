@@ -522,7 +522,7 @@ func TestMakeIngressGateways(t *testing.T) {
 				}, {
 					Hosts: []string{"host1.example.com"},
 					Port: v1alpha3.Port{
-						Name:     httpServerPortName,
+						Name:     "clusteringress:http",
 						Number:   80,
 						Protocol: "HTTP",
 					},
@@ -570,7 +570,7 @@ func TestMakeIngressGateways(t *testing.T) {
 				}, {
 					Hosts: []string{"host1.example.com"},
 					Port: v1alpha3.Port{
-						Name:     httpServerPortName,
+						Name:     "clusteringress:http",
 						Number:   80,
 						Protocol: "HTTP",
 					},
