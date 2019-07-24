@@ -325,7 +325,7 @@ type testMetricClient struct {
 	err               error
 }
 
-func (t *testMetricClient) StableAndPanicConcurrency(key types.NamespacedName) (float64, float64, error) {
+func (t *testMetricClient) StableAndPanicConcurrency(key types.NamespacedName, now time.Time) (float64, float64, error) {
 	return t.stableConcurrency, t.panicConcurrency, t.err
 }
 
