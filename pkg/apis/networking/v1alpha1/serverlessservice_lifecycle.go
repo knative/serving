@@ -17,6 +17,8 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"time"
+
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
@@ -91,4 +93,14 @@ func (sss *ServerlessServiceStatus) IsReady() bool {
 
 func (sss *ServerlessServiceStatus) duck() *duckv1beta1.Status {
 	return &sss.Status
+}
+
+// ProxyFor returns how long it has been since Activator was moved
+// to the request path.
+func (sss *ServerlessServiceStatus) ProxyFor() time.Duration {
+	cond := sss.GetCondition(ActivatorEndpointsPopulated)
+	if cond == nil || cond.Status != corev1.ConditionTrue {
+		return 0
+	}
+	return time.Since(cond.LastTransitionTime.Inner.Time)
 }
