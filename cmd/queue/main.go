@@ -143,7 +143,7 @@ type config struct {
 	ServingRequestLogTemplate    string  `split_words:"true" required:"true"`
 	ServingReadinessProbe        string  `split_words:"true" required:"true"`
 	TracingConfigDebug           bool    `split_words:"true"` // optional
-	TracingConfigEnable          bool    `split_words:"true" required:"true"`
+	TracingConfigEnable          bool    `split_words:"true"` // optional
 	TracingConfigSampleRate      float64 `split_words:"true"` // optional
 	TracingConfigZipkinEndpoint  string  `split_words:"true"` // optional
 }
@@ -410,6 +410,9 @@ func main() {
 	// Create queue handler chain
 	// Note: innermost handlers are specified first, ie. the last handler in the chain will be executed first
 	var composedHandler http.Handler = httpProxy
+	if metricsSupported {
+		composedHandler = pushRequestMetricHandler(httpProxy, appRequestCountM, appResponseTimeInMsecM, env)
+	}
 	composedHandler = http.HandlerFunc(handler(reqChan, breaker, composedHandler, rp.ProbeContainer))
 	composedHandler = queue.ForwardedShimHandler(composedHandler)
 	composedHandler = queue.TimeToFirstByteTimeoutHandler(composedHandler,
