@@ -326,34 +326,30 @@ func main() {
 		logger.Fatalw("Failed to parse localhost URL", zap.Error(err))
 	}
 
-	if env.TracingConfigEnable {
-		queueProxyL3 := fmt.Sprintf("%s:%d", env.ServingPod, networking.ServiceHTTPPort)
-		zipkinEndpoint, err := zipkin.NewEndpoint(env.ServingPod, queueProxyL3)
+	queueProxyL3 := fmt.Sprintf("%s:%d", env.ServingPod, networking.ServiceHTTPPort)
+	zipkinEndpoint, err := zipkin.NewEndpoint(env.ServingPod, queueProxyL3)
 
-		if err != nil {
-			logger.Fatalw("Unable to create tracing endpoint", zap.Error(err))
-			return
-		}
-
-		oct := tracing.NewOpenCensusTracer(
-			tracing.WithZipkinExporter(tracing.CreateZipkinReporter, zipkinEndpoint),
-		)
-
-		cfg := tracingconfig.Config{
-			Enable:         env.TracingConfigEnable,
-			Debug:          env.TracingConfigDebug,
-			ZipkinEndpoint: env.TracingConfigZipkinEndpoint,
-			SampleRate:     env.TracingConfigSampleRate,
-		}
-		oct.ApplyConfig(&cfg)
+	if err != nil {
+		logger.Fatalw("Unable to create tracing endpoint", zap.Error(err))
+		return
 	}
+
+	oct := tracing.NewOpenCensusTracer(
+		tracing.WithZipkinExporter(tracing.CreateZipkinReporter, zipkinEndpoint),
+	)
+
+	cfg := tracingconfig.Config{
+		Enable:         env.TracingConfigEnable,
+		Debug:          env.TracingConfigDebug,
+		ZipkinEndpoint: env.TracingConfigZipkinEndpoint,
+		SampleRate:     env.TracingConfigSampleRate,
+	}
+	oct.ApplyConfig(&cfg)
 
 	httpProxy = httputil.NewSingleHostReverseProxy(target)
 
-	if env.TracingConfigEnable {
-		httpProxy.Transport = &ochttp.Transport{
-			Base: network.AutoTransport,
-		}
+	httpProxy.Transport = &ochttp.Transport{
+		Base: network.AutoTransport,
 	}
 	httpProxy.FlushInterval = -1
 
