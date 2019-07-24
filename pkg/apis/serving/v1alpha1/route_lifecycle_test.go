@@ -35,9 +35,6 @@ func TestRouteDuckTypes(t *testing.T) {
 		name: "conditions",
 		t:    &duckv1beta1.Conditions{},
 	}, {
-		name: "legacy targetable",
-		t:    &duckv1alpha1.LegacyTargetable{},
-	}, {
 		name: "addressable",
 		t:    &duckv1alpha1.Addressable{},
 	}}
