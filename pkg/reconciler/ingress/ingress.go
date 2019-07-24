@@ -243,7 +243,7 @@ func (r *BaseIngressReconciler) ReconcileIngress(ctx context.Context, ra Reconci
 
 func (r *BaseIngressReconciler) reconcileIngress(ctx context.Context, ra ReconcilerAccessor, ia v1alpha1.IngressAccessor) error {
 	logger := logging.FromContext(ctx)
-	// We shoudl keep reconcileDeleteion temporarily for those Routes that have been deployed with
+	// We should keep reconcileDeleteion temporarily for those Routes that have been deployed with
 	// old reconcilation way in which we add finalizer onto Routes.
 	// TODO(zhiminx): delete reconcileDeletion logic.
 	if ia.GetDeletionTimestamp() != nil {
