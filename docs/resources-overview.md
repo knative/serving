@@ -20,7 +20,7 @@ the _Controller_ which is responsible for updating the state of the cluster
 based on user input. The second is the _Webhook_ component which handles
 validation of the objects and actions performed. The third is an _Activator_
 component which brings back scaled-to-zero pods and forwards requests. The
-fourth is the _Autoscaler_ which scales pods are requests come in.
+fourth is the _Autoscaler_ which scales pods as requests come in.
 
 The controller processes a series of state changes in order to move the system
 from its current, actual state to the state desired by the user.
