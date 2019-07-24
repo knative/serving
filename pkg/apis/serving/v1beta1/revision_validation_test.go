@@ -23,6 +23,7 @@ import (
 
 	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/apis/config"
+	"knative.dev/serving/pkg/apis/serving"
 
 	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
@@ -75,6 +76,161 @@ func TestRevisionValidation(t *testing.T) {
 
 	// TODO(dangerd): PodSpec validation failures.
 
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			got := test.r.Validate(context.Background())
+			if !cmp.Equal(test.want.Error(), got.Error()) {
+				t.Errorf("Validate (-want, +got) = %v",
+					cmp.Diff(test.want.Error(), got.Error()))
+			}
+		})
+	}
+}
+
+func TestRevisionLabelAnnotationValidation(t *testing.T) {
+	validRevisionSpec := RevisionSpec{
+		PodSpec: corev1.PodSpec{
+			Containers: []corev1.Container{{
+				Image: "busybox",
+			}},
+		},
+	}
+	tests := []struct {
+		name string
+		r    *Revision
+		want *apis.FieldError
+	}{{
+		name: "valid route name",
+		r: &Revision{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "byo-name",
+				Labels: map[string]string{
+					serving.RouteLabelKey: "test-route",
+				},
+			},
+			Spec: validRevisionSpec,
+		},
+		want: nil,
+	}, {
+		name: "valid knative service name",
+		r: &Revision{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "byo-name",
+				Labels: map[string]string{
+					serving.ServiceLabelKey: "test-svc",
+				},
+			},
+			Spec: validRevisionSpec,
+		},
+		want: nil,
+	}, {
+		name: "valid knative service name",
+		r: &Revision{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "byo-name",
+				Labels: map[string]string{
+					serving.ConfigurationGenerationLabelKey: "1234",
+				},
+			},
+			Spec: validRevisionSpec,
+		},
+		want: nil,
+	}, {
+		name: "invalid knative configuration name",
+		r: &Revision{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "byo-name",
+				Labels: map[string]string{
+					serving.ConfigurationLabelKey: "absent-cfg",
+				},
+			},
+			Spec: validRevisionSpec,
+		},
+		want: apis.ErrMissingField("metadata.labels.serving.knative.dev/configuration"),
+	}, {
+		name: "valid knative configuration name",
+		r: &Revision{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "byo-name",
+				Labels: map[string]string{
+					serving.ConfigurationLabelKey: "test-cfg",
+				},
+				OwnerReferences: []metav1.OwnerReference{{
+					APIVersion: "serving.knative.dev/v1alpha1",
+					Kind:       "Configuration",
+					Name:       "test-cfg",
+				}},
+			},
+			Spec: validRevisionSpec,
+		},
+		want: nil,
+	}, {
+		name: "invalid knative configuration name without owner ref",
+		r: &Revision{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "byo-name",
+				Labels: map[string]string{
+					serving.ConfigurationLabelKey: "test-svc",
+				},
+				OwnerReferences: []metav1.OwnerReference{{
+					APIVersion: "serving.knative.dev/v1alpha1",
+					Kind:       "Configuration",
+					Name:       "diff-cfg",
+				}},
+			},
+			Spec: validRevisionSpec,
+		},
+		want: apis.ErrMissingField("metadata.labels.serving.knative.dev/configuration"),
+	}, {
+		name: "invalid knative configuration name with multiple owner ref",
+		r: &Revision{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "byo-name",
+				Labels: map[string]string{
+					serving.ConfigurationLabelKey: "test-cfg",
+				},
+				OwnerReferences: []metav1.OwnerReference{{
+					APIVersion: "serving.knative.dev/v1alpha1",
+					Kind:       "NewConfiguration",
+					Name:       "test-new-cfg",
+				}, {
+					APIVersion: "serving.knative.dev/v1alpha1",
+					Kind:       "Configuration",
+					Name:       "test-cfg",
+				}},
+			},
+			Spec: validRevisionSpec,
+		},
+	}, {
+		name: "Mismatch knative configuration label and owner ref",
+		r: &Revision{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "byo-name",
+				Labels: map[string]string{
+					serving.ConfigurationLabelKey: "test-cfg",
+				},
+				OwnerReferences: []metav1.OwnerReference{{
+					APIVersion: "serving.knative.dev/v1alpha1",
+					Kind:       "BrandNewService",
+					Name:       "brand-new-svc",
+				}},
+			},
+			Spec: validRevisionSpec,
+		},
+		want: apis.ErrMissingField("metadata.labels.serving.knative.dev/configuration"),
+	}, {
+		name: "invalid knative label",
+		r: &Revision{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "byo-name",
+				Labels: map[string]string{
+					"serving.knative.dev/testlabel": "value",
+				},
+			},
+			Spec: validRevisionSpec,
+		},
+		want: apis.ErrInvalidKeyName("serving.knative.dev/testlabel", "metadata.labels"),
+	}}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			got := test.r.Validate(context.Background())

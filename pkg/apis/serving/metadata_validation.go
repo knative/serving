@@ -25,6 +25,6 @@ import (
 // ValidateObjectMetadata validates that `metadata` stanza of the
 // resources is correct.
 func ValidateObjectMetadata(meta metav1.Object) *apis.FieldError {
-	return apis.ValidateObjectMetadata(meta).Also(
-		autoscaling.ValidateAnnotations(meta.GetAnnotations()).ViaField("annotations"))
+	return apis.ValidateObjectMetadata(meta).
+		Also(autoscaling.ValidateAnnotations(meta.GetAnnotations()).ViaField("annotations"))
 }
