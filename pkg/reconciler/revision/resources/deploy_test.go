@@ -367,7 +367,7 @@ func TestMakePodSpec(t *testing.T) {
 	}{{
 		name: "user-defined user port, queue proxy have PORT env",
 		rev: revision(
-			withContainerConcurrency(1),
+			withContainerConcurrency(ptr.Int64(1)),
 			func(revision *v1alpha1.Revision) {
 				revision.Spec.GetContainer().Ports = []corev1.ContainerPort{{
 					ContainerPort: 8888,
@@ -395,7 +395,7 @@ func TestMakePodSpec(t *testing.T) {
 	}, {
 		name: "volumes passed through",
 		rev: revision(
-			withContainerConcurrency(1),
+			withContainerConcurrency(ptr.Int64(1)),
 			func(revision *v1alpha1.Revision) {
 				revision.Spec.GetContainer().Ports = []corev1.ContainerPort{{
 					ContainerPort: 8888,
@@ -445,7 +445,7 @@ func TestMakePodSpec(t *testing.T) {
 			})),
 	}, {
 		name: "concurrency=1 no owner",
-		rev:  revision(withContainerConcurrency(1)),
+		rev:  revision(withContainerConcurrency(ptr.Int64(1))),
 		lc:   &logging.Config{},
 		oc:   &metrics.ObservabilityConfig{},
 		ac:   &autoscaler.Config{},
@@ -461,7 +461,7 @@ func TestMakePodSpec(t *testing.T) {
 	}, {
 		name: "concurrency=1 no owner digest resolved",
 		rev: revision(
-			withContainerConcurrency(1),
+			withContainerConcurrency(ptr.Int64(1)),
 			func(revision *v1alpha1.Revision) {
 				revision.Status = v1alpha1.RevisionStatus{
 					ImageDigest: "busybox@sha256:deadbeef",
@@ -485,7 +485,7 @@ func TestMakePodSpec(t *testing.T) {
 	}, {
 		name: "concurrency=1 with owner",
 		rev: revision(
-			withContainerConcurrency(1),
+			withContainerConcurrency(ptr.Int64(1)),
 			withOwnerReference("parent-config"),
 		),
 		lc: &logging.Config{},
@@ -627,7 +627,7 @@ func TestMakePodSpec(t *testing.T) {
 			}),
 	}, {
 		name: "with /var/log collection",
-		rev:  revision(withContainerConcurrency(1)),
+		rev:  revision(withContainerConcurrency(ptr.Int64(1))),
 		lc:   &logging.Config{},
 		oc: &metrics.ObservabilityConfig{
 			EnableVarLogCollection: true,
@@ -651,7 +651,7 @@ func TestMakePodSpec(t *testing.T) {
 	}, {
 		name: "complex pod spec",
 		rev: revision(
-			withContainerConcurrency(1),
+			withContainerConcurrency(ptr.Int64(1)),
 			func(revision *v1alpha1.Revision) {
 				revision.ObjectMeta.Labels = map[string]string{}
 				revision.Spec.GetContainer().Command = []string{"/bin/bash"}
@@ -756,7 +756,7 @@ func TestMakeDeployment(t *testing.T) {
 		name: "with concurrency=1",
 		rev: revision(
 			withoutLabels,
-			withContainerConcurrency(1),
+			withContainerConcurrency(ptr.Int64(1)),
 		),
 		lc:   &logging.Config{},
 		nc:   &network.Config{},

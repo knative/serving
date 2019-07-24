@@ -143,7 +143,7 @@ func TestServiceValidation(t *testing.T) {
 									Image: "busybox",
 								}},
 							},
-							ContainerConcurrency: -10,
+							ContainerConcurrency: ptr.Int64(-10),
 						},
 					},
 				},

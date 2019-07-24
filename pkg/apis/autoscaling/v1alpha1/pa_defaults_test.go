@@ -20,6 +20,8 @@ import (
 	"context"
 	"testing"
 
+	"knative.dev/pkg/ptr"
+
 	"github.com/google/go-cmp/cmp"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/serving/pkg/apis/autoscaling"
@@ -41,14 +43,14 @@ func TestPodAutoscalerDefaulting(t *testing.T) {
 				},
 			},
 			Spec: PodAutoscalerSpec{
-				ContainerConcurrency: 0,
+				ContainerConcurrency: ptr.Int64(0),
 			},
 		},
 	}, {
 		name: "no overwrite",
 		in: &PodAutoscaler{
 			Spec: PodAutoscalerSpec{
-				ContainerConcurrency: 1,
+				ContainerConcurrency: ptr.Int64(1),
 			},
 		},
 		want: &PodAutoscaler{
@@ -59,7 +61,7 @@ func TestPodAutoscalerDefaulting(t *testing.T) {
 				},
 			},
 			Spec: PodAutoscalerSpec{
-				ContainerConcurrency: 1,
+				ContainerConcurrency: ptr.Int64(1),
 			},
 		},
 	}, {
@@ -75,7 +77,7 @@ func TestPodAutoscalerDefaulting(t *testing.T) {
 				},
 			},
 			Spec: PodAutoscalerSpec{
-				ContainerConcurrency: 0,
+				ContainerConcurrency: ptr.Int64(0),
 			},
 		},
 	}, {
@@ -95,7 +97,7 @@ func TestPodAutoscalerDefaulting(t *testing.T) {
 				},
 			},
 			Spec: PodAutoscalerSpec{
-				ContainerConcurrency: 0,
+				ContainerConcurrency: ptr.Int64(0),
 			},
 		},
 	}}

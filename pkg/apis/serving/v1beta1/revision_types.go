@@ -69,12 +69,12 @@ type RevisionTemplateSpec struct {
 
 // RevisionContainerConcurrencyType is an integer expressing the maximum number of
 // in-flight (concurrent) requests.
-type RevisionContainerConcurrencyType int64
+type RevisionContainerConcurrencyType *int64
 
 const (
 	// RevisionContainerConcurrencyMax is the maximum configurable
 	// container concurrency.
-	RevisionContainerConcurrencyMax RevisionContainerConcurrencyType = 1000
+	RevisionContainerConcurrencyMax int64 = 1000
 )
 
 // RevisionSpec holds the desired state of the Revision (from the client).

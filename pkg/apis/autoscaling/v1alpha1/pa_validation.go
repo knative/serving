@@ -20,6 +20,8 @@ import (
 	"context"
 	"fmt"
 
+	"knative.dev/serving/pkg/apis/serving/v1beta1"
+
 	"k8s.io/apimachinery/pkg/api/equality"
 	"knative.dev/pkg/apis"
 	"knative.dev/serving/pkg/apis/autoscaling"
@@ -38,8 +40,10 @@ func (rs *PodAutoscalerSpec) Validate(ctx context.Context) *apis.FieldError {
 		return apis.ErrMissingField(apis.CurrentField)
 	}
 	errs := serving.ValidateNamespacedObjectReference(&rs.ScaleTargetRef).ViaField("scaleTargetRef")
-	errs = errs.Also(rs.ContainerConcurrency.Validate(ctx).
-		ViaField("containerConcurrency"))
+	if *rs.ContainerConcurrency < 0 || *rs.ContainerConcurrency > v1beta1.RevisionContainerConcurrencyMax {
+		errs = errs.Also(apis.ErrOutOfBoundsValue(
+			*rs.ContainerConcurrency, 0, v1beta1.RevisionContainerConcurrencyMax, apis.CurrentField))
+	}
 	return errs.Also(validateSKSFields(ctx, rs))
 }
 

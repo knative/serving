@@ -137,7 +137,7 @@ func (t *Throttler) UpdateCapacity(rev RevisionID, size int) error {
 	if err != nil {
 		return err
 	}
-	return t.updateCapacity(breaker, int(revision.Spec.ContainerConcurrency), size, t.activatorCount())
+	return t.updateCapacity(breaker, int(*revision.Spec.ContainerConcurrency), size, t.activatorCount())
 }
 
 // Try potentially registers a new breaker in our bookkeeping
@@ -211,7 +211,7 @@ func (t *Throttler) getOrCreateBreaker(revID RevisionID) (breaker, bool, error) 
 		if err != nil {
 			return nil, false, err
 		}
-		if revision.Spec.ContainerConcurrency == 0 {
+		if *revision.Spec.ContainerConcurrency == 0 {
 			breaker = &infiniteBreaker{
 				broadcast: make(chan struct{}),
 			}
@@ -247,7 +247,7 @@ func (t *Throttler) forceUpdateCapacity(rev RevisionID, breaker breaker, activat
 		return err
 	}
 
-	return t.updateCapacity(breaker, int(revision.Spec.ContainerConcurrency), size, activatorCount)
+	return t.updateCapacity(breaker, int(*revision.Spec.ContainerConcurrency), size, activatorCount)
 }
 
 // updateAllBreakerCapacity updates the capacity of all breakers.

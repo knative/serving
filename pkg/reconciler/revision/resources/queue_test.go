@@ -82,7 +82,7 @@ func TestMakeQueueContainer(t *testing.T) {
 			},
 			Spec: v1alpha1.RevisionSpec{
 				RevisionSpec: v1beta1.RevisionSpec{
-					ContainerConcurrency: 1,
+					ContainerConcurrency: ptr.Int64(1),
 					TimeoutSeconds:       ptr.Int64(45),
 				},
 			},
@@ -111,7 +111,7 @@ func TestMakeQueueContainer(t *testing.T) {
 			},
 			Spec: v1alpha1.RevisionSpec{
 				RevisionSpec: v1beta1.RevisionSpec{
-					ContainerConcurrency: 1,
+					ContainerConcurrency: ptr.Int64(1),
 					TimeoutSeconds:       ptr.Int64(45),
 					PodSpec: corev1.PodSpec{
 						Containers: []corev1.Container{{
@@ -158,7 +158,7 @@ func TestMakeQueueContainer(t *testing.T) {
 			},
 			Spec: v1alpha1.RevisionSpec{
 				RevisionSpec: v1beta1.RevisionSpec{
-					ContainerConcurrency: 1,
+					ContainerConcurrency: ptr.Int64(1),
 					TimeoutSeconds:       ptr.Int64(45),
 				},
 			},
@@ -198,7 +198,7 @@ func TestMakeQueueContainer(t *testing.T) {
 			},
 			Spec: v1alpha1.RevisionSpec{
 				RevisionSpec: v1beta1.RevisionSpec{
-					ContainerConcurrency: 0,
+					ContainerConcurrency: ptr.Int64(0),
 					TimeoutSeconds:       ptr.Int64(45),
 				},
 			},
@@ -232,7 +232,7 @@ func TestMakeQueueContainer(t *testing.T) {
 			},
 			Spec: v1alpha1.RevisionSpec{
 				RevisionSpec: v1beta1.RevisionSpec{
-					ContainerConcurrency: 0,
+					ContainerConcurrency: ptr.Int64(0),
 					TimeoutSeconds:       ptr.Int64(45),
 				},
 			},
@@ -272,7 +272,7 @@ func TestMakeQueueContainer(t *testing.T) {
 			},
 			Spec: v1alpha1.RevisionSpec{
 				RevisionSpec: v1beta1.RevisionSpec{
-					ContainerConcurrency: 10,
+					ContainerConcurrency: ptr.Int64(10),
 					TimeoutSeconds:       ptr.Int64(45),
 				},
 			},
@@ -303,7 +303,7 @@ func TestMakeQueueContainer(t *testing.T) {
 			},
 			Spec: v1alpha1.RevisionSpec{
 				RevisionSpec: v1beta1.RevisionSpec{
-					ContainerConcurrency: 0,
+					ContainerConcurrency: ptr.Int64(0),
 					TimeoutSeconds:       ptr.Int64(45),
 				},
 			},
@@ -335,7 +335,7 @@ func TestMakeQueueContainer(t *testing.T) {
 			},
 			Spec: v1alpha1.RevisionSpec{
 				RevisionSpec: v1beta1.RevisionSpec{
-					ContainerConcurrency: 0,
+					ContainerConcurrency: ptr.Int64(0),
 					TimeoutSeconds:       ptr.Int64(45),
 				},
 			},
@@ -410,7 +410,7 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 			},
 			Spec: v1alpha1.RevisionSpec{
 				RevisionSpec: v1beta1.RevisionSpec{
-					ContainerConcurrency: 1,
+					ContainerConcurrency: ptr.Int64(1),
 					TimeoutSeconds:       ptr.Int64(45),
 					PodSpec: corev1.PodSpec{
 						Containers: []corev1.Container{{
@@ -468,7 +468,7 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 			},
 			Spec: v1alpha1.RevisionSpec{
 				RevisionSpec: v1beta1.RevisionSpec{
-					ContainerConcurrency: 1,
+					ContainerConcurrency: ptr.Int64(1),
 					TimeoutSeconds:       ptr.Int64(45),
 					PodSpec: corev1.PodSpec{
 						Containers: []corev1.Container{{
@@ -523,7 +523,7 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 			},
 			Spec: v1alpha1.RevisionSpec{
 				RevisionSpec: v1beta1.RevisionSpec{
-					ContainerConcurrency: 1,
+					ContainerConcurrency: ptr.Int64(1),
 					TimeoutSeconds:       ptr.Int64(45),
 					PodSpec: corev1.PodSpec{
 						Containers: []corev1.Container{{
@@ -577,7 +577,7 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 			},
 			Spec: v1alpha1.RevisionSpec{
 				RevisionSpec: v1beta1.RevisionSpec{
-					ContainerConcurrency: 1,
+					ContainerConcurrency: ptr.Int64(1),
 					TimeoutSeconds:       ptr.Int64(45),
 					PodSpec: corev1.PodSpec{
 						Containers: []corev1.Container{{
@@ -655,7 +655,7 @@ func TestProbeGenerationHTTPDefaults(t *testing.T) {
 		},
 		Spec: v1alpha1.RevisionSpec{
 			RevisionSpec: v1beta1.RevisionSpec{
-				ContainerConcurrency: 1,
+				ContainerConcurrency: ptr.Int64(1),
 				TimeoutSeconds:       ptr.Int64(45),
 				PodSpec: corev1.PodSpec{
 					Containers: []corev1.Container{{
@@ -736,7 +736,7 @@ func TestProbeGenerationHTTP(t *testing.T) {
 		},
 		Spec: v1alpha1.RevisionSpec{
 			RevisionSpec: v1beta1.RevisionSpec{
-				ContainerConcurrency: 1,
+				ContainerConcurrency: ptr.Int64(1),
 				TimeoutSeconds:       ptr.Int64(45),
 				PodSpec: corev1.PodSpec{
 					Containers: []corev1.Container{{
@@ -828,7 +828,7 @@ func TestTCPProbeGeneration(t *testing.T) {
 		},
 		rev: v1alpha1.RevisionSpec{
 			RevisionSpec: v1beta1.RevisionSpec{
-				ContainerConcurrency: 1,
+				ContainerConcurrency: ptr.Int64(1),
 				TimeoutSeconds:       ptr.Int64(45),
 				PodSpec: corev1.PodSpec{
 					Containers: []corev1.Container{{
@@ -869,7 +869,7 @@ func TestTCPProbeGeneration(t *testing.T) {
 		name: "tcp defaults",
 		rev: v1alpha1.RevisionSpec{
 			RevisionSpec: v1beta1.RevisionSpec{
-				ContainerConcurrency: 1,
+				ContainerConcurrency: ptr.Int64(1),
 				TimeoutSeconds:       ptr.Int64(45),
 				PodSpec: corev1.PodSpec{
 					Containers: []corev1.Container{{
@@ -929,7 +929,7 @@ func TestTCPProbeGeneration(t *testing.T) {
 		},
 		rev: v1alpha1.RevisionSpec{
 			RevisionSpec: v1beta1.RevisionSpec{
-				ContainerConcurrency: 1,
+				ContainerConcurrency: ptr.Int64(1),
 				TimeoutSeconds:       ptr.Int64(45),
 				PodSpec: corev1.PodSpec{
 					Containers: []corev1.Container{{

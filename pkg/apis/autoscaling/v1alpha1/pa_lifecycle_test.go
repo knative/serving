@@ -19,6 +19,8 @@ import (
 	"testing"
 	"time"
 
+	"knative.dev/pkg/ptr"
+
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -825,7 +827,7 @@ func pa(annotations map[string]string) *PodAutoscaler {
 			Annotations: annotations,
 		},
 		Spec: PodAutoscalerSpec{
-			ContainerConcurrency: 0,
+			ContainerConcurrency: ptr.Int64(0),
 		},
 		Status: PodAutoscalerStatus{},
 	}

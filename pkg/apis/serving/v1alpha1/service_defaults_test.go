@@ -155,7 +155,7 @@ func TestServiceDefaulting(t *testing.T) {
 							Spec: RevisionSpec{
 								DeprecatedContainer: &corev1.Container{},
 								RevisionSpec: v1beta1.RevisionSpec{
-									ContainerConcurrency: 1,
+									ContainerConcurrency: ptr.Int64(1),
 									TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
 								},
 							},
@@ -171,7 +171,7 @@ func TestServiceDefaulting(t *testing.T) {
 						DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 							Spec: RevisionSpec{
 								RevisionSpec: v1beta1.RevisionSpec{
-									ContainerConcurrency: 1,
+									ContainerConcurrency: ptr.Int64(1),
 									TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
 								},
 								DeprecatedContainer: &corev1.Container{
@@ -279,7 +279,7 @@ func TestServiceDefaulting(t *testing.T) {
 							Spec: RevisionSpec{
 								DeprecatedContainer: &corev1.Container{},
 								RevisionSpec: v1beta1.RevisionSpec{
-									ContainerConcurrency: 1,
+									ContainerConcurrency: ptr.Int64(1),
 									TimeoutSeconds:       ptr.Int64(99),
 								},
 							},
@@ -295,7 +295,7 @@ func TestServiceDefaulting(t *testing.T) {
 						DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 							Spec: RevisionSpec{
 								RevisionSpec: v1beta1.RevisionSpec{
-									ContainerConcurrency: 1,
+									ContainerConcurrency: ptr.Int64(1),
 									TimeoutSeconds:       ptr.Int64(99),
 								},
 								DeprecatedContainer: &corev1.Container{
@@ -532,7 +532,7 @@ func TestServiceDefaulting(t *testing.T) {
 							Spec: RevisionSpec{
 								DeprecatedContainer: &corev1.Container{},
 								RevisionSpec: v1beta1.RevisionSpec{
-									ContainerConcurrency: 1,
+									ContainerConcurrency: ptr.Int64(1),
 									TimeoutSeconds:       ptr.Int64(99),
 								},
 							},
@@ -548,7 +548,7 @@ func TestServiceDefaulting(t *testing.T) {
 						DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 							Spec: RevisionSpec{
 								RevisionSpec: v1beta1.RevisionSpec{
-									ContainerConcurrency: 1,
+									ContainerConcurrency: ptr.Int64(1),
 									TimeoutSeconds:       ptr.Int64(99),
 								},
 								DeprecatedContainer: &corev1.Container{

@@ -258,7 +258,7 @@ func makeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, o
 			Value: strconv.Itoa(int(ports[len(ports)-1].ContainerPort)),
 		}, {
 			Name:  "CONTAINER_CONCURRENCY",
-			Value: strconv.Itoa(int(rev.Spec.ContainerConcurrency)),
+			Value: strconv.Itoa(int(*rev.Spec.ContainerConcurrency)),
 		}, {
 			Name:  "REVISION_TIMEOUT_SECONDS",
 			Value: strconv.Itoa(int(ts)),

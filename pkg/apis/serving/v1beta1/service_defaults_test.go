@@ -277,7 +277,7 @@ func TestAnnotateUserInfo(t *testing.T) {
 				ConfigurationSpec: ConfigurationSpec{
 					Template: RevisionTemplateSpec{
 						Spec: RevisionSpec{
-							ContainerConcurrency: 1,
+							ContainerConcurrency: ptr.Int64(1),
 						},
 					},
 				},
@@ -288,7 +288,7 @@ func TestAnnotateUserInfo(t *testing.T) {
 				ConfigurationSpec: ConfigurationSpec{
 					Template: RevisionTemplateSpec{
 						Spec: RevisionSpec{
-							ContainerConcurrency: 2,
+							ContainerConcurrency: ptr.Int64(2),
 						},
 					},
 				},
@@ -305,7 +305,7 @@ func TestAnnotateUserInfo(t *testing.T) {
 				ConfigurationSpec: ConfigurationSpec{
 					Template: RevisionTemplateSpec{
 						Spec: RevisionSpec{
-							ContainerConcurrency: 1,
+							ContainerConcurrency: ptr.Int64(1),
 						},
 					},
 				},
@@ -316,7 +316,7 @@ func TestAnnotateUserInfo(t *testing.T) {
 				ConfigurationSpec: ConfigurationSpec{
 					Template: RevisionTemplateSpec{
 						Spec: RevisionSpec{
-							ContainerConcurrency: 2,
+							ContainerConcurrency: ptr.Int64(2),
 						},
 					},
 				},

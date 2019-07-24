@@ -50,7 +50,7 @@ func TestRevisionDefaulting(t *testing.T) {
 		want: &Revision{
 			Spec: RevisionSpec{
 				RevisionSpec: v1beta1.RevisionSpec{
-					ContainerConcurrency: 0,
+					ContainerConcurrency: ptr.Int64(0),
 					TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
 				},
 				DeprecatedContainer: &corev1.Container{
@@ -70,7 +70,7 @@ func TestRevisionDefaulting(t *testing.T) {
 		want: &Revision{
 			Spec: RevisionSpec{
 				RevisionSpec: v1beta1.RevisionSpec{
-					ContainerConcurrency: 0,
+					ContainerConcurrency: ptr.Int64(0),
 					TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
 				},
 				DeprecatedContainer: &corev1.Container{
@@ -102,7 +102,7 @@ func TestRevisionDefaulting(t *testing.T) {
 		want: &Revision{
 			Spec: RevisionSpec{
 				RevisionSpec: v1beta1.RevisionSpec{
-					ContainerConcurrency: 0,
+					ContainerConcurrency: ptr.Int64(0),
 					TimeoutSeconds:       ptr.Int64(123),
 				},
 				DeprecatedContainer: &corev1.Container{
@@ -123,7 +123,7 @@ func TestRevisionDefaulting(t *testing.T) {
 					}},
 				},
 				RevisionSpec: v1beta1.RevisionSpec{
-					ContainerConcurrency: 1,
+					ContainerConcurrency: ptr.Int64(1),
 					TimeoutSeconds:       ptr.Int64(99),
 				},
 			},
@@ -141,7 +141,7 @@ func TestRevisionDefaulting(t *testing.T) {
 					ReadinessProbe: defaultProbe,
 				},
 				RevisionSpec: v1beta1.RevisionSpec{
-					ContainerConcurrency: 1,
+					ContainerConcurrency: ptr.Int64(1),
 					TimeoutSeconds:       ptr.Int64(99),
 				},
 			},
@@ -158,7 +158,7 @@ func TestRevisionDefaulting(t *testing.T) {
 					}},
 				},
 				RevisionSpec: v1beta1.RevisionSpec{
-					ContainerConcurrency: 1,
+					ContainerConcurrency: ptr.Int64(1),
 					TimeoutSeconds:       ptr.Int64(99),
 				},
 			},
@@ -178,7 +178,7 @@ func TestRevisionDefaulting(t *testing.T) {
 							ReadinessProbe: defaultProbe,
 						}},
 					},
-					ContainerConcurrency: 1,
+					ContainerConcurrency: ptr.Int64(1),
 					TimeoutSeconds:       ptr.Int64(99),
 				},
 			},
@@ -192,7 +192,7 @@ func TestRevisionDefaulting(t *testing.T) {
 					Image: "bar",
 				},
 				RevisionSpec: v1beta1.RevisionSpec{
-					ContainerConcurrency: 1,
+					ContainerConcurrency: ptr.Int64(1),
 					TimeoutSeconds:       ptr.Int64(99),
 					PodSpec: corev1.PodSpec{
 						Containers: []corev1.Container{{
@@ -210,7 +210,7 @@ func TestRevisionDefaulting(t *testing.T) {
 					Image: "bar",
 				},
 				RevisionSpec: v1beta1.RevisionSpec{
-					ContainerConcurrency: 1,
+					ContainerConcurrency: ptr.Int64(1),
 					TimeoutSeconds:       ptr.Int64(99),
 					PodSpec: corev1.PodSpec{
 						Containers: []corev1.Container{{
@@ -229,7 +229,7 @@ func TestRevisionDefaulting(t *testing.T) {
 			Spec: RevisionSpec{
 				DeprecatedContainer: &corev1.Container{},
 				RevisionSpec: v1beta1.RevisionSpec{
-					ContainerConcurrency: 1,
+					ContainerConcurrency: ptr.Int64(1),
 					TimeoutSeconds:       ptr.Int64(99),
 				},
 			},
@@ -237,7 +237,7 @@ func TestRevisionDefaulting(t *testing.T) {
 		want: &Revision{
 			Spec: RevisionSpec{
 				RevisionSpec: v1beta1.RevisionSpec{
-					ContainerConcurrency: 1,
+					ContainerConcurrency: ptr.Int64(1),
 					TimeoutSeconds:       ptr.Int64(99),
 				},
 				DeprecatedContainer: &corev1.Container{
@@ -253,14 +253,14 @@ func TestRevisionDefaulting(t *testing.T) {
 			Spec: RevisionSpec{
 				DeprecatedContainer: &corev1.Container{},
 				RevisionSpec: v1beta1.RevisionSpec{
-					ContainerConcurrency: 123,
+					ContainerConcurrency: ptr.Int64(123),
 				},
 			},
 		},
 		want: &Revision{
 			Spec: RevisionSpec{
 				RevisionSpec: v1beta1.RevisionSpec{
-					ContainerConcurrency: 123,
+					ContainerConcurrency: ptr.Int64(123),
 					TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
 				},
 				DeprecatedContainer: &corev1.Container{
@@ -277,7 +277,7 @@ func TestRevisionDefaulting(t *testing.T) {
 				DeprecatedConcurrencyModel: "Single",
 				DeprecatedContainer:        &corev1.Container{},
 				RevisionSpec: v1beta1.RevisionSpec{
-					ContainerConcurrency: 0, // unspecified
+					ContainerConcurrency: ptr.Int64(0), // unspecified
 				},
 			},
 		},
@@ -285,7 +285,7 @@ func TestRevisionDefaulting(t *testing.T) {
 			Spec: RevisionSpec{
 				DeprecatedConcurrencyModel: "Single",
 				RevisionSpec: v1beta1.RevisionSpec{
-					ContainerConcurrency: 1,
+					ContainerConcurrency: ptr.Int64(1),
 					TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
 				},
 				DeprecatedContainer: &corev1.Container{

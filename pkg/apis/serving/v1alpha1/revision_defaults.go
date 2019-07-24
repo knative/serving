@@ -19,6 +19,8 @@ package v1alpha1
 import (
 	"context"
 
+	"knative.dev/pkg/ptr"
+
 	corev1 "k8s.io/api/core/v1"
 	"knative.dev/pkg/apis"
 
@@ -42,8 +44,8 @@ func (rs *RevisionSpec) SetDefaults(ctx context.Context) {
 
 	// When ConcurrencyModel is specified but ContainerConcurrency
 	// is not (0), use the ConcurrencyModel value.
-	if rs.DeprecatedConcurrencyModel == RevisionRequestConcurrencyModelSingle && rs.ContainerConcurrency == 0 {
-		rs.ContainerConcurrency = 1
+	if rs.DeprecatedConcurrencyModel == RevisionRequestConcurrencyModelSingle && *rs.ContainerConcurrency == 0 {
+		rs.ContainerConcurrency = ptr.Int64(1)
 	}
 
 	// When the PodSpec has no containers, move the single Container

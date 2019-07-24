@@ -654,7 +654,7 @@ func TestImmutableFields(t *testing.T) {
 					Image: "helloworld",
 				},
 				RevisionSpec: v1beta1.RevisionSpec{
-					ContainerConcurrency: 100,
+					ContainerConcurrency: ptr.Int64(100),
 				},
 			},
 		},
@@ -687,7 +687,7 @@ func TestImmutableFields(t *testing.T) {
 					Image: "helloworld",
 				},
 				RevisionSpec: v1beta1.RevisionSpec{
-					ContainerConcurrency: 100,
+					ContainerConcurrency: ptr.Int64(100),
 				},
 			},
 		},
@@ -700,7 +700,7 @@ func TestImmutableFields(t *testing.T) {
 					Image: "busybox",
 				},
 				RevisionSpec: v1beta1.RevisionSpec{
-					ContainerConcurrency: 1,
+					ContainerConcurrency: ptr.Int64(1),
 				},
 			},
 		},
