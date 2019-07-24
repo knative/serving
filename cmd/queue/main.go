@@ -293,6 +293,7 @@ func main() {
 	}
 
 	httpProxy := httputil.NewSingleHostReverseProxy(target)
+	httpProxy.Transport = network.AutoTransport
 
 	if env.TracingConfigEnable {
 		queueProxyL3 := fmt.Sprintf("%s:%d", env.ServingPod, networking.ServiceHTTPPort)
@@ -318,8 +319,6 @@ func main() {
 		httpProxy.Transport = &ochttp.Transport{
 			Base: network.AutoTransport,
 		}
-	} else {
-		httpProxy.Transport = network.AutoTransport
 	}
 
 	httpProxy.FlushInterval = -1
