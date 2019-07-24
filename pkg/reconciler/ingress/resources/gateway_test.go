@@ -38,6 +38,8 @@ import (
 	"knative.dev/serving/pkg/reconciler/ingress/config"
 )
 
+var httpServerPortName = "http-server"
+
 var secret = corev1.Secret{
 	ObjectMeta: metav1.ObjectMeta{
 		Name:      "secret0",
@@ -137,23 +139,6 @@ func TestGetServers(t *testing.T) {
 
 	if diff := cmp.Diff(expected, servers); diff != "" {
 		t.Errorf("Unexpected servers (-want +got): %v", diff)
-	}
-}
-
-func TestGetHTTPServer(t *testing.T) {
-	newGateway := gateway
-	newGateway.Spec.Servers = append(newGateway.Spec.Servers, httpServer)
-	server := GetHTTPServer(&newGateway)
-	expected := v1alpha3.Server{
-		Hosts: []string{"*"},
-		Port: v1alpha3.Port{
-			Name:     httpServerPortName,
-			Number:   80,
-			Protocol: v1alpha3.ProtocolHTTP,
-		},
-	}
-	if diff := cmp.Diff(expected, *server); diff != "" {
-		t.Errorf("Unexpected server (-want +got): %v", diff)
 	}
 }
 
@@ -262,7 +247,7 @@ func TestMakeHTTPServer(t *testing.T) {
 	}}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			got := MakeHTTPServer(c.httpProtocol, []string{"*"})
+			got := MakeHTTPServer(c.httpProtocol, []string{"*"}, httpServerPortName)
 			if diff := cmp.Diff(c.expected, got); diff != "" {
 				t.Errorf("Unexpected HTTP Server (-want, +got): %v", diff)
 			}

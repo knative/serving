@@ -145,6 +145,12 @@ func (r *Reconciler) Init(ctx context.Context, cmw configmap.Watcher, impl *cont
 		Handler:    controller.HandleAll(impl.EnqueueControllerOf),
 	})
 
+	gatewayInfomer := gatewayinformer.Get(ctx)
+	gatewayInfomer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+		FilterFunc: myFilterFunc,
+		Handler:    controller.HandleAll(impl.EnqueueControllerOf),
+	})
+
 	r.Logger.Info("Setting up ConfigMap receivers")
 	configsToResync := []interface{}{
 		&config.Istio{},
@@ -256,7 +262,7 @@ func (r *BaseIngressReconciler) reconcileIngress(ctx context.Context, ra Reconci
 	gatewayNames := sharedGatewayNamesFromContext(ctx)
 	if enableReconcileGateway(ctx) && ia.IsPublic() {
 		// We used to add Servers of the given Ingress to shared Gateways.
-		// Now when we start splitting Gateway, we need to remove them from the shared Gateways.
+		// Now as we start splitting Gateway, we need to remove them from the shared Gateways.
 		for _, sharedGatewayName := range gatewayNames[v1alpha1.IngressVisibilityExternalIP] {
 			// We set the desired Servers as empty slice, which means we want to remove existing Servers of the
 			// given Ingress from the Gateway.
@@ -284,7 +290,8 @@ func (r *BaseIngressReconciler) reconcileIngress(ctx context.Context, ra Reconci
 				return err
 			}
 		}
-		gatewayNames[v1alpha1.IngressVisibilityExternalIP] = append(gatewayNames[v1alpha1.IngressVisibilityExternalIP], resources.GetQualifiedGatewayNames(ingressGateways)...)
+		gatewayNames[v1alpha1.IngressVisibilityExternalIP] = append(
+			gatewayNames[v1alpha1.IngressVisibilityExternalIP], resources.GetQualifiedGatewayNames(ingressGateways)...)
 	}
 
 	vses := resources.MakeVirtualServices(ia, gatewayNames)
@@ -315,13 +322,18 @@ func (r *BaseIngressReconciler) reconcileIngress(ctx context.Context, ra Reconci
 }
 
 func (r *BaseIngressReconciler) reconcileIngressGateway(ctx context.Context, ia v1alpha1.IngressAccessor, desired *v1alpha3.Gateway) error {
+	logger := logging.FromContext(ctx)
 	gateway, err := r.GatewayLister.Gateways(desired.Namespace).Get(desired.Name)
 	if apierrs.IsNotFound(err) {
 		_, err = r.SharedClientSet.NetworkingV1alpha3().Gateways(desired.Namespace).Create(desired)
 		if err != nil {
+			logger.Errorw("Failed to create Ingress Gateway.", zap.Error(err))
+			r.Recorder.Eventf(ia, corev1.EventTypeWarning, "CreationFailed", "Failed to create Gateway %q: %v", desired.Name, err)
 			return err
 		}
+		r.Recorder.Eventf(ia, corev1.EventTypeNormal, "Created", "Created Gateway %q/%q", desired.Namespace, desired.Name)
 	} else if err != nil {
+		logger.Errorf("Failed to reconcile Ingress: %q failed to Get Gateway: %q", ia.GetName(), desired.Name)
 		return err
 	} else if !metav1.IsControlledBy(gateway, ia) {
 		ia.GetStatus().MarkResourceNotOwned("Gateway", gateway.Name)
@@ -331,8 +343,11 @@ func (r *BaseIngressReconciler) reconcileIngressGateway(ctx context.Context, ia 
 		existing.Spec = desired.Spec
 		_, err = r.SharedClientSet.NetworkingV1alpha3().Gateways(existing.Namespace).Update(existing)
 		if err != nil {
+			logger.Errorw("Failed to update Gateway", zap.Error(err))
+			r.Recorder.Eventf(ia, corev1.EventTypeWarning, "UpdateFailed", "Failed to update Gateway %s/%s: %v", desired.Namespace, desired.Name, err)
 			return err
 		}
+		r.Recorder.Eventf(ia, corev1.EventTypeNormal, "Updated", "Updated Gateway %q/%q", existing.Namespace, existing.Name)
 	}
 	return nil
 }

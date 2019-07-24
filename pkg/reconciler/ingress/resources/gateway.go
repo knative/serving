@@ -37,8 +37,6 @@ import (
 	"knative.dev/serving/pkg/reconciler/ingress/config"
 )
 
-var httpServerPortName = "http-server"
-
 // Istio Gateway requires to have at least one server. This placeholderServer is used when
 // all of the real servers are deleted.
 var placeholderServer = v1alpha3.Server{
@@ -120,7 +118,9 @@ func makeIngressGateway(ctx context.Context, ia v1alpha1.IngressAccessor, origin
 	for _, rule := range ia.GetSpec().Rules {
 		hosts.Insert(rule.Hosts...)
 	}
-	servers = append(servers, *MakeHTTPServer(config.FromContext(ctx).Network.HTTPProtocol, hosts.List()))
+	if httpServer := MakeHTTPServer(config.FromContext(ctx).Network.HTTPProtocol, hosts.List(), fmt.Sprintf("%s:http", ia.GetName())); httpServer != nil {
+		servers = append(servers, *httpServer)
+	}
 	return &v1alpha3.Gateway{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            GatewayName(ia, gatewayService),
@@ -198,14 +198,14 @@ func MakeTLSServers(ia v1alpha1.IngressAccessor, gatewayServiceNamespace string,
 
 // MakeHTTPServer creates a HTTP Gateway `Server` based on the HTTPProtocol
 // configureation.
-func MakeHTTPServer(httpProtocol network.HTTPProtocol, hosts []string) *v1alpha3.Server {
+func MakeHTTPServer(httpProtocol network.HTTPProtocol, hosts []string, hostName string) *v1alpha3.Server {
 	if httpProtocol == network.HTTPDisabled {
 		return nil
 	}
 	server := &v1alpha3.Server{
 		Hosts: hosts,
 		Port: v1alpha3.Port{
-			Name:     httpServerPortName,
+			Name:     hostName,
 			Number:   80,
 			Protocol: v1alpha3.ProtocolHTTP,
 		},
