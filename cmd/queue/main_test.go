@@ -308,42 +308,56 @@ func TestQueueTraceSpans(t *testing.T) {
 		prober        func() bool
 		wantSpans     int
 		requestHeader string
-		probeFail     bool
+		probeWillFail bool
+		probeTrace    bool
 		enableTrace   bool
 	}{{
-		name:          "true probe function",
+		name:          "proxy trace",
 		prober:        func() bool { return true },
-		wantSpans:     3,
+		wantSpans:     2,
+		requestHeader: "",
+		probeWillFail: false,
+		probeTrace:    false,
+		enableTrace:   true,
+	}, {
+		name:          "true prober function with probe trace",
+		prober:        func() bool { return true },
+		wantSpans:     1,
 		requestHeader: queue.Name,
-		probeFail:     false,
+		probeWillFail: false,
+		probeTrace:    true,
 		enableTrace:   true,
 	}, {
 		name:          "unexpected probe header",
 		prober:        func() bool { return true },
 		wantSpans:     1,
 		requestHeader: "test-probe",
-		probeFail:     true,
+		probeWillFail: true,
+		probeTrace:    true,
 		enableTrace:   true,
 	}, {
-		name:          "nil probe function",
+		name:          "nil prober function",
 		prober:        nil,
 		wantSpans:     1,
 		requestHeader: queue.Name,
-		probeFail:     true,
+		probeWillFail: true,
+		probeTrace:    true,
 		enableTrace:   true,
 	}, {
-		name:          "false probe function",
+		name:          "false prober function",
 		prober:        func() bool { return false },
 		wantSpans:     1,
 		requestHeader: queue.Name,
-		probeFail:     true,
+		probeWillFail: true,
+		probeTrace:    true,
 		enableTrace:   true,
 	}, {
-		name:          "true probe function",
+		name:          "no traces",
 		prober:        func() bool { return true },
 		wantSpans:     0,
 		requestHeader: queue.Name,
-		probeFail:     false,
+		probeWillFail: false,
+		probeTrace:    false,
 		enableTrace:   false,
 	}}
 
@@ -369,7 +383,7 @@ func TestQueueTraceSpans(t *testing.T) {
 			writer := httptest.NewRecorder()
 			req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
 
-			if !tc.probeFail {
+			if !tc.probeTrace {
 				server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 					w.WriteHeader(http.StatusOK)
 				}))
@@ -397,21 +411,20 @@ func TestQueueTraceSpans(t *testing.T) {
 			if len(gotSpans) != tc.wantSpans {
 				t.Errorf("Got %d spans, expected %d", len(gotSpans), tc.wantSpans)
 			}
-
 			spanNames := []string{"probe", "/", "proxy"}
-
+			if !tc.probeTrace {
+				spanNames = spanNames[1:]
+			}
 			for i, spanName := range spanNames[0:tc.wantSpans] {
 				if gotSpans[i].Name != spanName {
 					t.Errorf("Got span %d named %q, expected %q", i, gotSpans[i].Name, spanName)
 				}
-
-				if tc.probeFail {
+				if tc.probeWillFail {
 					if gotSpans[i].Annotations[0].Value != "error" {
 						t.Errorf("Expected error as value for failed span Annotation, got %q", gotSpans[i].Annotations[0].Value)
 					}
 				}
 			}
-
 		})
 	}
 }

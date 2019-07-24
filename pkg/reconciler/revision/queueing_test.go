@@ -164,8 +164,7 @@ func newTestController(t *testing.T) (
 			Data: map[string]string{
 				"zap-logger-config":   "{\"level\": \"error\",\n\"outputPaths\": [\"stdout\"],\n\"errorOutputPaths\": [\"stderr\"],\n\"encoding\": \"json\"}",
 				"loglevel.queueproxy": "info",
-			}},
-		{
+			}}, {
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: system.Namespace(),
 				Name:      tracingconfig.ConfigName,
@@ -175,8 +174,7 @@ func newTestController(t *testing.T) (
 				"debug":           "true",
 				"zipkin-endpoint": "http://zipkin.istio-system.svc.cluster.local:9411/api/v2/spans",
 			},
-		},
-		{
+		}, {
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: system.Namespace(),
 				Name:      metrics.ConfigMapName(),
@@ -260,5 +258,4 @@ func TestNewRevisionCallsSyncHandler(t *testing.T) {
 	if err := h.WaitForHooks(time.Second * 3); err != nil {
 		t.Error(err)
 	}
-
 }

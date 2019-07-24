@@ -153,10 +153,12 @@ func knativeProxyHeader(r *http.Request) string {
 // Make handler a closure for testing.
 func handler(reqChan chan queue.ReqEvent, breaker *queue.Breaker, handler http.Handler, prober func() bool) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		probeCtx, probeSpan := trace.StartSpan(r.Context(), "probe")
 		ph := knativeProbeHeader(r)
+		var probeSpan *trace.Span
+		var probeCtx context.Context
 		switch {
 		case ph != "":
+			probeCtx, probeSpan = trace.StartSpan(r.Context(), "probe")
 			if ph != queue.Name {
 				http.Error(w, fmt.Sprintf(badProbeTemplate, ph), http.StatusBadRequest)
 				probeSpan.Annotate([]trace.Attribute{
@@ -182,12 +184,12 @@ func handler(reqChan chan queue.ReqEvent, breaker *queue.Breaker, handler http.H
 			probeSpan.End()
 			return
 		case network.IsKubeletProbe(r):
+			probeCtx, probeSpan = trace.StartSpan(r.Context(), "probe")
 			// Do not count health checks for concurrency metrics
 			handler.ServeHTTP(w, r.WithContext(probeCtx))
 			probeSpan.End()
 			return
 		}
-		probeSpan.End()
 		proxyCtx, proxySpan := trace.StartSpan(r.Context(), "proxy")
 		defer proxySpan.End()
 		// Metrics for autoscaling.
