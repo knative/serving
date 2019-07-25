@@ -34,11 +34,11 @@ type ConcurrencyReporter struct {
 	podName string
 
 	// Ticks with every request arrived/completed respectively
-	reqChan chan ReqEvent
+	reqCh chan ReqEvent
 	// Ticks with every stat report request
-	reportChan <-chan time.Time
+	reportCh <-chan time.Time
 	// Stat reporting channel
-	statChan chan *autoscaler.StatMessage
+	statCh chan *autoscaler.StatMessage
 
 	rl servinglisters.RevisionLister
 	sr activator.StatsReporter
@@ -47,25 +47,25 @@ type ConcurrencyReporter struct {
 }
 
 // NewConcurrencyReporter creates a ConcurrencyReporter which listens to incoming
-// ReqEvents on reqChan and ticks on reportChan and reports stats on statChan.
-func NewConcurrencyReporter(logger *zap.SugaredLogger, podName string, reqChan chan ReqEvent, reportChan <-chan time.Time,
-	statChan chan *autoscaler.StatMessage, rl servinglisters.RevisionLister, sr activator.StatsReporter) *ConcurrencyReporter {
-	return NewConcurrencyReporterWithClock(logger, podName, reqChan, reportChan, statChan, rl, sr, system.RealClock{})
+// ReqEvents on reqCh and ticks on reportCh and reports stats on statCh.
+func NewConcurrencyReporter(logger *zap.SugaredLogger, podName string, reqCh chan ReqEvent, reportCh <-chan time.Time,
+	statCh chan *autoscaler.StatMessage, rl servinglisters.RevisionLister, sr activator.StatsReporter) *ConcurrencyReporter {
+	return NewConcurrencyReporterWithClock(logger, podName, reqCh, reportCh, statCh, rl, sr, system.RealClock{})
 }
 
 // NewConcurrencyReporterWithClock instantiates a new concurrency reporter
 // which uses the passed clock.
-func NewConcurrencyReporterWithClock(logger *zap.SugaredLogger, podName string, reqChan chan ReqEvent, reportChan <-chan time.Time,
-	statChan chan *autoscaler.StatMessage, rl servinglisters.RevisionLister, sr activator.StatsReporter, clock system.Clock) *ConcurrencyReporter {
+func NewConcurrencyReporterWithClock(logger *zap.SugaredLogger, podName string, reqCh chan ReqEvent, reportCh <-chan time.Time,
+	statCh chan *autoscaler.StatMessage, rl servinglisters.RevisionLister, sr activator.StatsReporter, clock system.Clock) *ConcurrencyReporter {
 	return &ConcurrencyReporter{
-		logger:     logger,
-		podName:    podName,
-		reqChan:    reqChan,
-		reportChan: reportChan,
-		statChan:   statChan,
-		rl:         rl,
-		sr:         sr,
-		clock:      clock,
+		logger:   logger,
+		podName:  podName,
+		reqCh:    reqCh,
+		reportCh: reportCh,
+		statCh:   statCh,
+		rl:       rl,
+		sr:       sr,
+		clock:    clock,
 	}
 }
 
@@ -78,7 +78,7 @@ func (cr *ConcurrencyReporter) reportToAutoscaler(key string, concurrency, reque
 
 	// Send the stat to another goroutine to transmit
 	// so we can continue bucketing stats.
-	cr.statChan <- &autoscaler.StatMessage{
+	cr.statCh <- &autoscaler.StatMessage{
 		Key:  key,
 		Stat: stat,
 	}
@@ -112,7 +112,7 @@ func (cr *ConcurrencyReporter) Run(stopCh <-chan struct{}) {
 
 	for {
 		select {
-		case event := <-cr.reqChan:
+		case event := <-cr.reqCh:
 			switch event.EventType {
 			case ReqIn:
 				incomingRequestsPerKey[event.Key]++
@@ -125,7 +125,7 @@ func (cr *ConcurrencyReporter) Run(stopCh <-chan struct{}) {
 			case ReqOut:
 				outstandingRequestsPerKey[event.Key]--
 			}
-		case <-cr.reportChan:
+		case <-cr.reportCh:
 			for key, concurrency := range outstandingRequestsPerKey {
 				if concurrency == 0 {
 					delete(outstandingRequestsPerKey, key)
