@@ -17,10 +17,10 @@ limitations under the License.
 package handler
 
 import (
-	"strings"
 	"time"
 
 	"go.uber.org/zap"
+	"k8s.io/apimachinery/pkg/types"
 	"knative.dev/pkg/system"
 	"knative.dev/serving/pkg/activator"
 	"knative.dev/serving/pkg/apis/serving"
@@ -69,7 +69,7 @@ func NewConcurrencyReporterWithClock(logger *zap.SugaredLogger, podName string, 
 	}
 }
 
-func (cr *ConcurrencyReporter) reportToAutoscaler(key string, concurrency, requestCount int32) {
+func (cr *ConcurrencyReporter) reportToAutoscaler(key types.NamespacedName, concurrency, requestCount int32) {
 	stat := autoscaler.Stat{
 		PodName:                   cr.podName,
 		AverageConcurrentRequests: float64(concurrency),
@@ -84,14 +84,9 @@ func (cr *ConcurrencyReporter) reportToAutoscaler(key string, concurrency, reque
 	}
 }
 
-func (cr *ConcurrencyReporter) reportToMetricsBackend(key string, concurrency int32) {
-	parts := strings.Split(key, "/")
-	if len(parts) != 2 {
-		cr.logger.Errorf("Error while extracting namespace and revision from key: %v", key)
-		return
-	}
-	ns := parts[0]
-	revName := parts[1]
+func (cr *ConcurrencyReporter) reportToMetricsBackend(key types.NamespacedName, concurrency int32) {
+	ns := key.Namespace
+	revName := key.Name
 	revision, err := cr.rl.Revisions(ns).Get(revName)
 	if err != nil {
 		cr.logger.Errorw("Error while getting revision", zap.Error(err))
@@ -105,10 +100,10 @@ func (cr *ConcurrencyReporter) reportToMetricsBackend(key string, concurrency in
 // Run runs until stopCh is closed and processes events on all incoming channels
 func (cr *ConcurrencyReporter) Run(stopCh <-chan struct{}) {
 	// Contains the number of in-flight requests per-key
-	outstandingRequestsPerKey := make(map[string]int32)
+	outstandingRequestsPerKey := make(map[types.NamespacedName]int32)
 	// Contains the number of incoming requests in the current
 	// reporting period, per key.
-	incomingRequestsPerKey := make(map[string]int32)
+	incomingRequestsPerKey := make(map[types.NamespacedName]int32)
 
 	for {
 		select {
@@ -135,7 +130,7 @@ func (cr *ConcurrencyReporter) Run(stopCh <-chan struct{}) {
 				cr.reportToMetricsBackend(key, concurrency)
 			}
 
-			incomingRequestsPerKey = make(map[string]int32)
+			incomingRequestsPerKey = make(map[types.NamespacedName]int32)
 		case <-stopCh:
 			return
 		}

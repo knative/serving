@@ -271,6 +271,14 @@ func (r *reconciler) reconcilePublicEndpoints(ctx context.Context, sks *netv1alp
 		logger.Infof("Endpoints %s has no ready endpoints", sn)
 		sks.Status.MarkEndpointsNotReady("NoHealthyBackends")
 	}
+	// If we have no backends or if we're in the proxy mode, then
+	// activator backs this revision.
+	if !foundServingEndpoints || sks.Spec.Mode == netv1alpha1.SKSOperationModeProxy {
+		sks.Status.MarkActivatorEndpointsPopulated()
+	} else {
+		sks.Status.MarkActivatorEndpointsRemoved()
+	}
+
 	logger.Debug("Done reconciling public K8s endpoints: ", sn)
 	return nil
 }

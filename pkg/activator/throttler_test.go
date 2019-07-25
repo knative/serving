@@ -18,9 +18,12 @@ package activator
 
 import (
 	"context"
+	"math/rand"
+	"strconv"
 	"testing"
 	"time"
 
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	"go.uber.org/zap"
@@ -55,9 +58,7 @@ const (
 	initCapacity          = 0
 )
 
-var (
-	revID = RevisionID{testNamespace, testRevision}
-)
+var revID = RevisionID{testNamespace, testRevision}
 
 func TestThrottlerUpdateCapacity(t *testing.T) {
 	samples := []struct {
@@ -562,5 +563,63 @@ func TestInfiniteBreaker(t *testing.T) {
 	if !res {
 		t.Error("thunk was not invoked")
 	}
+}
 
+func revisionListerN(namespace, name string, count int) servinglisters.RevisionLister {
+	revs := make([]runtime.Object, count)
+	for i := 0; i < count; i++ {
+		revs[i] = &v1alpha1.Revision{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      name + strconv.Itoa(i),
+				Namespace: namespace,
+			},
+			Spec: v1alpha1.RevisionSpec{
+				RevisionSpec: v1beta1.RevisionSpec{
+					ContainerConcurrency: 0,
+				},
+			},
+		}
+	}
+	fake := servingfake.NewSimpleClientset(revs...)
+	informer := servinginformers.NewSharedInformerFactory(fake, 0)
+	revisions := informer.Serving().V1alpha1().Revisions()
+	for i := 0; i < count; i++ {
+		revisions.Informer().GetIndexer().Add(revs[i])
+	}
+	return revisions.Lister()
+}
+
+func BenchmarkThrottler(b *testing.B) {
+	const numRevs = 10000
+	throttler := getThrottler(
+		defaultMaxConcurrency,
+		revisionListerN(testNamespace, testRevision, numRevs),
+		endpointsInformer(testNamespace, testRevision, 0),
+		sksLister(testNamespace, testRevision),
+		nil,
+		initCapacity)
+
+	rIDs := make([]RevisionID, numRevs)
+	for i := 0; i < numRevs; i++ {
+		rID := RevisionID{testNamespace, testRevision + strconv.Itoa(i)}
+		rIDs[i] = rID
+		throttler.UpdateCapacity(rID, 1)
+	}
+
+	rand.Seed(time.Now().Unix())
+	for _, parallelism := range []int{1, 10, 100, 1000, 10000} {
+		for _, numRevs := range []int{1, 10, 100, 1000, 10000} {
+			b.Run(strconv.Itoa(parallelism)+"-"+strconv.Itoa(numRevs), func(b *testing.B) {
+				b.SetParallelism(parallelism)
+				b.RunParallel(func(pb *testing.PB) {
+					for pb.Next() {
+						revID := rIDs[rand.Intn(numRevs)]
+						if err := throttler.Try(context.Background(), revID, func() {}); err != nil {
+							b.Errorf("Try() unexpectedly returned an error: %v", err)
+						}
+					}
+				})
+			})
+		}
+	}
 }

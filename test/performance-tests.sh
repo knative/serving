@@ -29,6 +29,6 @@ initialize $@ --skip-istio-addon
 
 # Run the tests
 header "Running tests"
-go_test_e2e -tags="performance" -timeout=0 ./test/performance || fail_test
+report_go_test -tags="performance" -timeout=0 ./test/performance || fail_test
 
 success

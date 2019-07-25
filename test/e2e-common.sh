@@ -291,16 +291,14 @@ function test_setup() {
   # Install kail.
   bash <( curl -sfL https://raw.githubusercontent.com/boz/kail/master/godownloader.sh) -b "$GOPATH/bin"
 
-  # Log all container log from knative-serving namespace.
-  kail --ns knative-serving > ${ARTIFACTS}/knative-serving.log.txt &
+  # Capture all logs.
+  kail > ${ARTIFACTS}/k8s.log.txt &
 
   echo ">> Creating test resources (test/config/)"
   ko apply ${KO_FLAGS} -f test/config/ || return 1
   ${REPO_ROOT_DIR}/test/upload-test-images.sh || return 1
   wait_until_pods_running knative-serving || return 1
   if [[ -z "${GLOO_VERSION}" ]]; then
-    # Log all container log from istio-system namespace.
-    kail --ns istio-system > ${ARTIFACTS}/istio-system.log.txt &
     wait_until_pods_running istio-system || return 1
     wait_until_service_has_external_ip istio-system istio-ingressgateway
   else
@@ -335,12 +333,4 @@ function dump_extra_cluster_state() {
   kubectl get configurations -o yaml --all-namespaces
   echo ">>> Revisions:"
   kubectl get revisions -o yaml --all-namespaces
-
-  echo ">>> Knative logs:"
-  for app in controller webhook autoscaler activator networking-certmanager networking-istio; do
-    dump_app_logs ${app} knative-serving
-  done
-
-  echo ">>> Istio logs:"
-  dump_app_logs istio-ingressgateway istio-system
 }

@@ -37,6 +37,7 @@ import (
 	"knative.dev/serving/pkg/reconciler"
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	"github.com/google/go-cmp/cmp"
@@ -231,11 +232,11 @@ func TestReconcileNegativeBurstCapacity(t *testing.T) {
 		Key:  key,
 		Ctx:  context.WithValue(context.Background(), ebcKey, int32(1)),
 		Objects: []runtime.Object{
-			kpa(testNamespace, testRevision, markActive, withMSvcStatus("yak-42"),
+			kpa(testNamespace, testRevision, markActive, withMSvcStatus("ssj-100"),
 				WithPAStatusService(testRevision)),
-			sks(testNamespace, testRevision, WithDeployRef(deployName), WithProxyMode, WithSKSReady),
+			sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSReady, WithProxyMode),
 			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector),
-				withMSvcName("yak-42")),
+				withMSvcName("ssj-100")),
 			makeSKSPrivateEndpoints(1, testNamespace, testRevision),
 			expectedDeploy,
 		},
@@ -339,35 +340,6 @@ func TestReconcileAndScaleToZero(t *testing.T) {
 			Object: kpa(testNamespace, testRevision,
 				WithNoTraffic("NoTraffic", "The target is not receiving traffic."),
 				WithPAStatusService(testRevision), withMSvcStatus("and-into-the-black")),
-		}},
-		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: sks(testNamespace, testRevision, WithSKSReady,
-				WithDeployRef(deployName), WithProxyMode),
-		}},
-	}, {
-		Name: "from serving to proxy, sks update fail :-(",
-		Key:  key,
-		Objects: []runtime.Object{
-			kpa(testNamespace, testRevision, markActive, markOld,
-				WithPAStatusService(testRevision), withMSvcStatus("they-give-you-this")),
-			sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSReady),
-			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector),
-				withMSvcName("they-give-you-this")),
-			deploy(testNamespace, testRevision),
-			makeSKSPrivateEndpoints(1, testNamespace, testRevision),
-		},
-		WantErr: true,
-		WithReactors: []clientgotesting.ReactionFunc{
-			InduceFailure("update", "serverlessservices"),
-		},
-		WantEvents: []string{
-			Eventf(corev1.EventTypeWarning, "InternalError",
-				"error re-reconciling SKS: error updating SKS test-revision: inducing failure for update serverlessservices"),
-		},
-		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: kpa(testNamespace, testRevision,
-				WithNoTraffic("NoTraffic", "The target is not receiving traffic."),
-				WithPAStatusService(testRevision), withMSvcStatus("they-give-you-this")),
 		}},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: sks(testNamespace, testRevision, WithSKSReady,
@@ -1351,7 +1323,7 @@ func (km *testDeciders) Get(ctx context.Context, namespace, name string) (*autos
 	defer km.mutex.Unlock()
 
 	if km.decider == nil {
-		return nil, apierrors.NewNotFound(asv1a1.Resource("Deciders"), autoscaler.NewMetricKey(namespace, name))
+		return nil, apierrors.NewNotFound(asv1a1.Resource("Deciders"), types.NamespacedName{Namespace: namespace, Name: name}.String())
 	}
 	return km.decider, nil
 }
@@ -1432,7 +1404,7 @@ type testMetrics struct {
 
 func (km *testMetrics) Get(ctx context.Context, namespace, name string) (*asv1a1.Metric, error) {
 	if km.metric == nil {
-		return nil, apierrors.NewNotFound(asv1a1.Resource("Metric"), autoscaler.NewMetricKey(namespace, name))
+		return nil, apierrors.NewNotFound(asv1a1.Resource("Metric"), types.NamespacedName{Namespace: namespace, Name: name}.String())
 	}
 	return km.metric, nil
 }

@@ -28,11 +28,13 @@ import (
 	"knative.dev/pkg/logging"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	pav1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
+	nv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
 	"knative.dev/serving/pkg/autoscaler"
 	areconciler "knative.dev/serving/pkg/reconciler/autoscaling"
 	"knative.dev/serving/pkg/reconciler/autoscaling/config"
 	"knative.dev/serving/pkg/reconciler/autoscaling/kpa/resources"
+	anames "knative.dev/serving/pkg/reconciler/autoscaling/resources/names"
 	resourceutil "knative.dev/serving/pkg/resources"
 
 	corev1 "k8s.io/api/core/v1"
@@ -137,16 +139,33 @@ func (c *Reconciler) reconcile(ctx context.Context, pa *pav1alpha1.PodAutoscaler
 		return perrors.Wrap(err, "error reconciling metric")
 	}
 
-	sks, err := c.ReconcileSKS(ctx, pa, decider)
-	if err != nil {
-		return perrors.Wrap(err, "error reconciling SKS")
+	// We need the SKS object in order to optimize scale to zero
+	// performance. It is OK if SKS is nil at this point.
+	sksName := anames.SKS(pa.Name)
+	sks, err := c.SKSLister.ServerlessServices(pa.Namespace).Get(sksName)
+	if err != nil && !errors.IsNotFound(err) {
+		logger.Warnw("Error retrieving SKS for Scaler", zap.Error(err))
 	}
 
 	// Get the appropriate current scale from the metric, and right size
 	// the scaleTargetRef based on it.
-	want, err := c.scaler.Scale(ctx, pa, decider.Status.DesiredScale)
+	want, err := c.scaler.Scale(ctx, pa, sks, decider.Status.DesiredScale)
 	if err != nil {
 		return perrors.Wrap(err, "error scaling target")
+	}
+
+	mode := nv1alpha1.SKSOperationModeServe
+	// We put activator in the serving path in two cases:
+	// 1. The revision is scaled to 0.
+	// 2. The excess burst capacity is negative.
+	if want == 0 || decider.Status.ExcessBurstCapacity < 0 {
+		logger.Debugf("SKS %s is in proxy mode: want = %d, ebc = %d", pa.Name, want, decider.Status.ExcessBurstCapacity)
+		mode = nv1alpha1.SKSOperationModeProxy
+	}
+
+	sks, err = c.ReconcileSKS(ctx, pa, mode)
+	if err != nil {
+		return perrors.Wrap(err, "error reconciling SKS")
 	}
 
 	// Compare the desired and observed resources to determine our situation.
@@ -170,14 +189,9 @@ func (c *Reconciler) reconcile(ctx context.Context, pa *pav1alpha1.PodAutoscaler
 		return perrors.Wrap(err, "error reporting metrics")
 	}
 
-	// computeActiveCondition decides if we need to change the SKS mode,
-	// and returns true if the status has changed.
-	if changed := computeActiveCondition(pa, want, got); changed {
-		_, err := c.ReconcileSKS(ctx, pa, decider)
-		if err != nil {
-			return perrors.Wrap(err, "error re-reconciling SKS")
-		}
-	}
+	computeActiveCondition(pa, want, got)
+
+	pa.Status.ObservedGeneration = pa.Generation
 	return nil
 }
 
@@ -226,13 +240,11 @@ func reportMetrics(pa *pav1alpha1.PodAutoscaler, want int32, got int) error {
 }
 
 // computeActiveCondition updates the status of PA, depending on scales desired and present.
-// computeActiveCondition returns true if it thinks SKS needs an update.
-func computeActiveCondition(pa *pav1alpha1.PodAutoscaler, want int32, got int) (ret bool) {
+func computeActiveCondition(pa *pav1alpha1.PodAutoscaler, want int32, got int) {
 	minReady := activeThreshold(pa)
 
 	switch {
 	case want == 0:
-		ret = !pa.Status.IsInactive() // Any state but inactive should change SKS.
 		if pa.Status.IsActivating() {
 			// We only ever scale to zero while activating if we fail to activate within the progress deadline.
 			pa.Status.MarkInactive("TimedOut", "The target could not be activated.")
@@ -241,7 +253,6 @@ func computeActiveCondition(pa *pav1alpha1.PodAutoscaler, want int32, got int) (
 		}
 
 	case got < minReady && want > 0:
-		ret = pa.Status.IsInactive() // If we were inactive and became activating.
 		pa.Status.MarkActivating(
 			"Queued", "Requests to the target are being buffered as resources are provisioned.")
 
@@ -252,9 +263,6 @@ func computeActiveCondition(pa *pav1alpha1.PodAutoscaler, want int32, got int) (
 	case want == scaleUnknown:
 		// We don't know what scale we want, so don't touch PA at all.
 	}
-
-	pa.Status.ObservedGeneration = pa.Generation
-	return
 }
 
 // activeThreshold returns the scale required for the pa to be marked Active

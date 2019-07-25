@@ -239,10 +239,11 @@ func (a *activationHandler) serviceHostName(rev *v1alpha1.Revision, serviceName 
 		return "", err
 	}
 
-	// Search for the appropriate port
+	// Search for the appropriate port.
 	port := -1
+	wantName := networking.ServicePortName(rev.GetProtocol())
 	for _, p := range svc.Spec.Ports {
-		if p.Name == networking.ServicePortName(rev.GetProtocol()) {
+		if p.Name == wantName {
 			port = int(p.Port)
 			break
 		}

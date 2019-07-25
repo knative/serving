@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"golang.org/x/sync/errgroup"
+	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/pkg/errors"
 	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
@@ -78,7 +79,7 @@ type ServiceScraper struct {
 	sClient   scrapeClient
 	counter   resources.ReadyPodCounter
 	namespace string
-	metricKey string
+	metricKey types.NamespacedName
 	url       string
 }
 
@@ -114,7 +115,7 @@ func newServiceScraperWithClient(
 		sClient:   sClient,
 		counter:   counter,
 		url:       urlFromTarget(metric.Spec.ScrapeTarget, metric.ObjectMeta.Namespace),
-		metricKey: NewMetricKey(metric.Namespace, metric.Name),
+		metricKey: types.NamespacedName{Namespace: metric.Namespace, Name: metric.Name},
 		namespace: metric.Namespace,
 	}, nil
 }

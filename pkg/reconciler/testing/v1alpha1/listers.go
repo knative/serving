@@ -133,6 +133,11 @@ func (l *Listers) GetPodAutoscalerLister() palisters.PodAutoscalerLister {
 	return palisters.NewPodAutoscalerLister(l.IndexerFor(&av1alpha1.PodAutoscaler{}))
 }
 
+// GetMetricLister returns a lister for the Metric objects.
+func (l *Listers) GetMetricLister() palisters.MetricLister {
+	return palisters.NewMetricLister(l.IndexerFor(&av1alpha1.Metric{}))
+}
+
 // GetHorizontalPodAutoscalerLister gets lister for HorizontalPodAutoscaler resources.
 func (l *Listers) GetHorizontalPodAutoscalerLister() autoscalingv2beta1listers.HorizontalPodAutoscalerLister {
 	return autoscalingv2beta1listers.NewHorizontalPodAutoscalerLister(l.IndexerFor(&autoscalingv2beta1.HorizontalPodAutoscaler{}))

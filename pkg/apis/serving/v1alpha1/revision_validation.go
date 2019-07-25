@@ -27,6 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/kmp"
+	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/apis/serving"
 )
 
@@ -62,6 +63,7 @@ func (r *Revision) Validate(ctx context.Context) *apis.FieldError {
 // Validate ensures RevisionTemplateSpec is properly configured.
 func (rt *RevisionTemplateSpec) Validate(ctx context.Context) *apis.FieldError {
 	errs := rt.Spec.Validate(ctx).ViaField("spec")
+	errs = errs.Also(autoscaling.ValidateAnnotations(rt.GetAnnotations()).ViaField("metadata.annotations"))
 
 	// If the DeprecatedRevisionTemplate has a name specified, then check that
 	// it follows the requirements on the name.

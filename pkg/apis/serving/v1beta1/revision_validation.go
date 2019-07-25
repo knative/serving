@@ -21,16 +21,17 @@ import (
 	"fmt"
 	"strings"
 
-	"knative.dev/serving/pkg/apis/config"
-
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/kmp"
+	"knative.dev/serving/pkg/apis/autoscaling"
+	"knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/apis/serving"
 )
 
 // Validate ensures Revision is properly configured.
 func (r *Revision) Validate(ctx context.Context) *apis.FieldError {
-	errs := serving.ValidateObjectMetadata(r.GetObjectMeta()).ViaField("metadata")
+	errs := serving.ValidateObjectMetadata(r.GetObjectMeta()).Also(
+		r.ValidateLabels().ViaField("labels")).ViaField("metadata")
 	errs = errs.Also(r.Status.Validate(apis.WithinStatus(ctx)).ViaField("status"))
 
 	if apis.IsInUpdate(ctx) {
@@ -58,6 +59,7 @@ func (r *Revision) Validate(ctx context.Context) *apis.FieldError {
 // Validate implements apis.Validatable
 func (rts *RevisionTemplateSpec) Validate(ctx context.Context) *apis.FieldError {
 	errs := rts.Spec.Validate(apis.WithinSpec(ctx)).ViaField("spec")
+	errs = errs.Also(autoscaling.ValidateAnnotations(rts.GetAnnotations()).ViaField("metadata.annotations"))
 
 	// If the RevisionTemplateSpec has a name specified, then check that
 	// it follows the requirements on the name.
@@ -137,4 +139,18 @@ func (cc RevisionContainerConcurrencyType) Validate(ctx context.Context) *apis.F
 // Validate implements apis.Validatable
 func (rs *RevisionStatus) Validate(ctx context.Context) *apis.FieldError {
 	return nil
+}
+
+// ValidateLabels function validates service labels
+func (r *Revision) ValidateLabels() (errs *apis.FieldError) {
+	for key, val := range r.GetLabels() {
+		switch {
+		case key == serving.RouteLabelKey || key == serving.ServiceLabelKey || key == serving.ConfigurationGenerationLabelKey:
+		case key == serving.ConfigurationLabelKey:
+			errs = errs.Also(verifyLabelOwnerRef(val, serving.ConfigurationLabelKey, "Configuration", r.GetOwnerReferences()))
+		case strings.HasPrefix(key, groupNamePrefix):
+			errs = errs.Also(apis.ErrInvalidKeyName(key, ""))
+		}
+	}
+	return
 }

@@ -25,6 +25,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	kubeinformers "k8s.io/client-go/informers"
 	fakeK8s "k8s.io/client-go/kubernetes/fake"
 	. "knative.dev/pkg/logging/testing"
@@ -324,7 +325,7 @@ type testMetricClient struct {
 	err               error
 }
 
-func (t *testMetricClient) StableAndPanicConcurrency(key string) (float64, float64, error) {
+func (t *testMetricClient) StableAndPanicConcurrency(key types.NamespacedName, now time.Time) (float64, float64, error) {
 	return t.stableConcurrency, t.panicConcurrency, t.err
 }
 

@@ -17,6 +17,7 @@ limitations under the License.
 package serving
 
 const (
+	// GroupName is the group name for knative labels and annotations
 	GroupName = "serving.knative.dev"
 
 	// ConfigurationLabelKey is the label key attached to a Revision indicating by

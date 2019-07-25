@@ -63,7 +63,8 @@ func (p *MetricProvider) GetMetricByName(name types.NamespacedName, info provide
 		return nil, errMetricNotSupported
 	}
 
-	concurrency, _, err := p.metricClient.StableAndPanicConcurrency(name.String())
+	now := time.Now()
+	concurrency, _, err := p.metricClient.StableAndPanicConcurrency(name, now)
 	if err != nil {
 		return nil, err
 	}
@@ -73,7 +74,7 @@ func (p *MetricProvider) GetMetricByName(name types.NamespacedName, info provide
 		Metric: cmetrics.MetricIdentifier{
 			Name: info.Metric,
 		},
-		Timestamp: metav1.Time{Time: time.Now()},
+		Timestamp: metav1.Time{Time: now},
 		Value:     value,
 	}, nil
 }

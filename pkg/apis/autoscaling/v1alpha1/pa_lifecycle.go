@@ -68,9 +68,8 @@ func (pa *PodAutoscaler) annotationInt32(key string) int32 {
 
 func (pa *PodAutoscaler) annotationFloat64(key string) (float64, bool) {
 	if s, ok := pa.Annotations[key]; ok {
-		if f, err := strconv.ParseFloat(s, 64); err == nil {
-			return f, true
-		}
+		f, err := strconv.ParseFloat(s, 64)
+		return f, err == nil
 	}
 	return 0.0, false
 }
