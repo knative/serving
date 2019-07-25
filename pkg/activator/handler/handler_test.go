@@ -674,7 +674,7 @@ func (f *fakeReporter) ReportRequestConcurrency(ns, service, config, rev string,
 	f.mux.Lock()
 	defer f.mux.Unlock()
 	f.calls = append(f.calls, reporterCall{
-		Op:        "ReportRequestCount",
+		Op:        "ReportRequestConcurrency",
 		Namespace: ns,
 		Service:   service,
 		Config:    config,
