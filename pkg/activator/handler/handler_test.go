@@ -670,6 +670,21 @@ type fakeReporter struct {
 	mux   sync.Mutex
 }
 
+func (f *fakeReporter) ReportRequestConcurrency(ns, service, config, rev string, v int64) error {
+	f.mux.Lock()
+	defer f.mux.Unlock()
+	f.calls = append(f.calls, reporterCall{
+		Op:        "ReportRequestCount",
+		Namespace: ns,
+		Service:   service,
+		Config:    config,
+		Revision:  rev,
+		Value:     v,
+	})
+
+	return nil
+}
+
 func (f *fakeReporter) ReportRequestCount(ns, service, config, rev string, responseCode, numTries int, v int64) error {
 	f.mux.Lock()
 	defer f.mux.Unlock()

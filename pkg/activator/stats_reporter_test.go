@@ -47,6 +47,22 @@ func TestActivatorReporter(t *testing.T) {
 	// we get an error about view already being registered.
 	defer unregister()
 
+	// test ReportResponseConcurrency
+	wantTags1 := map[string]string{
+		metricskey.LabelNamespaceName:     "testns",
+		metricskey.LabelServiceName:       "testsvc",
+		metricskey.LabelConfigurationName: "testconfig",
+		metricskey.LabelRevisionName:      "testrev",
+	}
+	expectSuccess(t, func() error {
+		return r.ReportRequestConcurrency("testns", "testsvc", "testconfig", "testrev", 100)
+	})
+	metricstest.CheckLastValueData(t, "request_concurrency", wantTags1, 100)
+	expectSuccess(t, func() error {
+		return r.ReportRequestConcurrency("testns", "testsvc", "testconfig", "testrev", 200)
+	})
+	metricstest.CheckLastValueData(t, "request_concurrency", wantTags1, 200)
+
 	// test ReportRequestCount
 	wantTags2 := map[string]string{
 		metricskey.LabelNamespaceName:     "testns",

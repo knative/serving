@@ -20,9 +20,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/go-cmp/cmp/cmpopts"
-
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
+	. "knative.dev/pkg/logging/testing"
 	"knative.dev/pkg/system"
 	"knative.dev/serving/pkg/autoscaler"
 )
@@ -193,7 +193,7 @@ func TestStats(t *testing.T) {
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
 			closeCh := make(chan struct{})
-			s, cr := newTestStats(fakeClock{})
+			s, cr := newTestStats(t, fakeClock{})
 			go func() {
 				cr.Run(closeCh)
 			}()
@@ -236,14 +236,14 @@ type testStats struct {
 	reportBiChan chan time.Time
 }
 
-func newTestStats(clock system.Clock) (*testStats, *ConcurrencyReporter) {
+func newTestStats(t *testing.T, clock system.Clock) (*testStats, *ConcurrencyReporter) {
 	reportBiChan := make(chan time.Time)
-	t := &testStats{
+	ts := &testStats{
 		reqChan:      make(chan ReqEvent),
 		reportChan:   (<-chan time.Time)(reportBiChan),
 		statChan:     make(chan *autoscaler.StatMessage, 20),
 		reportBiChan: reportBiChan,
 	}
-	cr := NewConcurrencyReporterWithClock("activator", t.reqChan, t.reportChan, t.statChan, clock)
-	return t, cr
+	cr := NewConcurrencyReporterWithClock(TestLogger(t), "activator", ts.reqChan, ts.reportChan, ts.statChan, revisionLister(revision(testNamespace, testRevName)), &fakeReporter{}, clock)
+	return ts, cr
 }
