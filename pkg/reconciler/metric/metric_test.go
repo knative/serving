@@ -18,6 +18,8 @@ package metric
 
 import (
 	"context"
+	"k8s.io/apimachinery/pkg/types"
+	"knative.dev/serving/pkg/autoscaler"
 	"testing"
 
 	"github.com/pkg/errors"
@@ -145,6 +147,8 @@ type testCollector struct {
 	createOrUpdateCalls int
 	createOrUpdateError error
 
+	recordCalls int
+
 	deleteCalls int
 	deleteError error
 }
@@ -152,6 +156,10 @@ type testCollector struct {
 func (c *testCollector) CreateOrUpdate(metric *av1alpha1.Metric) error {
 	c.createOrUpdateCalls++
 	return c.createOrUpdateError
+}
+
+func (c *testCollector) Record(key types.NamespacedName, stat autoscaler.Stat) {
+	c.recordCalls++
 }
 
 func (c *testCollector) Delete(ctx context.Context, namespace, name string) error {
