@@ -29,7 +29,7 @@ import (
 // Since golang executes test iterations within the same process, the stats reporter
 // returns an error if the metric is already registered and the test panics.
 func unregister() {
-	metricstest.Unregister("request_count", "request_latencies")
+	metricstest.Unregister("request_count", "request_latencies", "request_concurrency")
 }
 
 func TestActivatorReporter(t *testing.T) {
@@ -41,7 +41,7 @@ func TestActivatorReporter(t *testing.T) {
 
 	var err error
 	if r, err = NewStatsReporter(); err != nil {
-		t.Errorf("Failed to create a new reporter: %v", err)
+		t.Fatalf("Failed to create a new reporter: %v", err)
 	}
 	// Without this `go test ... -count=X`, where X > 1, fails, since
 	// we get an error about view already being registered.
@@ -95,11 +95,28 @@ func TestActivatorReporter(t *testing.T) {
 	metricstest.CheckDistributionData(t, "request_latencies", wantTags3, 2, 1100.0, 9100.0)
 }
 
-func TestReportRequestCount_EmptyServiceName(t *testing.T) {
-	r, _ := NewStatsReporter()
+func TestActivatorReporterEmptyServiceName(t *testing.T) {
+	r, err := NewStatsReporter()
 	defer unregister()
 
-	wantTags := map[string]string{
+	if err != nil {
+		t.Fatalf("Failed to create a new reporter: %v", err)
+	}
+
+	// test ReportResponseConcurrency
+	wantTags1 := map[string]string{
+		metricskey.LabelNamespaceName:     "testns",
+		metricskey.LabelServiceName:       metricskey.ValueUnknown,
+		metricskey.LabelConfigurationName: "testconfig",
+		metricskey.LabelRevisionName:      "testrev",
+	}
+	expectSuccess(t, func() error {
+		return r.ReportRequestConcurrency("testns", "" /*service=*/, "testconfig", "testrev", 100)
+	})
+	metricstest.CheckLastValueData(t, "request_concurrency", wantTags1, 100)
+
+	// test ReportRequestCount
+	wantTags2 := map[string]string{
 		metricskey.LabelNamespaceName:     "testns",
 		metricskey.LabelServiceName:       metricskey.ValueUnknown,
 		metricskey.LabelConfigurationName: "testconfig",
@@ -109,16 +126,12 @@ func TestReportRequestCount_EmptyServiceName(t *testing.T) {
 		"num_tries":                       "6",
 	}
 	expectSuccess(t, func() error {
-		return r.ReportRequestCount("testns" /*service=*/, "", "testconfig", "testrev", 200, 6, 10)
+		return r.ReportRequestCount("testns", "" /*service=*/, "testconfig", "testrev", 200, 6, 10)
 	})
-	metricstest.CheckSumData(t, "request_count", wantTags, 10)
-}
+	metricstest.CheckSumData(t, "request_count", wantTags2, 10)
 
-func TestReportResponseTimeEmptyServiceName(t *testing.T) {
-	r, _ := NewStatsReporter()
-	defer unregister()
-
-	wantTags := map[string]string{
+	// test ReportResponseTime
+	wantTags3 := map[string]string{
 		metricskey.LabelNamespaceName:     "testns",
 		metricskey.LabelServiceName:       metricskey.ValueUnknown,
 		metricskey.LabelConfigurationName: "testconfig",
@@ -127,12 +140,12 @@ func TestReportResponseTimeEmptyServiceName(t *testing.T) {
 		"response_code_class":             "2xx",
 	}
 	expectSuccess(t, func() error {
-		return r.ReportResponseTime("testns" /*service=*/, "", "testconfig", "testrev", 200, 7100*time.Millisecond)
+		return r.ReportResponseTime("testns", "" /*service=*/, "testconfig", "testrev", 200, 7100*time.Millisecond)
 	})
 	expectSuccess(t, func() error {
-		return r.ReportResponseTime("testns" /*service=*/, "", "testconfig", "testrev", 200, 5100*time.Millisecond)
+		return r.ReportResponseTime("testns", "" /*service=*/, "testconfig", "testrev", 200, 5100*time.Millisecond)
 	})
-	metricstest.CheckDistributionData(t, "request_latencies", wantTags, 2, 5100.0, 7100.0)
+	metricstest.CheckDistributionData(t, "request_latencies", wantTags3, 2, 5100.0, 7100.0)
 }
 
 func expectSuccess(t *testing.T, f func() error) {
