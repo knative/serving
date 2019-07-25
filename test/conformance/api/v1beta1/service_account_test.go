@@ -51,8 +51,7 @@ func TestServiceAccountValidation(t *testing.T) {
 	if err == nil {
 		t.Fatal("Expected Service creation to fail")
 	}
-
-	if !strings.Contains(err.Error(), "serviceAccountName: spec.template.spec."+invalidServiceAccountName) {
-		t.Fatalf("Expected service creation failure to contain fieldpath: %s", err.Error())
+	if got, want := err.Error(), "serviceAccountName: spec.template.spec."+invalidServiceAccountName; !strings.Contains(got, want) {
+		t.Errorf("Error = %q, want to contain = %q", got, want)
 	}
 }

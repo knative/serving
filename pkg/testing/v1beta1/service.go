@@ -141,9 +141,9 @@ func WithRevisionTimeoutSeconds(revisionTimeoutSeconds int64) ServiceOption {
 }
 
 // WithServiceAccountName sets revision service account name
-func WithServiceAccountName(sericeAccountName string) ServiceOption {
+func WithServiceAccountName(serviceAccountName string) ServiceOption {
 	return func(service *v1beta1.Service) {
-		service.Spec.Template.Spec.ServiceAccountName = sericeAccountName
+		service.Spec.Template.Spec.ServiceAccountName = serviceAccountName
 	}
 }
 
