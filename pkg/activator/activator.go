@@ -29,8 +29,6 @@ const (
 	RevisionHeaderName = "Knative-Serving-Revision"
 	// RevisionHeaderNamespace is the header key for revision's namespace.
 	RevisionHeaderNamespace = "Knative-Serving-Namespace"
-	// ProxyAttempts is the head that used internally for request metrics
-	ProxyAttempts = "activator-proxy-attempts"
 )
 
 // RevisionID is the combination of namespace and revision name

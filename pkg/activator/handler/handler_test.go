@@ -21,11 +21,13 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
 	"knative.dev/pkg/test/helpers"
 
+	"github.com/google/go-cmp/cmp"
 	openzipkin "github.com/openzipkin/zipkin-go"
 	zipkinreporter "github.com/openzipkin/zipkin-go/reporter"
 	reporterrecorder "github.com/openzipkin/zipkin-go/reporter/recorder"
@@ -79,7 +81,7 @@ func TestActivationHandler(t *testing.T) {
 		endpointsInformer corev1informers.EndpointsInformer
 		sksLister         netlisters.ServerlessServiceLister
 		svcLister         corev1listers.ServiceLister
-		proxyAttempts     string
+		reporterCalls     []reporterCall
 	}{{
 		label:             "active endpoint",
 		namespace:         testNamespace,
@@ -88,8 +90,17 @@ func TestActivationHandler(t *testing.T) {
 		wantCode:          http.StatusOK,
 		wantErr:           nil,
 		endpointsInformer: endpointsInformer(endpoints(testNamespace, testRevName, 1000)),
-		proxyAttempts:     "2",
-		probeTimeout:      100 * time.Millisecond,
+		reporterCalls: []reporterCall{{
+			Op:         "ReportRequestCount",
+			Namespace:  testNamespace,
+			Revision:   testRevName,
+			Service:    "service-real-name",
+			Config:     "config-real-name",
+			StatusCode: http.StatusOK,
+			Attempts:   2, // probe + request
+			Value:      1,
+		}},
+		probeTimeout: 100 * time.Millisecond,
 	}, {
 		label:             "slowly active endpoint",
 		namespace:         testNamespace,
@@ -99,8 +110,17 @@ func TestActivationHandler(t *testing.T) {
 		wantErr:           nil,
 		probeResp:         []string{activator.Name, queue.Name},
 		endpointsInformer: endpointsInformer(endpoints(testNamespace, testRevName, 1000)),
-		proxyAttempts:     "3",
-		probeTimeout:      201 * time.Millisecond,
+		reporterCalls: []reporterCall{{
+			Op:         "ReportRequestCount",
+			Namespace:  testNamespace,
+			Revision:   testRevName,
+			Service:    "service-real-name",
+			Config:     "config-real-name",
+			StatusCode: http.StatusOK,
+			Attempts:   3, // probe + probe + request
+			Value:      1,
+		}},
+		probeTimeout: 201 * time.Millisecond,
 	}, {
 		label:             "active endpoint with missing count header",
 		namespace:         testNamespace,
@@ -109,7 +129,16 @@ func TestActivationHandler(t *testing.T) {
 		wantCode:          http.StatusOK,
 		wantErr:           nil,
 		endpointsInformer: endpointsInformer(endpoints(testNamespace, testRevName, 1000)),
-		proxyAttempts:     "2",
+		reporterCalls: []reporterCall{{
+			Op:         "ReportRequestCount",
+			Namespace:  testNamespace,
+			Revision:   testRevName,
+			Service:    "service-real-name",
+			Config:     "config-real-name",
+			StatusCode: http.StatusOK,
+			Attempts:   2, // one probe call, one proxy call.
+			Value:      1,
+		}},
 	}, {
 		label:             "no active endpoint",
 		namespace:         "fake-namespace",
@@ -118,7 +147,7 @@ func TestActivationHandler(t *testing.T) {
 		wantCode:          http.StatusNotFound,
 		wantErr:           nil,
 		endpointsInformer: endpointsInformer(endpoints(testNamespace, testRevName, 1000)),
-		proxyAttempts:     "",
+		reporterCalls:     nil,
 	}, {
 		label:             "active endpoint (probe failure)",
 		namespace:         testNamespace,
@@ -127,7 +156,16 @@ func TestActivationHandler(t *testing.T) {
 		wantCode:          http.StatusInternalServerError,
 		endpointsInformer: endpointsInformer(endpoints(testNamespace, testRevName, 1000)),
 		probeTimeout:      1 * time.Millisecond,
-		proxyAttempts:     "2",
+		reporterCalls: []reporterCall{{
+			Op:         "ReportRequestCount",
+			Namespace:  testNamespace,
+			Revision:   testRevName,
+			Service:    "service-real-name",
+			Config:     "config-real-name",
+			StatusCode: http.StatusInternalServerError,
+			Attempts:   2, // On failed probe we'll always try twice.
+			Value:      1,
+		}},
 	}, {
 		label:             "active endpoint (probe 500)",
 		namespace:         testNamespace,
@@ -136,7 +174,16 @@ func TestActivationHandler(t *testing.T) {
 		wantCode:          http.StatusInternalServerError,
 		endpointsInformer: endpointsInformer(endpoints(testNamespace, testRevName, 1000)),
 		probeTimeout:      10 * time.Millisecond,
-		proxyAttempts:     "2",
+		reporterCalls: []reporterCall{{
+			Op:         "ReportRequestCount",
+			Namespace:  testNamespace,
+			Revision:   testRevName,
+			Service:    "service-real-name",
+			Config:     "config-real-name",
+			StatusCode: http.StatusInternalServerError,
+			Attempts:   2,
+			Value:      1,
+		}},
 	}, {
 		label:             "request error",
 		namespace:         testNamespace,
@@ -145,7 +192,16 @@ func TestActivationHandler(t *testing.T) {
 		wantCode:          http.StatusBadGateway,
 		wantErr:           errors.New("request error"),
 		endpointsInformer: endpointsInformer(endpoints(testNamespace, testRevName, 1000)),
-		proxyAttempts:     "2",
+		reporterCalls: []reporterCall{{
+			Op:         "ReportRequestCount",
+			Namespace:  testNamespace,
+			Revision:   testRevName,
+			Service:    "service-real-name",
+			Config:     "config-real-name",
+			StatusCode: http.StatusBadGateway,
+			Attempts:   2, // probe + actual request.
+			Value:      1,
+		}},
 	}, {
 		label:             "broken get SKS",
 		namespace:         testNamespace,
@@ -155,7 +211,7 @@ func TestActivationHandler(t *testing.T) {
 		wantErr:           nil,
 		endpointsInformer: endpointsInformer(endpoints(testNamespace, testRevName, 1000)),
 		sksLister:         sksLister(sks("bogus-namespace", testRevName)),
-		proxyAttempts:     "",
+		reporterCalls:     nil,
 	}, {
 		label:             "k8s svc incorrectly spec'd",
 		namespace:         testNamespace,
@@ -165,7 +221,7 @@ func TestActivationHandler(t *testing.T) {
 		wantErr:           nil,
 		endpointsInformer: endpointsInformer(endpoints(testNamespace, testRevName, 1000)),
 		svcLister:         serviceLister(service(testNamespace, testRevName, "bogus")),
-		proxyAttempts:     "",
+		reporterCalls:     nil,
 	}, {
 		label:             "broken get k8s svc",
 		namespace:         testNamespace,
@@ -175,7 +231,7 @@ func TestActivationHandler(t *testing.T) {
 		wantErr:           nil,
 		endpointsInformer: endpointsInformer(endpoints("bogus-namespace", testRevName, 1000)),
 		svcLister:         serviceLister(service("bogus-namespace", testRevName, "http")),
-		proxyAttempts:     "",
+		reporterCalls:     nil,
 	}, {
 		label:             "broken get endpoints",
 		namespace:         testNamespace,
@@ -184,7 +240,7 @@ func TestActivationHandler(t *testing.T) {
 		wantCode:          http.StatusInternalServerError,
 		wantErr:           nil,
 		endpointsInformer: endpointsInformer(endpoints("bogus-namespace", testRevName, 1000)),
-		proxyAttempts:     "",
+		reporterCalls:     nil,
 	}}
 	for _, test := range tests {
 		t.Run(test.label, func(t *testing.T) {
@@ -205,6 +261,7 @@ func TestActivationHandler(t *testing.T) {
 					Body: test.wantBody,
 				},
 			}
+			reporter := &fakeReporter{}
 			params := queue.BreakerParams{QueueDepth: 1000, MaxConcurrency: 1000, InitialCapacity: 0}
 			throttler := activator.NewThrottler(
 				params,
@@ -213,7 +270,7 @@ func TestActivationHandler(t *testing.T) {
 				revisionLister(revision(testNamespace, testRevName)),
 				TestLogger(t))
 
-			handler := (New(TestLogger(t), throttler,
+			handler := (New(TestLogger(t), reporter, throttler,
 				revisionLister(revision(testNamespace, testRevName)),
 				serviceLister(service(testNamespace, testRevName, "http")),
 				sksLister(sks(testNamespace, testRevName)),
@@ -250,11 +307,8 @@ func TestActivationHandler(t *testing.T) {
 				t.Errorf("Unexpected response body. Response body %q, want %q", gotBody, test.wantBody)
 			}
 
-			if test.proxyAttempts != "" {
-				if resp.Header().Get(activator.ProxyAttempts) != test.proxyAttempts {
-					t.Errorf("Expected to have attempts %s,but got %s", test.proxyAttempts,
-						resp.Header().Get(activator.ProxyAttempts))
-				}
+			if diff := cmp.Diff(test.reporterCalls, reporter.calls); diff != "" {
+				t.Errorf("Reporting calls are different (-want, +got) = %v", diff)
 			}
 		})
 	}
@@ -282,6 +336,7 @@ func TestActivationHandlerOverflow(t *testing.T) {
 	rt := network.RoundTripperFunc(fakeRt.RT)
 
 	breakerParams := queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}
+	reporter := &fakeReporter{}
 
 	throttler := activator.NewThrottler(
 		breakerParams,
@@ -290,7 +345,7 @@ func TestActivationHandlerOverflow(t *testing.T) {
 		revisionLister(revision(namespace, revName)),
 		TestLogger(t))
 
-	handler := (New(TestLogger(t), throttler,
+	handler := (New(TestLogger(t), reporter, throttler,
 		revisionLister(revision(namespace, revName)),
 		serviceLister(service(namespace, revName, "http")),
 		sksLister(sks(namespace, revName)),
@@ -317,6 +372,7 @@ func TestActivationHandlerOverflowSeveralRevisions(t *testing.T) {
 	revisions := []string{rev1, rev2}
 
 	breakerParams := queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}
+	reporter := &fakeReporter{}
 	epClient := endpointsInformer(endpoints(testNamespace, rev1, breakerParams.InitialCapacity), endpoints(testNamespace, rev2, breakerParams.InitialCapacity))
 	sksClient := sksLister(sks(testNamespace, rev1), sks(testNamespace, rev2))
 	revClient := revisionLister(revision(testNamespace, rev1), revision(testNamespace, rev2))
@@ -336,7 +392,7 @@ func TestActivationHandlerOverflowSeveralRevisions(t *testing.T) {
 		},
 	}
 	rt := network.RoundTripperFunc(fakeRT.RT)
-	handler := (New(TestLogger(t), throttler,
+	handler := (New(TestLogger(t), reporter, throttler,
 		revClient, svcClient, sksClient)).(*activationHandler)
 
 	// Setup transports.
@@ -380,6 +436,7 @@ func TestActivationHandlerProxyHeader(t *testing.T) {
 		transport:      rt,
 		probeTransport: probeRt,
 		logger:         TestLogger(t),
+		reporter:       &fakeReporter{},
 		throttler:      throttler,
 		revisionLister: revisionLister(revision(testNamespace, testRevName)),
 		serviceLister:  serviceLister(service(testNamespace, testRevName, "http")),
@@ -445,6 +502,7 @@ func TestActivationHandlerTraceSpans(t *testing.T) {
 		transport:      rt,
 		probeTransport: rt,
 		logger:         TestLogger(t),
+		reporter:       &fakeReporter{},
 		throttler:      throttler,
 		revisionLister: revisionLister(revision(testNamespace, testRevName)),
 		serviceLister:  serviceLister(service(testNamespace, testRevName, "http")),
@@ -548,6 +606,56 @@ func assertResponses(wantedSuccess, wantedFailure, overallRequests int, lockerCh
 	if succeeded != wantedSuccess {
 		t.Errorf("successful request count = %d, want: %d", succeeded, wantedSuccess)
 	}
+}
+
+type reporterCall struct {
+	Op         string
+	Namespace  string
+	Service    string
+	Config     string
+	Revision   string
+	StatusCode int
+	Attempts   int
+	Value      int64
+	Duration   time.Duration
+}
+
+type fakeReporter struct {
+	calls []reporterCall
+	mux   sync.Mutex
+}
+
+func (f *fakeReporter) ReportRequestCount(ns, service, config, rev string, responseCode, numTries int, v int64) error {
+	f.mux.Lock()
+	defer f.mux.Unlock()
+	f.calls = append(f.calls, reporterCall{
+		Op:         "ReportRequestCount",
+		Namespace:  ns,
+		Service:    service,
+		Config:     config,
+		Revision:   rev,
+		StatusCode: responseCode,
+		Attempts:   numTries,
+		Value:      v,
+	})
+
+	return nil
+}
+
+func (f *fakeReporter) ReportResponseTime(ns, service, config, rev string, responseCode int, d time.Duration) error {
+	f.mux.Lock()
+	defer f.mux.Unlock()
+	f.calls = append(f.calls, reporterCall{
+		Op:         "ReportResponseTime",
+		Namespace:  ns,
+		Service:    service,
+		Config:     config,
+		Revision:   rev,
+		StatusCode: responseCode,
+		Duration:   d,
+	})
+
+	return nil
 }
 
 func revision(namespace, name string) *v1alpha1.Revision {
