@@ -30,6 +30,7 @@ import (
 	perf "github.com/knative/test-infra/shared/performance"
 	"github.com/knative/test-infra/shared/testgrid"
 	pkgTest "knative.dev/pkg/test"
+	"knative.dev/pkg/test/spoof"
 	"knative.dev/serving/test"
 	v1a1test "knative.dev/serving/test/v1alpha1"
 )
@@ -76,7 +77,7 @@ func timeToServe(t *testing.T, img, query string, reqTimeout time.Duration) {
 		t.Fatalf("Error probing domain %s: %v", domain, err)
 	}
 
-	endpoint, err := resolveEndpoint(clients.KubeClient, domain, test.ServingFlags.ResolvableDomain,
+	endpoint, err := spoof.ResolveEndpoint(clients.KubeClient.Kube, domain, test.ServingFlags.ResolvableDomain,
 		pkgTest.Flags.IngressEndpoint)
 	if err != nil {
 		t.Fatalf("Cannot resolve service endpoint: %v", err)

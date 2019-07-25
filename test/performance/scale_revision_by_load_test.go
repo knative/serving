@@ -36,6 +36,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"knative.dev/pkg/controller"
 	pkgTest "knative.dev/pkg/test"
+	"knative.dev/pkg/test/spoof"
 	"knative.dev/serving/pkg/resources"
 	testingv1alpha1 "knative.dev/serving/pkg/testing/v1alpha1"
 	"knative.dev/serving/test"
@@ -145,7 +146,7 @@ func scaleRevisionByLoad(t *testing.T, numClients int) []junit.TestCase {
 	})
 	controller.StartInformers(stopCh, endpointsInformer)
 
-	endpoint, err := resolveEndpoint(clients.KubeClient, domain, test.ServingFlags.ResolvableDomain,
+	endpoint, err := spoof.ResolveEndpoint(clients.KubeClient.Kube, domain, test.ServingFlags.ResolvableDomain,
 		pkgTest.Flags.IngressEndpoint)
 	if err != nil {
 		t.Fatalf("Cannot resolve service endpoint: %v", err)
