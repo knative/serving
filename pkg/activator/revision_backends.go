@@ -122,8 +122,7 @@ type destHealth struct {
 // checkDests performs probing and potentially sends a dests update. It is
 // assumed this method is not called concurrently.
 func (rw *revisionWatcher) checkDests() {
-	healthStatesCh := make(chan *destHealth, len(rw.dests))
-	defer close(healthStatesCh)
+	healthStatesCh := make(chan destHealth, len(rw.dests))
 
 	// Context used for our requests
 	ctx, cancel := context.WithTimeout(context.Background(), probeTimeout)
@@ -134,7 +133,7 @@ func (rw *revisionWatcher) checkDests() {
 	for _, dest := range rw.dests {
 		// If the dest is already healthy then save this
 		if curHealthy, ok := rw.healthStates[dest]; ok && curHealthy {
-			healthStatesCh <- &destHealth{dest, true}
+			healthStatesCh <- destHealth{dest, true}
 			continue
 		}
 
@@ -147,7 +146,7 @@ func (rw *revisionWatcher) checkDests() {
 			ok, err := prober.Do(ctx, rw.transport, httpDest.String(),
 				prober.WithHeader(network.ProbeHeaderName, queue.Name),
 				prober.ExpectsBody(queue.Name))
-			healthStatesCh <- &destHealth{pDest, ok}
+			healthStatesCh <- destHealth{pDest, ok}
 			return err
 		})
 	}
@@ -155,10 +154,10 @@ func (rw *revisionWatcher) checkDests() {
 	if err := probeGroup.Wait(); err != nil {
 		rw.logger.Errorw("Failed probing", zap.Error(err))
 	}
+	close(healthStatesCh)
 
 	healthStates := make(map[string]bool, len(rw.dests))
-	for i := 0; i < len(rw.dests); i++ {
-		dh := <-healthStatesCh
+	for dh := range healthStatesCh {
 		healthStates[dh.dest] = dh.health
 	}
 
