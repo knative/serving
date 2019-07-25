@@ -78,10 +78,10 @@ spec:
           # The numbers are based on performance test results from
           # https://github.com/knative/serving/issues/1625#issuecomment-511930023
           requests:
-            cpu: 300m
+            cpu: 800m
             memory: 60Mi
           limits:
-            cpu: 400m
+            cpu: 1000m
             memory: 600Mi
         env:
           - name: POD_NAME
