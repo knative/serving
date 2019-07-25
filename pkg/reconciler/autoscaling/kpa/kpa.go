@@ -249,15 +249,12 @@ func computeActiveCondition(pa *pav1alpha1.PodAutoscaler, want int32, got int) {
 			pa.Status.MarkInactive("NoTraffic", "The target is not receiving traffic.")
 		}
 
-	case got < minReady && want > 0:
+	case got < minReady:
 		pa.Status.MarkActivating(
 			"Queued", "Requests to the target are being buffered as resources are provisioned.")
 
 	case got >= minReady:
 		pa.Status.MarkActive()
-
-	case want == scaleUnknown:
-		// We don't know what scale we want, so don't touch PA at all.
 	}
 }
 
