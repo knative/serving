@@ -82,6 +82,8 @@ type Collector interface {
 	// CreateOrUpdate either creates a collection for the given metric or update it, should
 	// it already exist.
 	CreateOrUpdate(*av1alpha1.Metric) error
+	// Record allows stats to be captured that came from outside the Collector.
+	Record(key types.NamespacedName, stat Stat)
 	// Delete deletes a Metric and halts collection.
 	Delete(string, string) error
 }

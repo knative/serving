@@ -35,6 +35,7 @@ const (
 )
 
 // Config holds the configuration for tracers
+// +k8s:deepcopy-gen=true
 type Config struct {
 	Enable         bool
 	ZipkinEndpoint string
