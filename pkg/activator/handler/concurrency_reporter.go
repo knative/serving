@@ -17,14 +17,20 @@ limitations under the License.
 package handler
 
 import (
+	"strings"
 	"time"
 
+	"go.uber.org/zap"
 	"knative.dev/pkg/system"
+	"knative.dev/serving/pkg/activator"
+	"knative.dev/serving/pkg/apis/serving"
 	"knative.dev/serving/pkg/autoscaler"
+	servinglisters "knative.dev/serving/pkg/client/listers/serving/v1alpha1"
 )
 
 // ConcurrencyReporter reports stats based on incoming requests and ticks.
 type ConcurrencyReporter struct {
+	logger  *zap.SugaredLogger
 	podName string
 
 	// Ticks with every request arrived/completed respectively
@@ -34,28 +40,36 @@ type ConcurrencyReporter struct {
 	// Stat reporting channel
 	statChan chan *autoscaler.StatMessage
 
+	rl servinglisters.RevisionLister
+	sr activator.StatsReporter
+
 	clock system.Clock
 }
 
 // NewConcurrencyReporter creates a ConcurrencyReporter which listens to incoming
 // ReqEvents on reqChan and ticks on reportChan and reports stats on statChan.
-func NewConcurrencyReporter(podName string, reqChan chan ReqEvent, reportChan <-chan time.Time, statChan chan *autoscaler.StatMessage) *ConcurrencyReporter {
-	return NewConcurrencyReporterWithClock(podName, reqChan, reportChan, statChan, system.RealClock{})
+func NewConcurrencyReporter(logger *zap.SugaredLogger, podName string, reqChan chan ReqEvent, reportChan <-chan time.Time,
+	statChan chan *autoscaler.StatMessage, rl servinglisters.RevisionLister, sr activator.StatsReporter) *ConcurrencyReporter {
+	return NewConcurrencyReporterWithClock(logger, podName, reqChan, reportChan, statChan, rl, sr, system.RealClock{})
 }
 
 // NewConcurrencyReporterWithClock instantiates a new concurrency reporter
 // which uses the passed clock.
-func NewConcurrencyReporterWithClock(podName string, reqChan chan ReqEvent, reportChan <-chan time.Time, statChan chan *autoscaler.StatMessage, clock system.Clock) *ConcurrencyReporter {
+func NewConcurrencyReporterWithClock(logger *zap.SugaredLogger, podName string, reqChan chan ReqEvent, reportChan <-chan time.Time,
+	statChan chan *autoscaler.StatMessage, rl servinglisters.RevisionLister, sr activator.StatsReporter, clock system.Clock) *ConcurrencyReporter {
 	return &ConcurrencyReporter{
+		logger:     logger,
 		podName:    podName,
 		reqChan:    reqChan,
 		reportChan: reportChan,
 		statChan:   statChan,
+		rl:         rl,
+		sr:         sr,
 		clock:      clock,
 	}
 }
 
-func (cr *ConcurrencyReporter) report(key string, concurrency, requestCount int32) {
+func (cr *ConcurrencyReporter) reportToAutoscaler(key string, concurrency, requestCount int32) {
 	stat := autoscaler.Stat{
 		PodName:                   cr.podName,
 		AverageConcurrentRequests: float64(concurrency),
@@ -68,6 +82,24 @@ func (cr *ConcurrencyReporter) report(key string, concurrency, requestCount int3
 		Key:  key,
 		Stat: stat,
 	}
+}
+
+func (cr *ConcurrencyReporter) reportToMetricsBackend(key string, concurrency int32) {
+	parts := strings.Split(key, "/")
+	if len(parts) != 2 {
+		cr.logger.Errorf("Error while extracting namespace and revision from key: %v", key)
+		return
+	}
+	ns := parts[0]
+	revName := parts[1]
+	revision, err := cr.rl.Revisions(ns).Get(revName)
+	if err != nil {
+		cr.logger.Errorw("Error while getting revision", zap.Error(err))
+		return
+	}
+	configurationName := revision.Labels[serving.ConfigurationLabelKey]
+	serviceName := revision.Labels[serving.ServiceLabelKey]
+	cr.sr.ReportRequestConcurrency(ns, serviceName, configurationName, revName, int64(concurrency))
 }
 
 // Run runs until stopCh is closed and processes events on all incoming channels
@@ -87,7 +119,7 @@ func (cr *ConcurrencyReporter) Run(stopCh <-chan struct{}) {
 
 				// Report the first request for a key immediately.
 				if _, ok := outstandingRequestsPerKey[event.Key]; !ok {
-					cr.report(event.Key, 1, incomingRequestsPerKey[event.Key])
+					cr.reportToAutoscaler(event.Key, 1, incomingRequestsPerKey[event.Key])
 				}
 				outstandingRequestsPerKey[event.Key]++
 			case ReqOut:
@@ -98,8 +130,9 @@ func (cr *ConcurrencyReporter) Run(stopCh <-chan struct{}) {
 				if concurrency == 0 {
 					delete(outstandingRequestsPerKey, key)
 				} else {
-					cr.report(key, concurrency, incomingRequestsPerKey[key])
+					cr.reportToAutoscaler(key, concurrency, incomingRequestsPerKey[key])
 				}
+				cr.reportToMetricsBackend(key, concurrency)
 			}
 
 			incomingRequestsPerKey = make(map[string]int32)
