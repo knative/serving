@@ -672,11 +672,11 @@ spec:
             timeoutSeconds: 1
           resources:
             limits:
-              cpu: 2000m
-              memory: 1024Mi
+              cpu: 3000m
+              memory: 2048Mi
             requests:
-              cpu: 100m
-              memory: 128Mi
+              cpu: 3000m
+              memory: 2048Mi
 
           env:
           - name: NODE_NAME
