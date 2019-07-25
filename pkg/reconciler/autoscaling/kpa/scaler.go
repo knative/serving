@@ -31,6 +31,7 @@ import (
 	"knative.dev/serving/pkg/activator"
 	pav1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/apis/networking"
+	nv1a1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/pkg/autoscaler"
 	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/network/prober"
@@ -141,7 +142,7 @@ func applyBounds(min, max, x int32) int32 {
 	return x
 }
 
-func (ks *scaler) handleScaleToZero(pa *pav1alpha1.PodAutoscaler, desiredScale int32, config *autoscaler.Config) (int32, bool) {
+func (ks *scaler) handleScaleToZero(pa *pav1alpha1.PodAutoscaler, sks *nv1a1.ServerlessService, desiredScale int32, config *autoscaler.Config) (int32, bool) {
 	if desiredScale != 0 {
 		return desiredScale, true
 	}
@@ -181,13 +182,32 @@ func (ks *scaler) handleScaleToZero(pa *pav1alpha1.PodAutoscaler, desiredScale i
 		r, err := ks.activatorProbe(pa, ks.transport)
 		ks.logger.Infof("%s probing activator = %v, err = %v", pa.Name, r, err)
 		if r {
-			// Make sure we've been inactive for enough time.
+			// This enforces that the revision has been backed by the activator for at least
+			// ScaleToZeroGracePeriod time.
+			// Note: SKS will always be present when scaling to zero, so nil checks are just
+			// defensive programming.
+
+			// Most conservative check, if it passes we're good.
 			if pa.Status.CanScaleToZero(config.ScaleToZeroGracePeriod) {
 				return desiredScale, true
 			}
-			// Re-enqeue the PA for reconciliation after grace period.
-			// In istio-lean this can be close to 0.
-			ks.enqueueCB(pa, config.ScaleToZeroGracePeriod)
+
+			// Otherwise check how long SKS was in proxy mode.
+			to := config.ScaleToZeroGracePeriod
+			if sks != nil {
+				// Compute the difference between time we've been proxying with the timeout.
+				// If it's positive, that's the time we need to sleep, if negative -- we
+				// can scale to zero.
+				to -= sks.Status.ProxyFor()
+				if to <= 0 {
+					ks.logger.Infof("Fast path scaling to 0, in proxy mode for: %v", sks.Status.ProxyFor())
+					return desiredScale, true
+				}
+			}
+
+			// Re-enqeue the PA for reconciliation with timeout of `to` to make sure we wait
+			// long enough.
+			ks.enqueueCB(pa, to)
 			return desiredScale, false
 		}
 
@@ -234,7 +254,7 @@ func (ks *scaler) applyScale(ctx context.Context, pa *pav1alpha1.PodAutoscaler, 
 }
 
 // Scale attempts to scale the given PA's target reference to the desired scale.
-func (ks *scaler) Scale(ctx context.Context, pa *pav1alpha1.PodAutoscaler, desiredScale int32) (int32, error) {
+func (ks *scaler) Scale(ctx context.Context, pa *pav1alpha1.PodAutoscaler, sks *nv1a1.ServerlessService, desiredScale int32) (int32, error) {
 	logger := logging.FromContext(ctx)
 
 	if desiredScale < 0 && !pa.Status.IsActivating() {
@@ -248,7 +268,7 @@ func (ks *scaler) Scale(ctx context.Context, pa *pav1alpha1.PodAutoscaler, desir
 		desiredScale = newScale
 	}
 
-	desiredScale, shouldApplyScale := ks.handleScaleToZero(pa, desiredScale, config.FromContext(ctx).Autoscaler)
+	desiredScale, shouldApplyScale := ks.handleScaleToZero(pa, sks, desiredScale, config.FromContext(ctx).Autoscaler)
 	if !shouldApplyScale {
 		return desiredScale, nil
 	}
