@@ -22,6 +22,8 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"knative.dev/serving/pkg/network"
 )
 
 var defaultRevInfo = &RequestLogRevision{
@@ -45,27 +47,25 @@ func TestRequestLogHandler(t *testing.T) {
 		template string
 		want     string
 		wantErr  bool
+		isProbe  bool
 	}{{
 		name:     "empty template",
 		url:      "http://example.com/testpage",
 		body:     "test",
 		template: "",
 		want:     "",
-		wantErr:  false,
 	}, {
 		name:     "template with new line",
 		url:      "http://example.com/testpage",
 		body:     "test",
 		template: "{{.Request.URL}}\n",
 		want:     "http://example.com/testpage\n",
-		wantErr:  false,
 	}, {
 		name:     "template without new line",
 		url:      "http://example.com",
 		body:     "test",
 		template: "{{.Request.ContentLength}}",
 		want:     "4\n",
-		wantErr:  false,
 	}, {
 		name:     "invalid template",
 		url:      "http://example.com",
@@ -79,7 +79,13 @@ func TestRequestLogHandler(t *testing.T) {
 		body:     "test",
 		template: "{{.Revision.Name}}, {{.Revision.Namespace}}, {{.Revision.Service}}, {{.Revision.Configuration}}, {{.Revision.PodName}}, {{.Revision.PodIP}}",
 		want:     "rev, ns, svc, cfg, pn, ip\n",
-		wantErr:  false,
+	}, {
+		name:     "probe request",
+		url:      "http://example.com",
+		body:     "test",
+		template: "{{.Request.ContentLength}}",
+		want:     "",
+		isProbe:  true,
 	}}
 
 	for _, test := range tests {
@@ -94,6 +100,9 @@ func TestRequestLogHandler(t *testing.T) {
 			if !test.wantErr {
 				resp := httptest.NewRecorder()
 				req := httptest.NewRequest(http.MethodPost, test.url, bytes.NewBufferString(test.body))
+				if test.isProbe {
+					req.Header.Set(network.ProbeHeaderName, "activator")
+				}
 				handler.ServeHTTP(resp, req)
 
 				got := buf.String()

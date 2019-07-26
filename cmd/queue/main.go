@@ -133,18 +133,10 @@ type config struct {
 	ServingReadinessProbe        string `split_words:"true" required:"true"`
 }
 
-func knativeProbeHeader(r *http.Request) string {
-	return r.Header.Get(network.ProbeHeaderName)
-}
-
-func knativeProxyHeader(r *http.Request) string {
-	return r.Header.Get(network.ProxyHeaderName)
-}
-
 // Make handler a closure for testing.
 func handler(reqChan chan queue.ReqEvent, breaker *queue.Breaker, handler http.Handler, prober func() bool) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		ph := knativeProbeHeader(r)
+		ph := network.KnativeProbeHeader(r)
 		switch {
 		case ph != "":
 			if ph != queue.Name {
@@ -171,7 +163,7 @@ func handler(reqChan chan queue.ReqEvent, breaker *queue.Breaker, handler http.H
 
 		// Metrics for autoscaling.
 		in, out := queue.ReqIn, queue.ReqOut
-		if activator.Name == knativeProxyHeader(r) {
+		if activator.Name == network.KnativeProxyHeader(r) {
 			in, out = queue.ProxiedIn, queue.ProxiedOut
 		}
 		reqChan <- queue.ReqEvent{Time: time.Now(), EventType: in}

@@ -22,6 +22,7 @@ import (
 	"time"
 
 	pkghttp "knative.dev/serving/pkg/http"
+	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/queue/stats"
 )
 
@@ -44,17 +45,22 @@ func NewRequestMetricHandler(h http.Handler, r stats.StatsReporter) (http.Handle
 
 func (h *requestMetricHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	rr := pkghttp.NewResponseRecorder(w, http.StatusOK)
-	startTime := time.Now()
-	defer func() {
-		// If ServeHTTP panics, recover, record the failure and panic again.
-		err := recover()
-		latency := time.Since(startTime)
-		if err != nil {
-			h.sendRequestMetrics(http.StatusInternalServerError, latency)
-			panic(err)
-		}
-		h.sendRequestMetrics(rr.ResponseCode, latency)
-	}()
+
+	// Filter probe requests for revision metrics.
+	if !network.IsProbe(r) {
+		startTime := time.Now()
+		defer func() {
+			// If ServeHTTP panics, recover, record the failure and panic again.
+			err := recover()
+			latency := time.Since(startTime)
+			if err != nil {
+				h.sendRequestMetrics(http.StatusInternalServerError, latency)
+				panic(err)
+			}
+			h.sendRequestMetrics(rr.ResponseCode, latency)
+		}()
+	}
+
 	h.handler.ServeHTTP(rr, r)
 }
 
