@@ -161,8 +161,8 @@ func NewConfigFromMap(data map[string]string) (*Config, error) {
 }
 
 func validate(lc *Config) (*Config, error) {
-	if lc.ScaleToZeroGracePeriod < 30*time.Second {
-		return nil, fmt.Errorf("scale-to-zero-grace-period must be at least 30s, got %v", lc.ScaleToZeroGracePeriod)
+	if lc.ScaleToZeroGracePeriod < autoscaling.WindowMin {
+		return nil, fmt.Errorf("scale-to-zero-grace-period must be at least %v, got %v", autoscaling.WindowMin, lc.ScaleToZeroGracePeriod)
 	}
 	if lc.TargetBurstCapacity < 0 && lc.TargetBurstCapacity != -1 {
 		return nil, fmt.Errorf("target-burst-capacity must be non-negative, got %f", lc.TargetBurstCapacity)
