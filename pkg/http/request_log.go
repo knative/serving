@@ -135,17 +135,16 @@ func (h *RequestLogHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	rr := NewResponseRecorder(w, http.StatusOK)
-
-	// Filter probe requests for request logs.
-	// TODO(yanweiguo): Add probe request logs with a way to distinguish external
-	// requests and probe requests.
-	if network.IsProbe(r) {
-		h.handler.ServeHTTP(rr, r)
-		return
-	}
-
 	startTime := time.Now()
+
 	defer func() {
+		// Filter probe requests for request logs.
+		// TODO(yanweiguo): Add probe request logs with a way to distinguish external
+		// requests and probe requests.
+		if network.IsProbe(r) {
+			return
+		}
+
 		// If ServeHTTP panics, recover, record the failure and panic again.
 		err := recover()
 		latency := time.Since(startTime).Seconds()
@@ -164,6 +163,7 @@ func (h *RequestLogHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			}))
 		}
 	}()
+
 	h.handler.ServeHTTP(rr, r)
 }
 
