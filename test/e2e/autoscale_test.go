@@ -36,6 +36,8 @@ import (
 	"knative.dev/pkg/test/logstream"
 	"knative.dev/serving/pkg/activator"
 	"knative.dev/serving/pkg/apis/autoscaling"
+	"knative.dev/serving/pkg/apis/networking"
+	"knative.dev/serving/pkg/apis/serving"
 	resourcenames "knative.dev/serving/pkg/reconciler/revision/resources/names"
 	"knative.dev/serving/pkg/resources"
 	rtesting "knative.dev/serving/pkg/testing/v1alpha1"
@@ -476,4 +478,54 @@ func TestTargetBurstCapacityMinusOne(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("Initial state never achieved: %v", err)
 	}
+}
+
+func TestFastScaleToZero(t *testing.T) {
+	t.Parallel()
+	cancel := logstream.Start(t)
+	defer cancel()
+
+	ctx := setup(t, autoscaling.KPA, autoscaling.Concurrency,
+		rtesting.WithConfigAnnotations(map[string]string{
+			autoscaling.TargetBurstCapacityKey: "-1",
+			autoscaling.WindowAnnotationKey:    autoscaling.WindowMin.String(),
+		}))
+	defer test.TearDown(ctx.clients, ctx.names)
+
+	cfg, err := autoscalerCM(ctx.clients)
+	if err != nil {
+		t.Fatalf("Error retrieving autoscaler configmap: %v", err)
+	}
+
+	epsL, err := ctx.clients.KubeClient.Kube.CoreV1().Endpoints(test.ServingNamespace).List(metav1.ListOptions{
+		LabelSelector: fmt.Sprintf("%s=%s,%s=%s",
+			serving.RevisionLabelKey, ctx.resources.Revision.Name,
+			networking.ServiceTypeKey, networking.ServiceTypePrivate,
+		),
+	})
+	if err != nil || len(epsL.Items) == 0 {
+		t.Fatalf("No endpoints or error: %v", err)
+	}
+
+	epsN := epsL.Items[0].Name
+	t.Logf("Waiting for emptying of %q ", epsN)
+
+	// The first thing that happens when pods are starting to terminate,
+	// if that they stop being ready and endpoints controller removes them
+	// from the ready set.
+	// While pod termination itself can last quite some time (our pod termination
+	// test allows for up to a minute). The 15s delay is based upon maximum
+	// of 20 runs (11s) + 4s of buffer for reliability.
+	st := time.Now()
+	if err := wait.PollImmediate(1*time.Second, cfg.ScaleToZeroGracePeriod+15*time.Second, func() (bool, error) {
+		eps, err := ctx.clients.KubeClient.Kube.CoreV1().Endpoints(test.ServingNamespace).Get(epsN, metav1.GetOptions{})
+		if err != nil {
+			return false, err
+		}
+		return resources.ReadyAddressCount(eps) == 0, nil
+	}); err != nil {
+		t.Fatalf("Did not observe %q to actually be emptied", epsN)
+	}
+
+	t.Logf("Total time to scale down: %v", time.Since(st))
 }
