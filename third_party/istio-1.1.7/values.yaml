@@ -71,5 +71,8 @@ mixer:
       enabled: false
 
 pilot:
-  traceSampling: 100
   autoscaleMin: 2
+  resources:
+    requests:
+      cpu: 3000m
+      memory: 2048Mi

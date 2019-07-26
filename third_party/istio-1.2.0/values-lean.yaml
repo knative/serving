@@ -81,12 +81,11 @@ mixer:
       enabled: false
 
 pilot:
-  traceSampling: 100
   sidecar: false
   resources:
     requests:
-      cpu: 100m
-      memory: 256Mi
+      cpu: 3000m
+      memory: 2048Mi
 
 galley:
   enabled: false
