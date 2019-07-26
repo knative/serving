@@ -61,6 +61,11 @@ var (
 )
 
 // TrafficTarget holds a single entry of the routing table for a Route.
+// Within this structure there may be an indication of when to route
+// traffic to this revision - e.g. `percent`.
+// There may be other traffic routing properties defined in the future,
+// or via extensions. When there are no such properties at all specified then
+// the default is that no traffic will be routed to this revision.
 type TrafficTarget struct {
 	// Tag is optionally used to expose a dedicated url for referencing
 	// this target exclusively.
@@ -90,7 +95,7 @@ type TrafficTarget struct {
 	LatestRevision *bool `json:"latestRevision,omitempty"`
 
 	// Percent specifies percent of the traffic to this Revision or Configuration.
-	// This defaults to zero if unspecified.
+	// If unspecified, this has no default value.
 	// +optional
 	Percent int `json:"percent"`
 
