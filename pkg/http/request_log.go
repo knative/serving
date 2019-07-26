@@ -135,31 +135,35 @@ func (h *RequestLogHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	rr := NewResponseRecorder(w, http.StatusOK)
+
 	// Filter probe requests for request logs.
 	// TODO(yanweiguo): Add probe request logs with a way to distinguish external
 	// requests and probe requests.
-	if !network.IsProbe(r) {
-		startTime := time.Now()
-		defer func() {
-			// If ServeHTTP panics, recover, record the failure and panic again.
-			err := recover()
-			latency := time.Since(startTime).Seconds()
-			if err != nil {
-				h.write(t, h.inputGetter(r, &RequestLogResponse{
-					Code:    http.StatusInternalServerError,
-					Latency: latency,
-					Size:    0,
-				}))
-				panic(err)
-			} else {
-				h.write(t, h.inputGetter(r, &RequestLogResponse{
-					Code:    rr.ResponseCode,
-					Latency: latency,
-					Size:    (int)(rr.ResponseSize),
-				}))
-			}
-		}()
+	if network.IsProbe(r) {
+		h.handler.ServeHTTP(rr, r)
+		return
 	}
+
+	startTime := time.Now()
+	defer func() {
+		// If ServeHTTP panics, recover, record the failure and panic again.
+		err := recover()
+		latency := time.Since(startTime).Seconds()
+		if err != nil {
+			h.write(t, h.inputGetter(r, &RequestLogResponse{
+				Code:    http.StatusInternalServerError,
+				Latency: latency,
+				Size:    0,
+			}))
+			panic(err)
+		} else {
+			h.write(t, h.inputGetter(r, &RequestLogResponse{
+				Code:    rr.ResponseCode,
+				Latency: latency,
+				Size:    (int)(rr.ResponseSize),
+			}))
+		}
+	}()
 	h.handler.ServeHTTP(rr, r)
 }
 

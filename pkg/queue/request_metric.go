@@ -47,20 +47,22 @@ func (h *requestMetricHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 	rr := pkghttp.NewResponseRecorder(w, http.StatusOK)
 
 	// Filter probe requests for revision metrics.
-	if !network.IsProbe(r) {
-		startTime := time.Now()
-		defer func() {
-			// If ServeHTTP panics, recover, record the failure and panic again.
-			err := recover()
-			latency := time.Since(startTime)
-			if err != nil {
-				h.sendRequestMetrics(http.StatusInternalServerError, latency)
-				panic(err)
-			}
-			h.sendRequestMetrics(rr.ResponseCode, latency)
-		}()
+	if network.IsProbe(r) {
+		h.handler.ServeHTTP(rr, r)
+		return
 	}
 
+	startTime := time.Now()
+	defer func() {
+		// If ServeHTTP panics, recover, record the failure and panic again.
+		err := recover()
+		latency := time.Since(startTime)
+		if err != nil {
+			h.sendRequestMetrics(http.StatusInternalServerError, latency)
+			panic(err)
+		}
+		h.sendRequestMetrics(rr.ResponseCode, latency)
+	}()
 	h.handler.ServeHTTP(rr, r)
 }
 
