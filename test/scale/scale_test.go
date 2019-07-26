@@ -19,7 +19,6 @@ limitations under the License.
 package e2e
 
 import (
-	"fmt"
 	"testing"
 	"time"
 
@@ -46,25 +45,25 @@ const shortModeMaxScale = 10
 //   things have gone horribly wrong.  This should take about 12-20 seconds total.
 // 2. TestScaleToN/scale-100: a more proper execution of the test, which verifies a slightly more
 //   interesting burst of deployments, but low enough to complete in a reasonable window.
-func TestScaleToN(t *testing.T) {
-	// Run each of these variations.
-	tests := []struct {
-		size    int
-		timeout time.Duration
-	}{{
-		size:    10,
-		timeout: 60 * time.Second,
-	}, {
-		size:    100,
-		timeout: 10 * time.Minute,
-	}}
-
-	for _, test := range tests {
-		t.Run(fmt.Sprintf("scale-%d", test.size), func(t *testing.T) {
-			if testing.Short() && test.size > shortModeMaxScale {
-				t.Skip("Skipping test in short mode")
-			}
-			ScaleToWithin(t, test.size, test.timeout, &nopLatencies{t})
-		})
-	}
-}
+// func TestScaleToN(t *testing.T) {
+// 	// Run each of these variations.
+// 	tests := []struct {
+// 		size    int
+// 		timeout time.Duration
+// 	}{{
+// 		size:    10,
+// 		timeout: 60 * time.Second,
+// 	}, {
+// 		size:    100,
+// 		timeout: 10 * time.Minute,
+// 	}}
+//
+// 	for _, test := range tests {
+// 		t.Run(fmt.Sprintf("scale-%d", test.size), func(t *testing.T) {
+// 			if testing.Short() && test.size > shortModeMaxScale {
+// 				t.Skip("Skipping test in short mode")
+// 			}
+// 			ScaleToWithin(t, test.size, test.timeout, &nopLatencies{t})
+// 		})
+// 	}
+// }
