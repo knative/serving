@@ -250,11 +250,16 @@ func computeActiveCondition(pa *pav1alpha1.PodAutoscaler, want int32, got int) {
 		}
 
 	case got < minReady:
-		pa.Status.MarkActivating(
-			"Queued", "Requests to the target are being buffered as resources are provisioned.")
+		if want > 0 || !pa.Status.IsInactive() {
+			pa.Status.MarkActivating(
+				"Queued", "Requests to the target are being buffered as resources are provisioned.")
+		}
 
 	case got >= minReady:
-		pa.Status.MarkActive()
+		if want > 0 || !pa.Status.IsInactive() {
+			// SKS should already be active.
+			pa.Status.MarkActive()
+		}
 	}
 }
 
