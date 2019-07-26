@@ -214,12 +214,8 @@ func makeVirtualServiceRoute(hosts []string, http *v1alpha1.HTTPIngressPath, gat
 			Attempts:      http.Retries.Attempts,
 			PerTryTimeout: http.Retries.PerTryTimeout.Duration.String(),
 		},
-		// TODO(mattmoor): Remove AppendHeaders when 1.1 is a hard dependency.
-		// AppendHeaders is deprecated in Istio 1.1 in favor of Headers,
-		// however, 1.0.x doesn't support Headers.
-		DeprecatedAppendHeaders: http.AppendHeaders,
-		Headers:                 h,
-		WebsocketUpgrade:        true,
+		Headers:          h,
+		WebsocketUpgrade: true,
 	}
 }
 
