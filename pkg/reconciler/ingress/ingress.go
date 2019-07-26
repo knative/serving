@@ -26,7 +26,6 @@ import (
 	gatewayinformer "knative.dev/pkg/client/injection/informers/istio/v1alpha3/gateway"
 	virtualserviceinformer "knative.dev/pkg/client/injection/informers/istio/v1alpha3/virtualservice"
 	"knative.dev/pkg/logging"
-	"knative.dev/pkg/system"
 	ingressinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/ingress"
 	listers "knative.dev/serving/pkg/client/listers/networking/v1alpha1"
 
@@ -248,8 +247,7 @@ func (r *BaseIngressReconciler) reconcileIngress(ctx context.Context, ra Reconci
 	ia.GetStatus().InitializeConditions()
 	logger.Infof("Reconciling ingress: %#v", ia)
 
-	gatewayNames := gatewayNamesFromContext(ctx)
-	vses := resources.MakeVirtualServices(ia, gatewayNames)
+	vses := resources.MakeVirtualServices(ia, qualifiedGatewayNamesFromContext(ctx))
 
 	// First, create the VirtualServices.
 	logger.Infof("Creating/Updating VirtualServices")
@@ -278,8 +276,8 @@ func (r *BaseIngressReconciler) reconcileIngress(ctx context.Context, ra Reconci
 			return err
 		}
 
-		for _, gatewayName := range gatewayNames[v1alpha1.IngressVisibilityExternalIP] {
-			ns, err := resources.GatewayServiceNamespace(config.FromContext(ctx).Istio.IngressGateways, gatewayName)
+		for _, gw := range config.FromContext(ctx).Istio.IngressGateways {
+			ns, err := resources.ServiceNamespaceFromURL(gw.ServiceURL)
 			if err != nil {
 				return err
 			}
@@ -287,7 +285,7 @@ func (r *BaseIngressReconciler) reconcileIngress(ctx context.Context, ra Reconci
 			if err != nil {
 				return err
 			}
-			if err := r.reconcileGateway(ctx, ia, gatewayName, desired); err != nil {
+			if err := r.reconcileGateway(ctx, ia, gw, desired); err != nil {
 				return err
 			}
 		}
@@ -430,12 +428,11 @@ func (r *BaseIngressReconciler) reconcileDeletion(ctx context.Context, ra Reconc
 	if len(ia.GetFinalizers()) == 0 || ia.GetFinalizers()[0] != r.Finalizer {
 		return nil
 	}
-
-	allGateways := gatewayNamesFromContext(ctx)
+	istiocfg := config.FromContext(ctx).Istio
 	logger.Infof("Cleaning up Gateway Servers for ClusterIngress %s", ia.GetName())
-	for _, gatewayNames := range allGateways {
-		for _, gatewayName := range gatewayNames {
-			if err := r.reconcileGateway(ctx, ia, gatewayName, []v1alpha3.Server{}); err != nil {
+	for _, gws := range [][]config.Gateway{istiocfg.IngressGateways, istiocfg.LocalGateways} {
+		for _, gw := range gws {
+			if err := r.reconcileGateway(ctx, ia, gw, []v1alpha3.Server{}); err != nil {
 				return err
 			}
 		}
@@ -487,11 +484,11 @@ func (r *BaseIngressReconciler) ensureFinalizer(ra ReconcilerAccessor, ia v1alph
 	return err
 }
 
-func (r *BaseIngressReconciler) reconcileGateway(ctx context.Context, ia v1alpha1.IngressAccessor, gatewayName string, desired []v1alpha3.Server) error {
+func (r *BaseIngressReconciler) reconcileGateway(ctx context.Context, ia v1alpha1.IngressAccessor, gw config.Gateway, desired []v1alpha3.Server) error {
 	// TODO(zhiminx): Need to handle the scenario when deleting ClusterIngress. In this scenario,
 	// the Gateway servers of the ClusterIngress need also be removed from Gateway.
 	logger := logging.FromContext(ctx)
-	gateway, err := r.GatewayLister.Gateways(system.Namespace()).Get(gatewayName)
+	gateway, err := r.GatewayLister.Gateways(gw.Namespace).Get(gw.Name)
 	if err != nil {
 		// Not like VirtualService, A default gateway needs to be existed.
 		// It should be installed when installing Knative.
@@ -524,36 +521,22 @@ func (r *BaseIngressReconciler) reconcileGateway(ctx context.Context, ia v1alpha
 	return nil
 }
 
-// gatewayNamesFromContext get gateway names from context
-func gatewayNamesFromContext(ctx context.Context) map[v1alpha1.IngressVisibility][]string {
-	var publicGateways []string
+// qualifiedGatewayNamesFromContext get gateway names from context
+func qualifiedGatewayNamesFromContext(ctx context.Context) map[v1alpha1.IngressVisibility]sets.String {
+	publicGateways := sets.NewString()
 	for _, gw := range config.FromContext(ctx).Istio.IngressGateways {
-		publicGateways = append(publicGateways, gw.GatewayName)
+		publicGateways.Insert(gw.QualifiedName())
 	}
-	dedup(publicGateways)
 
-	var privateGateways []string
+	privateGateways := sets.NewString()
 	for _, gw := range config.FromContext(ctx).Istio.LocalGateways {
-		privateGateways = append(privateGateways, gw.GatewayName)
+		privateGateways.Insert(gw.QualifiedName())
 	}
 
-	return map[v1alpha1.IngressVisibility][]string{
+	return map[v1alpha1.IngressVisibility]sets.String{
 		v1alpha1.IngressVisibilityExternalIP:   publicGateways,
 		v1alpha1.IngressVisibilityClusterLocal: privateGateways,
 	}
-}
-
-func dedup(strs []string) []string {
-	existed := sets.NewString()
-	unique := []string{}
-	// We can't just do `sets.NewString(str)`, since we need to preserve the order.
-	for _, s := range strs {
-		if !existed.Has(s) {
-			existed.Insert(s)
-			unique = append(unique, s)
-		}
-	}
-	return unique
 }
 
 // gatewayServiceURLFromContext return an address of a load-balancer

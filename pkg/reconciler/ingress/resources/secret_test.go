@@ -110,7 +110,7 @@ func TestMakeSecrets(t *testing.T) {
 	ctx = config.ToContext(ctx, &config.Config{
 		Istio: &config.Istio{
 			IngressGateways: []config.Gateway{{
-				GatewayName: "test-gateway",
+				Name: "test-gateway",
 				// The namespace of Istio gateway service is istio-system.
 				ServiceURL: "istio-ingressgateway.istio-system.svc.cluster.local",
 			}},

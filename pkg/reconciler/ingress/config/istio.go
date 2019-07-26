@@ -24,6 +24,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/validation"
+	"knative.dev/pkg/system"
 	"knative.dev/serving/pkg/network"
 )
 
@@ -43,24 +44,36 @@ const (
 	ReconcileExternalGatewayKey = "reconcileExternalGateway"
 )
 
-var (
-	defaultGateway = Gateway{
-		GatewayName: "knative-ingress-gateway",
+func defaultGateways() []Gateway {
+	return []Gateway{{
+		Namespace: system.Namespace(),
+		Name:      "knative-ingress-gateway",
 		ServiceURL: fmt.Sprintf("istio-ingressgateway.istio-system.svc.%s",
 			network.GetClusterDomainName()),
-	}
-	defaultLocalGateway = Gateway{
-		GatewayName: "cluster-local-gateway",
+	}}
+}
+
+func defaultLocalGateways() []Gateway {
+	return []Gateway{{
+		Namespace: system.Namespace(),
+		Name:      "cluster-local-gateway",
 		ServiceURL: fmt.Sprintf("cluster-local-gateway.istio-system.svc.%s",
 			network.GetClusterDomainName()),
-	}
-	defaultReconcileGateway = false
-)
+	}}
+}
+
+var defaultReconcileGateway = false
 
 // Gateway specifies the name of the Gateway and the K8s Service backing it.
 type Gateway struct {
-	GatewayName string
-	ServiceURL  string
+	Namespace  string
+	Name       string
+	ServiceURL string
+}
+
+// QualifiedName returns gateway name in '{namespace}/{name}' format.
+func (g Gateway) QualifiedName() string {
+	return g.Namespace + "/" + g.Name
 }
 
 // Istio contains istio related configuration defined in the
@@ -94,8 +107,9 @@ func parseGateways(configMap *corev1.ConfigMap, prefix string) ([]Gateway, error
 	gateways := make([]Gateway, len(gatewayNames))
 	for i, gatewayName := range gatewayNames {
 		gateways[i] = Gateway{
-			GatewayName: gatewayName,
-			ServiceURL:  urls[gatewayName],
+			Namespace:  system.Namespace(),
+			Name:       gatewayName,
+			ServiceURL: urls[gatewayName],
 		}
 	}
 	return gateways, nil
@@ -108,11 +122,11 @@ func NewIstioFromConfigMap(configMap *corev1.ConfigMap) (*Istio, error) {
 		return nil, err
 	}
 	if len(gateways) == 0 {
-		gateways = append(gateways, defaultGateway)
+		gateways = defaultGateways()
 	}
 	localGateways, err := parseGateways(configMap, LocalGatewayKeyPrefix)
 	if len(localGateways) == 0 {
-		localGateways = append(localGateways, defaultLocalGateway)
+		localGateways = defaultLocalGateways()
 	}
 	localGateways = removeMeshGateway(localGateways)
 	if err != nil {
@@ -134,7 +148,7 @@ func NewIstioFromConfigMap(configMap *corev1.ConfigMap) (*Istio, error) {
 func removeMeshGateway(gateways []Gateway) []Gateway {
 	gws := []Gateway{}
 	for _, g := range gateways {
-		if g.GatewayName != "mesh" {
+		if g.Name != "mesh" {
 			gws = append(gws, g)
 		}
 	}
