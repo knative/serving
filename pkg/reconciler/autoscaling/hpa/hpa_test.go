@@ -25,17 +25,15 @@ import (
 	_ "knative.dev/pkg/injection/informers/kubeinformers/autoscalingv2beta1/hpa/fake"
 	_ "knative.dev/pkg/injection/informers/kubeinformers/corev1/service/fake"
 	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
+	_ "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/metric/fake"
 	fakepainformer "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/podautoscaler/fake"
 	_ "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/serverlessservice/fake"
 
-	"go.uber.org/atomic"
 	appsv1 "k8s.io/api/apps/v1"
 	autoscalingv2beta1 "k8s.io/api/autoscaling/v2beta1"
 	corev1 "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	ktesting "k8s.io/client-go/testing"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
@@ -67,7 +65,6 @@ func TestControllerCanReconcile(t *testing.T) {
 	ctx, _ := SetupFakeContext(t)
 
 	psFactory := presources.NewPodScalableInformerFactory(ctx)
-	metrics := newTestMetrics()
 
 	ctl := NewController(ctx, configmap.NewStaticWatcher(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
@@ -75,7 +72,7 @@ func TestControllerCanReconcile(t *testing.T) {
 			Name:      autoscaler.ConfigName,
 		},
 		Data: map[string]string{},
-	}), metrics, psFactory)
+	}), psFactory)
 
 	podAutoscaler := pa(testNamespace, testRevision, WithHPAClass)
 	fakeservingclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(podAutoscaler)
@@ -129,6 +126,8 @@ func TestReconcile(t *testing.T) {
 		},
 		Key: key(testNamespace, testRevision),
 		WantCreates: []runtime.Object{
+			metric(pa(testNamespace, testRevision,
+				WithHPAClass, WithMetricAnnotation(autoscaling.Concurrency)), testRevision+"-00001"),
 			sks(testNamespace, testRevision, WithDeployRef(deployName)),
 			hpa(pa(testNamespace, testRevision,
 				WithHPAClass, WithMetricAnnotation(autoscaling.Concurrency))),
@@ -366,17 +365,16 @@ func TestReconcile(t *testing.T) {
 	defer logtesting.ClearAll()
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
 		psFactory := presources.NewPodScalableInformerFactory(ctx)
-		fakeMetrics := newTestMetrics()
 
 		return &Reconciler{
 			Base: &areconciler.Base{
 				Base:              reconciler.NewBase(ctx, controllerAgentName, cmw),
 				PALister:          listers.GetPodAutoscalerLister(),
 				SKSLister:         listers.GetServerlessServiceLister(),
+				MetricLister:      listers.GetMetricLister(),
 				ConfigStore:       &testConfigStore{config: defaultConfig()},
 				ServiceLister:     listers.GetK8sServiceLister(),
 				PSInformerFactory: psFactory,
-				Metrics:           fakeMetrics,
 			},
 			hpaLister: listers.GetHorizontalPodAutoscalerLister(),
 		}
@@ -465,49 +463,8 @@ func metricsSvc(ns, n string, opts ...K8sServiceOption) *corev1.Service {
 	return svc
 }
 
-func newTestMetrics() *testMetrics {
-	return &testMetrics{
-		createCallCount:    atomic.NewUint32(0),
-		deleteCallCount:    atomic.NewUint32(0),
-		updateCallCount:    atomic.NewUint32(0),
-		deleteBeforeCreate: atomic.NewBool(false),
-	}
-}
-
-type testMetrics struct {
-	createCallCount    *atomic.Uint32
-	deleteCallCount    *atomic.Uint32
-	updateCallCount    *atomic.Uint32
-	deleteBeforeCreate *atomic.Bool
-	metric             *asv1a1.Metric
-}
-
-func (km *testMetrics) Get(ctx context.Context, namespace, name string) (*asv1a1.Metric, error) {
-	if km.metric == nil {
-		return nil, apierrors.NewNotFound(asv1a1.Resource("Metric"), types.NamespacedName{Namespace: namespace, Name: name}.String())
-	}
-	return km.metric, nil
-}
-
-func (km *testMetrics) Create(ctx context.Context, metric *asv1a1.Metric) (*asv1a1.Metric, error) {
-	km.metric = metric
-	km.createCallCount.Add(1)
-	return metric, nil
-}
-
-func (km *testMetrics) Delete(ctx context.Context, namespace, name string) error {
-	km.metric = nil
-	km.deleteCallCount.Add(1)
-	if km.createCallCount.Load() == 0 {
-		km.deleteBeforeCreate.Store(true)
-	}
-	return nil
-}
-
-func (km *testMetrics) Update(ctx context.Context, metric *asv1a1.Metric) (*asv1a1.Metric, error) {
-	km.metric = metric
-	km.updateCallCount.Add(1)
-	return metric, nil
+func metric(pa *asv1a1.PodAutoscaler, msvcName string) *asv1a1.Metric {
+	return aresources.MakeMetric(context.Background(), pa, msvcName, defaultConfig().Autoscaler)
 }
 
 func defaultConfig() *config.Config {

@@ -162,7 +162,7 @@ func (c *testCollector) Record(key types.NamespacedName, stat autoscaler.Stat) {
 	c.recordCalls++
 }
 
-func (c *testCollector) Delete(ctx context.Context, namespace, name string) error {
+func (c *testCollector) Delete(namespace, name string) error {
 	c.deleteCalls++
 	return c.deleteError
 }

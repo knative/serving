@@ -51,7 +51,7 @@ type Base struct {
 	PALister          listers.PodAutoscalerLister
 	ServiceLister     corev1listers.ServiceLister
 	SKSLister         nlisters.ServerlessServiceLister
-	Metrics           resources.Metrics
+	MetricLister      listers.MetricLister
 	ConfigStore       reconciler.ConfigStore
 	PSInformerFactory duck.InformerFactory
 }
@@ -164,9 +164,9 @@ func (c *Base) ReconcileMetricsService(ctx context.Context, pa *pav1alpha1.PodAu
 // ReconcileMetric reconciles a metric instance out of the given PodAutoscaler to control metric collection.
 func (c *Base) ReconcileMetric(ctx context.Context, pa *pav1alpha1.PodAutoscaler, metricSN string) error {
 	desiredMetric := resources.MakeMetric(ctx, pa, metricSN, config.FromContext(ctx).Autoscaler)
-	metric, err := c.Metrics.Get(ctx, desiredMetric.Namespace, desiredMetric.Name)
+	metric, err := c.MetricLister.Metrics(desiredMetric.Namespace).Get(desiredMetric.Name)
 	if errors.IsNotFound(err) {
-		_, err = c.Metrics.Create(ctx, desiredMetric)
+		_, err = c.ServingClientSet.AutoscalingV1alpha1().Metrics(desiredMetric.Namespace).Create(desiredMetric)
 		if err != nil {
 			return perrors.Wrap(err, "error creating metric")
 		}
@@ -178,7 +178,7 @@ func (c *Base) ReconcileMetric(ctx context.Context, pa *pav1alpha1.PodAutoscaler
 		if !equality.Semantic.DeepEqual(desiredMetric, metric) {
 			want := metric.DeepCopy()
 			want.Spec = desiredMetric.Spec
-			if _, err = c.Metrics.Update(ctx, desiredMetric); err != nil {
+			if _, err = c.ServingClientSet.AutoscalingV1alpha1().Metrics(desiredMetric.Namespace).Update(want); err != nil {
 				return perrors.Wrap(err, "error updating metric")
 			}
 		}
