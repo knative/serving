@@ -23,16 +23,17 @@ import (
 	"github.com/google/go-cmp/cmp"
 )
 
+type args struct {
+	time  time.Time
+	name  string
+	value float64
+}
+
 func TestTimedFloat64Buckets(t *testing.T) {
 	pod := "pod"
 	trunc1 := time.Now().Truncate(1 * time.Second)
 	trunc5 := time.Now().Truncate(5 * time.Second)
 
-	type args struct {
-		time  time.Time
-		name  string
-		value float64
-	}
 	tests := []struct {
 		name        string
 		granularity time.Duration
@@ -249,6 +250,113 @@ func TestFloat64Bucket(t *testing.T) {
 
 			if got := bucket.Sum(); got != tt.want {
 				t.Errorf("Average() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestTimedFloat64Buckets_getLatestTimestamp(t *testing.T) {
+	pod := "pod"
+	now := time.Now()
+	trunc1 := now.Truncate(1 * time.Second)
+	granularity := 1 * time.Second
+	tests := []struct {
+		name      string
+		times     []time.Time
+		givenTime time.Time
+		want      time.Time
+	}{{
+		name: "Has an exact match (same time as givenTime)",
+		times: []time.Time{
+			trunc1.Add(-2 * time.Second),
+			trunc1.Add(-1 * time.Second),
+			trunc1,
+			trunc1.Add(1 * time.Second),
+			trunc1.Add(2 * time.Second),
+		},
+		givenTime: trunc1,
+		want:      trunc1,
+	}, {
+		name: "Does not have an exact match, but has entry that's right before the given time",
+		times: []time.Time{
+			trunc1.Add(-2 * time.Second),
+			trunc1.Add(-1 * time.Second),
+			trunc1,
+			trunc1.Add(1 * time.Second),
+			trunc1.Add(2 * time.Second),
+		},
+		givenTime: now,
+		want:      trunc1,
+	}, {
+		name: "All time entries are before the given time",
+		times: []time.Time{
+			trunc1.Add(-2 * time.Second),
+			trunc1.Add(-1 * time.Second),
+			trunc1,
+		},
+		givenTime: now,
+		want:      trunc1,
+	}}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			buckets := NewTimedFloat64Buckets(granularity)
+			for _, time := range tc.times {
+				buckets.Record(time, pod, 1.0)
+			}
+
+			if got, want := len(buckets.buckets), len(tc.times); got != want {
+				t.Errorf("len(buckets) = %v, want %v", got, want)
+			}
+
+			if got, want := buckets.getLatestTimestamp(tc.givenTime), tc.want; got != want {
+				t.Errorf("Got %v, want %v", got, want)
+			}
+		})
+	}
+}
+
+func TestTimedFloat64Buckets_GetLatestReading(t *testing.T) {
+	pod := "pod"
+	now := time.Now()
+	trunc1 := now.Truncate(1 * time.Second)
+	granularity := 1 * time.Second
+	tests := []struct {
+		name      string
+		stats     []args
+		givenTime time.Time
+		want      float64
+	}{{
+		name: "Has an exact match (same time as givenTime)",
+		stats: []args{
+			{trunc1.Add(-2 * time.Second), pod, 1.0},
+			{trunc1.Add(-1 * time.Second), pod, 1.0},
+			{trunc1, pod, 1.0},
+			{trunc1.Add(1 * time.Second), pod, 1.0},
+			{trunc1.Add(2 * time.Second), pod, 1.0},
+		},
+		givenTime: trunc1,
+		want:      1.0,
+	}, {
+		name: "No reading available before the given time",
+		stats: []args{
+			{trunc1, pod, 1.0},
+			{trunc1.Add(1 * time.Second), pod, 1.0},
+			{trunc1.Add(2 * time.Second), pod, 1.0},
+		},
+		givenTime: trunc1.Add(-1 * time.Second),
+		want:      0.0,
+	}}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			buckets := NewTimedFloat64Buckets(granularity)
+			for _, stat := range tc.stats {
+				buckets.Record(stat.time, stat.name, stat.value)
+			}
+
+			if got, want := buckets.GetLatestReading(tc.givenTime), tc.want; got != want {
+				t.Errorf("Got %v, want %v", got, want)
 			}
 		})
 	}

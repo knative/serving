@@ -161,6 +161,61 @@ func TestMetricCollectorScraper(t *testing.T) {
 	}
 }
 
+func TestMetricCollectorScraperZeroStableWindow(t *testing.T) {
+	defer ClearAll()
+
+	logger := TestLogger(t)
+
+	now := time.Now()
+	metricKey := types.NamespacedName{Namespace: defaultNamespace, Name: defaultName}
+	want := 10.0
+	stat := &StatMessage{
+		Key: metricKey,
+		Stat: Stat{
+			Time:                      &now,
+			PodName:                   "testPod",
+			AverageConcurrentRequests: 10.0,
+		},
+	}
+	scraper := &testScraper{
+		s: func() (*StatMessage, error) {
+			return stat, nil
+		},
+	}
+	factory := scraperFactory(scraper, nil)
+
+	coll := NewMetricCollector(factory, logger)
+	metrocWithZeroStableWindow := &av1alpha1.Metric{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: defaultNamespace,
+			Name:      defaultName,
+		},
+		Spec: av1alpha1.MetricSpec{
+			StableWindow: 0 * time.Second,
+			PanicWindow:  6 * time.Second,
+			ScrapeTarget: "original-target",
+		},
+	}
+	coll.CreateOrUpdate(metrocWithZeroStableWindow)
+
+	// stable concurrency should eventually be equal to the stat.
+	var got float64
+	wait.PollImmediate(10*time.Millisecond, 2*time.Second, func() (bool, error) {
+		got, _, _ = coll.StableAndPanicConcurrency(metricKey, now)
+		return got == want, nil
+	})
+	if got != want {
+		t.Errorf("StableAndPanicConcurrency() = %v, want %v", got, want)
+	}
+
+	// deleting the metric should cause a calculation error
+	coll.Delete(defaultNamespace, defaultName)
+	_, _, err := coll.StableAndPanicConcurrency(metricKey, now)
+	if err != ErrNotScraping {
+		t.Errorf("StableAndPanicConcurrency() = %v, want %v", err, ErrNotScraping)
+	}
+}
+
 func TestMetricCollectorRecord(t *testing.T) {
 	defer ClearAll()
 	logger := TestLogger(t)

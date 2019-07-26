@@ -22,9 +22,8 @@ import (
 	"strings"
 	"time"
 
-	"knative.dev/serving/pkg/apis/autoscaling"
-
 	corev1 "k8s.io/api/core/v1"
+	"knative.dev/serving/pkg/apis/autoscaling"
 )
 
 const (
@@ -161,7 +160,7 @@ func NewConfigFromMap(data map[string]string) (*Config, error) {
 }
 
 func validate(lc *Config) (*Config, error) {
-	if lc.ScaleToZeroGracePeriod < 30*time.Second {
+	if lc.ScaleToZeroGracePeriod < 30*time.Second && lc.ScaleToZeroGracePeriod != 0 {
 		return nil, fmt.Errorf("scale-to-zero-grace-period must be at least 30s, got %v", lc.ScaleToZeroGracePeriod)
 	}
 	if lc.TargetBurstCapacity < 0 && lc.TargetBurstCapacity != -1 {
@@ -176,18 +175,21 @@ func validate(lc *Config) (*Config, error) {
 		return nil, fmt.Errorf("container-concurrency-target-percentage and container-concurrency-target-default yield target concurrency of %f, can't be less than 1", x)
 	}
 
-	// We can't permit stable window be less than our aggregation window for correctness.
-	if lc.StableWindow < autoscaling.WindowMin {
+	// We can't permit stable window be less than our aggregation window for correctness, unless
+	// stable window is zero (see issue #4589)
+	if lc.StableWindow < autoscaling.WindowMin && lc.StableWindow != 0 {
 		return nil, fmt.Errorf("stable-window = %v, must be at least %v", lc.StableWindow, BucketSize)
 	}
 
-	if lc.PanicWindow < BucketSize || lc.PanicWindow > lc.StableWindow {
+	if (lc.PanicWindow < BucketSize || lc.PanicWindow > lc.StableWindow) && lc.StableWindow != 0 {
 		return nil, fmt.Errorf("panic-window = %v, must be in [%v, %v] interval", lc.PanicWindow, BucketSize, lc.StableWindow)
 	}
 
-	effPW := time.Duration(lc.PanicWindowPercentage / 100 * float64(lc.StableWindow))
-	if effPW < BucketSize || effPW > lc.StableWindow {
-		return nil, fmt.Errorf("panic-window-percentage = %v, must be in [%v, 100] interval", lc.PanicWindowPercentage, 100*float64(BucketSize)/float64(lc.StableWindow))
+	if lc.StableWindow != 0 {
+		effPW := time.Duration(lc.PanicWindowPercentage / 100 * float64(lc.StableWindow))
+		if effPW < BucketSize || effPW > lc.StableWindow {
+			return nil, fmt.Errorf("panic-window-percentage = %v, must be in [%v, 100] interval", lc.PanicWindowPercentage, 100*float64(BucketSize)/float64(lc.StableWindow))
+		}
 	}
 
 	return lc, nil

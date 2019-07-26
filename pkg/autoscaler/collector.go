@@ -21,11 +21,10 @@ import (
 	"sync"
 	"time"
 
-	"k8s.io/apimachinery/pkg/types"
-	"knative.dev/serving/pkg/autoscaler/aggregation"
-
 	"go.uber.org/zap"
+	"k8s.io/apimachinery/pkg/types"
 	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
+	"knative.dev/serving/pkg/autoscaler/aggregation"
 )
 
 const (
@@ -280,20 +279,31 @@ func (c *collection) record(stat Stat) {
 func (c *collection) stableAndPanicConcurrency(now time.Time) (float64, float64, error) {
 	spec := c.currentMetric().Spec
 
-	c.buckets.RemoveOlderThan(now.Add(-spec.StableWindow))
+	panicAverage := aggregation.Average{}
+	var stableAverageVal float64
+	// if StableWindow is zero, then just grab the latest reading timestamp for stableAverage
+	if spec.StableWindow == 0 {
+		stableAverageVal = c.buckets.GetLatestReading(now)
 
-	if c.buckets.IsEmpty() {
-		return 0, 0, ErrNoData
+		c.buckets.ForEachBucket(
+			aggregation.YoungerThan(now.Add(-spec.PanicWindow), panicAverage.Accumulate),
+		)
+	} else {
+		stableAverage := aggregation.Average{}
+		c.buckets.RemoveOlderThan(now.Add(-spec.StableWindow))
+
+		if c.buckets.IsEmpty() {
+			return 0, 0, ErrNoData
+		}
+
+		c.buckets.ForEachBucket(
+			aggregation.YoungerThan(now.Add(-spec.PanicWindow), panicAverage.Accumulate),
+			stableAverage.Accumulate, // No need to add a YoungerThan condition as we already deleted all outdated stats above.
+		)
+		stableAverageVal = stableAverage.Value()
 	}
 
-	panicAverage := aggregation.Average{}
-	stableAverage := aggregation.Average{}
-	c.buckets.ForEachBucket(
-		aggregation.YoungerThan(now.Add(-spec.PanicWindow), panicAverage.Accumulate),
-		stableAverage.Accumulate, // No need to add a YoungerThan condition as we already deleted all outdated stats above.
-	)
-
-	return stableAverage.Value(), panicAverage.Value(), nil
+	return stableAverageVal, panicAverage.Value(), nil
 }
 
 // close stops collecting metrics, stops the scraper.

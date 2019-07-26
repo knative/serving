@@ -17,12 +17,12 @@ limitations under the License.
 package autoscaler
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
 	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
-
 	. "knative.dev/pkg/configmap/testing"
 )
 
@@ -182,6 +182,20 @@ func TestNewConfig(t *testing.T) {
 		},
 		wantErr: true,
 	}, {
+		name: "stable window is zero",
+		input: map[string]string{
+			"stable-window": "0s",
+			"panic-window":  "1ns",
+		},
+		want: func(c Config) *Config {
+			c.EnableScaleToZero = true
+			c.StableWindow = 0
+			c.PanicWindow = 1
+			c.ScaleToZeroGracePeriod = 30 * time.Second
+			return &c
+		}(defaultConfig),
+		wantErr: false,
+	}, {
 		name: "panic window too small",
 		input: map[string]string{
 			"panic-window": "500ms",
@@ -224,9 +238,25 @@ func TestNewConfig(t *testing.T) {
 			"scale-to-zero-grace-period": "4s",
 		},
 		wantErr: true,
+	}, {
+		name: "grace window is zero",
+		input: map[string]string{
+			"stable-window":              "0s",
+			"scale-to-zero-grace-period": "0s",
+			"panic-window":               "1ns",
+		},
+		want: func(c Config) *Config {
+			c.EnableScaleToZero = true
+			c.StableWindow = 0
+			c.PanicWindow = 1
+			c.ScaleToZeroGracePeriod = 0 * time.Second
+			return &c
+		}(defaultConfig),
+		wantErr: false,
 	}}
 
 	for _, test := range tests {
+		fmt.Printf("\n\n running test case %q\n\n", test.name)
 		t.Run(test.name, func(t *testing.T) {
 			got, err := NewConfigFromConfigMap(&corev1.ConfigMap{
 				Data: test.input,

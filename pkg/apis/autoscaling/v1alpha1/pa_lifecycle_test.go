@@ -21,7 +21,6 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/apis/duck"
 	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
@@ -98,6 +97,19 @@ func TestCanScaleToZero(t *testing.T) {
 		result: true,
 		grace:  10 * time.Second,
 	}, {
+		name: "inactive condition (no LTT) and zero grace period",
+		status: PodAutoscalerStatus{
+			Status: duckv1beta1.Status{
+				Conditions: duckv1beta1.Conditions{{
+					Type:   PodAutoscalerConditionActive,
+					Status: corev1.ConditionFalse,
+					// No LTT = beginning of time, so for sure we can.
+				}},
+			},
+		},
+		result: true,
+		grace:  0 * time.Second,
+	}, {
 		name: "inactive condition (LTT longer than grace period ago)",
 		status: PodAutoscalerStatus{
 			Status: duckv1beta1.Status{
@@ -113,6 +125,22 @@ func TestCanScaleToZero(t *testing.T) {
 		},
 		result: true,
 		grace:  10 * time.Second,
+	}, {
+		name: "inactive condition (LTT longer than grace period ago), and grace period is zero",
+		status: PodAutoscalerStatus{
+			Status: duckv1beta1.Status{
+				Conditions: duckv1beta1.Conditions{{
+					Type:   PodAutoscalerConditionActive,
+					Status: corev1.ConditionFalse,
+					LastTransitionTime: apis.VolatileTime{
+						Inner: metav1.NewTime(time.Now().Add(-30 * time.Second)),
+					},
+					// LTT = 30 seconds ago.
+				}},
+			},
+		},
+		result: true,
+		grace:  0 * time.Second,
 	}, {
 		name: "inactive condition (LTT less than grace period ago)",
 		status: PodAutoscalerStatus{

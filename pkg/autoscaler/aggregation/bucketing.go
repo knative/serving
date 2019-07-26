@@ -84,6 +84,34 @@ func (t *TimedFloat64Buckets) RemoveOlderThan(time time.Time) {
 	}
 }
 
+// getLatestTimestamp returns the latest time where data is recorded before the given time
+func (t *TimedFloat64Buckets) getLatestTimestamp(givenTime time.Time) time.Time {
+	t.bucketsMutex.RLock()
+	defer t.bucketsMutex.RUnlock()
+
+	latestTime := time.Time{}
+	for bucketTime := range t.buckets {
+		if latestTime.After(bucketTime) || bucketTime.After(givenTime) {
+			continue
+		}
+		latestTime = bucketTime
+	}
+	return latestTime
+}
+
+// GetLatestReading returns the float64 for the latest time where data is recorded before
+// the given time. Zero is returned if no reading is available at the given time.
+func (t *TimedFloat64Buckets) GetLatestReading(time time.Time) float64 {
+	t.bucketsMutex.RLock()
+	defer t.bucketsMutex.RUnlock()
+
+	bucket, ok := t.buckets[t.getLatestTimestamp(time)]
+	if !ok {
+		return 0
+	}
+	return bucket.Sum()
+}
+
 // float64Bucket keeps all the stats that fall into a defined bucket.
 type float64Bucket map[string]float64Value
 

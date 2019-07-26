@@ -91,7 +91,7 @@ func validateWindows(annotations map[string]string) *apis.FieldError {
 		d, err := time.ParseDuration(v)
 		if err != nil {
 			errs = apis.ErrInvalidValue(v, WindowAnnotationKey)
-		} else if d < WindowMin || d > WindowMax {
+		} else if (d < WindowMin || d > WindowMax) && d != 0 { // We allow StableWindow and ScaleToZeroGracePeriod to be zero to "scale down each instance as soon as possible" (see issue #4589)
 			errs = apis.ErrOutOfBoundsValue(v, WindowMin, WindowMax, WindowAnnotationKey)
 		}
 	}

@@ -70,6 +70,9 @@ func TestValidateScaleBoundAnnotations(t *testing.T) {
 		name:        "minScale is 2, maxScale is 5",
 		annotations: map[string]string{MinScaleAnnotationKey: "2", MaxScaleAnnotationKey: "5"},
 	}, {
+		name:        "window is zero",
+		annotations: map[string]string{WindowAnnotationKey: "0s"},
+	}, {
 		name:        "minScale is 5, maxScale is 2",
 		annotations: map[string]string{MinScaleAnnotationKey: "5", MaxScaleAnnotationKey: "2"},
 		expectErr:   "maxScale=2 is less than minScale=5: autoscaling.knative.dev/maxScale, autoscaling.knative.dev/minScale",
