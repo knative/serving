@@ -129,5 +129,5 @@ spec:
     - type: Resource
       resource:
         name: cpu
-        # Percentage of the requested CPU, i.e. 250%*300 = 750. 75% of the limit.
-        targetAverageUtilization: 250
+        # Percentage of the requested CPU
+        targetAverageUtilization: 100
