@@ -78,7 +78,7 @@ spec:
           # The numbers are based on performance test results from
           # https://github.com/knative/serving/issues/1625#issuecomment-511930023
           requests:
-            cpu: 800m
+            cpu: 300m
             memory: 60Mi
           limits:
             cpu: 1000m
@@ -129,5 +129,5 @@ spec:
     - type: Resource
       resource:
         name: cpu
-        # Percentage of the requested CPU
-        targetAverageUtilization: 100
+        # Percentage of the requested CPU, i.e. 250%*300 = 750. 75% of the limit.
+        targetAverageUtilization: 250
