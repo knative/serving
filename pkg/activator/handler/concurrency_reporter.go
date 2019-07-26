@@ -19,44 +19,57 @@ package handler
 import (
 	"time"
 
+	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/types"
 	"knative.dev/pkg/system"
+	"knative.dev/serving/pkg/activator"
+	"knative.dev/serving/pkg/apis/serving"
 	"knative.dev/serving/pkg/autoscaler"
+	servinglisters "knative.dev/serving/pkg/client/listers/serving/v1alpha1"
 )
 
 // ConcurrencyReporter reports stats based on incoming requests and ticks.
 type ConcurrencyReporter struct {
+	logger  *zap.SugaredLogger
 	podName string
 
 	// Ticks with every request arrived/completed respectively
-	reqChan chan ReqEvent
+	reqCh chan ReqEvent
 	// Ticks with every stat report request
-	reportChan <-chan time.Time
+	reportCh <-chan time.Time
 	// Stat reporting channel
-	statChan chan *autoscaler.StatMessage
+	statCh chan *autoscaler.StatMessage
+
+	rl servinglisters.RevisionLister
+	sr activator.StatsReporter
 
 	clock system.Clock
 }
 
 // NewConcurrencyReporter creates a ConcurrencyReporter which listens to incoming
-// ReqEvents on reqChan and ticks on reportChan and reports stats on statChan.
-func NewConcurrencyReporter(podName string, reqChan chan ReqEvent, reportChan <-chan time.Time, statChan chan *autoscaler.StatMessage) *ConcurrencyReporter {
-	return NewConcurrencyReporterWithClock(podName, reqChan, reportChan, statChan, system.RealClock{})
+// ReqEvents on reqCh and ticks on reportCh and reports stats on statCh.
+func NewConcurrencyReporter(logger *zap.SugaredLogger, podName string, reqCh chan ReqEvent, reportCh <-chan time.Time,
+	statCh chan *autoscaler.StatMessage, rl servinglisters.RevisionLister, sr activator.StatsReporter) *ConcurrencyReporter {
+	return NewConcurrencyReporterWithClock(logger, podName, reqCh, reportCh, statCh, rl, sr, system.RealClock{})
 }
 
 // NewConcurrencyReporterWithClock instantiates a new concurrency reporter
 // which uses the passed clock.
-func NewConcurrencyReporterWithClock(podName string, reqChan chan ReqEvent, reportChan <-chan time.Time, statChan chan *autoscaler.StatMessage, clock system.Clock) *ConcurrencyReporter {
+func NewConcurrencyReporterWithClock(logger *zap.SugaredLogger, podName string, reqCh chan ReqEvent, reportCh <-chan time.Time,
+	statCh chan *autoscaler.StatMessage, rl servinglisters.RevisionLister, sr activator.StatsReporter, clock system.Clock) *ConcurrencyReporter {
 	return &ConcurrencyReporter{
-		podName:    podName,
-		reqChan:    reqChan,
-		reportChan: reportChan,
-		statChan:   statChan,
-		clock:      clock,
+		logger:   logger,
+		podName:  podName,
+		reqCh:    reqCh,
+		reportCh: reportCh,
+		statCh:   statCh,
+		rl:       rl,
+		sr:       sr,
+		clock:    clock,
 	}
 }
 
-func (cr *ConcurrencyReporter) report(key types.NamespacedName, concurrency, requestCount int32) {
+func (cr *ConcurrencyReporter) reportToAutoscaler(key types.NamespacedName, concurrency, requestCount int32) {
 	stat := autoscaler.Stat{
 		PodName:                   cr.podName,
 		AverageConcurrentRequests: float64(concurrency),
@@ -65,10 +78,23 @@ func (cr *ConcurrencyReporter) report(key types.NamespacedName, concurrency, req
 
 	// Send the stat to another goroutine to transmit
 	// so we can continue bucketing stats.
-	cr.statChan <- &autoscaler.StatMessage{
+	cr.statCh <- &autoscaler.StatMessage{
 		Key:  key,
 		Stat: stat,
 	}
+}
+
+func (cr *ConcurrencyReporter) reportToMetricsBackend(key types.NamespacedName, concurrency int32) {
+	ns := key.Namespace
+	revName := key.Name
+	revision, err := cr.rl.Revisions(ns).Get(revName)
+	if err != nil {
+		cr.logger.Errorw("Error while getting revision", zap.Error(err))
+		return
+	}
+	configurationName := revision.Labels[serving.ConfigurationLabelKey]
+	serviceName := revision.Labels[serving.ServiceLabelKey]
+	cr.sr.ReportRequestConcurrency(ns, serviceName, configurationName, revName, int64(concurrency))
 }
 
 // Run runs until stopCh is closed and processes events on all incoming channels
@@ -81,26 +107,27 @@ func (cr *ConcurrencyReporter) Run(stopCh <-chan struct{}) {
 
 	for {
 		select {
-		case event := <-cr.reqChan:
+		case event := <-cr.reqCh:
 			switch event.EventType {
 			case ReqIn:
 				incomingRequestsPerKey[event.Key]++
 
 				// Report the first request for a key immediately.
 				if _, ok := outstandingRequestsPerKey[event.Key]; !ok {
-					cr.report(event.Key, 1, incomingRequestsPerKey[event.Key])
+					cr.reportToAutoscaler(event.Key, 1, incomingRequestsPerKey[event.Key])
 				}
 				outstandingRequestsPerKey[event.Key]++
 			case ReqOut:
 				outstandingRequestsPerKey[event.Key]--
 			}
-		case <-cr.reportChan:
+		case <-cr.reportCh:
 			for key, concurrency := range outstandingRequestsPerKey {
 				if concurrency == 0 {
 					delete(outstandingRequestsPerKey, key)
 				} else {
-					cr.report(key, concurrency, incomingRequestsPerKey[key])
+					cr.reportToAutoscaler(key, concurrency, incomingRequestsPerKey[key])
 				}
+				cr.reportToMetricsBackend(key, concurrency)
 			}
 
 			incomingRequestsPerKey = make(map[types.NamespacedName]int32)

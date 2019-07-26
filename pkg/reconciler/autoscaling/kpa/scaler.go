@@ -169,14 +169,16 @@ func (ks *scaler) handleScaleToZero(pa *pav1alpha1.PodAutoscaler, sks *nv1a1.Ser
 
 		// Do not scale to 0, but return desiredScale of 0 to mark PA inactive.
 		sw := aresources.StableWindow(pa, config)
-		if pa.Status.CanMarkInactive(sw) {
+		af := pa.Status.ActiveFor()
+		if af >= sw {
 			// We do not need to enqueue PA here, since this will
 			// make SKS reconcile and when it's done, PA will be reconciled again.
 			return desiredScale, false
 		}
-		// Otherwise, scale down to 1 until the idle period elapses and re-enqueue
-		// the PA for reconciliation at that time.
-		ks.enqueueCB(pa, sw)
+		// Otherwise, scale down to at most 1 for the remainder of the idle period and then
+		// reconcile PA again.
+		ks.logger.Infof("%s sleeping additionally for %v before can scale to 0", sw-af)
+		ks.enqueueCB(pa, sw-af)
 		desiredScale = 1
 	} else { // Active=False
 		r, err := ks.activatorProbe(pa, ks.transport)

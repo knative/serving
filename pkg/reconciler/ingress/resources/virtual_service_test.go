@@ -251,9 +251,6 @@ func TestMakeMeshVirtualServiceSpec_CorrectRoutes(t *testing.T) {
 				},
 			},
 		},
-		DeprecatedAppendHeaders: map[string]string{
-			"foo": "bar",
-		},
 		Timeout: defaultMaxRevisionTimeout.String(),
 		Retries: &v1alpha3.HTTPRetry{
 			Attempts:      networking.DefaultRetryCount,
@@ -387,9 +384,6 @@ func TestMakeIngressVirtualServiceSpec_CorrectRoutes(t *testing.T) {
 				},
 			},
 		},
-		DeprecatedAppendHeaders: map[string]string{
-			"foo": "bar",
-		},
 		Timeout: defaultMaxRevisionTimeout.String(),
 		Retries: &v1alpha3.HTTPRetry{
 			Attempts:      networking.DefaultRetryCount,
@@ -414,9 +408,6 @@ func TestMakeIngressVirtualServiceSpec_CorrectRoutes(t *testing.T) {
 					"foo": "baz",
 				},
 			},
-		},
-		DeprecatedAppendHeaders: map[string]string{
-			"foo": "baz",
 		},
 		Timeout: defaultMaxRevisionTimeout.String(),
 		Retries: &v1alpha3.HTTPRetry{

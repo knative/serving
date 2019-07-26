@@ -55,7 +55,7 @@ func (r *reconciler) Reconcile(ctx context.Context, key string) error {
 
 	metric, err := r.metricLister.Metrics(namespace).Get(name)
 	if apierrs.IsNotFound(err) {
-		return r.collector.Delete(ctx, namespace, name)
+		return r.collector.Delete(namespace, name)
 	} else if err != nil {
 		return errors.Wrapf(err, "failed to fetch metric %q", key)
 	}

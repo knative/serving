@@ -1,3 +1,19 @@
+/*
+Copyright 2019 The Knative Authors
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package activator
 
 import (
@@ -202,15 +218,12 @@ func TestRevisionWatcher(t *testing.T) {
 
 			revDests := make(map[RevisionID][]string)
 			for i := 0; i < tc.updateCnt; i++ {
-				timeout := time.NewTicker(100 * time.Millisecond)
-				defer timeout.Stop()
 				select {
 				case update := <-updateCh:
 					sort.Strings(update.Dests)
 					revDests[update.Rev] = update.Dests
-				case <-timeout.C:
+				case <-time.After(100 * time.Millisecond):
 					t.Errorf("Timed out waiting for update event")
-					break
 				}
 			}
 
@@ -343,8 +356,9 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 			bm := NewRevisionBackendsManagerWithProbeFrequency(updateCh, rt, endpointsInformer, TestLogger(t), 50*time.Millisecond)
 			defer bm.Clear()
 
-			for i, _ := range tc.endpointsArr {
-				fake.CoreV1().Endpoints("test-namespace").Create(&tc.endpointsArr[i])
+			for _, ep := range tc.endpointsArr {
+				fake.CoreV1().Endpoints("test-namespace").Create(&ep)
+				endpointsInformer.Informer().GetIndexer().Add(&ep)
 			}
 
 			if tc.updateCnt == 0 {
@@ -354,15 +368,12 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 			revDests := make(map[RevisionID][]string)
 			// Wait for updateCb to be called
 			for i := 0; i < tc.updateCnt; i++ {
-				timeout := time.NewTicker(100 * time.Millisecond)
-				defer timeout.Stop()
 				select {
 				case update := <-updateCh:
 					sort.Strings(update.Dests)
 					revDests[update.Rev] = update.Dests
-				case <-timeout.C:
+				case <-time.After(100 * time.Millisecond):
 					t.Errorf("Timed out waiting for update event")
-					break
 				}
 			}
 

@@ -31,10 +31,16 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
+	openzipkin "github.com/openzipkin/zipkin-go"
+	zipkinreporter "github.com/openzipkin/zipkin-go/reporter"
+	reporterrecorder "github.com/openzipkin/zipkin-go/reporter/recorder"
+	"go.opencensus.io/plugin/ochttp"
 	"knative.dev/pkg/ptr"
 	"knative.dev/serving/pkg/activator"
 	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/queue"
+	"knative.dev/serving/pkg/tracing"
+	tracingconfig "knative.dev/serving/pkg/tracing/config"
 )
 
 const wantHost = "a-better-host.com"
@@ -293,5 +299,132 @@ func TestProbeQueueDelayedReady(t *testing.T) {
 	timeout := 0
 	if err := probeQueueHealthPath(port, timeout); err != nil {
 		t.Errorf("probeQueueHealthPath(%d) = %s", port, err)
+	}
+}
+
+func TestQueueTraceSpans(t *testing.T) {
+	testcases := []struct {
+		name          string
+		prober        func() bool
+		wantSpans     int
+		requestHeader string
+		probeWillFail bool
+		probeTrace    bool
+		enableTrace   bool
+	}{{
+		name:          "proxy trace",
+		prober:        func() bool { return true },
+		wantSpans:     2,
+		requestHeader: "",
+		probeWillFail: false,
+		probeTrace:    false,
+		enableTrace:   true,
+	}, {
+		name:          "true prober function with probe trace",
+		prober:        func() bool { return true },
+		wantSpans:     1,
+		requestHeader: queue.Name,
+		probeWillFail: false,
+		probeTrace:    true,
+		enableTrace:   true,
+	}, {
+		name:          "unexpected probe header",
+		prober:        func() bool { return true },
+		wantSpans:     1,
+		requestHeader: "test-probe",
+		probeWillFail: true,
+		probeTrace:    true,
+		enableTrace:   true,
+	}, {
+		name:          "nil prober function",
+		prober:        nil,
+		wantSpans:     1,
+		requestHeader: queue.Name,
+		probeWillFail: true,
+		probeTrace:    true,
+		enableTrace:   true,
+	}, {
+		name:          "false prober function",
+		prober:        func() bool { return false },
+		wantSpans:     1,
+		requestHeader: queue.Name,
+		probeWillFail: true,
+		probeTrace:    true,
+		enableTrace:   true,
+	}, {
+		name:          "no traces",
+		prober:        func() bool { return true },
+		wantSpans:     0,
+		requestHeader: queue.Name,
+		probeWillFail: false,
+		probeTrace:    false,
+		enableTrace:   false,
+	}}
+
+	for _, tc := range testcases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Create tracer with reporter recorder
+			reporter := reporterrecorder.NewReporter()
+			defer reporter.Close()
+			endpoint, _ := openzipkin.NewEndpoint("test", "localhost:1234")
+			oct := tracing.NewOpenCensusTracer(tracing.WithZipkinExporter(func(cfg *tracingconfig.Config) (zipkinreporter.Reporter, error) {
+				return reporter, nil
+			}, endpoint))
+			defer oct.Finish()
+
+			cfg := tracingconfig.Config{
+				Enable: tc.enableTrace,
+				Debug:  true,
+			}
+			if err := oct.ApplyConfig(&cfg); err != nil {
+				t.Errorf("Failed to apply tracer config: %v", err)
+			}
+
+			writer := httptest.NewRecorder()
+			req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
+
+			if !tc.probeTrace {
+				server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					w.WriteHeader(http.StatusOK)
+				}))
+				defer server.Close()
+				serverURL, _ := url.Parse(server.URL)
+
+				proxy := httputil.NewSingleHostReverseProxy(serverURL)
+				params := queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}
+				breaker := queue.NewBreaker(params)
+				reqChan := make(chan queue.ReqEvent, 10)
+
+				proxy.Transport = &ochttp.Transport{
+					Base: network.AutoTransport,
+				}
+
+				h := handler(reqChan, breaker, proxy, func() bool { return false })
+				h(writer, req)
+			} else {
+				h := handler(nil, nil, nil, tc.prober)
+				req.Header.Set(network.ProbeHeaderName, tc.requestHeader)
+				h(writer, req)
+			}
+
+			gotSpans := reporter.Flush()
+			if len(gotSpans) != tc.wantSpans {
+				t.Errorf("Got %d spans, expected %d", len(gotSpans), tc.wantSpans)
+			}
+			spanNames := []string{"probe", "/", "proxy"}
+			if !tc.probeTrace {
+				spanNames = spanNames[1:]
+			}
+			for i, spanName := range spanNames[0:tc.wantSpans] {
+				if gotSpans[i].Name != spanName {
+					t.Errorf("Got span %d named %q, expected %q", i, gotSpans[i].Name, spanName)
+				}
+				if tc.probeWillFail {
+					if gotSpans[i].Annotations[0].Value != "error" {
+						t.Errorf("Expected error as value for failed span Annotation, got %q", gotSpans[i].Annotations[0].Value)
+					}
+				}
+			}
+		})
 	}
 }

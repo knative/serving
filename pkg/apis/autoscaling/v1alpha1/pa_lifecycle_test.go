@@ -140,17 +140,26 @@ func TestCanScaleToZero(t *testing.T) {
 	}
 }
 
-func TestCanMarkInactive(t *testing.T) {
+func TestActiveFor(t *testing.T) {
 	cases := []struct {
 		name   string
 		status PodAutoscalerStatus
-		result bool
-		idle   time.Duration
+		result time.Duration
 	}{{
 		name:   "empty status",
 		status: PodAutoscalerStatus{},
-		result: false,
-		idle:   10 * time.Second,
+		result: -1,
+	}, {
+		name: "unknown condition",
+		status: PodAutoscalerStatus{
+			Status: duckv1beta1.Status{
+				Conditions: duckv1beta1.Conditions{{
+					Type:   PodAutoscalerConditionActive,
+					Status: corev1.ConditionUnknown,
+				}},
+			},
+		},
+		result: -1,
 	}, {
 		name: "inactive condition",
 		status: PodAutoscalerStatus{
@@ -161,8 +170,7 @@ func TestCanMarkInactive(t *testing.T) {
 				}},
 			},
 		},
-		result: false,
-		idle:   10 * time.Second,
+		result: -1,
 	}, {
 		name: "active condition (no LTT)",
 		status: PodAutoscalerStatus{
@@ -174,8 +182,7 @@ func TestCanMarkInactive(t *testing.T) {
 				}},
 			},
 		},
-		result: true,
-		idle:   10 * time.Second,
+		result: time.Now().Sub(time.Time{}),
 	}, {
 		name: "active condition (LTT longer than idle period ago)",
 		status: PodAutoscalerStatus{
@@ -190,8 +197,7 @@ func TestCanMarkInactive(t *testing.T) {
 				}},
 			},
 		},
-		result: true,
-		idle:   10 * time.Second,
+		result: 30 * time.Second,
 	}, {
 		name: "active condition (LTT less than idle period ago)",
 		status: PodAutoscalerStatus{
@@ -206,15 +212,22 @@ func TestCanMarkInactive(t *testing.T) {
 				}},
 			},
 		},
-		result: false,
-		idle:   30 * time.Second,
+		result: 10 * time.Second,
 	}}
 
 	for _, tc := range cases {
-		if e, a := tc.result, tc.status.CanMarkInactive(tc.idle); e != a {
-			t.Errorf("%q expected: %v got: %v", tc.name, e, a)
+		if got, want := tc.result, tc.status.ActiveFor(); absDiff(got, want) > 10*time.Millisecond {
+			t.Errorf("ActiveFor = %v, want: %v", got, want)
 		}
 	}
+}
+
+func absDiff(a, b time.Duration) time.Duration {
+	a -= b
+	if a < 0 {
+		a *= -1
+	}
+	return a
 }
 
 func TestCanFailActivation(t *testing.T) {

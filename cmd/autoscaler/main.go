@@ -41,6 +41,7 @@ import (
 	"knative.dev/serving/pkg/autoscaler/statserver"
 	"knative.dev/serving/pkg/reconciler/autoscaling/hpa"
 	"knative.dev/serving/pkg/reconciler/autoscaling/kpa"
+	"knative.dev/serving/pkg/reconciler/metric"
 	"knative.dev/serving/pkg/resources"
 
 	basecmd "github.com/kubernetes-incubator/custom-metrics-apiserver/pkg/cmd"
@@ -121,8 +122,9 @@ func main() {
 
 	psInformerFactory := resources.NewPodScalableInformerFactory(ctx)
 	controllers := []*controller.Impl{
-		kpa.NewController(ctx, cmw, multiScaler, collector, psInformerFactory),
-		hpa.NewController(ctx, cmw, collector, psInformerFactory),
+		kpa.NewController(ctx, cmw, multiScaler, psInformerFactory),
+		hpa.NewController(ctx, cmw, psInformerFactory),
+		metric.NewController(ctx, cmw, collector),
 	}
 
 	// Set up a statserver.
