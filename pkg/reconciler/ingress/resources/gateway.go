@@ -217,24 +217,17 @@ func MakeHTTPServer(httpProtocol network.HTTPProtocol, hosts []string) *v1alpha3
 	return server
 }
 
-// GatewayServiceNamespace returns the namespace of the gateway service that the `Gateway` object
-// with name `gatewayName` is associated with.
-func GatewayServiceNamespace(ingressGateways []config.Gateway, gatewayName string) (string, error) {
-	for _, gw := range ingressGateways {
-		if gw.GatewayName != gatewayName {
-			continue
-		}
-		// serviceURL should be of the form serviceName.namespace.<domain>, for example
-		// serviceName.namespace.svc.cluster.local.
-		parts := strings.SplitN(gw.ServiceURL, ".", 3)
-		if len(parts) != 3 {
-			return "", fmt.Errorf("unexpected service URL form: %s", gw.ServiceURL)
-		}
-		return parts[1], nil
+// ServiceNamespaceFromURL extracts the namespace part from the service URL.
+// TODO(nghia):  Remove this by parsing at config parsing time.
+func ServiceNamespaceFromURL(svc string) (string, error) {
+	parts := strings.SplitN(svc, ".", 3)
+	if len(parts) != 3 {
+		return "", fmt.Errorf("unexpected service URL form: %s", svc)
 	}
-	return "", fmt.Errorf("no Gateway configuration is found for gateway %s", gatewayName)
+	return parts[1], nil
 }
 
+// TODO(nghia):  Remove this by parsing at config parsing time.
 func getIngressGatewaySvcNameNamespaces(ctx context.Context) ([]metav1.ObjectMeta, error) {
 	cfg := config.FromContext(ctx).Istio
 	nameNamespaces := make([]metav1.ObjectMeta, len(cfg.IngressGateways))
