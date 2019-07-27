@@ -55,7 +55,7 @@ function parse_flags() {
       ;;
     --mesh)
       readonly ISTIO_MESH=1
-      readonly E2E_CLUSTER_MACHINE=n1-standard-8
+      E2E_CLUSTER_MACHINE=${E2E_CLUSTER_MACHINE:-n1-standard-8}
       return 1
       ;;
     --no-mesh)
