@@ -35,25 +35,19 @@ func ValidateObjectMetadata(meta metav1.Object) *apis.FieldError {
 
 // ValidateQueueSidecarAnnotation validates QueueSideCarResourcePercentageAnnotation
 func ValidateQueueSidecarAnnotation(annotations map[string]string) *apis.FieldError {
-	return validatePercentageAnnotationKey(annotations, QueueSideCarResourcePercentageAnnotation)
-}
-
-func validatePercentageAnnotationKey(annotations map[string]string, resourcePercentageAnnotationKey string) *apis.FieldError {
 	if len(annotations) == 0 {
 		return nil
 	}
-
-	v, ok := annotations[resourcePercentageAnnotationKey]
+	v, ok := annotations[QueueSideCarResourcePercentageAnnotation]
 	if !ok {
 		return nil
 	}
 	value, err := strconv.ParseFloat(v, 64)
 	if err != nil {
-		return apis.ErrInvalidValue(v, apis.CurrentField).ViaKey(resourcePercentageAnnotationKey)
+		return apis.ErrInvalidValue(v, apis.CurrentField).ViaKey(QueueSideCarResourcePercentageAnnotation)
 	}
-
 	if value <= 0.1 || value > 100 {
-		return apis.ErrOutOfBoundsValue(value, 0.1, 100.0, resourcePercentageAnnotationKey)
+		return apis.ErrOutOfBoundsValue(value, 0.1, 100.0, QueueSideCarResourcePercentageAnnotation)
 	}
 	return nil
 }

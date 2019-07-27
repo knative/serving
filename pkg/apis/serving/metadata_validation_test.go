@@ -139,9 +139,7 @@ func TestValidateQueueSidecarAnnotation(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-
 			err := ValidateQueueSidecarAnnotation(c.annotation)
-
 			if !reflect.DeepEqual(c.expectErr, err) {
 				t.Errorf("Expected: '%#v', Got: '%#v'", c.expectErr, err)
 			}
@@ -168,10 +166,8 @@ func TestValidateTimeoutSecond(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-
 			ctx := context.Background()
 			err := ValidateTimeoutSeconds(ctx, *c.timeout)
-
 			if !reflect.DeepEqual(c.expectErr, err) {
 				t.Errorf("Expected: '%#v', Got: '%#v'", c.expectErr, err)
 			}
