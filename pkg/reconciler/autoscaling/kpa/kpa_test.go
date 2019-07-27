@@ -164,6 +164,10 @@ func markActive(pa *asv1a1.PodAutoscaler) {
 	pa.Status.MarkActive()
 }
 
+func markInactive(pa *asv1a1.PodAutoscaler) {
+	pa.Status.MarkInactive("NoTraffic", "The target is not receiving traffic.")
+}
+
 func withMSvcStatus(s string) PodAutoscalerOption {
 	return func(pa *asv1a1.PodAutoscaler) {
 		pa.Status.MetricsServiceName = s
@@ -185,6 +189,130 @@ func markResourceNotOwned(rType, name string) PodAutoscalerOption {
 	return func(pa *asv1a1.PodAutoscaler) {
 		pa.Status.MarkResourceNotOwned(rType, name)
 	}
+}
+
+// TestReconcileScaleUnknown tests the behaviour of the KPA when the Decider returns `scaleUnknown`
+func TestReconcileScaleUnknown(t *testing.T) {
+	const key = testNamespace + "/" + testRevision
+	const deployName = testRevision + "-deployment"
+
+	usualSelector := map[string]string{"a": "b"}
+
+	desiredScale := int32(scaleUnknown)
+
+	minScale := int32(4)
+	underscale := minScale - 1
+	overscale := minScale + 1
+
+	underscaledDeployment := deploy(testNamespace, testRevision, func(d *appsv1.Deployment) {
+		d.Spec.Replicas = ptr.Int32(underscale)
+	})
+	overscaledDeployment := deploy(testNamespace, testRevision, func(d *appsv1.Deployment) {
+		d.Spec.Replicas = ptr.Int32(overscale)
+	})
+
+	minScalePatch := clientgotesting.PatchActionImpl{
+		ActionImpl: clientgotesting.ActionImpl{Namespace: testNamespace},
+		Name:       deployName,
+		Patch:      []byte(fmt.Sprintf(`[{"op":"replace","path":"/spec/replicas","value":%d}]`, minScale)),
+	}
+
+	inactiveKpa := kpa(testNamespace, testRevision, markInactive, withMinScale(int(minScale)), WithPAStatusService(testRevision))
+	activatingKpa := kpa(testNamespace, testRevision, markActivating, withMinScale(int(minScale)), WithPAStatusService(testRevision))
+	activeKpa := kpa(testNamespace, testRevision, markActive, withMinScale(int(minScale)), WithPAStatusService(testRevision))
+
+	defaultSks := sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSReady)
+	defaultMetricsSvc := metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector))
+
+	underscaledEndpoints := makeSKSPrivateEndpoints(int(underscale), testNamespace, testRevision)
+	overscaledEndpoints := makeSKSPrivateEndpoints(int(overscale), testNamespace, testRevision)
+
+	table := TableTest{{
+		Name: "underscaled, PA inactive",
+		// No-op
+		Key: key,
+		Objects: []runtime.Object{
+			inactiveKpa, underscaledEndpoints, underscaledDeployment,
+			defaultSks, defaultMetricsSvc,
+		},
+	}, {
+		Name: "underscaled, PA activating",
+		// Scale to `minScale`
+		Key: key,
+		Objects: []runtime.Object{
+			activatingKpa, underscaledEndpoints, underscaledDeployment,
+			defaultSks, defaultMetricsSvc,
+		},
+		WantPatches: []clientgotesting.PatchActionImpl{
+			minScalePatch,
+		},
+	}, {
+		Name: "underscaled, PA active",
+		// Mark PA "activating"
+		Key: key,
+		Objects: []runtime.Object{
+			activeKpa, underscaledEndpoints, underscaledDeployment,
+			defaultSks, defaultMetricsSvc,
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: activatingKpa,
+		}},
+	}, {
+		Name: "overscaled, PA inactive",
+		// No-op
+		Key: key,
+		Objects: []runtime.Object{
+			inactiveKpa, overscaledEndpoints, overscaledDeployment,
+			defaultSks, defaultMetricsSvc,
+		},
+	}, {
+		Name: "overscaled, PA activating",
+		// Scale to `minScale` and mark PA "active"
+		Key: key,
+		Objects: []runtime.Object{
+			activatingKpa, overscaledEndpoints, overscaledDeployment,
+			defaultSks, defaultMetricsSvc,
+		},
+		WantPatches: []clientgotesting.PatchActionImpl{
+			minScalePatch,
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: activeKpa,
+		}},
+	}, {
+		Name: "overscaled, PA active",
+		// No-op
+		Key: key,
+		Objects: []runtime.Object{
+			activeKpa, overscaledEndpoints, overscaledDeployment,
+			defaultSks, defaultMetricsSvc,
+		},
+	}}
+
+	defer logtesting.ClearAll()
+	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
+		fakeDeciders := newTestDeciders()
+		decider := resources.MakeDecider(ctx, kpa(testNamespace, testRevision), defaultConfig().Autoscaler, "cheezburger")
+		decider.Status.DesiredScale = desiredScale
+		fakeDeciders.Create(ctx, decider)
+
+		psFactory := presources.NewPodScalableInformerFactory(ctx)
+		fakeMetrics := newTestMetrics()
+		return &Reconciler{
+			Base: &areconciler.Base{
+				Base:              reconciler.NewBase(ctx, controllerAgentName, newConfigWatcher()),
+				PALister:          listers.GetPodAutoscalerLister(),
+				SKSLister:         listers.GetServerlessServiceLister(),
+				ServiceLister:     listers.GetK8sServiceLister(),
+				Metrics:           fakeMetrics,
+				ConfigStore:       &testConfigStore{config: defaultConfig()},
+				PSInformerFactory: psFactory,
+			},
+			endpointsLister: listers.GetEndpointsLister(),
+			deciders:        fakeDeciders,
+			scaler:          newScaler(ctx, psFactory, func(interface{}, time.Duration) {}),
+		}
+	}))
 }
 
 func TestReconcileNegativeBurstCapacity(t *testing.T) {
