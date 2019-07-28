@@ -214,8 +214,11 @@ function create_test_cluster() {
   [[ -n "${GCP_PROJECT}" ]] && test_cmd_args+=" --gcp-project ${GCP_PROJECT}"
   [[ -n "${E2E_SCRIPT_CUSTOM_FLAGS[@]}" ]] && test_cmd_args+=" ${E2E_SCRIPT_CUSTOM_FLAGS[@]}"
   local extra_flags=()
-  # If using boskos, save time and let it tear down the cluster
-  (( ! IS_BOSKOS )) && extra_flags+=(--down)
+  if (( IS_BOSKOS )); then # Add arbitrary duration, wait for Boskos projects acquisition before error out
+    extra_flags+=(--boskos-wait-duration=20m)
+  else # Only let kubetest tear down the cluster if not using Boskos, it's done by Janitor if using Boskos
+    extra_flags+=(--down)
+  fi
 
   # Set a minimal kubernetes environment that satisfies kubetest
   # TODO(adrcunha): Remove once https://github.com/kubernetes/test-infra/issues/13029 is fixed.

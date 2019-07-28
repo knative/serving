@@ -127,10 +127,6 @@ type AdmissionController struct {
 	DisallowUnknownFields bool
 }
 
-func nop(ctx context.Context) context.Context {
-	return ctx
-}
-
 // GenericCRD is the interface definition that allows us to perform the generic
 // CRD actions like deciding whether to increment generation and so forth.
 type GenericCRD interface {
@@ -214,13 +210,15 @@ func getOrGenerateKeyCertsFromSecret(ctx context.Context, client kubernetes.Inte
 			return nil, nil, nil, err
 		}
 		secret, err = client.CoreV1().Secrets(newSecret.Namespace).Create(newSecret)
-		if err != nil && !apierrors.IsAlreadyExists(err) {
-			return nil, nil, nil, err
-		}
-		// Ok, so something else might have created, try fetching it one more time
-		secret, err = client.CoreV1().Secrets(options.Namespace).Get(options.SecretName, metav1.GetOptions{})
 		if err != nil {
-			return nil, nil, nil, err
+			if !apierrors.IsAlreadyExists(err) {
+				return nil, nil, nil, err
+			}
+			// OK, so something else might have created, try fetching it instead.
+			secret, err = client.CoreV1().Secrets(options.Namespace).Get(options.SecretName, metav1.GetOptions{})
+			if err != nil {
+				return nil, nil, nil, err
+			}
 		}
 	}
 
