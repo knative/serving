@@ -17,8 +17,10 @@ limitations under the License.
 package main
 
 import (
+	"flag"
 	"fmt"
 	"math"
+	"math/rand"
 	"net/http"
 	"strconv"
 	"sync"
@@ -26,6 +28,27 @@ import (
 
 	"knative.dev/serving/test"
 )
+
+var (
+	randSleepTimeMean   float64
+	randSleepTimeStdDev float64
+)
+
+func init() {
+	flag.Float64Var(
+		&randSleepTimeMean,
+		"rand-sleep-mean",
+		100,
+		"mean value of sleep time (in milliseconds) to randomize following normal distribution",
+	)
+	flag.Float64Var(
+		&randSleepTimeStdDev,
+		"rand-sleep-stddev",
+		100,
+		"standard deviation value of sleep time (in milliseconds) to randomize following normal distribution",
+	)
+	rand.Seed(time.Now().UnixNano())
+}
 
 // Algorithm from https://stackoverflow.com/a/21854246
 
@@ -98,6 +121,13 @@ func sleep(ms int) string {
 	return fmt.Sprintf("Slept for %v.\n", time.Since(start))
 }
 
+func randSleep() string {
+	start := time.Now()
+	randRes := rand.NormFloat64()*randSleepTimeMean + randSleepTimeStdDev
+	time.Sleep(time.Duration(randRes) * time.Millisecond)
+	return fmt.Sprintf("Randomly slept for %v.\n", time.Since(start))
+}
+
 func parseIntParam(r *http.Request, param string) (int, bool, error) {
 	value := r.URL.Query().Get(param)
 	if value == "" {
@@ -149,6 +179,13 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		go func() {
 			defer wg.Done()
 			fmt.Fprint(w, bloat(mb))
+		}()
+	}
+	if !hasMs && !hasMax && !hasMb {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			fmt.Fprint(w, randSleep())
 		}()
 	}
 }
