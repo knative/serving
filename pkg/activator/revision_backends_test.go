@@ -281,7 +281,7 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 			Body: queue.Name,
 		}},
 		expectDests: map[RevisionID][]string{
-			RevisionID{Namespace: "test-namespace", Name: "test-revision"}: []string{"128.0.0.1:1234"},
+			{Namespace: "test-namespace", Name: "test-revision"}: {"128.0.0.1:1234"},
 		},
 		updateCnt: 2,
 	}, {
@@ -329,8 +329,8 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 			Body: queue.Name,
 		}},
 		expectDests: map[RevisionID][]string{
-			RevisionID{Namespace: "test-namespace", Name: "test-revision1"}: []string{"128.0.0.1:1234"},
-			RevisionID{Namespace: "test-namespace", Name: "test-revision2"}: []string{"128.0.0.2:1234"},
+			{Namespace: "test-namespace", Name: "test-revision1"}: {"128.0.0.1:1234"},
+			{Namespace: "test-namespace", Name: "test-revision2"}: {"128.0.0.2:1234"},
 		},
 		updateCnt: 2,
 	}} {

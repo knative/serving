@@ -21,13 +21,13 @@ package e2e
 import (
 	"testing"
 
+	"knative.dev/pkg/test/logstream"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving/v1beta1"
-	"knative.dev/serving/test"
-	v1a1test "knative.dev/serving/test/v1alpha1"
-	"knative.dev/pkg/test/logstream"
 	serviceresourcenames "knative.dev/serving/pkg/reconciler/service/resources/names"
 	. "knative.dev/serving/pkg/testing/v1alpha1"
+	"knative.dev/serving/test"
+	v1a1test "knative.dev/serving/test/v1alpha1"
 )
 
 // TestRoutesNotReady tests the scenario that when Route's status is
@@ -52,7 +52,7 @@ func TestRoutesNotReady(t *testing.T) {
 		Traffic: []v1alpha1.TrafficTarget{
 			{
 				TrafficTarget: v1beta1.TrafficTarget{
-					RevisionName: "foobar",  // Invalid revision name. This allows Revision creation to succeed and Route configuration to fail
+					RevisionName: "foobar", // Invalid revision name. This allows Revision creation to succeed and Route configuration to fail
 					Percent:      100,
 				},
 			},

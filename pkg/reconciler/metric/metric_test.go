@@ -18,9 +18,10 @@ package metric
 
 import (
 	"context"
+	"testing"
+
 	"k8s.io/apimachinery/pkg/types"
 	"knative.dev/serving/pkg/autoscaler"
-	"testing"
 
 	"github.com/pkg/errors"
 
