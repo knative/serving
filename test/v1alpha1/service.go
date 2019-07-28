@@ -26,6 +26,7 @@ import (
 
 	"github.com/mattbaird/jsonpatch"
 	"github.com/pkg/errors"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -33,7 +34,6 @@ import (
 	"knative.dev/pkg/test/logging"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	serviceresourcenames "knative.dev/serving/pkg/reconciler/service/resources/names"
-	corev1 "k8s.io/api/core/v1"
 
 	ptest "knative.dev/pkg/test"
 	rtesting "knative.dev/serving/pkg/testing/v1alpha1"
