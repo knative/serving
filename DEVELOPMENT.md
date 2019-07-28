@@ -156,6 +156,12 @@ Follow the
 [instructions](https://www.knative.dev/docs/serving/gke-assigning-static-ip-address/)
 if you need to set up static IP for Ingresses in the cluster.
 
+If you want to adopt preinstalled istio, please check whether cluster-local-gateway is deployed in namespace istio-system or not.
+If it's not installed, please install it with following commands. You could also adjust parameters if needed.
+```shell
+kubectl apply -f ./third_party/istio-1.2-latest/istio-knative-extras.yaml
+```
+
 ### Deploy cert-manager
 
 1. Deploy `cert-manager` CRDs
