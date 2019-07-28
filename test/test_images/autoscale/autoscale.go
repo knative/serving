@@ -17,7 +17,6 @@ limitations under the License.
 package main
 
 import (
-	"flag"
 	"fmt"
 	"math"
 	"math/rand"
@@ -29,24 +28,7 @@ import (
 	"knative.dev/serving/test"
 )
 
-var (
-	randSleepTimeMean   float64
-	randSleepTimeStdDev float64
-)
-
 func init() {
-	flag.Float64Var(
-		&randSleepTimeMean,
-		"rand-sleep-mean",
-		100,
-		"mean value of sleep time (in milliseconds) to randomize following normal distribution",
-	)
-	flag.Float64Var(
-		&randSleepTimeStdDev,
-		"rand-sleep-stddev",
-		100,
-		"standard deviation value of sleep time (in milliseconds) to randomize following normal distribution",
-	)
 	rand.Seed(time.Now().UnixNano())
 }
 
@@ -121,9 +103,9 @@ func sleep(ms int) string {
 	return fmt.Sprintf("Slept for %v.\n", time.Since(start))
 }
 
-func randSleep() string {
+func randSleep(randSleepTimeMean, randSleepTimeStdDev int) string {
 	start := time.Now()
-	randRes := rand.NormFloat64()*randSleepTimeMean + randSleepTimeStdDev
+	randRes := rand.NormFloat64()*float64(randSleepTimeMean) + float64(randSleepTimeStdDev)
 	time.Sleep(time.Duration(randRes) * time.Millisecond)
 	return fmt.Sprintf("Randomly slept for %v.\n", time.Since(start))
 }
@@ -147,6 +129,11 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+	mssd, hasMssd, err := parseIntParam(r, "sleep-stddev")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
 	max, hasMax, err := parseIntParam(r, "prime")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -160,11 +147,18 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	// Consume time, cpu and memory in parallel.
 	var wg sync.WaitGroup
 	defer wg.Wait()
-	if hasMs && ms > 0 {
+	if hasMs && !hasMssd && ms > 0 {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
 			fmt.Fprint(w, sleep(ms))
+		}()
+	}
+	if hasMs && hasMssd && ms > 0 && mssd > 0 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			fmt.Fprint(w, randSleep(ms, mssd))
 		}()
 	}
 	if hasMax && max > 0 {
@@ -179,13 +173,6 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		go func() {
 			defer wg.Done()
 			fmt.Fprint(w, bloat(mb))
-		}()
-	}
-	if !hasMs && !hasMax && !hasMb {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			fmt.Fprint(w, randSleep())
 		}()
 	}
 }
