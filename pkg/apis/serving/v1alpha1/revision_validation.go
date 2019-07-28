@@ -19,10 +19,7 @@ package v1alpha1
 import (
 	"context"
 	"fmt"
-	"strconv"
 	"strings"
-
-	"knative.dev/serving/pkg/apis/config"
 
 	"k8s.io/apimachinery/pkg/api/equality"
 	"knative.dev/pkg/apis"
@@ -86,7 +83,7 @@ func (rt *RevisionTemplateSpec) Validate(ctx context.Context) *apis.FieldError {
 		}
 	}
 
-	errs = errs.Also(validateAnnotations(rt.Annotations))
+	errs = errs.Also(serving.ValidateQueueSidecarAnnotation(rt.Annotations).ViaField("metadata.annotations"))
 	return errs
 }
 
@@ -153,46 +150,9 @@ func (rs *RevisionSpec) Validate(ctx context.Context) *apis.FieldError {
 	}
 
 	if rs.TimeoutSeconds != nil {
-		errs = errs.Also(validateTimeoutSeconds(ctx, *rs.TimeoutSeconds))
+		errs = errs.Also(serving.ValidateTimeoutSeconds(ctx, *rs.TimeoutSeconds))
 	}
 	return errs
-}
-
-func validateAnnotations(annotations map[string]string) *apis.FieldError {
-	return validatePercentageAnnotationKey(annotations, serving.QueueSideCarResourcePercentageAnnotation)
-}
-
-func validatePercentageAnnotationKey(annotations map[string]string, resourcePercentageAnnotationKey string) *apis.FieldError {
-	if len(annotations) == 0 {
-		return nil
-	}
-
-	v, ok := annotations[resourcePercentageAnnotationKey]
-	if !ok {
-		return nil
-	}
-	value, err := strconv.ParseFloat(v, 32)
-	if err != nil {
-		return apis.ErrInvalidValue(v, apis.CurrentField).ViaKey(resourcePercentageAnnotationKey)
-	}
-
-	if value <= float64(0.1) || value > float64(100) {
-		return apis.ErrOutOfBoundsValue(value, 0.1, 100.0, resourcePercentageAnnotationKey)
-	}
-
-	return nil
-}
-
-func validateTimeoutSeconds(ctx context.Context, timeoutSeconds int64) *apis.FieldError {
-	if timeoutSeconds != 0 {
-		cfg := config.FromContextOrDefaults(ctx)
-		if timeoutSeconds > cfg.Defaults.MaxRevisionTimeoutSeconds || timeoutSeconds < 0 {
-			return apis.ErrOutOfBoundsValue(timeoutSeconds, 0,
-				cfg.Defaults.MaxRevisionTimeoutSeconds,
-				"timeoutSeconds")
-		}
-	}
-	return nil
 }
 
 // Validate ensures DeprecatedRevisionServingStateType is properly configured.
