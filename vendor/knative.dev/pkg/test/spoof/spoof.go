@@ -27,7 +27,7 @@ import (
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
-	ingress "knative.dev/pkg/test/ingress"
+	"knative.dev/pkg/test/ingress"
 	"knative.dev/pkg/test/logging"
 	"knative.dev/pkg/test/zipkin"
 
@@ -101,6 +101,23 @@ func New(kubeClientset *kubernetes.Clientset, logf logging.FormatLogger, domain 
 		logf:            logf,
 	}
 
+	var err error
+	if sc.endpoint, err = ResolveEndpoint(kubeClientset, domain, resolvable, endpointOverride); err != nil {
+		return nil, err
+	}
+
+	if !resolvable {
+		sc.domain = domain
+	}
+
+	return &sc, nil
+}
+
+// ResolveEndpoint resolves the endpoint address considering whether the domain is resolvable and taking into
+// account whether the user overrode the endpoint address externally
+func ResolveEndpoint(kubeClientset *kubernetes.Clientset, domain string, resolvable bool, endpointOverride string) (string, error) {
+	// If the domain is resolvable, we can use it directly when we make requests.
+	endpoint := domain
 	if !resolvable {
 		e := &endpointOverride
 		if endpointOverride == "" {
@@ -108,20 +125,13 @@ func New(kubeClientset *kubernetes.Clientset, logf logging.FormatLogger, domain 
 			// If the domain that the Route controller is configured to assign to Route.Status.Domain
 			// (the domainSuffix) is not resolvable, we need to retrieve the endpoint and spoof
 			// the Host in our requests.
-			e, err = ingress.GetIngressEndpoint(kubeClientset)
-			if err != nil {
-				return nil, err
+			if e, err = ingress.GetIngressEndpoint(kubeClientset); err != nil {
+				return "", err
 			}
 		}
-
-		sc.endpoint = *e
-		sc.domain = domain
-	} else {
-		// If the domain is resolvable, we can use it directly when we make requests.
-		sc.endpoint = domain
+		endpoint = *e
 	}
-
-	return &sc, nil
+	return endpoint, nil
 }
 
 // Do dispatches to the underlying http.Client.Do, spoofing domains as needed
