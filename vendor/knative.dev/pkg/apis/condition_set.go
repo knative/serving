@@ -60,6 +60,9 @@ type ConditionManager interface {
 	// If there is an update, Conditions are stored back sorted.
 	SetCondition(new Condition)
 
+	// ClearCondition removes the non terminal condition that matches the ConditionType
+	ClearCondition(t ConditionType) error
+
 	// MarkTrue sets the status of t to true, and then marks the happy condition to
 	// true if all dependents are true.
 	MarkTrue(t ConditionType)
@@ -192,12 +195,7 @@ func (r conditionsImpl) isTerminal(t ConditionType) bool {
 			return true
 		}
 	}
-
-	if t == r.happy {
-		return true
-	}
-
-	return false
+	return t == r.happy
 }
 
 func (r conditionsImpl) severity(t ConditionType) ConditionSeverity {
@@ -205,6 +203,35 @@ func (r conditionsImpl) severity(t ConditionType) ConditionSeverity {
 		return ConditionSeverityError
 	}
 	return ConditionSeverityInfo
+}
+
+// RemoveCondition removes the non terminal condition that matches the ConditionType
+// Not implemented for terminal conditions
+func (r conditionsImpl) ClearCondition(t ConditionType) error {
+	var conditions Conditions
+
+	if r.accessor == nil {
+		return nil
+	}
+	// Terminal conditions are not handled as they can't be nil
+	if r.isTerminal(t) {
+		return fmt.Errorf("Clearing terminal conditions not implemented")
+	}
+	cond := r.GetCondition(t)
+	if cond == nil {
+		return nil
+	}
+	for _, c := range r.accessor.GetConditions() {
+		if c.Type != t {
+			conditions = append(conditions, c)
+		}
+	}
+
+	// Sorted for convenience of the consumer, i.e. kubectl.
+	sort.Slice(conditions, func(i, j int) bool { return conditions[i].Type < conditions[j].Type })
+	r.accessor.SetConditions(conditions)
+
+	return nil
 }
 
 // MarkTrue sets the status of t to true, and then marks the happy condition to

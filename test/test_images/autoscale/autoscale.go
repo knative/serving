@@ -19,6 +19,7 @@ package main
 import (
 	"fmt"
 	"math"
+	"math/rand"
 	"net/http"
 	"strconv"
 	"sync"
@@ -26,6 +27,10 @@ import (
 
 	"knative.dev/serving/test"
 )
+
+func init() {
+	rand.Seed(time.Now().UnixNano())
+}
 
 // Algorithm from https://stackoverflow.com/a/21854246
 
@@ -98,6 +103,13 @@ func sleep(ms int) string {
 	return fmt.Sprintf("Slept for %v.\n", time.Since(start))
 }
 
+func randSleep(randSleepTimeMean, randSleepTimeStdDev int) string {
+	start := time.Now()
+	randRes := rand.NormFloat64()*float64(randSleepTimeMean) + float64(randSleepTimeStdDev)
+	time.Sleep(time.Duration(randRes) * time.Millisecond)
+	return fmt.Sprintf("Randomly slept for %v.\n", time.Since(start))
+}
+
 func parseIntParam(r *http.Request, param string) (int, bool, error) {
 	value := r.URL.Query().Get(param)
 	if value == "" {
@@ -117,6 +129,11 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+	mssd, hasMssd, err := parseIntParam(r, "sleep-stddev")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
 	max, hasMax, err := parseIntParam(r, "prime")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -130,11 +147,18 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	// Consume time, cpu and memory in parallel.
 	var wg sync.WaitGroup
 	defer wg.Wait()
-	if hasMs && ms > 0 {
+	if hasMs && !hasMssd && ms > 0 {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
 			fmt.Fprint(w, sleep(ms))
+		}()
+	}
+	if hasMs && hasMssd && ms > 0 && mssd > 0 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			fmt.Fprint(w, randSleep(ms, mssd))
 		}()
 	}
 	if hasMax && max > 0 {

@@ -17,12 +17,16 @@ limitations under the License.
 package serving
 
 import (
+	"context"
+	"fmt"
 	"reflect"
 	"strings"
 	"testing"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/apis"
+	"knative.dev/pkg/ptr"
+	"knative.dev/serving/pkg/apis/config"
 )
 
 func TestValidateObjectMetadata(t *testing.T) {
@@ -101,6 +105,69 @@ func TestValidateObjectMetadata(t *testing.T) {
 
 			err := ValidateObjectMetadata(c.objectMeta)
 
+			if !reflect.DeepEqual(c.expectErr, err) {
+				t.Errorf("Expected: '%#v', Got: '%#v'", c.expectErr, err)
+			}
+		})
+	}
+}
+
+func TestValidateQueueSidecarAnnotation(t *testing.T) {
+	cases := []struct {
+		name       string
+		annotation map[string]string
+		expectErr  error
+	}{{
+		name: "Queue sidecar resource percentage annotation more than 100",
+		annotation: map[string]string{
+			QueueSideCarResourcePercentageAnnotation: "200",
+		},
+		expectErr: &apis.FieldError{
+			Message: "expected 0.1 <= 200 <= 100",
+			Paths:   []string{QueueSideCarResourcePercentageAnnotation},
+		},
+	}, {
+		name: "Invalid queue sidecar resource percentage annotation",
+		annotation: map[string]string{
+			QueueSideCarResourcePercentageAnnotation: "",
+		},
+		expectErr: &apis.FieldError{
+			Message: "invalid value: ",
+			Paths:   []string{fmt.Sprintf("[%s]", QueueSideCarResourcePercentageAnnotation)},
+		},
+	}}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			err := ValidateQueueSidecarAnnotation(c.annotation)
+			if !reflect.DeepEqual(c.expectErr, err) {
+				t.Errorf("Expected: '%#v', Got: '%#v'", c.expectErr, err)
+			}
+		})
+	}
+}
+
+func TestValidateTimeoutSecond(t *testing.T) {
+	cases := []struct {
+		name      string
+		timeout   *int64
+		expectErr error
+	}{{
+		name:    "exceed max timeout",
+		timeout: ptr.Int64(6000),
+		expectErr: apis.ErrOutOfBoundsValue(
+			6000, 0, config.DefaultMaxRevisionTimeoutSeconds,
+			"timeoutSeconds"),
+	}, {
+		name:      "valid timeout value",
+		timeout:   ptr.Int64(100),
+		expectErr: (*apis.FieldError)(nil),
+	}}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			ctx := context.Background()
+			err := ValidateTimeoutSeconds(ctx, *c.timeout)
 			if !reflect.DeepEqual(c.expectErr, err) {
 				t.Errorf("Expected: '%#v', Got: '%#v'", c.expectErr, err)
 			}

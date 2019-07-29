@@ -110,5 +110,5 @@ func (client *KubeClient) PodLogs(podName, containerName, namespace string) ([]b
 			return result.Raw()
 		}
 	}
-	return nil, fmt.Errorf("Could not find logs for %s/%s", podName, containerName)
+	return nil, fmt.Errorf("could not find logs for %s/%s", podName, containerName)
 }

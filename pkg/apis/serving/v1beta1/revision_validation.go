@@ -24,7 +24,6 @@ import (
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/kmp"
 	"knative.dev/serving/pkg/apis/autoscaling"
-	"knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/apis/serving"
 )
 
@@ -78,6 +77,7 @@ func (rts *RevisionTemplateSpec) Validate(ctx context.Context) *apis.FieldError 
 		}
 	}
 
+	errs = errs.Also(serving.ValidateQueueSidecarAnnotation(rts.Annotations).ViaField("metadata.annotations"))
 	return errs
 }
 
@@ -111,20 +111,15 @@ func (current *RevisionTemplateSpec) VerifyNameChange(ctx context.Context, og Re
 
 // Validate implements apis.Validatable
 func (rs *RevisionSpec) Validate(ctx context.Context) *apis.FieldError {
-	err := rs.ContainerConcurrency.Validate(ctx).ViaField("containerConcurrency")
+	errs := rs.ContainerConcurrency.Validate(ctx).ViaField("containerConcurrency")
 
-	err = err.Also(serving.ValidatePodSpec(rs.PodSpec))
+	errs = errs.Also(serving.ValidatePodSpec(rs.PodSpec))
 
 	if rs.TimeoutSeconds != nil {
-		ts := *rs.TimeoutSeconds
-		cfg := config.FromContextOrDefaults(ctx)
-		if ts < 0 || ts > cfg.Defaults.MaxRevisionTimeoutSeconds {
-			err = err.Also(apis.ErrOutOfBoundsValue(
-				ts, 0, cfg.Defaults.MaxRevisionTimeoutSeconds, "timeoutSeconds"))
-		}
+		errs = errs.Also(serving.ValidateTimeoutSeconds(ctx, *rs.TimeoutSeconds))
 	}
 
-	return err
+	return errs
 }
 
 // Validate implements apis.Validatable.

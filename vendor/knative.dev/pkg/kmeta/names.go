@@ -29,7 +29,7 @@ const (
 	head    = longest - md5Len
 )
 
-// ChildName generates a name for the resource based upong the parent resource and suffix.
+// ChildName generates a name for the resource based upon the parent resource and suffix.
 // If the concatenated name is longer than K8s permits the name is hashed and truncated to permit
 // construction of the resource, but still keeps it unique.
 func ChildName(parent, suffix string) string {
