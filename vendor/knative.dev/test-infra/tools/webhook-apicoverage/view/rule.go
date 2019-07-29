@@ -16,7 +16,7 @@ limitations under the License.
 
 package view
 
-import "github.com/knative/test-infra/tools/webhook-apicoverage/coveragecalculator"
+import "knative.dev/test-infra/tools/webhook-apicoverage/coveragecalculator"
 
 // DisplayRules provides a mechanism for repos to define their own display rules.
 // DisplayHelper methods can use these rules to define how to display results.

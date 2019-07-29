@@ -23,7 +23,7 @@ E2E_MAX_CLUSTER_NODES=${E2E_MAX_CLUSTER_NODES:-4}
 E2E_CLUSTER_MACHINE=${E2E_CLUSTER_MACHINE:-n1-standard-8}
 
 # This script provides helper methods to perform cluster actions.
-source $(dirname $0)/../vendor/github.com/knative/test-infra/scripts/e2e-tests.sh
+source $(dirname $0)/../vendor/knative.dev/test-infra/scripts/e2e-tests.sh
 
 # Default Istio configuration to install: 1.2-latest, no mesh, cert manager 0.6.1.
 ISTIO_VERSION="1.2-latest"

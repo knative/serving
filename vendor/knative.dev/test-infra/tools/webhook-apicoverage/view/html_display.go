@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/knative/test-infra/tools/webhook-apicoverage/coveragecalculator"
+	"knative.dev/test-infra/tools/webhook-apicoverage/coveragecalculator"
 )
 
 // HTMLHeader sets up an HTML page with the right style format
