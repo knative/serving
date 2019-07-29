@@ -25,6 +25,7 @@ import (
 	"knative.dev/pkg/kmp"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	"knative.dev/serving/pkg/autoscaler/fake"
 
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
@@ -109,11 +110,14 @@ func TestListAllMetrics(t *testing.T) {
 	}
 }
 
-type staticConcurrency float64
-
-func (s staticConcurrency) StableAndPanicConcurrency(key types.NamespacedName, now time.Time) (float64, float64, error) {
-	if key.Namespace == existingNamespace {
-		return (float64)(s), 0.0, nil
+func staticConcurrency(concurrency float64) MetricClient {
+	return &fake.FakeMetricClient{
+		StableConcurrency: concurrency,
+		ErrF: func(key types.NamespacedName, now time.Time) error {
+			if key.Namespace != existingNamespace {
+				return errors.New("doesn't exist")
+			}
+			return nil
+		},
 	}
-	return 0.0, 0.0, errors.New("doesn't exist")
 }

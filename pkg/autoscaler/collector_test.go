@@ -173,6 +173,8 @@ func TestMetricCollectorRecord(t *testing.T) {
 		PodName:                          "testPod",
 		AverageConcurrentRequests:        want + 10,
 		AverageProxiedConcurrentRequests: 10, // this should be subtracted from the above.
+		RequestCount:                     want + 20,
+		ProxiedRequestCount:              20, // this should be subtracted from the above.
 	}
 	scraper := &testScraper{
 		s: func() (*StatMessage, error) {
@@ -188,10 +190,16 @@ func TestMetricCollectorRecord(t *testing.T) {
 	if _, _, err := coll.StableAndPanicConcurrency(metricKey, now); err == nil {
 		t.Error("StableAndPanicConcurrency() = nil, wanted an error")
 	}
+	if _, _, err := coll.StableAndPanicOPS(metricKey, now); err == nil {
+		t.Error("StableAndPanicOPS() = nil, wanted an error")
+	}
 
 	// After adding a stat the concurrencies are calculated correctly.
 	coll.Record(metricKey, stat)
 	if stable, panic, err := coll.StableAndPanicConcurrency(metricKey, now); stable != panic && stable != want && err != nil {
+		t.Errorf("StableAndPanicConcurrency() = %v, %v, %v; want %v, %v, nil", stable, panic, err, want, want)
+	}
+	if stable, panic, err := coll.StableAndPanicOPS(metricKey, now); stable != panic && stable != want && err != nil {
 		t.Errorf("StableAndPanicConcurrency() = %v, %v, %v; want %v, %v, nil", stable, panic, err, want, want)
 	}
 }
