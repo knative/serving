@@ -297,14 +297,13 @@ func TestReconcileScaleUnknown(t *testing.T) {
 		fakeDeciders.Create(ctx, decider)
 
 		psFactory := presources.NewPodScalableInformerFactory(ctx)
-		fakeMetrics := newTestMetrics()
 		return &Reconciler{
 			Base: &areconciler.Base{
 				Base:              reconciler.NewBase(ctx, controllerAgentName, newConfigWatcher()),
 				PALister:          listers.GetPodAutoscalerLister(),
 				SKSLister:         listers.GetServerlessServiceLister(),
 				ServiceLister:     listers.GetK8sServiceLister(),
-				Metrics:           fakeMetrics,
+				MetricLister:      listers.GetMetricLister(),
 				ConfigStore:       &testConfigStore{config: defaultConfig()},
 				PSInformerFactory: psFactory,
 			},
