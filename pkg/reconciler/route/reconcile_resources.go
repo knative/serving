@@ -96,7 +96,7 @@ func (c *Reconciler) reconcileIngress(
 
 			updated, err := ira.updateIngress(origin)
 			if err != nil {
-				logger.Errorw("Failed to update %s", resources.GetIngressTypeName(ingress), zap.Error(err))
+				logger.Errorw("Failed to update "+resources.GetIngressTypeName(ingress), zap.Error(err))
 				return nil, err
 			}
 			return updated, nil
