@@ -72,7 +72,7 @@ func NewConfigFromMap(data map[string]string) (*Config, error) {
 	}{{
 		key:          "enable-fast-scale-down",
 		field:        &lc.EnableFastScaleDown,
-		defaultValue: false,
+		defaultValue: true,
 	}, {
 		key:          "enable-scale-to-zero",
 		field:        &lc.EnableScaleToZero,
