@@ -856,7 +856,7 @@ spec:
           - name: PILOT_PUSH_THROTTLE
             value: "100"
           - name: PILOT_TRACE_SAMPLING
-            value: "1"
+            value: "100"
           - name: PILOT_DISABLE_XDS_MARSHALING_TO_ANY
             value: "1"
           resources:

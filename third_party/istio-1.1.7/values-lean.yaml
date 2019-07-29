@@ -73,6 +73,7 @@ mixer:
       enabled: false
 
 pilot:
+  traceSampling: 100
   sidecar: false
   resources:
     requests:
