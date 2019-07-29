@@ -48,6 +48,11 @@ function parse_flags() {
       readonly ISTIO_VERSION=$2
       return 2
       ;;
+    --version)
+      [[ $2 =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || abort "version format must be 'v[0-9].[0-9].[0-9]'"
+      LATEST_SERVING_RELEASE_VERSION=$2
+      return 2
+      ;;
     --cert-manager-version)
       [[ $2 =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || abort "version format must be '[0-9].[0-9].[0-9]'"
       readonly CERT_MANAGER_VERSION=$2
