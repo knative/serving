@@ -115,13 +115,15 @@ func TestMetricCollectorScraper(t *testing.T) {
 
 	now := time.Now()
 	metricKey := types.NamespacedName{Namespace: defaultNamespace, Name: defaultName}
-	want := 10.0
+	wantConcurrency := 10.0
+	wantOPS := 20.0
 	stat := &StatMessage{
 		Key: metricKey,
 		Stat: Stat{
 			Time:                      &now,
 			PodName:                   "testPod",
-			AverageConcurrentRequests: 10.0,
+			AverageConcurrentRequests: wantConcurrency,
+			RequestCount:              wantOPS,
 		},
 	}
 	scraper := &testScraper{
@@ -134,23 +136,31 @@ func TestMetricCollectorScraper(t *testing.T) {
 	coll := NewMetricCollector(factory, logger)
 	coll.CreateOrUpdate(defaultMetric)
 
-	// stable concurrency should eventually be equal to the stat.
-	var got float64
+	// stable concurrency and OPS should eventually be equal to the stat.
+	var gotConcurrency, gotOPS float64
 	wait.PollImmediate(10*time.Millisecond, 2*time.Second, func() (bool, error) {
-		got, _, _ = coll.StableAndPanicConcurrency(metricKey, now)
-		return got == want, nil
+		gotConcurrency, _, _ = coll.StableAndPanicConcurrency(metricKey, now)
+		gotOPS, _, _ = coll.StableAndPanicOPS(metricKey, now)
+		return gotConcurrency == wantConcurrency && gotOPS == wantOPS, nil
 	})
-	if got != want {
-		t.Errorf("StableAndPanicConcurrency() = %v, want %v", got, want)
+	if gotConcurrency != wantConcurrency {
+		t.Errorf("StableAndPanicConcurrency() = %v, want %v", gotConcurrency, wantConcurrency)
+	}
+	if gotOPS != wantOPS {
+		t.Errorf("StableAndPanicOPS() = %v, want %v", gotOPS, wantOPS)
 	}
 
 	// injecting times inside the window should not change the calculation result
 	wait.PollImmediate(10*time.Millisecond, 2*time.Second, func() (bool, error) {
-		got, _, _ = coll.StableAndPanicConcurrency(metricKey, now.Add(stableWindow).Add(-5*time.Second))
-		return got == want, nil
+		gotConcurrency, _, _ = coll.StableAndPanicConcurrency(metricKey, now.Add(stableWindow).Add(-5*time.Second))
+		gotOPS, _, _ = coll.StableAndPanicOPS(metricKey, now.Add(stableWindow).Add(-5*time.Second))
+		return gotConcurrency == wantConcurrency && gotOPS == wantOPS, nil
 	})
-	if got != want {
-		t.Errorf("StableAndPanicConcurrency() = %v, want %v", got, want)
+	if gotConcurrency != wantConcurrency {
+		t.Errorf("StableAndPanicConcurrency() = %v, want %v", gotConcurrency, wantConcurrency)
+	}
+	if gotOPS != wantOPS {
+		t.Errorf("StableAndPanicOPS() = %v, want %v", gotOPS, wantOPS)
 	}
 
 	// deleting the metric should cause a calculation error
@@ -158,6 +168,10 @@ func TestMetricCollectorScraper(t *testing.T) {
 	_, _, err := coll.StableAndPanicConcurrency(metricKey, now)
 	if err != ErrNotScraping {
 		t.Errorf("StableAndPanicConcurrency() = %v, want %v", err, ErrNotScraping)
+	}
+	_, _, err = coll.StableAndPanicOPS(metricKey, now)
+	if err != ErrNotScraping {
+		t.Errorf("StableAndPanicOPS() = %v, want %v", err, ErrNotScraping)
 	}
 }
 
