@@ -2586,12 +2586,12 @@ spec:
           - name: PILOT_PUSH_THROTTLE
             value: "100"
           - name: PILOT_TRACE_SAMPLING
-            value: "100"
+            value: "1"
           - name: PILOT_DISABLE_XDS_MARSHALING_TO_ANY
             value: "1"
           resources:
             requests:
-              cpu: 500m
+              cpu: 3000m
               memory: 2048Mi
 
           volumeMounts:

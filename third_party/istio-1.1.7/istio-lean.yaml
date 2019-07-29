@@ -731,11 +731,11 @@ spec:
             timeoutSeconds: 1
           resources:
             limits:
-              cpu: 3000m
-              memory: 2048Mi
+              cpu: 2000m
+              memory: 1024Mi
             requests:
-              cpu: 3000m
-              memory: 2048Mi
+              cpu: 100m
+              memory: 128Mi
 
           env:
           - name: POD_NAME
@@ -910,7 +910,7 @@ spec:
           - name: PILOT_PUSH_THROTTLE
             value: "100"
           - name: PILOT_TRACE_SAMPLING
-            value: "100"
+            value: "1"
           - name: PILOT_DISABLE_XDS_MARSHALING_TO_ANY
             value: "1"
           resources:

@@ -20,13 +20,6 @@ gateways:
       enabled: true
     autoscaleMin: 1
     autoscaleMax: 1
-    resources:
-      limits:
-        cpu: 3000m
-        memory: 2048Mi
-      requests:
-        cpu: 3000m
-        memory: 2048Mi
     ports:
     - name: status-port
       port: 15020
@@ -83,8 +76,8 @@ pilot:
   sidecar: false
   resources:
     requests:
-      cpu: 3000m
-      memory: 2048Mi
+      cpu: 100m
+      memory: 256Mi
 
 galley:
   enabled: false
